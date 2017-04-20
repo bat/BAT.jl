@@ -1,1 +1,1 @@
-# BAT
+# BAT.jl

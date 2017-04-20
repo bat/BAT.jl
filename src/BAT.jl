@@ -1,5 +1,10 @@
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
+__precompile__(true)
+
 module BAT
 
-# package code goes here
+include.([
+])
 
 end # module
