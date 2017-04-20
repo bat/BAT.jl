@@ -2,5 +2,7 @@
 
 @Base.Test.testset "Package BAT" begin
     include.([
+        "rand.jl",
+        "parambounds.jl",
     ])
 end
