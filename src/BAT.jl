@@ -5,6 +5,11 @@ __precompile__(true)
 module BAT
 
 include.([
+    "util.jl",
+    "parameters.jl",
+    "targetfunction.jl",
+    "proposalfunction.jl",
+    "mhsampler.jl",
 ])
 
 end # module

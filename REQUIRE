@@ -1,1 +1,5 @@
 julia 0.5
+Compat 0.20.0
+PDMats
+Distributions
+StatsBase
