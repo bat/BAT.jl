@@ -56,6 +56,13 @@ issymmetric_around_origin{D<:Chisq,}(d::DistForRNG{D}) = false
 
 
 
+"""
+    rand_gamma{T<:Real}(rng::AbstractRNG, ::Type{T}, shape::Real, scale::Real)
+
+Generates a random number drawn from the gamma distribution.
+
+Implementation uses method of Marsaglia and Tsang.
+"""
 rand_gamma{T}(rng::AbstractRNG, ::Type{T}, shape::Real, scale::Real) =
     rand_gamma(rng, T, shape) * T(scale)
 
