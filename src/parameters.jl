@@ -4,7 +4,7 @@
 using Compat
 
 
-typealias ParamValues{T} AbstractVector{T}
+typealias ParamValues{T} StridedVector{T}
 
 
 @compat abstract type AbstractParamBounds end

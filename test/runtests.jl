@@ -2,5 +2,6 @@
 
 @Base.Test.testset "Package BAT" begin
     include.([
+        "rand.jl",
     ])
 end
