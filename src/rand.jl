@@ -45,7 +45,7 @@ Base.rand{T}(d::DistForRNG, ::Type{T} = Float64) = rand(d, Base.GLOBAL_RNG, T)
 Base.rand(d::DistForRNG, r::AbstractRNG) = rand(d, r, Float64)
 
 
-Base.rand{D<:Normal,T<:AbstractFloat}(d::DistForRNG{D}, r::AbstractRNG, ::Type{T}) = d.d.σ * randn(r, T) + d.d.μ
+Base.rand{D<:Normal,T<:AbstractFloat}(d::DistForRNG{D}, r::AbstractRNG, ::Type{T}) = T(d.d.σ) * randn(r, T) + T(d.d.μ)
 issymmetric_around_origin{D<:Normal}(d::DistForRNG{D}) = d.d.μ ≈ 0
 
 Base.rand{D<:Gamma,T<:AbstractFloat}(d::DistForRNG{D}, r::AbstractRNG, ::Type{T}) = rand_gamma(r, T, d.d.α, d.d.θ)
@@ -57,7 +57,7 @@ issymmetric_around_origin{D<:Chisq,}(d::DistForRNG{D}) = false
 
 
 rand_gamma{T}(rng::AbstractRNG, ::Type{T}, shape::Real, scale::Real) =
-    rand_gamma(rng, T, shape) * scale
+    rand_gamma(rng, T, shape) * T(scale)
 
 function rand_gamma{T<:Real}(rng::AbstractRNG, ::Type{T}, shape::Real)
     (shape <= 0) && throw(ArgumentError("Require shape > 0, got $shape"))
