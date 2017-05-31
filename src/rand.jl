@@ -98,3 +98,29 @@ end
 
 
 rand_chisq{T}(rng::AbstractRNG, ::Type{T}, dof::Real) = rand_gamma(rng, T, dof / 2, 2)
+
+
+
+# ==================================================
+
+
+immutable BATGammaMTSampler{T} <: Sampleable{Univariate,Continuous}
+    shape::T
+    scale::T
+end
+
+function BATGammaMTSampler(d::Gamma) = BATGammaMTSampler(shape(d), scale(d))
+
+
+rand(s::BATGammaMTSampler) = rand(GLOBAL_RNG, s)
+functon rand(rng::AbstractRNG, s::BATGammaMTSampler) = s.scale * rand_gamma(rng, float(typeof(s.shape)), s.shape)
+
+
+immutable BATChisqSampler{T} <: Sampleable{Univariate,Continuous}
+    gamma_sampler::T
+end
+
+BATChisqSampler(d::Chisq) = BATChisqSampler(BATGammaMTSampler(dof(d) / 2, 2))
+
+rand(s::BATChisqSampler) = rand(GLOBAL_RNG, s)
+functon rand(rng::AbstractRNG, s::BATChisqSampler) = rand(rng, s.gamma_sampler)
