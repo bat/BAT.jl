@@ -1,33 +1,41 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 using Compat
-using Distributions
+using Distributions, PDMats
 
 
-export DistForRNG
-
-"""
-    DistForRNG{T <: Distribution}
-
-Wrapper type to add support for random number generation using an arbitrary
-`AbstractRNG` to selected subtypes of `Distributions.Distribution`.
-
-Examples:
-
-    rand(DistForRNG(Gamma(4, 2)), MersenneTwister(7002), Float64)
-
-    issymmetric_around_origin(DistForRNG(Normal())) == true
-    issymmetric_around_origin(DistForRNG(Normal(2,2))) == false
-"""
-immutable DistForRNG{T <: Distribution}
-    d::T
+function _check_rand_compat(s::Sampleable{Multivariate}, A::Union{AbstractVector,AbstractMatrix})
+    size(A, 1) == length(s) || throw(DimensionMismatch("Output size inconsistent with sample length."))
+    nothing
 end
+
+
+export bat_sampler
+
+"""
+    bat_sampler(d::Distribution)
+
+Tries to return a BAT-compatible sampler for Distribution d. A sampler is
+BAT-compatible it it supports random number generation using an arbitrary
+`AbstractRNG`:
+
+    rand(rng::AbstractRNG, s::SamplerType)
+    rand!(rng::AbstractRNG, s::SamplerType, x::AbstractArray)
+
+If no specific method of `bat_sampler` is defined for the type of `d`, it will
+default to `sampler(d)`, which may or may not return a BAT-compatible
+sampler.
+"""
+function bat_sampler end
+
+bat_sampler(d::Distribution) = Distributions.sampler(d)
+
 
 
 export issymmetric_around_origin
 
 """
-    issymmetric_around_origin(d::DistForRNG)::Bool
+    issymmetric_around_origin(d::DistForRNG)
 
 Returns `true` (resp. `false`) if the Distribution is symmetric (resp.
 non-symmetric) around the origin.
@@ -35,44 +43,74 @@ non-symmetric) around the origin.
 function issymmetric_around_origin end
 
 
+issymmetric_around_origin(d::Normal) = d.μ ≈ 0
 
-"""
-    Base.rand{T}(d::DistForRNG{Gamma}, ::Type{T} = Float64)
-    Base.rand(d::DistForRNG{Gamma}, r::AbstractRNG)
-    Base.rand{T<:AbstractFloat}(d::DistForRNG, r::AbstractRNG, ::Type{T})
-"""
-Base.rand{T}(d::DistForRNG, ::Type{T} = Float64) = rand(d, Base.GLOBAL_RNG, T)
-Base.rand(d::DistForRNG, r::AbstractRNG) = rand(d, r, Float64)
+issymmetric_around_origin(d::Gamma) = false
 
+issymmetric_around_origin(d::Chisq) = false
 
-Base.rand{D<:Normal,T<:AbstractFloat}(d::DistForRNG{D}, r::AbstractRNG, ::Type{T}) = T(d.d.σ) * randn(r, T) + T(d.d.μ)
-issymmetric_around_origin{D<:Normal}(d::DistForRNG{D}) = d.d.μ ≈ 0
+issymmetric_around_origin(d::MvNormal) = all(x -> x == 0, mv.μ)
 
-Base.rand{D<:Gamma,T<:AbstractFloat}(d::DistForRNG{D}, r::AbstractRNG, ::Type{T}) = rand_gamma(r, T, d.d.α, d.d.θ)
-issymmetric_around_origin{D<:Gamma,}(d::DistForRNG{D}) = false
-
-Base.rand{D<:Chisq,T<:AbstractFloat}(d::DistForRNG{D}, r::AbstractRNG, ::Type{T}) = rand_chisq(r, T, d.d.ν)
-issymmetric_around_origin{D<:Chisq,}(d::DistForRNG{D}) = false
+issymmetric_around_origin(d::Distributions.GenericMvTDist) = d.zeromean
 
 
 
-"""
-    rand_gamma{T<:Real}(rng::AbstractRNG, ::Type{T}, shape::Real, scale::Real)
+# Generic rand and rand! implementations similar to those in Distributions,
+# but with an rng argument:
 
-Generates a random number drawn from the gamma distribution.
+export BATSampler
 
-Implementation uses method of Marsaglia and Tsang.
-"""
-rand_gamma{T}(rng::AbstractRNG, ::Type{T}, shape::Real, scale::Real) =
-    rand_gamma(rng, T, shape) * T(scale)
+@compat abstract type BATSampler{F<:VariateForm,S<:ValueSupport} <: Sampleable{F,S} end
 
-function rand_gamma{T<:Real}(rng::AbstractRNG, ::Type{T}, shape::Real)
+
+@inline Base.rand(s::BATSampler, args...) = rand(Base.GLOBAL_RNG, s, args...)
+@inline Base.rand!(s::BATSampler, args...) = rand!(Base.GLOBAL_RNG, s, args...)
+
+# To avoid ambiguity with Distributions:
+@inline Base.rand(s::BATSampler, dims::Int64...) = rand(Base.GLOBAL_RNG, s, dims...)
+@inline Base.rand!(s::BATSampler, A::AbstractVector) = rand!(Base.GLOBAL_RNG, s, A)
+@inline Base.rand!(s::BATSampler, A::AbstractMatrix) = rand!(Base.GLOBAL_RNG, s, A)
+
+
+function Base.rand!(rng::AbstractRNG, s::BATSampler{Univariate}, A::AbstractArray)
+    @inbounds @simd for i in 1:length(A)
+        A[i] = rand(rng, s)
+    end
+    return A
+end
+
+Base.rand(rng::AbstractRNG, s::BATSampler{Univariate}, dims::Dims) =
+    rand!(rng, s, Array{eltype(s)}(dims))
+
+Base.rand(rng::AbstractRNG, s::BATSampler{Univariate}, dims::Int...) =
+    rand!(s, Array{eltype(s)}(dims))
+
+
+Base.rand(rng::AbstractRNG, s::BATSampler{Multivariate}) =
+    rand!(s, Vector{eltype(s)}(length(s)))
+
+Base.rand(rng::AbstractRNG, s::BATSampler{Multivariate}, n::Integer) =
+    rand!(rng, s, Matrix{eltype(s)}(length(s), n))
+
+function Base.rand!(rng::AbstractRNG, s::BATSampler{Multivariate}, A::AbstractMatrix)
+    _check_rand_compat(s, A)
+    @inbounds for i = 1:size(A,2)
+        rand!(rng, s, view(A,:,i))
+    end
+    return A
+end
+
+Base.rand(rng::AbstractRNG, s::BATSampler{Multivariate}, n::Int) = rand!(rng, s, Matrix{eltype(s)}(length(s), n))
+
+
+
+function _rand_gamma_mt{T<:Real}(rng::AbstractRNG, ::Type{T}, shape::Real)
     (shape <= 0) && throw(ArgumentError("Require shape > 0, got $shape"))
 
     α = T(shape)
 
     if (α <= 1)
-        return rand_gamma(rng, T, α + 1) * rand(rng, T)^(1/α)
+        return _rand_gamma_mt(rng, T, α + 1) * rand(rng, T)^(1/α)
     else
         k = T(3)
         d = α - 1/k;
@@ -96,31 +134,64 @@ function rand_gamma{T<:Real}(rng::AbstractRNG, ::Type{T}, shape::Real)
     end
 end
 
+export BATGammaMTSampler
 
-rand_chisq{T}(rng::AbstractRNG, ::Type{T}, dof::Real) = rand_gamma(rng, T, dof / 2, 2)
-
-
-
-# ==================================================
-
-
-immutable BATGammaMTSampler{T} <: Sampleable{Univariate,Continuous}
+immutable BATGammaMTSampler{T} <: BATSampler{Univariate,Continuous}
     shape::T
     scale::T
 end
 
-function BATGammaMTSampler(d::Gamma) = BATGammaMTSampler(shape(d), scale(d))
+BATGammaMTSampler(d::Gamma) = BATGammaMTSampler(shape(d), scale(d))
+
+Base.eltype{T}(s::BATGammaMTSampler{T}) = T
+
+Base.rand(rng::AbstractRNG, s::BATGammaMTSampler) = s.scale * _rand_gamma_mt(rng, float(typeof(s.shape)), s.shape)
+
+bat_sampler(d::Gamma) = BATGammaMTSampler(d)
 
 
-rand(s::BATGammaMTSampler) = rand(GLOBAL_RNG, s)
-functon rand(rng::AbstractRNG, s::BATGammaMTSampler) = s.scale * rand_gamma(rng, float(typeof(s.shape)), s.shape)
+export BATChisqSampler
 
-
-immutable BATChisqSampler{T} <: Sampleable{Univariate,Continuous}
+immutable BATChisqSampler{T} <: BATSampler{Univariate,Continuous}
     gamma_sampler::T
 end
 
-BATChisqSampler(d::Chisq) = BATChisqSampler(BATGammaMTSampler(dof(d) / 2, 2))
+function BATChisqSampler(d::Chisq)
+    shape = dof(d) / 2
+    scale = typeof(shape)(2)
+    BATChisqSampler(BATGammaMTSampler(shape, scale))
+end
 
-rand(s::BATChisqSampler) = rand(GLOBAL_RNG, s)
-functon rand(rng::AbstractRNG, s::BATChisqSampler) = rand(rng, s.gamma_sampler)
+Base.eltype(s::BATChisqSampler) = eltype(s.gamma_sampler)
+
+Base.rand(rng::AbstractRNG, s::BATChisqSampler) = rand(rng, s.gamma_sampler)
+
+bat_sampler(d::Chisq) = BATChisqSampler(d)
+
+
+
+export BATMvTDistSampler
+
+immutable BATMvTDistSampler{T<:Distributions.GenericMvTDist} <: BATSampler{Multivariate,Continuous}
+    d::T
+end
+
+
+Base.length(s::BATMvTDistSampler) = length(s.d)
+
+Base.eltype(s::BATMvTDistSampler) = eltype(s.d.Σ)
+
+# Based on implementation of Distributions._rand!{T<:Real}(d::GenericMvTDist, x::AbstractVector{T}):
+function Base.rand!{T<:Real}(rng::AbstractRNG, s::BATMvTDistSampler, x::AbstractVector{T})
+    d = s.d
+    chisqd = Chisq(d.df)
+    y = sqrt(rand(rng, bat_sampler(chisqd))/(d.df))
+    unwhiten!(d.Σ, randn!(rng, x))
+    broadcast!(/, x, x, y)
+    if !d.zeromean
+        broadcast!(+, x, x, d.μ)
+    end
+    x
+end
+
+bat_sampler(d::Distributions.GenericMvTDist) = BATMvTDistSampler(d)
