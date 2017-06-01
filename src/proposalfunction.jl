@@ -4,12 +4,12 @@ using Compat
 using Distributions
 
 
-# @compat abstract type AbstractProposalFunction end
+@compat abstract type AbstractProposalFunction end
 
 
 export ProposalFunction
 
-immutable ProposalFunction{D<:Distribution,SamplerF}
+immutable ProposalFunction{D<:Distribution,SamplerF} <: AbstractProposalFunction
     d::D
     sampler_f::SamplerF
 end
