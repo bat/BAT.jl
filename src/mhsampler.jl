@@ -6,11 +6,12 @@ using Compat
 
 #=
 
-type MetropolisChainState{T,F,B<:AbstractParamBounds,Q<:AbstractProposalFunction,RNG<:AbstractRNG}
+type MetropolisChainState{T,F,B<:AbstractParamBounds,Q<:AbstractProposalFunction,QS<:Sampleable{Multivariate},RNG<:AbstractRNG}
     # TODO: Unicode symbols? Group log_f and param_bounds?
     log_f::F,
     param_bounds::B
     q::Q,
+    q_sampler::QS
     rng::RNG,
     params::Vector{T},
     log_value::T,
