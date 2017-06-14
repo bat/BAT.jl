@@ -12,7 +12,15 @@ export ProposalFunction
 immutable ProposalFunction{D<:Distribution,SamplerF} <: AbstractProposalFunction
     d::D
     sampler_f::SamplerF
+
+    function (::Type{ProposalFunction{D,SamplerF}}){D<:Distribution,SamplerF}(d::D, sampler_f::SamplerF)
+        issymmetric_at_origin(d) || throw(ArgumentError("Distribution $d must be symmetric at origin"))
+        new{D,SamplerF}(d, sampler_f)
+    end
+
 end
+
+ProposalFunction{D<:Distribution,SamplerF}(d::D, sampler_f::SamplerF) = ProposalFunction{D,SamplerF}(d, sampler_f)
 
 
 ProposalFunction(d::Distribution) = ProposalFunction(d, bat_sampler)
