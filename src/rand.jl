@@ -32,26 +32,26 @@ bat_sampler(d::Distribution) = Distributions.sampler(d)
 
 
 
-export issymmetric_around_origin
+export issymmetric_at_origin
 
 """
-    issymmetric_around_origin(d::DistForRNG)
+    issymmetric_at_origin(d::DistForRNG)
 
 Returns `true` (resp. `false`) if the Distribution is symmetric (resp.
 non-symmetric) around the origin.
 """
-function issymmetric_around_origin end
+function issymmetric_at_origin end
 
 
-issymmetric_around_origin(d::Normal) = d.μ ≈ 0
+issymmetric_at_origin(d::Normal) = d.μ ≈ 0
 
-issymmetric_around_origin(d::Gamma) = false
+issymmetric_at_origin(d::Gamma) = false
 
-issymmetric_around_origin(d::Chisq) = false
+issymmetric_at_origin(d::Chisq) = false
 
-issymmetric_around_origin(d::MvNormal) = all(x -> x == 0, mv.μ)
+issymmetric_at_origin(d::MvNormal) = all(x -> x == 0, mv.μ)
 
-issymmetric_around_origin(d::Distributions.GenericMvTDist) = d.zeromean
+issymmetric_at_origin(d::Distributions.GenericMvTDist) = d.zeromean
 
 
 

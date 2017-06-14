@@ -13,11 +13,11 @@ using Distributions, PDMats
     end
 
 
-    @testset "issymmetric_around_origin" begin
-        @test issymmetric_around_origin(Normal(0.0, 3.2)) == true
-        @test issymmetric_around_origin(Normal(1.7, 3.2)) == false
-        @test issymmetric_around_origin(Gamma(4.2, 2.2)) == false
-        @test issymmetric_around_origin(Chisq(20.3)) == false
+    @testset "issymmetric_at_origin" begin
+        @test issymmetric_at_origin(Normal(0.0, 3.2)) == true
+        @test issymmetric_at_origin(Normal(1.7, 3.2)) == false
+        @test issymmetric_at_origin(Gamma(4.2, 2.2)) == false
+        @test issymmetric_at_origin(Chisq(20.3)) == false
     end
 
 
