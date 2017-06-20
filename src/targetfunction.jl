@@ -2,14 +2,65 @@
 
 
 using Compat
+
+
+
+
 #=
 
-@compat abstract type AbstractTargetFunction{
-    U<:Real, # Return element type
-    V<:AbstractVector{U}, # Return Type
-    B<:AbstractParamBounds, # Param bounds
+
+immutable TargetFunction{
+    T<:Real, # Return type
+    P<:Real, # Parameter type
+    F<:MultiVarProdFunction,
+    B<:AbstractParamBounds,
+}
+    log_f::F
+    param_bounds::B
+end
+
+
+
+@compat abstract type MultiVarProdFunction {
+    T<:Real, # Return type
+    P<:Real, # Parameter type
     Diff # Differentiation
-} end
+} <: Function end
+
+function (f::MultiVarProdFunction){P<:Real}(params::AbstractVector{P}) =
+    f(linearindices(f), params)
+
+
+@compat abstract type UniVarProdFunction {
+    T<:Real, # Return type
+    P<:Real, # Parameter type
+    Diff # Differentiation
+} <: Function end
+
+
+immutable MultiVarProdFunctionWrapper <: Function {
+    T<:Real, # Return type
+    P<:Real, # Parameter type
+    Diff # Differentiation,
+    F
+} <: MultiVarProdFunction{T, P, Void}
+    f::F
+end
+
+Base.linearindices(f::MultiVarProdFunctionWrapper) = Base.OneTo(1)
+Base.linearindices(Range{Int}, f::MultiVarProdFunctionWrapper) = Base.OneTo(1)
+
+
+(f::MultiVarProdFunctionWrapper){P<:Real}(params::AbstractVector{P}) =
+    f(params::AbstractVector{P})
+
+function (f::MultiVarProdFunctionWrapper){P<:Real}(Range{Int}, params::AbstractVector{P}) =
+    f(params::AbstractVector{P})
+
+
+checkbounds_prodfunc
+
+Base.checkbounds_indices(Bool, indices(A), (1:1,)) || throw_boundserror(A, I)
 
 
 immutable TargetFunction{
@@ -17,8 +68,9 @@ immutable TargetFunction{
     V<:AbstractVector{U},
     B<:AbstractParamBounds,
     Diff
-} <: AbstractTargetFunction{T,U,V,B,Diff}
-    
+} <: MultiVarProdFunction{T,U,V,B,Diff}
+    log_f::F,
+    param_bounds::B    
 end
 
 Base.ndims(target::TargetFunction)
@@ -27,7 +79,7 @@ Base.ndims(target::TargetFunction)
 
 #=
 call_target_function(f::Any, params::AbstractVector) = f(params)
-call_target_function(f!::AbstractTargetFunction, params::AbstractVector, aux_values::AbstractVector) = f!(aux_values, params)
+call_target_function(f!::MultiVarProdFunction, params::AbstractVector, aux_values::AbstractVector) = f!(aux_values, params)
 =#
 
 
@@ -35,7 +87,7 @@ call_target_function(f!::AbstractTargetFunction, params::AbstractVector, aux_val
 
 Most generic target function type could look like this:
 
-    abstract type AbstractTargetFunction{
+    abstract type MultiVarProdFunction{
         T<:Real, # Required param vector element type - necessary?
         U<:Real, # Return element type
         V<:AbstractVector{U}, # Return Type
@@ -44,13 +96,13 @@ Most generic target function type could look like this:
 
 `Diff` could be `Val{true|false}` to indicate differentiation support, or either Nothing or a function to be applied to transform the target function.
 
-Non-abstract subtypes (e.g. `SomeTargetFunction <: AbstractTargetFunction{T,U,V}`) would be required to implement
+Non-abstract subtypes (e.g. `SomeTargetFunction <: MultiVarProdFunction{T,U,V}`) would be required to implement
 
     (f::SomeTargetFunction)(x::AbstractVector{T})::V
 
 To ease typical use cases, BAT-2 should provide a type like
 
-    immutable BoundTargetFunction{N<:Integer, F<:AbstractTargetFunction, X:<AbstractVector} <: AbstractVector
+    immutable BoundTargetFunction{N<:Integer, F<:MultiVarProdFunction, X:<AbstractVector} <: AbstractVector
         partitions::NTuple{N, Int} # number of partitions in each dimension
         f::F # Target function
         x::X # parameters
