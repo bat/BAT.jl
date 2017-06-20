@@ -1,17 +1,15 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-using Compat
-
 
 export ParamValues
 
-typealias ParamValues{T} StridedVector{T}
+const ParamValues{T} = StridedVector{T}
 
 
 export AbstractParamBounds
 
-@compat abstract type AbstractParamBounds{T<:Real} end
+abstract type AbstractParamBounds{T<:Real} end
 
 Base.eltype{T}(b::AbstractParamBounds{T}) = T
 
@@ -19,7 +17,7 @@ Base.eltype{T}(b::AbstractParamBounds{T}) = T
 
 export UnboundedParams
 
-immutable UnboundedParams{T<:Real} <: AbstractParamBounds{T}
+struct UnboundedParams{T<:Real} <: AbstractParamBounds{T}
     ndims::Int
 end
 
@@ -31,13 +29,13 @@ Base.in(params::AbstractVector, bounds::UnboundedParams) = true
 
 export BoundedParams
 
-@compat abstract type BoundedParams{T<:Real} <: AbstractParamBounds{T} end
+abstract type BoundedParams{T<:Real} <: AbstractParamBounds{T} end
 
 
 
 export HyperCubeBounds
 
-immutable HyperCubeBounds{T<:Real} <: BoundedParams{T}
+struct HyperCubeBounds{T<:Real} <: BoundedParams{T}
     from::Vector{T}
     to::Vector{T}
 end

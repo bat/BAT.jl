@@ -1,15 +1,13 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-using Compat
-
 
 
 
 #=
 
 
-immutable TargetFunction{
+struct TargetFunction{
     T<:Real, # Return type
     P<:Real, # Parameter type
     F<:MultiVarProdFunction,
@@ -21,7 +19,7 @@ end
 
 
 
-@compat abstract type MultiVarProdFunction {
+abstract type MultiVarProdFunction {
     T<:Real, # Return type
     P<:Real, # Parameter type
     Diff # Differentiation
@@ -35,14 +33,14 @@ Base.checkbounds{RT<:Integer}(f::MultiVarProdFunction, rng::Range{RT}) =
 
 
 #=
-@compat abstract type UniVarProdFunction {
+abstract type UniVarProdFunction {
     T<:Real, # Return type
     P<:Real, # Parameter type
     Diff # Differentiation
 } <: Function end
 =#
 
-immutable MultiVarProdFunctionWrapper <: Function {
+struct MultiVarProdFunctionWrapper <: Function {
     T<:Real, # Return type
     P<:Real, # Parameter type
     Diff # Differentiation,
@@ -66,7 +64,7 @@ checkbounds_prodfunc
 
 
 
-immutable TargetFunction{
+struct TargetFunction{
     U<:Real,
     V<:AbstractVector{U},
     B<:AbstractParamBounds,
@@ -105,7 +103,7 @@ Non-abstract subtypes (e.g. `SomeTargetFunction <: MultiVarProdFunction{T,U,V}`)
 
 To ease typical use cases, BAT-2 should provide a type like
 
-    immutable BoundTargetFunction{N<:Integer, F<:MultiVarProdFunction, X:<AbstractVector} <: AbstractVector
+    struct BoundTargetFunction{N<:Integer, F<:MultiVarProdFunction, X:<AbstractVector} <: AbstractVector
         partitions::NTuple{N, Int} # number of partitions in each dimension
         f::F # Target function
         x::X # parameters

@@ -1,12 +1,10 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-using Compat
-
 
 #=
 
-type MetropolisChainState{
+mutable struct MetropolisChainState{
     T<:Real,
     P<:Real,
     F<:TargetFunction,
@@ -47,7 +45,7 @@ end
 
 abstract MCSampler
 
-type MetropolisSampler{F} <: AbstractMCSampler
+mutable struct MetropolisSampler{F} <: AbstractMCSampler
     log_f::F
     ...
 end
@@ -72,7 +70,7 @@ end
 abstract AbstractMCSamplerOutput
 
 # Single chain output (same type after merge?):
-type MCSamplerOutput{T,Arr<:AbstractArray} <: AbstractMCSamplerOutput
+mutable struct MCSamplerOutput{T,Arr<:AbstractArray} <: AbstractMCSamplerOutput
     log_f::Arr{T,1} # Target function may be factorized
     weight::Arr{T,1}
     params::Arr{T, 2}
@@ -80,7 +78,7 @@ type MCSamplerOutput{T,Arr<:AbstractArray} <: AbstractMCSamplerOutput
 end
 
 
-type SigmaDistTuner{T}
+mutable struct SigmaDistTuner{T}
     iteration::Int # initially 1
     lambda::T # e.g. 0.5
     scale::T # initially 2.38^2/ndims

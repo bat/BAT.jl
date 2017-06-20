@@ -1,6 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-using Compat
 using Distributions, PDMats
 
 
@@ -33,7 +32,6 @@ bat_sampler(d::Distribution) = Distributions.sampler(d)
 
 
 export issymmetric_at_origin
-
 """
     issymmetric_at_origin(d::DistForRNG)
 
@@ -60,7 +58,7 @@ issymmetric_at_origin(d::Distributions.GenericMvTDist) = d.zeromean
 
 export BATSampler
 
-@compat abstract type BATSampler{F<:VariateForm,S<:ValueSupport} <: Sampleable{F,S} end
+abstract type BATSampler{F<:VariateForm,S<:ValueSupport} <: Sampleable{F,S} end
 
 
 @inline Base.rand(s::BATSampler, args...) = rand(Base.GLOBAL_RNG, s, args...)
@@ -136,7 +134,7 @@ end
 
 export BATGammaMTSampler
 
-immutable BATGammaMTSampler{T} <: BATSampler{Univariate,Continuous}
+struct BATGammaMTSampler{T} <: BATSampler{Univariate,Continuous}
     shape::T
     scale::T
 end
@@ -152,7 +150,7 @@ bat_sampler(d::Gamma) = BATGammaMTSampler(d)
 
 export BATChisqSampler
 
-immutable BATChisqSampler{T} <: BATSampler{Univariate,Continuous}
+struct BATChisqSampler{T} <: BATSampler{Univariate,Continuous}
     gamma_sampler::T
 end
 
@@ -172,7 +170,7 @@ bat_sampler(d::Chisq) = BATChisqSampler(d)
 
 export BATMvTDistSampler
 
-immutable BATMvTDistSampler{T<:Distributions.GenericMvTDist} <: BATSampler{Multivariate,Continuous}
+struct BATMvTDistSampler{T<:Distributions.GenericMvTDist} <: BATSampler{Multivariate,Continuous}
     d::T
 end
 
