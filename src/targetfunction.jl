@@ -30,13 +30,17 @@ end
 function (f::MultiVarProdFunction){P<:Real}(params::AbstractVector{P}) =
     f(linearindices(f), params)
 
+Base.checkbounds{RT<:Integer}(f::MultiVarProdFunction, rng::Range{RT}) =
+    Base.checkbounds_indices(Bool, (linearindices(f),), (rng,)) || throw(Boundserror(A, rng))
 
+
+#=
 @compat abstract type UniVarProdFunction {
     T<:Real, # Return type
     P<:Real, # Parameter type
     Diff # Differentiation
 } <: Function end
-
+=#
 
 immutable MultiVarProdFunctionWrapper <: Function {
     T<:Real, # Return type
@@ -48,7 +52,7 @@ immutable MultiVarProdFunctionWrapper <: Function {
 end
 
 Base.linearindices(f::MultiVarProdFunctionWrapper) = Base.OneTo(1)
-Base.linearindices(Range{Int}, f::MultiVarProdFunctionWrapper) = Base.OneTo(1)
+Base.linearindices(rng::Range{Int}, f::MultiVarProdFunctionWrapper) = Base.OneTo(1)
 
 
 (f::MultiVarProdFunctionWrapper){P<:Real}(params::AbstractVector{P}) =
@@ -60,7 +64,6 @@ function (f::MultiVarProdFunctionWrapper){P<:Real}(Range{Int}, params::AbstractV
 
 checkbounds_prodfunc
 
-Base.checkbounds_indices(Bool, indices(A), (1:1,)) || throw_boundserror(A, I)
 
 
 immutable TargetFunction{
