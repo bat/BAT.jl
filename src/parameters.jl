@@ -38,7 +38,19 @@ export HyperCubeBounds
 struct HyperCubeBounds{T<:Real} <: BoundedParams{T}
     from::Vector{T}
     to::Vector{T}
+
+    function HyperCubeBounds{T}(from::Vector{T}, to::Vector{T}) where {T<:Real}
+        (indices(from) != indices(to)) && throw(ArgumentError("from and to must have the same indices"))
+        @inbounds for i in eachindex(from, to)
+            (from[i] > to[i]) && throw(ArgumentError("from[$i] must be <= to[$i]"))
+        end
+    end
 end
+
+
+HyperCubeBounds{T<:Real}(from::Vector{T}, to::Vector{T}) = HyperCubeBounds{T}(from, to)
+
+
 
 Base.length(b::HyperCubeBounds) = length(b.from)
 
