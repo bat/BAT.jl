@@ -2,6 +2,31 @@
 
 
 
+#=
+
+# Target function signature without gradients:
+
+((
+    values::AbstractVector{T},
+    params::AbstractMatrix{P}
+) where {T <: AbstractFloat, P <: Real}) -> begin
+    @assert size(values, 1) == size(gradients, 2) == size(params, 2)
+    nothing
+end
+
+# Target function signature with gradients:
+
+((
+    values::AbstractVector{<:T},
+    gradients::AbstractMatrix{<:T},
+    params::AbstractMatrix{<:P}
+) where {T <: AbstractFloat, P <: AbstractFloat}) -> begin
+    @assert size(values, 1) == size(gradients, 2) == size(params, 2)
+    @assert size(gradients, 1) == size(params, 1)
+    nothing
+end
+
+=#
 
 
 #=

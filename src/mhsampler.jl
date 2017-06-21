@@ -4,6 +4,8 @@
 
 #=
 
+# Add scheduler!!
+
 mutable struct MetropolisChainState{
     T<:Real,
     P<:Real,
