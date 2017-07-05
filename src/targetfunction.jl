@@ -1,8 +1,70 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+abstract type AbstractTargetFunction end
 
 #=
+
+struct ExecContext
+    multithreaded::Bool
+    onprocs::StepRange{Int,Int}
+end
+
+ExecContext() = ExecContext(false, myid():1:myid())
+
+
+function (target::DummyTargetFunction)(
+    values::AbstractVector{T},
+    # gradients::AbstractMatrix{T},
+    params::AbstractMatrix{P},
+    target::AbstractTargetFunction,
+    select::AbstractVector{Bool},
+    exec_context::ExecContext
+) where {T <: AbstractFloat, P <: AbstractFloat}
+    @assert size(values, 1) == size(gradients, 2) == size(params, 2)
+    values .= -Inf
+    nothing
+end
+
+=#
+
+
+
+#=
+
+struct TargetFunction{F, B<:AbstractParamBounds} <: Function
+    log_f::F
+    param_bounds::B
+end
+
+function (f::TargetFunction)(
+    values::AbstractVector{T},
+    params::AbstractMatrix{P}
+) where {T <: AbstractFloat, P <: AbstractFloat}
+    @assert size(values, 1) == size(gradients, 2) == size(params, 2)
+    f.log_f(values, params)
+end
+
+function (f::TargetFunction)(
+    values::AbstractVector{<:T},
+    gradients::AbstractMatrix{<:T},
+    params::AbstractMatrix{<:P}
+) where {T <: AbstractFloat, P <: AbstractFloat}
+    @assert size(values, 1) == size(gradients, 2) == size(params, 2)
+    @assert size(gradients, 1) == size(params, 1)
+    ...
+    @inbounds for i in indices(params, 2)
+        if in(params, f.param_bounds, i)
+            ...
+        else
+            ...
+        end
+    end
+    ...
+    f.log_f(values, gradients, params)
+end
+
+
 
 # Target function signature without gradients:
 
@@ -32,15 +94,6 @@ end
 #=
 
 
-struct TargetFunction{
-    T<:Real, # Return type
-    P<:Real, # Parameter type
-    F<:MultiVarProdFunction,
-    B<:AbstractParamBounds,
-}
-    log_f::F
-    param_bounds::B
-end
 
 
 

@@ -24,6 +24,7 @@ end
 Base.length(b::UnboundedParams) = b.ndims
 
 Base.in(params::AbstractVector, bounds::UnboundedParams) = true
+Base.in(params::AbstractMatrix, bounds::UnboundedParams, i::Integer) = true
 
 
 
@@ -54,8 +55,18 @@ HyperCubeBounds{T<:Real}(from::Vector{T}, to::Vector{T}) = HyperCubeBounds{T}(fr
 
 Base.length(b::HyperCubeBounds) = length(b.from)
 
+
 Base.in(params::AbstractVector, bounds::HyperCubeBounds) =
     _multi_array_le(bounds.from, params, bounds.to)
+
+function Base.in(params::AbstractMatrix, bounds::HyperCubeBounds, j::Integer)
+    from = bounds.from
+    to = bounds.to
+    @inbounds for i in eachindex(a,b,c)
+        (from[i] <= params[i, j] <= to[i]) || return false
+    end
+    return true
+end
 
 
 

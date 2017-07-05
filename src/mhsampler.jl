@@ -4,7 +4,10 @@
 
 #=
 
-# Add scheduler!!
+# Define a scheduler.
+
+# Use FunctionWrappers, e.g. FunctionWrapper{Float64,Tuple{Float64, ...}}(f)?
+
 
 mutable struct MetropolisChainState{
     T<:Real,
