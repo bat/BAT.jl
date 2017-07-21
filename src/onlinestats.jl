@@ -4,6 +4,30 @@ using Base.@propagate_inbounds
 using DoubleDouble
 
 
+# SIMD-compatible KBN-summation
+
+@inline function kbn_add(a::NTuple{2, Real}, b::Real)
+    s = a[1] + b
+    c = a[2] + ifelse(
+        abs(a[1]) >= abs(b),
+        (a[1] - s) + b,
+        (b - s) + a[1]
+    )
+    (s, c)
+end
+
+@inline function kbn_add(a::NTuple{2, Real}, b::NTuple{2, Real})
+    s = a[1] + b[1]
+    c = ifelse(
+        abs(a[1]) > abs(b[1]),
+        (((a[1] - s) + b[1]) + b[2]) + a[2],
+        (((b[1] - s) + a[1]) + a[2]) + b[2]
+    )
+    (s, c)
+end
+
+
+
 """
     OnlineMvMean{T<:AbstractFloat} <: AbstractVector{T}
 
@@ -79,15 +103,10 @@ function Base.merge!(target::OnlineMvMean, others::OnlineMvMean...)
         x_S = x.S; x_C = x.C
         @assert eachindex(target_S) == eachindex(x.S) == eachindex(target_C) == eachindex(x.C)
         @inbounds @simd for i in eachindex(target_S)
-            a_s = target_S[i]; a_c = target_C[i]
-            b_s = x.S[i]; b_c = x.C[i]
-            s = a_s + b_s
-            c = ifelse(
-                abs(a_s) > abs(b_s),
-                (((a_s - s) + b_s) + b_c) + a_c,
-                (((b_s - s) + a_s) + a_c) + b_c
+            target_S[i], target_C[i] = kbn_add(
+                (target_S[i], target_C[i]),
+                (x.S[i], x.C[i])
             )
-            target_S[i] = s; target_C[i] = c
         end
     end
     target
@@ -117,16 +136,7 @@ Base.merge(x::OnlineMvMean, others::OnlineMvMean...) = merge!(deepcopy(x), other
     
     @inbounds @simd for i in idxs
         x = weight * data[i + dshft]
-        s = S[i]
-        t = s + x
-
-        C[i] += ifelse(
-            abs(s) >= abs(x),
-            (s - t) + x,
-            (x - t) + s
-        )
-
-        S[i] = t
+        S[i], C[i] = kbn_add((S[i], C[i]), x)
     end
 
     omn.wsum += Single(weight)
