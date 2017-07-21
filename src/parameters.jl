@@ -2,9 +2,9 @@
 
 
 
-export ParamValues
+# export ParamValues
 
-const ParamValues{T} = StridedVector{T}
+# const ParamValues{T} = StridedVector{T}
 
 
 export AbstractParamBounds
