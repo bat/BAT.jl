@@ -7,6 +7,7 @@ module BAT
 include.([
     "rand.jl",
     "util.jl",
+    "onlinestats.jl",
     "parameters.jl",
     "targetfunction.jl",
     "proposalfunction.jl",
