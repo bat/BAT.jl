@@ -18,7 +18,7 @@ function (target::DummyTargetFunction)(
     # gradients::AbstractMatrix{T},
     params::AbstractMatrix{P},
     target::AbstractTargetFunction,
-    select::AbstractVector{Bool},
+    select::AbstractVector{Bool},  # true/false depending on parameters in bounds
     exec_context::ExecContext
 ) where {T <: AbstractFloat, P <: AbstractFloat}
     @assert size(values, 1) == size(gradients, 2) == size(params, 2)
