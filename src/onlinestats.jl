@@ -1,6 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 using Base.@propagate_inbounds
+using DoubleDouble
 
 
 """
@@ -10,7 +11,7 @@ Multi-variate mean implemented via Kahan-Babuška-Neumaier summation.
 """
 mutable struct OnlineMvMean{T<:AbstractFloat} <: AbstractVector{T}
     m::Int
-    n::Int64
+    wsum::Double{T}
     S::Vector{T}
     C::Vector{T}
 
@@ -25,21 +26,21 @@ OnlineMvMean(m::Integer) = OnlineMvMean{Float64}(m::Integer)
 
 @inline Base.size(omn::OnlineMvMean) = size(omn.S)
 
-@propagate_inbounds function Base.getindex(omn::OnlineMvMean, idxs::Integer...)
-    (omn.S[idxs...] + omn.C[idxs...]) / omn.n
+@propagate_inbounds function Base.getindex{T}(omn::OnlineMvMean{T}, idxs::Integer...)
+    T((Single(omn.S[idxs...]) + Single(omn.C[idxs...])) / omn.wsum)
 end
 
 
 
-@inline Base.push!(omn::OnlineMvMean, data::Vector) =
-    push_contiguous!(omn, data, first(linearindices(data)))
+@inline Base.push!(omn::OnlineMvMean, data::Vector, weight::Real = one(T)) =
+    push_contiguous!(omn, data, first(linearindices(data)), weight)
 
 
-@inline function Base.append!(omn::OnlineMvMean, data::Matrix, vardim::Integer = 1)
+function Base.append!(omn::OnlineMvMean, data::Matrix, vardim::Integer = 1)
     if (vardim == 1)
         throw(ArgumentError("vardim == $vardim not supported (yet)"))
     elseif (vardim == 2)
-        @assert(omn.m == size(data, 1))
+        @assert omn.m == size(data, 1)  # TODO: Replace by exception
         @inbounds for i in indices(data, 2)
             push_contiguous!(omn, data, sub2ind(data, 1, i))
         end
@@ -51,12 +52,56 @@ end
 end
 
 
+function Base.append!(omn::OnlineMvMean, data::Matrix, weights::Vector, vardim::Integer = 1)
+    if (vardim == 1)
+        throw(ArgumentError("vardim == $vardim not supported (yet)"))
+    elseif (vardim == 2)
+        @assert omn.m == size(data, 1)  # TODO: Replace by exception
+        @assert size(data, 2) == size(weights, 1)  # TODO: Replace by exception
+        @inbounds for i in indices(data, 2)
+            push_contiguous!(omn, data, sub2ind(data, 1, i), weights[i])
+        end
+    else
+        throw(ArgumentError("Value of vardim must be 2, not $vardim"))
+    end
+
+    omn
+end
+
+
+function Base.merge!(target::OnlineMvMean, others::OnlineMvMean...)
+    for x in others
+        target.m != x.m && throw(ArgumentError("can't merge OnlineMvMeans with different size"))
+    end
+    for x in others
+        target.wsum += x.wsum
+        target_S = target.S; target_C = target.C
+        x_S = x.S; x_C = x.C
+        @assert eachindex(target_S) == eachindex(x.S) == eachindex(target_C) == eachindex(x.C)
+        @inbounds @simd for i in eachindex(target_S)
+            a_s = target_S[i]; a_c = target_C[i]
+            b_s = x.S[i]; b_c = x.C[i]
+            s = a_s + b_s
+            c = ifelse(
+                abs(a_s) > abs(b_s),
+                (((a_s - s) + b_s) + b_c) + a_c,
+                (((b_s - s) + a_s) + a_c) + b_c
+            )
+            target_S[i] = s; target_C[i] = c
+        end
+    end
+    target
+end
+
+Base.merge(x::OnlineMvMean, others::OnlineMvMean...) = merge!(deepcopy(x), others...)
+
+
+
 @inline function push_contiguous!{T}(
     omn::OnlineMvMean{T}, data::Array,
-    start::Integer
+    start::Integer, weight::Real = one(T)
 )
     m = omn.m
-    n = omn.n
     S = omn.S
     C = omn.C
 
@@ -65,13 +110,13 @@ end
     dshft = Int(start) - 1
 
     @boundscheck begin
-        @assert idxs == indices(Mean_X, 1) == indices(New_Mean_X, 1) == indices(S, 1) == indices(S, 2) == indices(C, 1) == indices(C, 2)
+        @assert idxs == indices(S, 1) == indices(C, 1)
         checkbounds(data, idxs + dshft)
     end
 
     
     @inbounds @simd for i in idxs
-        x = data[i + dshft]
+        x = weight * data[i + dshft]
         s = S[i]
         t = s + x
 
@@ -84,7 +129,7 @@ end
         S[i] = t
     end
 
-    omn.n = n + 1
+    omn.wsum += Single(weight)
 
     omn
 end
