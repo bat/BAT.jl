@@ -61,42 +61,9 @@ end
     push_contiguous!(omn, data, first(linearindices(data)), weight)
 
 
-function Base.append!(omn::OnlineMvMean, data::Matrix, vardim::Integer = 1)
-    if (vardim == 1)
-        throw(ArgumentError("vardim == $vardim not supported (yet)"))
-    elseif (vardim == 2)
-        @assert omn.m == size(data, 1)  # TODO: Replace by exception
-        @inbounds for i in indices(data, 2)
-            push_contiguous!(omn, data, sub2ind(data, 1, i))
-        end
-    else
-        throw(ArgumentError("Value of vardim must be 2, not $vardim"))
-    end
-
-    omn
-end
-
-
-function Base.append!(omn::OnlineMvMean, data::Matrix, weights::Vector, vardim::Integer = 1)
-    if (vardim == 1)
-        throw(ArgumentError("vardim == $vardim not supported (yet)"))
-    elseif (vardim == 2)
-        @assert omn.m == size(data, 1)  # TODO: Replace by exception
-        @assert size(data, 2) == size(weights, 1)  # TODO: Replace by exception
-        @inbounds for i in indices(data, 2)
-            push_contiguous!(omn, data, sub2ind(data, 1, i), weights[i])
-        end
-    else
-        throw(ArgumentError("Value of vardim must be 2, not $vardim"))
-    end
-
-    omn
-end
-
-
 function Base.merge!(target::OnlineMvMean, others::OnlineMvMean...)
     for x in others
-        target.m != x.m && throw(ArgumentError("can't merge OnlineMvMeans with different size"))
+        target.m != x.m && throw(ArgumentError("can't merge OnlineMvMean instances with different size"))
     end
     for x in others
         target.sum_w += x.sum_w
@@ -129,10 +96,8 @@ Base.merge(x::OnlineMvMean, others::OnlineMvMean...) = merge!(deepcopy(x), other
 
     dshft = Int(start) - 1
 
-    @boundscheck begin
-        @assert idxs == indices(S, 1) == indices(C, 1)
-        checkbounds(data, idxs + dshft)
-    end
+    @assert idxs == indices(S, 1) == indices(C, 1)
+    checkbounds(data, idxs + dshft)
 
     omn.sum_w += Single(weight)
     
@@ -149,10 +114,9 @@ end
 """
     OnlineMvCov{T<:AbstractFloat,W} <: AbstractMatrix{T}
 
-Implementation based on variance calculation Algorithms of Welford, West
-and Chan et al. .
+Implementation based on variance calculation Algorithms of Welford and West.
 
-`W` must be either `Weights` (no bias correction) or one of `AnalyticWeights`,
+`W` must either be `Weights` (no bias correction) or one of `AnalyticWeights`,
 `FrequencyWeights` or `ProbabilityWeights` to specify the desired bias
 correction method.
 """
@@ -225,25 +189,28 @@ end
     push_contiguous!(ocv, data, first(linearindices(data)), weight)
 
 
-@inline function Base.append!(ocv::OnlineMvCov, data::Matrix, vardim::Integer = 1)
-    if (vardim == 1)
-        throw(ArgumentError("vardim == $vardim not supported (yet)"))
-    elseif (vardim == 2)
-        @assert(ocv.m == size(data, 1))
-        @inbounds for i in indices(data, 2)
-            push_contiguous!(ocv, data, sub2ind(data, 1, i))
-        end
-    else
-        throw(ArgumentError("Value of vardim must be 2, not $vardim"))
-    end
 
-    ocv
-end
-
-
-# function Base.append!(a::OnlineMvCov, b::OnlineMvCov)
+# function Base.merge!(a::OnlineMvCov, b::OnlineMvCov)
 #     ...
 # end
+
+function Base.merge!(target::OnlineMvCov, others::OnlineMvCov...)
+    for x in others
+        target.m != x.m && throw(ArgumentError("can't merge OnlineMvCov instances with different size"))
+    end
+    for x in others
+        target.n += x.n
+        target.sum_w += x.sum_w
+        target.sum_w2 += x.sum_w2
+        target.Mean_X .+= x.Mean_X
+        target.New_Mean_X .+= x.New_Mean_X
+        target.S .+= x.S
+    end
+    target
+end
+
+Base.merge(x::OnlineMvCov, others::OnlineMvCov...) = merge!(deepcopy(x), others...)
+
 
 
 @inline function push_contiguous!{T,W}(
@@ -263,10 +230,8 @@ end
 
     dshft = Int(start) - 1
 
-    @boundscheck begin
-        @assert idxs == indices(Mean_X, 1) == indices(New_Mean_X, 1) == indices(S, 1) == indices(S, 2)
-        checkbounds(data, idxs + dshft)
-    end
+    @assert idxs == indices(Mean_X, 1) == indices(New_Mean_X, 1) == indices(S, 1) == indices(S, 2)
+    checkbounds(data, idxs + dshft)
 
     n += one(n)
     sum_w += Single(weight)
@@ -286,7 +251,7 @@ end
         @assert sub2ind(S, last(idxs), j) == last(idxs) + j_offs
         @simd for i in idxs
             dx_i = data[i + dshft] - Mean_X[i]
-            S[i + j_offs] += dx_i * new_dx_j
+            S[i + j_offs] = muladd(dx_i, new_dx_j, S[i + j_offs])
         end
     end
 
@@ -299,4 +264,41 @@ end
     ocv.sum_w2 = sum_w2
 
     ocv
+end
+
+
+
+const OnlineStatistic = Union{OnlineMvMean, OnlineMvCov}
+
+
+function Base.append!(target::OnlineStatistic, data::Matrix, vardim::Integer = 1)
+    if (vardim == 1)
+        throw(ArgumentError("vardim == $vardim not supported (yet)"))
+    elseif (vardim == 2)
+        @assert target.m == size(data, 1)  # TODO: Replace by exception
+        @inbounds for i in indices(data, 2)
+            push_contiguous!(target, data, sub2ind(data, 1, i))
+        end
+    else
+        throw(ArgumentError("Value of vardim must be 2, not $vardim"))
+    end
+
+    target
+end
+
+
+function Base.append!(target::OnlineStatistic, data::Matrix, weights::Vector, vardim::Integer = 1)
+    if (vardim == 1)
+        throw(ArgumentError("vardim == $vardim not supported (yet)"))
+    elseif (vardim == 2)
+        @assert target.m == size(data, 1)  # TODO: Replace by exception
+        @assert indices(data, 2) == indices(weights, 1)  # TODO: Replace by exception
+        @inbounds for i in indices(data, 2)
+            push_contiguous!(target, data, sub2ind(data, 1, i), weights[i])
+        end
+    else
+        throw(ArgumentError("Value of vardim must be 2, not $vardim"))
+    end
+
+    target
 end
