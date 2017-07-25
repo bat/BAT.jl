@@ -1,6 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 using Base.@propagate_inbounds
+using StatsBase
 using DoubleDouble
 
 
@@ -35,7 +36,7 @@ Multi-variate mean implemented via Kahan-Babuška-Neumaier summation.
 """
 mutable struct OnlineMvMean{T<:AbstractFloat} <: AbstractVector{T}
     m::Int
-    wsum::Double{T}
+    sum_w::Double{T}
     S::Vector{T}
     C::Vector{T}
 
@@ -51,7 +52,7 @@ OnlineMvMean(m::Integer) = OnlineMvMean{Float64}(m::Integer)
 @inline Base.size(omn::OnlineMvMean) = size(omn.S)
 
 @propagate_inbounds function Base.getindex{T}(omn::OnlineMvMean{T}, idxs::Integer...)
-    T((Single(omn.S[idxs...]) + Single(omn.C[idxs...])) / omn.wsum)
+    T((Single(omn.S[idxs...]) + Single(omn.C[idxs...])) / omn.sum_w)
 end
 
 
@@ -98,7 +99,7 @@ function Base.merge!(target::OnlineMvMean, others::OnlineMvMean...)
         target.m != x.m && throw(ArgumentError("can't merge OnlineMvMeans with different size"))
     end
     for x in others
-        target.wsum += x.wsum
+        target.sum_w += x.sum_w
         target_S = target.S; target_C = target.C
         x_S = x.S; x_C = x.C
         @assert eachindex(target_S) == eachindex(x.S) == eachindex(target_C) == eachindex(x.C)
@@ -133,13 +134,12 @@ Base.merge(x::OnlineMvMean, others::OnlineMvMean...) = merge!(deepcopy(x), other
         checkbounds(data, idxs + dshft)
     end
 
+    omn.sum_w += Single(weight)
     
     @inbounds @simd for i in idxs
         x = weight * data[i + dshft]
         S[i], C[i] = kbn_add((S[i], C[i]), x)
     end
-
-    omn.wsum += Single(weight)
 
     omn
 end
@@ -147,41 +147,82 @@ end
 
 
 """
-    OnlineMvCov{T<:AbstractFloat} <: AbstractMatrix{T}
+    OnlineMvCov{T<:AbstractFloat,W} <: AbstractMatrix{T}
 
 Implementation based on variance calculation Algorithms of Welford, West
 and Chan et al. .
+
+`W` must be either `Weights` (no bias correction) or one of `AnalyticWeights`,
+`FrequencyWeights` or `ProbabilityWeights` to specify the desired bias
+correction method.
 """
 
-mutable struct OnlineMvCov{T<:AbstractFloat} <: AbstractMatrix{T}
+mutable struct OnlineMvCov{T<:AbstractFloat,W} <: AbstractMatrix{T}
     m::Int
     n::Int64
-    corrected::Bool
+    sum_w::Double{T}
+    sum_w2::Double{T}
     Mean_X::Vector{T}
     New_Mean_X::Vector{T}
     S::Matrix{T}
 
-    OnlineMvCov{T}(m::Integer, corrected::Bool = true) where {T<:AbstractFloat} =
-        new{T}(m, zero(Int64), corrected, zeros(T, m), zeros(T, m), zeros(T, m, m))
+    OnlineMvCov{T,W}(m::Integer) where {T<:AbstractFloat,W} =
+        new{T,W}(
+            m, zero(Int64), zero(Double{T}), zero(Double{T}),
+            zeros(T, m), zeros(T, m), zeros(T, m, m)
+        )
 end
 
 export OnlineMvCov
 
-OnlineMvCov(m::Integer, corrected::Bool = true) = OnlineMvCov{Float64}(m::Integer, corrected)
+OnlineMvCov(m::Integer) = OnlineMvCov{Float64, ProbabilityWeights}(m::Integer)
 
 
 @inline Base.size(ocv::OnlineMvCov) = size(ocv.S)
 
-@propagate_inbounds function Base.getindex(ocv::OnlineMvCov, idxs::Integer...)
-    n_corr = ocv.n - Int(ocv.corrected)
-    n_corr_clamped = ifelse(n_corr >= 0, n_corr, 0)
-    ocv.S[idxs...] / n_corr_clamped
+
+@propagate_inbounds function Base.getindex{T}(ocv::OnlineMvCov{T, Weights}, idxs::Integer...)
+    sum_w = ocv.sum_w
+    ifelse(
+        sum_w > 0,
+        T(ocv.S[idxs...] / sum_w),
+        T(NaN)
+    )
+end
+
+@propagate_inbounds function Base.getindex{T}(ocv::OnlineMvCov{T, AnalyticWeights}, idxs::Integer...)
+    sum_w = ocv.sum_w
+    ifelse(
+        sum_w > 1,
+        T(ocv.S[idxs...] / (sum_w - 1)),
+        T(NaN)
+    )
+end
+
+@propagate_inbounds function Base.getindex{T}(ocv::OnlineMvCov{T, FrequencyWeights}, idxs::Integer...)
+    sum_w = ocv.sum_w
+    sum_w2 = ocv.sum_w2
+    d = sum_w - sum_w2 / sum_w
+    ifelse(
+        sum_w > 0 && d > 0,
+        T(ocv.S[idxs...] / d),
+        T(NaN)
+    )
+end
+
+@propagate_inbounds function Base.getindex{T}(ocv::OnlineMvCov{T, ProbabilityWeights}, idxs::Integer...)
+    n = ocv.n
+    sum_w = ocv.sum_w
+    ifelse(
+        n > 1 && sum_w > 0,
+        T(ocv.S[idxs...] * n / ((n - 1) * sum_w)),
+        T(NaN)
+    )
 end
 
 
-
-@inline Base.push!(ocv::OnlineMvCov, data::Vector) =
-    push_contiguous!(ocv, data, first(linearindices(data)))
+@inline Base.push!(ocv::OnlineMvCov, data::Vector, weight::Real = one(T)) =
+    push_contiguous!(ocv, data, first(linearindices(data)), weight)
 
 
 @inline function Base.append!(ocv::OnlineMvCov, data::Matrix, vardim::Integer = 1)
@@ -205,12 +246,15 @@ end
 # end
 
 
-@inline function push_contiguous!{T}(
-    ocv::OnlineMvCov{T}, data::Array,
-    start::Integer
+@inline function push_contiguous!{T,W}(
+    ocv::OnlineMvCov{T,W}, data::Array,
+    start::Integer,
+    weight::Real = one(T)
 )
     m = ocv.m
     n = ocv.n
+    sum_w = ocv.sum_w
+    sum_w2 = ocv.sum_w2
     Mean_X = ocv.Mean_X
     New_Mean_X = ocv.New_Mean_X
     S = ocv.S
@@ -224,13 +268,16 @@ end
         checkbounds(data, idxs + dshft)
     end
 
-    n += 1
-    n_inv = inv(T(n))
+    n += one(n)
+    sum_w += Single(weight)
+    sum_w2 += Single(weight^2)
+
+    sum_w_inv = inv(T(sum_w))
 
     @inbounds @simd for i in idxs
         x = data[i + dshft]
         mean_X = Mean_X[i]
-        New_Mean_X[i] = muladd(x - mean_X, n_inv, mean_X)
+        New_Mean_X[i] = muladd(x - mean_X, sum_w_inv, mean_X)
     end
 
     @inbounds for j in idxs
@@ -248,6 +295,8 @@ end
     end
 
     ocv.n = n
+    ocv.sum_w = sum_w
+    ocv.sum_w2 = sum_w2
 
     ocv
 end
