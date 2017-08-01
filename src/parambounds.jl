@@ -1,12 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-
-# export ParamValues
-
-# const ParamValues{T} = StridedVector{T}
-
-
 export AbstractParamBounds
 
 abstract type AbstractParamBounds{T<:Real} end

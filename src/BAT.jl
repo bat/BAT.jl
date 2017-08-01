@@ -8,7 +8,7 @@ include.([
     "rand.jl",
     "util.jl",
     "onlinestats.jl",
-    "parameters.jl",
+    "parambounds.jl",
     "targetfunction.jl",
     "proposalfunction.jl",
     "mhsampler.jl",
