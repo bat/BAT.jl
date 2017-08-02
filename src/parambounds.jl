@@ -11,8 +11,10 @@ Base.eltype{T}(b::AbstractParamBounds{T}) = T
 
 
 
-oob{T<:AbstractFloat}(x::T) = T(NaN)
-oob{T<:AbstractFloat}(x::T) = typemax(T)
+oob{T<:AbstractFloat}(::Type{T}) = T(NaN)
+oob{T<:Integer}(::Type{T}) = typemax(T)
+oob(x::Real) = oob(typeof(x))
+
 
 isoob(x) = x == oob(x)
 

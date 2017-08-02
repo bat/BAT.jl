@@ -5,12 +5,6 @@ abstract type AbstractTargetFunction end
 
 #=
 
-struct ExecContext
-    multithreaded::Bool
-    onprocs::StepRange{Int,Int}
-end
-
-ExecContext() = ExecContext(false, myid():1:myid())
 
 
 function (target::DummyTargetFunction)(
