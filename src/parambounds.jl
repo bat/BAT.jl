@@ -1,5 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+using IntervalSets
+
 
 export AbstractParamBounds
 
@@ -7,6 +9,14 @@ abstract type AbstractParamBounds{T<:Real} end
 
 Base.eltype{T}(b::AbstractParamBounds{T}) = T
 
+
+
+oob{T<:AbstractFloat}(x::T) = T(NaN)
+oob{T<:AbstractFloat}(x::T) = typemax(T)
+
+isoob(x) = x == oob(x)
+
+inbounds_or_invalid(x, bounds::ClosedInterval) = iforelse(x in bounds, x, oob(x))
 
 
 export UnboundedParams
