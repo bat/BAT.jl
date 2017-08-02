@@ -47,7 +47,7 @@ issymmetric_at_origin(d::Gamma) = false
 
 issymmetric_at_origin(d::Chisq) = false
 
-issymmetric_at_origin(d::MvNormal) = all(x -> x == 0, mv.μ)
+issymmetric_at_origin(d::MvNormal) = _iszero(d.μ)
 
 issymmetric_at_origin(d::Distributions.GenericMvTDist) = d.zeromean
 

@@ -5,6 +5,7 @@ __precompile__(true)
 module BAT
 
 include.([
+    "shims.jl",
     "rand.jl",
     "util.jl",
     "execcontext.jl",
