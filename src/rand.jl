@@ -179,17 +179,26 @@ Base.length(s::BATMvTDistSampler) = length(s.d)
 
 Base.eltype(s::BATMvTDistSampler) = eltype(s.d.Σ)
 
-# Based on implementation of Distributions._rand!{T<:Real}(d::GenericMvTDist, x::AbstractVector{T}):
-function Base.rand!{T<:Real}(rng::AbstractRNG, s::BATMvTDistSampler, x::AbstractVector{T})
+
+
+_tdist_scaling_factor(rng::AbstractRNG, x::AbstractVector, df::Real) = sqrt(df / rand(rng, bat_sampler(Chisq(df))))
+
+function _tdist_scaling_factor(rng::AbstractRNG, x::AbstractMatrix, df::Real)
+    scaling_factor = similar(x, 1, size(x, 2))
+    rand!(rng, bat_sampler(Chisq(df)), scaling_factor)
+    scaling_factor .= sqrt.(df ./ scaling_factor)
+end
+
+
+function Base.rand!{T<:Real}(rng::AbstractRNG, s::BATMvTDistSampler, x::StridedVecOrMat{T})
     d = s.d
-    chisqd = Chisq(d.df)
-    y = sqrt(rand(rng, bat_sampler(chisqd))/(d.df))
+
+    scaling_factor = _tdist_scaling_factor(rng, x, d.df)
     unwhiten!(d.Σ, randn!(rng, x))
-    broadcast!(/, x, x, y)
-    if !d.zeromean
-        broadcast!(+, x, x, d.μ)
-    end
+    broadcast!(muladd, x, x, scaling_factor, d.μ)
     x
 end
+
+
 
 bat_sampler(d::Distributions.GenericMvTDist) = BATMvTDistSampler(d)
