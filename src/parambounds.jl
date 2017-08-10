@@ -51,6 +51,7 @@ struct HyperCubeBounds{T<:Real} <: BoundedParams{T}
         @inbounds for i in eachindex(from, to)
             (from[i] > to[i]) && throw(ArgumentError("from[$i] must be <= to[$i]"))
         end
+        new{T}(from, to)
     end
 end
 
