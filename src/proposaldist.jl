@@ -4,7 +4,7 @@ using Distributions
 
 
 """
-    ProposalDist{P<:Real}
+    ProposalDist
 
 The following functions must be implemented for subtypes:
 
@@ -12,13 +12,13 @@ The following functions must be implemented for subtypes:
 * `BAT.proposal_rand!`
 * `Base.issymmetric`
 """
-abstract type ProposalDist{P<:Real} end
+abstract type ProposalDist end
 
 
 """
     proposal_pdf!(
-        pdist::ProposalDist,
         p::AbstractVector
+        pdist::ProposalDist,
         new_params::AbstractMatrix,
         old_params:::AbstractMatrix
     )
@@ -83,36 +83,36 @@ export proposal_rand!
 
 
 
-struct GenericProposalDist{P<:Real,D<:Distribution,SamplerF,S<:Sampleable} <: ProposalDist{P}
+struct GenericProposalDist{D<:Distribution,SamplerF,S<:Sampleable} <: ProposalDist
     d::D
     sampler_f::SamplerF
     s::S
 
-    function GenericProposalDist{P,D,SamplerF}(d::D, sampler_f::SamplerF) where {P<:Real,D<:Distribution,SamplerF}
+    function GenericProposalDist{D,SamplerF}(d::D, sampler_f::SamplerF) where {D<:Distribution,SamplerF}
         s = sampler_f(d)
-        new{P,D,SamplerF, typeof(s)}(d, sampler_f, s)
+        new{D,SamplerF, typeof(s)}(d, sampler_f, s)
     end
 
 end
 
 export GenericProposalDist
 
-GenericProposalDist{P<:Real,D<:Distribution,SamplerF}(::Type{P}, d::D, sampler_f::SamplerF) =
-    GenericProposalDist{P,D,SamplerF}(d, sampler_f)
+GenericProposalDist{D<:Distribution,SamplerF}(d::D, sampler_f::SamplerF) =
+    GenericProposalDist{D,SamplerF}(d, sampler_f)
 
-GenericProposalDist{P<:Real}(::Type{P}, d::Distribution) = GenericProposalDist(P, d, bat_sampler)
+GenericProposalDist(d::Distribution) = GenericProposalDist(d, bat_sampler)
 
-Base.similar{P<:Real}(q::GenericProposalDist{P}, d::Distribution) =
-    GenericProposalDist(P, d, q.sampler_f)
+Base.similar(q::GenericProposalDist, d::Distribution) =
+    GenericProposalDist(d, q.sampler_f)
 
 
-GenericProposalDist{P<:Real}(d::Distributions.MvNormal{P}) = GenericProposalDist(P, d, bat_sampler)
-GenericProposalDist{P<:Real}(d::Distributions.GenericMvTDist{P}) = GenericProposalDist(P, d, bat_sampler)
+GenericProposalDist(d::Distributions.MvNormal) = GenericProposalDist(d, bat_sampler)
+GenericProposalDist(d::Distributions.GenericMvTDist) = GenericProposalDist(d, bat_sampler)
 
 
 function proposal_pdf!(
-    pdist::GenericProposalDist,
     p::AbstractVector,
+    pdist::GenericProposalDist,
     new_params::AbstractMatrix,
     old_params::AbstractMatrix,
     tmp_params::AbstractMatrix = similar(new_params)
@@ -129,7 +129,7 @@ function proposal_rand!(
     old_params::AbstractMatrix,
     bounds::AbstractParamBounds
 )
-    rand!(rng, s, new_params)
+    rand!(rng, pdist.s, new_params)
     new_params .+= old_params
 end
 
