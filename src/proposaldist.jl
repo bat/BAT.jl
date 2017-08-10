@@ -2,13 +2,15 @@
 
 using Distributions
 
+
 """
     ProposalDist{P<:Real}
 
 The following functions must be implemented for subtypes:
 
-* `proposal_pdf!`
-* `proposal_rand!`
+* `BAT.proposal_pdf!`
+* `BAT.proposal_rand!`
+* `Base.issymmetric`
 """
 abstract type ProposalDist{P<:Real} end
 
@@ -18,8 +20,7 @@ abstract type ProposalDist{P<:Real} end
         pdist::ProposalDist,
         p::AbstractVector
         new_params::AbstractMatrix,
-        old_params:::AbstractMatrix,
-        exec_context::ExecContext = ExecContext()
+        old_params:::AbstractMatrix
     )
 
 PDF value of `pdist` for transitioning from old to new parameter values for
@@ -36,8 +37,7 @@ Output is stored in
 
 * `p`: Vector of PDF values
 
-The caller must not assume that `proposal_pdf!` is thread-safe. Depending
-on `exec_context` it may also use multiple threads/processes internally.
+The caller must not assume that `proposal_pdf!` is thread-safe.
 """
 function proposal_pdf! end
 export proposal_pdf!
@@ -51,7 +51,7 @@ export proposal_pdf!
         new_params::AbstractMatrix,
         old_params::AbstractMatrix,
         bounds::AbstractParamBounds,
-        exec_context::ExecContext = ExecContext()
+        tmp_params::AbstractMatrix = similar(new_params)
     )
 
 For each column of `old_params`, make a single attemt to generate valid new
@@ -76,46 +76,10 @@ The caller must guarantee:
 * `new_params !== old_params`, no aliasing
 * For a specific instance, `rand!` is always called on the same thread.
 
-The caller must not assume that `proposal_pdf_rand!` is thread-safe. Depending
-on `exec_context` it may also use multiple threads/processes internally.
+The caller must not assume that `proposal_rand!` is thread-safe.
 """
 function proposal_rand! end
 export proposal_rand!
-
-
-#=
-"""
-    function proposal_pdf_rand!(
-        rng::AbstractRNG,
-        pdist::ProposalDist,
-        p_fwd::AbstractVector,
-        p_bck::AbstractVector,
-        new_params::AbstractMatrix,
-        old_params::AbstractMatrix,
-        bounds::AbstractParamBounds,
-        exec_context::ExecContext = ExecContext()
-    )
-
-Combines `proposal_pdf!` and `proposal_rand!`.
-"""
-
-function proposal_pdf_rand!(
-    rng::AbstractRNG,
-    pdist::ProposalDist,
-    p_fwd::AbstractVector,
-    p_bck::AbstractVector,
-    new_params::AbstractMatrix,
-    old_params::AbstractMatrix,
-    bounds::AbstractParamBounds,
-    exec_context::ExecContext = ExecContext()
-)
-    proposal_pdf!(p_fwd, pdist, new_params, old_params)
-    proposal_pdf!(p_bck, pdist, old_params, new_params)
-    proposal_rand!(rng, pdist, new_params, old_params, bounds, exec_context)
-end
-
-export proposal_pdf_rand!
-=#
 
 
 
@@ -123,10 +87,8 @@ struct GenericProposalDist{P<:Real,D<:Distribution,SamplerF,S<:Sampleable} <: Pr
     d::D
     sampler_f::SamplerF
     s::S
-    tmp_params::Vector
 
     function GenericProposalDist{P,D,SamplerF}(d::D, sampler_f::SamplerF) where {P<:Real,D<:Distribution,SamplerF}
-        issymmetric_at_origin(d) || throw(ArgumentError("Distribution $d must be symmetric at origin"))
         s = sampler_f(d)
         new{P,D,SamplerF, typeof(s)}(d, sampler_f, s)
     end
@@ -144,25 +106,32 @@ Base.similar{P<:Real}(q::GenericProposalDist{P}, d::Distribution) =
     GenericProposalDist(P, d, q.sampler_f)
 
 
-#=
+GenericProposalDist{P<:Real}(d::Distributions.MvNormal{P}) = GenericProposalDist(P, d, bat_sampler)
+GenericProposalDist{P<:Real}(d::Distributions.GenericMvTDist{P}) = GenericProposalDist(P, d, bat_sampler)
+
 
 function proposal_pdf!(
     pdist::GenericProposalDist,
     p::AbstractVector,
     new_params::AbstractMatrix,
-    old_params:::AbstractMatrix,
-    exec_context::ExecContext = ExecContext()
+    old_params::AbstractMatrix,
+    tmp_params::AbstractMatrix = similar(new_params)
 )
-    for j in indices(new_params, 2)
-        for i in indices(new_params, 1)
-            ...
-        end
-    end
-
-    ...
+    tmp_params .= new_params .- old_params
+    Distributions.pdf!(p, pdist.d, tmp_params)
 end
 
-=#
 
-GenericProposalDist{P<:Real}(d::Distributions.MvNormal{P}) = GenericProposalDist(P, d, bat_sampler)
-GenericProposalDist{P<:Real}(d::Distributions.GenericMvTDist{P}) = GenericProposalDist(P, d, bat_sampler)
+function proposal_rand!(
+    rng::AbstractRNG,
+    pdist::GenericProposalDist,
+    new_params::AbstractMatrix,
+    old_params::AbstractMatrix,
+    bounds::AbstractParamBounds
+)
+    rand!(rng, s, new_params)
+    new_params .+= old_params
+end
+
+
+Base.issymmetric(pdist::GenericProposalDist) = issymmetric_around_origin(pdist.d)
