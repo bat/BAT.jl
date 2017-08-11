@@ -47,11 +47,10 @@ export proposal_pdf!
 """
     function proposal_rand!(
         rng::AbstractRNG,
-        pdist::ProposalDist,
+        pdist::GenericProposalDist,
         new_params::AbstractMatrix,
         old_params::AbstractMatrix,
-        bounds::AbstractParamBounds,
-        tmp_params::AbstractMatrix = similar(new_params)
+        bounds::AbstractParamBounds
     )
 
 For each column of `old_params`, make a single attemt to generate valid new
@@ -114,11 +113,10 @@ function proposal_pdf!(
     p::AbstractVector,
     pdist::GenericProposalDist,
     new_params::AbstractMatrix,
-    old_params::AbstractMatrix,
-    tmp_params::AbstractMatrix = similar(new_params)
+    old_params::AbstractMatrix
 )
-    tmp_params .= new_params .- old_params
-    Distributions.pdf!(p, pdist.d, tmp_params)
+    params_diff = new_params - old_params # TODO: Avoid memory allocation
+    Distributions.pdf!(p, pdist.d, params_diff)
 end
 
 

@@ -184,7 +184,7 @@ Base.eltype(s::BATMvTDistSampler) = eltype(s.d.Σ)
 _tdist_scaling_factor(rng::AbstractRNG, x::AbstractVector, df::Real) = sqrt(df / rand(rng, bat_sampler(Chisq(df))))
 
 function _tdist_scaling_factor(rng::AbstractRNG, x::AbstractMatrix, df::Real)
-    scaling_factor = similar(x, 1, size(x, 2))
+    scaling_factor = similar(x, 1, size(x, 2)) # TODO: Avoid memory allocation
     rand!(rng, bat_sampler(Chisq(df)), scaling_factor)
     scaling_factor .= sqrt.(df ./ scaling_factor)
 end
@@ -194,7 +194,7 @@ function Base.rand!{T<:Real}(rng::AbstractRNG, s::BATMvTDistSampler, x::StridedV
     d = s.d
 
     scaling_factor = _tdist_scaling_factor(rng, x, d.df)
-    unwhiten!(d.Σ, randn!(rng, x))
+    unwhiten!(d.Σ, randn!(rng, x))  # TODO: Avoid memory allocation (caused by Σ.chol[:UL] in unwhiten! implementation)
     broadcast!(muladd, x, x, scaling_factor, d.μ)
     x
 end
