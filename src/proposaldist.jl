@@ -124,6 +124,16 @@ function proposal_rand!(
     rng::AbstractRNG,
     pdist::GenericProposalDist,
     new_params::AbstractMatrix,
+    old_params::AbstractMatrix
+)
+    rand!(rng, pdist.s, new_params)
+    new_params .+= old_params
+end
+
+function proposal_clamp!(
+    rng::AbstractRNG,
+    pdist::GenericProposalDist,
+    new_params::AbstractMatrix,
     old_params::AbstractMatrix,
     bounds::AbstractParamBounds
 )
