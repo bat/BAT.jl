@@ -11,14 +11,54 @@ Base.eltype{T}(b::AbstractParamBounds{T}) = T
 
 
 
-oob{T<:AbstractFloat}(::Type{T}) = T(NaN)
-oob{T<:Integer}(::Type{T}) = typemax(T)
-oob(x::Real) = oob(typeof(x))
+@inline oob{T<:AbstractFloat}(::Type{T}) = T(NaN)
+@inline oob{T<:Integer}(::Type{T}) = typemax(T)
+@inline oob(x::Real) = oob(typeof(x))
+
+@inline isoob(x) = x == oob(x)
+
+@inline inbounds_or_invalid(x, bounds::ClosedInterval) = iforelse(x in bounds, x, oob(x))
 
 
-isoob(x) = x == oob(x)
+@enum BoundaryType hard_boundary=1 cyclic_boundary=2 mirror_boundary=3
+export BoundaryType
+export hard_boundary
+export cyclic_boundary
+export mirror_boundary
 
-inbounds_or_invalid(x, bounds::ClosedInterval) = iforelse(x in bounds, x, oob(x))
+
+@inline float_iseven(n::T) where {T<:AbstractFloat} = (n - T(2) * floor((n + T(0.5)) * T(0.5))) < T(0.5)
+
+@inline function apply_bounds(x::X, lo::L, hi::H, boundary_type::BoundaryType) where {X<:Real,L<:Real,H<:Real}
+    T = float(promote_type(X, L, H))
+
+    offs = ifelse(x < lo, lo - x, x - hi)
+    hi_lo = hi - lo
+    nwrapped = floor(offs / (hi_lo))
+    even_nwrapped = float_iseven(nwrapped)
+    wrapped_offs = muladd(-nwrapped, (hi_lo), offs)
+
+    hb = (boundary_type == hard_boundary)
+    mb = (boundary_type == mirror_boundary)
+
+    ifelse(
+        lo <= x <= hi,
+        convert(T, x),
+        ifelse(
+            hb,
+            oob(T),
+            ifelse(
+                (x < lo && (!mb || mb && !even_nwrapped)) || (x > lo && mb && even_nwrapped),
+                convert(T, hi - wrapped_offs),
+                convert(T, lo + wrapped_offs)
+            )
+        )
+    )
+end
+
+@inline apply_bounds(x::Real, interval::ClosedInterval, boundary_type::BoundaryType) =
+    apply_bounds(x, minimum(interval), maximum(interval), boundary_type)
+
 
 
 export UnboundedParams
