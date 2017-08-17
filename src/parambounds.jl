@@ -72,6 +72,7 @@ Base.length(b::UnboundedParams) = b.ndims
 Base.in(params::AbstractVector, bounds::UnboundedParams) = true
 Base.in(params::AbstractMatrix, bounds::UnboundedParams, i::Integer) = true
 
+apply_bounds!(params::AbstractVector, bounds::UnboundedParams) = params
 
 
 export BoundedParams
@@ -83,38 +84,42 @@ abstract type BoundedParams{T<:Real} <: AbstractParamBounds{T} end
 export HyperCubeBounds
 
 struct HyperCubeBounds{T<:Real} <: BoundedParams{T}
-    from::Vector{T}
-    to::Vector{T}
+    lo::Vector{T}
+    hi::Vector{T}
     bt::Vector{BoundsType}
 
-    function HyperCubeBounds{T}(from::Vector{T}, to::Vector{T}, bt::Vector{BoundsType}) where {T<:Real}
-        (indices(from) != indices(to)) && throw(ArgumentError("from and to must have the same indices"))
-        @inbounds for i in eachindex(from, to)
-            (from[i] > to[i]) && throw(ArgumentError("from[$i] must be <= to[$i]"))
+    function HyperCubeBounds{T}(lo::Vector{T}, hi::Vector{T}, bt::Vector{BoundsType}) where {T<:Real}
+        (indices(lo) != indices(hi)) && throw(ArgumentError("lo and hi must have the same indices"))
+        @inbounds for i in eachindex(lo, hi)
+            (lo[i] > hi[i]) && throw(ArgumentError("lo[$i] must be <= hi[$i]"))
         end
-        new{T}(from, to, bt)
+        new{T}(lo, hi, bt)
     end
 end
 
 
-HyperCubeBounds{T<:Real}(from::Vector{T}, to::Vector{T}, bt::Vector{BoundsType}) = HyperCubeBounds{T}(from, to, bt)
+HyperCubeBounds{T<:Real}(lo::Vector{T}, hi::Vector{T}, bt::Vector{BoundsType}) = HyperCubeBounds{T}(lo, hi, bt)
 
 
 
-Base.length(b::HyperCubeBounds) = length(b.from)
+Base.length(b::HyperCubeBounds) = length(b.lo)
 
 
 Base.in(params::AbstractVector, bounds::HyperCubeBounds) =
-    _multi_array_le(bounds.from, params, bounds.to)
+    _multi_array_le(bounds.lo, params, bounds.hi)
 
 function Base.in(params::AbstractMatrix, bounds::HyperCubeBounds, j::Integer)
-    from = bounds.from
-    to = bounds.to
+    lo = bounds.lo
+    hi = bounds.hi
     @inbounds for i in eachindex(a,b,c)
-        (from[i] <= params[i, j] <= to[i]) || return false
+        (lo[i] <= params[i, j] <= hi[i]) || return false
     end
     return true
 end
+
+
+apply_bounds!(params::AbstractVecOrMat, bounds::HyperCubeBounds) =
+    params .= apply_bounds.(params, bounds.lo, bounds.hi, bounds.bt)
 
 
 
@@ -123,14 +128,14 @@ param_bounds(bounds::AbstractParamBounds, log_f) = (bounds, log_f)
 function param_bounds{T}(bounds::Vector{NTuple{2,T}}, log_f)
     U = float(T)
     n = length(bounds)
-    from = map!(x -> x[1], Vector{U}(n), bounds)
-    to = map!(x -> x[2], Vector{U}(n), bounds)
-    (HyperCubeBounds(from, to), log_f)
+    lo = map!(x -> x[1], Vector{U}(n), bounds)
+    hi = map!(x -> x[2], Vector{U}(n), bounds)
+    (HyperCubeBounds(lo, hi), log_f)
 end
 
 function param_bounds{T}(bounds::NTuple{2,Vector{T}}, log_f)
     length(bounds[1]) != length(bounds[2]) && throw(DimensionMismatch("Lower and upper bound vectors must have the same length"))
-    from = float.(bounds[1])
-    to = float.(bounds[2])
-    (HyperCubeBounds(from, to), log_f)
+    lo = float.(bounds[1])
+    hi = float.(bounds[2])
+    (HyperCubeBounds(lo, hi), log_f)
 end
