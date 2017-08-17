@@ -13,6 +13,7 @@ The following functions must be implemented for subtypes:
 * `Base.issymmetric`
 """
 abstract type ProposalDist end
+export ProposalDist
 
 
 """
@@ -102,10 +103,6 @@ GenericProposalDist(d::Distribution) = GenericProposalDist(d, bat_sampler)
 
 Base.similar(q::GenericProposalDist, d::Distribution) =
     GenericProposalDist(d, q.sampler_f)
-
-
-GenericProposalDist(d::Distributions.MvNormal) = GenericProposalDist(d, bat_sampler)
-GenericProposalDist(d::Distributions.GenericMvTDist) = GenericProposalDist(d, bat_sampler)
 
 
 function proposal_pdf!(
