@@ -49,8 +49,7 @@ export proposal_pdf!
         rng::AbstractRNG,
         pdist::GenericProposalDist,
         new_params::AbstractMatrix,
-        old_params::AbstractMatrix,
-        bounds::AbstractParamBounds
+        old_params::AbstractMatrix
     )
 
 For each column of `old_params`, make a single attemt to generate valid new
@@ -125,17 +124,6 @@ function proposal_rand!(
     pdist::GenericProposalDist,
     new_params::AbstractMatrix,
     old_params::AbstractMatrix
-)
-    rand!(rng, pdist.s, new_params)
-    new_params .+= old_params
-end
-
-function proposal_clamp!(
-    rng::AbstractRNG,
-    pdist::GenericProposalDist,
-    new_params::AbstractMatrix,
-    old_params::AbstractMatrix,
-    bounds::AbstractParamBounds
 )
     rand!(rng, pdist.s, new_params)
     new_params .+= old_params
