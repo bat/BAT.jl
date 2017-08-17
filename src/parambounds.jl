@@ -20,16 +20,16 @@ Base.eltype{T}(b::AbstractParamBounds{T}) = T
 @inline inbounds_or_invalid(x, bounds::ClosedInterval) = iforelse(x in bounds, x, oob(x))
 
 
-@enum BoundaryType hard_boundary=1 cyclic_boundary=2 mirror_boundary=3
-export BoundaryType
-export hard_boundary
-export cyclic_boundary
-export mirror_boundary
+@enum BoundsType hard_bounds=1 cyclic_bounds=2 reflective_bounds=3
+export BoundsType
+export hard_bounds
+export cyclic_bounds
+export reflective_bounds
 
 
 @inline float_iseven(n::T) where {T<:AbstractFloat} = (n - T(2) * floor((n + T(0.5)) * T(0.5))) < T(0.5)
 
-@inline function apply_bounds(x::X, lo::L, hi::H, boundary_type::BoundaryType) where {X<:Real,L<:Real,H<:Real}
+@inline function apply_bounds(x::X, lo::L, hi::H, boundary_type::BoundsType) where {X<:Real,L<:Real,H<:Real}
     T = float(promote_type(X, L, H))
 
     offs = ifelse(x < lo, lo - x, x - hi)
@@ -38,8 +38,8 @@ export mirror_boundary
     even_nwrapped = float_iseven(nwrapped)
     wrapped_offs = muladd(-nwrapped, (hi_lo), offs)
 
-    hb = (boundary_type == hard_boundary)
-    mb = (boundary_type == mirror_boundary)
+    hb = (boundary_type == hard_bounds)
+    rb = (boundary_type == reflective_bounds)
 
     ifelse(
         lo <= x <= hi,
@@ -48,7 +48,7 @@ export mirror_boundary
             hb,
             oob(T),
             ifelse(
-                (x < lo && (!mb || mb && !even_nwrapped)) || (x > lo && mb && even_nwrapped),
+                (x < lo && (!rb || rb && !even_nwrapped)) || (x > lo && rb && even_nwrapped),
                 convert(T, hi - wrapped_offs),
                 convert(T, lo + wrapped_offs)
             )
@@ -56,7 +56,7 @@ export mirror_boundary
     )
 end
 
-@inline apply_bounds(x::Real, interval::ClosedInterval, boundary_type::BoundaryType) =
+@inline apply_bounds(x::Real, interval::ClosedInterval, boundary_type::BoundsType) =
     apply_bounds(x, minimum(interval), maximum(interval), boundary_type)
 
 
@@ -85,18 +85,19 @@ export HyperCubeBounds
 struct HyperCubeBounds{T<:Real} <: BoundedParams{T}
     from::Vector{T}
     to::Vector{T}
+    bt::Vector{BoundsType}
 
-    function HyperCubeBounds{T}(from::Vector{T}, to::Vector{T}) where {T<:Real}
+    function HyperCubeBounds{T}(from::Vector{T}, to::Vector{T}, bt::Vector{BoundsType}) where {T<:Real}
         (indices(from) != indices(to)) && throw(ArgumentError("from and to must have the same indices"))
         @inbounds for i in eachindex(from, to)
             (from[i] > to[i]) && throw(ArgumentError("from[$i] must be <= to[$i]"))
         end
-        new{T}(from, to)
+        new{T}(from, to, bt)
     end
 end
 
 
-HyperCubeBounds{T<:Real}(from::Vector{T}, to::Vector{T}) = HyperCubeBounds{T}(from, to)
+HyperCubeBounds{T<:Real}(from::Vector{T}, to::Vector{T}, bt::Vector{BoundsType}) = HyperCubeBounds{T}(from, to, bt)
 
 
 
