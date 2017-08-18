@@ -8,7 +8,7 @@ using Distributions
 
 The following functions must be implemented for subtypes:
 
-* `BAT.proposal_pdf!`
+* `BAT.proposal_logpdf!`
 * `BAT.proposal_rand!`
 * `Base.length`, returning the number of parameters (i.e. dimensionality).
 * `Base.issymmetric`, indicating whether p(a -> b) == p(b -> a) holds true.
@@ -18,15 +18,15 @@ export ProposalDist
 
 
 """
-    proposal_pdf!(
+    proposal_logpdf!(
         p::AbstractArray,
         pdist::ProposalDist,
         new_params::AbstractMatrix,
         old_params:::AbstractMatrix
     )
 
-PDF value of `pdist` for transitioning from old to new parameter values for
-multiple parameter sets.
+log(PDF) value of `pdist` for transitioning from old to new parameter values
+for multiple parameter sets.
     
 end
 
@@ -43,12 +43,22 @@ Array size requirements:
 
     size(new_params) == size(old_params) == (length(pdist), length(p)) 
 
-The caller must not assume that `proposal_pdf!` is thread-safe.
+The caller must not assume that `proposal_logpdf!` is thread-safe.
 """
-function proposal_pdf! end
-export proposal_pdf!
+function proposal_logpdf! end
+export proposal_logpdf!
 
-# TODO: use proposal_logpdf! instead!
+
+"""
+    proposal_logpdf!(
+        pdist::ProposalDist,
+        new_params::AbstractVector,
+        old_params:::AbstractVector
+    )
+"""
+function proposal_logpdf end
+export proposal_logpdf
+
 
 
 """
@@ -110,14 +120,24 @@ Base.similar(q::GenericProposalDist, d::Distribution) =
     GenericProposalDist(d, q.sampler_f)
 
 
-function proposal_pdf!(
+function proposal_logpdf!(
     p::AbstractArray,
     pdist::GenericProposalDist,
     new_params::AbstractMatrix,
     old_params::AbstractMatrix
 )
     params_diff = new_params - old_params # TODO: Avoid memory allocation
-    Distributions.pdf!(p, pdist.d, params_diff)
+    Distributions.logpdf!(p, pdist.d, params_diff)
+end
+
+
+function proposal_logpdf(
+    pdist::GenericProposalDist,
+    new_params::AbstractVector,
+    old_params::AbstractVector
+)
+    params_diff = new_params - old_params # TODO: Avoid memory allocation
+    Distributions.logpdf(pdist.d, params_diff)
 end
 
 
