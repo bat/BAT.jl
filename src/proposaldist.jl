@@ -10,7 +10,8 @@ The following functions must be implemented for subtypes:
 
 * `BAT.proposal_pdf!`
 * `BAT.proposal_rand!`
-* `Base.issymmetric`
+* `Base.length`, returning the number of parameters (i.e. dimensionality).
+* `Base.issymmetric`, indicating whether p(a -> b) == p(b -> a) holds true.
 """
 abstract type ProposalDist end
 export ProposalDist
@@ -18,7 +19,7 @@ export ProposalDist
 
 """
     proposal_pdf!(
-        p::AbstractVector
+        p::AbstractArray,
         pdist::ProposalDist,
         new_params::AbstractMatrix,
         old_params:::AbstractMatrix
@@ -36,13 +37,18 @@ Input:
 
 Output is stored in
 
-* `p`: Vector of PDF values
+* `p`: Array of PDF values, length must match, shape is ignored
+
+Array size requirements:
+
+    size(new_params) == size(old_params) == (length(pdist), length(p)) 
 
 The caller must not assume that `proposal_pdf!` is thread-safe.
 """
 function proposal_pdf! end
 export proposal_pdf!
 
+# TODO: use proposal_logpdf! instead!
 
 
 """
@@ -63,7 +69,6 @@ Input:
 * `rng`: Random number generator to use
 * `pdist`: Proposal distribution to use
 * `old_params`: Old parameter values (column vectors)
-* `bounds`: Parameter bounds (column vectors)
 
 Output is stored in
 
@@ -106,7 +111,7 @@ Base.similar(q::GenericProposalDist, d::Distribution) =
 
 
 function proposal_pdf!(
-    p::AbstractVector,
+    p::AbstractArray,
     pdist::GenericProposalDist,
     new_params::AbstractMatrix,
     old_params::AbstractMatrix
@@ -126,5 +131,7 @@ function proposal_rand!(
     new_params .+= old_params
 end
 
+
+Base.length(pdist::GenericProposalDist) = length(pdist.d)
 
 Base.issymmetric(pdist::GenericProposalDist) = issymmetric_around_origin(pdist.d)

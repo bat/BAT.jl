@@ -9,11 +9,11 @@
 # Use FunctionWrappers, e.g. FunctionWrapper{Float64,Tuple{Float64, ...}}(f)?
 
 
-mutable struct MetropolisChainState{
+mutable struct MHChainState{
     T<:Real,
     P<:Real,
     F<:TargetFunction,
-    Q<:AbstractProposalFunction,
+    Q<:ProposalDist,
     QS<:Sampleable{Multivariate}
     RNG<:AbstractRNG,
 }
@@ -29,7 +29,7 @@ mutable struct MetropolisChainState{
 end
 
 
-metropolis_step(state::MetropolisChainState) = begin
+mh_chain_step(state::MHChainState) = begin
     rand!(state.rng, state.q, state.new_params)
     state.new_params .+= state.params
 
@@ -50,13 +50,13 @@ end
 
 abstract MCSampler
 
-mutable struct MetropolisSampler{F} <: AbstractMCSampler
+mutable struct MHSampler{F} <: AbstractMCSampler
     log_f::F
     ...
 end
 
 
-function MetropolisSampler(
+function MHSampler(
     log_f::Any, # target function, log_f(params::AbstractVector, aux_values::)
     param_bounds::Union{AbstractParamBounds, Vector{NTuple{2}}},
     q::AbstractProposalFunction = MvNormal(...),     # proposal distribution
@@ -135,7 +135,7 @@ end
 
 # User:
 
-sampler = MetropolisSampler(x -> -x^2/2, [(-4, 4)], n_chains = 4)
+sampler = MHSampler(x -> -x^2/2, [(-4, 4)], n_chains = 4)
 output = rand(sampler, 1000000) = ...::SamplerOutput
 
 =#

@@ -1,7 +1,87 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+"""
+    ProposalDist
+
+The following functions must be implemented for subtypes:
+
+* `BAT.target_logval`
+* `BAT.target_logval!`
+"""
 abstract type AbstractTargetFunction end
+export AbstractTargetFunction
+
+
+"""
+    target_logval!(
+        r::AbstractArray{<:Real},
+        target::AbstractTargetFunction,
+        params::AbstractMatrix{<:Real},
+        exec_context::ExecContext
+    )
+
+PDF value of `pdist` for transitioning from old to new parameter values for
+multiple parameter sets.
+
+end
+
+Input:
+
+* `params`: parameter values (column vectors)
+* `bounds`: Parameter bounds
+* `exec_context`: Execution context
+
+Output is stored in
+
+* `r`: Array of log-result values, length must match, shape is ignored
+
+Array size requirements:
+
+    size(params,1) == length(r)
+"""
+function target_logval! end
+export target_logval!
+
+
+"""
+    target_logval(
+        target::AbstractTargetFunction,
+        params::AbstractVector{<:Real}
+    )
+
+The caller must not assume that `target_logval` is thread-safe.
+"""
+function target_logval end
+export target_logval
+
+
+struct ConstTargetFunction{T<:Real} <: AbstractTargetFunction
+    log_value::T
+end
+
+export ConstTargetFunction
+
+
+function target_logval!(
+    r::AbstractArray{<:Real},
+    target::AbstractTargetFunction,
+    params::AbstractMatrix{<:Real},
+    exec_context::ExecContext
+)
+    @assert size(params, 2) == length(r)
+    fill!(r, target.log_value)
+end
+
+
+function target_logval(
+    target::AbstractTargetFunction,
+    params::AbstractVector{<:Real}
+)
+    target.log_value
+end
+
+
 
 #=
 
