@@ -21,8 +21,8 @@ export ProposalDist
     proposal_logpdf!(
         p::AbstractArray,
         pdist::ProposalDist,
-        new_params::AbstractMatrix,
-        old_params:::AbstractMatrix
+        params_new::AbstractVecOrMat,
+        params_old:::AbstractVecOrMat
     )
 
 log(PDF) value of `pdist` for transitioning from old to new parameter values
@@ -32,8 +32,8 @@ end
 
 Input:
 
-* `new_params`: New parameter values (column vectors)
-* `old_params`: Old parameter values (column vectors)
+* `params_new`: New parameter values (column vectors)
+* `params_old`: Old parameter values (column vectors)
 
 Output is stored in
 
@@ -41,7 +41,9 @@ Output is stored in
 
 Array size requirements:
 
-    size(new_params) == size(old_params) == (length(pdist), length(p)) 
+* `size(params_old, 1) == size(params_new, 1) == length(pdist)`
+* `size(params_old, 2) == size(params_new, 2)` or `size(params_old, 2) == 1`
+* `size(params_new, 2) == length(p)`
 
 The caller must not assume that `proposal_logpdf!` is thread-safe.
 """
@@ -49,15 +51,15 @@ function proposal_logpdf! end
 export proposal_logpdf!
 
 
-"""
-    proposal_logpdf!(
-        pdist::ProposalDist,
-        new_params::AbstractVector,
-        old_params:::AbstractVector
-    )
-"""
-function proposal_logpdf end
-export proposal_logpdf
+# """
+#     proposal_logpdf(
+#         pdist::ProposalDist,
+#         params_new::AbstractVecOrMat,
+#         params_old:::AbstractVecOrMat
+#     )
+# """
+# function proposal_logpdf end
+# export proposal_logpdf
 
 
 
@@ -65,30 +67,28 @@ export proposal_logpdf
     function proposal_rand!(
         rng::AbstractRNG,
         pdist::GenericProposalDist,
-        new_params::AbstractMatrix,
-        old_params::AbstractMatrix
+        params_new::AbstractVecOrMat,
+        params_old::AbstractVecOrMat
     )
 
-For each column of `old_params`, make a single attemt to generate valid new
-vector of parameters based on `pdist`, given `old_params`. Ensures that each
-new parameter vector is either withing `bounds`, or marked invalid by
-settings at least one of its elements to `oob(eltype(new_params))`.
+Generate one or multiple proposed parameter vectors, based on one or multiple
+previous parameter vectors.
 
 Input:
 
 * `rng`: Random number generator to use
 * `pdist`: Proposal distribution to use
-* `old_params`: Old parameter values (column vectors)
+* `params_old`: Old parameter values (vector or column vectors in a matrix)
 
 Output is stored in
 
-* `new_params`: New parameter values (column vectors)
+* `params_new`: New parameter values (vector or column vectors in a matrix)
 
 The caller must guarantee:
 
-* ```indices(`new_params`) == indices(`old_params`)```
-* `new_params !== old_params`, no aliasing
-* For a specific instance, `rand!` is always called on the same thread.
+* `size(params_old, 1) == size(params_new, 1)`
+* `size(params_old, 2) == size(params_new, 2)` or `size(params_old, 2) == 1`
+* `params_new !== params_old` (no aliasing)
 
 The caller must not assume that `proposal_rand!` is thread-safe.
 """
@@ -123,32 +123,34 @@ Base.similar(q::GenericProposalDist, d::Distribution) =
 function proposal_logpdf!(
     p::AbstractArray,
     pdist::GenericProposalDist,
-    new_params::AbstractMatrix,
-    old_params::AbstractMatrix
+    params_new::AbstractMatrix,
+    params_old::AbstractVecOrMat
 )
-    params_diff = new_params - old_params # TODO: Avoid memory allocation
+    params_diff = params_new .- params_old # TODO: Avoid memory allocation
     Distributions.logpdf!(p, pdist.d, params_diff)
 end
 
 
-function proposal_logpdf(
+function proposal_logpdf!(
+    p::AbstractArray,
     pdist::GenericProposalDist,
-    new_params::AbstractVector,
-    old_params::AbstractVector
+    params_new::AbstractVector,
+    params_old::AbstractVector
 )
-    params_diff = new_params - old_params # TODO: Avoid memory allocation
-    Distributions.logpdf(pdist.d, params_diff)
+    params_diff = params_new .- params_old # TODO: Avoid memory allocation
+    p[1] = Distributions.logpdf(pdist.d, params_diff)
+    p
 end
 
 
 function proposal_rand!(
     rng::AbstractRNG,
     pdist::GenericProposalDist,
-    new_params::AbstractMatrix,
-    old_params::AbstractMatrix
+    params_new::AbstractVecOrMat,
+    params_old::AbstractVecOrMat
 )
-    rand!(rng, pdist.s, new_params)
-    new_params .+= old_params
+    rand!(rng, pdist.s, params_new)
+    params_new .+= params_old
 end
 
 
