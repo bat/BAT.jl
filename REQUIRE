@@ -4,3 +4,4 @@ Distributions
 StatsBase
 DoubleDouble
 IntervalSets
+FunctionWrappers

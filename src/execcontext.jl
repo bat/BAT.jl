@@ -7,3 +7,11 @@ struct ExecContext
 end
 
 ExecContext() = ExecContext(false, myid():1:myid())
+
+
+struct ExecCompat
+    multithreading::Bool
+    max_procs::Int # Value of zero indicates that execution should happen on current process
+end
+
+ExecCompat() = ExecCompat(false, 0)
