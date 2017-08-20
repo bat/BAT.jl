@@ -12,40 +12,62 @@
 mutable struct MHChainState{
     T<:Real,
     P<:Real,
-    F<:TargetFunction,
+    F<:AbstractTargetFunction,
     Q<:ProposalDist,
-    QS<:Sampleable{Multivariate}
-    RNG<:AbstractRNG,
+    B<:AbstractParamBounds,
+    RNG<:AbstractRNG
 }
-    # TODO: Unicode symbols? Group log_f and param_bounds?
-    target::F,
+    f::F,
     q::Q,
-    q_sampler::QS,
-    rng::RNG,
-    params::Vector{P},
+    bounds::B,
     log_value::T,
-    new_params::Vector{P}
-    # stats::MCChainStats
+    params::Vector{P},
+    multiplicity::Int
 end
 
 
-mh_chain_step(state::MHChainState) = begin
-    rand!(state.rng, state.q, state.new_params)
-    state.new_params .+= state.params
 
-    accept = false
-    if new_params in state.param_bounds
-        new_log_value = state.log_f(state.λ_tmp)::typeof(state.p)
-        if isnan(new_log_value) error("Encountered NaN value for target function")
-        accept = log(rand(state.rng)) < new_log_value - state.log_value
-        if accept
-            copy!(state.λ, state.λ_tmp)
-            state.log_value = new_log_value
-        end
+function propose_and_eval!(
+    params_new::Vector{P},
+    f::AbstractTargetFunction,
+    q::ProposalDist,
+    params_old::Vector{P},
+    bounds::AbstractParamBounds,
+    scheduler::ExecScheduler
+)
+    proposal_rand!(rng, state.q, params_new, params_old)
+    apply_bounds!(par_new, bounds)
+    new_log_value = state.log_f(state.λ_tmp)::typeof(state.p)
+end
+
+
+
+mh_chain_step(state::AbstractVector{MHChainState}, scheduler::ExecScheduler) = begin
+    rng = state.rng
+    params_old = state.params
+    params_new = similar(params) # TODO: Avoid memory allocation
+
+    log_value_new = propose_and_eval!(
+        params_new,
+        state.f,
+        state.q,
+        params_old,
+        state.bounds,
+        scheduler
+    )
+
+    proposal_rand!(rng, state.q, new_params, params)
+    apply_bounds!(par_new, bounds)
+    new_log_value = state.log_f(state.λ_tmp)::typeof(state.p)
+
+    if isnan(new_log_value) error("Encountered NaN value for target function")
+    accept = log(rand(state.rng)) < new_log_value - state.log_value
+    if accept
+        copy!(state.λ, state.λ_tmp)
+        state.log_value = new_log_value
     end
     accept
 end
-
 
 
 abstract MCSampler

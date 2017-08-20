@@ -47,7 +47,8 @@ export target_logval!
 """
     target_logval(
         target::AbstractTargetFunction,
-        params::AbstractVector{<:Real}
+        params::AbstractVector{<:Real},
+        exec_context::ExecContext
     )
 
 The caller must not assume that `target_logval` is thread-safe.
@@ -76,7 +77,8 @@ end
 
 function target_logval(
     target::AbstractTargetFunction,
-    params::AbstractVector{<:Real}
+    params::AbstractVector{<:Real},
+    exec_context::ExecContext
 )
     target.log_value
 end
