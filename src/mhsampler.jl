@@ -85,64 +85,51 @@ end
 
 
 
-function Base.push!(state::MHChainState, params::Vector{<:Real}, log_value::Real, rng::AbstractRNG, finished_with = identity)::Bool
+function Base.push!(state::MHChainState, params::Vector{<:Real}, log_value::Real, rng::AbstractRNG)::Bool
     isnan(log_value) && error("Encountered NaN log_value")
     accepted = log(rand(rng)) < log_value - state.log_value
     if accepted
-        finished_with(state)
         copy!(state.params, params)
         state.log_value = log_value
-        state.multiplicity = 0
+        state.multiplicity = 1
     else
         state.multiplicity += 1
     end
 end
 
 
+function mcmc_step(state::MHChainState, rng::AbstractRNG, exec_context::ExecContext = ExecContext())
+    params_old = state.params
+    params_new = similar(params_old) # TODO: Avoid memory allocation
+    proposal_rand!(rng, state.pdist, params_new, params_old)
+    apply_bounds!(params_new, state.bounds)
+    log_value_new = target_logval(state.target, params_new, exec_context)
+    push!(state, params_new, log_value_new, rng)
+    state
+end
+
+
+function mcmc_step(states::AbstractVector{MHChainState{P, R}}, rng::AbstractRNG, exec_context::ExecContext = ExecContext()) where {P,R}
+    # TODO: Avoid memory allocation:
+    params_old = hcat((s.params for s in states)...)
+    params_new = similar(params_old)
+    log_values_new = Vector{R}(length(states))
+
+    proposal_rand!(rng, state.pdist, params_new, params_old)
+    apply_bounds!(params_new, state.bounds)
+    log_values_new = target_logval!(log_values_new, state.target, params_new, exec_context)
+
+    for i in eachindex(log_values_new)
+        # TODO: Run multithreaded if length(states) is large?
+        p_new = view(params_new, :, i) # TODO: Avoid memory allocation
+        push!(states[i], p_new, log_values_new[i], rng)
+    end
+    states
+end
+
 
 #=
 
-
-
-
-
-
-
-
-mh_chain_step(state::AbstractVector{MHChainState}, scheduler::AbstractExecutor) = begin
-    rng = state.rng
-    params_old = state.params
-    params_new = similar(params) # TODO: Avoid memory allocation
-
-    log_value_new = propose_and_eval!(
-        params_new,
-        state.f,
-        state.q,
-        params_old,
-        state.bounds,
-        scheduler
-    )
-
-    proposal_rand!(rng, state.q, new_params, params)
-    apply_bounds!(par_new, bounds)
-    new_log_value = state.log_f(state.λ_tmp)::typeof(state.p)
-
-    if isnan(new_log_value) error("Encountered NaN value for target function")
-    accept = log(rand(state.rng)) < new_log_value - state.log_value
-    if accept
-        copy!(state.λ, state.λ_tmp)
-        state.log_value = new_log_value
-    end
-    accept
-end
-
-
-abstract MCSampler
-
-mutable struct MHSampler{F} <: AbstractMCSampler
-    log_f::F
-    ...
-end
 
 
 function MHSampler(
