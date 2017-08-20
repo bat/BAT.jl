@@ -84,9 +84,9 @@ end
 
 
 
-#=
+
 function Base.push!(state::MHChainState, params::Vector{<:Real}, log_value::Real, rng::AbstractRNG, finished_with = identity)::Bool
-    isnan(new_log_value) && error("Encountered NaN log_value")
+    isnan(log_value) && error("Encountered NaN log_value")
     accepted = log(rand(rng)) < log_value - state.log_value
     if accepted
         finished_with(state)
@@ -97,7 +97,7 @@ function Base.push!(state::MHChainState, params::Vector{<:Real}, log_value::Real
         state.multiplicity += 1
     end
 end
-=#
+
 
 
 #=

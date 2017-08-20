@@ -15,9 +15,8 @@ Base.eltype{T}(b::AbstractParamBounds{T}) = T
 @inline oob{T<:Integer}(::Type{T}) = typemax(T)
 @inline oob(x::Real) = oob(typeof(x))
 
-@inline isoob(x) = x == oob(x)
-
-@inline inbounds_or_invalid(x, bounds::ClosedInterval) = iforelse(x in bounds, x, oob(x))
+@inline isoob(x::AbstractFloat) = isnan(x)
+@inline isoob(x::Integer) = x == oob(x)
 
 
 @enum BoundsType hard_bounds=1 cyclic_bounds=2 reflective_bounds=3
@@ -122,20 +121,7 @@ apply_bounds!(params::AbstractVecOrMat, bounds::HyperCubeBounds) =
     params .= apply_bounds.(params, bounds.lo, bounds.hi, bounds.bt)
 
 
-
-param_bounds(bounds::AbstractParamBounds, log_f) = (bounds, log_f)
-
-function param_bounds{T}(bounds::Vector{NTuple{2,T}}, log_f)
-    U = float(T)
-    n = length(bounds)
-    lo = map!(x -> x[1], Vector{U}(n), bounds)
-    hi = map!(x -> x[2], Vector{U}(n), bounds)
-    (HyperCubeBounds(lo, hi), log_f)
-end
-
-function param_bounds{T}(bounds::NTuple{2,Vector{T}}, log_f)
-    length(bounds[1]) != length(bounds[2]) && throw(DimensionMismatch("Lower and upper bound vectors must have the same length"))
-    lo = float.(bounds[1])
-    hi = float.(bounds[2])
-    (HyperCubeBounds(lo, hi), log_f)
+function Base.rand!(rng::AbstractRNG, bounds::HyperCubeBounds, x::StridedVecOrMat{<:Real})
+    rand!(rng, x)
+    x .= x .* (bounds.hi - bounds.lo) .+ bounds.lo # TODO: Avoid memory allocation
 end
