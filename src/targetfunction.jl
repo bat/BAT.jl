@@ -5,7 +5,7 @@ import FunctionWrappers: FunctionWrapper
 
 
 """
-    ProposalDist
+    AbstractTargetFunction
 
 The following functions must be implemented for subtypes:
 
@@ -122,19 +122,45 @@ end
 
 
 
-struct GenericProductTargetFunction{T<:Real,P<:Real}
-    log_terms::Vector{FunctionWrapper{T,Tuple{P}}},
-    exec_compat::ExecCompat
+
+
+struct GenericTargetFunction{F} <: AbstractTargetFunction
+    log_f::F
 end
 
-function target_logval{T,P} where {T,P} (
-    target::GenericProductTargetFunction{T,P},
+export GenericTargetFunction
+
+
+function target_logval(
+    target::GenericTargetFunction,
     params::AbstractVector{<:Real},
     exec_context::ExecContext
 )
+    target.log_f(params)
+end
+
+
+
+struct GenericProductTargetFunction{T<:Real,P<:Real}
+    log_terms::Vector{FunctionWrapper{T,Tuple{P}}}
+    single_exec_compat::ExecCompat
+end
+
+export GenericProductTargetFunction
+
+
+function target_logval(
+    target::GenericProductTargetFunction{T,P},
+    params::AbstractVector{<:Real},
+    exec_context::ExecContext
+) where {T,P}
     # TODO: Use exec_context and target.exec_compat
     sum((log_term(convert(P, T)) for (log_term, p) in (target.log_terms, params)))
 end
+
+
+exec_compat(::typeof(target_logval), target::GenericProductTargetFunction, params::AbstractVector{<:Real}) =
+    target.single_exec_compat
 
 
 
