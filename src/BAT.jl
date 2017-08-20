@@ -6,7 +6,8 @@ module BAT
 
 include.([
     "shims.jl",
-    "rand.jl",
+    "rng.jl",
+    "distributions.jl",
     "util.jl",
     "execcontext.jl",
     "onlinestats.jl",
