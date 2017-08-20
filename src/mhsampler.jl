@@ -2,6 +2,20 @@
 
 
 
+function proposal_rand_target_logval!(
+    params_new::AbstractVector{P},
+    target::AbstractTargetFunction,
+    pdist::ProposalDist,
+    params_old::AbstractVector{P},
+    bounds::AbstractParamBounds,
+    executor::SerialExecutor
+) where {P<:Real}
+    proposal_rand!(executor.rng, pdist, params_new, params_old)
+    apply_bounds!(params_new, bounds)
+    target_logval(target, params_new, executor.ec)
+end
+
+
 #=
 
 # Define a scheduler.
@@ -33,7 +47,7 @@ function propose_and_eval!(
     q::ProposalDist,
     params_old::Vector{P},
     bounds::AbstractParamBounds,
-    scheduler::ExecScheduler
+    scheduler::AbstractExecutor
 )
     proposal_rand!(rng, state.q, params_new, params_old)
     apply_bounds!(par_new, bounds)
@@ -42,7 +56,7 @@ end
 
 
 
-mh_chain_step(state::AbstractVector{MHChainState}, scheduler::ExecScheduler) = begin
+mh_chain_step(state::AbstractVector{MHChainState}, scheduler::AbstractExecutor) = begin
     rng = state.rng
     params_old = state.params
     params_new = similar(params) # TODO: Avoid memory allocation
