@@ -9,50 +9,103 @@ function proposal_rand_target_logval!(
     params_old::AbstractVector{P},
     bounds::AbstractParamBounds,
     executor::SerialExecutor
-) where {P<:Real}
+)::Real where {P<:Real}
     proposal_rand!(executor.rng, pdist, params_new, params_old)
     apply_bounds!(params_new, bounds)
     target_logval(target, params_new, executor.ec)
 end
 
 
-#=
-
-# Define a scheduler.
-
-# Use FunctionWrappers, e.g. FunctionWrapper{Float64,Tuple{Float64, ...}}(f)?
-
 
 mutable struct MHChainState{
-    T<:Real,
     P<:Real,
+    R<:Real,
     F<:AbstractTargetFunction,
     Q<:ProposalDist,
-    B<:AbstractParamBounds,
-    RNG<:AbstractRNG
+    B<:AbstractParamBounds
 }
-    f::F,
-    q::Q,
-    bounds::B,
-    log_value::T,
-    params::Vector{P},
+    target::F
+    pdist::Q
+    bounds::B
+    params::Vector{P}
+    log_value::R
     multiplicity::Int
+
+    function MHChainState{P,R,F,Q,B}(
+        target::F,
+        pdist::Q,
+        bounds::B,
+        params::Vector{P},
+        log_value::R,
+        multiplicity::Int = 0
+    ) where {
+        P<:Real,
+        R<:Real,
+        F<:AbstractTargetFunction,
+        Q<:ProposalDist,
+        B<:AbstractParamBounds
+    }
+        length(params) != length(bounds) && throw(DimensionMismatch("length(params) != length(bounds)"))
+        new{P,R,F,Q,B}(
+            target,
+            pdist,
+            bounds,
+            params,
+            log_value,
+            multiplicity
+        )
+    end
+end
+
+
+function MHChainState(
+    target::F,
+    pdist::Q,
+    bounds::B,
+    params::Vector{P},
+    log_value::R,
+    multiplicity::Int = 0
+) where {
+    P<:Real,
+    R<:Real,
+    F<:AbstractTargetFunction,
+    Q<:ProposalDist,
+    B<:AbstractParamBounds
+}
+    MHChainState{P,R,F,Q,B}(
+        target,
+        pdist,
+        bounds,
+        params,
+        log_value,
+        multiplicity
+    )
 end
 
 
 
-function propose_and_eval!(
-    params_new::Vector{P},
-    f::AbstractTargetFunction,
-    q::ProposalDist,
-    params_old::Vector{P},
-    bounds::AbstractParamBounds,
-    scheduler::AbstractExecutor
-)
-    proposal_rand!(rng, state.q, params_new, params_old)
-    apply_bounds!(par_new, bounds)
-    new_log_value = state.log_f(state.λ_tmp)::typeof(state.p)
+#=
+function Base.push!(state::MHChainState, params::Vector{<:Real}, log_value::Real, rng::AbstractRNG, finished_with = identity)::Bool
+    isnan(new_log_value) && error("Encountered NaN log_value")
+    accepted = log(rand(rng)) < log_value - state.log_value
+    if accepted
+        finished_with(state)
+        copy!(state.params, params)
+        state.log_value = log_value
+        state.multiplicity = 0
+    else
+        state.multiplicity += 1
+    end
 end
+=#
+
+
+#=
+
+
+
+
+
 
 
 
