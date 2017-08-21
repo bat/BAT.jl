@@ -2,7 +2,7 @@
 
 @Base.Test.testset "Package BAT" begin
     include.([
-        "rand.jl",
+        "distributions.jl",
         "parambounds.jl",
         "onlinestats.jl",
     ])
