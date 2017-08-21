@@ -23,12 +23,15 @@ mutable struct MHChainState{
     F<:AbstractTargetFunction,
     Q<:ProposalDist,
     B<:AbstractParamBounds
-}
+} <: AbstractMCMCState
     target::F
     pdist::Q
     bounds::B
+    #rng:RNG
     params::Vector{P}
     log_value::R
+    #exec_context::ExecContext = ExecContext()
+    nsamples::Int
     multiplicity::Int
 
     function MHChainState{P,R,F,Q,B}(
@@ -37,6 +40,7 @@ mutable struct MHChainState{
         bounds::B,
         params::Vector{P},
         log_value::R,
+        nsamples::Int = 0,
         multiplicity::Int = 0
     ) where {
         P<:Real,
@@ -52,6 +56,7 @@ mutable struct MHChainState{
             bounds,
             params,
             log_value,
+            nsamples,
             multiplicity
         )
     end
@@ -64,6 +69,7 @@ function MHChainState(
     bounds::B,
     params::Vector{P},
     log_value::R,
+    nsamples::Int = 0,
     multiplicity::Int = 0
 ) where {
     P<:Real,
@@ -78,6 +84,7 @@ function MHChainState(
         bounds,
         params,
         log_value,
+        nsamples,
         multiplicity
     )
 end
@@ -85,16 +92,18 @@ end
 
 
 
-function Base.push!(state::MHChainState, params::Vector{<:Real}, log_value::Real, rng::AbstractRNG)::Bool
+function Base.push!(state::MHChainState, params::Vector{<:Real}, log_value::Real, rng::AbstractRNG)
     isnan(log_value) && error("Encountered NaN log_value")
     accepted = log(rand(rng)) < log_value - state.log_value
     if accepted
         copy!(state.params, params)
         state.log_value = log_value
+        state.nsamples += 1
         state.multiplicity = 1
     else
         state.multiplicity += 1
     end
+    state
 end
 
 
@@ -126,6 +135,10 @@ function mcmc_step(states::AbstractVector{MHChainState{P, R}}, rng::AbstractRNG,
     end
     states
 end
+
+
+
+
 
 
 #=
