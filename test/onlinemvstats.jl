@@ -7,7 +7,7 @@ using StatsBase
 @testset "onlinestats" begin
     n = 10
     data1  = [(-1)^x*exp(x-n/2) for x in 1:n]
-    data2 = flipdim(data1, 1) 
+    data2 = flipdim(data1, 1)
 
     w = [exp(x-n/2) for x in 1:n]
     
@@ -31,6 +31,7 @@ using StatsBase
         @test typeof(@inferred BAT.kbn_add((0.0f0, 0.0f0), 0.0f0)) == NTuple{2, Float32}
         @test typeof(@inferred BAT.kbn_add((0.0f0, 0.0f0), (0.0f0, 0.0f0))) == NTuple{2, Float32}
     end
+
     @testset "BAT.OnlineMvMean" begin
         @test typeof(@inferred BAT.OnlineMvMean(n)) <: AbstractVector{Float64}
         @test typeof(@inferred BAT.OnlineMvMean{Float32}(n)) <: AbstractVector{Float32}
@@ -39,7 +40,7 @@ using StatsBase
         mvmean2 = BAT.OnlineMvMean(n)
 
         @test size(mvmean1)[1] == n
-        
+
         w1 = 0.5
         w2 = 1.2
 
@@ -53,6 +54,7 @@ using StatsBase
         merge!(mvmean1, mvmean2)
         @test mvmean1 ≈ mean(hcat(data1, data2, data2), Weights([w1, w2, w2]), 2)
     end
+
     @testset "OnlineMvCov" begin
         @test typeof(@inferred BAT.OnlineMvCov(n)) <: AbstractMatrix{Float64}
         @test typeof(@inferred BAT.OnlineMvCov{Float32, ProbabilityWeights}(n)) <: AbstractMatrix{Float32}

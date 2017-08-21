@@ -4,6 +4,6 @@
     include.([
         "distributions.jl",
         "parambounds.jl",
-        "onlinestats.jl",
+        "onlinemvstats.jl",
     ])
 end

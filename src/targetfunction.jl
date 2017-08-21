@@ -5,6 +5,7 @@ using FunctionWrappers
 import FunctionWrappers: FunctionWrapper
 
 
+# ToDo: Rename to ...TargetDensity?
 """
     AbstractTargetFunction
 
@@ -21,6 +22,8 @@ of the functions
 abstract type AbstractTargetFunction end
 export AbstractTargetFunction
 
+# Optional target_(re-)init(target, exec_context)??
+
 
 """
     target_logval!(
@@ -30,8 +33,7 @@ export AbstractTargetFunction
         exec_context::ExecContext = ExecContext()
     )
 
-PDF value of `pdist` for transitioning from old to new parameter values for
-multiple parameter sets.
+Blah ...
 
 end
 
@@ -193,3 +195,6 @@ end
 
 exec_compat(::typeof(target_logval), target::GenericProductTargetFunction, params::AbstractVector{<:Real}) =
     target.single_exec_compat
+
+
+# Add: Product of target functions

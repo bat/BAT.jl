@@ -4,7 +4,7 @@ using Distributions
 
 
 """
-    ProposalDist
+    AbstractProposalDist
 
 The following functions must be implemented for subtypes:
 
@@ -13,14 +13,14 @@ The following functions must be implemented for subtypes:
 * `Base.length`, returning the number of parameters (i.e. dimensionality).
 * `Base.issymmetric`, indicating whether p(a -> b) == p(b -> a) holds true.
 """
-abstract type ProposalDist end
-export ProposalDist
+abstract type AbstractProposalDist end
+export AbstractProposalDist
 
 
 """
     proposal_logpdf!(
         p::AbstractArray,
-        pdist::ProposalDist,
+        pdist::AbstractProposalDist,
         params_new::AbstractVecOrMat,
         params_old:::AbstractVecOrMat
     )
@@ -53,7 +53,7 @@ export proposal_logpdf!
 
 # """
 #     proposal_logpdf(
-#         pdist::ProposalDist,
+#         pdist::AbstractProposalDist,
 #         params_new::AbstractVecOrMat,
 #         params_old:::AbstractVecOrMat
 #     )
@@ -97,7 +97,7 @@ export proposal_rand!
 
 
 
-struct GenericProposalDist{D<:Distribution,SamplerF,S<:Sampleable} <: ProposalDist
+struct GenericProposalDist{D<:Distribution,SamplerF,S<:Sampleable} <: AbstractProposalDist
     d::D
     sampler_f::SamplerF
     s::S
