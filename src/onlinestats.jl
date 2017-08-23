@@ -7,6 +7,16 @@ using DoubleDouble
 
 # SIMD-compatible KBN-summation
 
+"""
+    kbn_add(
+        a::NTuple{2, Real},
+        b::Real
+    )
+
+
+adds `b` to `a` via *SIMD-compatible* Kahan-Babuška-Neumaier summation.
+
+"""
 @inline function kbn_add(a::NTuple{2, Real}, b::Real)
     s = a[1] + b
     c = a[2] + ifelse(
@@ -17,6 +27,16 @@ using DoubleDouble
     (s, c)
 end
 
+"""
+    kbn_add(
+        a::NTuple{2, Real},
+        b::NTuple{2, Real}
+    )
+
+
+adds `b` to `a` via *SIMD-compatible* Kahan-Babuška-Neumaier summation.
+
+"""
 @inline function kbn_add(a::NTuple{2, Real}, b::NTuple{2, Real})
     s = a[1] + b[1]
     c = ifelse(
@@ -48,15 +68,37 @@ export OnlineMvMean
 
 OnlineMvMean(m::Integer) = OnlineMvMean{Float64}(m::Integer)
 
+"""
+    Base.size(
+        omn::OnlineMvMean
+        )
 
+Returns number of moving means of `omn`
+"""
 @inline Base.size(omn::OnlineMvMean) = size(omn.S)
 
+"""
+    
+    Base.getindex{T}(
+        omn::OnlineMvMean{T},
+        idxs::Integer...)
+
+Computes moving means at indices `idxs` 
+"""
 @propagate_inbounds function Base.getindex{T}(omn::OnlineMvMean{T}, idxs::Integer...)
     T((Single(omn.S[idxs...]) + Single(omn.C[idxs...])) / omn.sum_w)
 end
 
 
+"""
+    Base.push!(
+        omn::OnlineMvMean,
+        data::Vector,
+        weight::Real = one(T)
+    )
 
+adds `data` to `omn` weighted with `weight`
+"""
 @inline Base.push!(omn::OnlineMvMean, data::Vector, weight::Real = one(T)) =
     push_contiguous!(omn, data, first(linearindices(data)), weight)
 
