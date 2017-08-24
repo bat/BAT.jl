@@ -1,5 +1,4 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
-# commit test
 
 using Base.@propagate_inbounds
 using StatsBase
@@ -8,6 +7,15 @@ using DoubleDouble
 
 # SIMD-compatible KBN-summation
 
+"""
+    kbn_add(
+        a::NTuple{2, Real},
+        b::Real
+    )
+
+adds `b` to `a` via SIMD-compatible KBN 
+
+"""
 @inline function kbn_add(a::NTuple{2, Real}, b::Real)
     s = a[1] + b
     c = a[2] + ifelse(
