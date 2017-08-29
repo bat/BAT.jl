@@ -4,5 +4,6 @@
     include.([
         "rand.jl",
         "parambounds.jl",
+        "onlinestats.jl",
     ])
 end
