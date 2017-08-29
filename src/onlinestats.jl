@@ -14,7 +14,7 @@ using DoubleDouble
     )
 
 
-adds `b` to `a` via *SIMD-compatible* Kahan-Babuška-Neumaier summation.
+Add `b` to `a` via *SIMD-compatible* Kahan-Babuška-Neumaier summation.
 
 """
 @inline function kbn_add(a::NTuple{2, Real}, b::Real)
@@ -34,8 +34,7 @@ end
     )
 
 
-adds `b` to `a` via *SIMD-compatible* Kahan-Babuška-Neumaier summation.
-
+Add `b` to `a` via *SIMD-compatible* Kahan-Babuška-Neumaier summation.
 """
 @inline function kbn_add(a::NTuple{2, Real}, b::NTuple{2, Real})
     s = a[1] + b[1]
@@ -73,7 +72,7 @@ OnlineMvMean(m::Integer) = OnlineMvMean{Float64}(m::Integer)
         omn::OnlineMvMean
         )
 
-Returns number of moving means of `omn`
+Return number of moving means of `omn`
 """
 @inline Base.size(omn::OnlineMvMean) = size(omn.S)
 
@@ -83,7 +82,7 @@ Returns number of moving means of `omn`
         omn::OnlineMvMean{T},
         idxs::Integer...)
 
-Computes moving means at indices `idxs` 
+Compute moving means at indices `idxs` 
 """
 @propagate_inbounds function Base.getindex{T}(omn::OnlineMvMean{T}, idxs::Integer...)
     T((Single(omn.S[idxs...]) + Single(omn.C[idxs...])) / omn.sum_w)
@@ -97,12 +96,19 @@ end
         weight::Real = one(T)
     )
 
-adds `data` to `omn` weighted with `weight`
+Add `data` to `omn` weighted with `weight`
 """
 @inline Base.push!(omn::OnlineMvMean, data::Vector, weight::Real = one(T)) =
     push_contiguous!(omn, data, first(linearindices(data)), weight)
 
+"""
+    Base.merge!(
+        target::OnlineMvMean, 
+        others::OnlineMvMean...
+    )
 
+    Merge `others` to `target`. All moving means must be of same size.
+"""
 function Base.merge!(target::OnlineMvMean, others::OnlineMvMean...)
     for x in others
         target.m != x.m && throw(ArgumentError("can't merge OnlineMvMean instances with different size"))
@@ -122,10 +128,26 @@ function Base.merge!(target::OnlineMvMean, others::OnlineMvMean...)
     target
 end
 
+"""
+    Base.merge(
+        x::OnlineMvMean,
+        others::OnlineMvMean...
+    )
+
+    Merges `others` to a `deepcopy` of `target`. All moving means must be of same size.
+"""
 Base.merge(x::OnlineMvMean, others::OnlineMvMean...) = merge!(deepcopy(x), others...)
 
 
+"""
+    push_contiguous!{T}(
+        omn::OnlineMvMean,
+        data::Vector,
+        weight::Real = one(T)
+    )
 
+Adds `data` to `omn` weighted with `weight`
+"""
 @inline function push_contiguous!{T}(
     omn::OnlineMvMean{T}, data::Array,
     start::Integer, weight::Real = one(T)
@@ -183,10 +205,23 @@ export OnlineMvCov
 
 OnlineMvCov(m::Integer) = OnlineMvCov{Float64, ProbabilityWeights}(m::Integer)
 
+"""
+    Base.size(
+        ocv::OnlineMvCov)
+    )
 
+    Returns dimensions of moving covariance matrix
+"""
 @inline Base.size(ocv::OnlineMvCov) = size(ocv.S)
 
+"""
+    function Base.getindex{T}(
+        ocv::OnlineMvCov{T, Weights},
+        idxs::Integer...
+    )
 
+Computes covariances at indices `idxs` wiht no bias correction.
+"""
 @propagate_inbounds function Base.getindex{T}(ocv::OnlineMvCov{T, Weights}, idxs::Integer...)
     sum_w = ocv.sum_w
     ifelse(
@@ -196,6 +231,14 @@ OnlineMvCov(m::Integer) = OnlineMvCov{Float64, ProbabilityWeights}(m::Integer)
     )
 end
 
+"""
+    function Base.getindex{T}(
+        ocv::OnlineMvCov{T, AnalyticWeights},
+        idxs::Integer...
+    )
+
+Computes covariances at indices `idxs`.
+"""
 @propagate_inbounds function Base.getindex{T}(ocv::OnlineMvCov{T, AnalyticWeights}, idxs::Integer...)
     sum_w = ocv.sum_w
     ifelse(
@@ -205,6 +248,14 @@ end
     )
 end
 
+"""
+    function Base.getindex{T}(
+        ocv::OnlineMvCov{T, FrequencyWeights},
+        idxs::Integer...
+    )
+
+Computes covariances at indices `idxs`.
+"""
 @propagate_inbounds function Base.getindex{T}(ocv::OnlineMvCov{T, FrequencyWeights}, idxs::Integer...)
     sum_w = ocv.sum_w
     sum_w2 = ocv.sum_w2
@@ -216,6 +267,14 @@ end
     )
 end
 
+"""
+    function Base.getindex{T}(
+        ocv::OnlineMvCov{T, ProbabilityWeights},
+        idxs::Integer...
+    )
+
+Computes covariances at indices `idxs`.
+"""
 @propagate_inbounds function Base.getindex{T}(ocv::OnlineMvCov{T, ProbabilityWeights}, idxs::Integer...)
     n = ocv.n
     sum_w = ocv.sum_w
@@ -225,6 +284,7 @@ end
         T(NaN)
     )
 end
+
 
 
 @inline Base.push!(ocv::OnlineMvCov, data::Vector, weight::Real = one(T)) =
