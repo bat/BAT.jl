@@ -98,7 +98,7 @@ end
 
 Add `data` to `omn` weighted with `weight`
 """
-@inline Base.push!(omn::OnlineMvMean, data::Vector, weight::Real = one(T)) =
+@inline Base.push!{T}(omn::OnlineMvMean{T}, data::Vector, weight::Real = one(T)) =
     push_contiguous!(omn, data, first(linearindices(data)), weight)
 
 """
@@ -210,7 +210,7 @@ OnlineMvCov(m::Integer) = OnlineMvCov{Float64, ProbabilityWeights}(m::Integer)
         ocv::OnlineMvCov)
     )
 
-    Returns dimensions of moving covariance matrix
+Return dimensions of moving covariance matrix
 """
 @inline Base.size(ocv::OnlineMvCov) = size(ocv.S)
 
@@ -238,6 +238,7 @@ end
     )
 
 Computes covariances at indices `idxs`.
+`AnalyticWeights`: ``\\frac{1}{\\sum w - \\sum {w^2} / \\sum w}``
 """
 @propagate_inbounds function Base.getindex{T}(ocv::OnlineMvCov{T, AnalyticWeights}, idxs::Integer...)
     sum_w = ocv.sum_w
@@ -255,6 +256,7 @@ end
     )
 
 Computes covariances at indices `idxs`.
+`FrequencyWeights`: ``\\frac{1}{\\sum{w} - 1}``
 """
 @propagate_inbounds function Base.getindex{T}(ocv::OnlineMvCov{T, FrequencyWeights}, idxs::Integer...)
     sum_w = ocv.sum_w
@@ -274,6 +276,7 @@ end
     )
 
 Computes covariances at indices `idxs`.
+`ProbabilityWeights`: ``\\frac{n}{(n - 1) \\sum w}`` where ``n`` equals `count(!iszero, w)`
 """
 @propagate_inbounds function Base.getindex{T}(ocv::OnlineMvCov{T, ProbabilityWeights}, idxs::Integer...)
     n = ocv.n
@@ -287,7 +290,7 @@ end
 
 
 
-@inline Base.push!(ocv::OnlineMvCov, data::Vector, weight::Real = one(T)) =
+@inline Base.push!{T, W}(ocv::OnlineMvCov{T, W}, data::Vector, weight::Real = one(T)) =
     push_contiguous!(ocv, data, first(linearindices(data)), weight)
 
 
