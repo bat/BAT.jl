@@ -92,7 +92,7 @@ mcmc_iterate(
             T(log_tp_fwd - log_tp_rev)
         end
 
-        # Evaluate target function at new parameters:
+        # Evaluate target density at new parameters:
         proposed_log_value = if !any(isoob, params_next)
             T(target_logval(tfunc, params_next, exec_context))
         else
@@ -131,7 +131,7 @@ end
 
 
 function MHSampler(
-    log_f::Any, # target function, log_f(params::AbstractVector, aux_values::)
+    log_f::Any, # target density, log_f(params::AbstractVector, aux_values::)
     param_bounds::Union{AbstractParamBounds, Vector{NTuple{2}}},
     q::AbstractProposalFunction = MvNormal(...),     # proposal distribution
     tune_q::Any # tune_q(q, history::MCSamplerOutput) -> q', tune_q may mutate it's state

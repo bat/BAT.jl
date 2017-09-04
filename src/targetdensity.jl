@@ -7,7 +7,7 @@ import FunctionWrappers: FunctionWrapper
 
 # ToDo: Rename to ...TargetDensity?
 """
-    AbstractTargetFunction
+    AbstractTargetDensity
 
 The following functions must be implemented for subtypes:
 
@@ -19,8 +19,8 @@ of the functions
 * `BAT.exec_compat`
 * `BAT.target_logval!`
 """
-abstract type AbstractTargetFunction end
-export AbstractTargetFunction
+abstract type AbstractTargetDensity end
+export AbstractTargetDensity
 
 # Optional target_(re-)init(target, exec_context)??
 
@@ -28,14 +28,12 @@ export AbstractTargetFunction
 """
     target_logval!(
         r::AbstractArray{<:Real},
-        target::AbstractTargetFunction,
+        target::AbstractTargetDensity,
         params::AbstractMatrix{<:Real},
         exec_context::ExecContext = ExecContext()
     )
 
-Blah ...
-
-end
+Compute log of values of target density for multiple parameter value vectors.
 
 Input:
 
@@ -57,7 +55,7 @@ export target_logval!
 
 function target_logval!(
     r::AbstractArray{<:Real},
-    target::AbstractTargetFunction,
+    target::AbstractTargetDensity,
     params::AbstractMatrix{<:Real},
     exec_context::ExecContext = ExecContext()
 )
@@ -73,7 +71,7 @@ end
 
 """
     target_logval(
-        target::AbstractTargetFunction,
+        target::AbstractTargetDensity,
         params::AbstractVector{<:Real},
         exec_context::ExecContext = ExecContext()
     )
@@ -85,27 +83,27 @@ export target_logval
 
 
 """
-    exec_compat(func::Function, target::AbstractTargetFunction, args...)
+    exec_compat(func::Function, target::AbstractTargetDensity, args...)
 """
 function exec_compat end
 export exec_compat
 
-exec_compat(::typeof(target_logval), target::AbstractTargetFunction, params::AbstractVector{<:Real}) =
+exec_compat(::typeof(target_logval), target::AbstractTargetDensity, params::AbstractVector{<:Real}) =
     ExecCompat(false, 0)
 
-exec_compat(::typeof(target_logval!), target::AbstractTargetFunction, params::AbstractMatrix{<:Real}) =
+exec_compat(::typeof(target_logval!), target::AbstractTargetDensity, params::AbstractMatrix{<:Real}) =
     ExecCompat(false, 0) # Will need to change when default implementation of target_logval! gets support for parallel execution
 
 
 
-struct ConstTargetFunction{T<:Real} <: AbstractTargetFunction
+struct ConstTargetDensity{T<:Real} <: AbstractTargetDensity
     log_value::T
 end
 
-export ConstTargetFunction
+export ConstTargetDensity
 
 function target_logval(
-    target::ConstTargetFunction,
+    target::ConstTargetDensity,
     params::AbstractVector{<:Real},
     exec_context::ExecContext = ExecContext()
 )
@@ -115,7 +113,7 @@ end
 
 # function target_logval!(
 #     r::AbstractArray{<:Real},
-#     target::ConstTargetFunction,
+#     target::ConstTargetDensity,
 #     params::AbstractMatrix{<:Real},
 #     exec_context::ExecContext
 # )
@@ -127,14 +125,14 @@ end
 
 
 
-struct GenericTargetFunction{F} <: AbstractTargetFunction
+struct GenericTargetDensity{F} <: AbstractTargetDensity
     log_f::F
 end
 
-export GenericTargetFunction
+export GenericTargetDensity
 
 function target_logval(
-    target::GenericTargetFunction,
+    target::GenericTargetDensity,
     params::AbstractVector{<:Real},
     exec_context::ExecContext = ExecContext()
 )
@@ -143,15 +141,15 @@ end
 
 
 
-struct MvDistTargetFunction{D<:Distribution{Multivariate,Continuous}} <: AbstractTargetFunction
+struct MvDistTargetDensity{D<:Distribution{Multivariate,Continuous}} <: AbstractTargetDensity
     d::D
 end
 
-export MvDistTargetFunction
+export MvDistTargetDensity
 
 
 function target_logval(
-    target::MvDistTargetFunction,
+    target::MvDistTargetDensity,
     params::AbstractVector{<:Real},
     exec_context::ExecContext = ExecContext()
 )
@@ -161,7 +159,7 @@ end
 
 function target_logval!(
     r::AbstractArray{<:Real},
-    target::MvDistTargetFunction,
+    target::MvDistTargetDensity,
     params::AbstractMatrix{<:Real},
     exec_context::ExecContext = ExecContext()
 )
@@ -170,21 +168,21 @@ function target_logval!(
 end
 
 
-exec_compat(::typeof(target_logval!), target::MvDistTargetFunction, params::AbstractMatrix{<:Real}) =
+exec_compat(::typeof(target_logval!), target::MvDistTargetDensity, params::AbstractMatrix{<:Real}) =
     ExecCompat(false, 0) # Will need to change when implementation of target_logval! gets support for parallel execution
 
 
 
-struct GenericProductTargetFunction{T<:Real,P<:Real}
+struct GenericProductTargetDensity{T<:Real,P<:Real}
     log_terms::Vector{FunctionWrapper{T,Tuple{P}}}
     single_exec_compat::ExecCompat
 end
 
-export GenericProductTargetFunction
+export GenericProductTargetDensity
 
 
 function target_logval(
-    target::GenericProductTargetFunction{T,P},
+    target::GenericProductTargetDensity{T,P},
     params::AbstractVector{<:Real},
     exec_context::ExecContext = ExecContext()
 ) where {T,P}
@@ -193,8 +191,8 @@ function target_logval(
 end
 
 
-exec_compat(::typeof(target_logval), target::GenericProductTargetFunction, params::AbstractVector{<:Real}) =
+exec_compat(::typeof(target_logval), target::GenericProductTargetDensity, params::AbstractVector{<:Real}) =
     target.single_exec_compat
 
 
-# Add: Product of target functions
+# ToDo: Add product of target densitys

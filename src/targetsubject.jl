@@ -5,7 +5,7 @@ abstract type AbstractTargetSubject end
 
 
 mutable struct TargetSubject <: AbstractTargetSubject {
-    F<:AbstractTargetFunction,
+    F<:AbstractTargetDensity,
     B<:AbstractParamBounds
 }
     tfunc::F
