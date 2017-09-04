@@ -12,12 +12,12 @@ include.([
     "execcontext.jl",
     "onlineuvstats.jl",
     "onlinemvstats.jl",
-    "parambounds.jl",
-    "proposaldist.jl",
-    "targetfunction.jl",
-    "targetsubject.jl",
-    "mcmc.jl",
-    "mhsampler.jl",
+#    "parambounds.jl",
+#    "proposaldist.jl",
+#    "targetfunction.jl",
+#    "targetsubject.jl",
+#    "mcmc.jl",
+#    "mhsampler.jl",
 ])
 
 end # module

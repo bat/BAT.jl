@@ -263,11 +263,11 @@ end
 
 
 
-mutable struct BasicMvStatistics{T,W}
+mutable struct BasicMvStatistics{T<:Real,W}
     mean::OnlineMvMean{T}
     cov::OnlineMvCov{T,W}
-    maximum:Vector{T}
-    minimum:Vector{T}
+    maximum::Vector{T}
+    minimum::Vector{T}
 end
 
 export BasicMvStatistics
