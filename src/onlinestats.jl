@@ -242,9 +242,11 @@ Computes covariances at indices `idxs`.
 """
 @propagate_inbounds function Base.getindex{T}(ocv::OnlineMvCov{T, AnalyticWeights}, idxs::Integer...)
     sum_w = ocv.sum_w
+    sum_w2 = ocv.sum_w2
+    d = sum_w - sum_w2 / sum_w
     ifelse(
-        sum_w > 1,
-        T(ocv.S[idxs...] / (sum_w - 1)),
+        sum_w > 0 && d > 0,
+        T(ocv.S[idxs...] / d),
         T(NaN)
     )
 end
@@ -260,13 +262,11 @@ Computes covariances at indices `idxs`.
 """
 @propagate_inbounds function Base.getindex{T}(ocv::OnlineMvCov{T, FrequencyWeights}, idxs::Integer...)
     sum_w = ocv.sum_w
-    sum_w2 = ocv.sum_w2
-    d = sum_w - sum_w2 / sum_w
     ifelse(
-        sum_w > 0 && d > 0,
-        T(ocv.S[idxs...] / d),
+        sum_w > 1,
+        T(ocv.S[idxs...] / (sum_w - 1)),
         T(NaN)
-    )
+    )    
 end
 
 """
@@ -299,23 +299,42 @@ end
 #     ...
 # end
 
-function Base.merge!(target::OnlineMvCov, others::OnlineMvCov...)
+function Base.merge!{T,W}(target::OnlineMvCov{T,W}, others::OnlineMvCov{T,W}...)
     for x in others
         target.m != x.m && throw(ArgumentError("can't merge OnlineMvCov instances with different size"))
     end
+    m = target.m
+    dx = Array{T}(m)
     for x in others
+        S = target.S
+        idxs = Base.OneTo(m)
+        @inbounds @simd for i in idxs
+            dx[i] = target.Mean_X[i] - x.Mean_X[i]
+        end
+        scl = (target.sum_w * x.sum_w)/(target.sum_w + x.sum_w)
+        @inbounds for j in idxs
+            j_offs = sub2ind(S, 0, j)
+            @assert sub2ind(S, last(idxs), j) == last(idxs) + j_offs
+            @simd for i in idxs
+                S[i + j_offs] = muladd(dx[i], scl * dx[j], S[i + j_offs] + x.S[i + j_offs])
+            end
+        end
+
+        d = inv(T(target.sum_w + x.sum_w))
+        @inbounds @simd for i in idxs
+            target.Mean_X[i] = T((target.Mean_X[i] * target.sum_w
+                                  + x.Mean_X[i]*x.sum_w)*d)
+            target.New_Mean_X[i] = target.Mean_X[i]
+        end
+        
         target.n += x.n
         target.sum_w += x.sum_w
         target.sum_w2 += x.sum_w2
-        target.Mean_X .+= x.Mean_X
-        target.New_Mean_X .+= x.New_Mean_X
-        target.S .+= x.S
     end
     target
 end
 
 Base.merge(x::OnlineMvCov, others::OnlineMvCov...) = merge!(deepcopy(x), others...)
-
 
 
 @inline function push_contiguous!{T,W}(
@@ -347,7 +366,7 @@ Base.merge(x::OnlineMvCov, others::OnlineMvCov...) = merge!(deepcopy(x), others.
     @inbounds @simd for i in idxs
         x = data[i + dshft]
         mean_X = Mean_X[i]
-        New_Mean_X[i] = muladd(x - mean_X, sum_w_inv, mean_X)
+        New_Mean_X[i] = muladd(x - mean_X, weight * sum_w_inv, mean_X)
     end
 
     @inbounds for j in idxs
@@ -356,7 +375,7 @@ Base.merge(x::OnlineMvCov, others::OnlineMvCov...) = merge!(deepcopy(x), others.
         @assert sub2ind(S, last(idxs), j) == last(idxs) + j_offs
         @simd for i in idxs
             dx_i = data[i + dshft] - Mean_X[i]
-            S[i + j_offs] = muladd(dx_i, new_dx_j, S[i + j_offs])
+            S[i + j_offs] = muladd(dx_i, weight * new_dx_j, S[i + j_offs])
         end
     end
 
