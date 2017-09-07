@@ -6,7 +6,7 @@
 abstract type AbstractMCMCState end
 
 
-abstract type MCMCAlgorithm{S:<AbstractMCMCState} end
+abstract type MCMCAlgorithm{S<:AbstractMCMCState} end
 
 
 
@@ -18,7 +18,7 @@ export AbstractMCMCSample
 
 
 
-mutable struct MCMCSample <: AbstractMCMCSample {
+mutable struct MCMCSample{
     P<:Real,
     T<:Real,
     W<:Real
@@ -52,9 +52,9 @@ export UNCONVERGED
 export CONVERGED
 
 
-struct MCMCChainInfo{
-    id::Int,
-    cycle::Int,
+struct MCMCChainInfo
+    id::Int
+    cycle::Int
     state::MCMChainState
 end
 
@@ -64,9 +64,9 @@ MCMCChainInfo() = MCMCChainInfo(0, 0, UNCONVERGED)
 
 
 
-struct MCMCChainStats{T,P}{
-    param_stats::OnlineMvStats{P,FrequencyWeights}
-    logtf_stats::OnlineUvStats{T,FrequencyWeights}
+struct MCMCChainStats{T<:Real,P<:Real}
+    param_stats::BasicMvStatistics{P,FrequencyWeights}
+    logtf_stats::BasicUvStatistics{T,FrequencyWeights}
     mode::Vector{P}
 end
 
@@ -75,9 +75,9 @@ export MCMCChainStats
 
 
 struct MCMCChain{
-    A<:MCMCAlgorithm
-    T<:AbstractTargetSubject
-    S<:AbstractMCMCState
+    A<:MCMCAlgorithm,
+    T<:AbstractTargetSubject,
+    S<:AbstractMCMCState,
     R<:AbstractRNG
 }
     algorithm::A

@@ -13,11 +13,11 @@ include.([
     "onlineuvstats.jl",
     "onlinemvstats.jl",
     "parambounds.jl",
-#    "proposaldist.jl",
-#    "targetdensity.jl",
-#    "targetsubject.jl",
-#    "mcmc.jl",
-#    "mhsampler.jl",
+    "proposaldist.jl",
+    "targetdensity.jl",
+    "targetsubject.jl",
+    "mcmc.jl",
+    "mhsampler.jl",
 ])
 
 end # module

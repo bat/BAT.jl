@@ -4,6 +4,7 @@
 mutable struct MHState{
     Q<:AbstractProposalDist,
     S<:MCMCSample,
+    R<:AbstractRNG
 } <: AbstractMCMCState
     pdist::Q
 
@@ -34,13 +35,13 @@ mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::Hyper
 
 
 
-mcmc_iterate(
+function mcmc_iterate(
     callback,
     chain::MCMCChain{<:MetropolisHastings},
     exec_context::ExecContext = ExecContext();
-    max_nsamples::Int64 = Int64(1)
-    max_nsteps::Int = 1000
-    max_time::Float64 = Inf
+    max_nsamples::Int64 = Int64(1),
+    max_nsteps::Int = 1000,
+    max_time::Float64 = Inf,
     granularity::Int = 1
 )
     algorithm = chain.algorithm
@@ -87,8 +88,8 @@ mcmc_iterate(
         log_tpr = if issymmetric(pdist)
             T(0)
         else
-            log_tp_fwd = proposal_logpdf(, params_next, current_params)
-            log_tp_rev = proposal_logpdf(, current_params, params_next)
+            log_tp_fwd = proposal_logpdf(pdist, params_next, current_params)
+            log_tp_rev = proposal_logpdf(pdist, current_params, params_next)
             T(log_tp_fwd - log_tp_rev)
         end
 

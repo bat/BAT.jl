@@ -4,10 +4,10 @@ abstract type AbstractTargetSubject end
 
 
 
-mutable struct TargetSubject <: AbstractTargetSubject {
+mutable struct TargetSubject{
     F<:AbstractTargetDensity,
     B<:AbstractParamBounds
-}
+} <: AbstractTargetSubject
     tfunc::F
     bounds::B
 end
