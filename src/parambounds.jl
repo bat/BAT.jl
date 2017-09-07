@@ -79,7 +79,7 @@ export BoundedParams
 abstract type BoundedParams{T<:Real} <: AbstractParamBounds{T} end
 
 
-
+# ToDo: Rename to HyperRectangle
 export HyperCubeBounds
 
 struct HyperCubeBounds{T<:Real} <: BoundedParams{T}

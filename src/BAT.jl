@@ -10,10 +10,13 @@ include.([
     "distributions.jl",
     "util.jl",
     "execcontext.jl",
-    "onlinestats.jl",
+    "onlineuvstats.jl",
+    "onlinemvstats.jl",
     "parambounds.jl",
-    "targetfunction.jl",
     "proposaldist.jl",
+    "targetdensity.jl",
+    "targetsubject.jl",
+    "mcmc.jl",
     "mhsampler.jl",
 ])
 
