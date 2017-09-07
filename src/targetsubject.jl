@@ -8,7 +8,7 @@ mutable struct TargetSubject{
     F<:AbstractTargetDensity,
     B<:AbstractParamBounds
 } <: AbstractTargetSubject
-    tfunc::F
+    tdensity::F
     bounds::B
 end
 
@@ -17,7 +17,7 @@ export TargetSubject
 Base.length(subject::TargetSubject) = length(subject.bounds)
 
 
-target_function(subject::TargetSubject) = subject.tfunc
+target_function(subject::TargetSubject) = subject.tdensity
 param_bounds(subject::TargetSubject) = subject.bounds
 
 
