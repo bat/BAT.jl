@@ -15,6 +15,7 @@ mutable struct MHState{
 
     rng::R
 
+    nsamples::Int64
     nsteps::Int64
     naccept::Int64
 end
@@ -112,7 +113,7 @@ function mcmc_iterate(
             state.proposal_accepted = true
             state.naccept += 1
             nsamples += 1
-            chain.nsamples += 1
+            state.nsamples += 1
         else
             state.current_nreject += 1
         end

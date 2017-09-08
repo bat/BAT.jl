@@ -83,7 +83,6 @@ struct MCMCChain{
     algorithm::A
     target::T
     state::S
-    nsamples::Int64  # -> state?
     rng::R
     info::MCMCChainInfo
 end
