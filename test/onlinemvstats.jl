@@ -11,8 +11,8 @@ using StatsBase
 
     w = [exp(x-n/2) for x in 1:n]
 
-    data = hcat(data1, data2)
-    m = size(data)[2]
+    data = vcat(data1', data2')
+    m = size(data, 1)
 
     
     @testset "BAT.kbn_add" begin
@@ -40,10 +40,8 @@ using StatsBase
         @test typeof(@inferred BAT.OnlineMvMean(n)) <: AbstractVector{Float64}
         @test typeof(@inferred BAT.OnlineMvMean{Float32}(n)) <: AbstractVector{Float32}
         
-        mvmean1 = BAT.OnlineMvMean(n)
-        mvmean2 = BAT.OnlineMvMean(n)
         mvmean = BAT.OnlineMvMean(m)
-        @test size(mvmean1)[1] == n
+        @test size(mvmean, 1) == m
 
         countM = 3
         mvmeans = Array{BAT.OnlineMvMean{Float64}}(countM)
@@ -51,22 +49,22 @@ using StatsBase
         for i in indices(mvmeans, 1)
             mvmeans[i] = BAT.OnlineMvMean(m)
         end
-  
-        for i in indices(data, 1)
-            push!(mvmean, data[i,:], w[i]);
-            push!(mvmeans[(i % countM) + 1], data[i, :], w[i]);
+
+        for i in indices(data, 2)
+            push!(mvmean, data[:, i], w[i]);
+            push!(mvmeans[(i % countM) + 1], data[:, i], w[i]);
         end
 
-        @test mvmean ≈ mean(data, Weights(w), 1)'
+        @test mvmean ≈ mean(data, Weights(w), 2)
 
         res = merge(mvmeans...)
-        @test res ≈ mean(data, Weights(w), 1)'
+        @test res ≈ mean(data, Weights(w), 2)
 
         mvmean = BAT.OnlineMvMean(m)
-        res = append!(deepcopy(mvmean), data', 2)
-        @test res ≈ mean(data, 1)'
-        res = append!(deepcopy(mvmean), data', w, 2)
-        @test res ≈ mean(data, Weights(w),1)'
+        res = append!(deepcopy(mvmean), data, 2)
+        @test res ≈ mean(data, 2)
+        res = append!(deepcopy(mvmean), data, w, 2)
+        @test res ≈ mean(data, Weights(w), 2)
     end
 
     @testset "OnlineMvCov" begin
