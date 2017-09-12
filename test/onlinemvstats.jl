@@ -39,10 +39,9 @@ using StatsBase
     @testset "BAT.OnlineMvMean" begin
         @test typeof(@inferred BAT.OnlineMvMean(n)) <: AbstractVector{Float64}
         @test typeof(@inferred BAT.OnlineMvMean{Float32}(n)) <: AbstractVector{Float32}
-
+        
         mvmean1 = BAT.OnlineMvMean(n)
         mvmean2 = BAT.OnlineMvMean(n)
-
         @test size(mvmean1)[1] == n
 
         w1 = 0.5
@@ -54,9 +53,14 @@ using StatsBase
         @test mvmean1 ≈ mean(hcat(data1, data2), Weights([w1, w2]), 2)
 
         push!(mvmean2, data2, w2)
-
         merge!(mvmean1, mvmean2)
         @test mvmean1 ≈ mean(hcat(data1, data2, data2), Weights([w1, w2, w2]), 2)
+
+        mvmean = BAT.OnlineMvMean(m)
+        res = append!(deepcopy(mvmean), data', 2)
+        @test res ≈ mean(data, 1)'
+        res = append!(deepcopy(mvmean), data', w, 2)
+        @test res ≈ mean(data, Weights(w),1)'
     end
 
     @testset "OnlineMvCov" begin
@@ -92,11 +96,17 @@ using StatsBase
         @test res.n ≈ mvcovc.n
         @test res.Mean_X ≈ mvcovc.Mean_X
         @test res.New_Mean_X ≈ mvcovc.New_Mean_X
+
+        mvcov = BAT.OnlineMvCov(m)
+        res = append!(deepcopy(mvcov), data', 2)
+        @test res ≈ cov(data, 1)'
+        res = append!(deepcopy(mvcov), data', w, 2)
+        @test res ≈ cov(data, ProbabilityWeights(w), 1; corrected = true)
     end
     @testset "BasicMvStatistic" begin        
         bmvstats = BasicMvStatistics{Float64, ProbabilityWeights}(
             OnlineMvMean{Float64}(m), OnlineMvCov{Float64, ProbabilityWeights}(m),
-            -Inf*ones(Float64, m), Inf*ones(Float64, m)
+            -Inf*ones(Float64, m), Inf*ones(Float64, m), m
         )
 
         countBMS = 3
@@ -104,16 +114,16 @@ using StatsBase
         for i in indices(bmvs,1)
             bmvs[i] = BasicMvStatistics{Float64, ProbabilityWeights}(
             OnlineMvMean{Float64}(m), OnlineMvCov{Float64, ProbabilityWeights}(m),
-            -Inf*ones(Float64, m), Inf*ones(Float64, m)
+            -Inf*ones(Float64, m), Inf*ones(Float64, m), m
             )
         end
         
         for i in indices(data, 1)
-            BAT.push_contiguous!(bmvstats, data[i,:], 1, w[i]);
-            BAT.push_contiguous!(bmvs[(i % countBMS) + 1], data[i, :], 1, w[i]);
+            BAT.push!(bmvstats, data[i,:], w[i]);
+            BAT.push!(bmvs[(i % countBMS) + 1], data[i, :], w[i]);
         end
 
-        merbmvstats = merge!(bmvs[1], bmvs[2], bmvs[3])
+        merbmvstats = merge(bmvs[1], bmvs[2], bmvs[3])
 
         for bs in [bmvstats, merbmvstats]
             @test bs.mean ≈  mean(data, Weights(w), 1)'
@@ -121,6 +131,16 @@ using StatsBase
             @test bs.maximum ≈ [maximum(data[:,i]) for i in indices(data, 2)]
             @test bs.minimum ≈ [minimum(data[:,i]) for i in indices(data, 2)]
         end
+
+        mvstat = BasicMvStatistics{Float64, ProbabilityWeights}(
+            OnlineMvMean{Float64}(m), OnlineMvCov{Float64, ProbabilityWeights}(m),
+            -Inf*ones(Float64, m), Inf*ones(Float64, m), m
+        )
+        res = append!(deepcopy(mvstat), data', 2)
+        @test res.cov ≈ cov(data, 1)'
+        #res = append!(deepcopy(mvcov), data', w, 2)
+        #@test res ≈ cov(data, ProbabilityWeights(w), 1; corrected = true)
         
     end
+        
 end

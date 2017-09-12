@@ -275,6 +275,7 @@ mutable struct BasicMvStatistics{T<:Real,W}
     cov::OnlineMvCov{T,W}
     maximum::Vector{T}
     minimum::Vector{T}
+    m::Int
 end
 
 export BasicMvStatistics
