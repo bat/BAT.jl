@@ -42,19 +42,25 @@ using StatsBase
         
         mvmean1 = BAT.OnlineMvMean(n)
         mvmean2 = BAT.OnlineMvMean(n)
+        mvmean = BAT.OnlineMvMean(m)
         @test size(mvmean1)[1] == n
 
-        w1 = 0.5
-        w2 = 1.2
+        countM = 3
+        mvmeans = Array{BAT.OnlineMvMean{Float64}}(countM)
 
-        push!(mvmean1, data1, w1)
-        @test mvmean1 ≈ data1
-        push!(mvmean1, data2, w2)
-        @test mvmean1 ≈ mean(hcat(data1, data2), Weights([w1, w2]), 2)
+        for i in indices(mvmeans, 1)
+            mvmeans[i] = BAT.OnlineMvMean(m)
+        end
+  
+        for i in indices(data, 1)
+            push!(mvmean, data[i,:], w[i]);
+            push!(mvmeans[(i % countM) + 1], data[i, :], w[i]);
+        end
 
-        push!(mvmean2, data2, w2)
-        merge!(mvmean1, mvmean2)
-        @test mvmean1 ≈ mean(hcat(data1, data2, data2), Weights([w1, w2, w2]), 2)
+        @test mvmean ≈ mean(data, Weights(w), 1)'
+
+        res = merge(mvmeans...)
+        @test res ≈ mean(data, Weights(w), 1)'
 
         mvmean = BAT.OnlineMvMean(m)
         res = append!(deepcopy(mvmean), data', 2)
@@ -88,7 +94,7 @@ using StatsBase
             push!(mvcovc, data[i, :], w[i]);
         end
 
-        res = merge(mvcovs[1], mvcovs[2], mvcovs[3])
+        res = merge(mvcovs...)
         @test res ≈ cov(data, ProbabilityWeights(w), 1; corrected = true)
         @test res ≈ mvcovc
         @test res.sum_w ≈ mvcovc.sum_w
@@ -123,7 +129,7 @@ using StatsBase
             BAT.push!(bmvs[(i % countBMS) + 1], data[i, :], w[i]);
         end
 
-        merbmvstats = merge(bmvs[1], bmvs[2], bmvs[3])
+        merbmvstats = merge(bmvs...)
 
         maxData =  [maximum(data[:,i]) for i in indices(data, 2)]
         minData =  [minimum(data[:,i]) for i in indices(data, 2)]
