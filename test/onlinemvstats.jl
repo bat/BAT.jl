@@ -125,11 +125,14 @@ using StatsBase
 
         merbmvstats = merge(bmvs[1], bmvs[2], bmvs[3])
 
+        maxData =  [maximum(data[:,i]) for i in indices(data, 2)]
+        minData =  [minimum(data[:,i]) for i in indices(data, 2)]
+        
         for bs in [bmvstats, merbmvstats]
             @test bs.mean ≈  mean(data, Weights(w), 1)'
             @test bs.cov ≈ cov(data, ProbabilityWeights(w), 1; corrected = true)
-            @test bs.maximum ≈ [maximum(data[:,i]) for i in indices(data, 2)]
-            @test bs.minimum ≈ [minimum(data[:,i]) for i in indices(data, 2)]
+            @test bs.maximum ≈ maxData
+            @test bs.minimum ≈ minData
         end
 
         mvstat = BasicMvStatistics{Float64, ProbabilityWeights}(
@@ -139,9 +142,14 @@ using StatsBase
         res = append!(deepcopy(mvstat), data', 2)
         @test res.mean ≈ mean(data, 1)'
         @test res.cov ≈ cov(data, 1)
-        #res = append!(deepcopy(mvstat), data', w, 2)
-        #@test res ≈ cov(data, ProbabilityWeights(w), 1; corrected = true)
+        @test res.maximum ≈ maxData
+        @test res.minimum ≈ minData
         
+        res = append!(deepcopy(mvstat), data', w, 2)
+        @test res.mean ≈ mean(data, weights(w), 1)'        
+        @test res.cov ≈ cov(data, ProbabilityWeights(w), 1; corrected = true)
+        @test res.maximum ≈ maxData
+        @test res.minimum ≈ minData        
     end
         
 end
