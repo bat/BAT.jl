@@ -122,19 +122,19 @@ using StatsBase
             )
         end
         
-        for i in indices(data, 1)
-            BAT.push!(bmvstats, data[i,:], w[i]);
-            BAT.push!(bmvs[(i % countBMS) + 1], data[i, :], w[i]);
+        for i in indices(data, 2)
+            BAT.push!(bmvstats, data[:, i], w[i]);
+            BAT.push!(bmvs[(i % countBMS) + 1], data[:, i], w[i]);
         end
 
         merbmvstats = merge(bmvs...)
 
-        maxData =  [maximum(data[:,i]) for i in indices(data, 2)]
-        minData =  [minimum(data[:,i]) for i in indices(data, 2)]
+        maxData =  [maximum(data[i, :]) for i in indices(data, 1)]
+        minData =  [minimum(data[i, :]) for i in indices(data, 1)]
         
         for bs in [bmvstats, merbmvstats]
-            @test bs.mean ≈  mean(data, Weights(w), 1)'
-            @test bs.cov ≈ cov(data, ProbabilityWeights(w), 1; corrected = true)
+            @test bs.mean ≈  mean(data, Weights(w), 2)
+            @test bs.cov ≈ cov(data, ProbabilityWeights(w), 2; corrected = true)
             @test bs.maximum ≈ maxData
             @test bs.minimum ≈ minData
         end
@@ -143,15 +143,15 @@ using StatsBase
             OnlineMvMean{Float64}(m), OnlineMvCov{Float64, ProbabilityWeights}(m),
             -Inf*ones(Float64, m), Inf*ones(Float64, m), m
         )
-        res = append!(deepcopy(mvstat), data', 2)
-        @test res.mean ≈ mean(data, 1)'
-        @test res.cov ≈ cov(data, 1)
+        res = append!(deepcopy(mvstat), data, 2)
+        @test res.mean ≈ mean(data, 2)
+        @test res.cov ≈ cov(data, 2)
         @test res.maximum ≈ maxData
         @test res.minimum ≈ minData
         
-        res = append!(deepcopy(mvstat), data', w, 2)
-        @test res.mean ≈ mean(data, weights(w), 1)'        
-        @test res.cov ≈ cov(data, ProbabilityWeights(w), 1; corrected = true)
+        res = append!(deepcopy(mvstat), data, w, 2)
+        @test res.mean ≈ mean(data, weights(w), 2)        
+        @test res.cov ≈ cov(data, ProbabilityWeights(w), 2; corrected = true)
         @test res.maximum ≈ maxData
         @test res.minimum ≈ minData        
     end
