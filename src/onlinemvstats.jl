@@ -261,6 +261,13 @@ end
     ocv
 end
 
+"""
+    BasicMvStatistics{T<:Real,W} 
+
+`W` must either be `Weights` (no bias correction) or one of `AnalyticWeights`,
+`FrequencyWeights` or `ProbabilityWeights` to specify the desired bias
+correction method.
+"""
 
 
 mutable struct BasicMvStatistics{T<:Real,W}
@@ -268,6 +275,7 @@ mutable struct BasicMvStatistics{T<:Real,W}
     cov::OnlineMvCov{T,W}
     maximum::Vector{T}
     minimum::Vector{T}
+    m::Int
 end
 
 export BasicMvStatistics
@@ -277,8 +285,8 @@ function Base.merge!(target::BasicMvStatistics, others::BasicMvStatistics...)
     for x in others
         merge!(target.mean, x.mean)
         merge!(target.cov, x.cov)
-        target.maximum .= maximum(target.maximum, x.maximum)
-        target.minimum .= minimum(target.minimum, x.minimum)
+        target.maximum = max.(target.maximum, x.maximum)
+        target.minimum = min.(target.minimum, x.minimum)
     end
     target
 end
