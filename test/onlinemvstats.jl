@@ -137,8 +137,9 @@ using StatsBase
             -Inf*ones(Float64, m), Inf*ones(Float64, m), m
         )
         res = append!(deepcopy(mvstat), data', 2)
-        @test res.cov ≈ cov(data, 1)'
-        #res = append!(deepcopy(mvcov), data', w, 2)
+        @test res.mean ≈ mean(data, 1)'
+        @test res.cov ≈ cov(data, 1)
+        #res = append!(deepcopy(mvstat), data', w, 2)
         #@test res ≈ cov(data, ProbabilityWeights(w), 1; corrected = true)
         
     end
