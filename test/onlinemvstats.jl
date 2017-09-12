@@ -73,11 +73,11 @@ using StatsBase
 
         for wKind in [ProbabilityWeights, FrequencyWeights, AnalyticWeights, Weights]
             mvcov = BAT.OnlineMvCov{Float64, wKind}(m)
-            for i in indices(data, 1)
-                push!(mvcov, data[i,:], w[i]);
+            for i in indices(data, 2)
+                push!(mvcov, data[:, i], w[i]);
             end
 
-            @test mvcov ≈ cov(data, wKind(w), 1; corrected = (wKind != Weights))
+            @test mvcov ≈ cov(data, wKind(w), 2; corrected = (wKind != Weights))
         end
 
         countMvCovs = 3
@@ -87,13 +87,13 @@ using StatsBase
         end
         mvcovc = BAT.OnlineMvCov(m)
         
-        for i in indices(data, 1)
-            push!(mvcovs[(i % countMvCovs) + 1], data[i, :], w[i]);
-            push!(mvcovc, data[i, :], w[i]);
+        for i in indices(data, 2)
+            push!(mvcovs[(i % countMvCovs) + 1], data[:, i], w[i]);
+            push!(mvcovc, data[:, i], w[i]);
         end
 
         res = merge(mvcovs...)
-        @test res ≈ cov(data, ProbabilityWeights(w), 1; corrected = true)
+        @test res ≈ cov(data, ProbabilityWeights(w), 2; corrected = true)
         @test res ≈ mvcovc
         @test res.sum_w ≈ mvcovc.sum_w
         @test res.sum_w2 ≈ mvcovc.sum_w2
@@ -102,10 +102,10 @@ using StatsBase
         @test res.New_Mean_X ≈ mvcovc.New_Mean_X
 
         mvcov = BAT.OnlineMvCov(m)
-        res = append!(deepcopy(mvcov), data', 2)
-        @test res ≈ cov(data, 1)'
-        res = append!(deepcopy(mvcov), data', w, 2)
-        @test res ≈ cov(data, ProbabilityWeights(w), 1; corrected = true)
+        res = append!(deepcopy(mvcov), data, 2)
+        @test res ≈ cov(data, 2)
+        res = append!(deepcopy(mvcov), data, w, 2)
+        @test res ≈ cov(data, ProbabilityWeights(w), 2; corrected = true)
     end
     @testset "BasicMvStatistic" begin        
         bmvstats = BasicMvStatistics{Float64, ProbabilityWeights}(
