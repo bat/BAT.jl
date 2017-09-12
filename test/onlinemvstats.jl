@@ -10,6 +10,10 @@ using StatsBase
     data2 = flipdim(data1, 1)
 
     w = [exp(x-n/2) for x in 1:n]
+
+    data = hcat(data1, data2)
+    m = size(data)[2]
+
     
     @testset "BAT.kbn_add" begin
         bg = +1E5
@@ -58,8 +62,6 @@ using StatsBase
     @testset "OnlineMvCov" begin
         @test typeof(@inferred BAT.OnlineMvCov(n)) <: AbstractMatrix{Float64}
         @test typeof(@inferred BAT.OnlineMvCov{Float32, ProbabilityWeights}(n)) <: AbstractMatrix{Float32}
-        data = hcat(data1, data2)
-        m = size(data)[2]
 
         for wKind in [ProbabilityWeights, FrequencyWeights, AnalyticWeights, Weights]
             mvcov = BAT.OnlineMvCov{Float64, wKind}(m)
@@ -89,6 +91,36 @@ using StatsBase
         @test res.sum_w2 ≈ mvcovc.sum_w2
         @test res.n ≈ mvcovc.n
         @test res.Mean_X ≈ mvcovc.Mean_X
-        @test res.New_Mean_X ≈ mvcovc.New_Mean_X        
+        @test res.New_Mean_X ≈ mvcovc.New_Mean_X
+    end
+    @testset "BasicMvStatistic" begin        
+        bmvstats = BasicMvStatistics{Float64, ProbabilityWeights}(
+            OnlineMvMean{Float64}(m), OnlineMvCov{Float64, ProbabilityWeights}(m),
+            -Inf*ones(Float64, m), Inf*ones(Float64, m)
+        )
+
+        countBMS = 3
+        bmvs = Array{BAT.BasicMvStatistics{Float64, ProbabilityWeights}}(countBMS)
+        for i in indices(bmvs,1)
+            bmvs[i] = BasicMvStatistics{Float64, ProbabilityWeights}(
+            OnlineMvMean{Float64}(m), OnlineMvCov{Float64, ProbabilityWeights}(m),
+            -Inf*ones(Float64, m), Inf*ones(Float64, m)
+            )
+        end
+        
+        for i in indices(data, 1)
+            BAT.push_contiguous!(bmvstats, data[i,:], 1, w[i]);
+            BAT.push_contiguous!(bmvs[(i % countBMS) + 1], data[i, :], 1, w[i]);
+        end
+
+        merbmvstats = merge!(bmvs[1], bmvs[2], bmvs[3])
+
+        for bs in [bmvstats, merbmvstats]
+            @test bs.mean ≈  mean(data, Weights(w), 1)'
+            @test bs.cov ≈ cov(data, ProbabilityWeights(w), 1; corrected = true)
+            @test bs.maximum ≈ [maximum(data[:,i]) for i in indices(data, 2)]
+            @test bs.minimum ≈ [minimum(data[:,i]) for i in indices(data, 2)]
+        end
+        
     end
 end
