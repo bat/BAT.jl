@@ -17,6 +17,7 @@ Base.eltype{T}(b::AbstractParamBounds{T}) = T
 
 @inline isoob(x::AbstractFloat) = isnan(x)
 @inline isoob(x::Integer) = x == oob(x)
+@inline isoob(x::AbstractArray) = any(isoob, x)
 
 
 @enum BoundsType hard_bounds=1 cyclic_bounds=2 reflective_bounds=3

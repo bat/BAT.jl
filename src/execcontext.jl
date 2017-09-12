@@ -21,16 +21,16 @@ export ExecCompat
 ExecCompat() = ExecCompat(false, 0)
 
 
-abstract type AbstractExecutor end
-export AbstractExecutor
-
-
-struct SerialExecutor{RNG<:AbstractRNG} <: AbstractExecutor
-    rng::RNG
-    ec::ExecContext
-end
-
-export SerialExecutor
-
-SerialExecutor(rng::RNG) where {RNG<:AbstractRNG} =
-    SerialExecutor{RNG}(rng)
+# abstract type AbstractExecutor end
+# export AbstractExecutor
+# 
+# 
+# struct SerialExecutor{RNG<:AbstractRNG} <: AbstractExecutor
+#     rng::RNG
+#     ec::ExecContext
+# end
+# 
+# export SerialExecutor
+# 
+# SerialExecutor(rng::RNG) where {RNG<:AbstractRNG} =
+#     SerialExecutor{RNG}(rng)

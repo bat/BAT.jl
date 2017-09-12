@@ -64,13 +64,25 @@ MCMCChainInfo() = MCMCChainInfo(0, 0, UNCONVERGED)
 
 
 
-struct MCMCChainStats{T<:Real,P<:Real}
+struct MCMCChainStats{L<:Real,P<:Real}
     param_stats::BasicMvStatistics{P,FrequencyWeights}
-    logtf_stats::BasicUvStatistics{T,FrequencyWeights}
+    logtf_stats::BasicUvStatistics{L,FrequencyWeights}
     mode::Vector{P}
 end
 
 export MCMCChainStats
+
+function MCMCChainStats(::Type{L}, ::Type{P})(m::Integer) where {L<:Real,P<:Real}
+    param_stats = BasicMvStatistics{P,FrequencyWeights}(m)
+    logtf_stats = BasicUvStatistics{L,FrequencyWeights}()
+    mode = Vector{P}(size(param_stats.mean, 1))
+
+    MCMCChainStats(
+        BasicMvStatistics{P,FrequencyWeights}(),
+        BasicUvStatistics{L,FrequencyWeights}(),
+        Vector{P}(length())
+    )
+end
 
 
 
@@ -78,12 +90,10 @@ struct MCMCChain{
     A<:MCMCAlgorithm,
     T<:AbstractTargetSubject,
     S<:AbstractMCMCState,
-    R<:AbstractRNG
 }
     algorithm::A
     target::T
     state::S
-    rng::R
     info::MCMCChainInfo
 end
 
@@ -91,18 +101,16 @@ export MCMCChain
 
 
 
-
-
-"""
-    mcmc_step(state::AbstractMCMCState, rng::AbstractRNG, exec_context::ExecContext = ExecContext())
-    mcmc_step(states::AbstractVector{<:AbstractMCMCState}, rng::AbstractRNG, exec_context::ExecContext = ExecContext()) where {P,R}
-"""
-function  mcmc_step end
-export mcmc_step
-
-
-"""
-    exec_context(state::AbstractMCMCState)
-"""
-function exec_context end
-export exec_context
+# """
+#     mcmc_step(state::AbstractMCMCState, rng::AbstractRNG, exec_context::ExecContext = ExecContext())
+#     mcmc_step(states::AbstractVector{<:AbstractMCMCState}, rng::AbstractRNG, exec_context::ExecContext = ExecContext()) where {P,R}
+# """
+# function  mcmc_step end
+# export mcmc_step
+# 
+# 
+# """
+#     exec_context(state::AbstractMCMCState)
+# """
+# function exec_context end
+# export exec_context
