@@ -23,7 +23,7 @@ export OnlineUvMean
 
 OnlineUvMean() = OnlineUvMean{Float64}()
 
-@inline Base.getindex(omn::OnlineUvMean{T}) where {T} = T(omn.sum_v / omn.sum_w)
+@inline Base.getindex(omn::OnlineUvMean{T}) where {T<:AbstractFloat} = T(omn.sum_v / omn.sum_w)
 
 
 function Base.merge!(target::OnlineUvMean{T}, others::OnlineUvMean...) where {T}
@@ -41,7 +41,7 @@ end
 
 @inline function _cat_impl(omn::OnlineUvMean{T}, data, weight::Real = one(T)) where {T}
     @inbounds @simd for x in data
-        omn = OnlineUvMean{T}(sum_v + Single(x), sum_w + Single(weight))
+        omn = OnlineUvMean{T}(omn.sum_v + Single(weight*x), omn.sum_w + Single(weight))
     end
     omn
 end
