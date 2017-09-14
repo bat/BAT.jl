@@ -87,13 +87,12 @@ function MCMCChain(
 
     info = MCMCChainInfo(id, cycle, UNCONVERGED)
 
-    stats = MCMCChainStats(L, P)
+    stats = MCMCChainStats{L, P}(2)
 
     chain = MCMCChain(
         algorithm,
         target,
         state,
-        rng,
         info
     )
 

@@ -1,16 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-
-
 abstract type AbstractMCMCState end
 
-
 abstract type MCMCAlgorithm{S<:AbstractMCMCState} end
-
-
-
-
 
 
 abstract type AbstractMCMCSample end
@@ -31,9 +24,11 @@ end
 export MCMCSample
 
 
-Base.length(sample::MCMCSample) = length(sample.params)
+Base.length(s::MCMCSample) = length(s.params)
 
-Base.similar(sample::MCMCSample{P,T,W}) where {P,T,W} = MCMCSample{P,T,W}(similar(sample.params), 0, 0, 0)
+Base.similar(s::MCMCSample{P,T,W}) where {P,T,W} =
+    MCMCSample{P,T,W}(oob(s.params), convert(T, NaN), zero(W))
+
 
 function Base.copy!(dest::MCMCSample, src::MCMCSample) 
     copy!(dest.params, src.params)
@@ -41,8 +36,6 @@ function Base.copy!(dest::MCMCSample, src::MCMCSample)
     dest.weight = src.weight
     dest
 end
-
-
 
 
 
@@ -68,21 +61,21 @@ struct MCMCChainStats{L<:Real,P<:Real}
     param_stats::BasicMvStatistics{P,FrequencyWeights}
     logtf_stats::BasicUvStatistics{L,FrequencyWeights}
     mode::Vector{P}
+
+    function MCMCChainStats{L,P}(m::Integer) where {L<:Real,P<:Real}
+        param_stats = BasicMvStatistics{P,FrequencyWeights}(m)
+        logtf_stats = BasicUvStatistics{L,FrequencyWeights}()
+        mode = Vector{P}(size(param_stats.mean, 1))
+
+        new{L,P}(
+            BasicMvStatistics{P,FrequencyWeights}(m),
+            BasicUvStatistics{L,FrequencyWeights}(),
+            fill(oob(P), m)
+        )
+    end
 end
 
 export MCMCChainStats
-
-function MCMCChainStats(::Type{L}, ::Type{P})(m::Integer) where {L<:Real,P<:Real}
-    param_stats = BasicMvStatistics{P,FrequencyWeights}(m)
-    logtf_stats = BasicUvStatistics{L,FrequencyWeights}()
-    mode = Vector{P}(size(param_stats.mean, 1))
-
-    MCMCChainStats(
-        BasicMvStatistics{P,FrequencyWeights}(),
-        BasicUvStatistics{L,FrequencyWeights}(),
-        Vector{P}(length())
-    )
-end
 
 
 

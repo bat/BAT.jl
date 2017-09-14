@@ -284,7 +284,7 @@ mutable struct BasicMvStatistics{T<:Real,W}
     ) where {T<:Real,W} = new(mean, cov, maximum, minimum)
 
     BasicMvStatistics{T,W}(m::Integer) where {T<:Real,W} =
-        new(OnlineMvMean{T}(m), OnlineMvCov{T,W}(m), Vector{T}(m), Vector{T}(m))
+        new(OnlineMvMean{T}(m), OnlineMvCov{T,W}(m), fill(typemin(T), 5), fill(typemax(T), 5))
 end
 
 export BasicMvStatistics
