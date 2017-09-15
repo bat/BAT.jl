@@ -195,7 +195,7 @@ function mcmc_iterate(
             state.current_nreject += 1
         end
 
-        if accepted || (granularity > 2)
+        if accepted || (granularity >= 2)
             callback(chain)
         end
     end
