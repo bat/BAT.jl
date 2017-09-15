@@ -19,7 +19,7 @@ using StatsBase
         @test Float64(res.sum_v) ≈ sum(data)
         @test isnan(ouvm[])
 
-        res = cat(res, data, w[2])
-        @test res[] ≈ mean(vcat(data, data), Weights(vcat(w[1]*ones(n),w[2]*ones(n))))
+        res = cat(res, 0.1*data, w[2])
+        @test res[] ≈ mean(vcat(data, 0.1*data), Weights(vcat([x*ones(n) for x in w]...)))
     end
 end
