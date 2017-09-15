@@ -9,6 +9,7 @@ include.([
     "rng.jl",
     "distributions.jl",
     "util.jl",
+    "extendablearray.jl",
     "execcontext.jl",
     "onlineuvstats.jl",
     "onlinemvstats.jl",
