@@ -6,11 +6,11 @@ using DoubleDouble
 
 
 """
-    OnlineUvMean{T<:AbstractFloat} <: AbstractVector{T}
+    OnlineUvMean{T<:AbstractFloat}
 
 Multi-variate mean implemented via Kahan-Babuška-Neumaier summation.
 """
-struct OnlineUvMean{T<:AbstractFloat} <: AbstractVector{T}
+struct OnlineUvMean{T<:AbstractFloat}
     sum_v::Double{T}
     sum_w::Double{T}
 
@@ -55,7 +55,7 @@ Base.cat(omn::OnlineUvMean{T}, data::AbstractArray{<:Real}, weight::Real = one(T
 
 
 """
-    OnlineUvVar{T<:AbstractFloat,W} <: AbstractMatrix{T}
+    OnlineUvVar{T<:AbstractFloat,W}
 
 Implementation based on variance calculation Algorithms of Welford and West.
 
@@ -64,17 +64,17 @@ Implementation based on variance calculation Algorithms of Welford and West.
 correction method.
 """
 
-struct OnlineUvVar{T<:AbstractFloat,W} <: AbstractMatrix{T}
+struct OnlineUvVar{T<:AbstractFloat,W}
     n::Int64
     sum_w::Double{T}
     sum_w2::Double{T}
     mean_x::T
     s::T
 
-    OnlineUvVar{T,W}(m::Integer) where {T<:AbstractFloat,W} =
+    OnlineUvVar{T,W}() where {T<:AbstractFloat,W} =
         new{T,W}(
-            m, zero(Int64), zero(Double{T}), zero(Double{T}),
-            zeros(T, m), zeros(T, m), zeros(T, m, m)
+            zero(Int64), zero(Double{T}), zero(Double{T}),
+            zero(T), zero(T)
         )
 end
 
@@ -151,6 +151,9 @@ mutable struct BasicUvStatistics{T<:Real,W}
     var::OnlineUvVar{T,W}
     maximum::T
     minimum::T
+
+    BasicUvStatistics{T,W}() where {T<:Real,W} =
+        new(OnlineUvMean{T}(), OnlineUvVar{T,W}(), typemin(T), typemax(T))
 end
 
 export BasicUvStatistics

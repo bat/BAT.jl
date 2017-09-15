@@ -3,25 +3,101 @@
 
 mutable struct MHState{
     Q<:AbstractProposalDist,
-    S<:MCMCSample,
-    R<:AbstractRNG
+    R<:AbstractRNG,
+    S<:MCMCSample
 } <: AbstractMCMCState
     pdist::Q
-
+    rng::R
     current_sample::S
     proposed_sample::S
     proposal_accepted::Bool
     current_nreject::Int64
-
-    rng::R
-
+    nsamples::Int64
     nsteps::Int64
     naccept::Int64
 end
 
 
+function MHState(
+    pdist::AbstractProposalDist,
+    rng::AbstractRNG,
+    current_sample::MCMCSample
+)
+    proposed_sample = MCMCSample(
+        similar(current_sample.params),
+        convert(typeof(current_sample.log_value), NaN),
+        zero(current_sample.weight)
+    )
+
+    MHState(
+        pdist,
+        rng,
+        current_sample,
+        proposed_sample,
+        false,
+        0,
+        0,
+        1,
+        1
+    )
+end
+
+
+
+
 struct MetropolisHastings <: MCMCAlgorithm{MHState} end
 export MetropolisHastings
+
+
+
+function MCMCChain(
+    algorithm::MetropolisHastings,
+    target::AbstractTargetSubject,
+    pdist::AbstractProposalDist,
+    initial_params::AbstractVector{P},
+    rng::AbstractRNG,
+    id::Integer = 1,
+    cycle::Integer = 1,
+    exec_context::ExecContext = ExecContext()
+) where {P<:Real}
+    params_vec = convert(Vector{P}, initial_params)
+    apply_bounds!(params_vec, target.bounds)
+
+    log_value = target_logval(target.tdensity, params_vec, exec_context)
+    L = typeof(log_value)
+    isoob(params_vec) && throw(ArgumentError("Parameter(s) out of bounds"))
+
+    current_sample = MCMCSample(
+        params_vec,
+        log_value,
+        zero(Int)
+    )
+
+    proposed_sample = MCMCSample(
+        similar(current_sample.params),
+        convert(typeof(current_sample.log_value), NaN),
+        zero(Int)
+    )
+
+    state = MHState(
+        pdist,
+        rng,
+        current_sample
+    )
+
+    info = MCMCChainInfo(id, cycle, UNCONVERGED)
+
+    stats = MCMCChainStats{L, P}(2)
+
+    chain = MCMCChain(
+        algorithm,
+        target,
+        state,
+        info
+    )
+
+    chain
+end
 
 
 
@@ -52,9 +128,9 @@ function mcmc_iterate(
 
     target = chain.target
     state = chain.state
-    rng = chain.rng
+    rng = state.rng
 
-    tfunc = target.tfunc
+    tdensity = target.tdensity
     bounds = target.bounds
 
     pdist = state.pdist
@@ -88,14 +164,14 @@ function mcmc_iterate(
         log_tpr = if issymmetric(pdist)
             T(0)
         else
-            log_tp_fwd = proposal_logpdf(pdist, params_next, current_params)
-            log_tp_rev = proposal_logpdf(pdist, current_params, params_next)
+            log_tp_fwd = proposal_logpdf(pdist, proposed_params, current_params)
+            log_tp_rev = proposal_logpdf(pdist, current_params, proposed_params)
             T(log_tp_fwd - log_tp_rev)
         end
 
         # Evaluate target density at new parameters:
-        proposed_log_value = if !any(isoob, params_next)
-            T(target_logval(tfunc, params_next, exec_context))
+        proposed_log_value = if !isoob(proposed_params)
+            T(target_logval(tdensity, proposed_params, exec_context))
         else
             T(-Inf)
         end
@@ -112,7 +188,7 @@ function mcmc_iterate(
             state.proposal_accepted = true
             state.naccept += 1
             nsamples += 1
-            chain.nsamples += 1
+            state.nsamples += 1
         else
             state.current_nreject += 1
         end
@@ -123,6 +199,7 @@ function mcmc_iterate(
     end
 end
 
+export mcmc_iterate
 
 
 
