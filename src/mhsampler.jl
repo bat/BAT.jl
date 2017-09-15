@@ -128,7 +128,7 @@ function mcmc_iterate(
 
     target = chain.target
     state = chain.state
-    rng = chain.rng
+    rng = state.rng
 
     tdensity = target.tdensity
     bounds = target.bounds
@@ -164,14 +164,14 @@ function mcmc_iterate(
         log_tpr = if issymmetric(pdist)
             T(0)
         else
-            log_tp_fwd = proposal_logpdf(pdist, params_next, current_params)
-            log_tp_rev = proposal_logpdf(pdist, current_params, params_next)
+            log_tp_fwd = proposal_logpdf(pdist, proposed_params, current_params)
+            log_tp_rev = proposal_logpdf(pdist, current_params, proposed_params)
             T(log_tp_fwd - log_tp_rev)
         end
 
         # Evaluate target density at new parameters:
-        proposed_log_value = if !isoob(params_next)
-            T(target_logval(tdensity, params_next, exec_context))
+        proposed_log_value = if !isoob(proposed_params)
+            T(target_logval(tdensity, proposed_params, exec_context))
         else
             T(-Inf)
         end
@@ -199,6 +199,7 @@ function mcmc_iterate(
     end
 end
 
+export mcmc_iterate
 
 
 
