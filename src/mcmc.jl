@@ -11,14 +11,6 @@ export AbstractMCMCSample
 
 
 
-const Parameters = Val(:Parameters)
-const LogValues = Val(:LogValues)
-const Weights = Val(:Weights)
-
-export Parameters, LogValues, Weights
-
-
-
 mutable struct MCMCSample{
     P<:Real,
     T<:Real,
@@ -36,6 +28,10 @@ Base.length(s::MCMCSample) = length(s.params)
 
 Base.similar(s::MCMCSample{P,T,W}) where {P,T,W} =
     MCMCSample{P,T,W}(oob(s.params), convert(T, NaN), zero(W))
+
+import Base.==
+==(A::MCMCSample, B::MCMCSample) =
+    A.params == B.params && A.log_value == B.log_value && A.weight == B.weight
 
 
 function Base.copy!(dest::MCMCSample, src::MCMCSample) 
@@ -102,38 +98,29 @@ export MCMCChain
 
 
 
-struct MCMCSampleVector{P<:Real,T<:AbstractFloat,W<:Real}
-    m::Int
-    params::Vector{P}
+struct MCMCSampleVector{P<:Real,T<:AbstractFloat,W<:Real} <: DenseVector{MCMCSample{P,T,W}}
+    params::ExtendableArray{P, 2, 1}
     log_values::Vector{T}
     weights::Vector{W}
 end
 
 export MCMCSampleVector
 
-function MCMCSampleVector(chain::MCMCChain) #<: DenseVector{MCMCSample}
+function MCMCSampleVector(chain::MCMCChain)
     P = eltype(chain.state.current_sample.params)
     T = typeof(chain.state.current_sample.log_value)
     W = typeof(chain.state.current_sample.weight)
 
     m = size(chain.state.current_sample.params, 1)
-    MCMCSampleVector(m, P[], T[], W[])
+    MCMCSampleVector(ExtendableArray{P}(m, 0), Vector{T}(0), Vector{W}(0))
 end
 
 
-#Base.eltype(xs::MCMCSampleVector{P,T,W}) where {P,T,W} = MCMCSample{P,T,W}
-
 Base.size(xs::MCMCSampleVector) = size(xs.log_values)
 
-#function Base.getindex(xs::MCMCSampleVector, i::Integer)
-#    result = getindex(input.tchain, i)
-#    copy_from_proxies!(input.bindings)
-#    result
-#end
+Base.getindex(xs::MCMCSampleVector{P,T,W}, i::Integer) where {P,T,W} =
+    MCMCSample{P,T,W}(xs.params[:,i], xs.log_values[i], xs.weights[i])
 
-Base.getindex(xs::MCMCSampleVector, ::typeof(Parameters)) = reshape(view(xs.params, :), xs.m, size(xs.log_values, 1))
-Base.getindex(xs::MCMCSampleVector, ::typeof(LogValues)) = xs.log_values
-Base.getindex(xs::MCMCSampleVector, ::typeof(Weights)) = xs.weights
 
 function Base.push!(xs::MCMCSampleVector, x::MCMCSample)
     append!(xs.params, x.params)
