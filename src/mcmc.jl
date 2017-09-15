@@ -11,6 +11,14 @@ export AbstractMCMCSample
 
 
 
+const Parameters = Val(:Parameters)
+const LogValues = Val(:LogValues)
+const Weights = Val(:Weights)
+
+export Parameters, LogValues, Weights
+
+
+
 mutable struct MCMCSample{
     P<:Real,
     T<:Real,
@@ -94,16 +102,42 @@ export MCMCChain
 
 
 
-# """
-#     mcmc_step(state::AbstractMCMCState, rng::AbstractRNG, exec_context::ExecContext = ExecContext())
-#     mcmc_step(states::AbstractVector{<:AbstractMCMCState}, rng::AbstractRNG, exec_context::ExecContext = ExecContext()) where {P,R}
-# """
-# function  mcmc_step end
-# export mcmc_step
-# 
-# 
-# """
-#     exec_context(state::AbstractMCMCState)
-# """
-# function exec_context end
-# export exec_context
+struct MCMCSampleVector{P<:Real,T<:AbstractFloat,W<:Real}
+    m::Int
+    params::Vector{P}
+    log_values::Vector{T}
+    weights::Vector{W}
+end
+
+export MCMCSampleVector
+
+function MCMCSampleVector(chain::MCMCChain) #<: DenseVector{MCMCSample}
+    P = eltype(chain.state.current_sample.params)
+    T = typeof(chain.state.current_sample.log_value)
+    W = typeof(chain.state.current_sample.weight)
+
+    m = size(chain.state.current_sample.params, 1)
+    MCMCSampleVector(m, P[], T[], W[])
+end
+
+
+#Base.eltype(xs::MCMCSampleVector{P,T,W}) where {P,T,W} = MCMCSample{P,T,W}
+
+Base.size(xs::MCMCSampleVector) = size(xs.log_values)
+
+#function Base.getindex(xs::MCMCSampleVector, i::Integer)
+#    result = getindex(input.tchain, i)
+#    copy_from_proxies!(input.bindings)
+#    result
+#end
+
+Base.getindex(xs::MCMCSampleVector, ::typeof(Parameters)) = reshape(view(xs.params, :), xs.m, size(xs.log_values, 1))
+Base.getindex(xs::MCMCSampleVector, ::typeof(LogValues)) = xs.log_values
+Base.getindex(xs::MCMCSampleVector, ::typeof(Weights)) = xs.weights
+
+function Base.push!(xs::MCMCSampleVector, x::MCMCSample)
+    append!(xs.params, x.params)
+    push!(xs.log_values, x.log_value)
+    push!(xs.weights, x.weight)
+    xs
+end
