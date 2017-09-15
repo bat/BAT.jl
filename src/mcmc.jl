@@ -61,6 +61,21 @@ MCMCChainInfo() = MCMCChainInfo(0, 0, UNCONVERGED)
 
 
 
+struct MCMCChain{
+    A<:MCMCAlgorithm,
+    T<:AbstractTargetSubject,
+    S<:AbstractMCMCState
+}
+    algorithm::A
+    target::T
+    state::S
+    info::MCMCChainInfo
+end
+
+export MCMCChain
+
+
+
 struct MCMCChainStats{L<:Real,P<:Real}
     param_stats::BasicMvStatistics{P,FrequencyWeights}
     logtf_stats::BasicUvStatistics{L,FrequencyWeights}
@@ -82,19 +97,16 @@ end
 export MCMCChainStats
 
 
+MCMCChainStats(chain::MCMCChain) = MCMCChainStats(chain.state)
 
-struct MCMCChain{
-    A<:MCMCAlgorithm,
-    T<:AbstractTargetSubject,
-    S<:AbstractMCMCState,
-}
-    algorithm::A
-    target::T
-    state::S
-    info::MCMCChainInfo
+
+function Base.push!(stats::MCMCChainStats, s::MCMCSample)
+    push!(stats.param_stats, s.params, s.weight)
+    if s.log_value > stats.logtf_stats.maximum
+        stats.mode .= s.params
+    end
+    push!(stats.logtf_stats, s.log_value, s.weight)
 end
-
-export MCMCChain
 
 
 

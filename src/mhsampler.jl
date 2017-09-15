@@ -43,6 +43,15 @@ function MHState(
 end
 
 
+function MCMCChainStats(state::MHState)
+    s = state.current_sample
+    L = promote_type(typeof(s.log_value), Float64)
+    P = promote_type(eltype(s.params), Float64)
+    m = length(s.params)
+    MCMCChainStats{L, P}(m)
+end
+
+
 
 
 struct MetropolisHastings <: MCMCAlgorithm{MHState} end
@@ -195,7 +204,7 @@ function mcmc_iterate(
             state.current_nreject += 1
         end
 
-        if accepted || (granularity > 2)
+        if accepted || (granularity >= 2)
             callback(chain)
         end
     end
