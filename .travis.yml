@@ -8,6 +8,8 @@ julia:
   - nightly
 notifications:
   email: false
+before_script:
+  - julia -e 'Pkg.clone("https://github.com/oschulz/MultiThreadingTools.jl.git"); Pkg.build("MultiThreadingTools")'
 # uncomment the following lines to override the default test script
 #script:
 #  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
