@@ -66,10 +66,10 @@ function Base.append!(dest::ExtendableArray, src::AbstractArray)
 end
 
 
-function Base.push!(dest::ExtendableArray{T,N1}, src::AbstractArray{T,N2}) where {T,N1,N2}
-    size(src) != dest.kernel_size && throw(DimensionMismatch("Can't push, shape of source array is incompatible"))
-    append!(dest, src)
-end
+# function Base.push!(dest::ExtendableArray{T,N1}, src::AbstractArray{T,N2}) where {T,N1,N2}
+#     size(src) != dest.kernel_size && throw(DimensionMismatch("Can't push, shape of source array is incompatible"))
+#     append!(dest, src)
+# end
 
 
 function _copy_impl!(dest::ExtendableArray, args...)
