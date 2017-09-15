@@ -108,18 +108,12 @@ using StatsBase
         @test res ≈ cov(data, ProbabilityWeights(w), 2; corrected = true)
     end
     @testset "BasicMvStatistic" begin        
-        bmvstats = BasicMvStatistics{Float64, ProbabilityWeights}(
-            OnlineMvMean{Float64}(m), OnlineMvCov{Float64, ProbabilityWeights}(m),
-            -Inf*ones(Float64, m), Inf*ones(Float64, m), m
-        )
+        bmvstats = BasicMvStatistics{Float64, ProbabilityWeights}(m)
 
         countBMS = 3
         bmvs = Array{BAT.BasicMvStatistics{Float64, ProbabilityWeights}}(countBMS)
         for i in indices(bmvs,1)
-            bmvs[i] = BasicMvStatistics{Float64, ProbabilityWeights}(
-            OnlineMvMean{Float64}(m), OnlineMvCov{Float64, ProbabilityWeights}(m),
-            -Inf*ones(Float64, m), Inf*ones(Float64, m), m
-            )
+            bmvs[i] = BasicMvStatistics{Float64, ProbabilityWeights}(m)
         end
         
         for i in indices(data, 2)
@@ -139,10 +133,7 @@ using StatsBase
             @test bs.minimum ≈ minData
         end
 
-        mvstat = BasicMvStatistics{Float64, ProbabilityWeights}(
-            OnlineMvMean{Float64}(m), OnlineMvCov{Float64, ProbabilityWeights}(m),
-            -Inf*ones(Float64, m), Inf*ones(Float64, m), m
-        )
+        mvstat = BasicMvStatistics{Float64, ProbabilityWeights}(m)
         res = append!(deepcopy(mvstat), data, 2)
         @test res.mean ≈ mean(data, 2)
         @test res.cov ≈ cov(data, 2)
