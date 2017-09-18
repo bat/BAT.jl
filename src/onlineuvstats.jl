@@ -80,7 +80,7 @@ end
 
 export OnlineUvVar
 
-OnlineUvVar(m::Integer) = OnlineUvVar{Float64, ProbabilityWeights}(m::Integer)
+OnlineUvVar() = OnlineUvVar{Float64, ProbabilityWeights}()
 
 
 @propagate_inbounds Base.getindex{T}(ocv::OnlineUvVar{T, Weights}) =
