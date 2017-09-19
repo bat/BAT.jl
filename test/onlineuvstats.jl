@@ -38,5 +38,22 @@ using StatsBase
     end
     @testset "BAT.OnlineUvVar" begin
         @test typeof(@inferred BAT.OnlineUvVar()) <: BAT.OnlineUvVar{Float64, ProbabilityWeights}
+        @test typeof(@inferred BAT.OnlineUvVar{Float32, FrequencyWeights}()) <: BAT.OnlineUvVar{Float32, FrequencyWeights}
+
+        ouvv = OnlineUvVar()
+        res = ouvv
+        numVars = 3
+        vars = Array{BAT.OnlineUvVar{Float64, ProbabilityWeights}}(numVars)
+        for i in indices(vars, 1)
+            vars[i] = OnlineUvVar()
+        end
+
+        for i in indices(data1, 1)
+            # x = (i % numVars) + 1
+            # vars[x] = cat(vars[x], [data1[i]], w[1]);
+            res = cat(res, [data1[i]], w[1])
+            
+        end
+        
     end
 end
