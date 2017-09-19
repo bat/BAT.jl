@@ -5,5 +5,6 @@
         "distributions.jl",
         "parambounds.jl",
         "onlinemvstats.jl",
+        "onlineuvstats.jl",        
     ])
 end

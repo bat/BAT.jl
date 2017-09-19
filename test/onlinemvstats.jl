@@ -67,7 +67,7 @@ using StatsBase
         @test res ≈ mean(data, Weights(w), 2)
     end
 
-    @testset "OnlineMvCov" begin
+    @testset "BAT.OnlineMvCov" begin
         @test typeof(@inferred BAT.OnlineMvCov(n)) <: AbstractMatrix{Float64}
         @test typeof(@inferred BAT.OnlineMvCov{Float32, ProbabilityWeights}(n)) <: AbstractMatrix{Float32}
 
@@ -107,7 +107,7 @@ using StatsBase
         res = append!(deepcopy(mvcov), data, w, 2)
         @test res ≈ cov(data, ProbabilityWeights(w), 2; corrected = true)
     end
-    @testset "BasicMvStatistic" begin        
+    @testset "BAT.BasicMvStatistic" begin        
         bmvstats = BasicMvStatistics{Float64, ProbabilityWeights}(m)
 
         countBMS = 3
