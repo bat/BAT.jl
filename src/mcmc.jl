@@ -29,6 +29,10 @@ Base.length(s::MCMCSample) = length(s.params)
 Base.similar(s::MCMCSample{P,T,W}) where {P,T,W} =
     MCMCSample{P,T,W}(oob(s.params), convert(T, NaN), zero(W))
 
+import Base.==
+==(A::MCMCSample, B::MCMCSample) =
+    A.params == B.params && A.log_value == B.log_value && A.weight == B.weight
+
 
 function Base.copy!(dest::MCMCSample, src::MCMCSample) 
     copy!(dest.params, src.params)
@@ -94,16 +98,33 @@ export MCMCChain
 
 
 
-# """
-#     mcmc_step(state::AbstractMCMCState, rng::AbstractRNG, exec_context::ExecContext = ExecContext())
-#     mcmc_step(states::AbstractVector{<:AbstractMCMCState}, rng::AbstractRNG, exec_context::ExecContext = ExecContext()) where {P,R}
-# """
-# function  mcmc_step end
-# export mcmc_step
-# 
-# 
-# """
-#     exec_context(state::AbstractMCMCState)
-# """
-# function exec_context end
-# export exec_context
+struct MCMCSampleVector{P<:Real,T<:AbstractFloat,W<:Real} <: DenseVector{MCMCSample{P,T,W}}
+    params::ExtendableArray{P, 2, 1}
+    log_values::Vector{T}
+    weights::Vector{W}
+end
+
+export MCMCSampleVector
+
+function MCMCSampleVector(chain::MCMCChain)
+    P = eltype(chain.state.current_sample.params)
+    T = typeof(chain.state.current_sample.log_value)
+    W = typeof(chain.state.current_sample.weight)
+
+    m = size(chain.state.current_sample.params, 1)
+    MCMCSampleVector(ExtendableArray{P}(m, 0), Vector{T}(0), Vector{W}(0))
+end
+
+
+Base.size(xs::MCMCSampleVector) = size(xs.log_values)
+
+Base.getindex(xs::MCMCSampleVector{P,T,W}, i::Integer) where {P,T,W} =
+    MCMCSample{P,T,W}(xs.params[:,i], xs.log_values[i], xs.weights[i])
+
+
+function Base.push!(xs::MCMCSampleVector, x::MCMCSample)
+    append!(xs.params, x.params)
+    push!(xs.log_values, x.log_value)
+    push!(xs.weights, x.weight)
+    xs
+end

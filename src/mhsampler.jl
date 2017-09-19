@@ -176,15 +176,17 @@ function mcmc_iterate(
             T(-Inf)
         end
 
+        proposed_sample.log_value = proposed_log_value
+
         # Metropolis-Hastings accept/reject:
         # TODO: First mofify/tag counter(s) for counter-based RNG before
-        accepted = rand(rng) < exp(log_value_next - log_value_last - log_tpr)
+        accepted = rand(rng) < exp(proposed_log_value - current_log_value - log_tpr)
 
         nsteps += 1
         state.nsteps += 1
 
         if accepted
-            sample.weight = state.current_nreject + 1
+            current_sample.weight = state.current_nreject + 1
             state.proposal_accepted = true
             state.naccept += 1
             nsamples += 1
