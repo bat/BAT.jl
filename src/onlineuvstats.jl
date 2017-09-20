@@ -39,19 +39,27 @@ function Base.merge!(target::OnlineUvMean{T}, others::OnlineUvMean...) where {T}
 end
 
 
-@inline function _cat_impl(omn::OnlineUvMean{T}, data, weight::Real = one(T)) where {T}
-    @inbounds @simd for x in data
-        omn = OnlineUvMean{T}(omn.sum_v + Single(weight*x), omn.sum_w + Single(weight))
+@inline function _cat_impl(omn::OnlineUvMean{T}, data, weight::Array{<:Real}) where {T}
+    @inbounds @simd for i in indices(data, 1)
+        omn = _cat_impl(omn, data[i], weight[i])
     end
     omn
 end
 
-Base.cat(omn::OnlineUvMean{T}, data::NTuple{N, <:Real}, weight::Real = one(T)) where {T,N} =
+@inline _cat_impl(omn::OnlineUvMean{T}, data::T, weight::T) where {T<:Real} = 
+    OnlineUvMean{T}(omn.sum_v + Single(weight*data), omn.sum_w + Single(weight))
+
+Base.cat(omn::OnlineUvMean{T}, data::NTuple{N, <:Real}, weight::Array{<:Real}=ones(T, N)) where {T,N} =
+    _cat_impl(omn, collect(data), weight)
+
+Base.cat(omn::OnlineUvMean{T}, data::T, weight::T = one(T)) where {T<:Real} =
     _cat_impl(omn, data, weight)
 
-Base.cat(omn::OnlineUvMean{T}, data::AbstractArray{<:Real}, weight::Real = one(T)) where {T} =
+Base.cat(omn::OnlineUvMean{T}, data::Array{<:Real, 1}, weight::Array{<:Real, 1}) where {T} =
     _cat_impl(omn, data, weight)
 
+Base.cat(omn::OnlineUvMean{T}, data::Array{<:Real, 1}) where {T} =
+    _cat_impl(omn, data, ones(T, size(data, 1)))
 
 
 """
@@ -76,6 +84,11 @@ struct OnlineUvVar{T<:AbstractFloat,W}
             zero(Int64), zero(Double{T}), zero(Double{T}),
             zero(T), zero(T)
         )
+    
+    OnlineUvVar{T,W}(n::Int64, sum_w::Double{T}, sum_w2::Double{T}, mean_x::T, s::T) where {T<:AbstractFloat,W} =
+        new{T,W}(
+            n, sum_w, sum_w2, mean_x, s
+        )    
 end
 
 export OnlineUvVar
@@ -86,13 +99,14 @@ OnlineUvVar() = OnlineUvVar{Float64, ProbabilityWeights}()
 @propagate_inbounds Base.getindex{T}(ocv::OnlineUvVar{T, Weights}) =
     ifelse(ocv.sum_w > 0, T(ocv.s / ocv.sum_w), T(NaN))
 
-@propagate_inbounds Base.getindex{T}(ocv::OnlineUvVar{T, AnalyticWeights}) =
-    ifelse(ocv.sum_w > 1, T(ocv.s / (ocv.sum_w - 1)), T(NaN))
-
-@propagate_inbounds function Base.getindex{T}(ocv::OnlineUvVar{T, FrequencyWeights})
+@propagate_inbounds function Base.getindex{T}(ocv::OnlineUvVar{T, AnalyticWeights}) 
     d = ocv.sum_w - ocv.sum_w2 / ocv.sum_w
     ifelse(ocv.sum_w > 0 && d > 0, T(ocv.s / d), T(NaN))
 end
+
+@propagate_inbounds Base.getindex{T}(ocv::OnlineUvVar{T, FrequencyWeights}) =
+    ifelse(ocv.sum_w > 1, T(ocv.s / (ocv.sum_w - 1)), T(NaN))    
+
 
 @propagate_inbounds Base.getindex{T}(ocv::OnlineUvVar{T, ProbabilityWeights}) =
     ifelse(ocv.n > 1 && ocv.sum_w > 0, T(ocv.s * ocv.n / ((ocv.n - 1) * ocv.sum_w)), T(NaN))
@@ -107,19 +121,33 @@ function Base.merge(target::OnlineUvVar{T,W}, others::OnlineUvVar...) where {T,W
     s = target.s
 
     @inbounds @simd for x in others
-        target.n = x.n
-        target.sum_w = x.sum_w
-        target.sum_w2 = x.sum_w2
-        target.mean_x = x.mean_x
-        target.s = x.s
+        n += x.n
+
+        dx = mean_x - x.mean_x
+        
+        new_sum_w = (sum_w + x.sum_w)
+        mean_x = (sum_w * mean_x + x.sum_w * x.mean_x) / new_sum_w
+        
+        s += x.s + sum_w * x.sum_w / new_sum_w * dx * dx
+
+        sum_w = new_sum_w
+        sum_w2 += x.sum_w2
+
     end
 
-    OnlineUvVar{T,W}(n, sum_w, sum_w2, mean_x, s)
+    OnlineUvVar{T,W}(n, sum_w, sum_w2, T(mean_x), T(s))
 end
 
 
 
-@inline function _cat_impl{T,W}(ocv::OnlineUvVar{T,W}, data, weight::Real = one(T))
+@inline function _cat_impl{T,W}(ocv::OnlineUvVar{T,W}, data, weight::Array{<:Real, 1})
+    @inbounds @simd for i in indices(data, 1)
+        ocv = _cat_impl(ocv, data[i], weight[i])
+    end
+    ocv
+end
+
+@inline function _cat_impl{T,W}(ocv::OnlineUvVar{T,W}, data::Real, weight::Real)
     n = ocv.n
     sum_w = ocv.sum_w
     sum_w2 = ocv.sum_w2
@@ -129,20 +157,28 @@ end
     n += one(n)
     sum_w += Single(weight)
     sum_w2 += Single(weight^2)
-    dx = x - mean_x
-    new_mean_x = mean_x + dx / sum_w
-    new_dx = x - new_mean_x
-    ocv.s = muladd(dx, new_dx, s)
-    ocv.mean_x = new_mean_x
+    dx = data - mean_x
+    new_mean_x = mean_x + dx * weight / sum_w
+    new_dx = data - new_mean_x
+    
+    s = muladd(dx, weight * new_dx, s)
+    mean_x = new_mean_x
 
-    OnlineUvVar{T,W}(n, sum_w, sum_w2, mean_x, s)
+    ocv = OnlineUvVar{T,W}(n, sum_w, sum_w2, T(mean_x), T(s))        
+    ocv
 end
 
-Base.cat(ocv::OnlineUvVar{T,W}, data::NTuple{N, <:Real}, weight::Real = one(T)) where {T,W,N} =
+Base.cat(ocv::OnlineUvVar{T,W}, data::Real, weight::Real) where {T,W} =
     _cat_impl(ocv, data, weight)
 
-Base.cat(ocv::OnlineUvVar{T,W}, data::AbstractArray{<:Real}, weight::Real = one(T)) where {T,W} =
+Base.cat(ocv::OnlineUvVar{T,W}, data::NTuple{N, <:Real}, weight::Array{<:Real, 1}=ones(T, N)) where {T,W,N} =
+    _cat_impl(ocv, collect(data), weight)
+
+Base.cat(ocv::OnlineUvVar{T,W}, data::Array{<:Real, 1}, weight::Array{<:Real, 1}) where {T,W} =
     _cat_impl(ocv, data, weight)
+
+Base.cat(ocv::OnlineUvVar{T,W}, data::Array{<:Real, 1}) where {T,W} =
+    _cat_impl(ocv, data, ones(T, size(data, 1)))
 
 
 
@@ -188,3 +224,5 @@ function Base.merge!(target::BasicUvStatistics, others::BasicUvStatistics...)
     end
     target
 end
+
+#const OnlineUvStatistic = Union{OnlineUvMean, OnlineUvVar, BasicUvStatistics}
