@@ -26,7 +26,7 @@ OnlineUvMean() = OnlineUvMean{Float64}()
 @inline Base.getindex(omn::OnlineUvMean{T}) where {T<:AbstractFloat} = T(omn.sum_v / omn.sum_w)
 
 
-function Base.merge!(target::OnlineUvMean{T}, others::OnlineUvMean...) where {T}
+function Base.merge(target::OnlineUvMean{T}, others::OnlineUvMean...) where {T}
     sum_v = target.sum_v
     sum_w = target.sum_w
 
@@ -39,7 +39,7 @@ function Base.merge!(target::OnlineUvMean{T}, others::OnlineUvMean...) where {T}
 end
 
 
-@inline function _cat_impl(omn::OnlineUvMean{T}, data, weight::Array{<:Real}) where {T}
+@inline function _cat_impl(omn::OnlineUvMean{T}, data, weight::Array{<:Real, 1}) where {T}
     @inbounds @simd for i in indices(data, 1)
         omn = _cat_impl(omn, data[i], weight[i])
     end
@@ -49,17 +49,6 @@ end
 @inline _cat_impl(omn::OnlineUvMean{T}, data::T, weight::T) where {T<:Real} = 
     OnlineUvMean{T}(omn.sum_v + Single(weight*data), omn.sum_w + Single(weight))
 
-Base.cat(omn::OnlineUvMean{T}, data::NTuple{N, <:Real}, weight::Array{<:Real}=ones(T, N)) where {T,N} =
-    _cat_impl(omn, collect(data), weight)
-
-Base.cat(omn::OnlineUvMean{T}, data::T, weight::T = one(T)) where {T<:Real} =
-    _cat_impl(omn, data, weight)
-
-Base.cat(omn::OnlineUvMean{T}, data::Array{<:Real, 1}, weight::Array{<:Real, 1}) where {T} =
-    _cat_impl(omn, data, weight)
-
-Base.cat(omn::OnlineUvMean{T}, data::Array{<:Real, 1}) where {T} =
-    _cat_impl(omn, data, ones(T, size(data, 1)))
 
 
 """
@@ -141,7 +130,7 @@ end
 
 
 @inline function _cat_impl{T,W}(ocv::OnlineUvVar{T,W}, data, weight::Array{<:Real, 1})
-    @inbounds @simd for i in indices(data, 1)
+    @inbounds for i in indices(data, 1)
         ocv = _cat_impl(ocv, data[i], weight[i])
     end
     ocv
@@ -168,18 +157,6 @@ end
     ocv
 end
 
-Base.cat(ocv::OnlineUvVar{T,W}, data::Real, weight::Real) where {T,W} =
-    _cat_impl(ocv, data, weight)
-
-Base.cat(ocv::OnlineUvVar{T,W}, data::NTuple{N, <:Real}, weight::Array{<:Real, 1}=ones(T, N)) where {T,W,N} =
-    _cat_impl(ocv, collect(data), weight)
-
-Base.cat(ocv::OnlineUvVar{T,W}, data::Array{<:Real, 1}, weight::Array{<:Real, 1}) where {T,W} =
-    _cat_impl(ocv, data, weight)
-
-Base.cat(ocv::OnlineUvVar{T,W}, data::Array{<:Real, 1}) where {T,W} =
-    _cat_impl(ocv, data, ones(T, size(data, 1)))
-
 
 
 mutable struct BasicUvStatistics{T<:Real,W}
@@ -190,25 +167,27 @@ mutable struct BasicUvStatistics{T<:Real,W}
 
     BasicUvStatistics{T,W}() where {T<:Real,W} =
         new(OnlineUvMean{T}(), OnlineUvVar{T,W}(), typemin(T), typemax(T))
+    BasicUvStatistics{T,W}(mean::OnlineUvMean{T}, var::OnlineUvVar{T,W}, maximum::T, minimum::T) where {T<:Real,W} =
+        new(mean, var, maximum, minimum)
 end
 
 export BasicUvStatistics
 
 
-@inline function _cat_impl{T,W}(stats::BasicUvStatistics{T,W}, data, weight::Real = one(T))
-    new_mean = append(stats.mean, data, weight)
-    new_var = append(stats.var, data, weight)
+@inline function _cat_impl{T,W}(stats::BasicUvStatistics{T,W}, data, weight::Array{<:Real, 1})
+    @inbounds for i in indices(data, 1)
+        stats = _cat_impl(stats, data[i], weight[i])
+    end
+    stats
+end
+
+@inline function _cat_impl{T,W}(stats::BasicUvStatistics{T,W}, data::Real, weight::Real = one(T))
+    new_mean = cat(stats.mean, data, weight)
+    new_var = cat(stats.var, data, weight)
     new_maximum = max(stats.maximum, maximum(data))
     new_minimum = min(stats.minimum, minimum(data))
     BasicUvStatistics{T,W}(new_mean, new_var, new_maximum, new_minimum)
 end
-
-Base.cat(stats::BasicUvStatistics{T,W}, data::NTuple{N, <:Real}, weight::Real = one(T)) where {T,W,N} =
-    _cat_impl(stats, data, weight)
-
-Base.cat(stats::BasicUvStatistics{T,W}, data::AbstractArray{<:Real}, weight::Real = one(T)) where {T,W} =
-    _cat_impl(stats, data, weight)
-
 
 function Base.merge!(target::BasicUvStatistics, others::BasicUvStatistics...)
     t_mean = target.mean
@@ -219,10 +198,29 @@ function Base.merge!(target::BasicUvStatistics, others::BasicUvStatistics...)
     for x in others
         t_mean = merge(t_mean, x.mean)
         t_var = merge(t_var, x.var)
-        t_maximum = merge(t_maximum, x.maximum)
-        t_minimum = merge(t_minimum, x.minimum)
+        t_maximum = max(t_maximum, x.maximum)
+        t_minimum = min(t_minimum, x.minimum)
     end
+
+    target.mean = t_mean
+    target.var = t_var
+    target.maximum = t_maximum 
+    target.minimum = t_minimum
+    
     target
 end
 
-#const OnlineUvStatistic = Union{OnlineUvMean, OnlineUvVar, BasicUvStatistics}
+const OnlineUvStatistic{T, W} = Union{BAT.OnlineUvMean{T}, BAT.OnlineUvVar{T, W}, BAT.BasicUvStatistics{T, W}} where W where T
+
+Base.cat(ocv::OnlineUvStatistic{T}, data::T, weight::T = one(T)) where T =
+    _cat_impl(ocv, data, weight)
+
+Base.cat(ocv::OnlineUvStatistic{T}, data::NTuple{N, T}, weight::Array{T, 1}=ones(T, N)) where{T, N} =
+    _cat_impl(ocv, collect(data), weight)
+
+Base.cat(ocv::OnlineUvStatistic{T}, data::Array{T, 1}, weight::Array{T, 1})  where T =
+    _cat_impl(ocv, data, weight)
+
+Base.cat(ocv::OnlineUvStatistic{T}, data::Array{T, 1}) where T = 
+    _cat_impl(ocv, data, ones(T, size(data, 1)))
+

@@ -331,10 +331,10 @@ end
 
 
 
-const OnlineMvStatistic = Union{OnlineMvMean, OnlineMvCov, BasicMvStatistics}
+const OnlineMvStatistic{T, W} = Union{OnlineMvMean{T}, OnlineMvCov{T, W}, BasicMvStatistics{T, W}} where W where T
 
 
-@inline Base.push!(target::OnlineMvStatistic, data::Vector, weight::Real = one(T)) =
+@inline Base.push!(target::OnlineMvStatistic{T}, data::Vector, weight::Real = one(T)) where T=
     push_contiguous!(target, data, first(linearindices(data)), weight)
 
 
