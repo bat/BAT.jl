@@ -222,18 +222,17 @@ Base.push!(ocv::OnlineUvStatistic{T}, data::Real, weight::Real = one(T)) where T
     _push_impl!(ocv, data, weight)
 
 
-@inline function Base.append!{T,W}(stats::OnlineUvStatistic{T,W}, data::AbstractVector{<:Real})
-    @assert indices(data) == indices(weight) # ToDo: Throw exception instead of assert
-    @inbounds for i in indices(data, weights)
-        push!(stats, data[i], one(T))
+@inline function Base.append!(stats::OnlineUvStatistic, data::AbstractVector{<:Real})
+    @inbounds for i in indices(data, 1)
+        push!(stats, data[i])
     end
     stats
 end
 
-@inline function Base.append!{T,W}(stats::OnlineUvStatistic{T,W}, data::AbstractVector{<:Real}, weights::AbstractVector{<:Real})
-    @assert indices(data) == indices(weight) # ToDo: Throw exception instead of assert
-    @inbounds for i in indices(data, weights)
-        push!(stats, data[i], weight[i])
+@inline function Base.append!(stats::OnlineUvStatistic, data::AbstractVector{<:Real}, weights::AbstractVector{<:Real}) 
+    @assert indices(data) == indices(weights)# ToDo: Throw exception instead of assert
+    @inbounds for i in indices(data, 1)
+        push!(stats, data[i], weights[i])
     end
     stats
 end
