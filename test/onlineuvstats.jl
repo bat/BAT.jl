@@ -22,9 +22,9 @@ using StatsBase
         @test typeof(@inferred BAT.OnlineUvMean{Float32}()) <: BAT.OnlineUvMean{Float32}
         ouvm = OnlineUvMean()
 
-        res = push!(ouvm, data, w)
+        res = append!(ouvm, data, w)
         @test res[] ≈ mdata
-        res = push!(res, tdata, w)
+        res = append!(res, tdata, w)
         @test res[] ≈ mdata
         
         numMeans = 3
@@ -41,13 +41,14 @@ using StatsBase
         @test merge!(means...)[] ≈ mdata
 
     end
+
     @testset "BAT.OnlineUvVar" begin
         @test typeof(@inferred BAT.OnlineUvVar()) <: BAT.OnlineUvVar{Float64, ProbabilityWeights}
         @test typeof(@inferred BAT.OnlineUvVar{Float32, FrequencyWeights}()) <: BAT.OnlineUvVar{Float32, FrequencyWeights}
 
         for wKind in [ProbabilityWeights, FrequencyWeights, AnalyticWeights, Weights]
             res = BAT.OnlineUvVar{Float64, wKind}()
-            res = push!(res, data, w)
+            res = append!(res, data, w)
             @test res[] ≈ var(data, wKind(w); corrected=(wKind != Weights))
         end
 
@@ -64,11 +65,12 @@ using StatsBase
 
         @test merge!(vars...)[] ≈ var(data, wK(w); corrected=true)
     end
+
     @testset "BAT.BasicUvStatistics" begin
         @test typeof(@inferred BAT.BasicUvStatistics{Float32, FrequencyWeights}()) <: BAT.BasicUvStatistics{Float32, FrequencyWeights}
         
         res = BAT.BasicUvStatistics{T, wK}()
-        res = push!(res, data, w)
+        res = append!(res, data, w)
         
         @test res.mean[] ≈ mdata
         @test res.var[] ≈ vdata

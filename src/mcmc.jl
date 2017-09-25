@@ -102,13 +102,10 @@ MCMCChainStats(chain::MCMCChain) = MCMCChainStats(chain.state)
 
 function Base.push!(stats::MCMCChainStats, s::MCMCSample)
     push!(stats.param_stats, s.params, s.weight)
-
-    # ToDo: Enable, after changes to ...OnlineUv...
-    # 
-    # if s.log_value > stats.logtf_stats.maximum
-    #     stats.mode .= s.params
-    # end
-    # push!(stats.logtf_stats, s.log_value, s.weight)
+    if s.log_value > stats.logtf_stats.maximum
+        stats.mode .= s.params
+    end
+    push!(stats.logtf_stats, s.log_value, s.weight)
 end
 
 

@@ -42,14 +42,7 @@ function Base.merge!(target::OnlineUvMean{T}, others::OnlineUvMean...) where {T}
 end
 
 
-@inline function push_contiguous!(omn::OnlineUvMean{T}, data, weight::Array{<:Real, 1}) where {T}
-    @inbounds @simd for i in indices(data, 1)
-        push_contiguous!(omn, data[i], weight[i])
-    end
-    omn
-end
-
-@inline function push_contiguous!(omn::OnlineUvMean{T}, data::T, weight::T) where {T<:Real} 
+@inline function _push_impl!(omn::OnlineUvMean, data::Real, weight::Real)
     omn.sum_v += Single(weight*data)
     omn.sum_w += Single(weight)
     omn
@@ -140,15 +133,7 @@ function Base.merge!(target::OnlineUvVar{T,W}, others::OnlineUvVar...) where {T,
 end
 
 
-
-@inline function push_contiguous!{T,W}(ocv::OnlineUvVar{T,W}, data, weight::Array{<:Real, 1})
-    @inbounds for i in indices(data, 1)
-        push_contiguous!(ocv, data[i], weight[i])
-    end
-    ocv
-end
-
-@inline function push_contiguous!{T,W}(ocv::OnlineUvVar{T,W}, data::Real, weight::Real)
+@inline function _push_impl!(ocv::OnlineUvVar, data::Real, weight::Real)
     n = ocv.n
     sum_w = ocv.sum_w
     sum_w2 = ocv.sum_w2
@@ -191,14 +176,8 @@ end
 export BasicUvStatistics
 
 
-@inline function push_contiguous!{T,W}(stats::BasicUvStatistics{T,W}, data, weight::Array{<:Real, 1})
-    @inbounds for i in indices(data, 1)
-        push_contiguous!(stats, data[i], weight[i])
-    end
-    stats
-end
 
-@inline function push_contiguous!{T,W}(stats::BasicUvStatistics{T,W}, data::Real, weight::Real = one(T))
+@inline function _push_impl!{T,W}(stats::BasicUvStatistics{T,W}, data::Real, weight::Real)
     nmaximum = stats.maximum
     nminimum = stats.minimum
     
@@ -234,18 +213,30 @@ function Base.merge!(target::BasicUvStatistics, others::BasicUvStatistics...)
     target
 end
 
+
+
 const OnlineUvStatistic{T, W} = Union{BAT.OnlineUvMean{T}, BAT.OnlineUvVar{T, W}, BAT.BasicUvStatistics{T, W}} where W where T
 
-Base.push!(ocv::OnlineUvStatistic{T}, data::T, weight::T = one(T)) where T =
-    push_contiguous!(ocv, data, weight)
 
-Base.push!(ocv::OnlineUvStatistic{T}, data::NTuple{N, T}, weight::Array{T, 1}=ones(T, N)) where{T, N} =
-    push_contiguous!(ocv, collect(data), weight)
+Base.push!(ocv::OnlineUvStatistic{T}, data::Real, weight::Real = one(T)) where T =
+    _push_impl!(ocv, data, weight)
 
-Base.push!(ocv::OnlineUvStatistic{T}, data::Array{T, 1}, weight::Array{T, 1})  where T =
-    push_contiguous!(ocv, data, weight)
 
-Base.push!(ocv::OnlineUvStatistic{T}, data::Array{T, 1}) where T = 
-    push_contiguous!(ocv, data, ones(T, size(data, 1)))
+@inline function Base.append!{T,W}(stats::OnlineUvStatistic{T,W}, data::AbstractVector{<:Real})
+    @assert indices(data) == indices(weight) # ToDo: Throw exception instead of assert
+    @inbounds for i in indices(data, weights)
+        push!(stats, data[i], one(T))
+    end
+    stats
+end
+
+@inline function Base.append!{T,W}(stats::OnlineUvStatistic{T,W}, data::AbstractVector{<:Real}, weights::AbstractVector{<:Real})
+    @assert indices(data) == indices(weight) # ToDo: Throw exception instead of assert
+    @inbounds for i in indices(data, weights)
+        push!(stats, data[i], weight[i])
+    end
+    stats
+end
+
 
 Base.merge(target::S, others::S...) where{S <: OnlineUvStatistic} = merge!(deepcopy(target), others...)
