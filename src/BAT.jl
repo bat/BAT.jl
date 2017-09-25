@@ -4,21 +4,20 @@ __precompile__(true)
 
 module BAT
 
-include.([
-    "shims.jl",
-    "rng.jl",
-    "distributions.jl",
-    "util.jl",
-    "extendablearray.jl",
-    "execcontext.jl",
-    "onlineuvstats.jl",
-    "onlinemvstats.jl",
-    "parambounds.jl",
-    "proposaldist.jl",
-    "targetdensity.jl",
-    "targetsubject.jl",
-    "mcmc.jl",
-    "mhsampler.jl",
-])
+include("shims.jl")
+include("rng.jl")
+include("distributions.jl")
+include("util.jl")
+include("extendablearray.jl")
+include("execcontext.jl")
+include("onlineuvstats.jl")
+include("onlinemvstats.jl")
+include("parambounds.jl")
+include("proposaldist.jl")
+include("targetdensity.jl")
+include("targetsubject.jl")
+include("mcmc.jl")
+include("mhsampler.jl")
+include("mhtuner.jl")
 
 end # module

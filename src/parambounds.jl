@@ -3,11 +3,23 @@
 using IntervalSets
 
 
+"""
+    nparams(X::Union{AbstractParamBounds,MCMCChain,...})
+
+Get the number of parameters of `X`.
+"""
+function nparams end
+export nparams
+
+
+
 export AbstractParamBounds
 
 abstract type AbstractParamBounds{T<:Real} end
 
 Base.eltype{T}(b::AbstractParamBounds{T}) = T
+
+nparams(b::AbstractParamBounds) = length(b)
 
 
 

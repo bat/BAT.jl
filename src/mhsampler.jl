@@ -43,6 +43,18 @@ function MHState(
 end
 
 
+nparams(state::MHState) = nparams(state.pdist)
+
+function next_cycle!(state::MHState)
+    # state.nsamples = 0 # ToDo: Reset number of samples or not?
+    state.nsteps = 0
+    state.naccept = 0
+    state
+end
+
+acceptance_ratio(state::MHState) = state.naccept / state.nsteps
+
+
 function MCMCChainStats(state::MHState)
     s = state.current_sample
     L = promote_type(typeof(s.log_value), Float64)
@@ -66,8 +78,8 @@ function MCMCChain(
     initial_params::AbstractVector{P},
     rng::AbstractRNG,
     id::Integer = 1,
-    cycle::Integer = 1,
-    exec_context::ExecContext = ExecContext()
+    exec_context::ExecContext = ExecContext();
+    cycle::Int = 0
 ) where {P<:Real}
     params_vec = convert(Vector{P}, initial_params)
     apply_bounds!(params_vec, target.bounds)
@@ -110,7 +122,7 @@ end
 
 
 
-acceptance_ratio(state::MHState) = chain.state.naccept / state.nsteps
+acceptance_ratio(state::MHState) = state.naccept / state.nsteps
 
 
 mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::UnboundedParams) = true
