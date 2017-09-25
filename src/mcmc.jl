@@ -87,10 +87,12 @@ struct MCMCChain{
     A<:MCMCAlgorithm,
     T<:AbstractTargetSubject,
     S<:AbstractMCMCState,
+    U<:MCMCChainStats
 }
     algorithm::A
     target::T
     state::S
+    stats::U
     info::MCMCChainInfo
 end
 

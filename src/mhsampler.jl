@@ -93,6 +93,7 @@ function MCMCChain(
         algorithm,
         target,
         state,
+        stats,
         info
     )
 
