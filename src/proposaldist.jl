@@ -120,6 +120,10 @@ Base.similar(q::GenericProposalDist, d::Distribution) =
     GenericProposalDist(d, q.sampler_f)
 
 
+get_cov(q::GenericProposalDist) = get_cov(q.d)
+set_cov(q::GenericProposalDist, Σ::AbstractMatrix{<:Real}) = similar(q, set_cov(q.d, Σ))
+
+
 function proposal_logpdf!(
     p::AbstractArray,
     pdist::GenericProposalDist,
