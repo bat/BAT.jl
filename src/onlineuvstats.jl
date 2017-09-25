@@ -143,7 +143,7 @@ end
 
 @inline function push_contiguous!{T,W}(ocv::OnlineUvVar{T,W}, data, weight::Array{<:Real, 1})
     @inbounds for i in indices(data, 1)
-        ocv = push_contiguous!(ocv, data[i], weight[i])
+        push_contiguous!(ocv, data[i], weight[i])
     end
     ocv
 end
@@ -193,17 +193,24 @@ export BasicUvStatistics
 
 @inline function push_contiguous!{T,W}(stats::BasicUvStatistics{T,W}, data, weight::Array{<:Real, 1})
     @inbounds for i in indices(data, 1)
-        stats = push_contiguous!(stats, data[i], weight[i])
+        push_contiguous!(stats, data[i], weight[i])
     end
     stats
 end
 
 @inline function push_contiguous!{T,W}(stats::BasicUvStatistics{T,W}, data::Real, weight::Real = one(T))
-    new_mean = push!(stats.mean, data, weight)
-    new_var = push!(stats.var, data, weight)
-    new_maximum = max(stats.maximum, maximum(data))
-    new_minimum = min(stats.minimum, minimum(data))
-    BasicUvStatistics{T,W}(new_mean, new_var, new_maximum, new_minimum)
+    nmaximum = stats.maximum
+    nminimum = stats.minimum
+    
+    push!(stats.mean, data, weight)
+    push!(stats.var, data, weight)
+    nmaximum = max(stats.maximum, maximum(data))
+    nminimum = min(stats.minimum, minimum(data))
+
+    stats.maximum = nmaximum
+    stats.minimum = nminimum
+
+    stats
 end
 
 function Base.merge!(target::BasicUvStatistics, others::BasicUvStatistics...)
