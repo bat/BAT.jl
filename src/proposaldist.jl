@@ -10,7 +10,7 @@ The following functions must be implemented for subtypes:
 
 * `BAT.proposal_logpdf!`
 * `BAT.proposal_rand!`
-* `Base.length`, returning the number of parameters (i.e. dimensionality).
+* `BAT.nparams`, returning the number of parameters (i.e. dimensionality).
 * `Base.issymmetric`, indicating whether p(a -> b) == p(b -> a) holds true.
 """
 abstract type AbstractProposalDist end
@@ -154,6 +154,6 @@ function proposal_rand!(
 end
 
 
-Base.length(pdist::GenericProposalDist) = length(pdist.d)
+nparams(pdist::GenericProposalDist) = length(pdist.d)
 
 Base.issymmetric(pdist::GenericProposalDist) = issymmetric_around_origin(pdist.d)

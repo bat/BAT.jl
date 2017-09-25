@@ -43,6 +43,8 @@ function MHState(
 end
 
 
+nparams(chain::MHState) = nparams(state.pdist)
+
 function MCMCChainStats(state::MHState)
     s = state.current_sample
     L = promote_type(typeof(s.log_value), Float64)

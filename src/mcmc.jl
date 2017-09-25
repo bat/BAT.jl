@@ -42,6 +42,9 @@ function Base.copy!(dest::MCMCSample, src::MCMCSample)
 end
 
 
+nparams(s::MCMCSample) = length(s)
+
+
 
 @enum MCMChainState UNCONVERGED=0 CONVERGED=1
 export MCMChainState # Better name for this?
@@ -73,6 +76,9 @@ struct MCMCChain{
 end
 
 export MCMCChain
+
+
+nparams(chain::MCMCChain) = nparams(target)
 
 
 
