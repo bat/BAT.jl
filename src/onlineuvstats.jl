@@ -10,7 +10,7 @@ using DoubleDouble
 
 Multi-variate mean implemented via Kahan-Babuška-Neumaier summation.
 """
-struct OnlineUvMean{T<:AbstractFloat}
+mutable struct OnlineUvMean{T<:AbstractFloat}
     sum_v::Double{T}
     sum_w::Double{T}
 
@@ -26,7 +26,7 @@ OnlineUvMean() = OnlineUvMean{Float64}()
 @inline Base.getindex(omn::OnlineUvMean{T}) where {T<:AbstractFloat} = T(omn.sum_v / omn.sum_w)
 
 
-function Base.merge(target::OnlineUvMean{T}, others::OnlineUvMean...) where {T}
+function Base.merge!(target::OnlineUvMean{T}, others::OnlineUvMean...) where {T}
     sum_v = target.sum_v
     sum_w = target.sum_w
 
@@ -35,19 +35,25 @@ function Base.merge(target::OnlineUvMean{T}, others::OnlineUvMean...) where {T}
         sum_v += x.sum_v
     end
 
-    OnlineUvMean{T}(sum_v, sum_w)
+    target.sum_w = sum_w
+    target.sum_v = sum_v
+    
+    target
 end
 
 
 @inline function _cat_impl(omn::OnlineUvMean{T}, data, weight::Array{<:Real, 1}) where {T}
     @inbounds @simd for i in indices(data, 1)
-        omn = _cat_impl(omn, data[i], weight[i])
+        _cat_impl(omn, data[i], weight[i])
     end
     omn
 end
 
-@inline _cat_impl(omn::OnlineUvMean{T}, data::T, weight::T) where {T<:Real} = 
-    OnlineUvMean{T}(omn.sum_v + Single(weight*data), omn.sum_w + Single(weight))
+@inline function _cat_impl(omn::OnlineUvMean{T}, data::T, weight::T) where {T<:Real} 
+    omn.sum_v += Single(weight*data)
+    omn.sum_w += Single(weight)
+    omn
+end
 
 
 
@@ -61,7 +67,7 @@ Implementation based on variance calculation Algorithms of Welford and West.
 correction method.
 """
 
-struct OnlineUvVar{T<:AbstractFloat,W}
+mutable struct OnlineUvVar{T<:AbstractFloat,W}
     n::Int64
     sum_w::Double{T}
     sum_w2::Double{T}
@@ -102,7 +108,7 @@ end
 
 
 
-function Base.merge(target::OnlineUvVar{T,W}, others::OnlineUvVar...) where {T,W}
+function Base.merge!(target::OnlineUvVar{T,W}, others::OnlineUvVar...) where {T,W}
     n = target.n
     sum_w = target.sum_w
     sum_w2 = target.sum_w2
@@ -124,7 +130,13 @@ function Base.merge(target::OnlineUvVar{T,W}, others::OnlineUvVar...) where {T,W
 
     end
 
-    OnlineUvVar{T,W}(n, sum_w, sum_w2, T(mean_x), T(s))
+    target.n = n
+    target.sum_w = sum_w 
+    target.sum_w2 = sum_w2 
+    target.mean_x = mean_x 
+    target.s = s
+
+    target
 end
 
 
@@ -153,7 +165,12 @@ end
     s = muladd(dx, weight * new_dx, s)
     mean_x = new_mean_x
 
-    ocv = OnlineUvVar{T,W}(n, sum_w, sum_w2, T(mean_x), T(s))        
+    ocv.n = n
+    ocv.sum_w = sum_w
+    ocv.sum_w2 = sum_w2
+    ocv.mean_x = mean_x
+    ocv.s = s
+
     ocv
 end
 
@@ -196,8 +213,8 @@ function Base.merge!(target::BasicUvStatistics, others::BasicUvStatistics...)
     t_minimum = target.minimum
 
     for x in others
-        t_mean = merge(t_mean, x.mean)
-        t_var = merge(t_var, x.var)
+        t_mean = merge!(t_mean, x.mean)
+        t_var = merge!(t_var, x.var)
         t_maximum = max(t_maximum, x.maximum)
         t_minimum = min(t_minimum, x.minimum)
     end

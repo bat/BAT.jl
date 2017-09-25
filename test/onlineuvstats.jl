@@ -38,7 +38,7 @@ using StatsBase
             means[x] = cat(means[x], data[i], w[i]);
         end
 
-        @test merge(means...)[] ≈ mdata
+        @test merge!(means...)[] ≈ mdata
 
     end
     @testset "BAT.OnlineUvVar" begin
@@ -62,7 +62,7 @@ using StatsBase
             vars[x] = cat(vars[x], data[i], w[i]);
         end
 
-        @test merge(vars...)[] ≈ var(data, wK(w); corrected=true)
+        @test merge!(vars...)[] ≈ var(data, wK(w); corrected=true)
     end
     @testset "BAT.BasicUvStatistics" begin
         @test typeof(@inferred BAT.BasicUvStatistics{Float32, FrequencyWeights}()) <: BAT.BasicUvStatistics{Float32, FrequencyWeights}
