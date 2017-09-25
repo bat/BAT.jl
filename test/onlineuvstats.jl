@@ -22,9 +22,9 @@ using StatsBase
         @test typeof(@inferred BAT.OnlineUvMean{Float32}()) <: BAT.OnlineUvMean{Float32}
         ouvm = OnlineUvMean()
 
-        res = cat(ouvm, data, w)
+        res = push!(ouvm, data, w)
         @test res[] ≈ mdata
-        res = cat(res, tdata, w)
+        res = push!(res, tdata, w)
         @test res[] ≈ mdata
         
         numMeans = 3
@@ -35,10 +35,10 @@ using StatsBase
         
         for i in indices(data, 1)
             x = (i % numMeans) + 1
-            means[x] = cat(means[x], data[i], w[i]);
+            means[x] = push!(means[x], data[i], w[i]);
         end
 
-        @test merge(means...)[] ≈ mdata
+        @test merge!(means...)[] ≈ mdata
 
     end
     @testset "BAT.OnlineUvVar" begin
@@ -47,7 +47,7 @@ using StatsBase
 
         for wKind in [ProbabilityWeights, FrequencyWeights, AnalyticWeights, Weights]
             res = BAT.OnlineUvVar{Float64, wKind}()
-            res = cat(res, data, w)
+            res = push!(res, data, w)
             @test res[] ≈ var(data, wKind(w); corrected=(wKind != Weights))
         end
 
@@ -59,16 +59,16 @@ using StatsBase
 
         for i in indices(data, 1)
             x = (i % numVars) + 1
-            vars[x] = cat(vars[x], data[i], w[i]);
+            vars[x] = push!(vars[x], data[i], w[i]);
         end
 
-        @test merge(vars...)[] ≈ var(data, wK(w); corrected=true)
+        @test merge!(vars...)[] ≈ var(data, wK(w); corrected=true)
     end
     @testset "BAT.BasicUvStatistics" begin
         @test typeof(@inferred BAT.BasicUvStatistics{Float32, FrequencyWeights}()) <: BAT.BasicUvStatistics{Float32, FrequencyWeights}
         
         res = BAT.BasicUvStatistics{T, wK}()
-        res = cat(res, data, w)
+        res = push!(res, data, w)
         
         @test res.mean[] ≈ mdata
         @test res.var[] ≈ vdata
@@ -83,10 +83,10 @@ using StatsBase
 
         for i in indices(data, 1)
             x = (i % numStats) + 1
-            stats[x] = cat(stats[x], data[i], w[i]);
+            stats[x] = push!(stats[x], data[i], w[i]);
         end
 
-        res = merge!(stats...)
+        res = merge(stats...)
         @test res.mean[] ≈ mdata
         @test res.var[] ≈ vdata
         @test res.maximum ≈ maxdata
