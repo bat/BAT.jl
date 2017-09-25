@@ -35,4 +35,21 @@ using IntervalSets
 
         @test BAT.apply_bounds(+5.3, ClosedInterval(-1, 2), reflective_bounds) ≈ -0.7
     end
+
+    @testset "BAT.UnboundedParams" begin
+        n = 2
+        @test typeof(@inferred BAT.UnboundedParams{Float32}(n)) == BAT.UnboundedParams{Float32}
+
+        params = [-1000., 1000]
+        uparams = BAT.UnboundedParams{Float32}(n)
+        @test length(uparams) == n
+        @test params in uparams
+        @test in( hcat(params, params), uparams, 1)
+        
+        @test BAT.apply_bounds!(params, uparams) == params
+    end
+
+    @testset "BAT.HyperCubeBounds" begin
+        
+    end
 end
