@@ -8,7 +8,6 @@ using StatsBase
     n = 10
     data  = [(-1)^x*exp(x-n/2) for x in 1:n]
     w = abs.(data)
-    tdata = tuple(data...)
 
     T = Float64
     wK = ProbabilityWeights
@@ -23,8 +22,6 @@ using StatsBase
         ouvm = OnlineUvMean()
 
         res = append!(ouvm, data, w)
-        @test res[] ≈ mdata
-        res = append!(res, tdata, w)
         @test res[] ≈ mdata
         
         numMeans = 3
@@ -94,5 +91,9 @@ using StatsBase
         @test res.maximum ≈ maxdata
         @test res.minimum ≈ mindata
 
+        res = BAT.BasicUvStatistics{T, wK}()
+        res = append!(res, data)
+        @test res.mean[] ≈ mean(data)
+        @test res.var[] ≈ cov(data)
     end
 end
