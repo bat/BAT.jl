@@ -90,7 +90,7 @@ end
     @assert idxs == indices(S, 1) == indices(C, 1)  # TODO: Use exception instead of assert
     checkbounds(data, idxs + dshft)
 
-    omn.sum_w += Single(weight)
+    omn.sum_w += weight
     
     @inbounds @simd for i in idxs
         x = weight * data[i + dshft]
@@ -229,8 +229,8 @@ end
     checkbounds(data, idxs + dshft)
 
     n += one(n)
-    sum_w += Single(weight)
-    sum_w2 += Single(weight^2)
+    sum_w += weight
+    sum_w2 += weight^2
 
     weight_over_sum_w = T(weight / sum_w)
 
