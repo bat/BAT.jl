@@ -116,6 +116,21 @@ GenericProposalDist{D<:Distribution,SamplerF}(d::D, sampler_f::SamplerF) =
 
 GenericProposalDist(d::Distribution) = GenericProposalDist(d, bat_sampler)
 
+function GenericProposalDist(::Type{MvTDist}, T::Type{<:AbstractFloat}, n_dims::Integer)
+    n_dims = 2
+    df = one(T)
+    Σ = PDMat(full(ScalMat(n_dims, one(T))))
+    zeromean = true
+    μ = fill(zero(T), n_dims)
+    M = typeof(Σ)
+    d = Distributions.GenericMvTDist{T,M}(df, n_dims, zeromean, μ, Σ)
+    GenericProposalDist(d)
+end
+
+GenericProposalDist(D::Type{<:Distribution}, n_dims::Integer) =
+    GenericProposalDist(D, Float64, n_dims)
+
+
 Base.similar(q::GenericProposalDist, d::Distribution) =
     GenericProposalDist(d, q.sampler_f)
 
