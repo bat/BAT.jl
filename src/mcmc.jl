@@ -126,6 +126,8 @@ function Base.push!(stats::MCMCChainStats, s::MCMCSample)
     push!(stats.logtf_stats, s.log_value, s.weight)
 end
 
+nparams(stats::MCMCChainStats) = stats.param_stats.m
+
 
 
 struct MCMCSampleVector{P<:Real,T<:AbstractFloat,W<:Real} <: DenseVector{MCMCSample{P,T,W}}
