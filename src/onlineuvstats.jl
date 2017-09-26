@@ -215,10 +215,10 @@ end
 
 
 
-const OnlineUvStatistic{T, W} = Union{BAT.OnlineUvMean{T}, BAT.OnlineUvVar{T, W}, BAT.BasicUvStatistics{T, W}} where W where T
+const OnlineUvStatistic = Union{BAT.OnlineUvMean, BAT.OnlineUvVar, BAT.BasicUvStatistics}
 
 
-Base.push!(ocv::OnlineUvStatistic{T}, data::Real, weight::Real = one(T)) where T =
+Base.push!(ocv::OnlineUvStatistic, data::Real, weight::Real = 1) =
     _push_impl!(ocv, data, weight)
 
 
