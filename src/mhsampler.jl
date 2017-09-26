@@ -14,7 +14,6 @@ mutable struct MHState{
     current_nreject::Int64
     nsamples::Int64
     nsteps::Int64
-    naccept::Int64
 end
 
 
@@ -37,7 +36,6 @@ function MHState(
         false,
         0,
         0,
-        1,
         1
     )
 end
@@ -46,13 +44,12 @@ end
 nparams(state::MHState) = nparams(state.pdist)
 
 function next_cycle!(state::MHState)
-    # state.nsamples = 0 # ToDo: Reset number of samples or not?
+    state.nsamples = 0
     state.nsteps = 0
-    state.naccept = 0
     state
 end
 
-acceptance_ratio(state::MHState) = state.naccept / state.nsteps
+acceptance_ratio(state::MHState) = state.nsamples / state.nsteps
 
 
 function MCMCChainStats(state::MHState)
@@ -74,14 +71,21 @@ export MetropolisHastings
 function MCMCChain(
     algorithm::MetropolisHastings,
     target::AbstractTargetSubject,
-    pdist::AbstractProposalDist,
-    initial_params::AbstractVector{P},
-    rng::AbstractRNG,
+    pdist::Union{AbstractProposalDist,ProposalDistSpec},
     id::Integer = 1,
-    exec_context::ExecContext = ExecContext();
-    cycle::Int = 0
+    exec_context::ExecContext = ExecContext(),
+    rng::AbstractRNG = create_rng(Philox4xSeed()),
+    initial_params::AbstractVector{P} = Vector{float(eltype(target.bounds))}(),
+    status::MCMChainStatus = UNCONVERGED,
+    cycle::Integer = 0
 ) where {P<:Real}
-    params_vec = convert(Vector{P}, initial_params)
+    reset_rng_counters(rng, id, cycle, 0)
+
+    params_vec = convert(Vector{P}, isempty(initial_params) ? rand(rng, target.bounds) : initial_params)
+
+    reset_rng_counters(rng, id, cycle, 1)
+
+    m = length(params_vec)
     apply_bounds!(params_vec, target.bounds)
 
     log_value = target_logval(target.tdensity, params_vec, exec_context)
@@ -101,12 +105,12 @@ function MCMCChain(
     )
 
     state = MHState(
-        pdist,
+        convert(AbstractProposalDist, pdist, P, m),
         rng,
         current_sample
     )
 
-    info = MCMCChainInfo(id, cycle, UNCONVERGED)
+    info = MCMCChainInfo(id, cycle, status)
 
     stats = MCMCChainStats{L, P}(2)
 
@@ -121,13 +125,22 @@ function MCMCChain(
 end
 
 
-
-acceptance_ratio(state::MHState) = state.naccept / state.nsteps
+function (::Type{Vector{MCMCChain}})(
+    algorithm::MetropolisHastings,
+    target::AbstractTargetSubject,
+    pdist::Union{AbstractProposalDist,ProposalDistSpec},
+    n::Integer,
+    exec_context::ExecContext = ExecContext(),
+    rngseed::AbstractRNGSeed = Philox4xSeed()
+)
+    # tasks = [@schedule MCMCChain(algorithm, target, pdist, id, exec_context, rng) for id in 1:n]
+    [MCMCChain(deepcopy(algorithm), deepcopy(target), deepcopy(pdist), id, exec_context, create_rng(rngseed)) for id in 1:n]
+end
 
 
 mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::UnboundedParams) = true
 
-mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::HyperCubeBounds) =
+mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::HyperRectBounds) =
     issymmetric(pdist) || all(x -> x == hard_bounds, bounds.bt)
 
 
@@ -169,6 +182,7 @@ function mcmc_iterate(
 
     while nsamples < max_nsamples && nsteps < max_nsteps && (time() - start_time) < max_time
         if state.proposal_accepted
+            reset_rng_counters(rng, chain.info.id, chain.info.cycle, state.nsamples + 1)
             copy!(current_sample, proposed_sample)
             state.current_nreject = 0
             state.proposal_accepted = false
@@ -177,7 +191,6 @@ function mcmc_iterate(
         current_log_value = current_sample.log_value
 
         # Propose new parameters:
-        # TODO: First mofify/tag counter(s) for counter-based RNG
         proposal_rand!(rng, pdist, proposed_params, current_params)
         apply_bounds!(proposed_params, bounds)
 
@@ -200,7 +213,6 @@ function mcmc_iterate(
         proposed_sample.log_value = proposed_log_value
 
         # Metropolis-Hastings accept/reject:
-        # TODO: First mofify/tag counter(s) for counter-based RNG before
         accepted = rand(rng) < exp(proposed_log_value - current_log_value - log_tpr)
 
         nsteps += 1
@@ -209,7 +221,6 @@ function mcmc_iterate(
         if accepted
             current_sample.weight = state.current_nreject + 1
             state.proposal_accepted = true
-            state.naccept += 1
             nsamples += 1
             state.nsamples += 1
         else
@@ -264,7 +275,7 @@ mutable struct SigmaDistTuner{T}
     scale::T # initially 2.38^2/ndims
 end
 
-function tuning_init(::Type{StudentTProposalFunction}, tuner::SigmaDistTuner, bounds::HyperCubeBounds)
+function tuning_init(::Type{StudentTProposalFunction}, tuner::SigmaDistTuner, bounds::HyperRectBounds)
     flat_var = (bounds.to - bounds.from).^2 / 12
     ndims = length(flat_var)
     new_Σ_unscal_pd = PDiagMat(flat_var)

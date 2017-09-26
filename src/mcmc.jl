@@ -46,8 +46,8 @@ nparams(s::MCMCSample) = length(s)
 
 
 
-@enum MCMChainState UNCONVERGED=0 CONVERGED=1
-export MCMChainState # Better name for this?
+@enum MCMChainStatus UNCONVERGED=0 CONVERGED=1
+export MCMChainStatus # Better name for this?
 export UNCONVERGED
 export CONVERGED
 
@@ -55,7 +55,7 @@ export CONVERGED
 struct MCMCChainInfo
     id::Int
     cycle::Int
-    state::MCMChainState
+    state::MCMChainStatus
 end
 
 export MCMCChainInfo
@@ -66,7 +66,7 @@ MCMCChainInfo() = MCMCChainInfo(0, 0, UNCONVERGED)
 next_cycle(info::MCMCChainInfo) =
     MCMCChainInfo(info.id, info.cycle + 1, info.state)
 
-set_state(info::MCMCChainInfo, new_state::MCMChainState) =
+set_state(info::MCMCChainInfo, new_state::MCMChainStatus) =
     MCMCChainInfo(info.id, info.cycle, next_state)
 
 
@@ -125,6 +125,8 @@ function Base.push!(stats::MCMCChainStats, s::MCMCSample)
     end
     push!(stats.logtf_stats, s.log_value, s.weight)
 end
+
+nparams(stats::MCMCChainStats) = stats.param_stats.m
 
 
 

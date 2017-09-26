@@ -97,12 +97,12 @@ export proposal_rand!
 
 
 
-struct GenericProposalDist{D<:Distribution,SamplerF,S<:Sampleable} <: AbstractProposalDist
+struct GenericProposalDist{D<:Distribution{Multivariate},SamplerF,S<:Sampleable} <: AbstractProposalDist
     d::D
     sampler_f::SamplerF
     s::S
 
-    function GenericProposalDist{D,SamplerF}(d::D, sampler_f::SamplerF) where {D<:Distribution,SamplerF}
+    function GenericProposalDist{D,SamplerF}(d::D, sampler_f::SamplerF) where {D<:Distribution{Multivariate},SamplerF}
         s = sampler_f(d)
         new{D,SamplerF, typeof(s)}(d, sampler_f, s)
     end
@@ -111,13 +111,32 @@ end
 
 export GenericProposalDist
 
-GenericProposalDist{D<:Distribution,SamplerF}(d::D, sampler_f::SamplerF) =
+GenericProposalDist{D<:Distribution{Multivariate},SamplerF}(d::D, sampler_f::SamplerF) =
     GenericProposalDist{D,SamplerF}(d, sampler_f)
 
-GenericProposalDist(d::Distribution) = GenericProposalDist(d, bat_sampler)
+GenericProposalDist(d::Distribution{Multivariate}) = GenericProposalDist(d, bat_sampler)
 
-Base.similar(q::GenericProposalDist, d::Distribution) =
+function GenericProposalDist(::Type{MvTDist}, T::Type{<:AbstractFloat}, n_params::Integer, df = one(T))
+    n_params = 2
+    Σ = PDMat(full(ScalMat(n_params, one(T))))
+    zeromean = true
+    μ = fill(zero(T), n_params)
+    M = typeof(Σ)
+    d = Distributions.GenericMvTDist{T,M}(convert(T, df), n_params, zeromean, μ, Σ)
+    GenericProposalDist(d)
+end
+
+GenericProposalDist(D::Type{<:Distribution{Multivariate}}, n_params::Integer, args...) =
+    GenericProposalDist(D, Float64, n_params, args...)
+
+
+Base.similar(q::GenericProposalDist, d::Distribution{Multivariate}) =
     GenericProposalDist(d, q.sampler_f)
+
+function Base.convert(::Type{AbstractProposalDist}, q::GenericProposalDist, T::Type{<:AbstractFloat}, n_params::Integer)
+    n_params != nparams(q) && throw(ArgumentError("q has wrong number of parameters"))
+    q
+end
 
 
 get_cov(q::GenericProposalDist) = get_cov(q.d)
@@ -161,3 +180,23 @@ end
 nparams(pdist::GenericProposalDist) = length(pdist.d)
 
 Base.issymmetric(pdist::GenericProposalDist) = issymmetric_around_origin(pdist.d)
+
+
+
+
+abstract type ProposalDistSpec end
+
+export ProposalDistSpec
+
+
+struct MvTDistProposal <: ProposalDistSpec
+    df::Float64
+end
+
+export MvTDistProposal
+
+MvTDistProposal() = MvTDistProposal(1.0)
+
+
+Base.convert(::Type{AbstractProposalDist}, ps::MvTDistProposal, T::Type{<:AbstractFloat}, n_params::Integer) =
+    GenericProposalDist(MvTDist, T, n_params, convert(T, ps.df))
