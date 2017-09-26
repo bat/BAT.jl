@@ -4,7 +4,6 @@ using BAT
 using Base.Test
 
 using IntervalSets
-using Distributions
 
 @testset "parameter bounds" begin
     @testset "BAT.oob" begin
