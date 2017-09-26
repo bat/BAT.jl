@@ -63,8 +63,15 @@ export MCMCChainInfo
 MCMCChainInfo() = MCMCChainInfo(0, 0, UNCONVERGED)
 
 
+next_cycle(info::MCMCChainInfo) =
+    MCMCChainInfo(info.id, info.cycle + 1, info.state)
 
-struct MCMCChain{
+set_state(info::MCMCChainInfo, new_state::MCMChainState) =
+    MCMCChainInfo(info.id, info.cycle, next_state)
+
+
+
+mutable struct MCMCChain{
     A<:MCMCAlgorithm,
     T<:AbstractTargetSubject,
     S<:AbstractMCMCState
@@ -78,8 +85,13 @@ end
 export MCMCChain
 
 
-nparams(chain::MCMCChain) = nparams(target)
+nparams(chain::MCMCChain) = nparams(chain.target)
 
+function next_cycle!(chain::MCMCChain)
+    chain.info = next_cycle(chain.info)
+    next_cycle!(chain.state)
+    chain
+end
 
 
 struct MCMCChainStats{L<:Real,P<:Real}
