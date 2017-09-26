@@ -30,6 +30,15 @@ export reflective_bounds
 
 @inline float_iseven(n::T) where {T<:AbstractFloat} = (n - T(2) * floor((n + T(0.5)) * T(0.5))) < T(0.5)
 
+"""
+    apply_bounds(x::<:Real, lo::<:Real, hi::<:Real, boundary_type::BoundsType) 
+
+Set low bound `lo` and high bound `hi` for Parameter `x`
+Use `boundary_type`:
+    *hard_bounds
+    *cyclic_bounds
+    *reflective_bounds
+"""
 @inline function apply_bounds(x::X, lo::L, hi::H, boundary_type::BoundsType) where {X<:Real,L<:Real,H<:Real}
     T = float(promote_type(X, L, H))
 
@@ -57,6 +66,11 @@ export reflective_bounds
     )
 end
 
+"
+    apply_bounds(x::Real, interval::ClosedInterval, boundary_type::BoundsType)
+
+Instead of `lo` and `hi` an `interval` can be used.
+"
 @inline apply_bounds(x::Real, interval::ClosedInterval, boundary_type::BoundsType) =
     apply_bounds(x, minimum(interval), maximum(interval), boundary_type)
 
@@ -73,6 +87,11 @@ Base.length(b::UnboundedParams) = b.ndims
 Base.in(params::AbstractVector, bounds::UnboundedParams) = true
 Base.in(params::AbstractMatrix, bounds::UnboundedParams, i::Integer) = true
 
+"""
+    apply_bounds!(params::AbstractVector, bounds::UnboundedParams) 
+
+For Parameters without bounds use `bounds` of type `UnboundedParams`
+"""
 apply_bounds!(params::AbstractVector, bounds::UnboundedParams) = params
 
 
@@ -112,12 +131,11 @@ Base.in(params::AbstractVector, bounds::HyperCubeBounds) =
 function Base.in(params::AbstractMatrix, bounds::HyperCubeBounds, j::Integer)
     lo = bounds.lo
     hi = bounds.hi
-    @inbounds for i in eachindex(a,b,c)
+    @inbounds for i in indices(params, 1)
         (lo[i] <= params[i, j] <= hi[i]) || return false
     end
     return true
 end
-
 
 apply_bounds!(params::AbstractVecOrMat, bounds::HyperCubeBounds) =
     params .= apply_bounds.(params, bounds.lo, bounds.hi, bounds.bt)

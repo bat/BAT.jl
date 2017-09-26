@@ -4,9 +4,18 @@ using BAT
 using Base.Test
 
 using IntervalSets
-
+using Distributions
 
 @testset "parameter bounds" begin
+    @testset "BAT.oob" begin
+        @test BAT.isoob(BAT.oob(1.))
+        @test BAT.isoob(1.) == false
+        @test BAT.isoob(BAT.oob(1))
+        @test BAT.isoob(1) == false
+        @test BAT.isoob(BAT.oob(ones(Float64,2,2)))
+        @test BAT.isoob(ones(Float64,2,2)) == false
+    end
+    
     @testset "BAT.apply_bounds" begin
         @test BAT.apply_bounds(+0.3, -1, 2, hard_bounds) ≈ +0.3
         @test BAT.apply_bounds(-0.3, -1, 2, reflective_bounds) ≈ -0.3
@@ -47,9 +56,27 @@ using IntervalSets
         @test in( hcat(params, params), uparams, 1)
         
         @test BAT.apply_bounds!(params, uparams) == params
+        @test eltype(uparams) == Float32
     end
 
     @testset "BAT.HyperCubeBounds" begin
+        @test typeof(@inferred BAT.HyperCubeBounds{Float64}([-1, 0.5], [2.,1], [hard_bounds, reflective_bounds])) == HyperCubeBounds{Float64}
+        @test_throws ArgumentError BAT.HyperCubeBounds{Float64}([-1.], [2.,1], [hard_bounds, reflective_bounds])
+        @test_throws ArgumentError BAT.HyperCubeBounds{Float64}([-1., 2.], [2.,1], [hard_bounds, reflective_bounds])
+
+        hcb = BAT.HyperCubeBounds{Float64}([-1., -1.], [0.5,1], [hard_bounds, hard_bounds])
+        @test length(hcb) == 2
+        @test [0.0, 0.0] in hcb
+        @test ([0.5, 2] in hcb) == false
+
+        @test in([0.0 0.0; 0 2], hcb, 1)
+        @test in([0.0 0.0; 0 2], hcb, 2) == false
+
+        @test BAT.apply_bounds!([0.3, -4.3, -7.3], BAT.HyperCubeBounds{Float64}([-1.,-1,-1], [2.,2,2], [hard_bounds, reflective_bounds, cyclic_bounds])) ≈ [+0.3, 1.7, 1.7]
         
+        @test BAT.apply_bounds!([0.3 0.3 0.3; 0.3 -7.3 +8.3; 0.3 -7.3 +8.3], BAT.HyperCubeBounds{Float64}([-1., -1., -1], [2., 2.,2.], [hard_bounds, reflective_bounds, cyclic_bounds])) ≈ [+0.3 0.3 0.3;0.3 -0.7 1.7;0.3 1.7 -0.7]
+
+        @test BAT.isoob(BAT.apply_bounds!(rand!(MersenneTwister(7002), zeros(Float64, 2, 2)), hcb))
+        @test BAT.isoob(BAT.apply_bounds!(rand!(MersenneTwister(7002), hcb, zeros(Float64, 2, 2)), hcb)) == false
     end
 end
