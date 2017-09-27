@@ -17,7 +17,13 @@ export AbstractParamBounds
 
 abstract type AbstractParamBounds{T<:Real} end
 
-Base.eltype{T}(b::AbstractParamBounds{T}) = T
+Base.eltype(b::AbstractParamBounds{T}) where T = T
+
+Base.rand(rng::AbstractRNG, bounds::AbstractParamBounds) =
+    rand!(rng, bounds, Vector{float(eltype(bounds))}(length(bounds)))
+
+Base.rand(rng::AbstractRNG, bounds::AbstractParamBounds, n::Integer) =
+    rand!(rng, bounds, Matrix{float(eltype(bounds))}(length(bounds), n))
 
 nparams(b::AbstractParamBounds) = length(b)
 
