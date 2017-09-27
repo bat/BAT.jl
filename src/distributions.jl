@@ -11,7 +11,7 @@ end
 
 export bat_sampler
 
-"""
+doc"""
     bat_sampler(d::Distribution)
 
 Tries to return a BAT-compatible sampler for Distribution d. A sampler is
@@ -32,7 +32,7 @@ bat_sampler(d::Distribution) = Distributions.sampler(d)
 
 
 export issymmetric_around_origin
-"""
+doc"""
     issymmetric_around_origin(d::Distribution)
 
 Returns `true` (resp. `false`) if the Distribution is symmetric (resp.
@@ -90,7 +90,7 @@ Base.rand(rng::AbstractRNG, s::BATSampler{Univariate}, dims::Int...) =
 
 
 Base.rand(rng::AbstractRNG, s::BATSampler{Multivariate}) =
-    rand!(s, Vector{eltype(s)}(length(s)))
+    rand!(rng, s, Vector{eltype(s)}(length(s)))
 
 Base.rand(rng::AbstractRNG, s::BATSampler{Multivariate}, n::Integer) =
     rand!(rng, s, Matrix{eltype(s)}(length(s), n))
