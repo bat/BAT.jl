@@ -20,12 +20,10 @@ abstract type AbstractParamBounds{T<:Real} end
 Base.eltype(b::AbstractParamBounds{T}) where T = T
 
 Base.rand(rng::AbstractRNG, bounds::AbstractParamBounds) =
-    rand!(rng, bounds, Vector{float(eltype(bounds))}(length(bounds)))
+    rand!(rng, bounds, Vector{float(eltype(bounds))}(nparams(bounds)))
 
 Base.rand(rng::AbstractRNG, bounds::AbstractParamBounds, n::Integer) =
-    rand!(rng, bounds, Matrix{float(eltype(bounds))}(length(bounds), n))
-
-nparams(b::AbstractParamBounds) = length(b)
+    rand!(rng, bounds, Matrix{float(eltype(bounds))}(nparams(bounds), n))
 
 
 
@@ -100,10 +98,11 @@ struct UnboundedParams{T<:Real} <: AbstractParamBounds{T}
     ndims::Int
 end
 
-Base.length(b::UnboundedParams) = b.ndims
-
 Base.in(params::AbstractVector, bounds::UnboundedParams) = true
 Base.in(params::AbstractMatrix, bounds::UnboundedParams, i::Integer) = true
+
+nparams(b::UnboundedParams) = b.ndims
+
 
 """
     apply_bounds!(params::AbstractVector, bounds::UnboundedParams) 
@@ -113,52 +112,35 @@ For Parameters without bounds use `bounds` of type `UnboundedParams`
 apply_bounds!(params::AbstractVector, bounds::UnboundedParams) = params
 
 
-export BoundedParams
 
-abstract type BoundedParams{T<:Real} <: AbstractParamBounds{T} end
+export ParamVolumeBounds
+
+abstract type ParamVolumeBounds{T<:Real, V<:SpatialVolume{T}} <: AbstractParamBounds{T} end
+
+Base.in(params::AbstractVecOrMat, bounds::ParamVolumeBounds) = in(params, bounds.vol)
+
+Base.rand!(rng::AbstractRNG, bounds::ParamVolumeBounds, x::StridedVecOrMat{<:Real}) = rand!(rng, bounds.vol, x)
+
+nparams(b::ParamVolumeBounds) = ndims(b.vol)
+
 
 
 export HyperRectBounds
 
-struct HyperRectBounds{T<:Real} <: BoundedParams{T}
-    lo::Vector{T}
-    hi::Vector{T}
+struct HyperRectBounds{T<:Real} <: ParamVolumeBounds{T, HyperRectVolume{T}}
+    vol::HyperRectVolume{T}
     bt::Vector{BoundsType}
 
-    function HyperRectBounds{T}(lo::Vector{T}, hi::Vector{T}, bt::Vector{BoundsType}) where {T<:Real}
-        (indices(lo) != indices(hi)) && throw(ArgumentError("lo and hi must have the same indices"))
-        @inbounds for i in eachindex(lo, hi)
-            (lo[i] > hi[i]) && throw(ArgumentError("lo[$i] must be <= hi[$i]"))
-        end
-        new{T}(lo, hi, bt)
+    function HyperRectBounds{T}(vol::HyperRectVolume{T}, bt::Vector{BoundsType}) where {T<:Real}
+        indices(bt) != (1:ndims(vol),) && throw(ArgumentError("bt must have indices (1:ndims(vol),)"))
+        new{T}(vol, bt)
     end
 end
 
 
-HyperRectBounds{T<:Real}(lo::Vector{T}, hi::Vector{T}, bt::Vector{BoundsType}) = HyperRectBounds{T}(lo, hi, bt)
-
-
-
-Base.length(b::HyperRectBounds) = length(b.lo)
-
-
-Base.in(params::AbstractVector, bounds::HyperRectBounds) =
-    _multi_array_le(bounds.lo, params, bounds.hi)
-
-function Base.in(params::AbstractMatrix, bounds::HyperRectBounds, j::Integer)
-    lo = bounds.lo
-    hi = bounds.hi
-    @inbounds for i in indices(params, 1)
-        (lo[i] <= params[i, j] <= hi[i]) || return false
-    end
-    return true
-end
+HyperRectBounds{T<:Real}(vol::HyperRectVolume{T}, bt::AbstractVector{BoundsType}) = HyperRectBounds{T}(vol, bt)
+HyperRectBounds{T<:Real}(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::AbstractVector{BoundsType}) = HyperRectBounds(HyperRectVolume(lo, hi), bt)
+HyperRectBounds{T<:Real}(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::BoundsType) = HyperRectBounds(lo, hi, fill(bt, size(lo, 1)))
 
 apply_bounds!(params::AbstractVecOrMat, bounds::HyperRectBounds) =
-    params .= apply_bounds.(params, bounds.lo, bounds.hi, bounds.bt)
-
-
-function Base.rand!(rng::AbstractRNG, bounds::HyperRectBounds, x::StridedVecOrMat{<:Real})
-    rand!(rng, x)
-    x .= x .* (bounds.hi - bounds.lo) .+ bounds.lo # TODO: Avoid memory allocation
-end
+    params .= apply_bounds.(params, bounds.vol.lo, bounds.vol.hi, bounds.bt)
