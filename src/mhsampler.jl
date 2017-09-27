@@ -77,7 +77,7 @@ function MCMCChain(
     pdist::Union{AbstractProposalDist,ProposalDistSpec},
     id::Integer = 1,
     exec_context::ExecContext = ExecContext(),
-    rng::AbstractRNG = ThreadSafeRNG(MersenneTwister),
+    rng::AbstractRNG = create_rng(MersenneTwisterSeed()),
     initial_params::AbstractVector{P} = rand(rng, target.bounds),
     status::MCMChainStatus = UNCONVERGED,
     cycle::Integer = 0
@@ -120,6 +120,19 @@ function MCMCChain(
     )
 
     chain
+end
+
+
+function (::Type{Vector{MCMCChain}})(
+    algorithm::MetropolisHastings,
+    target::AbstractTargetSubject,
+    pdist::Union{AbstractProposalDist,ProposalDistSpec},
+    n::Integer,
+    exec_context::ExecContext = ExecContext(),
+    rngseed::AbstractRNGSeed = MersenneTwisterSeed()
+)
+    # tasks = [@schedule MCMCChain(algorithm, target, pdist, id, exec_context, rng) for id in 1:n]
+    [MCMCChain(deepcopy(algorithm), deepcopy(target), deepcopy(pdist), id, exec_context, create_rng(rngseed)) for id in 1:n]
 end
 
 

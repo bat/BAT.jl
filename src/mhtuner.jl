@@ -13,11 +13,15 @@ end
 export ProposalCovTuner
 
 
-function ProposalCovTuner(chain::MCMCChain, lambda::Real = 0.5)
+function ProposalCovTuner(chain::MCMCChain, lambda::Real = 0.5, init_chain::Bool = true)
     m = nparams(chain)
     iteration = 0
     scale = 2.38^2 / m
-    ProposalCovTuner(iteration, lambda, scale)
+    tuner = ProposalCovTuner(iteration, lambda, scale)
+    if init_chain
+        tuning_init!(chain, tuner)
+    end
+    tuner
 end
 
 
