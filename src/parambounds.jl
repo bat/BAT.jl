@@ -39,9 +39,7 @@ isoob(xs::AbstractArray) = any(isoob, xs)
 
 @enum BoundsType hard_bounds=1 cyclic_bounds=2 reflective_bounds=3
 export BoundsType
-export hard_bounds
-export cyclic_bounds
-export reflective_bounds
+export hard_bounds, cyclic_bounds, reflective_bounds
 
 
 @inline float_iseven(n::T) where {T<:AbstractFloat} = (n - T(2) * floor((n + T(0.5)) * T(0.5))) < T(0.5)
