@@ -10,7 +10,7 @@ end
 export ThreadSafeRNG
 
 function ThreadSafeRNG(rngtype::Type{RNG}) where {RNG<:AbstractRNG}
-    systemrng = RandomDevice(false)
+    systemrng = RandomDevice()
     seeds = rand(systemrng, UInt64, nthreads())
     rngs = rngtype.(seeds)
     ThreadSafeRNG(ThreadLocal{eltype(rngs)}(rngs))
