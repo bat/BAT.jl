@@ -75,11 +75,12 @@ function MCMCChain(
     algorithm::MetropolisHastings,
     target::AbstractTargetSubject,
     pdist::Union{AbstractProposalDist,ProposalDistSpec},
-    initial_params::AbstractVector{P},
-    rng::AbstractRNG,
     id::Integer = 1,
-    exec_context::ExecContext = ExecContext();
-    cycle::Int = 0
+    exec_context::ExecContext = ExecContext(),
+    rng::AbstractRNG = ThreadSafeRNG(MersenneTwister),
+    initial_params::AbstractVector{P} = rand(rng, target.bounds),
+    status::MCMChainStatus = UNCONVERGED,
+    cycle::Integer = 0
 ) where {P<:Real}
     params_vec = convert(Vector{P}, initial_params)
     m = length(params_vec)
@@ -107,7 +108,7 @@ function MCMCChain(
         current_sample
     )
 
-    info = MCMCChainInfo(id, cycle, UNCONVERGED)
+    info = MCMCChainInfo(id, cycle, status)
 
     stats = MCMCChainStats{L, P}(2)
 
