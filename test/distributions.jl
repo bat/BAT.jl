@@ -7,9 +7,17 @@ using Distributions, PDMats
 
 
 @testset "random number generation" begin
+    @testset "_check_rand_compat" begin
+        @test BAT._check_rand_compat(MvNormal(ones(2)), ones(2,10)) == nothing
+        @test_throws DimensionMismatch BAT._check_rand_compat(MvNormal(ones(3)), ones(2,10)) 
+    end
+    
     @testset "rand" begin
         @test size(rand(bat_sampler(Gamma(4f0, 2f0)), 5)) == (5,)
         @test typeof(rand(bat_sampler(Gamma(4f0, 2f0)), 5)) == Vector{Float32}
+        @test typeof(rand(bat_sampler(Gamma(4f0, 2f0)))) == Float32
+
+        
     end
 
 
@@ -18,6 +26,10 @@ using Distributions, PDMats
         @test issymmetric_around_origin(Normal(1.7, 3.2)) == false
         @test issymmetric_around_origin(Gamma(4.2, 2.2)) == false
         @test issymmetric_around_origin(Chisq(20.3)) == false
+        @test issymmetric_around_origin(MvNormal(zeros(2), ones(2))) == true
+        @test issymmetric_around_origin(MvNormal(ones(2), ones(2))) == false
+        @test issymmetric_around_origin(MvTDist(1.5, zeros(2), PDMat(diagm(ones(2)))))
+        @test issymmetric_around_origin(MvTDist(1.5, ones(2), PDMat(diagm(ones(2))))) == false
     end
 
 
