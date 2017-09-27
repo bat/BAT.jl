@@ -123,10 +123,6 @@ function MCMCChain(
 end
 
 
-
-acceptance_ratio(state::MHState) = state.naccept / state.nsteps
-
-
 mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::UnboundedParams) = true
 
 mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::HyperRectBounds) =
