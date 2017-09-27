@@ -118,15 +118,14 @@ export BoundedParams
 abstract type BoundedParams{T<:Real} <: AbstractParamBounds{T} end
 
 
-# ToDo: Rename to HyperRectangle
-export HyperCubeBounds
+export HyperRectBounds
 
-struct HyperCubeBounds{T<:Real} <: BoundedParams{T}
+struct HyperRectBounds{T<:Real} <: BoundedParams{T}
     lo::Vector{T}
     hi::Vector{T}
     bt::Vector{BoundsType}
 
-    function HyperCubeBounds{T}(lo::Vector{T}, hi::Vector{T}, bt::Vector{BoundsType}) where {T<:Real}
+    function HyperRectBounds{T}(lo::Vector{T}, hi::Vector{T}, bt::Vector{BoundsType}) where {T<:Real}
         (indices(lo) != indices(hi)) && throw(ArgumentError("lo and hi must have the same indices"))
         @inbounds for i in eachindex(lo, hi)
             (lo[i] > hi[i]) && throw(ArgumentError("lo[$i] must be <= hi[$i]"))
@@ -136,17 +135,17 @@ struct HyperCubeBounds{T<:Real} <: BoundedParams{T}
 end
 
 
-HyperCubeBounds{T<:Real}(lo::Vector{T}, hi::Vector{T}, bt::Vector{BoundsType}) = HyperCubeBounds{T}(lo, hi, bt)
+HyperRectBounds{T<:Real}(lo::Vector{T}, hi::Vector{T}, bt::Vector{BoundsType}) = HyperRectBounds{T}(lo, hi, bt)
 
 
 
-Base.length(b::HyperCubeBounds) = length(b.lo)
+Base.length(b::HyperRectBounds) = length(b.lo)
 
 
-Base.in(params::AbstractVector, bounds::HyperCubeBounds) =
+Base.in(params::AbstractVector, bounds::HyperRectBounds) =
     _multi_array_le(bounds.lo, params, bounds.hi)
 
-function Base.in(params::AbstractMatrix, bounds::HyperCubeBounds, j::Integer)
+function Base.in(params::AbstractMatrix, bounds::HyperRectBounds, j::Integer)
     lo = bounds.lo
     hi = bounds.hi
     @inbounds for i in indices(params, 1)
@@ -155,11 +154,11 @@ function Base.in(params::AbstractMatrix, bounds::HyperCubeBounds, j::Integer)
     return true
 end
 
-apply_bounds!(params::AbstractVecOrMat, bounds::HyperCubeBounds) =
+apply_bounds!(params::AbstractVecOrMat, bounds::HyperRectBounds) =
     params .= apply_bounds.(params, bounds.lo, bounds.hi, bounds.bt)
 
 
-function Base.rand!(rng::AbstractRNG, bounds::HyperCubeBounds, x::StridedVecOrMat{<:Real})
+function Base.rand!(rng::AbstractRNG, bounds::HyperRectBounds, x::StridedVecOrMat{<:Real})
     rand!(rng, x)
     x .= x .* (bounds.hi - bounds.lo) .+ bounds.lo # TODO: Avoid memory allocation
 end

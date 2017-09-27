@@ -129,7 +129,7 @@ acceptance_ratio(state::MHState) = state.naccept / state.nsteps
 
 mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::UnboundedParams) = true
 
-mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::HyperCubeBounds) =
+mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::HyperRectBounds) =
     issymmetric(pdist) || all(x -> x == hard_bounds, bounds.bt)
 
 
@@ -266,7 +266,7 @@ mutable struct SigmaDistTuner{T}
     scale::T # initially 2.38^2/ndims
 end
 
-function tuning_init(::Type{StudentTProposalFunction}, tuner::SigmaDistTuner, bounds::HyperCubeBounds)
+function tuning_init(::Type{StudentTProposalFunction}, tuner::SigmaDistTuner, bounds::HyperRectBounds)
     flat_var = (bounds.to - bounds.from).^2 / 12
     ndims = length(flat_var)
     new_Σ_unscal_pd = PDiagMat(flat_var)
