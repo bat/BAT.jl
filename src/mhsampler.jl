@@ -74,7 +74,7 @@ export MetropolisHastings
 function MCMCChain(
     algorithm::MetropolisHastings,
     target::AbstractTargetSubject,
-    pdist::AbstractProposalDist,
+    pdist::Union{AbstractProposalDist,ProposalDistSpec},
     initial_params::AbstractVector{P},
     rng::AbstractRNG,
     id::Integer = 1,
@@ -82,6 +82,7 @@ function MCMCChain(
     cycle::Int = 0
 ) where {P<:Real}
     params_vec = convert(Vector{P}, initial_params)
+    m = length(params_vec)
     apply_bounds!(params_vec, target.bounds)
 
     log_value = target_logval(target.tdensity, params_vec, exec_context)
@@ -101,7 +102,7 @@ function MCMCChain(
     )
 
     state = MHState(
-        pdist,
+        convert(AbstractProposalDist, pdist, P, m),
         rng,
         current_sample
     )
