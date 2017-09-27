@@ -3,7 +3,7 @@
 using BAT
 using Base.Test
 
-using Distributions, PDMats
+using Distributions, PDMats, StatsBase
 
 
 @testset "random number generation" begin
@@ -13,11 +13,29 @@ using Distributions, PDMats
     end
     
     @testset "rand" begin
-        @test size(rand(bat_sampler(Gamma(4f0, 2f0)), 5)) == (5,)
-        @test typeof(rand(bat_sampler(Gamma(4f0, 2f0)), 5)) == Vector{Float32}
-        @test typeof(rand(bat_sampler(Gamma(4f0, 2f0)))) == Float32
-
+        bsguv = BATGammaMTSampler(Gamma(4f0, 2f0))
+        @test size(rand(bsguv, 5)) == (5,)
+        @test typeof(rand(bsguv, 5)) == Vector{Float32}
+        @test typeof(rand(bsguv)) == Float32
         
+        res = rand!(bsguv, zeros(3))
+        @test size(res) == (3,)
+        @test typeof(res) == Array{Float64, 1}
+        res = rand!(bsguv, zeros(3,4))
+        @test size(res) == (3,4,)
+        @test typeof(res) == Array{Float64, 2}
+
+        res = rand(Base.GLOBAL_RNG, bsguv, Dims((2,3)))
+        @test typeof(res) == Array{Float32,2}
+        @test size(res) == (2,3)
+
+        bstmv = BATMvTDistSampler(MvTDist(1.5, PDMat(diagm(ones(3)))))
+        res = rand(bstmv)
+        @test typeof(res) == Array{Float64, 1}
+        @test size(res) == (3,)
+        res = rand(bstmv, Int32(2))
+        @test typeof(res) == Array{Float64, 2}
+        @test size(res) == (3, 2)
     end
 
 
@@ -66,5 +84,19 @@ using Distributions, PDMats
 
         @test typeof(@inferred bat_sampler(d)) <: BATMvTDistSampler
         @test size(@inferred rand(bat_sampler(d), 5)) == (2, 5)
+        
+        @test size(rand!(bat_sampler(d), ones(2))) == (2, )
+        @test size(rand!(bat_sampler(d), ones(2, 3))) == (2, 3)
+
+        cmat = [3.76748 0.446731 0.625418; 0.446731 3.9317 0.237361; 0.625418 0.237361 3.43867]
+        tmean = [1., 2, 3]
+        tmv = MvTDist(3, tmean, PDMat(cmat))
+        bstmv = BATMvTDistSampler(tmv)
+
+        n = 1000
+        res = rand(MersenneTwister(7002), bstmv, n)
+
+        @test isapprox(mean(res,2), tmean; atol = 0.5)
+        @test isapprox(cov(res, 2)/3, cmat; atol = 1.5)
     end
 end

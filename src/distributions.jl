@@ -90,7 +90,7 @@ Base.rand(rng::AbstractRNG, s::BATSampler{Univariate}, dims::Int...) =
 
 
 Base.rand(rng::AbstractRNG, s::BATSampler{Multivariate}) =
-    rand!(s, Vector{eltype(s)}(length(s)))
+    rand!(rng, s, Vector{eltype(s)}(length(s)))
 
 Base.rand(rng::AbstractRNG, s::BATSampler{Multivariate}, n::Integer) =
     rand!(rng, s, Matrix{eltype(s)}(length(s), n))
