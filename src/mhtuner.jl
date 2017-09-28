@@ -1,16 +1,24 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-pdist = GenericProposalDist(MvTDist(1.0, PDMat([2.2 0.0; 0.0 2.2])))
+struct ProposalCovTunerConfig <: AbstractMCMCTunerConfig
+    lambda::Float64 # e.g. 0.5
+    scale::Float64 # initially 2.38^2/m
+end
+
+export ProposalCovTunerConfig
 
 
-mutable struct ProposalCovTuner{T}
-    iteration::Int # initially 1
-    lambda::T # e.g. 0.5
-    scale::T # initially 2.38^2/m
+mutable struct ProposalCovTuner{C<:MCMCChain{<:MetropolisHastings}}
+    config::ProposalCovTunerConfig
+    chain::C
+    iteration::Int
 end
 
 export ProposalCovTuner
+
+
+function create_mcmc_tuner(config::ProposalCovTunerConfig, chain::MCMCChain{<:MetropolisHastings)
 
 
 function ProposalCovTuner(chain::MCMCChain, lambda::Real = 0.5)
