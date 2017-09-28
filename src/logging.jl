@@ -84,15 +84,23 @@ end
 
 
 
+export @log_msg
 export @log_error, @log_warning, @log_info, @log_debug, @log_trace
 
 
 function logging_macro(level, msg)
     quote
-        if _log_level[] >= Int($level)
-            BAT.Logging.output_logging_msg($level, $msg)
+        let l = $level, m = $msg
+            if _log_level[] >= Int(l) && l != LOG_NONE
+                BAT.Logging.output_logging_msg(l, m)
+            end
         end
     end
+end
+
+
+macro log_msg(log_level, msg)
+    esc(logging_macro(log_level, msg))
 end
 
 
