@@ -23,4 +23,6 @@ include("convergence.jl")
 include("mhsampler.jl")
 include("mhtuner.jl")
 
+Logging.@enable_logging
+
 end # module
