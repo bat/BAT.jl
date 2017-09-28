@@ -22,6 +22,8 @@ using IntervalSets
 
         @test isnan(BAT.apply_bounds(-1.3, -1, 2, hard_bounds))
         @test isnan(BAT.apply_bounds(2.3, -1, 2, hard_bounds))
+        @test BAT.apply_bounds(-1.3, -1, 2, hard_bounds, 5) ≈ 5
+        @test BAT.apply_bounds(2.3, -1, 2, hard_bounds, 5) ≈ 5
 
         @test BAT.apply_bounds(-1.3, -1, 2, reflective_bounds) ≈ -0.7
         @test BAT.apply_bounds(-4.3, -1, 2, reflective_bounds) ≈ +1.7

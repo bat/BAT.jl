@@ -1,7 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-using Distributions
-
 
 """
     AbstractProposalDist
@@ -116,16 +114,6 @@ GenericProposalDist{D<:Distribution{Multivariate},SamplerF}(d::D, sampler_f::Sam
 
 GenericProposalDist(d::Distribution{Multivariate}) = GenericProposalDist(d, bat_sampler)
 
-function GenericProposalDist(::Type{MvTDist}, T::Type{<:AbstractFloat}, n_params::Integer, df = one(T))
-    n_params = 2
-    Σ = PDMat(full(ScalMat(n_params, one(T))))
-    zeromean = true
-    μ = fill(zero(T), n_params)
-    M = typeof(Σ)
-    d = Distributions.GenericMvTDist{T,M}(convert(T, df), n_params, zeromean, μ, Σ)
-    GenericProposalDist(d)
-end
-
 GenericProposalDist(D::Type{<:Distribution{Multivariate}}, n_params::Integer, args...) =
     GenericProposalDist(D, Float64, n_params, args...)
 
@@ -160,9 +148,18 @@ function proposal_logpdf!(
     params_new::AbstractVector,
     params_old::AbstractVector
 )
-    params_diff = params_new .- params_old # TODO: Avoid memory allocation
-    p[1] = Distributions.logpdf(pdist.d, params_diff)
+    p[1] = proposal_logpdf(pdist, params_new, params_old)
     p
+end
+
+
+function proposal_logpdf(
+    pdist::GenericProposalDist,
+    params_new::AbstractVector,
+    params_old::AbstractVector
+)
+    params_diff = params_new .- params_old # TODO: Avoid memory allocation
+    Distributions.logpdf(pdist.d, params_diff)
 end
 
 
@@ -189,14 +186,24 @@ abstract type ProposalDistSpec end
 export ProposalDistSpec
 
 
-struct MvTDistProposal <: ProposalDistSpec
+
+struct MvTDistProposalSpec <: ProposalDistSpec
     df::Float64
 end
 
-export MvTDistProposal
+export MvTDistProposalSpec
 
-MvTDistProposal() = MvTDistProposal(1.0)
+MvTDistProposalSpec() = MvTDistProposalSpec(1.0)
 
 
-Base.convert(::Type{AbstractProposalDist}, ps::MvTDistProposal, T::Type{<:AbstractFloat}, n_params::Integer) =
+(ps::MvTDistProposalSpec)(T::Type{<:AbstractFloat}, n_params::Integer) =
     GenericProposalDist(MvTDist, T, n_params, convert(T, ps.df))
+
+function GenericProposalDist(::Type{MvTDist}, T::Type{<:AbstractFloat}, n_params::Integer, df = one(T))
+    Σ = PDMat(full(ScalMat(n_params, one(T))))
+    zeromean = true
+    μ = fill(zero(T), n_params)
+    M = typeof(Σ)
+    d = Distributions.GenericMvTDist{T,M}(convert(T, df), n_params, zeromean, μ, Σ)
+    GenericProposalDist(d)
+end

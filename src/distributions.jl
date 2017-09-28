@@ -1,7 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-using Distributions, PDMats
-
 
 function _check_rand_compat(s::Sampleable{Multivariate}, A::Union{AbstractVector,AbstractMatrix})
     size(A, 1) == length(s) || throw(DimensionMismatch("Output size inconsistent with sample length."))

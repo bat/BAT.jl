@@ -1,8 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-using Base.@propagate_inbounds
-using StatsBase
-using DoubleDouble
+using Base: @propagate_inbounds
 
 
 # SIMD-compatible KBN-summation
@@ -79,6 +77,9 @@ end
     omn::OnlineMvMean{T}, data::Array,
     start::Integer, weight::Real = one(T)
 )
+    # Workaround for lack of promotion between, e.g., Float32 and Double{Float64}
+    weight_conv = T(weight)
+
     m = omn.m
     S = omn.S
     C = omn.C
@@ -90,10 +91,10 @@ end
     @assert idxs == indices(S, 1) == indices(C, 1)  # TODO: Use exception instead of assert
     checkbounds(data, idxs + dshft)
 
-    omn.sum_w += weight
+    omn.sum_w += weight_conv
     
     @inbounds @simd for i in idxs
-        x = weight * data[i + dshft]
+        x = weight_conv * data[i + dshft]
         S[i], C[i] = kbn_add((S[i], C[i]), x)
     end
 
@@ -213,6 +214,14 @@ end
     start::Integer,
     weight::Real = one(T)
 )
+    # Ignore zero weights (can't be handled)
+    if weight ≈ 0
+        return ocv
+    end
+
+    # Workaround for lack of promotion between, e.g., Float32 and Double{Float64}
+    weight_conv = T(weight)
+
     m = ocv.m
     n = ocv.n
     sum_w = ocv.sum_w
@@ -229,10 +238,10 @@ end
     checkbounds(data, idxs + dshft)
 
     n += one(n)
-    sum_w += weight
-    sum_w2 += weight^2
+    sum_w += weight_conv
+    sum_w2 += weight_conv^2
 
-    weight_over_sum_w = T(weight / sum_w)
+    weight_over_sum_w = T(weight_conv / sum_w)
 
     @inbounds @simd for i in idxs
         x = data[i + dshft]
@@ -246,7 +255,7 @@ end
         @assert sub2ind(S, last(idxs), j) == last(idxs) + j_offs  # TODO: Use exception instead of assert
         @simd for i in idxs
             dx_i = data[i + dshft] - Mean_X[i]
-            S[i + j_offs] = muladd(dx_i, weight * new_dx_j, S[i + j_offs])
+            S[i + j_offs] = muladd(dx_i, weight_conv * new_dx_j, S[i + j_offs])
         end
     end
 

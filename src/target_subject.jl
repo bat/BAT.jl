@@ -16,13 +16,14 @@ export TargetSubject
 
 Base.length(subject::TargetSubject) = length(subject.bounds)
 
-
 target_function(subject::TargetSubject) = subject.tdensity
 param_bounds(subject::TargetSubject) = subject.bounds
 nparams(subject::TargetSubject) = nparams(subject.bounds)
 
 
 #=
+
+# ToDo:
 
 mutable struct TransformedTargetSubject{
     SO<:AbstractTargetSubject,

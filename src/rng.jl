@@ -26,7 +26,7 @@ export Philox4xSeed
 
 Philox4xSeed() = Philox4xSeed{UInt64}()
 
-function create_rng(rngseed::Philox4xSeed{T}) where {T}
+function (rngseed::Philox4xSeed{T})() where {T}
     rng = Philox4x{T,10}(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     srand(rng, rngseed.seed)
 end
@@ -44,19 +44,19 @@ export Threefry4xSeed
 
 Threefry4xSeed() = Threefry4xSeed{UInt64}()
 
-function create_rng(rngseed::Threefry4xSeed)
+function (rngseed::Threefry4xSeed)()
     rng = Threefry4x{T,20}(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     srand(rng, seed)
 end
 
 
 
-reset_rng_counters(rng::AbstractRNG, tags::Integer...) = reset_rng_counters(rng, tags)
+reset_rng_counters!(rng::AbstractRNG, tags::Integer...) = reset_rng_counters!(rng, tags)
 
 # ToDo: More flexible tagging scheme, allow for more/less than 3 tags and
 # support counter-based RNGs with more/less than 4 counters.
 
-function reset_rng_counters(rng::Random123RNG4x, tags::NTuple{3,Integer})
+function reset_rng_counters!(rng::Random123RNG4x, tags::NTuple{3,Integer})
     rng.ctr3 += Base.Threads.threadid()
     rng.ctr4 = tags[1]
     rng.ctr3 = tags[2]
@@ -75,7 +75,7 @@ export MersenneTwisterSeed
 
 MersenneTwisterSeed() = MersenneTwisterSeed(RandomDevice())
 
-create_rng(rngseed::MersenneTwisterSeed) =
+(rngseed::MersenneTwisterSeed)() =
     MersenneTwister(rand(rngseed.rng, UInt64))
 
 # ToDo (maybe): Implement tagging (resp. multiple streams) for Mersenne

@@ -1,8 +1,12 @@
 julia 0.6
+Compat 0.33
 Distributions
 DoubleDouble
+ElasticArrays
 FunctionWrappers
 IntervalSets
+MultiThreadingTools
 PDMats
 RandomNumbers
+RecipesBase
 StatsBase
