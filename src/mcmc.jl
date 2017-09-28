@@ -95,7 +95,19 @@ end
 
 
 
-struct MCMCBasicStats{L<:Real,P<:Real}
+abstract type AbstractMCMCStats end
+export AbstractMCMCStats
+
+
+
+struct MCMCNullStats <: AbstractMCMCStats end
+export MCMCNullStats
+
+Base.push!(stats::MCMCNullStats, s::MCMCSample) = stats
+
+
+
+struct MCMCBasicStats{L<:Real,P<:Real} <: AbstractMCMCStats
     param_stats::BasicMvStatistics{P,FrequencyWeights}
     logtf_stats::BasicUvStatistics{L,FrequencyWeights}
     mode::Vector{P}
@@ -125,6 +137,7 @@ function Base.push!(stats::MCMCBasicStats, s::MCMCSample)
         stats.mode .= s.params
     end
     push!(stats.logtf_stats, s.log_value, s.weight)
+    stats
 end
 
 nparams(stats::MCMCBasicStats) = stats.param_stats.m
