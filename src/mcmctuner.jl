@@ -26,7 +26,7 @@ function mcmc_auto_tune!(
     granularity::Int = 1,
     ll::LogLevel = LOG_INFO
 )
-    @log_info "Starting tuning of $(length(chains)) chain(s)."
+    @log_msg ll "Starting tuning of $(length(chains)) MCMC chain(s)."
 
     nchains = length(chains)
     tuners = [tuner_config(c, init_proposal = init_proposal) for c in chains]
