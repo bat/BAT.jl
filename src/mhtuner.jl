@@ -66,7 +66,7 @@ function tuning_init_proposal!(tuner::ProposalCovTuner)
 end
 
 
-function tuning_update!(tuner::ProposalCovTuner)
+function tuning_update!(tuner::ProposalCovTuner; ll::LogLevel = LOG_NONE)
     chain = tuner.chain
     stats = tuner.stats
 
@@ -93,10 +93,10 @@ function tuning_update!(tuner::ProposalCovTuner)
 
     if α_min <= α <= α_max
         chain.info = set_tuned(chain.info, true)
-        @log_debug "MCMC chain $(chain.info.id) tuned, acceptance ratio = $α"
+        @log_msg ll "MCMC chain $(chain.info.id) tuned, acceptance ratio = $α"
     else
         chain.info = set_tuned(chain.info, false)
-        @log_info "MCMC chain $(chain.info.id) *not* tuned, acceptance ratio = $α"
+        @log_msg ll "MCMC chain $(chain.info.id) *not* tuned, acceptance ratio = $α"
 
         if α > α_max && c < c_max
             tuner.scale = c * β
@@ -122,14 +122,15 @@ function run_tuning_cycle!(
     max_nsamples::Int64 = Int64(1000),
     max_nsteps::Int = 10000,
     max_time::Float64 = Inf,
-    granularity::Int = 1
+    granularity::Int = 1,
+    ll::LogLevel = LOG_NONE
 )
 
     mcmc_iterate!(tuner.chain, exec_context, max_nsamples = max_nsamples, max_nsteps = max_nsteps, max_time = max_time, granularity = granularity) do chain
         push!(tuner.stats, chain)
         callback(tuner)
     end
-    tuning_update!(tuner)
+    tuning_update!(tuner; ll = ll)
 end
 
 
@@ -146,22 +147,38 @@ function mcmc_auto_tune!(
     max_nsteps_per_cycle::Int = 10000,
     max_time_per_cycle::Float64 = Inf,
     max_ncycles::Int = 30,
-    granularity::Int = 1
+    granularity::Int = 1,
+    ll::LogLevel = LOG_INFO
 )
     @log_info "Starting tuning of $(length(chains)) chain(s)."
 
-    ncycles = 0
+    nchains = length(chains)
 
-    while ncycles < max_ncycles
+    cycle = 0
+    successful = false
+    while !successful && cycle <= max_ncycles
         run_tuning_cycle!(
-            mcmc_callback, tuner, exec_context,
+            callback, tuner, exec_context,
             max_nsamples = max_nsamples_per_cycle, max_nsteps = max_nsteps_per_cycle,
-            max_time = max_time_per_cycle, granularity = granularity
+            max_time = max_time_per_cycle, granularity = granularity, ll = ll
         )
 
-        ct_result = check_convergence(convergence_test, tuner.stats)
-        @log_debug convergence_result_msg(convergence_test, ct_result)
+        stats = [x.stats for x in tuners]
+        ct_result = check_convergence!(convergence_test, chains, stats, ll = ll)
+
+        ntuned = count(c -> c.info.tuned, chains)
+        nconverged = count(c -> c.info.converged, chains)
+        successful = (ntuned == nconverged == nchains)
+
+        @log_msg ll+1 "MCMC Tuning cycle $cycle finished, $nchains chains, $ntuned tuned, $nconverged converged."
     end
 
+    if successful
+        @log_msg ll "MCMC tuning of $nchains chains successful after $cycle cycle(s)."
+    else
+        @log_msg ll-1 "MCMC tuning of $nchains chains aborted after $cycle cycle(s)."
+    end
+
+    successful
 end
 
