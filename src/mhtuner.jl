@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+using BAT.Logging
 
 struct ProposalCovTunerConfig <: AbstractMCMCTunerConfig
     lambda::Float64 # e.g. 0.5
@@ -40,6 +41,8 @@ function ProposalCovTuner(
     tuner
 end
 
+
+AbstractMCMCTunerConfig(algorithm::MetropolisHastings) = ProposalCovTunerConfig()
 
 AbstractMCMCTuner(config::ProposalCovTunerConfig, chain::MCMCChain{<:MetropolisHastings}, init_proposal::Bool = true) =
     ProposalCovTuner(config, chain, init_proposal)
@@ -126,18 +129,26 @@ function run_tuning_cycle!(
 end
 
 
+#=
+function mcmc_auto_tune!(
+    callback,
+    chains::AbstractVector{<:MCMCChain},
+    exec_context::ExecContext = ExecContext(),
+    tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(first(chains).algorithm),
+    convergence_test::MCMCConvergenceTest = GRConvergence();
+    max_nsamples_per_cycle::Int64 = Int64(1),
+    max_nsteps_per_cycle::Int = 10000,
+    max_nsamples_per_cycle::Int64 = 1000,
+    max_ncycles::Int = 30,
+    max_time::Float64 = Inf,
+    granularity::Int = 1
+)
+    @log_info "Starting tuning of $(length(chains)) chain(s)."
+    run_tuning_cycle!(mcmc_callback, tuner, exec_context, max_nsamples = 1000, max_nsteps = 10000, max_time = Inf, granularity = 2)
 
-# function mcmc_auto_tune!(
-#     callback,
-#     chains::MCMCChain{<:MetropolisHastings},
-#     exec_context::ExecContext = ExecContext(),
-#     chains_stats::AbstractVector{<:MCMCBasicStats};
-#     max_nsamples_per_cycle::Int64 = Int64(1),
-#     max_nsteps_per_cycle::Int = 10000,
-#     max_nsamples_per_cycle::Int64 = 1000,
-#     max_ncycles::Int = 30,
-#     max_time::Float64 = Inf,
-#     granularity::Int = 1
-#
-#     MCMCConvergenceTest
-# )
+    ct = GRConvergence()
+    info(BAT.convergence_result_msg(ct, BAT.check_convergence(ct, stats)))
+
+
+end
+=#
