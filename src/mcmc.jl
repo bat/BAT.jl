@@ -61,6 +61,12 @@ MCMCChainInfo(id::Int, cycle::Int = 0) = MCMCChainInfo(id, cycle, false, false)
 next_cycle(info::MCMCChainInfo) =
     MCMCChainInfo(info.id, info.cycle + 1, info.tuned, info.converged)
 
+set_tuned(info::MCMCChainInfo, value::Bool) =
+    MCMCChainInfo(info.id, info.cycle, value, info.converged)
+
+set_converged(info::MCMCChainInfo, value::Bool) =
+    MCMCChainInfo(info.id, info.cycle, info.tuned, value)
+
 
 
 mutable struct MCMCChain{

@@ -91,15 +91,19 @@ function tuning_update!(tuner::ProposalCovTuner)
 
     α = acceptance_ratio(state)
 
-    new_c = if α > α_max && c < c_max
-        convert(typeof(c), c * β)
-    elseif α < α_min && c > c_min
-        convert(typeof(c), c / β)
+    if α_min <= α <= α_max
+        chain.info = set_tuned(chain.info, true)
+        @log_debug "MCMC chain $(chain.info.id) tuned, acceptance ratio = $α"
     else
-        c
-    end
+        chain.info = set_tuned(chain.info, false)
+        @log_info "MCMC chain $(chain.info.id) *not* tuned, acceptance ratio = $α"
 
-    tuner.scale = new_c
+        if α > α_max && c < c_max
+            tuner.scale = c * β
+        elseif α < α_min && c > c_min
+            tuner.scale = c / β
+        end
+    end
 
     Σ_new = full(Hermitian(new_Σ_unscal * tuner.scale))
 
@@ -143,11 +147,11 @@ function mcmc_auto_tune!(
     max_time::Float64 = Inf,
     granularity::Int = 1
 )
-    @log_info "Starting tuning of $(length(chains)) chain(s)."
+    #@log_info "Starting tuning of $(length(chains)) chain(s)."
     run_tuning_cycle!(mcmc_callback, tuner, exec_context, max_nsamples = 1000, max_nsteps = 10000, max_time = Inf, granularity = 2)
 
     ct_result = check_convergence(convergence_test, tuner.stats)
-    @log_debug convergence_result_msg(convergence_test, ct_result))
+    #@log_debug convergence_result_msg(convergence_test, ct_result)
 
 
 end
