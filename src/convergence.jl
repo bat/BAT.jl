@@ -1,20 +1,37 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+using BAT.Logging
+
 
 abstract type MCMCConvergenceTest end
 
 abstract type MCMCConvergenceTestResult end
 
 
+function check_convergence!(
+    ct::MCMCConvergenceTest,
+    chains::AbstractVector{<:MCMCChain},
+    stats::AbstractVector{<:AbstractMCMCStats};
+    ll::LogLevel = LOG_NONE
+)
+    result = check_convergence(ct, stats, ll = ll)
+    for chain in chains
+        chain.info = set_converged(chain.info, result.converged)
+    end
+    result
+end
+
+
+
 doc"""
-    gr_Rsqr(chains_stats::AbstractVector{<:MCMCBasicStats})
+    gr_Rsqr(stats::AbstractVector{<:MCMCBasicStats})
 
 Gelman-Rubin $R^2$ for all parameters.
 """
-function gr_Rsqr(chains_stats::AbstractVector{<:MCMCBasicStats})
-    m = nparams(first(chains_stats))
-    W = mean([cs.param_stats.cov[i,i] for cs in chains_stats, i in 1:m], 1)[:]
-    B = var([cs.param_stats.mean[i] for cs in chains_stats, i in 1:m], 1)[:]
+function gr_Rsqr(stats::AbstractVector{<:MCMCBasicStats})
+    m = nparams(first(stats))
+    W = mean([cs.param_stats.cov[i,i] for cs in stats, i in 1:m], 1)[:]
+    B = var([cs.param_stats.mean[i] for cs in stats, i in 1:m], 1)[:]
     (W .+ B) ./ W
 end
 
@@ -40,14 +57,12 @@ struct GRConvergenceResult <: MCMCConvergenceTestResult
 end
 
 
-function check_convergence(ct::GRConvergence, chains_stats::AbstractVector{<:MCMCBasicStats})
-    max_Rsqr = maximum(gr_Rsqr(chains_stats))
+function check_convergence(ct::GRConvergence, stats::AbstractVector{<:MCMCBasicStats}; ll::LogLevel = LOG_NONE)
+    max_Rsqr = maximum(gr_Rsqr(stats))
     converged = max_Rsqr <= ct.threshold
+    @log_msg ll begin
+        success_str = converged ? "have" : "have *not*"
+        "Chains $success_str converged, max(R^2) = $(max_Rsqr), threshold = $(ct.threshold)"
+    end
     GRConvergenceResult(converged, max_Rsqr)
-end
-
-
-function convergence_result_msg(ct::GRConvergence, result::GRConvergenceResult)
-    success_str = result.converged ? "have" : "have *not*"
-    "Chains $success_str converged, max(R^2) = $(result.max_Rsqr), threshold = $(ct.threshold)"
 end

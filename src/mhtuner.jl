@@ -133,26 +133,35 @@ function run_tuning_cycle!(
 end
 
 
-#=
+
+
+
 function mcmc_auto_tune!(
     callback,
     chains::AbstractVector{<:MCMCChain},
     exec_context::ExecContext = ExecContext(),
     tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(first(chains).algorithm),
     convergence_test::MCMCConvergenceTest = GRConvergence();
-    max_nsamples_per_cycle::Int64 = Int64(1),
+    max_nsamples_per_cycle::Int64 = Int64(1000),
     max_nsteps_per_cycle::Int = 10000,
-    max_nsamples_per_cycle::Int64 = 1000,
+    max_time_per_cycle::Float64 = Inf,
     max_ncycles::Int = 30,
-    max_time::Float64 = Inf,
     granularity::Int = 1
 )
-    #@log_info "Starting tuning of $(length(chains)) chain(s)."
-    run_tuning_cycle!(mcmc_callback, tuner, exec_context, max_nsamples = 1000, max_nsteps = 10000, max_time = Inf, granularity = 2)
+    @log_info "Starting tuning of $(length(chains)) chain(s)."
 
-    ct_result = check_convergence(convergence_test, tuner.stats)
-    #@log_debug convergence_result_msg(convergence_test, ct_result)
+    ncycles = 0
 
+    while ncycles < max_ncycles
+        run_tuning_cycle!(
+            mcmc_callback, tuner, exec_context,
+            max_nsamples = max_nsamples_per_cycle, max_nsteps = max_nsteps_per_cycle,
+            max_time = max_time_per_cycle, granularity = granularity
+        )
+
+        ct_result = check_convergence(convergence_test, tuner.stats)
+        @log_debug convergence_result_msg(convergence_test, ct_result)
+    end
 
 end
-=#
+
