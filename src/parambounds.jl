@@ -3,7 +3,7 @@
 using IntervalSets
 
 
-"""
+doc"""
     nparams(X::Union{AbstractParamBounds,MCMCChain,...})
 
 Get the number of parameters of `X`.
@@ -44,7 +44,7 @@ export hard_bounds, cyclic_bounds, reflective_bounds
 
 @inline float_iseven(n::T) where {T<:AbstractFloat} = (n - T(2) * floor((n + T(0.5)) * T(0.5))) < T(0.5)
 
-"""
+doc"""
     apply_bounds(x::<:Real, lo::<:Real, hi::<:Real, boundary_type::BoundsType) 
 
 Set low bound `lo` and high bound `hi` for Parameter `x`
@@ -80,11 +80,11 @@ Use `boundary_type`:
     )
 end
 
-"
+doc"""
     apply_bounds(x::Real, interval::ClosedInterval, boundary_type::BoundsType)
 
 Instead of `lo` and `hi` an `interval` can be used.
-"
+"""
 @inline apply_bounds(x::Real, interval::ClosedInterval, boundary_type::BoundsType) =
     apply_bounds(x, minimum(interval), maximum(interval), boundary_type)
 
@@ -102,7 +102,7 @@ Base.in(params::AbstractMatrix, bounds::UnboundedParams, i::Integer) = true
 nparams(b::UnboundedParams) = b.ndims
 
 
-"""
+doc"""
     apply_bounds!(params::AbstractVector, bounds::UnboundedParams) 
 
 For Parameters without bounds use `bounds` of type `UnboundedParams`
@@ -115,7 +115,8 @@ export ParamVolumeBounds
 
 abstract type ParamVolumeBounds{T<:Real, V<:SpatialVolume{T}} <: AbstractParamBounds{T} end
 
-Base.in(params::AbstractVecOrMat, bounds::ParamVolumeBounds) = in(params, bounds.vol)
+Base.in(params::AbstractVector, bounds::ParamVolumeBounds) = in(params, bounds.vol)
+Base.in(params::AbstractMatrix, bounds::ParamVolumeBounds, j::Integer) = in(params, bounds.vol, j)
 
 Base.rand!(rng::AbstractRNG, bounds::ParamVolumeBounds, x::StridedVecOrMat{<:Real}) = rand!(rng, bounds.vol, x)
 

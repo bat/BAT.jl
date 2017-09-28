@@ -2,6 +2,7 @@
 
 @Base.Test.testset "Package BAT" begin
     include("distributions.jl")
+    include("spatialvolume.jl")    
     include("parambounds.jl")
     include("onlinemvstats.jl")
     include("onlineuvstats.jl")
