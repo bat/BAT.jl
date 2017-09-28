@@ -7,11 +7,11 @@ abstract type MCMCConvergenceTestResult end
 
 
 doc"""
-    gr_Rsqr(chains_stats::AbstractVector{<:MCMCChainStats})
+    gr_Rsqr(chains_stats::AbstractVector{<:MCMCBasicStats})
 
 Gelman-Rubin $R^2$ for all parameters.
 """
-function gr_Rsqr(chains_stats::AbstractVector{<:MCMCChainStats})
+function gr_Rsqr(chains_stats::AbstractVector{<:MCMCBasicStats})
     m = nparams(first(chains_stats))
     W = mean([cs.param_stats.cov[i,i] for cs in chains_stats, i in 1:m], 1)[:]
     B = var([cs.param_stats.mean[i] for cs in chains_stats, i in 1:m], 1)[:]
@@ -40,7 +40,7 @@ struct GRConvergenceResult <: MCMCConvergenceTestResult
 end
 
 
-function check_convergence(ct::GRConvergence, chains_stats::AbstractVector{<:MCMCChainStats})
+function check_convergence(ct::GRConvergence, chains_stats::AbstractVector{<:MCMCBasicStats})
     max_Rsqr = maximum(gr_Rsqr(chains_stats))
     converged = max_Rsqr <= ct.threshold
     GRConvergenceResult(converged, max_Rsqr)

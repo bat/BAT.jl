@@ -94,12 +94,13 @@ function next_cycle!(chain::MCMCChain)
 end
 
 
-struct MCMCChainStats{L<:Real,P<:Real}
+
+struct MCMCBasicStats{L<:Real,P<:Real}
     param_stats::BasicMvStatistics{P,FrequencyWeights}
     logtf_stats::BasicUvStatistics{L,FrequencyWeights}
     mode::Vector{P}
 
-    function MCMCChainStats{L,P}(m::Integer) where {L<:Real,P<:Real}
+    function MCMCBasicStats{L,P}(m::Integer) where {L<:Real,P<:Real}
         param_stats = BasicMvStatistics{P,FrequencyWeights}(m)
         logtf_stats = BasicUvStatistics{L,FrequencyWeights}()
         mode = Vector{P}(size(param_stats.mean, 1))
@@ -112,13 +113,13 @@ struct MCMCChainStats{L<:Real,P<:Real}
     end
 end
 
-export MCMCChainStats
+export MCMCBasicStats
 
 
-MCMCChainStats(chain::MCMCChain) = MCMCChainStats(chain.state)
+MCMCBasicStats(chain::MCMCChain) = MCMCBasicStats(chain.state)
 
 
-function Base.push!(stats::MCMCChainStats, s::MCMCSample)
+function Base.push!(stats::MCMCBasicStats, s::MCMCSample)
     push!(stats.param_stats, s.params, s.weight)
     if s.log_value > stats.logtf_stats.maximum
         stats.mode .= s.params
@@ -126,7 +127,7 @@ function Base.push!(stats::MCMCChainStats, s::MCMCSample)
     push!(stats.logtf_stats, s.log_value, s.weight)
 end
 
-nparams(stats::MCMCChainStats) = stats.param_stats.m
+nparams(stats::MCMCBasicStats) = stats.param_stats.m
 
 
 

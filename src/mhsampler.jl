@@ -52,12 +52,12 @@ end
 acceptance_ratio(state::MHState) = state.nsamples / state.nsteps
 
 
-function MCMCChainStats(state::MHState)
+function MCMCBasicStats(state::MHState)
     s = state.current_sample
     L = promote_type(typeof(s.log_value), Float64)
     P = promote_type(eltype(s.params), Float64)
     m = length(s.params)
-    MCMCChainStats{L, P}(m)
+    MCMCBasicStats{L, P}(m)
 end
 
 
@@ -112,7 +112,7 @@ function MCMCChain(
 
     info = MCMCChainInfo(id, cycle, status)
 
-    stats = MCMCChainStats{L, P}(2)
+    stats = MCMCBasicStats{L, P}(2)
 
     chain = MCMCChain(
         algorithm,

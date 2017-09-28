@@ -13,14 +13,11 @@ end
 export ProposalCovTuner
 
 
-function ProposalCovTuner(chain::MCMCChain, lambda::Real = 0.5, init_chain::Bool = true)
+function ProposalCovTuner(chain::MCMCChain, lambda::Real = 0.5)
     m = nparams(chain)
     iteration = 0
     scale = 2.38^2 / m
     tuner = ProposalCovTuner(iteration, lambda, scale)
-    if init_chain
-        tuning_init!(chain, tuner)
-    end
     tuner
 end
 
@@ -36,7 +33,8 @@ function tuning_init!(chain::MCMCChain{<:MetropolisHastings}, tuner::ProposalCov
 
     m = length(flat_var)
     Σ_unscaled = full(PDiagMat(flat_var))
-    Σ = Σ_unscaled * tuner.scale
+    c = tuner.scale / m
+    Σ = Σ_unscaled * c
 
     next_cycle!(chain)
     state.pdist = set_cov!(state.pdist, Σ)
@@ -46,7 +44,7 @@ function tuning_init!(chain::MCMCChain{<:MetropolisHastings}, tuner::ProposalCov
 end
 
 
-function tuning_step!(chain::MCMCChain{<:MetropolisHastings}, tuner::ProposalCovTuner, stats::MCMCChainStats)
+function tuning_step!(chain::MCMCChain{<:MetropolisHastings}, tuner::ProposalCovTuner, stats::MCMCBasicStats)
     chain.info.cycle == 0 && error("MCMC chain tuning not initialized")
 
     α_min = 0.15
@@ -61,7 +59,7 @@ function tuning_step!(chain::MCMCChain{<:MetropolisHastings}, tuner::ProposalCov
 
     t = tuner.iteration
     λ = tuner.lambda
-    c = tuner.scale
+    c = tuner.scale / m
     Σ_old = full(get_cov(state.pdist))
 
     S = convert(Array, stats.param_stats.cov)
@@ -78,7 +76,9 @@ function tuning_step!(chain::MCMCChain{<:MetropolisHastings}, tuner::ProposalCov
         c
     end
 
-    tuner.scale = new_c
+    if new_c != c
+        tuner.scale = new_c * m
+    end
 
     Σ_new = full(Hermitian(new_Σ_unscal * tuner.scale))
 
@@ -94,7 +94,7 @@ end
 #     callback,
 #     chains::MCMCChain{<:MetropolisHastings},
 #     exec_context::ExecContext = ExecContext(),
-#     chains_stats::AbstractVector{<:MCMCChainStats};
+#     chains_stats::AbstractVector{<:MCMCBasicStats};
 #     max_nsamples_per_cycle::Int64 = Int64(1),
 #     max_nsteps_per_cycle::Int = 10000,
 #     max_nsamples_per_cycle::Int64 = 1000,
