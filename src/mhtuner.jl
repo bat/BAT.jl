@@ -146,8 +146,8 @@ function mcmc_auto_tune!(
     @log_info "Starting tuning of $(length(chains)) chain(s)."
     run_tuning_cycle!(mcmc_callback, tuner, exec_context, max_nsamples = 1000, max_nsteps = 10000, max_time = Inf, granularity = 2)
 
-    ct = GRConvergence()
-    info(BAT.convergence_result_msg(ct, BAT.check_convergence(ct, stats)))
+    ct_result = check_convergence(convergence_test, tuner.stats)
+    @log_debug convergence_result_msg(convergence_test, ct_result))
 
 
 end

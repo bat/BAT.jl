@@ -46,28 +46,20 @@ nparams(s::MCMCSample) = length(s)
 
 
 
-@enum MCMChainStatus UNCONVERGED=0 CONVERGED=1
-export MCMChainStatus # Better name for this?
-export UNCONVERGED
-export CONVERGED
-
-
 struct MCMCChainInfo
     id::Int
     cycle::Int
-    state::MCMChainStatus
+    tuned::Bool
+    converged::Bool
 end
 
 export MCMCChainInfo
 
-MCMCChainInfo() = MCMCChainInfo(0, 0, UNCONVERGED)
+MCMCChainInfo(id::Int, cycle::Int = 0) = MCMCChainInfo(id, cycle, false, false)
 
 
 next_cycle(info::MCMCChainInfo) =
-    MCMCChainInfo(info.id, info.cycle + 1, info.state)
-
-set_state(info::MCMCChainInfo, new_state::MCMChainStatus) =
-    MCMCChainInfo(info.id, info.cycle, next_state)
+    MCMCChainInfo(info.id, info.cycle + 1, info.tuned, info.converged)
 
 
 
@@ -86,12 +78,6 @@ export MCMCChain
 
 
 nparams(chain::MCMCChain) = nparams(chain.target)
-
-function next_cycle!(chain::MCMCChain)
-    chain.info = next_cycle(chain.info)
-    next_cycle!(chain.state)
-    chain
-end
 
 
 

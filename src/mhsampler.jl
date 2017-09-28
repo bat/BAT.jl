@@ -56,6 +56,7 @@ function next_cycle!(state::MHState)
     state
 end
 
+
 acceptance_ratio(state::MHState) = state.nsamples / state.nsteps
 
 
@@ -82,10 +83,10 @@ function MCMCChain(
     id::Integer = 1,
     exec_context::ExecContext = ExecContext(),
     rng::AbstractRNG = create_rng(Philox4xSeed()),
-    initial_params::AbstractVector{P} = Vector{float(eltype(target.bounds))}(),
-    status::MCMChainStatus = UNCONVERGED,
-    cycle::Integer = 0
+    initial_params::AbstractVector{P} = Vector{float(eltype(target.bounds))}()
 ) where {P<:Real}
+    cycle = 0
+
     reset_rng_counters(rng, id, cycle, 0)
 
     params_vec = convert(Vector{P}, isempty(initial_params) ? rand(rng, target.bounds) : initial_params)
@@ -117,7 +118,7 @@ function MCMCChain(
         current_sample
     )
 
-    info = MCMCChainInfo(id, cycle, status)
+    info = MCMCChainInfo(id, cycle)
 
     chain = MCMCChain(
         algorithm,
@@ -148,6 +149,15 @@ mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::Unbou
 mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::HyperRectBounds) =
     issymmetric(pdist) || all(x -> x == hard_bounds, bounds.bt)
 
+
+
+function next_cycle!(chain::MCMCChain{<:MetropolisHastings})
+    chain.info = next_cycle(chain.info)
+    next_cycle!(chain.state)
+    info = chain.info
+    reset_rng_counters(chain.state.rng, info.id, info.cycle, 0)
+    chain
+end
 
 
 function mcmc_iterate!(
