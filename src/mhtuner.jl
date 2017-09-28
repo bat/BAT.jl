@@ -5,7 +5,7 @@ struct ProposalCovTunerConfig <: AbstractMCMCTunerConfig
     lambda::Float64 # e.g. 0.5
 end
 
-ProposalCovTuner() = ProposalCovTunerConfig(0.5)
+ProposalCovTunerConfig() = ProposalCovTunerConfig(0.5)
 
 export ProposalCovTunerConfig
 
@@ -24,10 +24,9 @@ end
 
 export ProposalCovTuner
 
-
 function ProposalCovTuner(
     config::ProposalCovTunerConfig,
-    chain::MCMCChain{<:MetropolisHastings),
+    chain::MCMCChain{<:MetropolisHastings},
     init_proposal::Bool = true
 )
     m = nparams(chain)
@@ -35,15 +34,15 @@ function ProposalCovTuner(
     tuner = ProposalCovTuner(config, chain, MCMCBasicStats(chain), 1, scale)
 
     if init_proposal
-        tuning_init!(tuner)
+        tuning_init_proposal!(tuner)
     end
 
     tuner
 end
 
 
-AbstractMCMCTuner(config::ProposalCovTunerConfig, chain::MCMCChain{<:MetropolisHastings), init_proposal::Bool = true) =
-    ProposalCovTunerConfig(config, chain, args)
+AbstractMCMCTuner(config::ProposalCovTunerConfig, chain::MCMCChain{<:MetropolisHastings}, init_proposal::Bool = true) =
+    ProposalCovTuner(config, chain, init_proposal)
 
 
 function tuning_init_proposal!(tuner::ProposalCovTuner)
@@ -113,14 +112,14 @@ function run_tuning_cycle!(
     callback,
     tuner::ProposalCovTuner,
     exec_context::ExecContext = ExecContext();
-    max_nsamples::Int64 = Int64(1),
-    max_nsteps::Int = 1000,
+    max_nsamples::Int64 = Int64(1000),
+    max_nsteps::Int = 10000,
     max_time::Float64 = Inf,
     granularity::Int = 1
 )
 
-    mcmc_iterate(chain, exec_context, max_nsamples = max_nsamples, max_nsteps = max_nsteps, max_time = max_time, granularity = granularity) do
-        push!(stats, chain)
+    mcmc_iterate!(tuner.chain, exec_context, max_nsamples = max_nsamples, max_nsteps = max_nsteps, max_time = max_time, granularity = granularity) do chain
+        push!(tuner.stats, chain)
         callback(tuner)
     end
     tuning_update!(tuner)

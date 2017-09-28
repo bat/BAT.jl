@@ -150,7 +150,7 @@ mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::Hyper
 
 
 
-function mcmc_iterate(
+function mcmc_iterate!(
     callback,
     chain::MCMCChain{<:MetropolisHastings},
     exec_context::ExecContext = ExecContext();
@@ -238,7 +238,7 @@ function mcmc_iterate(
     end
 end
 
-export mcmc_iterate
+export mcmc_iterate!
 
 
 
