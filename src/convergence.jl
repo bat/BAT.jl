@@ -3,6 +3,8 @@
 
 abstract type MCMCConvergenceTest end
 
+abstract type MCMCConvergenceTestResult end
+
 
 doc"""
     gr_Rsqr(chains_stats::AbstractVector{<:MCMCChainStats})
@@ -32,6 +34,20 @@ GRConvergence() = GRConvergence(1.1)
 export GRConvergence
 
 
-function (ct::GRConvergence)(chains_stats::AbstractVector{<:MCMCChainStats})
-    maximum(gr_Rsqr(chains_stats)) <= ct.threshold
+struct GRConvergenceResult <: MCMCConvergenceTestResult
+    converged::Bool
+    max_Rsqr::Float64
+end
+
+
+function check_convergence(ct::GRConvergence, chains_stats::AbstractVector{<:MCMCChainStats})
+    max_Rsqr = maximum(gr_Rsqr(chains_stats))
+    converged = max_Rsqr <= ct.threshold
+    GRConvergenceResult(converged, max_Rsqr)
+end
+
+
+function convergence_result_msg(ct::GRConvergence, result::GRConvergenceResult)
+    success_str = result.converged ? "have" : "have *not*"
+    "Chains $success_str converged, max(R^2) = $(result.max_Rsqr), threshold = $(ct.threshold)"
 end
