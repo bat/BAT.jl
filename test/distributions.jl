@@ -81,7 +81,7 @@ using Distributions, PDMats, StatsBase
 
     @testset "BATMvTDistSampler" begin
         d = MvTDist(1.5, PDMat([2.0 1.0; 1.0 3.0]))
-
+        
         @test typeof(@inferred bat_sampler(d)) <: BATMvTDistSampler
         @test size(@inferred rand(bat_sampler(d), 5)) == (2, 5)
         
@@ -90,7 +90,11 @@ using Distributions, PDMats, StatsBase
 
         cmat = [3.76748 0.446731 0.625418; 0.446731 3.9317 0.237361; 0.625418 0.237361 3.43867]
         tmean = [1., 2, 3]
-        tmv = MvTDist(3, tmean, PDMat(cmat))
+        tmv = MvTDist(3, tmean, PDMat(eye(3)))
+
+        tmv = BAT.set_cov!(tmv, cmat)
+        @test full(BAT.get_cov(tmv)) ≈ cmat
+        
         bstmv = BATMvTDistSampler(tmv)
 
         n = 1000
