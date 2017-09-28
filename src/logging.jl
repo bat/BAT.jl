@@ -9,6 +9,23 @@ export LogLevel
 export LOG_NONE, LOG_ERROR, LOG_WARNING, LOG_INFO, LOG_DEBUG, LOG_TRACE, LOG_ALL
 
 
+import Base: +,-
+
+function +(level::LogLevel, i::Integer)
+    l = Int(level)
+    l_min = Int(LOG_ERROR)
+    l_max = Int(LOG_TRACE)
+    ifelse(
+        l_min <= l <= l_max,
+        LogLevel(clamp(l + i, l_min, l_max)),
+        level
+    )
+end
+
+-(level::LogLevel, i::Integer) = level + (-i)
+
+
+
 const log_colors = Dict(
     LOG_ERROR => Base.error_color(),
     LOG_WARNING => Base.warn_color(),
