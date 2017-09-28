@@ -98,6 +98,8 @@ end
 abstract type AbstractMCMCStats end
 export AbstractMCMCStats
 
+Base.push!(stats::AbstractMCMCStats, chain::MCMCChain) = push!(stats, chain.state)
+
 
 
 struct MCMCNullStats <: AbstractMCMCStats end

@@ -41,6 +41,13 @@ function MHState(
 end
 
 
+function Base.push!(stats::AbstractMCMCStats, state::MHState)
+    if state.proposal_accepted
+        push!(stats, state.current_sample)
+    end
+    stats
+end
+
 nparams(state::MHState) = nparams(state.pdist)
 
 function next_cycle!(state::MHState)
@@ -111,8 +118,6 @@ function MCMCChain(
     )
 
     info = MCMCChainInfo(id, cycle, status)
-
-    stats = MCMCBasicStats{L, P}(2)
 
     chain = MCMCChain(
         algorithm,

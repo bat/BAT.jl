@@ -3,37 +3,51 @@
 
 struct ProposalCovTunerConfig <: AbstractMCMCTunerConfig
     lambda::Float64 # e.g. 0.5
-    scale::Float64 # initially 2.38^2/m
 end
+
+ProposalCovTuner() = ProposalCovTunerConfig(0.5)
 
 export ProposalCovTunerConfig
 
 
-mutable struct ProposalCovTuner{C<:MCMCChain{<:MetropolisHastings}}
+
+mutable struct ProposalCovTuner{
+    C<:MCMCChain{<:MetropolisHastings},
+    S<:MCMCBasicStats
+} <: AbstractMCMCTuner
     config::ProposalCovTunerConfig
     chain::C
+    stats::S
     iteration::Int
+    scale::Float64
 end
 
 export ProposalCovTuner
 
 
-function create_mcmc_tuner(config::ProposalCovTunerConfig, chain::MCMCChain{<:MetropolisHastings)
-
-
-function ProposalCovTuner(chain::MCMCChain, lambda::Real = 0.5)
+function ProposalCovTuner(
+    config::ProposalCovTunerConfig,
+    chain::MCMCChain{<:MetropolisHastings),
+    init_proposal::Bool = true
+)
     m = nparams(chain)
-    iteration = 0
     scale = 2.38^2 / m
-    tuner = ProposalCovTuner(iteration, lambda, scale)
+    tuner = ProposalCovTuner(config, chain, MCMCBasicStats(chain), 1, scale)
+
+    if init_proposal
+        tuning_init!(tuner)
+    end
+
     tuner
 end
 
 
-function tuning_init!(chain::MCMCChain{<:MetropolisHastings}, tuner::ProposalCovTuner)
-    chain.info.cycle != 0 && error("MCMC chain tuning already initialized")
+AbstractMCMCTuner(config::ProposalCovTunerConfig, chain::MCMCChain{<:MetropolisHastings), init_proposal::Bool = true) =
+    ProposalCovTunerConfig(config, chain, args)
 
-    state = chain.state
+
+function tuning_init_proposal!(tuner::ProposalCovTuner)
+    chain = tuner.chain
 
     # ToDo: Generalize for non-hypercube bounds
     bounds = chain.target.bounds
@@ -41,19 +55,18 @@ function tuning_init!(chain::MCMCChain{<:MetropolisHastings}, tuner::ProposalCov
 
     m = length(flat_var)
     Σ_unscaled = full(PDiagMat(flat_var))
-    c = tuner.scale / m
-    Σ = Σ_unscaled * c
+    Σ = Σ_unscaled * tuner.scale
 
     next_cycle!(chain)
-    state.pdist = set_cov!(state.pdist, Σ)
-    tuner.iteration = 1
+    chain.state.pdist = set_cov!(chain.state.pdist, Σ)
 
     chain
 end
 
 
-function tuning_step!(chain::MCMCChain{<:MetropolisHastings}, tuner::ProposalCovTuner, stats::MCMCBasicStats)
-    chain.info.cycle == 0 && error("MCMC chain tuning not initialized")
+function tuning_update!(tuner::ProposalCovTuner)
+    chain = tuner.chain
+    stats = tuner.stats
 
     α_min = 0.15
     α_max = 0.35
@@ -66,8 +79,8 @@ function tuning_step!(chain::MCMCChain{<:MetropolisHastings}, tuner::ProposalCov
     state = chain.state
 
     t = tuner.iteration
-    λ = tuner.lambda
-    c = tuner.scale / m
+    λ = tuner.config.lambda
+    c = tuner.scale
     Σ_old = full(get_cov(state.pdist))
 
     S = convert(Array, stats.param_stats.cov)
@@ -84,9 +97,7 @@ function tuning_step!(chain::MCMCChain{<:MetropolisHastings}, tuner::ProposalCov
         c
     end
 
-    if new_c != c
-        tuner.scale = new_c * m
-    end
+    tuner.scale = new_c
 
     Σ_new = full(Hermitian(new_Σ_unscal * tuner.scale))
 
@@ -96,6 +107,25 @@ function tuning_step!(chain::MCMCChain{<:MetropolisHastings}, tuner::ProposalCov
 
     chain
 end
+
+
+function run_tuning_cycle!(
+    callback,
+    tuner::ProposalCovTuner,
+    exec_context::ExecContext = ExecContext();
+    max_nsamples::Int64 = Int64(1),
+    max_nsteps::Int = 1000,
+    max_time::Float64 = Inf,
+    granularity::Int = 1
+)
+
+    mcmc_iterate(chain, exec_context, max_nsamples = max_nsamples, max_nsteps = max_nsteps, max_time = max_time, granularity = granularity) do
+        push!(stats, chain)
+        callback(tuner)
+    end
+    tuning_update!(tuner)
+end
+
 
 
 # function mcmc_auto_tune!(
@@ -109,4 +139,6 @@ end
 #     max_ncycles::Int = 30,
 #     max_time::Float64 = Inf,
 #     granularity::Int = 1
+#
+#     MCMCConvergenceTest
 # )
