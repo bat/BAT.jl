@@ -138,14 +138,6 @@ nparams(stats::MCMCBasicStats) = stats.param_stats.m
 
 
 
-abstract type AbstractMCMCTunerConfig end
-export AbstractMCMCTunerConfig
-
-abstract type AbstractMCMCTuner end
-export AbstractMCMCTuner
-
-
-
 struct MCMCSampleVector{P<:Real,T<:AbstractFloat,W<:Real} <: DenseVector{MCMCSample{P,T,W}}
     params::ExtendableArray{P, 2, 1}
     log_values::Vector{T}

@@ -20,6 +20,7 @@ include("targetdensity.jl")
 include("targetsubject.jl")
 include("mcmc.jl")
 include("convergence.jl")
+include("mcmctuner.jl")
 include("mhsampler.jl")
 include("mhtuner.jl")
 

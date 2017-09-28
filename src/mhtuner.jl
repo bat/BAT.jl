@@ -11,6 +11,12 @@ ProposalCovTunerConfig() = ProposalCovTunerConfig(0.5)
 export ProposalCovTunerConfig
 
 
+AbstractMCMCTunerConfig(algorithm::MetropolisHastings) = ProposalCovTunerConfig()
+
+(config::ProposalCovTunerConfig)(chain::MCMCChain{<:MetropolisHastings}; init_proposal::Bool = true) =
+    ProposalCovTuner(config, chain, init_proposal)
+
+
 
 mutable struct ProposalCovTuner{
     C<:MCMCChain{<:MetropolisHastings},
@@ -40,12 +46,6 @@ function ProposalCovTuner(
 
     tuner
 end
-
-
-AbstractMCMCTunerConfig(algorithm::MetropolisHastings) = ProposalCovTunerConfig()
-
-AbstractMCMCTuner(config::ProposalCovTunerConfig, chain::MCMCChain{<:MetropolisHastings}, init_proposal::Bool = true) =
-    ProposalCovTuner(config, chain, init_proposal)
 
 
 function tuning_init_proposal!(tuner::ProposalCovTuner)
@@ -132,53 +132,3 @@ function run_tuning_cycle!(
     end
     tuning_update!(tuner; ll = ll)
 end
-
-
-
-
-
-function mcmc_auto_tune!(
-    callback,
-    chains::AbstractVector{<:MCMCChain},
-    exec_context::ExecContext = ExecContext(),
-    tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(first(chains).algorithm),
-    convergence_test::MCMCConvergenceTest = GRConvergence();
-    max_nsamples_per_cycle::Int64 = Int64(1000),
-    max_nsteps_per_cycle::Int = 10000,
-    max_time_per_cycle::Float64 = Inf,
-    max_ncycles::Int = 30,
-    granularity::Int = 1,
-    ll::LogLevel = LOG_INFO
-)
-    @log_info "Starting tuning of $(length(chains)) chain(s)."
-
-    nchains = length(chains)
-
-    cycle = 0
-    successful = false
-    while !successful && cycle <= max_ncycles
-        run_tuning_cycle!(
-            callback, tuner, exec_context,
-            max_nsamples = max_nsamples_per_cycle, max_nsteps = max_nsteps_per_cycle,
-            max_time = max_time_per_cycle, granularity = granularity, ll = ll
-        )
-
-        stats = [x.stats for x in tuners]
-        ct_result = check_convergence!(convergence_test, chains, stats, ll = ll)
-
-        ntuned = count(c -> c.info.tuned, chains)
-        nconverged = count(c -> c.info.converged, chains)
-        successful = (ntuned == nconverged == nchains)
-
-        @log_msg ll+1 "MCMC Tuning cycle $cycle finished, $nchains chains, $ntuned tuned, $nconverged converged."
-    end
-
-    if successful
-        @log_msg ll "MCMC tuning of $nchains chains successful after $cycle cycle(s)."
-    else
-        @log_msg ll-1 "MCMC tuning of $nchains chains aborted after $cycle cycle(s)."
-    end
-
-    successful
-end
-
