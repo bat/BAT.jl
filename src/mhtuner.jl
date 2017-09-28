@@ -88,3 +88,17 @@ function tuning_step!(chain::MCMCChain{<:MetropolisHastings}, tuner::ProposalCov
 
     chain
 end
+
+
+# function mcmc_auto_tune!(
+#     callback,
+#     chains::MCMCChain{<:MetropolisHastings},
+#     exec_context::ExecContext = ExecContext(),
+#     chains_stats::AbstractVector{<:MCMCChainStats};
+#     max_nsamples_per_cycle::Int64 = Int64(1),
+#     max_nsteps_per_cycle::Int = 10000,
+#     max_nsamples_per_cycle::Int64 = 1000,
+#     max_ncycles::Int = 30,
+#     max_time::Float64 = Inf,
+#     granularity::Int = 1
+# )
