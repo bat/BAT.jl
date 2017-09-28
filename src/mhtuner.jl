@@ -37,10 +37,12 @@ function tuning_init!(chain::MCMCChain{<:MetropolisHastings}, tuner::ProposalCov
     m = length(flat_var)
     Σ_unscaled = full(PDiagMat(flat_var))
     Σ = Σ_unscaled * tuner.scale
-    state.pdist = set_cov!(state.pdist, Σ)
 
-    tuner.iteration = 1
     next_cycle!(chain)
+    state.pdist = set_cov!(state.pdist, Σ)
+    tuner.iteration = 1
+
+    chain
 end
 
 
@@ -79,8 +81,10 @@ function tuning_step!(chain::MCMCChain{<:MetropolisHastings}, tuner::ProposalCov
     tuner.scale = new_c
 
     Σ_new = full(Hermitian(new_Σ_unscal * tuner.scale))
-    state.pdist = set_cov!(state.pdist, Σ_new)
 
-    tuner.iteration += 1
     next_cycle!(chain)
+    state.pdist = set_cov!(state.pdist, Σ_new)
+    tuner.iteration += 1
+
+    chain
 end
