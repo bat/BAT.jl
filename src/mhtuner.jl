@@ -124,9 +124,11 @@ function run_tuning_cycle!(
     max_time::Float64 = Inf,
     ll::LogLevel = LOG_NONE
 )
+    cbfunc = mcmc_callback(callback)
+
     mcmc_iterate!(tuner.chain, exec_context, max_nsamples = max_nsamples, max_nsteps = max_nsteps, max_time = max_time) do level, chain
         push!(tuner.stats, chain)
-        callback(level, tuner)
+        cbfunc(level, tuner)
     end
     tuning_update!(tuner; ll = ll)
 end

@@ -186,6 +186,7 @@ function mcmc_iterate!(
     ll::LogLevel = LOG_NONE
 )
     algorithm = chain.algorithm
+    cbfunc = mcmc_callback(callback)
 
     start_time = time()
     nsteps = 0
@@ -259,9 +260,9 @@ function mcmc_iterate!(
         end
 
         if accepted
-            callback(1, chain)
+            cbfunc(1, chain)
         else
-            callback(2, chain)
+            cbfunc(2, chain)
         end
     end
 end

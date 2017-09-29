@@ -31,6 +31,8 @@ function mcmc_auto_tune!(
 )
     @log_msg ll "Starting tuning of $(length(chains)) MCMC chain(s)."
 
+    cbfunc = mcmc_callback(callback)
+
     nchains = length(chains)
     tuners = [tuner_config(c, init_proposal = init_proposal) for c in chains]
 
@@ -39,7 +41,7 @@ function mcmc_auto_tune!(
     while !successful && cycle <= max_ncycles
         for tuner in tuners
             run_tuning_cycle!(
-                callback, tuner, exec_context,
+                cbfunc, tuner, exec_context,
                 max_nsamples = max_nsamples_per_cycle, max_nsteps = max_nsteps_per_cycle,
                 max_time = max_time_per_cycle, ll = ll+1
             )
