@@ -122,13 +122,11 @@ function run_tuning_cycle!(
     max_nsamples::Int64 = Int64(1000),
     max_nsteps::Int = 10000,
     max_time::Float64 = Inf,
-    granularity::Int = 1,
     ll::LogLevel = LOG_NONE
 )
-
-    mcmc_iterate!(tuner.chain, exec_context, max_nsamples = max_nsamples, max_nsteps = max_nsteps, max_time = max_time, granularity = granularity) do chain
+    mcmc_iterate!(tuner.chain, exec_context, max_nsamples = max_nsamples, max_nsteps = max_nsteps, max_time = max_time) do level, chain
         push!(tuner.stats, chain)
-        callback(tuner)
+        callback(level, tuner)
     end
     tuning_update!(tuner; ll = ll)
 end

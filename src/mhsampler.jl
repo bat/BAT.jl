@@ -182,7 +182,7 @@ function mcmc_iterate!(
     max_nsamples::Int64 = Int64(1),
     max_nsteps::Int = 1000,
     max_time::Float64 = Inf,
-    granularity::Int = 1
+    ll::LogLevel = LOG_NONE
 )
     algorithm = chain.algorithm
 
@@ -257,8 +257,10 @@ function mcmc_iterate!(
             state.current_nreject += 1
         end
 
-        if accepted || (granularity >= 2)
-            callback(chain)
+        if accepted
+            callback(1, chain)
+        else
+            callback(2, chain)
         end
     end
 end

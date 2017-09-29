@@ -23,7 +23,6 @@ function mcmc_auto_tune!(
     max_nsteps_per_cycle::Int = 10000,
     max_time_per_cycle::Float64 = Inf,
     max_ncycles::Int = 30,
-    granularity::Int = 1,
     ll::LogLevel = LOG_INFO
 )
     @log_msg ll "Starting tuning of $(length(chains)) MCMC chain(s)."
@@ -38,7 +37,7 @@ function mcmc_auto_tune!(
             run_tuning_cycle!(
                 callback, tuner, exec_context,
                 max_nsamples = max_nsamples_per_cycle, max_nsteps = max_nsteps_per_cycle,
-                max_time = max_time_per_cycle, granularity = granularity, ll = ll+1
+                max_time = max_time_per_cycle, ll = ll+1
             )
         end
 
