@@ -51,3 +51,55 @@ mcmc_callback(sv::MCMCSampleVector, args...) = MCMCPushCallback(sv, args...)
 
 
 # ToDo: merge/append for MCMCSampleVector
+
+
+
+
+
+struct MCMCChainInfoVector <: DenseVector{MCMCChainInfo}
+    id::Vector{Int32}
+    cycle::Vector{Int32}
+    tuned::Vector{Bool}
+    converged::Vector{Bool}
+end
+
+export MCMCChainInfoVector
+
+MCMCChainInfoVector() =
+    MCMCChainInfoVector((Vector{Int32}(), Vector{Int32}(), Vector{Bool}(), Vector{Bool}()))
+
+
+Base.size(xs::MCMCChainInfoVector) = size(xs.id)
+
+Base.getindex(xs::MCMCChainInfoVector, i::Integer)  =
+    MCMCChainInfo(xs.id[i], xs.cycle[i], xs.tuned[i], xs.converged[i])
+
+
+function Base.push!(xs::MCMCChainInfoVector, x::MCMCChainInfo)
+    push!(xs.id, x.id)
+    push!(xs.cycle, x.cycle)
+    push!(xs.tuned, x.tuned)
+    push!(xs.converged, x.converged)
+    xs
+end
+
+function Base.push!(xs::MCMCChainInfoVector, chain::MCMCChain)
+    push!(xs, chain.info)
+    chain
+end
+
+
+mcmc_callback(sv::MCMCChainInfoVector, args...) = MCMCPushCallback(sv, args...)
+
+
+
+mutable struct TaggedMCMCSample{
+    S<:AbstractMCMCSample
+} <: AbstractMCMCSample
+    sample::S
+    sampleno::Int64
+    chaininfo::MCMCChainInfo
+end
+
+export MCMCSample
+
