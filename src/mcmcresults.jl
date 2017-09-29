@@ -33,6 +33,22 @@ function Base.push!(xs::MCMCSampleVector, x::MCMCSample)
 end
 
 
+function Base.push!(xs::MCMCSampleVector, state::AbstractMCMCState)
+    if sample_available(state, Val(:any))
+        push!(xs, current_sample(state, Val(:any)))
+    end
+    xs
+end
+
+
+function Base.push!(xs::MCMCSampleVector, chain::MCMCChain)
+    push!(xs, chain.state)
+    chain
+end
+
+
+# ToDo: merge/append for MCMCSampleVector
+
 
 
 
@@ -52,47 +68,3 @@ function (cb::MCMCSampleVectorCallback)(level::Integer, chain::MCMCChain)
     end
     nothing
 end
-
-
-
-#=
-
-
-MCMCSampleVectorPusher
-
-pusher::MCMCSampleVectorPusher()
-
-
-=#
-
-
-#=
-abstract type AbstractMCMCResult end
-
-mutable struct MCMCResultSamples{SV<:MCMCSampleVector} <: AbstractMCMCResult
-    
-end
-
-
-
-mutable struct MCMCDiagResults{
-    SV<:MCMCSampleVector,
-    ST<:AbstractMCMCStats
-}
-    samples_acc::SV
-    samples_rej::SV
-    stats::ST
-end
-
-MCMCDiagResults(chain::MCMCChain)
-    samples_acc = MCMCSampleVector(first(chains))
-    samples_rej = MCMCSampleVector(first(chains))
-    stats = MCMCBasicStats.(chains)
-    MCMCDiagResults(samples, samples_rej, stats)
-end
-
-
-# merge!,merge for AbstractVector{<:MCMCResult}
-
-=#
-

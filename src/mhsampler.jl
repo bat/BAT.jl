@@ -69,11 +69,19 @@ function current_sample(state::MHState, ::Val{:complete})
     state.current_sample
 end
 
+
 sample_available(state::MHState, ::Val{:rejected}) = !state.proposal_accepted
 
 function current_sample(state::MHState, ::Val{:rejected})
     state.proposal_accepted && error("No rejected sample available")
-    state.current_sample
+    state.proposed_sample
+end
+
+
+sample_available(state::MHState, ::Val{:any}) = true
+
+function current_sample(state::MHState, ::Val{:any})
+    ifelse(state.proposal_accepted, state.current_sample, state.proposed_sample)
 end
 
 
