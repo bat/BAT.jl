@@ -4,7 +4,18 @@
 abstract type AbstractMCMCStats end
 export AbstractMCMCStats
 
-Base.push!(stats::AbstractMCMCStats, chain::MCMCChain) = push!(stats, chain.state)
+
+function Base.push!(stats::AbstractMCMCStats, state::AbstractMCMCState)
+    if sample_available(state)
+        push!(stats, current_sample(state))
+    end
+    stats
+end
+
+function Base.push!(stats::AbstractMCMCStats, chain::MCMCChain)
+    push!(stats, chain.state)
+    chain
+end
 
 
 

@@ -47,8 +47,8 @@ mcmc_callback(sv::MCMCSampleVector, args...) = MCMCSampleVectorCallback(sv, args
 
 
 function (cb::MCMCSampleVectorCallback)(level::Integer, chain::MCMCChain)
-    if (level <= max_level)
-        push!(sv, chain)
+    if (level <= cb.max_level)
+        push!(cb.samples, chain)
     end
     nothing
 end

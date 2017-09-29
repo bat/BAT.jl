@@ -92,6 +92,10 @@ export MCMCChain
 
 nparams(chain::MCMCChain) = nparams(chain.target)
 
+sample_available(chain::MCMCChain, status::Val = Val(:complete)) = sample_available(chain.state, status)
+
+current_sample(chain::MCMCChain, status::Val = Val(:complete)) = current_sample(chain.state, status)
+
 
 
 # struct MCMCCallback{F}

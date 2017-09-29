@@ -41,13 +41,6 @@ function MHState(
 end
 
 
-function Base.push!(stats::AbstractMCMCStats, state::MHState)
-    if state.proposal_accepted
-        push!(stats, state.current_sample)
-    end
-    stats
-end
-
 nparams(state::MHState) = nparams(state.pdist)
 
 function next_cycle!(state::MHState)
