@@ -16,7 +16,7 @@ export AbstractMCMCTuner
 
 
 # ToDo: Rename to mcmc_burn_in!
-function mcmc_auto_tune!(
+function mcmc_tune_burnin!(
     callback,
     chains::AbstractVector{<:MCMCChain},
     exec_context::ExecContext = ExecContext(),
@@ -67,5 +67,5 @@ function mcmc_auto_tune!(
     successful
 end
 
-export mcmc_auto_tune!
+export mcmc_tune_burnin!
 
