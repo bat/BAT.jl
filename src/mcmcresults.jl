@@ -33,6 +33,8 @@ function Base.push!(xs::MCMCSampleVector, x::MCMCSample)
 end
 
 
+
+
 #=
 
 struct MCMCSampleVectorPusher{SV<:MCMCSampleVector,ST<:Val=Val{:complete}}

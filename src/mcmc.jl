@@ -91,3 +91,25 @@ export MCMCChain
 
 
 nparams(chain::MCMCChain) = nparams(chain.target)
+
+
+
+struct MCMCCallback{F}
+    f::F
+    max_level::Int
+end
+
+export MCMCCallback
+
+MCMCCallback() = MCMCCallback(identity, 1)
+
+Base.convert(::Type{MCMCCallback}, x::MCMCCallback) = x
+
+Base.convert(::Type{MCMCCallback}, f) = MCMCCallback(f, 1)
+
+
+function (callback::MCMCCallback)(level, args...)
+    if (level <= callback.max_level)
+        callback.f(args...)
+    end
+end
