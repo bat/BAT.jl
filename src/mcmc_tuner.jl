@@ -37,7 +37,7 @@ function mcmc_tune_burnin!(
     nchains = length(chains)
     tuners = [tuner_config(c, init_proposal = init_proposal) for c in chains]
 
-    cycle = 0
+    cycle = 1
     successful = false
     while !successful && cycle <= max_ncycles
         for tuner in tuners
