@@ -69,6 +69,21 @@ function MCMCBasicStats(state::MHState)
 end
 
 
+sample_available(state::MHState, ::Val{:complete}) = state.proposal_accepted
+
+function current_sample(state::MHState, ::Val{:complete})
+    !state.proposal_accepted && error("No complete sample available")
+    state.current_sample
+end
+
+sample_available(state::MHState, ::Val{:rejected}) = !state.proposal_accepted
+
+function current_sample(state::MHState, ::Val{:rejected})
+    state.proposal_accepted && error("No rejected sample available")
+    state.current_sample
+end
+
+
 
 
 struct MetropolisHastings <: MCMCAlgorithm{MHState} end

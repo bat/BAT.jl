@@ -3,6 +3,13 @@
 
 abstract type AbstractMCMCState end
 
+
+sample_available(state::AbstractMCMCState) = sample_available(state, Val(:complete))
+
+current_sample(state::AbstractMCMCState) = current_sample(state, Val(:complete))
+
+
+
 abstract type MCMCAlgorithm{S<:AbstractMCMCState} end
 
 
@@ -84,87 +91,3 @@ export MCMCChain
 
 
 nparams(chain::MCMCChain) = nparams(chain.target)
-
-
-
-abstract type AbstractMCMCStats end
-export AbstractMCMCStats
-
-Base.push!(stats::AbstractMCMCStats, chain::MCMCChain) = push!(stats, chain.state)
-
-
-
-struct MCMCNullStats <: AbstractMCMCStats end
-export MCMCNullStats
-
-Base.push!(stats::MCMCNullStats, s::MCMCSample) = stats
-
-
-
-struct MCMCBasicStats{L<:Real,P<:Real} <: AbstractMCMCStats
-    param_stats::BasicMvStatistics{P,FrequencyWeights}
-    logtf_stats::BasicUvStatistics{L,FrequencyWeights}
-    mode::Vector{P}
-
-    function MCMCBasicStats{L,P}(m::Integer) where {L<:Real,P<:Real}
-        param_stats = BasicMvStatistics{P,FrequencyWeights}(m)
-        logtf_stats = BasicUvStatistics{L,FrequencyWeights}()
-        mode = Vector{P}(size(param_stats.mean, 1))
-
-        new{L,P}(
-            BasicMvStatistics{P,FrequencyWeights}(m),
-            BasicUvStatistics{L,FrequencyWeights}(),
-            fill(oob(P), m)
-        )
-    end
-end
-
-export MCMCBasicStats
-
-
-MCMCBasicStats(chain::MCMCChain) = MCMCBasicStats(chain.state)
-
-
-function Base.push!(stats::MCMCBasicStats, s::MCMCSample)
-    push!(stats.param_stats, s.params, s.weight)
-    if s.log_value > stats.logtf_stats.maximum
-        stats.mode .= s.params
-    end
-    push!(stats.logtf_stats, s.log_value, s.weight)
-    stats
-end
-
-nparams(stats::MCMCBasicStats) = stats.param_stats.m
-
-
-
-struct MCMCSampleVector{P<:Real,T<:AbstractFloat,W<:Real} <: DenseVector{MCMCSample{P,T,W}}
-    params::ExtendableArray{P, 2, 1}
-    log_values::Vector{T}
-    weights::Vector{W}
-end
-
-export MCMCSampleVector
-
-function MCMCSampleVector(chain::MCMCChain)
-    P = eltype(chain.state.current_sample.params)
-    T = typeof(chain.state.current_sample.log_value)
-    W = typeof(chain.state.current_sample.weight)
-
-    m = size(chain.state.current_sample.params, 1)
-    MCMCSampleVector(ExtendableArray{P}(m, 0), Vector{T}(0), Vector{W}(0))
-end
-
-
-Base.size(xs::MCMCSampleVector) = size(xs.log_values)
-
-Base.getindex(xs::MCMCSampleVector{P,T,W}, i::Integer) where {P,T,W} =
-    MCMCSample{P,T,W}(xs.params[:,i], xs.log_values[i], xs.weights[i])
-
-
-function Base.push!(xs::MCMCSampleVector, x::MCMCSample)
-    append!(xs.params, x.params)
-    push!(xs.log_values, x.log_value)
-    push!(xs.weights, x.weight)
-    xs
-end
