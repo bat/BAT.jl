@@ -11,7 +11,11 @@ abstract type AbstractMCMCTuner end
 export AbstractMCMCTuner
 
 
+(cb::MCMCSampleVectorCallback)(level::Integer, tuner::AbstractMCMCTuner) = cb(level, tuner.chain)
 
+
+
+# ToDo: Rename to mcmc_burn_in!
 function mcmc_auto_tune!(
     callback,
     chains::AbstractVector{<:MCMCChain},

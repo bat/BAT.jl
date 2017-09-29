@@ -35,11 +35,28 @@ end
 
 
 
+
+struct MCMCSampleVectorCallback{SV<:MCMCSampleVector} <: AbstractMCMCCallback
+    samples::SV
+    max_level::Int
+end
+
+MCMCSampleVectorCallback(sv::MCMCSampleVector) = MCMCSampleVectorCallback(sv, 1)
+
+mcmc_callback(sv::MCMCSampleVector, args...) = MCMCSampleVectorCallback(sv, args...)
+
+
+function (cb::MCMCSampleVectorCallback)(level::Integer, chain::MCMCChain)
+    if (level <= max_level)
+        push!(sv, chain)
+    end
+    nothing
+end
+
+
+
 #=
 
-struct MCMCSampleVectorPusher{SV<:MCMCSampleVector,ST<:Val=Val{:complete}}
-    samples::SV
-end
 
 MCMCSampleVectorPusher
 
