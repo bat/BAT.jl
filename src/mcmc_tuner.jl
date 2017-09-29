@@ -11,7 +11,8 @@ abstract type AbstractMCMCTuner end
 export AbstractMCMCTuner
 
 
-(cb::MCMCSampleVectorCallback)(level::Integer, tuner::AbstractMCMCTuner) = cb(level, tuner.chain)
+(cb::MCMCMultiCallback)(level::Integer, tuner::AbstractMCMCTuner) = cb(level, tuner.chain)
+(cb::MCMCPushCallback)(level::Integer, tuner::AbstractMCMCTuner) = cb(level, tuner.chain)
 
 
 

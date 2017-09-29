@@ -47,24 +47,7 @@ function Base.push!(xs::MCMCSampleVector, chain::MCMCChain)
 end
 
 
+mcmc_callback(sv::MCMCSampleVector, args...) = MCMCPushCallback(sv, args...)
+
+
 # ToDo: merge/append for MCMCSampleVector
-
-
-
-
-struct MCMCSampleVectorCallback{SV<:MCMCSampleVector} <: AbstractMCMCCallback
-    samples::SV
-    max_level::Int
-end
-
-MCMCSampleVectorCallback(sv::MCMCSampleVector) = MCMCSampleVectorCallback(sv, 1)
-
-mcmc_callback(sv::MCMCSampleVector, args...) = MCMCSampleVectorCallback(sv, args...)
-
-
-function (cb::MCMCSampleVectorCallback)(level::Integer, chain::MCMCChain)
-    if (level <= cb.max_level)
-        push!(cb.samples, chain)
-    end
-    nothing
-end

@@ -155,3 +155,20 @@ function mcmc_callback(funcs::Tuple)
     cb_funcs =  map(f -> mcmc_callback(f), funcs)
     MCMCMultiCallback(cb_funcs)
 end
+
+
+
+struct MCMCPushCallback{T} <: AbstractMCMCCallback
+    target::T
+    max_level::Int
+end
+
+MCMCPushCallback(target) = MCMCPushCallback(target, 1)
+
+function (cb::MCMCPushCallback)(level::Integer, chain::MCMCChain)
+    if (level <= cb.max_level)
+        push!(cb.target, chain)
+    end
+    nothing
+end
+

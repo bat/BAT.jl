@@ -17,6 +17,8 @@ function Base.push!(stats::AbstractMCMCStats, chain::MCMCChain)
     chain
 end
 
+mcmc_callback(sv::AbstractMCMCStats, args...) = MCMCPushCallback(sv, args...)
+
 
 
 struct MCMCNullStats <: AbstractMCMCStats end
