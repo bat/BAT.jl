@@ -3,11 +3,9 @@
 
 mutable struct MHState{
     Q<:AbstractProposalDist,
-    R<:AbstractRNG,
     S<:MCMCSample
 } <: AbstractMCMCState
     pdist::Q
-    rng::R
     current_sample::S
     proposed_sample::S
     proposal_accepted::Bool
@@ -19,7 +17,6 @@ end
 
 function MHState(
     pdist::AbstractProposalDist,
-    rng::AbstractRNG,
     current_sample::MCMCSample
 )
     proposed_sample = MCMCSample(
@@ -30,7 +27,6 @@ function MHState(
 
     MHState(
         pdist,
-        rng,
         current_sample,
         proposed_sample,
         false,
@@ -134,7 +130,6 @@ function MCMCChain(
 
     state = MHState(
         convert(AbstractProposalDist, pdist, P, m),
-        rng,
         current_sample
     )
 
@@ -142,6 +137,7 @@ function MCMCChain(
         algorithm,
         target,
         state,
+        rng,
         id,
         cycle,
         false,
@@ -171,17 +167,6 @@ mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::Hyper
     issymmetric(pdist) || all(x -> x == hard_bounds, bounds.bt)
 
 
-
-function next_cycle!(chain::MCMCChain{<:MetropolisHastings})
-    next_cycle!(chain.state)
-    chain.cycle += 1
-    sampleid = MCMCSampleID(chain)
-    @assert sampleid.sampleno == 1
-    reset_rng_counters(chain.state.rng, sampleid)
-    chain
-end
-
-
 function mcmc_iterate!(
     callback,
     chain::MCMCChain{<:MetropolisHastings},
@@ -200,7 +185,7 @@ function mcmc_iterate!(
 
     target = chain.target
     state = chain.state
-    rng = state.rng
+    rng = chain.rng
 
     tdensity = target.tdensity
     bounds = target.bounds

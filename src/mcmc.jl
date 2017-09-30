@@ -56,11 +56,13 @@ nparams(s::MCMCSample) = length(s)
 mutable struct MCMCChain{
     A<:MCMCAlgorithm,
     T<:AbstractTargetSubject,
-    S<:AbstractMCMCState
+    S<:AbstractMCMCState,
+    R<:AbstractRNG
 }
     algorithm::A
     target::T
     state::S
+    rng::R
     id::Int
     cycle::Int
     tuned::Bool
@@ -91,6 +93,16 @@ MCMCSampleID(chain::MCMCChain) =
 
 reset_rng_counters(rng::AbstractRNG, tags::MCMCSampleID) =
     reset_rng_counters(rng, tags.chainid, tags.chaincycle, tags.sampleno)
+
+
+function next_cycle!(chain::MCMCChain)
+    next_cycle!(chain.state)
+    chain.cycle += 1
+    sampleid = MCMCSampleID(chain)
+    @assert sampleid.sampleno == 1
+    reset_rng_counters(chain.rng, sampleid)
+    chain
+end
 
 
 
