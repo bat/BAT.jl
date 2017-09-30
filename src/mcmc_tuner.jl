@@ -16,7 +16,6 @@ export AbstractMCMCTuner
 
 
 
-# ToDo: Rename to mcmc_burn_in!
 function mcmc_tune_burnin!(
     callback,
     chains::AbstractVector{<:MCMCChain},

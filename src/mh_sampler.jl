@@ -103,11 +103,11 @@ function MCMCChain(
 ) where {P<:Real}
     cycle = 0
 
-    reset_rng_counters(rng, MCMCSampleID(id, cycle, 0))
+    reset_rng_counters!(rng, MCMCSampleID(id, cycle, 0))
 
     params_vec = convert(Vector{P}, isempty(initial_params) ? rand(rng, target.bounds) : initial_params)
 
-    reset_rng_counters(rng, MCMCSampleID(id, cycle, 1))
+    reset_rng_counters!(rng, MCMCSampleID(id, cycle, 1))
 
     m = length(params_vec)
     apply_bounds!(params_vec, target.bounds)
@@ -205,7 +205,7 @@ function mcmc_iterate!(
 
     while nsamples < max_nsamples && nsteps < max_nsteps && (time() - start_time) < max_time
         if state.proposal_accepted
-            reset_rng_counters(rng, MCMCSampleID(chain))
+            reset_rng_counters!(rng, MCMCSampleID(chain))
             copy!(current_sample, proposed_sample)
             state.current_nreject = 0
             state.proposal_accepted = false

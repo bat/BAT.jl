@@ -91,8 +91,8 @@ MCMCSampleID(chain::MCMCChain) =
     MCMCSampleID(chain.id, chain.cycle, current_sampleno(chain))
 
 
-reset_rng_counters(rng::AbstractRNG, tags::MCMCSampleID) =
-    reset_rng_counters(rng, tags.chainid, tags.chaincycle, tags.sampleno)
+reset_rng_counters!(rng::AbstractRNG, tags::MCMCSampleID) =
+    reset_rng_counters!(rng, tags.chainid, tags.chaincycle, tags.sampleno)
 
 
 function next_cycle!(chain::MCMCChain)
@@ -100,7 +100,7 @@ function next_cycle!(chain::MCMCChain)
     chain.cycle += 1
     sampleid = MCMCSampleID(chain)
     @assert sampleid.sampleno == 1
-    reset_rng_counters(chain.rng, sampleid)
+    reset_rng_counters!(chain.rng, sampleid)
     chain
 end
 

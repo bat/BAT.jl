@@ -51,12 +51,12 @@ end
 
 
 
-reset_rng_counters(rng::AbstractRNG, tags::Integer...) = reset_rng_counters(rng, tags)
+reset_rng_counters!(rng::AbstractRNG, tags::Integer...) = reset_rng_counters!(rng, tags)
 
 # ToDo: More flexible tagging scheme, allow for more/less than 3 tags and
 # support counter-based RNGs with more/less than 4 counters.
 
-function reset_rng_counters(rng::Random123RNG4x, tags::NTuple{3,Integer})
+function reset_rng_counters!(rng::Random123RNG4x, tags::NTuple{3,Integer})
     rng.ctr3 += Base.Threads.threadid()
     rng.ctr4 = tags[1]
     rng.ctr3 = tags[2]

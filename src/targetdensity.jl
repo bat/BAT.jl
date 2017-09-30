@@ -5,7 +5,6 @@ using FunctionWrappers
 import FunctionWrappers: FunctionWrapper
 
 
-# ToDo: Rename to ...TargetDensity?
 """
     AbstractTargetDensity
 
