@@ -83,7 +83,6 @@ current_sampleno(chain::MCMCChain) = current_sampleno(chain.state)
 
 
 struct MCMCChainSpec{
-    P<:Real,
     A<:MCMCAlgorithm,
     T<:AbstractTargetSubject,
     Q<:ProposalDistSpec,
@@ -95,33 +94,20 @@ struct MCMCChainSpec{
     rngspec::R
 end
 
-MCMCChainSpec{P}(
-    algorithm::A,
-    target::T,
-    pdistspec::Q,
-    rngspec::R,
-) where {
-    P<:Real,
-    A<:MCMCAlgorithm,
-    T<:AbstractTargetSubject,
-    Q<:ProposalDistSpec,
-    R<:AbstractRNGSeed
-} = MCMCChainSpec{P,A,T,Q,R}(algorithm, target, pdistspec, rngspec)
-
 export MCMCChainSpec
 
 MCMCChainSpec(
     algorithm::MCMCAlgorithm,
     target::AbstractTargetSubject,
-    pdistspec::ProposalDistSpec,
-    rngspec::AbstractRNGSeed,
-) = MCMCChainSpec{float(eltype(target.bounds))}(algorithm, target, pdistspec, rngspec)
+    pdistspec::ProposalDistSpec = MvTDistProposalSpec()
+) = MCMCChainSpec(algorithm, target, pdistspec, Philox4xSeed())
 
 
-function (spec::MCMCChainSpec{P})(
+function (spec::MCMCChainSpec)(
     id::Integer,
     exec_context::ExecContext = ExecContext()
-) where {P}
+)
+    P = float(eltype(spec.target.bounds))
     m = nparams(spec.target)
     rng = spec.rngspec()
     MCMCChain(
