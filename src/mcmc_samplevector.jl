@@ -3,7 +3,6 @@
 
 abstract type MCMCDataVector{T} <: DenseVector{T} end
 
-mcmc_callback(X::MCMCDataVector, args...) = MCMCPushCallback(X, args...)
 
 function Base.merge!(X::MCMCDataVector, Xs::MCMCDataVector...)
     for Y in Xs
@@ -13,6 +12,10 @@ function Base.merge!(X::MCMCDataVector, Xs::MCMCDataVector...)
 end
 
 Base.merge(X::MCMCDataVector, Xs::MCMCDataVector...) = merge!(deepcopy(X), Xs...)
+
+
+mcmc_callback(x::MCMCDataVector) = MCMCPushCallback(x)
+mcmc_callback(max_level::Integer, x::MCMCDataVector) = MCMCPushCallback(max_level, x)
 
 
 
@@ -80,6 +83,8 @@ export MCMCSampleIDVector
 
 MCMCSampleIDVector() =
     MCMCSampleIDVector(Vector{Int32}(), Vector{Int32}(), Vector{Int64}())
+
+MCMCSampleIDVector(chain::MCMCChain) = MCMCSampleIDVector()
 
 
 Base.size(xs::MCMCSampleIDVector) = size(xs.chainid)

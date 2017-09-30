@@ -150,28 +150,40 @@ mcmc_callback(cb::AbstractMCMCCallback) = cb
 
 
 struct MCMCMultiCallback{FT<:Tuple} <: AbstractMCMCCallback
+    max_level::Int
     funcs::FT
 end
 
 
 function (cb::MCMCMultiCallback)(level::Integer, chain::MCMCChain)
-    map(f -> f(level, chain), cb.funcs)
+    if level <= cb.max_level
+        for f in cb.funcs
+            f(level, chain)
+        end
+    end
     nothing
 end
 
-function mcmc_callback(funcs::Tuple)
-    cb_funcs =  map(f -> mcmc_callback(f), funcs)
-    MCMCMultiCallback(cb_funcs)
+
+function mcmc_callback(max_level::Integer, funcs::Tuple)
+    cb_funcs = map(f -> mcmc_callback(f), funcs)
+    MCMCMultiCallback(max_level, cb_funcs)
 end
+
+mcmc_callback(max_level::Integer, f, fs...) = mcmc_callback(max_level, (f, fs...))
+
+mcmc_callback(funcs::Tuple) = mcmc_callback(typemax(Int), funcs)
+
+mcmc_callback(f, fs...) = mcmc_callback((f, fs...))
 
 
 
 struct MCMCPushCallback{T} <: AbstractMCMCCallback
-    target::T
     max_level::Int
+    target::T
 end
 
-MCMCPushCallback(target) = MCMCPushCallback(target, 1)
+MCMCPushCallback(target) = MCMCPushCallback(1, target)
 
 function (cb::MCMCPushCallback)(level::Integer, chain::MCMCChain)
     if (level <= cb.max_level)
@@ -179,4 +191,3 @@ function (cb::MCMCPushCallback)(level::Integer, chain::MCMCChain)
     end
     nothing
 end
-

@@ -17,7 +17,8 @@ function Base.push!(stats::AbstractMCMCStats, chain::MCMCChain)
     chain
 end
 
-mcmc_callback(sv::AbstractMCMCStats, args...) = MCMCPushCallback(sv, args...)
+mcmc_callback(x::AbstractMCMCStats) = MCMCPushCallback(x)
+mcmc_callback(max_level::Integer, x::AbstractMCMCStats) = MCMCPushCallback(max_level, x)
 
 
 
