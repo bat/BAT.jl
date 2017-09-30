@@ -123,15 +123,24 @@ function (spec::MCMCChainSpec{P})(
     exec_context::ExecContext = ExecContext()
 ) where {P}
     m = nparams(spec.target)
+    rng = spec.rngspec()
     MCMCChain(
         spec.algorithm,
         spec.target,
         spec.pdistspec(P, m),
         id,
+        rng,
+        convert(Vector{P}, rand(rng, spec.target.bounds)),
         exec_context,
-        spec.rngspec(),
-        Vector{P}(m)
     )
+end
+
+
+function (spec::MCMCChainSpec)(
+    ids::AbstractVector,
+    exec_context::ExecContext = ExecContext()
+)
+    spec.(ids, exec_context)
 end
 
 

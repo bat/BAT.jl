@@ -96,10 +96,10 @@ function MCMCChain(
     algorithm::MetropolisHastings,
     target::AbstractTargetSubject,
     pdist::AbstractProposalDist,
-    id::Integer = 1,
+    id::Integer,
+    rng::AbstractRNG,
+    initial_params::AbstractVector{P},
     exec_context::ExecContext = ExecContext(),
-    rng::AbstractRNG = Philox4xSeed()(),
-    initial_params::AbstractVector{P} = Vector{float(eltype(target.bounds))}()
 ) where {P<:Real}
     cycle = 0
 
@@ -146,21 +146,6 @@ function MCMCChain(
 
     chain
 end
-
-
-#=
-function (::Type{Vector{MCMCChain}})(
-    algorithm::MetropolisHastings,
-    target::AbstractTargetSubject,
-    pdist::AbstractProposalDist,
-    n::Integer,
-    exec_context::ExecContext = ExecContext(),
-    rngseed::AbstractRNGSeed = Philox4xSeed()
-)
-    # tasks = [@schedule MCMCChain(algorithm, target, pdist, id, exec_context, rng) for id in 1:n]
-    [MCMCChain(algorithm, target, pdist, id, exec_context, rngseed())) for id in 1:n]
-end
-=#
 
 
 mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::UnboundedParams) = true
