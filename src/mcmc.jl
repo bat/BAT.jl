@@ -56,23 +56,21 @@ nparams(s::MCMCSample) = length(s)
 struct MCMCChainInfo
     id::Int
     cycle::Int
-    tuned::Bool
-    converged::Bool
 end
 
 export MCMCChainInfo
 
-MCMCChainInfo(id::Int, cycle::Int = 0) = MCMCChainInfo(id, cycle, false, false)
+
+struct MCMCChainStatus
+    tuned::Bool
+    converged::Bool
+end
+
+export MCMCChainStatus
 
 
 next_cycle(info::MCMCChainInfo) =
-    MCMCChainInfo(info.id, info.cycle + 1, info.tuned, info.converged)
-
-set_tuned(info::MCMCChainInfo, value::Bool) =
-    MCMCChainInfo(info.id, info.cycle, value, info.converged)
-
-set_converged(info::MCMCChainInfo, value::Bool) =
-    MCMCChainInfo(info.id, info.cycle, info.tuned, value)
+    MCMCChainInfo(info.id, info.cycle + 1)
 
 
 
@@ -85,6 +83,7 @@ mutable struct MCMCChain{
     target::T
     state::S
     info::MCMCChainInfo
+    status::MCMCChainStatus
 end
 
 export MCMCChain
@@ -97,6 +96,13 @@ sample_available(chain::MCMCChain, status::Val = Val(:complete)) = sample_availa
 current_sample(chain::MCMCChain, status::Val = Val(:complete)) = current_sample(chain.state, status)
 
 current_sampleno(chain::MCMCChain) = current_sampleno(chain.state)
+
+
+is_tuned(chain::MCMCChain) = chain.status.tuned
+set_tuned!(chain::MCMCChain, value::Bool) = chain.status = MCMCChainStatus(value, chain.status.converged)
+
+is_converged(chain::MCMCChain) = chain.status.tuned
+set_converged!(chain::MCMCChain, value::Bool) = chain.status = MCMCChainStatus(chain.status.tuned, value)
 
 
 struct MCMCSampleID

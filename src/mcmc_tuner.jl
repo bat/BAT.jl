@@ -51,8 +51,8 @@ function mcmc_tune_burnin!(
         stats = [x.stats for x in tuners]
         ct_result = check_convergence!(convergence_test, chains, stats, ll = ll+1)
 
-        ntuned = count(c -> c.info.tuned, chains)
-        nconverged = count(c -> c.info.converged, chains)
+        ntuned = count(is_tuned, chains)
+        nconverged = count(is_converged, chains)
         successful = (ntuned == nconverged == nchains)
 
         @log_msg ll+1 "MCMC Tuning cycle $cycle finished, $nchains chains, $ntuned tuned, $nconverged converged."

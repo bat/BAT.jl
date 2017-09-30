@@ -92,10 +92,10 @@ function tuning_update!(tuner::ProposalCovTuner; ll::LogLevel = LOG_NONE)
     α = acceptance_ratio(state)
 
     if α_min <= α <= α_max
-        chain.info = set_tuned(chain.info, true)
+        set_tuned!(chain, true)
         @log_msg ll "MCMC chain $(chain.info.id) tuned, acceptance ratio = $α"
     else
-        chain.info = set_tuned(chain.info, false)
+        set_tuned!(chain, false)
         @log_msg ll "MCMC chain $(chain.info.id) *not* tuned, acceptance ratio = $α"
 
         if α > α_max && c < c_max

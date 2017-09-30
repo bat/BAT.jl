@@ -140,11 +140,14 @@ function MCMCChain(
 
     info = MCMCChainInfo(id, cycle)
 
+    status = MCMCChainStatus(false, false)
+
     chain = MCMCChain(
         algorithm,
         target,
         state,
-        info
+        info,
+        status
     )
 
     chain
