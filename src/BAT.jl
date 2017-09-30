@@ -23,8 +23,8 @@ include("mcmc_stats.jl")
 include("mcmc_samplevector.jl")
 include("mcmc_convergence.jl")
 include("mcmc_tuner.jl")
-include("mhsampler.jl")
-include("mhtuner.jl")
+include("mh_sampler.jl")
+include("mh_tuner.jl")
 
 Logging.@enable_logging
 
