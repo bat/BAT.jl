@@ -31,9 +31,10 @@ function mcmc_tune_burnin!(
     nchains = length(chains)
     tuners = [tuner_config(c, init_proposal = init_proposal) for c in chains]
 
-    cycle = 1
+    cycles = 0
     successful = false
-    while !successful && cycle <= max_ncycles
+    while !successful && cycles < max_ncycles
+        cycles += 1
         run_tuning_cycle!(
             user_callbacks, tuners, exec_context,
             max_nsamples = max_nsamples_per_cycle, max_nsteps = max_nsteps_per_cycle,
@@ -51,14 +52,13 @@ function mcmc_tune_burnin!(
             user_callbacks[i](1, tuners[i])
         end
 
-        @log_msg ll+1 "MCMC Tuning cycle $cycle finished, $nchains chains, $ntuned tuned, $nconverged converged."
-        cycle += 1
+        @log_msg ll+1 "MCMC Tuning cycle $cycles finished, $nchains chains, $ntuned tuned, $nconverged converged."
     end
 
     if successful
-        @log_msg ll "MCMC tuning of $nchains chains successful after $cycle cycle(s)."
+        @log_msg ll "MCMC tuning of $nchains chains successful after $cycles cycle(s)."
     else
-        @log_msg ll-1 "MCMC tuning of $nchains chains aborted after $cycle cycle(s)."
+        @log_msg ll-1 "MCMC tuning of $nchains chains aborted after $cycles cycle(s)."
     end
 
     successful
