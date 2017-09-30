@@ -16,7 +16,7 @@ function check_convergence!(
 )
     result = check_convergence(ct, stats, ll = ll)
     for chain in chains
-        set_converged!(chain, result.converged)
+        chain.converged = result.converged
     end
     result
 end

@@ -138,16 +138,14 @@ function MCMCChain(
         current_sample
     )
 
-    info = MCMCChainInfo(id, cycle)
-
-    status = MCMCChainStatus(false, false)
-
     chain = MCMCChain(
         algorithm,
         target,
         state,
-        info,
-        status
+        id,
+        cycle,
+        false,
+        false
     )
 
     chain
@@ -175,8 +173,8 @@ mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::Hyper
 
 
 function next_cycle!(chain::MCMCChain{<:MetropolisHastings})
-    chain.info = next_cycle(chain.info)
     next_cycle!(chain.state)
+    chain.cycle += 1
     sampleid = MCMCSampleID(chain)
     @assert sampleid.sampleno == 1
     reset_rng_counters(chain.state.rng, sampleid)

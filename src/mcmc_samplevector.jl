@@ -84,7 +84,7 @@ function Base.push!(xs::MCMCChainInfoVector, x::MCMCChainInfo)
 end
 
 function Base.push!(xs::MCMCChainInfoVector, chain::MCMCChain)
-    push!(xs, chain.info)
+    push!(xs, chain XXX nfo)
     chain
 end
 

@@ -53,27 +53,6 @@ nparams(s::MCMCSample) = length(s)
 
 
 
-struct MCMCChainInfo
-    id::Int
-    cycle::Int
-end
-
-export MCMCChainInfo
-
-
-struct MCMCChainStatus
-    tuned::Bool
-    converged::Bool
-end
-
-export MCMCChainStatus
-
-
-next_cycle(info::MCMCChainInfo) =
-    MCMCChainInfo(info.id, info.cycle + 1)
-
-
-
 mutable struct MCMCChain{
     A<:MCMCAlgorithm,
     T<:AbstractTargetSubject,
@@ -82,8 +61,10 @@ mutable struct MCMCChain{
     algorithm::A
     target::T
     state::S
-    info::MCMCChainInfo
-    status::MCMCChainStatus
+    id::Int
+    cycle::Int
+    tuned::Bool
+    converged::Bool
 end
 
 export MCMCChain
@@ -98,23 +79,14 @@ current_sample(chain::MCMCChain, status::Val = Val(:complete)) = current_sample(
 current_sampleno(chain::MCMCChain) = current_sampleno(chain.state)
 
 
-is_tuned(chain::MCMCChain) = chain.status.tuned
-set_tuned!(chain::MCMCChain, value::Bool) = chain.status = MCMCChainStatus(value, chain.status.converged)
-
-is_converged(chain::MCMCChain) = chain.status.tuned
-set_converged!(chain::MCMCChain, value::Bool) = chain.status = MCMCChainStatus(chain.status.tuned, value)
-
-
 struct MCMCSampleID
     chainid::Int32
     chaincycle::Int32
     sampleno::Int64
 end
 
-function MCMCSampleID(chain::MCMCChain)
-    info = chain.info
-    MCMCSampleID(info.id, info.cycle, current_sampleno(chain))
-end
+MCMCSampleID(chain::MCMCChain) =
+    MCMCSampleID(chain.id, chain.cycle, current_sampleno(chain))
 
 
 reset_rng_counters(rng::AbstractRNG, tags::MCMCSampleID) =
