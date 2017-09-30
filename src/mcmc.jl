@@ -115,7 +115,7 @@ MCMCChainSpec(
     target::AbstractTargetSubject,
     pdistspec::ProposalDistSpec,
     rngspec::AbstractRNGSeed,
-) = MCMCChainSpec{Float64}(algorithm, target, pdistspec, rngspec)
+) = MCMCChainSpec{float(eltype(target.bounds))}(algorithm, target, pdistspec, rngspec)
 
 
 function (spec::MCMCChainSpec{P})(
@@ -130,7 +130,7 @@ function (spec::MCMCChainSpec{P})(
         spec.pdistspec(P, m),
         id,
         rng,
-        convert(Vector{P}, rand(rng, spec.target.bounds)),
+        Vector{P}(),
         exec_context,
     )
 end
