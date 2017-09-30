@@ -4,7 +4,7 @@
 """
     struct ExecContext
         use_threads::Bool
-        onprocs::StepRange{Int,Int}
+        onprocs::Vector{Int64}
     end
 
 Functions that take an `ExecContext` argument must limit their use of
@@ -19,12 +19,12 @@ Functions can announce their `ExecCapabilities` via `exec_capabilities`.
 """
 struct ExecContext
     use_threads::Bool
-    onprocs::StepRange{Int,Int}
+    onprocs::Vector{Int64}
 end
 
 export ExecContext
 
-ExecContext() = ExecContext(false, myid():1:myid())
+ExecContext() = ExecContext(true, workers())
 
 
 """

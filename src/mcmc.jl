@@ -81,6 +81,61 @@ current_sample(chain::MCMCChain, status::Val = Val(:complete)) = current_sample(
 current_sampleno(chain::MCMCChain) = current_sampleno(chain.state)
 
 
+
+struct MCMCChainSpec{
+    P<:Real,
+    A<:MCMCAlgorithm,
+    T<:AbstractTargetSubject,
+    Q<:ProposalDistSpec,
+    R<:AbstractRNGSeed
+}
+    algorithm::A
+    target::T
+    pdistspec::Q
+    rngspec::R
+end
+
+MCMCChainSpec{P}(
+    algorithm::A,
+    target::T,
+    pdistspec::Q,
+    rngspec::R,
+) where {
+    P<:Real,
+    A<:MCMCAlgorithm,
+    T<:AbstractTargetSubject,
+    Q<:ProposalDistSpec,
+    R<:AbstractRNGSeed
+} = MCMCChainSpec{P,A,T,Q,R}(algorithm, target, pdistspec, rngspec)
+
+export MCMCChainSpec
+
+MCMCChainSpec(
+    algorithm::MCMCAlgorithm,
+    target::AbstractTargetSubject,
+    pdistspec::ProposalDistSpec,
+    rngspec::AbstractRNGSeed,
+) = MCMCChainSpec{Float64}(algorithm, target, pdistspec, rngspec)
+
+
+function (spec::MCMCChainSpec{P})(
+    id::Integer,
+    exec_context::ExecContext = ExecContext()
+) where {P}
+    m = nparams(spec.target)
+    MCMCChain(
+        spec.algorithm,
+        spec.target,
+        spec.pdistspec(P, m),
+        id,
+        exec_context,
+        spec.rngspec(),
+        Vector{P}(m)
+    )
+end
+
+
+
 struct MCMCSampleID
     chainid::Int32
     chaincycle::Int32

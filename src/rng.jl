@@ -26,7 +26,7 @@ export Philox4xSeed
 
 Philox4xSeed() = Philox4xSeed{UInt64}()
 
-function create_rng(rngseed::Philox4xSeed{T}) where {T}
+function (rngseed::Philox4xSeed{T})() where {T}
     rng = Philox4x{T,10}(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     srand(rng, rngseed.seed)
 end
@@ -44,7 +44,7 @@ export Threefry4xSeed
 
 Threefry4xSeed() = Threefry4xSeed{UInt64}()
 
-function create_rng(rngseed::Threefry4xSeed)
+function (rngseed::Threefry4xSeed)()
     rng = Threefry4x{T,20}(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     srand(rng, seed)
 end
@@ -75,7 +75,7 @@ export MersenneTwisterSeed
 
 MersenneTwisterSeed() = MersenneTwisterSeed(RandomDevice())
 
-create_rng(rngseed::MersenneTwisterSeed) =
+(rngseed::MersenneTwisterSeed)() =
     MersenneTwister(rand(rngseed.rng, UInt64))
 
 # ToDo (maybe): Implement tagging (resp. multiple streams) for Mersenne
