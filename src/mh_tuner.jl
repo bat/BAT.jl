@@ -116,19 +116,27 @@ end
 
 
 function run_tuning_cycle!(
-    callback,
-    tuner::ProposalCovTuner,
+    callbacks,
+    tuners::AbstractVector{<:ProposalCovTuner},
     exec_context::ExecContext = ExecContext();
     max_nsamples::Int64 = Int64(1000),
     max_nsteps::Int = 10000,
     max_time::Float64 = Inf,
     ll::LogLevel = LOG_NONE
 )
-    cbfunc = mcmc_callback(callback)
+    chains = map(x -> x.chain, tuners)
+    user_callbacks = mcmc_callback_vector(callbacks, chains)
 
-    mcmc_iterate!(tuner.chain, exec_context, max_nsamples = max_nsamples, max_nsteps = max_nsteps, max_time = max_time) do level, chain
-        push!(tuner.stats, chain)
-        cbfunc(level, tuner)
+    combined_callbacks = broadcast(tuners, user_callbacks) do tuner, user_callback
+        (level, chain) -> begin
+            if level == 1
+                push!(tuner.stats, chain)
+            end
+            user_callback(level, chain)
+        end
     end
-    tuning_update!(tuner; ll = ll)
+
+    mcmc_iterate!(combined_callbacks, chains, exec_context, max_nsamples = max_nsamples, max_nsteps = max_nsteps, max_time = max_time)
+    tuning_update!.(tuners; ll = ll)
+    nothing
 end

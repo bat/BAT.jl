@@ -243,6 +243,7 @@ function mcmc_iterate!(
             cbfunc(2, chain)
         end
     end
+    chain
 end
 
 export mcmc_iterate!
