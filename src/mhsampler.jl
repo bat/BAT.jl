@@ -84,6 +84,10 @@ function current_sample(state::MHState, ::Val{:any})
     ifelse(state.proposal_accepted, state.current_sample, state.proposed_sample)
 end
 
+function current_sampleno(state::MHState)
+    state.nsamples + 1
+end
+
 
 
 
@@ -214,7 +218,7 @@ function mcmc_iterate!(
 
     while nsamples < max_nsamples && nsteps < max_nsteps && (time() - start_time) < max_time
         if state.proposal_accepted
-            reset_rng_counters(rng, chain.info.id, chain.info.cycle, state.nsamples + 1)
+            reset_rng_counters(rng, chain.info.id, chain.info.cycle, current_sampleno(state))
             copy!(current_sample, proposed_sample)
             state.current_nreject = 0
             state.proposal_accepted = false

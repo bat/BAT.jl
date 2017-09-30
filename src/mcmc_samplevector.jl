@@ -53,7 +53,7 @@ mcmc_callback(sv::MCMCSampleVector, args...) = MCMCPushCallback(sv, args...)
 # ToDo: merge/append for MCMCSampleVector
 
 
-
+#=
 
 
 struct MCMCChainInfoVector <: DenseVector{MCMCChainInfo}
@@ -103,3 +103,45 @@ end
 
 export MCMCSample
 
+
+struct TaggedMCMCSampleVector{S<:AbstractMCMCSample} <: DenseVector{TaggedMCMCSample{S}}
+    sample::S
+    sampleno::Vector{Int64}
+    chaininfo::MCMCChainInfoVector
+end
+
+export TaggedMCMCSampleVector
+
+TaggedMCMCSampleVector(chain::MCMCChain) =
+    TaggedMCMCSampleVector(MCMCSampleVector(chain), Vector{Int64}(), MCMCChainInfoVector())
+
+
+Base.size(xs::TaggedMCMCSampleVector) = size(xs.sampleno)
+
+Base.getindex(xs::TaggedMCMCSampleVector{S}, i::Integer) where {S} =
+    TaggedMCMCSample{S}(xs.sample[i], xs.sampleno[i], xs.chaininfo[i])
+
+# XXXXXXXXXXXXx
+
+
+function Base.push!(xs::TaggedMCMCSampleVector, x::TaggedMCMCSample)
+    push!(xs.sample, x.sample)
+    push!(xs.sampleno, x.sampleno)
+    push!(xs.chaininfo, x.chaininfo)
+    xs
+end
+
+
+
+function Base.push!(xs::TaggedMCMCSampleVector, chain::MCMCChain)
+    push!(xs.sample, x.sample)
+    push!(xs.sampleno, current_sampleno(chain ))
+    push!(xs.chaininfo, x.chaininfo)
+    chain
+end
+
+
+mcmc_callback(sv::TaggedMCMCSampleVector, args...) = MCMCPushCallback(sv, args...)
+
+
+=#

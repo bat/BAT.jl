@@ -96,6 +96,8 @@ sample_available(chain::MCMCChain, status::Val = Val(:complete)) = sample_availa
 
 current_sample(chain::MCMCChain, status::Val = Val(:complete)) = current_sample(chain.state, status)
 
+current_sampleno(chain::MCMCChain) = current_sampleno(chain.state)
+
 
 
 """
