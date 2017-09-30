@@ -1,6 +1,23 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+"""
+    struct ExecContext
+        multithreaded::Bool
+        onprocs::StepRange{Int,Int}
+    end
+
+Functions that take an `ExecContext` argument must limit their use of
+threads and processes accordingly.
+
+If a function is called with an `ExecContext` of `multithreaded == true`, it's
+implementation may use all available threads, internally. Otherwise, the
+implementation must be thread-safe itself, as it may be called in parallel
+externally.
+
+Also, the function implementation may run code on all processes in `onprocs`
+(in addition to the current process), but no others.
+"""
 struct ExecContext
     multithreaded::Bool
     onprocs::StepRange{Int,Int}

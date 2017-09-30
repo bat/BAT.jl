@@ -46,7 +46,9 @@ Output is stored in
 
 Array size requirements:
 
-    size(params,1) == length(r)
+    size(params, 1) == length(r)
+
+See `ExecContext` for thread-safety requirements.
 """
 function target_logval! end
 export target_logval!
@@ -75,7 +77,7 @@ end
         exec_context::ExecContext = ExecContext()
     )
 
-The caller must not assume that `target_logval` is thread-safe.
+See `ExecContext` for thread-safety requirements.
 """
 function target_logval end
 export target_logval
