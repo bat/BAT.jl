@@ -107,11 +107,11 @@ function MCMCChain(
 ) where {P<:Real}
     cycle = 0
 
-    reset_rng_counters(rng, id, cycle, 0)
+    reset_rng_counters(rng, MCMCSampleID(id, cycle, 0))
 
     params_vec = convert(Vector{P}, isempty(initial_params) ? rand(rng, target.bounds) : initial_params)
 
-    reset_rng_counters(rng, id, cycle, 1)
+    reset_rng_counters(rng, MCMCSampleID(id, cycle, 1))
 
     m = length(params_vec)
     apply_bounds!(params_vec, target.bounds)
@@ -174,8 +174,9 @@ mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::Hyper
 function next_cycle!(chain::MCMCChain{<:MetropolisHastings})
     chain.info = next_cycle(chain.info)
     next_cycle!(chain.state)
-    info = chain.info
-    reset_rng_counters(chain.state.rng, info.id, info.cycle, 0)
+    sampleid = MCMCSampleID(chain)
+    @assert sampleid.sampleno == 1
+    reset_rng_counters(chain.state.rng, sampleid)
     chain
 end
 
@@ -218,7 +219,7 @@ function mcmc_iterate!(
 
     while nsamples < max_nsamples && nsteps < max_nsteps && (time() - start_time) < max_time
         if state.proposal_accepted
-            reset_rng_counters(rng, chain.info.id, chain.info.cycle, current_sampleno(state))
+            reset_rng_counters(rng, MCMCSampleID(chain))
             copy!(current_sample, proposed_sample)
             state.current_nreject = 0
             state.proposal_accepted = false

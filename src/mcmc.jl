@@ -99,6 +99,22 @@ current_sample(chain::MCMCChain, status::Val = Val(:complete)) = current_sample(
 current_sampleno(chain::MCMCChain) = current_sampleno(chain.state)
 
 
+struct MCMCSampleID
+    chainid::Int32
+    chaincycle::Int32
+    sampleno::Int64
+end
+
+function MCMCSampleID(chain::MCMCChain)
+    info = chain.info
+    MCMCSampleID(info.id, info.cycle, current_sampleno(chain))
+end
+
+
+reset_rng_counters(rng::AbstractRNG, tags::MCMCSampleID) =
+    reset_rng_counters(rng, tags.chainid, tags.chaincycle, tags.sampleno)
+
+
 
 """
     AbstractMCMCCallback <: Function
