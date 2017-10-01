@@ -105,7 +105,12 @@ function MCMCChain(
 
     reset_rng_counters!(rng, MCMCSampleID(id, cycle, 0))
 
-    params_vec = convert(Vector{P}, isempty(initial_params) ? rand(rng, target.bounds) : initial_params)
+    params_vec = if isempty(initial_params)
+        convert(Vector{P}, rand_initial_params(rng, target))
+    else
+        convert(Vector{P}, initial_params)
+    end
+
     !(params_vec in target.bounds) && throw(ArgumentError("Parameter(s) out of bounds"))
 
     reset_rng_counters!(rng, MCMCSampleID(id, cycle, 1))
