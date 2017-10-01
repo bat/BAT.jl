@@ -14,6 +14,27 @@ mutable struct AcceptRejectState{
     nsteps::Int64
 end
 
+function AcceptRejectState(
+    pdist::AbstractProposalDist,
+    current_sample::DensitySample
+)
+    proposed_sample = DensitySample(
+        similar(current_sample.params),
+        convert(typeof(current_sample.log_value), NaN),
+        zero(current_sample.weight)
+    )
+
+    AcceptRejectState(
+        pdist,
+        current_sample,
+        proposed_sample,
+        false,
+        0,
+        0,
+        1
+    )
+end
+
 
 nparams(state::AcceptRejectState) = nparams(state.pdist)
 
@@ -68,7 +89,7 @@ function MCMCChain(
     target::AbstractTargetSubject,
     id::Integer,
     rng::AbstractRNG,
-    initial_params::AbstractVector{P},
+    initial_params::AbstractVector{P}, # May be empty
     exec_context::ExecContext = ExecContext(),
 ) where {P<:Real}
     cycle = 0
@@ -104,6 +125,7 @@ function MCMCChain(
 
     state = AcceptRejectState(
         algorithm,
+        target,
         current_sample
     )
 

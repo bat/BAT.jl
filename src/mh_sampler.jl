@@ -20,24 +20,12 @@ mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::Hyper
 
 function AcceptRejectState(
     algorithm::MetropolisHastings,
+    target::AbstractTargetSubject,
     current_sample::DensitySample{P,T,W}
 ) where {P,T,W}
-    pdist = algorithm.q(P, nparams(current_sample))
-
-    proposed_sample = DensitySample(
-        similar(current_sample.params),
-        convert(typeof(current_sample.log_value), NaN),
-        zero(current_sample.weight)
-    )
-
     AcceptRejectState(
-        pdist,
-        current_sample,
-        proposed_sample,
-        false,
-        0,
-        0,
-        1
+        algorithm.q(P, nparams(current_sample)),
+        current_sample
     )
 end
 
