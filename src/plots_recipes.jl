@@ -3,7 +3,7 @@
 using RecipesBase
 
 
-@recipe function f(target::AbstractTargetSubject, samples::MCMCSampleVector)
+@recipe function f(target::AbstractTargetSubject, samples::DensitySampleVector)
     acc = find(x -> x > 0, samples.weight)
     rej = find(x -> x <= 0, samples.weight)
 

@@ -25,7 +25,7 @@ mcmc_callback(max_level::Integer, x::AbstractMCMCStats) = MCMCPushCallback(max_l
 struct MCMCNullStats <: AbstractMCMCStats end
 export MCMCNullStats
 
-Base.push!(stats::MCMCNullStats, s::MCMCSample) = stats
+Base.push!(stats::MCMCNullStats, s::DensitySample) = stats
 
 
 
@@ -53,7 +53,7 @@ export MCMCBasicStats
 MCMCBasicStats(chain::MCMCChain) = MCMCBasicStats(chain.state)
 
 
-function Base.push!(stats::MCMCBasicStats, s::MCMCSample)
+function Base.push!(stats::MCMCBasicStats, s::DensitySample)
     push!(stats.param_stats, s.params, s.weight)
     if s.log_value > stats.logtf_stats.maximum
         stats.mode .= s.params

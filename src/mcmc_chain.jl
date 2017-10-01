@@ -9,47 +9,16 @@ sample_available(state::AbstractMCMCState) = sample_available(state, Val(:comple
 current_sample(state::AbstractMCMCState) = current_sample(state, Val(:complete))
 
 
+function Base.push!(xs::DensitySampleVector, state::AbstractMCMCState)
+    if sample_available(state, Val(:any))
+        push!(xs, current_sample(state, Val(:any)))
+    end
+    xs
+end
+
+
 
 abstract type MCMCAlgorithm{S<:AbstractMCMCState} <: BATAlgorithm end
-
-
-abstract type AbstractMCMCSample end
-export AbstractMCMCSample
-
-
-
-mutable struct MCMCSample{
-    P<:Real,
-    T<:Real,
-    W<:Real
-} <: AbstractMCMCSample
-    params::Vector{P}
-    log_value::T
-    weight::W
-end
-
-export MCMCSample
-
-
-Base.length(s::MCMCSample) = length(s.params)
-
-Base.similar(s::MCMCSample{P,T,W}) where {P,T,W} =
-    MCMCSample{P,T,W}(oob(s.params), convert(T, NaN), zero(W))
-
-import Base.==
-==(A::MCMCSample, B::MCMCSample) =
-    A.params == B.params && A.log_value == B.log_value && A.weight == B.weight
-
-
-function Base.copy!(dest::MCMCSample, src::MCMCSample) 
-    copy!(dest.params, src.params)
-    dest.log_value = src.log_value
-    dest.weight = src.weight
-    dest
-end
-
-
-nparams(s::MCMCSample) = length(s)
 
 
 
@@ -80,6 +49,20 @@ current_sample(chain::MCMCChain, status::Val = Val(:complete)) = current_sample(
 
 current_sampleno(chain::MCMCChain) = current_sampleno(chain.state)
 
+
+function DensitySampleVector(chain::MCMCChain)
+    P = eltype(chain.state.current_sample.params)
+    T = typeof(chain.state.current_sample.log_value)
+    W = typeof(chain.state.current_sample.weight)
+
+    m = size(chain.state.current_sample.params, 1)
+    DensitySampleVector(ExtendableArray{P}(m, 0), Vector{T}(0), Vector{W}(0))
+end
+
+function Base.push!(xs::DensitySampleVector, chain::MCMCChain)
+    push!(xs, chain.state)
+    chain
+end
 
 
 function mcmc_iterate!(
@@ -143,31 +126,6 @@ end
 
 
 
-struct MCMCSampleID
-    chainid::Int32
-    chaincycle::Int32
-    sampleno::Int64
-end
-
-MCMCSampleID(chain::MCMCChain) =
-    MCMCSampleID(chain.id, chain.cycle, current_sampleno(chain))
-
-
-reset_rng_counters!(rng::AbstractRNG, tags::MCMCSampleID) =
-    reset_rng_counters!(rng, tags.chainid, tags.chaincycle, tags.sampleno)
-
-
-function next_cycle!(chain::MCMCChain)
-    next_cycle!(chain.state)
-    chain.cycle += 1
-    sampleid = MCMCSampleID(chain)
-    @assert sampleid.sampleno == 1
-    reset_rng_counters!(chain.rng, sampleid)
-    chain
-end
-
-
-
 """
     AbstractMCMCCallback <: Function
 
@@ -185,7 +143,7 @@ export AbstractMCMCCallback
 
 """
     mcmc_callback(
-        output::Union{Any,AbstractMCMCStats,MCMCSampleVector,...},
+        output::Union{Any,AbstractMCMCStats,DensitySampleVector,...},
         max_level::Integer = 1
     )::AbstractMCMCCallback
 

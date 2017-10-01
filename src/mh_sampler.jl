@@ -3,7 +3,7 @@
 
 mutable struct MHState{
     Q<:AbstractProposalDist,
-    S<:MCMCSample
+    S<:DensitySample
 } <: AbstractMCMCState
     pdist::Q
     current_sample::S
@@ -17,9 +17,9 @@ end
 
 function MHState(
     pdist::AbstractProposalDist,
-    current_sample::MCMCSample
+    current_sample::DensitySample
 )
-    proposed_sample = MCMCSample(
+    proposed_sample = DensitySample(
         similar(current_sample.params),
         convert(typeof(current_sample.log_value), NaN),
         zero(current_sample.weight)
@@ -120,13 +120,13 @@ function MCMCChain(
     log_value = target_logval(target.tdensity, params_vec, exec_context)
     L = typeof(log_value)
 
-    current_sample = MCMCSample(
+    current_sample = DensitySample(
         params_vec,
         log_value,
         zero(Int)
     )
 
-    proposed_sample = MCMCSample(
+    proposed_sample = DensitySample(
         similar(current_sample.params),
         convert(typeof(current_sample.log_value), NaN),
         zero(Int)
