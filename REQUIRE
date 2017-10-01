@@ -5,4 +5,5 @@ FunctionWrappers
 IntervalSets
 PDMats
 RandomNumbers
+RecipesBase
 StatsBase
