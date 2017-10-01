@@ -30,6 +30,43 @@ function AcceptRejectState(
 end
 
 
+#=
+function mcmc_propose_accept_reject!(
+    proposed_params::Vector{<:Real}
+    algorithm::MetropolisHastings,
+    current_params::Vector{<:Real},
+    current_log_value::T
+) with {T<:Real}
+    # Propose new parameters:
+    proposal_rand!(rng, pdist, proposed_params, current_params)
+    apply_bounds!(proposed_params, bounds, false)
+
+    if proposed_params in bounds
+        # Evaluate target density at new parameters:
+        proposed_log_value = T(target_logval(tdensity, proposed_params, exec_context))
+
+        # log of ratio of forward/reverse transition probability
+        log_tpr = if issymmetric(pdist)
+            T(0)
+        else
+            log_tp_fwd = proposal_logpdf(pdist, proposed_params, current_params)
+            log_tp_rev = proposal_logpdf(pdist, current_params, proposed_params)
+            T(log_tp_fwd - log_tp_rev)
+        end
+
+        current_log_value = current_sample.log_value
+        proposed_sample.log_value = proposed_log_value
+
+        # Metropolis-Hastings accept/reject:
+        rand(rng) < exp(proposed_log_value - current_log_value - log_tpr)
+    else
+        # Reject:
+        false, T(-Inf)
+    end
+end
+=#
+
+
 function mcmc_iterate!(
     callback,
     chain::MCMCChain{<:MetropolisHastings},
@@ -64,8 +101,6 @@ function mcmc_iterate!(
 
         current_sample = state.current_sample
         proposed_sample = state.proposed_sample
-        current_params = current_sample.params
-        proposed_params = proposed_sample.params
 
         if state.proposal_accepted
             reset_rng_counters!(rng, MCMCSampleID(chain))
@@ -74,32 +109,44 @@ function mcmc_iterate!(
             state.proposal_accepted = false
         end
 
+
+
+        current_params = current_sample.params
+        proposed_params = proposed_sample.params
+
         current_log_value = current_sample.log_value
 
         # Propose new parameters:
         proposal_rand!(rng, pdist, proposed_params, current_params)
         apply_bounds!(proposed_params, bounds, false)
 
-        # log of ratio of forward/reverse transition probability
-        log_tpr = if issymmetric(pdist)
-            T(0)
+
+
+        accepted = if proposed_params in bounds
+            # Evaluate target density at new parameters:
+            proposed_log_value = T(target_logval(tdensity, proposed_params, exec_context))
+
+            # log of ratio of forward/reverse transition probability
+            log_tpr = if issymmetric(pdist)
+                T(0)
+            else
+                log_tp_fwd = proposal_logpdf(pdist, proposed_params, current_params)
+                log_tp_rev = proposal_logpdf(pdist, current_params, proposed_params)
+                T(log_tp_fwd - log_tp_rev)
+            end
+
+            current_log_value = current_sample.log_value
+            proposed_sample.log_value = proposed_log_value
+
+            # Metropolis-Hastings accept/reject:
+            rand(rng) < exp(proposed_log_value - current_log_value - log_tpr)
         else
-            log_tp_fwd = proposal_logpdf(pdist, proposed_params, current_params)
-            log_tp_rev = proposal_logpdf(pdist, current_params, proposed_params)
-            T(log_tp_fwd - log_tp_rev)
+            # Reject:
+            proposed_sample.log_value = T(-Inf)
+            false
         end
 
-        # Evaluate target density at new parameters:
-        proposed_log_value = if proposed_params in bounds
-            T(target_logval(tdensity, proposed_params, exec_context))
-        else
-            T(-Inf)
-        end
 
-        proposed_sample.log_value = proposed_log_value
-
-        # Metropolis-Hastings accept/reject:
-        accepted = rand(rng) < exp(proposed_log_value - current_log_value - log_tpr)
 
         nsteps += 1
         state.nsteps += 1
