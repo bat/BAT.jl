@@ -93,35 +93,6 @@ exec_capabilities(::typeof(target_logval), target::AbstractTargetDensity, params
 
 
 
-struct ConstTargetDensity{T<:Real} <: AbstractTargetDensity
-    log_value::T
-end
-
-export ConstTargetDensity
-
-function target_logval(
-    target::ConstTargetDensity,
-    params::AbstractVector{<:Real},
-    exec_context::ExecContext = ExecContext()
-)
-    target.log_value
-end
-
-
-function target_logval!(
-    r::AbstractArray{<:Real},
-    target::ConstTargetDensity,
-    params::AbstractMatrix{<:Real},
-    exec_context::ExecContext
-)
-    @assert size(params, 2) == length(r)
-    fill!(r, target.log_value)
-end
-
-
-
-
-
 struct GenericTargetDensity{F} <: AbstractTargetDensity
     log_f::F
 end
@@ -135,66 +106,3 @@ function target_logval(
 )
     target.log_f(params)
 end
-
-
-
-struct MvDistTargetDensity{D<:Distribution{Multivariate,Continuous}} <: AbstractTargetDensity
-    d::D
-end
-
-export MvDistTargetDensity
-
-
-function target_logval(
-    target::MvDistTargetDensity,
-    params::AbstractVector{<:Real},
-    exec_context::ExecContext = ExecContext()
-)
-    Distributions.logpdf(target.d, params)
-end
-
-# Assume that implementations of logpdf are thread-safe and remote-safe:
-exec_capabilities(::typeof(target_logval), target::MvDistTargetDensity, params::AbstractMatrix{<:Real}) =
-    ExecCapabilities(0, true, 0, true)
-
-
-function target_logval!(
-    r::AbstractArray{<:Real},
-    target::MvDistTargetDensity,
-    params::AbstractMatrix{<:Real},
-    exec_context::ExecContext = ExecContext()
-)
-    # TODO: Parallel execution, depending on exec_context
-    Distributions.logpdf!(r, target.d, params)
-end
-
-
-# Assume that implementations of logpdf! are thread-safe and remote-safe:
-exec_capabilities(::typeof(target_logval!), target::MvDistTargetDensity, params::AbstractMatrix{<:Real}) =
-    ExecCapabilities(0, true, 0, true) # Change when implementation of target_logval! for MvDistTargetDensity becomes multithreaded.
-
-
-
-struct GenericProductTargetDensity{T<:Real,P<:Real}
-    log_terms::Vector{FunctionWrapper{T,Tuple{P}}}
-    single_exec_compat::ExecCapabilities
-end
-
-export GenericProductTargetDensity
-
-
-function target_logval(
-    target::GenericProductTargetDensity{T,P},
-    params::AbstractVector{<:Real},
-    exec_context::ExecContext = ExecContext()
-) where {T,P}
-    # TODO: Use exec_context and target.exec_capabilities
-    sum((log_term(convert(P, T)) for (log_term, p) in (target.log_terms, params)))
-end
-
-
-exec_capabilities(::typeof(target_logval), target::GenericProductTargetDensity, params::AbstractVector{<:Real}) =
-    target.single_exec_compat # Change when implementation of target_logval for GenericProductTargetDensity becomes multithreaded.
-
-
-# ToDo: Add product of target densitys
