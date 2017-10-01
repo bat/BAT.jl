@@ -46,27 +46,27 @@ function mcmc_iterate!(
     nsteps = 0
     nsamples = 0
 
-    target = chain.target
-    state = chain.state
-    rng = chain.rng
-
-    tdensity = target.tdensity
-    bounds = target.bounds
-
-    pdist = state.pdist
-    current_sample = state.current_sample
-    proposed_sample = state.proposed_sample
-
-    T = typeof(current_sample.log_value)
-
-    if !mcmc_compatible(algorithm, pdist, bounds)
+    if !mcmc_compatible(algorithm, chain.state.pdist, chain.target.bounds)
         error("Implementation of algorithm $algorithm does not support current parameter bounds with current proposal distribution")
     end
 
-    current_params = current_sample.params
-    proposed_params = proposed_sample.params
+    T = typeof(chain.state.current_sample.log_value)
 
     while nsamples < max_nsamples && nsteps < max_nsteps && (time() - start_time) < max_time
+        target = chain.target
+        state = chain.state
+        rng = chain.rng
+
+        tdensity = target.tdensity
+        bounds = target.bounds
+
+        pdist = state.pdist
+
+        current_sample = state.current_sample
+        proposed_sample = state.proposed_sample
+        current_params = current_sample.params
+        proposed_params = proposed_sample.params
+
         if state.proposal_accepted
             reset_rng_counters!(rng, MCMCSampleID(chain))
             copy!(current_sample, proposed_sample)
