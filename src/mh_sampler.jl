@@ -1,6 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+# ToDo: Rename to AcceptRejectState
 mutable struct MHState{
     Q<:AbstractProposalDist,
     S<:DensitySample

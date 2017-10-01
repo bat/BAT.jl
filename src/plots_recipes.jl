@@ -3,6 +3,8 @@
 using RecipesBase
 
 
+# ToDo: Modularize
+
 @recipe function f(target::AbstractTargetSubject, samples::DensitySampleVector)
     acc = find(x -> x > 0, samples.weight)
     rej = find(x -> x <= 0, samples.weight)
