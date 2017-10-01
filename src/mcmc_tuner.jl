@@ -41,7 +41,7 @@ function mcmc_tune_burnin!(
             max_time = max_time_per_cycle, ll = ll+2
         )
 
-        stats = [x.stats for x in tuners]
+        stats = [x.stats for x in tuners] # ToDo: Find more generic abstraction
         ct_result = check_convergence!(convergence_test, chains, stats, ll = ll+2)
 
         ntuned = count(c -> c.tuned, chains)
@@ -65,3 +65,48 @@ function mcmc_tune_burnin!(
 end
 
 export mcmc_tune_burnin!
+
+
+
+struct NoOpTunerConfig <: BAT.AbstractMCMCTunerConfig end
+export NoOpTunerConfig
+
+(config::NoOpTunerConfig)(chain::MCMCChain; kwargs...) =
+    NoOpTuner(chain)
+
+
+
+struct NoOpTuner{C<:MCMCChain} <: AbstractMCMCTuner
+    chain::C
+end
+
+export NoOpTuner
+
+function run_tuning_cycle!(
+    callbacks,
+    tuners::AbstractVector{<:NoOpTuner},
+    exec_context::ExecContext = ExecContext();
+    ll::LogLevel = LOG_NONE,
+    kwargs...
+)
+    @log_msg ll "NoOpTuner tuning cycle, leaving MCMC chain unchanged."
+    nothing
+end
+
+
+
+function mcmc_tune_burnin!(
+    callbacks,
+    chains::AbstractVector{<:MCMCChain},
+    exec_context::ExecContext,
+    tuner_config::NoOpTunerConfig,
+    convergence_test::MCMCConvergenceTest = GRConvergence();
+    init_proposal::Bool = true,
+    max_nsamples_per_cycle::Int64 = Int64(1000),
+    max_nsteps_per_cycle::Int = 10000,
+    max_time_per_cycle::Float64 = Inf,
+    max_ncycles::Int = 30,
+    ll::LogLevel = LOG_INFO
+)
+    @log_msg ll "Tune/Burn-In with NoOpTuner doing nothing."
+end
