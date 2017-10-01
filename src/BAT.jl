@@ -32,6 +32,7 @@ include("mcmc_tuner.jl")
 include("mcmc_accrejstate.jl")
 include("mh_sampler.jl")
 include("mh_tuner.jl")
+include("mcmc_rand.jl")
 include("plots_recipes.jl")
 
 Logging.@enable_logging

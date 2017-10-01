@@ -124,28 +124,6 @@ function (spec::MCMCChainSpec)(
 end
 
 
-#=
-
-# ToDo: Something like
-
-Base.rand!(
-    spec::MCMCChainSpec,
-    target::TargetSubject,
-    S::Type{<:DensitySample},
-    nsamples::Integer,
-    exec_context::ExecContext = ExecContext();
-    max_nsteps::Int = 1000,
-    max_time::Float64 = Inf,
-    granularity::Int = 1,
-    ll::LogLevel = LOG_NONE
-)
-    ...
-end
-
-=#
-
-
-
 """
     AbstractMCMCCallback <: Function
 
