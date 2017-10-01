@@ -65,4 +65,3 @@ function mcmc_tune_burnin!(
 end
 
 export mcmc_tune_burnin!
-

@@ -3,12 +3,20 @@
 using BAT.Logging
 
 struct ProposalCovTunerConfig <: AbstractMCMCTunerConfig
-    lambda::Float64 # e.g. 0.5
+    λ::Float64
+    α::IntervalSets.ClosedInterval{Float64}
+    β::Float64
+    c::IntervalSets.ClosedInterval{Float64}
 end
 
-ProposalCovTunerConfig() = ProposalCovTunerConfig(0.5)
-
 export ProposalCovTunerConfig
+
+ProposalCovTunerConfig(;
+    λ::Real = 0.5,
+    α::ClosedInterval{<:Real} = ClosedInterval(0.15, 0.35),
+    β::Real = 1.5,
+    c::ClosedInterval{<:Real} = ClosedInterval(1e-4, 1e2)
+) = ProposalCovTunerConfig(λ, α, β, c)
 
 
 AbstractMCMCTunerConfig(algorithm::MetropolisHastings) = ProposalCovTunerConfig()
@@ -69,19 +77,20 @@ end
 function tuning_update!(tuner::ProposalCovTuner; ll::LogLevel = LOG_NONE)
     chain = tuner.chain
     stats = tuner.stats
+    config = tuner.config
 
-    α_min = 0.15
-    α_max = 0.35
+    α_min = minimum(config.α)
+    α_max = maximum(config.α)
 
-    c_min = 1e-4
-    c_max = 1e2
+    c_min = minimum(config.c)
+    c_max = maximum(config.c)
 
-    β = 1.5
+    β = config.β
 
     state = chain.state
 
     t = tuner.iteration
-    λ = tuner.config.lambda
+    λ = config.λ
     c = tuner.scale
     Σ_old = full(get_cov(state.pdist))
 
