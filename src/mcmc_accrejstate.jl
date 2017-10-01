@@ -142,3 +142,59 @@ function MCMCChain(
 
     chain
 end
+
+
+function mcmc_iterate!(
+    callback,
+    chain::MCMCChain{<:MCMCAlgorithm{AcceptRejectState}},
+    exec_context::ExecContext = ExecContext();
+    max_nsamples::Int64 = Int64(1),
+    max_nsteps::Int = 1000,
+    max_time::Float64 = Inf,
+    ll::LogLevel = LOG_NONE
+)
+    algorithm = chain.algorithm
+    cbfunc = mcmc_callback(callback)
+
+    start_time = time()
+    nsteps = 0
+    nsamples = 0
+
+    if !mcmc_compatible(algorithm, chain.state.pdist, chain.target.bounds)
+        error("Implementation of algorithm $algorithm does not support current parameter bounds with current proposal distribution")
+    end
+
+    while nsamples < max_nsamples && nsteps < max_nsteps && (time() - start_time) < max_time
+        state = chain.state
+
+        current_sample = state.current_sample
+        proposed_sample = state.proposed_sample
+
+        if state.proposal_accepted
+            reset_rng_counters!(chain.rng, MCMCSampleID(chain))
+            copy!(current_sample, proposed_sample)
+            state.current_nreject = 0
+            state.proposal_accepted = false
+        end
+
+        accepted = mcmc_propose_accept_reject!(chain, exec_context)
+
+        nsteps += 1
+        state.nsteps += 1
+
+        if accepted
+            state.proposal_accepted = true
+            nsamples += 1
+            state.nsamples += 1
+        else
+            state.current_nreject += 1
+        end
+
+        if accepted
+            cbfunc(1, chain)
+        else
+            cbfunc(2, chain)
+        end
+    end
+    chain
+end
