@@ -11,12 +11,18 @@ using RecipesBase
 
     base_markersize = 2
 
+    plot_bounds = get(d, :bounds, true)
+    delete!(d, :bounds)
+
+    color = get(d, :seriescolor, :green)
+    label = get(d, :label, isempty(rej) ? "samples" : "accepted")
+
     @series begin
         seriestype := :scatter
-        label := isempty(rej) ? "samples" : "accepted"
+        label := label
         markersize := base_markersize * sqrt.(samples.weight[acc])
         markerstrokewidth := 0
-        color := :green
+        color := color
         (samples.params[1, acc], samples.params[2, acc])
     end
 
@@ -33,7 +39,7 @@ using RecipesBase
 
     bounds = target.bounds
 
-    if bounds isa HyperRectBounds
+    if plot_bounds && bounds isa HyperRectBounds
         vhi = bounds.vol.hi; vlo = bounds.vol.lo
         bext = 0.1 * (vhi - vlo)
         xlims = (vlo[1] - bext[1], vhi[1] + bext[1])
