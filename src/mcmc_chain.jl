@@ -65,6 +65,9 @@ function Base.push!(xs::DensitySampleVector, chain::MCMCChain)
 end
 
 
+function mcmc_iterate! end
+export mcmc_iterate!
+
 function mcmc_iterate!(
     callbacks,
     chains::AbstractVector{<:MCMCChain},

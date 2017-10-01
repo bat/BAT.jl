@@ -33,6 +33,27 @@ rand_initial_params!(rng::AbstractRNG, target::TargetSubject, x::StridedVecOrMat
 
 #=
 
+# ToDo: Something like
+
+Base.rand!(
+    rng::AbstractRNG,
+    target::TargetSubject,
+    S::Type{<:DensitySample},
+    nsamples::Integer,
+    exec_context::ExecContext = ExecContext();
+    max_nsteps::Int = 1000,
+    max_time::Float64 = Inf,
+    granularity::Int = 1,
+    ll::LogLevel = LOG_NONE
+)
+    ...
+end
+
+=#
+
+
+#=
+
 # ToDo:
 
 mutable struct TransformedTargetSubject{
