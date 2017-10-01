@@ -10,7 +10,7 @@ current_sample(state::AbstractMCMCState) = current_sample(state, Val(:complete))
 
 
 
-abstract type MCMCAlgorithm{S<:AbstractMCMCState} end
+abstract type MCMCAlgorithm{S<:AbstractMCMCState} <: BATAlgorithm end
 
 
 abstract type AbstractMCMCSample end
