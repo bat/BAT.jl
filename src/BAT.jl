@@ -25,6 +25,7 @@ include("mcmc_convergence.jl")
 include("mcmc_tuner.jl")
 include("mh_sampler.jl")
 include("mh_tuner.jl")
+include("plots_recipes.jl")
 
 Logging.@enable_logging
 
