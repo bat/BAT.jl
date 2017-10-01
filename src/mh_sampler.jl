@@ -1,14 +1,45 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct MetropolisHastings <: MCMCAlgorithm{AcceptRejectState} end
+struct MetropolisHastings{
+    Q<:ProposalDistSpec
+} <: MCMCAlgorithm{AcceptRejectState}
+    q::Q
+end
+
 export MetropolisHastings
+
+MetropolisHastings() = MetropolisHastings(MvTDistProposalSpec())
 
 
 mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::UnboundedParams) = true
 
 mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::HyperRectBounds) =
     issymmetric(pdist) || all(x -> x == hard_bounds, bounds.bt)
+
+
+function AcceptRejectState(
+    algorithm::MetropolisHastings,
+    current_sample::DensitySample{P,T,W}
+) where {P,T,W}
+    pdist = algorithm.q(P, nparams(current_sample))
+
+    proposed_sample = DensitySample(
+        similar(current_sample.params),
+        convert(typeof(current_sample.log_value), NaN),
+        zero(current_sample.weight)
+    )
+
+    AcceptRejectState(
+        pdist,
+        current_sample,
+        proposed_sample,
+        false,
+        0,
+        0,
+        1
+    )
+end
 
 
 function mcmc_iterate!(

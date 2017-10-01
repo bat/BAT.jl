@@ -83,12 +83,10 @@ end
 struct MCMCChainSpec{
     A<:MCMCAlgorithm,
     T<:AbstractTargetSubject,
-    Q<:ProposalDistSpec,
     R<:AbstractRNGSeed
 }
     algorithm::A
     target::T
-    pdistspec::Q
     rngspec::R
 end
 
@@ -97,8 +95,7 @@ export MCMCChainSpec
 MCMCChainSpec(
     algorithm::MCMCAlgorithm,
     target::AbstractTargetSubject,
-    pdistspec::ProposalDistSpec = MvTDistProposalSpec()
-) = MCMCChainSpec(algorithm, target, pdistspec, Philox4xSeed())
+) = MCMCChainSpec(algorithm, target, Philox4xSeed())
 
 
 function (spec::MCMCChainSpec)(
@@ -111,7 +108,6 @@ function (spec::MCMCChainSpec)(
     MCMCChain(
         spec.algorithm,
         spec.target,
-        spec.pdistspec(P, m),
         id,
         rng,
         Vector{P}(),
