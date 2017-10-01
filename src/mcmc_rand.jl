@@ -2,19 +2,17 @@
 
 
 function Base.rand(
-    algorithm::MCMCAlgorithm,
-    target::TargetSubject,
+    chainspec::MCMCChainSpec,
     nsamples::Integer,
     nchains::Integer,
     exec_context::ExecContext = ExecContext(),
-    tunerconfig::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(algorithm),
+    tunerconfig::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
     convergence_test::MCMCConvergenceTest = GRConvergence();
     max_nsteps::Int = 100 * nsamples,
     max_time::Float64 = Inf,
     granularity::Int = 1,  # Keep this? Potentially dangerous, in the wrong hands.
     ll::LogLevel = LOG_INFO
 )
-    chainspec = MCMCChainSpec(algorithm, target)
     chains = chainspec(1:nchains, exec_context)
 
     samples_per_tuning_cycle = Int64(max(nsamples / 10, 1000))
