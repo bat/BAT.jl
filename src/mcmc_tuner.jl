@@ -58,7 +58,7 @@ function mcmc_tune_burnin!(
     if successful
         @log_msg ll "MCMC tuning of $nchains chains successful after $cycles cycle(s)."
     else
-        @log_msg ll-1 "MCMC tuning of $nchains chains aborted after $cycles cycle(s)."
+        @log_msg LOG_WARNING "MCMC tuning of $nchains chains aborted after $cycles cycle(s)."
     end
 
     successful
