@@ -48,12 +48,9 @@ doc"""
     apply_bounds(x::<:Real, lo::<:Real, hi::<:Real, boundary_type::BoundsType) 
 
 Set low bound `lo` and high bound `hi` for Parameter `x`
-Use `boundary_type`:
-    *hard_bounds
-    *cyclic_bounds
-    *reflective_bounds
+`boundary_type` may be `hard_bounds`, `cyclic_bounds` or `reflective_bounds`.
 """
-@inline function apply_bounds(x::X, lo::L, hi::H, boundary_type::BoundsType) where {X<:Real,L<:Real,H<:Real}
+@inline function apply_bounds(x::X, lo::L, hi::H, boundary_type::BoundsType, oobval = oob(x)) where {X<:Real,L<:Real,H<:Real}
     T = float(promote_type(X, L, H))
 
     offs = ifelse(x < lo, lo - x, x - hi)
@@ -70,7 +67,7 @@ Use `boundary_type`:
         convert(T, x),
         ifelse(
             hb,
-            oob(T),
+            convert(T, oobval),
             ifelse(
                 (x < lo && (!rb || rb && !even_nwrapped)) || (x > lo && rb && even_nwrapped),
                 convert(T, hi - wrapped_offs),
@@ -85,8 +82,8 @@ doc"""
 
 Instead of `lo` and `hi` an `interval` can be used.
 """
-@inline apply_bounds(x::Real, interval::ClosedInterval, boundary_type::BoundsType) =
-    apply_bounds(x, minimum(interval), maximum(interval), boundary_type)
+@inline apply_bounds(x::Real, interval::ClosedInterval, boundary_type::BoundsType, oobval = oob(x)) =
+    apply_bounds(x, minimum(interval), maximum(interval), boundary_type, oobval)
 
 
 
@@ -141,5 +138,10 @@ HyperRectBounds{T<:Real}(vol::HyperRectVolume{T}, bt::AbstractVector{BoundsType}
 HyperRectBounds{T<:Real}(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::AbstractVector{BoundsType}) = HyperRectBounds(HyperRectVolume(lo, hi), bt)
 HyperRectBounds{T<:Real}(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::BoundsType) = HyperRectBounds(lo, hi, fill(bt, size(lo, 1)))
 
-apply_bounds!(params::AbstractVecOrMat, bounds::HyperRectBounds) =
-    params .= apply_bounds.(params, bounds.vol.lo, bounds.vol.hi, bounds.bt)
+function apply_bounds!(params::AbstractVecOrMat, bounds::HyperRectBounds, setoob = true)
+    if setoob
+        params .= apply_bounds.(params, bounds.vol.lo, bounds.vol.hi, bounds.bt)
+    else
+        params .= apply_bounds.(params, bounds.vol.lo, bounds.vol.hi, bounds.bt, params)
+    end
+end

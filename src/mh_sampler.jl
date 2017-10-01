@@ -106,15 +106,14 @@ function MCMCChain(
     reset_rng_counters!(rng, MCMCSampleID(id, cycle, 0))
 
     params_vec = convert(Vector{P}, isempty(initial_params) ? rand(rng, target.bounds) : initial_params)
+    !(params_vec in target.bounds) && throw(ArgumentError("Parameter(s) out of bounds"))
 
     reset_rng_counters!(rng, MCMCSampleID(id, cycle, 1))
 
     m = length(params_vec)
-    apply_bounds!(params_vec, target.bounds)
 
     log_value = target_logval(target.tdensity, params_vec, exec_context)
     L = typeof(log_value)
-    isoob(params_vec) && throw(ArgumentError("Parameter(s) out of bounds"))
 
     current_sample = MCMCSample(
         params_vec,
@@ -202,7 +201,7 @@ function mcmc_iterate!(
 
         # Propose new parameters:
         proposal_rand!(rng, pdist, proposed_params, current_params)
-        apply_bounds!(proposed_params, bounds)
+        apply_bounds!(proposed_params, bounds, false)
 
         # log of ratio of forward/reverse transition probability
         log_tpr = if issymmetric(pdist)
@@ -214,7 +213,7 @@ function mcmc_iterate!(
         end
 
         # Evaluate target density at new parameters:
-        proposed_log_value = if !isoob(proposed_params)
+        proposed_log_value = if proposed_params in bounds
             T(target_logval(tdensity, proposed_params, exec_context))
         else
             T(-Inf)
