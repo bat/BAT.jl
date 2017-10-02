@@ -3,6 +3,8 @@
 
 module Logging
 
+using Base.Threads
+
 
 @enum LogLevel LOG_NONE=0 LOG_ERROR=1 LOG_WARNING=2 LOG_INFO=3 LOG_DEBUG=4 LOG_TRACE=5 LOG_ALL=100
 export LogLevel
@@ -36,11 +38,11 @@ const log_colors = Dict(
 
 
 const log_prefix = Dict(
-    LOG_ERROR => "ERROR: ",
-    LOG_WARNING => "WARNING: ",
-    LOG_INFO => "INFO: ",
-    LOG_DEBUG => "DEBUG: ",
-    LOG_TRACE => "TRACE: ",
+    LOG_ERROR => "ERROR",
+    LOG_WARNING => "WARNING",
+    LOG_INFO => "INFO",
+    LOG_DEBUG => "DEBUG",
+    LOG_TRACE => "TRACE",
 )
 
 
@@ -52,7 +54,7 @@ function output_logging_msg(level::LogLevel, msg...)
         io = _output_io[]
         color = log_colors[level]
         prefix = log_prefix[level]
-        Base.print_with_color(color, io, prefix; bold = true)
+        Base.print_with_color(color, io, prefix, " ($(myid()), $(threadid())): "; bold = true)
         Base.println_with_color(color, io, chomp(string(msg...)))
         nothing
     end
