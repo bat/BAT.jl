@@ -17,7 +17,7 @@ function target_logval(
 end
 
 # Assume that implementations of logpdf are thread-safe and remote-safe:
-exec_capabilities(::typeof(target_logval), target::MvDistTargetDensity, params::AbstractMatrix{<:Real}) =
+exec_capabilities(::typeof(target_logval), target::MvDistTargetDensity, params::AbstractVector{<:Real}) =
     ExecCapabilities(0, true, 0, true)
 
 

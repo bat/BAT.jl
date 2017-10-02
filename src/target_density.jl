@@ -36,8 +36,8 @@ Compute log of values of target density for multiple parameter value vectors.
 
 Input:
 
+* `target`: Target subject
 * `params`: parameter values (column vectors)
-* `bounds`: Parameter bounds
 * `exec_context`: Execution context
 
 Output is stored in
@@ -69,7 +69,7 @@ function target_logval!(
     r
 end
 
-# Assume that target_logval isn't always thread-safe, but usually remote-safe:
+# ToDo: Derive from exec_capabilities(target_logval, target, ...)
 exec_capabilities(::typeof(target_logval!), target::AbstractTargetDensity, params::AbstractMatrix{<:Real}) =
     ExecCapabilities(0, false, 0, true) # Change when default implementation of target_logval! for AbstractTargetDensity becomes multithreaded.
 

@@ -68,6 +68,11 @@ end
 function mcmc_iterate! end
 export mcmc_iterate!
 
+
+exec_capabilities(mcmc_iterate!, f, chain::MCMCChain) =
+    exec_capabilities(target_logval, chain.target.tdensity, chain.state.proposed_sample.params)
+
+
 function mcmc_iterate!(
     callbacks,
     chains::AbstractVector{<:MCMCChain},
@@ -75,6 +80,11 @@ function mcmc_iterate!(
     kwargs...
 )
     cbv = mcmc_callback_vector(callbacks, chains)
+
+    tec = exec_capabilities(mcmc_iterate!, first(cbv), first(chains))
+    info("XXXXXXX $tec")
+
+
     mcmc_iterate!.(cbv, chains, exec_context; kwargs...)
     chains
 end

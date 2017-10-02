@@ -89,19 +89,3 @@ thread-safe (but remote-safe), and the caller needs to run it on multiple
 threads, the caller may deep-copy the function arguments.
 """
 function exec_capabilities end
-
-
-
-# abstract type AbstractExecutor end
-# export AbstractExecutor
-# 
-# 
-# struct SerialExecutor{RNG<:AbstractRNG} <: AbstractExecutor
-#     rng::RNG
-#     ec::ExecContext
-# end
-# 
-# export SerialExecutor
-# 
-# SerialExecutor(rng::RNG) where {RNG<:AbstractRNG} =
-#     SerialExecutor{RNG}(rng)
