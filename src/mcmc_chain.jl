@@ -81,9 +81,8 @@ function mcmc_iterate!(
 )
     cbv = mcmc_callback_vector(callbacks, chains)
 
-    tec = exec_capabilities(mcmc_iterate!, first(cbv), first(chains))
-    info("XXXXXXX $tec")
-
+    target_caps = exec_capabilities.(mcmc_iterate!, cbv, chains)
+    (self_context, target_context) = negotiate_exec_context(exec_context, target_caps)
 
     mcmc_iterate!.(cbv, chains, exec_context; kwargs...)
     chains

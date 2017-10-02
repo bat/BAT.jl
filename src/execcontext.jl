@@ -89,3 +89,48 @@ thread-safe (but remote-safe), and the caller needs to run it on multiple
 threads, the caller may deep-copy the function arguments.
 """
 function exec_capabilities end
+
+
+
+function negotiate_exec_context(context::ExecContext, target_caps::AbstractVector{ExecCapabilities})
+    target_caps_threadsafe = all(x -> x.threadsafe, target_caps)
+    target_caps_nthreads = minimum(x -> x.nthreads, target_caps)
+
+    if context.use_threads
+        target_use_threads = target_caps_nthreads > 1
+        self_use_threads = target_caps_threadsafe && !target_use_threads
+    else
+        target_use_threads = false
+        self_use_threads = false
+    end
+
+    target_caps_remotesafe = all(x -> x.remotesafe, target_caps)
+
+    # ToDo: Take different nprocs into account
+    target_caps_nprocs = minimum(x -> x.nprocs, target_caps)
+
+    nprocs_avail = length(context.onprocs)
+    if isempty(context.onprocs)
+        target_onprocs = [myid()]
+        self_onprocs = [myid()]
+    elseif nprocs_avail == 1 && context.onprocs[1] == myid()
+        target_onprocs = context.onprocs
+        self_onprocs = context.onprocs   
+    else
+        if target_caps_remotesafe
+            # ToDo: Distribute available processes for targets
+            error("Not implemented yet")
+            target_onprocs = error("Not implemented yet")
+            self_onprocs = error("Not implemented yet")
+        else
+            # ToDo: Distribute available processes over targets
+            target_onprocs = error("Not implemented yet")
+            self_onprocs = [myid()]            
+        end
+    end
+
+    self_context = ExecContext(self_use_threads, target_onprocs)
+    target_context = ExecContext(target_use_threads, self_onprocs)
+
+    (self_context, target_context)
+end
