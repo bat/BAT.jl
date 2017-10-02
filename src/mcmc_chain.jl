@@ -1,5 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+using MultiThreadingTools, Base.Threads
+
 
 abstract type AbstractMCMCState end
 
@@ -82,9 +84,15 @@ function mcmc_iterate!(
     cbv = mcmc_callback_vector(callbacks, chains)
 
     target_caps = exec_capabilities.(mcmc_iterate!, cbv, chains)
-    (self_context, target_context) = negotiate_exec_context(exec_context, target_caps)
+    (self_context, target_contexts) = negotiate_exec_context(exec_context, target_caps)
 
-    mcmc_iterate!.(cbv, chains, exec_context; kwargs...)
+    threadsel = self_context.use_threads ? threads_all() : threads_this()
+    idxs = eachindex(cbv, chains, target_contexts)
+    onthreads(threadsel) do
+        for i in workpartition(idxs, length(threadsel), threadid())
+            mcmc_iterate!(cbv[i], chains[i], target_contexts[i]; kwargs...)
+        end
+    end
     chains
 end
 

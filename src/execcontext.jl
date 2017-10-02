@@ -130,7 +130,8 @@ function negotiate_exec_context(context::ExecContext, target_caps::AbstractVecto
     end
 
     self_context = ExecContext(self_use_threads, target_onprocs)
-    target_context = ExecContext(target_use_threads, self_onprocs)
+    # ToDo: Improve naive implementation:
+    target_context = map(x -> ExecContext(target_use_threads, self_onprocs), target_caps)
 
     (self_context, target_context)
 end
