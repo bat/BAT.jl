@@ -153,6 +153,8 @@ function mcmc_iterate!(
     max_time::Float64 = Inf,
     ll::LogLevel = LOG_NONE
 )
+    @log_msg ll "Starting iteration over MCMC chain $(chain.id)"
+
     algorithm = chain.algorithm
     cbfunc = mcmc_callback(callback)
 

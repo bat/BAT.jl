@@ -33,7 +33,7 @@ function Base.rand(
     cb = [mcmc_callback(granularity, samples[i]) for i in eachindex(chains)]
     # cb = mcmc_callback.(samples)
 
-    mcmc_iterate!(cb, chains, exec_context, max_nsamples = nsamples, max_nsteps = max_nsteps, max_time = max_time)
+    mcmc_iterate!(cb, chains, exec_context, max_nsamples = nsamples, max_nsteps = max_nsteps, max_time = max_time, ll = ll)
 
     merge(samples...)
 end

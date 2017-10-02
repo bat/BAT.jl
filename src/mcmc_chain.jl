@@ -1,6 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 using MultiThreadingTools, Base.Threads
+using BAT.Logging
 
 
 abstract type AbstractMCMCState end
@@ -79,8 +80,11 @@ function mcmc_iterate!(
     callbacks,
     chains::AbstractVector{<:MCMCChain},
     exec_context::ExecContext = ExecContext();
+    ll::LogLevel = LOG_NONE,
     kwargs...
 )
+    @log_msg ll "Starting iteration over $(length(chains)) MCMC chain(s)."
+
     cbv = mcmc_callback_vector(callbacks, chains)
 
     target_caps = exec_capabilities.(mcmc_iterate!, cbv, chains)
@@ -90,7 +94,7 @@ function mcmc_iterate!(
     idxs = eachindex(cbv, chains, target_contexts)
     onthreads(threadsel) do
         for i in workpartition(idxs, length(threadsel), threadid())
-            mcmc_iterate!(cbv[i], chains[i], target_contexts[i]; kwargs...)
+            mcmc_iterate!(cbv[i], chains[i], target_contexts[i]; ll=ll+1, kwargs...)
         end
     end
     chains
