@@ -15,7 +15,7 @@ function Base.rand(
 )
     chains = chainspec(1:nchains, exec_context)
 
-    samples_per_tuning_cycle = Int64(max(nsamples / 10, 1000))
+    samples_per_tuning_cycle = Int64(max(round(Int, nsamples / 10), 1000))
 
     mcmc_tune_burnin!(
         (),
