@@ -32,7 +32,7 @@ end
 
 
 function mcmc_propose_accept_reject!(
-    chain::MCMCChain{<:MetropolisHastings},
+    chain::MCMCIterator{<:MetropolisHastings},
     exec_context::ExecContext
 )
     state = chain.state

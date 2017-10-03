@@ -10,7 +10,7 @@ abstract type MCMCConvergenceTestResult end
 
 function check_convergence!(
     ct::MCMCConvergenceTest,
-    chains::AbstractVector{<:MCMCChain},
+    chains::AbstractVector{<:MCMCIterator},
     stats::AbstractVector{<:AbstractMCMCStats};
     ll::LogLevel = LOG_NONE
 )

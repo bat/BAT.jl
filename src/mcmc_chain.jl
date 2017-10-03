@@ -25,7 +25,7 @@ abstract type MCMCAlgorithm{S<:AbstractMCMCState} <: BATAlgorithm end
 
 
 
-mutable struct MCMCChain{
+mutable struct MCMCIterator{
     A<:MCMCAlgorithm,
     T<:AbstractTargetSubject,
     S<:AbstractMCMCState,
@@ -41,19 +41,19 @@ mutable struct MCMCChain{
     converged::Bool
 end
 
-export MCMCChain
+export MCMCIterator
 
 
-nparams(chain::MCMCChain) = nparams(chain.target)
+nparams(chain::MCMCIterator) = nparams(chain.target)
 
-sample_available(chain::MCMCChain, status::Val = Val(:complete)) = sample_available(chain.state, status)
+sample_available(chain::MCMCIterator, status::Val = Val(:complete)) = sample_available(chain.state, status)
 
-current_sample(chain::MCMCChain, status::Val = Val(:complete)) = current_sample(chain.state, status)
+current_sample(chain::MCMCIterator, status::Val = Val(:complete)) = current_sample(chain.state, status)
 
-current_sampleno(chain::MCMCChain) = current_sampleno(chain.state)
+current_sampleno(chain::MCMCIterator) = current_sampleno(chain.state)
 
 
-function DensitySampleVector(chain::MCMCChain)
+function DensitySampleVector(chain::MCMCIterator)
     P = eltype(chain.state.current_sample.params)
     T = typeof(chain.state.current_sample.log_value)
     W = typeof(chain.state.current_sample.weight)
@@ -62,7 +62,7 @@ function DensitySampleVector(chain::MCMCChain)
     DensitySampleVector(ExtendableArray{P}(m, 0), Vector{T}(0), Vector{W}(0))
 end
 
-function Base.push!(xs::DensitySampleVector, chain::MCMCChain)
+function Base.push!(xs::DensitySampleVector, chain::MCMCIterator)
     push!(xs, chain.state)
     chain
 end
@@ -72,13 +72,13 @@ function mcmc_iterate! end
 export mcmc_iterate!
 
 
-exec_capabilities(mcmc_iterate!, f, chain::MCMCChain) =
+exec_capabilities(mcmc_iterate!, f, chain::MCMCIterator) =
     exec_capabilities(target_logval, chain.target.tdensity, chain.state.proposed_sample.params)
 
 
 function mcmc_iterate!(
     callbacks,
-    chains::AbstractVector{<:MCMCChain},
+    chains::AbstractVector{<:MCMCIterator},
     exec_context::ExecContext = ExecContext();
     ll::LogLevel = LOG_NONE,
     kwargs...
@@ -101,7 +101,7 @@ function mcmc_iterate!(
 end
 
 
-struct MCMCChainSpec{
+struct MCMCSpec{
     A<:MCMCAlgorithm,
     T<:AbstractTargetSubject,
     R<:AbstractRNGSeed
@@ -111,22 +111,22 @@ struct MCMCChainSpec{
     rngspec::R
 end
 
-export MCMCChainSpec
+export MCMCSpec
 
-MCMCChainSpec(
+MCMCSpec(
     algorithm::MCMCAlgorithm,
     target::AbstractTargetSubject,
-) = MCMCChainSpec(algorithm, target, Philox4xSeed())
+) = MCMCSpec(algorithm, target, Philox4xSeed())
 
 
-function (spec::MCMCChainSpec)(
+function (spec::MCMCSpec)(
     id::Integer,
     exec_context::ExecContext = ExecContext()
 )
     P = float(eltype(spec.target.bounds))
     m = nparams(spec.target)
     rng = spec.rngspec()
-    MCMCChain(
+    MCMCIterator(
         spec.algorithm,
         spec.target,
         id,
@@ -137,7 +137,7 @@ function (spec::MCMCChainSpec)(
 end
 
 
-function (spec::MCMCChainSpec)(
+function (spec::MCMCSpec)(
     ids::AbstractVector,
     exec_context::ExecContext = ExecContext()
 )
@@ -150,7 +150,7 @@ end
 
 Subtypes (here, `X`) must support
 
-    (::X)(level::Integer, chain::MCMCChain) => nothing
+    (::X)(level::Integer, chain::MCMCIterator) => nothing
     (::X)(level::Integer, tuner::AbstractMCMCTuner) => nothing
 
 to be compabtible with `mcmc_iterate!`, `mcmc_tune_burnin!`, etc.
@@ -185,17 +185,17 @@ export mcmc_callback
 mcmc_callback(f::Function) = f
 
 
-function mcmc_callback_vector(V::Vector{<:Function}, chains::AbstractVector{<:MCMCChain})
+function mcmc_callback_vector(V::Vector{<:Function}, chains::AbstractVector{<:MCMCIterator})
     if eachindex(V) != eachindex(chains)
         throw(DimensionMismatch("Indices of callback vector incompatible with number of MCMC chains"))
     end
     V
 end
 
-mcmc_callback_vector(V::Vector, chains::AbstractVector{<:MCMCChain}) =
+mcmc_callback_vector(V::Vector, chains::AbstractVector{<:MCMCIterator}) =
     mcmc_callback_vector(mcmc_callback.(V), chains)
 
-mcmc_callback_vector(x::Any, chains::AbstractVector{<:MCMCChain}) =
+mcmc_callback_vector(x::Any, chains::AbstractVector{<:MCMCIterator}) =
     mcmc_callback_vector(map(_ -> mcmc_callback(x), chains), chains)
 
 
@@ -236,7 +236,7 @@ end
 
 MCMCPushCallback(target) = MCMCPushCallback(1, target)
 
-function (cb::MCMCPushCallback)(level::Integer, chain::MCMCChain)
+function (cb::MCMCPushCallback)(level::Integer, chain::MCMCIterator)
     if (level <= cb.max_level)
         push!(cb.target, chain)
     end

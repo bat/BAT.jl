@@ -84,7 +84,7 @@ function current_sampleno(state::AcceptRejectState)
 end
 
 
-function MCMCChain(
+function MCMCIterator(
     algorithm::MCMCAlgorithm{AcceptRejectState},
     target::AbstractTargetSubject,
     id::Integer,
@@ -129,7 +129,7 @@ function MCMCChain(
         current_sample
     )
 
-    chain = MCMCChain(
+    chain = MCMCIterator(
         algorithm,
         target,
         state,
@@ -146,7 +146,7 @@ end
 
 function mcmc_iterate!(
     callback,
-    chain::MCMCChain{<:MCMCAlgorithm{AcceptRejectState}},
+    chain::MCMCIterator{<:MCMCAlgorithm{AcceptRejectState}},
     exec_context::ExecContext = ExecContext();
     max_nsamples::Int64 = Int64(1),
     max_nsteps::Int = 1000,

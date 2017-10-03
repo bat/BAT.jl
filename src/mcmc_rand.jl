@@ -2,7 +2,7 @@
 
 
 function Base.rand(
-    chainspec::MCMCChainSpec,
+    chainspec::MCMCSpec,
     nsamples::Integer,
     nchains::Integer,
     exec_context::ExecContext = ExecContext(),

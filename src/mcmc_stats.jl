@@ -12,7 +12,7 @@ function Base.push!(stats::AbstractMCMCStats, state::AbstractMCMCState)
     stats
 end
 
-function Base.push!(stats::AbstractMCMCStats, chain::MCMCChain)
+function Base.push!(stats::AbstractMCMCStats, chain::MCMCIterator)
     push!(stats, chain.state)
     chain
 end
@@ -50,7 +50,7 @@ end
 export MCMCBasicStats
 
 
-MCMCBasicStats(chain::MCMCChain) = MCMCBasicStats(chain.state)
+MCMCBasicStats(chain::MCMCIterator) = MCMCBasicStats(chain.state)
 
 
 function Base.push!(stats::MCMCBasicStats, s::DensitySample)

@@ -21,13 +21,13 @@ ProposalCovTunerConfig(;
 
 AbstractMCMCTunerConfig(algorithm::MetropolisHastings) = ProposalCovTunerConfig()
 
-(config::ProposalCovTunerConfig)(chain::MCMCChain{<:MetropolisHastings}; init_proposal::Bool = true) =
+(config::ProposalCovTunerConfig)(chain::MCMCIterator{<:MetropolisHastings}; init_proposal::Bool = true) =
     ProposalCovTuner(config, chain, init_proposal)
 
 
 
 mutable struct ProposalCovTuner{
-    C<:MCMCChain{<:MetropolisHastings},
+    C<:MCMCIterator{<:MetropolisHastings},
     S<:MCMCBasicStats
 } <: AbstractMCMCTuner
     config::ProposalCovTunerConfig
@@ -41,7 +41,7 @@ export ProposalCovTuner
 
 function ProposalCovTuner(
     config::ProposalCovTunerConfig,
-    chain::MCMCChain{<:MetropolisHastings},
+    chain::MCMCIterator{<:MetropolisHastings},
     init_proposal::Bool = true
 )
     m = nparams(chain)

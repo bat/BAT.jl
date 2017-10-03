@@ -24,7 +24,7 @@ end
 
 
 function mcmc_propose_accept_reject!(
-    chain::MCMCChain{<:DirectSampling},
+    chain::MCMCIterator{<:DirectSampling},
     exec_context::ExecContext
 )
     state = chain.state

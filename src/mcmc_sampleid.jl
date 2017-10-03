@@ -7,7 +7,7 @@ struct MCMCSampleID
     sampleno::Int64
 end
 
-MCMCSampleID(chain::MCMCChain) =
+MCMCSampleID(chain::MCMCIterator) =
     MCMCSampleID(chain.id, chain.cycle, current_sampleno(chain))
 
 
@@ -15,7 +15,7 @@ reset_rng_counters!(rng::AbstractRNG, tags::MCMCSampleID) =
     reset_rng_counters!(rng, tags.chainid, tags.chaincycle, tags.sampleno)
 
 
-function next_cycle!(chain::MCMCChain)
+function next_cycle!(chain::MCMCIterator)
     next_cycle!(chain.state)
     chain.cycle += 1
     sampleid = MCMCSampleID(chain)
@@ -37,7 +37,7 @@ export MCMCSampleIDVector
 MCMCSampleIDVector() =
     MCMCSampleIDVector(Vector{Int32}(), Vector{Int32}(), Vector{Int64}())
 
-MCMCSampleIDVector(chain::MCMCChain) = MCMCSampleIDVector()
+MCMCSampleIDVector(chain::MCMCIterator) = MCMCSampleIDVector()
 
 
 Base.size(xs::MCMCSampleIDVector) = size(xs.chainid)
@@ -52,7 +52,7 @@ function Base.push!(xs::MCMCSampleIDVector, x::MCMCSampleID)
     xs
 end
 
-Base.push!(xs::MCMCSampleIDVector, chain::MCMCChain) =
+Base.push!(xs::MCMCSampleIDVector, chain::MCMCIterator) =
     push!(xs, MCMCSampleID(chain))
 
 function Base.append!(A::MCMCSampleIDVector, B::MCMCSampleIDVector)

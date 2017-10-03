@@ -13,7 +13,7 @@ export AbstractMCMCTuner
 
 function mcmc_tune_burnin!(
     callbacks,
-    chains::AbstractVector{<:MCMCChain},
+    chains::AbstractVector{<:MCMCIterator},
     exec_context::ExecContext = ExecContext(),
     tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(first(chains).algorithm),
     convergence_test::MCMCConvergenceTest = GRConvergence();
@@ -71,12 +71,12 @@ export mcmc_tune_burnin!
 struct NoOpTunerConfig <: BAT.AbstractMCMCTunerConfig end
 export NoOpTunerConfig
 
-(config::NoOpTunerConfig)(chain::MCMCChain; kwargs...) =
+(config::NoOpTunerConfig)(chain::MCMCIterator; kwargs...) =
     NoOpTuner(chain)
 
 
 
-struct NoOpTuner{C<:MCMCChain} <: AbstractMCMCTuner
+struct NoOpTuner{C<:MCMCIterator} <: AbstractMCMCTuner
     chain::C
 end
 
@@ -97,7 +97,7 @@ end
 
 function mcmc_tune_burnin!(
     callbacks,
-    chains::AbstractVector{<:MCMCChain},
+    chains::AbstractVector{<:MCMCIterator},
     exec_context::ExecContext,
     tuner_config::NoOpTunerConfig,
     convergence_test::MCMCConvergenceTest = GRConvergence();

@@ -4,7 +4,7 @@ using IntervalSets
 
 
 doc"""
-    nparams(X::Union{AbstractParamBounds,MCMCChain,...})
+    nparams(X::Union{AbstractParamBounds,MCMCIterator,...})
 
 Get the number of parameters of `X`.
 """
