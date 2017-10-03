@@ -5,6 +5,10 @@ using FunctionWrappers
 import FunctionWrappers: FunctionWrapper
 
 
+# ToDo: Add `target_logval_gradient!` to support HMC, etc.
+
+
+
 """
     AbstractTargetDensity
 
