@@ -7,7 +7,7 @@
     acc = find(x -> x > 0, samples.weight)
     rej = find(x -> x <= 0, samples.weight)
 
-    base_markersize = 2
+    base_markersize = get(d, :markersize, 1.5)
 
     plot_bounds = get(d, :bounds, true)
     delete!(d, :bounds)
@@ -48,7 +48,7 @@
         @series begin
             seriestype := :path
             label := "bounds"
-            linewidth := 3
+            linewidth := 2
             linecolor := :violet
             xlims --> xlims
             ylims --> ylims
