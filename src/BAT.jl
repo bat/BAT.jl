@@ -4,12 +4,29 @@ __precompile__(true)
 
 module BAT
 
+using Base.Threads
+
+using Distributions
+using DoubleDouble
+using FunctionWrappers
+using IntervalSets
+using MultiThreadingTools
+using PDMats
+using RecipesBase
+using StatsBase
+
+import RandomNumbers
+
+
+include("logging.jl")
+using BAT.Logging
+
+include("extendablearray.jl")
+
 include("shims.jl")
 include("rng.jl")
 include("distributions.jl")
 include("util.jl")
-include("extendablearray.jl")
-include("logging.jl")
 include("execcontext.jl")
 include("onlineuvstats.jl")
 include("onlinemvstats.jl")

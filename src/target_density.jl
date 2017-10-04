@@ -1,8 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-using Distributions
-using FunctionWrappers
-import FunctionWrappers: FunctionWrapper
+using FunctionWrappers: FunctionWrapper
 
 
 # ToDo: Add `target_logval_gradient!` to support HMC, etc.

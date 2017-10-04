@@ -1,8 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-using Base.@propagate_inbounds
-using StatsBase
-using DoubleDouble
+using Base: @propagate_inbounds
 
 
 # SIMD-compatible KBN-summation

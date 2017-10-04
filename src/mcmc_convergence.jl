@@ -1,7 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-using BAT.Logging
-
 
 abstract type MCMCConvergenceTest end
 
