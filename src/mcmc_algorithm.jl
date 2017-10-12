@@ -115,6 +115,26 @@ MCMCSpec(
     target::AbstractTargetSubject,
 ) = MCMCSpec(algorithm, target, Philox4xSeed())
 
+MCMCSpec(
+    algorithm::MCMCAlgorithm,
+    tdensity::AbstractTargetDensity,
+    bounds::AbstractParamBounds,
+    rngspec::AbstractRNGSeed = Philox4xSeed()
+) = MCMCSpec(algorithm, TargetSubject(tdensity, bounds), rngspec)
+
+
+#=
+# ToDo:
+
+MCMCSpec(
+    algorithm::MCMCAlgorithm,
+    tdensity::AbstractTargetDensity,
+    prior::XXX,
+    bounds::AbstractParamBounds,
+    rngspec::AbstractRNGSeed = Philox4xSeed()
+) = MCMCSpec(algorithm, TargetSubject(tdensity, bounds), rngspec)
+=#
+
 
 function (spec::MCMCSpec)(
     id::Integer,
