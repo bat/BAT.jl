@@ -3,7 +3,7 @@
 
 # ToDo: Modularize
 
-@recipe function f(target::AbstractTargetSubject, samples::DensitySampleVector)
+@recipe function f(bounds::AbstractParamBounds, samples::DensitySampleVector)
     acc = find(x -> x > 0, samples.weight)
     rej = find(x -> x <= 0, samples.weight)
 
@@ -34,8 +34,6 @@
             (samples.params[1, rej], samples.params[2, rej])
         end
     end
-
-    bounds = target.bounds
 
     if plot_bounds && bounds isa HyperRectBounds
         vhi = bounds.vol.hi; vlo = bounds.vol.lo
