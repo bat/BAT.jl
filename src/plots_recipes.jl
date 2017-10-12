@@ -3,7 +3,7 @@
 
 # ToDo: Modularize
 
-@recipe function f(bounds::AbstractParamBounds, samples::DensitySampleVector)
+@recipe function f(samples::DensitySampleVector)
     acc = find(x -> x > 0, samples.weight)
     rej = find(x -> x <= 0, samples.weight)
 
@@ -35,23 +35,26 @@
         end
     end
 
-    if plot_bounds && bounds isa HyperRectBounds
-        vhi = bounds.vol.hi; vlo = bounds.vol.lo
-        bext = 0.1 * (vhi - vlo)
-        xlims = (vlo[1] - bext[1], vhi[1] + bext[1])
-        ylims = (vlo[2] - bext[2], vhi[2] + bext[2])
-        bounds_rect_X = [vlo[1],vhi[1],vhi[1],vlo[1],vlo[1]]
-        bounds_rect_Y = [vlo[2],vlo[2],vhi[2],vhi[2],vlo[2]]
+    nothing
+end
 
-        @series begin
-            seriestype := :path
-            label := "bounds"
-            linewidth := 2
-            linecolor := :violet
-            xlims --> xlims
-            ylims --> ylims
-            (bounds_rect_X, bounds_rect_Y)
-        end
+
+@recipe function f(bounds::HyperRectBounds)
+    vhi = bounds.vol.hi; vlo = bounds.vol.lo
+    bext = 0.1 * (vhi - vlo)
+    xlims = (vlo[1] - bext[1], vhi[1] + bext[1])
+    ylims = (vlo[2] - bext[2], vhi[2] + bext[2])
+    bounds_rect_X = [vlo[1],vhi[1],vhi[1],vlo[1],vlo[1]]
+    bounds_rect_Y = [vlo[2],vlo[2],vhi[2],vhi[2],vlo[2]]
+
+    @series begin
+        seriestype := :path
+        label --> "bounds"
+        linewidth --> 2
+        linecolor --> :violet
+        xlims --> xlims
+        ylims --> ylims
+        (bounds_rect_X, bounds_rect_Y)
     end
 
     nothing
