@@ -105,7 +105,7 @@ struct MCMCSpec{
 }
     algorithm::A
     target::T
-    rngspec::R
+    rngseed::R
 end
 
 export MCMCSpec
@@ -119,8 +119,8 @@ MCMCSpec(
     algorithm::MCMCAlgorithm,
     tdensity::AbstractTargetDensity,
     bounds::AbstractParamBounds,
-    rngspec::AbstractRNGSeed = Philox4xSeed()
-) = MCMCSpec(algorithm, TargetSubject(tdensity, bounds), rngspec)
+    rngseed::AbstractRNGSeed = Philox4xSeed()
+) = MCMCSpec(algorithm, TargetSubject(tdensity, bounds), rngseed)
 
 
 #=
@@ -131,8 +131,8 @@ MCMCSpec(
     tdensity::AbstractTargetDensity,
     prior::XXX,
     bounds::AbstractParamBounds,
-    rngspec::AbstractRNGSeed = Philox4xSeed()
-) = MCMCSpec(algorithm, TargetSubject(tdensity, bounds), rngspec)
+    rngseed::AbstractRNGSeed = Philox4xSeed()
+) = MCMCSpec(algorithm, TargetSubject(tdensity, bounds), rngseed)
 =#
 
 
@@ -142,7 +142,7 @@ function (spec::MCMCSpec)(
 )
     P = float(eltype(spec.target.bounds))
     m = nparams(spec.target)
-    rng = spec.rngspec()
+    rng = spec.rngseed()
     MCMCIterator(
         spec.algorithm,
         spec.target,
