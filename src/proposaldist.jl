@@ -114,16 +114,6 @@ GenericProposalDist{D<:Distribution{Multivariate},SamplerF}(d::D, sampler_f::Sam
 
 GenericProposalDist(d::Distribution{Multivariate}) = GenericProposalDist(d, bat_sampler)
 
-function GenericProposalDist(::Type{MvTDist}, T::Type{<:AbstractFloat}, n_params::Integer, df = one(T))
-    n_params = 2
-    Σ = PDMat(full(ScalMat(n_params, one(T))))
-    zeromean = true
-    μ = fill(zero(T), n_params)
-    M = typeof(Σ)
-    d = Distributions.GenericMvTDist{T,M}(convert(T, df), n_params, zeromean, μ, Σ)
-    GenericProposalDist(d)
-end
-
 GenericProposalDist(D::Type{<:Distribution{Multivariate}}, n_params::Integer, args...) =
     GenericProposalDist(D, Float64, n_params, args...)
 
@@ -199,3 +189,12 @@ MvTDistProposalSpec() = MvTDistProposalSpec(1.0)
 
 (ps::MvTDistProposalSpec)(T::Type{<:AbstractFloat}, n_params::Integer) =
     GenericProposalDist(MvTDist, T, n_params, convert(T, ps.df))
+
+function GenericProposalDist(::Type{MvTDist}, T::Type{<:AbstractFloat}, n_params::Integer, df = one(T))
+    Σ = PDMat(full(ScalMat(n_params, one(T))))
+    zeromean = true
+    μ = fill(zero(T), n_params)
+    M = typeof(Σ)
+    d = Distributions.GenericMvTDist{T,M}(convert(T, df), n_params, zeromean, μ, Σ)
+    GenericProposalDist(d)
+end
