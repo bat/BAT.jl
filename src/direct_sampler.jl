@@ -13,6 +13,8 @@ export DirectSampling
 AbstractMCMCTunerConfig(algorithm::DirectSampling) = NoOpTunerConfig()
 
 
+sample_weight_type(::Type{DirectSampling}) = Int
+
 
 function AcceptRejectState(
     algorithm::DirectSampling,

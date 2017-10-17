@@ -2,20 +2,25 @@
 
 
 struct MetropolisHastings{
+    W<:Real,
     Q<:ProposalDistSpec
 } <: MCMCAlgorithm{AcceptRejectState}
     q::Q
+
+    MetropolisHastings{W}(q::Q = MvTDistProposalSpec()) where {W<:Real, Q<:ProposalDistSpec} = new{W,Q}(q)
 end
 
 export MetropolisHastings
 
-MetropolisHastings() = MetropolisHastings(MvTDistProposalSpec())
+MetropolisHastings(q::ProposalDistSpec = MvTDistProposalSpec()) = MetropolisHastings{Int}()
 
 
 mcmc_compatible(::MetropolisHastings, ::AbstractProposalDist, ::UnboundedParams) = true
 
 mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::HyperRectBounds) =
     issymmetric(pdist) || all(x -> x == hard_bounds, bounds.bt)
+
+sample_weight_type(::Type{MetropolisHastings{Q,W}}) where {Q,W} = W
 
 
 function AcceptRejectState(

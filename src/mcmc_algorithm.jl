@@ -24,6 +24,8 @@ abstract type MCMCAlgorithm{S<:AbstractMCMCState} <: BATAlgorithm end
 
 mcmc_compatible(::MCMCAlgorithm, ::AbstractProposalDist, ::AbstractParamBounds) = true
 
+function sample_weight_type end
+
 
 rand_initial_params(rng::AbstractRNG, algorithm::MCMCAlgorithm, target::TargetSubject) =
     rand_initial_params!(rng, algorithm, target, Vector{float(eltype(target.bounds))}(nparams(target)))

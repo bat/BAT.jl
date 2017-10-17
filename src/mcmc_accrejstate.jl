@@ -114,17 +114,18 @@ function MCMCIterator(
 
     log_value = target_logval(target.tdensity, params_vec, exec_context)
     L = typeof(log_value)
+    W = sample_weight_type(typeof(algorithm))
 
     current_sample = DensitySample(
         params_vec,
         log_value,
-        zero(Int)
+        zero(W)
     )
 
     proposed_sample = DensitySample(
         similar(current_sample.params),
         convert(typeof(current_sample.log_value), NaN),
-        zero(Int)
+        zero(W)
     )
 
     state = AcceptRejectState(
