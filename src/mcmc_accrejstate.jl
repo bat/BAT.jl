@@ -46,7 +46,7 @@ acceptance_ratio(state::AcceptRejectState) = nsamples(state) / nsteps(state)
 
 
 function next_cycle!(state::AcceptRejectState)
-    state.current_sample.weight = 0
+    state.current_sample.weight = 1
     state.nsamples = 0
     state.nsteps = 0
     state
@@ -67,6 +67,7 @@ sample_available(state::AcceptRejectState, ::Val{:complete}) =
 
 function current_sample(state::AcceptRejectState, ::Val{:complete})
     if state.proposal_accepted
+        @assert state.current_sample.weight > 0
         state.current_sample
     elseif state.proposed_sample.weight > 0
         state.proposed_sample
@@ -130,7 +131,7 @@ function MCMCIterator(
     current_sample = DensitySample(
         params_vec,
         log_value,
-        zero(W)
+        one(W)
     )
 
     proposed_sample = DensitySample(
@@ -181,6 +182,7 @@ function mcmc_step!(
         copy!(current_sample, proposed_sample)
         state.current_nreject = 0
         state.proposal_accepted = false
+        @assert current_sample.weight > 0
     end
 
     mcmc_propose_accept_reject!(callback, chain, exec_context)

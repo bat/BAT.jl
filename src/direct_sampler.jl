@@ -45,8 +45,9 @@ function mcmc_propose_accept_reject!(
     # Accept iff in bounds:
     if proposed_params in target.bounds
         proposed_sample.log_value = target_logval(target.tdensity, proposed_params, exec_context)
-        state.current_sample.weight = 1
 
+        state.proposed_sample.weight = 1
+        @assert state.current_sample.weight == 1
         state.proposal_accepted = true
         state.nsamples += 1
         callback(1, chain)
