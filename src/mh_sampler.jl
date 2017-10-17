@@ -84,10 +84,6 @@ function mcmc_propose_accept_reject!(
         zero(T)
     end
 
-    if p_accept ≈ 1
-        p_accept = one(p_accept)
-    end
-
     mh_acc_rej!(callback, chain, p_accept)
 
     nothing
@@ -110,6 +106,12 @@ end
 
 
 function mh_acc_rej!(callback::Function, chain::MCMCIterator{<:MetropolisHastings{<:AbstractFloat}}, p_accept::Real)
+    if p_accept ≈ 1
+        p_accept = one(p_accept)
+    elseif p_accept ≈ 0
+        p_accept = zero(p_accept)
+    end
+
     state = chain.state
     state.current_sample.weight += (1 - p_accept)
     state.proposed_sample.weight = p_accept
