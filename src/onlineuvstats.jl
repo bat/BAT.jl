@@ -40,9 +40,12 @@ function Base.merge!(target::OnlineUvMean{T}, others::OnlineUvMean...) where {T}
 end
 
 
-@inline function _push_impl!(omn::OnlineUvMean, data::Real, weight::Real)
-    omn.sum_v += Single(weight*data)
-    omn.sum_w += Single(weight)
+@inline function _push_impl!(omn::OnlineUvMean{T}, data::Real, weight::Real) where {T}
+    # Workaround for lack of promotion between, e.g., Float32 and Double{Float64}
+    weight_conv = T(weight)
+
+    omn.sum_v += Single(weight_conv * data)
+    omn.sum_w += Single(weight_conv)
     omn
 end
 
@@ -131,11 +134,14 @@ function Base.merge!(target::OnlineUvVar{T,W}, others::OnlineUvVar...) where {T,
 end
 
 
-@inline function _push_impl!(ocv::OnlineUvVar, data::Real, weight::Real)
+@inline function _push_impl!(ocv::OnlineUvVar{T}, data::Real, weight::Real) where T
     # Ignore zero weights (can't be handled)
     if weight ≈ 0
         return ocv
     end
+
+    # Workaround for lack of promotion between, e.g., Float32 and Double{Float64}
+    weight_conv = T(weight)
 
     n = ocv.n
     sum_w = ocv.sum_w
@@ -144,13 +150,13 @@ end
     s = ocv.s
 
     n += one(n)
-    sum_w += Single(weight)
-    sum_w2 += Single(weight^2)
+    sum_w += Single(weight_conv)
+    sum_w2 += Single(weight_conv^2)
     dx = data - mean_x
-    new_mean_x = mean_x + dx * weight / sum_w
+    new_mean_x = mean_x + dx * weight_conv / sum_w
     new_dx = data - new_mean_x
     
-    s = muladd(dx, weight * new_dx, s)
+    s = muladd(dx, weight_conv * new_dx, s)
     mean_x = new_mean_x
 
     ocv.n = n
