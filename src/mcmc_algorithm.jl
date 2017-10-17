@@ -22,6 +22,20 @@ abstract type MCMCAlgorithm{S<:AbstractMCMCState} <: BATAlgorithm end
 
 
 
+mcmc_compatible(::MCMCAlgorithm, ::AbstractProposalDist, ::AbstractParamBounds) = true
+
+
+rand_initial_params(rng::AbstractRNG, algorithm::MCMCAlgorithm, target::TargetSubject) =
+    rand_initial_params!(rng, algorithm, target, Vector{float(eltype(target.bounds))}(nparams(target)))
+
+rand_initial_params(rng::AbstractRNG, algorithm::MCMCAlgorithm, target::TargetSubject, n::Integer) =
+    rand_initial_params!(rng, algorithm, target, Matrix{float(eltype(target.bounds))}(nparams(target), n))
+
+rand_initial_params!(rng::AbstractRNG, ::MCMCAlgorithm, target::TargetSubject, x::StridedVecOrMat{<:Real}) =
+    rand!(rng, target.bounds, x)
+
+
+
 mutable struct MCMCIterator{
     A<:MCMCAlgorithm,
     T<:AbstractTargetSubject,

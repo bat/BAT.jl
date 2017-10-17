@@ -97,7 +97,7 @@ function MCMCIterator(
     reset_rng_counters!(rng, MCMCSampleID(id, cycle, 0))
 
     params_vec = if isempty(initial_params)
-        convert(Vector{P}, rand_initial_params(rng, target))
+        convert(Vector{P}, rand_initial_params(rng, algorithm, target))
     else
         convert(Vector{P}, initial_params)
     end
