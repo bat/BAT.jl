@@ -86,14 +86,14 @@ function mcmc_propose_accept_reject!(
 
     mh_acc_rej!(callback, chain, p_accept)
 
-    nothing
+    chain
 end
 
 
 function mh_acc_rej!(callback::Function, chain::MCMCIterator{<:MetropolisHastings{<:Integer}}, p_accept::Real)
     state = chain.state
     state.current_sample.weight += 1
-    if rand(chain.rng) < p_accept
+    if rand(chain.rng, float(typeof(p_accept))) < p_accept
         state.proposal_accepted = true
         state.nsamples += 1
         callback(1, chain)
@@ -101,7 +101,7 @@ function mh_acc_rej!(callback::Function, chain::MCMCIterator{<:MetropolisHasting
         state.current_nreject += 1
         callback(2, chain)
     end
-    state
+    chain
 end
 
 
@@ -115,7 +115,7 @@ function mh_acc_rej!(callback::Function, chain::MCMCIterator{<:MetropolisHasting
     state = chain.state
     state.current_sample.weight += (1 - p_accept)
     state.proposed_sample.weight = p_accept
-    if rand(chain.rng) < p_accept
+    if rand(chain.rng, float(typeof(p_accept))) < p_accept
         state.proposal_accepted = true
         state.nsamples += 1
         callback(1, chain)
@@ -127,5 +127,5 @@ function mh_acc_rej!(callback::Function, chain::MCMCIterator{<:MetropolisHasting
             callback(1, chain)
         end
     end
-    state
+    chain
 end

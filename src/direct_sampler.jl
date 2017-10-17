@@ -58,5 +58,5 @@ function mcmc_propose_accept_reject!(
         callback(2, chain)
     end
 
-    nothing
+    chain
 end
