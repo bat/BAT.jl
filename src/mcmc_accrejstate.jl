@@ -38,14 +38,18 @@ end
 
 nparams(state::AcceptRejectState) = nparams(state.pdist)
 
+nsteps(state::AcceptRejectState) = state.nsteps
+
+nsamples(state::AcceptRejectState) = state.nsamples
+
+acceptance_ratio(state::AcceptRejectState) = nsamples(state) / nsteps(state)
+
+
 function next_cycle!(state::AcceptRejectState)
     state.nsamples = 0
     state.nsteps = 0
     state
 end
-
-
-acceptance_ratio(state::AcceptRejectState) = state.nsamples / state.nsteps
 
 
 function MCMCBasicStats(state::AcceptRejectState)
@@ -144,63 +148,47 @@ function MCMCIterator(
 end
 
 
-function mcmc_iterate!(
-    callback,
+function mcmc_step!(
+    callback::Function,
     chain::MCMCIterator{<:MCMCAlgorithm{AcceptRejectState}},
-    exec_context::ExecContext = ExecContext();
-    max_nsamples::Int64 = Int64(1),
-    max_nsteps::Int = 1000,
-    max_time::Float64 = Inf,
-    ll::LogLevel = LOG_NONE
+    exec_context::ExecContext,
+    ll::LogLevel
 )
-    @log_msg ll "Starting iteration over MCMC chain $(chain.id)"
-
-    algorithm = chain.algorithm
-    cbfunc = mcmc_callback(callback)
-
     state = chain.state
-
-    start_time = time()
-    start_nsteps = state.nsteps
-    start_nsamples = state.nsamples
+    algorithm = chain.algorithm
 
     if !mcmc_compatible(algorithm, chain.state.pdist, chain.target.bounds)
         error("Implementation of algorithm $algorithm does not support current parameter bounds with current proposal distribution")
     end
 
-    while (
-        (state.nsamples - start_nsamples) < max_nsamples &&
-        (state.nsteps - start_nsteps) < max_nsteps &&
-        (time() - start_time) < max_time
-    )
-        state = chain.state
+    state = chain.state
 
-        current_sample = state.current_sample
-        proposed_sample = state.proposed_sample
+    current_sample = state.current_sample
+    proposed_sample = state.proposed_sample
 
-        if state.proposal_accepted
-            reset_rng_counters!(chain.rng, MCMCSampleID(chain))
-            copy!(current_sample, proposed_sample)
-            state.current_nreject = 0
-            state.proposal_accepted = false
-        end
-
-        accepted = mcmc_propose_accept_reject!(chain, exec_context)
-
-        state.nsteps += 1
-
-        if accepted
-            state.proposal_accepted = true
-            state.nsamples += 1
-        else
-            state.current_nreject += 1
-        end
-
-        if accepted
-            cbfunc(1, chain)
-        else
-            cbfunc(2, chain)
-        end
+    if state.proposal_accepted
+        reset_rng_counters!(chain.rng, MCMCSampleID(chain))
+        copy!(current_sample, proposed_sample)
+        state.current_nreject = 0
+        state.proposal_accepted = false
     end
+
+    accepted = mcmc_propose_accept_reject!(chain, exec_context)
+
+    state.nsteps += 1
+
+    if accepted
+        state.proposal_accepted = true
+        state.nsamples += 1
+    else
+        state.current_nreject += 1
+    end
+
+    if accepted
+        callback(1, chain)
+    else
+        callback(2, chain)
+    end
+
     chain
 end

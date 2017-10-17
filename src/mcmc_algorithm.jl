@@ -79,8 +79,39 @@ function Base.push!(xs::DensitySampleVector, chain::MCMCIterator)
 end
 
 
+function mcmc_step! end
+export mcmc_step!
+
+
 function mcmc_iterate! end
 export mcmc_iterate!
+
+function mcmc_iterate!(
+    callback,
+    chain::MCMCIterator,
+    exec_context::ExecContext = ExecContext();
+    max_nsamples::Int64 = Int64(1),
+    max_nsteps::Int = 1000,
+    max_time::Float64 = Inf,
+    ll::LogLevel = LOG_NONE
+)
+    @log_msg ll "Starting iteration over MCMC chain $(chain.id)"
+
+    cbfunc = mcmc_callback(callback)
+
+    start_time = time()
+    start_nsteps = nsteps(chain.state)
+    start_nsamples = nsamples(chain.state)
+
+    while (
+        (chain.state.nsamples - start_nsamples) < max_nsamples &&
+        (chain.state.nsteps - start_nsteps) < max_nsteps &&
+        (time() - start_time) < max_time
+    )
+        mcmc_step!(cbfunc, chain, exec_context, ll + 1)
+    end
+    chain
+end
 
 
 exec_capabilities(mcmc_iterate!, f, chain::MCMCIterator) =
