@@ -211,6 +211,11 @@ end
     start::Integer,
     weight::Real = one(T)
 )
+    # Ignore zero weights (can't be handled)
+    if weight ≈ 0
+        return ocv
+    end
+
     m = ocv.m
     n = ocv.n
     sum_w = ocv.sum_w

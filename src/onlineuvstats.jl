@@ -132,6 +132,11 @@ end
 
 
 @inline function _push_impl!(ocv::OnlineUvVar, data::Real, weight::Real)
+    # Ignore zero weights (can't be handled)
+    if weight ≈ 0
+        return ocv
+    end
+
     n = ocv.n
     sum_w = ocv.sum_w
     sum_w2 = ocv.sum_w2
