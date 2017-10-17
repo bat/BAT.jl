@@ -158,15 +158,21 @@ function mcmc_iterate!(
     algorithm = chain.algorithm
     cbfunc = mcmc_callback(callback)
 
+    state = chain.state
+
     start_time = time()
-    nsteps = 0
-    nsamples = 0
+    start_nsteps = state.nsteps
+    start_nsamples = state.nsamples
 
     if !mcmc_compatible(algorithm, chain.state.pdist, chain.target.bounds)
         error("Implementation of algorithm $algorithm does not support current parameter bounds with current proposal distribution")
     end
 
-    while nsamples < max_nsamples && nsteps < max_nsteps && (time() - start_time) < max_time
+    while (
+        (state.nsamples - start_nsamples) < max_nsamples &&
+        (state.nsteps - start_nsteps) < max_nsteps &&
+        (time() - start_time) < max_time
+    )
         state = chain.state
 
         current_sample = state.current_sample
@@ -181,12 +187,10 @@ function mcmc_iterate!(
 
         accepted = mcmc_propose_accept_reject!(chain, exec_context)
 
-        nsteps += 1
         state.nsteps += 1
 
         if accepted
             state.proposal_accepted = true
-            nsamples += 1
             state.nsamples += 1
         else
             state.current_nreject += 1
