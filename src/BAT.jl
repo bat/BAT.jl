@@ -8,6 +8,7 @@ using Base.Threads
 
 using Distributions
 using DoubleDouble
+using ElasticArrays
 using FunctionWrappers
 using IntervalSets
 using MultiThreadingTools
@@ -20,8 +21,6 @@ import RandomNumbers
 
 include("logging.jl")
 using BAT.Logging
-
-include("extendablearray.jl")
 
 include("shims.jl")
 include("rng.jl")

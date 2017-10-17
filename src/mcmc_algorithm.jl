@@ -72,7 +72,7 @@ function DensitySampleVector(chain::MCMCIterator)
     W = typeof(chain.state.current_sample.weight)
 
     m = size(chain.state.current_sample.params, 1)
-    DensitySampleVector(ExtendableArray{P}(m, 0), Vector{T}(0), Vector{W}(0))
+    DensitySampleVector(ElasticArray{P}(m, 0), Vector{T}(0), Vector{W}(0))
 end
 
 function Base.push!(xs::DensitySampleVector, chain::MCMCIterator)

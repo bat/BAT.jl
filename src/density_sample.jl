@@ -42,7 +42,7 @@ nparams(s::DensitySample) = length(s)
 
 
 struct DensitySampleVector{P<:Real,T<:AbstractFloat,W<:Real} <: BATDataVector{DensitySample{P,T,W}}
-    params::ExtendableArray{P, 2, 1}
+    params::ElasticArray{P, 2, 1}
     log_value::Vector{T}
     weight::Vector{W}
 end
