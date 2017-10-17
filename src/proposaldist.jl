@@ -148,9 +148,18 @@ function proposal_logpdf!(
     params_new::AbstractVector,
     params_old::AbstractVector
 )
-    params_diff = params_new .- params_old # TODO: Avoid memory allocation
-    p[1] = Distributions.logpdf(pdist.d, params_diff)
+    p[1] = proposal_logpdf(pdist, params_new, params_old)
     p
+end
+
+
+function proposal_logpdf(
+    pdist::GenericProposalDist,
+    params_new::AbstractVector,
+    params_old::AbstractVector
+)
+    params_diff = params_new .- params_old # TODO: Avoid memory allocation
+    Distributions.logpdf(pdist.d, params_diff)
 end
 
 
