@@ -27,37 +27,33 @@ end
 
 
 function mcmc_propose_accept_reject!(
+    callback::Function,
     chain::MCMCIterator{<:DirectSampling},
     exec_context::ExecContext
 )
     state = chain.state
-    rng = chain.rng
     target = chain.target
-    pdist = state.pdist
 
-    current_sample = state.current_sample
     proposed_sample = state.proposed_sample
-
-    current_params = current_sample.params
     proposed_params = proposed_sample.params
 
-    current_log_value = current_sample.log_value
-    T = typeof(current_log_value)
-
-    #info(pdist)
-    #@assert false
-
     # Propose new parameters:
-    rand!(rng, pdist.s, proposed_params)
+    rand!(chain.rng, state.pdist.s, proposed_params)
 
-    accepted = if proposed_params in target.bounds
-        proposed_log_value = T(target_logval(target.tdensity, proposed_params, exec_context))
-        proposed_sample.log_value = proposed_log_value
-        current_sample.weight = 1
-        true
+    # Accept iff in bounds:
+    if proposed_params in target.bounds
+        proposed_sample.log_value = target_logval(target.tdensity, proposed_params, exec_context)
+        state.current_sample.weight = 1
+
+        state.proposal_accepted = true
+        state.nsamples += 1
+        callback(1, chain)
     else
-        # Reject:
-        proposed_sample.log_value = T(-Inf)
-        false
+        proposed_sample.log_value = -Inf
+
+        state.current_nreject += 1
+        callback(2, chain)
     end
+
+    nothing
 end

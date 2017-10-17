@@ -32,6 +32,7 @@ end
 
 
 function mcmc_propose_accept_reject!(
+    callback::Function,
     chain::MCMCIterator{<:MetropolisHastings},
     exec_context::ExecContext
 )
@@ -78,7 +79,18 @@ function mcmc_propose_accept_reject!(
         end
     else
         # Reject:
-        proposed_sample.log_value = T(-Inf)
+        proposed_sample.log_value = -Inf
         false
     end
+
+    if accepted
+        state.proposal_accepted = true
+        state.nsamples += 1
+        callback(1, chain)
+    else
+        state.current_nreject += 1
+        callback(2, chain)
+    end
+
+    nothing
 end

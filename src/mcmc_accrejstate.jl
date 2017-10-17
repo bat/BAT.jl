@@ -161,8 +161,6 @@ function mcmc_step!(
         error("Implementation of algorithm $algorithm does not support current parameter bounds with current proposal distribution")
     end
 
-    state = chain.state
-
     current_sample = state.current_sample
     proposed_sample = state.proposed_sample
 
@@ -173,22 +171,9 @@ function mcmc_step!(
         state.proposal_accepted = false
     end
 
-    accepted = mcmc_propose_accept_reject!(chain, exec_context)
+    mcmc_propose_accept_reject!(callback, chain, exec_context)
 
     state.nsteps += 1
-
-    if accepted
-        state.proposal_accepted = true
-        state.nsamples += 1
-    else
-        state.current_nreject += 1
-    end
-
-    if accepted
-        callback(1, chain)
-    else
-        callback(2, chain)
-    end
 
     chain
 end
