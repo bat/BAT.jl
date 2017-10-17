@@ -10,6 +10,7 @@ function Base.rand(
     convergence_test::MCMCConvergenceTest = GRConvergence();
     max_nsteps::Int = 100 * nsamples,
     max_time::Float64 = Inf,
+    max_tuning_cycles::Int = 30,
     granularity::Int = 1,  # Keep this? Potentially dangerous, in the wrong hands.
     ll::LogLevel = LOG_INFO
 )
@@ -25,7 +26,7 @@ function Base.rand(
         max_nsamples_per_cycle = Int64(samples_per_tuning_cycle),
         max_nsteps_per_cycle = Int(10*samples_per_tuning_cycle),
         max_time_per_cycle = max_time / 10,
-        max_ncycles = 30,
+        max_ncycles = max_tuning_cycles,
         ll = ll
     )
 
