@@ -20,7 +20,7 @@ mcmc_compatible(::MetropolisHastings, ::AbstractProposalDist, ::UnboundedParams)
 mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::HyperRectBounds) =
     issymmetric(pdist) || all(x -> x == hard_bounds, bounds.bt)
 
-sample_weight_type(::Type{MetropolisHastings{Q,W}}) where {Q,W} = W
+sample_weight_type(::Type{MetropolisHastings{W,Q}}) where {Q,W} = W
 
 
 function AcceptRejectState(
@@ -56,10 +56,11 @@ function mcmc_propose_accept_reject!(
     T = typeof(current_log_value)
 
     # Propose new parameters:
+    proposed_sample.weight = 0
     proposal_rand!(rng, pdist, proposed_params, current_params)
     apply_bounds!(proposed_params, target.bounds, false)
 
-    accepted = if proposed_params in target.bounds
+    p_accept = if proposed_params in target.bounds
         # Evaluate target density at new parameters:
         proposed_log_value = T(target_logval(target.tdensity, proposed_params, exec_context))
 
@@ -75,20 +76,28 @@ function mcmc_propose_accept_reject!(
         current_log_value = current_sample.log_value
         proposed_sample.log_value = proposed_log_value
 
-        # Metropolis-Hastings accept/reject:
-        if rand(rng) < exp(proposed_log_value - current_log_value - log_tpr)
-            current_sample.weight = state.current_nreject + 1
-            true
-        else
-            false
-        end
+        clamp(T(exp(proposed_log_value - current_log_value - log_tpr)), zero(T), one(T))
     else
-        # Reject:
+        p_accept = zero(T)
         proposed_sample.log_value = -Inf
-        false
+
+        zero(T)
     end
 
-    if accepted
+    if p_accept ≈ 1
+        p_accept = one(p_accept)
+    end
+
+    mh_acc_rej!(callback, chain, p_accept)
+
+    nothing
+end
+
+
+function mh_acc_rej!(callback::Function, chain::MCMCIterator{<:MetropolisHastings{<:Integer}}, p_accept::Real)
+    state = chain.state
+    state.current_sample.weight += 1
+    if rand(chain.rng) < p_accept
         state.proposal_accepted = true
         state.nsamples += 1
         callback(1, chain)
@@ -96,6 +105,25 @@ function mcmc_propose_accept_reject!(
         state.current_nreject += 1
         callback(2, chain)
     end
+    state
+end
 
-    nothing
+
+function mh_acc_rej!(callback::Function, chain::MCMCIterator{<:MetropolisHastings{<:AbstractFloat}}, p_accept::Real)
+    state = chain.state
+    state.current_sample.weight += (1 - p_accept)
+    state.proposed_sample.weight = p_accept
+    if rand(chain.rng) < p_accept
+        state.proposal_accepted = true
+        state.nsamples += 1
+        callback(1, chain)
+    else
+        state.current_nreject += 1
+        if p_accept ≈ 0
+            callback(2, chain)
+        else
+            callback(1, chain)
+        end
+    end
+    state
 end

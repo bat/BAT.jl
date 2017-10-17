@@ -35,5 +35,5 @@ function Base.rand(
 
     mcmc_iterate!(cb, chains, exec_context, max_nsamples = nsamples, max_nsteps = max_nsteps, max_time = max_time, ll = ll)
 
-    merge(samples...)
+    merge(samples...)::eltype(samples)  # Type inference fails without type assertion here, for some reason
 end

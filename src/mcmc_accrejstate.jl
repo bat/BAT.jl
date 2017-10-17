@@ -46,6 +46,7 @@ acceptance_ratio(state::AcceptRejectState) = nsamples(state) / nsteps(state)
 
 
 function next_cycle!(state::AcceptRejectState)
+    state.current_sample.weight = 0
     state.nsamples = 0
     state.nsteps = 0
     state
@@ -61,19 +62,29 @@ function MCMCBasicStats(state::AcceptRejectState)
 end
 
 
-sample_available(state::AcceptRejectState, ::Val{:complete}) = state.proposal_accepted
+sample_available(state::AcceptRejectState, ::Val{:complete}) =
+    state.proposal_accepted || state.proposed_sample.weight > 0
 
 function current_sample(state::AcceptRejectState, ::Val{:complete})
-    !state.proposal_accepted && error("No complete sample available")
-    state.current_sample
+    if state.proposal_accepted
+        state.current_sample
+    elseif state.proposed_sample.weight > 0
+        state.proposed_sample
+    else
+        error("No complete sample available")
+    end
 end
 
 
-sample_available(state::AcceptRejectState, ::Val{:rejected}) = !state.proposal_accepted
+sample_available(state::AcceptRejectState, ::Val{:rejected}) =
+    !state.proposal_accepted && state.proposed_sample.weight <= 0
 
 function current_sample(state::AcceptRejectState, ::Val{:rejected})
-    state.proposal_accepted && error("No rejected sample available")
-    state.proposed_sample
+    if !state.proposal_accepted && state.proposed_sample.weight <= 0
+        state.proposed_sample
+    else
+        error("No rejected sample available")
+    end
 end
 
 
