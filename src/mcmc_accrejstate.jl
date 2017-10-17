@@ -182,7 +182,6 @@ function mcmc_step!(
         copy!(current_sample, proposed_sample)
         state.current_nreject = 0
         state.proposal_accepted = false
-        @assert current_sample.weight > 0
     end
 
     mcmc_propose_accept_reject!(callback, chain, exec_context)
