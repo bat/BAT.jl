@@ -19,11 +19,11 @@ using Base.Test
         nsamples_per_chain = 2000
         nchains = 4
 
-        samples = @inferred Base.rand(
+        samples = @inferred rand(
             MCMCSpec(algorithm, tdensity, bounds),
             nsamples_per_chain,
             nchains,
-            max_time = 10.0,
+            max_time = Inf,
             granularity = 1
         )
 
