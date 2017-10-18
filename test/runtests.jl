@@ -2,6 +2,7 @@
 
 import Compat.Test
 Test.@testset "Package BAT" begin
+    include("mcmc_rand.jl")
     include("distributions.jl")
     include("spatialvolume.jl")    
     include("parambounds.jl")
