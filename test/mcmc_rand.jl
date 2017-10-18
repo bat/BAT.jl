@@ -1,10 +1,8 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 using BAT, BAT.Logging
-using Base.Test
-
+using Compat.Test
 using Distributions, PDMats, StatsBase
-using Base.Test
 
 @testset "mcmc_rand" begin
     @testset "rand" begin
@@ -19,11 +17,11 @@ using Base.Test
         nsamples_per_chain = 2000
         nchains = 4
 
-        samples = @inferred Base.rand(
+        samples = @inferred rand(
             MCMCSpec(algorithm, tdensity, bounds),
             nsamples_per_chain,
             nchains,
-            max_time = 10.0,
+            max_time = Inf,
             granularity = 1
         )
 

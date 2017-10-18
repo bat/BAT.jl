@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 using BAT
-using Base.Test
+using Compat.Test
 using StatsBase
 
 @testset "onlinestats" begin

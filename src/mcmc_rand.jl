@@ -1,40 +1,87 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+function Base.rand!(
+    result::DensitySampleVector,
+    chainspec::MCMCSpec,
+    nsamples::Integer,
+    nchains::Integer,
+    tuner_config::AbstractMCMCTunerConfig,
+    convergence_test::MCMCConvergenceTest,
+    init_strategy::MCMCInitStrategy,
+    burnin_strategy::MCMCBurninStrategy,
+    exec_context::ExecContext;
+    max_nsteps::Int = 100 * nsamples,
+    max_time::Float64 = Inf,
+    granularity::Int = 1,
+    strict_mode::Bool = false,
+    ll::LogLevel = LOG_INFO,
+)
+    tuners = mcmc_init(
+        chainspec,
+        nchains,
+        exec_context,
+        tuner_config,
+        convergence_test,
+        init_strategy;
+        ll = ll,
+    )
+
+    mcmc_tune_burnin!(
+        (),
+        tuners,
+        convergence_test,
+        burnin_strategy,
+        exec_context;
+        strict_mode = strict_mode,
+        ll = ll
+    )
+
+    chains = map(x -> x.chain, tuners)
+
+    samples = DensitySampleVector.(chains)
+    callbacks = [mcmc_callback(granularity, samples[i]) for i in eachindex(chains)]
+
+    mcmc_iterate!(
+        callbacks,
+        chains,
+        exec_context;
+        max_nsamples = nsamples,
+        max_nsteps = max_nsteps,
+        max_time = max_time,
+        ll = ll
+    )
+
+    for s in samples
+        append!(result, s)
+    end
+    result
+end
+
+
 function Base.rand(
     chainspec::MCMCSpec,
     nsamples::Integer,
     nchains::Integer,
-    exec_context::ExecContext = ExecContext(),
-    tunerconfig::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
-    convergence_test::MCMCConvergenceTest = GRConvergence();
-    max_nsteps::Int = 100 * nsamples,
-    max_time::Float64 = Inf,
-    max_tuning_cycles::Int = 30,
-    granularity::Int = 1,  # Keep this? Potentially dangerous, in the wrong hands.
-    ll::LogLevel = LOG_INFO
+    exec_context::ExecContext = ExecContext();
+    tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
+    convergence_test::MCMCConvergenceTest = GRConvergence(),
+    init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config),
+    burnin_strategy::MCMCBurninStrategy = MCMCBurninStrategy(tuner_config),
+    kwargs...
 )
-    chains = chainspec(1:nchains, exec_context)
+    result = DensitySampleVector(chainspec(0))
 
-    samples_per_tuning_cycle = Int64(max(round(Int, nsamples / 10), 1000))
-
-    mcmc_tune_burnin!(
-        (),
-        chains,
-        exec_context,
-        tunerconfig,
-        max_nsamples_per_cycle = Int64(samples_per_tuning_cycle),
-        max_nsteps_per_cycle = Int(10*samples_per_tuning_cycle),
-        max_time_per_cycle = max_time / 10,
-        max_ncycles = max_tuning_cycles,
-        ll = ll
+    rand!(
+        result,
+        chainspec,
+        nsamples,
+        nchains,
+        tuner_config,
+        convergence_test,
+        init_strategy,
+        burnin_strategy,
+        exec_context;
+        kwargs...
     )
-
-    samples = DensitySampleVector.(chains)
-    cb = [mcmc_callback(granularity, samples[i]) for i in eachindex(chains)]
-    # cb = mcmc_callback.(samples)
-
-    mcmc_iterate!(cb, chains, exec_context, max_nsamples = nsamples, max_nsteps = max_nsteps, max_time = max_time, ll = ll)
-
-    merge(samples...)::eltype(samples)  # Type inference fails without type assertion here, for some reason
 end
