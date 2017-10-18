@@ -6,35 +6,63 @@ function Base.rand(
     nsamples::Integer,
     nchains::Integer,
     exec_context::ExecContext = ExecContext(),
-    tunerconfig::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
+    tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
     convergence_test::MCMCConvergenceTest = GRConvergence();
     max_nsteps::Int = 100 * nsamples,
     max_time::Float64 = Inf,
+    ninit_tries_per_chain::ClosedInterval{Int64} = 4..128,
+    max_nsamples_pretune::Int64 = Int64(1000),
+    max_nsteps_pretune::Int = 10000,
+    max_time_pretune::Float64 = Inf,
     max_tuning_cycles::Int = 30,
-    granularity::Int = 1,  # Keep this? Potentially dangerous, in the wrong hands.
+    max_nsamples_per_tuning_cycle = Int64(max(round(Int, nsamples / 10), 1000)),
+    max_nsteps_per_tuning_cycle = Int64(10*max_nsamples_per_tuning_cycle),
+    max_time_per_tuning_cycle = max_time / 10,
+    granularity::Int = 1,
+    strict_mode::Bool = false,
     ll::LogLevel = LOG_INFO
 )
-    chains = chainspec(1:nchains, exec_context)
-
-    samples_per_tuning_cycle = Int64(max(round(Int, nsamples / 10), 1000))
+    tuners = mcmc_init(
+        (),
+        chainspec,
+        nchains,
+        exec_context;
+        tuner_config,
+        convergence_test;
+        ninit_tries_per_chain = ninit_tries_per_chain,
+        max_nsamples_pretune = max_nsamples_pretune,
+        max_nsteps_pretune = max_nsteps_pretune,
+        max_time_pretune = max_time_pretune,
+        ll::LogLevel = ll,
+    )
 
     mcmc_tune_burnin!(
         (),
-        chains,
-        exec_context,
-        tunerconfig,
-        max_nsamples_per_cycle = Int64(samples_per_tuning_cycle),
-        max_nsteps_per_cycle = Int(10*samples_per_tuning_cycle),
-        max_time_per_cycle = max_time / 10,
+        tuners,
+        convergence_test,
+        exec_context;
+        max_nsamples_per_cycle = max_nsamples_per_tuning_cycle,
+        max_nsteps_per_cycle = max_nsteps_per_tuning_cycle,
+        max_time_per_cycle = max_time_per_tuning_cycle,
         max_ncycles = max_tuning_cycles,
+        strict_mode = strict_mode,
         ll = ll
     )
 
-    samples = DensitySampleVector.(chains)
-    cb = [mcmc_callback(granularity, samples[i]) for i in eachindex(chains)]
-    # cb = mcmc_callback.(samples)
+    chains = map(x -> x.chain, tuners)
 
-    mcmc_iterate!(cb, chains, exec_context, max_nsamples = nsamples, max_nsteps = max_nsteps, max_time = max_time, ll = ll)
+    samples = DensitySampleVector.(chains)
+    callbacks = [mcmc_callback(granularity, samples[i]) for i in eachindex(chains)]
+
+    mcmc_iterate!(
+        callbacks,
+        chains,
+        exec_context;
+        max_nsamples = nsamples,
+        max_nsteps = max_nsteps,
+        max_time = max_time,
+        ll = ll
+    )
 
     merge(samples...)::eltype(samples)  # Type inference fails without type assertion here, for some reason
 end

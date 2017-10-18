@@ -9,6 +9,53 @@ abstract type AbstractMCMCTuner end
 export AbstractMCMCTuner
 
 
+function mcmc_init end
+export mcmc_init
+
+function mcmc_tune_burnin! end
+export mcmc_tune_burnin!
+
+
+function mcmc_init(
+    callbacks,
+    chainspec::MCMCSpec,
+    nchains::Integer,
+    exec_context::ExecContext = ExecContext(),
+    tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(first(chains).algorithm),
+    convergence_test::MCMCConvergenceTest = GRConvergence();
+    ninit_tries_per_chain::ClosedInterval{Int64} = 4..128,
+    max_nsamples_pretune::Int64 = Int64(1000),
+    max_nsteps_pretune::Int = 10000,
+    max_time_pretune::Float64 = Inf,
+    ll::LogLevel = LOG_INFO
+)
+    user_callbacks = mcmc_callback_vector(callbacks, chains)
+
+    @log_msg ll "Trying to generate $nchains viable MCMC chain(s)."
+    n = nchains * minimum(ninit_tries_per_chain)
+    chains = chainspec(1:n, exec_context)
+    tuners = [tuner_config(c, init_proposal = true) for c in chains]
+
+    run_tuning_iterations!(
+        user_callbacks, tuners, exec_context;
+        max_nsamples = max_nsamples_pretune,
+        max_nsteps = max_nsteps_pretune,
+        max_time = max_time_pretune,
+        ll = ll+2
+    )
+
+    # while ...
+
+    # kmeans(..., nchains)
+
+    # Dummy:
+    resize!(tuners, nchains)
+
+    tuners
+end
+
+
+
 function mcmc_tune_burnin!(
     callbacks,
     chains::AbstractVector{<:MCMCIterator},
@@ -16,27 +63,48 @@ function mcmc_tune_burnin!(
     tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(first(chains).algorithm),
     convergence_test::MCMCConvergenceTest = GRConvergence();
     init_proposal::Bool = true,
+    ll::LogLevel = LOG_INFO,
+    kwargs...
+)
+    @log_msg ll "Starting tuning of $(length(chains)) MCMC chain(s)."
+
+    tuners = [tuner_config(c, init_proposal = init_proposal) for c in chains]
+
+    mcmc_tune_burnin!(
+        mcmc_callback_vector(callbacks, chains),
+        tuners, convergence_test, exec_context;
+        ll = ll, kwargs...
+    )
+end
+
+
+function mcmc_tune_burnin!(
+    callbacks::AbstractVector{<:Function},
+    tuners::AbstractVector{<:AbstractMCMCTuner},
+    convergence_test::MCMCConvergenceTest,
+    exec_context::ExecContext;
     max_nsamples_per_cycle::Int64 = Int64(1000),
     max_nsteps_per_cycle::Int = 10000,
     max_time_per_cycle::Float64 = Inf,
     max_ncycles::Int = 30,
+    strict_mode::Bool = false,
     ll::LogLevel = LOG_INFO
 )
-    @log_msg ll "Starting tuning of $(length(chains)) MCMC chain(s)."
+    @log_msg ll "Begin tuning of $(length(chains)) MCMC chain(s)."
 
-    user_callbacks = mcmc_callback_vector(callbacks, chains)
-
+    chains = map(x -> x.chain, tuners)
     nchains = length(chains)
-    tuners = [tuner_config(c, init_proposal = init_proposal) for c in chains]
 
     cycles = 0
     successful = false
     while !successful && cycles < max_ncycles
         cycles += 1
         run_tuning_cycle!(
-            user_callbacks, tuners, exec_context,
-            max_nsamples = max_nsamples_per_cycle, max_nsteps = max_nsteps_per_cycle,
-            max_time = max_time_per_cycle, ll = ll+2
+            user_callbacks, tuners, exec_context;
+            max_nsamples = max_nsamples_per_cycle,
+            max_nsteps = max_nsteps_per_cycle,
+            max_time = max_time_per_cycle,
+            ll = ll+2
         )
 
         stats = [x.stats for x in tuners] # ToDo: Find more generic abstraction
@@ -56,13 +124,16 @@ function mcmc_tune_burnin!(
     if successful
         @log_msg ll "MCMC tuning of $nchains chains successful after $cycles cycle(s)."
     else
-        @log_msg LOG_WARNING "MCMC tuning of $nchains chains aborted after $cycles cycle(s)."
+        msg
+        if strict_mode
+            error(msg)
+        else
+            @log_msg LOG_WARNING msg
+        end
     end
 
     successful
 end
-
-export mcmc_tune_burnin!
 
 
 
@@ -94,17 +165,13 @@ end
 
 
 function mcmc_tune_burnin!(
-    callbacks,
+    callbacks::AbstractVector{<:Function},
     chains::AbstractVector{<:MCMCIterator},
-    exec_context::ExecContext,
-    tuner_config::NoOpTunerConfig,
-    convergence_test::MCMCConvergenceTest = GRConvergence();
-    init_proposal::Bool = true,
-    max_nsamples_per_cycle::Int64 = Int64(1000),
-    max_nsteps_per_cycle::Int = 10000,
-    max_time_per_cycle::Float64 = Inf,
-    max_ncycles::Int = 30,
-    ll::LogLevel = LOG_INFO
+    tuners::AbstractVector{<:NoOpTuner},
+    convergence_test::MCMCConvergenceTest,
+    exec_context::ExecContext;
+    ll::LogLevel = LOG_INFO,
+    kwargs...
 )
     @log_msg ll "Tune/Burn-In with NoOpTuner doing nothing."
 end

@@ -1,4 +1,5 @@
 julia 0.6
+Clustering
 Compat 0.33
 Distributions
 DoubleDouble
