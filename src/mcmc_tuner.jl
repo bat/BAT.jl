@@ -25,8 +25,8 @@ function mcmc_init(
     tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(first(chains).algorithm),
     convergence_test::MCMCConvergenceTest = GRConvergence();
     ninit_tries_per_chain::ClosedInterval{Int64} = 8..128,
-    max_nsamples_pretune::Int64 = Int64(5),
-    max_nsteps_pretune::Int64 = Int64(50),
+    max_nsamples_pretune::Int64 = Int64(25),
+    max_nsteps_pretune::Int64 = Int64(250),
     max_time_pretune::Float64 = Inf,
     ll::LogLevel = LOG_INFO
 )
@@ -60,14 +60,27 @@ function mcmc_init(
 
         run_tuning_iterations!(
             (), new_tuners, exec_context;
+            max_nsamples = max(5, div(max_nsamples_pretune, 5)),
+            max_nsteps =  max(50, div(max_nsteps_pretune, 5)),
+            max_time = max_time_pretune / 5,
+            ll = ll+2
+        )
+
+        filter!(isviable, new_tuners)
+        @log_msg ll+1 "Found $(length(new_tuners)) viable MCMC chain(s)."
+
+        run_tuning_iterations!(
+            (), new_tuners, exec_context;
             max_nsamples = max_nsamples_pretune,
             max_nsteps = max_nsteps_pretune,
             max_time = max_time_pretune,
             ll = ll+2
         )
 
-        filter!(isviable, new_tuners)
-        @log_msg ll+1 "Found $(length(new_tuners)) viable MCMC chain(s)."
+        nsamples_thresh = floor(Int, 0.8 * median([nsamples(t.chain.state) for t in new_tuners]))
+
+        filter!(t -> nsamples(t.chain.state) >= nsamples_thresh, new_tuners)
+        @log_msg ll+1 "Found $(length(new_tuners)) MCMC chain(s) with at least $(nsamples_thresh) samples."
 
         append!(tuners, new_tuners)
         cycle += 1
@@ -86,7 +99,7 @@ function mcmc_init(
     end
 
     clusters = kmeans(modes, m)
-    clusters.converged || error("kmeans clustering did not converge")
+    clusters.converged || error("k-means clustering of MCMC chains did not converge")
 
     mincosts = fill(Inf, m)
     tuner_sel = fill(0, m)
@@ -110,29 +123,6 @@ function mcmc_init(
 
     final_tuners
 end
-
-
-
-# function mcmc_tune_burnin!(
-#     callbacks,
-#     chains::AbstractVector{<:MCMCIterator},
-#     exec_context::ExecContext = ExecContext(),
-#     tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(first(chains).algorithm),
-#     convergence_test::MCMCConvergenceTest = GRConvergence();
-#     init_proposal::Bool = true,
-#     ll::LogLevel = LOG_INFO,
-#     kwargs...
-# )
-#     @log_msg ll "Starting tuning of $(length(chains)) MCMC chain(s)."
-# 
-#     tuners = [tuner_config(c, init_proposal = init_proposal) for c in chains]
-# 
-#     mcmc_tune_burnin!(
-#         mcmc_callback_vector(callbacks, chains),
-#         tuners, convergence_test, exec_context;
-#         ll = ll, kwargs...
-#     )
-# end
 
 
 function mcmc_tune_burnin!(
@@ -202,19 +192,6 @@ export NoOpTunerConfig
 (config::NoOpTunerConfig)(chain::MCMCIterator; kwargs...) =
     NoOpTuner(chain)
 
-
-function mcmc_init(
-    chainspec::MCMCSpec,
-    nchains::Integer,
-    exec_context::ExecContext,
-    tuner_config::NoOpTunerConfig,
-    convergence_test::MCMCConvergenceTest;
-    ll::LogLevel = LOG_INFO,
-    kwargs...
-)
-    @log_msg ll "Generating $nchains MCMC chain(s)."
-    [tuner_config(chainspec(id, exec_context), init_proposal = true) for id in 1:nchains]
-end
 
 
 struct NoOpTuner{C<:MCMCIterator} <: AbstractMCMCTuner

@@ -10,7 +10,7 @@ function Base.rand(
     convergence_test::MCMCConvergenceTest = GRConvergence();
     max_nsteps::Int = 100 * nsamples,
     max_time::Float64 = Inf,
-    #ninit_tries_per_chain::ClosedInterval{Int64} = 4..128,
+    ninit_tries_per_chain::ClosedInterval{Int64} = 4..128,
     #max_nsamples_pretune::Int64 = Int64(1000),
     #max_nsteps_pretune::Int64 = Int64(10000),
     #max_time_pretune::Float64 = Inf,
