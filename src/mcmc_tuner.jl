@@ -19,7 +19,6 @@ function isviable end
 
 
 function mcmc_init(
-    callbacks,
     chainspec::MCMCSpec,
     nchains::Integer,
     exec_context::ExecContext = ExecContext(),
@@ -33,34 +32,32 @@ function mcmc_init(
 )
     @log_msg ll "Trying to generate $nchains viable MCMC chain(s)."
 
-    user_callbacks = mcmc_callback_vector(callbacks, chains)
-
     min_nviable = minimum(ninit_tries_per_chain) * nchains
     max_ncandidates = maximum(ninit_tries_per_chain) * nchains
 
-    ncandidates = 1
-    function gen_tuner()
-        ncandidates += 1
-        tuner_config(chainspec(ncandidates, exec_context), init_proposal = true)
-    end
-
-    gen_tuners(n::Integer) = [i -> gen_tuner() for i in 1:n]
+    gen_tuners(ids::Range{<:Integer}) =
+        [tuner_config(chainspec(id, exec_context), init_proposal = true) for id in ids]
 
     @log_msg ll+1 "Generating $(min_nviable) MCMC chain(s)."
-    tuners = gen_tuners(min_nviable)
+    initial_tuners = Base.Test.@inferred gen_tuners(1:min_nviable)
+    ncandidates = maximum(min_nviable)
 
+    tuners = similar(initial_tuners, 0)
     cycle = 1
     while length(tuners) < min_nviable && ncandidates < max_ncandidates
         if cycle == 1
-            new_tuners = tuners
-            tuners = similar(new_tuners, 0)
+            new_tuners = initial_tuners
         else
             n = min(min_nviable, max_ncandidates - ncandidates)
             @log_msg ll+1 "Generating $n additional MCMC chain(s)."
-            new_tuners = gen_tuners(n)
+            new_tuners = Base.Test.@inferred gen_tuners(ncandidates + (1:n))
+            ncandidates += n
         end
 
         @log_msg ll+1 "Testing $(length(new_tuners)) MCMC chain(s)."
+
+        chains = map(x -> x.chain, new_tuners)
+        user_callbacks = mcmc_callback_vector([() for c in chains], chains)
 
         run_tuning_iterations!(
             user_callbacks, new_tuners, exec_context;
@@ -73,6 +70,7 @@ function mcmc_init(
         filter!(isviable, new_tuners)
         @log_msg ll+1 "Found $(length(new_tuners)) viable MCMC chain(s)."
 
+        append!(tuners, new_tuners)
         cycle += 1
     end
 
@@ -83,7 +81,7 @@ function mcmc_init(
     n = length(tidxs)
 
     mode_1 = tuners[1].stats.mode
-    modes = Array{eltype(mode1)}(length(mode1), n)
+    modes = Array{eltype(mode_1)}(length(mode_1), n)
     for i in tidxs
         modes[:,i] = tuners[i].stats.mode
     end
@@ -98,11 +96,11 @@ function mcmc_init(
         j = clusters.assignments[i]
         if clusters.costs[i] < mincosts[j]
             mincosts[j] = clusters.costs[i]
-            tuner_sel(j) = i
+            tuner_sel[j] = i
         end
     end
 
-    @assert all(j -> j in tidcs, tuner_sel)
+    @assert all(j -> j in tidxs, tuner_sel)
 
     final_tuners = [tuners[i] for i in sort(tuner_sel)]
 

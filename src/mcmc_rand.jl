@@ -23,7 +23,6 @@ function Base.rand(
     ll::LogLevel = LOG_INFO
 )
     tuners = mcmc_init(
-        (),
         chainspec,
         nchains,
         exec_context,
