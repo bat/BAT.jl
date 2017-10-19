@@ -24,9 +24,9 @@ function mcmc_init(
     exec_context::ExecContext = ExecContext(),
     tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(first(chains).algorithm),
     convergence_test::MCMCConvergenceTest = GRConvergence();
-    ninit_tries_per_chain::ClosedInterval{Int64} = 4..128,
-    max_nsamples_pretune::Int64 = Int64(1000),
-    max_nsteps_pretune::Int = 10000,
+    ninit_tries_per_chain::ClosedInterval{Int64} = 16..128,
+    max_nsamples_pretune::Int64 = Int64(5),
+    max_nsteps_pretune::Int64 = Int64(50),
     max_time_pretune::Float64 = Inf,
     ll::LogLevel = LOG_INFO
 )
