@@ -39,7 +39,7 @@ function mcmc_init(
         [tuner_config(chainspec(id, exec_context), init_proposal = true) for id in ids]
 
     @log_msg ll+1 "Generating $(min_nviable) MCMC chain(s)."
-    initial_tuners = Base.Test.@inferred gen_tuners(1:min_nviable)
+    initial_tuners = gen_tuners(1:min_nviable)
     ncandidates = maximum(min_nviable)
 
     tuners = similar(initial_tuners, 0)
@@ -50,7 +50,7 @@ function mcmc_init(
         else
             n = min(min_nviable, max_ncandidates - ncandidates)
             @log_msg ll+1 "Generating $n additional MCMC chain(s)."
-            new_tuners = Base.Test.@inferred gen_tuners(ncandidates + (1:n))
+            new_tuners = gen_tuners(ncandidates + (1:n))
             ncandidates += n
         end
 
@@ -101,7 +101,10 @@ function mcmc_init(
 
     @assert all(j -> j in tidxs, tuner_sel)
 
-    final_tuners = [tuners[i] for i in sort(tuner_sel)]
+    final_tuners = similar(initial_tuners, 0)
+    for i in sort(tuner_sel)
+        push!(final_tuners, tuners[i])
+    end
 
     @log_msg ll "Selected $(length(final_tuners)) MCMC chain(s)."
 
@@ -180,7 +183,7 @@ function mcmc_tune_burnin!(
     if successful
         @log_msg ll "MCMC tuning of $nchains chains successful after $cycles cycle(s)."
     else
-        msg
+        msg = "MCMC tuning of $nchains chains aborted after $cycles cycle(s)."
         if strict_mode
             error(msg)
         else
