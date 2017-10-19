@@ -21,7 +21,6 @@ function Base.rand(
     granularity::Int = 1,
     strict_mode::Bool = false,
     ll::LogLevel = LOG_INFO,
-    kwargs...
 )
     tuners = mcmc_init(
         chainspec,
@@ -33,18 +32,17 @@ function Base.rand(
         #max_nsamples_pretune = max_nsamples_pretune,
         #max_nsteps_pretune = max_nsteps_pretune,
         #max_time_pretune = max_time_pretune,
-        #ll = ll,
+        ll = ll,
     )
 
-    #=
     mcmc_tune_burnin!(
         (),
         tuners,
         convergence_test,
         exec_context;
-        max_nsamples_per_cycle = max_nsamples_per_tuning_cycle,
-        max_nsteps_per_cycle = max_nsteps_per_tuning_cycle,
-        max_time_per_cycle = max_time_per_tuning_cycle,
+        #max_nsamples_per_cycle = max_nsamples_per_tuning_cycle,
+        #max_nsteps_per_cycle = max_nsteps_per_tuning_cycle,
+        #max_time_per_cycle = max_time_per_tuning_cycle,
         max_ncycles = max_tuning_cycles,
         strict_mode = strict_mode,
         ll = ll
@@ -65,7 +63,9 @@ function Base.rand(
         ll = ll
     )
 
-    merge(samples...)::eltype(samples)  # Type inference fails without type assertion here, for some reason
-    =#
-    tuners
+    result = DensitySampleVector(tuners[1].chain)
+    for s in samples
+        append!(result, s)
+    end
+    result
 end
