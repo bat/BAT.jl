@@ -14,7 +14,7 @@ struct atd_wrap <: AbstractTargetDensity end
     mvnorm = @inferred  MvNormal(mvec, Σ)
     tdensity = @inferred MvDistTargetDensity(mvnorm)
 
-    econtext = ExecContext()
+    econtext = @inferred ExecContext()
 
     params = [0.0 -0.3; 0.0 0.3]
       
@@ -30,7 +30,7 @@ struct atd_wrap <: AbstractTargetDensity end
     end
 
     @testset "exec_capabilities" begin
-        td = atd_wrap()
+        td = @inferred atd_wrap()
         ecap = @inferred BAT.exec_capabilities(target_logval!, td, params)
         @test ecap.nthreads == 0
         @test ecap.threadsafe == false
