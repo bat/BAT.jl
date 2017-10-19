@@ -113,26 +113,26 @@ end
 
 
 
-function mcmc_tune_burnin!(
-    callbacks,
-    chains::AbstractVector{<:MCMCIterator},
-    exec_context::ExecContext = ExecContext(),
-    tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(first(chains).algorithm),
-    convergence_test::MCMCConvergenceTest = GRConvergence();
-    init_proposal::Bool = true,
-    ll::LogLevel = LOG_INFO,
-    kwargs...
-)
-    @log_msg ll "Starting tuning of $(length(chains)) MCMC chain(s)."
-
-    tuners = [tuner_config(c, init_proposal = init_proposal) for c in chains]
-
-    mcmc_tune_burnin!(
-        mcmc_callback_vector(callbacks, chains),
-        tuners, convergence_test, exec_context;
-        ll = ll, kwargs...
-    )
-end
+# function mcmc_tune_burnin!(
+#     callbacks,
+#     chains::AbstractVector{<:MCMCIterator},
+#     exec_context::ExecContext = ExecContext(),
+#     tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(first(chains).algorithm),
+#     convergence_test::MCMCConvergenceTest = GRConvergence();
+#     init_proposal::Bool = true,
+#     ll::LogLevel = LOG_INFO,
+#     kwargs...
+# )
+#     @log_msg ll "Starting tuning of $(length(chains)) MCMC chain(s)."
+# 
+#     tuners = [tuner_config(c, init_proposal = init_proposal) for c in chains]
+# 
+#     mcmc_tune_burnin!(
+#         mcmc_callback_vector(callbacks, chains),
+#         tuners, convergence_test, exec_context;
+#         ll = ll, kwargs...
+#     )
+# end
 
 
 function mcmc_tune_burnin!(
@@ -203,6 +203,19 @@ export NoOpTunerConfig
     NoOpTuner(chain)
 
 
+function mcmc_init(
+    chainspec::MCMCSpec,
+    nchains::Integer,
+    exec_context::ExecContext,
+    tuner_config::NoOpTunerConfig,
+    convergence_test::MCMCConvergenceTest;
+    ll::LogLevel = LOG_INFO,
+    kwargs...
+)
+    @log_msg ll "Generating $nchains MCMC chain(s)."
+    [tuner_config(chainspec(id, exec_context), init_proposal = true) for id in 1:nchains]
+end
+
 
 struct NoOpTuner{C<:MCMCIterator} <: AbstractMCMCTuner
     chain::C
@@ -217,7 +230,7 @@ isviable(tuner::NoOpTuner) = true
 function run_tuning_cycle!(
     callbacks,
     tuners::AbstractVector{<:NoOpTuner},
-    exec_context::ExecContext = ExecContext();
+    exec_context::ExecContext;
     ll::LogLevel = LOG_NONE,
     kwargs...
 )
