@@ -22,7 +22,7 @@ function Base.rand(
     strict_mode::Bool = false,
     ll::LogLevel = LOG_INFO
 )
-    tuners = mcmc_init(
+    tuners = Base.Test.@inferred mcmc_init(
         chainspec,
         nchains,
         exec_context,
@@ -48,7 +48,7 @@ function Base.rand(
         ll = ll
     )
 
-    chains = map(x -> x.chain, tuners)
+    chains = Base.Test.@inferred map(x -> x.chain, tuners)
 
     samples = DensitySampleVector.(chains)
     callbacks = [mcmc_callback(granularity, samples[i]) for i in eachindex(chains)]

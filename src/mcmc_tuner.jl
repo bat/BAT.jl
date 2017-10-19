@@ -24,7 +24,7 @@ function mcmc_init(
     exec_context::ExecContext = ExecContext(),
     tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(first(chains).algorithm),
     convergence_test::MCMCConvergenceTest = GRConvergence();
-    ninit_tries_per_chain::ClosedInterval{Int64} = 16..128,
+    ninit_tries_per_chain::ClosedInterval{Int64} = 8..128,
     max_nsamples_pretune::Int64 = Int64(5),
     max_nsteps_pretune::Int64 = Int64(50),
     max_time_pretune::Float64 = Inf,
@@ -57,10 +57,9 @@ function mcmc_init(
         @log_msg ll+1 "Testing $(length(new_tuners)) MCMC chain(s)."
 
         chains = map(x -> x.chain, new_tuners)
-        user_callbacks = mcmc_callback_vector([() for c in chains], chains)
 
         run_tuning_iterations!(
-            user_callbacks, new_tuners, exec_context;
+            (), new_tuners, exec_context;
             max_nsamples = max_nsamples_pretune,
             max_nsteps = max_nsteps_pretune,
             max_time = max_time_pretune,
@@ -104,7 +103,7 @@ function mcmc_init(
 
     final_tuners = [tuners[i] for i in sort(tuner_sel)]
 
-    @log_msg ll "Selected $length(final_tuners) MCMC chain(s)."
+    @log_msg ll "Selected $(length(final_tuners)) MCMC chain(s)."
 
     final_tuners
 end
@@ -134,7 +133,7 @@ end
 
 
 function mcmc_tune_burnin!(
-    callbacks::AbstractVector{<:Function},
+    callbacks,
     tuners::AbstractVector{<:AbstractMCMCTuner},
     convergence_test::MCMCConvergenceTest,
     exec_context::ExecContext;
@@ -145,10 +144,12 @@ function mcmc_tune_burnin!(
     strict_mode::Bool = false,
     ll::LogLevel = LOG_INFO
 )
-    @log_msg ll "Begin tuning of $(length(chains)) MCMC chain(s)."
+    @log_msg ll "Begin tuning of $(length(tuners)) MCMC chain(s)."
 
     chains = map(x -> x.chain, tuners)
     nchains = length(chains)
+
+    user_callbacks = mcmc_callback_vector(callbacks, chains)
 
     cycles = 0
     successful = false
