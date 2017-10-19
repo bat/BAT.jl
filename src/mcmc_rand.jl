@@ -26,14 +26,14 @@ function Base.rand(
         (),
         chainspec,
         nchains,
-        exec_context;
+        exec_context,
         tuner_config,
         convergence_test;
         ninit_tries_per_chain = ninit_tries_per_chain,
         max_nsamples_pretune = max_nsamples_pretune,
         max_nsteps_pretune = max_nsteps_pretune,
         max_time_pretune = max_time_pretune,
-        ll::LogLevel = ll,
+        ll = ll,
     )
 
     mcmc_tune_burnin!(
