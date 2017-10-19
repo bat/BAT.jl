@@ -15,6 +15,8 @@ export mcmc_init
 function mcmc_tune_burnin! end
 export mcmc_tune_burnin!
 
+function isviable end
+
 
 function mcmc_init(
     callbacks,
@@ -29,12 +31,44 @@ function mcmc_init(
     max_time_pretune::Float64 = Inf,
     ll::LogLevel = LOG_INFO
 )
+    @log_msg ll "Trying to generate $nchains viable MCMC chain(s)."
+
     user_callbacks = mcmc_callback_vector(callbacks, chains)
 
-    @log_msg ll "Trying to generate $nchains viable MCMC chain(s)."
-    n = nchains * minimum(ninit_tries_per_chain)
-    chains = chainspec(1:n, exec_context)
-    tuners = [tuner_config(c, init_proposal = true) for c in chains]
+    min_nviable = minimum(ninit_tries_per_chain) * nchains
+    max_ncandidates = maximum(ninit_tries_per_chain) * nchains
+
+    ncandidates = 1
+    function gen_tuner()
+        nchains += 1
+        tuner_config(chainspec(ncandidates, exec_context), init_proposal = true)
+    end
+
+    gen_tuners(n::Integer) = [i -> gen_tuner() for i in 1:n]
+
+    tuners = gen_tuners(min_nviable)
+
+    cycle = 1
+    while length(tuners) < min_nviable && ncandidates < max_ncandidates
+        if cycle == 1
+        else
+            new_tuners = gen_tuners(min_nviable)
+        end
+
+        run_tuning_iterations!(
+            user_callbacks, tuners, exec_context;
+            max_nsamples = max_nsamples_pretune,
+            max_nsteps = max_nsteps_pretune,
+            max_time = max_time_pretune,
+            ll = ll+2
+        )
+
+        filter!(isviable, new_tuners)
+        cycle += 1
+    end
+
+    length(tuners) < min_nviable && error("Failed to generate $min_nviable viable MCMC chains")
+
 
     run_tuning_iterations!(
         user_callbacks, tuners, exec_context;
@@ -150,6 +184,10 @@ struct NoOpTuner{C<:MCMCIterator} <: AbstractMCMCTuner
 end
 
 export NoOpTuner
+
+
+isviable(tuner::NoOpTuner) = true
+
 
 function run_tuning_cycle!(
     callbacks,

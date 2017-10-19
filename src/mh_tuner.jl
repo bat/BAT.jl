@@ -55,6 +55,9 @@ function ProposalCovTuner(
 end
 
 
+isviable(tuner::ProposalCovTuner) = nsamples(tuner.chain.state) >= 2
+
+
 function tuning_init_proposal!(tuner::ProposalCovTuner)
     chain = tuner.chain
 
