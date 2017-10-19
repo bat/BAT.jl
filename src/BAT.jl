@@ -6,6 +6,7 @@ module BAT
 
 using Base.Threads
 
+using Clustering
 using Distributions
 using DoubleDouble
 using ElasticArrays

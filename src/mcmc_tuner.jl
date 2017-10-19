@@ -40,23 +40,30 @@ function mcmc_init(
 
     ncandidates = 1
     function gen_tuner()
-        nchains += 1
+        ncandidates += 1
         tuner_config(chainspec(ncandidates, exec_context), init_proposal = true)
     end
 
     gen_tuners(n::Integer) = [i -> gen_tuner() for i in 1:n]
 
+    @log_msg ll+1 "Generating $(min_nviable) MCMC chain(s)."
     tuners = gen_tuners(min_nviable)
 
     cycle = 1
     while length(tuners) < min_nviable && ncandidates < max_ncandidates
         if cycle == 1
+            new_tuners = tuners
+            tuners = similar(new_tuners, 0)
         else
-            new_tuners = gen_tuners(min_nviable)
+            n = min(min_nviable, max_ncandidates - ncandidates)
+            @log_msg ll+1 "Generating $n additional MCMC chain(s)."
+            new_tuners = gen_tuners(n)
         end
 
+        @log_msg ll+1 "Testing $(length(new_tuners)) MCMC chain(s)."
+
         run_tuning_iterations!(
-            user_callbacks, tuners, exec_context;
+            user_callbacks, new_tuners, exec_context;
             max_nsamples = max_nsamples_pretune,
             max_nsteps = max_nsteps_pretune,
             max_time = max_time_pretune,
@@ -64,28 +71,44 @@ function mcmc_init(
         )
 
         filter!(isviable, new_tuners)
+        @log_msg ll+1 "Found $(length(new_tuners)) viable MCMC chain(s)."
+
         cycle += 1
     end
 
     length(tuners) < min_nviable && error("Failed to generate $min_nviable viable MCMC chains")
 
+    m = nchains
+    tidxs = linearindices(tuners)
+    n = length(tidxs)
 
-    run_tuning_iterations!(
-        user_callbacks, tuners, exec_context;
-        max_nsamples = max_nsamples_pretune,
-        max_nsteps = max_nsteps_pretune,
-        max_time = max_time_pretune,
-        ll = ll+2
-    )
+    mode_1 = tuners[1].stats.mode
+    modes = Array{eltype(mode1)}(length(mode1), n)
+    for i in tidxs
+        modes[:,i] = tuners[i].stats.mode
+    end
 
-    # while ...
+    clusters = kmeans(modes, m)
+    clusters.converged || error("kmeans clustering did not converge")
 
-    # kmeans(..., nchains)
+    mincosts = fill(Inf, m)
+    tuner_sel = fill(0, m)
 
-    # Dummy:
-    resize!(tuners, nchains)
+    for i in tidxs
+        j = clusters.assignments[i]
+        if clusters.costs[i] < mincosts[j]
+            mincosts[j] = clusters.costs[i]
+            tuner_sel(j) = i
+        end
+    end
 
-    tuners
+    @assert all(j -> j in tidcs, tuner_sel)
+
+    final_tuners = [tuners[i] for i in sort(tuner_sel)]
+
+    @log_msg ll "Selected $length(final_tuners) MCMC chain(s)."
+
+    final_tuners
 end
 
 
