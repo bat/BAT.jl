@@ -62,22 +62,15 @@ function mcmc_init(
     gen_tuners(ids::Range{<:Integer}) =
         [tuner_config(chainspec(id, exec_context), init_proposal = true) for id in ids]
 
-    @log_msg ll+1 "Generating $(min_nviable) MCMC chain(s)."
-    initial_tuners = gen_tuners(1:min_nviable)
-    ncandidates = maximum(min_nviable)
+    ncandidates = 0
 
-    tuners = similar(initial_tuners, 0)
+    tuners = similar([tuner_config(chainspec(0, exec_context), init_proposal = false)], 0)
     cycle = 1
-    @log_trace "XXXXX: $ncandidates, $max_ncandidates"
-    while length(tuners) < min_nviable && (cycle==1 || ncandidates < max_ncandidates)
-        if cycle == 1
-            new_tuners = initial_tuners
-        else
-            n = min(min_nviable, max_ncandidates - ncandidates)
-            @log_msg ll+1 "Generating $n additional MCMC chain(s)."
-            new_tuners = gen_tuners(ncandidates + (1:n))
-            ncandidates += n
-        end
+    while length(tuners) < min_nviable && ncandidates < max_ncandidates
+        n = min(min_nviable, max_ncandidates - ncandidates)
+        @log_msg ll+1 "Generating $n $(cycle > 1 ? "additional " : "")MCMC chain(s)."
+        new_tuners = gen_tuners(ncandidates + (1:n))
+        ncandidates += n
 
         @log_msg ll+1 "Testing $(length(new_tuners)) MCMC chain(s)."
 
@@ -139,7 +132,7 @@ function mcmc_init(
 
     @assert all(j -> j in tidxs, tuner_sel)
 
-    final_tuners = similar(initial_tuners, 0)
+    final_tuners = similar(tuners, 0)
     for i in sort(tuner_sel)
         push!(final_tuners, tuners[i])
     end
@@ -260,31 +253,30 @@ MCMCInitStrategy(tuner_config::NoOpTunerConfig) =
 MCMCBurninStrategy(tuner_config::NoOpTunerConfig) =
     MCMCBurninStrategy(0, 0, Inf, 0)
 
-# MCMCBurninStrategy(tuner::NoOpTuner) =
-#     MCMCBurninStrategy(0, 0, Inf, 0)
-
 
 isviable(tuner::NoOpTuner) = true
 
 
-function run_tuning_cycle!(
-    callbacks,
-    tuners::AbstractVector{<:NoOpTuner},
-    exec_context::ExecContext;
-    ll::LogLevel = LOG_NONE,
-    kwargs...
+function mcmc_init(
+    chainspec::MCMCSpec,
+    nchains::Integer,
+    exec_context::ExecContext,
+    tuner_config::NoOpTunerConfig,
+    convergence_test::MCMCConvergenceTest,
+    init_strategy::MCMCInitStrategy;
+    ll::LogLevel = LOG_INFO
 )
-    @log_msg ll "NoOpTuner tuning cycle, leaving MCMC chain unchanged."
-    nothing
+    @log_msg ll "NoOpTuner generating $nchains MCMC chain(s)."
+
+    [tuner_config(chainspec(id, exec_context), init_proposal = true) for id in 1:nchains]
 end
 
 
-
 function mcmc_tune_burnin!(
-    callbacks::AbstractVector{<:Function},
-    chains::AbstractVector{<:MCMCIterator},
+    callbacks,
     tuners::AbstractVector{<:NoOpTuner},
     convergence_test::MCMCConvergenceTest,
+    burnin_strategy::MCMCBurninStrategy,
     exec_context::ExecContext;
     ll::LogLevel = LOG_INFO,
     kwargs...
