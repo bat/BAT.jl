@@ -27,7 +27,8 @@ end
 
 export MCMCInitStrategy
 
-MCMCInitStrategy(;
+MCMCInitStrategy(
+    ;
     ninit_tries_per_chain::ClosedInterval{<:Integer} = 8..128,
     max_nsamples_pretune::Integer = Int64(25),
     max_nsteps_pretune::Integer = Int64(250),
@@ -48,7 +49,7 @@ function mcmc_init(
     chainspec::MCMCSpec,
     nchains::Integer,
     exec_context::ExecContext = ExecContext(),
-    tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(first(chains).algorithm),
+    tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
     convergence_test::MCMCConvergenceTest = GRConvergence(),
     init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config);
     ll::LogLevel = LOG_INFO
@@ -67,7 +68,8 @@ function mcmc_init(
 
     tuners = similar(initial_tuners, 0)
     cycle = 1
-    while length(tuners) < min_nviable && ncandidates < max_ncandidates
+    @log_trace "XXXXX: $ncandidates, $max_ncandidates"
+    while length(tuners) < min_nviable && (cycle==1 || ncandidates < max_ncandidates)
         if cycle == 1
             new_tuners = initial_tuners
         else
@@ -159,6 +161,7 @@ end
 export MCMCBurninStrategy
 
 MCMCBurninStrategy(
+    ;
     max_nsamples_per_cycle::Integer = Int64(1000),
     max_nsteps_per_cycle::Integer = 10000,
     max_time_per_cycle::Real = Inf,
