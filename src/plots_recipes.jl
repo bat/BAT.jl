@@ -70,11 +70,76 @@ end
     @series begin
         seriestype := :path
         label --> "bounds"
+        linecolor --> :darkred
         linewidth --> 2
-        linecolor --> :violet
+        linealpha --> 0.5
         xlims --> xlims
         ylims --> ylims
         (bounds_rect_X, bounds_rect_Y)
+    end
+
+    nothing
+end
+
+
+function err_ellipsis_xy(μ::Vector{<:Real}, Σ::Matrix{<:Real}, confidence::Real = 0.68, npts = 256)
+    σ_sqr, A = eig(Hermitian(Σ))
+    σ = sqrt.(σ_sqr)
+    ϕ = linspace(0, 2π, 100)
+    σ_scaled = σ .* sqrt(invlogcdf(Chisq(2), log(confidence)))
+    xy = hcat(σ_scaled[1] * cos.(ϕ), σ_scaled[2] * sin.(ϕ)) * [A[1,1] A[1,2]; A[2,1] A[2,2]]
+    xy .+ μ'
+end
+
+
+const standard_confidence_vals = [0.68, 0.95, 0.997]
+
+
+@recipe function f(stats::MCMCBasicStats, parsel::NTuple{2,Integer})
+    pi_x, pi_y = parsel
+
+    Σ_all = stats.param_stats.cov
+    Σ = [Σ_all[pi_x, pi_x] Σ_all[pi_x, pi_y]; Σ_all[pi_y, pi_x] Σ_all[pi_y, pi_y]]
+
+    μ = stats.param_stats.mean[[pi_x, pi_y]]
+    mode_xy = stats.mode[[pi_x, pi_y]]
+
+    conf = standard_confidence_vals
+
+    linecolor --> :darkviolet
+    linewidth --> 2
+    linealpha --> 0.68
+    
+    for i in eachindex(conf)
+        xy = err_ellipsis_xy(μ, Σ, conf[i])
+        @series begin
+            seriestype := :path
+            label --> "$(100 *conf[i])%"
+            (xy[:,1], xy[:,2])
+        end
+    end
+
+    markercolor --> :darkviolet
+    markersize --> 7
+    markeralpha --> 0
+    markerstrokewidth --> 2
+    markerstrokecolor --> :black
+    markerstrokealpha --> 1
+
+    @series begin
+        seriestype := :scatter
+        label := "mean"
+        markershape := :circle
+        color --> :black
+        ([μ[1]], [μ[2]])
+    end
+
+    @series begin
+        seriestype := :scatter
+        label := "mode"
+        markershape := :rect
+        color --> :black
+        ([mode_xy[1]], [mode_xy[2]])
     end
 
     nothing
