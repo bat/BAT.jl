@@ -1,7 +1,8 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-function Base.rand(
+function Base.rand!(
+    result::DensitySampleVector,
     chainspec::MCMCSpec,
     nsamples::Integer,
     nchains::Integer,
@@ -51,7 +52,6 @@ function Base.rand(
         ll = ll
     )
 
-    result = DensitySampleVector(tuners[1].chain)
     for s in samples
         append!(result, s)
     end
@@ -59,7 +59,7 @@ function Base.rand(
 end
 
 
-Base.rand(
+function Base.rand(
     chainspec::MCMCSpec,
     nsamples::Integer,
     nchains::Integer,
@@ -69,14 +69,19 @@ Base.rand(
     init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config),
     burnin_strategy::MCMCBurninStrategy = MCMCBurninStrategy(tuner_config),
     kwargs...
-) = rand(
-    chainspec,
-    nsamples,
-    nchains,
-    tuner_config,
-    convergence_test,
-    init_strategy,
-    burnin_strategy,
-    exec_context;
-    kwargs...
 )
+    result = DensitySampleVector(chainspec(0))
+
+    rand!(
+        result,
+        chainspec,
+        nsamples,
+        nchains,
+        tuner_config,
+        convergence_test,
+        init_strategy,
+        burnin_strategy,
+        exec_context;
+        kwargs...
+    )
+end
