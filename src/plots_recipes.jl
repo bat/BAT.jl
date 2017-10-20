@@ -46,8 +46,8 @@
             label --> "samples"
             xlabel --> "\$\\theta_$(pi_x)\$"
             ylabel --> "\$\\theta_$(pi_y)\$"
-            weights := samples.weight
-            (samples.params[pi_x, acc], samples.params[pi_y, acc])
+            weights := samples.weight[:]
+            (samples.params[pi_x, :], samples.params[pi_y, :])
         end
     else
         error("seriestype $seriestype not supported")
