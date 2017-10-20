@@ -5,11 +5,11 @@ function Base.rand(
     chainspec::MCMCSpec,
     nsamples::Integer,
     nchains::Integer,
-    exec_context::ExecContext = ExecContext(),
-    tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
-    convergence_test::MCMCConvergenceTest = GRConvergence(),
-    init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config),
-    burnin_strategy::MCMCBurninStrategy = MCMCBurninStrategy(tuner_config);
+    tuner_config::AbstractMCMCTunerConfig,
+    convergence_test::MCMCConvergenceTest,
+    init_strategy::MCMCInitStrategy,
+    burnin_strategy::MCMCBurninStrategy,
+    exec_context::ExecContext;
     max_nsteps::Int = 100 * nsamples,
     max_time::Float64 = Inf,
     granularity::Int = 1,
@@ -57,3 +57,26 @@ function Base.rand(
     end
     result
 end
+
+
+Base.rand(
+    chainspec::MCMCSpec,
+    nsamples::Integer,
+    nchains::Integer,
+    exec_context::ExecContext = ExecContext();
+    tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
+    convergence_test::MCMCConvergenceTest = GRConvergence(),
+    init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config),
+    burnin_strategy::MCMCBurninStrategy = MCMCBurninStrategy(tuner_config),
+    kwargs...
+) = rand(
+    chainspec,
+    nsamples,
+    nchains,
+    tuner_config,
+    convergence_test,
+    init_strategy,
+    burnin_strategy,
+    exec_context;
+    kwargs...
+)
