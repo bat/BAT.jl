@@ -18,22 +18,45 @@ export mcmc_tune_burnin!
 function isviable end
 
 
+struct MCMCInitStrategy
+    ninit_tries_per_chain::ClosedInterval{Int64}
+    max_nsamples_pretune::Int64
+    max_nsteps_pretune::Int64
+    max_time_pretune::Float64
+end
+
+export MCMCInitStrategy
+
+MCMCInitStrategy(;
+    ninit_tries_per_chain::ClosedInterval{<:Integer} = 8..128,
+    max_nsamples_pretune::Integer = Int64(25),
+    max_nsteps_pretune::Integer = Int64(250),
+    max_time_pretune::Real = Inf
+) = MCMCInitStrategy(
+    ninit_tries_per_chain,
+    max_nsamples_pretune,
+    max_nsteps_pretune,
+    max_time_pretune
+)
+
+MCMCInitStrategy(tuner_config::AbstractMCMCTunerConfig) =
+    MCMCInitStrategy()
+
+
+
 function mcmc_init(
     chainspec::MCMCSpec,
     nchains::Integer,
     exec_context::ExecContext = ExecContext(),
     tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(first(chains).algorithm),
-    convergence_test::MCMCConvergenceTest = GRConvergence();
-    ninit_tries_per_chain::ClosedInterval{Int64} = 8..128,
-    max_nsamples_pretune::Int64 = Int64(25),
-    max_nsteps_pretune::Int64 = Int64(250),
-    max_time_pretune::Float64 = Inf,
+    convergence_test::MCMCConvergenceTest = GRConvergence(),
+    init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config);
     ll::LogLevel = LOG_INFO
 )
     @log_msg ll "Trying to generate $nchains viable MCMC chain(s)."
 
-    min_nviable = minimum(ninit_tries_per_chain) * nchains
-    max_ncandidates = maximum(ninit_tries_per_chain) * nchains
+    min_nviable = minimum(init_strategy.ninit_tries_per_chain) * nchains
+    max_ncandidates = maximum(init_strategy.ninit_tries_per_chain) * nchains
 
     gen_tuners(ids::Range{<:Integer}) =
         [tuner_config(chainspec(id, exec_context), init_proposal = true) for id in ids]
@@ -60,9 +83,9 @@ function mcmc_init(
 
         run_tuning_iterations!(
             (), new_tuners, exec_context;
-            max_nsamples = max(5, div(max_nsamples_pretune, 5)),
-            max_nsteps =  max(50, div(max_nsteps_pretune, 5)),
-            max_time = max_time_pretune / 5,
+            max_nsamples = max(5, div(init_strategy.max_nsamples_pretune, 5)),
+            max_nsteps =  max(50, div(init_strategy.max_nsteps_pretune, 5)),
+            max_time = init_strategy.max_time_pretune / 5,
             ll = ll+2
         )
 
@@ -71,9 +94,9 @@ function mcmc_init(
 
         run_tuning_iterations!(
             (), new_tuners, exec_context;
-            max_nsamples = max_nsamples_pretune,
-            max_nsteps = max_nsteps_pretune,
-            max_time = max_time_pretune,
+            max_nsamples = init_strategy.max_nsamples_pretune,
+            max_nsteps = init_strategy.max_nsteps_pretune,
+            max_time = init_strategy.max_time_pretune,
             ll = ll+2
         )
 
@@ -125,15 +148,41 @@ function mcmc_init(
 end
 
 
+
+struct MCMCBurninStrategy
+    max_nsamples_per_cycle::Int64
+    max_nsteps_per_cycle::Int64
+    max_time_per_cycle::Float64
+    max_ncycles::Int
+end
+
+export MCMCBurninStrategy
+
+MCMCBurninStrategy(
+    max_nsamples_per_cycle::Integer = Int64(1000),
+    max_nsteps_per_cycle::Integer = 10000,
+    max_time_per_cycle::Real = Inf,
+    max_ncycles::Integer = 30
+) = MCMCBurninStrategy(
+    max_nsamples_per_cycle,
+    max_nsteps_per_cycle,
+    max_time_per_cycle,
+    max_ncycles::Int
+)
+
+MCMCBurninStrategy(tuner_config::AbstractMCMCTunerConfig) =
+    MCMCBurninStrategy()
+
+MCMCBurninStrategy(tuner::AbstractMCMCTuner) =
+    MCMCBurninStrategy()
+
+
 function mcmc_tune_burnin!(
     callbacks,
     tuners::AbstractVector{<:AbstractMCMCTuner},
     convergence_test::MCMCConvergenceTest,
+    burnin_strategy::MCMCBurninStrategy,
     exec_context::ExecContext;
-    max_nsamples_per_cycle::Int64 = Int64(1000),
-    max_nsteps_per_cycle::Int = 10000,
-    max_time_per_cycle::Float64 = Inf,
-    max_ncycles::Int = 30,
     strict_mode::Bool = false,
     ll::LogLevel = LOG_INFO
 )
@@ -146,13 +195,13 @@ function mcmc_tune_burnin!(
 
     cycles = 0
     successful = false
-    while !successful && cycles < max_ncycles
+    while !successful && cycles < burnin_strategy.max_ncycles
         cycles += 1
         run_tuning_cycle!(
             user_callbacks, tuners, exec_context;
-            max_nsamples = max_nsamples_per_cycle,
-            max_nsteps = max_nsteps_per_cycle,
-            max_time = max_time_per_cycle,
+            max_nsamples = burnin_strategy.max_nsamples_per_cycle,
+            max_nsteps = burnin_strategy.max_nsteps_per_cycle,
+            max_time = burnin_strategy.max_time_per_cycle,
             ll = ll+2
         )
 
@@ -199,6 +248,17 @@ struct NoOpTuner{C<:MCMCIterator} <: AbstractMCMCTuner
 end
 
 export NoOpTuner
+
+
+MCMCInitStrategy(tuner_config::NoOpTunerConfig) =
+    MCMCInitStrategy(1..1, 0, 0, Inf)
+
+
+MCMCBurninStrategy(tuner_config::NoOpTunerConfig) =
+    MCMCBurninStrategy(0, 0, Inf, 0)
+
+# MCMCBurninStrategy(tuner::NoOpTuner) =
+#     MCMCBurninStrategy(0, 0, Inf, 0)
 
 
 isviable(tuner::NoOpTuner) = true
