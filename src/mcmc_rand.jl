@@ -2,7 +2,7 @@
 
 
 function Base.rand!(
-    result::DensitySampleVector,
+    result::Tuple{DensitySampleVector, MCMCBasicStats},
     chainspec::MCMCSpec,
     nsamples::Integer,
     nchains::Integer,
@@ -17,6 +17,9 @@ function Base.rand!(
     strict_mode::Bool = false,
     ll::LogLevel = LOG_INFO,
 )
+    result_samples = result[1]
+    result_stats = result[2]
+
     tuners = mcmc_init(
         chainspec,
         nchains,
@@ -40,7 +43,8 @@ function Base.rand!(
     chains = map(x -> x.chain, tuners)
 
     samples = DensitySampleVector.(chains)
-    callbacks = [mcmc_callback(granularity, samples[i]) for i in eachindex(chains)]
+    stats = MCMCBasicStats.(chains)
+    callbacks = [mcmc_callback(granularity, (samples[i], stats[i])) for i in eachindex(chains)]
 
     mcmc_iterate!(
         callbacks,
@@ -52,9 +56,14 @@ function Base.rand!(
         ll = ll
     )
 
-    for s in samples
-        append!(result, s)
+    for x in samples
+        append!(result_samples, x)
     end
+
+    for x in stats
+        merge!(result_stats, x)
+    end
+
     result
 end
 
@@ -70,7 +79,10 @@ function Base.rand(
     burnin_strategy::MCMCBurninStrategy = MCMCBurninStrategy(tuner_config),
     kwargs...
 )
-    result = DensitySampleVector(chainspec(0))
+    result = (
+        DensitySampleVector(chainspec(0)),
+        MCMCBasicStats(chainspec(0))
+    )
 
     rand!(
         result,

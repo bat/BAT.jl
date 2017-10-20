@@ -63,3 +63,17 @@ function Base.push!(stats::MCMCBasicStats, s::DensitySample)
 end
 
 nparams(stats::MCMCBasicStats) = stats.param_stats.m
+
+
+function Base.merge!(target::MCMCBasicStats, others::MCMCBasicStats...)
+    for x in others
+        if (x.logtf_stats.maximum > target.logtf_stats.maximum)
+            target.mode .= x.mode
+        end
+        merge!(target.param_stats, x.param_stats)
+        merge!(target.logtf_stats, x.logtf_stats)
+    end
+    target
+end
+
+Base.merge(a::MCMCBasicStats, bs::MCMCBasicStats...) = merge!(deepcopy(a), bs...)
