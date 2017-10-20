@@ -3,7 +3,9 @@
 
 # ToDo: Modularize
 
-@recipe function f(samples::DensitySampleVector)
+@recipe function f(samples::DensitySampleVector, parsel::NTuple{2,Integer} = (1,2))
+    pi_x, pi_y = parsel
+
     acc = find(x -> x > 0, samples.weight)
     rej = find(x -> x <= 0, samples.weight)
 
@@ -21,7 +23,7 @@
         markersize := base_markersize * sqrt.(samples.weight[acc])
         markerstrokewidth := 0
         color := color
-        (samples.params[1, acc], samples.params[2, acc])
+        (samples.params[pi_x, acc], samples.params[pi_y, acc])
     end
 
     if !isempty(rej)
@@ -31,7 +33,7 @@
             markersize := base_markersize
             markerstrokewidth := 0
             color := :red
-            (samples.params[1, rej], samples.params[2, rej])
+            (samples.params[pi_x, rej], samples.params[pi_y, rej])
         end
     end
 
