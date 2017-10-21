@@ -1,7 +1,29 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-# ToDo: Modularize
+const standard_confidence_vals = [0.68, 0.95, 0.997]
+
+
+function rectangle_path(lo::Vector{<:Real}, hi::Vector{<:Real})
+    [
+        lo[1] lo[2];
+        hi[1] lo[2];
+        hi[1] hi[2];
+        lo[1] hi[2];
+        lo[1] lo[2];
+    ]
+end
+
+
+function err_ellipsis_path(μ::Vector{<:Real}, Σ::Matrix{<:Real}, confidence::Real = 0.68, npts = 256)
+    σ_sqr, A = eig(Hermitian(Σ))
+    σ = sqrt.(σ_sqr)
+    ϕ = linspace(0, 2π, 100)
+    σ_scaled = σ .* sqrt(invlogcdf(Chisq(2), log(confidence)))
+    xy = hcat(σ_scaled[1] * cos.(ϕ), σ_scaled[2] * sin.(ϕ)) * [A[1,1] A[1,2]; A[2,1] A[2,2]]
+    xy .+ μ'
+end
+
 
 @recipe function f(samples::DensitySampleVector, parsel::NTuple{2,Integer})
     pi_x, pi_y = parsel
@@ -60,12 +82,11 @@ end
 @recipe function f(bounds::HyperRectBounds, parsel::NTuple{2,Integer})
     pi_x, pi_y = parsel
 
-    vhi = bounds.vol.hi; vlo = bounds.vol.lo
-    bext = 0.1 * (vhi - vlo)
-    xlims = (vlo[pi_x] - bext[pi_x], vhi[pi_x] + bext[pi_x])
-    ylims = (vlo[pi_y] - bext[pi_y], vhi[pi_y] + bext[pi_y])
-    bounds_rect_X = [vlo[pi_x],vhi[pi_x],vhi[pi_x],vlo[pi_x],vlo[pi_x]]
-    bounds_rect_Y = [vlo[pi_y],vlo[pi_y],vhi[pi_y],vhi[pi_y],vlo[pi_y]]
+    vhi = bounds.vol.hi[[pi_x, pi_y]]; vlo = bounds.vol.lo[[pi_x, pi_y]]
+    rect_xy = rectangle_path(vlo, vhi)
+    # bext = 0.1 * (vhi - vlo)
+    # xlims = (vlo[1] - bext[1], vhi[1] + bext[1])
+    # ylims = (vlo[2] - bext[2], vhi[2] + bext[2])
 
     @series begin
         seriestype := :path
@@ -73,26 +94,13 @@ end
         linecolor --> :darkred
         linewidth --> 2
         linealpha --> 0.5
-        xlims --> xlims
-        ylims --> ylims
-        (bounds_rect_X, bounds_rect_Y)
+        # xlims --> xlims
+        # ylims --> ylims
+        (rect_xy[:,1], rect_xy[:,2])
     end
 
     nothing
 end
-
-
-function err_ellipsis_xy(μ::Vector{<:Real}, Σ::Matrix{<:Real}, confidence::Real = 0.68, npts = 256)
-    σ_sqr, A = eig(Hermitian(Σ))
-    σ = sqrt.(σ_sqr)
-    ϕ = linspace(0, 2π, 100)
-    σ_scaled = σ .* sqrt(invlogcdf(Chisq(2), log(confidence)))
-    xy = hcat(σ_scaled[1] * cos.(ϕ), σ_scaled[2] * sin.(ϕ)) * [A[1,1] A[1,2]; A[2,1] A[2,2]]
-    xy .+ μ'
-end
-
-
-const standard_confidence_vals = [0.68, 0.95, 0.997]
 
 
 @recipe function f(stats::MCMCBasicStats, parsel::NTuple{2,Integer})
@@ -111,7 +119,7 @@ const standard_confidence_vals = [0.68, 0.95, 0.997]
     linealpha --> 0.68
     
     for i in eachindex(conf)
-        xy = err_ellipsis_xy(μ, Σ, conf[i])
+        xy = err_ellipsis_path(μ, Σ, conf[i])
         @series begin
             seriestype := :path
             label --> "$(100 *conf[i])%"
@@ -140,6 +148,24 @@ const standard_confidence_vals = [0.68, 0.95, 0.997]
         markershape := :rect
         color --> :black
         ([mode_xy[1]], [mode_xy[2]])
+    end
+
+    vlo = stats.param_stats.minimum[[pi_x, pi_y]]
+    vhi = stats.param_stats.maximum[[pi_x, pi_y]]
+    rect_xy = rectangle_path(vlo, vhi)
+    # bext = 0.1 * (vhi - vlo)
+    # xlims = (vlo[1] - bext[1], vhi[1] + bext[1])
+    # ylims = (vlo[2] - bext[2], vhi[2] + bext[2])
+
+    @series begin
+        seriestype := :path
+        label --> "bbox"
+        linecolor --> :green
+        linewidth --> 2
+        linealpha --> 0.5
+        # xlims --> xlims
+        # ylims --> ylims
+        (rect_xy[:,1], rect_xy[:,2])
     end
 
     nothing
