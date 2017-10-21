@@ -38,15 +38,15 @@ end
     delete!(d, :bounds)
 
     if seriestype == :scatter
-        color = get(d, :seriescolor, :green)
+        color = parse(RGBA{Float64}, get(d, :seriescolor, :green))
         label = get(d, :label, isempty(rej) ? "samples" : "accepted")
 
         @series begin
             seriestype := :scatter
             label := label
-            markersize := base_markersize * sqrt.(samples.weight[acc])
+            markersize := [w < 1 ? base_markersize : base_markersize * sqrt(w) for w in samples.weight[acc]]
             markerstrokewidth := 0
-            color := color
+            color := [w >= 1 ? color : RGBA(convert(RGB, color), color.alpha * w) for w in samples.weight[acc]]
             xlabel --> "\$\\theta_$(pi_x)\$"
             ylabel --> "\$\\theta_$(pi_y)\$"
             (samples.params[pi_x, acc], samples.params[pi_y, acc])
@@ -91,9 +91,9 @@ end
     @series begin
         seriestype := :path
         label --> "bounds"
-        linecolor --> :darkred
+        color --> :darkred
+        alpha --> 0.75
         linewidth --> 2
-        linealpha --> 0.5
         xlims --> xlims
         ylims --> ylims
         (rect_xy[:,1], rect_xy[:,2])
@@ -114,9 +114,9 @@ end
 
     conf = standard_confidence_vals
 
-    linecolor --> :darkviolet
+    color --> :darkviolet
+    alpha --> 0.75
     linewidth --> 2
-    linealpha --> 0.68
     
     for i in eachindex(conf)
         xy = err_ellipsis_path(μ, Σ, conf[i])
@@ -127,18 +127,17 @@ end
         end
     end
 
-    markercolor --> :darkviolet
-    markersize --> 7
+    markercolor --> :white
     markeralpha --> 0
-    markerstrokewidth --> 2
+    markersize --> 7
     markerstrokecolor --> :black
     markerstrokealpha --> 1
+    markerstrokewidth --> 2
 
     @series begin
         seriestype := :scatter
         label := "mean"
         markershape := :circle
-        color --> :black
         ([μ[1]], [μ[2]])
     end
 
@@ -146,25 +145,16 @@ end
         seriestype := :scatter
         label := "mode"
         markershape := :rect
-        color --> :black
         ([mode_xy[1]], [mode_xy[2]])
     end
 
     vlo = stats.param_stats.minimum[[pi_x, pi_y]]
     vhi = stats.param_stats.maximum[[pi_x, pi_y]]
     rect_xy = rectangle_path(vlo, vhi)
-    # bext = 0.1 * (vhi - vlo)
-    # xlims = (vlo[1] - bext[1], vhi[1] + bext[1])
-    # ylims = (vlo[2] - bext[2], vhi[2] + bext[2])
 
     @series begin
         seriestype := :path
         label --> "bbox"
-        linecolor --> :green
-        linewidth --> 2
-        linealpha --> 0.5
-        # xlims --> xlims
-        # ylims --> ylims
         (rect_xy[:,1], rect_xy[:,2])
     end
 
