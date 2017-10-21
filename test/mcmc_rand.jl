@@ -17,7 +17,7 @@ using Distributions, PDMats, StatsBase
         nsamples_per_chain = 2000
         nchains = 4
 
-        samples, stats = @inferred rand(
+        samples, sampleids, stats = @inferred rand(
             MCMCSpec(algorithm, tdensity, bounds),
             nsamples_per_chain,
             nchains,
@@ -25,13 +25,14 @@ using Distributions, PDMats, StatsBase
             granularity = 1
         )
 
+        @test length(samples) == length(sampleids)
         @test length(samples) == nchains * nsamples_per_chain
         @test samples.params[:, findmax(samples.log_value)[2]] == stats.mode
 
         cov_samples = cov(samples.params, FrequencyWeights(samples.weight), 2; corrected=true)
         mean_samples = mean(Array(samples.params), FrequencyWeights(samples.weight), 2)
 
-        @test isapprox(mean_samples, mvec; atol = 0.1)
+        @test isapprox(mean_samples, mvec; atol = 0.2)
         @test isapprox(cov_samples, cmat; atol = 0.3)
     end
 end
