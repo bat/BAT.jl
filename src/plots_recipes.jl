@@ -84,9 +84,9 @@ end
 
     vhi = bounds.vol.hi[[pi_x, pi_y]]; vlo = bounds.vol.lo[[pi_x, pi_y]]
     rect_xy = rectangle_path(vlo, vhi)
-    # bext = 0.1 * (vhi - vlo)
-    # xlims = (vlo[1] - bext[1], vhi[1] + bext[1])
-    # ylims = (vlo[2] - bext[2], vhi[2] + bext[2])
+    bext = 0.1 * (vhi - vlo)
+    xlims = (vlo[1] - bext[1], vhi[1] + bext[1])
+    ylims = (vlo[2] - bext[2], vhi[2] + bext[2])
 
     @series begin
         seriestype := :path
@@ -94,8 +94,8 @@ end
         linecolor --> :darkred
         linewidth --> 2
         linealpha --> 0.5
-        # xlims --> xlims
-        # ylims --> ylims
+        xlims --> xlims
+        ylims --> ylims
         (rect_xy[:,1], rect_xy[:,2])
     end
 
