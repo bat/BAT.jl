@@ -1,8 +1,11 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+# TODO: Add MCMCSampleIDVector to output
+# TODO: Fix granularity forwarding
+
 function Base.rand!(
-    result::Tuple{DensitySampleVector, MCMCBasicStats},
+    result::Tuple{DensitySampleVector, MCMCSampleIDVector, MCMCBasicStats},
     chainspec::MCMCSpec,
     nsamples::Integer,
     nchains::Integer,
@@ -17,8 +20,7 @@ function Base.rand!(
     strict_mode::Bool = false,
     ll::LogLevel = LOG_INFO,
 )
-    result_samples = result[1]
-    result_stats = result[2]
+    result_samples, result_sampleids, result_stats = result
 
     tuners = mcmc_init(
         chainspec,
@@ -43,8 +45,10 @@ function Base.rand!(
     chains = map(x -> x.chain, tuners)
 
     samples = DensitySampleVector.(chains)
+    sampleids = MCMCSampleIDVector.(chains)
     stats = MCMCBasicStats.(chains)
-    callbacks = [mcmc_callback(granularity, (samples[i], stats[i])) for i in eachindex(chains)]
+
+    callbacks = [MCMCPushCallback(granularity, samples[i], sampleids[i], stats[i]) for i in eachindex(chains)]
 
     mcmc_iterate!(
         callbacks,
@@ -57,7 +61,11 @@ function Base.rand!(
     )
 
     for x in samples
-        append!(result_samples, x)
+        merge!(result_samples, x)
+    end
+
+    for x in sampleids
+        merge!(result_sampleids, x)
     end
 
     for x in stats
@@ -81,6 +89,7 @@ function Base.rand(
 )
     result = (
         DensitySampleVector(chainspec(0)),
+        MCMCSampleIDVector(chainspec(0)),
         MCMCBasicStats(chainspec(0))
     )
 

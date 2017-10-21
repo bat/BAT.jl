@@ -61,3 +61,5 @@ function Base.append!(A::MCMCSampleIDVector, B::MCMCSampleIDVector)
     append!(A.sampleno, B.sampleno)
     A
 end
+
+Base.convert(::Type{AbstractMCMCCallback}, x::MCMCSampleIDVector) = MCMCPushCallback(x)

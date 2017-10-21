@@ -29,7 +29,7 @@ end
 
 
 function mcmc_propose_accept_reject!(
-    callback::Function,
+    callback::AbstractMCMCCallback,
     chain::MCMCIterator{<:DirectSampling},
     exec_context::ExecContext
 )

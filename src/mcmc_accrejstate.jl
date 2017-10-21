@@ -162,7 +162,7 @@ end
 
 
 function mcmc_step!(
-    callback::Function,
+    callback::AbstractMCMCCallback,
     chain::MCMCIterator{<:MCMCAlgorithm{AcceptRejectState}},
     exec_context::ExecContext,
     ll::LogLevel
