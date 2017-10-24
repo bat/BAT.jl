@@ -22,7 +22,7 @@ abstract type MCMCAlgorithm{S<:AbstractMCMCState} <: BATAlgorithm end
 
 
 
-mcmc_compatible(::MCMCAlgorithm, ::AbstractProposalDist, ::AbstractParamBounds) = true
+mcmc_compatible(::MCMCAlgorithm, ::AbstractProposalDist, ::OptionalParamBounds) = true
 
 function sample_weight_type end
 
@@ -170,7 +170,7 @@ MCMCSpec(
 MCMCSpec(
     algorithm::MCMCAlgorithm,
     density::AbstractDensityFunction,
-    bounds::AbstractParamBounds,
+    bounds::ParamVolumeBounds,
     rngseed::AbstractRNGSeed = Philox4xSeed()
 ) = MCMCSpec(algorithm, BoundedDensity(density, bounds), rngseed)
 
@@ -182,9 +182,8 @@ MCMCSpec(
     algorithm::MCMCAlgorithm,
     density::AbstractDensityFunction,
     prior::XXX,
-    bounds::AbstractParamBounds,
     rngseed::AbstractRNGSeed = Philox4xSeed()
-) = MCMCSpec(algorithm, BoundedDensity(density, bounds), rngseed)
+) = MCMCSpec(algorithm, ..., rngseed)
 =#
 
 

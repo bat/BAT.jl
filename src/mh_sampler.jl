@@ -15,7 +15,7 @@ export MetropolisHastings
 MetropolisHastings(q::ProposalDistSpec = MvTDistProposalSpec()) = MetropolisHastings{Int}()
 
 
-mcmc_compatible(::MetropolisHastings, ::AbstractProposalDist, ::UnboundedParams) = true
+mcmc_compatible(::MetropolisHastings, ::AbstractProposalDist, ::NoParamBounds) = true
 
 mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::HyperRectBounds) =
     issymmetric(pdist) || all(x -> x == hard_bounds, bounds.bt)

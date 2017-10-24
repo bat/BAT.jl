@@ -46,12 +46,12 @@ using IntervalSets
         @test BAT.apply_bounds(+5.3, ClosedInterval(-1, 2), reflective_bounds) ≈ -0.7
     end
 
-    @testset "BAT.UnboundedParams" begin
+    @testset "BAT.NoParamBounds" begin
         n = 2
-        @test typeof(@inferred BAT.UnboundedParams{Float32}(n)) == BAT.UnboundedParams{Float32}
+        @test typeof(@inferred BAT.NoParamBounds(n)) == BAT.NoParamBounds
 
         params = [-1000., 1000]
-        uparams = BAT.UnboundedParams{Float32}(n)
+        uparams = BAT.NoParamBounds(n)
         @test nparams(uparams) == n
         @test params in uparams
         @test in( hcat(params, params), uparams, 1)

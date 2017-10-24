@@ -2,7 +2,7 @@
 
 
 doc"""
-    nparams(X::Union{AbstractParamBounds,MCMCIterator,...})
+    nparams(X::Union{OptionalParamBounds,MCMCIterator,...})
 
 Get the number of parameters of `X`.
 """
@@ -11,16 +11,15 @@ export nparams
 
 
 
-export AbstractParamBounds
+export OptionalParamBounds
 
-abstract type AbstractParamBounds{T<:Real} end
+abstract type OptionalParamBounds end
 
-Base.eltype(b::AbstractParamBounds{T}) where T = T
 
-Base.rand(rng::AbstractRNG, bounds::AbstractParamBounds) =
+Base.rand(rng::AbstractRNG, bounds::OptionalParamBounds) =
     rand!(rng, bounds, Vector{float(eltype(bounds))}(nparams(bounds)))
 
-Base.rand(rng::AbstractRNG, bounds::AbstractParamBounds, n::Integer) =
+Base.rand(rng::AbstractRNG, bounds::OptionalParamBounds, n::Integer) =
     rand!(rng, bounds, Matrix{float(eltype(bounds))}(nparams(bounds), n))
 
 
@@ -44,7 +43,7 @@ export hard_bounds, cyclic_bounds, reflective_bounds
 
 
 doc"""
-    apply_bounds!(params::AbstractVector, bounds::AbstractParamBounds) 
+    apply_bounds!(params::AbstractVector, bounds::OptionalParamBounds) 
 
 Apply `bounds` to parameters `params`.
 """
@@ -94,25 +93,25 @@ Specify lower and upper bound via `interval`.
 
 
 
-export UnboundedParams
+export NoParamBounds
 
-struct UnboundedParams{T<:Real} <: AbstractParamBounds{T}
+struct NoParamBounds <: OptionalParamBounds
     ndims::Int
 end
 
-Base.in(params::AbstractVector, bounds::UnboundedParams) = true
-Base.in(params::AbstractMatrix, bounds::UnboundedParams, i::Integer) = true
+Base.in(params::AbstractVector, bounds::NoParamBounds) = true
+Base.in(params::AbstractMatrix, bounds::NoParamBounds, i::Integer) = true
 
-nparams(b::UnboundedParams) = b.ndims
+nparams(b::NoParamBounds) = b.ndims
 
 
-apply_bounds!(params::AbstractVector, bounds::UnboundedParams) = params
+apply_bounds!(params::AbstractVector, bounds::NoParamBounds) = params
 
 
 
 export ParamVolumeBounds
 
-abstract type ParamVolumeBounds{T<:Real, V<:SpatialVolume{T}} <: AbstractParamBounds{T} end
+abstract type ParamVolumeBounds{T<:Real, V<:SpatialVolume{T}} <: OptionalParamBounds end
 
 Base.in(params::AbstractVector, bounds::ParamVolumeBounds) = in(params, bounds.vol)
 Base.in(params::AbstractMatrix, bounds::ParamVolumeBounds, j::Integer) = in(params, bounds.vol, j)

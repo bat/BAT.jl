@@ -16,6 +16,8 @@ Base.parent(density::BoundedDensity) = density.density
 param_bounds(density::BoundedDensity) = density.bounds
 nparams(density::BoundedDensity) = nparams(density.bounds)
 
+param_prior(density::BoundedDensity) = param_prior(parent(density))
+
 
 
 @inline density_logval(density::BoundedDensity, args...) =

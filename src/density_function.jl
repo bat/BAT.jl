@@ -6,6 +6,10 @@ using FunctionWrappers: FunctionWrapper
 # ToDo: Add `density_logval_gradient!` to support HMC, etc.
 
 
+function param_bounds end
+
+function param_prior end
+
 
 doc"""
     AbstractDensityFunction
@@ -21,13 +25,15 @@ of the functions
 * `BAT.exec_capabilities`
 * `BAT.density_logval!`
 """
-abstract type AbstractDensityFunction{B<:AbstractParamBounds,P<:OptionalPrior} end
+abstract type AbstractDensityFunction{B<:OptionalParamBounds,P<:OptionalPrior} end
 export AbstractDensityFunction
 
 
-const UnconstrainedDensityFunction = AbstractDensityFunction{UnboundedParams,NoPrior}
+const UnconstrainedDensityFunction = AbstractDensityFunction{NoParamBounds,NoPrior}
 
-param_bounds(density::AbstractDensityFunction{<:UnboundedParams}) = UnboundedParams{Float64}()
+param_bounds(density::AbstractDensityFunction{<:NoParamBounds,<:Any}) = NoParamBounds()
+
+param_prior(density::AbstractDensityFunction{<:Any,NoPrior}) = NoPrior()
 
 
 doc"""
