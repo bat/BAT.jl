@@ -3,6 +3,6 @@
 
 const PriorDistribution = Distribution{Multivariate}
 
-abstract type NoPrior end
+abstract type OptionalPrior end
 
-const OptionalPrior = Union{NoPrior,PriorDistribution}
+abstract type NoPrior <: OptionalPrior end
