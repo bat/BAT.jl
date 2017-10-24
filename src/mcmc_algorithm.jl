@@ -150,6 +150,8 @@ function mcmc_iterate!(
 end
 
 
+# TODO: Make MCMCSpec a subtype of Sampleable{Multivariate,Continuous}?
+
 struct MCMCSpec{
     A<:MCMCAlgorithm,
     T<:AbstractDensityFunction,

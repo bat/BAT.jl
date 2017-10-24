@@ -1,8 +1,84 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-const PriorDistribution = Distribution{Multivariate}
+abstract type AbstractPrior{HasBounds} <: AbstractDensityFunction{HasBounds,false} end
 
-abstract type OptionalPrior end
+const BoundedPrior = AbstractPrior{true}
 
-abstract type NoPrior <: OptionalPrior end
+const UnboundedPrior = AbstractPrior{false}
+
+
+param_prior(density::AbstractDensityFunction{<:Any,false}) = NoPrior()
+
+
+
+struct NoPrior{T<:Real} <: UnboundedPrior
+    nparams::Int
+end
+
+export NoPrior
+
+
+nparams(density::NoPrior) = density.nparams
+
+function density_logval(
+    density::NoPrior,
+    params::AbstractVector{<:Real},
+    exec_context::ExecContext = ExecContext()
+)
+    size(params, 1) != nparams(density) && throw(ArgumentError("Invalid number of parameters"))
+    one(eltype(params))
+end
+
+function density_logval!(
+    r::AbstractArray{<:Real},
+    density::NoPrior,
+    params::AbstractMatrix{<:Real},
+    exec_context::ExecContext
+)
+    size(params, 1) != nparams(density) && throw(ArgumentError("Invalid number of parameters"))
+    size(params, 2) != length(r) && throw(ArgumentError("Number of parameter vectors doesn't match length of result vector"))
+    fill!(r, one(eltype(r)))
+end
+
+
+
+abstract type AbstractPriorDistribution <: UnboundedPrior
+
+
+
+struct PriorDistribution{D<:Distribution{Multivariate}} <: AbstractPriorDistribution
+    distribution::D
+end
+
+
+Base.parent(p::PriorDistribution) = p.distribution
+
+
+nparams(density::PriorDistribution) = length(parent(density))
+
+function density_logval(
+    density::PriorDistribution,
+    params::AbstractVector{<:Real},
+    exec_context::ExecContext = ExecContext()
+)
+    size(params, 1) != nparams(density) && throw(ArgumentError("Invalid number of parameters"))
+    Distributions.logpdf(parent(density), params)
+end
+
+function density_logval!(
+    r::AbstractArray{<:Real},
+    density::PriorDistribution,
+    params::AbstractMatrix{<:Real},
+    exec_context::ExecContext
+)
+    size(params, 1) != nparams(density) && throw(ArgumentError("Invalid number of parameters"))
+    size(params, 2) != length(r) && throw(ArgumentError("Number of parameter vectors doesn't match length of result vector"))
+    Distributions.logpdf!(r, parent(density), params)
+end
+
+
+Distributions.sampler(p::PriorDistribution) = bat_sampler(parent(p))
+
+rand!(rng::AbstractRNG, p::PriorDistribution, p::VecOrMat) = rand!(rng, sampler(p), p)
+rand(rng::AbstractRNG, p::PriorDistribution, n::Integer) = rand(rng, sampler(p), n)

@@ -25,15 +25,13 @@ of the functions
 * `BAT.exec_capabilities`
 * `BAT.density_logval!`
 """
-abstract type AbstractDensityFunction{B<:OptionalParamBounds,P<:OptionalPrior} end
+abstract type AbstractDensityFunction{HasBounds,HasPrior} end
 export AbstractDensityFunction
 
 
-const UnconstrainedDensityFunction = AbstractDensityFunction{NoParamBounds,NoPrior}
+const UnconstrainedDensityFunction = AbstractDensityFunction{false,false}
 
-param_bounds(density::AbstractDensityFunction{<:NoParamBounds,<:Any}) = NoParamBounds()
-
-param_prior(density::AbstractDensityFunction{<:Any,NoPrior}) = NoPrior()
+param_bounds(density::AbstractDensityFunction{false,<:Any}) = NoParamBounds()
 
 
 doc"""
