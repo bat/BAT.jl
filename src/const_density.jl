@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct ConstDensityFunction{T<:Real} <: AbstractDensityFunction
+struct ConstDensityFunction{T<:Real} <: UnconstrainedDensityFunction
     log_value::T
     nparams::Int
 end

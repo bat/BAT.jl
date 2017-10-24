@@ -1,10 +1,10 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-mutable struct BoundedDensity{
-    F<:AbstractDensityFunction,
-    B<:AbstractParamBounds
-} #<: AbstractBoundedDensity
+mutable struct BoundedDensity{B<:ParamVolumeBounds,P<:OptionalPrior}{
+    F<:AbstractDensityFunction{<:Any,P},
+    B
+} <: AbstractDensityFunction{B,P}
     density::F
     bounds::B
 end

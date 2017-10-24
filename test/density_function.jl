@@ -5,7 +5,7 @@ using Compat.Test
 
 using Distributions, PDMats, StatsBase
 
-struct atd_wrap <: AbstractDensityFunction end
+struct DummyDF <: UnconstrainedDensityFunction end
 
 @testset "target_density" begin
     mvec = [-0.3, 0.3]
@@ -30,7 +30,7 @@ struct atd_wrap <: AbstractDensityFunction end
     end
 
     @testset "exec_capabilities" begin
-        td = @inferred atd_wrap()
+        td = @inferred DummyDF()
         ecap = @inferred BAT.exec_capabilities(density_logval!, td, params)
         @test ecap.nthreads == 0
         @test ecap.threadsafe == false

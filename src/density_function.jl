@@ -20,16 +20,14 @@ of the functions
 
 * `BAT.exec_capabilities`
 * `BAT.density_logval!`
-
-By default, an `AbstractDensityFunction` is unboundeded. Parameter bounds can
-be set by overriding the default implementation of `BAT.param_bounds` or by
-wrapping the density in a `BoundedDensity`.
 """
-abstract type AbstractDensityFunction end
+abstract type AbstractDensityFunction{B<:AbstractParamBounds,P<:OptionalPrior} end
 export AbstractDensityFunction
 
 
-param_bounds(density::AbstractDensityFunction) = UnboundedParams{Float64}()
+const UnconstrainedDensityFunction = AbstractDensityFunction{UnboundedParams,NoPrior}
+
+param_bounds(density::AbstractDensityFunction{<:UnboundedParams}) = UnboundedParams{Float64}()
 
 
 doc"""
@@ -105,7 +103,7 @@ exec_capabilities(::typeof(density_logval!), density::AbstractDensityFunction, p
 
 
 
-struct GenericDensityFunction{F} <: AbstractDensityFunction
+struct GenericDensityFunction{F} <: UnconstrainedDensityFunction
     log_f::F
     nparams::Int
 end
@@ -129,10 +127,10 @@ end
 
 #=
 
-mutable struct TransformedDensity{
+mutable struct TransformedDensity{...}{
     SO<:AbstractDensityFunction,
     SN<:AbstractDensityFunction
-} <: AbstractDensityFunction
+} <: AbstractDensityFunction{...}
    before::SO
    after::SN
    # ... transformation, Jacobi matrix of transformation, etc.
