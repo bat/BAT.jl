@@ -25,21 +25,8 @@ nparams(density::BoundedDensity) = nparams(density.bounds)
     exec_capabilities(density_logval, parent(density), args...)
 
 
-function density_logval!(
-    r::AbstractArray{<:Real},
-    density::AbstractDensityFunction,
-    params::AbstractMatrix{<:Real},
-    exec_context::ExecContext = ExecContext()
-)
-    ret = density_logval!(r, parent(density), params, exec_context)
+@inline density_logval!(density::BoundedDensity, args...) =
+    density_logval(parent(density), args...)
 
-    if (check_bounds)
-        # TODO: Set entries of r to -Inf if respective param vector not in bounds.
-        error("Bounds check not implemented yet")
-    end
-
-    ret
-end
-
-exec_capabilities(::typeof(density_logval!), density::BoundedDensity, params::AbstractMatrix{<:Real}) =
-    exec_capabilities(density_logval!, parent(density), params::AbstractMatrix{<:Real})
+@inline exec_capabilities(::typeof(density_logval!), density::BoundedDensity, args...) =
+    exec_capabilities(density_logval, parent(density), args...)
