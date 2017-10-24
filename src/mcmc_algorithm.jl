@@ -27,13 +27,13 @@ mcmc_compatible(::MCMCAlgorithm, ::AbstractProposalDist, ::AbstractParamBounds) 
 function sample_weight_type end
 
 
-rand_initial_params(rng::AbstractRNG, algorithm::MCMCAlgorithm, target::BoundedDensity) =
+XXXXXX rand_initial_params(rng::AbstractRNG, algorithm::MCMCAlgorithm, target::BoundedDensity) =
     rand_initial_params!(rng, algorithm, target, Vector{float(eltype(param_bounds(target)))}(nparams(target)))
 
-rand_initial_params(rng::AbstractRNG, algorithm::MCMCAlgorithm, target::BoundedDensity, n::Integer) =
+XXXXXX rand_initial_params(rng::AbstractRNG, algorithm::MCMCAlgorithm, target::BoundedDensity, n::Integer) =
     rand_initial_params!(rng, algorithm, target, Matrix{float(eltype(param_bounds(target)))}(nparams(target), n))
 
-rand_initial_params!(rng::AbstractRNG, ::MCMCAlgorithm, target::BoundedDensity, x::StridedVecOrMat{<:Real}) =
+XXXXXX rand_initial_params!(rng::AbstractRNG, ::MCMCAlgorithm, target::BoundedDensity, x::StridedVecOrMat{<:Real}) =
     rand!(rng, param_bounds(target), x)
 
 

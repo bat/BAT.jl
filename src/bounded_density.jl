@@ -18,30 +18,18 @@ nparams(density::BoundedDensity) = nparams(density.bounds)
 
 
 
-function density_logval(
-    density::BoundedDensity,
-    params::AbstractVector{<:Real},
-    exec_context::ExecContext = ExecContext(),
-    check_bounds = true
-)
-    l = density_logval(parent(density), params, exec_context)
-    if !check_bounds || params in param_bounds(density)
-        l
-    else
-        typeof(l)(-Inf)
-    end
-end
+@inline density_logval(density::BoundedDensity, args...) =
+    density_logval(parent(density), args...)
 
-exec_capabilities(::typeof(density_logval), density::BoundedDensity, params::AbstractVector{<:Real}) =
-    exec_capabilities(density_logval, parent(density), params)
+@inline exec_capabilities(::typeof(density_logval), density::BoundedDensity, args...) =
+    exec_capabilities(density_logval, parent(density), args...)
 
 
 function density_logval!(
     r::AbstractArray{<:Real},
     density::AbstractDensityFunction,
     params::AbstractMatrix{<:Real},
-    exec_context::ExecContext = ExecContext(),
-    check_bounds = true
+    exec_context::ExecContext = ExecContext()
 )
     ret = density_logval!(r, parent(density), params, exec_context)
 

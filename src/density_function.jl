@@ -74,6 +74,10 @@ Array size requirements:
 
     size(params, 1) == length(r)
 
+The result of `density_logval!` for parameter vectors that are out of bounds
+is undefined: `density_logval!` must not fail, but may store arbitrary values
+in the corresponding entries of `r`.
+
 See `ExecContext` for thread-safety requirements.
 """
 function density_logval! end
