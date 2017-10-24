@@ -76,7 +76,11 @@ function mcmc_propose_accept_reject!(
         current_log_value = current_sample.log_value
         proposed_sample.log_value = proposed_log_value
 
-        clamp(T(exp(proposed_log_value - current_log_value - log_tpr)), zero(T), one(T))
+        p_accept = if proposed_log_value > -Inf
+            clamp(T(exp(proposed_log_value - current_log_value - log_tpr)), zero(T), one(T))
+        else
+            0
+        end
     else
         p_accept = zero(T)
         proposed_sample.log_value = -Inf
