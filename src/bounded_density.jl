@@ -1,11 +1,12 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-mutable struct BoundedDensity{
+mutable struct BoundedDensity{    XXXX check
+    Normalized,
     HasPrior,
-    F<:AbstractDensityFunction{<:Any,HasPrior},
+    F<:AbstractDensityFunction{Normalized,<:Any,HasPrior},
     B<:ParamVolumeBounds
-} <: AbstractDensityFunction{true,HasPrior}
+} <: AbstractDensityFunction{Normalized,true,HasPrior}
     density::F
     bounds::B
 end

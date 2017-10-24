@@ -1,21 +1,26 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-abstract type AbstractPrior{HasBounds} <: AbstractDensityFunction{HasBounds,false} end
 
-const BoundedPrior = AbstractPrior{true}
+abstract type AbstractPrior{HasBounds} <: AbstractDensityFunction{true,HasBounds,false} end
 
-const UnboundedPrior = AbstractPrior{false}
-
-
-param_prior(density::AbstractDensityFunction{<:Any,false}) = NoPrior()
+# XXXXXX !!!!! Alternative:
+# const AbstractPrior{HasBounds} = AbstractDensityFunction{true,HasBounds,false}
 
 
+const AbstractBoundedPrior = AbstractPrior{true}
 
-struct NoPrior{T<:Real} <: UnboundedPrior
+const AbstractUnboundedPrior = AbstractPrior{false}
+
+
+param_prior(density::AbstractDensityFunction{<:Any,<:Any,false}) = NoPrior()
+
+
+
+struct NoPrior{T<:Real} <: AbstractUnboundedPrior  XXXX check
     nparams::Int
 end
-
+b
 export NoPrior
 
 
@@ -43,7 +48,7 @@ end
 
 
 
-abstract type AbstractPriorDistribution <: UnboundedPrior
+abstract type AbstractPriorDistribution <: AbstractUnboundedPrior
 
 
 
@@ -82,3 +87,6 @@ Distributions.sampler(p::PriorDistribution) = bat_sampler(parent(p))
 
 rand!(rng::AbstractRNG, p::PriorDistribution, p::VecOrMat) = rand!(rng, sampler(p), p)
 rand(rng::AbstractRNG, p::PriorDistribution, n::Integer) = rand(rng, sampler(p), n)
+
+
+# TODO: XXXXX BoundedPrior, like BoundedDensity

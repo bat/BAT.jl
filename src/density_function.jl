@@ -25,13 +25,13 @@ of the functions
 * `BAT.exec_capabilities`
 * `BAT.density_logval!`
 """
-abstract type AbstractDensityFunction{HasBounds,HasPrior} end
+abstract type AbstractDensityFunction{Normalized,HasBounds,HasPrior} end  XXXXX check
 export AbstractDensityFunction
 
 
-const UnconstrainedDensityFunction = AbstractDensityFunction{false,false}
+const UnconstrainedDensityFunction{Normalized} = AbstractDensityFunction{Normalized,false,false}
 
-param_bounds(density::AbstractDensityFunction{false,<:Any}) = NoParamBounds()
+param_bounds(density::AbstractDensityFunction{<:Any,false,<:Any}) = NoParamBounds()
 
 
 doc"""
@@ -108,7 +108,7 @@ exec_capabilities(::typeof(density_logval!), density::AbstractDensityFunction, p
 
 
 
-struct GenericDensityFunction{F} <: UnconstrainedDensityFunction
+struct GenericDensityFunction{F} <: UnconstrainedDensityFunction{false} ### XXXX !!!! {Normalized} instead of {false}?
     log_f::F
     nparams::Int
 end

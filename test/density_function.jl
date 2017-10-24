@@ -5,7 +5,7 @@ using Compat.Test
 
 using Distributions, PDMats, StatsBase
 
-struct DummyDF <: UnconstrainedDensityFunction end
+struct DummyDF <: UnconstrainedDensityFunction{false} end
 
 @testset "target_density" begin
     mvec = [-0.3, 0.3]

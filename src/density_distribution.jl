@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct MvDistDensityFunction{D<:Distribution{Multivariate,Continuous}} <: UnconstrainedDensityFunction
+struct MvDistDensityFunction{D<:Distribution{Multivariate,Continuous}} <: UnconstrainedDensityFunction{true}
     d::D
 end
 
