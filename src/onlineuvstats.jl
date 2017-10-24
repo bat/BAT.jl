@@ -3,7 +3,7 @@
 using Base: @propagate_inbounds
 
 
-"""
+doc"""
     OnlineUvMean{T<:AbstractFloat}
 
 Multi-variate mean implemented via Kahan-Babuška-Neumaier summation.
@@ -51,7 +51,7 @@ end
 
 
 
-"""
+doc"""
     OnlineUvVar{T<:AbstractFloat,W}
 
 Implementation based on variance calculation Algorithms of Welford and West.

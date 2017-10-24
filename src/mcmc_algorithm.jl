@@ -214,10 +214,10 @@ function (spec::MCMCSpec)(
 end
 
 
-"""
+doc"""
     AbstractMCMCCallback <: Function
 
-Subtypes (here, `X`) must support
+Subtypes (e.g. `X`) must support
 
     (::X)(level::Integer, chain::MCMCIterator) => nothing
     (::X)(level::Integer, tuner::AbstractMCMCTuner) => nothing
@@ -250,7 +250,7 @@ mcmc_callback_vector(x::Tuple{}, chains::AbstractVector{<:MCMCIterator}) =
 
 
 
-"""
+doc"""
     MCMCCallbackWrapper{F} <: AbstractMCMCCallback
 
 Wraps a callable object to turn it into an `AbstractMCMCCallback`.

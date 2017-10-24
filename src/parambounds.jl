@@ -42,11 +42,20 @@ export hard_bounds, cyclic_bounds, reflective_bounds
 
 @inline float_iseven(n::T) where {T<:AbstractFloat} = (n - T(2) * floor((n + T(0.5)) * T(0.5))) < T(0.5)
 
+
+doc"""
+    apply_bounds!(params::AbstractVector, bounds::AbstractParamBounds) 
+
+Apply `bounds` to parameters `params`.
+"""
+function apply_bounds! end
+
+
 doc"""
     apply_bounds(x::<:Real, lo::<:Real, hi::<:Real, boundary_type::BoundsType) 
 
-Set low bound `lo` and high bound `hi` for Parameter `x`
-`boundary_type` may be `hard_bounds`, `cyclic_bounds` or `reflective_bounds`.
+Apply lower/upper bound `lo`/`hi` to value `x`. `boundary_type` may be
+`hard_bounds`, `cyclic_bounds` or `reflective_bounds`.
 """
 @inline function apply_bounds(x::X, lo::L, hi::H, boundary_type::BoundsType, oobval = oob(x)) where {X<:Real,L<:Real,H<:Real}
     T = float(promote_type(X, L, H))
@@ -78,7 +87,7 @@ end
 doc"""
     apply_bounds(x::Real, interval::ClosedInterval, boundary_type::BoundsType)
 
-Instead of `lo` and `hi` an `interval` can be used.
+Specify lower and upper bound via `interval`.
 """
 @inline apply_bounds(x::Real, interval::ClosedInterval, boundary_type::BoundsType, oobval = oob(x)) =
     apply_bounds(x, minimum(interval), maximum(interval), boundary_type, oobval)
@@ -97,11 +106,6 @@ Base.in(params::AbstractMatrix, bounds::UnboundedParams, i::Integer) = true
 nparams(b::UnboundedParams) = b.ndims
 
 
-doc"""
-    apply_bounds!(params::AbstractVector, bounds::UnboundedParams) 
-
-For Parameters without bounds use `bounds` of type `UnboundedParams`
-"""
 apply_bounds!(params::AbstractVector, bounds::UnboundedParams) = params
 
 

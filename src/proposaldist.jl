@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-"""
+doc"""
     AbstractProposalDist
 
 The following functions must be implemented for subtypes:
@@ -10,12 +10,30 @@ The following functions must be implemented for subtypes:
 * `BAT.proposal_rand!`
 * `BAT.nparams`, returning the number of parameters (i.e. dimensionality).
 * `Base.issymmetric`, indicating whether p(a -> b) == p(b -> a) holds true.
+
+In some cases, it may be desirable to override the default implementation
+of `BAT.proposal_logpdf!`.
 """
 abstract type AbstractProposalDist end
 export AbstractProposalDist
 
 
+doc"""
+    proposal_logpdf(
+        pdist::AbstractProposalDist,
+        params_new::AbstractVector,
+        params_old:::AbstractVector
+    )
+
+Analog to `proposal_logpdf!`, but for a single parameter vector.
 """
+function proposal_logpdf end
+export proposal_logpdf
+
+# TODO: Implement proposal_logpdf for included proposal distributions
+
+
+doc"""
     proposal_logpdf!(
         p::AbstractArray,
         pdist::AbstractProposalDist,
@@ -23,8 +41,8 @@ export AbstractProposalDist
         params_old:::AbstractVecOrMat
     )
 
-log(PDF) value of `pdist` for transitioning from old to new parameter values
-for multiple parameter sets.
+Returns log(PDF) value of `pdist` for transitioning from old to new parameter
+values for multiple parameter sets.
     
 end
 
@@ -43,25 +61,15 @@ Array size requirements:
 * `size(params_old, 2) == size(params_new, 2)` or `size(params_old, 2) == 1`
 * `size(params_new, 2) == length(p)`
 
-The caller must not assume that `proposal_logpdf!` is thread-safe.
+Implementations of `proposal_logpdf!` must be thread-safe.
 """
 function proposal_logpdf! end
 export proposal_logpdf!
 
-
-# """
-#     proposal_logpdf(
-#         pdist::AbstractProposalDist,
-#         params_new::AbstractVecOrMat,
-#         params_old:::AbstractVecOrMat
-#     )
-# """
-# function proposal_logpdf end
-# export proposal_logpdf
+# TODO: Default implementation of proposal_logpdf!
 
 
-
-"""
+doc"""
     function proposal_rand!(
         rng::AbstractRNG,
         pdist::GenericProposalDist,
@@ -76,11 +84,11 @@ Input:
 
 * `rng`: Random number generator to use
 * `pdist`: Proposal distribution to use
-* `params_old`: Old parameter values (vector or column vectors in a matrix)
+* `params_old`: Old parameter values (vector or column vectors, if a matrix)
 
 Output is stored in
 
-* `params_new`: New parameter values (vector or column vectors in a matrix)
+* `params_new`: New parameter values (vector or column vectors, if a matrix)
 
 The caller must guarantee:
 
@@ -88,7 +96,7 @@ The caller must guarantee:
 * `size(params_old, 2) == size(params_new, 2)` or `size(params_old, 2) == 1`
 * `params_new !== params_old` (no aliasing)
 
-The caller must not assume that `proposal_rand!` is thread-safe.
+Implementations of `proposal_rand!` must be thread-safe.
 """
 function proposal_rand! end
 export proposal_rand!

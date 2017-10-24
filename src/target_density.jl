@@ -7,7 +7,7 @@ using FunctionWrappers: FunctionWrapper
 
 
 
-"""
+doc"""
     AbstractTargetDensity
 
 The following functions must be implemented for subtypes:
@@ -26,7 +26,24 @@ export AbstractTargetDensity
 # Optional target_(re-)init(target, exec_context)??
 
 
+doc"""
+    target_logval(
+        target::AbstractTargetDensity,
+        params::AbstractVector{<:Real},
+        exec_context::ExecContext = ExecContext()
+    )
+
+See `ExecContext` for thread-safety requirements.
 """
+function target_logval end
+export target_logval
+
+# Assume that target_logval isn't always thread-safe, but usually remote-safe:
+exec_capabilities(::typeof(target_logval), target::AbstractTargetDensity, params::AbstractVector{<:Real}) =
+    ExecCapabilities(0, false, 0, true)
+
+
+doc"""
     target_logval!(
         r::AbstractArray{<:Real},
         target::AbstractTargetDensity,
@@ -74,24 +91,6 @@ end
 # ToDo: Derive from exec_capabilities(target_logval, target, ...)
 exec_capabilities(::typeof(target_logval!), target::AbstractTargetDensity, params::AbstractMatrix{<:Real}) =
     ExecCapabilities(0, false, 0, true) # Change when default implementation of target_logval! for AbstractTargetDensity becomes multithreaded.
-
-
-"""
-    target_logval(
-        target::AbstractTargetDensity,
-        params::AbstractVector{<:Real},
-        exec_context::ExecContext = ExecContext()
-    )
-
-See `ExecContext` for thread-safety requirements.
-"""
-function target_logval end
-export target_logval
-
-
-# Assume that target_logval isn't always thread-safe, but usually remote-safe:
-exec_capabilities(::typeof(target_logval), target::AbstractTargetDensity, params::AbstractVector{<:Real}) =
-    ExecCapabilities(0, false, 0, true)
 
 
 
