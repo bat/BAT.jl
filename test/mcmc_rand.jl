@@ -11,14 +11,14 @@ using Distributions, PDMats, StatsBase
         mvec = [-0.3, 0.3]
         cmat = [1.0 1.5; 1.5 4.0]
         Σ = @inferred PDMat(cmat)
-        tdensity = @inferred MvDistTargetDensity(MvNormal(mvec, Σ))
+        density = @inferred MvDistDensityFunction(MvNormal(mvec, Σ))
         algorithm = @inferred MetropolisHastings()
         bounds = @inferred HyperRectBounds([-5, -8], [5, 8], reflective_bounds)
         nsamples_per_chain = 2000
         nchains = 4
 
         samples, sampleids, stats = @inferred rand(
-            MCMCSpec(algorithm, tdensity, bounds),
+            MCMCSpec(algorithm, density, bounds),
             nsamples_per_chain,
             nchains,
             max_time = Inf,

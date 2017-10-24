@@ -102,7 +102,7 @@ end
 
 function MCMCIterator(
     algorithm::MCMCAlgorithm{AcceptRejectState},
-    target::AbstractTargetSubject,
+    target::AbstractDensityFunction,
     id::Integer,
     rng::AbstractRNG,
     initial_params::AbstractVector{P}, # May be empty
@@ -118,13 +118,13 @@ function MCMCIterator(
         convert(Vector{P}, initial_params)
     end
 
-    !(params_vec in target.bounds) && throw(ArgumentError("Parameter(s) out of bounds"))
+    !(params_vec in param_bounds(target)) && throw(ArgumentError("Parameter(s) out of bounds"))
 
     reset_rng_counters!(rng, MCMCSampleID(id, cycle, 1))
 
     m = length(params_vec)
 
-    log_value = target_logval(target.tdensity, params_vec, exec_context)
+    log_value = density_logval(parent(target), params_vec, exec_context)
     L = typeof(log_value)
     W = sample_weight_type(typeof(algorithm))
 
@@ -170,7 +170,7 @@ function mcmc_step!(
     state = chain.state
     algorithm = chain.algorithm
 
-    if !mcmc_compatible(algorithm, chain.state.pdist, chain.target.bounds)
+    if !mcmc_compatible(algorithm, chain.state.pdist, param_bounds(chain.target))
         error("Implementation of algorithm $algorithm does not support current parameter bounds with current proposal distribution")
     end
 

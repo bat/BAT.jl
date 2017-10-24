@@ -62,7 +62,7 @@ function tuning_init_proposal!(tuner::ProposalCovTuner)
     chain = tuner.chain
 
     # ToDo: Generalize for non-hypercube bounds
-    bounds = chain.target.bounds
+    bounds = param_bounds(chain.target)
     flat_var = (bounds.vol.hi - bounds.vol.lo).^2 / 12
 
     m = length(flat_var)

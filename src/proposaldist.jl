@@ -6,35 +6,35 @@ doc"""
 
 The following functions must be implemented for subtypes:
 
-* `BAT.proposal_logpdf!`
+* `BAT.distribution_logpdf`
 * `BAT.proposal_rand!`
 * `BAT.nparams`, returning the number of parameters (i.e. dimensionality).
 * `Base.issymmetric`, indicating whether p(a -> b) == p(b -> a) holds true.
 
 In some cases, it may be desirable to override the default implementation
-of `BAT.proposal_logpdf!`.
+of `BAT.distribution_logpdf!`.
 """
 abstract type AbstractProposalDist end
 export AbstractProposalDist
 
 
 doc"""
-    proposal_logpdf(
+    distribution_logpdf(
         pdist::AbstractProposalDist,
         params_new::AbstractVector,
         params_old:::AbstractVector
     )
 
-Analog to `proposal_logpdf!`, but for a single parameter vector.
+Analog to `distribution_logpdf!`, but for a single parameter vector.
 """
-function proposal_logpdf end
-export proposal_logpdf
+function distribution_logpdf end
+export distribution_logpdf
 
-# TODO: Implement proposal_logpdf for included proposal distributions
+# TODO: Implement distribution_logpdf for included proposal distributions
 
 
 doc"""
-    proposal_logpdf!(
+    distribution_logpdf!(
         p::AbstractArray,
         pdist::AbstractProposalDist,
         params_new::AbstractVecOrMat,
@@ -61,12 +61,12 @@ Array size requirements:
 * `size(params_old, 2) == size(params_new, 2)` or `size(params_old, 2) == 1`
 * `size(params_new, 2) == length(p)`
 
-Implementations of `proposal_logpdf!` must be thread-safe.
+Implementations of `distribution_logpdf!` must be thread-safe.
 """
-function proposal_logpdf! end
-export proposal_logpdf!
+function distribution_logpdf! end
+export distribution_logpdf!
 
-# TODO: Default implementation of proposal_logpdf!
+# TODO: Default implementation of distribution_logpdf!
 
 
 doc"""
@@ -139,7 +139,7 @@ get_cov(q::GenericProposalDist) = get_cov(q.d)
 set_cov!(q::GenericProposalDist, Σ::AbstractMatrix{<:Real}) = similar(q, set_cov!(q.d, Σ))
 
 
-function proposal_logpdf!(
+function distribution_logpdf!(
     p::AbstractArray,
     pdist::GenericProposalDist,
     params_new::AbstractMatrix,
@@ -150,18 +150,18 @@ function proposal_logpdf!(
 end
 
 
-function proposal_logpdf!(
+function distribution_logpdf!(
     p::AbstractArray,
     pdist::GenericProposalDist,
     params_new::AbstractVector,
     params_old::AbstractVector
 )
-    p[1] = proposal_logpdf(pdist, params_new, params_old)
+    p[1] = distribution_logpdf(pdist, params_new, params_old)
     p
 end
 
 
-function proposal_logpdf(
+function distribution_logpdf(
     pdist::GenericProposalDist,
     params_new::AbstractVector,
     params_old::AbstractVector

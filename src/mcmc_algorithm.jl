@@ -27,20 +27,20 @@ mcmc_compatible(::MCMCAlgorithm, ::AbstractProposalDist, ::AbstractParamBounds) 
 function sample_weight_type end
 
 
-rand_initial_params(rng::AbstractRNG, algorithm::MCMCAlgorithm, target::TargetSubject) =
-    rand_initial_params!(rng, algorithm, target, Vector{float(eltype(target.bounds))}(nparams(target)))
+rand_initial_params(rng::AbstractRNG, algorithm::MCMCAlgorithm, target::BoundedDensity) =
+    rand_initial_params!(rng, algorithm, target, Vector{float(eltype(param_bounds(target)))}(nparams(target)))
 
-rand_initial_params(rng::AbstractRNG, algorithm::MCMCAlgorithm, target::TargetSubject, n::Integer) =
-    rand_initial_params!(rng, algorithm, target, Matrix{float(eltype(target.bounds))}(nparams(target), n))
+rand_initial_params(rng::AbstractRNG, algorithm::MCMCAlgorithm, target::BoundedDensity, n::Integer) =
+    rand_initial_params!(rng, algorithm, target, Matrix{float(eltype(param_bounds(target)))}(nparams(target), n))
 
-rand_initial_params!(rng::AbstractRNG, ::MCMCAlgorithm, target::TargetSubject, x::StridedVecOrMat{<:Real}) =
-    rand!(rng, target.bounds, x)
+rand_initial_params!(rng::AbstractRNG, ::MCMCAlgorithm, target::BoundedDensity, x::StridedVecOrMat{<:Real}) =
+    rand!(rng, param_bounds(target), x)
 
 
 
 mutable struct MCMCIterator{
     A<:MCMCAlgorithm,
-    T<:AbstractTargetSubject,
+    T<:AbstractDensityFunction,
     S<:AbstractMCMCState,
     R<:AbstractRNG
 }
@@ -116,7 +116,7 @@ end
 
 
 exec_capabilities(mcmc_iterate!, f, chain::MCMCIterator) =
-    exec_capabilities(target_logval, chain.target.tdensity, chain.state.proposed_sample.params)
+    exec_capabilities(density_logval, chain.parent(target), chain.state.proposed_sample.params)
 
 
 function mcmc_iterate!(
@@ -152,7 +152,7 @@ end
 
 struct MCMCSpec{
     A<:MCMCAlgorithm,
-    T<:AbstractTargetSubject,
+    T<:AbstractDensityFunction,
     R<:AbstractRNGSeed
 }
     algorithm::A
@@ -164,15 +164,15 @@ export MCMCSpec
 
 MCMCSpec(
     algorithm::MCMCAlgorithm,
-    target::AbstractTargetSubject,
+    target::AbstractDensityFunction,
 ) = MCMCSpec(algorithm, target, Philox4xSeed())
 
 MCMCSpec(
     algorithm::MCMCAlgorithm,
-    tdensity::AbstractTargetDensity,
+    density::AbstractDensityFunction,
     bounds::AbstractParamBounds,
     rngseed::AbstractRNGSeed = Philox4xSeed()
-) = MCMCSpec(algorithm, TargetSubject(tdensity, bounds), rngseed)
+) = MCMCSpec(algorithm, BoundedDensity(density, bounds), rngseed)
 
 
 #=
@@ -180,11 +180,11 @@ MCMCSpec(
 
 MCMCSpec(
     algorithm::MCMCAlgorithm,
-    tdensity::AbstractTargetDensity,
+    density::AbstractDensityFunction,
     prior::XXX,
     bounds::AbstractParamBounds,
     rngseed::AbstractRNGSeed = Philox4xSeed()
-) = MCMCSpec(algorithm, TargetSubject(tdensity, bounds), rngseed)
+) = MCMCSpec(algorithm, BoundedDensity(density, bounds), rngseed)
 =#
 
 
@@ -192,7 +192,7 @@ function (spec::MCMCSpec)(
     id::Integer,
     exec_context::ExecContext = ExecContext()
 )
-    P = float(eltype(spec.target.bounds))
+    P = float(eltype(param_bounds(spec.target)))
     m = nparams(spec.target)
     rng = spec.rngseed()
     MCMCIterator(

@@ -25,7 +25,7 @@ sample_weight_type(::Type{MetropolisHastings{W,Q}}) where {Q,W} = W
 
 function AcceptRejectState(
     algorithm::MetropolisHastings,
-    target::AbstractTargetSubject,
+    target::AbstractDensityFunction,
     current_sample::DensitySample{P,T,W}
 ) where {P,T,W}
     AcceptRejectState(
@@ -58,18 +58,18 @@ function mcmc_propose_accept_reject!(
     # Propose new parameters:
     proposed_sample.weight = 0
     proposal_rand!(rng, pdist, proposed_params, current_params)
-    apply_bounds!(proposed_params, target.bounds, false)
+    apply_bounds!(proposed_params, param_bounds(target), false)
 
-    p_accept = if proposed_params in target.bounds
+    p_accept = if proposed_params in param_bounds(target)
         # Evaluate target density at new parameters:
-        proposed_log_value = T(target_logval(target.tdensity, proposed_params, exec_context))
+        proposed_log_value = T(density_logval(parent(target), proposed_params, exec_context))
 
         # log of ratio of forward/reverse transition probability
         log_tpr = if issymmetric(pdist)
             T(0)
         else
-            log_tp_fwd = proposal_logpdf(pdist, proposed_params, current_params)
-            log_tp_rev = proposal_logpdf(pdist, current_params, proposed_params)
+            log_tp_fwd = distribution_logpdf(pdist, proposed_params, current_params)
+            log_tp_rev = distribution_logpdf(pdist, current_params, proposed_params)
             T(log_tp_fwd - log_tp_rev)
         end
 
