@@ -126,7 +126,13 @@ function mcmc_iterate!(
     ll::LogLevel = LOG_NONE,
     kwargs...
 )
-    @log_msg ll "Starting iteration over $(length(chains)) MCMC chain(s)."
+    if isempty(chains)
+        @log_msg ll "No MCMC chain(s) to iterate over."
+        return chains
+    else
+        @log_msg ll "Starting iteration over $(length(chains)) MCMC chain(s)."
+    end
+
 
     cbv = mcmc_callback_vector(callbacks, chains)
 
