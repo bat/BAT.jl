@@ -9,6 +9,54 @@ Get the logarithm of the volume of the space in `vol`.
 function log_volume end
 
 
+
+
+
+doc"""
+    fromuhc!(Y::VecOrMat, X::VecOrMat, vol::SpatialVolume)
+
+Bijective transformation of coordinates `X` within the unit hypercube to
+coordinates `Y` in `vol`. If `X` and `Y` are matrices, the transformation is
+applied to the column vectors.
+
+Use
+
+    inv(fromui)
+
+to get the the inverse transformation.
+"""
+function fromuhc! end
+export fromuhc!
+
+
+doc"""
+    fromuhc!(Y::VecOrMat, X::VecOrMat, vol::HyperRectVolume)
+
+Linear bijective transformation from unit hypercube to hyper-rectangle `vol`.
+"""
+function fromuhc!(Y::VecOrMat, X::VecOrMat, vol::HyperRectVolume)
+end
+
+
+doc"""
+    from_unit_hypercube!(Y::VecOrMat, X::VecOrMat, vol::SpatialVolume)
+    y = from_unit_hypercube(x::Real, lo_hi::ClosedInterval{<:Real})
+
+Map coordinates `X` from the unit hypercube to coordinates `Y` in
+
+"""
+function from_unit_hypercube end
+export from_unit_hypercube
+
+
+@inline function from_unit_hypercube!(y::Real, x::Real, HyperRectVolume)
+    @boundscheck x in 0..1 || throw(ArgumentError("Input value not in 0..1"))
+    muladd(x, (hi - lo), lo)
+end
+
+
+
+
 abstract type SpatialVolume{T<:Real} end
 
 export SpatialVolume
@@ -42,7 +90,7 @@ export HyperRectVolume
 HyperRectVolume{T<:Real}(lo::Vector{T}, hi::Vector{T}) = HyperRectVolume{T}(lo, hi)
 
 Base.in(x::AbstractVector, vol::HyperRectVolume) =
-    _multi_array_le(vol.lo, x, vol.hi)
+    _all_lteq(vol.lo, x, vol.hi)
 
 function Base.in(X::AbstractMatrix, vol::HyperRectVolume, j::Integer)
     lo = vol.lo
