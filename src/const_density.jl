@@ -1,25 +1,32 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct ConstDensity{T<:Real} <: UnconstrainedDensityFunction
+struct ConstantDensity{T<:Real} <: UnconstrainedDensityFunction
     B<:ParamVolumeBounds,
     log_value::T   
 end
 
-export ConstDensity
+export ConstantDensity
 
 
-# ToDo: XXXX !!!!
-function ConstDensity(bounds::ParamVolumeBounds, normalize::Bool)
+function ConstantDensity(bounds::ParamVolumeBounds, normalize::Bool)
+    T = eltype(bounds)
     log_value = if normalize
-        1 / ...
+        convert(T, - log_volume(bounds))
+    else
+        one(T)
+    end
+    ConstantDensity(bounds, log_value)
+end
 
 
-param_bounds(density::ConstDensity) = density.bounds
-nparams(density::ConstDensity) = nparams(density.bounds)
+param_bounds(density::ConstantDensity) = density.bounds
+
+nparams(density::ConstantDensity) = nparams(density.bounds)
+
 
 function density_logval(
-    density::ConstDensity,
+    density::ConstantDensity,
     params::AbstractVector{<:Real},
     exec_context::ExecContext = ExecContext()
 )
@@ -30,7 +37,7 @@ end
 
 function density_logval!(
     r::AbstractArray{<:Real},
-    density::ConstDensity,
+    density::ConstantDensity,
     params::AbstractMatrix{<:Real},
     exec_context::ExecContext
 )
