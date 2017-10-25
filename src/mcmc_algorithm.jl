@@ -40,7 +40,7 @@ XXXXXX rand_initial_params!(rng::AbstractRNG, ::MCMCAlgorithm, target::BoundedDe
 
 mutable struct MCMCIterator{
     A<:MCMCAlgorithm,
-    T<:AbstractDensityFunction,
+    T<:AbstractDensity,
     S<:AbstractMCMCState,
     R<:AbstractRNG
 }
@@ -155,7 +155,7 @@ end
 
 struct MCMCSpec{
     A<:MCMCAlgorithm,
-    T<:AbstractDensityFunction,
+    T<:AbstractDensity,
     R<:AbstractRNGSeed
 }
     algorithm::A
@@ -167,15 +167,22 @@ export MCMCSpec
 
 MCMCSpec(
     algorithm::MCMCAlgorithm,
-    target::AbstractDensityFunction,
+    target::AbstractDensity,
 ) = MCMCSpec(algorithm, target, AbstractRNGSeed())
 
 MCMCSpec(
     algorithm::MCMCAlgorithm,
     log_f::Function,
-    bounds::ParamVolumeBounds,
+    prior::Union{AbstractDensity,ParamVolumeBounds},
     rngseed::AbstractRNGSeed = AbstractRNGSeed()
-) = MCMCSpec(algorithm, GenericDensityFunction(log_f, nparams(bounds))[bounds], rngseed)
+) = MCMCSpec(algorithm, GenericDensity(log_f, nparams(prior))*prior, rngseed)
+
+MCMCSpec(
+    algorithm::MCMCAlgorithm,
+    distribution::Distribution{Multivariate,Continuous},
+    prior::Union{AbstractDensity,ParamVolumeBounds},
+    rngseed::AbstractRNGSeed = AbstractRNGSeed()
+) = MCMCSpec(algorithm, MvDistDensity(distribution)*prior, rngseed)
 
 
 #=
@@ -183,7 +190,7 @@ MCMCSpec(
 
 MCMCSpec(
     algorithm::MCMCAlgorithm,
-    density::AbstractDensityFunction,
+    density::AbstractDensity,
     initial_params::Vector{<:Real},
     prior::XXX,
     rngseed::AbstractRNGSeed = AbstractRNGSeed()
@@ -196,7 +203,7 @@ MCMCSpec(
 
 MCMCSpec(
     algorithm::MCMCAlgorithm,
-    density::AbstractDensityFunction,
+    density::AbstractDensity,
     prior::XXX,
     rngseed::AbstractRNGSeed = AbstractRNGSeed()
 ) = MCMCSpec(algorithm, ..., rngseed)

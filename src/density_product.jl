@@ -3,9 +3,9 @@
 
 struct DensityProduct{
     N,
-    D<:NTuple{N,AbstractDensityFunction},
+    D<:NTuple{N,AbstractDensity},
     B<:AbstractParamBounds
-} <: AbstractDensityFunction
+} <: AbstractDensity
     densities::D
     bounds::B
 end
@@ -18,23 +18,23 @@ nparams(density::DensityProduct) = nparams(density.bounds)
 
 
 import Base.*
-function Base.*(a::AbstractDensityFunction, b::AbstractDensityFunction)
+function Base.*(a::AbstractDensity, b::AbstractDensity)
     nparams(a) != nparams(b) && throw(ArgumentError("Can't multiply densities with different number of arguments"))
     new_bounds = param_bounds(a) ∩ param_bounds(b)
     _unsafe_prod(a, b, new_bounds)
 end
 
 
-_unsafe_prod(a::AbstractDensityFunction, b::AbstractDensityFunction, new_bounds::AbstractParamBounds) =
+_unsafe_prod(a::AbstractDensity, b::AbstractDensity, new_bounds::AbstractParamBounds) =
     DensityProduct((a,b), new_bounds)
 
-_unsafe_prod(a::AbstractDensityFunction, b::DensityProduct, new_bounds::AbstractParamBounds) =
+_unsafe_prod(a::AbstractDensity, b::DensityProduct, new_bounds::AbstractParamBounds) =
     DensityProduct((a, b.densities...), new_bounds)
 
 _unsafe_prod(a::DensityProduct, b::DensityProduct, new_bounds::AbstractParamBounds) =
     DensityProduct((a.densities..., b.densities...), new_bounds)
 
-_unsafe_prod(a::DensityProduct, b::AbstractDensityFunction, new_bounds::AbstractParamBounds) =
+_unsafe_prod(a::DensityProduct, b::AbstractDensity, new_bounds::AbstractParamBounds) =
     DensityProduct((a.densities...,b), new_bounds)
 
 

@@ -2,10 +2,10 @@
 
 
 
-abstract type AbstractPrior{HasBounds} <: AbstractDensityFunction{true,HasBounds,false} end
+abstract type AbstractPrior{HasBounds} <: AbstractDensity{true,HasBounds,false} end
 
 # XXXXXX !!!!! Alternative:
-# const AbstractPrior{HasBounds} = AbstractDensityFunction{true,HasBounds,false}
+# const AbstractPrior{HasBounds} = AbstractDensity{true,HasBounds,false}
 
 
 const AbstractBoundedPrior = AbstractPrior{true}

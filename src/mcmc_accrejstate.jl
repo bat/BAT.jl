@@ -102,7 +102,7 @@ end
 
 function MCMCIterator(
     algorithm::MCMCAlgorithm{AcceptRejectState},
-    target::AbstractDensityFunction,
+    target::AbstractDensity,
     id::Integer,
     rng::AbstractRNG,
     initial_params::AbstractVector{P}, # May be empty

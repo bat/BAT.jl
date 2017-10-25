@@ -18,7 +18,7 @@ sample_weight_type(::Type{DirectSampling}) = Int
 
 function AcceptRejectState(
     algorithm::DirectSampling,
-    target::AbstractDensityFunction{<:MvDistDensityFunction},
+    target::AbstractDensity{<:MvDistDensity},
     current_sample::DensitySample{P,T,W}
 ) where {P,T,W}
     AcceptRejectState(

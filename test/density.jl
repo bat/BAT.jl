@@ -5,14 +5,14 @@ using Compat.Test
 
 using Distributions, PDMats, StatsBase
 
-struct DummyDF <: UnconstrainedDensityFunction{false} end
+struct DummyDF <: AbstractDensity end
 
 @testset "target_density" begin
     mvec = [-0.3, 0.3]
     cmat = [1.0 1.5; 1.5 4.0]
     Σ = @inferred PDMat(cmat)
     mvnorm = @inferred  MvNormal(mvec, Σ)
-    density = @inferred MvDistDensityFunction(mvnorm)
+    density = @inferred MvDistDensity(mvnorm)
 
     econtext = @inferred ExecContext()
 
@@ -30,7 +30,7 @@ struct DummyDF <: UnconstrainedDensityFunction{false} end
     end
 
     @testset "exec_capabilities" begin
-        td = @inferred DummyDF()
+        td = DummyDF()
         ecap = @inferred BAT.exec_capabilities(density_logval!, td, params)
         @test ecap.nthreads == 0
         @test ecap.threadsafe == false

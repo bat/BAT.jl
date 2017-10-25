@@ -25,7 +25,7 @@ sample_weight_type(::Type{MetropolisHastings{W,Q}}) where {Q,W} = W
 
 function AcceptRejectState(
     algorithm::MetropolisHastings,
-    target::AbstractDensityFunction,
+    target::AbstractDensity,
     current_sample::DensitySample{P,T,W}
 ) where {P,T,W}
     AcceptRejectState(

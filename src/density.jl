@@ -5,7 +5,7 @@
 
 
 doc"""
-    AbstractDensityFunction
+    AbstractDensity
 
 The following functions must be implemented for subtypes:
 
@@ -18,12 +18,12 @@ of the functions
 * `BAT.exec_capabilities`
 * `BAT.unsafe_density_logval!`
 """
-abstract type AbstractDensityFunction end  XXXXX check
-export AbstractDensityFunction
+abstract type AbstractDensity end  XXXXX check
+export AbstractDensity
 
 
 doc"""
-    param_bounds(density::AbstractDensityFunction)::AbstractParamBounds
+    param_bounds(density::AbstractDensity)::AbstractParamBounds
 
 Get the parameter bounds of `density`. See `density_logval!` for the
 implications and handling of the bounds.
@@ -34,26 +34,31 @@ Use
 
 to create a new density function with additional bounds.
 """
-function param_bounds(density::AbstractDensityFunction)
+function param_bounds(density::AbstractDensity)
     NoParamBounds(nparams(density))
 end
 export param_bounds
 
 
 doc"""
-    getindex(density::AbstractDensityFunction, bounds::ParamVolumeBounds)
+    getindex(density::AbstractDensity, bounds::ParamVolumeBounds)
 
 Limit `density` to `bounds`. See `param_bounds` and `density_logval!`.
 """
-Base.getindex(density::AbstractDensityFunction, bounds::ParamVolumeBounds) =
-    ConstDensity(bounds, false) * density
+Base.getindex(density::AbstractDensity, bounds::ParamVolumeBounds) =
+    density * ConstDensity(bounds, false)
+
+
+import Base.*
+*(density::AbstractDensity, bounds::ParamVolumeBounds) = density * ConstDensity(bounds, true)
+*(bounds::ParamVolumeBounds, density::AbstractDensity) = ConstDensity(bounds, true) * density
 
 
 
 
 doc"""
     density_logval(
-        density::AbstractDensityFunction,
+        density::AbstractDensity,
         params::AbstractVector{<:Real},
         exec_context::ExecContext = ExecContext()
     )
@@ -61,7 +66,7 @@ doc"""
 Version of `density_logval` for a single parameter vector.
 
 Do not implement `density_logval` directly for subtypes of
-`AbstractDensityFunction`, implement `BAT.unsafe_density_logval` instead.
+`AbstractDensity`, implement `BAT.unsafe_density_logval` instead.
 
 See `ExecContext` for thread-safety requirements.
 """
@@ -76,13 +81,13 @@ end
 export density_logval
 
 # Assume that density_logval isn't always thread-safe, but usually remote-safe:
-exec_capabilities(::typeof(density_logval), density::AbstractDensityFunction, params::AbstractVector{<:Real}) =
+exec_capabilities(::typeof(density_logval), density::AbstractDensity, params::AbstractVector{<:Real}) =
     exec_capabilities(unsafe_density_logval, density, params)
 
 
 doc"""
     BAT.unsafe_density_logval(
-        density::AbstractDensityFunction,
+        density::AbstractDensity,
         params::AbstractVector{<:Real},
         exec_context::ExecContext = ExecContext()
     )
@@ -96,7 +101,7 @@ The caller *must* ensure that these conditions are met!
 function unsafe_density_logval end
 
 # Assume that density_logval isn't always thread-safe, but usually remote-safe:
-exec_capabilities(::typeof(unsafe_density_logval), density::AbstractDensityFunction, params::AbstractVector{<:Real}) =
+exec_capabilities(::typeof(unsafe_density_logval), density::AbstractDensity, params::AbstractVector{<:Real}) =
     ExecCapabilities(0, false, 0, true)
 
 
@@ -105,7 +110,7 @@ exec_capabilities(::typeof(unsafe_density_logval), density::AbstractDensityFunct
 doc"""
     density_logval!(
         r::AbstractArray{<:Real},
-        density::AbstractDensityFunction,
+        density::AbstractDensity,
         params::AbstractMatrix{<:Real},
         exec_context::ExecContext = ExecContext()
     )
@@ -134,7 +139,7 @@ reasons the output is left undefined: `density_logval!` may fail or store
 arbitrary values in `r`.
 
 Do not implement `density_logval!` directly for subtypes of
-`AbstractDensityFunction`, implement `BAT.unsafe_density_logval!` instead.
+`AbstractDensity`, implement `BAT.unsafe_density_logval!` instead.
 
 See `ExecContext` for thread-safety requirements.
 """
@@ -150,13 +155,13 @@ function density_logval!(
 end
 export density_logval!
 
-exec_capabilities(::typeof(density_logval!), r::AbstractArray{<:Real}, density::AbstractDensityFunction, params::AbstractMatrix{<:Real}) =
+exec_capabilities(::typeof(density_logval!), r::AbstractArray{<:Real}, density::AbstractDensity, params::AbstractMatrix{<:Real}) =
     exec_capabilities(unsafe_density_logval, r, density, params)
 
 
 doc"""
     BAT.unsafe_density_logval(
-        density::AbstractDensityFunction,
+        density::AbstractDensity,
         params::AbstractVector{<:Real},
         exec_context::ExecContext = ExecContext()
     )
@@ -170,7 +175,7 @@ The caller *must* ensure that these conditions are met!
 """
 function unsafe_density_logval!(
     r::AbstractArray{<:Real},
-    density::AbstractDensityFunction,
+    density::AbstractDensity,
     params::AbstractMatrix{<:Real},
     exec_context::ExecContext
 )
@@ -184,20 +189,20 @@ function unsafe_density_logval!(
 end
 
 # ToDo: Derive from exec_capabilities(density_logval, density, ...)
-exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractArray{<:Real}, density::AbstractDensityFunction, params::AbstractMatrix{<:Real}) =
-    ExecCapabilities(0, false, 0, true) # Change when default implementation of density_logval! for AbstractDensityFunction becomes multithreaded.
+exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractArray{<:Real}, density::AbstractDensity, params::AbstractMatrix{<:Real}) =
+    ExecCapabilities(0, false, 0, true) # Change when default implementation of density_logval! for AbstractDensity becomes multithreaded.
 
 
 
 doc"""
-    GenericDensityFunction{F} <: AbstractDensityFunction
+    GenericDensity{F} <: AbstractDensity
 
 Constructors:
 
-    GenericDensityFunction(log_f, nparams::Int)
+    GenericDensity(log_f, nparams::Int)
 
 Turns the logarithmic density function `log_f` into a
-BAT-compatible `AbstractDensityFunction`. `log_f` must support
+BAT-compatible `AbstractDensity`. `log_f` must support
 
     `log_f(params::AbstractVector{<:Real})::Real`
 
@@ -206,19 +211,19 @@ with `length(params) == nparams`.
 It must be safe to execute `log_f` in parallel on multiple threads and
 processes.
 """
-struct GenericDensityFunction{F} <: AbstractDensityFunction
+struct GenericDensity{F} <: AbstractDensity
     log_f::F
     nparams::Int
 end
 
-export GenericDensityFunction
+export GenericDensity
 
-Base.parent(density::GenericDensityFunction) = density.log_f
+Base.parent(density::GenericDensity) = density.log_f
 
-nparams(density::GenericDensityFunction) = density.nparams
+nparams(density::GenericDensity) = density.nparams
 
 function unsafe_density_logval(
-    density::GenericDensityFunction,
+    density::GenericDensity,
     params::AbstractVector{<:Real},
     exec_context::ExecContext = ExecContext()
 )
@@ -226,7 +231,7 @@ function unsafe_density_logval(
     density.log_f(params)
 end
 
-exec_capabilities(::typeof(unsafe_density_logval), density::AbstractDensityFunction, params::AbstractVector{<:Real}) =
+exec_capabilities(::typeof(unsafe_density_logval), density::AbstractDensity, params::AbstractVector{<:Real}) =
     ExecCapabilities(1, true, 1, true)
 
 
@@ -234,9 +239,9 @@ exec_capabilities(::typeof(unsafe_density_logval), density::AbstractDensityFunct
 #=
 
 mutable struct TransformedDensity{...}{
-    SO<:AbstractDensityFunction,
-    SN<:AbstractDensityFunction
-} <: AbstractDensityFunction
+    SO<:AbstractDensity,
+    SN<:AbstractDensity
+} <: AbstractDensity
    before::SO
    after::SN
    # ... transformation, Jacobi matrix of transformation, etc.

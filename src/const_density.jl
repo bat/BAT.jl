@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct ConstDensity{B<:ParamVolumeBounds,T<:Real} <: AbstractDensityFunction
+struct ConstDensity{B<:ParamVolumeBounds,T<:Real} <: AbstractDensity
     bounds::B,
     log_value::T   
 end
