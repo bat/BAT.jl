@@ -31,11 +31,7 @@ doc"""
 Linear bijective transformation from the unit inverval (i.e. `x ∈ 0..1`) to
 `y ∈ lo..hi`.
 
-Use
-
-    inv(fromui)
-
-to get the the inverse transformation.
+Use `inv(fromui)` to get the the inverse transformation.
 
 Use `@inbounds` to disable range checking on the input value.
 """

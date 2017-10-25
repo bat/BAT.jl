@@ -10,58 +10,36 @@ function log_volume end
 
 
 
-
-
 doc"""
     fromuhc!(Y::VecOrMat, X::VecOrMat, vol::SpatialVolume)
 
 Bijective transformation of coordinates `X` within the unit hypercube to
 coordinates `Y` in `vol`. If `X` and `Y` are matrices, the transformation is
-applied to the column vectors.
+applied to the column vectors. Use `Y === X` to transform in-place.
 
-Use
-
-    inv(fromui)
-
-to get the the inverse transformation.
+Use `inv(fromuhc!)` to get the the inverse transformation.
 """
 function fromuhc! end
 export fromuhc!
 
-
-doc"""
-    fromuhc!(Y::VecOrMat, X::VecOrMat, vol::HyperRectVolume)
-
-Linear bijective transformation from unit hypercube to hyper-rectangle `vol`.
-"""
-function fromuhc!(Y::VecOrMat, X::VecOrMat, vol::HyperRectVolume)
-    _all_in_ui(X) || throw(ArgumentError("X not in unit hypercube"))
-    Y .= unsafe_fromui.(X, vol.lo, vol.hi)
-end
-
-function inv_fromuhc!(Y::VecOrMat, X::VecOrMat, vol::HyperRectVolume)
-    X in vol || throw(ArgumentError("X not in vol"))
-    Y .= unsafe_inv_fromui.(X, vol.lo, vol.hi)
-end
+Base.inv(::typeof(fromuhc!)) = inv_fromuhc!
+Base.inv(::typeof(inv_fromuhc!)) = fromuhc!
 
 
 doc"""
-    from_unit_hypercube!(Y::VecOrMat, X::VecOrMat, vol::SpatialVolume)
-    y = from_unit_hypercube(x::Real, lo_hi::ClosedInterval{<:Real})
+    fromuhc(Y::VecOrMat, X::VecOrMat, vol::SpatialVolume)
 
-Map coordinates `X` from the unit hypercube to coordinates `Y` in
+Bijective transformation from unit hypercube to `vol`. See `fromuhc!`.
 
+Use `inv(fromuhc)` to get the the inverse transformation.
 """
-function from_unit_hypercube end
-export from_unit_hypercube
-
-
-@inline function from_unit_hypercube!(y::Real, x::Real, HyperRectVolume)
-    _all_in_ui
-    @boundscheck x in 0..1 || throw(ArgumentError("Input value not in 0..1"))
-    muladd(x, (hi - lo), lo)
+function fromuhc(Y::VecOrMat, X::VecOrMat, vol::SpatialVolume)
+    fromuhc!(similar(X), X, vol)
 end
+export fromuhc
 
+Base.inv(::typeof(fromuhc)) = inv_fromuhc
+Base.inv(::typeof(inv_fromuhc)) = fromuhc
 
 
 
@@ -132,4 +110,20 @@ function log_volume(vol::HyperRectVolume{T}) where {T}
         s += JuliaLibm.log(R(hi[i]) - R(lo[i]))
     end
     R(s)
+end
+
+
+doc"""
+    fromuhc!(Y::VecOrMat, X::VecOrMat, vol::HyperRectVolume)
+
+Linear bijective transformation from unit hypercube to hyper-rectangle `vol`.
+"""
+function fromuhc!(Y::VecOrMat, X::VecOrMat, vol::HyperRectVolume)
+    _all_in_ui(X) || throw(ArgumentError("X not in unit hypercube"))
+    Y .= unsafe_fromui.(X, vol.lo, vol.hi)
+end
+
+function inv_fromuhc!(Y::VecOrMat, X::VecOrMat, vol::HyperRectVolume)
+    X in vol || throw(ArgumentError("X not in vol"))
+    Y .= unsafe_inv_fromui.(X, vol.lo, vol.hi)
 end
