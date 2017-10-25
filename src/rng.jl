@@ -11,6 +11,8 @@ abstract type AbstractRNGSeed end
 
 export AbstractRNGSeed
 
+AbstractRNGSeed() = Philox4xSeed()
+
 
 
 struct Philox4xSeed{T<:Random123_UInt} <: AbstractRNGSeed

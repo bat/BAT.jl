@@ -45,7 +45,7 @@ function unsafe_density_logval(density::DensityProduct, args...)
 end
 
 exec_capabilities(::typeof(unsafe_density_logval), density::DensityProduct, args...)
-    prod(map(d -> exec_capabilities(density_logval, d, args...), density.densities))
+    ∩(map(d -> exec_capabilities(density_logval, d, args...), density.densities)...)
 
 
 function unsafe_density_logval!(r::AbstractArray{<:Real}, density::DensityProduct, args...)
@@ -61,4 +61,4 @@ function unsafe_density_logval!(r::AbstractArray{<:Real}, density::DensityProduc
 end
 
 exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractArray{<:Real}, density::DensityProduct, args...)
-    prod(map(d -> exec_capabilities(unsafe_density_logval!, r, d, args...), density.densities))
+    ∩(map(d -> exec_capabilities(unsafe_density_logval!, r, d, args...), density.densities)...)

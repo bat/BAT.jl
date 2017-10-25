@@ -34,7 +34,7 @@ function unsafe_density_logval(
 end
 
 @inline exec_capabilities(::typeof(unsafe_density_logval), density::ConstDensity, args...) =
-    ExecCapabilities(1, true, 1, true)
+    ExecCapabilities(0, true, 0, true)
 
 
 function unsafe_density_logval!(
@@ -47,4 +47,4 @@ function unsafe_density_logval!(
 end
 
 @inline exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractArray{<:Real}, density::ConstDensity, args...) =
-    ExecCapabilities(1, true, 1, true)
+    ExecCapabilities(0, true, 0, true)

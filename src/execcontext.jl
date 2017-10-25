@@ -40,14 +40,17 @@ Specifies the execution capabilities of functions that support an
 
 `nthreads` specifies the maximum number of threads the function can utilize
 efficiently, internally. If `nthreads <= 1`, the function implementation is
-single-threaded.
+single-threaded. `nthreads == 0` indicates that the function is cheap and
+that when used in combination with other functions, their capabilities should
+dominate.
 
 `threadsafe` specifies whether the function is thread-safe, and can be can be
 run on multiple threads in parallel by the caller.  
 
 `nprocs` specifies the maximum number of worker processes the function can
 utilize efficiently, internally. If `procs <= 1`, the function cannot
-use worker processes.
+use worker processes. `nthreads == 0` carries equivalent meaning to
+`nthreads == 0`.
 
 `remotesafe` specifies that the function can be run on a remote thread,
 it implies that the function arguments can be (de-)serialized safely.
@@ -71,11 +74,29 @@ export ExecCapabilities
 ExecCapabilities() = ExecCapabilities(0, false, 0, false)
 
 
-import Base.*
-*(a:ExecCapabilities, b:ExecCapabilities) = ExecCapabilities(
-    maximum(a.nthreads, b.nthreads),
+doc"""
+    intersect(a:ExecCapabilities, b:ExecCapabilities)
+
+Get the intersection of execution capabilities of a and b, i.e. the
+`ExecCapabilities` that should be used when to functions are used in
+combination (e.g. in sequence).
+"""
+Base.intersect(a:ExecCapabilities, b:ExecCapabilities) = ExecCapabilities(
+    if a.nthreads == 0
+        b.nthreads
+    elseif b.nthreads == 0
+        a.nthreads
+    else
+        minimum(a.nthreads, b.nthreads)
+    end,
     a.threadsafe && b.threadsafe,
-    maximum(a.nprocs, b.nprocs),
+    if a.nprocs == 0
+        b.nprocs
+    elseif b.nprocs == 0
+        a.nprocs
+    else
+        minimum(a.nprocs, b.nprocs)
+    end,
     a.remotesafe && a.remotesafe
 )
 

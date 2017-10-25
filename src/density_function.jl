@@ -5,16 +5,6 @@
 
 
 doc"""
-    param_bounds(density::AbstractDensityFunction)::AbstractParamBounds
-
-Get the parameter bounds of `density`. See `density_logval!` for the
-implications and handling of the bounds.
-"""
-function param_bounds end
-export param_bounds
-
-
-doc"""
     AbstractDensityFunction
 
 The following functions must be implemented for subtypes:
@@ -32,13 +22,28 @@ abstract type AbstractDensityFunction end  XXXXX check
 export AbstractDensityFunction
 
 
-param_bounds(density::AbstractDensityFunction) = NoParamBounds(nparams(density))
+doc"""
+    param_bounds(density::AbstractDensityFunction)::AbstractParamBounds
+
+Get the parameter bounds of `density`. See `density_logval!` for the
+implications and handling of the bounds.
+
+Use
+
+   new_density = density[bounds::ParamVolumeBounds]
+
+to create a new density function with additional bounds.
+"""
+function param_bounds(density::AbstractDensityFunction)
+    NoParamBounds(nparams(density))
+end
+export param_bounds
 
 
 doc"""
     getindex(density::AbstractDensityFunction, bounds::ParamVolumeBounds)
 
-Limit `density` to `bounds`
+Limit `density` to `bounds`. See `param_bounds` and `density_logval!`.
 """
 Base.getindex(density::AbstractDensityFunction, bounds::ParamVolumeBounds) =
     ConstDensity(bounds, false) * density
@@ -55,8 +60,8 @@ doc"""
 
 Version of `density_logval` for a single parameter vector.
 
-Do not implement directly for subtypes of `AbstractDensityFunction`, implement
-`BAT.unsafe_density_logval` instead.
+Do not implement `density_logval` directly for subtypes of
+`AbstractDensityFunction`, implement `BAT.unsafe_density_logval` instead.
 
 See `ExecContext` for thread-safety requirements.
 """
@@ -123,12 +128,13 @@ Array size requirements:
     size(params, 1) == length(r)
 
 Note: `density_logval!` must not be called with out-of-bounds parameter
-vectors. The result of `density_logval!` for parameter vectors that are out of
-bounds is implicitly `-Inf`, but for performance reasons the output is left
-undefined: `density_logval!` may fail or store arbitrary values in `r`.
+vectors (see `param_bounds`). The result of `density_logval!` for parameter
+vectors that are out of bounds is implicitly `-Inf`, but for performance
+reasons the output is left undefined: `density_logval!` may fail or store
+arbitrary values in `r`.
 
-Do not implement directly for subtypes of `AbstractDensityFunction`, implement
-`BAT.unsafe_density_logval!` instead.
+Do not implement `density_logval!` directly for subtypes of
+`AbstractDensityFunction`, implement `BAT.unsafe_density_logval!` instead.
 
 See `ExecContext` for thread-safety requirements.
 """
@@ -183,7 +189,24 @@ exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractArray{<:Real}, de
 
 
 
-struct GenericDensityFunction{F} <: UnconstrainedDensityFunction{false} ### XXXX !!!! {Normalized} instead of {false}?
+doc"""
+    GenericDensityFunction{F} <: AbstractDensityFunction
+
+Constructors:
+
+    GenericDensityFunction(log_f, nparams::Int)
+
+Turns the logarithmic density function `log_f` into a
+BAT-compatible `AbstractDensityFunction`. `log_f` must support
+
+    `log_f(params::AbstractVector{<:Real})::Real`
+
+with `length(params) == nparams`.
+
+It must be safe to execute `log_f` in parallel on multiple threads and
+processes.
+"""
+struct GenericDensityFunction{F} <: AbstractDensityFunction
     log_f::F
     nparams::Int
 end
@@ -194,7 +217,7 @@ Base.parent(density::GenericDensityFunction) = density.log_f
 
 nparams(density::GenericDensityFunction) = density.nparams
 
-function density_logval(
+function unsafe_density_logval(
     density::GenericDensityFunction,
     params::AbstractVector{<:Real},
     exec_context::ExecContext = ExecContext()
@@ -202,6 +225,9 @@ function density_logval(
     size(params, 1) != nparams(density) && throw(ArgumentError("Invalid number of parameters"))
     density.log_f(params)
 end
+
+exec_capabilities(::typeof(unsafe_density_logval), density::AbstractDensityFunction, params::AbstractVector{<:Real}) =
+    ExecCapabilities(0, true, 0, true)
 
 
 

@@ -150,6 +150,7 @@ function mcmc_iterate!(
 end
 
 
+
 # TODO: Make MCMCSpec a subtype of Sampleable{Multivariate,Continuous}?
 
 struct MCMCSpec{
@@ -167,14 +168,14 @@ export MCMCSpec
 MCMCSpec(
     algorithm::MCMCAlgorithm,
     target::AbstractDensityFunction,
-) = MCMCSpec(algorithm, target, Philox4xSeed())
+) = MCMCSpec(algorithm, target, AbstractRNGSeed())
 
 MCMCSpec(
     algorithm::MCMCAlgorithm,
-    density::AbstractDensityFunction,
+    log_f::Function,
     bounds::ParamVolumeBounds,
-    rngseed::AbstractRNGSeed = Philox4xSeed()
-) = MCMCSpec(algorithm, BoundedDensity(density, bounds), rngseed)
+    rngseed::AbstractRNGSeed = AbstractRNGSeed()
+) = MCMCSpec(algorithm, GenericDensityFunction(log_f, nparams(bounds))[bounds], rngseed)
 
 
 #=
@@ -185,7 +186,7 @@ MCMCSpec(
     density::AbstractDensityFunction,
     initial_params::Vector{<:Real},
     prior::XXX,
-    rngseed::AbstractRNGSeed = Philox4xSeed()
+    rngseed::AbstractRNGSeed = AbstractRNGSeed()
 ) = MCMCSpec(algorithm, ..., rngseed)
 =#
 
@@ -197,7 +198,7 @@ MCMCSpec(
     algorithm::MCMCAlgorithm,
     density::AbstractDensityFunction,
     prior::XXX,
-    rngseed::AbstractRNGSeed = Philox4xSeed()
+    rngseed::AbstractRNGSeed = AbstractRNGSeed()
 ) = MCMCSpec(algorithm, ..., rngseed)
 =#
 
