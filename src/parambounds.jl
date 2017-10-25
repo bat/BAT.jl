@@ -2,7 +2,7 @@
 
 
 doc"""
-    nparams(X::Union{OptionalParamBounds,MCMCIterator,...})
+    nparams(X::Union{AbstractParamBounds,MCMCIterator,...})
 
 Get the number of parameters of `X`.
 """
@@ -11,18 +11,21 @@ export nparams
 
 
 
-export OptionalParamBounds
+export AbstractParamBounds
 
-abstract type OptionalParamBounds end
+abstract type AbstractParamBounds end
 
 
-Base.rand(rng::AbstractRNG, bounds::OptionalParamBounds) =
+Base.rand(rng::AbstractRNG, bounds::AbstractParamBounds) =
     rand!(rng, bounds, Vector{float(eltype(bounds))}(nparams(bounds)))
 
-Base.rand(rng::AbstractRNG, bounds::OptionalParamBounds, n::Integer) =
+Base.rand(rng::AbstractRNG, bounds::AbstractParamBounds, n::Integer) =
     rand!(rng, bounds, Matrix{float(eltype(bounds))}(nparams(bounds), n))
 
-
+function Base.intersect(a::NoParamBounds, b::NoParamBounds)
+    nparams(a) != nparams(b) && throw(ArgumentError("Can't intersect parameter bounds with different number of parameters"))
+    _unsafe_intersect(a, b)
+end
 
 @inline oob{T<:AbstractFloat}(::Type{T}) = T(NaN)
 @inline oob{T<:Integer}(::Type{T}) = typemax(T)
@@ -43,7 +46,7 @@ export hard_bounds, cyclic_bounds, reflective_bounds
 
 
 doc"""
-    apply_bounds!(params::AbstractVector, bounds::OptionalParamBounds) 
+    apply_bounds!(params::AbstractVector, bounds::AbstractParamBounds) 
 
 Apply `bounds` to parameters `params`.
 """
@@ -95,7 +98,7 @@ Specify lower and upper bound via `interval`.
 
 export NoParamBounds
 
-struct NoParamBounds <: OptionalParamBounds
+struct NoParamBounds <: AbstractParamBounds
     ndims::Int
 end
 
@@ -107,9 +110,13 @@ nparams(b::NoParamBounds) = b.ndims
 
 apply_bounds!(params::AbstractVector, bounds::NoParamBounds) = params
 
+_unsafe_intersect(a::NoParamBounds, b::NoParamBounds) = a
+_unsafe_intersect(a::AbstractParamBounds, b::NoParamBounds) = a
+_unsafe_intersect(a::NoParamBounds, b::AbstractParamBounds) = b
 
 
-abstract type ParamVolumeBounds{T<:Real, V<:SpatialVolume{T}} <: OptionalParamBounds end
+
+abstract type ParamVolumeBounds{T<:Real, V<:SpatialVolume{T}} <: AbstractParamBounds end
 export ParamVolumeBounds
 
 
@@ -129,6 +136,8 @@ Returns the spatial volume that defines the parameter bounds.
 function spatialvolume end
 
 
+
+# TODO: XXXX !!!! IntervalsArray, specialized _unsafe_intersect for HyperRectangle and HyperRectBounds
 
 struct HyperRectBounds{T<:Real} <: ParamVolumeBounds{T, HyperRectVolume{T}}
     vol::HyperRectVolume{T}

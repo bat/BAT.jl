@@ -104,7 +104,7 @@ function density_logval!(
 end
 
 # ToDo: Derive from exec_capabilities(density_logval, density, ...)
-exec_capabilities(::typeof(density_logval!), density::AbstractDensityFunction, params::AbstractMatrix{<:Real}) =
+exec_capabilities(::typeof(density_logval!), r::AbstractArray{<:Real}, density::AbstractDensityFunction, params::AbstractMatrix{<:Real}) =
     ExecCapabilities(0, false, 0, true) # Change when default implementation of density_logval! for AbstractDensityFunction becomes multithreaded.
 
 

@@ -40,6 +40,6 @@ function @inline density_logval!(density::BoundedDensity, args...)
     log_xs
 end
 
-@inline exec_capabilities(::typeof(density_logval!), density::BoundedDensity, args...) =
+@inline exec_capabilities(::typeof(density_logval!), r::AbstractArray{<:Real}, density::BoundedDensity, args...) =
     exec_capabilities(density_logval, parent(density), args...)
 ==#

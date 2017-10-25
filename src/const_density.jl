@@ -49,5 +49,5 @@ function density_logval!(
     fill!(r, density.log_value)
 end
 
-@inline exec_capabilities(::typeof(density_logval!), density::ConstantDensity, args...) =
+@inline exec_capabilities(::typeof(density_logval!), r::AbstractArray{<:Real}, density::ConstantDensity, args...) =
     ExecCapabilities(1, true, 1, true)

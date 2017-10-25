@@ -22,7 +22,7 @@ abstract type MCMCAlgorithm{S<:AbstractMCMCState} <: BATAlgorithm end
 
 
 
-mcmc_compatible(::MCMCAlgorithm, ::AbstractProposalDist, ::OptionalParamBounds) = true
+mcmc_compatible(::MCMCAlgorithm, ::AbstractProposalDist, ::AbstractParamBounds) = true
 
 function sample_weight_type end
 
