@@ -34,6 +34,9 @@ function density_logval(
     density.log_value
 end
 
+@inline exec_capabilities(::typeof(density_logval), density::ConstantDensity, args...) =
+    ExecCapabilities(1, true, 1, true)
+
 
 function density_logval!(
     r::AbstractArray{<:Real},
@@ -45,3 +48,6 @@ function density_logval!(
     size(params, 2) != length(r) && throw(ArgumentError("Number of parameter vectors doesn't match length of result"))
     fill!(r, density.log_value)
 end
+
+@inline exec_capabilities(::typeof(density_logval!), density::ConstantDensity, args...) =
+    ExecCapabilities(1, true, 1, true)

@@ -1,6 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+#==
 mutable struct BoundedDensity{    XXXX check
     Normalized,
     HasPrior,
@@ -41,3 +42,4 @@ end
 
 @inline exec_capabilities(::typeof(density_logval!), density::BoundedDensity, args...) =
     exec_capabilities(density_logval, parent(density), args...)
+==#

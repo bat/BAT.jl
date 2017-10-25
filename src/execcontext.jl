@@ -71,6 +71,16 @@ export ExecCapabilities
 ExecCapabilities() = ExecCapabilities(0, false, 0, false)
 
 
+import Base.+
++(a:ExecCapabilities, b:ExecCapabilities) = ExecCapabilities(
+    a.nthreads,
+    a.threadsafe && b.threadsafe,
+    a.nprocs,
+    a.remotesafe && a.remotesafe
+)
+
+
+
 doc"""
     exec_capabilities(f, args...)::ExecCapabilities
 

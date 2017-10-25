@@ -23,13 +23,11 @@ of the functions
 * `BAT.exec_capabilities`
 * `BAT.density_logval!`
 """
-abstract type AbstractDensityFunction{Normalized,HasBounds,HasPrior} end  XXXXX check
+abstract type AbstractDensityFunction end  XXXXX check
 export AbstractDensityFunction
 
 
-const UnconstrainedDensityFunction{Normalized} = AbstractDensityFunction{Normalized,false,false}
-
-param_bounds(density::AbstractDensityFunction{<:Any,false,<:Any}) = NoParamBounds()
+param_bounds(density::AbstractDensityFunction) = NoParamBounds()
 
 Base.getindex(density::AbstractDensityFunction, bounds::NoParamBounds) = density
 Base.getindex(density::AbstractDensityFunction, bounds::ParamVolumeBounds) = density * ConstDensity(bounds, 1)
@@ -138,7 +136,7 @@ end
 mutable struct TransformedDensity{...}{
     SO<:AbstractDensityFunction,
     SN<:AbstractDensityFunction
-} <: AbstractDensityFunction{...}
+} <: AbstractDensityFunction
    before::SO
    after::SN
    # ... transformation, Jacobi matrix of transformation, etc.
