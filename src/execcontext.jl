@@ -71,11 +71,11 @@ export ExecCapabilities
 ExecCapabilities() = ExecCapabilities(0, false, 0, false)
 
 
-import Base.+
-+(a:ExecCapabilities, b:ExecCapabilities) = ExecCapabilities(
-    a.nthreads,
+import Base.*
+*(a:ExecCapabilities, b:ExecCapabilities) = ExecCapabilities(
+    maximum(a.nthreads, b.nthreads),
     a.threadsafe && b.threadsafe,
-    a.nprocs,
+    maximum(a.nprocs, b.nprocs),
     a.remotesafe && a.remotesafe
 )
 

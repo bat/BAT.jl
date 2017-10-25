@@ -1,53 +1,50 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct ConstantDensity{T<:Real} <: UnconstrainedDensityFunction
-    B<:ParamVolumeBounds,
+struct ConstDensity{B<:ParamVolumeBounds,T<:Real} <: AbstractDensityFunction
+    bounds::B,
     log_value::T   
 end
 
-export ConstantDensity
+export ConstDensity
 
 
-function ConstantDensity(bounds::ParamVolumeBounds, normalize::Bool)
+function ConstDensity(bounds::ParamVolumeBounds, normalize::Bool = true)
     T = eltype(bounds)
     log_value = if normalize
         convert(T, - log_volume(bounds))
     else
         one(T)
     end
-    ConstantDensity(bounds, log_value)
+    ConstDensity(bounds, log_value)
 end
 
 
-param_bounds(density::ConstantDensity) = density.bounds
+param_bounds(density::ConstDensity) = density.bounds
 
-nparams(density::ConstantDensity) = nparams(density.bounds)
+nparams(density::ConstDensity) = nparams(density.bounds)
 
 
-function density_logval(
-    density::ConstantDensity,
+function unsafe_density_logval(
+    density::ConstDensity,
     params::AbstractVector{<:Real},
     exec_context::ExecContext = ExecContext()
 )
-    size(params, 1) != nparams(density) && throw(ArgumentError("Invalid number of parameters"))
     density.log_value
 end
 
-@inline exec_capabilities(::typeof(density_logval), density::ConstantDensity, args...) =
+@inline exec_capabilities(::typeof(unsafe_density_logval), density::ConstDensity, args...) =
     ExecCapabilities(1, true, 1, true)
 
 
-function density_logval!(
+function unsafe_density_logval!(
     r::AbstractArray{<:Real},
-    density::ConstantDensity,
+    density::ConstDensity,
     params::AbstractMatrix{<:Real},
     exec_context::ExecContext
 )
-    size(params, 1) != nparams(density) && throw(ArgumentError("Invalid number of parameters"))
-    size(params, 2) != length(r) && throw(ArgumentError("Number of parameter vectors doesn't match length of result"))
     fill!(r, density.log_value)
 end
 
-@inline exec_capabilities(::typeof(density_logval!), r::AbstractArray{<:Real}, density::ConstantDensity, args...) =
+@inline exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractArray{<:Real}, density::ConstDensity, args...) =
     ExecCapabilities(1, true, 1, true)

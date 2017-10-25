@@ -38,27 +38,27 @@ _unsafe_prod(a::DensityProduct, b::AbstractDensityFunction, new_bounds::Abstract
     DensityProduct((a.densities...,b), new_bounds)
 
 
-function density_logval(density::DensityProduct, args...)
+function unsafe_density_logval(density::DensityProduct, args...)
     ds = densities.densities
     isempty(ds) && throw(ArgumentError("Can't evaluate density_logval on empty DensityProduct"))
-    sum(map(d -> density_logval(d, args...), ds))
+    sum(map(d -> unsafe_density_logval(d, args...), ds))
 end
 
-exec_capabilities(::typeof(density_logval), density::DensityProduct, args...)
-    sum(map(d -> exec_capabilities(density_logval, d, args...), density.densities))
+exec_capabilities(::typeof(unsafe_density_logval), density::DensityProduct, args...)
+    prod(map(d -> exec_capabilities(density_logval, d, args...), density.densities))
 
 
-function @inline density_logval!(r::AbstractArray{<:Real}, density::DensityProduct, args...)
+function unsafe_density_logval!(r::AbstractArray{<:Real}, density::DensityProduct, args...)
     ds = densities.densities
     isempty(ds) && throw(ArgumentError("Can't evaluate density_logval! on empty DensityProduct"))
     fill!(r, 0)
     tmp = similar(d)  # ToDo: Avoid memory allocation
     for d in ds
-        density_logval!(tmp, d, args...)
+        unsafe_density_logval!(tmp, d, args...)
         r .+= tmp
     end
     r
 end
 
-exec_capabilities(::typeof(density_logval!), r::AbstractArray{<:Real}, density::DensityProduct, args...)
-    sum(map(d -> exec_capabilities(density_logval!, r, d, args...), density.densities))
+exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractArray{<:Real}, density::DensityProduct, args...)
+    prod(map(d -> exec_capabilities(unsafe_density_logval!, r, d, args...), density.densities))

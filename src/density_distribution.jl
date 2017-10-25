@@ -1,14 +1,14 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct MvDistDensityFunction{D<:Distribution{Multivariate,Continuous}} <: UnconstrainedDensityFunction{true}
+struct MvDistDensityFunction{D<:Distribution{Multivariate,Continuous}} <: AbstractDensityFunction
     d::D
 end
 
 export MvDistDensityFunction
 
 
-function density_logval(
+function unsafe_density_logval(
     density::MvDistDensityFunction,
     params::AbstractVector{<:Real},
     exec_context::ExecContext = ExecContext()
@@ -21,11 +21,11 @@ parent(density::MvDistDensityFunction) = density.d
 nparams(density::MvDistDensityFunction) = length(density.d)
 
 # Assume that implementations of logpdf are thread-safe and remote-safe:
-exec_capabilities(::typeof(density_logval), density::MvDistDensityFunction, params::AbstractVector{<:Real}) =
+exec_capabilities(::typeof(unsafe_density_logval), density::MvDistDensityFunction, params::AbstractVector{<:Real}) =
     ExecCapabilities(0, true, 0, true)
 
 
-function density_logval!(
+function unsafe_density_logval!(
     r::AbstractArray{<:Real},
     density::MvDistDensityFunction,
     params::AbstractMatrix{<:Real},
@@ -37,5 +37,5 @@ end
 
 
 # Assume that implementations of logpdf! are thread-safe and remote-safe:
-exec_capabilities(::typeof(density_logval!), r::AbstractArray{<:Real}, density::MvDistDensityFunction, params::AbstractMatrix{<:Real}) =
+exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractArray{<:Real}, density::MvDistDensityFunction, params::AbstractMatrix{<:Real}) =
     ExecCapabilities(0, true, 0, true) # Change when implementation of density_logval! for MvDistDensityFunction becomes multithreaded.
