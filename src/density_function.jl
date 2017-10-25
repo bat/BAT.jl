@@ -31,6 +31,11 @@ const UnconstrainedDensityFunction{Normalized} = AbstractDensityFunction{Normali
 
 param_bounds(density::AbstractDensityFunction{<:Any,false,<:Any}) = NoParamBounds()
 
+Base.getindex(density::AbstractDensityFunction, bounds::NoParamBounds) = density
+Base.getindex(density::AbstractDensityFunction, bounds::ParamVolumeBounds) = density * ConstDensity(bounds, 1)
+
+
+
 
 doc"""
     density_logval(

@@ -1,6 +1,14 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+doc"""
+    log_volume(vol::SpatialVolume)
+
+Get the logarithm of the volume of the space in `vol`.
+"""
+function log_volume end
+
+
 abstract type SpatialVolume{T<:Real} end
 
 export SpatialVolume
@@ -50,4 +58,18 @@ Base.ndims(vol::HyperRectVolume) = length(vol.lo)
 function Base.rand!(rng::AbstractRNG, vol::HyperRectVolume, x::StridedVecOrMat{<:Real})
     rand!(rng, x)
     x .= x .* (vol.hi - vol.lo) .+ vol.lo # TODO: Avoid memory allocation
+end
+
+
+function log_volume(vol::HyperRectVolume{T}) where {T}
+    R = promote_type(Float64, T)
+    S = promote_type(Double{Float64}, T)
+    s = zero(S)
+    hi = vol.hi
+    lo = vol.lo
+    @assert indices(hi) == indices(lo)
+    @inbounds @simd for i in eachindex(hi)
+        s += JuliaLibm.log(R(hi[i]) - R(lo[i]))
+    end
+    R(s)
 end

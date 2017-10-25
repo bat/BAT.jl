@@ -99,19 +99,19 @@ struct NoParamBounds <: OptionalParamBounds
     ndims::Int
 end
 
+
 Base.in(params::AbstractVector, bounds::NoParamBounds) = true
 Base.in(params::AbstractMatrix, bounds::NoParamBounds, i::Integer) = true
 
 nparams(b::NoParamBounds) = b.ndims
 
-
 apply_bounds!(params::AbstractVector, bounds::NoParamBounds) = params
 
 
 
+abstract type ParamVolumeBounds{T<:Real, V<:SpatialVolume{T}} <: OptionalParamBounds end
 export ParamVolumeBounds
 
-abstract type ParamVolumeBounds{T<:Real, V<:SpatialVolume{T}} <: OptionalParamBounds end
 
 Base.in(params::AbstractVector, bounds::ParamVolumeBounds) = in(params, bounds.vol)
 Base.in(params::AbstractMatrix, bounds::ParamVolumeBounds, j::Integer) = in(params, bounds.vol, j)
@@ -121,8 +121,14 @@ Base.rand!(rng::AbstractRNG, bounds::ParamVolumeBounds, x::StridedVecOrMat{<:Rea
 nparams(b::ParamVolumeBounds) = ndims(b.vol)
 
 
+doc"""
+    spatialvolume(b::ParamVolumeBounds)::SpatialVolume
 
-export HyperRectBounds
+Returns the spatial volume that defines the parameter bounds.
+"""
+function spatialvolume end
+
+
 
 struct HyperRectBounds{T<:Real} <: ParamVolumeBounds{T, HyperRectVolume{T}}
     vol::HyperRectVolume{T}
@@ -134,10 +140,14 @@ struct HyperRectBounds{T<:Real} <: ParamVolumeBounds{T, HyperRectVolume{T}}
     end
 end
 
+export HyperRectBounds
 
 HyperRectBounds{T<:Real}(vol::HyperRectVolume{T}, bt::AbstractVector{BoundsType}) = HyperRectBounds{T}(vol, bt)
 HyperRectBounds{T<:Real}(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::AbstractVector{BoundsType}) = HyperRectBounds(HyperRectVolume(lo, hi), bt)
 HyperRectBounds{T<:Real}(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::BoundsType) = HyperRectBounds(lo, hi, fill(bt, size(lo, 1)))
+
+
+spatialvolume(bounds::HyperRectBounds) = bounds.vol
 
 function apply_bounds!(params::AbstractVecOrMat, bounds::HyperRectBounds, setoob = true)
     if setoob

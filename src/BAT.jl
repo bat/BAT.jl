@@ -6,6 +6,9 @@ module BAT
 
 using Base.Threads
 
+import Base.Math.JuliaLibm
+
+
 using Clustering
 using Colors
 using Distributions
@@ -37,6 +40,7 @@ include("proposaldist.jl")
 include("density_function.jl")
 include("prior.jl")
 include("bounded_density.jl")
+include("const_density.jl")
 include("product_density.jl")
 include("density_distribution.jl")
 include("algorithms.jl")

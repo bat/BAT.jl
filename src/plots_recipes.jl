@@ -82,7 +82,8 @@ end
 @recipe function f(bounds::HyperRectBounds, parsel::NTuple{2,Integer})
     pi_x, pi_y = parsel
 
-    vhi = bounds.vol.hi[[pi_x, pi_y]]; vlo = bounds.vol.lo[[pi_x, pi_y]]
+    vol = spatialvolume(bounds)
+    vhi = vol.hi[[pi_x, pi_y]]; vlo = vol.lo[[pi_x, pi_y]]
     rect_xy = rectangle_path(vlo, vhi)
     bext = 0.1 * (vhi - vlo)
     xlims = (vlo[1] - bext[1], vhi[1] + bext[1])
