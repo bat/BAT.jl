@@ -35,6 +35,13 @@ doc"""
 Linear bijective transformation from unit hypercube to hyper-rectangle `vol`.
 """
 function fromuhc!(Y::VecOrMat, X::VecOrMat, vol::HyperRectVolume)
+    _all_in_ui(X) || throw(ArgumentError("X not in unit hypercube"))
+    Y .= unsafe_fromui.(X, vol.lo, vol.hi)
+end
+
+function inv_fromuhc!(Y::VecOrMat, X::VecOrMat, vol::HyperRectVolume)
+    X in vol || throw(ArgumentError("X not in vol"))
+    Y .= unsafe_inv_fromui.(X, vol.lo, vol.hi)
 end
 
 
@@ -50,6 +57,7 @@ export from_unit_hypercube
 
 
 @inline function from_unit_hypercube!(y::Real, x::Real, HyperRectVolume)
+    _all_in_ui
     @boundscheck x in 0..1 || throw(ArgumentError("Input value not in 0..1"))
     muladd(x, (hi - lo), lo)
 end
@@ -91,6 +99,10 @@ HyperRectVolume{T<:Real}(lo::Vector{T}, hi::Vector{T}) = HyperRectVolume{T}(lo, 
 
 Base.in(x::AbstractVector, vol::HyperRectVolume) =
     _all_lteq(vol.lo, x, vol.hi)
+
+# ToDo:
+# Base.in(x::Matrix, vol::HyperRectVolume) =
+
 
 function Base.in(X::AbstractMatrix, vol::HyperRectVolume, j::Integer)
     lo = vol.lo
