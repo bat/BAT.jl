@@ -227,7 +227,7 @@ function unsafe_density_logval(
 end
 
 exec_capabilities(::typeof(unsafe_density_logval), density::AbstractDensityFunction, params::AbstractVector{<:Real}) =
-    ExecCapabilities(0, true, 0, true)
+    ExecCapabilities(1, true, 1, true)
 
 
 
