@@ -178,6 +178,19 @@ MCMCSpec(
 
 
 #=
+# ToDo: XXXXX !!!!!
+
+MCMCSpec(
+    algorithm::MCMCAlgorithm,
+    density::AbstractDensityFunction,
+    initial_params::Vector{<:Real},
+    prior::XXX,
+    rngseed::AbstractRNGSeed = Philox4xSeed()
+) = MCMCSpec(algorithm, ..., rngseed)
+=#
+
+
+#=
 # ToDo:
 
 MCMCSpec(

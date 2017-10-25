@@ -154,6 +154,20 @@ function mcmc_init(
 end
 
 
+#=
+#TODO: XXXXX !!!!!!
+
+function mcmc_init(
+    chainspec::MCMCSpec,
+    initial_params::Matrix{<:Real},
+    exec_context::ExecContext = ExecContext(),
+    tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
+    convergence_test::MCMCConvergenceTest = GRConvergence(),
+    ll::LogLevel = LOG_INFO
+)
+end
+=#
+
 
 struct MCMCBurninStrategy
     max_nsamples_per_cycle::Int64

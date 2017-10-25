@@ -1,7 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-using FunctionWrappers: FunctionWrapper
-
 
 # ToDo: Add `density_logval_gradient!` to support HMC, etc.
 

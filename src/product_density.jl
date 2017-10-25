@@ -1,5 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+using FunctionWrappers: FunctionWrapper
+
 
 struct GenericProductDensityFunction{T<:Real,P<:Real}
     log_terms::Vector{FunctionWrapper{T,Tuple{P}}}
@@ -24,3 +26,6 @@ exec_capabilities(::typeof(density_logval), density::GenericProductDensityFuncti
 
 
 # ToDo: Add product of density densitys
+
+# ToDo: XXXX !!!! For priors, DensityFunction with field sampler_f
+# that stores a FunctionWrapper around a sampler()::Sampleable{Multivariate,Continuous}

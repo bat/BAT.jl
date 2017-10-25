@@ -5,10 +5,12 @@ mutable struct BoundedDensity{    XXXX check
     Normalized,
     HasPrior,
     F<:AbstractDensityFunction{Normalized,<:Any,HasPrior},
-    B<:ParamVolumeBounds
+    B<:ParamVolumeBounds,
+    T<:Real
 } <: AbstractDensityFunction{Normalized,true,HasPrior}
     density::F
     bounds::B
+    log_norm_factor::T
 end
 
 export BoundedDensity
@@ -22,15 +24,20 @@ param_prior(density::BoundedDensity) = param_prior(parent(density))
 
 
 
-@inline density_logval(density::BoundedDensity, args...) =
-    density_logval(parent(density), args...)
+function @inline density_logval(density::BoundedDensity, args...)
+    log_x = density_logval(parent(density), args...)
+    convert(typeof(log_x), log_x + density.log_norm_factor)
+end
 
 @inline exec_capabilities(::typeof(density_logval), density::BoundedDensity, args...) =
     exec_capabilities(density_logval, parent(density), args...)
 
 
-@inline density_logval!(density::BoundedDensity, args...) =
-    density_logval(parent(density), args...)
+function @inline density_logval!(density::BoundedDensity, args...)
+    log_xs = density_logval(parent(density), args...)
+    log_xs .+= density.log_norm_factor
+    log_xs
+end
 
 @inline exec_capabilities(::typeof(density_logval!), density::BoundedDensity, args...) =
     exec_capabilities(density_logval, parent(density), args...)

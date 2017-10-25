@@ -76,6 +76,18 @@ function Base.rand!(
 end
 
 
+# XXXXXXXXXXXX # TODO !!!!
+#function Base.rand!(
+#    result::Tuple{DensitySampleVector, MCMCSampleIDVector, MCMCBasicStats},
+#    chainspec::MCMCSpec,
+#    nsamples::Integer,
+#    initial_params::Matrix{<:Real},
+#    ...
+#)
+#    ...
+#end
+
+
 function Base.rand(
     chainspec::MCMCSpec,
     nsamples::Integer,
