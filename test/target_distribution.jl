@@ -5,7 +5,7 @@ using Compat.Test
 
 using Distributions, PDMats, StatsBase
 
-@testset "target_density" begin
+@testset "target_distribution" begin
     mvec = [-0.3, 0.3]
     cmat = [1.0 1.5; 1.5 4.0]
     Σ = @inferred PDMat(cmat)
