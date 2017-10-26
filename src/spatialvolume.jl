@@ -78,6 +78,16 @@ HyperRectVolume{T<:Real}(lo::Vector{T}, hi::Vector{T}) = HyperRectVolume{T}(lo, 
 Base.in(x::AbstractVector, vol::HyperRectVolume) =
     _all_lteq(vol.lo, x, vol.hi)
 
+Base.ndims(vol::HyperRectVolume) = size(vol.lo, 1)
+
+function Base.intersect(a::HyperRectVolume, b::HyperRectVolume)
+    c = HyperRectVolume(similar(a.lo), similar(a.hi))
+    c.lo .= max.(a.lo, b.lo)
+    c.hi .= min.(a.hi, b.hi)
+    c
+end
+
+
 # ToDo:
 # Base.in(x::Matrix, vol::HyperRectVolume) =
 
@@ -107,10 +117,15 @@ function log_volume(vol::HyperRectVolume{T}) where {T}
     lo = vol.lo
     @assert indices(hi) == indices(lo)
     @inbounds @simd for i in eachindex(hi)
-        s += JuliaLibm.log(R(hi[i]) - R(lo[i]))
+        d = max(zero(R), R(hi[i]) - R(lo[i]))
+        s += JuliaLibm.log(d)
     end
     R(s)
 end
+
+
+# ToDo:
+# log_intersect_volume(a::HyperRectVolume{T}, b::HyperRectVolume{T}) where {T} = ...
 
 
 doc"""

@@ -139,8 +139,6 @@ function spatialvolume end
 
 
 
-# TODO: XXXX !!!! IntervalsArray, specialized _unsafe_intersect for HyperRectangle and HyperRectBounds
-
 struct HyperRectBounds{T<:Real} <: ParamVolumeBounds{T, HyperRectVolume{T}}
     vol::HyperRectVolume{T}
     bt::Vector{BoundsType}
@@ -157,6 +155,8 @@ HyperRectBounds{T<:Real}(vol::HyperRectVolume{T}, bt::AbstractVector{BoundsType}
 HyperRectBounds{T<:Real}(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::AbstractVector{BoundsType}) = HyperRectBounds(HyperRectVolume(lo, hi), bt)
 HyperRectBounds{T<:Real}(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::BoundsType) = HyperRectBounds(lo, hi, fill(bt, size(lo, 1)))
 
+# TODO: XXXX !!!! :
+# Base.intersect(a::HyperRectBounds, b::HyperRectBounds) = ....
 
 spatialvolume(bounds::HyperRectBounds) = bounds.vol
 
