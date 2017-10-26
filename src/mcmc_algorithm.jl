@@ -187,14 +187,8 @@ function (spec::MCMCSpec)(
     id::Integer,
     exec_context::ExecContext = ExecContext()
 )
-    P = float(eltype(param_bounds(spec.target)))
-    target = spec.likelihood * spec.prior
-    m = nparams(target)
+    P = float(eltype(param_bounds(spec.prior)))
     rng = spec.rngseed()
-
-    reset_rng_counters!(rng, MCMCSampleID(id, 0, 0))
-    initial_params = Vector{P}(m)
-    rand_initial_params!(rng, algorithm, prior, initial_params)
 
     MCMCIterator(
         spec.algorithm,
@@ -202,7 +196,7 @@ function (spec::MCMCSpec)(
         spec.prior,
         id,
         rng,
-        initial_params,
+        Vector{P}(),
         exec_context,
     )
 end

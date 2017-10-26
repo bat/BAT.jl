@@ -106,16 +106,23 @@ function MCMCIterator(
     prior::AbstractDensity,
     id::Integer,
     rng::AbstractRNG,
-    initial_params::AbstractVector{P},
+    initial_params::AbstractVector{P} = Vector{P}(),
     exec_context::ExecContext = ExecContext(),
 ) where {P<:Real}
     target = likelihood * prior
 
+    cycle = 0
+    reset_rng_counters!(rng, MCMCSampleID(id, cycle, 0))
+
     params_vec = Vector{P}(nparams(target))
-    params_vec .= initial_params
+    if isempty(initial_params)
+        rand_initial_params!(rng, algorithm, prior, initial_params)
+    else
+        params_vec .= initial_params
+    end
+
     !(params_vec in param_bounds(target)) && throw(ArgumentError("Parameter(s) out of bounds"))
 
-    cycle = 0
     reset_rng_counters!(rng, MCMCSampleID(id, cycle, 1))
 
     m = length(params_vec)
