@@ -25,7 +25,5 @@ exec_capabilities(::typeof(unsafe_density_logval), density::GenericProductDensit
     density.single_exec_compat # Change when implementation of density_logval for GenericProductDensityFunction becomes multithreaded.
 
 
-# ToDo: Add product of density densitys
-
-# ToDo: XXXX !!!! For priors, DensityFunction with field sampler_f
+# For priors, DensityFunction with field sampler_f
 # that stores a FunctionWrapper around a sampler()::Sampleable{Multivariate,Continuous}
