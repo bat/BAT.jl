@@ -9,15 +9,11 @@ end
 export ConstDensity
 
 
-function ConstDensity(bounds::ParamVolumeBounds, normalize::Bool = true)
-    T = eltype(bounds)
-    log_value = if normalize
-        convert(T, - log_volume(bounds))
-    else
-        one(T)
-    end
-    ConstDensity(bounds, log_value)
-end
+ConstDensity(bounds::ParamVolumeBounds, ::typeof(one)) =
+    ConstDensity(bounds, one(eltype(bounds)))
+
+ConstDensity(bounds::ParamVolumeBounds, ::typeof(normalize)) =
+    ConstDensity(bounds, -log_volume(bounds))
 
 
 param_bounds(density::ConstDensity) = density.bounds
