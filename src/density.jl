@@ -22,12 +22,10 @@ abstract type AbstractDensity end
 export AbstractDensity
 
 
-# TODO: Introduce eltype(density)?
-
-Base.rand(rng::AbstractRNG, density::AbstractDensity, T::Type{<:AbstractFloat} = Float64) =
+Base.rand(rng::AbstractRNG, density::AbstractDensity, T::Type{<:AbstractFloat}) =
     rand!(rng, density, Vector{T}(nparams(density)))
 
-Base.rand(rng::AbstractRNG, density::AbstractDensity, n::Integer, T::Type{<:AbstractFloat} = Float64) =
+Base.rand(rng::AbstractRNG, density::AbstractDensity, T::Type{<:AbstractFloat, n::Integer}) =
     rand!(rng, density, Matrix{T}(nparams(density), n))
 
 

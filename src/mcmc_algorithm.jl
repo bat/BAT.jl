@@ -27,18 +27,20 @@ mcmc_compatible(::MCMCAlgorithm, ::AbstractProposalDist, ::AbstractParamBounds) 
 function sample_weight_type end
 
 
-# TODO: XXXXXXXXXXXX check!
-
 rand_initial_params(rng::AbstractRNG, chainspec::MCMCSpec) =
-    rand_initial_params!(rng, algorithm, target,
-        Vector{float(eltype(param_bounds(chainspec.prior)))}(nparams(chainspec.prior)))
+    rand_initial_params!(
+        rng, chainspec,
+        Vector{float(eltype(param_bounds(chainspec.prior)))}(nparams(chainspec.prior))
+    )
 
 rand_initial_params(rng::AbstractRNG, chainspec::MCMCSpec, n::Integer) =
-    rand_initial_params!(rng, algorithm, target,
-        Matrix{float(eltype(param_bounds(chainspec.prior)))}(nparams(chainspec.prior), n))
+    rand_initial_params!(
+        rng, chainspec,
+        Matrix{float(eltype(param_bounds(chainspec.prior)))}(nparams(chainspec.prior), n)
+    )
 
-rand_initial_params!(rng::AbstractRNG, chainspec::MCMCSpec, x::StridedVecOrMat{<:Real}) =
-    rand!(rng, chainspec.prior, x)
+rand_initial_params!(rng::AbstractRNG, chainspec::MCMCSpec, X::StridedVecOrMat{<:Real}) =
+    rand!(rng, chainspec.prior, X)
 
 
 mutable struct MCMCIterator{
