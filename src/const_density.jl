@@ -10,10 +10,10 @@ export ConstDensity
 
 
 ConstDensity(bounds::ParamVolumeBounds, ::typeof(one)) =
-    ConstDensity(bounds, one(eltype(bounds)))
+    ConstDensity(bounds, 1)
 
 ConstDensity(bounds::ParamVolumeBounds, ::typeof(normalize)) =
-    ConstDensity(bounds, -log_volume(bounds))
+    ConstDensity(bounds, -log_volume(spatialvolume(bounds)))
 
 
 param_bounds(density::ConstDensity) = density.bounds

@@ -168,6 +168,8 @@ HyperRectBounds{T<:Real}(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::Bound
 
 Base.similar(bounds::HyperRectBounds) = HyperRectBounds(similar(bounds.vol), similar(bounds.bt))
 
+Base.eltype(bounds::HyperRectBounds{T}) where {T} = T
+
 
 function Base.intersect(a::HyperRectBounds, b::HyperRectBounds)
     c = similar(a)
