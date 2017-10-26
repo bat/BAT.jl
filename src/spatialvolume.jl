@@ -1,13 +1,26 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+abstract type SpatialVolume{T<:Real} end
+
+export SpatialVolume
+
+
+Base.eltype(b::SpatialVolume{T}) where T = T
+
+Base.rand(rng::AbstractRNG, vol::SpatialVolume) =
+    rand!(rng, vol, Vector{float(eltype(vol))}(ndims(vol)))
+
+Base.rand(rng::AbstractRNG, vol::SpatialVolume, n::Integer) =
+    rand!(rng, vol, Matrix{float(eltype(vol))}(ndims(vol), n))
+
+
 doc"""
     log_volume(vol::SpatialVolume)
 
 Get the logarithm of the volume of the space in `vol`.
 """
 function log_volume end
-
 
 
 doc"""
@@ -21,6 +34,8 @@ Use `inv(fromuhc!)` to get the the inverse transformation.
 """
 function fromuhc! end
 export fromuhc!
+
+function inv_fromuhc! end
 
 Base.inv(::typeof(fromuhc!)) = inv_fromuhc!
 Base.inv(::typeof(inv_fromuhc!)) = fromuhc!
@@ -38,22 +53,10 @@ function fromuhc(Y::VecOrMat, X::VecOrMat, vol::SpatialVolume)
 end
 export fromuhc
 
+function inv_fromuhc end
+
 Base.inv(::typeof(fromuhc)) = inv_fromuhc
 Base.inv(::typeof(inv_fromuhc)) = fromuhc
-
-
-
-abstract type SpatialVolume{T<:Real} end
-
-export SpatialVolume
-
-Base.eltype(b::SpatialVolume{T}) where T = T
-
-Base.rand(rng::AbstractRNG, vol::SpatialVolume) =
-    rand!(rng, vol, Vector{float(eltype(vol))}(ndims(vol)))
-
-Base.rand(rng::AbstractRNG, vol::SpatialVolume, n::Integer) =
-    rand!(rng, vol, Matrix{float(eltype(vol))}(ndims(vol), n))
 
 
 

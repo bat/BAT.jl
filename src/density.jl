@@ -25,7 +25,7 @@ export AbstractDensity
 Base.rand(rng::AbstractRNG, density::AbstractDensity, T::Type{<:AbstractFloat}) =
     rand!(rng, density, Vector{T}(nparams(density)))
 
-Base.rand(rng::AbstractRNG, density::AbstractDensity, T::Type{<:AbstractFloat, n::Integer}) =
+Base.rand(rng::AbstractRNG, density::AbstractDensity, T::Type{<:AbstractFloat}, n::Integer) =
     rand!(rng, density, Matrix{T}(nparams(density), n))
 
 Base.rand!(rng::AbstractRNG, density::AbstractDensity, x::StridedVecOrMat{<:Real}) =
@@ -80,12 +80,12 @@ Do not implement `density_logval` directly for subtypes of
 See `ExecContext` for thread-safety requirements.
 """
 function density_logval(
-    density::PriorDistribution,
+    density::AbstractDensity,
     params::AbstractVector{<:Real},
     exec_context::ExecContext = ExecContext()
 )
     !(size(params, 1) == nparams(density)) && throw(ArgumentError("Invalid length of parameter vector"))
-    density_logval(density, params, exec_context)
+    unsafe_density_logval(density, params, exec_context)
 end
 export density_logval
 
@@ -154,13 +154,13 @@ See `ExecContext` for thread-safety requirements.
 """
 function density_logval!(
     r::AbstractVector{<:Real},
-    density::PriorDistribution,
+    density::AbstractDensity,
     params::AbstractMatrix{<:Real},
     exec_context::ExecContext = ExecContext()
 )
     !(size(params, 1) == nparams(density)) && throw(ArgumentError("Invalid length of parameter vector"))
     !(indices(params, 2) == indices(r, 1)) && throw(ArgumentError("Number of parameter vectors doesn't match length of result vector"))
-    unsafe_density_logval(r, density, params, exec_context)
+    unsafe_density_logval!(r, density, params, exec_context)
 end
 export density_logval!
 
@@ -240,7 +240,7 @@ function unsafe_density_logval(
     density.log_f(params)
 end
 
-exec_capabilities(::typeof(unsafe_density_logval), density::AbstractDensity, params::AbstractVector{<:Real}) =
+exec_capabilities(::typeof(unsafe_density_logval), density::GenericDensity, params::AbstractVector{<:Real}) =
     ExecCapabilities(1, true, 1, true)
 
 

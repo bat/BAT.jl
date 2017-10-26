@@ -16,9 +16,9 @@ export AbstractParamBounds
 abstract type AbstractParamBounds end
 
 
-function Base.intersect(a::NoParamBounds, b::NoParamBounds)
+function Base.intersect(a::AbstractParamBounds, b::AbstractParamBounds)
     nparams(a) != nparams(b) && throw(ArgumentError("Can't intersect parameter bounds with different number of parameters"))
-    _unsafe_intersect(a, b)
+    unsafe_intersect(a, b)
 end
 
 @inline oob{T<:AbstractFloat}(::Type{T}) = T(NaN)
@@ -115,9 +115,9 @@ nparams(b::NoParamBounds) = b.ndims
 
 apply_bounds!(params::AbstractVector, bounds::NoParamBounds) = params
 
-_unsafe_intersect(a::NoParamBounds, b::NoParamBounds) = a
-_unsafe_intersect(a::AbstractParamBounds, b::NoParamBounds) = a
-_unsafe_intersect(a::NoParamBounds, b::AbstractParamBounds) = b
+unsafe_intersect(a::NoParamBounds, b::NoParamBounds) = a
+unsafe_intersect(a::AbstractParamBounds, b::NoParamBounds) = a
+unsafe_intersect(a::NoParamBounds, b::AbstractParamBounds) = b
 
 
 
@@ -169,7 +169,7 @@ HyperRectBounds{T<:Real}(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::Bound
 Base.similar(bounds::HyperRectBounds) = HyperRectBounds(similar(bounds.vol), similar(bounds.bt))
 
 
-Base.intersect(a::HyperRectBounds, b::HyperRectBounds)
+function Base.intersect(a::HyperRectBounds, b::HyperRectBounds)
     c = similar(a)
     for i in eachindex(a.vol.lo, a.vol.hi, a.bt, b.vol.lo, b.vol.hi, b.bt)
         iv_a = a.vol.lo[i]..a.vol.hi[i]

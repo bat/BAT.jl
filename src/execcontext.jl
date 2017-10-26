@@ -81,7 +81,7 @@ Get the intersection of execution capabilities of a and b, i.e. the
 `ExecCapabilities` that should be used when to functions are used in
 combination (e.g. in sequence).
 """
-Base.intersect(a:ExecCapabilities, b:ExecCapabilities) = ExecCapabilities(
+Base.intersect(a::ExecCapabilities, b::ExecCapabilities) = ExecCapabilities(
     if a.nthreads == 0
         b.nthreads
     elseif b.nthreads == 0

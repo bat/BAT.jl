@@ -2,7 +2,7 @@
 
 
 struct ConstDensity{B<:ParamVolumeBounds,T<:Real} <: AbstractDensity
-    bounds::B,
+    bounds::B
     log_value::T   
 end
 

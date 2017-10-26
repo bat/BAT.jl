@@ -43,8 +43,7 @@ Use `@inbounds` to disable range checking on the input value.
 function fromui end
 export fromui
 
-@inline function unsafe_fromui(x::Real, lo::Real, hi::Real) =
-    muladd(x, (hi - lo), lo)
+@inline unsafe_fromui(x::Real, lo::Real, hi::Real) = muladd(x, (hi - lo), lo)
 
 @inline function fromui(x::Real, lo::Real, hi::Real)
     @boundscheck x in 0..1 || throw(ArgumentError("Input value not in 0..1"))
@@ -54,8 +53,7 @@ end
 Base.@propagate_inbounds fromui(x::Real, lo_hi::ClosedInterval{<:Real}) =
     fromui(x, minimum(lo_hi), maximum(lo_hi))
 
-@inline function unsafe_inv_fromui(x::Real, lo::Real, hi::Real) =
-    (x - lo) / (hi - lo)
+@inline unsafe_inv_fromui(x::Real, lo::Real, hi::Real) = (x - lo) / (hi - lo)
 
 @inline function inv_fromui(x::Real, lo::Real, hi::Real)
     @boundscheck x in lo..hi || throw(ArgumentError("Input value not in lo..hi"))
