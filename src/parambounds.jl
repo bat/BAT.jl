@@ -35,6 +35,17 @@ isoob(xs::AbstractArray) = any(isoob, xs)
 export BoundsType
 export hard_bounds, cyclic_bounds, reflective_bounds
 
+function Base.intersect(a::BoundsType, b::BoundsType)
+    if a == hard_bounds || b == hard_bounds
+        hard_bounds
+    elseif a == reflective_bounds || b == reflective_bounds
+        reflective_bounds
+    else
+        cyclic_bounds
+    end
+end
+
+
 
 @inline float_iseven(n::T) where {T<:AbstractFloat} = (n - T(2) * floor((n + T(0.5)) * T(0.5))) < T(0.5)
 
@@ -155,8 +166,29 @@ HyperRectBounds{T<:Real}(vol::HyperRectVolume{T}, bt::AbstractVector{BoundsType}
 HyperRectBounds{T<:Real}(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::AbstractVector{BoundsType}) = HyperRectBounds(HyperRectVolume(lo, hi), bt)
 HyperRectBounds{T<:Real}(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::BoundsType) = HyperRectBounds(lo, hi, fill(bt, size(lo, 1)))
 
-# TODO: XXXX !!!! :
-# Base.intersect(a::HyperRectBounds, b::HyperRectBounds) = ....
+Base.similar(bounds::HyperRectBounds) = HyperRectBounds(similar(bounds.vol), similar(bounds.bt))
+
+
+Base.intersect(a::HyperRectBounds, b::HyperRectBounds)
+    c = similar(a)
+    for i in eachindex(a.vol.lo, a.vol.hi, a.bt, b.vol.lo, b.vol.hi, b.bt)
+        iv_a = a.vol.lo[i]..a.vol.hi[i]
+        iv_b = b.vol.lo[i]..b.vol.hi[i]
+        if iv_a in iv_b
+            c.bt[i] = a.bt[i]
+        elseif iv_b in iv_a
+            c.bt[i] = b.bt[i]
+        else
+            c.bt[i] = a.bt[i] ∩ b.bt[i]
+        end
+            
+        iv_c = iv_a ∩ iv_b
+        c.vol.lo[i] = minimum(iv_c)
+        c.vol.hi[i] = maximum(iv_c)
+    end
+    c
+end
+
 
 spatialvolume(bounds::HyperRectBounds) = bounds.vol
 

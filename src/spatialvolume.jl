@@ -75,33 +75,32 @@ export HyperRectVolume
 
 HyperRectVolume{T<:Real}(lo::Vector{T}, hi::Vector{T}) = HyperRectVolume{T}(lo, hi)
 
+Base.ndims(vol::HyperRectVolume) = size(vol.lo, 1)
+
+Base.similar(vol::HyperRectVolume) = HyperRectVolume(similar(vol.a.lo), similar(vol.a.hi))
+
 Base.in(x::AbstractVector, vol::HyperRectVolume) =
     _all_lteq(vol.lo, x, vol.hi)
 
-Base.ndims(vol::HyperRectVolume) = size(vol.lo, 1)
-
-function Base.intersect(a::HyperRectVolume, b::HyperRectVolume)
-    c = HyperRectVolume(similar(a.lo), similar(a.hi))
-    c.lo .= max.(a.lo, b.lo)
-    c.hi .= min.(a.hi, b.hi)
-    c
-end
-
+# TODO: Remove?
+# function Base.in(X::AbstractMatrix, vol::HyperRectVolume, j::Integer)
+#     lo = vol.lo
+#     hi = vol.hi
+#     for i in indices(X, 1)
+#         (lo[i] <= X[i, j] <= hi[i]) || return false
+#     end
+#     return true
+# end
 
 # ToDo:
 # Base.in(x::Matrix, vol::HyperRectVolume) =
 
-
-function Base.in(X::AbstractMatrix, vol::HyperRectVolume, j::Integer)
-    lo = vol.lo
-    hi = vol.hi
-    for i in indices(X, 1)
-        (lo[i] <= X[i, j] <= hi[i]) || return false
-    end
-    return true
+function Base.intersect(a::HyperRectVolume, b::HyperRectVolume)
+    c = similar(a)
+    c.lo .= max.(a.lo, b.lo)
+    c.hi .= min.(a.hi, b.hi)
+    c
 end
-
-Base.ndims(vol::HyperRectVolume) = length(vol.lo)
 
 function Base.rand!(rng::AbstractRNG, vol::HyperRectVolume, x::StridedVecOrMat{<:Real})
     rand!(rng, x)
