@@ -33,6 +33,6 @@ using Distributions, PDMats, StatsBase
         mean_samples = mean(Array(samples.params), FrequencyWeights(samples.weight), 2)
 
         @test isapprox(mean_samples, mvec; atol = 0.2)
-        @test isapprox(cov_samples, cmat; atol = 0.3)
+        @test isapprox(cov_samples, cmat; atol = 0.4)
     end
 end
