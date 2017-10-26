@@ -46,5 +46,4 @@ end
     ExecCapabilities(0, true, 0, true)
 
 
-Base.rand!(rng::AbstractRNG, density::ConstDensity, x::StridedVecOrMat{<:Real}) =
-    rand!(rng, spatialvolume(param_bounds(density)), x)
+Distributions.sampler(density::ConstDensity) = spatialvolume(param_bounds(density))

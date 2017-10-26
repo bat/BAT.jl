@@ -28,6 +28,9 @@ Base.rand(rng::AbstractRNG, density::AbstractDensity, T::Type{<:AbstractFloat}) 
 Base.rand(rng::AbstractRNG, density::AbstractDensity, T::Type{<:AbstractFloat, n::Integer}) =
     rand!(rng, density, Matrix{T}(nparams(density), n))
 
+Base.rand!(rng::AbstractRNG, density::AbstractDensity, x::StridedVecOrMat{<:Real}) =
+    rand!(rng, sampler(density), x)
+
 
 
 doc"""
