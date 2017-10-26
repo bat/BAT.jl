@@ -19,28 +19,17 @@ end
 
 
 abstract type MCMCAlgorithm{S<:AbstractMCMCState} <: BATAlgorithm end
-
+export MCMCAlgorithm
 
 
 mcmc_compatible(::MCMCAlgorithm, ::AbstractProposalDist, ::AbstractParamBounds) = true
 
+rand_initial_params!(rng::AbstractRNG, algorithm::MCMCAlgorithm, prior::AbstractDensity, x::StridedVecOrMat{<:Real}) =
+    rand!(rng, prior, x)
+
+
 function sample_weight_type end
 
-
-rand_initial_params(rng::AbstractRNG, chainspec::MCMCSpec) =
-    rand_initial_params!(
-        rng, chainspec,
-        Vector{float(eltype(param_bounds(chainspec.prior)))}(nparams(chainspec.prior))
-    )
-
-rand_initial_params(rng::AbstractRNG, chainspec::MCMCSpec, n::Integer) =
-    rand_initial_params!(
-        rng, chainspec,
-        Matrix{float(eltype(param_bounds(chainspec.prior)))}(nparams(chainspec.prior), n)
-    )
-
-rand_initial_params!(rng::AbstractRNG, chainspec::MCMCSpec, X::StridedVecOrMat{<:Real}) =
-    rand!(rng, chainspec.prior, X)
 
 
 mutable struct MCMCIterator{
@@ -199,14 +188,21 @@ function (spec::MCMCSpec)(
     exec_context::ExecContext = ExecContext()
 )
     P = float(eltype(param_bounds(spec.target)))
-    m = nparams(spec.target)
+    target = spec.likelihood * spec.prior
+    m = nparams(target)
     rng = spec.rngseed()
+
+    reset_rng_counters!(rng, MCMCSampleID(id, 0, 0))
+    initial_params = Vector{P}(m)
+    rand_initial_params!(rng, algorithm, prior, initial_params)
+
     MCMCIterator(
         spec.algorithm,
-        spec.target,
+        spec.likelihood,
+        spec.prior,
         id,
         rng,
-        Vector{P}(),
+        initial_params,
         exec_context,
     )
 end
