@@ -18,8 +18,18 @@ of the functions
 * `BAT.exec_capabilities`
 * `BAT.unsafe_density_logval!`
 """
-abstract type AbstractDensity end  XXXXX check
+abstract type AbstractDensity end
 export AbstractDensity
+
+
+# TODO: Introduce eltype(density)?
+
+Base.rand(rng::AbstractRNG, density::AbstractDensity, T::Type{<:AbstractFloat} = Float64) =
+    rand!(rng, density, Vector{T}(nparams(density)))
+
+Base.rand(rng::AbstractRNG, density::AbstractDensity, n::Integer, T::Type{<:AbstractFloat} = Float64) =
+    rand!(rng, density, Matrix{T}(nparams(density), n))
+
 
 
 doc"""
@@ -49,10 +59,8 @@ Base.getindex(density::AbstractDensity, bounds::ParamVolumeBounds) =
     density * ConstDensity(bounds, false)
 
 
-import Base.*
-*(density::AbstractDensity, bounds::ParamVolumeBounds) = density * ConstDensity(bounds, true)
-*(bounds::ParamVolumeBounds, density::AbstractDensity) = ConstDensity(bounds, true) * density
-
+Base.convert(::Type{AbstractDensity}, bounds::ParamVolumeBounds) =
+    ConstDensity(bounds, true)
 
 
 

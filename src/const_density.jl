@@ -48,3 +48,7 @@ end
 
 @inline exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractArray{<:Real}, density::ConstDensity, args...) =
     ExecCapabilities(0, true, 0, true)
+
+
+Base.rand!(rng::AbstractRNG, density::ConstDensity, x::StridedVecOrMat{<:Real}) =
+    rand!(rng, spatialvolume(param_bounds(density)), x)

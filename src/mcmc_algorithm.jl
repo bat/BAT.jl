@@ -27,15 +27,18 @@ mcmc_compatible(::MCMCAlgorithm, ::AbstractProposalDist, ::AbstractParamBounds) 
 function sample_weight_type end
 
 
-XXXXXX rand_initial_params(rng::AbstractRNG, algorithm::MCMCAlgorithm, target::BoundedDensity) =
-    rand_initial_params!(rng, algorithm, target, Vector{float(eltype(param_bounds(target)))}(nparams(target)))
+# TODO: XXXXXXXXXXXX check!
 
-XXXXXX rand_initial_params(rng::AbstractRNG, algorithm::MCMCAlgorithm, target::BoundedDensity, n::Integer) =
-    rand_initial_params!(rng, algorithm, target, Matrix{float(eltype(param_bounds(target)))}(nparams(target), n))
+rand_initial_params(rng::AbstractRNG, chainspec::MCMCSpec) =
+    rand_initial_params!(rng, algorithm, target,
+        Vector{float(eltype(param_bounds(chainspec.prior)))}(nparams(chainspec.prior)))
 
-XXXXXX rand_initial_params!(rng::AbstractRNG, ::MCMCAlgorithm, target::BoundedDensity, x::StridedVecOrMat{<:Real}) =
-    rand!(rng, param_bounds(target), x)
+rand_initial_params(rng::AbstractRNG, chainspec::MCMCSpec, n::Integer) =
+    rand_initial_params!(rng, algorithm, target,
+        Matrix{float(eltype(param_bounds(chainspec.prior)))}(nparams(chainspec.prior), n))
 
+rand_initial_params!(rng::AbstractRNG, chainspec::MCMCSpec, x::StridedVecOrMat{<:Real}) =
+    rand!(rng, chainspec.prior, x)
 
 
 mutable struct MCMCIterator{
@@ -151,15 +154,17 @@ end
 
 
 
-# TODO: Make MCMCSpec a subtype of Sampleable{Multivariate,Continuous}?
+# TODO/Decision: Make MCMCSpec a subtype of Sampleable{Multivariate,Continuous}?
 
 struct MCMCSpec{
     A<:MCMCAlgorithm,
-    T<:AbstractDensity,
+    L<:AbstractDensity,
+    P<:AbstractDensity,
     R<:AbstractRNGSeed
 }
     algorithm::A
-    target::T
+    likelihood::L
+    prior::P
     rngseed::R
 end
 
@@ -167,47 +172,24 @@ export MCMCSpec
 
 MCMCSpec(
     algorithm::MCMCAlgorithm,
-    target::AbstractDensity,
-) = MCMCSpec(algorithm, target, AbstractRNGSeed())
+    likelihood::AbstractDensity,
+    prior::AbstractDensity
+) = MCMCSpec(algorithm, likelihood, prior, AbstractRNGSeed())
 
 MCMCSpec(
     algorithm::MCMCAlgorithm,
     log_f::Function,
+    nparams::Int
     prior::Union{AbstractDensity,ParamVolumeBounds},
     rngseed::AbstractRNGSeed = AbstractRNGSeed()
-) = MCMCSpec(algorithm, GenericDensity(log_f, nparams(prior))*prior, rngseed)
+) = MCMCSpec(algorithm, GenericDensity(log_f, nparams(prior)), convert(AbstractDensity, prior), rngseed)
 
 MCMCSpec(
     algorithm::MCMCAlgorithm,
     distribution::Distribution{Multivariate,Continuous},
     prior::Union{AbstractDensity,ParamVolumeBounds},
     rngseed::AbstractRNGSeed = AbstractRNGSeed()
-) = MCMCSpec(algorithm, MvDistDensity(distribution)*prior, rngseed)
-
-
-#=
-# ToDo: XXXXX !!!!!
-
-MCMCSpec(
-    algorithm::MCMCAlgorithm,
-    density::AbstractDensity,
-    initial_params::Vector{<:Real},
-    prior::XXX,
-    rngseed::AbstractRNGSeed = AbstractRNGSeed()
-) = MCMCSpec(algorithm, ..., rngseed)
-=#
-
-
-#=
-# ToDo:
-
-MCMCSpec(
-    algorithm::MCMCAlgorithm,
-    density::AbstractDensity,
-    prior::XXX,
-    rngseed::AbstractRNGSeed = AbstractRNGSeed()
-) = MCMCSpec(algorithm, ..., rngseed)
-=#
+) = MCMCSpec(algorithm, MvDistDensity(distribution), convert(AbstractDensity, prior), rngseed)
 
 
 function (spec::MCMCSpec)(

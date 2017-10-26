@@ -16,12 +16,6 @@ export AbstractParamBounds
 abstract type AbstractParamBounds end
 
 
-Base.rand(rng::AbstractRNG, bounds::AbstractParamBounds) =
-    rand!(rng, bounds, Vector{float(eltype(bounds))}(nparams(bounds)))
-
-Base.rand(rng::AbstractRNG, bounds::AbstractParamBounds, n::Integer) =
-    rand!(rng, bounds, Matrix{float(eltype(bounds))}(nparams(bounds), n))
-
 function Base.intersect(a::NoParamBounds, b::NoParamBounds)
     nparams(a) != nparams(b) && throw(ArgumentError("Can't intersect parameter bounds with different number of parameters"))
     _unsafe_intersect(a, b)
@@ -121,9 +115,17 @@ export ParamVolumeBounds
 
 
 Base.in(params::AbstractVector, bounds::ParamVolumeBounds) = in(params, bounds.vol)
-Base.in(params::AbstractMatrix, bounds::ParamVolumeBounds, j::Integer) = in(params, bounds.vol, j)
+Base.in(params::AbstractMatrix, bounds::ParamVolumeBounds, j::Integer) = in(params, spatialvolume(bounds), j)
 
-Base.rand!(rng::AbstractRNG, bounds::ParamVolumeBounds, x::StridedVecOrMat{<:Real}) = rand!(rng, bounds.vol, x)
+
+# Base.rand(rng::AbstractRNG, bounds::ParamVolumeBounds) =
+#     rand!(rng, bounds, Vector{float(eltype(bounds))}(nparams(bounds)))
+
+# Base.rand(rng::AbstractRNG, bounds::ParamVolumeBounds, n::Integer) =
+#     rand!(rng, bounds, Matrix{float(eltype(bounds))}(nparams(bounds), n))
+# 
+# Base.rand!(rng::AbstractRNG, bounds::ParamVolumeBounds, x::StridedVecOrMat{<:Real}) = rand!(rng, spatialvolume(bounds), x)
+
 
 nparams(b::ParamVolumeBounds) = ndims(b.vol)
 

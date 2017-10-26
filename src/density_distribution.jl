@@ -39,3 +39,7 @@ end
 # Assume that implementations of logpdf! are thread-safe and remote-safe:
 exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractArray{<:Real}, density::MvDistDensity, params::AbstractMatrix{<:Real}) =
     ExecCapabilities(0, true, 0, true) # Change when implementation of density_logval! for MvDistDensity becomes multithreaded.
+
+
+Base.rand!(rng::AbstractRNG, density::MvDistDensity, x::StridedVecOrMat{<:Real}) =
+    rand!(rng, bat_sampler(parent(density)), x)
