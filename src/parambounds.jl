@@ -51,7 +51,7 @@ end
 
 
 doc"""
-    apply_bounds!(params::AbstractVector, bounds::AbstractParamBounds) 
+    apply_bounds!(params::AbstractVector, bounds::AbstractParamBounds)
 
 Apply `bounds` to parameters `params`.
 """
@@ -184,7 +184,7 @@ function Base.intersect(a::HyperRectBounds, b::HyperRectBounds)
         else
             c.bt[i] = a.bt[i] ∩ b.bt[i]
         end
-            
+
         iv_c = iv_a ∩ iv_b
         c.vol.lo[i] = minimum(iv_c)
         c.vol.hi[i] = maximum(iv_c)
