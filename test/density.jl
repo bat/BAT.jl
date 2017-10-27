@@ -31,16 +31,16 @@ struct DummyDF <: AbstractDensity end
 
     @testset "exec_capabilities" begin
         td = DummyDF()
-        ecap = @inferred BAT.exec_capabilities(density_logval!, td, params)
-        @test ecap.nthreads == 0
+        ecap = @inferred BAT.exec_capabilities(density_logval!, similar(params[1, :]), td, params)
+        @test ecap.nthreads == 1
         @test ecap.threadsafe == false
-        @test ecap.nprocs == 0
+        @test ecap.nprocs == 1
         @test ecap.remotesafe == true
 
         ecap = @inferred BAT.exec_capabilities(density_logval, td, params[:, 1])
-        @test ecap.nthreads == 0
+        @test ecap.nthreads == 1
         @test ecap.threadsafe == false
-        @test ecap.nprocs == 0
+        @test ecap.nprocs == 1
         @test ecap.remotesafe == true
     end
 end

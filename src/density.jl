@@ -165,7 +165,7 @@ end
 export density_logval!
 
 exec_capabilities(::typeof(density_logval!), r::AbstractArray{<:Real}, density::AbstractDensity, params::AbstractMatrix{<:Real}) =
-    exec_capabilities(unsafe_density_logval, r, density, params)
+    exec_capabilities(unsafe_density_logval!, r, density, params)
 
 
 doc"""
