@@ -194,7 +194,6 @@ abstract type ProposalDistSpec end
 export ProposalDistSpec
 
 
-
 struct MvTDistProposalSpec <: ProposalDistSpec
     df::Float64
 end
