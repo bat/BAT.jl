@@ -41,5 +41,4 @@ exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractArray{<:Real}, de
     ExecCapabilities(0, true, 0, true) # Change when implementation of density_logval! for MvDistDensity becomes multithreaded.
 
 
-Base.rand!(rng::AbstractRNG, density::MvDistDensity, x::StridedVecOrMat{<:Real}) =
-    rand!(rng, bat_sampler(parent(density)), x)
+Distributions.sampler(density::MvDistDensity) = bat_sampler(parent(density))

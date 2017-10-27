@@ -111,7 +111,7 @@ function unsafe_density_logval end
 
 # Assume that density_logval isn't always thread-safe, but usually remote-safe:
 exec_capabilities(::typeof(unsafe_density_logval), density::AbstractDensity, params::AbstractVector{<:Real}) =
-    ExecCapabilities(0, false, 0, true)
+    ExecCapabilities(1, false, 1, true)
 
 
 
@@ -199,7 +199,7 @@ end
 
 # ToDo: Derive from exec_capabilities(density_logval, density, ...)
 exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractArray{<:Real}, density::AbstractDensity, params::AbstractMatrix{<:Real}) =
-    ExecCapabilities(0, false, 0, true) # Change when default implementation of density_logval! for AbstractDensity becomes multithreaded.
+    ExecCapabilities(1, false, 1, true) # Change when default implementation of density_logval! for AbstractDensity becomes multithreaded.
 
 
 

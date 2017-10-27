@@ -71,7 +71,6 @@ end
 
 export ExecCapabilities
 
-ExecCapabilities() = ExecCapabilities(0, false, 0, false)
 
 
 doc"""
@@ -87,6 +86,7 @@ Base.intersect(a::ExecCapabilities, b::ExecCapabilities) = ExecCapabilities(
     elseif b.nthreads == 0
         a.nthreads
     else
+        # ToDo/Decision: Better use maximum?
         minimum(a.nthreads, b.nthreads)
     end,
     a.threadsafe && b.threadsafe,
@@ -95,6 +95,7 @@ Base.intersect(a::ExecCapabilities, b::ExecCapabilities) = ExecCapabilities(
     elseif b.nprocs == 0
         a.nprocs
     else
+        # ToDo/Decision: Better use maximum?
         minimum(a.nprocs, b.nprocs)
     end,
     a.remotesafe && a.remotesafe
