@@ -147,6 +147,7 @@ doc"""
 Returns the spatial volume that defines the parameter bounds.
 """
 function spatialvolume end
+export spatialvolume
 
 
 

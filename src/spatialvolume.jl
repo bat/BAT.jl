@@ -21,6 +21,7 @@ doc"""
 Get the logarithm of the volume of the space in `vol`.
 """
 function log_volume end
+export log_volume
 
 
 doc"""
@@ -42,13 +43,13 @@ Base.inv(::typeof(inv_fromuhc!)) = fromuhc!
 
 
 doc"""
-    fromuhc(Y::VecOrMat, X::VecOrMat, vol::SpatialVolume)
+    fromuhc(X::VecOrMat, vol::SpatialVolume)
 
 Bijective transformation from unit hypercube to `vol`. See `fromuhc!`.
 
 Use `inv(fromuhc)` to get the the inverse transformation.
 """
-function fromuhc(Y::VecOrMat, X::VecOrMat, vol::SpatialVolume)
+function fromuhc(X::VecOrMat, vol::SpatialVolume)
     fromuhc!(similar(X), X, vol)
 end
 export fromuhc
