@@ -16,19 +16,13 @@ AbstractMCMCTunerConfig(algorithm::DirectSampling) = NoOpTunerConfig()
 sample_weight_type(::Type{DirectSampling}) = Int
 
 
-# XXXXXXXX !!!
-function AbstractProposalDist(algorithm::DirectSampling, target::AbstractDensity)
-    GenericProposalDist(parent(target).d)
-end
-
-
 function AcceptRejectState(
     algorithm::DirectSampling,
-    target::AbstractDensity,
+    target::BAT.DensityProduct{2,<:Tuple{MvDistDensity, ConstDensity}},
     current_sample::DensitySample{P,T,W}
 ) where {P,T,W}
     AcceptRejectState(
-        AbstractProposalDist(algorithm, target),
+        GenericProposalDist(parent(target)[1].d),
         current_sample
     )
 end

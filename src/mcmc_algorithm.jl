@@ -27,6 +27,13 @@ mcmc_compatible(::MCMCAlgorithm, ::AbstractProposalDist, ::AbstractParamBounds) 
 rand_initial_params!(rng::AbstractRNG, algorithm::MCMCAlgorithm, prior::AbstractDensity, x::StridedVecOrMat{<:Real}) =
     rand!(rng, prior, x)
 
+# ToDo:
+# function rand_initial_params!(rng::AbstractRNG, algorithm::MCMCAlgorithm, prior::TransformedDensity, x::StridedVecOrMat{<:Real}) =
+#     rand_initial_params!(rng, algorithm, parent(prior), x)
+#     ... apply transformation to x ...
+#     x
+# end
+
 
 function sample_weight_type end
 
