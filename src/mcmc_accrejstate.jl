@@ -116,7 +116,7 @@ function MCMCIterator(
 
     params_vec = Vector{P}(nparams(target))
     if isempty(initial_params)
-        rand_initial_params!(rng, algorithm, prior, initial_params)
+        rand_initial_params!(rng, algorithm, prior, params_vec)
     else
         params_vec .= initial_params
     end
@@ -127,7 +127,7 @@ function MCMCIterator(
 
     m = length(params_vec)
 
-    log_value = density_logval(parent(target), params_vec, exec_context)
+    log_value = density_logval(target, params_vec, exec_context)
     L = typeof(log_value)
     W = sample_weight_type(typeof(algorithm))
 

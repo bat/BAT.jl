@@ -117,7 +117,7 @@ end
 
 
 exec_capabilities(mcmc_iterate!, f, chain::MCMCIterator) =
-    exec_capabilities(density_logval, chain.parent(target), chain.state.proposed_sample.params)
+    exec_capabilities(density_logval, chain.target, chain.state.proposed_sample.params)
 
 
 function mcmc_iterate!(

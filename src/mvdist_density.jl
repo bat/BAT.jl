@@ -16,7 +16,7 @@ function unsafe_density_logval(
     Distributions.logpdf(density.d, params)
 end
 
-parent(density::MvDistDensity) = density.d
+Base.parent(density::MvDistDensity) = density.d
 
 nparams(density::MvDistDensity) = length(density.d)
 

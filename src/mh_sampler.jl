@@ -62,7 +62,7 @@ function mcmc_propose_accept_reject!(
 
     p_accept = if proposed_params in param_bounds(target)
         # Evaluate target density at new parameters:
-        proposed_log_value = T(density_logval(parent(target), proposed_params, exec_context))
+        proposed_log_value = T(density_logval(target, proposed_params, exec_context))
 
         # log of ratio of forward/reverse transition probability
         log_tpr = if issymmetric(pdist)

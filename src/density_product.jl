@@ -44,7 +44,7 @@ _unsafe_prod(a::DensityProduct, b::AbstractDensity, new_bounds::AbstractParamBou
 
 
 function unsafe_density_logval(density::DensityProduct, args...)
-    ds = densities.densities
+    ds = density.densities
     isempty(ds) && throw(ArgumentError("Can't evaluate density_logval on empty DensityProduct"))
     sum(map(d -> unsafe_density_logval(d, args...), ds))
 end
@@ -54,7 +54,7 @@ exec_capabilities(::typeof(unsafe_density_logval), density::DensityProduct, args
 
 
 function unsafe_density_logval!(r::AbstractArray{<:Real}, density::DensityProduct, args...)
-    ds = densities.densities
+    ds = density.densities
     isempty(ds) && throw(ArgumentError("Can't evaluate density_logval! on empty DensityProduct"))
     fill!(r, 0)
     tmp = similar(d)  # ToDo: Avoid memory allocation
