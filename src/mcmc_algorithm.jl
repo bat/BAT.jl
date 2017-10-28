@@ -19,28 +19,29 @@ end
 
 
 abstract type MCMCAlgorithm{S<:AbstractMCMCState} <: BATAlgorithm end
-
+export MCMCAlgorithm
 
 
 mcmc_compatible(::MCMCAlgorithm, ::AbstractProposalDist, ::AbstractParamBounds) = true
 
+rand_initial_params!(rng::AbstractRNG, algorithm::MCMCAlgorithm, prior::AbstractDensity, x::StridedVecOrMat{<:Real}) =
+    rand!(rng, prior, x)
+
+# ToDo:
+# function rand_initial_params!(rng::AbstractRNG, algorithm::MCMCAlgorithm, prior::TransformedDensity, x::StridedVecOrMat{<:Real}) =
+#     rand_initial_params!(rng, algorithm, parent(prior), x)
+#     ... apply transformation to x ...
+#     x
+# end
+
+
 function sample_weight_type end
-
-
-rand_initial_params(rng::AbstractRNG, algorithm::MCMCAlgorithm, target::TargetSubject) =
-    rand_initial_params!(rng, algorithm, target, Vector{float(eltype(target.bounds))}(nparams(target)))
-
-rand_initial_params(rng::AbstractRNG, algorithm::MCMCAlgorithm, target::TargetSubject, n::Integer) =
-    rand_initial_params!(rng, algorithm, target, Matrix{float(eltype(target.bounds))}(nparams(target), n))
-
-rand_initial_params!(rng::AbstractRNG, ::MCMCAlgorithm, target::TargetSubject, x::StridedVecOrMat{<:Real}) =
-    rand!(rng, target.bounds, x)
 
 
 
 mutable struct MCMCIterator{
     A<:MCMCAlgorithm,
-    T<:AbstractTargetSubject,
+    T<:AbstractDensity,
     S<:AbstractMCMCState,
     R<:AbstractRNG
 }
@@ -116,7 +117,7 @@ end
 
 
 exec_capabilities(mcmc_iterate!, f, chain::MCMCIterator) =
-    exec_capabilities(target_logval, chain.target.tdensity, chain.state.proposed_sample.params)
+    exec_capabilities(density_logval, chain.target, chain.state.proposed_sample.params)
 
 
 function mcmc_iterate!(
@@ -150,13 +151,18 @@ function mcmc_iterate!(
 end
 
 
+
+# TODO/Decision: Make MCMCSpec a subtype of Sampleable{Multivariate,Continuous}?
+
 struct MCMCSpec{
     A<:MCMCAlgorithm,
-    T<:AbstractTargetSubject,
+    L<:AbstractDensity,
+    P<:AbstractDensity,
     R<:AbstractRNGSeed
 }
     algorithm::A
-    target::T
+    likelihood::L
+    prior::P
     rngseed::R
 end
 
@@ -164,40 +170,37 @@ export MCMCSpec
 
 MCMCSpec(
     algorithm::MCMCAlgorithm,
-    target::AbstractTargetSubject,
-) = MCMCSpec(algorithm, target, Philox4xSeed())
+    likelihood::AbstractDensity,
+    prior::Union{AbstractDensity,ParamVolumeBounds}
+) = MCMCSpec(algorithm, likelihood, convert(AbstractDensity, prior), AbstractRNGSeed())
 
 MCMCSpec(
     algorithm::MCMCAlgorithm,
-    tdensity::AbstractTargetDensity,
-    bounds::AbstractParamBounds,
-    rngseed::AbstractRNGSeed = Philox4xSeed()
-) = MCMCSpec(algorithm, TargetSubject(tdensity, bounds), rngseed)
-
-
-#=
-# ToDo:
+    log_f::Function,
+    nparams::Int,
+    prior::Union{AbstractDensity,ParamVolumeBounds},
+    rngseed::AbstractRNGSeed = AbstractRNGSeed()
+) = MCMCSpec(algorithm, GenericDensity(log_f, nparams(prior)), convert(AbstractDensity, prior), rngseed)
 
 MCMCSpec(
     algorithm::MCMCAlgorithm,
-    tdensity::AbstractTargetDensity,
-    prior::XXX,
-    bounds::AbstractParamBounds,
-    rngseed::AbstractRNGSeed = Philox4xSeed()
-) = MCMCSpec(algorithm, TargetSubject(tdensity, bounds), rngseed)
-=#
+    distribution::Distribution{Multivariate,Continuous},
+    prior::Union{AbstractDensity,ParamVolumeBounds},
+    rngseed::AbstractRNGSeed = AbstractRNGSeed()
+) = MCMCSpec(algorithm, MvDistDensity(distribution), convert(AbstractDensity, prior), rngseed)
 
 
 function (spec::MCMCSpec)(
     id::Integer,
     exec_context::ExecContext = ExecContext()
 )
-    P = float(eltype(spec.target.bounds))
-    m = nparams(spec.target)
+    P = float(eltype(param_bounds(spec.prior)))
     rng = spec.rngseed()
+
     MCMCIterator(
         spec.algorithm,
-        spec.target,
+        spec.likelihood,
+        spec.prior,
         id,
         rng,
         Vector{P}(),
@@ -214,10 +217,10 @@ function (spec::MCMCSpec)(
 end
 
 
-"""
+doc"""
     AbstractMCMCCallback <: Function
 
-Subtypes (here, `X`) must support
+Subtypes (e.g. `X`) must support
 
     (::X)(level::Integer, chain::MCMCIterator) => nothing
     (::X)(level::Integer, tuner::AbstractMCMCTuner) => nothing
@@ -250,7 +253,7 @@ mcmc_callback_vector(x::Tuple{}, chains::AbstractVector{<:MCMCIterator}) =
 
 
 
-"""
+doc"""
     MCMCCallbackWrapper{F} <: AbstractMCMCCallback
 
 Wraps a callable object to turn it into an `AbstractMCMCCallback`.

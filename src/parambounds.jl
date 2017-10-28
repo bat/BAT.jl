@@ -13,17 +13,13 @@ export nparams
 
 export AbstractParamBounds
 
-abstract type AbstractParamBounds{T<:Real} end
-
-Base.eltype(b::AbstractParamBounds{T}) where T = T
-
-Base.rand(rng::AbstractRNG, bounds::AbstractParamBounds) =
-    rand!(rng, bounds, Vector{float(eltype(bounds))}(nparams(bounds)))
-
-Base.rand(rng::AbstractRNG, bounds::AbstractParamBounds, n::Integer) =
-    rand!(rng, bounds, Matrix{float(eltype(bounds))}(nparams(bounds), n))
+abstract type AbstractParamBounds end
 
 
+function Base.intersect(a::AbstractParamBounds, b::AbstractParamBounds)
+    nparams(a) != nparams(b) && throw(ArgumentError("Can't intersect parameter bounds with different number of parameters"))
+    unsafe_intersect(a, b)
+end
 
 @inline oob{T<:AbstractFloat}(::Type{T}) = T(NaN)
 @inline oob{T<:Integer}(::Type{T}) = typemax(T)
@@ -39,14 +35,34 @@ isoob(xs::AbstractArray) = any(isoob, xs)
 export BoundsType
 export hard_bounds, cyclic_bounds, reflective_bounds
 
+function Base.intersect(a::BoundsType, b::BoundsType)
+    if a == hard_bounds || b == hard_bounds
+        hard_bounds
+    elseif a == reflective_bounds || b == reflective_bounds
+        reflective_bounds
+    else
+        cyclic_bounds
+    end
+end
+
+
 
 @inline float_iseven(n::T) where {T<:AbstractFloat} = (n - T(2) * floor((n + T(0.5)) * T(0.5))) < T(0.5)
+
+
+doc"""
+    apply_bounds!(params::AbstractVector, bounds::AbstractParamBounds)
+
+Apply `bounds` to parameters `params`.
+"""
+function apply_bounds! end
+
 
 doc"""
     apply_bounds(x::<:Real, lo::<:Real, hi::<:Real, boundary_type::BoundsType) 
 
-Set low bound `lo` and high bound `hi` for Parameter `x`
-`boundary_type` may be `hard_bounds`, `cyclic_bounds` or `reflective_bounds`.
+Apply lower/upper bound `lo`/`hi` to value `x`. `boundary_type` may be
+`hard_bounds`, `cyclic_bounds` or `reflective_bounds`.
 """
 @inline function apply_bounds(x::X, lo::L, hi::H, boundary_type::BoundsType, oobval = oob(x)) where {X<:Real,L<:Real,H<:Real}
     T = float(promote_type(X, L, H))
@@ -78,48 +94,62 @@ end
 doc"""
     apply_bounds(x::Real, interval::ClosedInterval, boundary_type::BoundsType)
 
-Instead of `lo` and `hi` an `interval` can be used.
+Specify lower and upper bound via `interval`.
 """
 @inline apply_bounds(x::Real, interval::ClosedInterval, boundary_type::BoundsType, oobval = oob(x)) =
     apply_bounds(x, minimum(interval), maximum(interval), boundary_type, oobval)
 
 
 
-export UnboundedParams
+export NoParamBounds
 
-struct UnboundedParams{T<:Real} <: AbstractParamBounds{T}
+struct NoParamBounds <: AbstractParamBounds
     ndims::Int
 end
 
-Base.in(params::AbstractVector, bounds::UnboundedParams) = true
-Base.in(params::AbstractMatrix, bounds::UnboundedParams, i::Integer) = true
 
-nparams(b::UnboundedParams) = b.ndims
+Base.in(params::AbstractVector, bounds::NoParamBounds) = true
+Base.in(params::AbstractMatrix, bounds::NoParamBounds, i::Integer) = true
 
+nparams(b::NoParamBounds) = b.ndims
 
-doc"""
-    apply_bounds!(params::AbstractVector, bounds::UnboundedParams) 
+apply_bounds!(params::AbstractVector, bounds::NoParamBounds) = params
 
-For Parameters without bounds use `bounds` of type `UnboundedParams`
-"""
-apply_bounds!(params::AbstractVector, bounds::UnboundedParams) = params
-
+unsafe_intersect(a::NoParamBounds, b::NoParamBounds) = a
+unsafe_intersect(a::AbstractParamBounds, b::NoParamBounds) = a
+unsafe_intersect(a::NoParamBounds, b::AbstractParamBounds) = b
 
 
+
+abstract type ParamVolumeBounds{T<:Real, V<:SpatialVolume{T}} <: AbstractParamBounds end
 export ParamVolumeBounds
 
-abstract type ParamVolumeBounds{T<:Real, V<:SpatialVolume{T}} <: AbstractParamBounds{T} end
 
 Base.in(params::AbstractVector, bounds::ParamVolumeBounds) = in(params, bounds.vol)
-Base.in(params::AbstractMatrix, bounds::ParamVolumeBounds, j::Integer) = in(params, bounds.vol, j)
+Base.in(params::AbstractMatrix, bounds::ParamVolumeBounds, j::Integer) = in(params, spatialvolume(bounds), j)
 
-Base.rand!(rng::AbstractRNG, bounds::ParamVolumeBounds, x::StridedVecOrMat{<:Real}) = rand!(rng, bounds.vol, x)
+
+# Base.rand(rng::AbstractRNG, bounds::ParamVolumeBounds) =
+#     rand!(rng, bounds, Vector{float(eltype(bounds))}(nparams(bounds)))
+
+# Base.rand(rng::AbstractRNG, bounds::ParamVolumeBounds, n::Integer) =
+#     rand!(rng, bounds, Matrix{float(eltype(bounds))}(nparams(bounds), n))
+# 
+# Base.rand!(rng::AbstractRNG, bounds::ParamVolumeBounds, x::StridedVecOrMat{<:Real}) = rand!(rng, spatialvolume(bounds), x)
+
 
 nparams(b::ParamVolumeBounds) = ndims(b.vol)
 
 
+doc"""
+    spatialvolume(b::ParamVolumeBounds)::SpatialVolume
 
-export HyperRectBounds
+Returns the spatial volume that defines the parameter bounds.
+"""
+function spatialvolume end
+export spatialvolume
+
+
 
 struct HyperRectBounds{T<:Real} <: ParamVolumeBounds{T, HyperRectVolume{T}}
     vol::HyperRectVolume{T}
@@ -131,10 +161,39 @@ struct HyperRectBounds{T<:Real} <: ParamVolumeBounds{T, HyperRectVolume{T}}
     end
 end
 
+export HyperRectBounds
 
 HyperRectBounds{T<:Real}(vol::HyperRectVolume{T}, bt::AbstractVector{BoundsType}) = HyperRectBounds{T}(vol, bt)
 HyperRectBounds{T<:Real}(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::AbstractVector{BoundsType}) = HyperRectBounds(HyperRectVolume(lo, hi), bt)
 HyperRectBounds{T<:Real}(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::BoundsType) = HyperRectBounds(lo, hi, fill(bt, size(lo, 1)))
+
+Base.similar(bounds::HyperRectBounds) = HyperRectBounds(similar(bounds.vol), similar(bounds.bt))
+
+Base.eltype(bounds::HyperRectBounds{T}) where {T} = T
+
+
+function Base.intersect(a::HyperRectBounds, b::HyperRectBounds)
+    c = similar(a)
+    for i in eachindex(a.vol.lo, a.vol.hi, a.bt, b.vol.lo, b.vol.hi, b.bt)
+        iv_a = a.vol.lo[i]..a.vol.hi[i]
+        iv_b = b.vol.lo[i]..b.vol.hi[i]
+        if iv_a in iv_b
+            c.bt[i] = a.bt[i]
+        elseif iv_b in iv_a
+            c.bt[i] = b.bt[i]
+        else
+            c.bt[i] = a.bt[i] ∩ b.bt[i]
+        end
+
+        iv_c = iv_a ∩ iv_b
+        c.vol.lo[i] = minimum(iv_c)
+        c.vol.hi[i] = maximum(iv_c)
+    end
+    c
+end
+
+
+spatialvolume(bounds::HyperRectBounds) = bounds.vol
 
 function apply_bounds!(params::AbstractVecOrMat, bounds::HyperRectBounds, setoob = true)
     if setoob

@@ -46,18 +46,17 @@ using IntervalSets
         @test BAT.apply_bounds(+5.3, ClosedInterval(-1, 2), reflective_bounds) ≈ -0.7
     end
 
-    @testset "BAT.UnboundedParams" begin
+    @testset "BAT.NoParamBounds" begin
         n = 2
-        @test typeof(@inferred BAT.UnboundedParams{Float32}(n)) == BAT.UnboundedParams{Float32}
+        @test typeof(@inferred BAT.NoParamBounds(n)) == BAT.NoParamBounds
 
         params = [-1000., 1000]
-        uparams = BAT.UnboundedParams{Float32}(n)
+        uparams = BAT.NoParamBounds(n)
         @test nparams(uparams) == n
         @test params in uparams
         @test in( hcat(params, params), uparams, 1)
         
         @test BAT.apply_bounds!(params, uparams) == params
-        @test eltype(uparams) == Float32
     end
 
     @testset "BAT.HyperRectBounds" begin
@@ -70,14 +69,11 @@ using IntervalSets
         @test [0.0, 0.0] in hyperRectBounds
         @test ([0.5, 2] in hyperRectBounds) == false
 
-        @test in([0.0 0.0; 0.0 2.0], hyperRectBounds, 1)
-        @test in([0.0 0.0; 0 2], hyperRectBounds, 2) == false
-
         @test BAT.apply_bounds!([0.3, -4.3, -7.3], BAT.HyperRectBounds([-1.,-1,-1], [2.,2,2], [hard_bounds, reflective_bounds, cyclic_bounds])) ≈ [+0.3, 1.7, 1.7]
         
         @test BAT.apply_bounds!([0.3 0.3 0.3; 0.3 -7.3 +8.3; 0.3 -7.3 +8.3], BAT.HyperRectBounds([-1., -1., -1], [2., 2.,2.], [hard_bounds, reflective_bounds, cyclic_bounds])) ≈ [+0.3 0.3 0.3;0.3 -0.7 1.7;0.3 1.7 -0.7]
 
         @test BAT.isoob(BAT.apply_bounds!(rand!(MersenneTwister(7002), zeros(Float64, 2, 2)), hyperRectBounds))
-        @test BAT.isoob(BAT.apply_bounds!(rand!(MersenneTwister(7002), hyperRectBounds, zeros(Float64, 2, 2)), hyperRectBounds)) == false
+        @test BAT.isoob(BAT.apply_bounds!(rand!(MersenneTwister(7002), BAT.spatialvolume(hyperRectBounds), zeros(Float64, 2, 2)), hyperRectBounds)) == false
     end
 end

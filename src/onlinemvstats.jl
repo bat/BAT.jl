@@ -27,7 +27,7 @@ end
 
 
 
-"""
+doc"""
     OnlineMvMean{T<:AbstractFloat} <: AbstractVector{T}
 
 Multi-variate mean implemented via Kahan-Babuška-Neumaier summation.
@@ -103,7 +103,7 @@ end
 
 
 
-"""
+doc"""
     OnlineMvCov{T<:AbstractFloat,W} <: AbstractMatrix{T}
 
 Implementation based on variance calculation Algorithms of Welford and West.
@@ -270,7 +270,7 @@ end
     ocv
 end
 
-"""
+doc"""
     BasicMvStatistics{T<:Real,W} 
 
 `W` must either be `Weights` (no bias correction) or one of `AnalyticWeights`,
