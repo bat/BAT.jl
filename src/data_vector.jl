@@ -12,7 +12,3 @@ function Base.merge!(X::BATDataVector, Xs::BATDataVector...)
 end
 
 Base.merge(X::BATDataVector, Xs::BATDataVector...) = merge!(deepcopy(X), Xs...)
-
-
-mcmc_callback(x::BATDataVector) = MCMCPushCallback(x)
-mcmc_callback(max_level::Integer, x::BATDataVector) = MCMCPushCallback(max_level, x)

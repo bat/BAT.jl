@@ -6,7 +6,11 @@ module BAT
 
 using Base.Threads
 
+import Base.Math.JuliaLibm
+
+
 using Clustering
+using Colors
 using Distributions
 using DoubleDouble
 using ElasticArrays
@@ -33,11 +37,11 @@ include("onlinemvstats.jl")
 include("spatialvolume.jl")
 include("parambounds.jl")
 include("proposaldist.jl")
-include("target_density.jl")
-include("target_subject.jl")
-include("target_const.jl")
-include("target_product.jl")
-include("target_distribution.jl")
+include("density.jl")
+include("const_density.jl")
+include("density_product.jl")
+include("product_density.jl")
+include("mvdist_density.jl")
 include("algorithms.jl")
 include("data_vector.jl")
 include("density_sample.jl")

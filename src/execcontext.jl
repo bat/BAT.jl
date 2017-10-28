@@ -1,19 +1,19 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-"""
+doc"""
     struct ExecContext
         use_threads::Bool
         onprocs::Vector{Int64}
     end
 
 Functions that take an `ExecContext` argument must limit their use of
-threads and processes accordingly. Depending on `use_threads`, the
-function may use all (or only a single) thread(s) on each process in `onprocs`
-(in addition to the current thread on the current process).
+threads and processes accordingly. Depending on `use_threads`, the function
+may use all (or only a single) thread(s) on each process in `onprocs` (in
+addition to the current thread on the current process).
 
-The caller may choose to change the `ExecContext` from call to call,
-based on execution time and latency measurements, etc.
+The caller may choose to change the `ExecContext` from call to call, based on
+execution time and latency measurements, etc.
 
 Functions can announce their `ExecCapabilities` via `exec_capabilities`.
 """
@@ -27,7 +27,7 @@ export ExecContext
 ExecContext() = ExecContext(true, workers())
 
 
-"""
+doc"""
     struct ExecCapabilities
         nthreads::Int
         threadsafe::Bool
@@ -38,23 +38,26 @@ ExecContext() = ExecContext(true, workers())
 Specifies the execution capabilities of functions that support an
 `ExecContext` argument. 
 
-`nthreads` specifies the maximum number of threads the function can
-utilize efficiently, internally. If `nthreads <= 1`, the function
-implementation is single-threaded.
+`nthreads` specifies the maximum number of threads the function can utilize
+efficiently, internally. If `nthreads <= 1`, the function implementation is
+single-threaded. `nthreads == 0` indicates that the function is cheap and
+that when used in combination with other functions, their capabilities should
+dominate.
 
 `threadsafe` specifies whether the function is thread-safe, and can be can be
 run on multiple threads in parallel by the caller.  
 
 `nprocs` specifies the maximum number of worker processes the function can
 utilize efficiently, internally. If `procs <= 1`, the function cannot
-use worker processes.
+use worker processes. `nthreads == 0` carries equivalent meaning to
+`nthreads == 0`.
 
 `remotesafe` specifies that the function can be run on a remote thread,
 it implies that the function arguments can be (de-)serialized safely.
 
 Functions with an `ExecContext` argument should announce their capabilities
 via methods of `exec_capabilities`. Functions should, ideally, either support
-internal multithreading (`nthreads > 1`) of be thread-safe
+internal multithreading (`nthreads > 1`) or be thread-safe
 (`threadsafe` == true). Likewise, functions should either utilize worker
 processes (`nprocs` > 1) internally or support remote execution
 (`remotesafe` == true) by the caller.
@@ -68,15 +71,44 @@ end
 
 export ExecCapabilities
 
-ExecCapabilities() = ExecCapabilities(0, false, 0, false)
 
 
+doc"""
+    intersect(a:ExecCapabilities, b:ExecCapabilities)
+
+Get the intersection of execution capabilities of a and b, i.e. the
+`ExecCapabilities` that should be used when to functions are used in
+combination (e.g. in sequence).
 """
+Base.intersect(a::ExecCapabilities, b::ExecCapabilities) = ExecCapabilities(
+    if a.nthreads == 0
+        b.nthreads
+    elseif b.nthreads == 0
+        a.nthreads
+    else
+        # ToDo/Decision: Better use maximum?
+        minimum(a.nthreads, b.nthreads)
+    end,
+    a.threadsafe && b.threadsafe,
+    if a.nprocs == 0
+        b.nprocs
+    elseif b.nprocs == 0
+        a.nprocs
+    else
+        # ToDo/Decision: Better use maximum?
+        minimum(a.nprocs, b.nprocs)
+    end,
+    a.remotesafe && a.remotesafe
+)
+
+
+
+doc"""
     exec_capabilities(f, args...)::ExecCapabilities
 
 Determines the execution capabilities of a function `f` that supports an
 `ExecContext` argument, when called with arguments `args...`. The
-`ExecContext` argument itself is excluded from `args...`, for
+`ExecContext` argument itself is excluded from `args...` for
 `exec_capabilities`.
 
 Before calling `f`, the caller must use

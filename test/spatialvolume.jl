@@ -22,9 +22,6 @@ using IntervalSets
         @test [0.0, 0.0] in hyperRectVolume
         @test ([0.5, 2] in hyperRectVolume) == false
 
-        @test in([0.0 0.0; 0.0 2.0], hyperRectVolume, 1)
-        @test in([0.0 0.0; 0 2], hyperRectVolume, 2) == false
-
         @test ndims(hyperRectVolume) == 2
 
         res = rand!(MersenneTwister(7002), hyperRectVolume, zeros(2))
@@ -34,8 +31,5 @@ using IntervalSets
         res = rand!(MersenneTwister(7002), hyperRectVolume, zeros(2,3))
         @test typeof(res) <: AbstractArray{Float64, 2}
         @test size(res) == (2, 3)
-        for j in 1:3
-            @test in(res, hyperRectVolume, j)
-        end
     end
 end

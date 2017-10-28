@@ -15,7 +15,7 @@ export MetropolisHastings
 MetropolisHastings(q::ProposalDistSpec = MvTDistProposalSpec()) = MetropolisHastings{Int}()
 
 
-mcmc_compatible(::MetropolisHastings, ::AbstractProposalDist, ::UnboundedParams) = true
+mcmc_compatible(::MetropolisHastings, ::AbstractProposalDist, ::NoParamBounds) = true
 
 mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::HyperRectBounds) =
     issymmetric(pdist) || all(x -> x == hard_bounds, bounds.bt)
@@ -25,7 +25,7 @@ sample_weight_type(::Type{MetropolisHastings{W,Q}}) where {Q,W} = W
 
 function AcceptRejectState(
     algorithm::MetropolisHastings,
-    target::AbstractTargetSubject,
+    target::AbstractDensity,
     current_sample::DensitySample{P,T,W}
 ) where {P,T,W}
     AcceptRejectState(
@@ -37,7 +37,7 @@ end
 
 
 function mcmc_propose_accept_reject!(
-    callback::Function,
+    callback::AbstractMCMCCallback,
     chain::MCMCIterator{<:MetropolisHastings},
     exec_context::ExecContext
 )
@@ -58,25 +58,29 @@ function mcmc_propose_accept_reject!(
     # Propose new parameters:
     proposed_sample.weight = 0
     proposal_rand!(rng, pdist, proposed_params, current_params)
-    apply_bounds!(proposed_params, target.bounds, false)
+    apply_bounds!(proposed_params, param_bounds(target), false)
 
-    p_accept = if proposed_params in target.bounds
+    p_accept = if proposed_params in param_bounds(target)
         # Evaluate target density at new parameters:
-        proposed_log_value = T(target_logval(target.tdensity, proposed_params, exec_context))
+        proposed_log_value = T(density_logval(target, proposed_params, exec_context))
 
         # log of ratio of forward/reverse transition probability
         log_tpr = if issymmetric(pdist)
             T(0)
         else
-            log_tp_fwd = proposal_logpdf(pdist, proposed_params, current_params)
-            log_tp_rev = proposal_logpdf(pdist, current_params, proposed_params)
+            log_tp_fwd = distribution_logpdf(pdist, proposed_params, current_params)
+            log_tp_rev = distribution_logpdf(pdist, current_params, proposed_params)
             T(log_tp_fwd - log_tp_rev)
         end
 
         current_log_value = current_sample.log_value
         proposed_sample.log_value = proposed_log_value
 
-        clamp(T(exp(proposed_log_value - current_log_value - log_tpr)), zero(T), one(T))
+        p_accept = if proposed_log_value > -Inf
+            clamp(T(exp(proposed_log_value - current_log_value - log_tpr)), zero(T), one(T))
+        else
+            0
+        end
     else
         p_accept = zero(T)
         proposed_sample.log_value = -Inf
@@ -90,7 +94,7 @@ function mcmc_propose_accept_reject!(
 end
 
 
-function mh_acc_rej!(callback::Function, chain::MCMCIterator{<:MetropolisHastings{<:Integer}}, p_accept::Real)
+function mh_acc_rej!(callback::AbstractMCMCCallback, chain::MCMCIterator{<:MetropolisHastings{<:Integer}}, p_accept::Real)
     state = chain.state
     state.current_sample.weight += 1
     if rand(chain.rng, float(typeof(p_accept))) < p_accept
@@ -105,7 +109,7 @@ function mh_acc_rej!(callback::Function, chain::MCMCIterator{<:MetropolisHasting
 end
 
 
-function mh_acc_rej!(callback::Function, chain::MCMCIterator{<:MetropolisHastings{<:AbstractFloat}}, p_accept::Real)
+function mh_acc_rej!(callback::AbstractMCMCCallback, chain::MCMCIterator{<:MetropolisHastings{<:AbstractFloat}}, p_accept::Real)
     if p_accept ≈ 1
         p_accept = one(p_accept)
     elseif p_accept ≈ 0

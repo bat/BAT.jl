@@ -19,28 +19,29 @@ end
 
 
 abstract type MCMCAlgorithm{S<:AbstractMCMCState} <: BATAlgorithm end
-
+export MCMCAlgorithm
 
 
 mcmc_compatible(::MCMCAlgorithm, ::AbstractProposalDist, ::AbstractParamBounds) = true
 
+rand_initial_params!(rng::AbstractRNG, algorithm::MCMCAlgorithm, prior::AbstractDensity, x::StridedVecOrMat{<:Real}) =
+    rand!(rng, prior, x)
+
+# ToDo:
+# function rand_initial_params!(rng::AbstractRNG, algorithm::MCMCAlgorithm, prior::TransformedDensity, x::StridedVecOrMat{<:Real}) =
+#     rand_initial_params!(rng, algorithm, parent(prior), x)
+#     ... apply transformation to x ...
+#     x
+# end
+
+
 function sample_weight_type end
-
-
-rand_initial_params(rng::AbstractRNG, algorithm::MCMCAlgorithm, target::TargetSubject) =
-    rand_initial_params!(rng, algorithm, target, Vector{float(eltype(target.bounds))}(nparams(target)))
-
-rand_initial_params(rng::AbstractRNG, algorithm::MCMCAlgorithm, target::TargetSubject, n::Integer) =
-    rand_initial_params!(rng, algorithm, target, Matrix{float(eltype(target.bounds))}(nparams(target), n))
-
-rand_initial_params!(rng::AbstractRNG, ::MCMCAlgorithm, target::TargetSubject, x::StridedVecOrMat{<:Real}) =
-    rand!(rng, target.bounds, x)
 
 
 
 mutable struct MCMCIterator{
     A<:MCMCAlgorithm,
-    T<:AbstractTargetSubject,
+    T<:AbstractDensity,
     S<:AbstractMCMCState,
     R<:AbstractRNG
 }
@@ -98,7 +99,7 @@ function mcmc_iterate!(
 )
     @log_msg ll "Starting iteration over MCMC chain $(chain.id)"
 
-    cbfunc = mcmc_callback(callback)
+    cbfunc = Base.convert(AbstractMCMCCallback, callback)
 
     start_time = time()
     start_nsteps = nsteps(chain.state)
@@ -116,7 +117,7 @@ end
 
 
 exec_capabilities(mcmc_iterate!, f, chain::MCMCIterator) =
-    exec_capabilities(target_logval, chain.target.tdensity, chain.state.proposed_sample.params)
+    exec_capabilities(density_logval, chain.target, chain.state.proposed_sample.params)
 
 
 function mcmc_iterate!(
@@ -126,7 +127,13 @@ function mcmc_iterate!(
     ll::LogLevel = LOG_NONE,
     kwargs...
 )
-    @log_msg ll "Starting iteration over $(length(chains)) MCMC chain(s)."
+    if isempty(chains)
+        @log_msg ll "No MCMC chain(s) to iterate over."
+        return chains
+    else
+        @log_msg ll "Starting iteration over $(length(chains)) MCMC chain(s)."
+    end
+
 
     cbv = mcmc_callback_vector(callbacks, chains)
 
@@ -144,13 +151,18 @@ function mcmc_iterate!(
 end
 
 
+
+# TODO/Decision: Make MCMCSpec a subtype of Sampleable{Multivariate,Continuous}?
+
 struct MCMCSpec{
     A<:MCMCAlgorithm,
-    T<:AbstractTargetSubject,
+    L<:AbstractDensity,
+    P<:AbstractDensity,
     R<:AbstractRNGSeed
 }
     algorithm::A
-    target::T
+    likelihood::L
+    prior::P
     rngseed::R
 end
 
@@ -158,40 +170,37 @@ export MCMCSpec
 
 MCMCSpec(
     algorithm::MCMCAlgorithm,
-    target::AbstractTargetSubject,
-) = MCMCSpec(algorithm, target, Philox4xSeed())
+    likelihood::AbstractDensity,
+    prior::Union{AbstractDensity,ParamVolumeBounds}
+) = MCMCSpec(algorithm, likelihood, convert(AbstractDensity, prior), AbstractRNGSeed())
 
 MCMCSpec(
     algorithm::MCMCAlgorithm,
-    tdensity::AbstractTargetDensity,
-    bounds::AbstractParamBounds,
-    rngseed::AbstractRNGSeed = Philox4xSeed()
-) = MCMCSpec(algorithm, TargetSubject(tdensity, bounds), rngseed)
-
-
-#=
-# ToDo:
+    log_f::Function,
+    nparams::Int,
+    prior::Union{AbstractDensity,ParamVolumeBounds},
+    rngseed::AbstractRNGSeed = AbstractRNGSeed()
+) = MCMCSpec(algorithm, GenericDensity(log_f, nparams(prior)), convert(AbstractDensity, prior), rngseed)
 
 MCMCSpec(
     algorithm::MCMCAlgorithm,
-    tdensity::AbstractTargetDensity,
-    prior::XXX,
-    bounds::AbstractParamBounds,
-    rngseed::AbstractRNGSeed = Philox4xSeed()
-) = MCMCSpec(algorithm, TargetSubject(tdensity, bounds), rngseed)
-=#
+    distribution::Distribution{Multivariate,Continuous},
+    prior::Union{AbstractDensity,ParamVolumeBounds},
+    rngseed::AbstractRNGSeed = AbstractRNGSeed()
+) = MCMCSpec(algorithm, MvDistDensity(distribution), convert(AbstractDensity, prior), rngseed)
 
 
 function (spec::MCMCSpec)(
     id::Integer,
     exec_context::ExecContext = ExecContext()
 )
-    P = float(eltype(spec.target.bounds))
-    m = nparams(spec.target)
+    P = float(eltype(param_bounds(spec.prior)))
     rng = spec.rngseed()
+
     MCMCIterator(
         spec.algorithm,
-        spec.target,
+        spec.likelihood,
+        spec.prior,
         id,
         rng,
         Vector{P}(),
@@ -208,10 +217,10 @@ function (spec::MCMCSpec)(
 end
 
 
-"""
+doc"""
     AbstractMCMCCallback <: Function
 
-Subtypes (here, `X`) must support
+Subtypes (e.g. `X`) must support
 
     (::X)(level::Integer, chain::MCMCIterator) => nothing
     (::X)(level::Integer, tuner::AbstractMCMCTuner) => nothing
@@ -222,73 +231,79 @@ abstract type AbstractMCMCCallback <: Function end
 export AbstractMCMCCallback
 
 
+@inline Base.convert(::Type{AbstractMCMCCallback}, x::AbstractMCMCCallback) = x
 
-"""
-    mcmc_callback(
-        output::Union{Any,AbstractMCMCStats,DensitySampleVector,...},
-        max_level::Integer = 1
-    )::AbstractMCMCCallback
+@inline Base.convert(::Type{Vector{AbstractMCMCCallback}}, V::Vector{<:AbstractMCMCCallback}) = V
 
-Creates a callback function/object compatible with `mcmc_iterate!`,
-`mcmc_tune_burnin!`, etc., that will fill `output` with samples
-generated by the chain. Depending on the output, `max_level` may be ignored.
-
-    mcmc_callback(fs::Tuple)::AbstractMCMCCallback
-
-Creates a callback that broadcasts it's arguments over all functions in
-the tuple `fs`.
-
-    mcmc_callback(f::Function) = f
-
-This variant assumes that `f` is already a compabible callback function.
-"""
-function mcmc_callback end
-export mcmc_callback
-
-mcmc_callback(f::Function) = f
+Base.convert(::Type{Vector{AbstractMCMCCallback}}, V::Vector) =
+    [convert(AbstractMCMCCallback, x) for x in V]
 
 
-function mcmc_callback_vector(V::Vector{<:Function}, chains::AbstractVector{<:MCMCIterator})
+function mcmc_callback_vector(x, chains::AbstractVector{<:MCMCIterator})
+    V = convert(Vector{AbstractMCMCCallback}, x)
     if eachindex(V) != eachindex(chains)
         throw(DimensionMismatch("Indices of callback vector incompatible with number of MCMC chains"))
     end
     V
 end
 
-mcmc_callback_vector(V::Vector, chains::AbstractVector{<:MCMCIterator}) =
-    mcmc_callback_vector(mcmc_callback.(V), chains)
 
-mcmc_callback_vector(x::Any, chains::AbstractVector{<:MCMCIterator}) =
-    mcmc_callback_vector(map(_ -> mcmc_callback(x), chains), chains)
+mcmc_callback_vector(x::Tuple{}, chains::AbstractVector{<:MCMCIterator}) =
+    [MCMCNopCallback() for _ in chains]
 
 
 
-struct MCMCMultiCallback{FT<:Tuple} <: AbstractMCMCCallback
-    max_level::Int
-    funcs::FT
+doc"""
+    MCMCCallbackWrapper{F} <: AbstractMCMCCallback
+
+Wraps a callable object to turn it into an `AbstractMCMCCallback`.
+
+Constructor:
+
+    MCMCCallbackWrapper(f::Any)
+
+`f` needs to support the call syntax of an `AbstractMCMCCallback`.
+"""
+struct MCMCCallbackWrapper{F} <: AbstractMCMCCallback
+    f::F
+end
+
+
+@inline (wrapper::MCMCCallbackWrapper)(args...) = wrapper.f(args...)
+
+Base.convert(::Type{AbstractMCMCCallback}, f::Function) = MCMCCallbackWrapper(f)
+
+
+
+struct MCMCNopCallback <: AbstractMCMCCallback end
+
+(cb::MCMCNopCallback)(level::Integer, obj::Any) = nothing
+
+Base.convert(::Type{AbstractMCMCCallback}, ::Tuple{}) = MCMCNopCallback()
+
+
+
+struct MCMCMultiCallback{N,TP<:NTuple{N,AbstractMCMCCallback}} <: AbstractMCMCCallback
+    funcs::TP
+
+    MCMCMultiCallback(fs::NTuple{N,AbstractMCMCCallback}) where {N} =
+        new{N, typeof(fs)}(fs)
+
+    function fMCMCMultiCallback(fs::NTuple{N, Any}) where {N}
+        fs_conv = map(x -> convert(AbstractMCMCCallback, x), fs)
+        new{N, typeof(fs_conv)}(fs_conv)
+    end
 end
 
 
 function (cb::MCMCMultiCallback)(level::Integer, obj::Any)
-    if level <= cb.max_level
-        for f in cb.funcs
-            f(level, obj)
-        end
+    for f in cb.funcs
+        f(level, obj)
     end
     nothing
 end
 
-
-function mcmc_callback(max_level::Integer, funcs::Tuple)
-    cb_funcs = map(f -> mcmc_callback(f), funcs)
-    MCMCMultiCallback(max_level, cb_funcs)
-end
-
-mcmc_callback(max_level::Integer, f, fs...) = mcmc_callback(max_level, (f, fs...))
-
-mcmc_callback(funcs::Tuple) = mcmc_callback(typemax(Int), funcs)
-
-mcmc_callback(f, fs...) = mcmc_callback((f, fs...))
+Base.convert(::Type{AbstractMCMCCallback}, fs::Tuple) = MCMCMultiCallback(fs)
 
 
 
@@ -297,7 +312,13 @@ struct MCMCPushCallback{T} <: AbstractMCMCCallback
     target::T
 end
 
+export MCMCPushCallback
+
 MCMCPushCallback(target) = MCMCPushCallback(1, target)
+
+MCMCPushCallback(max_level::Int, t, ts...) =
+    MCMCMultiCallback(map(x -> MCMCPushCallback(max_level, x), (t, ts...)))
+
 
 function (cb::MCMCPushCallback)(level::Integer, chain::MCMCIterator)
     if (level <= cb.max_level)
@@ -307,3 +328,6 @@ function (cb::MCMCPushCallback)(level::Integer, chain::MCMCIterator)
 end
 
 (cb::MCMCPushCallback)(level::Integer, obj::Any) = nothing
+
+
+Base.convert(::Type{AbstractMCMCCallback}, x::BATDataVector) = MCMCPushCallback(x)

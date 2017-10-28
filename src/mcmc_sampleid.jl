@@ -45,6 +45,9 @@ Base.size(xs::MCMCSampleIDVector) = size(xs.chainid)
 Base.getindex(xs::MCMCSampleIDVector, i::Integer)  =
     MCMCSampleID(xs.chainid[i], xs.chaincycle[i], xs.sampleno[i])
 
+Base.IndexStyle(xs::MCMCSampleIDVector) = IndexStyle(xs.chainid)
+
+
 function Base.push!(xs::MCMCSampleIDVector, x::MCMCSampleID)
     push!(xs.chainid, x.chainid)
     push!(xs.chaincycle, x.chaincycle)
@@ -61,3 +64,5 @@ function Base.append!(A::MCMCSampleIDVector, B::MCMCSampleIDVector)
     append!(A.sampleno, B.sampleno)
     A
 end
+
+Base.convert(::Type{AbstractMCMCCallback}, x::MCMCSampleIDVector) = MCMCPushCallback(x)

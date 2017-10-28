@@ -65,6 +65,8 @@ Base.size(xs::DensitySampleVector) = size(xs.log_value)
 Base.getindex(xs::DensitySampleVector{P,T,W}, i::Integer) where {P,T,W} =
     DensitySample{P,T,W}(xs.params[:,i], xs.log_value[i], xs.weight[i])
 
+Base.IndexStyle(xs::DensitySampleVector) = IndexStyle(xs.params)
+
 
 function Base.push!(xs::DensitySampleVector, x::DensitySample)
     append!(xs.params, x.params)

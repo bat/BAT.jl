@@ -11,26 +11,28 @@ using Distributions, PDMats, StatsBase
         mvec = [-0.3, 0.3]
         cmat = [1.0 1.5; 1.5 4.0]
         Σ = @inferred PDMat(cmat)
-        tdensity = @inferred MvDistTargetDensity(MvNormal(mvec, Σ))
+        density = @inferred MvDistDensity(MvNormal(mvec, Σ))
         algorithm = @inferred MetropolisHastings()
         bounds = @inferred HyperRectBounds([-5, -8], [5, 8], reflective_bounds)
         nsamples_per_chain = 2000
         nchains = 4
 
-        samples = @inferred rand(
-            MCMCSpec(algorithm, tdensity, bounds),
+        samples, sampleids, stats = @inferred rand(
+            MCMCSpec(algorithm, density, bounds),
             nsamples_per_chain,
             nchains,
             max_time = Inf,
             granularity = 1
         )
 
+        @test length(samples) == length(sampleids)
         @test length(samples) == nchains * nsamples_per_chain
+        @test samples.params[:, findmax(samples.log_value)[2]] == stats.mode
 
         cov_samples = cov(samples.params, FrequencyWeights(samples.weight), 2; corrected=true)
         mean_samples = mean(Array(samples.params), FrequencyWeights(samples.weight), 2)
 
-        @test isapprox(mean_samples, mvec; atol = 0.1)
+        @test isapprox(mean_samples, mvec; atol = 0.2)
         @test isapprox(cov_samples, cmat; atol = 0.3)
     end
 end

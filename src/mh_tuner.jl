@@ -61,9 +61,10 @@ isviable(tuner::ProposalCovTuner) = nsamples(tuner.chain.state) >= 2
 function tuning_init_proposal!(tuner::ProposalCovTuner)
     chain = tuner.chain
 
-    # ToDo: Generalize for non-hypercube bounds
-    bounds = chain.target.bounds
-    flat_var = (bounds.vol.hi - bounds.vol.lo).^2 / 12
+    # ToDo: Generalize, currently limited to HyperRectBounds
+    bounds = param_bounds(chain.target)
+    vol = spatialvolume(bounds)
+    flat_var = (vol.hi - vol.lo).^2 / 12
 
     m = length(flat_var)
     Σ_unscaled = full(PDiagMat(flat_var))
