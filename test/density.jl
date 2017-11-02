@@ -17,7 +17,11 @@ using Distributions, PDMats, StatsBase
     econtext = @inferred ExecContext()
 
     params = [0.0 -0.3; 0.0 0.3]
-      
+
+    @testset "rand" begin
+        print(rand(MersenneTwister(7002), density, Float64))
+    end 
+    
     @testset "density_logval!" begin
         r = zeros(Float64, 2)
 
