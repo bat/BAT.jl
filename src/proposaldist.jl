@@ -117,7 +117,7 @@ end
 
 export GenericProposalDist
 
-GenericProposalDist{D<:Distribution{Multivariate},SamplerF}(d::D, sampler_f::SamplerF) =
+GenericProposalDist(d::D, sampler_f::SamplerF) where {D<:Distribution{Multivariate},SamplerF} =
     GenericProposalDist{D,SamplerF}(d, sampler_f)
 
 GenericProposalDist(d::Distribution{Multivariate}) = GenericProposalDist(d, bat_sampler)

@@ -49,7 +49,7 @@ OnlineMvMean(m::Integer) = OnlineMvMean{Float64}(m::Integer)
 
 @inline Base.size(omn::OnlineMvMean) = size(omn.S)
 
-@propagate_inbounds function Base.getindex{T}(omn::OnlineMvMean{T}, idxs::Integer...)
+@propagate_inbounds function Base.getindex(omn::OnlineMvMean{T}, idxs::Integer...) where {T}
     T((Single(omn.S[idxs...]) + Single(omn.C[idxs...])) / omn.sum_w)
 end
 
@@ -73,10 +73,10 @@ function Base.merge!(target::OnlineMvMean, others::OnlineMvMean...)
     target
 end
 
-@inline function push_contiguous!{T}(
+@inline function push_contiguous!(
     omn::OnlineMvMean{T}, data::Array,
     start::Integer, weight::Real = one(T)
-)
+) where {T}
     # Workaround for lack of promotion between, e.g., Float32 and Double{Float64}
     weight_conv = T(weight)
 
@@ -135,7 +135,7 @@ OnlineMvCov(m::Integer) = OnlineMvCov{Float64, ProbabilityWeights}(m::Integer)
 
 @inline Base.size(ocv::OnlineMvCov) = size(ocv.S)
 
-@propagate_inbounds function Base.getindex{T}(ocv::OnlineMvCov{T, Weights}, idxs::Integer...)
+@propagate_inbounds function Base.getindex(ocv::OnlineMvCov{T, Weights}, idxs::Integer...) where {T}
     sum_w = ocv.sum_w
     ifelse(
         sum_w > 0,
@@ -144,7 +144,7 @@ OnlineMvCov(m::Integer) = OnlineMvCov{Float64, ProbabilityWeights}(m::Integer)
     )
 end
 
-@propagate_inbounds function Base.getindex{T}(ocv::OnlineMvCov{T, AnalyticWeights}, idxs::Integer...)
+@propagate_inbounds function Base.getindex(ocv::OnlineMvCov{T, AnalyticWeights}, idxs::Integer...) where {T}
     sum_w = ocv.sum_w
     sum_w2 = ocv.sum_w2
     d = sum_w - sum_w2 / sum_w
@@ -155,7 +155,7 @@ end
     )
 end
 
-@propagate_inbounds function Base.getindex{T}(ocv::OnlineMvCov{T, FrequencyWeights}, idxs::Integer...)
+@propagate_inbounds function Base.getindex(ocv::OnlineMvCov{T, FrequencyWeights}, idxs::Integer...) where {T}
     sum_w = ocv.sum_w
     ifelse(
         sum_w > 1,
@@ -164,7 +164,7 @@ end
     )
 end
 
-@propagate_inbounds function Base.getindex{T}(ocv::OnlineMvCov{T, ProbabilityWeights}, idxs::Integer...)
+@propagate_inbounds function Base.getindex(ocv::OnlineMvCov{T, ProbabilityWeights}, idxs::Integer...) where {T}
     n = ocv.n
     sum_w = ocv.sum_w
     ifelse(
@@ -209,11 +209,11 @@ end
 
 
 
-@inline function push_contiguous!{T,W}(
+@inline function push_contiguous!(
     ocv::OnlineMvCov{T,W}, data::Array,
     start::Integer,
     weight::Real = one(T)
-)
+) where {T,W}
     # Ignore zero weights (can't be handled)
     if weight ≈ 0
         return ocv
@@ -311,11 +311,11 @@ function Base.merge!(target::BasicMvStatistics, others::BasicMvStatistics...)
 end
 
 
-function push_contiguous!{T,W}(
+function push_contiguous!(
     stats::BasicMvStatistics{T,W}, data::Array,
     start::Integer,
     weight::Real = one(T)
-)
+) where {T,W}
     push_contiguous!(stats.mean, data, start, weight)
     push_contiguous!(stats.cov, data, start, weight)
 

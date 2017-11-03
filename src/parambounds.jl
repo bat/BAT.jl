@@ -21,8 +21,8 @@ function Base.intersect(a::AbstractParamBounds, b::AbstractParamBounds)
     unsafe_intersect(a, b)
 end
 
-@inline oob{T<:AbstractFloat}(::Type{T}) = T(NaN)
-@inline oob{T<:Integer}(::Type{T}) = typemax(T)
+@inline oob(::Type{T}) where {T<:AbstractFloat} = T(NaN)
+@inline oob(::Type{T}) where {T<:Integer} = typemax(T)
 @inline oob(x::Real) = oob(typeof(x))
 oob(xs::AbstractArray) = fill!(similar(xs), oob(eltype(xs)))
 
@@ -163,9 +163,9 @@ end
 
 export HyperRectBounds
 
-HyperRectBounds{T<:Real}(vol::HyperRectVolume{T}, bt::AbstractVector{BoundsType}) = HyperRectBounds{T}(vol, bt)
-HyperRectBounds{T<:Real}(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::AbstractVector{BoundsType}) = HyperRectBounds(HyperRectVolume(lo, hi), bt)
-HyperRectBounds{T<:Real}(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::BoundsType) = HyperRectBounds(lo, hi, fill(bt, size(lo, 1)))
+HyperRectBounds(vol::HyperRectVolume{T}, bt::AbstractVector{BoundsType}) where {T<:Real} = HyperRectBounds{T}(vol, bt)
+HyperRectBounds(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::AbstractVector{BoundsType}) where {T<:Real} = HyperRectBounds(HyperRectVolume(lo, hi), bt)
+HyperRectBounds(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::BoundsType) where {T<:Real} = HyperRectBounds(lo, hi, fill(bt, size(lo, 1)))
 
 Base.similar(bounds::HyperRectBounds) = HyperRectBounds(similar(bounds.vol), similar(bounds.bt))
 
