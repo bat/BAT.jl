@@ -26,7 +26,6 @@ export bat_sampler
 
 bat_sampler(d::Distribution) = Distributions.sampler(d)
 
-
 doc"""
     issymmetric_around_origin(d::Distribution)
 
