@@ -203,3 +203,4 @@ end
 
 
 bat_sampler(d::Distributions.GenericMvTDist) = BATMvTDistSampler(d)
+
