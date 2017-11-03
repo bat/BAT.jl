@@ -103,7 +103,7 @@ Base.rand(rng::AbstractRNG, s::BATSampler{Multivariate}, n::Int) = rand!(rng, s,
 
 
 
-function _rand_gamma_mt{T<:Real}(rng::AbstractRNG, ::Type{T}, shape::Real)
+function _rand_gamma_mt(rng::AbstractRNG, ::Type{T}, shape::Real) where {T<:Real}
     (shape <= 0) && throw(ArgumentError("Require shape > 0, got $shape"))
 
     α = T(shape)
@@ -142,7 +142,7 @@ end
 
 BATGammaMTSampler(d::Gamma) = BATGammaMTSampler(shape(d), scale(d))
 
-Base.eltype{T}(s::BATGammaMTSampler{T}) = T
+Base.eltype(s::BATGammaMTSampler{T}) where {T} = T
 
 Base.rand(rng::AbstractRNG, s::BATGammaMTSampler) = s.scale * _rand_gamma_mt(rng, float(typeof(s.shape)), s.shape)
 
@@ -191,7 +191,7 @@ function _tdist_scaling_factor(rng::AbstractRNG, x::AbstractMatrix, df::Real)
 end
 
 
-function Base.rand!{T<:Real}(rng::AbstractRNG, s::BATMvTDistSampler, x::StridedVecOrMat{T})
+function Base.rand!(rng::AbstractRNG, s::BATMvTDistSampler, x::StridedVecOrMat{T}) where {T<:Real}
     d = s.d
 
     scaling_factor = _tdist_scaling_factor(rng, x, d.df)

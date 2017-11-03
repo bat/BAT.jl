@@ -85,19 +85,19 @@ export OnlineUvVar
 OnlineUvVar() = OnlineUvVar{Float64, ProbabilityWeights}()
 
 
-@propagate_inbounds Base.getindex{T}(ocv::OnlineUvVar{T, Weights}) =
+@propagate_inbounds Base.getindex(ocv::OnlineUvVar{T, Weights}) where {T} =
     ifelse(ocv.sum_w > 0, T(ocv.s / ocv.sum_w), T(NaN))
 
-@propagate_inbounds function Base.getindex{T}(ocv::OnlineUvVar{T, AnalyticWeights}) 
+@propagate_inbounds function Base.getindex(ocv::OnlineUvVar{T, AnalyticWeights}) where {T}
     d = ocv.sum_w - ocv.sum_w2 / ocv.sum_w
     ifelse(ocv.sum_w > 0 && d > 0, T(ocv.s / d), T(NaN))
 end
 
-@propagate_inbounds Base.getindex{T}(ocv::OnlineUvVar{T, FrequencyWeights}) =
+@propagate_inbounds Base.getindex(ocv::OnlineUvVar{T, FrequencyWeights}) where {T} =
     ifelse(ocv.sum_w > 1, T(ocv.s / (ocv.sum_w - 1)), T(NaN))    
 
 
-@propagate_inbounds Base.getindex{T}(ocv::OnlineUvVar{T, ProbabilityWeights}) =
+@propagate_inbounds Base.getindex(ocv::OnlineUvVar{T, ProbabilityWeights}) where {T} =
     ifelse(ocv.n > 1 && ocv.sum_w > 0, T(ocv.s * ocv.n / ((ocv.n - 1) * ocv.sum_w)), T(NaN))
 
 
@@ -186,7 +186,7 @@ export BasicUvStatistics
 
 
 
-@inline function _push_impl!{T,W}(stats::BasicUvStatistics{T,W}, data::Real, weight::Real)
+@inline function _push_impl!(stats::BasicUvStatistics{T,W}, data::Real, weight::Real) where {T,W}
     nmaximum = stats.maximum
     nminimum = stats.minimum
     

@@ -77,7 +77,7 @@ end
 
 export HyperRectVolume
 
-HyperRectVolume{T<:Real}(lo::Vector{T}, hi::Vector{T}) = HyperRectVolume{T}(lo, hi)
+HyperRectVolume(lo::Vector{T}, hi::Vector{T}) where {T<:Real} = HyperRectVolume{T}(lo, hi)
 
 Base.ndims(vol::HyperRectVolume) = size(vol.lo, 1)
 
