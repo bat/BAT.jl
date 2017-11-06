@@ -25,10 +25,10 @@ function Base.rand!(
     tuners = mcmc_init(
         chainspec,
         nchains,
+        init_strategy,
         exec_context,
         tuner_config,
-        convergence_test,
-        init_strategy;
+        convergence_test;
         ll = ll,
     )
 
