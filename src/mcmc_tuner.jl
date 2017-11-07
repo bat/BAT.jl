@@ -45,23 +45,23 @@ MCMCInitStrategy(tuner_config::AbstractMCMCTunerConfig) =
 
 mcmc_init(chainspec::MCMCSpec,
     nchains::Integer,
-    exec_context::ExecContext = ExecContext(),
-    tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
-    convergence_test::MCMCConvergenceTest = GRConvergence();
+    tuner_config::AbstractMCMCTunerConfig,
+    convergence_test::MCMCConvergenceTest = GRConvergence(),
+    exec_context::ExecContext = ExecContext();
     ll::LogLevel = LOG_INFO
 ) = mcmc_init(chainspec, nchains, MCMCInitStrategy(tuner_config),
-    exec_context,
-    tuner_config,
-    convergence_test;
+    AbstractMCMCTunerConfig(chainspec.algorithm),
+    convergence_test,
+    exec_context;
     ll = ll)
 
 function mcmc_init(
     chainspec::MCMCSpec,
     nchains::Integer,
     init_strategy::MCMCInitStrategy,
-    exec_context::ExecContext = ExecContext(),
-    tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
-    convergence_test::MCMCConvergenceTest = GRConvergence();
+    tuner_config::AbstractMCMCTunerConfig,
+    convergence_test::MCMCConvergenceTest = GRConvergence(),
+    exec_context::ExecContext = ExecContext();
     ll::LogLevel = LOG_INFO
 )
     @log_msg ll "Trying to generate $nchains viable MCMC chain(s)."
