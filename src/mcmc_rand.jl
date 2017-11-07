@@ -25,11 +25,11 @@ function Base.rand!(
     tuners = mcmc_init(
         chainspec,
         nchains,
-        exec_context,
+        init_strategy,
         tuner_config,
         convergence_test,
-        init_strategy;
-        ll = ll,
+        exec_context;
+        ll = ll
     )
 
     mcmc_tune_burnin!(
