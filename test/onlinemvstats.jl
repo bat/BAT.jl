@@ -14,7 +14,7 @@ using StatsBase
     data = vcat(data1', data2')
     m = size(data, 1)
 
-    
+
     @testset "BAT.kbn_add" begin
         bg = +1E5
         sm = +1e-4
@@ -39,7 +39,7 @@ using StatsBase
     @testset "BAT.OnlineMvMean" begin
         @test typeof(@inferred BAT.OnlineMvMean(n)) <: AbstractVector{Float64}
         @test typeof(@inferred BAT.OnlineMvMean{Float32}(n)) <: AbstractVector{Float32}
-        
+
         mvmean = BAT.OnlineMvMean(m)
         @test size(mvmean, 1) == m
 
@@ -77,7 +77,7 @@ using StatsBase
                 push!(mvcov, data[:, i], w[i]);
             end
 
-            @test mvcov ≈ cov(data, wKind(w), 2; corrected = (wKind != Weights))
+            @test mvcov ≈ cov(data, wKind(w), 2; corrected = (wKind != Weights)) 
         end
 
         countMvCovs = 3
@@ -86,7 +86,7 @@ using StatsBase
             mvcovs[i] = BAT.OnlineMvCov(m)
         end
         mvcovc = BAT.OnlineMvCov(m)
-        
+
         for i in indices(data, 2)
             push!(mvcovs[(i % countMvCovs) + 1], data[:, i], w[i]);
             push!(mvcovc, data[:, i], w[i]);
@@ -107,7 +107,7 @@ using StatsBase
         res = append!(deepcopy(mvcov), data, w, 2)
         @test res ≈ cov(data, ProbabilityWeights(w), 2; corrected = true)
     end
-    @testset "BAT.BasicMvStatistic" begin        
+    @testset "BAT.BasicMvStatistic" begin
         bmvstats = BasicMvStatistics{Float64, ProbabilityWeights}(m)
 
         countBMS = 3
@@ -115,7 +115,7 @@ using StatsBase
         for i in indices(bmvs,1)
             bmvs[i] = BasicMvStatistics{Float64, ProbabilityWeights}(m)
         end
-        
+
         for i in indices(data, 2)
             BAT.push!(bmvstats, data[:, i], w[i]);
             BAT.push!(bmvs[(i % countBMS) + 1], data[:, i], w[i]);
@@ -125,7 +125,7 @@ using StatsBase
 
         maxData =  [maximum(data[i, :]) for i in indices(data, 1)]
         minData =  [minimum(data[i, :]) for i in indices(data, 1)]
-        
+
         for bs in [bmvstats, merbmvstats]
             @test bs.mean ≈  mean(data, Weights(w), 2)
             @test bs.cov ≈ cov(data, ProbabilityWeights(w), 2; corrected = true)
@@ -139,12 +139,12 @@ using StatsBase
         @test res.cov ≈ cov(data, 2)
         @test res.maximum ≈ maxData
         @test res.minimum ≈ minData
-        
+
         res = append!(deepcopy(mvstat), data, w, 2)
-        @test res.mean ≈ mean(data, weights(w), 2)        
+        @test res.mean ≈ mean(data, weights(w), 2)
         @test res.cov ≈ cov(data, ProbabilityWeights(w), 2; corrected = true)
         @test res.maximum ≈ maxData
-        @test res.minimum ≈ minData        
+        @test res.minimum ≈ minData
     end
-        
+
 end

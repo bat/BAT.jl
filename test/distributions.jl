@@ -9,15 +9,15 @@ using Distributions, PDMats, StatsBase
 @testset "random number generation" begin
     @testset "_check_rand_compat" begin
         @test BAT._check_rand_compat(MvNormal(ones(2)), ones(2,10)) == nothing
-        @test_throws DimensionMismatch BAT._check_rand_compat(MvNormal(ones(3)), ones(2,10)) 
+        @test_throws DimensionMismatch BAT._check_rand_compat(MvNormal(ones(3)), ones(2,10))
     end
-    
+
     @testset "rand" begin
         bsguv = BATGammaMTSampler(Gamma(4f0, 2f0))
         @test size(rand(bsguv, 5)) == (5,)
         @test typeof(rand(bsguv, 5)) == Vector{Float32}
         @test typeof(rand(bsguv)) == Float32
-        
+
         res = rand!(bsguv, zeros(3))
         @test size(res) == (3,)
         @test typeof(res) == Array{Float64, 1}
@@ -81,10 +81,10 @@ using Distributions, PDMats, StatsBase
 
     @testset "BATMvTDistSampler" begin
         d = MvTDist(1.5, PDMat([2.0 1.0; 1.0 3.0]))
-        
+
         @test typeof(@inferred bat_sampler(d)) <: BATMvTDistSampler
         @test size(@inferred rand(bat_sampler(d), 5)) == (2, 5)
-        
+
         @test size(rand!(bat_sampler(d), ones(2))) == (2, )
         @test size(rand!(bat_sampler(d), ones(2, 3))) == (2, 3)
 
@@ -94,7 +94,7 @@ using Distributions, PDMats, StatsBase
 
         tmv = BAT.set_cov!(tmv, cmat)
         @test full(BAT.get_cov(tmv)) ≈ cmat
-        
+
         bstmv = BATMvTDistSampler(tmv)
 
         n = 1000

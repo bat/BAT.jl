@@ -29,9 +29,9 @@ function AcceptRejectState(
         current_sample,
         proposed_sample,
         false,
-        0,
-        0,
-        1
+        zero(Int64),
+        zero(Int64),
+        one(Int64)
     )
 end
 
@@ -46,9 +46,9 @@ acceptance_ratio(state::AcceptRejectState) = nsamples(state) / nsteps(state)
 
 
 function next_cycle!(state::AcceptRejectState)
-    state.current_sample.weight = 1
-    state.nsamples = 0
-    state.nsteps = 0
+    state.current_sample.weight = one(state.current_sample.weight)
+    state.nsamples = zero(Int64)
+    state.nsteps = zero(Int64)
     state
 end
 

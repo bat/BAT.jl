@@ -92,7 +92,7 @@ end
     checkbounds(data, idxs + dshft)
 
     omn.sum_w += weight_conv
-    
+
     @inbounds @simd for i in idxs
         x = weight_conv * data[i + dshft]
         S[i], C[i] = kbn_add((S[i], C[i]), x)
@@ -138,7 +138,7 @@ OnlineMvCov(m::Integer) = OnlineMvCov{Float64, ProbabilityWeights}(m::Integer)
 @propagate_inbounds function Base.getindex(ocv::OnlineMvCov{T, Weights}, idxs::Integer...) where {T}
     sum_w = ocv.sum_w
     ifelse(
-        sum_w > 0,
+        sum_w > zero(T),
         T(ocv.S[idxs...] / sum_w),
         T(NaN)
     )
@@ -149,7 +149,7 @@ end
     sum_w2 = ocv.sum_w2
     d = sum_w - sum_w2 / sum_w
     ifelse(
-        sum_w > 0 && d > 0,
+        sum_w > zero(T) && d > zero(T),
         T(ocv.S[idxs...] / d),
         T(NaN)
     )
@@ -158,8 +158,8 @@ end
 @propagate_inbounds function Base.getindex(ocv::OnlineMvCov{T, FrequencyWeights}, idxs::Integer...) where {T}
     sum_w = ocv.sum_w
     ifelse(
-        sum_w > 1,
-        T(ocv.S[idxs...] / (sum_w - 1)),
+        sum_w > one(T),
+        T(ocv.S[idxs...] / (sum_w - one(T))),
         T(NaN)
     )
 end
@@ -168,8 +168,8 @@ end
     n = ocv.n
     sum_w = ocv.sum_w
     ifelse(
-        n > 1 && sum_w > 0,
-        T(ocv.S[idxs...] * n / ((n - 1) * sum_w)),
+        n > one(T) && sum_w > zero(T),
+        T(ocv.S[idxs...] * n / ((n - one(T)) * sum_w)),
         T(NaN)
     )
 end
@@ -199,7 +199,7 @@ function Base.merge!(target::OnlineMvCov{T,W}, others::OnlineMvCov{T,W}...) wher
             target.Mean_X[i] = (target.Mean_X[i] * target.sum_w + x.Mean_X[i] * x.sum_w) * d
             target.New_Mean_X[i] = target.Mean_X[i]
         end
-        
+
         target.n += x.n
         target.sum_w += x.sum_w
         target.sum_w2 += x.sum_w2
@@ -271,7 +271,7 @@ end
 end
 
 doc"""
-    BasicMvStatistics{T<:Real,W} 
+    BasicMvStatistics{T<:Real,W}
 
 `W` must either be `Weights` (no bias correction) or one of `AnalyticWeights`,
 `FrequencyWeights` or `ProbabilityWeights` to specify the desired bias
