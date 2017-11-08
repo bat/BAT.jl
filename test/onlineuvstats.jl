@@ -15,7 +15,7 @@ using StatsBase
     vdata = var(data, wK(w); corrected=true)
     maxdata = maximum(data)
     mindata = minimum(data)
-    
+
     @testset "BAT.OnlineUvMean" begin
         @test typeof(@inferred BAT.OnlineUvMean()) <: BAT.OnlineUvMean{Float64}
         @test typeof(@inferred BAT.OnlineUvMean{Float32}()) <: BAT.OnlineUvMean{Float32}
@@ -23,13 +23,13 @@ using StatsBase
 
         res = append!(ouvm, data, w)
         @test res[] ≈ mdata
-        
+
         numMeans = 3
         means = Array{BAT.OnlineUvMean{T}}(numMeans)
         for i in indices(means, 1)
             means[i] = OnlineUvMean()
         end
-        
+
         for i in indices(data, 1)
             x = (i % numMeans) + 1
             means[x] = push!(means[x], data[i], w[i]);
@@ -46,7 +46,7 @@ using StatsBase
         for wKind in [ProbabilityWeights, FrequencyWeights, AnalyticWeights, Weights]
             res = BAT.OnlineUvVar{Float64, wKind}()
             res = append!(res, data, w)
-            @test res[] ≈ var(data, wKind(w); corrected=(wKind != Weights))
+            @test res[] ≈ var(data, wKind(w); corrected=(wKind != Weights)) # 100, 96, 93, 88
         end
 
         numVars = 3
@@ -60,17 +60,17 @@ using StatsBase
             vars[x] = push!(vars[x], data[i], w[i]);
         end
 
-        @test merge!(vars...)[] ≈ var(data, wK(w); corrected=true)
+        @test merge!(vars...)[] ≈ var(data, wK(w); corrected=true) # 100
     end
 
     @testset "BAT.BasicUvStatistics" begin
         @test typeof(@inferred BAT.BasicUvStatistics{Float32, FrequencyWeights}()) <: BAT.BasicUvStatistics{Float32, FrequencyWeights}
-        
+
         res = BAT.BasicUvStatistics{T, wK}()
         res = append!(res, data, w)
-        
+
         @test res.mean[] ≈ mdata
-        @test res.var[] ≈ vdata
+        @test res.var[] ≈ vdata # 100
         @test res.maximum ≈ maxdata
         @test res.minimum ≈ mindata
 
@@ -87,13 +87,13 @@ using StatsBase
 
         res = merge(stats...)
         @test res.mean[] ≈ mdata
-        @test res.var[] ≈ vdata
+        @test res.var[] ≈ vdata # 100
         @test res.maximum ≈ maxdata
         @test res.minimum ≈ mindata
 
         res = BAT.BasicUvStatistics{T, wK}()
         res = append!(res, data)
         @test res.mean[] ≈ mean(data)
-        @test res.var[] ≈ cov(data)
+        @test res.var[] ≈ cov(data) # 100
     end
 end
