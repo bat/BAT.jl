@@ -46,7 +46,7 @@ using StatsBase
         for wKind in [ProbabilityWeights, FrequencyWeights, AnalyticWeights, Weights]
             res = BAT.OnlineUvVar{Float64, wKind}()
             res = append!(res, data, w)
-            @test res[] ≈ var(data, wKind(w); corrected=(wKind != Weights)) # 100, 96, 93, 88
+            @test res[] ≈ var(data, wKind(w); corrected=(wKind != Weights))
         end
 
         numVars = 3
@@ -60,7 +60,7 @@ using StatsBase
             vars[x] = push!(vars[x], data[i], w[i]);
         end
 
-        @test merge!(vars...)[] ≈ var(data, wK(w); corrected=true) # 100
+        @test merge!(vars...)[] ≈ var(data, wK(w); corrected=true)
     end
 
     @testset "BAT.BasicUvStatistics" begin
@@ -87,13 +87,13 @@ using StatsBase
 
         res = merge(stats...)
         @test res.mean[] ≈ mdata
-        @test res.var[] ≈ vdata # 100
+        @test res.var[] ≈ vdata
         @test res.maximum ≈ maxdata
         @test res.minimum ≈ mindata
 
         res = BAT.BasicUvStatistics{T, wK}()
         res = append!(res, data)
         @test res.mean[] ≈ mean(data)
-        @test res.var[] ≈ cov(data) # 100
+        @test res.var[] ≈ cov(data) 
     end
 end
