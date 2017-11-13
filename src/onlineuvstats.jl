@@ -35,7 +35,7 @@ function Base.merge!(target::OnlineUvMean{T}, others::OnlineUvMean...) where {T}
 
     target.sum_w = sum_w
     target.sum_v = sum_v
-    
+
     target
 end
 
@@ -73,11 +73,11 @@ mutable struct OnlineUvVar{T<:AbstractFloat,W}
             zero(Int64), zero(Double{T}), zero(Double{T}),
             zero(T), zero(T)
         )
-    
+
     OnlineUvVar{T,W}(n::Int64, sum_w::Double{T}, sum_w2::Double{T}, mean_x::T, s::T) where {T<:AbstractFloat,W} =
         new{T,W}(
             n, sum_w, sum_w2, mean_x, s
-        )    
+        )
 end
 
 export OnlineUvVar
@@ -86,19 +86,19 @@ OnlineUvVar() = OnlineUvVar{Float64, ProbabilityWeights}()
 
 
 @propagate_inbounds Base.getindex(ocv::OnlineUvVar{T, Weights}) where {T} =
-    ifelse(ocv.sum_w > 0, T(ocv.s / ocv.sum_w), T(NaN))
+    ifelse(ocv.sum_w > zero(T), T(ocv.s / ocv.sum_w), T(NaN))
 
 @propagate_inbounds function Base.getindex(ocv::OnlineUvVar{T, AnalyticWeights}) where {T}
     d = ocv.sum_w - ocv.sum_w2 / ocv.sum_w
-    ifelse(ocv.sum_w > 0 && d > 0, T(ocv.s / d), T(NaN))
+    ifelse(ocv.sum_w > zero(T) && d > zero(T), T(ocv.s / d), T(NaN))
 end
 
 @propagate_inbounds Base.getindex(ocv::OnlineUvVar{T, FrequencyWeights}) where {T} =
-    ifelse(ocv.sum_w > 1, T(ocv.s / (ocv.sum_w - 1)), T(NaN))    
+    ifelse(ocv.sum_w > one(T), T(ocv.s / (ocv.sum_w - one(T))), T(NaN))
 
 
 @propagate_inbounds Base.getindex(ocv::OnlineUvVar{T, ProbabilityWeights}) where {T} =
-    ifelse(ocv.n > 1 && ocv.sum_w > 0, T(ocv.s * ocv.n / ((ocv.n - 1) * ocv.sum_w)), T(NaN))
+    ifelse(ocv.n > one(T) && ocv.sum_w > zero(T), T(ocv.s * ocv.n / ((ocv.n - one(T)) * ocv.sum_w)), T(NaN))
 
 
 
@@ -113,10 +113,10 @@ function Base.merge!(target::OnlineUvVar{T,W}, others::OnlineUvVar...) where {T,
         n += x.n
 
         dx = mean_x - x.mean_x
-        
+
         new_sum_w = (sum_w + x.sum_w)
         mean_x = (sum_w * mean_x + x.sum_w * x.mean_x) / new_sum_w
-        
+
         s += x.s + sum_w * x.sum_w / new_sum_w * dx * dx
 
         sum_w = new_sum_w
@@ -125,9 +125,9 @@ function Base.merge!(target::OnlineUvVar{T,W}, others::OnlineUvVar...) where {T,
     end
 
     target.n = n
-    target.sum_w = sum_w 
-    target.sum_w2 = sum_w2 
-    target.mean_x = mean_x 
+    target.sum_w = sum_w
+    target.sum_w2 = sum_w2
+    target.mean_x = mean_x
     target.s = s
 
     target
@@ -155,7 +155,7 @@ end
     dx = data - mean_x
     new_mean_x = mean_x + dx * weight_conv / sum_w
     new_dx = data - new_mean_x
-    
+
     s = muladd(dx, weight_conv * new_dx, s)
     mean_x = new_mean_x
 
@@ -189,7 +189,7 @@ export BasicUvStatistics
 @inline function _push_impl!(stats::BasicUvStatistics{T,W}, data::Real, weight::Real) where {T,W}
     nmaximum = stats.maximum
     nminimum = stats.minimum
-    
+
     push!(stats.mean, data, weight)
     push!(stats.var, data, weight)
     nmaximum = max(stats.maximum, maximum(data))
@@ -216,9 +216,9 @@ function Base.merge!(target::BasicUvStatistics, others::BasicUvStatistics...)
 
     target.mean = t_mean
     target.var = t_var
-    target.maximum = t_maximum 
+    target.maximum = t_maximum
     target.minimum = t_minimum
-    
+
     target
 end
 
@@ -238,7 +238,7 @@ Base.push!(ocv::OnlineUvStatistic, data::Real, weight::Real = 1) =
     stats
 end
 
-@inline function Base.append!(stats::OnlineUvStatistic, data::AbstractVector{<:Real}, weights::AbstractVector{<:Real}) 
+@inline function Base.append!(stats::OnlineUvStatistic, data::AbstractVector{<:Real}, weights::AbstractVector{<:Real})
     @assert indices(data) == indices(weights)# ToDo: Throw exception instead of assert
     @inbounds for i in indices(data, 1)
         push!(stats, data[i], weights[i])
