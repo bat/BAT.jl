@@ -30,8 +30,8 @@ export MCMCInitStrategy
 MCMCInitStrategy(
     ;
     ninit_tries_per_chain::ClosedInterval{<:Integer} = 8..128,
-    max_nsamples_pretune::Int = Int64(25),
-    max_nsteps_pretune::Int = Int64(250),
+    max_nsamples_pretune::Int64 = Int64(25),
+    max_nsteps_pretune::Int64 = Int64(250),
     max_time_pretune::Real = Inf
 ) = MCMCInitStrategy(
     ninit_tries_per_chain,
