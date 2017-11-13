@@ -104,14 +104,14 @@ function MCMCIterator(
     algorithm::MCMCAlgorithm{AcceptRejectState},
     likelihood::AbstractDensity,
     prior::AbstractDensity,
-    id::Integer,
+    id::Int,
     rng::AbstractRNG,
     initial_params::AbstractVector{P} = Vector{P}(),
     exec_context::ExecContext = ExecContext(),
 ) where {P<:Real}
     target = likelihood * prior
 
-    cycle = 0
+    cycle = zero(Int)
     reset_rng_counters!(rng, MCMCSampleID(id, cycle, 0))
 
     params_vec = Vector{P}(nparams(target))
