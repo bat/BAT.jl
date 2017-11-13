@@ -166,8 +166,8 @@ export MCMCBurninStrategy
 
 MCMCBurninStrategy(
     ;
-    max_nsamples_per_cycle::Int = Int64(1000),
-    max_nsteps_per_cycle::Int = Int64(10000),
+    max_nsamples_per_cycle::Int64 = Int64(1000),
+    max_nsteps_per_cycle::Int64 = Int64(10000),
     max_time_per_cycle::Real = Inf,
     max_ncycles::Int = 30
 ) = MCMCBurninStrategy(
