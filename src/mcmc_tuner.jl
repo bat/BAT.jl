@@ -30,8 +30,8 @@ export MCMCInitStrategy
 MCMCInitStrategy(
     ;
     ninit_tries_per_chain::ClosedInterval{<:Integer} = 8..128,
-    max_nsamples_pretune::Integer = Int64(25),
-    max_nsteps_pretune::Integer = Int64(250),
+    max_nsamples_pretune::Int64 = Int64(25),
+    max_nsteps_pretune::Int64 = Int64(250),
     max_time_pretune::Real = Inf
 ) = MCMCInitStrategy(
     ninit_tries_per_chain,
@@ -47,7 +47,7 @@ MCMCInitStrategy(tuner_config::AbstractMCMCTunerConfig) =
 
 function mcmc_init(
     chainspec::MCMCSpec,
-    nchains::Integer,
+    nchains::Int,
     exec_context::ExecContext = ExecContext(),
     tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
     convergence_test::MCMCConvergenceTest = GRConvergence(),
@@ -62,10 +62,10 @@ function mcmc_init(
     gen_tuners(ids::Range{<:Integer}) =
         [tuner_config(chainspec(id, exec_context), init_proposal = true) for id in ids]
 
-    ncandidates = 0
+    ncandidates = zero(Int)
 
-    tuners = similar([tuner_config(chainspec(0, exec_context), init_proposal = false)], 0)
-    cycle = 1
+    tuners = similar([tuner_config(chainspec(zero(Int), exec_context), init_proposal = false)], zero(Int))
+    cycle = one(Int)
     while length(tuners) < min_nviable && ncandidates < max_ncandidates
         n = min(min_nviable, max_ncandidates - ncandidates)
         @log_msg ll+1 "Generating $n $(cycle > 1 ? "additional " : "")MCMC chain(s)."
@@ -119,14 +119,14 @@ function mcmc_init(
         modes[:,i] = tuners[i].stats.mode
     end
 
-    final_tuners = similar(tuners, 0)
+    final_tuners = similar(tuners, zero(Int))
 
     if 2 <= m < size(modes, 2)
         clusters = kmeans(modes, m)
         clusters.converged || error("k-means clustering of MCMC chains did not converge")
 
         mincosts = fill(Inf, m)
-        tuner_sel = fill(0, m)
+        tuner_sel = fill(zero(Int), m)
 
         for i in tidxs
             j = clusters.assignments[i]
@@ -166,10 +166,10 @@ export MCMCBurninStrategy
 
 MCMCBurninStrategy(
     ;
-    max_nsamples_per_cycle::Integer = Int64(1000),
-    max_nsteps_per_cycle::Integer = 10000,
+    max_nsamples_per_cycle::Int64 = Int64(1000),
+    max_nsteps_per_cycle::Int64 = Int64(10000),
     max_time_per_cycle::Real = Inf,
-    max_ncycles::Integer = 30
+    max_ncycles::Int = 30
 ) = MCMCBurninStrategy(
     max_nsamples_per_cycle,
     max_nsteps_per_cycle,
@@ -200,7 +200,7 @@ function mcmc_tune_burnin!(
 
     user_callbacks = mcmc_callback_vector(callbacks, chains)
 
-    cycles = 0
+    cycles = zero(Int)
     successful = false
     while !successful && cycles < burnin_strategy.max_ncycles
         cycles += 1
@@ -258,11 +258,11 @@ export NoOpTuner
 
 
 MCMCInitStrategy(tuner_config::NoOpTunerConfig) =
-    MCMCInitStrategy(1..1, 0, 0, Inf)
+    MCMCInitStrategy(1..1, zero(Int), zero(Int), Inf)
 
 
 MCMCBurninStrategy(tuner_config::NoOpTunerConfig) =
-    MCMCBurninStrategy(0, 0, Inf, 0)
+    MCMCBurninStrategy(zero(Int), zero(Int), Inf, zero(Int))
 
 
 isviable(tuner::NoOpTuner) = true
@@ -270,7 +270,7 @@ isviable(tuner::NoOpTuner) = true
 
 function mcmc_init(
     chainspec::MCMCSpec,
-    nchains::Integer,
+    nchains::Int,
     exec_context::ExecContext,
     tuner_config::NoOpTunerConfig,
     convergence_test::MCMCConvergenceTest,
@@ -279,7 +279,7 @@ function mcmc_init(
 )
     @log_msg ll "NoOpTuner generating $nchains MCMC chain(s)."
 
-    [tuner_config(chainspec(id, exec_context), init_proposal = true) for id in 1:nchains]
+    [tuner_config(chainspec(id, exec_context), init_proposal = true) for id in one(Int):nchains]
 end
 
 
