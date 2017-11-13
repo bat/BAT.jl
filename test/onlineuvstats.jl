@@ -15,7 +15,7 @@ using StatsBase
     vdata = var(data, wK(w); corrected=true)
     maxdata = maximum(data)
     mindata = minimum(data)
-    
+
     @testset "BAT.OnlineUvMean" begin
         @test typeof(@inferred BAT.OnlineUvMean()) <: BAT.OnlineUvMean{Float64}
         @test typeof(@inferred BAT.OnlineUvMean{Float32}()) <: BAT.OnlineUvMean{Float32}
@@ -23,13 +23,13 @@ using StatsBase
 
         res = append!(ouvm, data, w)
         @test res[] ≈ mdata
-        
+
         numMeans = 3
         means = Array{BAT.OnlineUvMean{T}}(numMeans)
         for i in indices(means, 1)
             means[i] = OnlineUvMean()
         end
-        
+
         for i in indices(data, 1)
             x = (i % numMeans) + 1
             means[x] = push!(means[x], data[i], w[i]);
@@ -65,12 +65,12 @@ using StatsBase
 
     @testset "BAT.BasicUvStatistics" begin
         @test typeof(@inferred BAT.BasicUvStatistics{Float32, FrequencyWeights}()) <: BAT.BasicUvStatistics{Float32, FrequencyWeights}
-        
+
         res = BAT.BasicUvStatistics{T, wK}()
         res = append!(res, data, w)
-        
+
         @test res.mean[] ≈ mdata
-        @test res.var[] ≈ vdata
+        @test res.var[] ≈ vdata # 100
         @test res.maximum ≈ maxdata
         @test res.minimum ≈ mindata
 
@@ -94,6 +94,6 @@ using StatsBase
         res = BAT.BasicUvStatistics{T, wK}()
         res = append!(res, data)
         @test res.mean[] ≈ mean(data)
-        @test res.var[] ≈ cov(data)
+        @test res.var[] ≈ cov(data) 
     end
 end
