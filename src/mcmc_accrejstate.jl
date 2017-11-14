@@ -104,7 +104,7 @@ function MCMCIterator(
     algorithm::MCMCAlgorithm{AcceptRejectState},
     likelihood::AbstractDensity,
     prior::AbstractDensity,
-    id::Int,
+    id::Int64,
     rng::AbstractRNG,
     initial_params::AbstractVector{P} = Vector{P}(),
     exec_context::ExecContext = ExecContext(),

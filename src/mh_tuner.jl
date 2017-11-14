@@ -145,7 +145,7 @@ function run_tuning_iterations!(
     tuners::AbstractVector{<:ProposalCovTuner},
     exec_context::ExecContext;
     max_nsamples::Int64 = Int64(1000),
-    max_nsteps::Int = 10000,
+    max_nsteps::Int64 = Int64(10000),
     max_time::Float64 = Inf,
     ll::LogLevel = LOG_NONE
 )
