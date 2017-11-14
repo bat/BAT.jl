@@ -49,7 +49,7 @@ mutable struct MCMCIterator{
     target::T
     state::S
     rng::R
-    id::Int
+    id::Int64
     cycle::Int
     tuned::Bool
     converged::Bool
@@ -191,9 +191,9 @@ MCMCSpec(
 
 
 function (spec::MCMCSpec)(
-    id::Int,
+    id::Int64,
     exec_context::ExecContext = ExecContext()
-)
+) 
     P = float(eltype(param_bounds(spec.prior)))
     rng = spec.rngseed()
 
