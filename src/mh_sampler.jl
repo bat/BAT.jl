@@ -10,6 +10,9 @@ export MHMultiplicityWeights
 struct MHAccRejProbWeights{T<:AbstractFloat} <: MHWeightingScheme{T} end
 export MHAccRejProbWeights
 
+struct MHPosteriorFractionWeights{T<:AbstractFloat} <: MHWeightingScheme{T} end
+export MHPosteriorFractionWeights
+
 
 struct MetropolisHastings{
     Q<:ProposalDistSpec,
@@ -119,6 +122,7 @@ function mh_acc_rej!(
     chain::MCMCIterator{<:MetropolisHastings{Q,W,WS}},
     p_accept::Real
 ) where {Q, W, WS <: MHMultiplicityWeights}
+    @assert p_accept >= 0
     state = chain.state
     state.current_sample.weight += 1
     if rand(chain.rng, float(typeof(p_accept))) < p_accept
@@ -138,6 +142,7 @@ function mh_acc_rej!(
     chain::MCMCIterator{<:MetropolisHastings{Q,W,WS}},
     p_accept::Real
 ) where {Q, W, WS <: MHAccRejProbWeights}
+    @assert p_accept >= 0
     if p_accept ≈ 1
         p_accept = one(p_accept)
     elseif p_accept ≈ 0
@@ -158,6 +163,42 @@ function mh_acc_rej!(
         else
             callback(1, chain)
         end
+    end
+    chain
+end
+
+
+function mh_acc_rej!(
+    callback::AbstractMCMCCallback,
+    chain::MCMCIterator{<:MetropolisHastings{Q,W,WS}},
+    p_accept::Real
+) where {Q, W, WS <: MHPosteriorFractionWeights}
+    @assert p_accept >= 0
+
+    state = chain.state
+
+    r = rand(chain.rng, float(typeof(p_accept)))
+
+    if p_accept ≈ 0
+        state.current_sample.weight += 1
+        state.proposed_sample.weight = 0
+        callback(2, chain)
+    else
+        # Renormalize posterior values:
+        logval_1 = state.current_sample.log_value
+        logval_2 = state.proposed_sample.log_value
+        max_lv = max(logval_1, logval_2)
+        v_1 = exp(logval_1 - max_lv)
+        v_2 = exp(logval_2 - max_lv)
+        v_sum = v_1 + v_2
+
+        state.current_sample.weight += v_1 / v_sum
+        state.proposed_sample.weight = v_2 / v_sum
+        if r < p_accept
+            state.proposal_accepted = true
+            state.nsamples += 1
+        end
+        callback(1, chain)
     end
     chain
 end
