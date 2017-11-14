@@ -54,7 +54,7 @@ function Base.rand!(
         callbacks,
         chains,
         exec_context;
-        max_nsamples = nsamples,
+        max_nsamples = Int64(nsamples),
         max_nsteps = max_nsteps,
         max_time = max_time,
         ll = ll
