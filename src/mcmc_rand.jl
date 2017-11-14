@@ -14,7 +14,7 @@ function Base.rand!(
     init_strategy::MCMCInitStrategy,
     burnin_strategy::MCMCBurninStrategy,
     exec_context::ExecContext;
-    max_nsteps::Int = 100 * nsamples,
+    max_nsteps::Int64 = Int64(100 * nsamples),
     max_time::Float64 = Inf,
     granularity::Int = 1,
     strict_mode::Bool = false,
