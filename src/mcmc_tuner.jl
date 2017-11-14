@@ -62,14 +62,14 @@ function mcmc_init(
     gen_tuners(ids::Range{<:Integer}) =
         [tuner_config(chainspec(id, exec_context), init_proposal = true) for id in ids]
 
-    ncandidates = zero(Int)
+    ncandidates = zero(Int64)
 
-    tuners = similar([tuner_config(chainspec(zero(Int), exec_context), init_proposal = false)], zero(Int))
+    tuners = similar([tuner_config(chainspec(zero(Int64), exec_context), init_proposal = false)], zero(Int))
     cycle = one(Int)
     while length(tuners) < min_nviable && ncandidates < max_ncandidates
         n = min(min_nviable, max_ncandidates - ncandidates)
         @log_msg ll+1 "Generating $n $(cycle > 1 ? "additional " : "")MCMC chain(s)."
-        new_tuners = gen_tuners(ncandidates + (1:n))
+        new_tuners = gen_tuners(ncandidates + (one(Int64):n))
         ncandidates += n
 
         @log_msg ll+1 "Testing $(length(new_tuners)) MCMC chain(s)."
