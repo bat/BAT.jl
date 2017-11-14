@@ -49,7 +49,7 @@ mutable struct MCMCIterator{
     target::T
     state::S
     rng::R
-    id::Int
+    id::Int64
     cycle::Int
     tuned::Bool
     converged::Bool
