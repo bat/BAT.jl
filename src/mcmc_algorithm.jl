@@ -93,7 +93,7 @@ function mcmc_iterate!(
     chain::MCMCIterator,
     exec_context::ExecContext = ExecContext();
     max_nsamples::Int64 = Int64(1),
-    max_nsteps::Int = 1000,
+    max_nsteps::Int64 = Int64(1000),
     max_time::Float64 = Inf,
     ll::LogLevel = LOG_NONE
 )
@@ -193,7 +193,7 @@ MCMCSpec(
 function (spec::MCMCSpec)(
     id::Int64,
     exec_context::ExecContext = ExecContext()
-) 
+)
     P = float(eltype(param_bounds(spec.prior)))
     rng = spec.rngseed()
 
