@@ -66,7 +66,7 @@ abstract type BATSampler{F<:VariateForm,S<:ValueSupport} <: Sampleable{F,S} end
 @inline Base.rand!(s::BATSampler, args...) = rand!(Base.GLOBAL_RNG, s, args...)
 
 # To avoid ambiguity with Distributions:
-@inline Base.rand(s::BATSampler, dims::Int64...) = rand(Base.GLOBAL_RNG, s, dims...)
+@inline Base.rand(s::BATSampler, dims::Int...) = rand(Base.GLOBAL_RNG, s, dims...)
 @inline Base.rand!(s::BATSampler, A::AbstractVector) = rand!(Base.GLOBAL_RNG, s, A)
 @inline Base.rand!(s::BATSampler, A::AbstractMatrix) = rand!(Base.GLOBAL_RNG, s, A)
 

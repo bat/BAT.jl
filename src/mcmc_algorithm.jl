@@ -191,7 +191,7 @@ MCMCSpec(
 
 
 function (spec::MCMCSpec)(
-    id::Integer,
+    id::Int,
     exec_context::ExecContext = ExecContext()
 )
     P = float(eltype(param_bounds(spec.prior)))
