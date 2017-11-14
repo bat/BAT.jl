@@ -191,9 +191,9 @@ MCMCSpec(
 
 
 function (spec::MCMCSpec)(
-    id::Int64,
+    id::T,
     exec_context::ExecContext = ExecContext()
-)
+) where {T<:Integer}
     P = float(eltype(param_bounds(spec.prior)))
     rng = spec.rngseed()
 
