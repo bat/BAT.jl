@@ -1,18 +1,38 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+abstract type MHWeightingScheme{T<:Real} end
+export MHWeightingScheme
+
+struct MHMultiplicityWeights{T<:Real} <: MHWeightingScheme{T} end
+export MHMultiplicityWeights
+
+struct MHAccRejProbWeights{T<:AbstractFloat} <: MHWeightingScheme{T} end
+export MHAccRejProbWeights
+
+
 struct MetropolisHastings{
+    Q<:ProposalDistSpec,
     W<:Real,
-    Q<:ProposalDistSpec
+    WS<:MHWeightingScheme{W}
 } <: MCMCAlgorithm{AcceptRejectState}
     q::Q
-
-    MetropolisHastings{W}(q::Q = MvTDistProposalSpec()) where {W<:Real, Q<:ProposalDistSpec} = new{W,Q}(q)
+    weighting_scheme::WS
 end
 
 export MetropolisHastings
 
-MetropolisHastings(q::ProposalDistSpec = MvTDistProposalSpec()) = MetropolisHastings{Int}()
+MetropolisHastings(
+    q::Q,
+    weighting_scheme::WS
+) where {
+    Q<:ProposalDistSpec,
+    W<:Real,
+    WS<:MHWeightingScheme{W}
+} = MetropolisHastings{Q,W,WS}(q, weighting_scheme)
+
+MetropolisHastings(q::ProposalDistSpec = MvTDistProposalSpec()) = MetropolisHastings(q, MHMultiplicityWeights{Int}())
+MetropolisHastings(weighting_scheme::MHWeightingScheme) = MetropolisHastings(MvTDistProposalSpec(), weighting_scheme)
 
 
 mcmc_compatible(::MetropolisHastings, ::AbstractProposalDist, ::NoParamBounds) = true
@@ -20,7 +40,7 @@ mcmc_compatible(::MetropolisHastings, ::AbstractProposalDist, ::NoParamBounds) =
 mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::HyperRectBounds) =
     issymmetric(pdist) || all(x -> x == hard_bounds, bounds.bt)
 
-sample_weight_type(::Type{MetropolisHastings{W,Q}}) where {Q,W} = W
+sample_weight_type(::Type{MetropolisHastings{Q,W,WS}}) where {Q,W,WS} = W
 
 
 function AcceptRejectState(
@@ -94,7 +114,11 @@ function mcmc_propose_accept_reject!(
 end
 
 
-function mh_acc_rej!(callback::AbstractMCMCCallback, chain::MCMCIterator{<:MetropolisHastings{<:Integer}}, p_accept::Real)
+function mh_acc_rej!(
+    callback::AbstractMCMCCallback,
+    chain::MCMCIterator{<:MetropolisHastings{Q,W,WS}},
+    p_accept::Real
+) where {Q, W, WS <: MHMultiplicityWeights}
     state = chain.state
     state.current_sample.weight += 1
     if rand(chain.rng, float(typeof(p_accept))) < p_accept
@@ -109,7 +133,11 @@ function mh_acc_rej!(callback::AbstractMCMCCallback, chain::MCMCIterator{<:Metro
 end
 
 
-function mh_acc_rej!(callback::AbstractMCMCCallback, chain::MCMCIterator{<:MetropolisHastings{<:AbstractFloat}}, p_accept::Real)
+function mh_acc_rej!(
+    callback::AbstractMCMCCallback,
+    chain::MCMCIterator{<:MetropolisHastings{Q,W,WS}},
+    p_accept::Real
+) where {Q, W, WS <: MHAccRejProbWeights}
     if p_accept ≈ 1
         p_accept = one(p_accept)
     elseif p_accept ≈ 0
