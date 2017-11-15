@@ -14,7 +14,7 @@ function Base.rand!(
     init_strategy::MCMCInitStrategy,
     burnin_strategy::MCMCBurninStrategy,
     exec_context::ExecContext;
-    max_nsteps::Int = 100 * nsamples,
+    max_nsteps::Int64 = Int64(100 * nsamples),
     max_time::Float64 = Inf,
     granularity::Int = 1,
     strict_mode::Bool = false,
@@ -54,7 +54,7 @@ function Base.rand!(
         callbacks,
         chains,
         exec_context;
-        max_nsamples = nsamples,
+        max_nsamples = Int64(nsamples),
         max_nsteps = max_nsteps,
         max_time = max_time,
         ll = ll
@@ -100,9 +100,9 @@ function Base.rand(
     kwargs...
 )
     result = (
-        DensitySampleVector(chainspec(0)),
-        MCMCSampleIDVector(chainspec(0)),
-        MCMCBasicStats(chainspec(0))
+        DensitySampleVector(chainspec(zero(Int64))),
+        MCMCSampleIDVector(chainspec(zero(Int64))),
+        MCMCBasicStats(chainspec(zero(Int64)))
     )
 
     rand!(
