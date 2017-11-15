@@ -15,7 +15,7 @@ addition to the current thread on the current process).
 The caller may choose to change the `ExecContext` from call to call, based on
 execution time and latency measurements, etc.
 
-Functions can announce their `ExecCapabilities` via `exec_capabilities`.
+Functions can announce their [`BAT.ExecCapabilities`](@ref) via [`exec_capabilities`](@ref).
 """
 struct ExecContext
     use_threads::Bool
@@ -36,7 +36,7 @@ doc"""
     end
 
 Specifies the execution capabilities of functions that support an
-`ExecContext` argument. 
+`ExecContext` argument.
 
 `nthreads` specifies the maximum number of threads the function can utilize
 efficiently, internally. If `nthreads <= 1`, the function implementation is
@@ -45,7 +45,7 @@ that when used in combination with other functions, their capabilities should
 dominate.
 
 `threadsafe` specifies whether the function is thread-safe, and can be can be
-run on multiple threads in parallel by the caller.  
+run on multiple threads in parallel by the caller.
 
 `nprocs` specifies the maximum number of worker processes the function can
 utilize efficiently, internally. If `procs <= 1`, the function cannot
@@ -147,7 +147,7 @@ function negotiate_exec_context(context::ExecContext, target_caps::AbstractVecto
         self_onprocs = [myid()]
     elseif nprocs_avail == 1 && context.onprocs[1] == myid()
         target_onprocs = context.onprocs
-        self_onprocs = context.onprocs   
+        self_onprocs = context.onprocs
     else
         if target_caps_remotesafe
             # ToDo: Distribute available processes for targets
@@ -157,7 +157,7 @@ function negotiate_exec_context(context::ExecContext, target_caps::AbstractVecto
         else
             # ToDo: Distribute available processes over targets
             target_onprocs = error("Not implemented yet")
-            self_onprocs = [myid()]            
+            self_onprocs = [myid()]
         end
     end
 
