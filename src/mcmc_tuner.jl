@@ -43,7 +43,11 @@ MCMCInitStrategy(
 MCMCInitStrategy(tuner_config::AbstractMCMCTunerConfig) =
     MCMCInitStrategy()
 
-
+gen_tuners(ids::Range{<:Integer},
+    chainspec::MCMCSpec,
+    exec_context::ExecContext,
+    tuner_config::AbstractMCMCTunerConfig,
+    ) = [tuner_config(chainspec(id, exec_context), init_proposal = true) for id in ids]
 
 function mcmc_init(
     chainspec::MCMCSpec,
@@ -59,9 +63,6 @@ function mcmc_init(
     min_nviable = minimum(init_strategy.ninit_tries_per_chain) * nchains
     max_ncandidates = maximum(init_strategy.ninit_tries_per_chain) * nchains
 
-    gen_tuners(ids::Range{<:Integer}) =
-        [tuner_config(chainspec(id, exec_context), init_proposal = true) for id in ids]
-
     ncandidates = zero(Int64)
 
     tuners = similar([tuner_config(chainspec(zero(Int64), exec_context), init_proposal = false)], zero(Int))
@@ -69,7 +70,7 @@ function mcmc_init(
     while length(tuners) < min_nviable && ncandidates < max_ncandidates
         n = min(min_nviable, max_ncandidates - ncandidates)
         @log_msg ll+1 "Generating $n $(cycle > 1 ? "additional " : "")MCMC chain(s)."
-        new_tuners = gen_tuners(ncandidates + (one(Int64):n))
+        new_tuners = gen_tuners(ncandidates + (one(Int64):n), chainspec, exec_context, tuner_config)
         ncandidates += n
 
         @log_msg ll+1 "Testing $(length(new_tuners)) MCMC chain(s)."
