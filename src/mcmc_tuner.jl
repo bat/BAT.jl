@@ -18,27 +18,15 @@ export mcmc_tune_burnin!
 function isviable end
 
 
-struct MCMCInitStrategy
-    ninit_tries_per_chain::ClosedInterval{Int64}
-    max_nsamples_pretune::Int64
-    max_nsteps_pretune::Int64
-    max_time_pretune::Float64
+@with_kw struct MCMCInitStrategy
+    ninit_tries_per_chain::ClosedInterval{Int64} = 8..128
+    max_nsamples_pretune::Int64 = 25
+    max_nsteps_pretune::Int64 = 250
+    max_time_pretune::Float64 = Inf
 end
 
 export MCMCInitStrategy
 
-MCMCInitStrategy(
-    ;
-    ninit_tries_per_chain::ClosedInterval{<:Integer} = 8..128,
-    max_nsamples_pretune::Int64 = Int64(25),
-    max_nsteps_pretune::Int64 = Int64(250),
-    max_time_pretune::Real = Inf
-) = MCMCInitStrategy(
-    ninit_tries_per_chain,
-    max_nsamples_pretune,
-    max_nsteps_pretune,
-    max_time_pretune
-)
 
 MCMCInitStrategy(tuner_config::AbstractMCMCTunerConfig) =
     MCMCInitStrategy()
@@ -156,27 +144,15 @@ end
 
 
 
-struct MCMCBurninStrategy
-    max_nsamples_per_cycle::Int64
-    max_nsteps_per_cycle::Int64
-    max_time_per_cycle::Float64
-    max_ncycles::Int
+@with_kw struct MCMCBurninStrategy
+    max_nsamples_per_cycle::Int64 = 1000
+    max_nsteps_per_cycle::Int64 = 10000
+    max_time_per_cycle::Float64 = Inf
+    max_ncycles::Int = 30
 end
 
 export MCMCBurninStrategy
 
-MCMCBurninStrategy(
-    ;
-    max_nsamples_per_cycle::Int64 = Int64(1000),
-    max_nsteps_per_cycle::Int64 = Int64(10000),
-    max_time_per_cycle::Real = Inf,
-    max_ncycles::Int = 30
-) = MCMCBurninStrategy(
-    max_nsamples_per_cycle,
-    max_nsteps_per_cycle,
-    max_time_per_cycle,
-    max_ncycles::Int
-)
 
 MCMCBurninStrategy(tuner_config::AbstractMCMCTunerConfig) =
     MCMCBurninStrategy()

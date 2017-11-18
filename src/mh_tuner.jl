@@ -1,21 +1,14 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct ProposalCovTunerConfig <: AbstractMCMCTunerConfig
-    λ::Float64
-    α::IntervalSets.ClosedInterval{Float64}
-    β::Float64
-    c::IntervalSets.ClosedInterval{Float64}
+@with_kw struct ProposalCovTunerConfig <: AbstractMCMCTunerConfig
+    λ::Float64 = 0.5
+    α::IntervalSets.ClosedInterval{Float64} = ClosedInterval(0.15, 0.35)
+    β::Float64 = 1.5
+    c::IntervalSets.ClosedInterval{Float64} = ClosedInterval(1e-4, 1e2)
 end
 
 export ProposalCovTunerConfig
-
-ProposalCovTunerConfig(;
-    λ::Real = 0.5,
-    α::ClosedInterval{<:Real} = ClosedInterval(0.15, 0.35),
-    β::Real = 1.5,
-    c::ClosedInterval{<:Real} = ClosedInterval(1e-4, 1e2)
-) = ProposalCovTunerConfig(λ, α, β, c)
 
 
 AbstractMCMCTunerConfig(algorithm::MetropolisHastings) = ProposalCovTunerConfig()

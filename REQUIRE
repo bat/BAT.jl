@@ -8,6 +8,7 @@ ElasticArrays
 FunctionWrappers
 IntervalSets
 MultiThreadingTools
+Parameters
 PDMats
 RandomNumbers
 RecipesBase

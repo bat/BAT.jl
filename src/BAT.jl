@@ -17,6 +17,7 @@ using ElasticArrays
 using FunctionWrappers
 using IntervalSets
 using MultiThreadingTools
+using Parameters
 using PDMats
 using RecipesBase
 using StatsBase
