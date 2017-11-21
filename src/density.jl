@@ -158,6 +158,7 @@ function density_logval!(
     params::AbstractMatrix{<:Real},
     exec_context::ExecContext = ExecContext()
 )
+    !(size(r, 1) == nparams(density)) && throw(ArgumentError("Invalid length of parameter vector"))
     !(size(params, 1) == nparams(density)) && throw(ArgumentError("Invalid length of parameter vector"))
     !(indices(params, 2) == indices(r, 1)) && throw(ArgumentError("Number of parameter vectors doesn't match length of result vector"))
     unsafe_density_logval!(r, density, params, exec_context)
@@ -169,14 +170,16 @@ exec_capabilities(::typeof(density_logval!), r::AbstractArray{<:Real}, density::
 
 
 doc"""
-    BAT.unsafe_density_logval(
+    BAT.unsafe_density_logval!(
+        r::AbstractArray{<:Real},
         density::AbstractDensity,
-        params::AbstractVector{<:Real},
-        exec_context::ExecContext = ExecContext()
+        params::AbstractMatrix{<:Real},
+        exec_context::ExecContext
     )
 
-Unsafe variant of `density_logval`, implementations may rely on
+Unsafe variant of `density_logval!`, implementations may rely on
 
+* `size(r, 1) == nparams(density)`
 * `size(params, 1) == nparams(density)`
 * `indices(params, 2) == indices(r, 1)`
 
