@@ -1,28 +1,29 @@
 # BAT Documentation
 
-Welcome to BAT, the Bayesian analysis toolkit. This is a complete rewrite in julia
-of the previous [C++ version](https://github.com/bat/bat).
+Welcome to BAT, the Bayesian analysis toolkit. This is a (still incomplete) rewrite of the previous [C++ version](https://github.com/bat/bat) in Julia.
 
-## Developer Installation instructions
 
-Clone and switch to the dev branch. Fire up julia >=0.6 Then create a link to the repository inside the julia package directory
+## Installation
 
-    julia> cd(Pkg.dir())
-    shell> ln -s ../../workspace/BAT.jl BAT
+BAT.jl is under development and not a registered Julia package yet. Install via
 
-Now install the requirements
+```julia
+julia> Pkg.clone("https://github.com/oschulz/MultiThreadingTools.jl.git")
+julia> Pkg.clone("https://github.com/bat/BAT.jl.git")
+```
 
-    julia> Pkg.clone("https://github.com/oschulz/MultiThreadingTools.jl.git")
-    julia> Pkg.checkout("MultiThreadingTools", "dev")
 
-When working on the code and testing snippets in the REPL, it's easiest if BAT is automatically reloaded. The `Revise` package does this but not if structs or their constructor signatures are changed, which requires restarting julia.
+## Developer Instructions
 
-    julia> Pkg.add("Revise")
-    julia> using Revise
+When changing the code of BAT.jl and testing snippets and examples in the REPL, automatic code reloading comes in very handy. Try out [Revise.jl](https://github.com/timholy/Revise.jl):
 
-Now start working
+```julia
+julia> Pkg.add("Revise")
+julia> using Revise
+julia> using BAT
+```
 
-    julia> using BAT
+Note: It's essential to load `Revise` *before* `BAT`. `using Revise` must be done within the REPL (or via ".juliarc.jl" [in a special way](https://github.com/timholy/Revise.jl#using-revise-by-default)). Putting `using Revise` in a Julia script will not work.
 
 
 ## Manual Outline
@@ -34,5 +35,3 @@ Pages = [
 ]
 Depth = 1
 ```
-
-## Library Reference
