@@ -13,15 +13,15 @@ struct MultipleMetropolisHastings{
     m::IT # m=1 is the ordinary mh_sampler
 end
 
-struct MultipleChainState{}
+struct MultipleChainState{
     IT<:Integer
 }
-    κ::IT,
-    current::Vector, # TODO not typesafe
-    proposed::Matrix, # TODO not typesafe
+    κ::IT
+    current::Vector # TODO not typesafe
+    proposed::Matrix # TODO not typesafe
 end
 
-@doc"""
+doc"""
     transition_matrix2(targetvalues::Vector, κ::Int)
 
 Compute the transition matrix (transition alternative 2 in Tjelmeland (2005))
