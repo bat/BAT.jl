@@ -6,7 +6,7 @@ using Base: @propagate_inbounds
 doc"""
     OnlineUvMean{T<:AbstractFloat}
 
-Multi-variate mean implemented via Kahan-Babuška-Neumaier summation.
+Univariate mean implemented via Kahan-Babuška-Neumaier summation.
 """
 mutable struct OnlineUvMean{T<:AbstractFloat}
     sum_v::Double{T}

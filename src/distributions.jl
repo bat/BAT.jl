@@ -11,7 +11,7 @@ doc"""
     bat_sampler(d::Distribution)
 
 Tries to return a BAT-compatible sampler for Distribution d. A sampler is
-BAT-compatible it it supports random number generation using an arbitrary
+BAT-compatible if it supports random number generation using an arbitrary
 `AbstractRNG`:
 
     rand(rng::AbstractRNG, s::SamplerType)
