@@ -46,9 +46,9 @@ export Threefry4xSeed
 
 Threefry4xSeed() = Threefry4xSeed{UInt64}()
 
-function (rngseed::Threefry4xSeed)()
+function (rngseed::Threefry4xSeed{T})() where {T}
     rng = Threefry4x{T,20}(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-    srand(rng, seed)
+    srand(rng, rngseed.seed)
 end
 
 
