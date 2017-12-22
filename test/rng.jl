@@ -12,7 +12,7 @@ using Compat.Test
     @testset "Philox4xSeed" begin
         philox = @inferred Philox4xSeed()
         @test typeof(philox) <: AbstractRNGSeed
-        @test typeof(philox.seed) <: NTuple{2, UInt}
+        @test typeof(philox.seed) <: NTuple{2, UInt64}
         philox = @inferred Philox4xSeed{UInt32}(tuple(ones(UInt32,2)...))
         @test typeof(philox.seed) <: NTuple{2, UInt32}
         philox = @inferred Philox4xSeed{UInt64}(tuple(UInt64(1),UInt64(2)))
@@ -23,7 +23,7 @@ using Compat.Test
     @testset "Threefry4xSeed" begin
         tf4x = @inferred Threefry4xSeed()
         @test typeof(tf4x) <: AbstractRNGSeed
-        @test typeof(tf4x.seed) <: NTuple{4, UInt}
+        @test typeof(tf4x.seed) <: NTuple{4, UInt64}
         tf4x = @inferred Threefry4xSeed{UInt32}(tuple(ones(UInt32,4)...))
         @test typeof(tf4x.seed) <: NTuple{4, UInt32}
         tf4x = @inferred Threefry4xSeed{UInt64}(tuple(UInt64(2):UInt64(5)...))
