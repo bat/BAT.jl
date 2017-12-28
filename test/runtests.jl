@@ -3,6 +3,7 @@
 import Compat.Test
 Test.@testset "Package BAT" begin
     include("mcmc_rand.jl")
+    include("data_vector.jl")
     include("rng.jl")
     include("density.jl")
     include("distributions.jl")
