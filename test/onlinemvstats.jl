@@ -77,7 +77,7 @@ using StatsBase
                 push!(mvcov, data[:, i], w[i]);
             end
 
-            @test mvcov ≈ cov(data, wKind(w), 2; corrected = (wKind != Weights)) 
+            @test mvcov ≈ cov(data, wKind(w), 2; corrected = (wKind != Weights))
         end
 
         countMvCovs = 3
@@ -100,12 +100,14 @@ using StatsBase
         @test res.n ≈ mvcovc.n
         @test res.Mean_X ≈ mvcovc.Mean_X
         @test res.New_Mean_X ≈ mvcovc.New_Mean_X
+        @test push!(res, data[:, 1], zero(Float64)) ≈ mvcovc
 
         mvcov = BAT.OnlineMvCov(m)
         res = append!(deepcopy(mvcov), data, 2)
         @test res ≈ cov(data, 2)
         res = append!(deepcopy(mvcov), data, w, 2)
         @test res ≈ cov(data, ProbabilityWeights(w), 2; corrected = true)
+
     end
     @testset "BAT.BasicMvStatistic" begin
         bmvstats = BasicMvStatistics{Float64, ProbabilityWeights}(m)
@@ -145,6 +147,11 @@ using StatsBase
         @test res.cov ≈ cov(data, ProbabilityWeights(w), 2; corrected = true)
         @test res.maximum ≈ maxData
         @test res.minimum ≈ minData
+
+        @test_throws ArgumentError append!(mvstat, data, w, 1)
+        @test_throws ArgumentError append!(mvstat, data, w, 3)
+        @test_throws ArgumentError append!(mvstat, data, 1)
+        @test_throws ArgumentError append!(mvstat, data, 3)                        
     end
 
 end
