@@ -3,6 +3,7 @@
 using BAT
 using Compat.Test
 using StatsBase
+using DoubleDouble
 
 @testset "onlineuvstats" begin
     n = 10
@@ -44,7 +45,7 @@ using StatsBase
         @test typeof(@inferred BAT.OnlineUvVar{Float32, FrequencyWeights}()) <: BAT.OnlineUvVar{Float32, FrequencyWeights}
 
         for wKind in [ProbabilityWeights, FrequencyWeights, AnalyticWeights, Weights]
-            res = BAT.OnlineUvVar{Float64, wKind}()
+            res = @inferred BAT.OnlineUvVar{Float64, wKind}()
             res = append!(res, data, w)
             @test res[] ≈ var(data, wKind(w); corrected=(wKind != Weights))
         end
@@ -60,7 +61,9 @@ using StatsBase
             vars[x] = push!(vars[x], data[i], w[i]);
         end
 
-        @test merge!(vars...)[] ≈ var(data, wK(w); corrected=true)
+        merge!(vars...)
+        @test vars[1][] ≈ var(data, wK(w); corrected=true)
+        @test push!(vars[1], data[1], zero(Float64))[] ≈ var(data, wK(w); corrected=true)
     end
 
     @testset "BAT.BasicUvStatistics" begin
@@ -94,6 +97,7 @@ using StatsBase
         res = BAT.BasicUvStatistics{T, wK}()
         res = append!(res, data)
         @test res.mean[] ≈ mean(data)
-        @test res.var[] ≈ cov(data) 
+        @test res.var[] ≈ cov(data)
     end
+
 end
