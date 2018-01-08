@@ -5,8 +5,28 @@ using Compat.Test
 
 using Distributions, PDMats, StatsBase
 
+struct test_dist <: Distribution{Univariate, Continuous} end
+Distributions.sampler(d::test_dist) = Distributions.sampler(Distributions.Normal(0,1))
+
+struct test_batsampler{T} <: BATSampler{T, Continuous} end
+
+function Base.rand!(rng::AbstractRNG, s::test_batsampler, x::Integer)
+    return 0.5
+end
+Base.length(s::test_batsampler{Multivariate}) = 2
+function Base.rand!(rng::AbstractRNG, s::test_batsampler, x::AbstractArray{T, 1} where T)
+    for i in indices(x)[1]
+        x[i] = 1
+    end
+    return x
+ end
+
 
 @testset "random number generation" begin
+    @testset "bat_sampler" begin
+        @test bat_sampler(@inferred test_dist()) == Distributions.Normal(0,1)
+    end
+
     @testset "_check_rand_compat" begin
         @test BAT._check_rand_compat(MvNormal(ones(2)), ones(2,10)) == nothing
         @test_throws DimensionMismatch BAT._check_rand_compat(MvNormal(ones(3)), ones(2,10))
@@ -24,6 +44,11 @@ using Distributions, PDMats, StatsBase
         res = rand!(bsguv, zeros(3,4))
         @test size(res) == (3,4,)
         @test typeof(res) == Array{Float64, 2}
+
+        @test rand!(test_batsampler{Univariate}(), 1) == 0.5
+        x = zeros(2,3)
+        rand!(test_batsampler{Multivariate}(), x)
+        @test x == ones(2,3)
 
         res = rand(Base.GLOBAL_RNG, bsguv, Dims((2,3)))
         @test typeof(res) == Array{Float32,2}
