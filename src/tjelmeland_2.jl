@@ -37,7 +37,7 @@ function transition_matrix2(prob_proposed::Vector, κ::Int)
     end
     a = Int32[]
     for i = 1:length(row_init)
-        if A[1,1] != 0
+        if A[i,i] != 0
             push!(a,i)
         end
     end
@@ -45,7 +45,7 @@ function transition_matrix2(prob_proposed::Vector, κ::Int)
         return A[κ, :]
     else
         while len(a) > 1
-            b = Float32[]
+            b = Float[]
             for i = 1:len(a)
                 u = 0.0
                 for j = 1:len(a)
@@ -56,14 +56,12 @@ function transition_matrix2(prob_proposed::Vector, κ::Int)
             u = minimum(b)
             ind = indmin(b)
             for i = 1:len(a)
-                decrease = 0.0
                 for j = 1:len(a)
                     if a[i] != a[j]
                         A[a[i],a[j]] *= u
-                        decrease += A[a[i],a[j]]
                     end
                 end
-                A[a[i],a[i]] -= decrease
+                A[a[i],a[i]] = 1 - sum(A[a[i],:]) + A[a[i],a[i]]
                 splice!(a,ind)
             end
         end
@@ -72,7 +70,7 @@ function transition_matrix2(prob_proposed::Vector, κ::Int)
 end
 
 function pl(proposedvalues::Vector)
-    
+
 end
 # prob_proposed = pl(proposedvalues)
 
