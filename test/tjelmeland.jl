@@ -10,6 +10,9 @@ using Compat.Test
 @testset "tjelmeland" begin
     # Computed with pencil and paper
     input = [288, 64, 135] / 487
-    κ = 2 # row of interest
-    @test T2(input, κ) ≈ [359, 64, 0] / 423
+    κ = 3 # row of interest
+    @test T23(input, κ) ≈ [359, 64, 0] / 423
+    input2 = [0.2, 0.5, 0.3]
+    k2 = 3
+    @test T23(input2, k2) ≈ [0.25, 0.75, 0.0]
 end
