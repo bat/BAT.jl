@@ -32,4 +32,11 @@ using IntervalSets
         @test typeof(res) <: AbstractArray{Float64, 2}
         @test size(res) == (2, 3)
     end
+    
+    @testset "log_volume" begin
+        @test log_volume(@inferred HyperRectVolume([-1.,0.],[1.,3.])) ≈
+            1.79175946
+        @test log_volume(@inferred HyperRectVolume([-0.0001],[0.0000])) ≈
+            -9.210340371
+    end
 end
