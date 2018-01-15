@@ -17,7 +17,6 @@ using IntervalSets
     @testset "BAT.HyperRectVolume" begin
         @test typeof(@inferred BAT.HyperRectVolume([-1., 0.5], [2.,1])) <: SpatialVolume{Float64}
         @test_throws ArgumentError BAT.HyperRectVolume([-1.], [2.,1])
-        @test_throws ArgumentError BAT.HyperRectVolume([-1., 2.], [2.,1])
 
         @test [0.0, 0.0] in hyperRectVolume
         @test ([0.5, 2] in hyperRectVolume) == false
@@ -32,7 +31,7 @@ using IntervalSets
         @test typeof(res) <: AbstractArray{Float64, 2}
         @test size(res) == (2, 3)
     end
-    
+
     @testset "log_volume" begin
         @test log_volume(@inferred HyperRectVolume([-1.,0.],[1.,3.])) ≈
             1.79175946

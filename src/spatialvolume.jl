@@ -68,9 +68,6 @@ struct HyperRectVolume{T<:Real} <: SpatialVolume{T}
 
     function HyperRectVolume{T}(lo::Vector{T}, hi::Vector{T}) where {T<:Real}
         (indices(lo) != indices(hi)) && throw(ArgumentError("lo and hi must have the same indices"))
-        @inbounds for i in eachindex(lo, hi)
-            (lo[i] > hi[i]) && throw(ArgumentError("lo[$i] must be <= hi[$i]"))
-        end
         new{T}(lo, hi)
     end
 end
