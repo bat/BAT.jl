@@ -54,7 +54,9 @@ function fromuhc(X::VecOrMat, vol::SpatialVolume)
 end
 export fromuhc
 
-function inv_fromuhc end
+function inv_fromuhc(X::VecOrMat, vol::SpatialVolume)
+    inv_fromuhc!(similar(X), X, vol)
+end
 
 Base.inv(::typeof(fromuhc)) = inv_fromuhc
 Base.inv(::typeof(inv_fromuhc)) = fromuhc

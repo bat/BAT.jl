@@ -30,6 +30,22 @@ using IntervalSets
         res = rand!(MersenneTwister(7002), hyperRectVolume, zeros(2,3))
         @test typeof(res) <: AbstractArray{Float64, 2}
         @test size(res) == (2, 3)
+
+        res = @inferred similar(hyperRectVolume)
+        @test typeof(res) <: HyperRectVolume{Float64}
+
+        a = @inferred HyperRectVolume([0.0,0.0],[1.0,1.0])
+        b = @inferred HyperRectVolume([0.5,0.9],[0.8,1.5])
+        res = @inferred intersect(a, b)
+        @test res.lo ≈ [0.5, 0.9]
+        @test res.hi ≈ [0.8, 1.0]
+        @test isempty(res) == false
+
+        a = @inferred HyperRectVolume([0.0,0.0],[0.3,0.4])
+        res = @inferred intersect(a, b)
+        @test res.lo ≈ [0.5, 0.9]
+        @test res.hi ≈ [0.3, 0.4]
+        @test isempty(res)
     end
 
     @testset "log_volume" begin
@@ -37,5 +53,27 @@ using IntervalSets
             1.79175946
         @test log_volume(@inferred HyperRectVolume([-0.0001],[0.0000])) ≈
             -9.210340371
+    end
+
+    @testset "fromuhc" begin
+        @test inv(fromuhc!) == BAT.inv_fromuhc!
+        @test inv(BAT.inv_fromuhc!) == fromuhc!
+        @test inv(fromuhc) == BAT.inv_fromuhc
+        @test inv(BAT.inv_fromuhc) == fromuhc
+
+        y = zeros(Float64,2)
+        x = similar(y)
+        fromuhc!(x, y, hyperRectVolume)
+        @test x ≈ hyperRectVolume.lo
+        u = similar(y)
+        inv(fromuhc!)(u, x, hyperRectVolume)
+        @test u ≈ y
+        y = ones(Float64, 2)
+        res = @inferred fromuhc(y, hyperRectVolume)
+        @test res ≈ hyperRectVolume.hi
+        @test inv(fromuhc)(res, hyperRectVolume) ≈ y
+        y = [0.2 0.5 0.5; 0.9 0.7 0.5]
+        res = @inferred fromuhc(y, hyperRectVolume)
+        @test res ≈ [-0.4 0.5 0.5; 0.89 0.67 0.45]
     end
 end
