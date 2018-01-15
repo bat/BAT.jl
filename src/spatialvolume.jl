@@ -85,7 +85,7 @@ function Base.isempty(vol::HyperRectVolume)
         isempty(vol.lo)
 end
 
-Base.similar(vol::HyperRectVolume) = HyperRectVolume(similar(vol.a.lo), similar(vol.a.hi))
+Base.similar(vol::HyperRectVolume) = HyperRectVolume(similar(vol.lo), similar(vol.hi))
 
 Base.in(x::AbstractVector, vol::HyperRectVolume) =
     _all_lteq(vol.lo, x, vol.hi)
