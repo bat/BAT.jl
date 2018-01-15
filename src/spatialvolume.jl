@@ -78,6 +78,13 @@ HyperRectVolume(lo::Vector{T}, hi::Vector{T}) where {T<:Real} = HyperRectVolume{
 
 Base.ndims(vol::HyperRectVolume) = size(vol.lo, 1)
 
+function Base.isempty(vol::HyperRectVolume)
+        @inbounds for i in eachindex(vol.lo, vol.hi)
+             (vol.lo[i] > vol.hi[i]) && return true
+        end
+        isempty(vol.lo)
+end
+
 Base.similar(vol::HyperRectVolume) = HyperRectVolume(similar(vol.a.lo), similar(vol.a.hi))
 
 Base.in(x::AbstractVector, vol::HyperRectVolume) =
