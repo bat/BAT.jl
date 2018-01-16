@@ -54,7 +54,9 @@ function fromuhc(X::VecOrMat, vol::SpatialVolume)
 end
 export fromuhc
 
-function inv_fromuhc end
+function inv_fromuhc(X::VecOrMat, vol::SpatialVolume)
+    inv_fromuhc!(similar(X), X, vol)
+end
 
 Base.inv(::typeof(fromuhc)) = inv_fromuhc
 Base.inv(::typeof(inv_fromuhc)) = fromuhc
@@ -68,9 +70,6 @@ struct HyperRectVolume{T<:Real} <: SpatialVolume{T}
 
     function HyperRectVolume{T}(lo::Vector{T}, hi::Vector{T}) where {T<:Real}
         (indices(lo) != indices(hi)) && throw(ArgumentError("lo and hi must have the same indices"))
-        @inbounds for i in eachindex(lo, hi)
-            (lo[i] > hi[i]) && throw(ArgumentError("lo[$i] must be <= hi[$i]"))
-        end
         new{T}(lo, hi)
     end
 end
@@ -81,7 +80,14 @@ HyperRectVolume(lo::Vector{T}, hi::Vector{T}) where {T<:Real} = HyperRectVolume{
 
 Base.ndims(vol::HyperRectVolume) = size(vol.lo, 1)
 
-Base.similar(vol::HyperRectVolume) = HyperRectVolume(similar(vol.a.lo), similar(vol.a.hi))
+function Base.isempty(vol::HyperRectVolume)
+        @inbounds for i in eachindex(vol.lo, vol.hi)
+             (vol.lo[i] > vol.hi[i]) && return true
+        end
+        isempty(vol.lo)
+end
+
+Base.similar(vol::HyperRectVolume) = HyperRectVolume(similar(vol.lo), similar(vol.hi))
 
 Base.in(x::AbstractVector, vol::HyperRectVolume) =
     _all_lteq(vol.lo, x, vol.hi)
