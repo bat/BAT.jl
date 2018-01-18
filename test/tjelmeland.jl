@@ -7,7 +7,7 @@ using Compat.Test
 #    @test 1 == 2
 #end
 
-@testset "tjelmeland" begin
+@testset "tjelmeland_3" begin
     # Computed with pencil and paper
     input = [288, 64, 135] / 487
     κ = 3 # row of interest

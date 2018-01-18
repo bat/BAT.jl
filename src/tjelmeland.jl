@@ -1,101 +1,90 @@
-# This file is a part of BAT.jl, licensed under the MIT License (MIT).
-
-# similar to mh_sampler.jl
-
-struct MultipleMetropolisHastings{
-    Q<:ProposalDistSpec,
-    W<:Real,
-    WS<:MHWeightingScheme{W},
-    IT<:Integer
-} <: MCMCAlgorithm{AcceptRejectState}
-    q::Q
-    weighting_scheme::WS # TODO do we need a separate hierarchy? Probably yes.
-    m::IT # m=1 is the ordinary mh_sampler
-end
-
-struct MultipleChainState{
-    IT<:Integer
-}
-    κ::IT
-    current::Vector # TODO not typesafe
-    proposed::Matrix # TODO not typesafe
-end
-
-doc"""
-    transition_matrix2(targetvalues::Vector, κ::Int)
-
-Compute the transition matrix (transition alternative 2 in Tjelmeland (2005))
-and return the `κ`-th row. `proposedvalues` has the `m+1` proposed points, the
-current point is the κ-th, and 'pl' computes the p_l values needed to contruct
-the transition function T1.
-"""
-function diag_inspection(row::Vector)
-    row = row ./ sum(row)
-    diag = Float64[]
-    index = Int32[]
-    for i = 1:length(row)
-        if row[i] != 0
-            push!(index, i)
-            push!(diag, row[i])
-        end
-    end
-    return index, diag
-end
-
-function outside_submatrix(row::Vector, index::Vector)
-    outside = Float64[]
-    for i in index
-        out::Float64 = 0.0
-        for j in index
-            out += row[j]
-        end
-        out = 1 - out
-        push!(outside, out)
-    end
-    return outside
-end
-
-function update!(row::Vector, diag::Vector, outside::Vector, index::Vector, u::Float64, κ::Int)
-    diag = 1 - outside - u * (1 - outside - diag)
-    for i in index
-        if i == κ
-            row[i] = diag[i]
-        else
-            row[i] *= u
-        end
-    end
-    for i = 1:length(diag)
-        if diag[i] == 0
-            splice!(diag,i)
-            splice!(outside,i)
-            splice!(index,i)
-        end
-    end
-end
-
-function mini_u(index::Vector, diag::Vector, outside::Vector)
+function min_u(mat::Matrix)
     u = typemax(Float64)
-    for i = 1:length(diag)
-        u_test::Float64 = (1 - outside[i]) / (1 - outside[i] - diag[i])
+    for i = 1:size(mat)[1]
+        summa = sum(mat[i,:])
+        u_test::Float64 = summa/(summa - mat[i,i])
         if u_test < u
             u = u_test
         end
     end
+    println("the minimal is ", u)
     return u
 end
 
-function T2(row::Vector, κ::Int)
+function update_submat(mat::Matrix, u::Float64)
+    for i = 1:size(mat)[1]
+        mat[i,i] = 1 - u * (sum(mat[i,:]) - mat[i,i]) - (1 - sum(mat[i,:]))
+    end
+    mat = mat .* u
+    for i = 1:size(mat)[1]
+        mat[i,i] /= u
+    end
+    println("ssubmat before reshaping is ", mat)
+    return mat
+end
 
-    if row[κ] == 0
-        return row
+function update_row(row::Vector, submat_row::Vector, index::Vector)
+    for (i,a) in zip(index,collect(1:1:length(submat_row)))
+        row[i] = submat_row[a]
+    end
+    println("the row now is ", row)
+    return row
+end
+
+function update_index_and_reshape_submat(index::Vector, mat::Matrix)
+    ind_real = Int[]
+    ind = Int[]
+    for i = 1:size(mat)[1]
+        if mat[i,i] != 0
+            push!(ind_real, index[i])
+            push!(ind, i)
+        end
+    end
+    mat2 = zeros(Float64, length(ind), length(ind))
+    for (i,a) in zip(collect(1:1:length(ind)),ind)
+        for (j,b) in zip(collect(1:1:length(ind)),ind)
+            mat2[i,j] = mat[a,b]
+        end
+    end
+    return ind_real, mat2
+end
+
+
+function T23(row::Vector, κ::Int)
+    if sum(row) > 1
+        row = row ./ sum(row)
+    end
+    index = Int[]
+
+    for i = 1:length(row)
+        if row[i] != 0
+            push!(index, i)
+        end
+    end
+    println("index is ",index)
+    submat = zeros(Float64, length(index), length(index))
+
+    for i = 1:length(index)
+        for j = 1:length(index)
+            submat[i,j] = row[index[j]]
+        end
     end
 
-    index, diag = diag_inspection(row)
-    outside_submatrix(row, index)
+    println("submat is ",submat)
 
-    while in(κ, index) == true
-        u = mini_u(index, diag, outside)
-        update!(row, diag, outside, index, u, κ)
+    while length(index) > 1
+        u = min_u(submat)
+        submat = update_submat(submat, u)
+        c = find(index .== κ)[1]
+        row = update_row(row, submat[c,:], index)
+        if submat[c,c] == 0
+            println("we broke ;)")
+            break
+        end
+        index, submat = update_index_and_reshape_submat(index, submat)
+        println(" fatto ")
+        println("submat is ",submat)
     end
+    println(" finito ")
     return row
 end
