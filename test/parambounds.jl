@@ -5,6 +5,13 @@ using Compat.Test
 
 using IntervalSets
 
+struct apb_test <: BAT.AbstractParamBounds
+    nparams::Integer
+end
+
+BAT.nparams(a::apb_test) = a.nparams
+BAT.unsafe_intersect(a::apb_test, b::apb_test) = true
+
 @testset "parameter bounds" begin
     @testset "BAT.oob" begin
         @test BAT.isoob(BAT.oob(1.))
@@ -75,5 +82,25 @@ using IntervalSets
 
         @test BAT.isoob(BAT.apply_bounds!(rand!(MersenneTwister(7002), zeros(Float64, 2, 2)), hyperRectBounds))
         @test BAT.isoob(BAT.apply_bounds!(rand!(MersenneTwister(7002), BAT.spatialvolume(hyperRectBounds), zeros(Float64, 2, 2)), hyperRectBounds)) == false
+    end
+
+    @testset "similar" begin
+        a = @inferred BAT.HyperRectBounds([-1., 0.5], [2.,1], BAT.hard_bounds)
+        c = @inferred similar(a)
+        @test typeof(c) <:HyperRectBounds{Float64}
+        @test typeof(c.vol) <: BAT.HyperRectVolume{Float64}
+        @test typeof(c.bt) <: Array{BoundsType,1}
+    end
+
+    @testset "BAT.intersect" begin
+        a = @inferred apb_test(3)
+        b = @inferred apb_test(4)
+        @test_throws ArgumentError intersect(a,b)
+        b = @inferred apb_test(3)
+        @test intersect(a,b)
+        b = @inferred NoParamBounds(3)
+        @test BAT.unsafe_intersect(b, NoParamBounds(3)) == b
+        @test BAT.unsafe_intersect(a, NoParamBounds(3)) == a
+        @test BAT.unsafe_intersect(NoParamBounds(3), a) == a
     end
 end
