@@ -1,4 +1,4 @@
-function min_u(mat::Matrix)
+function min_u(mat::SubArray)
     u = typemax(Float64)
     for i = 1:size(mat)[1]
         summa = sum(mat[i,:])
@@ -10,39 +10,34 @@ function min_u(mat::Matrix)
     u
 end
 
-function update_submat(mat::Matrix, u::Float64)
+function update_submat!(mat::SubArray, u::Float64)
     for i = 1:size(mat)[1]
         mat[i,i] = 1 - u * (sum(mat[i,:]) - mat[i,i]) - (1 - sum(mat[i,:]))
     end
-    mat = mat .* u
+    # modify `mat` in place!
+    mat .*= u
     for i = 1:size(mat)[1]
         mat[i,i] /= u
     end
     mat
 end
-function update_row(row::Vector, submat_row::Vector, index::Vector)
-    for (i,a) in zip(index,collect(1:1:length(submat_row)))
+function update_row!(row::Vector, submat_row::Vector, index::Vector, indexnew::Vector)
+    for (i,a) in zip(index, indexnew)
         row[i] = submat_row[a]
     end
-    row
 end
 
-function update_index_and_reshape_submat(index::Vector, mat::Matrix)
-    ind_real = Int[]
-    ind = Int[]
-    for i = 1:size(mat)[1]
-        if mat[i,i] != 0
-            push!(ind_real, index[i])
-            push!(ind, i)
+function update_indices!(index::Vector, indexnew::Vector, submat::SubArray)
+    # can't use for loop because `index`'s size is changed
+    j = 1
+    while j <= length(index)
+        if submat[j,j] == 0
+            splice!(indexnew, j)
+            splice!(index, j)
+            j -= 1
         end
+        j += 1
     end
-    mat2 = zeros(Float64, length(ind), length(ind))
-    for (i,a) in zip(collect(1:1:length(ind)),ind)
-        for (j,b) in zip(collect(1:1:length(ind)),ind)
-            mat2[i,j] = mat[a,b]
-        end
-    end
-    ind_real, mat2
 end
 
 
@@ -64,30 +59,37 @@ function T23(row::Vector, κ::Int)
     # a normalized row is required
     row /= sum(row)
 
+    # indices of rows in full matrix with non-zero diagonal elements
     index = Int[]
-
+    # index of `row` in initial submatrix
+    pos::Int64 = 0
     for i = 1:length(row)
         if row[i] != 0
             push!(index, i)
         end
     end
+    # construct matrix from rows with non-zero diagonals
     submat = zeros(Float64, length(index), length(index))
-
     for i = 1:length(index)
         for j = 1:length(index)
             submat[i,j] = row[index[j]]
         end
     end
 
+    # κ may be updated if there zeros on the diagonal
+    κnew = findfirst(x -> x == κ, index)
+    indexnew = collect(1:length(index))
+
     while length(index) > 1
-        u = min_u(submat)
-        submat = update_submat(submat, u)
-        c = find(index .== κ)[1]
-        row = update_row(row, submat[c,:], index)
-        if submat[c,c] == 0
+        # is the κ-th element of `row` == zero? Then we're done
+        if ∉(κ, index)
             break
         end
-        index, submat = update_index_and_reshape_submat(index, submat)
+        submat_view = view(submat, indexnew, indexnew)
+        u = min_u(submat_view)
+        update_submat!(submat_view, u)
+        update_row!(row, submat[κnew, :], index, indexnew)
+        update_indices!(index, indexnew, submat_view)
     end
     row
 end
