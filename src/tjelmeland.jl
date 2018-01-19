@@ -1,4 +1,4 @@
-function min_u(mat::Matrix)
+@inline function min_u(mat::Matrix)
     u = typemax(Float64)
     for i = 1:size(mat)[1]
         summa = sum(mat[i,:])
@@ -11,7 +11,7 @@ function min_u(mat::Matrix)
     return u
 end
 
-function update_submat(mat::Matrix, u::Float64)
+@inline function update_submat(mat::Matrix, u::Float64)
     for i = 1:size(mat)[1]
         mat[i,i] = 1 - u * (sum(mat[i,:]) - mat[i,i]) - (1 - sum(mat[i,:]))
     end
@@ -22,8 +22,7 @@ function update_submat(mat::Matrix, u::Float64)
     println("ssubmat before reshaping is ", mat)
     return mat
 end
-
-function update_row(row::Vector, submat_row::Vector, index::Vector)
+@inline function update_row(row::Vector, submat_row::Vector, index::Vector)
     for (i,a) in zip(index,collect(1:1:length(submat_row)))
         row[i] = submat_row[a]
     end
@@ -31,7 +30,7 @@ function update_row(row::Vector, submat_row::Vector, index::Vector)
     return row
 end
 
-function update_index_and_reshape_submat(index::Vector, mat::Matrix)
+@inline function update_index_and_reshape_submat(index::Vector, mat::Matrix)
     ind_real = Int[]
     ind = Int[]
     for i = 1:size(mat)[1]
@@ -50,7 +49,7 @@ function update_index_and_reshape_submat(index::Vector, mat::Matrix)
 end
 
 
-function T23(row::Vector, κ::Int)
+@inline function T23(row::Vector, κ::Int)
     if sum(row) > 1
         row = row ./ sum(row)
     end
