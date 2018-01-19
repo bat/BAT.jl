@@ -42,7 +42,7 @@ end
 
 
 doc"""
-    T23(row::Vector, κ::Int)
+    multipropT2(row::Vector, κ::Int)
 
 Compute the transition probability (T2) from Tjelmeland (2002) for the row of interest.
 
@@ -50,7 +50,7 @@ The `row` contains the target densities multiplied with the proposal densities,
 `κ` is the index of `row` in the full-rank transition matrix.
 
 """
-function T23(row::Vector, κ::Int)
+function multipropT2(row::Vector, κ::Int)
     # check input
     κ <= 0 && throw(ArgumentError("row index κ <=0"))
     κ > length(row) && throw(ArgumentError("row index κ > length(row)"))
@@ -93,3 +93,5 @@ function T23(row::Vector, κ::Int)
     end
     row
 end
+
+export multipropT2
