@@ -1,4 +1,4 @@
-@inline function min_u(mat::Matrix)
+function min_u(mat::Matrix)
     u = typemax(Float64)
     for i = 1:size(mat)[1]
         summa = sum(mat[i,:])
@@ -7,11 +7,10 @@
             u = u_test
         end
     end
-    println("the minimal is ", u)
-    return u
+    u
 end
 
-@inline function update_submat(mat::Matrix, u::Float64)
+function update_submat(mat::Matrix, u::Float64)
     for i = 1:size(mat)[1]
         mat[i,i] = 1 - u * (sum(mat[i,:]) - mat[i,i]) - (1 - sum(mat[i,:]))
     end
@@ -19,18 +18,16 @@ end
     for i = 1:size(mat)[1]
         mat[i,i] /= u
     end
-    println("ssubmat before reshaping is ", mat)
-    return mat
+    mat
 end
-@inline function update_row(row::Vector, submat_row::Vector, index::Vector)
+function update_row(row::Vector, submat_row::Vector, index::Vector)
     for (i,a) in zip(index,collect(1:1:length(submat_row)))
         row[i] = submat_row[a]
     end
-    println("the row now is ", row)
-    return row
+    row
 end
 
-@inline function update_index_and_reshape_submat(index::Vector, mat::Matrix)
+function update_index_and_reshape_submat(index::Vector, mat::Matrix)
     ind_real = Int[]
     ind = Int[]
     for i = 1:size(mat)[1]
@@ -45,14 +42,28 @@ end
             mat2[i,j] = mat[a,b]
         end
     end
-    return ind_real, mat2
+    ind_real, mat2
 end
 
 
-@inline function T23(row::Vector, κ::Int)
-    if sum(row) > 1
-        row = row ./ sum(row)
-    end
+doc"""
+    T23(row::Vector, κ::Int)
+
+Compute the transition probability (T2) from Tjelmeland (2002) for the row of interest.
+
+The `row` contains the target densities multiplied with the proposal densities,
+`κ` is the index of `row` in the full-rank transition matrix.
+
+"""
+function T23(row::Vector, κ::Int)
+    # check input
+    κ <= 0 && throw(ArgumentError("row index κ <=0"))
+    κ > length(row) && throw(ArgumentError("row index κ > length(row)"))
+    any(x -> x<0, row) && throw(ArgumentError("f"))
+
+    # a normalized row is required
+    row /= sum(row)
+
     index = Int[]
 
     for i = 1:length(row)
@@ -60,7 +71,6 @@ end
             push!(index, i)
         end
     end
-    println("index is ",index)
     submat = zeros(Float64, length(index), length(index))
 
     for i = 1:length(index)
@@ -69,21 +79,15 @@ end
         end
     end
 
-    println("submat is ",submat)
-
     while length(index) > 1
         u = min_u(submat)
         submat = update_submat(submat, u)
         c = find(index .== κ)[1]
         row = update_row(row, submat[c,:], index)
         if submat[c,c] == 0
-            println("we broke ;)")
             break
         end
         index, submat = update_index_and_reshape_submat(index, submat)
-        println(" fatto ")
-        println("submat is ",submat)
     end
-    println(" finito ")
-    return row
+    row
 end
