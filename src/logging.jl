@@ -46,7 +46,7 @@ const log_prefix = Dict(
 )
 
 
-const _global_lock = Base.Threads.RecursiveSpinLock()
+const _global_lock = RecursiveSpinLock()
 
 const _output_io = Ref{IO}()
 
@@ -109,14 +109,19 @@ export @log_error, @log_warning, @log_info, @log_debug, @log_trace
 
 
 function logging_macro(level, msg)
+    l_var = gensym("l_")
+    m_var = gensym("m_")
     quote
-        let l = $level
-            if _log_level[] >= Int(l) && l != LOG_NONE
+        let $l_var = $level
+            if _log_level[] >= Int($l_var) && $l_var != LOG_NONE
                 # lock early in case message-generation code is not thread-safe
-                lock(BAT.Logging._global_lock) do
-                    let m = $msg
-                        BAT.Logging.output_logging_msg(l, m)
+                lock(BAT.Logging._global_lock)
+                try
+                    let $m_var = $msg
+                        BAT.Logging.output_logging_msg($l_var, $m_var)
                     end
+                finally
+                    unlock(BAT.Logging._global_lock)
                 end
             end
         end
