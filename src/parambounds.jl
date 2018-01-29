@@ -59,7 +59,7 @@ function apply_bounds! end
 
 
 doc"""
-    apply_bounds(x::<:Real, lo::<:Real, hi::<:Real, boundary_type::BoundsType) 
+    apply_bounds(x::<:Real, lo::<:Real, hi::<:Real, boundary_type::BoundsType)
 
 Apply lower/upper bound `lo`/`hi` to value `x`. `boundary_type` may be
 `hard_bounds`, `cyclic_bounds` or `reflective_bounds`.
@@ -126,7 +126,6 @@ export ParamVolumeBounds
 
 
 Base.in(params::AbstractVector, bounds::ParamVolumeBounds) = in(params, bounds.vol)
-Base.in(params::AbstractMatrix, bounds::ParamVolumeBounds, j::Integer) = in(params, spatialvolume(bounds), j)
 
 
 # Base.rand(rng::AbstractRNG, bounds::ParamVolumeBounds) =
@@ -134,7 +133,7 @@ Base.in(params::AbstractMatrix, bounds::ParamVolumeBounds, j::Integer) = in(para
 
 # Base.rand(rng::AbstractRNG, bounds::ParamVolumeBounds, n::Integer) =
 #     rand!(rng, bounds, Matrix{float(eltype(bounds))}(nparams(bounds), n))
-# 
+#
 # Base.rand!(rng::AbstractRNG, bounds::ParamVolumeBounds, x::StridedVecOrMat{<:Real}) = rand!(rng, spatialvolume(bounds), x)
 
 
