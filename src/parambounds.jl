@@ -59,7 +59,7 @@ function apply_bounds! end
 
 
 doc"""
-    apply_bounds(x::<:Real, lo::<:Real, hi::<:Real, boundary_type::BoundsType) 
+    apply_bounds(x::<:Real, lo::<:Real, hi::<:Real, boundary_type::BoundsType)
 
 Apply lower/upper bound `lo`/`hi` to value `x`. `boundary_type` may be
 `hard_bounds`, `cyclic_bounds` or `reflective_bounds`.
@@ -126,7 +126,6 @@ export ParamVolumeBounds
 
 
 Base.in(params::AbstractVector, bounds::ParamVolumeBounds) = in(params, bounds.vol)
-Base.in(params::AbstractMatrix, bounds::ParamVolumeBounds, j::Integer) = in(params, spatialvolume(bounds), j)
 
 
 # Base.rand(rng::AbstractRNG, bounds::ParamVolumeBounds) =
@@ -134,7 +133,7 @@ Base.in(params::AbstractMatrix, bounds::ParamVolumeBounds, j::Integer) = in(para
 
 # Base.rand(rng::AbstractRNG, bounds::ParamVolumeBounds, n::Integer) =
 #     rand!(rng, bounds, Matrix{float(eltype(bounds))}(nparams(bounds), n))
-# 
+#
 # Base.rand!(rng::AbstractRNG, bounds::ParamVolumeBounds, x::StridedVecOrMat{<:Real}) = rand!(rng, spatialvolume(bounds), x)
 
 
@@ -157,6 +156,7 @@ struct HyperRectBounds{T<:Real} <: ParamVolumeBounds{T, HyperRectVolume{T}}
 
     function HyperRectBounds{T}(vol::HyperRectVolume{T}, bt::Vector{BoundsType}) where {T<:Real}
         indices(bt) != (1:ndims(vol),) && throw(ArgumentError("bt must have indices (1:ndims(vol),)"))
+        isempty(vol) && throw(ArgumentError("vol must not be empty"))
         new{T}(vol, bt)
     end
 end
@@ -167,7 +167,9 @@ HyperRectBounds(vol::HyperRectVolume{T}, bt::AbstractVector{BoundsType}) where {
 HyperRectBounds(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::AbstractVector{BoundsType}) where {T<:Real} = HyperRectBounds(HyperRectVolume(lo, hi), bt)
 HyperRectBounds(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::BoundsType) where {T<:Real} = HyperRectBounds(lo, hi, fill(bt, size(lo, 1)))
 
-Base.similar(bounds::HyperRectBounds) = HyperRectBounds(similar(bounds.vol), similar(bounds.bt))
+Base.similar(bounds::HyperRectBounds) = HyperRectBounds(
+    HyperRectVolume(zeros(bounds.vol.lo), ones(bounds.vol.hi)),
+    similar(bounds.bt))
 
 Base.eltype(bounds::HyperRectBounds{T}) where {T} = T
 
