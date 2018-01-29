@@ -156,6 +156,7 @@ struct HyperRectBounds{T<:Real} <: ParamVolumeBounds{T, HyperRectVolume{T}}
 
     function HyperRectBounds{T}(vol::HyperRectVolume{T}, bt::Vector{BoundsType}) where {T<:Real}
         indices(bt) != (1:ndims(vol),) && throw(ArgumentError("bt must have indices (1:ndims(vol),)"))
+        isempty(vol) && throw(ArgumentError("vol must not be empty"))
         new{T}(vol, bt)
     end
 end
@@ -166,7 +167,9 @@ HyperRectBounds(vol::HyperRectVolume{T}, bt::AbstractVector{BoundsType}) where {
 HyperRectBounds(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::AbstractVector{BoundsType}) where {T<:Real} = HyperRectBounds(HyperRectVolume(lo, hi), bt)
 HyperRectBounds(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::BoundsType) where {T<:Real} = HyperRectBounds(lo, hi, fill(bt, size(lo, 1)))
 
-Base.similar(bounds::HyperRectBounds) = HyperRectBounds(similar(bounds.vol), similar(bounds.bt))
+Base.similar(bounds::HyperRectBounds) = HyperRectBounds(
+    HyperRectVolume(zeros(bounds.vol.lo), ones(bounds.vol.hi)),
+    similar(bounds.bt))
 
 Base.eltype(bounds::HyperRectBounds{T}) where {T} = T
 
