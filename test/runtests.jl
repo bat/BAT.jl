@@ -12,4 +12,5 @@ Test.@testset "Package BAT" begin
     include("parambounds.jl")
     include("onlinemvstats.jl")
     include("onlineuvstats.jl")
+    include("tjelmeland.jl")
 end
