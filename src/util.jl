@@ -68,3 +68,20 @@ Base.@propagate_inbounds inv_fromui(x::Real, lo_hi::ClosedInterval{<:Real}) =
 
 @inline Base.inv(::typeof(fromui)) = inv_fromui
 @inline Base.inv(::typeof(inv_fromui)) = fromui
+
+
+doc"""
+    @propagate_inbounds sum_first_dim(A::AbstractArray, j::Integer, ks::Integer...)
+
+Calculate the equivalent of `sum(A[:, j, ks...])`.
+"""
+Base.@propagate_inbounds function sum_first_dim(A::AbstractArray, j::Integer, ks::Integer...)
+    s = zero(eltype(A))
+    @boundscheck if !Base.checkbounds_indices(Bool, Base.tail(indices(A)), (j, ks...))
+        throw(BoundsError(A, (:, j)))
+    end
+    @inbounds for i in indices(A, 1)
+        s += A[i, j, ks...]
+    end
+    s
+end
