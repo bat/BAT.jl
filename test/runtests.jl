@@ -18,4 +18,5 @@ Test.@testset "Package BAT" begin
     include("data_vector.jl")
     include("density_sample.jl")        
     include("mcmc_rand.jl")
+    # include("tjelmeland.jl")
 end

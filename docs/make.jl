@@ -13,11 +13,12 @@ makedocs(
              "Manual" => Any[
                  "man/tutorial.md",
                  "man/basics.md",
+                 "man/tjelmeland.md",
              ],
              "auto.md",
              ],
     # Use clean URLs, unless built as a "local" build
-    html_prettyurls = !("local" in ARGS),
+    html_prettyurls = false,
     strict = true,
     checkdocs = :all,
 )
