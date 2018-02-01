@@ -166,6 +166,7 @@ export HyperRectBounds
 HyperRectBounds(vol::HyperRectVolume{T}, bt::AbstractVector{BoundsType}) where {T<:Real} = HyperRectBounds{T}(vol, bt)
 HyperRectBounds(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::AbstractVector{BoundsType}) where {T<:Real} = HyperRectBounds(HyperRectVolume(lo, hi), bt)
 HyperRectBounds(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::BoundsType) where {T<:Real} = HyperRectBounds(lo, hi, fill(bt, size(lo, 1)))
+HyperRectBounds(intervals::AbstractVector{<:ClosedInterval{<:Real}}, bt) = HyperRectBounds(minimum.(intervals), maximum.(intervals), bt)
 
 Base.similar(bounds::HyperRectBounds) = HyperRectBounds(
     HyperRectVolume(zeros(bounds.vol.lo), ones(bounds.vol.hi)),
