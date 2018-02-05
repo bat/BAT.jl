@@ -5,10 +5,14 @@ using Compat.Test
 
 using Distributions, PDMats, StatsBase
 
+struct test_density <: AbstractDensity
+end
 
+BAT.nparams(td::test_density) = Int(3)
+BAT.sampler(td::test_density) = BAT.sampler(MvNormal(ones(3), PDMat(eye(3))))
 
 @testset "density" begin
-    
+
     mvec = [-0.3, 0.3]
     cmat = [1.0 1.5; 1.5 4.0]
     Σ = @inferred PDMat(cmat)
@@ -21,8 +25,20 @@ using Distributions, PDMats, StatsBase
     params = [0.0 -0.3; 0.0 0.3]
 
     @testset "rand" begin
-        # print(rand(MersenneTwister(7002), density, Float64))
-    end 
+        td = test_density()
+        @test rand(MersenneTwister(7002), td, Float64) ≈
+            [-2.415270938, 0.7070171342, 1.0224848653]
+        @test rand(MersenneTwister(7002), td, Float64, 2) ≈
+            [-2.415270938 1.2951273090;
+            0.7070171342  0.8896838714;
+            1.0224848653  0.8824274590]
+        x = ones(3,2)
+        rand!(MersenneTwister(7002), td, x)
+        @test x ≈
+            [-2.415270938 1.2951273090;
+            0.7070171342  0.8896838714;
+            1.0224848653  0.8824274590]
+    end
 
     @testset "param_bounds" begin
         pbounds = @inferred param_bounds(density)
@@ -35,7 +51,7 @@ using Distributions, PDMats, StatsBase
             AbstractDensity, HyperRectBounds([-1., 0.5], [2.,1], BAT.hard_bounds))
         @test typeof(cdensity) <: ConstDensity
     end
-    
+
     @testset "density_logval!" begin
         r = zeros(Float64, 2)
 
@@ -64,7 +80,7 @@ using Distributions, PDMats, StatsBase
         @test ecap.threadsafe == false
         @test ecap.nprocs == 1
         @test ecap.remotesafe == true
-        
+
         ecap = @inferred BAT.exec_capabilities(density_logval, density, params[:, 1])
         @test ecap.nthreads == 1
         @test ecap.threadsafe == true
@@ -77,6 +93,14 @@ using Distributions, PDMats, StatsBase
         @test ecap.threadsafe == true
         @test ecap.nprocs == 1
         @test ecap.remotesafe == true
+
+        ecap = @inferred BAT.exec_capabilities(
+            BAT.unsafe_density_logval, test_density())
+        @test ecap.nthreads == 1
+        @test ecap.threadsafe == false
+        @test ecap.nprocs == 1
+        @test ecap.remotesafe == true
+
     end
 
     @testset "parent" begin

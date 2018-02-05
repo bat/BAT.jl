@@ -6,12 +6,15 @@ export MHWeightingScheme
 
 struct MHMultiplicityWeights{T<:Real} <: MHWeightingScheme{T} end
 export MHMultiplicityWeights
+MHMultiplicityWeights() = MHMultiplicityWeights{Int}()
 
 struct MHAccRejProbWeights{T<:AbstractFloat} <: MHWeightingScheme{T} end
 export MHAccRejProbWeights
+MHAccRejProbWeights() = MHAccRejProbWeights{Float64}()
 
 struct MHPosteriorFractionWeights{T<:AbstractFloat} <: MHWeightingScheme{T} end
 export MHPosteriorFractionWeights
+MHPosteriorFractionWeights() = MHPosteriorFractionWeights{Float64}()
 
 
 struct MetropolisHastings{
@@ -34,7 +37,7 @@ MetropolisHastings(
     WS<:MHWeightingScheme{W}
 } = MetropolisHastings{Q,W,WS}(q, weighting_scheme)
 
-MetropolisHastings(q::ProposalDistSpec = MvTDistProposalSpec()) = MetropolisHastings(q, MHMultiplicityWeights{Int}())
+MetropolisHastings(q::ProposalDistSpec = MvTDistProposalSpec()) = MetropolisHastings(q, MHMultiplicityWeights())
 MetropolisHastings(weighting_scheme::MHWeightingScheme) = MetropolisHastings(MvTDistProposalSpec(), weighting_scheme)
 
 

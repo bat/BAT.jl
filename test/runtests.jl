@@ -7,6 +7,7 @@ Test.@testset "Package BAT" begin
     include("rng.jl")
     include("density.jl")
     include("distributions.jl")
+    include("proposaldist.jl")
     include("spatialvolume.jl")
     include("parambounds.jl")
     include("onlinemvstats.jl")

@@ -43,7 +43,7 @@ doc"""
 
 Returns log(PDF) value of `pdist` for transitioning from old to new parameter
 values for multiple parameter sets.
-    
+
 end
 
 Input:
