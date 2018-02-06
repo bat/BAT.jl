@@ -76,6 +76,12 @@ BAT.unsafe_intersect(a::apb_test, b::apb_test) = true
         @test [0.0, 0.0] in hyperRectBounds
         @test ([0.5, 2] in hyperRectBounds) == false
 
+        hyperRectBounds = @inferred BAT.HyperRectBounds([ClosedInterval(-1.,0.5),
+            ClosedInterval(-1.,1.)], [hard_bounds, hard_bounds])
+        @test nparams(hyperRectBounds) == 2
+        @test [0.0, 0.0] in hyperRectBounds
+        @test ([0.5, 2] in hyperRectBounds) == false
+
         @test BAT.apply_bounds!([0.3, -4.3, -7.3], BAT.HyperRectBounds([-1.,-1,-1], [2.,2,2],
             [hard_bounds, reflective_bounds, cyclic_bounds])) ≈ [+0.3, 1.7, 1.7]
 
