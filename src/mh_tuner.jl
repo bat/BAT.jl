@@ -112,6 +112,14 @@ function tuning_update!(tuner::ProposalCovTuner; ll::LogLevel = LOG_NONE)
 
     Σ_new = full(Hermitian(new_Σ_unscal * tuner.scale))
 
+    if !isposdef(Σ_new)
+        ev = eig(Σ_new)[1]
+        ev_min = minimum(ev)
+        Σ_11 = Σ_new[1,1]
+        Σ_new += max(10 * eps(typeof(ev_min)), -ev_min) * eye(length(ev))
+        Σ_new ./= (Σ_new[1,1] / Σ_11)
+    end
+
     next_cycle!(chain)
     state.pdist = set_cov!(state.pdist, Σ_new)
     tuner.iteration += 1
