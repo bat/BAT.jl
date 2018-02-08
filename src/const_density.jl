@@ -9,8 +9,8 @@ end
 export ConstDensity
 
 
-ConstDensity(bounds::ParamVolumeBounds, ::typeof(one)) =
-    ConstDensity(bounds, 0)
+ConstDensity(bounds::ParamVolumeBounds{T,V}, ::typeof(one))  where {T,V}=
+    ConstDensity(bounds, zero(T))
 
 ConstDensity(bounds::ParamVolumeBounds, ::typeof(normalize)) =
     ConstDensity(bounds, -log_volume(spatialvolume(bounds)))
