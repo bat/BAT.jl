@@ -87,7 +87,7 @@ Base.intersect(a::ExecCapabilities, b::ExecCapabilities) = ExecCapabilities(
         a.nthreads
     else
         # ToDo/Decision: Better use maximum?
-        minimum(a.nthreads, b.nthreads)
+        min(a.nthreads, b.nthreads)
     end,
     a.threadsafe && b.threadsafe,
     if a.nprocs == 0
@@ -96,7 +96,7 @@ Base.intersect(a::ExecCapabilities, b::ExecCapabilities) = ExecCapabilities(
         a.nprocs
     else
         # ToDo/Decision: Better use maximum?
-        minimum(a.nprocs, b.nprocs)
+        min(a.nprocs, b.nprocs)
     end,
     a.remotesafe && a.remotesafe
 )
