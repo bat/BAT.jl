@@ -57,7 +57,7 @@ function unsafe_density_logval!(r::AbstractArray{<:Real}, density::DensityProduc
     ds = density.densities
     isempty(ds) && throw(ArgumentError("Can't evaluate density_logval! on empty DensityProduct"))
     fill!(r, 0)
-    tmp = similar(d)  # ToDo: Avoid memory allocation
+    tmp = similar(r)  # ToDo: Avoid memory allocation
     for d in ds
         unsafe_density_logval!(tmp, d, args...)
         r .+= tmp
