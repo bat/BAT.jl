@@ -22,7 +22,7 @@ BAT.sampler(td::test_density) = BAT.sampler(MvNormal(ones(3), PDMat(eye(3))))
 
     econtext = @inferred ExecContext()
 
-    params = [0.0 -0.3; 0.0 0.3]
+    params = [0.0 -0.3 0.5; 0.0 0.3 0.6]
 
     @testset "rand" begin
         td = test_density()
@@ -53,7 +53,7 @@ BAT.sampler(td::test_density) = BAT.sampler(MvNormal(ones(3), PDMat(eye(3))))
     end
 
     @testset "density_logval!" begin
-        r = zeros(Float64, 2)
+        r = zeros(Float64, size(params, 2))
 
         density_logval!(r, density, params, econtext)
         @test r ≈ logpdf(mvnorm, params)
