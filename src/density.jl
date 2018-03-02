@@ -139,7 +139,7 @@ Output is stored in
 
 Array size requirements:
 
-    size(params, 1) == length(r)
+    size(params, 2) == length(r)
 
 Note: `density_logval!` must not be called with out-of-bounds parameter
 vectors (see `param_bounds`). The result of `density_logval!` for parameter
@@ -158,7 +158,7 @@ function density_logval!(
     params::AbstractMatrix{<:Real},
     exec_context::ExecContext = ExecContext()
 )
-    !(size(r, 1) == nparams(density)) && throw(ArgumentError("Invalid length of parameter vector"))
+
     !(size(params, 1) == nparams(density)) && throw(ArgumentError("Invalid length of parameter vector"))
     !(indices(params, 2) == indices(r, 1)) && throw(ArgumentError("Number of parameter vectors doesn't match length of result vector"))
     unsafe_density_logval!(r, density, params, exec_context)
@@ -179,9 +179,8 @@ doc"""
 
 Unsafe variant of `density_logval!`, implementations may rely on
 
-* `size(r, 1) == nparams(density)`
 * `size(params, 1) == nparams(density)`
-* `indices(params, 2) == indices(r, 1)`
+* `size(params, 2) == length(r)`
 
 The caller *must* ensure that these conditions are met!
 """
