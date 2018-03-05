@@ -16,4 +16,6 @@ Test.@testset "Package BAT" begin
     include("density_product.jl")
     include("mvdist_density.jl")
     include("density_sample.jl")        
+    include("shims.jl")
+    include("util.jl")
 end
