@@ -14,5 +14,6 @@ Test.@testset "Package BAT" begin
     include("onlineuvstats.jl")
     include("const_density.jl")
     include("density_product.jl")
-    include("mvdist_density.jl")    
+    include("mvdist_density.jl")
+    include("density_sample.jl")        
 end
