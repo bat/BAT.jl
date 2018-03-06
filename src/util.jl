@@ -5,7 +5,6 @@ _car_cdr_impl() = ()
 _car_cdr_impl(x, y...) = (x, (y...))
 _car_cdr(tp::Tuple) = _car_cdr_impl(tp...)
 
-
 function _all_lteq(A::AbstractArray, B::AbstractArray, C::AbstractArray)
     indices(A) == indices(B) == indices(C) || throw(DimensionMismatch("A, B and C must have the same indices"))
     result = 0
