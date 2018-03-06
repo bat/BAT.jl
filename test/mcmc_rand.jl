@@ -11,14 +11,18 @@ using Distributions, PDMats, StatsBase
         mvec = [-0.3, 0.3]
         cmat = [1.0 1.5; 1.5 4.0]
         Σ = @inferred PDMat(cmat)
-        density = @inferred MvDistDensity(MvNormal(mvec, Σ))
+        mv_dist = MvNormal(mvec, Σ)
+        density = @inferred MvDistDensity(mv_dist)
         bounds = @inferred HyperRectBounds([-5, -8], [5, 8], reflective_bounds)
         nsamples_per_chain = 2000
         nchains = 4
 
-        algorithmMW = @inferred MetropolisHastings(MHMultiplicityWeights())
-        samples, sampleids, stats = @inferred rand(
-            MCMCSpec(algorithmMW, density, bounds),
+        log_f = params -> logpdf(mv_dist, params)
+        
+        algorithmMW = @inferred MetropolisHastings()
+        @test BAT.mcmc_compatible(algorithmMW, GenericProposalDist(mv_dist), NoParamBounds(2))
+        samples, sampleids, stats = rand(
+            MCMCSpec(algorithmMW, log_f, bounds),
             nsamples_per_chain,
             nchains,
             max_time = Inf,
@@ -37,7 +41,7 @@ using Distributions, PDMats, StatsBase
 
         algorithmPW = @inferred MetropolisHastings(MHAccRejProbWeights())
         samples, sampleids, stats = @inferred rand(
-            MCMCSpec(algorithmPW, density, bounds),
+            MCMCSpec(algorithmPW, mv_dist, bounds),
             nsamples_per_chain,
             nchains,
             max_time = Inf,
