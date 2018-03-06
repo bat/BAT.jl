@@ -17,12 +17,10 @@ using Distributions, PDMats, StatsBase
         nsamples_per_chain = 2000
         nchains = 4
 
-        log_f = params -> logpdf(mv_dist, params)
-        
         algorithmMW = @inferred MetropolisHastings()
         @test BAT.mcmc_compatible(algorithmMW, GenericProposalDist(mv_dist), NoParamBounds(2))
-        samples, sampleids, stats = rand(
-            MCMCSpec(algorithmMW, log_f, bounds),
+        samples, sampleids, stats = @inferred rand(
+            MCMCSpec(algorithmMW, density, bounds),
             nsamples_per_chain,
             nchains,
             max_time = Inf,
