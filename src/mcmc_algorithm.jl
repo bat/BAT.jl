@@ -177,13 +177,6 @@ MCMCSpec(
 
 MCMCSpec(
     algorithm::MCMCAlgorithm,
-    log_f::Function,
-    prior::Union{AbstractDensity,ParamVolumeBounds},
-    rngseed::AbstractRNGSeed = AbstractRNGSeed()
-) = MCMCSpec(algorithm, GenericDensity(log_f, nparams(prior)), convert(AbstractDensity, prior), rngseed)
-
-MCMCSpec(
-    algorithm::MCMCAlgorithm,
     distribution::Distribution{Multivariate,Continuous},
     prior::Union{AbstractDensity,ParamVolumeBounds},
     rngseed::AbstractRNGSeed = AbstractRNGSeed()
