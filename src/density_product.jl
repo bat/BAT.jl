@@ -52,7 +52,6 @@ end
 exec_capabilities(::typeof(unsafe_density_logval), density::DensityProduct, args...) =
     ∩(map(d -> exec_capabilities(density_logval, d, args...), density.densities)...)
 
-
 function unsafe_density_logval!(r::AbstractArray{<:Real}, density::DensityProduct, args...)
     ds = density.densities
     isempty(ds) && throw(ArgumentError("Can't evaluate density_logval! on empty DensityProduct"))
