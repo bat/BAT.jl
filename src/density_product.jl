@@ -43,26 +43,30 @@ _unsafe_prod(a::DensityProduct, b::AbstractDensity, new_bounds::AbstractParamBou
     DensityProduct((a.densities...,b), new_bounds)
 
 
-function unsafe_density_logval(density::DensityProduct, args...)
+function unsafe_density_logval(density::DensityProduct, params::AbstractVector{<:Real},
+    exec_context::ExecContext = ExecContext()
+)
     ds = density.densities
     isempty(ds) && throw(ArgumentError("Can't evaluate density_logval on empty DensityProduct"))
-    sum(map(d -> unsafe_density_logval(d, args...), ds))
+    sum(map(d -> unsafe_density_logval(d, params, exec_context), ds))
 end
 
-exec_capabilities(::typeof(unsafe_density_logval), density::DensityProduct, args...) =
-    ∩(map(d -> exec_capabilities(density_logval, d, args...), density.densities)...)
+exec_capabilities(::typeof(unsafe_density_logval), density::DensityProduct, params::AbstractVector{<:Real}) =
+    ∩(map(d -> exec_capabilities(density_logval, d, params), density.densities)...)
 
-function unsafe_density_logval!(r::AbstractArray{<:Real}, density::DensityProduct, args...)
+function unsafe_density_logval!(r::AbstractArray{<:Real}, density::DensityProduct, params::AbstractMatrix{<:Real},
+    exec_context::ExecContext = ExecContext()
+)
     ds = density.densities
     isempty(ds) && throw(ArgumentError("Can't evaluate density_logval! on empty DensityProduct"))
     fill!(r, 0)
     tmp = similar(r)  # ToDo: Avoid memory allocation
     for d in ds
-        unsafe_density_logval!(tmp, d, args...)
+        unsafe_density_logval!(tmp, d, params, exec_context)
         r .+= tmp
     end
     r
 end
 
-exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractArray{<:Real}, density::DensityProduct, args...) =
-    ∩(map(d -> exec_capabilities(unsafe_density_logval!, r, d, args...), density.densities)...)
+exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractArray{<:Real}, density::DensityProduct, params::AbstractMatrix{<:Real}) =
+    ∩(map(d -> exec_capabilities(unsafe_density_logval!, r, d, params), density.densities)...)
