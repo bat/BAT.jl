@@ -72,10 +72,10 @@ using Distributions, PDMats
     end
 
     @testset "unsafe_density_logval" begin
-        @test BAT.unsafe_density_logval(dp, params[:,1]) ≈ -8.8547305
+        @test BAT.unsafe_density_logval(dp, params[:,1], econtext) ≈ -8.8547305
         
         @test_throws ArgumentError BAT.unsafe_density_logval(BAT.DensityProduct(Tuple([]), pb),
-                                                             params[:,1])
+                                                             params[:,1], econtext)
 
         BAT.unsafe_density_logval!(res, dp, params, econtext) 
         

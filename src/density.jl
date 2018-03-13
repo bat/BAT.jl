@@ -188,7 +188,7 @@ function unsafe_density_logval!(
     r::AbstractArray{<:Real},
     density::AbstractDensity,
     params::AbstractMatrix{<:Real},
-    exec_context::ExecContext = ExecContext()
+    exec_context::ExecContext
 )
     # TODO: Support for parallel execution
     single_ec = exec_context # Simplistic, will have to change for parallel execution
