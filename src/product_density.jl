@@ -14,7 +14,7 @@ export GenericProductDensityFunction
 function unsafe_density_logval(
     density::GenericProductDensityFunction{T,P},
     params::AbstractVector{<:Real},
-    exec_context::ExecContext = ExecContext()
+    exec_context::ExecContext
 ) where {T,P}
     # TODO: Use exec_context and density.exec_capabilities
     sum((log_term(convert(P, T)) for (log_term, p) in (density.log_terms, params)))

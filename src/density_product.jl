@@ -44,7 +44,7 @@ _unsafe_prod(a::DensityProduct, b::AbstractDensity, new_bounds::AbstractParamBou
 
 
 function unsafe_density_logval(density::DensityProduct, params::AbstractVector{<:Real},
-    exec_context::ExecContext = ExecContext()
+    exec_context::ExecContext
 )
     ds = density.densities
     isempty(ds) && throw(ArgumentError("Can't evaluate density_logval on empty DensityProduct"))
@@ -55,7 +55,7 @@ exec_capabilities(::typeof(unsafe_density_logval), density::DensityProduct, para
     ∩(map(d -> exec_capabilities(density_logval, d, params), density.densities)...)
 
 function unsafe_density_logval!(r::AbstractArray{<:Real}, density::DensityProduct, params::AbstractMatrix{<:Real},
-    exec_context::ExecContext = ExecContext()
+    exec_context::ExecContext
 )
     ds = density.densities
     isempty(ds) && throw(ArgumentError("Can't evaluate density_logval! on empty DensityProduct"))
