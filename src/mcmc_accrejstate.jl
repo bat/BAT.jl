@@ -42,7 +42,7 @@ nsteps(state::AcceptRejectState) = state.nsteps
 
 nsamples(state::AcceptRejectState) = state.nsamples
 
-acceptance_ratio(state::AcceptRejectState) = nsamples(state) / nsteps(state)
+eff_acceptance_ratio(state::AcceptRejectState) = nsamples(state) / nsteps(state)
 
 
 function next_cycle!(state::AcceptRejectState)

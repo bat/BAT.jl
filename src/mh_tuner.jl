@@ -94,7 +94,7 @@ function tuning_update!(tuner::ProposalCovTuner; ll::LogLevel = LOG_NONE)
     a_t = 1 / t^λ
     new_Σ_unscal = (1 - a_t) * (Σ_old/c) + a_t * S
 
-    α = acceptance_ratio(state)
+    α = eff_acceptance_ratio(state)
 
     if α_min <= α <= α_max
         chain.tuned = true
