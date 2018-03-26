@@ -1,28 +1,80 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+doc"""
+    abstract type AbstractMCMCState end
+
+The following methods must be defined for subtypes (e.g.
+for `SomeMCMCState<:AbstractMCMCState` and ):
+
+```julia
+nparams(state::SomeMCMCState)
+
+nsteps(state::SomeMCMCState)
+
+nsamples(state::SomeMCMCState)
+
+next_cycle!(state::SomeMCMCState)
+
+density_sample_type(state::SomeMCMCState)
+
+current_sampleno(state::SomeMCMCState)
+
+nsamples_available(state::SomeMCMCState; nonzero_weight::Bool = false)
+
+Base.append!(xs::DensitySampleVector, state::AbstractMCMCState)
+```
+"""
 abstract type AbstractMCMCState end
 
-
-sample_available(state::AbstractMCMCState) = sample_available(state, Val(:complete))
-
-current_sample(state::AbstractMCMCState) = current_sample(state, Val(:complete))
+function density_sample_type end
 
 
-function Base.push!(xs::DensitySampleVector, state::AbstractMCMCState)
-    if sample_available(state, Val(:any))
-        push!(xs, current_sample(state, Val(:any)))
-    end
-    xs
-end
+DensitySampleVector(state::AbstractMCMCState) = DensitySampleVector(density_sample_type(state), nparams(state))
 
 
 
+doc"""
+    abstract type MCMCAlgorithm{S<:AbstractMCMCState} <: BATAlgorithm end
+
+The following methods must be defined for subtypes (e.g.
+for `SomeAlgorithm<:MCMCAlgorithm`):
+
+```julia
+
+sample_weight_type(::Type{SomeAlgorithm}) where {Q,W,WS} = W
+
+MCMCIterator(
+    algorithm::SomeAlgorithm,
+    likelihood::AbstractDensity,
+    prior::AbstractDensity,
+    id::Int64,
+    rng::AbstractRNG,
+    initial_params::AbstractVector{P} = default_value,
+    exec_context::ExecContext = ExecContext(),
+)
+
+mcmc_step!(
+    callback::AbstractMCMCCallback,
+    chain::MCMCIterator{<:SomeAlgorithm},
+    exec_context::ExecContext,
+    ll::LogLevel
+)
+```
+
+In some cases, these custom methods may necessary (default methods are defined
+for `MCMCAlgorithm`):
+
+```julia
+rand_initial_params!(rng::AbstractRNG, algorithm::SomeAlgorithm, prior::AbstractDensity, x::StridedVecOrMat{<:Real})
+```
+"""
 abstract type MCMCAlgorithm{S<:AbstractMCMCState} <: BATAlgorithm end
 export MCMCAlgorithm
 
 
-mcmc_compatible(::MCMCAlgorithm, ::AbstractProposalDist, ::AbstractParamBounds) = true
+function sample_weight_type end
+
 
 rand_initial_params!(rng::AbstractRNG, algorithm::MCMCAlgorithm, prior::AbstractDensity, x::StridedVecOrMat{<:Real}) =
     rand!(rng, prior, x)
@@ -33,9 +85,6 @@ rand_initial_params!(rng::AbstractRNG, algorithm::MCMCAlgorithm, prior::Abstract
 #     ... apply transformation to x ...
 #     x
 # end
-
-
-function sample_weight_type end
 
 
 
@@ -60,20 +109,14 @@ export MCMCIterator
 
 nparams(chain::MCMCIterator) = nparams(chain.target)
 
-sample_available(chain::MCMCIterator, status::Val = Val(:complete)) = sample_available(chain.state, status)
-
-current_sample(chain::MCMCIterator, status::Val = Val(:complete)) = current_sample(chain.state, status)
-
 current_sampleno(chain::MCMCIterator) = current_sampleno(chain.state)
 
+nsamples_available(chain::MCMCIterator; nonzero_weight::Bool = false) = nsamples_available(chain.state, nonzero_weight = nonzero_weight)
 
-function DensitySampleVector(chain::MCMCIterator)
-    P = eltype(chain.state.current_sample.params)
-    T = typeof(chain.state.current_sample.log_value)
-    W = typeof(chain.state.current_sample.weight)
-    m = size(chain.state.current_sample.params, 1)
-    DensitySampleVector{P,T,W}(m)
-end
+Base.append!(xs::DensitySampleVector, chain::MCMCIterator) =
+    append!(xs, chain.state)
+
+DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(chain.state)
 
 function Base.push!(xs::DensitySampleVector, chain::MCMCIterator)
     push!(xs, chain.state)
@@ -106,8 +149,8 @@ function mcmc_iterate!(
     start_nsamples = nsamples(chain.state)
 
     while (
-        (chain.state.nsamples - start_nsamples) < max_nsamples &&
-        (chain.state.nsteps - start_nsteps) < max_nsteps &&
+        (nsamples(chain.state) - start_nsamples) < max_nsamples &&
+        (nsteps(chain.state) - start_nsteps) < max_nsteps &&
         (time() - start_time) < max_time
     )
         mcmc_step!(cbfunc, chain, exec_context, ll + 1)
@@ -300,27 +343,29 @@ Base.convert(::Type{AbstractMCMCCallback}, fs::Tuple) = MCMCMultiCallback(fs)
 
 
 
-struct MCMCPushCallback{T} <: AbstractMCMCCallback
+struct MCMCAppendCallback{T} <: AbstractMCMCCallback
     max_level::Int
     target::T
 end
 
-export MCMCPushCallback
+export MCMCAppendCallback
 
-MCMCPushCallback(target) = MCMCPushCallback(1, target)
+MCMCAppendCallback(target) = MCMCAppendCallback(1, target)
 
-MCMCPushCallback(max_level::Int, t, ts...) =
-    MCMCMultiCallback(map(x -> MCMCPushCallback(max_level, x), (t, ts...)))
+MCMCAppendCallback(max_level::Int, t, ts...) =
+    MCMCMultiCallback(map(x -> MCMCAppendCallback(max_level, x), (t, ts...)))
 
 
-function (cb::MCMCPushCallback)(level::Integer, chain::MCMCIterator)
+function (cb::MCMCAppendCallback)(level::Integer, chain::MCMCIterator)
     if (level <= cb.max_level)
-        push!(cb.target, chain)
+        if nsamples_available(chain, nonzero_weight = (level == 1)) > 0
+            append!(cb.target, chain)
+        end
     end
     nothing
 end
 
-(cb::MCMCPushCallback)(level::Integer, obj::Any) = nothing
+(cb::MCMCAppendCallback)(level::Integer, obj::Any) = nothing
 
 
-Base.convert(::Type{AbstractMCMCCallback}, x::BATDataVector) = MCMCPushCallback(x)
+Base.convert(::Type{AbstractMCMCCallback}, x::BATDataVector) = MCMCAppendCallback(x)

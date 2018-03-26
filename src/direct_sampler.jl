@@ -5,6 +5,9 @@ struct DirectSampling <: MCMCAlgorithm{AcceptRejectState} end
 export DirectSampling
 
 
+mcmc_compatible(::DirectSampling, ::AbstractProposalDist, ::AbstractParamBounds) = true
+
+
 # ToDo: Specialized version of rand_initial_params for DirectSampling:
 #
 #     rand_initial_params!(rng::AbstractRNG, algorithm::DirectSampling, target::DensityFunction, x::StridedVecOrMat{<:Real}) = ...

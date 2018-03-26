@@ -53,50 +53,30 @@ function next_cycle!(state::AcceptRejectState)
 end
 
 
-function MCMCBasicStats(state::AcceptRejectState)
-    s = state.current_sample
-    L = promote_type(typeof(s.log_value), Float64)
-    P = promote_type(eltype(s.params), Float64)
-    m = length(s.params)
-    MCMCBasicStats{L, P}(m)
-end
+density_sample_type(state::AcceptRejectState{Q,S}) where {Q,S} = S
 
-
-sample_available(state::AcceptRejectState, ::Val{:complete}) =
-    state.proposal_accepted || state.proposed_sample.weight > 0
-
-function current_sample(state::AcceptRejectState, ::Val{:complete})
-    if state.proposal_accepted
-        @assert state.current_sample.weight > 0
-        state.current_sample
-    elseif state.proposed_sample.weight > 0
-        state.proposed_sample
-    else
-        error("No complete sample available")
-    end
-end
-
-
-sample_available(state::AcceptRejectState, ::Val{:rejected}) =
-    !state.proposal_accepted && state.proposed_sample.weight <= 0
-
-function current_sample(state::AcceptRejectState, ::Val{:rejected})
-    if !state.proposal_accepted && state.proposed_sample.weight <= 0
-        state.proposed_sample
-    else
-        error("No rejected sample available")
-    end
-end
-
-
-sample_available(state::AcceptRejectState, ::Val{:any}) = true
-
-function current_sample(state::AcceptRejectState, ::Val{:any})
-    ifelse(state.proposal_accepted, state.current_sample, state.proposed_sample)
-end
 
 function current_sampleno(state::AcceptRejectState)
     state.nsamples + 1
+end
+
+
+function nsamples_available(state::AcceptRejectState; nonzero_weight::Bool = false)
+    if nonzero_weight
+        sample = ifelse(state.proposal_accepted, state.current_sample, state.proposed_sample)
+        (sample.weight > 0) ? 1 : 0
+    else
+        1
+    end
+end
+
+
+function Base.append!(xs::DensitySampleVector, state::AbstractMCMCState)
+    if nsamples_available(state) > 0
+        sample = ifelse(state.proposal_accepted, state.current_sample, state.proposed_sample)
+        push!(xs, sample)
+    end
+    xs
 end
 
 

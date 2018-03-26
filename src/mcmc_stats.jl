@@ -5,26 +5,30 @@ abstract type AbstractMCMCStats end
 export AbstractMCMCStats
 
 
-function Base.push!(stats::AbstractMCMCStats, state::AbstractMCMCState)
-    if sample_available(state)
-        push!(stats, current_sample(state))
-    end
+function Base.append!(stats::AbstractMCMCStats, state::AbstractMCMCState)
+    samples = DensitySampleVector(state)  # Memory allocation!
+    append!(samples, state)
+    append!(stats, samples)
     stats
 end
 
-function Base.push!(stats::AbstractMCMCStats, chain::MCMCIterator)
-    push!(stats, chain.state)
-    chain
+
+function Base.append!(stats::AbstractMCMCStats, chain::MCMCIterator)
+    append!(stats, chain.state)
+    stats
 end
 
-Base.convert(::Type{AbstractMCMCCallback}, x::AbstractMCMCStats) = MCMCPushCallback(x)
+
+Base.convert(::Type{AbstractMCMCCallback}, x::AbstractMCMCStats) = MCMCAppendCallback(x)
 
 
 
 struct MCMCNullStats <: AbstractMCMCStats end
 export MCMCNullStats
 
-Base.push!(stats::MCMCNullStats, s::DensitySample) = stats
+Base.push!(stats::MCMCNullStats, sv::DensitySampleVector) = stats
+
+Base.append!(stats::MCMCNullStats, sv::DensitySampleVector) = stats
 
 
 
@@ -48,6 +52,13 @@ end
 
 export MCMCBasicStats
 
+function MCMCBasicStats(::Type{S}, nparams::Integer) where {P,T,W,S<:DensitySample{P,T,W}}
+    SL = promote_type(T, Float64)
+    SP = promote_type(P, W, Float64)
+    MCMCBasicStats{SL,SP}(nparams)
+end
+
+MCMCBasicStats(state::AbstractMCMCState) = MCMCBasicStats(density_sample_type(state), nparams(state))
 
 MCMCBasicStats(chain::MCMCIterator) = MCMCBasicStats(chain.state)
 
@@ -60,6 +71,19 @@ function Base.push!(stats::MCMCBasicStats, s::DensitySample)
     push!(stats.logtf_stats, s.log_value, s.weight)
     stats
 end
+
+
+function Base.append!(stats::MCMCBasicStats, sv::DensitySampleVector)
+    for i in eachindex(sv)
+        push!(stats.param_stats, view(sv.params, :, i), sv.weight[i])  # Memory allocation (view)!
+        if sv.log_value[i] > stats.logtf_stats.maximum
+            stats.mode .= view(sv.params, :, i)  # Memory allocation (view)!
+        end
+        push!(stats.logtf_stats, sv.log_value[i], sv.weight[i])
+        stats
+    end
+end
+
 
 nparams(stats::MCMCBasicStats) = stats.param_stats.m
 

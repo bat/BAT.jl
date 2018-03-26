@@ -5,7 +5,6 @@ abstract type AbstractDensitySample end
 export AbstractDensitySample
 
 
-
 mutable struct DensitySample{
     P<:Real,
     T<:Real,
@@ -58,6 +57,9 @@ struct DensitySampleVector{P<:Real,T<:AbstractFloat,W<:Real} <: BATDataVector{De
 end
 
 export DensitySampleVector
+
+DensitySampleVector(::Type{S}, nparams::Integer) where {P<:Real,T<:AbstractFloat,W<:Real,S<:DensitySample{P,T,W}} =
+    DensitySampleVector(ElasticArray{P}(nparams, 0), Vector{T}(0), Vector{W}(0))
 
 
 Base.size(xs::DensitySampleVector) = size(xs.log_value)

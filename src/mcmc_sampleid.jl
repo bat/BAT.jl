@@ -55,8 +55,11 @@ function Base.push!(xs::MCMCSampleIDVector, x::MCMCSampleID)
     xs
 end
 
-Base.push!(xs::MCMCSampleIDVector, chain::MCMCIterator) =
-    push!(xs, MCMCSampleID(chain))
+function Base.append!(xs::MCMCSampleIDVector, chain::MCMCIterator)
+    for i in 1:nsamples_available(chain)
+        push!(xs, MCMCSampleID(chain))
+    end
+end
 
 function Base.append!(A::MCMCSampleIDVector, B::MCMCSampleIDVector)
     append!(A.chainid, B.chainid)
@@ -65,4 +68,4 @@ function Base.append!(A::MCMCSampleIDVector, B::MCMCSampleIDVector)
     A
 end
 
-Base.convert(::Type{AbstractMCMCCallback}, x::MCMCSampleIDVector) = MCMCPushCallback(x)
+Base.convert(::Type{AbstractMCMCCallback}, x::MCMCSampleIDVector) = MCMCAppendCallback(x)

@@ -48,7 +48,7 @@ function Base.rand!(
     sampleids = MCMCSampleIDVector.(chains)
     stats = MCMCBasicStats.(chains)
 
-    callbacks = [MCMCPushCallback(granularity, samples[i], sampleids[i], stats[i]) for i in eachindex(chains)]
+    callbacks = [MCMCAppendCallback(granularity, samples[i], sampleids[i], stats[i]) for i in eachindex(chains)]
 
     mcmc_iterate!(
         callbacks,
