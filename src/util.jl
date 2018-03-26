@@ -1,6 +1,10 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+_iscontiguous(A::Array) = true
+_iscontiguous(A::AbstractArray) = Base.iscontiguous(A)
+
+
 _car_cdr_impl() = ()
 _car_cdr_impl(x, y...) = (x, (y...))
 _car_cdr(tp::Tuple) = _car_cdr_impl(tp...)

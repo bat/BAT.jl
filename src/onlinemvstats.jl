@@ -74,9 +74,11 @@ function Base.merge!(target::OnlineMvMean, others::OnlineMvMean...)
 end
 
 @inline function push_contiguous!(
-    omn::OnlineMvMean{T}, data::Array,
+    omn::OnlineMvMean{T}, data::AbstractArray,
     start::Integer, weight::Real = one(T)
 ) where {T}
+    @assert _iscontiguous(data)  # TODO: Use exception instead of assert
+
     # Workaround for lack of promotion between, e.g., Float32 and Double{Float64}
     weight_conv = T(weight)
 
@@ -210,10 +212,12 @@ end
 
 
 @inline function push_contiguous!(
-    ocv::OnlineMvCov{T,W}, data::Array,
+    ocv::OnlineMvCov{T,W}, data::AbstractArray,
     start::Integer,
     weight::Real = one(T)
 ) where {T,W}
+    @assert _iscontiguous(data)  # TODO: Use exception instead of assert
+
     # Ignore zero weights (can't be handled)
     if weight ≈ 0
         return ocv
@@ -312,10 +316,12 @@ end
 
 
 function push_contiguous!(
-    stats::BasicMvStatistics{T,W}, data::Array,
+    stats::BasicMvStatistics{T,W}, data::AbstractArray,
     start::Integer,
     weight::Real = one(T)
 ) where {T,W}
+    @assert _iscontiguous(data)  # TODO: Use exception instead of assert
+
     push_contiguous!(stats.mean, data, start, weight)
     push_contiguous!(stats.cov, data, start, weight)
 
@@ -343,15 +349,16 @@ end
 const OnlineMvStatistic = Union{OnlineMvMean, OnlineMvCov, BasicMvStatistics}
 
 
-@inline Base.push!(target::OnlineMvStatistic, data::Vector, weight::Real = 1) =
+@inline Base.push!(target::OnlineMvStatistic, data::AbstractVector, weight::Real = 1) =
     push_contiguous!(target, data, first(linearindices(data)), weight)
 
 
-function Base.append!(target::OnlineMvStatistic, data::Matrix, vardim::Integer = 1)
+function Base.append!(target::OnlineMvStatistic, data::AbstractMatrix, vardim::Integer = 1)
     if (vardim == 1)
         throw(ArgumentError("vardim == $vardim not supported (yet)"))
     elseif (vardim == 2)
         @assert target.m == size(data, 1)  # TODO: Use exception instead of assert
+        @assert _iscontiguous(data)  # TODO: Use exception instead of assert
         @inbounds for i in indices(data, 2)
             push_contiguous!(target, data, sub2ind(data, 1, i))
         end
@@ -363,10 +370,11 @@ function Base.append!(target::OnlineMvStatistic, data::Matrix, vardim::Integer =
 end
 
 
-function Base.append!(target::OnlineMvStatistic, data::Matrix, weights::Vector, vardim::Integer = 1)
+function Base.append!(target::OnlineMvStatistic, data::AbstractMatrix, weights::AbstractVector, vardim::Integer = 1)
     if (vardim == 1)
         throw(ArgumentError("vardim == $vardim not supported (yet)"))
     elseif (vardim == 2)
+        @assert _iscontiguous(data)  # TODO: Use exception instead of assert
         @assert target.m == size(data, 1)  # TODO: Use exception instead of assert
         @assert indices(data, 2) == indices(weights, 1)  # TODO: Use exception instead of assert
         @inbounds for i in indices(data, 2)
