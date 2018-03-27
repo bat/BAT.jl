@@ -71,7 +71,7 @@ function nsamples_available(state::AcceptRejectState; nonzero_weight::Bool = fal
 end
 
 
-function Base.append!(xs::DensitySampleVector, state::AbstractMCMCState)
+function Base.append!(xs::DensitySampleVector, state::AcceptRejectState)
     if nsamples_available(state) > 0
         sample = ifelse(state.proposal_accepted, state.current_sample, state.proposed_sample)
         push!(xs, sample)
