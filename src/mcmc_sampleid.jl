@@ -4,22 +4,23 @@
 struct MCMCSampleID
     chainid::Int32
     chaincycle::Int32
-    sampleno::Int64
+    sampletype::Int
+    stepno::Int64
 end
 
-MCMCSampleID(chain::MCMCIterator) =
-    MCMCSampleID(chain.id, chain.cycle, current_sampleno(chain))
+MCMCSampleID(chain::MCMCIterator, sampletype::Int = 1) =
+    MCMCSampleID(chain.id, chain.cycle, sampletype, current_stepno(chain))
 
 
 reset_rng_counters!(rng::AbstractRNG, tags::MCMCSampleID) =
-    reset_rng_counters!(rng, tags.chainid, tags.chaincycle, tags.sampleno)
+    reset_rng_counters!(rng, tags.chainid, tags.chaincycle, tags.stepno)
 
 
 function next_cycle!(chain::MCMCIterator)
     next_cycle!(chain.state)
     chain.cycle += 1
     sampleid = MCMCSampleID(chain)
-    @assert sampleid.sampleno == 1
+    @assert sampleid.stepno == 1
     reset_rng_counters!(chain.rng, sampleid)
     chain
 end
@@ -29,7 +30,8 @@ end
 struct MCMCSampleIDVector <: BATDataVector{MCMCSampleID}
     chainid::Vector{Int32}
     chaincycle::Vector{Int32}
-    sampleno::Vector{Int64}
+    sampletype::Vector{Int}
+    stepno::Vector{Int64}
 end
 
 export MCMCSampleIDVector
@@ -43,7 +45,7 @@ MCMCSampleIDVector(chain::MCMCIterator) = MCMCSampleIDVector()
 Base.size(xs::MCMCSampleIDVector) = size(xs.chainid)
 
 Base.getindex(xs::MCMCSampleIDVector, i::Integer)  =
-    MCMCSampleID(xs.chainid[i], xs.chaincycle[i], xs.sampleno[i])
+    MCMCSampleID(xs.chainid[i], xs.chaincycle[i], xs.sampletype[i], xs.stepno[i])
 
 Base.IndexStyle(xs::MCMCSampleIDVector) = IndexStyle(xs.chainid)
 
@@ -51,7 +53,8 @@ Base.IndexStyle(xs::MCMCSampleIDVector) = IndexStyle(xs.chainid)
 function Base.push!(xs::MCMCSampleIDVector, x::MCMCSampleID)
     push!(xs.chainid, x.chainid)
     push!(xs.chaincycle, x.chaincycle)
-    push!(xs.sampleno, x.sampleno)
+    push!(xs.sampletype, x.sampletype)
+    push!(xs.stepno, x.stepno)
     xs
 end
 
@@ -64,7 +67,8 @@ end
 function Base.append!(A::MCMCSampleIDVector, B::MCMCSampleIDVector)
     append!(A.chainid, B.chainid)
     append!(A.chaincycle, B.chaincycle)
-    append!(A.sampleno, B.sampleno)
+    append!(A.sampletype, B.sampletype)
+    append!(A.stepno, B.stepno)
     A
 end
 

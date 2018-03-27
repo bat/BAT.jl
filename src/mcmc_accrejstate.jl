@@ -60,6 +60,10 @@ function current_sampleno(state::AcceptRejectState)
     state.nsamples + 1
 end
 
+function current_stepno(state::AcceptRejectState)
+    state.nsteps
+end
+
 
 function nsamples_available(state::AcceptRejectState; nonzero_weight::Bool = false)
     if nonzero_weight
@@ -92,7 +96,7 @@ function MCMCIterator(
     target = likelihood * prior
 
     cycle = zero(Int)
-    reset_rng_counters!(rng, MCMCSampleID(id, cycle, 0))
+    reset_rng_counters!(rng, MCMCSampleID(id, cycle, 0, 1))
 
     params_vec = Vector{P}(nparams(target))
     if isempty(initial_params)
@@ -102,8 +106,6 @@ function MCMCIterator(
     end
 
     !(params_vec in param_bounds(target)) && throw(ArgumentError("Parameter(s) out of bounds"))
-
-    reset_rng_counters!(rng, MCMCSampleID(id, cycle, 1))
 
     m = length(params_vec)
 
@@ -160,16 +162,16 @@ function mcmc_step!(
     current_sample = state.current_sample
     proposed_sample = state.proposed_sample
 
+    state.nsteps += 1
+    reset_rng_counters!(chain.rng, MCMCSampleID(chain, 1))
+
     if state.proposal_accepted
-        reset_rng_counters!(chain.rng, MCMCSampleID(chain))
         copy!(current_sample, proposed_sample)
         state.current_nreject = 0
         state.proposal_accepted = false
     end
 
     mcmc_propose_accept_reject!(callback, chain, exec_context)
-
-    state.nsteps += 1
 
     chain
 end
