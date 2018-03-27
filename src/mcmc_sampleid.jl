@@ -20,7 +20,7 @@ function next_cycle!(chain::MCMCIterator)
     next_cycle!(chain.state)
     chain.cycle += 1
     sampleid = MCMCSampleID(chain)
-    @assert sampleid.stepno == 1
+    @assert sampleid.stepno == 0
     reset_rng_counters!(chain.rng, sampleid)
     chain
 end
@@ -37,7 +37,7 @@ end
 export MCMCSampleIDVector
 
 MCMCSampleIDVector() =
-    MCMCSampleIDVector(Vector{Int32}(), Vector{Int32}(), Vector{Int64}())
+    MCMCSampleIDVector(Vector{Int32}(), Vector{Int32}(), Vector{Int}(), Vector{Int64}())
 
 MCMCSampleIDVector(chain::MCMCIterator) = MCMCSampleIDVector()
 

@@ -165,13 +165,13 @@ function mcmc_step!(
     state.nsteps += 1
     reset_rng_counters!(chain.rng, MCMCSampleID(chain, 1))
 
+    mcmc_propose_accept_reject!(callback, chain, exec_context)
+
     if state.proposal_accepted
         copy!(current_sample, proposed_sample)
         state.current_nreject = 0
         state.proposal_accepted = false
     end
-
-    mcmc_propose_accept_reject!(callback, chain, exec_context)
 
     chain
 end

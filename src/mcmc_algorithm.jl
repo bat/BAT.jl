@@ -111,6 +111,8 @@ nparams(chain::MCMCIterator) = nparams(chain.target)
 
 current_sampleno(chain::MCMCIterator) = current_sampleno(chain.state)
 
+current_stepno(chain::MCMCIterator) = current_stepno(chain.state)
+
 nsamples_available(chain::MCMCIterator; nonzero_weight::Bool = false) = nsamples_available(chain.state, nonzero_weight = nonzero_weight)
 
 Base.append!(xs::DensitySampleVector, chain::MCMCIterator) =
