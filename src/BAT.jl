@@ -8,6 +8,9 @@ using Base.Threads
 
 import Base.Math.JuliaLibm
 
+using Compat
+using Compat.Markdown
+using Compat: axes
 
 using Clustering
 using Colors

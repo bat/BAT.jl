@@ -1,7 +1,7 @@
 julia 0.6
 Clustering
 Colors
-Compat 0.33
+Compat 0.54
 Distributions
 DoubleDouble
 ElasticArrays
