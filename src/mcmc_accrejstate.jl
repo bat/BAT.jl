@@ -146,6 +146,10 @@ function MCMCIterator(
 end
 
 
+exec_capabilities(mcmc_step!, callback::AbstractMCMCCallback, chain::MCMCIterator{<:MCMCAlgorithm{AcceptRejectState}}) =
+    exec_capabilities(density_logval, chain.target, chain.state.proposed_sample.params)
+
+
 function mcmc_step!(
     callback::AbstractMCMCCallback,
     chain::MCMCIterator{<:MCMCAlgorithm{AcceptRejectState}},

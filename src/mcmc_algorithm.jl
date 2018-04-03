@@ -54,6 +54,8 @@ MCMCIterator(
     exec_context::ExecContext = ExecContext(),
 )
 
+exec_capabilities(mcmc_step!, callback::AbstractMCMCCallback, chain::MCMCIterator{<:SomeAlgorithm})
+
 mcmc_step!(
     callback::AbstractMCMCCallback,
     chain::MCMCIterator{<:SomeAlgorithm},
@@ -133,6 +135,10 @@ export mcmc_step!
 function mcmc_iterate! end
 export mcmc_iterate!
 
+
+exec_capabilities(mcmc_iterate!, callback, chain::MCMCIterator) =
+    exec_capabilities(mcmc_step!, Base.convert(AbstractMCMCCallback, callback), chain)
+
 function mcmc_iterate!(
     callback,
     chain::MCMCIterator,
@@ -159,10 +165,6 @@ function mcmc_iterate!(
     end
     chain
 end
-
-
-exec_capabilities(mcmc_iterate!, f, chain::MCMCIterator) =
-    exec_capabilities(density_logval, chain.target, chain.state.proposed_sample.params)
 
 
 function mcmc_iterate!(
