@@ -86,6 +86,9 @@ Base.size(xs::DensitySampleVector) = size(xs.log_value)
 Base.getindex(xs::DensitySampleVector, i::Integer) =
     DensitySample(view(xs.params, :, i), xs.log_value[i], xs.weight[i])
 
+Base.@propagate_inbounds Base._getindex(l::IndexStyle, xs::DensitySampleVector, idxs::AbstractVector{<:Integer}) =
+    DensitySampleVector(xs.params[:, idxs], xs.log_value[idxs], xs.weight[idxs])
+
 Base.IndexStyle(xs::DensitySampleVector) = IndexStyle(xs.log_value)
 
 
@@ -111,4 +114,12 @@ Base.@propagate_inbounds function Base.view(A::DensitySampleVector, idxs)
         view(A.log_value, idxs),
         view(A.weight, idxs)
     )
+end
+
+
+function _swap!(A::DensitySampleVector, i_A::SingleArrayIndex, B::DensitySampleVector, i_B::SingleArrayIndex)
+    _swap!(view(A.params, :, i_A), view(A.params, :, i_B))  # Memory allocation!
+    _swap!(A.log_value, i_A, B.log_value, i_B)
+    _swap!(A.weight, i_A, B.weight, i_B)
+    A
 end
