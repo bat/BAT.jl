@@ -56,15 +56,6 @@ end
 density_sample_type(state::AcceptRejectState{Q,S}) where {Q,S} = S
 
 
-function current_sampleno(state::AcceptRejectState)
-    state.nsamples + 1
-end
-
-function current_stepno(state::AcceptRejectState)
-    state.nsteps
-end
-
-
 function nsamples_available(state::AcceptRejectState; nonzero_weight::Bool = false)
     if nonzero_weight
         sample = ifelse(state.proposal_accepted, state.current_sample, state.proposed_sample)
@@ -72,15 +63,6 @@ function nsamples_available(state::AcceptRejectState; nonzero_weight::Bool = fal
     else
         1
     end
-end
-
-
-function Base.append!(xs::DensitySampleVector, state::AcceptRejectState)
-    if nsamples_available(state) > 0
-        sample = ifelse(state.proposal_accepted, state.current_sample, state.proposed_sample)
-        push!(xs, sample)
-    end
-    xs
 end
 
 
@@ -96,7 +78,7 @@ function MCMCIterator(
     target = likelihood * prior
 
     cycle = zero(Int)
-    reset_rng_counters!(rng, MCMCSampleID(id, cycle, 0, 1))
+    reset_rng_counters!(rng, id, cycle, 0)
 
     params_vec = Vector{P}(nparams(target))
     if isempty(initial_params)
@@ -167,7 +149,7 @@ function mcmc_step!(
     proposed_sample = state.proposed_sample
 
     state.nsteps += 1
-    reset_rng_counters!(chain.rng, MCMCSampleID(chain, 1))
+    reset_rng_counters!(chain)
 
     mcmc_propose_accept_reject!(callback, chain, exec_context)
 

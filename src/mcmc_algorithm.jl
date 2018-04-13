@@ -18,11 +18,7 @@ next_cycle!(state::SomeMCMCState)
 
 density_sample_type(state::SomeMCMCState)
 
-current_sampleno(state::SomeMCMCState)
-
 nsamples_available(state::SomeMCMCState; nonzero_weight::Bool = false)
-
-Base.append!(xs::DensitySampleVector, state::AbstractMCMCState)
 ```
 """
 abstract type AbstractMCMCState end
@@ -111,19 +107,24 @@ export MCMCIterator
 
 nparams(chain::MCMCIterator) = nparams(chain.target)
 
-current_sampleno(chain::MCMCIterator) = current_sampleno(chain.state)
-
-current_stepno(chain::MCMCIterator) = current_stepno(chain.state)
-
 nsamples_available(chain::MCMCIterator; nonzero_weight::Bool = false) = nsamples_available(chain.state, nonzero_weight = nonzero_weight)
-
-Base.append!(xs::DensitySampleVector, chain::MCMCIterator) =
-    append!(xs, chain.state)
 
 DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(chain.state)
 
 function Base.push!(xs::DensitySampleVector, chain::MCMCIterator)
     push!(xs, chain.state)
+    chain
+end
+
+
+reset_rng_counters!(chain::MCMCIterator) =
+    reset_rng_counters!(chain.rng, chain.id, chain.cycle, nsteps(chain.state))
+
+
+function next_cycle!(chain::MCMCIterator)
+    next_cycle!(chain.state)
+    chain.cycle += 1
+    reset_rng_counters!(chain)
     chain
 end
 
@@ -257,6 +258,7 @@ function (spec::MCMCSpec)(
 end
 
 
+
 doc"""
     AbstractMCMCCallback <: Function
 
@@ -347,29 +349,25 @@ Base.convert(::Type{AbstractMCMCCallback}, fs::Tuple) = MCMCMultiCallback(fs)
 
 
 
-struct MCMCAppendCallback{T} <: AbstractMCMCCallback
+struct MCMCAppendCallback{T,F<:Function} <: AbstractMCMCCallback
+    appendable::T
     max_level::Int
-    target::T
+    get_data_func!::F
+    nonzero_weights_only::Bool
 end
 
 export MCMCAppendCallback
 
-MCMCAppendCallback(target) = MCMCAppendCallback(1, target)
-
-MCMCAppendCallback(max_level::Int, t, ts...) =
-    MCMCMultiCallback(map(x -> MCMCAppendCallback(max_level, x), (t, ts...)))
-
 
 function (cb::MCMCAppendCallback)(level::Integer, chain::MCMCIterator)
     if (level <= cb.max_level)
-        if nsamples_available(chain, nonzero_weight = (level == 1)) > 0
-            append!(cb.target, chain)
-        end
+        cb.get_data_func!(cb.appendable, chain, cb.nonzero_weights_only)
     end
     nothing
 end
 
-(cb::MCMCAppendCallback)(level::Integer, obj::Any) = nothing
 
+Base.convert(::Type{AbstractMCMCCallback}, x::DensitySampleVector) = MCMCAppendCallback(x)
 
-Base.convert(::Type{AbstractMCMCCallback}, x::BATDataVector) = MCMCAppendCallback(x)
+MCMCAppendCallback(x::DensitySampleVector, nonzero_weights_only::Bool = true) =
+    MCMCAppendCallback(x, 1, get_samples!, nonzero_weights_only)

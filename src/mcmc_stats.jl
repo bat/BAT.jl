@@ -5,21 +5,10 @@ abstract type AbstractMCMCStats end
 export AbstractMCMCStats
 
 
-function Base.append!(stats::AbstractMCMCStats, state::AbstractMCMCState)
-    samples = DensitySampleVector(state)  # Memory allocation!
-    append!(samples, state)
-    append!(stats, samples)
-    stats
-end
-
-
-function Base.append!(stats::AbstractMCMCStats, chain::MCMCIterator)
-    append!(stats, chain.state)
-    stats
-end
-
-
 Base.convert(::Type{AbstractMCMCCallback}, x::AbstractMCMCStats) = MCMCAppendCallback(x)
+
+MCMCAppendCallback(x::AbstractMCMCStats, nonzero_weights_only::Bool = true) =
+    MCMCAppendCallback(x, 1, get_samples!, nonzero_weights_only)
 
 
 
