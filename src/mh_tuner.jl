@@ -1,6 +1,12 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+const CovTunerCompatibleAlg = Union{
+    MetropolisHastings,
+    GeneralizedMetropolisHastings,
+}
+
+
 @with_kw struct ProposalCovTunerConfig <: AbstractMCMCTunerConfig
     λ::Float64 = 0.5
     α::IntervalSets.ClosedInterval{Float64} = ClosedInterval(0.15, 0.35)
@@ -12,14 +18,15 @@ export ProposalCovTunerConfig
 
 
 AbstractMCMCTunerConfig(algorithm::MetropolisHastings) = ProposalCovTunerConfig()
+AbstractMCMCTunerConfig(algorithm::GeneralizedMetropolisHastings) = ProposalCovTunerConfig()
 
-(config::ProposalCovTunerConfig)(chain::MCMCIterator{<:MetropolisHastings}; init_proposal::Bool = true) =
+(config::ProposalCovTunerConfig)(chain::MCMCIterator{<:CovTunerCompatibleAlg}; init_proposal::Bool = true) =
     ProposalCovTuner(config, chain, init_proposal)
 
 
 
 mutable struct ProposalCovTuner{
-    C<:MCMCIterator{<:MetropolisHastings},
+    C<:MCMCIterator{<:CovTunerCompatibleAlg},
     S<:MCMCBasicStats
 } <: AbstractMCMCTuner
     config::ProposalCovTunerConfig
@@ -33,7 +40,7 @@ export ProposalCovTuner
 
 function ProposalCovTuner(
     config::ProposalCovTunerConfig,
-    chain::MCMCIterator{<:MetropolisHastings},
+    chain::MCMCIterator{<:CovTunerCompatibleAlg},
     init_proposal::Bool = true
 )
     m = nparams(chain)
