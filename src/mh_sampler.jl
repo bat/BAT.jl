@@ -105,7 +105,7 @@ function mcmc_propose_accept_reject!(
         p_accept = if proposed_log_value > -Inf
             clamp(T(exp(proposed_log_value - current_log_value - log_tpr)), zero(T), one(T))
         else
-            0
+            zero(T)
         end
     else
         p_accept = zero(T)
