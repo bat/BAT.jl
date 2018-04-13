@@ -53,13 +53,12 @@ function mcmc_propose_accept_reject!(
         @assert state.current_sample.weight == 1
         state.proposal_accepted = true
         state.nsamples += 1
-        callback(1, chain)
     else
         proposed_sample.log_value = -Inf
 
         state.current_nreject += 1
-        callback(2, chain)
     end
+    callback(1, chain)
 
     chain
 end

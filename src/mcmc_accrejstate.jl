@@ -56,13 +56,37 @@ end
 density_sample_type(state::AcceptRejectState{Q,S}) where {Q,S} = S
 
 
-function nsamples_available(state::AcceptRejectState; nonzero_weight::Bool = false)
-    if nonzero_weight
-        sample = ifelse(state.proposal_accepted, state.current_sample, state.proposed_sample)
-        (sample.weight > 0) ? 1 : 0
+_accrej_current_sample(state::AcceptRejectState) =
+    ifelse(state.proposal_accepted, state.current_sample, state.proposed_sample)
+
+
+function nsamples_available(chain::MCMCIterator{<:MCMCAlgorithm{AcceptRejectState}}, nonzero_weights::Bool = false)
+    if nonzero_weights
+        (_accrej_current_sample(chain.state).weight > 0) ? 1 : 0
     else
         1
     end
+end
+
+
+function get_samples!(appendable, chain::MCMCIterator{<:MCMCAlgorithm{AcceptRejectState}}, nonzero_weights::Bool)::typeof(appendable)
+    sample = _accrej_current_sample(chain.state)
+    if (!nonzero_weights || sample.weight > 0)
+        push!(appendable, sample)
+    end
+    appendable
+end
+
+
+function get_sample_ids!(appendable, chain::MCMCIterator{<:MCMCAlgorithm{AcceptRejectState}}, nonzero_weights::Bool)::typeof(appendable)
+    state = chain.state
+    sample = _accrej_current_sample(state)
+    if (!nonzero_weights || sample.weight > 0)
+        sampletype = state.proposal_accepted ? 2 : 1
+        sampleid = MCMCSampleID(chain.id, chain.cycle, state.nsteps, sampletype)
+        push!(appendable, sampleid)
+    end
+    appendable
 end
 
 

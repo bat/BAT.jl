@@ -48,7 +48,14 @@ function Base.rand!(
     sampleids = MCMCSampleIDVector.(chains)
     stats = MCMCBasicStats.(chains)
 
-    callbacks = [MCMCAppendCallback(granularity, samples[i], sampleids[i], stats[i]) for i in eachindex(chains)]
+    nonzero_weights = granularity <= 1
+    callbacks = [
+        MCMCMultiCallback(
+            MCMCAppendCallback(samples[i], nonzero_weights),
+            MCMCAppendCallback(sampleids[i], nonzero_weights),
+            MCMCAppendCallback(stats[i], nonzero_weights)
+        ) for i in eachindex(chains)
+    ]
 
     mcmc_iterate!(
         callbacks,
@@ -99,10 +106,11 @@ function Base.rand(
     burnin_strategy::MCMCBurninStrategy = MCMCBurninStrategy(tuner_config),
     kwargs...
 )
+    dummy_chain = chainspec(zero(Int64))
     result = (
-        DensitySampleVector(chainspec(zero(Int64))),
-        MCMCSampleIDVector(chainspec(zero(Int64))),
-        MCMCBasicStats(chainspec(zero(Int64)))
+        DensitySampleVector(dummy_chain),
+        MCMCSampleIDVector(dummy_chain),
+        MCMCBasicStats(dummy_chain)
     )
 
     rand!(

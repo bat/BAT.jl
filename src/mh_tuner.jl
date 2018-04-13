@@ -156,7 +156,7 @@ function run_tuning_iterations!(
     combined_callbacks = broadcast(tuners, user_callbacks) do tuner, user_callback
         (level, chain) -> begin
             if level == 1
-                append!(tuner.stats, chain)
+                get_samples!(tuner.stats, chain, true)
             end
             user_callback(level, chain)
         end

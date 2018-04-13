@@ -25,6 +25,8 @@ export MCMCSampleIDVector
 
 MCMCSampleIDVector() = MCMCSampleIDVector(Vector{Int32}(), Vector{Int32}(), Vector{Int}(), Vector{Int64}())
 
+MCMCSampleIDVector(chain::MCMCIterator) = MCMCSampleIDVector()
+
 
 Base.size(xs::MCMCSampleIDVector) = size(xs.chainid)
 
@@ -56,6 +58,14 @@ function Base.append!(A::MCMCSampleIDVector, B::MCMCSampleIDVector)
     append!(A.chaincycle, B.chaincycle)
     append!(A.stepno, B.stepno)
     append!(A.sampletype, B.sampletype)
+    A
+end
+
+
+function Base.append!(A::MCMCSampleIDVector, B::AbstractVector{<:MCMCSampleID})
+    for x in B
+        push!(A, x)
+    end
     A
 end
 

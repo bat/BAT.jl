@@ -114,14 +114,15 @@ function mcmc_propose_accept_reject!(
         zero(T)
     end
 
-    mh_acc_rej!(callback, chain, p_accept)
+    mh_acc_rej!(chain, p_accept)
+
+    callback(1, chain)
 
     chain
 end
 
 
 function mh_acc_rej!(
-    callback::AbstractMCMCCallback,
     chain::MCMCIterator{<:MetropolisHastings{Q,W,WS}},
     p_accept::Real
 ) where {Q, W, WS <: MHMultiplicityWeights}
@@ -131,17 +132,14 @@ function mh_acc_rej!(
     if rand(chain.rng, float(typeof(p_accept))) < p_accept
         state.proposal_accepted = true
         state.nsamples += 1
-        callback(1, chain)
     else
         state.current_nreject += 1
-        callback(2, chain)
     end
     chain
 end
 
 
 function mh_acc_rej!(
-    callback::AbstractMCMCCallback,
     chain::MCMCIterator{<:MetropolisHastings{Q,W,WS}},
     p_accept::Real
 ) where {Q, W, WS <: MHAccRejProbWeights}
@@ -158,21 +156,14 @@ function mh_acc_rej!(
     if rand(chain.rng, float(typeof(p_accept))) < p_accept
         state.proposal_accepted = true
         state.nsamples += 1
-        callback(1, chain)
     else
         state.current_nreject += 1
-        if p_accept ≈ 0
-            callback(2, chain)
-        else
-            callback(1, chain)
-        end
     end
     chain
 end
 
 
 function mh_acc_rej!(
-    callback::AbstractMCMCCallback,
     chain::MCMCIterator{<:MetropolisHastings{Q,W,WS}},
     p_accept::Real
 ) where {Q, W, WS <: MHPosteriorFractionWeights}
@@ -185,7 +176,6 @@ function mh_acc_rej!(
     if p_accept ≈ 0
         state.current_sample.weight += 1
         state.proposed_sample.weight = 0
-        callback(2, chain)
     else
         # Renormalize posterior values:
         logval_1 = state.current_sample.log_value
@@ -201,7 +191,6 @@ function mh_acc_rej!(
             state.proposal_accepted = true
             state.nsamples += 1
         end
-        callback(1, chain)
     end
     chain
 end

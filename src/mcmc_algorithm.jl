@@ -17,16 +17,11 @@ nsamples(state::SomeMCMCState)
 next_cycle!(state::SomeMCMCState)
 
 density_sample_type(state::SomeMCMCState)
-
-nsamples_available(state::SomeMCMCState; nonzero_weight::Bool = false)
 ```
 """
 abstract type AbstractMCMCState end
 
 function density_sample_type end
-
-
-DensitySampleVector(state::AbstractMCMCState) = DensitySampleVector(density_sample_type(state), nparams(state))
 
 
 
@@ -58,6 +53,12 @@ mcmc_step!(
     exec_context::ExecContext,
     ll::LogLevel
 )
+
+nsamples_available(chain::MCMCIterator{<:SomeAlgorithm}, nonzero_weights::Bool = false)::Integer
+
+get_samples!(appendable, chain::MCMCIterator{<:SomeAlgorithm}, nonzero_weights::Bool)::typeof(appendable)
+
+get_sample_ids!(appendable, chain::MCMCIterator{<:SomeAlgorithm}, nonzero_weights::Bool)::typeof(appendable)
 ```
 
 In some cases, these custom methods may necessary (default methods are defined
@@ -107,14 +108,8 @@ export MCMCIterator
 
 nparams(chain::MCMCIterator) = nparams(chain.target)
 
-nsamples_available(chain::MCMCIterator; nonzero_weight::Bool = false) = nsamples_available(chain.state, nonzero_weight = nonzero_weight)
 
-DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(chain.state)
-
-function Base.push!(xs::DensitySampleVector, chain::MCMCIterator)
-    push!(xs, chain.state)
-    chain
-end
+DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(density_sample_type(chain.state), nparams(chain.state))
 
 
 reset_rng_counters!(chain::MCMCIterator) =
@@ -328,10 +323,10 @@ Base.convert(::Type{AbstractMCMCCallback}, ::Tuple{}) = MCMCNopCallback()
 struct MCMCMultiCallback{N,TP<:NTuple{N,AbstractMCMCCallback}} <: AbstractMCMCCallback
     funcs::TP
 
-    MCMCMultiCallback(fs::NTuple{N,AbstractMCMCCallback}) where {N} =
+    MCMCMultiCallback(fs::Vararg{AbstractMCMCCallback,N}) where {N} =
         new{N, typeof(fs)}(fs)
 
-    function fMCMCMultiCallback(fs::NTuple{N, Any}) where {N}
+    function fMCMCMultiCallback(fs::Vararg{Any,N}) where {N}
         fs_conv = map(x -> convert(AbstractMCMCCallback, x), fs)
         new{N, typeof(fs_conv)}(fs_conv)
     end
@@ -345,7 +340,7 @@ function (cb::MCMCMultiCallback)(level::Integer, obj::Any)
     nothing
 end
 
-Base.convert(::Type{AbstractMCMCCallback}, fs::Tuple) = MCMCMultiCallback(fs)
+Base.convert(::Type{AbstractMCMCCallback}, fs::Tuple) = MCMCMultiCallback(fs...)
 
 
 
@@ -353,7 +348,7 @@ struct MCMCAppendCallback{T,F<:Function} <: AbstractMCMCCallback
     appendable::T
     max_level::Int
     get_data_func!::F
-    nonzero_weights_only::Bool
+    nonzero_weights::Bool
 end
 
 export MCMCAppendCallback
@@ -361,7 +356,7 @@ export MCMCAppendCallback
 
 function (cb::MCMCAppendCallback)(level::Integer, chain::MCMCIterator)
     if (level <= cb.max_level)
-        cb.get_data_func!(cb.appendable, chain, cb.nonzero_weights_only)
+        cb.get_data_func!(cb.appendable, chain, cb.nonzero_weights)
     end
     nothing
 end
@@ -369,5 +364,5 @@ end
 
 Base.convert(::Type{AbstractMCMCCallback}, x::DensitySampleVector) = MCMCAppendCallback(x)
 
-MCMCAppendCallback(x::DensitySampleVector, nonzero_weights_only::Bool = true) =
-    MCMCAppendCallback(x, 1, get_samples!, nonzero_weights_only)
+MCMCAppendCallback(x::DensitySampleVector, nonzero_weights::Bool = true) =
+    MCMCAppendCallback(x, 1, get_samples!, nonzero_weights)

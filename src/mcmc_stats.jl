@@ -7,8 +7,8 @@ export AbstractMCMCStats
 
 Base.convert(::Type{AbstractMCMCCallback}, x::AbstractMCMCStats) = MCMCAppendCallback(x)
 
-MCMCAppendCallback(x::AbstractMCMCStats, nonzero_weights_only::Bool = true) =
-    MCMCAppendCallback(x, 1, get_samples!, nonzero_weights_only)
+MCMCAppendCallback(x::AbstractMCMCStats, nonzero_weights::Bool = true) =
+    MCMCAppendCallback(x, 1, get_samples!, nonzero_weights)
 
 
 
@@ -47,9 +47,7 @@ function MCMCBasicStats(::Type{S}, nparams::Integer) where {P,T,W,S<:DensitySamp
     MCMCBasicStats{SL,SP}(nparams)
 end
 
-MCMCBasicStats(state::AbstractMCMCState) = MCMCBasicStats(density_sample_type(state), nparams(state))
-
-MCMCBasicStats(chain::MCMCIterator) = MCMCBasicStats(chain.state)
+MCMCBasicStats(chain::MCMCIterator) = MCMCBasicStats(density_sample_type(chain.state), nparams(chain.state))
 
 
 function Base.push!(stats::MCMCBasicStats, s::DensitySample)
