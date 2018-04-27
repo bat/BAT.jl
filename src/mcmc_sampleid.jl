@@ -12,18 +12,17 @@ end
 
 struct MCMCSampleIDVector{
     VInt32<:AbstractVector{Int32},
-    VInt64<:AbstractVector{Int64},
-    VInt<:AbstractVector{Int}
+    VInt64<:AbstractVector{Int64}
 } <: BATDataVector{MCMCSampleID}
     chainid::VInt32
     chaincycle::VInt32
     stepno::VInt64
-    sampletype::VInt
+    sampletype::VInt64
 end
 
 export MCMCSampleIDVector
 
-MCMCSampleIDVector() = MCMCSampleIDVector(Vector{Int32}(), Vector{Int32}(), Vector{Int}(), Vector{Int64}())
+MCMCSampleIDVector() = MCMCSampleIDVector(Vector{Int32}(), Vector{Int32}(), Vector{Int64}(), Vector{Int64}())
 
 MCMCSampleIDVector(chain::MCMCIterator) = MCMCSampleIDVector()
 
