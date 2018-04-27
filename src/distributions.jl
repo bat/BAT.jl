@@ -50,8 +50,8 @@ issymmetric_around_origin(d::Distributions.GenericMvTDist) = d.zeromean
 
 
 get_cov(d::Distributions.GenericMvTDist) = d.Σ
-set_cov!(d::Distributions.GenericMvTDist{T,M}, Σ::M) where {T,M} = Distributions.GenericMvTDist{T,M}(d.df, d.dim, d.zeromean, d.μ, Σ)
-set_cov!(d::Distributions.GenericMvTDist{T,M}, Σ::AbstractMatrix{<:Real}) where {T,M<:PDMat} = Distributions.GenericMvTDist{T,M}(d.df, d.dim, d.zeromean, d.μ, PDMat(Σ))
+set_cov(d::Distributions.GenericMvTDist{T,M}, Σ::M) where {T,M} = Distributions.GenericMvTDist{T,M}(d.df, d.dim, d.zeromean, deepcopy(d.μ), Σ)
+set_cov(d::Distributions.GenericMvTDist{T,M}, Σ::AbstractMatrix{<:Real}) where {T,M<:PDMat} = Distributions.GenericMvTDist{T,M}(d.df, d.dim, d.zeromean, deepcopy(d.μ), PDMat(Σ))
 
 
 # Generic rand and rand! implementations similar to those in Distributions,

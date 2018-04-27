@@ -117,10 +117,10 @@ function Base.rand!(rng::AbstractRNG, s::test_batsampler, x::AbstractArray{T, 1}
         tmean = [1., 2, 3]
         tmv = MvTDist(3, tmean, PDMat(eye(3)))
 
-        tmv = BAT.set_cov!(tmv, cmat)
-        @test full(BAT.get_cov(tmv)) ≈ cmat
+        tmv2 = BAT.set_cov(tmv, cmat)
+        @test full(BAT.get_cov(tmv2)) ≈ cmat
 
-        bstmv = BATMvTDistSampler(tmv)
+        bstmv = BATMvTDistSampler(tmv2)
 
         n = 1000
         res = rand(MersenneTwister(7002), bstmv, n)

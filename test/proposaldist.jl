@@ -56,7 +56,7 @@ test_sampler(tmv::test_mvdist) = tmv.d
         d = MvTDist(1.5, zeros(2), PDMat([1. 0.5; 0.5 2]))
         gpd = @inferred GenericProposalDist(d)
         @test full(BAT.get_cov(gpd)) ≈ [1. 0.5; 0.5 2]
-        gpd = @inferred BAT.set_cov!(gpd, diagm(ones(2)))
+        gpd = @inferred BAT.set_cov(gpd, diagm(ones(2)))
 
         @test full(BAT.get_cov(gpd)) ≈ diagm(ones(2))
 

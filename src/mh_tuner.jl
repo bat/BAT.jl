@@ -64,7 +64,7 @@ function tuning_init_proposal!(tuner::ProposalCovTuner)
     Σ = Σ_unscaled * tuner.scale
 
     next_cycle!(chain)
-    chain.state.pdist = set_cov!(chain.state.pdist, Σ)
+    chain.state.pdist = set_cov(chain.state.pdist, Σ)
 
     chain
 end
@@ -121,7 +121,7 @@ function tuning_update!(tuner::ProposalCovTuner; ll::LogLevel = LOG_NONE)
     end
 
     next_cycle!(chain)
-    state.pdist = set_cov!(state.pdist, Σ_new)
+    state.pdist = set_cov(state.pdist, Σ_new)
     tuner.iteration += 1
 
     chain
