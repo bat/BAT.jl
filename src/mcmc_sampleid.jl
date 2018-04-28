@@ -5,7 +5,7 @@ struct MCMCSampleID
     chainid::Int32
     chaincycle::Int32
     stepno::Int64
-    sampletype::Int
+    sampletype::Int64
 end
 
 
