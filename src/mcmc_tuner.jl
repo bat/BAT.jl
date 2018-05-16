@@ -256,7 +256,7 @@ function mcmc_init(
 )
     @log_msg ll "NoOpTuner generating $nchains MCMC chain(s)."
 
-    [tuner_config(chainspec(id, exec_context), init_proposal = true) for id in one(Int):nchains]
+    [tuner_config(chainspec(id, exec_context), init_proposal = true) for id in one(Int64):Int64(nchains)]
 end
 
 
