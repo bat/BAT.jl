@@ -262,7 +262,7 @@ function mcmc_step!(
     inbounds_idxs = find(is_inbounds)  # Memory allocation!
     @assert inbounds_idxs[mh_idx_current(inbounds_idxs)] == current_sample_idx
     inbounds_idxs_proposed = inbounds_idxs[mh_idxs_proposed(inbounds_idxs)]  # Memory allocation!
-    
+
     # Evaluate log(target) for all proposed parameter vectors
     params_proposed_inbounds = params[:, inbounds_idxs_proposed]
     logdensity_proposed_inbounds = logdensity[inbounds_idxs_proposed]
@@ -324,6 +324,7 @@ function mcmc_step!(
         # Use total acceptance probability of proposed samples for eff_acceptratio_sum
         total_acceptance_prob = 1 - first(P_T_inbounds)
         state.eff_acceptratio_sum += total_acceptance_prob
+        #println("Total acceptance prob is : $total_acceptance_prob")
     elseif eff_acceptratio_method == 3
         # Use mean acceptance probability of proposed samples for eff_acceptratio_sum
         mean_acceptance_prob = mean(mh_view_proposed(P_T_inbounds))  # Memory allocation!
@@ -333,9 +334,37 @@ function mcmc_step!(
         max_acceptance_prob = maximum(mh_view_proposed(P_T_inbounds))  # Memory allocation!
         state.eff_acceptratio_sum += max_acceptance_prob
     elseif eff_acceptratio_method == 5
+        # Use minimum acceptance probability of proposed samples for eff_acceptratio_sum
+        min_acceptance_prob = minimum(mh_view_proposed(P_T_inbounds))  # Memory allocation!
+        state.eff_acceptratio_sum += min_acceptance_prob
+    elseif eff_acceptratio_method == 6
         # Calculate addition to naccept based on entropy of proposed samples
         eff_nsamples = mh_entroy_eff_nsamples(P_T_inbounds)
         state.eff_acceptratio_sum += eff_nsamples / nproposed
+    elseif eff_acceptratio_method == 7
+        # Use maximum of classic-MH accept probabilitis of the proposals
+        from = mh_idx_current(P_T_inbounds)
+        to_idxs = mh_idxs_proposed(P_T_inbounds)
+        if length(to_idxs) > 0
+            T = Double{eltype(P_T_inbounds)}
+            max_mh_accpet_classic = zero(T)
+            for to in to_idxs
+                max_mh_accpet_classic = max(max_mh_accpet_classic, T(mh_classic_accept_probability(pdist, params, logdensity, from, to)))
+            end
+            state.eff_acceptratio_sum += max_mh_accpet_classic
+        end
+    elseif eff_acceptratio_method == 8
+        # Use minimum of classic-MH accept probabilitis of the proposals
+        from = mh_idx_current(P_T_inbounds)
+        to_idxs = mh_idxs_proposed(P_T_inbounds)
+        if length(to_idxs) > 0
+            T = Double{eltype(P_T_inbounds)}
+            min_mh_accpet_classic = one(T)
+            for to in to_idxs
+                min_mh_accpet_classic = min(min_mh_accpet_classic, T(mh_classic_accept_probability(pdist, params, logdensity, from, to)))
+            end
+            state.eff_acceptratio_sum += min_mh_accpet_classic
+        end
     else
         throw(ArgumentError("Invalid eff_acceptratio_method: $eff_acceptratio_method"))
     end

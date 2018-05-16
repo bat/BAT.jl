@@ -249,7 +249,7 @@ MvTDistProposalSpec() = MvTDistProposalSpec(1.0)
     GenericProposalDist(MvTDist, T, n_params, convert(T, ps.df))
 
 function GenericProposalDist(::Type{MvTDist}, T::Type{<:AbstractFloat}, n_params::Integer, df = one(T))
-    Σ = PDMat(full(ScalMat(n_params, one(T))))
+    Σ = PDMat(full(ScalMat(n_params, (1 / 50) * one(T))))
     zeromean = true
     μ = fill(zero(T), n_params)
     M = typeof(Σ)
