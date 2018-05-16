@@ -166,6 +166,7 @@ function mcmc_tune_burnin!(
     tuners::AbstractVector{<:AbstractMCMCTuner},
     convergence_test::MCMCConvergenceTest,
     burnin_strategy::MCMCBurninStrategy,
+    lol::AbstractArray{Bool},
     exec_context::ExecContext;
     strict_mode::Bool = false,
     ll::LogLevel = LOG_INFO
@@ -207,6 +208,7 @@ function mcmc_tune_burnin!(
         @log_msg ll "MCMC tuning of $nchains chains successful after $cycles cycle(s)."
     else
         msg = "MCMC tuning of $nchains chains aborted after $cycles cycle(s)."
+        lol[1] = false
         if strict_mode
             error(msg)
         else

@@ -26,7 +26,7 @@ function _tjl_multipropT1!(P_T1::AbstractVector{<:AbstractFloat}, pdist::Generic
     normalize!(P_T1, 1)
     # @assert !any(isnan, P_T1)
     @assert sum(P_T1) ≈ 1
-    println("T1 transitions are : $P_T1")
+    #println("T1 transitions are : $P_T1")
     P_T1
 end
 
@@ -62,7 +62,7 @@ function _tjl_multipropT2!(P_T2::AbstractVector{<:AbstractFloat}, P_T1::Abstract
             done = true
         else
             u = _tjl_min_u(P_sub)
-            println("The u_min is : $u")
+            #println("The u_min is : $u")
             _tjl_update_sub_P!(P_sub, u)
         end
     end
@@ -70,7 +70,7 @@ function _tjl_multipropT2!(P_T2::AbstractVector{<:AbstractFloat}, P_T1::Abstract
     assert(sum(P_T2) ≈ 1)
     normalize!(P_T2, 1)
     #@log_msg 1 "The weights are : $P_T2"
-    println("T2 transitions are : $P_T2")
+    #println("T2 transitions are : $P_T2")
 end
 
 

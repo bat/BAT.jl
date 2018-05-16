@@ -13,6 +13,7 @@ function Base.rand!(
     convergence_test::MCMCConvergenceTest,
     init_strategy::MCMCInitStrategy,
     burnin_strategy::MCMCBurninStrategy,
+    lol::AbstractArray{Bool},
     exec_context::ExecContext;
     max_nsteps::Int64 = Int64(100 * nsamples),
     max_time::Float64 = Inf,
@@ -37,6 +38,7 @@ function Base.rand!(
         tuners,
         convergence_test,
         burnin_strategy,
+        lol,
         exec_context;
         strict_mode = strict_mode,
         ll = ll
@@ -101,6 +103,7 @@ function Base.rand(
     chainspec::MCMCSpec,
     nsamples::Integer,
     nchains::Integer,
+    lol::AbstractArray{Bool},
     exec_context::ExecContext = ExecContext();
     tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
     convergence_test::MCMCConvergenceTest = BGConvergence(),
@@ -125,6 +128,7 @@ function Base.rand(
         convergence_test,
         init_strategy,
         burnin_strategy,
+        lol,
         exec_context;
         kwargs...
     )

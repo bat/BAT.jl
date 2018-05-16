@@ -104,7 +104,7 @@ function tuning_update!(tuner::ProposalCovTuner; ll::LogLevel = LOG_NONE)
     new_Σ_unscal = (1 - a_t) * (Σ_old/c) + a_t * S
 
     α = eff_acceptance_ratio(state)
-    @log_msg ll "Tuner scale before tuning is = $(tuner.scale)"
+    #@log_msg ll "Tuner scale before tuning is = $(tuner.scale)"
 
     if α_min <= α <= α_max
         chain.tuned = true
@@ -118,7 +118,7 @@ function tuning_update!(tuner::ProposalCovTuner; ll::LogLevel = LOG_NONE)
         elseif α < α_min && c > c_min
             tuner.scale = c / β
         end
-    @log_msg ll "Tuner scale after tuning is = $(tuner.scale)"
+    #@log_msg ll "Tuner scale after tuning is = $(tuner.scale)"
     end
 
     Σ_new = full(Hermitian(new_Σ_unscal * tuner.scale))
@@ -135,7 +135,7 @@ function tuning_update!(tuner::ProposalCovTuner; ll::LogLevel = LOG_NONE)
     next_cycle!(chain)
     state.pdist = set_cov(state.pdist, Σ_new)
     tuner.iteration += 1
-    println("This is the scaled sigma $Σ_new")
+    #println("This is the scaled sigma $Σ_new")
     chain
 end
 
