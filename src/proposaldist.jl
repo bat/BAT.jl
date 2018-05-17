@@ -188,6 +188,48 @@ Base.issymmetric(pdist::GenericProposalDist) = issymmetric_around_origin(pdist.d
 
 
 
+struct GenericUvProposalDist{D<:Distribution{Univariate},T<:Real,SamplerF,S<:Sampleable} <: AbstractProposalDist
+    d::D
+    scale::Vector{T}
+    sampler_f::SamplerF
+    s::S
+end
+
+export GenericUvProposalDist
+
+GenericUvProposalDist(d::Distribution{Univariate}, scale::Vector{<:AbstractFloat}, samplerF) =
+    GenericUvProposalDist(d, scale, samplerF, samplerF(d))
+
+GenericUvProposalDist(d::Distribution{Univariate}, scale::Vector{<:AbstractFloat}) =
+    GenericUvProposalDist(d, scale, bat_sampler)
+
+
+BAT.nparams(pdist::GenericUvProposalDist) = size(pdist.scale, 1)
+
+Base.issymmetric(pdist::GenericUvProposalDist) = issymmetric_around_origin(pdist.d)
+
+function BAT.distribution_logpdf(
+    pdist::GenericUvProposalDist,
+    params_new::AbstractVecOrMat,
+    params_old::AbstractVecOrMat
+)
+    params_diff = (params_new .- params_old) ./ pdist.scale  # TODO: Avoid memory allocation
+    sum_first_dim(Distributions.logpdf.(pdist.d, params_diff))  # TODO: Avoid memory allocation
+end
+
+function BAT.proposal_rand!(
+    rng::AbstractRNG,
+    pdist::GenericUvProposalDist,
+    params_new::AbstractVector,
+    params_old::AbstractVector
+)
+    params_new .= params_old
+    dim = rand(rng, eachindex(pdist.scale))
+    params_new[dim] += pdist.scale[dim] * rand(rng, pdist.s)
+    params_new
+end
+
+
 
 abstract type ProposalDistSpec end
 
@@ -214,3 +256,13 @@ function GenericProposalDist(::Type{MvTDist}, T::Type{<:AbstractFloat}, n_params
     d = Distributions.GenericMvTDist{T,M}(convert(T, df), n_params, zeromean, μ, Σ)
     GenericProposalDist(d)
 end
+
+
+struct UvTDistProposalSpec <: ProposalDistSpec
+    df::Float64
+end
+
+export UvTDistProposalSpec
+
+(ps::UvTDistProposalSpec)(T::Type{<:AbstractFloat}, n_params::Integer) =
+    GenericUvProposalDist(TDist(convert(T, ps.df)), fill(one(T), n_params))
