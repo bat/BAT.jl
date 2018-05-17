@@ -109,7 +109,7 @@ function _rand_gamma_mt(rng::AbstractRNG, ::Type{T}, shape::Real) where {T<:Real
     α = T(shape)
 
     if (α <= 1)
-        return _rand_gamma_mt(rng, T, α + 1) * rand(rng, T)^(1/α)
+        return _rand_gamma_mt(rng, T, α + 1) * convert(T, rand(rng))^(1/α)
     else
         k = T(3)
         d = α - 1/k;
@@ -120,7 +120,7 @@ function _rand_gamma_mt(rng::AbstractRNG, ::Type{T}, shape::Real) where {T<:Real
             cx1 = c*x + 1
             if (0 < cx1)  # -1/c < x
                 h_x = d * cx1^3  # hx(x) = d * (1 + c*x)^3
-                u = rand(rng, T);
+                u = convert(T, rand(rng));
 
                 v = cx1^3;
                 dv = d*v  # == h(x) = d * (1 + c*x)^3
