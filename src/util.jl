@@ -87,6 +87,15 @@ Base.@propagate_inbounds function sum_first_dim(A::AbstractArray, j::Integer, ks
 end
 
 
+doc"""
+    @propagate_inbounds sum_first_dim(A::AbstractArray)
+
+If `A` is a vector, return `sum(A)`, else `sum(A, 1)[:]`.
+"""
+sum_first_dim(A::AbstractArray) = sum(A, 1)[:]
+sum_first_dim(A::AbstractVector) = sum(A)
+
+
 const SingleArrayIndex = Union{Integer, CartesianIndex}
 
 
