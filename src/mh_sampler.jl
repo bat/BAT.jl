@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-mutable struct AcceptRejectState{
+mutable struct MHState{
     Q<:AbstractProposalDist,
     S<:DensitySample
 } <: AbstractMCMCState
@@ -13,7 +13,7 @@ mutable struct AcceptRejectState{
     nsteps::Int64
 end
 
-function AcceptRejectState(
+function MHState(
     pdist::AbstractProposalDist,
     current_sample::DensitySample
 )
@@ -23,7 +23,7 @@ function AcceptRejectState(
         zero(current_sample.weight)
     )
 
-    AcceptRejectState(
+    MHState(
         pdist,
         current_sample,
         proposed_sample,
@@ -35,16 +35,16 @@ function AcceptRejectState(
 end
 
 
-nparams(state::AcceptRejectState) = nparams(state.pdist)
+nparams(state::MHState) = nparams(state.pdist)
 
-nsteps(state::AcceptRejectState) = state.nsteps
+nsteps(state::MHState) = state.nsteps
 
-nsamples(state::AcceptRejectState) = state.nsamples
+nsamples(state::MHState) = state.nsamples
 
-eff_acceptance_ratio(state::AcceptRejectState) = nsamples(state) / nsteps(state)
+eff_acceptance_ratio(state::MHState) = nsamples(state) / nsteps(state)
 
 
-function next_cycle!(state::AcceptRejectState)
+function next_cycle!(state::MHState)
     state.current_sample.weight = one(state.current_sample.weight)
     state.nsamples = zero(Int64)
     state.nsteps = zero(Int64)
@@ -52,14 +52,14 @@ function next_cycle!(state::AcceptRejectState)
 end
 
 
-density_sample_type(state::AcceptRejectState{Q,S}) where {Q,S} = S
+density_sample_type(state::MHState{Q,S}) where {Q,S} = S
 
 
-_accrej_current_sample(state::AcceptRejectState) =
+_accrej_current_sample(state::MHState) =
     ifelse(state.proposal_accepted, state.current_sample, state.proposed_sample)
 
 
-function nsamples_available(chain::MCMCIterator{<:MCMCAlgorithm{AcceptRejectState}}, nonzero_weights::Bool = false)
+function nsamples_available(chain::MCMCIterator{<:MCMCAlgorithm{MHState}}, nonzero_weights::Bool = false)
     if nonzero_weights
         (_accrej_current_sample(chain.state).weight > 0) ? 1 : 0
     else
@@ -68,7 +68,7 @@ function nsamples_available(chain::MCMCIterator{<:MCMCAlgorithm{AcceptRejectStat
 end
 
 
-function get_samples!(appendable, chain::MCMCIterator{<:MCMCAlgorithm{AcceptRejectState}}, nonzero_weights::Bool)::typeof(appendable)
+function get_samples!(appendable, chain::MCMCIterator{<:MCMCAlgorithm{MHState}}, nonzero_weights::Bool)::typeof(appendable)
     sample = _accrej_current_sample(chain.state)
     if (!nonzero_weights || sample.weight > 0)
         push!(appendable, sample)
@@ -77,7 +77,7 @@ function get_samples!(appendable, chain::MCMCIterator{<:MCMCAlgorithm{AcceptReje
 end
 
 
-function get_sample_ids!(appendable, chain::MCMCIterator{<:MCMCAlgorithm{AcceptRejectState}}, nonzero_weights::Bool)::typeof(appendable)
+function get_sample_ids!(appendable, chain::MCMCIterator{<:MCMCAlgorithm{MHState}}, nonzero_weights::Bool)::typeof(appendable)
     state = chain.state
     sample = _accrej_current_sample(state)
     if (!nonzero_weights || sample.weight > 0)
@@ -90,7 +90,7 @@ end
 
 
 function MCMCIterator(
-    algorithm::MCMCAlgorithm{AcceptRejectState},
+    algorithm::MCMCAlgorithm{MHState},
     likelihood::AbstractDensity,
     prior::AbstractDensity,
     id::Int64,
@@ -130,7 +130,7 @@ function MCMCIterator(
         zero(W)
     )
 
-    state = AcceptRejectState(
+    state = MHState(
         algorithm,
         target,
         current_sample
@@ -151,13 +151,13 @@ function MCMCIterator(
 end
 
 
-exec_capabilities(mcmc_step!, callback::AbstractMCMCCallback, chain::MCMCIterator{<:MCMCAlgorithm{AcceptRejectState}}) =
+exec_capabilities(mcmc_step!, callback::AbstractMCMCCallback, chain::MCMCIterator{<:MCMCAlgorithm{MHState}}) =
     exec_capabilities(density_logval, chain.target, chain.state.proposed_sample.params)
 
 
 function mcmc_step!(
     callback::AbstractMCMCCallback,
-    chain::MCMCIterator{<:MCMCAlgorithm{AcceptRejectState}},
+    chain::MCMCIterator{<:MCMCAlgorithm{MHState}},
     exec_context::ExecContext,
     ll::LogLevel
 )
@@ -205,7 +205,7 @@ struct MetropolisHastings{
     Q<:ProposalDistSpec,
     W<:Real,
     WS<:MHWeightingScheme{W}
-} <: MCMCAlgorithm{AcceptRejectState}
+} <: MCMCAlgorithm{MHState}
     q::Q
     weighting_scheme::WS
 end
@@ -233,12 +233,12 @@ mcmc_compatible(::MetropolisHastings, pdist::AbstractProposalDist, bounds::Hyper
 sample_weight_type(::Type{MetropolisHastings{Q,W,WS}}) where {Q,W,WS} = W
 
 
-function AcceptRejectState(
+function MHState(
     algorithm::MetropolisHastings,
     target::AbstractDensity,
     current_sample::DensitySample{P,T,W}
 ) where {P,T,W}
-    AcceptRejectState(
+    MHState(
         algorithm.q(P, nparams(current_sample)),
         current_sample
     )
