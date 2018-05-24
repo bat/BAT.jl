@@ -73,6 +73,21 @@ using Distributions, PDMats, StatsBase
 
         @test isapprox(mean_samples, mvec; atol = 0.2)
         @test isapprox(cov_samples, cmat; atol = 0.5)
-        
+
+        algorithmDS = @inferred DirectSampling()
+        @test BAT.mcmc_compatible(algorithmDS, GenericProposalDist(mv_dist), NoParamBounds(2))
+        samples, sampleids, stats = @inferred rand(
+            MCMCSpec(algorithmDS, density, bounds),
+            nsamples_per_chain,
+            nchains,
+            max_time = Inf,
+            granularity = 1
+        )
+
+        cov_samples = cov(samples.params, FrequencyWeights(samples.weight), 2; corrected=true)
+        mean_samples = mean(Array(samples.params), FrequencyWeights(samples.weight), 2)
+
+        @test isapprox(mean_samples, mvec; atol = 0.2)
+        @test isapprox(cov_samples, cmat; atol = 0.5)
     end
 end
