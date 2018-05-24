@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-mutable struct DirectSamplerState{
+mutable struct DirectSamplingState{
     Q<:AbstractProposalDist,
     S<:DensitySample
 } <: AbstractMCMCState
@@ -13,7 +13,7 @@ mutable struct DirectSamplerState{
     nsteps::Int64
 end
 
-function DirectSamplerState(
+function DirectSamplingState(
     pdist::AbstractProposalDist,
     current_sample::DensitySample
 )
@@ -23,7 +23,7 @@ function DirectSamplerState(
         zero(current_sample.weight)
     )
 
-    DirectSamplerState(
+    DirectSamplingState(
         pdist,
         current_sample,
         proposed_sample,
@@ -35,16 +35,16 @@ function DirectSamplerState(
 end
 
 
-nparams(state::DirectSamplerState) = nparams(state.pdist)
+nparams(state::DirectSamplingState) = nparams(state.pdist)
 
-nsteps(state::DirectSamplerState) = state.nsteps
+nsteps(state::DirectSamplingState) = state.nsteps
 
-nsamples(state::DirectSamplerState) = state.nsamples
+nsamples(state::DirectSamplingState) = state.nsamples
 
-eff_acceptance_ratio(state::DirectSamplerState) = nsamples(state) / nsteps(state)
+eff_acceptance_ratio(state::DirectSamplingState) = nsamples(state) / nsteps(state)
 
 
-function next_cycle!(state::DirectSamplerState)
+function next_cycle!(state::DirectSamplingState)
     state.current_sample.weight = one(state.current_sample.weight)
     state.nsamples = zero(Int64)
     state.nsteps = zero(Int64)
@@ -52,14 +52,14 @@ function next_cycle!(state::DirectSamplerState)
 end
 
 
-density_sample_type(state::DirectSamplerState{Q,S}) where {Q,S} = S
+density_sample_type(state::DirectSamplingState{Q,S}) where {Q,S} = S
 
 
-_accrej_current_sample(state::DirectSamplerState) =
+_accrej_current_sample(state::DirectSamplingState) =
     ifelse(state.proposal_accepted, state.current_sample, state.proposed_sample)
 
 
-function nsamples_available(chain::MCMCIterator{<:MCMCAlgorithm{DirectSamplerState}}, nonzero_weights::Bool = false)
+function nsamples_available(chain::MCMCIterator{<:MCMCAlgorithm{DirectSamplingState}}, nonzero_weights::Bool = false)
     if nonzero_weights
         (_accrej_current_sample(chain.state).weight > 0) ? 1 : 0
     else
@@ -68,7 +68,7 @@ function nsamples_available(chain::MCMCIterator{<:MCMCAlgorithm{DirectSamplerSta
 end
 
 
-function get_samples!(appendable, chain::MCMCIterator{<:MCMCAlgorithm{DirectSamplerState}}, nonzero_weights::Bool)::typeof(appendable)
+function get_samples!(appendable, chain::MCMCIterator{<:MCMCAlgorithm{DirectSamplingState}}, nonzero_weights::Bool)::typeof(appendable)
     sample = _accrej_current_sample(chain.state)
     if (!nonzero_weights || sample.weight > 0)
         push!(appendable, sample)
@@ -77,7 +77,7 @@ function get_samples!(appendable, chain::MCMCIterator{<:MCMCAlgorithm{DirectSamp
 end
 
 
-function get_sample_ids!(appendable, chain::MCMCIterator{<:MCMCAlgorithm{DirectSamplerState}}, nonzero_weights::Bool)::typeof(appendable)
+function get_sample_ids!(appendable, chain::MCMCIterator{<:MCMCAlgorithm{DirectSamplingState}}, nonzero_weights::Bool)::typeof(appendable)
     state = chain.state
     sample = _accrej_current_sample(state)
     if (!nonzero_weights || sample.weight > 0)
@@ -90,7 +90,7 @@ end
 
 
 function MCMCIterator(
-    algorithm::MCMCAlgorithm{DirectSamplerState},
+    algorithm::MCMCAlgorithm{DirectSamplingState},
     likelihood::AbstractDensity,
     prior::AbstractDensity,
     id::Int64,
@@ -130,7 +130,7 @@ function MCMCIterator(
         zero(W)
     )
 
-    state = DirectSamplerState(
+    state = DirectSamplingState(
         algorithm,
         target,
         current_sample
@@ -151,13 +151,13 @@ function MCMCIterator(
 end
 
 
-exec_capabilities(mcmc_step!, callback::AbstractMCMCCallback, chain::MCMCIterator{<:MCMCAlgorithm{DirectSamplerState}}) =
+exec_capabilities(mcmc_step!, callback::AbstractMCMCCallback, chain::MCMCIterator{<:MCMCAlgorithm{DirectSamplingState}}) =
     exec_capabilities(density_logval, chain.target, chain.state.proposed_sample.params)
 
 
 function mcmc_step!(
     callback::AbstractMCMCCallback,
-    chain::MCMCIterator{<:MCMCAlgorithm{DirectSamplerState}},
+    chain::MCMCIterator{<:MCMCAlgorithm{DirectSamplingState}},
     exec_context::ExecContext,
     ll::LogLevel
 )
@@ -186,7 +186,7 @@ function mcmc_step!(
 end
 
 
-struct DirectSampling <: MCMCAlgorithm{DirectSamplerState} end
+struct DirectSampling <: MCMCAlgorithm{DirectSamplingState} end
 export DirectSampling
 
 
@@ -204,12 +204,12 @@ AbstractMCMCTunerConfig(algorithm::DirectSampling) = NoOpTunerConfig()
 sample_weight_type(::Type{DirectSampling}) = Int
 
 
-function DirectSamplerState(
+function DirectSamplingState(
     algorithm::DirectSampling,
     target::BAT.DensityProduct{2,<:Tuple{MvDistDensity, ConstDensity}},
     current_sample::DensitySample{P,T,W}
 ) where {P,T,W}
-    DirectSamplerState(
+    DirectSamplingState(
         GenericProposalDist(parent(target)[1].d),
         current_sample
     )
