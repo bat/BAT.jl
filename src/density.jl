@@ -85,7 +85,9 @@ function density_logval(
     exec_context::ExecContext = ExecContext()
 )
     !(size(params, 1) == nparams(density)) && throw(ArgumentError("Invalid length of parameter vector"))
-    unsafe_density_logval(density, params, exec_context)
+    r = unsafe_density_logval(density, params, exec_context)
+    isnan(r) && throw(ErrorException("Return value of unsafe_density_logval must not be NaN"))
+    r
 end
 export density_logval
 
@@ -162,6 +164,8 @@ function density_logval!(
     !(size(params, 1) == nparams(density)) && throw(ArgumentError("Invalid length of parameter vector"))
     !(indices(params, 2) == indices(r, 1)) && throw(ArgumentError("Number of parameter vectors doesn't match length of result vector"))
     unsafe_density_logval!(r, density, params, exec_context)
+    any(isnan, r) && throw(ErrorException("unsafe_density_logval! must not set any return value to NaN"))
+    r
 end
 export density_logval!
 
