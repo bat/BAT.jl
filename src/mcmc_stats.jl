@@ -69,6 +69,7 @@ function Base.append!(stats::MCMCBasicStats, sv::DensitySampleVector)
         push!(stats.logtf_stats, sv.log_value[i], sv.weight[i])
         stats
     end
+    stats
 end
 
 
