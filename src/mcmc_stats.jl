@@ -49,6 +49,11 @@ end
 
 MCMCBasicStats(chain::MCMCIterator) = MCMCBasicStats(density_sample_type(chain.state), nparams(chain.state))
 
+function MCMCBasicStats(sv::DensitySampleVector)
+    stats = MCMCBasicStats(eltype(sv), size(sv.params, 1))
+    append!(stats, sv)
+end
+
 
 function Base.push!(stats::MCMCBasicStats, s::DensitySample)
     push!(stats.param_stats, s.params, s.weight)
