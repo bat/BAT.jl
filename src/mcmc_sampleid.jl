@@ -83,3 +83,23 @@ Base.convert(::Type{AbstractMCMCCallback}, x::MCMCSampleIDVector) = MCMCAppendCa
 
 MCMCAppendCallback(x::MCMCSampleIDVector, nonzero_weights::Bool = true) =
     MCMCAppendCallback(x, 1, get_sample_ids!, nonzero_weights)
+
+
+
+function read_fom_hdf5(input, ::Type{MCMCSampleIDVector})
+    MCMCSampleIDVector(
+        input["chainid"][:],
+        input["chaincycle"][:],
+        input["stepno"][:],
+        input["sampletype"][:],
+    )
+end
+
+
+function write_to_hdf5(output, sampleids::MCMCSampleIDVector)
+    output["chainid"] = sampleids.chainid
+    output["chaincycle"] = sampleids.chaincycle
+    output["stepno"] = sampleids.stepno
+    output["sampletype"] = sampleids.sampletype
+    nothing
+end

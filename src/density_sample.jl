@@ -123,3 +123,20 @@ function _swap!(A::DensitySampleVector, i_A::SingleArrayIndex, B::DensitySampleV
     _swap!(A.weight, i_A, B.weight, i_B)
     A
 end
+
+
+function read_fom_hdf5(input, ::Type{DensitySampleVector})
+    DensitySampleVector(
+        input["params"][:,:],
+        input["log_value"][:],
+        input["weight"][:]
+    )
+end
+
+
+function write_to_hdf5(output, samples::DensitySampleVector)
+    output["params"] = Array(samples.params)
+    output["log_value"] = samples.log_value
+    output["weight"] = samples.weight
+    nothing
+end
