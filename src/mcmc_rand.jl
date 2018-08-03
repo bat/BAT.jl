@@ -5,7 +5,7 @@
 # TODO: Fix granularity forwarding
 
 function Base.rand!(
-    result::Tuple{DensitySampleVector, MCMCSampleIDVector, MCMCBasicStats},
+    result::Tuple{DensitySampleVector, MCMCSampleIDVector, MCMCBasicStats, AbstractVector{<:MCMCIterator}},
     chainspec::MCMCSpec,
     nsamples::Integer,
     nchains::Integer,
@@ -20,7 +20,7 @@ function Base.rand!(
     strict_mode::Bool = false,
     ll::LogLevel = LOG_INFO,
 )
-    result_samples, result_sampleids, result_stats = result
+    result_samples, result_sampleids, result_stats, result_chains = result
 
     tuners = mcmc_init(
         chainspec,
@@ -79,6 +79,8 @@ function Base.rand!(
         merge!(result_stats, x)
     end
 
+    append!(result_chains, chains)
+
     result
 end
 
@@ -110,7 +112,8 @@ function Base.rand(
     result = (
         DensitySampleVector(dummy_chain),
         MCMCSampleIDVector(dummy_chain),
-        MCMCBasicStats(dummy_chain)
+        MCMCBasicStats(dummy_chain),
+        Vector{typeof(dummy_chain)}()
     )
 
     rand!(
