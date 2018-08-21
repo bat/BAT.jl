@@ -80,6 +80,7 @@ end
 
 nparams(stats::MCMCBasicStats) = stats.param_stats.m
 
+nsamples(stats::MCMCBasicStats) = stats.param_stats.cov.sum_w
 
 function Base.merge!(target::MCMCBasicStats, others::MCMCBasicStats...)
     for x in others
