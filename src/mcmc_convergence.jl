@@ -36,13 +36,45 @@ end
 
 
 doc"""
+    GRConvergence
+
+Gelman-Rubin $maximum(R^2)$ convergence test.
+"""
+struct GRConvergence <: MCMCConvergenceTest
+    threshold::Float64
+end
+
+GRConvergence() = GRConvergence(1.1)
+
+export GRConvergence
+
+
+struct GRConvergenceResult <: MCMCConvergenceTestResult
+    converged::Bool
+    max_Rsqr::Float64
+end
+
+
+function check_convergence(ct::GRConvergence, stats::AbstractVector{<:MCMCBasicStats}; ll::LogLevel = LOG_NONE)
+    max_Rsqr = maximum(gr_Rsqr(stats))
+    converged = max_Rsqr <= ct.threshold
+    @log_msg ll begin
+        success_str = converged ? "have" : "have *not*"
+        "Chains $success_str converged, max(R^2) = $(max_Rsqr), threshold = $(ct.threshold)"
+    end
+    GRConvergenceResult(converged, max_Rsqr)
+end
+
+
+
+doc"""
     bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats})
 
 Brooks-Gelman $R_2^2$ for all parameters.
 If normality is assumed, 'corrected' should be set to true to account for the sampling variability.
 """
 function bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats},
-                  corrected::Bool=true)
+                  corrected::Bool=false)
     
     p = nparams(first(stats))
     m = length(stats)
@@ -78,29 +110,27 @@ end
 
 
 
-
-
 doc"""
-    GRConvergence
+    BGConvergence
 
-Gelman-Rubin $maximum(R^2)$ convergence test.
+Brooks-Gelman $maximum(R^2)$ convergence test.
 """
-struct GRConvergence <: MCMCConvergenceTest
+struct BGConvergence <: MCMCConvergenceTest
     threshold::Float64
 end
 
-GRConvergence() = GRConvergence(1.1)
+BGConvergence() = BGConvergence(1.1)
 
-export GRConvergence
+export BGConvergence
 
 
-struct GRConvergenceResult <: MCMCConvergenceTestResult
+struct BGConvergenceResult <: MCMCConvergenceTestResult
     converged::Bool
     max_Rsqr::Float64
 end
 
 
-function check_convergence(ct::GRConvergence, stats::AbstractVector{<:MCMCBasicStats}; ll::LogLevel = LOG_NONE)
+function check_convergence(ct::BGConvergence, stats::AbstractVector{<:MCMCBasicStats}; ll::LogLevel = LOG_NONE)
     max_Rsqr = maximum(bg_R_2sqr(stats))
     converged = max_Rsqr <= ct.threshold
     @log_msg ll begin
