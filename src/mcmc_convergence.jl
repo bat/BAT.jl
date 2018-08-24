@@ -78,7 +78,7 @@ function bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats},
     
     p = nparams(first(stats))
     m = length(stats)
-    n = Float64(mean(nsamples.(stats)))
+    n = mean(Float64.(nsamples.(stats)))
     
     σ_W = var([cs.param_stats.cov[i,i] for cs in stats, i in 1:p], 1)[:]
     B  = var([cs.param_stats.mean[i] for cs in stats, i in 1:p], 1)[:]
