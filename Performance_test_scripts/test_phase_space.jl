@@ -14,10 +14,10 @@ using JLD
 using BAT.Logging
 
 
-α_vec = collect(0.1:0.5:1.0)
-m_vec = collect(10:5:10)
-df_vec = collect(1.0:1.0:1.0)
-iter = collect(1:1:25)
+α_vec = collect(0.1:0.1:1.0)
+m_vec = collect(2:4:20)
+df_vec = collect(1.0:10.0:1.0)
+iter = collect(1:1:1)
 
 #α_vec = collect(1:1:3)
 #m_vec = collect(1:5:16)

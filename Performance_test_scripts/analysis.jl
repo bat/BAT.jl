@@ -19,10 +19,10 @@ using BAT.Logging
 #df_vec = collect(1.0:10.0:51.0)
 #iter = collect(1:1:50)
 
-α_vec = collect(0.1:0.1:1.0)
-m_vec = collect(1:10:51)
+α_vec = collect(0.6:0.5:0.6)
+m_vec = collect(10:5:10)
 df_vec = collect(1.0:1.0:1.0)
-iter = collect(1:1:25)
+iter = collect(1:1:2)
 
 n = size(iter, 1)
 
@@ -65,7 +65,7 @@ best_mean_dim1 = minimum(se_mean[:, :, :, 1])
 best_mean_dim2 = minimum(se_mean[:, :, :, 2])
 
 ind_best_mean_dim1 = ind2sub(se_mean[:, :, :, 1], indmin(se_mean[:, :, :, 1]))
-ind_best_mean_dim1 = ind2sub(se_mean[:, :, :, 1], indmin(se_mean[:, :, :, 1]))
+ind_best_mean_dim2 = ind2sub(se_mean[:, :, :, 2], indmin(se_mean[:, :, :, 2]))
 
 best_cov_dim11 = minimum(se_cov[:, :, :, 1, 1])
 best_cov_dim12 = minimum(se_cov[:, :, :, 1, 2])

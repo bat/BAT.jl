@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-mutable struct GeneralizedMHState{
+mutable struct MTMState{
     Q<:AbstractProposalDist,
     SV<:DensitySampleVector,
     IV<:MCMCSampleIDVector
@@ -14,7 +14,7 @@ mutable struct GeneralizedMHState{
     nsteps::Int64
 end
 
-function GeneralizedMHState(
+function MTMState(
     pdist::AbstractProposalDist,
     current_sample::DensitySample{P,T,W},
     nproposals::Int
@@ -42,7 +42,7 @@ function GeneralizedMHState(
     nsamples = 0
     nsteps = 0
 
-    GeneralizedMHState(
+    MTMState(
         pdist,
         samples,
         sampleids,
@@ -53,16 +53,16 @@ function GeneralizedMHState(
 end
 
 
-nparams(state::GeneralizedMHState) = nparams(state.pdist)
+nparams(state::MTMState) = nparams(state.pdist)
 
-nsteps(state::GeneralizedMHState) = state.nsteps
+nsteps(state::MTMState) = state.nsteps
 
-nsamples(state::GeneralizedMHState) = state.nsamples
+nsamples(state::MTMState) = state.nsamples
 
-eff_acceptance_ratio(state::GeneralizedMHState) = Float64(state.eff_acceptratio_sum / state.nsteps)
+eff_acceptance_ratio(state::MTMState) = Float64(state.eff_acceptratio_sum / state.nsteps)
 
 
-function next_cycle!(state::GeneralizedMHState)
+function next_cycle!(state::MTMState)
     state.samples.weight[1] = one(eltype(state.samples.weight))
     state.eff_acceptratio_sum = zero(state.eff_acceptratio_sum)
     state.nsamples = zero(state.nsamples)
@@ -71,10 +71,10 @@ function next_cycle!(state::GeneralizedMHState)
 end
 
 
-density_sample_type(state::GeneralizedMHState) = eltype(state.samples)
+density_sample_type(state::MTMState) = eltype(state.samples)
 
 
-function MCMCBasicStats(state::GeneralizedMHState)
+function MCMCBasicStats(state::MTMState)
     L = promote_type(eltype(state.samples.log_value), Float64)
     P = promote_type(eltype(state.samples.params), Float64)
     m = nparams(state)
@@ -82,14 +82,14 @@ function MCMCBasicStats(state::GeneralizedMHState)
 end
 
 
-function nsamples_available(state::GeneralizedMHState; nonzero_weights::Bool = false)
+function nsamples_available(state::MTMState; nonzero_weights::Bool = false)
     # ignore nonzero_weights for now
     # ToDo: Handle this properly
     length(state.samples)
 end
 
 
-function Base.append!(xs::DensitySampleVector, state::GeneralizedMHState)
+function Base.append!(xs::DensitySampleVector, state::MTMState)
     if nsamples_available(state) > 0
         new_samples = view(state.samples, (firstindex(state.samples) + 1):lastindex(state.samples))  # Memory allocation!
         append!(xs, new_samples)
@@ -98,7 +98,7 @@ function Base.append!(xs::DensitySampleVector, state::GeneralizedMHState)
 end
 
 
-function nsamples_available(chain::MCMCIterator{<:MCMCAlgorithm{GeneralizedMHState}}, nonzero_weights::Bool = false)
+function nsamples_available(chain::MCMCIterator{<:MCMCAlgorithm{MTMState}}, nonzero_weights::Bool = false)
     weight = mh_view_proposed(chain.state.samples.weight)  # Memory allocation!
     if nonzero_weights
         count(w -> w > 0, weight)
@@ -108,7 +108,7 @@ function nsamples_available(chain::MCMCIterator{<:MCMCAlgorithm{GeneralizedMHSta
 end
 
 
-function get_samples!(appendable, chain::MCMCIterator{<:MCMCAlgorithm{GeneralizedMHState}}, nonzero_weights::Bool)::typeof(appendable)
+function get_samples!(appendable, chain::MCMCIterator{<:MCMCAlgorithm{MTMState}}, nonzero_weights::Bool)::typeof(appendable)
     samples = mh_view_proposed(chain.state.samples)  # Memory allocation!
     if nonzero_weights
         idxs = find(w -> w > 0, samples.weight)  # Memory allocation!
@@ -121,7 +121,7 @@ function get_samples!(appendable, chain::MCMCIterator{<:MCMCAlgorithm{Generalize
 end
 
 
-function get_sample_ids!(appendable, chain::MCMCIterator{<:MCMCAlgorithm{GeneralizedMHState}}, nonzero_weights::Bool)::typeof(appendable)
+function get_sample_ids!(appendable, chain::MCMCIterator{<:MCMCAlgorithm{MTMState}}, nonzero_weights::Bool)::typeof(appendable)
     weight = mh_view_proposed(chain.state.samples.weight)  # Memory allocation!
     sampleids = mh_view_proposed(chain.state.sampleids)  # Memory allocation!
     if nonzero_weights
@@ -136,32 +136,32 @@ end
 
 
 
-struct GeneralizedMetropolisHastings{
+struct MultiTryMethod{
     Q<:ProposalDistSpec,
-} <: MCMCAlgorithm{GeneralizedMHState}
+} <: MCMCAlgorithm{MTMState}
     q::Q
     nproposals::Int
     optimize_pt::Bool
     eff_acceptratio_method::Int
 end
 
-export GeneralizedMetropolisHastings
+export MultiTryMethod
 
-GeneralizedMetropolisHastings(q::ProposalDistSpec = MvTDistProposalSpec(), nproposals::Int = 10, optimize_pt = Bool) =
-    GeneralizedMetropolisHastings(q, nproposals, optimize_pt, 1)
+MultiTryMethod(q::ProposalDistSpec = MvTDistProposalSpec(), nproposals::Int = 10, optimize_pt = Bool) =
+    MultiTryMethod(q, nproposals, optimize_pt, 1)
 
 
-mcmc_compatible(::GeneralizedMetropolisHastings, ::AbstractProposalDist, ::NoParamBounds) = true
+mcmc_compatible(::MultiTryMethod, ::AbstractProposalDist, ::NoParamBounds) = true
 
-mcmc_compatible(::GeneralizedMetropolisHastings, pdist::AbstractProposalDist, bounds::HyperRectBounds) =
+mcmc_compatible(::MultiTryMethod, pdist::AbstractProposalDist, bounds::HyperRectBounds) =
     issymmetric(pdist) || all(x -> x == hard_bounds, bounds.bt)
 
-sample_weight_type(::Type{<:GeneralizedMetropolisHastings}) = Float64  # ToDo: Allow for other floating point types
+sample_weight_type(::Type{<:MultiTryMethod}) = Float64  # ToDo: Allow for other floating point types
 
 
 
 function MCMCIterator(
-    algorithm::GeneralizedMetropolisHastings,
+    algorithm::MultiTryMethod,
     likelihood::AbstractDensity,
     prior::AbstractDensity,
     id::Int64,
@@ -196,7 +196,7 @@ function MCMCIterator(
         one(W)
     )
 
-    state = GeneralizedMHState(
+    state = MTMState(
         pdist,
         current_sample,
         algorithm.nproposals
@@ -217,13 +217,13 @@ function MCMCIterator(
 end
 
 
-exec_capabilities(mcmc_step!, callback::AbstractMCMCCallback, chain::MCMCIterator{<:MCMCAlgorithm{GeneralizedMHState}}) =
+exec_capabilities(mcmc_step!, callback::AbstractMCMCCallback, chain::MCMCIterator{<:MCMCAlgorithm{MTMState}}) =
     exec_capabilities(density_logval!, mh_view_proposed(chain.state.samples.log_value), chain.target, mh_view_proposed(chain.state.samples.params))
 
 
 function mcmc_step!(
     callback::AbstractMCMCCallback,
-    chain::MCMCIterator{<:MCMCAlgorithm{GeneralizedMHState}},
+    chain::MCMCIterator{<:MCMCAlgorithm{MTMState}},
     exec_context::ExecContext,
     ll::LogLevel
 )
