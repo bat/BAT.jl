@@ -103,7 +103,7 @@ function Base.rand(
     nchains::Integer,
     exec_context::ExecContext = ExecContext();
     tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
-    convergence_test::MCMCConvergenceTest = GRConvergence(),
+    convergence_test::MCMCConvergenceTest = BGConvergence(),
     init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config),
     burnin_strategy::MCMCBurninStrategy = MCMCBurninStrategy(tuner_config),
     kwargs...

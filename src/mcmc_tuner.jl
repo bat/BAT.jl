@@ -42,7 +42,7 @@ function mcmc_init(
     nchains::Int,
     exec_context::ExecContext = ExecContext(),
     tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
-    convergence_test::MCMCConvergenceTest = GRConvergence(),
+    convergence_test::MCMCConvergenceTest = BGConvergence(),
     init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config);
     ll::LogLevel = LOG_INFO
 )

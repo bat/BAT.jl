@@ -29,12 +29,12 @@ struct MCMCBasicStats{L<:Real,P<:Real} <: AbstractMCMCStats
     function MCMCBasicStats{L,P}(m::Integer) where {L<:Real,P<:Real}
         param_stats = BasicMvStatistics{P,FrequencyWeights}(m)
         logtf_stats = BasicUvStatistics{L,FrequencyWeights}()
-        mode = Vector{P}(size(param_stats.mean, 1))
+        mode = fill(oob(P), m)
 
         new{L,P}(
-            BasicMvStatistics{P,FrequencyWeights}(m),
-            BasicUvStatistics{L,FrequencyWeights}(),
-            fill(oob(P), m)
+            param_stats,
+            logtf_stats,
+            mode
         )
     end
 end
@@ -80,6 +80,7 @@ end
 
 nparams(stats::MCMCBasicStats) = stats.param_stats.m
 
+nsamples(stats::MCMCBasicStats) = stats.param_stats.cov.sum_w
 
 function Base.merge!(target::MCMCBasicStats, others::MCMCBasicStats...)
     for x in others
