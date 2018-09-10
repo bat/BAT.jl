@@ -29,7 +29,7 @@ struct MCMCBasicStats{L<:Real,P<:Real} <: AbstractMCMCStats
     function MCMCBasicStats{L,P}(m::Integer) where {L<:Real,P<:Real}
         param_stats = BasicMvStatistics{P,FrequencyWeights}(m)
         logtf_stats = BasicUvStatistics{L,FrequencyWeights}()
-        mode = Vector{P}(size(param_stats.mean, 1))
+        mode = fill(oob(P), m)
 
         new{L,P}(
             param_stats,
