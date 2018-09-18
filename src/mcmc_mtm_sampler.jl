@@ -162,7 +162,7 @@ struct MultiTryMethod{
     q::Q
     nproposals::Int
     optimize_pt::Bool
-    eff_acceptratio_method::Int
+    #eff_acceptratio_method::Int
 end
 
 export MultiTryMethod
@@ -416,15 +416,17 @@ function _MTM_accept_reject!(params::AbstractMatrix{<:Real}, weights::Vector{<:R
     firts_jump = sum(help_weights_1)
     second_jump = sum(help_weights_2)
 
-    p_accept = 0.
-
     p_accept = if fisrt_jump / second_jump > -Inf && fisrt_jump / second_jump < Inf
         clamp(first_jump / second_jump, 0., 1.)
+    else
+        0.
+    end
 
     threshold = rand(rng, eltype(cum_help_weight))
 
     if p_accept >= threshold
         weights[2] = 1.
+    end
 
     p_accept
 

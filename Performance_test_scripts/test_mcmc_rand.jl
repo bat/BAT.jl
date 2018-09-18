@@ -21,6 +21,7 @@ exec_context = ExecContext()
 #algorithm = MetropolisHastings(MHPosteriorFractionWeights{Float64}())
 
 algorithm = GeneralizedMetropolisHastings(MvTDistProposalSpec(1.0), 10, true, 2)
+algorithm = MultiTryMethod(MvTDistProposalSpec(1.0), 10, true)
 
 
 

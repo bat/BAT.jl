@@ -21,6 +21,8 @@ export ProposalCovTunerConfig
 AbstractMCMCTunerConfig(algorithm::MetropolisHastings) = ProposalCovTunerConfig()
 AbstractMCMCTunerConfig(algorithm::GeneralizedMetropolisHastings) = ProposalCovTunerConfig()
 AbstractMCMCTunerConfig(algorithm::GeneralizedMetropolisHastings, λ::Float64, α::IntervalSets.ClosedInterval{Float64}, β::Float64, c::IntervalSets.ClosedInterval{Float64}) = ProposalCovTunerConfig(λ, α, β, c)
+AbstractMCMCTunerConfig(algorithm::MultiTryMethod) = ProposalCovTunerConfig()
+AbstractMCMCTunerConfig(algorithm::MultiTryMethod, λ::Float64, α::IntervalSets.ClosedInterval{Float64}, β::Float64, c::IntervalSets.ClosedInterval{Float64}) = ProposalCovTunerConfig(λ, α, β, c)
 
 (config::ProposalCovTunerConfig)(chain::MCMCIterator{<:CovTunerCompatibleAlg}; init_proposal::Bool = true) =
     ProposalCovTuner(config, chain, init_proposal)
