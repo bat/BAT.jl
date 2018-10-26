@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-doc"""
+@doc """
     nparams(X::Union{AbstractParamBounds,MCMCIterator,...})
 
 Get the number of parameters of `X`.
@@ -50,7 +50,7 @@ end
 @inline float_iseven(n::T) where {T<:AbstractFloat} = (n - T(2) * floor((n + T(0.5)) * T(0.5))) < T(0.5)
 
 
-doc"""
+@doc """
     apply_bounds!(params::AbstractVector, bounds::AbstractParamBounds)
 
 Apply `bounds` to parameters `params`.
@@ -58,7 +58,7 @@ Apply `bounds` to parameters `params`.
 function apply_bounds! end
 
 
-doc"""
+@doc """
     apply_bounds(x::<:Real, lo::<:Real, hi::<:Real, boundary_type::BoundsType)
 
 Apply lower/upper bound `lo`/`hi` to value `x`. `boundary_type` may be
@@ -91,7 +91,7 @@ Apply lower/upper bound `lo`/`hi` to value `x`. `boundary_type` may be
     )
 end
 
-doc"""
+@doc """
     apply_bounds(x::Real, interval::ClosedInterval, boundary_type::BoundsType)
 
 Specify lower and upper bound via `interval`.
@@ -128,19 +128,19 @@ export ParamVolumeBounds
 Base.in(params::AbstractVector, bounds::ParamVolumeBounds) = in(params, bounds.vol)
 
 
-# Base.rand(rng::AbstractRNG, bounds::ParamVolumeBounds) =
+# Random.rand(rng::AbstractRNG, bounds::ParamVolumeBounds) =
 #     rand!(rng, bounds, Vector{float(eltype(bounds))}(nparams(bounds)))
 
-# Base.rand(rng::AbstractRNG, bounds::ParamVolumeBounds, n::Integer) =
+# Random.rand(rng::AbstractRNG, bounds::ParamVolumeBounds, n::Integer) =
 #     rand!(rng, bounds, Matrix{float(eltype(bounds))}(nparams(bounds), n))
 #
-# Base.rand!(rng::AbstractRNG, bounds::ParamVolumeBounds, x::StridedVecOrMat{<:Real}) = rand!(rng, spatialvolume(bounds), x)
+# Random.rand!(rng::AbstractRNG, bounds::ParamVolumeBounds, x::StridedVecOrMat{<:Real}) = rand!(rng, spatialvolume(bounds), x)
 
 
 nparams(b::ParamVolumeBounds) = ndims(b.vol)
 
 
-doc"""
+@doc """
     spatialvolume(b::ParamVolumeBounds)::SpatialVolume
 
 Returns the spatial volume that defines the parameter bounds.
@@ -155,7 +155,7 @@ struct HyperRectBounds{T<:Real} <: ParamVolumeBounds{T, HyperRectVolume{T}}
     bt::Vector{BoundsType}
 
     function HyperRectBounds{T}(vol::HyperRectVolume{T}, bt::Vector{BoundsType}) where {T<:Real}
-        indices(bt) != (1:ndims(vol),) && throw(ArgumentError("bt must have indices (1:ndims(vol),)"))
+        axes(bt) != (1:ndims(vol),) && throw(ArgumentError("bt must have indices (1:ndims(vol),)"))
         isempty(vol) && throw(ArgumentError("vol must not be empty"))
         new{T}(vol, bt)
     end
@@ -169,8 +169,12 @@ HyperRectBounds(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::BoundsType) wh
 HyperRectBounds(intervals::AbstractVector{<:ClosedInterval{<:Real}}, bt) = HyperRectBounds(minimum.(intervals), maximum.(intervals), bt)
 
 Base.similar(bounds::HyperRectBounds) = HyperRectBounds(
-    HyperRectVolume(zeros(bounds.vol.lo), ones(bounds.vol.hi)),
-    similar(bounds.bt))
+        HyperRectVolume(
+            fill!(similar(bounds.vol.lo), zero(eltype(bounds.vol.lo))),
+            fill!(similar(bounds.vol.hi), one(eltype(bounds.vol.hi)))
+        ),
+        similar(bounds.bt)
+    )
 
 Base.eltype(bounds::HyperRectBounds{T}) where {T} = T
 

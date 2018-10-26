@@ -31,7 +31,7 @@ export MCMCInitStrategy
 MCMCInitStrategy(tuner_config::AbstractMCMCTunerConfig) =
     MCMCInitStrategy()
 
-gen_tuners(ids::Range{<:Integer},
+gen_tuners(ids::AbstractRange{<:Integer},
     chainspec::MCMCSpec,
     exec_context::ExecContext,
     tuner_config::AbstractMCMCTunerConfig,
@@ -53,12 +53,12 @@ function mcmc_init(
 
     ncandidates = zero(Int64)
 
-    tuners = similar([tuner_config(chainspec(zero(Int64), exec_context), init_proposal = false)], zero(Int))
-    cycle = one(Int)
+    tuners = similar([tuner_config(chainspec(zero(Int64), exec_context), init_proposal = false)], zero(Int64))
+    cycle = one(Int64)
     while length(tuners) < min_nviable && ncandidates < max_ncandidates
         n = min(min_nviable, max_ncandidates - ncandidates)
         @log_msg ll+1 "Generating $n $(cycle > 1 ? "additional " : "")MCMC chain(s)."
-        new_tuners = gen_tuners(ncandidates + (one(Int64):n), chainspec, exec_context, tuner_config)
+        new_tuners = gen_tuners(ncandidates .+ (one(Int64):n), chainspec, exec_context, tuner_config)
         ncandidates += n
 
         @log_msg ll+1 "Testing $(length(new_tuners)) MCMC chain(s)."
@@ -99,11 +99,11 @@ function mcmc_init(
     length(tuners) < min_nviable && error("Failed to generate $min_nviable viable MCMC chains")
 
     m = nchains
-    tidxs = linearindices(tuners)
+    tidxs = LinearIndices(tuners)
     n = length(tidxs)
 
     mode_1 = tuners[1].stats.mode
-    modes = Array{eltype(mode_1)}(length(mode_1), n)
+    modes = Array{eltype(mode_1)}(undef, length(mode_1), n)
     for i in tidxs
         modes[:,i] = tuners[i].stats.mode
     end
@@ -115,7 +115,7 @@ function mcmc_init(
         clusters.converged || error("k-means clustering of MCMC chains did not converge")
 
         mincosts = fill(Inf, m)
-        tuner_sel = fill(zero(Int), m)
+        tuner_sel = fill(zero(Int64), m)
 
         for i in tidxs
             j = clusters.assignments[i]
@@ -133,7 +133,7 @@ function mcmc_init(
     else
         @assert length(tuners) == nchains
         resize!(final_tuners, nchains)
-        copy!(final_tuners, tuners)
+        copyto!(final_tuners, tuners)
     end
 
 

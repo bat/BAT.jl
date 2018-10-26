@@ -3,16 +3,16 @@
 using Base: @propagate_inbounds
 
 
-doc"""
+@doc """
     OnlineUvMean{T<:AbstractFloat}
 
 Univariate mean implemented via Kahan-Babuška-Neumaier summation.
 """
 mutable struct OnlineUvMean{T<:AbstractFloat}
-    sum_v::Double{T}
-    sum_w::Double{T}
+    sum_v::DoubleFloat{T}
+    sum_w::DoubleFloat{T}
 
-    OnlineUvMean{T}() where {T<:AbstractFloat} = new{T}(zero(Double{T}), zero(Double{T}))
+    OnlineUvMean{T}() where {T<:AbstractFloat} = new{T}(zero(DoubleFloat{T}), zero(DoubleFloat{T}))
 
     OnlineUvMean{T}(sum_v::Real, sum_w::Real) where {T<:AbstractFloat} = new{T}(sum_v, sum_w)
 end
@@ -41,17 +41,17 @@ end
 
 
 @inline function _push_impl!(omn::OnlineUvMean{T}, data::Real, weight::Real) where {T}
-    # Workaround for lack of promotion between, e.g., Float32 and Double{Float64}
+    # Workaround for lack of promotion between, e.g., Float32 and DoubleFloat{Float64}
     weight_conv = T(weight)
 
-    omn.sum_v += Single(weight_conv * data)
-    omn.sum_w += Single(weight_conv)
+    omn.sum_v += DoubleFloat{T}(weight_conv * data)
+    omn.sum_w += DoubleFloat{T}(weight_conv)
     omn
 end
 
 
 
-doc"""
+@doc """
     OnlineUvVar{T<:AbstractFloat,W}
 
 Implementation based on variance calculation Algorithms of Welford and West.
@@ -63,18 +63,18 @@ correction method.
 
 mutable struct OnlineUvVar{T<:AbstractFloat,W}
     n::Int64
-    sum_w::Double{T}
-    sum_w2::Double{T}
+    sum_w::DoubleFloat{T}
+    sum_w2::DoubleFloat{T}
     mean_x::T
     s::T
 
     OnlineUvVar{T,W}() where {T<:AbstractFloat,W} =
         new{T,W}(
-            zero(Int64), zero(Double{T}), zero(Double{T}),
+            zero(Int64), zero(DoubleFloat{T}), zero(DoubleFloat{T}),
             zero(T), zero(T)
         )
 
-    OnlineUvVar{T,W}(n::Int64, sum_w::Double{T}, sum_w2::Double{T}, mean_x::T, s::T) where {T<:AbstractFloat,W} =
+    OnlineUvVar{T,W}(n::Int64, sum_w::DoubleFloat{T}, sum_w2::DoubleFloat{T}, mean_x::T, s::T) where {T<:AbstractFloat,W} =
         new{T,W}(
             n, sum_w, sum_w2, mean_x, s
         )
@@ -140,7 +140,7 @@ end
         return ocv
     end
 
-    # Workaround for lack of promotion between, e.g., Float32 and Double{Float64}
+    # Workaround for lack of promotion between, e.g., Float32 and DoubleFloat{Float64}
     weight_conv = T(weight)
 
     n = ocv.n
@@ -150,8 +150,8 @@ end
     s = ocv.s
 
     n += one(n)
-    sum_w += Single(weight_conv)
-    sum_w2 += Single(weight_conv^2)
+    sum_w += DoubleFloat{T}(weight_conv)
+    sum_w2 += DoubleFloat{T}(weight_conv^2)
     dx = data - mean_x
     new_mean_x = mean_x + dx * weight_conv / sum_w
     new_dx = data - new_mean_x
@@ -232,15 +232,15 @@ Base.push!(ocv::OnlineUvStatistic, data::Real, weight::Real = 1) =
 
 
 @inline function Base.append!(stats::OnlineUvStatistic, data::AbstractVector{<:Real})
-    @inbounds for i in indices(data, 1)
+    @inbounds for i in axes(data, 1)
         push!(stats, data[i])
     end
     stats
 end
 
 @inline function Base.append!(stats::OnlineUvStatistic, data::AbstractVector{<:Real}, weights::AbstractVector{<:Real})
-    @assert indices(data) == indices(weights)# ToDo: Throw exception instead of assert
-    @inbounds for i in indices(data, 1)
+    @assert axes(data) == axes(weights)# ToDo: Throw exception instead of assert
+    @inbounds for i in axes(data, 1)
         push!(stats, data[i], weights[i])
     end
     stats

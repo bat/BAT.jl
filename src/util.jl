@@ -6,16 +6,16 @@ _iscontiguous(A::AbstractArray) = Base.iscontiguous(A)
 
 
 _car_cdr_impl() = ()
-_car_cdr_impl(x, y...) = (x, (y...))
+_car_cdr_impl(x, y...) = (x, (y...,))
 _car_cdr(tp::Tuple) = _car_cdr_impl(tp...)
 
 function _all_lteq(A::AbstractArray, B::AbstractArray, C::AbstractArray)
-    indices(A) == indices(B) == indices(C) || throw(DimensionMismatch("A, B and C must have the same indices"))
+    axes(A) == axes(B) == axes(C) || throw(DimensionMismatch("A, B and C must have the same indices"))
     result = 0
     @inbounds @simd for i in eachindex(A, B, C)
         result += ifelse(A[i] <= B[i] <= C[i], 1, 0)
     end
-    result == length(linearindices(A))
+    result == length(LinearIndices(A))
 end
 
 
@@ -24,7 +24,7 @@ end
     @inbounds @simd for b in B
         result += ifelse(a <= b <= c, 1, 0)
     end
-    result == length(linearindices(B))
+    result == length(LinearIndices(B))
 end
 
 _all_lteq(a::Real, B::AbstractArray, c::Real) = _all_lteq_impl(a, B, c)
@@ -32,7 +32,7 @@ _all_lteq(a::Real, B::AbstractArray, c::Real) = _all_lteq_impl(a, B, c)
 _all_in_ui(X::AbstractArray) = _all_lteq_impl(0, X, 1)
 
 
-doc"""
+@doc """
     y = fromui(x::Real, lo::Real, hi::Real)
     y = fromui(x::Real, lo_hi::ClosedInterval{<:Real})
 

@@ -177,19 +177,20 @@ function mcmc_iterate!(
         @log_msg ll "Starting iteration over $(length(chains)) MCMC chain(s)."
     end
 
-
     cbv = mcmc_callback_vector(callbacks, chains)
 
     target_caps = exec_capabilities.(mcmc_iterate!, cbv, chains)
     (self_context, target_contexts) = negotiate_exec_context(exec_context, target_caps)
 
-    threadsel = self_context.use_threads ? threads_all() : threads_this()
+    threadsel = self_context.use_threads ? allthreads() : (threadid():threadid())
     idxs = eachindex(cbv, chains, target_contexts)
-    onthreads(threadsel) do
+
+    @onthreads threadsel begin
         for i in workpartition(idxs, length(threadsel), threadid())
             mcmc_iterate!(cbv[i], chains[i], target_contexts[i]; ll=ll+1, kwargs...)
         end
     end
+
     chains
 end
 
@@ -254,7 +255,7 @@ end
 
 
 
-doc"""
+@doc """
     AbstractMCMCCallback <: Function
 
 Subtypes (e.g. `X`) must support
@@ -267,30 +268,28 @@ to be compabtible with `mcmc_iterate!`, `mcmc_tune_burnin!`, etc.
 abstract type AbstractMCMCCallback <: Function end
 export AbstractMCMCCallback
 
-
 @inline Base.convert(::Type{AbstractMCMCCallback}, x::AbstractMCMCCallback) = x
 
-@inline Base.convert(::Type{Vector{AbstractMCMCCallback}}, V::Vector{<:AbstractMCMCCallback}) = V
+@inline Base.convert(::Type{Vector{<:AbstractMCMCCallback}}, V::Vector{<:AbstractMCMCCallback}) = V
 
-Base.convert(::Type{Vector{AbstractMCMCCallback}}, V::Vector) =
-    [convert(AbstractMCMCCallback, x) for x in V]
+Base.convert(::Type{Vector{<:AbstractMCMCCallback}}, V::Vector) =
+            [convert(AbstractMCMCCallback, x) for x in V]
 
 
 function mcmc_callback_vector(x, chains::AbstractVector{<:MCMCIterator})
-    V = convert(Vector{AbstractMCMCCallback}, x)
+    V = convert(Vector{<:AbstractMCMCCallback}, x)
     if eachindex(V) != eachindex(chains)
         throw(DimensionMismatch("Indices of callback vector incompatible with number of MCMC chains"))
     end
     V
 end
 
-
 mcmc_callback_vector(x::Tuple{}, chains::AbstractVector{<:MCMCIterator}) =
     [MCMCNopCallback() for _ in chains]
 
 
 
-doc"""
+@doc """
     MCMCCallbackWrapper{F} <: AbstractMCMCCallback
 
 Wraps a callable object to turn it into an `AbstractMCMCCallback`.

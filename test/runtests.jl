@@ -1,6 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-import Compat.Test
+using Test
+
 Test.@testset "Package BAT" begin
     include("shims.jl")
     include("rng.jl")

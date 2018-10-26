@@ -8,14 +8,14 @@ export SpatialVolume
 
 Base.eltype(b::SpatialVolume{T}) where T = T
 
-Base.rand(rng::AbstractRNG, vol::SpatialVolume) =
-    rand!(rng, vol, Vector{float(eltype(vol))}(ndims(vol)))
+Random.rand(rng::AbstractRNG, vol::SpatialVolume) =
+    rand!(rng, vol, Vector{float(eltype(vol))}(undef, ndims(vol)))
 
-Base.rand(rng::AbstractRNG, vol::SpatialVolume, n::Integer) =
-    rand!(rng, vol, Matrix{float(eltype(vol))}(ndims(vol), n))
+Random.rand(rng::AbstractRNG, vol::SpatialVolume, n::Integer) =
+    rand!(rng, vol, Matrix{float(eltype(vol))}(undef, ndims(vol), n))
 
 
-doc"""
+@doc """
     log_volume(vol::SpatialVolume)
 
 Get the logarithm of the volume of the space in `vol`.
@@ -24,7 +24,7 @@ function log_volume end
 export log_volume
 
 
-doc"""
+@doc """
     fromuhc!(Y::VecOrMat, X::VecOrMat, vol::SpatialVolume)
 
 Bijective transformation of coordinates `X` within the unit hypercube to
@@ -42,7 +42,7 @@ Base.inv(::typeof(fromuhc!)) = inv_fromuhc!
 Base.inv(::typeof(inv_fromuhc!)) = fromuhc!
 
 
-doc"""
+@doc """
     fromuhc(X::VecOrMat, vol::SpatialVolume)
 
 Bijective transformation from unit hypercube to `vol`. See `fromuhc!`.
@@ -69,7 +69,7 @@ struct HyperRectVolume{T<:Real} <: SpatialVolume{T}
     hi::Vector{T}
 
     function HyperRectVolume{T}(lo::Vector{T}, hi::Vector{T}) where {T<:Real}
-        (indices(lo) != indices(hi)) && throw(ArgumentError("lo and hi must have the same indices"))
+        (axes(lo) != axes(hi)) && throw(ArgumentError("lo and hi must have the same indices"))
         new{T}(lo, hi)
     end
 end
@@ -96,7 +96,7 @@ Base.in(x::AbstractVector, vol::HyperRectVolume) =
 # function Base.in(X::AbstractMatrix, vol::HyperRectVolume, j::Integer)
 #     lo = vol.lo
 #     hi = vol.hi
-#     for i in indices(X, 1)
+#     for i in axes(X, 1)
 #         (lo[i] <= X[i, j] <= hi[i]) || return false
 #     end
 #     return true
@@ -112,7 +112,7 @@ function Base.intersect(a::HyperRectVolume, b::HyperRectVolume)
     c
 end
 
-function Base.rand!(rng::AbstractRNG, vol::HyperRectVolume, x::StridedVecOrMat{<:Real})
+function Random.rand!(rng::AbstractRNG, vol::HyperRectVolume, x::StridedVecOrMat{<:Real})
     rand!(rng, x)
     x .= x .* (vol.hi - vol.lo) .+ vol.lo # TODO: Avoid memory allocation
 end
@@ -120,14 +120,14 @@ end
 
 function log_volume(vol::HyperRectVolume{T}) where {T}
     R = promote_type(Float64, T)
-    S = promote_type(Double{Float64}, T)
+    S = promote_type(DoubleFloat{Float64}, T)
     s = zero(S)
     hi = vol.hi
     lo = vol.lo
-    @assert indices(hi) == indices(lo)
+    @assert axes(hi) == axes(lo)
     @inbounds @simd for i in eachindex(hi)
         d = max(zero(R), R(hi[i]) - R(lo[i]))
-        s += JuliaLibm.log(d)
+        s += log(d)
     end
     R(s)
 end
@@ -137,7 +137,7 @@ end
 # log_intersect_volume(a::HyperRectVolume{T}, b::HyperRectVolume{T}) where {T} = ...
 
 
-doc"""
+@doc """
     fromuhc!(Y::VecOrMat, X::VecOrMat, vol::HyperRectVolume)
 
 Linear bijective transformation from unit hypercube to hyper-rectangle `vol`.

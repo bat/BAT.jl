@@ -21,24 +21,24 @@ end
 
 
 
-doc"""
+@doc """
     gr_Rsqr(stats::AbstractVector{<:MCMCBasicStats})
 
-Gelman-Rubin $R^2$ for all parameters.
+Gelman-Rubin ``\$R^2\$`` for all parameters.
 """
 function gr_Rsqr(stats::AbstractVector{<:MCMCBasicStats})
     m = nparams(first(stats))
-    W = mean([cs.param_stats.cov[i,i] for cs in stats, i in 1:m], 1)[:]
-    B = var([cs.param_stats.mean[i] for cs in stats, i in 1:m], 1)[:]
+    W = mean([cs.param_stats.cov[i,i] for cs in stats, i in 1:m], dims=1)[:]
+    B = var([cs.param_stats.mean[i] for cs in stats, i in 1:m], dims=1)[:]
     (W .+ B) ./ W
 end
 
 
 
-doc"""
+@doc """
     GRConvergence
 
-Gelman-Rubin $maximum(R^2)$ convergence test.
+Gelman-Rubin ``\$maximum(R^2)\$`` convergence test.
 """
 struct GRConvergence <: MCMCConvergenceTest
     threshold::Float64
@@ -80,9 +80,9 @@ function bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats},
     m = length(stats)
     n = mean(Float64.(nsamples.(stats)))
     
-    σ_W = var([cs.param_stats.cov[i,i] for cs in stats, i in 1:p], 1)[:]
-    B  = var([cs.param_stats.mean[i] for cs in stats, i in 1:p], 1)[:]
-    W = mean([cs.param_stats.cov[i,i] for cs in stats, i in 1:p], 1)[:]
+    σ_W = var([cs.param_stats.cov[i,i] for cs in stats, i in 1:p], dims = 1)[:]
+    B  = var([cs.param_stats.mean[i] for cs in stats, i in 1:p], dims = 1)[:]
+    W = mean([cs.param_stats.cov[i,i] for cs in stats, i in 1:p], dims = 1)[:]
 
     σ_sq = m * (n - 1) / (m*n - 1) * W + n * (m - 1) / (m*n - 1) * B
     
@@ -103,7 +103,7 @@ function bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats},
     V = N*σ_sq + M*B
 
     σ_V = N^2/m*σ_W + 2*M/(m-1)*B.^2 + 2*M*N/m*(cov_σx_sq - 2*B.*cov_σx)
-    d = 2*V.^2./σ_V
+    d = 2 * V.^2 ./ σ_V
 
     R_unc.*(d+3)./(d+1)
 end

@@ -103,7 +103,7 @@ function MCMCIterator(
     cycle = zero(Int)
     reset_rng_counters!(rng, id, cycle, 0)
 
-    params_vec = Vector{P}(nparams(target))
+    params_vec = Vector{P}(undef, nparams(target))
     if isempty(initial_params)
         rand_initial_params!(rng, algorithm, prior, params_vec)
     else
@@ -177,7 +177,7 @@ function mcmc_step!(
     mcmc_propose_accept_reject!(callback, chain, exec_context)
 
     if state.proposal_accepted
-        copy!(current_sample, proposed_sample)
+        copyto!(current_sample, proposed_sample)
         state.current_nreject = 0
         state.proposal_accepted = false
     end
@@ -208,18 +208,13 @@ struct MetropolisHastings{
 } <: MCMCAlgorithm{MHState}
     q::Q
     weighting_scheme::WS
+    MetropolisHastings(q::Q,weighting_scheme::WS) where {
+        Q<:ProposalDistSpec, W<:Real, WS<:MHWeightingScheme{W}} =
+        new{Q,W,WS}(q, weighting_scheme)
 end
 
 export MetropolisHastings
 
-MetropolisHastings(
-    q::Q,
-    weighting_scheme::WS
-) where {
-    Q<:ProposalDistSpec,
-    W<:Real,
-    WS<:MHWeightingScheme{W}
-} = MetropolisHastings{Q,W,WS}(q, weighting_scheme)
 
 MetropolisHastings(q::ProposalDistSpec = MvTDistProposalSpec()) = MetropolisHastings(q, MHMultiplicityWeights())
 MetropolisHastings(weighting_scheme::MHWeightingScheme) = MetropolisHastings(MvTDistProposalSpec(), weighting_scheme)

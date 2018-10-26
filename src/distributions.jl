@@ -7,7 +7,7 @@ function _check_rand_compat(s::Sampleable{Multivariate}, A::Union{AbstractVector
 end
 
 
-doc"""
+@doc """
     bat_sampler(d::Distribution)
 
 Tries to return a BAT-compatible sampler for Distribution d. A sampler is
@@ -27,7 +27,7 @@ export bat_sampler
 bat_sampler(d::Distribution) = Distributions.sampler(d)
 
 
-doc"""
+@doc """
     issymmetric_around_origin(d::Distribution)
 
 Returns `true` (resp. `false`) if the Distribution is symmetric (resp.
@@ -64,36 +64,36 @@ export BATSampler
 abstract type BATSampler{F<:VariateForm,S<:ValueSupport} <: Sampleable{F,S} end
 
 
-@inline Base.rand(s::BATSampler, args...) = rand(Base.GLOBAL_RNG, s, args...)
-@inline Base.rand!(s::BATSampler, args...) = rand!(Base.GLOBAL_RNG, s, args...)
+@inline Random.rand(s::BATSampler, args...) = rand(Random.GLOBAL_RNG, s, args...)
+@inline Random.rand!(s::BATSampler, args...) = rand!(Random.GLOBAL_RNG, s, args...)
 
 # To avoid ambiguity with Distributions:
-@inline Base.rand(s::BATSampler, dims::Int...) = rand(Base.GLOBAL_RNG, s, dims...)
-@inline Base.rand!(s::BATSampler, A::AbstractVector) = rand!(Base.GLOBAL_RNG, s, A)
-@inline Base.rand!(s::BATSampler, A::AbstractMatrix) = rand!(Base.GLOBAL_RNG, s, A)
+@inline Random.rand(s::BATSampler, dims::Int...) = rand(Random.GLOBAL_RNG, s, dims...)
+@inline Random.rand!(s::BATSampler, A::AbstractVector) = rand!(Random.GLOBAL_RNG, s, A)
+@inline Random.rand!(s::BATSampler, A::AbstractMatrix) = rand!(Random.GLOBAL_RNG, s, A)
 
 
-function Base.rand!(rng::AbstractRNG, s::BATSampler{Univariate}, A::AbstractArray)
+function Random.rand!(rng::AbstractRNG, s::BATSampler{Univariate}, A::AbstractArray)
     @inbounds @simd for i in 1:length(A)
         A[i] = rand(rng, s)
     end
     return A
 end
 
-Base.rand(rng::AbstractRNG, s::BATSampler{Univariate}, dims::Dims) =
-    rand!(rng, s, Array{eltype(s)}(dims))
+Random.rand(rng::AbstractRNG, s::BATSampler{Univariate}, dims::Dims) =
+    rand!(rng, s, Array{eltype(s)}(undef, dims))
 
-Base.rand(rng::AbstractRNG, s::BATSampler{Univariate}, dims::Int...) =
-    rand!(s, Array{eltype(s)}(dims))
+Random.rand(rng::AbstractRNG, s::BATSampler{Univariate}, dims::Int...) =
+    rand!(s, Array{eltype(s)}(undef, dims))
 
 
-Base.rand(rng::AbstractRNG, s::BATSampler{Multivariate}) =
-    rand!(rng, s, Vector{eltype(s)}(length(s)))
+Random.rand(rng::AbstractRNG, s::BATSampler{Multivariate}) =
+    rand!(rng, s, Vector{eltype(s)}(undef, length(s)))
 
-Base.rand(rng::AbstractRNG, s::BATSampler{Multivariate}, n::Integer) =
-    rand!(rng, s, Matrix{eltype(s)}(length(s), n))
+Random.rand(rng::AbstractRNG, s::BATSampler{Multivariate}, n::Integer) =
+    rand!(rng, s, Matrix{eltype(s)}(undef, length(s), n))
 
-function Base.rand!(rng::AbstractRNG, s::BATSampler{Multivariate}, A::AbstractMatrix)
+function Random.rand!(rng::AbstractRNG, s::BATSampler{Multivariate}, A::AbstractMatrix)
     _check_rand_compat(s, A)
     @inbounds for i = 1:size(A,2)
         rand!(rng, s, view(A,:,i))
@@ -101,7 +101,7 @@ function Base.rand!(rng::AbstractRNG, s::BATSampler{Multivariate}, A::AbstractMa
     return A
 end
 
-Base.rand(rng::AbstractRNG, s::BATSampler{Multivariate}, n::Int) = rand!(rng, s, Matrix{eltype(s)}(length(s), n))
+Random.rand(rng::AbstractRNG, s::BATSampler{Multivariate}, n::Int) = rand!(rng, s, Matrix{eltype(s)}(undef, length(s), n))
 
 
 
@@ -146,7 +146,7 @@ BATGammaMTSampler(d::Gamma) = BATGammaMTSampler(shape(d), scale(d))
 
 Base.eltype(s::BATGammaMTSampler{T}) where {T} = T
 
-Base.rand(rng::AbstractRNG, s::BATGammaMTSampler) = s.scale * _rand_gamma_mt(rng, float(typeof(s.shape)), s.shape)
+Random.rand(rng::AbstractRNG, s::BATGammaMTSampler) = s.scale * _rand_gamma_mt(rng, float(typeof(s.shape)), s.shape)
 
 bat_sampler(d::Gamma) = BATGammaMTSampler(d)
 
@@ -165,7 +165,7 @@ end
 
 Base.eltype(s::BATChisqSampler) = eltype(s.gamma_sampler)
 
-Base.rand(rng::AbstractRNG, s::BATChisqSampler) = rand(rng, s.gamma_sampler)
+Random.rand(rng::AbstractRNG, s::BATChisqSampler) = rand(rng, s.gamma_sampler)
 
 bat_sampler(d::Chisq) = BATChisqSampler(d)
 
@@ -215,7 +215,7 @@ Base.length(s::BATMvTDistSampler) = length(s.d)
 Base.eltype(s::BATMvTDistSampler) = eltype(s.d.Σ)
 
 
-function Base.rand!(rng::AbstractRNG, s::BATMvTDistSampler, x::StridedVecOrMat{T}) where {T<:Real}
+function Random.rand!(rng::AbstractRNG, s::BATMvTDistSampler, x::StridedVecOrMat{T}) where {T<:Real}
     d = s.d
 
     scaling_factor = _tdist_scaling_factor(rng, x, d.df)

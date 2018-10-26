@@ -16,9 +16,9 @@ end
 
 
 function err_ellipsis_path(μ::Vector{<:Real}, Σ::Matrix{<:Real}, confidence::Real = 0.68, npts = 256)
-    σ_sqr, A = eig(Hermitian(Σ))
+    σ_sqr, A = eigen(Hermitian(Σ))
     σ = sqrt.(σ_sqr)
-    ϕ = linspace(0, 2π, 100)
+    ϕ = range(0, stop = 2π, length = 100)
     σ_scaled = σ .* sqrt(invlogcdf(Chisq(2), log(confidence)))
     xy = hcat(σ_scaled[1] * cos.(ϕ), σ_scaled[2] * sin.(ϕ)) * [A[1,1] A[1,2]; A[2,1] A[2,2]]
     xy .+ μ'
@@ -28,18 +28,18 @@ end
 @recipe function f(samples::DensitySampleVector, parsel::NTuple{2,Integer})
     pi_x, pi_y = parsel
 
-    acc = find(x -> x > 0, samples.weight)
-    rej = find(x -> x <= 0, samples.weight)
+    acc = findall(x -> x > 0, samples.weight)
+    rej = findall(x -> x <= 0, samples.weight)
 
-    base_markersize = get(d, :markersize, 1.5)
-    seriestype = get(d, :seriestype, :scatter)
+    base_markersize = get(plotattributes, :markersize, 1.5)
+    seriestype = get(plotattributes, :seriestype, :scatter)
 
-    plot_bounds = get(d, :bounds, true)
-    delete!(d, :bounds)
+    plot_bounds = get(plotattributes, :bounds, true)
+    delete!(plotattributes, :bounds)
 
     if seriestype == :scatter
-        color = parse(RGBA{Float64}, get(d, :seriescolor, :green))
-        label = get(d, :label, isempty(rej) ? "samples" : "accepted")
+        color = parse(RGBA{Float64}, get(plotattributes, :seriescolor, :green))
+        label = get(plotattributes, :label, isempty(rej) ? "samples" : "accepted")
 
         @series begin
             seriestype := :scatter

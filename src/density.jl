@@ -4,7 +4,7 @@
 # ToDo: Add `density_logvalgrad!` to support HMC, etc.
 
 
-doc"""
+@doc """
     AbstractDensity
 
 The following functions must be implemented for subtypes:
@@ -22,18 +22,18 @@ abstract type AbstractDensity end
 export AbstractDensity
 
 
-Base.rand(rng::AbstractRNG, density::AbstractDensity, T::Type{<:AbstractFloat}) =
-    rand!(rng, density, Vector{T}(nparams(density)))
+Random.rand(rng::AbstractRNG, density::AbstractDensity, T::Type{<:AbstractFloat}) =
+    rand!(rng, density, Vector{T}(undef, nparams(density)))
 
-Base.rand(rng::AbstractRNG, density::AbstractDensity, T::Type{<:AbstractFloat}, n::Integer) =
-    rand!(rng, density, Matrix{T}(nparams(density), n))
+Random.rand(rng::AbstractRNG, density::AbstractDensity, T::Type{<:AbstractFloat}, n::Integer) =
+    rand!(rng, density, Matrix{T}(undef, nparams(density), n))
 
-Base.rand!(rng::AbstractRNG, density::AbstractDensity, x::StridedVecOrMat{<:Real}) =
+Random.rand!(rng::AbstractRNG, density::AbstractDensity, x::StridedVecOrMat{<:Real}) =
     rand!(rng, sampler(density), x)
 
 
 
-doc"""
+@doc """
     param_bounds(density::AbstractDensity)::AbstractParamBounds
 
 Get the parameter bounds of `density`. See `density_logval!` for the
@@ -51,7 +51,7 @@ end
 export param_bounds
 
 
-# doc"""
+# @doc """
 #     getindex(density::AbstractDensity, bounds::ParamVolumeBounds)
 #
 # Limit `density` to `bounds`. See `param_bounds` and `density_logval!`.
@@ -65,7 +65,7 @@ Base.convert(::Type{AbstractDensity}, bounds::ParamVolumeBounds) =
 
 
 
-doc"""
+@doc """
     density_logval(
         density::AbstractDensity,
         params::AbstractVector{<:Real},
@@ -96,7 +96,7 @@ exec_capabilities(::typeof(density_logval), density::AbstractDensity, params::Ab
     exec_capabilities(unsafe_density_logval, density, params)
 
 
-doc"""
+@doc """
     BAT.unsafe_density_logval(
         density::AbstractDensity,
         params::AbstractVector{<:Real},
@@ -118,7 +118,7 @@ exec_capabilities(::typeof(unsafe_density_logval), density::AbstractDensity, arg
 
 
 
-doc"""
+@doc """
     density_logval!(
         r::AbstractArray{<:Real},
         density::AbstractDensity,
@@ -162,7 +162,7 @@ function density_logval!(
 )
 
     !(size(params, 1) == nparams(density)) && throw(ArgumentError("Invalid length of parameter vector"))
-    !(indices(params, 2) == indices(r, 1)) && throw(ArgumentError("Number of parameter vectors doesn't match length of result vector"))
+    !(axes(params, 2) == axes(r, 1)) && throw(ArgumentError("Number of parameter vectors doesn't match length of result vector"))
     unsafe_density_logval!(r, density, params, exec_context)
     any(isnan, r) && throw(ErrorException("unsafe_density_logval! must not set any return value to NaN"))
     r
@@ -173,7 +173,7 @@ exec_capabilities(::typeof(density_logval!), r::AbstractArray{<:Real}, density::
     exec_capabilities(unsafe_density_logval!, r, density, params)
 
 
-doc"""
+@doc """
     BAT.unsafe_density_logval!(
         r::AbstractArray{<:Real},
         density::AbstractDensity,
@@ -196,7 +196,7 @@ function unsafe_density_logval!(
 )
     # TODO: Support for parallel execution
     single_ec = exec_context # Simplistic, will have to change for parallel execution
-    for i in eachindex(r, indices(params, 2))
+    for i in eachindex(r, axes(params, 2))
         p = view(params, :, i) # TODO: Avoid memory allocation
         r[i] = density_logval(density, p, single_ec)
     end
@@ -209,7 +209,7 @@ exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractArray{<:Real}, de
 
 
 
-doc"""
+@doc """
     GenericDensity{F} <: AbstractDensity
 
 Constructors:

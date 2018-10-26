@@ -1,5 +1,7 @@
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
 using BAT
-using Compat.Test
+using Test
 
 using Distributions, PDMats
 
@@ -28,7 +30,7 @@ using Distributions, PDMats
     dp1 = @inferred BAT.DensityProduct((mvt_density,), pb)
     dp2 = @inferred BAT.DensityProduct((mvn_density,), pb2)
 
-    res = Array{Float64}(size(params, 2))
+    res = Array{Float64}(undef, size(params, 2))
     
     @testset "DensityProduct" begin
         @test typeof(dp) <: BAT.DensityProduct{2,

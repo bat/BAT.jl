@@ -8,12 +8,13 @@ struct DensityProduct{
 } <: AbstractDensity
     densities::D
     bounds::B
+
+    # ToDo: Check for equal number of parameters in DensityProduct ctor.
+
+    DensityProduct(densities::D, bounds::B) where {N,D<:NTuple{N,AbstractDensity},B<:AbstractParamBounds} =
+        new{N,D,B}(densities, bounds)
+
 end
-
-# ToDo: Check for equal number of parameters in DensityProduct ctor.
-
-DensityProduct(densities::D, bounds::B) where {N,D<:NTuple{N,AbstractDensity},B<:AbstractParamBounds} =
-    BAT.DensityProduct{N,D,B}(densities, bounds)
 
 Base.parent(density::DensityProduct) = density.densities
 

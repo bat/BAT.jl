@@ -27,19 +27,19 @@ end
 
 
 
-doc"""
+@doc """
     OnlineMvMean{T<:AbstractFloat} <: AbstractVector{T}
 
 Multi-variate mean implemented via Kahan-Babuška-Neumaier summation.
 """
 mutable struct OnlineMvMean{T<:AbstractFloat} <: AbstractVector{T}
     m::Int
-    sum_w::Double{T}
+    sum_w::DoubleFloat{T}
     S::Vector{T}
     C::Vector{T}
 
     OnlineMvMean{T}(m::Integer) where {T<:AbstractFloat} =
-        new{T}(m, zero(Double{T}), zeros(T, m), zeros(T, m))
+        new{T}(m, zero(DoubleFloat{T}), zeros(T, m), zeros(T, m))
 end
 
 export OnlineMvMean
@@ -50,7 +50,7 @@ OnlineMvMean(m::Integer) = OnlineMvMean{Float64}(m::Integer)
 @inline Base.size(omn::OnlineMvMean) = size(omn.S)
 
 @propagate_inbounds function Base.getindex(omn::OnlineMvMean{T}, idxs::Integer...) where {T}
-    T((Single(omn.S[idxs...]) + Single(omn.C[idxs...])) / omn.sum_w)
+    T((DoubleFloat{T}(omn.S[idxs...]) + DoubleFloat{T}(omn.C[idxs...])) / omn.sum_w)
 end
 
 
@@ -79,7 +79,7 @@ end
 ) where {T}
     @assert _iscontiguous(data)  # TODO: Use exception instead of assert
 
-    # Workaround for lack of promotion between, e.g., Float32 and Double{Float64}
+    # Workaround for lack of promotion between, e.g., Float32 and DoubleFloat{Float64}
     weight_conv = T(weight)
 
     m = omn.m
@@ -90,8 +90,8 @@ end
 
     dshft = Int(start) - 1
 
-    @assert idxs == indices(S, 1) == indices(C, 1)  # TODO: Use exception instead of assert
-    checkbounds(data, idxs + dshft)
+    @assert idxs == axes(S, 1) == axes(C, 1)  # TODO: Use exception instead of assert
+    checkbounds(data, idxs .+ dshft)
 
     omn.sum_w += weight_conv
 
@@ -105,7 +105,7 @@ end
 
 
 
-doc"""
+@doc """
     OnlineMvCov{T<:AbstractFloat,W} <: AbstractMatrix{T}
 
 Implementation based on variance calculation Algorithms of Welford and West.
@@ -118,15 +118,15 @@ correction method.
 mutable struct OnlineMvCov{T<:AbstractFloat,W} <: AbstractMatrix{T}
     m::Int
     n::Int64
-    sum_w::Double{T}
-    sum_w2::Double{T}
+    sum_w::DoubleFloat{T}
+    sum_w2::DoubleFloat{T}
     Mean_X::Vector{T}
     New_Mean_X::Vector{T}
     S::Matrix{T}
 
     OnlineMvCov{T,W}(m::Integer) where {T<:AbstractFloat,W} =
         new{T,W}(
-            m, zero(Int64), zero(Double{T}), zero(Double{T}),
+            m, zero(Int64), zero(DoubleFloat{T}), zero(DoubleFloat{T}),
             zeros(T, m), zeros(T, m), zeros(T, m, m)
         )
 end
@@ -223,7 +223,7 @@ end
         return ocv
     end
 
-    # Workaround for lack of promotion between, e.g., Float32 and Double{Float64}
+    # Workaround for lack of promotion between, e.g., Float32 and DoubleFloat{Float64}
     weight_conv = T(weight)
 
     m = ocv.m
@@ -238,8 +238,8 @@ end
 
     dshft = Int(start) - 1
 
-    @assert idxs == indices(Mean_X, 1) == indices(New_Mean_X, 1) == indices(S, 1) == indices(S, 2)  # TODO: Use exception instead of assert
-    checkbounds(data, idxs + dshft)
+    @assert idxs == axes(Mean_X, 1) == axes(New_Mean_X, 1) == axes(S, 1) == axes(S, 2)  # TODO: Use exception instead of assert
+    checkbounds(data, idxs .+ dshft)
 
     n += one(n)
     sum_w += weight_conv
@@ -255,8 +255,9 @@ end
 
     @inbounds for j in idxs
         new_dx_j = data[j + dshft] - New_Mean_X[j]
-        j_offs = sub2ind(S, 0, j)
-        @assert sub2ind(S, last(idxs), j) == last(idxs) + j_offs  # TODO: Use exception instead of assert
+
+        j_offs = (LinearIndices(S))[last(idxs), j] - last(idxs)
+        #@assert (LinearIndices((S))[last(idxs), j] == last(idxs) + j_offs  # TODO: Use exception instead of assert
         @simd for i in idxs
             dx_i = data[i + dshft] - Mean_X[i]
             S[i + j_offs] = muladd(dx_i, weight_conv * new_dx_j, S[i + j_offs])
@@ -274,7 +275,7 @@ end
     ocv
 end
 
-doc"""
+@doc """
     BasicMvStatistics{T<:Real,W}
 
 `W` must either be `Weights` (no bias correction) or one of `AnalyticWeights`,
@@ -332,8 +333,8 @@ function push_contiguous!(
     idxs = Base.OneTo(m)
     dshft = Int(start) - 1
 
-    @assert idxs == indices(max_v, 1) == indices(min_v, 1)  # TODO: Use exception instead of assert
-    checkbounds(data, idxs + dshft)
+    @assert idxs == axes(max_v, 1) == axes(min_v, 1)  # TODO: Use exception instead of assert
+    checkbounds(data, idxs .+ dshft)
 
     @inbounds @simd for i in idxs
         x = data[i + dshft]
@@ -350,7 +351,7 @@ const OnlineMvStatistic = Union{OnlineMvMean, OnlineMvCov, BasicMvStatistics}
 
 
 @inline Base.push!(target::OnlineMvStatistic, data::AbstractVector, weight::Real = 1) =
-    push_contiguous!(target, data, first(linearindices(data)), weight)
+    push_contiguous!(target, data, first(LinearIndices(data)), weight)
 
 
 function Base.append!(target::OnlineMvStatistic, data::AbstractMatrix, vardim::Integer = 1)
@@ -359,8 +360,8 @@ function Base.append!(target::OnlineMvStatistic, data::AbstractMatrix, vardim::I
     elseif (vardim == 2)
         @assert target.m == size(data, 1)  # TODO: Use exception instead of assert
         @assert _iscontiguous(data)  # TODO: Use exception instead of assert
-        @inbounds for i in indices(data, 2)
-            push_contiguous!(target, data, sub2ind(data, 1, i))
+        @inbounds for i in axes(data, 2)
+            push_contiguous!(target, data, (LinearIndices(data))[1, i])
         end
     else
         throw(ArgumentError("Value of vardim must be 2, not $vardim"))
@@ -376,9 +377,9 @@ function Base.append!(target::OnlineMvStatistic, data::AbstractMatrix, weights::
     elseif (vardim == 2)
         @assert _iscontiguous(data)  # TODO: Use exception instead of assert
         @assert target.m == size(data, 1)  # TODO: Use exception instead of assert
-        @assert indices(data, 2) == indices(weights, 1)  # TODO: Use exception instead of assert
-        @inbounds for i in indices(data, 2)
-            push_contiguous!(target, data, sub2ind(data, 1, i), weights[i])
+        @assert axes(data, 2) == axes(weights, 1)  # TODO: Use exception instead of assert
+        @inbounds for i in axes(data, 2)
+            push_contiguous!(target, data, (LinearIndices(data))[1, i], weights[i])
         end
     else
         throw(ArgumentError("Value of vardim must be 2, not $vardim"))

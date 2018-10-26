@@ -2,6 +2,7 @@
 
 using RandomNumbers.Random123: Philox4x, Threefry4x
 using RandomNumbers.Random123: random123_r, gen_seed
+using Random
 
 const Random123_UInt = Union{UInt32, UInt64}
 const Random123RNG4x = Union{Philox4x, Threefry4x}
@@ -18,8 +19,8 @@ AbstractRNGSeed() = Philox4xSeed()
 struct Philox4xSeed{T<:Random123_UInt} <: AbstractRNGSeed
     seed::NTuple{2,T}
 
-    Philox4xSeed{T}(seed::NTuple{2,T}) where {T<:Random123_UInt} = new{T}(seed)
-    Philox4xSeed{T}() where {T<:Random123_UInt} = new{T}(gen_seed(T, 2))
+    Philox4xSeed{T}(seed::NTuple{2,T}) where T<:Random123_UInt = new{T}(seed)
+    Philox4xSeed{T}() where T<:Random123_UInt = new{T}(gen_seed(T, 2))
 end
 
 export Philox4xSeed
@@ -30,7 +31,7 @@ Philox4xSeed() = Philox4xSeed{UInt64}()
 
 function (rngseed::Philox4xSeed{T})() where {T}
     rng = Philox4x{T,10}(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-    srand(rng, rngseed.seed)
+    Random.seed!(rng, rngseed.seed)
 end
 
 
@@ -48,7 +49,7 @@ Threefry4xSeed() = Threefry4xSeed{UInt64}()
 
 function (rngseed::Threefry4xSeed{T})() where {T}
     rng = Threefry4x{T,20}(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-    srand(rng, rngseed.seed)
+    Random.seed!(rng, rngseed.seed)
 end
 
 

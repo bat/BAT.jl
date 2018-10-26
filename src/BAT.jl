@@ -6,23 +6,24 @@ module BAT
 
 using Base.Threads
 
-import Base.Math.JuliaLibm
-
-using Compat
-using Compat.Markdown
-using Compat: axes
+# import Base.Math.JuliaLibm
 
 using Clustering
 using Colors
 using Distributions
-using DoubleDouble
+using Distributions
+using DoubleFloats
 using ElasticArrays
 using FunctionWrappers
 using IntervalSets
-using MultiThreadingTools
+using LinearAlgebra
+using Markdown
+using ParallelProcessingTools
 using Parameters
 using PDMats
+using Random
 using RecipesBase
+using Statistics
 using StatsBase
 
 import RandomNumbers

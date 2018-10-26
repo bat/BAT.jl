@@ -12,6 +12,7 @@ Welcome to BAT, the Bayesian analysis toolkit. This is a (still incomplete) rewr
 BAT.jl is under development and is not a registered package yet. Install via
 
 ```julia
-julia> Pkg.clone("https://github.com/oschulz/MultiThreadingTools.jl.git")
-julia> Pkg.clone("https://github.com/BAT/BAT.jl.git")
+using Pkg
+pkg"add https://github.com/oschulz/ParallelProcessingTools.jl.git"
+pkg"add https://github.com/BAT/BAT.jl.git"
 ```

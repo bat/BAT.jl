@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 using BAT
-using Compat.Test
+using Test
 using Distributions
 using PDMats
 
@@ -27,7 +27,7 @@ using PDMats
         @test ec.nprocs == 0
         @test ec.remotesafe == true
 
-        ret = Array{Float64}(2)
+        ret = Array{Float64}(undef, 2)
         param = [0.0 0.5; 0.0 -0.5]
         BAT.unsafe_density_logval!(ret, mvdd, param)
         @test ret ≈ [-2.64259602, -3.00960695]

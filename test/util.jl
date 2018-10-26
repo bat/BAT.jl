@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 using BAT
-using Compat.Test
+using Test
 
 using IntervalSets
 
@@ -40,7 +40,7 @@ using IntervalSets
         @test inv(inv_fromui) == fromui
 
         @test inv_fromui(2.25, -0.5, 5.0) ≈ 0.5
-        
+
         @test inv_fromui(-0.35, -0.5, 1.0) ≈ 0.1
         @test inv_fromui(5.0, -0.5, 5.0) ≈ 1.0
         @test inv_fromui(-0.5, -0.5, 5.0) ≈ 0.0

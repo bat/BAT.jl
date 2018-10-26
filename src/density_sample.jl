@@ -19,13 +19,6 @@ end
 
 export DensitySample
 
-DensitySample(params::PA, log_value::T, weight::W) where {
-    P<:Real,
-    T<:Real,
-    W<:Real,
-    PA<:AbstractVector{P}
-} = DensitySample{P,T,W,PA}(params, log_value, weight)
-
 
 import Base.==
 ==(A::DensitySample, B::DensitySample) =
@@ -45,8 +38,8 @@ function Base.similar(s::DensitySample{P,T,W}) where {P,T,W}
 end
 
 
-function Base.copy!(dest::DensitySample, src::DensitySample) 
-    copy!(dest.params, src.params)
+function Base.copyto!(dest::DensitySample, src::DensitySample)
+    copyto!(dest.params, src.params)
     dest.log_value = src.log_value
     dest.weight = src.weight
     dest
@@ -69,13 +62,8 @@ end
 export DensitySampleVector
 
 
-DensitySampleVector(params::PA, log_value::TA, weight::WA) where {
-    P<:Real,T<:AbstractFloat,W<:Real,
-    PA<:AbstractArray{P,2},TA<:AbstractArray{T,1},WA<:AbstractArray{W,1}
-} = DensitySampleVector{P,T,W,PA,TA,WA}(params, log_value, weight)
-
 DensitySampleVector{P,T,W}(nparams::Integer) where {P<:Real,T<:AbstractFloat,W<:Real} =
-    DensitySampleVector(ElasticArray{P}(nparams, 0), Vector{T}(0), Vector{W}(0))
+    DensitySampleVector(ElasticArray{P}(undef, nparams, 0), Vector{T}(undef, 0), Vector{W}(undef, 0))
 
 DensitySampleVector(::Type{S}, nparams::Integer) where {P<:Real,T<:AbstractFloat,W<:Real,S<:DensitySample{P,T,W}} =
     DensitySampleVector{P,T,W}(nparams)

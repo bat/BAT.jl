@@ -1,7 +1,8 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 using BAT
-using Compat.Test
+using Test
+using ElasticArrays
 
 @testset "density_sample" begin
     
@@ -28,7 +29,7 @@ using Compat.Test
         ds3 = @inferred DensitySample(param1, Float32(-3.3868156), 1)
         @test ds1 == ds3
 
-        copy!(ds2, ds1)
+        copyto!(ds2, ds1)
         @test ds2 == ds3
     end
 

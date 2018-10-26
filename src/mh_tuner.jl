@@ -60,7 +60,7 @@ function tuning_init_proposal!(tuner::ProposalCovTuner)
     flat_var = (vol.hi - vol.lo).^2 / 12
 
     m = length(flat_var)
-    Σ_unscaled = full(PDiagMat(flat_var))
+    Σ_unscaled = Matrix(PDiagMat(flat_var))
     Σ = Σ_unscaled * tuner.scale
 
     next_cycle!(chain)
@@ -88,7 +88,7 @@ function tuning_update!(tuner::ProposalCovTuner; ll::LogLevel = LOG_NONE)
     t = tuner.iteration
     λ = config.λ
     c = tuner.scale
-    Σ_old = full(get_cov(state.pdist))
+    Σ_old = Matrix(get_cov(state.pdist))
 
     S = convert(Array, stats.param_stats.cov)
     a_t = 1 / t^λ
@@ -110,7 +110,7 @@ function tuning_update!(tuner::ProposalCovTuner; ll::LogLevel = LOG_NONE)
         end
     end
 
-    Σ_new = full(Hermitian(new_Σ_unscal * tuner.scale))
+    Σ_new = Matrix(Hermitian(new_Σ_unscal * tuner.scale))
 
     if !isposdef(Σ_new)
         ev = eig(Σ_new)[1]

@@ -4,6 +4,7 @@
 module Logging
 
 using Base.Threads
+using Distributed
 
 
 @enum LogLevel LOG_NONE=0 LOG_ERROR=1 LOG_WARNING=2 LOG_INFO=3 LOG_DEBUG=4 LOG_TRACE=5 LOG_ALL=100
@@ -12,6 +13,8 @@ export LOG_NONE, LOG_ERROR, LOG_WARNING, LOG_INFO, LOG_DEBUG, LOG_TRACE, LOG_ALL
 
 
 import Base: +,-
+
+Base.convert(::Type{T}, level::LogLevel) where {T<:Integer} = T(level)
 
 function +(level::LogLevel, i::Integer)
     l = Int(level)
@@ -55,8 +58,9 @@ function output_logging_msg(level::LogLevel, msg...)
     io = _output_io[]
     color = log_colors[level]
     prefix = log_prefix[level]
-    Base.print_with_color(color, io, prefix, " ($(myid()), $(threadid())): "; bold = true)
-    Base.println_with_color(color, io, chomp(string(msg...)))
+    printstyled(color, io, prefix, " ($(myid()), $(threadid())): "; bold = true, color=color)
+
+    printstyled(io, chomp(string(msg...)), color=color)
     Base.flush(io)
     nothing
 end
@@ -79,13 +83,13 @@ end
 
 
 # get_log_level_macro() = :(LogLevel(_log_level[]))
-# 
+#
 # macro get_log_level()
 #     esc(get_log_level_macro())
 # end
-# 
+#
 # set_log_level_macro(level) = :(_log_level[] = $level; $(get_log_level_macro()))
-# 
+#
 # macro set_log_level!(level)
 #     esc(set_log_level_macro(level))
 # end
@@ -151,7 +155,7 @@ end
 
 function __init__()
     # STDERR object at runtime differs from precompilation:
-    _output_io[] = STDERR
+    _output_io[] = stderr
 end
 
 

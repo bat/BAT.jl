@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-doc"""
+@doc """
     struct ExecContext
         use_threads::Bool
         onprocs::Vector{Int64}
@@ -24,10 +24,10 @@ end
 
 export ExecContext
 
-ExecContext() = ExecContext(true, workers())
+ExecContext() = ExecContext(true, Distributed.workers())
 
 
-doc"""
+@doc """
     struct ExecCapabilities
         nthreads::Int
         threadsafe::Bool
@@ -73,7 +73,7 @@ export ExecCapabilities
 
 
 
-doc"""
+@doc """
     intersect(a:ExecCapabilities, b:ExecCapabilities)
 
 Get the intersection of execution capabilities of a and b, i.e. the
@@ -103,7 +103,7 @@ Base.intersect(a::ExecCapabilities, b::ExecCapabilities) = ExecCapabilities(
 
 
 
-doc"""
+@doc """
     exec_capabilities(f, args...)::ExecCapabilities
 
 Determines the execution capabilities of a function `f` that supports an
