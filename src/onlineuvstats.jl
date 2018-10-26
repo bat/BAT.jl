@@ -156,7 +156,10 @@ end
     new_mean_x = mean_x + dx * weight_conv / sum_w
     new_dx = data - new_mean_x
 
-    s = muladd(dx, weight_conv * new_dx, s)
+    # muladd broken with DoubleFloats v0.3.2:
+    # s = muladd(dx, weight_conv * new_dx, s)
+    s = dx * weight_conv * new_dx + s
+
     mean_x = new_mean_x
 
     ocv.n = n
