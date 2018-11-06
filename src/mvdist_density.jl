@@ -42,3 +42,6 @@ exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractArray{<:Real}, de
 
 
 Distributions.sampler(density::MvDistDensity) = bat_sampler(parent(density))
+
+
+Base.cov(density::MvDistDensity) = cov(density.d)

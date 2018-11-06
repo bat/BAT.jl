@@ -47,3 +47,11 @@ end
 
 
 Distributions.sampler(density::ConstDensity) = spatialvolume(param_bounds(density))
+
+
+function Base.cov(density::ConstDensity{<:HyperRectBounds})
+    vol = spatialvolume(param_bounds(density))
+    #flat_var = (vol.hi - vol.lo).^2 / 12
+    flat_var = var.(Uniform.(vol.lo, vol.hi))
+    full(PDiagMat(flat_var))
+end
