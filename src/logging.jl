@@ -58,9 +58,9 @@ function output_logging_msg(level::LogLevel, msg...)
     io = _output_io[]
     color = log_colors[level]
     prefix = log_prefix[level]
-    printstyled(color, io, prefix, " ($(myid()), $(threadid())): "; bold = true, color=color)
+    printstyled(io, prefix, " ($(myid()), $(threadid())): "; bold = true, color=color)
 
-    printstyled(io, chomp(string(msg...)), color=color)
+    printstyled(io, chomp(string(msg...)) * "\n", color=color)
     Base.flush(io)
     nothing
 end
