@@ -107,6 +107,9 @@ struct NoParamBounds <: AbstractParamBounds
     ndims::Int
 end
 
+# TODO: Find better solution to determine param type if no bounds:
+Base.eltype(bounds::NoParamBounds) = Float64
+
 
 Base.in(params::AbstractVector, bounds::NoParamBounds) = true
 Base.in(params::AbstractMatrix, bounds::NoParamBounds, i::Integer) = true
@@ -119,6 +122,7 @@ unsafe_intersect(a::NoParamBounds, b::NoParamBounds) = a
 unsafe_intersect(a::AbstractParamBounds, b::NoParamBounds) = a
 unsafe_intersect(a::NoParamBounds, b::AbstractParamBounds) = b
 
+apply_bounds!(params::AbstractVecOrMat, bounds::NoParamBounds, setoob = true) = params
 
 
 abstract type ParamVolumeBounds{T<:Real, V<:SpatialVolume{T}} <: AbstractParamBounds end
