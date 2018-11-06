@@ -138,6 +138,8 @@ function MCMCIterator(
 
     chain = MCMCIterator(
         algorithm,
+        likelihood,
+        prior,
         target,
         state,
         rng,

@@ -89,12 +89,16 @@ rand_initial_params!(rng::AbstractRNG, algorithm::MCMCAlgorithm, prior::Abstract
 
 mutable struct MCMCIterator{
     A<:MCMCAlgorithm,
-    T<:AbstractDensity,
+    LD<:AbstractDensity,
+    PD<:AbstractDensity,
+    TD<:AbstractDensity,
     S<:AbstractMCMCState,
     R<:AbstractRNG
 }
     algorithm::A
-    target::T
+    likelihood::LD
+    prior::PD
+    target::TD
     state::S
     rng::R
     id::Int64
