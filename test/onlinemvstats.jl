@@ -2,6 +2,8 @@
 
 using BAT
 using Test
+
+using Statistics
 using StatsBase
 
 @testset "onlinestats" begin

@@ -4,6 +4,7 @@ using BAT
 using Test
 
 using IntervalSets
+using Random
 
 @testset "SpatialVolume" begin
     lo = [-1., -0.1]

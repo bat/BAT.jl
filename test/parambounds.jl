@@ -4,6 +4,7 @@ using BAT
 using Test
 
 using IntervalSets
+using Random
 
 struct apb_test <: BAT.AbstractParamBounds
     nparams::Integer

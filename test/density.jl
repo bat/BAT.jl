@@ -3,6 +3,7 @@
 using BAT
 using Test
 using LinearAlgebra
+using Random
 
 using Distributions, PDMats, StatsBase
 

@@ -2,6 +2,8 @@
 
 using BAT
 using Test
+
+using LinearAlgebra
 using Distributions
 
 @testset "const_density" begin
