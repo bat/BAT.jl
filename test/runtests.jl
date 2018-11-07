@@ -3,20 +3,16 @@
 using Test
 
 Test.@testset "Package BAT" begin
-    include("shims.jl")
-    include("rng.jl")
-    include("distributions.jl")
-    include("util.jl")
-    include("onlineuvstats.jl")
-    include("onlinemvstats.jl")
-    include("spatialvolume.jl")
-    include("parambounds.jl")
-    include("proposaldist.jl")
-    include("density.jl")
-    include("const_density.jl")
-    include("density_product.jl")
-    include("mvdist_density.jl")
-    include("data_vector.jl")
-    include("density_sample.jl")        
-    include("mcmc_rand.jl")
+    include("Logging/test_Logging.jl")
+
+    include("util/test_util.jl")
+    include("rng/test_rng.jl")
+    include("distributions/test_distributions.jl")
+    include("scheduling/test_scheduling.jl")
+    include("parameters/test_parameters.jl")
+    include("samples/test_samples.jl")
+    include("statistics/test_statistics.jl")
+    include("densities/test_densities.jl")
+    include("samplers/test_samplers.jl")
+    include("plotting/test_plotting.jl")
 end

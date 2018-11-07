@@ -51,19 +51,6 @@ end
 export param_bounds
 
 
-# @doc """
-#     getindex(density::AbstractDensity, bounds::ParamVolumeBounds)
-#
-# Limit `density` to `bounds`. See `param_bounds` and `density_logval!`.
-# """
-# Base.getindex(density::AbstractDensity, bounds::ParamVolumeBounds) =
-#     density * ConstDensity(bounds, false)
-
-
-Base.convert(::Type{AbstractDensity}, bounds::ParamVolumeBounds) =
-    ConstDensity(bounds, one)
-
-
 
 @doc """
     density_logval(

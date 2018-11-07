@@ -24,8 +24,6 @@ export MCMCSampleIDVector
 
 MCMCSampleIDVector() = MCMCSampleIDVector(Vector{Int32}(), Vector{Int32}(), Vector{Int64}(), Vector{Int64}())
 
-MCMCSampleIDVector(chain::MCMCIterator) = MCMCSampleIDVector()
-
 
 Base.size(xs::MCMCSampleIDVector) = size(xs.chainid)
 
@@ -77,13 +75,6 @@ Base.@propagate_inbounds function Base.view(A::MCMCSampleIDVector, idxs)
         view(A.sampletype, idxs)
     )
 end
-
-
-Base.convert(::Type{AbstractMCMCCallback}, x::MCMCSampleIDVector) = MCMCAppendCallback(x)
-
-MCMCAppendCallback(x::MCMCSampleIDVector, nonzero_weights::Bool = true) =
-    MCMCAppendCallback(x, 1, get_sample_ids!, nonzero_weights)
-
 
 
 function read_fom_hdf5(input, ::Type{MCMCSampleIDVector})

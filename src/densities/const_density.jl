@@ -16,6 +16,10 @@ ConstDensity(bounds::ParamVolumeBounds, ::typeof(normalize)) =
     ConstDensity(bounds, -log_volume(spatialvolume(bounds)))
 
 
+Base.convert(::Type{AbstractDensity}, bounds::ParamVolumeBounds) =
+    ConstDensity(bounds, one)
+
+
 param_bounds(density::ConstDensity) = density.bounds
 
 nparams(density::ConstDensity) = nparams(density.bounds)

@@ -48,12 +48,6 @@ BAT.sampler(td::test_density) = BAT.sampler(MvNormal(ones(3), PDMat(Matrix{Float
         @test pbounds.ndims == 2
     end
 
-    @testset "convert" begin
-        cdensity = @inferred convert(
-            AbstractDensity, HyperRectBounds([-1., 0.5], [2.,1], BAT.hard_bounds))
-        @test typeof(cdensity) <: ConstDensity
-    end
-
     @testset "density_logval!" begin
         r = zeros(Float64, size(params, 2))
 

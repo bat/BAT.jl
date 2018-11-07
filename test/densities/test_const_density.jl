@@ -25,6 +25,12 @@ using Distributions
         @test nparams(cd) == 2
     end
 
+    @testset "convert" begin
+        cdensity = @inferred convert(
+            AbstractDensity, HyperRectBounds([-1., 0.5], [2.,1], BAT.hard_bounds))
+        @test typeof(cdensity) <: ConstDensity
+    end
+
     @testset "unsafe_density_logval" begin
         @test BAT.unsafe_density_logval(cd, [1.,2.]) ≈ -0.4054651081081644
         res = ones(2)
