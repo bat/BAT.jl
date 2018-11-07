@@ -8,22 +8,23 @@ using Base.Threads
 
 # import Base.Math.JuliaLibm
 
+using Distributed
+using LinearAlgebra
+using Markdown
+using Random
+using Statistics
+
 using Clustering
 using Colors
-using Distributions
 using Distributions
 using DoubleFloats
 using ElasticArrays
 using FunctionWrappers
 using IntervalSets
-using LinearAlgebra
-using Markdown
 using ParallelProcessingTools
 using Parameters
 using PDMats
-using Random
 using RecipesBase
-using Statistics
 using StatsBase
 
 import RandomNumbers
