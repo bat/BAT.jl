@@ -6,7 +6,7 @@ Test.@testset "Package BAT" begin
     include("Logging/test_Logging.jl")
 
     include("utils/test_utils.jl")
-    include("rng/test_rng.jl")
+    include("rngs/test_rngs.jl")
     include("distributions/test_distributions.jl")
     include("scheduling/test_scheduling.jl")
     include("parameters/test_parameters.jl")

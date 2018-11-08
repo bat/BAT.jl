@@ -4,7 +4,7 @@ using BAT
 using Test
 using Random
 
-@testset "rng" begin
+@testset "rng_init" begin
     @testset "AbstractRNGSeed" begin
         philox = @inferred AbstractRNGSeed()
         @test typeof(philox) <: Philox4xSeed

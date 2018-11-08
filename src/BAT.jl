@@ -34,7 +34,7 @@ include("Logging/Logging.jl")
 using BAT.Logging
 
 include("utils/utils.jl")
-include("rng/rng.jl")
+include("rngs/rngs.jl")
 include("distributions/distributions.jl")
 include("scheduling/scheduling.jl")
 include("parameters/parameters.jl")
