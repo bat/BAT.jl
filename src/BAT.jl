@@ -33,7 +33,7 @@ import RandomNumbers
 include("Logging/Logging.jl")
 using BAT.Logging
 
-include("util/util.jl")
+include("utils/utils.jl")
 include("rng/rng.jl")
 include("distributions/distributions.jl")
 include("scheduling/scheduling.jl")
