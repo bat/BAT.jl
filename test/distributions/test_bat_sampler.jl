@@ -29,8 +29,8 @@ end
 @testset "bat_sampler" begin
     @test bat_sampler(@inferred test_dist()) == Distributions.Normal(0,1)
 
-    @test BAT.rand!(test_batsampler{Univariate}(), 1) == 0.5
+    @test rand!(test_batsampler{Univariate}(), 1) == 0.5
     x = zeros(2,3)
-    BAT.rand!(test_batsampler{Multivariate}(), x)
+    rand!(test_batsampler{Multivariate}(), x)
     @test x == ones(2,3)
 end

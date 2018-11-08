@@ -35,10 +35,10 @@ using Distributions, PDMats, StatsBase
 
     @testset "rand" begin
         bstmv = BAT.BATMvTDistSampler(MvTDist(1.5, PDMat(Matrix{Float64}(I, 3, 3))))
-        res = BAT.rand(bstmv)
+        res = rand(bstmv)
         @test typeof(res) == Array{Float64, 1}
         @test size(res) == (3,)
-        res = BAT.rand(bstmv, 2)
+        res = rand(bstmv, 2)
         @test typeof(res) == Array{Float64, 2}
         @test size(res) == (3, 2)
     end

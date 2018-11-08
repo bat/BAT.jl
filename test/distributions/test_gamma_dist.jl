@@ -26,18 +26,18 @@ using Distributions, PDMats, StatsBase
 
     @testset "rand" begin
         bsguv = BATGammaMTSampler(Gamma(4f0, 2f0))
-        @test size(BAT.rand(bsguv, 5)) == (5,)
-        @test typeof(BAT.rand(bsguv, 5)) == Vector{Float32}
-        @test typeof(BAT.rand(bsguv)) == Float32
+        @test size(rand(bsguv, 5)) == (5,)
+        @test typeof(rand(bsguv, 5)) == Vector{Float32}
+        @test typeof(rand(bsguv)) == Float32
 
-        res = BAT.rand!(bsguv, zeros(3))
+        res = rand!(bsguv, zeros(3))
         @test size(res) == (3,)
         @test typeof(res) == Array{Float64, 1}
-        res = BAT.rand!(bsguv, zeros(3,4))
+        res = rand!(bsguv, zeros(3,4))
         @test size(res) == (3,4,)
         @test typeof(res) == Array{Float64, 2}
 
-        res = BAT.rand(Random.GLOBAL_RNG, bsguv, Dims((2,3)))
+        res = rand(Random.GLOBAL_RNG, bsguv, Dims((2,3)))
         @test typeof(res) == Array{Float32,2}
         @test size(res) == (2,3)
     end
