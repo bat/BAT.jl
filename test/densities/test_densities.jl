@@ -7,4 +7,5 @@ Test.@testset "densities" begin
     include("test_const_density.jl")
     include("test_density_product.jl")
     include("test_mvdist_density.jl")
+    include("test_parameter_mapped_density.jl")
 end
