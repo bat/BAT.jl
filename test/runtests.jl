@@ -10,7 +10,6 @@ Test.@testset "Package BAT" begin
     include("distributions/test_distributions.jl")
     include("scheduling/test_scheduling.jl")
     include("parameters/test_parameters.jl")
-    include("samples/test_samples.jl")
     include("statistics/test_statistics.jl")
     include("densities/test_densities.jl")
     include("samplers/test_samplers.jl")
