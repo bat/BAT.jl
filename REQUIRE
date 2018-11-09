@@ -12,4 +12,5 @@ Parameters
 PDMats
 RandomNumbers
 RecipesBase
+StaticArrays
 StatsBase

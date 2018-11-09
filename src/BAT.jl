@@ -26,6 +26,7 @@ using ParallelProcessingTools
 using Parameters
 using PDMats
 using RecipesBase
+using StaticArrays
 using StatsBase
 
 import RandomNumbers
