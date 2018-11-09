@@ -30,7 +30,7 @@ Base.length(s::DensitySample) = length(s.params)
 
 
 function Base.similar(s::DensitySample{P,T,W}) where {P,T,W}
-    params = oob(s.params)
+    params = fill!(similar(s.params), oob(eltype(s.params)))
     log_value = convert(T, NaN)
     weight = zero(W)
     PA = typeof(params)
@@ -52,7 +52,7 @@ nparams(s::DensitySample) = length(s)
 # ToDo: Make immutable
 struct DensitySampleVector{
     P<:Real,T<:AbstractFloat,W<:Real,
-    PA<:AbstractArray{P,2},TA<:AbstractArray{T,1},WA<:AbstractArray{W,1}
+    PA<:VectorOfSimilarVectors{P},TA<:AbstractVector{T},WA<:AbstractVector{W}
 } <: BATDataVector{DensitySample{P,T,W,Vector{P}}}
     params::PA
     log_value::TA
@@ -62,8 +62,13 @@ end
 export DensitySampleVector
 
 
-DensitySampleVector{P,T,W}(nparams::Integer) where {P<:Real,T<:AbstractFloat,W<:Real} =
-    DensitySampleVector(ElasticArray{P}(undef, nparams, 0), Vector{T}(undef, 0), Vector{W}(undef, 0))
+function DensitySampleVector{P,T,W}(nparams::Integer) where {P<:Real,T<:AbstractFloat,W<:Real}
+    DensitySampleVector(
+        VectorOfSimilarVectors(ElasticArray{P}(undef, nparams, 0)),
+        Vector{T}(undef, 0),
+        Vector{W}(undef, 0)
+    )
+end
 
 DensitySampleVector(::Type{S}, nparams::Integer) where {P<:Real,T<:AbstractFloat,W<:Real,S<:DensitySample{P,T,W}} =
     DensitySampleVector{P,T,W}(nparams)
@@ -72,7 +77,7 @@ DensitySampleVector(::Type{S}, nparams::Integer) where {P<:Real,T<:AbstractFloat
 Base.size(xs::DensitySampleVector) = size(xs.log_value)
 
 Base.getindex(xs::DensitySampleVector, i::Integer) =
-    DensitySample(view(xs.params, :, i), xs.log_value[i], xs.weight[i])
+    DensitySample(xs.params[i], xs.log_value[i], xs.weight[i])
 
 Base.@propagate_inbounds Base._getindex(l::IndexStyle, xs::DensitySampleVector, idxs::AbstractVector{<:Integer}) =
     DensitySampleVector(xs.params[:, idxs], xs.log_value[idxs], xs.weight[idxs])
@@ -81,7 +86,7 @@ Base.IndexStyle(xs::DensitySampleVector) = IndexStyle(xs.log_value)
 
 
 function Base.push!(xs::DensitySampleVector, x::DensitySample)
-    append!(xs.params, x.params)
+    push!(xs.params, x.params)
     push!(xs.log_value, x.log_value)
     push!(xs.weight, x.weight)
     xs
@@ -98,7 +103,7 @@ end
 
 Base.@propagate_inbounds function Base.view(A::DensitySampleVector, idxs)
     DensitySampleVector(
-        view(A.params, :, idxs),
+        view(A.params, idxs),
         view(A.log_value, idxs),
         view(A.weight, idxs)
     )
@@ -106,7 +111,7 @@ end
 
 
 function _swap!(A::DensitySampleVector, i_A::SingleArrayIndex, B::DensitySampleVector, i_B::SingleArrayIndex)
-    _swap!(view(A.params, :, i_A), view(A.params, :, i_B))  # Memory allocation!
+    _swap!(view(flatview(A.params), :, i_A), view(flatview(A.params), :, i_B))  # Memory allocation!
     _swap!(A.log_value, i_A, B.log_value, i_B)
     _swap!(A.weight, i_A, B.weight, i_B)
     A
@@ -115,7 +120,7 @@ end
 
 function read_fom_hdf5(input, ::Type{DensitySampleVector})
     DensitySampleVector(
-        input["params"][:,:],
+        VectorOfSimilarVectors(input["params"][:,:]),
         input["log_value"][:],
         input["weight"][:]
     )
@@ -123,7 +128,7 @@ end
 
 
 function write_to_hdf5(output, samples::DensitySampleVector)
-    output["params"] = Array(samples.params)
+    output["params"] = Array(flatview(samples.params))
     output["log_value"] = samples.log_value
     output["weight"] = samples.weight
     nothing

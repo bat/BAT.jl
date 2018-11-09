@@ -73,12 +73,9 @@ function Base.merge!(target::OnlineMvMean, others::OnlineMvMean...)
     target
 end
 
-@inline function push_contiguous!(
-    omn::OnlineMvMean{T}, data::AbstractArray,
-    start::Integer, weight::Real = one(T)
+@inline function Base.push!(
+    omn::OnlineMvMean{T}, data::AbstractVector{<:Real}, weight::Real = one(T)
 ) where {T}
-    @assert _iscontiguous(data)  # TODO: Use exception instead of assert
-
     # Workaround for lack of promotion between, e.g., Float32 and DoubleFloat{Float64}
     weight_conv = T(weight)
 
@@ -86,17 +83,13 @@ end
     S = omn.S
     C = omn.C
 
-    idxs = Base.OneTo(m)
-
-    dshft = Int(start) - 1
-
+    idxs = axes(data, 1)
     @assert idxs == axes(S, 1) == axes(C, 1)  # TODO: Use exception instead of assert
-    checkbounds(data, idxs .+ dshft)
 
     omn.sum_w += weight_conv
 
     @inbounds @simd for i in idxs
-        x = weight_conv * data[i + dshft]
+        x = weight_conv * data[i]
         S[i], C[i] = kbn_add((S[i], C[i]), x)
     end
 
@@ -211,13 +204,9 @@ end
 
 
 
-@inline function push_contiguous!(
-    ocv::OnlineMvCov{T,W}, data::AbstractArray,
-    start::Integer,
-    weight::Real = one(T)
+@inline function Base.push!(
+    ocv::OnlineMvCov{T,W}, data::AbstractVector{<:Real}, weight::Real = one(T)
 ) where {T,W}
-    @assert _iscontiguous(data)  # TODO: Use exception instead of assert
-
     # Ignore zero weights (can't be handled)
     if weight ≈ 0
         return ocv
@@ -234,12 +223,8 @@ end
     New_Mean_X = ocv.New_Mean_X
     S = ocv.S
 
-    idxs = Base.OneTo(m)
-
-    dshft = Int(start) - 1
-
+    idxs = axes(data, 1)
     @assert idxs == axes(Mean_X, 1) == axes(New_Mean_X, 1) == axes(S, 1) == axes(S, 2)  # TODO: Use exception instead of assert
-    checkbounds(data, idxs .+ dshft)
 
     n += one(n)
     sum_w += weight_conv
@@ -248,18 +233,18 @@ end
     weight_over_sum_w = T(weight_conv / sum_w)
 
     @inbounds @simd for i in idxs
-        x = data[i + dshft]
+        x = data[i]
         mean_X = Mean_X[i]
         New_Mean_X[i] = muladd(x - mean_X, weight_over_sum_w, mean_X)
     end
 
     @inbounds for j in idxs
-        new_dx_j = data[j + dshft] - New_Mean_X[j]
+        new_dx_j = data[j] - New_Mean_X[j]
 
         j_offs = (LinearIndices(S))[last(idxs), j] - last(idxs)
         #@assert (LinearIndices((S))[last(idxs), j] == last(idxs) + j_offs  # TODO: Use exception instead of assert
         @simd for i in idxs
-            dx_i = data[i + dshft] - Mean_X[i]
+            dx_i = data[i] - Mean_X[i]
             S[i + j_offs] = muladd(dx_i, weight_conv * new_dx_j, S[i + j_offs])
         end
     end
@@ -316,28 +301,20 @@ function Base.merge!(target::BasicMvStatistics, others::BasicMvStatistics...)
 end
 
 
-function push_contiguous!(
-    stats::BasicMvStatistics{T,W}, data::AbstractArray,
-    start::Integer,
-    weight::Real = one(T)
+function Base.push!(
+    stats::BasicMvStatistics{T,W}, data::AbstractVector{<:Real}, weight::Real = one(T)
 ) where {T,W}
-    @assert _iscontiguous(data)  # TODO: Use exception instead of assert
-
-    push_contiguous!(stats.mean, data, start, weight)
-    push_contiguous!(stats.cov, data, start, weight)
+    push!(stats.mean, data, weight)
+    push!(stats.cov, data, weight)
 
     max_v = stats.maximum
     min_v = stats.minimum
 
-    m = stats.m
-    idxs = Base.OneTo(m)
-    dshft = Int(start) - 1
-
+    idxs = axes(data, 1)
     @assert idxs == axes(max_v, 1) == axes(min_v, 1)  # TODO: Use exception instead of assert
-    checkbounds(data, idxs .+ dshft)
 
     @inbounds @simd for i in idxs
-        x = data[i + dshft]
+        x = data[i]
         max_v[i] = max(max_v[i], x)
         min_v[i] = min(min_v[i], x)
     end
@@ -350,41 +327,14 @@ end
 const OnlineMvStatistic = Union{OnlineMvMean, OnlineMvCov, BasicMvStatistics}
 
 
-@inline Base.push!(target::OnlineMvStatistic, data::AbstractVector, weight::Real = 1) =
-    push_contiguous!(target, data, first(LinearIndices(data)), weight)
-
-
-function Base.append!(target::OnlineMvStatistic, data::AbstractMatrix, vardim::Integer = 1)
-    if (vardim == 1)
-        throw(ArgumentError("vardim == $vardim not supported (yet)"))
-    elseif (vardim == 2)
-        @assert target.m == size(data, 1)  # TODO: Use exception instead of assert
-        @assert _iscontiguous(data)  # TODO: Use exception instead of assert
-        @inbounds for i in axes(data, 2)
-            push_contiguous!(target, data, (LinearIndices(data))[1, i])
-        end
-    else
-        throw(ArgumentError("Value of vardim must be 2, not $vardim"))
-    end
-
+function Base.append!(target::OnlineMvStatistic, data::VectorOfSimilarVectors)
+    @uviews data push!.(Scalar(target), data)
     target
 end
 
 
-function Base.append!(target::OnlineMvStatistic, data::AbstractMatrix, weights::AbstractVector, vardim::Integer = 1)
-    if (vardim == 1)
-        throw(ArgumentError("vardim == $vardim not supported (yet)"))
-    elseif (vardim == 2)
-        @assert _iscontiguous(data)  # TODO: Use exception instead of assert
-        @assert target.m == size(data, 1)  # TODO: Use exception instead of assert
-        @assert axes(data, 2) == axes(weights, 1)  # TODO: Use exception instead of assert
-        @inbounds for i in axes(data, 2)
-            push_contiguous!(target, data, (LinearIndices(data))[1, i], weights[i])
-        end
-    else
-        throw(ArgumentError("Value of vardim must be 2, not $vardim"))
-    end
-
+function Base.append!(target::OnlineMvStatistic, data::VectorOfSimilarVectors, weights::AbstractVector)
+    @uviews data weights push!.(Scalar(target), data, weights)
     target
 end
 

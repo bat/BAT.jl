@@ -3,8 +3,8 @@
 using BAT
 using Test
 
-using IntervalSets
 using Random
+using ArraysOfArrays, IntervalSets
 
 struct apb_test <: BAT.AbstractParamBounds
     nparams::Integer
@@ -19,8 +19,8 @@ BAT.unsafe_intersect(a::apb_test, b::apb_test) = true
         @test BAT.isoob(1.) == false
         @test BAT.isoob(BAT.oob(1))
         @test BAT.isoob(1) == false
-        @test BAT.isoob(BAT.oob(ones(Float64,2,2)))
-        @test BAT.isoob(ones(Float64,2,2)) == false
+        @test BAT.isoob([1.0, BAT.oob(Float64), 3.0]) == true
+        @test BAT.isoob([1.0, 2.0, 3.0]) == false
     end
 
     @testset "BAT.apply_bounds" begin
@@ -62,7 +62,7 @@ BAT.unsafe_intersect(a::apb_test, b::apb_test) = true
         uparams = BAT.NoParamBounds(n)
         @test nparams(uparams) == n
         @test params in uparams
-        @test in( hcat(params, params), uparams, 1)
+        @test in( VectorOfSimilarVectors(hcat(params, params)), uparams, 1)
 
         @test BAT.apply_bounds!(params, uparams) == params
     end
@@ -86,12 +86,14 @@ BAT.unsafe_intersect(a::apb_test, b::apb_test) = true
         @test BAT.apply_bounds!([0.3, -4.3, -7.3], BAT.HyperRectBounds([-1.,-1,-1], [2.,2,2],
             [hard_bounds, reflective_bounds, cyclic_bounds])) ≈ [+0.3, 1.7, 1.7]
 
-        @test BAT.apply_bounds!([0.3 0.3 0.3; 0.3 -7.3 +8.3; 0.3 -7.3 +8.3],
-            BAT.HyperRectBounds([-1., -1., -1], [2., 2.,2.], [hard_bounds, reflective_bounds, cyclic_bounds])) ≈ [+0.3 0.3 0.3;0.3 -0.7 1.7;0.3 1.7 -0.7]
+        @test BAT.apply_bounds!(
+            VectorOfSimilarVectors([0.3 0.3 0.3; 0.3 -7.3 +8.3; 0.3 -7.3 +8.3]),
+            BAT.HyperRectBounds([-1., -1., -1], [2., 2.,2.], [hard_bounds, reflective_bounds, cyclic_bounds])
+        ) ≈ VectorOfSimilarVectors([+0.3 0.3 0.3; 0.3 -0.7 1.7; 0.3 1.7 -0.7])
 
-        @test BAT.isoob(BAT.apply_bounds!(rand!(MersenneTwister(7002), zeros(Float64, 2, 2)), hyperRectBounds))
+        @test BAT.isoob(BAT.apply_bounds!(rand!(MersenneTwister(7002), zeros(Float64, 2)), hyperRectBounds))
         @test BAT.isoob(BAT.apply_bounds!(rand!(MersenneTwister(7002),
-            BAT.spatialvolume(hyperRectBounds), zeros(Float64, 2, 2)), hyperRectBounds)) == false
+            BAT.spatialvolume(hyperRectBounds), zeros(Float64, 2)), hyperRectBounds)) == false
 
         @test BAT.isoob(BAT.apply_bounds!([0,2.],hyperRectBounds))
         @test BAT.apply_bounds!([0,2.],hyperRectBounds,false) ≈ [0,2.]

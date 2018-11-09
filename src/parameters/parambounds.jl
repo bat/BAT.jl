@@ -24,11 +24,11 @@ end
 @inline oob(::Type{T}) where {T<:AbstractFloat} = T(NaN)
 @inline oob(::Type{T}) where {T<:Integer} = typemax(T)
 @inline oob(x::Real) = oob(typeof(x))
-oob(xs::AbstractArray) = fill!(similar(xs), oob(eltype(xs)))
 
 @inline isoob(x::AbstractFloat) = isnan(x)
 @inline isoob(x::Integer) = x == oob(x)
-isoob(xs::AbstractArray) = any(isoob, xs)
+isoob(xs::Vector) = any(isoob, xs)
+# isoob(xs::VectorOfSimilarVectors) = any(isoob, flatview(xs))
 
 
 @enum BoundsType hard_bounds=1 cyclic_bounds=2 reflective_bounds=3
@@ -112,17 +112,15 @@ Base.eltype(bounds::NoParamBounds) = Float64
 
 
 Base.in(params::AbstractVector, bounds::NoParamBounds) = true
-Base.in(params::AbstractMatrix, bounds::NoParamBounds, i::Integer) = true
+Base.in(params::VectorOfSimilarVectors, bounds::NoParamBounds, i::Integer) = true
 
 nparams(b::NoParamBounds) = b.ndims
 
-apply_bounds!(params::AbstractVector, bounds::NoParamBounds) = params
+apply_bounds!(params::Union{AbstractVector,VectorOfSimilarVectors}, bounds::NoParamBounds, setoob = true) = params
 
 unsafe_intersect(a::NoParamBounds, b::NoParamBounds) = a
 unsafe_intersect(a::AbstractParamBounds, b::NoParamBounds) = a
 unsafe_intersect(a::NoParamBounds, b::AbstractParamBounds) = b
-
-apply_bounds!(params::AbstractVecOrMat, bounds::NoParamBounds, setoob = true) = params
 
 
 abstract type ParamVolumeBounds{T<:Real, V<:SpatialVolume{T}} <: AbstractParamBounds end
@@ -206,10 +204,12 @@ end
 
 spatialvolume(bounds::HyperRectBounds) = bounds.vol
 
-function apply_bounds!(params::AbstractVecOrMat, bounds::HyperRectBounds, setoob = true)
+function apply_bounds!(params::Union{AbstractVector,VectorOfSimilarVectors}, bounds::HyperRectBounds, setoob = true)
+    params_flat = flatview(params)
     if setoob
-        params .= apply_bounds.(params, bounds.vol.lo, bounds.vol.hi, bounds.bt)
+        params_flat .= apply_bounds.(flatview(params), bounds.vol.lo, bounds.vol.hi, bounds.bt)
     else
-        params .= apply_bounds.(params, bounds.vol.lo, bounds.vol.hi, bounds.bt, params)
+        params_flat .= apply_bounds.(flatview(params), bounds.vol.lo, bounds.vol.hi, bounds.bt, params)
     end
+    params
 end

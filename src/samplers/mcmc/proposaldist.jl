@@ -37,8 +37,8 @@ export distribution_logpdf
     distribution_logpdf!(
         p::AbstractArray,
         pdist::AbstractProposalDist,
-        params_new::AbstractVecOrMat,
-        params_old:::AbstractVecOrMat
+        params_new::Union{AbstractVector,VectorOfSimilarVectors},
+        params_old:::Union{AbstractVector,VectorOfSimilarVectors}
     )
 
 Returns log(PDF) value of `pdist` for transitioning from old to new parameter
@@ -73,8 +73,8 @@ export distribution_logpdf!
     function proposal_rand!(
         rng::AbstractRNG,
         pdist::GenericProposalDist,
-        params_new::AbstractVecOrMat,
-        params_old::AbstractVecOrMat
+        params_new::Union{AbstractVector,VectorOfSimilarVectors},
+        params_old::Union{AbstractVector,VectorOfSimilarVectors}
     )
 
 Generate one or multiple proposed parameter vectors, based on one or multiple
@@ -142,10 +142,10 @@ set_cov(q::GenericProposalDist, Σ::AbstractMatrix{<:Real}) = similar(q, set_cov
 function distribution_logpdf!(
     p::AbstractArray,
     pdist::GenericProposalDist,
-    params_new::AbstractMatrix,
-    params_old::AbstractVecOrMat
+    params_new::VectorOfSimilarVectors,
+    params_old::Union{AbstractVector,VectorOfSimilarVectors}
 )
-    params_diff = params_new .- params_old # TODO: Avoid memory allocation
+    params_diff = flatview(params_new) .- flatview(params_old) # TODO: Avoid memory allocation
     Distributions.logpdf!(p, pdist.d, params_diff)
 end
 
@@ -174,11 +174,13 @@ end
 function proposal_rand!(
     rng::AbstractRNG,
     pdist::GenericProposalDist,
-    params_new::AbstractVecOrMat,
-    params_old::AbstractVecOrMat
+    params_new::Union{AbstractVector,VectorOfSimilarVectors},
+    params_old::Union{AbstractVector,VectorOfSimilarVectors}
 )
-    rand!(rng, pdist.s, params_new)
-    params_new .+= params_old
+    rand!(rng, pdist.s, flatview(params_new))
+    params_new_flat = flatview(params_new)
+    params_new_flat .+= flatview(params_old)
+    params_new
 end
 
 
@@ -210,10 +212,10 @@ LinearAlgebra.issymmetric(pdist::GenericUvProposalDist) = issymmetric_around_ori
 
 function BAT.distribution_logpdf(
     pdist::GenericUvProposalDist,
-    params_new::AbstractVecOrMat,
-    params_old::AbstractVecOrMat
+    params_new::Union{AbstractVector,VectorOfSimilarVectors},
+    params_old::Union{AbstractVector,VectorOfSimilarVectors}
 )
-    params_diff = (params_new .- params_old) ./ pdist.scale  # TODO: Avoid memory allocation
+    params_diff = (flatview(params_new) .- flatview(params_old)) ./ pdist.scale  # TODO: Avoid memory allocation
     sum_first_dim(Distributions.logpdf.(pdist.d, params_diff))  # TODO: Avoid memory allocation
 end
 

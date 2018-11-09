@@ -26,10 +26,13 @@ Random.rand(rng::AbstractRNG, density::AbstractDensity, T::Type{<:AbstractFloat}
     rand!(rng, density, Vector{T}(undef, nparams(density)))
 
 Random.rand(rng::AbstractRNG, density::AbstractDensity, T::Type{<:AbstractFloat}, n::Integer) =
-    rand!(rng, density, Matrix{T}(undef, nparams(density), n))
+    rand!(rng, density, VectorOfSimilarVectors(Array{T}(undef, nparams(density), n)))
 
-Random.rand!(rng::AbstractRNG, density::AbstractDensity, x::StridedVecOrMat{<:Real}) =
+Random.rand!(rng::AbstractRNG, density::AbstractDensity, x::AbstractVector{<:Real}) =
     rand!(rng, sampler(density), x)
+
+Random.rand!(rng::AbstractRNG, density::AbstractDensity, x::VectorOfSimilarVectors{<:Real}) =
+    (rand!(rng, sampler(density), flatview(x)); x)
 
 
 
@@ -107,9 +110,9 @@ exec_capabilities(::typeof(unsafe_density_logval), density::AbstractDensity, arg
 
 @doc """
     density_logval!(
-        r::AbstractArray{<:Real},
+        r::AbstractVector{<:Real},
         density::AbstractDensity,
-        params::AbstractMatrix{<:Real},
+        params::VectorOfSimilarVectors{<:Real},
         exec_context::ExecContext = ExecContext()
     )
 
@@ -119,16 +122,16 @@ vectors.
 Input:
 
 * `density`: density function
-* `params`: parameter values (column vectors)
+* `params`: parameter values
 * `exec_context`: Execution context
 
 Output is stored in
 
-* `r`: Array of log-result values, length must match, shape is ignored
+* `r`: Vector of log-result values
 
 Array size requirements:
 
-    size(params, 2) == length(r)
+    axes(params, 1) == axes(r, 1)
 
 Note: `density_logval!` must not be called with out-of-bounds parameter
 vectors (see `param_bounds`). The result of `density_logval!` for parameter
@@ -144,27 +147,27 @@ See `ExecContext` for thread-safety requirements.
 function density_logval!(
     r::AbstractVector{<:Real},
     density::AbstractDensity,
-    params::AbstractMatrix{<:Real},
+    params::VectorOfSimilarVectors{<:Real},
     exec_context::ExecContext = ExecContext()
 )
 
-    !(size(params, 1) == nparams(density)) && throw(ArgumentError("Invalid length of parameter vector"))
-    !(axes(params, 2) == axes(r, 1)) && throw(ArgumentError("Number of parameter vectors doesn't match length of result vector"))
+    !(innersize(params, 1) == nparams(density)) && throw(ArgumentError("Invalid length of parameter vector"))
+    !(axes(params, 1) == axes(r, 1)) && throw(ArgumentError("Number of parameter vectors doesn't match length of result vector"))
     unsafe_density_logval!(r, density, params, exec_context)
     any(isnan, r) && throw(ErrorException("unsafe_density_logval! must not set any return value to NaN"))
     r
 end
 export density_logval!
 
-exec_capabilities(::typeof(density_logval!), r::AbstractArray{<:Real}, density::AbstractDensity, params::AbstractMatrix{<:Real}) =
+exec_capabilities(::typeof(density_logval!), r::AbstractArray{<:Real}, density::AbstractDensity, params::VectorOfSimilarVectors{<:Real}) =
     exec_capabilities(unsafe_density_logval!, r, density, params)
 
 
 @doc """
     BAT.unsafe_density_logval!(
-        r::AbstractArray{<:Real},
+        r::AbstractVector{<:Real},
         density::AbstractDensity,
-        params::AbstractMatrix{<:Real},
+        params::VectorOfSimilarVectors{<:Real},
         exec_context::ExecContext
     )
 
@@ -176,22 +179,19 @@ Unsafe variant of `density_logval!`, implementations may rely on
 The caller *must* ensure that these conditions are met!
 """
 function unsafe_density_logval!(
-    r::AbstractArray{<:Real},
+    r::AbstractVector{<:Real},
     density::AbstractDensity,
-    params::AbstractMatrix{<:Real},
+    params::VectorOfSimilarVectors{<:Real},
     exec_context::ExecContext
 )
     # TODO: Support for parallel execution
-    single_ec = exec_context # Simplistic, will have to change for parallel execution
-    for i in eachindex(r, axes(params, 2))
-        p = view(params, :, i) # TODO: Avoid memory allocation
-        r[i] = density_logval(density, p, single_ec)
-    end
+    # TODO: Use UnsafeArray to avoid memory allocation?
+    r .= density_logval.(Scalar(density), params, Scalar(exec_context))
     r
 end
 
 # ToDo: Derive from exec_capabilities(density_logval, density, ...)
-exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractArray{<:Real}, density::AbstractDensity, args...) =
+exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractVector{<:Real}, density::AbstractDensity, args...) =
     ExecCapabilities(1, false, 1, true) # Change when default implementation of density_logval! for AbstractDensity becomes multithreaded.
 
 

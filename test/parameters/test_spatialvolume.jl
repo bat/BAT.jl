@@ -3,8 +3,8 @@
 using BAT
 using Test
 
-using IntervalSets
 using Random
+using ArraysOfArrays, IntervalSets
 
 @testset "SpatialVolume" begin
     lo = [-1., -0.1]
@@ -13,7 +13,7 @@ using Random
     @testset "BAT.SpatialVolume" begin
         @test eltype(@inferred BAT.HyperRectVolume([-1., 0.5], [2.,1])) == Float64
         @test size(rand(MersenneTwister(7002), hyperRectVolume)) == (2,)
-        @test size(rand(MersenneTwister(7002), hyperRectVolume, 3)) == (2, 3,)
+        @test size(rand(MersenneTwister(7002), hyperRectVolume, 3)) == (3,)
     end
     @testset "BAT.HyperRectVolume" begin
         @test typeof(@inferred BAT.HyperRectVolume([-1., 0.5], [2.,1])) <: SpatialVolume{Float64}
@@ -24,13 +24,13 @@ using Random
 
         @test ndims(hyperRectVolume) == 2
 
-        res = rand!(MersenneTwister(7002), hyperRectVolume, zeros(2))
+        res = @inferred rand!(MersenneTwister(7002), hyperRectVolume, zeros(2))
         @test typeof(res) <: AbstractArray{Float64, 1}
         @test size(res) == (2,)
         @test res in hyperRectVolume
-        res = rand!(MersenneTwister(7002), hyperRectVolume, zeros(2,3))
-        @test typeof(res) <: AbstractArray{Float64, 2}
-        @test size(res) == (2, 3)
+        res = @inferred rand!(MersenneTwister(7002), hyperRectVolume, VectorOfSimilarVectors(zeros(2,3)))
+        @test typeof(res) <: VectorOfSimilarVectors{Float64,Array{Float64,2}}
+        @test size(res) == (3,)
 
         res = @inferred similar(hyperRectVolume)
         @test typeof(res) <: HyperRectVolume{Float64}
@@ -73,8 +73,8 @@ using Random
         res = @inferred fromuhc(y, hyperRectVolume)
         @test res ≈ hyperRectVolume.hi
         @test inv(fromuhc)(res, hyperRectVolume) ≈ y
-        y = [0.2 0.5 0.5; 0.9 0.7 0.5]
+        y = VectorOfSimilarVectors([0.2 0.5 0.5; 0.9 0.7 0.5])
         res = @inferred fromuhc(y, hyperRectVolume)
-        @test res ≈ [-0.4 0.5 0.5; 0.89 0.67 0.45]
+        @test res ≈ VectorOfSimilarVectors([-0.4 0.5 0.5; 0.89 0.67 0.45])
     end
 end

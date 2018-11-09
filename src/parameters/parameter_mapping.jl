@@ -37,12 +37,12 @@ function map_params!(
 end
 
 function map_params!(
-    mapped_params::AbstractMatrix{<:Real},
+    mapped_params::VectorOfSimilarVectors{<:Real},
     parmap::ParameterMapping,
-    params::AbstractMatrix{<:Real}
+    params::VectorOfSimilarVectors{<:Real}
 )
-    mapped_params[parmap.fixed_idxs, :] = parmap.fixed_values
-    mapped_params[parmap.variable_idxs, :] = params
+    flatview(mapped_params)[parmap.fixed_idxs, :] = parmap.fixed_values
+    flatview(mapped_params)[parmap.variable_idxs, :] = flatview(params)
     mapped_params
 end
 
@@ -51,8 +51,8 @@ function map_params(parmap::ParameterMapping, params::AbstractVector{<:Real})
     map_params!(mapped_params, parmap, params)
 end
 
-function map_params(parmap::ParameterMapping, params::AbstractMatrix{<:Real})
-    mapped_params = similar(params, size(parmap.fixed_paramsidxs, 1) + size(parmap.variable_idxs, 1), size(params, 2))
+function map_params(parmap::ParameterMapping, params::VectorOfSimilarVectors{<:Real})
+    mapped_params = VectorOfSimilarVectors(similar(flatview(params), size(parmap.fixed_paramsidxs, 1) + size(parmap.variable_idxs, 1), size(flatview(params), 2)))
     map_params!(mapped_params, parmap, params)
 end
 
@@ -69,11 +69,11 @@ function invmap_params!(
 end
 
 function invmap_params!(
-    params::AbstractVector{<:Real},
+    params::VectorOfSimilarVectors{<:Real},
     parmap::ParameterMapping,
-    mapped_params::AbstractMatrix{<:Real}
+    mapped_params::VectorOfSimilarVectors{<:Real}
 )
-    params[:, :] = view(mapped_params, parmap.variable_idxs, :)
+    flatview(params)[:, :] = view(flatview(mapped_params), parmap.variable_idxs, :)
     params
 end
 
@@ -82,8 +82,8 @@ function invmap_params(parmap::ParameterMapping, mapped_params::AbstractVector{<
     invmap_params!(params, parmap, mapped_params)
 end
 
-function invmap_params(parmap::ParameterMapping, mapped_params::AbstractMatrix{<:Real})
-    params = similar(mapped_params, size(parmap.variable_idxs, 1), size(mapped_params, 2))
+function invmap_params(parmap::ParameterMapping, mapped_params::VectorOfSimilarVectors{<:Real})
+    params = VectorOfSimilarVectors(similar(flatview(mapped_params), size(parmap.variable_idxs, 1), size(flatview(mapped_params), 2)))
     invmap_params!(params, parmap, mapped_params)
 end
 

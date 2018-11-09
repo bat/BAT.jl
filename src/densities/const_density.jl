@@ -38,15 +38,15 @@ end
 
 
 function unsafe_density_logval!(
-    r::AbstractArray{<:Real},
+    r::AbstractVector{<:Real},
     density::ConstDensity,
-    params::AbstractMatrix{<:Real},
+    params::VectorOfSimilarVectors{<:Real},
     exec_context::ExecContext
 )
     fill!(r, density.log_value)
 end
 
-@inline exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractArray{<:Real}, density::ConstDensity, args...) =
+@inline exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractVector{<:Real}, density::ConstDensity, args...) =
     ExecCapabilities(0, true, 0, true)
 
 

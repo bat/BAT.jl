@@ -197,7 +197,7 @@ mcmc_compatible(::DirectSampling, ::AbstractProposalDist, ::AbstractParamBounds)
 
 # ToDo: Specialized version of rand_initial_params for DirectSampling:
 #
-#     rand_initial_params!(rng::AbstractRNG, algorithm::DirectSampling, target::DensityFunction, x::StridedVecOrMat{<:Real}) = ...
+#     rand_initial_params!(rng::AbstractRNG, algorithm::DirectSampling, target::DensityFunction, x::Union{AbstractVector,VectorOfSimilarVectors}) = ...
 
 
 AbstractMCMCTunerConfig(algorithm::DirectSampling) = NoOpTunerConfig()

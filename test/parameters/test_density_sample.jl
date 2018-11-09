@@ -2,7 +2,8 @@
 
 using BAT
 using Test
-using ElasticArrays
+
+using ArraysOfArrays, ElasticArrays
 
 @testset "density_sample" begin
     
@@ -36,7 +37,7 @@ using ElasticArrays
     @testset "DensitySampleVector" begin
         dsv1 = @inferred DensitySampleVector{Float64,Float32,Int}(3)
         @test typeof(dsv1) <: BAT.BATDataVector{DensitySample{Float64,Float32,Int,Vector{Float64}}}
-        @test typeof(dsv1) <: DensitySampleVector{Float64,Float32,Int,ElasticArrays.ElasticArray{Float64,2,1},Vector{Float32},Vector{Int}}
+        @test typeof(dsv1) <: DensitySampleVector{Float64,Float32,Int,VectorOfSimilarVectors{Float64,ElasticArray{Float64,2,1}},Vector{Float32},Vector{Int}}
         
         @test size(dsv1) == (0,)
         push!(dsv1, ds1)

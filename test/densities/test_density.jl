@@ -2,10 +2,9 @@
 
 using BAT
 using Test
-using LinearAlgebra
-using Random
 
-using Distributions, PDMats, StatsBase
+using LinearAlgebra, Random
+using ArraysOfArrays, Distributions, PDMats, StatsBase
 
 struct test_density <: AbstractDensity
 end
@@ -20,26 +19,32 @@ BAT.sampler(td::test_density) = BAT.sampler(MvNormal(ones(3), PDMat(Matrix{Float
     Σ = @inferred PDMat(cmat)
     mvnorm = @inferred  MvNormal(mvec, Σ)
 
-    density = @inferred GenericDensity(params -> logpdf(mvnorm, params), 2)
+    density = let mvnorm = mvnorm
+        @inferred GenericDensity(params -> logpdf(mvnorm, params), 2)
+    end
 
     econtext = @inferred ExecContext()
 
-    params = [0.0 -0.3 0.5; 0.0 0.3 0.6]
+    params = VectorOfSimilarVectors([0.0 -0.3 0.5; 0.0 0.3 0.6])
 
     @testset "rand" begin
         td = test_density()
         @test rand(MersenneTwister(7002), td, Float64) ≈
             [-2.415270938, 0.7070171342, 1.0224848653]
-        @test rand(MersenneTwister(7002), td, Float64, 2) ≈
-            [-2.415270938 1.2951273090;
+
+        @test rand(MersenneTwister(7002), td, Float64, 2) ≈ VectorOfSimilarVectors([
+            -2.415270938 1.2951273090;
             0.7070171342  0.8896838714;
-            1.0224848653  0.8824274590]
-        x = ones(3,2)
-        rand!(MersenneTwister(7002), td, x)
-        @test x ≈
-            [-2.415270938 1.2951273090;
+            1.0224848653  0.8824274590;
+        ])
+
+        x = VectorOfSimilarVectors(ones(3, 2))
+        @test x === @inferred rand!(MersenneTwister(7002), td, x)
+        @test x ≈ VectorOfSimilarVectors([
+            -2.415270938 1.2951273090;
             0.7070171342  0.8896838714;
-            1.0224848653  0.8824274590]
+            1.0224848653  0.8824274590;
+        ])
     end
 
     @testset "param_bounds" begin
@@ -49,42 +54,42 @@ BAT.sampler(td::test_density) = BAT.sampler(MvNormal(ones(3), PDMat(Matrix{Float
     end
 
     @testset "density_logval!" begin
-        r = zeros(Float64, size(params, 2))
+        r = zeros(Float64, size(params, 1))
 
-        density_logval!(r, density, params, econtext)
-        @test r ≈ logpdf(mvnorm, params)
-        BAT.unsafe_density_logval!(r, density, params, econtext)
-        @test r ≈ logpdf(mvnorm, params)
+        @test r === @inferred density_logval!(r, density, params, econtext)
+        @test r ≈ logpdf(mvnorm, flatview(params))
+        @test r === @inferred BAT.unsafe_density_logval!(r, density, params, econtext)
+        @test r ≈ logpdf(mvnorm, flatview(params))
     end
 
     @testset "density_logval" begin
-        @test density_logval(density, params[:, 1], econtext) ≈ logpdf(mvnorm, params[:, 1])
-        @test BAT.unsafe_density_logval(density, params[:, 1], econtext) ≈ logpdf(mvnorm, params[:, 1])
+        @test @inferred(density_logval(density, params[1], econtext)) ≈ logpdf(mvnorm, params[1])
+        @test @inferred(BAT.unsafe_density_logval(density, params[1], econtext)) ≈ logpdf(mvnorm, params[1])
     end
 
     @testset "exec_capabilities" begin
         ecap = @inferred BAT.exec_capabilities(
-            density_logval!, similar(params[1, :]), density, params)
+            density_logval!, similar(flatview(params)[1, :]), density, params)
         @test ecap.nthreads == 1
         @test ecap.threadsafe == false
         @test ecap.nprocs == 1
         @test ecap.remotesafe == true
 
         ecap = @inferred BAT.exec_capabilities(
-            BAT.unsafe_density_logval!, similar(params[1, :]), density, params)
+            BAT.unsafe_density_logval!, similar(flatview(params)[1, :]), density, params)
         @test ecap.nthreads == 1
         @test ecap.threadsafe == false
         @test ecap.nprocs == 1
         @test ecap.remotesafe == true
 
-        ecap = @inferred BAT.exec_capabilities(density_logval, density, params[:, 1])
+        ecap = @inferred BAT.exec_capabilities(density_logval, density, params[1])
         @test ecap.nthreads == 1
         @test ecap.threadsafe == true
         @test ecap.nprocs == 1
         @test ecap.remotesafe == true
 
         ecap = @inferred BAT.exec_capabilities(
-            BAT.unsafe_density_logval, density, params[:, 1])
+            BAT.unsafe_density_logval, density, params[1])
         @test ecap.nthreads == 1
         @test ecap.threadsafe == true
         @test ecap.nprocs == 1

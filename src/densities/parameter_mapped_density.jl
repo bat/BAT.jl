@@ -37,12 +37,12 @@ BAT.exec_capabilities(::typeof(BAT.unsafe_density_logval), density::ParameterMap
     BAT.exec_capabilities(density_logval, density.orig_density, map_params(density.parmap, params))
 
 
-function BAT.unsafe_density_logval!(r::AbstractArray{<:Real}, density::ParameterMappedDensity, params::AbstractMatrix{<:Real}, exec_context::ExecContext)
+function BAT.unsafe_density_logval!(r::AbstractVector{<:Real}, density::ParameterMappedDensity, params::VectorOfSimilarVectors{<:Real}, exec_context::ExecContext)
     BAT.unsafe_density_logval!(r, density.orig_density, map_params(density.parmap, params), exec_context)
 
 end
 
-BAT.exec_capabilities(::typeof(BAT.unsafe_density_logval!), r::AbstractArray{<:Real}, density::ParameterMappedDensity, params::AbstractMatrix{<:Real}) =
+BAT.exec_capabilities(::typeof(BAT.unsafe_density_logval!), r::AbstractVector{<:Real}, density::ParameterMappedDensity, params::VectorOfSimilarVectors{<:Real}) =
     BAT.exec_capabilities(density_logval!, r, density.orig_density, map_params(density.parmap, params))
 
 

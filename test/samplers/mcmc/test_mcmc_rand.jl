@@ -2,9 +2,10 @@
 
 using BAT, BAT.Logging
 using Test
-using Distributions, PDMats, StatsBase
-using Distributed
-using Random
+
+using Distributed, Random
+using ArraysOfArrays, Distributions, PDMats, StatsBase
+
 
 @testset "mcmc_rand" begin
     @testset "rand" begin
@@ -16,7 +17,7 @@ using Random
         mv_dist = MvNormal(mvec, Σ)
         density = @inferred MvDistDensity(mv_dist)
         bounds = @inferred HyperRectBounds([-5, -8], [5, 8], reflective_bounds)
-        nsamples_per_chain = 2000
+        nsamples_per_chain = 20000
         nchains = 4
 
         # algorithmMW = @inferred MetropolisHastings() TODO: put back the @inferred
@@ -33,13 +34,13 @@ using Random
 
         @test length(samples) == length(sampleids)
         @test length(samples) == nchains * nsamples_per_chain
-        @test samples.params[:, findmax(samples.log_value)[2]] == stats.mode
+        @test samples.params[findmax(samples.log_value)[2]] == stats.mode
 
-        cov_samples = cov(samples.params, FrequencyWeights(samples.weight), 2; corrected=true)
-        mean_samples = mean(Array(samples.params), FrequencyWeights(samples.weight), 2)
+        cov_samples = cov(flatview(samples.params), FrequencyWeights(samples.weight), 2; corrected=true)
+        mean_samples = mean(flatview(samples.params), FrequencyWeights(samples.weight), 2)
 
-        @test isapprox(mean_samples, mvec; atol = 0.2)
-        @test isapprox(cov_samples, cmat; atol = 0.5)
+        @test isapprox(mean_samples, mvec; rtol = 0.1)
+        @test isapprox(cov_samples, cmat; rtol = 0.1)
 
         algorithmPW = @inferred MetropolisHastings(MHAccRejProbWeights())
         # samples, sampleids, stats = @inferred rand(
@@ -52,13 +53,13 @@ using Random
         )
 
         @test length(samples) == length(sampleids)
-        @test samples.params[:, findmax(samples.log_value)[2]] == stats.mode
+        @test samples.params[findmax(samples.log_value)[2]] == stats.mode
 
-        cov_samples = cov(samples.params, FrequencyWeights(samples.weight), 2; corrected=true)
-        mean_samples = mean(Array(samples.params), FrequencyWeights(samples.weight), 2)
+        cov_samples = cov(flatview(samples.params), FrequencyWeights(samples.weight), 2; corrected=true)
+        mean_samples = mean(flatview(samples.params), FrequencyWeights(samples.weight), 2)
 
-        @test isapprox(mean_samples, mvec; atol = 0.2)
-        @test isapprox(cov_samples, cmat; atol = 0.5)
+        @test isapprox(mean_samples, mvec; rtol = 0.1)
+        @test isapprox(cov_samples, cmat; rtol = 0.1)
 
         algorithmFW = @inferred MetropolisHastings(MHPosteriorFractionWeights())
 
@@ -72,13 +73,13 @@ using Random
         )
 
         @test length(samples) == length(sampleids)
-        @test samples.params[:, findmax(samples.log_value)[2]] == stats.mode
+        @test samples.params[findmax(samples.log_value)[2]] == stats.mode
 
-        cov_samples = cov(samples.params, FrequencyWeights(samples.weight), 2; corrected=true)
-        mean_samples = mean(Array(samples.params), FrequencyWeights(samples.weight), 2)
+        cov_samples = cov(flatview(samples.params), FrequencyWeights(samples.weight), 2; corrected=true)
+        mean_samples = mean(flatview(samples.params), FrequencyWeights(samples.weight), 2)
 
-        @test isapprox(mean_samples, mvec; atol = 0.2)
-        @test isapprox(cov_samples, cmat; atol = 0.5)
+        @test isapprox(mean_samples, mvec; rtol = 0.1)
+        @test isapprox(cov_samples, cmat; rtol = 0.1)
 
         algorithmDS = @inferred DirectSampling()
         @test BAT.mcmc_compatible(algorithmDS, GenericProposalDist(mv_dist), NoParamBounds(2))
@@ -90,10 +91,10 @@ using Random
             granularity = 1
         )
 
-        cov_samples = cov(samples.params, FrequencyWeights(samples.weight), 2; corrected=true)
-        mean_samples = mean(Array(samples.params), FrequencyWeights(samples.weight), 2)
+        cov_samples = cov(flatview(samples.params), FrequencyWeights(samples.weight), 2; corrected=true)
+        mean_samples = mean(flatview(samples.params), FrequencyWeights(samples.weight), 2)
 
-        @test isapprox(mean_samples, mvec; atol = 0.2)
-        @test isapprox(cov_samples, cmat; atol = 0.5)
+        @test isapprox(mean_samples, mvec; rtol = 0.1)
+        @test isapprox(cov_samples, cmat; rtol = 0.1)
     end
 end

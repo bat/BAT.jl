@@ -20,7 +20,7 @@ using Distributions, PDMats
     mvt = MvTDist(3, mvec, Σ)
     mvt_density = @inferred GenericDensity(params -> logpdf(mvt, params), 3)
 
-    params = [0.0 -0.3; 0.0 0.3; 0.0 1.0]
+    params = VectorOfSimilarVectors([0.0 -0.3; 0.0 0.3; 0.0 1.0])
     
     pb = BAT.HyperRectBounds([-2.0, -1.0, -0.5], [2.0, 3.0, 1.0],
                                 reflective_bounds)
@@ -30,7 +30,7 @@ using Distributions, PDMats
     dp1 = @inferred BAT.DensityProduct((mvt_density,), pb)
     dp2 = @inferred BAT.DensityProduct((mvn_density,), pb2)
 
-    res = Array{Float64}(undef, size(params, 2))
+    res = Array{Float64}(undef, size(params, 1))
     
     @testset "DensityProduct" begin
         @test typeof(dp) <: BAT.DensityProduct{2,
@@ -74,10 +74,10 @@ using Distributions, PDMats
     end
 
     @testset "unsafe_density_logval" begin
-        @test BAT.unsafe_density_logval(dp, params[:,1], econtext) ≈ -8.8547305
+        @test BAT.unsafe_density_logval(dp, params[1], econtext) ≈ -8.8547305
         
         @test_throws ArgumentError BAT.unsafe_density_logval(BAT.DensityProduct(Tuple([]), pb),
-                                                             params[:,1], econtext)
+                                                             params[1], econtext)
 
         BAT.unsafe_density_logval!(res, dp, params, econtext) 
         
@@ -85,10 +85,10 @@ using Distributions, PDMats
     end
 
     @testset "ExecCapabilities" begin
-        ec = @inferred BAT.exec_capabilities(BAT.unsafe_density_logval, dp, params[:, 1])
+        ec = @inferred BAT.exec_capabilities(BAT.unsafe_density_logval, dp, params[1])
         ec_tocmp = @inferred ∩(
-            BAT.exec_capabilities(BAT.unsafe_density_logval, mvt_density, params[:, 1]),
-            BAT.exec_capabilities(BAT.unsafe_density_logval, mvn_density, params[:, 1]))
+            BAT.exec_capabilities(BAT.unsafe_density_logval, mvt_density, params[1]),
+            BAT.exec_capabilities(BAT.unsafe_density_logval, mvn_density, params[1]))
 
         @test ec.nthreads == ec_tocmp.nthreads
         @test ec.threadsafe == ec_tocmp.threadsafe

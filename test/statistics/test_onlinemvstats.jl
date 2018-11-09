@@ -4,7 +4,7 @@ using BAT
 using Test
 
 using Statistics
-using StatsBase
+using ArraysOfArrays, StatsBase
 
 @testset "onlinestats" begin
     n = 10
@@ -13,8 +13,8 @@ using StatsBase
 
     w = [exp(x-n/2) for x in 1:n]
 
-    data = vcat(data1', data2')
-    m = size(data, 1)
+    data = VectorOfSimilarVectors(vcat(data1', data2'))
+    m = innersize(data, 1)
 
 
     @testset "BAT.kbn_add" begin
@@ -52,21 +52,21 @@ using StatsBase
             mvmeans[i] = BAT.OnlineMvMean(m)
         end
 
-        for i in axes(data, 2)
-            push!(mvmean, data[:, i], w[i]);
-            push!(mvmeans[(i % countM) + 1], data[:, i], w[i]);
+        for i in axes(data, 1)
+            push!(mvmean, data[i], w[i]);
+            push!(mvmeans[(i % countM) + 1], data[i], w[i]);
         end
 
-        @test mvmean ≈ mean(data, Weights(w), 2)
+        @test mvmean ≈ mean(data, Weights(w))
 
         res = merge(mvmeans...)
-        @test res ≈ mean(data, Weights(w), 2)
+        @test res ≈ mean(data, Weights(w))
 
         mvmean = BAT.OnlineMvMean(m)
-        res = append!(deepcopy(mvmean), data, 2)
-        @test res ≈ mean(data, dims=2)
-        res = append!(deepcopy(mvmean), data, w, 2)
-        @test res ≈ mean(data, Weights(w), 2)
+        res = append!(deepcopy(mvmean), data)
+        @test res ≈ mean(data)
+        res = append!(deepcopy(mvmean), data, w)
+        @test res ≈ mean(data, Weights(w))
     end
 
     @testset "BAT.OnlineMvCov" begin
@@ -75,11 +75,11 @@ using StatsBase
 
         for wKind in [ProbabilityWeights, FrequencyWeights, AnalyticWeights, Weights]
             mvcov = BAT.OnlineMvCov{Float64, wKind}(m)
-            for i in axes(data, 2)
-                push!(mvcov, data[:, i], w[i]);
+            for i in eachindex(data)
+                push!(mvcov, data[i], w[i]);
             end
 
-            @test mvcov ≈ cov(data, wKind(w), 2; corrected = (wKind != Weights))
+            @test mvcov ≈ cov(data, wKind(w); corrected = (wKind != Weights))
         end
 
         countMvCovs = 3
@@ -89,29 +89,28 @@ using StatsBase
         end
         mvcovc = BAT.OnlineMvCov(m)
 
-        for i in axes(data, 2)
-            push!(mvcovs[(i % countMvCovs) + 1], data[:, i], w[i]);
-            push!(mvcovc, data[:, i], w[i]);
+        for i in eachindex(data)
+            push!(mvcovs[(i % countMvCovs) + 1], data[i], w[i]);
+            push!(mvcovc, data[i], w[i]);
         end
 
-
         res = merge(mvcovs...)
-        @test res ≈ cov(data, ProbabilityWeights(w), 2; corrected = true)
+        @test res ≈ cov(data, ProbabilityWeights(w); corrected = true)
         @test res ≈ mvcovc
         @test res.sum_w ≈ mvcovc.sum_w
         @test res.sum_w2 ≈ mvcovc.sum_w2
         @test res.n ≈ mvcovc.n
         @test res.Mean_X ≈ mvcovc.Mean_X
         @test res.New_Mean_X ≈ mvcovc.New_Mean_X
-        @test push!(res, data[:, 1], zero(Float64)) ≈ mvcovc
+        @test push!(res, data[1], zero(Float64)) ≈ mvcovc
 
         mvcov = BAT.OnlineMvCov(m)
-        res = append!(deepcopy(mvcov), data, 2)
-        @test res ≈ cov(data, dims=2)
-        res = append!(deepcopy(mvcov), data, w, 2)
-        @test res ≈ cov(data, ProbabilityWeights(w), 2; corrected = true)
-
+        res = append!(deepcopy(mvcov), data)
+        @test res ≈ cov(data)
+        res = append!(deepcopy(mvcov), data, w)
+        @test res ≈ cov(data, ProbabilityWeights(w); corrected = true)
     end
+
     @testset "BAT.BasicMvStatistic" begin
         bmvstats = BasicMvStatistics{Float64, ProbabilityWeights}(m)
 
@@ -121,40 +120,9 @@ using StatsBase
             bmvs[i] = BasicMvStatistics{Float64, ProbabilityWeights}(m)
         end
 
-        for i in axes(data, 2)
-            BAT.push!(bmvstats, data[:, i], w[i]);
-            #BAT.push!(bmvs[(i % countBMS) + 1], data[:, i], w[i]);
+        for i in eachindex(data)
+            BAT.push!(bmvstats, data[i], w[i]);
+            #BAT.push!(bmvs[(i % countBMS) + 1], data[i], w[i]);
         end
-
-        # merbmvstats = merge(bmvs...)
-
-        # maxData =  [maximum(data[i, :]) for i in axes(data, 1)]
-        # minData =  [minimum(data[i, :]) for i in axes(data, 1)]
-
-        # for bs in [bmvstats, merbmvstats]
-        #     @test bs.mean ≈  mean(data, Weights(w), 2)
-        #     @test bs.cov ≈ cov(data, ProbabilityWeights(w), 2; corrected = true)
-        #     @test bs.maximum ≈ maxData
-        #     @test bs.minimum ≈ minData
-        # end
-
-        # mvstat = BasicMvStatistics{Float64, ProbabilityWeights}(m)
-        # res = append!(deepcopy(mvstat), data, 2)
-        # @test res.mean ≈ mean(data, 2)
-        # @test res.cov ≈ cov(data, 2)
-        # @test res.maximum ≈ maxData
-        # @test res.minimum ≈ minData
-
-        # res = append!(deepcopy(mvstat), data, w, 2)
-        # @test res.mean ≈ mean(data, weights(w), 2)
-        # @test res.cov ≈ cov(data, ProbabilityWeights(w), 2; corrected = true)
-        # @test res.maximum ≈ maxData
-        # @test res.minimum ≈ minData
-
-        # @test_throws ArgumentError append!(mvstat, data, w, 1)
-        # @test_throws ArgumentError append!(mvstat, data, w, 3)
-        # @test_throws ArgumentError append!(mvstat, data, 1)
-        # @test_throws ArgumentError append!(mvstat, data, 3)
     end
-
 end

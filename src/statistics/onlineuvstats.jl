@@ -40,7 +40,7 @@ function Base.merge!(target::OnlineUvMean{T}, others::OnlineUvMean...) where {T}
 end
 
 
-@inline function _push_impl!(omn::OnlineUvMean{T}, data::Real, weight::Real) where {T}
+@inline function Base.push!(omn::OnlineUvMean{T}, data::Real, weight::Real = 1) where {T}
     # Workaround for lack of promotion between, e.g., Float32 and DoubleFloat{Float64}
     weight_conv = T(weight)
 
@@ -134,7 +134,7 @@ function Base.merge!(target::OnlineUvVar{T,W}, others::OnlineUvVar...) where {T,
 end
 
 
-@inline function _push_impl!(ocv::OnlineUvVar{T}, data::Real, weight::Real) where T
+@inline function Base.push!(ocv::OnlineUvVar{T}, data::Real, weight::Real = 1) where T
     # Ignore zero weights (can't be handled)
     if weight ≈ 0
         return ocv
@@ -186,7 +186,7 @@ export BasicUvStatistics
 
 
 
-@inline function _push_impl!(stats::BasicUvStatistics{T,W}, data::Real, weight::Real) where {T,W}
+@inline function Base.push!(stats::BasicUvStatistics{T,W}, data::Real, weight::Real = 1) where {T,W}
     nmaximum = stats.maximum
     nminimum = stats.minimum
 
@@ -227,22 +227,13 @@ end
 const OnlineUvStatistic = Union{BAT.OnlineUvMean, BAT.OnlineUvVar, BAT.BasicUvStatistics}
 
 
-Base.push!(ocv::OnlineUvStatistic, data::Real, weight::Real = 1) =
-    _push_impl!(ocv, data, weight)
-
-
 @inline function Base.append!(stats::OnlineUvStatistic, data::AbstractVector{<:Real})
-    @inbounds for i in axes(data, 1)
-        push!(stats, data[i])
-    end
+    push!.(Scalar(stats), data)
     stats
 end
 
 @inline function Base.append!(stats::OnlineUvStatistic, data::AbstractVector{<:Real}, weights::AbstractVector{<:Real})
-    @assert axes(data) == axes(weights)# ToDo: Throw exception instead of assert
-    @inbounds for i in axes(data, 1)
-        push!(stats, data[i], weights[i])
-    end
+    push!.(Scalar(stats), data, weights)
     stats
 end
 

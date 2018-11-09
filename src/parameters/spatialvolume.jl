@@ -12,7 +12,7 @@ Random.rand(rng::AbstractRNG, vol::SpatialVolume) =
     rand!(rng, vol, Vector{float(eltype(vol))}(undef, ndims(vol)))
 
 Random.rand(rng::AbstractRNG, vol::SpatialVolume, n::Integer) =
-    rand!(rng, vol, Matrix{float(eltype(vol))}(undef, ndims(vol), n))
+    rand!(rng, vol, VectorOfSimilarVectors(Matrix{float(eltype(vol))}(undef, ndims(vol), n)))
 
 
 @doc """
@@ -25,7 +25,8 @@ export log_volume
 
 
 @doc """
-    fromuhc!(Y::VecOrMat, X::VecOrMat, vol::SpatialVolume)
+    fromuhc!(Y::AbstractVector, X::AbstractVector, vol::SpatialVolume)
+    fromuhc!(Y::VectorOfSimilarVectors, X::VectorOfSimilarVectors, vol::SpatialVolume)
 
 Bijective transformation of coordinates `X` within the unit hypercube to
 coordinates `Y` in `vol`. If `X` and `Y` are matrices, the transformation is
@@ -43,18 +44,19 @@ Base.inv(::typeof(inv_fromuhc!)) = fromuhc!
 
 
 @doc """
-    fromuhc(X::VecOrMat, vol::SpatialVolume)
+    fromuhc(X::AbstractVector, vol::SpatialVolume)
+    fromuhc(X::VectorOfSimilarVectors, vol::SpatialVolume)
 
 Bijective transformation from unit hypercube to `vol`. See `fromuhc!`.
 
 Use `inv(fromuhc)` to get the the inverse transformation.
 """
-function fromuhc(X::VecOrMat, vol::SpatialVolume)
+function fromuhc(X::Union{AbstractVector,VectorOfSimilarVectors}, vol::SpatialVolume)
     fromuhc!(similar(X), X, vol)
 end
 export fromuhc
 
-function inv_fromuhc(X::VecOrMat, vol::SpatialVolume)
+function inv_fromuhc(X::Union{AbstractVector,VectorOfSimilarVectors}, vol::SpatialVolume)
     inv_fromuhc!(similar(X), X, vol)
 end
 
@@ -112,9 +114,11 @@ function Base.intersect(a::HyperRectVolume, b::HyperRectVolume)
     c
 end
 
-function Random.rand!(rng::AbstractRNG, vol::HyperRectVolume, x::StridedVecOrMat{<:Real})
-    rand!(rng, x)
-    x .= x .* (vol.hi - vol.lo) .+ vol.lo # TODO: Avoid memory allocation
+function Random.rand!(rng::AbstractRNG, vol::HyperRectVolume, x::Union{AbstractVector{<:Real},VectorOfSimilarVectors{<:Real}})
+    x_flat = flatview(x)
+    rand!(rng, x_flat)
+    x_flat .= x_flat .* (vol.hi - vol.lo) .+ vol.lo # TODO: Avoid memory allocation
+    x
 end
 
 
@@ -137,17 +141,23 @@ end
 # log_intersect_volume(a::HyperRectVolume{T}, b::HyperRectVolume{T}) where {T} = ...
 
 
-@doc """
-    fromuhc!(Y::VecOrMat, X::VecOrMat, vol::HyperRectVolume)
+fromuhc!(Y::AbstractVector, X::AbstractVector, vol::HyperRectVolume) = _fromuhc_impl!(Y, X, vol)
+fromuhc!(Y::VectorOfSimilarVectors, X::VectorOfSimilarVectors, vol::HyperRectVolume) = _fromuhc_impl!(Y, X, vol)
 
-Linear bijective transformation from unit hypercube to hyper-rectangle `vol`.
-"""
-function fromuhc!(Y::VecOrMat, X::VecOrMat, vol::HyperRectVolume)
-    _all_in_ui(X) || throw(ArgumentError("X not in unit hypercube"))
-    Y .= unsafe_fromui.(X, vol.lo, vol.hi)
+function _fromuhc_impl!(Y::Union{AbstractVector,VectorOfSimilarVectors}, X::Union{AbstractVector,VectorOfSimilarVectors}, vol::HyperRectVolume)
+    _all_in_ui(flatview(X)) || throw(ArgumentError("X not in unit hypercube"))
+    Y_flat = flatview(Y)
+    Y_flat .= unsafe_fromui.(flatview(X), vol.lo, vol.hi)
+    Y
 end
 
-function inv_fromuhc!(Y::VecOrMat, X::VecOrMat, vol::HyperRectVolume)
+
+inv_fromuhc!(Y::AbstractVector, X::AbstractVector, vol::HyperRectVolume) = _inv_fromuhc_impl!(Y, X, vol)
+inv_fromuhc!(Y::VectorOfSimilarVectors, X::VectorOfSimilarVectors, vol::HyperRectVolume) = _inv_fromuhc_impl!(Y, X, vol)
+
+function _inv_fromuhc_impl!(Y::Union{AbstractVector,VectorOfSimilarVectors}, X::Union{AbstractVector,VectorOfSimilarVectors}, vol::HyperRectVolume)
     X in vol || throw(ArgumentError("X not in vol"))
-    Y .= unsafe_inv_fromui.(X, vol.lo, vol.hi)
+    Y_flat = flatview(Y)
+    Y_flat .= unsafe_inv_fromui.(flatview(X), vol.lo, vol.hi)
+    Y
 end

@@ -26,18 +26,18 @@ exec_capabilities(::typeof(unsafe_density_logval), density::MvDistDensity, param
 
 
 function unsafe_density_logval!(
-    r::AbstractArray{<:Real},
+    r::AbstractVector{<:Real},
     density::MvDistDensity,
-    params::AbstractMatrix{<:Real},
+    params::VectorOfSimilarVectors{<:Real},
     exec_context::ExecContext = ExecContext()
 )
     # TODO: Parallel execution, depending on exec_context
-    Distributions.logpdf!(r, density.d, params)
+    Distributions.logpdf!(r, density.d, flatview(params))
 end
 
 
 # Assume that implementations of logpdf! are thread-safe and remote-safe:
-exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractArray{<:Real}, density::MvDistDensity, params::AbstractMatrix{<:Real}) =
+exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractVector{<:Real}, density::MvDistDensity, params::VectorOfSimilarVectors{<:Real}) =
     ExecCapabilities(0, true, 0, true) # Change when implementation of density_logval! for MvDistDensity becomes multithreaded.
 
 

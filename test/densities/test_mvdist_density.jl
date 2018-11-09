@@ -2,8 +2,8 @@
 
 using BAT
 using Test
-using Distributions
-using PDMats
+
+using ArraysOfArrays, Distributions, PDMats
 
 @testset "mvdist_density" begin
     mvt = @inferred MvTDist(1.5, PDMat([2.0 1.0; 1.0 3.0]))
@@ -28,7 +28,7 @@ using PDMats
         @test ec.remotesafe == true
 
         ret = Array{Float64}(undef, 2)
-        param = [0.0 0.5; 0.0 -0.5]
+        param = VectorOfSimilarVectors([0.0 0.5; 0.0 -0.5])
         BAT.unsafe_density_logval!(ret, mvdd, param)
         @test ret ≈ [-2.64259602, -3.00960695]
         ec = @inferred BAT.exec_capabilities(BAT.unsafe_density_logval!, ret,

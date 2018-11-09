@@ -28,6 +28,8 @@ end
 @recipe function f(samples::DensitySampleVector, parsel::NTuple{2,Integer})
     pi_x, pi_y = parsel
 
+    flat_params = flatview(samples.params)
+
     acc = findall(x -> x > 0, samples.weight)
     rej = findall(x -> x <= 0, samples.weight)
 
@@ -49,7 +51,7 @@ end
             color := [w >= 1 ? color : RGBA(convert(RGB, color), color.alpha * w) for w in samples.weight[acc]]
             xlabel --> "\$\\theta_$(pi_x)\$"
             ylabel --> "\$\\theta_$(pi_y)\$"
-            (samples.params[pi_x, acc], samples.params[pi_y, acc])
+            (flat_params[pi_x, acc], flat_params[pi_y, acc])
         end
 
         if !isempty(rej)
@@ -59,7 +61,7 @@ end
                 markersize := base_markersize
                 markerstrokewidth := 0
                 color := :red
-                (samples.params[pi_x, rej], samples.params[pi_y, rej])
+                (flat_params[pi_x, rej], flat_params[pi_y, rej])
             end
         end
     elseif seriestype == :histogram2d
@@ -69,7 +71,7 @@ end
             xlabel --> "\$\\theta_$(pi_x)\$"
             ylabel --> "\$\\theta_$(pi_y)\$"
             weights := samples.weight[:]
-            (samples.params[pi_x, :], samples.params[pi_y, :])
+            (flat_params[pi_x, :], flat_params[pi_y, :])
         end
     else
         error("seriestype $seriestype not supported")

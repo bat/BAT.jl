@@ -89,7 +89,7 @@ end
 #     result::Tuple{DensitySampleVector, MCMCSampleIDVector, MCMCBasicStats},
 #     chainspec::MCMCSpec,
 #     nsamples::Integer,
-#     initial_params::Matrix{<:Real},
+#     initial_params::VectorOfSimilarVectors{<:Real},
 #     ...
 # )
 #     ...

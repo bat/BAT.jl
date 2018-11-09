@@ -50,7 +50,7 @@ end
 MCMCBasicStats(chain::MCMCIterator) = MCMCBasicStats(density_sample_type(chain.state), nparams(chain.state))
 
 function MCMCBasicStats(sv::DensitySampleVector)
-    stats = MCMCBasicStats(eltype(sv), size(sv.params, 1))
+    stats = MCMCBasicStats(eltype(sv), innersize(sv.params, 1))
     append!(stats, sv)
 end
 
@@ -67,11 +67,14 @@ end
 
 function Base.append!(stats::MCMCBasicStats, sv::DensitySampleVector)
     for i in eachindex(sv)
-        push!(stats.param_stats, view(sv.params, :, i), sv.weight[i])  # Memory allocation (view)!
+        p = sv.params[i]
+        w = sv.weight[i]
+        l = sv.log_value[i]
+        push!(stats.param_stats, p, w)  # Memory allocation (view)!
         if sv.log_value[i] > stats.logtf_stats.maximum
-            stats.mode .= view(sv.params, :, i)  # Memory allocation (view)!
+            stats.mode .= p  # Memory allocation (view)!
         end
-        push!(stats.logtf_stats, sv.log_value[i], sv.weight[i])
+        push!(stats.logtf_stats, l, w)
         stats
     end
     stats
