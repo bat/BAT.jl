@@ -15,7 +15,7 @@ function _all_lteq(A::AbstractArray, B::AbstractArray, C::AbstractArray)
     @inbounds @simd for i in eachindex(A, B, C)
         result += ifelse(A[i] <= B[i] <= C[i], 1, 0)
     end
-    result == length(LinearIndices(A))
+    result == length(eachindex(A))
 end
 
 
@@ -24,7 +24,7 @@ end
     @inbounds @simd for b in B
         result += ifelse(a <= b <= c, 1, 0)
     end
-    result == length(LinearIndices(B))
+    result == length(eachindex(B))
 end
 
 _all_lteq(a::Real, B::AbstractArray, c::Real) = _all_lteq_impl(a, B, c)
