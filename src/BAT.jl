@@ -28,6 +28,7 @@ using PDMats
 using RecipesBase
 using StaticArrays
 using StatsBase
+using UnsafeArrays
 
 import RandomNumbers
 
