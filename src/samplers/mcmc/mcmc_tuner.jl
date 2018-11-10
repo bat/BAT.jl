@@ -85,9 +85,9 @@ function mcmc_init(
                 ll = ll+2
             )
 
-            nsamples_thresh = floor(Int, 0.8 * median([nsamples(t.chain.state) for t in new_tuners]))
+            nsamples_thresh = floor(Int, 0.8 * median([nsamples(t.chain) for t in new_tuners]))
 
-            filter!(t -> nsamples(t.chain.state) >= nsamples_thresh, new_tuners)
+            filter!(t -> nsamples(t.chain) >= nsamples_thresh, new_tuners)
             @log_msg ll+1 "Found $(length(new_tuners)) MCMC chain(s) with at least $(nsamples_thresh) samples."
 
             append!(tuners, new_tuners)
@@ -175,7 +175,7 @@ function mcmc_tune_burnin!(
     chains = map(x -> x.chain, tuners)
     nchains = length(chains)
 
-    user_callbacks = mcmc_callback_vector(callbacks, chains)
+    user_callbacks = mcmc_callback_vector(callbacks, eachindex(chains))
 
     cycles = zero(Int)
     successful = false
@@ -192,8 +192,8 @@ function mcmc_tune_burnin!(
         stats = [x.stats for x in tuners] # ToDo: Find more generic abstraction
         ct_result = check_convergence!(convergence_test, chains, stats, ll = ll+2)
 
-        ntuned = count(c -> c.tuned, chains)
-        nconverged = count(c -> c.converged, chains)
+        ntuned = count(c -> c.info.tuned, chains)
+        nconverged = count(c -> c.info.converged, chains)
         successful = (ntuned == nconverged == nchains)
 
         for i in eachindex(user_callbacks, tuners)

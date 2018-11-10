@@ -1,5 +1,11 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+const CURRENT_SAMPLE = -1
+const PROPOSED_SAMPLE = -2
+const INVALID_SAMPLE = 0
+const ACCEPTED_SAMPLE = 1
+const REJECTED_SAMPLE = 2
+
 
 struct MCMCSampleID
     chainid::Int32
@@ -67,12 +73,31 @@ function Base.append!(A::MCMCSampleIDVector, B::AbstractVector{<:MCMCSampleID})
 end
 
 
-Base.@propagate_inbounds function Base.view(A::MCMCSampleIDVector, idxs)
+function Base.resize!(A::MCMCSampleIDVector, n::Integer)
+    resize!(A.chainid, n)
+    resize!(A.chaincycle, n)
+    resize!(A.stepno, n)
+    resize!(A.sampletype, n)
+    A
+end
+
+
+Base.@propagate_inbounds function Base.unsafe_view(A::MCMCSampleIDVector, idxs)
     MCMCSampleIDVector(
         view(A.chainid, idxs),
         view(A.chaincycle, idxs),
         view(A.stepno, idxs),
         view(A.sampletype, idxs)
+    )
+end
+
+
+function UnsafeArrays.uview(A::MCMCSampleIDVector)
+    MCMCSampleIDVector(
+        uview(A.chainid),
+        uview(A.chaincycle),
+        uview(A.stepno),
+        uview(A.sampletype)
     )
 end
 

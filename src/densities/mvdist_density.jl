@@ -7,6 +7,9 @@ end
 
 export MvDistDensity
 
+Base.convert(::Type{AbstractDensity}, d::Distribution{Multivariate,Continuous}) =
+    MvDistDensity(d)
+
 
 function unsafe_density_logval(
     density::MvDistDensity,

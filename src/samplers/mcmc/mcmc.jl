@@ -2,6 +2,7 @@
 
 include("proposaldist.jl")
 include("mcmc_sampleid.jl")
+include("mcmc_callback.jl")
 include("mcmc_algorithm.jl")
 include("mcmc_stats.jl")
 include("mcmc_convergence.jl")

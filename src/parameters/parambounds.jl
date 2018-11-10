@@ -27,7 +27,7 @@ end
 
 @inline isoob(x::AbstractFloat) = isnan(x)
 @inline isoob(x::Integer) = x == oob(x)
-isoob(xs::Vector) = any(isoob, xs)
+isoob(xs::AbstractVector) = any(isoob, xs)
 # isoob(xs::VectorOfSimilarVectors) = any(isoob, flatview(xs))
 
 

@@ -47,7 +47,7 @@ function MCMCBasicStats(::Type{S}, nparams::Integer) where {P,T,W,S<:DensitySamp
     MCMCBasicStats{SL,SP}(nparams)
 end
 
-MCMCBasicStats(chain::MCMCIterator) = MCMCBasicStats(density_sample_type(chain.state), nparams(chain.state))
+MCMCBasicStats(chain::MCMCIterator) = MCMCBasicStats(sample_type(chain), nparams(chain))
 
 function MCMCBasicStats(sv::DensitySampleVector)
     stats = MCMCBasicStats(eltype(sv), innersize(sv.params, 1))
@@ -57,10 +57,10 @@ end
 
 function Base.push!(stats::MCMCBasicStats, s::DensitySample)
     push!(stats.param_stats, s.params, s.weight)
-    if s.log_value > stats.logtf_stats.maximum
+    if s.log_posterior > stats.logtf_stats.maximum
         stats.mode .= s.params
     end
-    push!(stats.logtf_stats, s.log_value, s.weight)
+    push!(stats.logtf_stats, s.log_posterior, s.weight)
     stats
 end
 
@@ -69,9 +69,9 @@ function Base.append!(stats::MCMCBasicStats, sv::DensitySampleVector)
     for i in eachindex(sv)
         p = sv.params[i]
         w = sv.weight[i]
-        l = sv.log_value[i]
+        l = sv.log_posterior[i]
         push!(stats.param_stats, p, w)  # Memory allocation (view)!
-        if sv.log_value[i] > stats.logtf_stats.maximum
+        if sv.log_posterior[i] > stats.logtf_stats.maximum
             stats.mode .= p  # Memory allocation (view)!
         end
         push!(stats.logtf_stats, l, w)

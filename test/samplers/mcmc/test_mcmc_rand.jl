@@ -25,7 +25,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
         @test BAT.mcmc_compatible(algorithmMW, GenericProposalDist(mv_dist), NoParamBounds(2))
 #        samples, sampleids, stats = @inferred rand( TODO: put back the @inferred
         samples, sampleids, stats = rand(
-            MCMCSpec(algorithmMW, density, bounds),
+            MCMCSpec(algorithmMW, BayesianModel(density, bounds)),
             nsamples_per_chain,
             nchains,
             max_time = Inf,
@@ -34,7 +34,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
 
         @test length(samples) == length(sampleids)
         @test length(samples) == nchains * nsamples_per_chain
-        @test samples.params[findmax(samples.log_value)[2]] == stats.mode
+        @test samples.params[findmax(samples.log_posterior)[2]] == stats.mode
 
         cov_samples = cov(flatview(samples.params), FrequencyWeights(samples.weight), 2; corrected=true)
         mean_samples = mean(flatview(samples.params), FrequencyWeights(samples.weight), 2)
@@ -45,7 +45,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
         algorithmPW = @inferred MetropolisHastings(MHAccRejProbWeights())
         # samples, sampleids, stats = @inferred rand(
         samples, sampleids, stats = rand(
-            MCMCSpec(algorithmPW, mv_dist, bounds),
+            MCMCSpec(algorithmPW, BayesianModel(mv_dist, bounds)),
             nsamples_per_chain,
             nchains,
             max_time = Inf,
@@ -53,27 +53,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
         )
 
         @test length(samples) == length(sampleids)
-        @test samples.params[findmax(samples.log_value)[2]] == stats.mode
-
-        cov_samples = cov(flatview(samples.params), FrequencyWeights(samples.weight), 2; corrected=true)
-        mean_samples = mean(flatview(samples.params), FrequencyWeights(samples.weight), 2)
-
-        @test isapprox(mean_samples, mvec; rtol = 0.1)
-        @test isapprox(cov_samples, cmat; rtol = 0.1)
-
-        algorithmFW = @inferred MetropolisHastings(MHPosteriorFractionWeights())
-
-        # samples, sampleids, stats = @inferred rand(
-        samples, sampleids, stats = rand(
-            MCMCSpec(algorithmFW, density, bounds),
-            nsamples_per_chain,
-            nchains,
-            max_time = Inf,
-            granularity = 1
-        )
-
-        @test length(samples) == length(sampleids)
-        @test samples.params[findmax(samples.log_value)[2]] == stats.mode
+        @test samples.params[findmax(samples.log_posterior)[2]] == stats.mode
 
         cov_samples = cov(flatview(samples.params), FrequencyWeights(samples.weight), 2; corrected=true)
         mean_samples = mean(flatview(samples.params), FrequencyWeights(samples.weight), 2)

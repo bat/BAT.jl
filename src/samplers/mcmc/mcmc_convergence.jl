@@ -14,7 +14,7 @@ function check_convergence!(
 )
     result = check_convergence(ct, stats, ll = ll)
     for chain in chains
-        chain.converged = result.converged
+        chain.info = MCMCIteratorInfo(chain.info, converged = result.converged)
     end
     result
 end

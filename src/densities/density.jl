@@ -197,6 +197,37 @@ exec_capabilities(::typeof(unsafe_density_logval!), r::AbstractVector{<:Real}, d
 
 
 @doc """
+    eval_density_logval!(...)
+
+Internal function to first apply bounds and then evaluate density.
+
+Guarantees that for out-of-bounds parameters:
+
+* `density_logval` is not called
+* log value of density is set to (resp. returned as) `-Inf`
+"""
+function eval_density_logval! end
+
+function eval_density_logval!(
+    T::Type{<:Real},
+    density::AbstractDensity,
+    params::AbstractVector{<:Real},
+    exec_context::ExecContext
+)
+    bounds = param_bounds(density)
+    apply_bounds!(params, bounds)
+    if !isoob(params)
+        @assert params in bounds  # TODO: Remove later on for increased performance, should never trigger
+        T(density_logval(density, params, exec_context))
+    else
+        T(-Inf)
+    end
+end
+
+
+
+
+@doc """
     GenericDensity{F} <: AbstractDensity
 
 Constructors:
@@ -240,6 +271,8 @@ exec_capabilities(::typeof(unsafe_density_logval), density::GenericDensity, para
 
 #=
 
+# TODO:
+
 mutable struct TransformedDensity{...}{
     SO<:AbstractDensity,
     SN<:AbstractDensity
@@ -250,6 +283,13 @@ mutable struct TransformedDensity{...}{
 end
 
 export TransformedDensity
+
+
+function rand!(rng::AbstractRNG, density::TransformedDensity, x::Union{AbstractVector{<:Real},VectorOfSimilarVectors{<:Real}}) =
+    initial_params!(rng, algorithm, density.before, x)
+    ... apply transformation to x ...
+    x
+end
 
 ...
 
