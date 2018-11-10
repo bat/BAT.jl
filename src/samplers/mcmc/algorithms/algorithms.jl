@@ -2,5 +2,3 @@
 
 include("mh_sampler.jl")
 include("mh_tuner.jl")
-
-include("direct_sampler.jl")

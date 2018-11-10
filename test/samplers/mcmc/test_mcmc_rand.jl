@@ -80,21 +80,5 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
 
         @test isapprox(mean_samples, mvec; rtol = 0.1)
         @test isapprox(cov_samples, cmat; rtol = 0.1)
-
-        algorithmDS = @inferred DirectSampling()
-        @test BAT.mcmc_compatible(algorithmDS, GenericProposalDist(mv_dist), NoParamBounds(2))
-        samples, sampleids, stats = @inferred rand(
-            MCMCSpec(algorithmDS, density, bounds),
-            nsamples_per_chain,
-            nchains,
-            max_time = Inf,
-            granularity = 1
-        )
-
-        cov_samples = cov(flatview(samples.params), FrequencyWeights(samples.weight), 2; corrected=true)
-        mean_samples = mean(flatview(samples.params), FrequencyWeights(samples.weight), 2)
-
-        @test isapprox(mean_samples, mvec; rtol = 0.1)
-        @test isapprox(cov_samples, cmat; rtol = 0.1)
     end
 end
