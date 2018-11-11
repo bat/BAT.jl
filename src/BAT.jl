@@ -14,6 +14,7 @@ using Markdown
 using Random
 using Statistics
 
+using ArgCheck
 using ArraysOfArrays
 using Clustering
 using Colors
