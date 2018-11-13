@@ -33,6 +33,7 @@ using StatsBase
 using UnsafeArrays
 
 import RandomNumbers
+import TypedTables
 
 
 include("Logging/Logging.jl")
