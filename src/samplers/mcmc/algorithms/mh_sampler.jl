@@ -71,7 +71,7 @@ function MHIterator(
     initial_params::AbstractVector{P},
     exec_context::ExecContext,
 ) where {P<:Real}
-    stepno::Int = 0
+    stepno::Int64 = 0
     rng = spec.rngseed()
     reset_rng_counters!(rng, info.id, info.cycle, stepno)
 
@@ -99,7 +99,7 @@ function MHIterator(
     sampleids = push!(MCMCSampleIDVector(), MCMCSampleID(info.id, info.cycle, 1, CURRENT_SAMPLE))
     @assert axes(samples, 1) == axes(sampleids, 1)
 
-    nsamples = 0
+    nsamples::Int64 = 0
 
     chain = MHIterator(
         spec,
@@ -122,7 +122,7 @@ end
 
 
 function (spec::MCMCSpec{<:MetropolisHastings})(
-    chainid::Int64,
+    chainid::Integer,
     exec_context::ExecContext
 )
     P = float(eltype(param_bounds(posterior(spec.model))))

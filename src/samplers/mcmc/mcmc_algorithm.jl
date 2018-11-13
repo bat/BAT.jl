@@ -9,7 +9,7 @@ for `SomeAlgorithm<:MCMCAlgorithm`):
 
 ```julia
 (spec::MCMCSpec{<:SomeAlgorithm})(
-    chainid::Int64,
+    chainid::Integer,
     exec_context::ExecContext
 )::MCMCIterator
 ```
@@ -78,8 +78,8 @@ Markov-chain instances, represented by objects of type [`MCMCIterator`](@ref),
 are be created via
 
 ```julia
-(spec::MCMCSpec)(chainid::Int64)
-(spec::MCMCSpec)(chainid::Int64, exec_context::ExecContext)
+(spec::MCMCSpec)(chainid::Integer)
+(spec::MCMCSpec)(chainid::Integer, exec_context::ExecContext)
 ```
 """
 struct MCMCSpec{
@@ -111,7 +111,7 @@ MCMCSpec(
 ) MCMCSpec(algorithm, BayesianModel(likelihood, prior), rngseed)
 
 
-(spec::MCMCSpec)(chainid::Int64) = spec(chainid, ExecContext())
+(spec::MCMCSpec)(chainid::Integer) = spec(chainid, ExecContext())
 
 
 
