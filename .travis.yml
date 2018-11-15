@@ -29,7 +29,7 @@ matrix:
 before_script:
   - julia -e "using Pkg; pkg\"add https://github.com/oschulz/ArraysOfArrays.jl.git\""
   - julia -e "using Pkg; pkg\"add https://github.com/oschulz/ParallelProcessingTools.jl.git\""
-  - julia -e "using Pkg; pkg\"add https://github.com/oschulz/ParameterShapes.jl.git\""
+  - julia -e "using Pkg; pkg\"add https://github.com/oschulz/ValueShapes.jl.git\""
 
 ## uncomment the following lines to override the default test script
 #script:

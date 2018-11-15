@@ -11,7 +11,7 @@ BAT.jl is under development and not a registered Julia package yet. Install via
 using Pkg
 pkg"add https://github.com/oschulz/ArraysOfArrays.jl.git"
 pkg"add https://github.com/oschulz/ParallelProcessingTools.jl.git"
-pkg"add https://github.com/oschulz/ParameterShapes.jl.git"
+pkg"add https://github.com/oschulz/ValueShapes.jl.git"
 pkg"add https://github.com/BAT/BAT.jl.git"
 ```
 

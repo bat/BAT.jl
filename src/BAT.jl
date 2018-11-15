@@ -25,7 +25,7 @@ using FunctionWrappers
 using IntervalSets
 using ParallelProcessingTools
 using Parameters
-using ParameterShapes
+using ValueShapes
 using PDMats
 using RecipesBase
 using StaticArrays

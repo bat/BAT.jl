@@ -10,7 +10,7 @@ FunctionWrappers
 IntervalSets
 ParallelProcessingTools
 Parameters
-ParameterShapes
+ValueShapes
 PDMats
 RandomNumbers
 RecipesBase
