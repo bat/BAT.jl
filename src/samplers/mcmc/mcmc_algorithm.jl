@@ -278,7 +278,7 @@ function mcmc_iterate!(
     idxs = eachindex(cbv, chains, target_contexts)
 
     @onthreads threadsel begin
-        for i in workpartition(idxs, length(threadsel), threadid())
+        for i in workpart(idxs, threadsel, threadid())
             mcmc_iterate!(cbv[i], chains[i], target_contexts[i]; ll=ll+1, kwargs...)
         end
     end
