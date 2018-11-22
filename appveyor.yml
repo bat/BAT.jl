@@ -29,8 +29,6 @@ install:
 
 build_script:
   - echo "%JL_BUILD_SCRIPT%"
-  - C:\julia\bin\julia -e "using Pkg; pkg\"add https://github.com/oschulz/ArraysOfArrays.jl.git\""
-  - C:\julia\bin\julia -e "using Pkg; pkg\"add https://github.com/oschulz/ParallelProcessingTools.jl.git\""
   - C:\julia\bin\julia -e "using Pkg; pkg\"add https://github.com/oschulz/ValueShapes.jl.git\""
   - C:\julia\bin\julia -e "%JL_BUILD_SCRIPT%"
 
