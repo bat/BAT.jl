@@ -31,13 +31,13 @@ end
 
 
 @doc """
-    wgt_ess(w::AbstractVector{T})
+    wgt_effective_sample_size(w::AbstractVector{T})
 
-Kish's approximation for weighted samples ESS estimation.
+Kish's approximation for weighted samples effective_sample_size estimation.
 Computes the weighting factor for weigthed samples, where w is the vector of
 weigths.
 """
-function wgt_ess(w::AbstractVector{T}) where T<:Real
+function wgt_effective_sample_size(w::AbstractVector{T}) where T<:Real
     return sum(w)^2/sum(w.^2)
 end
 
@@ -49,30 +49,30 @@ the Kish approximation is applied.
 By default computes the autocorrelation up to the square root of the number of entries
 in the vector, unless an explicit list of lags is provided (kv).
 """
-function ESS(xv::AbstractVector{T1}, w::AbstractVector{T2} = Vector{Float64}(zeros(0)), kv::AbstractVector{Int} = Vector{Int}(1:floor(Int,sqrt(length(xv))))) where T1<:Real where T2<:Number
+function effective_sample_size(xv::AbstractVector{T1}, w::AbstractVector{T2} = Vector{Float64}(zeros(0)), kv::AbstractVector{Int} = Vector{Int}(1:floor(Int,sqrt(length(xv))))) where T1<:Real where T2<:Number
     atc = StatsBase.autocor(xv,kv)
     result = size(xv)[1]/(1 + 2*sum(atc))
     w_correction = 1.0
     if size(w) == size(xv)
-        w_correction = wgt_ess(w)/size(w)[1]
+        w_correction = wgt_effective_sample_size(w)/size(w)[1]
     end
     return min(length(xv),result*w_correction)
 end
 
 @doc """
-    ESS(params::AbstractArray, weights::AbstractVector; with_weights=true)
+    effective_sample_size(params::AbstractArray, weights::AbstractVector; with_weights=true)
 
 Effective size estimation for a (multidimensional) ElasticArray.
 By default applies the Kish approximation with the weigths available, but
 can be turned off (with_weights=false).
 """
-function ESS(params::AbstractArray, weights::AbstractVector; with_weights=true)
+function effective_sample_size(params::AbstractArray, weights::AbstractVector; with_weights=true)
         ess = size(params, 2)
         for dim in axes(params, 1)
             tmpview = view(params,dim,:)
             tmp = with_weights ?
-                ESS(tmpview, weights) : ESS(tmpview)
-            if tmp < ess
+                effective_sample_size(tmpview, weights) : effective_sample_size(tmpview)
+            if tmp < effective_sample_size
                 ess = tmp
             end
         end
@@ -80,12 +80,12 @@ function ESS(params::AbstractArray, weights::AbstractVector; with_weights=true)
     end
 
 @doc """
-    ESS(samples::DensitySampleVector; with_weights=true)
+    effective_sample_size(samples::DensitySampleVector; with_weights=true)
 
 Effective size estimation for a (multidimensional) DensitySampleVector.
 By default applies the Kish approximation with the weigths available, but
 can be turned off (with_weights=false).
 """
-function ESS(samples::DensitySampleVector; with_weights=true)
-    return ESS(samples.params, samples.weight, with_weights=with_weights)
+function effective_sample_size(samples::DensitySampleVector; with_weights=true)
+    return effective_sample_size(samples.params, samples.weight, with_weights=with_weights)
 end
