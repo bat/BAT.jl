@@ -10,10 +10,10 @@ FunctionWrappers
 IntervalSets
 ParallelProcessingTools
 Parameters
-ValueShapes
 PDMats
 RandomNumbers
 RecipesBase
+ShapesOfVariables
 StaticArrays
 StatsBase
 TypedTables
