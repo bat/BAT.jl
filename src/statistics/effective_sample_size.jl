@@ -51,7 +51,17 @@ in the vector, unless an explicit list of lags is provided (kv).
 """
 function effective_sample_size(xv::AbstractVector{T1}, w::AbstractVector{T2} = Vector{Float64}(zeros(0)), kv::AbstractVector{Int} = Vector{Int}(1:floor(Int,sqrt(length(xv))))) where T1<:Real where T2<:Number
     atc = StatsBase.autocor(xv,kv)
-    result = size(xv)[1]/(1 + 2*sum(atc))
+    # we need to break the sum when ρ_k + ρ_k+1 < 0
+    # (see Thompson2010 - arXiv1011.0175 and Geyer2002)
+    sumatc = 0
+    for k in 1:(length(atc)-1)
+        if atc[k]+atc[k+1] >= 0
+            sumatc = sumatc+atc[k]
+        else
+            break
+        end
+    end
+    result = size(xv)[1]/(1 + 2*sumatc)
     w_correction = 1.0
     if size(w) == size(xv)
         w_correction = wgt_effective_sample_size(w)/size(w)[1]
