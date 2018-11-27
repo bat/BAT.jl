@@ -82,7 +82,7 @@ function effective_sample_size(params::AbstractArray, weights::AbstractVector; w
             tmpview = view(params,dim,:)
             tmp = with_weights ?
                 effective_sample_size(tmpview, weights) : effective_sample_size(tmpview)
-            if tmp < effective_sample_size
+            if tmp < ess
                 ess = tmp
             end
         end
