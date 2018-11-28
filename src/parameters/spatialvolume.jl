@@ -94,6 +94,18 @@ Base.similar(vol::HyperRectVolume) = HyperRectVolume(similar(vol.lo), similar(vo
 Base.in(x::AbstractVector, vol::HyperRectVolume) =
     _all_lteq(vol.lo, x, vol.hi)
 
+function Base.copy!(
+    target::HyperRectVolume{T},
+    src::HyperRectVolume{T}) where {T<:AbstractFloat}
+
+    p = ndims(src)
+    resize!(target.lo, p)
+    copyto!(target.lo, src.lo)
+    resize!(src.hi, p)
+    copyto!(target.hi, src.hi)
+    nothing
+end
+
 # TODO: Remove?
 # function Base.in(X::AbstractMatrix, vol::HyperRectVolume, j::Integer)
 #     lo = vol.lo
