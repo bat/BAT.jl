@@ -26,9 +26,6 @@ matrix:
 #before_script: # homebrew for mac
 #  - if [ $TRAVIS_OS_NAME = osx ]; then brew install gcc; fi
 
-before_script:
-  - julia -e "using Pkg; pkg\"add https://github.com/oschulz/ShapesOfVariables.jl.git\""
-
 ## uncomment the following lines to override the default test script
 #script:
 #  - julia -e '...'

@@ -17,7 +17,6 @@ PDMats
 ProgressMeter
 RandomNumbers
 RecipesBase
-ShapesOfVariables
 StaticArrays
 StatsBase
 TypedTables

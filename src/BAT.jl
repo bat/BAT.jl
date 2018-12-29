@@ -27,7 +27,6 @@ using ParallelProcessingTools
 using Parameters
 using PDMats
 using RecipesBase
-using ShapesOfVariables
 using StaticArrays
 using StatsBase
 using UnsafeArrays

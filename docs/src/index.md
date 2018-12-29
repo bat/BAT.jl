@@ -9,7 +9,6 @@ BAT.jl is under development and not a registered Julia package yet. Install via
 
 ```julia
 using Pkg
-pkg"add https://github.com/oschulz/ShapesOfVariables.jl.git"
 pkg"add https://github.com/BAT/BAT.jl.git"
 ```
 
