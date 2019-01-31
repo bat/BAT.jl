@@ -49,7 +49,11 @@ const log_prefix = Dict(
 )
 
 
-const _global_lock = RecursiveSpinLock()
+@static if VERSION >= v"1.2-DEV.28"
+    const _global_lock = ReentrantLock()
+else
+    const _global_lock = RecursiveSpinLock()
+end
 
 const _output_io = Ref{IO}()
 
