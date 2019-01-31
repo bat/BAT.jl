@@ -1,5 +1,0 @@
-## Functions
-
-```@autodocs
-Modules = [BAT]
-```

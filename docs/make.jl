@@ -1,23 +1,29 @@
-push!(LOAD_PATH,"../src/")
-using BAT
+# Use
+#
+#     DOCUMENTER_DEBUG=true julia --color=yes make.jl local [fixdoctests]
+#
+# for local builds.
+
 using Documenter
+using BAT
 
 makedocs(
-    modules = [BAT],
-    clean = true,
-    format = :html,
     sitename = "BAT",
+    modules = [BAT],
+    format = :html,
     authors = "Oliver Schulz, Frederik Beaujean, and contributors",
-    # linkcheck = !("skiplinks" in ARGS),
-    pages = ["Home" => "index.md",
-             "Manual" => Any[
-                 "man/tutorial.md",
-                 "man/basics.md",
-             ],
-             "auto.md",
-             ],
-    # Use clean URLs, unless built as a "local" build
+    pages=[
+        "Home" => "index.md",
+        "Tutorial" => "tutorial.md",
+        "Basics" => "basics.md",
+        "API" => "api.md",
+        "LICENSE" => "LICENSE.md",
+    ],
+    doctest = ("fixdoctests" in ARGS) ? :fix : true,
     html_prettyurls = !("local" in ARGS),
-    strict = true,
-    checkdocs = :all,
+    html_canonical = "https://bat.github.io/BAT.jl/stable/",
+)
+
+deploydocs(
+    repo = "github.com/bat/BAT.jl.git"
 )

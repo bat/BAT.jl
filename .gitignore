@@ -1,4 +1,6 @@
+.DS_Store
 *.jl.cov
 *.jl.*.cov
 *.jl.mem
-/docs/build/
+.ipynb_checkpoints
+Manifest.toml

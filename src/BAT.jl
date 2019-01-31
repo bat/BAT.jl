@@ -18,6 +18,7 @@ using ArgCheck
 using ArraysOfArrays
 using Clustering
 using Colors
+using Cuba
 using Distributions
 using DoubleFloats
 using ElasticArrays
@@ -35,7 +36,6 @@ using UnsafeArrays
 using ProgressMeter
 using DataStructures
 using LaTeXStrings
-using Cuba
 
 import RandomNumbers
 import TypedTables
