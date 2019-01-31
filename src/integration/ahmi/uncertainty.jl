@@ -83,8 +83,8 @@ function calculateuncertainty(dataset::DataSet{T, I}, volume::IntegrationVolume{
     integrand1 = (x, f) -> f[1] = pdf_gauss(y(x[1]), μ_Z, σ_μZ_sq) / y(x[1])^2 * (f_max - f_min)
     integrand2 = (x, f) -> f[1] = pdf_gauss(y(x[1]), μ_Z, σ_μZ_sq) / y(x[1]) * (f_max - f_min)
 
-    integral1 = vegas(integrand1, rtol = 0.02).integral[1]
-    integral2 = vegas(integrand2, rtol = 0.02).integral[1]
+    integral1 = Cuba.vegas(integrand1, rtol = 0.02).integral[1]
+    integral2 = Cuba.vegas(integrand2, rtol = 0.02).integral[1]
 
 
     uncertainty_Z = (integral1 - integral2^2) * volume.volume / r / determinant

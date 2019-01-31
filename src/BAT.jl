@@ -53,7 +53,7 @@ include("parameters/parameters.jl")
 include("statistics/statistics.jl")
 include("densities/densities.jl")
 include("samplers/samplers.jl")
-include("integration_ahmi/AHMI.jl")
+include("integration/integration.jl")
 include("plotting/plotting.jl")
 
 Logging.@enable_logging
