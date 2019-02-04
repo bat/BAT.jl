@@ -123,8 +123,10 @@
 
         size --> (900, 600)
 
-        layout --> @layout[tophist           _
-                    hist2d{0.8w,0.8h} righthist]
+        #layout --> Main.Plots.@layout[tophist           _
+        #            hist2d{0.8w,0.8h} righthist]
+
+        layout --> grid(2,2, widths=(0.8, 0.2), heights=(0.2, 0.8))
 
         @series begin
             subplot := 1
@@ -140,9 +142,27 @@
 
             samples, pi_x
         end
- 
+        
+        # empty plot (needed since @layout macro not available)
         @series begin
+            seriestype := :scatter
             subplot := 2
+            grid := false
+            xaxis := false
+            yaxis := false
+            markersize := 0.1
+            markerstrokewidth := 0
+            markeralpha := 1
+            markerstrokealpha := 1
+            legend := false
+            label := ""
+            xlabel := ""
+            ylabel := ""
+            [(1,0)]
+        end
+
+        @series begin
+            subplot := 3
             seriestype := get(diagonal, "seriestype", :histogram)
             legend --> false
 
@@ -159,7 +179,7 @@
         end
 
         @series begin
-            subplot := 3
+            subplot := 4
             seriestype := get(right, "seriestype", :histogram)
             orientation := :horizontal
 
@@ -203,6 +223,7 @@
         @series begin
             seriestype := :scatter
             label := get(mean_options, "label", "mean") #: ($(@sprintf("%.2f", mx)), $(@sprintf("%.2f", my)))
+            seriestype==:marginal ? subplot := 3 : subplot:=1
             markeralpha := get(mean_options, "markeralpha", 1)
             markercolor := get(mean_options, "markercolor", :black)
             markersize := get(mean_options, "markersize", 4)
@@ -227,6 +248,7 @@
         @series begin
             seriestype := :scatter
             label := get(globalmode_options, "label", "global mode") #: ($(@sprintf("%.2f", globalmode_x)), $(@sprintf("%.2f", globalmode_y)))
+            seriestype==:marginal ? subplot := 3 : subplot:=1
             markeralpha := get(globalmode_options, "markeralpha", 1)
             markercolor := get(globalmode_options, "markercolor", :black)
             markersize := get(globalmode_options, "markersize", 4)
@@ -253,6 +275,7 @@
                 label :=""
             end
 
+            seriestype == :marginal ? subplot := 3 : subplot:=1
             markeralpha := get(localmode_options, "markeralpha", 0)
             markercolor := get(localmode_options, "markercolor", :black)
             markersize := get(localmode_options, "markersize", 4)
