@@ -1,4 +1,4 @@
-
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 function create_rectangle(rect::HyperRectVolume, dim1::Integer, dim2::Integer)
     xpoints = zeros(Float64, 6)

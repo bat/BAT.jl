@@ -1,9 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-
-const standard_confidence_vals = [0.68, 0.95, 0.997]
-
-
 function rectangle_path(lo::Vector{<:Real}, hi::Vector{<:Real})
     [
         lo[1] lo[2];
@@ -22,62 +18,6 @@ function err_ellipsis_path(μ::Vector{<:Real}, Σ::Matrix{<:Real}, confidence::R
     σ_scaled = σ .* sqrt(invlogcdf(Chisq(2), log(confidence)))
     xy = hcat(σ_scaled[1] * cos.(ϕ), σ_scaled[2] * sin.(ϕ)) * [A[1,1] A[1,2]; A[2,1] A[2,2]]
     xy .+ μ'
-end
-
-
-@recipe function f(samples::DensitySampleVector, parsel::NTuple{2,Integer})
-    pi_x, pi_y = parsel
-
-    flat_params = flatview(samples.params)
-
-    acc = findall(x -> x > 0, samples.weight)
-    rej = findall(x -> x <= 0, samples.weight)
-
-    base_markersize = get(plotattributes, :markersize, 1.5)
-    seriestype = get(plotattributes, :seriestype, :scatter)
-
-    plot_bounds = get(plotattributes, :bounds, true)
-    delete!(plotattributes, :bounds)
-
-    if seriestype == :scatter
-        color = parse(RGBA{Float64}, get(plotattributes, :seriescolor, :green))
-        label = get(plotattributes, :label, isempty(rej) ? "samples" : "accepted")
-
-        @series begin
-            seriestype := :scatter
-            label := label
-            markersize := [w < 1 ? base_markersize : base_markersize * sqrt(w) for w in samples.weight[acc]]
-            markerstrokewidth := 0
-            color := [w >= 1 ? color : RGBA(convert(RGB, color), color.alpha * w) for w in samples.weight[acc]]
-            xlabel --> "\$\\theta_$(pi_x)\$"
-            ylabel --> "\$\\theta_$(pi_y)\$"
-            (flat_params[pi_x, acc], flat_params[pi_y, acc])
-        end
-
-        if !isempty(rej)
-            @series begin
-                seriestype := :scatter
-                label := "rejected"
-                markersize := base_markersize
-                markerstrokewidth := 0
-                color := :red
-                (flat_params[pi_x, rej], flat_params[pi_y, rej])
-            end
-        end
-    elseif seriestype == :histogram2d
-        @series begin
-            seriestype := :histogram2d
-            label --> "samples"
-            xlabel --> "\$\\theta_$(pi_x)\$"
-            ylabel --> "\$\\theta_$(pi_y)\$"
-            weights := samples.weight[:]
-            (flat_params[pi_x, :], flat_params[pi_y, :])
-        end
-    else
-        error("seriestype $seriestype not supported")
-    end
-
-    nothing
 end
 
 
