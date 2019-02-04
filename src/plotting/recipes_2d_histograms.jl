@@ -82,9 +82,10 @@
         lev = lev/10000
         m = m/10000
 
+         colorbar --> false
+
         @series begin
             seriestype := plotstyle
-            colorbar --> false
             levels --> lev
             linewidth --> 2
             color --> colors
@@ -97,13 +98,13 @@
 
         hists, orig_hist, realintervals = split_smallest(h, intervals)
 
+        colorbar --> false
 
         for (i, int) in enumerate(realintervals)
             @series begin
                 seriestype := :bins2d
                 color --> Main.Plots.cgrad([colors[i], colors[i]])  
                 label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval"
-                colorbar --> false
                 hists[i].edges[1], hists[i].edges[2], Main.Plots.Surface(hists[i].weights)
             end
 
@@ -127,9 +128,11 @@
         #            hist2d{0.8w,0.8h} righthist]
 
         layout --> Main.Plots.grid(2,2, widths=(0.8, 0.2), heights=(0.2, 0.8))
+        link --> :both
 
         @series begin
             subplot := 1
+            ylabel := "\$p(\\theta_$(pi_x))\$"
             seriestype := get(upper, "seriestype", :histogram)
             bins --> get(upper, "nbins", 200)
             normalize --> get(upper, "normalize", true)
@@ -158,7 +161,7 @@
             label := ""
             xlabel := ""
             ylabel := ""
-            [(1,0)]
+            [(0,0)]
         end
 
         @series begin
@@ -182,7 +185,7 @@
             subplot := 4
             seriestype := get(right, "seriestype", :histogram)
             orientation := :horizontal
-
+            xlabel := "\$p(\\theta_$(pi_y))\$"
             normalize --> get(right, "normalize", true)
             bins --> get(right, "nbins", 200)
             colors --> get(right, "colors", standard_colors)
@@ -223,7 +226,7 @@
         @series begin
             seriestype := :scatter
             label := get(mean_options, "label", "mean") #: ($(@sprintf("%.2f", mx)), $(@sprintf("%.2f", my)))
-            seriestype==:marginal ? subplot := 3 : subplot:=1
+            seriestype==:marginal ? subplot := 3 : 
             markeralpha := get(mean_options, "markeralpha", 1)
             markercolor := get(mean_options, "markercolor", :black)
             markersize := get(mean_options, "markersize", 4)
@@ -248,7 +251,7 @@
         @series begin
             seriestype := :scatter
             label := get(globalmode_options, "label", "global mode") #: ($(@sprintf("%.2f", globalmode_x)), $(@sprintf("%.2f", globalmode_y)))
-            seriestype==:marginal ? subplot := 3 : subplot:=1
+            seriestype==:marginal ? subplot := 3 : 
             markeralpha := get(globalmode_options, "markeralpha", 1)
             markercolor := get(globalmode_options, "markercolor", :black)
             markersize := get(globalmode_options, "markersize", 4)
@@ -275,7 +278,7 @@
                 label :=""
             end
 
-            seriestype == :marginal ? subplot := 3 : subplot:=1
+            seriestype == :marginal ? subplot := 3 : 
             markeralpha := get(localmode_options, "markeralpha", 0)
             markercolor := get(localmode_options, "markercolor", :black)
             markersize := get(localmode_options, "markersize", 4)
