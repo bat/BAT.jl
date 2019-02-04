@@ -14,6 +14,7 @@ LaTeXStrings
 ParallelProcessingTools
 Parameters
 PDMats
+Printf
 ProgressMeter
 RandomNumbers
 RecipesBase
