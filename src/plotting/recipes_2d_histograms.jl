@@ -61,7 +61,7 @@
         @series begin
             seriestype := :bins2d
             colorbar --> true
-            h.edges[1], h.edges[2], Surface(h.weights)
+            h.edges[1], h.edges[2], Main.Plots.Surface(h.weights)
         end
 
     elseif seriestype == :smallest_intervals_contour || seriestype == :smallest_intervals_contourf
@@ -104,7 +104,7 @@
                 color --> Main.Plots.cgrad([colors[i], colors[i]])  
                 label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval"
                 colorbar --> false
-                hists[i].edges[1], hists[i].edges[2], Surface(hists[i].weights)
+                hists[i].edges[1], hists[i].edges[2], Main.Plots.Surface(hists[i].weights)
             end
 
             # fake a legend
