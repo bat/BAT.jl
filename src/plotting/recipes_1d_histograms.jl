@@ -211,9 +211,9 @@ end
 
 function uncertaintyband(m, u, h; swap=false)
     if swap
-        return Shape([0,0,h,h], [m-u,m+u,m+u,m-u])
+        return Main.Plots.Shape([0,0,h,h], [m-u,m+u,m+u,m-u])
     else
-        return Shape([m-u,m+u,m+u,m-u], [0,0,h,h])
+        return Main.Plots.Shape([m-u,m+u,m+u,m-u], [0,0,h,h])
     end
 end
 
