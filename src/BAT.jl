@@ -37,6 +37,8 @@ using DataStructures
 using LaTeXStrings
 using Cuba
 
+using Printf
+
 import RandomNumbers
 import TypedTables
 
