@@ -126,7 +126,7 @@
         #layout --> Main.Plots.@layout[tophist           _
         #            hist2d{0.8w,0.8h} righthist]
 
-        layout --> grid(2,2, widths=(0.8, 0.2), heights=(0.2, 0.8))
+        layout --> Main.Plots.grid(2,2, widths=(0.8, 0.2), heights=(0.2, 0.8))
 
         @series begin
             subplot := 1
