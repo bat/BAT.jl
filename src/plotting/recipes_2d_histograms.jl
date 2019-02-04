@@ -101,7 +101,7 @@
         for (i, int) in enumerate(realintervals)
             @series begin
                 seriestype := :bins2d
-                color --> cgrad([colors[i], colors[i]])  
+                color --> Main.Plots.cgrad([colors[i], colors[i]])  
                 label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval"
                 colorbar --> false
                 hists[i].edges[1], hists[i].edges[2], Surface(hists[i].weights)
