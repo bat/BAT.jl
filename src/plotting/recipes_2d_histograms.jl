@@ -104,7 +104,7 @@
             @series begin
                 seriestype := :bins2d
                 color --> Main.Plots.cgrad([colors[i], colors[i]])  
-                label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval"
+                label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
                 hists[i].edges[1], hists[i].edges[2], Main.Plots.Surface(hists[i].weights)
             end
 
@@ -114,7 +114,7 @@
                 fillcolor --> colors[i]
                 linewidth --> 0
                 fillrange --> 0
-                label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval"
+                label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
                 [hists[i].edges[1][1], hists[i].edges[1][1]], [hists[i].edges[1][1], hists[i].edges[1][1]]
             end
         end
@@ -124,11 +124,12 @@
 
         size --> (900, 600)
 
-        #layout --> Main.Plots.@layout[tophist           _
-        #            hist2d{0.8w,0.8h} righthist]
-
         layout --> Main.Plots.grid(2,2, widths=(0.8, 0.2), heights=(0.2, 0.8))
         link --> :both
+
+        if get(diagonal, "seriestype", :histogram) != :histogram
+            colorbar --> false
+        end
 
         @series begin
             subplot := 1

@@ -65,7 +65,7 @@
                 fillcolor --> colors[i]
                 linewidth --> 0
                 fillrange --> 0
-                label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval"
+                label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
                 plot_histogram(hists[i], swap)
             end
         end
@@ -90,7 +90,7 @@
                 fillcolor --> colors[i]
                 linewidth --> 0
                 fillrange --> 0
-                label --> "central $(@sprintf("%.2f", realintervals[i]*100))% interval"
+                label --> "central $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
                 plot_histogram(hists[i], swap)
             end
         end
