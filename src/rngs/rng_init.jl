@@ -1,8 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-using RandomNumbers.Random123: Philox4x, Threefry4x
-using RandomNumbers.Random123: random123_r, gen_seed
-using Random
+using Random123: Philox4x, Threefry4x
+using Random123: random123_r, gen_seed
 
 const Random123_UInt = Union{UInt32, UInt64}
 const Random123RNG4x = Union{Philox4x, Threefry4x}

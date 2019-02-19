@@ -14,7 +14,7 @@ ParallelProcessingTools
 Parameters
 PDMats
 ProgressMeter
-RandomNumbers
+Random123
 RecipesBase
 StaticArrays
 StatsBase

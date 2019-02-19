@@ -37,7 +37,7 @@ using ProgressMeter
 using DataStructures
 using LaTeXStrings
 
-import RandomNumbers
+import Random123
 import TypedTables
 
 
