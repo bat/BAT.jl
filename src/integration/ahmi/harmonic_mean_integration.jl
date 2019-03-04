@@ -1,10 +1,7 @@
 #_global_mt_setting = true
 
-"""
-macro mt(expr)
-
-This macro evaluates code either multi-threaded or single-threaded dependent on the global multithreading setting.
-"""
+# Evaluate code either multi-threaded or single-threaded dependent on the global multithreading setting.
+# TODO: Remove, find cleaner solution.
 macro mt(expr)
     quote
         if _global_mt_setting
