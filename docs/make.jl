@@ -10,7 +10,10 @@ using BAT
 makedocs(
     sitename = "BAT",
     modules = [BAT],
-    format = :html,
+    format = Documenter.HTML(
+        prettyurls = !("local" in ARGS),
+        canonical = "https://bat.github.io/BAT.jl/stable/"
+    ),
     authors = "Oliver Schulz, Frederik Beaujean, and contributors",
     pages=[
         "Home" => "index.md",
@@ -20,10 +23,9 @@ makedocs(
         "LICENSE" => "LICENSE.md",
     ],
     doctest = ("fixdoctests" in ARGS) ? :fix : true,
-    html_prettyurls = !("local" in ARGS),
-    html_canonical = "https://bat.github.io/BAT.jl/stable/",
 )
 
 deploydocs(
-    repo = "github.com/bat/BAT.jl.git"
+    repo = "github.com/bat/BAT.jl.git",
+    forcepush = true
 )
