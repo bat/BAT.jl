@@ -23,11 +23,11 @@ Additional sampling algorithms and other features are in preparation.
 
 ## Installation
 
-BAT.jl is under development and is not a registered package yet. Install via
+To install BAT.jl, start Julia and run
 
 ```julia
-using Pkg
-pkg"add https://github.com/BAT/BAT.jl.git"
+julia> using Pkg
+julia> pkg"add BAT"
 ```
 
 
