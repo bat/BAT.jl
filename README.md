@@ -7,7 +7,18 @@
 [![Appveyor Build Status](https://ci.appveyor.com/api/projects/status/github/bat/BAT.jl?branch=master&svg=true)](https://ci.appveyor.com/project/bat/BAT-jl)
 [![Codecov](https://codecov.io/gh/bat/BAT.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/bat/BAT.jl)
 
-Welcome to BAT, the Bayesian analysis toolkit. This is a (still incomplete) rewrite of the previous [C++ version](https://github.com/bat/bat) in Julia.
+Welcome to BAT, the Bayesian analysis toolkit. This is a rewrite of the
+previous [C++-BAT](https://github.com/bat/bat) in Julia. BAT.jl provides
+several improvements over it's C++ predecessor, but has not reached feature
+parity yet in some areas.
+
+BAT.jl currently includes:
+
+* Metropolis-Hastings MCMC sampling
+* Adaptive Harmonic Mean Integration ([AHMI](https://arxiv.org/abs/1808.08051))
+* Plotting recipes for MCMC samples and statistics
+
+Additional sampling algorithms and other features are in preparation.
 
 
 ## Installation
