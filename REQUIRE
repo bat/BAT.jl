@@ -12,6 +12,7 @@ IntervalSets
 LaTeXStrings
 ParallelProcessingTools
 Parameters
+Printf
 PDMats
 ProgressMeter
 Random123

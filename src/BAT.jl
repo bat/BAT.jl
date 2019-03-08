@@ -11,6 +11,7 @@ using Base.Threads
 using Distributed
 using LinearAlgebra
 using Markdown
+using Printf
 using Random
 using Statistics
 
@@ -18,7 +19,6 @@ using ArgCheck
 using ArraysOfArrays
 using Clustering
 using Colors
-using Cuba
 using Distributions
 using DoubleFloats
 using ElasticArrays
@@ -33,6 +33,7 @@ using StatsBase
 using UnsafeArrays
 
 #for AHMI
+using Cuba
 using ProgressMeter
 using DataStructures
 using LaTeXStrings
