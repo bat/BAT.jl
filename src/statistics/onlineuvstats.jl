@@ -115,7 +115,7 @@ function Base.merge!(target::OnlineUvVar{T,W}, others::OnlineUvVar...) where {T,
         dx = mean_x - x.mean_x
 
         new_sum_w = (sum_w + x.sum_w)
-        mean_x = (sum_w * mean_x + x.sum_w * x.mean_x) / new_sum_w
+        mean_x = (sum_w * DoubleFloat(mean_x) + x.sum_w * DoubleFloat(x.mean_x)) / new_sum_w
 
         s += x.s + sum_w * x.sum_w / new_sum_w * dx * dx
 

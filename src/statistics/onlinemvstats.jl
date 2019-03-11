@@ -191,7 +191,7 @@ function Base.merge!(target::OnlineMvCov{T,W}, others::OnlineMvCov{T,W}...) wher
 
         d = inv(T(target.sum_w + x.sum_w))
         for i in idxs
-            target.Mean_X[i] = (target.Mean_X[i] * target.sum_w + x.Mean_X[i] * x.sum_w) * d
+            target.Mean_X[i] = (target.Mean_X[i] * target.sum_w + x.Mean_X[i] * x.sum_w) * DoubleFloat(d)
             target.New_Mean_X[i] = target.Mean_X[i]
         end
 

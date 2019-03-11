@@ -97,8 +97,8 @@ using ArraysOfArrays, StatsBase
         res = merge(mvcovs...)
         @test res ≈ cov(data, ProbabilityWeights(w); corrected = true)
         @test res ≈ mvcovc
-        @test res.sum_w ≈ mvcovc.sum_w
-        @test res.sum_w2 ≈ mvcovc.sum_w2
+        @test Float64(res.sum_w) ≈ Float64(mvcovc.sum_w)
+        @test Float64(res.sum_w2) ≈ Float64(mvcovc.sum_w2)
         @test res.n ≈ mvcovc.n
         @test res.Mean_X ≈ mvcovc.Mean_X
         @test res.New_Mean_X ≈ mvcovc.New_Mean_X
