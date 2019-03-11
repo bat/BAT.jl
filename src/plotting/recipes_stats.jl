@@ -21,31 +21,6 @@ function err_ellipsis_path(μ::Vector{<:Real}, Σ::Matrix{<:Real}, confidence::R
 end
 
 
-@recipe function f(bounds::HyperRectBounds, parsel::NTuple{2,Integer})
-    pi_x, pi_y = parsel
-
-    vol = spatialvolume(bounds)
-    vhi = vol.hi[[pi_x, pi_y]]; vlo = vol.lo[[pi_x, pi_y]]
-    rect_xy = rectangle_path(vlo, vhi)
-    bext = 0.1 * (vhi - vlo)
-    xlims = (vlo[1] - bext[1], vhi[1] + bext[1])
-    ylims = (vlo[2] - bext[2], vhi[2] + bext[2])
-
-    @series begin
-        seriestype := :path
-        label --> "bounds"
-        color --> :darkred
-        alpha --> 0.75
-        linewidth --> 2
-        xlims --> xlims
-        ylims --> ylims
-        (rect_xy[:,1], rect_xy[:,2])
-    end
-
-    nothing
-end
-
-
 @recipe function f(stats::MCMCBasicStats, parsel::NTuple{2,Integer})
     pi_x, pi_y = parsel
 
