@@ -37,7 +37,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
         @test samples.params[findmax(samples.log_posterior)[2]] == stats.mode
 
         cov_samples = cov(flatview(samples.params), FrequencyWeights(samples.weight), 2; corrected=true)
-        mean_samples = mean(flatview(samples.params), FrequencyWeights(samples.weight), 2)
+        mean_samples = mean(flatview(samples.params), FrequencyWeights(samples.weight); dims = 2)
 
         @test isapprox(mean_samples, mvec; rtol = 0.1)
         @test isapprox(cov_samples, cmat; rtol = 0.1)
@@ -56,7 +56,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
         @test samples.params[findmax(samples.log_posterior)[2]] == stats.mode
 
         cov_samples = cov(flatview(samples.params), FrequencyWeights(samples.weight), 2; corrected=true)
-        mean_samples = mean(flatview(samples.params), FrequencyWeights(samples.weight), 2)
+        mean_samples = mean(flatview(samples.params), FrequencyWeights(samples.weight); dims = 2)
 
         @test isapprox(mean_samples, mvec; rtol = 0.1)
         @test isapprox(cov_samples, cmat; rtol = 0.1)
