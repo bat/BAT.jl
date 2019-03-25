@@ -18,8 +18,8 @@ function Random.rand!(rng::AbstractRNG, s::test_batsampler, x::Integer)
 end
 
 Base.length(s::test_batsampler{Multivariate}) = 2
-function Random.rand!(rng::AbstractRNG, s::test_batsampler, x::AbstractArray{T, 1} where T)
-    for i in axes(x)[1]
+function Random.rand!(rng::AbstractRNG, s::test_batsampler, x::AbstractVector{<:Real})
+    for i in eachindex(x)
         x[i] = 1
     end
     return x
