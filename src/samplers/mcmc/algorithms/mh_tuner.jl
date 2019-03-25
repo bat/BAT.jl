@@ -105,10 +105,10 @@ function tuning_update!(tuner::ProposalCovTuner; ll::LogLevel = LOG_NONE)
     Σ_new = Matrix(Hermitian(new_Σ_unscal * tuner.scale))
 
     if !isposdef(Σ_new)
-        ev = eigen(Σ_new).values
+        ev = convert(Vector{eltype(Σ_new)}, eigen(Σ_new).values) # require real-valued eigenvalues
         ev_min = minimum(ev)
         Σ_11 = Σ_new[1,1]
-        Σ_new += max(10 * eps(typeof(ev_min)), -ev_min) * eye(length(ev))
+        Σ_new += max(10 * eps(typeof(ev_min)), -ev_min) * Matrix{eltype(ev)}(I, length(ev), length(ev))
         Σ_new ./= (Σ_new[1,1] / Σ_11)
     end
 
