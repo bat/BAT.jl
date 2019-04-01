@@ -17,7 +17,7 @@
     (orientation != :vertical) ? swap=true : swap = false
     plotattributes[:orientation] = :vertical # without: auto-scaling of axes not correct
 
-    hist = fit(Histogram, flatview(samples.params)[param, :], nbins = bins, closed = :left)
+    hist = fit(Histogram, flatview(samples.params)[param, :], StatsBase.weights(samples.weight), nbins = bins, closed = :left)
     normalize ? hist=StatsBase.normalize(hist) : nothing
 
     weights = hist.weights

@@ -20,9 +20,9 @@
     ylabel --> "\$\\theta_$(pi_y)\$"
 
     if bins=="default"
-            h = fit(Histogram, (flatview(samples.params)[pi_x, :], flatview(samples.params)[pi_y, :]), closed=:left)
+            h = fit(Histogram, (flatview(samples.params)[pi_x, :], flatview(samples.params)[pi_y, :]), StatsBase.weights(samples.weight), closed=:left)
         else
-            h = fit(Histogram, (flatview(samples.params)[pi_x, :], flatview(samples.params)[pi_y, :]), closed=:left, nbins=bins)
+            h = fit(Histogram, (flatview(samples.params)[pi_x, :], flatview(samples.params)[pi_y, :]), StatsBase.weights(samples.weight), closed=:left, nbins=bins)
         end
 
 
