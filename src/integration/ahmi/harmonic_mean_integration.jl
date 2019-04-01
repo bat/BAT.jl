@@ -65,6 +65,9 @@ function hm_integrate!(
 end
 
 
+ahmi_integrate(samples::DensitySampleVector) = hm_integrate!(HMIData(samples))
+
+
 """
 function hm_init!(result, settings)
 

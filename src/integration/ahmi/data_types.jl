@@ -334,14 +334,16 @@ function HMIData(dataset::DataSet{T, I})::HMIData{T, I} where {T<:AbstractFloat,
     HMIData(split_dataset(dataset)...)
 end
 
-function HMIData(bat_samples::Tuple{DensitySampleVector, MCMCSampleIDVector, MCMCBasicStats, AbstractVector{<:MCMCIterator}})
-    logprob = bat_samples[1].log_posterior
-    weights = bat_samples[1].weight
-    samples = convert(Array{eltype(logprob), 2}, bat_samples[1].params.data)
+
+@deprecate HMIData(bat_samples::Tuple{DensitySampleVector, MCMCSampleIDVector, MCMCBasicStats, AbstractVector{<:MCMCIterator}}) HMIData(bat_samples[1])
+
+function HMIData(samples::DensitySampleVector)
+    logprob = samples.log_posterior
+    weights = samples.weight
+    samples = convert(Array{eltype(logprob), 2}, flatview(samples.params))
     ds = DataSet(samples, logprob, weights)
     HMIData(ds)
 end
-
 
 
 

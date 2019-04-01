@@ -15,6 +15,8 @@ include("hm_integration_rectangle.jl")
 include("uncertainty.jl")
 
 
+# ToDo: rename hm_... functions to ahmi_...
+
 export hm_init
 export hm_whiteningtransformation!
 export hm_createpartitioningtree!
@@ -24,6 +26,9 @@ export hm_hyperrectanglecreation!
 export hm_integratehyperrectangles!
 
 export hm_integrate!
+export hm_integrate
+
+export ahmi_integrate
 
 export split_samples
 export split_dataset
