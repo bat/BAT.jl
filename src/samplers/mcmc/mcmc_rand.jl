@@ -1,39 +1,64 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# TODO: Add MCMCSampleIDVector to output
-# TODO: Fix granularity forwarding
 
-function Random.rand!(
-    result::Tuple{DensitySampleVector, MCMCSampleIDVector, MCMCBasicStats, AbstractVector{<:MCMCIterator}},
+const MCMCOutputWithChains = Tuple{DensitySampleVector, MCMCSampleIDVector, MCMCBasicStats, AbstractVector{<:MCMCIterator}}
+
+function MCMCOutputWithChains(chainspec::MCMCSpec)
+    dummy_chain = chainspec(zero(Int64))
+
+    (
+        DensitySampleVector(dummy_chain),
+        MCMCSampleIDVector(dummy_chain),
+        MCMCBasicStats(dummy_chain),
+        Vector{typeof(dummy_chain)}()
+    )
+end
+
+
+
+const MCMCOutput = Tuple{DensitySampleVector, MCMCSampleIDVector, MCMCBasicStats}
+
+function MCMCOutput(chainspec::MCMCSpec)
+    samples, sampleids, stats = MCMCOutputWithChains(chainspec::MCMCSpec)
+    (samples, sampleids, stats)
+end
+
+
+
+# TODO: Fix granularity forwarding (still an issue?)
+
+function Random.rand(
     chainspec::MCMCSpec,
     nsamples::Integer,
     nchains::Integer,
-    tuner_config::AbstractMCMCTunerConfig,
-    convergence_test::MCMCConvergenceTest,
-    init_strategy::MCMCInitStrategy,
-    burnin_strategy::MCMCBurninStrategy,
-    exec_context::ExecContext;
+    exec_context::ExecContext = ExecContext();
+    tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec),
+    convergence_test::MCMCConvergenceTest = BGConvergence(),
+    init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config),
+    burnin_strategy::MCMCBurninStrategy = MCMCBurninStrategy(chainspec, nsamples, tuner_config),
     max_nsteps::Int64 = Int64(100 * nsamples),
     max_time::Float64 = Inf,
     granularity::Int = 1,
     strict_mode::Bool = false,
     ll::LogLevel = LOG_INFO,
 )
+    result = MCMCOutputWithChains(chainspec)
+
     result_samples, result_sampleids, result_stats, result_chains = result
 
-    tuners = mcmc_init(
+    (chains, tuners) = mcmc_init(
         chainspec,
         nchains,
-        exec_context,
         tuner_config,
-        convergence_test,
-        init_strategy;
+        init_strategy,
+        exec_context;
         ll = ll,
     )
 
     mcmc_tune_burnin!(
         (),
         tuners,
+        chains,
         convergence_test,
         burnin_strategy,
         exec_context;
@@ -41,7 +66,34 @@ function Random.rand!(
         ll = ll
     )
 
-    chains = map(x -> x.chain, tuners)
+    append!(result_chains, chains)
+
+    rand!(
+        (result_samples, result_sampleids, result_stats),
+        result_chains,
+        nsamples,
+        exec_context;
+        max_nsteps = max_nsteps,
+        max_time = max_time,
+        granularity = granularity,
+        ll = ll
+    )
+
+    result
+end
+
+
+function Random.rand!(
+    result::MCMCOutput,
+    chains::AbstractVector{<:MCMCIterator},
+    nsamples::Integer,
+    exec_context::ExecContext;
+    max_nsteps::Int64 = Int64(100 * nsamples),
+    max_time::Float64 = Inf,
+    granularity::Int = 1,
+    ll::LogLevel = LOG_INFO,
+)
+    result_samples, result_sampleids, result_stats = result
 
     samples = DensitySampleVector.(chains)
     sampleids = MCMCSampleIDVector.(chains)
@@ -78,13 +130,11 @@ function Random.rand!(
         merge!(result_stats, x)
     end
 
-    append!(result_chains, chains)
-
     result
 end
 
 
-# # ToDo:
+# # ToDo ?:
 # function Random.rand!(
 #     result::Tuple{DensitySampleVector, MCMCSampleIDVector, MCMCBasicStats},
 #     chainspec::MCMCSpec,
@@ -94,37 +144,3 @@ end
 # )
 #     ...
 # end
-
-
-function Random.rand(
-    chainspec::MCMCSpec,
-    nsamples::Integer,
-    nchains::Integer,
-    exec_context::ExecContext = ExecContext();
-    tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
-    convergence_test::MCMCConvergenceTest = BGConvergence(),
-    init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config),
-    burnin_strategy::MCMCBurninStrategy = MCMCBurninStrategy(tuner_config),
-    kwargs...
-)
-    dummy_chain = chainspec(zero(Int64))
-    result = (
-        DensitySampleVector(dummy_chain),
-        MCMCSampleIDVector(dummy_chain),
-        MCMCBasicStats(dummy_chain),
-        Vector{typeof(dummy_chain)}()
-    )
-
-    Random.rand!(
-        result,
-        chainspec,
-        nsamples,
-        nchains,
-        tuner_config,
-        convergence_test,
-        init_strategy,
-        burnin_strategy,
-        exec_context;
-        kwargs...
-    )
-end

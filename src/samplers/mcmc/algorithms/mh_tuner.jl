@@ -11,19 +11,16 @@ end
 export ProposalCovTunerConfig
 
 
-AbstractMCMCTunerConfig(algorithm::MetropolisHastings) = ProposalCovTunerConfig()
+AbstractMCMCTunerConfig(chainspec::MCMCSpec{<:MetropolisHastings}) = ProposalCovTunerConfig()
 
-(config::ProposalCovTunerConfig)(chain::MHIterator; init_proposal::Bool = true) =
-    ProposalCovTuner(config, chain, init_proposal)
+(config::ProposalCovTunerConfig)(chain::MHIterator) = ProposalCovTuner(config, chain)
 
 
 
 mutable struct ProposalCovTuner{
-    C<:MHIterator,
     S<:MCMCBasicStats
 } <: AbstractMCMCTuner
     config::ProposalCovTunerConfig
-    chain::C
     stats::S
     iteration::Int
     scale::Float64
@@ -33,39 +30,29 @@ export ProposalCovTuner
 
 function ProposalCovTuner(
     config::ProposalCovTunerConfig,
-    chain::MHIterator,
-    init_proposal::Bool = true
+    chain::MHIterator
 )
     m = nparams(chain)
     scale = 2.38^2 / m
-    tuner = ProposalCovTuner(config, chain, MCMCBasicStats(chain), 1, scale)
-
-    if init_proposal
-        tuning_init_proposal!(tuner)
-    end
-
-    tuner
+    ProposalCovTuner(config, MCMCBasicStats(chain), 1, scale)
 end
 
 
-isviable(tuner::ProposalCovTuner) = nsamples(tuner.chain) >= 2
+isviable(tuner::ProposalCovTuner, chain::MHIterator) = nsamples(chain) >= 2
 
 
-function tuning_init_proposal!(tuner::ProposalCovTuner)
-    chain = tuner.chain
-
+function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator; ll::LogLevel = LOG_NONE)
     Σ_unscaled = cov(prior(getmodel(chain)))
     Σ = Σ_unscaled * tuner.scale
 
     next_cycle!(chain)
     chain.proposaldist = set_cov(chain.proposaldist, Σ)
 
-    chain
+    nothing
 end
 
 
-function tuning_update!(tuner::ProposalCovTuner; ll::LogLevel = LOG_NONE)
-    chain = tuner.chain
+function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator; ll::LogLevel = LOG_NONE)
     stats = tuner.stats
     config = tuner.config
 
@@ -116,19 +103,20 @@ function tuning_update!(tuner::ProposalCovTuner; ll::LogLevel = LOG_NONE)
     chain.proposaldist = set_cov(chain.proposaldist, Σ_new)
     tuner.iteration += 1
 
-    chain
+    nothing
 end
 
 
 function run_tuning_cycle!(
     callbacks,
     tuners::AbstractVector{<:ProposalCovTuner},
+    chains::AbstractVector{<:MHIterator},
     exec_context::ExecContext = ExecContext();
     ll::LogLevel = LOG_NONE,
     kwargs...
 )
-    run_tuning_iterations!(callbacks, tuners, exec_context; ll=ll, kwargs...)
-    tuning_update!.(tuners; ll = ll)
+    run_tuning_iterations!(callbacks, tuners, chains, exec_context; ll=ll, kwargs...)
+    tuning_update!.(tuners, chains; ll = ll)
     nothing
 end
 
@@ -136,13 +124,13 @@ end
 function run_tuning_iterations!(
     callbacks,
     tuners::AbstractVector{<:ProposalCovTuner},
+    chains::AbstractVector{<:MHIterator},
     exec_context::ExecContext;
     max_nsamples::Int64 = Int64(1000),
     max_nsteps::Int64 = Int64(10000),
     max_time::Float64 = Inf,
     ll::LogLevel = LOG_NONE
 )
-    chains = map(x -> x.chain, tuners)
     user_callbacks = mcmc_callback_vector(callbacks, eachindex(chains))
 
     combined_callbacks = broadcast(tuners, user_callbacks) do tuner, user_callback
