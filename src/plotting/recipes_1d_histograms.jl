@@ -26,11 +26,11 @@
     stats = MCMCBasicStats(samples) 
 
     if swap
-        ylabel --> "\$\\theta_$(param)\$"
-        xlabel --> "\$p(\\theta_$(param))\$"
+        yguide --> "\$\\theta_$(param)\$"
+        xguide --> "\$p(\\theta_$(param))\$"
     else 
-        ylabel --> "\$p(\\theta_$(param))\$"
-        xlabel --> "\$\\theta_$(param)\$"
+        yguide --> "\$p(\\theta_$(param))\$"
+        xguide --> "\$\\theta_$(param)\$"
     end
 
     if seriestype == :histogram

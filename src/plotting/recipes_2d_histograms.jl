@@ -16,8 +16,8 @@
     bins = get(plotattributes, :bins, "default")
     seriestype = get(plotattributes, :seriestype, :smallest_intervals)
 
-    xlabel --> "\$\\theta_$(pi_x)\$"
-    ylabel --> "\$\\theta_$(pi_y)\$"
+    xguide --> "\$\\theta_$(pi_x)\$"
+    yguide --> "\$\\theta_$(pi_y)\$"
 
     if bins=="default"
             h = fit(Histogram, (flatview(samples.params)[pi_x, :], flatview(samples.params)[pi_y, :]), FrequencyWeights(samples.weight), closed=:left)
@@ -131,7 +131,7 @@
 
         @series begin
             subplot := 1
-            ylabel := "\$p(\\theta_$(pi_x))\$"
+            xguide --> "\$p(\\theta_$(pi_x))\$"
             seriestype := get(upper, "seriestype", :histogram)
             bins --> get(upper, "nbins", 200)
             normalize --> get(upper, "normalize", true)
@@ -158,8 +158,8 @@
             markerstrokealpha := 1
             legend := false
             label := ""
-            xlabel := ""
-            ylabel := ""
+            xguide := ""
+            yguide := ""
             [(0,0)]
         end
 
@@ -184,7 +184,7 @@
             subplot := 4
             seriestype := get(right, "seriestype", :histogram)
             orientation := :horizontal
-            xlabel := "\$p(\\theta_$(pi_y))\$"
+            xguide --> "\$p(\\theta_$(pi_y))\$"
             normalize --> get(right, "normalize", true)
             bins --> get(right, "nbins", 200)
             colors --> get(right, "colors", standard_colors)
