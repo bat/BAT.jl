@@ -8,11 +8,21 @@
                 localmode=false,
                 diagonal = Dict(),
                 upper = Dict(),
-                lower = Dict())
+                lower = Dict(),
+                param_labels = [])
 
-
+    
     parsel = params
     parsel = parsel[parsel .<= Base.size(samples.params[1], 1)]
+
+
+    if Base.size(param_labels, 1) == 0
+        param_labels = [latexstring("\\theta_$i") for i in parsel]
+        param_labels_y = [latexstring("p(\\theta_$i)") for i in parsel]
+    else
+        param_labels_y = [latexstring("p("*param_labels[i]*")") for i in 1:length(param_labels)]
+        param_labels = [latexstring(param_labels[i]) for i in 1:length(param_labels)]
+    end
 
     nparams = length(parsel)   
     layout --> nparams^2
@@ -34,7 +44,10 @@
             std_dev --> get(diagonal, "std_dev", std_dev)
             globalmode --> get(diagonal, "globalmode", globalmode)
             localmode --> get(diagonal, "localmode", localmode)
-
+        
+            xguide --> param_labels[i]
+            yguide --> param_labels_y[i]
+            
             samples, (parsel[i])
         end
 
@@ -54,8 +67,8 @@
                 std_dev --> get(upper, "std_dev", std_dev)
                 globalmode --> get(upper, "globalmode", globalmode)
                 localmode --> get(upper, "localmode", localmode)
-                xlabel --> "\$\\theta_$(parsel[i])\$"
-                ylabel --> "\$\\theta_$(parsel[j])\$"
+                xguide --> param_labels[i]
+                yguide --> param_labels[j]
 
                 samples, (parsel[i], parsel[j])
             end
@@ -73,8 +86,8 @@
                 std_dev --> get(lower, "std_dev", std_dev)
                 globalmode --> get(lower, "globalmode", globalmode)
                 localmode --> get(lower, "localmode", localmode)
-                xlabel --> "\$\\theta_$(parsel[i])\$"
-                ylabel --> "\$\\theta_$(parsel[j])\$"
+                xguide --> param_labels[i]
+                yguide --> param_labels[j]
 
                 samples, (parsel[i], parsel[j])
             end
