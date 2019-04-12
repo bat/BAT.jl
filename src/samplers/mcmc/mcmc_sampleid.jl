@@ -102,6 +102,27 @@ function UnsafeArrays.uview(A::MCMCSampleIDVector)
 end
 
 
+Tables.istable(::Type{<:MCMCSampleIDVector}) = true
+
+Tables.columnaccess(::Type{<:MCMCSampleIDVector}) = true
+
+Tables.columns(A::MCMCSampleIDVector) = (
+    chainid = A.chainid,
+    chaincycle = A.chaincycle,
+    stepno = A.stepno,
+    sampletype = A.sampletype
+)
+
+Tables.rowaccess(::Type{<:MCMCSampleIDVector}) = true
+
+Tables.rows(A::MCMCSampleIDVector) = A
+
+Tables.schema(A::MCMCSampleIDVector) = Tables.Schema(
+    (:chainid, :chaincycle, :stepno, :sampletype),
+    (eltype(A.chainid), eltype(A.chaincycle), eltype(A.stepno), eltype(A.sampletype))
+)
+
+
 function read_fom_hdf5(input, ::Type{MCMCSampleIDVector})
     MCMCSampleIDVector(
         input["chainid"][:],

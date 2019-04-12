@@ -19,5 +19,6 @@ Random123
 RecipesBase
 StaticArrays
 StatsBase
+Tables
 TypedTables
 UnsafeArrays

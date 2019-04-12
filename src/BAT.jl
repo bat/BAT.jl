@@ -30,6 +30,7 @@ using PDMats
 using RecipesBase
 using StaticArrays
 using StatsBase
+using Tables
 using UnsafeArrays
 
 #for AHMI

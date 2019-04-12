@@ -128,6 +128,27 @@ function UnsafeArrays.uview(A::DensitySampleVector)
 end
 
 
+Tables.istable(::Type{<:DensitySampleVector}) = true
+
+Tables.columnaccess(::Type{<:DensitySampleVector}) = true
+
+Tables.columns(A::DensitySampleVector) = (
+    params = A.params,
+    log_posterior = A.log_posterior,
+    log_prior = A.log_prior,
+    weight = A.weight
+)
+
+Tables.rowaccess(::Type{<:DensitySampleVector}) = true
+
+Tables.rows(A::DensitySampleVector) = A
+
+Tables.schema(A::DensitySampleVector) = Tables.Schema(
+    (:params, :log_posterior, :log_prior, :weight),
+    (eltype(A.params), eltype(A.log_posterior), eltype(A.log_prior), eltype(A.weight))
+)
+
+
 function _swap!(A::DensitySampleVector, i_A::SingleArrayIndex, B::DensitySampleVector, i_B::SingleArrayIndex)
     _swap!(view(flatview(A.params), :, i_A), view(flatview(A.params), :, i_B))  # Memory allocation!
     _swap!(A.log_posterior, i_A, B.log_posterior, i_B)
