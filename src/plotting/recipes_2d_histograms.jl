@@ -57,11 +57,12 @@
 
     
     elseif seriestype == :histogram2d || seriestype == :histogram
+        _plots_module() != nothing || throw(ErrorException("Package Plots not available, but required for this operation"))
         
         @series begin
             seriestype := :bins2d
             colorbar --> true
-            h.edges[1], h.edges[2], Main.Plots.Surface(h.weights)
+            h.edges[1], h.edges[2], _plots_module().Surface(h.weights)
         end
 
     elseif seriestype == :smallest_intervals_contour || seriestype == :smallest_intervals_contourf
@@ -94,6 +95,8 @@
 
 
     elseif seriestype == :smallest_intervals
+        _plots_module() != nothing || throw(ErrorException("Package Plots not available, but required for this operation"))
+
         colors = colors[sortperm(intervals, rev=true)]
 
         hists, orig_hist, realintervals = split_smallest(h, intervals)
@@ -103,9 +106,9 @@
         for (i, int) in enumerate(realintervals)
             @series begin
                 seriestype := :bins2d
-                color --> Main.Plots.cgrad([colors[i], colors[i]])  
+                color --> _plots_module().cgrad([colors[i], colors[i]])  
                 label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
-                hists[i].edges[1], hists[i].edges[2], Main.Plots.Surface(hists[i].weights)
+                hists[i].edges[1], hists[i].edges[2], _plots_module().Surface(hists[i].weights)
             end
             # fake a legend
             @series begin
@@ -119,10 +122,11 @@
     
 
     elseif seriestype == :marginal
+        _plots_module() != nothing || throw(ErrorException("Package Plots not available, but required for this operation"))
 
         size --> (900, 600)
 
-        layout --> Main.Plots.grid(2,2, widths=(0.8, 0.2), heights=(0.2, 0.8))
+        layout --> _plots_module().grid(2,2, widths=(0.8, 0.2), heights=(0.2, 0.8))
         link --> :both
 
         if get(diagonal, "seriestype", :histogram) != :histogram

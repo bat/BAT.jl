@@ -36,7 +36,7 @@ end
 
     #plot both data sets
     if plot_datasets == 0
-        layout := Main.Plots.GridLayout(1, 2)
+        layout := _plots_module().GridLayout(1, 2)
         plotattributes[:size] = (1600, 800)
     else
         plotattributes[:size] = (800, 800)
@@ -95,10 +95,10 @@ end
         xlabel := latexstring("\$\\lambda_$(dim1)\$")
         ylabel := latexstring("\$\\lambda_$(dim2)\$")
 
-        titlefont := Main.Plots.font("sans-serif", 21 * font_scale)
-        guidefont := Main.Plots.font("sans-serif", 18 * font_scale)
-        tickfont  := Main.Plots.font("sans-serif", 15 * font_scale)
-        legendfont:= Main.Plots.font("sans-serif", 12 * font_scale)
+        titlefont := _plots_module().font("sans-serif", 21 * font_scale)
+        guidefont := _plots_module().font("sans-serif", 18 * font_scale)
+        tickfont  := _plots_module().font("sans-serif", 15 * font_scale)
+        legendfont:= _plots_module().font("sans-serif", 12 * font_scale)
         legend := :topright
 
 
