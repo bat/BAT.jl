@@ -8,6 +8,8 @@ using Documenter
 using Literate
 using BAT
 
+ENV["GKSwstype"] = "nul"
+
 gen_content_dir = joinpath(@__DIR__, "src")
 tutorial_src = joinpath(@__DIR__, "src", "tutorial_lit.jl")
 Literate.markdown(tutorial_src, gen_content_dir, name = "tutorial", documenter = true, credit = true)
