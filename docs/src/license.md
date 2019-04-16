@@ -1,4 +1,4 @@
-# LICENSE
+# License
 
 ```@eval
 using Markdown

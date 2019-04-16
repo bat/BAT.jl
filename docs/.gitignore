@@ -1,2 +1,4 @@
 build/
 site/
+src/tutorial.*
+src/bat_tutorial.*

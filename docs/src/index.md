@@ -1,4 +1,4 @@
-# BAT Documentation
+# BAT.jl Documentation
 
 BAT.jl is the Julia version of the Bayesian Analysis Toolkit. It is designed to help solve statistical problems encountered in Bayesian inference. Typical examples are the extraction of the values of the free parameters of a model, the comparison of different models in the light of a given data set, and the test of the validity of a model to represent the data set at hand. BAT.jl aims to provide multiple algorithms that give access to the full Bayesian posterior distribution, to enable parameter estimation, limit setting and uncertainty propagation. BAT.jl also provides supporting functionality like plotting recipes and reporting functions.
 
@@ -8,96 +8,55 @@ BAT.jl is implemented in pure Julia and allows for a flexible definition of math
 
 In addition to likelihood functions implemented in Julia, BAT.jl provides a lightweight binary protocol to connect to functions written in other languages and running in separate processes (code for likelihoods written in C++ is included).
 
+Table of contents:
 
-## Getting started
-
-### Prerequisites
-
-TODO: ...
-
-### How-to-get-started / Tutorial
-
-TODO: ...
-
-
-### Developer Instructions
-
-To generate and view a local version of the documentation, run
-
-```shell
-cd docs
-julia make.jl local
+```@contents
+Pages = [
+    # "basics.md",
+    "installation.md",
+    "tutorial.md",
+    # "faq.md",
+    # "examples.md",
+    # "algorithms.md",
+    # "benchmarks.md",
+    # "publications.md",
+    "api.md",
+    "developing.md",
+    "license.md",
+]
+Depth = 1
 ```
 
-then open "docs/build/index.html" in your browser.
+## Citing BAT.jl
 
-When changing the code of BAT.jl and testing snippets and examples in the REPL, automatic code reloading comes in very handy. Try out [Revise.jl](https://github.com/timholy/Revise.jl).
+When using BAT.jl for work that will result in a scientific publication, please cite
 
+> Caldwell et al., *BAT.jl - A Bayesian Analysis Toolkit in Julia*, [**doi:10.5281/zenodo.2605312**](https://doi.org/10.5281/zenodo.2587213)
 
-## Documentation
-
-### User guide
-
-### FAQ
-
-### Publications and talks
-
-### How to cite BAT.jl
-
-### LICENSE
+The DOI above is [version-independent](http://help.zenodo.org/#versioning), you may want to use the DOI of the specific BAT.jl version used in your work.
 
 
-## Algorithms
+## Learning (more about) Julia
 
-### Sampling algorithms (and interfaces)
+BAT.jl is intended replace [C++-BAT](https://github.com/bat/bat), long term. If you're new to Julia and want to learn more about the the language, here are a few resources to get started:
 
-TODO: List algorithms and short short descriptions.
+The [Julia website](https://julialang.org/) provides many [links to introductory videos and written tutorials](https://julialang.org/learning/), e.g. ["Intro to Julia"](https://www.youtube.com/watch?v=fMa1qSg_LxA),
+["A Deep Introduction to Julia for Data Science and Scientific Computing"](http://ucidatascienceinitiative.github.io/IntroToJulia/)
+and ["The Fast Track to Julia 1.0"](https://juliadocs.github.io/Julia-Cheat-Sheet/)
 
-### Integration algorithms (and interfaces)
+Note: Try to avoid tutorials and books written for Julia v0.6 as there have been quite a few changes to the language in v1.0.
 
-TODO: List algorithms and short short descriptions.
+There are also a lot of interesting talk and tutorials on the [Julia YouTube Channel](https://www.youtube.com/user/JuliaLanguage). Have a look at the [talks at JuliaCon 2018](https://www.youtube.com/playlist?list=PLP8iPy9hna6Qsq5_-zrg0NTwqDSDYtfQB) to get an impression on the kinds of scientific applications Julia is being used for and why, e.g. ["Why Julia is the most suitable language for science"](https://youtu.be/7y-ahkUsIrY).
 
-### Optimization algorithms (and interfaces)
-TODO: List algorithms and short short descriptions.
+The in-depth article [Why Numba and Cython are not substitutes for Julia](http://www.stochasticlifestyle.com/why-numba-and-cython-are-not-substitutes-for-julia/) explains how Julia addresses several fundamental challenges inherent to scientific computing.
 
-### Other algorithms (and interfaces)
-
-
-
-## Interfaces
-
-TODO: List interfaces
+If you want to get an impression of the attention to detail so typical for Julia, watch ["0.1 vs 1//10: How numbers are compared"](https://youtu.be/CE1x130lYkA).
 
 
-
-## Examples
-
-### Common models and problems
-
-#### The 1-D Gaussian model
-
-#### The Poisson problem (counting experiments)
-
-#### The binomial case
-
-### Add more models and problems
-
-### Published scientific examples 
-
-#### A multivariate Gaussian combination model (similar to BLUE)
-
-#### The EFTfitter
-
-
-
-## Benchmarks and performance tests
-
-
-
-### Acknowledgements
+## Acknowledgements
 
 We acknowledge the contributions from all the BAT.jl users who help us make BAT.jl a better project. Your help is very welcome!
 
 Development of BAT.jl has been supported by funding from
 
-* [Deutsche Forschungsgemeinschaft (DFG, German Research Foundation)](http://www.dfg.de/)
+* [Deutsche Forschungsgemeinschaft (DFG, German Research Foundation)](https://www.dfg.de/)

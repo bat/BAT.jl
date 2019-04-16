@@ -1,3 +1,3 @@
-# Mathematical basics
+# Statistical Basics
 
 ... to be written ...
