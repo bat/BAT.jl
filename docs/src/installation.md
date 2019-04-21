@@ -10,6 +10,15 @@ Depth = 3
 
 ## Prerequisites
 
+### OS-Specific Prerequisites
+
+#### Mac OS-X
+
+TODO:
+
+On OS-X, you need to install the Apple command line developer tools. They are required by the Julia package Homebrew.jl, which in turn is required by lot's of other Julia packages.
+
+
 ### Installing Julia
 
 Julia is available for Linux, OS-X and Windows, and easy to install:
@@ -86,6 +95,9 @@ To install the latest development version of BAT (master branch), instead of the
 ```julia
 julia> pkg"add BAT#master"
 ```
+
+TODO: PRECOMPILE
+
 
 To use the the Jupyter Julia kernel, you also need to install the package "IJulia":
 
