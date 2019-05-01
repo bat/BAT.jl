@@ -2,9 +2,17 @@
 
 BAT.jl is the Julia version of the Bayesian Analysis Toolkit. It is designed to help solve statistical problems encountered in Bayesian inference. Typical examples are the extraction of the values of the free parameters of a model, the comparison of different models in the light of a given data set, and the test of the validity of a model to represent the data set at hand. BAT.jl aims to provide multiple algorithms that give access to the full Bayesian posterior distribution, to enable parameter estimation, limit setting and uncertainty propagation. BAT.jl also provides supporting functionality like plotting recipes and reporting functions.
 
+[Fred] I'd imagine a julia user looks at this but has never heard of BAT in C++. Mentioning a relation to the other project is fine but let's not compare features in the introduction as to not put off potential new users. If you really want a comparison, put a feature matrix in a separate page of the docs
+
+This introduction should just explain what BAT.jl is. Have a separate page on goals if you want to show them but usually that's not a good idea; e.g., if you fall short of achieving the goals and the goals are a few years old. Remember, docs get outdated faster than any other part of the project.
+
 This package is a complete rewrite of the previous [C++-BAT](https://github.com/bat/bat) in Julia. BAT.jl provides several improvements over it's C++ predecessor, but has not yet reached feature parity in all areas. There is no backward compatibility, but the spirit is the same: providing a tool for Bayesian computations of complex models that require application-specific code.
 
-BAT.jl is implemented in pure Julia and allows for a flexible definition of mathematical models and applications while enabling the user to code for the performance required for computationally expensive numerical operations. BAT.jl provides implementations (internally of via other Julia packages) of algorithms for sampling, optimization and integration. While predefined models are (resp. will soon be) provided for standard cases, such as simple counting experiments, binomial problems or Gaussian models, BAT's main strength lies in the analysis of complex models. The package is designed to enable multi-threaded and distributed code execution at various levels, multi-threaded MCMC chains are provided out-of-the-box.
+[Fred] I find the spirit too generic. This should summarize the essence of BAT.jl in one sentence and make it tangible for a reader. How about:
+
+provide a high-performance tool box for the Bayesian analysis of models that are so complex that they can best be formulated in a general-purpose programming language.
+
+BAT.jl is implemented in pure Julia and allows a flexible definition of mathematical models and applications while enabling the user to code for the performance required for computationally expensive numerical operations. BAT.jl provides implementations (internally or via other Julia packages) of algorithms for sampling, optimization, and integration. While predefined models are provided for standard cases, such as simple counting experiments, binomial problems, or Gaussian models, BAT's main strength lies in the analysis of complex models. The package is designed to enable multi-threaded and distributed code execution at various levels. Multi-threaded MCMC chains are provided out-of-the-box.
 
 In addition to likelihood functions implemented in Julia, BAT.jl provides a lightweight binary protocol to connect to functions written in other languages and running in separate processes (code for likelihoods written in C++ is included).
 
@@ -38,7 +46,7 @@ The DOI above is [version-independent](http://help.zenodo.org/#versioning), you 
 
 ## Learning (more about) Julia
 
-BAT.jl is intended replace [C++-BAT](https://github.com/bat/bat), long term. If you're new to Julia and want to learn more about the the language, here are a few resources to get started:
+BAT.jl is intended to supersede [C++-BAT](https://github.com/bat/bat). If you're new to Julia and want to learn more about the the language, here are a few resources to get started:
 
 The [Julia website](https://julialang.org/) provides many [links to introductory videos and written tutorials](https://julialang.org/learning/), e.g. ["Intro to Julia"](https://www.youtube.com/watch?v=fMa1qSg_LxA),
 ["A Deep Introduction to Julia for Data Science and Scientific Computing"](http://ucidatascienceinitiative.github.io/IntroToJulia/)

@@ -39,17 +39,17 @@
 
 using Random, LinearAlgebra, Statistics, Distributions, StatsBase
 
-# As the underlying truth of our input data/histogram, let us choose an
+# As the underlying truth of our input data/histogram, let us choose a
 # non-normalized probability density composed of two Gaussian peaks with a peak
-# area of 500 and 1000, a mean of -1.0 and 2.0 and a standard error of 0.5.
-# So our model parameters will be:
+# area of 500 and 1000, a mean of -1.0 and 2.0, and a common standard error of 0.5.
+# So our model parameters are:
 
 par_names = ["a_1", "a_2", "mu_1", "mu_2", "sigma"]
 
 true_par_values = [500, 1000, -1.0, 2.0, 0.5]
 #md nothing # hide
 
-# We'll define a function that returns two Gaussian distributions, based 
+# We'll define a Julia function that returns two Gaussian distributions, based
 # on a specific set of parameters
 
 function model_distributions(parameters::AbstractVector{<:Real})
@@ -60,6 +60,8 @@ function model_distributions(parameters::AbstractVector{<:Real})
 end
 #md nothing # hide
 
+# [Fred] I was tempted to turn the julia parameters into unicode characters, too. But I guess newcomers might have a problem to enter the characters themself. But it would look so much nicer for a tutorial.
+
 # and then generate some synthetic data by drawing a number (according to the
 # parameters a₁ and a₂) of samples from the two Gaussian distributions
 
@@ -68,6 +70,8 @@ data = vcat(
     rand(model_distributions(true_par_values)[2], Int(true_par_values[2]))
 )
 #md nothing # hide
+
+# [Fred] I don't see why this emphasis on floats is useful. If I run the previous line in the julia shell, I see the samples, so it's clear they are floats.
 
 # resulting in a vector of floating-point numbers:
 
@@ -128,6 +132,8 @@ using BAT, IntervalSets
 # type, as accessing the histogram as a global variable would
 # [reduce performance](https://docs.julialang.org/en/v1/manual/performance-tips/index.html#Avoid-global-variables-1):
 
+# [FRED] It would be good to just render some math here, define the Poisson etc. You seem to assume everyone knows that but for non-particle physicists, don't take it for granted.
+
 struct HistogramLikelihood{H<:Histogram} <: AbstractDensity
     histogram::H
 end
@@ -142,18 +148,24 @@ BAT.nparams(likelihood::HistogramLikelihood) = 5
 
 # `BAT.unsafe_density_logval` has to implement the actual log-likelihood
 # function:
+# [Fred] Some math symbol would be nice to explain the log likelihood. We had this discussion a long time ago: the name `unsafe_density_logval` can be a stopper to new users. Why does this package ask me to implement some "unsafe" function? Something like `core_density_logval` would be easier to swallow.
 
 function BAT.unsafe_density_logval(
     likelihood::HistogramLikelihood,
     parameters::AbstractVector{<:Real},
     exec_context::ExecContext
 )
+    # [FRED] These comments inside the function are also rendered in the HTML output as ordinary text and make it hard to follow in HTML what the function is. Is there a way to say, "render this comment as an ordinary julia comment?". Else just leave these comments out, so a user can see the function as a whole.
+
+
+    # [Fred] The code helped me more than the comment actually. I'd just drop the comment
     # Histogram counts for each bin as an array:
     counts = likelihood.histogram.weights
 
     # Histogram binning, has length (length(counts) + 1):
     binning = likelihood.histogram.edges[1]
 
+    # [Fred] useless comment
     # sum log-likelihood over bins:
     log_likelihood::Float64 = 0.0
     for i in eachindex(counts)
@@ -179,7 +191,7 @@ end
 # that value provided by `BAT.nparams` is correct and that the prior that will
 # only cover valid parameter values).
 #
-# Note: Currently, implementations of BAT.unsafe_density_logval *must* be
+# Note: Currently, implementations of `BAT.unsafe_density_logval` *must* be
 # type stable, to avoid triggering a Julia-internal error. The matter is under
 # investigation. If the implementation of `BAT.unsafe_density_logval` is *not*
 # type-stable, this will often result in an error like this:
@@ -188,6 +200,7 @@ end
 # Internal error: encountered unexpected error in runtime:
 # MethodError(f=typeof(Core.Compiler.fieldindex)(), args=(Random123.Philox4x{T, R} ...
 # ```
+# [fred] I'd rather link to the docs to explain what type stable means, and create an issue in `BAT.jl` public repo that you can link to as well. This tutorial is already long.
 #
 # The `exec_context` argument can be ignored in simple use cases, it is only
 # of interest for `unsafe_density_logval` methods that internally use Julia's
@@ -203,6 +216,7 @@ end
 
 BAT.exec_capabilities(::typeof(BAT.unsafe_density_logval), likelihood::HistogramLikelihood, parameters::AbstractVector{<:Real}) =
     ExecCapabilities(0, true, 0, true)
+# [Fred] the args `(0, true, 0, true)` are a bit hard to understand, it seems there is more than just thread-safety here
 
 # BAT will then use multi-threaded log-likelihood evaluation where possible.
 # Note that Julia starts only a single thread by default, you will need to set
@@ -220,7 +234,7 @@ likelihood = HistogramLikelihood(hist)
 # ### Prior Definition
 #
 # For simplicity, we choose a flat prior, i.e. a normalized constant
-# density:
+# density, on the support made up by a hyper-rectangle:
 
 prior = ConstDensity(
     HyperRectBounds(
@@ -236,7 +250,7 @@ prior = ConstDensity(
 #md nothing # hide
 
 # In general, BAT allows instances of any subtype of `AbstractDensity` to
-# be uses as a prior, as long as a sampler is defined for it. This way, users
+# be used as a prior, as long as a sampler is defined for it. This way, users
 # may implement complex application-specific priors. You can also
 # use `convert(AbstractDensity, distribution)` to convert any
 # continuous multivariate `Distributions.Distribution` to a
@@ -252,7 +266,7 @@ model = BayesianModel(likelihood, prior)
 #md nothing # hide
 
 
-### Parameter Space Exploration via MCMC
+# ### Parameter Space Exploration via MCMC
 #
 # We can now use Markov chain Monte Carlo (MCMC) to explore the space of
 # possible parameter values for the histogram fit.
@@ -263,7 +277,7 @@ model = BayesianModel(likelihood, prior)
 algorithm = MetropolisHastings(MvTDistProposalSpec(1.0))
 #md nothing # hide
 
-# We also need to which random number generator and seed to use. BAT requires
+# We also need to specify which random number generator and seed to use. BAT requires
 # a counter-based RNG and partitions the RNG space over the MCMC chains. This
 # way, a single RNG seed is sufficient for all chains and results can be
 # reproducible even under parallel execution. Let's choose a Philox4x RNG
@@ -272,12 +286,12 @@ algorithm = MetropolisHastings(MvTDistProposalSpec(1.0))
 rngseed = BAT.Philox4xSeed()
 #md nothing # hide
 
-# The algorithm, model and RNG seed specify the MCMC chains:
+# The algorithm, model, and RNG seed specify the MCMC chains:
 
 chainspec = MCMCSpec(algorithm, model, rngseed)
 #md nothing # hide
 
-# Let's use 4 MCMC chains and require 10^5 unique samples from each chain
+# Let's use 4  chains and require $10^5$ unique samples from each chain
 # (after tuning/burn-in):
 
 nsamples = 10^5
@@ -354,12 +368,16 @@ println("Mode: $(stats.mode)")
 println("Mean: $(stats.param_stats.mean)")
 println("Covariance: $(stats.param_stats.cov)")
 
-# `stats` contains some statistics collected during MCMC sample generation,
-# e.g. the mean and covariance of the parameters and the mode. Equal values
-# for these statistics may of course be calculated afterwards, from the
-# samples:
+# `stats` contains some statistics collected during MCMC sample generation, e.g.
+# the mean and covariance of the parameters and the mode. These and any other
+# statistics may of course be calculated from the samples after the sampling
+# finished:
 
 @assert vec(mean(samples.params, FrequencyWeights(samples.weight))) ≈ stats.param_stats.mean
+# output warning
+# ┌ Warning: `mean(A::AbstractArray{T}, w::AbstractWeights{W}, dims::Int) where {T <: Number, W <: Real}` is deprecated, use `mean(A, w, dims=dims)` instead.
+# │   caller = mean(::ArraysOfArrays.ArrayOfSimilarArrays{Float64,1,1,2,ElasticArrays.ElasticArray{Float64,2,1}}, ::StatsBase.FrequencyWeights{Int64,Int64,Array{Int64,1}}) at statsbase_support.jl:6
+# └ @ ArraysOfArrays ~/.julia/packages/ArraysOfArrays/Fd8FA/src/statsbase_support.jl:6
 @assert vec(var(samples.params, FrequencyWeights(samples.weight))) ≈ diag(stats.param_stats.cov)
 @assert cov(samples.params, FrequencyWeights(samples.weight)) ≈ stats.param_stats.cov
 
@@ -402,6 +420,11 @@ plot!(stats, (3, 5))
 #md savefig("tutorial-param-pair.svg"); nothing # hide
 #md # [![Marginalized Distribution for mu_1 and sigma](tutorial-param-pair.svg)](tutorial-param-pair.pdf)
 
+#[Fred] Plots are always up to taste, here is my opinion.
+# 1. You should have different symbols for the local and global mode, I see a black square for both.
+# 2. The purple for the ellipses isn't pretty, and having the same color for all levels isn't good, either
+# 3. In the legend, I would say 1\sigma instead of 68.46%, same for 2\sigma, 3\sigma. And the output digits should match, I see 68.30000000000001% instead of 68.3%
+
 # We can also create an overview plot of the marginalized distribution for all
 # pairs of parameters:
 
@@ -415,14 +438,21 @@ plot(
 #md savefig("tutorial-all-params.svg"); nothing # hide
 #md # [![Pairwise Correlation between Parameters](tutorial-all-params.svg)](tutorial-all-params.pdf)
 
+# [Fred] I see a lot of these messages in the rendered output but the matrix still shows up
+# sh: 1: latex: not found
+# latex: failed to create a dvi file
+
+# Again my subjective judgment: the black marker on the half-black plots in the upper right triangle looks bad. Then the numbers on the ticks overlap, I think other packages solve this by rotating the labels by 45 degrees.
 
 # ### Integration with Tables.jl
 
 # BAT.jl supports the [Tables.jl](https://github.com/JuliaData/Tables.jl)
 # interface. Using a tables implementation like
-# TypedTables.jl](http://blog.roames.com/TypedTables.jl/stable/),
+# [TypedTables.jl](http://blog.roames.com/TypedTables.jl/stable/),
 # the whole MCMC output (parameter vectors, weights, sample/chain numbers,
 # etc.) can easily can be combined into a single table:
+
+# [Fred] This is really nice, people don't have to learn anything new to analyze BAT samples. But it this just clever iterators or actually copying data?
 
 using TypedTables
 
@@ -436,6 +466,7 @@ mode_log_posterior, mode_idx = findmax(tbl.log_posterior)
 # And get row `mode_idx` of the table, with all information about the sample
 # at the mode:
 
+# [Fred] Looks like some code examples is missing for mode_idx
 
 # ## Comparison of Truth and Best Fit
 
@@ -457,3 +488,5 @@ plot!(-4:0.01:4, x -> fit_function(x, fit_par_values), label = "Best fit")
 #md savefig("tutorial-data-truth-bestfit.pdf")
 #md savefig("tutorial-data-truth-bestfit.svg"); nothing # hide
 #md # [![Data, True Model and Best Fit](tutorial-data-truth-bestfit.svg)](tutorial-data-truth-bestfit.pdf)
+
+# [Fred] The best-fit comparison is nice but where is the uncertainty band? Else why run all the chains, you could have had this plot alone with max-likelihood.
