@@ -1,6 +1,6 @@
 # Use
 #
-#     DOCUMENTER_DEBUG=true julia --color=yes make.jl local [linkcheck] [fixdoctests]
+#     DOCUMENTER_DEBUG=true julia --color=yes make.jl local [nonstrict] [fixdoctests]
 #
 # for local builds.
 
@@ -33,7 +33,7 @@ makedocs(
     ],
     doctest = ("fixdoctests" in ARGS) ? :fix : true,
     linkcheck = ("linkcheck" in ARGS),
-    strict = !("local" in ARGS),
+    strict = !("nonstrict" in ARGS),
 )
 
 deploydocs(
