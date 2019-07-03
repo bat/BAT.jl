@@ -31,6 +31,12 @@ jobs:
     - stage: "Documentation"
       julia: 1.2
       os: linux
+      addons:
+        apt:
+          packages:
+            - texlive-latex-base
+      before_script:
+        - latex --version
       env:
         - GKSwstype=nul
       script:
