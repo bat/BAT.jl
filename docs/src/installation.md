@@ -1,4 +1,5 @@
 # Installation
+
 BAT.jl is written in the [Julia programming language](https://julialang.org/). To use BAT.jl, you will need to install Julia itself, the BAT.jl Julia package, and some additional Julia packages. Depending on your use case, you may also want to need a Python installation with certain Python packages (optional).
 
 Table of contents:
@@ -28,6 +29,10 @@ Julia is available for Linux, OS-X and Windows, and easy to install:
 * Extract the archive, resp. run the installer.
 
 * You'll probably want to add the Julia `bin` directory to your `$PATH`
+
+!!! note
+
+    BAT.jl requires Julia v1.2.
 
 
 ### Installing Jupyter and matplotlib/pyplot (Optional)
