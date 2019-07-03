@@ -35,6 +35,7 @@ jobs:
         apt:
           packages:
             - texlive-latex-base
+            - dvipng
       before_script:
         - latex --version
       env:
