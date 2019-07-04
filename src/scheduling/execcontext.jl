@@ -128,18 +128,21 @@ function negotiate_exec_context(context::ExecContext, target_caps::AbstractVecto
     target_caps_threadsafe = all(x -> x.threadsafe, target_caps)
     target_caps_nthreads = minimum(x -> x.nthreads, target_caps)
 
+    target_use_threads::Bool = false
+    self_use_threads::Bool = false
+
     if context.use_threads
         target_use_threads = target_caps_nthreads > 1
         self_use_threads = target_caps_threadsafe && !target_use_threads
-    else
-        target_use_threads = false
-        self_use_threads = false
     end
 
     target_caps_remotesafe = all(x -> x.remotesafe, target_caps)
 
     # ToDo: Take different nprocs into account
     target_caps_nprocs = minimum(x -> x.nprocs, target_caps)
+
+    target_onprocs::Vector{Int} = Vector{Int}()
+    self_onprocs::Vector{Int} = Vector{Int}()
 
     nprocs_avail = length(context.onprocs)
     if isempty(context.onprocs)
@@ -151,13 +154,16 @@ function negotiate_exec_context(context::ExecContext, target_caps::AbstractVecto
     else
         if target_caps_remotesafe
             # ToDo: Distribute available processes for targets
-            error("Not implemented yet")
-            target_onprocs = error("Not implemented yet")
-            self_onprocs = error("Not implemented yet")
+            throw(ErrorException("Not implemented yet"))
+            # target_onprocs = ...
+            # self_onprocs = ...
         else
-            # ToDo: Distribute available processes over targets
-            target_onprocs = error("Not implemented yet")
-            self_onprocs = [myid()]
+            if myid() in context.onprocs
+                self_onprocs = [myid()]
+                target_onprocs = context.onprocs
+            else
+                error("Can't run non-remote-safe code if current process is not part of execution context.")
+            end
         end
     end
 
