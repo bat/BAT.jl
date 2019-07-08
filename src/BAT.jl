@@ -29,6 +29,7 @@ using Parameters
 using PDMats
 using RecipesBase
 using Requires
+using ShapesOfVariables
 using StaticArrays
 using StatsBase
 using Tables
