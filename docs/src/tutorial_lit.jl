@@ -148,13 +148,13 @@ function BAT.unsafe_density_logval(
     parameters::AbstractVector{<:Real},
     exec_context::ExecContext
 )
-    # Histogram counts for each bin as an array:
+    ## Histogram counts for each bin as an array:
     counts = likelihood.histogram.weights
 
-    # Histogram binning, has length (length(counts) + 1):
+    ## Histogram binning, has length (length(counts) + 1):
     binning = likelihood.histogram.edges[1]
 
-    # sum log-likelihood over bins:
+    ## sum log-likelihood over bins:
     log_likelihood::Float64 = 0.0
     for i in eachindex(counts)
         bin_left, bin_right = binning[i], binning[i+1]
@@ -163,7 +163,7 @@ function BAT.unsafe_density_logval(
 
         observed_counts = counts[i]
 
-        # Simple mid-point rule integration of fit_function over bin:
+        ## Simple mid-point rule integration of fit_function over bin:
         expected_counts = bin_width * fit_function(bin_center, parameters)
 
         log_likelihood += logpdf(Poisson(expected_counts), observed_counts)
