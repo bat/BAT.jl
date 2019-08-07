@@ -179,16 +179,6 @@ end
 # that value provided by `BAT.nparams` is correct and that the prior that will
 # only cover valid parameter values).
 #
-# Note: Currently, implementations of BAT.unsafe_density_logval *must* be
-# type stable, to avoid triggering a Julia-internal error. The matter is under
-# investigation. If the implementation of `BAT.unsafe_density_logval` is *not*
-# type-stable, this will often result in an error like this:
-#
-# ```
-# Internal error: encountered unexpected error in runtime:
-# MethodError(f=typeof(Core.Compiler.fieldindex)(), args=(Random123.Philox4x{T, R} ...
-# ```
-#
 # The `exec_context` argument can be ignored in simple use cases, it is only
 # of interest for `unsafe_density_logval` methods that internally use Julia's
 # multi-threading and/or distributed code execution capabilities.
