@@ -24,13 +24,13 @@ if Sys.isunix()
 
             @test begin
                 x = [1.23, 2.34]
-                llvalue = BAT.density_logval(likelihood, x)
+                llvalue = density_logval(likelihood, x)
                 llvalue ≈ logpdf(dist, x)
             end
 
             @test begin
                 params = nestedview(rand(2, 100) .* 4 .- 2)
-                llvalues = BAT.density_logval.((likelihood,), params)
+                llvalues = density_logval.((likelihood,), params)
                 llvalues ≈ logpdf.((dist,), params)
             end
   

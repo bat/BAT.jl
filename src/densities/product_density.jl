@@ -11,7 +11,7 @@ end
 export GenericProductDensityFunction
 
 
-function unsafe_density_logval(
+function density_logval(
     density::GenericProductDensityFunction{T,P},
     params::AbstractVector{<:Real},
     exec_context::ExecContext
@@ -21,7 +21,7 @@ function unsafe_density_logval(
 end
 
 
-exec_capabilities(::typeof(unsafe_density_logval), density::GenericProductDensityFunction, params::AbstractVector{<:Real}) =
+exec_capabilities(::typeof(density_logval), density::GenericProductDensityFunction, params::AbstractVector{<:Real}) =
     density.single_exec_compat # Change when implementation of density_logval for GenericProductDensityFunction becomes multithreaded.
 
 

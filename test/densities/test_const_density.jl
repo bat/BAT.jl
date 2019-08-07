@@ -35,24 +35,15 @@ using ArraysOfArrays, Distributions
         @test typeof(cdensity) <: ConstDensity
     end
 
-    @testset "unsafe_density_logval" begin
+    @testset "density_logval" begin
         density = gen_density_n()
-        @test BAT.unsafe_density_logval(density, [1.,2.]) ≈ -0.4054651081081644
-        res = ones(2)
-        BAT.unsafe_density_logval!(res, density, VectorOfSimilarVectors([1. 2.; 3. 4.]), ExecContext())
-        @test res ≈ -0.4054651081081644 * ones(2)
+        @test density_logval(density, [1.,2.]) ≈ -0.4054651081081644
     end
 
     @testset "ExecCapabilities" begin
         density = gen_density_n()
 
-        ec = @inferred BAT.exec_capabilities(BAT.unsafe_density_logval, density)
-        @test ec.nthreads == 0
-        @test ec.threadsafe == true
-        @test ec.nprocs == 0
-        @test ec.remotesafe == true
-
-        ec = @inferred BAT.exec_capabilities(BAT.unsafe_density_logval!, ones(2), density)
+        ec = @inferred BAT.exec_capabilities(BAT.density_logval, density, [0, 0])
         @test ec.nthreads == 0
         @test ec.threadsafe == true
         @test ec.nprocs == 0

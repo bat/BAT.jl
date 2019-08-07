@@ -17,22 +17,10 @@ using ArraysOfArrays, Distributions, PDMats
         @test typeof(sampler(mvdd)) <: BATMvTDistSampler
     end
 
-    @testset "unsafe_density_logval" begin
-        BAT.unsafe_density_logval(mvdd, [0.0, 0.0]) ≈
-            -2.64259602
+    @testset "density_logval" begin
+        @test (@inferred density_logval(mvdd, [0.0, 0.0])) ≈ -2.64259602
         param = zeros(2)
-        ec = @inferred BAT.exec_capabilities(BAT.unsafe_density_logval, mvdd, param)
-        @test ec.nthreads == 0
-        @test ec.threadsafe == true
-        @test ec.nprocs == 0
-        @test ec.remotesafe == true
-
-        ret = Array{Float64}(undef, 2)
-        param = VectorOfSimilarVectors([0.0 0.5; 0.0 -0.5])
-        BAT.unsafe_density_logval!(ret, mvdd, param)
-        @test ret ≈ [-2.64259602, -3.00960695]
-        ec = @inferred BAT.exec_capabilities(BAT.unsafe_density_logval!, ret,
-            mvdd, param)
+        ec = @inferred BAT.exec_capabilities(density_logval, mvdd, param)
         @test ec.nthreads == 0
         @test ec.threadsafe == true
         @test ec.nprocs == 0

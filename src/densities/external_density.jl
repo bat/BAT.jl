@@ -122,7 +122,7 @@ end
 
 BAT.nparams(density::ExternalDensity) = density.n_par
 
-function BAT.unsafe_density_logval(density::ExternalDensity, params::AbstractVector{Float64}, exec_context::ExecContext)
+function BAT.density_logval(density::ExternalDensity, params::AbstractVector{Float64}, exec_context::ExecContext)
     # TODO: Fix multithreading support
 
     result = Ref(NaN)
@@ -151,7 +151,7 @@ end
 
 
 # TODO: Fix multithreading support
-BAT.exec_capabilities(::typeof(BAT.unsafe_density_logval), density::ExternalDensity, params::AbstractVector{<:Real}) =
+BAT.exec_capabilities(::typeof(BAT.density_logval), density::ExternalDensity, params::AbstractVector{<:Real}) =
     ExecCapabilities(0, false, 0, true)
 
 

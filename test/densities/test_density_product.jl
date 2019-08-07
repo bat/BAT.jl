@@ -73,38 +73,19 @@ using Distributions, PDMats
         @test param_bounds(up) == pb
     end
 
-    @testset "unsafe_density_logval" begin
-        @test BAT.unsafe_density_logval(dp, params[1], econtext) ≈ -8.8547305
-        
-        @test_throws ArgumentError BAT.unsafe_density_logval(BAT.DensityProduct(Tuple([]), pb),
-                                                             params[1], econtext)
-
-        BAT.unsafe_density_logval!(res, dp, params, econtext) 
-        
-        @test res ≈ [-8.8547305, -8.8634491]
+    @testset "density_logval" begin
+        @test density_logval(dp, params[1], econtext) ≈ -8.8547305        
     end
 
     @testset "ExecCapabilities" begin
-        ec = @inferred BAT.exec_capabilities(BAT.unsafe_density_logval, dp, params[1])
+        ec = @inferred BAT.exec_capabilities(density_logval, dp, params[1])
         ec_tocmp = @inferred ∩(
-            BAT.exec_capabilities(BAT.unsafe_density_logval, mvt_density, params[1]),
-            BAT.exec_capabilities(BAT.unsafe_density_logval, mvn_density, params[1]))
+            BAT.exec_capabilities(density_logval, mvt_density, params[1]),
+            BAT.exec_capabilities(density_logval, mvn_density, params[1]))
 
         @test ec.nthreads == ec_tocmp.nthreads
         @test ec.threadsafe == ec_tocmp.threadsafe
         @test ec.nprocs == ec_tocmp.nprocs
-        @test ec.remotesafe == ec_tocmp.remotesafe
-
-        
-        ec = @inferred BAT.exec_capabilities(BAT.unsafe_density_logval!, res, dp, params)
-        ec_tocmp = @inferred ∩(
-            BAT.exec_capabilities(BAT.unsafe_density_logval!, res, mvt_density, params),
-            BAT.exec_capabilities(BAT.unsafe_density_logval!, res, mvn_density, params))
-
-        @test ec.nthreads == ec_tocmp.nthreads
-        @test ec.threadsafe == ec_tocmp.threadsafe
-        @test ec.nprocs == ec_tocmp.nprocs
-        @test ec.remotesafe == ec_tocmp.remotesafe
-                
+        @test ec.remotesafe == ec_tocmp.remotesafe        
     end
 end

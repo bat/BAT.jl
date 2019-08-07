@@ -25,7 +25,7 @@ BAT.sampler(td::test_density) = BAT.sampler(MvNormal(ones(3), PDMat(Matrix{Float
 
     econtext = @inferred ExecContext()
 
-    params = VectorOfSimilarVectors([0.0 -0.3 0.5; 0.0 0.3 0.6])
+    params = [0.0, 0.0]
 
     @testset "rand" begin
         td = test_density()
@@ -53,50 +53,25 @@ BAT.sampler(td::test_density) = BAT.sampler(MvNormal(ones(3), PDMat(Matrix{Float
         @test pbounds.ndims == 2
     end
 
-    @testset "density_logval!" begin
-        r = zeros(Float64, size(params, 1))
-
-        @test r === @inferred density_logval!(r, density, params, econtext)
-        @test r ≈ logpdf(mvnorm, flatview(params))
-        @test r === @inferred BAT.unsafe_density_logval!(r, density, params, econtext)
-        @test r ≈ logpdf(mvnorm, flatview(params))
-    end
-
     @testset "density_logval" begin
-        @test @inferred(density_logval(density, params[1], econtext)) ≈ logpdf(mvnorm, params[1])
-        @test @inferred(BAT.unsafe_density_logval(density, params[1], econtext)) ≈ logpdf(mvnorm, params[1])
+        @test @inferred(density_logval(density, params, econtext)) ≈ logpdf(mvnorm, params)
+        @test @inferred(density_logval(density, params, econtext)) ≈ logpdf(mvnorm, params)
     end
 
     @testset "exec_capabilities" begin
-        ecap = @inferred BAT.exec_capabilities(
-            density_logval!, similar(flatview(params)[1, :]), density, params)
-        @test ecap.nthreads == 1
-        @test ecap.threadsafe == false
-        @test ecap.nprocs == 1
-        @test ecap.remotesafe == true
-
-        ecap = @inferred BAT.exec_capabilities(
-            BAT.unsafe_density_logval!, similar(flatview(params)[1, :]), density, params)
-        @test ecap.nthreads == 1
-        @test ecap.threadsafe == false
-        @test ecap.nprocs == 1
-        @test ecap.remotesafe == true
-
-        ecap = @inferred BAT.exec_capabilities(density_logval, density, params[1])
+        ecap = @inferred BAT.exec_capabilities(density_logval, density, params)
         @test ecap.nthreads == 1
         @test ecap.threadsafe == true
         @test ecap.nprocs == 1
         @test ecap.remotesafe == true
 
-        ecap = @inferred BAT.exec_capabilities(
-            BAT.unsafe_density_logval, density, params[1])
+        ecap = @inferred BAT.exec_capabilities(density_logval, density, params)
         @test ecap.nthreads == 1
         @test ecap.threadsafe == true
         @test ecap.nprocs == 1
         @test ecap.remotesafe == true
 
-        ecap = @inferred BAT.exec_capabilities(
-            BAT.unsafe_density_logval, test_density())
+        ecap = @inferred BAT.exec_capabilities(density_logval, test_density(), params)
         @test ecap.nthreads == 1
         @test ecap.threadsafe == false
         @test ecap.nprocs == 1
