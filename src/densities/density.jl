@@ -77,13 +77,7 @@ responsibility to handle these cases.
 
 See `ExecContext` for thread-safety requirements.
 """
-function density_logval(
-    density::AbstractDensity,
-    params::AbstractVector{<:Real},
-    exec_context::ExecContext = ExecContext()
-)
-    error("No specialized method of `BAT.density_logval` defined for $(typeof(density)). Specialize `BAT.density_logval` directly from now on, instead of `BAT.unsafe_density_logval`")
-end
+function density_logval end
 export density_logval
 
 # Assume that density_logval isn't always thread-safe, but usually remote-safe:
