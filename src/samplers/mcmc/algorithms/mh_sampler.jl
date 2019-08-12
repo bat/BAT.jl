@@ -69,7 +69,6 @@ function MHIterator(
     spec::MCMCSpec,
     info::MCMCIteratorInfo,
     initial_params::AbstractVector{P},
-    exec_context::ExecContext,
 ) where {P<:Real}
     stepno::Int64 = 0
     rng = spec.rngseed()
@@ -87,8 +86,8 @@ function MHIterator(
 
     proposaldist = spec.algorithm.proposalspec(P, npar)
 
-    log_likelihood_value = density_logval(likelihood(spec.model), params_vec, exec_context)
-    log_prior_value = density_logval(prior(spec.model), params_vec, exec_context)
+    log_likelihood_value = density_logval(likelihood(spec.model), params_vec)
+    log_prior_value = density_logval(prior(spec.model), params_vec)
 
     log_posterior_value = log_likelihood_value + log_prior_value
     T = typeof(log_posterior_value)
@@ -123,7 +122,6 @@ end
 
 function (spec::MCMCSpec{<:MetropolisHastings})(
     chainid::Integer,
-    exec_context::ExecContext
 )
     P = float(eltype(param_bounds(posterior(spec.model))))
 
@@ -132,7 +130,7 @@ function (spec::MCMCSpec{<:MetropolisHastings})(
     converged = false
     info = MCMCIteratorInfo(chainid, cycle, tuned, converged)
 
-    MHIterator(spec, info, Vector{P}(), exec_context)
+    MHIterator(spec, info, Vector{P}())
 end
 
 
@@ -242,15 +240,9 @@ function next_cycle!(chain::MHIterator)
 end
 
 
-function exec_capabilities(mcmc_step!, callback::AbstractMCMCCallback, chain::MHIterator)
-    params = chain.samples.params[_current_sample_idx(chain)]
-    exec_capabilities(density_logval, posterior(getmodel(chain)), params)
-end
-
 function mcmc_step!(
     callback::AbstractMCMCCallback,
     chain::MHIterator,
-    exec_context::ExecContext,
     ll::LogLevel
 )
     algorithm = chain.spec.algorithm
@@ -291,7 +283,7 @@ function mcmc_step!(
 
         # Evaluate prior and likelihood with proposed parameters:
         proposed_log_prior, proposed_log_posterior =
-            eval_prior_posterior_logval!(T, model, proposed_params, exec_context)
+            eval_prior_posterior_logval!(T, model, proposed_params)
 
         samples.log_posterior[proposed] = proposed_log_posterior
         samples.log_prior[proposed] = proposed_log_prior

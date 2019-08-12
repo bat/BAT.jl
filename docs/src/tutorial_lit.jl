@@ -141,11 +141,7 @@ BAT.nparams(likelihood::HistogramLikelihood) = 5
 
 # `BAT.density_logval` has to implement the actual log-likelihood function:
 
-function BAT.density_logval(
-    likelihood::HistogramLikelihood,
-    parameters::AbstractVector{<:Real},
-    exec_context::ExecContext
-)
+function BAT.density_logval(likelihood::HistogramLikelihood, parameters::AbstractVector{<:Real})
     ## Histogram counts for each bin as an array:
     counts = likelihood.histogram.weights
 
@@ -177,30 +173,22 @@ end
 # the information about the density that `BAT.nparams` and `BAT.param_bounds`
 # provide is correct).
 #
-# The `exec_context` argument can be ignored in simple use cases, it is only
-# of interest for `density_logval` methods that internally use Julia's
-# multi-threading and/or distributed code execution capabilities.
+# BAT makes use of Julia's parallel programming facilities if possible, e.g.
+# to run multiple Markov chains in parallel, and expects implementations of
+# `BAT.density_logval` to be thread safe. Mark non-thread-safe code with
+# `@critical` (using Julia package `ParallelProcessingTools`).
 #
-# BAT itself also makes use of Julia's parallel programming facilities. BAT
-# can calculate log-density values in parallel (e.g. for multiple MCMC chains)
-# on multiple threads (implemented) and support for distributed execution
-# (on multiple hosts) is planned. By default, however, BAT will assume that
-# implementations of `BAT.density_logval` are *not* thread safe. If your 
-# implementation *is* thread-safe (as is the case in the example above), you
-# can advertise this fact to BAT:
-
-BAT.exec_capabilities(::typeof(BAT.density_logval), likelihood::HistogramLikelihood, parameters::AbstractVector{<:Real}) =
-    ExecCapabilities(0, true, 0, true)
-
-# BAT will then use multi-threaded log-likelihood evaluation where possible.
-# Note that Julia starts only a single thread by default, you will need to set
-# the environment variable
+# BAT requires Julia v1.3 or newer to use multi-threading. Support for
+# automatic parallelization across multiple (local and remote) Julia processes
+# is planned, but not implemented yet.
+#
+# Note that Julia currently starts only a single thread by default, you will
+# need to set the environment variable
 # [`JULIA_NUM_THREADS`](https://docs.julialang.org/en/v1/manual/environment-variables/#JULIA_NUM_THREADS-1)
-# to configure the number of Julia threads.
+# to specify the number of Julia threads.
 #
-#
-# Given our fit function and the histogram to fit, we'll define the
-# likelihood as
+# Using our likelihood density definition and the histogram to fit, we can now
+# define our data-specific likelihood:
 
 likelihood = HistogramLikelihood(hist)
 

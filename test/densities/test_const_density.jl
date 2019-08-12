@@ -40,16 +40,6 @@ using ArraysOfArrays, Distributions
         @test density_logval(density, [1.,2.]) ≈ -0.4054651081081644
     end
 
-    @testset "ExecCapabilities" begin
-        density = gen_density_n()
-
-        ec = @inferred BAT.exec_capabilities(BAT.density_logval, density, [0, 0])
-        @test ec.nthreads == 0
-        @test ec.threadsafe == true
-        @test ec.nprocs == 0
-        @test ec.remotesafe == true
-    end
-
     @testset "sampler" begin
         density = gen_density_n()
 

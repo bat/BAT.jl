@@ -51,7 +51,6 @@ using BAT.Logging
 include("utils/utils.jl")
 include("rngs/rngs.jl")
 include("distributions/distributions.jl")
-include("scheduling/scheduling.jl")
 include("parameters/parameters.jl")
 include("statistics/statistics.jl")
 include("densities/densities.jl")

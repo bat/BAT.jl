@@ -27,14 +27,10 @@ nparams(density::ConstDensity) = nparams(density.bounds)
 
 function density_logval(
     density::ConstDensity,
-    params::AbstractVector{<:Real},
-    exec_context::ExecContext = ExecContext()
+    params::AbstractVector{<:Real}
 )
     density.log_value
 end
-
-@inline exec_capabilities(::typeof(density_logval), density::ConstDensity, params::AbstractVector{<:Real}) =
-    ExecCapabilities(0, true, 0, true)
 
 
 Distributions.sampler(density::ConstDensity) = spatialvolume(param_bounds(density))

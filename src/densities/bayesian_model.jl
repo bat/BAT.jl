@@ -45,12 +45,11 @@ function eval_prior_posterior_logval! end
 function eval_prior_posterior_logval!(
     T::Type{<:Real},
     model::AbstractBayesianModel,
-    params::AbstractVector{<:Real},
-    exec_context::ExecContext
+    params::AbstractVector{<:Real}
 )
-    prior_logval = eval_density_logval!(T, prior(model), params, exec_context)
+    prior_logval = eval_density_logval!(T, prior(model), params)
     likelihood_logval = if prior_logval > -Inf
-        eval_density_logval!(T, likelihood(model), params, exec_context)
+        eval_density_logval!(T, likelihood(model), params)
     else
         T(-Inf)
     end

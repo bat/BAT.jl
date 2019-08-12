@@ -11,11 +11,6 @@ The following functions must be implemented for subtypes:
 
 * `BAT.nparams`
 * `BAT.density_logval`
-
-In some cases, it may be desirable to override the default implementations
-of the functions
-
-* `BAT.exec_capabilities`
 """
 abstract type AbstractDensity end
 export AbstractDensity
@@ -57,8 +52,7 @@ export param_bounds
 @doc """
     density_logval(
         density::AbstractDensity,
-        params::AbstractVector{<:Real},
-        exec_context::ExecContext = ExecContext()
+        params::AbstractVector{<:Real}
     )
 
 Compute log of value of a multi-variate density function at the given
@@ -68,21 +62,14 @@ Input:
 
 * `density`: density function
 * `params`: parameter values
-* `exec_context`: Execution context
 
 Note: If `density_logval` is called with out-of-bounds parameters (see
 `param_bounds`), the behaviour is undefined. The result for parameters that
 are not within bounds is *implicitly* `-Inf`, but it is the caller's
 responsibility to handle these cases.
-
-See `ExecContext` for thread-safety requirements.
 """
 function density_logval end
 export density_logval
-
-# Assume that density_logval isn't always thread-safe, but usually remote-safe:
-exec_capabilities(::typeof(density_logval), density::AbstractDensity, params::AbstractVector{<:Real}) =
-    ExecCapabilities(1, false, 1, true)
 
 
 @doc """
@@ -90,7 +77,6 @@ exec_capabilities(::typeof(density_logval), density::AbstractDensity, params::Ab
         T::Type{<:Real},
         density::AbstractDensity,
         params::AbstractVector{<:Real},
-        exec_context::ExecContext
     )
 
 Apply bounds and then evaluate density and check return value.
@@ -108,7 +94,6 @@ function eval_density_logval!(
     T::Type{<:Real},
     density::AbstractDensity,
     params::AbstractVector{<:Real},
-    exec_context::ExecContext
 )
     (length(eachindex(params)) != nparams(density)) && throw(ArgumentError("Invalid length of parameter vector"))
 
@@ -116,7 +101,7 @@ function eval_density_logval!(
     apply_bounds!(params, bounds)
     if !isoob(params)
         @assert params in bounds  # TODO: Remove later on for increased performance, should never trigger
-        r = density_logval(density, params, exec_context)   
+        r = density_logval(density, params)
         isnan(r) && throw(ErrorException("Return value of density_logval must not be NaN"))  
         T(r)
     else
@@ -157,15 +142,11 @@ nparams(density::GenericDensity) = density.nparams
 
 function density_logval(
     density::GenericDensity,
-    params::AbstractVector{<:Real},
-    exec_context::ExecContext = ExecContext()
+    params::AbstractVector{<:Real}
 )
     size(params, 1) != nparams(density) && throw(ArgumentError("Invalid number of parameters"))
     density.log_f(params)
 end
-
-exec_capabilities(::typeof(density_logval), density::GenericDensity, params::AbstractVector{<:Real}) =
-    ExecCapabilities(1, true, 1, true)
 
 
 

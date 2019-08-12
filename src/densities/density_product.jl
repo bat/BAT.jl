@@ -44,13 +44,8 @@ _unsafe_prod(a::DensityProduct, b::AbstractDensity, new_bounds::AbstractParamBou
     DensityProduct((a.densities...,b), new_bounds)
 
 
-function density_logval(density::DensityProduct, params::AbstractVector{<:Real},
-    exec_context::ExecContext
-)
+function density_logval(density::DensityProduct, params::AbstractVector{<:Real})
     ds = density.densities
     isempty(ds) && throw(ArgumentError("Can't evaluate density_logval on empty DensityProduct"))
-    sum(map(d -> density_logval(d, params, exec_context), ds))
+    sum(map(d -> density_logval(d, params), ds))
 end
-
-exec_capabilities(::typeof(density_logval), density::DensityProduct, params::AbstractVector{<:Real}) =
-    ∩(map(d -> exec_capabilities(density_logval, d, params), density.densities)...)

@@ -36,6 +36,7 @@ UnsafeArrays = "c4a57d5a-5b31-53a6-b365-19f8c011fbd6"
 
 [compat]
 julia = "1.2"
+ParallelProcessingTools = "0.4.0"
 TypedTables = "1.2.0"
 
 [extras]

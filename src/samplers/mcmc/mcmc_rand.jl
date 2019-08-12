@@ -30,8 +30,7 @@ end
 function Random.rand(
     chainspec::MCMCSpec,
     nsamples::Integer,
-    nchains::Integer,
-    exec_context::ExecContext = ExecContext();
+    nchains::Integer;
     tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec),
     convergence_test::MCMCConvergenceTest = BGConvergence(),
     init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config),
@@ -50,8 +49,7 @@ function Random.rand(
         chainspec,
         nchains,
         tuner_config,
-        init_strategy,
-        exec_context;
+        init_strategy;
         ll = ll,
     )
 
@@ -60,8 +58,7 @@ function Random.rand(
         tuners,
         chains,
         convergence_test,
-        burnin_strategy,
-        exec_context;
+        burnin_strategy;
         strict_mode = strict_mode,
         ll = ll
     )
@@ -71,8 +68,7 @@ function Random.rand(
     rand!(
         (result_samples, result_sampleids, result_stats),
         result_chains,
-        nsamples,
-        exec_context;
+        nsamples;
         max_nsteps = max_nsteps,
         max_time = max_time,
         granularity = granularity,
@@ -86,8 +82,7 @@ end
 function Random.rand!(
     result::MCMCOutput,
     chains::AbstractVector{<:MCMCIterator},
-    nsamples::Integer,
-    exec_context::ExecContext;
+    nsamples::Integer;
     max_nsteps::Int64 = Int64(100 * nsamples),
     max_time::Float64 = Inf,
     granularity::Int = 1,
@@ -110,8 +105,7 @@ function Random.rand!(
 
     mcmc_iterate!(
         callbacks,
-        chains,
-        exec_context;
+        chains;
         max_nsamples = Int64(nsamples),
         max_nsteps = max_nsteps,
         max_time = max_time,

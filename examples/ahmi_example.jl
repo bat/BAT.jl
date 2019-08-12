@@ -9,11 +9,8 @@ struct GaussianShellDensity<:AbstractDensity
 end
 BAT.nparams(model::GaussianShellDensity) = model.dimensions
 
-#optional define exec_capabilities of our likelihood
-BAT.exec_capabilities(::typeof(BAT.density_logval), target::GaussianShellDensity, params::AbstractArray) = ExecCapabilities(0, true, 0, true)
-
 #define likelihood for the Gaussian Shell
-function BAT.density_logval(target::GaussianShellDensity, params::AbstractArray{Float64, 1}, exec_context::ExecContext = ExecContext())
+function BAT.density_logval(target::GaussianShellDensity, params::AbstractArray{Float64, 1})
     diff::Float64 = 0
     for i in eachindex(params)
         diff += (target.lambda[i] - params[i]) * (target.lambda[i] - params[i])

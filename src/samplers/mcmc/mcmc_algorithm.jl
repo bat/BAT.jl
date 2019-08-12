@@ -8,14 +8,11 @@ The following methods must be defined for subtypes (e.g.
 for `SomeAlgorithm<:MCMCAlgorithm`):
 
 ```julia
-(spec::MCMCSpec{<:SomeAlgorithm})(
-    chainid::Integer,
-    exec_context::ExecContext
-)::MCMCIterator
+(spec::MCMCSpec{<:SomeAlgorithm})(chainid::Integer)::MCMCIterator
 ```
 
-In some cases, these custom methods may necessary (default methods are defined
-for `MCMCAlgorithm`):
+In some cases, these custom methods may be necessary (default methods are
+defined for `MCMCAlgorithm`):
 
 ```julia
 BAT.initial_params!(
@@ -79,7 +76,6 @@ are be created via
 
 ```julia
 (spec::MCMCSpec)(chainid::Integer)
-(spec::MCMCSpec)(chainid::Integer, exec_context::ExecContext)
 ```
 """
 struct MCMCSpec{
@@ -109,9 +105,6 @@ MCMCSpec(
     prior::Union{AbstractDensity,ParamVolumeBounds},
     rngseed::AbstractRNGSeed = AbstractRNGSeed()
 ) MCMCSpec(algorithm, BayesianModel(likelihood, prior), rngseed)
-
-
-(spec::MCMCSpec)(chainid::Integer) = spec(chainid, ExecContext())
 
 
 
@@ -157,12 +150,9 @@ BAT.get_sample_ids!(appendable, chain::SomeMCMCIter, nonzero_weights::Bool)::typ
 
 BAT.next_cycle!(chain::SomeMCMCIter)::SomeMCMCIter
 
-BAT.exec_capabilities(mcmc_step!, callback::AbstractMCMCCallback, chain::SomeMCMCIter)
-
 BAT.mcmc_step!(
     callback::AbstractMCMCCallback,
     chain::SomeMCMCIter,
-    exec_context::ExecContext,
     ll::LogLevel
 )
 ```
@@ -224,13 +214,9 @@ MCMCSampleIDVector(chain::MCMCIterator) = MCMCSampleIDVector()
 function mcmc_iterate! end
 
 
-exec_capabilities(mcmc_iterate!, callback, chain::MCMCIterator) =
-    exec_capabilities(mcmc_step!, Base.convert(AbstractMCMCCallback, callback), chain)
-
 function mcmc_iterate!(
     callback,
-    chain::MCMCIterator,
-    exec_context::ExecContext = ExecContext();
+    chain::MCMCIterator;
     max_nsamples::Int64 = Int64(1),
     max_nsteps::Int64 = Int64(1000),
     max_time::Float64 = Inf,
@@ -249,7 +235,7 @@ function mcmc_iterate!(
         (nsteps(chain) - start_nsteps) < max_nsteps &&
         (time() - start_time) < max_time
     )
-        mcmc_step!(cbfunc, chain, exec_context, ll + 1)
+        mcmc_step!(cbfunc, chain, ll + 1)
     end
     chain
 end
@@ -257,8 +243,7 @@ end
 
 function mcmc_iterate!(
     callbacks,
-    chains::AbstractVector{<:MCMCIterator},
-    exec_context::ExecContext = ExecContext();
+    chains::AbstractVector{<:MCMCIterator};
     ll::LogLevel = LOG_NONE,
     kwargs...
 )
@@ -271,16 +256,9 @@ function mcmc_iterate!(
 
     cbv = mcmc_callback_vector(callbacks, eachindex(chains))
 
-    target_caps = exec_capabilities.(mcmc_iterate!, cbv, chains)
-    (self_context, target_contexts) = negotiate_exec_context(exec_context, target_caps)
-
-    threadsel = self_context.use_threads ? allthreads() : (threadid():threadid())
-    idxs = eachindex(cbv, chains, target_contexts)
-
-    @onthreads threadsel begin
-        for i in workpart(idxs, threadsel, threadid())
-            mcmc_iterate!(cbv[i], chains[i], target_contexts[i]; ll=ll+1, kwargs...)
-        end
+    idxs = eachindex(cbv, chains)
+    @sync for i in idxs
+        @mt_async mcmc_iterate!(cbv[i], chains[i]; ll=ll+1, kwargs...)
     end
 
     chains

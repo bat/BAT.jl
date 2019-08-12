@@ -19,11 +19,5 @@ using ArraysOfArrays, Distributions, PDMats
 
     @testset "density_logval" begin
         @test (@inferred density_logval(mvdd, [0.0, 0.0])) ≈ -2.64259602
-        param = zeros(2)
-        ec = @inferred BAT.exec_capabilities(density_logval, mvdd, param)
-        @test ec.nthreads == 0
-        @test ec.threadsafe == true
-        @test ec.nprocs == 0
-        @test ec.remotesafe == true
     end
 end

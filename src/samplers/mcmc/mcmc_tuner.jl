@@ -40,8 +40,7 @@ function mcmc_tune_burnin!(
     tuners::AbstractVector{<:AbstractMCMCTuner},
     chains::AbstractVector{<:MCMCIterator},
     convergence_test::MCMCConvergenceTest,
-    burnin_strategy::MCMCBurninStrategy,
-    exec_context::ExecContext;
+    burnin_strategy::MCMCBurninStrategy;
     strict_mode::Bool = false,
     ll::LogLevel = LOG_INFO
 )
@@ -56,7 +55,7 @@ function mcmc_tune_burnin!(
     while !successful && cycles < burnin_strategy.max_ncycles
         cycles += 1
         run_tuning_cycle!(
-            user_callbacks, tuners, chains, exec_context;
+            user_callbacks, tuners, chains;
             max_nsamples = burnin_strategy.max_nsamples_per_cycle,
             max_nsteps = burnin_strategy.max_nsteps_per_cycle,
             max_time = burnin_strategy.max_time_per_cycle,
@@ -117,8 +116,7 @@ function mcmc_tune_burnin!(
     tuners::AbstractVector{<:NoOpTuner},
     chains::AbstractVector{<:MCMCIterator},
     convergence_test::MCMCConvergenceTest,
-    burnin_strategy::MCMCBurninStrategy,
-    exec_context::ExecContext;
+    burnin_strategy::MCMCBurninStrategy;
     ll::LogLevel = LOG_INFO,
     kwargs...
 )
@@ -142,15 +140,13 @@ MCMCInitStrategy(tuner_config::AbstractMCMCTunerConfig) =
 
 _gen_chains(ids::AbstractRange{<:Integer},
     chainspec::MCMCSpec,
-    exec_context::ExecContext
-    ) = [chainspec(id, exec_context) for id in ids]
+    ) = [chainspec(id) for id in ids]
 
 function mcmc_init(
     chainspec::MCMCSpec,
     nchains::Int,
     tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
-    init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config),
-    exec_context::ExecContext = ExecContext();
+    init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config);
     ll::LogLevel = LOG_INFO
 )
     @log_msg ll "Trying to generate $nchains viable MCMC chain(s)."
@@ -160,7 +156,7 @@ function mcmc_init(
 
     ncandidates::Int = 0
 
-    dummy_chain = chainspec(zero(Int64), exec_context)
+    dummy_chain = chainspec(zero(Int64))
     dummy_tuner = tuner_config(dummy_chain)
 
     chains = similar([dummy_chain], 0)
@@ -171,7 +167,7 @@ function mcmc_init(
         n = min(min_nviable, max_ncandidates - ncandidates)
         @log_msg ll+1 "Generating $n $(cycle > 1 ? "additional " : "")MCMC chain(s)."
 
-        new_chains = _gen_chains(ncandidates .+ (one(Int64):n), chainspec, exec_context)
+        new_chains = _gen_chains(ncandidates .+ (one(Int64):n), chainspec)
         new_tuners = tuner_config.(new_chains)
         tuning_init!.(new_tuners, new_chains; ll = ll)
         ncandidates += n
@@ -180,7 +176,7 @@ function mcmc_init(
 
         # ToDo: Use mcmc_iterate! instead of run_tuning_iterations! ?
         run_tuning_iterations!(
-            (), new_tuners, new_chains, exec_context;
+            (), new_tuners, new_chains;
             max_nsamples = max(5, div(init_strategy.max_nsamples_pretune, 5)),
             max_nsteps =  max(50, div(init_strategy.max_nsteps_pretune, 5)),
             max_time = init_strategy.max_time_pretune / 5,
@@ -196,7 +192,7 @@ function mcmc_init(
         if !isempty(viable_tuners)
             # ToDo: Use mcmc_iterate! instead of run_tuning_iterations! ?
             run_tuning_iterations!(
-                (), viable_tuners, viable_chains, exec_context;
+                (), viable_tuners, viable_chains;
                 max_nsamples = init_strategy.max_nsamples_pretune,
                 max_nsteps = init_strategy.max_nsteps_pretune,
                 max_time = init_strategy.max_time_pretune,

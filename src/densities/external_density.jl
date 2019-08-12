@@ -109,59 +109,58 @@ struct ExternalDensity <: AbstractDensity
     cmd::Cmd
     density_id::Int
     proc::ThreadLocal{Base.Process}
+    lock::ThreadLocal{ThreadSafeReentrantLock}
 end
 
 export ExternalDensity
 
 function ExternalDensity(n_par::Int, cmd::Cmd, density_id = 0)
     proc = ThreadLocal{Base.Process}(undef)
+    lock = ThreadLocal{ThreadSafeReentrantLock}(undef)
     all_procs = getallvalues(proc)
-    ExternalDensity(n_par, cmd, density_id, proc)
+    all_locks = getallvalues(lock)
+    for i in eachindex(all_locks)
+        all_locks[i] = ThreadSafeReentrantLock()
+    end
+    ExternalDensity(n_par, cmd, density_id, proc, lock)
 end
 
 
 BAT.nparams(density::ExternalDensity) = density.n_par
 
-function BAT.density_logval(density::ExternalDensity, params::AbstractVector{Float64}, exec_context::ExecContext)
+function BAT.density_logval(density::ExternalDensity, params::AbstractVector{Float64})
     # TODO: Fix multithreading support
 
     result = Ref(NaN)
-    #tsk = Ref{Task}()
-    #@critical begin
-    #    tsk[] = @async begin
-            request_id = rand(0:typemax(Int32))
-            req = GetLogDensityValueDMsg(request_id, density.density_id, params)
-            # @log_debug "Sending request $req"
-            if !isassigned(density.proc)
-                @log_info("Starting external process $(density.cmd)")
-                density.proc[] = open(density.cmd, read = true, write = true)
-            end
-            proc = density.proc[]
-            write(proc, req)
-            resp = read(proc, LogDensityValueDMsg)
-            # @log_debug "Received response $resp"
-            resp.request_id == req.request_id || throw(ErrorException("Unexpexted response id $(resp.request_id) for request id $(req.request_id)"))
-            resp.density_id == req.density_id || throw(ErrorException("Unexpexted density_id $(resp.density_id) in response to requested id $(req.density_id)"))
-            result[] = resp.log_density
-    #    end
-    #end
-    #wait(tsk[])
+    lock(density.lock[]) do
+        request_id = rand(0:typemax(Int32))
+        req = GetLogDensityValueDMsg(request_id, density.density_id, params)
+        # @log_debug "Sending request $req"
+        if !isassigned(density.proc)
+            @log_info("Starting external process $(density.cmd)")
+            density.proc[] = open(density.cmd, read = true, write = true)
+        end
+        proc = density.proc[]
+        write(proc, req)
+        resp = read(proc, LogDensityValueDMsg)
+        # @log_debug "Received response $resp"
+        resp.request_id == req.request_id || throw(ErrorException("Unexpexted response id $(resp.request_id) for request id $(req.request_id)"))
+        resp.density_id == req.density_id || throw(ErrorException("Unexpexted density_id $(resp.density_id) in response to requested id $(req.density_id)"))
+        result[] = resp.log_density
+    end
     result[]
 end
 
 
-# TODO: Fix multithreading support
-BAT.exec_capabilities(::typeof(BAT.density_logval), density::ExternalDensity, params::AbstractVector{<:Real}) =
-    ExecCapabilities(0, false, 0, true)
-
-
 function Base.close(density::ExternalDensity)
-    @onthreads allthreads() begin
-        @critical begin
-            if isassigned(density.proc)
-                p = density.proc[]
-                @log_info "Closing external process $(p.cmd)"
-                close(p)
+    let all_procs = getallvalues(density.proc)
+        for i in eachindex(all_procs)
+            @critical begin
+                if isassigned(all_procs, i)
+                    p = all_procs[i]
+                    @log_info "Closing external process $i: $(p.cmd)"
+                    close(p)
+                end
             end
         end
     end

@@ -5,6 +5,7 @@ using Test
 
 using Distributions, PDMats
 using ArraysOfArrays
+using ParallelProcessingTools
 
 
 if Sys.isunix()
@@ -29,9 +30,14 @@ if Sys.isunix()
             end
 
             @test begin
-                params = nestedview(rand(2, 100) .* 4 .- 2)
-                llvalues = density_logval.((likelihood,), params)
-                llvalues ≈ logpdf.((dist,), params)
+                n = 100
+                params = nestedview(rand(2, n) .* 4 .- 2)
+                ll_external = zeros(n)
+                @sync for i in eachindex(params, ll_external)
+                    @mt_async ll_external[i] = density_logval(likelihood, params[i])
+                end
+                ll_expected = logpdf.((dist,), params)
+                ll_external ≈ ll_expected
             end
   
             close(likelihood)

@@ -29,12 +29,9 @@ BAT.param_bounds(density::ParameterMappedDensity) = density.new_bounds
 BAT.nparams(density::ParameterMappedDensity) = nparams(density.new_bounds)
 
 
-function BAT.density_logval(density::ParameterMappedDensity, params::AbstractVector{<:Real}, exec_context::ExecContext)
-    BAT.density_logval(density.orig_density, map_params(density.parmap, params), exec_context)
+function BAT.density_logval(density::ParameterMappedDensity, params::AbstractVector{<:Real})
+    BAT.density_logval(density.orig_density, map_params(density.parmap, params))
 end
-
-BAT.exec_capabilities(::typeof(BAT.density_logval), density::ParameterMappedDensity, params::AbstractVector{<:Real}) =
-    BAT.exec_capabilities(density_logval, density.orig_density, map_params(density.parmap, params))
 
 
 import Base.∘

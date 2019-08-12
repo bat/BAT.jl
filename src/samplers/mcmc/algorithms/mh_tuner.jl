@@ -110,12 +110,11 @@ end
 function run_tuning_cycle!(
     callbacks,
     tuners::AbstractVector{<:ProposalCovTuner},
-    chains::AbstractVector{<:MHIterator},
-    exec_context::ExecContext = ExecContext();
+    chains::AbstractVector{<:MHIterator};
     ll::LogLevel = LOG_NONE,
     kwargs...
 )
-    run_tuning_iterations!(callbacks, tuners, chains, exec_context; ll=ll, kwargs...)
+    run_tuning_iterations!(callbacks, tuners, chains; ll=ll, kwargs...)
     tuning_update!.(tuners, chains; ll = ll)
     nothing
 end
@@ -124,8 +123,7 @@ end
 function run_tuning_iterations!(
     callbacks,
     tuners::AbstractVector{<:ProposalCovTuner},
-    chains::AbstractVector{<:MHIterator},
-    exec_context::ExecContext;
+    chains::AbstractVector{<:MHIterator};
     max_nsamples::Int64 = Int64(1000),
     max_nsteps::Int64 = Int64(10000),
     max_time::Float64 = Inf,
@@ -142,6 +140,6 @@ function run_tuning_iterations!(
         end
     end
 
-    mcmc_iterate!(combined_callbacks, chains, exec_context, max_nsamples = max_nsamples, max_nsteps = max_nsteps, max_time = max_time)
+    mcmc_iterate!(combined_callbacks, chains, max_nsamples = max_nsamples, max_nsteps = max_nsteps, max_time = max_time)
     nothing
 end
