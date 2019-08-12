@@ -289,11 +289,11 @@ burnin_strategy = MCMCBurninStrategy(
 
 #md nothing # hide
 
-# Before running the Markov chains, let's set BAT's logging level to debug,
-# to see what's going on in more detail:
+# To increase the verbosity level of BAT logging output, you may want to set
+# the Julia logging level for BAT to debug via `ENV["JULIA_DEBUG"] = "BAT"`.
 
-ENV["JULIA_DEBUG"] = "BAT"
-#md nothing # hide
+#nb ENV["JULIA_DEBUG"] = "BAT"
+#jl ENV["JULIA_DEBUG"] = "BAT"
 
 # Now we can generate a set of MCMC samples via `rand`:
 
