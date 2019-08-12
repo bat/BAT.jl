@@ -9,10 +9,9 @@ abstract type MCMCConvergenceTestResult end
 function check_convergence!(
     ct::MCMCConvergenceTest,
     chains::AbstractVector{<:MCMCIterator},
-    stats::AbstractVector{<:AbstractMCMCStats};
-    ll::LogLevel = LOG_NONE
+    stats::AbstractVector{<:AbstractMCMCStats}
 )
-    result = check_convergence(ct, stats, ll = ll)
+    result = check_convergence(ct, stats)
     for chain in chains
         chain.info = MCMCIteratorInfo(chain.info, converged = result.converged)
     end
@@ -55,10 +54,10 @@ struct GRConvergenceResult <: MCMCConvergenceTestResult
 end
 
 
-function check_convergence(ct::GRConvergence, stats::AbstractVector{<:MCMCBasicStats}; ll::LogLevel = LOG_NONE)
+function check_convergence(ct::GRConvergence, stats::AbstractVector{<:MCMCBasicStats})
     max_Rsqr = maximum(gr_Rsqr(stats))
     converged = max_Rsqr <= ct.threshold
-    @log_msg ll begin
+    @debug begin
         success_str = converged ? "have" : "have *not*"
         "Chains $success_str converged, max(R^2) = $(max_Rsqr), threshold = $(ct.threshold)"
     end
@@ -130,10 +129,10 @@ struct BGConvergenceResult <: MCMCConvergenceTestResult
 end
 
 
-function check_convergence(ct::BGConvergence, stats::AbstractVector{<:MCMCBasicStats}; ll::LogLevel = LOG_NONE)
+function check_convergence(ct::BGConvergence, stats::AbstractVector{<:MCMCBasicStats})
     max_Rsqr = maximum(bg_R_2sqr(stats))
     converged = max_Rsqr <= ct.threshold
-    @log_msg ll begin
+    @debug begin
         success_str = converged ? "have" : "have *not*"
         "Chains $success_str converged, max(R^2) = $(max_Rsqr), threshold = $(ct.threshold)"
     end

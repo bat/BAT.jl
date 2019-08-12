@@ -61,7 +61,7 @@ function trim(
     dotrimming::Bool)::Array{Int64, 1} where {T<:AbstractFloat}
 
     deleteids, remainingids = _trim(res.integrals)
-    @log_msg LOG_DEBUG "Trimming integration results: $(length(deleteids)) entries out of $(length(res.integrals)) deleted"
+    @debug "Trimming integration results: $(length(deleteids)) entries out of $(length(res.integrals)) deleted"
 
     if dotrimming
         deleteat!(res.integrals, deleteids)

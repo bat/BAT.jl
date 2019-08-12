@@ -43,7 +43,7 @@ function hm_integrate!(
     if !notsinglemode
         result.dataset1.tolerance = Inf
         result.dataset2.tolerance = Inf
-        @log_msg LOG_WARNING "Tolerance set to Inf for single mode distributions"
+        @warn "Tolerance set to Inf for single mode distributions"
     else
         hm_determinetolerance!(result, settings)
     end
@@ -52,7 +52,7 @@ function hm_integrate!(
     hm_integrate_integrationvolumes!(result, settings)
 
     for pair in settings.uncertainty_estimators
-        @log_msg LOG_INFO "Estimating Uncertainty ($(pair[1]))"
+        @info "Estimating Uncertainty ($(pair[1]))"
         result.integralestimates[pair[1]] = pair[2](result)
     end
 
@@ -78,13 +78,13 @@ function hm_init(
     settings::HMISettings) where {T<:AbstractFloat, I<:Integer, V<:SpatialVolume}
 
     if result.dataset1.N < result.dataset1.P * _minpoints_per_dimension || result.dataset2.N < result.dataset2.P * _minpoints_per_dimension
-        @log_msg LOG_ERROR "Not enough samples for integration"
+        @error "Not enough samples for integration"
     end
     @assert result.dataset1.P == result.dataset2.P
 
     global _global_mt_setting = settings.useMultiThreading
 
-    @log_msg LOG_INFO "Harmonic Mean Integration started. Samples in dataset 1 / 2: \t$(result.dataset1.N) / $(result.dataset2.N)\tParameters:\t$(result.dataset1.P)"
+    @info "Harmonic Mean Integration started. Samples in dataset 1 / 2: \t$(result.dataset1.N) / $(result.dataset2.N)\tParameters:\t$(result.dataset1.P)"
 end
 
 """
@@ -97,16 +97,16 @@ function hm_whiteningtransformation!(
     settings::HMISettings) where {T<:AbstractFloat, I<:Integer, V<:SpatialVolume}
 
     if !isinitialized(result.whiteningresult)
-        @log_msg LOG_INFO "Data Whitening."
+        @info "Data Whitening."
         result.whiteningresult = settings.whitening_function!(result.dataset1)
     end
 
     if !result.dataset1.iswhitened
-        @log_msg LOG_INFO "Apply Whitening Transformation to Data Set 1"
+        @info "Apply Whitening Transformation to Data Set 1"
         transform_data!(result.dataset1, result.whiteningresult.whiteningmatrix, result.whiteningresult.meanvalue, false)
     end
     if !result.dataset2.iswhitened
-        @log_msg LOG_INFO "Apply Whitening Transformation to Data Set 2"
+        @info "Apply Whitening Transformation to Data Set 2"
         transform_data!(result.dataset2, result.whiteningresult.whiteningmatrix, result.whiteningresult.meanvalue, true)
     end
 end
@@ -118,7 +118,7 @@ function hm_createpartitioningtree!(
     progress_steps = ((!isinitialized(result.dataset1.partitioningtree) ? result.dataset1.N / maxleafsize : 0.0)
                     + (!isinitialized(result.dataset2.partitioningtree) ? result.dataset2.N / maxleafsize : 0.0))
     progressbar = Progress(round(Int64, progress_steps))
-    progress_steps > 0 && @log_msg LOG_INFO "Create Space Partitioning Tree"
+    progress_steps > 0 && @info "Create Space Partitioning Tree"
     !isinitialized(result.dataset1.partitioningtree) && create_search_tree(result.dataset1, progressbar, maxleafsize = maxleafsize)
     !isinitialized(result.dataset2.partitioningtree) && create_search_tree(result.dataset2, progressbar, maxleafsize = maxleafsize)
     finish!(progressbar)
@@ -134,7 +134,7 @@ function hm_findseeds!(
     end
 
     notsinglemode = true
-    @log_msg LOG_INFO "Determine Hyperrectangle Starting Samples"
+    @info "Determine Hyperrectangle Starting Samples"
     if isempty(result.dataset1.startingIDs)
         notsinglemode &= find_hypercube_centers(result.dataset1, result.whiteningresult, settings)
     end
@@ -154,17 +154,17 @@ function hm_determinetolerance!(
         return
     end
 
-    (iszero(result.dataset1.tolerance) || iszero(result.dataset2.tolerance)) && @log_msg LOG_INFO "Determine Tolerances for Hyperrectangle Creation"
+    (iszero(result.dataset1.tolerance) || iszero(result.dataset2.tolerance)) && @info "Determine Tolerances for Hyperrectangle Creation"
 
     if iszero(result.dataset1.tolerance)
         suggTolPts = max(result.dataset1.P * 4, ceil(I, sqrt(result.dataset1.N)))
         findtolerance(result.dataset1, min(10, settings.warning_minstartingids), suggTolPts)
-        @log_msg LOG_DEBUG "Tolerance Data Set 1: $(result.dataset1.tolerance)"
+        @debug "Tolerance Data Set 1: $(result.dataset1.tolerance)"
     end
     if iszero(result.dataset2.tolerance)
         suggTolPts = max(result.dataset2.P * 4, ceil(I, sqrt(result.dataset2.N)))
         findtolerance(result.dataset2, min(10, settings.warning_minstartingids), suggTolPts)
-        @log_msg LOG_DEBUG "Tolerance Data Set 2: $(result.dataset2.tolerance)"
+        @debug "Tolerance Data Set 2: $(result.dataset2.tolerance)"
     end
 end
 
@@ -322,7 +322,7 @@ function findtolerance(
     pts::I) where {T<:AbstractFloat, I<:Integer}
 
     ntestpts = [2, 4, 8] * pts
-    @log_msg LOG_TRACE "Tolerance Test Cube Points: $([pts, ntestpts...])"
+    # @debug "Tolerance Test Cube Points: $([pts, ntestpts...])"
 
     vInc = zeros(T, ntestcubes * (length(ntestpts) + 1))
     pInc = zeros(T, ntestcubes * (length(ntestpts) + 1))
@@ -356,10 +356,10 @@ function findtolerance(
         i -= 1
     end
 
-    @log_msg LOG_TRACE "Tolerance List: $tols"
+    # @debug "Tolerance List: $tols"
 
     suggTol::T = if length(tols) < 4
-        @log_msg LOG_WARNING "Tolerance calculation failed. Tolerance is set to default to 1.5"
+        @warn "Tolerance calculation failed. Tolerance is set to default to 1.5"
         3
     else
         (mean(trim(tols)) - 1) * 4 +1
@@ -374,7 +374,7 @@ function hm_integrate_integrationvolumes!(
     settings::HMISettings) where {T<:AbstractFloat, I<:Integer, V<:SpatialVolume}
 
     nRes = length(result.volumelist1) + length(result.volumelist2)
-    @log_msg LOG_INFO "Integrating $nRes Hyperrectangles"
+    @info "Integrating $nRes Hyperrectangles"
 
     progressbar = Progress(nRes)
 
@@ -393,7 +393,7 @@ function hm_integrate_integrationvolumes!_dataset(
     settings::HMISettings)::Tuple{IntermediateResults{T}, Vector{I}} where {T<:AbstractFloat, I<:Integer, V<:SpatialVolume}
 
     if length(volumes) < 1
-        @log_msg LOG_ERROR "No hyper-rectangles could be created. Try integration with more points or different settings."
+        @error "No hyper-rectangles could be created. Try integration with more points or different settings."
     end
 
     integralestimates = IntermediateResults(T, length(volumes))
@@ -403,9 +403,7 @@ function hm_integrate_integrationvolumes!_dataset(
     @mt for i in workpart(eachindex(wp_volumes), mt_nthreads(), threadid())
         integralestimates.Y[:, i], integralestimates.integrals[i] = integrate_hyperrectangle_cov(dataset, volumes[i], determinant)
 
-        lock(BAT.Logging._global_lock) do
-            next!(progressbar)
-        end
+        @critical next!(progressbar)
     end
 
     rejectedids = trim(integralestimates, settings.dotrimming)

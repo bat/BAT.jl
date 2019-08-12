@@ -20,7 +20,7 @@ function Base.write(output::IO, message::BATProtocolMessage)
     data = take!(buf)
     len = length(data)
 
-    # @log_debug "Sending message of length $len, type hash $tphash, type $T"
+    # @debug "Sending message of length $len, type hash $tphash, type $T"
     write(output, UInt32(_bat_proto_default_msgtype))
     write(output, Int32(len))
     write(output, data)
@@ -39,7 +39,7 @@ function Base.read(input::IO, ::Type{T}) where {T <: BATProtocolMessage}
     tphash_recv = read(buf, UInt32)
     tphash_expected = _bat_proto_type_hash(T)
     tphash_recv == tphash_expected || throw(ErrorException("Received type hash $tphash_recv, but expected $tphash_expected"))
-    # @log_debug "Received message of length $len, type hash $tphash_recv, type $T"
+    # @debug "Received message of length $len, type hash $tphash_recv, type $T"
     _bat_proto_decode!(buf, T)
 end
 
@@ -135,15 +135,15 @@ function BAT.density_logval(density::ExternalDensity, params::AbstractVector{Flo
     lock(density.lock[]) do
         request_id = rand(0:typemax(Int32))
         req = GetLogDensityValueDMsg(request_id, density.density_id, params)
-        # @log_debug "Sending request $req"
+        # @debug "Sending request $req"
         if !isassigned(density.proc)
-            @log_info("Starting external process $(density.cmd)")
+            @info "Starting external process $(density.cmd)"
             density.proc[] = open(density.cmd, read = true, write = true)
         end
         proc = density.proc[]
         write(proc, req)
         resp = read(proc, LogDensityValueDMsg)
-        # @log_debug "Received response $resp"
+        # @debug "Received response $resp"
         resp.request_id == req.request_id || throw(ErrorException("Unexpexted response id $(resp.request_id) for request id $(req.request_id)"))
         resp.density_id == req.density_id || throw(ErrorException("Unexpexted density_id $(resp.density_id) in response to requested id $(req.density_id)"))
         result[] = resp.log_density
@@ -158,7 +158,7 @@ function Base.close(density::ExternalDensity)
             @critical begin
                 if isassigned(all_procs, i)
                     p = all_procs[i]
-                    @log_info "Closing external process $i: $(p.cmd)"
+                    @info "Closing external process $i: $(p.cmd)"
                     close(p)
                 end
             end

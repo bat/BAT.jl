@@ -152,8 +152,7 @@ BAT.next_cycle!(chain::SomeMCMCIter)::SomeMCMCIter
 
 BAT.mcmc_step!(
     callback::AbstractMCMCCallback,
-    chain::SomeMCMCIter,
-    ll::LogLevel
+    chain::SomeMCMCIter
 )
 ```
 
@@ -219,10 +218,9 @@ function mcmc_iterate!(
     chain::MCMCIterator;
     max_nsamples::Int64 = Int64(1),
     max_nsteps::Int64 = Int64(1000),
-    max_time::Float64 = Inf,
-    ll::LogLevel = LOG_NONE
+    max_time::Float64 = Inf
 )
-    @log_msg ll "Starting iteration over MCMC chain $(chain.info.id)"
+    @debug "Starting iteration over MCMC chain $(chain.info.id)"
 
     cbfunc = Base.convert(AbstractMCMCCallback, callback)
 
@@ -235,7 +233,7 @@ function mcmc_iterate!(
         (nsteps(chain) - start_nsteps) < max_nsteps &&
         (time() - start_time) < max_time
     )
-        mcmc_step!(cbfunc, chain, ll + 1)
+        mcmc_step!(cbfunc, chain)
     end
     chain
 end
@@ -244,21 +242,20 @@ end
 function mcmc_iterate!(
     callbacks,
     chains::AbstractVector{<:MCMCIterator};
-    ll::LogLevel = LOG_NONE,
     kwargs...
 )
     if isempty(chains)
-        @log_msg ll "No MCMC chain(s) to iterate over."
+        @debug "No MCMC chain(s) to iterate over."
         return chains
     else
-        @log_msg ll "Starting iteration over $(length(chains)) MCMC chain(s)."
+        @debug "Starting iteration over $(length(chains)) MCMC chain(s)."
     end
 
     cbv = mcmc_callback_vector(callbacks, eachindex(chains))
 
     idxs = eachindex(cbv, chains)
     @sync for i in idxs
-        @mt_async mcmc_iterate!(cbv[i], chains[i]; ll=ll+1, kwargs...)
+        @mt_async mcmc_iterate!(cbv[i], chains[i]; kwargs...)
     end
 
     chains

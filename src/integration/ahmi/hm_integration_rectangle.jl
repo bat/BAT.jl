@@ -6,7 +6,7 @@ function hm_create_integrationvolumes!(
         nvols = (isempty(result.volumelist1) ? length(result.dataset1.startingIDs) : 0) +
                 (isempty(result.volumelist2) ? length(result.dataset2.startingIDs) : 0)
 
-        @log_msg LOG_INFO "Create $nvols Hyperrectangles using $(_global_mt_setting ? nthreads() : 1) thread(s)"
+        @info "Create $nvols Hyperrectangles using $(_global_mt_setting ? nthreads() : 1) thread(s)"
         progressbar = Progress(nvols)
 
         isempty(result.volumelist1) && hm_create_integrationvolumes_dataset!(
@@ -24,7 +24,7 @@ function hm_create_integrationvolumes!(
             (result.dataset2.isnew ? length(result.volumelist2) : 0)
 
     if nvols > 0
-        @log_msg LOG_INFO "Updating $nvols Hyperrectangles using $(_global_mt_setting ? nthreads() : 1) thread(s)"
+        @info "Updating $nvols Hyperrectangles using $(_global_mt_setting ? nthreads() : 1) thread(s)"
         progressbar = Progress(nvols)
 
         result.dataset2.isnew && hm_update_integrationvolumes_dataset!(result.dataset2, result.volumelist1, progressbar)
@@ -84,9 +84,7 @@ function hm_update_integrationvolumes_dataset!(
 
         maxPoints = max(maxPoints, volumes[i].pointcloud.points)
 
-        lock(BAT.Logging._global_lock) do
-            next!(progressbar)
-        end
+        @critical next!(progressbar)
     end
 
     #remove rectangles with less than 1% points of the largest rectangle (in terms of points)
@@ -123,13 +121,11 @@ function hyperrectangle_creationproccess!(
         id = dataset.startingIDs[idc]
 
         #update progress bar
-        lock(BAT.Logging._global_lock) do
-            next!(progressbar)
-        end
+        @critical next!(progressbar)
 
         #create hyper-rectangle
         integrationvolumes[idc], cubevolumes[idc], total_iterations[idc] = create_hyperrectangle(id, dataset, targetprobfactor, settings)
 
-        @log_msg LOG_DEBUG "Hyperrectangle created. Points:\t$(integrationvolumes[idc].pointcloud.points)\tVolume:\t$(integrationvolumes[idc].volume)\tProb. Factor:\t$(integrationvolumes[idc].pointcloud.probfactor)"
+        @debug "Hyperrectangle created. Points:\t$(integrationvolumes[idc].pointcloud.points)\tVolume:\t$(integrationvolumes[idc].volume)\tProb. Factor:\t$(integrationvolumes[idc].pointcloud.probfactor)"
     end
 end

@@ -41,10 +41,9 @@ function mcmc_tune_burnin!(
     chains::AbstractVector{<:MCMCIterator},
     convergence_test::MCMCConvergenceTest,
     burnin_strategy::MCMCBurninStrategy;
-    strict_mode::Bool = false,
-    ll::LogLevel = LOG_INFO
+    strict_mode::Bool = false
 )
-    @log_msg ll "Begin tuning of $(length(tuners)) MCMC chain(s)."
+    @info "Begin tuning of $(length(tuners)) MCMC chain(s)."
 
     nchains = length(chains)
 
@@ -58,12 +57,11 @@ function mcmc_tune_burnin!(
             user_callbacks, tuners, chains;
             max_nsamples = burnin_strategy.max_nsamples_per_cycle,
             max_nsteps = burnin_strategy.max_nsteps_per_cycle,
-            max_time = burnin_strategy.max_time_per_cycle,
-            ll = ll+2
+            max_time = burnin_strategy.max_time_per_cycle
         )
 
         stats = [x.stats for x in tuners] # ToDo: Find more generic abstraction
-        ct_result = check_convergence!(convergence_test, chains, stats, ll = ll+2)
+        ct_result = check_convergence!(convergence_test, chains, stats)
 
         ntuned = count(c -> c.info.tuned, chains)
         nconverged = count(c -> c.info.converged, chains)
@@ -73,17 +71,17 @@ function mcmc_tune_burnin!(
             user_callbacks[i](1, tuners[i])
         end
 
-        @log_msg ll+1 "MCMC Tuning cycle $cycles finished, $nchains chains, $ntuned tuned, $nconverged converged."
+        @info "MCMC Tuning cycle $cycles finished, $nchains chains, $ntuned tuned, $nconverged converged."
     end
 
     if successful
-        @log_msg ll "MCMC tuning of $nchains chains successful after $cycles cycle(s)."
+        @info "MCMC tuning of $nchains chains successful after $cycles cycle(s)."
     else
         msg = "MCMC tuning of $nchains chains aborted after $cycles cycle(s)."
         if strict_mode
-            error(msg)
+            @error msg
         else
-            @log_msg LOG_WARNING msg
+            @warn msg
         end
     end
 
@@ -106,7 +104,7 @@ export NoOpTuner
 isviable(tuner::NoOpTuner, chain::MCMCIterator) = true
 
 
-function tuning_init!(tuner::NoOpTuner, chain::MCMCIterator; ll::LogLevel = LOG_NONE)
+function tuning_init!(tuner::NoOpTuner, chain::MCMCIterator)
     nothing
 end
 
@@ -117,10 +115,9 @@ function mcmc_tune_burnin!(
     chains::AbstractVector{<:MCMCIterator},
     convergence_test::MCMCConvergenceTest,
     burnin_strategy::MCMCBurninStrategy;
-    ll::LogLevel = LOG_INFO,
     kwargs...
 )
-    @log_msg ll "Tune/Burn-In with NoOpTuner doing nothing."
+    @debug "Tune/Burn-In with NoOpTuner doing nothing."
 end
 
 
@@ -146,10 +143,9 @@ function mcmc_init(
     chainspec::MCMCSpec,
     nchains::Int,
     tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
-    init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config);
-    ll::LogLevel = LOG_INFO
+    init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config)
 )
-    @log_msg ll "Trying to generate $nchains viable MCMC chain(s)."
+    @info "Trying to generate $nchains viable MCMC chain(s)."
 
     min_nviable::Int = minimum(init_strategy.ninit_tries_per_chain) * nchains
     max_ncandidates::Int = maximum(init_strategy.ninit_tries_per_chain) * nchains
@@ -165,29 +161,28 @@ function mcmc_init(
 
     while length(tuners) < min_nviable && ncandidates < max_ncandidates
         n = min(min_nviable, max_ncandidates - ncandidates)
-        @log_msg ll+1 "Generating $n $(cycle > 1 ? "additional " : "")MCMC chain(s)."
+        @debug "Generating $n $(cycle > 1 ? "additional " : "")MCMC chain(s)."
 
         new_chains = _gen_chains(ncandidates .+ (one(Int64):n), chainspec)
         new_tuners = tuner_config.(new_chains)
-        tuning_init!.(new_tuners, new_chains; ll = ll)
+        tuning_init!.(new_tuners, new_chains)
         ncandidates += n
 
-        @log_msg ll+1 "Testing $(length(new_tuners)) MCMC chain(s)."
+        @debug "Testing $(length(new_tuners)) MCMC chain(s)."
 
         # ToDo: Use mcmc_iterate! instead of run_tuning_iterations! ?
         run_tuning_iterations!(
             (), new_tuners, new_chains;
             max_nsamples = max(5, div(init_strategy.max_nsamples_pretune, 5)),
             max_nsteps =  max(50, div(init_strategy.max_nsteps_pretune, 5)),
-            max_time = init_strategy.max_time_pretune / 5,
-            ll = ll+2
+            max_time = init_strategy.max_time_pretune / 5
         )
 
         viable_idxs = findall(isviable.(new_tuners, new_chains))
         viable_tuners = new_tuners[viable_idxs]
         viable_chains = new_chains[viable_idxs]
 
-        @log_msg ll+1 "Found $(length(viable_idxs)) viable MCMC chain(s)."
+        @debug "Found $(length(viable_idxs)) viable MCMC chain(s)."
 
         if !isempty(viable_tuners)
             # ToDo: Use mcmc_iterate! instead of run_tuning_iterations! ?
@@ -195,13 +190,12 @@ function mcmc_init(
                 (), viable_tuners, viable_chains;
                 max_nsamples = init_strategy.max_nsamples_pretune,
                 max_nsteps = init_strategy.max_nsteps_pretune,
-                max_time = init_strategy.max_time_pretune,
-                ll = ll+2
+                max_time = init_strategy.max_time_pretune
             )
 
             nsamples_thresh = floor(Int, 0.8 * median([nsamples(chain) for chain in viable_chains]))
             good_idxs = findall(chain -> nsamples(chain) >= nsamples_thresh, viable_chains)
-            @log_msg ll+1 "Found $(length(viable_tuners)) MCMC chain(s) with at least $(nsamples_thresh) samples."
+            @debug "Found $(length(viable_tuners)) MCMC chain(s) with at least $(nsamples_thresh) samples."
 
             append!(chains, view(viable_chains, good_idxs))
             append!(tuners, view(viable_tuners, good_idxs))
@@ -257,7 +251,7 @@ function mcmc_init(
     end
 
 
-    @log_msg ll "Selected $(length(final_tuners)) MCMC chain(s)."
+    @info "Selected $(length(final_tuners)) MCMC chain(s)."
 
     (chains = final_chains, tuners = final_tuners)
 end

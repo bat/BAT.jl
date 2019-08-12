@@ -18,7 +18,7 @@ function create_search_tree(
     end
 
     leafsize = ceil(I, dataset.N / cuts^recdepth)
-    @log_msg LOG_DEBUG "cuts $cuts\tleafsize $leafsize\tRec. Depth $recdepth"
+    @debug "cuts $cuts\tleafsize $leafsize\tRec. Depth $recdepth"
     cutlist = zeros(T, 0)
 
     if recdepth > 0

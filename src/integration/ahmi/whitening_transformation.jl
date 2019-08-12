@@ -79,8 +79,8 @@ function transform_data!(
 
     dataset.iswhitened = true
 
-    @log_msg LOG_DEBUG "Determinant:\t" * string(determinant)
-    @log_msg LOG_DEBUG "Suggested Target Probability Factor:\t" * string(suggTargetProb)
+    @debug "Determinant:\t" * string(determinant)
+    @debug "Suggested Target Probability Factor:\t" * string(suggTargetProb)
 
     WhiteningResult(determinant, suggTargetProb, W, datamean)
 end

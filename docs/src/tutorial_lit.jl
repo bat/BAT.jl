@@ -290,10 +290,9 @@ burnin_strategy = MCMCBurninStrategy(
 #md nothing # hide
 
 # Before running the Markov chains, let's set BAT's logging level to debug,
-# to see what's going on in more detail (note: BAT's logging API will change
-# in the future for better integration with the Julia v1 logging facilities):
+# to see what's going on in more detail:
 
-BAT.Logging.set_log_level!(BAT, BAT.Logging.LOG_DEBUG)
+ENV["JULIA_DEBUG"] = "BAT"
 #md nothing # hide
 
 # Now we can generate a set of MCMC samples via `rand`:
@@ -308,8 +307,7 @@ samples, sampleids, stats, chains = rand(
     burnin_strategy = burnin_strategy,
     max_nsteps = 10000,
     max_time = Inf,
-    granularity = 1,
-    ll = BAT.Logging.LOG_INFO
+    granularity = 1
 )
 #md nothing # hide
 

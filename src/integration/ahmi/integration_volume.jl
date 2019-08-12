@@ -80,7 +80,7 @@ function update!(
     volume.pointcloud.probfactor = exp(volume.pointcloud.maxLogProb - volume.pointcloud.minLogProb)
     volume.pointcloud.probweightfactor = exp(volume.pointcloud.maxWeightProb - volume.pointcloud.minWeightProb)
 
-    @log_msg LOG_DEBUG "Hyperrectangle updated. Points:\t$(volume.pointcloud.points)\tVolume:\t$(volume.volume)\tProb. Factor:\t$(volume.pointcloud.probfactor)"
+    @debug "Hyperrectangle updated. Points:\t$(volume.pointcloud.points)\tVolume:\t$(volume.volume)\tProb. Factor:\t$(volume.pointcloud.probfactor)"
     nothing
 end
 
@@ -148,7 +148,7 @@ function resize_integrationvol!(
             searchVol.lo[changed_dim] = newrect.hi[changed_dim]
         else
             #check if pts inside vol are corrected
-            @log_msg LOG_ERROR "resize_integrationvol(): Volume $original didn't change.", searchVol.lo[changed_dim], "\n", searchVol.hi[changed_dim], "\n", original.spatialvolume.lo[changed_dim], "\n", original.spatialvolume.hi[changed_dim]
+            @error "resize_integrationvol(): Volume $original didn't change.", searchVol.lo[changed_dim], "\n", searchVol.hi[changed_dim], "\n", original.spatialvolume.lo[changed_dim], "\n", original.spatialvolume.hi[changed_dim]
         end
     end
 

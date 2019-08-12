@@ -242,8 +242,7 @@ end
 
 function mcmc_step!(
     callback::AbstractMCMCCallback,
-    chain::MHIterator,
-    ll::LogLevel
+    chain::MHIterator
 )
     algorithm = chain.spec.algorithm
 

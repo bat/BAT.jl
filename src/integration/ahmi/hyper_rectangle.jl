@@ -60,12 +60,12 @@ function find_hypercube_centers(
 
     NMax = min(settings.max_startingIDs, round(I, sqrt(dataset.N * settings.max_startingIDs_fraction)))
     NConsidered = round(I, sqrt(dataset.N) * settings.max_startingIDs_fraction)
-    @log_msg LOG_DEBUG "Considered seed samples $NConsidered"
+    @debug "Considered seed samples $NConsidered"
 
     discardedsamples = falses(dataset.N)
 
     testlength = find_density_test_cube_edgelength(dataset.data[:, sortLogProb[1]], dataset, round(I, sqrt(dataset.N)))
-    @log_msg LOG_DEBUG "Edge length of global mode cube: $testlength"
+    @debug "Edge length of global mode cube: $testlength"
 
     maxprob = dataset.logprob[sortLogProb[1]]
     startingsamples = zeros(I, NMax)
@@ -95,11 +95,11 @@ function find_hypercube_centers(
         if step == 0 step = 1 end
         startingsamples = sortLogProb[1:step:stop]
         success = false
-        @log_msg LOG_WARNING "Returned minimum number of starting points: $(settings.warning_minstartingids)"
+        @warn "Returned minimum number of starting points: $(settings.warning_minstartingids)"
     end
 
 
-    @log_msg LOG_DEBUG "Selected Starting Samples: $cntr out of $(dataset.N) points"
+    @debug "Selected Starting Samples: $cntr out of $(dataset.N) points"
     dataset.startingIDs = startingsamples
 
     success
@@ -148,7 +148,7 @@ function find_density_test_cube(
         pt = intvol.pointcloud.points
     end
 
-    #@log_msg LOG_TRACE "Tolerance Test Cube: Iterations $iterations\tPoints: $(intvol.pointcloud.points)\ttarget Points: $points"
+    ## @debug "Tolerance Test Cube: Iterations $iterations\tPoints: $(intvol.pointcloud.points)\ttarget Points: $points"
 
     l, intvol
 end
@@ -230,7 +230,7 @@ function modify_edge!(
         elseif adaption == DecreaseVolume
             spatialvolume.hi[dim] -= margin * change_mod
         else
-            @log_msg LOG_ERROR "No edge modification possible: Volume change not specified"
+            @error "No edge modification possible: Volume change not specified"
         end
     else
         if adaption == IncreaseVolume
@@ -238,7 +238,7 @@ function modify_edge!(
         elseif adaption == DecreaseVolume
             spatialvolume.lo[dim] += margin * change_mod
         else
-            @log_msg LOG_ERROR "No edge modification possible: Volume change not specified"
+            @error "No edge modification possible: Volume change not specified"
         end
     end
     prevpts = vol.pointcloud.points
@@ -266,7 +266,7 @@ function reject_edge_modification!(
     elseif edge == LowerEdge
         spatialvolume.lo[dim] = buffer
     else
-        @log_msg LOG_ERROR "No Edge modification to reject"
+        @error "No Edge modification to reject"
     end
 end
 

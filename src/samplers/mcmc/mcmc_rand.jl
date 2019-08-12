@@ -38,8 +38,7 @@ function Random.rand(
     max_nsteps::Int64 = Int64(100 * nsamples),
     max_time::Float64 = Inf,
     granularity::Int = 1,
-    strict_mode::Bool = false,
-    ll::LogLevel = LOG_INFO,
+    strict_mode::Bool = false
 )
     result = MCMCOutputWithChains(chainspec)
 
@@ -49,8 +48,7 @@ function Random.rand(
         chainspec,
         nchains,
         tuner_config,
-        init_strategy;
-        ll = ll,
+        init_strategy
     )
 
     mcmc_tune_burnin!(
@@ -59,8 +57,7 @@ function Random.rand(
         chains,
         convergence_test,
         burnin_strategy;
-        strict_mode = strict_mode,
-        ll = ll
+        strict_mode = strict_mode
     )
 
     append!(result_chains, chains)
@@ -71,8 +68,7 @@ function Random.rand(
         nsamples;
         max_nsteps = max_nsteps,
         max_time = max_time,
-        granularity = granularity,
-        ll = ll
+        granularity = granularity
     )
 
     result
@@ -85,8 +81,7 @@ function Random.rand!(
     nsamples::Integer;
     max_nsteps::Int64 = Int64(100 * nsamples),
     max_time::Float64 = Inf,
-    granularity::Int = 1,
-    ll::LogLevel = LOG_INFO,
+    granularity::Int = 1
 )
     result_samples, result_sampleids, result_stats = result
 
@@ -108,8 +103,7 @@ function Random.rand!(
         chains;
         max_nsamples = Int64(nsamples),
         max_nsteps = max_nsteps,
-        max_time = max_time,
-        ll = ll
+        max_time = max_time
     )
 
     for x in samples

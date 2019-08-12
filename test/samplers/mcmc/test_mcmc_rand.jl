@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-using BAT, BAT.Logging
+using BAT
 using Test
 
 using Distributed, Random
@@ -9,8 +9,6 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
 
 @testset "mcmc_rand" begin
     @testset "rand" begin
-        set_log_level!(BAT, LOG_WARNING)
-
         mvec = [-0.3, 0.3]
         cmat = [1.0 1.5; 1.5 4.0]
         Σ = @inferred PDMat(cmat)

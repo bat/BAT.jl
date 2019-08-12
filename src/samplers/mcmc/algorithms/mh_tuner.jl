@@ -41,7 +41,7 @@ end
 isviable(tuner::ProposalCovTuner, chain::MHIterator) = nsamples(chain) >= 2
 
 
-function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator; ll::LogLevel = LOG_NONE)
+function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator)
     Σ_unscaled = cov(prior(getmodel(chain)))
     Σ = Σ_unscaled * tuner.scale
 
@@ -52,7 +52,7 @@ function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator; ll::LogLevel =
 end
 
 
-function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator; ll::LogLevel = LOG_NONE)
+function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator)
     stats = tuner.stats
     config = tuner.config
 
@@ -77,10 +77,10 @@ function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator; ll::LogLevel
 
     if α_min <= α <= α_max
         chain.info = MCMCIteratorInfo(chain.info, tuned = true)
-        @log_msg ll "MCMC chain $(chain.info.id) tuned, acceptance ratio = $α"
+        @debug "MCMC chain $(chain.info.id) tuned, acceptance ratio = $α"
     else
         chain.info = MCMCIteratorInfo(chain.info, tuned = false)
-        @log_msg ll "MCMC chain $(chain.info.id) *not* tuned, acceptance ratio = $α"
+        @debug "MCMC chain $(chain.info.id) *not* tuned, acceptance ratio = $α"
 
         if α > α_max && c < c_max
             tuner.scale = c * β
@@ -111,11 +111,10 @@ function run_tuning_cycle!(
     callbacks,
     tuners::AbstractVector{<:ProposalCovTuner},
     chains::AbstractVector{<:MHIterator};
-    ll::LogLevel = LOG_NONE,
     kwargs...
 )
-    run_tuning_iterations!(callbacks, tuners, chains; ll=ll, kwargs...)
-    tuning_update!.(tuners, chains; ll = ll)
+    run_tuning_iterations!(callbacks, tuners, chains; kwargs...)
+    tuning_update!.(tuners, chains)
     nothing
 end
 
@@ -126,8 +125,7 @@ function run_tuning_iterations!(
     chains::AbstractVector{<:MHIterator};
     max_nsamples::Int64 = Int64(1000),
     max_nsteps::Int64 = Int64(10000),
-    max_time::Float64 = Inf,
-    ll::LogLevel = LOG_NONE
+    max_time::Float64 = Inf
 )
     user_callbacks = mcmc_callback_vector(callbacks, eachindex(chains))
 
