@@ -8,9 +8,14 @@ using Documenter
 using Literate
 using BAT
 
+function fix_literate_output(content)
+    content = replace(content, "EditURL = \"@__REPO_ROOT_URL__/\"" => "")
+    return content
+end
+
 gen_content_dir = joinpath(@__DIR__, "src")
 tutorial_src = joinpath(@__DIR__, "src", "tutorial_lit.jl")
-Literate.markdown(tutorial_src, gen_content_dir, name = "tutorial", documenter = true, credit = true)
+Literate.markdown(tutorial_src, gen_content_dir, name = "tutorial", documenter = true, credit = true, postprocess = fix_literate_output)
 #Literate.markdown(tutorial_src, gen_content_dir, name = "tutorial", codefence = "```@repl tutorial" => "```", documenter = true, credit = true)
 Literate.notebook(tutorial_src, gen_content_dir, execute = false, name = "bat_tutorial", documenter = true, credit = true)
 Literate.script(tutorial_src, gen_content_dir, keep_comments = false, name = "bat_tutorial", documenter = true, credit = false)
