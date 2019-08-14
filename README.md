@@ -32,6 +32,11 @@ julia> pkg"add BAT"
 ```
 
 
+!!! note
+
+    The master branch of `BAT` currently requires the master branch of `ShapesOfVariables`.
+
+
 ## Documentation
 
 * [Documentation for stable version](https://bat.github.io/BAT.jl/stable)
