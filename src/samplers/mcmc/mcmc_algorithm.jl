@@ -18,7 +18,7 @@ defined for `MCMCAlgorithm`):
 BAT.initial_params!(
     params::Union{AbstractVector{<:Real},VectorOfSimilarVectors{<:Real}},
     rng::AbstractRNG,
-    model::AbstractBayesianModel,
+    posterior::AbstractPosteriorDensity,
     algorithm::SomeAlgorithm
 )
 ```
@@ -34,28 +34,28 @@ export MCMCAlgorithm
     BAT.initial_params!(
         params::Union{AbstractVector{<:Real},VectorOfSimilarVectors{<:Real}},
         rng::AbstractRNG,
-        model::AbstractBayesianModel,
+        posterior::AbstractPosteriorDensity,
         algorithm::MCMCAlgorithm
     )::typeof(params)
 
-Fill `params` with random initial parameters suitable for `model` and
+Fill `params` with random initial parameters suitable for `posterior` and
 `algorithm`. The default implementation will try to draw the initial
-parameters from the prior of the model.
+parameters from the prior of the posterior.
 """
 function initial_params! end
 
 initial_params!(
     params::Union{AbstractVector{<:Real},VectorOfSimilarVectors{<:Real}},
     rng::AbstractRNG,
-    model::AbstractBayesianModel,
+    posterior::AbstractPosteriorDensity,
     algorithm::MCMCAlgorithm
-) = rand!(rng, prior(model), params)
+) = rand!(rng, sampler(prior(posterior)), params)
 
 
 doc"""
     MCMCSpec{
         A<:MCMCAlgorithm,
-        M<:AbstractBayesianModel,
+        M<:AbstractPosteriorDensity,
         R<:AbstractRNGSeed
     }
 
@@ -66,7 +66,7 @@ Constructor:
 ```julia
 MCMCSpec(
     algorithm::MCMCAlgorithm,
-    model::AbstractBayesianModel,
+    posterior::AbstractPosteriorDensity,
     rngseed::AbstractRNGSeed = AbstractRNGSeed()
 )
 ```
@@ -80,11 +80,11 @@ are be created via
 """
 struct MCMCSpec{
     A<:MCMCAlgorithm,
-    M<:AbstractBayesianModel,
+    M<:AbstractPosteriorDensity,
     R<:AbstractRNGSeed
 }
     algorithm::A
-    model::M
+    posterior::M
     rngseed::R
 end
 
@@ -96,15 +96,15 @@ export MCMCSpec
 
 MCMCSpec(
     algorithm::MCMCAlgorithm,
-    model::AbstractBayesianModel
-) = MCMCSpec(algorithm, model, AbstractRNGSeed())
+    posterior::AbstractPosteriorDensity
+) = MCMCSpec(algorithm, posterior, AbstractRNGSeed())
 
 @deprecate MCMCSpec(
     algorithm::MCMCAlgorithm,
     likelihood::Union{AbstractDensity,Distribution{Multivariate,Continuous}},
     prior::Union{AbstractDensity,ParamVolumeBounds},
     rngseed::AbstractRNGSeed = AbstractRNGSeed()
-) MCMCSpec(algorithm, BayesianModel(likelihood, prior), rngseed)
+) MCMCSpec(algorithm, PosteriorDensity(likelihood, prior), rngseed)
 
 
 
@@ -160,7 +160,7 @@ The following methods are implemented by default:
 
 ```julia
 algorithm(chain::MCMCIterator)
-getmodel(chain::MCMCIterator)
+posterior(chain::MCMCIterator)
 rngseed(chain::MCMCIterator)
 nparams(chain::MCMCIterator)
 DensitySampleVector(chain::MCMCIterator)
@@ -198,11 +198,11 @@ function mcmc_step! end
 
 algorithm(chain::MCMCIterator) = mcmc_spec(chain).algorithm
 
-getmodel(chain::MCMCIterator) = mcmc_spec(chain).model
+posterior(chain::MCMCIterator) = mcmc_spec(chain).posterior
 
 rngseed(chain::MCMCIterator) = mcmc_spec(chain).rngseed
 
-nparams(chain::MCMCIterator) = nparams(likelihood(getmodel(chain)))
+nparams(chain::MCMCIterator) = nparams(posterior(chain))
 
 DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(sample_type(chain), nparams(chain))
 

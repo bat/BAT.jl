@@ -42,7 +42,7 @@ isviable(tuner::ProposalCovTuner, chain::MHIterator) = nsamples(chain) >= 2
 
 
 function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator)
-    Σ_unscaled = cov(prior(getmodel(chain)))
+    Σ_unscaled = cov(prior(posterior(chain)))
     Σ = Σ_unscaled * tuner.scale
 
     next_cycle!(chain)

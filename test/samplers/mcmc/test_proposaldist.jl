@@ -1,10 +1,11 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 using BAT
-using LinearAlgebra
-using Distributions
 using Test
-using PDMats
+
+using LinearAlgebra, Random
+using Distributions, PDMats
+using ArraysOfArrays
 
 struct test_mvdist <: Distribution{Multivariate, Continuous}
     d::Distribution{Multivariate, Continuous}

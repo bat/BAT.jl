@@ -221,10 +221,10 @@ prior = ConstDensity(
 
 ### Bayesian Model Definition
 #
-# Given the likelihood and prior definition, a `BAT.BayesianModel` is simply
+# Given the likelihood and prior definition, a `BAT.PosteriorDensity` is simply
 # defined via
 
-model = BayesianModel(likelihood, prior)
+posterior = PosteriorDensity(likelihood, prior)
 #md nothing # hide
 
 
@@ -248,9 +248,9 @@ algorithm = MetropolisHastings(MvTDistProposalSpec(1.0))
 rngseed = BAT.Philox4xSeed()
 #md nothing # hide
 
-# The algorithm, model and RNG seed specify the MCMC chains:
+# The algorithm, posterior and RNG seed specify the MCMC chains:
 
-chainspec = MCMCSpec(algorithm, model, rngseed)
+chainspec = MCMCSpec(algorithm, posterior, rngseed)
 #md nothing # hide
 
 # Let's use 4 MCMC chains and require 10^5 unique samples from each chain

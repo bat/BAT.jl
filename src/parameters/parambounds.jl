@@ -156,9 +156,10 @@ struct HyperRectBounds{T<:Real} <: ParamVolumeBounds{T, HyperRectVolume{T}}
     vol::HyperRectVolume{T}
     bt::Vector{BoundsType}
 
-    function HyperRectBounds{T}(vol::HyperRectVolume{T}, bt::Vector{BoundsType}) where {T<:Real}
-        axes(bt) != (1:ndims(vol),) && throw(ArgumentError("bt must have indices (1:ndims(vol),)"))
-        isempty(vol) && throw(ArgumentError("vol must not be empty"))
+    function HyperRectBounds{T}(vol::HyperRectVolume{T}, bt::AbstractVector{BoundsType}) where {T<:Real}
+        nd = ndims(vol)
+        axes(bt) != (1:nd,) && throw(ArgumentError("bt must have indices (1:ndims(vol),)"))
+        (nd > 0) && isempty(vol) && throw(ArgumentError("Cannot create bounds with emtpy volume of $nd dimensions"))
         new{T}(vol, bt)
     end
 end
@@ -199,6 +200,14 @@ function Base.intersect(a::HyperRectBounds, b::HyperRectBounds)
         c.vol.hi[i] = maximum(iv_c)
     end
     c
+end
+
+
+function Base.vcat(xs::HyperRectBounds...)
+    lo = vcat(map(x -> x.vol.lo, xs)...)
+    hi = vcat(map(x -> x.vol.hi, xs)...)
+    bt = vcat(map(x -> x.bt, xs)...)
+    HyperRectBounds(lo, hi, bt)
 end
 
 

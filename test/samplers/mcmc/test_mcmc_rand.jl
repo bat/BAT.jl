@@ -13,7 +13,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
         cmat = [1.0 1.5; 1.5 4.0]
         Σ = @inferred PDMat(cmat)
         mv_dist = MvNormal(mvec, Σ)
-        density = @inferred MvDistDensity(mv_dist)
+        density = @inferred DistributionDensity(mv_dist)
         bounds = @inferred HyperRectBounds([-5, -8], [5, 8], reflective_bounds)
         nsamples_per_chain = 20000
         nchains = 4
@@ -23,7 +23,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
         @test BAT.mcmc_compatible(algorithmMW, GenericProposalDist(mv_dist), NoParamBounds(2))
 #        samples, sampleids, stats = @inferred rand( TODO: put back the @inferred
         samples, sampleids, stats = rand(
-            MCMCSpec(algorithmMW, BayesianModel(density, bounds)),
+            MCMCSpec(algorithmMW, PosteriorDensity(density, bounds)),
             nsamples_per_chain,
             nchains,
             max_time = Inf,
@@ -43,7 +43,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
         algorithmPW = @inferred MetropolisHastings(MHAccRejProbWeights())
         # samples, sampleids, stats = @inferred rand(
         samples, sampleids, stats = rand(
-            MCMCSpec(algorithmPW, BayesianModel(mv_dist, bounds)),
+            MCMCSpec(algorithmPW, PosteriorDensity(mv_dist, bounds)),
             nsamples_per_chain,
             nchains,
             max_time = Inf,

@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct ConstDensity{B<:ParamVolumeBounds,T<:Real} <: AbstractDensity
+struct ConstDensity{B<:ParamVolumeBounds,T<:Real} <: AbstractPriorDensity
     bounds::B
     log_value::T
 end
@@ -20,11 +20,6 @@ Base.convert(::Type{AbstractDensity}, bounds::ParamVolumeBounds) =
     ConstDensity(bounds, one)
 
 
-param_bounds(density::ConstDensity) = density.bounds
-
-nparams(density::ConstDensity) = nparams(density.bounds)
-
-
 function density_logval(
     density::ConstDensity,
     params::AbstractVector{<:Real}
@@ -32,9 +27,11 @@ function density_logval(
     density.log_value
 end
 
+param_bounds(density::ConstDensity) = density.bounds
+
+param_shapes(density::ConstDensity) = VarShapes(θ = ArrayShape{Real}(nparams(density)))
 
 Distributions.sampler(density::ConstDensity) = spatialvolume(param_bounds(density))
-
 
 function Statistics.cov(density::ConstDensity{<:HyperRectBounds})
     vol = spatialvolume(param_bounds(density))

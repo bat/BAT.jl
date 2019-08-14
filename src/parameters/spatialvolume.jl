@@ -70,7 +70,7 @@ struct HyperRectVolume{T<:Real} <: SpatialVolume{T}
     lo::Vector{T}
     hi::Vector{T}
 
-    function HyperRectVolume{T}(lo::Vector{T}, hi::Vector{T}) where {T<:Real}
+    function HyperRectVolume{T}(lo::AbstractVector{T}, hi::AbstractVector{T}) where {T<:Real}
         (axes(lo) != axes(hi)) && throw(ArgumentError("lo and hi must have the same indices"))
         new{T}(lo, hi)
     end
@@ -78,7 +78,7 @@ end
 
 export HyperRectVolume
 
-HyperRectVolume(lo::Vector{T}, hi::Vector{T}) where {T<:Real} = HyperRectVolume{T}(lo, hi)
+HyperRectVolume(lo::AbstractVector{T}, hi::AbstractVector{T}) where {T<:Real} = HyperRectVolume{T}(lo, hi)
 
 Base.ndims(vol::HyperRectVolume) = size(vol.lo, 1)
 

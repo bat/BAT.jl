@@ -74,24 +74,26 @@ function MHIterator(
     rng = spec.rngseed()
     reset_rng_counters!(rng, info.id, info.cycle, stepno)
 
-    npar = nparams(spec.model)
+    postr = spec.posterior
+    npar = nparams(postr)
+    alg = spec.algorithm
 
     params_vec = Vector{P}(undef, npar)
     if isempty(initial_params)
-        initial_params!(params_vec, rng, spec.model, spec.algorithm)
+        initial_params!(params_vec, rng, postr, alg)
     else
         params_vec .= initial_params
     end
-    !(params_vec in param_bounds(posterior(spec.model))) && throw(ArgumentError("Parameter(s) out of bounds"))
+    !(params_vec in param_bounds(postr)) && throw(ArgumentError("Parameter(s) out of bounds"))
 
-    proposaldist = spec.algorithm.proposalspec(P, npar)
+    proposaldist = alg.proposalspec(P, npar)
 
-    log_likelihood_value = density_logval(likelihood(spec.model), params_vec)
-    log_prior_value = density_logval(prior(spec.model), params_vec)
+    log_likelihood_value = density_logval(likelihood(postr), params_vec)
+    log_prior_value = density_logval(prior(postr), params_vec)
 
     log_posterior_value = log_likelihood_value + log_prior_value
     T = typeof(log_posterior_value)
-    W = _sample_weight_type(typeof(spec.algorithm))
+    W = _sample_weight_type(typeof(alg))
     current_sample = DensitySample(params_vec, log_posterior_value, convert(T, log_prior_value), one(W))
 
     samples = push!(DensitySampleVector{P,T,W}(npar), current_sample)
@@ -123,7 +125,7 @@ end
 function (spec::MCMCSpec{<:MetropolisHastings})(
     chainid::Integer,
 )
-    P = float(eltype(param_bounds(posterior(spec.model))))
+    P = float(eltype(param_bounds(spec.posterior)))
 
     cycle = 0
     tuned = false
@@ -244,17 +246,17 @@ function mcmc_step!(
     callback::AbstractMCMCCallback,
     chain::MHIterator
 )
-    algorithm = chain.spec.algorithm
+    alg = algorithm(chain)
 
-    if !mcmc_compatible(algorithm, chain.proposaldist, param_bounds(posterior(getmodel(chain))))
-        error("Implementation of algorithm $algorithm does not support current parameter bounds with current proposal distribution")
+    if !mcmc_compatible(alg, chain.proposaldist, param_bounds(posterior(chain)))
+        error("Implementation of algorithm $alg does not support current parameter bounds with current proposal distribution")
     end
 
     chain.stepno += 1
     reset_rng_counters!(chain)
 
     rng = getrng(chain)
-    model = getmodel(chain)
+    pstr = posterior(chain)
 
     proposaldist = chain.proposaldist
     samples = chain.samples
@@ -282,7 +284,7 @@ function mcmc_step!(
 
         # Evaluate prior and likelihood with proposed parameters:
         proposed_log_prior, proposed_log_posterior =
-            eval_prior_posterior_logval!(T, model, proposed_params)
+            eval_prior_posterior_logval!(T, pstr, proposed_params)
 
         samples.log_posterior[proposed] = proposed_log_posterior
         samples.log_prior[proposed] = proposed_log_prior
@@ -314,7 +316,7 @@ function mcmc_step!(
             sampleids.sampletype[proposed] = REJECTED_SAMPLE
         end
 
-        delta_w_current, w_proposed = _mh_weights(algorithm, p_accept, accepted)
+        delta_w_current, w_proposed = _mh_weights(alg, p_accept, accepted)
         samples.weight[current] += delta_w_current
         samples.weight[proposed] = w_proposed
 
