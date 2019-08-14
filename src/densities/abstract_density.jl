@@ -109,7 +109,7 @@ function params_shape end
 
 params_shape(density::AbstractDensity) = missing
 
-params_shape(dist::Distribution) = valshape(dist)
+params_shape(dist::Distribution) = varshape(dist)
 
 
 @doc doc"""
@@ -147,7 +147,7 @@ function eval_density_logval(
     r
 end
 
-_apply_parshapes(params::AbstractVector{<:Real}, parshapes::AbstractValueShape) = parshapes(params)
+_apply_parshapes(params::AbstractVector{<:Real}, parshapes::AbstractValueShape) = stripscalar(parshapes(params))
 
 
 @doc doc"""

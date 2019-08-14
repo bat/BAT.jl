@@ -215,7 +215,7 @@ prior = NamedTupleDist(
 
 using ValueShapes
 
-parshapes = valshape(prior)
+parshapes = varshape(prior)
 
 # These will come in handy later on, e.g. to access (the posterior
 # distribution of) individual parameter values.

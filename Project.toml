@@ -66,7 +66,7 @@ StructArrays = "0.4.0"
 Tables = "0.2.0"
 TypedTables = "1.2.0"
 UnsafeArrays = "1.0.0"
-ValueShapes = "0.5.1"
+ValueShapes = "0.6"
 julia = "1.0.5"
 
 [extras]

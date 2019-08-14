@@ -71,7 +71,7 @@ plot(prior, 2)
 plot(posterior, samples, :λ2)
 # or the value shape(s) of the prior:
 using ValueShapes
-parshapes = valshape(prior)
+parshapes = varshape(prior)
 plot(parshapes, samples, :λ2)
 
 # Prior can also be plotted by their index or by using the parameter names given in NamedTupleDist:
@@ -119,7 +119,7 @@ plot(samples, (1,2), nbins=200)
 # Samples can either be plotted by their index (as shown above) or by using the parameter names given in NamedTupleDist. This can be done by passing either the posterior 
 plot(posterior, samples, (:λ1, :λ2))
 # or the value shape(s) of the prior:
-parshapes = valshape(prior)
+parshapes = varshape(prior)
 plot(parshapes, samples, (:λ1, :λ2))
 
 # Prior can also be plotted by their index or by using the parameter names given in NamedTupleDist.
