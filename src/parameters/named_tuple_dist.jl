@@ -66,7 +66,7 @@ the `NamedTupleDist` then specifies the prior on each named parameter.
 
 A `NamedTupleDist` implies a `NamedTupleShape`:
 
-    valshape(d::NamedTupleDist) isa NamedTupleShape
+    varshape(d::NamedTupleDist) isa NamedTupleShape
 """
 struct NamedTupleDist{
     names,
@@ -120,7 +120,7 @@ end
 @inline Base.propertynames(p::NamedTupleDist) = propertynames(_distributions(p))
 
 
-ValueShapes.valshape(p::NamedTupleDist) = _shapes(p)
+ValueShapes.varshape(p::NamedTupleDist) = _shapes(p)
 
 
 param_bounds(p::NamedTupleDist) = vcat(map(_np_bounds, values(p))...)
@@ -150,7 +150,7 @@ end
 
 function Distributions.logpdf(p::NamedTupleDist, params::AbstractVector{<:Real})
     distributions = values(p)
-    accessors = values(valshape(p))
+    accessors = values(varshape(p))
     sum(map((dist, acc) -> _np_logpdf(dist, acc, params), distributions, accessors))
 end
 
@@ -186,7 +186,7 @@ end
 
 function Distributions._rand!(rng::AbstractRNG, p::NamedTupleDist, params::AbstractVector{<:Real})
     distributions = values(p)
-    accessors = values(valshape(p))
+    accessors = values(varshape(p))
     map((dist, acc) -> _np_rand!(rng, dist, acc, params), distributions, accessors)
     params
 end
@@ -224,7 +224,7 @@ end
 function Statistics.cov(p::NamedTupleDist)
     let n = length(p), A_cov = zeros(n, n)
         distributions = values(p)
-        accessors = values(valshape(p))
+        accessors = values(varshape(p))
         map((dist, acc) -> _np_cov!(dist, acc, A_cov), distributions, accessors)
         A_cov
     end
