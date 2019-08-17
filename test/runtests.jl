@@ -3,8 +3,6 @@
 using Test
 
 Test.@testset "Package BAT" begin
-    ENV["JULIA_DEBUG"] = "BAT"
-
     include("utils/test_utils.jl")
     include("rngs/test_rngs.jl")
     include("distributions/test_distributions.jl")
