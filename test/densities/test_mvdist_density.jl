@@ -13,8 +13,6 @@ using ArraysOfArrays, Distributions, PDMats
         @test typeof(mvdd) <: AbstractDensity
         @test parent(mvdd) == mvt
         @test nparams(mvdd) == 2
-
-        @test typeof(sampler(mvdd)) <: BATMvTDistSampler
     end
 
     @testset "density_logval" begin
