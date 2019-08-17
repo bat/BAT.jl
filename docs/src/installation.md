@@ -92,7 +92,7 @@ However, you will likely need other Julia packages too. We recommend that you in
 
 ```
 julia> using Pkg
-julia> pkg"add BAT ArraysOfArrays Distributions ElasticArrays HDF5 IntervalSets Plots ShapesOfVariables StatsBase Tables TypedTables"
+julia> pkg"add BAT ArraysOfArrays Distributions ElasticArrays EponymTuples HDF5 IntervalSets Parameters Plots ShapesOfVariables StatsBase Tables TypedTables"
 ```
 
 To install the latest development version of BAT (master branch), instead of the latest stable release, use

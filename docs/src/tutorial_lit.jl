@@ -41,59 +41,67 @@ using Random, LinearAlgebra, Statistics, Distributions, StatsBase
 
 # As the underlying truth of our input data/histogram, let us choose an
 # non-normalized probability density composed of two Gaussian peaks with a peak
-# area of 500 and 1000, a mean of -1.0 and 2.0 and a standard error of 0.5.
-# So our model parameters will be:
-
-par_names = ["a_1", "a_2", "mu_1", "mu_2", "sigma"]
-
-true_par_values = [500, 1000, -1.0, 2.0, 0.5]
-#md nothing # hide
-
-# We'll define a function that returns two Gaussian distributions, based 
-# on a specific set of parameters
-
-function model_distributions(parameters::AbstractVector{<:Real})
-    return (
-        Normal(parameters[3], parameters[5]),
-        Normal(parameters[4], parameters[5])
-    )
-end
-#md nothing # hide
-
-# and then generate some synthetic data by drawing a number (according to the
-# parameters a₁ and a₂) of samples from the two Gaussian distributions
+# area of 500 and 1000, a mean of -1.0 and 2.0 and a standard error of 0.5
 
 data = vcat(
-    rand(model_distributions(true_par_values)[1], Int(true_par_values[1])),
-    rand(model_distributions(true_par_values)[2], Int(true_par_values[2]))
+    rand(Normal(-1.0, 0.5), 500),
+    rand(Normal( 2.0, 0.5), 1000)
 )
-#md nothing # hide
 
 # resulting in a vector of floating-point numbers:
 
 typeof(data) == Vector{Float64}
 
-# Then we create a histogram of that data, this histogram will serve as the
-# input for the Bayesian fit:
+# Next, we'll create a histogram of that data, this histogram will serve as
+# the input for the Bayesian fit:
 
 hist = append!(Histogram(-2:0.1:4), data)
 
-# The fit function that describes such a histogram (depending on the model
-# parameters) will be
-
-function fit_function(x::Real, parameters::AbstractVector{<:Real})
-    dists = model_distributions(parameters)
-    return parameters[1] * pdf(dists[1], x) +
-           parameters[2] * pdf(dists[2], x)
-end
-#md nothing # hide
 
 # Using the Julia ["Plots"](http://docs.juliaplots.org/latest/) package
 
 using Plots
 
-# we can visually compare the histogram and the fit function, using the true
-# values of the parameters:
+# we can plot the histogram:
+
+plot(
+    normalize(hist, mode=:density),
+    st = :steps, label = "Data",
+    title = "Data"
+)
+#jl savefig("tutorial-data.pdf")
+#md savefig("tutorial-data.pdf")
+#md savefig("tutorial-data.svg"); nothing # hide
+#md # [![Data](tutorial-data.svg)](tutorial-data.pdf)
+
+
+# The package ["EponymTuples"](https://github.com/tpapp/EponymTuples.jl)
+# provides a very useful macro `@eponymargs`: It makes it easy to define
+# functions that take named tuples as arguments and unpack them.
+
+using EponymTuples
+
+# This comes in handy for the definition of ou fit function - the function
+# that we expect to describes the data histogram (depending on some model
+# parameters):
+
+function fit_function(@eponymargs(a, mu, sigma), x::Real)
+    a[1] * pdf(Normal(mu[1], sigma), x) +
+    a[2] * pdf(Normal(mu[2], sigma), x)
+end
+#md nothing # hide
+
+# The fit parameters (model parameters) `a` (peak areas) and `mu` (peak means)
+# are vectors, parameter `sigma` (peak width) is a scalar, we assume it's the
+# same for both Gaussian peaks.
+#
+# The true values for the model/fit parameters are:
+
+true_par_values = (a = [500, 1000], mu = (-1.0, 2.0), sigma = 0.5)
+#md nothing # hide
+
+# Let's visually compare the histogram and the fit function, using the true
+# parameter values, to make sure everything is set up correctly:
 
 plot(
     normalize(hist, mode=:density),
@@ -101,7 +109,7 @@ plot(
     title = "Data and True Statistical Model"
 )
 plot!(
-    -4:0.01:4, x -> fit_function(x, true_par_values),
+    -4:0.01:4, x -> fit_function(true_par_values, x),
     label = "Truth"
 )
 #jl savefig("tutorial-data-and-truth.pdf")
@@ -112,7 +120,8 @@ plot!(
 
 # ## Bayesian Fit
 #
-# Now let's do a Bayesian fit of the generated histogram, using BAT.
+# Now we'll perform a Bayesian fit of the generated histogram, using BAT,
+# to infer the model parameters from the data histogram.
 #
 # In addition to the Julia packages loaded above, we need BAT itself, as
 # well as [IntervalSets](https://github.com/JuliaMath/IntervalSets.jl):
@@ -128,20 +137,20 @@ using BAT, IntervalSets
 # type, as accessing the histogram as a global variable would
 # [reduce performance](https://docs.julialang.org/en/v1/manual/performance-tips/index.html#Avoid-global-variables-1):
 
-struct HistogramLikelihood{H<:Histogram} <: AbstractDensity
+struct HistogramLikelihood{H<:Histogram,F<:Function} <: AbstractDensity
     histogram::H
+    fitfunc::F
 end
 
-# As a minimum, BAT requires methods of `BAT.nparams` and `BAT.density_logval`
+# As a minimum, BAT requires a method `BAT.density_logval`
 # to be defined for each subtype of `AbstractDensity`.
 #
-# `BAT.nparams` simply needs to return the number of free parameters:
+# `BAT.density_logval` implements the actual log-likelihood function:
 
-BAT.nparams(likelihood::HistogramLikelihood) = 5
-
-# `BAT.density_logval` has to implement the actual log-likelihood function:
-
-function BAT.density_logval(likelihood::HistogramLikelihood, parameters::AbstractVector{<:Real})
+function BAT.density_logval(
+    likelihood::HistogramLikelihood,
+    params::Union{NamedTuple,AbstractVector{<:Real}}
+)
     ## Histogram counts for each bin as an array:
     counts = likelihood.histogram.weights
 
@@ -157,8 +166,8 @@ function BAT.density_logval(likelihood::HistogramLikelihood, parameters::Abstrac
 
         observed_counts = counts[i]
 
-        ## Simple mid-point rule integration of fit_function over bin:
-        expected_counts = bin_width * fit_function(bin_center, parameters)
+        ## Simple mid-point rule integration of fitfunc over bin:
+        expected_counts = bin_width * likelihood.fitfunc(params, bin_center)
 
         log_likelihood += logpdf(Poisson(expected_counts), observed_counts)
     end
@@ -167,12 +176,6 @@ function BAT.density_logval(likelihood::HistogramLikelihood, parameters::Abstrac
 end
 
 
-# Implementations of `BAT.density_logval` are not required to check the length
-# of the `parameters` vector or the validity of the parameter values - BAT
-# takes care of that before calling `BAT.density_logval` (assuming that
-# the information about the density that `BAT.nparams` and `BAT.param_bounds`
-# provide is correct).
-#
 # BAT makes use of Julia's parallel programming facilities if possible, e.g.
 # to run multiple Markov chains in parallel, and expects implementations of
 # `BAT.density_logval` to be thread safe. Mark non-thread-safe code with
@@ -188,26 +191,19 @@ end
 # to specify the number of Julia threads.
 #
 # Using our likelihood density definition and the histogram to fit, we can now
-# define our data-specific likelihood:
+# create our data- and fit-function-specific likelihood instance:
 
-likelihood = HistogramLikelihood(hist)
+likelihood = HistogramLikelihood(hist, fit_function)
 
 
 # ### Prior Definition
 #
-# For simplicity, we choose a flat prior, i.e. a normalized constant
-# density:
+# Next, we need to choose a sensible prior for the fit:
 
-prior = ConstDensity(
-    HyperRectBounds(
-        [
-            0.0..10.0^4, 0.0..10.0^4,
-            -2.0..0.0, 1.0..3.0,
-            0.3..0.7
-        ],
-        reflective_bounds
-    ),
-    normalize
+prior = NamedPrior(
+    a = [0.0..10.0^4, 0.0..10.0^4],
+    mu = [-2.0..0.0, 1.0..3.0],
+    sigma = Truncated(Normal(0.4, 2), 0.3, 0.7)
 )
 #md nothing # hide
 
@@ -217,6 +213,15 @@ prior = ConstDensity(
 # use `convert(AbstractDensity, distribution)` to convert any
 # continuous multivariate `Distributions.Distribution` to a
 # `BAT.AbstractDensity` that can be used as a prior (or likelihood).
+#
+# The prior also implies the shapes of the parameters:
+
+using ShapesOfVariables
+
+parshapes = VarShapes(prior)
+
+# These will come in handy later on, e.g. to access (the posterior
+# distribution of) individual parameter values.
 
 
 ### Bayesian Model Definition
@@ -349,6 +354,7 @@ vec(cor(samples.params, FrequencyWeights(samples.weight)))
 # We can plot the marginalized distribution for a single parameter (e.g.
 # parameter 3, i.e. μ₁):
 
+par_names = ["a_1", "a_2", "mu_1", "mu_2", "sigma"]
 plot(
     samples, 3,
     mean = true, std_dev = true, globalmode = true, localmode = true,
@@ -402,10 +408,17 @@ using TypedTables
 
 tbl = Table(samples, sampleids)
 
+
+# Using the parameter shapes, we can also generate a table with named
+# parameters instead:
+
+tbl_named = Table(parshapes(samples), sampleids)
+
+
 # We can now, e.g., find the sample with the maximum posterior value (i.e. the
 # mode):
 
-mode_log_posterior, mode_idx = findmax(tbl.log_posterior)
+mode_log_posterior, mode_idx = findmax(tbl_named.log_posterior)
 
 # And get row `mode_idx` of the table, with all information about the sample
 # at the mode:
@@ -416,7 +429,7 @@ mode_log_posterior, mode_idx = findmax(tbl.log_posterior)
 # As a final step, we retrieve the parameter values at the mode, representing
 # the best-fit parameters
 
-fit_par_values = tbl[mode_idx].params
+fit_par_values = tbl_named[mode_idx].params
 
 # And plot the truth, data, and best fit:
 
@@ -425,8 +438,8 @@ plot(
     st = :steps, label = "Data",
     title = "Data, True Model and Best Fit"
 )
-plot!(-4:0.01:4, x -> fit_function(x, true_par_values), label = "Truth")
-plot!(-4:0.01:4, x -> fit_function(x, fit_par_values), label = "Best fit")
+plot!(-4:0.01:4, x -> fit_function(true_par_values, x), label = "Truth")
+plot!(-4:0.01:4, x -> fit_function(fit_par_values, x), label = "Best fit")
 #jl savefig("tutorial-data-truth-bestfit.pdf")
 #md savefig("tutorial-data-truth-bestfit.pdf")
 #md savefig("tutorial-data-truth-bestfit.svg"); nothing # hide
