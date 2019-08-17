@@ -43,6 +43,14 @@ end
 
 nparams(s::DensitySample) = length(s)
 
+(parshapes::VarShapes)(s::DensitySample) = (
+    params = parshapes(s.params),
+    log_posterior = s.log_posterior,
+    log_prior = s.log_prior,
+    weight = s.weight,
+)
+
+
 
 struct DensitySampleVector{
     P<:Real,T<:AbstractFloat,W<:Real,
@@ -146,6 +154,14 @@ Tables.rows(A::DensitySampleVector) = A
 Tables.schema(A::DensitySampleVector) = Tables.Schema(
     (:params, :log_posterior, :log_prior, :weight),
     (eltype(A.params), eltype(A.log_posterior), eltype(A.log_prior), eltype(A.weight))
+)
+
+
+(parshapes::VarShapes)(A::DensitySampleVector) = TypedTables.Table(
+    params = parshapes(A.params),
+    log_posterior = A.log_posterior,
+    log_prior = A.log_prior,
+    weight = A.weight
 )
 
 
