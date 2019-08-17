@@ -29,7 +29,7 @@ end
 
 param_bounds(density::ConstDensity) = density.bounds
 
-param_shapes(density::ConstDensity) = VarShapes(θ = ArrayShape{Real}(nparams(density)))
+param_shapes(density::ConstDensity) = nothing
 
 Distributions.sampler(density::ConstDensity) = spatialvolume(param_bounds(density))
 

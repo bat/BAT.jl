@@ -41,7 +41,8 @@ ParallelProcessingTools = "0.4.0"
 TypedTables = "1.2.0"
 
 [extras]
+EponymTuples = "97e2ac4a-e175-5f49-beb1-4d6866a6cdc3"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["EponymTuples", "Test"]

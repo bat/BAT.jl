@@ -88,12 +88,13 @@ function MHIterator(
 
     proposaldist = alg.proposalspec(P, npar)
 
-    log_likelihood_value = density_logval(likelihood(postr), params_vec)
-    log_prior_value = density_logval(prior(postr), params_vec)
+    # ToDo: Make numeric type configurable:
 
-    log_posterior_value = log_likelihood_value + log_prior_value
+    (log_prior_value, log_posterior_value) = eval_prior_posterior_logval_strict!(postr, params_vec)
+
     T = typeof(log_posterior_value)
     W = _sample_weight_type(typeof(alg))
+
     current_sample = DensitySample(params_vec, log_posterior_value, convert(T, log_prior_value), one(W))
 
     samples = push!(DensitySampleVector{P,T,W}(npar), current_sample)

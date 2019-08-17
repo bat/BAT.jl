@@ -22,10 +22,27 @@ function prior end
 
 
 @doc """
-    BAT.eval_prior_posterior_logval!(...)
+    BAT.eval_prior_posterior_logval!(
+        T::Type{<:Real},
+        density::AbstractDensity,
+        params::AbstractVector{<:Real}
+    )
 
-Internal function to first apply bounds to the parameters and then
-compute prior and posterior log valued.
+First apply bounds to the parameters, compute prior and posterior log values
+by via `eval_density_logval`.
+
+May modify `params`.
+
+Returns a `NamedTuple{(:log_prior, :log_posterior),Tuple{T,T}}`
+
+Guarantees that  :
+
+* If parameters are still out of bounds after applying bounds,
+  `density_logval` is not called for either prior or likelihood. 
+* If `density_logval` for prior returns `-Inf`, `density_logval` is not called
+  for likelihood.
+
+In both cases, `T(-Inf)` is returned for both prior and posterior.
 """
 function eval_prior_posterior_logval! end
 
@@ -37,16 +54,78 @@ function eval_prior_posterior_logval!(
     bounds = param_bounds(posterior)
     apply_bounds!(params, bounds)
 
-    prior_logval = eval_density_logval!(T, prior(posterior), params, do_applybounds = false)
-    likelihood_logval = if prior_logval > -Inf
-        eval_density_logval!(T, likelihood(posterior), params, do_applybounds = false)
+    parshapes = param_shapes(posterior)
+    zero_prob_logval = convert(T, -Inf)
+
+    prior_logval = if !isoob(params)
+        convert(T, eval_density_logval(prior(posterior), params, parshapes))
     else
-        T(-Inf)
+        zero_prob_logval
     end
-    posterior_logval = prior_logval + likelihood_logval
-    @assert !isnan(prior_logval) || !isnan(posterior_logval)
-    (prior_logval, posterior_logval)
+
+    likelihood_logval = if prior_logval > zero_prob_logval
+        convert(T, eval_density_logval(likelihood(posterior), params, parshapes))
+    else
+        zero_prob_logval
+    end
+
+    posterior_logval = convert(T, prior_logval + likelihood_logval)
+
+    (log_prior = prior_logval, log_posterior = posterior_logval)
 end
+
+
+@doc """
+    BAT.eval_prior_posterior_logval_strict!(
+        density::AbstractDensity,
+        params::AbstractVector{<:Real}
+    )
+
+First apply bounds to the parameters, compute prior and posterior log values
+by via `eval_density_logval`.
+
+May modify `params`.
+
+Returns a `NamedTuple{(:log_prior, :log_posterior),Tuple{T,T}}`. T is
+inferred from value returned by `eval_density_logval` for the likelihood.
+
+Guarantees that  :
+
+* If parameters are still out of bounds after applying bounds,
+  `density_logval` is not called for either prior or likelihood. 
+* If `density_logval` for prior returns `-Inf`, `density_logval` is not called
+  for likelihood.
+
+In both cases, an exception is thrown.
+"""
+function eval_prior_posterior_logval_strict!(
+    posterior::AbstractPosteriorDensity,
+    params::AbstractVector{<:Real}
+)
+    bounds = param_bounds(posterior)
+    apply_bounds!(params, bounds)
+
+    parshapes = param_shapes(posterior)
+
+    prior_logval = if !isoob(params)
+        eval_density_logval(prior(posterior), params, parshapes)
+    else
+        throw(ArgumentError("Parameter(s) out of bounds"))
+    end
+
+    likelihood_logval = if prior_logval > convert(typeof(prior_logval), -Inf)
+        eval_density_logval(likelihood(posterior), params, parshapes)
+    else
+        throw(ErrorException("Prior density must not be zero."))
+    end
+
+    T = typeof(likelihood_logval)
+
+    posterior_logval = convert(T, convert(T, prior_logval) + likelihood_logval)
+
+    (log_prior = prior_logval, log_posterior = posterior_logval)
+end
+
 
 
 function density_logval(density::AbstractPosteriorDensity, params::AbstractVector{<:Real})
@@ -99,48 +178,58 @@ PosteriorDensity(log_likelihood::Function, prior::Any)
 ```
 """
 struct PosteriorDensity{
-    Li<:AbstractDensity,
-    Pr<:AbstractPriorDensity
+    L<:AbstractDensity,
+    P<:AbstractPriorDensity,
+    B<:AbstractParamBounds,
+    S<:Union{VarShapes,Nothing}
 } <: AbstractPosteriorDensity
-    likelihood::Li
-    prior::Pr
-
-    function PosteriorDensity{Li,Pr}(
-        likelihood::Li,
-        prior::Pr
-    ) where {
-        Li<:AbstractDensity,
-        Pr<:AbstractDensity
-    }
-        # ToDo: Check compatibility of likelihood and prior
-        new(likelihood, prior)
-    end
+    likelihood::L
+    prior::P
+    parbounds::B
+    parshapes::S
 end
 
 export PosteriorDensity
 
-
-function PosteriorDensity(likelihood::AbstractDensity, prior::AbstractDensity)
+function PosteriorDensity(likelihood::Any, prior::Any)
     li = convert(AbstractDensity, likelihood)
     pr = convert(AbstractDensity, prior)
-    Li = typeof(likelihood)
-    Pr = typeof(prior)
-    PosteriorDensity{Li,Pr}(li, pr)
-end
 
-function PosteriorDensity(likelihood::Any, prior::Any)
-    conv_prior = convert(AbstractDensity, prior)
-    conv_likelihood = convert(AbstractDensity, likelihood)
-    PosteriorDensity(conv_likelihood, conv_prior)
-end
+    parbounds = _posterior_parbounds(
+        param_bounds(li),
+        param_bounds(pr)
+    )
 
-function PosteriorDensity(log_likelihood::Function, prior::Any)
-    conv_prior = convert(AbstractDensity, prior)
-    conv_likelihood = GenericDensity(log_likelihood, nparams(conv_prior))
-    PosteriorDensity(conv_likelihood, conv_prior)
+    parshapes = _posterior_parshapes(
+        param_shapes(li),
+        param_shapes(pr)
+    )
+
+    PosteriorDensity(li, pr, parbounds, parshapes)
 end
 
 
 likelihood(posterior::PosteriorDensity) = posterior.likelihood
 
 prior(posterior::PosteriorDensity) = posterior.prior
+
+param_bounds(posterior::PosteriorDensity) = posterior.parbounds
+
+param_shapes(posterior::PosteriorDensity) = posterior.parshapes
+
+
+function _posterior_parshapes(li_ps::Union{VarShapes,Nothing}, pr_ps::Union{VarShapes,Nothing})
+    pr_ps == li_ps || throw(ArgumentError("Variable shapes of likelihood and prior do not match"))
+    li_ps
+end
+
+_posterior_parshapes(li_ps::Missing, pr_ps::Union{VarShapes,Nothing}) = pr_ps
+
+_posterior_parshapes(li_ps::Union{VarShapes,Nothing,Missing}, pr_ps::Missing) =
+    throw(ArgumentError("Parameter shapes of prior must not be missing"))
+
+
+_posterior_parbounds(li_bounds::AbstractParamBounds, pr_bounds::AbstractParamBounds) =
+     li_bounds ∩ pr_bounds
+
+_posterior_parbounds(li_bounds::Missing, pr_bounds::AbstractParamBounds) = pr_bounds

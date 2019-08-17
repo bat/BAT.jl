@@ -53,11 +53,6 @@ responsibility to handle these cases.
 function density_logval end
 export density_logval
 
-function density_logval(density::AbstractDensity, params::AbstractVector{<:Real})
-    ps = param_shapes(density)
-    density_logval(density, ps(params))
-end
-
 
 @doc """
     param_bounds(
@@ -80,70 +75,66 @@ density supports a variable number of parameters.
 """
 function nparams(density::AbstractDensity)
     bounds = param_bounds(density)
-    if ismissing(bounds)
-        missing
-    else
-        nparams(bounds)
-    end
+    ismissing(bounds) ? missing : nparams(bounds)
 end
 
 
 @doc """
     param_shapes(
         density::AbstractDensity
-    )::Union{ShapesOfVariables.VarShapes,Missing}
+    )::Union{ShapesOfVariables.VarShapes,Missing,Nothing}
 
-Get the shapes of parameters of `density`. Must return a
-`ShapesOfVariables.VarShapes` object.
+    param_shapes(
+        density::AbstractPriorDensity
+    )::Union{ShapesOfVariables,Nothing}
+
+Get the shapes of parameters of `density`.
+
+For prior densities, the result must not be `missing`, but may be `nothing` if
+the prior only supports flat parameter vectors.
 """
-function param_shapes(density::AbstractDensity)
-    missing
-end
+function param_shapes end
 export param_shapes
 
+param_shapes(density::AbstractDensity) = missing
 
 
 @doc """
-    eval_density_logval!(
-        T::Type{<:Real},
+    eval_density_logval(
         density::AbstractDensity,
         params::AbstractVector{<:Real},
+        parshapes::Union{VarShapes,Nothing}
     )
 
-Apply bounds and then evaluate density and check return value.
+Internal function to evaluate density log-value, calls `density_logval`.
 
-May modify `params` to force them into bounds.
+`parshapes` *must* be compatible with `param_shapes(density)`.
 
-Guarantees that for out-of-bounds parameters:
+Checks that:
 
-* `density_logval` is not called
-* log value of density is set to (resp. returned as) `-Inf`
+* The number of parameters of `density` (if known) matches the length of
+  `params`.
+* The return value of `density_logval` is not `NaN`.
+* The return value of `density_logval` is less than `+Inf`.
 """
-function eval_density_logval! end
-
-function eval_density_logval!(
-    T::Type{<:Real},
+function eval_density_logval(
     density::AbstractDensity,
-    params::AbstractVector{<:Real};
-    do_applybounds::Bool = true
+    params::AbstractVector{<:Real},
+    parshapes::Union{VarShapes,Nothing}
 )
     npars = nparams(density)
     ismissing(npars) || (length(eachindex(params)) == npars) || throw(ArgumentError("Invalid length of parameter vector"))
 
-    bounds = param_bounds(density)
-    if !ismissing(bounds) && do_applybounds
-        apply_bounds!(params, bounds)
-    end
-    if ismissing(bounds) || !isoob(params)
-        ismissing(bounds) || @assert params in bounds  # TODO: Remove later on for increased performance, should never trigger
-        r = density_logval(density, params)
-        isnan(r) && throw(ErrorException("Return value of density_logval must not be NaN"))  
-        T(r)
-    else
-        T(-Inf)
-    end
+    r = float(density_logval(density, _apply_parshapes(params, parshapes)))
+    isnan(r) && throw(ErrorException("Return value of density_logval must not be NaN, density has type $(typeof(density))"))
+    r < convert(typeof(r), +Inf) || throw(ErrorException("Return value of density_logval must not be posivite infinite, density has type $(typeof(density))"))
+
+    r
 end
 
+_apply_parshapes(params::AbstractVector{<:Real}, parshapes::Nothing) = params
+
+_apply_parshapes(params::AbstractVector{<:Real}, parshapes::VarShapes) = parshapes(params)
 
 
 @doc """
@@ -194,14 +185,3 @@ Get the number of parameters of prior density `density`. Must not be
 the number of parameters is inferred from the parameter bounds.
 """
 nparams(density::AbstractPriorDensity) = nparams(param_bounds(density))
-
-
-@doc """
-    param_shapes(density::AbstractPriorDensity)::ShapesOfVariables
-
-Get the shapes of parameters of `density`. Must not be `missing`.
-"""
-function param_shapes end
-
-
-# ToDo: Implement rand and rand! for prior to override rand(rng::AbstractRNG, X)

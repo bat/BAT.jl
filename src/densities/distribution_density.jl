@@ -19,16 +19,18 @@ Base.parent(density::DistributionDensity) = density.d
 
 function density_logval(
     density::DistributionDensity,
-    params::AbstractVector{<:Real}
+    params::Union{NamedTuple, AbstractVector{<:Real}}
 )
     Distributions.logpdf(density.d, params)
 end
 
 param_bounds(density::DistributionDensity) = NoParamBounds(length(density.d))
 
-param_shapes(density::DistributionDensity) = VarShapes(θ = ArrayShape{Real}(nparams(density)))
+param_shapes(density::DistributionDensity) = nothing
 
 Distributions.sampler(density::DistributionDensity) = bat_sampler(parent(density))
+
+Random.Sampler(rng::AbstractRNG, density::DistributionDensity, repetition::Val{1}) = sampler(density)
 
 Statistics.cov(density::DistributionDensity) = cov(density.d)
 
