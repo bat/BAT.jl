@@ -49,7 +49,7 @@ initial_params!(
     rng::AbstractRNG,
     posterior::AbstractPosteriorDensity,
     algorithm::MCMCAlgorithm
-) = rand!(rng, sampler(prior(posterior)), params)
+) = rand!(rng, sampler(getprior(posterior)), params)
 
 
 doc"""

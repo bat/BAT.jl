@@ -5,20 +5,22 @@ abstract type AbstractPosteriorDensity <: AbstractDensity end
 
 
 doc"""
-    BAT.likelihood(posterior::AbstractPosteriorDensity)::AbstractDensity
+    getlikelihood(posterior::AbstractPosteriorDensity)::AbstractDensity
 
 The likelihood density of `posterior`. The likelihood may or may not be
 normalized.
 """
-function likelihood end
+function getlikelihood end
+export getlikelihood
 
 
 doc"""
-    BAT.prior(posterior::AbstractPosteriorDensity)::AbstractDensity
+    getprior(posterior::AbstractPosteriorDensity)::AbstractDensity
 
 The prior density of `posterior`. The prior may or may not be normalized.
 """
-function prior end
+function getprior end
+export getprior
 
 
 @doc """
@@ -58,13 +60,13 @@ function eval_prior_posterior_logval!(
     zero_prob_logval = convert(T, -Inf)
 
     prior_logval = if !isoob(params)
-        convert(T, eval_density_logval(prior(posterior), params, parshapes))
+        convert(T, eval_density_logval(getprior(posterior), params, parshapes))
     else
         zero_prob_logval
     end
 
     likelihood_logval = if prior_logval > zero_prob_logval
-        convert(T, eval_density_logval(likelihood(posterior), params, parshapes))
+        convert(T, eval_density_logval(getlikelihood(posterior), params, parshapes))
     else
         zero_prob_logval
     end
@@ -108,13 +110,13 @@ function eval_prior_posterior_logval_strict!(
     parshapes = param_shapes(posterior)
 
     prior_logval = if !isoob(params)
-        eval_density_logval(prior(posterior), params, parshapes)
+        eval_density_logval(getprior(posterior), params, parshapes)
     else
         throw(ArgumentError("Parameter(s) out of bounds"))
     end
 
     likelihood_logval = if prior_logval > convert(typeof(prior_logval), -Inf)
-        eval_density_logval(likelihood(posterior), params, parshapes)
+        eval_density_logval(getlikelihood(posterior), params, parshapes)
     else
         throw(ErrorException("Prior density must not be zero."))
     end
@@ -129,13 +131,13 @@ end
 
 
 function density_logval(density::AbstractPosteriorDensity, params::AbstractVector{<:Real})
-    density_logval(likelihood(density)) + density_logval(prior(density))
+    density_logval(getlikelihood(density)) + density_logval(getprior(density))
 end
 
 
 function param_bounds(density::AbstractPosteriorDensity)
-    li_bounds = param_bounds(likelihood(density))
-    pr_bounds = param_bounds(prior(density))
+    li_bounds = param_bounds(getlikelihood(density))
+    pr_bounds = param_bounds(getprior(density))
     if ismissing(li_bounds)
         pr_bounds
     else
@@ -145,8 +147,8 @@ end
 
 
 function nparams(density::AbstractPosteriorDensity)
-    li_np = nparams(likelihood(density))
-    pr_np = nparams(prior(density))
+    li_np = nparams(getlikelihood(density))
+    pr_np = nparams(getprior(density))
     ismissing(li_np) || li_np == pr_np || error("Likelihood and prior have different number of parameters")
     pr_np
 end
@@ -165,8 +167,8 @@ representation of the posterior density is cached internally. The densities
 be accessed via
 
 ```julia
-likelihood(posterior::PosteriorDensity)::Li
-prior(posterior::PosteriorDensity)::Pr
+getlikelihood(posterior::PosteriorDensity)::Li
+getprior(posterior::PosteriorDensity)::Pr
 ```
 
 Constructors:
@@ -209,9 +211,9 @@ function PosteriorDensity(likelihood::Any, prior::Any)
 end
 
 
-likelihood(posterior::PosteriorDensity) = posterior.likelihood
+getlikelihood(posterior::PosteriorDensity) = posterior.likelihood
 
-prior(posterior::PosteriorDensity) = posterior.prior
+getprior(posterior::PosteriorDensity) = posterior.prior
 
 param_bounds(posterior::PosteriorDensity) = posterior.parbounds
 
