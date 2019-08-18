@@ -11,13 +11,13 @@ using Distributions, PDMats
     cmat = [1.0 1.5 0.0; 1.5 4.0 0.0; 0.0 0.0 1.0]
     Σ = @inferred PDMat(cmat)
     mvnorm = @inferred  MvNormal(mvec, Σ)
-    mvn_density = @inferred GenericDensity(params -> logpdf(mvnorm, params), 3)
+    mvn_density = @inferred GenericDensity(params -> logpdf(mvnorm, params))
 
     cmat = [3.76748 0.446731 0.625418; 0.446731 3.9317 0.237361; 0.625418 0.237361 3.43867]
     mvec = [1., 2, 1.]
     Σ = @inferred PDMat(cmat)
     mvt = MvTDist(3, mvec, Σ)
-    mvt_density = @inferred GenericDensity(params -> logpdf(mvt, params), 3)
+    mvt_density = @inferred GenericDensity(params -> logpdf(mvt, params))
 
     params = VectorOfSimilarVectors([0.0 -0.3; 0.0 0.3; 0.0 1.0])
     

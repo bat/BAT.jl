@@ -129,9 +129,16 @@ function eval_prior_posterior_logval_strict!(
 end
 
 
-
 function density_logval(density::AbstractPosteriorDensity, params::AbstractVector{<:Real})
-    density_logval(getlikelihood(density)) + density_logval(getprior(density))
+    parshapes = param_shapes(density)
+    eval_density_logval(getprior(density), params, parshapes) +
+    eval_density_logval(getlikelihood(density), params, parshapes)
+end
+
+
+function density_logval(density::AbstractPosteriorDensity, params::NamedTuple)
+    density_logval(getprior(density), params) +
+    density_logval(getlikelihood(density), params)
 end
 
 

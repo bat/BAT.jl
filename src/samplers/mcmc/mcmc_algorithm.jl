@@ -160,7 +160,7 @@ The following methods are implemented by default:
 
 ```julia
 algorithm(chain::MCMCIterator)
-posterior(chain::MCMCIterator)
+getposterior(chain::MCMCIterator)
 rngseed(chain::MCMCIterator)
 nparams(chain::MCMCIterator)
 DensitySampleVector(chain::MCMCIterator)
@@ -198,11 +198,11 @@ function mcmc_step! end
 
 algorithm(chain::MCMCIterator) = mcmc_spec(chain).algorithm
 
-posterior(chain::MCMCIterator) = mcmc_spec(chain).posterior
+getposterior(chain::MCMCIterator) = mcmc_spec(chain).posterior
 
 rngseed(chain::MCMCIterator) = mcmc_spec(chain).rngseed
 
-nparams(chain::MCMCIterator) = nparams(posterior(chain))
+nparams(chain::MCMCIterator) = nparams(getposterior(chain))
 
 DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(sample_type(chain), nparams(chain))
 
