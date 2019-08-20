@@ -249,7 +249,7 @@ function mcmc_step!(
 )
     alg = algorithm(chain)
 
-    if !mcmc_compatible(alg, chain.proposaldist, param_bounds(posterior(chain)))
+    if !mcmc_compatible(alg, chain.proposaldist, param_bounds(getposterior(chain)))
         error("Implementation of algorithm $alg does not support current parameter bounds with current proposal distribution")
     end
 
@@ -257,7 +257,7 @@ function mcmc_step!(
     reset_rng_counters!(chain)
 
     rng = getrng(chain)
-    pstr = posterior(chain)
+    pstr = getposterior(chain)
 
     proposaldist = chain.proposaldist
     samples = chain.samples
