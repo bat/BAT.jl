@@ -14,16 +14,10 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     mvnorm = @inferred  MvNormal(mvec, Σ)
 
     density = let mvnorm = mvnorm
-        @inferred GenericDensity(params -> logpdf(mvnorm, params), 2)
+        @inferred GenericDensity(params -> logpdf(mvnorm, params))
     end
 
     params = [0.0, 0.0]
-
-    @testset "param_bounds" begin
-        pbounds = @inferred param_bounds(density)
-        @test typeof(pbounds) == NoParamBounds
-        @test pbounds.ndims == 2
-    end
 
     @testset "density_logval" begin
         @test @inferred(density_logval(density, params)) ≈ logpdf(mvnorm, params)
@@ -32,9 +26,5 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
 
     @testset "parent" begin
         @test @inferred parent(density) == density.log_f
-    end
-
-    @testset "nparams" begin
-        @test @inferred nparams(density) == 2
     end
 end
