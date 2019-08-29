@@ -36,7 +36,6 @@ using Tables
 using UnsafeArrays
 
 #for AHMI
-# using Cuba
 using QuadGK
 using ProgressMeter
 using DataStructures
