@@ -79,14 +79,13 @@ function calculateuncertainty(dataset::DataSet{T, I}, volume::IntegrationVolume{
     f_min = minimum(f)
 
     y = (x::Float64) -> Float64(f_min + (f_max - f_min) * x)
+    
+    integrand1(x) = pdf_gauss(y(x), μ_Z, σ_μZ_sq) / y(x)^2 * (f_max - f_min)
+    integrand2(x) = pdf_gauss(y(x), μ_Z, σ_μZ_sq) / y(x) * (f_max - f_min)
 
-    integrand1 = (x, f) -> f[1] = pdf_gauss(y(x[1]), μ_Z, σ_μZ_sq) / y(x[1])^2 * (f_max - f_min)
-    integrand2 = (x, f) -> f[1] = pdf_gauss(y(x[1]), μ_Z, σ_μZ_sq) / y(x[1]) * (f_max - f_min)
-
-    integral1 = Cuba.vegas(integrand1, rtol = 0.02).integral[1]
-    integral2 = Cuba.vegas(integrand2, rtol = 0.02).integral[1]
-
-
+    integral1 = QuadGK.quadgk(integrand1,0,1, rtol=0.001)[1]
+    integral2 = QuadGK.quadgk(integrand2,0,1, rtol = 0.001)[1]
+    
     uncertainty_Z = (integral1 - integral2^2) * volume.volume / r / determinant
     #set uncertainty to 0 if it is negative (numerical error)
     if uncertainty_Z < 0
