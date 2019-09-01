@@ -16,7 +16,7 @@ end
 
 function HistogramAsUvDistribution(h::Histogram{<:Real, 1}, T::DataType = Float64)
     nh = normalize(h)
-    _widths::Vector{T} = h.weights 
+    _widths::Vector{T} = h.weights * inv(sum(h.weights))
     _edges::Vector{T} = Vector{Float64}(undef, length(_widths) + 1)
     _edges[1] = 0
     @inbounds for (i, w) in enumerate(_widths)
