@@ -64,5 +64,8 @@ get_cov(d::Distributions.GenericMvTDist) = d.Σ
 
 function set_cov end
 
-set_cov(d::Distributions.GenericMvTDist{T,M}, Σ::M) where {T,M} = Distributions.GenericMvTDist{T,M}(d.df, d.dim, d.zeromean, deepcopy(d.μ), Σ)
-set_cov(d::Distributions.GenericMvTDist{T,M}, Σ::AbstractMatrix{<:Real}) where {T,M<:PDMat} = Distributions.GenericMvTDist{T,M}(d.df, d.dim, d.zeromean, deepcopy(d.μ), PDMat(Σ))
+set_cov(d::Distributions.GenericMvTDist{T,M}, Σ::M) where {T,M} =
+    Distributions.GenericMvTDist{T,M}(d.df, d.dim, d.zeromean, deepcopy(d.μ), Σ)
+
+set_cov(d::Distributions.GenericMvTDist{T,M}, Σ::AbstractMatrix{<:Real}) where {T,M<:PDMat} =
+    set_cov(d, PDMat(convert(Matrix{T}, Σ)))
