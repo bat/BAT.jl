@@ -2,6 +2,8 @@
 
 struct HistogramAsMvDistribution{T, N} <: Distributions.ContinuousMultivariateDistribution
     h::StatsBase.Histogram{<:Real, N}
+    edges::NTuple{N, <:AbstractVector{T}}
+    cart_inds::CartesianIndices{N, NTuple{N, Base.OneTo{Int}}}
 
     _edges::AbstractVector{T}
 
@@ -43,6 +45,8 @@ function HistogramAsMvDistribution(h::StatsBase.Histogram{<:Real, N}, T::DataTyp
 
     return HistogramAsMvDistribution{T, N}(
         nh,
+        collect.(nh.edges),
+        CartesianIndices(nh.weights),
         _edges,
         mean,
         var,
@@ -95,32 +99,28 @@ end
 
 function Distributions._rand!(::AbstractRNG, d::HistogramAsMvDistribution{T,N}, A::AbstractArray{<:Real,1})::Nothing where {T, N}
     rand!(A)
-    next_inds::UnitRange{Int} = searchsorted(d._edges, A[1])
+    next_inds::UnitRange{Int} = searchsorted(d._edges::Vector{T}, A[1]::T)
     cell_lin_index::Int = min(next_inds.start, next_inds.stop)
-    cell_car_index::CartesianIndex{2} = CartesianIndices(size(d.h.weights))[cell_lin_index]
+    cell_car_index = d.cart_inds[cell_lin_index]
     @inbounds for idim in Base.OneTo(N)
         i::Int = cell_car_index[idim]
-        sub_int = d.h.edges[idim][i:i+1]
+        sub_int = d.edges[idim][i:i+1]
         sub_int_width::T = sub_int[2] - sub_int[1]
-        A[idim] = sub_int[1] + (sub_int_width > 0 ? sub_int_width * A[idim] : 0)
+        A[idim] = sub_int[1] + sub_int_width * A[idim]
     end
     return nothing
 end
 function Distributions._rand!(::AbstractRNG, d::HistogramAsMvDistribution{T,N}, A::AbstractArray{<:Real,2})::Nothing where {T, N}
     rand!(A)
     @inbounds for i in axes(A, 2)
-        next_inds = searchsorted(d._edges, A[1, i])
-        cell_lin_index = min(next_inds.start, next_inds.stop)
-        cell_car_index = CartesianIndices(size(d.h.weights))[cell_lin_index]
-
+        next_inds::UnitRange{Int} = searchsorted(d._edges, A[1, i])
+        cell_lin_index::Int = min(next_inds.start, next_inds.stop)
+        cell_car_index = d.cart_inds[cell_lin_index]
         @inbounds for idim in Base.OneTo(N)
-            sub_int = NTuple{2, T}((d.h.edges[idim][cell_car_index[idim]], d.h.edges[idim][cell_car_index[idim] + 1]))
+            j::Int = cell_car_index[idim]
+            sub_int = d.edges[idim][j:j+1]
             sub_int_width = sub_int[2] - sub_int[1]
-            r::T = A[idim, i]
-            A[idim, i] = sub_int[1]
-            if sub_int_width > 0 
-                A[idim, i] += sub_int_width * r
-            end
+            A[idim, i] = sub_int[1] + sub_int_width * A[idim, i]
         end
     end
     return nothing
