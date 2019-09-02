@@ -41,9 +41,9 @@ function HistogramAsMvDistribution(h::StatsBase.Histogram{<:Real, N}, T::DataTyp
         probabilty_edges[i+1] = v > 1 ? 1 : v
     end
 
-    mean = StatsBase.mean(h)
-    var = StatsBase.var(h, mean = mean)
-    cov = StatsBase.cov(h, mean = mean)
+    mean = _mean(h)
+    var = _var(h, mean = mean)
+    cov = _cov(h, mean = mean)
 
     return HistogramAsMvDistribution{T, N}(
         nh,
@@ -57,7 +57,7 @@ function HistogramAsMvDistribution(h::StatsBase.Histogram{<:Real, N}, T::DataTyp
 end
 
 
-function StatsBase.mean(h::StatsBase.Histogram{<:Real, N}; T::DataType = Float64) where {N}
+function _mean(h::StatsBase.Histogram{<:Real, N}; T::DataType = Float64) where {N}
     s_inv::T = inv(sum(h.weights))
     m::Vector{T} = zeros(T, N)
     mps = StatsBase.midpoints.(h.edges)
@@ -70,7 +70,7 @@ function StatsBase.mean(h::StatsBase.Histogram{<:Real, N}; T::DataType = Float64
     return m
 end
 
-function StatsBase.var(h::StatsBase.Histogram{<:Real, N}; T::DataType = Float64, mean = StatsBase.mean(h, T = T), ) where {N}
+function _var(h::StatsBase.Histogram{<:Real, N}; T::DataType = Float64, mean = StatsBase.mean(h, T = T), ) where {N}
     s_inv::T = inv(sum(h.weights))
     v::Vector{T} = zeros(T, N)
     mps = StatsBase.midpoints.(h.edges)
@@ -83,7 +83,7 @@ function StatsBase.var(h::StatsBase.Histogram{<:Real, N}; T::DataType = Float64,
     return v
 end
 
-function StatsBase.cov(h::StatsBase.Histogram{<:Real, N}; T::DataType = Float64, mean = StatsBase.mean(h, T = T)) where {N}
+function _cov(h::StatsBase.Histogram{<:Real, N}; T::DataType = Float64, mean = StatsBase.mean(h, T = T)) where {N}
     s_inv::T = inv(sum(h.weights))
     c::Matrix{T} = zeros(T, N, N)
     mps = StatsBase.midpoints.(h.edges)
