@@ -117,3 +117,4 @@ _np_bounds(d::HistogramAsUvDistribution) =
 
 Statistics.mean(d::HistogramAsUvDistribution) = d.μ
 Statistics.var(d::HistogramAsUvDistribution) = d.var
+Statistics.cov(d::HistogramAsUvDistribution) = d.cov
