@@ -1,3 +1,5 @@
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
 struct HistogramAsUvDistribution{T <: AbstractFloat} <: ContinuousUnivariateDistribution
     h::Histogram{<:Real, 1}
     inv_weights::Vector{T} 
@@ -10,7 +12,7 @@ struct HistogramAsUvDistribution{T <: AbstractFloat} <: ContinuousUnivariateDist
     
     _acc_prob::Vector{T}
 
-    mean::T
+    μ::T
     var::T
     cov::Matrix{T}
     σ::T
