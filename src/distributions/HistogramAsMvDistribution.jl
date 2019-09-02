@@ -99,8 +99,8 @@ function _cov(h::StatsBase.Histogram{<:Real, N}; T::DataType = Float64, mean = S
 end
 
 
-function Distributions._rand!(::AbstractRNG, d::HistogramAsMvDistribution{T,N}, A::AbstractArray{<:Real,1})::Nothing where {T, N}
-    rand!(A)
+function Distributions._rand!(r::AbstractRNG, d::HistogramAsMvDistribution{T,N}, A::AbstractArray{<:Real,1})::Nothing where {T, N}
+    rand!(r, A)
     next_inds::UnitRange{Int} = searchsorted(d.probabilty_edges::Vector{T}, A[1]::T)
     cell_lin_index::Int = min(next_inds.start, next_inds.stop)
     cell_car_index = d.cart_inds[cell_lin_index]
@@ -112,8 +112,8 @@ function Distributions._rand!(::AbstractRNG, d::HistogramAsMvDistribution{T,N}, 
     end
     return nothing
 end
-function Distributions._rand!(::AbstractRNG, d::HistogramAsMvDistribution{T,N}, A::AbstractArray{<:Real,2})::Nothing where {T, N}
-    rand!(A)
+function Distributions._rand!(r::AbstractRNG, d::HistogramAsMvDistribution{T,N}, A::AbstractArray{<:Real,2})::Nothing where {T, N}
+    rand!(r, A)
     @inbounds for i in axes(A, 2)
         next_inds::UnitRange{Int} = searchsorted(d.probabilty_edges, A[1, i])
         cell_lin_index::Int = min(next_inds.start, next_inds.stop)
