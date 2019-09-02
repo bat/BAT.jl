@@ -1,0 +1,139 @@
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
+struct HistogramAsMvDistribution{T, N} <: Distributions.ContinuousMultivariateDistribution
+    h::StatsBase.Histogram{<:Real, N}
+
+    _edges::AbstractVector{T}
+
+    μ::AbstractVector{T}
+    var::AbstractVector{T}
+    cov::AbstractMatrix{T}
+end
+
+Base.length(d::HistogramAsMvDistribution{T, N}) where {T, N} = N
+Base.size(d::HistogramAsMvDistribution{T, N}) where {T, N} = (N,)
+Base.eltype(d::HistogramAsMvDistribution{T, N}) where {T, N} = T
+
+Statistics.mean(d::HistogramAsMvDistribution{T, N}) where {T, N} = d.μ
+Statistics.var(d::HistogramAsMvDistribution{T, N}) where {T, N} = d.var
+Statistics.cov(d::HistogramAsMvDistribution{T, N}) where {T, N} = d.cov
+
+param_shapes(d::HistogramAsMvDistribution{T, N}) where {T, N} = BAT.NoParamBounds(length(d))
+_np_valshape(d::HistogramAsMvDistribution{T, N}) where {T, N} = ArrayShape{Real}(size(d)...)
+function _np_bounds(d::HistogramAsMvDistribution{T, N}) where {T, N} 
+    left_bounds  = [ first(d.h.edges[i]) for i in 1:N ]
+    right_bounds = [  prevfloat(last(d.h.edges[i])) for i in 1:N ]
+    HyperRectBounds(T.(left_bounds), T.(right_bounds), hard_bounds)
+end
+
+function HistogramAsMvDistribution(h::StatsBase.Histogram{<:Real, N}, T::DataType = Float64) where {N}
+    nh = normalize(h)
+
+    _widths = nh.weights * inv(sum(nh.weights))
+    _edges::Vector{T} = Vector{Float64}(undef, length(h.weights) + 1)  
+    _edges[1] = 0
+    for (i, w) in enumerate(_widths)
+        v = _edges[i] + _widths[i]
+        _edges[i+1] = v > 1 ? 1 : v
+    end
+
+    mean = StatsBase.mean(h)
+    var = StatsBase.var(h, mean = mean)
+    cov = StatsBase.cov(h, mean = mean)
+
+    return HistogramAsMvDistribution{T, N}(
+        nh,
+        _edges,
+        mean,
+        var,
+        cov
+    )
+end
+
+
+function StatsBase.mean(h::StatsBase.Histogram{<:Real, N}; T::DataType = Float64) where {N}
+    s_inv::T = inv(sum(h.weights))
+    m::Vector{T} = zeros(T, N)
+    mps = StatsBase.midpoints.(h.edges)
+    cart_inds = CartesianIndices(h.weights)
+    @inbounds for i in eachindex(h.weights)
+        for idim in 1:N
+            m[idim] += s_inv * mps[idim][cart_inds[i][idim]] * h.weights[i]
+        end
+    end
+    return m
+end
+
+function StatsBase.var(h::StatsBase.Histogram{<:Real, N}; T::DataType = Float64, mean = StatsBase.mean(h, T = T), ) where {N}
+    s_inv::T = inv(sum(h.weights))
+    v::Vector{T} = zeros(T, N)
+    mps = StatsBase.midpoints.(h.edges)
+    cart_inds = CartesianIndices(h.weights)
+    @inbounds for i in eachindex(h.weights)
+        for idim in 1:N
+            v[idim] += s_inv * (mps[idim][cart_inds[i][idim]] - mean[idim])^2 * h.weights[i]
+        end
+    end
+    return v
+end
+
+function StatsBase.cov(h::StatsBase.Histogram{<:Real, N}; T::DataType = Float64, mean = StatsBase.mean(h, T = T)) where {N}
+    s_inv::T = inv(sum(h.weights))
+    c::Matrix{T} = zeros(T, N, N)
+    mps = StatsBase.midpoints.(h.edges)
+    cart_inds = CartesianIndices(h.weights)
+    @inbounds for i in eachindex(h.weights)
+        for idim in 1:N
+            for jdim in 1:N
+                c[idim, jdim] += s_inv * (mps[idim][cart_inds[i][idim]] - mean[idim]) * (mps[jdim][cart_inds[i][jdim]] - mean[jdim]) * h.weights[i]
+            end
+        end
+    end
+    return c
+end
+
+
+function Distributions._rand!(::AbstractRNG, d::HistogramAsMvDistribution{T,N}, A::AbstractArray{<:Real,1})::Nothing where {T, N}
+    rand!(A)
+    next_inds::UnitRange{Int} = searchsorted(d._edges, A[1])
+    cell_lin_index::Int = min(next_inds.start, next_inds.stop)
+    cell_car_index::CartesianIndex{2} = CartesianIndices(size(d.h.weights))[cell_lin_index]
+    @inbounds for idim in Base.OneTo(N)
+        i::Int = cell_car_index[idim]
+        sub_int = d.h.edges[idim][i:i+1]
+        sub_int_width::T = sub_int[2] - sub_int[1]
+        A[idim] = sub_int[1] + (sub_int_width > 0 ? sub_int_width * A[idim] : 0)
+    end
+    return nothing
+end
+function Distributions._rand!(::AbstractRNG, d::HistogramAsMvDistribution{T,N}, A::AbstractArray{<:Real,2})::Nothing where {T, N}
+    rand!(A)
+    @inbounds for i in axes(A, 2)
+        next_inds = searchsorted(d._edges, A[1, i])
+        cell_lin_index = min(next_inds.start, next_inds.stop)
+        cell_car_index = CartesianIndices(size(d.h.weights))[cell_lin_index]
+
+        @inbounds for idim in Base.OneTo(N)
+            sub_int = NTuple{2, T}((d.h.edges[idim][cell_car_index[idim]], d.h.edges[idim][cell_car_index[idim] + 1]))
+            sub_int_width = sub_int[2] - sub_int[1]
+            r::T = A[idim, i]
+            A[idim, i] = sub_int[1]
+            if sub_int_width > 0 
+                A[idim, i] += sub_int_width * r
+            end
+        end
+    end
+    return nothing
+end
+
+function Distributions.pdf(d::HistogramAsMvDistribution{T, N}, x::AbstractArray{<:Real, 1}) where {T, N}
+    return @inbounds d.h.weights[StatsBase.binindex(d.h, Tuple(x))...]
+end
+function Distributions.logpdf(d::HistogramAsMvDistribution{T, N}, x::AbstractArray{<:Real, 1}) where {T, N}
+    return log(pdf(d, x))
+end
+function Distributions._logpdf(d::HistogramAsMvDistribution{T,N}, x::AbstractArray{<:Real, 1}) where {T, N}
+    return logpdf(d, x)
+end
+
+
