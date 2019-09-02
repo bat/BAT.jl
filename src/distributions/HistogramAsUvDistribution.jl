@@ -12,6 +12,8 @@ struct HistogramAsUvDistribution{T <: AbstractFloat} <: ContinuousUnivariateDist
 
     mean::T
     var::T
+    cov::Matrix{T}
+    σ::T
 end
 
 function HistogramAsUvDistribution(h::Histogram{<:Real, 1}, T::DataType = Float64)
@@ -42,7 +44,9 @@ function HistogramAsUvDistribution(h::Histogram{<:Real, 1}, T::DataType = Float6
         inv.(_widths),
         _acc_prob,
         mean, 
-        var
+        var,
+        fill(var, 1, 1),
+        sqrt(var)
     )
 end 
 
@@ -109,5 +113,5 @@ Base.eltype(d::HistogramAsUvDistribution{T}) where {T <: AbstractFloat}= T
 _np_bounds(d::HistogramAsUvDistribution) = 
     HyperRectBounds(Vector{eltype(d)}([quantile(d, 0)]), Vector{eltype(d)}([quantile(d, 1)]), hard_bounds)
 
-Statistics.mean(d::HistogramAsUvDistribution) = d.mean
+Statistics.mean(d::HistogramAsUvDistribution) = d.μ
 Statistics.var(d::HistogramAsUvDistribution) = d.var
