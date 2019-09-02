@@ -5,7 +5,7 @@ struct HistogramAsMvDistribution{T, N} <: Distributions.ContinuousMultivariateDi
     edges::NTuple{N, <:AbstractVector{T}}
     cart_inds::CartesianIndices{N, NTuple{N, Base.OneTo{Int}}}
 
-    _edges::AbstractVector{T}
+    probabilty_edges::AbstractVector{T}
 
     μ::AbstractVector{T}
     var::AbstractVector{T}
@@ -21,7 +21,9 @@ Statistics.var(d::HistogramAsMvDistribution{T, N}) where {T, N} = d.var
 Statistics.cov(d::HistogramAsMvDistribution{T, N}) where {T, N} = d.cov
 
 param_shapes(d::HistogramAsMvDistribution{T, N}) where {T, N} = BAT.NoParamBounds(length(d))
+
 _np_valshape(d::HistogramAsMvDistribution{T, N}) where {T, N} = ArrayShape{Real}(size(d)...)
+
 function _np_bounds(d::HistogramAsMvDistribution{T, N}) where {T, N} 
     left_bounds  = [ first(d.h.edges[i]) for i in 1:N ]
     right_bounds = [  prevfloat(last(d.h.edges[i])) for i in 1:N ]
@@ -31,12 +33,12 @@ end
 function HistogramAsMvDistribution(h::StatsBase.Histogram{<:Real, N}, T::DataType = Float64) where {N}
     nh = normalize(h)
 
-    _widths = nh.weights * inv(sum(nh.weights))
-    _edges::Vector{T} = Vector{Float64}(undef, length(h.weights) + 1)  
-    _edges[1] = 0
-    for (i, w) in enumerate(_widths)
-        v = _edges[i] + _widths[i]
-        _edges[i+1] = v > 1 ? 1 : v
+    probabilty_widths = nh.weights * inv(sum(nh.weights))
+    probabilty_edges::Vector{T} = Vector{Float64}(undef, length(h.weights) + 1)  
+    probabilty_edges[1] = 0
+    for (i, w) in enumerate(probabilty_widths)
+        v = probabilty_edges[i] + probabilty_widths[i]
+        probabilty_edges[i+1] = v > 1 ? 1 : v
     end
 
     mean = StatsBase.mean(h)
@@ -47,7 +49,7 @@ function HistogramAsMvDistribution(h::StatsBase.Histogram{<:Real, N}, T::DataTyp
         nh,
         collect.(nh.edges),
         CartesianIndices(nh.weights),
-        _edges,
+        probabilty_edges,
         mean,
         var,
         cov
@@ -99,7 +101,7 @@ end
 
 function Distributions._rand!(::AbstractRNG, d::HistogramAsMvDistribution{T,N}, A::AbstractArray{<:Real,1})::Nothing where {T, N}
     rand!(A)
-    next_inds::UnitRange{Int} = searchsorted(d._edges::Vector{T}, A[1]::T)
+    next_inds::UnitRange{Int} = searchsorted(d.probabilty_edges::Vector{T}, A[1]::T)
     cell_lin_index::Int = min(next_inds.start, next_inds.stop)
     cell_car_index = d.cart_inds[cell_lin_index]
     @inbounds for idim in Base.OneTo(N)
@@ -113,7 +115,7 @@ end
 function Distributions._rand!(::AbstractRNG, d::HistogramAsMvDistribution{T,N}, A::AbstractArray{<:Real,2})::Nothing where {T, N}
     rand!(A)
     @inbounds for i in axes(A, 2)
-        next_inds::UnitRange{Int} = searchsorted(d._edges, A[1, i])
+        next_inds::UnitRange{Int} = searchsorted(d.probabilty_edges, A[1, i])
         cell_lin_index::Int = min(next_inds.start, next_inds.stop)
         cell_car_index = d.cart_inds[cell_lin_index]
         @inbounds for idim in Base.OneTo(N)
