@@ -5,4 +5,5 @@ using Test
 Test.@testset "distributions" begin
     include("test_distribution_functions.jl")
     include("test_bat_sampler.jl")
+    include("test_histograms_as_distributions.jl")
 end
