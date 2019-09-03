@@ -8,10 +8,10 @@ using Distributions, StatsBase
 
 
 @testset "HistogramAsUvDistribution" begin
+    Random.seed!(123)
     μ, σ = 1.23, 0.74
     true_dist = Normal(μ, σ)
     h = Histogram(μ-10σ:σ/10:μ+10σ)
-    Random.seed!(123)
     append!(h, rand(true_dist, 10^7))
     d = BAT.HistogramAsUvDistribution(h)
     @test isapprox(μ, d.μ, atol = 0.01)

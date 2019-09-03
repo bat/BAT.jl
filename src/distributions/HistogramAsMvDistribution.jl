@@ -62,9 +62,9 @@ function _mean(h::StatsBase.Histogram{<:Real, N}; T::DataType = Float64) where {
     m::Vector{T} = zeros(T, N)
     mps = StatsBase.midpoints.(h.edges)
     cart_inds = CartesianIndices(h.weights)
-    @inbounds for i in eachindex(h.weights)
+    for i in cart_inds
         for idim in 1:N
-            m[idim] += s_inv * mps[idim][cart_inds[i][idim]] * h.weights[i]
+            m[idim] += s_inv * mps[idim][i[idim]] * h.weights[i]
         end
     end
     return m
@@ -75,9 +75,9 @@ function _var(h::StatsBase.Histogram{<:Real, N}; T::DataType = Float64, mean = S
     v::Vector{T} = zeros(T, N)
     mps = StatsBase.midpoints.(h.edges)
     cart_inds = CartesianIndices(h.weights)
-    @inbounds for i in eachindex(h.weights)
+    for i in cart_inds
         for idim in 1:N
-            v[idim] += s_inv * (mps[idim][cart_inds[i][idim]] - mean[idim])^2 * h.weights[i]
+            v[idim] += s_inv * (mps[idim][i[idim]] - mean[idim])^2 * h.weights[i]
         end
     end
     return v
@@ -88,10 +88,10 @@ function _cov(h::StatsBase.Histogram{<:Real, N}; T::DataType = Float64, mean = S
     c::Matrix{T} = zeros(T, N, N)
     mps = StatsBase.midpoints.(h.edges)
     cart_inds = CartesianIndices(h.weights)
-    @inbounds for i in eachindex(h.weights)
+    for i in cart_inds
         for idim in 1:N
             for jdim in 1:N
-                c[idim, jdim] += s_inv * (mps[idim][cart_inds[i][idim]] - mean[idim]) * (mps[jdim][cart_inds[i][jdim]] - mean[jdim]) * h.weights[i]
+                c[idim, jdim] += s_inv * (mps[idim][i[idim]] - mean[idim]) * (mps[jdim][i[jdim]] - mean[jdim]) * h.weights[i]
             end
         end
     end
@@ -99,27 +99,22 @@ function _cov(h::StatsBase.Histogram{<:Real, N}; T::DataType = Float64, mean = S
 end
 
 
-function Distributions._rand!(r::AbstractRNG, d::HistogramAsMvDistribution{T,N}, A::AbstractArray{<:Real,1})::Nothing where {T, N}
-    @inbounds begin
-        rand!(r, A)
-        next_inds::UnitRange{Int} = searchsorted(d.probabilty_edges::Vector{T}, A[1]::T)
-        cell_lin_index::Int = min(next_inds.start, next_inds.stop)
-        cell_car_index = d.cart_inds[cell_lin_index]
-        for idim in Base.OneTo(N)
-            i = cell_car_index[idim]
-            sub_int = d.edges[idim][i:i+1]
-            sub_int_width::T = sub_int[2] - sub_int[1]
-            A[idim] = sub_int[1] + sub_int_width * A[idim]
-        end
+function Distributions._rand!(r::AbstractRNG, d::HistogramAsMvDistribution{T,N}, A::AbstractVector{<:Real}) where {T, N}
+    rand!(r, A)
+    next_inds::UnitRange{Int} = searchsorted(d.probabilty_edges::Vector{T}, A[1]::T)
+    cell_lin_index::Int = min(next_inds.start, next_inds.stop)
+    cell_car_index = d.cart_inds[cell_lin_index]
+    for idim in Base.OneTo(N)
+        i = cell_car_index[idim]
+        sub_int = d.edges[idim][i:i+1]
+        sub_int_width::T = sub_int[2] - sub_int[1]
+        A[idim] = sub_int[1] + sub_int_width * A[idim]
     end
-    return nothing
+    return A
 end
 
-function Distributions._rand!(r::AbstractRNG, d::HistogramAsMvDistribution{T,N}, A::AbstractArray{<:Real,2})::Nothing where {T, N}
-    @inbounds for i in axes(A, 2)
-        a = view(A, :, i)
-        Distributions._rand!(r, d, a)
-    end
+function Distributions._rand!(r::AbstractRNG, d::HistogramAsMvDistribution{T,N}, A::AbstractMatrix{<:Real}) where {T, N}
+    Distributions._rand!.((r,), (d,), nestedview(A))
 end
 
 function Distributions.pdf(d::HistogramAsMvDistribution{T, N}, x::AbstractArray{<:Real, 1}) where {T, N}
