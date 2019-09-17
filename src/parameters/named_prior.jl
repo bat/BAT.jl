@@ -48,6 +48,7 @@ _np_dist_shape_bounds(s::ConstValueShape) = (_np_distribution(s), s, _np_bounds(
 
 _np_dist_shape_bounds(s::AbstractInterval) = _np_dist_shape_bounds(Uniform(minimum(s), maximum(s)))
 _np_dist_shape_bounds(xs::AbstractVector{<:AbstractInterval}) = _np_dist_shape_bounds(Product((s -> Uniform(minimum(s), maximum(s))).(xs)))
+_np_dist_shape_bounds(xs::AbstractVector{<:Distribution}) = _np_dist_shape_bounds(Product(xs))
 _np_dist_shape_bounds(x::Number) = _np_dist_shape_bounds(ConstValueShape(x))
 _np_dist_shape_bounds(x::AbstractArray{<:Number}) = _np_dist_shape_bounds(ConstValueShape(x))
 
