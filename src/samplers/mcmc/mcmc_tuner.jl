@@ -194,7 +194,11 @@ function mcmc_init(
             )
 
             nsamples_thresh = floor(Int, 0.8 * median([nsamples(chain) for chain in viable_chains]))
-            good_idxs = findall(chain -> nsamples(chain) >= nsamples_thresh, viable_chains)
+            
+            good_idxs_nsmpl = findall(chain -> nsamples(chain) >= nsamples_thresh, viable_chains)
+            good_idxs_lik = findall(tuner -> tuner.stats.logtf_stats.mean[] > -Inf, viable_tuners)
+            good_idxs = intersect(good_idxs_nsmpl, good_idxs_lik)
+
             @debug "Found $(length(viable_tuners)) MCMC chain(s) with at least $(nsamples_thresh) samples."
 
             append!(chains, view(viable_chains, good_idxs))
