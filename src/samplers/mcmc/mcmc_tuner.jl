@@ -9,6 +9,7 @@ abstract type AbstractMCMCTuner end
 export AbstractMCMCTuner
 
 
+function isvalid end
 function isviable end
 
 function tuning_init! end
@@ -110,6 +111,8 @@ struct NoOpTuner{C<:MCMCIterator} <: AbstractMCMCTuner end
 export NoOpTuner
 
 
+isvalid(chain::MCMCIterator) = current_sample(chain).log_posterior > -Inf
+
 isviable(tuner::NoOpTuner, chain::MCMCIterator) = true
 
 
@@ -173,6 +176,9 @@ function mcmc_init(
         @debug "Generating $n $(cycle > 1 ? "additional " : "")MCMC chain(s)."
 
         new_chains = _gen_chains(ncandidates .+ (one(Int64):n), chainspec)
+
+        filter!(isvalid, new_chains)
+
         new_tuners = tuner_config.(new_chains)
         tuning_init!.(new_tuners, new_chains)
         ncandidates += n
