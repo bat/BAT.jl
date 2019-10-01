@@ -104,7 +104,7 @@ function bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats},
     σ_V = N^2/m*σ_W + 2*M/(m-1)*B.^2 + 2*M*N/m*(cov_σx_sq - 2*B.*cov_σx)
     d = 2 * V.^2 ./ σ_V
 
-    R_unc.*(d+3)./(d+1)
+    R_unc.*(d.+3)./(d.+1)
 end
 
 
