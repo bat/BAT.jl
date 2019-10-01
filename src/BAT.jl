@@ -27,6 +27,7 @@ using IntervalSets
 using PDMats
 using ParallelProcessingTools
 using Parameters
+using PositiveFactorizations
 using ProgressMeter
 using RecipesBase
 using Requires
