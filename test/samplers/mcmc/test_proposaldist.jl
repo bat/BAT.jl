@@ -38,7 +38,7 @@ test_sampler(tmv::test_mvdist) = tmv.d
         @test typeof(mvN_gpd.d) <: MvNormal
 
         mv_gpd = @inferred GenericProposalDist(MvTDist, 2, 5)
-        @test typeof(mv_gpd.d) <: MvTDist
+        @test typeof(mv_gpd.d) <: Distributions.GenericMvTDist
         @test length(mv_gpd.d) == 2
         @test mv_gpd.d.df == 5
 
@@ -71,7 +71,7 @@ test_sampler(tmv::test_mvdist) = tmv.d
 
         gpd = @inferred GenericProposalDist(MvTDist, Float64, 3, 2.0)
         @test nparams(gpd) == 3
-        @test typeof(gpd) <: GenericProposalDist{MvTDist, typeof(bat_sampler)}
+        @test typeof(gpd) <: GenericProposalDist{<:Distributions.GenericMvTDist, typeof(bat_sampler)}
         @test gpd.d.df ≈ 2.0
 
     end
@@ -110,7 +110,7 @@ test_sampler(tmv::test_mvdist) = tmv.d
 
         gpd = @inferred mvTps(Float64, 3)
         @test nparams(gpd) == 3
-        @test typeof(gpd) <: GenericProposalDist{MvTDist, typeof(bat_sampler)}
+        @test typeof(gpd) <: GenericProposalDist{<:Distributions.GenericMvTDist, typeof(bat_sampler)}
         @test gpd.d.df ≈ 4.0
     end
 end

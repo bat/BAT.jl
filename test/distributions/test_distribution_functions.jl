@@ -8,13 +8,6 @@ using Distributions, PDMats, StatsBase
 
 
 @testset "distribution_functions" begin
-    @testset "_iszero" begin
-        @test BAT._iszero(zero(Float64))
-        @test BAT._iszero(zeros(Float32,4,4))
-        @test !BAT._iszero(ones(Float32,4,4))
-        @test BAT._iszero(Distributions.ZeroVector(Float64, 4))
-    end
-
     @testset "_check_rand_compat" begin
         @test BAT._check_rand_compat(MvNormal(ones(2)), ones(2,10)) == nothing
         @test_throws DimensionMismatch BAT._check_rand_compat(MvNormal(ones(3)), ones(2,10))

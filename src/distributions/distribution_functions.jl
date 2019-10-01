@@ -1,11 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-# Workaround for Distributions.jl issue #647
-_iszero(x) = iszero(x)
-_iszero(::Distributions.ZeroVector) = true
-
-
 function _check_rand_compat(s::Sampleable{Multivariate}, A::Union{AbstractVector,AbstractMatrix})
     size(A, 1) == length(s) || throw(DimensionMismatch("Output size inconsistent with sample length."))
     nothing
@@ -52,7 +47,7 @@ issymmetric_around_origin(d::Chisq) = false
 
 issymmetric_around_origin(d::TDist) = true
 
-issymmetric_around_origin(d::MvNormal) = _iszero(d.μ)
+issymmetric_around_origin(d::MvNormal) = iszero(d.μ)
 
 issymmetric_around_origin(d::Distributions.GenericMvTDist) = d.zeromean
 
@@ -64,8 +59,8 @@ get_cov(d::Distributions.GenericMvTDist) = d.Σ
 
 function set_cov end
 
-set_cov(d::Distributions.GenericMvTDist{T,M}, Σ::M) where {T,M} =
-    Distributions.GenericMvTDist{T,M}(d.df, d.dim, d.zeromean, deepcopy(d.μ), Σ)
+set_cov(d::Distributions.GenericMvTDist{T,Cov}, Σ::Cov) where {T,Cov} =
+    Distributions.GenericMvTDist(d.df, deepcopy(d.μ), Σ)
 
-set_cov(d::Distributions.GenericMvTDist{T,M}, Σ::AbstractMatrix{<:Real}) where {T,M<:PDMat} =
+set_cov(d::Distributions.GenericMvTDist{T,Cov}, Σ::AbstractMatrix{<:Real}) where {T,Cov<:PDMat} =
     set_cov(d, PDMat(convert(Matrix{T}, Σ)))
