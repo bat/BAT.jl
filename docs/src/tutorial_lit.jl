@@ -261,7 +261,7 @@ chainspec = MCMCSpec(algorithm, posterior, rngseed)
 # Let's use 4 MCMC chains and require 10^5 unique samples from each chain
 # (after tuning/burn-in):
 
-nsamples = 10^5
+nsamples = 10^4
 nchains = 4
 #md nothing # hide
 
@@ -313,7 +313,7 @@ samples, sampleids, stats, chains = rand(
     convergence_test = convergence_test,
     init_strategy = init_strategy,
     burnin_strategy = burnin_strategy,
-    max_nsteps = 10000,
+    max_nsteps = 10^5,
     max_time = Inf,
     granularity = 1
 )
