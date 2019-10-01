@@ -39,11 +39,9 @@ end
 
 Gelman-Rubin ``\$maximum(R^2)\$`` convergence test.
 """
-struct GRConvergence <: MCMCConvergenceTest
-    threshold::Float64
+@with_kw struct GRConvergence <: MCMCConvergenceTest
+    threshold::Float64 = 1.1
 end
-
-GRConvergence() = GRConvergence(1.1)
 
 export GRConvergence
 
@@ -67,14 +65,12 @@ end
 
 
 doc"""
-    bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats})
+    bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats}; corrected::Bool = false)
 
 Brooks-Gelman $R_2^2$ for all parameters.
 If normality is assumed, 'corrected' should be set to true to account for the sampling variability.
 """
-function bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats},
-                  corrected::Bool=false)
-    
+function bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats}; corrected::Bool = false)
     p = nparams(first(stats))
     m = length(stats)
     n = mean(Float64.(nsamples.(stats)))
@@ -114,11 +110,11 @@ doc"""
 
 Brooks-Gelman $maximum(R^2)$ convergence test.
 """
-struct BGConvergence <: MCMCConvergenceTest
-    threshold::Float64
-end
+@with_kw struct BGConvergence <: MCMCConvergenceTest
+    threshold::Float64 = 1.1
+    corrected::Bool = false
 
-BGConvergence() = BGConvergence(1.1)
+end
 
 export BGConvergence
 
@@ -130,7 +126,7 @@ end
 
 
 function check_convergence(ct::BGConvergence, stats::AbstractVector{<:MCMCBasicStats})
-    max_Rsqr = maximum(bg_R_2sqr(stats))
+    max_Rsqr = maximum(bg_R_2sqr(stats, corrected = ct.corrected))
     converged = max_Rsqr <= ct.threshold
     @debug begin
         success_str = converged ? "have" : "have *not*"

@@ -276,7 +276,10 @@ tuner_config = ProposalCovTunerConfig(
     c = 1e-4..1e2
 )
 
-convergence_test = BGConvergence(1.1)
+convergence_test = BGConvergence(
+    threshold = 1.1,
+    corrected = false
+)
 
 init_strategy = MCMCInitStrategy(
     ninit_tries_per_chain = 8..128,
