@@ -57,6 +57,11 @@ function mcmc_tune_burnin!(
     cycles = zero(Int)
     successful = false
     while !successful && cycles < burnin_strategy.max_ncycles
+        stats = [x.stats for x in tuners] # ToDo: Find more generic abstraction
+
+        # Clear all stats before tuning cycle
+        empty!.(stats)
+
         cycles += 1
         run_tuning_cycle!(
             user_callbacks, tuners, chains;
@@ -65,7 +70,6 @@ function mcmc_tune_burnin!(
             max_time = burnin_strategy.max_time_per_cycle
         )
 
-        stats = [x.stats for x in tuners] # ToDo: Find more generic abstraction
         ct_result = check_convergence!(convergence_test, chains, stats)
 
         ntuned = count(c -> c.info.tuned, chains)
