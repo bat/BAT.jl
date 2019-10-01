@@ -24,9 +24,10 @@ using DoubleFloats
 using ElasticArrays
 using FunctionWrappers
 using IntervalSets
+using PDMats
 using ParallelProcessingTools
 using Parameters
-using PDMats
+using ProgressMeter
 using RecipesBase
 using Requires
 using ShapesOfVariables
@@ -36,9 +37,8 @@ using Tables
 using UnsafeArrays
 
 #for AHMI
-using QuadGK
-using ProgressMeter
 using DataStructures
+using QuadGK
 using LaTeXStrings
 
 import Random123
