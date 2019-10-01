@@ -171,6 +171,8 @@ nsteps(chain::MHIterator) = chain.stepno
 
 nsamples(chain::MHIterator) = chain.nsamples
 
+current_sample(chain::MHIterator) = chain.samples[_current_sample_idx(chain)]
+
 sample_type(chain::MHIterator) = eltype(chain.samples)
 
 

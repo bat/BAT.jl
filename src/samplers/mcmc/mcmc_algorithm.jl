@@ -140,6 +140,8 @@ BAT.nsteps(chain::SomeMCMCIter)::Int
 
 BAT.nsamples(chain::SomeMCMCIter)::Int
 
+BAT.current_sample(chain::SomeMCMCIter)::DensitySample
+
 BAT.sample_type(chain::SomeMCMCIter)::Type{<:DensitySample}
 
 BAT.samples_available(chain::SomeMCMCIter, nonzero_weights::Bool = false)::Bool
@@ -182,6 +184,8 @@ function mcmc_info end
 function nsteps end
 
 function nsamples end
+
+function current_sample end
 
 function sample_type end
 
