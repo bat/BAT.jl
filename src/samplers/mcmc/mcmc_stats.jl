@@ -55,6 +55,15 @@ function MCMCBasicStats(sv::DensitySampleVector)
 end
 
 
+function Base.empty!(stats::MCMCBasicStats)
+    empty!(stats.param_stats)
+    empty!(stats.logtf_stats)
+    fill!(stats.mode, oob(eltype(stats.mode)))
+
+    stats
+end
+
+
 function Base.push!(stats::MCMCBasicStats, s::DensitySample)
     push!(stats.param_stats, s.params, s.weight)
     if s.log_posterior > stats.logtf_stats.maximum

@@ -53,7 +53,6 @@ end
 
 
 function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator)
-    stats = tuner.stats
     config = tuner.config
 
     α_min = minimum(config.α)
@@ -69,7 +68,7 @@ function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator)
     c = tuner.scale
     Σ_old = Matrix(get_cov(chain.proposaldist))
 
-    S = convert(Array, stats.param_stats.cov)
+    S = convert(Array, tuner.stats.param_stats.cov)
     a_t = 1 / t^λ
     new_Σ_unscal = (1 - a_t) * (Σ_old/c) + a_t * S
 

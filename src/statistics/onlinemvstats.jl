@@ -54,6 +54,15 @@ OnlineMvMean(m::Integer) = OnlineMvMean{Float64}(m::Integer)
 end
 
 
+function Base.empty!(target::OnlineMvMean{T}) where T
+    target.sum_w = zero(DoubleFloat{T})
+    fill!(target.S, zero(T))
+    fill!(target.C, zero(T))
+
+    target
+end
+
+
 function Base.merge!(target::OnlineMvMean, others::OnlineMvMean...)
     for x in others
         target.m != x.m && throw(ArgumentError("can't merge OnlineMvMean instances with different size"))
@@ -167,6 +176,18 @@ end
         T(ocv.S[idxs...] * n / ((n - one(T)) * sum_w)),
         T(NaN)
     )
+end
+
+
+function Base.empty!(target::OnlineMvCov{T,W}) where {T,W}
+    target.n = zero(Int64)
+    target.sum_w = zero(DoubleFloat{T})
+    target.sum_w2 = zero(DoubleFloat{T})
+    fill!(target.Mean_X, zero(T))
+    fill!(target.New_Mean_X, zero(T))
+    fill!(target.S, zero(T))
+
+    target
 end
 
 
@@ -288,6 +309,17 @@ mutable struct BasicMvStatistics{T<:Real,W}
 end
 
 export BasicMvStatistics
+
+
+function Base.empty!(target::BasicMvStatistics{T}) where T
+    m = target.m
+    empty!(target.mean)
+    empty!(target.cov)
+    fill!(target.maximum, typemin(T))
+    fill!(target.minimum, typemax(T))
+
+    target
+end
 
 
 function Base.merge!(target::BasicMvStatistics, others::BasicMvStatistics...)

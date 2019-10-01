@@ -24,6 +24,14 @@ OnlineUvMean() = OnlineUvMean{Float64}()
 @inline Base.getindex(omn::OnlineUvMean{T}) where {T<:AbstractFloat} = T(omn.sum_v / omn.sum_w)
 
 
+function Base.empty!(target::OnlineUvMean{T}) where T
+    target.sum_v = zero(DoubleFloat{T})
+    target.sum_w = zero(DoubleFloat{T})
+
+    target
+end
+
+
 function Base.merge!(target::OnlineUvMean{T}, others::OnlineUvMean...) where {T}
     sum_v = target.sum_v
     sum_w = target.sum_w
@@ -100,6 +108,15 @@ end
 @propagate_inbounds Base.getindex(ocv::OnlineUvVar{T, ProbabilityWeights}) where {T} =
     ifelse(ocv.n > one(T) && ocv.sum_w > zero(T), T(ocv.s * ocv.n / ((ocv.n - one(T)) * ocv.sum_w)), T(NaN))
 
+
+function Base.empty!(target::OnlineUvVar{T,W}) where {T,W}
+    target.sum_w = zero(DoubleFloat{T})
+    target.sum_w2 = zero(DoubleFloat{T})
+    target.mean_x = zero(T)
+    target.s = zero(T)
+
+    target
+end
 
 
 function Base.merge!(target::OnlineUvVar{T,W}, others::OnlineUvVar...) where {T,W}
@@ -184,6 +201,15 @@ end
 
 export BasicUvStatistics
 
+
+function Base.empty!(stats::BasicUvStatistics{T,W}) where {T,W}
+    empty!(stats.mean)
+    empty!(stats.var)
+    stats.maximum = typemin(T)
+    stats.minimum = typemax(T)
+
+    stats
+end
 
 
 @inline function Base.push!(stats::BasicUvStatistics{T,W}, data::Real, weight::Real = 1) where {T,W}
