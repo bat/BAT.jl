@@ -32,7 +32,6 @@ install:
 
 build_script:
   - echo "%JL_BUILD_SCRIPT%"
-  - C:\julia\bin\julia -e "using Pkg; pkg\"add ShapesOfVariables#master\""
   - C:\julia\bin\julia -e "%JL_BUILD_SCRIPT%"
 
 test_script:

@@ -38,6 +38,7 @@ UnsafeArrays = "c4a57d5a-5b31-53a6-b365-19f8c011fbd6"
 [compat]
 Distributions = "0.21.3"
 ParallelProcessingTools = "0.4.0"
+ShapesOfVariables = "0.3.0"
 TypedTables = "1.2.0"
 julia = "1.2"
 
