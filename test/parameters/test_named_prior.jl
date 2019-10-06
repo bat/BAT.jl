@@ -3,7 +3,7 @@
 using BAT
 using Test
 
-using Distributions, PDMats, ShapesOfVariables, IntervalSets
+using Distributions, PDMats, ValueShapes, IntervalSets
 
 @testset "named_prior" begin
     prior = @inferred NamedPrior(a = 5, b = Normal(), c = -4..5, d = MvNormal([1.2 0.5; 0.5 2.1]), e = [Normal(1.1, 0.2)] )

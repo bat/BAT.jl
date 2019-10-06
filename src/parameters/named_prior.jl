@@ -57,7 +57,7 @@ _np_dist_shape_bounds(x::AbstractArray{<:Number}) = _np_dist_shape_bounds(ConstV
 struct NamedPrior{
     names,
     DT <: (NTuple{N,Distribution} where N),
-    AT <: (NTuple{N,ShapesOfVariables.VariableDataAccessor} where N),
+    AT <: (NTuple{N,ValueShapes.VariableDataAccessor} where N),
     BT <: (NTuple{N,AbstractParamBounds} where N)
 } <: Distribution{Multivariate,Continuous}
     _distributions::NamedTuple{names,DT}
@@ -111,7 +111,7 @@ Base.length(p::NamedPrior) = sum(_np_length, values(p))
 
 function _np_logpdf(
     dist::ConstValueDistribution,
-    acc::ShapesOfVariables.VariableDataAccessor{<:ConstValueShape},
+    acc::ValueShapes.VariableDataAccessor{<:ConstValueShape},
     params::AbstractVector{<:Real}
 )
     float(zero(eltype(params)))
@@ -119,7 +119,7 @@ end
 
 function _np_logpdf(
     dist::Distribution,
-    acc::ShapesOfVariables.VariableDataAccessor,
+    acc::ValueShapes.VariableDataAccessor,
     params::AbstractVector{<:Real}
 )
     logpdf(dist, float(params[acc]))
@@ -146,7 +146,7 @@ end
 
 function _np_rand!(
     rng::AbstractRNG, dist::ConstValueDistribution,
-    acc::ShapesOfVariables.VariableDataAccessor{<:ConstValueShape},
+    acc::ValueShapes.VariableDataAccessor{<:ConstValueShape},
     params::AbstractVector{<:Real}
 )
     nothing
@@ -154,7 +154,7 @@ end
 
 function _np_rand!(
     rng::AbstractRNG, dist::Distribution,
-    acc::ShapesOfVariables.VariableDataAccessor,
+    acc::ValueShapes.VariableDataAccessor,
     params::AbstractVector{<:Real}
 )
     rand!(rng, dist, view(params, acc))
@@ -183,7 +183,7 @@ end
 
 function _np_cov!(
     dist::ConstValueDistribution,
-    acc::ShapesOfVariables.VariableDataAccessor{<:ConstValueShape},
+    acc::ValueShapes.VariableDataAccessor{<:ConstValueShape},
     A_cov::AbstractMatrix{<:Real}
 )
     nothing
@@ -191,7 +191,7 @@ end
 
 function _np_cov!(
     dist::Distribution,
-    acc::ShapesOfVariables.VariableDataAccessor,
+    acc::ValueShapes.VariableDataAccessor,
     A_cov::AbstractMatrix{<:Real}
 )
     _np_var_or_cov!(view(A_cov, acc, acc), dist)

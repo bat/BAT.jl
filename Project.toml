@@ -28,19 +28,19 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Random123 = "74087812-796a-5b5d-8853-05524746bad3"
 RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
 Requires = "ae029012-a4dd-5104-9daa-d747884805df"
-ShapesOfVariables = "b3480ff6-a2af-506e-a6b8-61d160ca6532"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
 UnsafeArrays = "c4a57d5a-5b31-53a6-b365-19f8c011fbd6"
+ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
 
 [compat]
 Distributions = "0.21.3"
 ParallelProcessingTools = "0.4.0"
-ShapesOfVariables = "0.3.0"
 TypedTables = "1.2.0"
+ValueShapes = "0.4.0"
 julia = "1.2"
 
 [extras]

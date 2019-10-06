@@ -31,7 +31,7 @@ using PositiveFactorizations
 using ProgressMeter
 using RecipesBase
 using Requires
-using ShapesOfVariables
+using ValueShapes
 using StaticArrays
 using StatsBase
 using Tables
