@@ -44,7 +44,8 @@
             std_dev --> get(diagonal, "std_dev", std_dev)
             globalmode --> get(diagonal, "globalmode", globalmode)
             localmode --> get(diagonal, "localmode", localmode)
-        
+            xlims --> get(diagonal, "xlims", :auto)
+            ylims --> get(diagonal, "ylims", :auto)
             xguide --> param_labels[i]
             yguide --> param_labels_y[i]
             
@@ -67,6 +68,8 @@
                 std_dev --> get(upper, "std_dev", std_dev)
                 globalmode --> get(upper, "globalmode", globalmode)
                 localmode --> get(upper, "localmode", localmode)
+                xlims --> get(upper, "xlims", :auto)
+                ylims --> get(upper, "ylims", :auto)
                 xguide --> param_labels[i]
                 yguide --> param_labels[j]
 
@@ -86,6 +89,8 @@
                 std_dev --> get(lower, "std_dev", std_dev)
                 globalmode --> get(lower, "globalmode", globalmode)
                 localmode --> get(lower, "localmode", localmode)
+                xlims --> get(lower, "xlims", :auto)
+                ylims --> get(lower, "ylims", :auto)
                 xguide --> param_labels[i]
                 yguide --> param_labels[j]
 
