@@ -1,4 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
 @recipe function f(prior::NamedPrior, 
     param::Symbol; 
     intervals = standard_confidence_vals, 

@@ -43,7 +43,7 @@
         lev = lev/10000
         m = m/10000
 
-         colorbar --> false
+        colorbar --> false
 
         @series begin
             seriestype := plotstyle
@@ -68,7 +68,6 @@
                 seriestype := :bins2d
                 color --> _plots_module().cgrad([colors[i], colors[i]])  
                 label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
-                colorbar := false #TODO: why not working?
                 hists[i].edges[1], hists[i].edges[2], _plots_module().Surface(hists[i].weights)
             end
             # fake a legend
@@ -77,7 +76,7 @@
                 fillcolor --> colors[i]
                 linewidth --> 0
                 label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
-                colorbar := false
+                colorbar --> false
                 [hists[i].edges[1][1], hists[i].edges[1][1]], [hists[i].edges[2][1], hists[i].edges[2][1]]
             end
         end

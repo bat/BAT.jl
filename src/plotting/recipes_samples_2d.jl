@@ -48,11 +48,15 @@ end
     pi_x, pi_y = parsel
     bins = get(plotattributes, :bins, "default")
     seriestype = get(plotattributes, :seriestype, :smallest_intervals)
-
+    
+    if seriestype == :histogram2d || seriestype == :histogram || seriestype == :hist
+        colorbar = true
+    else
+        colorbar = false
+    end
 
     xguide --> "\$\\theta_$(pi_x)\$"
     yguide --> "\$\\theta_$(pi_y)\$"
-
 
     if bins=="default"
         h = fit(Histogram, (flatview(samples.params)[pi_x, :], flatview(samples.params)[pi_y, :]), FrequencyWeights(samples.weight), closed=:left)
@@ -138,6 +142,8 @@ end
             markerstrokecolor := get(mean_options, "markerstrokecolor", :black)
             markerstrokestyle := get(mean_options, "markerstrokestyle", :solid)
             markerstrokewidth := get(mean_options, "markerstrokewidth", 1)
+            colorbar := colorbar
+
             if(std_dev)
                 xerror := sqrt(Σx)
                 yerror := sqrt(Σy)
@@ -163,6 +169,8 @@ end
             markerstrokecolor := get(globalmode_options, "markerstrokecolor", :black)
             markerstrokestyle := get(globalmode_options, "markerstrokestyle", :solid)
             markerstrokewidth := get(globalmode_options, "markerstrokewidth", 1)
+            colorbar := colorbar
+
            ([globalmode_x], [globalmode_y])
         end
     end
@@ -190,6 +198,8 @@ end
             markerstrokecolor := get(localmode_options, "markerstrokecolor", :black)
             markerstrokestyle := get(localmode_options, "markerstrokestyle", :solid)
             markerstrokewidth := get(localmode_options, "markerstrokewidth", 1)
+            colorbar := colorbar
+            
             ([localmode_values[i][1]], [localmode_values[i][2]])
             end
         end
