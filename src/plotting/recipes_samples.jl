@@ -1,5 +1,38 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 @recipe function f(
+    parshapes::VarShapes,
+    samples::DensitySampleVector, 
+    param::Symbol; 
+    intervals = standard_confidence_vals, 
+    bins=200,
+    normalize = true, 
+    colors = standard_colors,
+    intervallabels = [],
+    mean = false,
+    std_dev = false,
+    globalmode = false,
+    localmode = true)
+
+    i = findfirst(x -> x == param, keys(parshapes))
+
+    @series begin
+        intervals --> intervals
+        bins --> bins
+        normalize --> normalize 
+        colors --> colors
+        intervallabels --> intervallabels
+        mean --> mean
+        std_dev -->  std_dev
+        globalmode --> globalmode
+        localmode --> localmode
+
+        samples, i
+    end
+
+end
+
+
+@recipe function f(
     posterior::PosteriorDensity,
     samples::DensitySampleVector, 
     param::Symbol; 
