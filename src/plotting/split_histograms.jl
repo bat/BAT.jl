@@ -1,3 +1,5 @@
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
 # for 1d and 2d histograms
 function split_smallest(histogram, intervals)
     intervals = sort(intervals)

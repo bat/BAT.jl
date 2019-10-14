@@ -14,7 +14,8 @@ end
                     intervals = standard_confidence_vals, 
                     bins=200,
                     normalize = true, 
-                    colors = standard_colors)
+                    colors = standard_colors,
+                    intervallabels = [])
     
     seriestype = get(plotattributes, :seriestype, :stephist)
     
@@ -59,7 +60,12 @@ end
                 fillcolor --> colors[i]
                 linewidth --> 0
                 fillrange --> 0
-                label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
+
+                if length(intervallabels) > 0
+                    label := intervallabels[i]
+                else
+                    label := "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
+                end
                 plot_histogram(hists[i], swap)
             end
         end

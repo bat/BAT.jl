@@ -25,6 +25,7 @@
 
         
     elseif seriestype == :smallest_intervals_contour || seriestype == :smallest_intervals_contourf
+        _plots_module() != nothing || throw(ErrorException("Package Plots not available, but required for this operation"))
         
         colors = colors[sortperm(intervals, rev=true)]
 
@@ -60,13 +61,14 @@
 
         hists, orig_hist, realintervals = split_smallest(h, intervals)
 
-        colorbar --> false
+       
 
         for (i, int) in enumerate(realintervals)
             @series begin
                 seriestype := :bins2d
                 color --> _plots_module().cgrad([colors[i], colors[i]])  
                 label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
+                colorbar := false #TODO: why not working?
                 hists[i].edges[1], hists[i].edges[2], _plots_module().Surface(hists[i].weights)
             end
             # fake a legend
@@ -75,6 +77,7 @@
                 fillcolor --> colors[i]
                 linewidth --> 0
                 label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
+                colorbar := false
                 [hists[i].edges[1][1], hists[i].edges[1][1]], [hists[i].edges[2][1], hists[i].edges[2][1]]
             end
         end
@@ -100,12 +103,12 @@
             normalize --> get(upper, "normalize", true)
             colors --> get(upper, "colors", standard_colors)
             intervals --> get(upper, "intervals", standard_confidence_vals)
-            mean --> get(upper, "mean", false)
-            std_dev --> get(upper, "std_dev", false)
-            globalmode --> get(upper, "globalmode", false)
-            localmode --> get(upper, "localmode", false)
+            #mean --> get(upper, "mean", false)
+            #std_dev --> get(upper, "std_dev", false)
+            #globalmode --> get(upper, "globalmode", false)
+            #localmode --> get(upper, "localmode", false)
 
-            samples, pi_x
+            h, pi_x
         end
         
         # empty plot (needed since @layout macro not available)
@@ -135,12 +138,12 @@
             bins --> get(diagonal, "nbins", 200)
             colors --> get(diagonal, "colors", standard_colors)
             intervals --> get(diagonal, "intervals", standard_confidence_vals)
-            mean --> get(diagonal, "mean", false)
-            std_dev --> get(diagonal, "std_dev", false)
-            globalmode --> get(diagonal, "globalmode", false)
-            localmode --> get(diagonal, "localmode", false)
+            #mean --> get(diagonal, "mean", false)
+            #std_dev --> get(diagonal, "std_dev", false)
+            #globalmode --> get(diagonal, "globalmode", false)
+            #localmode --> get(diagonal, "localmode", false)
 
-            samples, (pi_x, pi_y) 
+            h, (pi_x, pi_y) 
         end
 
         @series begin
@@ -152,12 +155,12 @@
             bins --> get(right, "nbins", 200)
             colors --> get(right, "colors", standard_colors)
             intervals --> get(right, "intervals", standard_confidence_vals)
-            mean --> get(right, "mean", false)
-            std_dev --> get(right, "std_dev", false)
-            globalmode --> get(right, "globalmode", false)
-            localmode --> get(right, "localmode", false)
+            #mean --> get(right, "mean", false)
+            #std_dev --> get(right, "std_dev", false)
+            #globalmode --> get(right, "globalmode", false)
+            #localmode --> get(right, "localmode", false)
             
-            samples, pi_y
+            h, pi_y
         end 
 
 
