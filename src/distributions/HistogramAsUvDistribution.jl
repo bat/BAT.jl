@@ -97,9 +97,9 @@ function Distributions.insupport(d::HistogramAsUvDistribution{T}, x::Real)::Bool
 end
 
 function Distributions.quantile(d::HistogramAsUvDistribution{T}, x::Real)::T where {T <: AbstractFloat} 
-    r::UnitRange{Int} = searchsorted(d._acc_prob, x)
+    r::UnitRange{Int} = searchsorted(d.acc_prob, x)
     idx::Int = min(r.start, r.stop)
-    p::T = d._acc_prob[ idx ]
+    p::T = d.acc_prob[ idx ]
     q::T = d.edges[idx]
     missing_p::T = x - p
     inv_weight::T = d.inv_weights[idx] 
