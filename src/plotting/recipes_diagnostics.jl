@@ -71,6 +71,7 @@ end
                         std_dev --> get(histogram, "std_dev", false)
                         globalmode --> get(histogram, "globalmode", false)
                         localmode --> get(histogram, "localmode", false)
+                        legend --> get(histogram, "legend", true)
 
                         label --> get(histogram, "label", "")
                         title --> get(histogram, "title", "Histogram")
@@ -106,6 +107,7 @@ end
                         markerstrokecolor --> get(trace, "markerstrokecolor", :dodgerblue)
                         markerstrokestyle --> get(trace, "markerstrokestyle", :solid)
                         markerstrokewidth --> get(trace, "markerstrokewidth", 1)
+                        legend --> get(trace, "legend", true)
 
                         x, s
                     end
@@ -148,6 +150,7 @@ end
                         markerstrokecolor --> get(kde, "markerstrokecolor", :dodgerblue)
                         markerstrokestyle --> get(kde, "markerstrokestyle", :solid)
                         markerstrokewidth --> get(kde, "markerstrokewidth", 1)
+                        legend --> get(kde, "legend", true)
 
                         k.x, k.density
                     end
@@ -182,6 +185,7 @@ end
                         markerstrokecolor --> get(acf, "markerstrokecolor", :dodgerblue)
                         markerstrokestyle --> get(acf, "markerstrokestyle", :solid)
                         markerstrokewidth --> get(acf, "markerstrokewidth", 1)
+                        legend --> get(acf, "legend", true)
                   
                         lags != :none ? (lags, autocorr) : (0-0.5:1:length(autocorr)-0.5, autocorr)
                     end
