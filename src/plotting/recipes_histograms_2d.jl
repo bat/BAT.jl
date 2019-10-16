@@ -49,7 +49,7 @@
             seriestype := plotstyle
             levels --> lev
             linewidth --> 2
-            color --> colors
+            #color --> colors
             (x, y, m')
         end
 
