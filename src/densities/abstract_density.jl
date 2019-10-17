@@ -82,11 +82,11 @@ end
 @doc """
     param_shapes(
         density::AbstractDensity
-    )::Union{ShapesOfVariables.VarShapes,Missing,Nothing}
+    )::Union{ValueShapes.VarShapes,Missing,Nothing}
 
     param_shapes(
         density::AbstractPriorDensity
-    )::Union{ShapesOfVariables,Nothing}
+    )::Union{ValueShapes,Nothing}
 
 Get the shapes of parameters of `density`.
 

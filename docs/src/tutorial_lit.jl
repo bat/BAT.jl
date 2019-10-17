@@ -216,7 +216,7 @@ prior = NamedPrior(
 #
 # The prior also implies the shapes of the parameters:
 
-using ShapesOfVariables
+using ValueShapes
 
 parshapes = VarShapes(prior)
 
