@@ -45,12 +45,21 @@
 
         colorbar --> false
 
-        @series begin
-            seriestype := plotstyle
-            levels --> lev
-            linewidth --> 2
-            #color --> colors
-            (x, y, m')
+       if backend() == Plots.PyPlotBackend()
+            @series begin
+                seriestype := plotstyle
+                levels --> lev
+                linewidth --> 2
+                color --> colors # only works with pyplot
+                (x, y, m')
+            end
+        else
+             @series begin
+                seriestype := plotstyle
+                levels --> lev
+                linewidth --> 2
+                (x, y, m')
+            end
         end
 
 

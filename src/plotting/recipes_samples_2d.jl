@@ -79,7 +79,7 @@ end
 
 
     pi_x, pi_y = parsel
-    bins = get(plotattributes, :bins, "default")
+    bins = get(plotattributes, :bins, 200)
     seriestype = get(plotattributes, :seriestype, :smallest_intervals)
     
     if seriestype == :histogram2d || seriestype == :histogram || seriestype == :hist
@@ -91,11 +91,9 @@ end
     xguide --> "\$\\theta_$(pi_x)\$"
     yguide --> "\$\\theta_$(pi_y)\$"
 
-    if bins=="default"
-        h = fit(Histogram, (flatview(samples.params)[pi_x, :], flatview(samples.params)[pi_y, :]), FrequencyWeights(samples.weight), closed=:left)
-    else
-        h = fit(Histogram, (flatview(samples.params)[pi_x, :], flatview(samples.params)[pi_y, :]), FrequencyWeights(samples.weight), closed=:left, nbins=bins)
-    end
+
+    h = fit(Histogram, (flatview(samples.params)[pi_x, :], flatview(samples.params)[pi_y, :]), FrequencyWeights(samples.weight), closed=:left, nbins=bins)
+
 
 
     if seriestype == :scatter

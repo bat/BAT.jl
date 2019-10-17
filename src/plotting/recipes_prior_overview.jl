@@ -53,9 +53,11 @@
                 subplot := j + (i-1)*nparams
 
                 seriestype --> get(upper, "seriestype", :smallest_intervals_contour)
-                bins --> get(upper, "bins", 200)
-                colors --> get(upper, "colors", standard_colors)
-                intervals --> get(upper, "intervals", standard_confidence_vals)
+                bins --> get(upper, "bins", 50)
+                more_colors = []
+                colors --> get(upper, "colors", colormap("Blues", 10))
+                more_intervals = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99]
+                intervals --> get(upper, "intervals", more_intervals)
                 legend --> get(upper, "legend", false)
                 xlims --> get(upper, "xlims", :auto)
                 ylims --> get(upper, "ylims", :auto)
@@ -69,8 +71,8 @@
             @series begin
                 subplot := i + (j-1)*nparams
 
-                seriestype --> get(lower, "seriestype", :smallest_intervals)
-                bins --> get(lower, "bins", 200)
+                seriestype --> get(lower, "seriestype", :smallest_intervals_contour)
+                bins --> get(lower, "bins", 50)
                 colors --> get(lower, "colors", standard_colors)
                 intervals --> get(lower, "intervals", standard_confidence_vals)
                 legend --> get(lower, "legend", false)
