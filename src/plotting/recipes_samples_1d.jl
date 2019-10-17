@@ -1,4 +1,69 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
+@recipe function f(
+    parshapes::VarShapes,
+    samples::DensitySampleVector, 
+    param::Symbol; 
+    intervals = standard_confidence_vals, 
+    bins=200,
+    normalize = true, 
+    colors = standard_colors,
+    intervallabels = [],
+    mean = false,
+    std_dev = false,
+    globalmode = false,
+    localmode = true)
+
+    i = findfirst(x -> x == param, keys(parshapes))
+
+    @series begin
+        intervals --> intervals
+        bins --> bins
+        normalize --> normalize 
+        colors --> colors
+        intervallabels --> intervallabels
+        mean --> mean
+        std_dev -->  std_dev
+        globalmode --> globalmode
+        localmode --> localmode
+
+        samples, i
+    end
+
+end
+
+
+@recipe function f(
+    posterior::PosteriorDensity,
+    samples::DensitySampleVector, 
+    param::Symbol; 
+    intervals = standard_confidence_vals, 
+    bins=200,
+    normalize = true, 
+    colors = standard_colors,
+    intervallabels = [],
+    mean = false,
+    std_dev = false,
+    globalmode = false,
+    localmode = true)
+
+    i = findfirst(x -> x == param, keys(param_shapes(posterior)))
+
+    @series begin
+        intervals --> intervals
+        bins --> bins
+        normalize --> normalize 
+        colors --> colors
+        intervallabels --> intervallabels
+        mean --> mean
+        std_dev -->  std_dev
+        globalmode --> globalmode
+        localmode --> localmode
+
+        samples, i
+    end
+
+end
+
 
 @recipe function f(samples::DensitySampleVector, 
                     param::Integer; 
@@ -6,22 +71,20 @@
                     bins=200,
                     normalize = true, 
                     colors = standard_colors,
+                    intervallabels = [],
                     mean = false,
                     std_dev = false,
                     globalmode = false,
                     localmode = true)
     
-    seriestype = get(plotattributes, :seriestype, :smallest_intervals)
+    #seriestype = get(plotattributes, :seriestype, :smallest_intervals)
     
-    orientation = get(plotattributes, :orientation, :vertical)
-    (orientation != :vertical) ? swap=true : swap = false
-    plotattributes[:orientation] = :vertical # without: auto-scaling of axes not correct
-
     hist = fit(Histogram, flatview(samples.params)[param, :], FrequencyWeights(samples.weight), nbins = bins, closed = :left)
     normalize ? hist=StatsBase.normalize(hist) : nothing
+    line_height = maximum(hist.weights)*1.03
 
-    weights = hist.weights
-    line_height = maximum(weights)*1.03
+    orientation = get(plotattributes, :orientation, :vertical)
+    (orientation != :vertical) ? swap=true : swap = false
 
     stats = MCMCBasicStats(samples) 
 
@@ -33,85 +96,25 @@
         xguide --> "\$\\theta_$(param)\$"
     end
 
-    if seriestype == :histogram
 
-         @series begin
-            seriestype := :steppost
-            label --> ""
-            fillrange --> 0
-            fillcolor --> :dodgerblue
-            linewidth --> 0
-            plot_histogram(hist, swap)
-        end
+    @series begin   
+        seriestype --> :smallest_intervals
 
+        intervals --> intervals
+        bins --> bins
+        normalize --> normalize
+        colors --> colors
+        intervallabels --> intervallabels
 
-    elseif seriestype == :stephist || seriestype == :steps #TODO: :steps not working -> "seriestype steppost not supported"
-        @series begin
-            seriestype := :steppost
-            label --> ""
-            linecolor --> :dodgerblue
-            plot_histogram(hist, swap)
-        end
-
-
-    elseif seriestype == :smallest_intervals      
-        hists, orig_hist, realintervals = split_smallest(hist, intervals)
-
-        colors = colors[sortperm(intervals, rev=true)]
-
-        for i in 1:length(realintervals)
-            @series begin
-                seriestype := :steppost
-                fillcolor --> colors[i]
-                linewidth --> 0
-                fillrange --> 0
-                label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
-                plot_histogram(hists[i], swap)
-            end
-        end
-
-        @series begin
-            seriestype := :steppost
-            linecolor --> :black
-            linewidth --> 0.7
-            label --> ""
-            plot_histogram(orig_hist, swap)
-        end 
-
-
-    elseif seriestype == :central_intervals      
-        hists, orig_hist, realintervals = split_central(hist, intervals)
-         
-        colors = colors[sortperm(intervals, rev=true)]
-
-        for i in 1:length(realintervals)
-            @series begin
-                seriestype := :steppost
-                fillcolor --> colors[i]
-                linewidth --> 0
-                fillrange --> 0
-                label --> "central $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
-                plot_histogram(hists[i], swap)
-            end
-        end
-        
-         @series begin
-            seriestype := :steppost
-            linecolor --> :black
-            linewidth --> 0.7
-            label --> ""
-            plot_histogram(orig_hist, swap)
-        end 
-
-    else
-        error("seriestype $seriestype not supported")
-    end 
+        hist, param
+    end
 
 
     mean_options = convert_to_options(mean)
     globalmode_options = convert_to_options(globalmode)
     localmode_options = convert_to_options(localmode)
     stddev_options = convert_to_options(std_dev)
+
 
     if stddev_options != ()  
         Σ_all = stats.param_stats.cov
@@ -180,14 +183,6 @@
 
 end
 
-
-function plot_histogram(h::AbstractHistogram, swap::Bool)
-    if swap
-      return h.weights, h.edges[1][1:end-1]
-    else
-        h.edges[1][1:end-1], h.weights
-    end 
-end
 
 
 function line(pos, height; swap=false)

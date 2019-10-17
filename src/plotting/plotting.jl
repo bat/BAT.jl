@@ -5,9 +5,14 @@ const standard_colors = [:chartreuse2, :yellow, :red]
 
 
 include("recipes_stats.jl")
-include("recipes_1d_histograms.jl")
-include("recipes_2d_histograms.jl")
-include("recipes_overview.jl")
+include("recipes_histograms_1d.jl")
+include("recipes_histograms_2d.jl")
+include("recipes_samples_overview.jl")
+include("recipes_prior_overview.jl")
 include("split_histograms.jl")
 include("localmodes.jl")
 include("recipes_ahmi.jl")
+include("recipes_prior.jl")
+include("recipes_samples_1d.jl")
+include("recipes_samples_2d.jl")
+include("recipes_diagnostics.jl")

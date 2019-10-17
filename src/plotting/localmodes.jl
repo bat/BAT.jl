@@ -5,7 +5,7 @@
     calculate_localmode(hist)
 
 Calculates the modes of a 1d statsbase histogram.
-A vector of the bin-center of the heighest bin(s) is(are) returned.
+A vector containing the bin-center(s) of the heighest bin(s) is returned.
 """
 function calculate_localmode(hist)
     maxima = maximum(hist.weights)

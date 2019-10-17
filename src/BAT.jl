@@ -36,6 +36,7 @@ using StaticArrays
 using StatsBase
 using Tables
 using UnsafeArrays
+using KernelDensity
 
 #for AHMI
 using DataStructures
