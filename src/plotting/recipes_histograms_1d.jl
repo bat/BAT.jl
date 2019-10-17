@@ -27,9 +27,7 @@ end
     if length(dims) > 1
         weights = vec(sum(hist.weights, dims=setdiff(dims, param)))
         hist = Histogram(hist.edges[param], weights, :left) 
-    else
-        print("one")
-    end 
+    end
 
     normalize ? hist=StatsBase.normalize(hist) : nothing
     weights = hist.weights
