@@ -115,7 +115,6 @@
             #std_dev --> get(upper, "std_dev", false)
             #globalmode --> get(upper, "globalmode", false)
             #localmode --> get(upper, "localmode", false)
-
             h, pi_x
         end
         

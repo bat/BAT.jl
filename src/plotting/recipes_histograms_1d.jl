@@ -23,7 +23,14 @@ end
     (orientation != :vertical) ? swap=true : swap = false
     plotattributes[:orientation] = :vertical # without: auto-scaling of axes not correct
 
-    
+    dims = collect(1:ndims(hist.weights))
+    if length(dims) > 1
+        weights = vec(sum(hist.weights, dims=setdiff(dims, param)))
+        hist = Histogram(hist.edges[param], weights, :left) 
+    else
+        print("one")
+    end 
+
     normalize ? hist=StatsBase.normalize(hist) : nothing
     weights = hist.weights
 
