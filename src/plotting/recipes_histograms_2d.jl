@@ -45,7 +45,7 @@
 
         colorbar --> false
 
-       if backend() == Plots.PyPlotBackend()
+       if _plots_module().backend() == _plots_module().PyPlotBackend()
             @series begin
                 seriestype := plotstyle
                 levels --> lev
