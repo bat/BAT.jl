@@ -122,7 +122,7 @@ end
 
     
    @series begin   
-        seriestype --> :histogram2d
+        seriestype --> :smallest_intervals_contour
         label --> "prior"
 
         xguide --> "\$\\theta_$(params[1])\$"
