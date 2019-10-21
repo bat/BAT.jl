@@ -22,7 +22,6 @@ using Colors
 using Distributions
 using DoubleFloats
 using ElasticArrays
-using FunctionWrappers
 using IntervalSets
 using PDMats
 using ParallelProcessingTools
