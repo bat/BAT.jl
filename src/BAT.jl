@@ -31,7 +31,6 @@ using ProgressMeter
 using RecipesBase
 using Requires
 using ValueShapes
-using StaticArrays
 using StatsBase
 using Tables
 using UnsafeArrays
