@@ -254,12 +254,12 @@ const OnlineUvStatistic = Union{BAT.OnlineUvMean, BAT.OnlineUvVar, BAT.BasicUvSt
 
 
 @inline function Base.append!(stats::OnlineUvStatistic, data::AbstractVector{<:Real})
-    push!.(Scalar(stats), data)
+    push!.(Ref(stats), data)
     stats
 end
 
 @inline function Base.append!(stats::OnlineUvStatistic, data::AbstractVector{<:Real}, weights::AbstractVector{<:Real})
-    push!.(Scalar(stats), data, weights)
+    push!.(Ref(stats), data, weights)
     stats
 end
 
