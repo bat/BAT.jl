@@ -37,8 +37,10 @@ ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
 
 [compat]
 Distributions = "0.21.3"
+ElasticArrays = "1.0.0"
 ParallelProcessingTools = "0.4.0"
 TypedTables = "1.2.0"
+UnsafeArrays = "1.0.0"
 ValueShapes = "0.5.0"
 julia = "1.3"
 
