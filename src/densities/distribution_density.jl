@@ -26,7 +26,7 @@ end
 
 param_bounds(density::DistributionDensity) = NoParamBounds(length(density.d))
 
-param_shapes(density::DistributionDensity) = nothing
+params_shape(density::DistributionDensity) = valshape(density.d)
 
 Distributions.sampler(density::DistributionDensity) = bat_sampler(parent(density))
 
@@ -37,4 +37,3 @@ Statistics.cov(density::DistributionDensity) = cov(density.d)
 
 param_bounds(density::DistributionDensity{<:NamedPrior}) = param_bounds(density.d)
 
-param_shapes(density::DistributionDensity{<:NamedPrior}) = VarShapes(density.d)

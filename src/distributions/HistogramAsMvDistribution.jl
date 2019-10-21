@@ -20,8 +20,6 @@ Statistics.mean(d::HistogramAsMvDistribution{T, N}) where {T, N} = d.μ
 Statistics.var(d::HistogramAsMvDistribution{T, N}) where {T, N} = d.var
 Statistics.cov(d::HistogramAsMvDistribution{T, N}) where {T, N} = d.cov
 
-param_shapes(d::HistogramAsMvDistribution{T, N}) where {T, N} = BAT.NoParamBounds(length(d))
-
 _np_valshape(d::HistogramAsMvDistribution{T, N}) where {T, N} = ArrayShape{Real}(size(d)...)
 
 function _np_bounds(d::HistogramAsMvDistribution{T, N}) where {T, N} 

@@ -24,7 +24,7 @@ should be implemented directly (usually it is inferred from the bounds).
 
 Densities that support named parameters should also implement
 
-* `BAT.param_shapes`
+* `BAT.params_shape`
 """
 abstract type AbstractDensity end
 export AbstractDensity
@@ -80,35 +80,35 @@ end
 
 
 @doc """
-    param_shapes(
+    params_shape(
         density::AbstractDensity
-    )::Union{ValueShapes.VarShapes,Missing,Nothing}
+    )::Union{ValueShapes.AbstractValueShape,Missing}       #!!! FORMER ::Union{ValueShapes.AbstractValueShape,Missing,Nothing}
 
-    param_shapes(
+    params_shape(
         density::AbstractPriorDensity
-    )::Union{ValueShapes,Nothing}
+    )::ValueShapes.AbstractValueShape      #!!! FORMER ::Union{ValueShapes,Nothing}
 
 Get the shapes of parameters of `density`.
 
 For prior densities, the result must not be `missing`, but may be `nothing` if
 the prior only supports flat parameter vectors.
 """
-function param_shapes end
-export param_shapes
+function params_shape end
+export params_shape
 
-param_shapes(density::AbstractDensity) = missing
+params_shape(density::AbstractDensity) = missing
 
 
 @doc """
     eval_density_logval(
         density::AbstractDensity,
         params::AbstractVector{<:Real},
-        parshapes::Union{VarShapes,Nothing}
+        parshapes::ValueShapes.AbstractValueShape   #!!! FORMER Union{ValueShapes.AbstractValueShape,Nothing}
     )
 
 Internal function to evaluate density log-value, calls `density_logval`.
 
-`parshapes` *must* be compatible with `param_shapes(density)`.
+`parshapes` *must* be compatible with `params_shape(density)`.
 
 Checks that:
 
@@ -120,7 +120,7 @@ Checks that:
 function eval_density_logval(
     density::AbstractDensity,
     params::AbstractVector{<:Real},
-    parshapes::Union{VarShapes,Nothing}
+    parshapes::ValueShapes.AbstractValueShape              #! FORMER Union{ValueShapes.AbstractValueShape,Nothing}
 )
     npars = nparams(density)
     ismissing(npars) || (length(eachindex(params)) == npars) || throw(ArgumentError("Invalid length of parameter vector"))
@@ -132,9 +132,9 @@ function eval_density_logval(
     r
 end
 
-_apply_parshapes(params::AbstractVector{<:Real}, parshapes::Nothing) = params
+# !!!! FORMER _apply_parshapes(params::AbstractVector{<:Real}, parshapes::Nothing) = params
 
-_apply_parshapes(params::AbstractVector{<:Real}, parshapes::VarShapes) = parshapes(params)
+_apply_parshapes(params::AbstractVector{<:Real}, parshapes::AbstractValueShape) = parshapes(params)
 
 
 @doc """
@@ -152,7 +152,7 @@ The following functions must be implemented for subtypes:
 
 * `BAT.param_bounds`
 
-* `BAT.param_shapes`
+* `BAT.params_shape`
 
 * `Distributions.sampler`
 
@@ -160,7 +160,7 @@ The following functions must be implemented for subtypes:
 
 Prior densities that support named parameters should also implement
 
-* `BAT.param_shapes`
+* `BAT.params_shape`
 
 A `d::Distribution{Multivariate,Continuous}` can be converted into (wrapped
 in) an `AbstractPriorDensity` via `conv(AbstractPriorDensity, d)`.

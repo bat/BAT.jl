@@ -56,7 +56,7 @@ function eval_prior_posterior_logval!(
     bounds = param_bounds(posterior)
     apply_bounds!(params, bounds)
 
-    parshapes = param_shapes(posterior)
+    parshapes = params_shape(posterior)
     zero_prob_logval = convert(T, -Inf)
 
     prior_logval = if !isoob(params)
@@ -107,7 +107,7 @@ function eval_prior_posterior_logval_strict!(
     bounds = param_bounds(posterior)
     apply_bounds!(params, bounds)
 
-    parshapes = param_shapes(posterior)
+    parshapes = params_shape(posterior)
 
     prior_logval = if !isoob(params)
         eval_density_logval(getprior(posterior), params, parshapes)
@@ -130,7 +130,7 @@ end
 
 
 function density_logval(density::AbstractPosteriorDensity, params::AbstractVector{<:Real})
-    parshapes = param_shapes(density)
+    parshapes = params_shape(density)
     eval_density_logval(getprior(density), params, parshapes) +
     eval_density_logval(getlikelihood(density), params, parshapes)
 end
@@ -190,7 +190,7 @@ struct PosteriorDensity{
     L<:AbstractDensity,
     P<:AbstractPriorDensity,
     B<:AbstractParamBounds,
-    S<:Union{VarShapes,Nothing}
+    S<:AbstractValueShape       # !!!! FORMER S<:Union{VarShapes,Nothing}
 } <: AbstractPosteriorDensity
     likelihood::L
     prior::P
@@ -210,8 +210,8 @@ function PosteriorDensity(likelihood::Any, prior::Any)
     )
 
     parshapes = _posterior_parshapes(
-        param_shapes(li),
-        param_shapes(pr)
+        params_shape(li),
+        params_shape(pr)
     )
 
     PosteriorDensity(li, pr, parbounds, parshapes)
@@ -224,17 +224,41 @@ getprior(posterior::PosteriorDensity) = posterior.prior
 
 param_bounds(posterior::PosteriorDensity) = posterior.parbounds
 
-param_shapes(posterior::PosteriorDensity) = posterior.parshapes
+params_shape(posterior::PosteriorDensity) = posterior.parshapes
 
 
-function _posterior_parshapes(li_ps::Union{VarShapes,Nothing}, pr_ps::Union{VarShapes,Nothing})
-    pr_ps == li_ps || throw(ArgumentError("Variable shapes of likelihood and prior do not match"))
-    li_ps
+function _posterior_parshapes(li_ps::AbstractValueShape, pr_ps::AbstractValueShape)
+    if li_ps == pr_ps
+        li_ps
+    else
+        throw(ArgumentError("Variable shapes of likelihood and prior are incompatible"))
+    end
 end
 
-_posterior_parshapes(li_ps::Missing, pr_ps::Union{VarShapes,Nothing}) = pr_ps
+function _posterior_parshapes(li_ps::AbstractValueShape, pr_ps::ArrayShape{T,1}) where T
+    n = totalndof(li_ps)
+    if n == totalndof(pr_ps)
+        @assert size(pr_ps) == (n,)
+        li_ps
+    else
+        throw(ArgumentError("Likelihood and prior have different number of free parameters"))
+    end
+end
 
-_posterior_parshapes(li_ps::Union{VarShapes,Nothing,Missing}, pr_ps::Missing) =
+_posterior_parshapes(li_ps::ArrayShape{T,1}, pr_ps::AbstractValueShape) where T =
+    _posterior_parshapes(pr_ps, li_ps)
+
+function _posterior_parshapes(li_ps::ArrayShape{T,1}, pr_ps::ArrayShape{U,1}) where {T,U}
+    if size(li_ps) == size(pr_ps)
+        li_ps
+    else
+        throw(ArgumentError("Likelihood and prior have different number of free parameters"))
+    end
+end
+
+_posterior_parshapes(li_ps::Missing, pr_ps::AbstractValueShape) = pr_ps
+
+_posterior_parshapes(li_ps::Union{AbstractValueShape,Missing}, pr_ps::Missing) =
     throw(ArgumentError("Parameter shapes of prior must not be missing"))
 
 

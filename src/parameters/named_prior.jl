@@ -57,11 +57,11 @@ _np_dist_shape_bounds(x::AbstractArray{<:Number}) = _np_dist_shape_bounds(ConstV
 struct NamedPrior{
     names,
     DT <: (NTuple{N,Distribution} where N),
-    AT <: (NTuple{N,ValueShapes.VariableDataAccessor} where N),
+    AT <: (NTuple{N,ValueShapes.ValueAccessor} where N),
     BT <: (NTuple{N,AbstractParamBounds} where N)
 } <: Distribution{Multivariate,Continuous}
     _distributions::NamedTuple{names,DT}
-    _shapes::VarShapes{names,AT}
+    _shapes::NamedTupleShape{names,AT}
     _bounds::NamedTuple{names,BT}
 end 
 
@@ -71,7 +71,7 @@ function NamedPrior(param_priors::NamedTuple{names}) where {names}
     dsb = map(_np_dist_shape_bounds, param_priors)
     NamedPrior(
         map(x -> x[1], dsb),
-        VarShapes(map(x -> x[2], dsb)),
+        NamedTupleShape(map(x -> x[2], dsb)),
         map(x -> x[3], dsb)
     )
 end
@@ -94,11 +94,11 @@ end
 @inline Base.propertynames(p::NamedPrior) = propertynames(_distributions(p))
 
 
-VarShapes(p::NamedPrior) = _shapes(p)
-Base.convert(::Type{VarShapes}, p) = VarShapes(p)
+ValueShapes.valshape(p::NamedPrior) = _shapes(p)
+#!!!! FORMER Base.convert(::Type{VarShapes}, p) = VarShapes(p)
 
-VarShapes{names}(p::NamedPrior{names}) where {names} = _shapes(p)
-Base.convert(::Type{VarShapes{names}}, p) where {names} = VarShapes(p)
+#!!!! FORMER VarShapes{names}(p::NamedPrior{names}) where {names} = _shapes(p)
+#!!!! FORMER Base.convert(::Type{VarShapes{names}}, p) where {names} = VarShapes(p)
 
 param_bounds(p::NamedPrior) = vcat(map(_np_bounds, values(p))...)
 
@@ -111,7 +111,7 @@ Base.length(p::NamedPrior) = sum(_np_length, values(p))
 
 function _np_logpdf(
     dist::ConstValueDistribution,
-    acc::ValueShapes.VariableDataAccessor{<:ConstValueShape},
+    acc::ValueShapes.ValueAccessor{<:ConstValueShape},
     params::AbstractVector{<:Real}
 )
     float(zero(eltype(params)))
@@ -119,7 +119,7 @@ end
 
 function _np_logpdf(
     dist::Distribution,
-    acc::ValueShapes.VariableDataAccessor,
+    acc::ValueShapes.ValueAccessor,
     params::AbstractVector{<:Real}
 )
     logpdf(dist, float(params[acc]))
@@ -127,7 +127,7 @@ end
 
 function Distributions.logpdf(p::NamedPrior, params::AbstractVector{<:Real})
     distributions = values(p)
-    accessors = values(VarShapes(p))
+    accessors = values(valshape(p))
     sum(map((dist, acc) -> _np_logpdf(dist, acc, params), distributions, accessors))
 end
 
@@ -146,7 +146,7 @@ end
 
 function _np_rand!(
     rng::AbstractRNG, dist::ConstValueDistribution,
-    acc::ValueShapes.VariableDataAccessor{<:ConstValueShape},
+    acc::ValueShapes.ValueAccessor{<:ConstValueShape},
     params::AbstractVector{<:Real}
 )
     nothing
@@ -154,7 +154,7 @@ end
 
 function _np_rand!(
     rng::AbstractRNG, dist::Distribution,
-    acc::ValueShapes.VariableDataAccessor,
+    acc::ValueShapes.ValueAccessor,
     params::AbstractVector{<:Real}
 )
     rand!(rng, dist, view(params, acc))
@@ -163,7 +163,7 @@ end
 
 function Distributions._rand!(rng::AbstractRNG, p::NamedPrior, params::AbstractVector{<:Real})
     distributions = values(p)
-    accessors = values(VarShapes(p))
+    accessors = values(valshape(p))
     map((dist, acc) -> _np_rand!(rng, dist, acc, params), distributions, accessors)
     params
 end
@@ -183,7 +183,7 @@ end
 
 function _np_cov!(
     dist::ConstValueDistribution,
-    acc::ValueShapes.VariableDataAccessor{<:ConstValueShape},
+    acc::ValueShapes.ValueAccessor{<:ConstValueShape},
     A_cov::AbstractMatrix{<:Real}
 )
     nothing
@@ -191,7 +191,7 @@ end
 
 function _np_cov!(
     dist::Distribution,
-    acc::ValueShapes.VariableDataAccessor,
+    acc::ValueShapes.ValueAccessor,
     A_cov::AbstractMatrix{<:Real}
 )
     _np_var_or_cov!(view(A_cov, acc, acc), dist)
@@ -201,7 +201,7 @@ end
 function Statistics.cov(p::NamedPrior) 
     let n = length(p), A_cov = zeros(n, n)
         distributions = values(p)
-        accessors = values(VarShapes(p))
+        accessors = values(valshape(p))
         map((dist, acc) -> _np_cov!(dist, acc, A_cov), distributions, accessors)
         A_cov
     end

@@ -43,8 +43,8 @@ end
 
 nparams(s::DensitySample) = length(s)
 
-(parshapes::VarShapes)(s::DensitySample) = (
-    params = parshapes(s.params),
+(shape::AbstractValueShape)(s::DensitySample) = (
+    params = shape(s.params),
     log_posterior = s.log_posterior,
     log_prior = s.log_prior,
     weight = s.weight,
@@ -157,12 +157,24 @@ Tables.schema(A::DensitySampleVector) = Tables.Schema(
 )
 
 
-(parshapes::VarShapes)(A::DensitySampleVector) = TypedTables.Table(
-    params = parshapes(A.params),
-    log_posterior = A.log_posterior,
-    log_prior = A.log_prior,
-    weight = A.weight
-)
+Base.@propagate_inbounds function _bcasted_apply(shape::AbstractValueShape, A::DensitySampleVector)
+    TypedTables.Table(
+        params = shape.(A.params),
+        log_posterior = A.log_posterior,
+        log_prior = A.log_prior,
+        weight = A.weight
+    )
+end
+
+Base.copy(
+    instance::Base.Broadcast.Broadcasted{
+        <:Base.Broadcast.AbstractArrayStyle{1},
+        <:Any,
+        <:AbstractValueShape,
+        <:Tuple{DensitySampleVector}
+    }
+) = _bcasted_apply(instance.f, instance.args[1])    
+
 
 
 function _swap!(A::DensitySampleVector, i_A::SingleArrayIndex, B::DensitySampleVector, i_B::SingleArrayIndex)

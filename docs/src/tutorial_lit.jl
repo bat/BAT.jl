@@ -218,7 +218,7 @@ prior = NamedPrior(
 
 using ValueShapes
 
-parshapes = VarShapes(prior)
+parshapes = valshape(prior)
 
 # These will come in handy later on, e.g. to access (the posterior
 # distribution of) individual parameter values.
@@ -415,7 +415,7 @@ tbl = Table(samples, sampleids)
 # Using the parameter shapes, we can also generate a table with named
 # parameters instead:
 
-tbl_named = Table(parshapes(samples), sampleids)
+tbl_named = Table(parshapes.(samples), sampleids)
 
 
 # We can now, e.g., find the sample with the maximum posterior value (i.e. the

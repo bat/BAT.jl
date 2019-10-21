@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 @recipe function f(
-    parshapes::VarShapes,
+    parshapes::NamedTupleShape,
     samples::DensitySampleVector, 
     param::Symbol; 
     intervals = standard_confidence_vals, 
@@ -46,7 +46,7 @@ end
     globalmode = false,
     localmode = true)
 
-    i = findfirst(x -> x == param, keys(param_shapes(posterior)))
+    i = findfirst(x -> x == param, keys(params_shape(posterior)))
 
     @series begin
         intervals --> intervals

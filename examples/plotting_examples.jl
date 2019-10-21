@@ -78,9 +78,9 @@ plot(prior, 2)
 
 # Samples can either be plotted by their index (as shown above) or by using the parameter names given in NamedPrior. This can be done by passing either the posterior 
 plot(posterior, samples, :λ2)
-# or the VarShapes of the prior:
+# or the value shape(s) of the prior:
 using ValueShapes
-parshapes = VarShapes(prior)
+parshapes = valshape(prior)
 plot(parshapes, samples, :λ2)
 
 # Prior can also be plotted by their index or by using the parameter names given in NamedPrior:
@@ -127,8 +127,8 @@ plot(samples, (1,2), nbins=200)
 
 # Samples can either be plotted by their index (as shown above) or by using the parameter names given in NamedPrior. This can be done by passing either the posterior 
 plot(posterior, samples, (:λ1, :λ2))
-# or the VarShapes of the prior:
-parshapes = VarShapes(prior)
+# or the value shape(s) of the prior:
+parshapes = valshape(prior)
 plot(parshapes, samples, (:λ1, :λ2))
 
 # Prior can also be plotted by their index or by using the parameter names given in NamedPrior.
