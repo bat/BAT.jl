@@ -131,69 +131,70 @@ using BAT, IntervalSets
 
 # ### Likelihood Definition
 #
-# First, we need to define a likelihood function for our problem. In BAT,
-# all likelihood functions and priors are subtypes of `BAT.AbstractDensity`. 
-# We'll store the histogram that we want to fit in our likelihood density
-# type, as accessing the histogram as a global variable would
-# [reduce performance](https://docs.julialang.org/en/v1/manual/performance-tips/index.html#Avoid-global-variables-1):
-
-struct HistogramLikelihood{H<:Histogram,F<:Function} <: AbstractDensity
-    histogram::H
-    fitfunc::F
-end
-
-# As a minimum, BAT requires a method `BAT.density_logval`
-# to be defined for each subtype of `AbstractDensity`.
+# First, we need to define the likelihood (function) for our problem.
 #
-# `BAT.density_logval` implements the actual log-likelihood function:
+# BAT represents densities like likelihoods and priors as subtypes of
+# `BAT.AbstractDensity`. Custom likelihood can be defined by
+# creating a new subtype of `AbstractDensity` and by implementing (at minimum)
+# `BAT.density_logval` for that type - in complex uses cases, this may become
+# necessary. Typically, however, it is sufficient to define a custom
+# likelihood as a simple function that returns the log-likelihood value for
+# a given set of parameters. BAT will automatically convert such a
+# log-likelihood function into a subtype of `AbstractDensity`.
+#
+# For performance reasons, functions should [not access global variables
+# directly] (https://docs.julialang.org/en/v1/manual/performance-tips/index.html#Avoid-global-variables-1).
+# So we'll use an [anonymous function](https://docs.julialang.org/en/v1/manual/functions/#man-anonymous-functions-1)
+# inside of a [let-statement](https://docs.julialang.org/en/v1/base/base/#let)
+# to capture the value of the global variable `hist` in a local variable `h`
+# (and to shorten function name `fit_function` to `f`, purely for
+# convenience):
 
-function BAT.density_logval(
-    likelihood::HistogramLikelihood,
-    params::Union{NamedTuple,AbstractVector{<:Real}}
-)
-    ## Histogram counts for each bin as an array:
-    counts = likelihood.histogram.weights
+log_likelihood = let h = hist, f = fit_function
+    params -> begin
+        ## Histogram counts for each bin as an array:
+        counts = h.weights
 
-    ## Histogram binning, has length (length(counts) + 1):
-    binning = likelihood.histogram.edges[1]
+        ## Histogram binning, has length (length(counts) + 1):
+        binning = h.edges[1]
 
-    ## sum log-likelihood over bins:
-    log_likelihood::Float64 = 0.0
-    for i in eachindex(counts)
-        bin_left, bin_right = binning[i], binning[i+1]
-        bin_width = bin_right - bin_left
-        bin_center = (bin_right + bin_left) / 2
+        ## sum log-likelihood value over bins:
+        ll_value::Float64 = 0.0
+        for i in eachindex(counts)
+            bin_left, bin_right = binning[i], binning[i+1]
+            bin_width = bin_right - bin_left
+            bin_center = (bin_right + bin_left) / 2
 
-        observed_counts = counts[i]
+            observed_counts = counts[i]
 
-        ## Simple mid-point rule integration of fitfunc over bin:
-        expected_counts = bin_width * likelihood.fitfunc(params, bin_center)
+            ## Simple mid-point rule integration of f over bin:
+            expected_counts = bin_width * f(params, bin_center)
 
-        log_likelihood += logpdf(Poisson(expected_counts), observed_counts)
+            ## Add log of Poisson probability for current bin:
+            ll_value += logpdf(Poisson(expected_counts), observed_counts)
+        end
+
+        return ll_value
     end
-
-    return log_likelihood
 end
-
 
 # BAT makes use of Julia's parallel programming facilities if possible, e.g.
-# to run multiple Markov chains in parallel, and expects implementations of
-# `BAT.density_logval` to be thread safe. Mark non-thread-safe code with
-# `@critical` (using Julia package `ParallelProcessingTools`).
+# to run multiple Markov chains in parallel. Therefore, log-likelihood
+# (and other) code must be thread-safe. Mark non-thread-safe code with
+# `@critical` (provided by Julia package `ParallelProcessingTools`).
 #
 # BAT requires Julia v1.3 or newer to use multi-threading. Support for
 # automatic parallelization across multiple (local and remote) Julia processes
 # is planned, but not implemented yet.
 #
-# Note that Julia currently starts only a single thread by default, you will
-# need to set the environment variable
+# Note that Julia currently starts only a single thread by default. Set the
+# the environment variable
 # [`JULIA_NUM_THREADS`](https://docs.julialang.org/en/v1/manual/environment-variables/#JULIA_NUM_THREADS-1)
-# to specify the number of Julia threads.
-#
-# Using our likelihood density definition and the histogram to fit, we can now
-# create our data- and fit-function-specific likelihood instance:
+# to specify the desired number of Julia threads.
 
-likelihood = HistogramLikelihood(hist, fit_function)
+# We can evaluate `log_likelihood`, e.g. for the true parameter values:
+
+log_likelihood(true_par_values)
 
 
 # ### Prior Definition
@@ -229,7 +230,7 @@ parshapes = valshape(prior)
 # Given the likelihood and prior definition, a `BAT.PosteriorDensity` is simply
 # defined via
 
-posterior = PosteriorDensity(likelihood, prior)
+posterior = PosteriorDensity(log_likelihood, prior)
 #md nothing # hide
 
 
