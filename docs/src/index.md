@@ -10,7 +10,7 @@ It's possible to use BAT.jl with likelihood functions implemented in languages o
 
 !!! note
 
-    BAT.jl requires Julia v1.2.
+    BAT.jl requires Julia >= v1.0.5. Julia v1.3 or higher is recommended for full functionality and performance.
 
 
 ## History and Status

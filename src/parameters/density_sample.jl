@@ -43,12 +43,24 @@ end
 
 nparams(s::DensitySample) = length(s)
 
-(shape::AbstractValueShape)(s::DensitySample) = (
-    params = shape(s.params),
-    log_posterior = s.log_posterior,
-    log_prior = s.log_prior,
-    weight = s.weight,
-)
+
+function _apply_shape(shape::AbstractValueShape, s::DensitySample)
+    (
+        params = shape(s.params),
+        log_posterior = s.log_posterior,
+        log_prior = s.log_prior,
+        weight = s.weight,
+    )
+end
+
+@static if VERSION >= v"1.3"
+    (shape::AbstractValueShape)(s::DensitySample) = _apply_shape(shape, s)
+else
+    (shape::ScalarShape)(s::DensitySample) = _apply_shape(shape, s)
+    (shape::ArrayShape)(s::DensitySample) = _apply_shape(shape, s)
+    (shape::ConstValueShape)(s::DensitySample) = _apply_shape(shape, s)
+    (shape::NamedTupleShape)(s::DensitySample) = _apply_shape(shape, s)
+end
 
 
 

@@ -18,12 +18,20 @@ using Distributions, PDMats, ValueShapes, IntervalSets
 
     @test all([rand(prior) in param_bounds(prior) for i in 1:10^4])
 
-    @test (@inferred cov(prior)) ≈
-        [1.0  0.0   0.0  0.0 0.0;
-         0.0  6.75  0.0  0.0 0.0;
-         0.0  0.0   1.2  0.5 0.0;
-         0.0  0.0   0.5  2.1 0.0; 
-         0.0  0.0   0.0  0.0 0.04 ]
+    @test begin
+        ref_cov = 
+            [1.0  0.0   0.0  0.0 0.0;
+             0.0  6.75  0.0  0.0 0.0;
+             0.0  0.0   1.2  0.5 0.0;
+             0.0  0.0   0.5  2.1 0.0; 
+             0.0  0.0   0.0  0.0 0.04 ]
+
+        @static if VERSION >= v"1.2"
+            (@inferred cov(prior)) ≈ ref_cov
+        else
+            (cov(prior)) ≈ ref_cov
+        end
+    end
 
     # ToDo: Add more tests
 end
