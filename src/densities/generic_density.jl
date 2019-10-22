@@ -11,11 +11,7 @@ Constructors:
 Turns the logarithmic density function `log_f` into a BAT-compatible
 `AbstractDensity`. `log_f` must support
 
-    `log_f(params::NamedTuple)::Real`
-
-or
-
-    `log_f(params::AbstractVector{<:Real})::Real`
+    `log_f(params::Any)::Real`
 
 It must be safe to execute `log_f` in parallel on multiple threads and
 processes.
@@ -35,7 +31,7 @@ Base.parent(density::GenericDensity) = density.log_f
 
 function density_logval(
     density::GenericDensity,
-    params::Union{NamedTuple, AbstractVector{<:Real}}
+    params::Any
 )
     density.log_f(params)
 end

@@ -135,8 +135,7 @@ function density_logval(density::AbstractPosteriorDensity, params::AbstractVecto
     eval_density_logval(getlikelihood(density), params, parshapes)
 end
 
-
-function density_logval(density::AbstractPosteriorDensity, params::NamedTuple)
+function density_logval(density::AbstractPosteriorDensity, params::Any)
     density_logval(getprior(density), params) +
     density_logval(getlikelihood(density), params)
 end

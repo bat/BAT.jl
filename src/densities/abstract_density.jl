@@ -31,8 +31,7 @@ export AbstractDensity
 
 
 @doc """
-    density_logval(density::AbstractDensity, params::AbstractVector{<:Real})
-    density_logval(density::AbstractDensity, params::NamedTuple)
+    density_logval(density::AbstractDensity, params::Any)
 
 Compute log of value of a multi-variate density function at the given
 parameter values.
@@ -41,9 +40,6 @@ Input:
 
 * `density`: density function
 * `params`: parameter values
-
-Subtypes of `AbstractDensity` must implement `density_logval` for either
-`params::AbstractVector{<:Real}` or `params::NamedTuple`.
 
 Note: If `density_logval` is called with out-of-bounds parameters (see
 `param_bounds`), the behaviour is undefined. The result for parameters that

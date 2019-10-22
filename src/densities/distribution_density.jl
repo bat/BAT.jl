@@ -19,7 +19,7 @@ Base.parent(density::DistributionDensity) = density.d
 
 function density_logval(
     density::DistributionDensity,
-    params::Union{NamedTuple, AbstractVector{<:Real}}
+    params::Any
 )
     Distributions.logpdf(density.d, params)
 end

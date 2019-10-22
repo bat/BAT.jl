@@ -16,7 +16,7 @@ struct GaussianShellDensity<:AbstractDensity
 end
 
 #define likelihood
-function BAT.density_logval(target::GaussianShellDensity, params::Union{NamedTuple,AbstractVector{<:Real}})
+function BAT.density_logval(target::GaussianShellDensity, params::Any)
     loglikelihood::Float64 = 0.
     for i in 1:length(params)
         
