@@ -239,25 +239,11 @@ posterior = PosteriorDensity(log_likelihood, prior)
 # We can now use Markov chain Monte Carlo (MCMC) to explore the space of
 # possible parameter values for the histogram fit.
 #
-# We'll use the Metropolis-Hastings algorithm and a multivariate
-# t-distribution (ν = 1) as it's proposal function:
+# To increase the verbosity level of BAT logging output, you may want to set
+# the Julia logging level for BAT to debug via `ENV["JULIA_DEBUG"] = "BAT"`.
 
-algorithm = MetropolisHastings(MvTDistProposalSpec(1.0))
-#md nothing # hide
-
-# We also need to which random number generator and seed to use. BAT requires
-# a counter-based RNG and partitions the RNG space over the MCMC chains. This
-# way, a single RNG seed is sufficient for all chains and results can be
-# reproducible even under parallel execution. Let's choose a Philox4x RNG
-# with a random seed:
-
-rngseed = BAT.Philox4xSeed()
-#md nothing # hide
-
-# The algorithm, posterior and RNG seed specify the MCMC chains:
-
-chainspec = MCMCSpec(algorithm, posterior, rngseed)
-#md nothing # hide
+#nb ENV["JULIA_DEBUG"] = "BAT"
+#jl ENV["JULIA_DEBUG"] = "BAT"
 
 # Let's use 4 MCMC chains and require 10^5 unique samples from each chain
 # (after tuning/burn-in):
@@ -266,69 +252,15 @@ nsamples = 10^4
 nchains = 4
 #md nothing # hide
 
-# BAT provides fine-grained control over the MCMC tuning algorithm,
-# convergence test and the chain initialization and tuning/burn-in strategy
-# (the values used here are the default values):
-
-tuner_config = ProposalCovTunerConfig(
-    λ = 0.5,
-    α = 0.15..0.35,
-    β = 1.5,
-    c = 1e-4..1e2
-)
-
-convergence_test = BGConvergence(
-    threshold = 1.1,
-    corrected = false
-)
-
-init_strategy = MCMCInitStrategy(
-    ninit_tries_per_chain = 8..128,
-    max_nsamples_pretune = 25,
-    max_nsteps_pretune = 250,
-    max_time_pretune = Inf
-)
-
-burnin_strategy = MCMCBurninStrategy(
-    max_nsamples_per_cycle = 1000,
-    max_nsteps_per_cycle = 10000,
-    max_time_per_cycle = Inf,
-    max_ncycles = 30
-)
-
-#md nothing # hide
-
-# To increase the verbosity level of BAT logging output, you may want to set
-# the Julia logging level for BAT to debug via `ENV["JULIA_DEBUG"] = "BAT"`.
-
-#nb ENV["JULIA_DEBUG"] = "BAT"
-#jl ENV["JULIA_DEBUG"] = "BAT"
 
 # Now we can generate a set of MCMC samples via `rand`:
 
 samples, sampleids, stats, chains = rand(
-    chainspec,
-    nsamples,
-    nchains,
-    tuner_config = tuner_config,
-    convergence_test = convergence_test,
-    init_strategy = init_strategy,
-    burnin_strategy = burnin_strategy,
-    max_nsteps = 10^5,
-    max_time = Inf,
-    granularity = 1
+    MCMCSpec(MetropolisHastings(), posterior),
+    nsamples, nchains
 )
 #md nothing # hide
-
-# Note: Reasonable default values are defined for all of the above. In many
-# use cases, a simple
-#
-# ```julia
-# samples, sampleids, stats, chains =
-#    rand(MCMCSpec(MetropolisHastings(), model), nsamples, nchains)`
-# ```
-#
-# may be sufficient.
+#nb nothing # hide
 
 # Let's print some results:
 
@@ -448,3 +380,91 @@ plot!(-4:0.01:4, x -> fit_function(fit_par_values, x), label = "Best fit")
 #md savefig("tutorial-data-truth-bestfit.pdf")
 #md savefig("tutorial-data-truth-bestfit.svg"); nothing # hide
 #md # [![Data, True Model and Best Fit](tutorial-data-truth-bestfit.svg)](tutorial-data-truth-bestfit.pdf)
+
+
+# ## Fine-grained control
+#
+# BAT provides fine-grained control over the MCMC algorithm options, the
+# MCMC chain initialization, tuning/burn-in strategy and convergence testing.
+# All option value used in the following are the default values, any or all
+# may be omitted.
+
+# The Metropolis-Hastings algorithm by default uses a multivariate
+# t-distribution (ν = 1) as it's proposal function:
+
+algorithm = MetropolisHastings(MvTDistProposalSpec(1.0))
+#md nothing # hide
+
+# There is control over the random number generator (RNG) and it's seed. BAT
+# requires a counter-based RNG, since it partitions the RNG space over the
+# MCMC chains. This way, a single RNG seed is sufficient for all chains and
+# results are reproducible even under parallel execution. By default, BAT uses
+# a Philox4x RNG initialized with a random seed drawn from the
+# [system entropy pool](https://docs.julialang.org/en/v1/stdlib/Random/index.html#Random.RandomDevice):
+
+rngseed = BAT.Philox4xSeed()
+#md nothing # hide
+
+# The full MCMC chain specification is defined by algorithm, posterior and
+# RNG seed:
+
+chainspec = MCMCSpec(algorithm, posterior, rngseed)
+#md nothing # hide
+
+# Other default parameters are:
+
+tuner_config = ProposalCovTunerConfig(
+    λ = 0.5,
+    α = 0.15..0.35,
+    β = 1.5,
+    c = 1e-4..1e2
+)
+
+convergence_test = BGConvergence(
+    threshold = 1.1,
+    corrected = false
+)
+
+init_strategy = MCMCInitStrategy(
+    ninit_tries_per_chain = 8..128,
+    max_nsamples_pretune = 25,
+    max_nsteps_pretune = 250,
+    max_time_pretune = Inf
+)
+
+burnin_strategy = MCMCBurninStrategy(
+    max_nsamples_per_cycle = 1000,
+    max_nsteps_per_cycle = 10000,
+    max_time_per_cycle = Inf,
+    max_ncycles = 30
+)
+
+#md nothing # hide
+
+# To generate MCMC samples with explicit control over all options, use
+
+samples, sampleids, stats, chains = rand(
+    chainspec,
+    nsamples,
+    nchains,
+    tuner_config = tuner_config,
+    convergence_test = convergence_test,
+    init_strategy = init_strategy,
+    burnin_strategy = burnin_strategy,
+    max_nsteps = 10^5,
+    max_time = Inf,
+    granularity = 1
+)
+#md nothing # hide
+#nb nothing # hide
+
+# However, in many use cases, simply using the default options via
+#
+# ```julia
+# samples, sampleids, stats, chains = rand(
+#     MCMCSpec(MetropolisHastings(), posterior),
+#     nsamples, nchains
+# )
+# ```
+#
+# will often be sufficient.
