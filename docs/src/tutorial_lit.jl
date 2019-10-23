@@ -75,19 +75,13 @@ plot(
 #md # [![Data](tutorial-data.svg)](tutorial-data.pdf)
 
 
-# The package ["EponymTuples"](https://github.com/tpapp/EponymTuples.jl)
-# provides a very useful macro `@eponymargs`: It makes it easy to define
-# functions that take named tuples as arguments and unpack them.
+# Let's define our fit function - the function that we expect to describe the
+# data histogram, at each x-Axis position `x`, depending on a given set `p` of
+# model parameters:
 
-using EponymTuples
-
-# This comes in handy for the definition of ou fit function - the function
-# that we expect to describes the data histogram (depending on some model
-# parameters):
-
-function fit_function(@eponymargs(a, mu, sigma), x::Real)
-    a[1] * pdf(Normal(mu[1], sigma), x) +
-    a[2] * pdf(Normal(mu[2], sigma), x)
+function fit_function(p::NamedTuple{(:a, :mu, :sigma)}, x::Real)
+    p.a[1] * pdf(Normal(p.mu[1], p.sigma), x) +
+    p.a[2] * pdf(Normal(p.mu[2], p.sigma), x)
 end
 #md nothing # hide
 
