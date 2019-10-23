@@ -18,6 +18,7 @@ using ArraysOfArrays, ElasticArrays
         @test typeof(ds1)  <: DensitySample{Float64,Float32,Int}
 
         @test nparams(ds1) == 3
+        @test nparams.(ds1) == 3
 
         @test typeof(ds2)  <: DensitySample{Float64,Float32,Int}
 

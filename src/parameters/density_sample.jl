@@ -20,6 +20,10 @@ end
 export DensitySample
 
 
+# DensitySample behaves as a scalar type under broadcasting:
+@inline Base.Broadcast.broadcastable(shape::DensitySample) = Ref(shape)
+
+
 import Base.==
 function ==(A::DensitySample, B::DensitySample)
     A.params == B.params && A.log_posterior == B.log_posterior &&
