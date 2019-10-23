@@ -59,20 +59,3 @@ sum_first_dim(A::AbstractVector) = sum(A)
 
 
 const SingleArrayIndex = Union{Integer, CartesianIndex}
-
-
-Base.@propagate_inbounds function _swap!(A::AbstractArray, i_A::SingleArrayIndex, B::AbstractArray, i_B::SingleArrayIndex)
-    tmp = A[i_A]
-    A[i_A] = B[i_B]
-    B[i_B] = tmp
-    A
-end
-
-
-function _swap!(A::AbstractArray, B::AbstractArray)
-    size(A) == size(B) || throw(DimensionMismatch("Can only swap arrays with equal size"))
-    @inbounds @simd for i in eachindex(A, B)
-        _swap!(A, i, B, i)
-    end
-    A
-end

@@ -64,109 +64,84 @@ end
 
 
 
-struct DensitySampleVector{
-    P<:Real,T<:AbstractFloat,W<:Real,
-    PA<:VectorOfSimilarVectors{P},TA<:AbstractVector{T},WA<:AbstractVector{W}
-} <: BATDataVector{DensitySample{P,T,W,Vector{P}}}
-    params::PA
-    log_posterior::TA
-    log_prior::TA
-    weight::WA
-end
+const DensitySampleVector{
+    P<:Real,T<:AbstractFloat,W<:Real,PA<:AbstractVector{P},
+    PAV<:AbstractVector{<:AbstractVector{P}},TV<:AbstractVector{T},WV<:AbstractVector{W},
+} = StructArray{
+    DensitySample{P,T,W,PA},
+    1,
+    NamedTuple{(:params, :log_posterior, :log_prior, :weight), Tuple{PAV,TV,TV,WV}}
+}
 
 export DensitySampleVector
 
 
+function StructArray{DensitySample}(
+    contents::Tuple{
+        AbstractVector{<:AbstractVector{P}},
+        AbstractVector{T},
+        AbstractVector{T},
+        AbstractVector{W}
+    }
+) where {P<:Real,T<:AbstractFloat,W<:Real}
+    params, log_posterior, log_prior, weight = contents
+    PA = eltype(params)
+    StructArray{DensitySample{P,T,W,PA}}(contents)
+end
+
+
+DensitySampleVector(contents::NTuple{4,Any}) = StructArray{DensitySample}(contents)
+
+
 function DensitySampleVector{P,T,W}(nparams::Integer) where {P<:Real,T<:AbstractFloat,W<:Real}
-    DensitySampleVector(
+    DensitySampleVector((
         VectorOfSimilarVectors(ElasticArray{P}(undef, nparams, 0)),
         Vector{T}(undef, 0),
         Vector{T}(undef, 0),
         Vector{W}(undef, 0)
-    )
+    ))
 end
 
 DensitySampleVector(::Type{S}, nparams::Integer) where {P<:Real,T<:AbstractFloat,W<:Real,S<:DensitySample{P,T,W}} =
     DensitySampleVector{P,T,W}(nparams)
 
 
-Base.size(xs::DensitySampleVector) = size(xs.params)
+# Specialize getindex to properly support ArraysOfArrays, preventing
+# conversion to exact element type:
+@inline Base.getindex(A::StructArray{<:DensitySample}, I::Int...) =
+    DensitySample(A.params[I...], A.log_posterior[I...], A.log_prior[I...], A.weight[I...])
 
-Base.getindex(xs::DensitySampleVector, i::Integer) =
-    DensitySample(xs.params[i], xs.log_posterior[i], xs.log_prior[i], xs.weight[i])
+# Specialize IndexStyle, current default for StructArray seems to be IndexCartesian()
+Base.IndexStyle(::StructArray{<:DensitySample, 1}) = IndexLinear()
 
-Base.@propagate_inbounds Base._getindex(l::IndexStyle, xs::DensitySampleVector, idxs::AbstractVector{<:Integer}) =
-    DensitySampleVector(xs.params[:, idxs], xs.log_posterior[idxs], xs.log_prior[idxs], xs.weight[idxs])
-
-Base.IndexStyle(xs::DensitySampleVector) = IndexStyle(xs.params)
-
-
-function Base.push!(xs::DensitySampleVector, x::DensitySample)
-    push!(xs.params, x.params)
-    push!(xs.log_posterior, x.log_posterior)
-    push!(xs.log_prior, x.log_prior)
-    push!(xs.weight, x.weight)
-    xs
+# Specialize IndexStyle, currently StructArray seems fall back to `(==)(A::AbstractArray, B::AbstractArray)`
+import Base.==
+function(==)(A::DensitySampleVector, B::DensitySampleVector)
+    A.params == B.params &&
+    A.log_posterior == B.log_posterior &&
+    A.log_prior == B.log_prior &&
+    A.weight == B.weight
 end
 
 
-function Base.append!(A::DensitySampleVector, B::DensitySampleVector)
-    append!(A.params, B.params)
-    append!(A.log_posterior, B.log_posterior)
-    append!(A.log_prior, B.log_prior)
-    append!(A.weight, B.weight)
-    A
+function Base.merge!(X::DensitySampleVector, Xs::DensitySampleVector...)
+    for Y in Xs
+        append!(X, Y)
+    end
+    X
 end
 
-
-function Base.resize!(A::DensitySampleVector, n::Integer)
-    resize!(A.params, n)
-    resize!(A.log_posterior, n)
-    resize!(A.log_prior, n)
-    resize!(A.weight, n)
-    A
-end
-
-
-Base.@propagate_inbounds function Base.unsafe_view(A::DensitySampleVector, idxs)
-    DensitySampleVector(
-        view(A.params, idxs),
-        view(A.log_posterior, idxs),
-        view(A.log_prior, idxs),
-        view(A.weight, idxs)
-    )
-end
+Base.merge(X::DensitySampleVector, Xs::DensitySampleVector...) = merge!(deepcopy(X), Xs...)
 
 
 function UnsafeArrays.uview(A::DensitySampleVector)
-    DensitySampleVector(
+    DensitySampleVector((
         uview(A.params),
         uview(A.log_posterior),
         uview(A.log_prior),
         uview(A.weight)
-    )
+    ))
 end
-
-
-Tables.istable(::Type{<:DensitySampleVector}) = true
-
-Tables.columnaccess(::Type{<:DensitySampleVector}) = true
-
-Tables.columns(A::DensitySampleVector) = (
-    params = A.params,
-    log_posterior = A.log_posterior,
-    log_prior = A.log_prior,
-    weight = A.weight
-)
-
-Tables.rowaccess(::Type{<:DensitySampleVector}) = true
-
-Tables.rows(A::DensitySampleVector) = A
-
-Tables.schema(A::DensitySampleVector) = Tables.Schema(
-    (:params, :log_posterior, :log_prior, :weight),
-    (eltype(A.params), eltype(A.log_posterior), eltype(A.log_prior), eltype(A.weight))
-)
 
 
 Base.@propagate_inbounds function _bcasted_apply(shape::AbstractValueShape, A::DensitySampleVector)
@@ -188,23 +163,13 @@ Base.copy(
 ) = _bcasted_apply(instance.f, instance.args[1])    
 
 
-
-function _swap!(A::DensitySampleVector, i_A::SingleArrayIndex, B::DensitySampleVector, i_B::SingleArrayIndex)
-    _swap!(view(flatview(A.params), :, i_A), view(flatview(A.params), :, i_B))  # Memory allocation!
-    _swap!(A.log_posterior, i_A, B.log_posterior, i_B)
-    _swap!(A.log_prior, i_A, B.log_prior, i_B)
-    _swap!(A.weight, i_A, B.weight, i_B)
-    A
-end
-
-
 function read_fom_hdf5(input, ::Type{DensitySampleVector})
-    DensitySampleVector(
+    DensitySampleVector((
         VectorOfSimilarVectors(input["params"][:,:]),
         input["log_posterior"][:],
         input["log_prior"][:],
         input["weight"][:]
-    )
+    ))
 end
 
 
