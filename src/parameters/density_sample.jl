@@ -114,7 +114,7 @@ DensitySampleVector(::Type{S}, nparams::Integer) where {P<:Real,T<:AbstractFloat
 # Specialize IndexStyle, current default for StructArray seems to be IndexCartesian()
 Base.IndexStyle(::StructArray{<:DensitySample, 1}) = IndexLinear()
 
-# Specialize IndexStyle, currently StructArray seems fall back to `(==)(A::AbstractArray, B::AbstractArray)`
+# Specialize comparison, currently StructArray seems fall back to `(==)(A::AbstractArray, B::AbstractArray)`
 import Base.==
 function(==)(A::DensitySampleVector, B::DensitySampleVector)
     A.params == B.params &&
