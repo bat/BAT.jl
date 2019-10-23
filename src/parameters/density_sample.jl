@@ -211,7 +211,7 @@ end
 function write_to_hdf5(output, samples::DensitySampleVector)
     output["params"] = Array(flatview(samples.params))
     output["log_posterior"] = samples.log_posterior
-    output["log_prior"] = samples.log_posterior
+    output["log_prior"] = samples.log_prior
     output["weight"] = samples.weight
     nothing
 end
