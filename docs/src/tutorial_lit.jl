@@ -89,12 +89,13 @@ end
 # are vectors, parameter `sigma` (peak width) is a scalar, we assume it's the
 # same for both Gaussian peaks.
 #
-# The true values for the model/fit parameters are:
+# The true values for the model/fit parameters are the values we used to
+# generate the data:
 
 true_par_values = (a = [500, 1000], mu = (-1.0, 2.0), sigma = 0.5)
 #md nothing # hide
 
-# Let's visually compare the histogram and the fit function, using the true
+# Let's visually compare the histogram and the fit function, using these true
 # parameter values, to make sure everything is set up correctly:
 
 plot(
@@ -155,16 +156,17 @@ log_likelihood = let h = hist, f = fit_function
         ## sum log-likelihood value over bins:
         ll_value::Float64 = 0.0
         for i in eachindex(counts)
+            ## Get information about current bin:
             bin_left, bin_right = binning[i], binning[i+1]
             bin_width = bin_right - bin_left
             bin_center = (bin_right + bin_left) / 2
 
             observed_counts = counts[i]
 
-            ## Simple mid-point rule integration of f over bin:
+            ## Simple mid-point rule integration of fit function `f` over bin:
             expected_counts = bin_width * f(params, bin_center)
 
-            ## Add log of Poisson probability for current bin:
+            ## Add log of Poisson probability for bin:
             ll_value += logpdf(Poisson(expected_counts), observed_counts)
         end
 
