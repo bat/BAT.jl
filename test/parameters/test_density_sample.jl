@@ -6,7 +6,6 @@ using Test
 using ArraysOfArrays, ElasticArrays
 
 @testset "density_sample" begin
-    
     param1 = [Float64(1.),-0.1, 0.5]
     param2 = [Float64(-2.5), 0.2, 2.7]
     param4 = ones(Float64, 3)
@@ -18,7 +17,6 @@ using ArraysOfArrays, ElasticArrays
         @test typeof(ds1)  <: AbstractDensitySample
         @test typeof(ds1)  <: DensitySample{Float64,Float32,Int}
 
-        @test length(ds1) == 3
         @test nparams(ds1) == 3
 
         @test typeof(ds2)  <: DensitySample{Float64,Float32,Int}

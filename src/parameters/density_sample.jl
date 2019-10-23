@@ -27,10 +27,6 @@ function ==(A::DensitySample, B::DensitySample)
 end
 
 
-# ToDo: remove?
-Base.length(s::DensitySample) = length(s.params)
-
-
 function Base.similar(s::DensitySample{P,T,W}) where {P,T,W}
     params = fill!(similar(s.params), oob(eltype(s.params)))
     log_posterior = convert(T, NaN)
@@ -41,7 +37,7 @@ function Base.similar(s::DensitySample{P,T,W}) where {P,T,W}
 end
 
 
-nparams(s::DensitySample) = length(s)
+nparams(s::DensitySample) = length(s.params)
 
 
 function _apply_shape(shape::AbstractValueShape, s::DensitySample)
