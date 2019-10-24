@@ -9,12 +9,14 @@ struct DensitySample{
     P<:Real,
     T<:Real,
     W<:Real,
+    R,
     PA<:AbstractVector{P}
 } <: AbstractDensitySample
     params::PA
     log_posterior::T
     log_prior::T
     weight::W
+    info::R
 end
 
 export DensitySample
@@ -27,17 +29,19 @@ export DensitySample
 import Base.==
 function ==(A::DensitySample, B::DensitySample)
     A.params == B.params && A.log_posterior == B.log_posterior &&
-        A.log_prior == B.log_prior && A.weight == B.weight
+        A.log_prior == B.log_prior && A.weight == B.weight &&
+        A.info == B.info
 end
 
 
-function Base.similar(s::DensitySample{P,T,W}) where {P,T,W}
+function Base.similar(s::DensitySample{P,T,W,R}) where {P,T,W,R}
     params = fill!(similar(s.params), oob(eltype(s.params)))
     log_posterior = convert(T, NaN)
     log_prior = convert(T, NaN)
     weight = zero(W)
+    info = R()
     PA = typeof(params)
-    DensitySample{P,T,W,PA}(params, log_posterior, log_prior, weight)
+    DensitySample{P,T,W,R,PA}(params, log_posterior, log_prior, weight, info)
 end
 
 
@@ -50,6 +54,7 @@ function _apply_shape(shape::AbstractValueShape, s::DensitySample)
         log_posterior = s.log_posterior,
         log_prior = s.log_prior,
         weight = s.weight,
+        info = s.info
     )
 end
 
@@ -65,12 +70,12 @@ end
 
 
 const DensitySampleVector{
-    P<:Real,T<:AbstractFloat,W<:Real,PA<:AbstractVector{P},
-    PAV<:AbstractVector{<:AbstractVector{P}},TV<:AbstractVector{T},WV<:AbstractVector{W},
+    P<:Real,T<:AbstractFloat,W<:Real,R,PA<:AbstractVector{P},
+    PAV<:AbstractVector{<:AbstractVector{P}},TV<:AbstractVector{T},WV<:AbstractVector{W},RV<:AbstractVector{R}
 } = StructArray{
-    DensitySample{P,T,W,PA},
+    DensitySample{P,T,W,R,PA},
     1,
-    NamedTuple{(:params, :log_posterior, :log_prior, :weight), Tuple{PAV,TV,TV,WV}}
+    NamedTuple{(:params, :log_posterior, :log_prior, :weight, :info), Tuple{PAV,TV,TV,WV,RV}}
 }
 
 export DensitySampleVector
@@ -81,35 +86,42 @@ function StructArray{DensitySample}(
         AbstractVector{<:AbstractVector{P}},
         AbstractVector{T},
         AbstractVector{T},
-        AbstractVector{W}
+        AbstractVector{W},
+        AbstractVector{R}
     }
-) where {P<:Real,T<:AbstractFloat,W<:Real}
-    params, log_posterior, log_prior, weight = contents
+) where {P<:Real,T<:AbstractFloat,W<:Real,R}
+    params, log_posterior, log_prior, weight, info = contents
     PA = eltype(params)
-    StructArray{DensitySample{P,T,W,PA}}(contents)
+    StructArray{DensitySample{P,T,W,R,PA}}(contents)
 end
 
 
-DensitySampleVector(contents::NTuple{4,Any}) = StructArray{DensitySample}(contents)
+DensitySampleVector(contents::NTuple{5,Any}) = StructArray{DensitySample}(contents)
 
 
-function DensitySampleVector{P,T,W}(nparams::Integer) where {P<:Real,T<:AbstractFloat,W<:Real}
-    DensitySampleVector((
-        VectorOfSimilarVectors(ElasticArray{P}(undef, nparams, 0)),
-        Vector{T}(undef, 0),
-        Vector{T}(undef, 0),
-        Vector{W}(undef, 0)
-    ))
+_create_undef_vector(::Type{T}, len::Integer) where T = Vector{T}(undef, len)
+
+
+function DensitySampleVector{P,T,W,R}(::UndefInitializer, len::Integer, npar::Integer) where {P<:Real,T<:AbstractFloat,W<:Real,R}
+    contents = (
+        VectorOfSimilarVectors(ElasticArray{P}(undef, npar, len)),
+        Vector{T}(undef, len),
+        Vector{T}(undef, len),
+        Vector{W}(undef, len),
+        _create_undef_vector(R, len)
+    )
+
+    DensitySampleVector(contents)
 end
 
-DensitySampleVector(::Type{S}, nparams::Integer) where {P<:Real,T<:AbstractFloat,W<:Real,S<:DensitySample{P,T,W}} =
-    DensitySampleVector{P,T,W}(nparams)
+DensitySampleVector(::Type{S}, nparams::Integer) where {P<:Real,T<:AbstractFloat,W<:Real,R,S<:DensitySample{P,T,W,R}} =
+    DensitySampleVector{P,T,W,R}(undef, 0, nparams)
 
 
 # Specialize getindex to properly support ArraysOfArrays, preventing
 # conversion to exact element type:
 @inline Base.getindex(A::StructArray{<:DensitySample}, I::Int...) =
-    DensitySample(A.params[I...], A.log_posterior[I...], A.log_prior[I...], A.weight[I...])
+    DensitySample(A.params[I...], A.log_posterior[I...], A.log_prior[I...], A.weight[I...], A.info[I...])
 
 # Specialize IndexStyle, current default for StructArray seems to be IndexCartesian()
 Base.IndexStyle(::StructArray{<:DensitySample, 1}) = IndexLinear()
@@ -120,7 +132,8 @@ function(==)(A::DensitySampleVector, B::DensitySampleVector)
     A.params == B.params &&
     A.log_posterior == B.log_posterior &&
     A.log_prior == B.log_prior &&
-    A.weight == B.weight
+    A.weight == B.weight &&
+    A.info == B.info
 end
 
 
@@ -139,7 +152,8 @@ function UnsafeArrays.uview(A::DensitySampleVector)
         uview(A.params),
         uview(A.log_posterior),
         uview(A.log_prior),
-        uview(A.weight)
+        uview(A.weight),
+        uview(A.info)
     ))
 end
 
@@ -149,7 +163,8 @@ Base.@propagate_inbounds function _bcasted_apply(shape::AbstractValueShape, A::D
         params = shape.(A.params),
         log_posterior = A.log_posterior,
         log_prior = A.log_prior,
-        weight = A.weight
+        weight = A.weight,
+        info = A.info
     )
 end
 
