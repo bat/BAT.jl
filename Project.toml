@@ -66,7 +66,8 @@ ValueShapes = "0.5.1"
 julia = "1.0.5"
 
 [extras]
+HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["HDF5", "Test"]

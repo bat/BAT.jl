@@ -62,28 +62,3 @@ function UnsafeArrays.uview(A::MCMCSampleIDVector)
         uview(A.sampletype)
     ))
 end
-
-
-function read_fom_hdf5(input, group::AbstractString, ::Type{MCMCSampleIDVector})
-    path = isempty(group) ? "" : "$group/"
-    MCMCSampleIDVector((
-        input["$(path)chainid"][:],
-        input["$(path)chaincycle"][:],
-        input["$(path)stepno"][:],
-        input["$(path)sampletype"][:],
-    ))
-end
-
-read_fom_hdf5(input, ::Type{MCMCSampleIDVector}) = read_fom_hdf5(input, "", MCMCSampleIDVector)
-
-
-function write_to_hdf5(output, group::AbstractString, sampleids::MCMCSampleIDVector)
-    path = isempty(group) ? "" : "$group/"
-    output["$(path)chainid"] = sampleids.chainid
-    output["$(path)chaincycle"] = sampleids.chaincycle
-    output["$(path)stepno"] = sampleids.stepno
-    output["$(path)sampletype"] = sampleids.sampletype
-    nothing
-end
-
-write_to_hdf5(output, sampleids::MCMCSampleIDVector) = write_to_hdf5(output, "", sampleids)

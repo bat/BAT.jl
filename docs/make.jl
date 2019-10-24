@@ -8,6 +8,9 @@ using Documenter
 using Literate
 using BAT
 
+import HDF5
+
+
 function fix_literate_output(content)
     content = replace(content, "EditURL = \"@__REPO_ROOT_URL__/\"" => "")
     return content

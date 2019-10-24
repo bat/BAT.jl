@@ -10,5 +10,6 @@ Test.@testset "Package BAT" begin
     include("statistics/test_statistics.jl")
     include("densities/test_densities.jl")
     include("samplers/test_samplers.jl")
+    include("io/test_io.jl")
     include("plotting/test_plotting.jl")
 end

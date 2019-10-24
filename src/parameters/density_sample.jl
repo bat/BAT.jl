@@ -161,22 +161,3 @@ Base.copy(
         <:Tuple{DensitySampleVector}
     }
 ) = _bcasted_apply(instance.f, instance.args[1])    
-
-
-function read_fom_hdf5(input, ::Type{DensitySampleVector})
-    DensitySampleVector((
-        VectorOfSimilarVectors(input["params"][:,:]),
-        input["log_posterior"][:],
-        input["log_prior"][:],
-        input["weight"][:]
-    ))
-end
-
-
-function write_to_hdf5(output, samples::DensitySampleVector)
-    output["params"] = Array(flatview(samples.params))
-    output["log_posterior"] = samples.log_posterior
-    output["log_prior"] = samples.log_prior
-    output["weight"] = samples.weight
-    nothing
-end
