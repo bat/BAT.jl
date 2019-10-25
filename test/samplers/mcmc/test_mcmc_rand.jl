@@ -21,8 +21,8 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
         # algorithmMW = @inferred MetropolisHastings() TODO: put back the @inferred
         algorithmMW = MetropolisHastings()
         @test BAT.mcmc_compatible(algorithmMW, GenericProposalDist(mv_dist), NoParamBounds(2))
-#        samples, sampleids, stats = @inferred rand( TODO: put back the @inferred
-        samples, sampleids, stats = rand(
+#        samples, stats = @inferred rand( TODO: put back the @inferred
+        samples, stats = rand(
             MCMCSpec(algorithmMW, PosteriorDensity(density, bounds)),
             nsamples_per_chain,
             nchains,
@@ -30,7 +30,6 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
             granularity = 1
         )
 
-        @test length(samples) == length(sampleids)
         @test length(samples) == nchains * nsamples_per_chain
         @test samples.params[findmax(samples.log_posterior)[2]] == stats.mode
 
@@ -41,8 +40,8 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
         @test isapprox(cov_samples, cmat; rtol = 0.1)
 
         algorithmPW = @inferred MetropolisHastings(MHAccRejProbWeights())
-        # samples, sampleids, stats = @inferred rand(
-        samples, sampleids, stats = rand(
+        # samples, stats = @inferred rand(
+        samples, stats = rand(
             MCMCSpec(algorithmPW, PosteriorDensity(mv_dist, bounds)),
             nsamples_per_chain,
             nchains,
@@ -50,7 +49,6 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
             granularity = 1
         )
 
-        @test length(samples) == length(sampleids)
         @test samples.params[findmax(samples.log_posterior)[2]] == stats.mode
 
         cov_samples = cov(flatview(samples.params), FrequencyWeights(samples.weight), 2; corrected=true)

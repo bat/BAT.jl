@@ -251,7 +251,7 @@ nchains = 4
 
 # Now we can generate a set of MCMC samples via `rand`:
 
-samples, sampleids, stats, chains = rand(
+samples, stats, chains = rand(
     MCMCSpec(MetropolisHastings(), posterior),
     nsamples, nchains
 )
@@ -331,20 +331,18 @@ plot(
 # ### Integration with Tables.jl
 
 # BAT.jl supports the [Tables.jl](https://github.com/JuliaData/Tables.jl)
-# interface. Using a tables implementation like
-# TypedTables.jl](http://blog.roames.com/TypedTables.jl/stable/),
-# the whole MCMC output (parameter vectors, weights, sample/chain numbers,
-# etc.) can easily can be combined into a single table:
+# interface. So we can also convert the vector of MCMC samples vecto a
+# table, e.g. using TypedTables.jl](http://blog.roames.com/TypedTables.jl/stable/):
 
 using TypedTables
 
-tbl = Table(samples, sampleids)
+tbl = Table(samples)
 
 
-# Using the parameter shapes, we can also generate a table with named
-# parameters instead:
+# Using the parameter shapes, we can generate a table with named parameters,
+# instead of flat real-valued parameter vectors:
 
-tbl_named = Table(parshapes.(samples), sampleids)
+tbl_named = parshapes.(samples)
 
 
 # We can now, e.g., find the sample with the maximum posterior value (i.e. the
@@ -439,7 +437,7 @@ burnin_strategy = MCMCBurninStrategy(
 
 # To generate MCMC samples with explicit control over all options, use
 
-samples, sampleids, stats, chains = rand(
+samples, stats, chains = rand(
     chainspec,
     nsamples,
     nchains,
@@ -457,7 +455,7 @@ samples, sampleids, stats, chains = rand(
 # However, in many use cases, simply using the default options via
 #
 # ```julia
-# samples, sampleids, stats, chains = rand(
+# samples, stats, chains = rand(
 #     MCMCSpec(MetropolisHastings(), posterior),
 #     nsamples, nchains
 # )

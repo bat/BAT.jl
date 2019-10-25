@@ -148,8 +148,6 @@ BAT.samples_available(chain::SomeMCMCIter, nonzero_weights::Bool = false)::Bool
 
 BAT.get_samples!(appendable, chain::SomeMCMCIter, nonzero_weights::Bool)::typeof(appendable)
 
-BAT.get_sample_ids!(appendable, chain::SomeMCMCIter, nonzero_weights::Bool)::typeof(appendable)
-
 BAT.next_cycle!(chain::SomeMCMCIter)::SomeMCMCIter
 
 BAT.mcmc_step!(
@@ -166,7 +164,6 @@ getposterior(chain::MCMCIterator)
 rngseed(chain::MCMCIterator)
 nparams(chain::MCMCIterator)
 DensitySampleVector(chain::MCMCIterator)
-MCMCSampleIDVector(chain::MCMCIterator)
 mcmc_iterate!(callback, chain::MCMCIterator, ...)
 mcmc_iterate!(callbacks, chains::AbstractVector{<:MCMCIterator}, ...)
 ```
@@ -193,8 +190,6 @@ function samples_available end
 
 function get_samples! end
 
-function get_sample_ids! end
-
 function next_cycle! end
 
 function mcmc_step! end
@@ -209,8 +204,6 @@ rngseed(chain::MCMCIterator) = mcmc_spec(chain).rngseed
 nparams(chain::MCMCIterator) = nparams(getposterior(chain))
 
 DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(sample_type(chain), nparams(chain))
-
-MCMCSampleIDVector(chain::MCMCIterator) = MCMCSampleIDVector()
 
 
 

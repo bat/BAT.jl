@@ -51,15 +51,13 @@ mutable struct MHIterator{
     SP<:MCMCSpec,
     R<:AbstractRNG,
     Q<:AbstractProposalDist,
-    SV<:DensitySampleVector,
-    IV<:MCMCSampleIDVector
+    SV<:DensitySampleVector
 } <: MCMCIterator
     spec::SP
     rng::R
     info::MCMCIteratorInfo
     proposaldist::Q
     samples::SV
-    sampleids::IV
     nsamples::Int64
     stepno::Int64
 end
@@ -100,9 +98,6 @@ function MHIterator(
 
     samples = DensitySampleVector{P,T,W,MCMCSampleID}(undef, 0, npar)
     push!(samples, current_sample)
-    sampleids = push!(MCMCSampleIDVector(), sample_info)  #!!!
-    @assert axes(samples, 1) == axes(sampleids, 1)
-    @assert samples.info == sampleids #!!!
 
     nsamples::Int64 = 0
 
@@ -112,7 +107,6 @@ function MHIterator(
         info,
         proposaldist,
         samples,
-        sampleids,
         nsamples,
         stepno
     )
@@ -145,7 +139,6 @@ end
 
 function _available_samples_idxs(chain::MHIterator)
     sampletype = chain.samples.info.sampletype
-    @assert sampletype == chain.sampleids.sampletype #!!!
     @uviews sampletype begin
         from = firstindex(chain.samples)
 
@@ -182,10 +175,7 @@ sample_type(chain::MHIterator) = eltype(chain.samples)
 
 function samples_available(chain::MHIterator)
     i = _current_sample_idx(chain::MHIterator)
-    a = chain.samples.info.sampletype[i] == ACCEPTED_SAMPLE
-    b = chain.sampleids.sampletype[i] == ACCEPTED_SAMPLE #!!!
-    @assert a == b #!!!
-    a
+    chain.samples.info.sampletype[i] == ACCEPTED_SAMPLE
 end
 
 
@@ -210,29 +200,6 @@ function get_samples!(appendable, chain::MHIterator, nonzero_weights::Bool)::typ
 end
 
 
-function get_sample_ids!(appendable, chain::MHIterator, nonzero_weights::Bool)::typeof(appendable)
-    if samples_available(chain)
-        idxs = _available_samples_idxs(chain)
-        samples = chain.samples
-        sampleids = chain.sampleids
-        @assert samples.info == sampleids #!!!
-
-        @uviews samples sampleids begin
-            # if nonzero_weights
-                for i in idxs
-                    if !nonzero_weights || samples.weight[i] > 0
-                        push!(appendable, sampleids[i])
-                    end
-                end
-            # else
-            #     append!(appendable, view(sampleids, idxs))
-            # end
-        end
-    end
-    appendable
-end
-
-
 function next_cycle!(chain::MHIterator)
     chain.info = MCMCIteratorInfo(chain.info, cycle = chain.info.cycle + 1)
     chain.nsamples = 0
@@ -241,16 +208,12 @@ function next_cycle!(chain::MHIterator)
     reset_rng_counters!(chain)
 
     resize!(chain.samples, 1)
-    resize!(chain.sampleids, 1)
 
     i = _current_sample_idx(chain)
     @assert chain.samples.info[i].sampletype == CURRENT_SAMPLE
-    @assert chain.sampleids[i].sampletype == CURRENT_SAMPLE #!!!
 
     chain.samples.weight[i] = 1
     chain.samples.info[i] = MCMCSampleID(chain.info.id, chain.info.cycle, chain.stepno, CURRENT_SAMPLE)
-    chain.sampleids[i] = MCMCSampleID(chain.info.id, chain.info.cycle, chain.stepno, CURRENT_SAMPLE) #!!!
-    @assert chain.samples.info[i] == chain.sampleids[i] #!!!
 
     chain
 end
@@ -274,22 +237,16 @@ function mcmc_step!(
 
     proposaldist = chain.proposaldist
     samples = chain.samples
-    sampleids = chain.sampleids
-    @assert samples.info == sampleids #!!!
 
-    # Grow samples and sampleids vector by one:
+    # Grow samples vector by one:
     resize!(samples, size(samples, 1) + 1)
     samples.info[lastindex(samples)] = MCMCSampleID(chain.info.id, chain.info.cycle, chain.stepno, PROPOSED_SAMPLE)
-    push!(sampleids, MCMCSampleID(chain.info.id, chain.info.cycle, chain.stepno, PROPOSED_SAMPLE))  #!!!
-    @assert samples.info == sampleids #!!!
-
-    @assert axes(samples, 1) == axes(sampleids, 1)
 
     current = _current_sample_idx(chain)
     proposed = _proposed_sample_idx(chain)
     @assert current != proposed
 
-    accepted = @uviews samples sampleids begin
+    accepted = @uviews samples begin
         current_params = samples.params[current]
         proposed_params = samples.params[proposed]
 
@@ -329,12 +286,9 @@ function mcmc_step!(
         if accepted
             samples.info.sampletype[current] = ACCEPTED_SAMPLE
             samples.info.sampletype[proposed] = CURRENT_SAMPLE
-            sampleids.sampletype[current] = ACCEPTED_SAMPLE #!!!
-            sampleids.sampletype[proposed] = CURRENT_SAMPLE #!!!
             chain.nsamples += 1
         else
             samples.info.sampletype[proposed] = REJECTED_SAMPLE
-            sampleids.sampletype[proposed] = REJECTED_SAMPLE #!!!
         end
 
         delta_w_current, w_proposed = _mh_weights(alg, p_accept, accepted)
@@ -349,17 +303,13 @@ function mcmc_step!(
             samples.log_prior[current] = samples.log_prior[proposed]
             samples.weight[current] = samples.weight[proposed]
             samples.info[current] = samples.info[proposed]
-            sampleids[current] = sampleids[proposed] #!!!
         end
-
-        @assert samples.info == sampleids #!!!
 
         accepted
     end # @uviews
 
     if accepted
         resize!(samples, 1)
-        resize!(sampleids, 1)
     end
 
     chain

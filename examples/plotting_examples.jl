@@ -48,7 +48,7 @@ nchains = 4
 nsamples = 10^5
 
 #generate samples
-samples, sampleids, stats, chains = rand(
+samples, stats, chains = rand(
     chainspec,
     nsamples,
     nchains

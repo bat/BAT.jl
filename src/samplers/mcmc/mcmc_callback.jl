@@ -111,9 +111,3 @@ Base.convert(::Type{AbstractMCMCCallback}, x::DensitySampleVector) = MCMCAppendC
 
 MCMCAppendCallback(x::DensitySampleVector, nonzero_weights::Bool = true) =
     MCMCAppendCallback(x, 1, get_samples!, nonzero_weights)
-
-
-Base.convert(::Type{AbstractMCMCCallback}, x::MCMCSampleIDVector) = MCMCAppendCallback(x)
-
-MCMCAppendCallback(x::MCMCSampleIDVector, nonzero_weights::Bool = true) =
-    MCMCAppendCallback(x, 1, get_sample_ids!, nonzero_weights)
