@@ -95,10 +95,7 @@ end
 
 
 ValueShapes.valshape(p::NamedPrior) = _shapes(p)
-#!!!! FORMER Base.convert(::Type{VarShapes}, p) = VarShapes(p)
 
-#!!!! FORMER VarShapes{names}(p::NamedPrior{names}) where {names} = _shapes(p)
-#!!!! FORMER Base.convert(::Type{VarShapes{names}}, p) where {names} = VarShapes(p)
 
 param_bounds(p::NamedPrior) = vcat(map(_np_bounds, values(p))...)
 

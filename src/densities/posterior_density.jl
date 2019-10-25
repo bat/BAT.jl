@@ -189,7 +189,7 @@ struct PosteriorDensity{
     L<:AbstractDensity,
     P<:AbstractPriorDensity,
     B<:AbstractParamBounds,
-    S<:AbstractValueShape       # !!!! FORMER S<:Union{VarShapes,Nothing}
+    S<:AbstractValueShape
 } <: AbstractPosteriorDensity
     likelihood::L
     prior::P

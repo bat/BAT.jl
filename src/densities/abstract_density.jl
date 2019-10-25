@@ -78,11 +78,11 @@ end
 @doc """
     params_shape(
         density::AbstractDensity
-    )::Union{ValueShapes.AbstractValueShape,Missing}       #!!! FORMER ::Union{ValueShapes.AbstractValueShape,Missing,Nothing}
+    )::Union{ValueShapes.AbstractValueShape,Missing}
 
     params_shape(
         density::AbstractPriorDensity
-    )::ValueShapes.AbstractValueShape      #!!! FORMER ::Union{ValueShapes,Nothing}
+    )::ValueShapes.AbstractValueShape
 
 Get the shapes of parameters of `density`.
 
@@ -99,7 +99,7 @@ params_shape(density::AbstractDensity) = missing
     eval_density_logval(
         density::AbstractDensity,
         params::AbstractVector{<:Real},
-        parshapes::ValueShapes.AbstractValueShape   #!!! FORMER Union{ValueShapes.AbstractValueShape,Nothing}
+        parshapes::ValueShapes.AbstractValueShape
     )
 
 Internal function to evaluate density log-value, calls `density_logval`.
@@ -116,7 +116,7 @@ Checks that:
 function eval_density_logval(
     density::AbstractDensity,
     params::AbstractVector{<:Real},
-    parshapes::ValueShapes.AbstractValueShape              #! FORMER Union{ValueShapes.AbstractValueShape,Nothing}
+    parshapes::ValueShapes.AbstractValueShape
 )
     npars = nparams(density)
     ismissing(npars) || (length(eachindex(params)) == npars) || throw(ArgumentError("Invalid length of parameter vector"))
@@ -127,8 +127,6 @@ function eval_density_logval(
 
     r
 end
-
-# !!!! FORMER _apply_parshapes(params::AbstractVector{<:Real}, parshapes::Nothing) = params
 
 _apply_parshapes(params::AbstractVector{<:Real}, parshapes::AbstractValueShape) = parshapes(params)
 
