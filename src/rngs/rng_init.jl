@@ -7,6 +7,21 @@ const Random123_UInt = Union{UInt32, UInt64}
 const Random123RNG4x = Union{Philox4x, Threefry4x}
 
 
+"""
+    bat_default_rng()
+
+Return a new BAT-compatigle random number generator, with a random seed drawn
+from the system entropy pool.
+"""
+
+function bat_rng end
+export bat_rng
+
+
+bat_default_rng() = Philox4x()
+
+
+
 abstract type AbstractRNGSeed end
 
 export AbstractRNGSeed

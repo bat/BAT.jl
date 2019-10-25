@@ -3,5 +3,6 @@
 using Test
 
 Test.@testset "samplers" begin
+    include("test_bat_sample.jl")
     include("mcmc/test_mcmc.jl")
 end

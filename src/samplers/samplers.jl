@@ -1,3 +1,4 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+include("bat_sample.jl")
 include("mcmc/mcmc.jl")
