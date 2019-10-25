@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct DistributionDensity{D<:Distribution{Multivariate,Continuous}} <: AbstractPriorDensity
+struct DistributionDensity{D<:Distribution{Multivariate,Continuous}} <: DistLikeDensity
     d::D
 end
 
@@ -10,7 +10,7 @@ export DistributionDensity
 Base.convert(::Type{AbstractDensity}, d::Distribution{Multivariate,Continuous}) =
     DistributionDensity(d)
     
-Base.convert(::Type{AbstractPriorDensity}, d::Distribution{Multivariate,Continuous}) =
+Base.convert(::Type{DistLikeDensity}, d::Distribution{Multivariate,Continuous}) =
     DistributionDensity(d)
 
 

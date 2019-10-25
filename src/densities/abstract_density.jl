@@ -81,7 +81,7 @@ end
     )::Union{ValueShapes.AbstractValueShape,Missing}
 
     params_shape(
-        density::AbstractPriorDensity
+        density::DistLikeDensity
     )::ValueShapes.AbstractValueShape
 
 Get the shapes of parameters of `density`.
@@ -132,11 +132,12 @@ _apply_parshapes(params::AbstractVector{<:Real}, parshapes::AbstractValueShape) 
 
 
 @doc """
-    AbstractPriorDensity <: AbstractDensity
+    DistLikeDensity <: AbstractDensity
 
-A density suitable for use as a prior.
+A density that implements part of the `Distributions.Distribution` interface.
+Such densities are suitable to be used as a priors.
 
-Subtypes of `AbstractPriorDensity` are required to support more functionality
+Subtypes of `DistLikeDensity` are required to support more functionality
 than a `AbstractDensity`, but less than a
 `Distribution{Multivariate,Continuous}`.
 
@@ -157,14 +158,14 @@ Prior densities that support named parameters should also implement
 * `BAT.params_shape`
 
 A `d::Distribution{Multivariate,Continuous}` can be converted into (wrapped
-in) an `AbstractPriorDensity` via `conv(AbstractPriorDensity, d)`.
+in) an `DistLikeDensity` via `conv(DistLikeDensity, d)`.
 """
-abstract type AbstractPriorDensity <: AbstractDensity end
-export AbstractPriorDensity
+abstract type DistLikeDensity <: AbstractDensity end
+export DistLikeDensity
 
 
 @doc """
-    param_bounds(density::AbstractPriorDensity)::AbstractParamBounds
+    param_bounds(density::DistLikeDensity)::AbstractParamBounds
 
 Get the parameter bounds of `density`. Must not be `missing`.
 """
@@ -172,10 +173,10 @@ function param_bounds end
 
 
 @doc """
-    nparams(density::AbstractPriorDensity)::Int
+    nparams(density::DistLikeDensity)::Int
 
 Get the number of parameters of prior density `density`. Must not be
 `missing`, prior densities must have a fixed number of parameters. By default,
 the number of parameters is inferred from the parameter bounds.
 """
-nparams(density::AbstractPriorDensity) = nparams(param_bounds(density))
+nparams(density::DistLikeDensity) = nparams(param_bounds(density))

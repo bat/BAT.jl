@@ -168,10 +168,9 @@ end
 
 
 doc"""
-
     PosteriorDensity{
         Li<:AbstractDensity,
-        Pr<:AbstractPriorDensity
+        Pr<:DistLikeDensity
     } <: AbstractPosteriorDensity
 
 A representation of a PosteriorDensity, based a likelihood and prior, a
@@ -193,7 +192,7 @@ PosteriorDensity(log_likelihood::Function, prior::Any)
 """
 struct PosteriorDensity{
     L<:AbstractDensity,
-    P<:AbstractPriorDensity,
+    P<:DistLikeDensity,
     B<:AbstractParamBounds,
     S<:AbstractValueShape
 } <: AbstractPosteriorDensity
