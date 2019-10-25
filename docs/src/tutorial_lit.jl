@@ -251,7 +251,7 @@ nchains = 4
 
 # Now we can generate a set of MCMC samples via `rand`:
 
-samples, stats, chains = rand(
+samples, stats, chains = BAT.mcmc_sample(
     MCMCSpec(MetropolisHastings(), posterior),
     nsamples, nchains
 )
@@ -437,7 +437,7 @@ burnin_strategy = MCMCBurninStrategy(
 
 # To generate MCMC samples with explicit control over all options, use
 
-samples, stats, chains = rand(
+samples, stats, chains = BAT.mcmc_sample(
     chainspec,
     nsamples,
     nchains,
@@ -455,7 +455,7 @@ samples, stats, chains = rand(
 # However, in many use cases, simply using the default options via
 #
 # ```julia
-# samples, stats, chains = rand(
+# samples, stats, chains = BAT.mcmc_sample(
 #     MCMCSpec(MetropolisHastings(), posterior),
 #     nsamples, nchains
 # )

@@ -48,7 +48,7 @@ nchains = 4
 nsamples = 10^5
 
 #generate samples
-samples, stats, chains = rand(
+samples, stats, chains = BAT.mcmc_sample(
     chainspec,
     nsamples,
     nchains

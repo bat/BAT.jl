@@ -37,7 +37,7 @@ chains = 8
 nsamples = 10^5
 
 #define function to generate samples
-sample() = rand(chainspec, nsamples, chains)
+sample() = BAT.mcmc_sample(chainspec, nsamples, chains)
 
 
 #Harmonic Mean Integration

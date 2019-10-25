@@ -26,7 +26,7 @@ end
 
 # TODO: Fix granularity forwarding (still an issue?)
 
-function Random.rand(
+function mcmc_sample(
     chainspec::MCMCSpec,
     nsamples::Integer,
     nchains::Integer;
@@ -61,7 +61,7 @@ function Random.rand(
 
     append!(result_chains, chains)
 
-    rand!(
+    mcmc_sample!(
         (result_samples, result_stats),
         result_chains,
         nsamples;
@@ -74,7 +74,7 @@ function Random.rand(
 end
 
 
-function Random.rand!(
+function mcmc_sample!(
     result::MCMCOutput,
     chains::AbstractVector{<:MCMCIterator},
     nsamples::Integer;
@@ -113,15 +113,3 @@ function Random.rand!(
 
     result
 end
-
-
-# # ToDo ?:
-# function Random.rand!(
-#     result::Tuple{DensitySampleVector, MCMCBasicStats},
-#     chainspec::MCMCSpec,
-#     nsamples::Integer,
-#     initial_params::VectorOfSimilarVectors{<:Real},
-#     ...
-# )
-#     ...
-# end
