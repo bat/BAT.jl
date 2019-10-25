@@ -1,7 +1,13 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+"""
+    abstract type AbstractPosteriorDensity <: AbstractDensity end
+
+Abstract super-type for posterior probability densities.
+"""
 abstract type AbstractPosteriorDensity <: AbstractDensity end
+export AbstractPosteriorDensity
 
 
 doc"""

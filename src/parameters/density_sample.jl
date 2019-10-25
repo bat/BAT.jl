@@ -69,6 +69,11 @@ end
 
 
 
+"""
+    DensitySampleVector
+
+Type alias for `StructArrays.StructArray{<:DensitySample,...}`.
+"""
 const DensitySampleVector{
     P<:Real,T<:AbstractFloat,W<:Real,R,PA<:AbstractVector{P},
     PAV<:AbstractVector{<:AbstractVector{P}},TV<:AbstractVector{T},WV<:AbstractVector{W},RV<:AbstractVector{R}
