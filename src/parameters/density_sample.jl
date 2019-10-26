@@ -184,6 +184,31 @@ Base.copy(
 
 
 """
+    bat_stats(samples::DensitySampleVector)
+
+Calculate the following parameter statistics:
+
+* mode
+* mean
+* covariance
+"""
+function bat_stats(samples::DensitySampleVector)
+    par_mean = mean(samples.params, FrequencyWeights(samples.weight))
+    par_mode_idx = findmax(samples.log_posterior)[2]
+    par_mode = samples.params[par_mode_idx]
+    par_cov = cov(samples.params, FrequencyWeights(samples.weight))
+
+    (
+        mode = par_mode,
+        mean = par_mean,
+        cov = par_cov
+    )
+end
+
+export bat_stats
+
+
+"""
     drop_low_weight_samples(
         samples::DensitySampleVector,
         fraction::Real = 10^-4
