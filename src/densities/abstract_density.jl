@@ -84,6 +84,10 @@ end
         density::DistLikeDensity
     )::ValueShapes.AbstractValueShape
 
+    params_shape(
+        distribution::Distributions.Distribution
+    )::ValueShapes.AbstractValueShape
+
 Get the shapes of parameters of `density`.
 
 For prior densities, the result must not be `missing`, but may be `nothing` if
@@ -93,6 +97,8 @@ function params_shape end
 export params_shape
 
 params_shape(density::AbstractDensity) = missing
+
+params_shape(dist::Distribution) = valshape(dist)
 
 
 @doc """
