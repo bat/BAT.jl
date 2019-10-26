@@ -1,9 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 @recipe function f(
     parshapes::NamedTupleShape,
-    samples::DensitySampleVector, 
-    param::Symbol; 
-    intervals = standard_confidence_vals, 
+    samples::DensitySampleVector,
+    param::Symbol;
+    intervals = standard_confidence_vals,
     bins=200,
     normalize = true, 
     colors = standard_colors,
@@ -11,8 +11,9 @@
     mean = false,
     std_dev = false,
     globalmode = false,
-    localmode = true)
-
+    localmode = true,
+    filter = true
+)
     i = findfirst(x -> x == param, keys(parshapes))
 
     @series begin
@@ -25,6 +26,7 @@
         std_dev -->  std_dev
         globalmode --> globalmode
         localmode --> localmode
+        filter --> filter
 
         samples, i
     end
@@ -34,18 +36,19 @@ end
 
 @recipe function f(
     posterior::PosteriorDensity,
-    samples::DensitySampleVector, 
+    samples::DensitySampleVector,
     param::Symbol; 
-    intervals = standard_confidence_vals, 
+    intervals = standard_confidence_vals,
     bins=200,
-    normalize = true, 
+    normalize = true,
     colors = standard_colors,
     intervallabels = [],
     mean = false,
     std_dev = false,
     globalmode = false,
-    localmode = true)
-
+    localmode = true,
+    filter = true
+)
     i = findfirst(x -> x == param, keys(params_shape(posterior)))
 
     @series begin
@@ -58,6 +61,7 @@ end
         std_dev -->  std_dev
         globalmode --> globalmode
         localmode --> localmode
+        filter --> filter
 
         samples, i
     end
@@ -65,17 +69,23 @@ end
 end
 
 
-@recipe function f(samples::DensitySampleVector, 
-                    param::Integer; 
-                    intervals = standard_confidence_vals, 
-                    bins=200,
-                    normalize = true, 
-                    colors = standard_colors,
-                    intervallabels = [],
-                    mean = false,
-                    std_dev = false,
-                    globalmode = false,
-                    localmode = true)
+@recipe function f(
+    samples::DensitySampleVector,
+    param::Integer;
+    intervals = standard_confidence_vals,
+    bins=200,
+    normalize = true,
+    colors = standard_colors,
+    intervallabels = [],
+    mean = false,
+    std_dev = false,
+    globalmode = false,
+    localmode = true,
+    filter = true
+)
+    if filter
+        samples = BAT.drop_low_weight_samples(samples)
+    end
     
     #seriestype = get(plotattributes, :seriestype, :smallest_intervals)
     
@@ -215,6 +225,3 @@ function uncertaintyband(m, u, h; swap=false)
         ()
     end
 end
-
-
-

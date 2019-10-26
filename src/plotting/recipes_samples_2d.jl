@@ -11,8 +11,9 @@
     localmode = true,
     diagonal = Dict(),
     upper = Dict(),
-    right = Dict())
-
+    right = Dict(),
+    filter = true
+)
     i = findfirst(x -> x == parsel[1], keys(parshapes))
     j = findfirst(x -> x == parsel[2], keys(parshapes))
 
@@ -26,6 +27,7 @@
         diagonal --> diagonal
         upper --> upper
         right --> right
+        filter --> filter
 
         samples, (i,j)
     end
@@ -44,7 +46,9 @@ end
     localmode = true,
     diagonal = Dict(),
     upper = Dict(),
-    right = Dict())
+    right = Dict(),
+    filter = true
+)
 
     i = findfirst(x -> x == parsel[1], keys(params_shape(posterior)))
     j = findfirst(x -> x == parsel[2], keys(params_shape(posterior)))
@@ -59,24 +63,30 @@ end
         diagonal --> diagonal
         upper --> upper
         right --> right
+        filter --> filter
 
         samples, (i,j)
     end
 end
 
 
-@recipe function f(samples::DensitySampleVector, 
-                parsel::NTuple{2,Integer}; 
-                intervals = standard_confidence_vals, 
-                colors = standard_colors,
-                mean = false,
-                std_dev = false,
-                globalmode = false,
-                localmode = true,
-                diagonal = Dict(),
-                upper = Dict(),
-                right = Dict())
-
+@recipe function f(
+    samples::DensitySampleVector,
+    parsel::NTuple{2,Integer};
+    intervals = standard_confidence_vals,
+    colors = standard_colors,
+    mean = false,
+    std_dev = false,
+    globalmode = false,
+    localmode = true,
+    diagonal = Dict(),
+    upper = Dict(),
+    right = Dict(),
+    filter = true
+)
+    if filter
+        samples = BAT.drop_low_weight_samples(samples)
+    end
 
     pi_x, pi_y = parsel
     bins = get(plotattributes, :bins, 200)
@@ -93,7 +103,6 @@ end
 
 
     h = fit(Histogram, (flatview(samples.params)[pi_x, :], flatview(samples.params)[pi_y, :]), FrequencyWeights(samples.weight), closed=:left, nbins=bins)
-
 
 
     if seriestype == :scatter
