@@ -37,6 +37,8 @@ using Tables
 using UnsafeArrays
 using KernelDensity
 
+import Measurements
+
 #for AHMI
 using DataStructures
 using QuadGK
