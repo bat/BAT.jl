@@ -18,6 +18,8 @@ isinitialized(x::SpacePartitioningTree) = !(iszero(x.cuts) && iszero(x.leafsize)
 """
     DataSet{T<:AbstractFloat, I<:Integer}
 
+Note: AHMI-internal, not part of stable API.
+
 Holds the MCMC output. For construction use constructor: function DataSet{T<:Real}(data::Matrix{T}, logprob::Vector{T}, weights::Vector{T})
 # Variables
 - 'data' : An P x N array with N data points with P parameters.
@@ -109,6 +111,8 @@ Base.eltype(data::DataSet{T, I}) where {T<:AbstractFloat, I<:Integer} = (T, I)
 """
     HMISettings
 
+Note: AHMI-internal, not part of stable API.
+
 holds the settings for the hm_integrate function. There are several default constructors available:
 HMIFastSettings()
 HMIStandardSettings()
@@ -144,6 +148,8 @@ HMIPrecisionSettings() = return HMISettings(cholesky_whitening!, 10000, 2.5, 0.1
 """
     WhiteningResult{T<:AbstractFloat}
 
+Note: AHMI-internal, not part of stable API.
+
 Stores the information obtained during the Whitening Process
 # Variables
 - 'determinant' : The determinant of the whitening matrix
@@ -163,6 +169,8 @@ isinitialized(x::WhiteningResult) = !(iszero(x.determinant) && iszero(x.targetpr
 
 """
     SearchResult{T<:AbstractFloat, I<:Integer}
+
+Note: AHMI-internal, not part of stable API.
 
 Stores the results of the space partitioning tree's search function
 
@@ -194,6 +202,8 @@ Base.show(io::IO, sres::SearchResult) = print(io, "Search Result: Points: $(sres
 """
     PointCloud{T<:AbstractFloat, I<:Integer}
 
+Note: AHMI-internal, not part of stable API.
+
 Stores the information of the points of an e.g. HyperRectVolume
 # Variables
 - 'maxLogProb' : The maximum log. probability of one of the points inside the hyper-rectangle
@@ -223,6 +233,8 @@ Base.show(io::IO, cloud::PointCloud) = print(io, "Point Cloud with $(cloud.point
 
 """
     IntegrationVolume{T<:AbstractFloat, I<:Integer}
+
+Note: AHMI-internal, not part of stable API.
 
 # Variables
 - 'pointcloud' : holds the point cloud of the integration volume
@@ -273,6 +285,8 @@ HMIResult(T::DataType) = HMIResult(HMIEstimate(T), HMIEstimate(T), HMIEstimate(T
 
 """
     HMIData{T<:AbstractFloat, I<:Integer}
+
+Note: AHMI-internal, not part of stable API.
 
 Includes all the informations of the integration process, including a list of hyper-rectangles, the results of the whitening transformation,
 the starting ids, and the average number of points and volume of the created hyper-rectangles.

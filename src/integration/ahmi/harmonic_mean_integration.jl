@@ -21,7 +21,9 @@ const _minpoints_per_dimension = 50
 
 
 """
-function hm_integrate!(result, settings = HMIPrecisionSettings())
+    hm_integrate!(result, settings = HMIPrecisionSettings())
+
+Note: AHMI-internal, not part of stable API.
 
 This function starts the adaptive harmonic mean integration. See arXiv:1808.08051 for more details.
 It needs a HMIData struct as input, which holds the samples, in form of a dataset, the integration volumes and other
@@ -69,7 +71,9 @@ ahmi_integrate(samples::DensitySampleVector) = hm_integrate!(HMIData(samples))
 
 
 """
-function hm_init!(result, settings)
+    hm_init!(result, settings)
+
+Note: AHMI-internal, not part of stable API.
 
 Sets the global multithreading setting and ensures that a minimum number of samples, dependent on the number of dimensions, are provided.
 """
@@ -88,7 +92,9 @@ function hm_init(
 end
 
 """
-function hm_whiteningtransformation!(result, settings)
+    hm_whiteningtransformation!(result, settings)
+
+Note: AHMI-internal, not part of stable API.
 
 Applies a whitening transformation to the samples. A custom whitening method can be used by overriding settings.whitening_function!
 """

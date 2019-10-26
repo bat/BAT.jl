@@ -2,6 +2,8 @@
 """
     create_hypercube{T<:Real}(origin::Vector{T}, edgelength::T)::HyperRectVolume
 
+Note: AHMI-internal, not part of stable API.
+
 creates a hypercube shaped spatial volume
 """
 function create_hypercube(
@@ -19,6 +21,8 @@ end
 
 """
     create_hypercube!{T<:Real}(origin::Vector{T}, edgelength::T)::HyperRectVolume
+
+Note: AHMI-internal, not part of stable API.
 
 resizes a hypercube shaped spatial volume
 """
@@ -48,6 +52,8 @@ end
 
 """
     find_hypercube_centers(dataset::DataSet{T, I}, whiteningresult::WhiteningResult, settings::HMISettings)::Vector{I}
+
+Note: AHMI-internal, not part of stable API.
 
 finds possible starting points for the hyperrectangle creation
 """
@@ -340,7 +346,12 @@ function adapt_hyperrectangle!(
 
     change1 && change2, iterations1 + iterations2
 end
+
 """
+    create_hyperrectangle(...)
+
+Note: AHMI-internal, not part of stable API.
+
 This function creates a hyper-rectangle around each starting sample.
 It starts by building a hyper-cube  and subsequently adapts each face individually,
 thus turning the hyper-cube into a hyper-rectangle.
