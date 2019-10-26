@@ -11,7 +11,8 @@ end
 export ProposalCovTunerConfig
 
 
-AbstractMCMCTunerConfig(chainspec::MCMCSpec{<:MetropolisHastings}) = ProposalCovTunerConfig()
+# Deprecate:
+AbstractMCMCTunerConfig(algorithm::MetropolisHastings) = ProposalCovTunerConfig()
 
 (config::ProposalCovTunerConfig)(chain::MHIterator) = ProposalCovTuner(config, chain)
 

@@ -32,11 +32,12 @@ end
 
 export MCMCBurninStrategy
 
-function MCMCBurninStrategy(chainspec::MCMCSpec, nsamples::Integer, tuner_config::AbstractMCMCTunerConfig)
+function MCMCBurninStrategy(algorithm::MCMCAlgorithm, nsamples::Integer, max_nsteps::Integer, tuner_config::AbstractMCMCTunerConfig)
     max_nsamples_per_cycle = max(div(nsamples, 10), 10)
+    max_nsteps_per_cycle = max(div(max_nsteps, 10), 10)
     MCMCBurninStrategy(
         max_nsamples_per_cycle = max_nsamples_per_cycle,
-        max_nsteps_per_cycle = 10 * max_nsamples_per_cycle
+        max_nsteps_per_cycle = max_nsteps_per_cycle
     )
 end
 

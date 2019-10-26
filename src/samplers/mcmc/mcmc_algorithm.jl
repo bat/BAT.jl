@@ -2,7 +2,9 @@
 
 
 doc"""
-    abstract type MCMCAlgorithm end
+    abstract type MCMCAlgorithm <: AbstractSamplingAlgorithm end
+
+BAT-internal documentation, not part of stable API:
 
 The following methods must be defined for subtypes (e.g.
 for `SomeAlgorithm<:MCMCAlgorithm`):
@@ -26,7 +28,7 @@ BAT.initial_params!(
 To implement a new MCMC algorithm, subtypes of both `MCMCAlgorithm` and
 [`MCMCIterator`](@ref) are required.
 """
-abstract type MCMCAlgorithm end
+abstract type MCMCAlgorithm <: AbstractSamplingAlgorithm end
 export MCMCAlgorithm
 
 

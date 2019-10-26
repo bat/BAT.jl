@@ -1,8 +1,10 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+# BAT-internal:
 const MCMCOutputWithChains = Tuple{DensitySampleVector, MCMCBasicStats, AbstractVector{<:MCMCIterator}}
 
+# BAT-internal:
 function MCMCOutputWithChains(chainspec::MCMCSpec)
     dummy_chain = chainspec(zero(Int64))
 
@@ -15,8 +17,10 @@ end
 
 
 
+# BAT-internal:
 const MCMCOutput = Tuple{DensitySampleVector, MCMCBasicStats}
 
+# BAT-internal:
 function MCMCOutput(chainspec::MCMCSpec)
     samples, stats = MCMCOutputWithChains(chainspec::MCMCSpec)
     (samples, stats)
@@ -24,18 +28,17 @@ end
 
 
 
-# TODO: Fix granularity forwarding (still an issue?)
-
+# BAT-internal:
 function mcmc_sample(
     chainspec::MCMCSpec,
     nsamples::Integer,
     nchains::Integer;
-    tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec),
+    max_nsteps::Int64 = Int64(10 * nsamples),
+    max_time::Float64 = Inf,
+    tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
     convergence_test::MCMCConvergenceTest = BGConvergence(),
     init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config),
-    burnin_strategy::MCMCBurninStrategy = MCMCBurninStrategy(chainspec, nsamples, tuner_config),
-    max_nsteps::Int64 = Int64(100 * nsamples),
-    max_time::Float64 = Inf,
+    burnin_strategy::MCMCBurninStrategy = MCMCBurninStrategy(chainspec.algorithm, nsamples, max_nsteps, tuner_config),
     granularity::Int = 1,
     strict_mode::Bool = false
 )
@@ -74,6 +77,7 @@ function mcmc_sample(
 end
 
 
+# BAT-internal:
 function mcmc_sample!(
     result::MCMCOutput,
     chains::AbstractVector{<:MCMCIterator},
@@ -112,4 +116,82 @@ function mcmc_sample!(
     end
 
     result
+end
+
+
+
+default_sampling_algorithm(posterior::AbstractPosteriorDensity) = MetropolisHastings()
+
+
+"""
+    function bat_sample(
+        rng::AbstractRNG,
+        posterior::AbstractPosteriorDensity,
+        n::Union{Integer,Tuple{Integer,Integer}},
+        algorithm::MCMCAlgorithm;
+        max_nsteps::Integer,
+        max_time::Real,
+        tuning::AbstractMCMCTunerConfig,
+        init::MCMCInitStrategy,
+        burnin::MCMCBurninStrategy,
+        convergence::MCMCConvergenceTest,
+        strict::Bool = false,
+        filter::Bool = true
+    )
+
+Sample `posterior` via Markov chain Monte Carlo (MCMC).
+
+`n` must be either a tuple `(nsteps, nchains)` or an integer. `nchains`
+specifies the (approximate) number of MCMC steps per chain, `nchains` the
+number of MCMC chains. If n is an integer, it is interpreted as
+`nsteps * nchains`, and the number of steps and chains are chosen
+automatically.
+"""
+function bat_sample(
+    rng::AbstractRNG,
+    posterior::AbstractPosteriorDensity,
+    n::Tuple{Integer,Integer},
+    algorithm::MCMCAlgorithm;
+    max_nsteps::Integer = 10 * n[1],
+    max_time::Real = Inf,
+    tuning::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(algorithm),
+    init::MCMCInitStrategy = MCMCInitStrategy(tuning),
+    burnin::MCMCBurninStrategy = MCMCBurninStrategy(algorithm, n[1], max_nsteps, tuning),
+    convergence::MCMCConvergenceTest = BGConvergence(),
+    strict::Bool = false,
+    filter::Bool = true
+)
+    #!!!! Temporary: ignore rng value, to be fixed:
+    chainspec = MCMCSpec(algorithm, posterior)
+
+    nsamples_per_chain, nchains = n
+
+    samples, stats, chains = mcmc_sample(
+        chainspec,
+        nsamples_per_chain,
+        nchains;
+        tuner_config = tuning,
+        convergence_test = convergence,
+        init_strategy = init,
+        burnin_strategy = burnin,
+        max_nsteps = Int64(max_nsteps),
+        max_time = Float64(max_time),
+        granularity = filter ? 1 : 2,
+        strict_mode = strict
+    )
+
+    samples
+end
+
+
+function bat_sample(
+    rng::AbstractRNG,
+    posterior::AbstractPosteriorDensity,
+    n::Integer,
+    algorithm::MCMCAlgorithm;
+    kwargs...
+)
+    nchains = 4
+    nsamples = div(n, nchains)
+    bat_sample(rng, posterior, (nsamples, nchains), algorithm; kwargs...)
 end
