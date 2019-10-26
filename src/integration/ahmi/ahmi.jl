@@ -16,38 +16,3 @@ include("uncertainty.jl")
 
 
 # ToDo: rename hm_... functions to ahmi_...
-
-export hm_init
-export hm_whiteningtransformation!
-export hm_createpartitioningtree!
-export hm_findstartingsamples!
-export hm_determinetolerance!
-export hm_hyperrectanglecreation!
-export hm_integratehyperrectangles!
-
-export hm_integrate!
-export hm_integrate
-
-export ahmi_integrate
-
-export split_samples
-export split_dataset
-
-export DataSet
-export WhiteningResult
-export SpacePartitioningTree
-export IntermediateResult
-
-export HMIPrecisionSettings
-export HMIFastSettings
-export HMIStandardSettings
-export HMIMultiThreadingSettings
-export HMISettings
-
-export data_whitening
-export isinitialized
-
-export HMIData
-export HMIResult
-export PointCloud
-export IntegrationVolume
