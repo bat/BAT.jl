@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+# ToDo: This is type piracy, find a cleaner solution!
 @recipe function f(h::Histogram,
                 parsel::NTuple{2,Integer}; 
                 intervals = standard_confidence_vals, 

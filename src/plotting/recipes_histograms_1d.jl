@@ -9,6 +9,7 @@ function plot_histogram(h::AbstractHistogram, swap::Bool)
 end
 
 
+# ToDo: This is type piracy, find a cleaner solution!
 @recipe function f(hist::Histogram,
                     param::Integer;
                     intervals = standard_confidence_vals, 
