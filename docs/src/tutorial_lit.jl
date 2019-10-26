@@ -255,27 +255,19 @@ samples = bat_sample(posterior, (nsamples, nchains), MetropolisHastings())
 #md nothing # hide
 #nb nothing # hide
 
-# Let's print some results:
+# Let's calculate some posterior statistics using the function
+# [`bat_stats`](@ref) and print the results:
 
-stats = MCMCBasicStats(samples)
+stats = bat_stats(samples)
 
 println("Truth: $true_par_values")
 println("Mode: $(stats.mode)")
-println("Mean: $(stats.param_stats.mean)")
-println("Covariance: $(stats.param_stats.cov)")
-
-# `stats` contains some statistics collected during MCMC sample generation,
-# e.g. the mean and covariance of the parameters and the mode. Equal values
-# for these statistics may of course be calculated afterwards, from the
-# samples:
-
-@assert vec(mean(samples.params, FrequencyWeights(samples.weight))) ≈ stats.param_stats.mean
-@assert vec(var(samples.params, FrequencyWeights(samples.weight))) ≈ diag(stats.param_stats.cov)
-@assert cov(samples.params, FrequencyWeights(samples.weight)) ≈ stats.param_stats.cov
+println("Mean: $(stats.mean)")
+println("Covariance: $(stats.cov)")
 
 # We can also, e.g., get the Pearson auto-correlation of the parameters:
 
-vec(cor(samples.params, FrequencyWeights(samples.weight)))
+cor(samples.params, FrequencyWeights(samples.weight))
 
 
 # ### Visualization of Results
@@ -307,7 +299,7 @@ plot(
     nbins = 50, xlabel = par_names[3], ylabel = par_names[5],
     title = "Marginalized Distribution for mu_1 and sigma"
 )
-plot!(stats, (3, 5))
+plot!(MCMCBasicStats(samples), (3, 5))
 #jl savefig("tutorial-param-pair.pdf")
 #md savefig("tutorial-param-pair.pdf")
 #md savefig("tutorial-param-pair.svg"); nothing # hide
