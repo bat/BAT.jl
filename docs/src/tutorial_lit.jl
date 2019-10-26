@@ -249,16 +249,15 @@ nchains = 4
 #md nothing # hide
 
 
-# Now we can generate a set of MCMC samples via `rand`:
+# Now we can generate a set of MCMC samples via [`bat_sample`](@ref):
 
-samples, stats, chains = BAT.mcmc_sample(
-    MCMCSpec(MetropolisHastings(), posterior),
-    nsamples, nchains
-)
+samples = bat_sample(posterior, (nsamples, nchains), MetropolisHastings())
 #md nothing # hide
 #nb nothing # hide
 
 # Let's print some results:
+
+stats = MCMCBasicStats(samples)
 
 println("Truth: $true_par_values")
 println("Mode: $(stats.mode)")
@@ -383,50 +382,46 @@ plot!(-4:0.01:4, x -> fit_function(fit_par_values, x), label = "Best fit")
 # All option value used in the following are the default values, any or all
 # may be omitted.
 
-# The Metropolis-Hastings algorithm by default uses a multivariate
-# t-distribution (ν = 1) as it's proposal function:
+# We'll sample using the The Metropolis-Hastings MCMC algorithm. By default,
+# BAT uses a multivariate t-distribution (ν = 1) as the proposal function:
 
 algorithm = MetropolisHastings(MvTDistProposalSpec(1.0))
 #md nothing # hide
 
-# There is control over the random number generator (RNG) and it's seed. BAT
-# requires a counter-based RNG, since it partitions the RNG space over the
-# MCMC chains. This way, a single RNG seed is sufficient for all chains and
-# results are reproducible even under parallel execution. By default, BAT uses
-# a Philox4x RNG initialized with a random seed drawn from the
+# BAT requires a counter-based random number generator (RNG), since it
+# partitions the RNG space over the MCMC chains. This way, a single RNG seed
+# is sufficient for all chains and results are reproducible even under
+# parallel execution. By default, BAT uses a Philox4x RNG initialized with a
+# random seed drawn from the
 # [system entropy pool](https://docs.julialang.org/en/v1/stdlib/Random/index.html#Random.RandomDevice):
 
-rngseed = BAT.Philox4xSeed()
+using Random123
+rng = Philox4x()
 #md nothing # hide
 
-# The full MCMC chain specification is defined by algorithm, posterior and
-# RNG seed:
-
-chainspec = MCMCSpec(algorithm, posterior, rngseed)
-#md nothing # hide
 
 # Other default parameters are:
 
-tuner_config = ProposalCovTunerConfig(
+tuning = ProposalCovTunerConfig(
     λ = 0.5,
     α = 0.15..0.35,
     β = 1.5,
     c = 1e-4..1e2
 )
 
-convergence_test = BGConvergence(
+convergence = BGConvergence(
     threshold = 1.1,
     corrected = false
 )
 
-init_strategy = MCMCInitStrategy(
+init = MCMCInitStrategy(
     ninit_tries_per_chain = 8..128,
     max_nsamples_pretune = 25,
     max_nsteps_pretune = 250,
     max_time_pretune = Inf
 )
 
-burnin_strategy = MCMCBurninStrategy(
+burnin = MCMCBurninStrategy(
     max_nsamples_per_cycle = 1000,
     max_nsteps_per_cycle = 10000,
     max_time_per_cycle = Inf,
@@ -437,17 +432,16 @@ burnin_strategy = MCMCBurninStrategy(
 
 # To generate MCMC samples with explicit control over all options, use
 
-samples, stats, chains = BAT.mcmc_sample(
-    chainspec,
-    nsamples,
-    nchains,
-    tuner_config = tuner_config,
-    convergence_test = convergence_test,
-    init_strategy = init_strategy,
-    burnin_strategy = burnin_strategy,
-    max_nsteps = 10^5,
+samples = bat_sample(
+    rng, posterior, (nsamples, nchains), algorithm,
+    max_nsteps = 10 * nsamples,
     max_time = Inf,
-    granularity = 1
+    tuning = tuning,
+    init = init,
+    burnin = burnin,
+    convergence = convergence,
+    strict = false,
+    filter = true
 )
 #md nothing # hide
 #nb nothing # hide
@@ -455,10 +449,7 @@ samples, stats, chains = BAT.mcmc_sample(
 # However, in many use cases, simply using the default options via
 #
 # ```julia
-# samples, stats, chains = BAT.mcmc_sample(
-#     MCMCSpec(MetropolisHastings(), posterior),
-#     nsamples, nchains
-# )
+# samples = bat_sample(posterior, (nsamples, nchains), MetropolisHastings())
 # ```
 #
 # will often be sufficient.

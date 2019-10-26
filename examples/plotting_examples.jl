@@ -42,17 +42,8 @@ prior = NamedPrior(
 
 posterior = PosteriorDensity(likelihood, prior);
 
-algorithm = MetropolisHastings()
-chainspec = MCMCSpec(algorithm, posterior)
-nchains = 4
-nsamples = 10^5
-
 #generate samples
-samples, stats, chains = BAT.mcmc_sample(
-    chainspec,
-    nsamples,
-    nchains
-)
+samples = bat_sample(posterior, (10^5, 4), MetropolisHastings())
 
 
 # ## Set up plotting
@@ -207,18 +198,18 @@ plot(samples, mean=true, globalmode=true, legend=true, diagonal=Dict("seriestype
 
 # ## Plots for MCMC diagnostics
 # Plots histograms of the samples, the trace, a kernel density estimate and the autocorrelation function for each parameter per chain.
-diagnostics = MCMCDiagnostics(samples, chains)
-plot(diagnostics, params=[1])
+## diagnostics = MCMCDiagnostics(samples, chains)
+## plot(diagnostics, params=[1])
 
 # ### Customizing diagnostics plots:
-plot(diagnostics, 
-    params=[1, 2], 
-    chains=[1, 2], 
-    diagnostics = [:histogram, :kde, :trace, :acf],
-    histogram = Dict("seriestype" => :smallest_intervals, "legend" => :false),
-    trace = Dict("linecolor" => :red),
-    acf = Dict("lags" => collect(1:20), "title"=> "Autocorrelation"),
-    description = true)
+## plot(diagnostics, 
+##     params=[1, 2], 
+##     chains=[1, 2], 
+##     diagnostics = [:histogram, :kde, :trace, :acf],
+##     histogram = Dict("seriestype" => :smallest_intervals, "legend" => :false),
+##     trace = Dict("linecolor" => :red),
+##     acf = Dict("lags" => collect(1:20), "title"=> "Autocorrelation"),
+##     description = true)
 
 # ### available keyword arguments:
 # * `params` - list of parameters to be plotted

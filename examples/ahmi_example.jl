@@ -32,12 +32,6 @@ lo_bounds = [-30.0 for i = 1:dim]
 hi_bounds = [ 30.0 for i = 1:dim]
 bounds = HyperRectBounds(lo_bounds, hi_bounds, reflective_bounds)
 
-chainspec = MCMCSpec(algorithm, model, bounds)
-chains = 8
-nsamples = 10^5
-
-#define function to generate samples
-sample() = BAT.mcmc_sample(chainspec, nsamples, chains)
 
 
 #Harmonic Mean Integration
@@ -46,7 +40,7 @@ sample() = BAT.mcmc_sample(chainspec, nsamples, chains)
 
 
 #BAT.jl samples
-bat_samples = sample()
+bat_samples = bat_sample(PosteriorDensity(model, bounds), (10^5, 8), algorithm)
 data = HMIData(bat_samples)
 hm_integrate!(data)
 
