@@ -106,3 +106,12 @@ function Base.merge!(target::MCMCBasicStats, others::MCMCBasicStats...)
 end
 
 Base.merge(a::MCMCBasicStats, bs::MCMCBasicStats...) = merge!(deepcopy(a), bs...)
+
+
+function bat_stats(mcmc_stats::MCMCBasicStats)
+    (
+        mode = mcmc_stats.mode,
+        mean = mcmc_stats.param_stats.mean,
+        cov = mcmc_stats.param_stats.cov
+    )
+end

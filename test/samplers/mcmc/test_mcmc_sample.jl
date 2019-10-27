@@ -28,11 +28,11 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     # ToDo: Should be able to make this exact, for MH sampler:
     @test length(samples) == nchains * nsamples_per_chain
 
-    stats = @inferred bat_stats(samples)
-    stats2 = MCMCBasicStats(samples)
-    @test stats.mode == stats2.mode
-    @test stats.mean ≈ stats2.param_stats.mean
-    @test stats.cov ≈ stats2.param_stats.cov
+    @test begin
+        stats = @inferred bat_stats(samples)
+        stats2 = @inferred bat_stats(MCMCBasicStats(samples))
+        stats.mode == stats2.mode && stats.mean ≈ stats2.mean && stats.cov ≈ stats2.cov
+    end
 
     cov_samples = cov(flatview(samples.params), FrequencyWeights(samples.weight), 2; corrected=true)
     mean_samples = mean(flatview(samples.params), FrequencyWeights(samples.weight); dims = 2)
@@ -46,11 +46,11 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
         PosteriorDensity(mv_dist, bounds), (nsamples_per_chain, nchains), algorithmPW
     )
 
-    stats = @inferred bat_stats(samples)
-    stats2 = MCMCBasicStats(samples)
-    @test stats.mode == stats2.mode
-    @test stats.mean ≈ stats2.param_stats.mean
-    @test stats.cov ≈ stats2.param_stats.cov
+    @test begin
+        stats = @inferred bat_stats(samples)
+        stats2 = @inferred bat_stats(MCMCBasicStats(samples))
+        stats.mode == stats2.mode && stats.mean ≈ stats2.mean && stats.cov ≈ stats2.cov
+    end
 
     @test samples.params[findmax(samples.log_posterior)[2]] == stats.mode
 
