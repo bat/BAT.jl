@@ -4,13 +4,13 @@
 abstract type MHWeightingScheme{T<:Real} end
 export MHWeightingScheme
 
-struct MHMultiplicityWeights{T<:Real} <: MHWeightingScheme{T} end
-export MHMultiplicityWeights
-MHMultiplicityWeights() = MHMultiplicityWeights{Int}()
+struct MetropolisWeights{T<:Real} <: MHWeightingScheme{T} end
+export MetropolisWeights
+MetropolisWeights() = MetropolisWeights{Int}()
 
-struct MHAccRejProbWeights{T<:AbstractFloat} <: MHWeightingScheme{T} end
-export MHAccRejProbWeights
-MHAccRejProbWeights() = MHAccRejProbWeights{Float64}()
+struct ARPWeights{T<:AbstractFloat} <: MHWeightingScheme{T} end
+export ARPWeights
+ARPWeights() = ARPWeights{Float64}()
 
 
 
@@ -31,7 +31,7 @@ export MetropolisHastings
 
 
 MetropolisHastings(proposalspec::ProposalDistSpec = MvTDistProposal()) =
-    MetropolisHastings(proposalspec, MHMultiplicityWeights())
+    MetropolisHastings(proposalspec, MetropolisWeights())
 
 MetropolisHastings(weighting_scheme::MHWeightingScheme) =
     MetropolisHastings(MvTDistProposal(), weighting_scheme)
@@ -317,7 +317,7 @@ end
 
 
 function _mh_weights(
-    algorithm::MetropolisHastings{Q,W,<:MHMultiplicityWeights},
+    algorithm::MetropolisHastings{Q,W,<:MetropolisWeights},
     p_accept::Real,
     accepted::Bool
 ) where {Q,W}
@@ -330,7 +330,7 @@ end
 
 
 function _mh_weights(
-    algorithm::MetropolisHastings{Q,W,<:MHAccRejProbWeights},
+    algorithm::MetropolisHastings{Q,W,<:ARPWeights},
     p_accept::Real,
     accepted::Bool
 ) where {Q,W}

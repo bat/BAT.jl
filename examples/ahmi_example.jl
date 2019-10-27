@@ -21,7 +21,7 @@ function BAT.density_logval(target::GaussianShellDensity, params::AbstractArray{
 end
 
 algorithm = MetropolisHastings()
-#algorithm = MetropolisHastings(MHAccRejProbWeights{Float64}())
+#algorithm = MetropolisHastings(ARPWeights{Float64}())
 
 #define model and #dimensions
 dim = 2

@@ -40,7 +40,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     @test isapprox(mean_samples, mvec; rtol = 0.15)
     @test isapprox(cov_samples, cmat; rtol = 0.15)
 
-    algorithmPW = @inferred MetropolisHastings(MHAccRejProbWeights())
+    algorithmPW = @inferred MetropolisHastings(ARPWeights())
 
     samples = bat_sample(
         PosteriorDensity(mv_dist, bounds), (nsamples_per_chain, nchains), algorithmPW
