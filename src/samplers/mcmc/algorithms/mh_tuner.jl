@@ -1,27 +1,35 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-@with_kw struct ProposalCovTunerConfig <: AbstractMCMCTunerConfig
+# ToDo: Add literature references to AdaptiveMetropolisTuning docstring.
+
+"""
+    AdaptiveMetropolisTuning(...)
+
+Ajusts the proposal function based on the acceptance ratio and covariance
+of the previous samples.
+"""
+@with_kw struct AdaptiveMetropolisTuning <: AbstractMCMCTunerConfig
     λ::Float64 = 0.5
     α::IntervalSets.ClosedInterval{Float64} = ClosedInterval(0.15, 0.35)
     β::Float64 = 1.5
     c::IntervalSets.ClosedInterval{Float64} = ClosedInterval(1e-4, 1e2)
 end
 
-export ProposalCovTunerConfig
+export AdaptiveMetropolisTuning
 
 
 # Deprecate:
-AbstractMCMCTunerConfig(algorithm::MetropolisHastings) = ProposalCovTunerConfig()
+AbstractMCMCTunerConfig(algorithm::MetropolisHastings) = AdaptiveMetropolisTuning()
 
-(config::ProposalCovTunerConfig)(chain::MHIterator) = ProposalCovTuner(config, chain)
+(config::AdaptiveMetropolisTuning)(chain::MHIterator) = ProposalCovTuner(config, chain)
 
 
 
 mutable struct ProposalCovTuner{
     S<:MCMCBasicStats
 } <: AbstractMCMCTuner
-    config::ProposalCovTunerConfig
+    config::AdaptiveMetropolisTuning
     stats::S
     iteration::Int
     scale::Float64
@@ -30,7 +38,7 @@ end
 export ProposalCovTuner
 
 function ProposalCovTuner(
-    config::ProposalCovTunerConfig,
+    config::AdaptiveMetropolisTuning,
     chain::MHIterator
 )
     m = nparams(chain)
