@@ -11,8 +11,6 @@
 
     i = findfirst(x -> x == param, keys(prior))
 
-    println(bins)
-
     @series begin 
         intervals --> intervals
         bins --> bins
