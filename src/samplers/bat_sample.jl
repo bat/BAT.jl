@@ -14,7 +14,7 @@ const RandSampleable = Union{
 
 const AnyPosterior = Union{
     PosteriorDensity,
-    DensitySampleVector,
+    PosteriorSampleVector,
     RandSampleable,
 }
 
@@ -48,7 +48,7 @@ function default_sampling_algorithm end
         posterior::BAT.AnyPosterior,
         n::BAT.AnyNSamples,
         [algorithm::BAT.AbstractSamplingAlgorithm]
-    )::DensitySampleVector
+    )::PosteriorSampleVector
 
 Draw `n` samples from `posterior`. `posterior` may be a
 
@@ -56,7 +56,7 @@ Draw `n` samples from `posterior`. `posterior` may be a
 
 * [`BAT.DistLikeDensity`](@ref)
 
-* [`BAT.DensitySampleVector`](@ref)
+* [`BAT.PosteriorSampleVector`](@ref)
 
 * `Distributions.MultivariateDistribution`
 
@@ -124,7 +124,7 @@ default_sampling_algorithm(posterior::RandSampleable) = RandSampling()
 
 function bat_sample(rng::AbstractRNG, posterior::RandSampleable, n::Integer, algorithm::RandSampling)
     npar = length(posterior)
-    samples = DensitySampleVector{_default_PT,_default_LDT,_default_int_WT,Nothing}(undef, n, npar)
+    samples = PosteriorSampleVector{_default_PT,_default_LDT,_default_int_WT,Nothing}(undef, n, npar)
 
     rand!(rng, sampler(posterior), flatview(samples.params))
     let log_posterior = samples.log_posterior, params = samples.params
@@ -151,10 +151,10 @@ Resample from a given set of samples.
 struct RandomResampling <: AbstractSamplingAlgorithm end
 
 
-default_sampling_algorithm(posterior::DensitySampleVector) = RandomResampling()
+default_sampling_algorithm(posterior::PosteriorSampleVector) = RandomResampling()
 
 
-function bat_sample(rng::AbstractRNG, posterior::DensitySampleVector, n::Integer, algorithm::RandomResampling)
+function bat_sample(rng::AbstractRNG, posterior::PosteriorSampleVector, n::Integer, algorithm::RandomResampling)
     orig_idxs = eachindex(posterior)
     weights = FrequencyWeights(float(posterior.weight))
     resampled_idxs = sample(orig_idxs, weights, n, replace=true, ordered=false)

@@ -142,9 +142,9 @@ BAT.nsteps(chain::SomeMCMCIter)::Int
 
 BAT.nsamples(chain::SomeMCMCIter)::Int
 
-BAT.current_sample(chain::SomeMCMCIter)::DensitySample
+BAT.current_sample(chain::SomeMCMCIter)::PosteriorSample
 
-BAT.sample_type(chain::SomeMCMCIter)::Type{<:DensitySample}
+BAT.sample_type(chain::SomeMCMCIter)::Type{<:PosteriorSample}
 
 BAT.samples_available(chain::SomeMCMCIter, nonzero_weights::Bool = false)::Bool
 
@@ -165,7 +165,7 @@ algorithm(chain::MCMCIterator)
 getposterior(chain::MCMCIterator)
 rngseed(chain::MCMCIterator)
 nparams(chain::MCMCIterator)
-DensitySampleVector(chain::MCMCIterator)
+PosteriorSampleVector(chain::MCMCIterator)
 mcmc_iterate!(callback, chain::MCMCIterator, ...)
 mcmc_iterate!(callbacks, chains::AbstractVector{<:MCMCIterator}, ...)
 ```
@@ -205,7 +205,7 @@ rngseed(chain::MCMCIterator) = mcmc_spec(chain).rngseed
 
 nparams(chain::MCMCIterator) = nparams(getposterior(chain))
 
-DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(sample_type(chain), nparams(chain))
+PosteriorSampleVector(chain::MCMCIterator) = PosteriorSampleVector(sample_type(chain), nparams(chain))
 
 
 

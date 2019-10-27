@@ -90,12 +90,12 @@ function effective_sample_size(params::AbstractArray, weights::AbstractVector; w
     end
 
 @doc """
-    effective_sample_size(samples::DensitySampleVector; with_weights=true)
+    effective_sample_size(samples::PosteriorSampleVector; with_weights=true)
 
-Effective size estimation for a (multidimensional) DensitySampleVector.
+Effective size estimation for a (multidimensional) PosteriorSampleVector.
 By default applies the Kish approximation with the weigths available, but
 can be turned off (with_weights=false).
 """
-function effective_sample_size(samples::DensitySampleVector; with_weights=true)
+function effective_sample_size(samples::PosteriorSampleVector; with_weights=true)
     return effective_sample_size(samples.params, samples.weight, with_weights=with_weights)
 end

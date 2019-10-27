@@ -51,7 +51,7 @@ mutable struct MHIterator{
     SP<:MCMCSpec,
     R<:AbstractRNG,
     Q<:AbstractProposalDist,
-    SV<:DensitySampleVector
+    SV<:PosteriorSampleVector
 } <: MCMCIterator
     spec::SP
     rng::R
@@ -94,9 +94,9 @@ function MHIterator(
     W = _sample_weight_type(typeof(alg))
 
     sample_info = MCMCSampleID(info.id, info.cycle, 1, CURRENT_SAMPLE)
-    current_sample = DensitySample(params_vec, log_posterior_value, convert(T, log_prior_value), one(W), sample_info)
+    current_sample = PosteriorSample(params_vec, log_posterior_value, convert(T, log_prior_value), one(W), sample_info)
 
-    samples = DensitySampleVector{P,T,W,MCMCSampleID}(undef, 0, npar)
+    samples = PosteriorSampleVector{P,T,W,MCMCSampleID}(undef, 0, npar)
     push!(samples, current_sample)
 
     nsamples::Int64 = 0

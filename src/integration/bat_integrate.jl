@@ -6,7 +6,7 @@
 """
     bat_integrate(
         posterior::BAT.AnyPosterior,
-    )::DensitySampleVector
+    )::PosteriorSampleVector
 
 Calculate the integral (evidence) of `posterior`.
 
@@ -16,7 +16,7 @@ Calculate the integral (evidence) of `posterior`.
 
 * [`BAT.DistLikeDensity`](@ref)
 
-* [`BAT.DensitySampleVector`](@ref)
+* [`BAT.PosteriorSampleVector`](@ref)
 
 * `Distributions.MultivariateDistribution`
 
@@ -26,7 +26,7 @@ function bat_integrate end
 export bat_integrate
 
 
-function bat_integrate(posterior::DensitySampleVector)
+function bat_integrate(posterior::PosteriorSampleVector)
     hmi_data = HMIData(posterior)
     hm_integrate!(hmi_data)
     Z_signal_v = hmi_data.integralestimates["cov. weighted result"].final.estimate
@@ -38,6 +38,6 @@ end
 function bat_integrate(posterior::AnyPosterior)
     npar = totalndof(params_shape(posterior))
     nsamples = 10^5 * npar
-    samples = bat_sample(posterior, nsamples)::DensitySampleVector
+    samples = bat_sample(posterior, nsamples)::PosteriorSampleVector
     bat_integrate(samples)
 end

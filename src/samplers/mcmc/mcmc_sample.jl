@@ -2,14 +2,14 @@
 
 
 # BAT-internal:
-const MCMCOutputWithChains = Tuple{DensitySampleVector, MCMCBasicStats, AbstractVector{<:MCMCIterator}}
+const MCMCOutputWithChains = Tuple{PosteriorSampleVector, MCMCBasicStats, AbstractVector{<:MCMCIterator}}
 
 # BAT-internal:
 function MCMCOutputWithChains(chainspec::MCMCSpec)
     dummy_chain = chainspec(zero(Int64))
 
     (
-        DensitySampleVector(dummy_chain),
+        PosteriorSampleVector(dummy_chain),
         MCMCBasicStats(dummy_chain),
         Vector{typeof(dummy_chain)}()
     )
@@ -18,7 +18,7 @@ end
 
 
 # BAT-internal:
-const MCMCOutput = Tuple{DensitySampleVector, MCMCBasicStats}
+const MCMCOutput = Tuple{PosteriorSampleVector, MCMCBasicStats}
 
 # BAT-internal:
 function MCMCOutput(chainspec::MCMCSpec)
@@ -88,7 +88,7 @@ function mcmc_sample!(
 )
     result_samples, result_stats = result
 
-    samples = DensitySampleVector.(chains)
+    samples = PosteriorSampleVector.(chains)
     stats = MCMCBasicStats.(chains)
 
     nonzero_weights = granularity <= 1
