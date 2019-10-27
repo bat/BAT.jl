@@ -166,7 +166,7 @@ function bat_sample(
 
     nsamples_per_chain, nchains = n
 
-    samples, stats, chains = mcmc_sample(
+    samples, mcmc_stats, chains = mcmc_sample(
         chainspec,
         nsamples_per_chain,
         nchains;
@@ -180,7 +180,9 @@ function bat_sample(
         strict_mode = strict
     )
 
-    samples
+    stats = bat_stats(mcmc_stats)
+
+    (samples = samples, stats = stats, chains = chains)
 end
 
 

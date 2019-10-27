@@ -1,8 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 export MCMCDiagnostics
 
-# ToDo: Change MCMCDiagnostics to operate on samples only
-
 struct MCMCDiagnostics
     samples::PosteriorSampleVector
     chainresults::Array{}

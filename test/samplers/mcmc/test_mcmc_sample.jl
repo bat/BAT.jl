@@ -21,7 +21,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     algorithmMW = MetropolisHastings()
     @test BAT.mcmc_compatible(algorithmMW, GenericProposalDist(mv_dist), NoParamBounds(2))
 
-    samples = bat_sample(
+    samples, stats, chains = bat_sample(
         PosteriorDensity(density, bounds), (nsamples_per_chain, nchains), algorithmMW
     )
 
@@ -42,7 +42,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
 
     algorithmPW = @inferred MetropolisHastings(ARPWeights())
 
-    samples = bat_sample(
+    samples, stats, chains = bat_sample(
         PosteriorDensity(mv_dist, bounds), (nsamples_per_chain, nchains), algorithmPW
     )
 

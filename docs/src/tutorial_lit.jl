@@ -251,14 +251,12 @@ nchains = 4
 
 # Now we can generate a set of MCMC samples via [`bat_sample`](@ref):
 
-samples = bat_sample(posterior, (nsamples, nchains), MetropolisHastings())
+samples, stats = bat_sample(posterior, (nsamples, nchains), MetropolisHastings())
 #md nothing # hide
 #nb nothing # hide
 
 # Let's calculate some posterior statistics using the function
 # [`bat_stats`](@ref) and print the results:
-
-stats = bat_stats(samples)
 
 println("Truth: $true_par_values")
 println("Mode: $(stats.mode)")
@@ -424,7 +422,7 @@ burnin = MCMCBurninStrategy(
 
 # To generate MCMC samples with explicit control over all options, use
 
-samples = bat_sample(
+samples, stats = bat_sample(
     rng, posterior, (nsamples, nchains), algorithm,
     max_nsteps = 10 * nsamples,
     max_time = Inf,
@@ -441,7 +439,7 @@ samples = bat_sample(
 # However, in many use cases, simply using the default options via
 #
 # ```julia
-# samples = bat_sample(posterior, (nsamples, nchains), MetropolisHastings())
+# samples, stats = bat_sample(posterior, (nsamples, nchains), MetropolisHastings())
 # ```
 #
 # will often be sufficient.

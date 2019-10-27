@@ -186,11 +186,9 @@ Base.copy(
 """
     bat_stats(samples::PosteriorSampleVector)
 
-Calculate the following parameter statistics:
-
-* mode
-* mean
-* covariance
+Calculated parameter statistics on `samples`. Returns a
+`NamedTuple{(:mode,:mean,:cov,...)}`. Result properties not listed here
+are not part of the stable BAT API and subject to change.
 """
 function bat_stats(samples::PosteriorSampleVector)
     par_mean = mean(samples.params, FrequencyWeights(samples.weight))

@@ -50,7 +50,23 @@ function default_sampling_algorithm end
         [algorithm::BAT.AbstractSamplingAlgorithm]
     )::PosteriorSampleVector
 
-Draw `n` samples from `posterior`. `posterior` may be a
+Draw `n` samples from `posterior`.
+
+Returns a NamedTuple of the shape
+
+```julia
+(
+    samples = X::PosteriorSampleVector,...
+    stats = s::@test stats isa NamedTuple{(:mode,:mean,:cov,...)},
+    ...
+)
+```
+
+Result properties not listed here are algorithm-specific and are not part
+of the stable BAT API.
+
+
+`posterior` may be a
 
 * [`BAT.AbstractPosteriorDensity`](@ref)
 
@@ -132,9 +148,10 @@ function bat_sample(rng::AbstractRNG, posterior::RandSampleable, n::Integer, alg
     end
     samples.log_prior .= 0
     samples.weight .= 1
-    samples
+    
+    stats = bat_stats(samples)
 
-    samples
+    (samples = samples, stats = stats)
 end
 
 
@@ -159,8 +176,10 @@ function bat_sample(rng::AbstractRNG, posterior::PosteriorSampleVector, n::Integ
     weights = FrequencyWeights(float(posterior.weight))
     resampled_idxs = sample(orig_idxs, weights, n, replace=true, ordered=false)
 
-    resampled_posterior = posterior[resampled_idxs]
-    resampled_posterior.weight .= 1
+    samples = posterior[resampled_idxs]
+    samples.weight .= 1
 
-    resampled_posterior
+    stats = bat_stats(samples)
+
+    (samples = samples, stats = stats)
 end
