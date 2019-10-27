@@ -238,16 +238,16 @@ abstract type ProposalDistSpec end
 export ProposalDistSpec
 
 
-struct MvTDistProposalSpec <: ProposalDistSpec
+struct MvTDistProposal <: ProposalDistSpec
     df::Float64
 end
 
-export MvTDistProposalSpec
+export MvTDistProposal
 
-MvTDistProposalSpec() = MvTDistProposalSpec(1.0)
+MvTDistProposal() = MvTDistProposal(1.0)
 
 
-(ps::MvTDistProposalSpec)(T::Type{<:AbstractFloat}, n_params::Integer) =
+(ps::MvTDistProposal)(T::Type{<:AbstractFloat}, n_params::Integer) =
     GenericProposalDist(MvTDist, T, n_params, convert(T, ps.df))
 
 function GenericProposalDist(::Type{MvTDist}, T::Type{<:AbstractFloat}, n_params::Integer, df = one(T))

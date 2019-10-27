@@ -377,7 +377,7 @@ plot!(-4:0.01:4, x -> fit_function(fit_par_values, x), label = "Best fit")
 # We'll sample using the The Metropolis-Hastings MCMC algorithm. By default,
 # BAT uses a multivariate t-distribution (ν = 1) as the proposal function:
 
-algorithm = MetropolisHastings(MvTDistProposalSpec(1.0))
+algorithm = MetropolisHastings(MvTDistProposal(1.0))
 #md nothing # hide
 
 # BAT requires a counter-based random number generator (RNG), since it

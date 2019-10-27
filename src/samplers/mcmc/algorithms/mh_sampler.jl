@@ -30,11 +30,11 @@ end
 export MetropolisHastings
 
 
-MetropolisHastings(proposalspec::ProposalDistSpec = MvTDistProposalSpec()) =
+MetropolisHastings(proposalspec::ProposalDistSpec = MvTDistProposal()) =
     MetropolisHastings(proposalspec, MHMultiplicityWeights())
 
 MetropolisHastings(weighting_scheme::MHWeightingScheme) =
-    MetropolisHastings(MvTDistProposalSpec(), weighting_scheme)
+    MetropolisHastings(MvTDistProposal(), weighting_scheme)
 
 
 mcmc_compatible(::MetropolisHastings, ::AbstractProposalDist, ::NoParamBounds) = true

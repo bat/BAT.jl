@@ -104,9 +104,9 @@ test_sampler(tmv::test_mvdist) = tmv.d
     end
 
     @testset "ProposalDistSpec" begin
-        mvTps = @inferred MvTDistProposalSpec(4.0)
+        mvTps = @inferred MvTDistProposal(4.0)
         @test mvTps.df ≈ 4.0
-        @test MvTDistProposalSpec().df ≈ 1.0
+        @test MvTDistProposal().df ≈ 1.0
 
         gpd = @inferred mvTps(Float64, 3)
         @test nparams(gpd) == 3
