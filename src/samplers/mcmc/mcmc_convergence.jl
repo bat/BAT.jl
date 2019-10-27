@@ -35,15 +35,15 @@ end
 
 
 @doc """
-    GRConvergence
+    GelmanRubinConvergence
 
 Gelman-Rubin ``\$maximum(R^2)\$`` convergence test.
 """
-@with_kw struct GRConvergence <: MCMCConvergenceTest
+@with_kw struct GelmanRubinConvergence <: MCMCConvergenceTest
     threshold::Float64 = 1.1
 end
 
-export GRConvergence
+export GelmanRubinConvergence
 
 
 struct GRConvergenceResult <: MCMCConvergenceTestResult
@@ -52,7 +52,7 @@ struct GRConvergenceResult <: MCMCConvergenceTestResult
 end
 
 
-function check_convergence(ct::GRConvergence, stats::AbstractVector{<:MCMCBasicStats})
+function check_convergence(ct::GelmanRubinConvergence, stats::AbstractVector{<:MCMCBasicStats})
     max_Rsqr = maximum(gr_Rsqr(stats))
     converged = max_Rsqr <= ct.threshold
     @debug begin
@@ -106,17 +106,16 @@ end
 
 
 doc"""
-    BGConvergence
+    BrooksGelmanConvergence
 
 Brooks-Gelman $maximum(R^2)$ convergence test.
 """
-@with_kw struct BGConvergence <: MCMCConvergenceTest
+@with_kw struct BrooksGelmanConvergence <: MCMCConvergenceTest
     threshold::Float64 = 1.1
     corrected::Bool = false
-
 end
 
-export BGConvergence
+export BrooksGelmanConvergence
 
 
 struct BGConvergenceResult <: MCMCConvergenceTestResult
@@ -125,7 +124,7 @@ struct BGConvergenceResult <: MCMCConvergenceTestResult
 end
 
 
-function check_convergence(ct::BGConvergence, stats::AbstractVector{<:MCMCBasicStats})
+function check_convergence(ct::BrooksGelmanConvergence, stats::AbstractVector{<:MCMCBasicStats})
     max_Rsqr = maximum(bg_R_2sqr(stats, corrected = ct.corrected))
     converged = max_Rsqr <= ct.threshold
     @debug begin

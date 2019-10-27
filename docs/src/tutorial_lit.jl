@@ -401,7 +401,7 @@ tuning = ProposalCovTunerConfig(
     c = 1e-4..1e2
 )
 
-convergence = BGConvergence(
+convergence = BrooksGelmanConvergence(
     threshold = 1.1,
     corrected = false
 )

@@ -36,7 +36,7 @@ function mcmc_sample(
     max_nsteps::Int64 = Int64(10 * nsamples),
     max_time::Float64 = Inf,
     tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
-    convergence_test::MCMCConvergenceTest = BGConvergence(),
+    convergence_test::MCMCConvergenceTest = BrooksGelmanConvergence(),
     init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config),
     burnin_strategy::MCMCBurninStrategy = MCMCBurninStrategy(chainspec.algorithm, nsamples, max_nsteps, tuner_config),
     granularity::Int = 1,
@@ -157,7 +157,7 @@ function bat_sample(
     tuning::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(algorithm),
     init::MCMCInitStrategy = MCMCInitStrategy(tuning),
     burnin::MCMCBurninStrategy = MCMCBurninStrategy(algorithm, n[1], max_nsteps, tuning),
-    convergence::MCMCConvergenceTest = BGConvergence(),
+    convergence::MCMCConvergenceTest = BrooksGelmanConvergence(),
     strict::Bool = false,
     filter::Bool = true
 )
