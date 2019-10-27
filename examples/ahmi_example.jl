@@ -40,9 +40,9 @@ bounds = HyperRectBounds(lo_bounds, hi_bounds, reflective_bounds)
 
 
 #BAT.jl samples
-bat_samples = bat_sample(PosteriorDensity(model, bounds), (10^5, 8), algorithm)
-data = HMIData(bat_samples)
-hm_integrate!(data)
+bat_samples = bat_sample(PosteriorDensity(model, bounds), (10^5, 8), algorithm).samples
+data = BAT.HMIData(bat_samples)
+BAT.hm_integrate!(data)
 
 using Plots; pyplot()
 plot(data, rscale = 0.25)
