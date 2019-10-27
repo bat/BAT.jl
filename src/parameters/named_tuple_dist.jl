@@ -54,7 +54,21 @@ _np_dist_shape_bounds(x::AbstractArray{<:Number}) = _np_dist_shape_bounds(ConstV
 
 
 
-struct NamedPrior{
+"""
+    NamedTupleDist <: MultivariateDistribution
+    NamedTupleDist <: MultivariateDistribution
+
+A distribution with `NamedTuple`-typed variates.
+
+Can be used to describe the distribution of each parameter in a set of
+named parameters. If the distribution is used as a Bayesian prior,
+the `NamedTupleDist` then specifies the prior on each named parameter.
+
+A `NamedTupleDist` implies a `NamedTupleShape`:
+
+    valshape(d::NamedTupleDist) isa NamedTupleShape
+"""
+struct NamedTupleDist{
     names,
     DT <: (NTuple{N,Distribution} where N),
     AT <: (NTuple{N,ValueShapes.ValueAccessor} where N),
@@ -65,45 +79,46 @@ struct NamedPrior{
     _bounds::NamedTuple{names,BT}
 end 
 
-export NamedPrior
+export NamedTupleDist
 
-function NamedPrior(param_priors::NamedTuple{names}) where {names}
+
+function NamedTupleDist(param_priors::NamedTuple{names}) where {names}
     dsb = map(_np_dist_shape_bounds, param_priors)
-    NamedPrior(
+    NamedTupleDist(
         map(x -> x[1], dsb),
         NamedTupleShape(map(x -> x[2], dsb)),
         map(x -> x[3], dsb)
     )
 end
 
-@inline NamedPrior(;named_priors...) = NamedPrior(values(named_priors))
+@inline NamedTupleDist(;named_priors...) = NamedTupleDist(values(named_priors))
 
 
 
-@inline _distributions(p::NamedPrior) = getfield(p, :_distributions)
-@inline _shapes(p::NamedPrior) = getfield(p, :_shapes)
-@inline _bounds(p::NamedPrior) = getfield(p, :_bounds)
+@inline _distributions(p::NamedTupleDist) = getfield(p, :_distributions)
+@inline _shapes(p::NamedTupleDist) = getfield(p, :_shapes)
+@inline _bounds(p::NamedTupleDist) = getfield(p, :_bounds)
 
 
-@inline Base.keys(p::NamedPrior) = keys(_distributions(p))
+@inline Base.keys(p::NamedTupleDist) = keys(_distributions(p))
 
-@inline Base.values(p::NamedPrior) = values(_distributions(p))
+@inline Base.values(p::NamedTupleDist) = values(_distributions(p))
 
-@inline Base.getproperty(p::NamedPrior, s::Symbol) = getproperty(_distributions(p), s)
+@inline Base.getproperty(p::NamedTupleDist, s::Symbol) = getproperty(_distributions(p), s)
 
-@inline Base.propertynames(p::NamedPrior) = propertynames(_distributions(p))
-
-
-ValueShapes.valshape(p::NamedPrior) = _shapes(p)
+@inline Base.propertynames(p::NamedTupleDist) = propertynames(_distributions(p))
 
 
-param_bounds(p::NamedPrior) = vcat(map(_np_bounds, values(p))...)
+ValueShapes.valshape(p::NamedTupleDist) = _shapes(p)
+
+
+param_bounds(p::NamedTupleDist) = vcat(map(_np_bounds, values(p))...)
 
 
 _np_length(d::Distribution) = length(d)
 _np_length(d::ConstValueDistribution) = 0
 
-Base.length(p::NamedPrior) = sum(_np_length, values(p))
+Base.length(p::NamedTupleDist) = sum(_np_length, values(p))
 
 
 function _np_logpdf(
@@ -122,19 +137,19 @@ function _np_logpdf(
     logpdf(dist, float(params[acc]))
 end
 
-function Distributions.logpdf(p::NamedPrior, params::AbstractVector{<:Real})
+function Distributions.logpdf(p::NamedTupleDist, params::AbstractVector{<:Real})
     distributions = values(p)
     accessors = values(valshape(p))
     sum(map((dist, acc) -> _np_logpdf(dist, acc, params), distributions, accessors))
 end
 
 
-# ConstValueDistribution has no dof, so NamedPrior logpdf contribution must be zero:
+# ConstValueDistribution has no dof, so NamedTupleDist logpdf contribution must be zero:
 _np_logpdf(dist::ConstValueDistribution, params::Any) = zero(Float32)
 
 _np_logpdf(dist::Distribution, params::Any) = logpdf(dist, params)
 
-function Distributions.logpdf(p::NamedPrior{names}, params::NamedTuple{names}) where names
+function Distributions.logpdf(p::NamedTupleDist{names}, params::NamedTuple{names}) where names
     distributions = values(p)
     parvalues = values(params)
     sum(map((dist, p) -> _np_logpdf(dist, p), distributions, parvalues))
@@ -158,14 +173,14 @@ function _np_rand!(
     nothing
 end
 
-function Distributions._rand!(rng::AbstractRNG, p::NamedPrior, params::AbstractVector{<:Real})
+function Distributions._rand!(rng::AbstractRNG, p::NamedTupleDist, params::AbstractVector{<:Real})
     distributions = values(p)
     accessors = values(valshape(p))
     map((dist, acc) -> _np_rand!(rng, dist, acc, params), distributions, accessors)
     params
 end
 
-#Random.rand(rng::AbstractRNG, p::NamedPrior) = rand!(rng, p, Vector{Float64}(undef, length(p)))
+#Random.rand(rng::AbstractRNG, p::NamedTupleDist) = rand!(rng, p, Vector{Float64}(undef, length(p)))
 
 
 function _np_var_or_cov!(A_cov::AbstractArray{<:Real,0}, dist::Distribution{Univariate})
@@ -195,7 +210,7 @@ function _np_cov!(
     nothing
 end
 
-function Statistics.cov(p::NamedPrior) 
+function Statistics.cov(p::NamedTupleDist)
     let n = length(p), A_cov = zeros(n, n)
         distributions = values(p)
         accessors = values(valshape(p))

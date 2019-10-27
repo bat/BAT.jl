@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-@recipe function f(prior::NamedPrior, 
+@recipe function f(prior::NamedTupleDist,
     param::Symbol; 
     intervals = standard_confidence_vals, 
     bins=200,
@@ -26,7 +26,7 @@
 end
 
 
-@recipe function f(prior::NamedPrior, 
+@recipe function f(prior::NamedTupleDist,
                     param::Integer; 
                     intervals = standard_confidence_vals, 
                     bins=200,
@@ -74,7 +74,7 @@ end
 
 # 2D plots
 
-@recipe function f(prior::NamedPrior, 
+@recipe function f(prior::NamedTupleDist,
     params::NTuple{2,Symbol}; 
     nsamples=10^6,
     intervals = standard_confidence_vals, 
@@ -100,7 +100,7 @@ end
 end
 
 
-@recipe function f(prior::NamedPrior, 
+@recipe function f(prior::NamedTupleDist,
                 params::NTuple{2,Integer}; 
                 nsamples=10^6,
                 intervals = standard_confidence_vals, 

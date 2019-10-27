@@ -34,7 +34,7 @@ end
 
 likelihood = GaussianShellDensity([5.0, 5., 3.], [2, 2.4, 1.5]) 
 
-prior = NamedPrior(
+prior = NamedTupleDist(
     λ1 = Normal(-3, 4.5),
     λ2 = -30.0..30.0,    
     λ3 = Normal(3, 3.5)    
@@ -67,14 +67,14 @@ plot(samples, 2)
 plot(prior, 2)
 # The default seriestype for sprior is `:stephist`.
 
-# Samples can either be plotted by their index (as shown above) or by using the parameter names given in NamedPrior. This can be done by passing either the posterior 
+# Samples can either be plotted by their index (as shown above) or by using the parameter names given in NamedTupleDist. This can be done by passing either the posterior 
 plot(posterior, samples, :λ2)
 # or the value shape(s) of the prior:
 using ValueShapes
 parshapes = valshape(prior)
 plot(parshapes, samples, :λ2)
 
-# Prior can also be plotted by their index or by using the parameter names given in NamedPrior:
+# Prior can also be plotted by their index or by using the parameter names given in NamedTupleDist:
 plot(prior, 1)
 # or
 plot(prior, :λ1)
@@ -116,13 +116,13 @@ plot(samples, 1, localmode=false, mean=Dict("linestyle" => :dot, "linecolor"=> :
 plot(samples, (1,2), nbins=200)
 # The default 2D plotting style is a 3-color heatmap showing the smallest intervals containing 68.3, 95.5 and 99.7 perecent of the posterior probability. 
 
-# Samples can either be plotted by their index (as shown above) or by using the parameter names given in NamedPrior. This can be done by passing either the posterior 
+# Samples can either be plotted by their index (as shown above) or by using the parameter names given in NamedTupleDist. This can be done by passing either the posterior 
 plot(posterior, samples, (:λ1, :λ2))
 # or the value shape(s) of the prior:
 parshapes = valshape(prior)
 plot(parshapes, samples, (:λ1, :λ2))
 
-# Prior can also be plotted by their index or by using the parameter names given in NamedPrior.
+# Prior can also be plotted by their index or by using the parameter names given in NamedTupleDist.
 plot(prior, (1, 2))
 # or
 plot(prior, (:λ1, :λ2))

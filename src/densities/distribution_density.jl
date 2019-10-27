@@ -35,5 +35,5 @@ Random.Sampler(rng::AbstractRNG, density::DistributionDensity, repetition::Val{1
 Statistics.cov(density::DistributionDensity) = cov(density.d)
 
 
-param_bounds(density::DistributionDensity{<:NamedPrior}) = param_bounds(density.d)
+param_bounds(density::DistributionDensity{<:NamedTupleDist}) = param_bounds(density.d)
 

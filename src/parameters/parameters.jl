@@ -2,7 +2,7 @@
 
 include("spatialvolume.jl")
 include("parambounds.jl")
-include("named_prior.jl")
+include("named_tuple_dist.jl")
 include("parameter_mapping.jl")
 include("data_vector.jl")
 include("density_sample.jl")

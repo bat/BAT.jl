@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-@recipe function f(prior::NamedPrior; 
+@recipe function f(prior::NamedTupleDist;
                 params=collect(1:5), 
                 diagonal = Dict(),
                 upper = Dict(),

@@ -197,7 +197,7 @@ log_likelihood(true_par_values)
 #
 # Next, we need to choose a sensible prior for the fit:
 
-prior = NamedPrior(
+prior = NamedTupleDist(
     a = [0.0..10.0^4, 0.0..10.0^4],
     mu = [-2.0..0.0, 1.0..3.0],
     sigma = Truncated(Normal(0.4, 2), 0.3, 0.7)
