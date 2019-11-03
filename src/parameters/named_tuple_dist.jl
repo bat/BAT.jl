@@ -104,7 +104,18 @@ end
 
 @inline Base.values(p::NamedTupleDist) = values(_distributions(p))
 
-@inline Base.getproperty(p::NamedTupleDist, s::Symbol) = getproperty(_distributions(p), s)
+@inline function Base.getproperty(p::NamedTupleDist, s::Symbol)
+    # Need to include internal fields of NamedTupleShape to make Zygote happy:
+    if s == :_distributions
+        getfield(p, :_distributions)
+    elseif s == :_shapes
+        getfield(p, :_shapes)
+    elseif s == :_bounds
+        getfield(p, :_bounds)
+    else
+        getproperty(_distributions(p), s)
+    end
+end
 
 @inline Base.propertynames(p::NamedTupleDist) = propertynames(_distributions(p))
 
