@@ -83,12 +83,14 @@ function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator)
 
     α = eff_acceptance_ratio(chain)
 
+    max_log_posterior = tuner.stats.logtf_stats.maximum
+
     if α_min <= α <= α_max
         chain.info = MCMCIteratorInfo(chain.info, tuned = true)
-        @debug "MCMC chain $(chain.info.id) tuned, acceptance ratio = $α"
+        @debug "MCMC chain $(chain.info.id) tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
     else
         chain.info = MCMCIteratorInfo(chain.info, tuned = false)
-        @debug "MCMC chain $(chain.info.id) *not* tuned, acceptance ratio = $α"
+        @debug "MCMC chain $(chain.info.id) *not* tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
 
         if α > α_max && c < c_max
             tuner.scale = c * β
