@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 @recipe function f(
     parshapes::NamedTupleShape,
-    samples::PosteriorSampleVector,
+    samples::DensitySampleVector,
     param::Symbol;
     intervals = standard_confidence_vals,
     bins=200,
@@ -36,7 +36,7 @@ end
 
 @recipe function f(
     posterior::PosteriorDensity,
-    samples::PosteriorSampleVector,
+    samples::DensitySampleVector,
     param::Symbol; 
     intervals = standard_confidence_vals,
     bins=200,
@@ -70,7 +70,7 @@ end
 
 
 @recipe function f(
-    samples::PosteriorSampleVector,
+    samples::DensitySampleVector,
     param::Integer;
     intervals = standard_confidence_vals,
     bins=200,

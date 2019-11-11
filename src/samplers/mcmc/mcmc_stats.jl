@@ -15,9 +15,9 @@ MCMCAppendCallback(x::AbstractMCMCStats, nonzero_weights::Bool = true) =
 struct MCMCNullStats <: AbstractMCMCStats end
 export MCMCNullStats
 
-Base.push!(stats::MCMCNullStats, sv::PosteriorSampleVector) = stats
+Base.push!(stats::MCMCNullStats, sv::DensitySampleVector) = stats
 
-Base.append!(stats::MCMCNullStats, sv::PosteriorSampleVector) = stats
+Base.append!(stats::MCMCNullStats, sv::DensitySampleVector) = stats
 
 
 
@@ -41,7 +41,7 @@ end
 
 export MCMCBasicStats
 
-function MCMCBasicStats(::Type{S}, nparams::Integer) where {P,T,W,S<:PosteriorSample{P,T,W}}
+function MCMCBasicStats(::Type{S}, nparams::Integer) where {P,T,W,S<:DensitySample{P,T,W}}
     SL = promote_type(T, Float64)
     SP = promote_type(P, W, Float64)
     MCMCBasicStats{SL,SP}(nparams)
@@ -49,7 +49,7 @@ end
 
 MCMCBasicStats(chain::MCMCIterator) = MCMCBasicStats(sample_type(chain), nparams(chain))
 
-function MCMCBasicStats(sv::PosteriorSampleVector)
+function MCMCBasicStats(sv::DensitySampleVector)
     stats = MCMCBasicStats(eltype(sv), innersize(sv.params, 1))
     append!(stats, sv)
 end
@@ -64,23 +64,23 @@ function Base.empty!(stats::MCMCBasicStats)
 end
 
 
-function Base.push!(stats::MCMCBasicStats, s::PosteriorSample)
+function Base.push!(stats::MCMCBasicStats, s::DensitySample)
     push!(stats.param_stats, s.params, s.weight)
-    if s.log_posterior > stats.logtf_stats.maximum
+    if s.logdensity > stats.logtf_stats.maximum
         stats.mode .= s.params
     end
-    push!(stats.logtf_stats, s.log_posterior, s.weight)
+    push!(stats.logtf_stats, s.logdensity, s.weight)
     stats
 end
 
 
-function Base.append!(stats::MCMCBasicStats, sv::PosteriorSampleVector)
+function Base.append!(stats::MCMCBasicStats, sv::DensitySampleVector)
     for i in eachindex(sv)
         p = sv.params[i]
         w = sv.weight[i]
-        l = sv.log_posterior[i]
+        l = sv.logdensity[i]
         push!(stats.param_stats, p, w)  # Memory allocation (view)!
-        if sv.log_posterior[i] > stats.logtf_stats.maximum
+        if sv.logdensity[i] > stats.logtf_stats.maximum
             stats.mode .= p  # Memory allocation (view)!
         end
         push!(stats.logtf_stats, l, w)

@@ -2,7 +2,7 @@
 export MCMCDiagnostics
 
 struct MCMCDiagnostics
-    samples::PosteriorSampleVector
+    samples::DensitySampleVector
     chainresults::Array{}
 end
 
@@ -55,7 +55,7 @@ end
 
                 # samples histogram
                 if d == :histogram
-                    chain_samples = PosteriorSampleVector(mcmc.chainresults[1])
+                    chain_samples = DensitySampleVector(mcmc.chainresults[1])
                     for i in r
                         push!(chain_samples, mcmc.samples[i])
                     end

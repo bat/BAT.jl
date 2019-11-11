@@ -67,7 +67,7 @@ function hm_integrate!(
 end
 
 
-ahmi_integrate(samples::PosteriorSampleVector) = hm_integrate!(HMIData(samples))
+ahmi_integrate(samples::DensitySampleVector) = hm_integrate!(HMIData(samples))
 
 
 """

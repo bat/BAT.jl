@@ -333,14 +333,15 @@ tbl = Table(samples)
 
 tbl_named = parshapes.(samples)
 
+# We can now, e.g., find the sample with the maximum posterior density value
+# (i.e. the mode)
 
-# We can now, e.g., find the sample with the maximum posterior value (i.e. the
-# mode):
+mode_logdensity, mode_idx = findmax(tbl_named.logdensity)
 
-mode_log_posterior, mode_idx = findmax(tbl_named.log_posterior)
-
-# And get row `mode_idx` of the table, with all information about the sample
+# and get row `mode_idx` of the table, with all information about the sample
 # at the mode:
+
+tbl_named[mode_idx]
 
 
 # ## Comparison of Truth and Best Fit

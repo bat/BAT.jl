@@ -112,7 +112,7 @@ struct NoOpTuner{C<:MCMCIterator} <: AbstractMCMCTuner end
 export NoOpTuner
 
 
-isvalid(chain::MCMCIterator) = current_sample(chain).log_posterior > -Inf
+isvalid(chain::MCMCIterator) = current_sample(chain).logdensity > -Inf
 
 isviable(tuner::NoOpTuner, chain::MCMCIterator) = true
 

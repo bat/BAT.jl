@@ -30,18 +30,14 @@ export getprior
 
 
 @doc """
-    BAT.eval_prior_posterior_logval!(
+    BAT.apply_bounds_and_eval_posterior_logval!(
         T::Type{<:Real},
         density::AbstractDensity,
         params::AbstractVector{<:Real}
     )
 
-First apply bounds to the parameters, compute prior and posterior log values
-by via `eval_density_logval`.
-
-May modify `params`.
-
-Returns a `NamedTuple{(:log_prior, :log_posterior),Tuple{T,T}}`
+First apply bounds to the parameters, then compute and return posterior log
+value. May modify `params`.
 
 Guarantees that  :
 
@@ -52,9 +48,9 @@ Guarantees that  :
 
 In both cases, `T(-Inf)` is returned for both prior and posterior.
 """
-function eval_prior_posterior_logval! end
+function apply_bounds_and_eval_posterior_logval! end
 
-function eval_prior_posterior_logval!(
+function apply_bounds_and_eval_posterior_logval!(
     T::Type{<:Real},
     posterior::AbstractPosteriorDensity,
     params::AbstractVector{<:Real}
@@ -77,25 +73,18 @@ function eval_prior_posterior_logval!(
         zero_prob_logval
     end
 
-    posterior_logval = convert(T, prior_logval + likelihood_logval)
-
-    (log_prior = prior_logval, log_posterior = posterior_logval)
+    convert(T, prior_logval + likelihood_logval)
 end
 
 
 @doc """
-    BAT.eval_prior_posterior_logval_strict!(
-        density::AbstractDensity,
+    BAT.apply_bounds_and_eval_posterior_logval_strict!(
+        posterior::AbstractPosteriorDensity,
         params::AbstractVector{<:Real}
     )
 
-First apply bounds to the parameters, compute prior and posterior log values
-by via `eval_density_logval`.
-
-May modify `params`.
-
-Returns a `NamedTuple{(:log_prior, :log_posterior),Tuple{T,T}}`. T is
-inferred from value returned by `eval_density_logval` for the likelihood.
+First apply bounds to the parameters, then compute and return posterior log
+value. May modify `params`.
 
 Guarantees that  :
 
@@ -106,7 +95,7 @@ Guarantees that  :
 
 In both cases, an exception is thrown.
 """
-function eval_prior_posterior_logval_strict!(
+function apply_bounds_and_eval_posterior_logval_strict!(
     posterior::AbstractPosteriorDensity,
     params::AbstractVector{<:Real}
 )
@@ -129,9 +118,7 @@ function eval_prior_posterior_logval_strict!(
 
     T = typeof(likelihood_logval)
 
-    posterior_logval = convert(T, convert(T, prior_logval) + likelihood_logval)
-
-    (log_prior = prior_logval, log_posterior = posterior_logval)
+    convert(T, convert(T, prior_logval) + likelihood_logval)
 end
 
 

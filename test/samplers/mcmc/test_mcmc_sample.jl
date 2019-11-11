@@ -52,7 +52,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
         stats.mode == stats2.mode && stats.mean ≈ stats2.mean && stats.cov ≈ stats2.cov
     end
 
-    @test samples.params[findmax(samples.log_posterior)[2]] == stats.mode
+    @test samples.params[findmax(samples.logdensity)[2]] == stats.mode
 
     cov_samples = cov(flatview(samples.params), FrequencyWeights(samples.weight), 2; corrected=true)
     mean_samples = mean(flatview(samples.params), FrequencyWeights(samples.weight); dims = 2)

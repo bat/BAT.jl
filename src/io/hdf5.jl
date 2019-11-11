@@ -24,6 +24,11 @@ function _h5io_write!(dest_with_subpath::Tuple{Any,AbstractString}, data::Abstra
 end
 
 
+function _h5io_write!(dest_with_subpath::Tuple{Any,AbstractString}, data::AbstractArray{<:Nothing})
+    nothing
+end
+
+
 function _h5io_write!(dest_with_subpath::Tuple{Any,AbstractString}, data::VectorOfSimilarVectors)
     _h5io_write!(dest_with_subpath, Array(flatview(data)))
 end
@@ -72,8 +77,8 @@ _h5io_read_postprocess(VV::AbstractMatrix{<:Real}) = VectorOfSimilarVectors(VV)
 
 _h5io_read_postprocess(nt::NamedTuple) = TypedTables.Table(nt)
 
-_h5io_read_postprocess(nt::NamedTuple{(:info, :log_posterior, :log_prior, :params, :weight)}) =
-    PosteriorSampleVector((nt.params, nt.log_posterior, nt.log_prior, nt.weight, nt.info))
+_h5io_read_postprocess(nt::NamedTuple{(:info, :logdensity, :params, :weight)}) =
+    DensitySampleVector((nt.params, nt.logdensity, nt.weight, nt.info, Array{Nothing}(undef, size(nt.info)...)))
 
 _h5io_read_postprocess(nt::NamedTuple{(:chaincycle, :chainid, :sampletype, :stepno)}) =
     MCMCSampleIDVector((nt.chainid, nt.chaincycle, nt.stepno, nt.sampletype))

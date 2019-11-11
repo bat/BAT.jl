@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-@recipe function f(samples::PosteriorSampleVector; 
+@recipe function f(samples::DensitySampleVector; 
                 params=collect(1:5), 
                 mean=false,
                 std_dev=false,
