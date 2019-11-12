@@ -198,7 +198,7 @@ plot(samples, mean=true, globalmode=true, legend=true, diagonal=Dict("seriestype
 
 # ## Plots for MCMC diagnostics
 # Plots histograms of the samples, the trace, a kernel density estimate and the autocorrelation function for each parameter per chain.
-diagnostics = MCMCDiagnostics(samples, chains)
+diagnostics = BAT.MCMCDiagnostics(samples, chains)
 plot(diagnostics, params=[1])
 
 # ### Customizing diagnostics plots:

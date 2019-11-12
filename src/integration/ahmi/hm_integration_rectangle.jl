@@ -102,7 +102,7 @@ end
 """
     hyperrectangle_creationproccess!(...)
 
-Note: AHMI-internal, not part of stable API.
+*AHMI-internal, not part of stable public API.*
 
 This function assigns each thread its own hyper-rectangle to build, if in multithreading-mode.
 """

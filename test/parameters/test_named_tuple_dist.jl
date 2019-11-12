@@ -5,7 +5,7 @@ using Test
 
 using Distributions, PDMats, ValueShapes, IntervalSets
 
-@testset "named_prior" begin
+@testset "NamedTupleDist" begin
     prior = @inferred NamedTupleDist(a = 5, b = Normal(), c = -4..5, d = MvNormal([1.2 0.5; 0.5 2.1]), e = [Normal(1.1, 0.2)] )
 
     @test typeof(@inferred valshape(prior)) <: NamedTupleShape
@@ -16,7 +16,7 @@ using Distributions, PDMats, ValueShapes, IntervalSets
 
     @test (@inferred logpdf(prior, parshapes([0.2, -0.4, 0.3, -0.5, 0.9]))) == logpdf(Normal(), 0.2) + logpdf(Uniform(-4, 5), -0.4) + logpdf(MvNormal([1.2 0.5; 0.5 2.1]), [0.3, -0.5]) + logpdf(Normal(1.1, 0.2), 0.9)
 
-    @test all([rand(prior) in param_bounds(prior) for i in 1:10^4])
+    @test all([rand(prior) in BAT.param_bounds(prior) for i in 1:10^4])
 
     @test begin
         ref_cov = 

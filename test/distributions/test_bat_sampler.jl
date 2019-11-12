@@ -11,7 +11,7 @@ struct test_dist <: Distribution{Univariate, Continuous} end
 Distributions.sampler(d::test_dist) = Distributions.sampler(Distributions.Normal(0,1))
 
 
-struct test_batsampler{T} <: BATSampler{T, Continuous} end
+struct test_batsampler{T} <: BAT.BATSampler{T, Continuous} end
 
 function Random.rand!(rng::AbstractRNG, s::test_batsampler, x::Integer)
     return 0.5
@@ -27,7 +27,7 @@ end
 
 
 @testset "bat_sampler" begin
-    @test bat_sampler(@inferred test_dist()) == Distributions.Normal(0,1)
+    @test BAT.bat_sampler(@inferred test_dist()) == Distributions.Normal(0,1)
 
     @test rand!(test_batsampler{Univariate}(), 1) == 0.5
     x = zeros(2,3)

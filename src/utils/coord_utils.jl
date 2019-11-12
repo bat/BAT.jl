@@ -4,9 +4,11 @@
 _all_in_ui(X::AbstractArray) = _all_lteq_impl(0, X, 1)
 
 
-@doc """
+@doc doc"""
     y = fromui(x::Real, lo::Real, hi::Real)
     y = fromui(x::Real, lo_hi::ClosedInterval{<:Real})
+
+*BAT-internal, not part of stable public API.*
 
 Linear bijective transformation from the unit inverval (i.e. `x ∈ 0..1`) to
 `y ∈ lo..hi`.
@@ -16,7 +18,6 @@ Use `inv(fromui)` to get the the inverse transformation.
 Use `@inbounds` to disable range checking on the input value.
 """
 function fromui end
-export fromui
 
 @inline unsafe_fromui(x::Real, lo::Real, hi::Real) = muladd(x, (hi - lo), lo)
 

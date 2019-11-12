@@ -22,7 +22,6 @@ const MCMCSampleIDVector{TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Int64}
     Int
 }
 
-export MCMCSampleIDVector
 
 MCMCSampleIDVector(contents::NTuple{4,Any}) = StructArray{MCMCSampleID}(contents)
 

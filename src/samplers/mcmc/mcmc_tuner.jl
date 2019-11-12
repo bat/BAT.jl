@@ -1,28 +1,47 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-abstract type AbstractMCMCTunerConfig end
-export AbstractMCMCTunerConfig
+"""
+    AbstractMCMCTuningStrategy
+
+Abstract super-type for MCMC tuning strategies.
+"""
+abstract type AbstractMCMCTuningStrategy end
+export AbstractMCMCTuningStrategy
 
 
 abstract type AbstractMCMCTuner end
-export AbstractMCMCTuner
 
 
 function isvalid end
 function isviable end
 
 function tuning_init! end
-export tuning_init!
 
 function mcmc_tune_burnin! end
-export mcmc_tune_burnin!
 
 function mcmc_init end
-export mcmc_init
 
 
+"""
+    @with_kw struct MCMCBurninStrategy
 
+Defines the MCMC burn-in strategy, specifically the number and length of
+MCMC tuning/burn-in cycles.
+
+Fields:
+
+* `max_nsamples_per_cycle`: Maximum number of MCMC samples to generate per
+  cycle, defaults to `1000`. Definition of a sample depends on MCMC algorithm.
+
+* `max_nsteps_per_cycle`: Maximum number of MCMC steps per cycle, defaults
+  to `10000`. Definition of a step depends on MCMC algorithm.
+
+* `max_time_per_cycle`: Maximum wall-clock time to spend per cycle, in
+  seconds. Defaults to `Inf`.
+
+* `max_ncycles`: Maximum number of cycles.
+"""
 @with_kw struct MCMCBurninStrategy
     max_nsamples_per_cycle::Int64 = 1000
     max_nsteps_per_cycle::Int64 = 10000
@@ -32,7 +51,7 @@ end
 
 export MCMCBurninStrategy
 
-function MCMCBurninStrategy(algorithm::MCMCAlgorithm, nsamples::Integer, max_nsteps::Integer, tuner_config::AbstractMCMCTunerConfig)
+function MCMCBurninStrategy(algorithm::MCMCAlgorithm, nsamples::Integer, max_nsteps::Integer, tuner_config::AbstractMCMCTuningStrategy)
     max_nsamples_per_cycle = max(div(nsamples, 10), 10)
     max_nsteps_per_cycle = max(div(max_nsteps, 10), 10)
     MCMCBurninStrategy(
@@ -101,15 +120,12 @@ end
 
 
 
-struct NoOpTunerConfig <: BAT.AbstractMCMCTunerConfig end
-export NoOpTunerConfig
+struct NoOpTunerConfig <: BAT.AbstractMCMCTuningStrategy end
 
 (config::NoOpTunerConfig)(chain::MCMCIterator; kwargs...) = NoOpTuner()
 
 
 struct NoOpTuner{C<:MCMCIterator} <: AbstractMCMCTuner end
-
-export NoOpTuner
 
 
 isvalid(chain::MCMCIterator) = current_sample(chain).logdensity > -Inf
@@ -135,17 +151,39 @@ end
 
 
 
+"""
+    @with_kw struct MCMCInitStrategy
+
+Defines the MCMC chain initialization strategy.
+
+Fields:
+
+* `init_tries_per_chain`: Interval that specifies the minimum and maximum
+  number of tries per MCMC chain to find a suitable starting position. Many
+  candidate chains will be created and run for a short time. The chains with
+  the best performance will be selected for tuning/burn-in and MCMC sampling
+  run. Defaults to `IntervalSets.ClosedInterval(8, 128)`.
+
+* `max_nsamples_init`: Maximum number of MCMC samples for each candidate
+  chain. Defaults to 25. Definition of a sample depends on sampling algorithm.
+
+* `max_nsteps_init`: Maximum number of MCMC steps for each candidate chain.
+  Defaults to 250. Definition of a step depends on sampling algorithm.
+
+* `max_time_init::Int`: Maximum wall-clock time to spend per candidate chain,
+  in seconds. Defaults to `Inf`.
+"""
 @with_kw struct MCMCInitStrategy
-    ninit_tries_per_chain::ClosedInterval{Int64} = 8..128
-    max_nsamples_pretune::Int64 = 25
-    max_nsteps_pretune::Int64 = 250
-    max_time_pretune::Float64 = Inf
+    init_tries_per_chain::ClosedInterval{Int64} = ClosedInterval(8, 128)
+    max_nsamples_init::Int64 = 25
+    max_nsteps_init::Int64 = 250
+    max_time_init::Float64 = Inf
 end
 
 export MCMCInitStrategy
 
 
-MCMCInitStrategy(tuner_config::AbstractMCMCTunerConfig) =
+MCMCInitStrategy(tuner_config::AbstractMCMCTuningStrategy) =
     MCMCInitStrategy()
 
 _gen_chains(ids::AbstractRange{<:Integer},
@@ -155,13 +193,13 @@ _gen_chains(ids::AbstractRange{<:Integer},
 function mcmc_init(
     chainspec::MCMCSpec,
     nchains::Int,
-    tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(algorithm(chainspec)),
+    tuner_config::AbstractMCMCTuningStrategy = AbstractMCMCTuningStrategy(algorithm(chainspec)),
     init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config)
 )
     @info "Trying to generate $nchains viable MCMC chain(s)."
 
-    min_nviable::Int = minimum(init_strategy.ninit_tries_per_chain) * nchains
-    max_ncandidates::Int = maximum(init_strategy.ninit_tries_per_chain) * nchains
+    min_nviable::Int = minimum(init_strategy.init_tries_per_chain) * nchains
+    max_ncandidates::Int = maximum(init_strategy.init_tries_per_chain) * nchains
 
     ncandidates::Int = 0
 
@@ -189,9 +227,9 @@ function mcmc_init(
         # ToDo: Use mcmc_iterate! instead of run_tuning_iterations! ?
         run_tuning_iterations!(
             (), new_tuners, new_chains;
-            max_nsamples = max(5, div(init_strategy.max_nsamples_pretune, 5)),
-            max_nsteps =  max(50, div(init_strategy.max_nsteps_pretune, 5)),
-            max_time = init_strategy.max_time_pretune / 5
+            max_nsamples = max(5, div(init_strategy.max_nsamples_init, 5)),
+            max_nsteps =  max(50, div(init_strategy.max_nsteps_init, 5)),
+            max_time = init_strategy.max_time_init / 5
         )
 
         viable_idxs = findall(isviable.(new_tuners, new_chains))
@@ -204,9 +242,9 @@ function mcmc_init(
             # ToDo: Use mcmc_iterate! instead of run_tuning_iterations! ?
             run_tuning_iterations!(
                 (), viable_tuners, viable_chains;
-                max_nsamples = init_strategy.max_nsamples_pretune,
-                max_nsteps = init_strategy.max_nsteps_pretune,
-                max_time = init_strategy.max_time_pretune
+                max_nsamples = init_strategy.max_nsamples_init,
+                max_nsteps = init_strategy.max_nsteps_init,
+                max_time = init_strategy.max_time_init
             )
 
             nsamples_thresh = floor(Int, 0.8 * median([nsamples(chain) for chain in viable_chains]))

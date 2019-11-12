@@ -112,12 +112,12 @@ using ArraysOfArrays, StatsBase
     end
 
     @testset "BAT.BasicMvStatistic" begin
-        bmvstats = BasicMvStatistics{Float64, ProbabilityWeights}(m)
+        bmvstats = BAT.BasicMvStatistics{Float64, ProbabilityWeights}(m)
 
         countBMS = 3
         bmvs = Array{BAT.BasicMvStatistics{Float64, ProbabilityWeights}}(undef, countBMS)
         for i in axes(bmvs,1)
-            bmvs[i] = BasicMvStatistics{Float64, ProbabilityWeights}(m)
+            bmvs[i] = BAT.BasicMvStatistics{Float64, ProbabilityWeights}(m)
         end
 
         for i in eachindex(data)

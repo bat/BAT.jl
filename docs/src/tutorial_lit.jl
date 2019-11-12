@@ -297,7 +297,7 @@ plot(
     nbins = 50, xlabel = par_names[3], ylabel = par_names[5],
     title = "Marginalized Distribution for mu_1 and sigma"
 )
-plot!(MCMCBasicStats(samples), (3, 5))
+plot!(BAT.MCMCBasicStats(samples), (3, 5))
 #jl savefig("tutorial-param-pair.pdf")
 #md savefig("tutorial-param-pair.pdf")
 #md savefig("tutorial-param-pair.svg"); nothing # hide
@@ -373,10 +373,9 @@ plot!(-4:0.01:4, x -> fit_function(fit_par_values, x), label = "Best fit")
 # All option value used in the following are the default values, any or all
 # may be omitted.
 
-# We'll sample using the The Metropolis-Hastings MCMC algorithm. By default,
-# BAT uses a multivariate t-distribution (ν = 1) as the proposal function:
+# We'll sample using the The Metropolis-Hastings MCMC algorithm:
 
-algorithm = MetropolisHastings(MvTDistProposal(1.0))
+algorithm = MetropolisHastings()
 #md nothing # hide
 
 # BAT requires a counter-based random number generator (RNG), since it
@@ -406,10 +405,10 @@ convergence = BrooksGelmanConvergence(
 )
 
 init = MCMCInitStrategy(
-    ninit_tries_per_chain = 8..128,
-    max_nsamples_pretune = 25,
-    max_nsteps_pretune = 250,
-    max_time_pretune = Inf
+    init_tries_per_chain = 8..128,
+    max_nsamples_init = 25,
+    max_nsteps_init = 250,
+    max_time_init = Inf
 )
 
 burnin = MCMCBurninStrategy(

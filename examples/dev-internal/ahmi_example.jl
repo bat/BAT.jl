@@ -21,7 +21,7 @@ function BAT.density_logval(target::GaussianShellDensity, params::AbstractArray{
 end
 
 algorithm = MetropolisHastings()
-#algorithm = MetropolisHastings(ARPWeights{Float64}())
+#algorithm = MetropolisHastings(ARPWeighting{Float64}())
 
 #define model and #dimensions
 dim = 2
@@ -30,7 +30,7 @@ model = GaussianShellDensity(zeros(dim), 5.0, 2.0, dim)
 #define boundaries
 lo_bounds = [-30.0 for i = 1:dim]
 hi_bounds = [ 30.0 for i = 1:dim]
-bounds = HyperRectBounds(lo_bounds, hi_bounds, reflective_bounds)
+bounds = BAT.HyperRectBounds(lo_bounds, hi_bounds, BAT.reflective_bounds)
 
 
 

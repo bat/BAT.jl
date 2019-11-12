@@ -27,10 +27,12 @@ end
 
 
 
-@doc """
+@doc doc"""
     OnlineMvMean{T<:AbstractFloat} <: AbstractVector{T}
 
-Multi-variate mean implemented via Kahan-Babuška-Neumaier summation.
+*BAT-internal, not part of stable public API.*
+
+Multivariate mean implemented via Kahan-Babuška-Neumaier summation.
 """
 mutable struct OnlineMvMean{T<:AbstractFloat} <: AbstractVector{T}
     m::Int
@@ -42,7 +44,6 @@ mutable struct OnlineMvMean{T<:AbstractFloat} <: AbstractVector{T}
         new{T}(m, zero(DoubleFloat{T}), zeros(T, m), zeros(T, m))
 end
 
-export OnlineMvMean
 
 OnlineMvMean(m::Integer) = OnlineMvMean{Float64}(m::Integer)
 
@@ -107,8 +108,10 @@ end
 
 
 
-@doc """
+@doc doc"""
     OnlineMvCov{T<:AbstractFloat,W} <: AbstractMatrix{T}
+
+*BAT-internal, not part of stable public API.*
 
 Implementation based on variance calculation Algorithms of Welford and West.
 
@@ -116,7 +119,6 @@ Implementation based on variance calculation Algorithms of Welford and West.
 `FrequencyWeights` or `ProbabilityWeights` to specify the desired bias
 correction method.
 """
-
 mutable struct OnlineMvCov{T<:AbstractFloat,W} <: AbstractMatrix{T}
     m::Int
     n::Int64
@@ -133,7 +135,6 @@ mutable struct OnlineMvCov{T<:AbstractFloat,W} <: AbstractMatrix{T}
         )
 end
 
-export OnlineMvCov
 
 OnlineMvCov(m::Integer) = OnlineMvCov{Float64, ProbabilityWeights}(m::Integer)
 
@@ -281,15 +282,15 @@ end
     ocv
 end
 
-@doc """
+@doc doc"""
     BasicMvStatistics{T<:Real,W}
+
+*BAT-internal, not part of stable public API.*
 
 `W` must either be `Weights` (no bias correction) or one of `AnalyticWeights`,
 `FrequencyWeights` or `ProbabilityWeights` to specify the desired bias
 correction method.
 """
-
-
 mutable struct BasicMvStatistics{T<:Real,W}
     m::Int
     mean::OnlineMvMean{T}
@@ -307,8 +308,6 @@ mutable struct BasicMvStatistics{T<:Real,W}
     BasicMvStatistics{T,W}(m::Integer) where {T<:Real,W} =
         new(m, OnlineMvMean{T}(m), OnlineMvCov{T,W}(m), fill(typemin(T), m), fill(typemax(T), m))
 end
-
-export BasicMvStatistics
 
 
 function Base.empty!(target::BasicMvStatistics{T}) where T

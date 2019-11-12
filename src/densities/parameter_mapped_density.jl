@@ -15,7 +15,6 @@ end
 ParameterMappedDensity(density::AbstractDensity, parmap::ParameterMapping) =
     ParameterMappedDensity(density, parmap, invmap_params(parmap, param_bounds(density)))
 
-export ParameterMappedDensity
 
 import Base.∘
 ∘(density::AbstractDensity, parmap::ParameterMapping) =

@@ -21,11 +21,11 @@ if Sys.isunix()
             @info "Running compile command $compile_cmd"
             run(compile_cmd)
             @info isfile(test_density_server_binary)
-            likelihood = ExternalDensity(2, `$test_density_server_binary`, 0)
+            likelihood = BAT.ExternalDensity(`$test_density_server_binary`, 0)
 
             @test begin
                 x = [1.23, 2.34]
-                llvalue = density_logval(likelihood, x)
+                llvalue = BAT.density_logval(likelihood, x)
                 llvalue ≈ logpdf(dist, x)
             end
 
@@ -34,7 +34,7 @@ if Sys.isunix()
                 params = nestedview(rand(2, n) .* 4 .- 2)
                 ll_external = zeros(n)
                 @sync for i in eachindex(params, ll_external)
-                    @mt_async ll_external[i] = density_logval(likelihood, params[i])
+                    @mt_async ll_external[i] = BAT.density_logval(likelihood, params[i])
                 end
                 ll_expected = logpdf.((dist,), params)
                 ll_external ≈ ll_expected

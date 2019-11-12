@@ -98,7 +98,7 @@ export bat_sample
     posterior::AnyPosterior, n::AnyNSamples;
     kwargs...
 )
-    rng = bat_default_rng()
+    rng = bat_rng()
     bat_sample(rng, posterior, n; kwargs...)
 end
 
@@ -107,7 +107,7 @@ end
     posterior::AnyPosterior, n::AnyNSamples, algorithm::AbstractSamplingAlgorithm;
     kwargs...
 )
-    rng = bat_default_rng()
+    rng = bat_rng()
     bat_sample(rng, posterior, n, algorithm; kwargs...)
 end
 
@@ -123,16 +123,17 @@ end
 
 
 """
-    BAT.RandSampling
+    RandSampling
 
 Constructors:
 
-    BAT.RandSampling()
+    RandSampling()
 
 Sample via `Random.rand`. Only supported for posteriors of type
 `Distributions.MultivariateDistribution` and `BAT.DistLikeDensity`.
 """
 struct RandSampling <: AbstractSamplingAlgorithm end
+export RandSampling
 
 
 default_sampling_algorithm(posterior::RandSampleable) = RandSampling()
@@ -156,21 +157,22 @@ end
 
 
 """
-    BAT.RandomResampling
+    RandResampling <: AbstractSamplingAlgorithm
 
 Constructors:
 
-    BAT.RandomResampling()
+    RandResampling()
 
-Resample from a given set of samples.
+Resamples from a given set of samples.
 """
-struct RandomResampling <: AbstractSamplingAlgorithm end
+struct RandResampling <: AbstractSamplingAlgorithm end
+export RandResampling
 
 
-default_sampling_algorithm(posterior::DensitySampleVector) = RandomResampling()
+default_sampling_algorithm(posterior::DensitySampleVector) = RandResampling()
 
 
-function bat_sample(rng::AbstractRNG, posterior::DensitySampleVector, n::Integer, algorithm::RandomResampling)
+function bat_sample(rng::AbstractRNG, posterior::DensitySampleVector, n::Integer, algorithm::RandResampling)
     orig_idxs = eachindex(posterior)
     weights = FrequencyWeights(float(posterior.weight))
     resampled_idxs = sample(orig_idxs, weights, n, replace=true, ordered=false)

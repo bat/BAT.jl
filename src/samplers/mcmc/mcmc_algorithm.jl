@@ -1,10 +1,13 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-doc"""
+@doc doc"""
     abstract type MCMCAlgorithm <: AbstractSamplingAlgorithm end
 
-BAT-internal documentation, not part of stable API:
+!!! note
+
+    The details of the `MCMCIterator` and `MCMCAlgorithm` API (see below)
+    currently do not form part of the BAT-API, and may change without notice.
 
 The following methods must be defined for subtypes (e.g.
 for `SomeAlgorithm<:MCMCAlgorithm`):
@@ -40,6 +43,8 @@ export MCMCAlgorithm
         algorithm::MCMCAlgorithm
     )::typeof(params)
 
+*BAT-internal, not part of stable public API.*
+
 Fill `params` with random initial parameters suitable for `posterior` and
 `algorithm`. The default implementation will try to draw the initial
 parameters from the prior of the posterior.
@@ -54,12 +59,14 @@ initial_params!(
 ) = rand!(rng, sampler(getprior(posterior)), params)
 
 
-doc"""
+@doc doc"""
     MCMCSpec{
         A<:MCMCAlgorithm,
         M<:AbstractPosteriorDensity,
         R<:AbstractRNGSeed
     }
+
+*BAT-internal, not part of stable public API.*
 
 Specifies a Bayesian MCMC chain.
 
@@ -90,8 +97,6 @@ struct MCMCSpec{
     rngseed::R
 end
 
-export MCMCSpec
-
 
 # TODO/Decision: Make MCMCSpec a subtype of StatsBase.Sampleable{Multivariate,Continuous}?
 
@@ -120,10 +125,15 @@ end
 
 
 
-doc"""
+@doc doc"""
     abstract type MCMCIterator end
 
 Represents the current state of a MCMC chain.
+
+!!! note
+
+    The details of the `MCMCIterator` and `MCMCAlgorithm` API (see below)
+    currently do not form part of the BAT-API, and may change without notice.
 
 To implement a new MCMC algorithm, subtypes of both [`MCMCAlgorithm`](@ref)
 and `MCMCIterator` are required.

@@ -27,7 +27,6 @@ _SampleAux() = _SampleInfo(0)
     ds4 = @inferred DensitySample(param4, Float32(-4.2568156), 4, _SampleInfo(9), _SampleAux(0.612f0))
     
     @testset "DensitySample" begin
-        @test typeof(ds1)  <: AbstractDensitySample
         @test typeof(ds1)  <: DensitySample{Float64,Float32,Int,_SampleInfo}
 
         @test nparams(ds1) == 3

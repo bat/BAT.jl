@@ -1,10 +1,35 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-abstract type AbstractDensitySample end
-export AbstractDensitySample
+"""
+    struct DensitySample
 
+A weighted sample drawn according to an statistical density,
+e.g. a [`BAT.AbstractDensity`](@ref).
 
+Fields:
+    * `params`: Multivariate parameter vector
+    * `logdensity`: log of the value of the density at `params`
+    * `weight`: Weight of the sample
+    * `info`: Additional info on the provenance of the sample. Content depends
+       on the sampling algorithm.
+    * aux: Custom user-defined information attatched to the sample.
+
+Constructors:
+
+```julia
+DensitySample(
+    params::AbstractVector{<:Real},
+    logdensity::Real,
+    weight::Real,
+    info::Any,
+    aux::Any
+)
+```
+
+Use [`DensitySampleVector`](@ref) to store vectors of multiple samples with
+an efficient column-based memory layout.
+"""
 struct DensitySample{
     P<:Real,
     T<:Real,
@@ -12,7 +37,7 @@ struct DensitySample{
     R,
     Q,
     PA<:AbstractVector{P}
-} <: AbstractDensitySample
+}
     params::PA
     logdensity::T
     weight::W
@@ -73,6 +98,20 @@ end
     DensitySampleVector
 
 Type alias for `StructArrays.StructArray{<:DensitySample,...}`.
+
+Constructor:
+
+```julia
+    DensitySampleVector(
+        (
+            params::AbstractVector{<:AbstractVector{<:Real}}
+            logdensity::AbstractVector{<:Real}
+            weight::AbstractVector{<:Real}
+            info::AbstractVector{<:Any}
+            aux::AbstractVector{<:Any}
+        )
+    )
+```
 """
 const DensitySampleVector{
     P<:Real,T<:AbstractFloat,W<:Real,R,Q,PA<:AbstractVector{P},
@@ -212,10 +251,10 @@ export bat_stats
         fraction::Real = 10^-4
     )
 
+*BAT-internal, not part of stable public API.*
+
 Drop `fraction` of the total probability mass from samples to filter out the
 samples with the lowest weight.
-
-Note: BAT-internal function, not part of stable API.
 """
 function drop_low_weight_samples(samples::DensitySampleVector, fraction::Real = 10^-5)
     W = float(samples.weight)

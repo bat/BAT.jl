@@ -20,8 +20,10 @@ end
 
 
 
-@doc """
+@doc doc"""
     gr_Rsqr(stats::AbstractVector{<:MCMCBasicStats})
+
+*BAT-internal, not part of stable public API.*
 
 Gelman-Rubin ``\$R^2\$`` for all parameters.
 """
@@ -34,7 +36,7 @@ end
 
 
 
-@doc """
+@doc doc"""
     GelmanRubinConvergence
 
 Gelman-Rubin ``\$maximum(R^2)\$`` convergence test.
@@ -64,8 +66,10 @@ end
 
 
 
-doc"""
+@doc doc"""
     bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats}; corrected::Bool = false)
+
+*BAT-internal, not part of stable public API.*
 
 Brooks-Gelman $R_2^2$ for all parameters.
 If normality is assumed, 'corrected' should be set to true to account for the sampling variability.
@@ -105,7 +109,7 @@ end
 
 
 
-doc"""
+@doc doc"""
     BrooksGelmanConvergence
 
 Brooks-Gelman $maximum(R^2)$ convergence test.

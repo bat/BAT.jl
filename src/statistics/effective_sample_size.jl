@@ -1,8 +1,10 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-@doc """
+@doc doc"""
     autocrl(xv::AbstractVector{T}, kv::AbstractVector{Int} = Vector{Int}())
+
+*BAT-internal, not part of stable public API.*
 
 autocorrelation := Σ Cov[x_i,x_(i+k)]/Var[x]
 
@@ -30,8 +32,10 @@ function autocrl(xv::AbstractVector{T}, kv::AbstractVector{Int} = Vector{Int}())
 end
 
 
-@doc """
+@doc doc"""
     wgt_effective_sample_size(w::AbstractVector{T})
+
+*BAT-internal, not part of stable public API.*
 
 Kish's approximation for weighted samples effective_sample_size estimation.
 Computes the weighting factor for weigthed samples, where w is the vector of
@@ -42,7 +46,11 @@ function wgt_effective_sample_size(w::AbstractVector{T}) where T<:Real
 end
 
 
-@doc """
+@doc doc"""
+    effective_sample_size(xv, w; ...)
+
+*BAT-internal, not part of stable public API.*
+
 Effective size estimation for a vector of samples xv. If a weight vector w is provided,
 the Kish approximation is applied.
 
@@ -69,8 +77,10 @@ function effective_sample_size(xv::AbstractVector{T1}, w::AbstractVector{T2} = V
     return min(length(xv),result*w_correction)
 end
 
-@doc """
+@doc doc"""
     effective_sample_size(params::AbstractArray, weights::AbstractVector; with_weights=true)
+
+*BAT-internal, not part of stable public API.*
 
 Effective size estimation for a (multidimensional) ElasticArray.
 By default applies the Kish approximation with the weigths available, but
@@ -89,8 +99,10 @@ function effective_sample_size(params::AbstractArray, weights::AbstractVector; w
         return ess
     end
 
-@doc """
+@doc doc"""
     effective_sample_size(samples::DensitySampleVector; with_weights=true)
+
+*BAT-internal, not part of stable public API.*
 
 Effective size estimation for a (multidimensional) DensitySampleVector.
 By default applies the Kish approximation with the weigths available, but

@@ -14,14 +14,14 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     mvnorm = @inferred  MvNormal(mvec, Σ)
 
     density = let mvnorm = mvnorm
-        @inferred GenericDensity(params -> logpdf(mvnorm, params))
+        @inferred BAT.GenericDensity(params -> logpdf(mvnorm, params))
     end
 
     params = [0.0, 0.0]
 
-    @testset "density_logval" begin
-        @test @inferred(density_logval(density, params)) ≈ logpdf(mvnorm, params)
-        @test @inferred(density_logval(density, params)) ≈ logpdf(mvnorm, params)
+    @testset "BAT.density_logval" begin
+        @test @inferred(BAT.density_logval(density, params)) ≈ logpdf(mvnorm, params)
+        @test @inferred(BAT.density_logval(density, params)) ≈ logpdf(mvnorm, params)
     end
 
     @testset "parent" begin

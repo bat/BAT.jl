@@ -1,8 +1,6 @@
 # Generic rand and rand! implementations similar to those in Distributions,
 # but with an rng argument:
 
-export BATSampler
-
 abstract type BATSampler{F<:VariateForm,S<:ValueSupport} <: Sampleable{F,S} end
 
 

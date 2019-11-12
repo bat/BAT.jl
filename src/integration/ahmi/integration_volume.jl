@@ -2,7 +2,7 @@
 """
     IntegrationVolume(dataset::DataSet{T, I}, spvol::HyperRectVolume{T}, searchpts::Bool = true)::IntegrationVolume{T, I}
 
-Note: AHMI-internal, not part of stable API.
+*AHMI-internal, not part of stable public API.*
 
 creates an integration region by calculating the point cloud an the volume of the spatial volume.
 """
@@ -22,7 +22,7 @@ end
 """
     modify_integrationvolume!(intvol::IntegrationVolume{T, I}, dataset::DataSet{T, I}, spvol::HyperRectVolume{T}, searchpts::Bool = true)
 
-Note: AHMI-internal, not part of stable API.
+*AHMI-internal, not part of stable public API.*
 
 updates an integration volume with new boundaries. Recalculates the pointcloud and volume.
 """

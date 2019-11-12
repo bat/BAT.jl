@@ -1,40 +1,33 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-abstract type MHWeightingScheme{T<:Real} end
-export MHWeightingScheme
+"""
+    MetropolisHastings
 
-struct MetropolisWeights{T<:Real} <: MHWeightingScheme{T} end
-export MetropolisWeights
-MetropolisWeights() = MetropolisWeights{Int}()
-
-struct ARPWeights{T<:AbstractFloat} <: MHWeightingScheme{T} end
-export ARPWeights
-ARPWeights() = ARPWeights{Float64}()
-
-
-
+Metropolis-Hastings MCMC sampling algorithm.
+!!!!!
+"""
 struct MetropolisHastings{
     Q<:ProposalDistSpec,
     W<:Real,
-    WS<:MHWeightingScheme{W}
+    WS<:AbstractWeightingScheme{W}
 } <: MCMCAlgorithm
     proposalspec::Q
-    weighting_scheme::WS
+    weighting::WS
 
-    MetropolisHastings(proposalspec::Q,weighting_scheme::WS) where {
-        Q<:ProposalDistSpec, W<:Real, WS<:MHWeightingScheme{W}} =
-        new{Q,W,WS}(proposalspec, weighting_scheme)
+    MetropolisHastings(proposalspec::Q,weighting::WS) where {
+        Q<:ProposalDistSpec, W<:Real, WS<:AbstractWeightingScheme{W}} =
+        new{Q,W,WS}(proposalspec, weighting)
 end
 
 export MetropolisHastings
 
 
 MetropolisHastings(proposalspec::ProposalDistSpec = MvTDistProposal()) =
-    MetropolisHastings(proposalspec, MetropolisWeights())
+    MetropolisHastings(proposalspec, RepetitionWeighting())
 
-MetropolisHastings(weighting_scheme::MHWeightingScheme) =
-    MetropolisHastings(MvTDistProposal(), weighting_scheme)
+MetropolisHastings(weighting::AbstractWeightingScheme) =
+    MetropolisHastings(MvTDistProposal(), weighting)
 
 
 mcmc_compatible(::MetropolisHastings, ::AbstractProposalDist, ::NoParamBounds) = true
@@ -314,7 +307,7 @@ end
 
 
 function _mh_weights(
-    algorithm::MetropolisHastings{Q,W,<:MetropolisWeights},
+    algorithm::MetropolisHastings{Q,W,<:RepetitionWeighting},
     p_accept::Real,
     accepted::Bool
 ) where {Q,W}
@@ -327,7 +320,7 @@ end
 
 
 function _mh_weights(
-    algorithm::MetropolisHastings{Q,W,<:ARPWeights},
+    algorithm::MetropolisHastings{Q,W,<:ARPWeighting},
     p_accept::Real,
     accepted::Bool
 ) where {Q,W}

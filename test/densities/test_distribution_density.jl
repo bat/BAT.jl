@@ -5,17 +5,17 @@ using Test
 
 using ArraysOfArrays, Distributions, PDMats
 
-@testset "mvdist_density" begin
+@testset "distribution_density" begin
     mvt = @inferred MvTDist(1.5, PDMat([2.0 1.0; 1.0 3.0]))
-    mvdd = @inferred DistributionDensity(mvt)
+    mvdd = @inferred BAT.DistributionDensity(mvt)
 
-    @testset "mvdist_density" begin
+    @testset "properties" begin
         @test typeof(mvdd) <: AbstractDensity
         @test parent(mvdd) == mvt
         @test nparams(mvdd) == 2
     end
 
-    @testset "density_logval" begin
-        @test (@inferred density_logval(mvdd, [0.0, 0.0])) ≈ -2.64259602
+    @testset "BAT.density_logval" begin
+        @test (@inferred BAT.density_logval(mvdd, [0.0, 0.0])) ≈ -2.64259602
     end
 end

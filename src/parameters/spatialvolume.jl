@@ -3,8 +3,6 @@
 
 abstract type SpatialVolume{T<:Real} end
 
-export SpatialVolume
-
 
 Base.eltype(b::SpatialVolume{T}) where T = T
 
@@ -15,18 +13,21 @@ Random.rand(rng::AbstractRNG, vol::SpatialVolume, n::Integer) =
     rand!(rng, vol, VectorOfSimilarVectors(Matrix{float(eltype(vol))}(undef, ndims(vol), n)))
 
 
-@doc """
+@doc doc"""
     log_volume(vol::SpatialVolume)
+
+*BAT-internal, not part of stable public API.*
 
 Get the logarithm of the volume of the space in `vol`.
 """
 function log_volume end
-export log_volume
 
 
-@doc """
+@doc doc"""
     fromuhc!(Y::AbstractVector, X::AbstractVector, vol::SpatialVolume)
     fromuhc!(Y::VectorOfSimilarVectors, X::VectorOfSimilarVectors, vol::SpatialVolume)
+
+*BAT-internal, not part of stable public API.*
 
 Bijective transformation of coordinates `X` within the unit hypercube to
 coordinates `Y` in `vol`. If `X` and `Y` are matrices, the transformation is
@@ -35,7 +36,6 @@ applied to the column vectors. Use `Y === X` to transform in-place.
 Use `inv(fromuhc!)` to get the the inverse transformation.
 """
 function fromuhc! end
-export fromuhc!
 
 function inv_fromuhc! end
 
@@ -43,9 +43,11 @@ Base.inv(::typeof(fromuhc!)) = inv_fromuhc!
 Base.inv(::typeof(inv_fromuhc!)) = fromuhc!
 
 
-@doc """
+@doc doc"""
     fromuhc(X::AbstractVector, vol::SpatialVolume)
     fromuhc(X::VectorOfSimilarVectors, vol::SpatialVolume)
+
+*BAT-internal, not part of stable public API.*
 
 Bijective transformation from unit hypercube to `vol`. See `fromuhc!`.
 
@@ -54,7 +56,6 @@ Use `inv(fromuhc)` to get the the inverse transformation.
 function fromuhc(X::Union{AbstractVector,VectorOfSimilarVectors}, vol::SpatialVolume)
     fromuhc!(similar(X), X, vol)
 end
-export fromuhc
 
 function inv_fromuhc(X::Union{AbstractVector,VectorOfSimilarVectors}, vol::SpatialVolume)
     inv_fromuhc!(similar(X), X, vol)
@@ -76,7 +77,6 @@ struct HyperRectVolume{T<:Real} <: SpatialVolume{T}
     end
 end
 
-export HyperRectVolume
 
 HyperRectVolume(lo::AbstractVector{T}, hi::AbstractVector{T}) where {T<:Real} = HyperRectVolume{T}(lo, hi)
 

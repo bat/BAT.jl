@@ -12,14 +12,14 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     cmat = [1.0 1.5; 1.5 4.0]
     Σ = @inferred PDMat(cmat)
     mv_dist = MvNormal(mvec, Σ)
-    density = @inferred DistributionDensity(mv_dist)
-    bounds = @inferred HyperRectBounds([-5, -8], [5, 8], reflective_bounds)
+    density = @inferred BAT.DistributionDensity(mv_dist)
+    bounds = @inferred BAT.HyperRectBounds([-5, -8], [5, 8], BAT.reflective_bounds)
     nsamples_per_chain = 50000
     nchains = 4
 
     # algorithmMW = @inferred MetropolisHastings() TODO: put back the @inferred
     algorithmMW = MetropolisHastings()
-    @test BAT.mcmc_compatible(algorithmMW, GenericProposalDist(mv_dist), NoParamBounds(2))
+    @test BAT.mcmc_compatible(algorithmMW, BAT.GenericProposalDist(mv_dist), BAT.NoParamBounds(2))
 
     samples, stats, chains = bat_sample(
         PosteriorDensity(density, bounds), (nsamples_per_chain, nchains), algorithmMW
@@ -30,7 +30,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
 
     @test begin
         stats = @inferred bat_stats(samples)
-        stats2 = @inferred bat_stats(MCMCBasicStats(samples))
+        stats2 = @inferred bat_stats(BAT.MCMCBasicStats(samples))
         stats.mode == stats2.mode && stats.mean ≈ stats2.mean && stats.cov ≈ stats2.cov
     end
 
@@ -40,7 +40,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     @test isapprox(mean_samples, mvec; rtol = 0.15)
     @test isapprox(cov_samples, cmat; rtol = 0.15)
 
-    algorithmPW = @inferred MetropolisHastings(ARPWeights())
+    algorithmPW = @inferred MetropolisHastings(ARPWeighting())
 
     samples, stats, chains = bat_sample(
         PosteriorDensity(mv_dist, bounds), (nsamples_per_chain, nchains), algorithmPW
@@ -48,7 +48,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
 
     @test begin
         stats = @inferred bat_stats(samples)
-        stats2 = @inferred bat_stats(MCMCBasicStats(samples))
+        stats2 = @inferred bat_stats(BAT.MCMCBasicStats(samples))
         stats.mode == stats2.mode && stats.mean ≈ stats2.mean && stats.cov ≈ stats2.cov
     end
 

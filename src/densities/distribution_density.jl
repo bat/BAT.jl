@@ -5,7 +5,6 @@ struct DistributionDensity{D<:Distribution{Multivariate,Continuous}} <: DistLike
     d::D
 end
 
-export DistributionDensity
 
 Base.convert(::Type{AbstractDensity}, d::Distribution{Multivariate,Continuous}) =
     DistributionDensity(d)

@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-"""
+@doc doc"""
     abstract type AbstractPosteriorDensity <: AbstractDensity end
 
 Abstract super-type for posterior probability densities.
@@ -10,31 +10,35 @@ abstract type AbstractPosteriorDensity <: AbstractDensity end
 export AbstractPosteriorDensity
 
 
-doc"""
+@doc doc"""
     getlikelihood(posterior::AbstractPosteriorDensity)::AbstractDensity
+
+*BAT-internal, not part of stable public API.*
 
 The likelihood density of `posterior`. The likelihood may or may not be
 normalized.
 """
 function getlikelihood end
-export getlikelihood
 
 
-doc"""
+@doc doc"""
     getprior(posterior::AbstractPosteriorDensity)::AbstractDensity
+
+*BAT-internal, not part of stable public API.*
 
 The prior density of `posterior`. The prior may or may not be normalized.
 """
 function getprior end
-export getprior
 
 
-@doc """
+@doc doc"""
     BAT.apply_bounds_and_eval_posterior_logval!(
         T::Type{<:Real},
         density::AbstractDensity,
         params::AbstractVector{<:Real}
     )
+
+*BAT-internal, not part of stable public API.*
 
 First apply bounds to the parameters, then compute and return posterior log
 value. May modify `params`.
@@ -77,11 +81,13 @@ function apply_bounds_and_eval_posterior_logval!(
 end
 
 
-@doc """
+@doc doc"""
     BAT.apply_bounds_and_eval_posterior_logval_strict!(
         posterior::AbstractPosteriorDensity,
         params::AbstractVector{<:Real}
     )
+
+*BAT-internal, not part of stable public API.*
 
 First apply bounds to the parameters, then compute and return posterior log
 value. May modify `params`.
@@ -154,7 +160,7 @@ end
 
 
 
-doc"""
+@doc doc"""
     PosteriorDensity{
         Li<:AbstractDensity,
         Pr<:DistLikeDensity

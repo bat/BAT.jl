@@ -7,24 +7,21 @@ const Random123_UInt = Union{UInt32, UInt64}
 const Random123RNG4x = Union{Philox4x, Threefry4x}
 
 
-"""
-    bat_default_rng()
+@doc doc"""
+    bat_rng()
 
 Return a new BAT-compatigle random number generator, with a random seed drawn
 from the system entropy pool.
 """
-
 function bat_rng end
 export bat_rng
 
 
-bat_default_rng() = Philox4x()
+bat_rng() = Philox4x()
 
 
 
 abstract type AbstractRNGSeed end
-
-export AbstractRNGSeed
 
 AbstractRNGSeed() = Philox4xSeed()
 
@@ -36,8 +33,6 @@ struct Philox4xSeed{T<:Random123_UInt} <: AbstractRNGSeed
     Philox4xSeed{T}(seed::NTuple{2,T}) where T<:Random123_UInt = new{T}(seed)
     Philox4xSeed{T}() where T<:Random123_UInt = new{T}(gen_seed(T, 2))
 end
-
-export Philox4xSeed
 
 # (::Type{Philox4xSeed{T}})() where {T<:Random123_UInt} = Philox4xSeed(gen_seed(T, 2))
 
@@ -56,8 +51,6 @@ struct Threefry4xSeed{T<:Random123_UInt} <: AbstractRNGSeed
     Threefry4xSeed{T}(seed::NTuple{4,T}) where {T<:Random123_UInt} = new{T}(seed)
     Threefry4xSeed{T}() where {T<:Random123_UInt} = new{T}(gen_seed(T, 4))
 end
-
-export Threefry4xSeed
 
 Threefry4xSeed() = Threefry4xSeed{UInt64}()
 
@@ -88,7 +81,6 @@ struct MersenneTwisterSeed{R<:AbstractRNG} <: AbstractRNGSeed
     rng::R
 end
 
-export MersenneTwisterSeed
 
 MersenneTwisterSeed() = MersenneTwisterSeed(RandomDevice())
 

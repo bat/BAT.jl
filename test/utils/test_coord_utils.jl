@@ -6,21 +6,21 @@ using Test
 using IntervalSets
 
 @testset "util" begin
-    @testset "fromui" begin
+    @testset "BAT.fromui" begin
         @test BAT._all_in_ui(ones(2, 2))
         @test !BAT._all_in_ui([0.4, 0.2, 1.1])
 
-        @test fromui(0.5, -1.0, 1.0) ≈ 0.0
-        @test fromui(0.5, -0.5, 5.0) ≈ 2.25
-        @test fromui(0.1, -0.5, 1.0) ≈ -0.35
-        @test_throws ArgumentError fromui(-0.1, -1.0, 1.0)
-        @test_throws ArgumentError fromui(1.1, -0.5, 1.0)
+        @test BAT.fromui(0.5, -1.0, 1.0) ≈ 0.0
+        @test BAT.fromui(0.5, -0.5, 5.0) ≈ 2.25
+        @test BAT.fromui(0.1, -0.5, 1.0) ≈ -0.35
+        @test_throws ArgumentError BAT.fromui(-0.1, -1.0, 1.0)
+        @test_throws ArgumentError BAT.fromui(1.1, -0.5, 1.0)
 
-        @test fromui(0.5, ClosedInterval(-0.5, 1.0)) ≈ 0.25
+        @test BAT.fromui(0.5, ClosedInterval(-0.5, 1.0)) ≈ 0.25
 
-        inv_fromui = @inferred inv(fromui)
+        inv_fromui = @inferred inv(BAT.fromui)
         @test inv_fromui  == BAT.inv_fromui
-        @test inv(inv_fromui) == fromui
+        @test inv(inv_fromui) == BAT.fromui
 
         @test inv_fromui(2.25, -0.5, 5.0) ≈ 0.5
 

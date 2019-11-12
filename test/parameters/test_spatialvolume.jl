@@ -16,7 +16,7 @@ using ArraysOfArrays, IntervalSets
         @test size(rand(MersenneTwister(7002), hyperRectVolume, 3)) == (3,)
     end
     @testset "BAT.HyperRectVolume" begin
-        @test typeof(@inferred BAT.HyperRectVolume([-1., 0.5], [2.,1])) <: SpatialVolume{Float64}
+        @test typeof(@inferred BAT.HyperRectVolume([-1., 0.5], [2.,1])) <: BAT.SpatialVolume{Float64}
         @test_throws ArgumentError BAT.HyperRectVolume([-1.], [2.,1])
 
         @test [0.0, 0.0] in hyperRectVolume
@@ -33,16 +33,16 @@ using ArraysOfArrays, IntervalSets
         @test size(res) == (3,)
 
         res = @inferred similar(hyperRectVolume)
-        @test typeof(res) <: HyperRectVolume{Float64}
+        @test typeof(res) <: BAT.HyperRectVolume{Float64}
 
-        a = @inferred HyperRectVolume([0.0,0.0],[1.0,1.0])
-        b = @inferred HyperRectVolume([0.5,0.9],[0.8,1.5])
+        a = @inferred BAT.HyperRectVolume([0.0,0.0],[1.0,1.0])
+        b = @inferred BAT.HyperRectVolume([0.5,0.9],[0.8,1.5])
         res = @inferred intersect(a, b)
         @test res.lo ≈ [0.5, 0.9]
         @test res.hi ≈ [0.8, 1.0]
         @test isempty(res) == false
 
-        a = @inferred HyperRectVolume([0.0,0.0],[0.3,0.4])
+        a = @inferred BAT.HyperRectVolume([0.0,0.0],[0.3,0.4])
         res = @inferred intersect(a, b)
         @test res.lo ≈ [0.5, 0.9]
         @test res.hi ≈ [0.3, 0.4]
@@ -50,31 +50,31 @@ using ArraysOfArrays, IntervalSets
     end
 
     @testset "log_volume" begin
-        @test log_volume(@inferred HyperRectVolume([-1.,0.],[1.,3.])) ≈
+        @test BAT.log_volume(@inferred BAT.HyperRectVolume([-1.,0.],[1.,3.])) ≈
             1.79175946
-        @test log_volume(@inferred HyperRectVolume([-0.0001],[0.0000])) ≈
+        @test BAT.log_volume(@inferred BAT.HyperRectVolume([-0.0001],[0.0000])) ≈
             -9.210340371
     end
 
     @testset "fromuhc" begin
-        @test inv(fromuhc!) == BAT.inv_fromuhc!
-        @test inv(BAT.inv_fromuhc!) == fromuhc!
-        @test inv(fromuhc) == BAT.inv_fromuhc
-        @test inv(BAT.inv_fromuhc) == fromuhc
+        @test inv(BAT.fromuhc!) == BAT.inv_fromuhc!
+        @test inv(BAT.inv_fromuhc!) == BAT.fromuhc!
+        @test inv(BAT.fromuhc) == BAT.inv_fromuhc
+        @test inv(BAT.inv_fromuhc) == BAT.fromuhc
 
         y = zeros(Float64,2)
         x = similar(y)
-        fromuhc!(x, y, hyperRectVolume)
+        BAT.fromuhc!(x, y, hyperRectVolume)
         @test x ≈ hyperRectVolume.lo
         u = similar(y)
-        inv(fromuhc!)(u, x, hyperRectVolume)
+        inv(BAT.fromuhc!)(u, x, hyperRectVolume)
         @test u ≈ y
         y = ones(Float64, 2)
-        res = @inferred fromuhc(y, hyperRectVolume)
+        res = @inferred BAT.fromuhc(y, hyperRectVolume)
         @test res ≈ hyperRectVolume.hi
-        @test inv(fromuhc)(res, hyperRectVolume) ≈ y
+        @test inv(BAT.fromuhc)(res, hyperRectVolume) ≈ y
         y = VectorOfSimilarVectors([0.2 0.5 0.5; 0.9 0.7 0.5])
-        res = @inferred fromuhc(y, hyperRectVolume)
+        res = @inferred BAT.fromuhc(y, hyperRectVolume)
         @test res ≈ VectorOfSimilarVectors([-0.4 0.5 0.5; 0.89 0.67 0.45])
     end
 end

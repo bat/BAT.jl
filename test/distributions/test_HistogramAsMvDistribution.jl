@@ -7,7 +7,7 @@ using Random
 using Distributions, StatsBase
 
 
-@testset "HistogramAsMvDistribution" begin
+@testset "BAT.HistogramAsMvDistribution" begin
     Random.seed!(123)
     μ = [1.23, -0.67]
     Σ = [0.45 0.32; 0.32 0.76]' * [0.45 0.32; 0.32 0.76]

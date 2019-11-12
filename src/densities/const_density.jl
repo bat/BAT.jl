@@ -6,8 +6,6 @@ struct ConstDensity{B<:ParamVolumeBounds,T<:Real} <: DistLikeDensity
     log_value::T
 end
 
-export ConstDensity
-
 
 ConstDensity(bounds::ParamVolumeBounds{T,V}, ::typeof(one))  where {T,V}=
     ConstDensity(bounds, zero(T))

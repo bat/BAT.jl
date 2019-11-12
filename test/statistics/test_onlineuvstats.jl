@@ -21,7 +21,7 @@ using StatsBase
     @testset "BAT.OnlineUvMean" begin
         @test typeof(@inferred BAT.OnlineUvMean()) <: BAT.OnlineUvMean{Float64}
         @test typeof(@inferred BAT.OnlineUvMean{Float32}()) <: BAT.OnlineUvMean{Float32}
-        ouvm = OnlineUvMean()
+        ouvm = BAT.OnlineUvMean()
 
         res = append!(ouvm, data, w)
         @test res[] ≈ mdata
@@ -29,7 +29,7 @@ using StatsBase
         numMeans = 3
         means = Array{BAT.OnlineUvMean{T}}(undef, numMeans)
         for i in axes(means, 1)
-            means[i] = OnlineUvMean()
+            means[i] = BAT.OnlineUvMean()
         end
 
         for i in axes(data, 1)
@@ -54,7 +54,7 @@ using StatsBase
         numVars = 3
         vars = Array{BAT.OnlineUvVar{T, wK}}(undef, numVars)
         for i in axes(vars, 1)
-            vars[i] = OnlineUvVar()
+            vars[i] = BAT.OnlineUvVar()
         end
 
         for i in axes(data, 1)
@@ -81,7 +81,7 @@ using StatsBase
         numStats = 3
         stats = Array{BAT.BasicUvStatistics{T, wK}}(undef, numStats)
         for i in axes(stats, 1)
-            stats[i] = BasicUvStatistics{T, wK}()
+            stats[i] = BAT.BasicUvStatistics{T, wK}()
         end
 
         for i in axes(data, 1)

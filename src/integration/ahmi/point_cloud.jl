@@ -2,7 +2,7 @@
 """
     PointCloud{T<:AbstractFloat, I<:Integer}(dataset::DataSet{T, I}, hyperrect::HyperRectVolume{T}, searchpts::Bool = false)::PointCloud
 
-Note: AHMI-internal, not part of stable API.
+*AHMI-internal, not part of stable public API.*
 
 creates a point cloud by searching the data tree for points which are inside the hyper-rectangle
 The parameter searchpts determines if an array of the point IDs is created as well

@@ -103,18 +103,28 @@ _bat_proto_decode!(buffer::IOBuffer, ::Type{LogDensityValueDMsg}) = LogDensityVa
 )
 
 
+@doc doc"""
+    BAT.ExternalDensity <: AbstractDensity
 
+*Experimental feature, not part of stable public API.*
+
+Uses an external program to calculate log-density values, the program must
+support the BAT binary communication protocol.
+
+Constructor:
+
+```julia
+ExternalDensity(cmd::Cmd, density_id::Integer = 0)
+```
+"""
 struct ExternalDensity <: AbstractDensity
-    n_par::Int
     cmd::Cmd
     density_id::Int
     proc::ThreadLocal{Base.Process}
     lock::ThreadLocal{ThreadSafeReentrantLock}
 end
 
-export ExternalDensity
-
-function ExternalDensity(n_par::Int, cmd::Cmd, density_id = 0)
+function ExternalDensity(cmd::Cmd, density_id = 0)
     proc = ThreadLocal{Base.Process}(undef)
     lock = ThreadLocal{ThreadSafeReentrantLock}(undef)
     all_procs = getallvalues(proc)
@@ -122,11 +132,9 @@ function ExternalDensity(n_par::Int, cmd::Cmd, density_id = 0)
     for i in eachindex(all_locks)
         all_locks[i] = ThreadSafeReentrantLock()
     end
-    ExternalDensity(n_par, cmd, density_id, proc, lock)
+    ExternalDensity(cmd, density_id, proc, lock)
 end
 
-
-BAT.nparams(density::ExternalDensity) = density.n_par
 
 function BAT.density_logval(density::ExternalDensity, params::AbstractVector{Float64})
     # TODO: Fix multithreading support

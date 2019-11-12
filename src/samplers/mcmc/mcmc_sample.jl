@@ -35,7 +35,7 @@ function mcmc_sample(
     nchains::Integer;
     max_nsteps::Int64 = Int64(10 * nsamples),
     max_time::Float64 = Inf,
-    tuner_config::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(chainspec.algorithm),
+    tuner_config::AbstractMCMCTuningStrategy = AbstractMCMCTuningStrategy(chainspec.algorithm),
     convergence_test::MCMCConvergenceTest = BrooksGelmanConvergence(),
     init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config),
     burnin_strategy::MCMCBurninStrategy = MCMCBurninStrategy(chainspec.algorithm, nsamples, max_nsteps, tuner_config),
@@ -131,7 +131,7 @@ default_sampling_algorithm(posterior::AbstractPosteriorDensity) = MetropolisHast
         algorithm::MCMCAlgorithm;
         max_nsteps::Integer,
         max_time::Real,
-        tuning::AbstractMCMCTunerConfig,
+        tuning::AbstractMCMCTuningStrategy,
         init::MCMCInitStrategy,
         burnin::MCMCBurninStrategy,
         convergence::MCMCConvergenceTest,
@@ -154,7 +154,7 @@ function bat_sample(
     algorithm::MCMCAlgorithm;
     max_nsteps::Integer = 10 * n[1],
     max_time::Real = Inf,
-    tuning::AbstractMCMCTunerConfig = AbstractMCMCTunerConfig(algorithm),
+    tuning::AbstractMCMCTuningStrategy = AbstractMCMCTuningStrategy(algorithm),
     init::MCMCInitStrategy = MCMCInitStrategy(tuning),
     burnin::MCMCBurninStrategy = MCMCBurninStrategy(algorithm, n[1], max_nsteps, tuning),
     convergence::MCMCConvergenceTest = BrooksGelmanConvergence(),

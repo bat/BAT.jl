@@ -11,8 +11,6 @@ struct ParameterMapping{
     variable_idxs::VVI
 end
 
-export ParameterMapping
-
 
 function ParameterMapping(bounds::HyperRectBounds)
     vol = bounds.vol
@@ -23,8 +21,6 @@ function ParameterMapping(bounds::HyperRectBounds)
     ParameterMapping(fixed_idxs, fixed_values, variable_idxs)
 end
 
-
-export map_params, map_params!
 
 function map_params!(
     mapped_params::AbstractVector{<:Real},
@@ -56,8 +52,6 @@ function map_params(parmap::ParameterMapping, params::VectorOfSimilarVectors{<:R
     map_params!(mapped_params, parmap, params)
 end
 
-
-export invmap_params, invmap_params!
 
 function invmap_params!(
     params::AbstractVector{<:Real},

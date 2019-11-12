@@ -4,14 +4,17 @@
 # ToDo: Add `density_logvalgrad!` to support HMC, etc.
 
 
-@doc """
+@doc doc"""
     AbstractDensity
 
-Subtypes of `AbstractDensity` only have to imlement the function
+Subtypes of `AbstractDensity` must implement the function
 
 * `BAT.density_logval`
 
-However, densities with known parameters bounds should also implement
+For likelihood densities this is typically sufficient, since shape, and
+bounds of parameters will be inferred from the prior.
+
+Densities with known parameters bounds may also implement
 
 * `BAT.param_bounds`
 
@@ -20,7 +23,13 @@ the function
 
 * `BAT.nparams`
 
-should be implemented directly (usually it is inferred from the bounds).
+may be implemented directly (usually it is inferred from the bounds).
+
+!!! note
+
+    The functions `BAT.param_bounds` and `BAT.params_shape` are currently not
+    part of the stable public BAT-API, their names and arguments may change
+    without notice.
 
 Densities that support named parameters should also implement
 
@@ -30,10 +39,10 @@ abstract type AbstractDensity end
 export AbstractDensity
 
 
-@doc """
-    density_logval(density::AbstractDensity, params::Any)
+@doc doc"""
+    BAT.density_logval(density::AbstractDensity, params::Any)
 
-Compute log of value of a multi-variate density function at the given
+Compute log of value of a multivariate density function at the given
 parameter values.
 
 Input:
@@ -47,10 +56,9 @@ are not within bounds is *implicitly* `-Inf`, but it is the caller's
 responsibility to handle these cases.
 """
 function density_logval end
-export density_logval
 
 
-@doc """
+@doc doc"""
     param_bounds(
         density::AbstractDensity
     )::Union{AbstractParamBounds,Missing}
@@ -60,10 +68,9 @@ implications and handling of the bounds. If the bounds are missing,
 `density_logval` must be prepared to handle any parameter values.
 """
 param_bounds(density::AbstractDensity) = missing
-export param_bounds
 
 
-@doc """
+@doc doc"""
     nparams(density::AbstractDensity)::Union{Int,Missing}
 
 Get the number of parameters of `density`. May return `missing`, if the
@@ -73,9 +80,10 @@ function nparams(density::AbstractDensity)
     bounds = param_bounds(density)
     ismissing(bounds) ? missing : nparams(bounds)
 end
+export nparams
 
 
-@doc """
+@doc doc"""
     params_shape(
         density::AbstractDensity
     )::Union{ValueShapes.AbstractValueShape,Missing}
@@ -88,27 +96,30 @@ end
         distribution::Distributions.Distribution
     )::ValueShapes.AbstractValueShape
 
+*BAT-internal, not part of stable public API.*
+
 Get the shapes of parameters of `density`.
 
 For prior densities, the result must not be `missing`, but may be `nothing` if
 the prior only supports flat parameter vectors.
 """
 function params_shape end
-export params_shape
 
 params_shape(density::AbstractDensity) = missing
 
 params_shape(dist::Distribution) = valshape(dist)
 
 
-@doc """
+@doc doc"""
     eval_density_logval(
         density::AbstractDensity,
         params::AbstractVector{<:Real},
         parshapes::ValueShapes.AbstractValueShape
     )
 
-Internal function to evaluate density log-value, calls `density_logval`.
+*BAT-internal, not part of stable public API.*
+
+Evaluates density log-value via `density_logval`.
 
 `parshapes` *must* be compatible with `params_shape(density)`.
 
@@ -137,11 +148,15 @@ end
 _apply_parshapes(params::AbstractVector{<:Real}, parshapes::AbstractValueShape) = parshapes(params)
 
 
-@doc """
+@doc doc"""
     DistLikeDensity <: AbstractDensity
 
 A density that implements part of the `Distributions.Distribution` interface.
 Such densities are suitable to be used as a priors.
+
+Typically, custom priors should be implemented as subtypes of
+`Distributions.Distribution`. BAT will automatically wrap them in a subtype of
+`DistLikeDensity`.
 
 Subtypes of `DistLikeDensity` are required to support more functionality
 than a `AbstractDensity`, but less than a
@@ -159,7 +174,13 @@ The following functions must be implemented for subtypes:
 
 * `Statistics.cov`
 
-Prior densities that support named parameters should also implement
+!!! note
+
+    The functions `BAT.param_bounds` and `BAT.params_shape` are currently not
+    part of the stable public BAT-API, their names and arguments may change
+    without notice.
+
+Prior densities that support non-flat parameters should also implement
 
 * `BAT.params_shape`
 
@@ -170,15 +191,17 @@ abstract type DistLikeDensity <: AbstractDensity end
 export DistLikeDensity
 
 
-@doc """
+@doc doc"""
     param_bounds(density::DistLikeDensity)::AbstractParamBounds
+
+*BAT-internal, not part of stable public API.*
 
 Get the parameter bounds of `density`. Must not be `missing`.
 """
 function param_bounds end
 
 
-@doc """
+@doc doc"""
     nparams(density::DistLikeDensity)::Int
 
 Get the number of parameters of prior density `density`. Must not be

@@ -32,8 +32,10 @@ _all_lteq(a::Real, B::AbstractArray, c::Real) = _all_lteq_impl(a, B, c)
 
 
 
-doc"""
+@doc doc"""
     @propagate_inbounds sum_first_dim(A::AbstractArray, j::Integer, ks::Integer...)
+
+*BAT-internal, not part of stable public API.*
 
 Calculate the equivalent of `sum(A[:, j, ks...])`.
 """
@@ -49,8 +51,10 @@ Base.@propagate_inbounds function sum_first_dim(A::AbstractArray, j::Integer, ks
 end
 
 
-doc"""
+@doc doc"""
     @propagate_inbounds sum_first_dim(A::AbstractArray)
+
+*BAT-internal, not part of stable public API.*
 
 If `A` is a vector, return `sum(A)`, else `sum(A, 1)[:]`.
 """

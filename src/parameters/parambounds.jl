@@ -1,17 +1,14 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-@doc """
-    nparams(X::Union{AbstractParamBounds,MCMCIterator,...})
+@doc doc"""
+    BAT.nparams(X::Union{AbstractParamBounds,MCMCIterator,...})
 
 Get the number of parameters of `X`.
 """
 function nparams end
-export nparams
 
 
-
-export AbstractParamBounds
 
 abstract type AbstractParamBounds end
 
@@ -32,8 +29,6 @@ isoob(xs::AbstractVector) = any(isoob, xs)
 
 
 @enum BoundsType hard_bounds=1 cyclic_bounds=2 reflective_bounds=3
-export BoundsType
-export hard_bounds, cyclic_bounds, reflective_bounds
 
 function Base.intersect(a::BoundsType, b::BoundsType)
     if a == hard_bounds || b == hard_bounds
@@ -50,16 +45,20 @@ end
 @inline float_iseven(n::T) where {T<:AbstractFloat} = (n - T(2) * floor((n + T(0.5)) * T(0.5))) < T(0.5)
 
 
-@doc """
+@doc doc"""
     apply_bounds!(params::AbstractVector, bounds::AbstractParamBounds)
+
+*BAT-internal, not part of stable public API.*
 
 Apply `bounds` to parameters `params`.
 """
 function apply_bounds! end
 
 
-@doc """
+@doc doc"""
     apply_bounds(x::<:Real, lo::<:Real, hi::<:Real, boundary_type::BoundsType)
+
+*BAT-internal, not part of stable public API.*
 
 Apply lower/upper bound `lo`/`hi` to value `x`. `boundary_type` may be
 `hard_bounds`, `cyclic_bounds` or `reflective_bounds`.
@@ -91,8 +90,10 @@ Apply lower/upper bound `lo`/`hi` to value `x`. `boundary_type` may be
     )
 end
 
-@doc """
+@doc doc"""
     apply_bounds(x::Real, interval::ClosedInterval, boundary_type::BoundsType)
+
+*BAT-internal, not part of stable public API.*
 
 Specify lower and upper bound via `interval`.
 """
@@ -100,8 +101,6 @@ Specify lower and upper bound via `interval`.
     apply_bounds(x, minimum(interval), maximum(interval), boundary_type, oobval)
 
 
-
-export NoParamBounds
 
 struct NoParamBounds <: AbstractParamBounds
     ndims::Int
@@ -124,7 +123,6 @@ unsafe_intersect(a::NoParamBounds, b::AbstractParamBounds) = b
 
 
 abstract type ParamVolumeBounds{T<:Real, V<:SpatialVolume{T}} <: AbstractParamBounds end
-export ParamVolumeBounds
 
 
 Base.in(params::AbstractVector, bounds::ParamVolumeBounds) = in(params, bounds.vol)
@@ -142,13 +140,14 @@ Base.in(params::AbstractVector, bounds::ParamVolumeBounds) = in(params, bounds.v
 nparams(b::ParamVolumeBounds) = ndims(b.vol)
 
 
-@doc """
+@doc doc"""
     spatialvolume(b::ParamVolumeBounds)::SpatialVolume
+
+*BAT-internal, not part of stable public API.*
 
 Returns the spatial volume that defines the parameter bounds.
 """
 function spatialvolume end
-export spatialvolume
 
 
 
@@ -164,7 +163,6 @@ struct HyperRectBounds{T<:Real} <: ParamVolumeBounds{T, HyperRectVolume{T}}
     end
 end
 
-export HyperRectBounds
 
 HyperRectBounds(vol::HyperRectVolume{T}, bt::AbstractVector{BoundsType}) where {T<:Real} = HyperRectBounds{T}(vol, bt)
 HyperRectBounds(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::AbstractVector{BoundsType}) where {T<:Real} = HyperRectBounds(HyperRectVolume(lo, hi), bt)

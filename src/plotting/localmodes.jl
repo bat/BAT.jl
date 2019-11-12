@@ -4,6 +4,8 @@
 """
     calculate_localmode(hist)
 
+*BAT-internal, not part of stable public API.*
+
 Calculates the modes of a 1d statsbase histogram.
 A vector containing the bin-center(s) of the heighest bin(s) is returned.
 """

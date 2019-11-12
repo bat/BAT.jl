@@ -8,8 +8,10 @@ end
 
 
 
-@doc """
+@doc doc"""
     bat_sampler(d::Distribution)
+
+*BAT-internal, not part of stable public API.*
 
 Tries to return a BAT-compatible sampler for Distribution d. A sampler is
 BAT-compatible if it supports random number generation using an arbitrary
@@ -23,20 +25,20 @@ default to `sampler(d)`, which may or may not return a BAT-compatible
 sampler.
 """
 function bat_sampler end
-export bat_sampler
 
 bat_sampler(d::Distribution) = Distributions.sampler(d)
 
 
 
-@doc """
+@doc doc"""
     issymmetric_around_origin(d::Distribution)
+
+*BAT-internal, not part of stable public API.*
 
 Returns `true` (resp. `false`) if the Distribution is symmetric (resp.
 non-symmetric) around the origin.
 """
 function issymmetric_around_origin end
-export issymmetric_around_origin
 
 
 issymmetric_around_origin(d::Normal) = d.μ ≈ 0

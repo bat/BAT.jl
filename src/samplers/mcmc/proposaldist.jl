@@ -1,8 +1,10 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-@doc """
+@doc doc"""
     AbstractProposalDist
+
+*BAT-internal, not part of stable public API.*
 
 The following functions must be implemented for subtypes:
 
@@ -15,31 +17,33 @@ In some cases, it may be desirable to override the default implementation
 of `BAT.distribution_logpdf!`.
 """
 abstract type AbstractProposalDist end
-export AbstractProposalDist
 
 
-@doc """
+@doc doc"""
     distribution_logpdf(
         pdist::AbstractProposalDist,
         params_new::AbstractVector,
         params_old:::AbstractVector
     )
 
+*BAT-internal, not part of stable public API.*
+
 Analog to `distribution_logpdf!`, but for a single parameter vector.
 """
 function distribution_logpdf end
-export distribution_logpdf
 
 # TODO: Implement distribution_logpdf for included proposal distributions
 
 
-@doc """
+@doc doc"""
     distribution_logpdf!(
         p::AbstractArray,
         pdist::AbstractProposalDist,
         params_new::Union{AbstractVector,VectorOfSimilarVectors},
         params_old:::Union{AbstractVector,VectorOfSimilarVectors}
     )
+
+*BAT-internal, not part of stable public API.*
 
 Returns log(PDF) value of `pdist` for transitioning from old to new parameter
 values for multiple parameter sets.
@@ -64,18 +68,19 @@ Array size requirements:
 Implementations of `distribution_logpdf!` must be thread-safe.
 """
 function distribution_logpdf! end
-export distribution_logpdf!
 
 # TODO: Default implementation of distribution_logpdf!
 
 
-@doc """
+@doc doc"""
     function proposal_rand!(
         rng::AbstractRNG,
         pdist::GenericProposalDist,
         params_new::Union{AbstractVector,VectorOfSimilarVectors},
         params_old::Union{AbstractVector,VectorOfSimilarVectors}
     )
+
+*BAT-internal, not part of stable public API.*
 
 Generate one or multiple proposed parameter vectors, based on one or multiple
 previous parameter vectors.
@@ -99,7 +104,6 @@ The caller must guarantee:
 Implementations of `proposal_rand!` must be thread-safe.
 """
 function proposal_rand! end
-export proposal_rand!
 
 
 
@@ -115,7 +119,6 @@ struct GenericProposalDist{D<:Distribution{Multivariate},SamplerF,S<:Sampleable}
 
 end
 
-export GenericProposalDist
 
 GenericProposalDist(d::D, sampler_f::SamplerF) where {D<:Distribution{Multivariate},SamplerF} =
     GenericProposalDist{D,SamplerF}(d, sampler_f)
@@ -198,7 +201,6 @@ struct GenericUvProposalDist{D<:Distribution{Univariate},T<:Real,SamplerF,S<:Sam
     s::S
 end
 
-export GenericUvProposalDist
 
 GenericUvProposalDist(d::Distribution{Univariate}, scale::Vector{<:AbstractFloat}, samplerF) =
     GenericUvProposalDist(d, scale, samplerF, samplerF(d))
@@ -236,14 +238,10 @@ end
 
 abstract type ProposalDistSpec end
 
-export ProposalDistSpec
-
 
 struct MvTDistProposal <: ProposalDistSpec
     df::Float64
 end
-
-export MvTDistProposal
 
 MvTDistProposal() = MvTDistProposal(1.0)
 
@@ -263,8 +261,6 @@ end
 struct UvTDistProposalSpec <: ProposalDistSpec
     df::Float64
 end
-
-export UvTDistProposalSpec
 
 (ps::UvTDistProposalSpec)(T::Type{<:AbstractFloat}, n_params::Integer) =
     GenericUvProposalDist(TDist(convert(T, ps.df)), fill(one(T), n_params))

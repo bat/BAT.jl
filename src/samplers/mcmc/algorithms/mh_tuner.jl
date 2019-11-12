@@ -6,10 +6,38 @@
 """
     AdaptiveMetropolisTuning(...)
 
-Ajusts the proposal function based on the acceptance ratio and covariance
+Adaptive MCMC tuning strategy for Metropolis-Hastings samplers.
+
+Adapts the proposal function based on the acceptance ratio and covariance
 of the previous samples.
+
+Fields:
+
+* `λ`: Controls the weight given to new covariance information in adapting
+  the proposal distribution. Defaults to `0.5`.
+
+* `α`: Metropolis-Hastings acceptance ratio target, tuning will try to
+  adapt the proposal distribution to bring the acceptance ratio inside this
+  interval. Defaults to `IntervalSets.ClosedInterval(0.15, 0.35)`
+
+* `β`: Controls how much the spread of the proposal distribution is
+  widened/narrowed depending on the current MH acceptance ratio.
+
+* `c`: Interval for allowed scale/spread of the proposal distribution.
+  Defaults to `ClosedInterval(1e-4, 1e2)`.
+
+Constructors:
+
+```julia
+AdaptiveMetropolisTuning(
+    λ::Real,
+    α::IntervalSets.ClosedInterval{<:Real},
+    β::Real,
+    c::IntervalSets.ClosedInterval{<:Real}
+)
+```
 """
-@with_kw struct AdaptiveMetropolisTuning <: AbstractMCMCTunerConfig
+@with_kw struct AdaptiveMetropolisTuning <: AbstractMCMCTuningStrategy
     λ::Float64 = 0.5
     α::IntervalSets.ClosedInterval{Float64} = ClosedInterval(0.15, 0.35)
     β::Float64 = 1.5
@@ -20,7 +48,7 @@ export AdaptiveMetropolisTuning
 
 
 # Deprecate:
-AbstractMCMCTunerConfig(algorithm::MetropolisHastings) = AdaptiveMetropolisTuning()
+AbstractMCMCTuningStrategy(algorithm::MetropolisHastings) = AdaptiveMetropolisTuning()
 
 (config::AdaptiveMetropolisTuning)(chain::MHIterator) = ProposalCovTuner(config, chain)
 
@@ -35,7 +63,6 @@ mutable struct ProposalCovTuner{
     scale::Float64
 end
 
-export ProposalCovTuner
 
 function ProposalCovTuner(
     config::AdaptiveMetropolisTuning,

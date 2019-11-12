@@ -1,8 +1,10 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-@doc """
+@doc doc"""
     GenericDensity{F<:Function} <: AbstractDensity
+
+*BAT-internal, not part of stable public API.*
 
 Constructors:
 
@@ -19,8 +21,6 @@ processes.
 struct GenericDensity{F<:Function} <: AbstractDensity
     log_f::F
 end
-
-export GenericDensity
 
 Base.convert(::Type{GenericDensity}, log_f::Function) = GenericDensity(log_f)
 Base.convert(::Type{AbstractDensity}, log_f::Function) = GenericDensity(log_f)

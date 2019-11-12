@@ -3,8 +3,10 @@
 using Base: @propagate_inbounds
 
 
-@doc """
+@doc doc"""
     OnlineUvMean{T<:AbstractFloat}
+
+*BAT-internal, not part of stable public API.*
 
 Univariate mean implemented via Kahan-Babuška-Neumaier summation.
 """
@@ -17,7 +19,6 @@ mutable struct OnlineUvMean{T<:AbstractFloat}
     OnlineUvMean{T}(sum_v::Real, sum_w::Real) where {T<:AbstractFloat} = new{T}(sum_v, sum_w)
 end
 
-export OnlineUvMean
 
 OnlineUvMean() = OnlineUvMean{Float64}()
 
@@ -59,8 +60,10 @@ end
 
 
 
-@doc """
+@doc doc"""
     OnlineUvVar{T<:AbstractFloat,W}
+
+*BAT-internal, not part of stable public API.*
 
 Implementation based on variance calculation Algorithms of Welford and West.
 
@@ -68,7 +71,6 @@ Implementation based on variance calculation Algorithms of Welford and West.
 `FrequencyWeights` or `ProbabilityWeights` to specify the desired bias
 correction method.
 """
-
 mutable struct OnlineUvVar{T<:AbstractFloat,W}
     n::Int64
     sum_w::DoubleFloat{T}
@@ -88,7 +90,6 @@ mutable struct OnlineUvVar{T<:AbstractFloat,W}
         )
 end
 
-export OnlineUvVar
 
 OnlineUvVar() = OnlineUvVar{Float64, ProbabilityWeights}()
 
@@ -198,8 +199,6 @@ mutable struct BasicUvStatistics{T<:Real,W}
     BasicUvStatistics{T,W}(mean::OnlineUvMean{T}, var::OnlineUvVar{T,W}, maximum::T, minimum::T) where {T<:Real,W} =
         new(mean, var, maximum, minimum)
 end
-
-export BasicUvStatistics
 
 
 function Base.empty!(stats::BasicUvStatistics{T,W}) where {T,W}

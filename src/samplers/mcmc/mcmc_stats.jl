@@ -2,7 +2,7 @@
 
 
 abstract type AbstractMCMCStats end
-export AbstractMCMCStats
+AbstractMCMCStats
 
 
 Base.convert(::Type{AbstractMCMCCallback}, x::AbstractMCMCStats) = MCMCAppendCallback(x)
@@ -13,7 +13,7 @@ MCMCAppendCallback(x::AbstractMCMCStats, nonzero_weights::Bool = true) =
 
 
 struct MCMCNullStats <: AbstractMCMCStats end
-export MCMCNullStats
+
 
 Base.push!(stats::MCMCNullStats, sv::DensitySampleVector) = stats
 
@@ -39,7 +39,6 @@ struct MCMCBasicStats{L<:Real,P<:Real} <: AbstractMCMCStats
     end
 end
 
-export MCMCBasicStats
 
 function MCMCBasicStats(::Type{S}, nparams::Integer) where {P,T,W,S<:DensitySample{P,T,W}}
     SL = promote_type(T, Float64)

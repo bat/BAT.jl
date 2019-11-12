@@ -11,20 +11,20 @@ using Distributions, PDMats
     cmat = [1.0 1.5 0.0; 1.5 4.0 0.0; 0.0 0.0 1.0]
     Σ = @inferred PDMat(cmat)
     mvnorm = @inferred  MvNormal(mvec, Σ)
-    mvn_density = @inferred GenericDensity(params -> logpdf(mvnorm, params))
+    mvn_density = @inferred BAT.GenericDensity(params -> logpdf(mvnorm, params))
 
     cmat = [3.76748 0.446731 0.625418; 0.446731 3.9317 0.237361; 0.625418 0.237361 3.43867]
     mvec = [1., 2, 1.]
     Σ = @inferred PDMat(cmat)
     mvt = MvTDist(3, mvec, Σ)
-    mvt_density = @inferred GenericDensity(params -> logpdf(mvt, params))
+    mvt_density = @inferred BAT.GenericDensity(params -> logpdf(mvt, params))
 
     params = VectorOfSimilarVectors([0.0 -0.3; 0.0 0.3; 0.0 1.0])
     
     pb = BAT.HyperRectBounds([-2.0, -1.0, -0.5], [2.0, 3.0, 1.0],
-                                reflective_bounds)
+                                BAT.reflective_bounds)
     pb2 = BAT.HyperRectBounds([-1.5, -2.0, -0.5], [2.0, 2.5, 1.5],
-                                reflective_bounds)
+                                BAT.reflective_bounds)
     dp = @inferred BAT.DensityProduct((mvt_density, mvn_density), pb)
     dp1 = @inferred BAT.DensityProduct((mvt_density,), pb)
     dp2 = @inferred BAT.DensityProduct((mvn_density,), pb2)
@@ -37,21 +37,21 @@ using Distributions, PDMats
                   BAT.GenericDensity{typeof(mvn_density.log_f)}},BAT.HyperRectBounds{Float64}}
         
         @test parent(dp)[1] == mvt_density        
-        @test param_bounds(dp) == pb
+        @test BAT.param_bounds(dp) == pb
         @test nparams(dp) == 3        
     end
 
     @testset "unsafe_pod" begin
         up = @inferred BAT._unsafe_prod(mvt_density, mvn_density, pb)
         @test parent(up)[2] == mvn_density
-        @test param_bounds(up) == pb
+        @test BAT.param_bounds(up) == pb
 
         prd = @inferred dp1*dp2
         @test typeof(prd) <: BAT.DensityProduct{2,
             Tuple{BAT.GenericDensity{typeof(mvt_density.log_f)},
                   BAT.GenericDensity{typeof(mvn_density.log_f)}},BAT.HyperRectBounds{Float64}}
         @test parent(prd)[2] == mvn_density
-        prd_pb = @inferred param_bounds(prd)
+        prd_pb = @inferred BAT.param_bounds(prd)
         cut_pb = @inferred pb ∩ pb2 
         @test prd_pb.vol.lo ≈ cut_pb.vol.lo
         @test prd_pb.vol.hi ≈ cut_pb.vol.hi
@@ -59,20 +59,20 @@ using Distributions, PDMats
         up = @inferred BAT._unsafe_prod(dp1, mvn_density, pb)
         @test parent(up)[1] == mvt_density
         @test parent(up)[2] == mvn_density        
-        @test param_bounds(up) == pb
+        @test BAT.param_bounds(up) == pb
 
         up = @inferred BAT._unsafe_prod(mvt_density, dp2, pb)
         @test parent(up)[1] == mvt_density
         @test parent(up)[2] == mvn_density        
-        @test param_bounds(up) == pb
+        @test BAT.param_bounds(up) == pb
 
         up = @inferred BAT._unsafe_prod(dp1, dp2, pb)
         @test parent(up)[1] == mvt_density
         @test parent(up)[2] == mvn_density        
-        @test param_bounds(up) == pb
+        @test BAT.param_bounds(up) == pb
     end
 
-    @testset "density_logval" begin
-        @test density_logval(dp, params[1]) ≈ -8.8547305        
+    @testset "BAT.density_logval" begin
+        @test BAT.density_logval(dp, params[1]) ≈ -8.8547305        
     end
 end

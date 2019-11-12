@@ -1,6 +1,6 @@
 # Use
 #
-#     DOCUMENTER_DEBUG=true julia --color=yes make.jl local [nonstrict] [fixdoctests]
+#     DOCUMENTER_DEBUG=true julia --color=yes make_notutorial.jl local [nonstrict] [fixdoctests]
 #
 # for local builds.
 
@@ -11,6 +11,7 @@ using BAT
 import HDF5
 
 
+#=
 function fix_literate_output(content)
     content = replace(content, "EditURL = \"@__REPO_ROOT_URL__/\"" => "")
     return content
@@ -22,6 +23,7 @@ Literate.markdown(tutorial_src, gen_content_dir, name = "tutorial", documenter =
 #Literate.markdown(tutorial_src, gen_content_dir, name = "tutorial", codefence = "```@repl tutorial" => "```", documenter = true, credit = true)
 Literate.notebook(tutorial_src, gen_content_dir, execute = false, name = "bat_tutorial", documenter = true, credit = true)
 Literate.script(tutorial_src, gen_content_dir, keep_comments = false, name = "bat_tutorial", documenter = true, credit = false)
+=#
 
 makedocs(
     sitename = "BAT",
@@ -34,7 +36,7 @@ makedocs(
     pages=[
         "Home" => "index.md",
         "Installation" => "installation.md",
-        "Tutorial" => "tutorial.md",
+        #"Tutorial" => "tutorial.md",
         "API Documentation" => "stable_api.md",
         "Experimental Features" => "experimental_api.md",
         "Internal API" => "internal_api.md",

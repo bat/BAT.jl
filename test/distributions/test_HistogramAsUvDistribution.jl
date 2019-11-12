@@ -7,7 +7,7 @@ using Random
 using Distributions, StatsBase
 
 
-@testset "HistogramAsUvDistribution" begin
+@testset "BAT.HistogramAsUvDistribution" begin
     Random.seed!(123)
     μ, σ = 1.23, 0.74
     true_dist = Normal(μ, σ)
