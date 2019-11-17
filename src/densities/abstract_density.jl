@@ -63,6 +63,8 @@ function density_logval end
         density::AbstractDensity
     )::Union{AbstractParamBounds,Missing}
 
+*BAT-internal, not part of stable public API.*
+
 Get the parameter bounds of `density`. See `density_logval` for the
 implications and handling of the bounds. If the bounds are missing,
 `density_logval` must be prepared to handle any parameter values.
