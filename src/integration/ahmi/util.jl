@@ -61,12 +61,14 @@ function trim(
     dotrimming::Bool)::Array{Int64, 1} where {T<:AbstractFloat}
 
     deleteids, remainingids = _trim(res.integrals)
-    @debug "Trimming integration results: $(length(deleteids)) entries out of $(length(res.integrals)) deleted"
-
-    if dotrimming
+	
+    if dotrimming && length(remainingids) > 1
+		@debug "Trimming integration results: $(length(deleteids)) entries out of $(length(res.integrals)) deleted"
         deleteat!(res.integrals, deleteids)
         deleteat!(res.volumeID, deleteids)
         res.Y = res.Y[:, remainingids]
+	elseif dotrimming && length(remainingids) < 2
+		@warn "Trimming is NOT successful. No entries will be deleted"
     end
 
     deleteids
