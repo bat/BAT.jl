@@ -99,8 +99,7 @@ function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator)
         end
     end
 
-    Σ_new_raw = new_Σ_unscal * tuner.scale
-    Σ_new = PDMat(cholesky(Positive, Hermitian(Σ_new_raw)))
+    Σ_new = new_Σ_unscal * tuner.scale
 
     next_cycle!(chain)
     chain.proposaldist = set_cov(chain.proposaldist, Σ_new)
