@@ -62,4 +62,5 @@ RandSampling
 RepetitionWeighting
 
 BAT.AbstractSamplingAlgorithm
+BAT.AnyPosterior
 ```
