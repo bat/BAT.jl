@@ -1,10 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-const _default_PT = Float32 # Default type for parameter values
-const _default_float_WT = Float64 # Default type for float weights
-const _default_int_WT = Int # Default type for int weights
-const _default_LDT = Float64 # Default type for log-density values
-
 
 const RandSampleable = Union{
     DistLikeDensity,
