@@ -163,7 +163,8 @@ end
 @doc doc"""
     PosteriorDensity{
         Li<:AbstractDensity,
-        Pr<:DistLikeDensity
+        Pr<:DistLikeDensity,
+        ...
     } <: AbstractPosteriorDensity
 
 A representation of a PosteriorDensity, based a likelihood and prior, a
