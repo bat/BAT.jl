@@ -55,7 +55,6 @@ MCMCBurninStrategy
 MCMCInitStrategy
 MCMCIterator
 MetropolisHastings
-NamedTupleDist
 PosteriorDensity
 RandResampling
 RandSampling

@@ -7,7 +7,7 @@ using BAT
 
 # ## Generate samples
 # We generate some generic multimodal samples to be plotted afterwards
-using Distributions, IntervalSets
+using Distributions, IntervalSets, ValueShapes
 
 ##Model definition to generate samples
 struct GaussianShellDensity<:AbstractDensity

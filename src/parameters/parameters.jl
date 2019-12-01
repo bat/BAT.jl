@@ -2,6 +2,5 @@
 
 include("spatialvolume.jl")
 include("parambounds.jl")
-include("named_tuple_dist.jl")
 include("parameter_mapping.jl")
 include("density_sample.jl")

@@ -197,6 +197,8 @@ log_likelihood(true_par_values)
 #
 # Next, we need to choose a sensible prior for the fit:
 
+using ValueShapes
+
 prior = NamedTupleDist(
     a = [0.0..10.0^4, 0.0..10.0^4],
     mu = [-2.0..0.0, 1.0..3.0],
@@ -212,8 +214,6 @@ prior = NamedTupleDist(
 # `BAT.AbstractDensity` that can be used as a prior (or likelihood).
 #
 # The prior also implies the shapes of the parameters:
-
-using ValueShapes
 
 parshapes = varshape(prior)
 
