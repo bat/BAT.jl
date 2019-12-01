@@ -27,12 +27,12 @@ _SampleAux() = _SampleInfo(0)
     ds4 = @inferred DensitySample(param4, Float32(-4.2568156), 4, _SampleInfo(9), _SampleAux(0.612f0))
     
     @testset "DensitySample" begin
-        @test typeof(ds1)  <: DensitySample{Float64,Float32,Int,_SampleInfo}
+        @test typeof(ds1)  <: DensitySample{Vector{Float64},Float32,Int,_SampleInfo}
 
         @test nparams(ds1) == 3
         @test nparams.(ds1) == 3
 
-        @test typeof(ds2)  <: DensitySample{Float64,Float32,Int,_SampleInfo,_SampleAux}
+        @test typeof(ds2)  <: DensitySample{Vector{Float64},Float32,Int,_SampleInfo,_SampleAux}
 
         @test ds1 != ds4
         @test ds1 != ds2
@@ -41,8 +41,8 @@ _SampleAux() = _SampleInfo(0)
     end
 
     @testset "DensitySampleVector" begin
-        dsv1 = @inferred DensitySampleVector{Float64,Float32,Int,_SampleInfo,_SampleAux}(undef, 0, 3)
-        @test typeof(dsv1) <: DensitySampleVector{Float64,Float32,Int,_SampleInfo,_SampleAux}
+        dsv1 = @inferred DensitySampleVector{Vector{Float64},Float32,Int,_SampleInfo,_SampleAux}(undef, 0, 3)
+        @test typeof(dsv1) <: DensitySampleVector{Vector{Float64},Float32,Int,_SampleInfo,_SampleAux}
         
         @test size(dsv1) == (0,)
         push!(dsv1, ds1)
@@ -51,7 +51,7 @@ _SampleAux() = _SampleInfo(0)
         @test IndexStyle(dsv1) == IndexLinear()
 
         push!(dsv1, ds2)
-        dsv2 = @inferred DensitySampleVector{Float64,Float64,Float32,_SampleInfo,_SampleAux}(undef, 0, 3)
+        dsv2 = @inferred DensitySampleVector{Vector{Float64},Float64,Float32,_SampleInfo,_SampleAux}(undef, 0, 3)
         push!(dsv2, ds2)
         push!(dsv2, ds4)        
         append!(dsv1, dsv2)

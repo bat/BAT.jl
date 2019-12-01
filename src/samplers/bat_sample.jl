@@ -128,8 +128,13 @@ default_sampling_algorithm(posterior::RandSampleable) = RandSampling()
 
 
 function bat_sample(rng::AbstractRNG, posterior::RandSampleable, n::Integer, algorithm::RandSampling)
+    vs = varshape(posterior)
+
+    P = Vector{_default_PT}
+    #P = ValueShapes.shaped_type(vs)
+
     npar = length(posterior)
-    samples = DensitySampleVector{_default_PT,_default_LDT,_default_int_WT,Nothing,Nothing}(undef, n, npar)
+    samples = DensitySampleVector{P,_default_LDT,_default_int_WT,Nothing,Nothing}(undef, n, npar)
 
     rand!(rng, sampler(posterior), flatview(samples.params))
     let logdensity = samples.logdensity, params = samples.params
