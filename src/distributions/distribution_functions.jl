@@ -54,6 +54,22 @@ issymmetric_around_origin(d::MvNormal) = iszero(d.μ)
 issymmetric_around_origin(d::Distributions.GenericMvTDist) = d.zeromean
 
 
+const PosDefMatLike = Union{AbstractMatrix{T},AbstractPDMat{T},Cholesky{T}} where {T<:Real}
+
+
+function cov2pdmat(::Type{T}, Σ::Matrix{<:Real}) where {T<:Real}
+    Σ_conv = convert(Matrix{T}, Σ)
+    PDMat(cholesky(Positive, Hermitian(Σ_conv)))
+end
+
+cov2pdmat(::Type{T}, Σ::PDMat{T}) where {T<:Real} = Σ
+cov2pdmat(::Type{T}, Σ::AbstractPDMat) where {T<:Real} = cov2pdmat(T, Matrix(Σ))
+
+cov2pdmat(::Type{T}, Σ::Cholesky{T}) where {T<:Real} = PDMat(Σ)
+cov2pdmat(::Type{T}, Σ::Cholesky) where {T<:Real} = cov2pdmat(T, Matrix(Σ))
+
+
+
 function get_cov end
 
 get_cov(d::Distributions.GenericMvTDist) = d.Σ
@@ -61,8 +77,7 @@ get_cov(d::Distributions.GenericMvTDist) = d.Σ
 
 function set_cov end
 
-set_cov(d::Distributions.GenericMvTDist{T,Cov}, Σ::Cov) where {T,Cov} =
-    Distributions.GenericMvTDist(d.df, deepcopy(d.μ), Σ)
-
-set_cov(d::Distributions.GenericMvTDist{T,Cov}, Σ::AbstractMatrix{<:Real}) where {T,Cov<:PDMat} =
-    set_cov(d, PDMat(convert(Matrix{T}, Σ)))
+function set_cov(d::Distributions.GenericMvTDist{T,Cov}, Σ::PosDefMatLike) where {T,Cov<:PDMat{T}}
+    Σ_conv = cov2pdmat(T, Σ)
+    Distributions.GenericMvTDist(d.df, deepcopy(d.μ), Σ_conv)
+end
