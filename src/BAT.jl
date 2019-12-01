@@ -38,7 +38,10 @@ using Tables
 using UnsafeArrays
 using KernelDensity
 
+import ForwardDiff
 import Measurements
+import NLSolversBase
+import Optim
 
 #for AHMI
 using DataStructures
@@ -55,6 +58,7 @@ include("distributions/distributions.jl")
 include("parameters/parameters.jl")
 include("statistics/statistics.jl")
 include("densities/densities.jl")
+include("optimization/optimization.jl")
 include("samplers/samplers.jl")
 include("integration/integration.jl")
 include("io/io.jl")

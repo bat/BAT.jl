@@ -29,12 +29,14 @@ Order = [:macro, :function]
 
 ```@docs
 bat_integrate
+bat_mode
 bat_read
 bat_rng
 bat_sample
 bat_write
 nparams
 
+BAT.default_mode_estimator
 BAT.default_sampling_algorithm
 BAT.density_logval
 
@@ -49,16 +51,22 @@ DensitySample
 DensitySampleVector
 DistLikeDensity
 GelmanRubinConvergence
+MaxDensityLBFGS
+MaxDensityNelderMead
+MaxDensitySampleSearch
 MCMCAlgorithm
 MCMCBurninStrategy
 MCMCInitStrategy
 MCMCIterator
 MetropolisHastings
+ModeAsDefined
 PosteriorDensity
 RandResampling
 RandSampling
 RepetitionWeighting
 
+BAT.AbstractModeEstimator
 BAT.AbstractSamplingAlgorithm
 BAT.AnyPosterior
 ```
+
