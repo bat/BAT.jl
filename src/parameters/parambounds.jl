@@ -1,6 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+const _default_PT = Float32 # Default type for parameter values
+
+
 @doc doc"""
     BAT.nparams(X::Union{AbstractParamBounds,MCMCIterator,...})
 
@@ -107,7 +110,7 @@ struct NoParamBounds <: AbstractParamBounds
 end
 
 # TODO: Find better solution to determine param type if no bounds:
-Base.eltype(bounds::NoParamBounds) = Float64
+Base.eltype(bounds::NoParamBounds) = _default_PT
 
 
 Base.in(params::AbstractVector, bounds::NoParamBounds) = true
