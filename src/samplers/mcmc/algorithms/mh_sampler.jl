@@ -88,8 +88,7 @@ function MHIterator(
 
     sample_info = MCMCSampleID(info.id, info.cycle, 1, CURRENT_SAMPLE)
     current_sample = DensitySample(params_vec, log_posterior_value, one(W), sample_info, nothing)
-
-    samples = DensitySampleVector{P,T,W,MCMCSampleID,Nothing}(undef, 0, npar)
+    samples = DensitySampleVector{Vector{P},T,W,MCMCSampleID,Nothing}(undef, 0, npar)
     push!(samples, current_sample)
 
     nsamples::Int64 = 0

@@ -112,6 +112,9 @@ params_shape(density::AbstractDensity) = missing
 params_shape(dist::Distribution) = varshape(dist)
 
 
+ValueShapes.varshape(density::AbstractDensity) = params_shape(density)
+
+
 @doc doc"""
     eval_density_logval(
         density::AbstractDensity,

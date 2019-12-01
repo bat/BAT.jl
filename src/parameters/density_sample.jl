@@ -36,14 +36,13 @@ Use [`DensitySampleVector`](@ref) to store vectors of multiple samples with
 an efficient column-based memory layout.
 """
 struct DensitySample{
-    P<:Real,
+    P,
     T<:Real,
     W<:Real,
     R,
-    Q,
-    PA<:AbstractVector{P}
+    Q
 }
-    params::PA
+    params::P
     logdensity::T
     weight::W
     info::R
@@ -64,14 +63,14 @@ function ==(A::DensitySample, B::DensitySample)
 end
 
 
-function Base.similar(s::DensitySample{P,T,W,R,Q}) where {P,T,W,R,Q}
+function Base.similar(s::DensitySample{P,T,W,R,Q}) where {P<:AbstractVector{<:Real},T,W,R,Q}
     params = fill!(similar(s.params), oob(eltype(s.params)))
     logdensity = convert(T, NaN)
     weight = zero(W)
     info = R()
     aux = Q()
-    PA = typeof(params)
-    DensitySample{P,T,W,R,Q,PA}(params, logdensity, weight, info, aux)
+    P_new = typeof(params)
+    DensitySample{P_new,T,W,R,Q}(params, logdensity, weight, info, aux)
 end
 
 
@@ -119,12 +118,12 @@ Constructor:
 ```
 """
 const DensitySampleVector{
-    P<:Real,T<:AbstractFloat,W<:Real,R,Q,PA<:AbstractVector{P},
-    PAV<:AbstractVector{<:AbstractVector{P}},TV<:AbstractVector{T},WV<:AbstractVector{W},RV<:AbstractVector{R},QV<:AbstractVector{Q}
+    P,T<:AbstractFloat,W<:Real,R,Q,
+    PV<:AbstractVector{P},TV<:AbstractVector{T},WV<:AbstractVector{W},RV<:AbstractVector{R},QV<:AbstractVector{Q}
 } = StructArray{
-    DensitySample{P,T,W,R,Q,PA},
+    DensitySample{P,T,W,R,Q},
     1,
-    NamedTuple{(:params, :logdensity, :weight, :info, :aux), Tuple{PAV,TV,WV,RV,QV}}
+    NamedTuple{(:params, :logdensity, :weight, :info, :aux), Tuple{PV,TV,WV,RV,QV}}
 }
 
 export DensitySampleVector
@@ -132,16 +131,15 @@ export DensitySampleVector
 
 function StructArray{DensitySample}(
     contents::Tuple{
-        AbstractVector{<:AbstractVector{P}},
+        AbstractVector{P},
         AbstractVector{T},
         AbstractVector{W},
         AbstractVector{R},
         AbstractVector{Q},
     }
-) where {P<:Real,T<:AbstractFloat,W<:Real,R,Q}
+) where {P,T<:AbstractFloat,W<:Real,R,Q}
     params, logdensity, weight, info, aux = contents
-    PA = eltype(params)
-    StructArray{DensitySample{P,T,W,R,Q,PA}}(contents)
+    StructArray{DensitySample{P,T,W,R,Q}}(contents)
 end
 
 
@@ -151,9 +149,11 @@ DensitySampleVector(contents::NTuple{5,Any}) = StructArray{DensitySample}(conten
 _create_undef_vector(::Type{T}, len::Integer) where T = Vector{T}(undef, len)
 
 
-function DensitySampleVector{P,T,W,R,Q}(::UndefInitializer, len::Integer, npar::Integer) where {P<:Real,T<:AbstractFloat,W<:Real,R,Q}
+function DensitySampleVector{P,T,W,R,Q}(::UndefInitializer, len::Integer, npar::Integer) where {
+    PT<:Real, P<:AbstractVector{PT}, T<:AbstractFloat, W<:Real, R, Q
+}
     contents = (
-        VectorOfSimilarVectors(ElasticArray{P}(undef, npar, len)),
+        VectorOfSimilarVectors(ElasticArray{PT}(undef, npar, len)),
         Vector{T}(undef, len),
         Vector{W}(undef, len),
         _create_undef_vector(R, len),
@@ -163,7 +163,7 @@ function DensitySampleVector{P,T,W,R,Q}(::UndefInitializer, len::Integer, npar::
     DensitySampleVector(contents)
 end
 
-DensitySampleVector(::Type{S}, nparams::Integer) where {P<:Real,T<:AbstractFloat,W<:Real,R,Q,S<:DensitySample{P,T,W,R,Q}} =
+DensitySampleVector(::Type{S}, nparams::Integer) where {P<:AbstractVector{<:Real},T<:AbstractFloat,W<:Real,R,Q,S<:DensitySample{P,T,W,R,Q}} =
     DensitySampleVector{P,T,W,R,Q}(undef, 0, nparams)
 
 
@@ -225,6 +225,9 @@ Base.copy(
         <:Tuple{DensitySampleVector}
     }
 ) = _bcasted_apply(instance.f, instance.args[1])    
+
+
+ValueShapes.varshape(A::DensitySampleVector) = elshape(A.params)
 
 
 """

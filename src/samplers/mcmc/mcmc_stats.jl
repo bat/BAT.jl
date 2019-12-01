@@ -40,9 +40,11 @@ struct MCMCBasicStats{L<:Real,P<:Real} <: AbstractMCMCStats
 end
 
 
-function MCMCBasicStats(::Type{S}, nparams::Integer) where {P,T,W,S<:DensitySample{P,T,W}}
+function MCMCBasicStats(::Type{S}, nparams::Integer) where {
+    PT<:Real, T, W, S<:DensitySample{<:AbstractVector{PT},T,W}
+}
     SL = promote_type(T, Float64)
-    SP = promote_type(P, W, Float64)
+    SP = promote_type(PT, W, Float64)
     MCMCBasicStats{SL,SP}(nparams)
 end
 
