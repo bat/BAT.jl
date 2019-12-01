@@ -12,13 +12,6 @@ const RandSampleable = Union{
 }
 
 
-const AnyPosterior = Union{
-    PosteriorDensity,
-    DensitySampleVector,
-    RandSampleable,
-}
-
-
 const AnyNSamples = Union{
     Integer,
     Tuple{Integer,Integer},
