@@ -3,7 +3,8 @@
 using BAT
 using Test
 
-using ArraysOfArrays, ElasticArrays
+using ArraysOfArrays, ElasticArrays, ValueShapes
+import TypedTables
 
 
 struct _SampleInfo
@@ -57,5 +58,13 @@ _SampleAux() = _SampleInfo(0)
         append!(dsv1, dsv2)
         @test dsv1[4] == ds4
         @test dsv1[2] == ds2
+
+        shape = NamedTupleShape(x = ScalarShape{Real}(), y = ArrayShape{Real}(2)) 
+
+        @test @inferred(broadcast(shape, dsv1)) isa DensitySampleVector
+        @test broadcast(shape, dsv1).params isa ShapedAsNTArray
+        @test @inferred(broadcast(unshaped, TypedTables.Table(broadcast(shape, dsv1)).params)) === dsv1.params
+
+        @test shape.(dsv1)[1] == shape(dsv1[1])
     end
 end
