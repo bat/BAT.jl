@@ -78,12 +78,12 @@ nparams(s::DensitySample) = length(s.params)
 
 
 function _apply_shape(shape::AbstractValueShape, s::DensitySample)
-    (
-        params = shape(s.params),
-        logdensity = s.logdensity,
-        weight = s.weight,
-        info = s.info,
-        aux = s.aux,
+    DensitySample(
+        stripscalar(shape(s.params)),
+        s.logdensity,
+        s.weight,
+        s.info,
+        s.aux,
     )
 end
 
@@ -207,24 +207,24 @@ function UnsafeArrays.uview(A::DensitySampleVector)
 end
 
 
-Base.@propagate_inbounds function _bcasted_apply(shape::AbstractValueShape, A::DensitySampleVector)
-    TypedTables.Table(
-        params = shape.(A.params),
-        logdensity = A.logdensity,
-        weight = A.weight,
-        info = A.info,
-        aux = A.aux
-    )
+Base.@propagate_inbounds function _bcasted_apply_to_params(f, A::DensitySampleVector)
+    DensitySampleVector((
+        f.(A.params),
+        A.logdensity,
+        A.weight,
+        A.info,
+        A.aux
+    ))
 end
 
 Base.copy(
     instance::Base.Broadcast.Broadcasted{
         <:Base.Broadcast.AbstractArrayStyle{1},
         <:Any,
-        <:AbstractValueShape,
+        <:Union{AbstractValueShape,typeof(unshaped)},
         <:Tuple{DensitySampleVector}
     }
-) = _bcasted_apply(instance.f, instance.args[1])    
+) = _bcasted_apply_to_params(instance.f, instance.args[1])
 
 
 ValueShapes.varshape(A::DensitySampleVector) = elshape(A.params)

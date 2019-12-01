@@ -331,7 +331,7 @@ tbl = Table(samples)
 # Using the parameter shapes, we can generate a table with named parameters,
 # instead of flat real-valued parameter vectors:
 
-tbl_named = parshapes.(samples)
+tbl_named = Table(parshapes.(samples))
 
 # We can now, e.g., find the sample with the maximum posterior density value
 # (i.e. the mode)
