@@ -17,11 +17,9 @@ using Random, Distributions, StatsBase
         @test length(@inferred(bat_sample(dist, 10^2, BAT.RandSampling())).samples) == 10^2
         @test length(@inferred(bat_sample(Random.GLOBAL_RNG, dist, 10^2, BAT.RandSampling())).samples) == 10^2
 
-        samples, stats = bat_sample(dist, 10^5)
+        samples = bat_sample(dist, 10^5).samples
         @test isapprox(mean(samples.params), [0.4, 0.6]; rtol = 0.05)
         @test isapprox(cov(samples.params), [2.0 1.2; 1.2 3.0]; rtol = 0.05)
         @test all(isequal(1), samples.weight)
-        @test stats isa NamedTuple{(:mode,:mean,:cov)}
-        @test stats == bat_stats(samples)
     end
 end

@@ -180,9 +180,7 @@ function bat_sample(
         strict_mode = strict
     )
 
-    stats = bat_stats(mcmc_stats)
-
-    (samples = samples, stats = stats, chains = chains)
+    (samples = samples, chains = chains)
 end
 
 

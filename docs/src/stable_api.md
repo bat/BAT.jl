@@ -32,7 +32,6 @@ bat_integrate
 bat_read
 bat_rng
 bat_sample
-bat_stats
 bat_write
 nparams
 

@@ -43,11 +43,7 @@ Draw `n` samples from `posterior`.
 Returns a NamedTuple of the shape
 
 ```julia
-(
-    samples = X::DensitySampleVector,...
-    stats = s::@test stats isa NamedTuple{(:mode,:mean,:cov,...)},
-    ...
-)
+(samples = X::DensitySampleVector, ...)
 ```
 
 Result properties not listed here are algorithm-specific and are not part
@@ -142,9 +138,7 @@ function bat_sample(rng::AbstractRNG, posterior::RandSampleable, n::Integer, alg
     end
     samples.weight .= 1
     
-    stats = bat_stats(samples)
-
-    (samples = samples, stats = stats)
+    (samples = samples,)
 end
 
 
@@ -173,7 +167,5 @@ function bat_sample(rng::AbstractRNG, posterior::DensitySampleVector, n::Integer
     samples = posterior[resampled_idxs]
     samples.weight .= 1
 
-    stats = bat_stats(samples)
-
-    (samples = samples, stats = stats)
+    (samples = samples,)
 end

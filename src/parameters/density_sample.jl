@@ -230,27 +230,21 @@ Base.copy(
 ValueShapes.varshape(A::DensitySampleVector) = elshape(A.params)
 
 
-"""
-    bat_stats(samples::DensitySampleVector)
+Statistics.mean(samples::DensitySampleVector) = mean(samples.params, FrequencyWeights(samples.weight))
+Statistics.var(samples::DensitySampleVector) = var(samples.params, FrequencyWeights(samples.weight))
+Statistics.std(samples::DensitySampleVector) = sqrt.(var(samples))
+Statistics.cov(samples::DensitySampleVector) = cov(samples.params, FrequencyWeights(samples.weight))
+Statistics.cor(samples::DensitySampleVector) = cor(samples.params, FrequencyWeights(samples.weight))
 
-Calculated parameter statistics on `samples`. Returns a
-`NamedTuple{(:mode,:mean,:cov,...)}`. Result properties not listed here
-are not part of the stable BAT API and subject to change.
-"""
-function bat_stats(samples::DensitySampleVector)
-    par_mean = mean(samples.params, FrequencyWeights(samples.weight))
-    par_mode_idx = findmax(samples.logdensity)[2]
-    par_mode = samples.params[par_mode_idx]
-    par_cov = cov(samples.params, FrequencyWeights(samples.weight))
+function _get_mode(samples::DensitySampleVector)
+    i = findmax(samples.logdensity)[2]
+    v = samples.params[i]
 
-    (
-        mode = par_mode,
-        mean = par_mean,
-        cov = par_cov
-    )
+    (v, i)
 end
 
-export bat_stats
+
+StatsBase.mode(samples::DensitySampleVector) = _get_mode(samples)[1]
 
 
 """

@@ -43,7 +43,7 @@ prior = NamedTupleDist(
 posterior = PosteriorDensity(likelihood, prior);
 
 #generate samples
-samples, stats, chains = bat_sample(posterior, (10^5, 4), MetropolisHastings())
+samples, chains = bat_sample(posterior, (10^5, 4), MetropolisHastings())
 
 
 # ## Set up plotting

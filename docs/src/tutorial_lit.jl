@@ -251,21 +251,16 @@ nchains = 4
 
 # Now we can generate a set of MCMC samples via [`bat_sample`](@ref):
 
-samples, stats = bat_sample(posterior, (nsamples, nchains), MetropolisHastings())
+samples = bat_sample(posterior, (nsamples, nchains), MetropolisHastings()).samples
 #md nothing # hide
 #nb nothing # hide
 
-# Let's calculate some posterior statistics using the function
-# [`bat_stats`](@ref) and print the results:
+# Let's calculate some statistics on the posterior samples:
 
 println("Truth: $true_par_values")
-println("Mode: $(stats.mode)")
-println("Mean: $(stats.mean)")
-println("Covariance: $(stats.cov)")
-
-# We can also, e.g., get the Pearson auto-correlation of the parameters:
-
-cor(samples.params, FrequencyWeights(samples.weight))
+println("Mode: $(mode(samples))")
+println("Mean: $(mean(samples))")
+println("Covariance: $(cov(samples))")
 
 
 # ### Visualization of Results
@@ -333,23 +328,13 @@ tbl = Table(samples)
 
 tbl_named = Table(parshapes.(samples))
 
-# We can now, e.g., find the sample with the maximum posterior density value
-# (i.e. the mode)
-
-mode_logdensity, mode_idx = findmax(tbl_named.logdensity)
-
-# and get row `mode_idx` of the table, with all information about the sample
-# at the mode:
-
-tbl_named[mode_idx]
-
 
 # ## Comparison of Truth and Best Fit
 
 # As a final step, we retrieve the parameter values at the mode, representing
 # the best-fit parameters
 
-fit_par_values = tbl_named[mode_idx].params
+fit_par_values = parshapes(mode(samples))[]
 
 # And plot the truth, data, and best fit:
 
@@ -422,7 +407,7 @@ burnin = MCMCBurninStrategy(
 
 # To generate MCMC samples with explicit control over all options, use
 
-samples, stats = bat_sample(
+samples = bat_sample(
     rng, posterior, (nsamples, nchains), algorithm,
     max_nsteps = 10 * nsamples,
     max_time = Inf,
@@ -432,14 +417,14 @@ samples, stats = bat_sample(
     convergence = convergence,
     strict = false,
     filter = true
-)
+).samples
 #md nothing # hide
 #nb nothing # hide
 
 # However, in many use cases, simply using the default options via
 #
 # ```julia
-# samples, stats = bat_sample(posterior, (nsamples, nchains), MetropolisHastings())
+# samples = bat_sample(posterior, (nsamples, nchains), MetropolisHastings()).samples
 # ```
 #
 # will often be sufficient.

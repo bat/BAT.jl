@@ -21,18 +21,12 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     algorithmMW = MetropolisHastings()
     @test BAT.mcmc_compatible(algorithmMW, BAT.GenericProposalDist(mv_dist), BAT.NoParamBounds(2))
 
-    samples, stats, chains = bat_sample(
+    samples, chains = bat_sample(
         PosteriorDensity(density, bounds), (nsamples_per_chain, nchains), algorithmMW
     )
 
     # ToDo: Should be able to make this exact, for MH sampler:
     @test length(samples) == nchains * nsamples_per_chain
-
-    @test begin
-        stats = @inferred bat_stats(samples)
-        stats2 = @inferred bat_stats(BAT.MCMCBasicStats(samples))
-        stats.mode == stats2.mode && stats.mean ≈ stats2.mean && stats.cov ≈ stats2.cov
-    end
 
     cov_samples = cov(flatview(samples.params), FrequencyWeights(samples.weight), 2; corrected=true)
     mean_samples = mean(flatview(samples.params), FrequencyWeights(samples.weight); dims = 2)
@@ -42,17 +36,9 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
 
     algorithmPW = @inferred MetropolisHastings(ARPWeighting())
 
-    samples, stats, chains = bat_sample(
+    samples, chains = bat_sample(
         PosteriorDensity(mv_dist, bounds), (nsamples_per_chain, nchains), algorithmPW
     )
-
-    @test begin
-        stats = @inferred bat_stats(samples)
-        stats2 = @inferred bat_stats(BAT.MCMCBasicStats(samples))
-        stats.mode == stats2.mode && stats.mean ≈ stats2.mean && stats.cov ≈ stats2.cov
-    end
-
-    @test samples.params[findmax(samples.logdensity)[2]] == stats.mode
 
     cov_samples = cov(flatview(samples.params), FrequencyWeights(samples.weight), 2; corrected=true)
     mean_samples = mean(flatview(samples.params), FrequencyWeights(samples.weight); dims = 2)
