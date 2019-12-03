@@ -12,13 +12,13 @@ Subtypes of `AbstractDensity` must implement the function
 * `BAT.density_logval`
 
 For likelihood densities this is typically sufficient, since shape, and
-bounds of parameters will be inferred from the prior.
+variate bounds will be inferred from the prior.
 
 Densities with a known variate shape may also implement
 
 * `ValueShapes.varshape`
 
-Densities with known parameters bounds may also implement
+Densities with known variate bounds may also implement
 
 * `BAT.var_bounds`
 
@@ -32,20 +32,20 @@ export AbstractDensity
 
 
 @doc doc"""
-    BAT.density_logval(density::AbstractDensity, params::Any)
+    BAT.density_logval(density::AbstractDensity, v::Any)
 
 Compute log of value of a multivariate density function at the given
-parameter values.
+variate/parameter values.
 
 Input:
 
 * `density`: density function
-* `params`: parameter values
+* `v`: argument, i.e. variate/parameter value
 
-Note: If `density_logval` is called with out-of-bounds parameters (see
-`var_bounds`), the behaviour is undefined. The result for parameters that
-are not within bounds is *implicitly* `-Inf`, but it is the caller's
-responsibility to handle these cases.
+Note: If `density_logval` is called with an argument that is out of bounds,
+the behaviour is undefined. The result for arguments that are not within
+bounds is *implicitly* `-Inf`, but it is the caller's responsibility to handle
+these cases.
 """
 function density_logval end
 
@@ -88,7 +88,7 @@ end
 Get the shapes of the variates of `density`.
 
 For prior densities, the result must not be `missing`, but may be `nothing` if
-the prior only supports flat parameter vectors.
+the prior only supports unshaped variate/parameter vectors.
 """
 ValueShapes.varshape(density::AbstractDensity) = missing
 
@@ -96,39 +96,38 @@ ValueShapes.varshape(density::AbstractDensity) = missing
 @doc doc"""
     eval_density_logval(
         density::AbstractDensity,
-        params::AbstractVector{<:Real},
-        parshapes::ValueShapes.AbstractValueShape
+        v::AbstractVector{<:Real},
+        shape::ValueShapes.AbstractValueShape
     )
 
 *BAT-internal, not part of stable public API.*
 
 Evaluates density log-value via `density_logval`.
 
-`parshapes` *must* be compatible with `ValueShapes.varshape(density)`.
+`shape` *must* be compatible with `ValueShapes.varshape(density)`.
 
 Checks that:
 
-* The number of parameters of `density` (if known) matches the length of
-  `params`.
+* The variate shape of `density` (if known) matches shape of `v`.
 * The return value of `density_logval` is not `NaN`.
 * The return value of `density_logval` is less than `+Inf`.
 """
 function eval_density_logval(
     density::AbstractDensity,
-    params::AbstractVector{<:Real},
-    parshapes::ValueShapes.AbstractValueShape
+    v::AbstractVector{<:Real},
+    shape::ValueShapes.AbstractValueShape
 )
     npars = totalndof(density)
-    ismissing(npars) || (length(eachindex(params)) == npars) || throw(ArgumentError("Invalid length of parameter vector"))
+    ismissing(npars) || (length(eachindex(v)) == npars) || throw(ArgumentError("Invalid length of parameter vector"))
 
-    r = float(density_logval(density, _apply_parshapes(params, parshapes)))
+    r = float(density_logval(density, _apply_parshapes(v, shape)))
     isnan(r) && throw(ErrorException("Return value of density_logval must not be NaN, density has type $(typeof(density))"))
     r < convert(typeof(r), +Inf) || throw(ErrorException("Return value of density_logval must not be posivite infinite, density has type $(typeof(density))"))
 
     r
 end
 
-_apply_parshapes(params::AbstractVector{<:Real}, parshapes::AbstractValueShape) = stripscalar(parshapes(params))
+_apply_parshapes(v::AbstractVector{<:Real}, shape::AbstractValueShape) = stripscalar(shape(v))
 
 
 @doc doc"""
@@ -182,8 +181,7 @@ function var_bounds end
 @doc doc"""
     ValueShapes.totalndof(density::DistLikeDensity)::Int
 
-Get the number of parameters of degrees of freedom of the variates of
-`density`. Must not be `missing`, a `DistLikeDensity` must have a fixed
-variate shape.
+Get the number of degrees of freedom of the variates of `density`. Must not be
+`missing`, a `DistLikeDensity` must have a fixed variate shape.
 """
 ValueShapes.totalndof(density::DistLikeDensity) = totalndof(var_bounds(density))
