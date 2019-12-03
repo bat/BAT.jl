@@ -9,7 +9,7 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes
     prior = NamedTupleDist(
         x = Normal(2.0, 1.0),
         c = [4, 5],
-        a = MvNormal([1.5, 0.5, 2.5], Matrix{Float32}(I(3)))
+        a = MvNormal([1.5, 0.5, 2.5], Matrix{Float32}(I, 3, 3))
     )
 
     posterior = PosteriorDensity(X -> 0, prior)
