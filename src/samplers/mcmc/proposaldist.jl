@@ -21,14 +21,15 @@ abstract type AbstractProposalDist end
 
 @doc doc"""
     distribution_logpdf(
+        p::AbstractArray,
         pdist::AbstractProposalDist,
-        params_new::AbstractVector,
-        params_old:::AbstractVector
+        v_proposed::AbstractVector,
+        v_current:::AbstractVector
     )
 
 *BAT-internal, not part of stable public API.*
 
-Analog to `distribution_logpdf!`, but for a single parameter vector.
+Analog to `distribution_logpdf!`, but for a single variate/parameter vector.
 """
 function distribution_logpdf end
 
@@ -39,21 +40,21 @@ function distribution_logpdf end
     distribution_logpdf!(
         p::AbstractArray,
         pdist::AbstractProposalDist,
-        params_new::Union{AbstractVector,VectorOfSimilarVectors},
-        params_old:::Union{AbstractVector,VectorOfSimilarVectors}
+        v_proposed::Union{AbstractVector,VectorOfSimilarVectors},
+        v_current:::Union{AbstractVector,VectorOfSimilarVectors}
     )
 
 *BAT-internal, not part of stable public API.*
 
-Returns log(PDF) value of `pdist` for transitioning from old to new parameter
-values for multiple parameter sets.
+Returns log(PDF) value of `pdist` for transitioning from current to proposed
+variate/parameter arguments values for a variate/parameter sets.
 
 end
 
 Input:
 
-* `params_new`: New parameter values (column vectors)
-* `params_old`: Old parameter values (column vectors)
+* `v_proposed`: New values (column vectors)
+* `v_current`: Old values (column vectors)
 
 Output is stored in
 
@@ -61,9 +62,9 @@ Output is stored in
 
 Array size requirements:
 
-* `size(params_old, 1) == size(params_new, 1) == length(pdist)`
-* `size(params_old, 2) == size(params_new, 2)` or `size(params_old, 2) == 1`
-* `size(params_new, 2) == length(p)`
+* `size(v_current, 1) == size(v_proposed, 1) == length(pdist)`
+* `size(v_current, 2) == size(v_proposed, 2)` or `size(v_current, 2) == 1`
+* `size(v_proposed, 2) == length(p)`
 
 Implementations of `distribution_logpdf!` must be thread-safe.
 """
@@ -76,30 +77,30 @@ function distribution_logpdf! end
     function proposal_rand!(
         rng::AbstractRNG,
         pdist::GenericProposalDist,
-        params_new::Union{AbstractVector,VectorOfSimilarVectors},
-        params_old::Union{AbstractVector,VectorOfSimilarVectors}
+        v_proposed::Union{AbstractVector,VectorOfSimilarVectors},
+        v_current::Union{AbstractVector,VectorOfSimilarVectors}
     )
 
 *BAT-internal, not part of stable public API.*
 
-Generate one or multiple proposed parameter vectors, based on one or multiple
-previous parameter vectors.
+Generate one or multiple proposed variate/parameter vectors, based on one or
+multiple previous vectors.
 
 Input:
 
 * `rng`: Random number generator to use
 * `pdist`: Proposal distribution to use
-* `params_old`: Old parameter values (vector or column vectors, if a matrix)
+* `v_current`: Old values (vector or column vectors, if a matrix)
 
 Output is stored in
 
-* `params_new`: New parameter values (vector or column vectors, if a matrix)
+* `v_proposed`: New values (vector or column vectors, if a matrix)
 
 The caller must guarantee:
 
-* `size(params_old, 1) == size(params_new, 1)`
-* `size(params_old, 2) == size(params_new, 2)` or `size(params_old, 2) == 1`
-* `params_new !== params_old` (no aliasing)
+* `size(v_current, 1) == size(v_proposed, 1)`
+* `size(v_current, 2) == size(v_proposed, 2)` or `size(v_current, 2) == 1`
+* `v_proposed !== v_current` (no aliasing)
 
 Implementations of `proposal_rand!` must be thread-safe.
 """
@@ -145,10 +146,10 @@ set_cov(q::GenericProposalDist, Σ::PosDefMatLike) = similar(q, set_cov(q.d, Σ)
 function distribution_logpdf!(
     p::AbstractArray,
     pdist::GenericProposalDist,
-    params_new::VectorOfSimilarVectors,
-    params_old::Union{AbstractVector,VectorOfSimilarVectors}
+    v_proposed::VectorOfSimilarVectors,
+    v_current::Union{AbstractVector,VectorOfSimilarVectors}
 )
-    params_diff = flatview(params_new) .- flatview(params_old) # TODO: Avoid memory allocation
+    params_diff = flatview(v_proposed) .- flatview(v_current) # TODO: Avoid memory allocation
     Distributions.logpdf!(p, pdist.d, params_diff)
 end
 
@@ -156,20 +157,20 @@ end
 function distribution_logpdf!(
     p::AbstractArray,
     pdist::GenericProposalDist,
-    params_new::AbstractVector,
-    params_old::AbstractVector
+    v_proposed::AbstractVector,
+    v_current::AbstractVector
 )
-    p[1] = distribution_logpdf(pdist, params_new, params_old)
+    p[1] = distribution_logpdf(pdist, v_proposed, v_current)
     p
 end
 
 
 function distribution_logpdf(
     pdist::GenericProposalDist,
-    params_new::AbstractVector,
-    params_old::AbstractVector
+    v_proposed::AbstractVector,
+    v_current::AbstractVector
 )
-    params_diff = params_new .- params_old # TODO: Avoid memory allocation
+    params_diff = v_proposed .- v_current # TODO: Avoid memory allocation
     Distributions.logpdf(pdist.d, params_diff)
 end
 
@@ -177,13 +178,13 @@ end
 function proposal_rand!(
     rng::AbstractRNG,
     pdist::GenericProposalDist,
-    params_new::Union{AbstractVector,VectorOfSimilarVectors},
-    params_old::Union{AbstractVector,VectorOfSimilarVectors}
+    v_proposed::Union{AbstractVector,VectorOfSimilarVectors},
+    v_current::Union{AbstractVector,VectorOfSimilarVectors}
 )
-    rand!(rng, pdist.s, flatview(params_new))
-    params_new_flat = flatview(params_new)
-    params_new_flat .+= flatview(params_old)
-    params_new
+    rand!(rng, pdist.s, flatview(v_proposed))
+    params_new_flat = flatview(v_proposed)
+    params_new_flat .+= flatview(v_current)
+    v_proposed
 end
 
 
@@ -214,23 +215,23 @@ LinearAlgebra.issymmetric(pdist::GenericUvProposalDist) = issymmetric_around_ori
 
 function BAT.distribution_logpdf(
     pdist::GenericUvProposalDist,
-    params_new::Union{AbstractVector,VectorOfSimilarVectors},
-    params_old::Union{AbstractVector,VectorOfSimilarVectors}
+    v_proposed::Union{AbstractVector,VectorOfSimilarVectors},
+    v_current::Union{AbstractVector,VectorOfSimilarVectors}
 )
-    params_diff = (flatview(params_new) .- flatview(params_old)) ./ pdist.scale  # TODO: Avoid memory allocation
+    params_diff = (flatview(v_proposed) .- flatview(v_current)) ./ pdist.scale  # TODO: Avoid memory allocation
     sum_first_dim(Distributions.logpdf.(pdist.d, params_diff))  # TODO: Avoid memory allocation
 end
 
 function BAT.proposal_rand!(
     rng::AbstractRNG,
     pdist::GenericUvProposalDist,
-    params_new::AbstractVector,
-    params_old::AbstractVector
+    v_proposed::AbstractVector,
+    v_current::AbstractVector
 )
-    params_new .= params_old
+    v_proposed .= v_current
     dim = rand(rng, eachindex(pdist.scale))
-    params_new[dim] += pdist.scale[dim] * rand(rng, pdist.s)
-    params_new
+    v_proposed[dim] += pdist.scale[dim] * rand(rng, pdist.s)
+    v_proposed
 end
 
 
