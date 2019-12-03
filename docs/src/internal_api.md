@@ -36,7 +36,6 @@ BAT.AbstractMCMCCallback
 BAT.AbstractProposalDist
 BAT.BasicMvStatistics
 BAT.DataSet
-BAT.GenericDensity
 BAT.HMIData
 BAT.HMISettings
 BAT.IntegrationVolume

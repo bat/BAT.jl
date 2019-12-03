@@ -4,6 +4,7 @@ using Test
 
 Test.@testset "densities" begin
     include("test_abstract_density.jl")
+    include("test_logdval.jl")
     include("test_generic_density.jl")
     include("test_const_density.jl")
     include("test_density_product.jl")
