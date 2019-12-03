@@ -28,7 +28,8 @@ default_mode_estimator(posterior::AbstractDensity) = MaxDensityNelderMead()
 """
     bat_findmode(
         posterior::BAT.AnyPosterior,
-        [algorithm::BAT.AbstractModeEstimator]
+        [algorithm::BAT.AbstractModeEstimator];
+        initial_mode::Union{Missing,DensitySampleVector,Any} = missing
     )::DensitySampleVector
 
 Estiate the global mode of `posterior`.
@@ -111,10 +112,11 @@ struct MaxDensityNelderMead <: AbstractModeEstimator end
 export MaxDensityNelderMead
 
 function bat_findmode(posterior::AnyPosterior, algorithm::MaxDensityNelderMead; initial_mode = missing)
+    shape = varshape(posterior)
     x = _get_initial_mode(posterior, initial_mode)
     conv_posterior = convert(AbstractDensity, posterior)
     r = Optim.maximize(p -> density_logval(conv_posterior, p), x, Optim.NelderMead())
-    (result = Optim.minimizer(r.res), info = r)
+    (result = shape(Optim.minimizer(r.res)), info = r)
 end
 
 
@@ -153,8 +155,9 @@ export MaxDensityLBFGS
 
 
 function bat_findmode(posterior::AnyPosterior, algorithm::MaxDensityLBFGS; initial_mode = missing)
+    shape = varshape(posterior)
     x = _get_initial_mode(posterior, initial_mode)
     conv_posterior = convert(AbstractDensity, posterior)
     r = Optim.maximize(p -> density_logval(conv_posterior, p), x, Optim.LBFGS(); autodiff = :forward)
-    (result = Optim.minimizer(r.res), info = r)
+    (result = shape(Optim.minimizer(r.res)), info = r)
 end
