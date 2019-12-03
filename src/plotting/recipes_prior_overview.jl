@@ -1,26 +1,24 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 @recipe function f(prior::NamedTupleDist;
-                params=collect(1:5), 
+                vsel=collect(1:5), 
                 diagonal = Dict(),
                 upper = Dict(),
                 lower = Dict(),
                 param_labels = [])
 
-    
-    parsel = params
-    parsel = parsel[parsel .<= length(keys(prior))]
+    mod_vsel = vsel[vsel .<= length(keys(prior))]
 
 
     if Base.size(param_labels, 1) == 0
-        param_labels = [latexstring("\\theta_$i") for i in parsel]
-        param_labels_y = [latexstring("p(\\theta_$i)") for i in parsel]
+        param_labels = [latexstring("\\theta_$i") for i in mod_vsel]
+        param_labels_y = [latexstring("p(\\theta_$i)") for i in mod_vsel]
     else
         param_labels_y = [latexstring("p("*param_labels[i]*")") for i in 1:length(param_labels)]
         param_labels = [latexstring(param_labels[i]) for i in 1:length(param_labels)]
     end
 
-    nparams = length(parsel)   
+    nparams = length(mod_vsel)   
     layout --> nparams^2
     size --> (1000, 600)
     
@@ -42,7 +40,7 @@
             xguide --> param_labels[i]
             yguide --> param_labels_y[i]
             
-            prior, (parsel[i])
+            prior, (mod_vsel[i])
         end
 
         
@@ -64,7 +62,7 @@
                 xguide --> param_labels[i]
                 yguide --> param_labels[j]
 
-                prior, (parsel[i], parsel[j])
+                prior, (mod_vsel[i], mod_vsel[j])
             end
 
             # lower left plots
@@ -81,7 +79,7 @@
                 xguide --> param_labels[i]
                 yguide --> param_labels[j]
 
-                prior, (parsel[i], parsel[j])
+                prior, (mod_vsel[i], mod_vsel[j])
             end
 
         end 

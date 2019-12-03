@@ -7,10 +7,10 @@ using Random
 using ArraysOfArrays, IntervalSets, ValueShapes
 
 struct apb_test <: BAT.AbstractVarBounds
-    nparams::Integer
+    varndof::Integer
 end
 
-ValueShapes.totalndof(a::apb_test) = a.nparams
+ValueShapes.totalndof(a::apb_test) = a.varndof
 BAT.unsafe_intersect(a::apb_test, b::apb_test) = true
 
 @testset "parameter bounds" begin

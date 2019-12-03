@@ -13,7 +13,7 @@ Constructors:
 Turns the logarithmic density function `log_f` into a BAT-compatible
 `AbstractDensity`. `log_f` must support
 
-    `log_f(params::Any)::Real`
+    `log_f(v::Any)::Real`
 
 It must be safe to execute `log_f` in parallel on multiple threads and
 processes.
@@ -29,9 +29,6 @@ Base.convert(::Type{AbstractDensity}, log_f::Function) = GenericDensity(log_f)
 Base.parent(density::GenericDensity) = density.log_f
 
 
-function density_logval(
-    density::GenericDensity,
-    params::Any
-)
-    density.log_f(params)
+function density_logval(density::GenericDensity, v::Any)
+    density.log_f(v)
 end

@@ -16,14 +16,14 @@ struct GaussianShellDensity<:AbstractDensity
 end
 
 #define likelihood
-function BAT.density_logval(target::GaussianShellDensity, params::Any)
+function BAT.density_logval(target::GaussianShellDensity, v::Any)
     loglikelihood::Float64 = 0.
-    for i in 1:length(params)
+    for i in 1:length(v)
         
-        result = -0.5 * (params[i][1]-target.r[i])^2/target.sigma[i]^2
+        result = -0.5 * (v[i][1]-target.r[i])^2/target.sigma[i]^2
         l1 = result - log(√2π * target.sigma[i])
         
-        result2 = -0.5 * (params[i][1]+target.r[i])^2/target.sigma[i]^2
+        result2 = -0.5 * (v[i][1]+target.r[i])^2/target.sigma[i]^2
         l2 = result2 - log(√2π * target.sigma[i])^2
         
         loglikelihood += log(exp(l1) + 2*exp(l2)) 
@@ -183,8 +183,8 @@ plot(samples)
 plot!(prior)
 
 # By default the 1D and 2D plots for the first 5 parameters are shown.
-# The keyword argument `params` allows to specify the considered parameters.
-plot(samples, params=[1, 3])
+# The keyword argument `vsel` allows to specify the considered parameters.
+plot(samples, vsel=[1, 3])
 
 
 # ### Customizing overview plots:
@@ -199,11 +199,11 @@ plot(samples, mean=true, globalmode=true, legend=true, diagonal=Dict("seriestype
 # ## Plots for MCMC diagnostics
 # Plots histograms of the samples, the trace, a kernel density estimate and the autocorrelation function for each parameter per chain.
 diagnostics = BAT.MCMCDiagnostics(samples, chains)
-plot(diagnostics, params=[1])
+plot(diagnostics, vsel=[1])
 
 # ### Customizing diagnostics plots:
 plot(diagnostics, 
-    params=[1, 2], 
+    vsel=[1, 2], 
     chains=[1, 2], 
     diagnostics = [:histogram, :kde, :trace, :acf],
     histogram = Dict("seriestype" => :smallest_intervals, "legend" => :false),
@@ -212,7 +212,7 @@ plot(diagnostics,
     description = true)
 
 # ### available keyword arguments:
-# * `params` - list of parameters to be plotted
+# * `vsel` - list of parameters to be plotted
 # * `chains` - list of chains to be plotted
 # * `diagnostics` - list of MCMC diagnostics to be plotted
 # * `:histogram` - 1D histograms of samples

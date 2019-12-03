@@ -73,16 +73,16 @@ function _bat_proto_type_hash end
 struct GetLogDensityValueDMsg <: BATProtocolMessage
     request_id::Int32
     density_id::Int32
-    params::Vector{Float64}
+    v::Vector{Float64}
 end
 
 
 _bat_proto_type_hash(::Type{GetLogDensityValueDMsg}) = UInt32(0x1164e043)
 
-function _bat_proto_encode!(buffer::IOBuffer, x::GetLogDensityValueDMsg)
-    _bat_proto_encode!(buffer, x.request_id)
-    _bat_proto_encode!(buffer, x.density_id)
-    _bat_proto_encode!(buffer, x.params)
+function _bat_proto_encode!(buffer::IOBuffer, msg::GetLogDensityValueDMsg)
+    _bat_proto_encode!(buffer, msg.request_id)
+    _bat_proto_encode!(buffer, msg.density_id)
+    _bat_proto_encode!(buffer, msg.v)
 end
 
 
@@ -136,13 +136,13 @@ function ExternalDensity(cmd::Cmd, density_id = 0)
 end
 
 
-function BAT.density_logval(density::ExternalDensity, params::AbstractVector{Float64})
+function BAT.density_logval(density::ExternalDensity, v::AbstractVector{Float64})
     # TODO: Fix multithreading support
 
     result = Ref(NaN)
     lock(density.lock[]) do
         request_id = rand(0:typemax(Int32))
-        req = GetLogDensityValueDMsg(request_id, density.density_id, params)
+        req = GetLogDensityValueDMsg(request_id, density.density_id, v)
         # @debug "Sending request $req"
         if !isassigned(density.proc)
             @info "Starting external process $(density.cmd)"
