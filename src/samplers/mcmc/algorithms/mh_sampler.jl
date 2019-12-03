@@ -66,7 +66,7 @@ function MHIterator(
     reset_rng_counters!(rng, info.id, info.cycle, stepno)
 
     postr = spec.posterior
-    npar = nparams(postr)
+    npar = totalndof(postr)
     alg = spec.algorithm
 
     params_vec = Vector{P}(undef, npar)

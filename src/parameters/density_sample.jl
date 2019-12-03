@@ -74,9 +74,6 @@ function Base.similar(s::DensitySample{P,T,W,R,Q}) where {P<:AbstractVector{<:Re
 end
 
 
-nparams(s::DensitySample) = length(s.params)
-
-
 function _apply_shape(shape::AbstractValueShape, s::DensitySample)
     DensitySample(
         stripscalar(shape(s.params)),
@@ -163,8 +160,8 @@ function DensitySampleVector{P,T,W,R,Q}(::UndefInitializer, len::Integer, npar::
     DensitySampleVector(contents)
 end
 
-DensitySampleVector(::Type{S}, nparams::Integer) where {P<:AbstractVector{<:Real},T<:AbstractFloat,W<:Real,R,Q,S<:DensitySample{P,T,W,R,Q}} =
-    DensitySampleVector{P,T,W,R,Q}(undef, 0, nparams)
+DensitySampleVector(::Type{S}, varlen::Integer) where {P<:AbstractVector{<:Real},T<:AbstractFloat,W<:Real,R,Q,S<:DensitySample{P,T,W,R,Q}} =
+    DensitySampleVector{P,T,W,R,Q}(undef, 0, varlen)
 
 
 # Specialize getindex to properly support ArraysOfArrays, preventing

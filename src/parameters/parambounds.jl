@@ -4,20 +4,11 @@
 const _default_PT = Float32 # Default type for parameter values
 
 
-@doc doc"""
-    BAT.nparams(X::Union{AbstractParamBounds,MCMCIterator,...})
-
-Get the number of parameters of `X`.
-"""
-function nparams end
-
-
-
 abstract type AbstractParamBounds end
 
 
 function Base.intersect(a::AbstractParamBounds, b::AbstractParamBounds)
-    nparams(a) != nparams(b) && throw(ArgumentError("Can't intersect parameter bounds with different number of parameters"))
+    totalndof(a) != totalndof(b) && throw(ArgumentError("Can't intersect parameter bounds with different number of parameters"))
     unsafe_intersect(a, b)
 end
 
@@ -116,7 +107,7 @@ Base.eltype(bounds::NoParamBounds) = _default_PT
 Base.in(params::AbstractVector, bounds::NoParamBounds) = true
 Base.in(params::VectorOfSimilarVectors, bounds::NoParamBounds, i::Integer) = true
 
-nparams(b::NoParamBounds) = b.ndims
+ValueShapes.totalndof(b::NoParamBounds) = b.ndims
 
 apply_bounds!(params::Union{AbstractVector,VectorOfSimilarVectors}, bounds::NoParamBounds, setoob = true) = params
 
@@ -132,15 +123,15 @@ Base.in(params::AbstractVector, bounds::ParamVolumeBounds) = in(params, bounds.v
 
 
 # Random.rand(rng::AbstractRNG, bounds::ParamVolumeBounds) =
-#     rand!(rng, bounds, Vector{float(eltype(bounds))}(nparams(bounds)))
+#     rand!(rng, bounds, Vector{float(eltype(bounds))}(totalndof(bounds)))
 
 # Random.rand(rng::AbstractRNG, bounds::ParamVolumeBounds, n::Integer) =
-#     rand!(rng, bounds, Matrix{float(eltype(bounds))}(nparams(bounds), n))
+#     rand!(rng, bounds, Matrix{float(eltype(bounds))}(npartotalndofams(bounds), n))
 #
 # Random.rand!(rng::AbstractRNG, bounds::ParamVolumeBounds, x::StridedVecOrMat{<:Real}) = rand!(rng, spatialvolume(bounds), x)
 
 
-nparams(b::ParamVolumeBounds) = ndims(b.vol)
+ValueShapes.totalndof(b::ParamVolumeBounds) = ndims(b.vol)
 
 
 @doc doc"""

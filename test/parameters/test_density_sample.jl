@@ -30,9 +30,6 @@ _SampleAux() = _SampleInfo(0)
     @testset "DensitySample" begin
         @test typeof(ds1)  <: DensitySample{Vector{Float64},Float32,Int,_SampleInfo}
 
-        @test nparams(ds1) == 3
-        @test nparams.(ds1) == 3
-
         @test typeof(ds2)  <: DensitySample{Vector{Float64},Float32,Int,_SampleInfo,_SampleAux}
 
         @test ds1 != ds4

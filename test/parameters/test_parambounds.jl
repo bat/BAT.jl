@@ -4,13 +4,13 @@ using BAT
 using Test
 
 using Random
-using ArraysOfArrays, IntervalSets
+using ArraysOfArrays, IntervalSets, ValueShapes
 
 struct apb_test <: BAT.AbstractParamBounds
     nparams::Integer
 end
 
-BAT.nparams(a::apb_test) = a.nparams
+ValueShapes.totalndof(a::apb_test) = a.nparams
 BAT.unsafe_intersect(a::apb_test, b::apb_test) = true
 
 @testset "parameter bounds" begin
@@ -60,7 +60,7 @@ BAT.unsafe_intersect(a::apb_test, b::apb_test) = true
 
         params = [-1000., 1000]
         uparams = BAT.NoParamBounds(n)
-        @test nparams(uparams) == n
+        @test totalndof(uparams) == n
         @test params in uparams
         @test in( VectorOfSimilarVectors(hcat(params, params)), uparams, 1)
 
@@ -73,13 +73,13 @@ BAT.unsafe_intersect(a::apb_test, b::apb_test) = true
         @test_throws ArgumentError BAT.HyperRectBounds([-1., 2.], [2.,1], [BAT.hard_bounds, BAT.reflective_bounds])
 
         hyperRectBounds = @inferred BAT.HyperRectBounds([-1., -1.], [0.5,1], [BAT.hard_bounds, BAT.hard_bounds])
-        @test nparams(hyperRectBounds) == 2
+        @test totalndof(hyperRectBounds) == 2
         @test [0.0, 0.0] in hyperRectBounds
         @test ([0.5, 2] in hyperRectBounds) == false
 
         hyperRectBounds = @inferred BAT.HyperRectBounds([ClosedInterval(-1.,0.5),
             ClosedInterval(-1.,1.)], [BAT.hard_bounds, BAT.hard_bounds])
-        @test nparams(hyperRectBounds) == 2
+        @test totalndof(hyperRectBounds) == 2
         @test [0.0, 0.0] in hyperRectBounds
         @test ([0.5, 2] in hyperRectBounds) == false
 

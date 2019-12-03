@@ -68,7 +68,7 @@ function ProposalCovTuner(
     config::AdaptiveMetropolisTuning,
     chain::MHIterator
 )
-    m = nparams(chain)
+    m = totalndof(getposterior(chain))
     scale = 2.38^2 / m
     ProposalCovTuner(config, MCMCBasicStats(chain), 1, scale)
 end

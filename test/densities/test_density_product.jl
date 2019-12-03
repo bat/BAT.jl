@@ -38,7 +38,7 @@ using Distributions, PDMats
         
         @test parent(dp)[1] == mvt_density        
         @test BAT.param_bounds(dp) == pb
-        @test nparams(dp) == 3        
+        @test totalndof(dp) == 3        
     end
 
     @testset "unsafe_pod" begin

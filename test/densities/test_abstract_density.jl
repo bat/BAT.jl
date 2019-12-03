@@ -11,7 +11,7 @@ end
 
 @testset "abstract_density" begin
 
-    BAT.nparams(td::_TestDensityStruct) = Int(3)
+    ValueShapes.totalndof(td::_TestDensityStruct) = Int(3)
     BAT.sampler(td::_TestDensityStruct) = BAT.sampler(MvNormal(ones(3), PDMat(Matrix{Float64}(I,3,3))))
 
     @testset "rand" begin

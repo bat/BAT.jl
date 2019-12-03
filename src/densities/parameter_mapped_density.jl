@@ -25,7 +25,7 @@ Base.parent(density::ParameterMappedDensity) = density.orig_density
 
 BAT.param_bounds(density::ParameterMappedDensity) = density.new_bounds
 
-BAT.nparams(density::ParameterMappedDensity) = nparams(density.new_bounds)
+ValueShapes.totalndof(density::ParameterMappedDensity) = totalndof(density.new_bounds)
 
 
 function BAT.density_logval(density::ParameterMappedDensity, params::AbstractVector{<:Real})

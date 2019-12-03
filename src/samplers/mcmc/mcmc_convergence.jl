@@ -28,7 +28,7 @@ end
 Gelman-Rubin ``\$R^2\$`` for all parameters.
 """
 function gr_Rsqr(stats::AbstractVector{<:MCMCBasicStats})
-    m = nparams(first(stats))
+    m = totalndof(first(stats))
     W = mean([cs.param_stats.cov[i,i] for cs in stats, i in 1:m], dims=1)[:]
     B = var([cs.param_stats.mean[i] for cs in stats, i in 1:m], dims=1)[:]
     (W .+ B) ./ W
@@ -75,7 +75,7 @@ Brooks-Gelman $R_2^2$ for all parameters.
 If normality is assumed, 'corrected' should be set to true to account for the sampling variability.
 """
 function bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats}; corrected::Bool = false)
-    p = nparams(first(stats))
+    p = totalndof(first(stats))
     m = length(stats)
     n = mean(Float64.(nsamples.(stats)))
     

@@ -1,4 +1,4 @@
-using BAT
+using BAT, ValueShapes
 
 #Model definition to generate samples from a n-dim gaussian shell
 struct GaussianShellDensity<:AbstractDensity
@@ -7,7 +7,7 @@ struct GaussianShellDensity<:AbstractDensity
     sigma::Float64
     dimensions::Int64
 end
-BAT.nparams(model::GaussianShellDensity) = model.dimensions
+ValueShapes.totalndof(model::GaussianShellDensity) = model.dimensions
 
 #define likelihood for the Gaussian Shell
 function BAT.density_logval(target::GaussianShellDensity, params::AbstractArray{Float64, 1})

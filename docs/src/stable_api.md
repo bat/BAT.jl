@@ -34,7 +34,6 @@ bat_read
 bat_rng
 bat_sample
 bat_write
-nparams
 
 BAT.default_mode_estimator
 BAT.default_sampling_algorithm
@@ -68,5 +67,6 @@ RepetitionWeighting
 BAT.AbstractModeEstimator
 BAT.AbstractSamplingAlgorithm
 BAT.AnyPosterior
-```
 
+ValueShapes.totalndof
+```
