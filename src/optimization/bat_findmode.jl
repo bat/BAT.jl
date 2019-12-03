@@ -127,7 +127,12 @@ _get_initial_mode(posterior::AnyPosterior, samples::DensitySampleVector) =
 _get_initial_mode(posterior::AnyPosterior, x::AbstractArray{<:Real}) = Array(x)
 _get_initial_mode(posterior::AnyPosterior, x::Array{<:Real}) = x
 
-_get_initial_mode(posterior::AnyPosterior, x) = x
+function _get_initial_mode(posterior::AnyPosterior, x)
+    shape = varshape(posterior)
+    x_unshaped = Vector{<:Real}(undef, shape)
+    shape(x_unshaped)[] = x
+    x_unshaped
+end
 
 
 
