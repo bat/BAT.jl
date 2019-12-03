@@ -77,8 +77,8 @@ _h5io_read_postprocess(VV::AbstractMatrix{<:Real}) = VectorOfSimilarVectors(VV)
 
 _h5io_read_postprocess(nt::NamedTuple) = TypedTables.Table(nt)
 
-_h5io_read_postprocess(nt::NamedTuple{(:info, :logdensity, :params, :weight)}) =
-    DensitySampleVector((nt.params, nt.logdensity, nt.weight, nt.info, Array{Nothing}(undef, size(nt.info)...)))
+_h5io_read_postprocess(nt::NamedTuple{(:info, :logd, :v, :weight)}) =
+    DensitySampleVector((nt.v, nt.logd, nt.weight, nt.info, Array{Nothing}(undef, size(nt.info)...)))
 
 _h5io_read_postprocess(nt::NamedTuple{(:chaincycle, :chainid, :sampletype, :stepno)}) =
     MCMCSampleIDVector((nt.chainid, nt.chaincycle, nt.stepno, nt.sampletype))

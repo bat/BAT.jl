@@ -30,7 +30,7 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes
         @test @inferred(BAT.default_mode_estimator(samples)) == MaxDensitySampleSearch()
         @test @inferred(bat_findmode(samples, MaxDensitySampleSearch())) == @inferred(bat_findmode(samples))
         m = bat_findmode(samples, MaxDensitySampleSearch())
-        @test samples[m.mode_idx].params == m.result
+        @test samples[m.mode_idx].v == m.result
         @test isapprox(m.result, true_mode, rtol = 0.05)
     end
 

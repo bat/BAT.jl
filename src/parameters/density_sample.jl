@@ -13,8 +13,8 @@ A weighted sample drawn according to an statistical density,
 e.g. a [`BAT.AbstractDensity`](@ref).
 
 Fields:
-    * `params`: Multivariate parameter vector
-    * `logdensity`: log of the value of the density at `params`
+    * `v`: Multivariate parameter vector
+    * `logd`: log of the value of the density at `v`
     * `weight`: Weight of the sample
     * `info`: Additional info on the provenance of the sample. Content depends
        on the sampling algorithm.
@@ -24,8 +24,8 @@ Constructors:
 
 ```julia
 DensitySample(
-    params::AbstractVector{<:Real},
-    logdensity::Real,
+    v::AbstractVector{<:Real},
+    logd::Real,
     weight::Real,
     info::Any,
     aux::Any
@@ -42,8 +42,8 @@ struct DensitySample{
     R,
     Q
 }
-    params::P
-    logdensity::T
+    v::P
+    logd::T
     weight::W
     info::R
     aux::Q
@@ -58,26 +58,26 @@ export DensitySample
 
 import Base.==
 function ==(A::DensitySample, B::DensitySample)
-    A.params == B.params && A.logdensity == B.logdensity &&
+    A.v == B.v && A.logd == B.logd &&
         A.weight == B.weight && A.info == B.info && A.aux == B.aux
 end
 
 
 function Base.similar(s::DensitySample{P,T,W,R,Q}) where {P<:AbstractVector{<:Real},T,W,R,Q}
-    params = fill!(similar(s.params), oob(eltype(s.params)))
-    logdensity = convert(T, NaN)
+    v = fill!(similar(s.v), oob(eltype(s.v)))
+    logd = convert(T, NaN)
     weight = zero(W)
     info = R()
     aux = Q()
-    P_new = typeof(params)
-    DensitySample{P_new,T,W,R,Q}(params, logdensity, weight, info, aux)
+    P_new = typeof(v)
+    DensitySample{P_new,T,W,R,Q}(v, logd, weight, info, aux)
 end
 
 
 function _apply_shape(shape::AbstractValueShape, s::DensitySample)
     DensitySample(
-        stripscalar(shape(s.params)),
-        s.logdensity,
+        stripscalar(shape(s.v)),
+        s.logd,
         s.weight,
         s.info,
         s.aux,
@@ -105,8 +105,8 @@ Constructor:
 ```julia
     DensitySampleVector(
         (
-            params::AbstractVector{<:AbstractVector{<:Real}}
-            logdensity::AbstractVector{<:Real}
+            v::AbstractVector{<:AbstractVector{<:Real}}
+            logd::AbstractVector{<:Real}
             weight::AbstractVector{<:Real}
             info::AbstractVector{<:Any}
             aux::AbstractVector{<:Any}
@@ -120,7 +120,7 @@ const DensitySampleVector{
 } = StructArray{
     DensitySample{P,T,W,R,Q},
     1,
-    NamedTuple{(:params, :logdensity, :weight, :info, :aux), Tuple{PV,TV,WV,RV,QV}}
+    NamedTuple{(:v, :logd, :weight, :info, :aux), Tuple{PV,TV,WV,RV,QV}}
 }
 
 export DensitySampleVector
@@ -135,7 +135,7 @@ function StructArray{DensitySample}(
         AbstractVector{Q},
     }
 ) where {P,T<:AbstractFloat,W<:Real,R,Q}
-    params, logdensity, weight, info, aux = contents
+    v, logd, weight, info, aux = contents
     StructArray{DensitySample{P,T,W,R,Q}}(contents)
 end
 
@@ -167,7 +167,7 @@ DensitySampleVector(::Type{S}, varlen::Integer) where {P<:AbstractVector{<:Real}
 # Specialize getindex to properly support ArraysOfArrays, preventing
 # conversion to exact element type:
 @inline Base.getindex(A::StructArray{<:DensitySample}, I::Int...) =
-    DensitySample(A.params[I...], A.logdensity[I...], A.weight[I...], A.info[I...], A.aux[I...])
+    DensitySample(A.v[I...], A.logd[I...], A.weight[I...], A.info[I...], A.aux[I...])
 
 # Specialize IndexStyle, current default for StructArray seems to be IndexCartesian()
 Base.IndexStyle(::StructArray{<:DensitySample, 1}) = IndexLinear()
@@ -175,8 +175,8 @@ Base.IndexStyle(::StructArray{<:DensitySample, 1}) = IndexLinear()
 # Specialize comparison, currently StructArray seems fall back to `(==)(A::AbstractArray, B::AbstractArray)`
 import Base.==
 function(==)(A::DensitySampleVector, B::DensitySampleVector)
-    A.params == B.params &&
-    A.logdensity == B.logdensity &&
+    A.v == B.v &&
+    A.logd == B.logd &&
     A.weight == B.weight &&
     A.info == B.info &&
     A.aux == B.aux
@@ -195,8 +195,8 @@ Base.merge(X::DensitySampleVector, Xs::DensitySampleVector...) = merge!(deepcopy
 
 function UnsafeArrays.uview(A::DensitySampleVector)
     DensitySampleVector((
-        uview(A.params),
-        uview(A.logdensity),
+        uview(A.v),
+        uview(A.logd),
         uview(A.weight),
         uview(A.info),
         uview(A.aux)
@@ -206,8 +206,8 @@ end
 
 Base.@propagate_inbounds function _bcasted_apply_to_params(f, A::DensitySampleVector)
     DensitySampleVector((
-        f.(A.params),
-        A.logdensity,
+        f.(A.v),
+        A.logd,
         A.weight,
         A.info,
         A.aux
@@ -224,18 +224,18 @@ Base.copy(
 ) = _bcasted_apply_to_params(instance.f, instance.args[1])
 
 
-ValueShapes.varshape(A::DensitySampleVector) = elshape(A.params)
+ValueShapes.varshape(A::DensitySampleVector) = elshape(A.v)
 
 
-Statistics.mean(samples::DensitySampleVector) = mean(samples.params, FrequencyWeights(samples.weight))
-Statistics.var(samples::DensitySampleVector) = var(samples.params, FrequencyWeights(samples.weight))
+Statistics.mean(samples::DensitySampleVector) = mean(samples.v, FrequencyWeights(samples.weight))
+Statistics.var(samples::DensitySampleVector) = var(samples.v, FrequencyWeights(samples.weight))
 Statistics.std(samples::DensitySampleVector) = sqrt.(var(samples))
-Statistics.cov(samples::DensitySampleVector) = cov(samples.params, FrequencyWeights(samples.weight))
-Statistics.cor(samples::DensitySampleVector) = cor(samples.params, FrequencyWeights(samples.weight))
+Statistics.cov(samples::DensitySampleVector) = cov(samples.v, FrequencyWeights(samples.weight))
+Statistics.cor(samples::DensitySampleVector) = cor(samples.v, FrequencyWeights(samples.weight))
 
 function _get_mode(samples::DensitySampleVector)
-    i = findmax(samples.logdensity)[2]
-    v = samples.params[i]
+    i = findmax(samples.logd)[2]
+    v = samples.v[i]
 
     (v, i)
 end

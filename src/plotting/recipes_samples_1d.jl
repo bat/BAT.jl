@@ -89,7 +89,7 @@ end
     
     #seriestype = get(plotattributes, :seriestype, :smallest_intervals)
     
-    hist = fit(Histogram, flatview(samples.params)[param, :], FrequencyWeights(samples.weight), nbins = bins, closed = :left)
+    hist = fit(Histogram, flatview(samples.v)[param, :], FrequencyWeights(samples.weight), nbins = bins, closed = :left)
     normalize ? hist=StatsBase.normalize(hist) : nothing
     line_height = maximum(hist.weights)*1.03
 

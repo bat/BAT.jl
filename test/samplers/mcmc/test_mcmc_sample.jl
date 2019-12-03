@@ -28,8 +28,8 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     # ToDo: Should be able to make this exact, for MH sampler:
     @test length(samples) == nchains * nsamples_per_chain
 
-    cov_samples = cov(flatview(samples.params), FrequencyWeights(samples.weight), 2; corrected=true)
-    mean_samples = mean(flatview(samples.params), FrequencyWeights(samples.weight); dims = 2)
+    cov_samples = cov(flatview(samples.v), FrequencyWeights(samples.weight), 2; corrected=true)
+    mean_samples = mean(flatview(samples.v), FrequencyWeights(samples.weight); dims = 2)
 
     @test isapprox(mean_samples, mvec; rtol = 0.15)
     @test isapprox(cov_samples, cmat; rtol = 0.15)
@@ -40,8 +40,8 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
         PosteriorDensity(mv_dist, bounds), (nsamples_per_chain, nchains), algorithmPW
     )
 
-    cov_samples = cov(flatview(samples.params), FrequencyWeights(samples.weight), 2; corrected=true)
-    mean_samples = mean(flatview(samples.params), FrequencyWeights(samples.weight); dims = 2)
+    cov_samples = cov(flatview(samples.v), FrequencyWeights(samples.weight), 2; corrected=true)
+    mean_samples = mean(flatview(samples.v), FrequencyWeights(samples.weight); dims = 2)
 
     @test isapprox(mean_samples, mvec; rtol = 0.15)
     @test isapprox(cov_samples, cmat; rtol = 0.15)

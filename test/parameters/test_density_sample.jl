@@ -59,8 +59,8 @@ _SampleAux() = _SampleInfo(0)
         shape = NamedTupleShape(x = ScalarShape{Real}(), y = ArrayShape{Real}(2)) 
 
         @test @inferred(broadcast(shape, dsv1)) isa DensitySampleVector
-        @test broadcast(shape, dsv1).params isa ShapedAsNTArray
-        @test @inferred(broadcast(unshaped, TypedTables.Table(broadcast(shape, dsv1)).params)) === dsv1.params
+        @test broadcast(shape, dsv1).v isa ShapedAsNTArray
+        @test @inferred(broadcast(unshaped, TypedTables.Table(broadcast(shape, dsv1)).v)) === dsv1.v
 
         @test shape.(dsv1)[1] == shape(dsv1[1])
     end
