@@ -20,11 +20,11 @@ Densities with a known variate shape may also implement
 
 Densities with known parameters bounds may also implement
 
-* `BAT.param_bounds`
+* `BAT.var_bounds`
 
 !!! note
 
-    The function `BAT.param_bounds` is not part of the stable public BAT-API,
+    The function `BAT.var_bounds` is not part of the stable public BAT-API,
     it's name and arguments may change without notice.
 """
 abstract type AbstractDensity end
@@ -43,7 +43,7 @@ Input:
 * `params`: parameter values
 
 Note: If `density_logval` is called with out-of-bounds parameters (see
-`param_bounds`), the behaviour is undefined. The result for parameters that
+`var_bounds`), the behaviour is undefined. The result for parameters that
 are not within bounds is *implicitly* `-Inf`, but it is the caller's
 responsibility to handle these cases.
 """
@@ -51,7 +51,7 @@ function density_logval end
 
 
 @doc doc"""
-    param_bounds(
+    var_bounds(
         density::AbstractDensity
     )::Union{AbstractParamBounds,Missing}
 
@@ -61,7 +61,7 @@ Get the parameter bounds of `density`. See `density_logval` for the
 implications and handling of the bounds. If the bounds are missing,
 `density_logval` must be prepared to handle any parameter values.
 """
-param_bounds(density::AbstractDensity) = missing
+var_bounds(density::AbstractDensity) = missing
 
 
 @doc doc"""
@@ -71,7 +71,7 @@ Get the number of degrees of freedom of the variates of `density`. May return
 `missing`, if the shape of the variates is not fixed.
 """
 function ValueShapes.totalndof(density::AbstractDensity)
-    bounds = param_bounds(density)
+    bounds = var_bounds(density)
     ismissing(bounds) ? missing : ValueShapes.totalndof(bounds)
 end
 
@@ -152,7 +152,7 @@ The following functions must be implemented for subtypes:
 
 * `BAT.density_logval`
 
-* `BAT.param_bounds`
+* `BAT.var_bounds`
 
 * `ValueShapes.varshape`
 
@@ -162,7 +162,7 @@ The following functions must be implemented for subtypes:
 
 !!! note
 
-    The function `BAT.param_bounds` is not part of the stable public BAT-API,
+    The function `BAT.var_bounds` is not part of the stable public BAT-API,
     it's name and arguments may change without notice.
 """
 abstract type DistLikeDensity <: AbstractDensity end
@@ -170,13 +170,13 @@ export DistLikeDensity
 
 
 @doc doc"""
-    param_bounds(density::DistLikeDensity)::AbstractParamBounds
+    var_bounds(density::DistLikeDensity)::AbstractParamBounds
 
 *BAT-internal, not part of stable public API.*
 
 Get the parameter bounds of `density`. Must not be `missing`.
 """
-function param_bounds end
+function var_bounds end
 
 
 @doc doc"""
@@ -186,4 +186,4 @@ Get the number of parameters of degrees of freedom of the variates of
 `density`. Must not be `missing`, a `DistLikeDensity` must have a fixed
 variate shape.
 """
-ValueShapes.totalndof(density::DistLikeDensity) = totalndof(param_bounds(density))
+ValueShapes.totalndof(density::DistLikeDensity) = totalndof(var_bounds(density))

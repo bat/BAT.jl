@@ -75,7 +75,7 @@ function MHIterator(
     else
         params_vec .= initial_params
     end
-    !(params_vec in param_bounds(postr)) && throw(ArgumentError("Parameter(s) out of bounds"))
+    !(params_vec in var_bounds(postr)) && throw(ArgumentError("Parameter(s) out of bounds"))
 
     proposaldist = alg.proposalspec(P, npar)
 
@@ -115,7 +115,7 @@ end
 function (spec::MCMCSpec{<:MetropolisHastings})(
     chainid::Integer,
 )
-    P = float(eltype(param_bounds(spec.posterior)))
+    P = float(eltype(var_bounds(spec.posterior)))
 
     cycle = 0
     tuned = false
@@ -217,7 +217,7 @@ function mcmc_step!(
 )
     alg = algorithm(chain)
 
-    if !mcmc_compatible(alg, chain.proposaldist, param_bounds(getposterior(chain)))
+    if !mcmc_compatible(alg, chain.proposaldist, var_bounds(getposterior(chain)))
         error("Implementation of algorithm $alg does not support current parameter bounds with current proposal distribution")
     end
 

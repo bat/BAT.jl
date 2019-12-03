@@ -18,7 +18,7 @@ end
 
 Base.parent(density::DensityProduct) = density.densities
 
-param_bounds(density::DensityProduct) = density.bounds
+var_bounds(density::DensityProduct) = density.bounds
 
 ValueShapes.varshape(density::DensityProduct) = ArrayShape{Real}(totalndof(density.bounds))
 
@@ -26,7 +26,7 @@ ValueShapes.varshape(density::DensityProduct) = ArrayShape{Real}(totalndof(densi
 import Base.*
 function *(a::AbstractDensity, b::AbstractDensity)
     totalndof(a) != totalndof(b) && throw(ArgumentError("Can't multiply densities with different number of arguments"))
-    new_bounds = param_bounds(a) ∩ param_bounds(b)
+    new_bounds = var_bounds(a) ∩ var_bounds(b)
     _unsafe_prod(a, b, new_bounds)
 end
 

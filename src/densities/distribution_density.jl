@@ -38,7 +38,7 @@ Random.Sampler(rng::AbstractRNG, density::DistributionDensity, repetition::Val{1
 Statistics.cov(density::DistributionDensity) = cov(density.dist)
 
 
-param_bounds(density::DistributionDensity) = density.bounds
+var_bounds(density::DistributionDensity) = density.bounds
 
 
 dist_param_bounds(d::Distribution{Univariate,Continuous}) = HyperRectBounds([quantile(d, 0f0)], [quantile(d, 1f0)], reflective_bounds)
