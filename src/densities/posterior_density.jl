@@ -59,7 +59,7 @@ function apply_bounds_and_eval_posterior_logval!(
     posterior::AbstractPosteriorDensity,
     params::AbstractVector{<:Real}
 )
-    bounds = param_bounds(posterior)
+    bounds = var_bounds(posterior)
     apply_bounds!(params, bounds)
 
     parshapes = varshape(posterior)
@@ -105,7 +105,7 @@ function apply_bounds_and_eval_posterior_logval_strict!(
     posterior::AbstractPosteriorDensity,
     params::AbstractVector{<:Real}
 )
-    bounds = param_bounds(posterior)
+    bounds = var_bounds(posterior)
     apply_bounds!(params, bounds)
 
     parshapes = varshape(posterior)
@@ -140,9 +140,9 @@ function density_logval(density::AbstractPosteriorDensity, params::Any)
 end
 
 
-function param_bounds(density::AbstractPosteriorDensity)
-    li_bounds = param_bounds(getlikelihood(density))
-    pr_bounds = param_bounds(getprior(density))
+function var_bounds(density::AbstractPosteriorDensity)
+    li_bounds = var_bounds(getlikelihood(density))
+    pr_bounds = var_bounds(getprior(density))
     if ismissing(li_bounds)
         pr_bounds
     else
@@ -195,8 +195,8 @@ function PosteriorDensity(likelihood::Any, prior::Any)
     pr = convert(AbstractDensity, prior)
 
     parbounds = _posterior_parbounds(
-        param_bounds(li),
-        param_bounds(pr)
+        var_bounds(li),
+        var_bounds(pr)
     )
 
     parshapes = _posterior_parshapes(
@@ -212,7 +212,7 @@ getlikelihood(posterior::PosteriorDensity) = posterior.likelihood
 
 getprior(posterior::PosteriorDensity) = posterior.prior
 
-param_bounds(posterior::PosteriorDensity) = posterior.parbounds
+var_bounds(posterior::PosteriorDensity) = posterior.parbounds
 
 ValueShapes.varshape(posterior::PosteriorDensity) = posterior.parshapes
 

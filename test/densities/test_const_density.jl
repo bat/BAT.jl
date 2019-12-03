@@ -24,7 +24,7 @@ using ArraysOfArrays, Distributions
         density = gen_density_n()
         @test density.log_value ≈ -0.4054651081081644
 
-        pbounds = @inferred BAT.param_bounds(density)
+        pbounds = @inferred BAT.var_bounds(density)
         @test pbounds.vol.lo ≈ [-1., 0.5]
         @test totalndof(density) == 2
     end

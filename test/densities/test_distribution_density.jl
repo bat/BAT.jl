@@ -19,12 +19,12 @@ using ArraysOfArrays, Distributions, PDMats, ValueShapes
         @test (@inferred BAT.density_logval(mvdd, [0.0, 0.0])) ≈ -2.64259602
     end
 
-    @testset "BAT.param_bounds" begin
+    @testset "BAT.var_bounds" begin
         let
             dist = @inferred NamedTupleDist(a = 5, b = Normal(), c = -4..5, d = MvNormal([1.2 0.5; 0.5 2.1]), e = [Normal(1.1, 0.2)] )
             density = @inferred BAT.DistributionDensity(dist)
             s = sampler(density)
-            @test all([rand(s) in BAT.param_bounds(density) for i in 1:10^4])
+            @test all([rand(s) in BAT.var_bounds(density) for i in 1:10^4])
         end
     end
 end

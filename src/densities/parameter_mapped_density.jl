@@ -13,7 +13,7 @@ end
 
 
 ParameterMappedDensity(density::AbstractDensity, parmap::ParameterMapping) =
-    ParameterMappedDensity(density, parmap, invmap_params(parmap, param_bounds(density)))
+    ParameterMappedDensity(density, parmap, invmap_params(parmap, var_bounds(density)))
 
 
 import Base.∘
@@ -23,7 +23,7 @@ import Base.∘
 
 Base.parent(density::ParameterMappedDensity) = density.orig_density
 
-BAT.param_bounds(density::ParameterMappedDensity) = density.new_bounds
+BAT.var_bounds(density::ParameterMappedDensity) = density.new_bounds
 
 ValueShapes.varshape(density::ParameterMappedDensity) = ArrayShape{Real}(totalndof(density.new_bounds))
 

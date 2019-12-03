@@ -37,21 +37,21 @@ using Distributions, PDMats
                   BAT.GenericDensity{typeof(mvn_density.log_f)}},BAT.HyperRectBounds{Float64}}
         
         @test parent(dp)[1] == mvt_density        
-        @test BAT.param_bounds(dp) == pb
+        @test BAT.var_bounds(dp) == pb
         @test totalndof(dp) == 3        
     end
 
     @testset "unsafe_pod" begin
         up = @inferred BAT._unsafe_prod(mvt_density, mvn_density, pb)
         @test parent(up)[2] == mvn_density
-        @test BAT.param_bounds(up) == pb
+        @test BAT.var_bounds(up) == pb
 
         prd = @inferred dp1*dp2
         @test typeof(prd) <: BAT.DensityProduct{2,
             Tuple{BAT.GenericDensity{typeof(mvt_density.log_f)},
                   BAT.GenericDensity{typeof(mvn_density.log_f)}},BAT.HyperRectBounds{Float64}}
         @test parent(prd)[2] == mvn_density
-        prd_pb = @inferred BAT.param_bounds(prd)
+        prd_pb = @inferred BAT.var_bounds(prd)
         cut_pb = @inferred pb ∩ pb2 
         @test prd_pb.vol.lo ≈ cut_pb.vol.lo
         @test prd_pb.vol.hi ≈ cut_pb.vol.hi
@@ -59,17 +59,17 @@ using Distributions, PDMats
         up = @inferred BAT._unsafe_prod(dp1, mvn_density, pb)
         @test parent(up)[1] == mvt_density
         @test parent(up)[2] == mvn_density        
-        @test BAT.param_bounds(up) == pb
+        @test BAT.var_bounds(up) == pb
 
         up = @inferred BAT._unsafe_prod(mvt_density, dp2, pb)
         @test parent(up)[1] == mvt_density
         @test parent(up)[2] == mvn_density        
-        @test BAT.param_bounds(up) == pb
+        @test BAT.var_bounds(up) == pb
 
         up = @inferred BAT._unsafe_prod(dp1, dp2, pb)
         @test parent(up)[1] == mvt_density
         @test parent(up)[2] == mvn_density        
-        @test BAT.param_bounds(up) == pb
+        @test BAT.var_bounds(up) == pb
     end
 
     @testset "BAT.density_logval" begin
