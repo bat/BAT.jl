@@ -261,7 +261,34 @@ samples = bat_sample(posterior, (nsamples, nchains), MetropolisHastings()).resul
 println("Truth: $true_par_values")
 println("Mode: $(mode(samples))")
 println("Mean: $(mean(samples))")
-println("Covariance: $(cov(samples))")
+println("Stddev: $(std(samples))")
+
+# Internally, BAT often needs to represent variates as flat real-valued
+# vectors:
+
+unshaped.(samples).v
+
+# BAT uses [ValueShapes.jl](https://github.com/oschulz/ValueShapes.jl)
+# to implement a dual view of variate values in both shaped and unshaped form,
+# based on shape inferred from the prior and propagated to the posterior.
+# Shaped and unshaped samples are views of the same data in memory.
+# The variate/parameter shape can be accessed via
+
+parshapes = varshape(posterior)
+
+# The statisics above (mode, mean and std-dev) are presented in shaped form.
+# However, it's not possible to represent statistics with matrix shape, e.g.
+# the parameter covariance matrix, this way. So the covariance has to be
+# accessed in unshaped form:
+
+par_cov = cov(unshaped.(samples))
+println("Covariance: $par_cov")
+
+# Our `parshapes` is a `NamedTupleShape`. It's properties (i.e. individual
+# parameter accessors) can be used as indices to query the covariance between
+# specific parameters:
+
+par_cov[parshapes.mu, parshapes.sigma]
 
 
 # ### Visualization of Results
@@ -315,19 +342,18 @@ plot(
 
 # ### Integration with Tables.jl
 
-# BAT.jl supports the [Tables.jl](https://github.com/JuliaData/Tables.jl)
-# interface. So we can also convert the vector of MCMC samples vecto a
-# table, e.g. using TypedTables.jl](http://blog.roames.com/TypedTables.jl/stable/):
+# `DensitySamplesVector` supports the
+# [Tables.jl](https://github.com/JuliaData/Tables.jl)
+# interface, so it is a table itself. We can also convert it to other table
+# types, e.g. a
+# [`TypedTables.Table`](http://blog.roames.com/TypedTables.jl/stable/):
 
 using TypedTables
 
 tbl = Table(samples)
 
-
-# Using the parameter shapes, we can generate a table with named parameters,
-# instead of flat real-valued parameter vectors:
-
-tbl_named = Table(parshapes.(samples))
+# or a [`DataFrames.DataFrame`](https://github.com/JuliaData/DataFrames.jl),
+# etc.
 
 
 # ## Comparison of Truth and Best Fit
@@ -335,9 +361,26 @@ tbl_named = Table(parshapes.(samples))
 # As a final step, we retrieve the parameter values at the mode, representing
 # the best-fit parameters
 
-fit_par_values = parshapes(mode(samples))[]
+samples_mode = mode(samples)
 
-# And plot the truth, data, and best fit:
+# Like the samples themselves, the result can be viewed in both shaped and
+# unshaped form. `samples_mode` is presented as a 0-dimensional array that
+# contains a NamedTuple, this representation preserves the shape information:
+
+samples_mode[] isa NamedTuple
+
+unshaped(samples_mode)
+
+# `samples_mode` is only an estimate of the mode of the posterior
+# distribution. It can be further refined using [`bat_findmode`](@ref):
+
+findmode_result = bat_findmode(posterior, initial_mode = samples_mode)
+
+fit_par_values = findmode_result.result[]
+
+
+# Let's plot the data and fit function, for both true and best-fit parameter
+# values:
 
 plot(
     normalize(hist, mode=:density),

@@ -70,7 +70,7 @@ end
 
 
 @recipe function f(
-    samples::DensitySampleVector,
+    maybe_shaped_samples::DensitySampleVector,
     param::Integer;
     intervals = standard_confidence_vals,
     bins=200,
@@ -83,6 +83,8 @@ end
     localmode = true,
     filter = true
 )
+    samples = unshaped.(maybe_shaped_samples)
+
     if filter
         samples = BAT.drop_low_weight_samples(samples)
     end

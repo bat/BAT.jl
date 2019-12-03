@@ -1,8 +1,12 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 struct MCMCDiagnostics
-    samples::DensitySampleVector
+    samples::DensitySampleVector{<:AbstractVector{<:Real}}
     chainresults::Array{}
 end
+
+MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
+    MCMCDiagnostics(unshaped.(samples), chainresults)
+
 
 @recipe function f(mcmc::MCMCDiagnostics;
                     vsel = collect(1 : size(mcmc.samples.v.data, 1)),

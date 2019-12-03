@@ -227,16 +227,43 @@ Base.copy(
 ValueShapes.varshape(A::DensitySampleVector) = elshape(A.v)
 
 
-Statistics.mean(samples::DensitySampleVector) = mean(samples.v, FrequencyWeights(samples.weight))
-Statistics.var(samples::DensitySampleVector) = var(samples.v, FrequencyWeights(samples.weight))
-Statistics.std(samples::DensitySampleVector) = sqrt.(var(samples))
-Statistics.cov(samples::DensitySampleVector) = cov(samples.v, FrequencyWeights(samples.weight))
-Statistics.cor(samples::DensitySampleVector) = cor(samples.v, FrequencyWeights(samples.weight))
+function _get_statw(f::Function, samples::DensitySampleVector)
+    shape = varshape(samples)
+    X = unshaped.(samples.v)
+    w = FrequencyWeights(samples.weight)
+    r_unshaped = f(X, w)
+    shape(r_unshaped)
+end
+
+Statistics.mean(samples::DensitySampleVector) = _get_statw(mean, samples)
+Statistics.var(samples::DensitySampleVector) = _get_statw(var, samples)
+
+function Statistics.std(samples::DensitySampleVector)
+    shape = varshape(samples)
+    X = unshaped.(samples.v)
+    w = FrequencyWeights(samples.weight)
+    r_unshaped = sqrt.(var(X, w))
+    shape(r_unshaped)
+end
+
+function _get_stat(f::Function, samples::DensitySampleVector)
+    shape = varshape(samples)
+    X = unshaped.(samples.v)
+    r_unshaped = f(X)
+    shape(r_unshaped)
+end
+
+Base.minimum(samples::DensitySampleVector) = _get_stat(minimum, samples)
+Base.maximum(samples::DensitySampleVector) = _get_stat(maximum, samples)
+
+Statistics.cov(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = cov(samples.v, FrequencyWeights(samples.weight))
+Statistics.cor(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = cor(samples.v, FrequencyWeights(samples.weight))
 
 function _get_mode(samples::DensitySampleVector)
+    shape = varshape(samples)
     i = findmax(samples.logd)[2]
-    v = samples.v[i]
-
+    v_unshaped = unshaped.(samples.v)[i]
+    v = copy(shape(v_unshaped))
     (v, i)
 end
 

@@ -130,15 +130,17 @@ function bat_sample(rng::AbstractRNG, posterior::RandSampleable, n::Integer, alg
     P = Vector{_default_PT}
     #P = ValueShapes.shaped_type(vs)
 
-    npar = length(posterior)
-    samples = DensitySampleVector{P,_default_LDT,_default_int_WT,Nothing,Nothing}(undef, n, npar)
+    shape = varshape(posterior)
+    npar = totalndof(shape)
+    unshaped_samples = DensitySampleVector{P,_default_LDT,_default_int_WT,Nothing,Nothing}(undef, n, npar)
 
-    rand!(rng, sampler(posterior), flatview(samples.v))
-    let logd = samples.logd, params = samples.v
+    rand!(rng, sampler(posterior), flatview(unshaped_samples.v))
+    let logd = unshaped_samples.logd, params = unshaped_samples.v
         @uviews logd .= logpdf.(Ref(posterior), params)
     end
-    samples.weight .= 1
-    
+    unshaped_samples.weight .= 1
+
+    samples = shape.(unshaped_samples)
     (result = samples,)
 end
 
