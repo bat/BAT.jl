@@ -151,14 +151,6 @@ function param_bounds(density::AbstractPosteriorDensity)
 end
 
 
-function ValueShapes.totalndof(density::AbstractPosteriorDensity)
-    li_np = totalndof(getlikelihood(density))
-    pr_np = totalndof(getprior(density))
-    ismissing(li_np) || li_np == pr_np || error("Likelihood and prior have different number of parameters")
-    pr_np
-end
-
-
 
 @doc doc"""
     PosteriorDensity{
