@@ -77,14 +77,14 @@ BAT.hm_init
 BAT.hm_integrate!
 BAT.hm_whiteningtransformation!
 BAT.hyperrectangle_creationproccess!
-BAT.mcmc_startval!
 BAT.issymmetric_around_origin
 BAT.log_volume
+BAT.mcmc_startval!
 BAT.modify_hypercube!
 BAT.modify_integrationvolume!
-BAT.var_bounds
 BAT.proposal_rand!
 BAT.spatialvolume
 BAT.sum_first_dim
+BAT.var_bounds
 BAT.wgt_effective_sample_size
 ```
