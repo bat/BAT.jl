@@ -102,7 +102,7 @@ end
     yguide --> "\$\\theta_$(pi_y)\$"
 
 
-    h = fit(Histogram, (flatview(samples.params)[pi_x, :], flatview(samples.params)[pi_y, :]), FrequencyWeights(samples.weight), closed=:left, nbins=bins)
+    h = fit(Histogram, (flatview(samples.v)[pi_x, :], flatview(samples.v)[pi_y, :]), FrequencyWeights(samples.weight), closed=:left, nbins=bins)
 
 
     if seriestype == :scatter
@@ -120,7 +120,7 @@ end
             markersize := [w < 1 ? base_markersize : base_markersize * sqrt(w) for w in samples.weight[acc]]
             markerstrokewidth := 0
             color := [w >= 1 ? color : RGBA(convert(RGB, color), color.alpha * w) for w in samples.weight[acc]]
-            (flatview(samples.params)[pi_x, acc], flatview(samples.params)[pi_y, acc])
+            (flatview(samples.v)[pi_x, acc], flatview(samples.v)[pi_y, acc])
         end
 
         if !isempty(rej)
@@ -130,7 +130,7 @@ end
                 markersize := base_markersize
                 markerstrokewidth := 0
                 color := :red
-                (flatview(samples.params)[pi_x, rej], flatview(samples.params)[pi_y, rej])
+                (flatview(samples.v)[pi_x, rej], flatview(samples.v)[pi_y, rej])
             end
         end
 

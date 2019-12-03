@@ -128,7 +128,7 @@ struct NoOpTunerConfig <: BAT.AbstractMCMCTuningStrategy end
 struct NoOpTuner{C<:MCMCIterator} <: AbstractMCMCTuner end
 
 
-isvalid(chain::MCMCIterator) = current_sample(chain).logdensity > -Inf
+isvalid(chain::MCMCIterator) = current_sample(chain).logd > -Inf
 
 isviable(tuner::NoOpTuner, chain::MCMCIterator) = true
 

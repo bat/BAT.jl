@@ -132,9 +132,9 @@ function bat_sample(rng::AbstractRNG, posterior::RandSampleable, n::Integer, alg
     npar = length(posterior)
     samples = DensitySampleVector{P,_default_LDT,_default_int_WT,Nothing,Nothing}(undef, n, npar)
 
-    rand!(rng, sampler(posterior), flatview(samples.params))
-    let logdensity = samples.logdensity, params = samples.params
-        @uviews logdensity .= logpdf.(Ref(posterior), params)
+    rand!(rng, sampler(posterior), flatview(samples.v))
+    let logd = samples.logd, params = samples.v
+        @uviews logd .= logpdf.(Ref(posterior), params)
     end
     samples.weight .= 1
     

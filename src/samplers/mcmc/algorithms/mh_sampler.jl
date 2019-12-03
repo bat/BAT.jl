@@ -239,20 +239,20 @@ function mcmc_step!(
     @assert current != proposed
 
     accepted = @uviews samples begin
-        current_params = samples.params[current]
-        proposed_params = samples.params[proposed]
+        current_params = samples.v[current]
+        proposed_params = samples.v[proposed]
 
         # Propose new variate:
         samples.weight[proposed] = 0
         proposal_rand!(rng, proposaldist, proposed_params, current_params)
 
-        current_log_posterior = samples.logdensity[current]
+        current_log_posterior = samples.logd[current]
         T = typeof(current_log_posterior)
 
         # Evaluate prior and likelihood with proposed variate:
         proposed_log_posterior = apply_bounds_and_eval_posterior_logval!(T, pstr, proposed_params)
 
-        samples.logdensity[proposed] = proposed_log_posterior
+        samples.logd[proposed] = proposed_log_posterior
 
         p_accept = if proposed_log_posterior > -Inf
             # log of ratio of forward/reverse transition probability
@@ -289,7 +289,7 @@ function mcmc_step!(
 
         if accepted
             current_params .= proposed_params
-            samples.logdensity[current] = samples.logdensity[proposed]
+            samples.logd[current] = samples.logd[proposed]
             samples.weight[current] = samples.weight[proposed]
             samples.info[current] = samples.info[proposed]
         end

@@ -353,9 +353,9 @@ end
 @deprecate HMIData(bat_samples::Tuple{DensitySampleVector, MCMCBasicStats, AbstractVector{<:MCMCIterator}}) HMIData(bat_samples[1])
 
 function HMIData(samples::DensitySampleVector)
-    logprob = samples.logdensity
+    logprob = samples.logd
     weights = samples.weight
-    samples = convert(Array{eltype(logprob), 2}, flatview(samples.params))
+    samples = convert(Array{eltype(logprob), 2}, flatview(samples.v))
     ds = DataSet(samples, logprob, weights)
     HMIData(ds)
 end

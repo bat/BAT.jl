@@ -5,7 +5,7 @@ struct MCMCDiagnostics
 end
 
 @recipe function f(mcmc::MCMCDiagnostics;
-                    vsel = collect(1 : size(mcmc.samples.params.data, 1)),
+                    vsel = collect(1 : size(mcmc.samples.v.data, 1)),
                     chains = collect(1 : size(mcmc.chainresults, 1)),
                     diagnostics = [:histogram, :kde, :trace, :acf],
                     trace = Dict(),
@@ -46,7 +46,7 @@ end
             end
 
             # samples from current chain
-            s = flatview(mcmc.samples.params)[p, :]
+            s = flatview(mcmc.samples.v)[p, :]
             s = s[r]
 
             for d in diagnostics

@@ -13,7 +13,7 @@
 
     
     mod_vsel = vsel
-    mod_vsel = vsel[vsel .<= Base.size(samples.params[1], 1)]
+    mod_vsel = vsel[vsel .<= Base.size(samples.v[1], 1)]
 
 
     if Base.size(param_labels, 1) == 0
