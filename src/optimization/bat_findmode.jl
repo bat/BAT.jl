@@ -7,7 +7,7 @@
 Abstract type for BAT optimization algorithms.
 
 A typical application for optimization in BAT is mode estimation
-(see [`bat_mode`](@ref)),
+(see [`bat_findmode`](@ref)),
 """
 abstract type AbstractModeEstimator end
 
@@ -26,7 +26,7 @@ default_mode_estimator(posterior::AbstractDensity) = MaxDensityNelderMead()
 
 
 """
-    bat_mode(
+    bat_findmode(
         posterior::BAT.AnyPosterior,
         [algorithm::BAT.AbstractModeEstimator]
     )::DensitySampleVector
@@ -36,18 +36,18 @@ Estiate the global mode of `posterior`.
 Returns a NamedTuple of the shape
 
 ```julia
-(mode = X::DensitySampleVector, ...)
+(result = X::DensitySampleVector, ...)
 ```
 
 Properties others than `mode` are algorithm-specific, they are also by default
 not part of the stable BAT API.
 """
-function bat_mode end
-export bat_mode
+function bat_findmode end
+export bat_findmode
 
-@inline function bat_mode(posterior::AnyPosterior; kwargs...)
+@inline function bat_findmode(posterior::AnyPosterior; kwargs...)
     algorithm = default_mode_estimator(posterior)
-    bat_mode(posterior, algorithm; kwargs...)
+    bat_findmode(posterior, algorithm; kwargs...)
 end
 
 
@@ -66,12 +66,12 @@ struct ModeAsDefined <: AbstractModeEstimator end
 export ModeAsDefined
 
 
-function bat_mode(posterior::AnyPosterior, algorithm::ModeAsDefined)
-    (mode = StatsBase.mode(posterior),)
+function bat_findmode(posterior::AnyPosterior, algorithm::ModeAsDefined)
+    (result = StatsBase.mode(posterior),)
 end
 
-function bat_mode(posterior::DistributionDensity, algorithm::ModeAsDefined)
-    (mode = StatsBase.mode(posterior.dist),)
+function bat_findmode(posterior::DistributionDensity, algorithm::ModeAsDefined)
+    (result = StatsBase.mode(posterior.dist),)
 end
 
 
@@ -90,9 +90,9 @@ struct MaxDensitySampleSearch <: AbstractModeEstimator end
 export MaxDensitySampleSearch
 
 
-function bat_mode(posterior::DensitySampleVector, algorithm::MaxDensitySampleSearch)
+function bat_findmode(posterior::DensitySampleVector, algorithm::MaxDensitySampleSearch)
     v, i = _get_mode(posterior)
-    (mode = v, mode_idx = i)
+    (result = v, mode_idx = i)
 end
 
 
@@ -110,11 +110,11 @@ Estimate the mode of the posterior using Nelder-Mead optimization (via
 struct MaxDensityNelderMead <: AbstractModeEstimator end
 export MaxDensityNelderMead
 
-function bat_mode(posterior::AnyPosterior, algorithm::MaxDensityNelderMead; initial_mode = missing)
+function bat_findmode(posterior::AnyPosterior, algorithm::MaxDensityNelderMead; initial_mode = missing)
     x = _get_initial_mode(posterior, initial_mode)
     conv_posterior = convert(AbstractDensity, posterior)
     r = Optim.maximize(p -> density_logval(conv_posterior, p), x, Optim.NelderMead())
-    (mode = Optim.minimizer(r.res), info = r)
+    (result = Optim.minimizer(r.res), info = r)
 end
 
 
@@ -122,7 +122,7 @@ _get_initial_mode(posterior::AnyPosterior, ::Missing) =
     _get_initial_mode(posterior, rand(getprior(posterior)))
 
 _get_initial_mode(posterior::AnyPosterior, samples::DensitySampleVector) =
-    _get_initial_mode(posterior, bat_mode(samples).mode)
+    _get_initial_mode(posterior, bat_findmode(samples).result)
 
 _get_initial_mode(posterior::AnyPosterior, x::AbstractArray{<:Real}) = Array(x)
 _get_initial_mode(posterior::AnyPosterior, x::Array{<:Real}) = x
@@ -147,9 +147,9 @@ struct MaxDensityLBFGS <: AbstractModeEstimator end
 export MaxDensityLBFGS
 
 
-function bat_mode(posterior::AnyPosterior, algorithm::MaxDensityLBFGS; initial_mode = missing)
+function bat_findmode(posterior::AnyPosterior, algorithm::MaxDensityLBFGS; initial_mode = missing)
     x = _get_initial_mode(posterior, initial_mode)
     conv_posterior = convert(AbstractDensity, posterior)
     r = Optim.maximize(p -> density_logval(conv_posterior, p), x, Optim.LBFGS(); autodiff = :forward)
-    (mode = Optim.minimizer(r.res), info = r)
+    (result = Optim.minimizer(r.res), info = r)
 end

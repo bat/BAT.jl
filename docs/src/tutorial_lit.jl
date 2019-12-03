@@ -251,7 +251,7 @@ nchains = 4
 
 # Now we can generate a set of MCMC samples via [`bat_sample`](@ref):
 
-samples = bat_sample(posterior, (nsamples, nchains), MetropolisHastings()).samples
+samples = bat_sample(posterior, (nsamples, nchains), MetropolisHastings()).result
 #md nothing # hide
 #nb nothing # hide
 
@@ -417,14 +417,14 @@ samples = bat_sample(
     convergence = convergence,
     strict = false,
     filter = true
-).samples
+).result
 #md nothing # hide
 #nb nothing # hide
 
 # However, in many use cases, simply using the default options via
 #
 # ```julia
-# samples = bat_sample(posterior, (nsamples, nchains), MetropolisHastings()).samples
+# samples = bat_sample(posterior, (nsamples, nchains), MetropolisHastings()).result
 # ```
 #
 # will often be sufficient.

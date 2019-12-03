@@ -180,7 +180,7 @@ function bat_sample(
         strict_mode = strict
     )
 
-    (samples = samples, chains = chains)
+    (result = samples, chains = chains)
 end
 
 
