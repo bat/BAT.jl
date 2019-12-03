@@ -71,7 +71,7 @@ end
 
 
 @recipe function f(
-    samples::DensitySampleVector,
+    maybe_shaped_samples::DensitySampleVector,
     parsel::NTuple{2,Integer};
     intervals = standard_confidence_vals,
     colors = standard_colors,
@@ -84,6 +84,8 @@ end
     right = Dict(),
     filter = true
 )
+    samples = unshaped.(maybe_shaped_samples)
+
     if filter
         samples = BAT.drop_low_weight_samples(samples)
     end

@@ -14,15 +14,29 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes
 
     posterior = PosteriorDensity(v -> LogDVal(0), prior)
 
-    true_mode = [2.0, 1.5, 0.5, 2.5]
+    true_mode_flat = [2.0, 1.5, 0.5, 2.5]
+    true_mode = stripscalar(varshape(prior)(true_mode_flat))
 
     samples = @inferred(bat_sample(prior, 10^5)).result
 
 
+    function test_findmode(posterior, algorithm, initial_mode, rtol)
+        res = @inferred(bat_findmode(posterior, MaxDensityNelderMead(), initial_mode = initial_mode))
+        @test keys(stripscalar(res.result)) == keys(true_mode)
+        @test isapprox(unshaped(res.result), true_mode_flat, rtol = rtol)
+    end
+
+    function test_findmode_noinferred(posterior, algorithm, initial_mode, rtol)
+        res = (bat_findmode(posterior, MaxDensityNelderMead(), initial_mode = initial_mode))
+        @test keys(stripscalar(res.result)) == keys(true_mode)
+        @test isapprox(unshaped(res.result), true_mode_flat, rtol = rtol)
+    end
+
+
     @testset "ModeAsDefined" begin
         @test @inferred(BAT.default_mode_estimator(prior)) == ModeAsDefined()
-        @test @inferred(bat_findmode(prior)).result == true_mode
-        @test @inferred(bat_findmode(BAT.DistributionDensity(prior), ModeAsDefined())).result == true_mode
+        @test @inferred(bat_findmode(prior)).result == true_mode_flat # ToDo: Should return shaped mode
+        @test @inferred(bat_findmode(BAT.DistributionDensity(prior), ModeAsDefined())).result == true_mode_flat
     end
 
 
@@ -30,21 +44,23 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes
         @test @inferred(BAT.default_mode_estimator(samples)) == MaxDensitySampleSearch()
         @test @inferred(bat_findmode(samples, MaxDensitySampleSearch())) == @inferred(bat_findmode(samples))
         m = bat_findmode(samples, MaxDensitySampleSearch())
-        @test samples[m.mode_idx].v == m.result
-        @test isapprox(m.result, true_mode, rtol = 0.05)
+        @test samples[m.mode_idx].v == stripscalar(m.result)
+        @test isapprox(unshaped(m.result), true_mode_flat, rtol = 0.05)
     end
 
 
     @testset "MaxDensityNelderMead" begin
-        @test @inferred(BAT.default_mode_estimator(posterior)) == MaxDensityNelderMead()
-        @test isapprox(@inferred(bat_findmode(posterior, MaxDensityNelderMead())).result, true_mode, rtol = 0.01)
-        @test isapprox(@inferred(bat_findmode(posterior, MaxDensityNelderMead(), initial_mode = rand(prior))).result, true_mode, rtol = 0.01)
-        @test isapprox(@inferred(bat_findmode(posterior, MaxDensityNelderMead(), initial_mode = samples)).result, true_mode, rtol = 0.01)
+        @inferred(BAT.default_mode_estimator(posterior)) == MaxDensityNelderMead()
+        test_findmode(posterior,  MaxDensityNelderMead(), missing, 0.01)
+        test_findmode(posterior,  MaxDensityNelderMead(), rand(prior), 0.01)
+        test_findmode(posterior,  MaxDensityNelderMead(), samples, 0.01)
     end
 
 
     @testset "MaxDensityLBFGS" begin
-        # Result Optim.maximize with BFGS is not type-stable:
-        @test isapprox(bat_findmode(posterior, MaxDensityLBFGS()).result, true_mode, rtol = 0.01)
+        # Result Optim.maximize with LBFGS is not type-stable:
+        test_findmode_noinferred(posterior,  MaxDensityLBFGS(), missing, 0.01)
+        test_findmode_noinferred(posterior,  MaxDensityLBFGS(), rand(prior), 0.01)
+        test_findmode_noinferred(posterior,  MaxDensityLBFGS(), samples, 0.01)
     end
 end

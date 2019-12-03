@@ -50,10 +50,12 @@ end
 
 MCMCBasicStats(chain::MCMCIterator) = MCMCBasicStats(sample_type(chain), totalndof(getposterior(chain)))
 
-function MCMCBasicStats(sv::DensitySampleVector)
+function MCMCBasicStats(sv::DensitySampleVector{<:AbstractVector{<:Real}})
     stats = MCMCBasicStats(eltype(sv), innersize(sv.v, 1))
     append!(stats, sv)
 end
+
+MCMCBasicStats(sv::DensitySampleVector) = MCMCBasicStats(unshaped.(sv))
 
 
 function Base.empty!(stats::MCMCBasicStats)

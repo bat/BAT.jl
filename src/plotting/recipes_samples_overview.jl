@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-@recipe function f(samples::DensitySampleVector; 
+@recipe function f(maybe_shaped_samples::DensitySampleVector; 
                 vsel=collect(1:5), 
                 mean=false,
                 std_dev=false,
@@ -11,7 +11,8 @@
                 lower = Dict(),
                 param_labels = [])
 
-    
+    samples = unshaped.(maybe_shaped_samples)
+
     mod_vsel = vsel
     mod_vsel = vsel[vsel .<= Base.size(samples.v[1], 1)]
 

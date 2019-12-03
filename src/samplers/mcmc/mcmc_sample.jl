@@ -166,7 +166,7 @@ function bat_sample(
 
     nsamples_per_chain, nchains = n
 
-    samples, mcmc_stats, chains = mcmc_sample(
+    unshaped_samples, mcmc_stats, chains = mcmc_sample(
         chainspec,
         nsamples_per_chain,
         nchains;
@@ -180,6 +180,7 @@ function bat_sample(
         strict_mode = strict
     )
 
+    samples = varshape(posterior).(unshaped_samples)
     (result = samples, chains = chains)
 end
 

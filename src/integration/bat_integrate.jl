@@ -32,7 +32,7 @@ export bat_integrate
 
 
 function bat_integrate(posterior::DensitySampleVector)
-    hmi_data = HMIData(posterior)
+    hmi_data = HMIData(unshaped.(posterior))
     hm_integrate!(hmi_data)
     Z_signal_v = hmi_data.integralestimates["cov. weighted result"].final.estimate
     result = hmi_data.integralestimates["cov. weighted result"].final
