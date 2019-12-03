@@ -5,7 +5,7 @@ struct MCMCDiagnostics
 end
 
 @recipe function f(mcmc::MCMCDiagnostics;
-                    params = collect(1 : size(mcmc.samples.params.data, 1)),
+                    vsel = collect(1 : size(mcmc.samples.params.data, 1)),
                     chains = collect(1 : size(mcmc.chainresults, 1)),
                     diagnostics = [:histogram, :kde, :trace, :acf],
                     trace = Dict(),
@@ -17,7 +17,7 @@ end
                     
     seriestype = get(plotattributes, :seriestype, :histogram)
 
-    nparams = length(params)
+    nparams = length(vsel)
     nchains = length(chains)
     ndiagnostics = length(diagnostics)
     description ? ndescription = 1 : ndescription = 0
@@ -31,7 +31,7 @@ end
         #indices of samples from current chain
         r = ((chain-1)*mcmc.chainresults[chain].nsamples+1) : chain*mcmc.chainresults[chain].nsamples
 
-        for p in params
+        for p in vsel
             if description
                 @series begin
                     subplot := ctr

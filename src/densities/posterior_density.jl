@@ -35,13 +35,13 @@ function getprior end
     BAT.apply_bounds_and_eval_posterior_logval!(
         T::Type{<:Real},
         density::AbstractDensity,
-        params::AbstractVector{<:Real}
+        v::AbstractVector{<:Real}
     )
 
 *BAT-internal, not part of stable public API.*
 
 First apply bounds to the parameters, then compute and return posterior log
-value. May modify `params`.
+value. May modify `v`.
 
 Guarantees that  :
 
@@ -57,22 +57,22 @@ function apply_bounds_and_eval_posterior_logval! end
 function apply_bounds_and_eval_posterior_logval!(
     T::Type{<:Real},
     posterior::AbstractPosteriorDensity,
-    params::AbstractVector{<:Real}
+    v::AbstractVector{<:Real}
 )
     bounds = var_bounds(posterior)
-    apply_bounds!(params, bounds)
+    apply_bounds!(v, bounds)
 
     parshapes = varshape(posterior)
     zero_prob_logval = convert(T, -Inf)
 
-    prior_logval = if !isoob(params)
-        convert(T, eval_density_logval(getprior(posterior), params, parshapes))
+    prior_logval = if !isoob(v)
+        convert(T, eval_density_logval(getprior(posterior), v, parshapes))
     else
         zero_prob_logval
     end
 
     likelihood_logval = if prior_logval > zero_prob_logval
-        convert(T, eval_density_logval(getlikelihood(posterior), params, parshapes))
+        convert(T, eval_density_logval(getlikelihood(posterior), v, parshapes))
     else
         zero_prob_logval
     end
@@ -84,13 +84,13 @@ end
 @doc doc"""
     BAT.apply_bounds_and_eval_posterior_logval_strict!(
         posterior::AbstractPosteriorDensity,
-        params::AbstractVector{<:Real}
+        v::AbstractVector{<:Real}
     )
 
 *BAT-internal, not part of stable public API.*
 
 First apply bounds to the parameters, then compute and return posterior log
-value. May modify `params`.
+value. May modify `v`.
 
 Guarantees that  :
 
@@ -103,21 +103,21 @@ In both cases, an exception is thrown.
 """
 function apply_bounds_and_eval_posterior_logval_strict!(
     posterior::AbstractPosteriorDensity,
-    params::AbstractVector{<:Real}
+    v::AbstractVector{<:Real}
 )
     bounds = var_bounds(posterior)
-    apply_bounds!(params, bounds)
+    apply_bounds!(v, bounds)
 
     parshapes = varshape(posterior)
 
-    prior_logval = if !isoob(params)
-        eval_density_logval(getprior(posterior), params, parshapes)
+    prior_logval = if !isoob(v)
+        eval_density_logval(getprior(posterior), v, parshapes)
     else
         throw(ArgumentError("Parameter(s) out of bounds"))
     end
 
     likelihood_logval = if prior_logval > convert(typeof(prior_logval), -Inf)
-        eval_density_logval(getlikelihood(posterior), params, parshapes)
+        eval_density_logval(getlikelihood(posterior), v, parshapes)
     else
         throw(ErrorException("Prior density must not be zero."))
     end
@@ -128,15 +128,15 @@ function apply_bounds_and_eval_posterior_logval_strict!(
 end
 
 
-function density_logval(density::AbstractPosteriorDensity, params::AbstractVector{<:Real})
+function density_logval(density::AbstractPosteriorDensity, v::AbstractVector{<:Real})
     parshapes = varshape(density)
-    eval_density_logval(getprior(density), params, parshapes) +
-    eval_density_logval(getlikelihood(density), params, parshapes)
+    eval_density_logval(getprior(density), v, parshapes) +
+    eval_density_logval(getlikelihood(density), v, parshapes)
 end
 
-function density_logval(density::AbstractPosteriorDensity, params::Any)
-    density_logval(getprior(density), params) +
-    density_logval(getlikelihood(density), params)
+function density_logval(density::AbstractPosteriorDensity, v::Any)
+    density_logval(getprior(density), v) +
+    density_logval(getlikelihood(density), v)
 end
 
 

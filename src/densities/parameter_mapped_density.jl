@@ -28,8 +28,8 @@ BAT.var_bounds(density::ParameterMappedDensity) = density.new_bounds
 ValueShapes.varshape(density::ParameterMappedDensity) = ArrayShape{Real}(totalndof(density.new_bounds))
 
 
-function BAT.density_logval(density::ParameterMappedDensity, params::AbstractVector{<:Real})
-    BAT.density_logval(density.orig_density, map_vars(density.parmap, params))
+function BAT.density_logval(density::ParameterMappedDensity, v::AbstractVector{<:Real})
+    BAT.density_logval(density.orig_density, map_vars(density.parmap, v))
 end
 
 

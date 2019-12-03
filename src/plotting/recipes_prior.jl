@@ -73,7 +73,7 @@ end
 # 2D plots
 
 @recipe function f(prior::NamedTupleDist,
-    params::NTuple{2,Symbol}; 
+    vsel::NTuple{2,Symbol}; 
     nsamples=10^6,
     intervals = standard_confidence_vals, 
     colors = standard_colors,
@@ -81,8 +81,8 @@ end
     upper = Dict(),
     right = Dict())
 
-    i = findfirst(x -> x == params[1], keys(prior))
-    j = findfirst(x -> x == params[2], keys(prior))
+    i = findfirst(x -> x == vsel[1], keys(prior))
+    j = findfirst(x -> x == vsel[2], keys(prior))
 
     @series begin 
         intervals --> intervals
@@ -99,7 +99,7 @@ end
 
 
 @recipe function f(prior::NamedTupleDist,
-                params::NTuple{2,Integer}; 
+                vsel::NTuple{2,Integer}; 
                 nsamples=10^6,
                 intervals = standard_confidence_vals, 
                 colors = standard_colors,
@@ -113,9 +113,9 @@ end
     bins = get(plotattributes, :bins, "default")
 
     if bins=="default"
-        hist = fit(Histogram, (r[params[1], :], r[params[2], :]), closed = :left)
+        hist = fit(Histogram, (r[vsel[1], :], r[vsel[2], :]), closed = :left)
     else
-        hist = fit(Histogram, (r[params[1], :], r[params[2], :]), closed = :left, nbins=bins)
+        hist = fit(Histogram, (r[vsel[1], :], r[vsel[2], :]), closed = :left, nbins=bins)
     end
 
     
@@ -123,8 +123,8 @@ end
         seriestype --> :smallest_intervals_contour
         label --> "prior"
 
-        xguide --> "\$\\theta_$(params[1])\$"
-        yguide --> "\$\\theta_$(params[2])\$"
+        xguide --> "\$\\theta_$(vsel[1])\$"
+        yguide --> "\$\\theta_$(vsel[2])\$"
 
         intervals --> intervals
         nbins --> bins
@@ -133,7 +133,6 @@ end
         upper --> upper
         right --> right
 
-        hist, params
+        hist, vsel
     end
-
 end

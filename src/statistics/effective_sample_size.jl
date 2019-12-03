@@ -78,7 +78,7 @@ function effective_sample_size(xv::AbstractVector{T1}, w::AbstractVector{T2} = V
 end
 
 @doc doc"""
-    effective_sample_size(params::AbstractArray, weights::AbstractVector; with_weights=true)
+    effective_sample_size(variates::AbstractArray, weights::AbstractVector; with_weights=true)
 
 *BAT-internal, not part of stable public API.*
 
@@ -86,10 +86,10 @@ Effective size estimation for a (multidimensional) ElasticArray.
 By default applies the Kish approximation with the weigths available, but
 can be turned off (with_weights=false).
 """
-function effective_sample_size(params::AbstractArray, weights::AbstractVector; with_weights=true)
-        ess = size(params, 2)
-        for dim in axes(params, 1)
-            tmpview = view(params,dim,:)
+function effective_sample_size(variates::AbstractArray, weights::AbstractVector; with_weights=true)
+        ess = size(variates, 2)
+        for dim in axes(variates, 1)
+            tmpview = view(variates,dim,:)
             tmp = with_weights ?
                 effective_sample_size(tmpview, weights) : effective_sample_size(tmpview)
             if tmp < ess

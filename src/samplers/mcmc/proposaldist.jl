@@ -126,15 +126,15 @@ GenericProposalDist(d::D, sampler_f::SamplerF) where {D<:Distribution{Multivaria
 
 GenericProposalDist(d::Distribution{Multivariate}) = GenericProposalDist(d, bat_sampler)
 
-GenericProposalDist(D::Type{<:Distribution{Multivariate}}, n_params::Integer, args...) =
-    GenericProposalDist(D, Float64, n_params, args...)
+GenericProposalDist(D::Type{<:Distribution{Multivariate}}, varndof::Integer, args...) =
+    GenericProposalDist(D, Float64, varndof, args...)
 
 
 Base.similar(q::GenericProposalDist, d::Distribution{Multivariate}) =
     GenericProposalDist(d, q.sampler_f)
 
-function Base.convert(::Type{AbstractProposalDist}, q::GenericProposalDist, T::Type{<:AbstractFloat}, ndof::Integer)
-    ndof != totalndof(q) && throw(ArgumentError("q has wrong number of DOF"))
+function Base.convert(::Type{AbstractProposalDist}, q::GenericProposalDist, T::Type{<:AbstractFloat}, varndof::Integer)
+    varndof != totalndof(q) && throw(ArgumentError("q has wrong number of DOF"))
     q
 end
 
@@ -246,8 +246,8 @@ end
 MvTDistProposal() = MvTDistProposal(1.0)
 
 
-(ps::MvTDistProposal)(T::Type{<:AbstractFloat}, n_params::Integer) =
-    GenericProposalDist(MvTDist, T, n_params, convert(T, ps.df))
+(ps::MvTDistProposal)(T::Type{<:AbstractFloat}, varndof::Integer) =
+    GenericProposalDist(MvTDist, T, varndof, convert(T, ps.df))
 
 function GenericProposalDist(::Type{MvTDist}, T::Type{<:AbstractFloat}, varndof::Integer, df = one(T))
     Σ = PDMat(Matrix(ScalMat(varndof, one(T))))
@@ -262,5 +262,5 @@ struct UvTDistProposalSpec <: ProposalDistSpec
     df::Float64
 end
 
-(ps::UvTDistProposalSpec)(T::Type{<:AbstractFloat}, n_params::Integer) =
-    GenericUvProposalDist(TDist(convert(T, ps.df)), fill(one(T), n_params))
+(ps::UvTDistProposalSpec)(T::Type{<:AbstractFloat}, varndof::Integer) =
+    GenericUvProposalDist(TDist(convert(T, ps.df)), fill(one(T), varndof))

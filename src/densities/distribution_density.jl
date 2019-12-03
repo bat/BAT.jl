@@ -24,9 +24,9 @@ Base.parent(density::DistributionDensity) = density.dist
 
 function density_logval(
     density::DistributionDensity,
-    params::Any
+    v::Any
 )
-    Distributions.logpdf(density.dist, params)
+    Distributions.logpdf(density.dist, v)
 end
 
 ValueShapes.varshape(density::DistributionDensity) = varshape(density.dist)

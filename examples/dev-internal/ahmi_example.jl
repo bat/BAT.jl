@@ -10,10 +10,10 @@ end
 ValueShapes.totalndof(model::GaussianShellDensity) = model.dimensions
 
 #define likelihood for the Gaussian Shell
-function BAT.density_logval(target::GaussianShellDensity, params::AbstractArray{Float64, 1})
+function BAT.density_logval(target::GaussianShellDensity, v::AbstractArray{Float64, 1})
     diff::Float64 = 0
-    for i in eachindex(params)
-        diff += (target.lambda[i] - params[i]) * (target.lambda[i] - params[i])
+    for i in eachindex(v)
+        diff += (target.lambda[i] - v[i]) * (target.lambda[i] - v[i])
     end
     diff = sqrt(diff)
     expo::Float64 = exp(-(diff - target.r) * (diff - target.r) / (2 * target.sigma^2))

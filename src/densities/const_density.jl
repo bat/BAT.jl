@@ -20,7 +20,7 @@ Base.convert(::Type{AbstractDensity}, bounds::VarVolumeBounds) =
 
 function density_logval(
     density::ConstDensity,
-    params::AbstractVector{<:Real}
+    v::AbstractVector{<:Real}
 )
     density.log_value
 end

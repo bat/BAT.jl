@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 @recipe function f(samples::DensitySampleVector; 
-                params=collect(1:5), 
+                vsel=collect(1:5), 
                 mean=false,
                 std_dev=false,
                 globalmode=false,
@@ -12,19 +12,19 @@
                 param_labels = [])
 
     
-    parsel = params
-    parsel = parsel[parsel .<= Base.size(samples.params[1], 1)]
+    mod_vsel = vsel
+    mod_vsel = vsel[vsel .<= Base.size(samples.params[1], 1)]
 
 
     if Base.size(param_labels, 1) == 0
-        param_labels = [latexstring("\\theta_$i") for i in parsel]
-        param_labels_y = [latexstring("p(\\theta_$i)") for i in parsel]
+        param_labels = [latexstring("\\theta_$i") for i in mod_vsel]
+        param_labels_y = [latexstring("p(\\theta_$i)") for i in mod_vsel]
     else
         param_labels_y = [latexstring("p("*param_labels[i]*")") for i in 1:length(param_labels)]
         param_labels = [latexstring(param_labels[i]) for i in 1:length(param_labels)]
     end
 
-    nparams = length(parsel)   
+    nparams = length(mod_vsel)   
     layout --> nparams^2
     size --> (1000, 600)
     
@@ -49,7 +49,7 @@
             xguide --> param_labels[i]
             yguide --> param_labels_y[i]
             
-            samples, (parsel[i])
+            samples, (mod_vsel[i])
         end
 
         
@@ -73,7 +73,7 @@
                 xguide --> param_labels[i]
                 yguide --> param_labels[j]
 
-                samples, (parsel[i], parsel[j])
+                samples, (mod_vsel[i], mod_vsel[j])
             end
 
             # lower left plots
@@ -94,7 +94,7 @@
                 xguide --> param_labels[i]
                 yguide --> param_labels[j]
 
-                samples, (parsel[i], parsel[j])
+                samples, (mod_vsel[i], mod_vsel[j])
             end
 
         end 
