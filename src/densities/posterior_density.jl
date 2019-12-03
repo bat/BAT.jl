@@ -62,7 +62,7 @@ function apply_bounds_and_eval_posterior_logval!(
     bounds = param_bounds(posterior)
     apply_bounds!(params, bounds)
 
-    parshapes = params_shape(posterior)
+    parshapes = varshape(posterior)
     zero_prob_logval = convert(T, -Inf)
 
     prior_logval = if !isoob(params)
@@ -108,7 +108,7 @@ function apply_bounds_and_eval_posterior_logval_strict!(
     bounds = param_bounds(posterior)
     apply_bounds!(params, bounds)
 
-    parshapes = params_shape(posterior)
+    parshapes = varshape(posterior)
 
     prior_logval = if !isoob(params)
         eval_density_logval(getprior(posterior), params, parshapes)
@@ -129,7 +129,7 @@ end
 
 
 function density_logval(density::AbstractPosteriorDensity, params::AbstractVector{<:Real})
-    parshapes = params_shape(density)
+    parshapes = varshape(density)
     eval_density_logval(getprior(density), params, parshapes) +
     eval_density_logval(getlikelihood(density), params, parshapes)
 end
@@ -208,8 +208,8 @@ function PosteriorDensity(likelihood::Any, prior::Any)
     )
 
     parshapes = _posterior_parshapes(
-        params_shape(li),
-        params_shape(pr)
+        varshape(li),
+        varshape(pr)
     )
 
     PosteriorDensity(li, pr, parbounds, parshapes)
@@ -222,7 +222,7 @@ getprior(posterior::PosteriorDensity) = posterior.prior
 
 param_bounds(posterior::PosteriorDensity) = posterior.parbounds
 
-params_shape(posterior::PosteriorDensity) = posterior.parshapes
+ValueShapes.varshape(posterior::PosteriorDensity) = posterior.parshapes
 
 
 function _posterior_parshapes(li_ps::AbstractValueShape, pr_ps::AbstractValueShape)

@@ -20,7 +20,7 @@ Base.parent(density::DensityProduct) = density.densities
 
 param_bounds(density::DensityProduct) = density.bounds
 
-ValueShapes.totalndof(density::DensityProduct) = totalndof(density.bounds)
+ValueShapes.varshape(density::DensityProduct) = ArrayShape{Real}(totalndof(density.bounds))
 
 
 import Base.*

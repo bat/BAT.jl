@@ -49,7 +49,7 @@ end
     localmode = true,
     filter = true
 )
-    i = findfirst(x -> x == param, keys(params_shape(posterior)))
+    i = findfirst(x -> x == param, keys(varshape(posterior)))
 
     @series begin
         intervals --> intervals

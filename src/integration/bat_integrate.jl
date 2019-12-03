@@ -44,7 +44,7 @@ end
 
 
 function bat_integrate(posterior::AnyPosterior)
-    npar = totalndof(params_shape(posterior))
+    npar = totalndof(varshape(posterior))
     nsamples = 10^5 * npar
     samples = bat_sample(posterior, nsamples).result::DensitySampleVector
     bat_integrate(samples)

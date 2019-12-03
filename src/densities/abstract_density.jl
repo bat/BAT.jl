@@ -14,26 +14,18 @@ Subtypes of `AbstractDensity` must implement the function
 For likelihood densities this is typically sufficient, since shape, and
 bounds of parameters will be inferred from the prior.
 
+Densities with a known variate shape may also implement
+
+* `ValueShapes.varshape`
+
 Densities with known parameters bounds may also implement
 
 * `BAT.param_bounds`
 
-If the parameter bounds are unkown, but the number of parameters is known,
-the function
-
-* `ValueShapes.totalndof`
-
-may be implemented directly (usually it is inferred from the bounds).
-
 !!! note
 
-    The functions `BAT.param_bounds` and `BAT.params_shape` are currently not
-    part of the stable public BAT-API, their names and arguments may change
-    without notice.
-
-Densities that support named parameters should also implement
-
-* `BAT.params_shape`
+    The function `BAT.param_bounds` is not part of the stable public BAT-API,
+    it's name and arguments may change without notice.
 """
 abstract type AbstractDensity end
 export AbstractDensity
@@ -85,33 +77,20 @@ end
 
 
 @doc doc"""
-    params_shape(
+    ValueShapes.varshape(
         density::AbstractDensity
     )::Union{ValueShapes.AbstractValueShape,Missing}
 
-    params_shape(
+    ValueShapes.varshape(
         density::DistLikeDensity
     )::ValueShapes.AbstractValueShape
 
-    params_shape(
-        distribution::Distributions.Distribution
-    )::ValueShapes.AbstractValueShape
-
-*BAT-internal, not part of stable public API.*
-
-Get the shapes of parameters of `density`.
+Get the shapes of the variates of `density`.
 
 For prior densities, the result must not be `missing`, but may be `nothing` if
 the prior only supports flat parameter vectors.
 """
-function params_shape end
-
-params_shape(density::AbstractDensity) = missing
-
-params_shape(dist::Distribution) = varshape(dist)
-
-
-ValueShapes.varshape(density::AbstractDensity) = params_shape(density)
+ValueShapes.varshape(density::AbstractDensity) = missing
 
 
 @doc doc"""
@@ -125,7 +104,7 @@ ValueShapes.varshape(density::AbstractDensity) = params_shape(density)
 
 Evaluates density log-value via `density_logval`.
 
-`parshapes` *must* be compatible with `params_shape(density)`.
+`parshapes` *must* be compatible with `ValueShapes.varshape(density)`.
 
 Checks that:
 
@@ -166,13 +145,16 @@ Subtypes of `DistLikeDensity` are required to support more functionality
 than a `AbstractDensity`, but less than a
 `Distribution{Multivariate,Continuous}`.
 
+A `d::Distribution{Multivariate,Continuous}` can be converted into (wrapped
+in) an `DistLikeDensity` via `conv(DistLikeDensity, d)`.
+
 The following functions must be implemented for subtypes:
 
 * `BAT.density_logval`
 
 * `BAT.param_bounds`
 
-* `BAT.params_shape`
+* `ValueShapes.varshape`
 
 * `Distributions.sampler`
 
@@ -180,16 +162,8 @@ The following functions must be implemented for subtypes:
 
 !!! note
 
-    The functions `BAT.param_bounds` and `BAT.params_shape` are currently not
-    part of the stable public BAT-API, their names and arguments may change
-    without notice.
-
-Prior densities that support non-flat parameters should also implement
-
-* `BAT.params_shape`
-
-A `d::Distribution{Multivariate,Continuous}` can be converted into (wrapped
-in) an `DistLikeDensity` via `conv(DistLikeDensity, d)`.
+    The function `BAT.param_bounds` is not part of the stable public BAT-API,
+    it's name and arguments may change without notice.
 """
 abstract type DistLikeDensity <: AbstractDensity end
 export DistLikeDensity

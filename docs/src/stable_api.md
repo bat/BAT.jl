@@ -69,4 +69,5 @@ BAT.AbstractSamplingAlgorithm
 BAT.AnyPosterior
 
 ValueShapes.totalndof
+ValueShapes.varshape
 ```

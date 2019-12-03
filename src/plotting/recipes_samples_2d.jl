@@ -50,8 +50,8 @@ end
     filter = true
 )
 
-    i = findfirst(x -> x == parsel[1], keys(params_shape(posterior)))
-    j = findfirst(x -> x == parsel[2], keys(params_shape(posterior)))
+    i = findfirst(x -> x == parsel[1], keys(varshape(posterior)))
+    j = findfirst(x -> x == parsel[2], keys(varshape(posterior)))
 
     @series begin
         intervals --> intervals
