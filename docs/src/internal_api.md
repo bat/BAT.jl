@@ -77,7 +77,7 @@ BAT.hm_init
 BAT.hm_integrate!
 BAT.hm_whiteningtransformation!
 BAT.hyperrectangle_creationproccess!
-BAT.initial_params!
+BAT.mcmc_startval!
 BAT.issymmetric_around_origin
 BAT.log_volume
 BAT.modify_hypercube!

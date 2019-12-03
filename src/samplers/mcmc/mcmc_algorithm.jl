@@ -20,8 +20,8 @@ In some cases, these custom methods may be necessary (default methods are
 defined for `MCMCAlgorithm`):
 
 ```julia
-BAT.initial_params!(
-    params::Union{AbstractVector{<:Real},VectorOfSimilarVectors{<:Real}},
+BAT.mcmc_startval!(
+    x::Union{AbstractVector{<:Real},VectorOfSimilarVectors{<:Real}},
     rng::AbstractRNG,
     posterior::AbstractPosteriorDensity,
     algorithm::SomeAlgorithm
@@ -36,27 +36,27 @@ export MCMCAlgorithm
 
 
 """
-    BAT.initial_params!(
-        params::Union{AbstractVector{<:Real},VectorOfSimilarVectors{<:Real}},
+    BAT.mcmc_startval!(
+        x::Union{AbstractVector{<:Real},VectorOfSimilarVectors{<:Real}},
         rng::AbstractRNG,
         posterior::AbstractPosteriorDensity,
         algorithm::MCMCAlgorithm
-    )::typeof(params)
+    )::typeof(x)
 
 *BAT-internal, not part of stable public API.*
 
-Fill `params` with random initial parameters suitable for `posterior` and
+Fill `x` a random initial argument suitable for `posterior` and
 `algorithm`. The default implementation will try to draw the initial
-parameters from the prior of the posterior.
+argument value from the prior of the posterior.
 """
-function initial_params! end
+function mcmc_startval! end
 
-initial_params!(
-    params::Union{AbstractVector{<:Real},VectorOfSimilarVectors{<:Real}},
+mcmc_startval!(
+    x::Union{AbstractVector{<:Real},VectorOfSimilarVectors{<:Real}},
     rng::AbstractRNG,
     posterior::AbstractPosteriorDensity,
     algorithm::MCMCAlgorithm
-) = rand!(rng, sampler(getprior(posterior)), params)
+) = rand!(rng, sampler(getprior(posterior)), x)
 
 
 @doc doc"""
