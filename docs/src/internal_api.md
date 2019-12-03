@@ -83,7 +83,6 @@ BAT.log_volume
 BAT.modify_hypercube!
 BAT.modify_integrationvolume!
 BAT.param_bounds
-BAT.params_shape
 BAT.proposal_rand!
 BAT.spatialvolume
 BAT.sum_first_dim

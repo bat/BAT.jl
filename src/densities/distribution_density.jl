@@ -29,7 +29,7 @@ function density_logval(
     Distributions.logpdf(density.dist, params)
 end
 
-params_shape(density::DistributionDensity) = varshape(density.dist)
+ValueShapes.varshape(density::DistributionDensity) = varshape(density.dist)
 
 Distributions.sampler(density::DistributionDensity) = bat_sampler(parent(density))
 
