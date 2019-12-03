@@ -3,8 +3,8 @@
 
 struct ParameterMappedDensity{
     D<:AbstractDensity,
-    M<:ParameterMapping,
-    B<:AbstractParamBounds,
+    M<:VarMapping,
+    B<:AbstractVarBounds,
 } <: AbstractDensity
     orig_density::D
     parmap::M
@@ -12,12 +12,12 @@ struct ParameterMappedDensity{
 end
 
 
-ParameterMappedDensity(density::AbstractDensity, parmap::ParameterMapping) =
+ParameterMappedDensity(density::AbstractDensity, parmap::VarMapping) =
     ParameterMappedDensity(density, parmap, invmap_params(parmap, var_bounds(density)))
 
 
 import Base.∘
-∘(density::AbstractDensity, parmap::ParameterMapping) =
+∘(density::AbstractDensity, parmap::VarMapping) =
     ParameterMappedDensity(density, parmap)
 
 
@@ -29,10 +29,10 @@ ValueShapes.varshape(density::ParameterMappedDensity) = ArrayShape{Real}(totalnd
 
 
 function BAT.density_logval(density::ParameterMappedDensity, params::AbstractVector{<:Real})
-    BAT.density_logval(density.orig_density, map_params(density.parmap, params))
+    BAT.density_logval(density.orig_density, map_vars(density.parmap, params))
 end
 
 
 import Base.∘
-∘(density::ConstDensity{<:HyperRectBounds}, parmap::ParameterMapping) =
+∘(density::ConstDensity{<:HyperRectBounds}, parmap::VarMapping) =
     ConstDensity(invmap_params(parmap, density.bounds), density.log_value)

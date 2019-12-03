@@ -4,14 +4,14 @@
 struct DensityProduct{
     N,
     D<:NTuple{N,AbstractDensity},
-    B<:AbstractParamBounds
+    B<:AbstractVarBounds
 } <: AbstractDensity
     densities::D
     bounds::B
 
     # ToDo: Check for equal number of parameters in DensityProduct ctor.
 
-    DensityProduct(densities::D, bounds::B) where {N,D<:NTuple{N,AbstractDensity},B<:AbstractParamBounds} =
+    DensityProduct(densities::D, bounds::B) where {N,D<:NTuple{N,AbstractDensity},B<:AbstractVarBounds} =
         new{N,D,B}(densities, bounds)
 
 end
@@ -31,16 +31,16 @@ function *(a::AbstractDensity, b::AbstractDensity)
 end
 
 
-_unsafe_prod(a::AbstractDensity, b::AbstractDensity, new_bounds::AbstractParamBounds) =
+_unsafe_prod(a::AbstractDensity, b::AbstractDensity, new_bounds::AbstractVarBounds) =
     DensityProduct((a,b), new_bounds)
 
-_unsafe_prod(a::AbstractDensity, b::DensityProduct, new_bounds::AbstractParamBounds) =
+_unsafe_prod(a::AbstractDensity, b::DensityProduct, new_bounds::AbstractVarBounds) =
     DensityProduct((a, b.densities...), new_bounds)
 
-_unsafe_prod(a::DensityProduct, b::DensityProduct, new_bounds::AbstractParamBounds) =
+_unsafe_prod(a::DensityProduct, b::DensityProduct, new_bounds::AbstractVarBounds) =
     DensityProduct((a.densities..., b.densities...), new_bounds)
 
-_unsafe_prod(a::DensityProduct, b::AbstractDensity, new_bounds::AbstractParamBounds) =
+_unsafe_prod(a::DensityProduct, b::AbstractDensity, new_bounds::AbstractVarBounds) =
     DensityProduct((a.densities...,b), new_bounds)
 
 

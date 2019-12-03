@@ -109,7 +109,7 @@ MCMCSpec(
 @deprecate MCMCSpec(
     algorithm::MCMCAlgorithm,
     likelihood::Union{AbstractDensity,Distribution{Multivariate,Continuous}},
-    prior::Union{AbstractDensity,ParamVolumeBounds},
+    prior::Union{AbstractDensity,VarVolumeBounds},
     rngseed::AbstractRNGSeed = AbstractRNGSeed()
 ) MCMCSpec(algorithm, PosteriorDensity(likelihood, prior), rngseed)
 

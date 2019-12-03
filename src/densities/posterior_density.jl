@@ -179,7 +179,7 @@ PosteriorDensity(log_likelihood::Function, prior::Any)
 struct PosteriorDensity{
     L<:AbstractDensity,
     P<:DistLikeDensity,
-    B<:AbstractParamBounds,
+    B<:AbstractVarBounds,
     S<:AbstractValueShape
 } <: AbstractPosteriorDensity
     likelihood::L
@@ -252,10 +252,10 @@ _posterior_parshapes(li_ps::Union{AbstractValueShape,Missing}, pr_ps::Missing) =
     throw(ArgumentError("Parameter shapes of prior must not be missing"))
 
 
-_posterior_parbounds(li_bounds::AbstractParamBounds, pr_bounds::AbstractParamBounds) =
+_posterior_parbounds(li_bounds::AbstractVarBounds, pr_bounds::AbstractVarBounds) =
      li_bounds ∩ pr_bounds
 
-_posterior_parbounds(li_bounds::Missing, pr_bounds::AbstractParamBounds) = pr_bounds
+_posterior_parbounds(li_bounds::Missing, pr_bounds::AbstractVarBounds) = pr_bounds
 
 
 
