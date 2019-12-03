@@ -8,6 +8,7 @@ using Documenter
 using Literate
 using BAT
 
+using ValueShapes
 import HDF5
 
 

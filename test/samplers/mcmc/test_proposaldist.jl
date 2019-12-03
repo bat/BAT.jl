@@ -62,7 +62,7 @@ test_sampler(tmv::test_mvdist) = tmv.d
 
         @test Matrix(BAT.get_cov(gpd)) ≈ Matrix{Float64}(I, 2, 2)
 
-        @test nparams(gpd) == 2
+        @test totalndof(gpd) == 2
         @test issymmetric(gpd)
 
         d = MvTDist(1.5, ones(2), PDMat([1. 0.5; 0.5 2]))
@@ -70,7 +70,7 @@ test_sampler(tmv::test_mvdist) = tmv.d
         @test !issymmetric(gpd)
 
         gpd = @inferred BAT.GenericProposalDist(MvTDist, Float64, 3, 2.0)
-        @test nparams(gpd) == 3
+        @test totalndof(gpd) == 3
         @test typeof(gpd) <: BAT.GenericProposalDist{<:Distributions.GenericMvTDist, typeof(BAT.bat_sampler)}
         @test gpd.d.df ≈ 2.0
 
@@ -109,7 +109,7 @@ test_sampler(tmv::test_mvdist) = tmv.d
         @test BAT.MvTDistProposal().df ≈ 1.0
 
         gpd = @inferred mvTps(Float64, 3)
-        @test nparams(gpd) == 3
+        @test totalndof(gpd) == 3
         @test typeof(gpd) <: BAT.GenericProposalDist{<:Distributions.GenericMvTDist, typeof(BAT.bat_sampler)}
         @test gpd.d.df ≈ 4.0
     end

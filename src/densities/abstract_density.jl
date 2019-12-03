@@ -21,7 +21,7 @@ Densities with known parameters bounds may also implement
 If the parameter bounds are unkown, but the number of parameters is known,
 the function
 
-* `BAT.nparams`
+* `ValueShapes.totalndof`
 
 may be implemented directly (usually it is inferred from the bounds).
 
@@ -73,16 +73,15 @@ param_bounds(density::AbstractDensity) = missing
 
 
 @doc doc"""
-    nparams(density::AbstractDensity)::Union{Int,Missing}
+    ValueShapes.totalndof(density::AbstractDensity)::Union{Int,Missing}
 
-Get the number of parameters of `density`. May return `missing`, if the
-density supports a variable number of parameters.
+Get the number of degrees of freedom of the variates of `density`. May return
+`missing`, if the shape of the variates is not fixed.
 """
-function nparams(density::AbstractDensity)
+function ValueShapes.totalndof(density::AbstractDensity)
     bounds = param_bounds(density)
-    ismissing(bounds) ? missing : nparams(bounds)
+    ismissing(bounds) ? missing : ValueShapes.totalndof(bounds)
 end
-export nparams
 
 
 @doc doc"""
@@ -140,7 +139,7 @@ function eval_density_logval(
     params::AbstractVector{<:Real},
     parshapes::ValueShapes.AbstractValueShape
 )
-    npars = nparams(density)
+    npars = totalndof(density)
     ismissing(npars) || (length(eachindex(params)) == npars) || throw(ArgumentError("Invalid length of parameter vector"))
 
     r = float(density_logval(density, _apply_parshapes(params, parshapes)))
@@ -207,10 +206,10 @@ function param_bounds end
 
 
 @doc doc"""
-    nparams(density::DistLikeDensity)::Int
+    ValueShapes.totalndof(density::DistLikeDensity)::Int
 
-Get the number of parameters of prior density `density`. Must not be
-`missing`, prior densities must have a fixed number of parameters. By default,
-the number of parameters is inferred from the parameter bounds.
+Get the number of parameters of degrees of freedom of the variates of
+`density`. Must not be `missing`, a `DistLikeDensity` must have a fixed
+variate shape.
 """
-nparams(density::DistLikeDensity) = nparams(param_bounds(density))
+ValueShapes.totalndof(density::DistLikeDensity) = totalndof(param_bounds(density))

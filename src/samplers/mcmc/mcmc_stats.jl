@@ -40,15 +40,15 @@ struct MCMCBasicStats{L<:Real,P<:Real} <: AbstractMCMCStats
 end
 
 
-function MCMCBasicStats(::Type{S}, nparams::Integer) where {
+function MCMCBasicStats(::Type{S}, ndof::Integer) where {
     PT<:Real, T, W, S<:DensitySample{<:AbstractVector{PT},T,W}
 }
     SL = promote_type(T, Float64)
     SP = promote_type(PT, W, Float64)
-    MCMCBasicStats{SL,SP}(nparams)
+    MCMCBasicStats{SL,SP}(ndof)
 end
 
-MCMCBasicStats(chain::MCMCIterator) = MCMCBasicStats(sample_type(chain), nparams(chain))
+MCMCBasicStats(chain::MCMCIterator) = MCMCBasicStats(sample_type(chain), totalndof(getposterior(chain)))
 
 function MCMCBasicStats(sv::DensitySampleVector)
     stats = MCMCBasicStats(eltype(sv), innersize(sv.params, 1))
@@ -91,7 +91,7 @@ function Base.append!(stats::MCMCBasicStats, sv::DensitySampleVector)
 end
 
 
-nparams(stats::MCMCBasicStats) = stats.param_stats.m
+ValueShapes.totalndof(stats::MCMCBasicStats) = stats.param_stats.m
 
 nsamples(stats::MCMCBasicStats) = stats.param_stats.cov.sum_w
 

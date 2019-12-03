@@ -174,7 +174,6 @@ The following methods are implemented by default:
 algorithm(chain::MCMCIterator)
 getposterior(chain::MCMCIterator)
 rngseed(chain::MCMCIterator)
-nparams(chain::MCMCIterator)
 DensitySampleVector(chain::MCMCIterator)
 mcmc_iterate!(callback, chain::MCMCIterator, ...)
 mcmc_iterate!(callbacks, chains::AbstractVector{<:MCMCIterator}, ...)
@@ -213,9 +212,7 @@ getposterior(chain::MCMCIterator) = mcmc_spec(chain).posterior
 
 rngseed(chain::MCMCIterator) = mcmc_spec(chain).rngseed
 
-nparams(chain::MCMCIterator) = nparams(getposterior(chain))
-
-DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(sample_type(chain), nparams(chain))
+DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(sample_type(chain), totalndof(getposterior(chain)))
 
 
 

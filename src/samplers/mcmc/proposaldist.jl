@@ -10,7 +10,7 @@ The following functions must be implemented for subtypes:
 
 * `BAT.distribution_logpdf`
 * `BAT.proposal_rand!`
-* `BAT.nparams`, returning the number of parameters (i.e. dimensionality).
+* `ValueShapes.totalndof`, returning the number of parameters (i.e. dimensionality).
 * `LinearAlgebra.issymmetric`, indicating whether p(a -> b) == p(b -> a) holds true.
 
 In some cases, it may be desirable to override the default implementation
@@ -132,8 +132,8 @@ GenericProposalDist(D::Type{<:Distribution{Multivariate}}, n_params::Integer, ar
 Base.similar(q::GenericProposalDist, d::Distribution{Multivariate}) =
     GenericProposalDist(d, q.sampler_f)
 
-function Base.convert(::Type{AbstractProposalDist}, q::GenericProposalDist, T::Type{<:AbstractFloat}, n_params::Integer)
-    n_params != nparams(q) && throw(ArgumentError("q has wrong number of parameters"))
+function Base.convert(::Type{AbstractProposalDist}, q::GenericProposalDist, T::Type{<:AbstractFloat}, ndof::Integer)
+    ndof != totalndof(q) && throw(ArgumentError("q has wrong number of parameters"))
     q
 end
 
@@ -187,7 +187,7 @@ function proposal_rand!(
 end
 
 
-nparams(pdist::GenericProposalDist) = length(pdist.d)
+ValueShapes.totalndof(pdist::GenericProposalDist) = length(pdist.d)
 
 LinearAlgebra.issymmetric(pdist::GenericProposalDist) = issymmetric_around_origin(pdist.d)
 
@@ -208,7 +208,7 @@ GenericUvProposalDist(d::Distribution{Univariate}, scale::Vector{<:AbstractFloat
     GenericUvProposalDist(d, scale, bat_sampler)
 
 
-BAT.nparams(pdist::GenericUvProposalDist) = size(pdist.scale, 1)
+ValueShapes.totalndof(pdist::GenericUvProposalDist) = size(pdist.scale, 1)
 
 LinearAlgebra.issymmetric(pdist::GenericUvProposalDist) = issymmetric_around_origin(pdist.d)
 

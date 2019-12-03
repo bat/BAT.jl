@@ -12,7 +12,7 @@ using ArraysOfArrays, Distributions, PDMats, ValueShapes
     @testset "properties" begin
         @test typeof(mvdd) <: AbstractDensity
         @test parent(mvdd) == mvt
-        @test nparams(mvdd) == 2
+        @test totalndof(mvdd) == 2
     end
 
     @testset "BAT.density_logval" begin

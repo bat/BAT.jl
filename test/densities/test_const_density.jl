@@ -26,7 +26,7 @@ using ArraysOfArrays, Distributions
 
         pbounds = @inferred BAT.param_bounds(density)
         @test pbounds.vol.lo ≈ [-1., 0.5]
-        @test nparams(density) == 2
+        @test totalndof(density) == 2
     end
 
     @testset "convert" begin
