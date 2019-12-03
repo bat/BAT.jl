@@ -59,7 +59,7 @@ end
 function MHIterator(
     spec::MCMCSpec,
     info::MCMCIteratorInfo,
-    initial_params::AbstractVector{P},
+    x_init::AbstractVector{P},
 ) where {P<:Real}
     stepno::Int64 = 0
     rng = spec.rngseed()
@@ -70,10 +70,10 @@ function MHIterator(
     alg = spec.algorithm
 
     params_vec = Vector{P}(undef, npar)
-    if isempty(initial_params)
-        initial_params!(params_vec, rng, postr, alg)
+    if isempty(x_init)
+        mcmc_startval!(params_vec, rng, postr, alg)
     else
-        params_vec .= initial_params
+        params_vec .= x_init
     end
     !(params_vec in var_bounds(postr)) && throw(ArgumentError("Parameter(s) out of bounds"))
 
