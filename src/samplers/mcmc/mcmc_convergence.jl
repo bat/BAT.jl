@@ -25,7 +25,7 @@ end
 
 *BAT-internal, not part of stable public API.*
 
-Gelman-Rubin ``\$R^2\$`` for all parameters.
+Gelman-Rubin ``\$R^2\$`` for all DOF.
 """
 function gr_Rsqr(stats::AbstractVector{<:MCMCBasicStats})
     m = totalndof(first(stats))
@@ -71,7 +71,7 @@ end
 
 *BAT-internal, not part of stable public API.*
 
-Brooks-Gelman $R_2^2$ for all parameters.
+Brooks-Gelman $R_2^2$ for all DOF.
 If normality is assumed, 'corrected' should be set to true to account for the sampling variability.
 """
 function bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats}; corrected::Bool = false)

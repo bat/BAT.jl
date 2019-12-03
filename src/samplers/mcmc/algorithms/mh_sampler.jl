@@ -242,14 +242,14 @@ function mcmc_step!(
         current_params = samples.params[current]
         proposed_params = samples.params[proposed]
 
-        # Propose new parameters:
+        # Propose new variate:
         samples.weight[proposed] = 0
         proposal_rand!(rng, proposaldist, proposed_params, current_params)
 
         current_log_posterior = samples.logdensity[current]
         T = typeof(current_log_posterior)
 
-        # Evaluate prior and likelihood with proposed parameters:
+        # Evaluate prior and likelihood with proposed variate:
         proposed_log_posterior = apply_bounds_and_eval_posterior_logval!(T, pstr, proposed_params)
 
         samples.logdensity[proposed] = proposed_log_posterior
