@@ -14,7 +14,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     mvnorm = @inferred  MvNormal(mvec, Σ)
 
     density = let mvnorm = mvnorm
-        @inferred BAT.GenericDensity(params -> logpdf(mvnorm, params))
+        @inferred BAT.GenericDensity(params -> LogDVal(logpdf(mvnorm, params)))
     end
 
     params = [0.0, 0.0]
@@ -25,6 +25,6 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     end
 
     @testset "parent" begin
-        @test @inferred parent(density) == density.log_f
+        @test @inferred parent(density) == density.f
     end
 end

@@ -135,7 +135,7 @@ using BAT, IntervalSets
 # necessary. Typically, however, it is sufficient to define a custom
 # likelihood as a simple function that returns the log-likelihood value for
 # a given set of parameters. BAT will automatically convert such a
-# log-likelihood function into a subtype of `AbstractDensity`.
+# likelihood function into a subtype of `AbstractDensity`.
 #
 # For performance reasons, functions should [not access global variables
 # directly] (https://docs.julialang.org/en/v1/manual/performance-tips/index.html#Avoid-global-variables-1).
@@ -143,9 +143,10 @@ using BAT, IntervalSets
 # inside of a [let-statement](https://docs.julialang.org/en/v1/base/base/#let)
 # to capture the value of the global variable `hist` in a local variable `h`
 # (and to shorten function name `fit_function` to `f`, purely for
-# convenience):
+# convenience). The likelihood function wraps it's result in a [`LogDVal`](@ref)
+# to indicate that it returns a log-likelihood value:
 
-log_likelihood = let h = hist, f = fit_function
+likelihood = let h = hist, f = fit_function
     params -> begin
         ## Histogram counts for each bin as an array:
         counts = h.weights
@@ -170,7 +171,7 @@ log_likelihood = let h = hist, f = fit_function
             ll_value += logpdf(Poisson(expected_counts), observed_counts)
         end
 
-        return ll_value
+        return LogDVal(ll_value)
     end
 end
 
@@ -188,9 +189,9 @@ end
 # [`JULIA_NUM_THREADS`](https://docs.julialang.org/en/v1/manual/environment-variables/#JULIA_NUM_THREADS-1)
 # to specify the desired number of Julia threads.
 
-# We can evaluate `log_likelihood`, e.g. for the true parameter values:
+# We can evaluate `likelihood`, e.g. for the true parameter values:
 
-log_likelihood(true_par_values)
+likelihood(true_par_values)
 
 
 # ### Prior Definition
@@ -226,7 +227,7 @@ parshapes = varshape(prior)
 # Given the likelihood and prior definition, a `BAT.PosteriorDensity` is simply
 # defined via
 
-posterior = PosteriorDensity(log_likelihood, prior)
+posterior = PosteriorDensity(likelihood, prior)
 #md nothing # hide
 
 

@@ -4,31 +4,28 @@
 @doc doc"""
     GenericDensity{F<:Function} <: AbstractDensity
 
-*BAT-internal, not part of stable public API.*
-
 Constructors:
 
-    GenericDensity(log_f)
+    GenericDensity(f)
 
-Turns the logarithmic density function `log_f` into a BAT-compatible
-`AbstractDensity`. `log_f` must support
+Turns the density function `f` into a BAT-compatible [`AbstractDensity)(@ref).
+`f(v)` must return either a [`LogDVal`](@ref) (recommended) or a
+[`LinDVal`](@ref).
 
-    `log_f(v::Any)::Real`
-
-It must be safe to execute `log_f` in parallel on multiple threads and
+It must be safe to execute `f` in parallel on multiple threads and
 processes.
 """
 struct GenericDensity{F<:Function} <: AbstractDensity
-    log_f::F
+    f::F
 end
 
-Base.convert(::Type{GenericDensity}, log_f::Function) = GenericDensity(log_f)
-Base.convert(::Type{AbstractDensity}, log_f::Function) = GenericDensity(log_f)
+Base.convert(::Type{GenericDensity}, f::Function) = GenericDensity(f)
+Base.convert(::Type{AbstractDensity}, f::Function) = GenericDensity(f)
 
 
-Base.parent(density::GenericDensity) = density.log_f
+Base.parent(density::GenericDensity) = density.f
 
 
 function density_logval(density::GenericDensity, v::Any)
-    density.log_f(v)
+    density_logval(density.f(v))
 end

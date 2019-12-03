@@ -12,7 +12,7 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes
         a = MvNormal([1.5, 0.5, 2.5], Matrix{Float32}(I, 3, 3))
     )
 
-    posterior = PosteriorDensity(X -> 0, prior)
+    posterior = PosteriorDensity(v -> LogDVal(0), prior)
 
     true_mode = [2.0, 1.5, 0.5, 2.5]
 

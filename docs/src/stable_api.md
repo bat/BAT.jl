@@ -50,6 +50,8 @@ DensitySample
 DensitySampleVector
 DistLikeDensity
 GelmanRubinConvergence
+LinDVal
+LogDVal
 MaxDensityLBFGS
 MaxDensityNelderMead
 MaxDensitySampleSearch
@@ -67,6 +69,7 @@ RepetitionWeighting
 BAT.AbstractModeEstimator
 BAT.AbstractSamplingAlgorithm
 BAT.AnyPosterior
+BAT.GenericDensity
 
 ValueShapes.totalndof
 ValueShapes.varshape
