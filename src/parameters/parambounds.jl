@@ -1,14 +1,14 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-const _default_PT = Float32 # Default type for parameter values
+const _default_PT = Float32 # Default type/eltype for variate/parameter values
 
 
-abstract type AbstractParamBounds end
+abstract type AbstractVarBounds end
 
 
-function Base.intersect(a::AbstractParamBounds, b::AbstractParamBounds)
-    totalndof(a) != totalndof(b) && throw(ArgumentError("Can't intersect parameter bounds with different number of parameters"))
+function Base.intersect(a::AbstractVarBounds, b::AbstractVarBounds)
+    totalndof(a) != totalndof(b) && throw(ArgumentError("Can't intersect bounds with different number of DOF"))
     unsafe_intersect(a, b)
 end
 
@@ -40,11 +40,11 @@ end
 
 
 @doc doc"""
-    apply_bounds!(params::AbstractVector, bounds::AbstractParamBounds)
+    apply_bounds!(x::AbstractVector, bounds::AbstractVarBounds)
 
 *BAT-internal, not part of stable public API.*
 
-Apply `bounds` to parameters `params`.
+Apply `bounds` to variate/parameters `x`.
 """
 function apply_bounds! end
 
@@ -96,56 +96,56 @@ Specify lower and upper bound via `interval`.
 
 
 
-struct NoParamBounds <: AbstractParamBounds
+struct NoVarBounds <: AbstractVarBounds
     ndims::Int
 end
 
-# TODO: Find better solution to determine param type if no bounds:
-Base.eltype(bounds::NoParamBounds) = _default_PT
+# TODO: Find better solution to determine value type if no bounds:
+Base.eltype(bounds::NoVarBounds) = _default_PT
 
 
-Base.in(params::AbstractVector, bounds::NoParamBounds) = true
-Base.in(params::VectorOfSimilarVectors, bounds::NoParamBounds, i::Integer) = true
+Base.in(x::AbstractVector, bounds::NoVarBounds) = true
+# Base.in(x::VectorOfSimilarVectors, bounds::NoVarBounds, i::Integer) = true
 
-ValueShapes.totalndof(b::NoParamBounds) = b.ndims
+ValueShapes.totalndof(b::NoVarBounds) = b.ndims
 
-apply_bounds!(params::Union{AbstractVector,VectorOfSimilarVectors}, bounds::NoParamBounds, setoob = true) = params
+apply_bounds!(x::Union{AbstractVector,VectorOfSimilarVectors}, bounds::NoVarBounds, setoob = true) = x
 
-unsafe_intersect(a::NoParamBounds, b::NoParamBounds) = a
-unsafe_intersect(a::AbstractParamBounds, b::NoParamBounds) = a
-unsafe_intersect(a::NoParamBounds, b::AbstractParamBounds) = b
-
-
-abstract type ParamVolumeBounds{T<:Real, V<:SpatialVolume{T}} <: AbstractParamBounds end
+unsafe_intersect(a::NoVarBounds, b::NoVarBounds) = a
+unsafe_intersect(a::AbstractVarBounds, b::NoVarBounds) = a
+unsafe_intersect(a::NoVarBounds, b::AbstractVarBounds) = b
 
 
-Base.in(params::AbstractVector, bounds::ParamVolumeBounds) = in(params, bounds.vol)
+abstract type VarVolumeBounds{T<:Real, V<:SpatialVolume{T}} <: AbstractVarBounds end
 
 
-# Random.rand(rng::AbstractRNG, bounds::ParamVolumeBounds) =
+Base.in(x::AbstractVector, bounds::VarVolumeBounds) = in(x, bounds.vol)
+
+
+# Random.rand(rng::AbstractRNG, bounds::VarVolumeBounds) =
 #     rand!(rng, bounds, Vector{float(eltype(bounds))}(totalndof(bounds)))
 
-# Random.rand(rng::AbstractRNG, bounds::ParamVolumeBounds, n::Integer) =
+# Random.rand(rng::AbstractRNG, bounds::VarVolumeBounds, n::Integer) =
 #     rand!(rng, bounds, Matrix{float(eltype(bounds))}(npartotalndofams(bounds), n))
 #
-# Random.rand!(rng::AbstractRNG, bounds::ParamVolumeBounds, x::StridedVecOrMat{<:Real}) = rand!(rng, spatialvolume(bounds), x)
+# Random.rand!(rng::AbstractRNG, bounds::VarVolumeBounds, x::StridedVecOrMat{<:Real}) = rand!(rng, spatialvolume(bounds), x)
 
 
-ValueShapes.totalndof(b::ParamVolumeBounds) = ndims(b.vol)
+ValueShapes.totalndof(b::VarVolumeBounds) = ndims(b.vol)
 
 
 @doc doc"""
-    spatialvolume(b::ParamVolumeBounds)::SpatialVolume
+    spatialvolume(b::VarVolumeBounds)::SpatialVolume
 
 *BAT-internal, not part of stable public API.*
 
-Returns the spatial volume that defines the parameter bounds.
+Returns the spatial volume that defines the variate/parameter bounds.
 """
 function spatialvolume end
 
 
 
-struct HyperRectBounds{T<:Real} <: ParamVolumeBounds{T, HyperRectVolume{T}}
+struct HyperRectBounds{T<:Real} <: VarVolumeBounds{T, HyperRectVolume{T}}
     vol::HyperRectVolume{T}
     bt::Vector{BoundsType}
 
@@ -205,12 +205,12 @@ end
 
 spatialvolume(bounds::HyperRectBounds) = bounds.vol
 
-function apply_bounds!(params::Union{AbstractVector,VectorOfSimilarVectors}, bounds::HyperRectBounds, setoob = true)
-    params_flat = flatview(params)
+function apply_bounds!(x::Union{AbstractVector,VectorOfSimilarVectors}, bounds::HyperRectBounds, setoob = true)
+    x_flat = flatview(x)
     if setoob
-        params_flat .= apply_bounds.(flatview(params), bounds.vol.lo, bounds.vol.hi, bounds.bt)
+        x_flat .= apply_bounds.(flatview(x), bounds.vol.lo, bounds.vol.hi, bounds.bt)
     else
-        params_flat .= apply_bounds.(flatview(params), bounds.vol.lo, bounds.vol.hi, bounds.bt, params)
+        x_flat .= apply_bounds.(flatview(x), bounds.vol.lo, bounds.vol.hi, bounds.bt, x)
     end
-    params
+    x
 end

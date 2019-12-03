@@ -30,7 +30,7 @@ MetropolisHastings(weighting::AbstractWeightingScheme) =
     MetropolisHastings(MvTDistProposal(), weighting)
 
 
-mcmc_compatible(::MetropolisHastings, ::AbstractProposalDist, ::NoParamBounds) = true
+mcmc_compatible(::MetropolisHastings, ::AbstractProposalDist, ::NoVarBounds) = true
 
 mcmc_compatible(::MetropolisHastings, proposaldist::AbstractProposalDist, bounds::HyperRectBounds) =
     issymmetric(proposaldist) || all(x -> x == hard_bounds, bounds.bt)

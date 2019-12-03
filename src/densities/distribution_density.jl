@@ -3,7 +3,7 @@
 
 struct DistributionDensity{
     D<:Distribution{Multivariate,Continuous},
-    B<:AbstractParamBounds
+    B<:AbstractVarBounds
 } <: DistLikeDensity
     dist::D
     bounds::B

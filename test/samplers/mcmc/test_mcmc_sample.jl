@@ -19,7 +19,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
 
     # algorithmMW = @inferred MetropolisHastings() TODO: put back the @inferred
     algorithmMW = MetropolisHastings()
-    @test BAT.mcmc_compatible(algorithmMW, BAT.GenericProposalDist(mv_dist), BAT.NoParamBounds(2))
+    @test BAT.mcmc_compatible(algorithmMW, BAT.GenericProposalDist(mv_dist), BAT.NoVarBounds(2))
 
     samples, chains = bat_sample(
         PosteriorDensity(density, bounds), (nsamples_per_chain, nchains), algorithmMW

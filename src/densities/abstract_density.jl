@@ -53,7 +53,7 @@ function density_logval end
 @doc doc"""
     var_bounds(
         density::AbstractDensity
-    )::Union{AbstractParamBounds,Missing}
+    )::Union{AbstractVarBounds,Missing}
 
 *BAT-internal, not part of stable public API.*
 
@@ -170,7 +170,7 @@ export DistLikeDensity
 
 
 @doc doc"""
-    var_bounds(density::DistLikeDensity)::AbstractParamBounds
+    var_bounds(density::DistLikeDensity)::AbstractVarBounds
 
 *BAT-internal, not part of stable public API.*
 

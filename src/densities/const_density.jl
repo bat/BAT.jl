@@ -1,20 +1,20 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct ConstDensity{B<:ParamVolumeBounds,T<:Real} <: DistLikeDensity
+struct ConstDensity{B<:VarVolumeBounds,T<:Real} <: DistLikeDensity
     bounds::B
     log_value::T
 end
 
 
-ConstDensity(bounds::ParamVolumeBounds{T,V}, ::typeof(one))  where {T,V}=
+ConstDensity(bounds::VarVolumeBounds{T,V}, ::typeof(one))  where {T,V}=
     ConstDensity(bounds, zero(T))
 
-ConstDensity(bounds::ParamVolumeBounds, ::typeof(normalize)) =
+ConstDensity(bounds::VarVolumeBounds, ::typeof(normalize)) =
     ConstDensity(bounds, -log_volume(spatialvolume(bounds)))
 
 
-Base.convert(::Type{AbstractDensity}, bounds::ParamVolumeBounds) =
+Base.convert(::Type{AbstractDensity}, bounds::VarVolumeBounds) =
     ConstDensity(bounds, one)
 
 

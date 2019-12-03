@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct ParameterMapping{
+struct VarMapping{
     VFV<:AbstractVector{<:Real},
     VFI<:AbstractVector{Int},
     VVI<:AbstractVector{Int}
@@ -12,83 +12,83 @@ struct ParameterMapping{
 end
 
 
-function ParameterMapping(bounds::HyperRectBounds)
+function VarMapping(bounds::HyperRectBounds)
     vol = bounds.vol
     lo_hi_cmp = vol.lo .≈ vol.hi
-    fixed_idxs = findall(x -> x == true, lo_hi_cmp)
+    fixed_idxs = findall(v -> v == true, lo_hi_cmp)
     fixed_values = vol.lo[fixed_idxs]
-    variable_idxs = findall(x -> x == false, lo_hi_cmp)
-    ParameterMapping(fixed_idxs, fixed_values, variable_idxs)
+    variable_idxs = findall(v -> v == false, lo_hi_cmp)
+    VarMapping(fixed_idxs, fixed_values, variable_idxs)
 end
 
 
-function map_params!(
-    mapped_params::AbstractVector{<:Real},
-    parmap::ParameterMapping,
-    params::AbstractVector{<:Real}
+function apply_varmap!(
+    mapped_v::AbstractVector{<:Real},
+    varmap::VarMapping,
+    v::AbstractVector{<:Real}
 )
-    mapped_params[parmap.fixed_idxs] = parmap.fixed_values
-    mapped_params[parmap.variable_idxs] = params
-    mapped_params
+    mapped_v[varmap.fixed_idxs] = varmap.fixed_values
+    mapped_v[varmap.variable_idxs] = v
+    mapped_v
 end
 
-function map_params!(
-    mapped_params::VectorOfSimilarVectors{<:Real},
-    parmap::ParameterMapping,
-    params::VectorOfSimilarVectors{<:Real}
+function apply_varmap!(
+    mapped_v::VectorOfSimilarVectors{<:Real},
+    varmap::VarMapping,
+    v::VectorOfSimilarVectors{<:Real}
 )
-    flatview(mapped_params)[parmap.fixed_idxs, :] = parmap.fixed_values
-    flatview(mapped_params)[parmap.variable_idxs, :] = flatview(params)
-    mapped_params
+    flatview(mapped_v)[varmap.fixed_idxs, :] = varmap.fixed_values
+    flatview(mapped_v)[varmap.variable_idxs, :] = flatview(v)
+    mapped_v
 end
 
-function map_params(parmap::ParameterMapping, params::AbstractVector{<:Real})
-    mapped_params = similar(params, size(parmap.fixed_idxs, 1) + size(parmap.variable_idxs, 1))
-    map_params!(mapped_params, parmap, params)
+function apply_varmap(varmap::VarMapping, v::AbstractVector{<:Real})
+    mapped_v = similar(v, size(varmap.fixed_idxs, 1) + size(varmap.variable_idxs, 1))
+    apply_varmap!(mapped_v, varmap, v)
 end
 
-function map_params(parmap::ParameterMapping, params::VectorOfSimilarVectors{<:Real})
-    mapped_params = VectorOfSimilarVectors(similar(flatview(params), size(parmap.fixed_paramsidxs, 1) + size(parmap.variable_idxs, 1), size(flatview(params), 2)))
-    map_params!(mapped_params, parmap, params)
+function apply_varmap(varmap::VarMapping, v::VectorOfSimilarVectors{<:Real})
+    mapped_v = VectorOfSimilarVectors(similar(flatview(v), size(varmap.fixed_varidxs, 1) + size(varmap.variable_idxs, 1), size(flatview(v), 2)))
+    apply_varmap!(mapped_v, varmap, v)
 end
 
 
-function invmap_params!(
-    params::AbstractVector{<:Real},
-    parmap::ParameterMapping,
-    mapped_params::AbstractVector{<:Real}
+function invapply_varmap!(
+    v::AbstractVector{<:Real},
+    varmap::VarMapping,
+    mapped_v::AbstractVector{<:Real}
 )
-    params[:] = view(mapped_params, parmap.variable_idxs)
-    params
+    v[:] = view(mapped_v, varmap.variable_idxs)
+    v
 end
 
-function invmap_params!(
-    params::VectorOfSimilarVectors{<:Real},
-    parmap::ParameterMapping,
-    mapped_params::VectorOfSimilarVectors{<:Real}
+function invapply_varmap!(
+    v::VectorOfSimilarVectors{<:Real},
+    varmap::VarMapping,
+    mapped_v::VectorOfSimilarVectors{<:Real}
 )
-    flatview(params)[:, :] = view(flatview(mapped_params), parmap.variable_idxs, :)
-    params
+    flatview(v)[:, :] = view(flatview(mapped_v), varmap.variable_idxs, :)
+    v
 end
 
-function invmap_params(parmap::ParameterMapping, mapped_params::AbstractVector{<:Real})
-    params = similar(mapped_params, size(parmap.variable_idxs, 1))
-    invmap_params!(params, parmap, mapped_params)
+function invapply_varmap(varmap::VarMapping, mapped_v::AbstractVector{<:Real})
+    v = similar(mapped_v, size(varmap.variable_idxs, 1))
+    invapply_varmap!(v, varmap, mapped_v)
 end
 
-function invmap_params(parmap::ParameterMapping, mapped_params::VectorOfSimilarVectors{<:Real})
-    params = VectorOfSimilarVectors(similar(flatview(mapped_params), size(parmap.variable_idxs, 1), size(flatview(mapped_params), 2)))
-    invmap_params!(params, parmap, mapped_params)
+function invapply_varmap(varmap::VarMapping, mapped_v::VectorOfSimilarVectors{<:Real})
+    v = VectorOfSimilarVectors(similar(flatview(mapped_v), size(varmap.variable_idxs, 1), size(flatview(mapped_v), 2)))
+    invapply_varmap!(v, varmap, mapped_v)
 end
 
 
-function invmap_params(parmap::ParameterMapping, bounds::HyperRectBounds)
-    idxs = parmap.variable_idxs
+function invapply_varmap(varmap::VarMapping, bounds::HyperRectBounds)
+    idxs = varmap.variable_idxs
     vol = HyperRectVolume(bounds.vol.lo[idxs], bounds.vol.hi[idxs])
     bt = bounds.bt[idxs]
     HyperRectBounds(vol, bt)
 end
 
-function invmap_params(parmap::ParameterMapping, bounds::NoParamBounds)
-    NoParamBounds(size(parmap.variable_idxs, 1))
+function invapply_varmap(varmap::VarMapping, bounds::NoVarBounds)
+    NoVarBounds(size(varmap.variable_idxs, 1))
 end
