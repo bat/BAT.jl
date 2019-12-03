@@ -29,7 +29,7 @@ Order = [:macro, :function]
 
 ```@docs
 bat_integrate
-bat_mode
+bat_findmode
 bat_read
 bat_rng
 bat_sample

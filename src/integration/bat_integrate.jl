@@ -10,7 +10,7 @@
 
 Calculate the integral (evidence) of `posterior`.
 
-Returns a NamedTuple: (integral = x::Measurement.Measurement, ...)
+Returns a NamedTuple: (result = x::Measurement.Measurement, ...)
 
 Result properties not listed here are algorithm-specific and are not part
 of the stable BAT API.
@@ -39,13 +39,13 @@ function bat_integrate(posterior::DensitySampleVector)
     info = hmi_data.integralestimates
 
     integral = Measurements.measurement(result.estimate, result.uncertainty)
-    (integral = integral, info = info)
+    (result = integral, info = info)
 end
 
 
 function bat_integrate(posterior::AnyPosterior)
     npar = totalndof(params_shape(posterior))
     nsamples = 10^5 * npar
-    samples = bat_sample(posterior, nsamples).samples::DensitySampleVector
+    samples = bat_sample(posterior, nsamples).result::DensitySampleVector
     bat_integrate(samples)
 end
