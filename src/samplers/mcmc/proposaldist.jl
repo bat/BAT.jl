@@ -251,9 +251,9 @@ MvTDistProposal() = MvTDistProposal(1.0)
 (ps::MvTDistProposal)(T::Type{<:AbstractFloat}, n_params::Integer) =
     GenericProposalDist(MvTDist, T, n_params, convert(T, ps.df))
 
-function GenericProposalDist(::Type{MvTDist}, T::Type{<:AbstractFloat}, n_params::Integer, df = one(T))
-    Σ = PDMat(Matrix(ScalMat(n_params, one(T))))
-    μ = Distributions.ZeroVector(T, n_params)
+function GenericProposalDist(::Type{MvTDist}, T::Type{<:AbstractFloat}, varndof::Integer, df = one(T))
+    Σ = PDMat(Matrix(ScalMat(varndof, one(T))))
+    μ = Fill(zero(eltype(Σ)), varndof)
     M = typeof(Σ)
     d = Distributions.GenericMvTDist(convert(T, df), μ, Σ)
     GenericProposalDist(d)
