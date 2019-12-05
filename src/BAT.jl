@@ -38,6 +38,7 @@ using Tables
 using UnsafeArrays
 using KernelDensity
 
+import EmpiricalDistributions
 import ForwardDiff
 import Measurements
 import NLSolversBase
