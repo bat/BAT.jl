@@ -11,12 +11,17 @@ end
 
 DistributionDensity(d::Distribution) = DistributionDensity(d, dist_param_bounds(d))
 
+DistributionDensity(h::Histogram) = DistributionDensity(EmpiricalDistributions.MvBinnedDist(h))
+
 
 Base.convert(::Type{AbstractDensity}, d::Distribution{Multivariate,Continuous}) =
     DistributionDensity(d)
     
 Base.convert(::Type{DistLikeDensity}, d::Distribution{Multivariate,Continuous}) =
     DistributionDensity(d)
+
+Base.convert(::Type{AbstractDensity}, h::Histogram) = DistributionDensity(h)
+Base.convert(::Type{DistLikeDensity}, h::Histogram) = DistributionDensity(h)
 
 
 Base.parent(density::DistributionDensity) = density.dist
@@ -47,3 +52,10 @@ dist_param_bounds(d::Product{Continuous}) = HyperRectBounds(minimum.(d.v), maxim
 
 dist_param_bounds(d::ConstValueDist) = HyperRectBounds(Int32[], Int32[], hard_bounds)
 dist_param_bounds(d::NamedTupleDist) = vcat(map(dist_param_bounds, values(d))...)
+
+function dist_param_bounds(d::EmpiricalDistributions.MvBinnedDist{T, N}) where {T, N}
+    left_bounds  = T[map(first, d.h.edges)...]
+    right_bounds = T[map(e -> prevfloat(last(e)), d.h.edges)...]
+    bt = fill(reflective_bounds, length(left_bounds))
+    HyperRectBounds{T}(HyperRectVolume{T}(left_bounds, right_bounds), bt)
+end

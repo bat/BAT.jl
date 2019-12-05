@@ -4,6 +4,7 @@
 const RandSampleable = Union{
     DistLikeDensity,
     MultivariateDistribution,
+    Histogram
 }
 
 
