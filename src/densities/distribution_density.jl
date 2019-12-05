@@ -41,9 +41,9 @@ Statistics.cov(density::DistributionDensity) = cov(density.dist)
 var_bounds(density::DistributionDensity) = density.bounds
 
 
-dist_param_bounds(d::Distribution{Univariate,Continuous}) = HyperRectBounds([quantile(d, 0f0)], [quantile(d, 1f0)], reflective_bounds)
+dist_param_bounds(d::Distribution{Univariate,Continuous}) = HyperRectBounds([minimum(d)], [maximum(d)], reflective_bounds)
 dist_param_bounds(d::Distribution{Multivariate,Continuous}) = HyperRectBounds(fill(_default_PT(-Inf), length(d)), fill(_default_PT(+Inf), length(d)), hard_bounds)
-dist_param_bounds(d::Product{Continuous}) = HyperRectBounds(quantile.(d.v, 0f0), quantile.(d.v, 1f0), reflective_bounds)
+dist_param_bounds(d::Product{Continuous}) = HyperRectBounds(minimum.(d.v), maximum.(d.v), reflective_bounds)
 
 dist_param_bounds(d::ConstValueDist) = HyperRectBounds(Int32[], Int32[], hard_bounds)
 dist_param_bounds(d::NamedTupleDist) = vcat(map(dist_param_bounds, values(d))...)
