@@ -142,7 +142,7 @@ mutable struct HMISettings
 end
 HMIFastSettings() =      return HMISettings(cholesky_whitening!, 100,   0.1, 0.1, true, 16, true, Dict("cov. weighted result" => hm_combineresults_covweighted!))
 HMIStandardSettings() =  return HMISettings(cholesky_whitening!, 1000,  0.5, 0.1, true, 16, true, Dict("cov. weighted result" => hm_combineresults_covweighted!, "analytic result" => hm_combineresults_analyticestimation!))
-HMIPrecisionSettings() = return HMISettings(cholesky_whitening!, 10000, 2.5, 0.1, true, 16, true, Dict("cov. weighted result" => hm_combineresults_covweighted!))
+HMIPrecisionSettings() = return HMISettings(cholesky_partial_whitening!, 10000, 2.5, 0.1, true, 16, true, Dict("cov. weighted result" => hm_combineresults_covweighted!))
 # HMIPrecisionSettings() = return HMISettings(cholesky_whitening!, 10000, 2.5, 0.1, true, 16, true, Dict("cov. weighted result" => hm_combineresults_covweighted!, "analytic result" => hm_combineresults_analyticestimation!))
 
 """
