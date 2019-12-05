@@ -5,7 +5,11 @@
     MetropolisHastings
 
 Metropolis-Hastings MCMC sampling algorithm.
-!!!!!
+
+Constructors:
+
+    MetropolisHastings()
+    MetropolisHastings(weighting::AbstractWeightingScheme)
 """
 struct MetropolisHastings{
     Q<:ProposalDistSpec,
