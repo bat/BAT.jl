@@ -268,6 +268,7 @@ Union of all types that BAT will accept as a posterior:
 * [`DensitySampleVector`](@ref)
 * [`DistLikeDensity`](@ref)
 * Distributions.MultivariateDistribution
+* StatsBase.Histogram
 """
 const AnyPosterior = Union{
     PosteriorDensity,

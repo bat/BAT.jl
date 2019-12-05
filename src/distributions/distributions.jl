@@ -2,5 +2,3 @@
 
 include("distribution_functions.jl")
 include("bat_sampler.jl")
-include("HistogramAsUvDistribution.jl")
-include("HistogramAsMvDistribution.jl")
