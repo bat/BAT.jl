@@ -30,13 +30,13 @@ end
 
 
 _np_valshape(d::Distribution{Univariate,Continuous}) = ScalarShape{Real}()
-_np_bounds(d::Distribution{Univariate,Continuous}) = HyperRectBounds([quantile(d, 0f0)], [quantile(d, 1f0)], reflective_bounds)
+_np_bounds(d::Distribution{Univariate,Continuous}) = HyperRectBounds([quantile(d, 0f0)], [quantile(d, 1f0)], hard_bounds)
 
 _np_valshape(d::Distribution{Multivariate,Continuous}) = ArrayShape{Real}(size(d)...)
 _np_bounds(d::Distribution{Multivariate,Continuous}) = HyperRectBounds(fill(Float32(-Inf), length(d)), fill(Float32(+Inf), length(d)), hard_bounds)
 
 _np_bounds(d::ConstValueDistribution) = HyperRectBounds(Vector{eltype(d)}(), Vector{eltype(d)}(), hard_bounds)
-_np_bounds(d::Product{Continuous}) = HyperRectBounds(quantile.(d.v, 0f0), quantile.(d.v, 1f0), reflective_bounds)
+_np_bounds(d::Product{Continuous}) = HyperRectBounds(quantile.(d.v, 0f0), quantile.(d.v, 1f0), hard_bounds)
 
 _np_valshape(d::Distribution{Matrixvariate,Continuous}) = ArrayShape{Real}(size(d)...)
 
