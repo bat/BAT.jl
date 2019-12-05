@@ -36,7 +36,7 @@ function cholesky_partial_whitening!(
     dataset::DataSet{T, I})::WhiteningResult{T} where {T<:AbstractFloat, I<:Integer}
 
     datamean = zeros(T, dataset.P)
-	avoid_whitening_dims = find_steep_edges(dataset) # isempty?
+	avoid_whitening_dims = find_steep_edges(dataset) 
 	
     for p in eachindex(datamean)
         datamean[p] = mean(view(dataset.data, p, :))
