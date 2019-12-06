@@ -148,8 +148,7 @@ number of MCMC chains. If n is an integer, it is interpreted as
 automatically.
 """
 function bat_sample(
-    rng::AbstractRNG,
-    posterior::AbstractPosteriorDensity,
+    posterior::PosteriorDensity,
     n::Tuple{Integer,Integer},
     algorithm::MCMCAlgorithm;
     max_nsteps::Integer = 10 * n[1],
@@ -161,7 +160,6 @@ function bat_sample(
     strict::Bool = false,
     filter::Bool = true
 )
-    #!!!! Temporary: ignore rng value, to be fixed:
     chainspec = MCMCSpec(algorithm, posterior)
 
     nsamples_per_chain, nchains = n
