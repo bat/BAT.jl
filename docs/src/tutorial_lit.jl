@@ -378,17 +378,6 @@ plot!(-4:0.01:4, x -> fit_function(fit_par_values, x), label = "Best fit")
 algorithm = MetropolisHastings(MvTDistProposal(1.0))
 #md nothing # hide
 
-# BAT requires a counter-based random number generator (RNG), since it
-# partitions the RNG space over the MCMC chains. This way, a single RNG seed
-# is sufficient for all chains and results are reproducible even under
-# parallel execution. By default, BAT uses a Philox4x RNG initialized with a
-# random seed drawn from the
-# [system entropy pool](https://docs.julialang.org/en/v1/stdlib/Random/index.html#Random.RandomDevice):
-
-using Random123
-rng = Philox4x()
-#md nothing # hide
-
 
 # Other default parameters are:
 
@@ -423,7 +412,7 @@ burnin = MCMCBurninStrategy(
 # To generate MCMC samples with explicit control over all options, use
 
 samples, stats = bat_sample(
-    rng, posterior, (nsamples, nchains), algorithm,
+    posterior, (nsamples, nchains), algorithm,
     max_nsteps = 10 * nsamples,
     max_time = Inf,
     tuning = tuning,
