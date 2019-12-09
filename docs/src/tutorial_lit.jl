@@ -298,10 +298,10 @@ plot(
     title = "Marginalized Distribution for mu_1 and sigma"
 )
 plot!(MCMCBasicStats(samples), (3, 5))
-#jl savefig("tutorial-param-pair.pdf")
-#md savefig("tutorial-param-pair.pdf")
+#jl savefig("tutorial-param-pair.png")
+#md savefig("tutorial-param-pair.png")
 #md savefig("tutorial-param-pair.svg"); nothing # hide
-#md # [![Marginalized Distribution for mu_1 and sigma](tutorial-param-pair.svg)](tutorial-param-pair.pdf)
+#md # [![Marginalized Distribution for mu_1 and sigma](tutorial-param-pair.svg)](tutorial-param-pair.png)
 
 # We can also create an overview plot of the marginalized distribution for all
 # pairs of parameters:
@@ -311,10 +311,10 @@ plot(
     mean = false, std_dev = false, globalmode = true, localmode = false,
     nbins = 50
 )
-#jl savefig("tutorial-all-params.pdf")
-#md savefig("tutorial-all-params.pdf")
+#jl savefig("tutorial-all-params.png")
+#md savefig("tutorial-all-params.png")
 #md savefig("tutorial-all-params.svg"); nothing # hide
-#md # [![Pairwise Correlation between Parameters](tutorial-all-params.svg)](tutorial-all-params.pdf)
+#md # [![Pairwise Correlation between Parameters](tutorial-all-params.svg)](tutorial-all-params.png)
 
 
 # ### Integration with Tables.jl
