@@ -46,5 +46,6 @@ makedocs(
 
 deploydocs(
     repo = "github.com/bat/BAT.jl.git",
-    forcepush = true
+    forcepush = true,
+    push_preview = true,
 )
