@@ -9,7 +9,8 @@ struct DistributionDensity{
     bounds::B
 end
 
-DistributionDensity(d::Distribution) = DistributionDensity(d, dist_param_bounds(d))
+DistributionDensity(d::Distribution; bounds_type::BoundsType = hard_bounds) =
+    DistributionDensity(d, dist_param_bounds(d, bounds_type))
 
 DistributionDensity(h::Histogram) = DistributionDensity(EmpiricalDistributions.MvBinnedDist(h))
 
@@ -46,16 +47,21 @@ Statistics.cov(density::DistributionDensity) = cov(density.dist)
 var_bounds(density::DistributionDensity) = density.bounds
 
 
-dist_param_bounds(d::Distribution{Univariate,Continuous}) = HyperRectBounds([minimum(d)], [maximum(d)], reflective_bounds)
-dist_param_bounds(d::Distribution{Multivariate,Continuous}) = HyperRectBounds(fill(_default_PT(-Inf), length(d)), fill(_default_PT(+Inf), length(d)), hard_bounds)
-dist_param_bounds(d::Product{Continuous}) = HyperRectBounds(minimum.(d.v), maximum.(d.v), reflective_bounds)
+dist_param_bounds(d::Distribution{Univariate,Continuous}, bounds_type::BoundsType) =
+    HyperRectBounds([minimum(d)], [maximum(d)], bounds_type)
 
-dist_param_bounds(d::ConstValueDist) = HyperRectBounds(Int32[], Int32[], hard_bounds)
-dist_param_bounds(d::NamedTupleDist) = vcat(map(dist_param_bounds, values(d))...)
+dist_param_bounds(d::Distribution{Multivariate,Continuous}, bounds_type::BoundsType) =
+    HyperRectBounds(fill(_default_PT(-Inf), length(d)), fill(_default_PT(+Inf), length(d)), bounds_type)
 
-function dist_param_bounds(d::EmpiricalDistributions.MvBinnedDist{T, N}) where {T, N}
+dist_param_bounds(d::Product{Continuous}, bounds_type::BoundsType) =
+    HyperRectBounds(minimum.(d.v), maximum.(d.v), bounds_type)
+
+dist_param_bounds(d::ConstValueDist, bounds_type::BoundsType) = HyperRectBounds(Int32[], Int32[], bounds_type)
+dist_param_bounds(d::NamedTupleDist, bounds_type::BoundsType) = vcat(map(x -> dist_param_bounds(x, bounds_type), values(d))...)
+
+function dist_param_bounds(d::EmpiricalDistributions.MvBinnedDist{T, N}, bounds_type::BoundsType) where {T, N}
     left_bounds  = T[map(first, d.h.edges)...]
     right_bounds = T[map(e -> prevfloat(last(e)), d.h.edges)...]
-    bt = fill(reflective_bounds, length(left_bounds))
+    bt = fill(bounds_type, length(left_bounds))
     HyperRectBounds{T}(HyperRectVolume{T}(left_bounds, right_bounds), bt)
 end
