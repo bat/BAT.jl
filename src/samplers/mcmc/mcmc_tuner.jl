@@ -186,11 +186,17 @@ export MCMCInitStrategy
 MCMCInitStrategy(tuner_config::AbstractMCMCTuningStrategy) =
     MCMCInitStrategy()
 
-_gen_chains(ids::AbstractRange{<:Integer},
+_construct_chain(rngpart::RNGPartition, id::Integer, chainspec::MCMCSpec) =
+    chainspec(AbstractRNG(rngpart, id), id)
+
+_gen_chains(
+    rngpart::RNGPartition,
+    ids::AbstractRange{<:Integer},
     chainspec::MCMCSpec,
-    ) = [chainspec(id) for id in ids]
+) = [_construct_chain(rngpart, id, chainspec) for id in ids]
 
 function mcmc_init(
+    rng::AbstractRNG,
     chainspec::MCMCSpec,
     nchains::Int,
     tuner_config::AbstractMCMCTuningStrategy = AbstractMCMCTuningStrategy(chainspec.algorithm),
@@ -201,9 +207,11 @@ function mcmc_init(
     min_nviable::Int = minimum(init_strategy.init_tries_per_chain) * nchains
     max_ncandidates::Int = maximum(init_strategy.init_tries_per_chain) * nchains
 
+    rngpart = RNGPartition(rng, Base.OneTo(max_ncandidates))
+
     ncandidates::Int = 0
 
-    dummy_chain = chainspec(zero(Int64))
+    dummy_chain = chainspec(deepcopy(rng), one(Int64))
     dummy_tuner = tuner_config(dummy_chain)
 
     chains = similar([dummy_chain], 0)
@@ -214,7 +222,7 @@ function mcmc_init(
         n = min(min_nviable, max_ncandidates - ncandidates)
         @debug "Generating $n $(cycle > 1 ? "additional " : "")MCMC chain(s)."
 
-        new_chains = _gen_chains(ncandidates .+ (one(Int64):n), chainspec)
+        new_chains = _gen_chains(rngpart, ncandidates .+ (one(Int64):n), chainspec)
 
         filter!(isvalid, new_chains)
 

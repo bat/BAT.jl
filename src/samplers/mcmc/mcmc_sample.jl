@@ -5,8 +5,8 @@
 const MCMCOutputWithChains = Tuple{DensitySampleVector, MCMCBasicStats, AbstractVector{<:MCMCIterator}}
 
 # BAT-internal:
-function MCMCOutputWithChains(chainspec::MCMCSpec)
-    dummy_chain = chainspec(zero(Int64))
+function MCMCOutputWithChains(rng::AbstractRNG, chainspec::MCMCSpec)
+    dummy_chain = chainspec(deepcopy(rng), zero(Int64))
 
     (
         DensitySampleVector(dummy_chain),
@@ -21,8 +21,8 @@ end
 const MCMCOutput = Tuple{DensitySampleVector, MCMCBasicStats}
 
 # BAT-internal:
-function MCMCOutput(chainspec::MCMCSpec)
-    samples, stats = MCMCOutputWithChains(chainspec::MCMCSpec)
+function MCMCOutput(rng::AbstractRNG, chainspec::MCMCSpec)
+    samples, stats = MCMCOutputWithChains(rng, chainspec::MCMCSpec)
     (samples, stats)
 end
 
@@ -30,6 +30,7 @@ end
 
 # BAT-internal:
 function mcmc_sample(
+    rng::AbstractRNG,
     chainspec::MCMCSpec,
     nsamples::Integer,
     nchains::Integer;
@@ -42,11 +43,12 @@ function mcmc_sample(
     granularity::Int = 1,
     strict_mode::Bool = false
 )
-    result = MCMCOutputWithChains(chainspec)
+    result = MCMCOutputWithChains(rng, chainspec)
 
     result_samples, result_stats, result_chains = result
 
     (chains, tuners) = mcmc_init(
+        rng,
         chainspec,
         nchains,
         tuner_config,
@@ -148,7 +150,8 @@ number of MCMC chains. If n is an integer, it is interpreted as
 automatically.
 """
 function bat_sample(
-    posterior::PosteriorDensity,
+    rng::AbstractRNG,
+    posterior::AbstractPosteriorDensity,
     n::Tuple{Integer,Integer},
     algorithm::MCMCAlgorithm;
     max_nsteps::Integer = 10 * n[1],
@@ -165,6 +168,7 @@ function bat_sample(
     nsamples_per_chain, nchains = n
 
     unshaped_samples, mcmc_stats, chains = mcmc_sample(
+        rng,
         chainspec,
         nsamples_per_chain,
         nchains;

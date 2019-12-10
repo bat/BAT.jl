@@ -47,11 +47,13 @@ _sample_weight_type(::Type{MetropolisHastings{Q,W,WS}}) where {Q,W,WS} = W
 mutable struct MHIterator{
     SP<:MCMCSpec,
     R<:AbstractRNG,
+    PR<:RNGPartition,
     Q<:AbstractProposalDist,
     SV<:DensitySampleVector
 } <: MCMCIterator
     spec::SP
     rng::R
+    rngpart_cycle::PR
     info::MCMCIteratorInfo
     proposaldist::Q
     samples::SV
@@ -61,13 +63,12 @@ end
 
 
 function MHIterator(
+    rng::AbstractRNG,
     spec::MCMCSpec,
     info::MCMCIteratorInfo,
     x_init::AbstractVector{P},
 ) where {P<:Real}
     stepno::Int64 = 0
-    rng = spec.rngseed()
-    reset_rng_counters!(rng, info.id, info.cycle, stepno)
 
     postr = spec.posterior
     npar = totalndof(postr)
@@ -97,9 +98,12 @@ function MHIterator(
 
     nsamples::Int64 = 0
 
+    rngpart_cycle = RNGPartition(rng, 0:(typemax(Int16) - 2))
+
     chain = MHIterator(
         spec,
         rng,
+        rngpart_cycle,
         info,
         proposaldist,
         samples,
@@ -107,17 +111,23 @@ function MHIterator(
         stepno
     )
 
+    reset_rng_counters!(chain)
+
     chain
 end
 
 
 function reset_rng_counters!(chain::MHIterator)
-    reset_rng_counters!(chain.rng, chain.info.id, chain.info.cycle, chain.stepno)
+    set_rng!(chain.rng, chain.rngpart_cycle, chain.info.cycle)
+    rngpart_step = RNGPartition(chain.rng, 0:(typemax(Int32) - 2))
+    set_rng!(chain.rng, rngpart_step, chain.stepno)
+    nothing
 end
 
 
 function (spec::MCMCSpec{<:MetropolisHastings})(
-    chainid::Integer,
+    rng::AbstractRNG,
+    chainid::Integer
 )
     P = float(eltype(var_bounds(spec.posterior)))
 
@@ -126,7 +136,7 @@ function (spec::MCMCSpec{<:MetropolisHastings})(
     converged = false
     info = MCMCIteratorInfo(chainid, cycle, tuned, converged)
 
-    MHIterator(spec, info, Vector{P}())
+    MHIterator(rng, spec, info, Vector{P}())
 end
 
 

@@ -62,8 +62,7 @@ mcmc_startval!(
 @doc doc"""
     MCMCSpec{
         A<:MCMCAlgorithm,
-        M<:AbstractPosteriorDensity,
-        R<:AbstractRNGSeed
+        M<:AbstractPosteriorDensity
     }
 
 *BAT-internal, not part of stable public API.*
@@ -75,8 +74,7 @@ Constructor:
 ```julia
 MCMCSpec(
     algorithm::MCMCAlgorithm,
-    posterior::AbstractPosteriorDensity,
-    rngseed::AbstractRNGSeed = AbstractRNGSeed()
+    posterior::AbstractPosteriorDensity
 )
 ```
 
@@ -89,30 +87,11 @@ are be created via
 """
 struct MCMCSpec{
     A<:MCMCAlgorithm,
-    M<:AbstractPosteriorDensity,
-    R<:AbstractRNGSeed
+    M<:AbstractPosteriorDensity
 }
     algorithm::A
     posterior::M
-    rngseed::R
 end
-
-
-# TODO/Decision: Make MCMCSpec a subtype of StatsBase.Sampleable{Multivariate,Continuous}?
-
-
-MCMCSpec(
-    algorithm::MCMCAlgorithm,
-    posterior::AbstractPosteriorDensity
-) = MCMCSpec(algorithm, posterior, AbstractRNGSeed())
-
-@deprecate MCMCSpec(
-    algorithm::MCMCAlgorithm,
-    likelihood::Union{AbstractDensity,Distribution{Multivariate,Continuous}},
-    prior::Union{AbstractDensity,VarVolumeBounds},
-    rngseed::AbstractRNGSeed = AbstractRNGSeed()
-) MCMCSpec(algorithm, PosteriorDensity(likelihood, prior), rngseed)
-
 
 
 
