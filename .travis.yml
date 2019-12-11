@@ -15,13 +15,12 @@ arch:
   - amd64
   - x86
 
-# uncomment the following lines to allow failures on nightly julia
-# (tests will run but not make your overall status red)
-matrix:
-  allow_failures:
-    - julia: nightly
-    - arch: x86
-  fast_finish: true
+branches:
+  only:
+    - master
+    - dev
+    - /^release-.*$/
+    - /^v\d+\.\d+(\.\d+)?(-\S*)?$/
 
 notifications:
   email: false
@@ -33,6 +32,9 @@ after_success:
   - julia -e 'import Pkg; Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
 
 jobs:
+  allow_failures:
+    - julia: nightly
+  fast_finish: true
   exclude:
     - os: linux
       arch: x86

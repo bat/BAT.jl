@@ -10,17 +10,15 @@ platform:
   - x86 # 32-bit
   - x64 # 64-bit
 
-# uncomment the following lines to allow failures on nightly julia
-# (tests will run but not make your overall status red)
 matrix:
   allow_failures:
     - julia_version: nightly
-    - platform: x86
 
-#branches:
-#  only:
-#    - master
-#    - /release-.*/
+branches:
+  only:
+    - master
+    - dev
+    - /release-.*/
 
 notifications:
   - provider: Email
