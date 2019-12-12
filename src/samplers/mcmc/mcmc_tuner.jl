@@ -81,7 +81,7 @@ function mcmc_tune_burnin!(
         stats = [x.stats for x in tuners] # ToDo: Find more generic abstraction
 
         # Clear all stats before tuning cycle
-        empty!.(stats)
+#         empty!.(stats)
 
         cycles += 1
         run_tuning_cycle!(
