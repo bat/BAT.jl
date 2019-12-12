@@ -37,8 +37,6 @@ jobs:
     - julia: nightly
   fast_finish: true
   exclude:
-    - os: linux
-      arch: x86
     - os: osx
       arch: x86
     - os: windows
