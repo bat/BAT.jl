@@ -80,8 +80,8 @@ function mcmc_tune_burnin!(
     while !successful && cycles < burnin_strategy.max_ncycles
         stats = [x.stats for x in tuners] # ToDo: Find more generic abstraction
 
-        # Clear all stats before tuning cycle
-        empty!.(stats)
+        # Clear all stats before tuning cycle, temporarily disabled
+        # empty!.(stats)
 
         cycles += 1
         run_tuning_cycle!(
