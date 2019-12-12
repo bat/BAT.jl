@@ -30,11 +30,14 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
     layout --> Main.Plots.grid(nparams*nchains, ndiagnostics+ndescription)
  
     ctr = 1
+	
+	unique_chain_ids = sort(unique(mcmc.samples.info.chainid))
 
     for chain in chains
+		
         #indices of samples from current chain
-        r = ((chain-1)*mcmc.chainresults[chain].nsamples+1) : chain*mcmc.chainresults[chain].nsamples
-
+        r = mcmc.samples.info.chainid .== unique_chain_ids[chain]
+	
         for p in vsel
             if description
                 @series begin
@@ -50,18 +53,15 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
             end
 
             # samples from current chain
-            s = flatview(mcmc.samples.v)[p, :]
-            s = s[r]
+            s = flatview(mcmc.samples[r].v)[p, :]
 
             for d in diagnostics
 
                 # samples histogram
                 if d == :histogram
-                    chain_samples = DensitySampleVector(mcmc.chainresults[1])
-                    for i in r
-                        push!(chain_samples, mcmc.samples[i])
-                    end
-
+					
+                    chain_samples = mcmc.samples[r]
+					
                     @series begin
                         subplot := ctr
                         seriestype --> get(histogram, "seriestype", :stephist)
@@ -82,7 +82,7 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
 
                         (chain_samples, p)
                     end
-            
+					
 
                 # trace plot
                 elseif d == :trace
@@ -113,7 +113,7 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
 
                         x, s
                     end
-
+				
 
                 # kernel density estimate
                 elseif d == :kde
@@ -188,7 +188,6 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
                         markerstrokestyle --> get(acf, "markerstrokestyle", :solid)
                         markerstrokewidth --> get(acf, "markerstrokewidth", 1)
                         legend --> get(acf, "legend", true)
-                  
                         lags != :none ? (lags, autocorr) : (0-0.5:1:length(autocorr)-0.5, autocorr)
                     end
                 end
