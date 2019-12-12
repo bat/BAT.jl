@@ -41,6 +41,10 @@ jobs:
       arch: x86
     - os: windows
       arch: x86
+    - os: osx
+      julia: 1.0
+    - os: windows
+      julia: 1.0
   include:
     - stage: "Documentation"
       julia: 1.3
