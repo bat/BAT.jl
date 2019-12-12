@@ -81,8 +81,8 @@ end
             end
         end
 
-        cubes_x = zeros(Float64, length(volumes) * 6)
-        cubes_y = zeros(Float64, length(volumes) * 6)
+        cubes_x = zeros(Float64, length(cubes) * 6)
+        cubes_y = zeros(Float64, length(cubes) * 6)
         cntr = 1
         for i in eachindex(cubes)
             cubes_x[cntr:cntr+5], cubes_y[cntr:cntr+5] = create_rectangle(cubes[i], dim1, dim2)
