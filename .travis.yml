@@ -5,6 +5,7 @@ language: julia
 os:
   - linux
   - osx
+  - windows
 
 julia:
   - 1.0
@@ -39,6 +40,8 @@ jobs:
     - os: linux
       arch: x86
     - os: osx
+      arch: x86
+    - os: windows
       arch: x86
   include:
     - stage: "Documentation"
