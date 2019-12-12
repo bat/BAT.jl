@@ -291,8 +291,13 @@ function drop_low_weight_samples(samples::DensitySampleVector, fraction::Real = 
         Q = cumsum(W_s)
         Q ./= maximum(Q)
         @assert last(Q) ≈ 1
-        thresh = W_s[searchsortedlast(Q, fraction)]
-        idxs = findall(x -> x >= thresh, samples.weight)
-        samples[idxs]
+        ind = searchsortedlast(Q, fraction)
+        if ind !== 0
+            thresh = W_s[searchsortedlast(Q, fraction)]
+            idxs = findall(x -> x >= thresh, samples.weight)
+            samples[idxs]
+        else
+            samples
+        end
     end
 end
