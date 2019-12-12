@@ -4,7 +4,6 @@
 [![Documentation for development version](https://img.shields.io/badge/docs-dev-blue.svg)](https://bat.github.io/BAT.jl/dev)
 [![License](http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](LICENSE.md)
 [![Travis Build Status](https://travis-ci.com/bat/BAT.jl.svg?branch=master)](https://travis-ci.com/bat/BAT.jl)
-[![Appveyor Build Status](https://ci.appveyor.com/api/projects/status/github/bat/BAT.jl?branch=master&svg=true)](https://ci.appveyor.com/project/bat/BAT-jl)
 [![Codecov](https://codecov.io/gh/bat/BAT.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/bat/BAT.jl)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.2587213.svg)](https://doi.org/10.5281/zenodo.2587213)
 
