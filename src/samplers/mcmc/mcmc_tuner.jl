@@ -193,7 +193,7 @@ _gen_chains(ids::AbstractRange{<:Integer},
 function mcmc_init(
     chainspec::MCMCSpec,
     nchains::Int,
-    tuner_config::AbstractMCMCTuningStrategy = AbstractMCMCTuningStrategy(algorithm(chainspec)),
+    tuner_config::AbstractMCMCTuningStrategy = AbstractMCMCTuningStrategy(chainspec.algorithm),
     init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config)
 )
     @info "Trying to generate $nchains viable MCMC chain(s)."
