@@ -164,10 +164,14 @@ DensitySampleVector(::Type{S}, varlen::Integer) where {P<:AbstractVector{<:Real}
     DensitySampleVector{P,T,W,R,Q}(undef, 0, varlen)
 
 
-# Specialize getindex to properly support ArraysOfArrays, preventing
+# Specialize getindex to properly support ArraysOfArrays and similar, preventing
 # conversion to exact element type:
+
 @inline Base.getindex(A::StructArray{<:DensitySample}, I::Int...) =
     DensitySample(A.v[I...], A.logd[I...], A.weight[I...], A.info[I...], A.aux[I...])
+
+@inline Base.getindex(A::StructArray{<:DensitySample}, I::Union{Int,AbstractArray,Colon}...) =
+    DensitySampleVector((A.v[I...], A.logd[I...], A.weight[I...], A.info[I...], A.aux[I...]))
 
 # Specialize IndexStyle, current default for StructArray seems to be IndexCartesian()
 Base.IndexStyle(::StructArray{<:DensitySample, 1}) = IndexLinear()
