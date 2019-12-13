@@ -282,7 +282,7 @@ function mcmc_init(
     final_tuners = similar(tuners, zero(Int))
 
     if 2 <= m < size(modes, 2)
-        clusters = kmeans(modes, m)
+        clusters = kmeans(modes, m, init = KmCentralityAlg())
         clusters.converged || error("k-means clustering of MCMC chains did not converge")
 
         mincosts = fill(Inf, m)
