@@ -45,4 +45,10 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
 
     @test isapprox(mean_samples, mvec; rtol = 0.15)
     @test isapprox(cov_samples, cmat; rtol = 0.15)
+
+    gensamples(rng::AbstractRNG) = bat_sample(rng, PosteriorDensity(mv_dist, bounds), (nsamples_per_chain, nchains), algorithmPW).result
+
+    rng = bat_rng()
+    @test gensamples(rng) != gensamples(rng)
+    @test gensamples(deepcopy(rng)) == gensamples(deepcopy(rng))
 end
