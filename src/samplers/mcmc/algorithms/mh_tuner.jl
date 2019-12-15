@@ -26,6 +26,10 @@ Fields:
 * `c`: Interval for allowed scale/spread of the proposal distribution.
   Defaults to `ClosedInterval(1e-4, 1e2)`.
 
+* `r`: Reweighting factor. Take accumulated sample statistics of previous
+  tuning cycles into account with a relative weight of `r`. Set to `0` to
+  completely reset sample statistics between each tuning cycle.
+
 Constructors:
 
 ```julia
@@ -33,7 +37,8 @@ AdaptiveMetropolisTuning(
     λ::Real,
     α::IntervalSets.ClosedInterval{<:Real},
     β::Real,
-    c::IntervalSets.ClosedInterval{<:Real}
+    c::IntervalSets.ClosedInterval{<:Real},
+    r::Real
 )
 ```
 """
@@ -42,6 +47,7 @@ AdaptiveMetropolisTuning(
     α::IntervalSets.ClosedInterval{Float64} = ClosedInterval(0.15, 0.35)
     β::Float64 = 1.5
     c::IntervalSets.ClosedInterval{Float64} = ClosedInterval(1e-4, 1e2)
+    r::Real = 0.5
 end
 
 export AdaptiveMetropolisTuning

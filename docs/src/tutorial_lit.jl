@@ -425,7 +425,8 @@ tuning = AdaptiveMetropolisTuning(
     λ = 0.5,
     α = 0.15..0.35,
     β = 1.5,
-    c = 1e-4..1e2
+    c = 1e-4..1e2,
+    r = 0.5
 )
 
 convergence = BrooksGelmanConvergence(
