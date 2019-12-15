@@ -111,6 +111,14 @@ end
 Base.merge(a::MCMCBasicStats, bs::MCMCBasicStats...) = merge!(deepcopy(a), bs...)
 
 
+function reweight_relative!(stats::MCMCBasicStats, reweighting_factor::Real)
+    reweight_relative!(stats.param_stats, reweighting_factor)
+    reweight_relative!(stats.logtf_stats, reweighting_factor)
+
+    stats
+end
+
+
 function _bat_stats(mcmc_stats::MCMCBasicStats)
     (
         mode = mcmc_stats.mode,

@@ -59,6 +59,12 @@ end
 end
 
 
+function reweight_relative!(target::OnlineUvMean{T}, reweighting_factor::Real) where T
+    target.sum_w *= reweighting_factor
+    target
+end
+
+
 
 @doc doc"""
     OnlineUvVar{T<:AbstractFloat,W}
@@ -187,6 +193,15 @@ end
 end
 
 
+function reweight_relative!(target::OnlineUvVar{T,W}, reweighting_factor::Real) where {T,W}
+    target.sum_w *= reweighting_factor
+    target.sum_w2 *= reweighting_factor
+    target.s *= reweighting_factor
+
+    target
+end
+
+
 
 mutable struct BasicUvStatistics{T<:Real,W}
     mean::OnlineUvMean{T}
@@ -245,6 +260,14 @@ function Base.merge!(target::BasicUvStatistics, others::BasicUvStatistics...)
     target.minimum = t_minimum
 
     target
+end
+
+
+function reweight_relative!(stats::BasicUvStatistics{T,W}, reweighting_factor::Real) where {T,W}
+    reweight_relative!(stats.mean, reweighting_factor)
+    reweight_relative!(stats.var, reweighting_factor)
+
+    stats
 end
 
 

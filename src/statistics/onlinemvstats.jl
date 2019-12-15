@@ -107,6 +107,15 @@ end
 end
 
 
+function reweight_relative!(target::OnlineMvMean{T}, reweighting_factor::Real) where T
+    target.sum_w *= reweighting_factor
+    target.S .*= reweighting_factor
+    target.C .*= reweighting_factor
+
+    target
+end
+
+
 
 @doc doc"""
     OnlineMvCov{T<:AbstractFloat,W} <: AbstractMatrix{T}
@@ -282,6 +291,17 @@ end
     ocv
 end
 
+
+function reweight_relative!(target::OnlineMvCov{T,W}, reweighting_factor::Real) where {T,W}
+    target.sum_w *= reweighting_factor
+    target.sum_w2 *= reweighting_factor
+    target.S .*= reweighting_factor
+
+    target
+end
+
+
+
 @doc doc"""
     BasicMvStatistics{T<:Real,W}
 
@@ -351,6 +371,14 @@ function Base.push!(
     end
 
     stats
+end
+
+
+function reweight_relative!(target::BasicMvStatistics{T}, reweighting_factor::Real) where T
+    reweight_relative!(target.mean, reweighting_factor)
+    reweight_relative!(target.cov, reweighting_factor)
+
+    target
 end
 
 
