@@ -252,6 +252,27 @@ function modify_edge!(
     pts_change = newvol.pointcloud.points / prevpts
     return pts_change, buffer, margin
 end
+
+function restrict_edge_position!(
+    dataset::DataSet{T, I},
+    change_mod::T,
+    edge_position::T,
+    edge::Edge,
+    spatialvolume::HyperRectVolume{T},
+    searchvol::HyperRectVolume{T},
+    vol::IntegrationVolume{T, I, HyperRectVolume{T}},
+    newvol::IntegrationVolume{T, I, HyperRectVolume{T}},
+    dim::I) where {T<:AbstractFloat, I<:Integer}
+
+    if edge == UpperEdge
+        spatialvolume.hi[dim] = edge_position
+    else
+        spatialvolume.lo[dim] = edge_position
+    end
+	
+    resize_integrationvol!(newvol, vol, dataset, dim, spatialvolume, false, searchvol)
+end
+
 function accept_edge_modification!(
     vol::IntegrationVolume{T, I, HyperRectVolume{T}},
     newvol::IntegrationVolume{T, I, HyperRectVolume{T}}) where {T<:AbstractFloat, I<:Integer}
@@ -291,6 +312,21 @@ function adapt_dimension!(
 
     ptsTolInc::T = dataset.tolerance
     ptsTolDec::T = dataset.tolerance * 1.1
+	
+	# Determine the minimum and maximum sample of the given dataset. 
+	min_sample = minimum(dataset.data[dim,:]) 
+	max_sample = maximum(dataset.data[dim,:])
+	
+	# Determine whether initial cube face exceeds the coordinate of the last sample
+	face_pos_tmp = (edge == UpperEdge) ? vol.spatialvolume.hi[dim] : vol.spatialvolume.lo[dim]
+    exceeds_sample_size = (edge == UpperEdge) ? (face_pos_tmp > max_sample ? true : false) : (face_pos_tmp < min_sample ? true : false) 
+	
+	# If it exceeds, then adjust face manually:
+	if exceeds_sample_size
+		edge_position = (edge == UpperEdge) ?  max_sample : min_sample 
+		restrict_edge_position!(dataset, increase, edge_position, edge, spatialvolume, searchvol, vol, newvol, dim)
+		accept_edge_modification!(vol, newvol)
+	end
 
     last_change = Init
     current_iteration = 0
@@ -322,6 +358,16 @@ function adapt_dimension!(
         end
     end
 
+	# Repeat after adjustments, if needed: 
+	face_pos_tmp = (edge == UpperEdge) ? vol.spatialvolume.hi[dim] : vol.spatialvolume.lo[dim]
+    exceeds_sample_size = (edge == UpperEdge) ? (face_pos_tmp > max_sample ? true : false) : (face_pos_tmp < min_sample ? true : false) 
+	
+	if exceeds_sample_size
+		edge_position = (edge == UpperEdge) ?  max_sample : min_sample 
+		restrict_edge_position!(dataset, increase, edge_position, edge, spatialvolume, searchvol, vol, newvol, dim)
+		accept_edge_modification!(vol, newvol)
+	end
+	
     change, current_iteration
 end
 

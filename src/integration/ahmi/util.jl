@@ -79,11 +79,9 @@ end
 
 
 function split_dataset(dataset::DataSet{T, I})::Tuple{DataSet{T, I}, DataSet{T, I}} where {T<:Real, I<:Integer}
-    N = dataset.N
-    n = floor(Int64, N / 2)
 
-    ds1 = DataSet(dataset.data[:, 1:n], dataset.logprob[1:n], dataset.weights[1:n], dataset.nsubsets, dataset.subsetsize)
-    ds2 = DataSet(dataset.data[:, n+1:N], dataset.logprob[n+1:N], dataset.weights[n+1:N], dataset.nsubsets, dataset.subsetsize)
+    ds1 = DataSet(dataset.data[:, 1:2:end], dataset.logprob[1:2:end], dataset.weights[1:2:end], dataset.nsubsets, dataset.subsetsize)
+    ds2 = DataSet(dataset.data[:, 2:2:end-1], dataset.logprob[2:2:end-1], dataset.weights[2:2:end-1], dataset.nsubsets, dataset.subsetsize)
 
     return ds1, ds2
 end
