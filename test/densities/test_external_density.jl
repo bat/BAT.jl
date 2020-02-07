@@ -13,7 +13,7 @@ if Sys.isunix()
         test_src_dir = @__DIR__
         c_src_file = joinpath(test_src_dir, "external_mvnormal_density.cxx")
 
-        dist = MvNormal(PDMat([1.0 1.5; 1.5 4.0]))
+        dist = MvNormal([1.0 1.5; 1.5 4.0])
 
         mktempdir() do tmp_build_dir
             test_density_server_binary = joinpath(tmp_build_dir, "external_mvnormal_density")
