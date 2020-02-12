@@ -9,6 +9,7 @@ Test.@testset "densities" begin
     include("test_const_density.jl")
     include("test_density_product.jl")
     include("test_distribution_density.jl")
+    include("test_hierarchical_density.jl")
     include("test_parameter_mapped_density.jl")
     include("test_external_density.jl")
 end

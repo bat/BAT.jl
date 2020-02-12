@@ -39,6 +39,9 @@ mcmc_compatible(::MetropolisHastings, ::AbstractProposalDist, ::NoVarBounds) = t
 mcmc_compatible(::MetropolisHastings, proposaldist::AbstractProposalDist, bounds::HyperRectBounds) =
     issymmetric(proposaldist) || all(x -> x == hard_bounds, bounds.bt)
 
+mcmc_compatible(::MetropolisHastings, proposaldist::AbstractProposalDist, bounds::HierarchicalDensityBounds) =
+    issymmetric(proposaldist)
+
 
 _sample_weight_type(::Type{MetropolisHastings{Q,W,WS}}) where {Q,W,WS} = W
 
