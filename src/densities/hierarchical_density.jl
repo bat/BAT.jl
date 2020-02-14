@@ -58,24 +58,27 @@ export HierarchicalDensity
 function HierarchicalDensity(f::Function, pd::Any)
     pd_conv = convert(DistLikeDensity, pd)
     vs_pd = varshape(pd_conv)
-    v_pd = rand(pd_conv) # ToDo: Use a deterministic instead of a random value
-    cd = _hierarchical_density_cd(f, vs_pd, v_pd)
+    v_pd = rand(_hd_determ_rng(), pd_conv)
+    cd = _hd_cd(f, vs_pd, v_pd)
     vs = NamedTupleShape(;vs_pd..., varshape(cd)...)
     HierarchicalDensity(f, pd_conv, vs)
 end
 
 
-function _hierarchical_density_cd(f::Function, vs_pd::AbstractValueShape, v_pd::AbstractVector{<:Real})
+_hd_determ_rng() = Philox4x((0, 0))
+
+
+function _hd_cd(f::Function, vs_pd::AbstractValueShape, v_pd::AbstractVector{<:Real})
     shaped_v = stripscalar(vs_pd(v_pd))
     convert(AbstractDensity, f(shaped_v))
 end
 
-_hierarchical_density_cd(f::Function, vs_pd::AbstractValueShape, v_pd::Any) = convert(AbstractDensity, f(v_pd))
+_hd_cd(f::Function, vs_pd::AbstractValueShape, v_pd::Any) = convert(AbstractDensity, f(v_pd))
 
 
-function _hierarchical_density_cd(d::HierarchicalDensity, v_pd::Any)
+function _hd_cd(d::HierarchicalDensity, v_pd::Any)
     vs_pd = varshape(d.pd)
-    _hierarchical_density_cd(d.f, vs_pd, v_pd)
+    _hd_cd(d.f, vs_pd, v_pd)
 end
 
 
@@ -115,7 +118,7 @@ function density_logval(
     d = density
     v1, v2 = _split_v(d, v)
     logval1 = density_logval(d.pd, v1)
-    cd = _hierarchical_density_cd(d, v1)
+    cd = _hd_cd(d, v1)
     logval2 = density_logval(cd, v2)
     logval1 + logval2
 end
@@ -126,8 +129,7 @@ ValueShapes.totalndof(density::HierarchicalDensity) = totalndof(density.vs)
 
 
 function Statistics.cov(density::HierarchicalDensity)
-    # ToDo: Find better solution that allows for propagation of RNG:
-    cov(nestedview(rand(sampler(density), 10^5)))
+    cov(nestedview(rand(_hd_determ_rng(), sampler(density), 10^5)))
 end
 
 
@@ -146,7 +148,7 @@ function Distributions._rand!(rng::AbstractRNG, s::HierarchicalDensitySampler, v
     d = s.d
     v1, v2 = _split_v(d, v)
     rand!(rng, sampler(d.pd),  v1)
-    cd = _hierarchical_density_cd(d, v1)
+    cd = _hd_cd(d, v1)
     rand!(rng, sampler(cd),  v2)
     v
 end
@@ -165,10 +167,10 @@ ValueShapes.totalndof(bounds::HierarchicalDensityBounds) = totalndof(bounds.d)
 
 function Base.eltype(bounds::HierarchicalDensityBounds)
     d = bounds.d
-    v = rand(sampler(d)) # ToDo: Use a deterministic instead of a random value
+    v = rand(_hd_determ_rng(), sampler(d))
     bounds1 = var_bounds(d.pd)
     v1, v2 = _split_v(d, v)
-    cd = _hierarchical_density_cd(d, v1)
+    cd = _hd_cd(d, v1)
     bounds2 = var_bounds(cd)
     promote_type(eltype(bounds1), eltype(bounds2))
 end
@@ -179,7 +181,7 @@ function Base.in(v::AbstractVector{<:Real}, bounds::HierarchicalDensityBounds)
     bounds1 = var_bounds(d.pd)
     v1, v2 = _split_v(d, v)
     if v1 in bounds1
-        cd = _hierarchical_density_cd(d, v1)
+        cd = _hd_cd(d, v1)
         bounds2 = var_bounds(cd)
         v2 in bounds2
     else
@@ -195,7 +197,7 @@ function apply_bounds!(v::AbstractVector{<:Real}, bounds::HierarchicalDensityBou
     apply_bounds!(v1, bounds1)
 
     if v1 in bounds1
-        cd = _hierarchical_density_cd(d, v1)
+        cd = _hd_cd(d, v1)
         bounds2 = var_bounds(cd)
         apply_bounds!(v2, bounds2)
     end
