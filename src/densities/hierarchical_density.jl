@@ -86,7 +86,7 @@ _nt_type_names(::Type{<:NamedTuple{names}}) where names = names
 
 @inline @generated function _split_nt(nt::NamedTuple, ::Val{names}) where {names}
     all_names = _nt_type_names(nt)
-    rest_names = filter(n -> !(n in names), all_names)
+    rest_names = filter(n -> !(n in names), [all_names...])
     expr1 = Expr(:tuple, map(key -> :($key = nt.$key), names)...)
     expr2 = Expr(:tuple, map(key -> :($key = nt.$key), rest_names)...)
     Expr(:tuple, expr1, expr2)
