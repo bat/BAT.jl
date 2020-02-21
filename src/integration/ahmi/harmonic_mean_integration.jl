@@ -420,42 +420,59 @@ function hm_integrate_integrationvolumes!_dataset(
 end
 
 
+"""
+    reduced_volume_hm!(log_prob, sample_weights, volume_size, n_total, weight_total, bias_correction==true)
 
+Estimate reduced volume harmonic mean for given arguments. Includes bias corection by default.
+Note: Weights are expected to be frequency weights (i.e. counts).
+"""
+function reduced_volume_hm(log_prob::Array{T}, sample_weights::Array{T}, volume_size::AbstractFloat, n_total::Int64, weight_total::Float64; bias_correction::Bool=true) where {T<:AbstractFloat}
+
+	pedestal_llh = maximum(log_prob) # maximum log likelihood to be subtracted for numerical stability
+
+	tmp = log_prob .- pedestal_llh
+	tmp = T(1) ./ exp.(tmp)
+	mean_x = mean(tmp, weights(sample_weights))
+	
+	r = weight_total/sum(sample_weights)
+	reduced_volume_hm = r*volume_size/mean_x*exp(pedestal_llh)
+
+	if !bias_correction 
+		return reduced_volume_hm 
+	else 
+ 		var_x = var(tmp, weights(sample_weights), corrected=false) / sum(sample_weights)
+ 		mean_r_bias = length(sample_weights) / n_total
+ 		var_r_bias = mean_r_bias*(1-mean_r_bias)/n_total
+ 		corr_factor = 1 - var_x / mean_x^2 - var_r_bias / mean_r_bias^2
+		return reduced_volume_hm*corr_factor
+	end
+end
+
+
+"""
+Estimates reduced_volume_hm quantity for one hyperrectangle including estimates from batches (for covariance calculations). 
+"""
 function integrate_hyperrectangle_cov(
     dataset::DataSet{T, I},
     integrationvol::IntegrationVolume{T, I, V},
     determinant::T)::Tuple{Array{T, 1}, T} where {T<:AbstractFloat, I<:Integer, V<:SpatialVolume}
 
-    norm_const = zeros(T, dataset.nsubsets)
-    totalWeights = zeros(T, dataset.nsubsets)
+	indices = integrationvol.pointcloud.pointIDs
+	integral = reduced_volume_hm(dataset.logprob[indices], dataset.weights[indices], integrationvol.volume, length(dataset.weights), sum(dataset.weights))
 
-    for i in eachindex(dataset.weights)
-        totalWeights[dataset.ids[i]] += dataset.weights[i]
+	integrals_batches = zeros(T, dataset.nsubsets)
+
+    for i in 1:dataset.nsubsets
+        subset_indices = indices[dataset.ids[indices] .== i]
+        tot_subset_mask = dataset.ids .== i
+        integrals_batches[i] = reduced_volume_hm(dataset.logprob[subset_indices], dataset.weights[subset_indices], integrationvol.volume, length(dataset.weights[tot_subset_mask]), sum(dataset.weights[tot_subset_mask]))
     end
-
-    s = zeros(T, dataset.nsubsets)
-    s_sum = T(0)
-    nsamples = zeros(T, dataset.nsubsets)
-    for id in integrationvol.pointcloud.pointIDs
-        prob = dataset.logprob[id] - integrationvol.pointcloud.maxLogProb
-        s[dataset.ids[id]] += T(1) / exp(prob) * dataset.weights[id]
-        s_sum += T(1) / exp(prob) * dataset.weights[id]
-        nsamples[dataset.ids[id]] += T(1)
-    end
-
-    for n = 1:dataset.nsubsets
-        norm_const[n] = totalWeights[n] * integrationvol.volume / determinant / exp(-integrationvol.pointcloud.maxLogProb)
-    end
-
-    integral::T = sum(dataset.weights) * integrationvol.volume / s_sum / determinant / exp(-integrationvol.pointcloud.maxLogProb)
-    integrals_batches = norm_const ./ s
-
-    #replace INF entries with mean integral value
+	
     for i in eachindex(integrals_batches)
         if isnan(integrals_batches[i]) || isinf(integrals_batches[i])
             integrals_batches[i] = integral
         end
     end
-
-    return integrals_batches, integral
+    
+    return integrals_batches./determinant, integral/determinant
 end
