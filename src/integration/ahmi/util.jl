@@ -1,13 +1,14 @@
-"""
-Functions first calculates 68% central percentile then returns list of deleted indicies (i.e. outside the 68%) and accepted indicies (i.e. inside 68% percentile). 
-"""
+
 function _trim(a::Array{T})::Tuple{Array{Int64},Array{Int64}} where {T<:AbstractFloat}
+
+	#Functions first calculates 68% central percentile then returns list of deleted
+	#indicies (i.e. outside the 68%) and accepted indicies (i.e. inside 68% percentile).
 
     if length(a) < 3
         return (Vector{Int64}(), collect(range(1,stop=length(a))))
     end
-    # 1-sigma range of a unit normal distribution   
-    lower = quantile(a, 0.15865) 
+    # 1-sigma range of a unit normal distribution
+    lower = quantile(a, 0.15865)
     upper = quantile(a, 0.84135)
     indices = findall(x-> x >= lower && x <= upper, a)
     return (setdiff(range(1,stop=length(a)), indices), indices)
@@ -23,7 +24,7 @@ function trim(
     dotrimming::Bool)::Array{Int64, 1} where {T<:AbstractFloat}
 
     deleteids, remainingids = _trim(res.integrals)
-	
+
     if dotrimming && length(remainingids) > 1
 		@debug "Trimming integration results: $(length(deleteids)) entries out of $(length(res.integrals)) deleted"
         deleteat!(res.integrals, deleteids)
