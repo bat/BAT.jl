@@ -36,8 +36,8 @@ function cholesky_partial_whitening!(
     dataset::DataSet{T, I})::WhiteningResult{T} where {T<:AbstractFloat, I<:Integer}
 
     datamean = zeros(T, dataset.P)
-	avoid_whitening_dims = find_steep_edges(dataset) 
-	
+	avoid_whitening_dims = find_steep_edges(dataset)
+
     for p in eachindex(datamean)
         datamean[p] = mean(view(dataset.data, p, :))
     end
@@ -48,28 +48,28 @@ function cholesky_partial_whitening!(
     end
 
     covmatrix = cov(convert(typeof(dataset.data), transpose(dataset.data)), FrequencyWeights(dataset.weights), corrected=true)
-	
+
 	for param in avoid_whitening_dims # replace non-diagonal elements with zeros to preserve rectangular bounds.
-		covmatrix[1:param-1, param] .= 0.0 
-		covmatrix[param+1:end, param] .= 0.0 
-		covmatrix[param, param+1:end] .= 0.0 
-		covmatrix[param, 1:param-1] .= 0.0 
+		covmatrix[1:param-1, param] .= 0.0
+		covmatrix[param+1:end, param] .= 0.0
+		covmatrix[param, param+1:end] .= 0.0
+		covmatrix[param, 1:param-1] .= 0.0
 	end
-	
+
     symcovmatrix = Symmetric(covmatrix)
     covmatrix_inv = inv(symcovmatrix)
     w = cholesky(covmatrix_inv).U
     wres = convert(Matrix{T}, w)
-	
+
     transform_data!(dataset, wres, datamean)
 end
 
 function find_steep_edges(dataset::DataSet{T, I})::Array{Int64,1} where {T<:AbstractFloat, I<:Integer}
-    
+
     N_bins::Int64 = 100
     treshold::Float64 = 0.00
     avoid_whitening_dims::Array{Int64,1} = []
-    
+
     for param in 1:dataset.P
         hist = fit(Histogram, dataset.data[param, :], FrequencyWeights(dataset.weights), nbins = N_bins, closed = :left)
         treshold = 0.01 * maximum(hist.weights)
@@ -77,7 +77,7 @@ function find_steep_edges(dataset::DataSet{T, I})::Array{Int64,1} where {T<:Abst
             push!(avoid_whitening_dims, param)
         end
     end
-    
+
     return avoid_whitening_dims
 end
 
@@ -126,7 +126,7 @@ function transform_data!(
     end
 
     maxP::T = maximum(dataset.logprob)
-    suggTargetProb::T = exp(maxP - partialsort(dataset.logprob, floor(Int64, dataset.N * 0.2)))
+    suggTargetProb::T = 500.0 #exp(maxP - partialsort(dataset.logprob, floor(Int64, dataset.N * 0.2)))
 
     dataset.iswhitened = true
 
