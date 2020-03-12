@@ -21,7 +21,7 @@ Julia is available for Linux, OS-X and Windows, and easy to install:
 
 !!! note
 
-    BAT.jl requires Julia >= v1.0.5. Julia v1.3 or higher is recommended for full functionality and performance.
+    BAT.jl requires Julia >= v1.3.
 
 
 ### Installing Jupyter and matplotlib/pyplot (optional)

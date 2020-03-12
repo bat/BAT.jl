@@ -30,6 +30,10 @@ julia> using Pkg
 julia> pkg"add BAT"
 ```
 
+!!! note
+
+    BAT.jl requires Julia >= v1.3.
+
 
 ## Documentation
 
