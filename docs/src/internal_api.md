@@ -51,9 +51,9 @@ BAT.WhiteningResult
 
 
 BAT.apply_bounds
-BAT.apply_bounds!
-BAT.apply_bounds_and_eval_posterior_logval!
 BAT.apply_bounds_and_eval_posterior_logval_strict!
+BAT.apply_bounds_and_eval_posterior_logval!
+BAT.apply_bounds!
 BAT.autocrl
 BAT.bat_sampler
 BAT.bg_R_2sqr
@@ -76,12 +76,14 @@ BAT.hm_init
 BAT.hm_integrate!
 BAT.hm_whiteningtransformation!
 BAT.hyperrectangle_creationproccess!
+BAT.integrate_hyperrectangle_cov
 BAT.issymmetric_around_origin
 BAT.log_volume
 BAT.mcmc_startval!
 BAT.modify_hypercube!
 BAT.modify_integrationvolume!
 BAT.proposal_rand!
+BAT.reduced_volume_hm
 BAT.spatialvolume
 BAT.sum_first_dim
 BAT.var_bounds
