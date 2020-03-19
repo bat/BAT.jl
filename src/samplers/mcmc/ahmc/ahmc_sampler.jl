@@ -77,20 +77,31 @@ function bat_sample(
     adaptor = get_AHMCAdaptor(adaptor, metric, integrator)
 
     n_samples = n[1]
-    #TODO: how to run multiple chains in parallel?
+    n_chains = n[2]
+
+    sample_arr = Vector{Array{Array{Float64, 1},1}}(undef, n_chains)
+    stats_arr =  Vector{Array{NamedTuple, 1}}(undef, n_chains)
 
     # sample using AdvancedHMC
-    samples, stats = AdvancedHMC.sample(
-        hamiltonian,
-        proposal,
-        initial_v,
-        n_samples,
-        adaptor,
-        n_adapts;
-        progress=false,
-        verbose=verbose,
-        drop_warmup = drop_warmup
-    )
+    Threads.@threads for i in 1:n_chains
+        samples, stats = AdvancedHMC.sample(
+            hamiltonian,
+            proposal,
+            initial_v,
+            n_samples,
+            adaptor,
+            n_adapts;
+            progress=false,
+            verbose=verbose,
+            drop_warmup = drop_warmup
+        )
+
+        sample_arr[i] = samples
+        stats_arr[i] = stats
+    end
+
+    samples = vcat(sample_arr...)
+    stats = vcat(stats_arr...)
 
     bat_samples = convert_to_bat_samples(samples, posterior)
 

@@ -23,12 +23,11 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase, IntervalSets, LinearAlge
 
     algorithm = AHMC()
     nsamples_per_chain = 10_000
-    nchains = 1
+    nchains = 2
     samples, chains = bat_sample(posterior, (nsamples_per_chain, nchains), algorithm)
 
     # number of samples smaller then requested because of weighting,
-    #TODO: allow to run multiple chains
-    @test_broken length(samples) == nchains * nsamples_per_chain
+    @test isapprox(length(samples), nchains * nsamples_per_chain; rtol=0.2)
 
 
     cov_samples = cov(BAT.unshaped.(samples.v), FrequencyWeights(samples.weight))
