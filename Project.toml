@@ -3,6 +3,7 @@ uuid = "c0cd4b16-88b7-57fa-983b-ab80aecada7e"
 version = "2.0.0-DEV"
 
 [deps]
+AdvancedHMC = "0bf59076-c3b1-5ca4-86bd-e02cd72cde3d"
 ArgCheck = "dce04be8-c92d-5529-be00-80e4d2c0e197"
 ArraysOfArrays = "65a8f2f4-9b39-5baf-92e2-a9cc46fdf018"
 Clustering = "aaaa29a8-35af-508c-8bc3-b662a17a0fe5"

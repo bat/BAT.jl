@@ -37,6 +37,7 @@ using StructArrays
 using Tables
 using UnsafeArrays
 using KernelDensity
+using AdvancedHMC
 
 import EmpiricalDistributions
 import ForwardDiff
