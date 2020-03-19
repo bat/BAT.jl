@@ -41,7 +41,6 @@ function get_AHMCproposal(
     proposal::NUTS,
     integrator::AdvancedHMC.AbstractIntegrator
 )
-
     sampling_type = getfield(AdvancedHMC, proposal.sampling)
     nuts_type = getfield(AdvancedHMC, proposal.nuts)
 

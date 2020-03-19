@@ -3,6 +3,51 @@ export AHMC
 struct AHMC <: AbstractSamplingAlgorithm end
 
 
+"""
+    function bat_sample(
+        posterior::AnyPosterior,
+        n::AnyNSamples,
+        algorithm::AHMC;
+        n_adapts::Int = min(div(n[1], 10), 1_000),
+        metric = DiagEuclideanMetric(),
+        gradient = ForwardDiff,
+        integrator = Leapfrog(),
+        proposal = NUTS(),
+        adaptor =  StanHMCAdaptor(),
+        verbose::Bool = true,
+        drop_warmup::Bool = true
+    )
+Sample `posterior` via Hamiltonian Monte Carlo using AdvancedHMC.jl.
+# AHMC related keyword arguments
+Also see https://github.com/TuringLang/AdvancedHMC.jl for more information.
+## Metric
+default: `metric = DiagEuclideanMetric()`
+options:
+- `UnitEuclideanMetric()`
+- `DenseEuclideanMetric()`
+## Integrator
+default: `integrator = Leapfrog(ϵ::Real = 0)`, with stepsize `ϵ. `
+When ϵ = 0, the initial stepsize is determined using `AdvancedHMC.find_good_eps()`
+options:
+- `JitteredLeapfrog(ϵ::Real = 0, n::Real = 1.0)` with the jitter rate `n`,
+- `TemperedLEapfrog(ϵ::Real = 0, a::Real = 1.05)` with tempering rate `a`
+## Proposal
+default: `proposal = NUTS(sampling::Symbol = :MultinomialTS, nuts::Symbol = :ClassicNoUTurn)`
+options:
+- `StaticTrajectory(n::Real = 10)`
+- `HMCDA(len_traj::Real = 2)`
+- `NUTS(sampling::Symbol, nuts::Symbol)`
+with
+    - `sampling =` `:SliceTS` or `:MultinomialTS`
+    - `nuts = ` `:ClassicNoUTurn` or  `:GeneralisedNoUTUrn`
+
+## Adaptor
+default: `adaptor =  StanHMCAdaptor(δ::Real = 0.8)`
+options:
+- `Preconditioner()`
+- `NesterovDualAveraging(δ::Real = 0.8)`
+- `NaiveHMCAdaptor(δ::Real = 0.8)`
+"""
 function bat_sample(
     posterior::AnyPosterior,
     n::AnyNSamples,
@@ -25,17 +70,16 @@ function bat_sample(
     logval_posterior(v) = density_logval(posterior, v)
     hamiltonian = AdvancedHMC.Hamiltonian(metric, logval_posterior, gradient)
 
-    if integrator.ϵ == 0
-        integrator.ϵ = AdvancedHMC.find_good_eps(hamiltonian, initial_v)
-    end
+    integrator.ϵ == 0 ? integrator.ϵ = AdvancedHMC.find_good_eps(hamiltonian, initial_v) : nothing
     integrator = get_AHMCintegrator(integrator)
 
     proposal = get_AHMCproposal(proposal, integrator)
     adaptor = get_AHMCAdaptor(adaptor, metric, integrator)
 
     n_samples = n[1]
+    #TODO: how to run multiple chains in parallel?
 
-    # call AdvancedHMC for sampling
+    # sample using AdvancedHMC
     samples, stats = AdvancedHMC.sample(
         hamiltonian,
         proposal,

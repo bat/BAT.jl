@@ -2,41 +2,12 @@
 using BAT
 using Test
 
-using ArraysOfArrays, Distributions, PDMats, StatsBase, IntervalSets
+using ArraysOfArrays, Distributions, PDMats, StatsBase, IntervalSets, LinearAlgebra
 
 @testset "ahmc_sample" begin
-    likelihood = let D = 5
-        params -> begin
-            r = logpdf(MvNormal(zeros(D), ones(D)), params.θ)
-            LogDVal(r)
-        end
-    end;
 
-    prior = BAT.NamedTupleDist(
-        #θ = [-500..500, -500..500, -500..500, -500..500, -500..500]
-        θ = [-5..5, -5..5, -5..5, -5..5, -5..5]
-    )
-
-    posterior = PosteriorDensity(likelihood, prior);
-
-    algorithm = AHMC()
-    nsamples_per_chain = 100_000
-    nchains = 2
-    samples, chains = bat_sample(posterior, (nsamples_per_chain, nchains), algorithm)
-
-    #@test length(samples) == nchains * nsamples_per_chain
-
-    #cov_samples = cov(flatview(samples.v), FrequencyWeights(samples.weight), 2; corrected=true)
-    #mean_samples = mean(flatview(samples.v), FrequencyWeights(samples.weight); dims = 2)
-
-    #@test isapprox(mean_samples, mvec; rtol = 0.15)
-    #@test isapprox(cov_samples, cmat; rtol = 0.15)
-
-end
-
-
-@testset "ahmc_sample_options" begin
-    likelihood = let D = 5
+    dims = 5
+    likelihood = let D = dims
         params -> begin
             r = logpdf(MvNormal(zeros(D), ones(D)), params.θ)
             LogDVal(r)
@@ -51,14 +22,48 @@ end
     posterior = PosteriorDensity(likelihood, prior);
 
     algorithm = AHMC()
-    nsamples_per_chain = 100_000
+    nsamples_per_chain = 10_000
     nchains = 1
+    samples, chains = bat_sample(posterior, (nsamples_per_chain, nchains), algorithm)
 
-    for metric in [DiagEuclideanMetric()]#, UnitEuclideanMetric(), DenseEuclideanMetric()]
-        for integrator in [Leapfrog()]#, JitteredLeapfrog(), TemperedLeapfrog()]
-            @inferred bat_sample(posterior, (nsamples_per_chain, nchains), algorithm; metric=metric, integrator=integrator)
-        end
-    end
+    # number of samples smaller then requested because of weighting,
+    #TODO: allow to run multiple chains
+    @test_broken length(samples) == nchains * nsamples_per_chain
 
+
+    cov_samples = cov(BAT.unshaped.(samples.v), FrequencyWeights(samples.weight))
+    mean_samples = mean(BAT.unshaped.(samples.v), FrequencyWeights(samples.weight))
+
+    @test isapprox(mean_samples, zeros(dims); atol = 0.05)
+    @test isapprox(cov_samples, 0.5*Matrix{Int}(I, dims, dims); atol = 0.05)
 
 end
+
+
+# @testset "ahmc_sample_options" begin
+#     likelihood = let D = 5
+#         params -> begin
+#             r = logpdf(MvNormal(zeros(D), ones(D)), params.θ)
+#             LogDVal(r)
+#         end
+#     end;
+#
+#     prior = BAT.NamedTupleDist(
+#         #θ = [-5..5, -5..5, -5..5, -5..5, -5..5]
+#         θ = MvNormal(zeros(5), ones(5))
+#     )
+#
+#     posterior = PosteriorDensity(likelihood, prior);
+#
+#     algorithm = AHMC()
+#     nsamples_per_chain = 100_000
+#     nchains = 1
+#
+#     for metric in [DiagEuclideanMetric()]#, UnitEuclideanMetric(), DenseEuclideanMetric()]
+#         for integrator in [Leapfrog()]#, JitteredLeapfrog(), TemperedLeapfrog()]
+#             @inferred bat_sample(posterior, (nsamples_per_chain, nchains), algorithm; metric=metric, integrator=integrator)
+#         end
+#     end
+#
+#
+# end
