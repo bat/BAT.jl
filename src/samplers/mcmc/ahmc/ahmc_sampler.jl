@@ -52,6 +52,7 @@ function bat_sample(
     posterior::AnyPosterior,
     n::AnyNSamples,
     algorithm::AHMC;
+    initial_v::Array{Array{Float64,1},1} = [rand(getprior(posterior)) for i in 1:n[2]],
     n_adapts::Int = min(div(n[1], 10), 1_000),
     metric = DiagEuclideanMetric(),
     gradient = ForwardDiff,
@@ -62,34 +63,31 @@ function bat_sample(
     drop_warmup::Bool = true
 )
 
-    initial_v = rand(getprior(posterior))
-
-    dim = length(initial_v)
+    dim = length(initial_v[1])
     metric = get_AHMCmetric(metric, dim)
-
-    logval_posterior(v) = density_logval(posterior, v)
-    hamiltonian = AdvancedHMC.Hamiltonian(metric, logval_posterior, gradient)
-
-    integrator.ϵ == 0 ? integrator.ϵ = AdvancedHMC.find_good_eps(hamiltonian, initial_v) : nothing
-    integrator = get_AHMCintegrator(integrator)
-
-    proposal = get_AHMCproposal(proposal, integrator)
-    adaptor = get_AHMCAdaptor(adaptor, metric, integrator)
-
-    n_samples = n[1]
-    n_chains = n[2]
+    n_samples = n[1]; n_chains = n[2]
 
     sample_arr = Vector{Array{Array{Float64, 1},1}}(undef, n_chains)
     stats_arr =  Vector{Array{NamedTuple, 1}}(undef, n_chains)
 
-    # sample using AdvancedHMC
+    logval_posterior(v) = density_logval(posterior, v)
+    hamiltonian = AdvancedHMC.Hamiltonian(metric, logval_posterior, gradient)
+
+
     Threads.@threads for i in 1:n_chains
+        integrator.ϵ == 0 ? integrator.ϵ = AdvancedHMC.find_good_eps(hamiltonian, initial_v[i]) : nothing
+        bat_integrator = get_AHMCintegrator(integrator)
+
+        bat_proposal = get_AHMCproposal(proposal, bat_integrator)
+        bat_adaptor = get_AHMCAdaptor(adaptor, metric, bat_integrator)
+
+        # sample using AdvancedHMC
         samples, stats = AdvancedHMC.sample(
             hamiltonian,
-            proposal,
-            initial_v,
+            bat_proposal,
+            initial_v[i],
             n_samples,
-            adaptor,
+            bat_adaptor,
             n_adapts;
             progress=false,
             verbose=verbose,
