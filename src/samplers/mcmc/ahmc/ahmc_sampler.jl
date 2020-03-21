@@ -59,7 +59,7 @@ function bat_sample(
     integrator = Leapfrog(),
     proposal = NUTS(),
     adaptor =  StanHMCAdaptor(),
-    verbose::Bool = true,
+    verbose::Bool = false,
     drop_warmup::Bool = true
 )
 
