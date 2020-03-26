@@ -84,14 +84,7 @@ function _apply_shape(shape::AbstractValueShape, s::DensitySample)
     )
 end
 
-@static if VERSION >= v"1.3"
-    (shape::AbstractValueShape)(s::DensitySample) = _apply_shape(shape, s)
-else
-    (shape::ScalarShape)(s::DensitySample) = _apply_shape(shape, s)
-    (shape::ArrayShape)(s::DensitySample) = _apply_shape(shape, s)
-    (shape::ConstValueShape)(s::DensitySample) = _apply_shape(shape, s)
-    (shape::NamedTupleShape)(s::DensitySample) = _apply_shape(shape, s)
-end
+(shape::AbstractValueShape)(s::DensitySample) = _apply_shape(shape, s)
 
 
 

@@ -180,9 +180,8 @@ end
 # (and other) code must be thread-safe. Mark non-thread-safe code with
 # `@critical` (provided by Julia package `ParallelProcessingTools`).
 #
-# BAT requires Julia v1.3 or newer to use multi-threading. Support for
-# automatic parallelization across multiple (local and remote) Julia processes
-# is planned, but not implemented yet.
+# Support for automatic parallelization across multiple (local and remote)
+# Julia processes is planned, but not implemented yet.
 #
 # Note that Julia currently starts only a single thread by default. Set the
 # the environment variable
