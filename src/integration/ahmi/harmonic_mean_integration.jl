@@ -280,8 +280,7 @@ function hm_combineresults_analyticestimation_dataset!(
     integral2 = Array{T, 1}(undef, length(integralestimates.integrals))
     ess = Array{T, 1}(undef, length(integralestimates.integrals))
 
-    wp_integralestimates = workpart(integralestimates.integrals, ParallelProcessingTools.workers(), ParallelProcessingTools.myid())
-    @mt for i in workpart(eachindex(wp_integralestimates), mt_nthreads(), threadid())
+    @mt for i in workpart(eachindex(integralestimates.integrals), mt_nthreads(), threadid())
         uncertainty_r[i], uncertainty_Y[i], uncertainty_tot[i], f_min[i], f_max[i], μ_Z[i], σ_μZ_sq[i], integral1[i], integral2[i], ess[i] =
             calculateuncertainty(dataset, volumes[integralestimates.volumeID[i]], determinant, integralestimates.integrals[i])
     end
@@ -407,8 +406,7 @@ function hm_integrate_integrationvolumes!_dataset(
     integralestimates = IntermediateResults(T, length(volumes))
     integralestimates.Y = zeros(T, dataset.nsubsets, length(volumes))
 
-    wp_volumes = workpart(volumes, ParallelProcessingTools.workers(), ParallelProcessingTools.myid())
-    @mt for i in workpart(eachindex(wp_volumes), mt_nthreads(), threadid())
+    @mt for i in workpart(eachindex(volumes), mt_nthreads(), threadid())
         integralestimates.Y[:, i], integralestimates.integrals[i] = integrate_hyperrectangle_cov(dataset, volumes[i], determinant)
 
         @critical next!(progressbar)

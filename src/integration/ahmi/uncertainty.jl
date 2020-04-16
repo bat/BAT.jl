@@ -10,8 +10,7 @@ function calculate_overlap(
 
     sortedsets = SortedSet.([volumes[integralestimates.volumeID[i]].pointcloud.pointIDs for i = 1:M])
 
-    idx = workpart(1:M, ParallelProcessingTools.workers(), ParallelProcessingTools.myid())
-    @mt for i in workpart(idx, mt_nthreads(), threadid())
+    @mt for i in workpart(1:M, mt_nthreads(), threadid())
         for j = 1:M
             intersectpts = intersect(sortedsets[i], sortedsets[j])
             unionpts = union(sortedsets[i], sortedsets[j])

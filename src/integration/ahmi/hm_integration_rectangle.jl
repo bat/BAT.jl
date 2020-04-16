@@ -78,8 +78,7 @@ function hm_update_integrationvolumes_dataset!(
 
     maxPoints = zero(T)
 
-    wp_volumes = workpart(volumes, ParallelProcessingTools.workers(), ParallelProcessingTools.myid())
-    @mt for i in workpart(eachindex(wp_volumes), mt_nthreads(), threadid())
+    @mt for i in workpart(eachindex(volumes), mt_nthreads(), threadid())
         update!(volumes[i], dataset)
 
         maxPoints = max(maxPoints, volumes[i].pointcloud.points)
