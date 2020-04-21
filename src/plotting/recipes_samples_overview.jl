@@ -1,21 +1,20 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-@recipe function f(maybe_shaped_samples::DensitySampleVector; 
-                vsel=collect(1:5), 
-                mean=false,
-                std_dev=false,
-                globalmode=false,
-                localmode=false,
-                diagonal = Dict(),
-                upper = Dict(),
-                lower = Dict(),
-                param_labels = [])
+@recipe function f(
+    maybe_shaped_samples::DensitySampleVector;
+    vsel=collect(1:5),
+    mean=false,
+    std_dev=false,
+    globalmode=false,
+    localmode=false,
+    diagonal = Dict(),
+    upper = Dict(),
+    lower = Dict(),
+    param_labels = []
+)
 
     samples = unshaped.(maybe_shaped_samples)
-
-    mod_vsel = vsel
     mod_vsel = vsel[vsel .<= Base.size(samples.v[1], 1)]
-
 
     if Base.size(param_labels, 1) == 0
         param_labels = [latexstring("\\theta_$i") for i in mod_vsel]
@@ -25,13 +24,12 @@
         param_labels = [latexstring(param_labels[i]) for i in 1:length(param_labels)]
     end
 
-    nparams = length(mod_vsel)   
+    nparams = length(mod_vsel)
     layout --> nparams^2
     size --> (1000, 600)
-    
+
 
     for i in 1:nparams
-
         # diagonal
         @series begin
             subplot := i + (i-1)*nparams
@@ -47,13 +45,13 @@
             localmode --> get(diagonal, "localmode", localmode)
             xlims --> get(diagonal, "xlims", :auto)
             ylims --> get(diagonal, "ylims", :auto)
-            xguide --> param_labels[i]
-            yguide --> param_labels_y[i]
-            
+            #xguide --> param_labels[i]
+            #yguide --> param_labels_y[i]
+
             samples, (mod_vsel[i])
         end
 
-        
+
         # upper right plots
         for j in i+1:nparams
 
@@ -65,6 +63,7 @@
                 colors --> get(upper, "colors", standard_colors)
                 intervals --> get(upper, "intervals", standard_confidence_vals)
                 legend --> get(upper, "legend", false)
+                colorbar --> get(upper, "colorbar", false)
                 mean --> get(upper, "mean", mean)
                 std_dev --> get(upper, "std_dev", std_dev)
                 globalmode --> get(upper, "globalmode", globalmode)
@@ -78,27 +77,28 @@
             end
 
             # lower left plots
-            @series begin
-                subplot := i + (j-1)*nparams
+             @series begin
+                 subplot := i + (j-1)*nparams
 
-                seriestype --> get(lower, "seriestype", :smallest_intervals)
-                bins --> get(lower, "bins", 200)
-                colors --> get(lower, "colors", standard_colors)
-                intervals --> get(lower, "intervals", standard_confidence_vals)
-                legend --> get(lower, "legend", false)
-                mean --> get(lower, "mean", mean)
-                std_dev --> get(lower, "std_dev", std_dev)
-                globalmode --> get(lower, "globalmode", globalmode)
-                localmode --> get(lower, "localmode", localmode)
-                xlims --> get(lower, "xlims", :auto)
-                ylims --> get(lower, "ylims", :auto)
-                xguide --> param_labels[i]
-                yguide --> param_labels[j]
+                 seriestype --> get(lower, "seriestype", :smallest_intervals)
+                 bins --> get(lower, "bins", 200)
+                 colors --> get(lower, "colors", standard_colors)
+                 colorbar --> get(lower, "colorbar", false)
+                 intervals --> get(lower, "intervals", standard_confidence_vals)
+                 legend --> get(lower, "legend", false)
+                 mean --> get(lower, "mean", mean)
+                 std_dev --> get(lower, "std_dev", std_dev)
+                 globalmode --> get(lower, "globalmode", globalmode)
+                 localmode --> get(lower, "localmode", localmode)
+                 xlims --> get(lower, "xlims", :auto)
+                 ylims --> get(lower, "ylims", :auto)
+                 xguide --> param_labels[i]
+                 yguide --> param_labels[j]
 
-                samples, (mod_vsel[i], mod_vsel[j])
-            end
+                 samples, (mod_vsel[i], mod_vsel[j])
+             end
 
-        end 
-    end 
+        end
+    end
 
 end

@@ -1,78 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 @recipe function f(
-    parshapes::NamedTupleShape,
-    samples::DensitySampleVector, 
-    parsel::NTuple{2,Symbol}; 
-    intervals = standard_confidence_vals, 
-    colors = standard_colors,
-    mean = false,
-    std_dev = false,
-    globalmode = false,
-    localmode = true,
-    diagonal = Dict(),
-    upper = Dict(),
-    right = Dict(),
-    filter = true
-)
-    i = findfirst(x -> x == parsel[1], keys(parshapes))
-    j = findfirst(x -> x == parsel[2], keys(parshapes))
-
-    @series begin
-        intervals --> intervals
-        colors --> colors
-        mean --> mean
-        std_dev --> std_dev
-        globalmode --> globalmode
-        localmode --> localmode
-        diagonal --> diagonal
-        upper --> upper
-        right --> right
-        filter --> filter
-
-        samples, (i,j)
-    end
-end
-
-
-@recipe function f(
-    posterior::PosteriorDensity,
-    samples::DensitySampleVector, 
-    parsel::NTuple{2,Symbol}; 
-    intervals = standard_confidence_vals, 
-    colors = standard_colors,
-    mean = false,
-    std_dev = false,
-    globalmode = false,
-    localmode = true,
-    diagonal = Dict(),
-    upper = Dict(),
-    right = Dict(),
-    filter = true
-)
-
-    i = findfirst(x -> x == parsel[1], keys(varshape(posterior)))
-    j = findfirst(x -> x == parsel[2], keys(varshape(posterior)))
-
-    @series begin
-        intervals --> intervals
-        colors --> colors
-        mean --> mean
-        std_dev --> std_dev
-        globalmode --> globalmode
-        localmode --> localmode
-        diagonal --> diagonal
-        upper --> upper
-        right --> right
-        filter --> filter
-
-        samples, (i,j)
-    end
-end
-
-
-@recipe function f(
     maybe_shaped_samples::DensitySampleVector,
-    parsel::NTuple{2,Integer};
+    param::Union{NTuple{2, Integer}, NTuple{2, Symbol}};
     intervals = standard_confidence_vals,
     colors = standard_colors,
     mean = false,
@@ -82,29 +11,26 @@ end
     diagonal = Dict(),
     upper = Dict(),
     right = Dict(),
-    filter = true
+    filter = false,
+    closed = :left
 )
+    param_x = get_param_index(maybe_shaped_samples, param[1])
+    param_y = get_param_index(maybe_shaped_samples, param[2])
+
     samples = unshaped.(maybe_shaped_samples)
+    filter ? samples = BAT.drop_low_weight_samples(samples) : nothing
 
-    if filter
-        samples = BAT.drop_low_weight_samples(samples)
-    end
-
-    pi_x, pi_y = parsel
     bins = get(plotattributes, :bins, 200)
     seriestype = get(plotattributes, :seriestype, :smallest_intervals)
-    
+
+    colorbar = false
     if seriestype == :histogram2d || seriestype == :histogram || seriestype == :hist
         colorbar = true
-    else
-        colorbar = false
     end
 
-    xguide --> "\$\\theta_$(pi_x)\$"
-    yguide --> "\$\\theta_$(pi_y)\$"
-
-
-    h = fit(Histogram, (flatview(samples.v)[pi_x, :], flatview(samples.v)[pi_y, :]), FrequencyWeights(samples.weight), closed=:left, nbins=bins)
+    #TODO: names
+    xguide --> "v$(param_x)"
+    yguide --> "v$(param_y)"
 
 
     if seriestype == :scatter
@@ -112,7 +38,7 @@ end
 
         acc = findall(x -> x > 0, samples.weight)
         rej = findall(x -> x <= 0, samples.weight)
-    
+
         color = parse(RGBA{Float64}, get(plotattributes, :seriescolor, :green))
         label = get(plotattributes, :label, isempty(rej) ? "samples" : "accepted")
 
@@ -122,7 +48,7 @@ end
             markersize := [w < 1 ? base_markersize : base_markersize * sqrt(w) for w in samples.weight[acc]]
             markerstrokewidth := 0
             color := [w >= 1 ? color : RGBA(convert(RGB, color), color.alpha * w) for w in samples.weight[acc]]
-            (flatview(samples.v)[pi_x, acc], flatview(samples.v)[pi_y, acc])
+            (flatview(samples.v)[param_x, acc], flatview(samples.v)[param_y, acc])
         end
 
         if !isempty(rej)
@@ -132,14 +58,20 @@ end
                 markersize := base_markersize
                 markerstrokewidth := 0
                 color := :red
-                (flatview(samples.v)[pi_x, rej], flatview(samples.v)[pi_y, rej])
+                (flatview(samples.v)[1 rej], flatview(samples.v)[2, rej])
             end
         end
 
     else
+        hist = BATHistogram(
+            samples,
+            (param_x, param_y),
+            nbins = bins,
+            closed = closed,
+            filter=filter
+        )
 
         @series begin
-
             seriestype --> seriestype
             intervals --> intervals
             colors --> colors
@@ -147,16 +79,13 @@ end
             upper --> upper
             right --> right
 
-            h, (pi_x, pi_y)
-
+            hist, (1, 2)
         end
-
     end
 
 
-
-    #------ stats -----------------------------
-    stats = MCMCBasicStats(samples) 
+    #------ stats ----------------------------
+    stats = MCMCBasicStats(samples)
 
     mean_options = convert_to_options(mean)
     globalmode_options = convert_to_options(globalmode)
@@ -164,18 +93,18 @@ end
     stddev_options = convert_to_options(std_dev)
 
 
-    if mean_options != ()  
-        mx= stats.param_stats.mean[pi_x]
-        my = stats.param_stats.mean[pi_y]
+    if mean_options != ()
+        mx= stats.param_stats.mean[param_x]
+        my = stats.param_stats.mean[param_y]
 
         Σ_all = stats.param_stats.cov
-        Σx = Σ_all[pi_x, pi_x]
-        Σy = Σ_all[pi_y, pi_y]
+        Σx = Σ_all[param_x, param_x]
+        Σy = Σ_all[param_y, param_y]
 
         @series begin
             seriestype := :scatter
-            label := get(mean_options, "label", "mean") #: ($(@sprintf("%.2f", mx)), $(@sprintf("%.2f", my)))
-            seriestype==:marginal ? subplot := 3 : 
+            label := get(mean_options, "label", "mean")
+            seriestype==:marginal ? subplot := 3 :
             markeralpha := get(mean_options, "markeralpha", 1)
             markercolor := get(mean_options, "markercolor", :black)
             markersize := get(mean_options, "markersize", 4)
@@ -195,14 +124,14 @@ end
     end
 
 
-   if globalmode_options != ()  
-        globalmode_x = stats.mode[pi_x]
-        globalmode_y = stats.mode[pi_y]
+   if globalmode_options != ()
+        globalmode_x = stats.mode[param_x]
+        globalmode_y = stats.mode[param_y]
 
         @series begin
             seriestype := :scatter
-            label := get(globalmode_options, "label", "global mode") #: ($(@sprintf("%.2f", globalmode_x)), $(@sprintf("%.2f", globalmode_y)))
-            seriestype==:marginal ? subplot := 3 : 
+            label := get(globalmode_options, "label", "global mode")
+            seriestype==:marginal ? subplot := 3 :
             markeralpha := get(globalmode_options, "markeralpha", 1)
             markercolor := get(globalmode_options, "markercolor", :black)
             markersize := get(globalmode_options, "markersize", 4)
@@ -218,20 +147,20 @@ end
     end
 
 
-    if localmode_options != ()  
-        localmode_values = calculate_localmode_2d(h)
+    if localmode_options != ()
+        localmode_values = find_localmodes(hist)
         for (i, l) in enumerate(localmode_values)
          @series begin
             seriestype := :scatter
             if i==1 && length(localmode_values)==1
-                label := get(localmode_options, "label", "local mode") #: ($(@sprintf("%.2f", l[1])), $(@sprintf("%.2f", l[2])))
+                label := get(localmode_options, "label", "local mode")
             elseif i ==1
                 label := get(localmode_options, "label", "local modes")
-            else 
+            else
                 label :=""
             end
 
-            seriestype == :marginal ? subplot := 3 : 
+            seriestype == :marginal ? subplot := 3 :
             markeralpha := get(localmode_options, "markeralpha", 0)
             markercolor := get(localmode_options, "markercolor", :black)
             markersize := get(localmode_options, "markersize", 4)
@@ -241,7 +170,7 @@ end
             markerstrokestyle := get(localmode_options, "markerstrokestyle", :solid)
             markerstrokewidth := get(localmode_options, "markerstrokewidth", 1)
             colorbar := colorbar
-            
+
             ([localmode_values[i][1]], [localmode_values[i][2]])
             end
         end

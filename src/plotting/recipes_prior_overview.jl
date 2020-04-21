@@ -1,14 +1,15 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-@recipe function f(prior::NamedTupleDist;
-                vsel=collect(1:5), 
-                diagonal = Dict(),
-                upper = Dict(),
-                lower = Dict(),
-                param_labels = [])
+@recipe function f(
+    prior::NamedTupleDist;
+    vsel=collect(1:5),
+    diagonal = Dict(),
+    upper = Dict(),
+    lower = Dict(),
+    param_labels = []
+)
 
     mod_vsel = vsel[vsel .<= length(keys(prior))]
-
 
     if Base.size(param_labels, 1) == 0
         param_labels = [latexstring("\\theta_$i") for i in mod_vsel]
@@ -18,10 +19,10 @@
         param_labels = [latexstring(param_labels[i]) for i in 1:length(param_labels)]
     end
 
-    nparams = length(mod_vsel)   
+    nparams = length(mod_vsel)
     layout --> nparams^2
     size --> (1000, 600)
-    
+
 
     for i in 1:nparams
 
@@ -39,11 +40,11 @@
             linecolor --> get(diagonal, "linecolor", :black)
             xguide --> param_labels[i]
             yguide --> param_labels_y[i]
-            
+
             prior, (mod_vsel[i])
         end
 
-        
+
         # upper right plots
         for j in i+1:nparams
 
@@ -82,7 +83,7 @@
                 prior, (mod_vsel[i], mod_vsel[j])
             end
 
-        end 
-    end 
+        end
+    end
 
 end

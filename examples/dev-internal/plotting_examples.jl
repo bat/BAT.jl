@@ -4,10 +4,9 @@
 
 
 using BAT
+using Distributions
+using IntervalSets
 
-# ## Generate samples
-# We generate some generic multimodal samples to be plotted afterwards
-using Distributions, IntervalSets, ValueShapes
 
 ##Model definition to generate samples
 struct GaussianShellDensity<:AbstractDensity
@@ -19,25 +18,25 @@ end
 function BAT.density_logval(target::GaussianShellDensity, v::Any)
     loglikelihood::Float64 = 0.
     for i in 1:length(v)
-        
+
         result = -0.5 * (v[i][1]-target.r[i])^2/target.sigma[i]^2
         l1 = result - log(√2π * target.sigma[i])
-        
+
         result2 = -0.5 * (v[i][1]+target.r[i])^2/target.sigma[i]^2
         l2 = result2 - log(√2π * target.sigma[i])^2
-        
-        loglikelihood += log(exp(l1) + 2*exp(l2)) 
+
+        loglikelihood += log(exp(l1) + 2*exp(l2))
     end
-    
+
     return loglikelihood
 end
 
-likelihood = GaussianShellDensity([5.0, 5., 3.], [2, 2.4, 1.5]) 
+likelihood = GaussianShellDensity([5.0, 5., 3.], [2, 2.4, 1.5])
 
-prior = NamedTupleDist(
+prior = BAT.NamedTupleDist(
     λ1 = Normal(-3, 4.5),
-    λ2 = -30.0..30.0,    
-    λ3 = Normal(3, 3.5)    
+    λ2 = -30.0..30.0,
+    λ3 = Normal(3, 3.5)
 )
 
 posterior = PosteriorDensity(likelihood, prior);
@@ -56,8 +55,8 @@ using Plots
 
 pyplot()
 
-# ## Examples for 1D plots 
-# Below, all available seriestypes and plotting features for 1D representations of samples or prior are shown
+# ## Examples for 1D plots
+# The available seriestypes and plotting features for 1D representations of samples and priors are shown
 # ### default 1D plot style for samples:
 plot(samples, 2)
 # The default seriestype for samples is `:smallest_intervals`.
@@ -67,20 +66,17 @@ plot(samples, 2)
 plot(prior, 2)
 # The default seriestype for sprior is `:stephist`.
 
-# Samples can either be plotted by their index (as shown above) or by using the parameter names given in NamedTupleDist. This can be done by passing either the posterior 
-plot(posterior, samples, :λ2)
-# or the value shape(s) of the prior:
-using ValueShapes
-parshapes = varshape(prior)
-plot(parshapes, samples, :λ2)
+# Samples can either be plotted by their index (as shown above) or by using the parameter names given in NamedTupleDist.
+plot(samples, :λ2)
 
-# Prior can also be plotted by their index or by using the parameter names given in NamedTupleDist:
+# The prior can also be plotted by their index or by using the parameter names given in NamedTupleDist:
 plot(prior, 1)
 # or
 plot(prior, :λ1)
 
+# The knowledge update
 # Plot prior + posterior
-plot(posterior, samples, :λ1)
+plot(samples, :λ1)
 plot!(prior, :λ1)
 
 # ### Further seriestypes available:
@@ -92,7 +88,7 @@ plot(samples, 2, seriestype = :central_intervals)
 plot(samples, 2, seriestype=:smallest_intervals, intervals=[0.5, 0.1, 0.3, 0.99], colors=[:grey, :red, :blue, :orange])
 
 # #### histogram
-plot(samples, 2, seriestype = :histogram)  
+plot(samples, 2, seriestype = :histogram)
 # alias: `:hist == :histogram`
 
 # #### step histogram
@@ -114,13 +110,10 @@ plot(samples, 1, localmode=false, mean=Dict("linestyle" => :dot, "linecolor"=> :
 # Below, all available seriestypes and plotting features for 2D representations of samples are shown
 # ### default 2D plot style:
 plot(samples, (1,2), nbins=200)
-# The default 2D plotting style is a 3-color heatmap showing the smallest intervals containing 68.3, 95.5 and 99.7 perecent of the posterior probability. 
+# The default 2D plotting style is a 3-color heatmap showing the smallest intervals containing 68.3, 95.5 and 99.7 perecent of the posterior probability.
 
-# Samples can either be plotted by their index (as shown above) or by using the parameter names given in NamedTupleDist. This can be done by passing either the posterior 
-plot(posterior, samples, (:λ1, :λ2))
-# or the value shape(s) of the prior:
-parshapes = varshape(prior)
-plot(parshapes, samples, (:λ1, :λ2))
+# Samples can either be plotted by their index or by using the parameter names given in NamedTupleDist.
+plot(samples, (:λ1, :λ2))
 
 # Prior can also be plotted by their index or by using the parameter names given in NamedTupleDist.
 plot(prior, (1, 2))
@@ -129,7 +122,7 @@ plot(prior, (:λ1, :λ2))
 
 
 # Plot prior + posterior
-plot(posterior, samples, (:λ1, :λ3))
+plot(samples, (:λ1, :λ3))
 plot!(prior, (:λ1, :λ3))
 
 # ### Further seriestypes available:
@@ -137,11 +130,11 @@ plot!(prior, (:λ1, :λ3))
 plot(samples, (1,2), seriestype = :histogram, nbins=200)
 # alias: `:histogram2d == :histogram`
 
-# #### smallest intervals as colored contour lines: 
+# #### smallest intervals as colored contour lines:
 # (currently only correctly supported with `pyplot()` backend)
 plot(samples, (1,2), seriestype=:smallest_intervals_contour, bins=50)
 
-# #### smallest intervals as filled contours: 
+# #### smallest intervals as filled contours:
 # (currently only correctly supported with `pyplot()` backend)
 plot(samples, (1,2), seriestype=:smallest_intervals_contourf, bins=50)
 
@@ -202,9 +195,9 @@ diagnostics = BAT.MCMCDiagnostics(samples, chains)
 plot(diagnostics, vsel=[1])
 
 # ### Customizing diagnostics plots:
-plot(diagnostics, 
-    vsel=[1, 2], 
-    chains=[1, 2], 
+plot(diagnostics,
+    vsel=[1, 2],
+    chains=[1, 2],
     diagnostics = [:histogram, :kde, :trace, :acf],
     histogram = Dict("seriestype" => :smallest_intervals, "legend" => :false),
     trace = Dict("linecolor" => :red),

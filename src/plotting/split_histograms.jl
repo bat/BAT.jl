@@ -1,28 +1,26 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 # for 1d and 2d histograms
-function split_smallest(histogram, intervals)
+function get_smallest_intervals(
+    histogram::BATHistogram,
+    intervals::Array{Float64, 1}
+)
     intervals = sort(intervals)
 
-    hist = deepcopy(histogram) 
-    hists_weights = Array{Array{Real}}(undef, length(intervals))
-    dims = size(hist.weights)
+    bathist = deepcopy(histogram)
+    dims = size(bathist.h.weights)
+    weights = vec(bathist.h.weights)
+    totalweight = sum(weights)
+    rel_weights = weights/totalweight
 
-    weights = vec(hist.weights)
-    totalweights = sum(weights)
+    hists_weights = [zeros(length(weights)) for i in 1:length(intervals)]
     weight_ids = sortperm(weights, rev=true) # starting with highest weight
-
-    for i in 1:length(intervals)
-        hists_weights[i] = zeros(length(weights))
-    end
-
-    rel_weights = weights/totalweights
 
     for (i, intv) in enumerate(intervals)
         sum_weights = 0.
         for w in weight_ids
             if sum_weights < intv
-                hists_weights[i][w] = hist.weights[w]
+                hists_weights[i][w] = weights[w]
                 sum_weights += rel_weights[w]
             else
                 break
@@ -30,117 +28,102 @@ function split_smallest(histogram, intervals)
         end
     end
 
-    hists = Array{StatsBase.Histogram}(undef, length(intervals))
+    hists = Array{BATHistogram}(undef, length(intervals))
 
     for i in 1:length(intervals)
-        hists[i] = deepcopy(hist)
-        hists[i].weights = reshape(hists_weights[i], dims)
+        hists[i] = deepcopy(bathist)
+        hists[i].h.weights = reshape(hists_weights[i], dims)
     end
 
-    realintervals = calculate_hist_percentage(hists, hist)
+    realintervals = get_probability_content(bathist, hists)
 
-    return reverse(hists), histogram, reverse(realintervals)
+    return reverse(hists), reverse(realintervals)
 end
 
 
+
 # for 1d histograms
-function split_central(histogram, intervals)
+function split_central(
+    histogram::BATHistogram,
+    intervals::Array{Float64, 1}
+)
     intervals = sort(intervals)
     intervals = (1 .-intervals)/2
 
-    hist = deepcopy(histogram) 
-    hists = Array{StatsBase.Histogram}(undef, length(intervals))
+    bathist = deepcopy(histogram)
+    hists = Array{BATHistogram}(undef, length(intervals))
 
     for i in 1:length(intervals)
-        hists[i] = deepcopy(hist)
+        hists[i] = deepcopy(bathist)
     end
 
-    totalweights = sum(hist.weights)
-   
-    rel_weights = hist.weights/totalweights
+    weights = vec(bathist.h.weights)
+    totalweight = sum(weights)
+    rel_weights = weights/totalweight
 
     for (i, intv) in enumerate(intervals)
         sum_left = 0.
         sum_right = 0.
 
-        for l in 1:length(hist.weights)
+        for l in 1:length(weights)
            if sum_left + rel_weights[l] < intv
                 sum_left = sum_left + rel_weights[l]
-                hists[i].weights[l] = 0
+                hists[i].h.weights[l] = 0
            else
                 break
            end
-        end 
+        end
 
-        for r in length(hist.weights):-1:1
+        for r in length(weights):-1:1
            if sum_right + rel_weights[r] < intv
                 sum_right = sum_right + rel_weights[r]
-                hists[i].weights[r] = 0
+                hists[i].h.weights[r] = 0
            else
                 break
            end
-        end 
+        end
     end
 
-    realintervals = calculate_hist_percentage(hists, hist)
+    realintervals = get_probability_content(bathist, hists)
 
-    return reverse(hists), histogram, reverse(realintervals)
+    return reverse(hists), reverse(realintervals)
 end
 
 
-function calculate_hist_percentage(hists, hist)
-# calculate percentage really enclosed inside the intervals (possible differences for to large bins)
-    totalweights = sum(hist.weights)
-    realintervals = zeros(length(hists))
 
-    for (i, h) in enumerate(hists)
-        realintervals[i] = sum(h.weights)/totalweights
-    end
-
-    return realintervals
+# calculate probability percentage enclosed inside the intervals of hists
+function get_probability_content(
+    hist::BATHistogram,
+    hists::Array{BATHistogram, 1}
+)
+    totalweight = sum(hist.h.weights)
+    return [sum(hists[i].h.weights)/totalweight for i in 1:length(hists)]
 end
 
 
-function bin_centers(h)
-    m = length(h.edges[1])-1
-    n = length(h.edges[2])-1
-    
-    x = Vector{Real}(undef, m)
-    y = Vector{Real}(undef, n)
 
-    for i in 1:m
-        x[i] = h.edges[1][i]+0.5*(h.edges[1][i+1]-h.edges[1][i])
-    end
-        
-    for j in 1:n
-        y[j] =  h.edges[2][j]+0.5*(h.edges[2][j+1]-h.edges[2][j])
-    end
-    
-    return x, y, h.weights
-end
-
-
-function calculate_levels(weights, intervals)
+function calculate_levels(
+    bathist::BATHistogram,
+    intervals::Array{<:Real, 1}
+)
     intervals = sort(intervals)
     levels = Vector{Real}(undef, length(intervals)+1)
-    
-    w = vec(weights)
-    w = sort(w, rev=true)
-    
-    weight_ids = sortperm(w, rev=true);
-    summedw = sum(w)
 
-    sumw = 0.0
-    
+    weights = sort(vec(bathist.h.weights), rev=true)
+
+    weight_ids = sortperm(weights, rev=true);
+    sum_of_weights = sum(weights)
+
+    sum_w = 0.0
+
     for w_id in weight_ids
-        if(sumw <= intervals[end])
-            i = findfirst(x -> sumw <= x, intervals)
-            levels[i] = w[w_id]
-            sumw += w[w_id]/summedw
-        end 
+        if(sum_w <= intervals[end])
+            i = findfirst(x -> sum_w <= x, intervals)
+            levels[i] = weights[w_id]
+            sum_w += weights[w_id]/sum_of_weights
+        end
     end
-    
-    levels[end] = 1.1*summedw
-    
+
+    levels[end] = 1.1*sum_of_weights
     return sort(levels)
 end

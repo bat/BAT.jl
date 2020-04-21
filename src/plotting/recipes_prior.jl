@@ -1,59 +1,35 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-@recipe function f(prior::NamedTupleDist,
-    param::Symbol; 
-    intervals = standard_confidence_vals, 
-    bins=200,
-    nsamples=10^6,
-    normalize = true, 
+@recipe function f(
+    prior::NamedTupleDist,
+    param::Union{Integer, Symbol};
+    intervals = standard_confidence_vals,
+    bins = 200,
+    nsamples = 10^6,
+    normalize = true,
     colors = standard_colors,
-    intervallabels = [])
-
-    i = findfirst(x -> x == param, keys(prior))
-
-    @series begin 
-        intervals --> intervals
-        bins --> bins
-        normalize --> normalize
-        colors --> colors
-        intervallabels --> intervallabels
-        nsamples --> nsamples
-
-        prior, i
-    end
-end
-
-
-@recipe function f(prior::NamedTupleDist,
-                    param::Integer; 
-                    intervals = standard_confidence_vals, 
-                    bins=200,
-                    nsamples=10^6,
-                    normalize = true, 
-                    colors = standard_colors,
-                    intervallabels = [])
-
-
-    r = rand(prior, nsamples)
+    interval_labels = [],
+    closed = :left
+)
 
     orientation = get(plotattributes, :orientation, :vertical)
     (orientation != :vertical) ? swap=true : swap = false
     plotattributes[:orientation] = :vertical # without: auto-scaling of axes not correct
 
-    hist = fit(Histogram, r[param, :], nbins = bins, closed = :left)
-    normalize ? hist=StatsBase.normalize(hist) : nothing
-    weights = hist.weights
+    param_ind = get_param_index(prior, param)
+    bathist = BATHistogram(prior, param_ind, nbins = bins, closed = closed)
 
+    normalize ? bathist.h = StatsBase.normalize(bathist.h) : nothing
+    #TODO: names
     if swap
-        yguide --> "\$\\theta_$(param)\$"
-        xguide --> "\$p(\\theta_$(param))\$"
-    else 
-        yguide --> "\$p(\\theta_$(param))\$"
-        xguide --> "\$\\theta_$(param)\$"
+        yguide --> "v$(param)"
+        xguide --> "p(v$(param))"
+    else
+        yguide --> "p(v$(param))"
+        xguide --> "v$(param)"
     end
-    
-   @series begin   
-    
+
+   @series begin
         seriestype --> :stephist
         linecolor --> :dimgray
         label --> "prior"
@@ -62,77 +38,56 @@ end
         bins --> bins
         normalize --> normalize
         colors --> colors
-        intervallabels --> intervallabels
+        interval_labels --> interval_labels
 
-        hist, param
+        bathist, 1
     end
 
 end
+
 
 
 # 2D plots
-
-@recipe function f(prior::NamedTupleDist,
-    vsel::NTuple{2,Symbol}; 
+@recipe function f(
+    prior::NamedTupleDist,
+    params::Union{NTuple{2,Integer}, NTuple{2,Symbol}};
     nsamples=10^6,
-    intervals = standard_confidence_vals, 
+    intervals = standard_confidence_vals,
+    bins = 200,
+    nsamples = 10^6,
+    normalize = true,
     colors = standard_colors,
+    interval_labels = [],
+    closed = :left,
     diagonal = Dict(),
     upper = Dict(),
-    right = Dict())
+    right = Dict()
+)
 
-    i = findfirst(x -> x == vsel[1], keys(prior))
-    j = findfirst(x -> x == vsel[2], keys(prior))
+    param_x = get_param_index(prior, params[1])
+    param_y = get_param_index(prior, params[2])
 
-    @series begin 
-        intervals --> intervals
-        colors --> colors
-        nsamples --> nsamples
-        diagonal -->  diagonal
-        upper --> upper
-        right --> right
+    bathist = BATHistogram(
+        prior,
+        (params[1], params[2]),
+        nbins=bins,
+        closed=closed,
+        nsamples=nsamples
+    )
 
-        prior, (i, j)
-    end
-
-end
-
-
-@recipe function f(prior::NamedTupleDist,
-                vsel::NTuple{2,Integer}; 
-                nsamples=10^6,
-                intervals = standard_confidence_vals, 
-                colors = standard_colors,
-                diagonal = Dict(),
-                upper = Dict(),
-                right = Dict())
-
-
-    r = rand(prior, nsamples)
-
-    bins = get(plotattributes, :bins, "default")
-
-    if bins=="default"
-        hist = fit(Histogram, (r[vsel[1], :], r[vsel[2], :]), closed = :left)
-    else
-        hist = fit(Histogram, (r[vsel[1], :], r[vsel[2], :]), closed = :left, nbins=bins)
-    end
-
-    
-   @series begin   
+    @series begin
         seriestype --> :smallest_intervals_contour
         label --> "prior"
-
-        xguide --> "\$\\theta_$(vsel[1])\$"
-        yguide --> "\$\\theta_$(vsel[2])\$"
+        #TODO: names
+        xguide --> "v$(params[1])"
+        yguide --> "v$(params[2])"
 
         intervals --> intervals
-        nbins --> bins
         colors --> colors
         diagonal -->  diagonal
         upper --> upper
         right --> right
 
-        hist, vsel
+        bathist, (1, 2)
     end
 end

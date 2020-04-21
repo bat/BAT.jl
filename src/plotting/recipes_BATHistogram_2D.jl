@@ -1,33 +1,41 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# ToDo: This is type piracy, find a cleaner solution!
-@recipe function f(h::Histogram,
-                parsel::NTuple{2,Integer}; 
-                intervals = standard_confidence_vals, 
-                colors = standard_colors,
-                diagonal = Dict(),
-                upper = Dict(),
-                right = Dict())
-
+@recipe function f(
+    bathist::BATHistogram,
+    parsel::NTuple{2,Integer};
+    intervals = standard_confidence_vals,
+    colors = standard_colors,
+    diagonal = Dict(),
+    upper = Dict(),
+    right = Dict(),
+    interval_labels = [],
+    normalize = true
+)
+    _plots_module() != nothing || throw(ErrorException("Package Plots not available, but required for this operation"))
 
     pi_x, pi_y = parsel
 
+    hist = subhistogram(bathist, [pi_x, pi_y])
+    normalize ? hist.h=StatsBase.normalize(hist.h) : nothing
+
     seriestype = get(plotattributes, :seriestype, :histogram2d)
 
-    
+    xguide --> "x$(pi_x)"
+    yguide --> "x$(pi_y)"
+
+    # histogram / heatmap
     if seriestype == :histogram2d || seriestype == :histogram || seriestype == :hist
-        _plots_module() != nothing || throw(ErrorException("Package Plots not available, but required for this operation"))
-        
         @series begin
             seriestype := :bins2d
             colorbar --> true
-            h.edges[1], h.edges[2], _plots_module().Surface(h.weights)
+
+            hist.h.edges[1], hist.h.edges[2], _plots_module().Surface(hist.h.weights)
         end
 
-        
+
+    # smallest interval contours
     elseif seriestype == :smallest_intervals_contour || seriestype == :smallest_intervals_contourf
-        _plots_module() != nothing || throw(ErrorException("Package Plots not available, but required for this operation"))
-        
+
         colors = colors[sortperm(intervals, rev=true)]
 
         if seriestype == :smallest_intervals_contour
@@ -35,23 +43,24 @@
         else
             plotstyle = :contourf
         end
- 
-        lev = calculate_levels(h.weights, intervals)
-        x, y, m = bin_centers(h)
+
+        lev = calculate_levels(hist, intervals)
+        x, y = get_bin_centers(hist)
+        m = hist.h.weights
 
         # quick fix: needed when plotting contour on top of histogram
-        # otherwise scaling of histogram colorbar would change scaling 
+        # otherwise scaling of histogram colorbar would change scaling
         lev = lev/10000
         m = m/10000
 
         colorbar --> false
 
-       if _plots_module().backend() == _plots_module().PyPlotBackend()
+        if _plots_module().backend() == _plots_module().PyPlotBackend()
             @series begin
                 seriestype := plotstyle
                 levels --> lev
                 linewidth --> 2
-                color --> colors # only works with pyplot
+                color --> colors # currently only works with pyplot
                 (x, y, m')
             end
         else
@@ -64,22 +73,20 @@
         end
 
 
+    # smallest intervals heatmap
     elseif seriestype == :smallest_intervals
-        _plots_module() != nothing || throw(ErrorException("Package Plots not available, but required for this operation"))
-
         colors = colors[sortperm(intervals, rev=true)]
 
-        hists, orig_hist, realintervals = split_smallest(h, intervals)
-
-       
+        hists, realintervals = get_smallest_intervals(hist, intervals)
 
         for (i, int) in enumerate(realintervals)
             @series begin
                 seriestype := :bins2d
-                color --> _plots_module().cgrad([colors[i], colors[i]])  
+                color --> _plots_module().cgrad([colors[i], colors[i]])
                 label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
-                hists[i].edges[1], hists[i].edges[2], _plots_module().Surface(hists[i].weights)
+                hists[i].h.edges[1], hists[i].h.edges[2], _plots_module().Surface(hists[i].h.weights)
             end
+
             # fake a legend
             @series begin
                 seriestype := :shape
@@ -87,16 +94,13 @@
                 linewidth --> 0
                 label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
                 colorbar --> false
-                [hists[i].edges[1][1], hists[i].edges[1][1]], [hists[i].edges[2][1], hists[i].edges[2][1]]
+                [hists[i].h.edges[1][1], hists[i].h.edges[1][1]], [hists[i].h.edges[2][1], hists[i].h.edges[2][1]]
             end
         end
-    
 
+
+    # with marginal histograms TODO: xyguides
     elseif seriestype == :marginal
-        _plots_module() != nothing || throw(ErrorException("Package Plots not available, but required for this operation"))
-
-        size --> (900, 600)
-
         layout --> _plots_module().grid(2,2, widths=(0.8, 0.2), heights=(0.2, 0.8))
         link --> :both
 
@@ -106,19 +110,17 @@
 
         @series begin
             subplot := 1
-            xguide --> "\$p(\\theta_$(pi_x))\$"
+            #xguide --> "v$(pi_x)"
             seriestype := get(upper, "seriestype", :histogram)
             bins --> get(upper, "nbins", 200)
             normalize --> get(upper, "normalize", true)
             colors --> get(upper, "colors", standard_colors)
             intervals --> get(upper, "intervals", standard_confidence_vals)
-            #mean --> get(upper, "mean", false)
-            #std_dev --> get(upper, "std_dev", false)
-            #globalmode --> get(upper, "globalmode", false)
-            #localmode --> get(upper, "localmode", false)
-            h, pi_x
+            legend --> get(upper, "legend", true)
+
+            hist, 1
         end
-        
+
         # empty plot (needed since @layout macro not available)
         @series begin
             seriestype := :scatter
@@ -126,7 +128,7 @@
             grid := false
             xaxis := false
             yaxis := false
-            markersize := 0.1
+            markersize := 0.001
             markerstrokewidth := 0
             markeralpha := 1
             markerstrokealpha := 1
@@ -140,37 +142,29 @@
         @series begin
             subplot := 3
             seriestype := get(diagonal, "seriestype", :histogram)
-            legend --> false
 
             normalize --> get(diagonal, "normalize", true)
             bins --> get(diagonal, "nbins", 200)
             colors --> get(diagonal, "colors", standard_colors)
             intervals --> get(diagonal, "intervals", standard_confidence_vals)
-            #mean --> get(diagonal, "mean", false)
-            #std_dev --> get(diagonal, "std_dev", false)
-            #globalmode --> get(diagonal, "globalmode", false)
-            #localmode --> get(diagonal, "localmode", false)
+            legend --> get(diagonal, "legend", false)
 
-            h, (pi_x, pi_y) 
+            hist, (1, 2)
         end
 
         @series begin
             subplot := 4
             seriestype := get(right, "seriestype", :histogram)
             orientation := :horizontal
-            xguide --> "\$p(\\theta_$(pi_y))\$"
+            #xguide --> "p(v$(pi_y))"
             normalize --> get(right, "normalize", true)
             bins --> get(right, "nbins", 200)
             colors --> get(right, "colors", standard_colors)
             intervals --> get(right, "intervals", standard_confidence_vals)
-            #mean --> get(right, "mean", false)
-            #std_dev --> get(right, "std_dev", false)
-            #globalmode --> get(right, "globalmode", false)
-            #localmode --> get(right, "localmode", false)
-            
-            h, pi_y
-        end 
+            legend --> get(right, "legend", true)
 
+            hist, 2
+        end
 
     else
         error("seriestype $seriestype not supported")
@@ -179,7 +173,8 @@
 end
 
 
-#--- rectangle bounds ------------------------
+
+# rectangle bounds
 @recipe function f(bounds::HyperRectBounds, parsel::NTuple{2,Integer})
     pi_x, pi_y = parsel
 
