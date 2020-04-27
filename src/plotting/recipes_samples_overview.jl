@@ -1,30 +1,35 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 @recipe function f(
-    maybe_shaped_samples::DensitySampleVector;
+    samples::DensitySampleVector;
     vsel=collect(1:5),
     mean=false,
-    std_dev=false,
+    std=false,
     globalmode=false,
     localmode=false,
     diagonal = Dict(),
     upper = Dict(),
     lower = Dict(),
-    param_labels = []
+    vsel_label = []
 )
+    vsel = vsel[vsel .<= length(samples.v[1])]
 
-    samples = unshaped.(maybe_shaped_samples)
-    mod_vsel = vsel[vsel .<= Base.size(samples.v[1], 1)]
+    xlabel = ["v$i" for i in vsel]
+    ylabel = ["p(v$i)" for i in vsel]
 
-    if Base.size(param_labels, 1) == 0
-        param_labels = [latexstring("\\theta_$i") for i in mod_vsel]
-        param_labels_y = [latexstring("p(\\theta_$i)") for i in mod_vsel]
-    else
-        param_labels_y = [latexstring("p("*param_labels[i]*")") for i in 1:length(param_labels)]
-        param_labels = [latexstring(param_labels[i]) for i in 1:length(param_labels)]
+    if isa(varshape(samples), NamedTupleShape)
+        xlabel = [String(keys(samples[1].v)[i]) for i in vsel]
+        ylabel = ["p($l)" for l in xlabel]
     end
 
-    nparams = length(mod_vsel)
+    if length(vsel_label) > 0
+        println("es")
+        xlabel = [vsel_label[i] for i in 1:length(vsel_label)]
+        ylabel = ["p("*vsel_label[i]*")" for i in 1:length(vsel_label)]
+    end
+
+
+    nparams = length(vsel)
     layout --> nparams^2
     size --> (1000, 600)
 
@@ -40,21 +45,20 @@
             intervals --> get(diagonal, "intervals", standard_confidence_vals)
             legend --> get(diagonal, "legend", false)
             mean --> get(diagonal, "mean", mean)
-            std_dev --> get(diagonal, "std_dev", std_dev)
+            std --> get(diagonal, "std", std)
             globalmode --> get(diagonal, "globalmode", globalmode)
             localmode --> get(diagonal, "localmode", localmode)
             xlims --> get(diagonal, "xlims", :auto)
             ylims --> get(diagonal, "ylims", :auto)
-            #xguide --> param_labels[i]
-            #yguide --> param_labels_y[i]
+            xguide --> xlabel[i]
+            yguide --> ylabel[i]
 
-            samples, (mod_vsel[i])
+            samples, (vsel[i])
         end
 
 
         # upper right plots
         for j in i+1:nparams
-
             @series begin
                 subplot := j + (i-1)*nparams
 
@@ -65,15 +69,15 @@
                 legend --> get(upper, "legend", false)
                 colorbar --> get(upper, "colorbar", false)
                 mean --> get(upper, "mean", mean)
-                std_dev --> get(upper, "std_dev", std_dev)
+                std --> get(upper, "std", std)
                 globalmode --> get(upper, "globalmode", globalmode)
                 localmode --> get(upper, "localmode", localmode)
                 xlims --> get(upper, "xlims", :auto)
                 ylims --> get(upper, "ylims", :auto)
-                xguide --> param_labels[i]
-                yguide --> param_labels[j]
+                xguide --> xlabel[i]
+                yguide --> xlabel[j]
 
-                samples, (mod_vsel[i], mod_vsel[j])
+                samples, (vsel[i], vsel[j])
             end
 
             # lower left plots
@@ -87,15 +91,15 @@
                  intervals --> get(lower, "intervals", standard_confidence_vals)
                  legend --> get(lower, "legend", false)
                  mean --> get(lower, "mean", mean)
-                 std_dev --> get(lower, "std_dev", std_dev)
+                 std --> get(lower, "std", std)
                  globalmode --> get(lower, "globalmode", globalmode)
                  localmode --> get(lower, "localmode", localmode)
                  xlims --> get(lower, "xlims", :auto)
                  ylims --> get(lower, "ylims", :auto)
-                 xguide --> param_labels[i]
-                 yguide --> param_labels[j]
+                 xguide --> xlabel[i]
+                 yguide --> xlabel[j]
 
-                 samples, (mod_vsel[i], mod_vsel[j])
+                 samples, (vsel[i], vsel[j])
              end
 
         end

@@ -4,40 +4,37 @@ mutable struct BATHistogram
     h::StatsBase.Histogram
 end
 
-function get_histogram(bathistogram::BATHistogram)
-    return bathistogram.h
-end
 
-
-# get index of parameter name in shaped samples
-function get_param_index(samples::DensitySampleVector, param::Symbol)
+# get index of key in shaped samples
+function asindex(samples::DensitySampleVector, key::Symbol)
     if isa(varshape(samples), NamedTupleShape)
-        i = findfirst(x -> x == param, keys(samples[1].v))
+        i = findfirst(x -> x == key, keys(samples[1].v))
         return i
     else
-        throw(ArgumentError("Samples are unshaped. Key :$param cannot be matched. Use index instead."))
+        throw(ArgumentError("Samples are unshaped. Key :$key cannot be matched. Use index instead."))
     end
 end
 
-# get index of parameter name in prior
-function get_param_index(prior::NamedTupleDist, param::Symbol)
-    i = findfirst(x -> x == param, keys(prior))
+
+# get index of key in NamedTupleDist (prior)
+function asindex(prior::NamedTupleDist, key::Symbol)
+    i = findfirst(x -> x == key, keys(prior))
 end
 
-# get index of parameter
-function get_param_index(
+
+function asindex(
     x::Union{DensitySampleVector, NamedTupleDist},
-    param::Integer
+    key::Integer
 )
-    return param
+    return key
 end
 
 
 
-# construct 1D BATHistogram from samples
+# construct 1D BATHistogram from sample vector
 function BATHistogram(
     maybe_shaped_samples::DensitySampleVector,
-    param::Union{Integer, Symbol};
+    key::Union{Integer, Symbol};
     nbins = 200,
     closed::Symbol = :left,
     filter::Bool = false
@@ -48,10 +45,10 @@ function BATHistogram(
         samples = BAT.drop_low_weight_samples(samples)
     end
 
-    param_idx = get_param_index(maybe_shaped_samples, param)
+    idx = asindex(maybe_shaped_samples, key)
 
     hist = fit(Histogram,
-            flatview(samples.v)[param_idx, :],
+            flatview(samples.v)[idx, :],
             FrequencyWeights(samples.weight),
             nbins = nbins, closed = closed)
 
@@ -63,21 +60,21 @@ end
 # construct 1D BATHistogram from prior
 function BATHistogram(
     prior::NamedTupleDist,
-    param::Union{Integer, Symbol};
+    key::Union{Integer, Symbol};
     nbins = 200,
     closed::Symbol = :left,
     nsamples::Integer = 10^6
 )
-    param_idx = get_param_index(prior, param)
+    idx = asindex(prior, key)
     r = rand(prior, nsamples)
-    hist = fit(Histogram, r[param_idx, :], nbins = nbins, closed = closed)
+    hist = fit(Histogram, r[idx, :], nbins = nbins, closed = closed)
 
     return BATHistogram(hist)
 end
 
 
 
-# construct 2D BATHistogram from samples
+# construct 2D BATHistogram from sample vector
 function BATHistogram(
     maybe_shaped_samples::DensitySampleVector,
     params::Union{NTuple{2, Symbol}, NTuple{2, Integer}};
@@ -91,12 +88,12 @@ function BATHistogram(
         samples = BAT.drop_low_weight_samples(samples)
     end
 
-    param_i = get_param_index(maybe_shaped_samples, params[1])
-    param_j = get_param_index(maybe_shaped_samples, params[2])
+    i = asindex(maybe_shaped_samples, params[1])
+    j = asindex(maybe_shaped_samples, params[2])
 
     hist = fit(Histogram,
-            (flatview(samples.v)[param_i, :],
-            flatview(samples.v)[param_j, :]),
+            (flatview(samples.v)[i, :],
+            flatview(samples.v)[j, :]),
             FrequencyWeights(samples.weight),
             nbins = nbins, closed = closed)
 
@@ -113,11 +110,11 @@ function BATHistogram(
     closed::Symbol = :left,
     nsamples::Integer = 10^6
 )
-    param_i = get_param_index(prior, params[1])
-    param_j = get_param_index(prior, params[2])
+    i = asindex(prior, params[1])
+    j = asindex(prior, params[2])
 
     r = rand(prior, nsamples)
-    hist = fit(Histogram, (r[param_i, :], r[param_j, :]), nbins = nbins, closed = closed)
+    hist = fit(Histogram, (r[i, :], r[j, :]), nbins = nbins, closed = closed)
 
     return BATHistogram(hist)
 end

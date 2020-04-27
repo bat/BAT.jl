@@ -300,7 +300,7 @@ par_cov[parshapes.mu, parshapes.sigma]
 par_names = ["a_1", "a_2", "mu_1", "mu_2", "sigma"]
 plot(
     samples, 3,
-    mean = true, std_dev = true, globalmode = true, localmode = true,
+    mean = true, std = true, globalmode = true, localmode = true,
     nbins = 50, xlabel = par_names[3], ylabel = "P($(par_names[3]))",
     title = "Marginalized Distribution for mu_1"
 )
@@ -315,7 +315,7 @@ plot(
 
 plot(
     samples, (3, 5),
-    mean = true, std_dev = true, globalmode = true, localmode = true,
+    mean = true, std = true, globalmode = true, localmode = true,
     nbins = 50, xlabel = par_names[3], ylabel = par_names[5],
     title = "Marginalized Distribution for mu_1 and sigma"
 )
@@ -330,7 +330,7 @@ plot!(BAT.MCMCBasicStats(samples), (3, 5))
 
 plot(
     samples,
-    mean = false, std_dev = false, globalmode = true, localmode = false,
+    mean = false, std = false, globalmode = true, localmode = false,
     nbins = 50
 )
 #jl savefig("tutorial-all-params.png")

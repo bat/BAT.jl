@@ -58,15 +58,6 @@ plot(bathist, 2, seriestype = :histogram)
 plot(bathist, 2, seriestype = :stephist, nbins=50, linecolor = :red, linewidth = 5, linealpha=0.3, xlim=(-5,15))
 
 # TODO: claculate point estimates for BATHistograms?
-# # ### Plotting point estimators in 1D plots:
-# plot(samples, 2, globalmode=true, localmode=true, mean=true, std_dev=true)
-#
-# # #### It is possible to customize the style of estimators by passing a dict with the respective attributes:
-# # By passing a boolean, the point estimators are plotted using their default styles shown above.
-# # The style of the point estimators can be modified by passing a dictionary specifying `linestyle`, `linecolor`, `linewidth` and `alpha` for *mean*, *globalmode* and *localmode*.
-# # The style of the standard deviation can be modified by specifying `fillcolor` and `fillalpha`.
-# plot(samples, 1, localmode=false, mean=Dict("linestyle" => :dot, "linecolor"=> :red, "linewidth"=>2, "alpha" => 0.7), std_dev=Dict("fillcolor" => :red, "fillalpha"=>0.2))
-
 
 
 # ## Examples for 2D plots of BATHistograms
@@ -93,19 +84,11 @@ plot(bathist, (1,2), seriestype=:smallest_intervals, intervals=[0.7, 0.2], color
 
 
 # TODO: Point estimates for 2D BATHistograms
-# # ### Plotting point estimators in 2D plots:
-# plot(samples, (1,2), seriestype=:smallest_intervals, nbins=200, mean=true, std_dev=true, localmode=true, globalmode=true)
-#
-# # #### It is possible to customize the style of estimators by passing a dict with the respective attributes:
-# # By passing a boolean, the point estimators are plotted using their default styles shown above.
-# # The style of the point estimators can be modified by passing a dictionary specifying `markershape`, `markercolor`, `markersize`, `markeralpha`, `markerstrokecolor`, `markerstrokestyle`, `markerstrokewidth` and `markerstrokealpha` for *mean*, *globalmode* and *localmode*.
-# # If `std_dev==true`, the standard deviation of the mean value will be displayed as x- and y-errorbars.
-# plot(samples, (1,2), seriestype=:smallest_intervals, nbins=200, localmode=Dict("markershape"=> :diamond, "markeralpha"=>1, "markercolor"=>:red, "markersize"=>5))
 
 
 # ### Marginal plots
-#TODO: why is there an error?
-plot(bathist, (1,2), seriestype = :marginal)
+#TODO: why is there an error? it somehow still works for samples...
+#plot(bathist, (1,2), seriestype = :marginal)
 
 
 # ### Customizing marginal plots:

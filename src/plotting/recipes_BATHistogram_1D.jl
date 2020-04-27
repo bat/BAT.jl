@@ -13,13 +13,13 @@ end
 
 @recipe function f(
     bathist::BATHistogram,
-    param::Integer;
+    idx::Integer;
     intervals = standard_confidence_vals,
     normalize = true,
     colors = standard_colors,
     interval_labels = []
 )
-    hist = subhistogram(bathist, [param])
+    hist = subhistogram(bathist, [idx])
     normalize ? hist.h=StatsBase.normalize(hist.h) : nothing
 
     orientation = get(plotattributes, :orientation, :vertical)
@@ -28,11 +28,15 @@ end
 
     seriestype = get(plotattributes, :seriestype, :stephist)
 
-    xguide --> "x$(param)"
-    yguide --> "p(x$(param))"
+    xlabel = get(plotattributes, :xguide, "x$(idx)")
+    ylabel = get(plotattributes, :yguide, "p(x$(idx))")
+
     if swap
-        xguide --> "p(x$(param))"
-        yguide --> "x$(param)"
+        xguide := ylabel
+        yguide := xlabel
+    else
+        xguide := xlabel
+        yguide := ylabel
     end
 
     # step histogram

@@ -1,11 +1,11 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 @recipe function f(
     maybe_shaped_samples::DensitySampleVector,
-    param::Union{NTuple{2, Integer}, NTuple{2, Symbol}};
+    parsel::Union{NTuple{2, Integer}, NTuple{2, Symbol}};
     intervals = standard_confidence_vals,
     colors = standard_colors,
     mean = false,
-    std_dev = false,
+    std = false,
     globalmode = false,
     localmode = true,
     diagonal = Dict(),
@@ -14,8 +14,8 @@
     filter = false,
     closed = :left
 )
-    param_x = get_param_index(maybe_shaped_samples, param[1])
-    param_y = get_param_index(maybe_shaped_samples, param[2])
+    xindx = asindex(maybe_shaped_samples, parsel[1])
+    yindx = asindex(maybe_shaped_samples, parsel[2])
 
     samples = unshaped.(maybe_shaped_samples)
     filter ? samples = BAT.drop_low_weight_samples(samples) : nothing
@@ -28,9 +28,31 @@
         colorbar = true
     end
 
-    #TODO: names
-    xguide --> "v$(param_x)"
-    yguide --> "v$(param_y)"
+    xlabel, ylabel  = if isa(parsel, NTuple{2, Symbol})
+        "$(parsel[1])", "$(parsel[2])"
+    else
+        "v$xindx", "v$yindx"
+    end
+
+    xlabel, ylabel  = if isa(parsel, NTuple{2, Symbol})
+        "$(parsel[1])", "$(parsel[2])"
+    elseif isa(varshape(maybe_shaped_samples), NamedTupleShape)
+        String(keys(maybe_shaped_samples[1].v)[xindx]),
+        String(keys(maybe_shaped_samples[1].v)[yindx])
+    else
+        "v$xindx", "v$yindx"
+    end
+
+    xguide := get(plotattributes, :xguide, xlabel)
+    yguide := get(plotattributes, :yguide, ylabel)
+
+    hist = BATHistogram(
+        samples,
+        (xindx, yindx),
+        nbins = bins,
+        closed = closed,
+        filter=filter
+    )
 
 
     if seriestype == :scatter
@@ -48,7 +70,7 @@
             markersize := [w < 1 ? base_markersize : base_markersize * sqrt(w) for w in samples.weight[acc]]
             markerstrokewidth := 0
             color := [w >= 1 ? color : RGBA(convert(RGB, color), color.alpha * w) for w in samples.weight[acc]]
-            (flatview(samples.v)[param_x, acc], flatview(samples.v)[param_y, acc])
+            (flatview(samples.v)[xindx, acc], flatview(samples.v)[yindx, acc])
         end
 
         if !isempty(rej)
@@ -58,19 +80,12 @@
                 markersize := base_markersize
                 markerstrokewidth := 0
                 color := :red
-                (flatview(samples.v)[1 rej], flatview(samples.v)[2, rej])
+                (flatview(samples.v)[xindx, rej], flatview(samples.v)[yindx, rej])
             end
         end
 
-    else
-        hist = BATHistogram(
-            samples,
-            (param_x, param_y),
-            nbins = bins,
-            closed = closed,
-            filter=filter
-        )
 
+    else
         @series begin
             seriestype --> seriestype
             intervals --> intervals
@@ -90,16 +105,16 @@
     mean_options = convert_to_options(mean)
     globalmode_options = convert_to_options(globalmode)
     localmode_options = convert_to_options(localmode)
-    stddev_options = convert_to_options(std_dev)
+    std_options = convert_to_options(std)
 
 
     if mean_options != ()
-        mx= stats.param_stats.mean[param_x]
-        my = stats.param_stats.mean[param_y]
+        mx= stats.param_stats.mean[xindx]
+        my = stats.param_stats.mean[yindx]
 
         Σ_all = stats.param_stats.cov
-        Σx = Σ_all[param_x, param_x]
-        Σy = Σ_all[param_y, param_y]
+        Σx = Σ_all[xindx, xindx]
+        Σy = Σ_all[yindx, yindx]
 
         @series begin
             seriestype := :scatter
@@ -115,7 +130,7 @@
             markerstrokewidth := get(mean_options, "markerstrokewidth", 1)
             colorbar := colorbar
 
-            if(std_dev)
+            if(std)
                 xerror := sqrt(Σx)
                 yerror := sqrt(Σy)
             end
@@ -125,8 +140,8 @@
 
 
    if globalmode_options != ()
-        globalmode_x = stats.mode[param_x]
-        globalmode_y = stats.mode[param_y]
+        globalmode_x = stats.mode[xindx]
+        globalmode_y = stats.mode[yindx]
 
         @series begin
             seriestype := :scatter

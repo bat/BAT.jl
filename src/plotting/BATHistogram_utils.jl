@@ -53,9 +53,9 @@ function subhistogram(
 end
 
 
-# TODO: name: edges for clusters where bincontent >0
-# return the lower and upper edges for all dimensions of a BATHistogram
-function get_edges(bathist::BATHistogram; atol::Real = 0)
+# return the lower and upper edges for clusters in which the bincontent is non-zero for all dimensions of a BATHistogram
+# clusters that are seperated <= atol are combined
+function get_cluster_edges(bathist::BATHistogram; atol::Real = 0)
     weights = bathist.h.weights
     len = length(weights)
 

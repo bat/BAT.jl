@@ -6,26 +6,24 @@
     diagonal = Dict(),
     upper = Dict(),
     lower = Dict(),
-    param_labels = []
+    vsel_label = []
 )
+    vsel = vsel[vsel .<= length(keys(prior))]
 
-    mod_vsel = vsel[vsel .<= length(keys(prior))]
+    xlabel = [String(keys(prior)[i]) for i in vsel]
+    ylabel = ["p($l)" for l in xlabel]
 
-    if Base.size(param_labels, 1) == 0
-        param_labels = [latexstring("\\theta_$i") for i in mod_vsel]
-        param_labels_y = [latexstring("p(\\theta_$i)") for i in mod_vsel]
-    else
-        param_labels_y = [latexstring("p("*param_labels[i]*")") for i in 1:length(param_labels)]
-        param_labels = [latexstring(param_labels[i]) for i in 1:length(param_labels)]
+    if length(vsel_label) > 0
+        xlabel = [vsel_label[i] for i in 1:length(vsel_label)]
+        ylabel = ["p("*vsel_label[i]*")" for i in 1:length(vsel_label)]
     end
 
-    nparams = length(mod_vsel)
+    nparams = length(vsel)
     layout --> nparams^2
     size --> (1000, 600)
 
 
     for i in 1:nparams
-
         # diagonal
         @series begin
             subplot := i + (i-1)*nparams
@@ -38,10 +36,10 @@
             xlims --> get(diagonal, "xlims", :auto)
             ylims --> get(diagonal, "ylims", :auto)
             linecolor --> get(diagonal, "linecolor", :black)
-            xguide --> param_labels[i]
-            yguide --> param_labels_y[i]
+            xguide --> xlabel[i]
+            yguide --> ylabel[i]
 
-            prior, (mod_vsel[i])
+            prior, (vsel[i])
         end
 
 
@@ -60,10 +58,10 @@
                 legend --> get(upper, "legend", false)
                 xlims --> get(upper, "xlims", :auto)
                 ylims --> get(upper, "ylims", :auto)
-                xguide --> param_labels[i]
-                yguide --> param_labels[j]
+                xguide --> xlabel[i]
+                yguide --> xlabel[j]
 
-                prior, (mod_vsel[i], mod_vsel[j])
+                prior, (vsel[i], vsel[j])
             end
 
             # lower left plots
@@ -77,10 +75,10 @@
                 legend --> get(lower, "legend", false)
                 xlims --> get(lower, "xlims", :auto)
                 ylims --> get(lower, "ylims", :auto)
-                xguide --> param_labels[i]
-                yguide --> param_labels[j]
+                xguide --> xlabel[i]
+                yguide --> xlabel[j]
 
-                prior, (mod_vsel[i], mod_vsel[j])
+                prior, (vsel[i], vsel[j])
             end
 
         end

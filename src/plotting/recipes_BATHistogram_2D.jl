@@ -13,20 +13,21 @@
 )
     _plots_module() != nothing || throw(ErrorException("Package Plots not available, but required for this operation"))
 
-    pi_x, pi_y = parsel
-
-    hist = subhistogram(bathist, [pi_x, pi_y])
+    hist = subhistogram(bathist, collect(parsel))
     normalize ? hist.h=StatsBase.normalize(hist.h) : nothing
 
     seriestype = get(plotattributes, :seriestype, :histogram2d)
 
-    xguide --> "x$(pi_x)"
-    yguide --> "x$(pi_y)"
+    xlabel = get(plotattributes, :xguide, "x$(parsel[1])")
+    ylabel = get(plotattributes, :yguide, "x$(parsel[2])")
+
 
     # histogram / heatmap
     if seriestype == :histogram2d || seriestype == :histogram || seriestype == :hist
         @series begin
             seriestype := :bins2d
+            xguide --> xlabel
+            yguide --> ylabel
             colorbar --> true
 
             hist.h.edges[1], hist.h.edges[2], _plots_module().Surface(hist.h.weights)
@@ -54,6 +55,8 @@
         m = m/10000
 
         colorbar --> false
+        xguide --> xlabel
+        yguide --> ylabel
 
         if _plots_module().backend() == _plots_module().PyPlotBackend()
             @series begin
@@ -84,6 +87,9 @@
                 seriestype := :bins2d
                 color --> _plots_module().cgrad([colors[i], colors[i]])
                 label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
+                xguide --> xlabel
+                yguide --> ylabel
+
                 hists[i].h.edges[1], hists[i].h.edges[2], _plots_module().Surface(hists[i].h.weights)
             end
 
@@ -99,7 +105,7 @@
         end
 
 
-    # with marginal histograms TODO: xyguides
+    # with marginal histograms TODO fix &  xyguides
     elseif seriestype == :marginal
         layout --> _plots_module().grid(2,2, widths=(0.8, 0.2), heights=(0.2, 0.8))
         link --> :both
@@ -110,7 +116,8 @@
 
         @series begin
             subplot := 1
-            #xguide --> "v$(pi_x)"
+            xguide := xlabel
+            yguide := "p("*xlabel*")"
             seriestype := get(upper, "seriestype", :histogram)
             bins --> get(upper, "nbins", 200)
             normalize --> get(upper, "normalize", true)
@@ -142,7 +149,8 @@
         @series begin
             subplot := 3
             seriestype := get(diagonal, "seriestype", :histogram)
-
+            xguide --> xlabel
+            yguide --> ylabel
             normalize --> get(diagonal, "normalize", true)
             bins --> get(diagonal, "nbins", 200)
             colors --> get(diagonal, "colors", standard_colors)
@@ -156,7 +164,8 @@
             subplot := 4
             seriestype := get(right, "seriestype", :histogram)
             orientation := :horizontal
-            #xguide --> "p(v$(pi_y))"
+            xguide := ylabel
+            yguide := "p("*ylabel*")"
             normalize --> get(right, "normalize", true)
             bins --> get(right, "nbins", 200)
             colors --> get(right, "colors", standard_colors)

@@ -2,24 +2,24 @@
 
 @recipe function f(
     maybe_shaped_samples::DensitySampleVector,
-    param::Union{Integer, Symbol};
+    parsel::Union{Integer, Symbol};
     intervals = standard_confidence_vals,
     bins = 200,
     normalize = true,
     colors = standard_colors,
     interval_labels = [],
     mean = false,
-    std_dev = false,
+    std = false,
     globalmode = false,
     localmode = true,
     filter = true,
     closed = :left
 )
-    param_ind = get_param_index(maybe_shaped_samples, param)
+    idx = asindex(maybe_shaped_samples, parsel)
 
     bathist = BATHistogram(
         maybe_shaped_samples,
-        param_ind,
+        idx,
         nbins = bins,
         closed = closed,
         filter = filter
@@ -30,13 +30,27 @@
     orientation = get(plotattributes, :orientation, :vertical)
     (orientation != :vertical) ? swap=true : swap = false
 
-    #TODO: choose default label names
-    xguide --> "v$(param_ind)"
-    yguide --> "p(v$(param_ind))"
-    if swap
-        yguide --> "v$(param_ind)"
-        xguide --> "p(v$(param_ind))"
+    xlabel, ylabel  = if isa(parsel, Symbol)
+        "$parsel", "p($parsel)"
+    elseif isa(varshape(maybe_shaped_samples), NamedTupleShape)
+        String(keys(maybe_shaped_samples[1].v)[idx]),
+        "p("* String(keys(maybe_shaped_samples[1].v)[idx]) *")"
+    else
+        "v$idx", "p(v$idx)"
     end
+
+
+    xlabel = get(plotattributes, :xguide, xlabel)
+    ylabel = get(plotattributes, :yguide, ylabel)
+
+    if swap
+        xguide := ylabel
+        yguide := xlabel
+    else
+        xguide := xlabel
+        yguide := ylabel
+    end
+
 
     @series begin
         seriestype --> :smallest_intervals
@@ -57,20 +71,20 @@
     mean_options = convert_to_options(mean)
     globalmode_options = convert_to_options(globalmode)
     localmode_options = convert_to_options(localmode)
-    stddev_options = convert_to_options(std_dev)
+    std_options = convert_to_options(std)
 
     # standard deviation
-    if stddev_options != ()
+    if std_options != ()
         Σ_all = stats.param_stats.cov
-        Σ = Σ_all[param, param]
+        Σ = Σ_all[idx, idx]
         dev = sqrt(Σ)
-        meanvalue = stats.param_stats.mean[param]
+        meanvalue = stats.param_stats.mean[idx]
         @series begin
             seriestype := :shape
-            label := get(stddev_options, "label", "std. dev.")
+            label := get(std_options, "label", "std. dev.")
             linewidth := 0
-            fillcolor := get(stddev_options, "fillcolor", :grey)
-            fillalpha := get(stddev_options, "fillalpha", 0.5)
+            fillcolor := get(std_options, "fillcolor", :grey)
+            fillalpha := get(std_options, "fillalpha", 0.5)
 
             uncertaintyband(meanvalue, dev, line_height, swap=swap)
         end
@@ -78,7 +92,7 @@
 
     # mean
     if mean_options != ()
-        meanvalue = stats.param_stats.mean[param]
+        meanvalue = stats.param_stats.mean[idx]
         @series begin
             seriestype := :line
             label := get(mean_options, "label", "mean")
@@ -93,7 +107,7 @@
 
     # global mode
     if globalmode_options != ()
-        globalmode_value = stats.mode[param]
+        globalmode_value = stats.mode[idx]
          @series begin
             seriestype := :line
             label := get(globalmode_options, "label", "global mode")
@@ -106,7 +120,7 @@
         end
     end
 
-    # local mode
+    # local mode(s)
     if localmode_options != ()
         localmode_values = find_localmodes(bathist)
 

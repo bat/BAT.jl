@@ -1,8 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+# 1D
 @recipe function f(
     prior::NamedTupleDist,
-    param::Union{Integer, Symbol};
+    parsel::Union{Integer, Symbol};
     intervals = standard_confidence_vals,
     bins = 200,
     nsamples = 10^6,
@@ -16,18 +17,23 @@
     (orientation != :vertical) ? swap=true : swap = false
     plotattributes[:orientation] = :vertical # without: auto-scaling of axes not correct
 
-    param_ind = get_param_index(prior, param)
-    bathist = BATHistogram(prior, param_ind, nbins = bins, closed = closed)
-
+    indx = asindex(prior, parsel)
+    bathist = BATHistogram(prior, indx, nbins = bins, closed = closed)
     normalize ? bathist.h = StatsBase.normalize(bathist.h) : nothing
-    #TODO: names
-    if swap
-        yguide --> "v$(param)"
-        xguide --> "p(v$(param))"
+
+    xlabel, ylabel  = if isa(parsel, Symbol)
+        "$parsel", "p($parsel)"
     else
-        yguide --> "p(v$(param))"
-        xguide --> "v$(param)"
+        String(keys(prior)[indx]), "p("*String(keys(prior)[indx])*")"
     end
+
+    if swap
+        xlabel, ylabel = ylabel, xlabel
+    end
+
+    xguide := get(plotattributes, :xguide, xlabel)
+    yguide := get(plotattributes, :yguide, ylabel)
+
 
    @series begin
         seriestype --> :stephist
@@ -50,7 +56,7 @@ end
 # 2D plots
 @recipe function f(
     prior::NamedTupleDist,
-    params::Union{NTuple{2,Integer}, NTuple{2,Symbol}};
+    parsel::Union{NTuple{2,Integer}, NTuple{2,Symbol}};
     nsamples=10^6,
     intervals = standard_confidence_vals,
     bins = 200,
@@ -64,24 +70,29 @@ end
     right = Dict()
 )
 
-    param_x = get_param_index(prior, params[1])
-    param_y = get_param_index(prior, params[2])
+    xindx = asindex(prior, parsel[1])
+    yindx = asindex(prior, parsel[2])
 
     bathist = BATHistogram(
         prior,
-        (params[1], params[2]),
+        (xindx, yindx),
         nbins=bins,
         closed=closed,
         nsamples=nsamples
     )
 
+    xlabel, ylabel  = if isa(parsel, Symbol)
+        "$(parsel[1])", "$(parsel[2])"
+    else
+        String(keys(prior)[xindx]), String(keys(prior)[yindx])
+    end
+
+    xguide := get(plotattributes, :xguide, xlabel)
+    yguide := get(plotattributes, :yguide, ylabel)
+
     @series begin
         seriestype --> :smallest_intervals_contour
         label --> "prior"
-        #TODO: names
-        xguide --> "v$(params[1])"
-        yguide --> "v$(params[2])"
-
         intervals --> intervals
         colors --> colors
         diagonal -->  diagonal

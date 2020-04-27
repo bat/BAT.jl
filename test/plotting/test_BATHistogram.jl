@@ -13,7 +13,7 @@ using Test
 
     @test isa(bathist_1d, BATHistogram)
     @test isa(bathist_2d, BATHistogram)
-    @test isa(BAT.get_histogram(bathist_2d), StatsBase.Histogram)
+    @test isa(bathist_2d.h, StatsBase.Histogram)
 end
 
 
@@ -39,15 +39,15 @@ shaped_samples = bat_sample(posterior, (nsamples_per_chain, nchains), algorithm)
 unshaped_samples = BAT.unshaped.(shaped_samples)
 
 #TODO: what about :θ ? it refers to a multidimensional parameter
-@testset "get_param_index" begin
-    @test BAT.get_param_index(prior, :θ) == 1
-    @test BAT.get_param_index(prior, 1) == 1
+@testset "asindex" begin
+    @test BAT.asindex(prior, :θ) == 1
+    @test BAT.asindex(prior, 1) == 1
 
-    @test BAT.get_param_index(shaped_samples, :θ) == 1
-    @test BAT.get_param_index(shaped_samples, 1) == 1
+    @test BAT.asindex(shaped_samples, :θ) == 1
+    @test BAT.asindex(shaped_samples, 1) == 1
 
-    @test_throws ArgumentError BAT.get_param_index(unshaped_samples, :θ) == 1
-    @test BAT.get_param_index(unshaped_samples, 1) == 1
+    @test_throws ArgumentError BAT.asindex(unshaped_samples, :θ) == 1
+    @test BAT.asindex(unshaped_samples, 1) == 1
 end
 
 
@@ -56,7 +56,6 @@ end
     @test isa(BATHistogram(shaped_samples, :ϕ), BATHistogram)
     @test isa(BATHistogram(shaped_samples, 2), BATHistogram)
 
-    #TODO: intended behaviour? or broken?
     @test_throws ArgumentError BATHistogram(unshaped_samples, :ϕ), BATHistogram
     @test isa(BATHistogram(unshaped_samples, 2), BATHistogram)
 
