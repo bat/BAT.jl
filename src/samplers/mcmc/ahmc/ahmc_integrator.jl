@@ -1,37 +1,34 @@
-export Leapfrog
-export JitteredLeapfrog
-export TemperedLeapfrog
+export LeapfrogIntegrator
+export JitteredLeapfrogIntegrator
+export TemperedLeapfrogIntegrator
 
 
-abstract type AHMCIntegrator end
+abstract type HMCIntegrator end
 
-mutable struct Leapfrog <: AHMCIntegrator
-    ϵ::Real # step size
-    Leapfrog(; ϵ=0) = new(ϵ)
+@with_kw mutable struct LeapfrogIntegrator <: HMCIntegrator
+    step_size::Float64 = 0.0
 end
 
-mutable struct JitteredLeapfrog <: AHMCIntegrator
-    ϵ::Real
-    n::Real # jitter rate
-    JitteredLeapfrog(; ϵ=0, n=1.0) = new(ϵ, n)
+@with_kw mutable struct JitteredLeapfrogIntegrator <: HMCIntegrator
+    step_size::Float64 = 0.0
+    jitter_rate::Float64 = 1.0
 end
 
-mutable struct TemperedLeapfrog <: AHMCIntegrator
-    ϵ::Real
-    a::Real # tempering rate
-    TemperedLeapfrog(; ϵ=0, a=1.05) = new(ϵ, a)
+@with_kw mutable struct TemperedLeapfrogIntegrator <: HMCIntegrator
+    step_size::Float64 = 0.0
+    tempering_rate::Float64 = 1.05
 end
 
 
 
-function get_AHMCintegrator(integrator::Leapfrog)
-    return AdvancedHMC.Leapfrog(integrator.ϵ)
+function AHMCIntegrator(integrator::LeapfrogIntegrator)
+    return AdvancedHMC.Leapfrog(integrator.step_size)
 end
 
-function get_AHMCintegrator(integrator::JitteredLeapfrog)
-    return AdvancedHMC.JitteredLeapfrog(integrator.ϵ, integrator.n)
+function AHMCIntegrator(integrator::JitteredLeapfrogIntegrator)
+    return AdvancedHMC.JitteredLeapfrog(integrator.step_size, integrator.jitter_rate)
 end
 
-function get_AHMCintegrator(integrator::TemperedLeapfrog)
-    return AdvancedHMC.TemperedLeapfrog(integrator.ϵ, integrator.a)
+function AHMCIntegrator(integrator::TemperedLeapfrogIntegrator)
+    return AdvancedHMC.TemperedLeapfrog(integrator.step_size, integrator.tempering_rate)
 end

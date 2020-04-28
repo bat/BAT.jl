@@ -3,8 +3,4 @@
 using Test
 
 Test.@testset "algorithms" begin
-    include("test_ahmc.jl")
 end
-
-
-#StaticTrajectory(int, n_steps)

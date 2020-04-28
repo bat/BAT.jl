@@ -1,62 +1,63 @@
-export Preconditioner
-export NesterovDualAveraging
+export MassMatrixAdaptor
+export StepSizeAdaptor
 export NaiveHMCAdaptor
 export StanHMCAdaptor
 
 
-abstract type AHMCAdaptor end
+abstract type HMCAdaptor end
 
-struct Preconditioner <: AHMCAdaptor end
 
-struct NesterovDualAveraging <: AHMCAdaptor
-    δ::Real
-    NesterovDualAveraging(; δ=0.8) = new(δ)
+struct MassMatrixAdaptor <: HMCAdaptor end
+
+@with_kw struct StepSizeAdaptor <: HMCAdaptor
+    target_acceptance::Float64 = 0.8
 end
 
-struct NaiveHMCAdaptor <: AHMCAdaptor
-    δ::Real
-    NaiveHMCAdaptor(; δ=0.8) = new(δ)
+@with_kw struct NaiveHMCAdaptor <: HMCAdaptor
+    target_acceptance::Float64 = 0.8
 end
 
-struct StanHMCAdaptor <: AHMCAdaptor
-    δ::Real
-    StanHMCAdaptor(; δ=0.8) = new(δ)
+@with_kw struct StanHMCAdaptor <: HMCAdaptor
+    target_acceptance::Float64 = 0.8
 end
 
 
 
-function get_AHMCAdaptor(
-    adaptor::Preconditioner,
+function AHMCAdaptor(
+    adaptor::MassMatrixAdaptor,
     metric::AdvancedHMC.AbstractMetric,
     integrator::AdvancedHMC.AbstractIntegrator
-    )
-    return AdvancedHMC.Preconditioner(metric)
+)
+    return AdvancedHMC.MassMatrixAdaptor(metric)
 end
 
-function get_AHMCAdaptor(
-    adaptor::NesterovDualAveraging,
+
+function AHMCAdaptor(
+    adaptor::StepSizeAdaptor,
     metric::AdvancedHMC.AbstractMetric,
     integrator::AdvancedHMC.AbstractIntegrator
-    )
-    return AdvancedHMC.NesterovDualAveraging(adaptor.δ, integrator)
+)
+    return AdvancedHMC.StepSizeAdaptor(adaptor.target_acceptance, integrator)
 end
 
-function get_AHMCAdaptor(
+
+function AHMCAdaptor(
     adaptor::NaiveHMCAdaptor,
     metric::AdvancedHMC.AbstractMetric,
     integrator::AdvancedHMC.AbstractIntegrator
-    )
-    pc = AdvancedHMC.Preconditioner(metric)
-    da = AdvancedHMC.NesterovDualAveraging(adaptor.δ, integrator)
-    return AdvancedHMC.NaiveHMCAdaptor(pc, da)
+)
+    mma = AdvancedHMC.MassMatrixAdaptor(metric)
+    ssa = AdvancedHMC.StepSizeAdaptor(adaptor.target_acceptance, integrator)
+    return AdvancedHMC.NaiveHMCAdaptor(mma, ssa)
 end
 
-function get_AHMCAdaptor(
+
+function AHMCAdaptor(
     adaptor::StanHMCAdaptor,
     metric::AdvancedHMC.AbstractMetric,
     integrator::AdvancedHMC.AbstractIntegrator
-    )
-    pc = AdvancedHMC.Preconditioner(metric)
-    da = AdvancedHMC.NesterovDualAveraging(adaptor.δ, integrator)
-    return AdvancedHMC.StanHMCAdaptor(pc, da)
+)
+    mma = AdvancedHMC.MassMatrixAdaptor(metric)
+    ssa = AdvancedHMC.StepSizeAdaptor(adaptor.target_acceptance, integrator)
+    return AdvancedHMC.StanHMCAdaptor(mma, ssa)
 end

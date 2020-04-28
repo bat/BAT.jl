@@ -1,43 +1,42 @@
-export StaticTrajectory
-export HMCDA
+export FixedStepNumber
+export FixedTrajectoryLength
 export NUTS
 
 
-abstract type AHMCProposal end
+abstract type HMCProposal end
 
-struct StaticTrajectory <: AHMCProposal
-    n::Real
-    StaticTrajectory(; n=10) = new(n)
+@with_kw struct FixedStepNumber <: HMCProposal
+    n_steps::Int64 = 10
 end
 
-struct HMCDA <: AHMCProposal
-    len_traj::Real
-    HMCDA(; len_traj=2) = new(len_traj)
+@with_kw struct FixedTrajectoryLength <: HMCProposal
+    trajectory_length::Float64 = 2.0
 end
 
-struct NUTS<: AHMCProposal
-    sampling::Symbol
-    nuts::Symbol
-    NUTS(; sampling = :MultinomialTS, nuts = :ClassicNoUTurn) = new(sampling, nuts)
+@with_kw struct NUTS <: HMCProposal
+    sampling::Symbol = :MultinomialTS
+    nuts::Symbol = :ClassicNoUTurn
 end
 
 
 
-function get_AHMCproposal(
-    proposal::StaticTrajectory,
+function AHMCProposal(
+    proposal::FixedStepNumber,
     integrator::AdvancedHMC.AbstractIntegrator
 )
-    return AdvancedHMC.StaticTrajectory(integrator, proposal.n)
+    return AdvancedHMC.StaticTrajectory(integrator, proposal.n_steps)
 end
 
-function get_AHMCproposal(
-    proposal::HMCDA,
+
+function AHMCProposal(
+    proposal::FixedTrajectoryLength,
     integrator::AdvancedHMC.AbstractIntegrator
 )
-    return AdvancedHMC.HMCDA(integrator, proposal.len_traj)
+    return AdvancedHMC.HMCDA(integrator, proposal.trajectory_length)
 end
 
-function get_AHMCproposal(
+
+function AHMCProposal(
     proposal::NUTS,
     integrator::AdvancedHMC.AbstractIntegrator
 )

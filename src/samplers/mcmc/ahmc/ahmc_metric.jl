@@ -2,21 +2,21 @@ export DiagEuclideanMetric
 export UnitEuclideanMetric
 export DenseEuclideanMetric
 
-abstract type AHMCMetric end
-struct DiagEuclideanMetric <: AHMCMetric end
-struct UnitEuclideanMetric <: AHMCMetric end
-struct DenseEuclideanMetric <: AHMCMetric end
+abstract type HMCMetric end
+struct DiagEuclideanMetric <: HMCMetric end
+struct UnitEuclideanMetric <: HMCMetric end
+struct DenseEuclideanMetric <: HMCMetric end
 
 
 
-function get_AHMCmetric(metric::DiagEuclideanMetric, dim::Int64)
+function AHMCMetric(metric::DiagEuclideanMetric, dim::Int64)
     return AdvancedHMC.DiagEuclideanMetric(dim)
 end
 
-function get_AHMCmetric(metric::UnitEuclideanMetric, dim::Int64)
+function AHMCMetric(metric::UnitEuclideanMetric, dim::Int64)
     return AdvancedHMC.UnitEuclideanMetric(dim)
 end
 
-function get_AHMCmetric(metric::DenseEuclideanMetric, dim::Int64)
+function AHMCMetric(metric::DenseEuclideanMetric, dim::Int64)
     return AdvancedHMC.DenseEuclideanMetric(dim)
 end

@@ -37,13 +37,13 @@ using StructArrays
 using Tables
 using UnsafeArrays
 using KernelDensity
-using AdvancedHMC
 
 import EmpiricalDistributions
 import ForwardDiff
 import Measurements
 import NLSolversBase
 import Optim
+import AdvancedHMC
 
 #for AHMI
 using DataStructures
