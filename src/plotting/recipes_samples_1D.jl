@@ -12,7 +12,7 @@
     std = false,
     globalmode = false,
     localmode = true,
-    filter = true,
+    filter = false,
     closed = :left
 )
     idx = asindex(maybe_shaped_samples, parsel)
