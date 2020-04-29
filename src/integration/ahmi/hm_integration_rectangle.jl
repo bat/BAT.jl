@@ -32,6 +32,11 @@ function hm_create_integrationvolumes!(
 
         finish!(progressbar)
     end
+
+    if isempty(result.volumelist1) || isempty(result.volumelist2)
+       @error "Created zero integration volumes. Try changing integration settings."
+       throw(ErrorException("Created zero integration volumes. Try changing integration settings."))
+   end
 end
 
 function hm_create_integrationvolumes_dataset!(
