@@ -44,7 +44,7 @@ ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
 
 [compat]
 ArgCheck = "1, 2.0"
-ArraysOfArrays = "0.4"
+ArraysOfArrays = "0.4, 0.5"
 Clustering = "0.13, 0.14"
 Colors = "0.9,0.10,0.11, 0.12"
 DataStructures = "0.17"
