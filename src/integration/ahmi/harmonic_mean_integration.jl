@@ -41,9 +41,9 @@ function hm_integrate!(
     hm_createpartitioningtree!(result)
 
     notsinglemode = hm_findseeds!(result, settings)
-	
+
 	hm_determinetolerance!(result, settings) # tolerance is never Inf.
-	
+
 #     if !notsinglemode
 #         result.dataset1.tolerance = Inf
 #         result.dataset2.tolerance = Inf
@@ -431,13 +431,13 @@ function reduced_volume_hm(log_prob::Array{T}, sample_weights::Array{T}, volume_
 	tmp = log_prob .- pedestal_llh
 	tmp = T(1) ./ exp.(tmp)
 	mean_x = mean(tmp, weights(sample_weights))
-	
+
 	r = weight_total/sum(sample_weights)
 	reduced_volume_hm = r*volume_size/mean_x*exp(pedestal_llh)
 
-	if !bias_correction 
-		return reduced_volume_hm 
-	else 
+	if !bias_correction
+		return reduced_volume_hm
+	else
  		var_x = var(tmp, weights(sample_weights), corrected=false) / sum(sample_weights)
  		mean_r_bias = length(sample_weights) / n_total
  		var_r_bias = mean_r_bias*(1-mean_r_bias)/n_total
@@ -448,7 +448,7 @@ end
 
 
 """
-Estimates reduced_volume_hm quantity for one hyperrectangle including estimates from batches (for covariance calculations). 
+Estimates reduced_volume_hm quantity for one hyperrectangle including estimates from batches (for covariance calculations).
 """
 function integrate_hyperrectangle_cov(
     dataset::DataSet{T, I},
@@ -463,14 +463,20 @@ function integrate_hyperrectangle_cov(
     for i in 1:dataset.nsubsets
         subset_indices = indices[dataset.ids[indices] .== i]
         tot_subset_mask = dataset.ids .== i
-        integrals_batches[i] = reduced_volume_hm(dataset.logprob[subset_indices], dataset.weights[subset_indices], integrationvol.volume, length(dataset.weights[tot_subset_mask]), sum(dataset.weights[tot_subset_mask]))
+
+		if length(subset_indices) != 0
+			integrals_batches[i] = reduced_volume_hm(dataset.logprob[subset_indices], dataset.weights[subset_indices], integrationvol.volume, length(dataset.weights[tot_subset_mask]), sum(dataset.weights[tot_subset_mask]))
+		else
+			@warn "The batch contains zero samples. It's integral will be replaced with the average batch integral."
+			integrals_batches[i] = NaN
+		end
     end
-	
+
     for i in eachindex(integrals_batches)
         if isnan(integrals_batches[i]) || isinf(integrals_batches[i])
             integrals_batches[i] = integral
         end
     end
-    
+
     return integrals_batches./determinant, integral/determinant
 end
