@@ -123,10 +123,25 @@ end
 
 struct NoOpTunerConfig <: BAT.AbstractMCMCTuningStrategy end
 
-(config::NoOpTunerConfig)(chain::MCMCIterator; kwargs...) = NoOpTuner()
+#struct NoOpTuner <: AbstractMCMCTuner end
+
+mutable struct NoOpTuner{
+    S<:MCMCBasicStats
+} <: AbstractMCMCTuner
+    stats::S
+end
+
+function NoOpTuner(
+    chain::MCMCIterator
+)
+    NoOpTuner(MCMCBasicStats(chain))
+end
 
 
-struct NoOpTuner{C<:MCMCIterator} <: AbstractMCMCTuner end
+(config::NoOpTunerConfig)(chain::MCMCIterator; kwargs...) = NoOpTuner(chain)
+
+
+
 
 
 isvalid(chain::MCMCIterator) = current_sample(chain).logd > -Inf
@@ -139,16 +154,16 @@ function tuning_init!(tuner::NoOpTuner, chain::MCMCIterator)
 end
 
 
-function mcmc_tune_burnin!(
-    callbacks,
-    tuners::AbstractVector{<:NoOpTuner},
-    chains::AbstractVector{<:MCMCIterator},
-    convergence_test::MCMCConvergenceTest,
-    burnin_strategy::MCMCBurninStrategy;
-    kwargs...
-)
-    @debug "Tune/Burn-In with NoOpTuner doing nothing."
-end
+# function mcmc_tune_burnin!(
+#     callbacks,
+#     tuners::AbstractVector{<:NoOpTuner},
+#     chains::AbstractVector{<:MCMCIterator},
+#     convergence_test::MCMCConvergenceTest,
+#     burnin_strategy::MCMCBurninStrategy;
+#     kwargs...
+# )
+#     @debug "Tune/Burn-In with NoOpTuner doing nothing."
+# end
 
 
 

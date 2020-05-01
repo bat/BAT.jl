@@ -88,6 +88,7 @@ function mcmc_sample!(
     max_time::Float64 = Inf,
     granularity::Int = 1
 )
+    println("I am mcmc_sample!")
     result_samples, result_stats = result
 
     samples = DensitySampleVector.(chains)

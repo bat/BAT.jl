@@ -1,84 +1,8 @@
-export AHMC
-
-"""
-@with_kw struct AHMC <: MCMCAlgorithm
-    metric::HMCMetric = DiagEuclideanMetric()
-    gradient::Module = ForwardDiff
-    integrator::HMCIntegrator = Leapfrog()
-    proposal::HMCProposal = NUTS()
-    adaptor::HMCAdaptor = StanHMCAdaptor()
-end
-
-
-# Keyword arguments
-
-Also see [AdvancedHMC.jl](https://github.com/TuringLang/AdvancedHMC.jl) for more detailed information on the following HMC related keyword arguments.
-## Metric
-options:
-- `DiagEuclideanMetric()`
-- `UnitEuclideanMetric()`
-- `DenseEuclideanMetric()`
-
-default: `metric = DiagEuclideanMetric()`
-
-## Integrator
-options:
-- `LeapfrogIntegrator(step_size::Float64 = 0.0)`
-- `JitteredLeapfrogIntegrator(step_size::Float64 = 0.0, jitter_rate::Float64 = 1.0)`
-- `TemperedLEapfrogIntegrator(step_size::Float64 = 0.0, tempering_rate::Float64 = 1.05)`
-
-default: `integrator = LeapfrogIntegrator(step_size::Float64 = 0.0)`
-For `step_size = 0.0`, the initial stepsize is determined using `AdvancedHMC.find_good_stepsize()`
-
-
-## Proposal
-options:
-- `FixedStepNumber(n_steps::Int64 = 10)`
-- `FixedTrajectoryLength(trajectory_length::Float64 = 2.0)`
-- `NUTS(sampling::Symbol, nuts::Symbol)`
-with
-    - `sampling =` `:SliceTS` or `:MultinomialTS`
-    - `nuts = ` `:ClassicNoUTurn` or  `:GeneralisedNoUTUrn`
-
-default: `proposal = NUTS(sampling::Symbol = :MultinomialTS, nuts::Symbol = :ClassicNoUTurn)`
-
-## Adaptor
-options:
-- `MassMatrixAdaptor()`
-- `StepSizeAdaptor(step_size::Float64 = 0.8)`
-- `NaiveHMCAdaptor(step_size::Float64 = 0.8)`
-- `StanHMCAdaptor(step_size::Float64 = 0.8)`
-
-default: `adaptor =  StanHMCAdaptor(step_size::Float64 = 0.8)`
-"""
-@with_kw struct AHMC <: MCMCAlgorithm
-    metric::HMCMetric = DiagEuclideanMetric()
-    gradient::Module = ForwardDiff
-    integrator::HMCIntegrator = Leapfrog()
-    proposal::HMCProposal = NUTS()
-    adaptor::HMCAdaptor = StanHMCAdaptor()
-end
-
-
-# MCMCSpec for AHMC
-function (spec::MCMCSpec{<:AHMC})(
-    rng::AbstractRNG,
-    chainid::Integer
-)
-    P = Float64 # float(eltype(var_bounds(spec.posterior)))
-
-    cycle = 0
-    tuned = false
-    converged = false
-    info = MCMCIteratorInfo(chainid, cycle, tuned, converged)
-
-    AHMCIterator(rng, spec, info, Vector{P}())
-end
+AbstractMCMCTuningStrategy(algorithm::AHMC) = NoOpTunerConfig()
 
 
 
-# MCMCIterator subtype for AHMC
-mutable struct AHMCIterator{
+mutable struct HMCIterator{
     SP<:MCMCSpec,
     R<:AbstractRNG,
     PR<:RNGPartition,
@@ -94,15 +18,15 @@ mutable struct AHMCIterator{
     samples::SV
     nsamples::Int64
     stepno::Int64
-    hamiltonian::AdvancedHMC.Hamiltonian
-    transition::AdvancedHMC.Transition
+    h::AdvancedHMC.Hamiltonian #TODO@C rename
+    t::AdvancedHMC.Transition
     integrator::I
     proposal::P
     adaptor::A
 end
 
 
-function AHMCIterator(
+function HMCIterator(
     rng::AbstractRNG,
     spec::MCMCSpec,
     info::MCMCIteratorInfo,
@@ -122,10 +46,13 @@ function AHMCIterator(
     end
     !(params_vec in var_bounds(postr)) && throw(ArgumentError("Parameter(s) out of bounds"))
 
+
+    # ToDo: Make numeric type configurable:
+
     log_posterior_value = apply_bounds_and_eval_posterior_logval_strict!(postr, params_vec)
 
     T = typeof(log_posterior_value)
-    W = Float64 #_sample_weight_type(typeof(alg))
+    W = Float64#_sample_weight_type(typeof(alg))
 
     sample_info = MCMCSampleID(info.id, info.cycle, 1, CURRENT_SAMPLE)
     current_sample = DensitySample(params_vec, log_posterior_value, one(W), sample_info, nothing)
@@ -136,21 +63,22 @@ function AHMCIterator(
 
     rngpart_cycle = RNGPartition(rng, 0:(typemax(Int16) - 2))
 
-    #TODO@C rename AHMC... functions
     metric = AHMCMetric(alg.metric, npar)
     logval_posterior(v) = density_logval(postr, v)
 
     hamiltonian = AdvancedHMC.Hamiltonian(metric, logval_posterior, alg.gradient)
     hamiltonian, t = AdvancedHMC.sample_init(rng, hamiltonian, params_vec)
 
+    ####
     alg.integrator.step_size == 0.0 ? alg.integrator.step_size = AdvancedHMC.find_good_stepsize(hamiltonian, params_vec) : nothing
     ahmc_integrator = AHMCIntegrator(alg.integrator)
 
     ahmc_proposal = AHMCProposal(alg.proposal, ahmc_integrator)
     ahmc_adaptor = AHMCAdaptor(alg.adaptor, metric, ahmc_integrator)
+    ####
 
 
-    chain = AHMCIterator(
+    chain = HMCIterator(
         spec,
         rng,
         rngpart_cycle,
@@ -170,105 +98,12 @@ function AHMCIterator(
     chain
 end
 
-mcmc_spec(chain::AHMCIterator) = chain.spec
 
-getrng(chain::AHMCIterator) = chain.rng
-
-mcmc_info(chain::AHMCIterator) = chain.info
-
-nsteps(chain::AHMCIterator) = chain.stepno
-
-nsamples(chain::AHMCIterator) = chain.nsamples
-
-current_sample(chain::AHMCIterator) = chain.samples[_current_sample_idx(chain)]
-
-sample_type(chain::AHMCIterator) = eltype(chain.samples)
-
-@inline _current_sample_idx(chain::AHMCIterator) = firstindex(chain.samples)
-@inline _proposed_sample_idx(chain::AHMCIterator) = lastindex(chain.samples)
-
-function reset_rng_counters!(chain::AHMCIterator)
-    set_rng!(chain.rng, chain.rngpart_cycle, chain.info.cycle)
-    rngpart_step = RNGPartition(chain.rng, 0:(typemax(Int32) - 2))
-    set_rng!(chain.rng, rngpart_step, chain.stepno)
-    nothing
-end
-
-
-function samples_available(chain::AHMCIterator)
-    i = _current_sample_idx(chain::AHMCIterator)
-    chain.samples.info.sampletype[i] == ACCEPTED_SAMPLE
-end
-
-
-function _available_samples_idxs(chain::AHMCIterator)
-    sampletype = chain.samples.info.sampletype
-    @uviews sampletype begin
-        from = firstindex(chain.samples)
-
-        to = if samples_available(chain)
-            lastidx = lastindex(chain.samples)
-            @assert sampletype[from] == ACCEPTED_SAMPLE
-            @assert sampletype[lastidx] == CURRENT_SAMPLE
-            lastidx - 1
-        else
-            from - 1
-        end
-
-        r = from:to
-        @assert all(x -> x > INVALID_SAMPLE, view(sampletype, r))
-        r
-    end
-end
-
-
-function get_samples!(appendable, chain::AHMCIterator, nonzero_weights::Bool)::typeof(appendable)
-    if samples_available(chain)
-        idxs = _available_samples_idxs(chain)
-        samples = chain.samples
-
-        @uviews samples begin
-            # if nonzero_weights
-                for i in idxs
-                    if !nonzero_weights || samples.weight[i] > 0
-                        push!(appendable, samples[i])
-                    end
-                end
-            # else
-            #     append!(appendable, view(samples, idxs))
-            # end
-        end
-    end
-    appendable
-end
-
-
-function next_cycle!(chain::AHMCIterator)
-    chain.info = MCMCIteratorInfo(chain.info, cycle = chain.info.cycle + 1)
-    chain.nsamples = 0
-    chain.stepno = 0
-
-    reset_rng_counters!(chain)
-
-    resize!(chain.samples, 1)
-
-    i = _current_sample_idx(chain)
-    @assert chain.samples.info[i].sampletype == CURRENT_SAMPLE
-
-    chain.samples.weight[i] = 1
-    chain.samples.info[i] = MCMCSampleID(chain.info.id, chain.info.cycle, chain.stepno, CURRENT_SAMPLE)
-
-    chain
-end
-
-
-
-AbstractMCMCTuningStrategy(algorithm::AHMC) = JustBurninTunerConfig()
 
 function run_tuning_iterations!(
     callbacks,
     tuners::AbstractVector{<:NoOpTuner},
-    chains::AbstractVector{<:AHMCIterator};
+    chains::AbstractVector{<:HMCIterator};
     max_nsamples::Int64 = Int64(1000),
     max_nsteps::Int64 = Int64(10000),
     max_time::Float64 = Inf
@@ -291,7 +126,7 @@ end
 function run_tuning_cycle!(
     callbacks,
     tuners::AbstractVector{<:NoOpTuner},
-    chains::AbstractVector{<:AHMCIterator};
+    chains::AbstractVector{<:HMCIterator};
     kwargs...
 )
     run_tuning_iterations!(callbacks, tuners, chains; kwargs...)
@@ -354,14 +189,116 @@ end
 
 
 
+function (spec::MCMCSpec{<:AHMC})(
+    rng::AbstractRNG,
+    chainid::Integer
+)
+    #P = float(eltype(var_bounds(spec.posterior)))
+    P = Float64
+
+    cycle = 0
+    tuned = false
+    converged = false
+    info = MCMCIteratorInfo(chainid, cycle, tuned, converged)
+
+    HMCIterator(rng, spec, info, Vector{P}())
+end
 
 
+mcmc_spec(chain::HMCIterator) = chain.spec
 
+getrng(chain::HMCIterator) = chain.rng
+
+mcmc_info(chain::HMCIterator) = chain.info
+
+nsteps(chain::HMCIterator) = chain.stepno
+
+nsamples(chain::HMCIterator) = chain.nsamples
+
+current_sample(chain::HMCIterator) = chain.samples[_current_sample_idx(chain)]
+
+sample_type(chain::HMCIterator) = eltype(chain.samples)
+
+@inline _current_sample_idx(chain::HMCIterator) = firstindex(chain.samples)
+@inline _proposed_sample_idx(chain::HMCIterator) = lastindex(chain.samples)
+
+function reset_rng_counters!(chain::HMCIterator)
+    set_rng!(chain.rng, chain.rngpart_cycle, chain.info.cycle)
+    rngpart_step = RNGPartition(chain.rng, 0:(typemax(Int32) - 2))
+    set_rng!(chain.rng, rngpart_step, chain.stepno)
+    nothing
+end
+
+
+function samples_available(chain::HMCIterator)
+    i = _current_sample_idx(chain::HMCIterator)
+    chain.samples.info.sampletype[i] == ACCEPTED_SAMPLE
+end
+
+
+function _available_samples_idxs(chain::HMCIterator)
+    sampletype = chain.samples.info.sampletype
+    @uviews sampletype begin
+        from = firstindex(chain.samples)
+
+        to = if samples_available(chain)
+            lastidx = lastindex(chain.samples)
+            @assert sampletype[from] == ACCEPTED_SAMPLE
+            @assert sampletype[lastidx] == CURRENT_SAMPLE
+            lastidx - 1
+        else
+            from - 1
+        end
+
+        r = from:to
+        @assert all(x -> x > INVALID_SAMPLE, view(sampletype, r))
+        r
+    end
+end
+
+function get_samples!(appendable, chain::HMCIterator, nonzero_weights::Bool)::typeof(appendable)
+    if samples_available(chain)
+        idxs = _available_samples_idxs(chain)
+        samples = chain.samples
+
+        @uviews samples begin
+            # if nonzero_weights
+                for i in idxs
+                    if !nonzero_weights || samples.weight[i] > 0
+                        push!(appendable, samples[i])
+                    end
+                end
+            # else
+            #     append!(appendable, view(samples, idxs))
+            # end
+        end
+    end
+    appendable
+end
+
+
+function next_cycle!(chain::HMCIterator)
+    chain.info = MCMCIteratorInfo(chain.info, cycle = chain.info.cycle + 1)
+    chain.nsamples = 0
+    chain.stepno = 0
+
+    reset_rng_counters!(chain)
+
+    resize!(chain.samples, 1)
+
+    i = _current_sample_idx(chain)
+    @assert chain.samples.info[i].sampletype == CURRENT_SAMPLE
+
+    chain.samples.weight[i] = 1
+    chain.samples.info[i] = MCMCSampleID(chain.info.id, chain.info.cycle, chain.stepno, CURRENT_SAMPLE)
+
+    chain
+end
 
 
 function mcmc_step!(
     callback::AbstractMCMCCallback,
-    chain::AHMCIterator
+    chain::HMCIterator
 )
     alg = algorithm(chain)
     #
@@ -431,12 +368,77 @@ end
 
 
 function ahmc_step!(rng, alg, chain, proposed_params, current_params)
-    chain.transition = AdvancedHMC.step(rng, chain.hamiltonian, chain.proposal, chain.transition.z)
 
-    tstat = AdvancedHMC.stat(chain.transition)
-    chain.hamiltonian, chain.proposal, isadapted = AdvancedHMC.adapt!(chain.hamiltonian, chain.proposal, chain.adaptor, 0, 1, chain.transition.z.θ, tstat.acceptance_rate)
+    τ = chain.proposal
+    adaptor = chain.adaptor
+    h = chain.h
+    t = chain.t
+
+    # Make a step
+    chain.t = AdvancedHMC.step(rng, h, τ, t.z)
+    # Adapt h and τ; what mutable is the adaptor
+    tstat = AdvancedHMC.stat(chain.t)
+    chain.h, chain.proposal, isadapted = AdvancedHMC.adapt!(chain.h, chain.proposal, chain.adaptor, 0, 1, chain.t.z.θ, tstat.acceptance_rate)
     tstat = merge(tstat, (is_adapt=isadapted,))
 
-    proposed_params[:] = chain.transition.z.θ
+    #println("intern: ", t.z.θ)
+    proposed_params[:] = chain.t.z.θ
     nothing
 end
+# function sample(
+#     rng::Union{AbstractRNG, AbstractVector{<:AbstractRNG}},
+#     h::Hamiltonian,
+#     τ::AbstractProposal,
+#     θ::T,
+#     n_samples::Int,
+#     adaptor::AbstractAdaptor=NoAdaptation(),
+#     n_adapts::Int=min(div(n_samples, 10), 1_000);
+#     drop_warmup=false,
+#     verbose::Bool=true,
+#     progress::Bool=false,
+#     (pm_next!)::Function=pm_next!
+# ) where {T<:AbstractVecOrMat{<:AbstractFloat}}
+#     @assert !(drop_warmup && (adaptor isa Adaptation.NoAdaptation)) "Cannot drop warmup samples if there is no adaptation phase."
+#     # Prepare containers to store sampling results
+#     n_keep = n_samples - (drop_warmup ? n_adapts : 0)
+#     θs, stats = Vector{T}(undef, n_keep), Vector{NamedTuple}(undef, n_keep)
+#     # Initial sampling
+#     h, t = sample_init(rng, h, θ)
+#     # Progress meter
+#     pm = progress ? ProgressMeter.Progress(n_samples, desc="Sampling", barlen=31) : nothing
+#     time = @elapsed for i = 1:n_samples
+#         # Make a step
+#         t = step(rng, h, τ, t.z)
+#         # Adapt h and τ; what mutable is the adaptor
+#         tstat = stat(t)
+#         h, τ, isadapted = adapt!(h, τ, adaptor, i, n_adapts, t.z.θ, tstat.acceptance_rate)
+#         tstat = merge(tstat, (is_adapt=isadapted,))
+#         # Update progress meter
+#         if progress
+#             # Do include current iteration and mass matrix
+#             pm_next!(pm, (iterations=i, tstat..., mass_matrix=h.metric))
+#         # Report finish of adapation
+#         elseif verbose && isadapted && i == n_adapts
+#             @info "Finished $n_adapts adapation steps" adaptor τ.integrator h.metric
+#         end
+#         # Store sample
+#         if !drop_warmup || i > n_adapts
+#             j = i - drop_warmup * n_adapts
+#             θs[j], stats[j] = t.z.θ, tstat
+#         end
+#     end
+#     # Report end of sampling
+#     if verbose
+#         EBFMI_est = EBFMI(map(s -> s.hamiltonian_energy, stats))
+#         average_acceptance_rate = mean(map(s -> s.acceptance_rate, stats))
+#         if θ isa AbstractVector
+#             n_chains = 1
+#         else
+#             n_chains = size(θ, 2)
+#             EBFMI_est = "[" * join(EBFMI_est, ", ") * "]"
+#             average_acceptance_rate = "[" * join(average_acceptance_rate, ", ") * "]"
+#         end
+#         @info "Finished $n_samples sampling steps for $n_chains chains in $time (s)" h τ EBFMI_est average_acceptance_rate
+#     end
+#     return θs, stats
+# end

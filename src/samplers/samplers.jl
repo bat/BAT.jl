@@ -3,4 +3,4 @@
 include("weighting.jl")
 include("bat_sample.jl")
 include("mcmc/mcmc.jl")
-include("mcmc/ahmc.jl")
+include("mcmc/ahmc/ahmc.jl")
