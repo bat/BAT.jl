@@ -4,7 +4,7 @@ export AHMC
 @with_kw struct AHMC <: MCMCAlgorithm
     metric::HMCMetric = DiagEuclideanMetric()
     gradient::Module = ForwardDiff
-    integrator::HMCIntegrator = Leapfrog()
+    integrator::HMCIntegrator = LeapfrogIntegrator()
     proposal::HMCProposal = NUTS()
     adaptor::HMCAdaptor = StanHMCAdaptor()
 end
@@ -54,7 +54,7 @@ default: `adaptor =  StanHMCAdaptor(step_size::Float64 = 0.8)`
 @with_kw struct AHMC <: MCMCAlgorithm
     metric::HMCMetric = DiagEuclideanMetric()
     gradient::Module = ForwardDiff
-    integrator::HMCIntegrator = Leapfrog()
+    integrator::HMCIntegrator = LeapfrogIntegrator()
     proposal::HMCProposal = NUTS()
     adaptor::HMCAdaptor = StanHMCAdaptor()
 end
@@ -185,7 +185,9 @@ current_sample(chain::AHMCIterator) = chain.samples[_current_sample_idx(chain)]
 sample_type(chain::AHMCIterator) = eltype(chain.samples)
 
 @inline _current_sample_idx(chain::AHMCIterator) = firstindex(chain.samples)
+
 @inline _proposed_sample_idx(chain::AHMCIterator) = lastindex(chain.samples)
+
 
 function reset_rng_counters!(chain::AHMCIterator)
     set_rng!(chain.rng, chain.rngpart_cycle, chain.info.cycle)
@@ -228,7 +230,7 @@ function get_samples!(appendable, chain::AHMCIterator, nonzero_weights::Bool)::t
         samples = chain.samples
 
         @uviews samples begin
-            # if nonzero_weights
+            # if nonzero_weights # TODO ?
                 for i in idxs
                     if !nonzero_weights || samples.weight[i] > 0
                         push!(appendable, samples[i])
@@ -262,101 +264,7 @@ function next_cycle!(chain::AHMCIterator)
 end
 
 
-
-AbstractMCMCTuningStrategy(algorithm::AHMC) = JustBurninTunerConfig()
-
-function run_tuning_iterations!(
-    callbacks,
-    tuners::AbstractVector{<:NoOpTuner},
-    chains::AbstractVector{<:AHMCIterator};
-    max_nsamples::Int64 = Int64(1000),
-    max_nsteps::Int64 = Int64(10000),
-    max_time::Float64 = Inf
-)
-    user_callbacks = mcmc_callback_vector(callbacks, eachindex(chains))
-
-    combined_callbacks = broadcast(tuners, user_callbacks) do tuner, user_callback
-        (level, chain) -> begin
-            if level == 1
-                get_samples!(tuner.stats, chain, true)
-            end
-            user_callback(level, chain)
-        end
-    end
-
-    mcmc_iterate!(combined_callbacks, chains, max_nsamples = max_nsamples, max_nsteps = max_nsteps, max_time = max_time)
-    nothing
-end
-
-function run_tuning_cycle!(
-    callbacks,
-    tuners::AbstractVector{<:NoOpTuner},
-    chains::AbstractVector{<:AHMCIterator};
-    kwargs...
-)
-    run_tuning_iterations!(callbacks, tuners, chains; kwargs...)
-    nothing
-end
-
-# just burnin no tuning
-function mcmc_tune_burnin!(
-    callbacks,
-    tuners::AbstractVector{<:NoOpTuner},
-    chains::AbstractVector{<:MCMCIterator},
-    convergence_test::MCMCConvergenceTest,
-    burnin_strategy::MCMCBurninStrategy;
-    strict_mode::Bool = false
-)
-    @info "Begin burnin of $(length(tuners)) MCMC chain(s)."
-
-    nchains = length(chains)
-
-    user_callbacks = mcmc_callback_vector(callbacks, eachindex(chains))
-
-    cycles = zero(Int)
-    successful = false
-    while !successful && cycles < burnin_strategy.max_ncycles
-        cycles += 1
-        run_tuning_cycle!(
-            user_callbacks, tuners, chains;
-            max_nsamples = burnin_strategy.max_nsamples_per_cycle,
-            max_nsteps = burnin_strategy.max_nsteps_per_cycle,
-            max_time = burnin_strategy.max_time_per_cycle
-        )
-
-        new_stats = [x.stats for x in tuners] # ToDo: Find more generic abstraction
-        ct_result = check_convergence!(convergence_test, chains, new_stats)
-
-        ntuned = count(c -> c.info.tuned, chains)
-        nconverged = count(c -> c.info.converged, chains)
-        successful = (nconverged == nchains)
-
-        for i in eachindex(user_callbacks, tuners)
-            user_callbacks[i](1, tuners[i])
-        end
-
-        @info "MCMC Tuning cycle $cycles finished, $nchains chains, $ntuned tuned, $nconverged converged."
-    end
-
-    if successful
-        @info "MCMC tuning of $nchains chains successful after $cycles cycle(s)."
-    else
-        msg = "MCMC tuning of $nchains chains aborted after $cycles cycle(s)."
-        if strict_mode
-            @error msg
-        else
-            @warn msg
-        end
-    end
-
-    successful
-end
-
-
-
-
-
-
+AbstractMCMCTuningStrategy(algorithm::AHMC) = OnlyBurninTunerConfig()
 
 
 function mcmc_step!(
@@ -364,7 +272,7 @@ function mcmc_step!(
     chain::AHMCIterator
 )
     alg = algorithm(chain)
-    #
+
     # if !mcmc_compatible(alg, chain.proposaldist, var_bounds(getposterior(chain)))
     #     error("Implementation of algorithm $alg does not support current parameter bounds with current proposal distribution")
     # end
@@ -402,11 +310,9 @@ function mcmc_step!(
 
         samples.logd[proposed] = proposed_log_posterior
 
-
         samples.info.sampletype[current] = ACCEPTED_SAMPLE
         samples.info.sampletype[proposed] = CURRENT_SAMPLE
         chain.nsamples += 1
-
 
         delta_w_current, w_proposed = (0, 1) # always accepted
         samples.weight[current] += delta_w_current
@@ -422,9 +328,7 @@ function mcmc_step!(
         true
     end # @uviews
 
-
     resize!(samples, 1)
-
 
     chain
 end
@@ -434,7 +338,13 @@ function ahmc_step!(rng, alg, chain, proposed_params, current_params)
     chain.transition = AdvancedHMC.step(rng, chain.hamiltonian, chain.proposal, chain.transition.z)
 
     tstat = AdvancedHMC.stat(chain.transition)
-    chain.hamiltonian, chain.proposal, isadapted = AdvancedHMC.adapt!(chain.hamiltonian, chain.proposal, chain.adaptor, 0, 1, chain.transition.z.θ, tstat.acceptance_rate)
+    #TODO check adpation step, currently adapting each step
+    chain.hamiltonian, chain.proposal, isadapted = AdvancedHMC.adapt!(chain.hamiltonian,
+                                                                    chain.proposal,
+                                                                    chain.adaptor,
+                                                                    0, 1,
+                                                                    chain.transition.z.θ,
+                                                                    tstat.acceptance_rate)
     tstat = merge(tstat, (is_adapt=isadapted,))
 
     proposed_params[:] = chain.transition.z.θ

@@ -2,10 +2,12 @@ export MassMatrixAdaptor
 export StepSizeAdaptor
 export NaiveHMCAdaptor
 export StanHMCAdaptor
+export NoAdaptor
 
 
 abstract type HMCAdaptor end
 
+struct NoAdaptor <: HMCAdaptor end
 
 struct MassMatrixAdaptor <: HMCAdaptor end
 
@@ -21,6 +23,14 @@ end
     target_acceptance::Float64 = 0.8
 end
 
+
+function AHMCAdaptor(
+    adaptor::NoAdaptor,
+    metric::AdvancedHMC.AbstractMetric,
+    integrator::AdvancedHMC.AbstractIntegrator
+)
+    return AdvancedHMC.NoAdaptation()
+end
 
 
 function AHMCAdaptor(
