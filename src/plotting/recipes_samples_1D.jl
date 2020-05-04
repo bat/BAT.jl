@@ -32,7 +32,7 @@
 
     xlabel, ylabel  = if isa(parsel, Symbol)
         "$parsel", "p($parsel)"
-    elseif isa(varshape(maybe_shaped_samples), NamedTupleShape)
+    elseif isa(varshape(maybe_shaped_samples), NamedTupleShape) && varshape(maybe_shaped_samples)._flatdof == length(keys(maybe_shaped_samples[1].v))
         String(keys(maybe_shaped_samples[1].v)[idx]),
         "p("* String(keys(maybe_shaped_samples[1].v)[idx]) *")"
     else

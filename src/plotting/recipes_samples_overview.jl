@@ -17,7 +17,7 @@
     xlabel = ["v$i" for i in vsel]
     ylabel = ["p(v$i)" for i in vsel]
 
-    if isa(varshape(samples), NamedTupleShape)
+    if isa(varshape(samples), NamedTupleShape) && varshape(samples)._flatdof == length(keys(samples[1].v))
         xlabel = [String(keys(samples[1].v)[i]) for i in vsel]
         ylabel = ["p($l)" for l in xlabel]
     end

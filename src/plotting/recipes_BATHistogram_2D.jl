@@ -198,7 +198,7 @@ end
         seriestype := :path
         label --> "bounds"
         seriescolor --> :darkred
-        alpha --> 0.75
+        seriesalpha --> 0.75
         linewidth --> 2
         xlims --> xlims
         ylims --> ylims

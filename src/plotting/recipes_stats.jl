@@ -32,10 +32,10 @@ end
 
     conf = standard_confidence_vals
 
-    color --> :darkviolet
-    alpha --> 0.75
+    seriescolor --> :darkviolet
+    seriesalpha --> 0.75
     linewidth --> 2
-    
+
     for i in eachindex(conf)
         xy = err_ellipsis_path(μ, Σ, conf[i])
         @series begin

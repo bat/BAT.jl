@@ -37,7 +37,7 @@
 
     xlabel, ylabel  = if isa(parsel, NTuple{2, Symbol})
         "$(parsel[1])", "$(parsel[2])"
-    elseif isa(varshape(maybe_shaped_samples), NamedTupleShape)
+    elseif isa(varshape(maybe_shaped_samples), NamedTupleShape) && varshape(maybe_shaped_samples)._flatdof == length(keys(maybe_shaped_samples[1].v))
         String(keys(maybe_shaped_samples[1].v)[xindx]),
         String(keys(maybe_shaped_samples[1].v)[yindx])
     else
