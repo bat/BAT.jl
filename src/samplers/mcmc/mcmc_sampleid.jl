@@ -33,7 +33,7 @@ MCMCSampleIDVector(::UndefInitializer, len::Integer) = MCMCSampleIDVector((
 MCMCSampleIDVector() = MCMCSampleIDVector(undef, 0)
 
 
-_create_undef_vector(::Type{MCMCSampleID}, len::Integer) where T = MCMCSampleIDVector(undef, len)
+_create_undef_vector(::Type{MCMCSampleID}, len::Integer) = MCMCSampleIDVector(undef, len)
 
 
 # Specialize comparison, currently StructArray seems fall back to `(==)(A::AbstractArray, B::AbstractArray)`
