@@ -1,5 +1,4 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
-# TODO: interval_labels
 @recipe function f(
     bathist::BATHistogram,
     parsel::NTuple{2,Integer};
@@ -63,7 +62,7 @@
                 seriestype := plotstyle
                 levels --> lev
                 linewidth --> 2
-                color --> colors # currently only works with pyplot
+                seriescolor --> colors # currently only works with pyplot
                 (x, y, m')
             end
         else
@@ -85,8 +84,7 @@
         for (i, int) in enumerate(realintervals)
             @series begin
                 seriestype := :bins2d
-                color --> _plots_module().cgrad([colors[i], colors[i]])
-                label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
+                seriescolor --> _plots_module().cgrad([colors[i], colors[i]])
                 xguide --> xlabel
                 yguide --> ylabel
 
@@ -94,18 +92,20 @@
             end
 
             # fake a legend
+            interval_label = isempty(interval_labels) ? "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval(s)" : interval_labels[i]
+
             @series begin
                 seriestype := :shape
                 fillcolor --> colors[i]
                 linewidth --> 0
-                label --> "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
+                label --> interval_label
                 colorbar --> false
                 [hists[i].h.edges[1][1], hists[i].h.edges[1][1]], [hists[i].h.edges[2][1], hists[i].h.edges[2][1]]
             end
         end
 
 
-    # with marginal histograms TODO fix &  xyguides
+    # marginal histograms
     elseif seriestype == :marginal
         layout --> _plots_module().grid(2,2, widths=(0.8, 0.2), heights=(0.2, 0.8))
         link --> :both
@@ -197,7 +197,7 @@ end
     @series begin
         seriestype := :path
         label --> "bounds"
-        color --> :darkred
+        seriescolor --> :darkred
         alpha --> 0.75
         linewidth --> 2
         xlims --> xlims

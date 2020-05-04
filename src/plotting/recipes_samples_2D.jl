@@ -3,6 +3,7 @@
     maybe_shaped_samples::DensitySampleVector,
     parsel::Union{NTuple{2, Integer}, NTuple{2, Symbol}};
     intervals = standard_confidence_vals,
+    interval_labels = [],
     colors = standard_colors,
     mean = false,
     std = false,
@@ -69,7 +70,7 @@
             label := label
             markersize := [w < 1 ? base_markersize : base_markersize * sqrt(w) for w in samples.weight[acc]]
             markerstrokewidth := 0
-            color := [w >= 1 ? color : RGBA(convert(RGB, color), color.alpha * w) for w in samples.weight[acc]]
+            markercolor := [w >= 1 ? color : RGBA(convert(RGB, color), color.alpha * w) for w in samples.weight[acc]]
             (flatview(samples.v)[xindx, acc], flatview(samples.v)[yindx, acc])
         end
 
@@ -79,7 +80,7 @@
                 label := "rejected"
                 markersize := base_markersize
                 markerstrokewidth := 0
-                color := :red
+                markercolor := :red
                 (flatview(samples.v)[xindx, rej], flatview(samples.v)[yindx, rej])
             end
         end
@@ -89,6 +90,7 @@
         @series begin
             seriestype --> seriestype
             intervals --> intervals
+            interval_labels --> interval_labels
             colors --> colors
             diagonal --> diagonal
             upper --> upper
@@ -151,6 +153,7 @@
             markercolor := get(globalmode_options, "markercolor", :black)
             markersize := get(globalmode_options, "markersize", 4)
             markershape := get(globalmode_options, "markershape", :rect)
+            linealpha := 0
             markerstrokealpha := get(globalmode_options, "markerstrokealpha", 1)
             markerstrokecolor := get(globalmode_options, "markerstrokecolor", :black)
             markerstrokestyle := get(globalmode_options, "markerstrokestyle", :solid)
@@ -176,12 +179,13 @@
             end
 
             seriestype == :marginal ? subplot := 3 :
-            markeralpha := get(localmode_options, "markeralpha", 0)
-            markercolor := get(localmode_options, "markercolor", :black)
+            markercolor := get(localmode_options, "markercolor", :dimgrey)
             markersize := get(localmode_options, "markersize", 4)
             markershape := get(localmode_options, "markershape", :rect)
+            markeralpha := get(localmode_options, "markeralpha", 1)
+            linealpha := 0
             markerstrokealpha := get(localmode_options, "markerstrokealpha", 1)
-            markerstrokecolor := get(localmode_options, "markerstrokecolor", :black)
+            markerstrokecolor := get(localmode_options, "markerstrokecolor", :dimgrey)
             markerstrokestyle := get(localmode_options, "markerstrokestyle", :solid)
             markerstrokewidth := get(localmode_options, "markerstrokewidth", 1)
             colorbar := colorbar

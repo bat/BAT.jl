@@ -55,6 +55,7 @@
                 colors --> get(upper, "colors", colormap("Blues", 10))
                 more_intervals = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99]
                 intervals --> get(upper, "intervals", more_intervals)
+                interval_labels --> get(upper, "interval_labels", [])
                 legend --> get(upper, "legend", false)
                 xlims --> get(upper, "xlims", :auto)
                 ylims --> get(upper, "ylims", :auto)
@@ -72,6 +73,7 @@
                 bins --> get(lower, "bins", 50)
                 colors --> get(lower, "colors", standard_colors)
                 intervals --> get(lower, "intervals", standard_confidence_vals)
+                interval_labels --> get(lower, "interval_labels", [])
                 legend --> get(lower, "legend", false)
                 xlims --> get(lower, "xlims", :auto)
                 ylims --> get(lower, "ylims", :auto)

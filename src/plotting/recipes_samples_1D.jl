@@ -99,7 +99,7 @@
             linestyle := get(mean_options, "linestyle", :solid)
             linecolor := get(mean_options, "linecolor", :dimgrey)
             linewidth := get(mean_options, "linewidth", 1)
-            alpha := get(mean_options, "alpha", 1)
+            linealpha := get(mean_options, "alpha", 1)
 
             line(meanvalue, line_height, swap=swap)
         end
@@ -114,7 +114,7 @@
             linestyle := get(globalmode_options, "linestyle", :dash)
             linecolor := get(globalmode_options, "linecolor", :black)
             linewidth := get(globalmode_options, "linewidth", 1)
-            alpha := get(globalmode_options, "alpha", 1)
+            linealpha := get(globalmode_options, "alpha", 1)
 
             line(globalmode_value, line_height, swap=swap)
         end
@@ -138,7 +138,7 @@
             linestyle := get(localmode_options, "linestyle", :dot)
             linecolor := get(localmode_options, "linecolor", :black)
             linewidth := get(localmode_options, "linewidth", 1)
-            alpha := get(localmode_options, "alpha", 1)
+            linealpha := get(localmode_options, "alpha", 1)
 
             line(l[1], line_height, swap=swap)
             end

@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# for 1d and 2d histograms
+# for 1d and 2d histogramsm
 function get_smallest_intervals(
     histogram::BATHistogram,
     intervals::Array{Float64, 1}
