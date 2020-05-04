@@ -96,11 +96,12 @@ plot(samples, :a, seriestype = :stephist, nbins=50, linecolor = :red, linewidth 
 # ### Customizing interval plots:
 # For `:smallest_intervals` and `:central_intervals` plot, the probability enclosed in the intervals to be highlighted can be specified using the `intervals` keyword.
 # The keyword `interval_labels` allows to specify the legend entries for the corresponding intervals (in same order).
-# Their colors need to be specified using the `colors` keyword argument.
+# The interval colors need to be specified (in same order) using the `colors` keyword argument.
 plot(samples, :b, seriestype=:smallest_intervals,
-intervals=[0.5, 0.1, 0.3, 0.99],
-interval_labels = ["HDR 50%", "HDR 10%", "HDR 30%", "HDR 99%"],
-colors=[:grey, :red, :blue, :orange])
+    intervals=[0.5, 0.1, 0.3, 0.99],
+    interval_labels = ["HDR 50%", "HDR 10%", "HDR 30%", "HDR 99%"],
+    colors=[:grey, :red, :blue, :orange]
+)
 
 # ### Plotting estimators in 1D sample plots:
 # It is possible to indicate *mean*, *standard deviation*, *localmode*, and *globalmode* when plotting samples:
@@ -149,7 +150,7 @@ plot(samples, (:a,:b), seriestype=:smallest_intervals_contourf, bins=40)
 # ### Customizing smallest interval plots:
 # The probability intervals to be highlighted can be specified using the `intervals` keyword.
 # The keyword `interval_labels` allows to specify the legend entries for the corresponding intervals (in same order).
-# Their colors (in same order) need to be specified using the `colors` keyword argument.
+# The interval colors need to be specified (in same order) using the `colors` keyword argument.
 plot(samples, (:a,:b), seriestype=:smallest_intervals, nbins=200,
 intervals=[0.7, 0.2],
 interval_labels = ["HDR 70%", "HDR 20%"],
