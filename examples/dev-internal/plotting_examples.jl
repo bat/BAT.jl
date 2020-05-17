@@ -1,236 +1,248 @@
-#md # # Plot recipes examples
-#nb # # BAT.jl Plot recipes examples
-#jl # # BAT.jl Plot recipes examples
-
+# # BAT.jl plotting tutorial
 
 using BAT
+using Distributions
+using IntervalSets
 
-# ## Generate samples
-# We generate some generic multimodal samples to be plotted afterwards
-using Distributions, IntervalSets, ValueShapes
-
-##Model definition to generate samples
-struct GaussianShellDensity<:AbstractDensity
+# ## Generate samples to be plotted
+struct MultiModalModel<:AbstractDensity
     r::Vector{Float64}
     sigma::Vector{Float64}
 end
 
-#define likelihood
-function BAT.density_logval(target::GaussianShellDensity, v::Any)
-    loglikelihood::Float64 = 0.
-    for i in 1:length(v)
-        
-        result = -0.5 * (v[i][1]-target.r[i])^2/target.sigma[i]^2
-        l1 = result - log(√2π * target.sigma[i])
-        
-        result2 = -0.5 * (v[i][1]+target.r[i])^2/target.sigma[i]^2
-        l2 = result2 - log(√2π * target.sigma[i])^2
-        
-        loglikelihood += log(exp(l1) + 2*exp(l2)) 
-    end
-    
-    return loglikelihood
+
+likelihood = params -> begin
+
+    r1 = logpdf.(
+    MixtureModel(Normal[
+    Normal(-10.0, 1.2),
+    Normal(0.0, 1.8),
+    Normal(10.0, 2.5)], [0.1, 0.3, 0.6]), params.a)
+
+    r2 = logpdf.(
+    MixtureModel(Normal[
+    Normal(-5.0, 2.2),
+    Normal(5.0, 1.5)], [0.3, 0.7]), params.b[1])
+
+    r3 = logpdf.(Normal(2.0, 1.5), params.b[2])
+
+    return LogDVal(r1+r2+r3)
 end
 
-likelihood = GaussianShellDensity([5.0, 5., 3.], [2, 2.4, 1.5]) 
-
-prior = NamedTupleDist(
-    λ1 = Normal(-3, 4.5),
-    λ2 = -30.0..30.0,    
-    λ3 = Normal(3, 3.5)    
+prior = BAT.NamedTupleDist(
+    a = Normal(-3, 4.5),
+    b = [-20.0..20.0, -10..10]
 )
 
 posterior = PosteriorDensity(likelihood, prior);
 
-#generate samples
-samples, chains = bat_sample(posterior, (10^5, 4), MetropolisHastings())
-
+samples, chains = bat_sample(posterior, (10^5, 4), MetropolisHastings());
 
 # ## Set up plotting
-#  We set up plotting by using the ["Plots"](https://github.com/JuliaPlots/Plots.jl) package with the pyplot backend.
+# Set up plotting using the [Plots.jl](https://github.com/JuliaPlots/Plots.jl) package:
 using Plots
 
-# The plotting recipes have been tested with `pyplot`, `gr` and `plotly` backends.
-# All available plotting options work correctly with `pyplot`.
-# Only the colored 2D contour plots are currently not correctly supported with `gr` or `plotly` backends.
+# The BAT.jl plotting recipes have been tested with `pyplot()`, `gr()` and `plotly()` backends.
+# All available plotting options work correctly with `pyplot()`.
+# Only colored 2D contour plots are currently not correctly supported by the `gr()` and `plotly()` backends.
+# The backend can be chosen using:
 
-pyplot()
+#gr() # Julia's default
+#pyplot()
+#plotly()
 
-# ## Examples for 1D plots 
-# Below, all available seriestypes and plotting features for 1D representations of samples or prior are shown
-# ### default 1D plot style for samples:
-plot(samples, 2)
-# The default seriestype for samples is `:smallest_intervals`.
-# By default, the local mode of the histogram is indicated as a dotted black line.
+# ## Examples for 1D plots
+# BAT.jl includes different plotting styles (seriestypes) for 1D representations of samples and priors:
+#   * `:smallest_intervals` (alias `:HDR`): highlighting the smallest intervals containing a certain probability (highest density regions) by color
+#   * `:central_intervals`: highlighting the central intervals containing a certain probability by color
+#   * `:histogram` (alias `:steppost`): filled histogram
+#   * `:stephist`: step histogram
+# Examples of (marginalized) 1D representations of samples and priors are shown below.
 
-# ### default 1D plot style for prior:
-plot(prior, 2)
-# The default seriestype for sprior is `:stephist`.
+# ### Default 1D plot of samples:
+# Samples can be plotted either by their index or by using the parameter name (as a symbol or expression) as specified in the prior:
 
-# Samples can either be plotted by their index (as shown above) or by using the parameter names given in NamedTupleDist. This can be done by passing either the posterior 
-plot(posterior, samples, :λ2)
-# or the value shape(s) of the prior:
-using ValueShapes
-parshapes = varshape(prior)
-plot(parshapes, samples, :λ2)
+plot(samples, :a) #default seriestype = :smallest_intervals (alias :HDR)
+#or: plot(samples, 2)
+# The default seriestype for plotting samples is `:smallest_intervals` (alias `:HDR`), highlighting the smallest intervals (the highest density region) containing 68.3, 95.5 and 99.7 perecent of the posterior probability. By default, the local mode(s) of the histogram is(are) indicated as dotted black line(s).
 
-# Prior can also be plotted by their index or by using the parameter names given in NamedTupleDist:
-plot(prior, 1)
-# or
-plot(prior, :λ1)
+# ### Default 1D plot of prior:
+# Priors can be plotted either by their index or by using the parameter name:
 
-# Plot prior + posterior
-plot(posterior, samples, :λ1)
-plot!(prior, :λ1)
+plot(prior, :a)
+#or: plot(prior, 1)
 
-# ### Further seriestypes available:
-# #### central intervals
-plot(samples, 2, seriestype = :central_intervals)
+# ## Knowledge update plot
+# The knowledge update after performing the sampling can be visualized by plotting the prior and the samples of the psterior together in one plot using `plot!()`:
+plot(samples, :(b[1]))
+plot!(prior, :(b[1]))
 
-# ### Customizing smallest/central interval plots:
-# The probability intervals to be highlighted can be specified using the `intervals` keyword. Their colors (in same order) need to be specified using the `colors` keyword argument.
-plot(samples, 2, seriestype=:smallest_intervals, intervals=[0.5, 0.1, 0.3, 0.99], colors=[:grey, :red, :blue, :orange])
+# ## Further seriestypes for 1D plots (samples and prior):
+# ### central intervals:
+plot(samples, :a, seriestype = :central_intervals)
 
-# #### histogram
-plot(samples, 2, seriestype = :histogram)  
-# alias: `:hist == :histogram`
+# ### filled histogram:
+plot(samples, :a, seriestype = :histogram) # alias :hist
 
-# #### step histogram
-plot(samples, 2, seriestype = :stephist)
+# ### step histogram:
+plot(samples, :a, seriestype = :stephist)
 
-# ### Keyword arguments for [attributes supported by *Plots.jl*](https://docs.juliaplots.org/latest/attributes/#magic-arguments) can be passed:
-plot(samples, 2, seriestype = :stephist, nbins=50, linecolor = :red, linewidth = 5, linealpha=0.3, xlim=(0,10))
+# ## Customizing 1D plots:
 
-# ### Plotting point estimators in 1D plots:
-plot(samples, 2, globalmode=true, localmode=true, mean=true, std_dev=true)
+# ### Keyword arguments for [attributes supported by *Plots.jl*](https://docs.juliaplots.org/latest/attributes/#attributes-1) can be passed:
+plot(samples, :a, seriestype = :stephist, nbins=50, linecolor = :red, linewidth = 5, linealpha=0.4, xlim=(-10,10))
 
-# #### It is possible to customize the style of estimators by passing a dict with the respective attributes:
-# By passing a boolean, the point estimators are plotted using their default styles shown above.
-# The style of the point estimators can be modified by passing a dictionary specifying `linestyle`, `linecolor`, `linewidth` and `alpha` for *mean*, *globalmode* and *localmode*.
+# ### Customizing interval plots:
+# For `:smallest_intervals` and `:central_intervals` plot, the probability enclosed in the intervals to be highlighted can be specified using the `intervals` keyword.
+# The keyword `interval_labels` allows to specify the legend entries for the corresponding intervals (in same order).
+# The interval colors need to be specified (in same order) using the `colors` keyword argument.
+plot(samples, :a, seriestype=:smallest_intervals,
+    intervals=[0.5, 0.1, 0.3, 0.99],
+    interval_labels = ["HDR 50%", "HDR 10%", "HDR 30%", "HDR 99%"],
+    colors=[:grey, :red, :blue, :orange]
+)
+
+# ### Plotting estimators in 1D sample plots:
+# It is possible to indicate *mean*, *standard deviation*, *localmode*, and *globalmode* when plotting samples:
+plot(samples, :(b[1]), globalmode=true, localmode=true, mean=true, std=true)
+
+# #### The style of the estimators can be customized:
+# By passing `true`, the point estimators are plotted using their default styles shown above.
+# The styles can be modified by passing dictionaries specifying `linestyle`, `linecolor`, `linewidth` and `alpha` for *mean*, *globalmode* and *localmode*.
 # The style of the standard deviation can be modified by specifying `fillcolor` and `fillalpha`.
-plot(samples, 1, localmode=false, mean=Dict("linestyle" => :dot, "linecolor"=> :red, "linewidth"=>2, "alpha" => 0.7), std_dev=Dict("fillcolor" => :red, "fillalpha"=>0.2))
+plot(samples, :a, localmode=false,
+    mean=Dict("linestyle" => :dot, "linecolor"=> :red, "linewidth"=>2, "alpha" => 0.7),
+    std=Dict("fillcolor" => :red, "fillalpha"=>0.2))
 
-# ## Examples for 2D plots of the samples
-# Below, all available seriestypes and plotting features for 2D representations of samples are shown
-# ### default 2D plot style:
-plot(samples, (1,2), nbins=200)
-# The default 2D plotting style is a 3-color heatmap showing the smallest intervals containing 68.3, 95.5 and 99.7 perecent of the posterior probability. 
+# ## Examples for 2D plots of samples and priors
+# Below, all available seriestypes and plotting features for 2D representations of samples and priors are shown
+#   * `:smallest_intervals` (alias `:HDR`): histogram of the smallest intervals containing a certain probability (highest density regions)
+#   * `:smallest_intervals_contour`: (colored) contours of the smallest intervals containing a certain probability (highest density regions)
+#   * `:smallest__intervals_contourf`: (colored) filled contours of the smallest intervals containing a certain probability (highest density regions)
+#   * `:histogram2d` (alias `:histogram`, `:hist`): 2D histogram
 
-# Samples can either be plotted by their index (as shown above) or by using the parameter names given in NamedTupleDist. This can be done by passing either the posterior 
-plot(posterior, samples, (:λ1, :λ2))
-# or the value shape(s) of the prior:
-parshapes = varshape(prior)
-plot(parshapes, samples, (:λ1, :λ2))
+# ### Default 2D plot  of samples:
+pyplot()
+plot(samples, (:a,:(b[1])), mean=true, std=true) #default seriestype = :smallest_intervals (alias :HDR)
+# The default seriestype for plotting samples is a 3-color heatmap showing the smallest intervals (highest density regions) containing 68.3%, 95.5% and 99.7% of the posterior probability. By default, the local mode
+# of the histogram is indicated by a black square.
 
-# Prior can also be plotted by their index or by using the parameter names given in NamedTupleDist.
-plot(prior, (1, 2))
-# or
-plot(prior, (:λ1, :λ2))
+# ### Default 2D plot  of priors:
+plot(prior, (:a, :(b[1]))) # default seriestype :smallest_intervals_contour
 
+# ## 2D knowledge update plot
+plot(samples, (:a, :(b[2])))
+plot!(prior, (:a, :(b[2])))
 
-# Plot prior + posterior
-plot(posterior, samples, (:λ1, :λ3))
-plot!(prior, (:λ1, :λ3))
+# ## Further seriestypes for 2D plots (samples and prior):
+# ### histogram:
+plot(samples, (:a,:(b[2])), seriestype = :histogram)
 
-# ### Further seriestypes available:
-# #### central intervals
-plot(samples, (1,2), seriestype = :histogram, nbins=200)
-# alias: `:histogram2d == :histogram`
-
-# #### smallest intervals as colored contour lines: 
+# ### smallest intervals as colored contour lines:
 # (currently only correctly supported with `pyplot()` backend)
-plot(samples, (1,2), seriestype=:smallest_intervals_contour, bins=50)
+plot(samples, (:a,:(b[2])), seriestype=:smallest_intervals_contour, bins=40)
 
-# #### smallest intervals as filled contours: 
+# ### smallest intervals as filled contours:
 # (currently only correctly supported with `pyplot()` backend)
-plot(samples, (1,2), seriestype=:smallest_intervals_contourf, bins=50)
+plot(samples, (:a,:(b[2])), seriestype=:smallest_intervals_contourf, bins=40)
 
 # ### Customizing smallest interval plots:
-# The probability intervals to be highlighted can be specified using the `intervals` keyword. Their colors (in same order) need to be specified using the `colors` keyword argument.
-plot(samples, (1,2), seriestype=:smallest_intervals, nbins=200, intervals=[0.7, 0.2], colors=[:blue, :red])
+# The probability intervals to be highlighted can be specified using the `intervals` keyword.
+# The keyword `interval_labels` allows to specify the legend entries for the corresponding intervals (in same order).
+# The interval colors need to be specified (in same order) using the `colors` keyword argument.
+plot(samples, (:a,:(b[2])), seriestype=:smallest_intervals, nbins=200,
+intervals=[0.7, 0.2],
+interval_labels = ["HDR 70%", "HDR 20%"],
+colors=[:blue, :red])
 
-# #### scatter
-# for large number of samples, this plotting style needs a lot of time and resources
-#plot(samples, (1,2), seriestype = :scatter)
+# ### marginal plot:
+plot(samples, (:a, :(b[2])), seriestype = :marginal)
 
+# ### scatter plot:
+# (Only plotting the first 10.000 sample points, as for a large number of samples plot takes a lot of time and resources.)
+gr()
+plot(samples[1:10^4], (:a,:(b[2])), seriestype = :scatter)
+
+# ## Customizing 2D plots:
 # ### Plotting point estimators in 2D plots:
-plot(samples, (1,2), seriestype=:smallest_intervals, nbins=200, mean=true, std_dev=true, localmode=true, globalmode=true)
+plot(samples, (:a,:(b[2])), seriestype=:smallest_intervals, nbins=200,
+    mean=true, std=true, localmode=true, globalmode=true)
 
-# #### It is possible to customize the style of estimators by passing a dict with the respective attributes:
-# By passing a boolean, the point estimators are plotted using their default styles shown above.
-# The style of the point estimators can be modified by passing a dictionary specifying `markershape`, `markercolor`, `markersize`, `markeralpha`, `markerstrokecolor`, `markerstrokestyle`, `markerstrokewidth` and `markerstrokealpha` for *mean*, *globalmode* and *localmode*.
-# If `std_dev==true`, the standard deviation of the mean value will be displayed as x- and y-errorbars.
-plot(samples, (1,2), seriestype=:smallest_intervals, nbins=200, localmode=Dict("markershape"=> :diamond, "markeralpha"=>1, "markercolor"=>:red, "markersize"=>5))
-
-
-# ### Marginal plots
-plot(samples, (1,2), seriestype = :marginal)
+# #### It is possible to customize the style of the estimators:
+# By passing `true`, the point estimators are plotted using their default styles shown above.
+# The style of the point estimators *mean*, *globalmode* and *localmode* can be modified by passing a dictionary specifying `markershape`, `markercolor`, `markersize`, `markeralpha`, `markerstrokecolor`, `markerstrokestyle`, `markerstrokewidth` and `markerstrokealpha`.
+# If `std==true`, the standard deviation of the mean value will be displayed as x- and y-errorbars.
+plot(samples, (:a,:(b[2])), seriestype=:smallest_intervals, nbins=200,
+    localmode=Dict("markershape"=> :diamond, "markeralpha"=>1, "markercolor"=>:red, "markersize"=>5),
+    mean = true, std=true
+)
 
 # ### Customizing marginal plots:
-# The marginal plots can be modified by passing dictionaries to the keyword arguments `upper`, `right` and `diagonal`.
-# The dictionaries for `upper` and `right` can contain the 1D seriestypes and plot options shown above.
-# The dictionary for `diagonal` can use the 2D seriestypes and plot options shown above.
-# Nested dictonaries are possible (e.g. for modifying point estimators)
-plot(samples, (1,2), seriestype = :marginal, diagonal = Dict("seriestype"=>:histogram, "mean"=>Dict("markercolor"=>:green)), upper=Dict("mean" => true, "seriestype" => :smallest_intervals, "colors"=>[:blue, :grey, :orange]), right=Dict("seriestype" => :stephist, "mean"=>true))
+# Marginal plots can be modified by passing dictionaries to the keyword arguments `upper`, `right` and `diagonal`.
+# The dictionaries for `upper` and `right` can contain the seriestypes and plot options for 1D distributions shown above.
+# The dictionary for `diagonal` can use the seriestypes and plot options for 2D plots shown above.
+plot(samples, (:a,:(b[2])), seriestype = :marginal,
+    diagonal = Dict("seriestype"=>:histogram),
+    upper=Dict("seriestype" => :smallest_intervals, "colors"=>[:blue, :grey, :orange]),
+    right=Dict("seriestype" => :stephist)
+)
 
-
-# ### Overview plot
+# ## Overview plots
+# Without specifying the parameters to be plotted, the 1D and 2D plots of (up to) the first 5 parameters are displayed as a grid.
 plot(samples)
-#
+
 plot(prior)
-#
+
 plot(samples)
 plot!(prior)
 
-# By default the 1D and 2D plots for the first 5 parameters are shown.
-# The keyword argument `vsel` allows to specify the considered parameters.
+# The keyword argument `vsel` allows to specify which parameters to consider in the overview plot by passing the indeces:
 plot(samples, vsel=[1, 3])
-
 
 # ### Customizing overview plots:
 # The overview plots can be modified by passing dictionaries to the keyword arguments `upper`, `lower` and `diagonal`.
 # The dictionaries for `upper` and `lower` can contain the 2D seriestypes and plot options shown above.
 # The dictionary for `diagonal` can use the 1D seriestypes and plot options shown above.
 # Nested dictonaries are possible (e.g. for modifying point estimators)
-
-plot(samples, mean=true, globalmode=true, legend=true, diagonal=Dict("seriestype"=>:stephist, "mean"=>Dict("linecolor" => :green, "linewidth" => 8)), lower = Dict("mean" => false, "colors"=>[:orange, :green, :grey]))
+plot(samples, mean=true, globalmode=true, legend=true,
+    diagonal=Dict("seriestype"=>:stephist, "mean"=>Dict("linecolor" => :green, "linewidth" => 8)),
+    lower = Dict("mean" => false, "colors"=>[:orange, :green, :grey]))
 
 
 # ## Plots for MCMC diagnostics
-# Plots histograms of the samples, the trace, a kernel density estimate and the autocorrelation function for each parameter per chain.
+# The diagnostic plots allow to plot the samples, a kernel density estimate, the trace and the autocorrelation function for each parameter and each chain:
+# The parameters to be considered can be chosen with the `vsel` keyword.
 diagnostics = BAT.MCMCDiagnostics(samples, chains)
+pyplot()
 plot(diagnostics, vsel=[1])
 
 # ### Customizing diagnostics plots:
-plot(diagnostics, 
-    vsel=[1, 2], 
-    chains=[1, 2], 
-    diagnostics = [:histogram, :kde, :trace, :acf],
-    histogram = Dict("seriestype" => :smallest_intervals, "legend" => :false),
-    trace = Dict("linecolor" => :red),
-    acf = Dict("lags" => collect(1:20), "title"=> "Autocorrelation"),
-    description = true)
-
-# ### available keyword arguments:
+# #### available keyword arguments:
 # * `vsel` - list of parameters to be plotted
 # * `chains` - list of chains to be plotted
 # * `diagnostics` - list of MCMC diagnostics to be plotted
-# * `:histogram` - 1D histograms of samples
-# * `:kde` - Kernel density estimate (using [*KernelDensity.jl*](https://github.com/JuliaStats/KernelDensity.jl))
-# * `:trace` - Trace plot
-# * `:acf` - Autocorrelation function (using [*StatsBase.autocor*](http://juliastats.github.io/StatsBase.jl/stable/signalcorr/#StatsBase.autocor))
+#   * `:histogram` - 1D histograms of samples
+#   * `:kde` - Kernel density estimate (using [*KernelDensity.jl*](https://github.com/JuliaStats/KernelDensity.jl))
+#   * `:trace` - Trace plot
+#   * `:acf` - Autocorrelation function (using [*StatsBase.autocor*](http://juliastats.github.io/StatsBase.jl/stable/signalcorr/#StatsBase.autocor))
 # * `description::Bool = true` - show description (current chain, parameter, number of samples) as first column of plots
 # * `histogram::Dict` - options for histogram plots (supports all arguments for 1D plots for samples)
 # * `kde::Dict` - options for kde plots
 # * `trace::Dict` - options for trace plots
 # * `acf::Dict` - options for acf plots
-
-# ### special options arguments for `:kde` (see [*KernelDensity.jl*](https://github.com/JuliaStats/KernelDensity.jl))
+# #### special options arguments for `:kde` (see [*KernelDensity.jl*](https://github.com/JuliaStats/KernelDensity.jl))
 # * `npoints`: number of interpolation points to use (default: npoints = 2048)
 # * `boundary`: lower and upper limits of the kde as a tuple
 # * `kernel`: the distributional family from [*Distributions.jl*](https://github.com/JuliaStats/Distributions.jl) to use as the kernel (default = Distributions.Normal)
 # * `bandwidth`: bandwidth of the kernel
-
-# ### special keyword arguments for `:acf` (see [*StatsBase.autocor*](http://juliastats.github.io/StatsBase.jl/stable/signalcorr/#StatsBase.autocor))
+# #### special keyword arguments for `:acf` (see [*StatsBase.autocor*](http://juliastats.github.io/StatsBase.jl/stable/signalcorr/#StatsBase.autocor))
 # * `lags` - list of lags to be considered for ACF plots
 # * `demean` - denotes whether the mean should be subtracted before computing the ACF
+plot(diagnostics,
+    vsel=[1, 2],
+    chains=[1, 2],
+    diagnostics = [:histogram, :kde, :trace, :acf],
+    histogram = Dict("seriestype" => :smallest_intervals, "legend" => :false),
+    trace = Dict("linecolor" => :red),
+    acf = Dict("lags" => collect(1:20), "title"=> "Autocorrelation"),
+    description = true)

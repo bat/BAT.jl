@@ -295,14 +295,12 @@ par_cov[parshapes.mu, parshapes.sigma]
 # BAT.jl comes with an extensive set of plotting recipes for
 # ["Plots.jl"] (http://docs.juliaplots.org/latest/).
 # We can plot the marginalized distribution for a single parameter (e.g.
-# parameter 3, i.e. μ₁):
+# parameter 3, i.e. μ[1]):
 
-par_names = ["a_1", "a_2", "mu_1", "mu_2", "sigma"]
 plot(
-    samples, 3,
-    mean = true, std_dev = true, globalmode = true, localmode = true,
-    nbins = 50, xlabel = par_names[3], ylabel = "P($(par_names[3]))",
-    title = "Marginalized Distribution for mu_1"
+    samples, :(mu[1]),
+    mean = true, std = true, globalmode = true, localmode = true,
+    nbins = 50, title = "Marginalized Distribution for mu[1]"
 )
 #jl savefig("tutorial-single-par.pdf")
 #md savefig("tutorial-single-par.pdf")
@@ -310,14 +308,13 @@ plot(
 #md # [![Marginalized Distribution for mu_1](tutorial-single-par.svg)](tutorial-single-par.pdf)
 
 # or plot the marginalized distribution for a pair of parameters (e.g.
-# parameters 3 and 5, i.e. μ₁ and σ), including information from the parameter
+# parameters 3 and 5, i.e. μ[1] and σ), including information from the parameter
 # stats:
 
 plot(
-    samples, (3, 5),
-    mean = true, std_dev = true, globalmode = true, localmode = true,
-    nbins = 50, xlabel = par_names[3], ylabel = par_names[5],
-    title = "Marginalized Distribution for mu_1 and sigma"
+    samples, (:(mu[1]), :sigma),
+    mean = true, std = true, globalmode = true, localmode = true,
+    nbins = 50, title = "Marginalized Distribution for mu[1] and sigma"
 )
 plot!(BAT.MCMCBasicStats(samples), (3, 5))
 #jl savefig("tutorial-param-pair.png")
@@ -330,7 +327,7 @@ plot!(BAT.MCMCBasicStats(samples), (3, 5))
 
 plot(
     samples,
-    mean = false, std_dev = false, globalmode = true, localmode = false,
+    mean = false, std = false, globalmode = true, localmode = false,
     nbins = 50
 )
 #jl savefig("tutorial-all-params.png")

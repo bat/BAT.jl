@@ -57,7 +57,8 @@ BAT.apply_bounds!
 BAT.autocrl
 BAT.bat_sampler
 BAT.bg_R_2sqr
-BAT.calculate_localmode
+BAT.find_localmodes
+BAT.get_bin_centers
 BAT.create_hypercube
 BAT.create_hyperrectangle
 BAT.distribution_logpdf

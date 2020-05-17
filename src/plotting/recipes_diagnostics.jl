@@ -18,7 +18,7 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
                     histogram = Dict(),
                     description = true
                     )
-                    
+
     seriestype = get(plotattributes, :seriestype, :histogram)
 
     nparams = length(vsel)
@@ -28,16 +28,16 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
 
     size --> (ndiagnostics*350+100, nparams*nchains*200)
     layout --> Main.Plots.grid(nparams*nchains, ndiagnostics+ndescription)
- 
+
     ctr = 1
-	
+
 	unique_chain_ids = sort(unique(mcmc.samples.info.chainid))
 
     for chain in chains
-		
+
         #indices of samples from current chain
         r = mcmc.samples.info.chainid .== unique_chain_ids[chain]
-	
+
         for p in vsel
             if description
                 @series begin
@@ -59,9 +59,9 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
 
                 # samples histogram
                 if d == :histogram
-					
+
                     chain_samples = mcmc.samples[r]
-					
+
                     @series begin
                         subplot := ctr
                         seriestype --> get(histogram, "seriestype", :stephist)
@@ -70,7 +70,7 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
                         normalize --> get(histogram, "normalize", true)
                         colors --> get(histogram, "colors", standard_colors)
                         mean --> get(histogram, "mean", false)
-                        std_dev --> get(histogram, "std_dev", false)
+                        std --> get(histogram, "std", false)
                         globalmode --> get(histogram, "globalmode", false)
                         localmode --> get(histogram, "localmode", false)
                         legend --> get(histogram, "legend", true)
@@ -82,7 +82,7 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
 
                         (chain_samples, p)
                     end
-					
+
 
                 # trace plot
                 elseif d == :trace
@@ -100,7 +100,7 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
                         linestyle --> get(trace, "linestyle", :solid)
                         linewidth --> get(trace, "linewidth", 1)
                         linealpha --> get(trace, "linealpha", 1)
-                        alpha --> get(trace, "alpha", 1)
+                        seriesalpha --> get(trace, "seriesalpha", 1)
                         markershape --> get(trace, "markershape", :none)
                         markersize --> get(trace, "markersize", 1)
                         markeralpha --> get(trace, "markeralpha", 1)
@@ -113,7 +113,7 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
 
                         x, s
                     end
-				
+
 
                 # kernel density estimate
                 elseif d == :kde
@@ -124,13 +124,13 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
                     kernel = get(kde, "kernel", Distributions.Normal)
 
                     k = KernelDensity.kde(
-                        s, 
-                        bandwidth = bandwidth, 
+                        s,
+                        bandwidth = bandwidth,
                         boundary = boundary,
                         npoints = npoints,
                         kernel = kernel
                     )
-                                         
+
                     @series begin
                         subplot := ctr
                         seriestype --> get(kde, "seriestype", :line)
@@ -143,7 +143,7 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
                         linestyle --> get(kde, "linestyle", :solid)
                         linewidth --> get(kde, "linewidth", 1)
                         linealpha --> get(kde, "linealpha", 1)
-                        alpha --> get(kde, "alpha", 1)
+                        seriesalpha --> get(kde, "seriesalpha", 1)
                         markershape --> get(kde, "markershape", :none)
                         markersize --> get(kde, "markersize", 1)
                         markeralpha --> get(kde, "markeralpha", 1)
@@ -178,7 +178,7 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
                         linestyle --> get(acf, "linestyle", :solid)
                         linewidth --> get(acf, "linewidth", 0)
                         linealpha --> get(acf, "linealpha", 0)
-                        alpha --> get(acf, "alpha", 1)
+                        seriesalpha --> get(acf, "seriesalpha", 1)
                         markershape --> get(acf, "markershape", :none)
                         markersize --> get(acf, "markersize", 1)
                         markeralpha --> get(acf, "markeralpha", 1)
