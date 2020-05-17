@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 @recipe function f(
     maybe_shaped_samples::DensitySampleVector,
-    parsel::Union{NTuple{2, Integer}, NTuple{2, Symbol}};
+    parsel::Union{NTuple{2,Integer}, NTuple{2,Union{Symbol, Expr}}};
     intervals = standard_confidence_vals,
     interval_labels = [],
     colors = standard_colors,
@@ -18,6 +18,12 @@
     xindx = asindex(maybe_shaped_samples, parsel[1])
     yindx = asindex(maybe_shaped_samples, parsel[2])
 
+    if length(xindx) > 1
+        throw(ArgumentError("Symbol :$(parsel[1]) refers to a multivariate parameter. Use :($(parsel[1])[i]) instead."))
+    elseif length(yindx) > 1
+        throw(ArgumentError("Symbol :$(parsel[2]) refers to a multivariate parameter. Use :($(parsel[2])[i]) instead."))
+    end
+
     samples = unshaped.(maybe_shaped_samples)
     filter ? samples = BAT.drop_low_weight_samples(samples) : nothing
 
@@ -29,19 +35,10 @@
         colorbar = true
     end
 
-    xlabel, ylabel  = if isa(parsel, NTuple{2, Symbol})
-        "$(parsel[1])", "$(parsel[2])"
-    else
+    xlabel, ylabel  = if !isshaped(maybe_shaped_samples)
         "v$xindx", "v$yindx"
-    end
-
-    xlabel, ylabel  = if isa(parsel, NTuple{2, Symbol})
-        "$(parsel[1])", "$(parsel[2])"
-    elseif isa(varshape(maybe_shaped_samples), NamedTupleShape) && varshape(maybe_shaped_samples)._flatdof == length(keys(maybe_shaped_samples[1].v))
-        String(keys(maybe_shaped_samples[1].v)[xindx]),
-        String(keys(maybe_shaped_samples[1].v)[yindx])
     else
-        "v$xindx", "v$yindx"
+        getstring(maybe_shaped_samples, xindx), getstring(maybe_shaped_samples, yindx)
     end
 
     xguide := get(plotattributes, :xguide, xlabel)

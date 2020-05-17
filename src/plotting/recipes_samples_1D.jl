@@ -2,7 +2,7 @@
 
 @recipe function f(
     maybe_shaped_samples::DensitySampleVector,
-    parsel::Union{Integer, Symbol};
+    parsel::Union{Integer, Symbol, Expr};
     intervals = standard_confidence_vals,
     bins = 200,
     normalize = true,
@@ -17,6 +17,10 @@
 )
     idx = asindex(maybe_shaped_samples, parsel)
 
+    if length(idx) > 1
+        throw(ArgumentError("Symbol :$parsel refers to a multivariate parameter. Use :($parsel[i]) instead."))
+    end
+
     bathist = BATHistogram(
         maybe_shaped_samples,
         idx,
@@ -30,15 +34,13 @@
     orientation = get(plotattributes, :orientation, :vertical)
     (orientation != :vertical) ? swap=true : swap = false
 
-    xlabel, ylabel  = if isa(parsel, Symbol)
-        "$parsel", "p($parsel)"
-    elseif isa(varshape(maybe_shaped_samples), NamedTupleShape) && varshape(maybe_shaped_samples)._flatdof == length(keys(maybe_shaped_samples[1].v))
-        String(keys(maybe_shaped_samples[1].v)[idx]),
-        "p("* String(keys(maybe_shaped_samples[1].v)[idx]) *")"
+    xlabel = if !isshaped(maybe_shaped_samples)
+        "v$idx"
     else
-        "v$idx", "p(v$idx)"
+        getstring(maybe_shaped_samples, idx)
     end
 
+    ylabel = "p("*xlabel*")"
 
     xlabel = get(plotattributes, :xguide, xlabel)
     ylabel = get(plotattributes, :yguide, ylabel)

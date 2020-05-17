@@ -3,7 +3,7 @@
 # 1D
 @recipe function f(
     prior::NamedTupleDist,
-    parsel::Union{Integer, Symbol};
+    parsel::Union{Integer, Symbol, Expr};
     intervals = standard_confidence_vals,
     bins = 200,
     nsamples = 10^6,
@@ -12,20 +12,24 @@
     interval_labels = [],
     closed = :left
 )
-
     orientation = get(plotattributes, :orientation, :vertical)
     (orientation != :vertical) ? swap=true : swap = false
     plotattributes[:orientation] = :vertical # without: auto-scaling of axes not correct
 
-    indx = asindex(prior, parsel)
-    bathist = BATHistogram(prior, indx, nbins = bins, closed = closed)
+    idx = asindex(prior, parsel)
+    if length(idx) > 1
+        throw(ArgumentError("Symbol :$parsel refers to a multivariate parameter. Use :($parsel[i]) instead."))
+    end
+
+    bathist = BATHistogram(prior, idx, nbins = bins, closed = closed)
     normalize ? bathist.h = StatsBase.normalize(bathist.h) : nothing
 
-    xlabel, ylabel  = if isa(parsel, Symbol)
-        "$parsel", "p($parsel)"
+    xlabel = if isa(parsel, Symbol) || isa(parsel, Expr)
+        "$parsel"
     else
-        String(keys(prior)[indx]), "p("*String(keys(prior)[indx])*")"
+        getstring(prior, idx)
     end
+    ylabel = "p("*xlabel*")"
 
     if swap
         xlabel, ylabel = ylabel, xlabel
@@ -56,7 +60,7 @@ end
 # 2D plots
 @recipe function f(
     prior::NamedTupleDist,
-    parsel::Union{NTuple{2,Integer}, NTuple{2,Symbol}};
+    parsel::Union{NTuple{2,Integer}, NTuple{2,Union{Symbol, Expr}}};
     nsamples=10^6,
     intervals = standard_confidence_vals,
     bins = 200,
@@ -70,21 +74,28 @@ end
     right = Dict()
 )
 
-    xindx = asindex(prior, parsel[1])
-    yindx = asindex(prior, parsel[2])
+    xidx = asindex(prior, parsel[1])
+    yidx = asindex(prior, parsel[2])
+
+    if length(xidx) > 1
+        throw(ArgumentError("Symbol :$(parsel[1]) refers to a multivariate parameter. Use :($(parsel[1])[i]) instead."))
+    elseif length(yidx) > 1
+        throw(ArgumentError("Symbol :$(parsel[2]) refers to a multivariate parameter. Use :($(parsel[2])[i]) instead."))
+    end
 
     bathist = BATHistogram(
         prior,
-        (xindx, yindx),
+        (xidx, yidx),
         nbins=bins,
         closed=closed,
         nsamples=nsamples
     )
 
-    xlabel, ylabel  = if isa(parsel, Symbol)
+
+    xlabel, ylabel = if isa(parsel, Symbol) || isa(parsel, Expr)
         "$(parsel[1])", "$(parsel[2])"
     else
-        String(keys(prior)[xindx]), String(keys(prior)[yindx])
+        getstring(prior, xidx), getstring(prior, yidx)
     end
 
     xguide := get(plotattributes, :xguide, xlabel)

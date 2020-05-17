@@ -8,9 +8,9 @@
     lower = Dict(),
     vsel_label = []
 )
-    vsel = vsel[vsel .<= length(keys(prior))]
+    vsel = vsel[vsel .<= prior._internal_shapes._flatdof]
 
-    xlabel = [String(keys(prior)[i]) for i in vsel]
+    xlabel = [getstring(prior, i) for i in vsel]
     ylabel = ["p($l)" for l in xlabel]
 
     if length(vsel_label) > 0

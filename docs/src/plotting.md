@@ -7,7 +7,7 @@ Also see the plotting tutorial for examples and further information on the plott
 ``` julia
 plot(
     samples::DensitySampleVector / prior::NamedTupleDist,
-    parsel::Union{Integer, Symbol};
+    parsel::Union{Integer, Symbol, Expr};
     intervals = standard_confidence_vals,
     bins = 200,
     normalize = true,
@@ -23,7 +23,7 @@ plot(
 ```
 Required inputs:
   * `samples::DensitySampleVector` or `prior::NamedTupleDist`: samples (shaped or unshaped) or prior to be plotted
-  * `parsel::Union{Integer, Symbol}`: index or name of the parameter to be plotted
+  * `parsel::Union{Integer, Symbol, Expr}`: index or name of the parameter to be plotted
 
 Keyword arguments:
   * `seriestype::Symbol = :smallest_intervals`: plot style        
@@ -65,7 +65,7 @@ Keyword arguments for [attributes supported by *Plots.jl*](https://docs.juliaplo
 ``` julia
 plot(
     samples::DensitySampleVector / prior::NamedTupleDist,
-    parsel::Union{NTuple{2, Integer}, NTuple{2, Symbol}};
+    parsel::Union{NTuple{2, Integer}, NTuple{2, Union{Symbol, Expr}}};
     intervals = standard_confidence_vals,
 	interval_labels = [],
     colors = standard_colors,
@@ -82,7 +82,7 @@ plot(
 ```
 Required inputs:
   * `samples::DensitySampleVector` or `prior::NamedTupleDist`: samples (shaped or unshaped) or prior to be plotted
-  * `parsel::Union{NTuple{2, Integer}, NTuple{2, Symbol}}`: indices or names of the two parameters to be plotted
+  * `parsel::Union{NTuple{2, Integer}, NTuple{2, Union{Symbol, Expr}}}`: indices or names of the two parameters to be plotted
 
 Keyword arguments:
   * `seriestype::Symbol = :smallest_intervals`: plot style  

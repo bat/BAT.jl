@@ -5,31 +5,6 @@ mutable struct BATHistogram
 end
 
 
-# get index of key in shaped samples
-function asindex(samples::DensitySampleVector, key::Symbol)
-    if isa(varshape(samples), NamedTupleShape)
-        i = findfirst(x -> x == key, keys(samples[1].v))
-        return i
-    else
-        throw(ArgumentError("Samples are unshaped. Key :$key cannot be matched. Use index instead."))
-    end
-end
-
-
-# get index of key in NamedTupleDist (prior)
-function asindex(prior::NamedTupleDist, key::Symbol)
-    i = findfirst(x -> x == key, keys(prior))
-end
-
-
-function asindex(
-    x::Union{DensitySampleVector, NamedTupleDist},
-    key::Integer
-)
-    return key
-end
-
-
 
 # construct 1D BATHistogram from sample vector
 function BATHistogram(

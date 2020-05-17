@@ -37,6 +37,7 @@ makedocs(
         "Installation" => "installation.md",
         "Tutorial" => "tutorial.md",
         "API Documentation" => "stable_api.md",
+        "Plotting" => "plotting.md",
         "Experimental Features" => "experimental_api.md",
         "Internal API" => "internal_api.md",
         "Developer instructions" => "developing.md",

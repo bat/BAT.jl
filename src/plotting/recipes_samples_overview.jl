@@ -12,18 +12,17 @@
     lower = Dict(),
     vsel_label = []
 )
-    vsel = vsel[vsel .<= length(samples.v[1])]
+    vsel = vsel[vsel .<= length(reduce(vcat, samples.v[1]))]
 
     xlabel = ["v$i" for i in vsel]
     ylabel = ["p(v$i)" for i in vsel]
 
-    if isa(varshape(samples), NamedTupleShape) && varshape(samples)._flatdof == length(keys(samples[1].v))
-        xlabel = [String(keys(samples[1].v)[i]) for i in vsel]
+    if isshaped(samples)
+        xlabel = getstring.(Ref(samples), vsel)
         ylabel = ["p($l)" for l in xlabel]
     end
 
     if length(vsel_label) > 0
-        println("es")
         xlabel = [vsel_label[i] for i in 1:length(vsel_label)]
         ylabel = ["p("*vsel_label[i]*")" for i in 1:length(vsel_label)]
     end
