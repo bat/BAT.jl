@@ -52,6 +52,27 @@ function subhistogram(
     return BATHistogram(hist)
 end
 
+function islower(weights, idx)
+    if idx==1 && weights[idx]>0
+        return true
+    elseif weights[idx]>0 && weights[idx-1]==0 && idx < length(weights)
+        return true
+    else
+        return false
+    end
+end
+
+function isupper(weights, idx)
+    if idx==length(weights) && weights[idx-1]>0 #? i=1 && >0 und i+1 ==0 no
+        return true
+    elseif weights[idx]==0 && weights[idx-1]>0
+        return true
+    else
+        return false
+    end
+end
+
+
 
 # return the lower and upper edges for clusters in which the bincontent is non-zero for all dimensions of a BATHistogram
 # clusters that are seperated <= atol are combined
@@ -59,8 +80,8 @@ function get_cluster_edges(bathist::BATHistogram; atol::Real = 0)
     weights = bathist.h.weights
     len = length(weights)
 
-    lower = [hist.h.edges[1][i] for i in 2:len if (weights[i]>0 && weights[i-1]==0)]
-    upper = [hist.h.edges[1][i] for i in 2:len if (weights[i]==0 && weights[i-1]>0)]
+    lower = [bathist.h.edges[1][i] for i in 1:len if islower(weights, i)]
+    upper = [bathist.h.edges[1][i] for i in 2:len if isupper(weights, i)]
 
     if atol != 0
         idxs = [i for i in 1:length(upper)-1 if lower[i+1]-upper[i] <= atol]
