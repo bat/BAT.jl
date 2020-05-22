@@ -65,7 +65,7 @@ function (spec::MCMCSpec{<:AHMC})(
     rng::AbstractRNG,
     chainid::Integer
 )
-    P = Float64 # float(eltype(var_bounds(spec.posterior)))
+    P = Float64 #float(eltype(var_bounds(spec.posterior)))
 
     cycle = 0
     tuned = false
@@ -85,7 +85,8 @@ mutable struct AHMCIterator{
     SV<:DensitySampleVector,
     I<:AdvancedHMC.AbstractIntegrator,
     P<:AdvancedHMC.AbstractProposal,
-    A<:AdvancedHMC.AbstractAdaptor
+    A<:AdvancedHMC.AbstractAdaptor,
+    H<:AdvancedHMC.Hamiltonian,
 } <: MCMCIterator
     spec::SP
     rng::R
@@ -94,7 +95,7 @@ mutable struct AHMCIterator{
     samples::SV
     nsamples::Int64
     stepno::Int64
-    hamiltonian::AdvancedHMC.Hamiltonian
+    hamiltonian::H
     transition::AdvancedHMC.Transition
     integrator::I
     proposal::P
@@ -133,10 +134,8 @@ function AHMCIterator(
     push!(samples, current_sample)
 
     nsamples::Int64 = 0
-
     rngpart_cycle = RNGPartition(rng, 0:(typemax(Int16) - 2))
 
-    #TODO@C rename AHMC... functions
     metric = AHMCMetric(alg.metric, npar)
     logval_posterior(v) = density_logval(postr, v)
 
@@ -166,7 +165,6 @@ function AHMCIterator(
     )
 
     reset_rng_counters!(chain)
-
     chain
 end
 
@@ -338,11 +336,12 @@ function ahmc_step!(rng, alg, chain, proposed_params, current_params)
     chain.transition = AdvancedHMC.step(rng, chain.hamiltonian, chain.proposal, chain.transition.z)
 
     tstat = AdvancedHMC.stat(chain.transition)
-    #TODO check adpation step, currently adapting each step
+    i, nadapt = chain.info.converged ? (3, 2) : (1, 1)
+
     chain.hamiltonian, chain.proposal, isadapted = AdvancedHMC.adapt!(chain.hamiltonian,
                                                                     chain.proposal,
                                                                     chain.adaptor,
-                                                                    0, 1,
+                                                                    i, nadapt,
                                                                     chain.transition.z.θ,
                                                                     tstat.acceptance_rate)
     tstat = merge(tstat, (is_adapt=isadapted,))
