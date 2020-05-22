@@ -57,7 +57,6 @@
     @series begin
         seriestype --> :smallest_intervals
         intervals --> intervals
-        bins --> nbins
         normalize --> normalize
         colors --> colors
         interval_labels --> interval_labels

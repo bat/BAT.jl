@@ -63,7 +63,7 @@ function islower(weights, idx)
 end
 
 function isupper(weights, idx)
-    if idx==length(weights) && weights[idx-1]>0 #? i=1 && >0 und i+1 ==0 no
+    if idx==length(weights) && weights[idx-1]>0 
         return true
     elseif weights[idx]==0 && weights[idx-1]>0
         return true
@@ -73,10 +73,9 @@ function isupper(weights, idx)
 end
 
 
-
 # return the lower and upper edges for clusters in which the bincontent is non-zero for all dimensions of a BATHistogram
 # clusters that are seperated <= atol are combined
-function get_cluster_edges(bathist::BATHistogram; atol::Real = 0)
+function get_interval_edges(bathist::BATHistogram; atol::Real = 0)
     weights = bathist.h.weights
     len = length(weights)
 
