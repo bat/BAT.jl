@@ -44,6 +44,7 @@ AbstractMCMCTuningStrategy
 AbstractPosteriorDensity
 AbstractWeightingScheme
 AdaptiveMetropolisTuning
+AHMC
 ARPWeighting
 BrooksGelmanConvergence
 DensitySample

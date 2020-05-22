@@ -3,7 +3,6 @@
 
 """
     AbstractMCMCTuningStrategy
-
 Abstract super-type for MCMC tuning strategies.
 """
 abstract type AbstractMCMCTuningStrategy end
@@ -25,21 +24,15 @@ function mcmc_init end
 
 """
     @with_kw struct MCMCBurninStrategy
-
 Defines the MCMC burn-in strategy, specifically the number and length of
 MCMC tuning/burn-in cycles.
-
 Fields:
-
 * `max_nsamples_per_cycle`: Maximum number of MCMC samples to generate per
   cycle, defaults to `1000`. Definition of a sample depends on MCMC algorithm.
-
 * `max_nsteps_per_cycle`: Maximum number of MCMC steps per cycle, defaults
   to `10000`. Definition of a step depends on MCMC algorithm.
-
 * `max_time_per_cycle`: Maximum wall-clock time to spend per cycle, in
   seconds. Defaults to `Inf`.
-
 * `max_ncycles`: Maximum number of cycles.
 """
 @with_kw struct MCMCBurninStrategy
@@ -154,23 +147,17 @@ end
 
 """
     @with_kw struct MCMCInitStrategy
-
 Defines the MCMC chain initialization strategy.
-
 Fields:
-
 * `init_tries_per_chain`: Interval that specifies the minimum and maximum
   number of tries per MCMC chain to find a suitable starting position. Many
   candidate chains will be created and run for a short time. The chains with
   the best performance will be selected for tuning/burn-in and MCMC sampling
   run. Defaults to `IntervalSets.ClosedInterval(8, 128)`.
-
 * `max_nsamples_init`: Maximum number of MCMC samples for each candidate
   chain. Defaults to 25. Definition of a sample depends on sampling algorithm.
-
 * `max_nsteps_init`: Maximum number of MCMC steps for each candidate chain.
   Defaults to 250. Definition of a step depends on sampling algorithm.
-
 * `max_time_init::Int`: Maximum wall-clock time to spend per candidate chain,
   in seconds. Defaults to `Inf`.
 """

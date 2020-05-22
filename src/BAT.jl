@@ -43,6 +43,8 @@ import ForwardDiff
 import Measurements
 import NLSolversBase
 import Optim
+import AdvancedHMC
+import Bijectors
 
 #for AHMI
 using DataStructures
