@@ -58,7 +58,7 @@ end
 
 function _bat_proto_decode!(buffer::IOBuffer, ::Type{T}) where {T<:Vector}
     len = read(buffer, Int32)
-    T(len, undef)
+    A = T(len, undef)
     @assert length(eachindex(A)) == len
     read!(buffer, A)
     A

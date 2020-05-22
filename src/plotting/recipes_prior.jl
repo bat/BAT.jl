@@ -1,59 +1,45 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-@recipe function f(prior::NamedTupleDist,
-    param::Symbol; 
-    intervals = standard_confidence_vals, 
-    bins=200,
-    nsamples=10^6,
-    normalize = true, 
+# 1D
+@recipe function f(
+    prior::NamedTupleDist,
+    parsel::Union{Integer, Symbol, Expr};
+    intervals = standard_confidence_vals,
+    bins = 200,
+    nsamples = 10^6,
+    normalize = true,
     colors = standard_colors,
-    intervallabels = [])
-
-    i = findfirst(x -> x == param, keys(prior))
-
-    @series begin 
-        intervals --> intervals
-        bins --> bins
-        normalize --> normalize
-        colors --> colors
-        intervallabels --> intervallabels
-        nsamples --> nsamples
-
-        prior, i
-    end
-end
-
-
-@recipe function f(prior::NamedTupleDist,
-                    param::Integer; 
-                    intervals = standard_confidence_vals, 
-                    bins=200,
-                    nsamples=10^6,
-                    normalize = true, 
-                    colors = standard_colors,
-                    intervallabels = [])
-
-
-    r = rand(prior, nsamples)
-
+    interval_labels = [],
+    closed = :left
+)
     orientation = get(plotattributes, :orientation, :vertical)
     (orientation != :vertical) ? swap=true : swap = false
     plotattributes[:orientation] = :vertical # without: auto-scaling of axes not correct
 
-    hist = fit(Histogram, r[param, :], nbins = bins, closed = :left)
-    normalize ? hist=StatsBase.normalize(hist) : nothing
-    weights = hist.weights
+    idx = asindex(prior, parsel)
+    if length(idx) > 1
+        throw(ArgumentError("Symbol :$parsel refers to a multivariate parameter. Use :($parsel[i]) instead."))
+    end
+
+    bathist = BATHistogram(prior, idx, nbins = bins, closed = closed)
+    normalize ? bathist.h = StatsBase.normalize(bathist.h) : nothing
+
+    xlabel = if isa(parsel, Symbol) || isa(parsel, Expr)
+        "$parsel"
+    else
+        getstring(prior, idx)
+    end
+    ylabel = "p("*xlabel*")"
 
     if swap
-        yguide --> "\$\\theta_$(param)\$"
-        xguide --> "\$p(\\theta_$(param))\$"
-    else 
-        yguide --> "\$p(\\theta_$(param))\$"
-        xguide --> "\$\\theta_$(param)\$"
+        xlabel, ylabel = ylabel, xlabel
     end
-    
-   @series begin   
-    
+
+    xguide := get(plotattributes, :xguide, xlabel)
+    yguide := get(plotattributes, :yguide, ylabel)
+
+
+   @series begin
         seriestype --> :stephist
         linecolor --> :dimgray
         label --> "prior"
@@ -62,77 +48,68 @@ end
         bins --> bins
         normalize --> normalize
         colors --> colors
-        intervallabels --> intervallabels
+        interval_labels --> interval_labels
 
-        hist, param
+        bathist, 1
     end
 
 end
+
 
 
 # 2D plots
-
-@recipe function f(prior::NamedTupleDist,
-    vsel::NTuple{2,Symbol}; 
+@recipe function f(
+    prior::NamedTupleDist,
+    parsel::Union{NTuple{2,Integer}, NTuple{2,Union{Symbol, Expr}}};
     nsamples=10^6,
-    intervals = standard_confidence_vals, 
+    intervals = standard_confidence_vals,
+    bins = 200,
+    nsamples = 10^6,
+    normalize = true,
     colors = standard_colors,
+    interval_labels = [],
+    closed = :left,
     diagonal = Dict(),
     upper = Dict(),
-    right = Dict())
+    right = Dict()
+)
 
-    i = findfirst(x -> x == vsel[1], keys(prior))
-    j = findfirst(x -> x == vsel[2], keys(prior))
+    xidx = asindex(prior, parsel[1])
+    yidx = asindex(prior, parsel[2])
 
-    @series begin 
-        intervals --> intervals
-        colors --> colors
-        nsamples --> nsamples
-        diagonal -->  diagonal
-        upper --> upper
-        right --> right
-
-        prior, (i, j)
+    if length(xidx) > 1
+        throw(ArgumentError("Symbol :$(parsel[1]) refers to a multivariate parameter. Use :($(parsel[1])[i]) instead."))
+    elseif length(yidx) > 1
+        throw(ArgumentError("Symbol :$(parsel[2]) refers to a multivariate parameter. Use :($(parsel[2])[i]) instead."))
     end
 
-end
+    bathist = BATHistogram(
+        prior,
+        (xidx, yidx),
+        nbins=bins,
+        closed=closed,
+        nsamples=nsamples
+    )
 
 
-@recipe function f(prior::NamedTupleDist,
-                vsel::NTuple{2,Integer}; 
-                nsamples=10^6,
-                intervals = standard_confidence_vals, 
-                colors = standard_colors,
-                diagonal = Dict(),
-                upper = Dict(),
-                right = Dict())
-
-
-    r = rand(prior, nsamples)
-
-    bins = get(plotattributes, :bins, "default")
-
-    if bins=="default"
-        hist = fit(Histogram, (r[vsel[1], :], r[vsel[2], :]), closed = :left)
+    xlabel, ylabel = if isa(parsel, Symbol) || isa(parsel, Expr)
+        "$(parsel[1])", "$(parsel[2])"
     else
-        hist = fit(Histogram, (r[vsel[1], :], r[vsel[2], :]), closed = :left, nbins=bins)
+        getstring(prior, xidx), getstring(prior, yidx)
     end
 
-    
-   @series begin   
+    xguide := get(plotattributes, :xguide, xlabel)
+    yguide := get(plotattributes, :yguide, ylabel)
+
+    @series begin
         seriestype --> :smallest_intervals_contour
         label --> "prior"
-
-        xguide --> "\$\\theta_$(vsel[1])\$"
-        yguide --> "\$\\theta_$(vsel[2])\$"
-
         intervals --> intervals
-        nbins --> bins
         colors --> colors
         diagonal -->  diagonal
         upper --> upper
         right --> right
 
-        hist, vsel
+        bathist, (1, 2)
     end
 end

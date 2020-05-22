@@ -111,7 +111,7 @@ end
                     subplot := current_ds
                 end
                 label := "Samples"
-                color := :red
+                markercolor := :red
                 marker := :circle
                 markersize := rscale .* sqrt.(dataset.weights)
                 markerstrokewidth := 0
@@ -131,7 +131,7 @@ end
                     subplot := current_ds
                 end
                 label := "Seed Samples"
-                color := :black
+                markercolor := :black
                 markersize := 5.0
                 marker := :rect
                 linewidth := 0.0
@@ -147,7 +147,7 @@ end
                 if plot_datasets == 0
                     subplot := current_ds
                 end
-                color := :blue
+                linecolor := :blue
                 linewidth := 1.5
 
                 if plot_rejectedrects && plot_acceptedrects
@@ -168,7 +168,7 @@ end
                 if plot_datasets == 0
                     subplot := current_ds
                 end
-                color := :green
+                linecolor := :green
                 linewidth := 1.5
                 label := "Rejected Rectangles"
 
@@ -183,7 +183,7 @@ end
                 if plot_datasets == 0
                     subplot := current_ds
                 end
-                color := :black
+                linecolor := :black
                 label := "Hyper-Rectangle Seeds"
                 linewidth := 1.5
 

@@ -32,6 +32,11 @@ function hm_create_integrationvolumes!(
 
         finish!(progressbar)
     end
+
+    if isempty(result.volumelist1) || isempty(result.volumelist2)
+       @error "Created zero integration volumes. Try changing integration settings."
+       throw(ErrorException("Created zero integration volumes. Try changing integration settings."))
+   end
 end
 
 function hm_create_integrationvolumes_dataset!(
@@ -78,8 +83,7 @@ function hm_update_integrationvolumes_dataset!(
 
     maxPoints = zero(T)
 
-    wp_volumes = workpart(volumes, ParallelProcessingTools.workers(), ParallelProcessingTools.myid())
-    @mt for i in workpart(eachindex(wp_volumes), mt_nthreads(), threadid())
+    @mt for i in workpart(eachindex(volumes), mt_nthreads(), threadid())
         update!(volumes[i], dataset)
 
         maxPoints = max(maxPoints, volumes[i].pointcloud.points)
