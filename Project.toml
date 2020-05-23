@@ -45,6 +45,7 @@ UnsafeArrays = "c4a57d5a-5b31-53a6-b365-19f8c011fbd6"
 ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
 
 [compat]
+AdvancedHMC = "0.2"
 ArgCheck = "1, 2.0"
 ArraysOfArrays = "0.4, 0.5"
 Bijectors = "0.7"
