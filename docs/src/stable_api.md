@@ -40,6 +40,7 @@ bat_write
 BAT.default_mode_estimator
 BAT.default_sampling_algorithm
 BAT.density_logval
+BAT.density_logvalgrad
 
 AbstractDensity
 AbstractMCMCTuningStrategy
