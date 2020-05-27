@@ -39,6 +39,8 @@ using UnsafeArrays
 using KernelDensity
 
 import EmpiricalDistributions
+import DiffResults
+import DistributionsAD
 import ForwardDiff
 import Measurements
 import NLSolversBase
