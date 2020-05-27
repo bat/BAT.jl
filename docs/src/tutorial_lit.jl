@@ -202,10 +202,14 @@ likelihood(true_par_values)
 using ValueShapes
 
 prior = NamedTupleDist(
-    a = [0.0..10.0^4, 0.0..10.0^4],
+    ## a = [0.0..10.0^4, 0.0..10.0^4],
+    a = [Weibull(1.1, 5000), Weibull(1.1, 5000)],
     mu = [-2.0..0.0, 1.0..3.0],
-    sigma = Truncated(Normal(0.4, 2), 0.3, 0.7)
+    ## mu = [Normal(-3, 4), Normal(-3, 4)],
+    ## sigma = Truncated(Normal(0.4, 2), 0.3, 0.7)
+    sigma = Weibull(1.2, 2)
 )
+
 #md nothing # hide
 
 # In general, BAT allows instances of any subtype of `AbstractDensity` to
