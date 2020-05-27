@@ -120,7 +120,15 @@ function eval_density_logval(
     npars = totalndof(density)
     ismissing(npars) || (length(eachindex(v)) == npars) || throw(ArgumentError("Invalid length of parameter vector"))
 
-    r = float(density_logval(density, _apply_parshapes(v, shape)))
+    v_shaped = _apply_parshapes(v, shape)
+    raw_r = try
+        density_logval(density, _apply_parshapes(v, shape))
+    catch err
+        v_real = _strip_duals(v)
+        v_real_shaped = _apply_parshapes(v_real, shape)
+        throw(ErrorException("Density evaluation failed at v = $v_real_shaped due to exception $err"))
+    end
+    r = float(raw_r)
     isnan(r) && throw(ErrorException("Return value of density_logval must not be NaN, density has type $(typeof(density))"))
     r < convert(typeof(r), +Inf) || throw(ErrorException("Return value of density_logval must not be posivite infinite, density has type $(typeof(density))"))
 
@@ -128,6 +136,9 @@ function eval_density_logval(
 end
 
 _apply_parshapes(v::AbstractVector{<:Real}, shape::AbstractValueShape) = stripscalar(shape(v))
+
+_strip_duals(x) = x
+_strip_duals(x::AbstractVector{<:ForwardDiff.Dual}) = ForwardDiff.value.(x)
 
 
 @doc doc"""
