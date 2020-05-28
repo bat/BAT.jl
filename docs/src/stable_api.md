@@ -28,8 +28,8 @@ Order = [:macro, :function]
 
 
 ```@docs
-bat_findmode
 bat_findlocalmode
+bat_findmode
 bat_integrate
 bat_read
 bat_rng
