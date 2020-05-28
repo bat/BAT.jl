@@ -168,7 +168,7 @@ end
         nbins::Union{Integer, Symbol} = 200
     )::DensitySampleVector
 
-Estimates a local mode of 'samples' by finding the maximum of marginalized posterior for each dimension.
+Estimates a local mode of `samples` by finding the maximum of marginalized posterior for each dimension.
 
 Returns a NamedTuple of the shape
 
@@ -176,12 +176,18 @@ Returns a NamedTuple of the shape
 (result = X::DensitySampleVector, ...)
 ```
 
-'nbins' specifies the number of bins that are used for marginalization. The default value is 200. The optimal number of bins can be estimated using  the following keywords:
-    ':sqrt'  — Square-root choice
-    ':sturges' — Sturges' formula
-    ':rice' — Rice Rule
-    ':scott' — Scott's normal reference rule
-    ':fd' —  Freedman–Diaconis rule
+`nbins` specifies the number of bins that are used for marginalization. The default value is `nbins=200`. The optimal number of bins can be estimated using  the following keywords:
+
+* `:sqrt`  — Square-root choice
+
+* `:sturges` — Sturges' formula
+
+* `:rice` — Rice Rule
+
+* `:scott` — Scott's normal reference rule
+
+* `:fd` —  Freedman–Diaconis rule
+
 """
 function bat_findlocalmode(samples::DensitySampleVector; nbins::Union{Integer, Symbol} = 200)
 
@@ -199,7 +205,7 @@ function bat_findlocalmode(samples::DensitySampleVector; nbins::Union{Integer, S
         end
 
         local_mode_param = find_localmodes(BATHistogram(samples, param, nbins=number_of_bins))
-        
+
         if length(local_mode_param[1]) > 1
             @warn "More than one bin with the same weight is found. Returned the first one"
         end
