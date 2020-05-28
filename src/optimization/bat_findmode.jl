@@ -161,3 +161,50 @@ function bat_findmode(posterior::AnyPosterior, algorithm::MaxDensityLBFGS; initi
     r = Optim.maximize(p -> density_logval(conv_posterior, p), x, Optim.LBFGS(); autodiff = :forward)
     (result = shape(Optim.minimizer(r.res)), info = r)
 end
+
+"""
+    bat_findlocalmode(
+        samples::DensitySampleVector;
+        nbins::Union{Integer, Symbol} = 200
+    )::DensitySampleVector
+
+Estimates a local mode of 'samples' by finding the maximum of marginalized posterior for each dimension.
+
+Returns a NamedTuple of the shape
+
+```julia
+(result = X::DensitySampleVector, ...)
+```
+
+'nbins' specifies the number of bins that are used for marginalization. The default value is 200. The optimal number of bins can be estimated using  the following keywords:
+    ':sqrt'  — Square-root choice
+    ':sturges' — Sturges' formula
+    ':rice' — Rice Rule
+    ':scott' — Scott's normal reference rule
+    ':fd' —  Freedman–Diaconis rule
+"""
+function bat_findlocalmode(samples::DensitySampleVector; nbins::Union{Integer, Symbol} = 200)
+
+    shape = varshape(samples)
+    flat_samples = flatview(unshaped.(samples.v))
+    n_params = size(flat_samples)[1]
+    nt_samples = ntuple(i -> flat_samples[i,:], n_params)
+    local_mode_params = Vector{Float64}()
+
+    for param in Base.OneTo(n_params)
+        if typeof(nbins) == Symbol
+            number_of_bins = Plots._auto_binning_nbins(nt_samples, param, mode=nbins)
+        else
+            number_of_bins = nbins
+        end
+
+        local_mode_param = find_localmodes(BATHistogram(samples, param, nbins=number_of_bins))
+        
+        if length(local_mode_param[1]) > 1
+            @warn "More than one bin with the same weight is found. Returned the first one"
+        end
+        push!(local_mode_params, local_mode_param[1][1])
+    end
+    (result = shape(local_mode_params),)
+end
+export bat_findlocalmode
