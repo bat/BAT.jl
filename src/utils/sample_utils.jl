@@ -1,14 +1,16 @@
 export convert_to_bat_samples
 
-function convert_to_bat_samples(samples, posterior)
-    samples, weights = get_weighted_samples(samples)
-    n = length(samples)
+function convert_to_bat_samples(samples::Any, posterior::BAT.AnyPosterior)
+    logval = density_logval.(Ref(posterior), samples)
 
-    logval = density_logval.(Ref(posterior), samples[:])
+    n = length(logval)
+    weights = exp.(logval)
+
     info = Vector{Nothing}(undef, n)
     aux = Vector{Nothing}(undef, n)
 
-    varshape(posterior).(DensitySampleVector((ArrayOfSimilarArrays(samples), logval, weights, info, aux)))
+    shape = varshape(posterior)
+    return shape.(DensitySampleVector((ArrayOfSimilarArrays(samples), logval, weights, info, aux)))
 end
 
 
