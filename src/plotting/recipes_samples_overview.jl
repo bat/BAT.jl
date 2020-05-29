@@ -114,84 +114,53 @@ end
         samples::DensitySampleVector;
         conf_intervals = standard_confidence_vals,
         colors = standard_colors,
-        mean = true,
-        globalmode = true,
-        localmode = true,
-        xlabel = "x",
-        ylabel = "f(x)",
-        title="",
-        legend=:topleft,
-        size = (600, 400)
+        global_mode = true,
+        marginal_mode = false,
     )
 
-    y_ribbons = zeros(length(x), 6)
-    y_50_interval = zeros(length(x))
+    y_ribbons = zeros(Float64, length(x), 2*length(conf_intervals))
+    y_median = zeros(Float64, length(x))
+    quantile_values = zeros(Float64, 2*length(conf_intervals))
 
-    intervals = 0.5*(1 .- conf_intervals)
+    quantile_values[1:2:end] .= 0.5*(1 .- conf_intervals)
+    quantile_values[2:2:end] .= 1 .- 0.5*(1 .- conf_intervals)
 
     for x_ind in Base.OneTo(length(x))
         y_samples = model.(samples.v, x[x_ind])
-
-        y_50_interval[x_ind] = quantile(y_samples, 0.5)
-        y_ribbons[x_ind,:] .= [quantile(y_samples, intervals[1]), quantile(y_samples, 1. - intervals[1]),
-                                 quantile(y_samples, intervals[2]), quantile(y_samples, 1. - intervals[2]),
-                                 quantile(y_samples, intervals[3]), quantile(y_samples, 1. - intervals[3])]
-
-        y_ribbons[x_ind,:] .= abs.(y_ribbons[x_ind,:] .- y_50_interval[x_ind])
+        y_median[x_ind] = quantile(y_samples, 0.5)
+        y_ribbons[x_ind,:] .= [quantile(y_samples, quantile_tmp) for quantile_tmp in quantile_values]
+        y_ribbons[x_ind,:] .= abs.(y_ribbons[x_ind,:] .- y_median[x_ind])
     end
 
-    xguide --> xlabel
-    yguide --> ylabel
-    title --> title
-    legend --> legend
-    size --> size
+    xguide --> "x"
+    yguide --> "f(x)"
+    title --> ""
+    legend --> :topleft
+    size --> (600, 400)
 
-    @series begin
-        ribbon --> (y_ribbons[:,5],y_ribbons[:,6])
-        fillcolor --> colors[1]
-        linecolor --> colors[1]
-        seriesalpha --> 1
-        linealpha --> 0.5
-        label --> "$(standard_confidence_vals[3])"
-        x, y_50_interval
-    end
-
-    @series begin
-        ribbon --> (y_ribbons[:,3],y_ribbons[:,4])
-        fillcolor --> colors[2]
-        linecolor --> colors[2]
-        seriesalpha --> 1
-        linealpha --> 0.5
-        label --> "$(standard_confidence_vals[2])"
-        x, y_50_interval
-    end
-
-    @series begin
-        ribbon --> (y_ribbons[:,1],y_ribbons[:,2])
-        fillcolor --> colors[3]
-        linecolor --> colors[3]
-        seriesalpha --> 1
-        linealpha --> 0.5
-        label --> "$(standard_confidence_vals[1])"
-        x, y_50_interval
-    end
-
-    if localmode
-        local_mode_params = bat_findlocalmode(samples).result[1]
-
+    for interval_ind in length(conf_intervals):-1:1
         @series begin
-            linecolor --> :black
-            linestyle --> :dash
-            linewidth --> 1.5
-            label --> "Local Mode"
-            x, broadcast(x -> model(local_mode_params, x), x)
+            ribbon --> (y_ribbons[:,interval_ind*2 - 1],y_ribbons[:,interval_ind*2])
+            fillcolor --> colors[interval_ind]
+            linecolor --> colors[interval_ind]
+            seriesalpha --> 1
+            linealpha --> 1
+            fillalpha --> 1
+            label --> "$(conf_intervals[interval_ind])"
+            x, y_median
         end
     end
 
-    if globalmode
+    @series begin
+        linecolor --> :black
+        linestyle --> :solid
+        linewidth --> 1.5
+        label --> "Median"
+        x, y_median
+    end
 
+    if global_mode
         global_mode_params = mode(samples)[1]
-
         @series begin
             linecolor --> :black
             linestyle --> :dot
@@ -201,17 +170,15 @@ end
         end
     end
 
-    if mean
-
-        global_mode_params = mode(samples)[1]
-
-        @series begin
-            linecolor --> :black
-            linestyle --> :solid
-            linewidth --> 1.5
-            label --> "0.5 Quantile"
-            x, y_50_interval
-        end
-    end
-
+    # if marginal_mode
+    # to be used once marginal_mode is avaliable
+    #     local_mode_params = bat_findmarginalmode(samples).result[1]
+    #     @series begin
+    #         linecolor --> :black
+    #         linestyle --> :dash
+    #         linewidth --> 1.5
+    #         label --> "Local Mode"
+    #         x, broadcast(x -> model(local_mode_params, x), x)
+    #     end
+    # end
 end

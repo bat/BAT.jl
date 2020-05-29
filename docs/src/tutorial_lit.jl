@@ -380,10 +380,11 @@ plot(fit_function, -4:0.01:4, samples)
 
 plot!(
     normalize(hist, mode=:density),
-    color=1, linewidth=1,
+    color=1, linewidth=2, fillalpha=0.0,
     st = :steps, fill=false, label = "Data",
     title = "Data, True Model and Best Fit"
 )
+
 plot!(-4:0.01:4, x -> fit_function(true_par_values, x), color=4, label = "Truth")
 #jl savefig("tutorial-data-truth-bestfit.pdf")
 #md savefig("tutorial-data-truth-bestfit.pdf")
