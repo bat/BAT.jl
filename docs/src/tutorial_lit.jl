@@ -375,16 +375,17 @@ findmode_result = bat_findmode(posterior, initial_mode = samples_mode)
 fit_par_values = findmode_result.result[]
 
 
-# Let's plot the data and fit function, for both true and best-fit parameter
-# values:
+# Let's plot the data and fit function given the true parameters and MCMC samples
+plot(fit_function, -4:0.01:4, samples)
 
-plot(
+plot!(
     normalize(hist, mode=:density),
-    st = :steps, label = "Data",
+    color=1, linewidth=2, fillalpha=0.0,
+    st = :steps, fill=false, label = "Data",
     title = "Data, True Model and Best Fit"
 )
-plot!(-4:0.01:4, x -> fit_function(true_par_values, x), label = "Truth")
-plot!(-4:0.01:4, x -> fit_function(fit_par_values, x), label = "Best fit")
+
+plot!(-4:0.01:4, x -> fit_function(true_par_values, x), color=4, label = "Truth")
 #jl savefig("tutorial-data-truth-bestfit.pdf")
 #md savefig("tutorial-data-truth-bestfit.pdf")
 #md savefig("tutorial-data-truth-bestfit.svg"); nothing # hide
