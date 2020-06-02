@@ -1,6 +1,6 @@
 export convert_to_bat_samples
 
-function convert_to_bat_samples(samples::Any, posterior::BAT.AnyPosterior)
+function convert_to_bat_samples(samples::Any, posterior::Any)
     logval = density_logval.(Ref(posterior), samples)
 
     n = length(logval)
