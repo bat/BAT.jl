@@ -1,12 +1,12 @@
-abstract type RandomSampler <: AbstractSamplingAlgorithm end
+abstract type ImportanceSampler <: AbstractSamplingAlgorithm end
 
-struct SobolSampler <: RandomSampler end
+struct SobolSampler <: ImportanceSampler end
 
 
 function bat_sample(
     posterior::AnyPosterior,
     n::AnyNSamples,
-    algorithm::RandomSampler,
+    algorithm::ImportanceSampler,
     bounds::Vector{Vector{Float64}}; # TODO default: use bounds from prior (if available)
 )
 
@@ -17,13 +17,13 @@ function bat_sample(
 
     Threads.@threads for i in 1:n_chains
 
-        sample_arr[i] = get_samples(algorithm, bounds)
+        sample_arr[i] = get_samples(algorithm, bounds, n_samples)
 
         #stats_arr[i] = stats
     end
 
     samples = vcat(sample_arr...)
-    stats = vcat(stats_arr...)
+    # stats = vcat(stats_arr...)
 
     bat_samples = convert_to_bat_samples(samples, posterior)
 
@@ -31,6 +31,11 @@ function bat_sample(
 end
 
 
-function get_samples(algorithm::SobolSampler, bounds::Vector{Vector{Float64}})
-    #...
+function get_samples(algorithm::SobolSampler, bounds::Vector{Vector{Float64}}, n_samples::Int)
+    dim = length(bounds)
+    mins = [bounds[i][1] for i in 1:dim]
+    maxs = [bounds[i][2] for i in 1:dim]
+    sobol = SobolSeq(mins, maxs)
+    p = hcat([[Sobol.next!(sobol)] for i in 1:n_samples])
+    return p
 end
