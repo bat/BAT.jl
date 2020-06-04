@@ -8,8 +8,8 @@ struct SobolSampler <: ImportanceSampler end
 function bat_sample(
     posterior::AnyPosterior,
     n::AnyNSamples,
-    algorithm::ImportanceSampler,
-    bounds::Vector{Vector{Float64}} # TODO default: use bounds from prior (if available)
+    algorithm::ImportanceSampler;
+    bounds::Vector{<:Tuple{Real, Real}} = get_prior_bounds(posterior)
 )
 
     n_samples = n[1]
@@ -32,7 +32,7 @@ function bat_sample(
 end
 
 
-function get_samples(algorithm::SobolSampler, bounds::Vector{Vector{Float64}}, n_samples::Int)
+function get_samples(algorithm::SobolSampler, bounds::Vector{<:Tuple{Real, Real}}, n_samples::Int)
     dim = length(bounds)
     mins = [bounds[i][1] for i in 1:dim]
     maxs = [bounds[i][2] for i in 1:dim]

@@ -17,3 +17,8 @@ function get_bounds(d::Product)
     bounds = get_bounds.(d.v)
     return vcat(bounds...)
 end
+
+function get_prior_bounds(posterior::AnyPosterior)
+    prior = getprior(posterior).dist
+    return get_bounds(prior)
+end
