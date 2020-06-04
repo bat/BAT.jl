@@ -21,8 +21,14 @@
         throw(ArgumentError("Symbol :$parsel refers to a multivariate parameter. Use :($parsel[i]) instead."))
     end
 
-    bathist = BATHistogram(prior, idx, nbins = bins, closed = closed)
-    normalize ? bathist.h = StatsBase.normalize(bathist.h) : nothing
+    marg = bat_marginalize(
+        prior,
+        idx,
+        nbins = bins,
+        nsamples = nsamples,
+        closed = closed,
+        normalize = normalize
+    )
 
     xlabel = if isa(parsel, Symbol) || isa(parsel, Expr)
         "$parsel"
@@ -50,7 +56,7 @@
         colors --> colors
         interval_labels --> interval_labels
 
-        bathist, 1
+        marg, 1
     end
 
 end

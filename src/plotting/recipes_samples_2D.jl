@@ -44,13 +44,15 @@
     xguide := get(plotattributes, :xguide, xlabel)
     yguide := get(plotattributes, :yguide, ylabel)
 
-    hist = BATHistogram(
+    marg = bat_marginalize(
         samples,
         (xindx, yindx),
         nbins = bins,
         closed = closed,
-        filter=filter
+        filter = filter
     )
+
+    println(typeof(marg))
 
 
     if seriestype == :scatter
@@ -93,7 +95,7 @@
             upper --> upper
             right --> right
 
-            hist, (1, 2)
+            marg, (1, 2)
         end
     end
 
@@ -163,7 +165,7 @@
 
 
     if localmode_options != ()
-        localmode_values = find_localmodes(hist)
+        localmode_values = find_localmodes(marg)
         for (i, l) in enumerate(localmode_values)
          @series begin
             seriestype := :scatter

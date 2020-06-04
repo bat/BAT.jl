@@ -8,13 +8,14 @@
 Find the modes of a BATHistogram.
 Returns a vector of the bin-centers of the bin(s) with the heighest weight.
 """
-function find_localmodes(bathist::BATHistogram)
-    dims = ndims(bathist.h.weights)
+function find_localmodes(marg::MarginalDist)
+    hist = marg.dist.h
+    dims = ndims(hist.weights)
 
-    max = maximum(bathist.h.weights)
-    maxima_idx = findall(x->x==max, bathist.h.weights)
+    max = maximum(hist.weights)
+    maxima_idx = findall(x->x==max, hist.weights)
 
-    bin_centers = get_bin_centers(bathist)
+    bin_centers = get_bin_centers(marg)
 
     return [[bin_centers[d][maxima_idx[i][d]] for d in 1:dims] for i in 1:length(maxima_idx) ]
 end
@@ -27,9 +28,10 @@ end
 
 Returns a vector of the bin-centers.
 """
-function get_bin_centers(bathist::BATHistogram)
-    edges = bathist.h.edges
-    dims = ndims(bathist.h.weights)
+function get_bin_centers(marg::MarginalDist)
+    hist = marg.dist.h
+    edges = hist.edges
+    dims = ndims(hist.weights)
 
     centers = [[edges[d][i]+0.5*(edges[d][i+1]-edges[d][i]) for i in 1:length(edges[d])-1] for d in 1:dims]
 
@@ -63,7 +65,7 @@ function islower(weights, idx)
 end
 
 function isupper(weights, idx)
-    if idx==length(weights) && weights[idx-1]>0 
+    if idx==length(weights) && weights[idx-1]>0
         return true
     elseif weights[idx]==0 && weights[idx-1]>0
         return true

@@ -5,9 +5,10 @@ const standard_colors = [:chartreuse2, :yellow, :red]
 
 
 include("BATHistogram.jl")
+include("Marginalization.jl")
+include("recipes_Marginalization_1D.jl")
+include("recipes_Marginalization_2D.jl")
 include("recipes_stats.jl")
-include("recipes_BATHistogram_1D.jl")
-include("recipes_BATHistogram_2D.jl")
 include("recipes_samples_overview.jl")
 include("recipes_prior_overview.jl")
 include("split_histograms.jl")
