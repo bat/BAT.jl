@@ -110,14 +110,17 @@
 end
 
 
-@recipe function f(model::Function,
-        x::Union{StepRangeLen, Vector},
-        samples::DensitySampleVector;
+@recipe function f(x::Union{StepRangeLen, Vector},
+        model::Function,
+        sample_from::Union{S,D};
+        n_samples::Int64 = 10^4,
         conf_intervals = standard_confidence_vals,
         colors = standard_colors,
         global_mode = true,
         marginal_mode = false,
-    )
+    ) where {S<:DensitySampleVector, D<:NamedTupleDist}
+
+    samples = bat_sample(sample_from, n_samples).result
 
     y_ribbons = zeros(Float64, length(x), 2*length(conf_intervals))
     y_median = zeros(Float64, length(x))
@@ -128,8 +131,8 @@ end
 
     for x_ind in Base.OneTo(length(x))
         y_samples = model.(samples.v, x[x_ind])
-        y_median[x_ind] = quantile(y_samples, 0.5)
-        y_ribbons[x_ind,:] .= [quantile(y_samples, quantile_tmp) for quantile_tmp in quantile_values]
+        y_median[x_ind] = quantile(y_samples, weights(samples.weight), 0.5)
+        y_ribbons[x_ind,:] .= [quantile(y_samples, weights(samples.weight), quantile_tmp) for quantile_tmp in quantile_values]
         y_ribbons[x_ind,:] .= abs.(y_ribbons[x_ind,:] .- y_median[x_ind])
     end
 
