@@ -376,7 +376,7 @@ fit_par_values = findmode_result.result[]
 
 
 # Let's plot the data and fit function given the true parameters and MCMC samples
-plot(fit_function, -4:0.01:4, samples)
+plot(-4:0.01:4, fit_function, samples)
 
 plot!(
     normalize(hist, mode=:density),

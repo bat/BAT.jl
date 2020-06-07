@@ -112,15 +112,18 @@ end
 
 @recipe function f(x::Union{StepRangeLen, Vector},
         model::Function,
-        sample_from::Union{S,D};
+        sample_from::Union{DensitySampleVector, AbstractDensity};
         n_samples::Int64 = 10^4,
         conf_intervals = standard_confidence_vals,
         colors = standard_colors,
         global_mode = true,
-        marginal_mode = false,
-    ) where {S<:DensitySampleVector, D<:NamedTupleDist}
+        marginal_mode = false)
 
-    samples = bat_sample(sample_from, n_samples).result
+    if typeof(sample_from) <: DensitySampleVector
+        samples = bat_sample(sample_from, n_samples).result
+    else
+        samples = bat_sample(sample_from.prior.dist, n_samples).result
+    end
 
     y_ribbons = zeros(Float64, length(x), 2*length(conf_intervals))
     y_median = zeros(Float64, length(x))
