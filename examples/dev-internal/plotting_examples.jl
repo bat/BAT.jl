@@ -5,11 +5,6 @@ using Distributions
 using IntervalSets
 
 # ## Generate samples to be plotted
-struct MultiModalModel<:AbstractDensity
-    r::Vector{Float64}
-    sigma::Vector{Float64}
-end
-
 
 likelihood = params -> begin
 
@@ -123,7 +118,7 @@ plot(samples, :a, localmode=false,
 
 # ### Default 2D plot  of samples:
 pyplot()
-plot(samples, (:a,:(b[1])), mean=true, std=true) #default seriestype = :smallest_intervals (alias :HDR)
+plot(samples, (:a, :(b[1])), mean=true, std=true) #default seriestype = :smallest_intervals (alias :HDR)
 # The default seriestype for plotting samples is a 3-color heatmap showing the smallest intervals (highest density regions) containing 68.3%, 95.5% and 99.7% of the posterior probability. By default, the local mode
 # of the histogram is indicated by a black square.
 
