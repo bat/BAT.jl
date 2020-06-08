@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 @recipe function f(
     maybe_shaped_samples::DensitySampleVector,
-    parsel::Union{NTuple{2,Integer}, NTuple{2,Union{Symbol, Expr}}};
+    parsel::NTuple{2,Union{Symbol, Expr, Integer}};
     intervals = standard_confidence_vals,
     interval_labels = [],
     colors = standard_colors,
@@ -52,9 +52,6 @@
         filter = filter
     )
 
-    println(typeof(marg))
-
-
     if seriestype == :scatter
         base_markersize = get(plotattributes, :markersize, 1.5)
 
@@ -95,7 +92,7 @@
             upper --> upper
             right --> right
 
-            marg, (1, 2)
+            marg, (xindx, yindx)
         end
     end
 

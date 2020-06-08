@@ -41,11 +41,22 @@ function asindex(ntd::NamedTupleDist, name::Union{Expr, Symbol})
 end
 
 function asindex(
-    x::Union{DensitySampleVector, NamedTupleDist},
+    x::Union{DensitySampleVector, NamedTupleDist, MarginalDist},
     key::Integer
 )
     return key
 end
+
+#for MarginalDist
+function asindex(marg::MarginalDist, name::Union{Expr, Symbol})
+    idx = asindex(marg.origvalshape, name)
+    if idx in marg.dims
+        return idx
+    else
+        throw(ArgumentError("Key :$name not in MarginalDist"))
+    end
+end
+
 
 # Return the name corresponding to the index as Symbol (for univariate)
 # or Expr for (multivariate) distributions
@@ -77,6 +88,16 @@ function getstring(samples::BAT.DensitySampleVector, idx::Integer)
     end
 end
 
+function getstring(marg::MarginalDist, idx::Integer)
+    println(marg.dims)
+    if idx in marg.dims
+        vs = marg.origvalshape
+        names = allnames(vs)
+        return names[idx]
+    else
+        throw(ArgumentError("Index $idx not in MarginalDist"))
+    end
+end
 
 # Return array of strings with the names of all indices.
 # For a multivariate distribution, names for each dimension are created by appending "[i]" to the name.
@@ -86,6 +107,7 @@ function allnames(vs::NamedTupleShape)
 
     return reduce(vcat, names)
 end
+
 
 # Return array of strings with the names of all indices.
 # For a multivariate distribution, the name is repeated for all its dimensions.

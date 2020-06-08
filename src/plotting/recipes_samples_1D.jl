@@ -60,7 +60,7 @@
         colors --> colors
         interval_labels --> interval_labels
 
-        marg, 1
+        marg, idx
     end
 
     #------ stats ----------------------------

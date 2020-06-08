@@ -5,7 +5,6 @@ struct MarginalDist{N,D<:Distribution,VS<:AbstractValueShape}
 end
 
 
-#TODO: does not work for unshaped samples
 function bat_marginalize(
     maybe_shaped_samples::DensitySampleVector,
     key::Union{Integer, Symbol, Expr};
@@ -37,7 +36,7 @@ end
 
 function bat_marginalize(
     maybe_shaped_samples::DensitySampleVector,
-    key::Union{NTuple{2,Integer}, NTuple{2,Union{Symbol, Expr}}};
+    key::Union{NTuple{n,Integer}, NTuple{n,Union{Symbol, Expr}}} where n;
     nbins = 200,
     closed::Symbol = :left,
     filter::Bool = false,
@@ -49,12 +48,11 @@ function bat_marginalize(
         samples = BAT.drop_low_weight_samples(samples)
     end
 
-    i = asindex(maybe_shaped_samples, key[1])
-    j = asindex(maybe_shaped_samples, key[2])
+    idxs = asindex.(Ref(maybe_shaped_samples), key)
+    s = Tuple(BAT.flatview(samples.v)[i, :] for i in idxs)
 
     hist = fit(Histogram,
-            (flatview(samples.v)[i, :],
-            flatview(samples.v)[j, :]),
+            s,
             FrequencyWeights(samples.weight),
             nbins = nbins, closed = closed)
 
@@ -62,7 +60,7 @@ function bat_marginalize(
 
     mvbd = EmpiricalDistributions.MvBinnedDist(hist)
 
-    return MarginalDist((i,j), mvbd, varshape(maybe_shaped_samples))
+    return MarginalDist(idxs, mvbd, varshape(maybe_shaped_samples))
 end
 
 
@@ -87,20 +85,52 @@ function bat_marginalize(
 end
 
 
-function BATHistogram(
+function bat_marginalize(
     prior::NamedTupleDist,
-    params::Union{NTuple{2, Symbol}, NTuple{2, Integer}};
+    key::Union{NTuple{2, Symbol}, NTuple{2, Integer}};
     nbins = 200,
     closed::Symbol = :left,
-    nsamples::Integer = 10^6
+    nsamples::Integer = 10^6,
+    normalize=true
 )
-    i = asindex(prior, params[1])
-    j = asindex(prior, params[2])
+    idxs = asindex.(Ref(prior), key)
 
     r = rand(prior, nsamples)
-    hist = fit(Histogram, (r[i, :], r[j, :]), nbins = nbins, closed = closed)
+    s = Tuple(r[i, :] for i in idxs)
+
+    hist = fit(Histogram, s, nbins = nbins, closed = closed)
+
+    normalize ? hist = StatsBase.normalize(hist) : nothing
 
     mvbd = EmpiricalDistributions.MvBinnedDist(hist)
 
-    return MarginalDist((i,j), mvbd, varshape(prior))
+    return MarginalDist(idxs, mvbd, varshape(prior))
+end
+
+
+
+function bat_marginalize(
+    original::MarginalDist,
+    parsel::NTuple{n, Int} where n;
+    normalize=true
+)
+    original_hist = original.dist.h
+    dims = collect(1:ndims(original_hist.weights))
+    parsel = Tuple(findfirst(x-> x == p, original.dims) for p in parsel)
+
+    weights = sum(original_hist.weights, dims=setdiff(dims, parsel))
+    weights = dropdims(weights, dims=Tuple(setdiff(dims, parsel)))
+
+    edges = Tuple([original_hist.edges[p] for p in parsel])
+    hist = StatsBase.Histogram(edges, weights, original_hist.closed)
+
+    normalize ? hist = StatsBase.normalize(hist) : nothing
+
+    bd = if length(parsel) == 1
+        EmpiricalDistributions.UvBinnedDist(hist)
+    else
+        EmpiricalDistributions.MvBinnedDist(hist)
+    end
+
+    return MarginalDist(parsel, bd, original.origvalshape)
 end
