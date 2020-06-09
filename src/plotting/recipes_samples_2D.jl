@@ -50,7 +50,7 @@
         nbins = bins,
         closed = closed,
         filter = filter
-    )
+    ).result
 
     if seriestype == :scatter
         base_markersize = get(plotattributes, :markersize, 1.5)

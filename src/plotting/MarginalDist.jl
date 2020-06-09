@@ -29,8 +29,9 @@ function bat_marginalize(
     normalize ? hist = StatsBase.normalize(hist) : nothing
 
     uvbd = EmpiricalDistributions.UvBinnedDist(hist)
+    marg = MarginalDist((idx,), uvbd, varshape(maybe_shaped_samples))
 
-    return MarginalDist((idx,), uvbd, varshape(maybe_shaped_samples))
+    return (result = marg, )
 end
 
 
@@ -59,8 +60,9 @@ function bat_marginalize(
     normalize ? hist = StatsBase.normalize(hist) : nothing
 
     mvbd = EmpiricalDistributions.MvBinnedDist(hist)
+    marg =  MarginalDist(idxs, mvbd, varshape(maybe_shaped_samples))
 
-    return MarginalDist(idxs, mvbd, varshape(maybe_shaped_samples))
+    return (result = marg, )
 end
 
 
@@ -80,8 +82,9 @@ function bat_marginalize(
     normalize ? hist = StatsBase.normalize(hist) : nothing
 
     uvbd = EmpiricalDistributions.UvBinnedDist(hist)
+    marg = MarginalDist((idx,), uvbd, varshape(prior))
 
-    return MarginalDist((idx,), uvbd, varshape(prior))
+    return (result = marg, )
 end
 
 
@@ -103,8 +106,9 @@ function bat_marginalize(
     normalize ? hist = StatsBase.normalize(hist) : nothing
 
     mvbd = EmpiricalDistributions.MvBinnedDist(hist)
+    marg =  MarginalDist(idxs, mvbd, varshape(prior))
 
-    return MarginalDist(idxs, mvbd, varshape(prior))
+    return (result = marg, )
 end
 
 
@@ -132,5 +136,7 @@ function bat_marginalize(
         EmpiricalDistributions.MvBinnedDist(hist)
     end
 
-    return MarginalDist(parsel, bd, original.origvalshape)
+    marg = MarginalDist(parsel, bd, original.origvalshape)
+
+    return (result = marg, )
 end
