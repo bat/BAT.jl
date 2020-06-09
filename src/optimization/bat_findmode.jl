@@ -163,7 +163,7 @@ function bat_findmode(posterior::AnyPosterior, algorithm::MaxDensityLBFGS; initi
 end
 
 """
-    bat_findlocalmode(
+    bat_marginalmode(
         samples::DensitySampleVector;
         nbins::Union{Integer, Symbol} = 200
     )::DensitySampleVector
@@ -189,13 +189,13 @@ Returns a NamedTuple of the shape
 * `:fd` —  Freedman–Diaconis rule
 
 """
-function bat_findlocalmode(samples::DensitySampleVector; nbins::Union{Integer, Symbol} = 200)
+function bat_marginalmode(samples::DensitySampleVector; nbins::Union{Integer, Symbol} = 200)
 
     shape = varshape(samples)
     flat_samples = flatview(unshaped.(samples.v))
     n_params = size(flat_samples)[1]
     nt_samples = ntuple(i -> flat_samples[i,:], n_params)
-    local_mode_params = Vector{Float64}()
+    marginalmode_params = Vector{Float64}()
 
     for param in Base.OneTo(n_params)
         if typeof(nbins) == Symbol
@@ -204,16 +204,16 @@ function bat_findlocalmode(samples::DensitySampleVector; nbins::Union{Integer, S
             number_of_bins = nbins
         end
 
-        local_mode_param = find_localmodes(bat_marginalize(samples, param, nbins=number_of_bins))
+        marginalmode_param = find_localmodes(bat_marginalize(samples, param, nbins=number_of_bins))
 
-        if length(local_mode_param[1]) > 1
+        if length(marginalmode_param[1]) > 1
             @warn "More than one bin with the same weight is found. Returned the first one"
         end
-        push!(local_mode_params, local_mode_param[1][1])
+        push!(marginalmode_params, marginalmode_param[1][1])
     end
-    (result = shape(local_mode_params),)
+    (result = shape(marginalmode_params),)
 end
-export bat_findlocalmode
+export bat_marginalmode
 
 
 """
@@ -229,17 +229,8 @@ Returns a NamedTuple of the shape
 (result = X::DensitySampleVector, ...)
 ```
 """
-function bat_findmedian(samples::DensitySampleVector; nbins::Union{Integer, Symbol} = 200)
-
-    shape = varshape(samples)
-    flat_samples = flatview(unshaped.(samples.v))
-    n_params = size(flat_samples)[1]
-    median_params = Vector{Float64}()
-
-    for param in Base.OneTo(n_params)
-        median_param = quantile(flat_samples[param,:], weights(samples.weight), 0.5)
-        push!(median_params, median_param)
-    end
-    (result = shape(median_params),)
+function bat_findmedian(samples::DensitySampleVector)
+    median_params = median(samples)
+    (result = median_params,)
 end
 export bat_findmedian

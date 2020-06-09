@@ -112,7 +112,7 @@ end
 @recipe function f(x::Union{StepRangeLen, Vector},
         model::Function,
         sample_from::Union{DensitySampleVector, AbstractDensity};
-        n_samples::Int64 = 10^4,
+        n_samples = 10^4,
         conf_intervals = standard_confidence_vals,
         colors = standard_colors,
         global_mode = true,
@@ -176,15 +176,14 @@ end
         end
     end
 
-    # if marginal_mode
-    # to be used once marginal_mode is avaliable
-    #     local_mode_params = bat_findmarginalmode(samples).result[1]
-    #     @series begin
-    #         linecolor --> :black
-    #         linestyle --> :dash
-    #         linewidth --> 1.5
-    #         label --> "Local Mode"
-    #         x, broadcast(x -> model(local_mode_params, x), x)
-    #     end
-    # end
+    if marginal_mode
+        marginal_mode_params = bat_marginalmode(samples).result[1]
+        @series begin
+            linecolor --> :black
+            linestyle --> :dash
+            linewidth --> 1.5
+            label --> "Local Mode"
+            x, broadcast(x -> model(marginal_mode_params, x), x)
+        end
+    end
 end
