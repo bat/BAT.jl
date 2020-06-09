@@ -182,7 +182,7 @@ end
             linecolor --> :black
             linestyle --> :dash
             linewidth --> 1.5
-            label --> "Local Mode"
+            label --> "Marginal Mode"
             x, broadcast(x -> model(marginal_mode_params, x), x)
         end
     end
