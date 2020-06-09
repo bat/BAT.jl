@@ -29,6 +29,7 @@ Order = [:macro, :function]
 
 ```@docs
 bat_findlocalmode
+bat_findmedian
 bat_findmode
 bat_integrate
 bat_read

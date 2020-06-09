@@ -204,7 +204,7 @@ function bat_findlocalmode(samples::DensitySampleVector; nbins::Union{Integer, S
             number_of_bins = nbins
         end
 
-        local_mode_param = find_localmodes(BATHistogram(samples, param, nbins=number_of_bins))
+        local_mode_param = find_localmodes(bat_marginalize(samples, param, nbins=number_of_bins))
 
         if length(local_mode_param[1]) > 1
             @warn "More than one bin with the same weight is found. Returned the first one"
@@ -214,3 +214,32 @@ function bat_findlocalmode(samples::DensitySampleVector; nbins::Union{Integer, S
     (result = shape(local_mode_params),)
 end
 export bat_findlocalmode
+
+
+"""
+    bat_findmedian(
+        samples::DensitySampleVector
+    )::DensitySampleVector
+
+The function computes the median of marginalized `samples`.
+
+Returns a NamedTuple of the shape
+
+```julia
+(result = X::DensitySampleVector, ...)
+```
+"""
+function bat_findmedian(samples::DensitySampleVector; nbins::Union{Integer, Symbol} = 200)
+
+    shape = varshape(samples)
+    flat_samples = flatview(unshaped.(samples.v))
+    n_params = size(flat_samples)[1]
+    median_params = Vector{Float64}()
+
+    for param in Base.OneTo(n_params)
+        median_param = quantile(flat_samples[param,:], weights(samples.weight), 0.5)
+        push!(median_params, median_param)
+    end
+    (result = shape(median_params),)
+end
+export bat_findmedian
