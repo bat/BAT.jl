@@ -28,10 +28,13 @@ Order = [:macro, :function]
 
 
 ```@docs
+bat_autocorr
 bat_findmedian
 bat_findmode
 bat_marginalmode
 bat_integrate
+bat_integrated_autocorr_len
+bat_integrated_autocorr_weight
 bat_read
 bat_rng
 bat_sample

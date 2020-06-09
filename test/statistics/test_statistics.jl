@@ -5,4 +5,5 @@ using Test
 Test.@testset "statistics" begin
     include("test_onlineuvstats.jl")
     include("test_onlinemvstats.jl")
+    include("test_autocorr.jl")
 end
