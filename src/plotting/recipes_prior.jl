@@ -28,7 +28,7 @@
         nsamples = nsamples,
         closed = closed,
         normalize = normalize
-    )
+    ).result
 
     xlabel = if isa(parsel, Symbol) || isa(parsel, Expr)
         "$parsel"
@@ -96,7 +96,7 @@ end
         nbins = bins,
         closed = closed,
         normalize = normalize
-    )
+    ).result
 
 
     xlabel, ylabel = if isa(parsel, Symbol) || isa(parsel, Expr)

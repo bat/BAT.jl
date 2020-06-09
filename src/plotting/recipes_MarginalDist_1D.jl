@@ -21,7 +21,7 @@ end
 )
     indx = asindex(origmarg, parsel)
 
-    marg = bat_marginalize(origmarg, (indx, ))
+    marg = bat_marginalize(origmarg, (indx, )).result
     hist = marg.dist.h
     normalize ? hist=StatsBase.normalize(hist) : nothing
 

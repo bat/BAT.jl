@@ -28,7 +28,7 @@
         closed = closed,
         filter = filter,
         normalize = normalize
-    )
+    ).result
 
     orientation = get(plotattributes, :orientation, :vertical)
     (orientation != :vertical) ? swap=true : swap = false
