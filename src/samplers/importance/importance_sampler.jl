@@ -11,15 +11,16 @@ function bat_sample(
     posterior::AnyPosterior,
     n::AnyNSamples,
     algorithm::ImportanceSampler;
-    bounds::Vector{<:Tuple{Real, Real}} = get_prior_bounds(posterior)
+    bounds::Any = get_prior_bounds(posterior)
 )
     n_samples = isa(n, Tuple{Integer,Integer}) ? n[1] * n[2] : n[1]
 
     samples = get_samples(algorithm, bounds, n_samples, posterior)
     stats = [(stat = nothing, ) for i in n_samples] # TODO
+    logvals = density_logval.(Ref(posterior), samples)
+    weights = exp.(logvals)
 
-    bat_samples = convert_to_bat_samples(samples, posterior)
-
+    bat_samples = DensitySampleVector(samples, varshape(posterior), logval = logvals, weight = weights)
     return (result = bat_samples, chains = stats)
 end
 

@@ -7,8 +7,13 @@ end
 function get_bounds(d::Distribution)
     lo, hi = minimum(d), maximum(d)
 
-    lo == -Inf ? lo = quantile(d, 0.00001) : nothing
-    hi ==  Inf ? hi = quantile(d, 0.99999) : nothing
+    if isinf(lo)
+        lo = typeof(lo)(quantile(d, 0.00001))
+    end
+
+    if isinf(hi)
+        hi = typeof(hi)(quantile(d, 0.99999))
+    end
 
     return lo, hi
 end

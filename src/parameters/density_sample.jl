@@ -157,6 +157,22 @@ DensitySampleVector(::Type{S}, varlen::Integer) where {P<:AbstractVector{<:Real}
     DensitySampleVector{P,T,W,R,Q}(undef, 0, varlen)
 
 
+function DensitySampleVector(
+    v::AbstractVector,
+    shape::AbstractValueShape;
+    logval::AbstractVector{<:Real} = fill(0, length(eachindex(v))),
+    weight::Union{AbstractVector{<:Real}, Symbol} = fill(1, length(eachindex(v))),
+    info::AbstractVector = fill(nothing, length(eachindex(v))),
+    aux::AbstractVector = fill(nothing, length(eachindex(v)))
+)
+    if weight == :RepetitionWeight
+        v, weight = repetition_weights(v)
+    end
+
+    return shape.(DensitySampleVector((ArrayOfSimilarArrays(v), logval, weight, info, aux)))
+end
+
+
 # Specialize getindex to properly support ArraysOfArrays and similar, preventing
 # conversion to exact element type:
 
