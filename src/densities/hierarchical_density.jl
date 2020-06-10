@@ -58,14 +58,11 @@ export HierarchicalDensity
 function HierarchicalDensity(f::Function, pd::Any)
     pd_conv = convert(DistLikeDensity, pd)
     vs_pd = varshape(pd_conv)
-    v_pd = rand(_hd_determ_rng(), pd_conv)
+    v_pd = rand(bat_determ_rng(), pd_conv)
     cd = _hd_cd(f, vs_pd, v_pd)
     vs = NamedTupleShape(;vs_pd..., varshape(cd)...)
     HierarchicalDensity(f, pd_conv, vs)
 end
-
-
-_hd_determ_rng() = Philox4x((0, 0))
 
 
 function _hd_cd(f::Function, vs_pd::AbstractValueShape, v_pd::AbstractVector{<:Real})
@@ -129,7 +126,7 @@ ValueShapes.totalndof(density::HierarchicalDensity) = totalndof(density.vs)
 
 
 function Statistics.cov(density::HierarchicalDensity)
-    cov(nestedview(rand(_hd_determ_rng(), sampler(density), 10^5)))
+    cov(nestedview(rand(bat_determ_rng(), sampler(density), 10^5)))
 end
 
 
@@ -167,7 +164,7 @@ ValueShapes.totalndof(bounds::HierarchicalDensityBounds) = totalndof(bounds.d)
 
 function Base.eltype(bounds::HierarchicalDensityBounds)
     d = bounds.d
-    v = rand(_hd_determ_rng(), sampler(d))
+    v = rand(bat_determ_rng(), sampler(d))
     bounds1 = var_bounds(d.pd)
     v1, v2 = _split_v(d, v)
     cd = _hd_cd(d, v1)
