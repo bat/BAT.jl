@@ -68,6 +68,7 @@ MCMCInitStrategy
 MCMCIterator
 MetropolisHastings
 ModeAsDefined
+OrderedResampling
 PosteriorDensity
 RandResampling
 RandSampling
