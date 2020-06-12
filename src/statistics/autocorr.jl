@@ -20,14 +20,38 @@ end
 """
     bat_autocorr(v::AbstractVector)
 
-Estimate the normalized autocorrelation function of variate series `v`.
+Estimate the normalized autocorrelation function of variate series `v`,
+separately for each degree of freedom.
 
 Derived from the FFT-based autocorrelation implementation in the emcee Python
 package, under MIT License (original authors Dan Foreman-Mackey et al.).
+
+Returns a NamedTuple of the shape
+
+```julia
+(result = autocorr, ...)
+```
+
+Result properties not listed here are algorithm-specific and are not part
+of the stable BAT API.
 """
 function bat_autocorr end
 export bat_autocorr
 
+function bat_autocorr(x::AbstractVector{<:Real})
+    n = length(eachindex(x))
+    n2 = 2 * _ac_next_pow_two(n)
+    x2 = zeros(eltype(x), n2)
+    idxs2 = firstindex(x2):(firstindex(x2) + n - 1)
+    x2_view = view(x2, idxs2)
+    x2_view .= x .- mean(x)
+
+    x2_fft = fft(x2)
+    acf = real.(view(ifft(x2_fft .* conj.(x2_fft)), idxs2))
+    acf ./= first(acf)
+
+    (result = acf,)
+end
 
 function bat_autocorr(v::AbstractVectorOfSimilarVectors{<:Real})
     X = flatview(v)
@@ -46,21 +70,7 @@ function bat_autocorr(v::AbstractVectorOfSimilarVectors{<:Real})
     (result = nestedview(acf),)
 end
 
-
-function bat_autocorr(x::AbstractVector{<:Real})
-    n = length(eachindex(x))
-    n2 = 2 * _ac_next_pow_two(n)
-    x2 = zeros(eltype(x), n2)
-    idxs2 = firstindex(x2):(firstindex(x2) + n - 1)
-    x2_view = view(x2, idxs2)
-    x2_view .= x .- mean(x)
-
-    x2_fft = fft(x2)
-    acf = real.(view(ifft(x2_fft .* conj.(x2_fft)), idxs2))
-    acf ./= first(acf)
-
-    (result = acf,)
-end
+bat_autocorr(x::AbstractVector) = bat_autocorr(unshaped.(x))
 
 
 
@@ -73,11 +83,12 @@ end
 
 """
     bat_integrated_autocorr_len(
-        v::AbstractVectorOfSimilarVectors{<:Real};
+        v::AbstractVector;
         c::Integer = 5, tol::Integer = 50, strict = true
     )
 
-Estimate the integrated autocorrelation length of variate series `v`.
+Estimate the integrated autocorrelation length of variate series `v`,
+separately for each degree of freedom.
 
 * `c`: Step size for window search.
 
@@ -92,13 +103,41 @@ to determine a reasonable window size.
 
 Ported to Julia from the emcee Python package, under MIT License. Original
 authors Dan Foreman-Mackey et al.
+
+Returns a NamedTuple of the shape
+
+```julia
+(result = integrated_autocorr_len, ...)
+```
+
+Result properties not listed here are algorithm-specific and are not part
+of the stable BAT API.
 """
 function bat_integrated_autocorr_len end
 export bat_integrated_autocorr_len
 
-function bat_integrated_autocorr_len(v::AbstractVectorOfSimilarVectors{<:Real}; c::Integer = 5, tol::Integer = 50, strict::Bool = true)
-    n_samples = length(eachindex(v))
+function bat_integrated_autocorr_len(v::AbstractVector{<:Real}; c::Integer = 5, tol::Integer = 50, strict::Bool = true)
+    taus = bat_autocorr(v).result
+    cumsum!(taus, taus)
+    taus .= 2 .* taus .- 1
 
+    window = BAT.emcee_auto_window(taus, c)
+    tau_est = taus[window]
+
+    n_samples = length(eachindex(v))
+    converged = tol * tau_est <= n_samples
+
+    if !converged && strict
+        throw(ErrorException(
+            "Length of samples is shorter than $tol times integrated " *
+            "autocorrelation times $tau_est"
+        ))
+    end
+   
+    (result = tau_est,)
+end
+
+function bat_integrated_autocorr_len(v::AbstractVector; c::Integer = 5, tol::Integer = 50, strict::Bool = true)
     taus = flatview(bat_autocorr(v).result)
     cumsum!(taus, taus, dims = 2)
     taus .= 2 .* taus .- 1
@@ -108,6 +147,7 @@ function bat_integrated_autocorr_len(v::AbstractVectorOfSimilarVectors{<:Real}; 
         taus[i, window]
     end
 
+    n_samples = length(eachindex(v))
     converged = tol .* tau_est .<= n_samples
 
     if !all(converged) && strict

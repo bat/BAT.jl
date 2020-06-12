@@ -17,7 +17,9 @@ using StableRNGs
     for i in 1:(10^4 - 1)
         push!(v, clamp.(last(v) .+ randn(rng, 3), [0, 0, 0], [10, 5, 8]))
     end
-    
+
+    v1 = flatview(v)[1, :]
+
     @testset "BAT._ac_next_pow_two" begin
         @test @inferred(BAT._ac_next_pow_two(0)) == 1
         @test @inferred(BAT._ac_next_pow_two(1)) == 1
@@ -31,8 +33,8 @@ using StableRNGs
         @test length(acf) == length(v)
 
   
-        @test @inferred(bat_autocorr(flatview(v)[1, :])).result isa Vector{Float64}
-        @test flatview(acf)[1,:] ≈ bat_autocorr(flatview(v)[1, :]).result
+        @test @inferred(bat_autocorr(v1)).result isa Vector{Float64}
+        @test flatview(acf)[1,:] ≈ bat_autocorr(v1).result
   
   
         @test flatview(acf)[1, [1, 10, 20, 30]] ≈ [1.0, 0.7020507052044521, 0.47068454095108886, 0.3294865638787076]
@@ -43,6 +45,8 @@ using StableRNGs
     end
 
     @testset "BAT.emcee_integrated_time" begin
+        @inferred(bat_integrated_autocorr_len(v1)).result ≈ 44.28039926162039
+        @test_throws ErrorException bat_integrated_autocorr_len(v1[1:100])
         @inferred(bat_integrated_autocorr_len(v)).result ≈ [44.28039926162039, 16.83675738165955, 32.05622635001912]
         @test_throws ErrorException bat_integrated_autocorr_len(v[1:100])
     end
