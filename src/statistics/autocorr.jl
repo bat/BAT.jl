@@ -159,24 +159,3 @@ function bat_integrated_autocorr_len(v::AbstractVector; c::Integer = 5, tol::Int
    
     (result = tau_est,)
 end
-
-
-"""
-    bat_integrated_autocorr_weight(
-        samples::DensitySampleVector;
-        c::Integer = 5, tol::Integer = 50, strict = true
-    )
-
-Estimate the integrated autocorrelation weight of `samples`.
-
-Uses [`bat_integrated_autocorr_len`](@ref).     
-"""
-function bat_integrated_autocorr_weight end
-export bat_integrated_autocorr_weight
-
-function bat_integrated_autocorr_weight(samples::DensitySampleVector; kwargs...)
-    mean_w = mean(samples.weight)
-    unshaped_v = unshaped.(samples.v)
-    tau_f_unweighted = bat_integrated_autocorr_len(unshaped_v; kwargs...).result
-    (result = mean_w * tau_f_unweighted,)
-end
