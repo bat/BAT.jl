@@ -2,37 +2,6 @@
 
 
 @doc doc"""
-    autocrl(xv::AbstractVector{T}, kv::AbstractVector{Int} = Vector{Int}())
-
-*BAT-internal, not part of stable public API.*
-
-autocorrelation := Σ Cov[x_i,x_(i+k)]/Var[x]
-
-Computes the autocorrelations at various leg k of the
-input vector (time series) xv.
-The vector kv is the collections of lags to take into account
-"""
-function autocrl(xv::AbstractVector{T}, kv::AbstractVector{Int} = Vector{Int}()) where T<:Real
-       N = size(xv)[1]
-       if size(kv)[1] == 0
-           kv = 1:(N-1)
-       end
-       x_avg = sum(xv)/N
-       result = Vector{Float64}(zeros(size(kv)))
-       for k in kv
-           autocrl_num = 0.0
-           autocrl_den = 0.0
-           for i in 1:N-k
-               autocrl_num += (xv[i+k] - x_avg)*(xv[i]-x_avg)
-               autocrl_den += (xv[i]-x_avg)^2
-           end
-           result[k] = autocrl_num/autocrl_den
-       end
-       return result
-end
-
-
-@doc doc"""
     wgt_effective_sample_size(w::AbstractVector{T})
 
 *BAT-internal, not part of stable public API.*

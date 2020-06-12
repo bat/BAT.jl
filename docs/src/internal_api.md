@@ -54,7 +54,6 @@ BAT.apply_bounds
 BAT.apply_bounds_and_eval_posterior_logval_strict!
 BAT.apply_bounds_and_eval_posterior_logval!
 BAT.apply_bounds!
-BAT.autocrl
 BAT.bat_sampler
 BAT.bg_R_2sqr
 BAT.find_localmodes
