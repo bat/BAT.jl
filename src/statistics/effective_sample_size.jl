@@ -26,8 +26,11 @@ the Kish approximation is applied.
 By default computes the autocorrelation up to the square root of the number of entries
 in the vector, unless an explicit list of lags is provided (kv).
 """
-function effective_sample_size(xv::AbstractVector{T1}, w::AbstractVector{T2} = Vector{Float64}(zeros(0)), kv::AbstractVector{Int} = Vector{Int}(1:floor(Int,sqrt(length(xv))))) where T1<:Real where T2<:Number
-    atc = StatsBase.autocor(xv,kv)
+function effective_sample_size(xv::AbstractVector{<:Real}, w::AbstractVector{<:Real} = Vector{Int}())
+    #kv = collect(1:floor(Int,sqrt(length(xv))))
+    #atc = StatsBase.autocor(xv,kv)
+    atc = bat_autocorr(xv).result
+
     # we need to break the sum when ρ_k + ρ_k+1 < 0
     # (see Thompson2010 - arXiv1011.0175 and Geyer2002)
     sumatc = 0
@@ -41,7 +44,7 @@ function effective_sample_size(xv::AbstractVector{T1}, w::AbstractVector{T2} = V
     result = size(xv)[1]/(1 + 2*sumatc)
     w_correction = 1.0
     if size(w) == size(xv)
-        w_correction = wgt_effective_sample_size(w)/size(w)[1]
+        w_correction = wgt_effective_sample_size(w)/length(eachindex(w))
     end
     return min(length(xv),result*w_correction)
 end
