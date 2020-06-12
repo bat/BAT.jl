@@ -136,35 +136,7 @@ export bat_integrated_autocorr_weight
 
 function bat_integrated_autocorr_weight(samples::DensitySampleVector; kwargs...)
     mean_w = mean(samples.weight)
-    unshaped_v = unshaped.(_unweighted_v(samples))
+    unshaped_v = unshaped.(samples.v)
     tau_f_unweighted = bat_integrated_autocorr_len(unshaped_v; kwargs...).result
     (result = mean_w * tau_f_unweighted,)
-end
-
-
-function _unweighted_v(samples::DensitySampleVector)
-    w1 = first(samples.weight)
-    is_unweighed = all(w -> w ≈ w1, samples.weight)
-
-    if is_unweighed
-        samples.v
-    else
-        @assert axes(samples) == axes(samples.weight)
-        rng = bat_determ_rng()
-        W = samples.weight
-        idxs = eachindex(samples)
-        sel_idxs = Vector{Int}()
-
-        p_factor = min(1, 1 / mean(W))
-
-        for i in eachindex(W)
-            w::typeof(W[i]) = W[i]
-            while w > 0
-                p_acc = p_factor * min(w, 1)
-                rand(rng) < p_acc && push!(sel_idxs, i)
-                w = w - 1
-            end
-        end
-        samples.v[sel_idxs]
-    end
 end
