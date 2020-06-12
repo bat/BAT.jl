@@ -109,5 +109,5 @@ By default applies the Kish approximation with the weigths available, but
 can be turned off (with_weights=false).
 """
 function effective_sample_size(samples::DensitySampleVector; with_weights=true)
-    return effective_sample_size(samples.v, samples.weight, with_weights=with_weights)
+    return effective_sample_size(flatview(unshaped.(samples.v)), samples.weight, with_weights=with_weights)
 end
