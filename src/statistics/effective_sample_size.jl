@@ -15,71 +15,63 @@ function wgt_effective_sample_size(w::AbstractVector{T}) where T<:Real
 end
 
 
-@doc doc"""
-    effective_sample_size(xv, w; ...)
-
-*BAT-internal, not part of stable public API.*
-
-Effective size estimation for a vector of samples xv. If a weight vector w is provided,
-the Kish approximation is applied.
-
-By default computes the autocorrelation up to the square root of the number of entries
-in the vector, unless an explicit list of lags is provided (kv).
-"""
-function effective_sample_size(xv::AbstractVector{<:Real}, w::AbstractVector{<:Real} = Vector{Int}())
-    #kv = collect(1:floor(Int,sqrt(length(xv))))
-    #atc = StatsBase.autocor(xv,kv)
-    atc = bat_autocorr(xv).result
-
+function _ess_from_atc(atc::AbstractVector{<:Real})
     # we need to break the sum when ρ_k + ρ_k+1 < 0
     # (see Thompson2010 - arXiv1011.0175 and Geyer2002)
     sumatc = 0
     for k in 1:(length(atc)-1)
-        if atc[k]+atc[k+1] >= 0
-            sumatc = sumatc+atc[k]
+        if atc[k] + atc[k+1] >= 0
+            sumatc = sumatc + atc[k]
         else
             break
         end
     end
-    result = size(xv)[1]/(1 + 2*sumatc)
-    w_correction = 1.0
-    if size(w) == size(xv)
-        w_correction = wgt_effective_sample_size(w)/length(eachindex(w))
-    end
-    return min(length(xv),result*w_correction)
+    ess = length(atc)/(1 + 2 * sumatc)
+    return min(length(atc), ess)
 end
 
+
 @doc doc"""
-    effective_sample_size(variates::AbstractArray, weights::AbstractVector; with_weights=true)
+    bat_eff_sample_size(v::AbstractVector)
+    bat_eff_sample_size(smpls::DensitySampleVector; use_weights=true)
 
-*BAT-internal, not part of stable public API.*
+Estimate effective sample size estimation for variate series `v`, resp.
+density samples `smpls`, separately for each degree of freedom.
 
-Effective size estimation for a (multidimensional) ElasticArray.
-By default applies the Kish approximation with the weigths available, but
-can be turned off (with_weights=false).
+* `use_weights`: Take sample weights into account, using Kish's approximation
+
+Returns a NamedTuple of the shape
+
+```julia
+(result = X::AbstractVector{<:Real}, ...)
+```
+
+Result properties not listed here are algorithm-specific and are not part
+of the stable BAT API.
 """
-function effective_sample_size(variates::AbstractArray, weights::AbstractVector; with_weights=true)
-        ess = size(variates, 2)
-        for dim in axes(variates, 1)
-            tmpview = view(variates,dim,:)
-            tmp = with_weights ?
-                effective_sample_size(tmpview, weights) : effective_sample_size(tmpview)
-            if tmp < ess
-                ess = tmp
-            end
-        end
-        return ess
+function bat_eff_sample_size end
+export bat_eff_sample_size
+
+function bat_eff_sample_size(v::AbstractVector; use_weights = true)
+    atc = bat_autocorr(v).result
+    flat_atc = flatview(atc)
+
+    ess = map(axes(flat_atc, 1)) do i
+        atcview = view(flat_atc, i, :)
+        _ess_from_atc(atcview)
     end
 
-@doc doc"""
-    effective_sample_size(samples::DensitySampleVector; with_weights=true)
+    (result = ess,)
+end
 
-*BAT-internal, not part of stable public API.*
+function bat_eff_sample_size(smpls::DensitySampleVector; use_weights = true)
+    ess = bat_eff_sample_size(samples.v).result
 
-Effective size estimation for a (multidimensional) DensitySampleVector.
-By default applies the Kish approximation with the weigths available, but
-can be turned off (with_weights=false).
-"""
-function effective_sample_size(samples::DensitySampleVector; with_weights=true)
-    return effective_sample_size(flatview(unshaped.(samples.v)), samples.weight, with_weights=with_weights)
+    if use_weights
+        W = smpls.weight
+        w_correction = wgt_effective_sample_size(W) / length(eachindex(W))
+        ess .*= w_correction
+    end
+
+    (result = ess,)
 end

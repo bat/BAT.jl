@@ -29,6 +29,7 @@ Order = [:macro, :function]
 
 ```@docs
 bat_autocorr
+bat_eff_sample_size
 bat_findmedian
 bat_findmode
 bat_marginalmode
