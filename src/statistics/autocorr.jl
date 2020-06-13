@@ -38,7 +38,7 @@ of the stable BAT API.
 function bat_autocorr end
 export bat_autocorr
 
-function bat_autocorr(x::AbstractVector{<:Real})
+function bat_autocorr(x::AbstractVector{<:Real}; normalized::Bool = false)
     n = length(eachindex(x))
     n2 = 2 * _ac_next_pow_two(n)
     x2 = zeros(eltype(x), n2)
@@ -49,12 +49,15 @@ function bat_autocorr(x::AbstractVector{<:Real})
     x2_fft = rfft(x2)
     x2_fft .= abs2.(x2_fft)
     acf = irfft(x2_fft, size(x2, 1))[idxs2]
-    acf ./= first(acf)
+
+    if normalized
+        acf ./= first(acf)
+    end
 
     (result = acf,)
 end
 
-function bat_autocorr(v::AbstractVectorOfSimilarVectors{<:Real})
+function bat_autocorr(v::AbstractVectorOfSimilarVectors{<:Real}; normalized::Bool = false)
     X = flatview(v)
     n = size(X, 2)
     n2 = 2 * _ac_next_pow_two(n)
@@ -67,12 +70,15 @@ function bat_autocorr(v::AbstractVectorOfSimilarVectors{<:Real})
     X2_fft = rfft(X2, 2)
     X2_fft .= abs2.(X2_fft)
     acf = irfft(X2_fft, size(X2, 2), 2)[:, idxs2]
-    acf ./= acf[:, first(axes(acf, 2))]
+
+    if normalized
+        acf ./= acf[:, first(axes(acf, 2))]
+    end
 
     (result = nestedview(acf),)
 end
 
-bat_autocorr(x::AbstractVector) = bat_autocorr(unshaped.(x))
+bat_autocorr(x::AbstractVector; normalized::Bool = false) = bat_autocorr(unshaped.(x), normalized = normalized)
 
 
 
@@ -119,7 +125,7 @@ function bat_integrated_autocorr_len end
 export bat_integrated_autocorr_len
 
 function bat_integrated_autocorr_len(v::AbstractVector{<:Real}; c::Integer = 5, tol::Integer = 50, strict::Bool = true)
-    taus = bat_autocorr(v).result
+    taus = bat_autocorr(v, normalized = true).result
     cumsum!(taus, taus)
     taus .= 2 .* taus .- 1
 
@@ -140,7 +146,7 @@ function bat_integrated_autocorr_len(v::AbstractVector{<:Real}; c::Integer = 5, 
 end
 
 function bat_integrated_autocorr_len(v::AbstractVector; c::Integer = 5, tol::Integer = 50, strict::Bool = true)
-    taus = flatview(bat_autocorr(v).result)
+    taus = flatview(bat_autocorr(v, normalized = true).result)
     cumsum!(taus, taus, dims = 2)
     taus .= 2 .* taus .- 1
 

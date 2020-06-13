@@ -28,13 +28,13 @@ using StableRNGs
     end
 
     @testset "bat_autocorr" begin
-        @test @inferred(bat_autocorr(v)).result isa ArrayOfSimilarArrays{Float64,1,1}
-        acf = bat_autocorr(v).result
+        @test @inferred(bat_autocorr(v, normalized = true)).result isa ArrayOfSimilarArrays{Float64,1,1}
+        acf = bat_autocorr(v, normalized = true).result
         @test length(acf) == length(v)
 
   
-        @test @inferred(bat_autocorr(v1)).result isa Vector{Float64}
-        @test flatview(acf)[1,:] ≈ bat_autocorr(v1).result
+        @test @inferred(bat_autocorr(v1, normalized = true)).result isa Vector{Float64}
+        @test flatview(acf)[1,:] ≈ bat_autocorr(v1, normalized = true).result
   
   
         @test flatview(acf)[1, [1, 10, 20, 30]] ≈ [1.0, 0.7020507052044521, 0.47068454095108886, 0.3294865638787076]
