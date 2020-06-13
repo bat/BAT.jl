@@ -5,5 +5,6 @@ using Test
 Test.@testset "statistics" begin
     include("test_onlineuvstats.jl")
     include("test_onlinemvstats.jl")
-    include("test_autocorr.jl")
+    include("test_autocor.jl")
+    include("test_effective_sample_size.jl")
 end

@@ -28,7 +28,6 @@ Order = [:macro, :function]
 
 
 ```@docs
-bat_autocorr
 bat_eff_sample_size
 bat_findmedian
 bat_findmode
@@ -45,6 +44,9 @@ BAT.default_sampling_algorithm
 BAT.density_logval
 BAT.density_logvalgrad
 
+BAT.fft_autocor
+BAT.fft_autocov
+
 AbstractDensity
 AbstractMCMCTuningStrategy
 AbstractPosteriorDensity
@@ -52,11 +54,13 @@ AbstractWeightingScheme
 AdaptiveMetropolisTuning
 AHMC
 ARPWeighting
+AutocorLenAlgorithm
 BrooksGelmanConvergence
 DensitySample
 DensitySampleVector
 DistLikeDensity
 GelmanRubinConvergence
+GeyerAutocorLen
 LinDVal
 LogDVal
 MaxDensityLBFGS
@@ -73,6 +77,7 @@ PosteriorDensity
 RandResampling
 RandSampling
 RepetitionWeighting
+SokalAutocorLen
 
 BAT.AbstractModeEstimator
 BAT.AbstractSamplingAlgorithm
