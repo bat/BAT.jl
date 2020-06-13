@@ -75,11 +75,21 @@ end
 bat_autocorr(x::AbstractVector) = bat_autocorr(unshaped.(x))
 
 
+"""
+    sokal_auto_window(tau_int::AbstractVector{<:Real}, c::Real)
 
-function emcee_auto_window(taus::AbstractVector{<:Real}, c::Real)
-    idxs = eachindex(taus)
-    m = count(i - firstindex(taus) < c * taus[i] for i in idxs)
-    m > 0 ? m : length(idxs) - 1
+*BAT-internal, not part of stable public API.*
+
+Automated windowing procedure based on
+[A. D. Sokal, "Monte Carlo Methods in Statistical Mechanics" (1996)](https://pdfs.semanticscholar.org/0bfe/9e3db30605fe2d4d26e1a288a5e2997e7225.pdf)
+
+Same procedure is used by the emcee Python package (v3.0).
+"""
+function sokal_auto_window(tau_int::AbstractVector{<:Real}, c::Real)
+    idxs = eachindex(tau_int)
+    idx1 = first(idxs)
+
+    something(findfirst(M -> M - idx1 >= c * tau_int[M], idxs), last(idxs))
 end
 
 
@@ -119,45 +129,45 @@ function bat_integrated_autocorr_len end
 export bat_integrated_autocorr_len
 
 function bat_integrated_autocorr_len(v::AbstractVector{<:Real}; c::Integer = 5, tol::Integer = 50, strict::Bool = true)
-    taus = bat_autocorr(v).result
-    cumsum!(taus, taus)
-    taus .= 2 .* taus .- 1
+    tau_int = bat_autocorr(v).result
+    cumsum!(tau_int, tau_int)
+    tau_int .= 2 .* tau_int .- 1
 
-    window = BAT.emcee_auto_window(taus, c)
-    tau_est = taus[window]
+    window = sokal_auto_window(tau_int, c)
+    tau_int_est = tau_int[window]
 
     n_samples = length(eachindex(v))
-    converged = tol * tau_est <= n_samples
+    converged = tol * tau_int_est <= n_samples
 
     if !converged && strict
         throw(ErrorException(
             "Length of samples is shorter than $tol times integrated " *
-            "autocorrelation times $tau_est"
+            "autocorrelation times $tau_int_est"
         ))
     end
    
-    (result = tau_est,)
+    (result = tau_int_est,)
 end
 
 function bat_integrated_autocorr_len(v::AbstractVector; c::Integer = 5, tol::Integer = 50, strict::Bool = true)
-    taus = flatview(bat_autocorr(v).result)
-    cumsum!(taus, taus, dims = 2)
-    taus .= 2 .* taus .- 1
+    tau_int = flatview(bat_autocorr(v).result)
+    cumsum!(tau_int, tau_int, dims = 2)
+    tau_int .= 2 .* tau_int .- 1
 
-    tau_est = map(axes(taus, 1)) do i
-        window = BAT.emcee_auto_window(view(taus, i, :), c)
-        taus[i, window]
+    tau_int_est = map(axes(tau_int, 1)) do i
+        window = sokal_auto_window(view(tau_int, i, :), c)
+        tau_int[i, window]
     end
 
     n_samples = length(eachindex(v))
-    converged = tol .* tau_est .<= n_samples
+    converged = tol .* tau_int_est .<= n_samples
 
     if !all(converged) && strict
         throw(ErrorException(
             "Length of samples is shorter than $tol times integrated " *
-            "autocorrelation times $tau_est for some dimensions"
+            "autocorrelation times $tau_int_est for some dimensions"
         ))
     end
    
-    (result = tau_est,)
+    (result = tau_int_est,)
 end
