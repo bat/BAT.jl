@@ -46,8 +46,9 @@ function bat_autocorr(x::AbstractVector{<:Real})
     x2_view = view(x2, idxs2)
     x2_view .= x .- mean(x)
 
-    x2_fft = fft(x2)
-    acf = real.(view(ifft(x2_fft .* conj.(x2_fft)), idxs2))
+    x2_fft = rfft(x2)
+    x2_fft .= abs2.(x2_fft)
+    acf = irfft(x2_fft, size(x2, 1))[idxs2]
     acf ./= first(acf)
 
     (result = acf,)
@@ -63,8 +64,9 @@ function bat_autocorr(v::AbstractVectorOfSimilarVectors{<:Real})
     X2_view = view(X2, :, idxs2)
     X2_view .= X .- mean(X, dims = 2)
 
-    X2_fft = fft(X2, 2)
-    acf = real.(view(ifft(X2_fft .* conj.(X2_fft), 2), :, idxs2))
+    X2_fft = rfft(X2, 2)
+    X2_fft .= abs2.(X2_fft)
+    acf = irfft(X2_fft, size(X2, 2), 2)[:, idxs2]
     acf ./= acf[:, first(axes(acf, 2))]
 
     (result = nestedview(acf),)
