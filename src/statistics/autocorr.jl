@@ -23,9 +23,6 @@ end
 Estimate the normalized autocorrelation function of variate series `v`,
 separately for each degree of freedom.
 
-Derived from the FFT-based autocorrelation implementation in the emcee Python
-package, under MIT License (original authors Dan Foreman-Mackey et al.).
-
 Returns a NamedTuple of the shape
 
 ```julia
@@ -34,6 +31,9 @@ Returns a NamedTuple of the shape
 
 Result properties not listed here are algorithm-specific and are not part
 of the stable BAT API.
+
+Similar to the FFT-based autocorrelation used by the emcee Python package
+(v3.0) by D. Foreman-Mackey et al.
 """
 function bat_autocorr end
 export bat_autocorr

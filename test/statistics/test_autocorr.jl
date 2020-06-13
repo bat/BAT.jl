@@ -51,15 +51,3 @@ using StableRNGs
         @test_throws ErrorException bat_integrated_autocorr_len(v[1:100])
     end
 end
-
-
-#=
-# Comparison tests with Python emcee:
-
-using PyCall
-emcee = pyimport("emcee")
-
-x = flatview(v)[1, :]
-@test emcee.autocorr.function_1d(x) ≈ bat_autocorr(x).result
-@test isapprox(emcee.autocorr.integrated_time(reshape(flatview(v)', 10^4, 1, 3)), bat_integrated_autocorr_len(v).result, rtol = 10^-2)
-=#
