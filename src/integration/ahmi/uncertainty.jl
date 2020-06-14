@@ -49,7 +49,6 @@ end
 
 function ahmi_ess_estimate(v::AbstractMatrix{<:Real}, w::AbstractVector{<:Real})
     ess = bat_eff_sample_size(nestedview(v)).result
-    # ToDo: Check if weight correction really should be applied here:
     w_correction = BAT.wgt_effective_sample_size(w) / length(eachindex(w))
     minimum(ess) * w_correction
 end
