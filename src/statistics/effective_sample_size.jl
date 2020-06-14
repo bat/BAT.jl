@@ -4,7 +4,7 @@
 """
     AutocorLenAlgorithm
 
-Abstract type for integrated autocorrelation length estimation alborithms.
+Abstract type for integrated autocorrelation length estimation algorithms.
 """
 abstract type AutocorLenAlgorithm end
 export AutocorLenAlgorithm

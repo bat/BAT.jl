@@ -53,14 +53,18 @@ AbstractPosteriorDensity
 AbstractWeightingScheme
 AdaptiveMetropolisTuning
 AHMC
+AHMIntegration
 ARPWeighting
 AutocorLenAlgorithm
 BrooksGelmanConvergence
+CholeskyPartialWhitening
+CholeskyWhitening
 DensitySample
 DensitySampleVector
 DistLikeDensity
 GelmanRubinConvergence
 GeyerAutocorLen
+IntegrationAlgorithm
 LinDVal
 LogDVal
 MaxDensityLBFGS
@@ -72,12 +76,15 @@ MCMCInitStrategy
 MCMCIterator
 MetropolisHastings
 ModeAsDefined
+NoWhitening
 OrderedResampling
 PosteriorDensity
 RandResampling
 RandSampling
 RepetitionWeighting
 SokalAutocorLen
+StatisticalWhitening
+WhiteningAlgorithm
 
 BAT.AbstractModeEstimator
 BAT.AbstractSamplingAlgorithm
