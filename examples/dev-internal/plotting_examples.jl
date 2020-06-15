@@ -5,12 +5,6 @@ using Distributions
 using IntervalSets
 
 # ## Generate samples to be plotted
-struct MultiModalModel<:AbstractDensity
-    r::Vector{Float64}
-    sigma::Vector{Float64}
-end
-
-
 likelihood = params -> begin
 
     r1 = logpdf.(

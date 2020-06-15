@@ -11,9 +11,10 @@ function bat_sample(
     posterior::AnyPosterior,
     n::AnyNSamples,
     algorithm::ImportanceSampler;
-    bounds::Any = get_prior_bounds(posterior)
+    bounds::Any = finite_param_bounds(getprior(posterior).dist, hard_bounds)
 )
     n_samples = isa(n, Tuple{Integer,Integer}) ? n[1] * n[2] : n[1]
+    bounds = convert2HyperRectBounds(bounds)
 
     samples = get_samples(algorithm, bounds, n_samples, posterior)
     stats = [(stat = nothing, ) for i in n_samples] # TODO
@@ -25,26 +26,23 @@ function bat_sample(
 end
 
 
-function get_samples(algorithm::SobolSampler, bounds::Vector{<:Tuple{Real, Real}}, n_samples::Int, posterior::AnyPosterior)
-    dim = length(bounds)
-    mins = [bounds[i][1] for i in 1:dim]
-    maxs = [bounds[i][2] for i in 1:dim]
-    sobol = SobolSeq(mins, maxs)
+function get_samples(algorithm::SobolSampler, bounds::HyperRectBounds, n_samples::Int, posterior::AnyPosterior)
+    sobol = SobolSeq(bounds.vol.lo, bounds.vol.hi)
     p = vcat([[Sobol.next!(sobol)] for i in 1:n_samples]...)
     return p
 end
 
 
-function get_samples(algorith::GridSampler, bounds::Vector{<:Tuple{Real, Real}}, n_samples::Int, posterior::AnyPosterior)
-    dim = length(bounds)
+function get_samples(algorith::GridSampler, bounds::HyperRectBounds, n_samples::Int, posterior::AnyPosterior)
+    dim = length(bounds.bt)
     ppa = n_samples^(1/dim)
-    ranges = [range(bounds[i][1], bounds[i][2], length = trunc(Int, ppa)) for i in 1:dim]
+    ranges = [range(bounds.vol.lo[i], bounds.vol.hi[i], length = trunc(Int, ppa)) for i in 1:dim]
     p = vec(collect(Iterators.product(ranges...)))
     return [collect(p[i]) for i in 1:length(p)]
 end
 
 
-function get_samples(algorithm::PriorSampler, bounds::Vector{<:Tuple{Real, Real}}, n_samples::Int, posterior::AnyPosterior)
+function get_samples(algorithm::PriorSampler, bounds::HyperRectBounds, n_samples::Int, posterior::AnyPosterior)
     p = rand(getprior(posterior).dist, n_samples)
     return collect(eachcol(p))
 end

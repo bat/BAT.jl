@@ -17,7 +17,7 @@ DistributionDensity(h::Histogram) = DistributionDensity(EmpiricalDistributions.M
 
 Base.convert(::Type{AbstractDensity}, d::Distribution{Multivariate,Continuous}) =
     DistributionDensity(d)
-    
+
 Base.convert(::Type{DistLikeDensity}, d::Distribution{Multivariate,Continuous}) =
     DistributionDensity(d)
 
@@ -64,4 +64,46 @@ function dist_param_bounds(d::EmpiricalDistributions.MvBinnedDist{T, N}, bounds_
     right_bounds = T[map(e -> prevfloat(last(e)), d.h.edges)...]
     bt = fill(bounds_type, length(left_bounds))
     HyperRectBounds{T}(HyperRectVolume{T}(left_bounds, right_bounds), bt)
+end
+
+
+function finite_param_bounds(ntd::NamedTupleDist, bounds_type::BoundsType)
+    bounds = vcat([finite_param_bounds(d) for d in values(ntd)]...)
+    lo = [b[1] for b in bounds]
+    hi = [b[2] for b in bounds]
+    HyperRectBounds(lo, hi, bounds_type)
+end
+
+
+function finite_param_bounds(d::Distribution)
+    lo, hi = minimum(d), maximum(d)
+
+    if isinf(lo)
+        lo = typeof(lo)(quantile(d, 0.00001))
+    end
+
+    if isinf(hi)
+        hi = typeof(hi)(quantile(d, 0.99999))
+    end
+
+    return lo, hi
+end
+
+
+function finite_param_bounds(d::Product)
+    bounds = finite_param_bounds.(d.v)
+    return vcat(bounds...)
+end
+
+
+function convert2HyperRectBounds(bounds::Union{Vector{<:Tuple}, Tuple{Vararg{Tuple}}})
+    dim = length(bounds)
+    lo = [bounds[i][1] for i in 1:dim]
+    hi = [bounds[i][2] for i in 1:dim]
+    return HyperRectBounds(lo, hi, hard_bounds)
+end
+
+
+function convert2HyperRectBounds(bounds::HyperRectBounds)
+    return bounds
 end
