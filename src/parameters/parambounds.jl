@@ -179,9 +179,9 @@ function Base.intersect(a::HyperRectBounds, b::HyperRectBounds)
     for i in eachindex(a.vol.lo, a.vol.hi, a.bt, b.vol.lo, b.vol.hi, b.bt)
         iv_a = a.vol.lo[i]..a.vol.hi[i]
         iv_b = b.vol.lo[i]..b.vol.hi[i]
-        if iv_a in iv_b
+        if issubset(iv_a, iv_b)
             c.bt[i] = a.bt[i]
-        elseif iv_b in iv_a
+        elseif issubset(iv_b, iv_a)
             c.bt[i] = b.bt[i]
         else
             c.bt[i] = a.bt[i] ∩ b.bt[i]

@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 @recipe function f(
     maybe_shaped_samples::DensitySampleVector,
-    parsel::Union{NTuple{2,Integer}, NTuple{2,Union{Symbol, Expr}}};
+    parsel::NTuple{2,Union{Symbol, Expr, Integer}};
     intervals = standard_confidence_vals,
     interval_labels = [],
     colors = standard_colors,
@@ -44,14 +44,13 @@
     xguide := get(plotattributes, :xguide, xlabel)
     yguide := get(plotattributes, :yguide, ylabel)
 
-    hist = BATHistogram(
+    marg = bat_marginalize(
         samples,
         (xindx, yindx),
         nbins = bins,
         closed = closed,
-        filter=filter
-    )
-
+        filter = filter
+    ).result
 
     if seriestype == :scatter
         base_markersize = get(plotattributes, :markersize, 1.5)
@@ -93,7 +92,7 @@
             upper --> upper
             right --> right
 
-            hist, (1, 2)
+            marg, (xindx, yindx)
         end
     end
 
@@ -163,7 +162,7 @@
 
 
     if localmode_options != ()
-        localmode_values = find_localmodes(hist)
+        localmode_values = find_localmodes(marg)
         for (i, l) in enumerate(localmode_values)
          @series begin
             seriestype := :scatter

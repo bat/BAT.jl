@@ -21,15 +21,14 @@
         throw(ArgumentError("Symbol :$parsel refers to a multivariate parameter. Use :($parsel[i]) instead."))
     end
 
-    bathist = BATHistogram(
+    marg = bat_marginalize(
         maybe_shaped_samples,
-        idx,
+        parsel,
         nbins = bins,
         closed = closed,
-        filter = filter
-    )
-
-    normalize ? bathist.h = StatsBase.normalize(bathist.h) : nothing
+        filter = filter,
+        normalize = normalize
+    ).result
 
     orientation = get(plotattributes, :orientation, :vertical)
     (orientation != :vertical) ? swap=true : swap = false
@@ -61,13 +60,13 @@
         colors --> colors
         interval_labels --> interval_labels
 
-        bathist, 1
+        marg, idx
     end
 
     #------ stats ----------------------------
     stats = MCMCBasicStats(maybe_shaped_samples)
 
-    line_height = maximum(bathist.h.weights)*1.03
+    line_height = maximum(marg.dist.h.weights)*1.03
 
     mean_options = convert_to_options(mean)
     globalmode_options = convert_to_options(globalmode)
@@ -123,7 +122,7 @@
 
     # local mode(s)
     if localmode_options != ()
-        localmode_values = find_localmodes(bathist)
+        localmode_values = find_localmodes(marg)
 
         for (i, l) in enumerate(localmode_values)
          @series begin

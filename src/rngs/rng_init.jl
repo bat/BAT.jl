@@ -15,6 +15,8 @@ export bat_rng
 
 bat_rng() = Philox4x()
 
+bat_determ_rng() = Philox4x((0, 0))
+
 
 
 struct RNGPartition{R<:AbstractRNG,S,C,I}

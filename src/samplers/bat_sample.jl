@@ -159,9 +159,6 @@ struct RandResampling <: AbstractSamplingAlgorithm end
 export RandResampling
 
 
-default_sampling_algorithm(posterior::DensitySampleVector) = RandResampling()
-
-
 function bat_sample(rng::AbstractRNG, posterior::DensitySampleVector, n::Integer, algorithm::RandResampling)
     orig_idxs = eachindex(posterior)
     weights = FrequencyWeights(float(posterior.weight))
@@ -171,4 +168,49 @@ function bat_sample(rng::AbstractRNG, posterior::DensitySampleVector, n::Integer
     samples.weight .= 1
 
     (result = samples,)
+end
+
+
+
+"""
+OrderedResampling <: AbstractSamplingAlgorithm
+
+Constructors:
+
+    OrderedResampling()
+
+    Efficiently resamples from a given series of samples, keeping the order of samples.
+
+    Can be used to efficiently convert weighted samples into samples with uniform
+"""
+struct OrderedResampling <: AbstractSamplingAlgorithm end
+export OrderedResampling
+
+
+default_sampling_algorithm(posterior::DensitySampleVector) = OrderedResampling()
+
+
+function bat_sample(rng::AbstractRNG, samples::DensitySampleVector, n::Integer, algorithm::OrderedResampling)
+    @assert axes(samples) == axes(samples.weight)
+    W = samples.weight
+    idxs = eachindex(samples)
+
+    resampled_idxs = Vector{Int}()
+    sizehint!(resampled_idxs, n)
+
+    p_factor = n / sum(W)
+
+    for i in eachindex(W)
+        w_eff_0 = p_factor * W[i]
+        w_eff::typeof(w_eff_0) = w_eff_0
+        while w_eff > 0
+            rand(rng) < w_eff && push!(resampled_idxs, i)
+            w_eff = w_eff - 1
+        end
+    end
+
+    new_samples = samples[resampled_idxs]
+    new_samples.weight .= 1
+
+    (result = new_samples,)
 end

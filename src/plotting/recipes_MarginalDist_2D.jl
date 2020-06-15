@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 @recipe function f(
-    bathist::BATHistogram,
-    parsel::NTuple{2,Integer};
+    marg::MarginalDist,
+    parsel::NTuple{2,Union{Symbol, Expr, Integer}};
     intervals = standard_confidence_vals,
     colors = standard_colors,
     diagonal = Dict(),
@@ -11,15 +11,11 @@
     normalize = true
 )
     _plots_module() != nothing || throw(ErrorException("Package Plots not available, but required for this operation"))
-
-    hist = subhistogram(bathist, collect(parsel))
-    normalize ? hist.h=StatsBase.normalize(hist.h) : nothing
-
+    hist = marg.dist.h
     seriestype = get(plotattributes, :seriestype, :histogram2d)
 
     xlabel = get(plotattributes, :xguide, "x$(parsel[1])")
     ylabel = get(plotattributes, :yguide, "x$(parsel[2])")
-
 
     # histogram / heatmap
     if seriestype == :histogram2d || seriestype == :histogram || seriestype == :hist
@@ -29,7 +25,7 @@
             yguide --> ylabel
             colorbar --> true
 
-            hist.h.edges[1], hist.h.edges[2], _plots_module().Surface(hist.h.weights)
+            hist.edges[1], hist.edges[2], _plots_module().Surface(hist.weights)
         end
 
 
@@ -45,8 +41,8 @@
         end
 
         lev = calculate_levels(hist, intervals)
-        x, y = get_bin_centers(hist)
-        m = hist.h.weights
+        x, y = get_bin_centers(marg)
+        m = hist.weights
 
         # quick fix: needed when plotting contour on top of histogram
         # otherwise scaling of histogram colorbar would change scaling
@@ -88,7 +84,7 @@
                 xguide --> xlabel
                 yguide --> ylabel
 
-                hists[i].h.edges[1], hists[i].h.edges[2], _plots_module().Surface(hists[i].h.weights)
+                hists[i].edges[1], hists[i].edges[2], _plots_module().Surface(hists[i].weights)
             end
 
             # fake a legend
@@ -100,13 +96,14 @@
                 linewidth --> 0
                 label --> interval_label
                 colorbar --> false
-                [hists[i].h.edges[1][1], hists[i].h.edges[1][1]], [hists[i].h.edges[2][1], hists[i].h.edges[2][1]]
+                [hists[i].edges[1][1], hists[i].edges[1][1]], [hists[i].edges[2][1], hists[i].edges[2][1]]
             end
         end
 
 
     # marginal histograms
     elseif seriestype == :marginal
+
         layout --> _plots_module().grid(2,2, widths=(0.8, 0.2), heights=(0.2, 0.8))
         link --> :both
 
@@ -125,7 +122,7 @@
             intervals --> get(upper, "intervals", standard_confidence_vals)
             legend --> get(upper, "legend", true)
 
-            hist, 1
+            marg, parsel[1]
         end
 
         # empty plot (needed since @layout macro not available)
@@ -157,7 +154,7 @@
             intervals --> get(diagonal, "intervals", standard_confidence_vals)
             legend --> get(diagonal, "legend", false)
 
-            hist, (1, 2)
+            marg, (parsel[1], parsel[2])
         end
 
         @series begin
@@ -172,7 +169,7 @@
             intervals --> get(right, "intervals", standard_confidence_vals)
             legend --> get(right, "legend", true)
 
-            hist, 2
+            marg, parsel[2]
         end
 
     else

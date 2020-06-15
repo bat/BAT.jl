@@ -147,30 +147,32 @@ using BAT, IntervalSets
 # to indicate that it returns a log-likelihood value:
 
 likelihood = let h = hist, f = fit_function
+    ## Histogram counts for each bin as an array:
+    observed_counts = h.weights
+
+    ## Histogram binning:
+    bin_edges = h.edges[1]
+    bin_edges_left = bin_edges[1:end-1]
+    bin_edges_right = bin_edges[2:end]
+    bin_widths = bin_edges_right - bin_edges_left
+    bin_centers = (bin_edges_right + bin_edges_left) / 2
+
     params -> begin
-        ## Histogram counts for each bin as an array:
-        counts = h.weights
-
-        ## Histogram binning, has length (length(counts) + 1):
-        binning = h.edges[1]
-
-        ## sum log-likelihood value over bins:
-        ll_value::Float64 = 0.0
-        for i in eachindex(counts)
-            ## Get information about current bin:
-            bin_left, bin_right = binning[i], binning[i+1]
-            bin_width = bin_right - bin_left
-            bin_center = (bin_right + bin_left) / 2
-
-            observed_counts = counts[i]
-
+        ## Log-likelihood for a single bin:
+        function bin_log_likelihood(i)
             ## Simple mid-point rule integration of fit function `f` over bin:
-            expected_counts = bin_width * f(params, bin_center)
-
-            ## Add log of Poisson probability for bin:
-            ll_value += logpdf(Poisson(expected_counts), observed_counts)
+            expected_counts = bin_widths[i] * f(params, bin_centers[i])
+            logpdf(Poisson(expected_counts), observed_counts[i])
         end
 
+        ## Sum log-likelihood over bins:
+        idxs = eachindex(observed_counts)
+        ll_value = bin_log_likelihood(idxs[1])
+        for i in idxs[2:end]
+            ll_value += bin_log_likelihood(i)
+        end
+
+        ## Wrap `ll_value` in `LogDVal` so BAT knows it's a log density-value.
         return LogDVal(ll_value)
     end
 end
@@ -200,10 +202,11 @@ likelihood(true_par_values)
 using ValueShapes
 
 prior = NamedTupleDist(
-    a = [0.0..10.0^4, 0.0..10.0^4],
+    a = [Weibull(1.1, 5000), Weibull(1.1, 5000)],
     mu = [-2.0..0.0, 1.0..3.0],
-    sigma = Truncated(Normal(0.4, 2), 0.3, 0.7)
+    sigma = Weibull(1.2, 2)
 )
+
 #md nothing # hide
 
 # In general, BAT allows instances of any subtype of `AbstractDensity` to
@@ -375,16 +378,18 @@ findmode_result = bat_findmode(posterior, initial_mode = samples_mode)
 fit_par_values = findmode_result.result[]
 
 
-# Let's plot the data and fit function, for both true and best-fit parameter
-# values:
+# Let's plot the data and fit function given the true parameters and MCMC samples
 
-plot(
+plot(-4:0.01:4, fit_function, samples)
+
+plot!(
     normalize(hist, mode=:density),
-    st = :steps, label = "Data",
+    color=1, linewidth=2, fillalpha=0.0,
+    st = :steps, fill=false, label = "Data",
     title = "Data, True Model and Best Fit"
 )
-plot!(-4:0.01:4, x -> fit_function(true_par_values, x), label = "Truth")
-plot!(-4:0.01:4, x -> fit_function(fit_par_values, x), label = "Best fit")
+
+plot!(-4:0.01:4, x -> fit_function(true_par_values, x), color=4, label = "Truth")
 #jl savefig("tutorial-data-truth-bestfit.pdf")
 #md savefig("tutorial-data-truth-bestfit.pdf")
 #md savefig("tutorial-data-truth-bestfit.svg"); nothing # hide
