@@ -1,9 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-# ToDo: Add `density_logvalgrad!` to support HMC, etc.
-
-
 @doc doc"""
     AbstractDensity
 
@@ -34,13 +31,13 @@ export AbstractDensity
 @doc doc"""
     BAT.density_logval(density::AbstractDensity, v::Any)
 
-Compute log of value of a multivariate density function at the given
-variate/parameter values.
+Compute log of the value of a multivariate density function for the given
+variate/parameter-values.
 
 Input:
 
 * `density`: density function
-* `v`: argument, i.e. variate/parameter value
+* `v`: argument, i.e. variate / parameter-values
 
 Note: If `density_logval` is called with an argument that is out of bounds,
 the behaviour is undefined. The result for arguments that are not within
@@ -48,6 +45,41 @@ bounds is *implicitly* `-Inf`, but it is the caller's responsibility to handle
 these cases.
 """
 function density_logval end
+
+
+@doc doc"""
+    BAT.density_logvalgrad(density::AbstractDensity, v::AbstractVector{<:Real})
+
+Compute the log of the value of a multivariate density function, as well as
+the gradient of the log-value for the given variate/parameter-values.
+
+Input:
+
+* `density`: density function
+* `v`: argument, i.e. variate / parameter-values
+
+Returns a tuple of the log density value and it's gradient.
+
+See also [`BAT.density_logval`](@ref).
+"""
+function density_logvalgrad(
+    density::AbstractDensity,
+    v::AbstractVector{<:Real},
+)
+    n = length(eachindex(v))
+    log_f = v -> BAT.density_logval(density, v)
+
+    P = eltype(v)
+    T = typeof(log_f(v)) # Inefficient
+
+    grad_logd = Vector{P}(undef, n)
+    chunk = ForwardDiff.Chunk(v)
+    config = ForwardDiff.GradientConfig(log_f, v, chunk)
+    result = DiffResults.MutableDiffResult(zero(T), (grad_logd,))
+    ForwardDiff.gradient!(result, log_f, v, config)
+    logd = DiffResults.value(result)
+    (logd = logd, grad_logd = grad_logd)
+end
 
 
 @doc doc"""
@@ -120,7 +152,15 @@ function eval_density_logval(
     npars = totalndof(density)
     ismissing(npars) || (length(eachindex(v)) == npars) || throw(ArgumentError("Invalid length of parameter vector"))
 
-    r = float(density_logval(density, _apply_parshapes(v, shape)))
+    v_shaped = _apply_parshapes(v, shape)
+    raw_r = try
+        density_logval(density, _apply_parshapes(v, shape))
+    catch err
+        v_real = _strip_duals(v)
+        v_real_shaped = _apply_parshapes(v_real, shape)
+        throw(ErrorException("Density evaluation failed at v = $v_real_shaped due to exception $err"))
+    end
+    r = float(raw_r)
     isnan(r) && throw(ErrorException("Return value of density_logval must not be NaN, density has type $(typeof(density))"))
     r < convert(typeof(r), +Inf) || throw(ErrorException("Return value of density_logval must not be posivite infinite, density has type $(typeof(density))"))
 
@@ -128,6 +168,9 @@ function eval_density_logval(
 end
 
 _apply_parshapes(v::AbstractVector{<:Real}, shape::AbstractValueShape) = stripscalar(shape(v))
+
+_strip_duals(x) = x
+_strip_duals(x::AbstractVector{<:ForwardDiff.Dual}) = ForwardDiff.value.(x)
 
 
 @doc doc"""

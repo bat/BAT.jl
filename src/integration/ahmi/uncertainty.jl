@@ -46,6 +46,14 @@ function binomial_p_estimate_wilson(n_total, n_success, nsigmas = 1)
     p_err = z / (n + z2) * sqrt(n_S * n_F / n + z2 / 4)
 end
 
+
+function ahmi_ess_estimate(v::AbstractMatrix{<:Real}, w::AbstractVector{<:Real})
+    ess = bat_eff_sample_size(nestedview(v)).result
+    w_correction = BAT.wgt_effective_sample_size(w) / length(eachindex(w))
+    minimum(ess) * w_correction
+end
+
+
 function calculateuncertainty(dataset::DataSet{T, I}, volume::IntegrationVolume{T, I}, determinant::T, integral::T) where {T<:AbstractFloat, I<:Integer}
 
     #resorting the samples to undo the reordering of the space partitioning tree
@@ -64,8 +72,8 @@ function calculateuncertainty(dataset::DataSet{T, I}, volume::IntegrationVolume{
     y_r = (x::Float64) -> Float64(x_min + (x_max - x_min) * x)
 
 
-    ess = BAT.effective_sample_size(vol_samples, vol_weights)
-    ess_total = BAT.effective_sample_size(dataset.data[:, dataset.sortids], dataset.weights[dataset.sortids])
+    ess = ahmi_ess_estimate(vol_samples, vol_weights)
+    ess_total = ahmi_ess_estimate(dataset.data[:, dataset.sortids], dataset.weights[dataset.sortids])
 
     f = 1 ./ exp.(dataset.logprob[volume.pointcloud.pointIDs])
 

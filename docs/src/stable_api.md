@@ -28,10 +28,12 @@ Order = [:macro, :function]
 
 
 ```@docs
+bat_eff_sample_size
 bat_findmedian
 bat_findmode
 bat_marginalmode
 bat_integrate
+bat_integrated_autocorr_len
 bat_read
 bat_rng
 bat_sample
@@ -40,6 +42,10 @@ bat_write
 BAT.default_mode_estimator
 BAT.default_sampling_algorithm
 BAT.density_logval
+BAT.density_logvalgrad
+
+BAT.fft_autocor
+BAT.fft_autocov
 
 AbstractDensity
 AbstractMCMCTuningStrategy
@@ -47,12 +53,18 @@ AbstractPosteriorDensity
 AbstractWeightingScheme
 AdaptiveMetropolisTuning
 AHMC
+AHMIntegration
 ARPWeighting
+AutocorLenAlgorithm
 BrooksGelmanConvergence
+CholeskyPartialWhitening
+CholeskyWhitening
 DensitySample
 DensitySampleVector
 DistLikeDensity
 GelmanRubinConvergence
+GeyerAutocorLen
+IntegrationAlgorithm
 LinDVal
 LogDVal
 MaxDensityLBFGS
@@ -64,10 +76,15 @@ MCMCInitStrategy
 MCMCIterator
 MetropolisHastings
 ModeAsDefined
+NoWhitening
+OrderedResampling
 PosteriorDensity
 RandResampling
 RandSampling
 RepetitionWeighting
+SokalAutocorLen
+StatisticalWhitening
+WhiteningAlgorithm
 
 BAT.AbstractModeEstimator
 BAT.AbstractSamplingAlgorithm
