@@ -7,6 +7,14 @@ struct Funnel{T<:Real, V<:AbstractVector, dimensions<:Int64, L<:ContinuousMultiv
     likelihood::L
 end
 
+"""
+The Gaussian Shell distribution
+
+r = 5.0
+w = 2.0
+c = zeros(2)
+"""
+
 function Funnel(a::Real, b::Real, λ::AbstractVector)
     n = length(λ)
     λ = float(λ)
@@ -36,12 +44,6 @@ function Distributions._rand!(rng::AbstractRNG, d::Funnel, x::AbstractVector)
 end
 
 _update_funnel(d::Funnel, λ::AbstractArray) = Funnel(d.a, d.b, λ)
-
-function Distributions.truncated(d::Funnel, l::Real, u::Real)
-    truncated_dists = truncated.(d.dists, float(l), float(u))
-    pd = product_distribution(truncated_dists)
-    return Funnel(d.a, d.b, d.λ, d.n, truncated_dists, pd)
-end
 
 function _construct_dists(a::Real, b::Real, λ::AbstractVector)
     n = length(λ)
