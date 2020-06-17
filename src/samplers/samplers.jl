@@ -4,3 +4,6 @@ include("weighting.jl")
 include("bat_sample.jl")
 include("mcmc/mcmc.jl")
 include("mcmc/ahmc/ahmc.jl")
+
+include("partitioned_sampling/space_partition.jl")
+include("partitioned_sampling/partition_sample.jl")

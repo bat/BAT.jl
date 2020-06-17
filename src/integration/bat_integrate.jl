@@ -1,15 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-
-"""
-    IntegrationAlgorithm
-
-Abstract type for integration algorithms.
-"""
-abstract type IntegrationAlgorithm end
-export IntegrationAlgorithm
-
-
 """
     AHMIntegration
 
