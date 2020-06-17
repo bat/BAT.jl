@@ -122,9 +122,6 @@ end
 
 
 
-default_sampling_algorithm(posterior::AbstractPosteriorDensity) = MetropolisHastings()
-
-
 """
     function bat_sample(
         rng::AbstractRNG,

@@ -3,5 +3,5 @@
 using Test
 
 Test.@testset "statistics" begin
-    include("test_bat_findmode.jl")
+    include("test_mode_estimators.jl")
 end
