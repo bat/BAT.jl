@@ -2,7 +2,7 @@
 
 
 """
-    WhiteningAlgorithm
+    IntegrationAlgorithm
 
 Abstract type for integration algorithms.
 """
@@ -97,7 +97,7 @@ bat_integrate(posterior::AnyPosterior) = bat_integrate(posterior, AHMIntegration
 
 function bat_integrate(posterior::DensitySampleVector, algorithm::AHMIntegration)
     hmi_data = HMIData(unshaped.(posterior))
-    
+
     integrationvol = algorithm.volumetype
 
     uncertainty_est_mapping = Dict(
