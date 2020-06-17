@@ -20,47 +20,39 @@ The default constructor is using `MetropolisHastings` sampler,
     PartitionedSampling()
 
 """
-struct PartitionedSampling{S<:AbstractSamplingAlgorithm,
+@with_kw struct PartitionedSampling{S<:AbstractSamplingAlgorithm,
     I<:IntegrationAlgorithm, P<:SpacePartitioningAlgorithm} <: AbstractSamplingAlgorithm
-    samplingalgm::S
-    integrationalgm::I
-    partitonalgm::P
+    exploration_algm::S = MetropolisHastings()
+    partiton_algm::P = KDBinaryTree()
+    sampling_algm::S = MetropolisHastings()
+    integration_algm::I = AHMIntegration()
 end
 
 export PartitionedSampling
-
-function PartitionedSampling()
-    PartitionedSampling(MetropolisHastings(), AHMIntegration(), KDBinaryTree())
-end
-# export PartitionedSampling
 
 
 """
     function bat_sample(
         posterior::PosteriorDensity,
-        n::Tuple{Integer,Integer},
+        n::Tuple{Integer,Integer, Integer},
         algorithm::PartitionedSampling;
         n_subspaces::Integer,
         sampling_kwargs::NamedTuple,
-        integration_kwargs::NamedTuple,
-        space_part_kwargs::NamedTuple
     )
 
 Sample partitioned `posterior` using sampler, integrator, and space
 partitioning algorithm specified in `algorithm` with corresponding kwargs
-given by `sampling_kwargs`, `integration_kwargs`, and `space_part_kwargs`.
+given by `exploration_kwargs`, and `sampling_kwargs`.
 
-`n` must be a tuple `(nsteps, nchains)`. `posterior` must be a uniform
+`n` must be a tuple `(nsteps, nchains, npartitions)`. `posterior` must be a uniform
 distribution for each dimension.
 """
 function bat_sample(
     posterior::PosteriorDensity,
-    n::Tuple{Integer,Integer},
+    n::Tuple{Integer,Integer, Integer},
     algorithm::PartitionedSampling;
-    n_subspaces::Integer = 10,
+    exploration_kwargs::NamedTuple = (init_strategy = "tmp", burnin_strategy = "tmp"),
     sampling_kwargs::NamedTuple = (init_strategy = "tmp", burnin_strategy = "tmp"),
-    integration_kwargs::NamedTuple = (settings = "tmp",),
-    space_part_kwargs::NamedTuple = (settings = "tmp",)
 )
     @info "Generate Exploration Samples"
     @info "Construct KD-Tree"
