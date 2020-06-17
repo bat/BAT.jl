@@ -107,6 +107,8 @@ Base.eltype(bounds::NoVarBounds) = _default_PT
 Base.in(x::AbstractVector, bounds::NoVarBounds) = true
 # Base.in(x::VectorOfSimilarVectors, bounds::NoVarBounds, i::Integer) = true
 
+Base.isinf(bounds::NoVarBounds) = true
+
 ValueShapes.totalndof(b::NoVarBounds) = b.ndims
 
 apply_bounds!(x::Union{AbstractVector,VectorOfSimilarVectors}, bounds::NoVarBounds, setoob = true) = x
@@ -193,6 +195,8 @@ function Base.intersect(a::HyperRectBounds, b::HyperRectBounds)
     end
     c
 end
+
+Base.isinf(bounds::HyperRectBounds) = isinf(bounds.vol)
 
 
 function Base.vcat(xs::HyperRectBounds...)
