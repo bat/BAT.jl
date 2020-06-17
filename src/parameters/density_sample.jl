@@ -166,7 +166,7 @@ function DensitySampleVector(
     aux::AbstractVector = fill(nothing, length(eachindex(v)))
 )
     if weight == :RepetitionWeight
-        v, weight = repetition_weights(v)
+        v, weight = repetition_to_weights(v)
     end
 
     return shape.(DensitySampleVector((ArrayOfSimilarArrays(v), logval, weight, info, aux)))
@@ -313,4 +313,33 @@ function drop_low_weight_samples(samples::DensitySampleVector, fraction::Real = 
             samples
         end
     end
+end
+
+
+
+
+"""
+    repetition_to_weights(v::AbstractVector)
+
+*BAT-internal, not part of stable public API.*
+
+Drop (subsequently) repeated samples by adding weights.
+"""
+function repetition_to_weights(v::AbstractVector)
+    n = length(eachindex(v))
+    weights = ones(Int, n)
+
+    i=2
+    k = 0
+    while i <= n-k
+        if v[i] == v[i-1]
+            weights[i-1] += 1
+            deleteat!(v, i)
+            deleteat!(weights, i)
+            k += 1
+        else
+            i = i+1
+        end
+    end
+    return v, weights
 end
