@@ -15,7 +15,7 @@ The algorithm that partitions parameter space by multiple subspaces and
 samples/integrates them independently (See arXiv reference).
 
 The default constructor is using `MetropolisHastings` sampler,
-`AHMIntegration` integrator, and `KDBinaryTree`:
+`AHMIntegration` integrator, and `KDTreePartitioning`:
 
     PartitionedSampling()
 
@@ -23,7 +23,7 @@ The default constructor is using `MetropolisHastings` sampler,
 @with_kw struct PartitionedSampling{S<:AbstractSamplingAlgorithm,
     I<:IntegrationAlgorithm, P<:SpacePartitioningAlgorithm} <: AbstractSamplingAlgorithm
     exploration_algm::S = MetropolisHastings()
-    partiton_algm::P = KDBinaryTree()
+    partiton_algm::P = KDTreePartitioning()
     sampling_algm::S = MetropolisHastings()
     integration_algm::I = AHMIntegration()
 end
