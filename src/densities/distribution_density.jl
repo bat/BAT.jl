@@ -96,14 +96,14 @@ function finite_param_bounds(d::Product)
 end
 
 
-function convert2HyperRectBounds(bounds::Union{Vector{<:Tuple}, Tuple{Vararg{Tuple}}})
-    dim = length(bounds)
-    lo = [bounds[i][1] for i in 1:dim]
-    hi = [bounds[i][2] for i in 1:dim]
-    return HyperRectBounds(lo, hi, hard_bounds)
+function HyperRectBounds(bounds::AbstractInterval; bounds_type=hard_bounds)
+    return HyperRectBounds([bounds.left], [bounds.right], bounds_type)
 end
 
 
-function convert2HyperRectBounds(bounds::HyperRectBounds)
-    return bounds
+function HyperRectBounds(bounds::Vector{<:AbstractInterval}; bounds_type=hard_bounds)
+    lo = [b.left for b in bounds]
+    hi = [b.right for b in bounds]
+
+    return HyperRectBounds(lo, hi, bounds_type)
 end
