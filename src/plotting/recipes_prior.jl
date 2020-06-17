@@ -21,8 +21,14 @@
         throw(ArgumentError("Symbol :$parsel refers to a multivariate parameter. Use :($parsel[i]) instead."))
     end
 
-    bathist = BATHistogram(prior, idx, nbins = bins, closed = closed)
-    normalize ? bathist.h = StatsBase.normalize(bathist.h) : nothing
+    marg = bat_marginalize(
+        prior,
+        idx,
+        nbins = bins,
+        nsamples = nsamples,
+        closed = closed,
+        normalize = normalize
+    ).result
 
     xlabel = if isa(parsel, Symbol) || isa(parsel, Expr)
         "$parsel"
@@ -50,7 +56,7 @@
         colors --> colors
         interval_labels --> interval_labels
 
-        bathist, 1
+        marg, idx
     end
 
 end
@@ -60,7 +66,7 @@ end
 # 2D plots
 @recipe function f(
     prior::NamedTupleDist,
-    parsel::Union{NTuple{2,Integer}, NTuple{2,Union{Symbol, Expr}}};
+    parsel::Union{NTuple{2,Integer}, NTuple{2,Union{Symbol, Expr, Integer}}};
     nsamples=10^6,
     intervals = standard_confidence_vals,
     bins = 200,
@@ -83,13 +89,14 @@ end
         throw(ArgumentError("Symbol :$(parsel[2]) refers to a multivariate parameter. Use :($(parsel[2])[i]) instead."))
     end
 
-    bathist = BATHistogram(
+
+    marg = bat_marginalize(
         prior,
         (xidx, yidx),
-        nbins=bins,
-        closed=closed,
-        nsamples=nsamples
-    )
+        nbins = bins,
+        closed = closed,
+        normalize = normalize
+    ).result
 
 
     xlabel, ylabel = if isa(parsel, Symbol) || isa(parsel, Expr)
@@ -110,6 +117,6 @@ end
         upper --> upper
         right --> right
 
-        bathist, (1, 2)
+        marg, (xidx, yidx)
     end
 end

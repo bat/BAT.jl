@@ -2,25 +2,28 @@
 
 # TODO: add plot without Int for overview?
 
-function plothistogram(bathist::BATHistogram, swap::Bool)
+function plothistogram(h::StatsBase.Histogram, swap::Bool)
     if swap
-        return bathist.h.weights, bathist.h.edges[1][1:end-1]
+        return h.weights, h.edges[1][1:end-1]
     else
-        return bathist.h.edges[1][1:end-1], bathist.h.weights
+        return h.edges[1][1:end-1], h.weights
     end
 end
 
 
 @recipe function f(
-    bathist::BATHistogram,
-    idx::Integer;
+    origmarg::MarginalDist,
+    parsel::Union{Integer, Symbol, Expr};
     intervals = standard_confidence_vals,
     normalize = true,
     colors = standard_colors,
     interval_labels = []
 )
-    hist = subhistogram(bathist, [idx])
-    normalize ? hist.h=StatsBase.normalize(hist.h) : nothing
+    indx = asindex(origmarg, parsel)
+
+    marg = bat_marginalize(origmarg, (indx, )).result
+    hist = marg.dist.h
+    normalize ? hist=StatsBase.normalize(hist) : nothing
 
     orientation = get(plotattributes, :orientation, :vertical)
     (orientation != :vertical) ? swap = true : swap = false
@@ -28,8 +31,8 @@ end
 
     seriestype = get(plotattributes, :seriestype, :stephist)
 
-    xlabel = get(plotattributes, :xguide, "x$(idx)")
-    ylabel = get(plotattributes, :yguide, "p(x$(idx))")
+    xlabel = get(plotattributes, :xguide, "x$(indx)")
+    ylabel = get(plotattributes, :yguide, "p(x$(indx))")
 
     if swap
         xguide := ylabel

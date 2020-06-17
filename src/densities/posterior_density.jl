@@ -130,8 +130,19 @@ end
 
 function density_logval(density::AbstractPosteriorDensity, v::AbstractVector{<:Real})
     parshapes = varshape(density)
-    eval_density_logval(getprior(density), v, parshapes) +
-    eval_density_logval(getlikelihood(density), v, parshapes)
+
+    prior_logval = eval_density_logval(getprior(density), v, parshapes)
+    T = typeof(prior_logval)
+
+    # Don't evaluate likelihood if prior probability is zero. Prevents
+    # failures when algorithms try to explore parameter space outside of
+    # definition of likelihood.
+    if prior_logval > -Inf
+        likelihood_logval = eval_density_logval(getlikelihood(density), v, parshapes)
+        prior_logval + convert(T, likelihood_logval)
+    else
+        prior_logval
+    end
 end
 
 function density_logval(density::AbstractPosteriorDensity, v::Any)
