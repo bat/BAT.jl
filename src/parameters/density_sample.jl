@@ -158,8 +158,7 @@ DensitySampleVector(::Type{S}, varlen::Integer) where {P<:AbstractVector{<:Real}
 
 
 function DensitySampleVector(
-    v::AbstractVector,
-    shape::AbstractValueShape;
+    v::AbstractVector;
     logval::AbstractVector{<:Real} = fill(0, length(eachindex(v))),
     weight::Union{AbstractVector{<:Real}, Symbol} = fill(1, length(eachindex(v))),
     info::AbstractVector = fill(nothing, length(eachindex(v))),
@@ -169,7 +168,7 @@ function DensitySampleVector(
         v, weight = repetition_to_weights(v)
     end
 
-    return shape.(DensitySampleVector((ArrayOfSimilarArrays(v), logval, weight, info, aux)))
+    return DensitySampleVector((ArrayOfSimilarArrays(v), logval, weight, info, aux))
 end
 
 
@@ -314,7 +313,6 @@ function drop_low_weight_samples(samples::DensitySampleVector, fraction::Real = 
         end
     end
 end
-
 
 
 

@@ -18,10 +18,12 @@ function bat_sample(
 
     samples = get_samples(algorithm, bounds, n_samples, posterior)
     stats = [(stat = nothing, ) for i in n_samples] # TODO
+
     logvals = density_logval.(Ref(posterior), samples)
     weights = exp.(logvals)
+    shape = varshape(posterior)
 
-    bat_samples = DensitySampleVector(samples, varshape(posterior), logval = logvals, weight = weights)
+    bat_samples = shape.(DensitySampleVector(samples, logval = logvals, weight = weights))
     return (result = bat_samples, chains = stats)
 end
 
