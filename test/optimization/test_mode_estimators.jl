@@ -5,7 +5,7 @@ using Test
 
 using LinearAlgebra, Distributions, StatsBase, ValueShapes
 
-@testset "bat_findmode" begin
+@testset "mode_estimators" begin
     prior = NamedTupleDist(
         x = Normal(2.0, 1.0),
         c = [4, 5],
@@ -34,15 +34,13 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes
 
 
     @testset "ModeAsDefined" begin
-        @test @inferred(BAT.default_mode_estimator(prior)) == ModeAsDefined()
-        @test @inferred(bat_findmode(prior)).result == true_mode_flat # ToDo: Should return shaped mode
+        @test @inferred(bat_findmode(prior, ModeAsDefined())).result == true_mode_flat # ToDo: Should return shaped mode
         @test @inferred(bat_findmode(BAT.DistributionDensity(prior), ModeAsDefined())).result == true_mode_flat
     end
 
 
     @testset "MaxDensitySampleSearch" begin
-        @test @inferred(BAT.default_mode_estimator(samples)) == MaxDensitySampleSearch()
-        @test @inferred(bat_findmode(samples, MaxDensitySampleSearch())) == @inferred(bat_findmode(samples))
+        @test @inferred(bat_findmode(samples, MaxDensitySampleSearch())).result isa ShapedAsNT
         m = bat_findmode(samples, MaxDensitySampleSearch())
         @test samples[m.mode_idx].v == stripscalar(m.result)
         @test isapprox(unshaped(m.result), true_mode_flat, rtol = 0.05)
@@ -50,7 +48,6 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes
 
 
     @testset "MaxDensityNelderMead" begin
-        @inferred(BAT.default_mode_estimator(posterior)) == MaxDensityNelderMead()
         test_findmode(posterior,  MaxDensityNelderMead(), missing, 0.01)
         test_findmode(posterior,  MaxDensityNelderMead(), rand(prior), 0.01)
         test_findmode(posterior,  MaxDensityNelderMead(), samples, 0.01)

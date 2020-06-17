@@ -2,15 +2,6 @@
 
 
 """
-    IntegrationAlgorithm
-
-Abstract type for integration algorithms.
-"""
-abstract type IntegrationAlgorithm end
-export IntegrationAlgorithm
-
-
-"""
     AHMIntegration
 
 Adaptive Harmonic Mean Integration algoritm
@@ -61,38 +52,6 @@ Optional Parameters/settings (`kwargs`):
     uncertainty::Vector{Symbol} = [:cov]
 end
 export AHMIntegration
-
-
-"""
-    bat_integrate(
-        posterior::BAT.AnyPosterior,
-        algorithm::IntegrationAlgorithm = AHMIntegration()
-    )::DensitySampleVector
-
-Calculate the integral (evidence) of `posterior`.
-
-Returns a NamedTuple: (result = x::Measurement.Measurement, ...)
-
-Result properties not listed here are algorithm-specific and are not part
-of the stable BAT API.
-
-`posterior` may be a
-
-* [`BAT.AbstractPosteriorDensity`](@ref)
-
-* [`BAT.DistLikeDensity`](@ref)
-
-* [`BAT.DensitySampleVector`](@ref)
-
-* `Distributions.MultivariateDistribution`
-
-Uses the AHMI algorithm by default.
-"""
-function bat_integrate end
-export bat_integrate
-
-
-bat_integrate(posterior::AnyPosterior) = bat_integrate(posterior, AHMIntegration())
 
 
 function bat_integrate(posterior::DensitySampleVector, algorithm::AHMIntegration)

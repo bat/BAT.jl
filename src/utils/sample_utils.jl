@@ -1,3 +1,6 @@
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
+
 export convert_to_bat_samples
 
 function convert_to_bat_samples(samples, posterior)

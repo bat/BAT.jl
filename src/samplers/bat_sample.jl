@@ -8,105 +8,6 @@ const RandSampleable = Union{
 }
 
 
-const AnyNSamples = Union{
-    Integer,
-    Tuple{Integer,Integer},
-}
-
-
-
-"""
-    BAT.AbstractSamplingAlgorithm
-
-Abstract type for BAT sampling algorithms. See [`bat_sample`](@ref).
-"""
-abstract type AbstractSamplingAlgorithm end
-
-
-"""
-    BAT.default_sampling_algorithm(posterior)
-
-Get BAT's default sampling algorithm for `posterior`.
-"""
-function default_sampling_algorithm end
-
-
-"""
-    bat_sample(
-        [rng::AbstractRNG],
-        posterior::BAT.AnyPosterior,
-        n::BAT.AnyNSamples,
-        [algorithm::BAT.AbstractSamplingAlgorithm]
-    )::DensitySampleVector
-
-Draw `n` samples from `posterior`.
-
-Returns a NamedTuple of the shape
-
-```julia
-(result = X::DensitySampleVector, ...)
-```
-
-Result properties not listed here are algorithm-specific and are not part
-of the stable BAT API.
-
-
-`posterior` may be a
-
-* [`BAT.AbstractPosteriorDensity`](@ref)
-
-* [`BAT.DistLikeDensity`](@ref)
-
-* [`BAT.DensitySampleVector`](@ref)
-
-* `Distributions.MultivariateDistribution`
-
-Depending on the type of posterior, `n` may be of type
-
-* `Integer`: Number of samples
-
-* `Tuple{Integer,Integer}`: Tuple of number of samples per sample source
-   and number of sample sources (e.g. number of MCMC chains). The total number
-   of samples is `product(n)`.
-
-Depending on the type of `posterior`, the number of samples returned may be
-somewhat larger or smaller than specified by `product(n)`.
-
-Also depending on the `posterior` type, the samples may be independent or
-correlated (e.g. when using MCMC).
-"""
-function bat_sample end
-export bat_sample
-
-
-@inline function bat_sample(
-    posterior::AnyPosterior, n::AnyNSamples;
-    kwargs...
-)
-    rng = bat_rng()
-    bat_sample(rng, posterior, n; kwargs...)
-end
-
-
-@inline function bat_sample(
-    posterior::AnyPosterior, n::AnyNSamples, algorithm::AbstractSamplingAlgorithm;
-    kwargs...
-)
-    rng = bat_rng()
-    bat_sample(rng, posterior, n, algorithm; kwargs...)
-end
-
-
-@inline function bat_sample(
-    rng::AbstractRNG, posterior::AnyPosterior, n::AnyNSamples;
-    kwargs...
-)
-    algorithm = default_sampling_algorithm(posterior)
-    bat_sample(rng, posterior, n, algorithm; kwargs...)
-end
-
-
-
 """
     RandSampling
 
@@ -119,9 +20,6 @@ Sample via `Random.rand`. Only supported for posteriors of type
 """
 struct RandSampling <: AbstractSamplingAlgorithm end
 export RandSampling
-
-
-default_sampling_algorithm(posterior::RandSampleable) = RandSampling()
 
 
 function bat_sample(rng::AbstractRNG, posterior::RandSampleable, n::Integer, algorithm::RandSampling)
@@ -185,9 +83,6 @@ Constructors:
 """
 struct OrderedResampling <: AbstractSamplingAlgorithm end
 export OrderedResampling
-
-
-default_sampling_algorithm(posterior::DensitySampleVector) = OrderedResampling()
 
 
 function bat_sample(rng::AbstractRNG, samples::DensitySampleVector, n::Integer, algorithm::OrderedResampling)
