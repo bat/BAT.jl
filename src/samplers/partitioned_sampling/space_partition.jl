@@ -3,8 +3,9 @@ export SpacePartitioningAlgorithm
 
 @with_kw struct KDTreePartitioning <: SpacePartitioningAlgorithm
 	partition_dims::Union{Array{Int64,1}, Bool} = false
-	cost_function::Function = x -> x
 end
+
+export KDTreePartitioning
 
 mutable struct SpacePartTree
    terminate::Bool
@@ -16,6 +17,8 @@ mutable struct SpacePartTree
    cost::AbstractFloat
    cost_part::Union{AbstractFloat, Bool}
 end
+
+export SpacePartTree
 
 function partition_space(samples::DensitySampleVector, n_partitions::Integer, algorithm::A) where {A<:SpacePartitioningAlgorithm}
 
@@ -55,16 +58,6 @@ end
 function def_init_node(data::T, bounds::Array{F}) where {T<:NamedTuple, F<:AbstractFloat}
     cost = evaluate_total_cost(data)
     return SpacePartTree(true, bounds, false, false, false, false, cost, false)
-end
-
-function evaluate_total_cost(data::T) where {T<:NamedTuple}
-    sise_s = size(data.samples)
-    if sise_s[2] > 3
-		μ = mean(exp.(data.loglik), weights(data.weights))
-        return sum(data.weights.*(exp.(data.loglik) .- μ).^2)
-    else
-        return Inf
-    end
 end
 
 function initialize_partitioning!(tree::SpacePartTree, data::T, axes::Array{I,1}) where {T<:NamedTuple, I<:Integer}
@@ -179,5 +172,35 @@ function generate_node!(tree::SpacePartTree, data::T, cut_val::F) where {T<:Name
     else
         generate_node!(tree.left_child, data, cut_val)
         generate_node!(tree.right_child, data, cut_val)
+    end
+end
+
+function evaluate_total_cost(data::T) where {T<:NamedTuple}
+    sise_s = size(data.samples)
+    if sise_s[2] > 3
+        μ = mean(data.samples, weights(data.weights), dims=2)
+        return sum(data.weights.*sum((data.samples .- μ).^2, dims=1))
+    else
+        return Inf
+    end
+end
+
+function cost_f_2(data::T) where {T<:NamedTuple}
+    sise_s = size(data.samples)
+    if sise_s[2] > 3
+		μ = mean(exp.(data.loglik), weights(data.weights))
+        return sum(data.weights.*(exp.(data.loglik) .- μ).^2)
+    else
+        return Inf
+    end
+end
+
+function cost_f_3(data::T) where {T<:NamedTuple}
+    sise_s = size(data.samples)
+    if sise_s[2] > 3
+        μ = data.samples[:,argmax(data.weights)]
+        return   sum( data.weights.*sum((data.samples .- μ).^2, dims=1))
+    else
+        return Inf
     end
 end

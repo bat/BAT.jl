@@ -47,7 +47,7 @@ function bat_sample(
     n_exploration::Tuple{Integer,Integer} = (10^2, 40)
 )
     @info "Generating Exploration Samples"
-    exploration_samples = bat_sample(posterior, n_exploration, algorithm.exploration_algm, exploration_kwargs...).result
+    exploration_samples = bat_sample(posterior, n_exploration, algorithm.exploration_algm; exploration_kwargs...).result
 
     # unshaped_tree_samples = (samples = collect(flatview(unshaped.(exploration_samples.v))),
     #     weights = exploration_samples.weight,
