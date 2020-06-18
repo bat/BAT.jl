@@ -26,6 +26,7 @@ sampler.
 """
 function bat_sampler end
 
+# ToDo/Decision: Rename? Replace with `bat_default` mechanism?
 bat_sampler(d::Distribution) = Distributions.sampler(d)
 
 

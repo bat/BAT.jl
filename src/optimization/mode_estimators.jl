@@ -15,11 +15,11 @@ struct ModeAsDefined <: AbstractModeEstimator end
 export ModeAsDefined
 
 
-function bat_findmode(posterior::AnyPosterior, algorithm::ModeAsDefined)
+function bat_findmode_impl(posterior::AnyPosterior, algorithm::ModeAsDefined)
     (result = StatsBase.mode(posterior),)
 end
 
-function bat_findmode(posterior::DistributionDensity, algorithm::ModeAsDefined)
+function bat_findmode_impl(posterior::DistributionDensity, algorithm::ModeAsDefined)
     (result = StatsBase.mode(posterior.dist),)
 end
 
@@ -39,7 +39,7 @@ struct MaxDensitySampleSearch <: AbstractModeEstimator end
 export MaxDensitySampleSearch
 
 
-function bat_findmode(posterior::DensitySampleVector, algorithm::MaxDensitySampleSearch)
+function bat_findmode_impl(posterior::DensitySampleVector, algorithm::MaxDensitySampleSearch)
     v, i = _get_mode(posterior)
     (result = v, mode_idx = i)
 end
@@ -59,7 +59,7 @@ Estimate the mode of the posterior using Nelder-Mead optimization (via
 struct MaxDensityNelderMead <: AbstractModeEstimator end
 export MaxDensityNelderMead
 
-function bat_findmode(posterior::AnyPosterior, algorithm::MaxDensityNelderMead; initial_mode = missing)
+function bat_findmode_impl(posterior::AnyPosterior, algorithm::MaxDensityNelderMead; initial_mode = missing)
     shape = varshape(posterior)
     x = _get_initial_mode(posterior, initial_mode)
     conv_posterior = convert(AbstractDensity, posterior)
@@ -102,7 +102,7 @@ struct MaxDensityLBFGS <: AbstractModeEstimator end
 export MaxDensityLBFGS
 
 
-function bat_findmode(posterior::AnyPosterior, algorithm::MaxDensityLBFGS; initial_mode = missing)
+function bat_findmode_impl(posterior::AnyPosterior, algorithm::MaxDensityLBFGS; initial_mode = missing)
     shape = varshape(posterior)
     x = _get_initial_mode(posterior, initial_mode)
     conv_posterior = convert(AbstractDensity, posterior)
@@ -112,7 +112,7 @@ end
 
 
 
-function bat_marginalmode(samples::DensitySampleVector; nbins::Union{Integer, Symbol} = 200)
+function bat_marginalmode_impl(samples::DensitySampleVector; nbins::Union{Integer, Symbol} = 200)
 
     shape = varshape(samples)
     flat_samples = flatview(unshaped.(samples.v))

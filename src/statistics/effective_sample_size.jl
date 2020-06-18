@@ -4,13 +4,13 @@
 function tau_int_from_atc end
 
 
-function bat_integrated_autocorr_len(v::AbstractVector{<:Real}, algorithm::AutocorLenAlgorithm)
+function bat_integrated_autocorr_len_impl(v::AbstractVector{<:Real}, algorithm::AutocorLenAlgorithm)
     atc = fft_autocor(v)
     tau_int_est = tau_int_from_atc(atc, algorithm)
     (result = tau_int_est,)
 end
 
-function bat_integrated_autocorr_len(v::AbstractVectorOfSimilarVectors{<:Real}, algorithm::AutocorLenAlgorithm)
+function bat_integrated_autocorr_len_impl(v::AbstractVectorOfSimilarVectors{<:Real}, algorithm::AutocorLenAlgorithm)
     atc = fft_autocor(v)
     flat_atc = flatview(atc)
     tau_int_est = map(axes(flat_atc, 1)) do i
@@ -109,7 +109,7 @@ end
 
 
 
-function bat_eff_sample_size(v::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}}, algorithm::AutocorLenAlgorithm)
+function bat_eff_sample_size_impl(v::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}}, algorithm::AutocorLenAlgorithm)
     tau_int = bat_integrated_autocorr_len(v, algorithm).result
     n = length(eachindex(v))
     ess = min.(n, n./ tau_int)
@@ -117,7 +117,7 @@ function bat_eff_sample_size(v::Union{AbstractVector{<:Real},AbstractVectorOfSim
 end
 
 
-function bat_eff_sample_size(smpls::DensitySampleVector, algorithm::AutocorLenAlgorithm; use_weights = true)
+function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::AutocorLenAlgorithm; use_weights = true)
     ess = bat_eff_sample_size(smpls.v, algorithm).result
 
     if use_weights

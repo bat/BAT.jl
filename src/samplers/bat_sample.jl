@@ -22,7 +22,7 @@ struct RandSampling <: AbstractSamplingAlgorithm end
 export RandSampling
 
 
-function bat_sample(rng::AbstractRNG, posterior::RandSampleable, n::Integer, algorithm::RandSampling)
+function bat_sample_impl(rng::AbstractRNG, posterior::RandSampleable, n::Integer, algorithm::RandSampling)
     vs = varshape(posterior)
 
     P = Vector{_default_PT}
@@ -57,7 +57,7 @@ struct RandResampling <: AbstractSamplingAlgorithm end
 export RandResampling
 
 
-function bat_sample(rng::AbstractRNG, posterior::DensitySampleVector, n::Integer, algorithm::RandResampling)
+function bat_sample_impl(rng::AbstractRNG, posterior::DensitySampleVector, n::Integer, algorithm::RandResampling)
     orig_idxs = eachindex(posterior)
     weights = FrequencyWeights(float(posterior.weight))
     resampled_idxs = sample(orig_idxs, weights, n, replace=true, ordered=false)
@@ -85,7 +85,7 @@ struct OrderedResampling <: AbstractSamplingAlgorithm end
 export OrderedResampling
 
 
-function bat_sample(rng::AbstractRNG, samples::DensitySampleVector, n::Integer, algorithm::OrderedResampling)
+function bat_sample_impl(rng::AbstractRNG, samples::DensitySampleVector, n::Integer, algorithm::OrderedResampling)
     @assert axes(samples) == axes(samples.weight)
     W = samples.weight
     idxs = eachindex(samples)
