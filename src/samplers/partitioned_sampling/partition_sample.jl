@@ -49,16 +49,12 @@ function bat_sample(
     @info "Generating Exploration Samples"
     exploration_samples = bat_sample(posterior, n_exploration, algorithm.exploration_algm; exploration_kwargs...).result
 
-    # unshaped_tree_samples = (samples = collect(flatview(unshaped.(exploration_samples.v))),
-    #     weights = exploration_samples.weight,
-    #     loglik = exploration_samples.logd)
-
     @info "Construct Partition Tree"
-    part_tree = partition_space(exploration_samples, n[3], algorithm.partiton_algm)
+    partition_tree, cost_values = partition_space(exploration_samples, n[3], algorithm.partiton_algm)
 
     @info "Sample Parallel"
     @info "Combine Samples"
 
     # return (result = (...), info = (integral, uncert, cpu_time, wc_time, worker_id, sample_ind, param_bounds), part_tree = tree)
-    return (exp_samples = exploration_samples, part_tree = part_tree)
+    return (exp_samples = exploration_samples, part_tree = partition_tree, cost_values = cost_values)
 end

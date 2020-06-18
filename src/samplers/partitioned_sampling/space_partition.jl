@@ -43,9 +43,9 @@ function partition_space(samples::DensitySampleVector, n_partitions::Integer, al
 		append!(cost_values, sum_cost)
 		generate_node!(partition_tree, flat_scaled_data, ind)
 	end
+	rescale_tree!(tree, μ, δ)
 
-	return partition_tree
-
+	return partition_tree, cost_values
 end
 
 function scale_data(samples::DensitySampleVector)
@@ -202,5 +202,15 @@ function cost_f_3(data::T) where {T<:NamedTuple}
         return   sum( data.weights.*sum((data.samples .- μ).^2, dims=1))
     else
         return Inf
+    end
+end
+
+function rescale_tree!(tree::SpacePartTree, μ::Array{F}, δ::Array{F}) where {F<:AbstractFloat}
+    if tree.terminate == true
+        tree.bounds = tree.bounds.*δ .+ μ
+    else
+        tree.bounds = tree.bounds.*δ .+ μ
+        rescale_tree!(tree.left_child, μ, δ)
+        rescale_tree!(tree.right_child, μ, δ)
     end
 end
