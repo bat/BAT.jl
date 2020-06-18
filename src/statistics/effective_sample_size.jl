@@ -1,51 +1,16 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-"""
-    AutocorLenAlgorithm
-
-Abstract type for integrated autocorrelation length estimation algorithms.
-"""
-abstract type AutocorLenAlgorithm end
-export AutocorLenAlgorithm
-
-
-"""
-    bat_integrated_autocorr_len(
-        v::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}},
-        algorithm::AutocorLenAlgorithm = GeyerAutocorLen()
-    )
-
-Estimate the integrated autocorrelation length of variate series `v`,
-separately for each degree of freedom.
-
-Returns a NamedTuple of the shape
-
-```julia
-(result = integrated_autocorr_len, ...)
-```
-
-Result properties not listed here are algorithm-specific and are not part
-of the stable BAT API.
-"""
-function bat_integrated_autocorr_len end
-export bat_integrated_autocorr_len
-
-function bat_integrated_autocorr_len(v::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}})
-    bat_integrated_autocorr_len(v, GeyerAutocorLen())
-end
-
-
 function tau_int_from_atc end
 
 
-function bat_integrated_autocorr_len(v::AbstractVector{<:Real}, algorithm::AutocorLenAlgorithm)
+function bat_integrated_autocorr_len_impl(v::AbstractVector{<:Real}, algorithm::AutocorLenAlgorithm)
     atc = fft_autocor(v)
     tau_int_est = tau_int_from_atc(atc, algorithm)
     (result = tau_int_est,)
 end
 
-function bat_integrated_autocorr_len(v::AbstractVectorOfSimilarVectors{<:Real}, algorithm::AutocorLenAlgorithm)
+function bat_integrated_autocorr_len_impl(v::AbstractVectorOfSimilarVectors{<:Real}, algorithm::AutocorLenAlgorithm)
     atc = fft_autocor(v)
     flat_atc = flatview(atc)
     tau_int_est = map(axes(flat_atc, 1)) do i
@@ -144,37 +109,7 @@ end
 
 
 
-@doc doc"""
-    bat_eff_sample_size(
-        v::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}},
-        algorithm::AutocorLenAlgorithm = GeyerAutocorLen()
-    )
-
-    bat_eff_sample_size(
-        smpls::DensitySampleVector,
-        algorithm::AutocorLenAlgorithm;
-        use_weights=true
-    )
-
-Estimate effective sample size estimation for variate series `v`, resp.
-density samples `smpls`, separately for each degree of freedom.
-
-* `use_weights`: Take sample weights into account, using Kish's approximation
-
-Returns a NamedTuple of the shape
-
-```julia
-(result = X::AbstractVector{<:Real}, ...)
-```
-
-Result properties not listed here are algorithm-specific and are not part
-of the stable BAT API.
-"""
-function bat_eff_sample_size end
-export bat_eff_sample_size
-
-
-function bat_eff_sample_size(v::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}}, algorithm = GeyerAutocorLen())
+function bat_eff_sample_size_impl(v::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}}, algorithm::AutocorLenAlgorithm)
     tau_int = bat_integrated_autocorr_len(v, algorithm).result
     n = length(eachindex(v))
     ess = min.(n, n./ tau_int)
@@ -182,7 +117,7 @@ function bat_eff_sample_size(v::Union{AbstractVector{<:Real},AbstractVectorOfSim
 end
 
 
-function bat_eff_sample_size(smpls::DensitySampleVector, algorithm = GeyerAutocorLen(); use_weights = true)
+function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::AutocorLenAlgorithm; use_weights = true)
     ess = bat_eff_sample_size(smpls.v, algorithm).result
 
     if use_weights

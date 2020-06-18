@@ -11,7 +11,7 @@ export WhiteningAlgorithm
 
 
 """
-    NoWhitening
+NoWhitening
 
 No-op whitening transformation, leaves samples unchanged.
 """
@@ -46,7 +46,7 @@ export CholeskyPartialWhitening
 
 
 """
-StatisticalWhitening
+    StatisticalWhitening
 
 Whitening transformation based statistical whitening.
 """
