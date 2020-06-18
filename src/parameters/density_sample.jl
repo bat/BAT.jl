@@ -348,20 +348,20 @@ end
 Drop (subsequently) repeated samples by adding weights.
 """
 function repetition_to_weights(v::AbstractVector)
-    n = length(eachindex(v))
-    weights = ones(Int, n)
+    v_new = Vector{typeof(v[1])}()
+    weights = Vector{Integer}()
 
-    i=2
-    k = 0
-    while i <= n-k
+    push!(v_new, v[1])
+    push!(weights, 1)
+
+    for i in 2:length(eachindex(v))
         if v[i] == v[i-1]
-            weights[i-1] += 1
-            deleteat!(v, i)
-            deleteat!(weights, i)
-            k += 1
+            weights[end] += 1
         else
-            i = i+1
+            push!(v_new, v[i])
+            push!(weights, 1)
         end
     end
-    return v, weights
+    
+    return v_new, weights
 end
