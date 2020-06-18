@@ -1,41 +1,41 @@
-struct Funnel{T<:Real, V<:AbstractVector, dimensions<:Int64, L<:ContinuousMultivariateDistribution} <: ContinuousMultivariateDistribution
-    a::T
-    b::T
-    λ::V
-    n::dimensions
-    dists
-    likelihood::L
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
+
+
+struct FunnelDistribution <: ContinuousMultivariateDistribution
+    a::Real
+    b::Real
+    n::Int
 end
 
 """
-The Gaussian Shell distribution
+    BAT.FunnelDistribution(a=1, b=0.5, n=3)
 
-r = 5.0
-w = 2.0
-c = zeros(2)
+*BAT-internal, not part of stable public API.*
+
+Funnel distribution (Caldwell et al.)[https://arxiv.org/abs/1808.08051].
+
+# Arguments
+- `a::Real`: Variance of the dominant normal distribution. Defaults to 1.
+- `b::Real`: Variance of the supporting normal distributions. Defaults to 0.5.
+- `n::Int`: Number of dimensions. Defaults to 3.
 """
-
-function Funnel(a::Real, b::Real, λ::AbstractVector)
-    n = length(λ)
-    λ = float(λ)
-    dists = _construct_dists(a, b, λ)
-    pd = product_distribution(dists)
-    Funnel(a, b, λ, n, dists, pd)
+function FunnelDistribution(;a::Real=1, b::Real=0.5, n::Int=3)
+    a, b = promote(a, b)
+    FunnelDistribution(a, b, n)
 end
 
-Base.length(d::Funnel) = d.n
-Base.eltype(d::Funnel) = eltype(d.λ)
+Base.length(d::FunnelDistribution) = d.n
+Base.eltype(d::FunnelDistribution) = Base.eltype(d.a)
 
-Distributions.mean(d::Funnel) = Distributions.mean(d.likelihood)
-Distributions.var(d::Funnel) = Distributions.var(d.likelihood)
-Distributions.std(d::Funnel) = Distributions.std(d.likelihood)
+Distributions.mean(d::FunnelDistribution) = zeros(d.n)
 
-function Distributions._logpdf(d::Funnel, x::AbstractArray)
-    likelihood = product_distribution(_construct_dists(d.a, d.b, x))
-    return Distributions._logpdf(likelihood, x)
+function Distributions._logpdf(d::FunnelDistribution, x::AbstractArray)
+    dist = _construct_dist(d.a, d.b, x)
+    return Distributions._logpdf(dist, x)
 end
 
-function Distributions._rand!(rng::AbstractRNG, d::Funnel, x::AbstractVector)
+function Distributions._rand!(rng::AbstractRNG, d::FunnelDistribution, x::AbstractVector)
     x[1] = rand(Normal(0, d.a^2))
     for i in 2:length(x)
         @inbounds x[i] = rand(Normal(0, exp(2*d.b*x[1])))
@@ -43,27 +43,16 @@ function Distributions._rand!(rng::AbstractRNG, d::Funnel, x::AbstractVector)
     return x
 end
 
-_update_funnel(d::Funnel, λ::AbstractArray) = Funnel(d.a, d.b, λ)
+_update_funnel(d::FunnelDistribution, λ::AbstractArray) = FunnelDistribution(d.a, d.b, λ)
 
-function _construct_dists(a::Real, b::Real, λ::AbstractVector)
+function _construct_dist(a::Real, b::Real, λ::AbstractVector)
     n = length(λ)
     a = float(a)
     b = float(b)
-    dists = Vector{Normal}(undef, n)
-    dists[1] = Normal(0.0, a^2)
-    let b=b, dists=dists, λ=λ, n=n
-        for i in 2:n
-            dists[i] = Normal(0.0, exp(2*b*λ[1]))
-        end
+    dist = Vector{Normal}(undef, n)
+    dist[1] = Normal(0.0, a^2)
+    for i in 2:n
+        @inbounds dist[i] = Normal(0.0, exp(2*b*λ[1]))
     end
-    return dists
-end
-
-function _likelihood(a::Real, b::Real, λ::AbstractArray)
-    a = float(a)
-    b = float(b)
-    λ = float(λ)
-    dists = _construct_dists(a, b, λ)
-    likelihood = product_distribution(dists)
-    return likelihood
+    return product_distribution(dist)
 end
