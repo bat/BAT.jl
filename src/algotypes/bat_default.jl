@@ -53,8 +53,10 @@ end
 
 
 
-result_with_args(r::NamedTuple, optargs::NamedTuple) = merge(r, (optargs = optargs,))
+result_with_args(r::NamedTuple) = merge(r, (optargs = NamedTuple(), kwargs = NamedTuple()))
 
-result_with_args(r::NamedTuple, optargs::NamedTuple, kwargs::Base.Iterators.Pairs) = result_with_args(r, optargs, values(kwargs))
+result_with_args(r::NamedTuple, optargs::NamedTuple) = merge(r, (optargs = optargs, kwargs = NamedTuple()))
 
 result_with_args(r::NamedTuple, optargs::NamedTuple, kwargs::NamedTuple) = merge(r, (optargs = optargs, kwargs = kwargs))
+
+result_with_args(r::NamedTuple, optargs::NamedTuple, kwargs::Base.Iterators.Pairs) = result_with_args(r, optargs, values(kwargs))

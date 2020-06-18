@@ -18,7 +18,7 @@ abstract type AbstractModeEstimator end
         initial_mode::Union{Missing,DensitySampleVector,Any} = missing
     )::DensitySampleVector
 
-Estiate the global mode of `posterior`.
+Estimate the global mode of `posterior`.
 
 Returns a NamedTuple of the shape
 
@@ -26,16 +26,26 @@ Returns a NamedTuple of the shape
 (result = X::DensitySampleVector, ...)
 ```
 
-Properties others than `mode` are algorithm-specific, they are also by default
-not part of the stable BAT API.
+Result properties not listed here are algorithm-specific and are not part
+of the stable BAT API.
+
+!!! note
+
+    Do not add add methods to `bat_findmode`, add methods to
+    `bat_findmode_impl` instead (same arguments).
 """
 function bat_findmode end
 export bat_findmode
 
+function bat_findmode_impl end
 
-function bat_findmode(posterior::AnyPosterior; kwargs...)
-    algorithm = bat_default_withdebug(bat_findmode, Val(:algorithm), posterior)
-    r = bat_findmode(posterior, algorithm; kwargs...)
+
+function bat_findmode(
+    posterior::AnyPosterior,
+    algorithm = bat_default_withdebug(bat_findmode, Val(:algorithm), posterior);
+    kwargs...
+)
+    r = bat_findmode_impl(posterior, algorithm; kwargs...)
     result_with_args(r, (algorithm = algorithm,))
 end
 
@@ -72,6 +82,27 @@ Returns a NamedTuple of the shape
 
 * `:fd` —  Freedman–Diaconis rule
 
+Returns a NamedTuple of the shape
+
+```julia
+(result = X::DensitySampleVector, ...)
+```
+
+Result properties not listed here are algorithm-specific and are not part
+of the stable BAT API.
+
+!!! note
+
+    Do not add add methods to `bat_marginalmode`, add methods to
+    `bat_marginalmode_impl` instead (same arguments).
 """
 function bat_marginalmode end
 export bat_marginalmode
+
+function bat_marginalmode_impl end
+
+
+function bat_marginalmode(samples::DensitySampleVector; kwargs...)
+    r = bat_marginalmode_impl(samples::DensitySampleVector; kwargs...)
+    result_with_args(r, NamedTuple(), kwargs)
+end
