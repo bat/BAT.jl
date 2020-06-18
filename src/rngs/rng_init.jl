@@ -13,9 +13,9 @@ from the system entropy pool.
 function bat_rng end
 export bat_rng
 
-bat_rng() = Philox4x()
+bat_rng() = Philox4x()::Philox4x{UInt64,10}
 
-bat_determ_rng() = Philox4x((0, 0))
+bat_determ_rng() = Philox4x((0, 0))::Philox4x{UInt64,10}
 
 
 
