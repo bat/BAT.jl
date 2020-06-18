@@ -1,14 +1,5 @@
 
 """
-    IntegrationAlgorithm
-
-Abstract type for integration algorithms.
-"""
-abstract type IntegrationAlgorithm end
-export IntegrationAlgorithm
-
-
-"""
     PartitionedSampling
 
 The algorithm that partitions parameter space by multiple subspaces and
@@ -43,7 +34,7 @@ export PartitionedSampling
 Sample partitioned `posterior` using sampler, integrator, and space
 partitioning algorithm specified in `algorithm` with corresponding kwargs
 given by `exploration_kwargs`, and `sampling_kwargs`.
-
+3
 `n` must be a tuple `(nsteps, nchains, npartitions)`. `posterior` must be a uniform
 distribution for each dimension.
 """
