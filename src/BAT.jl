@@ -38,7 +38,6 @@ using StructArrays
 using Tables
 using UnsafeArrays
 using KernelDensity
-using Sobol
 
 import EmpiricalDistributions
 import DiffResults
@@ -49,6 +48,7 @@ import NLSolversBase
 import Optim
 import AdvancedHMC
 import Bijectors
+import Sobol
 
 #for AHMI
 using DataStructures

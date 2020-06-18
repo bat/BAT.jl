@@ -67,19 +67,6 @@ function dist_param_bounds(d::EmpiricalDistributions.MvBinnedDist{T, N}, bounds_
 end
 
 
-function HyperRectBounds(bounds::AbstractInterval; bounds_type=hard_bounds)
-    return HyperRectBounds([bounds.left], [bounds.right], bounds_type)
-end
-
-
-function HyperRectBounds(bounds::Vector{<:AbstractInterval}; bounds_type=hard_bounds)
-    lo = [b.left for b in bounds]
-    hi = [b.right for b in bounds]
-
-    return HyperRectBounds(lo, hi, bounds_type)
-end
-
-
 function estimate_finite_bounds(ntd::NamedTupleDist; bounds_type::BoundsType=hard_bounds)
     bounds = vcat([estimate_finite_bounds(d) for d in values(ntd)]...)
     lo = [b[1] for b in bounds]

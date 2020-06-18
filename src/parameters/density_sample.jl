@@ -93,7 +93,7 @@ end
 
 Type alias for `StructArrays.StructArray{<:DensitySample,...}`.
 
-Constructor:
+Constructors:
 
 ```julia
     DensitySampleVector(
@@ -106,6 +106,17 @@ Constructor:
         )
     )
 ```
+
+```julia
+    DensitySampleVector(
+            v::AbstractVector,
+            logval::AbstractVector{<:Real};
+            weight::Union{AbstractVector{<:Real}, Symbol} = fill(1, length(eachindex(v))),
+            info::AbstractVector = fill(nothing, length(eachindex(v))),
+            aux::AbstractVector = fill(nothing, length(eachindex(v)))
+        )
+```
+    For `weight = :RepetitionWeight`, repeated samples will be dropped and the weight of the corresponding sample will be increased.
 """
 const DensitySampleVector{
     P,T<:AbstractFloat,W<:Real,R,Q,
@@ -158,8 +169,8 @@ DensitySampleVector(::Type{S}, varlen::Integer) where {P<:AbstractVector{<:Real}
 
 
 function DensitySampleVector(
-    v::AbstractVector;
-    logval::AbstractVector{<:Real} = fill(0, length(eachindex(v))),
+    v::AbstractVector,
+    logval::AbstractVector{<:Real};
     weight::Union{AbstractVector{<:Real}, Symbol} = fill(1, length(eachindex(v))),
     info::AbstractVector = fill(nothing, length(eachindex(v))),
     aux::AbstractVector = fill(nothing, length(eachindex(v)))
