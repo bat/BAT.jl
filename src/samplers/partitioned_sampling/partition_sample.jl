@@ -54,10 +54,11 @@ function bat_sample(
     #     loglik = exploration_samples.logd)
 
     @info "Construct Partition Tree"
-    partition_space(exploration_samples, n[3], algorithm.partiton_algm)
+    part_tree = partition_space(exploration_samples, n[3], algorithm.partiton_algm)
 
     @info "Sample Parallel"
     @info "Combine Samples"
 
     # return (result = (...), info = (integral, uncert, cpu_time, wc_time, worker_id, sample_ind, param_bounds), part_tree = tree)
+    return (exp_samples = exploration_samples, part_tree = part_tree)
 end
