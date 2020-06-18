@@ -1,6 +1,6 @@
-export SobolSampler, GridSampler, PriorSampler
-
 abstract type ImportanceSampler <: AbstractSamplingAlgorithm end
+export SobolSampler, GridSampler, PriorImportanceSampler
+
 
 struct SobolSampler <: ImportanceSampler end
 struct GridSampler <: ImportanceSampler end
@@ -53,13 +53,13 @@ end
 
 
 
-struct PriorSampler <: AbstractSamplingAlgorithm end
+struct PriorImportanceSampler <: AbstractSamplingAlgorithm end
 
 function bat_sample_impl(
     rng::AbstractRNG,
     posterior::AnyPosterior,
     n::AnyNSamples,
-    algorithm::PriorSampler
+    algorithm::PriorImportanceSampler
 )
     shape = varshape(posterior)
     n_samples = isa(n, Tuple{Integer,Integer}) ? n[1] * n[2] : n[1]
