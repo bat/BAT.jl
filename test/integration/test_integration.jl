@@ -6,22 +6,14 @@ using Test
 
 @testset "bat_integrate" begin
     @testset "multimodal cauchy" begin
-        μ=1.0
-        σ=0.2
-        n_modes=10
+        dist = BAT.MultimodalCauchy() 
 
-        lb = -8
-        ub = 8
-
-        dist = BAT.MultimodalCauchy(μ, σ, n_modes) 
-        dist = Distributions.truncated(dist, lb, ub)
-
-        @test size(dist) == (n_modes,)
+        @test size(dist) == (4,)
 
         sample = bat_sample(dist, 100000).result
         sample_integral = bat_integrate(sample).result
 
-        @test isapprox(sample_integral.val, 1, atol=3*sample_integral.err)
+        @test isapprox(sample_integral.val, 1, atol=3.1*sample_integral.err)
         @test sample_integral.err < 0.15
     end
 
@@ -34,19 +26,19 @@ using Test
         sample = bat_sample(dist, 100000).result
         sample_integral = bat_integrate(sample).result
 
-        @test isapprox(sample_integral, 1., atol=3*sample_integral.err)
+        @test isapprox(sample_integral, 1., atol=3.1*sample_integral.err)
     end
 
     @testset "funnel" begin
-        dist = BAT.Funnel(1.0, 0.5, [1.0, 2.0, 3.0, 4.0, 5.0])
+        dist = BAT.FunnelDistribution()
 
-        @test mean(dist) == [0.0, 0.0, 0.0, 0.0, 0.0]
+        @test mean(dist) == [0.0, 0.0, 0.0]
 
-        @test size(dist) == (5,)
+        @test size(dist) == (3,)
 
         sample = bat_sample(dist, 100000).result
         sample_integral = bat_integrate(sample).result
 
-        @test isapprox(sample_integral.val, 1, atol=3*sample_integral.err)
+        @test isapprox(sample_integral.val, 1, atol=3.1*sample_integral.err)
     end
 end
