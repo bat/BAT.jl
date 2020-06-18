@@ -42,11 +42,20 @@ function bat_sample(
     posterior::PosteriorDensity,
     n::Tuple{Integer,Integer, Integer},
     algorithm::PartitionedSampling;
-    exploration_kwargs::NamedTuple = (init_strategy = "tmp", burnin_strategy = "tmp"),
-    sampling_kwargs::NamedTuple = (init_strategy = "tmp", burnin_strategy = "tmp"),
+    exploration_kwargs::NamedTuple = NamedTuple(),
+    sampling_kwargs::NamedTuple = NamedTuple(),
+    n_exploration::Tuple{Integer,Integer} = (10^2, 40)
 )
-    @info "Generate Exploration Samples"
-    @info "Construct KD-Tree"
+    @info "Generating Exploration Samples"
+    exploration_samples = bat_sample(posterior, n_exploration, algorithm.exploration_algm, exploration_kwargs...).result
+
+    # unshaped_tree_samples = (samples = collect(flatview(unshaped.(exploration_samples.v))),
+    #     weights = exploration_samples.weight,
+    #     loglik = exploration_samples.logd)
+
+    @info "Construct Partition Tree"
+    partition_space(exploration_samples, n[3], algorithm.partiton_algm)
+
     @info "Sample Parallel"
     @info "Combine Samples"
 
