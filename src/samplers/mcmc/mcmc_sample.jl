@@ -122,34 +122,7 @@ end
 
 
 
-default_sampling_algorithm(posterior::AbstractPosteriorDensity) = MetropolisHastings()
-
-
-"""
-    function bat_sample(
-        rng::AbstractRNG,
-        posterior::AbstractPosteriorDensity,
-        n::Union{Integer,Tuple{Integer,Integer}},
-        algorithm::MCMCAlgorithm;
-        max_nsteps::Integer,
-        max_time::Real,
-        tuning::AbstractMCMCTuningStrategy,
-        init::MCMCInitStrategy,
-        burnin::MCMCBurninStrategy,
-        convergence::MCMCConvergenceTest,
-        strict::Bool = false,
-        filter::Bool = true
-    )
-
-Sample `posterior` via Markov chain Monte Carlo (MCMC).
-
-`n` must be either a tuple `(nsteps, nchains)` or an integer. `nchains`
-specifies the (approximate) number of MCMC steps per chain, `nchains` the
-number of MCMC chains. If n is an integer, it is interpreted as
-`nsteps * nchains`, and the number of steps and chains are chosen
-automatically.
-"""
-function bat_sample(
+function bat_sample_impl(
     rng::AbstractRNG,
     posterior::AbstractPosteriorDensity,
     n::Tuple{Integer,Integer},
@@ -187,7 +160,7 @@ function bat_sample(
 end
 
 
-function bat_sample(
+function bat_sample_impl(
     rng::AbstractRNG,
     posterior::AbstractPosteriorDensity,
     n::Integer,
@@ -196,5 +169,5 @@ function bat_sample(
 )
     nchains = 4
     nsamples = div(n, nchains)
-    bat_sample(rng, posterior, (nsamples, nchains), algorithm; kwargs...)
+    bat_sample_impl(rng, posterior, (nsamples, nchains), algorithm; kwargs...)
 end
