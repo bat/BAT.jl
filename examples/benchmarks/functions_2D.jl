@@ -74,7 +74,12 @@ prior_gaussian_shell2D = NamedTupleDist(
 
 posterior_gaussian_shell2D = PosteriorDensity(gaussian_shell2D,prior_gaussian_shell2D)
 analytical_stats_gaussian_shell2D = Vector{Any}(undef,length(stats_names2D))
-analytical_stats_gaussian_shell2D[1] = [[sqrt(x),sqrt(25-x)] for x in 0:0.01:25]
+q1 = [[sqrt(x),sqrt(25-x)] for x in 0:0.01:25]
+q2 = [[sqrt(x),-sqrt(25-x)] for x in 0:0.01:25]
+q3 = [[-sqrt(x),-sqrt(25-x)] for x in 0:0.01:25]
+q4 = [[sqrt(x),sqrt(25-x)] for x in 0:0.01:25]
+analytical_stats_gaussian_shell2D[1] = [t1...,t2...,t3...,t4...] #all modes within the max circle
+#analytical_stats_gaussian_shell2D[1] = [[sqrt(x),sqrt(25-x)] for x in 0:0.01:25]
 analytical_stats_gaussian_shell2D[2] = [0,0]
 analytical_stats_gaussian_shell2D[3] = [18.485989,18.485989]
 #analytical solution is really long

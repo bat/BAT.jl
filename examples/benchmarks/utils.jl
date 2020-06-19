@@ -245,8 +245,8 @@ function plot2D(samples, analytical_integral, func, name, analytical_stats,sampl
     h = StatsBase.normalize(h)
 
     nun = convert(Int64,floor(sum(hunnorm.weights)/10))
-    unweighted_samples = bat_sample(samples, nun).result.v
-    hunnorm = fit(Histogram, (unweighted_samples.x,unweighted_samples.y),nbins=nbin)
+    unweighted_samples = bat_sample(samples, nun).result
+    hunnorm = fit(Histogram, (unweighted_samples.v.x,unweighted_samples.v.y),nbins=nbin)
     hana = fit(Histogram,([],[]),hunnorm.edges)
     hdiff = fit(Histogram,([],[]),hunnorm.edges)
 
@@ -283,13 +283,15 @@ function plot2D(samples, analytical_integral, func, name, analytical_stats,sampl
     length(analytical_stats) != 4 ? push!(analytical_stats,ndf) : analytical_stats[4] = ndf
     length(sample_stats)     != 4 ? push!(sample_stats,chi2)     : sample_stats[4] = chi2
 
-    plot(BATHistogram(hunnorm),(1,2),seriestype=:smallest_intervals)
+	#plot(hunnorm,(1,2),seriestype=:smallest_intervals)
+	plot(unweighted_samples,(:x,:y),seriestype=:smallest_intervals)
     savefig(string("plots2D/",name,".pdf"))
 
-    plot(BATHistogram(hana),(1,2),seriestype=:smallest_intervals)
+    plot(hana)#,(1,2),seriestype=:smallest_intervals)
     savefig(string("plots2D/",name,"_analytic.pdf"))
 
-    plot(BATHistogram(hdiff),(1,2))
+	#plot(hdiff,(1,2))
+	plot(hdiff)
     savefig(string("plots2D/",name,"_diff.pdf"))
 
     pulls = vcat(pulls...)
@@ -299,7 +301,7 @@ function plot2D(samples, analytical_integral, func, name, analytical_stats,sampl
     lo, hi = quantile.(d, [0.00001, 0.99999])
     x = range(lo, hi; length = 100)
     binlength = hpull.edges[1].step.hi
-    plot(BATHistogram(hpull),1,normalize=false,label="",xlabel=L"$\Delta/\sigma$",ylabel="N")
+    plot(hpull,normalize=false,label="",xlabel=L"$\Delta/\sigma$",ylabel="N")
     plot!(x, pdf.(d, x)*sum(hpull.weights)*binlength,label="")
     savefig(string("plots2D/",name,"_pull.pdf"))
 
