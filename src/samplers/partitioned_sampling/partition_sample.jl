@@ -93,7 +93,17 @@ function sample_subspace(
     α = exp(log(integras_subspace) + log(1.0))
 
     # samples_subspace.weight .= α.val .* samples_subspace.weight ./ sum(samples_subspace.weight)
-    samples_subspace.weight .= 2 .* samples_subspace.weight # How to change weights to Float?
+    # samples_subspace.weight .= 2.1 .* samples_subspace.weight # How to change weights to Float?
+
+    samples_subspace_reweighted = DensitySampleVector(
+        (
+            samples_subspace.v,
+            samples_subspace.logd,
+            α .* samples_subspace.weight ./ sum(samples_subspace.weight),
+            samples_subspace.info,
+            samples_subspace.aux
+        )
+    )
 
     info_subspace = TypedTables.Table(
             density_integral = [integras_subspace],
@@ -101,5 +111,5 @@ function sample_subspace(
             integration_time = [2.0]
         )
 
-    return (samples = samples_subspace, info = info_subspace)
+    return (samples = samples_subspace_reweighted, info = info_subspace)
 end
