@@ -5,7 +5,6 @@ using Distributions
 using IntervalSets
 
 # ## Generate samples to be plotted
-
 likelihood = params -> begin
 
     r1 = logpdf.(

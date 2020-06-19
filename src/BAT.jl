@@ -48,6 +48,7 @@ import NLSolversBase
 import Optim
 import AdvancedHMC
 import Bijectors
+import Sobol
 
 #for AHMI
 using DataStructures

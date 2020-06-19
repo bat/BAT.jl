@@ -94,6 +94,10 @@ Base.similar(vol::HyperRectVolume) = HyperRectVolume(similar(vol.lo), similar(vo
 Base.in(x::AbstractVector, vol::HyperRectVolume) =
     _all_lteq(vol.lo, x, vol.hi)
 
+function Base.isinf(vol::HyperRectVolume)
+    return (any(isinf.(vol.hi)) || any(isinf.(vol.lo)))
+end
+
 function Base.copy!(
     target::HyperRectVolume{T},
     src::HyperRectVolume{T}) where {T<:AbstractFloat}
