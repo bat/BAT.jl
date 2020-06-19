@@ -2,7 +2,27 @@ abstract type ImportanceSampler <: AbstractSamplingAlgorithm end
 export SobolSampler, GridSampler, PriorImportanceSampler
 
 
+"""
+    SobolSampler
+
+Constructors:
+
+    SobolSampler()
+
+Sample from Sobol generated sequence. Also see [Sobol.jl](https://github.com/stevengj/Sobol.jl).
+"""
 struct SobolSampler <: ImportanceSampler end
+
+
+"""
+    GridSampler
+
+Constructors:
+
+    GridSampler()
+
+Sample from equidistantly distributed number in each dimension.
+"""
 struct GridSampler <: ImportanceSampler end
 
 
@@ -52,7 +72,15 @@ function _gen_samples(algorith::GridSampler, n_samples::Int, posterior::Truncate
 end
 
 
+"""
+    PriorImportanceSampler
 
+Constructors:
+
+    PriorImportanceSampler()
+
+Sample randomly from prior distribution.
+"""
 struct PriorImportanceSampler <: AbstractSamplingAlgorithm end
 
 function bat_sample_impl(
@@ -76,7 +104,7 @@ function bat_sample_impl(
     return (result = bat_samples, chains = stats)
 end
 
-function _gen_samples(algorithm::PriorSampler, n_samples::Int, posterior::AnyPosterior)
+function _gen_samples(algorithm::PriorImportanceSampler, n_samples::Int, posterior::AnyPosterior)
     p = rand(getprior(posterior).dist, n_samples)
     return collect(eachcol(p))
 end
