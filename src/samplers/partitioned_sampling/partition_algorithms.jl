@@ -42,12 +42,12 @@ Variables:
 mutable struct SpacePartTree
    terminated_leaf::Bool
    bounds::Array{AbstractFloat}
-   left_child::Union{SpacePartTree, Bool}
-   right_child::Union{SpacePartTree, Bool}
-   cut_axis::Union{Integer, Bool}
-   cut_coordinate::Union{AbstractFloat, Bool}
+   left_child::Union{SpacePartTree, Missing}
+   right_child::Union{SpacePartTree, Missing}
+   cut_axis::Union{Integer, Missing}
+   cut_coordinate::Union{AbstractFloat, Missing}
    cost::AbstractFloat
-   cost_part::Union{AbstractFloat, Bool}
+   cost_part::Union{AbstractFloat, Missing}
 end
 
 export SpacePartTree

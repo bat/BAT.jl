@@ -49,12 +49,12 @@ end
 
 function def_init_node(data::T, bounds::Array{F}) where {T<:NamedTuple, F<:AbstractFloat}
     cost = evaluate_total_cost(data)
-    return SpacePartTree(true, bounds, false, false, false, false, cost, false)
+    return SpacePartTree(true, bounds, missing, missing, missing, missing, cost, missing)
 end
 
 function initialize_partitioning!(tree::SpacePartTree, data::T, axes::Array{I,1}) where {T<:NamedTuple, I<:Integer}
     if tree.terminated_leaf == true
-        if typeof(tree.cost_part) == Bool
+        if ismissing(tree.cost_part)
             cost, (div_axis, cut_pos) = find_min_along_axes(mask_data(data, tree.bounds), axes)
             tree.cost_part = cost
             tree.cut_coordinate = cut_pos
