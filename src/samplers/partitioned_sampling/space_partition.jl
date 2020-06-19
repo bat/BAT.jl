@@ -27,12 +27,12 @@ function partition_space(samples::DensitySampleVector, n_partitions::Integer, al
 	if algorithm.partition_dims == false
 		partition_dims = collect(Base.OneTo(n_params))
 	else
-		partition_dims = intersect(algorithm.partition_dims, collect(Base.OneTo(n_params))) # to be safe
+		partition_dims = sort(intersect(algorithm.partition_dims, collect(Base.OneTo(n_params)))) # to be safe
 	end
 
 	if length(samples) > 10^4; @warn "KDTreePartitioning: Too many exploration samples"; end
 
-	flat_scaled_data, μ, δ = scale_data(samples)
+	flat_scaled_data, μ, δ = scale_samples(samples)
 	bounds = repeat([0.0 1.0],size(flat_scaled_data.samples)[1])
 	partition_tree = def_init_node(flat_scaled_data, bounds)
 	cost_values = Float64[]
@@ -43,12 +43,12 @@ function partition_space(samples::DensitySampleVector, n_partitions::Integer, al
 		append!(cost_values, sum_cost)
 		generate_node!(partition_tree, flat_scaled_data, ind)
 	end
-	rescale_tree!(tree, μ, δ)
+	rescale_tree!(partition_tree, μ, δ)
 
 	return partition_tree, cost_values
 end
 
-function scale_data(samples::DensitySampleVector)
+function scale_samples(samples::DensitySampleVector)
 	flat_samples = collect(flatview(unshaped.(samples.v)))
     μ = minimum(flat_samples, dims=2)
     δ = maximum(flat_samples, dims=2).-minimum(flat_samples, dims=2)

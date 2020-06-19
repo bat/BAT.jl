@@ -46,15 +46,38 @@ function bat_sample(
     sampling_kwargs::NamedTuple = NamedTuple(),
     n_exploration::Tuple{Integer,Integer} = (10^2, 40)
 )
+    n_samples, n_chains, n_subspaces = n
+
     @info "Generating Exploration Samples"
     exploration_samples = bat_sample(posterior, n_exploration, algorithm.exploration_algm; exploration_kwargs...).result
 
     @info "Construct Partition Tree"
-    partition_tree, cost_values = partition_space(exploration_samples, n[3], algorithm.partiton_algm)
+    partition_tree, cost_values = partition_space(exploration_samples, n_subspaces, algorithm.partiton_algm)
 
     @info "Sample Parallel"
+
+    samples_subspace = sample_subspace(
+        posterior, (n_samples, n_chains), algorithm.sampling_algm,
+        algorithm.integration_algm, 1, sampling_kwargs)
+
     @info "Combine Samples"
 
     # return (result = (...), info = (integral, uncert, cpu_time, wc_time, worker_id, sample_ind, param_bounds), part_tree = tree)
     return (exp_samples = exploration_samples, part_tree = partition_tree, cost_values = cost_values)
+end
+
+function sample_subspace(
+    posterior::PosteriorDensity,
+    n::Tuple{Integer,Integer},
+    sampling_algorithm::A,
+    integration_algorithm::I,
+    space_id::Integer,
+    sampling_kwargs::N
+) where {N<:NamedTuple, A<:AbstractSamplingAlgorithm, I<:IntegrationAlgorithm}
+
+    samples_subspace = bat_sample(posterior, n, sampling_algorithm; sampling_kwargs...).result
+
+    integras_subspace = bat_integrate(samples_subspace, integration_algorithm).result
+
+    return samples_subspace
 end
