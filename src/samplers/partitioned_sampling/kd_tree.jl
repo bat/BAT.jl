@@ -7,6 +7,8 @@
 		algorithm::KDTreePartitioning
 	)
 
+*BAT-internal, not part of stable public API.*
+
 The function generates a space partition tree with the number of partitions
 given by `n_partitions`, using `KDTreePartitioning` algorithm and `samples`.
 The output contains `SpacePartTree` and the values of the cost function.
@@ -51,7 +53,7 @@ function def_init_node(data::T, bounds::Array{F}) where {T<:NamedTuple, F<:Abstr
 end
 
 function initialize_partitioning!(tree::SpacePartTree, data::T, axes::Array{I,1}) where {T<:NamedTuple, I<:Integer}
-    if tree.terminate == true
+    if tree.terminated_leaf == true
         if typeof(tree.cost_part) == Bool
             cost, (div_axis, cut_pos) = find_min_along_axes(mask_data(data, tree.bounds), axes)
             tree.cost_part = cost
@@ -131,7 +133,7 @@ function det_part_node(tree::SpacePartTree)
 end
 
 function collect_part_costs!(tree::SpacePartTree, cost_values::Array{Float64,1}, cost_delta::Array{Float64,1})
-    if tree.terminate == true
+    if tree.terminated_leaf == true
         append!(cost_values, tree.cost)
         append!(cost_delta, tree.cost - tree.cost_part)
     else
@@ -141,7 +143,7 @@ function collect_part_costs!(tree::SpacePartTree, cost_values::Array{Float64,1},
 end
 
 function generate_node!(tree::SpacePartTree, data::T, cut_val::F) where {T<:NamedTuple, F<:AbstractFloat}
-    if tree.terminate == true
+    if tree.terminated_leaf == true
         if tree.cost == cut_val
 
             new_bounds_left = copy(tree.bounds)
@@ -152,7 +154,7 @@ function generate_node!(tree::SpacePartTree, data::T, cut_val::F) where {T<:Name
 
             tree.left_child = def_init_node(mask_data(data, new_bounds_left), new_bounds_left)
             tree.right_child = def_init_node(mask_data(data, new_bounds_right), new_bounds_right)
-            tree.terminate = false
+            tree.terminated_leaf = false
 
             return tree
         else
@@ -196,7 +198,7 @@ function cost_f_3(data::T) where {T<:NamedTuple}
 end
 
 function rescale_tree!(tree::SpacePartTree, μ::Array{F}, δ::Array{F}) where {F<:AbstractFloat}
-    if tree.terminate == true
+    if tree.terminated_leaf == true
         tree.bounds = tree.bounds.*δ .+ μ
     else
         tree.bounds = tree.bounds.*δ .+ μ
