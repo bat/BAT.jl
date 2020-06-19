@@ -9,7 +9,7 @@ Constructors:
 
     SobolSampler()
 
-Sample from Sobol generated sequence. Also see [Sobol.jl](https://github.com/stevengj/Sobol.jl).
+Sample from Sobol sequence. Also see [Sobol.jl](https://github.com/stevengj/Sobol.jl).
 """
 struct SobolSampler <: ImportanceSampler end
 
@@ -21,7 +21,7 @@ Constructors:
 
     GridSampler()
 
-Sample from equidistantly distributed number in each dimension.
+Sample from equidistantly distributed points in each dimension.
 """
 struct GridSampler <: ImportanceSampler end
 

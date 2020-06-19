@@ -63,6 +63,7 @@ DensitySampleVector
 DistLikeDensity
 GelmanRubinConvergence
 GeyerAutocorLen
+GridSampler
 IntegrationAlgorithm
 LinDVal
 LogDVal
@@ -78,10 +79,12 @@ ModeAsDefined
 NoWhitening
 OrderedResampling
 PosteriorDensity
+PriorImportanceSampler
 RandResampling
 RandSampling
 RepetitionWeighting
 SokalAutocorLen
+SobolSampler
 StatisticalWhitening
 WhiteningAlgorithm
 
