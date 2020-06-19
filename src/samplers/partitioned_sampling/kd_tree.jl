@@ -1,48 +1,38 @@
-abstract type SpacePartitioningAlgorithm end
-export SpacePartitioningAlgorithm
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-@with_kw struct KDTreePartitioning <: SpacePartitioningAlgorithm
-	partition_dims::Union{Array{Int64,1}, Bool} = false
-end
+"""
+    partition_space(
+		samples::DensitySampleVector,
+		n_partitions::Integer,
+		algorithm::KDTreePartitioning
+	)
 
-export KDTreePartitioning
-
-mutable struct SpacePartTree
-   terminate::Bool
-   bounds::Array{AbstractFloat}
-   left_child::Union{SpacePartTree, Bool}
-   right_child::Union{SpacePartTree, Bool}
-   cut_axis::Union{Integer, Bool}
-   cut_coordinate::Union{AbstractFloat, Bool}
-   cost::AbstractFloat
-   cost_part::Union{AbstractFloat, Bool}
-end
-
-export SpacePartTree
-
-function partition_space(samples::DensitySampleVector, n_partitions::Integer, algorithm::A) where {A<:SpacePartitioningAlgorithm}
+The function generates a space partition tree with the number of partitions
+given by `n_partitions`, using `KDTreePartitioning` algorithm and `samples`.
+The output contains `SpacePartTree` and the values of the cost function.
+"""
+function partition_space(samples::DensitySampleVector, n_partitions::Integer, algorithm::KDTreePartitioning)
 
 	n_params = size(flatview(unshaped.(samples.v)))[1] # Change with smth smarter
 
-	if algorithm.partition_dims == false
+	if algorithm.partition_dims == false #check whether the user specified manually dimensions for partition. Use all if not.
 		partition_dims = collect(Base.OneTo(n_params))
 	else
 		partition_dims = sort(intersect(algorithm.partition_dims, collect(Base.OneTo(n_params)))) # to be safe
 	end
-
-	if length(samples) > 10^4; @warn "KDTreePartitioning: Too many exploration samples"; end
 
 	flat_scaled_data, μ, δ = scale_samples(samples)
 	bounds = repeat([0.0 1.0],size(flat_scaled_data.samples)[1])
 	partition_tree = def_init_node(flat_scaled_data, bounds)
 	cost_values = Float64[]
 	for i in 1:n_partitions
-		@info "KDTree: Increasing tree depth: depth = $i"
+		@info "KDTreePartitioning: Increasing tree depth (depth = $i)"
 		initialize_partitioning!(partition_tree, flat_scaled_data, partition_dims)
 		ind, sum_cost = det_part_node(partition_tree)
 		append!(cost_values, sum_cost)
 		generate_node!(partition_tree, flat_scaled_data, ind)
 	end
+
 	rescale_tree!(partition_tree, μ, δ)
 
 	return partition_tree, cost_values

@@ -1,3 +1,4 @@
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 """
     PartitionedSampling
@@ -34,7 +35,6 @@ export PartitionedSampling
 Sample partitioned `posterior` using sampler, integrator, and space
 partitioning algorithm specified in `algorithm` with corresponding kwargs
 given by `exploration_kwargs`, and `sampling_kwargs`.
-3
 `n` must be a tuple `(nsteps, nchains, npartitions)`. `posterior` must be a uniform
 distribution for each dimension.
 """
@@ -55,28 +55,27 @@ function bat_sample(
     partition_tree, cost_values = partition_space(exploration_samples, n_subspaces, algorithm.partiton_algm)
 
     @info "Sample Parallel"
-
-    samples_subspace = sample_subspace(
-        posterior, (n_samples, n_chains), algorithm.sampling_algm,
-        algorithm.integration_algm, 1, sampling_kwargs)
+    #ToDo: Convert partition_tree -> set of posterior with corresponding bounded priors
+    iterator_subspaces = [[subspace_ind, posterior, (n_samples, n_chains), algorithm.sampling_algm, algorithm.integration_algm, sampling_kwargs] for subspace_ind in Base.OneTo(n_subspaces)]
+    samples_subspace = pmap(inp -> sample_subspace(inp...), iterator_subspaces)
 
     @info "Combine Samples"
+    #ToDo: Merge all the samples together and create output table with sampling/integration information
 
     # return (result = (...), info = (integral, uncert, cpu_time, wc_time, worker_id, sample_ind, param_bounds), part_tree = tree)
     return (exp_samples = exploration_samples, part_tree = partition_tree, cost_values = cost_values)
 end
 
 function sample_subspace(
+    space_id::Integer,
     posterior::PosteriorDensity,
     n::Tuple{Integer,Integer},
     sampling_algorithm::A,
     integration_algorithm::I,
-    space_id::Integer,
     sampling_kwargs::N
 ) where {N<:NamedTuple, A<:AbstractSamplingAlgorithm, I<:IntegrationAlgorithm}
 
     samples_subspace = bat_sample(posterior, n, sampling_algorithm; sampling_kwargs...).result
-
     integras_subspace = bat_integrate(samples_subspace, integration_algorithm).result
 
     return samples_subspace
