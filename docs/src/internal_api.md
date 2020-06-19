@@ -54,6 +54,7 @@ BAT.apply_bounds
 BAT.apply_bounds_and_eval_posterior_logval_strict!
 BAT.apply_bounds_and_eval_posterior_logval!
 BAT.apply_bounds!
+BAT.estimate_finite_bounds
 BAT.argchoice_msg
 BAT.bat_sampler
 BAT.bg_R_2sqr
@@ -84,8 +85,10 @@ BAT.modify_hypercube!
 BAT.modify_integrationvolume!
 BAT.proposal_rand!
 BAT.reduced_volume_hm
+BAT.repetition_to_weights
 BAT.spatialvolume
 BAT.sum_first_dim
+BAT.TruncatedDensity
 BAT.var_bounds
 BAT.wgt_effective_sample_size
 ```

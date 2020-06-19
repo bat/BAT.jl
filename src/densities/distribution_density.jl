@@ -17,7 +17,7 @@ DistributionDensity(h::Histogram) = DistributionDensity(EmpiricalDistributions.M
 
 Base.convert(::Type{AbstractDensity}, d::Distribution{Multivariate,Continuous}) =
     DistributionDensity(d)
-    
+
 Base.convert(::Type{DistLikeDensity}, d::Distribution{Multivariate,Continuous}) =
     DistributionDensity(d)
 
@@ -64,4 +64,31 @@ function dist_param_bounds(d::EmpiricalDistributions.MvBinnedDist{T, N}, bounds_
     right_bounds = T[map(e -> prevfloat(last(e)), d.h.edges)...]
     bt = fill(bounds_type, length(left_bounds))
     HyperRectBounds{T}(HyperRectVolume{T}(left_bounds, right_bounds), bt)
+end
+
+
+function estimate_finite_bounds(ntd::NamedTupleDist; bounds_type::BoundsType=hard_bounds)
+    bounds = vcat([estimate_finite_bounds(d) for d in values(ntd)]...)
+    lo = [b[1] for b in bounds]
+    hi = [b[2] for b in bounds]
+    HyperRectBounds(lo, hi, bounds_type)
+end
+
+function estimate_finite_bounds(d::Distribution{Univariate})
+    lo, hi = minimum(d), maximum(d)
+
+    if isinf(lo)
+        lo = typeof(lo)(quantile(d, 0.00001))
+    end
+
+    if isinf(hi)
+        hi = typeof(hi)(quantile(d, 0.99999))
+    end
+
+    return lo, hi
+end
+
+function estimate_finite_bounds(d::Product)
+    bounds = estimate_finite_bounds.(d.v)
+    return vcat(bounds...)
 end
