@@ -8,8 +8,6 @@ using Test
     @testset "multimodal cauchy" begin
         dist = BAT.MultimodalCauchy() 
 
-        @test size(dist) == (4,)
-
         sample = bat_sample(dist, 100000).result
         sample_integral = bat_integrate(sample).result
 
@@ -31,10 +29,6 @@ using Test
 
     @testset "funnel" begin
         dist = BAT.FunnelDistribution()
-
-        @test mean(dist) == [0.0, 0.0, 0.0]
-
-        @test size(dist) == (3,)
 
         sample = bat_sample(dist, 100000).result
         sample_integral = bat_integrate(sample).result
