@@ -85,9 +85,18 @@ function sample_subspace(
     samples_subspace = bat_sample(posterior, n, sampling_algorithm; sampling_kwargs...).result
     integras_subspace = bat_integrate(samples_subspace, integration_algorithm).result
 
-    # ToDo: How to change MCMC Weights?
+    # α = exp(log(integras_subspace) + log(prior_normalization))
+    α = exp(log(integras_subspace) + log(1.0))
 
-    info_subspace = TypedTables.Table(time_mcmc = [1.,], time_ahmi = [2.0,])
+    # samples_subspace.weight .= α.val .* samples_subspace.weight ./ sum(samples_subspace.weight)
+    samples_subspace.weight .= 2 .* samples_subspace.weight # How to change weights to Float?
+
+    info_subspace = TypedTables.Table(
+            integral_loglik = [α],
+            integral_posterior = [integras_subspace],
+            time_mcmc = [1.],
+            time_ahmi = [2.0]
+        )
 
     return (samples = samples_subspace, info = info_subspace)
 end
