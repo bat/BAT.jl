@@ -28,6 +28,7 @@ Order = [:macro, :function]
 
 
 ```@docs
+bat_default
 bat_eff_sample_size
 bat_findmedian
 bat_findmode
@@ -39,8 +40,6 @@ bat_rng
 bat_sample
 bat_write
 
-BAT.default_mode_estimator
-BAT.default_sampling_algorithm
 BAT.density_logval
 BAT.density_logvalgrad
 
