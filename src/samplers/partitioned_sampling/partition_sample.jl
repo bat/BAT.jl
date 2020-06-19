@@ -57,13 +57,20 @@ function bat_sample(
     @info "Sample Parallel"
     #ToDo: Convert partition_tree -> set of posterior with corresponding bounded priors
     iterator_subspaces = [[subspace_ind, posterior, (n_samples, n_chains), algorithm.sampling_algm, algorithm.integration_algm, sampling_kwargs] for subspace_ind in Base.OneTo(n_subspaces)]
-    samples_subspace = pmap(inp -> sample_subspace(inp...), iterator_subspaces)
+    samples_subspaces = pmap(inp -> sample_subspace(inp...), iterator_subspaces)
 
     @info "Combine Samples"
-    #ToDo: Merge all the samples together and create output table with sampling/integration information
+    for subspace in samples_subspaces[2:end]
+        append!(samples_subspaces[1].samples, subspace.samples)
+        append!(samples_subspaces[1].info, subspace.info)
+    end
 
-    # return (result = (...), info = (integral, uncert, cpu_time, wc_time, worker_id, sample_ind, param_bounds), part_tree = tree)
-    return (exp_samples = exploration_samples, part_tree = partition_tree, cost_values = cost_values)
+    return (result=samples_subspaces[1].samples,
+                info = samples_subspaces[1].info,
+                exp_samples = exploration_samples,
+                part_tree = partition_tree,
+                cost_values = cost_values
+            )
 end
 
 function sample_subspace(
@@ -78,5 +85,9 @@ function sample_subspace(
     samples_subspace = bat_sample(posterior, n, sampling_algorithm; sampling_kwargs...).result
     integras_subspace = bat_integrate(samples_subspace, integration_algorithm).result
 
-    return samples_subspace
+    # ToDo: How to change MCMC Weights?
+
+    info_subspace = TypedTables.Table(time_mcmc = [1.,], time_ahmi = [2.0,])
+
+    return (samples = samples_subspace, info = info_subspace)
 end
