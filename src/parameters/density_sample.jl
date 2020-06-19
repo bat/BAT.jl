@@ -98,10 +98,10 @@ Constructors:
 ```julia
     DensitySampleVector(
         (
-            v::AbstractVector{<:AbstractVector{<:Real}}
-            logd::AbstractVector{<:Real}
-            weight::AbstractVector{<:Real}
-            info::AbstractVector{<:Any}
+            v::AbstractVector{<:AbstractVector{<:Real}},
+            logd::AbstractVector{<:Real},
+            weight::AbstractVector{<:Real},
+            info::AbstractVector{<:Any},
             aux::AbstractVector{<:Any}
         )
     )
