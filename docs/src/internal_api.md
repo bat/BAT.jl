@@ -90,5 +90,4 @@ BAT.spatialvolume
 BAT.sum_first_dim
 BAT.TruncatedDensity
 BAT.var_bounds
-BAT.wgt_effective_sample_size
 ```

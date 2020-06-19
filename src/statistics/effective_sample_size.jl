@@ -117,28 +117,32 @@ function bat_eff_sample_size_impl(v::Union{AbstractVector{<:Real},AbstractVector
 end
 
 
-function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::AutocorLenAlgorithm; use_weights = true)
-    ess = bat_eff_sample_size(smpls.v, algorithm).result
+function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::AutocorLenAlgorithm)
+    @argcheck smpls.v isa AbstractVector{<:AbstractVector{<:Real}}
 
-    if use_weights
-        W = smpls.weight
-        w_correction = wgt_effective_sample_size(W) / length(eachindex(W))
-        ess .*= w_correction
+    n = length(eachindex(smpls))
+
+    W = smpls.weight
+    w0 = first(W)
+
+    ess = if all(w -> w ≈ w0, W)
+        bat_eff_sample_size_impl(smpls.v, algorithm).result
+    else
+        # If weights not uniform, resample to get unweighted samples. Kish's
+        # approximation of ESS for weighted samples is often not good enough.
+
+        # Empirical resampling factor:
+        resampling_factor = min(mean(W .^ 2) / mean(W)^2, 10)
+
+        n_resample = round(Int, n * resampling_factor)
+
+        # RNG seed for resampling should be the same for the same samples:
+        rng_seed = trunc(UInt64, mean(W) * n)
+        rng = Philox4x((0x0, rng_seed))::Philox4x{UInt64,10}
+
+        unweighted_smpls = bat_sample(rng, smpls, n_resample, OrderedResampling()).result
+        bat_eff_sample_size_impl(unweighted_smpls.v, algorithm).result
     end
-
+ 
     (result = ess,)
-end
-
-
-@doc doc"""
-    wgt_effective_sample_size(w::AbstractVector{T})
-
-*BAT-internal, not part of stable public API.*
-
-Kish's approximation for weighted samples effective_sample_size estimation.
-Computes the weighting factor for weigthed samples, where w is the vector of
-weigths.
-"""
-function wgt_effective_sample_size(w::AbstractVector{<:Real})
-    return sum(w)^2/sum(w.^2)
 end

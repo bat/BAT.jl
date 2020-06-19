@@ -63,14 +63,11 @@ end
 
     bat_eff_sample_size(
         smpls::DensitySampleVector,
-        [algorithm::AutocorLenAlgorithm];
-        use_weights=true
+        [algorithm::AutocorLenAlgorithm]
     )
 
 Estimate effective sample size estimation for variate series `v`, resp.
 density samples `smpls`, separately for each degree of freedom.
-
-* `use_weights`: Take sample weights into account, using Kish's approximation
 
 Returns a NamedTuple of the shape
 
