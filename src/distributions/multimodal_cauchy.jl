@@ -5,7 +5,6 @@ struct MultimodalCauchy{M<:MixtureModel, P<:Product}  <: ContinuousMultivariateD
     dist::P
 end
 
-
 """
     BAT.MultimodalCauchy(μ=1, σ=0.5, n=3)
 
