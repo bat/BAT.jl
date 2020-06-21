@@ -46,7 +46,7 @@ value. May modify `v`.
 Guarantees that  :
 
 * If parameters are still out of bounds after applying bounds,
-  `density_logval` is not called for either prior or likelihood. 
+  `density_logval` is not called for either prior or likelihood.
 * If `density_logval` for prior returns `-Inf`, `density_logval` is not called
   for likelihood.
 
@@ -95,7 +95,7 @@ value. May modify `v`.
 Guarantees that  :
 
 * If parameters are still out of bounds after applying bounds,
-  `density_logval` is not called for either prior or likelihood. 
+  `density_logval` is not called for either prior or likelihood.
 * If `density_logval` for prior returns `-Inf`, `density_logval` is not called
   for likelihood.
 
@@ -159,6 +159,11 @@ function var_bounds(density::AbstractPosteriorDensity)
     else
         li_bounds ∩ pr_bounds
     end
+end
+
+
+function estimate_finite_bounds(posterior::AbstractPosteriorDensity; bounds_type::BoundsType=hard_bounds)
+    return estimate_finite_bounds(getprior(posterior).dist, bounds_type=bounds_type)
 end
 
 

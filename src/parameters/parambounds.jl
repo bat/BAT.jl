@@ -107,6 +107,8 @@ Base.eltype(bounds::NoVarBounds) = _default_PT
 Base.in(x::AbstractVector, bounds::NoVarBounds) = true
 # Base.in(x::VectorOfSimilarVectors, bounds::NoVarBounds, i::Integer) = true
 
+Base.isinf(bounds::NoVarBounds) = true
+
 ValueShapes.totalndof(b::NoVarBounds) = b.ndims
 
 apply_bounds!(x::Union{AbstractVector,VectorOfSimilarVectors}, bounds::NoVarBounds, setoob = true) = x
@@ -162,6 +164,15 @@ HyperRectBounds(vol::HyperRectVolume{T}, bt::AbstractVector{BoundsType}) where {
 HyperRectBounds(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::AbstractVector{BoundsType}) where {T<:Real} = HyperRectBounds(HyperRectVolume(lo, hi), bt)
 HyperRectBounds(lo::AbstractVector{T}, hi::AbstractVector{T}, bt::BoundsType) where {T<:Real} = HyperRectBounds(lo, hi, fill(bt, size(lo, 1)))
 HyperRectBounds(intervals::AbstractVector{<:ClosedInterval{<:Real}}, bt) = HyperRectBounds(minimum.(intervals), maximum.(intervals), bt)
+HyperRectBounds(bounds::AbstractInterval, bt::BoundsType) = HyperRectBounds([bounds.left], [bounds.right], bt)
+
+function HyperRectBounds(bounds::Vector{<:AbstractInterval}, bt::BoundsType)
+    lo = [b.left for b in bounds]
+    hi = [b.right for b in bounds]
+
+    return HyperRectBounds(lo, hi, bt)
+end
+
 
 Base.similar(bounds::HyperRectBounds) = HyperRectBounds(
         HyperRectVolume(
@@ -193,6 +204,8 @@ function Base.intersect(a::HyperRectBounds, b::HyperRectBounds)
     end
     c
 end
+
+Base.isinf(bounds::HyperRectBounds) = isinf(bounds.vol)
 
 
 function Base.vcat(xs::HyperRectBounds...)
