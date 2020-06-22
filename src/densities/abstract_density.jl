@@ -169,7 +169,7 @@ function eval_density_logval(
     catch err
         v_real = _strip_duals(v)
         v_real_shaped = _apply_parshapes(v_real, shape)
-        throw(ErrorException("Density evaluation failed at v = $v_real_shaped due to exception $err"))
+        rethrow(ErrorException("Density evaluation failed at v = $v_real_shaped due to exception $err"))
     end
     r = float(raw_r)
     isnan(r) && throw(ErrorException("Return value of density_logval must not be NaN, density has type $(typeof(density))"))
