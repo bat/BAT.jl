@@ -1,6 +1,7 @@
 using BAT, ValueShapes, IntervalSets, Distributions, Plots
 using StatsBase, ArraysOfArrays, LinearAlgebra, LaTeXStrings, QuadGK, PrettyTables
 
+include("testDensities.jl")
 include("utils.jl")
 include("functions_1D.jl")
 

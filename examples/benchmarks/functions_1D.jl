@@ -1,59 +1,33 @@
 ########1D functions for benchmarking###########
 ################################################
-name_slope = "slope"
-analytical_integral_slope = 50
+name_normal = "normal"
+analytical_integral_normal = 1
 
-slope = let m=1, n=0
+normal =
 	params -> begin
-	if params.x*m+n==0
-			return -Inf
+	   	return LogDVal(logpdf(Normal(0,1),params.x))
 	end
-	    return LogDVal(log(params.x*m+n))
-	end
-end
-prior_slope = NamedTupleDist(
-	x = 0.0..10.0
+prior_normal = NamedTupleDist(
+	x = -10..10
 )
-posterior_slope = PosteriorDensity(slope,prior_slope)
-analytical_function_slope = x -> x
-analytical_stats_slope = [10,20/3,50/9]
-################################################
-
-################################################
-name_square = "square"
-analytical_integral_square = 32000/3
-
-square = let a=-1,b=0,c=400
-	params -> begin
-	if a*params.x^2+b*params.x+c<=0
-			return -Inf
-	end
-	    return LogDVal(log(a*params.x^2+b*params.x+c))
-	end
-end
-prior_square = NamedTupleDist(
-	x = -20.0..20.0
-)
-posterior_square = PosteriorDensity(square,prior_square)
-analytical_function_square = x-> 400-x^2
-analytical_stats_square = [0,0,80]
+posterior_normal = PosteriorDensity(normal,prior_normal)
+analytical_function_normal = x -> pdf(Normal(0,1),x)
+analytical_stats_normal = [0,0,1]#
 ################################################
 
 ################################################
 name_cauchy = "cauchy"
 analytical_integral_cauchy = 0.98
 
-cauchy = let a=0, b=1
+cauchy =
 	params -> begin
-		return LogDVal(log(1/(pi*b)*((b^2)/((params.x-a)^2+b^2))))
-	   	#return LogDVal(logpdf(Cauchy(0,1),params.x)) reimplmentation possible
+	   	return LogDVal(logpdf(Cauchy(0,1),params.x))
 	end
-end
 prior_cauchy = NamedTupleDist(
 	x = -25..25
 )
 posterior_cauchy = PosteriorDensity(cauchy,prior_cauchy)
-analytical_function_cauchy = x-> 1/(pi*1)*((1^2)/((x-0)^2+1^2))
+analytical_function_cauchy = x -> pdf(Cauchy(0,1),x)#x-> 1/(pi*1)*((1^2)/((x-0)^2+1^2))
 analytical_stats_cauchy = [0,0,15.2459]#(50-2*atan(25))/pi] night ganz
 ################################################
 
@@ -78,35 +52,36 @@ analytical_stats_multi_cauchy = [[-5,5],0,analytical_stats_multi_cauchy_variance
 
 ################rastrigin x-cos(x)##############
 name_rastrigin = "rastrigin"
-analytical_integral_rastrigin = 102
+analytical_integral_rastrigin = 1
 
-rastrigin = let l=1
+rastrigin =
 	params -> begin
-        return LogDVal(log(30-10-params.x^2+10*cos(2*pi*params.x)))
+		#return LogDVal(log(30-10-params.x^2+10*cos(2*pi*params.x)))
+		return LogDVal(BAT.density_logval(Rastrigin(),params.x))
 	end
-end
+
 prior_rastrigin = NamedTupleDist(
 	x = -3..3
 )
 posterior_rastrigin = PosteriorDensity(rastrigin,prior_rastrigin)
-analytical_function_rastrigin = x-> 30-10-x^2+10*cos(2*pi*x)
+analytical_function_rastrigin = Rastrigin().dist
 analytical_stats_rastrigin = [0,0,((219/85)+(5/(17*pi^2)))] #2.6062709363653935
 ################################################
 
 ################################################
 name_sin2 = "sin2"
-analytical_integral_sin2 = 994541
+analytical_integral_sin2 = 1
 
-sin2 = let l=1
+sin2 =
 	params -> begin
-	   	return LogDVal(log(params.x^4*sin(params.x)^2))
+	   	return LogDVal(BAT.density_logval(SineSquared(),params.x))
 	end
-end
+
 prior_sin2 = NamedTupleDist(
 	x = 0..25
 )
 posterior_sin2 = PosteriorDensity(sin2,prior_sin2)
-analytical_function_sin2 = x-> x^4*sin(x)^2
+analytical_function_sin2 = SineSquared().dist
 analytical_mean_sin2 = -(5*(-195312509 + 2332509*cos(50) + 23250450*sin(50)))/47737968 #20.85992123409488
 analytical_stats_sin2 = [23.6463,analytical_mean_sin2,12.0492]
 ################################################
@@ -115,33 +90,35 @@ analytical_stats_sin2 = [23.6463,analytical_mean_sin2,12.0492]
 name_exp1 = "exp1"
 analytical_integral_exp1 = 1
 
-exp1 = let l=1
+exp1 = let a=1
     params -> begin
-        return LogDVal(log(exp(-params.x)))
+        return LogDVal(logpdf(Exponential(a),params.x))
     end
 end
 prior_exp1 = NamedTupleDist(
     x = 0..8
 )
 posterior_exp1 = PosteriorDensity(exp1,prior_exp1)
-analytical_function_exp1 = x-> exp(-x)
+analytical_function_exp1 = x-> pdf(Exponential(1),x)
 analytical_stats_exp1 = [0,1,1]
 ################################################
 
 ################################################
 name_hoelder = "hoelder table"
-analytical_integral_hoelder = (-18*exp(1)^2*π^2 - 12*exp(1)^3*π^2 + exp(1)*(500 + 488*π^2) - 6*exp(1)^(10/π)*π*(π*cos(10) - sin(10)))/(3*exp(1)*(1 + π^2))
+analytical_integral_hoelder = 1
+#analytical_integral_hoelder = (-18*exp(1)^2*π^2 - 12*exp(1)^3*π^2 + exp(1)*(500 + 488*π^2) - 6*exp(1)^(10/π)*π*(π*cos(10) - sin(10)))/(3*exp(1)*(1 + π^2))
 #132.11928
 hoelder = let l=1
     params -> begin
-        return LogDVal(log(10-((params.x^2)/20) - abs( sin(params.x)*exp(abs(1-((sqrt(params.x^2))/(pi)))) )))
-    end
+        #return LogDVal(log(10-((params.x^2)/20) - abs( sin(params.x)*exp(abs(1-((sqrt(params.x^2))/(pi))))) ))
+		return LogDVal(BAT.density_logval(HoelderTable(),params.x))
+	end
 end
 prior_hoelder = NamedTupleDist(
-    x = -10..10
+    x = -10..10		#Fixed
 )
 posterior_hoelder = PosteriorDensity(hoelder,prior_hoelder)
-analytical_function_hoelder = x-> 10-((x^2)/20)-abs( sin(x)*exp(abs(1-((sqrt(x^2))/(pi)))))
+analytical_function_hoelder = HoelderTable().dist#x-> 10-((x^2)/20)-abs( sin(x)*exp(abs(1-((sqrt(x^2))/(pi)))))
 analytical_stats_hoelder = [0,0,23.0461]
 ################################################
 
@@ -181,8 +158,7 @@ analytical_stats_funnel = [-0.298002,0.0163721,0.314562] #analytical refused by 
 
 
 posterior=[
-            posterior_slope,
-			posterior_square,
+            posterior_normal,
             posterior_cauchy,
             posterior_multi_cauchy,
 			posterior_rastrigin,
@@ -194,8 +170,7 @@ posterior=[
 		]
 
 name=[
-            name_slope,
-			name_square,
+            name_normal,
             name_cauchy,
             name_multi_cauchy,
 			name_rastrigin,
@@ -207,8 +182,7 @@ name=[
 ]
 
 analytical_integral=[
-			analytical_integral_slope,
-			analytical_integral_square,
+			analytical_integral_normal,
             analytical_integral_cauchy,
             analytical_integral_multi_cauchy,
 			analytical_integral_rastrigin,
@@ -220,8 +194,7 @@ analytical_integral=[
 ]
 
 analytical_stats=[
-            analytical_stats_slope,
-            analytical_stats_square,
+            analytical_stats_normal,
             analytical_stats_cauchy,
             analytical_stats_multi_cauchy,
             analytical_stats_rastrigin,
@@ -233,8 +206,7 @@ analytical_stats=[
 ]
 
 func=[
-            analytical_function_slope,
-            analytical_function_square,
+            analytical_function_normal,
             analytical_function_cauchy,
             analytical_function_multi_cauchy,
             analytical_function_rastrigin,
