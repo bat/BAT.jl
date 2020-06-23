@@ -91,13 +91,18 @@ function sample_subspace(
     sampling_kwargs::N
 ) where {N<:NamedTuple, A<:AbstractSamplingAlgorithm, I<:IntegrationAlgorithm}
 
-    samples_subspace = bat_sample(posterior, n, sampling_algorithm; sampling_kwargs...).result
-    integras_subspace = bat_integrate(samples_subspace, integration_algorithm).result
+    sampling_wc_start = Dates.Time(Dates.now())
+    sampling_cpu_time = @CPUelapsed begin
+        samples_subspace = bat_sample(posterior, n, sampling_algorithm; sampling_kwargs...).result
+    end
+    sampling_wc_stop = Dates.Time(Dates.now())
+
+    integration_cpu_time = @CPUelapsed begin
+        integras_subspace = bat_integrate(samples_subspace, integration_algorithm).result
+    end
 
     # α = exp(log(integras_subspace) + log(prior_normalization))
-
     # samples_subspace.weight .= α.val .* samples_subspace.weight ./ sum(samples_subspace.weight)
-    # samples_subspace.weight .= 2.1 .* samples_subspace.weight # How to change weights to Float?
 
     samples_subspace_reweighted = DensitySampleVector(
         (
@@ -111,8 +116,13 @@ function sample_subspace(
 
     info_subspace = TypedTables.Table(
             density_integral = [integras_subspace],
-            sampling_time = [1.],
-            integration_time = [2.0]
+            sampling_time = [sampling_cpu_time],
+            sampling_wc_start = [Dates.value(sampling_wc_start)],
+            sampling_wc_stop = [Dates.value(sampling_wc_stop)],
+            integration_time = [integration_cpu_time],
+            worker_id = [Distributed.myid()],
+            n_threads = [Threads.nthreads()],
+            samples_ind = [10:30]
         )
 
     return (samples = samples_subspace_reweighted, info = info_subspace)
