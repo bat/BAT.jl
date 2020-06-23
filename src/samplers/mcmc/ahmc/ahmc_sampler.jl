@@ -308,25 +308,40 @@ function mcmc_step!(
 
         samples.logd[proposed] = proposed_log_posterior
 
-        samples.info.sampletype[current] = ACCEPTED_SAMPLE
-        samples.info.sampletype[proposed] = CURRENT_SAMPLE
-        chain.nsamples += 1
+        accepted = current_params != proposed_params
 
-        delta_w_current, w_proposed = (0, 1) # always accepted
+        if accepted
+            samples.info.sampletype[current] = ACCEPTED_SAMPLE
+            samples.info.sampletype[proposed] = CURRENT_SAMPLE
+            chain.nsamples += 1
+        else
+            samples.info.sampletype[proposed] = REJECTED_SAMPLE
+        end
+
+        delta_w_current, w_proposed = if accepted
+            (0, 1)
+        else
+            (1, 0)
+        end
+        
         samples.weight[current] += delta_w_current
         samples.weight[proposed] = w_proposed
 
         callback(1, chain)
 
-        current_params .= proposed_params
-        samples.logd[current] = samples.logd[proposed]
-        samples.weight[current] = samples.weight[proposed]
-        samples.info[current] = samples.info[proposed]
+        if accepted
+            current_params .= proposed_params
+            samples.logd[current] = samples.logd[proposed]
+            samples.weight[current] = samples.weight[proposed]
+            samples.info[current] = samples.info[proposed]
+        end
 
-        true
+        accepted
     end # @uviews
 
-    resize!(samples, 1)
+    if accepted
+        resize!(samples, 1)
+    end
 
     chain
 end
