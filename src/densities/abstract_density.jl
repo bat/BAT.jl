@@ -97,6 +97,17 @@ var_bounds(density::AbstractDensity) = missing
 
 
 @doc doc"""
+    BAT.estimate_finite_bounds(...)
+
+*BAT-internal, not part of stable public API.*
+
+Estimate finite bounds of a density.
+Currently, the bounds are estimated by calculating the 0.00001 and 0.99999 quantiles.
+"""
+function estimate_finite_bounds end
+
+
+@doc doc"""
     ValueShapes.totalndof(density::AbstractDensity)::Union{Int,Missing}
 
 Get the number of degrees of freedom of the variates of `density`. May return
@@ -158,7 +169,7 @@ function eval_density_logval(
     catch err
         v_real = _strip_duals(v)
         v_real_shaped = _apply_parshapes(v_real, shape)
-        throw(ErrorException("Density evaluation failed at v = $v_real_shaped due to exception $err"))
+        rethrow(ErrorException("Density evaluation failed at v = $v_real_shaped due to exception $err"))
     end
     r = float(raw_r)
     isnan(r) && throw(ErrorException("Return value of density_logval must not be NaN, density has type $(typeof(density))"))

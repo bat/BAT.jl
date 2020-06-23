@@ -93,19 +93,30 @@ end
 
 Type alias for `StructArrays.StructArray{<:DensitySample,...}`.
 
-Constructor:
+Constructors:
 
 ```julia
     DensitySampleVector(
         (
-            v::AbstractVector{<:AbstractVector{<:Real}}
-            logd::AbstractVector{<:Real}
-            weight::AbstractVector{<:Real}
-            info::AbstractVector{<:Any}
+            v::AbstractVector{<:AbstractVector{<:Real}},
+            logd::AbstractVector{<:Real},
+            weight::AbstractVector{<:Real},
+            info::AbstractVector{<:Any},
             aux::AbstractVector{<:Any}
         )
     )
 ```
+
+```julia
+    DensitySampleVector(
+            v::AbstractVector,
+            logval::AbstractVector{<:Real};
+            weight::Union{AbstractVector{<:Real}, Symbol} = fill(1, length(eachindex(v))),
+            info::AbstractVector = fill(nothing, length(eachindex(v))),
+            aux::AbstractVector = fill(nothing, length(eachindex(v)))
+        )
+```
+    For `weight = :RepetitionWeight`, repeated samples will be dropped and the weight of the corresponding sample will be increased.
 """
 const DensitySampleVector{
     P,T<:AbstractFloat,W<:Real,R,Q,
@@ -155,6 +166,21 @@ end
 
 DensitySampleVector(::Type{S}, varlen::Integer) where {P<:AbstractVector{<:Real},T<:AbstractFloat,W<:Real,R,Q,S<:DensitySample{P,T,W,R,Q}} =
     DensitySampleVector{P,T,W,R,Q}(undef, 0, varlen)
+
+
+function DensitySampleVector(
+    v::AbstractVector,
+    logval::AbstractVector{<:Real};
+    weight::Union{AbstractVector{<:Real}, Symbol} = fill(1, length(eachindex(v))),
+    info::AbstractVector = fill(nothing, length(eachindex(v))),
+    aux::AbstractVector = fill(nothing, length(eachindex(v)))
+)
+    if weight == :RepetitionWeight
+        v, weight = repetition_to_weights(v)
+    end
+
+    return DensitySampleVector((ArrayOfSimilarArrays(v), logval, weight, info, aux))
+end
 
 
 # Specialize getindex to properly support ArraysOfArrays and similar, preventing
@@ -310,4 +336,32 @@ function drop_low_weight_samples(samples::DensitySampleVector, fraction::Real = 
             samples
         end
     end
+end
+
+
+
+"""
+    repetition_to_weights(v::AbstractVector)
+
+*BAT-internal, not part of stable public API.*
+
+Drop (subsequently) repeated samples by adding weights.
+"""
+function repetition_to_weights(v::AbstractVector)
+    v_new = Vector{typeof(v[1])}()
+    weights = Vector{Integer}()
+
+    push!(v_new, v[1])
+    push!(weights, 1)
+
+    for i in 2:length(eachindex(v))
+        if v[i] == v[i-1]
+            weights[end] += 1
+        else
+            push!(v_new, v[i])
+            push!(weights, 1)
+        end
+    end
+    
+    return v_new, weights
 end
