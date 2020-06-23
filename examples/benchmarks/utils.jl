@@ -1,5 +1,5 @@
 #1D functions
-function multimodal_1D(sample_sats,analytical_stats)
+function multimodal_1D(sample_sats::Vector{Float64},analytical_stats::Vector{Any})
     new_analytical_stats = []
     for i in 1:length(sample_stats)
         push!(new_analytical_stats,one_multimodal_1D(sample_stats[i],analytical_stats[i]))
@@ -8,7 +8,7 @@ function multimodal_1D(sample_sats,analytical_stats)
 end
 
 
-function one_multimodal_1D(sample_stats,analytical_stats)
+function one_multimodal_1D(sample_stats::Vector{Float64},analytical_stats::Vector{Any})
     new_analytical_stats = Array{Float64}(undef,length(analytical_stats))
     diff = abs.(sample_stats[1])
     if length(analytical_stats[1]) > 1
@@ -23,7 +23,11 @@ function one_multimodal_1D(sample_stats,analytical_stats)
 end
 
 
-function make_1D_results(name,sample_stats,analytical_stats)
+function make_1D_results(
+	name::Vector{String},
+	sample_stats::Vector{Float64},
+	analytical_stats::Vector{Any})
+
     statistics_names = ["mode","mean","var","chi2"]
     comparison = ["target","test","diff (abs)","diff (rel)"]
     analytical_stats = multimodal_1D(sample_stats,analytical_stats)
@@ -58,7 +62,14 @@ function make_1D_results(name,sample_stats,analytical_stats)
 end
 
 
-function plot_diff_1D(bincenters,differences,err1,err2,err3,name)
+function plot_diff_1D(
+	bincenters::Vector{Float64},
+	differences::Vector{Float64},
+	err1::Vector{Float64},
+	err2::Vector{Float64},
+	err3::Vector{Float64},
+	name::String)
+
     scatter(
         bincenters,
         differences,
@@ -120,7 +131,14 @@ function plot_diff_1D(bincenters,differences,err1,err2,err3,name)
 end
 
 
-function plot1D(samples, analytical_integral, func, name, analytical_stats,sample_stats)
+function plot1D(
+	samples::DensitySampleVector,
+	analytical_integral::Real,
+	func::Function,
+	name::String,
+	analytical_stats::Vector{Any},
+	sample_stats::Vector{Float64})
+
     hunnorm = fit(Histogram, samples.v.x,FrequencyWeights(samples.weight),nbins=400)
 	h = fit(Histogram, samples.v.x,FrequencyWeights(samples.weight),nbins=400)
 	h = StatsBase.normalize(h)
@@ -189,13 +207,13 @@ end
 
 
 function run1D(
-	posterior,
-	name,
-	analytical_integral,
-	func,
-    analytical_stats,
-    sample_stats,
-    run_stats,
+	posterior::BAT.AnyPosterior,
+	name::String,
+	analytical_integral::Real,
+	func::Function,
+    analytical_stats::Vector{Any},
+    sample_stats::Vector{Float64},
+    run_stats::Vector{Float64},
     n_runs=1
 	)
 
@@ -220,7 +238,7 @@ function run1D(
 	return sample_stats_all
 end
 
-function save_stats_1D(name,run_stats,run_stats_names)
+function save_stats_1D(name::String,run_stats::Vector{Float64},run_stats_names::Vector{String})
     f = open("results/run_stats_1D.txt","w")
     run_stats_table = reshape(vcat(run_stats...),length(run_stats[1]),length(run_stats))
     table_stats = Any[]

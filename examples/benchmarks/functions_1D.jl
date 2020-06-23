@@ -8,7 +8,7 @@ normal =
 	   	return LogDVal(logpdf(Normal(0,1),params.x))
 	end
 prior_normal = NamedTupleDist(
-	x = -10..10
+	x = -7..7
 )
 posterior_normal = PosteriorDensity(normal,prior_normal)
 analytical_function_normal = x -> pdf(Normal(0,1),x)
@@ -27,7 +27,7 @@ prior_cauchy = NamedTupleDist(
 	x = -25..25
 )
 posterior_cauchy = PosteriorDensity(cauchy,prior_cauchy)
-analytical_function_cauchy = x -> pdf(Cauchy(0,1),x)#x-> 1/(pi*1)*((1^2)/((x-0)^2+1^2))
+analytical_function_cauchy = x -> pdf(Cauchy(0,1),x)
 analytical_stats_cauchy = [0,0,15.2459]#(50-2*atan(25))/pi] night ganz
 ################################################
 
@@ -56,7 +56,6 @@ analytical_integral_rastrigin = 1
 
 rastrigin =
 	params -> begin
-		#return LogDVal(log(30-10-params.x^2+10*cos(2*pi*params.x)))
 		return LogDVal(BAT.density_logval(Rastrigin(),params.x))
 	end
 
@@ -106,19 +105,18 @@ analytical_stats_exp1 = [0,1,1]
 ################################################
 name_hoelder = "hoelder table"
 analytical_integral_hoelder = 1
-#analytical_integral_hoelder = (-18*exp(1)^2*π^2 - 12*exp(1)^3*π^2 + exp(1)*(500 + 488*π^2) - 6*exp(1)^(10/π)*π*(π*cos(10) - sin(10)))/(3*exp(1)*(1 + π^2))
-#132.11928
+
 hoelder = let l=1
     params -> begin
-        #return LogDVal(log(10-((params.x^2)/20) - abs( sin(params.x)*exp(abs(1-((sqrt(params.x^2))/(pi))))) ))
 		return LogDVal(BAT.density_logval(HoelderTable(),params.x))
 	end
 end
 prior_hoelder = NamedTupleDist(
     x = -10..10		#Fixed
 )
+
 posterior_hoelder = PosteriorDensity(hoelder,prior_hoelder)
-analytical_function_hoelder = HoelderTable().dist#x-> 10-((x^2)/20)-abs( sin(x)*exp(abs(1-((sqrt(x^2))/(pi)))))
+analytical_function_hoelder = HoelderTable().dist#
 analytical_stats_hoelder = [0,0,23.0461]
 ################################################
 
