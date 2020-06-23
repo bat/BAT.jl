@@ -206,3 +206,17 @@ function rescale_tree!(tree::SpacePartTree, μ::Array{F}, δ::Array{F}) where {F
         rescale_tree!(tree.right_child, μ, δ)
     end
 end
+
+function get_tree_par_bounds!(tree::SpacePartTree, bounds_part::Array{Array{Float64},1})
+    if tree.terminated_leaf == true
+        push!(bounds_part, tree.bounds)
+    else
+        get_tree_par_bounds!(tree.left_child, bounds_part)
+        get_tree_par_bounds!(tree.right_child, bounds_part)
+    end
+end
+
+function get_tree_par_bounds(tree::SpacePartTree)
+    param_bounds::Array{Array{Float64},1} = []
+	return get_tree_par_bounds!(tree, param_bounds)
+end

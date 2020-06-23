@@ -54,13 +54,18 @@ function bat_sample(
     exploration_samples = bat_sample(posterior, algorithm.n_exploration, algorithm.exploration_sampler; algorithm.exploration_kwargs...).result
 
     @info "Construct Partition Tree"
-    partition_tree, cost_values = partition_space(exploration_samples, n_subspaces, algorithm.partitioner)
-
-    # ToDo: .....
+    partition_tree, cost_values = partition_space(exploration_samples, n_subspaces-1, algorithm.partitioner)
+    posteriors_array = partitioned_priors(posterior, partition_tree)
 
     @info "Sample Parallel"
     #ToDo: Convert partition_tree -> set of posterior with corresponding bounded priors
-    iterator_subspaces = [[subspace_ind, posterior, (n_samples, n_chains), algorithm.sampler, algorithm.integrator, algorithm.sampling_kwargs] for subspace_ind in Base.OneTo(n_subspaces)]
+    iterator_subspaces = [
+        [subspace_ind, posteriors_array[subspace_ind],
+        (n_samples, n_chains),
+        algorithm.sampler,
+        algorithm.integrator,
+        algorithm.sampling_kwargs] for subspace_ind in Base.OneTo(n_subspaces)]
+
     samples_subspaces = pmap(inp -> sample_subspace(inp...), iterator_subspaces)
 
     @info "Combine Samples"
@@ -90,7 +95,6 @@ function sample_subspace(
     integras_subspace = bat_integrate(samples_subspace, integration_algorithm).result
 
     # α = exp(log(integras_subspace) + log(prior_normalization))
-    α = exp(log(integras_subspace) + log(1.0))
 
     # samples_subspace.weight .= α.val .* samples_subspace.weight ./ sum(samples_subspace.weight)
     # samples_subspace.weight .= 2.1 .* samples_subspace.weight # How to change weights to Float?
@@ -99,7 +103,7 @@ function sample_subspace(
         (
             samples_subspace.v,
             samples_subspace.logd,
-            α .* samples_subspace.weight ./ sum(samples_subspace.weight),
+            integras_subspace.val .* samples_subspace.weight ./ sum(samples_subspace.weight),
             samples_subspace.info,
             samples_subspace.aux
         )
@@ -112,4 +116,29 @@ function sample_subspace(
         )
 
     return (samples = samples_subspace_reweighted, info = info_subspace)
+end
+
+function partitioned_priors(posterior::PosteriorDensity, partition_tree::SpacePartTree)
+
+    lo_bounds = getprior(posterior).bounds.vol.lo
+    hi_bounds = getprior(posterior).bounds.vol.hi
+
+    n_params = length(lo_bounds)
+
+    subspaces_rect_bounds = get_tree_par_bounds(partition_tree)
+
+    lo_tree_bounds = [minimum(hcat([tree_bound[:,1] for tree_bound in subspaces_rect_bounds]...), dims=2)...]
+    hi_tree_bounds = [maximum(hcat([tree_bound[:,2] for tree_bound in subspaces_rect_bounds]...), dims=2)...]
+
+    to_be_extended = [Pair.(lo_tree_bounds, lo_bounds); Pair.(hi_tree_bounds, hi_bounds)]
+
+    posterior_array = PosteriorDensity[]
+
+    for subspace in subspaces_rect_bounds
+        bounds_tmp = replace(subspace, to_be_extended...)
+        bounds = BAT.HyperRectBounds(bounds_tmp[:,1], bounds_tmp[:,2],  repeat([BAT.hard_bounds], n_params))
+        const_dens =  BAT.ConstDensity(bounds,0.0)
+        push!(posterior_array, PosteriorDensity(getlikelihood(posterior), const_dens))
+    end
+    return posterior_array
 end
