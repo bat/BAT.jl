@@ -53,12 +53,11 @@ function bat_sample(
     @info "Generating Exploration Samples"
     exploration_samples = bat_sample(posterior, algorithm.n_exploration, algorithm.exploration_sampler; algorithm.exploration_kwargs...).result
 
-    @info "Construct Partition Tree"
-    partition_tree, cost_values = partition_space(exploration_samples, n_subspaces-1, algorithm.partitioner)
-    posteriors_array = partitioned_priors(posterior, partition_tree)
+    @info "Constructing Partition Tree"
+    partition_tree, cost_values = partition_space(exploration_samples, n_subspaces, algorithm.partitioner)
+    posteriors_array = partitioned_priors(posterior, partition_tree, extend_bounds = algorithm.partitioner.extend_bounds)
 
-    @info "Sample Parallel"
-    #ToDo: Convert partition_tree -> set of posterior with corresponding bounded priors
+    @info "Sampling Subspaces"
     iterator_subspaces = [
         [subspace_ind, posteriors_array[subspace_ind],
         (n_samples, n_chains),
@@ -68,7 +67,7 @@ function bat_sample(
 
     samples_subspaces = pmap(inp -> sample_subspace(inp...), iterator_subspaces)
 
-    @info "Combine Samples"
+    @info "Combining Samples"
     for subspace in samples_subspaces[2:end]
         append!(samples_subspaces[1].samples, subspace.samples)
         append!(samples_subspaces[1].info, subspace.info)
@@ -97,9 +96,11 @@ function sample_subspace(
     end
     sampling_wc_stop = Dates.Time(Dates.now())
 
+    integration_wc_start = Dates.Time(Dates.now())
     integration_cpu_time = @CPUelapsed begin
         integras_subspace = bat_integrate(samples_subspace, integration_algorithm).result
     end
+    integration_wc_stop = Dates.Time(Dates.now())
 
     # α = exp(log(integras_subspace) + log(prior_normalization))
     # samples_subspace.weight .= α.val .* samples_subspace.weight ./ sum(samples_subspace.weight)
@@ -116,37 +117,37 @@ function sample_subspace(
 
     info_subspace = TypedTables.Table(
             density_integral = [integras_subspace],
-            sampling_time = [sampling_cpu_time],
-            sampling_wc_start = [Dates.value(sampling_wc_start)],
-            sampling_wc_stop = [Dates.value(sampling_wc_stop)],
-            integration_time = [integration_cpu_time],
+            sampling_cpu_time = [sampling_cpu_time],
+            integration_cpu_time = [integration_cpu_time],
+            sampling_cpu_wc = [Dates.value(sampling_wc_start):Dates.value(sampling_wc_stop)],
+            integration_wc = [Dates.value(integration_wc_start):Dates.value(integration_wc_stop)],
             worker_id = [Distributed.myid()],
             n_threads = [Threads.nthreads()],
-            samples_ind = [10:30]
+            samples_ind = [missing]
         )
 
     return (samples = samples_subspace_reweighted, info = info_subspace)
 end
 
-function partitioned_priors(posterior::PosteriorDensity, partition_tree::SpacePartTree)
+function partitioned_priors(posterior::PosteriorDensity, partition_tree::SpacePartTree; extend_bounds::Bool=true)
 
-    lo_bounds = getprior(posterior).bounds.vol.lo
-    hi_bounds = getprior(posterior).bounds.vol.hi
-
-    n_params = length(lo_bounds)
+    if extend_bounds
+        # Exploration samples might not always cover properly tails of the distribution.
+        # We will extend boudnaries of the partition tree with original bounds which are:
+        lo_bounds = getprior(posterior).bounds.vol.lo
+        hi_bounds = getprior(posterior).bounds.vol.hi
+        extend_tree_bounds!(partition_tree, lo_bounds, hi_bounds)
+    end
 
     subspaces_rect_bounds = get_tree_par_bounds(partition_tree)
 
-    lo_tree_bounds = [minimum(hcat([tree_bound[:,1] for tree_bound in subspaces_rect_bounds]...), dims=2)...]
-    hi_tree_bounds = [maximum(hcat([tree_bound[:,2] for tree_bound in subspaces_rect_bounds]...), dims=2)...]
-
-    to_be_extended = [Pair.(lo_tree_bounds, lo_bounds); Pair.(hi_tree_bounds, hi_bounds)]
-
+    #ToDo: Should be a smarter way to get n_params from posterior:
+    n_params = size(subspaces_rect_bounds[1])[1]
     posterior_array = PosteriorDensity[]
 
     for subspace in subspaces_rect_bounds
-        bounds_tmp = replace(subspace, to_be_extended...)
-        bounds = BAT.HyperRectBounds(bounds_tmp[:,1], bounds_tmp[:,2],  repeat([BAT.hard_bounds], n_params))
+        #ToDo: Use NamedTupleDist as a prior
+        bounds = BAT.HyperRectBounds(subspace[:,1], subspace[:,2],  repeat([BAT.hard_bounds], n_params))
         const_dens =  BAT.ConstDensity(bounds,0.0)
         push!(posterior_array, PosteriorDensity(getlikelihood(posterior), const_dens))
     end

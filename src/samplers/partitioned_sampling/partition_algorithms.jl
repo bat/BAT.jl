@@ -10,13 +10,16 @@ export SpacePartitioningAlgorithm
 
 K-D binary space partitioning algorithm. By default, all parameters are
 considered for partitioning. Partition parameters can be specified
-manually by using `partition_dims` argument:
+manually by using `partition_dims` argument. By default, bounds of the
+partitioning tree are extended to those given by prior. This can be changed
+by setting `extend_bounds = false`:
 
 	PartitionedSampling(partition_dims=[1,2,3,4])
 
 """
 @with_kw struct KDTreePartitioning <: SpacePartitioningAlgorithm
 	partition_dims::Union{Array{Int64,1}, Bool} = false
+	extend_bounds::Bool = true
 end
 
 export KDTreePartitioning

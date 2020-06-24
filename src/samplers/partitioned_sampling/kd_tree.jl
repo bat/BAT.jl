@@ -27,7 +27,7 @@ function partition_space(samples::DensitySampleVector, n_partitions::Integer, al
 	bounds = repeat([0.0 1.0],size(flat_scaled_data.samples)[1])
 	partition_tree = def_init_node(flat_scaled_data, bounds)
 	cost_values = Float64[]
-	for i in 1:n_partitions
+	for i in 1:n_partitions-1
 		@info "KDTreePartitioning: Increasing tree depth (depth = $i)"
 		initialize_partitioning!(partition_tree, flat_scaled_data, partition_dims)
 		ind, sum_cost = det_part_node(partition_tree)
@@ -109,7 +109,8 @@ end
 
 function evaluate_param_cost(data::T, cut_position::F, axis::I) where {T<:NamedTuple, I<:Integer, F<:AbstractFloat}
     size_s = size(data.samples)
-    if size_s[2] > 3
+	n_samples_critical = 3 #if less than 3 samples then return Inf
+    if size_s[2] > n_samples_critical
         mask = data.samples[axis, :] .< cut_position
 		a1 = evaluate_total_cost((samples = data.samples[:,mask], weights = data.weights[mask], loglik = data.loglik[mask]))
 		a2 = evaluate_total_cost((samples = data.samples[:,.!mask], weights = data.weights[.!mask], loglik = data.loglik[.!mask]))
@@ -207,7 +208,7 @@ function rescale_tree!(tree::SpacePartTree, μ::Array{F}, δ::Array{F}) where {F
     end
 end
 
-function get_tree_par_bounds!(tree::SpacePartTree, bounds_part::Array{Array{Float64},1})
+function get_tree_par_bounds!(tree::SpacePartTree, bounds_part::Array{Array{F},1}) where {F<:AbstractFloat}
     if tree.terminated_leaf == true
         push!(bounds_part, tree.bounds)
     else
@@ -219,4 +220,25 @@ end
 function get_tree_par_bounds(tree::SpacePartTree)
     param_bounds::Array{Array{Float64},1} = []
 	return get_tree_par_bounds!(tree, param_bounds)
+end
+
+function extend_tree_bounds!(tree::SpacePartTree, lo::Array{F,1}, hi::Array{F,1}) where {F<:AbstractFloat}
+
+	subspaces_rect_bounds = get_tree_par_bounds(tree)
+
+	lo_tree_bounds = [minimum(hcat([tree_bound[:,1] for tree_bound in subspaces_rect_bounds]...), dims=2)...]
+    hi_tree_bounds = [maximum(hcat([tree_bound[:,2] for tree_bound in subspaces_rect_bounds]...), dims=2)...]
+
+	to_be_extended = [Pair.(lo_tree_bounds, lo); Pair.(hi_tree_bounds, hi)]
+
+	extend_tree_bounds!(tree, to_be_extended)
+end
+
+function extend_tree_bounds!(tree::SpacePartTree, to_be_extended::Array{P}) where {P<:Pair}
+    if tree.terminated_leaf == true
+		tree.bounds = replace(tree.bounds, to_be_extended...)
+    else
+        extend_tree_bounds!(tree.left_child, to_be_extended)
+        extend_tree_bounds!(tree.right_child, to_be_extended)
+    end
 end
