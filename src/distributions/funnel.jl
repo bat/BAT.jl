@@ -6,8 +6,8 @@ struct FunnelDistribution <: ContinuousMultivariateDistribution
     n::Int
 end
 
-"""
-    BAT.FunnelDistribution(a=1, b=0.5, n=3)
+@doc doc"""
+    BAT.FunnelDistribution([a=1, b=0.5, n=3])
 
 *BAT-internal, not part of stable public API.*
 
@@ -18,6 +18,8 @@ Funnel distribution (Caldwell et al.)[https://arxiv.org/abs/1808.08051].
 - `b::Real`: Variance of the supporting normal distributions. Defaults to 0.5.
 - `n::Int`: Number of dimensions. Defaults to 3.
 """
+function FunnelDistribution end
+
 function FunnelDistribution(;a::Real=1, b::Real=0.5, n::Int=3)
     a, b = promote(a, b)
     FunnelDistribution(a, b, n)
