@@ -32,13 +32,12 @@ posterior_gauss2D = PosteriorDensity(gauss2D, prior_gauss2D)
 name_multi_cauchy2D = "multi cauchy"
 multi_cauchy2D = let
     params -> begin
-
-        return LogDVal(log( (0.5*((1/(pi*2)*((2^2)/((params.x-5)^2+2^2)))+(1/(pi*2)*((2^2)/((params.x+5)^2+2^2)))) ) * (0.5*((1/(pi*2)*((2^2)/((params.y-5)^2+2^2)))+(1/(pi*2)*((2^2)/((params.y+5)^2+2^2))))) ))
+        return LogDVal(logpdf(BAT.MultimodalCauchy([Cauchy(-5,2),Cauchy(5,2)],2),[params.x,params.y]))
     end
 end
 
 function analytical_function_multi_cauchy2D(x,y)
-        return (0.5*((1/(pi*2)*((2^2)/((x-5)^2+2^2)))+(1/(pi*2)*((2^2)/((x+5)^2+2^2)))) ) * (0.5*((1/(pi*2)*((2^2)/((y-5)^2+2^2)))+(1/(pi*2)*((2^2)/((y+5)^2+2^2)))))
+        return pdf(BAT.MultimodalCauchy([Cauchy(-5,2),Cauchy(5,2)],2),[x,y])
 end
 
 prior_multi_cauchy2D = NamedTupleDist(
@@ -78,7 +77,7 @@ q1 = [[sqrt(x),sqrt(25-x)] for x in 0:0.01:25]
 q2 = [[sqrt(x),-sqrt(25-x)] for x in 0:0.01:25]
 q3 = [[-sqrt(x),-sqrt(25-x)] for x in 0:0.01:25]
 q4 = [[sqrt(x),sqrt(25-x)] for x in 0:0.01:25]
-analytical_stats_gaussian_shell2D[1] = [t1...,t2...,t3...,t4...] #all modes within the max circle
+analytical_stats_gaussian_shell2D[1] = [q1...,q2...,q3...,q4...] #all modes within the max circle
 #analytical_stats_gaussian_shell2D[1] = [[sqrt(x),sqrt(25-x)] for x in 0:0.01:25]
 analytical_stats_gaussian_shell2D[2] = [0,0]
 analytical_stats_gaussian_shell2D[3] = [18.485989,18.485989]
@@ -91,12 +90,12 @@ name_funnel2D = "funnel"
 analytical_integral_funnel2D = 0.2288974
 funnel2D = let a=1, b=0.5
     params -> begin
-        return LogDVal(log(((1/sqrt(2*pi*a^2))*exp(-((params.x)^2/(2*a^2)))) * ((1/sqrt(2*pi*(exp(2*b*params.x))^2))*exp(-((params.x)^2/(2*(exp(2*b*params.x))^2)))) * ((1/sqrt(2*pi*(exp(2*b*params.x))^2))*exp(-((params.y)^2/(2*(exp(2*b*params.x))^2))))  ))
+        return LogDVal(logpdf(BAT.Funnel(1.,0.5,[params.x,params.x,params.y]).likelihood,[params.x,params.x,params.y]))
     end
 end
 
 function analytical_function_funnel2D(x,y)
-    return ((1/sqrt(2*pi*1^2))*exp(-((x)^2/(2*1^2)))) * ((1/sqrt(2*pi*(exp(2*0.5*x))^2))*exp(-((x)^2/(2*(exp(2*0.5*x))^2)))) * ((1/sqrt(2*pi*(exp(2*0.5*x))^2))*exp(-((y)^2/(2*(exp(2*0.5*x))^2))))
+    return pdf(BAT.Funnel(1.,0.5,[x,x,y]).likelihood,[x,x,y])
 end
 
 prior_funnel2D = NamedTupleDist(

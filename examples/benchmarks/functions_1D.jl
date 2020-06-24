@@ -33,18 +33,19 @@ analytical_stats_cauchy = [0,0,15.2459]#(50-2*atan(25))/pi] night ganz
 
 ################################################
 name_multi_cauchy = "multi cauchy"
-analytical_integral_multi_cauchy = 0.97
+analytical_integral_multi_cauchy = 0.029053426970
 
-multi_cauchy = let a=5, b=2
+multi_cauchy = let a=5., b=4.
 	params -> begin
-		return LogDVal(log(0.5*((1/(pi*b)*((b^2)/((params.x-a)^2+b^2)))+(1/(pi*b)*((b^2)/((params.x+a)^2+b^2))))))
+		mixture = [Cauchy(-1*a, b), Cauchy(a, b)]
+		return LogDVal(logpdf(BAT.MultimodalCauchy(mixture, 1).likelihood,[params.x,0]))
 	end
 end
 prior_multi_cauchy = NamedTupleDist(
 	x = -40..40
 )
 posterior_multi_cauchy = PosteriorDensity(multi_cauchy,prior_multi_cauchy)
-analytical_function_multi_cauchy = x-> 0.5*((1/(pi*2)*((2^2)/((x-5)^2+2^2)))+(1/(pi*2)*((2^2)/((x+5)^2+2^2))))
+analytical_function_multi_cauchy = x-> pdf(BAT.MultimodalCauchy([Cauchy(-5., 4.), Cauchy(5., 4.)], 1).likelihood,[x,0])
 analytical_stats_multi_cauchy_variance = (2*(80 + 21/2*atan(35/2) + 21/2*atan(45/2) - 5*log(2029/1229)))/π
 analytical_stats_multi_cauchy = [[-5,5],0,analytical_stats_multi_cauchy_variance]
 #Analytical Variance (2*(80 + 21/2*atan(35/2) + 21/2*atan(45/2) - 5*log(2029/1229)))/π
@@ -140,16 +141,16 @@ analytical_stats_gaussian_shell = [[-5,5],0,29.1702] #analytical solution is rea
 ################################################
 name_funnel = "funnel"
 analytical_integral_funnel = 0.2294350
-funnel = let a=1, b=0.5
+funnel = let a=1., b=0.5
     params -> begin
-        return LogDVal(log(((1/sqrt(2*pi*a^2))*exp(-((params.x)^2/(2*a^2)))) * ((1/sqrt(2*pi*(exp(2*b*params.x))^2))*exp(-((params.x)^2/(2*(exp(2*b*params.x))^2))))))
+        return LogDVal(logpdf(BAT.Funnel(a,b,[params.x,params.x]).likelihood,[params.x,params.x]))
     end
 end
 prior_funnel = NamedTupleDist(
     x = -10..10
 )
 posterior_funnel = PosteriorDensity(funnel,prior_funnel)
-analytical_function_funnel = x->((1/sqrt(2*pi*1^2))*exp(-((x)^2/(2*1^2)))) * ((1/sqrt(2*pi*(exp(2*0.5*x))^2))*exp(-((x)^2/(2*(exp(2*0.5*x))^2))))
+analytical_function_funnel = x->pdf(BAT.Funnel(1.,0.5,[x,x]).likelihood,[x,x])
 
 analytical_stats_funnel = [-0.298002,0.0163721,0.314562] #analytical refused by wolframalpha
 ################################################

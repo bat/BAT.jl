@@ -1,5 +1,5 @@
 #1D functions
-function multimodal_1D(sample_sats::Vector{Float64},analytical_stats::Vector{Any})
+function multimodal_1D(sample_sats::Vector{Vector{Float64}},analytical_stats::Vector{Vector{Any}})
     new_analytical_stats = []
     for i in 1:length(sample_stats)
         push!(new_analytical_stats,one_multimodal_1D(sample_stats[i],analytical_stats[i]))
@@ -8,7 +8,7 @@ function multimodal_1D(sample_sats::Vector{Float64},analytical_stats::Vector{Any
 end
 
 
-function one_multimodal_1D(sample_stats::Vector{Float64},analytical_stats::Vector{Any})
+function one_multimodal_1D(sample_stats::Any,analytical_stats::Any)
     new_analytical_stats = Array{Float64}(undef,length(analytical_stats))
     diff = abs.(sample_stats[1])
     if length(analytical_stats[1]) > 1
@@ -25,8 +25,8 @@ end
 
 function make_1D_results(
 	name::Vector{String},
-	sample_stats::Vector{Float64},
-	analytical_stats::Vector{Any})
+	sample_stats::Vector{Vector{Float64}},
+	analytical_stats::Vector{Vector{Any}})
 
     statistics_names = ["mode","mean","var","chi2"]
     comparison = ["target","test","diff (abs)","diff (rel)"]
@@ -150,7 +150,7 @@ function plot1D(
 	savefig(string("plots1D/",name,".pdf"))
 
 
-    nun = convert(Int64,floor(sum(hunnorm.weights)/20))
+    nun = convert(Int64,floor(sum(hunnorm.weights)/10))
     unweighted_samples = bat_sample(samples, nun).result.v.x
     hunnorm = fit(Histogram, unweighted_samples, nbins=400)
 
@@ -238,7 +238,10 @@ function run1D(
 	return sample_stats_all
 end
 
-function save_stats_1D(name::String,run_stats::Vector{Float64},run_stats_names::Vector{String})
+function save_stats_1D(name::Vector{String},
+	run_stats::Vector{Vector{Float64}},
+	run_stats_names::Vector{String})
+
     f = open("results/run_stats_1D.txt","w")
     run_stats_table = reshape(vcat(run_stats...),length(run_stats[1]),length(run_stats))
     table_stats = Any[]
@@ -254,7 +257,12 @@ end
 #2D functions
 
 
-function plot2D(samples, analytical_integral, func, name, analytical_stats,sample_stats)
+function plot2D(samples::DensitySampleVector,
+	analytical_integral::Real,
+	func::Function,
+	name::String,
+	analytical_stats::Vector{Any},
+	sample_stats::Vector{Float64})
     nbin = 400
     h = fit(Histogram, (samples.v.x,samples.v.y) ,FrequencyWeights(samples.weight),nbins=nbin)
     hunnorm = fit(Histogram, (samples.v.x,samples.v.y) ,FrequencyWeights(samples.weight),nbins=nbin)
@@ -328,15 +336,15 @@ end
 
 
 function run2D(
-            posterior,
-            name,
-            analytical_integral,
-            func,
-            analytical_stats,
-            sample_stats,
-            run_stats,
-            n_runs=1
-            )
+        posterior::BAT.AnyPosterior,
+        name::String,
+        analytical_integral::Real,
+        func::Function,
+        analytical_stats::Vector{Any},
+        sample_stats::Vector{Float64},
+        run_stats::Vector{Float64},
+        n_runs=1
+        )
 
     sample_stats_all = []
 
@@ -362,7 +370,7 @@ function run2D(
 end
 
 
-function make_2D_results(sample_stats2D,analytical_stats2D)
+function make_2D_results(sample_stats2D::Vector{Vector{Float64}},analytical_stats2D::Vector{Vector{Any}})
     f = open("results/results_2D.txt","w")
     run_stats_names2D = ["nsamples","nchains","Times"]
     stats_names2D = ["mode","mean","var"]
@@ -399,7 +407,7 @@ function make_2D_results(sample_stats2D,analytical_stats2D)
 end
 
 
-function save_stats_2D(name,run_stats,run_stats_names)
+function save_stats_2D(name::Vector{String},run_stats::Vector{Vector{Float64}},run_stats_names::Vector{String})
     f = open("results/run_stats_2D.txt","w")
     run_stats_table = reshape(vcat(run_stats...),length(run_stats[1]),length(run_stats))
     table_stats = Any[]
