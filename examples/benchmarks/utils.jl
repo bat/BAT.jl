@@ -262,7 +262,7 @@ function plot2D(samples::DensitySampleVector,
 	func::Function,
 	name::String,
 	analytical_stats::Vector{Any},
-	sample_stats::Vector{Float64})
+	sample_stats::Vector{Any})
     nbin = 400
     h = fit(Histogram, (samples.v.x,samples.v.y) ,FrequencyWeights(samples.weight),nbins=nbin)
     hunnorm = fit(Histogram, (samples.v.x,samples.v.y) ,FrequencyWeights(samples.weight),nbins=nbin)
@@ -341,8 +341,8 @@ function run2D(
         analytical_integral::Real,
         func::Function,
         analytical_stats::Vector{Any},
-        sample_stats::Vector{Float64},
-        run_stats::Vector{Float64},
+        sample_stats::Vector{Any},
+        run_stats::Vector{Any},
         n_runs=1
         )
 
@@ -370,7 +370,7 @@ function run2D(
 end
 
 
-function make_2D_results(sample_stats2D::Vector{Vector{Float64}},analytical_stats2D::Vector{Vector{Any}})
+function make_2D_results(sample_stats2D::Vector{Vector{Any}},analytical_stats2D::Vector{Vector{Any}})
     f = open("results/results_2D.txt","w")
     run_stats_names2D = ["nsamples","nchains","Times"]
     stats_names2D = ["mode","mean","var"]
@@ -407,7 +407,7 @@ function make_2D_results(sample_stats2D::Vector{Vector{Float64}},analytical_stat
 end
 
 
-function save_stats_2D(name::Vector{String},run_stats::Vector{Vector{Float64}},run_stats_names::Vector{String})
+function save_stats_2D(name::Vector{String},run_stats::Vector{Vector{Any}},run_stats_names::Vector{String})
     f = open("results/run_stats_2D.txt","w")
     run_stats_table = reshape(vcat(run_stats...),length(run_stats[1]),length(run_stats))
     table_stats = Any[]
