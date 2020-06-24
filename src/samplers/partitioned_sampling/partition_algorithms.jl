@@ -12,9 +12,11 @@ K-D binary space partitioning algorithm. By default, all parameters are
 considered for partitioning. Partition parameters can be specified
 manually by using `partition_dims` argument. By default, bounds of the
 partitioning tree are extended to those given by prior. This can be changed
-by setting `extend_bounds = false`:
+by setting `extend_bounds = false`.
 
-	PartitionedSampling(partition_dims=[1,2,3,4])
+Constructor:
+
+	PartitionedSampling(partition_dims=[1,2,3,4], extend_bounds::Bool = true)
 
 """
 @with_kw struct KDTreePartitioning <: SpacePartitioningAlgorithm
@@ -40,7 +42,7 @@ Variables:
 	* cut_axis : Axis along which a cut is performed, `false` if the node is terminal.
 	* cut_coordinate : Coordinate at which a cut is performed, `false` if the node is terminal.
 	* cost : The sum of the cost functions over leaves.
-   * cost_part : The cost functions of the current leaf.
+    * cost_part : The cost functions of the current leaf.
 """
 mutable struct SpacePartTree
    terminated_leaf::Bool

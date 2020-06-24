@@ -10,14 +10,17 @@
 *BAT-internal, not part of stable public API.*
 
 The function generates a space partition tree with the number of partitions
-given by `n_partitions`, using `KDTreePartitioning` algorithm and `samples`.
-The output contains `SpacePartTree` and the values of the cost function.
+given by `n_partitions`, using `KDTreePartitioning` algorithm. Exploration samples
+are given by `samples`. The output contains `SpacePartTree` and the values of
+the cost function.
 """
 function partition_space(samples::DensitySampleVector, n_partitions::Integer, algorithm::KDTreePartitioning)
 
-	n_params = size(flatview(unshaped.(samples.v)))[1] # Change with smth smarter
+	# Should be a better way to get n_params:
+	n_params = size(flatview(unshaped.(samples.v)))[1]
 
-	if algorithm.partition_dims == false #check whether the user specified manually dimensions for partition. Use all if not.
+	# Check whether the user specified manually dimensions for partition. Use all if not.
+	if algorithm.partition_dims == false
 		partition_dims = collect(Base.OneTo(n_params))
 	else
 		partition_dims = sort(intersect(algorithm.partition_dims, collect(Base.OneTo(n_params)))) # to be safe
@@ -28,7 +31,7 @@ function partition_space(samples::DensitySampleVector, n_partitions::Integer, al
 	partition_tree = def_init_node(flat_scaled_data, bounds)
 	cost_values = Float64[]
 	for i in 1:n_partitions-1
-		@info "KDTreePartitioning: Increasing tree depth (depth = $i)"
+		# @info "KDTreePartitioning: Increasing tree depth (depth = $i)"
 		initialize_partitioning!(partition_tree, flat_scaled_data, partition_dims)
 		ind, sum_cost = det_part_node(partition_tree)
 		append!(cost_values, sum_cost)
@@ -179,6 +182,7 @@ function evaluate_total_cost(data::T) where {T<:NamedTuple}
 end
 
 function cost_f_2(data::T) where {T<:NamedTuple}
+	# Alternative Cost Function #2
     sise_s = size(data.samples)
     if sise_s[2] > 3
 		μ = mean(exp.(data.loglik), weights(data.weights))
@@ -189,6 +193,7 @@ function cost_f_2(data::T) where {T<:NamedTuple}
 end
 
 function cost_f_3(data::T) where {T<:NamedTuple}
+	# Alternative Cost Function #3
     sise_s = size(data.samples)
     if sise_s[2] > 3
         μ = data.samples[:,argmax(data.weights)]
