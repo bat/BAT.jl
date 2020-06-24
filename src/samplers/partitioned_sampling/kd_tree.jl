@@ -20,7 +20,7 @@ function partition_space(samples::DensitySampleVector, n_partitions::Integer, al
 	n_params = size(flatview(unshaped.(samples.v)))[1]
 
 	# Check whether the user specified manually dimensions for partition. Use all if not.
-	if algorithm.partition_dims == false
+	if algorithm.partition_dims == :auto
 		partition_dims = collect(Base.OneTo(n_params))
 	else
 		partition_dims = sort(intersect(algorithm.partition_dims, collect(Base.OneTo(n_params)))) # to be safe

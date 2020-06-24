@@ -16,11 +16,11 @@ by setting `extend_bounds = false`.
 
 Constructor:
 
-	PartitionedSampling(partition_dims=[1,2,3,4], extend_bounds::Bool = true)
+	PartitionedSampling(;partition_dims=:auto, extend_bounds::Bool = true)
 
 """
 @with_kw struct KDTreePartitioning <: SpacePartitioningAlgorithm
-	partition_dims::Union{Array{Int64,1}, Bool} = false
+	partition_dims::Union{Array{Int64,1}, Symbol} = :auto
 	extend_bounds::Bool = true
 end
 
