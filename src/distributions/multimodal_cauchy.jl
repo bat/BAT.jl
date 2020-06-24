@@ -5,8 +5,8 @@ struct MultimodalCauchy{M<:MixtureModel, P<:Product}  <: ContinuousMultivariateD
     dist::P
 end
 
-"""
-    BAT.MultimodalCauchy(μ=1, σ=0.5, n=3)
+@doc doc"""
+    BAT.MultimodalCauchy([μ=1, σ=0.5, n=3])
 
 *BAT-internal, not part of stable public API.*
 
@@ -19,6 +19,8 @@ Assumes two bimodal peaks, each in its own dimension.
 - `σ::Float64`: The scale parameter shared among all components.
 - `n::Int`: The number of dimensions.
 """
+function MultimodalCauchy end
+
 function MultimodalCauchy(;μ::Real=1, σ::Float64=0.2, n::Int64=4)
     mixture_model = MixtureModel([Cauchy(-μ, σ), Cauchy(μ, σ)])
     dist = _construct_dist(mixture_model, σ, n)
