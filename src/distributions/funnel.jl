@@ -14,9 +14,9 @@ end
 Funnel distribution (Caldwell et al.)[https://arxiv.org/abs/1808.08051].
 
 # Arguments
-- `a::Real`: Variance of the dominant normal distribution. Defaults to 1.
-- `b::Real`: Variance of the supporting normal distributions. Defaults to 0.5.
-- `n::Int`: Number of dimensions. Defaults to 3.
+- `a::Real`: Variance of the dominant normal distribution.
+- `b::Real`: Variance of the supporting normal distributions.
+- `n::Int`: Number of dimensions.
 """
 function FunnelDistribution end
 
