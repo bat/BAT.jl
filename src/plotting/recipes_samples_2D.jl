@@ -58,14 +58,15 @@
         acc = findall(x -> x > 0, samples.weight)
         rej = findall(x -> x <= 0, samples.weight)
 
-        color = parse(RGBA{Float64}, get(plotattributes, :seriescolor, :green))
+        color = parse(RGBA{Float64}, get(plotattributes, :seriescolor, :blue))
         label = get(plotattributes, :label, isempty(rej) ? "samples" : "accepted")
 
         @series begin
             seriestype := :scatter
             label := label
-            markersize := [w < 1 ? base_markersize : base_markersize * sqrt(w) for w in samples.weight[acc]]
+            markersize := [w < 1 ? base_markersize : base_markersize * 0.5*log(w) for w in samples.weight[acc]]
             markerstrokewidth := 0
+            markeralpha := 0.6
             markercolor := [w >= 1 ? color : RGBA(convert(RGB, color), color.alpha * w) for w in samples.weight[acc]]
             (flatview(samples.v)[xindx, acc], flatview(samples.v)[yindx, acc])
         end

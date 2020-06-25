@@ -23,15 +23,15 @@ Optional Parameters/settings (`kwargs`):
     * `n_exploration::Tuple{Integer,Integer} = (10^2, 40)` number of exploration iterations.
 
 """
-@with_kw struct PartitionedSampling{S<:AbstractSamplingAlgorithm,
+@with_kw struct PartitionedSampling{S<:AbstractSamplingAlgorithm, E<:AbstractSamplingAlgorithm,
     I<:IntegrationAlgorithm, P<:SpacePartitioningAlgorithm} <: AbstractSamplingAlgorithm
     sampler::S = MetropolisHastings()
-    exploration_sampler::S = sampler
+    exploration_sampler::E = sampler
     partitioner::P = KDTreePartitioning()
     integrator::I = AHMIntegration()
     exploration_kwargs::NamedTuple = NamedTuple()
     sampling_kwargs::NamedTuple = NamedTuple()
-    n_exploration::Tuple{Integer,Integer} = (10^2, 40)
+    n_exploration::Tuple{Integer,Integer} = (10^2, 20)
 end
 
 export PartitionedSampling
@@ -140,7 +140,7 @@ function sample_subspace(
             density_integral = [integras_subspace],
             sampling_cpu_time = [sampling_cpu_time],
             integration_cpu_time = [integration_cpu_time],
-            sampling_cpu_wc = [Dates.value(sampling_wc_start):Dates.value(sampling_wc_stop)],
+            sampling_wc = [Dates.value(sampling_wc_start):Dates.value(sampling_wc_stop)],
             integration_wc = [Dates.value(integration_wc_start):Dates.value(integration_wc_stop)],
             worker_id = [Distributed.myid()],
             n_threads = [Threads.nthreads()],
