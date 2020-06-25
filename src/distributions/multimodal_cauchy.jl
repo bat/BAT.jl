@@ -1,9 +1,4 @@
-struct MultimodalCauchy{M<:MixtureModel, P<:Product}  <: ContinuousMultivariateDistribution
-    bimodals::M
-    σ::Float64
-    n::Int
-    dist::P
-end
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 @doc doc"""
     BAT.MultimodalCauchy([μ=1, σ=0.5, n=3])
@@ -18,7 +13,19 @@ Assumes two bimodal peaks, each in its own dimension.
 - `μ::Real`: The location parameter used for the two bimodal peaks.
 - `σ::Float64`: The scale parameter shared among all components.
 - `n::Int`: The number of dimensions.
+
+Constructors:
+```julia
+BAT.MultimodalCauchy(μ::Real, σ::Float64, n::Int64)
+```
 """
+struct MultimodalCauchy{M<:MixtureModel, P<:Product}  <: ContinuousMultivariateDistribution
+    bimodals::M
+    σ::Float64
+    n::Int
+    dist::P
+end
+
 function MultimodalCauchy end
 
 function MultimodalCauchy(;μ::Real=1, σ::Float64=0.2, n::Int64=4)

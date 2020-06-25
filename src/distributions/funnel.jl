@@ -1,11 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-struct FunnelDistribution <: ContinuousMultivariateDistribution
-    a::Real
-    b::Real
-    n::Int
-end
-
 @doc doc"""
     BAT.FunnelDistribution([a=1, b=0.5, n=3])
 
@@ -17,7 +11,19 @@ Funnel distribution (Caldwell et al.)[https://arxiv.org/abs/1808.08051].
 - `a::Real`: Variance of the dominant normal distribution.
 - `b::Real`: Variance of the supporting normal distributions.
 - `n::Int`: Number of dimensions.
+
+Constructors:
+
+```julia
+BAT.FunnelDistribution(a::Real, b::Real, n::Int)
+```
 """
+struct FunnelDistribution <: ContinuousMultivariateDistribution
+    a::Real
+    b::Real
+    n::Int
+end
+
 function FunnelDistribution end
 
 function FunnelDistribution(;a::Real=1, b::Real=0.5, n::Int=3)
