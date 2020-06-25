@@ -47,6 +47,7 @@ BAT.OnlineUvMean
 BAT.OnlineUvVar
 BAT.PointCloud
 BAT.SearchResult
+BAT.TruncatedDensity
 BAT.WhiteningResult
 
 BAT.apply_bounds
@@ -88,6 +89,5 @@ BAT.reduced_volume_hm
 BAT.repetition_to_weights
 BAT.spatialvolume
 BAT.sum_first_dim
-BAT.TruncatedDensity
 BAT.var_bounds
 ```

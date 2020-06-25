@@ -97,7 +97,8 @@ var_bounds(density::AbstractDensity) = missing
 
 
 @doc doc"""
-    BAT.estimate_finite_bounds(...)
+    BAT.estimate_finite_bounds(density::AbstractDensity)
+    BAT.estimate_finite_bounds(dist::Distribution)
 
 *BAT-internal, not part of stable public API.*
 

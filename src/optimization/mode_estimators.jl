@@ -69,7 +69,7 @@ end
 
 
 _get_initial_mode(posterior::AnyPosterior, ::Missing) =
-    _get_initial_mode(posterior, rand(getprior(posterior)))
+    _get_initial_mode(posterior, rand(sampler(getprior(posterior))))
 
 _get_initial_mode(posterior::AnyPosterior, samples::DensitySampleVector) =
     _get_initial_mode(posterior, unshaped(bat_findmode(samples).result))

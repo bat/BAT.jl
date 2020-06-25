@@ -105,8 +105,8 @@ function var_bounds(density::AbstractPosteriorDensity)
 end
 
 
-function estimate_finite_bounds(posterior::AbstractPosteriorDensity; bounds_type::BoundsType=hard_bounds)
-    return estimate_finite_bounds(getprior(posterior).dist, bounds_type=bounds_type)
+function estimate_finite_bounds(posterior::AbstractPosteriorDensity; bounds_type::BoundsType = hard_bounds)
+    return estimate_finite_bounds(getprior(posterior), bounds_type = bounds_type)
 end
 
 
@@ -137,7 +137,7 @@ PosteriorDensity(log_likelihood::Function, prior::Any)
 """
 struct PosteriorDensity{
     L<:AbstractDensity,
-    P<:DistLikeDensity,
+    P<:AbstractDensity,
     B<:AbstractVarBounds,
     S<:AbstractValueShape
 } <: AbstractPosteriorDensity
