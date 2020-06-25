@@ -63,7 +63,7 @@ function bat_findmode_impl(posterior::AnyPosterior, algorithm::MaxDensityNelderM
     shape = varshape(posterior)
     x = _get_initial_mode(posterior, initial_mode)
     conv_posterior = convert(AbstractDensity, posterior)
-    r = Optim.maximize(p -> density_logval(conv_posterior, p), x, Optim.NelderMead())
+    r = Optim.maximize(p -> eval_density_logval!(conv_posterior, p), x, Optim.NelderMead())
     (result = shape(Optim.minimizer(r.res)), info = r)
 end
 
@@ -106,7 +106,7 @@ function bat_findmode_impl(posterior::AnyPosterior, algorithm::MaxDensityLBFGS; 
     shape = varshape(posterior)
     x = _get_initial_mode(posterior, initial_mode)
     conv_posterior = convert(AbstractDensity, posterior)
-    r = Optim.maximize(p -> density_logval(conv_posterior, p), x, Optim.LBFGS(); autodiff = :forward)
+    r = Optim.maximize(p -> eval_density_logval!(conv_posterior, p), x, Optim.LBFGS(); autodiff = :forward)
     (result = shape(Optim.minimizer(r.res)), info = r)
 end
 
