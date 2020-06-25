@@ -101,10 +101,6 @@
                         linewidth --> get(upper, "linewidth", 1)
                         linealpha --> get(upper, "linealpha", 1)
                         linecolor -->  get(upper, "linecolor", :darkgray)
-                        mean --> false
-                        std --> false
-                        globalmode --> false
-                        localmode --> false
                         legend --> false
 
                         box[1], box[2]
