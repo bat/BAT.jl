@@ -34,7 +34,7 @@ Base.eltype(d::FunnelDistribution) = Base.eltype(d.a)
 
 Distributions.mean(d::FunnelDistribution) = zeros(d.n)
 
-Distributions.params(d::FunnelDistribution) = (d.a, d.b, d.n)
+StatsBase.params(d::FunnelDistribution) = (d.a, d.b, d.n)
 
 function Distributions._logpdf(d::FunnelDistribution, x::AbstractArray)
     dist = _construct_dist(d.a, d.b, x)

@@ -40,7 +40,7 @@ Distributions.mean(d::MultimodalCauchy) = Distributions.mean(d.dist)
 Distributions.var(d::MultimodalCauchy) = Distributions.var(d.dist)
 Distributions.cov(d::MultimodalCauchy) = Distributions.cov(d.dist)
 
-function Distributions.params(d::MultimodalCauchy)
+function StatsBase.params(d::MultimodalCauchy)
     (
         vcat(d.bimodals.components[1].μ, d.bimodals.components[2].μ, zeros(d.n-2)),
         [d.σ for i in 1:d.n],
