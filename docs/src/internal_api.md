@@ -90,8 +90,4 @@ BAT.spatialvolume
 BAT.sum_first_dim
 BAT.TruncatedDensity
 BAT.var_bounds
-
-
-BAT.FunnelDistribution
-BAT.MultimodalCauchy
 ```
