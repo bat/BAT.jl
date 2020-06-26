@@ -61,6 +61,7 @@ import TypedTables
 #for Space Partitioning
 using CPUTime
 using Dates
+using HypothesisTests
 
 
 include("utils/utils.jl")
