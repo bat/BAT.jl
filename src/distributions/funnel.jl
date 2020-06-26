@@ -3,8 +3,6 @@
 @doc doc"""
     BAT.FunnelDistribution([a=1, b=0.5, n=3])
 
-*BAT-internal, not part of stable public API.*
-
 Funnel distribution (Caldwell et al.)[https://arxiv.org/abs/1808.08051].
 
 # Arguments
@@ -35,6 +33,8 @@ Base.length(d::FunnelDistribution) = d.n
 Base.eltype(d::FunnelDistribution) = Base.eltype(d.a)
 
 Distributions.mean(d::FunnelDistribution) = zeros(d.n)
+
+Distributions.params(d::FunnelDistribution) = (d.a, d.b, d.n)
 
 function Distributions._logpdf(d::FunnelDistribution, x::AbstractArray)
     dist = _construct_dist(d.a, d.b, x)

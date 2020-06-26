@@ -11,4 +11,8 @@ GridSampler
 HierarchicalDensity
 PriorImportanceSampler
 SobolSampler
+
+
+BAT.FunnelDistribution
+BAT.MultimodalCauchy
 ```

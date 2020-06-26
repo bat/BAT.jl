@@ -3,8 +3,6 @@
 @doc doc"""
     BAT.MultimodalCauchy([μ=1, σ=0.5, n=3])
 
-*BAT-internal, not part of stable public API.*
-
 The Multimodal Cauchy Distribution (Caldwell et al.)[https://arxiv.org/abs/1808.08051].
 
 Assumes two bimodal peaks, each in its own dimension.
@@ -41,6 +39,14 @@ Base.eltype(d::MultimodalCauchy) = eltype(d.dist)
 Distributions.mean(d::MultimodalCauchy) = Distributions.mean(d.dist)
 Distributions.var(d::MultimodalCauchy) = Distributions.var(d.dist)
 Distributions.cov(d::MultimodalCauchy) = Distributions.cov(d.dist)
+
+function Distributions.params(d::MultimodalCauchy)
+    (
+        vcat(d.bimodals.components[1].μ, d.bimodals.components[2].μ, zeros(d.n-2)),
+        [d.σ for i in 1:d.n],
+        d.n
+    )
+end
 
 function Distributions._logpdf(d::MultimodalCauchy, x::AbstractArray)
     Distributions._logpdf(d.dist, x)
