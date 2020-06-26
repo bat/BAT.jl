@@ -85,7 +85,7 @@ function density_logval(density::AbstractPosteriorDensity, v::Any)
     # Don't evaluate likelihood if prior probability is zero. Prevents
     # failures when algorithms try to explore parameter space outside of
     # definition of likelihood (as long as prior is chosen correctly).
-    if is_log_zero(prior_logval, T)
+    if !is_log_zero(prior_logval, T)
         likelihood_logval = density_logval(getlikelihood(density), v)
         convert(T, likelihood_logval + prior_logval)
     else
