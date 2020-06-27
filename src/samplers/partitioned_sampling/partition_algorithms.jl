@@ -37,12 +37,12 @@ Variables:
 
 	* terminated_leaf : `true` if the tree node is terminal, `false` otherwise.
 	* bounds : Low and high bound of the tree leaf.
-	* left_child : The left child of the tree, `false` is the node is terminal.
-	* right_child : The right child of the tree, `false` is the node is terminal.
-	* cut_axis : Axis along which a cut is performed, `false` if the node is terminal.
-	* cut_coordinate : Coordinate at which a cut is performed, `false` if the node is terminal.
+	* left_child : The left child of the tree, `missing` is the node is terminal.
+	* right_child : The right child of the tree, `missing` is the node is terminal.
+	* cut_axis : Axis along which cut is performed, `missing` if the node is terminal.
+	* cut_coordinate : Coordinate at which a cut is performed, `missing` if the node is terminal.
 	* cost : The sum of the cost functions over leaves.
-    * cost_part : The cost functions of the current leaf.
+    * cost_part : The cost function of the current leaf, `missing` if the node is terminal..
 """
 mutable struct SpacePartTree
    terminated_leaf::Bool

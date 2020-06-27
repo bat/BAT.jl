@@ -6,7 +6,7 @@
 *BAT-internal, not part of stable public API.*
 
 The algorithm that partitions parameter space by multiple subspaces and
-samples/integrates them independently (See arXiv reference).
+samples/integrates them independently (See arXiv reference [once available]).
 
 Constructor:
 
@@ -31,7 +31,7 @@ Optional Parameters/settings (`kwargs`):
     integrator::I = AHMIntegration()
     exploration_kwargs::NamedTuple = NamedTuple()
     sampling_kwargs::NamedTuple = NamedTuple()
-    n_exploration::Tuple{Integer,Integer} = (10^2, 20)
+    n_exploration::Tuple{Integer,Integer} = (10^2, 30)
 end
 
 export PartitionedSampling
@@ -46,7 +46,7 @@ export PartitionedSampling
 
 *BAT-internal, not part of stable public API.*
 
-Generate samples from `posterior` using `PartitionedSampling()` algorithm (See arXiv reference).
+Generate samples from `posterior` using `PartitionedSampling()` algorithm.
 `n` must be a tuple `(nsteps, nchains, npartitions)`.
 
 Returns a NamedTuple of the shape
@@ -86,8 +86,7 @@ function bat_sample(
     samples_subspaces = pmap(inp -> sample_subspace(inp...), iterator_subspaces)
 
     @info "Combining Samples"
-
-    # Save indices of a samples from different subspaces in a column
+    # Save indices from different subspaces:
     samples_subspaces[1].info.samples_ind[1] = 1:length(samples_subspaces[1].samples)
     for subspace in samples_subspaces[2:end]
         start_ind, stop_ind = length(samples_subspaces[1].samples)+1, length(samples_subspaces[1].samples)+length(subspace.samples)
@@ -144,7 +143,7 @@ function sample_subspace(
             integration_wc = [Dates.value(integration_wc_start):Dates.value(integration_wc_stop)],
             worker_id = [Distributed.myid()],
             n_threads = [Threads.nthreads()],
-            samples_ind = [0:0] #will be specified when samples are merged
+            samples_ind = [0:0]
         )
 
     return (samples = samples_subspace_reweighted, info = info_subspace)
@@ -163,15 +162,12 @@ function convert_to_posterior(posterior::PosteriorDensity, partition_tree::Space
     #Get flattened rectangular parameter bounds from tree
     subspaces_rect_bounds = get_tree_par_bounds(partition_tree)
 
-    #ToDo: Should be a better way to get n_params from posterior:
     n_params = size(subspaces_rect_bounds[1])[1]
     posterior_array = PosteriorDensity[]
 
     for subspace in subspaces_rect_bounds
-        #ToDo: Use NamedTupleDist as a prior:
         bounds = HyperRectBounds(subspace[:,1], subspace[:,2],  repeat([BAT.hard_bounds], n_params))
         prior_dist = BAT.truncate_density(getprior(posterior), bounds)
-        #const_dens =  BAT.ConstDensity(bounds,0.0)
         push!(posterior_array, PosteriorDensity(getlikelihood(posterior), prior_dist))
     end
     return posterior_array
