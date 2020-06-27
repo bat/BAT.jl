@@ -75,7 +75,11 @@ function truncate_dist_hard(dist::Distribution{Univariate}, bounds::Interval)
     hi = clamp(max(lo, maximum(bounds)), min_lo, max_hi)
 
     trunc_dist = truncated(dist, lo, hi)
-    logrenorm = trunc_dist.logtp
+    if dist isa Uniform
+        logrenorm = log(trunc_dist.b - trunc_dist.a) - log(dist.b - dist.a)
+    else
+        logrenorm = trunc_dist.logtp
+    end
     return (dist = trunc_dist, logrenorm = logrenorm)
 end
 
@@ -89,7 +93,11 @@ function truncate_dist_hard(dist::Truncated, bounds::Interval)
     lo = clamp(max(minimum(bounds), dist.lower), min_lo, max_hi)
     hi = clamp(max(lo, min(maximum(bounds), dist.upper)), min_lo, max_hi)
     trunc_dist = truncated(untrunc_dist, lo, hi)
-    logrenorm = trunc_dist.logtp - dist.logtp
+    if untrunc_dist isa Uniform
+        logrenorm = log(trunc_dist.b - trunc_dist.a) - log(dist.b - dist.a)
+    else
+        logrenorm = trunc_dist.logtp - dist.logtp
+    end
     return (dist = trunc_dist, logrenorm = logrenorm)
 end
 
