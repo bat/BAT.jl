@@ -169,9 +169,10 @@ function convert_to_posterior(posterior::PosteriorDensity, partition_tree::Space
 
     for subspace in subspaces_rect_bounds
         #ToDo: Use NamedTupleDist as a prior:
-        bounds = BAT.HyperRectBounds(subspace[:,1], subspace[:,2],  repeat([BAT.hard_bounds], n_params))
-        const_dens =  BAT.ConstDensity(bounds,0.0)
-        push!(posterior_array, PosteriorDensity(getlikelihood(posterior), const_dens))
+        bounds = HyperRectBounds(subspace[:,1], subspace[:,2],  repeat([BAT.hard_bounds], n_params))
+        prior_dist = BAT.truncate_density(getprior(posterior), bounds)
+        #const_dens =  BAT.ConstDensity(bounds,0.0)
+        push!(posterior_array, PosteriorDensity(getlikelihood(posterior), prior_dist))
     end
     return posterior_array
 end
