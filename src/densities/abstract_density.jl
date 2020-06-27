@@ -97,7 +97,8 @@ var_bounds(density::AbstractDensity) = missing
 
 
 @doc doc"""
-    BAT.estimate_finite_bounds(...)
+    BAT.estimate_finite_bounds(density::AbstractDensity)
+    BAT.estimate_finite_bounds(dist::Distribution)
 
 *BAT-internal, not part of stable public API.*
 
@@ -137,51 +138,202 @@ ValueShapes.varshape(density::AbstractDensity) = missing
 
 
 @doc doc"""
-    eval_density_logval(
+    eval_density_logval!(
         density::AbstractDensity,
-        v::AbstractVector{<:Real},
-        shape::ValueShapes.AbstractValueShape
-    )
+        v::Any,
+        T::Type{:Real} = density_logval_type(v);
+        use_bounds::Bool = true,
+        apply_bounds::Bool = false,
+        strict::Bool = false
+    )::T
 
 *BAT-internal, not part of stable public API.*
 
 Evaluates density log-value via `density_logval`.
 
-`shape` *must* be compatible with `ValueShapes.varshape(density)`.
+May modify `v` with `apply_bounds = true`, will leave `v` unmodified
+otherwise.
 
-Checks that:
+Throws an exception on any of these conditions:
 
-* The variate shape of `density` (if known) matches shape of `v`.
-* The return value of `density_logval` is not `NaN`.
-* The return value of `density_logval` is less than `+Inf`.
+* The variate shape of `density` (if known) does not match the shape of `v`.
+* The return value of `density_logval` is `NaN`.
+* The return value of `density_logval` is an equivalent of positive
+  infinity.
+
+Options:
+
+* `use_bounds`: Use the bounds of `density` to explicitly return an
+  equivalent of negative infinity if `v` is out of bounds.
+
+* `apply_bounds`: Try to modify `v` to make `v` fall within the bounds of
+  `density`, by applying transformations inherit in the type of the bounds
+  (e.g. for reflective or cyclic bounds).
+
+* `strict`: Throw an exception if `v` is out of bounds (after applying
+  transformations if `apply_bounds = true`).
 """
-function eval_density_logval(
+function eval_density_logval!(
     density::AbstractDensity,
-    v::AbstractVector{<:Real},
-    shape::ValueShapes.AbstractValueShape
+    v::Any,
+    T::Type{<:Real} = density_logval_type(v);
+    use_bounds::Bool = true,
+    apply_bounds::Bool = false,
+    strict::Bool = false
 )
-    npars = totalndof(density)
-    ismissing(npars) || (length(eachindex(v)) == npars) || throw(ArgumentError("Invalid length of parameter vector"))
-
-    v_shaped = _apply_parshapes(v, shape)
-    raw_r = try
-        density_logval(density, _apply_parshapes(v, shape))
-    catch err
-        v_real = _strip_duals(v)
-        v_real_shaped = _apply_parshapes(v_real, shape)
-        throw(ErrorException("Density evaluation failed at v = $v_real_shaped due to exception $err"))
+    v_shaped = get_shaped_variate(density, v)
+    if ! process_shaped_variate!(density, v, T, use_bounds, apply_bounds, strict)
+        return log_zero_density(T)
     end
-    r = float(raw_r)
-    isnan(r) && throw(ErrorException("Return value of density_logval must not be NaN, density has type $(typeof(density))"))
-    r < convert(typeof(r), +Inf) || throw(ErrorException("Return value of density_logval must not be posivite infinite, density has type $(typeof(density))"))
 
-    r
+    logval::T = try
+        density_logval(density, stripscalar(v_shaped))
+    catch err
+        rethrow(_density_eval_error(density, v, err))
+    end
+
+    _check_density_logval(density, v, logval, strict)
+
+    return logval
 end
 
-_apply_parshapes(v::AbstractVector{<:Real}, shape::AbstractValueShape) = stripscalar(shape(v))
+function _density_eval_error(density::AbstractDensity, v::Any, err::Any)
+    ErrorException("Density evaluation failed at v = $(variate_for_msg(v)) due to exception $err, density has type $(typeof(density))")
+end
+
+function _check_density_logval(density::AbstractDensity, v::Any, logval::Real, strict::Bool)
+    if isnan(logval)
+        throw(ErrorException("Return value of density_logval must not be NaN, v = $(variate_for_msg(v)) , density has type $(typeof(density))"))
+    end
+
+    if !(logval < typeof(logval)(+Inf))
+        throw(ErrorException("Return value of density_logval must not be posivite infinite, v = $(variate_for_msg(v)), density has type $(typeof(density))"))
+    end
+
+    nothing
+end
+
+
+function get_shaped_variate(density::AbstractDensity, v::Any)
+    shape = valshape(v)
+    expected_shape = varshape(density)
+    if !ismissing(expected_shape) && shape != expected_shape
+        throw(ArgumentError("Shape of variate doesn't match variate shape of density, with variate of type $(typeof(v)) and density of type $(typeof(density))"))
+    end
+    v
+end
+
+function get_shaped_variate(density::AbstractDensity, v::AbstractVector{<:Real})
+    shape = varshape(density)
+    ismissing(shape) ? v : shape(v)
+end
+
+
+function process_shaped_variate!(density::AbstractDensity, v_shaped::Any, T::Type{<:Real}, use_bounds::Bool, apply_bounds::Bool, strict::Bool)
+    shape = valshape(v_shaped)
+
+    v_unshaped = unshaped(v_shaped)
+    if unshaped(v_shaped) !== v_unshaped
+        throw(ArgumentError("Shaped variate of type $(typeof(v_shaped)) does not support unshaped views"))
+    end
+
+    npars = length(eachindex(v_unshaped))
+    npars_expected = totalndof(density)
+    if !ismissing(npars_expected) && npars != npars_expected
+        throw(ArgumentError("Invalid length ($npars) of parameter vector, density has $npars_expected degrees of freedom and type $(typeof(density))"))
+    end
+
+    bounds = var_bounds(density)
+    if !ismissing(bounds)
+        if apply_bounds
+            apply_bounds!(v_unshaped, bounds)
+        end
+
+        if !(v_unshaped in bounds)
+            if strict
+                throw(ArgumentError("Parameter(s) out of bounds, density has type $(typeof(density))"))
+            else
+                if use_bounds
+                    return false
+                end
+            end
+        end
+    end
+
+    return true
+end
+
 
 _strip_duals(x) = x
 _strip_duals(x::AbstractVector{<:ForwardDiff.Dual}) = ForwardDiff.value.(x)
+
+function variate_for_msg(v::Any)
+    # Strip dual numbers to make errors more readable:
+    shape = valshape(v)
+    v_real_unshaped = _strip_duals(unshaped(v))
+    v_real_shaped = shape(v_real_unshaped)
+    stripscalar(v_real_shaped)
+end
+
+
+@doc doc"""
+    BAT.density_logval_type(v::Any, T::Type{<:Real} = Float32)
+
+*BAT-internal, not part of stable public API.*
+
+Determine a suitable return type of log-density functions, given a variate
+`v` and an optional additional default result type `T`.
+"""
+function density_logval_type end
+
+@inline function density_logval_type(v::AbstractArray{<:Real}, T::Type{<:Real} = Float32)
+    vs = valshape(v)
+    U = float(eltype(v))
+    promote_type(T, U)
+end
+
+@inline function density_logval_type(v::Any, T::Type{<:Real} = Float32)
+    vs = valshape(v)
+    U = float(ValueShapes.default_unshaped_eltype(vs))
+    promote_type(T, U)
+end
+
+
+@doc doc"""
+    BAT.log_zero_density(T::Type{<:Real})
+
+log-density value to assume for regions of implicit zero density, e.g.
+outside of variate/parameter bounds/support.
+
+Returns an equivalent of negative infinity.
+"""
+log_zero_density(T::Type{<:Real}) = float(T)(-Inf)
+
+
+@doc doc"""
+    BAT.is_log_zero_density(x::Real, T::Type{<:Real} = typeof(x)}
+
+*BAT-internal, not part of stable public API.*
+
+Check if x is an equivalent of log of zero, resp. negative infinity,
+in respect to type `T`.
+"""
+function is_log_zero(x::Real, T::Type{<:Real} = typeof(x))
+    U = typeof(x)
+
+    FT = float(T)
+    FU = float(U)
+
+    x_notnan = !isnan(x)
+    x_isinf = !isfinite(x)
+    x_isneg = x < zero(x)
+    x_notgt1 = !(x > log_zero_density(FT))
+    x_notgt2 = !(x > log_zero_density(FU))
+    x_iseq1 = x ≈ log_zero_density(FT)
+    x_iseq2 = x ≈ log_zero_density(FU)
+
+    x_notnan && ((x_isinf && x_isneg) | x_notgt1 | x_notgt2 | x_iseq1 | x_iseq1)
+end
 
 
 @doc doc"""

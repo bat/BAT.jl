@@ -123,7 +123,7 @@ function AHMCIterator(
     end
     !(params_vec in var_bounds(postr)) && throw(ArgumentError("Parameter(s) out of bounds"))
 
-    log_posterior_value = apply_bounds_and_eval_posterior_logval_strict!(postr, params_vec)
+    log_posterior_value = eval_density_logval!(postr, params_vec, apply_bounds = true, strict = true)
 
     T = typeof(log_posterior_value)
     W = Float64 #_sample_weight_type(typeof(alg))
@@ -137,7 +137,7 @@ function AHMCIterator(
     rngpart_cycle = RNGPartition(rng, 0:(typemax(Int16) - 2))
 
     metric = AHMCMetric(alg.metric, npar)
-    logval_posterior(v) = density_logval(postr, v)
+    logval_posterior(v) = eval_density_logval!(postr, v)
 
     hamiltonian = AdvancedHMC.Hamiltonian(metric, logval_posterior, alg.gradient)
     hamiltonian, t = AdvancedHMC.sample_init(rng, hamiltonian, params_vec)
@@ -304,29 +304,44 @@ function mcmc_step!(
         T = typeof(current_log_posterior)
 
         # Evaluate prior and likelihood with proposed variate:
-        proposed_log_posterior = apply_bounds_and_eval_posterior_logval!(T, pstr, proposed_params)
+        proposed_log_posterior = eval_density_logval!(pstr, proposed_params, apply_bounds = true, strict = false)
 
         samples.logd[proposed] = proposed_log_posterior
 
-        samples.info.sampletype[current] = ACCEPTED_SAMPLE
-        samples.info.sampletype[proposed] = CURRENT_SAMPLE
-        chain.nsamples += 1
+        accepted = current_params != proposed_params
 
-        delta_w_current, w_proposed = (0, 1) # always accepted
+        if accepted
+            samples.info.sampletype[current] = ACCEPTED_SAMPLE
+            samples.info.sampletype[proposed] = CURRENT_SAMPLE
+            chain.nsamples += 1
+        else
+            samples.info.sampletype[proposed] = REJECTED_SAMPLE
+        end
+
+        delta_w_current, w_proposed = if accepted
+            (0, 1)
+        else
+            (1, 0)
+        end
+        
         samples.weight[current] += delta_w_current
         samples.weight[proposed] = w_proposed
 
         callback(1, chain)
 
-        current_params .= proposed_params
-        samples.logd[current] = samples.logd[proposed]
-        samples.weight[current] = samples.weight[proposed]
-        samples.info[current] = samples.info[proposed]
+        if accepted
+            current_params .= proposed_params
+            samples.logd[current] = samples.logd[proposed]
+            samples.weight[current] = samples.weight[proposed]
+            samples.info[current] = samples.info[proposed]
+        end
 
-        true
+        accepted
     end # @uviews
 
-    resize!(samples, 1)
+    if accepted
+        resize!(samples, 1)
+    end
 
     chain
 end

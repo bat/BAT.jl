@@ -89,7 +89,7 @@ function MHIterator(
 
     # ToDo: Make numeric type configurable:
 
-    log_posterior_value = apply_bounds_and_eval_posterior_logval_strict!(postr, params_vec)
+    log_posterior_value = eval_density_logval!(postr, params_vec, apply_bounds = true, strict = true)
 
     T = typeof(log_posterior_value)
     W = _sample_weight_type(typeof(alg))
@@ -267,7 +267,7 @@ function mcmc_step!(
         T = typeof(current_log_posterior)
 
         # Evaluate prior and likelihood with proposed variate:
-        proposed_log_posterior = apply_bounds_and_eval_posterior_logval!(T, pstr, proposed_params)
+        proposed_log_posterior = eval_density_logval!(pstr, proposed_params, apply_bounds = true, strict = false)
 
         samples.logd[proposed] = proposed_log_posterior
 

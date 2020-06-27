@@ -12,4 +12,5 @@ Test.@testset "densities" begin
     include("test_hierarchical_density.jl")
     include("test_parameter_mapped_density.jl")
     include("test_external_density.jl")
+    include("test_truncated_density.jl")
 end

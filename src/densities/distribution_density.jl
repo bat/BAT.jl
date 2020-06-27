@@ -67,7 +67,13 @@ function dist_param_bounds(d::EmpiricalDistributions.MvBinnedDist{T, N}, bounds_
 end
 
 
-function estimate_finite_bounds(ntd::NamedTupleDist; bounds_type::BoundsType=hard_bounds)
+
+function estimate_finite_bounds(density::DistributionDensity; bounds_type::BoundsType = hard_bounds)
+    return estimate_finite_bounds(density.dist, bounds_type = bounds_type)
+end
+
+
+function estimate_finite_bounds(ntd::NamedTupleDist; bounds_type::BoundsType = hard_bounds)
     bounds = vcat([estimate_finite_bounds(d) for d in values(ntd)]...)
     lo = [b[1] for b in bounds]
     hi = [b[2] for b in bounds]
