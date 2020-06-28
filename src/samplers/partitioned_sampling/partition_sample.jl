@@ -113,6 +113,7 @@ function sample_subspace(
     sampling_kwargs::N
 ) where {N<:NamedTuple, A<:AbstractSamplingAlgorithm, I<:IntegrationAlgorithm}
 
+    @info "Sampling Subspace #$space_id"
     sampling_wc_start = Dates.Time(Dates.now())
     sampling_cpu_time = @CPUelapsed begin
         samples_subspace = bat_sample(posterior, n, sampling_algorithm; sampling_kwargs...).result
