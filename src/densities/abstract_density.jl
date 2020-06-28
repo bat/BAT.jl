@@ -138,21 +138,17 @@ ValueShapes.varshape(density::AbstractDensity) = missing
 
 
 @doc doc"""
-    eval_density_logval!(
+    eval_density_logval(
         density::AbstractDensity,
         v::Any,
         T::Type{:Real} = density_logval_type(v);
-        use_bounds::Bool = true,
-        apply_bounds::Bool = false,
+        use_bounds::Val = Val(true),
         strict::Bool = false
     )::T
 
 *BAT-internal, not part of stable public API.*
 
 Evaluates density log-value via `density_logval`.
-
-May modify `v` with `apply_bounds = true`, will leave `v` unmodified
-otherwise.
 
 Throws an exception on any of these conditions:
 
@@ -163,29 +159,27 @@ Throws an exception on any of these conditions:
 
 Options:
 
-* `use_bounds`: Use the bounds of `density` to explicitly return an
-  equivalent of negative infinity if `v` is out of bounds.
+* `use_bounds`: Apply renormalizations inherent in the bounds
+  of `density` to `v` (if any), also return an equivalent of negative
+  infinity if `v` (possibly renormalized) is out of bounds. 
 
-* `apply_bounds`: Try to modify `v` to make `v` fall within the bounds of
-  `density`, by applying transformations inherit in the type of the bounds
-  (e.g. for reflective or cyclic bounds).
-
-* `strict`: Throw an exception if `v` is out of bounds (after applying
-  transformations if `apply_bounds = true`).
+* `strict`: Throw an exception if `v` is out of bounds.
 """
-function eval_density_logval!(
+function eval_density_logval(
     density::AbstractDensity,
     v::Any,
     T::Type{<:Real} = density_logval_type(v);
-    use_bounds::Bool = true,
-    apply_bounds::Bool = false,
+    use_bounds::Val = Val(true),
     strict::Bool = false
 )
-    v_shaped = get_shaped_variate(density, v)
-    if ! process_shaped_variate!(density, v, T, use_bounds, apply_bounds, strict)
-        return log_zero_density(T)
+    v_shaped = preprocess_variate(density, v, use_bounds)
+    if use_bounds == Val(true) && !variate_is_inbounds(density, v_shaped, strict)
+        return log_zero_density(T, strict)
     end
 
+    # ToDo: Make Zygote-compatible, by wrapping the following exception
+    # augmentation mechanism in a function `get_density_logval_with_rethrow`
+    # with a custom pullback:
     logval::T = try
         density_logval(density, stripscalar(v_shaped))
     catch err
@@ -214,53 +208,63 @@ function _check_density_logval(density::AbstractDensity, v::Any, logval::Real, s
 end
 
 
-function get_shaped_variate(density::AbstractDensity, v::Any)
-    shape = valshape(v)
-    expected_shape = varshape(density)
-    if !ismissing(expected_shape) && shape != expected_shape
-        throw(ArgumentError("Shape of variate doesn't match variate shape of density, with variate of type $(typeof(v)) and density of type $(typeof(density))"))
+
+get_shaped_variate(shape::Missing, v::Any) = v
+
+function get_shaped_variate(shape::AbstractValueShape, v::Any)
+    v_shape = valshape(v)
+    if v_shape != shape
+        throw(ArgumentError("Shape of variate doesn't match variate shape of density, with variate of type $(typeof(v)) and expected shape $(shape)"))
     end
     v
 end
 
-function get_shaped_variate(density::AbstractDensity, v::AbstractVector{<:Real})
-    shape = varshape(density)
-    ismissing(shape) ? v : shape(v)
+function get_shaped_variate(shape::ArrayShape{<:Real,1}, v::Any)
+    unshaped_v = unshaped(v)::AbstractVector{<:Real}
+    get_shaped_variate(shape, unshaped_v)
+end
+
+function get_shaped_variate(shape::AbstractValueShape, v::AbstractVector{<:Real})
+    _get_shaped_realvec(shape, v)
+end
+
+function get_shaped_variate(shape::ArrayShape{<:Real,1}, v::AbstractVector{<:Real})
+    _get_shaped_realvec(shape, v)
+end
+
+function _get_shaped_realvec(shape::AbstractValueShape, v::AbstractVector{<:Real})
+    ndof = length(eachindex(v))
+    ndof_expected = totalndof(shape)
+    if ndof != ndof_expected
+        throw(ArgumentError("Invalid length ($ndof) of parameter vector, density has $ndof_expected degrees of freedom and shape $(shape)"))
+    end
+    shape(v)
 end
 
 
-function process_shaped_variate!(density::AbstractDensity, v_shaped::Any, T::Type{<:Real}, use_bounds::Bool, apply_bounds::Bool, strict::Bool)
-    shape = valshape(v_shaped)
+function preprocess_variate(density::AbstractDensity, v::Any, ::Val{true})
+    shape = varshape(density)
+    renormalize_variate(density, get_shaped_variate(shape, v))
+end
 
-    v_unshaped = unshaped(v_shaped)
-    if unshaped(v_shaped) !== v_unshaped
-        throw(ArgumentError("Shaped variate of type $(typeof(v_shaped)) does not support unshaped views"))
-    end
 
-    npars = length(eachindex(v_unshaped))
-    npars_expected = totalndof(density)
-    if !ismissing(npars_expected) && npars != npars_expected
-        throw(ArgumentError("Invalid length ($npars) of parameter vector, density has $npars_expected degrees of freedom and type $(typeof(density))"))
-    end
+function preprocess_variate(density::AbstractDensity, v::Any, ::Val{false})
+    shape = varshape(density)
+    get_shaped_variate(shape, v)
+end
 
+
+function variate_is_inbounds(density::AbstractDensity, v::Any, strict::Bool)
     bounds = var_bounds(density)
-    if !ismissing(bounds)
-        if apply_bounds
-            apply_bounds!(v_unshaped, bounds)
+    if !ismissing(bounds) && !(v in bounds)
+        if strict
+            throw(ArgumentError("Parameter(s) out of bounds, density has type $(typeof(density))"))
+        else
+            return false
         end
-
-        if !(v_unshaped in bounds)
-            if strict
-                throw(ArgumentError("Parameter(s) out of bounds, density has type $(typeof(density))"))
-            else
-                if use_bounds
-                    return false
-                end
-            end
-        end
+    else
+        true
     end
-
-    return true
 end
 
 
@@ -273,6 +277,22 @@ function variate_for_msg(v::Any)
     v_real_unshaped = _strip_duals(unshaped(v))
     v_real_shaped = shape(v_real_unshaped)
     stripscalar(v_real_shaped)
+end
+
+
+@doc doc"""
+    renormalize_variate(density::AbstractDensity, v::Any)
+
+*BAT-internal, not part of stable public API.*
+"""
+function renormalize_variate(density::AbstractDensity, v::AbstractVector{<:Real})
+    renormalize_variate(var_bounds(density), v)
+end
+
+function renormalize_variate(density::AbstractDensity, v::Any)
+    shape = valshape(v)
+    v_unshaped = unshaped(v)
+    shape(renormalize_variate(density, v_unshaped))
 end
 
 

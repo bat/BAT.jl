@@ -50,8 +50,6 @@ BAT.SearchResult
 BAT.TruncatedDensity
 BAT.WhiteningResult
 
-BAT.apply_bounds
-BAT.apply_bounds!
 BAT.density_logval_type
 BAT.estimate_finite_bounds
 BAT.argchoice_msg
@@ -64,7 +62,7 @@ BAT.create_hyperrectangle
 BAT.distribution_logpdf
 BAT.distribution_logpdf!
 BAT.drop_low_weight_samples
-BAT.eval_density_logval!
+BAT.eval_density_logval
 BAT.find_hypercube_centers
 BAT.fromuhc
 BAT.fromuhc!
@@ -86,6 +84,8 @@ BAT.modify_hypercube!
 BAT.modify_integrationvolume!
 BAT.proposal_rand!
 BAT.reduced_volume_hm
+BAT.renormalize_variate
+BAT.renormalize_variate_impl
 BAT.repetition_to_weights
 BAT.spatialvolume
 BAT.sum_first_dim

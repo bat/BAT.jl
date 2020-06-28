@@ -31,66 +31,43 @@ The prior density of `posterior`. The prior may or may not be normalized.
 function getprior end
 
 
-function eval_density_logval!(
+function eval_density_logval(
     density::AbstractPosteriorDensity,
     v::Any,
     T::Type{<:Real} = density_logval_type(v);
-    use_bounds::Bool = true,
-    apply_bounds::Bool = false,
+    use_bounds::Val = Val(true),
     strict::Bool = false
 )
-    v_shaped = get_shaped_variate(density, v)
-    if ! process_shaped_variate!(density, v, T, use_bounds, apply_bounds, strict)
+    v_shaped = preprocess_variate(density, v, use_bounds)
+    if use_bounds == Val(true) && !variate_is_inbounds(density, v_shaped, strict)
         return log_zero_density(T)
     end
 
-    prior_logval = eval_density_logval!(
-        getprior(density), v_shaped, T,
-        use_bounds = false, apply_bounds = false, strict = strict
+    prior_logval = eval_density_logval(
+        getprior(density), v_shaped,
+        use_bounds = Val(false), strict = false
     )
-
-    # if strict && is_log_zero(prior_logval)
-    #     throw(ErrorException("Prior value must not be zero, v = $(variate_for_msg(v)), density has type $(typeof(getprior(density)))"))
-    # end
 
     # Don't evaluate likelihood if prior probability is zero. Prevents
     # failures when algorithms try to explore parameter space outside of
     # definition of likelihood (as long as prior is chosen correctly).
     if !is_log_zero(prior_logval, T)
-        likelihood_logval = eval_density_logval!(
-            getlikelihood(density), v_shaped, T,
-            use_bounds = false, apply_bounds = false, strict = strict
+        likelihood_logval = eval_density_logval(
+            getlikelihood(density), v_shaped,
+            use_bounds = Val(false), strict = false
         )
-    
         convert(T, likelihood_logval + prior_logval)
     else
         log_zero_density(T)
     end
-end
-
-
-function density_logval(density::AbstractPosteriorDensity, v::AbstractVector{<:Real})
-    eval_density_logval!(
-        density, v,
-        use_bounds = false, apply_bounds = false, strict = false
-    )
 end
 
 
 function density_logval(density::AbstractPosteriorDensity, v::Any)
-    T = density_logval_type(v)
-
-    prior_logval = density_logval(getprior(density), v)
-
-    # Don't evaluate likelihood if prior probability is zero. Prevents
-    # failures when algorithms try to explore parameter space outside of
-    # definition of likelihood (as long as prior is chosen correctly).
-    if !is_log_zero(prior_logval, T)
-        likelihood_logval = density_logval(getlikelihood(density), v)
-        convert(T, likelihood_logval + prior_logval)
-    else
-        log_zero_density(T)
-    end
+    eval_density_logval(
+        density, v,
+        use_bounds = false, strict = false
+    )
 end
 
 

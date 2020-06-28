@@ -64,7 +64,7 @@ end
 
 
 function Base.similar(s::DensitySample{P,T,W,R,Q}) where {P<:AbstractVector{<:Real},T,W,R,Q}
-    v = fill!(similar(s.v), oob(eltype(s.v)))
+    v = fill!(similar(s.v), eltype(s.v)(NaN))
     logd = convert(T, NaN)
     weight = zero(W)
     info = R()

@@ -14,57 +14,44 @@ ValueShapes.totalndof(a::apb_test) = a.varndof
 BAT.unsafe_intersect(a::apb_test, b::apb_test) = true
 
 @testset "parameter bounds" begin
-    @testset "BAT.oob" begin
-        @test BAT.isoob(BAT.oob(1.))
-        @test BAT.isoob(1.) == false
-        @test BAT.isoob(BAT.oob(1))
-        @test BAT.isoob(1) == false
-        @test BAT.isoob([1.0, BAT.oob(Float64), 3.0]) == true
-        @test BAT.isoob([1.0, 2.0, 3.0]) == false
-    end
+    @testset "BAT.renormalize_variate_impl" begin
+        @test BAT.renormalize_variate_impl(+0.3, -1, 2, BAT.hard_bounds) ≈ +0.3
+        @test BAT.renormalize_variate_impl(-0.3, -1, 2, BAT.reflective_bounds) ≈ -0.3
+        @test BAT.renormalize_variate_impl(+1.3, -1, 2, BAT.cyclic_bounds) ≈ +1.3
 
-    @testset "BAT.apply_bounds" begin
-        @test BAT.apply_bounds(+0.3, -1, 2, BAT.hard_bounds) ≈ +0.3
-        @test BAT.apply_bounds(-0.3, -1, 2, BAT.reflective_bounds) ≈ -0.3
-        @test BAT.apply_bounds(+1.3, -1, 2, BAT.cyclic_bounds) ≈ +1.3
+        @test BAT.renormalize_variate_impl(-1.3, -1, 2, BAT.hard_bounds) == -1.3
+        @test BAT.renormalize_variate_impl(2.3, -1, 2, BAT.hard_bounds) == 2.3
 
-        @test isnan(BAT.apply_bounds(-1.3, -1, 2, BAT.hard_bounds))
-        @test isnan(BAT.apply_bounds(2.3, -1, 2, BAT.hard_bounds))
-        @test BAT.apply_bounds(-1.3, -1, 2, BAT.hard_bounds, 5) ≈ 5
-        @test BAT.apply_bounds(2.3, -1, 2, BAT.hard_bounds, 5) ≈ 5
+        @test BAT.renormalize_variate_impl(-1.3, -1, 2, BAT.reflective_bounds) ≈ -0.7
+        @test BAT.renormalize_variate_impl(-4.3, -1, 2, BAT.reflective_bounds) ≈ +1.7
+        @test BAT.renormalize_variate_impl(-7.3, -1, 2, BAT.reflective_bounds) ≈ -0.7
+        @test BAT.renormalize_variate_impl(+2.3, -1, 2, BAT.reflective_bounds) ≈ +1.7
+        @test BAT.renormalize_variate_impl(+5.3, -1, 2, BAT.reflective_bounds) ≈ -0.7
+        @test BAT.renormalize_variate_impl(+8.3, -1, 2, BAT.reflective_bounds) ≈ +1.7
 
-        @test BAT.apply_bounds(-1.3, -1, 2, BAT.reflective_bounds) ≈ -0.7
-        @test BAT.apply_bounds(-4.3, -1, 2, BAT.reflective_bounds) ≈ +1.7
-        @test BAT.apply_bounds(-7.3, -1, 2, BAT.reflective_bounds) ≈ -0.7
-        @test BAT.apply_bounds(+2.3, -1, 2, BAT.reflective_bounds) ≈ +1.7
-        @test BAT.apply_bounds(+5.3, -1, 2, BAT.reflective_bounds) ≈ -0.7
-        @test BAT.apply_bounds(+8.3, -1, 2, BAT.reflective_bounds) ≈ +1.7
+        @test BAT.renormalize_variate_impl(-1.3, -1, 2, BAT.cyclic_bounds) ≈ +1.7
+        @test BAT.renormalize_variate_impl(-4.3, -1, 2, BAT.cyclic_bounds) ≈ +1.7
+        @test BAT.renormalize_variate_impl(-7.3, -1, 2, BAT.cyclic_bounds) ≈ +1.7
+        @test BAT.renormalize_variate_impl(+2.3, -1, 2, BAT.cyclic_bounds) ≈ -0.7
+        @test BAT.renormalize_variate_impl(+5.3, -1, 2, BAT.cyclic_bounds) ≈ -0.7
+        @test BAT.renormalize_variate_impl(+8.3, -1, 2, BAT.cyclic_bounds) ≈ -0.7
+    
+        @test typeof(@inferred BAT.renormalize_variate_impl(+0.3, -1, 2, BAT.hard_bounds)) == Float64
+        @test typeof(@inferred BAT.renormalize_variate_impl(+0.3f0, -1, 2, BAT.hard_bounds)) == Float32
+        @test typeof(@inferred BAT.renormalize_variate_impl(+0.3f0, -1, 2.0, BAT.hard_bounds)) == Float64
 
-        @test BAT.apply_bounds(-1.3, -1, 2, BAT.cyclic_bounds) ≈ +1.7
-        @test BAT.apply_bounds(-4.3, -1, 2, BAT.cyclic_bounds) ≈ +1.7
-        @test BAT.apply_bounds(-7.3, -1, 2, BAT.cyclic_bounds) ≈ +1.7
-        @test BAT.apply_bounds(+2.3, -1, 2, BAT.cyclic_bounds) ≈ -0.7
-        @test BAT.apply_bounds(+5.3, -1, 2, BAT.cyclic_bounds) ≈ -0.7
-        @test BAT.apply_bounds(+8.3, -1, 2, BAT.cyclic_bounds) ≈ -0.7
-
-        @test typeof(@inferred BAT.apply_bounds(+0.3, -1, 2, BAT.hard_bounds)) == Float64
-        @test typeof(@inferred BAT.apply_bounds(+0.3f0, -1, 2, BAT.hard_bounds)) == Float32
-        @test typeof(@inferred BAT.apply_bounds(+0.3f0, -1, 2.0, BAT.hard_bounds)) == Float64
-
-        @test BAT.apply_bounds(+5.3, ClosedInterval(-1, 2), BAT.reflective_bounds) ≈ -0.7
+        @test BAT.renormalize_variate_impl(+5.3, ClosedInterval(-1, 2), BAT.reflective_bounds) ≈ -0.7
     end
 
     @testset "BAT.NoVarBounds" begin
         n = 2
         @test typeof(@inferred BAT.NoVarBounds(n)) == BAT.NoVarBounds
 
-        params = [-1000., 1000]
-        uparams = BAT.NoVarBounds(n)
-        @test totalndof(uparams) == n
-        @test params in uparams
-        # @test in( VectorOfSimilarVectors(hcat(params, params)), uparams, 1)
-
-        @test BAT.apply_bounds!(params, uparams) == params
+        v = [-1000., 1000]
+        nobounds = BAT.NoVarBounds(n)
+        @test @inferred(totalndof(nobounds)) == n
+        @test @inferred(v in nobounds)
+        @test @inferred(BAT.renormalize_variate(nobounds, v)) === v
     end
 
     @testset "BAT.HyperRectBounds" begin
@@ -83,20 +70,12 @@ BAT.unsafe_intersect(a::apb_test, b::apb_test) = true
         @test [0.0, 0.0] in hyperRectBounds
         @test ([0.5, 2] in hyperRectBounds) == false
 
-        @test BAT.apply_bounds!([0.3, -4.3, -7.3], BAT.HyperRectBounds([-1.,-1,-1], [2.,2,2],
-            [BAT.hard_bounds, BAT.reflective_bounds, BAT.cyclic_bounds])) ≈ [+0.3, 1.7, 1.7]
+        @test @inferred(BAT.renormalize_variate(
+            BAT.HyperRectBounds([-1.,-1,-1], [2.,2,2], [BAT.hard_bounds, BAT.reflective_bounds, BAT.cyclic_bounds]),
+            [0.3, -4.3, -7.3]
+        )) ≈ [+0.3, 1.7, 1.7]
 
-        @test BAT.apply_bounds!(
-            VectorOfSimilarVectors([0.3 0.3 0.3; 0.3 -7.3 +8.3; 0.3 -7.3 +8.3]),
-            BAT.HyperRectBounds([-1., -1., -1], [2., 2.,2.], [BAT.hard_bounds, BAT.reflective_bounds, BAT.cyclic_bounds])
-        ) ≈ VectorOfSimilarVectors([+0.3 0.3 0.3; 0.3 -0.7 1.7; 0.3 1.7 -0.7])
-
-        @test BAT.isoob(BAT.apply_bounds!(rand!(MersenneTwister(7002), zeros(Float64, 2)), hyperRectBounds))
-        @test BAT.isoob(BAT.apply_bounds!(rand!(MersenneTwister(7002),
-            BAT.spatialvolume(hyperRectBounds), zeros(Float64, 2)), hyperRectBounds)) == false
-
-        @test BAT.isoob(BAT.apply_bounds!([0,2.],hyperRectBounds))
-        @test BAT.apply_bounds!([0,2.],hyperRectBounds,false) ≈ [0,2.]
+        @test BAT.renormalize_variate(hyperRectBounds, [0,2.]) == [0,2.]
     end
 
     @testset "similar" begin

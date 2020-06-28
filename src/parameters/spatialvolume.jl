@@ -91,8 +91,12 @@ end
 
 Base.similar(vol::HyperRectVolume) = HyperRectVolume(similar(vol.lo), similar(vol.hi))
 
-Base.in(x::AbstractVector, vol::HyperRectVolume) =
+
+Base.in(x::AbstractVector{<:Real}, vol::HyperRectVolume) =
     _all_lteq(vol.lo, x, vol.hi)
+
+Base.in(x::Any, vol::HyperRectVolume) = unshaped(x) in vol
+
 
 function Base.isinf(vol::HyperRectVolume)
     return (any(isinf.(vol.hi)) || any(isinf.(vol.lo)))

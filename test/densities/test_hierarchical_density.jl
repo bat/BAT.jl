@@ -31,7 +31,7 @@ using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
         @test all(in.(nestedview(@inferred rand(sampler(hd), 10^3)), Ref(hd_bounds)))
         @test @inferred(fill(-1.0, totalndof(hd)) in hd_bounds) == false
 
-        @test (@inferred(BAT.apply_bounds!(fill(-1.0, totalndof(hd)), hd_bounds)) in hd_bounds) == false
+        @test (@inferred(BAT.renormalize_variate(hd_bounds, fill(-1.0, totalndof(hd)))) in hd_bounds) == false
 
         posterior = PosteriorDensity(v -> LogDVal(1), hd)
         samples = bat_sample(posterior, (10^5, 4), MetropolisHastings()).result
@@ -50,8 +50,8 @@ using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
 
         hd_bounds = @inferred(BAT.var_bounds(hd))
         @test @inferred(fill(1.5, totalndof(hd)) in hd_bounds) == false
-        @test @inferred(BAT.apply_bounds!(fill(1.5, totalndof(hd)), hd_bounds)) == [2.5, 1.5, 1.5, 1.5, 1.5]
-        @test (@inferred(BAT.apply_bounds!(fill(1.5, totalndof(hd)), hd_bounds)) in hd_bounds) == true
+        @test @inferred(BAT.renormalize_variate(hd_bounds, fill(1.5, totalndof(hd)))) == [2.5, 1.5, 1.5, 1.5, 1.5]
+        @test (@inferred(BAT.renormalize_variate(hd_bounds, fill(1.5, totalndof(hd)))) in hd_bounds) == true
     end
 
     let

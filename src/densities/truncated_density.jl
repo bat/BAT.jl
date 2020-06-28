@@ -25,8 +25,8 @@ var_bounds(density::TruncatedDensity) = density.bounds
 ValueShapes.varshape(density::TruncatedDensity) = varshape(parent(density))
 
 function density_logval(density::TruncatedDensity, v::Any)
-    # ToDo: Enforce bounds - currently have to trust BAT.eval_density_logval! to do it,
-    # since value shape is not available here.
+    # Note: Enforcing bounds (returning negative infinity out out bounds)
+    # is the job of BAT.eval_density_logval.
     density_logval(parent(density), v) + density.logscalecorr
 end
 
