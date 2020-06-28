@@ -1,33 +1,38 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct ConstDensity{B<:VarVolumeBounds,T<:Real} <: DistLikeDensity
+struct ConstDensity{B<:Union{VarVolumeBounds,Missing},T<:Real} <: DistLikeDensity
     bounds::B
     log_value::T
 end
 
 
-ConstDensity(bounds::VarVolumeBounds{T,V}, ::typeof(one))  where {T,V}=
+ConstDensity(bounds::Missing, ::typeof(one)) = ConstDensity(bounds, 0)
+
+ConstDensity(bounds::VarVolumeBounds{T,V}, ::typeof(one))  where {T,V} =
     ConstDensity(bounds, zero(T))
 
 ConstDensity(bounds::VarVolumeBounds, ::typeof(normalize)) =
     ConstDensity(bounds, -log_volume(spatialvolume(bounds)))
 
 
-Base.convert(::Type{AbstractDensity}, bounds::VarVolumeBounds) =
-    ConstDensity(bounds, one)
+Base.convert(::Type{ConstDensity}, bounds::VarVolumeBounds) = ConstDensity(bounds, one)
+Base.convert(::Type{AbstractDensity}, bounds::VarVolumeBounds) = convert(ConstDensity, bounds)
+
+Base.convert(::Type{ConstDensity}, value::AbstractDensityValue) = ConstDensity(missing, logvalof(value))
+Base.convert(::Type{AbstractDensity}, value::AbstractDensityValue) = convert(ConstDensity, value)
 
 
-function density_logval_impl(
-    density::ConstDensity,
-    v::AbstractVector{<:Real}
-)
-    density.log_value
-end
+@inline density_logval_impl(density::ConstDensity, v::Any) = density.log_value
+
 
 var_bounds(density::ConstDensity) = density.bounds
 
+
 ValueShapes.varshape(density::ConstDensity) = ArrayShape{Real}(totalndof(density.bounds))
+
+ValueShapes.varshape(density::ConstDensity{<:Missing}) = missing
+
 
 Distributions.sampler(density::ConstDensity) = spatialvolume(var_bounds(density))
 

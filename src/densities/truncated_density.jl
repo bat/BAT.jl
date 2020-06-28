@@ -55,6 +55,13 @@ function truncate_density(density::AbstractPosteriorDensity, bounds::AbstractVar
 end
 
 
+function truncate_density(density::ConstDensity, bounds::AbstractVarBounds)
+    old_bounds = var_bounds(density)
+    new_bounds = ismissing(old_bounds) ? bounds : var_bounds(density) ∩ bounds
+    ConstDensity(new_bounds, density.log_value)
+end
+
+
 function truncate_density(density::DistributionDensity, bounds::HyperRectBounds)
     old_bounds = var_bounds(density)
     new_bounds = ismissing(old_bounds) ? bounds : var_bounds(density) ∩ bounds
