@@ -287,16 +287,11 @@ Determine a suitable return type of log-density functions, given a variate
 function density_logval_type end
 
 @inline function density_logval_type(v::AbstractArray{<:Real}, T::Type{<:Real} = Float32)
-    vs = valshape(v)
     U = float(eltype(v))
     promote_type(T, U)
 end
 
-@inline function density_logval_type(v::Any, T::Type{<:Real} = Float32)
-    vs = valshape(v)
-    U = float(ValueShapes.default_unshaped_eltype(vs))
-    promote_type(T, U)
-end
+@inline density_logval_type(v::Any, T::Type{<:Real} = Float32) = density_logval_type(unshaped(v), T)
 
 
 @doc doc"""
