@@ -142,7 +142,7 @@ ValueShapes.varshape(density::AbstractDensity) = missing
         density::AbstractDensity,
         v::Any,
         T::Type{:Real} = density_logval_type(v);
-        use_bounds::Val = Val(true),
+        use_bounds::Bool = true,
         strict::Bool = false
     )::T
 
@@ -159,9 +159,9 @@ Throws an exception on any of these conditions:
 
 Options:
 
-* `use_bounds`: Apply renormalizations inherent in the bounds
-  of `density` to `v` (if any), also return an equivalent of negative
-  infinity if `v` (possibly renormalized) is out of bounds. 
+* `use_bounds`: Return an equivalent of negative infinity if `v` is out of
+  bounds. `use_bounds` should only be set to `false` when it is known that
+  the `v` is within bounds.
 
 * `strict`: Throw an exception if `v` is out of bounds.
 """
@@ -169,12 +169,12 @@ function eval_density_logval(
     density::AbstractDensity,
     v::Any,
     T::Type{<:Real} = density_logval_type(v);
-    use_bounds::Val = Val(true),
+    use_bounds::Bool = true,
     strict::Bool = false
 )
-    v_shaped = preprocess_variate(density, v, use_bounds)
-    if use_bounds == Val(true) && !variate_is_inbounds(density, v_shaped, strict)
-        return log_zero_density(T, strict)
+    v_shaped = get_shaped_variate(varshape(density), v)
+    if use_bounds && !variate_is_inbounds(density, v_shaped, strict)
+        return log_zero_density(T)
     end
 
     # ToDo: Make Zygote-compatible, by wrapping the following exception
@@ -239,18 +239,6 @@ function _get_shaped_realvec(shape::AbstractValueShape, v::AbstractVector{<:Real
         throw(ArgumentError("Invalid length ($ndof) of parameter vector, density has $ndof_expected degrees of freedom and shape $(shape)"))
     end
     shape(v)
-end
-
-
-function preprocess_variate(density::AbstractDensity, v::Any, ::Val{true})
-    shape = varshape(density)
-    renormalize_variate(density, get_shaped_variate(shape, v))
-end
-
-
-function preprocess_variate(density::AbstractDensity, v::Any, ::Val{false})
-    shape = varshape(density)
-    get_shaped_variate(shape, v)
 end
 
 

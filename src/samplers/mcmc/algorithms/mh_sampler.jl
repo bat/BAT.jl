@@ -262,6 +262,7 @@ function mcmc_step!(
         # Propose new variate:
         samples.weight[proposed] = 0
         proposal_rand!(rng, proposaldist, proposed_params, current_params)
+        proposed_params .= renormalize_variate(pstr, proposed_params)
 
         current_log_posterior = samples.logd[current]
         T = typeof(current_log_posterior)

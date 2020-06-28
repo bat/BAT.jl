@@ -35,17 +35,17 @@ function eval_density_logval(
     density::AbstractPosteriorDensity,
     v::Any,
     T::Type{<:Real} = density_logval_type(v);
-    use_bounds::Val = Val(true),
+    use_bounds::Bool = true,
     strict::Bool = false
 )
-    v_shaped = preprocess_variate(density, v, use_bounds)
-    if use_bounds == Val(true) && !variate_is_inbounds(density, v_shaped, strict)
+    v_shaped = get_shaped_variate(varshape(density), v)
+    if use_bounds && !variate_is_inbounds(density, v_shaped, strict)
         return log_zero_density(T)
     end
 
     prior_logval = eval_density_logval(
         getprior(density), v_shaped,
-        use_bounds = Val(false), strict = false
+        use_bounds = false, strict = false
     )
 
     # Don't evaluate likelihood if prior probability is zero. Prevents
@@ -54,7 +54,7 @@ function eval_density_logval(
     if !is_log_zero(prior_logval, T)
         likelihood_logval = eval_density_logval(
             getlikelihood(density), v_shaped,
-            use_bounds = Val(false), strict = false
+            use_bounds = false, strict = false
         )
         convert(T, likelihood_logval + prior_logval)
     else
