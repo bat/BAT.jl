@@ -89,5 +89,8 @@ BAT.reduced_volume_hm
 BAT.repetition_to_weights
 BAT.spatialvolume
 BAT.sum_first_dim
+BAT.truncate_density
+BAT.truncate_dist_hard
+BAT.trunc_logpdf_ratio
 BAT.var_bounds
 ```
