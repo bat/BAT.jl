@@ -38,7 +38,7 @@ varshape(hd) == NamedTupleShape(
 )
 
 v = rand(sampler(hd))
-BAT.density_logval(hd, v)
+BAT.density_logval_impl(hd, v)
 )
 ```
 """
@@ -108,15 +108,15 @@ end
 
 
 
-function density_logval(
+function density_logval_impl(
     density::HierarchicalDensity,
     v::Any
 )
     d = density
     v1, v2 = _split_v(d, v)
-    logval1 = density_logval(d.pd, v1)
+    logval1 = density_logval_impl(d.pd, v1)
     cd = _hd_cd(d, v1)
-    logval2 = density_logval(cd, v2)
+    logval2 = density_logval_impl(cd, v2)
     logval1 + logval2
 end
 

@@ -40,13 +40,15 @@ bat_rng
 bat_sample
 bat_write
 
-BAT.density_logval
-BAT.density_logvalgrad
+logvalof
+logvalgradof
 
+BAT.density_logval_impl
 BAT.fft_autocor
 BAT.fft_autocov
 
 AbstractDensity
+AbstractDensityValue
 AbstractMCMCTuningStrategy
 AbstractPosteriorDensity
 AbstractWeightingScheme

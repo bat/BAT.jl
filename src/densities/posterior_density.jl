@@ -31,7 +31,7 @@ The prior density of `posterior`. The prior may or may not be normalized.
 function getprior end
 
 
-function eval_density_logval(
+function logvalof(
     density::AbstractPosteriorDensity,
     v::Any,
     T::Type{<:Real} = density_logval_type(v);
@@ -43,7 +43,7 @@ function eval_density_logval(
         return log_zero_density(T)
     end
 
-    prior_logval = eval_density_logval(
+    prior_logval = logvalof(
         getprior(density), v_shaped,
         use_bounds = false, strict = false
     )
@@ -52,7 +52,7 @@ function eval_density_logval(
     # failures when algorithms try to explore parameter space outside of
     # definition of likelihood (as long as prior is chosen correctly).
     if !is_log_zero(prior_logval, T)
-        likelihood_logval = eval_density_logval(
+        likelihood_logval = logvalof(
             getlikelihood(density), v_shaped,
             use_bounds = false, strict = false
         )
@@ -63,8 +63,8 @@ function eval_density_logval(
 end
 
 
-function density_logval(density::AbstractPosteriorDensity, v::Any)
-    eval_density_logval(
+function density_logval_impl(density::AbstractPosteriorDensity, v::Any)
+    logvalof(
         density, v,
         use_bounds = false, strict = false
     )

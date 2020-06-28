@@ -7,6 +7,6 @@ using LinearAlgebra
 using ArraysOfArrays, Distributions
 
 @testset "logdval" begin
-    @test BAT.density_logval(LinDVal(4.2)) == log(4.2)
-    @test BAT.density_logval(LogDVal(log(4.2))) == log(4.2)
+    @test logvalof(LinDVal(4.2)) == log(4.2)
+    @test logvalof(LogDVal(log(4.2))) == log(4.2)
 end

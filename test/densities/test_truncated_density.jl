@@ -54,15 +54,15 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets, ValueShapes
     @test @inferred(BAT.truncate_density(prior, bounds)) isa BAT.TruncatedDensity
 
 
-    @test BAT.eval_density_logval(BAT.truncate_density(prior, bounds), [1, 2, 0, 3]) ≈ BAT.eval_density_logval(prior, [1, 2, 0, 3])
+    @test BAT.logvalof(BAT.truncate_density(prior, bounds), [1, 2, 0, 3]) ≈ BAT.logvalof(prior, [1, 2, 0, 3])
     @test varshape(BAT.truncate_density(prior, bounds)) == varshape(prior)
 
     @test @inferred(BAT.truncate_density(posterior, bounds)) isa PosteriorDensity
 
     trunc_pstr = BAT.truncate_density(posterior, bounds)
-    @test @inferred(BAT.eval_density_logval(trunc_pstr, [1, 2, 0, 3])) ≈ BAT.eval_density_logval(posterior, [1, 2, 0, 3])
-    @test @inferred(BAT.eval_density_logval(trunc_pstr, [-1, -1, -1, -1])) ≈ -Inf
-    @test @inferred(BAT.density_logvalgrad(trunc_pstr, [1, 2, 0, 3])).grad_logd ≈ BAT.density_logvalgrad(posterior, [1, 2, 0, 3]).grad_logd
+    @test @inferred(BAT.logvalof(trunc_pstr, [1, 2, 0, 3])) ≈ BAT.logvalof(posterior, [1, 2, 0, 3])
+    @test @inferred(BAT.logvalof(trunc_pstr, [-1, -1, -1, -1])) ≈ -Inf
+    @test @inferred(BAT.logvalgradof(trunc_pstr, [1, 2, 0, 3])).grad_logd ≈ BAT.logvalgradof(posterior, [1, 2, 0, 3]).grad_logd
     @test varshape(trunc_pstr) == varshape(posterior)
 
     let

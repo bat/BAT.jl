@@ -6,7 +6,7 @@
 
 Subtypes of `AbstractDensity` must implement the function
 
-* `BAT.density_logval`
+* `BAT.density_logval_impl`
 
 For likelihood densities this is typically sufficient, since shape, and
 variate bounds will be inferred from the prior.
@@ -29,7 +29,7 @@ export AbstractDensity
 
 
 @doc doc"""
-    BAT.density_logval(density::AbstractDensity, v::Any)
+    BAT.density_logval_impl(density::AbstractDensity, v::Any)
 
 Compute log of the value of a multivariate density function for the given
 variate/parameter-values.
@@ -39,47 +39,12 @@ Input:
 * `density`: density function
 * `v`: argument, i.e. variate / parameter-values
 
-Note: If `density_logval` is called with an argument that is out of bounds,
+Note: If `density_logval_impl` is called with an argument that is out of bounds,
 the behaviour is undefined. The result for arguments that are not within
 bounds is *implicitly* `-Inf`, but it is the caller's responsibility to handle
 these cases.
 """
-function density_logval end
-
-
-@doc doc"""
-    BAT.density_logvalgrad(density::AbstractDensity, v::AbstractVector{<:Real})
-
-Compute the log of the value of a multivariate density function, as well as
-the gradient of the log-value for the given variate/parameter-values.
-
-Input:
-
-* `density`: density function
-* `v`: argument, i.e. variate / parameter-values
-
-Returns a tuple of the log density value and it's gradient.
-
-See also [`BAT.density_logval`](@ref).
-"""
-function density_logvalgrad(
-    density::AbstractDensity,
-    v::AbstractVector{<:Real},
-)
-    n = length(eachindex(v))
-    log_f = v -> BAT.density_logval(density, v)
-
-    P = eltype(v)
-    T = typeof(log_f(v)) # Inefficient
-
-    grad_logd = Vector{P}(undef, n)
-    chunk = ForwardDiff.Chunk(v)
-    config = ForwardDiff.GradientConfig(log_f, v, chunk)
-    result = DiffResults.MutableDiffResult(zero(T), (grad_logd,))
-    ForwardDiff.gradient!(result, log_f, v, config)
-    logd = DiffResults.value(result)
-    (logd = logd, grad_logd = grad_logd)
-end
+function density_logval_impl end
 
 
 @doc doc"""
@@ -89,9 +54,10 @@ end
 
 *BAT-internal, not part of stable public API.*
 
-Get the parameter bounds of `density`. See `density_logval` for the
-implications and handling of the bounds. If the bounds are missing,
-`density_logval` must be prepared to handle any parameter values.
+Get the parameter bounds of `density`. See `density_logval_impl` and
+`logvalof` for the implications and handling of bounds.
+If bounds are missing, `density_logval_impl` must be prepared to
+handle any parameter values.
 """
 var_bounds(density::AbstractDensity) = missing
 
@@ -138,7 +104,7 @@ ValueShapes.varshape(density::AbstractDensity) = missing
 
 
 @doc doc"""
-    eval_density_logval(
+    logvalof(
         density::AbstractDensity,
         v::Any,
         T::Type{:Real} = density_logval_type(v);
@@ -148,13 +114,13 @@ ValueShapes.varshape(density::AbstractDensity) = missing
 
 *BAT-internal, not part of stable public API.*
 
-Evaluates density log-value via `density_logval`.
+Evaluates density log-value via `density_logval_impl`.
 
 Throws an exception on any of these conditions:
 
 * The variate shape of `density` (if known) does not match the shape of `v`.
-* The return value of `density_logval` is `NaN`.
-* The return value of `density_logval` is an equivalent of positive
+* The return value of `density_logval_impl` is `NaN`.
+* The return value of `density_logval_impl` is an equivalent of positive
   infinity.
 
 Options:
@@ -165,7 +131,10 @@ Options:
 
 * `strict`: Throw an exception if `v` is out of bounds.
 """
-function eval_density_logval(
+function logvalof end
+export logvalof
+
+function logvalof(
     density::AbstractDensity,
     v::Any,
     T::Type{<:Real} = density_logval_type(v);
@@ -181,7 +150,7 @@ function eval_density_logval(
     # augmentation mechanism in a function `get_density_logval_with_rethrow`
     # with a custom pullback:
     logval::T = try
-        density_logval(density, stripscalar(v_shaped))
+        density_logval_impl(density, stripscalar(v_shaped))
     catch err
         rethrow(_density_eval_error(density, v, err))
     end
@@ -197,11 +166,11 @@ end
 
 function _check_density_logval(density::AbstractDensity, v::Any, logval::Real, strict::Bool)
     if isnan(logval)
-        throw(ErrorException("Return value of density_logval must not be NaN, v = $(variate_for_msg(v)) , density has type $(typeof(density))"))
+        throw(ErrorException("Log-density must not evaluate to NaN, v = $(variate_for_msg(v)) , density has type $(typeof(density))"))
     end
 
     if !(logval < typeof(logval)(+Inf))
-        throw(ErrorException("Return value of density_logval must not be posivite infinite, v = $(variate_for_msg(v)), density has type $(typeof(density))"))
+        throw(ErrorException("Log-density must not evaluate to posivite infinity, v = $(variate_for_msg(v)), density has type $(typeof(density))"))
     end
 
     nothing
@@ -278,6 +247,53 @@ function renormalize_variate!(v_renorm::Any, density::AbstractDensity, v::Any)
 end
 
 
+
+
+@doc doc"""
+    logvalgradof(density::AbstractDensity, v::AbstractVector{<:Real})
+
+Compute the log of the value of a multivariate density function, as well as
+the gradient of the log-value for the given variate/parameter-values.
+
+Input:
+
+* `density`: density function
+* `v`: argument, i.e. variate / parameter-values
+
+Returns a tuple of the log density value and it's gradient.
+
+Note: This function should *not* be specialized for custom density types!
+"""
+function logvalgradof end
+export logvalgradof
+
+function logvalgradof(
+    density::AbstractDensity,
+    v::Any,
+)
+    log_f = logvalof(density)
+
+    shape = valshape(v)
+    v_unshaped = unshaped(v)
+
+    n = length(eachindex(v_unshaped))
+    P = eltype(v_unshaped)
+    T = density_logval_type(v_unshaped)
+
+    grad_logd_unshaped = Vector{P}(undef, n)
+    chunk = ForwardDiff.Chunk(v_unshaped)
+    config = ForwardDiff.GradientConfig(log_f, v_unshaped, chunk)
+    result = DiffResults.MutableDiffResult(zero(T), (grad_logd_unshaped,))
+    ForwardDiff.gradient!(result, log_f, v_unshaped, config)
+    logd = DiffResults.value(result)
+
+    gradshape = map_const_shapes(zero, shape)
+
+    grad_logd = gradshape(grad_logd_unshaped)
+    (logd = logd, grad_logd = grad_logd)
+end
+
+
 @doc doc"""
     BAT.density_logval_type(v::Any, T::Type{<:Real} = Float32)
 
@@ -308,7 +324,7 @@ log_zero_density(T::Type{<:Real}) = float(T)(-Inf)
 
 
 @doc doc"""
-    BAT.is_log_zero_density(x::Real, T::Type{<:Real} = typeof(x)}
+    BAT.is_log_zero(x::Real, T::Type{<:Real} = typeof(x)}
 
 *BAT-internal, not part of stable public API.*
 
@@ -333,6 +349,59 @@ function is_log_zero(x::Real, T::Type{<:Real} = typeof(x))
 end
 
 
+
+struct LogValOfDensity{D<:AbstractDensity} <: Function
+    density::D
+end
+
+(lvd::LogValOfDensity)(v::Any) = logvalof(lvd.density, v)
+
+
+"""
+    logvalof(density::AbstractDensity)::Function
+
+Returns a function that is equivalent to
+
+```julia
+    v -> logvalof(density, v)
+```
+"""
+logvalof(density::AbstractDensity) = LogValOfDensity(density)
+
+
+
+struct LogValGradOfDensity{D<:AbstractDensity} <: Function
+    density::D
+end
+
+(lvdg::LogValGradOfDensity)(v::Any) = logvalgradof(lvdg.density, v)
+
+
+"""
+    logvalgradof(density::AbstractDensity)::Function
+
+Returns a function that is equivalent to
+
+```julia
+    v -> logvalgradof(density, v)
+```
+"""
+logvalgradof(density::AbstractDensity) = LogValGradOfDensity(density)
+
+
+
+function map_const_shapes end
+
+map_const_shapes(f::Function, shape::ScalarShape) = shape
+
+map_const_shapes(f::Function, shape::ArrayShape) = shape
+
+map_const_shapes(f::Function, shape::ConstValueShape) = ConstValueShape(f(shape.value))
+
+map_const_shapes(f::Function, shape::NamedTupleShape) = NamedTupleShape(map(s -> map_const_shapes(f, s), (;shape...)))
+
+
+
 @doc doc"""
     DistLikeDensity <: AbstractDensity
 
@@ -352,7 +421,7 @@ in) an `DistLikeDensity` via `conv(DistLikeDensity, d)`.
 
 The following functions must be implemented for subtypes:
 
-* `BAT.density_logval`
+* `BAT.density_logval_impl`
 
 * `BAT.var_bounds`
 

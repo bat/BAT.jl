@@ -62,7 +62,6 @@ BAT.create_hyperrectangle
 BAT.distribution_logpdf
 BAT.distribution_logpdf!
 BAT.drop_low_weight_samples
-BAT.eval_density_logval
 BAT.find_hypercube_centers
 BAT.fromuhc
 BAT.fromuhc!

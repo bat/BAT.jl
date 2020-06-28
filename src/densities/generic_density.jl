@@ -26,6 +26,6 @@ Base.convert(::Type{AbstractDensity}, f::Function) = GenericDensity(f)
 Base.parent(density::GenericDensity) = density.f
 
 
-function density_logval(density::GenericDensity, v::Any)
-    density_logval(density.f(v))
+function density_logval_impl(density::GenericDensity, v::Any)
+    logvalof(density.f(v))
 end

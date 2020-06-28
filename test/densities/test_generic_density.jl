@@ -20,8 +20,8 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     params = [0.0, 0.0]
 
     @testset "BAT.density_logval" begin
-        @test @inferred(BAT.density_logval(density, params)) ≈ logpdf(mvnorm, params)
-        @test @inferred(BAT.density_logval(density, params)) ≈ logpdf(mvnorm, params)
+        @test @inferred(BAT.density_logval_impl(density, params)) ≈ logpdf(mvnorm, params)
+        @test @inferred(BAT.density_logval_impl(density, params)) ≈ logpdf(mvnorm, params)
     end
 
     @testset "parent" begin
