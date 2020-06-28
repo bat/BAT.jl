@@ -43,7 +43,7 @@ bat_write
 logvalof
 logvalgradof
 
-BAT.density_logval_impl
+BAT.logvalof_unchecked
 BAT.fft_autocor
 BAT.fft_autocov
 

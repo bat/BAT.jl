@@ -63,7 +63,7 @@ function logvalof(
 end
 
 
-function density_logval_impl(density::AbstractPosteriorDensity, v::Any)
+function logvalof_unchecked(density::AbstractPosteriorDensity, v::Any)
     logvalof(
         density, v,
         use_bounds = false, strict = false

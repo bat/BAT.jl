@@ -37,7 +37,7 @@ using ArraysOfArrays, Distributions
 
     @testset "BAT.density_logval" begin
         density = gen_density_n()
-        @test BAT.density_logval_impl(density, [1.,2.]) ≈ -0.4054651081081644
+        @test BAT.logvalof_unchecked(density, [1.,2.]) ≈ -0.4054651081081644
     end
 
     @testset "sampler" begin

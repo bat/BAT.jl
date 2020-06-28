@@ -6,7 +6,7 @@
 
 Subtypes of `AbstractDensity` must implement the function
 
-* `BAT.density_logval_impl`
+* `BAT.logvalof_unchecked`
 
 For likelihood densities this is typically sufficient, since shape, and
 variate bounds will be inferred from the prior.
@@ -29,7 +29,7 @@ export AbstractDensity
 
 
 @doc doc"""
-    BAT.density_logval_impl(density::AbstractDensity, v::Any)
+    BAT.logvalof_unchecked(density::AbstractDensity, v::Any)
 
 Compute log of the value of a multivariate density function for the given
 variate/parameter-values.
@@ -39,12 +39,12 @@ Input:
 * `density`: density function
 * `v`: argument, i.e. variate / parameter-values
 
-Note: If `density_logval_impl` is called with an argument that is out of bounds,
+Note: If `logvalof_unchecked` is called with an argument that is out of bounds,
 the behaviour is undefined. The result for arguments that are not within
 bounds is *implicitly* `-Inf`, but it is the caller's responsibility to handle
 these cases.
 """
-function density_logval_impl end
+function logvalof_unchecked end
 
 
 @doc doc"""
@@ -54,9 +54,9 @@ function density_logval_impl end
 
 *BAT-internal, not part of stable public API.*
 
-Get the parameter bounds of `density`. See `density_logval_impl` and
+Get the parameter bounds of `density`. See `logvalof_unchecked` and
 `logvalof` for the implications and handling of bounds.
-If bounds are missing, `density_logval_impl` must be prepared to
+If bounds are missing, `logvalof_unchecked` must be prepared to
 handle any parameter values.
 """
 var_bounds(density::AbstractDensity) = missing
@@ -114,13 +114,13 @@ ValueShapes.varshape(density::AbstractDensity) = missing
 
 *BAT-internal, not part of stable public API.*
 
-Evaluates density log-value via `density_logval_impl`.
+Evaluates density log-value via `logvalof_unchecked`.
 
 Throws an exception on any of these conditions:
 
 * The variate shape of `density` (if known) does not match the shape of `v`.
-* The return value of `density_logval_impl` is `NaN`.
-* The return value of `density_logval_impl` is an equivalent of positive
+* The return value of `logvalof_unchecked` is `NaN`.
+* The return value of `logvalof_unchecked` is an equivalent of positive
   infinity.
 
 Options:
@@ -150,7 +150,7 @@ function logvalof(
     # augmentation mechanism in a function `get_density_logval_with_rethrow`
     # with a custom pullback:
     logval::T = try
-        density_logval_impl(density, stripscalar(v_shaped))
+        logvalof_unchecked(density, stripscalar(v_shaped))
     catch err
         rethrow(_density_eval_error(density, v, err))
     end
@@ -421,7 +421,7 @@ in) an `DistLikeDensity` via `conv(DistLikeDensity, d)`.
 
 The following functions must be implemented for subtypes:
 
-* `BAT.density_logval_impl`
+* `BAT.logvalof_unchecked`
 
 * `BAT.var_bounds`
 

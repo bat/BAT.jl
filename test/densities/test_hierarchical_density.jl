@@ -22,8 +22,8 @@ using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
         @test @inferred(rand(sampler(hd))) isa AbstractVector{<:Real}
         @test @inferred(varshape(hd)) == NamedTupleShape(foo = ScalarShape{Real}(), bar = ScalarShape{Real}(), baz = ArrayShape{Real}(3))
 
-        @test @inferred(BAT.density_logval_impl(hd, [2.7, 4.3, 8.7, 8.7, 8.7])) ≈ logpdf(parent_density.foo, 2.7) + logpdf(parent_density.bar, 4.3) + 3 * logpdf(Normal(4.3, 2.7), 8.7)
-        @test @inferred(BAT.density_logval_impl(hd, (foo = 2.7, bar = 4.3, baz = fill(8.7, 3)))) ≈ logpdf(parent_density.foo, 2.7) + logpdf(parent_density.bar, 4.3) + 3 * logpdf(Normal(4.3, 2.7), 8.7)
+        @test @inferred(BAT.logvalof_unchecked(hd, [2.7, 4.3, 8.7, 8.7, 8.7])) ≈ logpdf(parent_density.foo, 2.7) + logpdf(parent_density.bar, 4.3) + 3 * logpdf(Normal(4.3, 2.7), 8.7)
+        @test @inferred(BAT.logvalof_unchecked(hd, (foo = 2.7, bar = 4.3, baz = fill(8.7, 3)))) ≈ logpdf(parent_density.foo, 2.7) + logpdf(parent_density.bar, 4.3) + 3 * logpdf(Normal(4.3, 2.7), 8.7)
 
         @test @inferred(BAT.var_bounds(hd)) == BAT.HierarchicalDensityBounds(hd)
 

@@ -73,6 +73,6 @@ using Distributions, PDMats
     end
 
     @testset "BAT.density_logval" begin
-        @test BAT.density_logval_impl(dp, params[1]) ≈ -8.8547305        
+        @test BAT.logvalof_unchecked(dp, params[1]) ≈ -8.8547305        
     end
 end

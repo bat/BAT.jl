@@ -24,10 +24,10 @@ var_bounds(density::TruncatedDensity) = density.bounds
 
 ValueShapes.varshape(density::TruncatedDensity) = varshape(parent(density))
 
-function density_logval_impl(density::TruncatedDensity, v::Any)
+function logvalof_unchecked(density::TruncatedDensity, v::Any)
     # Note: Enforcing bounds (returning negative infinity out out bounds)
     # is the job of BAT.logvalof.
-    density_logval_impl(parent(density), v) + density.logscalecorr
+    logvalof_unchecked(parent(density), v) + density.logscalecorr
 end
 
 

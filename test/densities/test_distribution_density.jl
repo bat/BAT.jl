@@ -16,7 +16,7 @@ using ArraysOfArrays, Distributions, StatsBase, PDMats, IntervalSets, ValueShape
     end
 
     @testset "BAT.density_logval" begin
-        @test (@inferred BAT.density_logval_impl(mvdd, [0.0, 0.0])) ≈ -2.64259602
+        @test (@inferred BAT.logvalof_unchecked(mvdd, [0.0, 0.0])) ≈ -2.64259602
     end
 
     @testset "BAT.var_bounds" begin

@@ -23,7 +23,7 @@ Base.convert(::Type{ConstDensity}, value::AbstractDensityValue) = ConstDensity(m
 Base.convert(::Type{AbstractDensity}, value::AbstractDensityValue) = convert(ConstDensity, value)
 
 
-@inline density_logval_impl(density::ConstDensity, v::Any) = density.log_value
+@inline logvalof_unchecked(density::ConstDensity, v::Any) = density.log_value
 
 
 var_bounds(density::ConstDensity) = density.bounds
