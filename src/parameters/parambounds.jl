@@ -31,15 +31,17 @@ end
 
 
 @doc doc"""
-    renormalize_variate(bounds::AbstractVarBounds, v::Any)
+    renormalize_variate!(v_renorm::Any, bounds::AbstractVarBounds, v::Any)
 
 *BAT-internal, not part of stable public API.*
 
 Apply renormalization (if any) inherent `bounds`, to variate/parameters `x`.
 The renormalization must preserve phase-space volume locally (determinant
 of Jacobian must be one).
+
+Modifies and returns `v_renorm`.
 """
-function renormalize_variate end
+function renormalize_variate! end
 
 
 @doc doc"""
@@ -103,7 +105,14 @@ Base.isinf(bounds::NoVarBounds) = true
 
 ValueShapes.totalndof(b::NoVarBounds) = b.ndims
 
-renormalize_variate(bounds::NoVarBounds, v::Any) = v
+
+function renormalize_variate!(v_renorm::AbstractVector{<:Real}, bounds::NoVarBounds, v::AbstractVector{<:Real})
+    if v_renorm !== v
+        v_renorm .= v
+    end
+    v_renorm
+end
+ 
 
 unsafe_intersect(a::NoVarBounds, b::NoVarBounds) = a
 unsafe_intersect(a::AbstractVarBounds, b::NoVarBounds) = a
@@ -210,7 +219,7 @@ end
 
 spatialvolume(bounds::HyperRectBounds) = bounds.vol
 
-function renormalize_variate(bounds::HyperRectBounds, v::AbstractVector{<:Real})
+function renormalize_variate!(v_renorm::AbstractVector{<:Real}, bounds::HyperRectBounds, v::AbstractVector{<:Real})
     VT = typeof(v)
-    renormalize_variate_impl.(v, bounds.vol.lo, bounds.vol.hi, bounds.bt)
+    v_renorm .= renormalize_variate_impl.(v, bounds.vol.lo, bounds.vol.hi, bounds.bt)
 end

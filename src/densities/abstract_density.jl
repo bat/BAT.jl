@@ -269,18 +269,12 @@ end
 
 
 @doc doc"""
-    renormalize_variate(density::AbstractDensity, v::Any)
+    renormalize_variate!(v_renorm::Any, density::AbstractDensity, v::Any)
 
 *BAT-internal, not part of stable public API.*
 """
-function renormalize_variate(density::AbstractDensity, v::AbstractVector{<:Real})
-    renormalize_variate(var_bounds(density), v)
-end
-
-function renormalize_variate(density::AbstractDensity, v::Any)
-    shape = valshape(v)
-    v_unshaped = unshaped(v)
-    shape(renormalize_variate(density, v_unshaped))
+function renormalize_variate!(v_renorm::Any, density::AbstractDensity, v::Any)
+    renormalize_variate!(v_renorm, var_bounds(density), v)
 end
 
 

@@ -51,7 +51,7 @@ BAT.unsafe_intersect(a::apb_test, b::apb_test) = true
         nobounds = BAT.NoVarBounds(n)
         @test @inferred(totalndof(nobounds)) == n
         @test @inferred(v in nobounds)
-        @test @inferred(BAT.renormalize_variate(nobounds, v)) === v
+        @test @inferred(BAT.renormalize_variate!(v, nobounds, copy(v))) === v
     end
 
     @testset "BAT.HyperRectBounds" begin
@@ -70,12 +70,13 @@ BAT.unsafe_intersect(a::apb_test, b::apb_test) = true
         @test [0.0, 0.0] in hyperRectBounds
         @test ([0.5, 2] in hyperRectBounds) == false
 
-        @test @inferred(BAT.renormalize_variate(
+        @test @inferred(BAT.renormalize_variate!(
+            fill(NaN, 3),
             BAT.HyperRectBounds([-1.,-1,-1], [2.,2,2], [BAT.hard_bounds, BAT.reflective_bounds, BAT.cyclic_bounds]),
             [0.3, -4.3, -7.3]
         )) ≈ [+0.3, 1.7, 1.7]
 
-        @test BAT.renormalize_variate(hyperRectBounds, [0,2.]) == [0,2.]
+        @test BAT.renormalize_variate!(fill(NaN, 2), hyperRectBounds, [0, 2.]) == [0,2.]
     end
 
     @testset "similar" begin

@@ -189,20 +189,18 @@ end
 Base.in(v::Any, bounds::HierarchicalDensityBounds) = unshaped(v) in bounds
 
 
-function renormalize_variate(bounds::HierarchicalDensityBounds, v::AbstractVector{<:Real})
+function renormalize_variate!(v_renorm::AbstractVector{<:Real}, bounds::HierarchicalDensityBounds, v::AbstractVector{<:Real})
     d = bounds.d
     bounds1 = var_bounds(d.pd)
     v1, v2 = _split_v(d, v)
-    new_v1 = renormalize_variate(bounds1, v1)
+    v1_renorm, v2_renorm = _split_v(d, v_renorm)
+    renormalize_variate!(v1_renorm, bounds1, v1)
 
-    new_v = if v1 in bounds1
+    new_v = if v1_renorm in bounds1
         cd = _hd_cd(d, v1)
         bounds2 = var_bounds(cd)
-        renorm_v2 = renormalize_variate(bounds2, v2)
-        vcat(new_v1, renorm_v2)
-    else
-        vcat(new_v1, v2)
+        renormalize_variate!(v2_renorm, bounds2, v2)
     end
-end
 
-renormalize_variate(bounds::HierarchicalDensityBounds, v::Any) = unshaped(v) in bounds
+    v_renorm
+end

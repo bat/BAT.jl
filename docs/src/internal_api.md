@@ -84,7 +84,7 @@ BAT.modify_hypercube!
 BAT.modify_integrationvolume!
 BAT.proposal_rand!
 BAT.reduced_volume_hm
-BAT.renormalize_variate
+BAT.renormalize_variate!
 BAT.renormalize_variate_impl
 BAT.repetition_to_weights
 BAT.spatialvolume
