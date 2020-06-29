@@ -17,7 +17,7 @@ using Test
             @test sample_integral.err < err_max
         end
     end
-    test_integration(AHMIntegration(), "multimodal cauchy", BAT.MultimodalCauchy(), 10^6)
-    test_integration(AHMIntegration(), "funnel distribution", BAT.FunnelDistribution(), 10^6)
-    test_integration(AHMIntegration(), "MvNormal", MvNormal(Diagonal(ones(5))), 10^6)
+    test_integration(AHMIntegration(), "multimodal cauchy", BAT.MultimodalCauchy(), 10^5)
+    test_integration(AHMIntegration(), "funnel distribution", BAT.FunnelDistribution(), 10^5)
+    test_integration(AHMIntegration(), "MvNormal", MvNormal(Diagonal(ones(5))), 10^5)
 end
