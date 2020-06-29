@@ -12,7 +12,7 @@
     lower = Dict(),
     vsel_label = []
 )
-    vsel = vsel[vsel .<= length(reduce(vcat, samples.v[1]))]
+    vsel = vsel[vsel .<=  BAT.varshape(samples)._flatdof]
 
     xlabel = ["v$i" for i in vsel]
     ylabel = ["p(v$i)" for i in vsel]
