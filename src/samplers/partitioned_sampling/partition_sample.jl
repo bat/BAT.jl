@@ -165,12 +165,14 @@ function convert_to_posterior(posterior::PosteriorDensity, partition_tree::Space
     subspaces_rect_bounds = get_tree_par_bounds(partition_tree)
 
     n_params = size(subspaces_rect_bounds[1])[1]
-    posterior_array = PosteriorDensity[]
 
-    for subspace in subspaces_rect_bounds
-        bounds = HyperRectBounds(subspace[:,1], subspace[:,2],  repeat([BAT.hard_bounds], n_params))
-        prior_dist = BAT.truncate_density(getprior(posterior), bounds)
-        push!(posterior_array, PosteriorDensity(getlikelihood(posterior), prior_dist))
-    end
+    posterior_array = map(
+        x -> begin
+            bounds = HyperRectBounds(x[:,1], x[:,2],  repeat([BAT.hard_bounds], n_params))
+            prior_dist = BAT.truncate_density(getprior(posterior), bounds)
+            PosteriorDensity(getlikelihood(posterior), prior_dist)
+        end,
+    subspaces_rect_bounds)
+
     return posterior_array
 end
