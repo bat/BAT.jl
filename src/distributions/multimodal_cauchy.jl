@@ -26,7 +26,7 @@ end
 
 function MultimodalCauchy end
 
-function MultimodalCauchy(;μ::Real=1, σ::Float64=0.2, n::Int=4)
+function MultimodalCauchy(;μ::Real=1, σ::Float64=0.2, n::Integer=4)
     mixture_model = MixtureModel([Cauchy(-μ, σ), Cauchy(μ, σ)])
     dist = _construct_dist(mixture_model, σ, n)
     MultimodalCauchy(mixture_model, σ, n, dist)
@@ -56,7 +56,7 @@ function Distributions._rand!(rng::AbstractRNG, d::MultimodalCauchy, x::Abstract
     Distributions._rand!(rng, d.dist, x)
 end
 
-function _construct_dist(mixture_model::MixtureModel, σ::Real, n::Int)
+function _construct_dist(mixture_model::MixtureModel, σ::Real, n::Integer)
     vector_of_dists = vcat(mixture_model, mixture_model, [Cauchy(0, σ) for i in 3:n])
     dist = product_distribution(vector_of_dists)
     return dist
