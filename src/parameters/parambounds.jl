@@ -12,15 +12,6 @@ function Base.intersect(a::AbstractVarBounds, b::AbstractVarBounds)
     unsafe_intersect(a, b)
 end
 
-@inline oob(::Type{T}) where {T<:AbstractFloat} = T(NaN)
-@inline oob(::Type{T}) where {T<:Integer} = typemax(T)
-@inline oob(x::Real) = oob(typeof(x))
-
-@inline isoob(x::AbstractFloat) = isnan(x)
-@inline isoob(x::Integer) = x == oob(x)
-isoob(xs::AbstractVector) = any(isoob, xs)
-# isoob(xs::VectorOfSimilarVectors) = any(isoob, flatview(xs))
-
 
 @enum BoundsType hard_bounds=1 cyclic_bounds=2 reflective_bounds=3
 
@@ -40,24 +31,28 @@ end
 
 
 @doc doc"""
-    apply_bounds!(x::AbstractVector, bounds::AbstractVarBounds)
+    renormalize_variate!(v_renorm::Any, bounds::AbstractVarBounds, v::Any)
 
 *BAT-internal, not part of stable public API.*
 
-Apply `bounds` to variate/parameters `x`.
+Apply renormalization (if any) inherent `bounds`, to variate/parameters `x`.
+The renormalization must preserve phase-space volume locally (determinant
+of Jacobian must be one).
+
+Modifies and returns `v_renorm`.
 """
-function apply_bounds! end
+function renormalize_variate! end
 
 
 @doc doc"""
-    apply_bounds(x::<:Real, lo::<:Real, hi::<:Real, boundary_type::BoundsType)
+    renormalize_variate_impl(x::<:Real, lo::<:Real, hi::<:Real, boundary_type::BoundsType)
 
 *BAT-internal, not part of stable public API.*
 
 Apply lower/upper bound `lo`/`hi` to value `x`. `boundary_type` may be
 `hard_bounds`, `cyclic_bounds` or `reflective_bounds`.
 """
-@inline function apply_bounds(x::X, lo::L, hi::H, boundary_type::BoundsType, oobval = oob(x)) where {X<:Real,L<:Real,H<:Real}
+@inline function renormalize_variate_impl(x::X, lo::L, hi::H, boundary_type::BoundsType) where {X<:Real,L<:Real,H<:Real}
     T = float(promote_type(X, L, H))
 
     offs = ifelse(x < lo, lo - x, x - hi)
@@ -74,7 +69,7 @@ Apply lower/upper bound `lo`/`hi` to value `x`. `boundary_type` may be
         convert(T, x),
         ifelse(
             hb,
-            convert(T, oobval),
+            convert(T, x),
             ifelse(
                 (x < lo && (!rb || rb && !even_nwrapped)) || (x > lo && rb && even_nwrapped),
                 convert(T, hi - wrapped_offs),
@@ -85,14 +80,14 @@ Apply lower/upper bound `lo`/`hi` to value `x`. `boundary_type` may be
 end
 
 @doc doc"""
-    apply_bounds(x::Real, interval::ClosedInterval, boundary_type::BoundsType)
+    renormalize_variate_impl(x::Real, interval::ClosedInterval, boundary_type::BoundsType)
 
 *BAT-internal, not part of stable public API.*
 
 Specify lower and upper bound via `interval`.
 """
-@inline apply_bounds(x::Real, interval::ClosedInterval, boundary_type::BoundsType, oobval = oob(x)) =
-    apply_bounds(x, minimum(interval), maximum(interval), boundary_type, oobval)
+@inline renormalize_variate_impl(x::Real, interval::ClosedInterval, boundary_type::BoundsType) =
+    renormalize_variate_impl(x, minimum(interval), maximum(interval), boundary_type)
 
 
 
@@ -104,14 +99,20 @@ end
 Base.eltype(bounds::NoVarBounds) = _default_PT
 
 
-Base.in(x::AbstractVector, bounds::NoVarBounds) = true
-# Base.in(x::VectorOfSimilarVectors, bounds::NoVarBounds, i::Integer) = true
+Base.in(x::Any, bounds::NoVarBounds) = true
 
 Base.isinf(bounds::NoVarBounds) = true
 
 ValueShapes.totalndof(b::NoVarBounds) = b.ndims
 
-apply_bounds!(x::Union{AbstractVector,VectorOfSimilarVectors}, bounds::NoVarBounds, setoob = true) = x
+
+function renormalize_variate!(v_renorm::AbstractVector{<:Real}, bounds::NoVarBounds, v::AbstractVector{<:Real})
+    if v_renorm !== v
+        v_renorm .= v
+    end
+    v_renorm
+end
+ 
 
 unsafe_intersect(a::NoVarBounds, b::NoVarBounds) = a
 unsafe_intersect(a::AbstractVarBounds, b::NoVarBounds) = a
@@ -121,7 +122,7 @@ unsafe_intersect(a::NoVarBounds, b::AbstractVarBounds) = b
 abstract type VarVolumeBounds{T<:Real, V<:SpatialVolume{T}} <: AbstractVarBounds end
 
 
-Base.in(x::AbstractVector, bounds::VarVolumeBounds) = in(x, bounds.vol)
+Base.in(x::Any, bounds::VarVolumeBounds) = in(x, bounds.vol)
 
 
 # Random.rand(rng::AbstractRNG, bounds::VarVolumeBounds) =
@@ -218,12 +219,7 @@ end
 
 spatialvolume(bounds::HyperRectBounds) = bounds.vol
 
-function apply_bounds!(x::Union{AbstractVector,VectorOfSimilarVectors}, bounds::HyperRectBounds, setoob = true)
-    x_flat = flatview(x)
-    if setoob
-        x_flat .= apply_bounds.(flatview(x), bounds.vol.lo, bounds.vol.hi, bounds.bt)
-    else
-        x_flat .= apply_bounds.(flatview(x), bounds.vol.lo, bounds.vol.hi, bounds.bt, x)
-    end
-    x
+function renormalize_variate!(v_renorm::AbstractVector{<:Real}, bounds::HyperRectBounds, v::AbstractVector{<:Real})
+    VT = typeof(v)
+    v_renorm .= renormalize_variate_impl.(v, bounds.vol.lo, bounds.vol.hi, bounds.bt)
 end

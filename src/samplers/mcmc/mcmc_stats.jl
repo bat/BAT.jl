@@ -29,7 +29,7 @@ struct MCMCBasicStats{L<:Real,P<:Real} <: AbstractMCMCStats
     function MCMCBasicStats{L,P}(m::Integer) where {L<:Real,P<:Real}
         param_stats = BasicMvStatistics{P,FrequencyWeights}(m)
         logtf_stats = BasicUvStatistics{L,FrequencyWeights}()
-        mode = fill(oob(P), m)
+        mode = fill(P(NaN), m)
 
         new{L,P}(
             param_stats,
@@ -61,7 +61,7 @@ MCMCBasicStats(sv::DensitySampleVector) = MCMCBasicStats(unshaped.(sv))
 function Base.empty!(stats::MCMCBasicStats)
     empty!(stats.param_stats)
     empty!(stats.logtf_stats)
-    fill!(stats.mode, oob(eltype(stats.mode)))
+    fill!(stats.mode, eltype(stats.mode)(NaN))
 
     stats
 end

@@ -171,3 +171,15 @@ function bat_sample_impl(
     nsamples = div(n, nchains)
     bat_sample_impl(rng, posterior, (nsamples, nchains), algorithm; kwargs...)
 end
+
+
+function bat_sample_impl(
+    rng::AbstractRNG,
+    dist::Distribution,
+    n::Any,
+    algorithm::MCMCAlgorithm;
+    kwargs...
+)
+    posterior = PosteriorDensity(LogDVal(0), dist)
+    bat_sample_impl(rng, posterior, n, algorithm; kwargs...)
+end
