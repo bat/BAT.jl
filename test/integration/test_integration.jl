@@ -6,9 +6,10 @@ using LinearAlgebra: Diagonal, ones
 using Test
 
 @testset "bat_integrate" begin
-    function test_integration(algorithm::IntegrationAlgorithm, title::String, 
-                              dist::Distribution, nsamples::Int=10^5, val_expected::Real=1.0, 
-                              val_rtol::Real=3.1, err_max::Real=0.1)
+    function test_integration(algorithm::IntegrationAlgorithm, title::String,
+                              dist::Distribution, nsamples::Int=10^5, val_expected::Real=1.0,
+                              val_rtol::Real=3.5, err_max::Real=0.1)
+        println("Using algorithm:", algorithm)
         @testset "$title" begin
             sample = bat_sample(dist, nsamples).result
             sample_integral = bat_integrate(sample, algorithm).result
