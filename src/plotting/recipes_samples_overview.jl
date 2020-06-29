@@ -33,6 +33,8 @@
     size --> (1000, 600)
 
     partition_tree = get(upper, "partition_tree", false)
+    min_samples = minimum(flatview(unshaped.(samples.v)), dims=2)[:,1]
+    max_samples = maximum(flatview(unshaped.(samples.v)), dims=2)[:,1]
 
     for i in 1:nparams
         # diagonal
@@ -94,7 +96,11 @@
                 subspaces_rect_bounds = get_tree_par_bounds(partition_tree)
                 axes = [vsel[j], vsel[i]]
                 for rect in subspaces_rect_bounds
+                    for ind in Base.OneTo(size(rect)[1])
+                        rect[ind,:] = replace(rect[ind,:], Pair(Inf, max_samples[ind]), Pair(-Inf, min_samples[ind]))
+                    end
                     box = rect_box(rect[axes[1],1], rect[axes[1],2], rect[axes[2],1], rect[axes[2],2])
+
                     @series begin
                         subplot := j + (i-1)*nparams
                         seriestype --> :path

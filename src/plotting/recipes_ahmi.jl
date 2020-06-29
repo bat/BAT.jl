@@ -22,7 +22,7 @@ end
 
 
 
-@recipe function f(data::HMIData; dim1::Integer = 1, dim2::Integer = 2, rscale = 0.5,
+@recipe function f(data::HMIData; dim1 = 1, dim2 = 2, rscale = 0.5,
         plot_seedsamples = true,
         plot_seedcubes = false,
         plot_samples = true,
