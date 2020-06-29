@@ -135,8 +135,8 @@ function truncate_dist_hard(dist::Distributions.Truncated, bounds::Interval)
     lo = clamp(max(minimum(bounds), dist.lower), min_lo, max_hi)
     hi = clamp(max(lo, min(maximum(bounds), dist.upper)), min_lo, max_hi)
     trunc_dist = truncated(untrunc_dist, lo, hi)
-    logrenorm = trunc_dist.logtp - dist.logtp
-    return (dist = trunc_dist, logrenorm = logrenorm)
+    logscalecorr = trunc_logpdf_ratio(dist, trunc_dist)
+    return (dist = trunc_dist, logscalecorr = logscalecorr)
 end
 
 
@@ -215,5 +215,3 @@ function trunc_logpdf_ratio(orig_dist::Distribution, trunc_dist::Distributions.T
         convert(T, _trunc_logpdf_ratio_fallback(orig_dist, trunc_dist))
     end
 end
-
-
