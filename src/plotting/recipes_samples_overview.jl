@@ -109,6 +109,9 @@
                         linecolor -->  get(upper, "linecolor", :darkgray)
                         legend --> false
 
+                        xlims --> (min_samples[j], max_samples[j])
+                        ylims --> (min_samples[i], max_samples[i])
+
                         box[1], box[2]
                     end
                 end
