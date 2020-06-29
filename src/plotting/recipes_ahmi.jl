@@ -22,7 +22,7 @@ end
 
 
 
-@recipe function f(data::HMIData, dim1::Integer = 1, dim2::Integer = 2; rscale = 0.5,
+@recipe function f(data::HMIData; dim1::Integer = 1, dim2::Integer = 2, rscale = 0.5,
         plot_seedsamples = true,
         plot_seedcubes = false,
         plot_samples = true,
@@ -35,12 +35,13 @@ end
     @assert data.dataset1.P > 1
 
     #plot both data sets
-    if plot_datasets == 0
-        layout := _plots_module().GridLayout(1, 2)
-        plotattributes[:size] = (1600, 800)
-    else
-        plotattributes[:size] = (800, 800)
-    end
+    # if plot_datasets == 0
+    #
+    #     plotattributes[:size] = (1600, 800)
+    # else
+    #     plotattributes[:size] = (800, 800)
+    # end
+    layout := _plots_module().GridLayout(1, 2)
 
     for current_ds in [1, 2]
         if plot_datasets != 0 && current_ds != plot_datasets
@@ -92,14 +93,14 @@ end
         if plot_datasets == 0
             title  := "Data Set $current_ds"
         end
-        xlabel := latexstring("\$\\lambda_$(dim1)\$")
-        ylabel := latexstring("\$\\lambda_$(dim2)\$")
+        xguide := latexstring("\$\\lambda_$(dim1)\$")
+        yguide := latexstring("\$\\lambda_$(dim2)\$")
 
         titlefont := _plots_module().font("sans-serif", 21 * font_scale)
         guidefont := _plots_module().font("sans-serif", 18 * font_scale)
         tickfont  := _plots_module().font("sans-serif", 15 * font_scale)
         legendfont:= _plots_module().font("sans-serif", 12 * font_scale)
-        legend := :topright
+        legend --> :topright
 
 
 
@@ -116,8 +117,8 @@ end
                 markersize := rscale .* sqrt.(dataset.weights)
                 markerstrokewidth := 0
                 size := (1000, 1000)
-                xlim := xlimits
-                ylim := ylimits
+                xlims := xlimits
+                ylims := ylimits
 
                 dataset.data[dim1, :], dataset.data[dim2, :]
             end

@@ -44,13 +44,13 @@ function hm_integrate!(
 
 	hm_determinetolerance!(result, settings) # tolerance is never Inf.
 
-#     if !notsinglemode
-#         result.dataset1.tolerance = Inf
-#         result.dataset2.tolerance = Inf
-#         @warn "Tolerance set to Inf for single mode distributions"
-#     else
-#         hm_determinetolerance!(result, settings)
-#     end
+    if !notsinglemode
+        result.dataset1.tolerance = Inf
+        result.dataset2.tolerance = Inf
+        @warn "Tolerance set to Inf for single mode distributions"
+    else
+        hm_determinetolerance!(result, settings)
+    end
 
     hm_create_integrationvolumes!(result, settings)
     hm_integrate_integrationvolumes!(result, settings)

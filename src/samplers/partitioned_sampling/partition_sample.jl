@@ -113,7 +113,6 @@ function sample_subspace(
     sampling_kwargs::N
 ) where {N<:NamedTuple, A<:AbstractSamplingAlgorithm, I<:IntegrationAlgorithm}
 
-    @info "Sampling Subspace #$space_id"
     sampling_wc_start = Dates.Time(Dates.now())
     sampling_cpu_time = @CPUelapsed begin
         samples_subspace = bat_sample(posterior, n, sampling_algorithm; sampling_kwargs...).result
@@ -144,7 +143,8 @@ function sample_subspace(
             integration_wc = [Dates.value(integration_wc_start):Dates.value(integration_wc_stop)],
             worker_id = [Distributed.myid()],
             n_threads = [Threads.nthreads()],
-            samples_ind = [0:0]
+            samples_ind = [0:0],
+            sum_weights = [sum(samples_subspace.weight)],
         )
 
     return (samples = samples_subspace_reweighted, info = info_subspace)

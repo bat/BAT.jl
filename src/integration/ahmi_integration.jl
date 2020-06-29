@@ -85,7 +85,7 @@ function bat_integrate_impl(posterior::DensitySampleVector, algorithm::AHMIntegr
     info = hmi_data.integralestimates
 
     integral = Measurements.measurement(result.estimate, result.uncertainty)
-    (result = integral, info = info)
+    (result = integral, info = hmi_data)
 end
 
 
