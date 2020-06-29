@@ -28,7 +28,7 @@ Base.convert(::Type{DistLikeDensity}, h::Histogram) = DistributionDensity(h)
 Base.parent(density::DistributionDensity) = density.dist
 
 
-function density_logval(
+function logvalof_unchecked(
     density::DistributionDensity,
     v::Any
 )

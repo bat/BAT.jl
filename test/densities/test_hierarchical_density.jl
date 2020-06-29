@@ -22,8 +22,8 @@ using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
         @test @inferred(rand(sampler(hd))) isa AbstractVector{<:Real}
         @test @inferred(varshape(hd)) == NamedTupleShape(foo = ScalarShape{Real}(), bar = ScalarShape{Real}(), baz = ArrayShape{Real}(3))
 
-        @test @inferred(BAT.density_logval(hd, [2.7, 4.3, 8.7, 8.7, 8.7])) ≈ logpdf(parent_density.foo, 2.7) + logpdf(parent_density.bar, 4.3) + 3 * logpdf(Normal(4.3, 2.7), 8.7)
-        @test @inferred(BAT.density_logval(hd, (foo = 2.7, bar = 4.3, baz = fill(8.7, 3)))) ≈ logpdf(parent_density.foo, 2.7) + logpdf(parent_density.bar, 4.3) + 3 * logpdf(Normal(4.3, 2.7), 8.7)
+        @test @inferred(BAT.logvalof_unchecked(hd, [2.7, 4.3, 8.7, 8.7, 8.7])) ≈ logpdf(parent_density.foo, 2.7) + logpdf(parent_density.bar, 4.3) + 3 * logpdf(Normal(4.3, 2.7), 8.7)
+        @test @inferred(BAT.logvalof_unchecked(hd, (foo = 2.7, bar = 4.3, baz = fill(8.7, 3)))) ≈ logpdf(parent_density.foo, 2.7) + logpdf(parent_density.bar, 4.3) + 3 * logpdf(Normal(4.3, 2.7), 8.7)
 
         @test @inferred(BAT.var_bounds(hd)) == BAT.HierarchicalDensityBounds(hd)
 
@@ -31,7 +31,7 @@ using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
         @test all(in.(nestedview(@inferred rand(sampler(hd), 10^3)), Ref(hd_bounds)))
         @test @inferred(fill(-1.0, totalndof(hd)) in hd_bounds) == false
 
-        @test (@inferred(BAT.apply_bounds!(fill(-1.0, totalndof(hd)), hd_bounds)) in hd_bounds) == false
+        @test (@inferred(BAT.renormalize_variate!(fill(NaN, totalndof(hd)), hd_bounds, fill(-1.0, totalndof(hd)))) in hd_bounds) == false
 
         posterior = PosteriorDensity(v -> LogDVal(1), hd)
         samples = bat_sample(posterior, (10^5, 4), MetropolisHastings()).result
@@ -50,8 +50,8 @@ using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
 
         hd_bounds = @inferred(BAT.var_bounds(hd))
         @test @inferred(fill(1.5, totalndof(hd)) in hd_bounds) == false
-        @test @inferred(BAT.apply_bounds!(fill(1.5, totalndof(hd)), hd_bounds)) == [2.5, 1.5, 1.5, 1.5, 1.5]
-        @test (@inferred(BAT.apply_bounds!(fill(1.5, totalndof(hd)), hd_bounds)) in hd_bounds) == true
+        @test @inferred(BAT.renormalize_variate!(fill(NaN, totalndof(hd)), hd_bounds, fill(1.5, totalndof(hd)))) == [2.5, 1.5, 1.5, 1.5, 1.5]
+        @test (@inferred(BAT.renormalize_variate!(fill(NaN, totalndof(hd)), hd_bounds, fill(1.5, totalndof(hd)))) in hd_bounds) == true
     end
 
     let

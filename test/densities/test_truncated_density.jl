@@ -54,17 +54,17 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets, ValueShapes
     @test @inferred(BAT.truncate_density(prior, bounds)) isa BAT.TruncatedDensity
 
 
-    @test BAT.eval_density_logval!(BAT.truncate_density(prior, bounds), [1, 2, 0, 3]) ≈ BAT.eval_density_logval!(prior, [1, 2, 0, 3])
+    @test BAT.logvalof(BAT.truncate_density(prior, bounds), [1, 2, 0, 3]) ≈ BAT.logvalof(prior, [1, 2, 0, 3])
     @test varshape(BAT.truncate_density(prior, bounds)) == varshape(prior)
 
     @test @inferred(BAT.truncate_density(posterior, bounds)) isa PosteriorDensity
 
     trunc_pstr = BAT.truncate_density(posterior, bounds)
-    @test @inferred(BAT.eval_density_logval!(trunc_pstr, [1, 2, 0, 3])) ≈ BAT.eval_density_logval!(posterior, [1, 2, 0, 3])
-    @test @inferred(BAT.eval_density_logval!(trunc_pstr, [-1, -1, -1, -1])) ≈ -Inf
-    @test @inferred(BAT.density_logvalgrad(trunc_pstr, [1, 2, 0, 3])).grad_logd ≈ BAT.density_logvalgrad(posterior, [1, 2, 0, 3]).grad_logd
+    @test @inferred(BAT.logvalof(trunc_pstr, [1, 2, 0, 3])) ≈ BAT.logvalof(posterior, [1, 2, 0, 3])
+    @test @inferred(BAT.logvalof(trunc_pstr, [-1, -1, -1, -1])) ≈ -Inf
+    @test @inferred(BAT.logvalgradof(trunc_pstr, [1, 2, 0, 3])).grad_logd ≈ BAT.logvalgradof(posterior, [1, 2, 0, 3]).grad_logd
     @test varshape(trunc_pstr) == varshape(posterior)
-        
+
     let
         trunc_prior_dist = parent(BAT.getprior(trunc_pstr)).dist
         s = bat_sample(trunc_pstr, (10^5), MetropolisHastings()).result
@@ -75,4 +75,6 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets, ValueShapes
         @test isapprox(cov_est[1,1], var(trunc_prior_dist.a), rtol = 0.05)
         @test isapprox(cov_est[4,4], var(trunc_prior_dist.d.v[2]), rtol = 0.05)      
     end
+
+    @test @inferred(BAT.truncate_density(BAT.ConstDensity(missing, one), bounds)) == BAT.ConstDensity(bounds, one)
 end

@@ -131,8 +131,8 @@ using BAT, IntervalSets
 # BAT represents densities like likelihoods and priors as subtypes of
 # `BAT.AbstractDensity`. Custom likelihood can be defined by
 # creating a new subtype of `AbstractDensity` and by implementing (at minimum)
-# `BAT.density_logval` for that type - in complex uses cases, this may become
-# necessary. Typically, however, it is sufficient to define a custom
+# `BAT.logvalof_unchecked` for that type - in complex uses cases, this may
+# become necessary. Typically, however, it is sufficient to define a custom
 # likelihood as a simple function that returns the log-likelihood value for
 # a given set of parameters. BAT will automatically convert such a
 # likelihood function into a subtype of `AbstractDensity`.

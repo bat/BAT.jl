@@ -24,10 +24,10 @@ var_bounds(density::TruncatedDensity) = density.bounds
 
 ValueShapes.varshape(density::TruncatedDensity) = varshape(parent(density))
 
-function density_logval(density::TruncatedDensity, v::Any)
-    # ToDo: Enforce bounds - currently have to trust BAT.eval_density_logval! to do it,
-    # since value shape is not available here.
-    density_logval(parent(density), v) + density.logscalecorr
+function logvalof_unchecked(density::TruncatedDensity, v::Any)
+    # Note: Enforcing bounds (returning negative infinity out out bounds)
+    # is the job of BAT.logvalof.
+    logvalof_unchecked(parent(density), v) + density.logscalecorr
 end
 
 
@@ -52,6 +52,13 @@ function truncate_density(density::AbstractPosteriorDensity, bounds::AbstractVar
     new_bounds = ismissing(old_bounds) ? bounds : var_bounds(old_prior) ∩ bounds
     newprior = truncate_density(getprior(density), new_bounds)
     PosteriorDensity(getlikelihood(density), newprior)
+end
+
+
+function truncate_density(density::ConstDensity, bounds::AbstractVarBounds)
+    old_bounds = var_bounds(density)
+    new_bounds = ismissing(old_bounds) ? bounds : var_bounds(density) ∩ bounds
+    ConstDensity(new_bounds, density.log_value)
 end
 
 

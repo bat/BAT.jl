@@ -64,7 +64,7 @@ end
 
 
 function Base.similar(s::DensitySample{P,T,W,R,Q}) where {P<:AbstractVector{<:Real},T,W,R,Q}
-    v = fill!(similar(s.v), oob(eltype(s.v)))
+    v = fill!(similar(s.v), eltype(s.v)(NaN))
     logd = convert(T, NaN)
     weight = zero(W)
     info = R()
@@ -250,16 +250,17 @@ Base.copy(
 ValueShapes.varshape(A::DensitySampleVector) = elshape(A.v)
 
 
-function _get_statw(f::Function, samples::DensitySampleVector)
+function _get_statw(f::Function, samples::DensitySampleVector, resultshape::AbstractValueShape)
     shape = varshape(samples)
     X = unshaped.(samples.v)
     w = FrequencyWeights(samples.weight)
     r_unshaped = f(X, w)
-    shape(r_unshaped)
+    resultshape(r_unshaped)
 end
 
-Statistics.mean(samples::DensitySampleVector) = _get_statw(mean, samples)
-Statistics.var(samples::DensitySampleVector) = _get_statw(var, samples)
+Statistics.mean(samples::DensitySampleVector) = _get_statw(mean, samples, varshape(samples))
+Statistics.var(samples::DensitySampleVector) = _get_statw(var, samples, map_const_shapes(zero, varshape(samples)))
+Statistics.std(samples::DensitySampleVector) = _get_statw(std, samples, map_const_shapes(zero, varshape(samples)))
 
 function Statistics.median(samples::DensitySampleVector)
     shape = varshape(samples)
@@ -272,14 +273,6 @@ function Statistics.median(samples::DensitySampleVector)
         push!(median_params, median_param)
     end
     shape(median_params)
-end
-
-function Statistics.std(samples::DensitySampleVector)
-    shape = varshape(samples)
-    X = unshaped.(samples.v)
-    w = FrequencyWeights(samples.weight)
-    r_unshaped = sqrt.(var(X, w))
-    shape(r_unshaped)
 end
 
 function _get_stat(f::Function, samples::DensitySampleVector)
