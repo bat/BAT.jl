@@ -99,7 +99,7 @@
                     for ind in Base.OneTo(size(rect)[1])
                         rect[ind,:] = replace(rect[ind,:], Pair(Inf, max_samples[ind]), Pair(-Inf, min_samples[ind]))
                     end
-                    box = rect_box(rect[axes[1],1], rect[axes[1],2], rect[axes[2],1], rect[axes[2],2])
+                    box = _rect_box(rect[axes[1],1], rect[axes[1],2], rect[axes[2],1], rect[axes[2],2])
 
                     @series begin
                         subplot := j + (i-1)*nparams
@@ -226,7 +226,7 @@ end
 end
 
 
-function rect_box(x_s::F, x_f::F, y_s::F, y_f::F) where {F<:AbstractFloat}
+function _rect_box(x_s::F, x_f::F, y_s::F, y_f::F) where {F<:AbstractFloat}
     x = [x_s, x_f, x_f, x_s, x_s]
     y = [y_s, y_s, y_f, y_f, y_s]
     return (x, y)

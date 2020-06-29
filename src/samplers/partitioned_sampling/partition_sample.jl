@@ -115,13 +115,13 @@ function sample_subspace(
 
     @info "Sampling subspace #$space_id"
     sampling_wc_start = Dates.Time(Dates.now())
-    sampling_cpu_time = @CPUelapsed begin
+    sampling_cpu_time = CPUTime.@CPUelapsed begin
         samples_subspace = bat_sample(posterior, n, sampling_algorithm; sampling_kwargs...).result
     end
     sampling_wc_stop = Dates.Time(Dates.now())
 
     integration_wc_start = Dates.Time(Dates.now())
-    integration_cpu_time = @CPUelapsed begin
+    integration_cpu_time = CPUTime.@CPUelapsed begin
         integras_subspace = bat_integrate(samples_subspace, integration_algorithm).result
     end
     integration_wc_stop = Dates.Time(Dates.now())

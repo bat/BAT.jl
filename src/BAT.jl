@@ -14,6 +14,7 @@ using Markdown
 using Printf
 using Random
 using Statistics
+using Dates
 
 using ArgCheck
 using ArraysOfArrays
@@ -59,9 +60,8 @@ import Random123
 import TypedTables
 
 #for Space Partitioning
-using CPUTime
-using Dates
-using HypothesisTests
+import CPUTime
+import HypothesisTests
 
 
 include("utils/utils.jl")

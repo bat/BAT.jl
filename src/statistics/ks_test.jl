@@ -38,7 +38,7 @@ function bat_compare(samples_1::DensitySampleVector, samples_2::DensitySampleVec
             samples_1.weight,
             samples_2.weight
         )
-        push!(p_values_array, pvalue(test_result))
+        push!(p_values_array, HypothesisTests.pvalue(test_result))
     end
     return p_values_array
 end

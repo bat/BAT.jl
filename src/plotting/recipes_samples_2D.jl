@@ -58,7 +58,7 @@
         acc = findall(x -> x > 0, samples.weight)
         rej = findall(x -> x <= 0, samples.weight)
 
-        color = parse(RGBA{Float64}, get(plotattributes, :seriescolor, :blue))
+        color = parse(RGBA{Float64}, get(plotattributes, :seriescolor, :green))
         label = get(plotattributes, :label, isempty(rej) ? "samples" : "accepted")
 
         @series begin
