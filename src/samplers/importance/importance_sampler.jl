@@ -28,42 +28,42 @@ struct GridSampler <: ImportanceSampler end
 
 function bat_sample_impl(
     rng::AbstractRNG,
-    posterior::AnyPosterior,
+    density::AnyPosterior,
     n::AnyNSamples,
     algorithm::ImportanceSampler
 )
-    shape = varshape(posterior)
+    shape = varshape(density)
 
-    bounds = var_bounds(posterior)
-    truncated_posterior = if isinf(bounds)
-        TruncatedDensity(posterior, estimate_finite_bounds(posterior))
+    bounds = var_bounds(density)
+    truncated_density = if isinf(bounds)
+        TruncatedDensity(density, estimate_finite_bounds(density), 0)
     else
-        TruncatedDensity(posterior, bounds)
+        TruncatedDensity(density, bounds, 0)
     end
 
     n_samples = isa(n, Tuple{Integer,Integer}) ? n[1] * n[2] : n[1]
 
     @info "Generating $n_samples samples with $(string(algorithm))."
-    samples = _gen_samples(algorithm, n_samples, truncated_posterior)
-    stats = [(stat = nothing, ) for i in n_samples] # TODO
+    samples = _gen_samples(algorithm, n_samples, truncated_density)
 
-    logvals = density_logval.(Ref(truncated_posterior), samples)
+    logvals = logvalof.(Ref(truncated_density), samples)
     weights = exp.(logvals)
 
     bat_samples = shape.(DensitySampleVector(samples, logvals, weight = weights))
-    return (result = bat_samples, chains = stats)
+    return (result = bat_samples,)
 end
 
 
-function _gen_samples(algorithm::SobolSampler, n_samples::Int, posterior::TruncatedDensity)
-    sobol = Sobol.SobolSeq(posterior.bounds.vol.lo, posterior.bounds.vol.hi)
+function _gen_samples(algorithm::SobolSampler, n_samples::Int, density::TruncatedDensity)
+    bounds = var_bounds(density)
+    sobol = Sobol.SobolSeq(bounds.vol.lo, bounds.vol.hi)
     p = vcat([[Sobol.next!(sobol)] for i in 1:n_samples]...)
     return p
 end
 
 
-function _gen_samples(algorith::GridSampler, n_samples::Int, posterior::TruncatedDensity)
-    bounds = posterior.bounds
+function _gen_samples(algorith::GridSampler, n_samples::Int, density::TruncatedDensity)
+    bounds = var_bounds(density)
     dim = length(bounds.bt)
     ppa = n_samples^(1/dim)
     ranges = [range(bounds.vol.lo[i], bounds.vol.hi[i], length = trunc(Int, ppa)) for i in 1:dim]
@@ -85,7 +85,7 @@ struct PriorImportanceSampler <: AbstractSamplingAlgorithm end
 
 function bat_sample_impl(
     rng::AbstractRNG,
-    posterior::AnyPosterior,
+    posterior::AbstractPosteriorDensity,
     n::AnyNSamples,
     algorithm::PriorImportanceSampler
 )
@@ -94,14 +94,13 @@ function bat_sample_impl(
 
     @info "Generating $n_samples samples with $(string(algorithm))."
     samples = _gen_samples(algorithm, n_samples, posterior)
-    stats = [(stat = nothing, ) for i in n_samples] # TODO
 
-    logvals = density_logval.(Ref(posterior), samples)
-    logpriorvals = density_logval.(Ref(getprior(posterior)), samples)
+    logvals = logvalof.(Ref(posterior), samples)
+    logpriorvals = logvalof.(Ref(getprior(posterior)), samples)
     weights = exp.(logvals-logpriorvals)
 
     bat_samples = shape.(DensitySampleVector(samples, logvals, weight = weights))
-    return (result = bat_samples, chains = stats)
+    return (result = bat_samples,)
 end
 
 function _gen_samples(algorithm::PriorImportanceSampler, n_samples::Int, posterior::AnyPosterior)

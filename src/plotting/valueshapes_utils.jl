@@ -15,7 +15,7 @@ end
 # Returns index corresponding to the name in NamedTupleDist.
 function asindex(vs::NamedTupleShape, name::Expr)
     name = string(name)
-    if name in (an = allnames(vs))
+    if name in (an = all_active_names(vs))
         return findfirst(x-> x == name, an)[1]
     else
         throw(ArgumentError("Symbol :$name found not in $vs."))
@@ -61,19 +61,19 @@ end
 # Return the name corresponding to the index as Symbol (for univariate)
 # or Expr for (multivariate) distributions
 function getname(vs::NamedTupleShape, idx::Integer)
-    names = allnames(vs)
+    names = all_active_names(vs)(vs)
     return Meta.parse(names[idx])
 end
 
 # Return the name corresponding to the index as String
 function getstring(vs::NamedTupleShape, idx::Integer)
-    names = allnames(vs)
+    names = all_active_names(vs)
     return names[idx]
 end
 
 function getstring(prior::NamedTupleDist, idx::Integer)
     vs = varshape(prior)
-    names = allnames(vs)
+    names = all_active_names(vs)
     return names[idx]
 end
 
@@ -81,7 +81,7 @@ end
 function getstring(samples::BAT.DensitySampleVector, idx::Integer)
     if isshaped(samples)
         vs = varshape(samples)
-        names = allnames(vs)
+        names = all_active_names(vs)
         return names[idx]
     else
         throw(ArgumentError("Samples are unshaped. Key :$name cannot be matched. Use index instead."))
@@ -89,10 +89,9 @@ function getstring(samples::BAT.DensitySampleVector, idx::Integer)
 end
 
 function getstring(marg::MarginalDist, idx::Integer)
-    println(marg.dims)
     if idx in marg.dims
         vs = marg.origvalshape
-        names = allnames(vs)
+        names = all_active_names(vs)
         return names[idx]
     else
         throw(ArgumentError("Index $idx not in MarginalDist"))
@@ -108,11 +107,17 @@ function allnames(vs::NamedTupleShape)
     return reduce(vcat, names)
 end
 
+function all_active_names(vs::NamedTupleShape)
+    subindxs = [collect(1:getproperty(vs, k).len) for k in keys(vs)]
+    names = [length(subindxs[i]) > 1 ? subname.(string(keys(vs)[i]), subindxs[i]) : [string(keys(vs)[i])] for i in 1:length(vs) if getproperty(vs, keys(vs)[i]).len>0]
+
+    return reduce(vcat, names)
+end
 
 # Return array of strings with the names of all indices.
 # For a multivariate distribution, the name is repeated for all its dimensions.
 function repeatednames(vs::NamedTupleShape)
-    names = [[string(k) for i in 1:getproperty(vs, k).len] for k in keys(vs)]
+    names = [[string(k) for i in 1:getproperty(vs, k).len] for k in keys(vs) if getproperty(vs, k).len>0]
     return reduce(vcat, names)
 end
 

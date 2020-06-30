@@ -47,13 +47,10 @@ BAT.OnlineUvMean
 BAT.OnlineUvVar
 BAT.PointCloud
 BAT.SearchResult
+BAT.TruncatedDensity
 BAT.WhiteningResult
 
-
-BAT.apply_bounds
-BAT.apply_bounds_and_eval_posterior_logval_strict!
-BAT.apply_bounds_and_eval_posterior_logval!
-BAT.apply_bounds!
+BAT.density_logval_type
 BAT.estimate_finite_bounds
 BAT.argchoice_msg
 BAT.bat_sampler
@@ -65,7 +62,6 @@ BAT.create_hyperrectangle
 BAT.distribution_logpdf
 BAT.distribution_logpdf!
 BAT.drop_low_weight_samples
-BAT.eval_density_logval
 BAT.find_hypercube_centers
 BAT.fromuhc
 BAT.fromuhc!
@@ -78,16 +74,22 @@ BAT.hm_integrate!
 BAT.hm_whiteningtransformation!
 BAT.hyperrectangle_creationproccess!
 BAT.integrate_hyperrectangle_cov
+BAT.is_log_zero
 BAT.issymmetric_around_origin
 BAT.log_volume
+BAT.log_zero_density
 BAT.mcmc_startval!
 BAT.modify_hypercube!
 BAT.modify_integrationvolume!
 BAT.proposal_rand!
 BAT.reduced_volume_hm
+BAT.renormalize_variate!
+BAT.renormalize_variate_impl
 BAT.repetition_to_weights
 BAT.spatialvolume
 BAT.sum_first_dim
-BAT.TruncatedDensity
+BAT.truncate_density
+BAT.truncate_dist_hard
+BAT.trunc_logpdf_ratio
 BAT.var_bounds
 ```

@@ -38,7 +38,7 @@ varshape(hd) == NamedTupleShape(
 )
 
 v = rand(sampler(hd))
-BAT.density_logval(hd, v)
+BAT.logvalof_unchecked(hd, v)
 )
 ```
 """
@@ -108,15 +108,15 @@ end
 
 
 
-function density_logval(
+function logvalof_unchecked(
     density::HierarchicalDensity,
     v::Any
 )
     d = density
     v1, v2 = _split_v(d, v)
-    logval1 = density_logval(d.pd, v1)
+    logval1 = logvalof_unchecked(d.pd, v1)
     cd = _hd_cd(d, v1)
-    logval2 = density_logval(cd, v2)
+    logval2 = logvalof_unchecked(cd, v2)
     logval1 + logval2
 end
 
@@ -186,18 +186,21 @@ function Base.in(v::AbstractVector{<:Real}, bounds::HierarchicalDensityBounds)
     end
 end
 
+Base.in(v::Any, bounds::HierarchicalDensityBounds) = unshaped(v) in bounds
 
-function apply_bounds!(v::AbstractVector{<:Real}, bounds::HierarchicalDensityBounds)
+
+function renormalize_variate!(v_renorm::AbstractVector{<:Real}, bounds::HierarchicalDensityBounds, v::AbstractVector{<:Real})
     d = bounds.d
     bounds1 = var_bounds(d.pd)
     v1, v2 = _split_v(d, v)
-    apply_bounds!(v1, bounds1)
+    v1_renorm, v2_renorm = _split_v(d, v_renorm)
+    renormalize_variate!(v1_renorm, bounds1, v1)
 
-    if v1 in bounds1
+    new_v = if v1_renorm in bounds1
         cd = _hd_cd(d, v1)
         bounds2 = var_bounds(cd)
-        apply_bounds!(v2, bounds2)
+        renormalize_variate!(v2_renorm, bounds2, v2)
     end
 
-    v
+    v_renorm
 end

@@ -123,7 +123,7 @@ function AHMCIterator(
     end
     !(params_vec in var_bounds(postr)) && throw(ArgumentError("Parameter(s) out of bounds"))
 
-    log_posterior_value = apply_bounds_and_eval_posterior_logval_strict!(postr, params_vec)
+    log_posterior_value = logvalof(postr, params_vec, strict = true)
 
     T = typeof(log_posterior_value)
     W = Float64 #_sample_weight_type(typeof(alg))
@@ -137,7 +137,7 @@ function AHMCIterator(
     rngpart_cycle = RNGPartition(rng, 0:(typemax(Int16) - 2))
 
     metric = AHMCMetric(alg.metric, npar)
-    logval_posterior(v) = density_logval(postr, v)
+    logval_posterior(v) = logvalof(postr, v)
 
     hamiltonian = AdvancedHMC.Hamiltonian(metric, logval_posterior, alg.gradient)
     hamiltonian, t = AdvancedHMC.sample_init(rng, hamiltonian, params_vec)
@@ -304,7 +304,7 @@ function mcmc_step!(
         T = typeof(current_log_posterior)
 
         # Evaluate prior and likelihood with proposed variate:
-        proposed_log_posterior = apply_bounds_and_eval_posterior_logval!(T, pstr, proposed_params)
+        proposed_log_posterior = logvalof(pstr, proposed_params, strict = false)
 
         samples.logd[proposed] = proposed_log_posterior
 
