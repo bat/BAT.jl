@@ -58,7 +58,7 @@ function DataSet(
     data:: Array{T, 2},
     logprob::Array{T, 1},
     weights::Array{I, 1},
-    nsubsets::Int64 = 0,
+    nsubsets::Integer = 0,
     subsetsize::T = zero(T)
     )::DataSet{T, Int64} where {T<:AbstractFloat, I<:Integer}
 
@@ -69,7 +69,7 @@ function DataSet(
     data:: Array{T, 2},
     logprob::Array{T, 1},
     weights::Array{T, 1},
-    nsubsets::Int64 = 0,
+    nsubsets::Integer = 0,
     subsetsize::T = zero(T)
     )::DataSet{T, Int64} where {T<:AbstractFloat}
 
