@@ -22,8 +22,6 @@ struct FunnelDistribution <: ContinuousMultivariateDistribution
     n::Int
 end
 
-function FunnelDistribution end
-
 function FunnelDistribution(;a::Real=1, b::Real=0.5, n::Integer=3)
     a, b = promote(a, b)
     FunnelDistribution(a, b, n)

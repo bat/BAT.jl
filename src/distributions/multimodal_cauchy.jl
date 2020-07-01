@@ -24,8 +24,6 @@ struct MultimodalCauchy{M<:MixtureModel, P<:Product}  <: ContinuousMultivariateD
     dist::P
 end
 
-function MultimodalCauchy end
-
 function MultimodalCauchy(;μ::Real=1, σ::Float64=0.2, n::Integer=4)
     mixture_model = MixtureModel([Cauchy(-μ, σ), Cauchy(μ, σ)])
     dist = _construct_dist(mixture_model, σ, n)
