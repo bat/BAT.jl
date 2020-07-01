@@ -125,7 +125,7 @@ function hm_createpartitioningtree!(
     maxleafsize = 200
     progress_steps = ((!isinitialized(result.dataset1.partitioningtree) ? result.dataset1.N / maxleafsize : 0.0)
                     + (!isinitialized(result.dataset2.partitioningtree) ? result.dataset2.N / maxleafsize : 0.0))
-    progressbar = Progress(round(Int64, progress_steps))
+    progressbar = Progress(round(Int, progress_steps))
     progress_steps > 0 && @info "Create Space Partitioning Tree"
     !isinitialized(result.dataset1.partitioningtree) && create_search_tree(result.dataset1, progressbar, maxleafsize = maxleafsize)
     !isinitialized(result.dataset2.partitioningtree) && create_search_tree(result.dataset2, progressbar, maxleafsize = maxleafsize)
@@ -424,7 +424,7 @@ end
 Estimate reduced volume harmonic mean for given arguments. Includes bias corection by default.
 Note: Weights are expected to be frequency weights (i.e. counts).
 """
-function reduced_volume_hm(log_prob::Array{T}, sample_weights::Array{T}, volume_size::AbstractFloat, n_total::Int64, weight_total::Float64; bias_correction::Bool=true) where {T<:AbstractFloat}
+function reduced_volume_hm(log_prob::Array{T}, sample_weights::Array{T}, volume_size::AbstractFloat, n_total::Integer, weight_total::Float64; bias_correction::Bool=true) where {T<:AbstractFloat}
 
 	pedestal_llh = maximum(log_prob) # maximum log likelihood to be subtracted for numerical stability
 
