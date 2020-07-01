@@ -60,7 +60,7 @@ function DataSet(
     weights::Array{I, 1},
     nsubsets::Integer = 0,
     subsetsize::T = zero(T)
-    )::DataSet{T, I} where {T<:AbstractFloat, I<:Integer}
+    )::DataSet{T, Int} where {T<:AbstractFloat, I<:Integer}
 
     DataSet(data, logprob, convert(Array{T, 1}, weights), nsubsets, subsetsize)
 end
@@ -71,7 +71,7 @@ function DataSet(
     weights::Array{T, 1},
     nsubsets::Integer = 0,
     subsetsize::T = zero(T)
-    )::DataSet{T, Integer} where {T<:AbstractFloat}
+    )::DataSet{T, Int} where {T<:AbstractFloat}
 
     P, N = size(data)
 
@@ -254,10 +254,10 @@ Base.show(io::IO, vol::IntegrationVolume) = print(io, "Hyperrectangle: $(vol.poi
 
 mutable struct IntermediateResults{T<:AbstractFloat}
     integrals::Array{T, 1}
-    volumeID::Array{Int64, 1}
+    volumeID::Array{Int, 1}
     Y::Array{T, 2}
 end
-IntermediateResults(T::DataType, n::Int64) = IntermediateResults(zeros(T, n), [Int64(i) for i=1:n], zeros(T, 0, 0))
+IntermediateResults(T::DataType, n::Int) = IntermediateResults(zeros(T, n), [Int(i) for i=1:n], zeros(T, 0, 0))
 Base.length(x::IntermediateResults) = length(x.integrals)
 
 mutable struct HMIEstimate{T<:AbstractFloat}
