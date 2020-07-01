@@ -49,8 +49,6 @@ function Distributions._rand!(rng::AbstractRNG, d::FunnelDistribution, x::Abstra
     return x
 end
 
-_update_funnel(d::FunnelDistribution, λ::AbstractArray) = FunnelDistribution(d.a, d.b, λ)
-
 function _construct_dist(a::Real, b::Real, λ::AbstractVector)
     n = length(λ)
     a = float(a)
