@@ -60,7 +60,7 @@ function DataSet(
     weights::Array{I, 1},
     nsubsets::Integer = 0,
     subsetsize::T = zero(T)
-    )::DataSet{T, Int64} where {T<:AbstractFloat, I<:Integer}
+    )::DataSet{T, I} where {T<:AbstractFloat, I<:Integer}
 
     DataSet(data, logprob, convert(Array{T, 1}, weights), nsubsets, subsetsize)
 end
@@ -71,7 +71,7 @@ function DataSet(
     weights::Array{T, 1},
     nsubsets::Integer = 0,
     subsetsize::T = zero(T)
-    )::DataSet{T, Int64} where {T<:AbstractFloat}
+    )::DataSet{T, Integer} where {T<:AbstractFloat}
 
     P, N = size(data)
 
@@ -85,7 +85,7 @@ function DataSet(
     end
     subsetsize = min(maxbatchsize, subsetsize)
 
-    ids = zeros(Int64, N)
+    ids = zeros(Int, N)
     cnt = 1
 
     batch_currentsize = 0.0
@@ -102,7 +102,7 @@ function DataSet(
             batch_currentsize = 0.0
         end
     end
-    DataSet(data, logprob, weights, ids, [i for i=1:N], N, P, nsubsets, subsetsize, false, true, SpacePartitioningTree(T, Int64), zeros(Int64, 0), T(0))
+    DataSet(data, logprob, weights, ids, [i for i=1:N], N, P, nsubsets, subsetsize, false, true, SpacePartitioningTree(T, Int), zeros(Int, 0), T(0))
 end
 
 Base.show(io::IO, data::DataSet) = print(io, "DataSet: $(data.N) samples, $(data.P) parameters")
