@@ -215,5 +215,3 @@ function trunc_logpdf_ratio(orig_dist::Distribution, trunc_dist::Distributions.T
         convert(T, _trunc_logpdf_ratio_fallback(orig_dist, trunc_dist))
     end
 end
-
-
