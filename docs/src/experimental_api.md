@@ -9,6 +9,9 @@ Instead, compatibility is only guaranteed across changes in patch version, but
 BAT.ExternalDensity
 GridSampler
 HierarchicalDensity
+KDTreePartitioning
+PartitionedSampling
 PriorImportanceSampler
 SobolSampler
+SpacePartTree
 ```
