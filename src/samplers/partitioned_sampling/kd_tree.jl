@@ -23,6 +23,9 @@ function partition_space(samples::DensitySampleVector, n_partitions::Integer, al
 	if algorithm.partition_dims == :auto
 		partition_dims = collect(Base.OneTo(n_params))
 	else
+		if !prod([i in Base.OneTo(n_params) for i in algorithm.partition_dims])
+			@warn "Partition parameters are not correct"
+		end
 		partition_dims = sort(intersect(algorithm.partition_dims, collect(Base.OneTo(n_params)))) # to be safe
 	end
 
