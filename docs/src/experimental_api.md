@@ -7,12 +7,13 @@ Instead, compatibility is only guaranteed across changes in patch version, but
 
 ```@docs
 BAT.ExternalDensity
-GridSampler
-HierarchicalDensity
-PriorImportanceSampler
-SobolSampler
-
-
 BAT.FunnelDistribution
 BAT.MultimodalCauchy
-```
+BAT.partition_space
+GridSampler
+HierarchicalDensity
+KDTreePartitioning
+PartitionedSampling
+PriorImportanceSampler
+SobolSampler
+SpacePartTree

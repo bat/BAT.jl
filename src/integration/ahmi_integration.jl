@@ -82,10 +82,9 @@ function bat_integrate_impl(posterior::DensitySampleVector, algorithm::AHMIntegr
     hm_integrate!(hmi_data, integrationvol, settings = hmi_settings)
 
     result = hmi_data.integralestimates[primary_uncertainty_estimator].final
-    info = hmi_data.integralestimates
 
     integral = Measurements.measurement(result.estimate, result.uncertainty)
-    (result = integral, info = info)
+    (result = integral, info = hmi_data) # this is needed to debug integration. can be removed later.
 end
 
 

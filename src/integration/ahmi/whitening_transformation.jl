@@ -126,7 +126,7 @@ function transform_data!(
     end
 
     maxP::T = maximum(dataset.logprob)
-    suggTargetProb::T = 500.0 #exp(maxP - partialsort(dataset.logprob, floor(Int64, dataset.N * 0.2)))
+    suggTargetProb::T = 500 #exp(maxP - partialsort(dataset.logprob, floor(Int64, dataset.N * 0.2)))
 
     dataset.iswhitened = true
 
