@@ -7,6 +7,7 @@ Instead, compatibility is only guaranteed across changes in patch version, but
 
 ```@docs
 BAT.ExternalDensity
+BAT.partition_space
 GridSampler
 HierarchicalDensity
 KDTreePartitioning

@@ -6,7 +6,7 @@
 *BAT-internal, not part of stable public API.*
 
 The algorithm that partitions parameter space by multiple subspaces and
-samples/integrates them independently (See arXiv reference [once available]).
+samples/integrates them independently (See arXiv reference [not available yet]).
 
 Constructor:
 
@@ -14,13 +14,19 @@ Constructor:
 
 Optional Parameters/settings (`kwargs`):
 
-    * `sampler::S = MetropolisHastings()` algorithm to generate samples.
-    * `exploration_sampler::S = sampler` algorithm to generate exploration samples.
-    * `partitioner::P = KDTreePartitioning()` algorithm to partition parameter space.
-    * `integrator::I = AHMIntegration()` algorithm to integrate posterior.
-    * `exploration_kwargs::NamedTuple = NamedTuple()` kwargs to be used in exploration sampler.
-    * `sampling_kwargs::NamedTuple = NamedTuple()` kwargs to be used in subspace sampler.
-    * `n_exploration::Tuple{Integer,Integer} = (10^2, 40)` number of exploration iterations.
+* `sampler::S = MetropolisHastings()` algorithm to generate samples.
+
+* `exploration_sampler::S = sampler` algorithm to generate exploration samples.
+
+* `partitioner::P = KDTreePartitioning()` algorithm to partition parameter space.
+
+* `integrator::I = AHMIntegration()` algorithm to integrate posterior.
+
+* `exploration_kwargs::NamedTuple = NamedTuple()` kwargs to be used in exploration sampler.
+
+* `sampling_kwargs::NamedTuple = NamedTuple()` kwargs to be used in subspace sampler.
+
+* `n_exploration::Tuple{Integer,Integer} = (10^2, 40)` number of exploration iterations.
 
 """
 @with_kw struct PartitionedSampling{S<:AbstractSamplingAlgorithm, E<:AbstractSamplingAlgorithm,
