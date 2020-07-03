@@ -15,7 +15,7 @@ TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
 ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
 
 [compat]
-Documenter = "0.24"
+Documenter = "0.25"
 Literate = "2"
 HDF5 = "0.12"
 Plots = "0.28, 0.29, 1"
