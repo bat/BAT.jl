@@ -46,7 +46,7 @@ function bat_sample_impl(
     @info "Generating $n_samples samples with $(string(algorithm))."
     samples = _gen_samples(algorithm, n_samples, truncated_density)
 
-    logvals = logvalof.(Ref(truncated_density), samples)
+    logvals = logvalof_unchecked.(Ref(truncated_density), samples)
     weights = exp.(logvals)
 
     bat_samples = shape.(DensitySampleVector(samples, logvals, weight = weights))
@@ -95,8 +95,8 @@ function bat_sample_impl(
     @info "Generating $n_samples samples with $(string(algorithm))."
     samples = _gen_samples(algorithm, n_samples, posterior)
 
-    logvals = logvalof.(Ref(posterior), samples)
-    logpriorvals = logvalof.(Ref(getprior(posterior)), samples)
+    logvals = logvalof_unchecked.(Ref(posterior), samples)
+    logpriorvals = logvalof_unchecked.(Ref(getprior(posterior)), samples)
     weights = exp.(logvals-logpriorvals)
 
     bat_samples = shape.(DensitySampleVector(samples, logvals, weight = weights))
