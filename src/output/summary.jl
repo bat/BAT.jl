@@ -3,7 +3,7 @@ export Summary
 
 struct Summary
     samples::DensitySampleVector
-    chains::Array{}
+    chains::Any
 end
 
 

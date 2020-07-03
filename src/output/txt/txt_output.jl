@@ -1,21 +1,26 @@
+function Base.show(io::IO, mime::MIME"text/plain", summary::Summary)
+    stats = MCMCBasicStats(summary.samples)
+    samples = summary.samples
 
-function Base.show(io::IO, m::MIME"text/plain", prior::ConstDensity{<:HyperRectBounds}; tabs=false)
-    println(io, "HyperRectBounds")
+    println(io, "BAT.jl - Result Summary")
+    _bold_line(io)
+    _empty_line(io)
 
-    for p in 1:length(prior.bounds.vol.hi)
-        print(io, "\t \t $p.")
-        print(io, prior.bounds.bt[p])
-        println(io, " [", prior.bounds.vol.lo[p],", ", prior.bounds.vol.hi[p],"]")
-    end
+    # print model: likelihood, prior
+    _print_model(io, mime, summary)
 
+    # print sampling: algorithm, number of samples, chains, convergence...
+    _print_sampling(io, mime, summary)
+
+    # print results of sampling: mean, mode
+    println(io, "Results")
+    _bold_line(io)
+    _print_parameters(io, stats, samples)
+
+    # print covariance
+    _print_covariance(io, stats, samples)
 end
 
-
-function Base.show(io::IO, m::MIME"text/plain", algorithm::MetropolisHastings)
-    proposal = algorithm.proposalspec
-    weighting = algorithm.weighting
-    println(io, "MetropolisHastings(", proposal, ", ", weighting, ")")
-end
 
 
 function _bold_line(io::IO; length=25)
@@ -30,79 +35,70 @@ function _empty_line(io::IO; lines=1)
     print(io, repeat('\n', lines))
 end
 
-function Base.show(io::IO, m::MIME"text/plain", summary::Summary)
-
-    stats = MCMCBasicStats(summary.samples)
-
-    println(io, "BAT.jl - Result Summary")
-    _bold_line(io)
-    _empty_line(io)
 
 
+function _print_model(io, m,  summary::Summary)
     println(io, "Model")
-    println(io, repeat('=', 6))
+    _bold_line(io, length=6)
 
-    # print(io,  "  likelihood:  ")
-    # display_rich(io, m, summary.chains[1].spec.model.likelihood)
-    # print(io, "\n")
-    #
-    # print(io, "  prior:       ")
-    # display_rich(io, m, summary.chains[1].spec.model.prior)
-    # print(io, "\n")
-    # print(io, "\n")
+    print(io,  " likelihood:  ")
+    display_rich(io, m, summary.chains[1].spec.posterior.likelihood)
 
-    _print_sampling(io, m, summary)
+    if isa(summary.chains[1].spec.posterior.likelihood, GenericDensity)
+        file, line = functionloc(summary.chains[1].spec.posterior.likelihood.f)
+        println(io, "\n              defined in \"", file, "\", line ", line )
+    end
 
-    println(io, "Results")
-    _bold_line(io)
-    _print_parameters(io, stats, summary.samples)
-
-    println(io, "covariance matrix: ")
-    _thin_line(io, length=19)
-    _print_covariance(io, stats, summary.samples)
-
-    println(io, "\n")
+    print(io, "\n prior:       ")
+    a = summary.chains[1].spec.posterior.prior.dist._internal_distributions
+    i = 0
+    for k in keys(a)
+        i>0 ? print("              ") : nothing
+        println(k, " = ", getindex(a, k))
+        i += 1
+    end
+    _empty_line(io)
 end
+
 
 function _print_sampling(io, m,  summary::Summary)
     println(io, "Sampling")
     _bold_line(io)
 
-    print(io, "  algorithm: ")
-    display_rich(io, m, summary.chains[1].spec.algorithm)
+    algorithm = summary.chains[1].spec.algorithm
 
-    nchains = length(summary.chains)
+    print(io, " algorithm: ")
+    display_rich(io, m, algorithm)
+    _empty_line(io)
+
     nsamples = length(summary.samples)
+    s = summary.chains[1].info.tuned
 
-    println(io, "  number of chains:", repeat(' ', 13), nchains)
-    println(io, "  number of samples per chain:", repeat(' ', 2), Int(nsamples/nchains))
-    println(io, "  total number of samples:", repeat(' ', 6), nsamples)
+    println(io, " total number of samples:", repeat(' ', 6), nsamples)
+
+    if _has_chains(algorithm)
+        chains = summary.chains
+        nchains = length(chains)
+        n_tuned_chains = count(c -> c.info.tuned, chains)
+        n_converged_chains = count(c -> c.info.converged, chains)
+
+        println(io, " number of chains:", repeat(' ', 13), nchains)
+        println(io, " number of chains tuned:", repeat(' ', 7), n_tuned_chains)
+        println(io, " number of chains converged:", repeat(' ', 3), n_converged_chains)
+        println(io, " number of samples per chain:", repeat(' ', 2), Int(nsamples/nchains))
+    end
     _empty_line(io)
 end
 
 
-function _print_covariance(io, stats, samples)
-    nparams = stats.param_stats.m
-    for i in 1:nparams
-        print(io, "  ")
-        for j in 1:nparams
-            s = @sprintf("%.5g", stats.param_stats.cov[i, j])
-            print(io, s, "  ")
-        end
-        print(io, "\n")
-     end
+function _has_chains(algorithm::AbstractSamplingAlgorithm)
+    isa(algorithm, ImportanceSampler) ? (return false) : (return true)
 end
 
 
 #TODO
 function _print_parameters(io, stats, samples)
     nparams = stats.param_stats.m
-    vs = varshape(samples)
-
-    active_names = all_active_names(vs)
-    all_names = allnames(vs)
-    fixed_names = [n for n in all_names if !in(n, active_names)]
-
 
     for p in 1:nparams
         pname = getstring(samples, p)
@@ -113,12 +109,19 @@ function _print_parameters(io, stats, samples)
         println(io, "  mean ± std.dev. = ", @sprintf("%.5g",stats.param_stats.mean[p]),
                 " ± ", @sprintf("%.5g", sqrt(stats.param_stats.cov[p, p])))
         println(io, "  global mode     = ", @sprintf("%.5g",stats.mode[p]))
-        println(io, "  marginal mode   = ", "not yet implemented")
+        println(io, "  marginal mode   = ", "not yet implemented (WIP)")
         print(io, "\n")
     end
 
+    fixed_names = get_fixed_names(varshape(samples))
+    if length(fixed_names) > 0
+        _print_fixed_parameters(io, samples, fixed_names)
+    end
 
-    pstring = "fixed: "
+end
+
+function _print_fixed_parameters(io, samples, fixed_names)
+    pstring = "fixed parameters: "
     println(io, pstring)
     _thin_line(io, length=length(pstring)+1)
     for n in fixed_names
@@ -128,59 +131,30 @@ function _print_parameters(io, stats, samples)
 end
 
 
-# function Base.show(io::IO, m::MIME"text/plain", summary::Summary)
-#
-#     stats = summary.stats
-#     nparams = length(stats.param_stats.mean)
-#
-#     println(io, "BAT.jl - Summary")
-#     println(io, repeat('=', 18),"\n\n")
-#
-#
-#     println(io, "Model")
-#     println(io, repeat('=', 6))
-#
-#     print(io,  "  likelihood:  ")
-#     display_rich(io, m, summary.chainresults[1].spec.model.likelihood)
-#     print(io, "\n")
-#
-#     print(io, "  prior:       ")
-#     display_rich(io, m, summary.chainresults[1].spec.model.prior)
-#     print(io, "\n")
-#     print(io, "\n")
-#
-#
-#     println(io, "Sampling")
-#     println(io, repeat('=', 9))
-#
-#     print(io,"  algorithm:", repeat(' ', 16))
-#     display_rich(io, m, summary.chainresults[1].spec.algorithm)
-#     print(io, "\n")
-#
-#     println(io, "  number of chains:",repeat(' ', 9), length(summary.chainresults))
-#     println(io, "  total number of samples:",repeat(' ', 2), stats.param_stats.cov.n)
-#     println(io, "\n")
-#
-#
-#     println(io, "  Results")
-#     println(io, "  ", repeat('=', 8))
-#
-#     for p in 1:nparams
-#         println(io, "    parameter $p:")
-#         println(io, "       mean ± std.dev. = ", @sprintf("%.3f",stats.param_stats.mean[p]),
-#                 " ± ", @sprintf("%.3f", sqrt(stats.param_stats.cov[p, p])))
-#         println(io, "       global mode     = ", @sprintf("%.3f",stats.mode[p]))
-#         print(io, "\n")
-#     end
-#
-#     println(io, "\n    covariance matrix: ")
-#     for i in 1:nparams
-#         print(io, "\t")
-#         for j in 1:nparams
-#             s = @sprintf("%.3f", stats.param_stats.cov[i, j])
-#             print(io, s, "  ")
-#         end
-#         print(io, "\n")
-#      end
-#
-# end
+
+function _print_covariance(io, stats, samples)
+    println(io, "covariance matrix: ")
+    _thin_line(io, length=19)
+    cov = stats.param_stats.cov
+    Base.print_array(io, round.(cov, sigdigits=6))
+
+    # nparams = stats.param_stats.m
+    # for i in 1:nparams
+    #     print(io, "  ")
+    #     for j in 1:nparams
+    #         s = @sprintf("%.5g", stats.param_stats.cov[i, j])
+    #         print(io, s, "  ")
+    #     end
+    #     print(io, "\n")
+    # end
+end
+
+
+
+
+
+function Base.show(io::IO, m::MIME"text/plain", algorithm::MetropolisHastings)
+    proposal = algorithm.proposalspec
+    weighting = algorithm.weighting
+    println(io, "MetropolisHastings(", proposal, ", ", weighting, ")")
+end

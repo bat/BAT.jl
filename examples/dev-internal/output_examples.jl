@@ -29,16 +29,17 @@ prior = BAT.NamedTupleDist(
     c = [-20.0..20.0, -10..10]
 )
 
+
 posterior = PosteriorDensity(likelihood, prior);
 
 samples, chains = bat_sample(posterior, (10^5, 4), MetropolisHastings());
-
 
 # ### create a Summary object and display it:
 summary = Summary(samples, chains)
 display(summary)
 
-BAT.MCMCBasicStats(samples)
+r = rand(Uniform(-100, 100), (5,5))
+Base.print_array(IOContext(stdout, :limit=>false), round.(r, sigdigits=6))
 
 #nb # ### plain text output (for terminal)
 #nb show(stdout,"text/plain", summary)
@@ -47,6 +48,7 @@ BAT.MCMCBasicStats(samples)
 io = open("output.txt", "w")
 show(io, "text/plain", summary)
 close(io)
+
 
 # ### write output to html-file
 io = open("output.html", "w")
