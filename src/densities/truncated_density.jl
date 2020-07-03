@@ -24,10 +24,33 @@ var_bounds(density::TruncatedDensity) = density.bounds
 
 ValueShapes.varshape(density::TruncatedDensity) = varshape(parent(density))
 
+
+function logvalof(
+    density::TruncatedDensity,
+    v::Any,
+    T::Type{<:Real} = density_logval_type(v);
+    use_bounds::Bool = true,
+    strict::Bool = false
+)
+    v_shaped = get_shaped_variate(varshape(density), v)
+    if use_bounds && !variate_is_inbounds(density, v_shaped, strict)
+        return log_zero_density(T)
+    end
+
+    parent_logval = logvalof(
+        parent(density), v_shaped,
+        use_bounds = false, strict = false
+    )  
+    
+    parent_logval + density.logscalecorr
+end
+
+
 function logvalof_unchecked(density::TruncatedDensity, v::Any)
-    # Note: Enforcing bounds (returning negative infinity out out bounds)
-    # is the job of BAT.logvalof.
-    logvalof_unchecked(parent(density), v) + density.logscalecorr
+    logvalof(
+        density, v,
+        use_bounds = false, strict = false
+    )
 end
 
 
