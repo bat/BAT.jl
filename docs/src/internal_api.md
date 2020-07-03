@@ -39,6 +39,7 @@ BAT.DataSet
 BAT.HMIData
 BAT.HMISettings
 BAT.IntegrationVolume
+BAT.KDTreePartitioning
 BAT.MCMCCallbackWrapper
 BAT.MCMCSpec
 BAT.OnlineMvCov
@@ -47,6 +48,7 @@ BAT.OnlineUvMean
 BAT.OnlineUvVar
 BAT.PointCloud
 BAT.SearchResult
+BAT.SpacePartTree
 BAT.TruncatedDensity
 BAT.WhiteningResult
 
@@ -81,6 +83,7 @@ BAT.log_zero_density
 BAT.mcmc_startval!
 BAT.modify_hypercube!
 BAT.modify_integrationvolume!
+BAT.partition_space
 BAT.proposal_rand!
 BAT.reduced_volume_hm
 BAT.renormalize_variate!
