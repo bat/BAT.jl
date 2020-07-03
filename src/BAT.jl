@@ -14,6 +14,7 @@ using Markdown
 using Printf
 using Random
 using Statistics
+using Dates
 
 using ArgCheck
 using ArraysOfArrays
@@ -57,6 +58,10 @@ using LaTeXStrings
 
 import Random123
 import TypedTables
+
+#for Space Partitioning
+import CPUTime
+import HypothesisTests
 
 
 include("utils/utils.jl")
