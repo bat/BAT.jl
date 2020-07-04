@@ -1,5 +1,4 @@
 abstract type ImportanceSampler <: AbstractSamplingAlgorithm end
-export SobolSampler, GridSampler, PriorImportanceSampler
 
 
 """
@@ -12,6 +11,8 @@ Constructors:
 Sample from Sobol sequence. Also see [Sobol.jl](https://github.com/stevengj/Sobol.jl).
 """
 struct SobolSampler <: ImportanceSampler end
+export SobolSampler
+
 
 
 """
@@ -24,6 +25,7 @@ Constructors:
 Sample from equidistantly distributed points in each dimension.
 """
 struct GridSampler <: ImportanceSampler end
+export GridSampler
 
 
 function bat_sample_impl(
@@ -82,6 +84,7 @@ Constructors:
 Sample randomly from prior distribution.
 """
 struct PriorImportanceSampler <: AbstractSamplingAlgorithm end
+export PriorImportanceSampler
 
 function bat_sample_impl(
     rng::AbstractRNG,
