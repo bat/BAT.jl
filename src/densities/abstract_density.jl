@@ -182,7 +182,7 @@ get_shaped_variate(shape::Missing, v::Any) = v
 
 function get_shaped_variate(shape::AbstractValueShape, v::Any)
     v_shape = valshape(v)
-    if v_shape != shape
+    if !(v_shape <= shape)
         throw(ArgumentError("Shape of variate doesn't match variate shape of density, with variate of type $(typeof(v)) and expected shape $(shape)"))
     end
     v
@@ -457,3 +457,59 @@ Get the number of degrees of freedom of the variates of `density`. Must not be
 `missing`, a `DistLikeDensity` must have a fixed variate shape.
 """
 ValueShapes.totalndof(density::DistLikeDensity) = totalndof(var_bounds(density))
+
+
+
+"""
+    BAT.AnyDensityLike = Union{...}
+
+Union of all types that BAT will accept as a probability Density, resp. that
+`convert(AbstractDenstiy, d)` supports:
+    
+* [`AbstractDensity`](@ref)
+* `Distributions.Distribution`
+* `StatsBase.Histogram`
+"""
+const AnyDensityLike = Union{
+    AbstractDensity,
+    Distributions.ContinuousDistribution,
+    StatsBase.Histogram
+}
+export AnyDensityLike
+
+
+"""
+    BAT.AnySampleable = Union{...}
+
+Union of all types that BAT can sample from:
+
+* [`AbstractDensity`](@ref)
+* [`DensitySampleVector`](@ref)
+* `Distributions.Distribution`
+* `StatsBase.Histogram`
+"""
+const AnySampleable = Union{
+    AbstractDensity,
+    DensitySampleVector,
+    Distributions.Distribution,
+    StatsBase.Histogram
+}
+export AnySampleable
+
+
+"""
+    BAT.AnySampleable = Union{...}
+
+Union of all distribution/density-like types that BAT can draw i.i.d.
+(independent and identically distributed) samples from:
+
+* [`DistLikeDensity`](@ref)
+* `Distributions.Distribution`
+* `StatsBase.Histogram`
+"""
+const AnyIIDSampleable = Union{
+    DistLikeDensity,
+    Distributions.Distribution,
+    StatsBase.Histogram
+}
+export AnyIIDSampleable

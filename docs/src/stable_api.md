@@ -32,30 +32,33 @@ bat_default
 bat_eff_sample_size
 bat_findmedian
 bat_findmode
-bat_marginalmode
 bat_integrate
 bat_integrated_autocorr_len
+bat_marginalmode
 bat_read
 bat_rng
 bat_sample
 bat_write
 
-logvalof
 logvalgradof
+logvalof
 
-BAT.logvalof_unchecked
 BAT.fft_autocor
 BAT.fft_autocov
+BAT.logvalof_unchecked
 
+AHMC
+AHMIntegration
+ARPWeighting
 AbstractDensity
 AbstractDensityValue
 AbstractMCMCTuningStrategy
 AbstractPosteriorDensity
 AbstractWeightingScheme
 AdaptiveMetropolisTuning
-AHMC
-AHMIntegration
-ARPWeighting
+AnyDensityLike
+AnyIIDSampleable
+AnySampleable
 AutocorLenAlgorithm
 BrooksGelmanConvergence
 CholeskyPartialWhitening
@@ -65,23 +68,23 @@ DensitySampleVector
 DistLikeDensity
 GelmanRubinConvergence
 GeyerAutocorLen
+IIDSampling
 IntegrationAlgorithm
 LinDVal
 LogDVal
-MaxDensityLBFGS
-MaxDensityNelderMead
-MaxDensitySampleSearch
 MCMCAlgorithm
 MCMCBurninStrategy
 MCMCInitStrategy
 MCMCIterator
+MaxDensityLBFGS
+MaxDensityNelderMead
+MaxDensitySampleSearch
 MetropolisHastings
 ModeAsDefined
 NoWhitening
 OrderedResampling
 PosteriorDensity
 RandResampling
-RandSampling
 RepetitionWeighting
 SokalAutocorLen
 StatisticalWhitening
@@ -89,7 +92,6 @@ WhiteningAlgorithm
 
 BAT.AbstractModeEstimator
 BAT.AbstractSamplingAlgorithm
-BAT.AnyPosterior
 BAT.GenericDensity
 
 ValueShapes.totalndof
