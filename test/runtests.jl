@@ -13,4 +13,5 @@ Test.@testset "Package BAT" begin
     include("samplers/test_samplers.jl")
     include("io/test_io.jl")
     include("plotting/test_plotting.jl")
+    include("integration/test_integration.jl")
 end
