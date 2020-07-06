@@ -54,13 +54,3 @@ function Base.merge!(X::MCMCSampleIDVector, Xs::MCMCSampleIDVector...)
 end
 
 Base.merge(X::MCMCSampleIDVector, Xs::MCMCSampleIDVector...) = merge!(deepcopy(X), Xs...)
-
-
-function UnsafeArrays.uview(A::MCMCSampleIDVector)
-    MCMCSampleIDVector((
-        uview(A.chainid),
-        uview(A.chaincycle),
-        uview(A.stepno),
-        uview(A.sampletype)
-    ))
-end

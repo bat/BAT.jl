@@ -216,17 +216,6 @@ end
 Base.merge(X::DensitySampleVector, Xs::DensitySampleVector...) = merge!(deepcopy(X), Xs...)
 
 
-function UnsafeArrays.uview(A::DensitySampleVector)
-    DensitySampleVector((
-        uview(A.v),
-        uview(A.logd),
-        uview(A.weight),
-        uview(A.info),
-        uview(A.aux)
-    ))
-end
-
-
 Base.@propagate_inbounds function _bcasted_apply_to_params(f, A::DensitySampleVector)
     DensitySampleVector((
         f.(A.v),
