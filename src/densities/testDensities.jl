@@ -5,7 +5,6 @@ struct Rastrigin{B<:Vector{Float64}, P<:Real} <: AbstractDensity
     dist
 end
 
-export Rastrigin
 
 function Rastrigin(;bounds=[-3.,3.],a=30,b=10)
     integral_val = -a*bounds[1] + b*bounds[1] + (bounds[1]^3)/3 + a*bounds[2] - b*bounds[2] - (bounds[2]^3)/3 + (b*(-sin(2*bounds[1]*pi) + sin(2*bounds[2]*pi)))/(2*pi)
@@ -13,7 +12,7 @@ function Rastrigin(;bounds=[-3.,3.],a=30,b=10)
     Rastrigin(bounds,a,b,dist)
 end
 
-BAT.density_logval(density::Rastrigin,v::Any) = log(broadcast(density.dist,v))
+BAT.logvalof_unchecked(density::Rastrigin,v::Any) = log(broadcast(density.dist,v))
 
 """
     Rastrigin <: AbstractDensity
@@ -23,7 +22,6 @@ struct SineSquared{B<:Vector{Float64}} <: AbstractDensity
     bounds::B
     dist
 end
-export SineSquared
 
 function SineSquared(;bounds=[-0.,25.])
     integral_val = 1/40*(-4*(bounds[1])^5 + 10*(2*(bounds[1])^2 - 3)*(bounds[1])*cos(2*(bounds[1])) + 5*(2*(bounds[1])^4 - 6*(bounds[1])^2 + 3)*sin(2*(bounds[1])) + 4*(bounds[2])^5 + 10*(bounds[2])*(3 - 2*(bounds[2])^2)*cos(2*(bounds[2])) - 5*(2*(bounds[2])^4 - 6*(bounds[2])^2 + 3)*sin(2*(bounds[2])))
@@ -31,7 +29,7 @@ function SineSquared(;bounds=[-0.,25.])
     SineSquared(bounds,dist)
 end
 
-BAT.density_logval(density::SineSquared,v::Any) = log(broadcast(density.dist,v))
+BAT.logvalof_unchecked(density::SineSquared,v::Any) = log(broadcast(density.dist,v))
 
 """
     SineSquared <: AbstractDensity
@@ -50,7 +48,7 @@ function HoelderTable()
     HoelderTable(bounds,dist)
 end
 
-BAT.density_logval(density::HoelderTable,v::Any) = log(broadcast(density.dist,v))
+BAT.logvalof_unchecked(density::HoelderTable,v::Any) = log(broadcast(density.dist,v))
 
 
 """

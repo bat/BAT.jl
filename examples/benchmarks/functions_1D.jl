@@ -17,7 +17,7 @@ analytical_stats_normal = [0,0,1]#
 
 ################################################
 name_cauchy = "cauchy"
-analytical_integral_cauchy = 0.98
+analytical_integral_cauchy = 1#0.98
 
 cauchy =
 	params -> begin
@@ -33,19 +33,19 @@ analytical_stats_cauchy = [0,0,15.2459]#(50-2*atan(25))/pi] night ganz
 
 ################################################
 name_multi_cauchy = "multi cauchy"
-analytical_integral_multi_cauchy = 0.029053426970
+analytical_integral_multi_cauchy = 1#0.029053426970
 
 multi_cauchy = let a=5., b=4.
 	params -> begin
 		mixture = [Cauchy(-1*a, b), Cauchy(a, b)]
-		return LogDVal(logpdf(BAT.MultimodalCauchy(mixture, 1).likelihood,[params.x,0]))
+		return LogDVal(logpdf(BAT.MultimodalCauchy(µ=a,σ=b,n=1),[params.x,0]))
 	end
 end
 prior_multi_cauchy = NamedTupleDist(
 	x = -40..40
 )
 posterior_multi_cauchy = PosteriorDensity(multi_cauchy,prior_multi_cauchy)
-analytical_function_multi_cauchy = x-> pdf(BAT.MultimodalCauchy([Cauchy(-5., 4.), Cauchy(5., 4.)], 1).likelihood,[x,0])
+analytical_function_multi_cauchy = x-> pdf(BAT.MultimodalCauchy(µ=5.,σ=4.,n=1),[x,0])
 analytical_stats_multi_cauchy_variance = (2*(80 + 21/2*atan(35/2) + 21/2*atan(45/2) - 5*log(2029/1229)))/π
 analytical_stats_multi_cauchy = [[-5,5],0,analytical_stats_multi_cauchy_variance]
 #Analytical Variance (2*(80 + 21/2*atan(35/2) + 21/2*atan(45/2) - 5*log(2029/1229)))/π
@@ -57,14 +57,14 @@ analytical_integral_rastrigin = 1
 
 rastrigin =
 	params -> begin
-		return LogDVal(BAT.density_logval(Rastrigin(),params.x))
+		return LogDVal(BAT.logvalof_unchecked(BAT.Rastrigin(),params.x))
 	end
 
 prior_rastrigin = NamedTupleDist(
 	x = -3..3
 )
 posterior_rastrigin = PosteriorDensity(rastrigin,prior_rastrigin)
-analytical_function_rastrigin = Rastrigin().dist
+analytical_function_rastrigin = BAT.Rastrigin().dist
 analytical_stats_rastrigin = [0,0,((219/85)+(5/(17*pi^2)))] #2.6062709363653935
 ################################################
 
@@ -74,14 +74,14 @@ analytical_integral_sin2 = 1
 
 sin2 =
 	params -> begin
-	   	return LogDVal(BAT.density_logval(SineSquared(),params.x))
+	   	return LogDVal(BAT.logvalof_unchecked(BAT.SineSquared(),params.x))
 	end
 
 prior_sin2 = NamedTupleDist(
 	x = 0..25
 )
 posterior_sin2 = PosteriorDensity(sin2,prior_sin2)
-analytical_function_sin2 = SineSquared().dist
+analytical_function_sin2 = BAT.SineSquared().dist
 analytical_mean_sin2 = -(5*(-195312509 + 2332509*cos(50) + 23250450*sin(50)))/47737968 #20.85992123409488
 analytical_stats_sin2 = [23.6463,analytical_mean_sin2,12.0492]
 ################################################
@@ -109,7 +109,7 @@ analytical_integral_hoelder = 1
 
 hoelder = let l=1
     params -> begin
-		return LogDVal(BAT.density_logval(HoelderTable(),params.x))
+		return LogDVal(BAT.logvalof_unchecked(HoelderTable(),params.x))
 	end
 end
 prior_hoelder = NamedTupleDist(
@@ -140,17 +140,17 @@ analytical_stats_gaussian_shell = [[-5,5],0,29.1702] #analytical solution is rea
 
 ################################################
 name_funnel = "funnel"
-analytical_integral_funnel = 0.2294350
+analytical_integral_funnel = 1#0.2294350
 funnel = let a=1., b=0.5
     params -> begin
-        return LogDVal(logpdf(BAT.Funnel(a,b,[params.x,params.x]).likelihood,[params.x,params.x]))
+        return LogDVal(logpdf(BAT.FunnelDistribution(a,b,2),[params.x,params.x]))
     end
 end
 prior_funnel = NamedTupleDist(
     x = -10..10
 )
 posterior_funnel = PosteriorDensity(funnel,prior_funnel)
-analytical_function_funnel = x->pdf(BAT.Funnel(1.,0.5,[x,x]).likelihood,[x,x])
+analytical_function_funnel = x->pdf(BAT.FunnelDistribution(1.,0.5,2),[x,x])
 
 analytical_stats_funnel = [-0.298002,0.0163721,0.314562] #analytical refused by wolframalpha
 ################################################

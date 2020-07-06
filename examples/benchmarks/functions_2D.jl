@@ -32,12 +32,12 @@ posterior_gauss2D = PosteriorDensity(gauss2D, prior_gauss2D)
 name_multi_cauchy2D = "multi cauchy"
 multi_cauchy2D = let
     params -> begin
-        return LogDVal(logpdf(BAT.MultimodalCauchy([Cauchy(-5,2),Cauchy(5,2)],2),[params.x,params.y]))
+        return LogDVal(logpdf(BAT.MultimodalCauchy(µ=5.,σ=4.,n=1),[params.x,params.y]))
     end
 end
 
 function analytical_function_multi_cauchy2D(x,y)
-        return pdf(BAT.MultimodalCauchy([Cauchy(-5,2),Cauchy(5,2)],2),[x,y])
+        return pdf(BAT.MultimodalCauchy(µ=5.,σ=4.,n=1),[x,y])
 end
 
 prior_multi_cauchy2D = NamedTupleDist(
@@ -88,14 +88,14 @@ analytical_stats_gaussian_shell2D[3] = [18.485989,18.485989]
 ################function funnel 2D##############################################################
 name_funnel2D = "funnel"
 analytical_integral_funnel2D = 0.2288974
-funnel2D = let a=1, b=0.5
+funnel2D = let a=1., b=0.5
     params -> begin
-        return LogDVal(logpdf(BAT.Funnel(1.,0.5,[params.x,params.x,params.y]).likelihood,[params.x,params.x,params.y]))
+        return LogDVal(logpdf(BAT.FunnelDistribution(a,b,3),[params.x,params.x,params.y]))
     end
 end
 
 function analytical_function_funnel2D(x,y)
-    return pdf(BAT.Funnel(1.,0.5,[x,x,y]).likelihood,[x,x,y])
+    return pdf(BAT.FunnelDistribution(1.,0.5,3),[x,x,y])
 end
 
 prior_funnel2D = NamedTupleDist(

@@ -207,7 +207,7 @@ end
 
 
 function run1D(
-	posterior::BAT.AnyPosterior,
+	posterior::BAT.PosteriorDensity,
 	name::String,
 	analytical_integral::Real,
 	func::Function,
@@ -336,7 +336,7 @@ end
 
 
 function run2D(
-        posterior::BAT.AnyPosterior,
+        posterior::BAT.PosteriorDensity,
         name::String,
         analytical_integral::Real,
         func::Function,
