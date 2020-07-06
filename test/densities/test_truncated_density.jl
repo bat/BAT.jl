@@ -14,8 +14,7 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets, ValueShapes
     )
     prior = convert(AbstractDensity, prior_dist)
 
-    likelihood_func = (v -> LogDVal(0))
-    likelihood = convert(AbstractDensity, likelihood_func)
+    likelihood = LogDVal(0)
 
     posterior = PosteriorDensity(likelihood, prior)
 
@@ -76,5 +75,5 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets, ValueShapes
         @test isapprox(cov_est[4,4], var(trunc_prior_dist.d.v[2]), rtol = 0.05)      
     end
 
-    @test @inferred(BAT.truncate_density(BAT.ConstDensity(missing, one), bounds)) == BAT.ConstDensity(bounds, one)
+    @test @inferred(BAT.truncate_density(BAT.ConstDensity(LogDVal(0)), bounds)) == BAT.ConstDensity(LogDVal(0), bounds)
 end

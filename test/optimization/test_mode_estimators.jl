@@ -12,7 +12,7 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes
         a = MvNormal([1.5, 0.5, 2.5], Matrix{Float32}(I, 3, 3))
     )
 
-    posterior = PosteriorDensity(v -> LogDVal(0), prior)
+    posterior = PosteriorDensity(LogDVal(0), prior)
 
     true_mode_flat = [2.0, 1.5, 0.5, 2.5]
     true_mode = stripscalar(varshape(prior)(true_mode_flat))
