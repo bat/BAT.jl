@@ -49,7 +49,7 @@ name_rastrigin = "rastrigin"
 
 rastrigin =
 	params -> begin
-		return LogDVal(BAT.logvalof_unchecked(BAT.Rastrigin(),params.x))
+		return LogDVal(BAT.logvalof(BAT.Rastrigin(),params.x))
 	end
 
 prior_rastrigin = NamedTupleDist(
@@ -64,7 +64,7 @@ name_sin2 = "sin2"
 
 sin2 =
 	params -> begin
-	   	return LogDVal(BAT.logvalof_unchecked(BAT.SineSquared(),params.x))
+	   	return LogDVal(BAT.logvalof(BAT.SineSquared(),params.x))
 	end
 
 prior_sin2 = NamedTupleDist(
@@ -95,7 +95,7 @@ name_hoelder = "hoelder table"
 
 hoelder = let l=1
     params -> begin
-		return LogDVal(BAT.logvalof_unchecked(HoelderTable(),params.x))
+		return LogDVal(BAT.logvalof(HoelderTable(),params.x))
 	end
 end
 prior_hoelder = NamedTupleDist(
