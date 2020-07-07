@@ -12,8 +12,6 @@ for i in 1:length(name2D)
     sample_stats_all = run2D(
         posterior2D[i],
         name2D[i],
-        analytical_integral2D[i],
-        func2D[i],
         analytical_stats2D[i],
         sample_stats2D[i],
         run_stats2D[i]
