@@ -11,11 +11,7 @@ _car_cdr(tp::Tuple) = _car_cdr_impl(tp...)
 
 function _all_lteq(A::AbstractArray, B::AbstractArray, C::AbstractArray)
     axes(A) == axes(B) == axes(C) || throw(DimensionMismatch("A, B and C must have the same indices"))
-    result = 0
-    @inbounds @simd for i in eachindex(A, B, C)
-        result += ifelse(A[i] <= B[i] <= C[i], 1, 0)
-    end
-    result == length(eachindex(A))
+    all(x[1] <= x[2] <= x[3] for x in zip(A, B, C))
 end
 
 
