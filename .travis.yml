@@ -35,6 +35,8 @@ after_success:
 jobs:
   allow_failures:
     - julia: nightly
+    - julia: 1.5
+      arch: x86
   fast_finish: true
   exclude:
     - os: osx
