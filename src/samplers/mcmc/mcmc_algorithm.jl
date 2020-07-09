@@ -16,18 +16,6 @@ for `SomeAlgorithm<:MCMCAlgorithm`):
 (spec::MCMCSpec{<:SomeAlgorithm})(chainid::Integer)::MCMCIterator
 ```
 
-In some cases, these custom methods may be necessary (default methods are
-defined for `MCMCAlgorithm`):
-
-```julia
-BAT.mcmc_startval!(
-    x::Union{AbstractVector{<:Real},VectorOfSimilarVectors{<:Real}},
-    rng::AbstractRNG,
-    posterior::AbstractPosteriorDensity,
-    algorithm::SomeAlgorithm
-)
-```
-
 To implement a new MCMC algorithm, subtypes of both `MCMCAlgorithm` and
 [`MCMCIterator`](@ref) are required.
 """

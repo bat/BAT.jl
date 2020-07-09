@@ -37,7 +37,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     algorithmPW = @inferred MetropolisHastings(ARPWeighting())
 
     samples, chains = bat_sample(
-        PosteriorDensity(mv_dist, bounds), (nsamples_per_chain, nchains), algorithmPW
+        mv_dist, (nsamples_per_chain, nchains), algorithmPW
     )
 
     cov_samples = cov(flatview(samples.v), FrequencyWeights(samples.weight), 2; corrected=true)
@@ -51,4 +51,6 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     rng = bat_rng()
     @test gensamples(rng) != gensamples(rng)
     @test gensamples(deepcopy(rng)) == gensamples(deepcopy(rng))
+
+    @test isapprox(var(bat_sample(Normal(), 10^4, BAT.MetropolisHastings()).result), [1], rtol = 10^-1)
 end

@@ -8,7 +8,7 @@
     lower = Dict(),
     vsel_label = []
 )
-    vsel = vsel[vsel .<= prior._internal_shapes._flatdof]
+    vsel = vsel[vsel .<= totalndof(varshape(prior))]
 
     xlabel = [getstring(prior, i) for i in vsel]
     ylabel = ["p($l)" for l in xlabel]

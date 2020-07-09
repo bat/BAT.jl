@@ -24,7 +24,6 @@ Constructor:
 	extend_bounds::Bool = true
 end
 
-export KDTreePartitioning
 
 
 
@@ -62,5 +61,3 @@ mutable struct SpacePartTree
    cost::AbstractFloat
    cost_part::Union{AbstractFloat, Missing}
 end
-
-export SpacePartTree

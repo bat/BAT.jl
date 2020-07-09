@@ -44,13 +44,13 @@ export PartitionedSampling
 
 
 """
-    function bat_sample(
+    bat_sample(
         posterior::PosteriorDensity,
         n::Tuple{Integer,Integer, Integer},
         algorithm::PartitionedSampling;
     )
 
-*BAT-internal, not part of stable public API.*
+*Experimental feature, not part of stable public API.*
 
 Generate samples from `posterior` using `PartitionedSampling()` algorithm.
 `n` must be a tuple `(nsteps, nchains, npartitions)`.

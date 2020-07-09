@@ -58,9 +58,9 @@ function DataSet(
     data:: Array{T, 2},
     logprob::Array{T, 1},
     weights::Array{I, 1},
-    nsubsets::Int64 = 0,
+    nsubsets::Integer = 0,
     subsetsize::T = zero(T)
-    )::DataSet{T, Int64} where {T<:AbstractFloat, I<:Integer}
+    )::DataSet{T, Int} where {T<:AbstractFloat, I<:Integer}
 
     DataSet(data, logprob, convert(Array{T, 1}, weights), nsubsets, subsetsize)
 end
@@ -69,9 +69,9 @@ function DataSet(
     data:: Array{T, 2},
     logprob::Array{T, 1},
     weights::Array{T, 1},
-    nsubsets::Int64 = 0,
+    nsubsets::Integer = 0,
     subsetsize::T = zero(T)
-    )::DataSet{T, Int64} where {T<:AbstractFloat}
+    )::DataSet{T, Int} where {T<:AbstractFloat}
 
     P, N = size(data)
 
@@ -85,7 +85,7 @@ function DataSet(
     end
     subsetsize = min(maxbatchsize, subsetsize)
 
-    ids = zeros(Int64, N)
+    ids = zeros(Int, N)
     cnt = 1
 
     batch_currentsize = 0.0
@@ -102,7 +102,7 @@ function DataSet(
             batch_currentsize = 0.0
         end
     end
-    DataSet(data, logprob, weights, ids, [i for i=1:N], N, P, nsubsets, subsetsize, false, true, SpacePartitioningTree(T, Int64), zeros(Int64, 0), T(0))
+    DataSet(data, logprob, weights, ids, [i for i=1:N], N, P, nsubsets, subsetsize, false, true, SpacePartitioningTree(T, Int), zeros(Int, 0), T(0))
 end
 
 Base.show(io::IO, data::DataSet) = print(io, "DataSet: $(data.N) samples, $(data.P) parameters")
@@ -254,10 +254,10 @@ Base.show(io::IO, vol::IntegrationVolume) = print(io, "Hyperrectangle: $(vol.poi
 
 mutable struct IntermediateResults{T<:AbstractFloat}
     integrals::Array{T, 1}
-    volumeID::Array{Int64, 1}
+    volumeID::Array{Int, 1}
     Y::Array{T, 2}
 end
-IntermediateResults(T::DataType, n::Int64) = IntermediateResults(zeros(T, n), [Int64(i) for i=1:n], zeros(T, 0, 0))
+IntermediateResults(T::DataType, n::Int) = IntermediateResults(zeros(T, n), [Int(i) for i=1:n], zeros(T, 0, 0))
 Base.length(x::IntermediateResults) = length(x.integrals)
 
 mutable struct HMIEstimate{T<:AbstractFloat}
