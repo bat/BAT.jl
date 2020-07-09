@@ -8,9 +8,8 @@ function Base.show(io::IO, mime::MIME"text/plain", summary::Summary)
     _print_likelihood(io, mime, summary)
     _print_prior(io, mime, summary)
 
-    _print_sampling(io, mime, summary) # algorithm, number of samples, (chains, convergence)
+    _print_sampling(io, mime, summary)
 
-    # esults of sampling: mean, mode
     _print_parameter_results(io, summary)
     _print_covariance(io, summary)
 end
@@ -26,7 +25,7 @@ function _thin_line(io::IO; length=25, indent=0)
 end
 
 function _empty_line(io::IO; lines=1)
-    println(io, repeat('\n', lines))
+    print(io, repeat('\n', lines))
 end
 
 
@@ -42,6 +41,7 @@ function _print_likelihood(io, m,  summary::Summary)
         println(io, "\n              defined in \"", file, "\", line ", line )
     end
 end
+
 
 function _print_prior(io, m,  summary::Summary)
     prior = summary.posterior.prior.dist._internal_distributions
@@ -69,6 +69,14 @@ function _print_sampling(io, m,  summary::Summary)
     _empty_line(io)
 end
 
+function Base.show(io::IO, m::MIME"text/plain", algorithm::MetropolisHastings)
+    proposal = algorithm.proposalspec
+    weighting = algorithm.weighting
+    println(io, "MetropolisHastings(", proposal, ", ", weighting, ")")
+end
+
+function _print_samplerinfo(io, m, samplerinfo::GenericSamplerInfo)
+end
 
 function _print_samplerinfo(io, m, samplerinfo::MCMCInfo)
     chains = samplerinfo.chains
@@ -83,17 +91,13 @@ function _print_samplerinfo(io, m, samplerinfo::MCMCInfo)
 end
 
 
-function _print_samplerinfo(io, m, samplerinfo::ImportanceSamplerInfo)
-end
-
-
 function _print_parameter_results(io, summary)
-    println(io, "Results")
+    println(io, "Results of sampling")
     _bold_line(io)
     nparams = summary.stats.param_stats.m
 
     fixed_param_names = get_fixed_names(summary.shape)
-    length(fixed_param_names) > 0 ? _print_fixed_parameters(io, samples, fixed_param_names) : nothing
+    length(fixed_param_names) > 0 ? _print_fixed_parameters(io, summary, fixed_param_names) : nothing
 
     for p in 1:nparams
         pname = getstring(summary.shape, p)
@@ -111,12 +115,13 @@ function _print_parameter_results(io, summary)
 end
 
 
-function _print_fixed_parameters(io, samples, fixed_names)
+function _print_fixed_parameters(io, summary, fixed_names)
     pstring = "fixed: "
     println(io, pstring)
     _thin_line(io, length=length(pstring)+1)
     for n in fixed_names
-        println(io,  "  " * n*" = ", @sprintf("%.5g", getindex(samples[1].v, Symbol(n))))
+        val = getproperty(summary.shape, Symbol(n)).shape.value
+        println(io,  "  " * n*" = ", @sprintf("%.5g", val))
         print(io, "\n")
     end
 end

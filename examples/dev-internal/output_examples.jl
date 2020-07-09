@@ -3,6 +3,7 @@
 using BAT
 using Distributions
 using IntervalSets
+using ValueShapes
 
 # ## Generate samples to be plotted
 likelihood = params -> begin
@@ -31,10 +32,9 @@ prior = BAT.NamedTupleDist(
 
 posterior = PosteriorDensity(likelihood, prior);
 
-samples, chains, summary = bat_sample(posterior, (10^5, 4), MetropolisHastings());
-#samples, summary = bat_sample(posterior, (10^5, 4), SobolSampler());
-chains[2].nsamples
+samples, summary, chains = bat_sample(posterior, 10^5, SobolSampler());
 display(summary)
+
 
 #nb # ### plain text output (for terminal)
 #nb show(stdout,"text/plain", summary)

@@ -28,11 +28,6 @@ struct GridSampler <: ImportanceSampler end
 export GridSampler
 
 
-struct ImportanceSamplerInfo <: SamplerInfo
-    algorithm::ImportanceSampler
-end
-
-
 function bat_sample_impl(
     rng::AbstractRNG,
     density::AnyDensityLike,
@@ -55,7 +50,7 @@ function bat_sample_impl(
 
     bat_samples = shape.(DensitySampleVector(samples, logvals, weight = weights))
 
-    info = ImportanceSamplerInfo(algorithm)
+    info = GenericSamplerInfo(algorithm)
     summary = Summary(bat_samples, density, info)
     return (result = bat_samples, summary=summary)
 end
@@ -110,5 +105,9 @@ function bat_sample_impl(
 
     posterior_samples = shape.(DensitySampleVector(v, posterior_logd, weight = weight))
     priorsmpl = bat_sample(prior, n)
-    return (result = posterior_samples, priorsmpl = priorsmpl)
+
+    info = GenericSamplerInfo(algorithm)
+    summary = Summary(posterior_samples, posterior, info)
+
+    return (result = posterior_samples, summary=summary, priorsmpl = priorsmpl)
 end
