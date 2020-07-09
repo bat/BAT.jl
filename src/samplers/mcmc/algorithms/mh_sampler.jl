@@ -46,7 +46,6 @@ mcmc_compatible(::MetropolisHastings, proposaldist::AbstractProposalDist, bounds
 _sample_weight_type(::Type{MetropolisHastings{Q,W,WS}}) where {Q,W,WS} = W
 
 
-
 mutable struct MHIterator{
     SP<:MCMCSpec,
     R<:AbstractRNG,

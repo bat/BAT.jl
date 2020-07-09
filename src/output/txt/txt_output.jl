@@ -1,24 +1,18 @@
 function Base.show(io::IO, mime::MIME"text/plain", summary::Summary)
-    stats = MCMCBasicStats(summary.samples)
-    samples = summary.samples
-
     println(io, "BAT.jl - Result Summary")
     _bold_line(io)
     _empty_line(io)
 
-    # print model: likelihood, prior
-    _print_model(io, mime, summary)
+    println(io, "Model")
+    _bold_line(io, length=6)
+    _print_likelihood(io, mime, summary)
+    _print_prior(io, mime, summary)
 
-    # print sampling: algorithm, number of samples, chains, convergence...
-    _print_sampling(io, mime, summary)
+    _print_sampling(io, mime, summary) # algorithm, number of samples, (chains, convergence)
 
-    # print results of sampling: mean, mode
-    println(io, "Results")
-    _bold_line(io)
-    _print_parameters(io, stats, samples)
-
-    # print covariance
-    _print_covariance(io, stats, samples)
+    # esults of sampling: mean, mode
+    _print_parameter_results(io, summary)
+    _print_covariance(io, summary)
 end
 
 
@@ -32,30 +26,30 @@ function _thin_line(io::IO; length=25, indent=0)
 end
 
 function _empty_line(io::IO; lines=1)
-    print(io, repeat('\n', lines))
+    println(io, repeat('\n', lines))
 end
 
 
 
-function _print_model(io, m,  summary::Summary)
-    println(io, "Model")
-    _bold_line(io, length=6)
+function _print_likelihood(io, m,  summary::Summary)
+    likelihood = summary.posterior.likelihood
 
     print(io,  " likelihood:  ")
-    display_rich(io, m, summary.chains[1].spec.posterior.likelihood)
+    _print_pretty(io, m, likelihood)
 
-    if isa(summary.chains[1].spec.posterior.likelihood, GenericDensity)
-        file, line = functionloc(summary.chains[1].spec.posterior.likelihood.f)
+    if isa(likelihood, GenericDensity)
+        file, line = functionloc(likelihood.f)
         println(io, "\n              defined in \"", file, "\", line ", line )
     end
+end
 
+function _print_prior(io, m,  summary::Summary)
+    prior = summary.posterior.prior.dist._internal_distributions
     print(io, "\n prior:       ")
-    a = summary.chains[1].spec.posterior.prior.dist._internal_distributions
-    i = 0
-    for k in keys(a)
-        i>0 ? print("              ") : nothing
-        println(k, " = ", getindex(a, k))
-        i += 1
+
+    for (i,k) in enumerate(keys(prior))
+        i>1 ? print("              ") : nothing
+        println(k, " = ", getindex(prior, k))
     end
     _empty_line(io)
 end
@@ -65,63 +59,60 @@ function _print_sampling(io, m,  summary::Summary)
     println(io, "Sampling")
     _bold_line(io)
 
-    algorithm = summary.chains[1].spec.algorithm
-
     print(io, " algorithm: ")
-    display_rich(io, m, algorithm)
+    _print_pretty(io, m, summary.samplerinfo.algorithm)
     _empty_line(io)
 
-    nsamples = length(summary.samples)
-    s = summary.chains[1].info.tuned
+    println(io, " total number of samples:", repeat(' ', 6), summary.nsamples)
+    _print_samplerinfo(io, m, summary.samplerinfo)
 
-    println(io, " total number of samples:", repeat(' ', 6), nsamples)
-
-    if _has_chains(algorithm)
-        chains = summary.chains
-        nchains = length(chains)
-        n_tuned_chains = count(c -> c.info.tuned, chains)
-        n_converged_chains = count(c -> c.info.converged, chains)
-
-        println(io, " number of chains:", repeat(' ', 13), nchains)
-        println(io, " number of chains tuned:", repeat(' ', 7), n_tuned_chains)
-        println(io, " number of chains converged:", repeat(' ', 3), n_converged_chains)
-        println(io, " number of samples per chain:", repeat(' ', 2), Int(nsamples/nchains))
-    end
     _empty_line(io)
 end
 
 
-function _has_chains(algorithm::AbstractSamplingAlgorithm)
-    isa(algorithm, ImportanceSampler) ? (return false) : (return true)
+function _print_samplerinfo(io, m, samplerinfo::MCMCInfo)
+    chains = samplerinfo.chains
+    nchains = length(chains)
+    n_tuned_chains = count(c -> c.info.tuned, chains)
+    n_converged_chains = count(c -> c.info.converged, chains)
+
+    println(io, " number of chains:", repeat(' ', 13), nchains)
+    println(io, " number of chains tuned:", repeat(' ', 7), n_tuned_chains)
+    println(io, " number of chains converged:", repeat(' ', 3), n_converged_chains)
+    println(io, " number of samples per chain:", repeat(' ', 2), chains[1].nsamples)
 end
 
 
-#TODO
-function _print_parameters(io, stats, samples)
-    nparams = stats.param_stats.m
+function _print_samplerinfo(io, m, samplerinfo::ImportanceSamplerInfo)
+end
+
+
+function _print_parameter_results(io, summary)
+    println(io, "Results")
+    _bold_line(io)
+    nparams = summary.stats.param_stats.m
+
+    fixed_param_names = get_fixed_names(summary.shape)
+    length(fixed_param_names) > 0 ? _print_fixed_parameters(io, samples, fixed_param_names) : nothing
 
     for p in 1:nparams
-        pname = getstring(samples, p)
+        pname = getstring(summary.shape, p)
         pstring = "$p. $pname:"
         println(io, pstring)
         _thin_line(io, length=length(pstring)+1)
 
-        println(io, "  mean ± std.dev. = ", @sprintf("%.5g",stats.param_stats.mean[p]),
-                " ± ", @sprintf("%.5g", sqrt(stats.param_stats.cov[p, p])))
-        println(io, "  global mode     = ", @sprintf("%.5g",stats.mode[p]))
-        println(io, "  marginal mode   = ", "not yet implemented (WIP)")
+        println(io, "  mean ± std.dev. = ", @sprintf("%.5g", summary.stats.param_stats.mean[p]),
+                " ± ", @sprintf("%.5g", sqrt(summary.stats.param_stats.cov[p, p])))
+        println(io, "  global mode     = ", @sprintf("%.5g",  summary.stats.mode[p]))
+        println(io, "  marginal mode   = ",  @sprintf("%.5g", summary.marginalmodes[p]))
         print(io, "\n")
-    end
-
-    fixed_names = get_fixed_names(varshape(samples))
-    if length(fixed_names) > 0
-        _print_fixed_parameters(io, samples, fixed_names)
     end
 
 end
 
+
 function _print_fixed_parameters(io, samples, fixed_names)
-    pstring = "fixed parameters: "
+    pstring = "fixed: "
     println(io, pstring)
     _thin_line(io, length=length(pstring)+1)
     for n in fixed_names
@@ -131,30 +122,9 @@ function _print_fixed_parameters(io, samples, fixed_names)
 end
 
 
-
-function _print_covariance(io, stats, samples)
+function _print_covariance(io, summary)
     println(io, "covariance matrix: ")
     _thin_line(io, length=19)
-    cov = stats.param_stats.cov
-    Base.print_array(io, round.(cov, sigdigits=6))
-
-    # nparams = stats.param_stats.m
-    # for i in 1:nparams
-    #     print(io, "  ")
-    #     for j in 1:nparams
-    #         s = @sprintf("%.5g", stats.param_stats.cov[i, j])
-    #         print(io, s, "  ")
-    #     end
-    #     print(io, "\n")
-    # end
-end
-
-
-
-
-
-function Base.show(io::IO, m::MIME"text/plain", algorithm::MetropolisHastings)
-    proposal = algorithm.proposalspec
-    weighting = algorithm.weighting
-    println(io, "MetropolisHastings(", proposal, ", ", weighting, ")")
+    cov = summary.stats.param_stats.cov
+    Base.print_array(io, round.(cov, sigdigits=4))
 end

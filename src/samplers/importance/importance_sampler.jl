@@ -26,6 +26,11 @@ Sample from equidistantly distributed points in each dimension.
 struct GridSampler <: ImportanceSampler end
 
 
+struct ImportanceSamplerInfo <: SamplerInfo
+    algorithm::ImportanceSampler
+end
+
+
 function bat_sample_impl(
     rng::AbstractRNG,
     density::AnyPosterior,
@@ -50,7 +55,10 @@ function bat_sample_impl(
     weights = exp.(logvals)
 
     bat_samples = shape.(DensitySampleVector(samples, logvals, weight = weights))
-    return (result = bat_samples,)
+
+    info = ImportanceSamplerInfo(algorithm)
+    summary = Summary(bat_samples, density, info)
+    return (result = bat_samples, summary=summary)
 end
 
 

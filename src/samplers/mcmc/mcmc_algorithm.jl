@@ -102,6 +102,10 @@ end
     converged::Bool
 end
 
+struct MCMCInfo <: SamplerInfo
+    algorithm::MCMCAlgorithm
+    chains::Any #TODO
+end
 
 
 @doc doc"""

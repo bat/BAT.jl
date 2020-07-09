@@ -121,7 +121,6 @@ function mcmc_sample!(
 end
 
 
-
 function bat_sample_impl(
     rng::AbstractRNG,
     posterior::AbstractPosteriorDensity,
@@ -156,7 +155,10 @@ function bat_sample_impl(
     )
 
     samples = varshape(posterior).(unshaped_samples)
-    (result = samples, chains = chains)
+    info = MCMCInfo(algorithm, chains)
+    summary = Summary(samples, posterior, info)
+
+    (result = samples, chains = chains, summary=summary)
 end
 
 
