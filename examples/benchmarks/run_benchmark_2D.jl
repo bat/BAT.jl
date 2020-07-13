@@ -5,7 +5,7 @@ include("utils.jl")
 include("functions_2D.jl")
 
 algorithm = MetropolisHastings()
-n_chains = 8
+n_chains = 10
 n_samples = 10^5
 
 for i in 1:length(name2D)

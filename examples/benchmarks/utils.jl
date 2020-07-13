@@ -1,6 +1,8 @@
 #1D functions
 function multimodal_1D(sample_sats::Vector{Vector{Float64}},analytical_stats::Vector{Vector{Any}})
     new_analytical_stats = []
+	print(analytical_stats)
+	print(sample_sats)
     for i in 1:length(sample_stats)
         push!(new_analytical_stats,one_multimodal_1D(sample_stats[i],analytical_stats[i]))
     end
@@ -91,12 +93,11 @@ end
 
 function plot1D(
 	samples::DensitySampleVector,
-	posterior::BAT.PosteriorDensity,
+	testfunctions::Dict,
 	name::String,
-	analytical_stats::Vector{Any},
 	sample_stats::Vector{Float64})
 
-	func = k->exp(posterior.likelihood.f((x=k,)).value)
+	func = k->exp(testfunctions[name].posterior.likelihood.f((x=k,)).value)
 
     hunnorm = fit(Histogram, samples.v.x,FrequencyWeights(samples.weight),nbins=400)
 	h = fit(Histogram, samples.v.x,FrequencyWeights(samples.weight),nbins=400)
@@ -107,7 +108,6 @@ function plot1D(
 
 	plot!(edge_mids,broadcast(func,edge_mids),label="Analytical")
 	savefig(string("plots1D/",name,".pdf"))
-
 
     nun = convert(Int64,floor(sum(hunnorm.weights)/10))
     unweighted_samples = bat_sample(samples, nun).result.v.x
@@ -158,17 +158,32 @@ function plot1D(
     plot!(x, pdf.(d, x)*sum(hpull.weights)*binlength,label="")
     savefig(string("plots1D/",name,"_pull.pdf"))
 
-    length(analytical_stats) != 4 ? push!(analytical_stats,ndf) : analytical_stats[4] = ndf
-    length(sample_stats)     != 4 ? push!(sample_stats,chi2)     : sample_stats[4] = chi2
+    if(testfunctions[name].chi2[1] == 9999)
+		testfunctions[name].chi2[1]=ndf
+	end
+    length(sample_stats) != 4 ? push!(sample_stats,chi2)     : sample_stats[4] = chi2
+
+	test_result = BAT.ApproximateTwoSampleKSTest(
+		unweighted_samples,
+		edges[1]:(edges[end]-edges[1])/length(unweighted_samples):edges[end],
+		ones(length(unweighted_samples)),
+		broadcast(func,edges[1]:(edges[end]-edges[1])/length(unweighted_samples):edges[end])
+		)
+
+		if(testfunctions[name].ks[1] > 999)
+			testfunctions[name].ks[1]=HypothesisTests.pvalue(test_result)
+		end
+
+		if(testfunctions[name].ahmi[1] > 999)
+			testfunctions[name].ahmi[1]=bat_integrate(samples,AHMIntegration()).result.val
+		end
 
 	return h
 end
 
-
 function run1D(
-	posterior::BAT.PosteriorDensity,
-	name::String,
-    analytical_stats::Vector{Any},
+	key::String,
+	testfunctions::Dict,
     sample_stats::Vector{Float64},
     run_stats::Vector{Float64},
     n_runs=1
@@ -176,13 +191,13 @@ function run1D(
 
     sample_stats_all = []
 
-    samples, chains = bat_sample(posterior, (n_samples, n_chains), algorithm)
+    samples, chains = bat_sample(testfunctions[key].posterior, (n_samples, n_chains), algorithm)
     for i in 1:n_runs
         time_before = time()
-        samples, chains = bat_sample(posterior, (n_samples, n_chains), algorithm)
+        samples, chains = bat_sample(testfunctions[key].posterior, (n_samples, n_chains), algorithm)
         time_after = time()
 
-    	h = plot1D(samples, posterior, name, analytical_stats,sample_stats)
+    	h = plot1D(samples,testfunctions,key,sample_stats)# posterior, key, analytical_stats,sample_stats)
 
         sample_stats[1] = mode(samples)[1].x
         sample_stats[2] = mean(samples)[1].x
@@ -196,10 +211,21 @@ function run1D(
 end
 
 function make_1D_results(
-	name::Vector{String},
-	sample_stats::Vector{Vector{Float64}},
-	analytical_stats::Vector{Vector{Any}})
+	testfunctions::Dict,
+	sample_stats::Vector{Vector{Float64}})
+	#analytical_stats::Vector{Vector{Any}})
 
+	name = Vector{String}()
+	analytical_stats = Vector{Vector{Any}}()
+	ks_p_val = Vector{Float64}()
+	ahmi_val = Vector{Float64}()
+	for (k,v) in testfunctions
+		push!(name,k)
+		push!(analytical_stats,[v.mode,v.mean,v.var,v.chi2[1]])
+		push!(ks_p_val,round(v.ks[1],digits=4))
+		push!(ahmi_val,round(v.ahmi[1],digits=4))
+	end
+	print(analytical_stats)
     statistics_names = ["mode","mean","var","chi2"]
     comparison = ["target","test","diff (abs)","diff (rel)"]
     analytical_stats = multimodal_1D(sample_stats,analytical_stats)
@@ -209,25 +235,28 @@ function make_1D_results(
     diff_stats_rel = round.(diff_stats_abs ./ analytical_stats * 100,digits=4)
     comparison_vals = [analytical_stats,sample_stats,diff_stats_abs,diff_stats_rel]
 
-    final_header = Vector{Any}(undef,length(statistics_names)*length(comparison)+1)
-    final_table = Array{Any}(undef,length(name),length(statistics_names)*length(comparison)+1)
-
+    #final_header = Vector{Any}(undef,length(statistics_names)*length(comparison)+1)
+	#final_table = Array{Any}(undef,length(name),length(statistics_names)*length(comparison)+1)
+	final_header = Vector{Any}(undef,length(name)+1)
+	final_table = Array{Any}(undef,length(statistics_names)*length(comparison)+1+1,length(name)+1)
     final_header[1] = "name"
     for j in 1:length(statistics_names)
         for k in 1:length(comparison)
-            final_header[1+(j-1)*length(statistics_names)+k] = string(statistics_names[j]," ",comparison[k])
+            final_table[(j-1)*length(statistics_names)+k,1] = string(statistics_names[j]," ",comparison[k])
         end
     end
-    final_table[:,1]=name
+    final_header[2:end]=name
     for i in 1:length(name)
         for j in 1:length(statistics_names)
-            final_table[i,1+(j-1)*length(statistics_names)+1] = analytical_stats[i,j]
-            final_table[i,1+(j-1)*length(statistics_names)+2] = sample_stats[i,j]
-            final_table[i,1+(j-1)*length(statistics_names)+3] = diff_stats_abs[i,j]
-            final_table[i,1+(j-1)*length(statistics_names)+4] = diff_stats_rel[i,j]
+            final_table[(j-1)*length(statistics_names)+1,i+1] = analytical_stats[i,j]
+            final_table[(j-1)*length(statistics_names)+2,i+1] = sample_stats[i,j]
+            final_table[(j-1)*length(statistics_names)+3,i+1] = diff_stats_abs[i,j]
+            final_table[(j-1)*length(statistics_names)+4,i+1] = diff_stats_rel[i,j]
         end
     end
 
+	final_table[length(statistics_names)*length(comparison)+1,:] = ["KS test p value",ks_p_val...]
+	final_table[length(statistics_names)*length(comparison)+2,:] = ["AHMI Integral",ahmi_val...]
 	f = open("results/results_1D.txt","w")
     pretty_table(f,final_table,final_header)
     close(f)
@@ -247,6 +276,8 @@ function save_stats_1D(name::Vector{String},
         append!(table_stats,[run_stats_table[i,:]])
     end
     table_stats = reshape(vcat(table_stats...),length(table_stats[1]),length(table_stats))
+	table_stats[1:end,4] = round.(table_stats[1:end,4],digits=0)
+	table_stats[1:end,2:end] = Int.(table_stats[1:end,2:end])
 	f = open("results/run_stats_1D.txt","w")
     pretty_table(f,table_stats,["name",run_stats_names...])
     close(f)
@@ -285,6 +316,9 @@ function plot2D(samples::DensitySampleVector,
 
     ndf = nbinx*nbiny
     chi2 = 0
+	v = Vector{Array{Float64,1}}()
+	logval = Vector{Float64}()
+	w = Vector{Float64}()
 
     for i in 1:length(hunnorm.edges[1])-1
         for j in 1:length(hunnorm.edges[2])-1
@@ -304,11 +338,26 @@ function plot2D(samples::DensitySampleVector,
             else
                 ndf = ndf-1
             end
+
+			push!(v,[binmidx,binmidy])
+			push!(logval,anaval)
+			push!(w,anaval)
         end
     end
 
     length(analytical_stats) != 4 ? push!(analytical_stats,ndf) : analytical_stats[4] = ndf
-    length(sample_stats)     != 4 ? push!(sample_stats,chi2)     : sample_stats[4] = chi2
+    length(sample_stats)     < 4 ? push!(sample_stats,chi2)     : sample_stats[4] = chi2
+	##KS Test
+	#iid_sample = bat_sample(posterior.likelihood)
+	#func = k -> exp(posterior.likelihood.f((x=k[1],y=k[2])).value)
+	#vu = vcat(collect(Iterators.product(hunnorm.edges[1][1]:(hunnorm.edges[1][end]-hunnorm.edges[1][1])/sqrt(length(unweighted_samples)):hunnorm.edges[1][end],hunnorm.edges[2][1]:(hunnorm.edges[2][end]-hunnorm.edges[2][1])/sqrt(length(unweighted_samples)):hunnorm.edges[2][end]))...)
+	#v = [[i[1],i[2]] for i in vu]
+	#logval = broadcast(func,v)
+	#w = logval
+	theshape = varshape(posterior)
+	dsv = theshape.(DensitySampleVector(v, logval, weight = w))
+	ksval = bat_compare(unweighted_samples,dsv).ks_p_values
+	length(sample_stats) < 5 ? push!(sample_stats,ksval) : sample_stats[5] = ksval
 
 	#plot(hunnorm,(1,2),seriestype=:smallest_intervals)
 	plot(unweighted_samples,(:x,:y),seriestype=:smallest_intervals)
@@ -399,6 +448,12 @@ function make_2D_results(sample_stats2D::Vector{Vector{Any}},analytical_stats2D:
             table[i,1+(j-1)*length(comparison)+4]  =  round.(diff_rel,digits=4)
         end
     end
+	full_table = Array{Any}(undef,length(name2D)+1,length(stats_names2D)*length(comparison)+1)
+	full_table[1,:] = header
+	full_table[2:end,:] = table
+	full_table = permutedims(full_table)
+	table = full_table[2:end,:]
+	header = full_table[1,:]
 	f = open("results/results_2D.txt","w")
     pretty_table(f,table,header)
     close(f)
@@ -415,6 +470,8 @@ function save_stats_2D(name::Vector{String},run_stats::Vector{Vector{Any}},run_s
         append!(table_stats,[run_stats_table[i,:]])
     end
     table_stats = reshape(vcat(table_stats...),length(table_stats[1]),length(table_stats))
+	table_stats[1:end,4] = round.(table_stats[1:end,4],digits=0)
+	table_stats[1:end,2:end] = Int.(table_stats[1:end,2:end])
 	f = open("results/run_stats_2D.txt","w")
     pretty_table(f,table_stats,["name",run_stats_names...])
     close(f)

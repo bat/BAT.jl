@@ -10,11 +10,6 @@ gauss2D = let #μ = [15, 10], σ = [1.5, 2.5]
     end
 end
 
-function analytical_function_gauss2D(x,y)
-    sig = Matrix{Float64}([1.5^2 1.5*2.5*0.4 ; 1.5*2.5*0.4 2.5^2])
-    return pdf(MvNormal([15,10],sig),[x,y])
-end
-
 prior_gauss2D = NamedTupleDist(
 x = 0.0..30.0,
 y = 0.0..30.0
