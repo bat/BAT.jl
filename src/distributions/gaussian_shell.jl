@@ -1,6 +1,5 @@
 using SpecialFunctions
-using Random123
-
+using Random123 
 import AdaptiveRejectionSampling
 
 """
@@ -12,6 +11,10 @@ Gaussian Shell (Caldwell et al.)[https://arxiv.org/abs/1808.08051].
 - `r::Real`: The radius of the Gaussian shell distribution.
 - `w::Real`: Variance of the Gaussian shell distribution.
 - `n::Int`: Number of dimensions.
+
+Constructors:
+```julia
+BAT.GaussianShell(r::Real, w::Real, c::Vector, n::Int)
 """
 struct GaussianShell{T<:Real, V<:AbstractVector} <: ContinuousMultivariateDistribution
     r::T
@@ -50,9 +53,11 @@ function Distributions._rand!(rng::AbstractRNG, d::GaussianShell, X::AbstractMat
 end
 
 function Distributions._logpdf(d::GaussianShell, x::AbstractArray)
-    normalization = -log(sqrt(2*π*(d.w)^2))
+    pdf_normalization = -log(sqrt(2*π*(d.w)^2))
+    ρ = LinearAlgebra.norm(x)
+    geometric_correction = log(nball_surf_area(ρ, d.n))
     integral_result = -(sqrt(sum((x .- d.c).^2)) - d.r)^2 / (2*d.w^2)
-    result = integral_result + normalization
+    result = integral_result + pdf_normalization - geometric_correction
     return result
 end
 
