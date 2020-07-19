@@ -1,6 +1,7 @@
 using SpecialFunctions
 using Random123 
 import AdaptiveRejectionSampling
+#import HCubature
 
 """
     BAT.GaussianShell([r=5, w=2, n=2])
@@ -16,16 +17,20 @@ Constructors:
 ```julia
 BAT.GaussianShell(r::Real, w::Real, c::Vector, n::Int)
 """
-struct GaussianShell{T<:Real, V<:AbstractVector} <: ContinuousMultivariateDistribution
+struct GaussianShell{T<:Real, V<:AbstractVector, F<:Float64} <: ContinuousMultivariateDistribution
     r::T
     w::T
     c::V
     n::Int
+    lognorm::F
 end
+
 function GaussianShell(;r::Real=5, w::Real=2, n::Integer=2)
     c = zeros(n)
     r,w = promote(r, w)
-    GaussianShell(r, w, c, n)
+    f(x) = x^(n-1)*exp(-(x - r)^2 / (2*w^2))
+    lognorm = log((sqrt(2)*π^((n-1)/2)) / (gamma(n/2)*w)*QuadGK.quadgk(f, 0, r+w*20)[1])
+    GaussianShell(r, w, c, n, lognorm)
 end
 
 nball_surf_area(r, ndims) = 2 * π^(ndims/2) / gamma(ndims/2) * r^(ndims-1)
@@ -54,10 +59,8 @@ end
 
 function Distributions._logpdf(d::GaussianShell, x::AbstractArray)
     pdf_normalization = -log(sqrt(2*π*(d.w)^2))
-    ρ = LinearAlgebra.norm(x)
-    geometric_correction = log(nball_surf_area(ρ, d.n))
     integral_result = -(sqrt(sum((x .- d.c).^2)) - d.r)^2 / (2*d.w^2)
-    result = integral_result + pdf_normalization - geometric_correction
+    result = integral_result + pdf_normalization - d.lognorm
     return result
 end
 
