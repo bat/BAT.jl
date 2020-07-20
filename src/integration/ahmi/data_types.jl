@@ -83,7 +83,7 @@ function DataSet(
     if iszero(subsetsize)
         subsetsize = 100.0
     end
-    subsetsize = min(maxbatchsize, subsetsize)
+    subsetsize = minimum(typeof(maxbatchsize), (maxbatchsize, subsetsize))
 
     ids = zeros(Int, N)
     cnt = 1
