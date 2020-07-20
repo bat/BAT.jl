@@ -4,25 +4,20 @@ using BAT
 using Test
 
 using LinearAlgebra
-using ArraysOfArrays, Distributions
+using ArraysOfArrays, ValueShapes, Distributions
 
 @testset "const_density" begin
-    gen_density_1() = @inferred BAT.ConstDensity(
-        BAT.HyperRectBounds{Float64}(BAT.HyperRectVolume([-1., 0.5], [2.,1]),
-        [BAT.hard_bounds, BAT.hard_bounds]),
-        one)
+    gen_density_1() =  BAT.ConstDensity(LogDVal(0), BAT.HyperRectBounds{Float64}(BAT.HyperRectVolume([-1., 0.5], [2.,1]), [BAT.hard_bounds, BAT.hard_bounds]))
 
-    gen_density_n() = @inferred BAT.ConstDensity(BAT.HyperRectBounds([-1., 0.5], [2.,1],
-        BAT.hard_bounds), normalize)
-
+    gen_density_n() = BAT.ConstDensity(normalize, BAT.HyperRectBounds([-1., 0.5], [2.,1], BAT.hard_bounds))
 
     @testset "BAT.ConstDensity" begin
-        density = gen_density_1()
-        @test typeof(density) <: BAT.ConstDensity{BAT.HyperRectBounds{Float64}, Float64}
-        @test density.log_value == zero(Float64)
+        density = @inferred gen_density_1()
+        @test typeof(density) == ConstDensity{Int,BAT.HyperRectBounds{Float64}}
+        @test density.value == LogDVal(zero(Int))
 
-        density = gen_density_n()
-        @test density.log_value ≈ -0.4054651081081644
+        density = @inferred gen_density_n()
+        @test logvalof(density.value) ≈ -0.4054651081081644
 
         pbounds = @inferred BAT.var_bounds(density)
         @test pbounds.vol.lo ≈ [-1., 0.5]
@@ -30,8 +25,7 @@ using ArraysOfArrays, Distributions
     end
 
     @testset "convert" begin
-        cdensity = @inferred convert(
-            AbstractDensity, BAT.HyperRectBounds([-1., 0.5], [2.,1], BAT.hard_bounds))
+        cdensity = @inferred BAT.ConstDensity(normalize, BAT.HyperRectBounds([-1., 0.5], [2.,1], BAT.hard_bounds))
         @test typeof(cdensity) <: BAT.ConstDensity
     end
 

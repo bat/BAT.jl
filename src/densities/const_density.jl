@@ -1,42 +1,39 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct ConstDensity{B<:Union{VarVolumeBounds,Missing},T<:Real} <: DistLikeDensity
+struct ConstDensity{T<:Real,B<:Union{VarVolumeBounds,Missing}} <: DistLikeDensity
+    value::LogDVal{T}
     bounds::B
-    log_value::T
 end
 
 
-ConstDensity(bounds::Missing, ::typeof(one)) = ConstDensity(bounds, 0)
+ConstDensity(value::LogDVal) = ConstDensity(value, missing)
 
-ConstDensity(bounds::VarVolumeBounds{T,V}, ::typeof(one))  where {T,V} =
-    ConstDensity(bounds, zero(T))
+ConstDensity(::typeof(normalize), bounds::Union{VarVolumeBounds,Missing} = missing) =
+    ConstDensity(LogDVal(-log_volume(spatialvolume(bounds))), bounds)
 
-ConstDensity(bounds::VarVolumeBounds, ::typeof(normalize)) =
-    ConstDensity(bounds, -log_volume(spatialvolume(bounds)))
+Base.@deprecate ConstDensity(::typeof(one)) ConstDensity(LogDVal(0))
+Base.@deprecate ConstDensity(::typeof(one), ::Missing) ConstDensity(LogDVal(0), missing)
+Base.@deprecate ConstDensity(::typeof(one), bounds::VarVolumeBounds) ConstDensity(LogDVal(0), bounds)
 
-
-Base.convert(::Type{ConstDensity}, bounds::VarVolumeBounds) = ConstDensity(bounds, one)
-Base.convert(::Type{AbstractDensity}, bounds::VarVolumeBounds) = convert(ConstDensity, bounds)
-
-Base.convert(::Type{ConstDensity}, value::AbstractDensityValue) = ConstDensity(missing, logvalof(value))
-Base.convert(::Type{AbstractDensity}, value::AbstractDensityValue) = convert(ConstDensity, value)
+Base.convert(::Type{ConstDensity}, value::LogDVal) = ConstDensity(value)
+Base.convert(::Type{AbstractDensity}, value::LogDVal) = convert(ConstDensity, value)
 
 
-@inline logvalof_unchecked(density::ConstDensity, v::Any) = density.log_value
+@inline logvalof_unchecked(density::ConstDensity, v::Any) = logvalof(density.value)
 
 
 var_bounds(density::ConstDensity) = density.bounds
 
 
-ValueShapes.varshape(density::ConstDensity) = ArrayShape{Real}(totalndof(density.bounds))
+ValueShapes.varshape(density::ConstDensity{T,<:VarVolumeBounds}) where T = ArrayShape{Real}(totalndof(density.bounds))
 
-ValueShapes.varshape(density::ConstDensity{<:Missing}) = missing
+ValueShapes.varshape(density::ConstDensity{T,Missing}) where T = missing
 
 
 Distributions.sampler(density::ConstDensity) = spatialvolume(var_bounds(density))
 
-function Statistics.cov(density::ConstDensity{<:HyperRectBounds})
+function Statistics.cov(density::ConstDensity{T,<:HyperRectBounds}) where T
     vol = spatialvolume(var_bounds(density))
     #flat_var = (vol.hi - vol.lo).^2 / 12
     flat_var = var.(Uniform.(vol.lo, vol.hi))

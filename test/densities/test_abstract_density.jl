@@ -4,13 +4,12 @@ using BAT
 using Test
 
 using LinearAlgebra, Random
-using ArraysOfArrays, Distributions, PDMats, StatsBase
+using ArraysOfArrays, ValueShapes, Distributions, PDMats, StatsBase
 
 struct _TestDensityStruct <: AbstractDensity
 end
 
 @testset "abstract_density" begin
-
     ValueShapes.totalndof(td::_TestDensityStruct) = Int(3)
     BAT.sampler(td::_TestDensityStruct) = BAT.sampler(MvNormal(ones(3), PDMat(Matrix{Float64}(I,3,3))))
 
