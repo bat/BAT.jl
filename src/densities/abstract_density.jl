@@ -287,7 +287,7 @@ function logvalgradof(
     ForwardDiff.gradient!(result, log_f, v_unshaped, config)
     logd = DiffResults.value(result)
 
-    gradshape = map_const_shapes(zero, shape)
+    gradshape = replace_const_shapes(ValueShapes.const_zero_shape, shape)
 
     grad_logd = gradshape(grad_logd_unshaped)
     (logd = logd, grad_logd = grad_logd)
@@ -387,18 +387,6 @@ Returns a function that is equivalent to
 ```
 """
 logvalgradof(density::AbstractDensity) = LogValGradOfDensity(density)
-
-
-
-function map_const_shapes end
-
-map_const_shapes(f::Function, shape::ScalarShape) = shape
-
-map_const_shapes(f::Function, shape::ArrayShape) = shape
-
-map_const_shapes(f::Function, shape::ConstValueShape) = ConstValueShape(f(shape.value))
-
-map_const_shapes(f::Function, shape::NamedTupleShape) = NamedTupleShape(map(s -> map_const_shapes(f, s), (;shape...)))
 
 
 

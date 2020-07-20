@@ -19,8 +19,12 @@ function bat_findmode_impl(target::AnySampleable, algorithm::ModeAsDefined)
     (result = StatsBase.mode(target),)
 end
 
+function bat_findmode_impl(target::Distribution, algorithm::ModeAsDefined)
+    (result = varshape(target)(StatsBase.mode(unshaped(target))),)
+end
+
 function bat_findmode_impl(target::DistributionDensity, algorithm::ModeAsDefined)
-    (result = StatsBase.mode(target.dist),)
+    bat_findmode_impl(parent(target), algorithm)
 end
 
 
