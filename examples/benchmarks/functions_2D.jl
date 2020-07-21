@@ -12,8 +12,7 @@ gauss2D = (posterior=MvNormal([15,10],sig),mode=analytical_stats_gauss2D[1],mean
 analytical_stats_multi_cauchy2D = Vector{Any}(undef,length(stats_names2D))
 analytical_stats_multi_cauchy2D[1] = [[-5,-5],[-5,5],[5,-5],[5,5]]      #analytical_mode_multi_cauchy2D
 analytical_stats_multi_cauchy2D[2] = [0,0]                              #analytical_mean_multi_cauchy2D
-analytical_stats_multi_cauchy2D[3] = [71.98080,71.98080]                #analytical_var_multi_cauchy2D
-analytical_integral_multi_cauchy2D = 0.936429
+analytical_stats_multi_cauchy2D[3] = [Inf,Inf]                #analytical_var_multi_cauchy2D
 multi_cauchy2D = (posterior=BAT.MultimodalCauchy(µ=5.,σ=4.,n=2),mode=analytical_stats_multi_cauchy2D[1],mean=analytical_stats_multi_cauchy2D[2],var=analytical_stats_multi_cauchy2D[3],chi2=[9999],ks=[9999.,9999.],ahmi=[9999.])
 function Statistics.cov(dist::BAT.MultimodalCauchy)
     cov(nestedview(rand(BAT.bat_determ_rng(), sampler(dist), 10^5)))
@@ -21,9 +20,9 @@ end
 
 ################function funnel 2D##############################################################
 analytical_stats_funnel2D = Vector{Any}(undef,length(stats_names2D))
-analytical_stats_funnel2D[1] = [-0.443755,0.0]
-analytical_stats_funnel2D[2] = [0.011632983,0.0]
-analytical_stats_funnel2D[3] = [0.304725652,2.04919002]
+analytical_stats_funnel2D[1] = [-1.0,0.0]
+analytical_stats_funnel2D[2] = [0.0,0.0]
+analytical_stats_funnel2D[3] = [1.0,7.406718]
 funnel2D = (posterior=BAT.FunnelDistribution(1.,0.5,2),mode=analytical_stats_funnel2D[1],mean=analytical_stats_funnel2D[2],var=analytical_stats_funnel2D[3],chi2=[9999],ks=[9999.,9999.],ahmi=[9999.])
 function Statistics.cov(dist::BAT.FunnelDistribution)
     cov(nestedview(rand(BAT.bat_determ_rng(), sampler(dist), 10^5)))

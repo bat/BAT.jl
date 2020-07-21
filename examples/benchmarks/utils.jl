@@ -97,22 +97,41 @@ function plot1D(
 	name::String,
 	sample_stats::Vector{Float64})
 
-	#func = k->exp(testfunctions[name].posterior.likelihood.f((x=k,)).value)
 	func = k->pdf(testfunctions[name].posterior,[k])[1]
 
-    hunnorm = fit(Histogram, [BAT.flatview(samples.v)...],FrequencyWeights(BAT.flatview(samples.weight)),nbins=400)
-	h = fit(Histogram, [BAT.flatview(samples.v)...],FrequencyWeights(BAT.flatview(samples.weight)),nbins=400)
+	lo = minimum([BAT.flatview(samples.v)...])
+	hi = maximum([BAT.flatview(samples.v)...])
+	if(!isa(testfunctions_1D[name].posterior, BAT.FunnelDistribution))
+		lo, hi = quantile.(testfunctions_1D[name].posterior, [0.001, 0.999]) #BAT Distributions do not support quantiles
+	end
+	if(isa(testfunctions_1D[name].posterior, Distributions.Cauchy))
+		lo, hi = quantile.(testfunctions_1D[name].posterior, [0.01, 0.99]) #Cauchy needs smaller interval for useful plots however just for the plot
+	end
+	binning = range(lo, hi; length=200)
+
+    hunnorm = fit(Histogram, [BAT.flatview(samples.v)...],FrequencyWeights(BAT.flatview(samples.weight)),binning)
+	h = fit(Histogram, [BAT.flatview(samples.v)...],FrequencyWeights(BAT.flatview(samples.weight)),binning)
 	h = StatsBase.normalize(h)
-    plot(samples,1,seriestype = :smallest_intervals,normalize=true)
+	idx = BAT.asindex(samples, 1)
+	uvbd = EmpiricalDistributions.UvBinnedDist(h)
+	marg = BAT.MarginalDist((idx,),uvbd,varshape(samples))
+
+	plot(marg,1,seriestype = :smallest_intervals,normalize=true)
+
     edge_widths = h.edges[1][2:end]-h.edges[1][1:end-1]
-    edge_mids = h.edges[1][1:end-1].+edge_widths
+    edge_mids = h.edges[1][1:end-1].+ (0.5*edge_widths)
 
 	plot!(edge_mids,broadcast(func,edge_mids),label="Analytical")
 	savefig(string("plots1D/",name,".pdf"))
 
+	if(isa(testfunctions_1D[name].posterior, Distributions.Cauchy))
+		lo, hi = quantile.(testfunctions_1D[name].posterior, [0.001, 0.999])
+		binning = range(lo, hi; length=200)
+	end
+
     nun = convert(Int64,floor(sum(hunnorm.weights)/10))
     unweighted_samples = bat_sample(samples, nun).result
-    hunnorm = fit(Histogram, [BAT.flatview(unweighted_samples.v)...], nbins=400)
+    hunnorm = fit(Histogram, [BAT.flatview(unweighted_samples.v)...],binning)
 
     edges = hunnorm.edges[1]
     nbins = length(edges)-1
@@ -150,7 +169,7 @@ function plot1D(
 
     plot_diff_1D(bincenters,differences,err1,err2,err3,name)
 
-    hpull = fit(Histogram,pulls[pulls .!= 999],nbins=40)
+    hpull = fit(Histogram,pulls[pulls .!= 999],nbins=25)
     d = Normal(0,1)
     lo, hi = quantile.(d, [0.00001, 0.99999])
     x = range(lo, hi; length = 100)
@@ -166,14 +185,13 @@ function plot1D(
 
 	iid_sample = bat_sample(testfunctions[name].posterior,length([BAT.flatview(samples.v)...])).result
 	if(testfunctions[name].ks[1] > 999)
-		#testfunctions[name].ks[1]=HypothesisTests.pvalue(test_result)
 		testfunctions[name].ks[1]=bat_compare(samples,iid_sample).result.ks_p_values[1]
 	end
 
 	if(testfunctions[name].ahmi[1] > 999)
 		testfunctions[name].ahmi[1]=bat_integrate(samples,AHMIntegration()).result.val
 	end
-	#bat_compare
+
 	return h
 end
 
@@ -182,6 +200,9 @@ function run1D(
 	testfunctions::Dict,
     sample_stats::Vector{Float64},
     run_stats::Vector{Float64},
+	algorithm::BAT.AbstractSamplingAlgorithm,
+	n_samples::Integer,
+	n_chains::Integer,
     n_runs=1
 	)
 
@@ -220,7 +241,6 @@ function make_1D_results(
 		push!(ks_p_val,round(v.ks[1],digits=3))
 		push!(ahmi_val,round(v.ahmi[1],digits=3))
 	end
-	print(analytical_stats)
     statistics_names = ["mode","mean","var","chi2"]
     comparison = ["target","test","diff (abs)","diff (rel)"]
     analytical_stats = multimodal_1D(sample_stats,analytical_stats)
@@ -400,6 +420,9 @@ function run2D(
 	testfunctions::Dict,
     sample_stats::Vector{Any},
     run_stats::Vector{Any},
+	algorithm::BAT.AbstractSamplingAlgorithm,
+	n_samples::Integer,
+	n_chains::Integer,
 	n_runs=1)
 
     sample_stats_all = []
