@@ -1,11 +1,11 @@
 using BAT, ValueShapes, IntervalSets, Distributions, Plots
-using StatsBase, ArraysOfArrays, LinearAlgebra, LaTeXStrings, QuadGK, PrettyTables, HypothesisTests
+using StatsBase, ArraysOfArrays, LinearAlgebra, LaTeXStrings, QuadGK, PrettyTables, HypothesisTests, Statistics
 
 include("utils.jl")
 include("functions_1D.jl")
 
 algorithm = MetropolisHastings()
-n_chains = 10
+n_chains = 8
 n_samples = 10^5
 
 for i in 1:length(testfunctions_1D)

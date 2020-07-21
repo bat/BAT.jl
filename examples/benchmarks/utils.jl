@@ -97,10 +97,11 @@ function plot1D(
 	name::String,
 	sample_stats::Vector{Float64})
 
-	func = k->exp(testfunctions[name].posterior.likelihood.f((x=k,)).value)
+	#func = k->exp(testfunctions[name].posterior.likelihood.f((x=k,)).value)
+	func = k->pdf(testfunctions[name].posterior,[k])[1]
 
-    hunnorm = fit(Histogram, samples.v.x,FrequencyWeights(samples.weight),nbins=400)
-	h = fit(Histogram, samples.v.x,FrequencyWeights(samples.weight),nbins=400)
+    hunnorm = fit(Histogram, [BAT.flatview(samples.v)...],FrequencyWeights(BAT.flatview(samples.weight)),nbins=400)
+	h = fit(Histogram, [BAT.flatview(samples.v)...],FrequencyWeights(BAT.flatview(samples.weight)),nbins=400)
 	h = StatsBase.normalize(h)
     plot(samples,1,seriestype = :smallest_intervals,normalize=true)
     edge_widths = h.edges[1][2:end]-h.edges[1][1:end-1]
@@ -110,8 +111,8 @@ function plot1D(
 	savefig(string("plots1D/",name,".pdf"))
 
     nun = convert(Int64,floor(sum(hunnorm.weights)/10))
-    unweighted_samples = bat_sample(samples, nun).result.v.x
-    hunnorm = fit(Histogram, unweighted_samples, nbins=400)
+    unweighted_samples = bat_sample(samples, nun).result
+    hunnorm = fit(Histogram, [BAT.flatview(unweighted_samples.v)...], nbins=400)
 
     edges = hunnorm.edges[1]
     nbins = length(edges)-1
@@ -163,21 +164,16 @@ function plot1D(
 	end
     length(sample_stats) != 4 ? push!(sample_stats,chi2)     : sample_stats[4] = chi2
 
-	test_result = BAT.ApproximateTwoSampleKSTest(
-		unweighted_samples,
-		edges[1]:(edges[end]-edges[1])/length(unweighted_samples):edges[end],
-		ones(length(unweighted_samples)),
-		broadcast(func,edges[1]:(edges[end]-edges[1])/length(unweighted_samples):edges[end])
-		)
+	iid_sample = bat_sample(testfunctions[name].posterior,length([BAT.flatview(samples.v)...])).result
+	if(testfunctions[name].ks[1] > 999)
+		#testfunctions[name].ks[1]=HypothesisTests.pvalue(test_result)
+		testfunctions[name].ks[1]=bat_compare(samples,iid_sample).result.ks_p_values[1]
+	end
 
-		if(testfunctions[name].ks[1] > 999)
-			testfunctions[name].ks[1]=HypothesisTests.pvalue(test_result)
-		end
-
-		if(testfunctions[name].ahmi[1] > 999)
-			testfunctions[name].ahmi[1]=bat_integrate(samples,AHMIntegration()).result.val
-		end
-
+	if(testfunctions[name].ahmi[1] > 999)
+		testfunctions[name].ahmi[1]=bat_integrate(samples,AHMIntegration()).result.val
+	end
+	#bat_compare
 	return h
 end
 
@@ -190,7 +186,6 @@ function run1D(
 	)
 
     sample_stats_all = []
-
     samples, chains = bat_sample(testfunctions[key].posterior, (n_samples, n_chains), algorithm)
     for i in 1:n_runs
         time_before = time()
@@ -199,9 +194,9 @@ function run1D(
 
     	h = plot1D(samples,testfunctions,key,sample_stats)# posterior, key, analytical_stats,sample_stats)
 
-        sample_stats[1] = mode(samples)[1].x
-        sample_stats[2] = mean(samples)[1].x
-        sample_stats[3] = var(samples)[1].x
+        sample_stats[1] = mode(samples)[1]
+        sample_stats[2] = mean(samples)[1]
+        sample_stats[3] = var(samples)[1]
         run_stats[1] = n_samples
         run_stats[2] = n_chains
         run_stats[3] = time_after-time_before
@@ -222,17 +217,17 @@ function make_1D_results(
 	for (k,v) in testfunctions
 		push!(name,k)
 		push!(analytical_stats,[v.mode,v.mean,v.var,v.chi2[1]])
-		push!(ks_p_val,round(v.ks[1],digits=4))
-		push!(ahmi_val,round(v.ahmi[1],digits=4))
+		push!(ks_p_val,round(v.ks[1],digits=3))
+		push!(ahmi_val,round(v.ahmi[1],digits=3))
 	end
 	print(analytical_stats)
     statistics_names = ["mode","mean","var","chi2"]
     comparison = ["target","test","diff (abs)","diff (rel)"]
     analytical_stats = multimodal_1D(sample_stats,analytical_stats)
-    sample_stats = round.(permutedims(reshape(vcat(sample_stats...),length(sample_stats[1]),length(sample_stats))),digits=4)
-    analytical_stats = round.(permutedims(reshape(vcat(analytical_stats...),length(analytical_stats[1]),length(analytical_stats))),digits=4)
-    diff_stats_abs = round.(sample_stats-analytical_stats,digits=4)
-    diff_stats_rel = round.(diff_stats_abs ./ analytical_stats * 100,digits=4)
+    sample_stats = round.(permutedims(reshape(vcat(sample_stats...),length(sample_stats[1]),length(sample_stats))),digits=3)
+    analytical_stats = round.(permutedims(reshape(vcat(analytical_stats...),length(analytical_stats[1]),length(analytical_stats))),digits=3)
+    diff_stats_abs = round.(sample_stats-analytical_stats,digits=3)
+    diff_stats_rel = round.(diff_stats_abs ./ analytical_stats * 100,digits=3)
     comparison_vals = [analytical_stats,sample_stats,diff_stats_abs,diff_stats_rel]
 
     #final_header = Vector{Any}(undef,length(statistics_names)*length(comparison)+1)
@@ -288,23 +283,30 @@ end
 
 #2D functions
 
-function plot2D(samples::DensitySampleVector,
-	#analytical_integral::Real,
-	posterior::BAT.PosteriorDensity,
+function plot2D(
+	samples::DensitySampleVector,
+	testfunctions::Dict,
 	name::String,
-	analytical_stats::Vector{Any},
 	sample_stats::Vector{Any})
+	#
+	# samples::DensitySampleVector,
+	# #analytical_integral::Real,
+	# posterior::BAT.PosteriorDensity,
+	# name::String,
+	# analytical_stats::Vector{Any},
+	# sample_stats::Vector{Any})
 
     nbin = 400
-    h = fit(Histogram, (samples.v.x,samples.v.y) ,FrequencyWeights(samples.weight),nbins=nbin)
-    hunnorm = fit(Histogram, (samples.v.x,samples.v.y) ,FrequencyWeights(samples.weight),nbins=nbin)
+
+    h = fit(Histogram, (BAT.flatview(samples.v)[1,:],BAT.flatview(samples.v)[2,:]) ,FrequencyWeights(samples.weight),nbins=nbin)
+    hunnorm = fit(Histogram, (BAT.flatview(samples.v)[1,:],BAT.flatview(samples.v)[2,:]) ,FrequencyWeights(samples.weight),nbins=nbin)
 
 
     h = StatsBase.normalize(h)
 
     nun = convert(Int64,floor(sum(hunnorm.weights)/10))
     unweighted_samples = bat_sample(samples, nun).result
-    hunnorm = fit(Histogram, (unweighted_samples.v.x,unweighted_samples.v.y),nbins=nbin)
+    hunnorm = fit(Histogram, (BAT.flatview(unweighted_samples.v)[1,:],BAT.flatview(unweighted_samples.v)[2,:]),nbins=nbin)
     hana = fit(Histogram,([],[]),hunnorm.edges)
     hdiff = fit(Histogram,([],[]),hunnorm.edges)
 
@@ -320,12 +322,17 @@ function plot2D(samples::DensitySampleVector,
 	logval = Vector{Float64}()
 	w = Vector{Float64}()
 
+	#anafunc = x -> pdf(testfunctions[name].posterior,[x[1],x[2]])
+
     for i in 1:length(hunnorm.edges[1])-1
         for j in 1:length(hunnorm.edges[2])-1
             binmidx = (hunnorm.edges[1][i+1]-hunnorm.edges[1][i])/2 + hunnorm.edges[1][i]
             binmidy = (hunnorm.edges[2][j+1]-hunnorm.edges[2][j])/2 + hunnorm.edges[2][j]
             binarea = (hunnorm.edges[1][i+1]-hunnorm.edges[1][i]) * (hunnorm.edges[2][j+1]-hunnorm.edges[2][j])
-            anaval = exp(posterior.likelihood.f((x=binmidx,y=binmidy)).value)*sum(hunnorm.weights)*binarea
+
+			#anaval = exp(posterior.likelihood.f((x=binmidx,y=binmidy)).value)*sum(hunnorm.weights)*binarea
+			anaval = pdf(testfunctions[name].posterior,[binmidx,binmidy])*sum(hunnorm.weights)*binarea
+
             hana.weights[i,j] = convert(Int64,floor(anaval+0.5))
 
             differences[i,j] = (anaval-hunnorm.weights[i,j])
@@ -345,22 +352,26 @@ function plot2D(samples::DensitySampleVector,
         end
     end
 
-    length(analytical_stats) != 4 ? push!(analytical_stats,ndf) : analytical_stats[4] = ndf
-    length(sample_stats)     < 4 ? push!(sample_stats,chi2)     : sample_stats[4] = chi2
-	##KS Test
-	#iid_sample = bat_sample(posterior.likelihood)
-	#func = k -> exp(posterior.likelihood.f((x=k[1],y=k[2])).value)
-	#vu = vcat(collect(Iterators.product(hunnorm.edges[1][1]:(hunnorm.edges[1][end]-hunnorm.edges[1][1])/sqrt(length(unweighted_samples)):hunnorm.edges[1][end],hunnorm.edges[2][1]:(hunnorm.edges[2][end]-hunnorm.edges[2][1])/sqrt(length(unweighted_samples)):hunnorm.edges[2][end]))...)
-	#v = [[i[1],i[2]] for i in vu]
-	#logval = broadcast(func,v)
-	#w = logval
-	theshape = varshape(posterior)
-	dsv = theshape.(DensitySampleVector(v, logval, weight = w))
-	ksval = bat_compare(unweighted_samples,dsv).ks_p_values
-	length(sample_stats) < 5 ? push!(sample_stats,ksval) : sample_stats[5] = ksval
+
+	#theshape = varshape(posterior)
+	#dsv = theshape.(DensitySampleVector(v, logval, weight = w))
+	#ksval = bat_compare(unweighted_samples,dsv).ks_p_values
+
+	if(testfunctions[name].chi2[1] == 9999)
+		testfunctions[name].chi2[1]=ndf
+	end
+
+	iid_sample = bat_sample(testfunctions[name].posterior,length([BAT.flatview(samples.v)...])).result
+	if(testfunctions[name].ks[1] > 999)
+		testfunctions[name].ks[1]=bat_compare(samples,iid_sample).result.ks_p_values[1]
+	end
+
+	if(testfunctions[name].ahmi[1] > 999)
+		testfunctions[name].ahmi[1]=bat_integrate(samples,AHMIntegration()).result.val
+	end
 
 	#plot(hunnorm,(1,2),seriestype=:smallest_intervals)
-	plot(unweighted_samples,(:x,:y),seriestype=:smallest_intervals)
+	plot(unweighted_samples,(1,2),seriestype=:smallest_intervals)
     savefig(string("plots2D/",name,".pdf"))
 
     plot(hana)#,(1,2),seriestype=:smallest_intervals)
@@ -385,28 +396,25 @@ function plot2D(samples::DensitySampleVector,
 end
 
 function run2D(
-        posterior::BAT.PosteriorDensity,
-        name::String,
-        #analytical_integral::Real,
-        analytical_stats::Vector{Any},
-        sample_stats::Vector{Any},
-        run_stats::Vector{Any},
-        n_runs=1
-        )
+	key::String,
+	testfunctions::Dict,
+    sample_stats::Vector{Any},
+    run_stats::Vector{Any},
+	n_runs=1)
 
     sample_stats_all = []
 
-    samples, stats = bat_sample(posterior, (n_samples, n_chains), algorithm)
+    samples, stats = bat_sample(testfunctions[key].posterior, (n_samples, n_chains), algorithm)
     for i in 1:n_runs
         time_before = time()
-        samples, stats = bat_sample(posterior, (n_samples, n_chains), algorithm)
+        samples, stats = bat_sample(testfunctions[key].posterior, (n_samples, n_chains), algorithm)
         time_after = time()
 
-        h = plot2D(samples, posterior, name, analytical_stats, sample_stats)
+		h = plot2D(samples, testfunctions, key, sample_stats)
 
-        sample_stats[1] = mode(samples).__internal_data
-        sample_stats[2] = mean(samples).__internal_data
-        sample_stats[3] = var(samples).__internal_data
+        sample_stats[1] = mode(samples).data
+        sample_stats[2] = mean(samples).data
+        sample_stats[3] = var(samples).data
 
         run_stats[1] = n_samples
         run_stats[2] = n_chains
@@ -417,12 +425,25 @@ function run2D(
     return sample_stats_all
 end
 
-function make_2D_results(sample_stats2D::Vector{Vector{Any}},analytical_stats2D::Vector{Vector{Any}})
+function make_2D_results(testfunctions::Dict,sample_stats2D::Vector{Vector{Any}})
+
+	name2D = Vector{String}()
+	analytical_stats2D = Vector{Vector{Any}}()
+	ks_p_val = Vector{Float64}()
+	ahmi_val = Vector{Float64}()
+
+	for (k,v) in testfunctions
+		push!(name2D,k)
+		push!(analytical_stats2D,[v.mode,v.mean,v.var])
+		push!(ks_p_val,round(v.ks[1],digits=3))
+		push!(ahmi_val,round(v.ahmi[1],digits=3))
+	end
+
     run_stats_names2D = ["nsamples","nchains","Times"]
     stats_names2D = ["mode","mean","var"]
     comparison = ["target","test","diff (abs)","diff (rel)"]
-    header  = Vector{Any}(undef,length(stats_names2D)*length(comparison)+1)
-    table   = Array{Any}(undef,length(name2D),length(stats_names2D)*length(comparison)+1)
+    header  = Vector{Any}(undef,length(stats_names2D)*length(comparison)+3)
+    table   = Array{Any}(undef,length(name2D),length(stats_names2D)*length(comparison)+3)
     header[1] = "name"
     table[1:end,1] = name2D
     for i in 1:length(name2D)
@@ -442,13 +463,17 @@ function make_2D_results(sample_stats2D::Vector{Vector{Any}},analytical_stats2D:
             end
             diff_abs = analytical_stat.-sample_stat
             diff_rel = diff_abs./analytical_stat
-            table[i,1+(j-1)*length(comparison)+1]  =  round.(analytical_stat,digits=4)
-            table[i,1+(j-1)*length(comparison)+2]  =  round.(sample_stat,digits=4)
-            table[i,1+(j-1)*length(comparison)+3]  =  round.(diff_abs,digits=4)
-            table[i,1+(j-1)*length(comparison)+4]  =  round.(diff_rel,digits=4)
+            table[i,1+(j-1)*length(comparison)+1]  =  round.(analytical_stat,digits=3)
+            table[i,1+(j-1)*length(comparison)+2]  =  round.(sample_stat,digits=3)
+            table[i,1+(j-1)*length(comparison)+3]  =  round.(diff_abs,digits=3)
+            table[i,1+(j-1)*length(comparison)+4]  =  round.(diff_rel,digits=3)
         end
+		table[i,length(stats_names2D)*length(comparison)+2] = ks_p_val[i]
+		table[i,length(stats_names2D)*length(comparison)+3] = ahmi_val[i]
     end
-	full_table = Array{Any}(undef,length(name2D)+1,length(stats_names2D)*length(comparison)+1)
+	header[length(stats_names2D)*length(comparison)+2] = "KS test p-value"
+	header[length(stats_names2D)*length(comparison)+3] = "AHMI integral"
+	full_table = Array{Any}(undef,length(name2D)+1,length(stats_names2D)*length(comparison)+3)
 	full_table[1,:] = header
 	full_table[2:end,:] = table
 	full_table = permutedims(full_table)
