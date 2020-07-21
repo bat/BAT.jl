@@ -269,7 +269,7 @@ function restrict_edge_position!(
     else
         spatialvolume.lo[dim] = edge_position
     end
-	
+
     resize_integrationvol!(newvol, vol, dataset, dim, spatialvolume, false, searchvol)
 end
 
@@ -312,18 +312,18 @@ function adapt_dimension!(
 
     ptsTolInc::T = dataset.tolerance
     ptsTolDec::T = dataset.tolerance * 1.1
-	
-	# Determine the minimum and maximum sample of the given dataset. 
-	min_sample = minimum(dataset.data[dim,:]) 
+
+	# Determine the minimum and maximum sample of the given dataset.
+	min_sample = minimum(dataset.data[dim,:])
 	max_sample = maximum(dataset.data[dim,:])
-	
+
 	# Determine whether initial cube face exceeds the coordinate of the last sample
 	face_pos_tmp = (edge == UpperEdge) ? vol.spatialvolume.hi[dim] : vol.spatialvolume.lo[dim]
-    exceeds_sample_size = (edge == UpperEdge) ? (face_pos_tmp > max_sample ? true : false) : (face_pos_tmp < min_sample ? true : false) 
-	
+    exceeds_sample_size = (edge == UpperEdge) ? (face_pos_tmp > max_sample ? true : false) : (face_pos_tmp < min_sample ? true : false)
+
 	# If it exceeds, then adjust face manually:
 	if exceeds_sample_size
-		edge_position = (edge == UpperEdge) ?  max_sample : min_sample 
+		edge_position = (edge == UpperEdge) ?  max_sample : min_sample
 		restrict_edge_position!(dataset, increase, edge_position, edge, spatialvolume, searchvol, vol, newvol, dim)
 		accept_edge_modification!(vol, newvol)
 	end
@@ -358,16 +358,16 @@ function adapt_dimension!(
         end
     end
 
-	# Repeat after adjustments, if needed: 
+	# Repeat after adjustments, if needed:
 	face_pos_tmp = (edge == UpperEdge) ? vol.spatialvolume.hi[dim] : vol.spatialvolume.lo[dim]
-    exceeds_sample_size = (edge == UpperEdge) ? (face_pos_tmp > max_sample ? true : false) : (face_pos_tmp < min_sample ? true : false) 
-	
+    exceeds_sample_size = (edge == UpperEdge) ? (face_pos_tmp > max_sample ? true : false) : (face_pos_tmp < min_sample ? true : false)
+
 	if exceeds_sample_size
-		edge_position = (edge == UpperEdge) ?  max_sample : min_sample 
+		edge_position = (edge == UpperEdge) ?  max_sample : min_sample
 		restrict_edge_position!(dataset, increase, edge_position, edge, spatialvolume, searchvol, vol, newvol, dim)
 		accept_edge_modification!(vol, newvol)
 	end
-	
+
     change, current_iteration
 end
 
@@ -420,8 +420,8 @@ function create_hyperrectangle(
     searchvol::HyperRectVolume{T} = deepcopy(spatialvolume)
 
     increase_default = settings.rect_increase
-    increase = increase_default
-    decrease = 1.0 - 1.0 / (1.0 + increase)
+    increase::T = increase_default
+    decrease::T = 1.0 - 1.0 / (1.0 + increase)
 
     min_points = 5
     max_iterations_per_dimension = 20

@@ -247,7 +247,7 @@ function hm_combineresults_covweighted_dataset!(
         end
     end
 
-    HMIEstimate(i_cov, sqrt(e_cov), weights_cov), dat
+    HMIEstimate(i_cov, convert(T, sqrt(e_cov)), weights_cov), dat
 end
 
 function hm_combineresults_analyticestimation!(result::HMIData{T, I, V}) where {T<:AbstractFloat, I<:Integer, V<:SpatialVolume}
@@ -319,8 +319,7 @@ function hm_combineresults_analyticestimation_dataset!(
         end
     end
 
-    HMIEstimate(i_cov, sqrt(e_cov), weights_cov), dat
-
+	HMIEstimate(i_cov, convert(T, sqrt(e_cov)), weights_cov), dat
 end
 
 function findtolerance(
@@ -424,7 +423,7 @@ end
 Estimate reduced volume harmonic mean for given arguments. Includes bias corection by default.
 Note: Weights are expected to be frequency weights (i.e. counts).
 """
-function reduced_volume_hm(log_prob::Array{T}, sample_weights::Array{T}, volume_size::AbstractFloat, n_total::Integer, weight_total::Float64; bias_correction::Bool=true) where {T<:AbstractFloat}
+function reduced_volume_hm(log_prob::Array{T}, sample_weights::Array{T}, volume_size::AbstractFloat, n_total::Integer, weight_total::AbstractFloat; bias_correction::Bool=true) where {T<:AbstractFloat}
 
 	pedestal_llh = maximum(log_prob) # maximum log likelihood to be subtracted for numerical stability
 
