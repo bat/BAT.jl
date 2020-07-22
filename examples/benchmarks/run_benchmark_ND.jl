@@ -1,10 +1,3 @@
-using BAT, ValueShapes, IntervalSets, Distributions, Plots
-using StatsBase, ArraysOfArrays, LinearAlgebra, LaTeXStrings, QuadGK, PrettyTables
-
-function Statistics.cov(dist::BAT.FunnelDistribution)
-    cov(nestedview(rand(BAT.bat_determ_rng(), sampler(dist), 10^5)))
-end
-
 function Statistics.cov(dist::BAT.MultimodalCauchy)
     cov(nestedview(rand(BAT.bat_determ_rng(), sampler(dist), 10^5)))
 end
@@ -31,7 +24,7 @@ function create_testfunction_for_dim(i_dim::Integer,maxdim=10)
     return Dict(
         "normal" => normal,
         #"cauchy" => cauchy,
-        #"funnel" => funnel
+        "funnel" => funnel
     )
 end
 
