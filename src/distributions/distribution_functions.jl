@@ -58,7 +58,7 @@ issymmetric_around_origin(d::Distributions.GenericMvTDist) = d.zeromean
 const PosDefMatLike = Union{AbstractMatrix{T},AbstractPDMat{T},Cholesky{T}} where {T<:Real}
 
 
-function cov2pdmat(::Type{T}, Σ::Matrix{<:Real}) where {T<:Real}
+function cov2pdmat(::Type{T}, Σ::AbstractMatrix{<:Real}) where {T<:Real}
     Σ_conv = convert(Matrix{T}, Σ)
     PDMat(cholesky(Positive, Hermitian(Σ_conv)))
 end
