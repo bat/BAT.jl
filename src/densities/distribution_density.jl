@@ -2,7 +2,7 @@
 
 
 struct DistributionDensity{
-    D<:Distribution{Multivariate,Continuous},
+    D<:ContinuousDistribution,
     B<:AbstractVarBounds
 } <: DistLikeDensity
     dist::D
@@ -12,14 +12,10 @@ end
 DistributionDensity(d::Distribution; bounds_type::BoundsType = hard_bounds) =
     DistributionDensity(d, dist_param_bounds(d, bounds_type))
 
+Base.convert(::Type{AbstractDensity}, d::ContinuousDistribution) = DistributionDensity(d)
+Base.convert(::Type{DistLikeDensity}, d::ContinuousDistribution) = DistributionDensity(d)
+
 DistributionDensity(h::Histogram) = DistributionDensity(EmpiricalDistributions.MvBinnedDist(h))
-
-
-Base.convert(::Type{AbstractDensity}, d::Distribution{Multivariate,Continuous}) =
-    DistributionDensity(d)
-
-Base.convert(::Type{DistLikeDensity}, d::Distribution{Multivariate,Continuous}) =
-    DistributionDensity(d)
 
 Base.convert(::Type{AbstractDensity}, h::Histogram) = DistributionDensity(h)
 Base.convert(::Type{DistLikeDensity}, h::Histogram) = DistributionDensity(h)
@@ -28,20 +24,24 @@ Base.convert(::Type{DistLikeDensity}, h::Histogram) = DistributionDensity(h)
 Base.parent(density::DistributionDensity) = density.dist
 
 
-function logvalof_unchecked(
-    density::DistributionDensity,
-    v::Any
-)
-    Distributions.logpdf(density.dist, v)
-end
+logvalof_unchecked(density::DistributionDensity, v::Any) = Distributions.logpdf(density.dist, v)
+
+logvalof_unchecked(density::DistributionDensity{<:UnivariateDistribution}, v::AbstractVector) =
+    Distributions.logpdf(density.dist, first(v))
+
 
 ValueShapes.varshape(density::DistributionDensity) = varshape(density.dist)
 
-Distributions.sampler(density::DistributionDensity) = bat_sampler(parent(density))
+Distributions.sampler(density::DistributionDensity{<:MultivariateDistribution}) =
+    bat_sampler(parent(density))
 
-Random.Sampler(rng::AbstractRNG, density::DistributionDensity, repetition::Val{1}) = sampler(density)
+Distributions.sampler(density::DistributionDensity{<:UnivariateDistribution}) =
+    bat_sampler((Product(Fill(parent(density), 1))))
 
-Statistics.cov(density::DistributionDensity) = cov(density.dist)
+# Random.Sampler(rng::AbstractRNG, density::DistributionDensity, repetition::Val{1}) = sampler(density)
+
+Statistics.cov(density::DistributionDensity{<:MultivariateDistribution}) = cov(density.dist)
+Statistics.cov(density::DistributionDensity{<:UnivariateDistribution}) = hcat(var(density.dist))
 
 
 var_bounds(density::DistributionDensity) = density.bounds
@@ -80,7 +80,7 @@ function estimate_finite_bounds(ntd::NamedTupleDist; bounds_type::BoundsType = h
     HyperRectBounds(lo, hi, bounds_type)
 end
 
-function estimate_finite_bounds(d::Distribution{Univariate})
+function estimate_finite_bounds(d::Distribution{Univariate,Continuous})
     lo, hi = minimum(d), maximum(d)
 
     if isinf(lo)

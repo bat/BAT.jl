@@ -1,47 +1,37 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-const RandSampleable = Union{
-    DistLikeDensity,
-    MultivariateDistribution,
-    Histogram
-}
-
-
 """
-    RandSampling
+    IIDSampling
 
 Constructors:
 
-    RandSampling()
+    IIDSampling()
 
 Sample via `Random.rand`. Only supported for posteriors of type
 `Distributions.MultivariateDistribution` and `BAT.DistLikeDensity`.
 """
-struct RandSampling <: AbstractSamplingAlgorithm end
-export RandSampling
+struct IIDSampling <: AbstractSamplingAlgorithm end
+export IIDSampling
 
 
-function bat_sample_impl(rng::AbstractRNG, posterior::RandSampleable, n::Integer, algorithm::RandSampling)
-    vs = varshape(posterior)
+function bat_sample_impl(rng::AbstractRNG, target::AnyIIDSampleable, n::Integer, algorithm::IIDSampling)
+    density = convert(DistLikeDensity, target)
+    shape = varshape(density)
 
-    P = Vector{_default_PT}
-    #P = ValueShapes.shaped_type(vs)
+    # ToDo: Parallelize, using hierarchical RNG (separate RNG for each sample)
+    v = nestedview(rand(rng, sampler(density), n))
+    logd = logvalof.(Ref(density), v)
 
-    shape = varshape(posterior)
-    npar = totalndof(shape)
-    unshaped_samples = DensitySampleVector{P,_default_LDT,_default_int_WT,Nothing,Nothing}(undef, n, npar)
+    weight = fill(_default_int_WT(1), length(eachindex(logd)))
+    info = fill(nothing, length(eachindex(logd)))
+    aux = fill(nothing, length(eachindex(logd)))
 
-    rand!(rng, sampler(posterior), flatview(unshaped_samples.v))
-    let logd = unshaped_samples.logd, params = unshaped_samples.v
-        @uviews logd .= logpdf.(Ref(posterior), params)
-    end
-    unshaped_samples.weight .= 1
+    unshaped_samples = DensitySampleVector((v, logd, weight, info, aux))
 
     samples = shape.(unshaped_samples)
     (result = samples,)
 end
-
 
 
 """

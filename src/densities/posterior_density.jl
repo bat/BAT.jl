@@ -192,23 +192,3 @@ _posterior_parbounds(li_bounds::AbstractVarBounds, pr_bounds::AbstractVarBounds)
      li_bounds ∩ pr_bounds
 
 _posterior_parbounds(li_bounds::Missing, pr_bounds::AbstractVarBounds) = pr_bounds
-
-
-
-"""
-    BAT.AnyPosterior = Union{...}
-
-Union of all types that BAT will accept as a posterior:
-
-* [`PosteriorDensity`](@ref)
-* [`DensitySampleVector`](@ref)
-* [`DistLikeDensity`](@ref)
-* Distributions.MultivariateDistribution
-* StatsBase.Histogram
-"""
-const AnyPosterior = Union{
-    PosteriorDensity,
-    DensitySampleVector,
-    DistLikeDensity,
-    MultivariateDistribution,
-}

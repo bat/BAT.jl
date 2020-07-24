@@ -54,8 +54,8 @@ end
 export AHMIntegration
 
 
-function bat_integrate_impl(posterior::DensitySampleVector, algorithm::AHMIntegration)
-    hmi_data = HMIData(unshaped.(posterior))
+function bat_integrate_impl(target::DensitySampleVector, algorithm::AHMIntegration)
+    hmi_data = HMIData(unshaped.(target))
 
     integrationvol = algorithm.volumetype
 
@@ -88,10 +88,9 @@ function bat_integrate_impl(posterior::DensitySampleVector, algorithm::AHMIntegr
 end
 
 
-function bat_integrate_impl(posterior::AnyPosterior, algorithm::AHMIntegration)
-    npar = totalndof(varshape(posterior))
+function bat_integrate_impl(target::AnySampleable, algorithm::AHMIntegration)
+    npar = totalndof(varshape(target))
     nsamples = 10^5 * npar
-    samples = bat_sample(posterior, nsamples).result::DensitySampleVector
+    samples = bat_sample(target, nsamples).result::DensitySampleVector
     bat_integrate(samples, algorithm)
 end
-#Union{PosteriorDensity, MultivariateDistribution}

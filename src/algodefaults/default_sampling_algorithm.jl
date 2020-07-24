@@ -4,7 +4,7 @@
 bat_default(::typeof(bat_sample), ::Val{:rng}, ::Any) = bat_rng()
 
 
-bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::RandSampleable) = RandSampling()
+bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::AnyIIDSampleable) = IIDSampling()
 
 bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::DensitySampleVector) = OrderedResampling()
 

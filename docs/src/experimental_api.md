@@ -6,6 +6,7 @@ Instead, compatibility is only guaranteed across changes in patch version, but
 *not* across changes of minor (or major) version changes.
 
 ```@docs
+bat_compare
 BAT.ExternalDensity
 BAT.FunnelDistribution
 BAT.MultimodalCauchy

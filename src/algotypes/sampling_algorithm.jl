@@ -18,12 +18,12 @@ abstract type AbstractSamplingAlgorithm end
 """
     bat_sample(
         [rng::AbstractRNG],
-        posterior::BAT.AnyPosterior,
+        target::BAT.AnySampleable,
         n::BAT.AnyNSamples,
         [algorithm::BAT.AbstractSamplingAlgorithm]
     )::DensitySampleVector
 
-Draw `n` samples from `posterior`.
+Draw `n` samples from `target`.
 
 Returns a NamedTuple of the shape
 
@@ -33,17 +33,6 @@ Returns a NamedTuple of the shape
 
 Result properties not listed here are algorithm-specific and are not part
 of the stable BAT API.
-
-
-`posterior` may be a
-
-* [`BAT.AbstractPosteriorDensity`](@ref)
-
-* [`BAT.DistLikeDensity`](@ref)
-
-* [`BAT.DensitySampleVector`](@ref)
-
-* `Distributions.MultivariateDistribution`
 
 Depending on the type of posterior, `n` may be of type
 
@@ -77,7 +66,7 @@ MCMC Sampling:
 
     function bat_sample(
         rng::AbstractRNG,
-        posterior::AbstractPosteriorDensity,
+        target::AbstractPosteriorDensity,
         n::Union{Integer,Tuple{Integer,Integer}},
         algorithm::MCMCAlgorithm;
         max_nsteps::Integer,
@@ -90,7 +79,7 @@ MCMC Sampling:
         filter::Bool = true
     )
 
-Sample `posterior` via Markov chain Monte Carlo (MCMC).
+Sample `target` via Markov chain Monte Carlo (MCMC).
 
 `n` must be either a tuple `(nsteps, nchains)` or an integer. `nchains`
 specifies the (approximate) number of MCMC steps per chain, `nchains` the
@@ -104,26 +93,26 @@ export bat_sample
 function bat_sample_impl end
 
 
-@inline function bat_sample(rng::AbstractRNG, target::AnyPosterior, n::AnyNSamples, algorithm::AbstractSamplingAlgorithm; kwargs...)
+@inline function bat_sample(rng::AbstractRNG, target::AnySampleable, n::AnyNSamples, algorithm::AbstractSamplingAlgorithm; kwargs...)
     r = bat_sample_impl(rng, target, n, algorithm; kwargs...)
     result_with_args(r, (rng = rng, algorithm = algorithm), kwargs)
 end
 
 
-@inline function bat_sample(target::AnyPosterior, n::AnyNSamples; kwargs...)
+@inline function bat_sample(target::AnySampleable, n::AnyNSamples; kwargs...)
     rng = bat_default_withinfo(bat_sample, Val(:rng), target)
     algorithm = bat_default_withinfo(bat_sample, Val(:algorithm), target)
     bat_sample(rng, target, n, algorithm; kwargs...)
 end
 
 
-@inline function bat_sample(target::AnyPosterior, n::AnyNSamples, algorithm::AbstractSamplingAlgorithm; kwargs...)
+@inline function bat_sample(target::AnySampleable, n::AnyNSamples, algorithm::AbstractSamplingAlgorithm; kwargs...)
     rng = bat_default_withinfo(bat_sample, Val(:rng), target)
     bat_sample(rng, target, n, algorithm; kwargs...)
 end
 
 
-@inline function bat_sample(rng::AbstractRNG, target::AnyPosterior, n::AnyNSamples; kwargs...)
+@inline function bat_sample(rng::AbstractRNG, target::AnySampleable, n::AnyNSamples; kwargs...)
     algorithm = bat_default_withinfo(bat_sample, Val(:algorithm), target)
     bat_sample(rng, target, n, algorithm; kwargs...)
 end

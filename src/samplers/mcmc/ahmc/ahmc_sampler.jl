@@ -203,22 +203,20 @@ end
 
 function _available_samples_idxs(chain::AHMCIterator)
     sampletype = chain.samples.info.sampletype
-    @uviews sampletype begin
-        from = firstindex(chain.samples)
+    from = firstindex(chain.samples)
 
-        to = if samples_available(chain)
-            lastidx = lastindex(chain.samples)
-            @assert sampletype[from] == ACCEPTED_SAMPLE
-            @assert sampletype[lastidx] == CURRENT_SAMPLE
-            lastidx - 1
-        else
-            from - 1
-        end
-
-        r = from:to
-        @assert all(x -> x > INVALID_SAMPLE, view(sampletype, r))
-        r
+    to = if samples_available(chain)
+        lastidx = lastindex(chain.samples)
+        @assert sampletype[from] == ACCEPTED_SAMPLE
+        @assert sampletype[lastidx] == CURRENT_SAMPLE
+        lastidx - 1
+    else
+        from - 1
     end
+
+    r = from:to
+    @assert all(x -> x > INVALID_SAMPLE, view(sampletype, r))
+    r
 end
 
 
@@ -227,17 +225,15 @@ function get_samples!(appendable, chain::AHMCIterator, nonzero_weights::Bool)::t
         idxs = _available_samples_idxs(chain)
         samples = chain.samples
 
-        @uviews samples begin
-            # if nonzero_weights # TODO ?
-                for i in idxs
-                    if !nonzero_weights || samples.weight[i] > 0
-                        push!(appendable, samples[i])
-                    end
+        # if nonzero_weights # TODO ?
+            for i in idxs
+                if !nonzero_weights || samples.weight[i] > 0
+                    push!(appendable, samples[i])
                 end
-            # else
-            #     append!(appendable, view(samples, idxs))
-            # end
-        end
+            end
+        # else
+        #     append!(appendable, view(samples, idxs))
+        # end
     end
     appendable
 end
@@ -291,7 +287,7 @@ function mcmc_step!(
     proposed = _proposed_sample_idx(chain)
     @assert current != proposed
 
-    accepted = @uviews samples begin
+    accepted = let
         current_params = samples.v[current]
         proposed_params = samples.v[proposed]
 
@@ -337,7 +333,7 @@ function mcmc_step!(
         end
 
         accepted
-    end # @uviews
+    end
 
     if accepted
         resize!(samples, 1)

@@ -13,12 +13,12 @@ abstract type AbstractModeEstimator end
 
 """
     bat_findmode(
-        posterior::BAT.AnyPosterior,
+        target::BAT.AnySampleable,
         [algorithm::BAT.AbstractModeEstimator];
         initial_mode::Union{Missing,DensitySampleVector,Any} = missing
     )::DensitySampleVector
 
-Estimate the global mode of `posterior`.
+Estimate the global mode of `target`.
 
 Returns a NamedTuple of the shape
 
@@ -41,11 +41,11 @@ function bat_findmode_impl end
 
 
 function bat_findmode(
-    posterior::AnyPosterior,
-    algorithm = bat_default_withdebug(bat_findmode, Val(:algorithm), posterior);
+    target::AnySampleable,
+    algorithm = bat_default_withdebug(bat_findmode, Val(:algorithm), target);
     kwargs...
 )
-    r = bat_findmode_impl(posterior, algorithm; kwargs...)
+    r = bat_findmode_impl(target, algorithm; kwargs...)
     result_with_args(r, (algorithm = algorithm,))
 end
 

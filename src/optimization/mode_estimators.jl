@@ -15,12 +15,12 @@ struct ModeAsDefined <: AbstractModeEstimator end
 export ModeAsDefined
 
 
-function bat_findmode_impl(posterior::AnyPosterior, algorithm::ModeAsDefined)
-    (result = StatsBase.mode(posterior),)
+function bat_findmode_impl(target::AnySampleable, algorithm::ModeAsDefined)
+    (result = StatsBase.mode(target),)
 end
 
-function bat_findmode_impl(posterior::DistributionDensity, algorithm::ModeAsDefined)
-    (result = StatsBase.mode(posterior.dist),)
+function bat_findmode_impl(target::DistributionDensity, algorithm::ModeAsDefined)
+    (result = StatsBase.mode(target.dist),)
 end
 
 
@@ -39,8 +39,8 @@ struct MaxDensitySampleSearch <: AbstractModeEstimator end
 export MaxDensitySampleSearch
 
 
-function bat_findmode_impl(posterior::DensitySampleVector, algorithm::MaxDensitySampleSearch)
-    v, i = _get_mode(posterior)
+function bat_findmode_impl(target::DensitySampleVector, algorithm::MaxDensitySampleSearch)
+    v, i = _get_mode(target)
     (result = v, mode_idx = i)
 end
 
@@ -53,32 +53,32 @@ Constructors:
 
     MaxDensityNelderMead()
 
-Estimate the mode of the posterior using Nelder-Mead optimization (via
-[Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl)).
+Estimate the mode of a probability density using Nelder-Mead optimization
+(via [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl)).
 """
 struct MaxDensityNelderMead <: AbstractModeEstimator end
 export MaxDensityNelderMead
 
-function bat_findmode_impl(posterior::AnyPosterior, algorithm::MaxDensityNelderMead; initial_mode = missing)
-    shape = varshape(posterior)
-    x = _get_initial_mode(posterior, initial_mode)
-    conv_posterior = convert(AbstractDensity, posterior)
-    r = Optim.maximize(p -> logvalof(conv_posterior, p), x, Optim.NelderMead())
+function bat_findmode_impl(target::AnySampleable, algorithm::MaxDensityNelderMead; initial_mode = missing)
+    shape = varshape(target)
+    x = _get_initial_mode(target, initial_mode)
+    conv_target = convert(AbstractDensity, target)
+    r = Optim.maximize(p -> logvalof(conv_target, p), x, Optim.NelderMead())
     (result = shape(Optim.minimizer(r.res)), info = r)
 end
 
 
-_get_initial_mode(posterior::AnyPosterior, ::Missing) =
-    _get_initial_mode(posterior, rand(sampler(getprior(posterior))))
+_get_initial_mode(target::AnySampleable, ::Missing) =
+    _get_initial_mode(target, rand(sampler(getprior(target))))
 
-_get_initial_mode(posterior::AnyPosterior, samples::DensitySampleVector) =
-    _get_initial_mode(posterior, unshaped(bat_findmode(samples).result))
+_get_initial_mode(target::AnySampleable, samples::DensitySampleVector) =
+    _get_initial_mode(target, unshaped(bat_findmode(samples).result))
 
-_get_initial_mode(posterior::AnyPosterior, x::AbstractArray{<:Real}) = Array(x)
-_get_initial_mode(posterior::AnyPosterior, x::Array{<:Real}) = x
+_get_initial_mode(target::AnySampleable, x::AbstractArray{<:Real}) = Array(x)
+_get_initial_mode(target::AnySampleable, x::Array{<:Real}) = x
 
-function _get_initial_mode(posterior::AnyPosterior, x)
-    shape = varshape(posterior)
+function _get_initial_mode(target::AnySampleable, x)
+    shape = varshape(target)
     x_unshaped = Vector{<:Real}(undef, shape)
     shape(x_unshaped)[] = stripscalar(x)
     x_unshaped
@@ -93,20 +93,20 @@ Constructors:
 
     MaxDensityLBFGS()
 
-Estimate the mode of the posterior using LBFGS optimization (via
+Estimate the mode of a probability density using LBFGS optimization (via
 [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl)). The gradient
-of the posterior is computer by forward-mode auto-differentiation (via
+of the density is computed using forward-mode auto-differentiation (via
 [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl)).
 """
 struct MaxDensityLBFGS <: AbstractModeEstimator end
 export MaxDensityLBFGS
 
 
-function bat_findmode_impl(posterior::AnyPosterior, algorithm::MaxDensityLBFGS; initial_mode = missing)
-    shape = varshape(posterior)
-    x = _get_initial_mode(posterior, initial_mode)
-    conv_posterior = convert(AbstractDensity, posterior)
-    r = Optim.maximize(p -> logvalof(conv_posterior, p), x, Optim.LBFGS(); autodiff = :forward)
+function bat_findmode_impl(target::AnySampleable, algorithm::MaxDensityLBFGS; initial_mode = missing)
+    shape = varshape(target)
+    x = _get_initial_mode(target, initial_mode)
+    conv_target = convert(AbstractDensity, target)
+    r = Optim.maximize(p -> logvalof(conv_target, p), x, Optim.LBFGS(); autodiff = :forward)
     (result = shape(Optim.minimizer(r.res)), info = r)
 end
 

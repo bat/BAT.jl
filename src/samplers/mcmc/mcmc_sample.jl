@@ -124,8 +124,8 @@ end
 
 function bat_sample_impl(
     rng::AbstractRNG,
-    posterior::AbstractPosteriorDensity,
-    n::Tuple{Integer,Integer},
+    target::PosteriorDensity,
+    n::Union{Integer, Tuple{Integer,Integer}},
     algorithm::MCMCAlgorithm;
     max_nsteps::Integer = 10 * n[1],
     max_time::Real = Inf,
@@ -136,9 +136,11 @@ function bat_sample_impl(
     strict::Bool = false,
     filter::Bool = true
 )
-    chainspec = MCMCSpec(algorithm, posterior)
+    density = convert(AbstractDensity, target)
 
-    nsamples_per_chain, nchains = n
+    chainspec = MCMCSpec(algorithm, density)
+
+    nsamples_per_chain, nchains = _mcmc_nsamples_tuple(n)
 
     unshaped_samples, mcmc_stats, chains = mcmc_sample(
         rng,
@@ -155,27 +157,24 @@ function bat_sample_impl(
         strict_mode = strict
     )
 
-    samples = varshape(posterior).(unshaped_samples)
+    samples = varshape(density).(unshaped_samples)
     (result = samples, chains = chains)
 end
 
 
-function bat_sample_impl(
-    rng::AbstractRNG,
-    posterior::AbstractPosteriorDensity,
-    n::Integer,
-    algorithm::MCMCAlgorithm;
-    kwargs...
-)
+_mcmc_nsamples_tuple(n::NTuple{2, Integer}) = n
+
+function _mcmc_nsamples_tuple(n::Integer)
     nchains = 4
     nsamples = div(n, nchains)
-    bat_sample_impl(rng, posterior, (nsamples, nchains), algorithm; kwargs...)
+    (nsamples, nchains)
 end
 
 
+# ToDo: Remove once more generalized init-value generation is in place:
 function bat_sample_impl(
     rng::AbstractRNG,
-    dist::Distribution,
+    dist::Union{Distribution,Histogram},
     n::Any,
     algorithm::MCMCAlgorithm;
     kwargs...

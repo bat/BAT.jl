@@ -58,7 +58,7 @@ export HierarchicalDensity
 function HierarchicalDensity(f::Function, pd::Any)
     pd_conv = convert(DistLikeDensity, pd)
     vs_pd = varshape(pd_conv)
-    v_pd = rand(bat_determ_rng(), pd_conv)
+    v_pd = rand(bat_determ_rng(), sampler(pd_conv))
     cd = _hd_cd(f, vs_pd, v_pd)
     vs = NamedTupleShape(;vs_pd..., varshape(cd)...)
     HierarchicalDensity(f, pd_conv, vs)
