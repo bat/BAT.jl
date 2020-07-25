@@ -3,12 +3,18 @@
 @recipe function f(
     prior::NamedTupleDist;
     vsel=collect(1:5),
+    bins = 200,
     diagonal = Dict(),
     upper = Dict(),
     lower = Dict(),
     vsel_label = []
 )
-    vsel = vsel[vsel .<= totalndof(varshape(prior))]
+    vsel = collect(vsel)
+    if isa(vsel, Vector{<:Integer}) == false
+        vsel = asindex.(Ref(BAT.varshape(prior)), vsel)
+        vsel = reduce(vcat, vsel)
+    end
+    vsel = vsel[vsel .<=  totalndof(BAT.varshape(prior))]
 
     xlabel = [getstring(prior, i) for i in vsel]
     ylabel = ["p($l)" for l in xlabel]
@@ -23,13 +29,27 @@
     size --> (1000, 600)
 
 
+    bins = if isa(bins, Integer)
+        fill(bins, length(vsel))
+    elseif isa(bins, Tuple{Vararg{Union{Integer, StepRangeLen}}})
+        bins
+    elseif isa(bins, NamedTuple)
+        tmp_bins::Vector{Any} = fill(200, length(vsel))
+        for k in keys(bins)
+            idx = findfirst(isequal(string(k)), getstring.(Ref(prior), vsel))
+            tmp_bins[idx] = bins[idx]
+        end
+        tmp_bins
+    end
+
+
     for i in 1:nparams
         # diagonal
         @series begin
             subplot := i + (i-1)*nparams
 
             seriestype --> get(diagonal, "seriestype", :stephist)
-            bins --> get(diagonal, "bins", 200)
+            bins := bins[i]
             colors --> get(diagonal, "colors", standard_colors)
             intervals --> get(diagonal, "intervals", standard_confidence_vals)
             legend --> get(diagonal, "legend", false)
@@ -42,7 +62,6 @@
             prior, (vsel[i])
         end
 
-
         # upper right plots
         for j in i+1:nparams
 
@@ -50,7 +69,7 @@
                 subplot := j + (i-1)*nparams
 
                 seriestype --> get(upper, "seriestype", :smallest_intervals_contour)
-                bins --> get(upper, "bins", 50)
+                bins := (bins[i], bins[j])
                 more_colors = []
                 colors --> get(upper, "colors", colormap("Blues", 10))
                 more_intervals = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99]
@@ -70,7 +89,7 @@
                 subplot := i + (j-1)*nparams
 
                 seriestype --> get(lower, "seriestype", :smallest_intervals_contour)
-                bins --> get(lower, "bins", 50)
+                bins := (bins[i], bins[j])
                 colors --> get(lower, "colors", standard_colors)
                 intervals --> get(lower, "intervals", standard_confidence_vals)
                 interval_labels --> get(lower, "interval_labels", [])

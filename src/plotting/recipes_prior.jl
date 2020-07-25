@@ -24,7 +24,7 @@
     marg = bat_marginalize(
         prior,
         idx,
-        nbins = bins,
+        bins = bins,
         nsamples = nsamples,
         closed = closed,
         normalize = normalize
@@ -93,7 +93,7 @@ end
     marg = bat_marginalize(
         prior,
         (xidx, yidx),
-        nbins = bins,
+        bins = bins,
         closed = closed,
         normalize = normalize
     ).result

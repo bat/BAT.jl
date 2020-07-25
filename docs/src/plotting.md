@@ -32,7 +32,8 @@ Keyword arguments:
     * `:central_intervals`
     * `:histogram`, alias `:steppost`
     * `:stephist` (default for prior)
-* `nbins::Integer = 200`: number of histogram bins
+
+* `bins::Union{Integer, AbstractRange} = 200`: number of histogram bins or bin edges.
 
 * `normalize::Bool = true`: normalize the histogram
 
@@ -69,6 +70,7 @@ plot(
     intervals = standard_confidence_vals,
 	interval_labels = [],
     colors = standard_colors,
+	bins = 200,
     mean = false,
     std = false,
     globalmode = false,
@@ -93,7 +95,8 @@ Keyword arguments:
 	* `:histogram`, alias `:hist`, alias `:histogram2d`
     * `:scatter`
 
-* `nbins::Union{Integer, NTuple{2, Integer}} = 200`: number of histogram bins, use a `NTuple{2, Integer}` to specify bins of x and y axes seperately
+
+* `bins::Union{Integer, NTuple{2, Integer}, NTuple{2, AbstractRange}} = 200`: number of histogram bins or bin edges. Use a `NTuple{2, Union{Integer, AbstractRange}}` to specify bins/edges of x and y axes seperately.
 
 * `normalize::Bool = true`: normalize the histogram
 
@@ -131,6 +134,7 @@ Keyword arguments for [attributes supported by *Plots.jl*](https://docs.juliaplo
 plot(
 	samples::DensitySampleVector / prior::NamedTupleDist;
     vsel=collect(1:5),
+	bins = 200,
     mean=false,
     std=false,
     globalmode=false,
@@ -147,7 +151,8 @@ Required inputs:
   * `samples::DensitySampleVector` or `prior::NamedTupleDist`: samples (shaped or unshaped) or prior to be plotted
 
 Keyword arguments:
-  * `vsel::Array{Integer, 1} = collect(1:5)`: indices of the parameters to be plotted. By default (up to) the first five parameters are plotted.
+  * `vsel = collect(1:5)`: indices or parameter names of the parameters to be plotted. By default (up to) the first five parameters are plotted.
+  * `bins::Union{Integer, Tuple{Union{Integer, AbstractRange}}, NamedTuple} = 200`: Number of bins or bin edges
   * `mean::Bool = false`: Indicate mean value, calculated via  `bat_stats().mean`, in all plots (currently only for samples)
   * `std::Bool = false`: Indicate the standard deviation of the mean calculated from `bat_stats().cov` in all plots (currently only for samples)
   * `globalmode::Bool = false`: Indicate global mode, calculated via `bat_stats().mode`, in all plots (currently only for samples)
