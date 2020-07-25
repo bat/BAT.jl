@@ -7,7 +7,6 @@
     colors = standard_colors,
     mean = false,
     std = false,
-    edges = [],
     globalmode = false,
     localmode = true,
     diagonal = Dict(),

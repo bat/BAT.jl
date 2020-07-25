@@ -166,7 +166,7 @@ plot(samples, (:a,:(b[2])), seriestype=:smallest_intervals, nbins=200,
 # By passing `true`, the point estimators are plotted using their default styles shown above.
 # The style of the point estimators *mean*, *globalmode* and *localmode* can be modified by passing a dictionary specifying `markershape`, `markercolor`, `markersize`, `markeralpha`, `markerstrokecolor`, `markerstrokestyle`, `markerstrokewidth` and `markerstrokealpha`.
 # If `std==true`, the standard deviation of the mean value will be displayed as x- and y-errorbars.
-plot(samples, (:a,:(b[2])), seriestype=:smallest_intervals, bins=(200, 100),
+plot(samples, (:a,:(b[2])), seriestype=:smallest_intervals, bins=(200, -4:0.2:8),
     localmode=Dict("markershape"=> :diamond, "markeralpha"=>1, "markercolor"=>:red, "markersize"=>5),
     mean = true, std=true
 )
