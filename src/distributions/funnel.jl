@@ -30,31 +30,30 @@ end
 Base.length(d::FunnelDistribution) = d.n
 Base.eltype(d::FunnelDistribution) = Base.eltype(d.a)
 
-Distributions.mean(d::FunnelDistribution) = zeros(d.n)
+Statistics.mean(d::FunnelDistribution) = zeros(d.n)
+
+function Statistics.cov(dist::BAT.FunnelDistribution)
+    cov(nestedview(rand(bat_determ_rng(), sampler(dist), 10^5)))
+end
 
 StatsBase.params(d::FunnelDistribution) = (d.a, d.b, d.n)
 
+
 function Distributions._logpdf(d::FunnelDistribution, x::AbstractArray)
-    dist = _construct_dist(d.a, d.b, x)
-    return Distributions._logpdf(dist, x)
+    idxs = eachindex(x)
+    s = logpdf(Normal(0, d.a^2), x[idxs[1]])
+    @inbounds for i in idxs[2:end]
+        s += logpdf(Normal(0, exp(2 * d.b * x[1])), x[i])
+    end
+    s
 end
+
 
 function Distributions._rand!(rng::AbstractRNG, d::FunnelDistribution, x::AbstractVector)
-    x[1] = rand(Normal(0, d.a^2))
-    for i in 2:length(x)
-        @inbounds x[i] = rand(Normal(0, exp(2*d.b*x[1])))
+    idxs = eachindex(x)
+    x[idxs[1]] = rand(rng, Normal(0, d.a^2))
+    @inbounds for i in idxs[2:end]
+        x[i] = rand(rng, Normal(0, exp(2 * d.b * x[1])))
     end
     return x
-end
-
-function _construct_dist(a::Real, b::Real, λ::AbstractVector)
-    n = length(λ)
-    a = float(a)
-    b = float(b)
-    dist = Vector{Normal}(undef, n)
-    dist[1] = Normal(0.0, a^2)
-    for i in 2:n
-        @inbounds dist[i] = Normal(0.0, exp(2*b*λ[1]))
-    end
-    return product_distribution(dist)
 end

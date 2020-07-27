@@ -37,7 +37,6 @@ using ValueShapes
 using StatsBase
 using StructArrays
 using Tables
-using UnsafeArrays
 using KernelDensity
 
 import EmpiricalDistributions

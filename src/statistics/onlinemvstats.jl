@@ -387,13 +387,13 @@ const OnlineMvStatistic = Union{OnlineMvMean, OnlineMvCov, BasicMvStatistics}
 
 
 function Base.append!(target::OnlineMvStatistic, data::VectorOfSimilarVectors)
-    @uviews data push!.(Ref(target), data)
+    push!.(Ref(target), data)
     target
 end
 
 
 function Base.append!(target::OnlineMvStatistic, data::VectorOfSimilarVectors, weights::AbstractVector)
-    @uviews data weights push!.(Ref(target), data, weights)
+    push!.(Ref(target), data, weights)
     target
 end
 

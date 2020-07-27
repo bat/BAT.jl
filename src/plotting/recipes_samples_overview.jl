@@ -5,6 +5,7 @@
     vsel=collect(1:5),
     mean=false,
     std=false,
+    bins = 200,
     globalmode=false,
     localmode=false,
     diagonal = Dict(),
@@ -12,6 +13,11 @@
     lower = Dict(),
     vsel_label = []
 )
+    vsel = collect(vsel)
+    if isa(vsel, Vector{<:Integer}) == false
+        vsel = asindex.(Ref(BAT.varshape(samples)), vsel)
+        vsel = reduce(vcat, vsel)
+    end
     vsel = vsel[vsel .<=  totalndof(BAT.varshape(samples))]
 
     xlabel = ["v$i" for i in vsel]
@@ -27,7 +33,6 @@
         ylabel = ["p("*vsel_label[i]*")" for i in 1:length(vsel_label)]
     end
 
-
     nparams = length(vsel)
     layout --> nparams^2
     size --> (1000, 600)
@@ -36,13 +41,28 @@
     min_samples = minimum(flatview(unshaped.(samples.v)), dims=2)[:,1]
     max_samples = maximum(flatview(unshaped.(samples.v)), dims=2)[:,1]
 
+    # get bin edges
+    bins = if isa(bins, Integer)
+        fill(bins, length(vsel))
+    elseif isa(bins, Tuple{Vararg{Union{Integer, StepRangeLen}}})
+        bins
+    elseif isa(bins, NamedTuple)
+        tmp_bins::Vector{Any} = fill(200, length(vsel))
+        for k in keys(bins)
+            idx = findfirst(isequal(string(k)), getstring.(Ref(samples), vsel))
+            tmp_bins[idx] = bins[idx]
+        end
+        tmp_bins
+    end
+
+
     for i in 1:nparams
         # diagonal
         @series begin
             subplot := i + (i-1)*nparams
 
             seriestype --> get(diagonal, "seriestype", :smallest_intervals)
-            bins --> get(diagonal, "bins", 200)
+            bins := bins[i]
             colors --> get(diagonal, "colors", standard_colors)
             intervals --> get(diagonal, "intervals", standard_confidence_vals)
             interval_labels --> get(diagonal, "interval_labels", [])
@@ -66,7 +86,7 @@
                 subplot := j + (i-1)*nparams
 
                 seriestype --> get(upper, "seriestype", :histogram)
-                bins --> get(upper, "bins", 200)
+                bins := (bins[i], bins[j])
                 colors --> get(upper, "colors", standard_colors)
                 intervals --> get(upper, "intervals", standard_confidence_vals)
                 interval_labels --> get(upper, "interval_labels", [])
@@ -122,7 +142,7 @@
                  subplot := i + (j-1)*nparams
 
                  seriestype --> get(lower, "seriestype", :smallest_intervals)
-                 bins --> get(lower, "bins", 200)
+                 bins := (bins[i], bins[j])
                  colors --> get(lower, "colors", standard_colors)
                  colorbar --> get(lower, "colorbar", false)
                  intervals --> get(lower, "intervals", standard_confidence_vals)

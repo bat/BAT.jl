@@ -84,7 +84,7 @@ plot(samples, :a, seriestype = :stephist)
 # ## Customizing 1D plots:
 
 # ### Keyword arguments for [attributes supported by *Plots.jl*](https://docs.juliaplots.org/latest/attributes/#attributes-1) can be passed:
-plot(samples, :a, seriestype = :stephist, nbins=50, linecolor = :red, linewidth = 5, linealpha=0.4, xlim=(-10,10))
+plot(samples, :a, seriestype = :stephist, bins=50, linecolor = :red, linewidth = 5, linealpha=0.4, xlim=(-10,10))
 
 # ### Customizing interval plots:
 # For `:smallest_intervals` and `:central_intervals` plot, the probability enclosed in the intervals to be highlighted can be specified using the `intervals` keyword.
@@ -144,7 +144,7 @@ plot(samples, (:a,:(b[2])), seriestype=:smallest_intervals_contourf, bins=40)
 # The probability intervals to be highlighted can be specified using the `intervals` keyword.
 # The keyword `interval_labels` allows to specify the legend entries for the corresponding intervals (in same order).
 # The interval colors need to be specified (in same order) using the `colors` keyword argument.
-plot(samples, (:a,:(b[2])), seriestype=:smallest_intervals, nbins=200,
+plot(samples, (:a,:(b[2])), seriestype=:smallest_intervals, bins=200,
 intervals=[0.7, 0.2],
 interval_labels = ["HDR 70%", "HDR 20%"],
 colors=[:blue, :red])
@@ -166,7 +166,7 @@ plot(samples, (:a,:(b[2])), seriestype=:smallest_intervals, nbins=200,
 # By passing `true`, the point estimators are plotted using their default styles shown above.
 # The style of the point estimators *mean*, *globalmode* and *localmode* can be modified by passing a dictionary specifying `markershape`, `markercolor`, `markersize`, `markeralpha`, `markerstrokecolor`, `markerstrokestyle`, `markerstrokewidth` and `markerstrokealpha`.
 # If `std==true`, the standard deviation of the mean value will be displayed as x- and y-errorbars.
-plot(samples, (:a,:(b[2])), seriestype=:smallest_intervals, nbins=200,
+plot(samples, (:a,:(b[2])), seriestype=:smallest_intervals, bins=(200, -4:0.2:8),
     localmode=Dict("markershape"=> :diamond, "markeralpha"=>1, "markercolor"=>:red, "markersize"=>5),
     mean = true, std=true
 )
@@ -190,18 +190,23 @@ plot(prior)
 plot(samples)
 plot!(prior)
 
-# The keyword argument `vsel` allows to specify which parameters to consider in the overview plot by passing the indeces:
-plot(samples, vsel=[1, 3])
+# The keyword argument `vsel` allows to specify which parameters to consider in the overview plot by passing the names or indeces:
+plot(samples, vsel=(:a, :(b[2])))
+# or: plot(samples, vsel=(1, 3))
+
+# The binning of the overview plots can be specified individually for each parameter:
+plot(samples, bins=200) # all paramaters have 200 bins (default)
+plot(samples, bins=(10, -5:0.5:8, 500)) #  specify different bin numbers or bin edges for each parameter (only those specified with vsel)
+plot(prior, bins=(a=50,)) # use 50 bins for parameter :a and the default value (200) for all others
 
 # ### Customizing overview plots:
 # The overview plots can be modified by passing dictionaries to the keyword arguments `upper`, `lower` and `diagonal`.
 # The dictionaries for `upper` and `lower` can contain the 2D seriestypes and plot options shown above.
 # The dictionary for `diagonal` can use the 1D seriestypes and plot options shown above.
 # Nested dictonaries are possible (e.g. for modifying point estimators)
-plot(samples, mean=true, globalmode=true, legend=true,
+plot(samples, mean=true, globalmode=true, legend=true, bins = (a = -15:2:15, ),
     diagonal=Dict("seriestype"=>:stephist, "mean"=>Dict("linecolor" => :green, "linewidth" => 8)),
     lower = Dict("mean" => false, "colors"=>[:orange, :green, :grey]))
-
 
 # ## Plots for MCMC diagnostics
 # The diagnostic plots allow to plot the samples, a kernel density estimate, the trace and the autocorrelation function for each parameter and each chain:
