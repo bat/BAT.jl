@@ -34,9 +34,9 @@ Base.size(d::MultimodalCauchy) = size(d.dist)
 Base.length(d::MultimodalCauchy) = length(d.dist)
 Base.eltype(d::MultimodalCauchy) = eltype(d.dist)
 
-Distributions.mean(d::MultimodalCauchy) = Distributions.mean(d.dist)
-Distributions.var(d::MultimodalCauchy) = Distributions.var(d.dist)
-Distributions.cov(d::MultimodalCauchy) = Distributions.cov(d.dist)
+Statistics.mean(d::MultimodalCauchy) = Distributions.mean(d.dist)
+Statistics.var(d::MultimodalCauchy) = Distributions.var(d.dist)
+Statistics.cov(d::MultimodalCauchy) = Distributions.cov(d.dist)
 
 function StatsBase.params(d::MultimodalCauchy)
     (
