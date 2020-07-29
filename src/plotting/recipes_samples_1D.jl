@@ -24,7 +24,7 @@
     marg = bat_marginalize(
         maybe_shaped_samples,
         parsel,
-        nbins = bins,
+        bins = bins,
         closed = closed,
         filter = filter,
         normalize = normalize

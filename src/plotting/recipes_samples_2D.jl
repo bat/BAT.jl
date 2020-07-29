@@ -47,7 +47,7 @@
     marg = bat_marginalize(
         samples,
         (xindx, yindx),
-        nbins = bins,
+        bins = bins,
         closed = closed,
         filter = filter
     ).result
