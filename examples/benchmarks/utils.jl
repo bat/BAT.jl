@@ -308,13 +308,6 @@ function plot2D(
 	testfunctions::Dict,
 	name::String,
 	sample_stats::Vector{Any})
-	#
-	# samples::DensitySampleVector,
-	# #analytical_integral::Real,
-	# posterior::BAT.PosteriorDensity,
-	# name::String,
-	# analytical_stats::Vector{Any},
-	# sample_stats::Vector{Any})
 
     nbin = 400
 
@@ -383,14 +376,21 @@ function plot2D(
 
 	iid_sample = bat_sample(testfunctions[name].posterior,length([BAT.flatview(samples.v)...])).result
 	if(testfunctions[name].ks[1] > 999)
-		testfunctions[name].ks[1]=bat_compare(samples,iid_sample).result.ks_p_values[1]
+		ksres = bat_compare(samples,iid_sample).result.ks_p_values
+		testfunctions[name].ks[1]=ksres[1]
+		testfunctions[name].ks[2]=ksres[2]
 	end
 
 	if(testfunctions[name].ahmi[1] > 999)
-		testfunctions[name].ahmi[1]=bat_integrate(samples,AHMIntegration()).result.val
+		ahmires = bat_integrate(samples,AHMIntegration()).result
+		testfunctions[name].ahmi[1]=ahmires.val
+		testfunctions[name].ahmi[2]=ahmires.err
 	end
 
 	#plot(hunnorm,(1,2),seriestype=:smallest_intervals)
+	plot(unweighted_samples,seriestype=:smallest_intervals)
+	savefig(string("plots2D/default_",name,".pdf"))
+
 	plot(unweighted_samples,(1,2),seriestype=:smallest_intervals)
     savefig(string("plots2D/",name,".pdf"))
 
@@ -469,6 +469,7 @@ function make_2D_results(testfunctions::Dict,sample_stats2D::Vector{Vector{Any}}
     table   = Array{Any}(undef,length(name2D),length(stats_names2D)*length(comparison)+3)
     header[1] = "name"
     table[1:end,1] = name2D
+
     for i in 1:length(name2D)
         for j in 1:length(stats_names2D)
             header[1+(j-1)*length(comparison)+1]    = string(stats_names2D[j]," ",comparison[1])
@@ -494,6 +495,7 @@ function make_2D_results(testfunctions::Dict,sample_stats2D::Vector{Vector{Any}}
 		table[i,length(stats_names2D)*length(comparison)+2] = ks_p_val[i]
 		table[i,length(stats_names2D)*length(comparison)+3] = ahmi_val[i]
     end
+
 	header[length(stats_names2D)*length(comparison)+2] = "KS test p-value"
 	header[length(stats_names2D)*length(comparison)+3] = "AHMI integral"
 	full_table = Array{Any}(undef,length(name2D)+1,length(stats_names2D)*length(comparison)+3)

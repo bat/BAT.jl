@@ -1,6 +1,5 @@
-function run_2D_benchmark(;algorithm = MetropolisHastings(),n_chains = 10,n_samples = 10^5)
+function run_2D_benchmark(;algorithm = MetropolisHastings(),n_chains = 8,n_samples = 10^5)
     for i in 1:length(testfunctions_2D)
-      print(collect(keys(testfunctions_2D))[i])
         sample_stats_all = run2D(
             collect(keys(testfunctions_2D))[i], #There might be a nicer way but I need the name to save the plots
             testfunctions_2D,
