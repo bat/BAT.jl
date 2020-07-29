@@ -91,7 +91,6 @@ function plot_ahmi_values(results::Array{Any},n_dim;name="ahmi_values")
     xlabel!("Number of dimension")
     savefig(name)
     savefig(string(name,"_ND.pdf"))
-end
 
 function create_testfunction_for_dim(i_dim::Integer,maxdim=10)
     sig = Matrix{Float64}([1.5^2 1.5*2.5*0.4 ; 1.5*2.5*0.4 2.5^2])
