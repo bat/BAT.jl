@@ -1,5 +1,9 @@
 abstract type ImportanceSampler <: AbstractSamplingAlgorithm end
 
+struct ImportanceSamplerInfo <: SamplerInfo
+    algorithm::ImportanceSampler
+end
+
 
 """
     SobolSampler
@@ -50,9 +54,7 @@ function bat_sample_impl(
 
     bat_samples = shape.(DensitySampleVector(samples, logvals, weight = weights))
 
-    info = GenericSamplerInfo(algorithm)
-    summary = Summary(bat_samples, density, info)
-    return (result = bat_samples, summary=summary)
+    return (result = bat_samples, )
 end
 
 
@@ -106,8 +108,5 @@ function bat_sample_impl(
     posterior_samples = shape.(DensitySampleVector(v, posterior_logd, weight = weight))
     priorsmpl = bat_sample(prior, n)
 
-    info = GenericSamplerInfo(algorithm)
-    summary = Summary(posterior_samples, posterior, info)
-
-    return (result = posterior_samples, summary=summary, priorsmpl = priorsmpl)
+    return (result = posterior_samples, priorsmpl = priorsmpl)
 end

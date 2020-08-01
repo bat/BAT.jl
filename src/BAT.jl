@@ -57,6 +57,7 @@ using LaTeXStrings
 
 import Random123
 import TypedTables
+import NamedArrays
 
 #for Space Partitioning
 import CPUTime
@@ -74,8 +75,8 @@ include("optimization/optimization.jl")
 include("samplers/samplers.jl")
 include("integration/integration.jl")
 include("algodefaults/algodefaults.jl")
-include("output/summary.jl")
-include("output/output.jl")
+include("sampleddensity/sampleddensity.jl")
+include("sampleddensity/print_sampleddensity.jl")
 include("io/io.jl")
 include("plotting/plotting.jl")
 

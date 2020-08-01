@@ -90,7 +90,7 @@ end
     converged::Bool
 end
 
-struct MCMCInfo <: SamplerInfo
+struct MCMCSamplerInfo <: SamplerInfo
     algorithm::MCMCAlgorithm
     chains::Any #TODO
 end

@@ -1,6 +1,11 @@
 using BAT
 using Distributions
 using IntervalSets
+using TypedTables
+using NamedArrays
+using LinearAlgebra
+using PrettyTables
+
 
 likelihood = params -> begin
     r1 = logpdf.(Normal(-10.0, 1.2), params.a)
@@ -18,18 +23,21 @@ prior = BAT.NamedTupleDist(
 
 posterior = PosteriorDensity(likelihood, prior);
 
-samples, summary, chains = bat_sample(posterior, (10^5, 4), MetropolisHastings());
-display(summary)
+samples, chains = bat_sample(posterior, (10^5, 4), MetropolisHastings());
+#samples, summary, chains = bat_sample(posterior, 10^5, SobolSampler());
 
-# write summary to txt-file
-io = open("summary.txt", "w")
-show(io, "text/plain", summary)
-close(io)
+sd = SampledDensity(posterior, samples, samplerinfo=BAT.MCMCSamplerInfo(MetropolisHastings(), chains))
+display(sd)
 
 
 
 
-# ### write output to html-file
-io = open("output.html", "w")
-show(io, "text/html", summary)
-close(io)
+# # write summary to txt-file
+# io = open("summary.txt", "w")
+# show(io, "text/plain", summary)
+# close(io)
+#
+# # ### write output to html-file
+# io = open("output.html", "w")
+# show(io, "text/html", summary)
+# close(io)

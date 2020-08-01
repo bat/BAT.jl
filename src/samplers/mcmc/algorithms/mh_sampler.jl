@@ -26,6 +26,11 @@ end
 
 export MetropolisHastings
 
+function Base.show(io::IO, m::MIME"text/plain", algorithm::MetropolisHastings)
+    proposal = algorithm.proposalspec
+    weighting = algorithm.weighting
+    println(io, "MetropolisHastings(", proposal, ", ", weighting, ")")
+end
 
 MetropolisHastings(proposalspec::ProposalDistSpec = MvTDistProposal()) =
     MetropolisHastings(proposalspec, RepetitionWeighting())

@@ -157,10 +157,8 @@ function bat_sample_impl(
     )
 
     samples = varshape(density).(unshaped_samples)
-    info = MCMCInfo(algorithm, chains)
-    summary = Summary(samples, density, info)
 
-    (result = samples, summary=summary, chains = chains)
+    (result = samples, chains = chains)
 end
 
 

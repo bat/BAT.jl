@@ -2,9 +2,12 @@
 
 abstract type SamplerInfo end
 
+struct NoSamplerInfo <: SamplerInfo end
+
 struct GenericSamplerInfo{A <: AbstractSamplingAlgorithm} <: SamplerInfo
     algorithm::A
 end
+
 
 """
     IIDSampling
