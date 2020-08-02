@@ -9,6 +9,7 @@ Instead, compatibility is only guaranteed across changes in patch version, but
 bat_compare
 BAT.ExternalDensity
 BAT.FunnelDistribution
+BAT.GaussianShell
 BAT.MultimodalCauchy
 GridSampler
 HierarchicalDensity
