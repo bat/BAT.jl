@@ -35,8 +35,8 @@ function nfixedparams(sd::SampledDensity)
     return length(get_fixed_names(varshape(sd)))
 end
 
-import ValueShapes.varshape
-function varshape(sd::SampledDensity)
+#import ValueShapes.varshape
+function ValueShapes.varshape(sd::SampledDensity)
     return varshape(sd.samples)
 end
 
@@ -61,14 +61,14 @@ function active_keys(sd::SampledDensity)
     return Symbol.(all_active_names(sd.samples.v.__internal_elshape))
 end
 
-import Statistics.mean
-function mean(sd::SampledDensity)
+#import Statistics.mean
+function Statistics.mean(sd::SampledDensity)
     means = sd.stats.param_stats.mean
     return (; zip(active_keys(sd), means)...,)
 end
 
-import Statistics.std
-function std(sd::SampledDensity)
+#import Statistics.std
+function Statistics.std(sd::SampledDensity)
     covm = collect(sd.stats.param_stats.cov)
     stds = sqrt.(LinearAlgebra.diag(covm))
 
@@ -85,16 +85,16 @@ function marginalmode(sd::SampledDensity)
     return (; zip(active_keys(sd), modes)...,)
 end
 
-import Statistics.cov
-function cov(sd::SampledDensity)
+#import Statistics.cov
+function Statistics.cov(sd::SampledDensity)
     covm = collect(sd.stats.param_stats.cov)
     names = string.(active_keys(sd))
 
     return NamedArrays.NamedArray(covm, (names, names), ("cov",""))
 end
 
-import Statistics.cor
-function cor(sd::SampledDensity)
+#import Statistics.cor
+function Statistics.cor(sd::SampledDensity)
     covm = collect(sd.stats.param_stats.cov)
     corm = cov2cor(covm, sqrt.(diag(covm)))
     names = string.(active_keys(sd))

@@ -31,7 +31,6 @@ display(sd)
 
 
 
-
 # # write summary to txt-file
 # io = open("summary.txt", "w")
 # show(io, "text/plain", summary)
