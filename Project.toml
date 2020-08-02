@@ -3,6 +3,7 @@ uuid = "c0cd4b16-88b7-57fa-983b-ab80aecada7e"
 version = "2.0.0-DEV"
 
 [deps]
+AdaptiveRejectionSampling = "AdaptiveRejectionSampling"
 AdvancedHMC = "0bf59076-c3b1-5ca4-86bd-e02cd72cde3d"
 ArgCheck = "dce04be8-c92d-5529-be00-80e4d2c0e197"
 ArraysOfArrays = "65a8f2f4-9b39-5baf-92e2-a9cc46fdf018"
@@ -52,6 +53,7 @@ TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
 ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
 
 [compat]
+AdaptiveRejectionSampling = "0.1.1"
 AdvancedHMC = "0.2"
 ArgCheck = "1, 2.0"
 ArraysOfArrays = "0.4, 0.5"
