@@ -112,22 +112,17 @@ end
 
 
 
-function bat_marginalmode_impl(samples::DensitySampleVector; nbins::Union{Integer, Symbol} = 200)
+function bat_marginalmode_impl(samples::DensitySampleVector; bins = FDBinning())
 
     shape = varshape(samples)
     flat_samples = flatview(unshaped.(samples.v))
     n_params = size(flat_samples)[1]
-    nt_samples = ntuple(i -> flat_samples[i,:], n_params)
     marginalmode_params = Vector{Float64}()
+    bins_tuple = isa(bins, Tuple) ? bins : Tuple([bins for i in 1:n_params])
 
     for param in Base.OneTo(n_params)
-        if typeof(nbins) == Symbol
-            number_of_bins = _auto_binning_nbins(nt_samples, param, mode=nbins)
-        else
-            number_of_bins = nbins
-        end
 
-        marginalmode_param = find_localmodes(bat_marginalize(samples, param, nbins=number_of_bins).result)
+        marginalmode_param = find_localmodes(bat_marginalize(samples, param, bins=bins_tuple[param]).result)
 
         if length(marginalmode_param[1]) > 1
             @warn "More than one bin with the same weight is found. Returned the first one"
