@@ -1,15 +1,16 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 abstract type AbstractSampleGenerator end
 
+# when constructing a without generator infos like `SampledDensity(density, samples)`:
 struct UnknownSampleGenerator<: AbstractSampleGenerator end
-
 getalgorithm(sg::UnknownSampleGenerator) = nothing
 
+# for samplers without specific infos, e.g. current ImportanceSamplers:
 struct GenericSampleGenerator{A <: AbstractSamplingAlgorithm} <: AbstractSampleGenerator
     algorithm::A
 end
-
 getalgorithm(sg::GenericSampleGenerator) = sg.algorithm
+
 
 """
     IIDSampling
