@@ -4,23 +4,24 @@ struct MarginalDist{N,D<:Distribution,VS<:AbstractValueShape}
     origvalshape::VS
 end
 
-function _get_edges(data::Tuple, nbins::Tuple{Vararg{<:Integer}}, closed::Symbol)
-    return StatsBase.histrange(data, StatsBase._nbins_tuple(data, nbins), closed)
-end
-
-function _get_edges(data::Any, nbins::Integer, closed::Symbol)
-    return StatsBase.histrange((data, ), StatsBase._nbins_tuple((data, ), (nbins,)), closed)[1]
-end
-
-function _get_edges(data::Any, nbins::Union{AbstractRange, Tuple{AbstractRange}}, closed::Symbol)
-    return nbins
-end
+# TODO: Remove
+# function _get_edges(data::Tuple, nbins::Tuple{Vararg{<:Integer}}, closed::Symbol)
+#     return StatsBase.histrange(data, StatsBase._nbins_tuple(data, nbins), closed)
+# end
+#
+# function _get_edges(data::Any, nbins::Integer, closed::Symbol)
+#     return StatsBase.histrange((data, ), StatsBase._nbins_tuple((data, ), (nbins,)), closed)[1]
+# end
+#
+# function _get_edges(data::Any, nbins::Union{AbstractRange, Tuple{AbstractRange}}, closed::Symbol)
+#     return nbins
+# end
 
 
 function bat_marginalize(
     maybe_shaped_samples::DensitySampleVector,
     key::Union{Integer, Symbol, Expr};
-    bins = 200,
+    bins::Union{Integer, AbstractRange, AbstractBinning} = FDBinning(),
     closed::Symbol = :left,
     filter::Bool = false,
     normalize = true
@@ -34,7 +35,7 @@ function bat_marginalize(
     idx = asindex(maybe_shaped_samples, key)
     s = flatview(samples.v)[idx, :]
 
-    edges = _get_edges(s, bins, closed)
+    edges = _bin_edges(samples, idx, bins; closed=closed)
 
     hist = fit(Histogram,
             s,
@@ -54,7 +55,7 @@ end
 function bat_marginalize(
     maybe_shaped_samples::DensitySampleVector,
     key::Union{NTuple{n,Integer}, NTuple{n,Union{Symbol, Expr}}} where n;
-    bins = 200,
+    bins = FDBinning(),
     closed::Symbol = :left,
     filter::Bool = false,
     normalize = true
@@ -68,11 +69,8 @@ function bat_marginalize(
     idxs = asindex.(Ref(maybe_shaped_samples), key)
     s = Tuple(BAT.flatview(samples.v)[i, :] for i in idxs)
 
-    edges = if isa(bins, Integer)
-        _get_edges(s, (bins,), closed)
-    else
-        Tuple(_get_edges(s[i], bins[i], closed) for i in 1:length(bins))
-    end
+    bins_tuple = isa(bins, Tuple) ? bins : (bins, bins)
+    edges = Tuple(_bin_edges(samples, idxs[i], bins_tuple[i], closed=closed) for i in 1:length(bins_tuple))
 
     hist = fit(Histogram,
             s,
@@ -93,7 +91,7 @@ end
 function bat_marginalize(
     prior::NamedTupleDist,
     key::Union{Integer, Symbol};
-    bins = 200,
+    bins = FDBinning(),
     edges = nothing,
     closed::Symbol = :left,
     nsamples::Integer = 10^6,
@@ -102,7 +100,7 @@ function bat_marginalize(
     idx = asindex(prior, key)
     r = rand(prior, nsamples)
 
-    edges = _get_edges(r[idx, :], bins, closed)
+    edges = _bin_edges(r[idx, :], bins, closed=closed)
 
     hist = fit(Histogram, r[idx, :], edges, closed = closed)
 
@@ -118,7 +116,7 @@ end
 function bat_marginalize(
     prior::NamedTupleDist,
     key::Union{NTuple{2, Symbol}, NTuple{2, Integer}};
-    bins = 200,
+    bins = FDBinning(),
     closed::Symbol = :left,
     nsamples::Integer = 10^6,
     normalize=true
@@ -128,11 +126,8 @@ function bat_marginalize(
     r = rand(prior, nsamples)
     s = Tuple(r[i, :] for i in idxs)
 
-    edges = if isa(bins, Integer)
-        _get_edges(s, (bins,), closed)
-    else
-        Tuple(_get_edges(s[i], bins[i], closed) for i in 1:length(bins))
-    end
+    bins_tuple = isa(bins, Tuple) ? bins : (bins, bins)
+    edges = Tuple(_bin_edges(s[i], bins_tuple[i], closed=closed) for i in 1:length(bins_tuple))
 
     hist = fit(Histogram,
             s,

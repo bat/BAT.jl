@@ -1,15 +1,50 @@
-abstract type AbstractBinningAlgorithm end
+abstract type AbstractBinning end
 
-struct FixedBinning <: AbstractBinningAlgorithm end
-struct Sturges <: AbstractBinningAlgorithm end
-struct Scott <: AbstractBinningAlgorithm end
-struct Rice <: AbstractBinningAlgorithm end
-struct FreedmanDiaconis <: AbstractBinningAlgorithm end
-struct Wand <: AbstractBinningAlgorithm end
-struct SqrtBinning <: AbstractBinningAlgorithm end
+struct SturgesBinning <: AbstractBinning end
+struct ScottBinning <: AbstractBinning end
+struct RiceBinning <: AbstractBinning end
+struct FDBinning <: AbstractBinning end
+struct WandBinning <: AbstractBinning end
+struct SqrtBinning <: AbstractBinning end
 
 
-function function auto_binning(samples::DensitySampleVector; bins::AbstractBinningAlgorithm = FreedmanDiaconis())
+function _bin_edges(data::AbstractVector, bins::Integer; closed::Symbol = :left)
+    return StatsBase.histrange((data, ), StatsBase._nbins_tuple((data, ), (bins,)), closed)[1]
+end
+
+function _bin_edges(data::AbstractVector, bins::Union{AbstractRange, Tuple{AbstractRange}}; closed::Symbol = :left)
+    return bins
+end
+
+function _bin_edges(data::AbstractVector, bins::AbstractBinning; closed::Symbol = :left)
+    nbins = auto_nbins(data, bins=bins)
+    return StatsBase.histrange((data, ), StatsBase._nbins_tuple((data, ), (nbins,)), closed)[1]
+end
+
+
+# for samples:
+function _bin_edges(samples::DensitySampleVector, param::Integer, bins::Integer; closed::Symbol = :left)
+    data = flatview(unshaped.(samples.v))[param, :]
+    return _bin_edges(data, bins, closed=closed)
+end
+
+function _bin_edges(samples::DensitySampleVector, param::Integer, bins::AbstractBinning; closed::Symbol = :left)
+    nbins = auto_nbins(samples, param, bins=bins)
+    data = flatview(unshaped.(samples.v))[param, :]
+    return StatsBase.histrange((data, ), StatsBase._nbins_tuple((data, ), (nbins,)), closed)[1]
+end
+
+function _bin_edges(samples::Any, param::Any, bins::Union{AbstractRange, Tuple{AbstractRange}}; closed::Symbol = :left)
+    return bins
+end
+
+
+function auto_nbins(data::AbstractVector; bins::AbstractBinning = FDBinning())
+    binningmode = binning_mode(bins)
+    number_of_bins = _auto_binning_nbins((data,), 1; mode=binningmode)
+end
+
+function auto_nbins(samples::DensitySampleVector, param::Integer; bins::AbstractBinning = FDBinning())
     shape = varshape(samples)
     flat_samples = flatview(unshaped.(samples.v))
     n_params = size(flat_samples)[1]
@@ -17,17 +52,16 @@ function function auto_binning(samples::DensitySampleVector; bins::AbstractBinni
 
     binningmode = binning_mode(bins)
     number_of_bins = _auto_binning_nbins(nt_samples, param; mode=binningmode)
-
 end
 
-binning_mode(ba::SqrtBinning) = :sqrt
-binning_mode(ba::Sturges) = :sturges
-binning_mode(ba::Scott) = :scott
-binning_mode(ba::Rice) = :rice
-binning_mode(ba::FreedmanDiaconis) = :fd
-binning_mode(ba::Wand) = :wand
 
-# also for prior
+
+binning_mode(ba::SqrtBinning) = :sqrt
+binning_mode(ba::SturgesBinning) = :sturges
+binning_mode(ba::ScottBinning) = :scott
+binning_mode(ba::RiceBinning) = :rice
+binning_mode(ba::FDBinning) = :fd
+binning_mode(ba::WandBinning) = :wand
 
 
 
