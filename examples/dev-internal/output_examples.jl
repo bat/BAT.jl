@@ -17,18 +17,22 @@ end
 
 prior = BAT.NamedTupleDist(
     a = Normal(-3, 4.5),
-    b = 0,
+    b = -10..10,
     c = [-20.0..20.0, -10..10]
 )
 
 posterior = PosteriorDensity(likelihood, prior);
 
 samples, chains = bat_sample(posterior, (10^5, 4), MetropolisHastings());
-#samples, summary, chains = bat_sample(posterior, 10^5, SobolSampler());
+#samples = bat_sample(posterior, 10^5, SobolSampler()).result;
 
-sd = SampledDensity(posterior, samples, samplerinfo=BAT.MCMCSamplerInfo(MetropolisHastings(), chains))
+
+sd = SampledDensity(posterior, samples, generator=BAT.MCMCSampleGenerator(chains))
 display(sd)
 
+sd = SampledDensity(posterior, samples)
+
+dump(typeof(sd.density))
 
 
 # # write summary to txt-file

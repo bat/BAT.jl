@@ -75,9 +75,8 @@ include("optimization/optimization.jl")
 include("samplers/samplers.jl")
 include("integration/integration.jl")
 include("algodefaults/algodefaults.jl")
-include("sampleddensity/sampleddensity.jl")
-include("sampleddensity/print_sampleddensity.jl")
 include("io/io.jl")
+include("sampleddensity/sampled_density.jl")
 include("plotting/plotting.jl")
 
 

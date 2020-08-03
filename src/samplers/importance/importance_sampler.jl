@@ -1,10 +1,5 @@
 abstract type ImportanceSampler <: AbstractSamplingAlgorithm end
 
-struct ImportanceSamplerInfo <: SamplerInfo
-    algorithm::ImportanceSampler
-end
-
-
 """
     SobolSampler
 
@@ -49,7 +44,7 @@ function bat_sample_impl(
 
     samples = _gen_samples(algorithm, n, truncated_density)
 
-    logvals = logvalof_unchecked.(Ref(truncated_density), samples)
+    logvals = logvalof.(Ref(truncated_density), samples)
     weights = exp.(logvals)
 
     bat_samples = shape.(DensitySampleVector(samples, logvals, weight = weights))

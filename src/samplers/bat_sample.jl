@@ -1,13 +1,15 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
+abstract type AbstractSampleGenerator end
 
-abstract type SamplerInfo end
+struct UnknownSampleGenerator<: AbstractSampleGenerator end
 
-struct NoSamplerInfo <: SamplerInfo end
+getalgorithm(sg::UnknownSampleGenerator) = nothing
 
-struct GenericSamplerInfo{A <: AbstractSamplingAlgorithm} <: SamplerInfo
+struct GenericSampleGenerator{A <: AbstractSamplingAlgorithm} <: AbstractSampleGenerator
     algorithm::A
 end
 
+getalgorithm(sg::GenericSampleGenerator) = sg.algorithm
 
 """
     IIDSampling
