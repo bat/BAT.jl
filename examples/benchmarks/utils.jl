@@ -311,15 +311,24 @@ function plot2D(
 
     nbin = 400
 
-    h = fit(Histogram, (BAT.flatview(samples.v)[1,:],BAT.flatview(samples.v)[2,:]) ,FrequencyWeights(samples.weight),nbins=nbin)
-    hunnorm = fit(Histogram, (BAT.flatview(samples.v)[1,:],BAT.flatview(samples.v)[2,:]) ,FrequencyWeights(samples.weight),nbins=nbin)
+	plot_bins = nothing
+	if name == "funnel"
+		plot_bins = (-5:0.1:5,-10:0.1:10)
+	elseif name == "multi cauchy"
+		plot_bins = (-200:0.4:200,-200:0.4:200)
+	else
+		plot_bins = (5:0.1:25,-5:0.1:25)
+	end
+
+    h = fit(Histogram, (BAT.flatview(samples.v)[1,:],BAT.flatview(samples.v)[2,:]) ,FrequencyWeights(samples.weight),plot_bins)
+    hunnorm = fit(Histogram, (BAT.flatview(samples.v)[1,:],BAT.flatview(samples.v)[2,:]) ,FrequencyWeights(samples.weight),plot_bins)
 
 
     h = StatsBase.normalize(h)
 
     nun = convert(Int64,floor(sum(hunnorm.weights)/10))
     unweighted_samples = bat_sample(samples, nun).result
-    hunnorm = fit(Histogram, (BAT.flatview(unweighted_samples.v)[1,:],BAT.flatview(unweighted_samples.v)[2,:]),nbins=nbin)
+    hunnorm = fit(Histogram, (BAT.flatview(unweighted_samples.v)[1,:],BAT.flatview(unweighted_samples.v)[2,:]),plot_bins)
     hana = fit(Histogram,([],[]),hunnorm.edges)
     hdiff = fit(Histogram,([],[]),hunnorm.edges)
 
@@ -335,7 +344,6 @@ function plot2D(
 	logval = Vector{Float64}()
 	w = Vector{Float64}()
 
-	#anafunc = x -> pdf(testfunctions[name].posterior,[x[1],x[2]])
 
     for i in 1:length(hunnorm.edges[1])-1
         for j in 1:length(hunnorm.edges[2])-1
@@ -366,10 +374,6 @@ function plot2D(
     end
 
 
-	#theshape = varshape(posterior)
-	#dsv = theshape.(DensitySampleVector(v, logval, weight = w))
-	#ksval = bat_compare(unweighted_samples,dsv).ks_p_values
-
 	if(testfunctions[name].chi2[1] == 9999)
 		testfunctions[name].chi2[1]=ndf
 	end
@@ -388,10 +392,15 @@ function plot2D(
 	end
 
 	#plot(hunnorm,(1,2),seriestype=:smallest_intervals)
-	plot(unweighted_samples,seriestype=:smallest_intervals)
+
+	if name == "multi cauchy"
+		plot_bins = (-60:0.5:60,-60:0.5:60)
+	end
+	#plot(unweighted_samples,seriestype=:smallest_intervals,bins=plot_bins)
+	plot(unweighted_samples,bins=plot_bins,globalmode=true)
 	savefig(string("plots2D/default_",name,".pdf"))
 
-	plot(unweighted_samples,(1,2),seriestype=:smallest_intervals)
+	plot(unweighted_samples,(1,2),seriestype=:smallest_intervals,bins=plot_bins)
     savefig(string("plots2D/",name,".pdf"))
 
     plot(hana)#,(1,2),seriestype=:smallest_intervals)
@@ -408,8 +417,8 @@ function plot2D(
     lo, hi = quantile.(d, [0.00001, 0.99999])
     x = range(lo, hi; length = 100)
     binlength = hpull.edges[1].step.hi
-    plot(hpull,normalize=false,label="",xlabel=L"$\Delta/\sigma$",ylabel="N")
-    plot!(x, pdf.(d, x)*sum(hpull.weights)*binlength,label="")
+    plot(hpull,normalize=false,label="",xlabel=L"$\Delta/\sigma$",ylabel="N",xlims=(-5,5))
+    plot!(x, pdf.(d, x)*sum(hpull.weights)*binlength,label="",linewidth=2)
     savefig(string("plots2D/",name,"_pull.pdf"))
 
     return h
@@ -452,14 +461,14 @@ function make_2D_results(testfunctions::Dict,sample_stats2D::Vector{Vector{Any}}
 
 	name2D = Vector{String}()
 	analytical_stats2D = Vector{Vector{Any}}()
-	ks_p_val = Vector{Float64}()
-	ahmi_val = Vector{Float64}()
+	ks_p_val = Vector{Any}()
+	ahmi_val = Vector{Any}()
 
 	for (k,v) in testfunctions
 		push!(name2D,k)
 		push!(analytical_stats2D,[v.mode,v.mean,v.var])
-		push!(ks_p_val,round(v.ks[1],digits=3))
-		push!(ahmi_val,round(v.ahmi[1],digits=3))
+		push!(ks_p_val,round.(v.ks,digits=3))
+		push!(ahmi_val,round.(v.ahmi,digits=3))
 	end
 
     run_stats_names2D = ["nsamples","nchains","Times"]
