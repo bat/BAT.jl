@@ -71,7 +71,7 @@ function Statistics.std(sd::SampledDensity)
     return (; zip(active_keys(sd), stds)...,)
 end
 
-function mode(sd::SampledDensity)
+function Distributions.mode(sd::SampledDensity)
     modes = sd._stats.mode
     return (; zip(active_keys(sd), modes)...,)
 end

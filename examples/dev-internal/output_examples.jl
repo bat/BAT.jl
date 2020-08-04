@@ -26,21 +26,16 @@ posterior = PosteriorDensity(likelihood, prior);
 samples, chains = bat_sample(posterior, (10^5, 4), MetropolisHastings());
 #samples = bat_sample(posterior, 10^5, SobolSampler()).result;
 
-
 sd = SampledDensity(posterior, samples, generator=BAT.MCMCSampleGenerator(chains))
 display(sd)
 
-sd = SampledDensity(posterior, samples)
-
-dump(typeof(sd.density))
-
 
 # # write summary to txt-file
-# io = open("summary.txt", "w")
-# show(io, "text/plain", summary)
+# io = open("sampled_density.txt", "w")
+# show(io, "text/plain", sd)
 # close(io)
 #
 # # ### write output to html-file
-# io = open("output.html", "w")
-# show(io, "text/html", summary)
+# io = open("sampled_density.html", "w")
+# show(io, "text/html", sd)
 # close(io)
