@@ -57,6 +57,7 @@ using LaTeXStrings
 
 import Random123
 import TypedTables
+import NamedArrays
 
 #for Space Partitioning
 import CPUTime
@@ -76,6 +77,7 @@ include("integration/integration.jl")
 include("algodefaults/algodefaults.jl")
 include("io/io.jl")
 include("plotting/plotting.jl")
+
 
 
 const _PLOTS_MODULE = Ref{Union{Module,Nothing}}(nothing)
