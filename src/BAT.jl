@@ -76,7 +76,6 @@ include("samplers/samplers.jl")
 include("integration/integration.jl")
 include("algodefaults/algodefaults.jl")
 include("io/io.jl")
-include("densities/sampled_density.jl") #TODO: is there a better way?
 include("plotting/plotting.jl")
 
 
