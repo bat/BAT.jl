@@ -121,7 +121,6 @@ function mcmc_sample!(
 end
 
 
-
 function bat_sample_impl(
     rng::AbstractRNG,
     target::PosteriorDensity,
@@ -158,6 +157,7 @@ function bat_sample_impl(
     )
 
     samples = varshape(density).(unshaped_samples)
+
     (result = samples, chains = chains)
 end
 
