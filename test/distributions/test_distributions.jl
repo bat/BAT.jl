@@ -7,13 +7,13 @@ using StatsBase
 using Test
 
 Test.@testset "distributions" begin
-#   include("test_distribution_functions.jl")
-#   include("test_bat_sampler.jl")
+    include("test_distribution_functions.jl")
+    include("test_bat_sampler.jl")
 
     Test.@testset "multimodal cauchy" begin
         for i in 2:6
             μ = randn()
-            σ = rand(0:0.1:2)
+            σ = rand(0.01:0.1:2)
             mmc = BAT.MultimodalCauchy(μ=μ,σ=σ, n=i)
             @test isequal(mean(mmc), fill(NaN, i))
             @test isequal(var(mmc), fill(NaN, i))
