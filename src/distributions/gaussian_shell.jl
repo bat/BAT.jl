@@ -1,7 +1,6 @@
 using SpecialFunctions
 using Random123 
 import AdaptiveRejectionSampling
-#import HCubature
 
 """
     BAT.GaussianShell([r=5, w=2, n=2])
