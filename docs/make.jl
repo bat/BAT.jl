@@ -9,7 +9,7 @@ using Literate
 using BAT
 
 using ValueShapes
-import HDF5
+import Cuba, HDF5
 
 
 function fix_literate_output(content)
