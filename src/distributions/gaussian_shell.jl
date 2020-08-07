@@ -16,6 +16,7 @@ Gaussian Shell (Caldwell et al.)[https://arxiv.org/abs/1808.08051].
 Constructors:
 ```julia
 BAT.GaussianShell(r::Real, w::Real, c::Vector, n::Int)
+```
 """
 struct GaussianShell{T<:Real, V<:AbstractVector{<:Real}, F<:AbstractFloat} <: ContinuousMultivariateDistribution
     r::T
