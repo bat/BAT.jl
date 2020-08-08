@@ -11,6 +11,7 @@ Test.@testset "distributions" begin
     include("test_bat_sampler.jl")
 
     Test.@testset "multimodal cauchy" begin
+        @test_throws ArgumentError BAT.MultimodalCauchy(n=1)
         for i in 2:6
             μ = randn()
             σ = rand(0.01:0.1:2)
