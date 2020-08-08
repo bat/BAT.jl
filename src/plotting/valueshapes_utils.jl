@@ -125,3 +125,11 @@ end
 function subname(name::String, indx::Integer)
     return name*"["*string(indx)*"]"
 end
+
+
+
+function get_fixed_names(vs::NamedTupleShape)
+    active_names = all_active_names(vs)
+    all_names = allnames(vs)
+    fixed_names = [n for n in all_names if !in(n, active_names)]
+end

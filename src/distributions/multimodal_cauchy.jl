@@ -25,6 +25,7 @@ struct MultimodalCauchy{M<:MixtureModel, P<:Product}  <: ContinuousMultivariateD
 end
 
 function MultimodalCauchy(;μ::Real=1, σ::Float64=0.2, n::Integer=4)
+    @argcheck n > 1 "Minimum number of dimensions for MultimodalCauchy is 2" 
     mixture_model = MixtureModel([Cauchy(-μ, σ), Cauchy(μ, σ)])
     dist = _construct_dist(mixture_model, σ, n)
     MultimodalCauchy(mixture_model, σ, n, dist)

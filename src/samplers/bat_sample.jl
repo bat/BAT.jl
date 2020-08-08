@@ -1,4 +1,15 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
+abstract type AbstractSampleGenerator end
+
+# when constructing a without generator infos like `SampledDensity(density, samples)`:
+struct UnknownSampleGenerator<: AbstractSampleGenerator end
+getalgorithm(sg::UnknownSampleGenerator) = nothing
+
+# for samplers without specific infos, e.g. current ImportanceSamplers:
+struct GenericSampleGenerator{A <: AbstractSamplingAlgorithm} <: AbstractSampleGenerator
+    algorithm::A
+end
+getalgorithm(sg::GenericSampleGenerator) = sg.algorithm
 
 
 """
@@ -55,7 +66,10 @@ function bat_sample_impl(rng::AbstractRNG, posterior::DensitySampleVector, n::In
     samples = posterior[resampled_idxs]
     samples.weight .= 1
 
-    (result = samples,)
+    info = ImportanceSamplerInfo(algorithm)
+    summary = Summary(bat_samples, density, info)
+
+    (result = samples, summary = summary)
 end
 
 

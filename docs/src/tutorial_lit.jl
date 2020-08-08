@@ -258,6 +258,12 @@ samples = bat_sample(posterior, (nsamples, nchains), MetropolisHastings()).resul
 #md nothing # hide
 #nb nothing # hide
 
+# Construct a `SampledDensity` to get a quick overview of the properties
+# of the sampled posterior, estimates of the fit parameters:
+
+SampledDensity(posterior, samples)
+
+
 # Let's calculate some statistics on the posterior samples:
 
 println("Truth: $true_par_values")
