@@ -90,6 +90,11 @@ end
     converged::Bool
 end
 
+struct MCMCSampleGenerator <: AbstractSampleGenerator
+    _chains::Any #TODO
+end
+
+getalgorithm(sg::MCMCSampleGenerator) = sg._chains[1].spec.algorithm
 
 
 @doc doc"""

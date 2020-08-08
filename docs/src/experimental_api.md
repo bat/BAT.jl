@@ -11,9 +11,13 @@ BAT.ExternalDensity
 BAT.FunnelDistribution
 BAT.GaussianShell
 BAT.MultimodalCauchy
+CuhreIntegration
+DivonneIntegration
 GridSampler
 HierarchicalDensity
 PartitionedSampling
 PriorImportanceSampler
 SobolSampler
+SuaveIntegration
+VEGASIntegration
 ```
