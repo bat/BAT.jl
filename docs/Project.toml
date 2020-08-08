@@ -1,4 +1,6 @@
 [deps]
+BAT = "c0cd4b16-88b7-57fa-983b-ab80aecada7e"
+Cuba = "8a292aeb-7a57-582c-b821-06e4c11590b1"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
@@ -15,7 +17,8 @@ TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
 ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
 
 [compat]
+Cuba = "2"
 Documenter = "0.25"
-Literate = "2"
 HDF5 = "0.12"
+Literate = "2"
 Plots = "0.28, 0.29, 1"

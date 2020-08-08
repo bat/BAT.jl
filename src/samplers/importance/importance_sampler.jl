@@ -1,6 +1,5 @@
 abstract type ImportanceSampler <: AbstractSamplingAlgorithm end
 
-
 """
     SobolSampler
 
@@ -49,7 +48,8 @@ function bat_sample_impl(
     weights = exp.(logvals)
 
     bat_samples = shape.(DensitySampleVector(samples, logvals, weight = weights))
-    return (result = bat_samples,)
+
+    return (result = bat_samples, )
 end
 
 
@@ -102,5 +102,6 @@ function bat_sample_impl(
 
     posterior_samples = shape.(DensitySampleVector(v, posterior_logd, weight = weight))
     priorsmpl = bat_sample(prior, n)
+
     return (result = posterior_samples, priorsmpl = priorsmpl)
 end
