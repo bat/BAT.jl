@@ -39,11 +39,53 @@ Depth = 1
 
 ## Citing BAT.jl
 
-When using BAT.jl for work that will result in a scientific publication, please cite
+When using BAT.jl for research, teaching or similar, please cite
 
-> Schulz et al., *BAT.jl - A Bayesian Analysis Toolkit in Julia*, [**doi:10.5281/zenodo.2605312**](https://doi.org/10.5281/zenodo.2587213)
+> Schulz et al. "BAT.jl - A Bayesian Analysis Toolkit in Julia" (2020) [arXiv:2008.03132](https://arxiv.org/abs/2008.03132)
 
-The DOI above is [version-independent](http://help.zenodo.org/#versioning), you may want to use the DOI of the specific BAT.jl version used in your work.
+```
+@article{Schulz:2020ebm,
+    author = "Schulz, Oliver and Beaujean, Frederik and Caldwell, Allen and Grunwald, Cornelius and Hafych, Vasyl and Kröninger, Kevin and La Cagnina, Salvatore and Röhrig, Lars and Shtembari, Lolian",
+    title = "{BAT.jl -- A Julia-based tool for Bayesian inference}",
+    eprint = "2008.03132",
+    archivePrefix = "arXiv",
+    primaryClass = "stat.CO",
+    month = "8",
+    year = "2020"
+}
+```
+
+If you use [`BAT.AHMIntegration`](@ref) as an important part of your work, please also cite 
+
+> Caldwell et al. "Integration with an Adaptive Harmonic Mean Algorithm" (2020) [arXiv:1808.08051](https://arxiv.org/abs/1808.08051)
+
+```
+@article{Caldwell:2018ufl,
+    author = "Caldwell, Allen and Eller, Philipp and Hafych, Vasyl and Schick, Rafael C. and Schulz, Oliver and Szalay, Marco",
+    title = "{Integration with an Adaptive Harmonic Mean Algorithm}",
+    eprint = "1808.08051",
+    archivePrefix = "arXiv",
+    primaryClass = "physics.data-an",
+    month = "8",
+    year = "2018"
+}
+```
+
+If you use [`BAT.PartitionedSampling`](@ref) as an important part of your work, please also cite 
+
+> Hafych et al. "Parallelizing MCMC Sampling via Space Partitioning" (2020) [arXiv:2008.03098](https://arxiv.org/abs/2008.03098)
+
+```
+@article{Hafych:2008.03098,
+    author = "Hafych, Vasyl and Eller, Philipp and Caldwell, Allen and Schulz, Oliver",
+    title = "{Parallelizing MCMC Sampling via Space Partitioning}",
+    eprint = "2008.03098",
+    archivePrefix = "arXiv",
+    primaryClass = "stat.CO",
+    month = "8",
+    year = "2018"
+}
+```
 
 
 ## Learning (more about) Julia
