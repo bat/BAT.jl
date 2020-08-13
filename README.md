@@ -43,8 +43,4 @@ julia> pkg"add BAT"
 
 ## Citing BAT.jl
 
-When using BAT.jl for work that will result in a scientific publication, please cite
-
-> Caldwell et al., *BAT.jl - A Bayesian Analysis Toolkit in Julia*, [**doi:10.5281/zenodo.2605312**](https://doi.org/10.5281/zenodo.2587213)
-
-The DOI above is [version-independent](http://help.zenodo.org/#versioning), you may want to use the DOI of the specific BAT.jl version used in your work.
+When using BAT.jl for research, teaching or similar, please cite our work, see [CITATION.bib](CITATION.bib).
