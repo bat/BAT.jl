@@ -73,7 +73,7 @@ _SampleAux() = _SampleInfo(0)
 
         dsv_similar = @inferred similar(dsv_merged)
         for v in dsv_similar.v
-            @test iszero(Float32.(v)) # f64 precision doesn't work
+            @test isassigned(v) == false
         end
 
         gs = BAT.GaussianShell(n=5)
