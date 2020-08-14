@@ -1,6 +1,8 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 using BAT
+using Distributions
+using StatsBase
 using Test
 
 using ArraysOfArrays, ElasticArrays, ValueShapes
@@ -63,5 +65,30 @@ _SampleAux() = _SampleInfo(0)
         @test @inferred(broadcast(unshaped, TypedTables.Table(broadcast(shape, dsv1)).v)) === dsv1.v
 
         @test shape.(dsv1)[1] == shape(dsv1[1])
+
+        dsv_merged = @inferred merge(dsv1, dsv2)
+        @test vcat(dsv1, dsv2) == dsv_merged
+        @test getindex(dsv_merged, 1:length(dsv_merged)) == dsv_merged
+        @test getindex(dsv_merged, 1:length(dsv1)) == getindex(dsv1, 1:length(dsv1))
+
+        dsv_similar = @inferred similar(dsv_merged)
+        for v in dsv_similar.v
+            @test iszero(Float32.(v)) # f64 precision doesn't work
+        end
+
+        gs = BAT.GaussianShell(n=5)
+        x1 = rand(5)
+        x2 = rand(5)
+        v_gs = ArrayOfSimilarArrays([x1, x2])
+        logd_gs = [logpdf(gs, x1), logpdf(gs, x2)]
+
+        dsv_gs1 = DensitySampleVector(v_gs, logd_gs, weight=[1,1])
+        dsv_gs2 = DensitySampleVector(v_gs, logd_gs, weight=:RepetitionWeight)
+
+        @test dsv_gs1 == dsv_gs2
+        @test dsv_gs1.v == v_gs
+        @test dsv_gs2.v == v_gs
+        @test dsv_gs1.weight == [1,1]
+        @test dsv_gs2.weight == [1,1]
     end
 end
