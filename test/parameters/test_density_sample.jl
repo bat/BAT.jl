@@ -29,6 +29,10 @@ _SampleAux() = _SampleInfo(0)
     ds2 = @inferred DensitySample(param2, Float32(-2.8723492), 2, _SampleInfo(8), _SampleAux(0.435f0))
     ds4 = @inferred DensitySample(param4, Float32(-4.2568156), 4, _SampleInfo(9), _SampleAux(0.612f0))
     
+    naive_ds = @inferred DensitySample([1.0, 2.0, 3.0], 4.0, 5.0, nothing, nothing)
+    similar_ds = @inferred(similar(naive_ds))
+    @test isnan.(similar_ds.v) == @inferred(ones(Int, @inferred(length(similar_ds.v))))
+
     @testset "DensitySample" begin
         @test typeof(ds1)  <: DensitySample{Vector{Float64},Float32,Int,_SampleInfo}
 
@@ -66,12 +70,12 @@ _SampleAux() = _SampleInfo(0)
 
         @test shape.(dsv1)[1] == shape(dsv1[1])
 
-        dsv_merged = @inferred merge(dsv1, dsv2)
+        dsv_merged = @inferred(merge(dsv1, dsv2))
         @test vcat(dsv1, dsv2) == dsv_merged
         @test getindex(dsv_merged, 1:length(dsv_merged)) == dsv_merged
         @test getindex(dsv_merged, 1:length(dsv1)) == getindex(dsv1, 1:length(dsv1))
 
-        dsv_similar = @inferred similar(dsv_merged)
+        dsv_similar = @inferred(similar(dsv_merged))
         for v in dsv_similar.v
             @test isassigned(v) == false
         end
