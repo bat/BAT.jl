@@ -90,5 +90,35 @@ _SampleAux() = _SampleInfo(0)
         @test dsv_gs2.v == v_gs
         @test dsv_gs1.weight == [1,1]
         @test dsv_gs2.weight == [1,1]
+        
+        rtol = eps(typeof(float(1)))
+        X = @inferred(flatview(dsv_merged.v))
+        w = @inferred(FrequencyWeights(dsv_merged.weight))
+        rows = eachrow(X)
+
+        dsv_mean = @inferred(mean(dsv_merged))
+        @test @inferred(length(rows)) == @inferred(length(dsv_mean))
+        for i in eachindex(dsv_mean)
+            @test isapprox(@inferred(mean(collect(rows)[i], w)), dsv_mean[i], rtol=rtol)
+        end
+        
+        dsv_std = @inferred(std(dsv_merged))
+        @test @inferred(length(rows)) == @inferred(length(dsv_std))
+        for i in eachindex(dsv_std)
+            @test isapprox(@inferred(std(collect(rows)[i], w, corrected=true)), dsv_std[i], rtol=rtol)
+        end
+
+        dsv_med = @inferred(median(dsv_merged))
+        @test @inferred(length(rows)) == @inferred(length(dsv_med))
+        for i in eachindex(dsv_med)
+            @test isapprox(@inferred(median(collect(rows)[i], w)), dsv_med[i], rtol=rtol)
+        end
+
+        dsv_mode = @inferred(mode(dsv_merged))
+        for i in eachindex(dsv_mode)
+            @test @inferred(isapprox(dsv_mode[i], mode(collect(rows)[i]), rtol=rtol))
+        end
+
+        @test @inferred(isapprox(@inferred(cor(X, w, 2)), @inferred(cor(dsv_merged)), rtol=rtol))
     end
 end
