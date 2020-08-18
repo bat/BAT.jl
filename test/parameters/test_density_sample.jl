@@ -29,7 +29,7 @@ _SampleAux() = _SampleInfo(0)
     ds2 = @inferred DensitySample(param2, Float32(-2.8723492), 2, _SampleInfo(8), _SampleAux(0.435f0))
     ds4 = @inferred DensitySample(param4, Float32(-4.2568156), 4, _SampleInfo(9), _SampleAux(0.612f0))
     
-    @inferred(Base.Broadcast.broadcastable(ds)) isa Ref && Base.Broadcast.broadcastable(ds).x == Ref(ds).x
+    @inferred(Base.Broadcast.broadcastable(ds1)) isa Ref && Base.Broadcast.broadcastable(ds1).x == Ref(ds1).x
 
     naive_ds = @inferred DensitySample([1.0, 2.0, 3.0], 4.0, 5.0, nothing, nothing)
     similar_ds = @inferred(similar(naive_ds))
