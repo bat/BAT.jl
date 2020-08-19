@@ -103,6 +103,8 @@ _SampleAux() = _SampleInfo(0)
         @test dsv_gs1.weight == [1,1]
         @test dsv_gs2.weight == [1,1]
         
+        @test @inferred(length(DensitySampleVector(dsv_merged.v, dsv_merged.logd, weight=:RepetitionWeight))) == @inferred(length(dsv_merged))-1
+
         rtol = eps(typeof(float(1)))
         X = @inferred(flatview(dsv_merged.v))
         w = @inferred(FrequencyWeights(dsv_merged.weight))

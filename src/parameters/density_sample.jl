@@ -176,7 +176,9 @@ function DensitySampleVector(
     aux::AbstractVector = fill(nothing, length(eachindex(v)))
 )
     if weight == :RepetitionWeight
-        v, weight = repetition_to_weights(v)
+        v, logval, weight = repetition_to_weights(v, logval)
+        info = fill(nothing, length(eachindex(v)))
+        aux = fill(nothing, length(eachindex(v)))
     end
 
     return DensitySampleVector((ArrayOfSimilarArrays(v), logval, weight, info, aux))
@@ -329,11 +331,13 @@ end
 
 Drop (subsequently) repeated samples by adding weights.
 """
-function repetition_to_weights(v::AbstractVector)
+function repetition_to_weights(v::AbstractVector, logval::AbstractVector)
     v_new = Vector{typeof(v[1])}()
+    logval_new = Vector{typeof(logval[1])}()
     weights = Vector{Integer}()
 
     push!(v_new, v[1])
+    push!(logval_new, logval[1])
     push!(weights, 1)
 
     for i in 2:length(eachindex(v))
@@ -341,9 +345,10 @@ function repetition_to_weights(v::AbstractVector)
             weights[end] += 1
         else
             push!(v_new, v[i])
+            push!(logval_new, logval[i])
             push!(weights, 1)
         end
     end
     
-    return v_new, weights
+    return v_new, logval_new, weights
 end
