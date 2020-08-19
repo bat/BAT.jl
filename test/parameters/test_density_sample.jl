@@ -77,9 +77,11 @@ _SampleAux() = _SampleInfo(0)
         @test getindex(dsv_merged, 1:length(dsv_merged)) == dsv_merged
         @test getindex(dsv_merged, 1:length(dsv1)) == getindex(dsv1, 1:length(dsv1))
 
-        w = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
-        @test BAT.drop_low_weight_samples(DensitySampleVector(dsv_merged.v, dsv_merged.logd, weight=w)).v == dsv_merged.v
-        @test BAT.drop_low_weight_samples(DensitySampleVector(dsv_merged.v, dsv_merged.logd, weight=w), minimum(w)/maximum(w)).v == dsv_merged.v[2:end]
+        w1 = 1:6
+        w2 = append!(collect(1:5),10000)
+        @test BAT.drop_low_weight_samples(DensitySampleVector(dsv_merged.v, dsv_merged.logd, weight=w1)).v == dsv_merged.v
+        @test BAT.drop_low_weight_samples(DensitySampleVector(dsv_merged.v, dsv_merged.logd, weight=w2), minimum(w2)/maximum(w2)).v == dsv_merged.v
+        @test BAT.drop_low_weight_samples(DensitySampleVector(dsv_merged.v, dsv_merged.logd, weight=w2), 10^-10).v == dsv_merged.v
 
         dsv_similar = @inferred(similar(dsv_merged))
         for v in dsv_similar.v
