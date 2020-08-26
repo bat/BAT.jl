@@ -301,9 +301,9 @@ StatsBase.mode(samples::DensitySampleVector) = _get_mode(samples)[1]
 Drop `fraction` of the total probability mass from samples to filter out the
 samples with the lowest weight.
 """
-function drop_low_weight_samples(samples::DensitySampleVector, fraction::Real = 10^-5)
+function drop_low_weight_samples(samples::DensitySampleVector, fraction::Real = 10^-5; threshold::Real=10^-2)
     W = float(samples.weight)
-    if minimum(W) / maximum(W) > 10^-2
+    if minimum(W) / maximum(W) > threshold
         samples
     else
         W_s = sort(W)
