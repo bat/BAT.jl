@@ -52,7 +52,7 @@ issymmetric_around_origin(d::TDist) = true
 
 issymmetric_around_origin(d::MvNormal) = iszero(d.μ)
 
-issymmetric_around_origin(d::Distributions.GenericMvTDist) = d.zeromean
+issymmetric_around_origin(d::Distributions.GenericMvTDist) = iszero(d.μ)
 
 
 const PosDefMatLike = Union{AbstractMatrix{T},AbstractPDMat{T},Cholesky{T}} where {T<:Real}
