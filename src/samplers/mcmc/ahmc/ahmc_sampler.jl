@@ -45,11 +45,11 @@ default: `proposal = NUTS(sampling::Symbol = :MultinomialTS, nuts::Symbol = :Cla
 ## Adaptor
 options:
 - `MassMatrixAdaptor()`
-- `StepSizeAdaptor(step_size::Float64 = 0.8)`
-- `NaiveHMCAdaptor(step_size::Float64 = 0.8)`
-- `StanHMCAdaptor(step_size::Float64 = 0.8)`
+- `StepSizeAdaptor(acceptance_rate::Float64 = 0.8)`
+- `NaiveHMCAdaptor(acceptance_rate::Float64 = 0.8)`
+- `StanHMCAdaptor(acceptance_rate::Float64 = 0.8)`
 
-default: `adaptor =  StanHMCAdaptor(step_size::Float64 = 0.8)`
+default: `adaptor =  StanHMCAdaptor(acceptance_rate::Float64 = 0.8)`
 """
 @with_kw struct AHMC <: MCMCAlgorithm
     metric::HMCMetric = DiagEuclideanMetric()
