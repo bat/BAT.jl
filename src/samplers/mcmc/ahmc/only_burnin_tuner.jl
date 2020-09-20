@@ -72,11 +72,7 @@ function mcmc_tune_burnin!(
     nchains = length(chains)
 
     user_callbacks = mcmc_callback_vector(callbacks, eachindex(chains))
-
-    @info "burnin_strategy.max_ncycles =  $(burnin_strategy.max_ncycles)"
-    @info "burnin_strategy.max_nsteps_per_cycle =  $(burnin_strategy.max_nsteps_per_cycle)"
-    @info "burnin_strategy.max_nsamples_per_cycle =  $(burnin_strategy.max_nsamples_per_cycle)"
-    
+   
     cycles = zero(Int)
     successful = false
     while !successful && cycles < burnin_strategy.max_ncycles
@@ -92,13 +88,15 @@ function mcmc_tune_burnin!(
         ct_result = check_convergence!(convergence_test, chains, new_stats)
 
         nconverged = count(c -> c.info.converged, chains)
-        successful = (nconverged == nchains)
+        ntuned = count(c -> c.info.tuned, chains)
+
+        successful = (nconverged == nchains) && (ntuned == nchains)
 
         for i in eachindex(user_callbacks, tuners)
             user_callbacks[i](1, tuners[i])
         end
 
-        @info "MCMC burnin cycle $cycles finished, $nchains chains, $nconverged converged."
+        @info "MCMC burnin cycle $cycles finished, $nchains chains, $nconverged converged, $ntuned tuned."
     end
 
     if successful

@@ -53,16 +53,6 @@ function MCMCBurninStrategy(algorithm::MCMCAlgorithm, nsamples::Integer, max_nst
     )
 end
 
-function MCMCBurninStrategy(algorithm::AHMC, nsamples::Integer, max_nsteps::Integer, tuner_config::AbstractMCMCTuningStrategy)
-    max_nsamples_per_cycle = nsamples
-    max_nsteps_per_cycle = max_nsteps
-    MCMCBurninStrategy(
-        max_nsamples_per_cycle = max_nsamples_per_cycle,
-        max_nsteps_per_cycle = max_nsteps_per_cycle,
-        max_ncycles = 1
-    )
-end
-
 
 function mcmc_tune_burnin!(
     callbacks,

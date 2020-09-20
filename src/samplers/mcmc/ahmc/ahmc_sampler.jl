@@ -47,9 +47,9 @@ options:
 - `MassMatrixAdaptor()`
 - `StepSizeAdaptor(acceptance_rate::Float64 = 0.8)`
 - `NaiveHMCAdaptor(acceptance_rate::Float64 = 0.8)`
-- `StanHMCAdaptor(acceptance_rate::Float64 = 0.8)`
+- `StanHMCAdaptor(acceptance_rate::Float64 = 0.8, n_adapts = 500)`
 
-default: `adaptor =  StanHMCAdaptor(acceptance_rate::Float64 = 0.8)`
+default: `adaptor =  StanHMCAdaptor(acceptance_rate::Float64 = 0.8, n_adapts = 500)`
 """
 @with_kw struct AHMC <: MCMCAlgorithm
     metric::HMCMetric = DiagEuclideanMetric()
@@ -59,6 +59,16 @@ default: `adaptor =  StanHMCAdaptor(acceptance_rate::Float64 = 0.8)`
     adaptor::HMCAdaptor = StanHMCAdaptor()
 end
 
+# MCMCBurninStrategy for AHMC
+function MCMCBurninStrategy(algorithm::AHMC, nsamples::Integer, max_nsteps::Integer, tuner_config::AbstractMCMCTuningStrategy)
+    max_nsamples_per_cycle = nsamples
+    max_nsteps_per_cycle = max_nsteps
+    MCMCBurninStrategy(
+        max_nsamples_per_cycle = max_nsamples_per_cycle,
+        max_nsteps_per_cycle = max_nsteps_per_cycle,
+        max_ncycles = 1
+    )
+end
 
 # MCMCSpec for AHMC
 function (spec::MCMCSpec{<:AHMC})(
@@ -347,16 +357,27 @@ function ahmc_step!(rng, alg, chain, proposed_params, current_params)
     chain.transition = AdvancedHMC.step(rng, chain.hamiltonian, chain.proposal, chain.transition.z)
 
     tstat = AdvancedHMC.stat(chain.transition)
-    i, nadapt = chain.info.converged ? (3, 2) : (1, 1)
+
+    if typeof(alg.adaptor) <: StanHMCAdaptor
+        i = chain.adaptor.state.i
+        n_adapts = alg.adaptor.n_adapts
+    else
+        i, n_adapts = chain.info.converged ? (3, 2) : (1, 1)
+    end
     
     chain.hamiltonian, chain.proposal, isadapted = AdvancedHMC.adapt!(chain.hamiltonian,
-                                                                    chain.proposal,
-                                                                    chain.adaptor,
-                                                                    i, nadapt,
-                                                                    chain.transition.z.θ,
-                                                                    tstat.acceptance_rate)
-    tstat = merge(tstat, (is_adapt=isadapted,))
-    
+                                                                      chain.proposal,
+                                                                      chain.adaptor,
+                                                                      i,
+                                                                      n_adapts,
+                                                                      chain.transition.z.θ,
+                                                                      tstat.acceptance_rate)
+
+   
+    if i == n_adapts
+        chain.info = MCMCIteratorInfo(chain.info, tuned = isadapted)
+    end
+        
     proposed_params[:] = chain.transition.z.θ
     nothing
 end
