@@ -348,7 +348,7 @@ function ahmc_step!(rng, alg, chain, proposed_params, current_params)
 
     tstat = AdvancedHMC.stat(chain.transition)
     i, nadapt = chain.info.converged ? (3, 2) : (1, 1)
-
+    
     chain.hamiltonian, chain.proposal, isadapted = AdvancedHMC.adapt!(chain.hamiltonian,
                                                                     chain.proposal,
                                                                     chain.adaptor,
@@ -356,7 +356,7 @@ function ahmc_step!(rng, alg, chain, proposed_params, current_params)
                                                                     chain.transition.z.θ,
                                                                     tstat.acceptance_rate)
     tstat = merge(tstat, (is_adapt=isadapted,))
-
+    
     proposed_params[:] = chain.transition.z.θ
     nothing
 end
