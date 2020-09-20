@@ -73,6 +73,10 @@ function mcmc_tune_burnin!(
 
     user_callbacks = mcmc_callback_vector(callbacks, eachindex(chains))
 
+    @info "burnin_strategy.max_ncycles =  $(burnin_strategy.max_ncycles)"
+    @info "burnin_strategy.max_nsteps_per_cycle =  $(burnin_strategy.max_nsteps_per_cycle)"
+    @info "burnin_strategy.max_nsamples_per_cycle =  $(burnin_strategy.max_nsamples_per_cycle)"
+    
     cycles = zero(Int)
     successful = false
     while !successful && cycles < burnin_strategy.max_ncycles
