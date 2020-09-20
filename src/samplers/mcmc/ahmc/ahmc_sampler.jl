@@ -85,8 +85,6 @@ function (spec::MCMCSpec{<:AHMC})(
     AHMCIterator(rng, spec, info, Vector{P}())
 end
 
-
-
 # MCMCIterator subtype for AHMC
 mutable struct AHMCIterator{
     SP<:MCMCSpec,
@@ -111,7 +109,6 @@ mutable struct AHMCIterator{
     proposal::P
     adaptor::A
 end
-
 
 function AHMCIterator(
     rng::AbstractRNG,
@@ -354,6 +351,7 @@ end
 
 
 function ahmc_step!(rng, alg, chain, proposed_params, current_params)
+
     chain.transition = AdvancedHMC.step(rng, chain.hamiltonian, chain.proposal, chain.transition.z)
 
     tstat = AdvancedHMC.stat(chain.transition)
@@ -377,7 +375,10 @@ function ahmc_step!(rng, alg, chain, proposed_params, current_params)
     if i == n_adapts
         chain.info = MCMCIteratorInfo(chain.info, tuned = isadapted)
     end
-        
+
+    tstat = merge(tstat, (is_adapt=isadapted,))
+
+    
     proposed_params[:] = chain.transition.z.θ
     nothing
 end
