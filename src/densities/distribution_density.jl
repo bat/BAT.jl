@@ -26,22 +26,17 @@ Base.parent(density::DistributionDensity) = density.dist
 
 logvalof_unchecked(density::DistributionDensity, v::Any) = Distributions.logpdf(density.dist, v)
 
-logvalof_unchecked(density::DistributionDensity{<:UnivariateDistribution}, v::AbstractVector) =
-    Distributions.logpdf(density.dist, first(v))
+logvalof_unchecked(density::DistributionDensity, v::AbstractVector{<:Real}) = Distributions.logpdf(unshaped(density.dist), v)
 
 
 ValueShapes.varshape(density::DistributionDensity) = varshape(density.dist)
 
-Distributions.sampler(density::DistributionDensity{<:MultivariateDistribution}) =
-    bat_sampler(parent(density))
+Distributions.sampler(density::DistributionDensity) = bat_sampler(unshaped(density.dist))
 
-Distributions.sampler(density::DistributionDensity{<:UnivariateDistribution}) =
-    bat_sampler((Product(Fill(parent(density), 1))))
 
 # Random.Sampler(rng::AbstractRNG, density::DistributionDensity, repetition::Val{1}) = sampler(density)
 
-Statistics.cov(density::DistributionDensity{<:MultivariateDistribution}) = cov(density.dist)
-Statistics.cov(density::DistributionDensity{<:UnivariateDistribution}) = hcat(var(density.dist))
+Statistics.cov(density::DistributionDensity) = cov(unshaped(density.dist))
 
 
 var_bounds(density::DistributionDensity) = density.bounds

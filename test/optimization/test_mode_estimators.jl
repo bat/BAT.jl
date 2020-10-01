@@ -34,8 +34,8 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes
 
 
     @testset "ModeAsDefined" begin
-        @test @inferred(bat_findmode(prior, ModeAsDefined())).result == true_mode_flat # ToDo: Should return shaped mode
-        @test @inferred(bat_findmode(BAT.DistributionDensity(prior), ModeAsDefined())).result == true_mode_flat
+        @test @inferred(bat_findmode(prior, ModeAsDefined())).result[] == true_mode
+        @test @inferred(bat_findmode(BAT.DistributionDensity(prior), ModeAsDefined())).result[] == true_mode
     end
 
 
