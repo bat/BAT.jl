@@ -135,9 +135,9 @@ function AHMCIterator(
     T = typeof(log_posterior_value)
     W = Float64 #_sample_weight_type(typeof(alg))
 
-    sample_info = MCMCSampleID(info.id, info.cycle, 1, CURRENT_SAMPLE)
+    sample_info = AHMCSampleID(info.id, info.cycle, 1, CURRENT_SAMPLE, 0.0, 0, false, 0.0)
     current_sample = DensitySample(params_vec, log_posterior_value, one(W), sample_info, nothing)
-    samples = DensitySampleVector{Vector{P},T,W,MCMCSampleID,Nothing}(undef, 0, npar)
+    samples = DensitySampleVector{Vector{P},T,W,AHMCSampleID,Nothing}(undef, 0, npar)
     push!(samples, current_sample)
 
     nsamples::Int64 = 0
@@ -258,8 +258,12 @@ function next_cycle!(chain::AHMCIterator)
     i = _current_sample_idx(chain)
     @assert chain.samples.info[i].sampletype == CURRENT_SAMPLE
 
+    t_stat = chain.transition.stat
+    
     chain.samples.weight[i] = 1
-    chain.samples.info[i] = MCMCSampleID(chain.info.id, chain.info.cycle, chain.stepno, CURRENT_SAMPLE)
+    chain.samples.info[i] = AHMCSampleID(chain.info.id, chain.info.cycle, chain.stepno, CURRENT_SAMPLE,
+                                         t_stat.hamiltonian_energy, t_stat.tree_depth,
+                                         t_stat.numerical_error, t_stat.step_size)
 
     chain
 end
@@ -288,7 +292,8 @@ function mcmc_step!(
 
     # Grow samples vector by one:
     resize!(samples, size(samples, 1) + 1)
-    samples.info[lastindex(samples)] = MCMCSampleID(chain.info.id, chain.info.cycle, chain.stepno, PROPOSED_SAMPLE)
+    samples.info[lastindex(samples)] = AHMCSampleID(chain.info.id, chain.info.cycle, chain.stepno, PROPOSED_SAMPLE,
+                                                    0.0, 0, false, 0.0)
 
     current = _current_sample_idx(chain)
     proposed = _proposed_sample_idx(chain)
@@ -302,10 +307,11 @@ function mcmc_step!(
         samples.weight[proposed] = 0
 
         ahmc_step!(rng, alg, chain, proposed_params, current_params)
-
+        tstat = chain.transition.stat
+        
         current_log_posterior = samples.logd[current]
         T = typeof(current_log_posterior)
-
+        
         # Evaluate prior and likelihood with proposed variate:
         proposed_log_posterior = logvalof(pstr, proposed_params, strict = false)
 
@@ -316,6 +322,12 @@ function mcmc_step!(
         if accepted
             samples.info.sampletype[current] = ACCEPTED_SAMPLE
             samples.info.sampletype[proposed] = CURRENT_SAMPLE
+
+            samples.info.hamiltonian_energy[proposed] = tstat.hamiltonian_energy
+            samples.info.tree_depth[proposed] = tstat.tree_depth
+            samples.info.divergent[proposed] = tstat.numerical_error
+            samples.info.step_size[proposed] = tstat.step_size
+
             chain.nsamples += 1
         else
             samples.info.sampletype[proposed] = REJECTED_SAMPLE
