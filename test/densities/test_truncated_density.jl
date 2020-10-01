@@ -47,7 +47,7 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets, ValueShapes
     @test @inferred(BAT.truncate_dist_hard(prior_dist, intervals)).dist isa NamedTupleDist
     let
         trunc_dist, logscalecorr = @inferred BAT.truncate_dist_hard(prior_dist, intervals)
-        @test logpdf(trunc_dist, [1, 2, 0, 3]) + logscalecorr ≈ logpdf(prior_dist, [1, 2, 0, 3])
+        @test logpdf(unshaped(trunc_dist), [1, 2, 0, 3]) + logscalecorr ≈ logpdf(unshaped(prior_dist), [1, 2, 0, 3])
     end
 
     @test @inferred(BAT.truncate_density(prior, bounds)) isa BAT.TruncatedDensity

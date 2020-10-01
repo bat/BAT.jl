@@ -179,7 +179,7 @@ function truncate_dist_hard(dist::ConstValueDist, bounds::AbstractVector{<:Inter
 end
 
 function truncate_dist_hard(dist::NamedTupleDist{names}, bounds::AbstractArray{<:Interval}) where names
-    @argcheck length(eachindex(bounds)) == length(dist)
+    @argcheck length(eachindex(bounds)) == totalndof(varshape(dist))
     distributions = values(dist)
     accessors = values(varshape(dist))
 
