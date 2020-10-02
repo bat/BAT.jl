@@ -5,7 +5,6 @@
     parsel::Union{Integer, Symbol, Expr};
     intervals = standard_confidence_vals,
     bins = 200,
-    normalize = true,
     colors = standard_colors,
     interval_labels = [],
     mean = false,
@@ -26,8 +25,7 @@
         parsel,
         bins = bins,
         closed = closed,
-        filter = filter,
-        normalize = normalize
+        filter = filter
     ).result
 
     orientation = get(plotattributes, :orientation, :vertical)
@@ -56,7 +54,7 @@
     @series begin
         seriestype --> :smallest_intervals
         intervals --> intervals
-        normalize --> normalize
+        normalize --> true
         colors --> colors
         interval_labels --> interval_labels
 
@@ -66,7 +64,7 @@
     #------ stats ----------------------------
     stats = MCMCBasicStats(maybe_shaped_samples)
 
-    line_height = maximum(marg.dist.h.weights)*1.03
+    line_height = maximum(convert(Histogram, marg.dist).weights)*1.03
 
     mean_options = convert_to_options(mean)
     globalmode_options = convert_to_options(globalmode)

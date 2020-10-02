@@ -55,8 +55,9 @@ dist_param_bounds(d::ConstValueDist, bounds_type::BoundsType) = HyperRectBounds(
 dist_param_bounds(d::NamedTupleDist, bounds_type::BoundsType) = vcat(map(x -> dist_param_bounds(x, bounds_type), values(d))...)
 
 function dist_param_bounds(d::EmpiricalDistributions.MvBinnedDist{T, N}, bounds_type::BoundsType) where {T, N}
-    left_bounds  = T[map(first, d.h.edges)...]
-    right_bounds = T[map(e -> prevfloat(last(e)), d.h.edges)...]
+    hist = convert(Histogram, d)
+    left_bounds  = T[map(first, hist.edges)...]
+    right_bounds = T[map(e -> prevfloat(last(e)), hist.edges)...]
     bt = fill(bounds_type, length(left_bounds))
     HyperRectBounds{T}(HyperRectVolume{T}(left_bounds, right_bounds), bt)
 end

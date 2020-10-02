@@ -15,15 +15,13 @@ end
     origmarg::MarginalDist,
     parsel::Union{Integer, Symbol, Expr};
     intervals = standard_confidence_vals,
-    normalize = true,
     colors = standard_colors,
     interval_labels = []
 )
     indx = asindex(origmarg, parsel)
 
     marg = bat_marginalize(origmarg, (indx, )).result
-    hist = marg.dist.h
-    normalize ? hist=StatsBase.normalize(hist) : nothing
+    hist = convert(Histogram, marg.dist)
 
     orientation = get(plotattributes, :orientation, :vertical)
     (orientation != :vertical) ? swap = true : swap = false

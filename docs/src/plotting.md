@@ -10,7 +10,6 @@ plot(
     parsel::Union{Integer, Symbol, Expr};
     intervals = standard_confidence_vals,
     bins = 200,
-    normalize = true,
     colors = standard_colors,
     interval_labels = [],
     mean = false,
@@ -34,8 +33,6 @@ Keyword arguments:
     * `:stephist` (default for prior)
 
 * `bins::Union{Integer, AbstractRange} = 200`: number of histogram bins or bin edges.
-
-* `normalize::Bool = true`: normalize the histogram
 
 * `intervals::Array{<:Real, 1} = [0.683, 0.955, 0.997]`: probability to be enclosed in the smallest/central intervals when using the corresponding seriestypes
 
@@ -97,8 +94,6 @@ Keyword arguments:
 
 
 * `bins::Union{Integer, NTuple{2, Integer}, NTuple{2, AbstractRange}} = 200`: number of histogram bins or bin edges. Use a `NTuple{2, Union{Integer, AbstractRange}}` to specify bins/edges of x and y axes seperately.
-
-* `normalize::Bool = true`: normalize the histogram
 
 * `intervals::Array{<:Real, 1} = [0.683, 0.955, 0.997]`  probability to be enclosed in the smallest intervals when using the corresponding seriestypes
 

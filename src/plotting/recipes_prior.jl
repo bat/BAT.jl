@@ -7,7 +7,6 @@
     intervals = standard_confidence_vals,
     bins = 200,
     nsamples = 10^6,
-    normalize = true,
     colors = standard_colors,
     interval_labels = [],
     closed = :left
@@ -26,8 +25,7 @@
         idx,
         bins = bins,
         nsamples = nsamples,
-        closed = closed,
-        normalize = normalize
+        closed = closed
     ).result
 
     xlabel = if isa(parsel, Symbol) || isa(parsel, Expr)
@@ -52,7 +50,7 @@
 
         intervals --> intervals
         bins --> bins
-        normalize --> normalize
+        normalize --> true
         colors --> colors
         interval_labels --> interval_labels
 
@@ -71,7 +69,6 @@ end
     intervals = standard_confidence_vals,
     bins = 200,
     nsamples = 10^6,
-    normalize = true,
     colors = standard_colors,
     interval_labels = [],
     closed = :left,
@@ -94,8 +91,7 @@ end
         prior,
         (xidx, yidx),
         bins = bins,
-        closed = closed,
-        normalize = normalize
+        closed = closed
     ).result
 
 

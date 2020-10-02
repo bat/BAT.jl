@@ -11,7 +11,7 @@
     normalize = true
 )
     _plots_module() != nothing || throw(ErrorException("Package Plots not available, but required for this operation"))
-    hist = marg.dist.h
+    hist = convert(Histogram, marg.dist)
     seriestype = get(plotattributes, :seriestype, :histogram2d)
 
     xlabel = get(plotattributes, :xguide, "x$(parsel[1])")

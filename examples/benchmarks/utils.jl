@@ -111,10 +111,10 @@ function plot1D(
 
     hunnorm = fit(Histogram, [BAT.flatview(samples.v)...],FrequencyWeights(BAT.flatview(samples.weight)),binning)
 	h = fit(Histogram, [BAT.flatview(samples.v)...],FrequencyWeights(BAT.flatview(samples.weight)),binning)
-	h = StatsBase.normalize(h)
 	idx = BAT.asindex(samples, 1)
 	uvbd = EmpiricalDistributions.UvBinnedDist(h)
 	marg = BAT.MarginalDist((idx,),uvbd,varshape(samples))
+	h = StatsBase.normalize(h)
 
 	plot(marg,1,seriestype = :smallest_intervals,normalize=true)
 
