@@ -44,7 +44,7 @@
     xguide := get(plotattributes, :xguide, xlabel)
     yguide := get(plotattributes, :yguide, ylabel)
 
-    marg = bat_marginalize(
+    marg = get_marginal_dist(
         samples,
         (xindx, yindx),
         bins = bins,

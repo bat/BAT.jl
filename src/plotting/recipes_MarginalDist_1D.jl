@@ -20,7 +20,7 @@ end
 )
     indx = asindex(origmarg, parsel)
 
-    marg = bat_marginalize(origmarg, (indx, )).result
+    marg = get_marginal_dist(origmarg, (indx, )).result
     hist = convert(Histogram, marg.dist)
 
     orientation = get(plotattributes, :orientation, :vertical)

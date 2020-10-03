@@ -20,7 +20,7 @@
         throw(ArgumentError("Symbol :$parsel refers to a multivariate parameter. Use :($parsel[i]) instead."))
     end
 
-    marg = bat_marginalize(
+    marg = get_marginal_dist(
         maybe_shaped_samples,
         parsel,
         bins = bins,

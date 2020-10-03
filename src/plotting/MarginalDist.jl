@@ -17,7 +17,7 @@ function _get_edges(data::Any, nbins::Union{AbstractRange, Tuple{AbstractRange}}
 end
 
 
-function bat_marginalize(
+function get_marginal_dist(
     maybe_shaped_samples::DensitySampleVector,
     key::Union{Integer, Symbol, Expr};
     bins = 200,
@@ -49,7 +49,7 @@ function bat_marginalize(
 end
 
 
-function bat_marginalize(
+function get_marginal_dist(
     maybe_shaped_samples::DensitySampleVector,
     key::Union{NTuple{n,Integer}, NTuple{n,Union{Symbol, Expr}}} where n;
     bins = 200,
@@ -85,7 +85,7 @@ end
 
 
 #for prior
-function bat_marginalize(
+function get_marginal_dist(
     prior::NamedTupleDist,
     key::Union{Integer, Symbol};
     bins = 200,
@@ -107,7 +107,7 @@ function bat_marginalize(
 end
 
 
-function bat_marginalize(
+function get_marginal_dist(
     prior::NamedTupleDist,
     key::Union{NTuple{2, Symbol}, NTuple{2, Integer}};
     bins = 200,
@@ -138,7 +138,7 @@ end
 
 
 
-function bat_marginalize(
+function get_marginal_dist(
     original::MarginalDist,
     parsel::NTuple{n, Int} where n
 )
