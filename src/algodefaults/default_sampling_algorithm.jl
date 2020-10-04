@@ -12,7 +12,7 @@ bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::AbstractPosteriorDensity)
 
 MCMCSampling(;
     algorithm::MCMCAlgorithm = MetropolisHastings(),
-    init::AbstractMCMCInitStrategy = MCMCChainPoolInit(),
+    init::MCMCInitAlgorithm = MCMCChainPoolInit(),
     burnin::MCMCBurninAlgorithm = MCMCMultiCycleBurnin(
         max_nsamples_per_cycle = max(div(max_nsamples, 10), 100)
         max_nsteps_per_cycle = max(div(max_nsteps, 10), 100)

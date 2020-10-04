@@ -29,6 +29,45 @@ abstract type MCMCAlgorithm end
 export MCMCAlgorithm
 
 
+@doc doc"""
+abstract type MCMCInitAlgorithm end
+
+Abstract type for MCMC initialization algorithms.
+"""
+abstract type MCMCInitAlgorithm end
+export MCMCInitAlgorithm
+
+
+
+"""
+MCMCTuningAlgorithm
+
+Abstract super-type for MCMC tuning algorithms.
+"""
+abstract type MCMCTuningAlgorithm end
+export MCMCTuningAlgorithm
+
+
+
+"""
+MCMCBurninAlgorithm
+
+Abstract super-type for MCMC burn-in algorithms.
+"""
+abstract type MCMCBurninAlgorithm end
+export MCMCBurninAlgorithm
+
+
+"""
+MCMCBurninAlgorithm
+
+Abstract super-type for MCMC convergence tests.
+"""
+abstract type MCMCConvergenceTest end
+export MCMCConvergenceTest
+
+
+
 """
     BAT.mcmc_startval!(
         x::Union{AbstractVector{<:Real},VectorOfSimilarVectors{<:Real}},
@@ -117,8 +156,10 @@ algorithm(chain::MCMCIterator)
 getposterior(chain::MCMCIterator)
 rngseed(chain::MCMCIterator)
 DensitySampleVector(chain::MCMCIterator)
-mcmc_iterate!(callback, chain::MCMCIterator, ...)
-mcmc_iterate!(callbacks, chains::AbstractVector{<:MCMCIterator}, ...)
+mcmc_iterate!(chain::MCMCIterator, ...)
+mcmc_iterate!(chains::AbstractVector{<:MCMCIterator}, ...)
+isvalid(chain::MCMCIterator)
+isviable(chain::MCMCIterator)
 ```
 """
 abstract type MCMCIterator end
@@ -227,3 +268,18 @@ function mcmc_iterate!(
 
     nothing
 end
+
+
+isvalid(chain::MCMCIterator) = current_sample(chain).logd > -Inf
+
+isviable(chain::MCMCIterator) = nsamples(chain) >= 2
+
+
+
+abstract type AbstractMCMCTunerInstance end
+
+function tuning_init! end
+
+function mcmc_init! end
+
+function mcmc_burnin! end

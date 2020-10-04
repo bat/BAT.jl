@@ -9,7 +9,7 @@ Constructor:
 ```julia
 MCMCSampling(;
     algorithm::MCMCAlgorithm = MetropolisHastings(),
-    init::AbstractMCMCInitStrategy = MCMCChainPoolInit(),
+    init::MCMCInitAlgorithm = MCMCChainPoolInit(),
     burnin::MCMCBurninAlgorithm = MCMCMultiCycleBurnin(),
     convergence::MCMCConvergenceTest = BrooksGelmanConvergence(),
     strict::Bool = false,
@@ -18,7 +18,7 @@ MCMCSampling(;
 """
 @with_kw struct MCMCSampling{
     AL<:MCMCAlgorithm,
-    IN<:AbstractMCMCInitStrategy,
+    IN<:MCMCInitAlgorithm,
     BI<:MCMCBurninAlgorithm,
     CT<:MCMCConvergenceTest
 } <: AbstractSamplingAlgorithm
@@ -40,7 +40,7 @@ function bat_sample_impl(
     max_nsteps::Integer = 10 * _mcmc_nsamples_tuple(n)[1],
     max_time::Real = Inf,
     tuning::MCMCTuningAlgorithm = MCMCTuningAlgorithm(algorithm),
-    init::AbstractMCMCInitStrategy = MCMCChainPoolInit(),
+    init::MCMCInitAlgorithm = MCMCChainPoolInit(),
     burnin::MCMCBurninAlgorithm = MCMCMultiCycleBurnin(
         max_nsamples_per_cycle = max(div(_mcmc_nsamples_tuple(n)[1], 10), 100)
         max_nsteps_per_cycle = max(div(max_nsteps, 10), 100)
@@ -67,7 +67,7 @@ function bat_sample_impl(
         callback = init_callback
     )
 
-    mcmc_tune_burnin!(
+    mcmc_burnin!(
         burnin_output,
         tuners,
         chains,

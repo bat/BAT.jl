@@ -77,8 +77,9 @@ MaxDensityNelderMead
 MaxDensitySampleSearch
 MCMCAlgorithm
 MCMCBurninAlgorithm
+MCMCConvergenceTest
 MCMCMultiCycleBurnin
-AbstractMCMCInitStrategy
+MCMCInitAlgorithm
 MCMCChainPoolInit
 MCMCIterator
 MetropolisHastings

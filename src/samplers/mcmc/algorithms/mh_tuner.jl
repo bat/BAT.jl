@@ -70,7 +70,7 @@ export AdaptiveMHTuning
 
 mutable struct ProposalCovTuner{
     S<:MCMCBasicStats
-} <: AbstractMCMCTuner
+} <: AbstractMCMCTunerInstance
     config::AdaptiveMHTuning
     stats::S
     iteration::Int
@@ -86,9 +86,6 @@ function ProposalCovTuner(
     scale = 2.38^2 / m
     ProposalCovTuner(config, MCMCBasicStats(chain), 1, scale)
 end
-
-
-isviable(tuner::ProposalCovTuner, chain::MHIterator) = nsamples(chain) >= 2
 
 
 function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator)

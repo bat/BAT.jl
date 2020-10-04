@@ -2,7 +2,6 @@
 
 include("bat_sample.jl")
 include("mcmc/mcmc.jl")
-include("mcmc/ahmc/ahmc.jl")
 include("importance/importance_sampler.jl")
 include("partitioned_sampling/partitioned_sampling.jl")
 include("sampled_density.jl")
