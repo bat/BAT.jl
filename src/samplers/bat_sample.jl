@@ -66,10 +66,7 @@ function bat_sample_impl(rng::AbstractRNG, posterior::DensitySampleVector, n::In
     samples = posterior[resampled_idxs]
     samples.weight .= 1
 
-    info = ImportanceSamplerInfo(algorithm)
-    summary = Summary(bat_samples, density, info)
-
-    (result = samples, summary = summary)
+    (result = samples,)
 end
 
 
