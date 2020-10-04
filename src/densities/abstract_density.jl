@@ -486,7 +486,7 @@ export AnySampleable
 
 
 """
-    BAT.AnySampleable = Union{...}
+    BAT.AnyIIDSampleable = Union{...}
 
 Union of all distribution/density-like types that BAT can draw i.i.d.
 (independent and identically distributed) samples from:

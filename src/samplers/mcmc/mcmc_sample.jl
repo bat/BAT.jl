@@ -22,7 +22,8 @@ MCMCSampling(;
     BI<:MCMCBurninAlgorithm,
     CT<:MCMCConvergenceTest
 } <: AbstractSamplingAlgorithm
-    algorithm::AL = MetropolisHastings(),
+    sampler::AL = MetropolisHastings(),
+    nchains::Int = 4,
     init::IN = MCMCChainPoolInit(),
     burnin::BI = MCMCMultiCycleBurnin(),
     convergence::CT = BrooksGelmanConvergence(),
@@ -34,24 +35,37 @@ export MCMCSampling
 
 function bat_sample_impl(
     rng::AbstractRNG,
-    target::PosteriorDensity,
-    n::Union{Integer, Tuple{Integer,Integer}},
-    algorithm::MCMCAlgorithm;
-    max_nsteps::Integer = 10 * _mcmc_nsamples_tuple(n)[1],
+    target::AnyDensityLike,
+    n::Integer,
+    algorithm::MCMCSampling;
     max_time::Real = Inf,
-    tuning::MCMCTuningAlgorithm = MCMCTuningAlgorithm(algorithm),
-    init::MCMCInitAlgorithm = MCMCChainPoolInit(),
-    burnin::MCMCBurninAlgorithm = MCMCMultiCycleBurnin(
-        max_nsamples_per_cycle = max(div(_mcmc_nsamples_tuple(n)[1], 10), 100)
-        max_nsteps_per_cycle = max(div(max_nsteps, 10), 100)
-    ),
-    convergence::MCMCConvergenceTest = BrooksGelmanConvergence(),
-    strict::Bool = false,
     filter::Bool = true
 )
+    nchains = algorithm.nchains
     density = convert(AbstractDensity, target)
+    mcmc_algorithm = algorithm.sampler
+    nsamples_per_chain = div(n, nchains)
 
-    nsamples_per_chain, nchains = _mcmc_nsamples_tuple(n)
+        # BAT-internal:
+        function MCMCOutputWithChains(rng::AbstractRNG, chainspec::MCMCSpec)
+        dummy_chain = MCMCIterator(rng, mcmc_algorithm, density, 0, )
+
+        MCMCIterator(
+            rng::AbstractRNG,
+            algorithm::SomeAlgorithm,
+            density::AbstractDensity,
+            chainid::Int,
+            startpos::AbstractVector{<:Real}
+        )
+        
+
+        (
+            DensitySampleVector(dummy_chain),
+            MCMCBasicStats(dummy_chain),
+            Vector{typeof(dummy_chain)}()
+        )
+        end
+
 
     result = MCMCOutputWithChains(rng, chainspec)
 
@@ -92,6 +106,32 @@ function bat_sample_impl(
 
     (result = samples, chains = chains)
 end
+
+
+#=
+
+#!!!!!!!! Provide deprecated version:
+
+function bat_sample_impl(
+    rng::AbstractRNG,
+    target::AnyDensityLike,
+    n::Union{Integer, Tuple{Integer,Integer}},
+    algorithm::MCMCAlgorithm;
+    max_nsteps::Integer = 10 * _mcmc_nsamples_tuple(n)[1],
+    max_time::Real = Inf,
+    tuning::MCMCTuningAlgorithm = MCMCTuningAlgorithm(algorithm),
+    init::MCMCInitAlgorithm = MCMCChainPoolInit(),
+    burnin::MCMCBurninAlgorithm = MCMCMultiCycleBurnin(
+        max_nsamples_per_cycle = max(div(_mcmc_nsamples_tuple(n)[1], 10), 100)
+        max_nsteps_per_cycle = max(div(max_nsteps, 10), 100)
+    ),
+    convergence::MCMCConvergenceTest = BrooksGelmanConvergence(),
+    strict::Bool = false,
+    filter::Bool = true
+)
+
+=#
+
 
 
 _mcmc_nsamples_tuple(n::NTuple{2, Integer}) = n
