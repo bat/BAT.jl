@@ -41,7 +41,6 @@ BAT.HMISettings
 BAT.IntegrationVolume
 BAT.KDTreePartitioning
 BAT.MCMCCallbackWrapper
-BAT.MCMCSpec
 BAT.OnlineMvCov
 BAT.OnlineMvMean
 BAT.OnlineUvMean

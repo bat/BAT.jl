@@ -49,7 +49,7 @@ BAT.logvalof_unchecked
 
 AbstractDensity
 AbstractDensityValue
-AbstractMCMCTuningStrategy
+MCMCTuningAlgorithm
 AbstractPosteriorDensity
 AbstractMCMCWeightingScheme
 AdaptiveMHTuning
@@ -76,8 +76,10 @@ MaxDensityLBFGS
 MaxDensityNelderMead
 MaxDensitySampleSearch
 MCMCAlgorithm
-MCMCBurninStrategy
-MCMCInitStrategy
+MCMCBurninAlgorithm
+MCMCMultiCycleBurnin
+AbstractMCMCInitStrategy
+MCMCChainPoolInit
 MCMCIterator
 MetropolisHastings
 MHProposalDistTuning

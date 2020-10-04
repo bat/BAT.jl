@@ -59,16 +59,6 @@ default: `adaptor =  StanHMCAdaptor(acceptance_rate::Float64 = 0.8, n_adapts = 5
     adaptor::HMCAdaptor = StanHMCAdaptor()
 end
 
-# MCMCBurninStrategy for AHMC
-function MCMCBurninStrategy(algorithm::AHMC, nsamples::Integer, max_nsteps::Integer, tuner_config::AbstractMCMCTuningStrategy)
-    max_nsamples_per_cycle = nsamples
-    max_nsteps_per_cycle = max_nsteps
-    MCMCBurninStrategy(
-        max_nsamples_per_cycle = max_nsamples_per_cycle,
-        max_nsteps_per_cycle = max_nsteps_per_cycle,
-        max_ncycles = 1
-    )
-end
 
 # MCMCSpec for AHMC
 function (spec::MCMCSpec{<:AHMC})(
@@ -269,7 +259,7 @@ function next_cycle!(chain::AHMCIterator)
 end
 
 
-AbstractMCMCTuningStrategy(algorithm::AHMC) = OnlyBurninTunerConfig()
+MCMCTuningAlgorithm(algorithm::AHMC) = OnlyBurninTunerConfig()
 
 
 function mcmc_step!(

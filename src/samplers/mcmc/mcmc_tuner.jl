@@ -1,13 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-"""
-    AbstractMCMCTuningStrategy
-
-Abstract super-type for MCMC tuning strategies.
-"""
-abstract type AbstractMCMCTuningStrategy end
-export AbstractMCMCTuningStrategy
 
 
 abstract type AbstractMCMCTuner end
@@ -20,13 +13,16 @@ function tuning_init! end
 
 function mcmc_tune_burnin! end
 
-function mcmc_init end
+function mcmc_init! end
+
+
 
 
 """
-    @with_kw struct MCMCBurninStrategy
-Defines the MCMC burn-in strategy, specifically the number and length of
-MCMC tuning/burn-in cycles.
+    MCMCMultiCycleBurnin <: MCMCBurninAlgorithm
+
+A multi-cycle MCMC burn-in algorithm.
+
 Fields:
 * `max_nsamples_per_cycle`: Maximum number of MCMC samples to generate per
   cycle, defaults to `1000`. Definition of a sample depends on MCMC algorithm.
@@ -36,23 +32,14 @@ Fields:
   seconds. Defaults to `Inf`.
 * `max_ncycles`: Maximum number of cycles.
 """
-@with_kw struct MCMCBurninStrategy
+@with_kw struct MCMCMultiCycleBurnin
     max_nsamples_per_cycle::Int64 = 1000
     max_nsteps_per_cycle::Int64 = 10000
     max_time_per_cycle::Float64 = Inf
     max_ncycles::Int = 30
 end
 
-export MCMCBurninStrategy
-
-function MCMCBurninStrategy(algorithm::MCMCAlgorithm, nsamples::Integer, max_nsteps::Integer, tuner_config::AbstractMCMCTuningStrategy)
-    max_nsamples_per_cycle = max(div(nsamples, 10), 10)
-    max_nsteps_per_cycle = max(div(max_nsteps, 10), 10)
-    MCMCBurninStrategy(
-        max_nsamples_per_cycle = max_nsamples_per_cycle,
-        max_nsteps_per_cycle = max_nsteps_per_cycle
-    )
-end
+export MCMCMultiCycleBurnin
 
 
 function mcmc_tune_burnin!(
@@ -60,7 +47,7 @@ function mcmc_tune_burnin!(
     tuners::AbstractVector{<:AbstractMCMCTuner},
     chains::AbstractVector{<:MCMCIterator},
     convergence_test::MCMCConvergenceTest,
-    burnin_strategy::MCMCBurninStrategy;
+    burnin_strategy::MCMCMultiCycleBurnin;
     strict_mode::Bool = false
 )
     @info "Begin tuning of $(length(tuners)) MCMC chain(s)."
@@ -115,7 +102,7 @@ end
 
 
 
-struct NoOpTunerConfig <: BAT.AbstractMCMCTuningStrategy end
+struct NoOpTunerConfig <: BAT.MCMCTuningAlgorithm end
 
 (config::NoOpTunerConfig)(chain::MCMCIterator; kwargs...) = NoOpTuner()
 
@@ -138,17 +125,27 @@ function mcmc_tune_burnin!(
     tuners::AbstractVector{<:NoOpTuner},
     chains::AbstractVector{<:MCMCIterator},
     convergence_test::MCMCConvergenceTest,
-    burnin_strategy::MCMCBurninStrategy;
+    burnin_strategy::MCMCBurninAlgorithm;
     kwargs...
 )
     @debug "Tune/Burn-In with NoOpTuner doing nothing."
 end
 
 
+@doc doc"""
+    abstract type AbstractMCMCInitStrategy end
+
+Abstract type for MCMC chain initialization strategies.
+"""
+abstract type AbstractMCMCInitStrategy end
+export AbstractMCMCInitStrategy
+
 
 """
-    @with_kw struct MCMCInitStrategy
-Defines the MCMC chain initialization strategy.
+    struct MCMCChainPoolInit <: AbstractMCMCInitStrategy
+
+ MCMC chain pool initialization strategy.
+
 Fields:
 * `init_tries_per_chain`: Interval that specifies the minimum and maximum
   number of tries per MCMC chain to find a suitable starting position. Many
@@ -162,18 +159,15 @@ Fields:
 * `max_time_init::Int`: Maximum wall-clock time to spend per candidate chain,
   in seconds. Defaults to `Inf`.
 """
-@with_kw struct MCMCInitStrategy
+@with_kw struct MCMCChainPoolInit <: AbstractMCMCInitStrategy
     init_tries_per_chain::ClosedInterval{Int64} = ClosedInterval(8, 128)
     max_nsamples_init::Int64 = 25
     max_nsteps_init::Int64 = 250
     max_time_init::Float64 = Inf
 end
 
-export MCMCInitStrategy
+export MCMCChainPoolInit
 
-
-MCMCInitStrategy(tuner_config::AbstractMCMCTuningStrategy) =
-    MCMCInitStrategy()
 
 _construct_chain(rngpart::RNGPartition, id::Integer, chainspec::MCMCSpec) =
     chainspec(AbstractRNG(rngpart, id), id)
@@ -184,12 +178,15 @@ _gen_chains(
     chainspec::MCMCSpec,
 ) = [_construct_chain(rngpart, id, chainspec) for id in ids]
 
-function mcmc_init(
+function mcmc_init!(
     rng::AbstractRNG,
-    chainspec::MCMCSpec,
-    nchains::Int,
-    tuner_config::AbstractMCMCTuningStrategy = AbstractMCMCTuningStrategy(chainspec.algorithm),
-    init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config)
+    output::OptionalDensitySampleVector,
+    algorithm::SomeAlgorithm,
+    density::AbstractDensity
+    nchains::Int;
+    tuner::MCMCTuningAlgorithm = MCMCTuningAlgorithm(chainspec.algorithm),
+    init::AbstractMCMCInitStrategy = MCMCChainPoolInit(),
+    callback::Function = noop_func
 )
     @info "Trying to generate $nchains viable MCMC chain(s)."
 
@@ -200,7 +197,7 @@ function mcmc_init(
 
     ncandidates::Int = 0
 
-    dummy_chain = chainspec(deepcopy(rng), one(Int64))
+    dummy_chain = MCMCIterator(algorithm, density, deepcopy(rng), 1)
     dummy_tuner = tuner_config(dummy_chain)
 
     chains = similar([dummy_chain], 0)
@@ -222,11 +219,12 @@ function mcmc_init(
         @debug "Testing $(length(new_tuners)) MCMC chain(s)."
 
         # ToDo: Use mcmc_iterate! instead of run_tuning_iterations! ?
-        run_tuning_iterations!(
-            (), new_tuners, new_chains;
+        mcmc_iterate!
+            output, new_chains;
             max_nsamples = max(5, div(init_strategy.max_nsamples_init, 5)),
             max_nsteps =  max(50, div(init_strategy.max_nsteps_init, 5)),
-            max_time = init_strategy.max_time_init / 5
+            max_time = init_strategy.max_time_init / 5,
+            callback = callback
         )
 
         viable_idxs = findall(isviable.(new_tuners, new_chains))
@@ -237,11 +235,12 @@ function mcmc_init(
 
         if !isempty(viable_tuners)
             # ToDo: Use mcmc_iterate! instead of run_tuning_iterations! ?
-            run_tuning_iterations!(
-                (), viable_tuners, viable_chains;
+            mcmc_iterate!(
+                output, viable_chains;
                 max_nsamples = init_strategy.max_nsamples_init,
                 max_nsteps = init_strategy.max_nsteps_init,
-                max_time = init_strategy.max_time_init
+                max_time = init_strategy.max_time_init,
+                callback
             )
 
             nsamples_thresh = floor(Int, 0.8 * median([nsamples(chain) for chain in viable_chains]))

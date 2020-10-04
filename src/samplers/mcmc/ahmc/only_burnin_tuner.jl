@@ -11,7 +11,7 @@ function OnlyBurninTuner(
 end
 
 
-struct OnlyBurninTunerConfig <: BAT.AbstractMCMCTuningStrategy end
+struct OnlyBurninTunerConfig <: BAT.MCMCTuningAlgorithm end
 
 (config::OnlyBurninTunerConfig)(chain::MCMCIterator; kwargs...) = OnlyBurninTuner(chain)
 

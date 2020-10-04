@@ -214,13 +214,13 @@ function run_ND_benchmark(;
         threshold = 1.6, #Change up
         corrected = false
     )
-    init = MCMCInitStrategy(
+    init = MCMCChainPoolInit(
         init_tries_per_chain = 64..1024,
         max_nsamples_init = 250,
         max_nsteps_init = 2500,
         max_time_init = Inf
     )
-    burnin = MCMCBurninStrategy(
+    burnin = MCMCMultiCycleBurnin(
         max_nsamples_per_cycle = 5000,
         max_nsteps_per_cycle = 20000,
         max_time_per_cycle = Inf,

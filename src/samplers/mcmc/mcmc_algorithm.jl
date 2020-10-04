@@ -2,22 +2,6 @@
 
 
 @doc doc"""
-    abstract type MCMCSampling <: AbstractSamplingAlgorithm end
-
-Constructor:
-
-```julia
-(spec::MCMCSpec{<:SomeAlgorithm})(chainid::Integer)::MCMCIterator
-```
-
-To implement a new MCMC algorithm, subtypes of both `MCMCAlgorithm` and
-[`MCMCIterator`](@ref) are required.
-"""
-abstract type MCMCSampling <: AbstractSamplingAlgorithm end
-export MCMCSampling
-
-
-@doc doc"""
     abstract type MCMCAlgorithm end
 
 !!! note
@@ -29,7 +13,13 @@ The following methods must be defined for subtypes (e.g.
 for `SomeAlgorithm<:MCMCAlgorithm`):
 
 ```julia
-(spec::MCMCSpec{<:SomeAlgorithm})(chainid::Integer)::MCMCIterator
+MCMCIterator(
+    rng::AbstractRNG,
+    algorithm::SomeAlgorithm,
+    density::AbstractDensity,
+    chainid::Int,
+    startpos::AbstractVector{<:Real}
+)
 ```
 
 To implement a new MCMC algorithm, subtypes of both `MCMCAlgorithm` and
@@ -61,42 +51,6 @@ mcmc_startval!(
     posterior::AbstractPosteriorDensity,
     algorithm::MCMCAlgorithm
 ) = rand!(rng, sampler(getprior(posterior)), x)
-
-
-@doc doc"""
-    MCMCSpec{
-        A<:MCMCAlgorithm,
-        M<:AbstractPosteriorDensity
-    }
-
-*BAT-internal, not part of stable public API.*
-
-Specifies a Bayesian MCMC chain.
-
-Constructor:
-
-```julia
-MCMCSpec(
-    algorithm::MCMCAlgorithm,
-    posterior::AbstractPosteriorDensity
-)
-```
-
-Markov-chain instances, represented by objects of type [`MCMCIterator`](@ref),
-are be created via
-
-```julia
-(spec::MCMCSpec)(chainid::Integer)
-```
-"""
-struct MCMCSpec{
-    A<:MCMCAlgorithm,
-    M<:AbstractPosteriorDensity
-}
-    algorithm::A
-    posterior::M
-end
-
 
 
 @with_kw struct MCMCIteratorInfo
@@ -146,14 +100,14 @@ BAT.sample_type(chain::SomeMCMCIter)::Type{<:DensitySample}
 
 BAT.samples_available(chain::SomeMCMCIter, nonzero_weights::Bool = false)::Bool
 
-BAT.get_samples!(appendable, chain::SomeMCMCIter, nonzero_weights::Bool)::typeof(appendable)
+BAT.get_samples!(samples::DensitySampleVector, chain::SomeMCMCIter, nonzero_weights::Bool)::typeof(samples)
 
 BAT.next_cycle!(chain::SomeMCMCIter)::SomeMCMCIter
 
 BAT.mcmc_step!(
-    callback::AbstractMCMCCallback,
     chain::SomeMCMCIter
-)
+    callback::Function,
+)::nothing
 ```
 
 The following methods are implemented by default:
@@ -213,11 +167,10 @@ function mcmc_iterate!(
     max_nsamples::Int64 = Int64(1),
     max_nsteps::Int64 = Int64(1000),
     max_time::Float64 = Inf,
+    nonzero_weights::Bool = true,
     callback::Function = noop_func
 )
     @debug "Starting iteration over MCMC chain $(chain.info.id), max_nsamples = $max_nsamples, max_nsteps = $max_nsteps, max_time = $max_time"
-
-    cbfunc = Base.convert(AbstractMCMCCallback, callback)
 
     start_time = time()
     start_nsteps = nsteps(chain)
@@ -228,7 +181,10 @@ function mcmc_iterate!(
         (nsteps(chain) - start_nsteps) < max_nsteps &&
         (time() - start_time) < max_time
     )
-        mcmc_step!(output, chain, callback = callback)
+        mcmc_step!(chain, callback)
+        if !isnothing(output)
+            get_samples!(output, chain, nonzero_weights)
+        end
     end
 
     end_time = time()
@@ -236,12 +192,12 @@ function mcmc_iterate!(
 
     @debug "Finished iteration over MCMC chain $(chain.info.id), nsamples = $(nsamples(chain)), nsteps = $(nsteps(chain)), time = $(Float32(elapsed_time))"
 
-    chain
+    nothing
 end
 
 
 function mcmc_iterate!(
-    callbacks,
+    output::OptionalDensitySampleVector,
     chains::AbstractVector{<:MCMCIterator};
     kwargs...
 )
@@ -252,12 +208,22 @@ function mcmc_iterate!(
         @debug "Starting iteration over $(length(chains)) MCMC chain(s)"
     end
 
-    cbv = mcmc_callback_vector(callbacks, eachindex(chains))
-
-    idxs = eachindex(cbv, chains)
-    @sync for i in idxs
-        @mt_async mcmc_iterate!(cbv[i], chains[i]; kwargs...)
+    chain_outputs = if isnothing(output)
+        map(x -> nothing, chains)
+    else
+        map(x -> similar(output, 0), chains)
     end
 
-    chains
+    idxs = eachindex(chain_outputs, chains)
+    @sync for i in idxs
+        @mt_async mcmc_iterate!(chain_outputs[i], chains[i]; kwargs...)
+    end
+
+    if !isnothing(output)
+        for (o in chain_outputs)
+            append!(output, o)
+        end
+    end
+
+    nothing
 end

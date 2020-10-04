@@ -441,14 +441,14 @@ convergence = BrooksGelmanConvergence(
     corrected = false
 )
 
-init = MCMCInitStrategy(
+init = MCMCChainPoolInit(
     init_tries_per_chain = 8..128,
     max_nsamples_init = 25,
     max_nsteps_init = 250,
     max_time_init = Inf
 )
 
-burnin = MCMCBurninStrategy(
+burnin = MCMCMultiCycleBurnin(
     max_nsamples_per_cycle = 1000,
     max_nsteps_per_cycle = 10000,
     max_time_per_cycle = Inf,
