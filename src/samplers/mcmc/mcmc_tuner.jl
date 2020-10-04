@@ -3,6 +3,7 @@
 
 """
     AbstractMCMCTuningStrategy
+
 Abstract super-type for MCMC tuning strategies.
 """
 abstract type AbstractMCMCTuningStrategy end

@@ -29,57 +29,6 @@ end
 
 
 # BAT-internal:
-function mcmc_sample(
-    rng::AbstractRNG,
-    chainspec::MCMCSpec,
-    nsamples::Integer,
-    nchains::Integer;
-    max_nsteps::Int64 = Int64(10 * nsamples),
-    max_time::Float64 = Inf,
-    tuner_config::AbstractMCMCTuningStrategy = AbstractMCMCTuningStrategy(chainspec.algorithm),
-    convergence_test::MCMCConvergenceTest = BrooksGelmanConvergence(),
-    init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config),
-    burnin_strategy::MCMCBurninStrategy = MCMCBurninStrategy(chainspec.algorithm, nsamples, max_nsteps, tuner_config),
-    granularity::Int = 1,
-    strict_mode::Bool = false
-)
-    result = MCMCOutputWithChains(rng, chainspec)
-
-    result_samples, result_stats, result_chains = result
-
-    (chains, tuners) = mcmc_init(
-        rng,
-        chainspec,
-        nchains,
-        tuner_config,
-        init_strategy
-    )
-
-    mcmc_tune_burnin!(
-        (),
-        tuners,
-        chains,
-        convergence_test,
-        burnin_strategy;
-        strict_mode = strict_mode
-    )
-
-    append!(result_chains, chains)
-
-    mcmc_sample!(
-        (result_samples, result_stats),
-        result_chains,
-        nsamples;
-        max_nsteps = max_nsteps,
-        max_time = max_time,
-        granularity = granularity
-    )
-
-    result
-end
-
-
-# BAT-internal:
 function mcmc_sample!(
     result::MCMCOutput,
     chains::AbstractVector{<:MCMCIterator},
@@ -121,6 +70,20 @@ function mcmc_sample!(
 end
 
 
+@with_kw struct MCMCSamling{
+    AL<:MCMCAlgorithm,
+    IN<:MCMCInitStrategy,
+    BI<:MCMCBurninStrategy,
+    CT<:MCMCConvergenceTest
+}
+    algorithm::AL = MetropolisHastings(),
+    init::IN = MCMCInitStrategy(tuning),
+    burnin::BI = MCMCBurninStrategy(algorithm, n[1], max_nsteps, tuning),
+    convergence::CT = BrooksGelmanConvergence(),
+    strict::Bool = false,
+end
+
+
 function bat_sample_impl(
     rng::AbstractRNG,
     target::PosteriorDensity,
@@ -140,6 +103,43 @@ function bat_sample_impl(
     chainspec = MCMCSpec(algorithm, density)
 
     nsamples_per_chain, nchains = _mcmc_nsamples_tuple(n)
+
+
+
+
+    result = MCMCOutputWithChains(rng, chainspec)
+
+    result_samples, result_stats, result_chains = result
+
+    (chains, tuners) = mcmc_init(
+        rng,
+        chainspec,
+        nchains,
+        tuner_config,
+        init_strategy
+    )
+
+    mcmc_tune_burnin!(
+        (),
+        tuners,
+        chains,
+        convergence_test,
+        burnin_strategy;
+        strict_mode = strict_mode
+    )
+
+    append!(result_chains, chains)
+
+    mcmc_sample!(
+        (result_samples, result_stats),
+        result_chains,
+        nsamples;
+        max_nsteps = max_nsteps,
+        max_time = max_time,
+        granularity = granularity
+    )
+
+
 
     unshaped_samples, mcmc_stats, chains = mcmc_sample(
         rng,

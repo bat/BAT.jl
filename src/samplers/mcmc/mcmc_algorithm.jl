@@ -2,7 +2,23 @@
 
 
 @doc doc"""
-    abstract type MCMCAlgorithm <: AbstractSamplingAlgorithm end
+    abstract type MCMCSampling <: AbstractSamplingAlgorithm end
+
+Constructor:
+
+```julia
+(spec::MCMCSpec{<:SomeAlgorithm})(chainid::Integer)::MCMCIterator
+```
+
+To implement a new MCMC algorithm, subtypes of both `MCMCAlgorithm` and
+[`MCMCIterator`](@ref) are required.
+"""
+abstract type MCMCSampling <: AbstractSamplingAlgorithm end
+export MCMCSampling
+
+
+@doc doc"""
+    abstract type MCMCAlgorithm end
 
 !!! note
 
@@ -19,7 +35,7 @@ for `SomeAlgorithm<:MCMCAlgorithm`):
 To implement a new MCMC algorithm, subtypes of both `MCMCAlgorithm` and
 [`MCMCIterator`](@ref) are required.
 """
-abstract type MCMCAlgorithm <: AbstractSamplingAlgorithm end
+abstract type MCMCAlgorithm end
 export MCMCAlgorithm
 
 
@@ -90,8 +106,8 @@ end
     converged::Bool
 end
 
-struct MCMCSampleGenerator <: AbstractSampleGenerator
-    _chains::Any #TODO
+struct MCMCSampleGenerator{T<:MCMCIterator} <: AbstractSampleGenerator
+    _chains::T
 end
 
 getalgorithm(sg::MCMCSampleGenerator) = sg._chains[1].spec.algorithm
@@ -192,11 +208,12 @@ function mcmc_iterate! end
 
 
 function mcmc_iterate!(
-    callback,
+    output::OptionalDensitySampleVector,
     chain::MCMCIterator;
     max_nsamples::Int64 = Int64(1),
     max_nsteps::Int64 = Int64(1000),
-    max_time::Float64 = Inf
+    max_time::Float64 = Inf,
+    callback::Function = noop_func
 )
     @debug "Starting iteration over MCMC chain $(chain.info.id), max_nsamples = $max_nsamples, max_nsteps = $max_nsteps, max_time = $max_time"
 
@@ -211,7 +228,7 @@ function mcmc_iterate!(
         (nsteps(chain) - start_nsteps) < max_nsteps &&
         (time() - start_time) < max_time
     )
-        mcmc_step!(cbfunc, chain)
+        mcmc_step!(output, chain, callback = callback)
     end
 
     end_time = time()

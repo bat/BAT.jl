@@ -8,20 +8,21 @@ Metropolis-Hastings MCMC sampling algorithm.
 
 Constructors:
 
-    MetropolisHastings()
-    MetropolisHastings(weighting::AbstractWeightingScheme)
+```julia
+MetropolisHastings(
+    proposal::ProposalDistSpec
+    weighting::AbstractMCMCWeightingScheme
+    tuning::TN = MHProposalDistTuning
+)
 """
-struct MetropolisHastings{
-    Q<:ProposalDistSpec,
-    W<:Real,
-    WS<:AbstractWeightingScheme{W}
+@with_kw struct MetropolisHastings{
+    PS<:ProposalDistSpec,
+    WS<:AbstractMCMCWeightingScheme{W},
+    TN<:MHProposalDistTuning,
 } <: MCMCAlgorithm
-    proposalspec::Q
+    proposal::PS
     weighting::WS
-
-    MetropolisHastings(proposalspec::Q,weighting::WS) where {
-        Q<:ProposalDistSpec, W<:Real, WS<:AbstractWeightingScheme{W}} =
-        new{Q,W,WS}(proposalspec, weighting)
+    tuning::TN = AdaptiveMHTuning()
 end
 
 export MetropolisHastings
@@ -35,7 +36,7 @@ end
 MetropolisHastings(proposalspec::ProposalDistSpec = MvTDistProposal()) =
     MetropolisHastings(proposalspec, RepetitionWeighting())
 
-MetropolisHastings(weighting::AbstractWeightingScheme) =
+MetropolisHastings(weighting::AbstractMCMCWeightingScheme) =
     MetropolisHastings(MvTDistProposal(), weighting)
 
 

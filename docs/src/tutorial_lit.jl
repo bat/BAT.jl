@@ -428,7 +428,7 @@ rng = Philox4x()
 
 # Other default parameters are:
 
-tuning = AdaptiveMetropolisTuning(
+tuning = AdaptiveMHTuning(
     λ = 0.5,
     α = 0.15..0.35,
     β = 1.5,

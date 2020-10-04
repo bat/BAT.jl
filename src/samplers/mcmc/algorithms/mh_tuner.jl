@@ -1,10 +1,21 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-# ToDo: Add literature references to AdaptiveMetropolisTuning docstring.
+"""
+    MHProposalDistTuning
+
+Abstract super-type for Metropolis-Hastings tuning strategies for
+proposal distributions.
+"""
+abstract type MHProposalDistTuning <: AbstractMCMCTuningStrategy end
+export AbstractMCMCTuningStrategy
+
+
+
+# ToDo: Add literature references to AdaptiveMHTuning docstring.
 
 """
-    AdaptiveMetropolisTuning(...)
+    AdaptiveMHTuning(...) <: MHProposalDistTuning
 
 Adaptive MCMC tuning strategy for Metropolis-Hastings samplers.
 
@@ -33,7 +44,7 @@ Fields:
 Constructors:
 
 ```julia
-AdaptiveMetropolisTuning(
+AdaptiveMHTuning(
     λ::Real,
     α::IntervalSets.ClosedInterval{<:Real},
     β::Real,
@@ -42,7 +53,7 @@ AdaptiveMetropolisTuning(
 )
 ```
 """
-@with_kw struct AdaptiveMetropolisTuning <: AbstractMCMCTuningStrategy
+@with_kw struct AdaptiveMHTuning <: MHProposalDistTuning
     λ::Float64 = 0.5
     α::IntervalSets.ClosedInterval{Float64} = ClosedInterval(0.15, 0.35)
     β::Float64 = 1.5
@@ -50,20 +61,17 @@ AdaptiveMetropolisTuning(
     r::Real = 0.5
 end
 
-export AdaptiveMetropolisTuning
+export AdaptiveMHTuning
 
 
-# Deprecate:
-AbstractMCMCTuningStrategy(algorithm::MetropolisHastings) = AdaptiveMetropolisTuning()
-
-(config::AdaptiveMetropolisTuning)(chain::MHIterator) = ProposalCovTuner(config, chain)
+(config::AdaptiveMHTuning)(chain::MHIterator) = ProposalCovTuner(config, chain)
 
 
 
 mutable struct ProposalCovTuner{
     S<:MCMCBasicStats
 } <: AbstractMCMCTuner
-    config::AdaptiveMetropolisTuning
+    config::AdaptiveMHTuning
     stats::S
     iteration::Int
     scale::Float64
@@ -71,7 +79,7 @@ end
 
 
 function ProposalCovTuner(
-    config::AdaptiveMetropolisTuning,
+    config::AdaptiveMHTuning,
     chain::MHIterator
 )
     m = totalndof(getposterior(chain))
