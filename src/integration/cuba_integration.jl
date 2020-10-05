@@ -209,11 +209,13 @@ end
 export CuhreIntegration
 
 
-function bat_integrate_impl(target::AbstractDensity, algorithm::CuhreIntegration)
-    integrand = CubaIntegrand(target)
+function bat_integrate_impl(target::AnyDensityLike, algorithm::CuhreIntegration)
+    density = convert(AbstractDensity, target)
+
+    integrand = CubaIntegrand(density)
     
     r = Cuba.cuhre(
-        integrand, totalndof(target), 1, nvec = algorithm.nthreads,
+        integrand, totalndof(density), 1, nvec = algorithm.nthreads,
         rtol = algorithm.rtol, atol = algorithm.atol,
         minevals = algorithm.minevals, maxevals = algorithm.maxevals,
         key = algorithm.key
@@ -225,15 +227,3 @@ end
 
 
 const CubaIntegration = Union{VEGASIntegration, SuaveIntegration, DivonneIntegration, CuhreIntegration}
-
-
-#!!!!!!!!!!!!!!!!
-# ToDo: Remove once more generalized init-value generation is in place:
-function bat_integrate_impl(
-    target::Union{Distribution,Histogram},
-    algorithm::CubaIntegration;
-    kwargs...
-)
-    posterior = PosteriorDensity(LogDVal(0), target)
-    bat_integrate_impl(posterior, algorithm; kwargs...)
-end

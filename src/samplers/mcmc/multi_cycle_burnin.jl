@@ -26,10 +26,12 @@ export MCMCMultiCycleBurnin
 
 
 function mcmc_burnin!(
+    output::OptionalDensitySampleVector,
     tuners::AbstractVector{<:AbstractMCMCTunerInstance},
     chains::AbstractVector{<:MCMCIterator},
     burnin_strategy::MCMCMultiCycleBurnin,
     convergence_test::MCMCConvergenceTest;
+    nonzero_weights::Bool = true,
     strict_mode::Bool = false,
     callback::Function = nop_func
 )
@@ -48,11 +50,24 @@ function mcmc_burnin!(
 
         cycles += 1
 
+        cycle_output = ...
+
         #!!!!!!!!!!! call mcmc_iterate!, get samples  !!!!!!!!!!!
-        run_tuning_iterations!(callbacks, tuners, chains; kwargs...)
+        mcmc_iterate!(
+            cycle_output,
+            chains,
+            max_nsamples = burnin.max_nsamples_per_cycle
+            max_nsteps = burnin.max_nsteps_per_cycle
+            max_time = max_time_per_cycle
+            nonzero_weights::Bool = true,
+            callback = callback
+        )
+        
+
+        )
 
         #!!!!!!!!! pass samples as well !!!!!!!!!!!
-        tuning_update!.(tuners, chains)
+        tuning_update!.(tuners, chains, samples)
 
         new_stats = [x.stats for x in tuners] # ToDo: Find more generic abstraction
         ct_result = check_convergence!(convergence_test, chains, new_stats)

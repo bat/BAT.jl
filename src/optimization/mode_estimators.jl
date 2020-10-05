@@ -56,61 +56,51 @@ end
 
 Constructors:
 
-    MaxDensityNelderMead()
+```julia
+MaxDensityNelderMead(init::InitvalAlgorithm = InitFromTarget)
+```
 
 Estimate the mode of a probability density using Nelder-Mead optimization
 (via [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl)).
 """
-struct MaxDensityNelderMead <: AbstractModeEstimator end
+@with_kw struct MaxDensityNelderMead{IA<:InitvalAlgorithm} <: AbstractModeEstimator
+    init::IA = InitFromTarget()
+end
 export MaxDensityNelderMead
 
 function bat_findmode_impl(target::AnySampleable, algorithm::MaxDensityNelderMead; initial_mode = missing)
     shape = varshape(target)
-    x = _get_initial_mode(target, initial_mode)
+    x = unshape(bat_initval(target, algorithm.init))
     conv_target = convert(AbstractDensity, target)
     r = Optim.maximize(p -> logvalof(conv_target, p), x, Optim.NelderMead())
     (result = shape(Optim.minimizer(r.res)), info = r)
 end
 
 
-_get_initial_mode(target::AnySampleable, ::Missing) =
-    _get_initial_mode(target, rand(sampler(getprior(target))))
 
-_get_initial_mode(target::AnySampleable, samples::DensitySampleVector) =
-    _get_initial_mode(target, unshaped(bat_findmode(samples).result))
-
-_get_initial_mode(target::AnySampleable, x::AbstractArray{<:Real}) = Array(x)
-_get_initial_mode(target::AnySampleable, x::Array{<:Real}) = x
-
-function _get_initial_mode(target::AnySampleable, x)
-    shape = varshape(target)
-    x_unshaped = Vector{<:Real}(undef, shape)
-    shape(x_unshaped)[] = stripscalar(x)
-    x_unshaped
-end
-
-
-
-#!!!!!! Use InitvalAlgorithm instead of initial_mode keyword
 """
     MaxDensityLBFGS <: AbstractModeEstimator
 
 Constructors:
 
-    MaxDensityLBFGS()
+```julia
+MaxDensityLBFGS(init::InitvalAlgorithm = InitFromTarget)
+```
 
 Estimate the mode of a probability density using LBFGS optimization (via
 [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl)). The gradient
 of the density is computed using forward-mode auto-differentiation (via
 [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl)).
 """
-struct MaxDensityLBFGS <: AbstractModeEstimator end
+@with_kw struct MaxDensityLBFGS{IA<:InitvalAlgorithm} <: AbstractModeEstimator
+    init::IA = InitFromTarget()
+end
 export MaxDensityLBFGS
 
 
 function bat_findmode_impl(target::AnySampleable, algorithm::MaxDensityLBFGS; initial_mode = missing)
     shape = varshape(target)
-    x = _get_initial_mode(target, initial_mode)
+    x = unshape(bat_initval(target, algorithm.init))
     conv_target = convert(AbstractDensity, target)
     r = Optim.maximize(p -> logvalof(conv_target, p), x, Optim.LBFGS(); autodiff = :forward)
     (result = shape(Optim.minimizer(r.res)), info = r)

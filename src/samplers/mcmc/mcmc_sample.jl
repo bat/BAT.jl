@@ -27,7 +27,8 @@ MCMCSampling(;
     init::IN = MCMCChainPoolInit(),
     burnin::BI = MCMCMultiCycleBurnin(),
     convergence::CT = BrooksGelmanConvergence(),
-    strict::Bool = false,
+    strict::Bool = true,
+    nonzero_weights::Bool = true
 end
 
 export MCMCSampling
@@ -38,35 +39,30 @@ function bat_sample_impl(
     target::AnyDensityLike,
     n::Integer,
     algorithm::MCMCSampling;
-    max_time::Real = Inf,
-    filter::Bool = true
+    max_neval::Integer = 10 * n,
+    max_time::Real = Inf
 )
-    nchains = algorithm.nchains
     density = convert(AbstractDensity, target)
     mcmc_algorithm = algorithm.sampler
-    nsamples_per_chain = div(n, nchains)
 
     dummy_startpos = bat_initval(deepcopy(rng), density, InitFromTarget())
     dummy_chain = MCMCIterator(deepcopy(rng), mcmc_algorithm, density, 0, dummy_startpos)
-    samples = DensitySampleVector(dummy_chain)
-
-    unshaped_samples = MCMCOutputWithChains(rng, chainspec)
+    unshaped_samples = DensitySampleVector(dummy_chain)
 
     init_output = nothing
     init_callback = nop_func
-
-    burnin_output = nothing
-    burnin_callback = nop_func
 
     (chains, tuners) = mcmc_init!(
         rng,
         init_output,
         mcmc_algorithm,
         density
-        nchains,
+        algorithm.nchains,
         callback = init_callback
     )     
 
+    burnin_output = nothing
+    burnin_callback = nop_func
 
     mcmc_burnin!(
         burnin_output,
@@ -78,66 +74,20 @@ function bat_sample_impl(
         callback = burnin_callback
     )
 
-    append!(result_chains, chains)
+    sampling_output = unshaped_samples
+    samling_callback = nop_func
 
-    mcmc_sample!(
-        (result_samples, result_stats),
-        result_chains,
-        nsamples_per_chain;
-        max_nsteps = Int64(max_nsteps),
-        max_time = Float64(max_time),
-        granularity = filter ? 1 : 2
+    mcmc_iterate!(
+        sampling_output,
+        chains;
+        max_nsamples = div(n, length(chains)),
+        max_nsteps = div(max_neval, length(chains)),
+        max_time = max_time,
+        nonzero_weights = nonzero_weights,
+        callback = samling_callback
     )
 
     samples = varshape(density).(unshaped_samples)
 
-    (result = samples, chains = chains)
-end
-
-
-#=
-
-#!!!!!!!! Old version:
-
-function bat_sample_impl(
-    rng::AbstractRNG,
-    target::AnyDensityLike,
-    n::Union{Integer, Tuple{Integer,Integer}},
-    algorithm::MCMCAlgorithm;
-    max_nsteps::Integer = 10 * _mcmc_nsamples_tuple(n)[1],
-    max_time::Real = Inf,
-    tuning::MCMCTuningAlgorithm = MCMCTuningAlgorithm(algorithm),
-    init::MCMCInitAlgorithm = MCMCChainPoolInit(),
-    burnin::MCMCBurninAlgorithm = MCMCMultiCycleBurnin(
-        max_nsamples_per_cycle = max(div(_mcmc_nsamples_tuple(n)[1], 10), 100)
-        max_nsteps_per_cycle = max(div(max_nsteps, 10), 100)
-    ),
-    convergence::MCMCConvergenceTest = BrooksGelmanConvergence(),
-    strict::Bool = false,
-    filter::Bool = true
-)
-
-_mcmc_nsamples_tuple(n::NTuple{2, Integer}) = n
-
-function _mcmc_nsamples_tuple(n::Integer)
-    nchains = 4
-    nsamples = div(n, nchains)
-    (nsamples, nchains)
-end
-
-=#
-
-
-
-#!!!!!!!!!!!!!!!!
-# ToDo: Remove once more generalized init-value generation is in place:
-function bat_sample_impl(
-    rng::AbstractRNG,
-    dist::Union{Distribution,Histogram},
-    n::Any,
-    algorithm::MCMCAlgorithm;
-    kwargs...
-)
-    posterior = PosteriorDensity(LogDVal(0), dist)
-    bat_sample_impl(rng, posterior, n, algorithm; kwargs...)
+    (result = samples, generator = MCMCSampleGenerator(chains))
 end

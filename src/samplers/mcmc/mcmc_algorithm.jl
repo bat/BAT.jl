@@ -193,9 +193,9 @@ function mcmc_iterate! end
 function mcmc_iterate!(
     output::OptionalDensitySampleVector,
     chain::MCMCIterator;
-    max_nsamples::Int64 = Int64(1),
-    max_nsteps::Int64 = Int64(1000),
-    max_time::Float64 = Inf,
+    max_nsamples::Integer = 1,
+    max_nsteps::Integer = 1000,
+    max_time::Real = Inf,
     nonzero_weights::Bool = true,
     callback::Function = nop_func
 )
