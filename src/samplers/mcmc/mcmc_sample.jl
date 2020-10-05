@@ -46,48 +46,35 @@ function bat_sample_impl(
     mcmc_algorithm = algorithm.sampler
     nsamples_per_chain = div(n, nchains)
 
-        # BAT-internal:
-        function MCMCOutputWithChains(rng::AbstractRNG, chainspec::MCMCSpec)
-        dummy_chain = MCMCIterator(rng, mcmc_algorithm, density, 0, )
+    dummy_startpos = bat_initval(deepcopy(rng), density, InitFromTarget())
+    dummy_chain = MCMCIterator(deepcopy(rng), mcmc_algorithm, density, 0, dummy_startpos)
+    samples = DensitySampleVector(dummy_chain)
 
-        MCMCIterator(
-            rng::AbstractRNG,
-            algorithm::SomeAlgorithm,
-            density::AbstractDensity,
-            chainid::Int,
-            startpos::AbstractVector{<:Real}
-        )
-        
+    unshaped_samples = MCMCOutputWithChains(rng, chainspec)
 
-        (
-            DensitySampleVector(dummy_chain),
-            MCMCBasicStats(dummy_chain),
-            Vector{typeof(dummy_chain)}()
-        )
-        end
+    init_output = nothing
+    init_callback = nop_func
 
-
-    result = MCMCOutputWithChains(rng, chainspec)
-
-    result_samples, result_stats, result_chains = result
+    burnin_output = nothing
+    burnin_callback = nop_func
 
     (chains, tuners) = mcmc_init!(
-        init_output,
         rng,
-        chainspec,
+        init_output,
+        mcmc_algorithm,
+        density
         nchains,
-        tuning,
-        init,
         callback = init_callback
-    )
+    )     
+
 
     mcmc_burnin!(
         burnin_output,
         tuners,
         chains,
-        convergence,
-        burnin,
-        strict_mode = strict,
+        algorithm.burnin,
+        algorithm.convergence,
+        strict_mode = algorithm.strict,
         callback = burnin_callback
     )
 
@@ -110,7 +97,7 @@ end
 
 #=
 
-#!!!!!!!! Provide deprecated version:
+#!!!!!!!! Old version:
 
 function bat_sample_impl(
     rng::AbstractRNG,
@@ -130,10 +117,6 @@ function bat_sample_impl(
     filter::Bool = true
 )
 
-=#
-
-
-
 _mcmc_nsamples_tuple(n::NTuple{2, Integer}) = n
 
 function _mcmc_nsamples_tuple(n::Integer)
@@ -142,7 +125,11 @@ function _mcmc_nsamples_tuple(n::Integer)
     (nsamples, nchains)
 end
 
+=#
 
+
+
+#!!!!!!!!!!!!!!!!
 # ToDo: Remove once more generalized init-value generation is in place:
 function bat_sample_impl(
     rng::AbstractRNG,

@@ -145,39 +145,3 @@ function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator)
 
     nothing
 end
-
-
-function run_tuning_cycle!(
-    callbacks,
-    tuners::AbstractVector{<:ProposalCovTuner},
-    chains::AbstractVector{<:MHIterator};
-    kwargs...
-)
-    run_tuning_iterations!(callbacks, tuners, chains; kwargs...)
-    tuning_update!.(tuners, chains)
-    nothing
-end
-
-
-function run_tuning_iterations!(
-    callbacks,
-    tuners::AbstractVector{<:ProposalCovTuner},
-    chains::AbstractVector{<:MHIterator};
-    max_nsamples::Int64 = Int64(1000),
-    max_nsteps::Int64 = Int64(10000),
-    max_time::Float64 = Inf
-)
-    user_callbacks = mcmc_callback_vector(callbacks, eachindex(chains))
-
-    combined_callbacks = broadcast(tuners, user_callbacks) do tuner, user_callback
-        (level, chain) -> begin
-            if level == 1
-                get_samples!(tuner.stats, chain, true)
-            end
-            user_callback(level, chain)
-        end
-    end
-
-    mcmc_iterate!(combined_callbacks, chains, max_nsamples = max_nsamples, max_nsteps = max_nsteps, max_time = max_time)
-    nothing
-end

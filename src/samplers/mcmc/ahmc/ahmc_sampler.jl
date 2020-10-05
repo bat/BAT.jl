@@ -60,20 +60,20 @@ default: `adaptor =  StanHMCAdaptor(acceptance_rate::Float64 = 0.8, n_adapts = 5
 end
 
 
-# MCMCSpec for AHMC
-function (spec::MCMCSpec{<:AHMC})(
+function MCMCIterator(
     rng::AbstractRNG,
-    chainid::Integer
+    algorithm::MetropolisHastings,
+    density::AbstractDensity,
+    chainid::Int,
+    startpos::AbstractVector{<:Real}
 )
-    P = Float64 #float(eltype(var_bounds(spec.posterior)))
-
     cycle = 0
     tuned = false
     converged = false
     info = MCMCIteratorInfo(chainid, cycle, tuned, converged)
-
-    AHMCIterator(rng, spec, info, Vector{P}())
+    AHMCIterator(rng, spec, info, startpos)
 end
+
 
 # MCMCIterator subtype for AHMC
 mutable struct AHMCIterator{
@@ -113,11 +113,7 @@ function AHMCIterator(
     alg = spec.algorithm
 
     params_vec = Vector{P}(undef, npar)
-    if isempty(x_init)
-        mcmc_startval!(params_vec, rng, postr, alg)
-    else
-        params_vec .= x_init
-    end
+    params_vec .= x_init
     !(params_vec in var_bounds(postr)) && throw(ArgumentError("Parameter(s) out of bounds"))
 
     log_posterior_value = logvalof(postr, params_vec, strict = true)
@@ -262,10 +258,7 @@ end
 MCMCTuningAlgorithm(algorithm::AHMC) = OnlyBurninTunerConfig()
 
 
-function mcmc_step!(
-    callback::AbstractMCMCCallback,
-    chain::AHMCIterator
-)
+function mcmc_step!(chain::AHMCIterator, callback::Function)
     alg = algorithm(chain)
 
     # if !mcmc_compatible(alg, chain.proposaldist, var_bounds(getposterior(chain)))
@@ -332,7 +325,8 @@ function mcmc_step!(
         samples.weight[current] += delta_w_current
         samples.weight[proposed] = w_proposed
 
-        callback(1, chain)
+        #!!!!!!!!!!! Need to change things here, get_samples will now be called after mcmc_step
+        callback(Val(:mcmc_step), chain)
 
         if accepted
             current_params .= proposed_params

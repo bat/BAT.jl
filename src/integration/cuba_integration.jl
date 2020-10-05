@@ -227,6 +227,7 @@ end
 const CubaIntegration = Union{VEGASIntegration, SuaveIntegration, DivonneIntegration, CuhreIntegration}
 
 
+#!!!!!!!!!!!!!!!!
 # ToDo: Remove once more generalized init-value generation is in place:
 function bat_integrate_impl(
     target::Union{Distribution,Histogram},

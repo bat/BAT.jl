@@ -26,34 +26,33 @@ export MCMCMultiCycleBurnin
 
 
 function mcmc_burnin!(
-    callbacks,
     tuners::AbstractVector{<:AbstractMCMCTunerInstance},
     chains::AbstractVector{<:MCMCIterator},
     burnin_strategy::MCMCMultiCycleBurnin,
     convergence_test::MCMCConvergenceTest;
-    strict_mode::Bool = false
+    strict_mode::Bool = false,
+    callback::Function = nop_func
 )
     @info "Begin tuning of $(length(tuners)) MCMC chain(s)."
 
     nchains = length(chains)
 
-    user_callbacks = mcmc_callback_vector(callbacks, eachindex(chains))
-
     cycles = zero(Int)
     successful = false
     while !successful && cycles < burnin_strategy.max_ncycles
+        #!!!!!!!!!!!! Move to ProposalCovTuner !!!!!!!!!!!
         old_stats = [x.stats for x in tuners] # ToDo: Find more generic abstraction
         stats_reweight_factors = [x.config.r for x in tuners] # ToDo: Find more generic abstraction
         reweight_relative!.(old_stats, stats_reweight_factors)
         # empty!.(old_stats)
 
         cycles += 1
-        run_tuning_cycle!(
-            user_callbacks, tuners, chains;
-            max_nsamples = burnin_strategy.max_nsamples_per_cycle,
-            max_nsteps = burnin_strategy.max_nsteps_per_cycle,
-            max_time = burnin_strategy.max_time_per_cycle
-        )
+
+        #!!!!!!!!!!! call mcmc_iterate!, get samples  !!!!!!!!!!!
+        run_tuning_iterations!(callbacks, tuners, chains; kwargs...)
+
+        #!!!!!!!!! pass samples as well !!!!!!!!!!!
+        tuning_update!.(tuners, chains)
 
         new_stats = [x.stats for x in tuners] # ToDo: Find more generic abstraction
         ct_result = check_convergence!(convergence_test, chains, new_stats)
@@ -62,9 +61,7 @@ function mcmc_burnin!(
         nconverged = count(c -> c.info.converged, chains)
         successful = (ntuned == nconverged == nchains)
 
-        for i in eachindex(user_callbacks, tuners)
-            user_callbacks[i](1, tuners[i])
-        end
+        callback(Val(:mcmc_burnin), tuners, chains)
 
         @info "MCMC Tuning cycle $cycles finished, $nchains chains, $ntuned tuned, $nconverged converged."
     end

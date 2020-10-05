@@ -68,30 +68,6 @@ export MCMCConvergenceTest
 
 
 
-"""
-    BAT.mcmc_startval!(
-        x::Union{AbstractVector{<:Real},VectorOfSimilarVectors{<:Real}},
-        rng::AbstractRNG,
-        posterior::AbstractPosteriorDensity,
-        algorithm::MCMCAlgorithm
-    )::typeof(x)
-
-*BAT-internal, not part of stable public API.*
-
-Fill `x` a random initial argument suitable for `posterior` and
-`algorithm`. The default implementation will try to draw the initial
-argument value from the prior of the posterior.
-"""
-function mcmc_startval! end
-
-mcmc_startval!(
-    x::Union{AbstractVector{<:Real},VectorOfSimilarVectors{<:Real}},
-    rng::AbstractRNG,
-    posterior::AbstractPosteriorDensity,
-    algorithm::MCMCAlgorithm
-) = rand!(rng, sampler(getprior(posterior)), x)
-
-
 @with_kw struct MCMCIteratorInfo
     id::Int64
     cycle::Int
@@ -221,7 +197,7 @@ function mcmc_iterate!(
     max_nsteps::Int64 = Int64(1000),
     max_time::Float64 = Inf,
     nonzero_weights::Bool = true,
-    callback::Function = noop_func
+    callback::Function = nop_func
 )
     @debug "Starting iteration over MCMC chain $(chain.info.id), max_nsamples = $max_nsamples, max_nsteps = $max_nsteps, max_time = $max_time"
 

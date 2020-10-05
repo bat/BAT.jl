@@ -29,6 +29,8 @@ end
 export MCMCChainPoolInit
 
 
+##!!!!!!! missing: gen chain init values
+
 _construct_chain(rngpart::RNGPartition, id::Integer, chainspec::MCMCSpec) =
     chainspec(AbstractRNG(rngpart, id), id)
 
@@ -38,15 +40,17 @@ _gen_chains(
     chainspec::MCMCSpec,
 ) = [_construct_chain(rngpart, id, chainspec) for id in ids]
 
+
+#!!!!! Change arg list
 function mcmc_init!(
     rng::AbstractRNG,
     output::OptionalDensitySampleVector,
     algorithm::SomeAlgorithm,
-    density::AbstractDensity
+    density::AbstractDensity,
     nchains::Int;
     tuner::MCMCTuningAlgorithm = MCMCTuningAlgorithm(chainspec.algorithm),
     init::MCMCInitAlgorithm = MCMCChainPoolInit(),
-    callback::Function = noop_func
+    callback::Function = nop_func
 )
     @info "Trying to generate $nchains viable MCMC chain(s)."
 
@@ -78,7 +82,6 @@ function mcmc_init!(
 
         @debug "Testing $(length(new_tuners)) MCMC chain(s)."
 
-        # ToDo: Use mcmc_iterate! instead of run_tuning_iterations! ?
         mcmc_iterate!
             output, new_chains;
             max_nsamples = max(5, div(init_strategy.max_nsamples_init, 5)),
@@ -100,7 +103,7 @@ function mcmc_init!(
                 max_nsamples = init_strategy.max_nsamples_init,
                 max_nsteps = init_strategy.max_nsteps_init,
                 max_time = init_strategy.max_time_init,
-                callback
+                callback = callback
             )
 
             nsamples_thresh = floor(Int, 0.8 * median([nsamples(chain) for chain in viable_chains]))
