@@ -140,7 +140,7 @@ function MCMCIterator(
     tuned = false
     converged = false
     info = MCMCIteratorInfo(chainid, cycle, tuned, converged)
-    MHIterator(rng, spec, info, startpos)
+    MHIterator(rng, algorithm, density, info, startpos)
 end
 
 
@@ -192,15 +192,12 @@ function get_samples!(appendable, chain::MHIterator, nonzero_weights::Bool)::typ
         idxs = _available_samples_idxs(chain)
         samples = chain.samples
 
-        # if nonzero_weights
-            for i in idxs
-                if !nonzero_weights || samples.weight[i] > 0
-                    push!(appendable, samples[i])
-                end
+        for i in idxs
+            @assert samples.info.sampletype[i] == ACCEPTED_SAMPLE
+            if !nonzero_weights || samples.weight[i] > 0
+                push!(appendable, samples[i])
             end
-        # else
-        #     append!(appendable, view(samples, idxs))
-        # end
+        end
     end
     appendable
 end
@@ -241,6 +238,20 @@ function mcmc_step!(chain::MHIterator, callback::Function)
     proposaldist = chain.proposaldist
     samples = chain.samples
 
+    # If proposal was accepted in the last step, it's now the current sample
+    if samples_available(chain::MHIterator)
+        current = _current_sample_idx(chain)
+        proposed = _proposed_sample_idx(chain)
+    
+        @assert samples.info.sampletype[proposed] == CURRENT_SAMPLE
+        current_params .= proposed_params
+        samples.logd[current] = samples.logd[proposed]
+        samples.weight[current] = samples.weight[proposed]
+        samples.info[current] = samples.info[proposed]
+
+        resize!(samples, 1)
+    end
+
     # Grow samples vector by one:
     resize!(samples, size(samples, 1) + 1)
     samples.info[lastindex(samples)] = MCMCSampleID(chain.info.id, chain.info.cycle, chain.stepno, PROPOSED_SAMPLE)
@@ -249,72 +260,56 @@ function mcmc_step!(chain::MHIterator, callback::Function)
     proposed = _proposed_sample_idx(chain)
     @assert current != proposed
 
-    accepted = let
-        current_params = samples.v[current]
-        proposed_params = samples.v[proposed]
+    current_params = samples.v[current]
+    proposed_params = samples.v[proposed]
 
-        # Propose new variate:
-        samples.weight[proposed] = 0
-        proposal_rand!(rng, proposaldist, proposed_params, current_params)
-        renormalize_variate!(proposed_params, pstr, proposed_params)
+    # Propose new variate:
+    samples.weight[proposed] = 0
+    proposal_rand!(rng, proposaldist, proposed_params, current_params)
+    renormalize_variate!(proposed_params, pstr, proposed_params)
 
-        current_log_posterior = samples.logd[current]
-        T = typeof(current_log_posterior)
+    current_log_posterior = samples.logd[current]
+    T = typeof(current_log_posterior)
 
-        # Evaluate prior and likelihood with proposed variate:
-        proposed_log_posterior = logvalof(pstr, proposed_params, strict = false)
+    # Evaluate prior and likelihood with proposed variate:
+    proposed_log_posterior = logvalof(pstr, proposed_params, strict = false)
 
-        samples.logd[proposed] = proposed_log_posterior
+    samples.logd[proposed] = proposed_log_posterior
 
-        p_accept = if proposed_log_posterior > -Inf
-            # log of ratio of forward/reverse transition probability
-            log_tpr = if issymmetric(proposaldist)
-                T(0)
-            else
-                log_tp_fwd = distribution_logpdf(proposaldist, proposed_params, current_params)
-                log_tp_rev = distribution_logpdf(proposaldist, current_params, proposed_params)
-                T(log_tp_fwd - log_tp_rev)
-            end
-
-            p_accept_unclamped = exp(proposed_log_posterior - current_log_posterior - log_tpr)
-            T(clamp(p_accept_unclamped, 0, 1))
+    p_accept = if proposed_log_posterior > -Inf
+        # log of ratio of forward/reverse transition probability
+        log_tpr = if issymmetric(proposaldist)
+            T(0)
         else
-            zero(T)
+            log_tp_fwd = distribution_logpdf(proposaldist, proposed_params, current_params)
+            log_tp_rev = distribution_logpdf(proposaldist, current_params, proposed_params)
+            T(log_tp_fwd - log_tp_rev)
         end
 
-        @assert p_accept >= 0
-        accepted = rand(chain.rng, float(typeof(p_accept))) < p_accept
-
-        if accepted
-            samples.info.sampletype[current] = ACCEPTED_SAMPLE
-            samples.info.sampletype[proposed] = CURRENT_SAMPLE
-            chain.nsamples += 1
-        else
-            samples.info.sampletype[proposed] = REJECTED_SAMPLE
-        end
-
-        delta_w_current, w_proposed = _mh_weights(alg, p_accept, accepted)
-        samples.weight[current] += delta_w_current
-        samples.weight[proposed] = w_proposed
-
-        #!!!!!!!!!!! Need to change things here, get_samples will now be called after mcmc_step
-        callback(Val(:mcmc_step), chain)
-
-        if accepted
-            current_params .= proposed_params
-            samples.logd[current] = samples.logd[proposed]
-            samples.weight[current] = samples.weight[proposed]
-            samples.info[current] = samples.info[proposed]
-        end
-
-        accepted
+        p_accept_unclamped = exp(proposed_log_posterior - current_log_posterior - log_tpr)
+        T(clamp(p_accept_unclamped, 0, 1))
+    else
+        zero(T)
     end
+
+    @assert p_accept >= 0
+    accepted = rand(chain.rng, float(typeof(p_accept))) < p_accept
 
     if accepted
-        resize!(samples, 1)
+        samples.info.sampletype[current] = ACCEPTED_SAMPLE
+        samples.info.sampletype[proposed] = CURRENT_SAMPLE
+        chain.nsamples += 1
+    else
+        samples.info.sampletype[proposed] = REJECTED_SAMPLE
     end
 
-    chain
+    delta_w_current, w_proposed = _mh_weights(alg, p_accept, accepted)
+    samples.weight[current] += delta_w_current
+    samples.weight[proposed] = w_proposed
+
+    callback(Val(:mcmc_step), chain)
+
+    nothing
 end
 
 
