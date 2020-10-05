@@ -50,6 +50,7 @@ BAT.SearchResult
 BAT.SpacePartTree
 BAT.TruncatedDensity
 BAT.WhiteningResult
+BAT.MCMCSampleGenerator
 
 BAT.density_logval_type
 BAT.estimate_finite_bounds

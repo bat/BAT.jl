@@ -125,3 +125,13 @@ end
 function argchoice_msg(::typeof(bat_sample), ::Val{:algorithm}, x::AbstractSamplingAlgorithm)
     "Using sampling algorithm $x"
 end
+
+
+
+"""
+    AbstractSampleGenerator
+
+Abstract super type for sample generators.
+"""
+abstract type AbstractSampleGenerator end
+export AbstractSampleGenerator

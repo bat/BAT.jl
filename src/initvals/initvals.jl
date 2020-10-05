@@ -67,21 +67,21 @@ struct InitFromTarget <: InitvalAlgorithm end
 export InitFromTarget
 
 
-_get_initsrc_from_target(target::Distribution) = target
+function get_initsrc_from_target end
 
-_get_initsrc_from_target(target::DistributionDensity) = convert(Distribution, target)
+get_initsrc_from_target(target::Distribution) = target
 
-_get_initsrc_from_target(target::AbstractPosteriorDensity) = _get_initsrc_from_target(getprior(target))
+get_initsrc_from_target(target::DistributionDensity) = convert(Distribution, target)
 
-_get_initsrc_from_target(target::SampledDensity) = target.samples
+get_initsrc_from_target(target::AbstractPosteriorDensity) = get_initsrc_from_target(getprior(target))
 
 
 function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::InitFromTarget)
-    (result = _rand_v(rng, target, _get_initsrc_from_target(target)),)
+    (result = _rand_v(rng, target, get_initsrc_from_target(target)),)
 end
 
 function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, algorithm::InitFromTarget)
-    (result = _rand_v(rng, target, _get_initsrc_from_target(target), n),)
+    (result = _rand_v(rng, target, get_initsrc_from_target(target), n),)
 end
 
 

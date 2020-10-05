@@ -88,12 +88,6 @@ export MCMCConvergenceTest
     converged::Bool
 end
 
-struct MCMCSampleGenerator{T<:MCMCIterator} <: AbstractSampleGenerator
-    _chains::T
-end
-
-getalgorithm(sg::MCMCSampleGenerator) = sg._chains[1].spec.algorithm
-
 
 @doc doc"""
     abstract type MCMCIterator end
@@ -266,6 +260,27 @@ end
 isvalid(chain::MCMCIterator) = current_sample(chain).logd > -Inf
 
 isviable(chain::MCMCIterator) = nsamples(chain) >= 2
+
+
+
+"""
+    BAT.MCMCSampleGenerator
+
+*BAT-internal, not part of stable public API.*
+
+MCMC sample generator.
+
+Constructors:
+
+```julia
+MCMCSampleGenerator(chain::AbstractVector{<:MCMCIterator})
+```
+"""
+struct MCMCSampleGenerator{T<:AbstractVector{<:MCMCIterator}} <: AbstractSampleGenerator
+    chains::T
+end
+
+getalgorithm(sg::MCMCSampleGenerator) = sg.chains[1].spec.algorithm
 
 
 

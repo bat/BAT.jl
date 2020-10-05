@@ -51,6 +51,7 @@ AbstractDensity
 AbstractDensityValue
 MCMCTuningAlgorithm
 AbstractPosteriorDensity
+AbstractSampleGenerator
 AbstractMCMCWeightingScheme
 AdaptiveMHTuning
 AHMC

@@ -182,3 +182,6 @@ function _print_generator(io::IO, generator::MCMCSampleGenerator)
     println(io, "number of chains converged:", repeat(' ', 3), n_converged_chains)
     println(io, "number of samples per chain:", repeat(' ', 2), chains[1].nsamples, "\n")
 end
+
+
+get_initsrc_from_target(target::SampledDensity) = target.samples
