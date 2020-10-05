@@ -141,7 +141,7 @@ function logvalof(
     use_bounds::Bool = true,
     strict::Bool = false
 )
-    v_shaped = get_shaped_variate(varshape(density), v)
+    v_shaped = reshape_variate(varshape(density), v)
     if use_bounds && !variate_is_inbounds(density, v_shaped, strict)
         return log_zero_density(T)
     end
@@ -174,40 +174,6 @@ function _check_density_logval(density::AbstractDensity, v::Any, logval::Real, s
     end
 
     nothing
-end
-
-
-
-get_shaped_variate(shape::Missing, v::Any) = v
-
-function get_shaped_variate(shape::AbstractValueShape, v::Any)
-    v_shape = valshape(v)
-    if !(v_shape <= shape)
-        throw(ArgumentError("Shape of variate doesn't match variate shape of density, with variate of type $(typeof(v)) and expected shape $(shape)"))
-    end
-    v
-end
-
-function get_shaped_variate(shape::ArrayShape{<:Real,1}, v::Any)
-    unshaped_v = unshaped(v)::AbstractVector{<:Real}
-    get_shaped_variate(shape, unshaped_v)
-end
-
-function get_shaped_variate(shape::AbstractValueShape, v::AbstractVector{<:Real})
-    _get_shaped_realvec(shape, v)
-end
-
-function get_shaped_variate(shape::ArrayShape{<:Real,1}, v::AbstractVector{<:Real})
-    _get_shaped_realvec(shape, v)
-end
-
-function _get_shaped_realvec(shape::AbstractValueShape, v::AbstractVector{<:Real})
-    ndof = length(eachindex(v))
-    ndof_expected = totalndof(shape)
-    if ndof != ndof_expected
-        throw(ArgumentError("Invalid length ($ndof) of parameter vector, density has $ndof_expected degrees of freedom and shape $(shape)"))
-    end
-    shape(v)
 end
 
 

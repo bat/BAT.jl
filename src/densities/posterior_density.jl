@@ -38,7 +38,7 @@ function logvalof(
     use_bounds::Bool = true,
     strict::Bool = false
 )
-    v_shaped = get_shaped_variate(varshape(density), v)
+    v_shaped = reshape_variate(varshape(density), v)
     if use_bounds && !variate_is_inbounds(density, v_shaped, strict)
         return log_zero_density(T)
     end

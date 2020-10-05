@@ -2,12 +2,12 @@
 
 function _reshape_v(target::AnyDensityLike, v::Any)
     shape = varshape(convert(AbstractDensity, target))
-    get_shaped_variate(shape, v)
+    reshape_variate(shape, v)
 end
 
 function _reshape_vs(target::AnyDensityLike, vs::AbstractVector)
     shape = varshape(convert(AbstractDensity, target))
-    get_shaped_variates(shape, vs)
+    reshape_variates(shape, vs)
 end
 
 
