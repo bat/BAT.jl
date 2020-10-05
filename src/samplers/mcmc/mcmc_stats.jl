@@ -5,12 +5,6 @@ abstract type AbstractMCMCStats end
 AbstractMCMCStats
 
 
-Base.convert(::Type{AbstractMCMCCallback}, x::AbstractMCMCStats) = MCMCAppendCallback(x)
-
-MCMCAppendCallback(x::AbstractMCMCStats, nonzero_weights::Bool = true) =
-    MCMCAppendCallback(x, 1, get_samples!, nonzero_weights)
-
-
 
 struct MCMCNullStats <: AbstractMCMCStats end
 

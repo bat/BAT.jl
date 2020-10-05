@@ -29,18 +29,6 @@ abstract type MCMCAlgorithm end
 export MCMCAlgorithm
 
 
-function MCMCIterator(
-    rng::AbstractRNG,
-    algorithm::MCMCAlgorithm,
-    density::AbstractDensity,
-    chainid::Int,
-    P::Type{} = Float32
-)
-    shaped_startpos = bat_initval(density)
-    startpos = convert(Vector{P}, unshaped(varshape(density), startpos))
-    MCMCIterator(rng, algorithm, density, chainid, startpos)
-end
-
 
 @doc doc"""
 abstract type MCMCInitAlgorithm end
@@ -151,14 +139,16 @@ export MCMCIterator
 
 function MCMCIterator(
     rng::AbstractRNG,
-    algorithm::SomeAlgorithm,
+    algorithm::MCMCAlgorithm,
     density::AbstractDensity,
     chainid::Int,
-    startpos::Any
+    P::Type{} = Float32
 )
-    unshaped_startpos = unshape(varshape(density), startpos)
-    MCMCIterator(rng, algorithm, density, chainid, unshaped_startpos)
+    shaped_startpos = bat_initval(density)
+    startpos = convert(Vector{P}, unshaped(varshape(density), startpos))
+    MCMCIterator(rng, algorithm, density, chainid, startpos)
 end
+
 
 
 function mcmc_spec end

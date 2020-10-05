@@ -52,7 +52,7 @@ function mcmc_burnin!(
             max_nsamples = burnin.max_nsamples_per_cycle,
             max_nsteps = burnin.max_nsteps_per_cycle,
             max_time = max_time_per_cycle,
-            nonzero_weights::Bool = true,
+            nonzero_weights = true,
             callback = callback
         )
 

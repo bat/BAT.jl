@@ -23,14 +23,14 @@ MCMCSampling(;
     CT<:MCMCConvergenceTest,
     BC<:Function
 } <: AbstractSamplingAlgorithm
-    sampler::AL = MetropolisHastings(),
-    nchains::Int = 4,
-    init::IN = MCMCChainPoolInit(),
-    burnin::BI = MCMCMultiCycleBurnin(),
-    convergence::CT = BrooksGelmanConvergence(),
-    strict::Bool = true,
-    store_burnin::Bool = true,
-    nonzero_weights::Bool = true,
+    sampler::AL = MetropolisHastings()
+    nchains::Int = 4
+    init::IN = MCMCChainPoolInit()
+    burnin::BI = MCMCMultiCycleBurnin()
+    convergence::CT = BrooksGelmanConvergence()
+    strict::Bool = true
+    store_burnin::Bool = true
+    nonzero_weights::Bool = true
     callback::CB = nop_func
 end
 
