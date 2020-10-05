@@ -14,8 +14,7 @@ abstract type AbstractModeEstimator end
 """
     bat_findmode(
         target::BAT.AnySampleable,
-        [algorithm::BAT.AbstractModeEstimator];
-        initial_mode::Union{Missing,DensitySampleVector,Any} = missing
+        [algorithm::BAT.AbstractModeEstimator]
     )::DensitySampleVector
 
 Estimate the global mode of `target`.

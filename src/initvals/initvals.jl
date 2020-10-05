@@ -1,5 +1,15 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+function _reshape_v(target::AnyDensityLike, v::Any)
+    shape = varshape(convert(AbstractDensity, target))
+    get_shaped_variate(shape, v)
+end
+
+function _reshape_vs(target::AnyDensityLike, vs::AbstractVector)
+    shape = varshape(convert(AbstractDensity, target))
+    get_shaped_variates(shape, vs)
+end
+
 
 _rand_v(rng::AbstractRNG, src::Distribution) = rand(rng, src)
 _rand_v(rng::AbstractRNG, src::NamedTupleDist) = rand(rng, src, ())
@@ -26,6 +36,15 @@ end
 function _rand_v(rng::AbstractRNG, src::AnyIIDSampleable, n::Integer)
     _rand_v(rng, convert(Distribution, convert(DistLikeDensity, target)), n)
 end  
+
+
+function _rand_v(rng::AbstractRNG, target::AnySampleable, src::Distribution)
+    _reshape_v(target, _rand_v(rng, src))
+end
+
+function _rand_v(rng::AbstractRNG, target::AnySampleable, src::Distribution, n::Integer)
+    _reshape_vs(target, _rand_v(rng, src, n))
+end
 
 
 
@@ -57,35 +76,56 @@ _get_initsrc_from_target(target::AbstractPosteriorDensity) = _get_initsrc_from_t
 _get_initsrc_from_target(target::SampledDensity) = target.samples
 
 
-function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::ExplicitInit)
-    (result = _rand_v(rng, _get_initsrc_from_target(target)),)
+function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::InitFromTarget)
+    (result = _rand_v(rng, target, _get_initsrc_from_target(target)),)
 end
 
-function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, algorithm::InitvalAlgorithm)
-    (result = _rand_v(rng, _get_initsrc_from_target(target), n),)
+function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, algorithm::InitFromTarget)
+    (result = _rand_v(rng, target, _get_initsrc_from_target(target), n),)
 end
-
 
 
 
 @doc doc"""
-    InitFromIIDSampleable <: InitvalAlgorithm
+    InitFromSamples <: InitvalAlgorithm
 
 Generates initial values for sampling, optimization, etc. by direct sampling
 from a given i.i.d. sampleable source.
 """
-struct InitFromIIDSampleable{D<:AnyIIDSampleable} <: InitvalAlgorithm
-    dist::D
+struct InitFromSamples{SV<:DensitySampleVector} <: InitvalAlgorithm
+    samples::SV
 end
-export InitFromIIDSampleable
+export InitFromSamples
 
 
-function bat_initval_impl(rng::AbstractRNG, target::, algorithm::ExplicitInit)
-    (result = _rand_v(rng, algorithm.dist),)
+function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::InitFromSamples)
+    (result = _rand_v(rng, target, algorithm.samples),)
 end
 
-function bat_initval_impl(rng::AbstractRNG, target::SampledDensity, n::Integer, algorithm::InitvalAlgorithm)
-    (result = _rand_v(rng, algorithm.dist, n),)
+function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, algorithm::InitFromSamples)
+    (result = _rand_v(rng, target, algorithm.samples, n),)
+end
+
+
+
+@doc doc"""
+    InitFromIID <: InitvalAlgorithm
+
+Generates initial values for sampling, optimization, etc. by random
+resampling from a given set of samples.
+"""
+struct InitFromIID{D<:AnyIIDSampleable} <: InitvalAlgorithm
+    src::D
+end
+export InitFromIID
+
+
+function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::InitFromIID)
+    (result = _rand_v(rng, target, algorithm.src),)
+end
+
+function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, algorithm::InitFromIID)
+    (result = _rand_v(rng, target, algorithm.src, n),)
 end
 
 
@@ -106,7 +146,7 @@ function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::E
     (result = first(algorithm.xs),)
 end
 
-function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, algorithm::InitvalAlgorithm)
+function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, algorithm::ExplicitInit)
     xs = algorithm.xs
     idxs = eachindex(xs)
     (result = xs[idxs[1:n]],)

@@ -50,6 +50,7 @@ end
 
 
 
+#!!!!!! Use InitvalAlgorithm instead of initial_mode keyword
 """
     MaxDensityNelderMead <: AbstractModeEstimator
 
@@ -90,6 +91,7 @@ end
 
 
 
+#!!!!!! Use InitvalAlgorithm instead of initial_mode keyword
 """
     MaxDensityLBFGS <: AbstractModeEstimator
 

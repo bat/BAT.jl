@@ -133,18 +133,18 @@ function reset_rng_counters!(chain::MHIterator)
 end
 
 
-function (spec::MCMCSpec{<:MetropolisHastings})(
+function MCMCIterator(
     rng::AbstractRNG,
-    chainid::Integer
+    algorithm::MetropolisHastings,
+    density::AbstractDensity,
+    chainid::Int,
+    startpos::AbstractVector{<:Real}
 )
-    P = float(eltype(var_bounds(spec.posterior)))
-
     cycle = 0
     tuned = false
     converged = false
     info = MCMCIteratorInfo(chainid, cycle, tuned, converged)
-
-    MHIterator(rng, spec, info, Vector{P}())
+    MHIterator(rng, spec, info, startpos)
 end
 
 

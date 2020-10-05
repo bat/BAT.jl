@@ -166,6 +166,18 @@ abstract type MCMCIterator end
 export MCMCIterator
 
 
+function MCMCIterator(
+    rng::AbstractRNG,
+    algorithm::SomeAlgorithm,
+    density::AbstractDensity,
+    chainid::Int,
+    startpos::Any
+)
+    unshaped_startpos = unshape(varshape(density), startpos)
+    MCMCIterator(rng, algorithm, density, chainid, unshaped_startpos)
+end
+
+
 function mcmc_spec end
 
 function getrng end
