@@ -347,6 +347,3 @@ function repetition_to_weights(v::AbstractVector)
     
     return v_new, weights
 end
-
-
-const OptionalDensitySampleVector = Union{DensitySampleVector,Nothing}

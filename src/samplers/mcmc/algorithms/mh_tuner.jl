@@ -99,7 +99,13 @@ function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator)
 end
 
 
-function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator)
+function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator, samples::DensitySampleVector)
+    stats = tuner.stats
+    stats_reweight_factor = tuner.config.r
+    reweight_relative!.(stats, stats_reweight_factor)
+    # empty!.(stats)
+    append!(stats, samples)
+
     config = tuner.config
 
     α_min = minimum(config.α)
@@ -115,13 +121,13 @@ function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator)
     c = tuner.scale
     Σ_old = Matrix(get_cov(chain.proposaldist))
 
-    S = convert(Array, tuner.stats.param_stats.cov)
+    S = convert(Array, stats.param_stats.cov)
     a_t = 1 / t^λ
     new_Σ_unscal = (1 - a_t) * (Σ_old/c) + a_t * S
 
     α = eff_acceptance_ratio(chain)
 
-    max_log_posterior = tuner.stats.logtf_stats.maximum
+    max_log_posterior = stats.logtf_stats.maximum
 
     if α_min <= α <= α_max
         chain.info = MCMCIteratorInfo(chain.info, tuned = true)

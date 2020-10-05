@@ -18,7 +18,7 @@ MCMCIterator(
     algorithm::SomeAlgorithm,
     density::AbstractDensity,
     chainid::Int,
-    startpos::AbstractVector{<:Real}
+    [startpos::AbstractVector{<:Real}]
 )
 ```
 
@@ -27,6 +27,19 @@ To implement a new MCMC algorithm, subtypes of both `MCMCAlgorithm` and
 """
 abstract type MCMCAlgorithm end
 export MCMCAlgorithm
+
+
+function MCMCIterator(
+    rng::AbstractRNG,
+    algorithm::MCMCAlgorithm,
+    density::AbstractDensity,
+    chainid::Int,
+    P::Type{} = Float32
+)
+    shaped_startpos = bat_initval(density)
+    startpos = convert(Vector{P}, unshaped(varshape(density), startpos))
+    MCMCIterator(rng, algorithm, density, chainid, startpos)
+end
 
 
 @doc doc"""
@@ -191,7 +204,7 @@ function mcmc_iterate! end
 
 
 function mcmc_iterate!(
-    output::OptionalDensitySampleVector,
+    output::Union{DensitySampleVector,Missing},
     chain::MCMCIterator;
     max_nsamples::Integer = 1,
     max_nsteps::Integer = 1000,
@@ -226,7 +239,7 @@ end
 
 
 function mcmc_iterate!(
-    output::OptionalDensitySampleVector,
+    output::Union{AbstractVector{<:DensitySampleVector},Missing},
     chains::AbstractVector{<:MCMCIterator};
     kwargs...
 )
@@ -237,20 +250,12 @@ function mcmc_iterate!(
         @debug "Starting iteration over $(length(chains)) MCMC chain(s)"
     end
 
-    chain_outputs = if isnothing(output)
-        map(x -> nothing, chains)
-    else
-        map(x -> similar(output, 0), chains)
-    end
-
     idxs = eachindex(chain_outputs, chains)
     @sync for i in idxs
-        @mt_async mcmc_iterate!(chain_outputs[i], chains[i]; kwargs...)
-    end
-
-    if !isnothing(output)
-        for (o in chain_outputs)
-            append!(output, o)
+        if !isnothing(output)
+            @mt_async mcmc_iterate!(outputs[i], chains[i]; kwargs...)
+        else
+            @mt_async mcmc_iterate!(nothing, chains[i]; kwargs...)
         end
     end
 

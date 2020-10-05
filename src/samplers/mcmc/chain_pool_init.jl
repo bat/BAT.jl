@@ -29,23 +29,22 @@ end
 export MCMCChainPoolInit
 
 
-##!!!!!!! missing: gen chain init values
-
-_construct_chain(rngpart::RNGPartition, id::Integer, chainspec::MCMCSpec) =
-    chainspec(AbstractRNG(rngpart, id), id)
+function _construct_chain(rngpart::RNGPartition, id::Integer, algorithm::MCMCAlgorithm, density::AbstractDensity)
+    rng = AbstractRNG(rngpart, id)
+    MCMCIterator(rng, algorithm, density, id)
+end
 
 _gen_chains(
     rngpart::RNGPartition,
     ids::AbstractRange{<:Integer},
-    chainspec::MCMCSpec,
-) = [_construct_chain(rngpart, id, chainspec) for id in ids]
+    algorithm::MCMCAlgorithm,
+    density::AbstractDensity
+) = [_construct_chain(rngpart, id, algorithm, density) for id in ids]
 
 
-#!!!!! Change arg list
 function mcmc_init!(
     rng::AbstractRNG,
-    output::OptionalDensitySampleVector,
-    algorithm::SomeAlgorithm,
+    algorithm::MCMCAlgorithm,
     density::AbstractDensity,
     nchains::Int;
     tuner::MCMCTuningAlgorithm = MCMCTuningAlgorithm(chainspec.algorithm),
@@ -66,6 +65,7 @@ function mcmc_init!(
 
     chains = similar([dummy_chain], 0)
     tuners = similar([dummy_tuner], 0)
+    outputs = similar([DensitySampleVector(dummy_chain)], 0)
     cycle::Int = 1
 
     while length(tuners) < min_nviable && ncandidates < max_ncandidates
@@ -77,13 +77,14 @@ function mcmc_init!(
         filter!(isvalid, new_chains)
 
         new_tuners = tuner_config.(new_chains)
+        new_outputs = DensitySampleVector.(new_chains)
         tuning_init!.(new_tuners, new_chains)
         ncandidates += n
 
         @debug "Testing $(length(new_tuners)) MCMC chain(s)."
 
-        mcmc_iterate!
-            output, new_chains;
+        mcmc_iterate!(
+            new_outputs, new_chains;
             max_nsamples = max(5, div(init_strategy.max_nsamples_init, 5)),
             max_nsteps =  max(50, div(init_strategy.max_nsteps_init, 5)),
             max_time = init_strategy.max_time_init / 5,
@@ -93,13 +94,13 @@ function mcmc_init!(
         viable_idxs = findall(isviable.(new_chains))
         viable_tuners = new_tuners[viable_idxs]
         viable_chains = new_chains[viable_idxs]
+        viable_outputs = new_outputs[viable_idxs]
 
         @debug "Found $(length(viable_idxs)) viable MCMC chain(s)."
 
         if !isempty(viable_tuners)
-            # ToDo: Use mcmc_iterate! instead of run_tuning_iterations! ?
             mcmc_iterate!(
-                output, viable_chains;
+                viable_outputs, viable_chains;
                 max_nsamples = init_strategy.max_nsamples_init,
                 max_nsteps = init_strategy.max_nsteps_init,
                 max_time = init_strategy.max_time_init,
@@ -112,6 +113,7 @@ function mcmc_init!(
 
             append!(chains, view(viable_chains, good_idxs))
             append!(tuners, view(viable_tuners, good_idxs))
+            append!(outputs, view(viable_outputs, good_idxs))
         end
 
         cycle += 1
@@ -129,8 +131,9 @@ function mcmc_init!(
         modes[:,i] = tuners[i].stats.mode
     end
 
-    final_chains = similar(chains, zero(Int))
-    final_tuners = similar(tuners, zero(Int))
+    final_chains = similar(chains, 0)
+    final_tuners = similar(tuners, 0)
+    final_outputs = similar(outputs, 0)
 
     if 2 <= m < size(modes, 2)
         clusters = kmeans(modes, m, init = KmCentralityAlg())
@@ -152,6 +155,7 @@ function mcmc_init!(
         for i in sort(chain_sel_idxs)
             push!(final_chains, chains[i])
             push!(final_tuners, tuners[i])
+            push!(final_outputs, outputs[i])
         end
     else
         @assert length(chains) == nchains
@@ -160,11 +164,15 @@ function mcmc_init!(
 
         @assert length(tuners) == nchains
         resize!(final_tuners, nchains)
-        copyto!(final_tuners, tuners)
+        copyto!(final_tuners, outputs)
+
+        @assert length(outputs) == nchains
+        resize!(final_outputs, nchains)
+        copyto!(final_outputs, outputs)
     end
 
 
     @info "Selected $(length(final_tuners)) MCMC chain(s)."
 
-    (chains = final_chains, tuners = final_tuners)
+    (chains = final_chains, tuners = final_tuners, outputs = final_outputs)
 end

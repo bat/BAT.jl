@@ -20,7 +20,8 @@ MCMCSampling(;
     AL<:MCMCAlgorithm,
     IN<:MCMCInitAlgorithm,
     BI<:MCMCBurninAlgorithm,
-    CT<:MCMCConvergenceTest
+    CT<:MCMCConvergenceTest,
+    BC<:Function
 } <: AbstractSamplingAlgorithm
     sampler::AL = MetropolisHastings(),
     nchains::Int = 4,
@@ -28,7 +29,9 @@ MCMCSampling(;
     burnin::BI = MCMCMultiCycleBurnin(),
     convergence::CT = BrooksGelmanConvergence(),
     strict::Bool = true,
-    nonzero_weights::Bool = true
+    store_burnin::Bool = true,
+    nonzero_weights::Bool = true,
+    callback::CB = nop_func
 end
 
 export MCMCSampling
@@ -49,45 +52,41 @@ function bat_sample_impl(
     dummy_chain = MCMCIterator(deepcopy(rng), mcmc_algorithm, density, 0, dummy_startpos)
     unshaped_samples = DensitySampleVector(dummy_chain)
 
-    init_output = nothing
-    init_callback = nop_func
-
-    (chains, tuners) = mcmc_init!(
+    (chains, tuners, chain_outputs) = mcmc_init!(
         rng,
-        init_output,
         mcmc_algorithm,
-        density
+        density,
         algorithm.nchains,
-        callback = init_callback
+        callback = algorithm.store_burnin ? algorithm.callback : nop_func
     )     
 
-    burnin_output = nothing
-    burnin_callback = nop_func
+    if !store_burnin
+        empty!.(chain_outputs)
+    end
 
     mcmc_burnin!(
-        burnin_output,
+        algorithm.store_burnin ? chain_outputs : nothing,
         tuners,
         chains,
         algorithm.burnin,
         algorithm.convergence,
         strict_mode = algorithm.strict,
-        callback = burnin_callback
+        callback = algorithm.store_burnin ? algorithm.callback : nop_func
     )
 
-    sampling_output = unshaped_samples
-    samling_callback = nop_func
-
     mcmc_iterate!(
-        sampling_output,
+        chain_outputs,
         chains;
         max_nsamples = div(n, length(chains)),
         max_nsteps = div(max_neval, length(chains)),
         max_time = max_time,
         nonzero_weights = nonzero_weights,
-        callback = samling_callback
+        callback = algorithm.callback
     )
 
-    samples = varshape(density).(unshaped_samples)
+    output = DensitySampleVector(first(chains))
+    isnothing(output) || append!.(Ref(output), chain_outputs)
+    samples = varshape(density).(output)
 
     (result = samples, generator = MCMCSampleGenerator(chains))
 end

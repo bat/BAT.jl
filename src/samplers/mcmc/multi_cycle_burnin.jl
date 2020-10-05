@@ -26,7 +26,7 @@ export MCMCMultiCycleBurnin
 
 
 function mcmc_burnin!(
-    output::OptionalDensitySampleVector,
+    outputs::Union{AbstractVector{<:DensitySampleVector},Missing},
     tuners::AbstractVector{<:AbstractMCMCTunerInstance},
     chains::AbstractVector{<:MCMCIterator},
     burnin_strategy::MCMCMultiCycleBurnin,
@@ -42,35 +42,24 @@ function mcmc_burnin!(
     cycles = zero(Int)
     successful = false
     while !successful && cycles < burnin_strategy.max_ncycles
-        #!!!!!!!!!!!! Move to ProposalCovTuner !!!!!!!!!!!
-        old_stats = [x.stats for x in tuners] # ToDo: Find more generic abstraction
-        stats_reweight_factors = [x.config.r for x in tuners] # ToDo: Find more generic abstraction
-        reweight_relative!.(old_stats, stats_reweight_factors)
-        # empty!.(old_stats)
-
         cycles += 1
 
-        cycle_output = ...
+        new_outputs = DensitySampleVector.(chains)
 
-        #!!!!!!!!!!! call mcmc_iterate!, get samples  !!!!!!!!!!!
         mcmc_iterate!(
-            cycle_output,
+            chain_outputs,
             chains,
-            max_nsamples = burnin.max_nsamples_per_cycle
-            max_nsteps = burnin.max_nsteps_per_cycle
-            max_time = max_time_per_cycle
+            max_nsamples = burnin.max_nsamples_per_cycle,
+            max_nsteps = burnin.max_nsteps_per_cycle,
+            max_time = max_time_per_cycle,
             nonzero_weights::Bool = true,
             callback = callback
         )
-        
 
-        )
+        tuning_update!.(tuners, chains, new_outputs)
+        isnothing(outputs) || append!.(outputs, new_outputs)
 
-        #!!!!!!!!! pass samples as well !!!!!!!!!!!
-        tuning_update!.(tuners, chains, samples)
-
-        new_stats = [x.stats for x in tuners] # ToDo: Find more generic abstraction
-        ct_result = check_convergence!(convergence_test, chains, new_stats)
+        ct_result = check_convergence!(convergence_test, chains, new_outputs)
 
         ntuned = count(c -> c.info.tuned, chains)
         nconverged = count(c -> c.info.converged, chains)
