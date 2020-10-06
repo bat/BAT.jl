@@ -15,15 +15,15 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     likelihood = @inferred BAT.DistributionDensity(mv_dist)
     bounds = @inferred BAT.HyperRectBounds([-5, -8], [5, 8], BAT.reflective_bounds)
     prior = BAT.ConstDensity(LogDVal(0), bounds)
-    nsamples_per_chain = 50000
     nchains = 4
+    nsamples = nchains * 50000
 
     # algorithmMW = @inferred MetropolisHastings() TODO: put back the @inferred
-    algorithmMW = MetropolisHastings()
+    algorithmMW = MCMCSampling()
     @test BAT.mcmc_compatible(algorithmMW, BAT.GenericProposalDist(mv_dist), BAT.NoVarBounds(2))
 
     samples, chains = bat_sample(
-        PosteriorDensity(likelihood, prior), (nsamples_per_chain, nchains), algorithmMW
+        PosteriorDensity(likelihood, prior), nsamples, algorithmMW
     )
 
     # ToDo: Should be able to make this exact, for MH sampler:

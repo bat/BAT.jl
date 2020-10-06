@@ -15,7 +15,7 @@ Fields:
   seconds. Defaults to `Inf`.
 * `max_ncycles`: Maximum number of cycles.
 """
-@with_kw struct MCMCMultiCycleBurnin
+@with_kw struct MCMCMultiCycleBurnin <: MCMCBurninAlgorithm
     max_nsamples_per_cycle::Int64 = 1000
     max_nsteps_per_cycle::Int64 = 10000
     max_time_per_cycle::Float64 = Inf
