@@ -12,13 +12,22 @@ end
 
 
 _rand_v(rng::AbstractRNG, src::Distribution) = rand(rng, src)
-_rand_v(rng::AbstractRNG, src::NamedTupleDist) = rand(rng, src, ())
-_rand_v(rng::AbstractRNG, src::ReshapedDist) = rand(rng, src, ())
+_rand_v(rng::AbstractRNG, src::Distribution{<:ValueShapes.StructVariate}) = rand(rng, src, ())
 
 _reshape_rand_output(x::Any) = x
 _reshape_rand_output(x::AbstractMatrix) = nestedview(x)
 _rand_v(rng::AbstractRNG, src::Distribution, n::Integer) = _reshape_rand_output(rand(rng, src, n))
 
+_rand_v(rng::AbstractRNG, src::DistLikeDensity) = rand(rng, sampler(src))
+_rand_v(rng::AbstractRNG, src::DistLikeDensity, n::Integer) = _reshape_rand_output(rand(rng, sampler(src), n))
+
+function _rand_v(rng::AbstractRNG, src::AnyIIDSampleable)
+    _rand_v(rng, convert(DistLikeDensity, src))
+end  
+    
+function _rand_v(rng::AbstractRNG, src::AnyIIDSampleable, n::Integer)
+    _rand_v(rng, convert(DistLikeDensity, src), n)
+end  
 
 _rand_v(rng::AbstractRNG, src::DensitySampleVector) =
     first(_rand_v(rng, src, 1))
@@ -31,20 +40,11 @@ function _rand_v(rng::AbstractRNG, src::DensitySampleVector, n::Integer)
 end
 
 
-function _rand_v(rng::AbstractRNG, src::AnyIIDSampleable)
-    _rand_v(rng, convert(Distribution, convert(DistLikeDensity, target)))
-end  
-    
-function _rand_v(rng::AbstractRNG, src::AnyIIDSampleable, n::Integer)
-    _rand_v(rng, convert(Distribution, convert(DistLikeDensity, target)), n)
-end  
-
-
-function _rand_v(rng::AbstractRNG, target::AnySampleable, src::Distribution)
+function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::Any)
     _reshape_v(target, _rand_v(rng, src))
 end
 
-function _rand_v(rng::AbstractRNG, target::AnySampleable, src::Distribution, n::Integer)
+function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::Any, n::Integer)
     _reshape_vs(target, _rand_v(rng, src, n))
 end
 
@@ -71,19 +71,17 @@ export InitFromTarget
 
 function get_initsrc_from_target end
 
-get_initsrc_from_target(target::Distribution) = target
-
-get_initsrc_from_target(target::DistributionDensity) = convert(Distribution, target)
+get_initsrc_from_target(target::AnyIIDSampleable) = target
 
 get_initsrc_from_target(target::AbstractPosteriorDensity) = get_initsrc_from_target(getprior(target))
 
 
 function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::InitFromTarget)
-    (result = _rand_v(rng, target, get_initsrc_from_target(target)),)
+    (result = _rand_v_for_target(rng, target, get_initsrc_from_target(target)),)
 end
 
 function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, algorithm::InitFromTarget)
-    (result = _rand_v(rng, target, get_initsrc_from_target(target), n),)
+    (result = _rand_v_for_target(rng, target, get_initsrc_from_target(target), n),)
 end
 
 

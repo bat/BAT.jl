@@ -19,8 +19,8 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     nsamples = nchains * 50000
 
     # algorithmMW = @inferred MetropolisHastings() TODO: put back the @inferred
-    algorithmMW = MCMCSampling()
-    @test BAT.mcmc_compatible(algorithmMW, BAT.GenericProposalDist(mv_dist), BAT.NoVarBounds(2))
+    algorithmMW = MCMCSampling(sampler = MetropolisHastings(), nchains = nchains)
+    @test BAT.mcmc_compatible(algorithmMW.sampler, BAT.GenericProposalDist(mv_dist), BAT.NoVarBounds(2))
 
     samples, chains = bat_sample(
         PosteriorDensity(likelihood, prior), nsamples, algorithmMW
