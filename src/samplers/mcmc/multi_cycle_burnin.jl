@@ -47,7 +47,7 @@ function mcmc_burnin!(
         new_outputs = DensitySampleVector.(chains)
 
         mcmc_iterate!(
-            chain_outputs,
+            new_outputs,
             chains,
             max_nsamples = burnin.max_nsamples_per_cycle,
             max_nsteps = burnin.max_nsteps_per_cycle,

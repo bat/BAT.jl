@@ -207,7 +207,7 @@ end
 
 
 function mcmc_iterate!(
-    output::Union{AbstractVector{<:DensitySampleVector},Missing},
+    outputs::Union{AbstractVector{<:DensitySampleVector},Missing},
     chains::AbstractVector{<:MCMCIterator};
     kwargs...
 )
@@ -218,12 +218,17 @@ function mcmc_iterate!(
         @debug "Starting iteration over $(length(chains)) MCMC chain(s)"
     end
 
-    idxs = eachindex(chain_outputs, chains)
-    @sync for i in idxs
-        if !isnothing(output)
-            @mt_async mcmc_iterate!(outputs[i], chains[i]; kwargs...)
-        else
-            @mt_async mcmc_iterate!(nothing, chains[i]; kwargs...)
+    if !isnothing(outputs)
+        #@sync
+        for i in eachindex(outputs, chains)
+            #@mt_async
+            mcmc_iterate!(outputs[i], chains[i]; kwargs...)
+        end
+    else
+        #@sync
+        for i in eachindex(chains)
+            #@mt_async 
+            mcmc_iterate!(nothing, chains[i]; kwargs...)
         end
     end
 

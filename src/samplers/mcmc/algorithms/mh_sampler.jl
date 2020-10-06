@@ -313,7 +313,7 @@ end
 
 
 function _mh_weights(
-    algorithm::MetropolisHastings{Q,W,<:RepetitionWeighting},
+    algorithm::MetropolisHastings{Q,<:RepetitionWeighting},
     p_accept::Real,
     accepted::Bool
 ) where {Q,W}
@@ -326,7 +326,7 @@ end
 
 
 function _mh_weights(
-    algorithm::MetropolisHastings{Q,W,<:ARPWeighting},
+    algorithm::MetropolisHastings{Q,<:ARPWeighting},
     p_accept::Real,
     accepted::Bool
 ) where {Q,W}

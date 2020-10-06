@@ -21,7 +21,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes
     convergence_test = BrooksGelmanConvergence()
     strict = true
     nonzero_weights = true
-    callback = x -> nothing
+    callback = (x...) -> nothing
     max_neval = 10 * n
     max_time = Inf
 
