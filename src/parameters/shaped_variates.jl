@@ -40,11 +40,11 @@ end
 reshape_variates(shape::Missing, vs::AbstractVector{<:Any}) = v
 
 function reshape_variates(shape::AbstractValueShape, vs::AbstractVector{<:Any})
-    v_elshape = elshape(v)
+    v_elshape = elshape(vs)
     if !(v_elshape <= shape)
-        throw(ArgumentError("Shape of variates doesn't match target variate shape, with variates of type $(typeof(v)) and expected element shape $(shape)"))
+        throw(ArgumentError("Shape of variates doesn't match target variate shape, with variates of type $(eltype(vs)) and expected element shape $(shape)"))
     end
-    v
+    vs
 end
 
 function reshape_variates(shape::ArrayShape{<:Real,1}, vs::AbstractVector{<:Any})
@@ -66,5 +66,5 @@ function _reshape_realvecs(shape::AbstractValueShape, vs::AbstractVector{<:Abstr
     if ndof != ndof_expected
         throw(ArgumentError("Invalid length ($ndof) of variates, target shape $(shape) has $ndof_expected degrees of freedom"))
     end
-    shape.(v)
+    shape.(vs)
 end

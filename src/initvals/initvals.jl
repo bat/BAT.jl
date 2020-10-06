@@ -15,7 +15,9 @@ _rand_v(rng::AbstractRNG, src::Distribution) = rand(rng, src)
 _rand_v(rng::AbstractRNG, src::NamedTupleDist) = rand(rng, src, ())
 _rand_v(rng::AbstractRNG, src::ReshapedDist) = rand(rng, src, ())
 
-_rand_v(rng::AbstractRNG, src::Distribution, n::Integer) = rand(rng, src, n)
+_reshape_rand_output(x::Any) = x
+_reshape_rand_output(x::AbstractMatrix) = nestedview(x)
+_rand_v(rng::AbstractRNG, src::Distribution, n::Integer) = _reshape_rand_output(rand(rng, src, n))
 
 
 _rand_v(rng::AbstractRNG, src::DensitySampleVector) =
