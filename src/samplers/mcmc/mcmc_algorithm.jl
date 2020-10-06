@@ -130,8 +130,8 @@ getdensity(chain::MCMCIterator)
 DensitySampleVector(chain::MCMCIterator)
 mcmc_iterate!(chain::MCMCIterator, ...)
 mcmc_iterate!(chains::AbstractVector{<:MCMCIterator}, ...)
-isvalid(chain::MCMCIterator)
-isviable(chain::MCMCIterator)
+isvalidchain(chain::MCMCIterator)
+isviablechain(chain::MCMCIterator)
 ```
 """
 abstract type MCMCIterator end
@@ -236,9 +236,9 @@ function mcmc_iterate!(
 end
 
 
-isvalid(chain::MCMCIterator) = current_sample(chain).logd > -Inf
+isvalidchain(chain::MCMCIterator) = current_sample(chain).logd > -Inf
 
-isviable(chain::MCMCIterator) = nsamples(chain) >= 2
+isviablechain(chain::MCMCIterator) = nsamples(chain) >= 2
 
 
 
@@ -270,3 +270,8 @@ function tuning_init! end
 function mcmc_init! end
 
 function mcmc_burnin! end
+
+
+function isvalidchain end
+
+function isviablechain end

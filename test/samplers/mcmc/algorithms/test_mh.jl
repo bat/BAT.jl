@@ -12,8 +12,26 @@ using StatsBase, Distributions, StatsBase, ValueShapes
     density = @inferred(convert(AbstractDensity, target))
     @test density isa BAT.DistributionDensity
 
-    mcmc_alg = MetropolisHastings()
+    algorithm = MetropolisHastings()
     nchains = 4
+ 
+    @testset "MCMCIterator" begin
+        @test @inferred(MCMCIterator(deepcopy(rng), algorithm, density, 1, unshaped(x, varshape(density)))) isa BAT.MHIterator
+        chain = @inferred(MCMCIterator(deepcopy(rng), algorithm, density, 1, unshaped(x, varshape(density)))) 
+        samples = DensitySampleVector(chain)
+        BAT.mcmc_iterate!(samples, chain, max_nsamples = 10^5, max_nsteps = 10^5, nonzero_weights = false)
+        @test chain.stepno == 10^5
+        @test minimum(samples.weight) == 0
+        @test isapprox(length(samples), 10^5, atol = 20)
+        @test length(samples) == sum(samples.weight)
+        @test isapprox(mean(samples), [1, -1, 2], atol = 0.2)
+        @test isapprox(cov(samples), cov(unshaped(target)), atol = 0.3)
+
+        samples = DensitySampleVector(chain)
+        BAT.mcmc_iterate!(samples, chain, max_nsamples = 10^3, max_nsteps = 10^3, nonzero_weights = true)
+        @test minimum(samples.weight) == 1
+    end
+ 
     n = 10^4
     init_alg = MCMCChainPoolInit()
     tuning_alg = AdaptiveMHTuning()
@@ -27,27 +45,20 @@ using StatsBase, Distributions, StatsBase, ValueShapes
 
     x = bat_initval(rng, density, InitFromTarget()).result
 
-    let
-        @test @inferred(MCMCIterator(deepcopy(rng), mcmc_alg, density, 1, unshaped(x, varshape(density)))) isa BAT.MHIterator
-        chain = @inferred(MCMCIterator(deepcopy(rng), mcmc_alg, density, 1, unshaped(x, varshape(density)))) 
-        samples = DensitySampleVector(chain)
-        BAT.mcmc_iterate!(samples, chain, max_nsamples = 10^5, max_nsteps = 10^5, nonzero_weights = false)
-        @test chain.stepno == 10^5
-        @test isapprox(length(samples), 10^5, atol = 20)
-        @test length(samples) == sum(samples.weight)
-        @test isapprox(mean(samples), [1, -1, 2], atol = 0.2)
-        @test isapprox(cov(samples), cov(unshaped(target)), atol = 0.3)
-    end
-
-    init_result = BAT.mcmc_init!(
+    init_result = @inferred(BAT.mcmc_init!(
         rng,
-        mcmc_alg,
+        algorithm,
         density,
         nchains,
         init_alg,
         tuning_alg,
         callback
-    )
+    ))
+
+    (chains, tuners, outputs) = init_result
+    @test chains isa AbstractVector{<:BAT.MHIterator}
+    @test tuners isa AbstractVector{<:BAT.ProposalCovTuner}
+    @test outputs isa AbstractVector{<:DensitySampleVector}
 #=
     mcmc_burnin!(
         algorithm.store_burnin ? chain_outputs : nothing,

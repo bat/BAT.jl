@@ -2,8 +2,3 @@
 
 
 @inline nop_func(x...) = nothing
-
-
-function isvalid end
-
-function isviable end

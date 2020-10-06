@@ -85,7 +85,7 @@ function mcmc_init!(
 
         new_chains = _gen_chains(rngpart, ncandidates .+ (one(Int64):n), algorithm, density, initval_alg)
 
-        filter!(isvalid, new_chains)
+        filter!(isvalidchain, new_chains)
 
         new_tuners = tuning_alg.(new_chains)
         new_outputs = DensitySampleVector.(new_chains)
@@ -102,7 +102,7 @@ function mcmc_init!(
             callback = callback
         )
 
-        viable_idxs = findall(isviable.(new_chains))
+        viable_idxs = findall(isviablechain.(new_chains))
         viable_tuners = new_tuners[viable_idxs]
         viable_chains = new_chains[viable_idxs]
         viable_outputs = new_outputs[viable_idxs]
@@ -136,11 +136,7 @@ function mcmc_init!(
     tidxs = LinearIndices(tuners)
     n = length(tidxs)
 
-    mode_1 = tuners[1].stats.mode
-    modes = Array{eltype(mode_1)}(undef, length(mode_1), n)
-    for i in tidxs
-        modes[:,i] = tuners[i].stats.mode
-    end
+    modes = hcat(broadcast(samples -> Array(bat_findmode(samples, MaxDensitySampleSearch()).result), outputs)...)
 
     final_chains = similar(chains, 0)
     final_tuners = similar(tuners, 0)
