@@ -7,7 +7,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes
 
 @testset "mh" begin
     rng = bat_rng()
-    target = NamedTupleDist(a = Normal(), b = MvNormal(Diagonal(fill(1.0, 2))))
+    target = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
 
     density = @inferred(convert(AbstractDensity, target))
     @test density isa BAT.DistributionDensity
@@ -26,7 +26,18 @@ using StatsBase, Distributions, StatsBase, ValueShapes
     max_time = Inf
 
     x = bat_initval(rng, density, InitFromTarget()).result
-    @inferred(MCMCIterator(deepcopy(rng), mcmc_alg, density, 1, unshaped(x, varshape(density)))) isa BAT.MHIterator
+
+    let
+        @test @inferred(MCMCIterator(deepcopy(rng), mcmc_alg, density, 1, unshaped(x, varshape(density)))) isa BAT.MHIterator
+        chain = @inferred(MCMCIterator(deepcopy(rng), mcmc_alg, density, 1, unshaped(x, varshape(density)))) 
+        samples = DensitySampleVector(chain)
+        BAT.mcmc_iterate!(samples, chain, max_nsamples = 10^5, max_nsteps = 10^5, nonzero_weights = false)
+        @test chain.stepno == 10^5
+        @test isapprox(length(samples), 10^5, atol = 20)
+        @test length(samples) == sum(samples.weight)
+        @test isapprox(mean(samples), [1, -1, 2], atol = 0.2)
+        @test isapprox(cov(samples), cov(unshaped(target)), atol = 0.3)
+    end
 
     init_result = BAT.mcmc_init!(
         rng,

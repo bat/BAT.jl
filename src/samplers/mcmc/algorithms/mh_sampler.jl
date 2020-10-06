@@ -145,23 +145,6 @@ end
 @inline _current_sample_idx(chain::MHIterator) = firstindex(chain.samples)
 @inline _proposed_sample_idx(chain::MHIterator) = lastindex(chain.samples)
 
-function _available_samples_idxs(chain::MHIterator)
-    sampletype = chain.samples.info.sampletype
-    from = firstindex(chain.samples)
-
-    to = if samples_available(chain)
-        lastidx = lastindex(chain.samples)
-        @assert sampletype[from] == ACCEPTED_SAMPLE
-        @assert sampletype[lastidx] == CURRENT_SAMPLE
-        lastidx - 1
-    else
-        from - 1
-    end
-
-    r = from:to
-    @assert all(x -> x > INVALID_SAMPLE, view(sampletype, r))
-    r
-end
 
 getalgorithm(chain::MHIterator) = chain.algorithm
 
@@ -188,12 +171,14 @@ end
 
 function get_samples!(appendable, chain::MHIterator, nonzero_weights::Bool)::typeof(appendable)
     if samples_available(chain)
-        idxs = _available_samples_idxs(chain)
         samples = chain.samples
 
-        for i in idxs
-            @assert samples.info.sampletype[i] == ACCEPTED_SAMPLE
-            if !nonzero_weights || samples.weight[i] > 0
+        for i in eachindex(samples)
+            st = samples.info.sampletype[i]
+            if (
+                (st == ACCEPTED_SAMPLE || st == REJECTED_SAMPLE) &&
+                (samples.weight[i] > 0 || !nonzero_weights)
+            )
                 push!(appendable, samples[i])
             end
         end
@@ -220,8 +205,30 @@ function next_cycle!(chain::MHIterator)
     chain
 end
 
+#=
+const CURRENT_SAMPLE = -1
+const PROPOSED_SAMPLE = -2
+const INVALID_SAMPLE = 0
+const ACCEPTED_SAMPLE = 1
+const REJECTED_SAMPLE = 2
+=#
 
 function mcmc_step!(chain::MHIterator, callback::Function)
+    samples = chain.samples
+
+    let current = _current_sample_idx(chain), proposed = _proposed_sample_idx(chain)
+        if (current != proposed) && samples.info.sampletype[proposed] == CURRENT_SAMPLE
+            # Proposal was accepted in the last step
+            @assert samples.info.sampletype[current] == ACCEPTED_SAMPLE
+            samples.v[current] .= samples.v[proposed]
+            samples.logd[current] = samples.logd[proposed]
+            samples.weight[current] = samples.weight[proposed]
+            samples.info[current] = samples.info[proposed]
+
+            resize!(samples, 1)
+        end
+    end
+
     algorithm = getalgorithm(chain)
 
     if !mcmc_compatible(algorithm, chain.proposaldist, var_bounds(getdensity(chain)))
@@ -235,21 +242,6 @@ function mcmc_step!(chain::MHIterator, callback::Function)
     density = getdensity(chain)
 
     proposaldist = chain.proposaldist
-    samples = chain.samples
-
-    # If proposal was accepted in the last step, it's now the current sample
-    if samples_available(chain::MHIterator)
-        current = _current_sample_idx(chain)
-        proposed = _proposed_sample_idx(chain)
-    
-        @assert samples.info.sampletype[proposed] == CURRENT_SAMPLE
-        current_params .= proposed_params
-        samples.logd[current] = samples.logd[proposed]
-        samples.weight[current] = samples.weight[proposed]
-        samples.info[current] = samples.info[proposed]
-
-        resize!(samples, 1)
-    end
 
     # Grow samples vector by one:
     resize!(samples, size(samples, 1) + 1)

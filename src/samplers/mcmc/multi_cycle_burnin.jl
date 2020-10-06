@@ -26,7 +26,7 @@ export MCMCMultiCycleBurnin
 
 
 function mcmc_burnin!(
-    outputs::Union{AbstractVector{<:DensitySampleVector},Missing},
+    outputs::Union{AbstractVector{<:DensitySampleVector},Nothing},
     tuners::AbstractVector{<:AbstractMCMCTunerInstance},
     chains::AbstractVector{<:MCMCIterator},
     burnin_strategy::MCMCMultiCycleBurnin,

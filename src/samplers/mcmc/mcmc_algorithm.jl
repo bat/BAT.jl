@@ -172,7 +172,7 @@ function mcmc_iterate! end
 
 
 function mcmc_iterate!(
-    output::Union{DensitySampleVector,Missing},
+    output::Union{DensitySampleVector,Nothing},
     chain::MCMCIterator;
     max_nsamples::Integer = 1,
     max_nsteps::Integer = 1000,
@@ -207,7 +207,7 @@ end
 
 
 function mcmc_iterate!(
-    outputs::Union{AbstractVector{<:DensitySampleVector},Missing},
+    outputs::Union{AbstractVector{<:DensitySampleVector},Nothing},
     chains::AbstractVector{<:MCMCIterator};
     kwargs...
 )
