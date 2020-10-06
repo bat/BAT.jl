@@ -121,7 +121,7 @@ function AHMCIterator(
     log_posterior_value = logvalof(density, params_vec, strict = true)
 
     T = typeof(log_posterior_value)
-    W = Float64 #_sample_weight_type(typeof(algorithm))
+    W = Float64 # ToDo: Support other sample weight types
 
     sample_info = AHMCSampleID(info.id, info.cycle, 1, CURRENT_SAMPLE, 0.0, 0, false, 0.0)
     current_sample = DensitySample(params_vec, log_posterior_value, one(W), sample_info, nothing)

@@ -27,22 +27,15 @@ MetropolisHastings(
 """
 @with_kw struct MetropolisHastings{
     Q<:ProposalDistSpec,
-    W<:Real,
-    WS<:AbstractMCMCWeightingScheme{W},
+    WS<:AbstractMCMCWeightingScheme,
     TN<:MHProposalDistTuning,
 } <: MCMCAlgorithm
-    proposal::Q
-    weighting::WS
+    proposal::Q = MvTDistProposal()
+    weighting::WS = RepetitionWeighting()
     tuning::TN = AdaptiveMHTuning()
 end
 
 export MetropolisHastings
-
-#function Base.show(io::IO, m::MIME"text/plain", algorithm::MetropolisHastings)
-#    proposal = algorithm.proposalspec
-#    weighting = algorithm.weighting
-#    println(io, "MetropolisHastings(", proposal, ", ", weighting, ")")
-#end
 
 
 mcmc_compatible(::MetropolisHastings, ::AbstractProposalDist, ::NoVarBounds) = true
@@ -53,8 +46,6 @@ mcmc_compatible(::MetropolisHastings, proposaldist::AbstractProposalDist, bounds
 mcmc_compatible(::MetropolisHastings, proposaldist::AbstractProposalDist, bounds::HierarchicalDensityBounds) =
     issymmetric(proposaldist)
 
-
-_sample_weight_type(::Type{MetropolisHastings{Q,W,WS}}) where {Q,W,WS} = W
 
 
 mutable struct MHIterator{
@@ -99,7 +90,7 @@ function MHIterator(
     log_posterior_value = logvalof(postr, params_vec, strict = true)
 
     T = typeof(log_posterior_value)
-    W = _sample_weight_type(typeof(algorithm))
+    W = sample_weight_type(typeof(algorithm.weighting))
 
     sample_info = MCMCSampleID(info.id, info.cycle, 1, CURRENT_SAMPLE)
     current_sample = DensitySample(params_vec, log_posterior_value, one(W), sample_info, nothing)
