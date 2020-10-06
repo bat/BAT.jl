@@ -1,52 +1,24 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
+using BAT
+using Test
 
+using LinearAlgebra
+using StatsBase, Distributions, StatsBase, ValueShapes
 
-@doc doc"""
-    MCMCSampling <: AbstractSamplingAlgorithm
+@testset "mh" begin
+    rng = bat_rng()
+    target = NamedTupleDist(a = Normal(), b = MvNormal(Diagonal(fill(1.0, 2))))
+    n = 10^4
+    algorithm = MCMCSampling(sampler = MetropolisHastings(), nchains = 4)
+    max_neval = 10 * n
+    max_time = Inf
 
-Constructor:
-
-```julia
-MCMCSampling(;
-    algorithm::MCMCAlgorithm = MetropolisHastings(),
-    init::MCMCInitAlgorithm = MCMCChainPoolInit(),
-    burnin::MCMCBurninAlgorithm = MCMCMultiCycleBurnin(),
-    convergence::MCMCConvergenceTest = BrooksGelmanConvergence(),
-    strict::Bool = false,
-)
-```
-"""
-@with_kw struct MCMCSampling{
-    AL<:MCMCAlgorithm,
-    IN<:MCMCInitAlgorithm,
-    BI<:MCMCBurninAlgorithm,
-    CT<:MCMCConvergenceTest,
-    CB<:Function
-} <: AbstractSamplingAlgorithm
-    sampler::AL = MetropolisHastings()
-    nchains::Int = 4
-    init::IN = MCMCChainPoolInit()
-    burnin::BI = MCMCMultiCycleBurnin()
-    convergence::CT = BrooksGelmanConvergence()
-    strict::Bool = true
-    store_burnin::Bool = true
-    nonzero_weights::Bool = true
-    callback::CB = nop_func
-end
-
-export MCMCSampling
-
-
-function bat_sample_impl(
-    rng::AbstractRNG,
-    target::AnyDensityLike,
-    n::Integer,
-    algorithm::MCMCSampling;
-    max_neval::Integer = 10 * n,
-    max_time::Real = Inf
-)
     density = convert(AbstractDensity, target)
     mcmc_algorithm = algorithm.sampler
+
+    let
+        chain = MCMCIterator(deepcopy(rng), mcmc_algorithm, density, 0, Float32)
+    end
 
     (chains, tuners, chain_outputs) = mcmc_init!(
         rng,

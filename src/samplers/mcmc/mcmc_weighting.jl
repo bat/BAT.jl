@@ -12,7 +12,7 @@ abstract type AbstractMCMCWeightingScheme{T<:Real} end
 export AbstractMCMCWeightingScheme
 
 
-sample_weight_type(::Type{AbstractMCMCWeightingScheme{T}}) where {T} = T
+sample_weight_type(::Type{<:AbstractMCMCWeightingScheme{T}}) where {T} = T
 
 
 

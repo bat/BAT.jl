@@ -22,9 +22,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     algorithmMW = MCMCSampling(sampler = MetropolisHastings(), nchains = nchains)
     @test BAT.mcmc_compatible(algorithmMW.sampler, BAT.GenericProposalDist(mv_dist), BAT.NoVarBounds(2))
 
-    samples, chains = bat_sample(
-        PosteriorDensity(likelihood, prior), nsamples, algorithmMW
-    )
+    samples = bat_sample(PosteriorDensity(likelihood, prior), nsamples, algorithmMW).result
 
     # ToDo: Should be able to make this exact, for MH sampler:
     @test length(samples) == nchains * nsamples_per_chain

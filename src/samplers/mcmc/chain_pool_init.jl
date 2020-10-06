@@ -47,7 +47,7 @@ function mcmc_init!(
     algorithm::MCMCAlgorithm,
     density::AbstractDensity,
     nchains::Int;
-    tuner::MCMCTuningAlgorithm = MCMCTuningAlgorithm(chainspec.algorithm),
+    tuner::MCMCTuningAlgorithm = MCMCTuningAlgorithm(algorithm.sampler),
     init::MCMCInitAlgorithm = MCMCChainPoolInit(),
     callback::Function = nop_func
 )
@@ -72,7 +72,7 @@ function mcmc_init!(
         n = min(min_nviable, max_ncandidates - ncandidates)
         @debug "Generating $n $(cycle > 1 ? "additional " : "")MCMC chain(s)."
 
-        new_chains = _gen_chains(rngpart, ncandidates .+ (one(Int64):n), chainspec)
+        new_chains = _gen_chains(rngpart, ncandidates .+ (one(Int64):n), algorithm.sampler, density)
 
         filter!(isvalid, new_chains)
 

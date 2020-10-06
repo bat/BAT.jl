@@ -77,17 +77,17 @@ function MHIterator(
 ) where {P<:Real}
     stepno::Int64 = 0
 
-    npar = totalndof(postr)
+    npar = totalndof(density)
 
     params_vec = Vector{P}(undef, npar)
     params_vec .= x_init
-    !(params_vec in var_bounds(postr)) && throw(ArgumentError("Parameter(s) out of bounds"))
+    !(params_vec in var_bounds(density)) && throw(ArgumentError("Parameter(s) out of bounds"))
 
-    proposaldist = algorithm.proposalspec(P, npar)
+    proposaldist = algorithm.proposal(P, npar)
 
     # ToDo: Make numeric type configurable:
 
-    log_posterior_value = logvalof(postr, params_vec, strict = true)
+    log_posterior_value = logvalof(density, params_vec, strict = true)
 
     T = typeof(log_posterior_value)
     W = sample_weight_type(typeof(algorithm.weighting))

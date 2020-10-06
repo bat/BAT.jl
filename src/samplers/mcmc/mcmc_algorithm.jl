@@ -145,8 +145,8 @@ function MCMCIterator(
     chainid::Int,
     P::Type{} = Float32
 )
-    shaped_startpos = bat_initval(density)
-    startpos = convert(Vector{P}, unshaped(varshape(density), startpos))
+    shaped_startpos = bat_initval(density).result
+    startpos = convert(Vector{P}, unshaped(shaped_startpos, varshape(density)))
     MCMCIterator(rng, algorithm, density, chainid, startpos)
 end
 
