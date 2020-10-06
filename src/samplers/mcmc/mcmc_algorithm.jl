@@ -69,7 +69,7 @@ export MCMCConvergenceTest
 
 
 
-struct MCMCIteratorInfo
+@with_kw struct MCMCIteratorInfo
     id::Int64
     cycle::Int
     tuned::Bool
