@@ -32,7 +32,6 @@ Order = [:macro, :function]
 # Documentation
 
 ```@docs
-BAT.AbstractMCMCCallback
 BAT.AbstractProposalDist
 BAT.BasicMvStatistics
 BAT.DataSet

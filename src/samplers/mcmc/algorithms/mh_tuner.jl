@@ -1,17 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-"""
-    MHProposalDistTuning
-
-Abstract super-type for Metropolis-Hastings tuning strategies for
-proposal distributions.
-"""
-abstract type MHProposalDistTuning <: MCMCTuningAlgorithm end
-export MCMCTuningAlgorithm
-
-
-
 # ToDo: Add literature references to AdaptiveMHTuning docstring.
 
 """
@@ -82,14 +71,14 @@ function ProposalCovTuner(
     config::AdaptiveMHTuning,
     chain::MHIterator
 )
-    m = totalndof(getposterior(chain))
+    m = totalndof(getdensity(chain))
     scale = 2.38^2 / m
     ProposalCovTuner(config, MCMCBasicStats(chain), 1, scale)
 end
 
 
 function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator)
-    Σ_unscaled = cov(getprior(getposterior(chain)))
+    Σ_unscaled = cov(getprior(getdensity(chain)))
     Σ = Σ_unscaled * tuner.scale
 
     next_cycle!(chain)

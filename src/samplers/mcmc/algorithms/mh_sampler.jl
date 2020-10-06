@@ -2,6 +2,16 @@
 
 
 """
+    MHProposalDistTuning
+
+Abstract super-type for Metropolis-Hastings tuning strategies for
+proposal distributions.
+"""
+abstract type MHProposalDistTuning <: MCMCTuningAlgorithm end
+export MCMCTuningAlgorithm
+
+
+"""
     MetropolisHastings
 
 Metropolis-Hastings MCMC sampling algorithm.
@@ -16,28 +26,23 @@ MetropolisHastings(
 )
 """
 @with_kw struct MetropolisHastings{
-    PS<:ProposalDistSpec,
+    Q<:ProposalDistSpec,
+    W<:Real,
     WS<:AbstractMCMCWeightingScheme{W},
     TN<:MHProposalDistTuning,
 } <: MCMCAlgorithm
-    proposal::PS
+    proposal::Q
     weighting::WS
     tuning::TN = AdaptiveMHTuning()
 end
 
 export MetropolisHastings
 
-function Base.show(io::IO, m::MIME"text/plain", algorithm::MetropolisHastings)
-    proposal = algorithm.proposalspec
-    weighting = algorithm.weighting
-    println(io, "MetropolisHastings(", proposal, ", ", weighting, ")")
-end
-
-MetropolisHastings(proposalspec::ProposalDistSpec = MvTDistProposal()) =
-    MetropolisHastings(proposalspec, RepetitionWeighting())
-
-MetropolisHastings(weighting::AbstractMCMCWeightingScheme) =
-    MetropolisHastings(MvTDistProposal(), weighting)
+#function Base.show(io::IO, m::MIME"text/plain", algorithm::MetropolisHastings)
+#    proposal = algorithm.proposalspec
+#    weighting = algorithm.weighting
+#    println(io, "MetropolisHastings(", proposal, ", ", weighting, ")")
+#end
 
 
 mcmc_compatible(::MetropolisHastings, ::AbstractProposalDist, ::NoVarBounds) = true
@@ -53,13 +58,15 @@ _sample_weight_type(::Type{MetropolisHastings{Q,W,WS}}) where {Q,W,WS} = W
 
 
 mutable struct MHIterator{
-    SP<:MCMCSpec,
+    AL<:MetropolisHastings,
+    D<:AbstractDensity,
     R<:AbstractRNG,
     PR<:RNGPartition,
     Q<:AbstractProposalDist,
     SV<:DensitySampleVector
 } <: MCMCIterator
-    spec::SP
+    algorithm::AL
+    density::D
     rng::R
     rngpart_cycle::PR
     info::MCMCIteratorInfo
@@ -72,28 +79,27 @@ end
 
 function MHIterator(
     rng::AbstractRNG,
-    spec::MCMCSpec,
+    algorithm::MCMCAlgorithm,
+    density::AbstractDensity,
     info::MCMCIteratorInfo,
     x_init::AbstractVector{P},
 ) where {P<:Real}
     stepno::Int64 = 0
 
-    postr = spec.posterior
     npar = totalndof(postr)
-    alg = spec.algorithm
 
     params_vec = Vector{P}(undef, npar)
     params_vec .= x_init
     !(params_vec in var_bounds(postr)) && throw(ArgumentError("Parameter(s) out of bounds"))
 
-    proposaldist = alg.proposalspec(P, npar)
+    proposaldist = algorithm.proposalspec(P, npar)
 
     # ToDo: Make numeric type configurable:
 
     log_posterior_value = logvalof(postr, params_vec, strict = true)
 
     T = typeof(log_posterior_value)
-    W = _sample_weight_type(typeof(alg))
+    W = _sample_weight_type(typeof(algorithm))
 
     sample_info = MCMCSampleID(info.id, info.cycle, 1, CURRENT_SAMPLE)
     current_sample = DensitySample(params_vec, log_posterior_value, one(W), sample_info, nothing)
@@ -105,7 +111,8 @@ function MHIterator(
     rngpart_cycle = RNGPartition(rng, 0:(typemax(Int16) - 2))
 
     chain = MHIterator(
-        spec,
+        algorithm,
+        density,
         rng,
         rngpart_cycle,
         info,
@@ -166,8 +173,6 @@ function _available_samples_idxs(chain::MHIterator)
 end
 
 
-mcmc_spec(chain::MHIterator) = chain.spec
-
 getrng(chain::MHIterator) = chain.rng
 
 mcmc_info(chain::MHIterator) = chain.info
@@ -223,17 +228,17 @@ end
 
 
 function mcmc_step!(chain::MHIterator, callback::Function)
-    alg = algorithm(chain)
+    algorithm = getalgorithm(chain)
 
-    if !mcmc_compatible(alg, chain.proposaldist, var_bounds(getposterior(chain)))
-        error("Implementation of algorithm $alg does not support current parameter bounds with current proposal distribution")
+    if !mcmc_compatible(algorithm, chain.proposaldist, var_bounds(getposterior(chain)))
+        error("Implementation of algorithm $algorithm does not support current parameter bounds with current proposal distribution")
     end
 
     chain.stepno += 1
     reset_rng_counters!(chain)
 
     rng = getrng(chain)
-    pstr = getposterior(chain)
+    density = getdensity(chain)
 
     proposaldist = chain.proposaldist
     samples = chain.samples
@@ -266,13 +271,13 @@ function mcmc_step!(chain::MHIterator, callback::Function)
     # Propose new variate:
     samples.weight[proposed] = 0
     proposal_rand!(rng, proposaldist, proposed_params, current_params)
-    renormalize_variate!(proposed_params, pstr, proposed_params)
+    renormalize_variate!(proposed_params, density, proposed_params)
 
     current_log_posterior = samples.logd[current]
     T = typeof(current_log_posterior)
 
     # Evaluate prior and likelihood with proposed variate:
-    proposed_log_posterior = logvalof(pstr, proposed_params, strict = false)
+    proposed_log_posterior = logvalof(density, proposed_params, strict = false)
 
     samples.logd[proposed] = proposed_log_posterior
 
@@ -303,7 +308,7 @@ function mcmc_step!(chain::MHIterator, callback::Function)
         samples.info.sampletype[proposed] = REJECTED_SAMPLE
     end
 
-    delta_w_current, w_proposed = _mh_weights(alg, p_accept, accepted)
+    delta_w_current, w_proposed = _mh_weights(algorithm, p_accept, accepted)
     samples.weight[current] += delta_w_current
     samples.weight[proposed] = w_proposed
 

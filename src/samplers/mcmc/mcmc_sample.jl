@@ -21,7 +21,7 @@ MCMCSampling(;
     IN<:MCMCInitAlgorithm,
     BI<:MCMCBurninAlgorithm,
     CT<:MCMCConvergenceTest,
-    BC<:Function
+    CB<:Function
 } <: AbstractSamplingAlgorithm
     sampler::AL = MetropolisHastings()
     nchains::Int = 4

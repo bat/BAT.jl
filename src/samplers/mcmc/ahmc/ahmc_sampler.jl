@@ -71,13 +71,14 @@ function MCMCIterator(
     tuned = false
     converged = false
     info = MCMCIteratorInfo(chainid, cycle, tuned, converged)
-    AHMCIterator(rng, spec, info, startpos)
+    AHMCIterator(rng, algorithm, density, info, startpos)
 end
 
 
 # MCMCIterator subtype for AHMC
 mutable struct AHMCIterator{
-    SP<:MCMCSpec,
+    AL<:AHMC,
+    D<:AbstractDensity,
     R<:AbstractRNG,
     PR<:RNGPartition,
     SV<:DensitySampleVector,
@@ -86,7 +87,8 @@ mutable struct AHMCIterator{
     A<:AdvancedHMC.AbstractAdaptor,
     H<:AdvancedHMC.Hamiltonian,
 } <: MCMCIterator
-    spec::SP
+    algorithm::AL
+    density::D
     rng::R
     rngpart_cycle::PR
     info::MCMCIteratorInfo
@@ -102,24 +104,24 @@ end
 
 function AHMCIterator(
     rng::AbstractRNG,
-    spec::MCMCSpec,
+    algorithm::MCMCAlgorithm,
+    density::AbstractDensity,
     info::MCMCIteratorInfo,
     x_init::AbstractVector{P},
 ) where {P<:Real}
     stepno::Int64 = 0
 
-    postr = spec.posterior
-    npar = totalndof(postr)
-    alg = spec.algorithm
+    density = densit
+    npar = totalndof(density)
 
     params_vec = Vector{P}(undef, npar)
     params_vec .= x_init
-    !(params_vec in var_bounds(postr)) && throw(ArgumentError("Parameter(s) out of bounds"))
+    !(params_vec in var_bounds(density)) && throw(ArgumentError("Parameter(s) out of bounds"))
 
-    log_posterior_value = logvalof(postr, params_vec, strict = true)
+    log_posterior_value = logvalof(density, params_vec, strict = true)
 
     T = typeof(log_posterior_value)
-    W = Float64 #_sample_weight_type(typeof(alg))
+    W = Float64 #_sample_weight_type(typeof(algorithm))
 
     sample_info = AHMCSampleID(info.id, info.cycle, 1, CURRENT_SAMPLE, 0.0, 0, false, 0.0)
     current_sample = DensitySample(params_vec, log_posterior_value, one(W), sample_info, nothing)
@@ -130,7 +132,7 @@ function AHMCIterator(
     rngpart_cycle = RNGPartition(rng, 0:(typemax(Int16) - 2))
 
     metric = AHMCMetric(alg.metric, npar)
-    logval_posterior(v) = logvalof(postr, v)
+    logval_posterior(v) = logvalof(density, v)
 
     hamiltonian = AdvancedHMC.Hamiltonian(metric, logval_posterior, alg.gradient)
     hamiltonian, t = AdvancedHMC.sample_init(rng, hamiltonian, params_vec)
@@ -143,7 +145,8 @@ function AHMCIterator(
 
 
     chain = AHMCIterator(
-        spec,
+        density,
+        algorithm,
         rng,
         rngpart_cycle,
         info,
@@ -160,8 +163,6 @@ function AHMCIterator(
     reset_rng_counters!(chain)
     chain
 end
-
-mcmc_spec(chain::AHMCIterator) = chain.spec
 
 getrng(chain::AHMCIterator) = chain.rng
 
@@ -259,7 +260,7 @@ MCMCTuningAlgorithm(algorithm::AHMC) = OnlyBurninTunerConfig()
 
 
 function mcmc_step!(chain::AHMCIterator, callback::Function)
-    alg = algorithm(chain)
+    alg = getalgorithm(chain)
 
     # if !mcmc_compatible(alg, chain.proposaldist, var_bounds(getposterior(chain)))
     #     error("Implementation of algorithm $alg does not support current parameter bounds with current proposal distribution")

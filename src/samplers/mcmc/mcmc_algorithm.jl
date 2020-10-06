@@ -94,7 +94,9 @@ The following methods must be defined for subtypes of `MCMCIterator` (e.g.
 `SomeMCMCIter<:MCMCIterator`):
 
 ```julia
-BAT.mcmc_spec(chain::SomeMCMCIter)::MCMCSpec
+BAT.getalgorithm(chain::SomeMCMCIter)::MCMCAlgorithm
+
+BAT.getdensity(chain::SomeMCMCIter)::AbstractDensity
 
 BAT.getrng(chain::SomeMCMCIter)::AbstractRNG
 
@@ -123,8 +125,8 @@ BAT.mcmc_step!(
 The following methods are implemented by default:
 
 ```julia
-algorithm(chain::MCMCIterator)
-getposterior(chain::MCMCIterator)
+getalgorithm(chain::MCMCIterator)
+getdensity(chain::MCMCIterator)
 rngseed(chain::MCMCIterator)
 DensitySampleVector(chain::MCMCIterator)
 mcmc_iterate!(chain::MCMCIterator, ...)
@@ -151,7 +153,9 @@ end
 
 
 
-function mcmc_spec end
+function getalgorithm end
+
+function getdensity end
 
 function getrng end
 
@@ -174,13 +178,16 @@ function next_cycle! end
 function mcmc_step! end
 
 
-algorithm(chain::MCMCIterator) = mcmc_spec(chain).algorithm
+##!!!!!!!! implement for mh and ahmc instead!
+getalgorithm(chain::MCMCIterator) = mcmc_spec(chain).algorithm
 
-getposterior(chain::MCMCIterator) = mcmc_spec(chain).posterior
+##!!!!!!!! implement for mh and ahmc instead!
+getdensity(chain::MCMCIterator) = mcmc_spec(chain).posterior
 
+##!!!!!!!! implement for mh and ahmc instead!
 rngseed(chain::MCMCIterator) = mcmc_spec(chain).rngseed
 
-DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(sample_type(chain), totalndof(getposterior(chain)))
+DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(sample_type(chain), totalndof(getdensity(chain)))
 
 
 
