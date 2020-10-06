@@ -260,9 +260,6 @@ function next_cycle!(chain::AHMCIterator)
 end
 
 
-MCMCTuningAlgorithm(algorithm::AHMC) = OnlyBurninTunerConfig()
-
-
 function mcmc_step!(chain::AHMCIterator, callback::Function)
     alg = getalgorithm(chain)
 

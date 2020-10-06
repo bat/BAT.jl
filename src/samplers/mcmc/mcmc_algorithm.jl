@@ -69,7 +69,7 @@ export MCMCConvergenceTest
 
 
 
-@with_kw struct MCMCIteratorInfo
+struct MCMCIteratorInfo
     id::Int64
     cycle::Int
     tuned::Bool
@@ -145,7 +145,7 @@ function MCMCIterator(
     chainid::Int,
     P::Type{} = Float32
 )
-    shaped_startpos = bat_initval(density).result
+    shaped_startpos = bat_initval(rng, density).result
     startpos = convert(Vector{P}, unshaped(shaped_startpos, varshape(density)))
     MCMCIterator(rng, algorithm, density, chainid, startpos)
 end

@@ -110,5 +110,5 @@ function argchoice_msg(::typeof(bat_initval), ::Val{:rng}, x::AbstractRNG)
 end
 
 function argchoice_msg(::typeof(bat_initval), ::Val{:algorithm}, x::InitvalAlgorithm)
-    "Using sampling algorithm $x"
+    "Using initval algorithm $x"
 end

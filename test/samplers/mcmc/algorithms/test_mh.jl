@@ -8,30 +8,35 @@ using StatsBase, Distributions, StatsBase, ValueShapes
 @testset "mh" begin
     rng = bat_rng()
     target = NamedTupleDist(a = Normal(), b = MvNormal(Diagonal(fill(1.0, 2))))
+
+    density = @inferred(convert(AbstractDensity, target))
+    @test density isa BAT.DistributionDensity
+
+    mcmc_alg = MetropolisHastings()
+    nchains = 4
     n = 10^4
-    algorithm = MCMCSampling(sampler = MetropolisHastings(), nchains = 4)
+    init_alg = MCMCChainPoolInit()
+    tuning_alg = AdaptiveMHTuning()
+    burnin_alg = MCMCMultiCycleBurnin()
+    convergence_test = BrooksGelmanConvergence()
+    strict = true
+    nonzero_weights = true
+    callback = x -> nothing
     max_neval = 10 * n
     max_time = Inf
 
-    density = convert(AbstractDensity, target)
-    mcmc_algorithm = algorithm.sampler
+    @inferred(MCMCIterator(deepcopy(rng), mcmc_alg, density, 1, Float32)) isa BAT.MHIterator
 
-    let
-        chain = MCMCIterator(deepcopy(rng), mcmc_algorithm, density, 0, Float32)
-    end
-
-    (chains, tuners, chain_outputs) = mcmc_init!(
+    init_result = BAT.mcmc_init!(
         rng,
-        mcmc_algorithm,
+        mcmc_alg,
         density,
-        algorithm.nchains,
-        callback = algorithm.store_burnin ? algorithm.callback : nop_func
-    )     
-
-    if !store_burnin
-        empty!.(chain_outputs)
-    end
-
+        nchains,
+        init_alg,
+        tuning_alg,
+        callback
+    )
+#=
     mcmc_burnin!(
         algorithm.store_burnin ? chain_outputs : nothing,
         tuners,
@@ -57,4 +62,5 @@ using StatsBase, Distributions, StatsBase, ValueShapes
     samples = varshape(density).(output)
 
     (result = samples, generator = MCMCSampleGenerator(chains))
+=#
 end
