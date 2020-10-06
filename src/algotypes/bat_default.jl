@@ -9,8 +9,8 @@ for `objective`(s).
 
 `objective`(s) are mandatory arguments of function `f` that semantically
 constitute it's main objective(s), and that that a good default choice of
-optional arguments (e.g. choice of algorithm(s), etc.) may depend on. Which
-arguments are considered to be objectives is function-specific.
+optional arguments (e.g. choice of algorithm(s), etc.) may depend on.
+Which arguments are considered to be objectives is function-specific.
 
 For example:
 

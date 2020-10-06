@@ -42,7 +42,7 @@ function MCMCBasicStats(::Type{S}, ndof::Integer) where {
     MCMCBasicStats{SL,SP}(ndof)
 end
 
-MCMCBasicStats(chain::MCMCIterator) = MCMCBasicStats(sample_type(chain), totalndof(getposterior(chain)))
+MCMCBasicStats(chain::MCMCIterator) = MCMCBasicStats(sample_type(chain), totalndof(getdensity(chain)))
 
 function MCMCBasicStats(sv::DensitySampleVector{<:AbstractVector{<:Real}})
     stats = MCMCBasicStats(eltype(sv), innersize(sv.v, 1))

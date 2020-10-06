@@ -62,7 +62,7 @@ end
 
 function MCMCIterator(
     rng::AbstractRNG,
-    algorithm::MetropolisHastings,
+    algorithm::AHMC,
     density::AbstractDensity,
     chainid::Int,
     startpos::AbstractVector{<:Real}
@@ -164,6 +164,10 @@ function AHMCIterator(
     chain
 end
 
+getalgorithm(chain::AHMCIterator) = chain.algorithm
+
+getdensity(chain::AHMCIterator) = chain.density
+
 getrng(chain::AHMCIterator) = chain.rng
 
 mcmc_info(chain::AHMCIterator) = chain.info
@@ -262,7 +266,7 @@ MCMCTuningAlgorithm(algorithm::AHMC) = OnlyBurninTunerConfig()
 function mcmc_step!(chain::AHMCIterator, callback::Function)
     alg = getalgorithm(chain)
 
-    # if !mcmc_compatible(alg, chain.proposaldist, var_bounds(getposterior(chain)))
+    # if !mcmc_compatible(alg, chain.proposaldist, var_bounds(getdensity(chain)))
     #     error("Implementation of algorithm $alg does not support current parameter bounds with current proposal distribution")
     # end
 
@@ -270,7 +274,7 @@ function mcmc_step!(chain::AHMCIterator, callback::Function)
     reset_rng_counters!(chain)
 
     rng = getrng(chain)
-    pstr = getposterior(chain)
+    pstr = getdensity(chain)
 
     samples = chain.samples
 

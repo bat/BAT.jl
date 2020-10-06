@@ -127,7 +127,6 @@ The following methods are implemented by default:
 ```julia
 getalgorithm(chain::MCMCIterator)
 getdensity(chain::MCMCIterator)
-rngseed(chain::MCMCIterator)
 DensitySampleVector(chain::MCMCIterator)
 mcmc_iterate!(chain::MCMCIterator, ...)
 mcmc_iterate!(chains::AbstractVector{<:MCMCIterator}, ...)
@@ -178,14 +177,6 @@ function next_cycle! end
 function mcmc_step! end
 
 
-##!!!!!!!! implement for mh and ahmc instead!
-getalgorithm(chain::MCMCIterator) = mcmc_spec(chain).algorithm
-
-##!!!!!!!! implement for mh and ahmc instead!
-getdensity(chain::MCMCIterator) = mcmc_spec(chain).posterior
-
-##!!!!!!!! implement for mh and ahmc instead!
-rngseed(chain::MCMCIterator) = mcmc_spec(chain).rngseed
 
 DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(sample_type(chain), totalndof(getdensity(chain)))
 

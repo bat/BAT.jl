@@ -172,6 +172,9 @@ function _available_samples_idxs(chain::MHIterator)
     r
 end
 
+getalgorithm(chain::MHIterator) = chain.algorithm
+
+getdensity(chain::MHIterator) = chain.density
 
 getrng(chain::MHIterator) = chain.rng
 
@@ -230,7 +233,7 @@ end
 function mcmc_step!(chain::MHIterator, callback::Function)
     algorithm = getalgorithm(chain)
 
-    if !mcmc_compatible(algorithm, chain.proposaldist, var_bounds(getposterior(chain)))
+    if !mcmc_compatible(algorithm, chain.proposaldist, var_bounds(getdensity(chain)))
         error("Implementation of algorithm $algorithm does not support current parameter bounds with current proposal distribution")
     end
 
