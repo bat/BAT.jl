@@ -33,6 +33,8 @@ end
     @test @inferred(logvalof(td, x)) == @inferred(logpdf(mvn, x))
     @test_throws ErrorException logvalof(td, [Inf, Inf, Inf])
     @test_throws ErrorException logvalof(td, [NaN, NaN, NaN])
+    @test_throws ErrorException logvalof(td, rand(length(mvn)+1))
+    @test_throws ErrorException logvalof(td, rand(length(mvn)-1))
     @test @inferred(logvalgradof(td, x)).logd == @inferred(logpdf(mvn, x))
 
     x = [-Inf, 0, Inf]
