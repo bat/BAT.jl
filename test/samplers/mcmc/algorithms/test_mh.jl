@@ -25,7 +25,8 @@ using StatsBase, Distributions, StatsBase, ValueShapes
     max_neval = 10 * n
     max_time = Inf
 
-    @inferred(MCMCIterator(deepcopy(rng), mcmc_alg, density, 1, Float32)) isa BAT.MHIterator
+    x = bat_initval(rng, density, InitFromTarget()).result
+    @inferred(MCMCIterator(deepcopy(rng), mcmc_alg, density, 1, unshaped(x, varshape(density)))) isa BAT.MHIterator
 
     init_result = BAT.mcmc_init!(
         rng,

@@ -27,10 +27,10 @@ end
 
 _approx_cov(target::Distribution) = cov(target)
 _approx_cov(target::DistLikeDensity) = cov(target)
-_appox_cov(target::AbstractPosteriorDensity) = cov(getprior(target))
+_approx_cov(target::AbstractPosteriorDensity) = cov(getprior(target))
 
 function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator)
-    Σ_unscaled = _appox_cov(getdensity(chain))
+    Σ_unscaled = _approx_cov(getdensity(chain))
     Σ = Σ_unscaled * tuner.scale
 
     next_cycle!(chain)

@@ -138,20 +138,6 @@ abstract type MCMCIterator end
 export MCMCIterator
 
 
-function MCMCIterator(
-    rng::AbstractRNG,
-    algorithm::MCMCAlgorithm,
-    density::AbstractDensity,
-    chainid::Int,
-    P::Type{} = Float32
-)
-    shaped_startpos = bat_initval(rng, density).result
-    startpos = convert(Vector{P}, unshaped(shaped_startpos, varshape(density)))
-    MCMCIterator(rng, algorithm, density, chainid, startpos)
-end
-
-
-
 function getalgorithm end
 
 function getdensity end

@@ -4,17 +4,25 @@
 include("chain_pool_init_types.jl")
 
 
-function _construct_chain(rngpart::RNGPartition, id::Integer, algorithm::MCMCAlgorithm, density::AbstractDensity)
+function _construct_chain(
+    rngpart::RNGPartition,
+    id::Integer,
+    algorithm::MCMCAlgorithm,
+    density::AbstractDensity,
+    initval_alg::InitvalAlgorithm
+)
     rng = AbstractRNG(rngpart, id)
-    MCMCIterator(rng, algorithm, density, id)
+    v_init = unshaped(bat_initval(rng, density, initval_alg).result, varshape(density))
+    MCMCIterator(rng, algorithm, density, id, v_init)
 end
 
 _gen_chains(
     rngpart::RNGPartition,
     ids::AbstractRange{<:Integer},
     algorithm::MCMCAlgorithm,
-    density::AbstractDensity
-) = [_construct_chain(rngpart, id, algorithm, density) for id in ids]
+    density::AbstractDensity,
+    initval_alg::InitvalAlgorithm
+) = [_construct_chain(rngpart, id, algorithm, density, initval_alg) for id in ids]
 
 
 function mcmc_init!(
@@ -28,6 +36,8 @@ function mcmc_init!(
 )
     @info "Trying to generate $nchains viable MCMC chain(s)."
 
+    initval_alg = InitFromTarget()
+
     min_nviable::Int = minimum(init_alg.init_tries_per_chain) * nchains
     max_ncandidates::Int = maximum(init_alg.init_tries_per_chain) * nchains
 
@@ -35,7 +45,8 @@ function mcmc_init!(
 
     ncandidates::Int = 0
 
-    dummy_chain = MCMCIterator(deepcopy(rng), algorithm, density, 1)
+    dummy_initval = unshaped(bat_initval(rng, density, InitFromTarget()).result, varshape(density))
+    dummy_chain = MCMCIterator(deepcopy(rng), algorithm, density, 1, dummy_initval)
     dummy_tuner = tuning_alg(dummy_chain)
 
     chains = similar([dummy_chain], 0)
@@ -47,7 +58,7 @@ function mcmc_init!(
         n = min(min_nviable, max_ncandidates - ncandidates)
         @debug "Generating $n $(cycle > 1 ? "additional " : "")MCMC chain(s)."
 
-        new_chains = _gen_chains(rngpart, ncandidates .+ (one(Int64):n), algorithm, density)
+        new_chains = _gen_chains(rngpart, ncandidates .+ (one(Int64):n), algorithm, density, initval_alg)
 
         filter!(isvalid, new_chains)
 
