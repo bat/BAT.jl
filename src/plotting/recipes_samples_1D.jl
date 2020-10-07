@@ -2,7 +2,7 @@
 
 @recipe function f(
     maybe_shaped_samples::DensitySampleVector,
-    parsel::Union{Integer, Symbol, Expr};
+    vsel::Union{Integer, Symbol, Expr};
     intervals = default_credibilities,
     bins = 200,
     colors = default_colors,
@@ -14,15 +14,15 @@
     filter = false,
     closed = :left
 )
-    idx = asindex(maybe_shaped_samples, parsel)
+    idx = asindex(maybe_shaped_samples, vsel)
 
     if length(idx) > 1
-        throw(ArgumentError("Symbol :$parsel refers to a multivariate parameter. Use :($parsel[i]) instead."))
+        throw(ArgumentError("Symbol :$vsel refers to a multivariate parameter. Use :($vsel[i]) instead."))
     end
 
     marg = get_marginal_dist(
         maybe_shaped_samples,
-        parsel,
+        vsel,
         bins = bins,
         closed = closed,
         filter = filter

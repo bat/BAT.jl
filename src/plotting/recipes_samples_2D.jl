@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 @recipe function f(
     maybe_shaped_samples::DensitySampleVector,
-    parsel::NTuple{2,Union{Symbol, Expr, Integer}};
+    vsel::NTuple{2,Union{Symbol, Expr, Integer}};
     intervals = default_credibilities,
     interval_labels = [],
     colors = default_colors,
@@ -15,13 +15,13 @@
     filter = false,
     closed = :left
 )
-    xindx = asindex(maybe_shaped_samples, parsel[1])
-    yindx = asindex(maybe_shaped_samples, parsel[2])
+    xindx = asindex(maybe_shaped_samples, vsel[1])
+    yindx = asindex(maybe_shaped_samples, vsel[2])
 
     if length(xindx) > 1
-        throw(ArgumentError("Symbol :$(parsel[1]) refers to a multivariate parameter. Use :($(parsel[1])[i]) instead."))
+        throw(ArgumentError("Symbol :$(vsel[1]) refers to a multivariate parameter. Use :($(vsel[1])[i]) instead."))
     elseif length(yindx) > 1
-        throw(ArgumentError("Symbol :$(parsel[2]) refers to a multivariate parameter. Use :($(parsel[2])[i]) instead."))
+        throw(ArgumentError("Symbol :$(vsel[2]) refers to a multivariate parameter. Use :($(vsel[2])[i]) instead."))
     end
 
     samples = unshaped.(maybe_shaped_samples)
