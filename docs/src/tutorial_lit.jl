@@ -410,8 +410,7 @@ plot!(-4:0.01:4, x -> fit_function(true_par_values, x), color=4, label = "Truth"
 
 # We'll sample using the The Metropolis-Hastings MCMC algorithm:
 
-algorithm = MetropolisHastings()
-#md nothing # hide
+sampler = MetropolisHastings()
 
 # BAT requires a counter-based random number generator (RNG), since it
 # partitions the RNG space over the MCMC chains. This way, a single RNG seed
@@ -425,60 +424,51 @@ rng = Philox4x()
 #md nothing # hide
 
 
-# Other default parameters are:
+# By default, `MetropolisHastings()` uses the following options.
+#
+# For Markov chain initialization:
 
-tuning = AdaptiveMHTuning(
-    λ = 0.5,
-    α = 0.15..0.35,
-    β = 1.5,
-    c = 1e-4..1e2,
-    r = 0.5
-)
+init = MCMCChainPoolInit()
 
-convergence = BrooksGelmanConvergence(
-    threshold = 1.1,
-    corrected = false
-)
+# For tuning of the proposal distribution:
 
-init = MCMCChainPoolInit(
-    init_tries_per_chain = 8..128,
-    max_nsamples_init = 25,
-    max_nsteps_init = 250,
-    max_time_init = Inf
-)
+tuning = AdaptiveMHTuning()
 
-burnin = MCMCMultiCycleBurnin(
-    max_nsamples_per_cycle = 1000,
-    max_nsteps_per_cycle = 10000,
-    max_time_per_cycle = Inf,
-    max_ncycles = 30
-)
+# For the MCMC burn-in procedure:
 
-#md nothing # hide
+burnin = MCMCMultiCycleBurnin()
+
+# For convergence testing:
+
+convergence = BrooksGelmanConvergence()
 
 # To generate MCMC samples with explicit control over all options, use
+# something like
 
-#!!!!!!!!!
-#=
 samples = bat_sample(
-    rng, posterior, (nsamples, nchains), algorithm,
-    max_nsteps = 10 * nsamples,
-    max_time = Inf,
-    tuning = tuning,
-    init = init,
-    burnin = burnin,
-    convergence = convergence,
-    strict = false,
-    filter = true
+    rng, posterior,
+    nsamples,
+    MCMCSampling(
+        sampler = MetropolisHastings(
+            weighting = RepetitionWeighting(),
+            tuning = tuning
+        ),
+        init = init,
+        burnin = burnin,
+        convergence = convergence,
+        strict = true,
+        store_burnin = false,
+        nonzero_weights = true,
+        callback = (x...) -> nothing
+    )
 ).result
-=#
 #md nothing # hide
 #nb nothing # hide
 
 # However, in many use cases, simply using the default options via
 #
 # ```julia
-# samples = bat_sample(posterior, (nsamples, nchains), MetropolisHastings()).result
+# samples = bat_sample(posterior, nsamples).result
 # ```
 #
 # will often be sufficient.
