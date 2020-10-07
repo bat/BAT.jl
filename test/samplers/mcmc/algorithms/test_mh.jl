@@ -71,22 +71,20 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         callback
     )
 
-
-    #=
-    mcmc_iterate!(
-        chain_outputs,
+    BAT.mcmc_iterate!(
+        outputs,
         chains;
         max_nsamples = div(n, length(chains)),
         max_nsteps = div(max_neval, length(chains)),
         max_time = max_time,
         nonzero_weights = nonzero_weights,
-        callback = algorithm.callback
+        callback = callback
     )
 
-    output = DensitySampleVector(first(chains))
-    isnothing(output) || append!.(Ref(output), chain_outputs)
-    samples = varshape(density).(output)
-
-    (result = samples, generator = MCMCSampleGenerator(chains))
-=#
+    samples = DensitySampleVector(first(chains))
+    append!.(Ref(samples), outputs)
+    
+    @test length(samples) == sum(samples.weight)
+    @test isapprox(mean(samples), [1, -1, 2], atol = 0.2)
+    @test isapprox(cov(samples), cov(unshaped(target)), atol = 0.3)
 end

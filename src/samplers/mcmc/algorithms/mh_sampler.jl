@@ -198,7 +198,6 @@ function next_cycle!(chain::MHIterator)
 
     resize!(chain.samples, 1)
 
-    @info "XXXXX" BAT._current_sample_idx(chain) BAT._proposed_sample_idx(chain) string(chain.samples.info.sampletype)
     i = _proposed_sample_idx(chain)
     @assert chain.samples.info[i].sampletype == CURRENT_SAMPLE
 

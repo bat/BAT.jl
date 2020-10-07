@@ -37,7 +37,9 @@ function gr_Rsqr(stats::AbstractVector{<:MCMCBasicStats})
     (W .+ B) ./ W
 end
 
-gr_Rsqr(samples::AbstractVector{<:DensitySampleVector}) = gr_Rsqr(MCMCBasicStats(samples))
+function gr_Rsqr(samples::AbstractVector{<:DensitySampleVector})
+    gr_Rsqr(MCMCBasicStats.(samples))
+end
 
 
 
@@ -114,7 +116,7 @@ function bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats}; corrected::Bool = fa
 end
 
 function bg_R_2sqr(samples::AbstractVector{<:DensitySampleVector}; corrected::Bool = false)
-    bg_R_2sqr(MCMCBasicStats(samples), corrected = corrected)
+    bg_R_2sqr(MCMCBasicStats.(samples), corrected = corrected)
 end
 
 
