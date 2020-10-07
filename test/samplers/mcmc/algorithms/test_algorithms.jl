@@ -4,5 +4,5 @@ using Test
 
 Test.@testset "algorithms" begin
     include("test_mh.jl")
-    include("test_ahmc.jl")
+    include("test_hmc.jl")
 end

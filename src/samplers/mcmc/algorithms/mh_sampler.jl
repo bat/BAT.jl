@@ -85,8 +85,6 @@ function MHIterator(
 
     proposaldist = algorithm.proposal(P, npar)
 
-    # ToDo: Make numeric type configurable:
-
     log_posterior_value = logvalof(density, params_vec, strict = true)
 
     T = typeof(log_posterior_value)
@@ -116,14 +114,6 @@ function MHIterator(
     reset_rng_counters!(chain)
 
     chain
-end
-
-
-function reset_rng_counters!(chain::MHIterator)
-    set_rng!(chain.rng, chain.rngpart_cycle, chain.info.cycle)
-    rngpart_step = RNGPartition(chain.rng, 0:(typemax(Int32) - 2))
-    set_rng!(chain.rng, rngpart_step, chain.stepno)
-    nothing
 end
 
 
@@ -163,6 +153,14 @@ current_sample(chain::MHIterator) = chain.samples[_current_sample_idx(chain)]
 sample_type(chain::MHIterator) = eltype(chain.samples)
 
 
+function reset_rng_counters!(chain::MHIterator)
+    set_rng!(chain.rng, chain.rngpart_cycle, chain.info.cycle)
+    rngpart_step = RNGPartition(chain.rng, 0:(typemax(Int32) - 2))
+    set_rng!(chain.rng, rngpart_step, chain.stepno)
+    nothing
+end
+
+
 function samples_available(chain::MHIterator)
     i = _current_sample_idx(chain::MHIterator)
     chain.samples.info.sampletype[i] == ACCEPTED_SAMPLE
@@ -200,8 +198,8 @@ function next_cycle!(chain::MHIterator)
 
     i = _proposed_sample_idx(chain)
     @assert chain.samples.info[i].sampletype == CURRENT_SAMPLE
-
     chain.samples.weight[i] = 1
+
     chain.samples.info[i] = MCMCSampleID(chain.info.id, chain.info.cycle, chain.stepno, CURRENT_SAMPLE)
 
     chain
@@ -225,7 +223,7 @@ function _cleanup_samples(chain::MHIterator)
 end
 
 
-function mcmc_step!(chain::MHIterator, callback::Function)
+function mcmc_step!(chain::MHIterator)
     _cleanup_samples(chain)
 
     samples = chain.samples
@@ -297,8 +295,6 @@ function mcmc_step!(chain::MHIterator, callback::Function)
     delta_w_current, w_proposed = _mh_weights(algorithm, p_accept, accepted)
     samples.weight[current] += delta_w_current
     samples.weight[proposed] = w_proposed
-
-    callback(Val(:mcmc_step), chain)
 
     nothing
 end

@@ -5,14 +5,14 @@ using Test
 using LinearAlgebra
 using StatsBase, Distributions, StatsBase, ValueShapes
 
-@testset "MetropolisHastings" begin
+@testset "HamiltonianMC" begin
     rng = bat_rng()
     target = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
 
     density = @inferred(convert(AbstractDensity, target))
     @test density isa BAT.DistributionDensity
 
-    algorithm = MetropolisHastings()
+    algorithm = AHMC()
     nchains = 4
  
     @testset "MCMC iteration" begin

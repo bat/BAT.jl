@@ -191,7 +191,8 @@ function mcmc_iterate!(
         (nsteps(chain) - start_nsteps) < max_nsteps &&
         (time() - start_time) < max_time
     )
-        mcmc_step!(chain, callback)
+        mcmc_step!(chain)
+        callback(Val(:mcmc_step), chain)
         if !isnothing(output)
             get_samples!(output, chain, nonzero_weights)
         end

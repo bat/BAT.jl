@@ -53,8 +53,6 @@ end
 export AdaptiveMHTuning
 
 
-(config::AdaptiveMHTuning)(chain::MHIterator) = ProposalCovTuner(config, chain)
-
 
 mutable struct ProposalCovTuner{
     S<:MCMCBasicStats
@@ -65,14 +63,13 @@ mutable struct ProposalCovTuner{
     scale::Float64
 end
 
+(tuning::AdaptiveMHTuning)(chain::MHIterator) = ProposalCovTuner(tuning, chain)
 
-function ProposalCovTuner(
-    config::AdaptiveMHTuning,
-    chain::MHIterator
-)
+
+function ProposalCovTuner(tuning::AdaptiveMHTuning, chain::MHIterator)
     m = totalndof(getdensity(chain))
     scale = 2.38^2 / m
-    ProposalCovTuner(config, MCMCBasicStats(chain), 1, scale)
+    ProposalCovTuner(tuning, MCMCBasicStats(chain), 1, scale)
 end
 
 
