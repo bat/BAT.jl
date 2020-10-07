@@ -30,25 +30,32 @@ end
     @test @inferred(isequal(@inferred(varshape(td)), missing))
 
     x = rand(3)
-    @test @inferred(logvalof(td, x)) == @inferred(logpdf(mvn, x))
     @test_throws ErrorException logvalof(td, [Inf, Inf, Inf])
     @test_throws ErrorException logvalof(td, [NaN, NaN, NaN])
     @test_throws ErrorException logvalof(td, rand(length(mvn)+1))
     @test_throws ErrorException logvalof(td, rand(length(mvn)-1))
+
+    @test @inferred(logvalof(td, x)) == @inferred(logpdf(mvn, x))
     @test @inferred(logvalgradof(td, x)).logd == @inferred(logpdf(mvn, x))
 
-    x = [-Inf, 0, Inf]
+
     mvu = product_distribution([Uniform() for i in 1:3])
-    ValueShapes.totalndof(ud::_UniformDensityStruct) = Int(3)
     BAT.varshape(ud::_UniformDensityStruct) = varshape(mvu)
     BAT.logvalof_unchecked(ud::_UniformDensityStruct, v::Any) = logpdf(mvu, v)
     BAT.var_bounds(ud::_UniformDensityStruct) = BAT.HyperRectBounds(BAT.HyperRectVolume(zeros(3), ones(3)), BAT.BoundsType[BAT.hard_bounds, BAT.hard_bounds, BAT.hard_bounds])
+    ValueShapes.totalndof(ud::_UniformDensityStruct) = Int(3)
+
+    x = [-Inf, 0, Inf]
+    ud_shape_1 = NamedTupleShape(a=ArrayShape{Real}(1), b=ArrayShape{Real}(1), c=ArrayShape{Real}(1))
+    ud_shape_2 = NamedTupleShape(a=ArrayShape{Real}(3))
     ud = _UniformDensityStruct()
     lvdg = logvalgradof(ud)
 
     @test @inferred(logvalof(ud, x)) == -Inf
     @test @inferred(logvalof(ud, x, use_bounds=false)) == -Inf
     @test @inferred((lvdg)(x)) == @inferred(logvalgradof(ud, x))
+    @test @inferred(logvalof(ud, ud_shape_1(x))) == @inferred(logpdf(mvu, x))
+    @test @inferred(logvalof(ud, ud_shape_2(x))) == @inferred(logpdf(mvu, x))
 
     @test_throws ArgumentError logvalof(ud, vcat(x,x))
 
