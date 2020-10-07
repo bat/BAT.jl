@@ -307,13 +307,15 @@ function ahmc_step!(rng, algorithm, chain, proposed_params, current_params)
         i, n_adapts = chain.info.converged ? (3, 2) : (1, 1)
     end
     
-    chain.hamiltonian, chain.proposal, isadapted = AdvancedHMC.adapt!(chain.hamiltonian,
-                                                                      chain.proposal,
-                                                                      chain.adaptor,
-                                                                      i,
-                                                                      n_adapts,
-                                                                      chain.transition.z.θ,
-                                                                      tstat.acceptance_rate)
+    chain.hamiltonian, chain.proposal, isadapted = AdvancedHMC.adapt!(
+        chain.hamiltonian,
+        chain.proposal,
+        chain.adaptor,
+        Int(i),
+        Int(n_adapts),
+        chain.transition.z.θ,
+        tstat.acceptance_rate
+    )
 
    
     if i == n_adapts
