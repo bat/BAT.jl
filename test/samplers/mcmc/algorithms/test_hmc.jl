@@ -12,12 +12,12 @@ using StatsBase, Distributions, StatsBase, ValueShapes
     density = @inferred(convert(AbstractDensity, target))
     @test density isa BAT.DistributionDensity
 
-    algorithm = AHMC()
+    algorithm = HamiltonianMC()
     nchains = 4
  
     @testset "MCMC iteration" begin
         v_init = bat_initval(rng, density, InitFromTarget()).result
-        # Note: No @inferred, since MCMCIterator is not type stable (yet) with AHMC
+        # Note: No @inferred, since MCMCIterator is not type stable (yet) with HamiltonianMC
         @test MCMCIterator(deepcopy(rng), algorithm, density, 1, unshaped(v_init, varshape(density))) isa BAT.AHMCIterator
         chain = MCMCIterator(deepcopy(rng), algorithm, density, 1, unshaped(v_init, varshape(density)))
         samples = DensitySampleVector(chain)
@@ -46,7 +46,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         max_neval = 10 * n
         max_time = Inf
 
-        # Note: No @inferred, not type stable (yet) with AHMC
+        # Note: No @inferred, not type stable (yet) with HamiltonianMC
         init_result = BAT.mcmc_init!(
             rng,
             algorithm,

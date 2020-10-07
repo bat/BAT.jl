@@ -9,7 +9,7 @@ function plot_ks_values_ahmc_vs_mh(ks_res_ahmc::Array{Any},ks_res_mh::Array{Any}
 	x_dim_ticks_t2=Array{String}(undef,n_diff_dims*n_functions)
 
 	xy_func_annot=Array{Array{Float64}}(undef,n_functions)
-	func_annot = ["AHMC","MH"]
+	func_annot = ["HMC","MH"]
 
 	res_ks = [ks_res_ahmc,ks_res_mh]
 
@@ -245,7 +245,7 @@ function run_ND_benchmark(;
             tbf = time()
             if isa(algorithm,BAT.MetropolisHastings)
                 mcmc_sample = bat_sample(dis, (n_samples, n_chains),algorithm,max_time = Inf,init = init,burnin = burnin,convergence = convergence,strict = true,filter = true).result
-            elseif isa(algorithm,BAT.AHMC)
+            elseif isa(algorithm,BAT.HamiltonianMC)
                 mcmc_sample = bat_sample(dis, n_samples*n_chains,algorithm,).result
             end
             taf = time()
@@ -256,7 +256,7 @@ function run_ND_benchmark(;
                     tbf = time()
                     if isa(algorithm,BAT.MetropolisHastings)
                         bat_sample(dis, (n_samples, n_chains),algorithm,max_time = Inf,init = init,burnin = burnin,convergence = convergence,strict = true,filter = true).result
-                    elseif isa(algorithm,BAT.AHMC)
+                    elseif isa(algorithm,BAT.HamiltonianMC)
                         bat_sample(dis, n_samples*n_chains,algorithm).result
                     end
                     taf = time()
@@ -325,7 +325,7 @@ function run_ND_benchmark(;
 end
 
 function run_ks_ahmc_vs_mh(;n_dim=20:5:35,n_samples=2*10^5, n_chains=4)
-    ks_res_ahmc = run_ND_benchmark(n_dim=n_dim,algorithm=AHMC(), n_samples=n_samples, n_chains=n_chains, time_benchmark=false,ahmi_benchmark=false)[1]
+    ks_res_ahmc = run_ND_benchmark(n_dim=n_dim,algorithm=HamiltonianMC(), n_samples=n_samples, n_chains=n_chains, time_benchmark=false,ahmi_benchmark=false)[1]
     ks_res_mh = run_ND_benchmark(n_dim=n_dim,algorithm=MetropolisHastings(), n_samples=n_samples, n_chains=n_chains, time_benchmark=false,ahmi_benchmark=false)[1]
     plot_ks_values_ahmc_vs_mh(ks_res_ahmc,ks_res_mh,n_dim)
 end

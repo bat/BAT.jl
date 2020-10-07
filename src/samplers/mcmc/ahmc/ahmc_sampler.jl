@@ -1,14 +1,14 @@
-export AHMC
+export HamiltonianMC
 
 """
-    AHMC <: MCMCAlgorithm
+    HamiltonianMC <: MCMCAlgorithm
 
 Hamiltonian Monte Carlo sampling algorithm.
 
-* The arguments/options of `AHMC` are still subject to change, and not yet
+* The arguments/options of `HamiltonianMC` are still subject to change, and not yet
 part of stable public API.*
 """
-@with_kw struct AHMC <: MCMCAlgorithm
+@with_kw struct HamiltonianMC <: MCMCAlgorithm
     metric::HMCMetric = DiagEuclideanMetric()
     gradient::Module = ForwardDiff
     integrator::HMCIntegrator = LeapfrogIntegrator()
@@ -17,12 +17,12 @@ part of stable public API.*
 end
 
 
-get_mcmc_tuning(algorithm::AHMC) = MCMCNoOpTuning()
+get_mcmc_tuning(algorithm::HamiltonianMC) = MCMCNoOpTuning()
 
 
-# MCMCIterator subtype for AHMC
+# MCMCIterator subtype for HamiltonianMC
 mutable struct AHMCIterator{
-    AL<:AHMC,
+    AL<:HamiltonianMC,
     D<:AbstractDensity,
     R<:AbstractRNG,
     PR<:RNGPartition,
@@ -114,7 +114,7 @@ end
 
 function MCMCIterator(
     rng::AbstractRNG,
-    algorithm::AHMC,
+    algorithm::HamiltonianMC,
     density::AbstractDensity,
     chainid::Integer,
     startpos::AbstractVector{<:Real}

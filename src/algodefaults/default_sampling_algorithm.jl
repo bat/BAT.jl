@@ -21,12 +21,12 @@ bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::AbstractDensity) = MCMCSa
 
 
 #=
-For AHMC
+For HamiltonianMC
 
 #!!!!!!!!!!!!!!!! N samples steps evals
 
-# MCMCBurninStrategy for AHMC
-function MCMCBurninStrategy(algorithm::AHMC, nsamples::Integer, max_nsteps::Integer, tuner_config::MCMCTuningAlgorithm)
+# MCMCBurninStrategy for HamiltonianMC
+function MCMCBurninStrategy(algorithm::HamiltonianMC, nsamples::Integer, max_nsteps::Integer, tuner_config::MCMCTuningAlgorithm)
     max_nsamples_per_cycle = nsamples
     max_nsteps_per_cycle = max_nsteps
     MCMCBurninStrategy(

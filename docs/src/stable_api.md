@@ -54,7 +54,7 @@ AbstractMCMCWeightingScheme
 AbstractPosteriorDensity
 AbstractSampleGenerator
 AdaptiveMHTuning
-AHMC
+HamiltonianMC
 AHMIntegration
 AnyDensityLike
 AnyIIDSampleable
