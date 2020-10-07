@@ -120,7 +120,7 @@
 
     # local mode(s)
     if localmode_options != ()
-        localmode_values = find_localmodes(marg)
+        localmode_values = find_marginalmodes(marg)
 
         for (i, l) in enumerate(localmode_values)
          @series begin

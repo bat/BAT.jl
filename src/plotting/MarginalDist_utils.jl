@@ -1,14 +1,14 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 """
-    find_localmodes(marg::MarginalDist)
+    find_marginalmodes(marg::MarginalDist)
 
 *BAT-internal, not part of stable public API.*
 
 Find the modes of a MarginalDist.
 Returns a vector of the bin-centers of the bin(s) with the heighest weight.
 """
-function find_localmodes(marg::MarginalDist)
+function find_marginalmodes(marg::MarginalDist)
     hist = convert(Histogram, marg.dist)
     dims = ndims(hist.weights)
 

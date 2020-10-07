@@ -55,7 +55,7 @@ BAT.estimate_finite_bounds
 BAT.argchoice_msg
 BAT.bat_sampler
 BAT.bg_R_2sqr
-BAT.find_localmodes
+BAT.find_marginalmodes
 BAT.get_bin_centers
 BAT.create_hypercube
 BAT.create_hyperrectangle
