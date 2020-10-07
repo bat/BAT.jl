@@ -116,7 +116,7 @@ function MCMCIterator(
     rng::AbstractRNG,
     algorithm::AHMC,
     density::AbstractDensity,
-    chainid::Int,
+    chainid::Integer,
     startpos::AbstractVector{<:Real}
 )
     cycle = 0
