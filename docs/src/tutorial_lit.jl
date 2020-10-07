@@ -248,13 +248,12 @@ posterior = PosteriorDensity(likelihood, prior)
 # (after tuning/burn-in):
 
 nsamples = 10^4
-nchains = 4
 #md nothing # hide
 
 
 # Now we can generate a set of MCMC samples via [`bat_sample`](@ref):
 
-samples = bat_sample(posterior, (nsamples, nchains), MetropolisHastings()).result
+samples = bat_sample(posterior, nsamples, MCMCSampling(sampler = MetropolisHastings(), nchains = 4)).result
 #md nothing # hide
 #nb nothing # hide
 
@@ -459,6 +458,8 @@ burnin = MCMCMultiCycleBurnin(
 
 # To generate MCMC samples with explicit control over all options, use
 
+#!!!!!!!!!
+#=
 samples = bat_sample(
     rng, posterior, (nsamples, nchains), algorithm,
     max_nsteps = 10 * nsamples,
@@ -470,6 +471,7 @@ samples = bat_sample(
     strict = false,
     filter = true
 ).result
+=#
 #md nothing # hide
 #nb nothing # hide
 

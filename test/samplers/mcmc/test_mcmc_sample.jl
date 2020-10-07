@@ -51,5 +51,5 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     @test gensamples(rng) != gensamples(rng)
     @test gensamples(deepcopy(rng)) == gensamples(deepcopy(rng))
 
-    @test isapprox(var(bat_sample(Normal(), 10^4, BAT.MetropolisHastings()).result), [1], rtol = 10^-1)
+    @test isapprox(var(bat_sample(Normal(), 10^4, MCMCSampling(sampler = MetropolisHastings())).result), [1], rtol = 10^-1)
 end

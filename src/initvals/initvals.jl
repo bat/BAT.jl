@@ -72,6 +72,7 @@ export InitFromTarget
 function get_initsrc_from_target end
 
 get_initsrc_from_target(target::AnyIIDSampleable) = target
+get_initsrc_from_target(target::TruncatedDensity{<:DistributionDensity}) = sampler(target)
 
 get_initsrc_from_target(target::AbstractPosteriorDensity) = get_initsrc_from_target(getprior(target))
 
