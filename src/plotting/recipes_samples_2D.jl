@@ -163,11 +163,11 @@
 
 
     if marginalmode_options != ()
-        localmode_values = find_marginalmodes(marg)
-        for (i, l) in enumerate(localmode_values)
+        marginalmode_values = find_marginalmodes(marg)
+        for (i, l) in enumerate(marginalmode_values)
          @series begin
             seriestype := :scatter
-            if i==1 && length(localmode_values)==1
+            if i==1 && length(marginalmode_values)==1
                 label := get(marginalmode_options, "label", "local mode")
             elseif i ==1
                 label := get(marginalmode_options, "label", "local modes")
@@ -187,7 +187,7 @@
             markerstrokewidth := get(marginalmode_options, "markerstrokewidth", 1)
             colorbar := colorbar
 
-            ([localmode_values[i][1]], [localmode_values[i][2]])
+            ([marginalmode_values[i][1]], [marginalmode_values[i][2]])
             end
         end
     end

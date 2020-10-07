@@ -120,12 +120,12 @@
 
     # local mode(s)
     if marginalmode_options != ()
-        localmode_values = find_marginalmodes(marg)
+        marginalmode_values = find_marginalmodes(marg)
 
-        for (i, l) in enumerate(localmode_values)
+        for (i, l) in enumerate(marginalmode_values)
          @series begin
             seriestype := :line
-            if length(localmode_values)==1
+            if length(marginalmode_values)==1
                 label := get(marginalmode_options, "label", "local mode")
             elseif i ==1
                 label := get(marginalmode_options, "label", "local modes")
