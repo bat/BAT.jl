@@ -72,7 +72,7 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
                         mean --> get(histogram, "mean", false)
                         std --> get(histogram, "std", false)
                         globalmode --> get(histogram, "globalmode", false)
-                        localmode --> get(histogram, "localmode", false)
+                        marginalmode --> get(histogram, "marginalmode", false)
                         legend --> get(histogram, "legend", true)
 
                         label --> get(histogram, "label", "")

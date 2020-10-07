@@ -15,7 +15,7 @@ plot(
     mean = false,
     std = false,
     globalmode = false,
-    localmode = true,
+    marginalmode = true,
     filter = false,
     closed = :left
 )
@@ -48,7 +48,7 @@ The plot style of the mean can be customized using a `Dict`.  For `mean = true`,
 * `globalmode::Union{Dict, Bool} = true`: indicate global mode (currently only for samples), calculated via `bat_stats().mode`.  The style of the global mode can be passed as a `Dict`.  For `globalmode = true`, the default style is:  
 `Dict("linestyle" => :dash, "linewidth" => 1, "linecolor" => :black, "alpha" => 1, "label" => "global mode")`
 
-* `localmode::Union{Dict, Bool} = true`: indicate the localmode(s), i.e. the center of the highest histogram bin(s) (currently only for samples). The style can be passed as a `Dict`. If `localmode = true`, the default style is:  
+* `marginalmode::Union{Dict, Bool} = true`: indicate the marginal mode(s), i.e. the center of the highest histogram bin(s) (currently only for samples). The style can be passed as a `Dict`. If `marginalmode = true`, the default style is:  
 `Dict("linestyle" => :dot, "linewidth" => 1, "linecolor" => :black, "alpha" => 1, "label" => "local mode")`
 
 * (only for samples) `filter::Bool = false`: if `true`, `BAT.drop_low_weight_samples()` is applied before plotting
@@ -71,7 +71,7 @@ plot(
     mean = false,
     std = false,
     globalmode = false,
-    localmode = true,
+    marginalmode = true,
     diagonal = Dict(),
     upper = Dict(),
     right = Dict(),
@@ -110,7 +110,7 @@ The plot style of the mean can be customized using a `Dict`.  For `mean = true`,
 * `globalmode::Union{Dict, Bool} = true`: indicate global mode (currently only for samples), calculated via `bat_stats().mode`.  The style of the global mode can be passed as a `Dict`.  For `globalmode = true`, the default style is:
 `Dict("linestyle" => :dash, "linewidth" => 1, "linecolor" => :black, "alpha" => 1, "label" => "global mode")`
 
-* `localmode::Union{Dict, Bool} = true`: indicate the localmode(s), i.e. the center of the highest histogram bin(s) (currently only for samples). The style can be passed as a `Dict`. If `localmode = true`, the default style is:
+* `marginalmode::Union{Dict, Bool} = true`: indicate the marginalmode(s), i.e. the center of the highest histogram bin(s) (currently only for samples). The style can be passed as a `Dict`. If `marginalmode = true`, the default style is:
 `Dict("linestyle" => :dot, "linewidth" => 1, "linecolor" => :black, "alpha" => 1, "label" => "local mode")`
 
 *  `diagonal = Dict()`: Used only for the seriestype `:marginal`. The dictionary can contain the seriestypes and plot options for 2D distributions explained above to modify the 2D plot of the marginal plot. Nested Dictionaries are possible to modify the styles of the estimators as described above
@@ -133,7 +133,7 @@ plot(
     mean=false,
     std=false,
     globalmode=false,
-    localmode=false,
+    marginalmode=false,
     diagonal = Dict(),
     upper = Dict(),
     lower = Dict(),
@@ -151,7 +151,7 @@ Keyword arguments:
   * `mean::Bool = false`: Indicate mean value, calculated via  `bat_stats().mean`, in all plots (currently only for samples)
   * `std::Bool = false`: Indicate the standard deviation of the mean calculated from `bat_stats().cov` in all plots (currently only for samples)
   * `globalmode::Bool = false`: Indicate global mode, calculated via `bat_stats().mode`, in all plots (currently only for samples)
-  * `localmode::Bool = false`: Indicate local mode(s), i.e. the center of the highest histogram bin(s), in all plots (currently only for samples)
+  * `marginalmode::Bool = false`: Indicate local mode(s), i.e. the center of the highest histogram bin(s), in all plots (currently only for samples)
   *  `diagonal = Dict()`: The dictionary can contain the seriestypes and plot options for 1D distributions explained above to modify the plots of the 1D marginal distributions on the diagonal of the grid. Nested Dictionaries are possible to modify the styles of the estimators as described above
   * `lower = Dict()` and `upper = Dict()`:  The dictionaries can contain the seriestypes and plot options for 2D distributions explained above to modify the 2D plots in the lower and upper triangles of the grid. Nested Dictionaries are possible to modify the styles of the estimators as described above
   * `vsel_label = []`: parameter label as strings, `LatexStrings` are possible

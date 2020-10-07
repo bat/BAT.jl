@@ -307,7 +307,7 @@ par_cov[parshapes.mu, parshapes.sigma]
 
 plot(
     samples, :(mu[1]),
-    mean = true, std = true, globalmode = true, localmode = true,
+    mean = true, std = true, globalmode = true, marginalmode = true,
     nbins = 50, title = "Marginalized Distribution for mu[1]"
 )
 #jl savefig("tutorial-single-par.pdf")
@@ -321,7 +321,7 @@ plot(
 
 plot(
     samples, (:(mu[1]), :sigma),
-    mean = true, std = true, globalmode = true, localmode = true,
+    mean = true, std = true, globalmode = true, marginalmode = true,
     nbins = 50, title = "Marginalized Distribution for mu[1] and sigma"
 )
 plot!(BAT.MCMCBasicStats(samples), (3, 5))
@@ -335,7 +335,7 @@ plot!(BAT.MCMCBasicStats(samples), (3, 5))
 
 plot(
     samples,
-    mean = false, std = false, globalmode = true, localmode = false,
+    mean = false, std = false, globalmode = true, marginalmode = false,
     nbins = 50
 )
 #jl savefig("tutorial-all-params.png")

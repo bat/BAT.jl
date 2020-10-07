@@ -7,7 +7,7 @@
     std=false,
     bins = 200,
     globalmode=false,
-    localmode=false,
+    marginalmode=false,
     diagonal = Dict(),
     upper = Dict(),
     lower = Dict(),
@@ -70,7 +70,7 @@
             mean --> get(diagonal, "mean", mean)
             std --> get(diagonal, "std", std)
             globalmode --> get(diagonal, "globalmode", globalmode)
-            localmode --> get(diagonal, "localmode", localmode)
+            marginalmode --> get(diagonal, "marginalmode", marginalmode)
             xlims --> get(diagonal, "xlims", :auto)
             ylims --> get(diagonal, "ylims", :auto)
             xguide --> xlabel[i]
@@ -95,7 +95,7 @@
                 mean --> get(upper, "mean", mean)
                 std --> get(upper, "std", std)
                 globalmode --> get(upper, "globalmode", globalmode)
-                localmode --> get(upper, "localmode", localmode)
+                marginalmode --> get(upper, "marginalmode", marginalmode)
                 xlims --> get(upper, "xlims", :auto)
                 ylims --> get(upper, "ylims", :auto)
 
@@ -151,7 +151,7 @@
                  mean --> get(lower, "mean", mean)
                  std --> get(lower, "std", std)
                  globalmode --> get(lower, "globalmode", globalmode)
-                 localmode --> get(lower, "localmode", localmode)
+                 marginalmode --> get(lower, "marginalmode", marginalmode)
                  xlims --> get(lower, "xlims", :auto)
                  ylims --> get(lower, "ylims", :auto)
                  xguide --> xlabel[i]

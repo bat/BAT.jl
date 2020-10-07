@@ -8,7 +8,7 @@
     mean = false,
     std = false,
     globalmode = false,
-    localmode = true,
+    marginalmode = true,
     diagonal = Dict(),
     upper = Dict(),
     right = Dict(),
@@ -103,7 +103,7 @@
 
     mean_options = convert_to_options(mean)
     globalmode_options = convert_to_options(globalmode)
-    localmode_options = convert_to_options(localmode)
+    localmode_options = convert_to_options(marginalmode)
     std_options = convert_to_options(std)
 
 
