@@ -4,9 +4,9 @@ struct AHMCSampleID <: SampleID
     chainid::Int32
     chaincycle::Int32
     stepno::Int64
-    sampletype::Int64
+    sampletype::Int32
     hamiltonian_energy::Float64
-    tree_depth::Int64
+    tree_depth::Int32
     divergent::Bool
     step_size::Float64     
 end
@@ -16,8 +16,10 @@ const AHMCSampleIDVector{TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Int64}
                          FV<:AbstractVector{<:Float64},BV<:AbstractVector{<:Bool}} = StructArray{
     AHMCSampleID,
     1,
-                             NamedTuple{(:chainid, :chaincycle, :stepno, :sampletype, :hamiltonian_energy, :tree_depth, :divergent, :step_size),
-                                        Tuple{TV,TV,UV,UV,FV,UV,BV,FV}},
+    NamedTuple{
+        (:chainid, :chaincycle, :stepno, :sampletype, :hamiltonian_energy, :tree_depth, :divergent, :step_size),
+        Tuple{TV,TV,UV,TV,FV,TV,BV,FV}
+    },
     Int
 }
 
