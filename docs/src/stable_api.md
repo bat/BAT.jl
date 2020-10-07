@@ -32,6 +32,7 @@ bat_default
 bat_eff_sample_size
 bat_findmedian
 bat_findmode
+bat_initval
 bat_integrate
 bat_integrated_autocorr_len
 bat_marginalmode
@@ -49,10 +50,9 @@ BAT.logvalof_unchecked
 
 AbstractDensity
 AbstractDensityValue
-MCMCTuningAlgorithm
+AbstractMCMCWeightingScheme
 AbstractPosteriorDensity
 AbstractSampleGenerator
-AbstractMCMCWeightingScheme
 AdaptiveMHTuning
 AHMC
 AHMIntegration
@@ -67,9 +67,14 @@ CholeskyWhitening
 DensitySample
 DensitySampleVector
 DistLikeDensity
+ExplicitInit
 GelmanRubinConvergence
 GeyerAutocorLen
 IIDSampling
+InitFromIID
+InitFromSamples
+InitFromTarget
+InitvalAlgorithm
 IntegrationAlgorithm
 LinDVal
 LogDVal
@@ -78,11 +83,14 @@ MaxDensityNelderMead
 MaxDensitySampleSearch
 MCMCAlgorithm
 MCMCBurninAlgorithm
-MCMCConvergenceTest
-MCMCMultiCycleBurnin
-MCMCInitAlgorithm
 MCMCChainPoolInit
+MCMCConvergenceTest
+MCMCInitAlgorithm
 MCMCIterator
+MCMCMultiCycleBurnin
+MCMCNoOpTuning
+MCMCSampling
+MCMCTuningAlgorithm
 MetropolisHastings
 MHProposalDistTuning
 ModeAsDefined

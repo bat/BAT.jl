@@ -39,7 +39,6 @@ BAT.HMIData
 BAT.HMISettings
 BAT.IntegrationVolume
 BAT.KDTreePartitioning
-BAT.MCMCCallbackWrapper
 BAT.OnlineMvCov
 BAT.OnlineMvMean
 BAT.OnlineUvMean
@@ -79,7 +78,6 @@ BAT.is_log_zero
 BAT.issymmetric_around_origin
 BAT.log_volume
 BAT.log_zero_density
-BAT.mcmc_startval!
 BAT.modify_hypercube!
 BAT.modify_integrationvolume!
 BAT.partition_space

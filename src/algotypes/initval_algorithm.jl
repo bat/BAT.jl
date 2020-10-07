@@ -9,6 +9,7 @@ Many algorithms in BAT, like MCMC and optimization need initial starting
 values.
 """
 abstract type InitvalAlgorithm end
+export InitvalAlgorithm
 
 
 """
