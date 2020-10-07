@@ -15,17 +15,14 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     likelihood = @inferred BAT.DistributionDensity(mv_dist)
     bounds = @inferred BAT.HyperRectBounds([-5, -8], [5, 8], BAT.reflective_bounds)
     prior = BAT.ConstDensity(LogDVal(0), bounds)
-    nchains = 4
-    nsamples = nchains * 50000
+    nsamples = 10^5
 
-    # algorithmMW = @inferred MetropolisHastings() TODO: put back the @inferred
-    algorithmMW = MCMCSampling(sampler = MetropolisHastings(), nchains = nchains)
+    algorithmMW = @inferred(MCMCSampling(sampler = MetropolisHastings()))
     @test BAT.mcmc_compatible(algorithmMW.sampler, BAT.GenericProposalDist(mv_dist), BAT.NoVarBounds(2))
 
     samples = bat_sample(PosteriorDensity(likelihood, prior), nsamples, algorithmMW).result
 
-    # ToDo: Should be able to make this exact, for MH sampler:
-    @test length(samples) == nchains * nsamples_per_chain
+    @test length(samples) == nsamples
 
     cov_samples = cov(flatview(samples.v), FrequencyWeights(samples.weight), 2; corrected=true)
     mean_samples = mean(flatview(samples.v), FrequencyWeights(samples.weight); dims = 2)
@@ -33,11 +30,9 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     @test isapprox(mean_samples, mvec; rtol = 0.15)
     @test isapprox(cov_samples, cmat; rtol = 0.15)
 
-    algorithmPW = @inferred MetropolisHastings(ARPWeighting())
+    algorithmPW = @inferred MCMCSampling(sampler = MetropolisHastings(weighting = ARPWeighting()))
 
-    samples, chains = bat_sample(
-        mv_dist, (nsamples_per_chain, nchains), algorithmPW
-    )
+    samples, chains = bat_sample(mv_dist, nsamples, algorithmPW)
 
     cov_samples = cov(flatview(samples.v), FrequencyWeights(samples.weight), 2; corrected=true)
     mean_samples = mean(flatview(samples.v), FrequencyWeights(samples.weight); dims = 2)
@@ -45,7 +40,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     @test isapprox(mean_samples, mvec; rtol = 0.15)
     @test isapprox(cov_samples, cmat; rtol = 0.15)
 
-    gensamples(rng::AbstractRNG) = bat_sample(rng, PosteriorDensity(mv_dist, prior), (nsamples_per_chain, nchains), algorithmPW).result
+    gensamples(rng::AbstractRNG) = bat_sample(rng, PosteriorDensity(mv_dist, prior), nsamples, algorithmPW).result
 
     rng = bat_rng()
     @test gensamples(rng) != gensamples(rng)

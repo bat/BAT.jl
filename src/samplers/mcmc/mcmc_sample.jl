@@ -29,7 +29,7 @@ MCMCSampling(;
     burnin::BI = MCMCMultiCycleBurnin()
     convergence::CT = BrooksGelmanConvergence()
     strict::Bool = true
-    store_burnin::Bool = true
+    store_burnin::Bool = false
     nonzero_weights::Bool = true
     callback::CB = nop_func
 end

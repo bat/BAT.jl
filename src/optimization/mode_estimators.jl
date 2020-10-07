@@ -69,7 +69,7 @@ export MaxDensityNelderMead
 
 function bat_findmode_impl(target::AnySampleable, algorithm::MaxDensityNelderMead; initial_mode = missing)
     shape = varshape(target)
-    x = unshape(bat_initval(target, algorithm.init).result)
+    x = unshaped(bat_initval(target, algorithm.init).result)
     conv_target = convert(AbstractDensity, target)
     r = Optim.maximize(p -> logvalof(conv_target, p), x, Optim.NelderMead())
     (result = shape(Optim.minimizer(r.res)), info = r)
@@ -99,7 +99,7 @@ export MaxDensityLBFGS
 
 function bat_findmode_impl(target::AnySampleable, algorithm::MaxDensityLBFGS; initial_mode = missing)
     shape = varshape(target)
-    x = unshape(bat_initval(target, algorithm.init).result)
+    x = unshaped(bat_initval(target, algorithm.init).result)
     conv_target = convert(AbstractDensity, target)
     r = Optim.maximize(p -> logvalof(conv_target, p), x, Optim.LBFGS(); autodiff = :forward)
     (result = shape(Optim.minimizer(r.res)), info = r)

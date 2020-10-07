@@ -227,3 +227,9 @@ end
 
 
 const CubaIntegration = Union{VEGASIntegration, SuaveIntegration, DivonneIntegration, CuhreIntegration}
+
+function bat_integrate_impl(target::AnyDensityLike, algorithm::CubaIntegration)
+    density = convert(AbstractDensity, target)
+    bat_integrate_impl(density, algorithm)
+end
+
