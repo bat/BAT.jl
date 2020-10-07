@@ -103,7 +103,7 @@
 
     mean_options = convert_to_options(mean)
     globalmode_options = convert_to_options(globalmode)
-    localmode_options = convert_to_options(marginalmode)
+    marginalmode_options = convert_to_options(marginalmode)
     std_options = convert_to_options(std)
 
 
@@ -162,29 +162,29 @@
     end
 
 
-    if localmode_options != ()
+    if marginalmode_options != ()
         localmode_values = find_marginalmodes(marg)
         for (i, l) in enumerate(localmode_values)
          @series begin
             seriestype := :scatter
             if i==1 && length(localmode_values)==1
-                label := get(localmode_options, "label", "local mode")
+                label := get(marginalmode_options, "label", "local mode")
             elseif i ==1
-                label := get(localmode_options, "label", "local modes")
+                label := get(marginalmode_options, "label", "local modes")
             else
                 label :=""
             end
 
             seriestype == :marginal ? subplot := 3 :
-            markercolor := get(localmode_options, "markercolor", :dimgrey)
-            markersize := get(localmode_options, "markersize", 4)
-            markershape := get(localmode_options, "markershape", :rect)
-            markeralpha := get(localmode_options, "markeralpha", 1)
+            markercolor := get(marginalmode_options, "markercolor", :dimgrey)
+            markersize := get(marginalmode_options, "markersize", 4)
+            markershape := get(marginalmode_options, "markershape", :rect)
+            markeralpha := get(marginalmode_options, "markeralpha", 1)
             linealpha := 0
-            markerstrokealpha := get(localmode_options, "markerstrokealpha", 1)
-            markerstrokecolor := get(localmode_options, "markerstrokecolor", :dimgrey)
-            markerstrokestyle := get(localmode_options, "markerstrokestyle", :solid)
-            markerstrokewidth := get(localmode_options, "markerstrokewidth", 1)
+            markerstrokealpha := get(marginalmode_options, "markerstrokealpha", 1)
+            markerstrokecolor := get(marginalmode_options, "markerstrokecolor", :dimgrey)
+            markerstrokestyle := get(marginalmode_options, "markerstrokestyle", :solid)
+            markerstrokewidth := get(marginalmode_options, "markerstrokewidth", 1)
             colorbar := colorbar
 
             ([localmode_values[i][1]], [localmode_values[i][2]])
