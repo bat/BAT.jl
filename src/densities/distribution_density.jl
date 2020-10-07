@@ -26,22 +26,17 @@ Base.parent(density::DistributionDensity) = density.dist
 
 logvalof_unchecked(density::DistributionDensity, v::Any) = Distributions.logpdf(density.dist, v)
 
-logvalof_unchecked(density::DistributionDensity{<:UnivariateDistribution}, v::AbstractVector) =
-    Distributions.logpdf(density.dist, first(v))
+logvalof_unchecked(density::DistributionDensity, v::AbstractVector{<:Real}) = Distributions.logpdf(unshaped(density.dist), v)
 
 
 ValueShapes.varshape(density::DistributionDensity) = varshape(density.dist)
 
-Distributions.sampler(density::DistributionDensity{<:MultivariateDistribution}) =
-    bat_sampler(parent(density))
+Distributions.sampler(density::DistributionDensity) = bat_sampler(unshaped(density.dist))
 
-Distributions.sampler(density::DistributionDensity{<:UnivariateDistribution}) =
-    bat_sampler((Product(Fill(parent(density), 1))))
 
 # Random.Sampler(rng::AbstractRNG, density::DistributionDensity, repetition::Val{1}) = sampler(density)
 
-Statistics.cov(density::DistributionDensity{<:MultivariateDistribution}) = cov(density.dist)
-Statistics.cov(density::DistributionDensity{<:UnivariateDistribution}) = hcat(var(density.dist))
+Statistics.cov(density::DistributionDensity) = cov(unshaped(density.dist))
 
 
 var_bounds(density::DistributionDensity) = density.bounds
@@ -60,8 +55,9 @@ dist_param_bounds(d::ConstValueDist, bounds_type::BoundsType) = HyperRectBounds(
 dist_param_bounds(d::NamedTupleDist, bounds_type::BoundsType) = vcat(map(x -> dist_param_bounds(x, bounds_type), values(d))...)
 
 function dist_param_bounds(d::EmpiricalDistributions.MvBinnedDist{T, N}, bounds_type::BoundsType) where {T, N}
-    left_bounds  = T[map(first, d.h.edges)...]
-    right_bounds = T[map(e -> prevfloat(last(e)), d.h.edges)...]
+    hist = convert(Histogram, d)
+    left_bounds  = T[map(first, hist.edges)...]
+    right_bounds = T[map(e -> prevfloat(last(e)), hist.edges)...]
     bt = fill(bounds_type, length(left_bounds))
     HyperRectBounds{T}(HyperRectVolume{T}(left_bounds, right_bounds), bt)
 end

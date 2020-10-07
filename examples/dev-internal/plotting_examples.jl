@@ -30,7 +30,7 @@ prior = BAT.NamedTupleDist(
 
 posterior = PosteriorDensity(likelihood, prior);
 
-samples, chains = bat_sample(posterior, (10^5, 4), MetropolisHastings());
+samples, chains = bat_sample(posterior, 10^5, MCMCSampling(sampler = MetropolisHastings()));
 
 # ## Set up plotting
 # Set up plotting using the [Plots.jl](https://github.com/JuliaPlots/Plots.jl) package:
@@ -97,14 +97,14 @@ plot(samples, :a, seriestype=:smallest_intervals,
 )
 
 # ### Plotting estimators in 1D sample plots:
-# It is possible to indicate *mean*, *standard deviation*, *localmode*, and *globalmode* when plotting samples:
-plot(samples, :(b[1]), globalmode=true, localmode=true, mean=true, std=true)
+# It is possible to indicate *mean*, *standard deviation*, *marginalmode*, and *globalmode* when plotting samples:
+plot(samples, :(b[1]), globalmode=true, marginalmode=true, mean=true, std=true)
 
 # #### The style of the estimators can be customized:
 # By passing `true`, the point estimators are plotted using their default styles shown above.
-# The styles can be modified by passing dictionaries specifying `linestyle`, `linecolor`, `linewidth` and `alpha` for *mean*, *globalmode* and *localmode*.
+# The styles can be modified by passing dictionaries specifying `linestyle`, `linecolor`, `linewidth` and `alpha` for *mean*, *globalmode* and *marginalmode*.
 # The style of the standard deviation can be modified by specifying `fillcolor` and `fillalpha`.
-plot(samples, :a, localmode=false,
+plot(samples, :a, marginalmode=false,
     mean=Dict("linestyle" => :dot, "linecolor"=> :red, "linewidth"=>2, "alpha" => 0.7),
     std=Dict("fillcolor" => :red, "fillalpha"=>0.2))
 
@@ -160,14 +160,14 @@ plot(samples[1:10^4], (:a,:(b[2])), seriestype = :scatter)
 # ## Customizing 2D plots:
 # ### Plotting point estimators in 2D plots:
 plot(samples, (:a,:(b[2])), seriestype=:smallest_intervals, nbins=200,
-    mean=true, std=true, localmode=true, globalmode=true)
+    mean=true, std=true, marginalmode=true, globalmode=true)
 
 # #### It is possible to customize the style of the estimators:
 # By passing `true`, the point estimators are plotted using their default styles shown above.
-# The style of the point estimators *mean*, *globalmode* and *localmode* can be modified by passing a dictionary specifying `markershape`, `markercolor`, `markersize`, `markeralpha`, `markerstrokecolor`, `markerstrokestyle`, `markerstrokewidth` and `markerstrokealpha`.
+# The style of the point estimators *mean*, *globalmode* and *marginalmode* can be modified by passing a dictionary specifying `markershape`, `markercolor`, `markersize`, `markeralpha`, `markerstrokecolor`, `markerstrokestyle`, `markerstrokewidth` and `markerstrokealpha`.
 # If `std==true`, the standard deviation of the mean value will be displayed as x- and y-errorbars.
 plot(samples, (:a,:(b[2])), seriestype=:smallest_intervals, bins=(200, -4:0.2:8),
-    localmode=Dict("markershape"=> :diamond, "markeralpha"=>1, "markercolor"=>:red, "markersize"=>5),
+    marginalmode=Dict("markershape"=> :diamond, "markeralpha"=>1, "markercolor"=>:red, "markersize"=>5),
     mean = true, std=true
 )
 

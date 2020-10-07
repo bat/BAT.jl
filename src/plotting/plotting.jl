@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-const standard_confidence_vals = [0.683, 0.955, 0.997]
-const standard_colors = [:chartreuse2, :yellow, :red]
+const default_credibilities = [0.683, 0.955, 0.997]
+const default_colors = [:chartreuse2, :yellow, :red]
 
 
 include("MarginalDist.jl")

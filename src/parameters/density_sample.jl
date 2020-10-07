@@ -248,8 +248,8 @@ function _get_statw(f::Function, samples::DensitySampleVector, resultshape::Abst
 end
 
 Statistics.mean(samples::DensitySampleVector) = _get_statw(mean, samples, varshape(samples))
-Statistics.var(samples::DensitySampleVector) = _get_statw(var, samples, map_const_shapes(zero, varshape(samples)))
-Statistics.std(samples::DensitySampleVector) = _get_statw(std, samples, map_const_shapes(zero, varshape(samples)))
+Statistics.var(samples::DensitySampleVector) = _get_statw(var, samples, replace_const_shapes(ValueShapes.const_zero_shape, varshape(samples)))
+Statistics.std(samples::DensitySampleVector) = _get_statw(std, samples, replace_const_shapes(ValueShapes.const_zero_shape, varshape(samples)))
 
 function Statistics.median(samples::DensitySampleVector)
     shape = varshape(samples)

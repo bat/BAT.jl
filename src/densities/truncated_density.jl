@@ -32,7 +32,7 @@ function logvalof(
     use_bounds::Bool = true,
     strict::Bool = false
 )
-    v_shaped = get_shaped_variate(varshape(density), v)
+    v_shaped = reshape_variate(varshape(density), v)
     if use_bounds && !variate_is_inbounds(density, v_shaped, strict)
         return log_zero_density(T)
     end
@@ -179,7 +179,7 @@ function truncate_dist_hard(dist::ConstValueDist, bounds::AbstractVector{<:Inter
 end
 
 function truncate_dist_hard(dist::NamedTupleDist{names}, bounds::AbstractArray{<:Interval}) where names
-    @argcheck length(eachindex(bounds)) == length(dist)
+    @argcheck length(eachindex(bounds)) == totalndof(varshape(dist))
     distributions = values(dist)
     accessors = values(varshape(dist))
 

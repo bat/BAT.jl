@@ -13,7 +13,7 @@ using StatsBase
 
     @testset "1D BATHistogram" begin
         @test BAT.get_bin_centers(bathist_1d) == [collect(1.5:1:10.5)]
-        @test BAT.find_localmodes(bathist_1d) == [[5.5], [9.5]]
+        @test BAT.find_marginalmodes(bathist_1d) == [[5.5], [9.5]]
     end
 
     data2 = [10, 20, 30, 40, 50, 50, 60, 70, 80, 90, 90, 100]
@@ -23,6 +23,6 @@ using StatsBase
     @testset "2D BATHistogram" begin
         @test BAT.get_bin_centers(bathist_2d) == [collect(1.5:1:10.5), collect(15:10:105)]
         @test BAT.get_bin_centers(bathist_2d.h) == [collect(1.5:1:10.5), collect(15:10:105)]
-        @test BAT.find_localmodes(bathist_2d) == [[5.5, 55.0], [9.5, 95.0]]
+        @test BAT.find_marginalmodes(bathist_2d) == [[5.5, 55.0], [9.5, 95.0]]
     end
 end

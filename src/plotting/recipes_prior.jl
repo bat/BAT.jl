@@ -4,11 +4,10 @@
 @recipe function f(
     prior::NamedTupleDist,
     parsel::Union{Integer, Symbol, Expr};
-    intervals = standard_confidence_vals,
+    intervals = default_credibilities,
     bins = 200,
     nsamples = 10^6,
-    normalize = true,
-    colors = standard_colors,
+    colors = default_colors,
     interval_labels = [],
     closed = :left
 )
@@ -21,13 +20,12 @@
         throw(ArgumentError("Symbol :$parsel refers to a multivariate parameter. Use :($parsel[i]) instead."))
     end
 
-    marg = bat_marginalize(
+    marg = get_marginal_dist(
         prior,
         idx,
         bins = bins,
         nsamples = nsamples,
-        closed = closed,
-        normalize = normalize
+        closed = closed
     ).result
 
     xlabel = if isa(parsel, Symbol) || isa(parsel, Expr)
@@ -52,7 +50,7 @@
 
         intervals --> intervals
         bins --> bins
-        normalize --> normalize
+        normalize --> true
         colors --> colors
         interval_labels --> interval_labels
 
@@ -68,11 +66,10 @@ end
     prior::NamedTupleDist,
     parsel::Union{NTuple{2,Integer}, NTuple{2,Union{Symbol, Expr, Integer}}};
     nsamples=10^6,
-    intervals = standard_confidence_vals,
+    intervals = default_credibilities,
     bins = 200,
     nsamples = 10^6,
-    normalize = true,
-    colors = standard_colors,
+    colors = default_colors,
     interval_labels = [],
     closed = :left,
     diagonal = Dict(),
@@ -90,12 +87,11 @@ end
     end
 
 
-    marg = bat_marginalize(
+    marg = get_marginal_dist(
         prior,
         (xidx, yidx),
         bins = bins,
-        closed = closed,
-        normalize = normalize
+        closed = closed
     ).result
 
 

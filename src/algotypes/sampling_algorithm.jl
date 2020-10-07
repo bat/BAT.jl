@@ -71,9 +71,9 @@ MCMC Sampling:
         algorithm::MCMCAlgorithm;
         max_nsteps::Integer,
         max_time::Real,
-        tuning::AbstractMCMCTuningStrategy,
-        init::MCMCInitStrategy,
-        burnin::MCMCBurninStrategy,
+        tuning::MCMCTuningAlgorithm,
+        init::MCMCInitAlgorithm,
+        burnin::MCMCBurninAlgorithm,
         convergence::MCMCConvergenceTest,
         strict::Bool = false,
         filter::Bool = true
@@ -125,3 +125,13 @@ end
 function argchoice_msg(::typeof(bat_sample), ::Val{:algorithm}, x::AbstractSamplingAlgorithm)
     "Using sampling algorithm $x"
 end
+
+
+
+"""
+    AbstractSampleGenerator
+
+Abstract super type for sample generators.
+"""
+abstract type AbstractSampleGenerator end
+export AbstractSampleGenerator

@@ -1,8 +1,3 @@
-export FixedStepNumber
-export FixedTrajectoryLength
-export NUTS
-
-
 abstract type HMCProposal end
 
 @with_kw struct FixedStepNumber <: HMCProposal
