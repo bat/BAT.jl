@@ -29,11 +29,11 @@ function mcmc_burnin!(
     outputs::Union{AbstractVector{<:DensitySampleVector},Nothing},
     tuners::AbstractVector{<:AbstractMCMCTunerInstance},
     chains::AbstractVector{<:MCMCIterator},
-    burnin_strategy::MCMCMultiCycleBurnin,
-    convergence_test::MCMCConvergenceTest;
-    nonzero_weights::Bool = true,
-    strict_mode::Bool = false,
-    callback::Function = nop_func
+    burnin_alg::MCMCMultiCycleBurnin,
+    convergence_test::MCMCConvergenceTest,
+    strict_mode::Bool,
+    nonzero_weights::Bool,
+    callback::Function
 )
     @info "Begin tuning of $(length(tuners)) MCMC chain(s)."
 
@@ -41,7 +41,7 @@ function mcmc_burnin!(
 
     cycles = zero(Int)
     successful = false
-    while !successful && cycles < burnin_strategy.max_ncycles
+    while !successful && cycles < burnin_alg.max_ncycles
         cycles += 1
 
         new_outputs = DensitySampleVector.(chains)
@@ -49,10 +49,10 @@ function mcmc_burnin!(
         mcmc_iterate!(
             new_outputs,
             chains,
-            max_nsamples = burnin.max_nsamples_per_cycle,
-            max_nsteps = burnin.max_nsteps_per_cycle,
-            max_time = max_time_per_cycle,
-            nonzero_weights = true,
+            max_nsamples = burnin_alg.max_nsamples_per_cycle,
+            max_nsteps = burnin_alg.max_nsteps_per_cycle,
+            max_time = burnin_alg.max_time_per_cycle,
+            nonzero_weights = nonzero_weights,
             callback = callback
         )
 

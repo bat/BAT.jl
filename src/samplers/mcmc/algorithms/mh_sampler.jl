@@ -188,6 +188,8 @@ end
 
 
 function next_cycle!(chain::MHIterator)
+    _cleanup_samples(chain)
+
     chain.info = MCMCIteratorInfo(chain.info, cycle = chain.info.cycle + 1)
     chain.nsamples = 0
     chain.stepno = 0
@@ -196,7 +198,8 @@ function next_cycle!(chain::MHIterator)
 
     resize!(chain.samples, 1)
 
-    i = _current_sample_idx(chain)
+    @info "XXXXX" BAT._current_sample_idx(chain) BAT._proposed_sample_idx(chain) string(chain.samples.info.sampletype)
+    i = _proposed_sample_idx(chain)
     @assert chain.samples.info[i].sampletype == CURRENT_SAMPLE
 
     chain.samples.weight[i] = 1
@@ -205,30 +208,28 @@ function next_cycle!(chain::MHIterator)
     chain
 end
 
-#=
-const CURRENT_SAMPLE = -1
-const PROPOSED_SAMPLE = -2
-const INVALID_SAMPLE = 0
-const ACCEPTED_SAMPLE = 1
-const REJECTED_SAMPLE = 2
-=#
+
+function _cleanup_samples(chain::MHIterator)
+    samples = chain.samples
+    current = _current_sample_idx(chain)
+    proposed = _proposed_sample_idx(chain)
+    if (current != proposed) && samples.info.sampletype[proposed] == CURRENT_SAMPLE
+        # Proposal was accepted in the last step
+        @assert samples.info.sampletype[current] == ACCEPTED_SAMPLE
+        samples.v[current] .= samples.v[proposed]
+        samples.logd[current] = samples.logd[proposed]
+        samples.weight[current] = samples.weight[proposed]
+        samples.info[current] = samples.info[proposed]
+
+        resize!(samples, 1)
+    end
+end
+
 
 function mcmc_step!(chain::MHIterator, callback::Function)
+    _cleanup_samples(chain)
+
     samples = chain.samples
-
-    let current = _current_sample_idx(chain), proposed = _proposed_sample_idx(chain)
-        if (current != proposed) && samples.info.sampletype[proposed] == CURRENT_SAMPLE
-            # Proposal was accepted in the last step
-            @assert samples.info.sampletype[current] == ACCEPTED_SAMPLE
-            samples.v[current] .= samples.v[proposed]
-            samples.logd[current] = samples.logd[proposed]
-            samples.weight[current] = samples.weight[proposed]
-            samples.info[current] = samples.info[proposed]
-
-            resize!(samples, 1)
-        end
-    end
-
     algorithm = getalgorithm(chain)
 
     if !mcmc_compatible(algorithm, chain.proposaldist, var_bounds(getdensity(chain)))

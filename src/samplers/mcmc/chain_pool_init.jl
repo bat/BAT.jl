@@ -57,7 +57,8 @@ function mcmc_init!(
     nchains::Int,
     init_alg::MCMCInitAlgorithm,
     tuning_alg::MCMCTuningAlgorithm,
-    callback::Function,
+    nonzero_weights::Bool,
+    callback::Function
 )
     @info "Trying to generate $nchains viable MCMC chain(s)."
 
@@ -99,7 +100,8 @@ function mcmc_init!(
             max_nsamples = max(5, div(init_alg.max_nsamples_init, 5)),
             max_nsteps =  max(50, div(init_alg.max_nsteps_init, 5)),
             max_time = init_alg.max_time_init / 5,
-            callback = callback
+            callback = callback,
+            nonzero_weights = nonzero_weights
         )
 
         viable_idxs = findall(isviablechain.(new_chains))
@@ -115,7 +117,8 @@ function mcmc_init!(
                 max_nsamples = init_alg.max_nsamples_init,
                 max_nsteps = init_alg.max_nsteps_init,
                 max_time = init_alg.max_time_init,
-                callback = callback
+                callback = callback,
+                nonzero_weights = nonzero_weights
             )
 
             nsamples_thresh = floor(Int, 0.8 * median([nsamples(chain) for chain in viable_chains]))

@@ -16,8 +16,9 @@ using StatsBase, Distributions, StatsBase, ValueShapes
     nchains = 4
  
     @testset "MCMCIterator" begin
-        @test @inferred(MCMCIterator(deepcopy(rng), algorithm, density, 1, unshaped(x, varshape(density)))) isa BAT.MHIterator
-        chain = @inferred(MCMCIterator(deepcopy(rng), algorithm, density, 1, unshaped(x, varshape(density)))) 
+        v_init = bat_initval(rng, density, InitFromTarget()).result
+        @test @inferred(MCMCIterator(deepcopy(rng), algorithm, density, 1, unshaped(v_init, varshape(density)))) isa BAT.MHIterator
+        chain = @inferred(MCMCIterator(deepcopy(rng), algorithm, density, 1, unshaped(v_init, varshape(density)))) 
         samples = DensitySampleVector(chain)
         BAT.mcmc_iterate!(samples, chain, max_nsamples = 10^5, max_nsteps = 10^5, nonzero_weights = false)
         @test chain.stepno == 10^5
@@ -38,12 +39,10 @@ using StatsBase, Distributions, StatsBase, ValueShapes
     burnin_alg = MCMCMultiCycleBurnin()
     convergence_test = BrooksGelmanConvergence()
     strict = true
-    nonzero_weights = true
+    nonzero_weights = false
     callback = (x...) -> nothing
     max_neval = 10 * n
     max_time = Inf
-
-    x = bat_initval(rng, density, InitFromTarget()).result
 
     init_result = @inferred(BAT.mcmc_init!(
         rng,
@@ -52,24 +51,28 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         nchains,
         init_alg,
         tuning_alg,
-        callback
+        nonzero_weights,
+        callback,
     ))
 
     (chains, tuners, outputs) = init_result
     @test chains isa AbstractVector{<:BAT.MHIterator}
     @test tuners isa AbstractVector{<:BAT.ProposalCovTuner}
     @test outputs isa AbstractVector{<:DensitySampleVector}
-#=
-    mcmc_burnin!(
-        algorithm.store_burnin ? chain_outputs : nothing,
+
+    BAT.mcmc_burnin!(
+        outputs,
         tuners,
         chains,
-        algorithm.burnin,
-        algorithm.convergence,
-        strict_mode = algorithm.strict,
-        callback = algorithm.store_burnin ? algorithm.callback : nop_func
+        burnin_alg,
+        convergence_test,
+        strict,
+        nonzero_weights,
+        callback
     )
 
+
+    #=
     mcmc_iterate!(
         chain_outputs,
         chains;

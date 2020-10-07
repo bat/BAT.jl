@@ -95,7 +95,7 @@ end
 function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator, samples::DensitySampleVector)
     stats = tuner.stats
     stats_reweight_factor = tuner.config.r
-    reweight_relative!.(stats, stats_reweight_factor)
+    reweight_relative!(stats, stats_reweight_factor)
     # empty!.(stats)
     append!(stats, samples)
 

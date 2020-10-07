@@ -57,7 +57,7 @@ function bat_sample_impl(
     )     
 
     if !store_burnin
-        empty!.(chain_outputs)
+        chain_outputs .= DensitySampleVector.(chains)
     end
 
     mcmc_burnin!(
