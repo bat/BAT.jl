@@ -244,7 +244,18 @@ function run_ND_benchmark(;
             mcmc_sample = nothing
             tbf = time()
             if isa(algorithm,BAT.MetropolisHastings)
-                mcmc_sample = bat_sample(dis, (n_samples, n_chains),algorithm,max_time = Inf,init = init,burnin = burnin,convergence = convergence,strict = true,filter = true).result
+                mcmc_sample = bat_sample(
+                    dis, n_samples * n_chains,
+                    MCMCSampling(
+                        algorithm = algorithm,
+                        nchains = nchains,
+                        init = init,
+                        burnin = burnin,
+                        convergence = convergence,
+                        strict = true,
+                        nonzero_weights = true
+                    )
+                ).result.result
             elseif isa(algorithm,BAT.HamiltonianMC)
                 mcmc_sample = bat_sample(dis, n_samples*n_chains,algorithm,).result
             end
@@ -255,7 +266,18 @@ function run_ND_benchmark(;
                 for i in 1:5
                     tbf = time()
                     if isa(algorithm,BAT.MetropolisHastings)
-                        bat_sample(dis, (n_samples, n_chains),algorithm,max_time = Inf,init = init,burnin = burnin,convergence = convergence,strict = true,filter = true).result
+                        bat_sample(
+                            dis, n_samples * n_chains,
+                            MCMCSampling(
+                                algorithm = algorithm,
+                                nchains = nchains,
+                                init = init,
+                                burnin = burnin,
+                                convergence = convergence,
+                                strict = true,
+                                nonzero_weights = true
+                            )
+                        ).result.result
                     elseif isa(algorithm,BAT.HamiltonianMC)
                         bat_sample(dis, n_samples*n_chains,algorithm).result
                     end
