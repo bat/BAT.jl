@@ -53,10 +53,13 @@ function bat_sample_impl(
         mcmc_algorithm,
         density,
         algorithm.nchains,
-        callback = algorithm.store_burnin ? algorithm.callback : nop_func
+        algorithm.init,
+        mcmc_algorithm.tuning,
+        algorithm.nonzero_weights,
+        algorithm.store_burnin ? algorithm.callback : nop_func
     )     
 
-    if !store_burnin
+    if !algorithm.store_burnin
         chain_outputs .= DensitySampleVector.(chains)
     end
 
@@ -66,8 +69,9 @@ function bat_sample_impl(
         chains,
         algorithm.burnin,
         algorithm.convergence,
-        strict_mode = algorithm.strict,
-        callback = algorithm.store_burnin ? algorithm.callback : nop_func
+        algorithm.strict,
+        algorithm.nonzero_weights,
+        algorithm.store_burnin ? algorithm.callback : nop_func
     )
 
     mcmc_iterate!(
@@ -76,7 +80,7 @@ function bat_sample_impl(
         max_nsamples = div(n, length(chains)),
         max_nsteps = div(max_neval, length(chains)),
         max_time = max_time,
-        nonzero_weights = nonzero_weights,
+        nonzero_weights = algorithm.nonzero_weights,
         callback = algorithm.callback
     )
 
