@@ -2,9 +2,9 @@
 @recipe function f(
     maybe_shaped_samples::DensitySampleVector,
     parsel::NTuple{2,Union{Symbol, Expr, Integer}};
-    intervals = standard_confidence_vals,
+    intervals = default_credibilities,
     interval_labels = [],
-    colors = standard_colors,
+    colors = default_colors,
     mean = false,
     std = false,
     globalmode = false,

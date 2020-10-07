@@ -8,9 +8,9 @@ Also see the plotting tutorial for examples and further information on the plott
 plot(
     samples::DensitySampleVector / prior::NamedTupleDist,
     parsel::Union{Integer, Symbol, Expr};
-    intervals = standard_confidence_vals,
+    intervals = BAT.default_credibilities,
     bins = 200,
-    colors = standard_colors,
+    colors = BAT.default_colors,
     interval_labels = [],
     mean = false,
     std = false,
@@ -64,9 +64,9 @@ Keyword arguments for [attributes supported by *Plots.jl*](https://docs.juliaplo
 plot(
     samples::DensitySampleVector / prior::NamedTupleDist,
     parsel::Union{NTuple{2, Integer}, NTuple{2, Union{Symbol, Expr}}};
-    intervals = standard_confidence_vals,
+    intervals = BAT.default_credibilities,
 	interval_labels = [],
-    colors = standard_colors,
+    colors = BAT.default_colors,
 	bins = 200,
     mean = false,
     std = false,

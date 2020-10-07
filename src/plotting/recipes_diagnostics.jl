@@ -65,10 +65,10 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
                     @series begin
                         subplot := ctr
                         seriestype --> get(histogram, "seriestype", :stephist)
-                        intervals --> get(histogram, "intervals", standard_confidence_vals)
+                        intervals --> get(histogram, "intervals", default_credibilities)
                         bins --> get(histogram, "bins", 200)
                         normalize --> get(histogram, "normalize", true)
-                        colors --> get(histogram, "colors", standard_colors)
+                        colors --> get(histogram, "colors", default_colors)
                         mean --> get(histogram, "mean", false)
                         std --> get(histogram, "std", false)
                         globalmode --> get(histogram, "globalmode", false)

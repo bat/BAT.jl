@@ -14,8 +14,8 @@ end
 @recipe function f(
     origmarg::MarginalDist,
     parsel::Union{Integer, Symbol, Expr};
-    intervals = standard_confidence_vals,
-    colors = standard_colors,
+    intervals = default_credibilities,
+    colors = default_colors,
     interval_labels = []
 )
     indx = asindex(origmarg, parsel)

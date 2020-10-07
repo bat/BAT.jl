@@ -30,7 +30,7 @@ end
     μ = stats.param_stats.mean[[pi_x, pi_y]]
     mode_xy = stats.mode[[pi_x, pi_y]]
 
-    conf = standard_confidence_vals
+    conf = default_credibilities
 
     seriescolor --> :darkviolet
     seriesalpha --> 0.75

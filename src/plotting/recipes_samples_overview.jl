@@ -63,8 +63,8 @@
 
             seriestype --> get(diagonal, "seriestype", :smallest_intervals)
             bins := bins[i]
-            colors --> get(diagonal, "colors", standard_colors)
-            intervals --> get(diagonal, "intervals", standard_confidence_vals)
+            colors --> get(diagonal, "colors", default_colors)
+            intervals --> get(diagonal, "intervals", default_credibilities)
             interval_labels --> get(diagonal, "interval_labels", [])
             legend --> get(diagonal, "legend", false)
             mean --> get(diagonal, "mean", mean)
@@ -87,8 +87,8 @@
 
                 seriestype --> get(upper, "seriestype", :histogram)
                 bins := (bins[i], bins[j])
-                colors --> get(upper, "colors", standard_colors)
-                intervals --> get(upper, "intervals", standard_confidence_vals)
+                colors --> get(upper, "colors", default_colors)
+                intervals --> get(upper, "intervals", default_credibilities)
                 interval_labels --> get(upper, "interval_labels", [])
                 legend --> get(upper, "legend", false)
                 colorbar --> get(upper, "colorbar", false)
@@ -143,9 +143,9 @@
 
                  seriestype --> get(lower, "seriestype", :smallest_intervals)
                  bins := (bins[i], bins[j])
-                 colors --> get(lower, "colors", standard_colors)
+                 colors --> get(lower, "colors", default_colors)
                  colorbar --> get(lower, "colorbar", false)
-                 intervals --> get(lower, "intervals", standard_confidence_vals)
+                 intervals --> get(lower, "intervals", default_credibilities)
                  interval_labels --> get(lower, "interval_labels", [])
                  legend --> get(lower, "legend", false)
                  mean --> get(lower, "mean", mean)
@@ -170,8 +170,8 @@ end
         model::Function,
         sample_from::Union{DensitySampleVector, AbstractDensity};
         n_samples = 10^4,
-        conf_intervals = standard_confidence_vals,
-        colors = standard_colors,
+        conf_intervals = default_credibilities,
+        colors = default_colors,
         global_mode = true,
         marginal_mode = false)
 

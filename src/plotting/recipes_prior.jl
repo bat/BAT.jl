@@ -4,10 +4,10 @@
 @recipe function f(
     prior::NamedTupleDist,
     parsel::Union{Integer, Symbol, Expr};
-    intervals = standard_confidence_vals,
+    intervals = default_credibilities,
     bins = 200,
     nsamples = 10^6,
-    colors = standard_colors,
+    colors = default_colors,
     interval_labels = [],
     closed = :left
 )
@@ -66,10 +66,10 @@ end
     prior::NamedTupleDist,
     parsel::Union{NTuple{2,Integer}, NTuple{2,Union{Symbol, Expr, Integer}}};
     nsamples=10^6,
-    intervals = standard_confidence_vals,
+    intervals = default_credibilities,
     bins = 200,
     nsamples = 10^6,
-    colors = standard_colors,
+    colors = default_colors,
     interval_labels = [],
     closed = :left,
     diagonal = Dict(),

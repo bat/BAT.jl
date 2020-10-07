@@ -2,8 +2,8 @@
 @recipe function f(
     marg::MarginalDist,
     parsel::NTuple{2,Union{Symbol, Expr, Integer}};
-    intervals = standard_confidence_vals,
-    colors = standard_colors,
+    intervals = default_credibilities,
+    colors = default_colors,
     diagonal = Dict(),
     upper = Dict(),
     right = Dict(),
@@ -118,8 +118,8 @@
             seriestype := get(upper, "seriestype", :histogram)
             bins --> get(upper, "nbins", 200)
             normalize --> get(upper, "normalize", true)
-            colors --> get(upper, "colors", standard_colors)
-            intervals --> get(upper, "intervals", standard_confidence_vals)
+            colors --> get(upper, "colors", default_colors)
+            intervals --> get(upper, "intervals", default_credibilities)
             legend --> get(upper, "legend", true)
 
             marg, parsel[1]
@@ -150,8 +150,8 @@
             yguide --> ylabel
             normalize --> get(diagonal, "normalize", true)
             bins --> get(diagonal, "nbins", 200)
-            colors --> get(diagonal, "colors", standard_colors)
-            intervals --> get(diagonal, "intervals", standard_confidence_vals)
+            colors --> get(diagonal, "colors", default_colors)
+            intervals --> get(diagonal, "intervals", default_credibilities)
             legend --> get(diagonal, "legend", false)
 
             marg, (parsel[1], parsel[2])
@@ -165,8 +165,8 @@
             yguide := "p("*ylabel*")"
             normalize --> get(right, "normalize", true)
             bins --> get(right, "nbins", 200)
-            colors --> get(right, "colors", standard_colors)
-            intervals --> get(right, "intervals", standard_confidence_vals)
+            colors --> get(right, "colors", default_colors)
+            intervals --> get(right, "intervals", default_credibilities)
             legend --> get(right, "legend", true)
 
             marg, parsel[2]
