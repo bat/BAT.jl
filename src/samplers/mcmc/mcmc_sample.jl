@@ -1,184 +1,92 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-# BAT-internal:
-const MCMCOutputWithChains = Tuple{DensitySampleVector, MCMCBasicStats, AbstractVector{<:MCMCIterator}}
+@doc doc"""
+    MCMCSampling <: AbstractSamplingAlgorithm
 
-# BAT-internal:
-function MCMCOutputWithChains(rng::AbstractRNG, chainspec::MCMCSpec)
-    dummy_chain = chainspec(deepcopy(rng), zero(Int64))
+Constructor:
 
-    (
-        DensitySampleVector(dummy_chain),
-        MCMCBasicStats(dummy_chain),
-        Vector{typeof(dummy_chain)}()
-    )
-end
-
-
-
-# BAT-internal:
-const MCMCOutput = Tuple{DensitySampleVector, MCMCBasicStats}
-
-# BAT-internal:
-function MCMCOutput(rng::AbstractRNG, chainspec::MCMCSpec)
-    samples, stats = MCMCOutputWithChains(rng, chainspec::MCMCSpec)
-    (samples, stats)
-end
-
-
-
-# BAT-internal:
-function mcmc_sample(
-    rng::AbstractRNG,
-    chainspec::MCMCSpec,
-    nsamples::Integer,
-    nchains::Integer;
-    max_nsteps::Int64 = Int64(10 * nsamples),
-    max_time::Float64 = Inf,
-    tuner_config::AbstractMCMCTuningStrategy = AbstractMCMCTuningStrategy(chainspec.algorithm),
-    convergence_test::MCMCConvergenceTest = BrooksGelmanConvergence(),
-    init_strategy::MCMCInitStrategy = MCMCInitStrategy(tuner_config),
-    burnin_strategy::MCMCBurninStrategy = MCMCBurninStrategy(chainspec.algorithm, nsamples, max_nsteps, tuner_config),
-    granularity::Int = 1,
-    strict_mode::Bool = false
-)
-    result = MCMCOutputWithChains(rng, chainspec)
-
-    result_samples, result_stats, result_chains = result
-
-    (chains, tuners) = mcmc_init(
-        rng,
-        chainspec,
-        nchains,
-        tuner_config,
-        init_strategy
-    )
-
-    mcmc_tune_burnin!(
-        (),
-        tuners,
-        chains,
-        convergence_test,
-        burnin_strategy;
-        strict_mode = strict_mode
-    )
-
-    append!(result_chains, chains)
-
-    mcmc_sample!(
-        (result_samples, result_stats),
-        result_chains,
-        nsamples;
-        max_nsteps = max_nsteps,
-        max_time = max_time,
-        granularity = granularity
-    )
-
-    result
-end
-
-
-# BAT-internal:
-function mcmc_sample!(
-    result::MCMCOutput,
-    chains::AbstractVector{<:MCMCIterator},
-    nsamples::Integer;
-    max_nsteps::Int64 = Int64(100 * nsamples),
-    max_time::Float64 = Inf,
-    granularity::Int = 1
-)
-    result_samples, result_stats = result
-
-    samples = DensitySampleVector.(chains)
-    stats = MCMCBasicStats.(chains)
-
-    nonzero_weights = granularity <= 1
-    callbacks = [
-        MCMCMultiCallback(
-            MCMCAppendCallback(samples[i], nonzero_weights),
-            MCMCAppendCallback(stats[i], nonzero_weights)
-        ) for i in eachindex(chains)
-    ]
-
-    mcmc_iterate!(
-        callbacks,
-        chains;
-        max_nsamples = Int64(nsamples),
-        max_nsteps = max_nsteps,
-        max_time = max_time
-    )
-
-    for x in samples
-        merge!(result_samples, x)
-    end
-
-    for x in stats
-        merge!(result_stats, x)
-    end
-
-    result
-end
-
-
-function bat_sample_impl(
-    rng::AbstractRNG,
-    target::PosteriorDensity,
-    n::Union{Integer, Tuple{Integer,Integer}},
-    algorithm::MCMCAlgorithm;
-    max_nsteps::Integer = 10 * n[1],
-    max_time::Real = Inf,
-    tuning::AbstractMCMCTuningStrategy = AbstractMCMCTuningStrategy(algorithm),
-    init::MCMCInitStrategy = MCMCInitStrategy(tuning),
-    burnin::MCMCBurninStrategy = MCMCBurninStrategy(algorithm, n[1], max_nsteps, tuning),
+```julia
+MCMCSampling(;
+    algorithm::MCMCAlgorithm = MetropolisHastings(),
+    init::MCMCInitAlgorithm = MCMCChainPoolInit(),
+    burnin::MCMCBurninAlgorithm = MCMCMultiCycleBurnin(),
     convergence::MCMCConvergenceTest = BrooksGelmanConvergence(),
     strict::Bool = false,
-    filter::Bool = true
 )
-    density = convert(AbstractDensity, target)
-
-    chainspec = MCMCSpec(algorithm, density)
-
-    nsamples_per_chain, nchains = _mcmc_nsamples_tuple(n)
-
-    unshaped_samples, mcmc_stats, chains = mcmc_sample(
-        rng,
-        chainspec,
-        nsamples_per_chain,
-        nchains;
-        tuner_config = tuning,
-        convergence_test = convergence,
-        init_strategy = init,
-        burnin_strategy = burnin,
-        max_nsteps = Int64(max_nsteps),
-        max_time = Float64(max_time),
-        granularity = filter ? 1 : 2,
-        strict_mode = strict
-    )
-
-    samples = varshape(density).(unshaped_samples)
-
-    (result = samples, chains = chains)
+```
+"""
+@with_kw struct MCMCSampling{
+    AL<:MCMCAlgorithm,
+    IN<:MCMCInitAlgorithm,
+    BI<:MCMCBurninAlgorithm,
+    CT<:MCMCConvergenceTest,
+    CB<:Function
+} <: AbstractSamplingAlgorithm
+    sampler::AL = MetropolisHastings()
+    nchains::Int = 4
+    init::IN = MCMCChainPoolInit()
+    burnin::BI = MCMCMultiCycleBurnin()
+    convergence::CT = BrooksGelmanConvergence()
+    strict::Bool = true
+    store_burnin::Bool = false
+    nonzero_weights::Bool = true
+    callback::CB = nop_func
 end
 
-
-_mcmc_nsamples_tuple(n::NTuple{2, Integer}) = n
-
-function _mcmc_nsamples_tuple(n::Integer)
-    nchains = 4
-    nsamples = div(n, nchains)
-    (nsamples, nchains)
-end
+export MCMCSampling
 
 
-# ToDo: Remove once more generalized init-value generation is in place:
 function bat_sample_impl(
     rng::AbstractRNG,
-    dist::Union{Distribution,Histogram},
-    n::Any,
-    algorithm::MCMCAlgorithm;
-    kwargs...
+    target::AnyDensityLike,
+    n::Integer,
+    algorithm::MCMCSampling;
+    max_neval::Integer = 10 * n,
+    max_time::Real = Inf
 )
-    posterior = PosteriorDensity(LogDVal(0), dist)
-    bat_sample_impl(rng, posterior, n, algorithm; kwargs...)
+    density = convert(AbstractDensity, target)
+    mcmc_algorithm = algorithm.sampler
+
+    (chains, tuners, chain_outputs) = mcmc_init!(
+        rng,
+        mcmc_algorithm,
+        density,
+        algorithm.nchains,
+        algorithm.init,
+        get_mcmc_tuning(mcmc_algorithm),
+        algorithm.nonzero_weights,
+        algorithm.store_burnin ? algorithm.callback : nop_func
+    )
+
+    if !algorithm.store_burnin
+        chain_outputs .= DensitySampleVector.(chains)
+    end
+
+    mcmc_burnin!(
+        algorithm.store_burnin ? chain_outputs : nothing,
+        tuners,
+        chains,
+        algorithm.burnin,
+        algorithm.convergence,
+        algorithm.strict,
+        algorithm.nonzero_weights,
+        algorithm.store_burnin ? algorithm.callback : nop_func
+    )
+
+    mcmc_iterate!(
+        chain_outputs,
+        chains;
+        max_nsamples = div(n, length(chains)),
+        max_nsteps = div(max_neval, length(chains)),
+        max_time = max_time,
+        nonzero_weights = algorithm.nonzero_weights,
+        callback = algorithm.callback
+    )
+
+    output = DensitySampleVector(first(chains))
+    isnothing(output) || append!.(Ref(output), chain_outputs)
+    samples = varshape(density).(output)
+
+    (result = samples, generator = MCMCSampleGenerator(chains))
 end

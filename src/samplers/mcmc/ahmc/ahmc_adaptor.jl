@@ -1,10 +1,3 @@
-export MassMatrixAdaptor
-export StepSizeAdaptor
-export NaiveHMCAdaptor
-export StanHMCAdaptor
-export NoAdaptor
-
-
 abstract type HMCAdaptor end
 
 struct NoAdaptor <: HMCAdaptor end
@@ -21,6 +14,7 @@ end
 
 @with_kw struct StanHMCAdaptor <: HMCAdaptor
     target_acceptance::Float64 = 0.8
+    n_adapts::Int64 = 500
 end
 
 
@@ -65,9 +59,14 @@ end
 function AHMCAdaptor(
     adaptor::StanHMCAdaptor,
     metric::AdvancedHMC.AbstractMetric,
-    integrator::AdvancedHMC.AbstractIntegrator
+    integrator::AdvancedHMC.AbstractIntegrator,
 )
     mma = AdvancedHMC.MassMatrixAdaptor(metric)
     ssa = AdvancedHMC.StepSizeAdaptor(adaptor.target_acceptance, integrator)
-    return AdvancedHMC.StanHMCAdaptor(mma, ssa)
+    stan_adaptor = AdvancedHMC.StanHMCAdaptor(mma, ssa)
+
+    # Initialize state using Stan defaults
+    # See: https://mc-stan.org/docs/2_18/reference-manual/hmc-algorithm-parameters.html
+    AdvancedHMC.initialize!(stan_adaptor.state, 75, 50, 25, Int(adaptor.n_adapts))
+    return stan_adaptor
 end

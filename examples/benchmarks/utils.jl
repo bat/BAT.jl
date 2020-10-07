@@ -111,10 +111,10 @@ function plot1D(
 
     hunnorm = fit(Histogram, [BAT.flatview(samples.v)...],FrequencyWeights(BAT.flatview(samples.weight)),binning)
 	h = fit(Histogram, [BAT.flatview(samples.v)...],FrequencyWeights(BAT.flatview(samples.weight)),binning)
-	h = StatsBase.normalize(h)
 	idx = BAT.asindex(samples, 1)
 	uvbd = EmpiricalDistributions.UvBinnedDist(h)
 	marg = BAT.MarginalDist((idx,),uvbd,varshape(samples))
+	h = StatsBase.normalize(h)
 
 	plot(marg,1,seriestype = :smallest_intervals,normalize=true)
 
@@ -207,10 +207,10 @@ function run1D(
 	)
 
     sample_stats_all = []
-    samples, chains = bat_sample(testfunctions[key].posterior, (n_samples, n_chains), algorithm)
+    samples, chains = bat_sample(testfunctions[key].posterior, n_samples * n_chains, MCMCSampling(sampler = algorithm, nchains = n_chains))
     for i in 1:n_runs
         time_before = time()
-        samples, chains = bat_sample(testfunctions[key].posterior, (n_samples, n_chains), algorithm)
+        samples, chains = bat_sample(testfunctions[key].posterior, n_samples * n_chains, MCMCSampling(sampler = algorithm, nchains = n_chains))
         time_after = time()
 
     	h = plot1D(samples,testfunctions,key,sample_stats)# posterior, key, analytical_stats,sample_stats)
@@ -429,17 +429,17 @@ function run2D(
 	testfunctions::Dict,
     sample_stats::Vector{Any},
     run_stats::Vector{Any},
-	algorithm::BAT.AbstractSamplingAlgorithm,
+	algorithm::MCMCAlgorithm,
 	n_samples::Integer,
 	n_chains::Integer,
 	n_runs=1)
 
     sample_stats_all = []
 
-    samples, stats = bat_sample(testfunctions[key].posterior, (n_samples, n_chains), algorithm)
+    samples, stats = bat_sample(testfunctions[key].posterior, n_samples * n_chains, MCMCSampling(sampler = algorithm, nchains = n_chains))
     for i in 1:n_runs
         time_before = time()
-        samples, stats = bat_sample(testfunctions[key].posterior, (n_samples, n_chains), algorithm)
+        samples, stats = bat_sample(testfunctions[key].posterior, n_samples * n_chains, MCMCSampling(sampler = algorithm, nchains = n_chains))
         time_after = time()
 
 		h = plot2D(samples, testfunctions, key, sample_stats)

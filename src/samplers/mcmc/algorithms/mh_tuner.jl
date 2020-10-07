@@ -1,10 +1,10 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-# ToDo: Add literature references to AdaptiveMetropolisTuning docstring.
+# ToDo: Add literature references to AdaptiveMHTuning docstring.
 
 """
-    AdaptiveMetropolisTuning(...)
+    AdaptiveMHTuning(...) <: MHProposalDistTuning
 
 Adaptive MCMC tuning strategy for Metropolis-Hastings samplers.
 
@@ -33,7 +33,7 @@ Fields:
 Constructors:
 
 ```julia
-AdaptiveMetropolisTuning(
+AdaptiveMHTuning(
     λ::Real,
     α::IntervalSets.ClosedInterval{<:Real},
     β::Real,
@@ -42,7 +42,7 @@ AdaptiveMetropolisTuning(
 )
 ```
 """
-@with_kw struct AdaptiveMetropolisTuning <: AbstractMCMCTuningStrategy
+@with_kw struct AdaptiveMHTuning <: MHProposalDistTuning
     λ::Float64 = 0.5
     α::IntervalSets.ClosedInterval{Float64} = ClosedInterval(0.15, 0.35)
     β::Float64 = 1.5
@@ -50,51 +50,52 @@ AdaptiveMetropolisTuning(
     r::Real = 0.5
 end
 
-export AdaptiveMetropolisTuning
-
-
-# Deprecate:
-AbstractMCMCTuningStrategy(algorithm::MetropolisHastings) = AdaptiveMetropolisTuning()
-
-(config::AdaptiveMetropolisTuning)(chain::MHIterator) = ProposalCovTuner(config, chain)
+export AdaptiveMHTuning
 
 
 
 mutable struct ProposalCovTuner{
     S<:MCMCBasicStats
-} <: AbstractMCMCTuner
-    config::AdaptiveMetropolisTuning
+} <: AbstractMCMCTunerInstance
+    config::AdaptiveMHTuning
     stats::S
     iteration::Int
     scale::Float64
 end
 
+(tuning::AdaptiveMHTuning)(chain::MHIterator) = ProposalCovTuner(tuning, chain)
 
-function ProposalCovTuner(
-    config::AdaptiveMetropolisTuning,
-    chain::MHIterator
-)
-    m = totalndof(getposterior(chain))
+
+function ProposalCovTuner(tuning::AdaptiveMHTuning, chain::MHIterator)
+    m = totalndof(getdensity(chain))
     scale = 2.38^2 / m
-    ProposalCovTuner(config, MCMCBasicStats(chain), 1, scale)
+    ProposalCovTuner(tuning, MCMCBasicStats(chain), 1, scale)
 end
 
 
-isviable(tuner::ProposalCovTuner, chain::MHIterator) = nsamples(chain) >= 2
 
+_approx_cov(target::Distribution) = cov(target)
+_approx_cov(target::DistLikeDensity) = cov(target)
+_approx_cov(target::AbstractPosteriorDensity) = cov(getprior(target))
 
 function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator)
-    Σ_unscaled = cov(getprior(getposterior(chain)))
+    Σ_unscaled = _approx_cov(getdensity(chain))
     Σ = Σ_unscaled * tuner.scale
 
-    next_cycle!(chain)
+    next_cycle!(chain) # ToDo: This would be better placed in the burn-in algorithm
     chain.proposaldist = set_cov(chain.proposaldist, Σ)
 
     nothing
 end
 
 
-function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator)
+function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator, samples::DensitySampleVector)
+    stats = tuner.stats
+    stats_reweight_factor = tuner.config.r
+    reweight_relative!(stats, stats_reweight_factor)
+    # empty!.(stats)
+    append!(stats, samples)
+
     config = tuner.config
 
     α_min = minimum(config.α)
@@ -110,13 +111,13 @@ function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator)
     c = tuner.scale
     Σ_old = Matrix(get_cov(chain.proposaldist))
 
-    S = convert(Array, tuner.stats.param_stats.cov)
+    S = convert(Array, stats.param_stats.cov)
     a_t = 1 / t^λ
     new_Σ_unscal = (1 - a_t) * (Σ_old/c) + a_t * S
 
     α = eff_acceptance_ratio(chain)
 
-    max_log_posterior = tuner.stats.logtf_stats.maximum
+    max_log_posterior = stats.logtf_stats.maximum
 
     if α_min <= α <= α_max
         chain.info = MCMCIteratorInfo(chain.info, tuned = true)
@@ -134,45 +135,8 @@ function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator)
 
     Σ_new = new_Σ_unscal * tuner.scale
 
-    next_cycle!(chain)
     chain.proposaldist = set_cov(chain.proposaldist, Σ_new)
     tuner.iteration += 1
 
-    nothing
-end
-
-
-function run_tuning_cycle!(
-    callbacks,
-    tuners::AbstractVector{<:ProposalCovTuner},
-    chains::AbstractVector{<:MHIterator};
-    kwargs...
-)
-    run_tuning_iterations!(callbacks, tuners, chains; kwargs...)
-    tuning_update!.(tuners, chains)
-    nothing
-end
-
-
-function run_tuning_iterations!(
-    callbacks,
-    tuners::AbstractVector{<:ProposalCovTuner},
-    chains::AbstractVector{<:MHIterator};
-    max_nsamples::Int64 = Int64(1000),
-    max_nsteps::Int64 = Int64(10000),
-    max_time::Float64 = Inf
-)
-    user_callbacks = mcmc_callback_vector(callbacks, eachindex(chains))
-
-    combined_callbacks = broadcast(tuners, user_callbacks) do tuner, user_callback
-        (level, chain) -> begin
-            if level == 1
-                get_samples!(tuner.stats, chain, true)
-            end
-            user_callback(level, chain)
-        end
-    end
-
-    mcmc_iterate!(combined_callbacks, chains, max_nsamples = max_nsamples, max_nsteps = max_nsteps, max_time = max_time)
     nothing
 end

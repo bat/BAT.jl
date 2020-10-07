@@ -47,7 +47,7 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets, ValueShapes
     @test @inferred(BAT.truncate_dist_hard(prior_dist, intervals)).dist isa NamedTupleDist
     let
         trunc_dist, logscalecorr = @inferred BAT.truncate_dist_hard(prior_dist, intervals)
-        @test logpdf(trunc_dist, [1, 2, 0, 3]) + logscalecorr ≈ logpdf(prior_dist, [1, 2, 0, 3])
+        @test logpdf(unshaped(trunc_dist), [1, 2, 0, 3]) + logscalecorr ≈ logpdf(unshaped(prior_dist), [1, 2, 0, 3])
     end
 
     @test @inferred(BAT.truncate_density(prior, bounds)) isa BAT.TruncatedDensity
@@ -66,7 +66,7 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets, ValueShapes
 
     let
         trunc_prior_dist = parent(BAT.getprior(trunc_pstr)).dist
-        s = bat_sample(trunc_pstr, (10^5), MetropolisHastings()).result
+        s = bat_sample(trunc_pstr, 10^5, MCMCSampling()).result
         s_flat = flatview(unshaped.(s))
         @test all(minimum.(intervals) .< minimum(s_flat))
         @test all(maximum.(intervals) .> maximum(s_flat))

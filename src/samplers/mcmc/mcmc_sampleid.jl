@@ -6,12 +6,13 @@ const INVALID_SAMPLE = 0
 const ACCEPTED_SAMPLE = 1
 const REJECTED_SAMPLE = 2
 
+abstract type SampleID end
 
-struct MCMCSampleID
+struct MCMCSampleID <: SampleID
     chainid::Int32
     chaincycle::Int32
     stepno::Int64
-    sampletype::Int64
+    sampletype::Int32
 end
 
 

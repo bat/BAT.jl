@@ -19,8 +19,12 @@ function bat_findmode_impl(target::AnySampleable, algorithm::ModeAsDefined)
     (result = StatsBase.mode(target),)
 end
 
+function bat_findmode_impl(target::Distribution, algorithm::ModeAsDefined)
+    (result = varshape(target)(StatsBase.mode(unshaped(target))),)
+end
+
 function bat_findmode_impl(target::DistributionDensity, algorithm::ModeAsDefined)
-    (result = StatsBase.mode(target.dist),)
+    bat_findmode_impl(parent(target), algorithm)
 end
 
 
@@ -51,37 +55,24 @@ end
 
 Constructors:
 
-    MaxDensityNelderMead()
+```julia
+MaxDensityNelderMead(init::InitvalAlgorithm = InitFromTarget)
+```
 
 Estimate the mode of a probability density using Nelder-Mead optimization
 (via [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl)).
 """
-struct MaxDensityNelderMead <: AbstractModeEstimator end
+@with_kw struct MaxDensityNelderMead{IA<:InitvalAlgorithm} <: AbstractModeEstimator
+    init::IA = InitFromTarget()
+end
 export MaxDensityNelderMead
 
 function bat_findmode_impl(target::AnySampleable, algorithm::MaxDensityNelderMead; initial_mode = missing)
     shape = varshape(target)
-    x = _get_initial_mode(target, initial_mode)
+    x = unshaped(bat_initval(target, algorithm.init).result)
     conv_target = convert(AbstractDensity, target)
     r = Optim.maximize(p -> logvalof(conv_target, p), x, Optim.NelderMead())
     (result = shape(Optim.minimizer(r.res)), info = r)
-end
-
-
-_get_initial_mode(target::AnySampleable, ::Missing) =
-    _get_initial_mode(target, rand(sampler(getprior(target))))
-
-_get_initial_mode(target::AnySampleable, samples::DensitySampleVector) =
-    _get_initial_mode(target, unshaped(bat_findmode(samples).result))
-
-_get_initial_mode(target::AnySampleable, x::AbstractArray{<:Real}) = Array(x)
-_get_initial_mode(target::AnySampleable, x::Array{<:Real}) = x
-
-function _get_initial_mode(target::AnySampleable, x)
-    shape = varshape(target)
-    x_unshaped = Vector{<:Real}(undef, shape)
-    shape(x_unshaped)[] = stripscalar(x)
-    x_unshaped
 end
 
 
@@ -91,20 +82,24 @@ end
 
 Constructors:
 
-    MaxDensityLBFGS()
+```julia
+MaxDensityLBFGS(init::InitvalAlgorithm = InitFromTarget)
+```
 
 Estimate the mode of a probability density using LBFGS optimization (via
 [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl)). The gradient
 of the density is computed using forward-mode auto-differentiation (via
 [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl)).
 """
-struct MaxDensityLBFGS <: AbstractModeEstimator end
+@with_kw struct MaxDensityLBFGS{IA<:InitvalAlgorithm} <: AbstractModeEstimator
+    init::IA = InitFromTarget()
+end
 export MaxDensityLBFGS
 
 
 function bat_findmode_impl(target::AnySampleable, algorithm::MaxDensityLBFGS; initial_mode = missing)
     shape = varshape(target)
-    x = _get_initial_mode(target, initial_mode)
+    x = unshaped(bat_initval(target, algorithm.init).result)
     conv_target = convert(AbstractDensity, target)
     r = Optim.maximize(p -> logvalof(conv_target, p), x, Optim.LBFGS(); autodiff = :forward)
     (result = shape(Optim.minimizer(r.res)), info = r)
@@ -127,7 +122,7 @@ function bat_marginalmode_impl(samples::DensitySampleVector; nbins::Union{Intege
             number_of_bins = nbins
         end
 
-        marginalmode_param = find_localmodes(bat_marginalize(samples, param, bins=number_of_bins).result)
+        marginalmode_param = find_marginalmodes(get_marginal_dist(samples, param, bins=number_of_bins).result)
 
         if length(marginalmode_param[1]) > 1
             @warn "More than one bin with the same weight is found. Returned the first one"

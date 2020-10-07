@@ -9,9 +9,9 @@ abstract type MCMCConvergenceTestResult end
 function check_convergence!(
     ct::MCMCConvergenceTest,
     chains::AbstractVector{<:MCMCIterator},
-    stats::AbstractVector{<:AbstractMCMCStats}
+    samples::AbstractVector{<:DensitySampleVector}
 )
-    result = check_convergence(ct, stats)
+    result = check_convergence(ct, samples)
     for chain in chains
         chain.info = MCMCIteratorInfo(chain.info, converged = result.converged)
     end
@@ -22,16 +22,23 @@ end
 
 @doc doc"""
     gr_Rsqr(stats::AbstractVector{<:MCMCBasicStats})
+    gr_Rsqr(samples::AbstractVector{<:DensitySampleVector})
 
 *BAT-internal, not part of stable public API.*
 
 Gelman-Rubin ``\$R^2\$`` for all DOF.
 """
+function gr_Rsqr end
+
 function gr_Rsqr(stats::AbstractVector{<:MCMCBasicStats})
     m = totalndof(first(stats))
     W = mean([cs.param_stats.cov[i,i] for cs in stats, i in 1:m], dims=1)[:]
     B = var([cs.param_stats.mean[i] for cs in stats, i in 1:m], dims=1)[:]
     (W .+ B) ./ W
+end
+
+function gr_Rsqr(samples::AbstractVector{<:DensitySampleVector})
+    gr_Rsqr(MCMCBasicStats.(samples))
 end
 
 
@@ -54,8 +61,8 @@ struct GRConvergenceResult <: MCMCConvergenceTestResult
 end
 
 
-function check_convergence(ct::GelmanRubinConvergence, stats::AbstractVector{<:MCMCBasicStats})
-    max_Rsqr = maximum(gr_Rsqr(stats))
+function check_convergence(ct::GelmanRubinConvergence, samples::AbstractVector{<:DensitySampleVector})
+    max_Rsqr = maximum(gr_Rsqr(samples))
     converged = max_Rsqr <= ct.threshold
     @debug begin
         success_str = converged ? "have" : "have *not*"
@@ -68,6 +75,7 @@ end
 
 @doc doc"""
     bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats}; corrected::Bool = false)
+    bg_R_2sqr(samples::AbstractVector{<:DensitySampleVector}; corrected::Bool = false)
 
 *BAT-internal, not part of stable public API.*
 
@@ -107,6 +115,10 @@ function bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats}; corrected::Bool = fa
     R_unc.*(d.+3)./(d.+1)
 end
 
+function bg_R_2sqr(samples::AbstractVector{<:DensitySampleVector}; corrected::Bool = false)
+    bg_R_2sqr(MCMCBasicStats.(samples), corrected = corrected)
+end
+
 
 
 @doc doc"""
@@ -128,8 +140,8 @@ struct BGConvergenceResult <: MCMCConvergenceTestResult
 end
 
 
-function check_convergence(ct::BrooksGelmanConvergence, stats::AbstractVector{<:MCMCBasicStats})
-    max_Rsqr = maximum(bg_R_2sqr(stats, corrected = ct.corrected))
+function check_convergence(ct::BrooksGelmanConvergence, samples::AbstractVector{<:DensitySampleVector})
+    max_Rsqr = maximum(bg_R_2sqr(samples, corrected = ct.corrected))
     converged = max_Rsqr <= ct.threshold
     @debug begin
         success_str = converged ? "have" : "have *not*"

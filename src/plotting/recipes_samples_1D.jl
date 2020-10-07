@@ -3,15 +3,14 @@
 @recipe function f(
     maybe_shaped_samples::DensitySampleVector,
     parsel::Union{Integer, Symbol, Expr};
-    intervals = standard_confidence_vals,
+    intervals = default_credibilities,
     bins = 200,
-    normalize = true,
-    colors = standard_colors,
+    colors = default_colors,
     interval_labels = [],
     mean = false,
     std = false,
     globalmode = false,
-    localmode = true,
+    marginalmode = true,
     filter = false,
     closed = :left
 )
@@ -21,13 +20,12 @@
         throw(ArgumentError("Symbol :$parsel refers to a multivariate parameter. Use :($parsel[i]) instead."))
     end
 
-    marg = bat_marginalize(
+    marg = get_marginal_dist(
         maybe_shaped_samples,
         parsel,
         bins = bins,
         closed = closed,
-        filter = filter,
-        normalize = normalize
+        filter = filter
     ).result
 
     orientation = get(plotattributes, :orientation, :vertical)
@@ -56,7 +54,7 @@
     @series begin
         seriestype --> :smallest_intervals
         intervals --> intervals
-        normalize --> normalize
+        normalize --> true
         colors --> colors
         interval_labels --> interval_labels
 
@@ -66,11 +64,11 @@
     #------ stats ----------------------------
     stats = MCMCBasicStats(maybe_shaped_samples)
 
-    line_height = maximum(marg.dist.h.weights)*1.03
+    line_height = maximum(convert(Histogram, marg.dist).weights)*1.03
 
     mean_options = convert_to_options(mean)
     globalmode_options = convert_to_options(globalmode)
-    localmode_options = convert_to_options(localmode)
+    marginalmode_options = convert_to_options(marginalmode)
     std_options = convert_to_options(std)
 
     # standard deviation
@@ -121,24 +119,24 @@
     end
 
     # local mode(s)
-    if localmode_options != ()
-        localmode_values = find_localmodes(marg)
+    if marginalmode_options != ()
+        marginalmode_values = find_marginalmodes(marg)
 
-        for (i, l) in enumerate(localmode_values)
+        for (i, l) in enumerate(marginalmode_values)
          @series begin
             seriestype := :line
-            if length(localmode_values)==1
-                label := get(localmode_options, "label", "local mode")
+            if length(marginalmode_values)==1
+                label := get(marginalmode_options, "label", "local mode")
             elseif i ==1
-                label := get(localmode_options, "label", "local modes")
+                label := get(marginalmode_options, "label", "local modes")
             else
                 label :=""
             end
 
-            linestyle := get(localmode_options, "linestyle", :dot)
-            linecolor := get(localmode_options, "linecolor", :black)
-            linewidth := get(localmode_options, "linewidth", 1)
-            linealpha := get(localmode_options, "alpha", 1)
+            linestyle := get(marginalmode_options, "linestyle", :dot)
+            linecolor := get(marginalmode_options, "linecolor", :black)
+            linewidth := get(marginalmode_options, "linewidth", 1)
+            linealpha := get(marginalmode_options, "alpha", 1)
 
             line(l[1], line_height, swap=swap)
             end

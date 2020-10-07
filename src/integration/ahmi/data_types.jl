@@ -257,7 +257,7 @@ mutable struct IntermediateResults{T<:AbstractFloat}
     volumeID::Array{Int, 1}
     Y::Array{T, 2}
 end
-IntermediateResults(T::DataType, n::Int) = IntermediateResults(zeros(T, n), [Int(i) for i=1:n], zeros(T, 0, 0))
+IntermediateResults(T::DataType, n::Integer) = IntermediateResults(zeros(T, n), [Int(i) for i=1:n], zeros(T, 0, 0))
 Base.length(x::IntermediateResults) = length(x.integrals)
 
 mutable struct HMIEstimate{T<:AbstractFloat}

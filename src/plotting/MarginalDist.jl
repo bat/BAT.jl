@@ -17,13 +17,12 @@ function _get_edges(data::Any, nbins::Union{AbstractRange, Tuple{AbstractRange}}
 end
 
 
-function bat_marginalize(
+function get_marginal_dist(
     maybe_shaped_samples::DensitySampleVector,
     key::Union{Integer, Symbol, Expr};
     bins = 200,
     closed::Symbol = :left,
-    filter::Bool = false,
-    normalize = true
+    filter::Bool = false
 )
     samples = BAT.unshaped.(maybe_shaped_samples)
 
@@ -42,7 +41,6 @@ function bat_marginalize(
             edges,
             closed = closed)
 
-    normalize ? hist = StatsBase.normalize(hist) : nothing
 
     uvbd = EmpiricalDistributions.UvBinnedDist(hist)
     marg = MarginalDist((idx,), uvbd, varshape(maybe_shaped_samples))
@@ -51,13 +49,12 @@ function bat_marginalize(
 end
 
 
-function bat_marginalize(
+function get_marginal_dist(
     maybe_shaped_samples::DensitySampleVector,
     key::Union{NTuple{n,Integer}, NTuple{n,Union{Symbol, Expr}}} where n;
     bins = 200,
     closed::Symbol = :left,
-    filter::Bool = false,
-    normalize = true
+    filter::Bool = false
 )
     samples = unshaped.(maybe_shaped_samples)
 
@@ -80,8 +77,6 @@ function bat_marginalize(
             edges,
             closed = closed)
 
-    normalize ? hist = StatsBase.normalize(hist) : nothing
-
     mvbd = EmpiricalDistributions.MvBinnedDist(hist)
     marg =  MarginalDist(idxs, mvbd, varshape(maybe_shaped_samples))
 
@@ -90,14 +85,13 @@ end
 
 
 #for prior
-function bat_marginalize(
+function get_marginal_dist(
     prior::NamedTupleDist,
     key::Union{Integer, Symbol};
     bins = 200,
     edges = nothing,
     closed::Symbol = :left,
-    nsamples::Integer = 10^6,
-    normalize = true
+    nsamples::Integer = 10^6
 )
     idx = asindex(prior, key)
     r = rand(prior, nsamples)
@@ -106,8 +100,6 @@ function bat_marginalize(
 
     hist = fit(Histogram, r[idx, :], edges, closed = closed)
 
-    normalize ? hist = StatsBase.normalize(hist) : nothing
-
     uvbd = EmpiricalDistributions.UvBinnedDist(hist)
     marg = MarginalDist((idx,), uvbd, varshape(prior))
 
@@ -115,13 +107,12 @@ function bat_marginalize(
 end
 
 
-function bat_marginalize(
+function get_marginal_dist(
     prior::NamedTupleDist,
     key::Union{NTuple{2, Symbol}, NTuple{2, Integer}};
     bins = 200,
     closed::Symbol = :left,
-    nsamples::Integer = 10^6,
-    normalize=true
+    nsamples::Integer = 10^6
 )
     idxs = asindex.(Ref(prior), key)
 
@@ -139,8 +130,6 @@ function bat_marginalize(
             edges,
             closed = closed)
 
-    normalize ? hist = StatsBase.normalize(hist) : nothing
-
     mvbd = EmpiricalDistributions.MvBinnedDist(hist)
     marg =  MarginalDist(idxs, mvbd, varshape(prior))
 
@@ -149,12 +138,11 @@ end
 
 
 
-function bat_marginalize(
+function get_marginal_dist(
     original::MarginalDist,
-    parsel::NTuple{n, Int} where n;
-    normalize=true
+    parsel::NTuple{n, Int} where n
 )
-    original_hist = original.dist.h
+    original_hist = convert(Histogram, original.dist)
     dims = collect(1:ndims(original_hist.weights))
     parsel = Tuple(findfirst(x-> x == p, original.dims) for p in parsel)
 
@@ -163,8 +151,6 @@ function bat_marginalize(
 
     edges = Tuple([original_hist.edges[p] for p in parsel])
     hist = StatsBase.Histogram(edges, weights, original_hist.closed)
-
-    normalize ? hist = StatsBase.normalize(hist) : nothing
 
     bd = if length(parsel) == 1
         EmpiricalDistributions.UvBinnedDist(hist)
