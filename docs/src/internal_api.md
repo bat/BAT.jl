@@ -32,7 +32,6 @@ Order = [:macro, :function]
 # Documentation
 
 ```@docs
-BAT.AbstractMCMCCallback
 BAT.AbstractProposalDist
 BAT.BasicMvStatistics
 BAT.DataSet
@@ -40,8 +39,6 @@ BAT.HMIData
 BAT.HMISettings
 BAT.IntegrationVolume
 BAT.KDTreePartitioning
-BAT.MCMCCallbackWrapper
-BAT.MCMCSpec
 BAT.OnlineMvCov
 BAT.OnlineMvMean
 BAT.OnlineUvMean
@@ -51,13 +48,14 @@ BAT.SearchResult
 BAT.SpacePartTree
 BAT.TruncatedDensity
 BAT.WhiteningResult
+BAT.MCMCSampleGenerator
 
 BAT.density_logval_type
 BAT.estimate_finite_bounds
 BAT.argchoice_msg
 BAT.bat_sampler
 BAT.bg_R_2sqr
-BAT.find_localmodes
+BAT.find_marginalmodes
 BAT.get_bin_centers
 BAT.create_hypercube
 BAT.create_hyperrectangle
@@ -80,7 +78,6 @@ BAT.is_log_zero
 BAT.issymmetric_around_origin
 BAT.log_volume
 BAT.log_zero_density
-BAT.mcmc_startval!
 BAT.modify_hypercube!
 BAT.modify_integrationvolume!
 BAT.partition_space

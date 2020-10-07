@@ -7,7 +7,7 @@
     std=false,
     bins = 200,
     globalmode=false,
-    localmode=false,
+    marginalmode=false,
     diagonal = Dict(),
     upper = Dict(),
     lower = Dict(),
@@ -63,14 +63,14 @@
 
             seriestype --> get(diagonal, "seriestype", :smallest_intervals)
             bins := bins[i]
-            colors --> get(diagonal, "colors", standard_colors)
-            intervals --> get(diagonal, "intervals", standard_confidence_vals)
+            colors --> get(diagonal, "colors", default_colors)
+            intervals --> get(diagonal, "intervals", default_credibilities)
             interval_labels --> get(diagonal, "interval_labels", [])
             legend --> get(diagonal, "legend", false)
             mean --> get(diagonal, "mean", mean)
             std --> get(diagonal, "std", std)
             globalmode --> get(diagonal, "globalmode", globalmode)
-            localmode --> get(diagonal, "localmode", localmode)
+            marginalmode --> get(diagonal, "marginalmode", marginalmode)
             xlims --> get(diagonal, "xlims", :auto)
             ylims --> get(diagonal, "ylims", :auto)
             xguide --> xlabel[i]
@@ -87,15 +87,15 @@
 
                 seriestype --> get(upper, "seriestype", :histogram)
                 bins := (bins[i], bins[j])
-                colors --> get(upper, "colors", standard_colors)
-                intervals --> get(upper, "intervals", standard_confidence_vals)
+                colors --> get(upper, "colors", default_colors)
+                intervals --> get(upper, "intervals", default_credibilities)
                 interval_labels --> get(upper, "interval_labels", [])
                 legend --> get(upper, "legend", false)
                 colorbar --> get(upper, "colorbar", false)
                 mean --> get(upper, "mean", mean)
                 std --> get(upper, "std", std)
                 globalmode --> get(upper, "globalmode", globalmode)
-                localmode --> get(upper, "localmode", localmode)
+                marginalmode --> get(upper, "marginalmode", marginalmode)
                 xlims --> get(upper, "xlims", :auto)
                 ylims --> get(upper, "ylims", :auto)
 
@@ -143,15 +143,15 @@
 
                  seriestype --> get(lower, "seriestype", :smallest_intervals)
                  bins := (bins[i], bins[j])
-                 colors --> get(lower, "colors", standard_colors)
+                 colors --> get(lower, "colors", default_colors)
                  colorbar --> get(lower, "colorbar", false)
-                 intervals --> get(lower, "intervals", standard_confidence_vals)
+                 intervals --> get(lower, "intervals", default_credibilities)
                  interval_labels --> get(lower, "interval_labels", [])
                  legend --> get(lower, "legend", false)
                  mean --> get(lower, "mean", mean)
                  std --> get(lower, "std", std)
                  globalmode --> get(lower, "globalmode", globalmode)
-                 localmode --> get(lower, "localmode", localmode)
+                 marginalmode --> get(lower, "marginalmode", marginalmode)
                  xlims --> get(lower, "xlims", :auto)
                  ylims --> get(lower, "ylims", :auto)
                  xguide --> xlabel[i]
@@ -170,8 +170,8 @@ end
         model::Function,
         sample_from::Union{DensitySampleVector, AbstractDensity};
         n_samples = 10^4,
-        conf_intervals = standard_confidence_vals,
-        colors = standard_colors,
+        conf_intervals = default_credibilities,
+        colors = default_colors,
         global_mode = true,
         marginal_mode = false)
 

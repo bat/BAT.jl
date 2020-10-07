@@ -117,7 +117,7 @@ function rngpart_getpartctrs(rng::Union{Philox4x,Threefry4x})
 end
 
 
-function rngpart_setpartctrs!(rng::Union{Philox4x,Threefry4x}, partctrs::NTuple{6,UInt32}, depth::Int)
+function rngpart_setpartctrs!(rng::Union{Philox4x,Threefry4x}, partctrs::NTuple{6,UInt32}, depth::Integer)
     tagged_partctrs = _rngpart_settopbit(partctrs, depth)
     merged_partctrs = _rngpart_merge_uints(tagged_partctrs...)::NTuple{3,UInt64}
 
@@ -165,14 +165,14 @@ function _rngpart_getdepth(partctrinfo::NTuple{N,T}) where {N,T<:Unsigned}
 end
 
 
-function _rngpart_inc_partctrs(partctrs::NTuple{N,T}, depth::Int, x::Integer) where {N,T<:Unsigned}
+function _rngpart_inc_partctrs(partctrs::NTuple{N,T}, depth::Integer, x::Integer) where {N,T<:Unsigned}
     1 <= depth <= length(partctrs) || throw(ArgumentError("Partition depth out of allowed range"))
     m = ntuple(i -> i == depth ? T(x) : zero(T), Val(length(partctrs)))
     partctrs .+ m
 end
 
 
-function _rngpart_settopbit(partctrs::NTuple{N,T}, depth::Int) where {N,T<:Unsigned}
+function _rngpart_settopbit(partctrs::NTuple{N,T}, depth::Integer) where {N,T<:Unsigned}
     1 <= depth <= length(partctrs) || throw(ArgumentError("Partition depth out of allowed range"))
     any(_rngpart_haspartctrtag, partctrs) && throw(ArgumentError("Partition counter(s) out of allowed range"))
     m = ntuple(i -> i <= depth ? _rngpart_topbit_mask(T) : zero(T), Val(length(partctrs)))

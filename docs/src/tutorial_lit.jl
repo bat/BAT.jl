@@ -248,13 +248,12 @@ posterior = PosteriorDensity(likelihood, prior)
 # (after tuning/burn-in):
 
 nsamples = 10^4
-nchains = 4
 #md nothing # hide
 
 
 # Now we can generate a set of MCMC samples via [`bat_sample`](@ref):
 
-samples = bat_sample(posterior, (nsamples, nchains), MetropolisHastings()).result
+samples = bat_sample(posterior, nsamples, MCMCSampling(sampler = MetropolisHastings(), nchains = 4)).result
 #md nothing # hide
 #nb nothing # hide
 
@@ -308,7 +307,7 @@ par_cov[parshapes.mu, parshapes.sigma]
 
 plot(
     samples, :(mu[1]),
-    mean = true, std = true, globalmode = true, localmode = true,
+    mean = true, std = true, globalmode = true, marginalmode = true,
     nbins = 50, title = "Marginalized Distribution for mu[1]"
 )
 #jl savefig("tutorial-single-par.pdf")
@@ -322,7 +321,7 @@ plot(
 
 plot(
     samples, (:(mu[1]), :sigma),
-    mean = true, std = true, globalmode = true, localmode = true,
+    mean = true, std = true, globalmode = true, marginalmode = true,
     nbins = 50, title = "Marginalized Distribution for mu[1] and sigma"
 )
 plot!(BAT.MCMCBasicStats(samples), (3, 5))
@@ -336,7 +335,7 @@ plot!(BAT.MCMCBasicStats(samples), (3, 5))
 
 plot(
     samples,
-    mean = false, std = false, globalmode = true, localmode = false,
+    mean = false, std = false, globalmode = true, marginalmode = false,
     nbins = 50
 )
 #jl savefig("tutorial-all-params.png")
@@ -411,8 +410,7 @@ plot!(-4:0.01:4, x -> fit_function(true_par_values, x), color=4, label = "Truth"
 
 # We'll sample using the The Metropolis-Hastings MCMC algorithm:
 
-algorithm = MetropolisHastings()
-#md nothing # hide
+sampler = MetropolisHastings()
 
 # BAT requires a counter-based random number generator (RNG), since it
 # partitions the RNG space over the MCMC chains. This way, a single RNG seed
@@ -426,49 +424,43 @@ rng = Philox4x()
 #md nothing # hide
 
 
-# Other default parameters are:
+# By default, `MetropolisHastings()` uses the following options.
+#
+# For Markov chain initialization:
 
-tuning = AdaptiveMetropolisTuning(
-    λ = 0.5,
-    α = 0.15..0.35,
-    β = 1.5,
-    c = 1e-4..1e2,
-    r = 0.5
-)
+init = MCMCChainPoolInit()
 
-convergence = BrooksGelmanConvergence(
-    threshold = 1.1,
-    corrected = false
-)
+# For tuning of the proposal distribution:
 
-init = MCMCInitStrategy(
-    init_tries_per_chain = 8..128,
-    max_nsamples_init = 25,
-    max_nsteps_init = 250,
-    max_time_init = Inf
-)
+tuning = AdaptiveMHTuning()
 
-burnin = MCMCBurninStrategy(
-    max_nsamples_per_cycle = 1000,
-    max_nsteps_per_cycle = 10000,
-    max_time_per_cycle = Inf,
-    max_ncycles = 30
-)
+# For the MCMC burn-in procedure:
 
-#md nothing # hide
+burnin = MCMCMultiCycleBurnin()
+
+# For convergence testing:
+
+convergence = BrooksGelmanConvergence()
 
 # To generate MCMC samples with explicit control over all options, use
+# something like
 
 samples = bat_sample(
-    rng, posterior, (nsamples, nchains), algorithm,
-    max_nsteps = 10 * nsamples,
-    max_time = Inf,
-    tuning = tuning,
-    init = init,
-    burnin = burnin,
-    convergence = convergence,
-    strict = false,
-    filter = true
+    rng, posterior,
+    nsamples,
+    MCMCSampling(
+        sampler = MetropolisHastings(
+            weighting = RepetitionWeighting(),
+            tuning = tuning
+        ),
+        init = init,
+        burnin = burnin,
+        convergence = convergence,
+        strict = true,
+        store_burnin = false,
+        nonzero_weights = true,
+        callback = (x...) -> nothing
+    )
 ).result
 #md nothing # hide
 #nb nothing # hide
@@ -476,7 +468,7 @@ samples = bat_sample(
 # However, in many use cases, simply using the default options via
 #
 # ```julia
-# samples = bat_sample(posterior, (nsamples, nchains), MetropolisHastings()).result
+# samples = bat_sample(posterior, nsamples).result
 # ```
 #
 # will often be sufficient.

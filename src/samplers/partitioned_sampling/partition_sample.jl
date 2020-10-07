@@ -68,7 +68,7 @@ Returns a NamedTuple of the shape
 """
 function bat_sample(
         posterior::PosteriorDensity,
-        n::Tuple{Integer,Integer, Integer},
+        n::Tuple{Integer,Integer, Integer},  #!!!!!! ToDo, change to integer, number of partitions should go into PartitionedSampling
         algorithm::PartitionedSampling
     )
 

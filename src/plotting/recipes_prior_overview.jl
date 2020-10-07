@@ -50,8 +50,8 @@
 
             seriestype --> get(diagonal, "seriestype", :stephist)
             bins := bins[i]
-            colors --> get(diagonal, "colors", standard_colors)
-            intervals --> get(diagonal, "intervals", standard_confidence_vals)
+            colors --> get(diagonal, "colors", default_colors)
+            intervals --> get(diagonal, "intervals", default_credibilities)
             legend --> get(diagonal, "legend", false)
             xlims --> get(diagonal, "xlims", :auto)
             ylims --> get(diagonal, "ylims", :auto)
@@ -90,8 +90,8 @@
 
                 seriestype --> get(lower, "seriestype", :smallest_intervals_contour)
                 bins := (bins[i], bins[j])
-                colors --> get(lower, "colors", standard_colors)
-                intervals --> get(lower, "intervals", standard_confidence_vals)
+                colors --> get(lower, "colors", default_colors)
+                intervals --> get(lower, "intervals", default_credibilities)
                 interval_labels --> get(lower, "interval_labels", [])
                 legend --> get(lower, "legend", false)
                 xlims --> get(lower, "xlims", :auto)

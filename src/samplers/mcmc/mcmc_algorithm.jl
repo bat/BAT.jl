@@ -2,7 +2,7 @@
 
 
 @doc doc"""
-    abstract type MCMCAlgorithm <: AbstractSamplingAlgorithm end
+    abstract type MCMCAlgorithm end
 
 !!! note
 
@@ -13,88 +13,70 @@ The following methods must be defined for subtypes (e.g.
 for `SomeAlgorithm<:MCMCAlgorithm`):
 
 ```julia
-(spec::MCMCSpec{<:SomeAlgorithm})(chainid::Integer)::MCMCIterator
+MCMCIterator(
+    rng::AbstractRNG,
+    algorithm::SomeAlgorithm,
+    density::AbstractDensity,
+    chainid::Integer,
+    [startpos::AbstractVector{<:Real}]
+)
 ```
 
 To implement a new MCMC algorithm, subtypes of both `MCMCAlgorithm` and
 [`MCMCIterator`](@ref) are required.
 """
-abstract type MCMCAlgorithm <: AbstractSamplingAlgorithm end
+abstract type MCMCAlgorithm end
 export MCMCAlgorithm
 
 
-"""
-    BAT.mcmc_startval!(
-        x::Union{AbstractVector{<:Real},VectorOfSimilarVectors{<:Real}},
-        rng::AbstractRNG,
-        posterior::AbstractPosteriorDensity,
-        algorithm::MCMCAlgorithm
-    )::typeof(x)
-
-*BAT-internal, not part of stable public API.*
-
-Fill `x` a random initial argument suitable for `posterior` and
-`algorithm`. The default implementation will try to draw the initial
-argument value from the prior of the posterior.
-"""
-function mcmc_startval! end
-
-mcmc_startval!(
-    x::Union{AbstractVector{<:Real},VectorOfSimilarVectors{<:Real}},
-    rng::AbstractRNG,
-    posterior::AbstractPosteriorDensity,
-    algorithm::MCMCAlgorithm
-) = rand!(rng, sampler(getprior(posterior)), x)
+function get_mcmc_tuning end
 
 
 @doc doc"""
-    MCMCSpec{
-        A<:MCMCAlgorithm,
-        M<:AbstractPosteriorDensity
-    }
+abstract type MCMCInitAlgorithm end
 
-*BAT-internal, not part of stable public API.*
-
-Specifies a Bayesian MCMC chain.
-
-Constructor:
-
-```julia
-MCMCSpec(
-    algorithm::MCMCAlgorithm,
-    posterior::AbstractPosteriorDensity
-)
-```
-
-Markov-chain instances, represented by objects of type [`MCMCIterator`](@ref),
-are be created via
-
-```julia
-(spec::MCMCSpec)(chainid::Integer)
-```
+Abstract type for MCMC initialization algorithms.
 """
-struct MCMCSpec{
-    A<:MCMCAlgorithm,
-    M<:AbstractPosteriorDensity
-}
-    algorithm::A
-    posterior::M
-end
+abstract type MCMCInitAlgorithm end
+export MCMCInitAlgorithm
+
+
+
+"""
+MCMCTuningAlgorithm
+
+Abstract super-type for MCMC tuning algorithms.
+"""
+abstract type MCMCTuningAlgorithm end
+export MCMCTuningAlgorithm
+
+
+
+"""
+MCMCBurninAlgorithm
+
+Abstract super-type for MCMC burn-in algorithms.
+"""
+abstract type MCMCBurninAlgorithm end
+export MCMCBurninAlgorithm
+
+
+"""
+MCMCBurninAlgorithm
+
+Abstract super-type for MCMC convergence tests.
+"""
+abstract type MCMCConvergenceTest end
+export MCMCConvergenceTest
 
 
 
 @with_kw struct MCMCIteratorInfo
-    id::Int64
-    cycle::Int
+    id::Int32
+    cycle::Int32
     tuned::Bool
     converged::Bool
 end
-
-struct MCMCSampleGenerator <: AbstractSampleGenerator
-    _chains::Any #TODO
-end
-
-getalgorithm(sg::MCMCSampleGenerator) = sg._chains[1].spec.algorithm
 
 
 @doc doc"""
@@ -114,7 +96,9 @@ The following methods must be defined for subtypes of `MCMCIterator` (e.g.
 `SomeMCMCIter<:MCMCIterator`):
 
 ```julia
-BAT.mcmc_spec(chain::SomeMCMCIter)::MCMCSpec
+BAT.getalgorithm(chain::SomeMCMCIter)::MCMCAlgorithm
+
+BAT.getdensity(chain::SomeMCMCIter)::AbstractDensity
 
 BAT.getrng(chain::SomeMCMCIter)::AbstractRNG
 
@@ -130,32 +114,35 @@ BAT.sample_type(chain::SomeMCMCIter)::Type{<:DensitySample}
 
 BAT.samples_available(chain::SomeMCMCIter, nonzero_weights::Bool = false)::Bool
 
-BAT.get_samples!(appendable, chain::SomeMCMCIter, nonzero_weights::Bool)::typeof(appendable)
+BAT.get_samples!(samples::DensitySampleVector, chain::SomeMCMCIter, nonzero_weights::Bool)::typeof(samples)
 
 BAT.next_cycle!(chain::SomeMCMCIter)::SomeMCMCIter
 
 BAT.mcmc_step!(
-    callback::AbstractMCMCCallback,
     chain::SomeMCMCIter
-)
+    callback::Function,
+)::nothing
 ```
 
 The following methods are implemented by default:
 
 ```julia
-algorithm(chain::MCMCIterator)
-getposterior(chain::MCMCIterator)
-rngseed(chain::MCMCIterator)
+getalgorithm(chain::MCMCIterator)
+getdensity(chain::MCMCIterator)
 DensitySampleVector(chain::MCMCIterator)
-mcmc_iterate!(callback, chain::MCMCIterator, ...)
-mcmc_iterate!(callbacks, chains::AbstractVector{<:MCMCIterator}, ...)
+mcmc_iterate!(chain::MCMCIterator, ...)
+mcmc_iterate!(chains::AbstractVector{<:MCMCIterator}, ...)
+isvalidchain(chain::MCMCIterator)
+isviablechain(chain::MCMCIterator)
 ```
 """
 abstract type MCMCIterator end
 export MCMCIterator
 
 
-function mcmc_spec end
+function getalgorithm end
+
+function getdensity end
 
 function getrng end
 
@@ -178,13 +165,8 @@ function next_cycle! end
 function mcmc_step! end
 
 
-algorithm(chain::MCMCIterator) = mcmc_spec(chain).algorithm
 
-getposterior(chain::MCMCIterator) = mcmc_spec(chain).posterior
-
-rngseed(chain::MCMCIterator) = mcmc_spec(chain).rngseed
-
-DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(sample_type(chain), totalndof(getposterior(chain)))
+DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(sample_type(chain), totalndof(getdensity(chain)))
 
 
 
@@ -192,15 +174,15 @@ function mcmc_iterate! end
 
 
 function mcmc_iterate!(
-    callback,
+    output::Union{DensitySampleVector,Nothing},
     chain::MCMCIterator;
-    max_nsamples::Int64 = Int64(1),
-    max_nsteps::Int64 = Int64(1000),
-    max_time::Float64 = Inf
+    max_nsamples::Integer = 1,
+    max_nsteps::Integer = 1000,
+    max_time::Real = Inf,
+    nonzero_weights::Bool = true,
+    callback::Function = nop_func
 )
     @debug "Starting iteration over MCMC chain $(chain.info.id), max_nsamples = $max_nsamples, max_nsteps = $max_nsteps, max_time = $max_time"
-
-    cbfunc = Base.convert(AbstractMCMCCallback, callback)
 
     start_time = time()
     start_nsteps = nsteps(chain)
@@ -211,7 +193,11 @@ function mcmc_iterate!(
         (nsteps(chain) - start_nsteps) < max_nsteps &&
         (time() - start_time) < max_time
     )
-        mcmc_step!(cbfunc, chain)
+        mcmc_step!(chain)
+        callback(Val(:mcmc_step), chain)
+        if !isnothing(output)
+            get_samples!(output, chain, nonzero_weights)
+        end
     end
 
     end_time = time()
@@ -219,12 +205,12 @@ function mcmc_iterate!(
 
     @debug "Finished iteration over MCMC chain $(chain.info.id), nsamples = $(nsamples(chain)), nsteps = $(nsteps(chain)), time = $(Float32(elapsed_time))"
 
-    chain
+    nothing
 end
 
 
 function mcmc_iterate!(
-    callbacks,
+    outputs::Union{AbstractVector{<:DensitySampleVector},Nothing},
     chains::AbstractVector{<:MCMCIterator};
     kwargs...
 )
@@ -235,12 +221,60 @@ function mcmc_iterate!(
         @debug "Starting iteration over $(length(chains)) MCMC chain(s)"
     end
 
-    cbv = mcmc_callback_vector(callbacks, eachindex(chains))
-
-    idxs = eachindex(cbv, chains)
-    @sync for i in idxs
-        @mt_async mcmc_iterate!(cbv[i], chains[i]; kwargs...)
+    if !isnothing(outputs)
+        #@sync
+        for i in eachindex(outputs, chains)
+            #@mt_async
+            mcmc_iterate!(outputs[i], chains[i]; kwargs...)
+        end
+    else
+        #@sync
+        for i in eachindex(chains)
+            #@mt_async 
+            mcmc_iterate!(nothing, chains[i]; kwargs...)
+        end
     end
 
-    chains
+    nothing
 end
+
+
+isvalidchain(chain::MCMCIterator) = current_sample(chain).logd > -Inf
+
+isviablechain(chain::MCMCIterator) = nsamples(chain) >= 2
+
+
+
+"""
+    BAT.MCMCSampleGenerator
+
+*BAT-internal, not part of stable public API.*
+
+MCMC sample generator.
+
+Constructors:
+
+```julia
+MCMCSampleGenerator(chain::AbstractVector{<:MCMCIterator})
+```
+"""
+struct MCMCSampleGenerator{T<:AbstractVector{<:MCMCIterator}} <: AbstractSampleGenerator
+    chains::T
+end
+
+getalgorithm(sg::MCMCSampleGenerator) = sg.chains[1].spec.algorithm
+
+
+
+abstract type AbstractMCMCTunerInstance end
+
+function tuning_init! end
+
+function mcmc_init! end
+
+function mcmc_burnin! end
+
+
+function isvalidchain end
+
+function isviablechain end

@@ -1,10 +1,3 @@
-export MassMatrixAdaptor
-export StepSizeAdaptor
-export NaiveHMCAdaptor
-export StanHMCAdaptor
-export NoAdaptor
-
-
 abstract type HMCAdaptor end
 
 struct NoAdaptor <: HMCAdaptor end
@@ -74,6 +67,6 @@ function AHMCAdaptor(
 
     # Initialize state using Stan defaults
     # See: https://mc-stan.org/docs/2_18/reference-manual/hmc-algorithm-parameters.html
-    AdvancedHMC.initialize!(stan_adaptor.state, 75, 50, 25, adaptor.n_adapts)
+    AdvancedHMC.initialize!(stan_adaptor.state, 75, 50, 25, Int(adaptor.n_adapts))
     return stan_adaptor
 end
