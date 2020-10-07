@@ -247,7 +247,7 @@ function run_ND_benchmark(;
                 mcmc_sample = bat_sample(
                     dis, n_samples * n_chains,
                     MCMCSampling(
-                        algorithm = algorithm,
+                        sampler = algorithm,
                         nchains = nchains,
                         init = init,
                         burnin = burnin,
@@ -257,7 +257,10 @@ function run_ND_benchmark(;
                     )
                 ).result.result
             elseif isa(algorithm,BAT.HamiltonianMC)
-                mcmc_sample = bat_sample(dis, n_samples*n_chains,algorithm,).result
+                mcmc_sample = bat_sample(
+                    dis, n_samples*n_chains,
+                    MCMCSampling(sampler = algorithm)
+                ).result
             end
             taf = time()
 
@@ -269,7 +272,7 @@ function run_ND_benchmark(;
                         bat_sample(
                             dis, n_samples * n_chains,
                             MCMCSampling(
-                                algorithm = algorithm,
+                                sampler = algorithm,
                                 nchains = nchains,
                                 init = init,
                                 burnin = burnin,
@@ -279,7 +282,10 @@ function run_ND_benchmark(;
                             )
                         ).result.result
                     elseif isa(algorithm,BAT.HamiltonianMC)
-                        bat_sample(dis, n_samples*n_chains,algorithm).result
+                        bat_sample(
+                            dis, n_samples*n_chains,
+                            MCMCSampling(sampler = algorithm)
+                        ).result
                     end
                     taf = time()
                     time_per_run[i] = taf-tbf
