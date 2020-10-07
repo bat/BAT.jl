@@ -17,6 +17,9 @@ part of stable public API.*
 end
 
 
+get_mcmc_tuning(algorithm::AHMC) = MCMCNoOpTuning()
+
+
 # MCMCIterator subtype for AHMC
 mutable struct AHMCIterator{
     AL<:AHMC,
@@ -74,22 +77,22 @@ function AHMCIterator(
 
     rngpart_cycle = RNGPartition(rng, 0:(typemax(Int16) - 2))
 
-    metric = AHMCMetric(alg.metric, npar)
+    metric = AHMCMetric(algorithm.metric, npar)
     logval_posterior(v) = logvalof(density, v)
 
-    hamiltonian = AdvancedHMC.Hamiltonian(metric, logval_posterior, alg.gradient)
+    hamiltonian = AdvancedHMC.Hamiltonian(metric, logval_posterior, algorithm.gradient)
     hamiltonian, t = AdvancedHMC.sample_init(rng, hamiltonian, params_vec)
 
-    alg.integrator.step_size == 0.0 ? alg.integrator.step_size = AdvancedHMC.find_good_stepsize(hamiltonian, params_vec) : nothing
-    ahmc_integrator = AHMCIntegrator(alg.integrator)
+    algorithm.integrator.step_size == 0.0 ? algorithm.integrator.step_size = AdvancedHMC.find_good_stepsize(hamiltonian, params_vec) : nothing
+    ahmc_integrator = AHMCIntegrator(algorithm.integrator)
 
-    ahmc_proposal = AHMCProposal(alg.proposal, ahmc_integrator)
-    ahmc_adaptor = AHMCAdaptor(alg.adaptor, metric, ahmc_integrator)
+    ahmc_proposal = AHMCProposal(algorithm.proposal, ahmc_integrator)
+    ahmc_adaptor = AHMCAdaptor(algorithm.adaptor, metric, ahmc_integrator)
 
 
     chain = AHMCIterator(
-        density,
         algorithm,
+        density,
         rng,
         rngpart_cycle,
         info,
@@ -252,7 +255,7 @@ function mcmc_step!(chain::AHMCIterator)
     # Propose new variate:
     samples.weight[proposed] = 0
 
-    ahmc_step!(rng, alg, chain, proposed_params, current_params)
+    ahmc_step!(rng, algorithm, chain, proposed_params, current_params)
     tstat = chain.transition.stat
     
     current_log_posterior = samples.logd[current]
@@ -291,15 +294,15 @@ function mcmc_step!(chain::AHMCIterator)
 end
 
 
-function ahmc_step!(rng, alg, chain, proposed_params, current_params)
+function ahmc_step!(rng, algorithm, chain, proposed_params, current_params)
 
     chain.transition = AdvancedHMC.step(rng, chain.hamiltonian, chain.proposal, chain.transition.z)
 
     tstat = AdvancedHMC.stat(chain.transition)
 
-    if typeof(alg.adaptor) <: StanHMCAdaptor
+    if typeof(algorithm.adaptor) <: StanHMCAdaptor
         i = chain.adaptor.state.i
-        n_adapts = alg.adaptor.n_adapts
+        n_adapts = algorithm.adaptor.n_adapts
     else
         i, n_adapts = chain.info.converged ? (3, 2) : (1, 1)
     end

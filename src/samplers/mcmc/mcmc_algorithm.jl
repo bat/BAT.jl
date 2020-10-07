@@ -29,6 +29,8 @@ abstract type MCMCAlgorithm end
 export MCMCAlgorithm
 
 
+function get_mcmc_tuning end
+
 
 @doc doc"""
 abstract type MCMCInitAlgorithm end

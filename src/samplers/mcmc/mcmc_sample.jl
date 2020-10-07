@@ -54,10 +54,10 @@ function bat_sample_impl(
         density,
         algorithm.nchains,
         algorithm.init,
-        mcmc_algorithm.tuning,
+        get_mcmc_tuning(mcmc_algorithm),
         algorithm.nonzero_weights,
         algorithm.store_burnin ? algorithm.callback : nop_func
-    )     
+    )
 
     if !algorithm.store_burnin
         chain_outputs .= DensitySampleVector.(chains)

@@ -38,6 +38,9 @@ end
 export MetropolisHastings
 
 
+get_mcmc_tuning(algorithm::MetropolisHastings) = algorithm.tuning
+
+
 mcmc_compatible(::MetropolisHastings, ::AbstractProposalDist, ::NoVarBounds) = true
 
 mcmc_compatible(::MetropolisHastings, proposaldist::AbstractProposalDist, bounds::HyperRectBounds) =
