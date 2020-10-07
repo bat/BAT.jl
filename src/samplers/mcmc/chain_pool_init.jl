@@ -54,7 +54,7 @@ function mcmc_init!(
     rng::AbstractRNG,
     algorithm::MCMCAlgorithm,
     density::AbstractDensity,
-    nchains::Int,
+    nchains::Integer,
     init_alg::MCMCInitAlgorithm,
     tuning_alg::MCMCTuningAlgorithm,
     nonzero_weights::Bool,

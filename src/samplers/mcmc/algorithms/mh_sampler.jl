@@ -124,7 +124,7 @@ function MCMCIterator(
     rng::AbstractRNG,
     algorithm::MetropolisHastings,
     density::AbstractDensity,
-    chainid::Int,
+    chainid::Integer,
     startpos::AbstractVector{<:Real}
 )
     cycle = 0

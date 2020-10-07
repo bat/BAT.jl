@@ -17,7 +17,7 @@ MCMCIterator(
     rng::AbstractRNG,
     algorithm::SomeAlgorithm,
     density::AbstractDensity,
-    chainid::Int,
+    chainid::Integer,
     [startpos::AbstractVector{<:Real}]
 )
 ```
@@ -72,8 +72,8 @@ export MCMCConvergenceTest
 
 
 @with_kw struct MCMCIteratorInfo
-    id::Int64
-    cycle::Int
+    id::Int32
+    cycle::Int32
     tuned::Bool
     converged::Bool
 end
