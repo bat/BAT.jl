@@ -1,10 +1,3 @@
-export MassMatrixAdaptor
-export StepSizeAdaptor
-export NaiveHMCAdaptor
-export StanHMCAdaptor
-export NoAdaptor
-
-
 abstract type HMCAdaptor end
 
 struct NoAdaptor <: HMCAdaptor end

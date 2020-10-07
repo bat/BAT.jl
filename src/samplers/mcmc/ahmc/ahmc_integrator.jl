@@ -1,8 +1,3 @@
-export LeapfrogIntegrator
-export JitteredLeapfrogIntegrator
-export TemperedLeapfrogIntegrator
-
-
 abstract type HMCIntegrator end
 
 @with_kw mutable struct LeapfrogIntegrator <: HMCIntegrator

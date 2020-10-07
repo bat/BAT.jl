@@ -1,7 +1,3 @@
-export DiagEuclideanMetric
-export UnitEuclideanMetric
-export DenseEuclideanMetric
-
 abstract type HMCMetric end
 struct DiagEuclideanMetric <: HMCMetric end
 struct UnitEuclideanMetric <: HMCMetric end
