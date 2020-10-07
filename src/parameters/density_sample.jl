@@ -176,10 +176,11 @@ function DensitySampleVector(
     aux::AbstractVector = fill(nothing, length(eachindex(v)))
 )
     if weight == :RepetitionWeight
-        v, weight = repetition_to_weights(v)
+        idxs, weight = repetition_to_weights(v)
+        return DensitySampleVector((ArrayOfSimilarArrays(v[idxs]), logval[idxs], weight, info[idxs], aux[idxs]))
+    else
+        return DensitySampleVector((ArrayOfSimilarArrays(v), logval, weight, info, aux))
     end
-
-    return DensitySampleVector((ArrayOfSimilarArrays(v), logval, weight, info, aux))
 end
 
 
@@ -300,9 +301,9 @@ StatsBase.mode(samples::DensitySampleVector) = _get_mode(samples)[1]
 Drop `fraction` of the total probability mass from samples to filter out the
 samples with the lowest weight.
 """
-function drop_low_weight_samples(samples::DensitySampleVector, fraction::Real = 10^-5)
+function drop_low_weight_samples(samples::DensitySampleVector, fraction::Real = 10^-5; threshold::Real=10^-2)
     W = float(samples.weight)
-    if minimum(W) / maximum(W) > 10^-2
+    if minimum(W) / maximum(W) > threshold
         samples
     else
         W_s = sort(W)
@@ -321,7 +322,6 @@ function drop_low_weight_samples(samples::DensitySampleVector, fraction::Real = 
 end
 
 
-
 """
     repetition_to_weights(v::AbstractVector)
 
@@ -330,20 +330,17 @@ end
 Drop (subsequently) repeated samples by adding weights.
 """
 function repetition_to_weights(v::AbstractVector)
-    v_new = Vector{typeof(v[1])}()
-    weights = Vector{Integer}()
-
-    push!(v_new, v[1])
-    push!(weights, 1)
-
-    for i in 2:length(eachindex(v))
+    idxs = Vector{Int}()
+    counts = Vector{Int}()
+    push!(idxs, 1)
+    push!(counts, 1)
+    for i in 2:length(v)
         if v[i] == v[i-1]
-            weights[end] += 1
+            counts[end] += 1
         else
-            push!(v_new, v[i])
-            push!(weights, 1)
+            push!(idxs, i)
+            push!(counts, 1)
         end
     end
-    
-    return v_new, weights
+    return (idxs, counts)
 end
