@@ -13,12 +13,12 @@ end
 
 @recipe function f(
     origmarg::MarginalDist,
-    parsel::Union{Integer, Symbol, Expr};
+    vsel::Union{Integer, Symbol, Expr};
     intervals = default_credibilities,
     colors = default_colors,
     interval_labels = []
 )
-    indx = asindex(origmarg, parsel)
+    indx = asindex(origmarg, vsel)
 
     marg = get_marginal_dist(origmarg, (indx, )).result
     hist = convert(Histogram, marg.dist)

@@ -140,25 +140,25 @@ end
 
 function get_marginal_dist(
     original::MarginalDist,
-    parsel::NTuple{n, Int} where n
+    vsel::NTuple{n, Int} where n
 )
     original_hist = convert(Histogram, original.dist)
     dims = collect(1:ndims(original_hist.weights))
-    parsel = Tuple(findfirst(x-> x == p, original.dims) for p in parsel)
+    vsel = Tuple(findfirst(x-> x == p, original.dims) for p in vsel)
 
-    weights = sum(original_hist.weights, dims=setdiff(dims, parsel))
-    weights = dropdims(weights, dims=Tuple(setdiff(dims, parsel)))
+    weights = sum(original_hist.weights, dims=setdiff(dims, vsel))
+    weights = dropdims(weights, dims=Tuple(setdiff(dims, vsel)))
 
-    edges = Tuple([original_hist.edges[p] for p in parsel])
+    edges = Tuple([original_hist.edges[p] for p in vsel])
     hist = StatsBase.Histogram(edges, weights, original_hist.closed)
 
-    bd = if length(parsel) == 1
+    bd = if length(vsel) == 1
         EmpiricalDistributions.UvBinnedDist(hist)
     else
         EmpiricalDistributions.MvBinnedDist(hist)
     end
 
-    marg = MarginalDist(parsel, bd, original.origvalshape)
+    marg = MarginalDist(vsel, bd, original.origvalshape)
 
     return (result = marg, )
 end
