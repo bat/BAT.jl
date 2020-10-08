@@ -10,7 +10,7 @@ end
 ValueShapes.totalndof(model::GaussianShellDensity) = model.dimensions
 
 #define likelihood for the Gaussian Shell
-function BAT.logvalof_unchecked(target::GaussianShellDensity, v::AbstractArray{Float64, 1})
+function BAT.eval_logval_unchecked(target::GaussianShellDensity, v::AbstractArray{Float64, 1})
     diff::Float64 = 0
     for i in eachindex(v)
         diff += (target.lambda[i] - v[i]) * (target.lambda[i] - v[i])

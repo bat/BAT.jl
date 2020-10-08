@@ -24,9 +24,9 @@ Base.convert(::Type{DistLikeDensity}, h::Histogram) = DistributionDensity(h)
 Base.parent(density::DistributionDensity) = density.dist
 
 
-logvalof_unchecked(density::DistributionDensity, v::Any) = Distributions.logpdf(density.dist, v)
+eval_logval_unchecked(density::DistributionDensity, v::Any) = Distributions.logpdf(density.dist, v)
 
-logvalof_unchecked(density::DistributionDensity, v::AbstractVector{<:Real}) = Distributions.logpdf(unshaped(density.dist), v)
+eval_logval_unchecked(density::DistributionDensity, v::AbstractVector{<:Real}) = Distributions.logpdf(unshaped(density.dist), v)
 
 
 ValueShapes.varshape(density::DistributionDensity) = varshape(density.dist)

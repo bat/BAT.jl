@@ -44,7 +44,7 @@ function bat_sample_impl(
 
     samples = _gen_samples(algorithm, n, truncated_density)
 
-    logvals = logvalof.(Ref(truncated_density), samples)
+    logvals = eval_logval.(Ref(truncated_density), samples)
     weights = exp.(logvals)
 
     bat_samples = shape.(DensitySampleVector(samples, logvals, weight = weights))
@@ -97,7 +97,7 @@ function bat_sample_impl(
 
     v = unshaped_prior_samples.v
     prior_weight = unshaped_prior_samples.weight
-    posterior_logd = logvalof.(Ref(posterior), v)
+    posterior_logd = eval_logval.(Ref(posterior), v)
     weight = exp.(posterior_logd - unshaped_prior_samples.logd) .* prior_weight
 
     posterior_samples = shape.(DensitySampleVector(v, posterior_logd, weight = weight))

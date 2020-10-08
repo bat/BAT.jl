@@ -15,8 +15,8 @@ using ArraysOfArrays, Distributions, StatsBase, PDMats, IntervalSets, ValueShape
         @test totalndof(mvdd) == 2
     end
 
-    @testset "BAT.logvalof_unchecked" begin
-        @test (@inferred BAT.logvalof_unchecked(mvdd, [0.0, 0.0])) ≈ -2.64259602
+    @testset "BAT.eval_logval_unchecked" begin
+        @test (@inferred BAT.eval_logval_unchecked(mvdd, [0.0, 0.0])) ≈ -2.64259602
     end
 
     @testset "BAT.var_bounds" begin

@@ -12,7 +12,7 @@ function Rastrigin(;bounds=[-3.,3.],a=30,b=10)
     Rastrigin(bounds,a,b,dist)
 end
 
-BAT.logvalof_unchecked(density::Rastrigin,v::Any) = log(broadcast(density.dist,v))
+BAT.eval_logval_unchecked(density::Rastrigin,v::Any) = log(broadcast(density.dist,v))
 
 """
     Rastrigin <: AbstractDensity
@@ -29,7 +29,7 @@ function SineSquared(;bounds=[-0.,25.])
     SineSquared(bounds,dist)
 end
 
-BAT.logvalof_unchecked(density::SineSquared,v::Any) = log(broadcast(density.dist,v))
+BAT.eval_logval_unchecked(density::SineSquared,v::Any) = log(broadcast(density.dist,v))
 
 """
     SineSquared <: AbstractDensity
@@ -48,7 +48,7 @@ function HoelderTable()
     HoelderTable(bounds,dist)
 end
 
-BAT.logvalof_unchecked(density::HoelderTable,v::Any) = log(broadcast(density.dist,v))
+BAT.eval_logval_unchecked(density::HoelderTable,v::Any) = log(broadcast(density.dist,v))
 
 
 """

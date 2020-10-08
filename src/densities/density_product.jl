@@ -44,8 +44,8 @@ _unsafe_prod(a::DensityProduct, b::AbstractDensity, new_bounds::AbstractVarBound
     DensityProduct((a.densities...,b), new_bounds)
 
 
-function logvalof_unchecked(density::DensityProduct, v::AbstractVector{<:Real})
+function eval_logval_unchecked(density::DensityProduct, v::AbstractVector{<:Real})
     ds = density.densities
     isempty(ds) && throw(ArgumentError("Can't evaluate empty DensityProduct"))
-    sum(map(d -> logvalof_unchecked(d, v), ds))
+    sum(map(d -> eval_logval_unchecked(d, v), ds))
 end

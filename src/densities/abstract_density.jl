@@ -6,7 +6,7 @@
 
 Subtypes of `AbstractDensity` must implement the function
 
-* `BAT.logvalof_unchecked`
+* `BAT.eval_logval_unchecked`
 
 For likelihood densities this is typically sufficient, since shape, and
 variate bounds will be inferred from the prior.
@@ -29,7 +29,7 @@ export AbstractDensity
 
 
 @doc doc"""
-    BAT.logvalof_unchecked(density::AbstractDensity, v::Any)
+    BAT.eval_logval_unchecked(density::AbstractDensity, v::Any)
 
 Compute log of the value of a multivariate density function for the given
 variate/parameter-values.
@@ -39,12 +39,12 @@ Input:
 * `density`: density function
 * `v`: argument, i.e. variate / parameter-values
 
-Note: If `logvalof_unchecked` is called with an argument that is out of bounds,
+Note: If `eval_logval_unchecked` is called with an argument that is out of bounds,
 the behaviour is undefined. The result for arguments that are not within
 bounds is *implicitly* `-Inf`, but it is the caller's responsibility to handle
 these cases.
 """
-function logvalof_unchecked end
+function eval_logval_unchecked end
 
 
 @doc doc"""
@@ -54,9 +54,9 @@ function logvalof_unchecked end
 
 *BAT-internal, not part of stable public API.*
 
-Get the parameter bounds of `density`. See `logvalof_unchecked` and
-`logvalof` for the implications and handling of bounds.
-If bounds are missing, `logvalof_unchecked` must be prepared to
+Get the parameter bounds of `density`. See `eval_logval_unchecked` and
+`eval_logval` for the implications and handling of bounds.
+If bounds are missing, `eval_logval_unchecked` must be prepared to
 handle any parameter values.
 """
 var_bounds(density::AbstractDensity) = missing
@@ -104,7 +104,7 @@ ValueShapes.varshape(density::AbstractDensity) = missing
 
 
 @doc doc"""
-    logvalof(
+    eval_logval(
         density::AbstractDensity,
         v::Any,
         T::Type{:Real} = density_logval_type(v);
@@ -114,13 +114,13 @@ ValueShapes.varshape(density::AbstractDensity) = missing
 
 *BAT-internal, not part of stable public API.*
 
-Evaluates density log-value via `logvalof_unchecked`.
+Evaluates density log-value via `eval_logval_unchecked`.
 
 Throws an exception on any of these conditions:
 
 * The variate shape of `density` (if known) does not match the shape of `v`.
-* The return value of `logvalof_unchecked` is `NaN`.
-* The return value of `logvalof_unchecked` is an equivalent of positive
+* The return value of `eval_logval_unchecked` is `NaN`.
+* The return value of `eval_logval_unchecked` is an equivalent of positive
   infinity.
 
 Options:
@@ -131,7 +131,9 @@ Options:
 
 * `strict`: Throw an exception if `v` is out of bounds.
 """
-function logvalof(
+function eval_logval end
+
+function eval_logval(
     density::AbstractDensity,
     v::Any,
     T::Type{<:Real} = density_logval_type(v);
@@ -147,7 +149,7 @@ function logvalof(
     # augmentation mechanism in a function `get_density_logval_with_rethrow`
     # with a custom pullback:
     logval::T = try
-        logvalof_unchecked(density, stripscalar(v_shaped))
+        eval_logval_unchecked(density, stripscalar(v_shaped))
     catch err
         rethrow(_density_eval_error(density, v, err))
     end
@@ -213,7 +215,9 @@ end
 
 
 @doc doc"""
-    logvalgradof(density::AbstractDensity, v::AbstractVector{<:Real})
+    eval_gradlogval(density::AbstractDensity, v::AbstractVector{<:Real})
+    grad
+*BAT-internal, not part of stable public API.*
 
 Compute the log of the value of a multivariate density function, as well as
 the gradient of the log-value for the given variate/parameter-values.
@@ -227,10 +231,10 @@ Returns a tuple of the log density value and it's gradient.
 
 Note: This function should *not* be specialized for custom density types!
 """
-function logvalgradof end
-export logvalgradof
+function eval_gradlogval end
 
-function logvalgradof(
+
+function eval_gradlogval(
     density::AbstractDensity,
     v::Any,
 )
@@ -317,16 +321,18 @@ struct LogValOfDensity{D<:AbstractDensity} <: Function
     density::D
 end
 
-(lvd::LogValOfDensity)(v::Any) = logvalof(lvd.density, v)
+(lvd::LogValOfDensity)(v::Any) = eval_logval(lvd.density, v)
 
 
 """
     logvalof(density::AbstractDensity)::Function
 
-Returns a function that is equivalent to
+Returns a function that computes that logarithmic value of `density` at a
+given point:
 
 ```julia
-    v -> logvalof(density, v)
+    f = logvalof(density)
+    log_density_at_v = f(v)
 ```
 """
 logvalof(density::AbstractDensity) = LogValOfDensity(density)
@@ -337,19 +343,19 @@ struct LogValGradOfDensity{D<:AbstractDensity} <: Function
     density::D
 end
 
-(lvdg::LogValGradOfDensity)(v::Any) = logvalgradof(lvdg.density, v)
+(lvdg::LogValGradOfDensity)(v::Any) = eval_gradlogval(lvdg.density, v)
 
 
 """
-    logvalgradof(density::AbstractDensity)::Function
+    eval_gradlogval(density::AbstractDensity)::Function
 
 Returns a function that is equivalent to
 
 ```julia
-    v -> logvalgradof(density, v)
+    v -> eval_gradlogval(density, v)
 ```
 """
-logvalgradof(density::AbstractDensity) = LogValGradOfDensity(density)
+eval_gradlogval(density::AbstractDensity) = LogValGradOfDensity(density)
 
 
 
@@ -372,7 +378,7 @@ in) an `DistLikeDensity` via `conv(DistLikeDensity, d)`.
 
 The following functions must be implemented for subtypes:
 
-* `BAT.logvalof_unchecked`
+* `BAT.eval_logval_unchecked`
 
 * `BAT.var_bounds`
 

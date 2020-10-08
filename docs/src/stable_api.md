@@ -28,6 +28,8 @@ Order = [:macro, :function]
 
 
 ```@docs
+logvalof
+
 bat_default
 bat_eff_sample_size
 bat_findmedian
@@ -41,12 +43,9 @@ bat_rng
 bat_sample
 bat_write
 
-logvalgradof
-logvalof
-
 BAT.fft_autocor
 BAT.fft_autocov
-BAT.logvalof_unchecked
+BAT.eval_logval_unchecked
 
 AbstractDensity
 AbstractMCMCWeightingScheme

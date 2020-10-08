@@ -88,7 +88,7 @@ function MHIterator(
 
     proposaldist = algorithm.proposal(P, npar)
 
-    log_posterior_value = logvalof(density, params_vec, strict = true)
+    log_posterior_value = eval_logval(density, params_vec, strict = true)
 
     T = typeof(log_posterior_value)
     W = sample_weight_type(typeof(algorithm.weighting))
@@ -264,7 +264,7 @@ function mcmc_step!(chain::MHIterator)
     T = typeof(current_log_posterior)
 
     # Evaluate prior and likelihood with proposed variate:
-    proposed_log_posterior = logvalof(density, proposed_params, strict = false)
+    proposed_log_posterior = eval_logval(density, proposed_params, strict = false)
 
     samples.logd[proposed] = proposed_log_posterior
 
