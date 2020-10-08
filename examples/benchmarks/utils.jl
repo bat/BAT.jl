@@ -395,10 +395,12 @@ function plot2D(
 
 	if name == "multi cauchy"
 		plot_bins = (-60:0.5:60,-60:0.5:60)
+		plot(samples,bins=plot_bins,globalmode=false)
+		savefig(string("plots2D/default_",name,".pdf"))
+	else
+		plot(samples,bins=plot_bins,globalmode=true)
+		savefig(string("plots2D/default_",name,".pdf"))
 	end
-	#plot(unweighted_samples,seriestype=:smallest_intervals,bins=plot_bins)
-	plot(unweighted_samples,bins=plot_bins,globalmode=true)
-	savefig(string("plots2D/default_",name,".pdf"))
 
 	plot(unweighted_samples,(1,2),seriestype=:smallest_intervals,bins=plot_bins)
     savefig(string("plots2D/",name,".pdf"))
