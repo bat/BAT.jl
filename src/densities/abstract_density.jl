@@ -131,9 +131,6 @@ Options:
 
 * `strict`: Throw an exception if `v` is out of bounds.
 """
-function logvalof end
-export logvalof
-
 function logvalof(
     density::AbstractDensity,
     v::Any,

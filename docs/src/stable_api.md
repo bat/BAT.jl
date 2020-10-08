@@ -49,7 +49,6 @@ BAT.fft_autocov
 BAT.logvalof_unchecked
 
 AbstractDensity
-AbstractDensityValue
 AbstractMCMCWeightingScheme
 AbstractPosteriorDensity
 AbstractSampleGenerator
@@ -76,7 +75,6 @@ InitFromSamples
 InitFromTarget
 InitvalAlgorithm
 IntegrationAlgorithm
-LinDVal
 LogDVal
 MaxDensityLBFGS
 MaxDensityNelderMead
