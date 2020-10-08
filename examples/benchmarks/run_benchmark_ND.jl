@@ -172,7 +172,7 @@ function plot_time_values(results::Array{Any},n_dim;name="results/time_values")
 end
 
 function create_testfunction_for_dim(i_dim::Integer,maxdim=10)
-    sig = Matrix{Float64}([1.5^2 1.5*2.5*0.4 ; 1.5*2.5*0.4 2.5^2])
+    #sig = Matrix{Float64}([1.5^2 1.5*2.5*0.4 ; 1.5*2.5*0.4 2.5^2])
     sig = Matrix{Float64}(undef,i_dim,i_dim)
     means = Vector{Float64}(undef,i_dim)
 
@@ -206,9 +206,9 @@ function run_ND_benchmark(;
     ks_test_benchmark = true,
     ahmi_benchmark = true)
 
-    ahmi = Matrix{Any}(undef,length(n_dim),length(create_testfunction_for_dim(1))+1)
-    ks_test = Matrix{Any}(undef,length(n_dim),length(create_testfunction_for_dim(1))+1)
-    times = Matrix{Any}(undef,length(n_dim),length(create_testfunction_for_dim(1))+1)
+    ahmi = Matrix{Any}(undef,length(n_dim),length(create_testfunction_for_dim(2))+1)
+    ks_test = Matrix{Any}(undef,length(n_dim),length(create_testfunction_for_dim(2))+1)
+    times = Matrix{Any}(undef,length(n_dim),length(create_testfunction_for_dim(2))+1)
 
     convergence = BrooksGelmanConvergence(
         threshold = 1.6, #Change up
@@ -248,14 +248,14 @@ function run_ND_benchmark(;
                     dis, n_samples * n_chains,
                     MCMCSampling(
                         sampler = algorithm,
-                        nchains = nchains,
+                        nchains = n_chains,
                         init = init,
                         burnin = burnin,
                         convergence = convergence,
                         strict = true,
                         nonzero_weights = true
                     )
-                ).result.result
+                ).result
             elseif isa(algorithm,BAT.HamiltonianMC)
                 mcmc_sample = bat_sample(
                     dis, n_samples*n_chains,
@@ -273,14 +273,14 @@ function run_ND_benchmark(;
                             dis, n_samples * n_chains,
                             MCMCSampling(
                                 sampler = algorithm,
-                                nchains = nchains,
+                                nchains = n_chains,
                                 init = init,
                                 burnin = burnin,
                                 convergence = convergence,
                                 strict = true,
                                 nonzero_weights = true
                             )
-                        ).result.result
+                        ).result
                     elseif isa(algorithm,BAT.HamiltonianMC)
                         bat_sample(
                             dis, n_samples*n_chains,
