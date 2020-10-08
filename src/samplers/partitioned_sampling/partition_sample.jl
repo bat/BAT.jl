@@ -14,30 +14,33 @@ Constructor:
 
 Optional Parameters/settings (`kwargs`):
 
-* `sampler::S = MetropolisHastings()` algorithm to generate samples.
+* `sampler::S = MCMCSampling()` algorithm to generate samples.
 
-* `exploration_sampler::S = sampler` algorithm to generate exploration samples.
+* `exploration_sampler::S = MCMCSampling(nchains=30)` algorithm to generate exploration samples.
 
 * `partitioner::P = KDTreePartitioning()` algorithm to partition parameter space.
 
 * `integrator::I = AHMIntegration()` algorithm to integrate posterior.
 
-* `exploration_kwargs::NamedTuple = NamedTuple()` kwargs to be used in exploration sampler.
+* `exploration_kwargs::NamedTuple = NamedTuple()` kwargs to be used in the function `bat_sample()` to generate exploration samples.
 
-* `sampling_kwargs::NamedTuple = NamedTuple()` kwargs to be used in subspace sampler.
+* `sampling_kwargs::NamedTuple = NamedTuple()` kwargs to be used in the function `bat_sample()` to generate final samples.
 
-* `n_exploration::Tuple{Integer,Integer} = (10^2, 40)` number of exploration iterations.
+* `n_exp_samples::Integer = 10^3` number of exploration samples.
+
+* `n_partitions::Integer = 10` number of space partitions.
 
 """
 @with_kw struct PartitionedSampling{S<:AbstractSamplingAlgorithm, E<:AbstractSamplingAlgorithm,
     I<:IntegrationAlgorithm, P<:SpacePartitioningAlgorithm} <: AbstractSamplingAlgorithm
-    sampler::S = MetropolisHastings()
-    exploration_sampler::E = sampler
+    sampler::S = MCMCSampling()
+    exploration_sampler::E = MCMCSampling(nchains=30)
     partitioner::P = KDTreePartitioning()
     integrator::I = AHMIntegration()
     exploration_kwargs::NamedTuple = NamedTuple()
     sampling_kwargs::NamedTuple = NamedTuple()
-    n_exploration::Tuple{Integer,Integer} = (10^2, 30)
+    n_exp_samples::Integer = 10^3
+    n_partitions::Integer = 10
 end
 
 export PartitionedSampling
@@ -46,14 +49,14 @@ export PartitionedSampling
 """
     bat_sample(
         posterior::PosteriorDensity,
-        n::Tuple{Integer,Integer, Integer},
+        n::Integer,
         algorithm::PartitionedSampling;
     )
 
 *Experimental feature, not part of stable public API.*
 
 Generate samples from `posterior` using `PartitionedSampling()` algorithm.
-`n` must be a tuple `(nsteps, nchains, npartitions)`.
+`n` specifies the number of samples.
 
 Returns a NamedTuple of the shape
 
@@ -68,14 +71,14 @@ Returns a NamedTuple of the shape
 """
 function bat_sample(
         posterior::PosteriorDensity,
-        n::Tuple{Integer,Integer, Integer},  #!!!!!! ToDo, change to integer, number of partitions should go into PartitionedSampling
+        n::Integer,
         algorithm::PartitionedSampling
     )
 
-    n_samples, n_chains, n_subspaces = n
+    n_samples, n_subspaces = round(typeof(n), n / algorithm.n_partitions), algorithm.n_partitions
 
     @info "Generating Exploration Samples"
-    exploration_samples = bat_sample(posterior, algorithm.n_exploration, algorithm.exploration_sampler; algorithm.exploration_kwargs...).result
+    exploration_samples = bat_sample(posterior, algorithm.n_exp_samples, algorithm.exploration_sampler; algorithm.exploration_kwargs...).result
 
     @info "Constructing Partition Tree"
     partition_tree, cost_values = partition_space(exploration_samples, n_subspaces, algorithm.partitioner)
@@ -85,7 +88,7 @@ function bat_sample(
     @info "Sampling Subspaces"
     iterator_subspaces = [
         [subspace_ind, posteriors_array[subspace_ind],
-        (n_samples, n_chains),
+        n_samples,
         algorithm.sampler,
         algorithm.integrator,
         algorithm.sampling_kwargs] for subspace_ind in Base.OneTo(n_subspaces)]
@@ -113,7 +116,7 @@ end
 function sample_subspace(
     space_id::Integer,
     posterior::PosteriorDensity,
-    n::Tuple{Integer,Integer},
+    n::Integer,
     sampling_algorithm::A,
     integration_algorithm::I,
     sampling_kwargs::N
