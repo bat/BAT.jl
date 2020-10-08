@@ -3,7 +3,7 @@
 using BAT
 using Test
 
-using LinearAlgebra, Random
+using LinearAlgebra, Random, StableRNGs
 using ArraysOfArrays, ValueShapes, Distributions, PDMats, StatsBase
 
 struct _TestDensityStruct <: AbstractDensity
@@ -97,6 +97,6 @@ end
 
     @testset "rand" begin
         td = _TestDensityStruct()
-        @test rand(MersenneTwister(7002), sampler(td)) ≈ [-2.415270938, 0.7070171342, 1.0224848653]
+        @test rand(StableRNG(7002), sampler(td)) ≈ [2.386799038, 1.072161895, 0.791486531]
     end
 end
