@@ -94,7 +94,7 @@ function get_marginal_dist(
     nsamples::Integer = 10^6
 )
     idx = asindex(prior, key)
-    r = rand(prior, nsamples)
+    r = flatview(unshaped.(rand(prior, nsamples)))
 
     edges = _get_edges(r[idx, :], bins, closed)
 
@@ -116,7 +116,7 @@ function get_marginal_dist(
 )
     idxs = asindex.(Ref(prior), key)
 
-    r = rand(prior, nsamples)
+    r = flatview(unshaped.(rand(prior, nsamples)))
     s = Tuple(r[i, :] for i in idxs)
 
     edges = if isa(bins, Integer)
