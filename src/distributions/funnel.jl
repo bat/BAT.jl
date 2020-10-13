@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+
 @doc doc"""
     BAT.FunnelDistribution([a=1, b=0.5, n=3])
 
