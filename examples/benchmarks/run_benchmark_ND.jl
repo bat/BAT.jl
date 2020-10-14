@@ -1,7 +1,7 @@
 function plot_ks_values_ahmc_vs_mh(ks_res_ahmc::Array{Any},ks_res_mh::Array{Any},n_dim;name="results/ks_test_values_ahmc_mh")
 
 	n_diff_dims = length(n_dim)
-	n_functions = length(create_testfunction_for_dim(1))*2
+	n_functions = length(create_testfunction_for_dim(2,hmc_safe=true))*2
 
 	x = Array{Array{Float64}}(undef,n_diff_dims*n_functions)
 	y = Array{Array{Float64}}(undef,n_diff_dims*n_functions)
@@ -38,7 +38,7 @@ end
 
 function plot_ks_values(results::Array{Any},n_dim;name="results/ks_test_values")
     n_diff_dims = length(n_dim)
-    n_functions = length(create_testfunction_for_dim(1))
+    n_functions = length(create_testfunction_for_dim(2))
 
     x = Array{Array{Float64}}(undef,n_diff_dims*n_functions)
     y = Array{Array{Float64}}(undef,n_diff_dims*n_functions)
@@ -46,7 +46,7 @@ function plot_ks_values(results::Array{Any},n_dim;name="results/ks_test_values")
     x_dim_ticks_t2=Array{String}(undef,n_diff_dims*n_functions)
 
     xy_func_annot=Array{Array{Float64}}(undef,n_functions)
-    func_annot = collect(keys(create_testfunction_for_dim(1)))
+    func_annot = collect(keys(create_testfunction_for_dim(2)))
 
     for i_function in 1:n_functions
         for i_dim in 1:n_diff_dims
@@ -72,7 +72,7 @@ end
 
 function plot_ahmi_values(results::Array{Any},n_dim;name="results/ahmi_values")
     n_diff_dims = length(n_dim)
-    n_functions = length(create_testfunction_for_dim(1))
+    n_functions = length(create_testfunction_for_dim(2))
 
     x = Array{Float64}(undef,n_diff_dims*n_functions)
     y = Array{Float64}(undef,n_diff_dims*n_functions)
@@ -83,7 +83,7 @@ function plot_ahmi_values(results::Array{Any},n_dim;name="results/ahmi_values")
     y_ticks_t1=Array{Float64}(undef,n_functions*3)
     y_ticks_t2=Array{String}(undef,n_functions*3)
     xy_func_annot=Array{Array{Float64}}(undef,n_functions)
-    func_annot = collect(keys(create_testfunction_for_dim(1)))
+    func_annot = collect(keys(create_testfunction_for_dim(2)))
 
     int_plot_range = 0.2
 
@@ -130,7 +130,7 @@ end
 
 function plot_time_values(results::Array{Any},n_dim;name="results/time_values")
     n_diff_dims = length(n_dim)
-    n_functions = length(create_testfunction_for_dim(1))
+    n_functions = length(create_testfunction_for_dim(2))
 
     x = Array{Float64}(undef,n_diff_dims*n_functions)
     y = Array{Float64}(undef,n_diff_dims*n_functions)
@@ -139,7 +139,7 @@ function plot_time_values(results::Array{Any},n_dim;name="results/time_values")
     x_ticks_t1=Array{Float64}(undef,n_diff_dims)
     x_ticks_t2=Array{String}(undef,n_diff_dims)
 
-    func_annot = collect(keys(create_testfunction_for_dim(1)))
+    func_annot = collect(keys(create_testfunction_for_dim(2)))
 
     int_plot_range = 0.2
 
@@ -171,7 +171,7 @@ function plot_time_values(results::Array{Any},n_dim;name="results/time_values")
     savefig(string(name,"_ND.pdf"))
 end
 
-function create_testfunction_for_dim(i_dim::Integer,maxdim=10)
+function create_testfunction_for_dim(i_dim::Integer,maxdim=10;hmc_safe=false)
     #sig = Matrix{Float64}([1.5^2 1.5*2.5*0.4 ; 1.5*2.5*0.4 2.5^2])
     sig = Matrix{Float64}(undef,i_dim,i_dim)
     means = Vector{Float64}(undef,i_dim)
@@ -189,7 +189,11 @@ function create_testfunction_for_dim(i_dim::Integer,maxdim=10)
     normal = MvNormal(means,sig)
     cauchy = BAT.MultimodalCauchy(µ=5. * i_dim, σ=0.2 * i_dim,n=i_dim)
     funnel = BAT.FunnelDistribution(a=0.5, b=0.5, n=i_dim)
-
+	if hmc_safe
+		return Dict(
+	        "funnel" => funnel
+	    )
+	end
     return Dict(
         "normal" => normal,
         "cauchy" => cauchy,
@@ -204,11 +208,12 @@ function run_ND_benchmark(;
     n_samples = 4*10^5,
     time_benchmark = true,
     ks_test_benchmark = true,
-    ahmi_benchmark = true)
+    ahmi_benchmark = true,
+	hmc_benchmark=false)
 
-    ahmi = Matrix{Any}(undef,length(n_dim),length(create_testfunction_for_dim(2))+1)
-    ks_test = Matrix{Any}(undef,length(n_dim),length(create_testfunction_for_dim(2))+1)
-    times = Matrix{Any}(undef,length(n_dim),length(create_testfunction_for_dim(2))+1)
+    ahmi = Matrix{Any}(undef,length(n_dim),length(create_testfunction_for_dim(2,hmc_safe=hmc_benchmark))+1)
+    ks_test = Matrix{Any}(undef,length(n_dim),length(create_testfunction_for_dim(2,hmc_safe=hmc_benchmark))+1)
+    times = Matrix{Any}(undef,length(n_dim),length(create_testfunction_for_dim(2,hmc_safe=hmc_benchmark))+1)
 
     convergence = BrooksGelmanConvergence(
         threshold = 1.6, #Change up
@@ -228,13 +233,13 @@ function run_ND_benchmark(;
     )
 
     for i in 1:length(n_dim)
-
+		print(i)
         i_dim = n_dim[i]
         ahmi[i,1] = i_dim
         ks_test[i,1] = i_dim
         times[i,1] = i_dim
 
-        testfunctions = create_testfunction_for_dim(i_dim,n_dim[end])
+        testfunctions = create_testfunction_for_dim(i_dim,n_dim[end],hmc_safe=hmc_benchmark)
 
         for j in 1:length(testfunctions)
 
@@ -316,7 +321,7 @@ function run_ND_benchmark(;
         end
     end
 
-    header = ["n_dims",collect(keys(create_testfunction_for_dim(1)))...]
+    header = ["n_dims",collect(keys(create_testfunction_for_dim(2,hmc_safe=hmc_benchmark)))...]
     tf = open("results/times_ND.txt","w")
     pretty_table(tf,times,header)
     close(tf)
@@ -326,15 +331,15 @@ function run_ND_benchmark(;
 
 
 
-    if(ks_test_benchmark)
-        header = ["n_dims",collect(keys(create_testfunction_for_dim(1)))...]
+    if(ks_test_benchmark && !(hmc_benchmark))
+        header = ["n_dims",collect(keys(create_testfunction_for_dim(2,hmc_safe=hmc_benchmark)))...]
         fks = open("results/ks_test_ND.txt","w")
         pretty_table(fks,ks_test,header)
         close(fks)
         fksl = open("results/ks_test_ND.tex","w")
         pretty_table(fksl,ks_test,header,backend=:latex)
         close(fksl)
-         plot_ks_values(ks_test,n_dim)
+        plot_ks_values(ks_test,n_dim)
      end
     if(time_benchmark)
         plot_time_values(times,n_dim)
@@ -353,7 +358,7 @@ function run_ND_benchmark(;
 end
 
 function run_ks_ahmc_vs_mh(;n_dim=20:5:35,n_samples=2*10^5, n_chains=4)
-    ks_res_ahmc = run_ND_benchmark(n_dim=n_dim,algorithm=HamiltonianMC(), n_samples=n_samples, n_chains=n_chains, time_benchmark=false,ahmi_benchmark=false)[1]
-    ks_res_mh = run_ND_benchmark(n_dim=n_dim,algorithm=MetropolisHastings(), n_samples=n_samples, n_chains=n_chains, time_benchmark=false,ahmi_benchmark=false)[1]
+    ks_res_ahmc = run_ND_benchmark(n_dim=n_dim,algorithm=HamiltonianMC(), n_samples=n_samples, n_chains=n_chains, time_benchmark=false,ahmi_benchmark=false,hmc_benchmark=true)[1]
+    ks_res_mh = run_ND_benchmark(n_dim=n_dim,algorithm=MetropolisHastings(), n_samples=n_samples, n_chains=n_chains, time_benchmark=false,ahmi_benchmark=false,hmc_benchmark=true)[1]
     plot_ks_values_ahmc_vs_mh(ks_res_ahmc,ks_res_mh,n_dim)
 end
