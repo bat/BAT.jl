@@ -48,4 +48,10 @@ using ArraysOfArrays, Distributions, StatsBase, PDMats, IntervalSets, ValueShape
         snt = @inferred sampler(ntdd)
         @test all([rand(snt) in BAT.var_bounds(ntdd) for i in 1:10^4])
     end
+
+    @testset "statistics" begin
+        mvn = @inferred(product_distribution([Normal(-1), Normal(1)]))
+        dd = @inferred(BAT.DistributionDensity(mvn))
+        @test @inferred(bat_findmode(dd)).result == mode(mvn)
+    end
 end

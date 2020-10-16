@@ -36,6 +36,11 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes
     @testset "ModeAsDefined" begin
         @test @inferred(bat_findmode(prior, ModeAsDefined())).result[] == true_mode
         @test @inferred(bat_findmode(BAT.DistributionDensity(prior), ModeAsDefined())).result[] == true_mode
+        let post_modes = @inferred(bat_findmode(posterior)).result[]
+            for k in keys(post_modes)
+                @test isapprox(post_modes[k], true_mode[k], atol=0.001)
+            end
+        end
     end
 
 
