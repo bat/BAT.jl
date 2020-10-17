@@ -327,12 +327,12 @@ end
 """
     logvalof(density::AbstractDensity)::Function
 
-Returns a function that computes that logarithmic value of `density` at a
+Returns a function that computes the logarithmic value of `density` at a
 given point:
 
 ```julia
-    f = logvalof(density)
-    log_density_at_v = f(v)
+f = logvalof(density)
+log_density_at_v = f(v)
 ```
 """
 logvalof(density::AbstractDensity) = LogValOfDensity(density)
