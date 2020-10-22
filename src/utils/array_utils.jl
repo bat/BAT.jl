@@ -59,3 +59,9 @@ sum_first_dim(A::AbstractVector) = sum(A)
 
 
 const SingleArrayIndex = Union{Integer, CartesianIndex}
+
+
+
+convert_eltype(::Type{T}, x::AbstractArray) where T = convert.(T, x)
+
+convert_eltype(::Type{T}, x::AbstractArray{T}) where T = x

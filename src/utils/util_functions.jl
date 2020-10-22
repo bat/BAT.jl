@@ -2,3 +2,5 @@
 
 
 @inline nop_func(x...) = nothing
+
+near_neg_inf(::Type{T}) where T<:Real = T(-1E38) # Still fits into Float32

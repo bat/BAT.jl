@@ -7,6 +7,7 @@ Test.@testset "Package BAT" begin
     include("rngs/test_rngs.jl")
     include("distributions/test_distributions.jl")
     include("parameters/test_parameters.jl")
+    include("transforms/test_transforms.jl")
     include("densities/test_densities.jl")
     include("initvals/test_initvals.jl")
     include("statistics/test_statistics.jl")

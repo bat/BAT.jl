@@ -24,7 +24,29 @@ Base.convert(::Type{DistLikeDensity}, h::Histogram) = DistributionDensity(h)
 Base.parent(density::DistributionDensity) = density.dist
 
 
-eval_logval_unchecked(density::DistributionDensity, v::Any) = Distributions.logpdf(density.dist, v)
+function eval_logval_unchecked(density::DistributionDensity, v::Any)
+    d = density.dist
+    logd = logpdf(d, v)
+    R = typeof(logd)
+    if isnan(logd)
+        if isinf(v)
+            # Weibull yields NaN logpdf at infinity (Distributions.jl issue #1197), possibly others too,
+            # so force to -Inf (there should never be any probability mass at infinity):
+            convert(R, -Inf)
+        elseif v ≈ minimum(d)
+            # Weibull yields NaN logpdf at 0 (Distributions.jl issue #1197), possibly others too,
+            # so move an epsilon away from minimum:
+            convert(R, logpdf(d, minimum(d) + eps(typeof(v))))
+        elseif v ≈ maximum(d)
+            # Likewise at maxiumum:
+            convert(R, logpdf(d, maximum(d) - eps(typeof(v))))
+        else
+            logd
+        end
+    else
+        logd
+    end
+end
 
 eval_logval_unchecked(density::DistributionDensity, v::AbstractVector{<:Real}) = Distributions.logpdf(unshaped(density.dist), v)
 
