@@ -74,7 +74,7 @@ end
 
 
 
-_approx_cov(target::Distribution) = cov(target)
+_approx_cov(target::Distribution) = cov(unshaped(target))
 _approx_cov(target::DistLikeDensity) = cov(target)
 _approx_cov(target::AbstractPosteriorDensity) = cov(getprior(target))
 
