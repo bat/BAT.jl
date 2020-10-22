@@ -378,7 +378,7 @@ unshaped(samples_mode)
 # `samples_mode` is only an estimate of the mode of the posterior
 # distribution. It can be further refined using [`bat_findmode`](@ref):
 
-findmode_result = bat_findmode(posterior, initial_mode = samples_mode)
+findmode_result = bat_findmode(posterior, MaxDensityNelderMead(init = ExplicitInit([samples_mode])))
 
 fit_par_values = findmode_result.result[]
 
