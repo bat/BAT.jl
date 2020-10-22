@@ -222,16 +222,12 @@ function mcmc_iterate!(
     end
 
     if !isnothing(outputs)
-        #@sync
-        for i in eachindex(outputs, chains)
-            #@mt_async
-            mcmc_iterate!(outputs[i], chains[i]; kwargs...)
+        @sync for i in eachindex(outputs, chains)
+            Base.Threads.@spawn mcmc_iterate!(outputs[i], chains[i]; kwargs...)
         end
     else
-        #@sync
-        for i in eachindex(chains)
-            #@mt_async 
-            mcmc_iterate!(nothing, chains[i]; kwargs...)
+        @sync for i in eachindex(chains)
+            Base.Threads.@spawn mcmc_iterate!(nothing, chains[i]; kwargs...)
         end
     end
 
