@@ -95,6 +95,7 @@ struct NoDensityTransform <: AbstractDensityTransformTarget end
 export NoDensityTransform
 
 
+
 """
     DensityIdentityTransform <: TransformAlgorithm
 
@@ -105,7 +106,8 @@ export DensityIdentityTransform
 
 
 function bat_transform_impl(target::NoDensityTransform, density::AnyDensityLike, algorithm::DensityIdentityTransform)
-    (result = convert(AbstractDensity, density),)
+    # ToDo: Return suitable VariateSpace instead of always returning MixedSpace()
+    (result = convert(AbstractDensity, density), trafo = IdentityVT(MixedSpace(), varshape(density)))
 end
 
 
@@ -150,7 +152,7 @@ export FullDensityTransform
 function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::AbstractPosteriorDensity, algorithm::FullDensityTransform)
     orig_prior = getprior(density)
     trafo = _prior_trafo(target, orig_prior)
-    (result = TransformedDensity(density, trafo, TDLADJCorr()),)
+    (result = TransformedDensity(density, trafo, TDLADJCorr()), trafo = trafo)
 end
 
 
@@ -173,5 +175,5 @@ function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, densi
     trafo = _prior_trafo(target, orig_prior)
     new_likelihood = TransformedDensity(orig_likelihood, trafo, TDNoCorr())
     new_prior = trafo.target_dist
-    (result = PosteriorDensity(new_likelihood, new_prior),)
+    (result = PosteriorDensity(new_likelihood, new_prior), trafo = trafo)
 end

@@ -2,11 +2,8 @@ include(joinpath(dirname(dirname(@__DIR__)), "docs", "src", "tutorial_lit.jl"))
 
 samples_mh = bat_sample(posterior, 10^5, MCMCSampling(sampler = MetropolisHastings())).result
 
-posterior_is = bat_transform(PriorToGaussian(), posterior, PriorSubstitution()).result
-posterior_is2 = bat_transform(PriorToGaussian(), posterior, FullDensityTransform()).result
-
-trafo_is = trafoof(posterior_is.likelihood)
-trafo_is2 = trafoof(posterior_is2)
+posterior_is, trafo_is = bat_transform(PriorToGaussian(), posterior, PriorSubstitution())
+posterior_is2, trafo_is2 = bat_transform(PriorToGaussian(), posterior, FullDensityTransform())
 
 samples_is = bat_sample(posterior_is, 10^5, MCMCSampling(sampler = HamiltonianMC())).result
 samples_is2 = bat_sample(posterior_is2, 10^5, MCMCSampling(sampler = HamiltonianMC())).result
