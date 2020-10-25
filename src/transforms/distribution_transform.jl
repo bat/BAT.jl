@@ -163,16 +163,17 @@ end
 
 
 
-# Similar to ForwardDiff.derivative
-# ToDo: Will need a custom adjoint for Zygote, including Zygote.forwarddiff
-@inline function _value_and_ladj(f::Function, x::R) where {R<:Real}
-    T = typeof(ForwardDiff.Tag(f, R))
-    ydual = f(ForwardDiff.Dual{T}(x, one(x)))
-    fx = ForwardDiff.value(ydual)
-    df_dx = ForwardDiff.partials(T, ydual, 1)
-    (fx, log(abs(df_dx)))
+@inline function _value_and_ladj(::typeof(cdf), d::Distribution{Univariate,Continuous}, x::Real)
+    u = cdf(d, x)
+    ladj = + logpdf(d, x)
+    (u, ladj)
 end
 
+@inline function _value_and_ladj(::typeof(quantile), d::Distribution{Univariate,Continuous}, u::Real)
+    x = quantile(d, u)
+    ladj = - logpdf(d, x)
+    (x, ladj)
+end
 
 function _eval_distr_trafo_error(f::Function, d::Distribution, x::Any)
     ErrorException("Evaluating transformation via $f for distribution of type $(typeof(d)) failed at $x")
@@ -184,7 +185,7 @@ function _eval_dist_trafo_func(f::Function, d::Distribution{Univariate,Continuou
             trg_v = f(d, src_v)
             var_trafo_result(trg_v, src_v)
         else
-            trg_v, trafo_ladj = _value_and_ladj(x -> f(d, x), src_v)
+            trg_v, trafo_ladj = _value_and_ladj(f, d, src_v)
             var_trafo_result(trg_v, src_v, trafo_ladj, prev_ladj)
         end
     catch err
