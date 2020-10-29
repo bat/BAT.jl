@@ -74,7 +74,6 @@ function bat_transform(
     density::AnyDensityLike,
     algorithm::TransformAlgorithm = bat_default_withinfo(bat_transform, Val(:algorithm), target, density)
 )
-    @info target, density, algorithm
     r = bat_transform_impl(target, density, algorithm)
     result_with_args(r, (algorithm = algorithm,))
 end
@@ -84,9 +83,6 @@ function argchoice_msg(::typeof(bat_transform), ::Val{:algorithm}, x::TransformA
     "Using tranform algorithm $x"
 end
 
-function argchoice_msg(::typeof(bat_transform), ::Val{:algorithm}, x::AbstractDensityTransformTarget)
-    "Using density transform $x"
-end
 
 
 """
