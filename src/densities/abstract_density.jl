@@ -425,12 +425,10 @@ Union of all types that BAT will accept as a probability Density, resp. that
     
 * [`AbstractDensity`](@ref)
 * `Distributions.Distribution`
-* `StatsBase.Histogram`
 """
 const AnyDensityLike = Union{
     AbstractDensity,
-    Distributions.ContinuousDistribution,
-    StatsBase.Histogram
+    Distributions.ContinuousDistribution
 }
 export AnyDensityLike
 
@@ -443,13 +441,11 @@ Union of all types that BAT can sample from:
 * [`AbstractDensity`](@ref)
 * [`DensitySampleVector`](@ref)
 * `Distributions.Distribution`
-* `StatsBase.Histogram`
 """
 const AnySampleable = Union{
     AbstractDensity,
     DensitySampleVector,
-    Distributions.Distribution,
-    StatsBase.Histogram
+    Distributions.Distribution
 }
 export AnySampleable
 
@@ -462,11 +458,9 @@ Union of all distribution/density-like types that BAT can draw i.i.d.
 
 * [`DistLikeDensity`](@ref)
 * `Distributions.Distribution`
-* `StatsBase.Histogram`
 """
 const AnyIIDSampleable = Union{
     DistLikeDensity,
-    Distributions.Distribution,
-    StatsBase.Histogram
+    Distributions.Distribution
 }
 export AnyIIDSampleable
