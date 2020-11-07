@@ -27,4 +27,10 @@ using ArraysOfArrays, Distributions, StatsBase, PDMats, IntervalSets, ValueShape
             @test all([rand(s) in BAT.var_bounds(density) for i in 1:10^4])
         end
     end
+
+    @testset "statistics" begin
+        mvn = @inferred(product_distribution([Normal(-1.0), Normal(0.0), Normal(1.0)]))
+        dist_density = @inferred(BAT.DistributionDensity(mvn))
+        @test @inferred(bat_findmode(dist_density)).result == mode(mvn)
+    end
 end
