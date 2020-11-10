@@ -14,7 +14,7 @@ export AbstractDensityTransformTarget
 """
     AbstractTransformToUnitspace <: AbstractDensityTransformTarget
 
-Abstract type for density transformation targets what specify a
+Abstract type for density transformation targets that specify a
 transformation into the unit hypercube.
 """
 abstract type AbstractTransformToUnitspace <: AbstractDensityTransformTarget end
@@ -100,12 +100,12 @@ export NoDensityTransform
 
 A no-op density transform algorithm that leaves any density unchanged.
 """
-struct DensityIdentityTransform <: AbstractDensityTransformTarget end
+struct DensityIdentityTransform <: TransformAlgorithm end
 export DensityIdentityTransform
 
 
 function bat_transform_impl(target::NoDensityTransform, density::AnyDensityLike, algorithm::DensityIdentityTransform)
-    convert(AbstractDensity, density)
+    (result = convert(AbstractDensity, density),)
 end
 
 

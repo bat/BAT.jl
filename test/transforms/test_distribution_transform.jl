@@ -15,3 +15,18 @@ using ValueShapes, Distributions, ForwardDiff
     end
     =#
 end
+
+@testset "bat_transform_defaults" begin
+    mvn = @inferred(product_distribution([Normal(-1), Normal(), Normal(1)]))
+    uniform_prior = @inferred(product_distribution([Uniform(-3, 1), Uniform(-2, 2), Uniform(-1, 3)]))
+
+    posterior_uniform_prior = @inferred(PosteriorDensity(mvn, uniform_prior))
+    posterior_gaussian_prior = @inferred(PosteriorDensity(mvn, mvn))
+
+    @test @inferred(bat_transform(PriorToGaussian(), posterior_uniform_prior)).result.prior.dist == @inferred(BAT.StandardMvNormal(3))
+    @test @inferred(bat_transform(PriorToUniform(), posterior_gaussian_prior)).result.prior.dist == @inferred(BAT.StandardMvUniform(3))
+    @test @inferred(bat_transform(NoDensityTransform(), posterior_uniform_prior)).result.prior.dist == uniform_prior
+    pd = @inferred(product_distribution([Uniform() for i in 1:3]))
+    density = @inferred(BAT.DistributionDensity(pd))
+    @test @inferred(bat_transform(NoDensityTransform(), density)).result.dist == density.dist
+end
