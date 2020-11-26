@@ -29,10 +29,20 @@ using LinearAlgebra: Diagonal, ones
         @test isapprox(bat_integrate(bsample).result.val, 1.0, rtol=15)
         eff_sample_size_dsv = @inferred(bat_eff_sample_size(bsample)).result
         eff_sample_size_aosa = @inferred(bat_eff_sample_size(bsample.v)).result
+
+        [bsample.weight[i] = 0 for i in eachindex(bsample.weight)]
+        bsample.weight[1] = 1
+        eff_sample_size_dsv_single_weight = @inferred(bat_eff_sample_size(bsample)).result
+
         for i in eachindex(@inferred(bat_eff_sample_size(bsample)).result)
             @test 8000 <= eff_sample_size_dsv[i] <= 10^4
             @test eff_sample_size_dsv[i] == eff_sample_size_aosa[i]
         end
+
+        for i in eachindex(eff_sample_size_dsv_single_weight)
+            @test @inferred(isapprox(1, eff_sample_size_dsv_single_weight[i]))
+        end
+
     end
 
 end
