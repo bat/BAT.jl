@@ -33,6 +33,7 @@ Order = [:macro, :function]
 
 ```@docs
 BAT.AbstractProposalDist
+BAT.AbstractSampleGenerator
 BAT.BasicMvStatistics
 BAT.DataSet
 BAT.HMIData

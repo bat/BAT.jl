@@ -168,7 +168,7 @@ end
 
 @recipe function f(x::Union{StepRangeLen, Vector},
         model::Function,
-        sample_from::Union{DensitySampleVector, AbstractDensity};
+        sample_from::Union{DensitySampleVector};
         n_samples = 10^4,
         conf_intervals = default_credibilities,
         colors = default_colors,
@@ -176,9 +176,9 @@ end
         marginal_mode = false)
 
     if typeof(sample_from) <: DensitySampleVector
-        samples = bat_sample(sample_from, n_samples).result
+        samples = bat_sample(sample_from, OrderedResampling(nsamples = n_samples)).result
     else
-        samples = bat_sample(sample_from.prior.dist, n_samples).result
+        samples = bat_sample(sample_from.prior.dist, IIDSampling(nsamples = n_samples)).result
     end
 
     y_ribbons = zeros(Float64, length(x), 2*length(conf_intervals))

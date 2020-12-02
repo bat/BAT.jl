@@ -130,7 +130,7 @@ function plot1D(
 	end
 
     nun = convert(Int64,floor(sum(hunnorm.weights)/10))
-    unweighted_samples = bat_sample(samples, nun).result
+    unweighted_samples = bat_sample(samples, OrderedResampling(nsamples = nun)).result
     hunnorm = fit(Histogram, [BAT.flatview(unweighted_samples.v)...],binning)
 
     edges = hunnorm.edges[1]
@@ -183,7 +183,7 @@ function plot1D(
 	end
     length(sample_stats) != 4 ? push!(sample_stats,chi2)     : sample_stats[4] = chi2
 
-	iid_sample = bat_sample(testfunctions[name].posterior,length([BAT.flatview(samples.v)...])).result
+	iid_sample = bat_sample(testfunctions[name].posterior, IIDSampling(nsamples = length([BAT.flatview(samples.v)...]))).result
 	if(testfunctions[name].ks[1] > 999)
 		testfunctions[name].ks[1]=bat_compare(samples,iid_sample).result.ks_p_values[1]
 	end
@@ -201,16 +201,16 @@ function run1D(
     sample_stats::Vector{Float64},
     run_stats::Vector{Float64},
 	algorithm::BAT.AbstractSamplingAlgorithm,
-	n_samples::Integer,
+	n_steps::Integer,
 	n_chains::Integer,
     n_runs=1
 	)
 
     sample_stats_all = []
-    samples, chains = bat_sample(testfunctions[key].posterior, n_samples * n_chains, MCMCSampling(sampler = algorithm, nchains = n_chains))
+    samples, chains = bat_sample(testfunctions[key].posterior, MCMCSampling(sampler = algorithm, nchains = n_chains, nsteps = n_steps))
     for i in 1:n_runs
         time_before = time()
-        samples, chains = bat_sample(testfunctions[key].posterior, n_samples * n_chains, MCMCSampling(sampler = algorithm, nchains = n_chains))
+        samples, chains = bat_sample(testfunctions[key].posterior, MCMCSampling(sampler = algorithm, nchains = n_chains, nsteps = n_steps))
         time_after = time()
 
     	h = plot1D(samples,testfunctions,key,sample_stats)# posterior, key, analytical_stats,sample_stats)
@@ -218,7 +218,7 @@ function run1D(
         sample_stats[1] = mode(samples)[1]
         sample_stats[2] = mean(samples)[1]
         sample_stats[3] = var(samples)[1]
-        run_stats[1] = n_samples
+        run_stats[1] = n_steps
         run_stats[2] = n_chains
         run_stats[3] = time_after-time_before
         push!(sample_stats_all,sample_stats)
@@ -432,16 +432,16 @@ function run2D(
     sample_stats::Vector{Any},
     run_stats::Vector{Any},
 	algorithm::MCMCAlgorithm,
-	n_samples::Integer,
+	n_steps::Integer,
 	n_chains::Integer,
 	n_runs=1)
 
     sample_stats_all = []
 
-    samples, stats = bat_sample(testfunctions[key].posterior, n_samples * n_chains, MCMCSampling(sampler = algorithm, nchains = n_chains))
+    samples, stats = bat_sample(testfunctions[key].posterior, MCMCSampling(sampler = algorithm, nchains = n_chains, nsteps = n_steps))
     for i in 1:n_runs
         time_before = time()
-        samples, stats = bat_sample(testfunctions[key].posterior, n_samples * n_chains, MCMCSampling(sampler = algorithm, nchains = n_chains))
+        samples, stats = bat_sample(testfunctions[key].posterior, MCMCSampling(sampler = algorithm, nchains = n_chains, nsteps = n_steps))
         time_after = time()
 
 		h = plot2D(samples, testfunctions, key, sample_stats)
@@ -450,7 +450,7 @@ function run2D(
         sample_stats[2] = mean(samples).data
         sample_stats[3] = var(samples).data
 
-        run_stats[1] = n_samples
+        run_stats[1] = n_steps
         run_stats[2] = n_chains
         run_stats[3] = time_after-time_before
         push!(sample_stats_all,sample_stats)
@@ -473,7 +473,7 @@ function make_2D_results(testfunctions::Dict,sample_stats2D::Vector{Vector{Any}}
 		push!(ahmi_val,round.(v.ahmi,digits=3))
 	end
 
-    run_stats_names2D = ["nsamples","nchains","Times"]
+    run_stats_names2D = ["nsteps","nchains","Times"]
     stats_names2D = ["mode","mean","var"]
     comparison = ["target","test","diff (abs)","diff (rel)"]
     header  = Vector{Any}(undef,length(stats_names2D)*length(comparison)+3)

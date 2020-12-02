@@ -19,5 +19,5 @@ testfunctions_1D = Dict(
 analytical_stats_name=["mode","mean","var"]	#could be taken into NamedTuple for easier addtions but would be needed to implmented into calcs anyway
 sample_stats=[Vector{Float64}(undef,length(analytical_stats_name)) for i in 1:length(testfunctions_1D)]
 
-run_stats_names = ["nsamples","nchains","Times"]
+run_stats_names = ["nsteps","nchains","Times"]
 run_stats=[Vector{Float64}(undef,length(run_stats_names)) for i in 1:length(testfunctions_1D)]

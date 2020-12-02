@@ -7,13 +7,7 @@
 Constructor:
 
 ```julia
-MCMCSampling(;
-    algorithm::MCMCAlgorithm = MetropolisHastings(),
-    init::MCMCInitAlgorithm = MCMCChainPoolInit(),
-    burnin::MCMCBurninAlgorithm = MCMCMultiCycleBurnin(),
-    convergence::MCMCConvergenceTest = BrooksGelmanConvergence(),
-    strict::Bool = false,
-)
+MCMCSampling(;kwargs...)
 ```
 """
 @with_kw struct MCMCSampling{
@@ -25,8 +19,16 @@ MCMCSampling(;
 } <: AbstractSamplingAlgorithm
     sampler::AL = MetropolisHastings()
     nchains::Int = 4
-    init::IN = MCMCChainPoolInit()
-    burnin::BI = MCMCMultiCycleBurnin()
+    nsamples::Int = 10^5
+    nsteps::Int = 10^5
+    init::IN = MCMCChainPoolInit(
+        max_nsamples_init = max(div(nsamples, 100), 50),
+        max_nsteps_init = max(div(nsteps, 100), 250)
+    )
+    burnin::BI = MCMCMultiCycleBurnin(
+        max_nsamples_per_cycle = max(div(nsamples, 10), 500),
+        max_nsteps_per_cycle = max(div(nsteps, 10), 2500)
+    )
     convergence::CT = BrooksGelmanConvergence()
     strict::Bool = true
     store_burnin::Bool = false
@@ -40,10 +42,7 @@ export MCMCSampling
 function bat_sample_impl(
     rng::AbstractRNG,
     target::AnyDensityLike,
-    n::Integer,
-    algorithm::MCMCSampling;
-    max_neval::Integer = 10 * n,
-    max_time::Real = Inf
+    algorithm::MCMCSampling
 )
     density = convert(AbstractDensity, target)
     mcmc_algorithm = algorithm.sampler
@@ -77,9 +76,9 @@ function bat_sample_impl(
     mcmc_iterate!(
         chain_outputs,
         chains;
-        max_nsamples = div(n, length(chains)),
-        max_nsteps = div(max_neval, length(chains)),
-        max_time = max_time,
+        max_nsamples = algorithm.nsamples,
+        max_nsteps = algorithm.nsteps,
+        max_time = Inf,
         nonzero_weights = algorithm.nonzero_weights,
         callback = algorithm.callback
     )

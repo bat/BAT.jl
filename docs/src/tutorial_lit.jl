@@ -244,16 +244,10 @@ posterior = PosteriorDensity(likelihood, prior)
 #nb ENV["JULIA_DEBUG"] = "BAT"
 #jl ENV["JULIA_DEBUG"] = "BAT"
 
-# Let's use 4 MCMC chains and require 10^5 unique samples from each chain
-# (after tuning/burn-in):
+# Now we can generate a set of MCMC samples via [`bat_sample`](@ref). We'll
+# use 4 MCMC chains with 10^5 MC steps in each chain (after tuning/burn-in):
 
-nsamples = 10^4
-#md nothing # hide
-
-
-# Now we can generate a set of MCMC samples via [`bat_sample`](@ref):
-
-samples = bat_sample(posterior, nsamples, MCMCSampling(sampler = MetropolisHastings(), nchains = 4)).result
+samples = bat_sample(posterior, MCMCSampling(sampler = MetropolisHastings(), nsteps = 10^4, nchains = 4)).result
 #md nothing # hide
 #nb nothing # hide
 
@@ -447,12 +441,13 @@ convergence = BrooksGelmanConvergence()
 
 samples = bat_sample(
     rng, posterior,
-    nsamples,
     MCMCSampling(
         sampler = MetropolisHastings(
             weighting = RepetitionWeighting(),
             tuning = tuning
         ),
+        nchains = 4,
+        nsteps = 10^5,
         init = init,
         burnin = burnin,
         convergence = convergence,
@@ -464,11 +459,3 @@ samples = bat_sample(
 ).result
 #md nothing # hide
 #nb nothing # hide
-
-# However, in many use cases, simply using the default options via
-#
-# ```julia
-# samples = bat_sample(posterior, nsamples).result
-# ```
-#
-# will often be sufficient.

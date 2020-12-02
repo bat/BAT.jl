@@ -40,7 +40,7 @@ bounds = BAT.HyperRectBounds(lo_bounds, hi_bounds, BAT.reflective_bounds)
 
 
 #BAT.jl samples
-bat_samples = bat_sample(PosteriorDensity(model, bounds), (10^5, 8), algorithm).result
+bat_samples = bat_sample(PosteriorDensity(model, bounds), algorithm).result
 data = BAT.HMIData(bat_samples)
 BAT.hm_integrate!(data)
 

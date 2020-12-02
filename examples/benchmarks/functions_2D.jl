@@ -1,5 +1,5 @@
 stats_names2D = ["mode","mean","var"]
-run_stats_names2D = ["nsamples","nchains","Times"]
+run_stats_names2D = ["nsteps","nchains","Times"]
 ##########################################multi normal###########################################
 sig = Matrix{Float64}([1.5^2 1.5*2.5*0.4 ; 1.5*2.5*0.4 2.5^2])
 analytical_stats_gauss2D = Vector{Any}(undef,length(stats_names2D))

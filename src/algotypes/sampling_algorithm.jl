@@ -1,12 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-const AnyNSamples = Union{
-    Integer,
-    Tuple{Integer,Integer},
-}
-
-
 """
     BAT.AbstractSamplingAlgorithm
 
@@ -19,33 +13,12 @@ abstract type AbstractSamplingAlgorithm end
     bat_sample(
         [rng::AbstractRNG],
         target::BAT.AnySampleable,
-        n::BAT.AnyNSamples,
         [algorithm::BAT.AbstractSamplingAlgorithm]
     )::DensitySampleVector
 
-Draw `n` samples from `target`.
+Draw samples from `target` using `algorithm`.
 
-Returns a NamedTuple of the shape
-
-```julia
-(result = X::DensitySampleVector, ...)
-```
-
-Result properties not listed here are algorithm-specific and are not part
-of the stable BAT API.
-
-Depending on the type of posterior, `n` may be of type
-
-* `Integer`: Number of samples
-
-* `Tuple{Integer,Integer}`: Tuple of number of samples per sample source
-   and number of sample sources (e.g. number of MCMC chains). The total number
-   of samples is `product(n)`.
-
-Depending on the type of `posterior`, the number of samples returned may be
-somewhat larger or smaller than specified by `product(n)`.
-
-Also depending on the `posterior` type, the samples may be independent or
+Also depending on sampling algorithm, the samples may be independent or
 correlated (e.g. when using MCMC).
 
 Returns a NamedTuple of the shape
@@ -61,31 +34,6 @@ of the stable BAT API.
 
     Do not add add methods to `bat_sample`, add methods to
     `bat_sample_impl` instead (same arguments).
-
-MCMC Sampling:
-
-    function bat_sample(
-        rng::AbstractRNG,
-        target::AbstractPosteriorDensity,
-        n::Union{Integer,Tuple{Integer,Integer}},
-        algorithm::MCMCAlgorithm;
-        max_nsteps::Integer,
-        max_time::Real,
-        tuning::MCMCTuningAlgorithm,
-        init::MCMCInitAlgorithm,
-        burnin::MCMCBurninAlgorithm,
-        convergence::MCMCConvergenceTest,
-        strict::Bool = false,
-        filter::Bool = true
-    )
-
-Sample `target` via Markov chain Monte Carlo (MCMC).
-
-`n` must be either a tuple `(nsteps, nchains)` or an integer. `nchains`
-specifies the (approximate) number of MCMC steps per chain, `nchains` the
-number of MCMC chains. If n is an integer, it is interpreted as
-`nsteps * nchains`, and the number of steps and chains are chosen
-automatically.
 """
 function bat_sample end
 export bat_sample
@@ -93,28 +41,28 @@ export bat_sample
 function bat_sample_impl end
 
 
-@inline function bat_sample(rng::AbstractRNG, target::AnySampleable, n::AnyNSamples, algorithm::AbstractSamplingAlgorithm; kwargs...)
-    r = bat_sample_impl(rng, target, n, algorithm; kwargs...)
+@inline function bat_sample(rng::AbstractRNG, target::AnySampleable, algorithm::AbstractSamplingAlgorithm; kwargs...)
+    r = bat_sample_impl(rng, target, algorithm; kwargs...)
     result_with_args(r, (rng = rng, algorithm = algorithm), kwargs)
 end
 
 
-@inline function bat_sample(target::AnySampleable, n::AnyNSamples; kwargs...)
+@inline function bat_sample(target::AnySampleable; kwargs...)
     rng = bat_default_withinfo(bat_sample, Val(:rng), target)
     algorithm = bat_default_withinfo(bat_sample, Val(:algorithm), target)
-    bat_sample(rng, target, n, algorithm; kwargs...)
+    bat_sample(rng, target, algorithm; kwargs...)
 end
 
 
-@inline function bat_sample(target::AnySampleable, n::AnyNSamples, algorithm::AbstractSamplingAlgorithm; kwargs...)
+@inline function bat_sample(target::AnySampleable, algorithm::AbstractSamplingAlgorithm; kwargs...)
     rng = bat_default_withinfo(bat_sample, Val(:rng), target)
-    bat_sample(rng, target, n, algorithm; kwargs...)
+    bat_sample(rng, target, algorithm; kwargs...)
 end
 
 
-@inline function bat_sample(rng::AbstractRNG, target::AnySampleable, n::AnyNSamples; kwargs...)
+@inline function bat_sample(rng::AbstractRNG, target::AnySampleable; kwargs...)
     algorithm = bat_default_withinfo(bat_sample, Val(:algorithm), target)
-    bat_sample(rng, target, n, algorithm; kwargs...)
+    bat_sample(rng, target, algorithm; kwargs...)
 end
 
 
@@ -130,6 +78,8 @@ end
 
 """
     AbstractSampleGenerator
+
+*BAT-internal, not part of stable public API.*
 
 Abstract super type for sample generators.
 """

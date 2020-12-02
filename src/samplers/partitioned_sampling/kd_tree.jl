@@ -3,18 +3,18 @@
 """
     partition_space(
 		samples::DensitySampleVector,
-		n_partitions::Integer,
+		npartitions::Integer,
 		algorithm::KDTreePartitioning
 	)
 
 *BAT-internal, not part of stable public API.*
 
 The function generates a space partition tree with the number of partitions
-given by `n_partitions`, using `KDTreePartitioning` algorithm. Exploration samples
+given by `npartitions`, using `KDTreePartitioning` algorithm. Exploration samples
 are given by `samples`. The output contains `SpacePartTree` and the values of
 the cost function.
 """
-function partition_space(samples::DensitySampleVector, n_partitions::Integer, algorithm::KDTreePartitioning)
+function partition_space(samples::DensitySampleVector, npartitions::Integer, algorithm::KDTreePartitioning)
 
 	# Maybe there is a better way to get n_params:
 	n_params = size(flatview(unshaped.(samples.v)))[1]
@@ -33,7 +33,7 @@ function partition_space(samples::DensitySampleVector, n_partitions::Integer, al
 	bounds = repeat([0.0 1.0],size(flat_scaled_data.samples)[1])
 	partition_tree = def_init_node(flat_scaled_data, bounds)
 	cost_values = Float64[]
-	for i in 1:n_partitions-1
+	for i in 1:npartitions-1
 		# @info "KDTreePartitioning: Increasing tree depth (depth = $i)"
 		initialize_partitioning!(partition_tree, flat_scaled_data, partition_dims)
 		ind, sum_cost = det_part_node(partition_tree)

@@ -53,7 +53,6 @@ AbstractDensity
 AbstractDensityTransformTarget
 AbstractMCMCWeightingScheme
 AbstractPosteriorDensity
-AbstractSampleGenerator
 AbstractTransformedDensity
 AbstractTransformToInfinite
 AbstractTransformToUnitspace

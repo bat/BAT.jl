@@ -43,7 +43,7 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
                 @series begin
                     subplot := ctr
                     label --> ""
-                    annotations --> (1.5, 2.5, "Chain $chain  \n Parameter $p \n $(mcmc.chainresults[chain].nsamples) Samples")
+                    annotations --> (1.5, 2.5, "Chain $chain  \n Parameter $p \n $(nsamples(mcmc.chainresults[chain])) Samples")
                     grid --> false
                     xaxis --> false
                     yaxis --> false
