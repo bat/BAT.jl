@@ -26,6 +26,6 @@ Base.convert(::Type{AbstractDensity}, f::Function) = GenericDensity(f)
 Base.parent(density::GenericDensity) = density.f
 
 
-function logvalof_unchecked(density::GenericDensity, v::Any)
+function eval_logval_unchecked(density::GenericDensity, v::Any)
     logvalof(density.f(v))
 end

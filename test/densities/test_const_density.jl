@@ -29,9 +29,9 @@ using ArraysOfArrays, ValueShapes, Distributions
         @test typeof(cdensity) <: BAT.ConstDensity
     end
 
-    @testset "BAT.logvalof_unchecked" begin
+    @testset "BAT.eval_logval_unchecked" begin
         density = gen_density_n()
-        @test BAT.logvalof_unchecked(density, [1.,2.]) ≈ -0.4054651081081644
+        @test BAT.eval_logval_unchecked(density, [1.,2.]) ≈ -0.4054651081081644
     end
 
     @testset "sampler" begin

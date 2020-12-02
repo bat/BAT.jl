@@ -5,6 +5,7 @@ using Test
 
 using Statistics
 using ArraysOfArrays, ElasticArrays, StatsBase
+using Distributions
 using StableRNGs
 
 @testset "autocorr" begin
@@ -27,7 +28,13 @@ using StableRNGs
         @test BAT._ac_next_pow_two(8) == 8
     end
 
-    @testset "BAT.fft_autocor" begin
+    @testset "bat_integrated_autocorr_len" begin
+        dist = product_distribution([Normal() for i in 1:3])
+        data = @inferred(nestedview(rand(dist, 10^4)))
+        @test isapprox(@inferred(bat_integrated_autocorr_len(data)).result, ones(length(dist)), rtol=0.2)
+    end
+
+    @testset "BAT.fft_autocov" begin
         @test @inferred(BAT.fft_autocov(v)) isa ArrayOfSimilarArrays{Float64,1,1}
         @test flatview(BAT.fft_autocov(v)[1:20]) ≈ StatsBase.autocov(flatview(v)', 0:19)'
 

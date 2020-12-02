@@ -118,15 +118,15 @@ end
 
 
 function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::AutocorLenAlgorithm)
-    @argcheck smpls.v isa AbstractVector{<:AbstractVector{<:Real}}
+    vs = varshape(smpls)
+    unshaped_smpls = unshaped.(smpls)
+    n = length(eachindex(unshaped_smpls))
 
-    n = length(eachindex(smpls))
-
-    W = smpls.weight
+    W = unshaped_smpls.weight
     w0 = first(W)
 
-    ess = if all(w -> w ≈ w0, W)
-        bat_eff_sample_size_impl(smpls.v, algorithm).result
+    unshaped_ess = if all(w -> w ≈ w0, W)
+        bat_eff_sample_size_impl(unshaped_smpls.v, algorithm).result
     else
         # If weights not uniform, resample to get unweighted samples. Kish's
         # approximation of ESS for weighted samples is often not good enough.
@@ -140,9 +140,13 @@ function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::Autocor
         rng_seed = trunc(UInt64, mean(W) * n)
         rng = Philox4x((0x0, rng_seed))::Philox4x{UInt64,10}
 
-        unweighted_smpls = bat_sample(rng, smpls, n_resample, OrderedResampling()).result
-        bat_eff_sample_size_impl(unweighted_smpls.v, algorithm).result
+        unweighted_smpls = bat_sample(rng, unshaped_smpls, n_resample, OrderedResampling()).result
+        resampled_ess = bat_eff_sample_size_impl(unweighted_smpls.v, algorithm).result
+        min.(n, resampled_ess)
     end
- 
+
+    result_vs = replace_const_shapes(s::ConstValueShape -> ConstValueShape(Fill(n, size(shape.value)...)), vs)
+    ess = result_vs(unshaped_ess)    
+
     (result = ess,)
 end

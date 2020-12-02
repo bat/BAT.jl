@@ -131,7 +131,7 @@ using BAT, IntervalSets
 # BAT represents densities like likelihoods and priors as subtypes of
 # `BAT.AbstractDensity`. Custom likelihood can be defined by
 # creating a new subtype of `AbstractDensity` and by implementing (at minimum)
-# `BAT.logvalof_unchecked` for that type - in complex uses cases, this may
+# `BAT.eval_logval_unchecked` for that type - in complex uses cases, this may
 # become necessary. Typically, however, it is sufficient to define a custom
 # likelihood as a simple function that returns the log-likelihood value for
 # a given set of parameters. BAT will automatically convert such a
@@ -378,7 +378,7 @@ unshaped(samples_mode)
 # `samples_mode` is only an estimate of the mode of the posterior
 # distribution. It can be further refined using [`bat_findmode`](@ref):
 
-findmode_result = bat_findmode(posterior, initial_mode = samples_mode)
+findmode_result = bat_findmode(posterior, MaxDensityNelderMead(init = ExplicitInit([samples_mode])))
 
 fit_par_values = findmode_result.result[]
 

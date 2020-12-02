@@ -25,7 +25,7 @@ var_bounds(density::TruncatedDensity) = density.bounds
 ValueShapes.varshape(density::TruncatedDensity) = varshape(parent(density))
 
 
-function logvalof(
+function eval_logval(
     density::TruncatedDensity,
     v::Any,
     T::Type{<:Real} = density_logval_type(v);
@@ -37,7 +37,7 @@ function logvalof(
         return log_zero_density(T)
     end
 
-    parent_logval = logvalof(
+    parent_logval = eval_logval(
         parent(density), v_shaped,
         use_bounds = false, strict = false
     )  
@@ -46,8 +46,8 @@ function logvalof(
 end
 
 
-function logvalof_unchecked(density::TruncatedDensity, v::Any)
-    logvalof(
+function eval_logval_unchecked(density::TruncatedDensity, v::Any)
+    eval_logval(
         density, v,
         use_bounds = false, strict = false
     )

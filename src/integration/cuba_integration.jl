@@ -19,7 +19,7 @@ function (integrand::CubaIntegrand)(x::AbstractVector{<:Real}, f::AbstractVector
     @assert _cuba_valid_value(logv)
 
     x_trafo = fromuhc(x, vol)
-    logd = logvalof(density, x_trafo)
+    logd = eval_logval(density, x_trafo)
     @assert _cuba_valid_value(logd)
 
     f[first(idxs)] = exp(logd + logv)
@@ -42,7 +42,7 @@ function (integrand::CubaIntegrand)(X::AbstractMatrix{<:Real}, f::AbstractMatrix
 
     x_trafo = fromuhc(nestedview(X), vol)
     @threads for i in idxs2
-        logd = logvalof(density, x_trafo[i])
+        logd = eval_logval(density, x_trafo[i])
         @assert _cuba_valid_value(logd)
         f[first(idxs1), i] = exp(logd + logv)
     end

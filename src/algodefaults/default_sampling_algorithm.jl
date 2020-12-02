@@ -8,16 +8,7 @@ bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::AnyIIDSampleable) = IIDSa
 
 bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::DensitySampleVector) = OrderedResampling()
 
-bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::AbstractDensity) = MCMCSampling(
-    algorithm = MetropolisHastings(),
-    init = MCMCChainPoolInit(),
-    burnin = MCMCMultiCycleBurnin(
-        max_nsamples_per_cycle = max(div(max_nsamples, 10), 100),
-        max_nsteps_per_cycle = max(div(max_nsteps, 10), 100)
-    ),
-    convergence = BrooksGelmanConvergence(),
-    strict = false
-)
+bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::AbstractDensity) = MCMCSampling()
 
 
 #=

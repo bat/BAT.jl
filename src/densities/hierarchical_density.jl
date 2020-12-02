@@ -38,7 +38,6 @@ varshape(hd) == NamedTupleShape(
 )
 
 v = rand(sampler(hd))
-BAT.logvalof_unchecked(hd, v)
 )
 ```
 """
@@ -108,15 +107,15 @@ end
 
 
 
-function logvalof_unchecked(
+function eval_logval_unchecked(
     density::HierarchicalDensity,
     v::Any
 )
     d = density
     v1, v2 = _split_v(d, v)
-    logval1 = logvalof_unchecked(d.pd, v1)
+    logval1 = eval_logval_unchecked(d.pd, v1)
     cd = _hd_cd(d, v1)
-    logval2 = logvalof_unchecked(cd, v2)
+    logval2 = eval_logval_unchecked(cd, v2)
     logval1 + logval2
 end
 

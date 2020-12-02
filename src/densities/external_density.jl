@@ -136,7 +136,7 @@ function ExternalDensity(cmd::Cmd, density_id = 0)
 end
 
 
-function BAT.logvalof_unchecked(density::ExternalDensity, v::AbstractVector{Float64})
+function BAT.eval_logval_unchecked(density::ExternalDensity, v::AbstractVector{Float64})
     # TODO: Fix multithreading support
 
     result = Ref(NaN)

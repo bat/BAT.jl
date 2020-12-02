@@ -74,9 +74,11 @@ end
 
 
 
-_approx_cov(target::Distribution) = cov(target)
+_approx_cov(target::Distribution) = cov(unshaped(target))
 _approx_cov(target::DistLikeDensity) = cov(target)
 _approx_cov(target::AbstractPosteriorDensity) = cov(getprior(target))
+_approx_cov(target::BAT.TransformedDensity{<:Any,<:BAT.DistributionTransform}) =
+    BAT._approx_cov(target.trafo.target_dist)
 
 function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator)
     Σ_unscaled = _approx_cov(getdensity(chain))

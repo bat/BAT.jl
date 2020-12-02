@@ -28,6 +28,8 @@ Order = [:macro, :function]
 
 
 ```@docs
+logvalof
+
 bat_default
 bat_eff_sample_size
 bat_findmedian
@@ -40,43 +42,48 @@ bat_read
 bat_rng
 bat_sample
 bat_write
-
-logvalgradof
-logvalof
+ladjof
+trafoof
 
 BAT.fft_autocor
 BAT.fft_autocov
-BAT.logvalof_unchecked
+BAT.eval_logval_unchecked
 
 AbstractDensity
-AbstractDensityValue
+AbstractDensityTransformTarget
 AbstractMCMCWeightingScheme
 AbstractPosteriorDensity
 AbstractSampleGenerator
+AbstractTransformedDensity
+AbstractTransformToInfinite
+AbstractTransformToUnitspace
+AbstractVariateTransform
 AdaptiveMHTuning
-HamiltonianMC
 AHMIntegration
 AnyDensityLike
 AnyIIDSampleable
 AnySampleable
 ARPWeighting
 AutocorLenAlgorithm
+bat_transform
 BrooksGelmanConvergence
 CholeskyPartialWhitening
 CholeskyWhitening
+DensityIdentityTransform
 DensitySample
 DensitySampleVector
 DistLikeDensity
 ExplicitInit
+FullDensityTransform
 GelmanRubinConvergence
 GeyerAutocorLen
+HamiltonianMC
 IIDSampling
 InitFromIID
 InitFromSamples
 InitFromTarget
 InitvalAlgorithm
 IntegrationAlgorithm
-LinDVal
 LogDVal
 MaxDensityLBFGS
 MaxDensityNelderMead
@@ -94,13 +101,18 @@ MCMCTuningAlgorithm
 MetropolisHastings
 MHProposalDistTuning
 ModeAsDefined
+NoDensityTransform
 NoWhitening
 OrderedResampling
 PosteriorDensity
+PriorSubstitution
+PriorToGaussian
+PriorToUniform
 RandResampling
 RepetitionWeighting
 SokalAutocorLen
 StatisticalWhitening
+TransformAlgorithm
 WhiteningAlgorithm
 
 BAT.AbstractModeEstimator

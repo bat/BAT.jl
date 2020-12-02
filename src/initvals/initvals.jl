@@ -86,6 +86,21 @@ function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, 
 end
 
 
+function bat_initval_impl(rng::AbstractRNG, target::TransformedDensity, algorithm::InitFromTarget)
+    v_orig = bat_initval_impl(rng, target.orig, algorithm).result
+    v = target.trafo(v_orig)
+    (result = v,)
+end
+
+function bat_initval_impl(rng::AbstractRNG, target::TransformedDensity, n::Integer, algorithm::InitFromTarget)
+    v = bat_initval_impl(rng, target.orig, n, algorithm).result
+    # ToDo: Improve implementation
+    trg_vs = valshape(target.trafo(first(v)))
+    unshaped_v = unshaped.(v)
+    unshaped_v .= unshaped.(target.trafo.(v))
+    (result = trg_vs.(unshaped_v),)
+end
+
 
 @doc doc"""
     InitFromSamples <: InitvalAlgorithm

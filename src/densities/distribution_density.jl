@@ -15,18 +15,35 @@ DistributionDensity(d::Distribution; bounds_type::BoundsType = hard_bounds) =
 Base.convert(::Type{AbstractDensity}, d::ContinuousDistribution) = DistributionDensity(d)
 Base.convert(::Type{DistLikeDensity}, d::ContinuousDistribution) = DistributionDensity(d)
 
-DistributionDensity(h::Histogram) = DistributionDensity(EmpiricalDistributions.MvBinnedDist(h))
-
-Base.convert(::Type{AbstractDensity}, h::Histogram) = DistributionDensity(h)
-Base.convert(::Type{DistLikeDensity}, h::Histogram) = DistributionDensity(h)
-
 
 Base.parent(density::DistributionDensity) = density.dist
 
 
-logvalof_unchecked(density::DistributionDensity, v::Any) = Distributions.logpdf(density.dist, v)
+function eval_logval_unchecked(density::DistributionDensity, v::Any)
+    d = density.dist
+    logd = logpdf(d, v)
+    R = typeof(logd)
+    if isnan(logd)
+        if isinf(v)
+            # Weibull yields NaN logpdf at infinity (Distributions.jl issue #1197), possibly others too,
+            # so force to -Inf (there should never be any probability mass at infinity):
+            convert(R, -Inf)
+        elseif v ≈ minimum(d)
+            # Weibull yields NaN logpdf at 0 (Distributions.jl issue #1197), possibly others too,
+            # so move an epsilon away from minimum:
+            convert(R, logpdf(d, minimum(d) + eps(typeof(v))))
+        elseif v ≈ maximum(d)
+            # Likewise at maxiumum:
+            convert(R, logpdf(d, maximum(d) - eps(typeof(v))))
+        else
+            logd
+        end
+    else
+        logd
+    end
+end
 
-logvalof_unchecked(density::DistributionDensity, v::AbstractVector{<:Real}) = Distributions.logpdf(unshaped(density.dist), v)
+eval_logval_unchecked(density::DistributionDensity, v::AbstractVector{<:Real}) = Distributions.logpdf(unshaped(density.dist), v)
 
 
 ValueShapes.varshape(density::DistributionDensity) = varshape(density.dist)
@@ -53,14 +70,6 @@ dist_param_bounds(d::Product{Continuous}, bounds_type::BoundsType) =
 
 dist_param_bounds(d::ConstValueDist, bounds_type::BoundsType) = HyperRectBounds(Int32[], Int32[], bounds_type)
 dist_param_bounds(d::NamedTupleDist, bounds_type::BoundsType) = vcat(map(x -> dist_param_bounds(x, bounds_type), values(d))...)
-
-function dist_param_bounds(d::EmpiricalDistributions.MvBinnedDist{T, N}, bounds_type::BoundsType) where {T, N}
-    hist = convert(Histogram, d)
-    left_bounds  = T[map(first, hist.edges)...]
-    right_bounds = T[map(e -> prevfloat(last(e)), hist.edges)...]
-    bt = fill(bounds_type, length(left_bounds))
-    HyperRectBounds{T}(HyperRectVolume{T}(left_bounds, right_bounds), bt)
-end
 
 
 

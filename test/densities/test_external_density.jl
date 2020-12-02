@@ -25,7 +25,7 @@ if Sys.isunix()
 
             @test begin
                 x = [1.23, 2.34]
-                llvalue = BAT.logvalof_unchecked(likelihood, x)
+                llvalue = BAT.eval_logval_unchecked(likelihood, x)
                 llvalue ≈ logpdf(dist, x)
             end
 
@@ -34,7 +34,7 @@ if Sys.isunix()
                 params = nestedview(rand(2, n) .* 4 .- 2)
                 ll_external = zeros(n)
                 @sync for i in eachindex(params, ll_external)
-                    @mt_async ll_external[i] = BAT.logvalof_unchecked(likelihood, params[i])
+                    @mt_async ll_external[i] = BAT.eval_logval_unchecked(likelihood, params[i])
                 end
                 ll_expected = logpdf.((dist,), params)
                 ll_external ≈ ll_expected

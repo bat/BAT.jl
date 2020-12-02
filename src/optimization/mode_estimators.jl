@@ -67,14 +67,13 @@ Estimate the mode of a probability density using Nelder-Mead optimization
 end
 export MaxDensityNelderMead
 
-function bat_findmode_impl(target::AnySampleable, algorithm::MaxDensityNelderMead; initial_mode = missing)
+function bat_findmode_impl(target::AnySampleable, algorithm::MaxDensityNelderMead)
     shape = varshape(target)
-    x = unshaped(bat_initval(target, algorithm.init).result)
     conv_target = convert(AbstractDensity, target)
-    r = Optim.maximize(p -> logvalof(conv_target, p), x, Optim.NelderMead())
+    x = collect(unshaped(bat_initval(conv_target, algorithm.init).result))
+    r = Optim.maximize(p -> eval_logval(conv_target, p), x, Optim.NelderMead())
     (result = shape(Optim.minimizer(r.res)), info = r)
 end
-
 
 
 """
@@ -97,11 +96,11 @@ end
 export MaxDensityLBFGS
 
 
-function bat_findmode_impl(target::AnySampleable, algorithm::MaxDensityLBFGS; initial_mode = missing)
+function bat_findmode_impl(target::AnySampleable, algorithm::MaxDensityLBFGS)
     shape = varshape(target)
-    x = unshaped(bat_initval(target, algorithm.init).result)
     conv_target = convert(AbstractDensity, target)
-    r = Optim.maximize(p -> logvalof(conv_target, p), x, Optim.LBFGS(); autodiff = :forward)
+    x = collect(unshaped(bat_initval(conv_target, algorithm.init).result))
+    r = Optim.maximize(p -> eval_logval(conv_target, p), x, Optim.LBFGS(); autodiff = :forward)
     (result = shape(Optim.minimizer(r.res)), info = r)
 end
 

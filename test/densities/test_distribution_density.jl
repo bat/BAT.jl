@@ -15,8 +15,8 @@ using ArraysOfArrays, Distributions, StatsBase, PDMats, IntervalSets, ValueShape
         @test totalndof(mvdd) == 2
     end
 
-    @testset "BAT.logvalof_unchecked" begin
-        @test (@inferred BAT.logvalof_unchecked(mvdd, [0.0, 0.0])) ≈ -2.64259602
+    @testset "BAT.eval_logval_unchecked" begin
+        @test (@inferred BAT.eval_logval_unchecked(mvdd, [0.0, 0.0])) ≈ -2.64259602
     end
 
     @testset "BAT.var_bounds" begin
@@ -28,24 +28,9 @@ using ArraysOfArrays, Distributions, StatsBase, PDMats, IntervalSets, ValueShape
         end
     end
 
-    @testset "histogram support" begin
-        d1 = Normal(1, 2)
-        X1 = rand(d1, 10^5)
-        h1 = fit(Histogram, X1)
-        dd1 = @inferred BAT.DistributionDensity(h1)
-        s1 = @inferred sampler(dd1)
-        @test all([rand(s1) in BAT.var_bounds(dd1) for i in 1:10^4])
-
-        d2 = MvNormal([1.0 1.5; 1.5 4.0])
-        X2 = rand(d2, 10^5)
-        h2 = fit(Histogram, (X2[1,:], X2[2,:]))
-        dd2 = @inferred BAT.DistributionDensity(h2)
-        s2 = @inferred sampler(dd2)
-        @test all([rand(s2) in BAT.var_bounds(dd2) for i in 1:10^4])
-
-        ntd = NamedTupleDist(a = h1, b = h2)
-        ntdd = @inferred BAT.DistributionDensity(ntd)
-        snt = @inferred sampler(ntdd)
-        @test all([rand(snt) in BAT.var_bounds(ntdd) for i in 1:10^4])
+    @testset "statistics" begin
+        mvn = @inferred(product_distribution([Normal(-1.0), Normal(0.0), Normal(1.0)]))
+        dist_density = @inferred(BAT.DistributionDensity(mvn))
+        @test @inferred(bat_findmode(dist_density)).result == mode(mvn)
     end
 end
