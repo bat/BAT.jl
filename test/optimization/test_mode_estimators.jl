@@ -17,7 +17,7 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes
     true_mode_flat = [2.0, 1.5, 0.5, 2.5]
     true_mode = stripscalar(varshape(prior)(true_mode_flat))
 
-    samples = @inferred(bat_sample(prior, 10^5)).result
+    samples = @inferred(bat_sample(prior, IIDSampling(nsamples = 10^5))).result
 
 
     function test_findmode(posterior, algorithm, rtol)

@@ -9,10 +9,11 @@ using LinearAlgebra: Diagonal, ones
 
 @testset "ahmi_integration" begin
     function test_integration(algorithm::IntegrationAlgorithm, title::String,
-                              dist::Distribution; nsamples::Integer=10^5, val_expected::Real=1.0,
+                              dist::Distribution; val_expected::Real=1.0,
                               val_rtol::Real=3.5, err_max::Real=0.2)
         @testset "$title" begin
-            sample = bat_sample(dist, nsamples).result
+            samplingalg = MCMCSampling(sampler = MetropolisHastings(), nsteps = 10^5)
+            sample = bat_sample(dist, samplingalg).result
             sample_integral = bat_integrate(sample, algorithm).result
 
             @test isapprox(sample_integral.val, val_expected, atol=val_rtol*sample_integral.err)
@@ -25,7 +26,7 @@ using LinearAlgebra: Diagonal, ones
     test_integration(AHMIntegration(), "MvNormal", MvNormal(Diagonal(ones(5))), val_rtol = 15)
 
     @testset "ahmi_integration_defaults" begin
-        bsample = @inferred(bat_sample(product_distribution([Normal() for i in 1:3]), 10^4)).result
+        bsample = @inferred(bat_sample(product_distribution([Normal() for i in 1:3]), IIDSampling(nsamples = 10^4))).result
         @test isapprox(bat_integrate(bsample).result.val, 1.0, rtol=15)
         eff_sample_size_dsv = @inferred(bat_eff_sample_size(bsample)).result
         eff_sample_size_aosa = @inferred(bat_eff_sample_size(bsample.v)).result
@@ -34,5 +35,4 @@ using LinearAlgebra: Diagonal, ones
             @test eff_sample_size_dsv[i] == eff_sample_size_aosa[i]
         end
     end
-
 end

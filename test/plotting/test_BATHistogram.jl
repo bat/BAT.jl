@@ -31,11 +31,8 @@ prior = BAT.NamedTupleDist(
 )
 
 posterior = PosteriorDensity(likelihood, prior);
-algorithm = MetropolisHastings()
-nsamples_per_chain = 10_000
-nchains = 2
-
-shaped_samples = bat_sample(posterior, (nsamples_per_chain, nchains), algorithm).result
+algorithm = MetropolisHastings(nchains = 4, nsteps = 10^4)
+shaped_samples = bat_sample(posterior, algorithm).result
 unshaped_samples = BAT.unshaped.(shaped_samples)
 
 #TODO: what about :θ ? it refers to a multidimensional parameter

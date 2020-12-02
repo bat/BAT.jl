@@ -92,9 +92,11 @@ using StatsBase, Distributions, StatsBase, ValueShapes
 
     @testset "MCMC tuning and burn-in" begin
         samples = BAT.bat_sample(
-            density, 10^4,
+            density,
             MCMCSampling(
                 sampler = algorithm,
+                nsamples = 10^4,
+                nsteps = 10^5,
                 store_burnin = true
             )
         ).result
@@ -102,9 +104,11 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         @test first(samples).info.chaincycle == 1
 
         samples = BAT.bat_sample(
-            density, 10^4,
+            density,
             MCMCSampling(
                 sampler = algorithm,
+                nsamples = 10^4,
+                nsteps = 10^5,
                 store_burnin = false
             )
         ).result

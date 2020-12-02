@@ -90,7 +90,6 @@ end
 
 function bat_integrate_impl(target::AnySampleable, algorithm::AHMIntegration)
     npar = totalndof(varshape(target))
-    nsamples = 10^5 * npar
-    samples = bat_sample(target, nsamples).result::DensitySampleVector
+    samples = bat_sample(target).result::DensitySampleVector
     bat_integrate(samples, algorithm)
 end

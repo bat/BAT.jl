@@ -180,7 +180,7 @@ function _print_generator(io::IO, generator::MCMCSampleGenerator)
     println(io, "number of chains:", repeat(' ', 13), nchains)
     println(io, "number of chains tuned:", repeat(' ', 7), n_tuned_chains)
     println(io, "number of chains converged:", repeat(' ', 3), n_converged_chains)
-    println(io, "number of samples per chain:", repeat(' ', 2), chains[1].nsamples, "\n")
+    println(io, "number of samples per chain:", repeat(' ', 2), nsamples(chains[1]), "\n")
 end
 
 

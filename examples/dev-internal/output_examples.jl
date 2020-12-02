@@ -23,8 +23,8 @@ prior = BAT.NamedTupleDist(
 
 posterior = PosteriorDensity(likelihood, prior);
 
-samples, chains = bat_sample(posterior, 10^5, MCMCSampling(sampler = MetropolisHastings()));
-#samples = bat_sample(posterior, 10^5, SobolSampler()).result;
+samples, chains = bat_sample(posterior, MCMCSampling(sampler = MetropolisHastings(), nsteps = 10^5));
+#samples = bat_sample(posterior, SobolSampler(nsamples = 10^5)).result;
 
 sd = SampledDensity(posterior, samples, generator=BAT.MCMCSampleGenerator(chains))
 display(sd)

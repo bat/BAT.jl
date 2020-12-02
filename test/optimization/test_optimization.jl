@@ -2,6 +2,6 @@
 
 using Test
 
-Test.@testset "statistics" begin
+Test.@testset "optimization" begin
     include("test_mode_estimators.jl")
 end

@@ -16,18 +16,21 @@ getalgorithm(sg::GenericSampleGenerator) = sg.algorithm
 
 Constructors:
 
-    IIDSampling()
+    IIDSampling(;kwargs...)
 
 Sample via `Random.rand`. Only supported for posteriors of type
 `Distributions.MultivariateDistribution` and `BAT.DistLikeDensity`.
 """
-struct IIDSampling <: AbstractSamplingAlgorithm end
+@with_kw struct IIDSampling <: AbstractSamplingAlgorithm
+    nsamples::Int = 10^5
+end
 export IIDSampling
 
 
-function bat_sample_impl(rng::AbstractRNG, target::AnyIIDSampleable, n::Integer, algorithm::IIDSampling)
+function bat_sample_impl(rng::AbstractRNG, target::AnyIIDSampleable, algorithm::IIDSampling)
     density = convert(DistLikeDensity, target)
     shape = varshape(density)
+    n = algorithm.nsamples
 
     # ToDo: Parallelize, using hierarchical RNG (separate RNG for each sample)
     v = nestedview(rand(rng, sampler(density), n))
@@ -49,15 +52,18 @@ end
 
 Constructors:
 
-    RandResampling()
+    RandResampling(;kwargs...)
 
 Resamples from a given set of samples.
 """
-struct RandResampling <: AbstractSamplingAlgorithm end
+@with_kw struct RandResampling <: AbstractSamplingAlgorithm
+    nsamples::Int = 10^5
+end
 export RandResampling
 
 
-function bat_sample_impl(rng::AbstractRNG, posterior::DensitySampleVector, n::Integer, algorithm::RandResampling)
+function bat_sample_impl(rng::AbstractRNG, posterior::DensitySampleVector, algorithm::RandResampling)
+    n = algorithm.nsamples
     orig_idxs = eachindex(posterior)
     weights = FrequencyWeights(float(posterior.weight))
     resampled_idxs = sample(orig_idxs, weights, n, replace=true, ordered=false)
@@ -75,21 +81,24 @@ OrderedResampling <: AbstractSamplingAlgorithm
 
 Constructors:
 
-    OrderedResampling()
+    OrderedResampling(;kwargs...)
 
     Efficiently resamples from a given series of samples, keeping the order of samples.
 
     Can be used to efficiently convert weighted samples into samples with uniform
 """
-struct OrderedResampling <: AbstractSamplingAlgorithm end
+@with_kw struct OrderedResampling <: AbstractSamplingAlgorithm
+    nsamples::Int = 10^5
+end
 export OrderedResampling
 
 
-function bat_sample_impl(rng::AbstractRNG, samples::DensitySampleVector, n::Integer, algorithm::OrderedResampling)
+function bat_sample_impl(rng::AbstractRNG, samples::DensitySampleVector, algorithm::OrderedResampling)
     @assert axes(samples) == axes(samples.weight)
     W = samples.weight
     idxs = eachindex(samples)
 
+    n = algorithm.nsamples
     resampled_idxs = Vector{Int}()
     sizehint!(resampled_idxs, n)
 

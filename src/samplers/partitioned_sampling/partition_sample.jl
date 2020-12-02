@@ -14,6 +14,8 @@ Constructor:
 
 Optional Parameters/settings (`kwargs`):
 
+* `npartitions::Integer = 10` number of space partitions.
+
 * `sampler::S = MCMCSampling()` algorithm to generate samples.
 
 * `exploration_sampler::S = MCMCSampling(nchains=30)` algorithm to generate exploration samples.
@@ -28,60 +30,27 @@ Optional Parameters/settings (`kwargs`):
 
 * `n_exp_samples::Integer = 10^3` number of exploration samples.
 
-* `n_partitions::Integer = 10` number of space partitions.
-
 """
 @with_kw struct PartitionedSampling{S<:AbstractSamplingAlgorithm, E<:AbstractSamplingAlgorithm,
     I<:IntegrationAlgorithm, P<:SpacePartitioningAlgorithm} <: AbstractSamplingAlgorithm
+    npartitions::Integer = 10
     sampler::S = MCMCSampling()
     exploration_sampler::E = MCMCSampling(nchains=30)
     partitioner::P = KDTreePartitioning()
     integrator::I = AHMIntegration()
-    exploration_kwargs::NamedTuple = NamedTuple()
-    sampling_kwargs::NamedTuple = NamedTuple()
-    n_exp_samples::Integer = 10^3
-    n_partitions::Integer = 10
 end
 
 export PartitionedSampling
 
 
-"""
-    bat_sample(
-        posterior::PosteriorDensity,
-        n::Integer,
-        algorithm::PartitionedSampling;
-    )
-
-*Experimental feature, not part of stable public API.*
-
-Generate samples from `posterior` using `PartitionedSampling()` algorithm.
-`n` specifies the number of samples.
-
-Returns a NamedTuple of the shape
-
-    ```julia
-    (result = X::DensitySampleVector,
-    info = Y::TypedTables.Table,
-    exp_samples = Z::DensitySampleVector,
-    part_tree = T::SpacePartTree,
-    cost_values = A::AbstractArray,
-    ...)
-    ```
-"""
-function bat_sample(
-        posterior::PosteriorDensity,
-        n::Integer,
-        algorithm::PartitionedSampling
-    )
-
-    n_samples, n_subspaces = round(typeof(n), n / algorithm.n_partitions), algorithm.n_partitions
+function bat_sample_impl(rng::AbstractRNG, target::PosteriorDensity, algorithm::PartitionedSampling)
+    posterior = target
 
     @info "Generating Exploration Samples"
-    exploration_samples = bat_sample(posterior, algorithm.n_exp_samples, algorithm.exploration_sampler; algorithm.exploration_kwargs...).result
+    exploration_samples = bat_sample(posterior, algorithm.exploration_sampler).result
 
     @info "Constructing Partition Tree"
-    partition_tree, cost_values = partition_space(exploration_samples, n_subspaces, algorithm.partitioner)
+    partition_tree, cost_values = partition_space(exploration_samples, algorithm.nsubspaces, algorithm.partitioner)
     # Convert 'partition_tree' structure into a set of truncated posteriors:
     posteriors_array = convert_to_posterior(posterior, partition_tree, extend_bounds = algorithm.partitioner.extend_bounds)
 
@@ -125,7 +94,7 @@ function sample_subspace(
     @info "Sampling subspace #$space_id"
     sampling_wc_start = Dates.Time(Dates.now())
     sampling_cpu_time = CPUTime.@CPUelapsed begin
-        samples_subspace = bat_sample(posterior, n, sampling_algorithm; sampling_kwargs...).result
+        samples_subspace = bat_sample(posterior, sampling_algorithm).result
     end
     sampling_wc_stop = Dates.Time(Dates.now())
 

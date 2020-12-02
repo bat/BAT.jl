@@ -94,9 +94,10 @@ using StatsBase, Distributions, StatsBase, ValueShapes
 
     @testset "bat_sample" begin
         samples = bat_sample(
-            density, 10^4,
+            density,
             MCMCSampling(
                 sampler = algorithm,
+                nsteps = 10^4,
                 store_burnin = true
             )
         ).result
@@ -106,9 +107,10 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         @test samples[2].info.chaincycle == 1
 
         samples = bat_sample(
-            density, 10^4,
+            density,
             MCMCSampling(
                 sampler = algorithm,
+                nsteps = 10^4,
                 store_burnin = false
             )
         ).result

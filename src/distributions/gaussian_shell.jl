@@ -53,6 +53,8 @@ function rand_nball_surf_samples!(rng::AbstractRNG, X::AbstractMatrix)
     return X
 end
 
+Distributions.rand(rng::AbstractRNG, d::GaussianShell) = vec(rand(rng, d, 1))
+
 function Distributions.rand(rng::AbstractRNG, d::GaussianShell, n::Int)
     X = Matrix{eltype(d)}(undef, length(d), n)
     Distributions._rand!(rng, d, X)
