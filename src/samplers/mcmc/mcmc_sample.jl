@@ -19,7 +19,7 @@ MCMCSampling(;kwargs...)
 } <: AbstractSamplingAlgorithm
     sampler::AL = MetropolisHastings()
     nchains::Int = 4
-    nsteps::Int = 10^5
+    nsteps::Int = bat_default(MCMCSampling, Val(:nsteps), sampler, nchains)
     init::IN = MCMCChainPoolInit(
         nsteps_init = max(div(nsteps, 100), 250)
     )

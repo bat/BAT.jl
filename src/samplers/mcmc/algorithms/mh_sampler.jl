@@ -38,6 +38,9 @@ end
 export MetropolisHastings
 
 
+bat_default(::typeof(MCMCSampling), ::Val{:nsteps}, sampler::MetropolisHastings, nchains::Integer) = 10^5
+
+
 get_mcmc_tuning(algorithm::MetropolisHastings) = algorithm.tuning
 
 
