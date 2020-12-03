@@ -12,8 +12,6 @@ Fields:
   candidate chains will be created and run for a short time. The chains with
   the best performance will be selected for tuning/burn-in and MCMC sampling
   run. Defaults to `IntervalSets.ClosedInterval(8, 128)`.
-* `max_nsamples_init`: Maximum number of MCMC samples for each candidate
-  chain. Defaults to 25. Definition of a sample depends on sampling algorithm.
 * `max_nsteps_init`: Maximum number of MCMC steps for each candidate chain.
   Defaults to 250. Definition of a step depends on sampling algorithm.
 * `max_time_init::Int`: Maximum wall-clock time to spend per candidate chain,
@@ -21,7 +19,6 @@ Fields:
 """
 @with_kw struct MCMCChainPoolInit <: MCMCInitAlgorithm
     init_tries_per_chain::ClosedInterval{Int64} = ClosedInterval(8, 128)
-    max_nsamples_init::Int64 = 25
     max_nsteps_init::Int64 = 250
     max_time_init::Float64 = Inf
 end
@@ -97,8 +94,7 @@ function mcmc_init!(
 
         mcmc_iterate!(
             new_outputs, new_chains;
-            max_nsamples = max(5, div(init_alg.max_nsamples_init, 5)),
-            max_nsteps =  max(50, div(init_alg.max_nsteps_init, 5)),
+            max_nsteps = max(50, div(init_alg.max_nsteps_init, 5)),
             max_time = init_alg.max_time_init / 5,
             callback = callback,
             nonzero_weights = nonzero_weights
@@ -114,7 +110,6 @@ function mcmc_init!(
         if !isempty(viable_tuners)
             mcmc_iterate!(
                 viable_outputs, viable_chains;
-                max_nsamples = init_alg.max_nsamples_init,
                 max_nsteps = init_alg.max_nsteps_init,
                 max_time = init_alg.max_time_init,
                 callback = callback,
@@ -123,7 +118,7 @@ function mcmc_init!(
 
             nsamples_thresh = floor(Int, 0.8 * median([nsamples(chain) for chain in viable_chains]))
             good_idxs = findall(chain -> nsamples(chain) >= nsamples_thresh, viable_chains)
-            @debug "Found $(length(viable_tuners)) MCMC chain(s) with at least $(nsamples_thresh) samples."
+            @debug "Found $(length(viable_tuners)) MCMC chain(s) with at least $(nsamples_thresh) unique accepted samples."
 
             append!(chains, view(viable_chains, good_idxs))
             append!(tuners, view(viable_tuners, good_idxs))

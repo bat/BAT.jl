@@ -16,14 +16,14 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     bounds = @inferred BAT.HyperRectBounds([-5, -8], [5, 8], BAT.reflective_bounds)
     prior = BAT.ConstDensity(LogDVal(0), bounds)
     nchains = 4
-    nsamples = 10^5
+    nsteps = 10^5
 
-    algorithmMW = @inferred(MCMCSampling(sampler = MetropolisHastings(), nchains = nchains, nsamples = nsamples, nsteps = 10 * nsamples))
+    algorithmMW = @inferred(MCMCSampling(sampler = MetropolisHastings(), nchains = nchains, nsteps = nsteps))
     @test BAT.mcmc_compatible(algorithmMW.sampler, BAT.GenericProposalDist(mv_dist), BAT.NoVarBounds(2))
 
     samples = bat_sample(PosteriorDensity(likelihood, prior), algorithmMW).result
 
-    @test length(samples) == nchains * nsamples
+    @test sum(samples.weight) == nchains * nsteps
 
     cov_samples = cov(flatview(samples.v), FrequencyWeights(samples.weight), 2; corrected=true)
     mean_samples = mean(flatview(samples.v), FrequencyWeights(samples.weight); dims = 2)
@@ -31,7 +31,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     @test isapprox(mean_samples, mvec; rtol = 0.15)
     @test isapprox(cov_samples, cmat; rtol = 0.15)
 
-    algorithmPW = @inferred MCMCSampling(sampler = MetropolisHastings(weighting = ARPWeighting()), nsamples = 10^5, nsteps = 10^6)
+    algorithmPW = @inferred MCMCSampling(sampler = MetropolisHastings(weighting = ARPWeighting()), nsteps = 10^5)
 
     samples, chains = bat_sample(mv_dist, algorithmPW)
 
@@ -47,5 +47,5 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     @test gensamples(rng) != gensamples(rng)
     @test gensamples(deepcopy(rng)) == gensamples(deepcopy(rng))
 
-    @test isapprox(var(bat_sample(Normal(), MCMCSampling(sampler = MetropolisHastings(), nsamples = 10^4, nsteps = 10^5)).result), [1], rtol = 10^-1)
+    @test isapprox(var(bat_sample(Normal(), MCMCSampling(sampler = MetropolisHastings(), nsteps = 10^5)).result), [1], rtol = 10^-1)
 end

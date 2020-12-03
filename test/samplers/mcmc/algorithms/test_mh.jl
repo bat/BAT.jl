@@ -20,7 +20,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         @test @inferred(MCMCIterator(deepcopy(rng), algorithm, density, 1, unshaped(v_init, varshape(density)))) isa BAT.MHIterator
         chain = @inferred(MCMCIterator(deepcopy(rng), algorithm, density, 1, unshaped(v_init, varshape(density)))) 
         samples = DensitySampleVector(chain)
-        BAT.mcmc_iterate!(samples, chain, max_nsamples = 10^5, max_nsteps = 10^5, nonzero_weights = false)
+        BAT.mcmc_iterate!(samples, chain, max_nsteps = 10^5, nonzero_weights = false)
         @test chain.stepno == 10^5
         @test minimum(samples.weight) == 0
         @test isapprox(length(samples), 10^5, atol = 20)
@@ -29,12 +29,11 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         @test isapprox(cov(samples), cov(unshaped(target)), atol = 0.3)
 
         samples = DensitySampleVector(chain)
-        BAT.mcmc_iterate!(samples, chain, max_nsamples = 10^3, max_nsteps = 10^3, nonzero_weights = true)
+        BAT.mcmc_iterate!(samples, chain, max_nsteps = 10^3, nonzero_weights = true)
         @test minimum(samples.weight) == 1
     end
  
     @testset "MCMC tuning and burn-in" begin
-        n = 10^4
         init_alg = MCMCChainPoolInit()
         tuning_alg = AdaptiveMHTuning()
         burnin_alg = MCMCMultiCycleBurnin()
@@ -42,7 +41,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         strict = true
         nonzero_weights = false
         callback = (x...) -> nothing
-        max_neval = 10 * n
+        max_nsteps = 10^5
         max_time = Inf
 
         init_result = @inferred(BAT.mcmc_init!(
@@ -75,8 +74,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         BAT.mcmc_iterate!(
             outputs,
             chains;
-            max_nsamples = div(n, length(chains)),
-            max_nsteps = div(max_neval, length(chains)),
+            max_nsteps = div(max_nsteps, length(chains)),
             max_time = max_time,
             nonzero_weights = nonzero_weights,
             callback = callback
@@ -95,7 +93,6 @@ using StatsBase, Distributions, StatsBase, ValueShapes
             density,
             MCMCSampling(
                 sampler = algorithm,
-                nsamples = 10^4,
                 nsteps = 10^5,
                 store_burnin = true
             )
@@ -107,7 +104,6 @@ using StatsBase, Distributions, StatsBase, ValueShapes
             density,
             MCMCSampling(
                 sampler = algorithm,
-                nsamples = 10^4,
                 nsteps = 10^5,
                 store_burnin = false
             )

@@ -19,14 +19,11 @@ MCMCSampling(;kwargs...)
 } <: AbstractSamplingAlgorithm
     sampler::AL = MetropolisHastings()
     nchains::Int = 4
-    nsamples::Int = 10^5
     nsteps::Int = 10^5
     init::IN = MCMCChainPoolInit(
-        max_nsamples_init = max(div(nsamples, 100), 50),
         max_nsteps_init = max(div(nsteps, 100), 250)
     )
     burnin::BI = MCMCMultiCycleBurnin(
-        max_nsamples_per_cycle = max(div(nsamples, 10), 500),
         max_nsteps_per_cycle = max(div(nsteps, 10), 2500)
     )
     convergence::CT = BrooksGelmanConvergence()
@@ -76,7 +73,6 @@ function bat_sample_impl(
     mcmc_iterate!(
         chain_outputs,
         chains;
-        max_nsamples = algorithm.nsamples,
         max_nsteps = algorithm.nsteps,
         max_time = Inf,
         nonzero_weights = algorithm.nonzero_weights,

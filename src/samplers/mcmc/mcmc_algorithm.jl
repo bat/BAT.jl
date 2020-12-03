@@ -176,20 +176,18 @@ function mcmc_iterate! end
 function mcmc_iterate!(
     output::Union{DensitySampleVector,Nothing},
     chain::MCMCIterator;
-    max_nsamples::Integer = 1,
-    max_nsteps::Integer = 1000,
+    max_nsteps::Integer = 1,
     max_time::Real = Inf,
     nonzero_weights::Bool = true,
     callback::Function = nop_func
 )
-    @debug "Starting iteration over MCMC chain $(chain.info.id), max_nsamples = $max_nsamples, max_nsteps = $max_nsteps, max_time = $max_time"
+    @debug "Starting iteration over MCMC chain $(chain.info.id), max_nsteps = $max_nsteps, max_time = $max_time"
 
     start_time = time()
     start_nsteps = nsteps(chain)
     start_nsamples = nsamples(chain)
 
     while (
-        (nsamples(chain) - start_nsamples) < max_nsamples &&
         (nsteps(chain) - start_nsteps) < max_nsteps &&
         (time() - start_time) < max_time
     )
@@ -203,7 +201,7 @@ function mcmc_iterate!(
     end_time = time()
     elapsed_time = end_time - start_time
 
-    @debug "Finished iteration over MCMC chain $(chain.info.id), nsamples = $(nsamples(chain)), nsteps = $(nsteps(chain)), time = $(Float32(elapsed_time))"
+    @debug "Finished iteration over MCMC chain $(chain.info.id), nsteps = $(nsteps(chain)), time = $(Float32(elapsed_time))"
 
     nothing
 end
