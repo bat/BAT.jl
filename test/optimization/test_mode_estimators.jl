@@ -53,12 +53,12 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes
 
 
     @testset "MaxDensityNelderMead" begin
-        test_findmode(posterior,  MaxDensityNelderMead(), 0.01)
+        test_findmode(posterior,  MaxDensityNelderMead(trafo = NoDensityTransform()), 0.01)
     end
 
 
     @testset "MaxDensityLBFGS" begin
         # Result Optim.maximize with LBFGS is not type-stable:
-        test_findmode_noinferred(posterior,  MaxDensityLBFGS(), 0.01)
+        test_findmode_noinferred(posterior, MaxDensityLBFGS(trafo = NoDensityTransform()), 0.01)
     end
 end

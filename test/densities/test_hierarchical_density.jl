@@ -34,7 +34,7 @@ using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
         @test (@inferred(BAT.renormalize_variate!(fill(NaN, totalndof(hd)), hd_bounds, fill(-1.0, totalndof(hd)))) in hd_bounds) == false
 
         posterior = PosteriorDensity(LogDVal(0), hd)
-        samples = bat_sample(posterior, MCMCSampling(sampler = MetropolisHastings(), nsteps = 10^5)).result
+        samples = bat_sample(posterior, MCMCSampling(sampler = MetropolisHastings(), trafo = NoDensityTransform(), nsteps = 10^5)).result
         isapprox(cov(unshaped.(samples)), cov(hd), rtol = 0.05)
     end
 

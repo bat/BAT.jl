@@ -12,14 +12,16 @@ MCMCSampling(;kwargs...)
 """
 @with_kw struct MCMCSampling{
     AL<:MCMCAlgorithm,
+    TR<:AbstractDensityTransformTarget,
     IN<:MCMCInitAlgorithm,
     BI<:MCMCBurninAlgorithm,
     CT<:MCMCConvergenceTest,
     CB<:Function
 } <: AbstractSamplingAlgorithm
     sampler::AL = MetropolisHastings()
+    trafo::TR = bat_default(MCMCSampling, Val(:trafo), sampler)
     nchains::Int = 4
-    nsteps::Int = bat_default(MCMCSampling, Val(:nsteps), sampler, nchains)
+    nsteps::Int = bat_default(MCMCSampling, Val(:nsteps), sampler, trafo, nchains)
     init::IN = MCMCChainPoolInit(
         nsteps_init = max(div(nsteps, 100), 250)
     )
@@ -41,7 +43,9 @@ function bat_sample_impl(
     target::AnyDensityLike,
     algorithm::MCMCSampling
 )
-    density = convert(AbstractDensity, target)
+    density_notrafo = convert(AbstractDensity, target)
+    density, trafo = bat_transform(algorithm.trafo, density_notrafo)
+
     mcmc_algorithm = algorithm.sampler
 
     (chains, tuners, chain_outputs) = mcmc_init!(
@@ -80,7 +84,9 @@ function bat_sample_impl(
 
     output = DensitySampleVector(first(chains))
     isnothing(output) || append!.(Ref(output), chain_outputs)
-    samples = varshape(density).(output)
+    samples_trafo = varshape(density).(output)
 
-    (result = samples, generator = MCMCSampleGenerator(chains))
+    samples_notrafo = inv(trafo).(samples_trafo)
+
+    (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = MCMCSampleGenerator(chains))
 end

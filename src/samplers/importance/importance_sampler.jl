@@ -7,7 +7,8 @@ Constructors:
 
 Sample from Sobol sequence. Also see [Sobol.jl](https://github.com/stevengj/Sobol.jl).
 """
-@with_kw struct SobolSampler <: AbstractSamplingAlgorithm
+@with_kw struct SobolSampler{TR<:AbstractDensityTransformTarget} <: AbstractSamplingAlgorithm
+    trafo::TR = PriorToUniform()
     nsamples::Int = 10^5
 end
 export SobolSampler
@@ -23,7 +24,8 @@ Constructors:
 
 Sample from equidistantly distributed points in each dimension.
 """
-@with_kw struct GridSampler <: AbstractSamplingAlgorithm
+@with_kw struct GridSampler{TR<:AbstractDensityTransformTarget} <: AbstractSamplingAlgorithm
+    trafo::TR = PriorToUniform()
     ppa::Int = 100
 end
 export GridSampler
@@ -31,9 +33,11 @@ export GridSampler
 
 function bat_sample_impl(
     rng::AbstractRNG,
-    density::AnyDensityLike,
+    target::AnyDensityLike,
     algorithm::Union{SobolSampler, GridSampler}
 )
+    density_notrafo = convert(AbstractDensity, target)
+    density, trafo = bat_transform(algorithm.trafo, density_notrafo)
     shape = varshape(density)
 
     samples = _gen_samples(density, algorithm)
@@ -41,9 +45,10 @@ function bat_sample_impl(
     logvals = eval_logval.(Ref(density), samples)
     weights = exp.(logvals)
 
-    bat_samples = shape.(DensitySampleVector(samples, logvals, weight = weights))
+    samples_trafo = shape.(DensitySampleVector(samples, logvals, weight = weights))
+    samples_notrafo = inv(trafo).(samples_trafo)
 
-    return (result = bat_samples, )
+    return (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo)
 end
 
 

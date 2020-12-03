@@ -31,8 +31,14 @@ Optional Parameters/settings (`kwargs`):
 * `n_exp_samples::Integer = 10^3` number of exploration samples.
 
 """
-@with_kw struct PartitionedSampling{S<:AbstractSamplingAlgorithm, E<:AbstractSamplingAlgorithm,
-    I<:IntegrationAlgorithm, P<:SpacePartitioningAlgorithm} <: AbstractSamplingAlgorithm
+@with_kw struct PartitionedSampling{
+    TR<:AbstractDensityTransformTarget,
+    S<:AbstractSamplingAlgorithm,
+    E<:AbstractSamplingAlgorithm,
+    I<:IntegrationAlgorithm,
+    P<:SpacePartitioningAlgorithm
+} <: AbstractSamplingAlgorithm
+    trafo::TR = PriorToUniform()
     npartitions::Integer = 10
     sampler::S = MCMCSampling()
     exploration_sampler::E = MCMCSampling(nchains=30)

@@ -240,7 +240,7 @@ function run_ND_benchmark(;
         for j in 1:length(testfunctions)
 
             dis = testfunctions[collect(keys(testfunctions))[j]]
-            iid_sample = bat_sample(dis, MCMCSampling(sampler = MetropolisHastings(), nsteps = nsteps, nchains = nchains)).result
+            iid_sample = bat_sample(dis, MCMCSampling(sampler = MetropolisHastings(), trafo = NoDensityTransform(), nchains = nchains, nsteps = nsteps)).result
 
             mcmc_sample = nothing
             tbf = time()
@@ -249,6 +249,7 @@ function run_ND_benchmark(;
                     dis,
                     MCMCSampling(
                         sampler = algorithm,
+                        trafo = NoDensityTransform(),
                         nchains = n_chains,
                         nsteps = n_steps,
                         init = init,
@@ -261,7 +262,7 @@ function run_ND_benchmark(;
             elseif isa(algorithm,BAT.HamiltonianMC)
                 mcmc_sample = bat_sample(
                     dis,
-                    MCMCSampling(sampler = algorithm, nchains = n_chains, nsteps = n_steps)
+                    MCMCSampling(sampler = algorithm, trafo = NoDensityTransform(), nchains = n_chains, nsteps = n_steps)
                 ).result
             end
             taf = time()
@@ -275,6 +276,7 @@ function run_ND_benchmark(;
                             dis,
                             MCMCSampling(
                                 sampler = algorithm,
+                                trafo = NoDensityTransform(),
                                 nchains = n_chains,
                                 nsteps = n_steps,
                                 init = init,
@@ -287,7 +289,7 @@ function run_ND_benchmark(;
                     elseif isa(algorithm,BAT.HamiltonianMC)
                         bat_sample(
                             dis,
-                            MCMCSampling(sampler = algorithm, nchains = n_chains, nsteps = n_steps)
+                            MCMCSampling(sampler = algorithm, trafo = NoDensityTransform(), nchains = n_chains, nsteps = n_steps)
                         ).result
                     end
                     taf = time()

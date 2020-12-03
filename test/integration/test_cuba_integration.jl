@@ -29,14 +29,15 @@ using Distributions, ValueShapes
         b = truncated(Normal(), 1, 3),
     )
 
-    test_integration(uvprior, VEGASIntegration())
-    test_integration(uvprior, VEGASIntegration())
-    test_integration(mvprior, VEGASIntegration(nthreads = 1))
-    test_integration(mvprior, VEGASIntegration(nthreads = nthreads()))
+    test_integration(uvprior, VEGASIntegration(trafo = NoDensityTransform()))
+    test_integration(uvprior, VEGASIntegration(trafo = NoDensityTransform(), log_density_shift = 10))
+    test_integration(mvprior, VEGASIntegration(trafo = NoDensityTransform(), nthreads = 1))
+    test_integration(mvprior, VEGASIntegration(trafo = NoDensityTransform(), nthreads = nthreads()))
+    test_integration(mvprior, VEGASIntegration())
 
-    test_integration(mvprior, SuaveIntegration())
+    test_integration(mvprior, SuaveIntegration(trafo = NoDensityTransform()))
 
-    test_integration(mvprior_simple, DivonneIntegration(rtol = 1e-4))
+    test_integration(mvprior_simple, DivonneIntegration(trafo = NoDensityTransform(), rtol = 1e-4))
 
-    test_integration(mvprior, CuhreIntegration())
+    test_integration(mvprior, CuhreIntegration(trafo = NoDensityTransform()))
 end

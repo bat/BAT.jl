@@ -12,7 +12,7 @@ using LinearAlgebra: Diagonal, ones
                               dist::Distribution; val_expected::Real=1.0,
                               val_rtol::Real=3.5, err_max::Real=0.2)
         @testset "$title" begin
-            samplingalg = MCMCSampling(sampler = MetropolisHastings(), nsteps = 10^5)
+            samplingalg = MCMCSampling(sampler = MetropolisHastings(), trafo = NoDensityTransform(), nsteps = 10^5)
             sample = bat_sample(dist, samplingalg).result
             sample_integral = bat_integrate(sample, algorithm).result
 

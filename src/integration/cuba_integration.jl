@@ -1,8 +1,20 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct CubaIntegrand{D<:AbstractDensity} <: Function
+struct CubaIntegrand{D<:AbstractDensity,T<:Real} <: Function
     density::D
+    log_density_shift::T
+    log_support_volume::T
+end
+
+
+function CubaIntegrand(density::AbstractDensity, log_density_shift::Real)
+    vol = spatialvolume(var_bounds(density))
+    isinf(vol) && throw(ArgumentError("CUBA integration doesn't support densities with infinite support"))
+    log_support_volume = log_volume(vol)
+    @assert _cuba_valid_value(log_support_volume)
+
+    CubaIntegrand(density, float(log_density_shift), log_support_volume)
 end
 
 
@@ -13,16 +25,12 @@ function (integrand::CubaIntegrand)(x::AbstractVector{<:Real}, f::AbstractVector
     idxs = axes(f, 1)
     @assert length(idxs) == 1
 
-    density = integrand.density
-    vol = spatialvolume(var_bounds(density))
-    logv = log_volume(vol)
-    @assert _cuba_valid_value(logv)
-
+    vol = spatialvolume(var_bounds(integrand.density))
     x_trafo = fromuhc(x, vol)
-    logd = eval_logval(density, x_trafo)
+    logd = eval_logval(integrand.density, x_trafo)
     @assert _cuba_valid_value(logd)
 
-    f[first(idxs)] = exp(logd + logv)
+    f[first(idxs)] = exp(logd + integrand.log_density_shift)
     @assert all(_cuba_valid_value,f)
 
     f
@@ -35,16 +43,14 @@ function (integrand::CubaIntegrand)(X::AbstractMatrix{<:Real}, f::AbstractMatrix
     idxs2 = axes(f, 2)
     @assert idxs2 == axes(X, 2)
 
-    density = integrand.density
-    vol = spatialvolume(var_bounds(density))
-    logv = log_volume(vol)
-    @assert _cuba_valid_value(logv)
-
+    vol = spatialvolume(var_bounds(integrand.density))
     x_trafo = fromuhc(nestedview(X), vol)
     @threads for i in idxs2
-        logd = eval_logval(density, x_trafo[i])
+        logd = eval_logval(integrand.density, x_trafo[i])
         @assert _cuba_valid_value(logd)
-        f[first(idxs1), i] = exp(logd + logv)
+        y = exp(logd + integrand.log_density_shift)
+        @assert _cuba_valid_value(y)
+        f[first(idxs1), i] = y
     end
 
     f
@@ -65,7 +71,9 @@ Only supports densities with finite rectangular bounds.
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """
-@with_kw struct VEGASIntegration <: IntegrationAlgorithm
+@with_kw struct VEGASIntegration{TR<:AbstractDensityTransformTarget} <: IntegrationAlgorithm
+    trafo::TR = PriorToUniform()
+    log_density_shift::Float64 = 0.0
     rtol::Float64 = Cuba.RTOL
     atol::Float64 = Cuba.ATOL
     minevals::Int = Cuba.MINEVALS
@@ -78,17 +86,13 @@ end
 export VEGASIntegration
 
 
-function bat_integrate_impl(target::AbstractDensity, algorithm::VEGASIntegration)
-    integrand = CubaIntegrand(target)
-    
+function bat_integrate_impl(integrand::CubaIntegrand, algorithm::VEGASIntegration)
     r = Cuba.vegas(
-        integrand, totalndof(target), 1, nvec = algorithm.nthreads,
+        integrand, totalndof(integrand.density), 1, nvec = algorithm.nthreads,
         rtol = algorithm.rtol, atol = algorithm.atol,
         minevals = algorithm.minevals, maxevals = algorithm.maxevals,
         nstart = algorithm.nstart, nincrease = algorithm.nincrease, nbatch = algorithm.nbatch
     )
-
-    (result = Measurements.measurement(first(r.integral), first(r.error)), cuba = r)
 end
 
 
@@ -106,7 +110,9 @@ Only supports densities with finite rectangular bounds.
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """
-@with_kw struct SuaveIntegration <: IntegrationAlgorithm
+@with_kw struct SuaveIntegration{TR<:AbstractDensityTransformTarget} <: IntegrationAlgorithm
+    trafo::TR = PriorToUniform()
+    log_density_shift::Float64 = 0.0
     rtol::Float64 = Cuba.RTOL
     atol::Float64 = Cuba.ATOL
     minevals::Int = Cuba.MINEVALS
@@ -119,17 +125,13 @@ end
 export SuaveIntegration
 
 
-function bat_integrate_impl(target::AbstractDensity, algorithm::SuaveIntegration)
-    integrand = CubaIntegrand(target)
-    
-    r = Cuba.suave(
-        integrand, totalndof(target), 1, nvec = algorithm.nthreads,
+function bat_integrate_impl(integrand::CubaIntegrand, algorithm::SuaveIntegration)
+    Cuba.suave(
+        integrand, totalndof(integrand.density), 1, nvec = algorithm.nthreads,
         rtol = algorithm.rtol, atol = algorithm.atol,
         minevals = algorithm.minevals, maxevals = algorithm.maxevals,
         nnew = algorithm.nnew, nmin = algorithm.nmin, flatness = algorithm.flatness
     )
-
-    (result = Measurements.measurement(first(r.integral), first(r.error)), cuba = r)
 end
 
 
@@ -147,7 +149,9 @@ Only supports densities with finite rectangular bounds.
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """
-@with_kw struct DivonneIntegration <: IntegrationAlgorithm
+@with_kw struct DivonneIntegration{TR<:AbstractDensityTransformTarget} <: IntegrationAlgorithm
+    trafo::TR = PriorToUniform()
+    log_density_shift::Float64 = 0.0
     rtol::Float64 = Cuba.RTOL
     atol::Float64 = Cuba.ATOL
     minevals::Int = Cuba.MINEVALS
@@ -167,11 +171,9 @@ end
 export DivonneIntegration
 
 
-function bat_integrate_impl(target::AbstractDensity, algorithm::DivonneIntegration)
-    integrand = CubaIntegrand(target)
-    
-    r = Cuba.divonne(
-        integrand, totalndof(target), 1, nvec = algorithm.nthreads,
+function bat_integrate_impl(integrand::CubaIntegrand, algorithm::DivonneIntegration)
+    Cuba.divonne(
+        integrand, totalndof(integrand.density), 1, nvec = algorithm.nthreads,
         rtol = algorithm.rtol, atol = algorithm.atol,
         minevals = algorithm.minevals, maxevals = algorithm.maxevals,
         key1 = algorithm.key1, key2 = algorithm.key2, key3 = algorithm.key3,
@@ -179,8 +181,6 @@ function bat_integrate_impl(target::AbstractDensity, algorithm::DivonneIntegrati
         mindeviation = algorithm.mindeviation, ngiven = algorithm.ngiven, ldxgiven = algorithm.ldxgiven,
         nextra = algorithm.nextra
     )
-
-    (result = Measurements.measurement(first(r.integral), first(r.error)), cuba = r)
 end
 
 
@@ -198,7 +198,9 @@ Only supports densities with finite rectangular bounds.
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """
-@with_kw struct CuhreIntegration <: IntegrationAlgorithm
+@with_kw struct CuhreIntegration{TR<:AbstractDensityTransformTarget} <: IntegrationAlgorithm
+    trafo::TR = PriorToUniform()
+    log_density_shift::Float64 = 0.0
     rtol::Float64 = Cuba.RTOL
     atol::Float64 = Cuba.ATOL
     minevals::Int = Cuba.MINEVALS
@@ -209,19 +211,13 @@ end
 export CuhreIntegration
 
 
-function bat_integrate_impl(target::AnyDensityLike, algorithm::CuhreIntegration)
-    density = convert(AbstractDensity, target)
-
-    integrand = CubaIntegrand(density)
-    
-    r = Cuba.cuhre(
-        integrand, totalndof(density), 1, nvec = algorithm.nthreads,
+function bat_integrate_impl(integrand::CubaIntegrand, algorithm::CuhreIntegration)
+    Cuba.cuhre(
+        integrand, totalndof(integrand.density), 1, nvec = algorithm.nthreads,
         rtol = algorithm.rtol, atol = algorithm.atol,
         minevals = algorithm.minevals, maxevals = algorithm.maxevals,
         key = algorithm.key
     )
-
-    (result = Measurements.measurement(first(r.integral), first(r.error)), cuba = r)
 end
 
 
@@ -229,7 +225,18 @@ end
 const CubaIntegration = Union{VEGASIntegration, SuaveIntegration, DivonneIntegration, CuhreIntegration}
 
 function bat_integrate_impl(target::AnyDensityLike, algorithm::CubaIntegration)
-    density = convert(AbstractDensity, target)
-    bat_integrate_impl(density, algorithm)
-end
+    density_notrafo = convert(AbstractDensity, target)
+    density, trafo = bat_transform(algorithm.trafo, density_notrafo)
+    integrand = CubaIntegrand(density, algorithm.log_density_shift)
 
+    r_cuba = bat_integrate_impl(integrand, algorithm)
+
+    log_renorm_corr = -integrand.log_density_shift + integrand.log_support_volume
+    T = promote_type(BigFloat, typeof(log_renorm_corr))
+    renorm_corr = exp(convert(T, log_renorm_corr))
+
+    ival = first(r_cuba.integral) * renorm_corr
+    ierr = first(r_cuba.error) * renorm_corr
+
+    (result = Measurements.measurement(ival, ierr), cuba_result = r_cuba, renorm_corr = renorm_corr)
+end

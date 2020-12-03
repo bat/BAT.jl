@@ -121,8 +121,11 @@ their pior equivalent to a uniform distribution over the unit hypercube.
 struct PriorToUniform <: AbstractTransformToUnitspace end
 export PriorToUniform
 
-_prior_trafo(target::PriorToUniform, prior::DistributionDensity) = DistributionTransform(Uniform, parent(prior))
+_distribution_density_trafo(target::PriorToUniform, density::DistributionDensity) = DistributionTransform(Uniform, parent(density))
 
+function bat_transform_impl(target::PriorToUniform, density::StandardUniformDensity, algorithm::DensityIdentityTransform)
+    (result = density, trafo = IdentityVT(UnitSpace(), varshape(density)))
+end
 
 
 """
@@ -135,8 +138,11 @@ identity covariance matrix.
 struct PriorToGaussian <: AbstractTransformToInfinite end
 export PriorToGaussian
 
-_prior_trafo(target::PriorToGaussian, prior::DistributionDensity) = DistributionTransform(Normal, parent(prior))
+_distribution_density_trafo(target::PriorToGaussian, density::DistributionDensity) = DistributionTransform(Normal, parent(density))
 
+function bat_transform_impl(target::PriorToGaussian, density::StandardNormalDensity, algorithm::DensityIdentityTransform)
+    (result = density, trafo = IdentityVT(InfiniteSpace(), varshape(density)))
+end
 
 
 """
@@ -149,9 +155,17 @@ of the transformation to be auto-differentiable.
 struct FullDensityTransform <: TransformAlgorithm end
 export FullDensityTransform
 
+
 function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::AbstractPosteriorDensity, algorithm::FullDensityTransform)
     orig_prior = getprior(density)
-    trafo = _prior_trafo(target, orig_prior)
+    trafo = _distribution_density_trafo(target, orig_prior)
+    (result = TransformedDensity(density, trafo, TDLADJCorr()), trafo = trafo)
+end
+
+
+function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::DistributionDensity, algorithm::FullDensityTransform)
+    orig_prior = getprior(density)
+    trafo = _distribution_density_trafo(target, density)
     (result = TransformedDensity(density, trafo, TDLADJCorr()), trafo = trafo)
 end
 
@@ -172,8 +186,15 @@ export PriorSubstitution
 function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::AbstractPosteriorDensity, algorithm::PriorSubstitution)
     orig_prior = getprior(density)
     orig_likelihood = getlikelihood(density)
-    trafo = _prior_trafo(target, orig_prior)
+    trafo = _distribution_density_trafo(target, orig_prior)
     new_likelihood = TransformedDensity(orig_likelihood, trafo, TDNoCorr())
     new_prior = trafo.target_dist
     (result = PosteriorDensity(new_likelihood, new_prior), trafo = trafo)
+end
+
+
+function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::DistributionDensity, algorithm::PriorSubstitution)
+    trafo = _distribution_density_trafo(target, density)
+    transformed_density = DistributionDensity(trafo.target_dist)
+    (result = transformed_density, trafo = trafo)
 end

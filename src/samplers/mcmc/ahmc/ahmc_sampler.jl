@@ -17,7 +17,9 @@ part of stable public API.*
 end
 
 
-bat_default(::typeof(MCMCSampling), ::Val{:nsteps}, sampler::HamiltonianMC, nchains::Integer) = 10^4
+bat_default(::Type{MCMCSampling}, ::Val{:trafo}, sampler::HamiltonianMC) = PriorToGaussian()
+
+bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, sampler::HamiltonianMC, trafo::AbstractDensityTransformTarget, nchains::Integer) = 10^4
 
 
 get_mcmc_tuning(algorithm::HamiltonianMC) = MCMCNoOpTuning()

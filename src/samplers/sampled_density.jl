@@ -18,7 +18,7 @@ end
 
 
 
-function density(sd::SampledDensity)
+function getdensity(sd::SampledDensity)
     return sd.density
 end
 

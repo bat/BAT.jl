@@ -61,10 +61,10 @@ import Cuba
                 tX_finite = tX[findall(isfinite, fix_nni.(logvalof(density).(tX)))]
                 @test isapprox(@inferred(broadcast(ForwardDiff.derivative, logvalof(density), tX_finite)), broadcast(ForwardDiff.derivative, x -> logpdf(target_dist, x), tX_finite), atol = 10^-7)
 
-                @test minimum(target_dist) <= stripscalar(bat_findmode(density, MaxDensityLBFGS()).result) <= maximum(target_dist)
+                @test minimum(target_dist) <= stripscalar(bat_findmode(density, MaxDensityLBFGS(trafo = NoDensityTransform())).result) <= maximum(target_dist)
 
                 if BAT.target_space(trafo) == BAT.UnitSpace()
-                    @test isapprox(bat_integrate(density, VEGASIntegration()).result, 1)
+                    @test isapprox(bat_integrate(density, VEGASIntegration(trafo = NoDensityTransform())).result, 1, rtol = 10^-7)
                 end
             end
         end
@@ -84,7 +84,7 @@ import Cuba
         @test isfinite(@inferred logvalof(density)(@inferred(bat_initval(density)).result))
         @test isapprox(cov(@inferred(bat_initval(density, 10^4)).result), I(totalndof(density)), rtol = 0.1)
 
-        samples_is = bat_sample(density, MCMCSampling(sampler = HamiltonianMC(), nsteps = 10^4)).result
+        samples_is = bat_sample(density, MCMCSampling(sampler = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4)).result
         @test isapprox(cov(samples_is), I(totalndof(density)), rtol = 0.1)
         samples_os = inv(trafo).(samples_is)
         @test all(isfinite, logpdf.(Ref(src_d), samples_os.v))
@@ -98,7 +98,7 @@ import Cuba
         posterior = PosteriorDensity(likelihood, prior)
         trafo = BAT.DistributionTransform(Normal, prior)
         posterior_is = trafo(posterior)
-        samples = bat_sample(posterior_is, MCMCSampling(sampler = HamiltonianMC(), nsteps = 10^4)).result
+        samples = bat_sample(posterior_is, MCMCSampling(sampler = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4)).result
         =#
     end
 
@@ -111,16 +111,16 @@ import Cuba
         trafo = td.trafo
         bat_initval(td).result
 
-        bat_findmode(td, MaxDensityLBFGS())
-        bat_sample(td, MCMCSampling(sampler = HamiltonianMC(), nsteps = 10^4))
+        bat_findmode(td, MaxDensityLBFGS(trafo = NoDensityTransform()))
+        bat_sample(td, MCMCSampling(sampler = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4))
 
         density = convert(AbstractDensity, MvNormal([2.0 0.5; 0.5 3.0]))
         td = BAT.transform_to(BAT.InfiniteSpace(), density)
         trafo = td.trafo
         bat_initval(td).result
 
-        bat_findmode(td, MaxDensityLBFGS())
-        bat_sample(td, MCMCSampling(sampler = HamiltonianMC(), nsteps = 10^4))
+        bat_findmode(td, MaxDensityLBFGS(trafo = NoDensityTransform()))
+        bat_sample(td, MCMCSampling(sampler = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4))
 
         # ...
         =#

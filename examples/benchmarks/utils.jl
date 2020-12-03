@@ -207,10 +207,10 @@ function run1D(
 	)
 
     sample_stats_all = []
-    samples, chains = bat_sample(testfunctions[key].posterior, MCMCSampling(sampler = algorithm, nchains = n_chains, nsteps = n_steps))
+    samples, chains = bat_sample(testfunctions[key].posterior, MCMCSampling(sampler = algorithm, trafo = NoDensityTransform(), nchains = n_chains, nsteps = n_steps))
     for i in 1:n_runs
         time_before = time()
-        samples, chains = bat_sample(testfunctions[key].posterior, MCMCSampling(sampler = algorithm, nchains = n_chains, nsteps = n_steps))
+        samples, chains = bat_sample(testfunctions[key].posterior, MCMCSampling(sampler = algorithm, trafo = NoDensityTransform(), nchains = n_chains, nsteps = n_steps))
         time_after = time()
 
     	h = plot1D(samples,testfunctions,key,sample_stats)# posterior, key, analytical_stats,sample_stats)
@@ -327,7 +327,7 @@ function plot2D(
     h = StatsBase.normalize(h)
 
     nun = convert(Int64,floor(sum(hunnorm.weights)/10))
-    unweighted_samples = bat_sample(samples, nun).result
+    unweighted_samples = bat_sample(samples, OrderedResampling(nsamples = nun)).result
     hunnorm = fit(Histogram, (BAT.flatview(unweighted_samples.v)[1,:],BAT.flatview(unweighted_samples.v)[2,:]),plot_bins)
     hana = fit(Histogram,([],[]),hunnorm.edges)
     hdiff = fit(Histogram,([],[]),hunnorm.edges)
@@ -378,7 +378,7 @@ function plot2D(
 		testfunctions[name].chi2[1]=ndf
 	end
 
-	iid_sample = bat_sample(testfunctions[name].posterior,length([BAT.flatview(samples.v)...])).result
+	iid_sample = bat_sample(testfunctions[name].posterior, IIDSampling(nsamples = length([BAT.flatview(samples.v)...]))).result
 	if(testfunctions[name].ks[1] > 999)
 		ksres = bat_compare(samples,iid_sample).result.ks_p_values
 		testfunctions[name].ks[1]=ksres[1]
@@ -438,10 +438,10 @@ function run2D(
 
     sample_stats_all = []
 
-    samples, stats = bat_sample(testfunctions[key].posterior, MCMCSampling(sampler = algorithm, nchains = n_chains, nsteps = n_steps))
+    samples, stats = bat_sample(testfunctions[key].posterior, MCMCSampling(sampler = algorithm, trafo = NoDensityTransform(), nchains = n_chains, nsteps = n_steps))
     for i in 1:n_runs
         time_before = time()
-        samples, stats = bat_sample(testfunctions[key].posterior, MCMCSampling(sampler = algorithm, nchains = n_chains, nsteps = n_steps))
+        samples, stats = bat_sample(testfunctions[key].posterior, MCMCSampling(sampler = algorithm, trafo = NoDensityTransform(), nchains = n_chains, nsteps = n_steps))
         time_after = time()
 
 		h = plot2D(samples, testfunctions, key, sample_stats)

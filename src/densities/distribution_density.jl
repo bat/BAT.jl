@@ -65,8 +65,23 @@ dist_param_bounds(d::Distribution{Univariate,Continuous}, bounds_type::BoundsTyp
 dist_param_bounds(d::Distribution{Multivariate,Continuous}, bounds_type::BoundsType) =
     HyperRectBounds(fill(_default_PT(-Inf), length(d)), fill(_default_PT(+Inf), length(d)), bounds_type)
 
+dist_param_bounds(d::StandardMvUniform, bounds_type::BoundsType) =
+    HyperRectBounds(fill(_default_PT(Float32(0)), length(d)), fill(_default_PT(Float32(1)), length(d)), bounds_type)
+
 dist_param_bounds(d::Product{Continuous}, bounds_type::BoundsType) =
     HyperRectBounds(minimum.(d.v), maximum.(d.v), bounds_type)
 
 dist_param_bounds(d::ConstValueDist, bounds_type::BoundsType) = HyperRectBounds(Int32[], Int32[], bounds_type)
 dist_param_bounds(d::NamedTupleDist, bounds_type::BoundsType) = vcat(map(x -> dist_param_bounds(x, bounds_type), values(d))...)
+
+
+
+const StandardUniformDensity = Union{
+    BAT.DistributionDensity{<:BAT.StandardUvUniform},
+    BAT.DistributionDensity{<:BAT.StandardMvUniform}
+}
+
+const StandardNormalDensity= Union{
+    BAT.DistributionDensity{<:BAT.StandardUvNormal},
+    BAT.DistributionDensity{<:BAT.StandardUvNormal}
+}

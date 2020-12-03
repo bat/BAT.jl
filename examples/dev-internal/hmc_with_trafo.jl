@@ -1,12 +1,12 @@
 include(joinpath(dirname(dirname(@__DIR__)), "docs", "src", "tutorial_lit.jl"))
 
-samples_mh = bat_sample(posterior, MCMCSampling(sampler = MetropolisHastings(), nsteps = 10^5)).result
+samples_mh = bat_sample(posterior, MCMCSampling(sampler = MetropolisHastings(), trafo = NoDensityTransform(), nsteps = 10^5)).result
 
 posterior_is, trafo_is = bat_transform(PriorToGaussian(), posterior, PriorSubstitution())
 posterior_is2, trafo_is2 = bat_transform(PriorToGaussian(), posterior, FullDensityTransform())
 
-samples_is = bat_sample(posterior_is, MCMCSampling(sampler = HamiltonianMC(), nsteps = 10^5)).result
-samples_is2 = bat_sample(posterior_is2, MCMCSampling(sampler = HamiltonianMC(), nsteps = 10^5)).result
+samples_is = bat_sample(posterior_is, MCMCSampling(sampler = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^5)).result
+samples_is2 = bat_sample(posterior_is2, MCMCSampling(sampler = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^5)).result
 
 samples = inv(trafo_is).(samples_is)
 samples2 = inv(trafo_is2).(samples_is2)

@@ -5,7 +5,12 @@ bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::NoDensityTransform, ::
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::NoDensityTransform, ::AbstractPosteriorDensity) = DensityIdentityTransform()
 
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::AbstractPosteriorDensity) = PriorSubstitution()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::DistributionDensity) = PriorSubstitution()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::StandardUniformDensity) = DensityIdentityTransform()
+
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::AbstractPosteriorDensity) = PriorSubstitution()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::DistributionDensity) = PriorSubstitution()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::StandardNormalDensity) = DensityIdentityTransform()
 
 
 # ToDo: Add ToUnitBounded and ToUnbounded

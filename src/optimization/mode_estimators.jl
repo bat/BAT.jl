@@ -62,17 +62,25 @@ MaxDensityNelderMead(init::InitvalAlgorithm = InitFromTarget)
 Estimate the mode of a probability density using Nelder-Mead optimization
 (via [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl)).
 """
-@with_kw struct MaxDensityNelderMead{IA<:InitvalAlgorithm} <: AbstractModeEstimator
+@with_kw struct MaxDensityNelderMead{
+    TR<:AbstractDensityTransformTarget,
+    IA<:InitvalAlgorithm
+} <: AbstractModeEstimator
+    trafo::TR = NoDensityTransform()
     init::IA = InitFromTarget()
 end
 export MaxDensityNelderMead
 
 function bat_findmode_impl(target::AnySampleable, algorithm::MaxDensityNelderMead)
-    shape = varshape(target)
-    conv_target = convert(AbstractDensity, target)
-    x = collect(unshaped(bat_initval(conv_target, algorithm.init).result))
-    r = Optim.maximize(p -> eval_logval(conv_target, p), x, Optim.NelderMead())
-    (result = shape(Optim.minimizer(r.res)), info = r)
+    density_notrafo = convert(AbstractDensity, target)
+    density, trafo = bat_transform(algorithm.trafo, density_notrafo)
+    shape = varshape(density)
+
+    x = collect(unshaped(bat_initval(density, algorithm.init).result))
+    r_optim = Optim.maximize(p -> eval_logval(density, p), x, Optim.NelderMead())
+    mode_trafo = shape(Optim.minimizer(r_optim.res))
+    mode_notrafo = inv(trafo)(mode_trafo)
+    (result = mode_notrafo, result_trafo = mode_trafo, trafo = trafo, info = r_optim)
 end
 
 
@@ -90,18 +98,26 @@ Estimate the mode of a probability density using LBFGS optimization (via
 of the density is computed using forward-mode auto-differentiation (via
 [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl)).
 """
-@with_kw struct MaxDensityLBFGS{IA<:InitvalAlgorithm} <: AbstractModeEstimator
+@with_kw struct MaxDensityLBFGS{
+    TR<:AbstractDensityTransformTarget,
+    IA<:InitvalAlgorithm
+} <: AbstractModeEstimator
+    trafo::TR = PriorToGaussian()
     init::IA = InitFromTarget()
 end
 export MaxDensityLBFGS
 
 
 function bat_findmode_impl(target::AnySampleable, algorithm::MaxDensityLBFGS)
-    shape = varshape(target)
-    conv_target = convert(AbstractDensity, target)
-    x = collect(unshaped(bat_initval(conv_target, algorithm.init).result))
-    r = Optim.maximize(p -> eval_logval(conv_target, p), x, Optim.LBFGS(); autodiff = :forward)
-    (result = shape(Optim.minimizer(r.res)), info = r)
+    density_notrafo = convert(AbstractDensity, target)
+    density, trafo = bat_transform(algorithm.trafo, density_notrafo)
+    shape = varshape(density)
+
+    x = collect(unshaped(bat_initval(density, algorithm.init).result))
+    r_optim = Optim.maximize(p -> eval_logval(density, p), x, Optim.LBFGS(); autodiff = :forward)
+    mode_trafo = shape(Optim.minimizer(r_optim.res))
+    mode_notrafo = inv(trafo)(mode_trafo)
+    (result = mode_notrafo, result_trafo = mode_trafo, trafo = trafo, info = r_optim)
 end
 
 

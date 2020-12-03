@@ -93,6 +93,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes
             density,
             MCMCSampling(
                 sampler = algorithm,
+                trafo = NoDensityTransform(),
                 nsteps = 10^4,
                 store_burnin = true
             )
@@ -106,6 +107,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes
             density,
             MCMCSampling(
                 sampler = algorithm,
+                trafo = NoDensityTransform(),
                 nsteps = 10^4,
                 store_burnin = false
             )

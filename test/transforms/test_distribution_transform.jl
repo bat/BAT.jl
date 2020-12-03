@@ -29,4 +29,10 @@ end
     pd = @inferred(product_distribution([Uniform() for i in 1:3]))
     density = @inferred(BAT.DistributionDensity(pd))
     @test @inferred(bat_transform(NoDensityTransform(), density)).result.dist == density.dist
+
+    # ToDo: Improve comparison for bounds so `.dist` is not required here:
+    @inferred(bat_transform(PriorToUniform(), convert(AbstractDensity, BAT.StandardUvUniform()))).result.dist == convert(AbstractDensity, BAT.StandardUvUniform()).dist
+    @inferred(bat_transform(PriorToUniform(), convert(AbstractDensity, BAT.StandardMvUniform(4)))).result.dist == convert(AbstractDensity, BAT.StandardMvUniform(4)).dist
+    @inferred(bat_transform(PriorToGaussian(), convert(AbstractDensity, BAT.StandardUvNormal()))).result.dist == convert(AbstractDensity, BAT.StandardUvNormal()).dist
+    @inferred(bat_transform(PriorToGaussian(), convert(AbstractDensity, BAT.StandardMvNormal(4)))).result.dist == convert(AbstractDensity, BAT.StandardMvNormal(4)).dist
 end
