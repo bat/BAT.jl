@@ -20,8 +20,8 @@ function BAT.eval_logval_unchecked(target::GaussianShellDensity, v::AbstractArra
     return log(1.0 / sqrt(2 * pi * target.sigma^2) * expo)
 end
 
-algorithm = MetropolisHastings()
-#algorithm = MetropolisHastings(ARPWeighting{Float64}())
+algorithm = MCMCSampling(sampler = MetropolisHastings())
+#algorithm = MCMCSampling(sampler = MetropolisHastings(ARPWeighting{Float64}()))
 
 #define model and #dimensions
 dim = 2
