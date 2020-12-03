@@ -23,7 +23,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
 
     samples = bat_sample(PosteriorDensity(likelihood, prior), algorithmMW).result
 
-    @test sum(samples.weight) == nchains * nsteps
+    @test (nchains * nsteps - sum(samples.weight)) < 100
 
     cov_samples = cov(flatview(samples.v), FrequencyWeights(samples.weight), 2; corrected=true)
     mean_samples = mean(flatview(samples.v), FrequencyWeights(samples.weight); dims = 2)

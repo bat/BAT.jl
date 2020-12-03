@@ -221,12 +221,10 @@ function run_ND_benchmark(;
     )
     init = MCMCChainPoolInit(
         init_tries_per_chain = 64..1024,
-        max_nsteps_init = 2500,
-        max_time_init = Inf
+        nsteps_init = 2500,
     )
     burnin = MCMCMultiCycleBurnin(
-        max_nsteps_per_cycle = 20000,
-        max_time_per_cycle = Inf,
+        nsteps_per_cycle = 20000,
         max_ncycles = 300
     )
 

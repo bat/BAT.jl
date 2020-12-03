@@ -43,7 +43,6 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         nonzero_weights = false
         callback = (x...) -> nothing
         max_nsteps = 10^5
-        max_time = Inf
 
         # Note: No @inferred, not type stable (yet) with HamiltonianMC
         init_result = BAT.mcmc_init!(
@@ -77,7 +76,6 @@ using StatsBase, Distributions, StatsBase, ValueShapes
             outputs,
             chains;
             max_nsteps = div(max_nsteps, length(chains)),
-            max_time = max_time,
             nonzero_weights = nonzero_weights,
             callback = callback
         )

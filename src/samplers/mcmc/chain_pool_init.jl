@@ -5,22 +5,10 @@
     struct MCMCChainPoolInit <: MCMCInitAlgorithm
 
  MCMC chain pool initialization strategy.
-
-Fields:
-* `init_tries_per_chain`: Interval that specifies the minimum and maximum
-  number of tries per MCMC chain to find a suitable starting position. Many
-  candidate chains will be created and run for a short time. The chains with
-  the best performance will be selected for tuning/burn-in and MCMC sampling
-  run. Defaults to `IntervalSets.ClosedInterval(8, 128)`.
-* `max_nsteps_init`: Maximum number of MCMC steps for each candidate chain.
-  Defaults to 250. Definition of a step depends on sampling algorithm.
-* `max_time_init::Int`: Maximum wall-clock time to spend per candidate chain,
-  in seconds. Defaults to `Inf`.
 """
 @with_kw struct MCMCChainPoolInit <: MCMCInitAlgorithm
     init_tries_per_chain::ClosedInterval{Int64} = ClosedInterval(8, 128)
-    max_nsteps_init::Int64 = 250
-    max_time_init::Float64 = Inf
+    nsteps_init::Int64 = 250
 end
 
 export MCMCChainPoolInit
@@ -94,8 +82,7 @@ function mcmc_init!(
 
         mcmc_iterate!(
             new_outputs, new_chains;
-            max_nsteps = max(50, div(init_alg.max_nsteps_init, 5)),
-            max_time = init_alg.max_time_init / 5,
+            max_nsteps = max(50, div(init_alg.nsteps_init, 5)),
             callback = callback,
             nonzero_weights = nonzero_weights
         )
@@ -110,8 +97,7 @@ function mcmc_init!(
         if !isempty(viable_tuners)
             mcmc_iterate!(
                 viable_outputs, viable_chains;
-                max_nsteps = init_alg.max_nsteps_init,
-                max_time = init_alg.max_time_init,
+                max_nsteps = init_alg.nsteps_init,
                 callback = callback,
                 nonzero_weights = nonzero_weights
             )

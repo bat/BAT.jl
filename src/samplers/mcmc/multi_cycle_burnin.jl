@@ -5,17 +5,9 @@
     MCMCMultiCycleBurnin <: MCMCBurninAlgorithm
 
 A multi-cycle MCMC burn-in algorithm.
-
-Fields:
-* `max_nsteps_per_cycle`: Maximum number of MCMC steps per cycle, defaults
-  to `10000`. Definition of a step depends on MCMC algorithm.
-* `max_time_per_cycle`: Maximum wall-clock time to spend per cycle, in
-  seconds. Defaults to `Inf`.
-* `max_ncycles`: Maximum number of cycles.
 """
 @with_kw struct MCMCMultiCycleBurnin <: MCMCBurninAlgorithm
-    max_nsteps_per_cycle::Int64 = 10000
-    max_time_per_cycle::Float64 = Inf
+    nsteps_per_cycle::Int64 = 10000
     max_ncycles::Int = 30
 end
 
@@ -46,8 +38,7 @@ function mcmc_burnin!(
         mcmc_iterate!(
             new_outputs,
             chains,
-            max_nsteps = burnin_alg.max_nsteps_per_cycle,
-            max_time = burnin_alg.max_time_per_cycle,
+            max_nsteps = burnin_alg.nsteps_per_cycle,
             nonzero_weights = nonzero_weights,
             callback = callback
         )

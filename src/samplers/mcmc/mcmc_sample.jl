@@ -21,10 +21,10 @@ MCMCSampling(;kwargs...)
     nchains::Int = 4
     nsteps::Int = 10^5
     init::IN = MCMCChainPoolInit(
-        max_nsteps_init = max(div(nsteps, 100), 250)
+        nsteps_init = max(div(nsteps, 100), 250)
     )
     burnin::BI = MCMCMultiCycleBurnin(
-        max_nsteps_per_cycle = max(div(nsteps, 10), 2500)
+        nsteps_per_cycle = max(div(nsteps, 10), 2500)
     )
     convergence::CT = BrooksGelmanConvergence()
     strict::Bool = true
@@ -74,7 +74,6 @@ function bat_sample_impl(
         chain_outputs,
         chains;
         max_nsteps = algorithm.nsteps,
-        max_time = Inf,
         nonzero_weights = algorithm.nonzero_weights,
         callback = algorithm.callback
     )

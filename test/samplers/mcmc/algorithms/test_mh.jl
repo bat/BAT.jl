@@ -42,7 +42,6 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         nonzero_weights = false
         callback = (x...) -> nothing
         max_nsteps = 10^5
-        max_time = Inf
 
         init_result = @inferred(BAT.mcmc_init!(
             rng,
@@ -75,7 +74,6 @@ using StatsBase, Distributions, StatsBase, ValueShapes
             outputs,
             chains;
             max_nsteps = div(max_nsteps, length(chains)),
-            max_time = max_time,
             nonzero_weights = nonzero_weights,
             callback = callback
         )
