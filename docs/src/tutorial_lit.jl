@@ -247,7 +247,7 @@ posterior = PosteriorDensity(likelihood, prior)
 # Now we can generate a set of MCMC samples via [`bat_sample`](@ref). We'll
 # use 4 MCMC chains with 10^5 MC steps in each chain (after tuning/burn-in):
 
-samples = bat_sample(posterior, MCMCSampling(sampler = MetropolisHastings(), nsteps = 10^4, nchains = 4)).result
+samples = bat_sample(posterior, MCMCSampling(sampler = MetropolisHastings(), nsteps = 10^5, nchains = 4)).result
 #md nothing # hide
 #nb nothing # hide
 
@@ -404,7 +404,10 @@ plot!(-4:0.01:4, x -> fit_function(true_par_values, x), color=4, label = "Truth"
 
 # We'll sample using the The Metropolis-Hastings MCMC algorithm:
 
-sampler = MetropolisHastings()
+mcmcalgo = MetropolisHastings(
+    weighting = RepetitionWeighting(),
+    tuning = AdaptiveMHTuning()
+)
 
 # BAT requires a counter-based random number generator (RNG), since it
 # partitions the RNG space over the MCMC chains. This way, a single RNG seed
@@ -424,10 +427,6 @@ rng = Philox4x()
 
 init = MCMCChainPoolInit()
 
-# For tuning of the proposal distribution:
-
-tuning = AdaptiveMHTuning()
-
 # For the MCMC burn-in procedure:
 
 burnin = MCMCMultiCycleBurnin()
@@ -442,10 +441,7 @@ convergence = BrooksGelmanConvergence()
 samples = bat_sample(
     rng, posterior,
     MCMCSampling(
-        sampler = MetropolisHastings(
-            weighting = RepetitionWeighting(),
-            tuning = tuning
-        ),
+        sampler = mcmcalgo,
         nchains = 4,
         nsteps = 10^5,
         init = init,
