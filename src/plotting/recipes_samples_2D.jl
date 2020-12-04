@@ -32,7 +32,7 @@
 
     colorbar = false
     if seriestype == :histogram2d || seriestype == :histogram || seriestype == :hist
-        colorbar = true
+        colorbar = get(plotattributes, :colorbar, false)
     end
 
     xlabel, ylabel  = if !isshaped(maybe_shaped_samples)
