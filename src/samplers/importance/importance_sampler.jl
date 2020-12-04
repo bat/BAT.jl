@@ -36,16 +36,9 @@ function bat_sample_impl(
 )
     shape = varshape(density)
 
-    bounds = var_bounds(density)
-    truncated_density = if isinf(bounds)
-        TruncatedDensity(density, estimate_finite_bounds(density), 0)
-    else
-        TruncatedDensity(density, bounds, 0)
-    end
+    samples = _gen_samples(density, algorithm)
 
-    samples = _gen_samples(truncated_density, algorithm)
-
-    logvals = eval_logval.(Ref(truncated_density), samples)
+    logvals = eval_logval.(Ref(density), samples)
     weights = exp.(logvals)
 
     bat_samples = shape.(DensitySampleVector(samples, logvals, weight = weights))
@@ -54,16 +47,18 @@ function bat_sample_impl(
 end
 
 
-function _gen_samples(density::TruncatedDensity, algorithm::SobolSampler)
+function _gen_samples(density::AbstractDensity, algorithm::SobolSampler)
     bounds = var_bounds(density)
+    isinf(bounds) && throw(ArgumentError("SobolSampler doesn't support densities with infinite support"))
     sobol = Sobol.SobolSeq(bounds.vol.lo, bounds.vol.hi)
     p = vcat([[Sobol.next!(sobol)] for i in 1:algorithm.nsamples]...)
     return p
 end
 
 
-function _gen_samples(density::TruncatedDensity, algorithm::GridSampler)
+function _gen_samples(density::AbstractDensity, algorithm::GridSampler)
     bounds = var_bounds(density)
+    isinf(bounds) && throw(ArgumentError("SobolSampler doesn't support densities with infinite support"))
     dim = length(bounds.bt)
     ppa = algorithm.ppa
     ranges = [range(bounds.vol.lo[i], bounds.vol.hi[i], length = trunc(Int, ppa)) for i in 1:dim]
