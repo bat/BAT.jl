@@ -70,36 +70,3 @@ dist_param_bounds(d::Product{Continuous}, bounds_type::BoundsType) =
 
 dist_param_bounds(d::ConstValueDist, bounds_type::BoundsType) = HyperRectBounds(Int32[], Int32[], bounds_type)
 dist_param_bounds(d::NamedTupleDist, bounds_type::BoundsType) = vcat(map(x -> dist_param_bounds(x, bounds_type), values(d))...)
-
-
-
-function estimate_finite_bounds(density::DistributionDensity; bounds_type::BoundsType = hard_bounds)
-    return estimate_finite_bounds(density.dist, bounds_type = bounds_type)
-end
-
-
-function estimate_finite_bounds(ntd::NamedTupleDist; bounds_type::BoundsType = hard_bounds)
-    bounds = vcat([estimate_finite_bounds(d) for d in values(ntd)]...)
-    lo = [b[1] for b in bounds]
-    hi = [b[2] for b in bounds]
-    HyperRectBounds(lo, hi, bounds_type)
-end
-
-function estimate_finite_bounds(d::Distribution{Univariate,Continuous})
-    lo, hi = minimum(d), maximum(d)
-
-    if isinf(lo)
-        lo = typeof(lo)(quantile(d, 0.00001))
-    end
-
-    if isinf(hi)
-        hi = typeof(hi)(quantile(d, 0.99999))
-    end
-
-    return lo, hi
-end
-
-function estimate_finite_bounds(d::Product)
-    bounds = estimate_finite_bounds.(d.v)
-    return vcat(bounds...)
-end

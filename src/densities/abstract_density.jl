@@ -63,18 +63,6 @@ var_bounds(density::AbstractDensity) = missing
 
 
 @doc doc"""
-    BAT.estimate_finite_bounds(density::AbstractDensity)
-    BAT.estimate_finite_bounds(dist::Distribution)
-
-*BAT-internal, not part of stable public API.*
-
-Estimate finite bounds of a density.
-Currently, the bounds are estimated by calculating the 0.00001 and 0.99999 quantiles.
-"""
-function estimate_finite_bounds end
-
-
-@doc doc"""
     ValueShapes.totalndof(density::AbstractDensity)::Union{Int,Missing}
 
 Get the number of degrees of freedom of the variates of `density`. May return

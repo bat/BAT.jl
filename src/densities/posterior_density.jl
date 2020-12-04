@@ -82,11 +82,6 @@ function var_bounds(density::AbstractPosteriorDensity)
 end
 
 
-function estimate_finite_bounds(posterior::AbstractPosteriorDensity; bounds_type::BoundsType = hard_bounds)
-    return estimate_finite_bounds(getprior(posterior), bounds_type = bounds_type)
-end
-
-
 
 @doc doc"""
     PosteriorDensity{

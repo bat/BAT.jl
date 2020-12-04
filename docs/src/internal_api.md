@@ -68,7 +68,6 @@ BAT.density_logval_type
 BAT.distribution_logpdf
 BAT.distribution_logpdf!
 BAT.drop_low_weight_samples
-BAT.estimate_finite_bounds
 BAT.eval_gradlogval
 BAT.eval_logval
 BAT.find_hypercube_centers
