@@ -43,8 +43,25 @@ gs_pdf_r(r, ndims, r0, w) = nball_surf_area(r, ndims) * 1/(2π * w^2) * exp(-(ab
 
 function gauss_shell_radial_samples(rng::AbstractRNG, ndims::Integer, r0::Real, w::Real, n::Integer)
     f(r) = gs_pdf_r(r, ndims, r0, w)
-    sampler = AdaptiveRejectionSampling.RejectionSampler(f, (10^-10, Inf))
-    AdaptiveRejectionSampling.run_sampler!(rng, sampler, n)
+    result = Vector{Float64}()
+
+    # ToDo: AdaptiveRejectionSampling sometimes fails sporadically here,
+    # find a fix to replace this workaround:
+    ntries::Int = 0
+    while length(result) < n
+        ntries += 1
+        try
+            sampler = AdaptiveRejectionSampling.RejectionSampler(f, (10^-10, Inf))
+            smpls = AdaptiveRejectionSampling.run_sampler!(rng, sampler, n)
+            append!(result, smpls)
+        catch err
+            if !(err isa AssertionError || err isa DomainError) || ntries > 4
+                rethrow()
+            end
+        end
+    end
+
+    result
 end
 
 function rand_nball_surf_samples!(rng::AbstractRNG, X::AbstractMatrix)
