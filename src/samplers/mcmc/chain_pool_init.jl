@@ -8,7 +8,7 @@
 """
 @with_kw struct MCMCChainPoolInit <: MCMCInitAlgorithm
     init_tries_per_chain::ClosedInterval{Int64} = ClosedInterval(8, 128)
-    nsteps_init::Int64 = 250
+    nsteps_init::Int64 = 1000
 end
 
 export MCMCChainPoolInit
