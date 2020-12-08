@@ -33,6 +33,7 @@ using Distributions, ValueShapes
     test_integration(uvprior, VEGASIntegration(trafo = NoDensityTransform(), log_density_shift = 10))
     test_integration(mvprior, VEGASIntegration(trafo = NoDensityTransform(), nthreads = 1))
     test_integration(mvprior, VEGASIntegration(trafo = NoDensityTransform(), nthreads = nthreads()))
+    test_integration(mvprior, VEGASIntegration(trafo = NoDensityTransform(), nthreads = 2))
     test_integration(mvprior, VEGASIntegration())
 
     test_integration(mvprior, SuaveIntegration(trafo = NoDensityTransform()))
