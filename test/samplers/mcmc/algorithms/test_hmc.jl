@@ -92,7 +92,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         samples = bat_sample(
             density,
             MCMCSampling(
-                sampler = algorithm,
+                mcalg = algorithm,
                 trafo = NoDensityTransform(),
                 nsteps = 10^4,
                 store_burnin = true
@@ -106,7 +106,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         samples = bat_sample(
             density,
             MCMCSampling(
-                sampler = algorithm,
+                mcalg = algorithm,
                 trafo = NoDensityTransform(),
                 nsteps = 10^4,
                 store_burnin = false

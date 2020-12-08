@@ -18,8 +18,8 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     nchains = 4
     nsteps = 10^5
 
-    algorithmMW = @inferred(MCMCSampling(sampler = MetropolisHastings(), trafo = NoDensityTransform(), nchains = nchains, nsteps = nsteps))
-    @test BAT.mcmc_compatible(algorithmMW.sampler, BAT.GenericProposalDist(mv_dist), BAT.NoVarBounds(2))
+    algorithmMW = @inferred(MCMCSampling(mcalg = MetropolisHastings(), trafo = NoDensityTransform(), nchains = nchains, nsteps = nsteps))
+    @test BAT.mcmc_compatible(algorithmMW.mcalg, BAT.GenericProposalDist(mv_dist), BAT.NoVarBounds(2))
 
     samples = bat_sample(PosteriorDensity(likelihood, prior), algorithmMW).result
 
@@ -31,7 +31,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     @test isapprox(mean_samples, mvec; rtol = 0.15)
     @test isapprox(cov_samples, cmat; rtol = 0.15)
 
-    algorithmPW = @inferred MCMCSampling(sampler = MetropolisHastings(weighting = ARPWeighting()), trafo = NoDensityTransform(), nsteps = 10^5)
+    algorithmPW = @inferred MCMCSampling(mcalg = MetropolisHastings(weighting = ARPWeighting()), trafo = NoDensityTransform(), nsteps = 10^5)
 
     samples, chains = bat_sample(mv_dist, algorithmPW)
 
@@ -47,5 +47,5 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     @test gensamples(rng) != gensamples(rng)
     @test gensamples(deepcopy(rng)) == gensamples(deepcopy(rng))
 
-    @test isapprox(var(bat_sample(Normal(), MCMCSampling(sampler = MetropolisHastings(), trafo = NoDensityTransform(), nsteps = 10^5)).result), [1], rtol = 10^-1)
+    @test isapprox(var(bat_sample(Normal(), MCMCSampling(mcalg = MetropolisHastings(), trafo = NoDensityTransform(), nsteps = 10^5)).result), [1], rtol = 10^-1)
 end

@@ -18,10 +18,10 @@ MCMCSampling(;kwargs...)
     CT<:MCMCConvergenceTest,
     CB<:Function
 } <: AbstractSamplingAlgorithm
-    sampler::AL = MetropolisHastings()
-    trafo::TR = bat_default(MCMCSampling, Val(:trafo), sampler)
+    mcalg::AL = MetropolisHastings()
+    trafo::TR = bat_default(MCMCSampling, Val(:trafo), mcalg)
     nchains::Int = 4
-    nsteps::Int = bat_default(MCMCSampling, Val(:nsteps), sampler, trafo, nchains)
+    nsteps::Int = bat_default(MCMCSampling, Val(:nsteps), mcalg, trafo, nchains)
     init::IN = MCMCChainPoolInit(
         nsteps_init = max(div(nsteps, 100), 250)
     )
@@ -46,7 +46,7 @@ function bat_sample_impl(
     density_notrafo = convert(AbstractDensity, target)
     density, trafo = bat_transform(algorithm.trafo, density_notrafo)
 
-    mcmc_algorithm = algorithm.sampler
+    mcmc_algorithm = algorithm.mcalg
 
     (chains, tuners, chain_outputs) = mcmc_init!(
         rng,

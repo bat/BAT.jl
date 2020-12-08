@@ -84,7 +84,7 @@ import Cuba
         @test isfinite(@inferred logvalof(density)(@inferred(bat_initval(density)).result))
         @test isapprox(cov(@inferred(bat_initval(density, 10^4)).result), I(totalndof(density)), rtol = 0.1)
 
-        samples_is = bat_sample(density, MCMCSampling(sampler = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4)).result
+        samples_is = bat_sample(density, MCMCSampling(mcalg = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4)).result
         @test isapprox(cov(samples_is), I(totalndof(density)), rtol = 0.1)
         samples_os = inv(trafo).(samples_is)
         @test all(isfinite, logpdf.(Ref(src_d), samples_os.v))
@@ -98,7 +98,7 @@ import Cuba
         posterior = PosteriorDensity(likelihood, prior)
         trafo = BAT.DistributionTransform(Normal, prior)
         posterior_is = trafo(posterior)
-        samples = bat_sample(posterior_is, MCMCSampling(sampler = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4)).result
+        samples = bat_sample(posterior_is, MCMCSampling(mcalg = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4)).result
         =#
     end
 
@@ -112,7 +112,7 @@ import Cuba
         bat_initval(td).result
 
         bat_findmode(td, MaxDensityLBFGS(trafo = NoDensityTransform()))
-        bat_sample(td, MCMCSampling(sampler = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4))
+        bat_sample(td, MCMCSampling(mcalg = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4))
 
         density = convert(AbstractDensity, MvNormal([2.0 0.5; 0.5 3.0]))
         td = BAT.transform_to(BAT.InfiniteSpace(), density)
@@ -120,7 +120,7 @@ import Cuba
         bat_initval(td).result
 
         bat_findmode(td, MaxDensityLBFGS(trafo = NoDensityTransform()))
-        bat_sample(td, MCMCSampling(sampler = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4))
+        bat_sample(td, MCMCSampling(mcalg = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4))
 
         # ...
         =#

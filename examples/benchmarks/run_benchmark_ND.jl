@@ -240,7 +240,7 @@ function run_ND_benchmark(;
         for j in 1:length(testfunctions)
 
             dis = testfunctions[collect(keys(testfunctions))[j]]
-            iid_sample = bat_sample(dis, MCMCSampling(sampler = MetropolisHastings(), trafo = NoDensityTransform(), nchains = nchains, nsteps = nsteps)).result
+            iid_sample = bat_sample(dis, MCMCSampling(mcalg = MetropolisHastings(), trafo = NoDensityTransform(), nchains = nchains, nsteps = nsteps)).result
 
             mcmc_sample = nothing
             tbf = time()
@@ -248,7 +248,7 @@ function run_ND_benchmark(;
                 mcmc_sample = bat_sample(
                     dis,
                     MCMCSampling(
-                        sampler = algorithm,
+                        mcalg = algorithm,
                         trafo = NoDensityTransform(),
                         nchains = n_chains,
                         nsteps = n_steps,
@@ -262,7 +262,7 @@ function run_ND_benchmark(;
             elseif isa(algorithm,BAT.HamiltonianMC)
                 mcmc_sample = bat_sample(
                     dis,
-                    MCMCSampling(sampler = algorithm, trafo = NoDensityTransform(), nchains = n_chains, nsteps = n_steps)
+                    MCMCSampling(mcalg = algorithm, trafo = NoDensityTransform(), nchains = n_chains, nsteps = n_steps)
                 ).result
             end
             taf = time()
@@ -275,7 +275,7 @@ function run_ND_benchmark(;
                         bat_sample(
                             dis,
                             MCMCSampling(
-                                sampler = algorithm,
+                                mcalg = algorithm,
                                 trafo = NoDensityTransform(),
                                 nchains = n_chains,
                                 nsteps = n_steps,
@@ -289,7 +289,7 @@ function run_ND_benchmark(;
                     elseif isa(algorithm,BAT.HamiltonianMC)
                         bat_sample(
                             dis,
-                            MCMCSampling(sampler = algorithm, trafo = NoDensityTransform(), nchains = n_chains, nsteps = n_steps)
+                            MCMCSampling(mcalg = algorithm, trafo = NoDensityTransform(), nchains = n_chains, nsteps = n_steps)
                         ).result
                     end
                     taf = time()

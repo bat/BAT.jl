@@ -38,9 +38,9 @@ end
 export MetropolisHastings
 
 
-bat_default(::Type{MCMCSampling}, ::Val{:trafo}, sampler::MetropolisHastings) = PriorToGaussian()
+bat_default(::Type{MCMCSampling}, ::Val{:trafo}, mcalg::MetropolisHastings) = PriorToGaussian()
 
-bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, sampler::MetropolisHastings, trafo::AbstractDensityTransformTarget, nchains::Integer) = 10^5
+bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, mcalg::MetropolisHastings, trafo::AbstractDensityTransformTarget, nchains::Integer) = 10^5
 
 
 get_mcmc_tuning(algorithm::MetropolisHastings) = algorithm.tuning

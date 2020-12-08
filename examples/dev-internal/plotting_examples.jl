@@ -30,7 +30,7 @@ prior = BAT.NamedTupleDist(
 
 posterior = PosteriorDensity(likelihood, prior);
 
-samples, chains = bat_sample(posterior, MCMCSampling(sampler = MetropolisHastings(), nsteps = 10^5));
+samples, chains = bat_sample(posterior, MCMCSampling(mcalg = MetropolisHastings(), nsteps = 10^5));
 
 # ## Set up plotting
 # Set up plotting using the [Plots.jl](https://github.com/JuliaPlots/Plots.jl) package:

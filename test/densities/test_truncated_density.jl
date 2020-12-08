@@ -66,7 +66,7 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets, ValueShapes
 
     let
         trunc_prior_dist = parent(BAT.getprior(trunc_pstr)).dist
-        s = bat_sample(trunc_pstr, MCMCSampling(sampler = MetropolisHastings(), trafo = NoDensityTransform(), nsteps = 10^5)).result
+        s = bat_sample(trunc_pstr, MCMCSampling(mcalg = MetropolisHastings(), trafo = NoDensityTransform(), nsteps = 10^5)).result
         s_flat = flatview(unshaped.(s))
         @test all(minimum.(intervals) .< minimum(s_flat))
         @test all(maximum.(intervals) .> maximum(s_flat))
