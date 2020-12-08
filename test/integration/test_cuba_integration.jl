@@ -39,4 +39,6 @@ using Distributions, ValueShapes
     test_integration(mvprior_simple, DivonneIntegration(rtol = 1e-4))
 
     test_integration(mvprior, CuhreIntegration())
+
+    test_integration(mvprior, CuhreIntegration(nthreads=2))
 end
