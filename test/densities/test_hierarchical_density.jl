@@ -31,27 +31,20 @@ using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
         @test all(in.(nestedview(@inferred rand(sampler(hd), 10^3)), Ref(hd_bounds)))
         @test @inferred(fill(-1.0, totalndof(hd)) in hd_bounds) == false
 
-        @test (@inferred(BAT.renormalize_variate!(fill(NaN, totalndof(hd)), hd_bounds, fill(-1.0, totalndof(hd)))) in hd_bounds) == false
-
         posterior = PosteriorDensity(LogDVal(0), hd)
         samples = bat_sample(posterior, MCMCSampling(mcalg = MetropolisHastings(), trafo = NoDensityTransform(), nsteps = 10^5)).result
         isapprox(cov(unshaped.(samples)), cov(hd), rtol = 0.05)
     end
 
     let
-        parent_density = BAT.DistributionDensity(NamedTupleDist(
-            foo = 2..4,
-            bar = Normal(2.0, 1.0)
-        ), bounds_type = BAT.reflective_bounds)
+        parent_density = BAT.DistributionDensity(NamedTupleDist(foo = 2..4, bar = Normal(2.0, 1.0)))
 
-        f = v -> BAT.DistributionDensity(NamedTupleDist(baz = fill(Normal(v.bar, v.foo), 3)), bounds_type = BAT.reflective_bounds)
+        f = v -> BAT.DistributionDensity(NamedTupleDist(baz = fill(Normal(v.bar, v.foo), 3)))
 
         hd = HierarchicalDensity(f, parent_density)
 
         hd_bounds = @inferred(BAT.var_bounds(hd))
         @test @inferred(fill(1.5, totalndof(hd)) in hd_bounds) == false
-        @test @inferred(BAT.renormalize_variate!(fill(NaN, totalndof(hd)), hd_bounds, fill(1.5, totalndof(hd)))) == [2.5, 1.5, 1.5, 1.5, 1.5]
-        @test (@inferred(BAT.renormalize_variate!(fill(NaN, totalndof(hd)), hd_bounds, fill(1.5, totalndof(hd)))) in hd_bounds) == true
     end
 
     let

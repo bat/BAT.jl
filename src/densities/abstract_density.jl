@@ -190,17 +190,6 @@ function variate_for_msg(v::Any)
 end
 
 
-@doc doc"""
-    renormalize_variate!(v_renorm::Any, density::AbstractDensity, v::Any)
-
-*BAT-internal, not part of stable public API.*
-"""
-function renormalize_variate!(v_renorm::Any, density::AbstractDensity, v::Any)
-    renormalize_variate!(v_renorm, var_bounds(density), v)
-end
-
-
-
 
 @doc doc"""
     eval_gradlogval(density::AbstractDensity, v::AbstractVector{<:Real})

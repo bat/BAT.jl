@@ -152,7 +152,7 @@ function convert_to_posterior(posterior::PosteriorDensity, partition_tree::Space
 
     posterior_array = map(
         x -> begin
-            bounds = HyperRectBounds(x[:,1], x[:,2],  repeat([BAT.hard_bounds], n_params))
+            bounds = HyperRectBounds(x[:,1], x[:,2])
             prior_dist = BAT.truncate_density(getprior(posterior), bounds)
             PosteriorDensity(getlikelihood(posterior), prior_dist)
         end,

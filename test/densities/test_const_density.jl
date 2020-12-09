@@ -7,9 +7,9 @@ using LinearAlgebra
 using ArraysOfArrays, ValueShapes, Distributions
 
 @testset "const_density" begin
-    gen_density_1() =  BAT.ConstDensity(LogDVal(0), BAT.HyperRectBounds{Float64}(BAT.HyperRectVolume([-1., 0.5], [2.,1]), [BAT.hard_bounds, BAT.hard_bounds]))
+    gen_density_1() =  BAT.ConstDensity(LogDVal(0), BAT.HyperRectBounds{Float64}(BAT.HyperRectVolume([-1., 0.5], [2.,1])))
 
-    gen_density_n() = BAT.ConstDensity(normalize, BAT.HyperRectBounds([-1., 0.5], [2.,1], BAT.hard_bounds))
+    gen_density_n() = BAT.ConstDensity(normalize, BAT.HyperRectBounds([-1., 0.5], [2.,1]))
 
     @testset "BAT.ConstDensity" begin
         density = @inferred gen_density_1()
@@ -25,7 +25,7 @@ using ArraysOfArrays, ValueShapes, Distributions
     end
 
     @testset "convert" begin
-        cdensity = @inferred BAT.ConstDensity(normalize, BAT.HyperRectBounds([-1., 0.5], [2.,1], BAT.hard_bounds))
+        cdensity = @inferred BAT.ConstDensity(normalize, BAT.HyperRectBounds([-1., 0.5], [2.,1]))
         @test typeof(cdensity) <: BAT.ConstDensity
     end
 

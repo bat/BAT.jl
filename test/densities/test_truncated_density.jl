@@ -19,7 +19,7 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets, ValueShapes
     posterior = PosteriorDensity(likelihood, prior)
 
     intervals = [-1..3, 1..4, -2..2, 0..4]
-    bounds = BAT.HyperRectBounds(intervals, BAT.hard_bounds)
+    bounds = BAT.HyperRectBounds(intervals)
 
     @test (@inferred BAT.truncate_dist_hard(Exponential(), -1..5)).dist isa Truncated{<:Exponential}
 

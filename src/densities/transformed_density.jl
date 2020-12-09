@@ -75,12 +75,12 @@ var_bounds(density::TransformedDensity) = var_bounds(density.trafo)
 
 function var_bounds(trafo::VariateTransform)
     n = totalndof(varshape(trafo))
-    HyperRectBounds(fill(_default_PT(-Inf), n), fill(_default_PT(+Inf), n), hard_bounds)
+    HyperRectBounds(fill(_default_PT(-Inf), n), fill(_default_PT(+Inf), n))
 end
 
 function var_bounds(trafo::VariateTransform{<:VariateForm,<:UnitSpace})
     n = totalndof(varshape(trafo))
-    HyperRectBounds(fill(_default_PT(0), n), fill(_default_PT(1), n), hard_bounds)
+    HyperRectBounds(fill(_default_PT(0), n), fill(_default_PT(1), n))
 end
 
 

@@ -13,13 +13,12 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     Σ = @inferred PDMat(cmat)
     mv_dist = MvNormal(mvec, Σ)
     likelihood = @inferred BAT.DistributionDensity(mv_dist)
-    bounds = @inferred BAT.HyperRectBounds([-5, -8], [5, 8], BAT.reflective_bounds)
+    bounds = @inferred BAT.HyperRectBounds([-5, -8], [5, 8])
     prior = BAT.ConstDensity(LogDVal(0), bounds)
     nchains = 4
     nsteps = 10^5
 
     algorithmMW = @inferred(MCMCSampling(mcalg = MetropolisHastings(), trafo = NoDensityTransform(), nchains = nchains, nsteps = nsteps))
-    @test BAT.mcmc_compatible(algorithmMW.mcalg, BAT.GenericProposalDist(mv_dist), BAT.NoVarBounds(2))
 
     samples = bat_sample(PosteriorDensity(likelihood, prior), algorithmMW).result
 

@@ -21,10 +21,8 @@ using Distributions, PDMats
 
     params = VectorOfSimilarVectors([0.0 -0.3; 0.0 0.3; 0.0 1.0])
     
-    pb = BAT.HyperRectBounds([-2.0, -1.0, -0.5], [2.0, 3.0, 1.0],
-                                BAT.reflective_bounds)
-    pb2 = BAT.HyperRectBounds([-1.5, -2.0, -0.5], [2.0, 2.5, 1.5],
-                                BAT.reflective_bounds)
+    pb = BAT.HyperRectBounds([-2.0, -1.0, -0.5], [2.0, 3.0, 1.0])
+    pb2 = BAT.HyperRectBounds([-1.5, -2.0, -0.5], [2.0, 2.5, 1.5])
     dp = @inferred BAT.DensityProduct((mvt_density, mvn_density), pb)
     dp1 = @inferred BAT.DensityProduct((mvt_density,), pb)
     dp2 = @inferred BAT.DensityProduct((mvn_density,), pb2)

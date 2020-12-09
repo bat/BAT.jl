@@ -9,8 +9,7 @@ struct DistributionDensity{
     bounds::B
 end
 
-DistributionDensity(d::Distribution; bounds_type::BoundsType = hard_bounds) =
-    DistributionDensity(d, dist_param_bounds(d, bounds_type))
+DistributionDensity(d::Distribution) = DistributionDensity(d, dist_param_bounds(d))
 
 Base.convert(::Type{AbstractDensity}, d::ContinuousDistribution) = DistributionDensity(d)
 Base.convert(::Type{DistLikeDensity}, d::ContinuousDistribution) = DistributionDensity(d)
@@ -59,20 +58,20 @@ Statistics.cov(density::DistributionDensity) = cov(unshaped(density.dist))
 var_bounds(density::DistributionDensity) = density.bounds
 
 
-dist_param_bounds(d::Distribution{Univariate,Continuous}, bounds_type::BoundsType) =
-    HyperRectBounds([minimum(d)], [maximum(d)], bounds_type)
+dist_param_bounds(d::Distribution{Univariate,Continuous}) =
+    HyperRectBounds([minimum(d)], [maximum(d)])
 
-dist_param_bounds(d::Distribution{Multivariate,Continuous}, bounds_type::BoundsType) =
-    HyperRectBounds(fill(_default_PT(-Inf), length(d)), fill(_default_PT(+Inf), length(d)), bounds_type)
+dist_param_bounds(d::Distribution{Multivariate,Continuous}) =
+    HyperRectBounds(fill(_default_PT(-Inf), length(d)), fill(_default_PT(+Inf), length(d)))
 
-dist_param_bounds(d::StandardMvUniform, bounds_type::BoundsType) =
-    HyperRectBounds(fill(_default_PT(Float32(0)), length(d)), fill(_default_PT(Float32(1)), length(d)), bounds_type)
+dist_param_bounds(d::StandardMvUniform) =
+    HyperRectBounds(fill(_default_PT(Float32(0)), length(d)), fill(_default_PT(Float32(1)), length(d)))
 
-dist_param_bounds(d::Product{Continuous}, bounds_type::BoundsType) =
-    HyperRectBounds(minimum.(d.v), maximum.(d.v), bounds_type)
+dist_param_bounds(d::Product{Continuous}) =
+    HyperRectBounds(minimum.(d.v), maximum.(d.v))
 
-dist_param_bounds(d::ConstValueDist, bounds_type::BoundsType) = HyperRectBounds(Int32[], Int32[], bounds_type)
-dist_param_bounds(d::NamedTupleDist, bounds_type::BoundsType) = vcat(map(x -> dist_param_bounds(x, bounds_type), values(d))...)
+dist_param_bounds(d::ConstValueDist) = HyperRectBounds(Int32[], Int32[])
+dist_param_bounds(d::NamedTupleDist) = vcat(map(x -> dist_param_bounds(x), values(d))...)
 
 
 

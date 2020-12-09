@@ -42,7 +42,7 @@ end
     mvu = product_distribution([Uniform() for i in 1:3])
     BAT.varshape(ud::_UniformDensityStruct) = varshape(mvu)
     BAT.eval_logval_unchecked(ud::_UniformDensityStruct, v::Any) = logpdf(mvu, v)
-    BAT.var_bounds(ud::_UniformDensityStruct) = BAT.HyperRectBounds(BAT.HyperRectVolume(zeros(3), ones(3)), BAT.BoundsType[BAT.hard_bounds, BAT.hard_bounds, BAT.hard_bounds])
+    BAT.var_bounds(ud::_UniformDensityStruct) = BAT.HyperRectBounds(BAT.HyperRectVolume(zeros(3), ones(3)))
     ValueShapes.totalndof(ud::_UniformDensityStruct) = Int(3)
 
     x = [-Inf, 0, Inf]

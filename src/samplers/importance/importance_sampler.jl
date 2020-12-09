@@ -64,7 +64,7 @@ end
 function _gen_samples(density::AbstractDensity, algorithm::GridSampler)
     bounds = var_bounds(density)
     isinf(bounds) && throw(ArgumentError("SobolSampler doesn't support densities with infinite support"))
-    dim = length(bounds.bt)
+    dim = totalndof(density)
     ppa = algorithm.ppa
     ranges = [range(bounds.vol.lo[i], bounds.vol.hi[i], length = trunc(Int, ppa)) for i in 1:dim]
     p = vec(collect(Iterators.product(ranges...)))

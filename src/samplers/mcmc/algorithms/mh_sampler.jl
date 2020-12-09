@@ -46,15 +46,6 @@ bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, mcalg::MetropolisHastings, tra
 get_mcmc_tuning(algorithm::MetropolisHastings) = algorithm.tuning
 
 
-mcmc_compatible(::MetropolisHastings, ::AbstractProposalDist, ::NoVarBounds) = true
-
-mcmc_compatible(::MetropolisHastings, proposaldist::AbstractProposalDist, bounds::HyperRectBounds) =
-    issymmetric(proposaldist) || all(x -> x == hard_bounds, bounds.bt)
-
-mcmc_compatible(::MetropolisHastings, proposaldist::AbstractProposalDist, bounds::HierarchicalDensityBounds) =
-    issymmetric(proposaldist)
-
-
 
 mutable struct MHIterator{
     AL<:MetropolisHastings,
@@ -237,10 +228,6 @@ function mcmc_step!(chain::MHIterator)
     samples = chain.samples
     algorithm = getalgorithm(chain)
 
-    if !mcmc_compatible(algorithm, chain.proposaldist, var_bounds(getdensity(chain)))
-        error("Implementation of algorithm $algorithm does not support current parameter bounds with current proposal distribution")
-    end
-
     chain.stepno += 1
     reset_rng_counters!(chain)
 
@@ -263,7 +250,6 @@ function mcmc_step!(chain::MHIterator)
     # Propose new variate:
     samples.weight[proposed] = 0
     proposal_rand!(rng, proposaldist, proposed_params, current_params)
-    renormalize_variate!(proposed_params, density, proposed_params)
 
     current_log_posterior = samples.logd[current]
     T = typeof(current_log_posterior)

@@ -30,7 +30,7 @@ model = GaussianShellDensity(zeros(dim), 5.0, 2.0, dim)
 #define boundaries
 lo_bounds = [-30.0 for i = 1:dim]
 hi_bounds = [ 30.0 for i = 1:dim]
-bounds = BAT.HyperRectBounds(lo_bounds, hi_bounds, BAT.reflective_bounds)
+bounds = BAT.HyperRectBounds(lo_bounds, hi_bounds)
 
 
 

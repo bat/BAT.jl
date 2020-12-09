@@ -85,8 +85,7 @@ end
 function invapply_varmap(varmap::VarMapping, bounds::HyperRectBounds)
     idxs = varmap.variable_idxs
     vol = HyperRectVolume(bounds.vol.lo[idxs], bounds.vol.hi[idxs])
-    bt = bounds.bt[idxs]
-    HyperRectBounds(vol, bt)
+    HyperRectBounds(vol)
 end
 
 function invapply_varmap(varmap::VarMapping, bounds::NoVarBounds)

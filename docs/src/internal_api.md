@@ -93,8 +93,6 @@ BAT.modify_integrationvolume!
 BAT.partition_space
 BAT.proposal_rand!
 BAT.reduced_volume_hm
-BAT.renormalize_variate_impl
-BAT.renormalize_variate!
 BAT.repetition_to_weights
 BAT.spatialvolume
 BAT.sum_first_dim
