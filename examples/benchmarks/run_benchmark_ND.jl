@@ -91,7 +91,7 @@ function plot_ahmi_values(results::Array{Any},n_dim;name="results/ahmi_values")
      for i_dim in 1:n_diff_dims
          index = i_dim+(i_function-1)*n_diff_dims
          x[index] = i_dim
-    	 y[index] = ((i_function-1)*(1))+(1-results[i_dim,1+i_function][1])
+    	 y[index] = ((i_function-1)*(1))+(results[i_dim,1+i_function][1]-1)
     	 yerr[index] = abs(results[i_dim,1+i_function][2])
          x_ticks_t1[i_dim] = i_dim
          x_ticks_t2[i_dim] = string(n_dim[i_dim])
