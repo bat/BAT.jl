@@ -201,16 +201,16 @@ function run1D(
     sample_stats::Vector{Float64},
     run_stats::Vector{Float64},
 	algorithm::BAT.AbstractSamplingAlgorithm,
-	n_steps::Integer,
-	n_chains::Integer,
+	nsteps::Integer,
+	nchains::Integer,
     n_runs=1
 	)
 
     sample_stats_all = []
-    samples, chains = bat_sample(testfunctions[key].posterior, MCMCSampling(mcalg = algorithm, trafo = NoDensityTransform(), nchains = n_chains, nsteps = n_steps))
+    samples, chains = bat_sample(testfunctions[key].posterior, MCMCSampling(mcalg = algorithm, trafo = NoDensityTransform(), nchains = nchains, nsteps = nsteps))
     for i in 1:n_runs
         time_before = time()
-        samples, chains = bat_sample(testfunctions[key].posterior, MCMCSampling(mcalg = algorithm, trafo = NoDensityTransform(), nchains = n_chains, nsteps = n_steps))
+        samples, chains = bat_sample(testfunctions[key].posterior, MCMCSampling(mcalg = algorithm, trafo = NoDensityTransform(), nchains = nchains, nsteps = nsteps))
         time_after = time()
 
     	h = plot1D(samples,testfunctions,key,sample_stats)# posterior, key, analytical_stats,sample_stats)
@@ -218,8 +218,8 @@ function run1D(
         sample_stats[1] = mode(samples)[1]
         sample_stats[2] = mean(samples)[1]
         sample_stats[3] = var(samples)[1]
-        run_stats[1] = n_steps
-        run_stats[2] = n_chains
+        run_stats[1] = nsteps
+        run_stats[2] = nchains
         run_stats[3] = time_after-time_before
         push!(sample_stats_all,sample_stats)
     end
@@ -432,16 +432,16 @@ function run2D(
     sample_stats::Vector{Any},
     run_stats::Vector{Any},
 	algorithm::MCMCAlgorithm,
-	n_steps::Integer,
-	n_chains::Integer,
+	nsteps::Integer,
+	nchains::Integer,
 	n_runs=1)
 
     sample_stats_all = []
 
-    samples, stats = bat_sample(testfunctions[key].posterior, MCMCSampling(mcalg = algorithm, trafo = NoDensityTransform(), nchains = n_chains, nsteps = n_steps))
+    samples, stats = bat_sample(testfunctions[key].posterior, MCMCSampling(mcalg = algorithm, trafo = NoDensityTransform(), nchains = nchains, nsteps = nsteps))
     for i in 1:n_runs
         time_before = time()
-        samples, stats = bat_sample(testfunctions[key].posterior, MCMCSampling(mcalg = algorithm, trafo = NoDensityTransform(), nchains = n_chains, nsteps = n_steps))
+        samples, stats = bat_sample(testfunctions[key].posterior, MCMCSampling(mcalg = algorithm, trafo = NoDensityTransform(), nchains = nchains, nsteps = nsteps))
         time_after = time()
 
 		h = plot2D(samples, testfunctions, key, sample_stats)
@@ -450,8 +450,8 @@ function run2D(
         sample_stats[2] = mean(samples).data
         sample_stats[3] = var(samples).data
 
-        run_stats[1] = n_steps
-        run_stats[2] = n_chains
+        run_stats[1] = nsteps
+        run_stats[2] = nchains
         run_stats[3] = time_after-time_before
         push!(sample_stats_all,sample_stats)
     end

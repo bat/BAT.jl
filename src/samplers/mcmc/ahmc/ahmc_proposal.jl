@@ -1,7 +1,7 @@
 abstract type HMCProposal end
 
 @with_kw struct FixedStepNumber <: HMCProposal
-    n_steps::Int64 = 10
+    nsteps::Int64 = 10
 end
 
 @with_kw struct FixedTrajectoryLength <: HMCProposal
@@ -19,7 +19,7 @@ function AHMCProposal(
     proposal::FixedStepNumber,
     integrator::AdvancedHMC.AbstractIntegrator
 )
-    return AdvancedHMC.StaticTrajectory(integrator, proposal.n_steps)
+    return AdvancedHMC.StaticTrajectory(integrator, proposal.nsteps)
 end
 
 
