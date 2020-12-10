@@ -73,6 +73,9 @@ dist_param_bounds(d::Product{Continuous}) =
 dist_param_bounds(d::ConstValueDist) = HyperRectBounds(Int32[], Int32[])
 dist_param_bounds(d::NamedTupleDist) = vcat(map(x -> dist_param_bounds(x), values(d))...)
 
+dist_param_bounds(d::HierarchicalDistribution) =
+    HyperRectBounds(fill(_default_PT(-Inf), length(d)), fill(_default_PT(+Inf), length(d)))
+
 
 
 const StandardUniformDensity = Union{

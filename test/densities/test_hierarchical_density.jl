@@ -33,7 +33,7 @@ using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
 
         posterior = PosteriorDensity(LogDVal(0), hd)
         samples = bat_sample(posterior, MCMCSampling(mcalg = MetropolisHastings(), trafo = NoDensityTransform(), nsteps = 10^5)).result
-        isapprox(cov(unshaped.(samples)), cov(hd), rtol = 0.05)
+        @test isapprox(cov(unshaped.(samples)), cov(hd), rtol = 0.2)
     end
 
     let

@@ -7,10 +7,8 @@ using LinearAlgebra
 using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
 
 @testset "test_distribution_transform" begin
-    @testset "transform MvNormal" begin
-        for src_d in (BAT.StandardMvNormal(2), BAT.StandardMvUniform(2))
-            src_d = BAT.StandardMvUniform(2)
-            trg_d = MvNormal([0.3, -2.9], [1.7 0.5; 0.5 2.3])
+    function test_dist_trafo(trg_d::Distribution, src_d::BAT.StdMvDist)
+        @testset "transform $(typeof(trg_d).name) <-> $(typeof(src_d).name)" begin
             src_v = rand(src_d)
             prev_ladj = 7.9
 
@@ -22,16 +20,32 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
 
             @test src_v ≈ src_v_reco
             @test prev_ladj ≈ prev_ladj_reco
-            @test trg_ladj ≈ logabsdet(ForwardDiff.jacobian(x -> BAT.apply_dist_trafo(trg_d, src_d, x, prev_ladj).v, src_v))[1] + prev_ladj
+            @test trg_ladj ≈ logabsdet(ForwardDiff.jacobian(x -> unshaped(BAT.apply_dist_trafo(trg_d, src_d, x, prev_ladj).v), src_v))[1] + prev_ladj
 
             let trg_d = trg_d, src_d = src_d
-                trgxs = (x -> BAT.apply_dist_trafo(trg_d, src_d, x, 0.0).v).(nestedview(rand(src_d, 10^5)))
-                @test isapprox(mean(trgxs), mean(trg_d), rtol = 0.1)
-                @test isapprox(cov(trgxs), cov(trg_d), rtol = 0.1)
+                X = rand(src_d, 10^5)
+                trgxs = (x -> BAT.apply_dist_trafo(trg_d, src_d, x, 0.0).v).(nestedview(X))
+                unshaped_trgxs = map(unshaped, trgxs)
+                @test isapprox(mean(unshaped_trgxs), mean(unshaped(trg_d)), rtol = 0.1)
+                @test isapprox(cov(unshaped_trgxs), cov(unshaped(trg_d)), rtol = 0.1)
+                X_reco = reduce(hcat, (x -> BAT.apply_dist_trafo(src_d, trg_d, x, 0.0).v).(trgxs))
+                @test isapprox(X, X_reco, rtol = 10^-10)
             end
         end
     end
-    
+
+
+    test_dist_trafo(MvNormal([0.3, -2.9], [1.7 0.5; 0.5 2.3]), BAT.StandardMvNormal(2))
+    test_dist_trafo(MvNormal([0.3, -2.9], [1.7 0.5; 0.5 2.3]), BAT.StandardMvUniform(2))
+
+    let
+        primary_dist = NamedTupleDist(x = Normal(2), c = 5)
+        f = x -> NamedTupleDist(y = Normal(x.x, 3), z = MvNormal([1.3 0.5; 0.5 2.2]))
+        trg_d = @inferred(HierarchicalDistribution(f, primary_dist))
+        src_d = BAT.StandardMvNormal(totalndof(varshape(trg_d)))
+        test_dist_trafo(trg_d, BAT.StandardMvNormal(totalndof(varshape(trg_d))))
+    end
+
 
     #=
     using Cuba

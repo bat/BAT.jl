@@ -299,14 +299,18 @@ function _ntdistelem_to_stdmv(trg_d::StdMvDist, sd::ConstValueDist, src_v_unshap
     (v = Bool[], ladj = zero(Float32))
 end
 
-function apply_dist_trafo(trg_d::StdMvDist, src_d::NamedTupleDist, src_v::Union{NamedTuple,ShapedAsNT}, prev_ladj::Real)
-    src_vs = varshape(src_d)
-    @argcheck length(trg_d) == totalndof(src_vs)
-    src_v_unshaped = unshaped(src_v, src_vs)
-    rs = map((acc, sd) -> _ntdistelem_to_stdmv(trg_d, sd, src_v_unshaped, acc), values(src_vs), values(src_d))
+function apply_dist_trafo(trg_d::StdMvDist, src_d::ValueShapes.UnshapedNTD, src_v::AbstractVector{<:Real}, prev_ladj::Real)
+    src_vs = varshape(src_d.shaped)
+    @argcheck length(trg_d) == length(eachindex(src_v))
+    rs = map((acc, sd) -> _ntdistelem_to_stdmv(trg_d, sd, src_v, acc), values(src_vs), values(src_d.shaped))
     trg_v = vcat(map(r -> r.v, rs)...)
     trafo_ladj = sum(map(r -> r.ladj, rs))
-    var_trafo_result(trg_v, src_v_unshaped, trafo_ladj, prev_ladj)
+    var_trafo_result(trg_v, src_v, trafo_ladj, prev_ladj)
+end
+
+function apply_dist_trafo(trg_d::StdMvDist, src_d::NamedTupleDist, src_v::Union{NamedTuple,ShapedAsNT}, prev_ladj::Real)
+    src_v_unshaped = unshaped(src_v, varshape(src_d))
+    apply_dist_trafo(trg_d, unshaped(src_d), src_v_unshaped, prev_ladj)
 end
 
 function _stdmv_to_ntdistelem(td::Distribution, src_d::StdMvDist, src_v::AbstractVector{<:Real}, acc::ValueAccessor)
@@ -319,16 +323,51 @@ function _stdmv_to_ntdistelem(td::ConstValueDist, src_d::StdMvDist, src_v::Abstr
     (v = Bool[], ladj = zero(Float32))
 end
 
-function apply_dist_trafo(trg_d::NamedTupleDist, src_d::StdMvDist, src_v::AbstractVector{<:Real}, prev_ladj::Real)
-    trg_vs = varshape(trg_d)
+function apply_dist_trafo(trg_d::ValueShapes.UnshapedNTD, src_d::StdMvDist, src_v::AbstractVector{<:Real}, prev_ladj::Real)
+    trg_vs = varshape(trg_d.shaped)
     @argcheck totalndof(trg_vs) == length(src_d)
-    rs = map((acc, td) -> _stdmv_to_ntdistelem(td, src_d, src_v, acc), values(trg_vs), values(trg_d))
+    rs = map((acc, td) -> _stdmv_to_ntdistelem(td, src_d, src_v, acc), values(trg_vs), values(trg_d.shaped))
     trg_v_unshaped = vcat(map(r -> unshaped(r.v), rs)...)
     trafo_ladj = sum(map(r -> r.ladj, rs))
-    unshaped_result = var_trafo_result(trg_v_unshaped, src_v, trafo_ladj, prev_ladj)
-    (v = trg_vs(unshaped_result.v), ladj = unshaped_result.ladj)
+    var_trafo_result(trg_v_unshaped, src_v, trafo_ladj, prev_ladj)
 end
 
+function apply_dist_trafo(trg_d::NamedTupleDist, src_d::StdMvDist, src_v::AbstractVector{<:Real}, prev_ladj::Real)
+    unshaped_result = apply_dist_trafo(unshaped(trg_d), src_d, src_v, prev_ladj)
+    (v = varshape(trg_d)(unshaped_result.v), ladj = unshaped_result.ladj)
+end
+
+
+
+function apply_dist_trafo(trg_d::StdMvDist, src_d::UnshapedHDist, src_v::AbstractVector{<:Real}, prev_ladj::Real)
+    src_v_primary, src_v_secondary = _hd_split(src_d, src_v)
+    trg_d_primary = typeof(trg_d)(length(eachindex(src_v_primary)))
+    trg_d_secondary = typeof(trg_d)(length(eachindex(src_v_secondary)))
+    trg_v_primary, ladj_primary = apply_dist_trafo(trg_d_primary, _hd_pridist(src_d), src_v_primary, prev_ladj)
+    trg_v_secondary, ladj = apply_dist_trafo(trg_d_secondary, _hd_secdist(src_d, src_v_primary), src_v_secondary, ladj_primary)
+    trg_v = vcat(trg_v_primary, trg_v_secondary)
+    (v = trg_v, ladj = ladj)
+end
+
+function apply_dist_trafo(trg_d::StdMvDist, src_d::HierarchicalDistribution, src_v::Any, prev_ladj::Real)
+    src_v_unshaped = unshaped(src_v, varshape(src_d))
+    apply_dist_trafo(trg_d, unshaped(src_d), src_v_unshaped, prev_ladj)
+end
+
+function apply_dist_trafo(trg_d::UnshapedHDist, src_d::StdMvDist, src_v::AbstractVector{<:Real}, prev_ladj::Real)
+    src_v_primary, src_v_secondary = _hd_split(trg_d, src_v)
+    src_d_primary = typeof(src_d)(length(eachindex(src_v_primary)))
+    src_d_secondary = typeof(src_d)(length(eachindex(src_v_secondary)))
+    trg_v_primary, ladj_primary = apply_dist_trafo(_hd_pridist(trg_d), src_d_primary, src_v_primary, prev_ladj)
+    trg_v_secondary, ladj = apply_dist_trafo(_hd_secdist(trg_d, trg_v_primary), src_d_secondary, src_v_secondary, ladj_primary)
+    trg_v = vcat(trg_v_primary, trg_v_secondary)
+    (v = trg_v, ladj = ladj)
+end
+
+function apply_dist_trafo(trg_d::HierarchicalDistribution, src_d::StdMvDist, src_v::AbstractVector{<:Real}, prev_ladj::Real)
+    unshaped_result = apply_dist_trafo(unshaped(trg_d), src_d, src_v, prev_ladj)
+    (v = varshape(trg_d)(unshaped_result.v), ladj = unshaped_result.ladj)
+end
 
 #=
 

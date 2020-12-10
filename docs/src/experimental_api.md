@@ -15,6 +15,7 @@ CuhreIntegration
 DivonneIntegration
 GridSampler
 HierarchicalDensity
+HierarchicalDistribution
 PartitionedSampling
 PriorImportanceSampler
 SobolSampler
