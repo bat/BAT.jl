@@ -78,7 +78,7 @@ import Cuba
         test_uv_transformed(Normal, Uniform(-2, 3))
 
 
-        src_d = NamedTupleDist(a = Exponential(), b = [4.2, 3.3], c = Weibull(), d = [Normal(1, 3), Normal(3, 2)], e = Uniform(-2, 3))
+        src_d = NamedTupleDist(a = Exponential(), b = [4.2, 3.3], c = Weibull(), d = [Normal(1, 3), Normal(3, 2)], e = Uniform(-2, 3), f = MvNormal([0.3, -2.9], [1.7 0.5; 0.5 2.3]))
         trafo = @inferred(BAT.DistributionTransform(Normal, src_d))
         density = @inferred(trafo(convert(AbstractDensity, trafo.source_dist)))
         @test isfinite(@inferred logvalof(density)(@inferred(bat_initval(density)).result))
@@ -89,6 +89,7 @@ import Cuba
         samples_os = inv(trafo).(samples_is)
         @test all(isfinite, logpdf.(Ref(src_d), samples_os.v))
         @test isapprox(cov(unshaped.(samples_os)), cov(unshaped(src_d)), rtol = 0.1)
+        @test isapprox(mean(unshaped.(samples_os)), mean(rand(unshaped(src_d), 10^5), dims = 2), rtol = 0.1)
 
 
         #=

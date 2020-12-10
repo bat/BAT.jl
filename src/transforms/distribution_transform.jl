@@ -244,6 +244,35 @@ function apply_dist_trafo(trg_d::StandardMvNormal, src_d::StandardMvUniform, src
 end
 
 
+function apply_dist_trafo(trg_d::StandardMvNormal, src_d::MvNormal, src_v::AbstractVector{<:Real}, prev_ladj::Real)
+    @argcheck length(trg_d) == length(src_d)
+    A = cholesky(src_d.Σ).U
+    trg_v = transpose(A) \ (src_v - src_d.μ)
+    trafo_ladj = -logabsdet(A)[1]
+    var_trafo_result(trg_v, src_v, trafo_ladj, prev_ladj)
+end
+
+function apply_dist_trafo(trg_d::MvNormal, src_d::StandardMvNormal, src_v::AbstractVector{<:Real}, prev_ladj::Real)
+    @argcheck length(trg_d) == length(src_d)
+    A = cholesky(trg_d.Σ).U
+    trg_v = transpose(A) * src_v + trg_d.μ
+    trafo_ladj = logabsdet(A)[1]
+    var_trafo_result(trg_v, src_v, trafo_ladj, prev_ladj)
+end
+
+function apply_dist_trafo(trg_d::StandardMvUniform, src_d::MvNormal, src_v::AbstractVector{<:Real}, prev_ladj::Real)
+    intermediate_d = StandardMvNormal(length(src_d))
+    intermediate_v, intermediate_ladj = apply_dist_trafo(intermediate_d, src_d, src_v, prev_ladj)
+    apply_dist_trafo(trg_d, intermediate_d, intermediate_v, intermediate_ladj)
+end
+
+function apply_dist_trafo(trg_d::MvNormal, src_d::StandardMvUniform, src_v::AbstractVector{<:Real}, prev_ladj::Real)
+    intermediate_d = StandardMvNormal(length(src_d))
+    intermediate_v, intermediate_ladj = apply_dist_trafo(intermediate_d, src_d, src_v, prev_ladj)
+    apply_dist_trafo(trg_d, intermediate_d, intermediate_v, intermediate_ladj)
+end
+
+
 function apply_dist_trafo(trg_d::Distributions.Product, src_d::Distributions.Product, src_v::AbstractVector{<:Real}, prev_ladj::Real)
     rs = apply_dist_trafo.(trg_d.v, src_d.v, src_v, zero(Float32))
     trg_v = broadcast(r -> r.v, rs)
