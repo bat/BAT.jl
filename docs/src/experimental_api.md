@@ -14,7 +14,6 @@ BAT.MultimodalCauchy
 CuhreIntegration
 DivonneIntegration
 GridSampler
-HierarchicalDensity
 HierarchicalDistribution
 PartitionedSampling
 PriorImportanceSampler
