@@ -95,7 +95,7 @@ ValueShapes.varshape(density::AbstractDensity) = missing
     eval_logval(
         density::AbstractDensity,
         v::Any,
-        T::Type{:Real} = density_logval_type(v);
+        T::Type{:Real} = density_logval_type(v, density);
         use_bounds::Bool = true,
         strict::Bool = false
     )::T
@@ -124,7 +124,7 @@ function eval_logval end
 function eval_logval(
     density::AbstractDensity,
     v::Any,
-    T::Type{<:Real} = density_logval_type(v);
+    T::Type{<:Real} = density_logval_type(v, density);
     use_bounds::Bool = true,
     strict::Bool = false
 )
@@ -167,8 +167,9 @@ end
 
 
 function variate_is_inbounds(density::AbstractDensity, v::Any, strict::Bool)
+    unshaped_v = unshaped_variate(varshape(density), v)
     bounds = var_bounds(density)
-    if !ismissing(bounds) && !(v in bounds)
+    if !ismissing(bounds) && !(unshaped_v in bounds)
         if strict
             throw(ArgumentError("Parameter(s) out of bounds, density has type $(typeof(density))"))
         else
@@ -224,7 +225,7 @@ function eval_gradlogval(
 
     n = length(eachindex(v_unshaped))
     P = eltype(v_unshaped)
-    T = density_logval_type(v_unshaped)
+    T = density_logval_type(v_unshaped, density)
 
     grad_logd_unshaped = Vector{P}(undef, n)
     chunk = ForwardDiff.Chunk(v_unshaped)
@@ -241,7 +242,7 @@ end
 
 
 @doc doc"""
-    BAT.density_logval_type(v::Any, T::Type{<:Real} = Float32)
+    BAT.density_logval_type(v::Any, density::AbstractDensity, T::Type{<:Real} = Float32)
 
 *BAT-internal, not part of stable public API.*
 
@@ -250,12 +251,14 @@ Determine a suitable return type of log-density functions, given a variate
 """
 function density_logval_type end
 
-@inline function density_logval_type(v::AbstractArray{<:Real}, T::Type{<:Real} = Float32)
+@inline function density_logval_type(v::AbstractArray{<:Real}, density::AbstractDensity, T::Type{<:Real} = Float32)
     U = float(eltype(v))
     promote_type(T, U)
 end
 
-@inline density_logval_type(v::Any, T::Type{<:Real} = Float32) = density_logval_type(unshaped(v), T)
+@inline function density_logval_type(v::Any, density::AbstractDensity, T::Type{<:Real} = Float32)
+    density_logval_type(unshaped_variate(varshape(density), v), density, T)
+end
 
 
 @doc doc"""

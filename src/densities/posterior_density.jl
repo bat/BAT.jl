@@ -34,7 +34,7 @@ function getprior end
 function eval_logval(
     density::AbstractPosteriorDensity,
     v::Any,
-    T::Type{<:Real} = density_logval_type(v);
+    T::Type{<:Real} = density_logval_type(v, density);
     use_bounds::Bool = true,
     strict::Bool = false
 )
