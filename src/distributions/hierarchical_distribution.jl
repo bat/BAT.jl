@@ -184,7 +184,6 @@ end
 
 
 function Distributions.logpdf(d::HierarchicalDistribution, x::Any)
-    valshape(x) <= varshape(d) || throw(ArgumentError("Shapes of variates of HierarchicalDistribution and given value are not compatible"))
     logpdf(unshaped(d), unshaped(x, d.vs))
 end
 

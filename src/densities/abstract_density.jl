@@ -137,6 +137,8 @@ function eval_logval(
     # augmentation mechanism in a function `get_density_logval_with_rethrow`
     # with a custom pullback:
     logval::T = try
+        # ToDo: Mechanism to allow versions of eval_logval_unchecked for
+        # wrapped distributions and similar that avoid stripscalar:
         eval_logval_unchecked(density, stripscalar(v_shaped))
     catch err
         rethrow(_density_eval_error(density, v, err))

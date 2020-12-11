@@ -91,6 +91,13 @@ import Cuba
         @test isapprox(cov(unshaped.(samples_os)), cov(unshaped(src_d)), rtol = 0.1)
         @test isapprox(mean(unshaped.(samples_os)), mean(rand(unshaped(src_d), 10^5), dims = 2), rtol = 0.1)
 
+        primary_dist = NamedTupleDist(a = Normal(), b = Weibull(), c = 5)
+        f_secondary = x -> NamedTupleDist(y = Normal(x.a, x.b), z = MvNormal([1.3 0.5; 0.5 2.2]))
+        density = PosteriorDensity(MvNormal(Diagonal(fill(1.0, 5))), HierarchicalDistribution(f_secondary, primary_dist))
+        hmc_samples = bat_sample(density, MCMCSampling(mcalg = HamiltonianMC(), trafo = PriorToGaussian(), nsteps = 10^4)).result
+        is_samples = bat_sample(density, PriorImportanceSampler(nsamples = 10^4)).result
+        @test isapprox(mean(unshaped.(hmc_samples)), mean(unshaped.(is_samples)), rtol = 0.1)
+        @test isapprox(cov(unshaped.(hmc_samples)), cov(unshaped.(is_samples)), rtol = 0.1)
 
         #=
         # Works, but should be unnecessary here:
