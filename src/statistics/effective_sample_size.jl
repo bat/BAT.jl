@@ -145,7 +145,7 @@ function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::Autocor
         min.(n, resampled_ess)
     end
 
-    result_vs = replace_const_shapes(s::ConstValueShape -> ConstValueShape(Fill(n, size(shape.value)...)), vs)
+    result_vs = replace_const_shapes(s::ConstValueShape -> ConstValueShape(Fill(n, size(s.value)...)), vs)
     ess = result_vs(unshaped_ess)    
 
     (result = ess,)
