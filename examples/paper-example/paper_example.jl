@@ -140,7 +140,7 @@ samples_bkg_signal = bat_sample(posterior_bkg_signal, algorithm).result
 
 @show BF_exponential = evidence_bkg_signal / evidence_bkg
 
-@show bkg_sig_marginal_modes = bat_marginalmode(samples_bkg_signal)
+@show bkg_sig_marginal_modes = bat_marginalmode(samples_bkg_signal).result
 
 pyplot(size=(800,500), layout=(2,2), legendfontsize=7)
 #upper left
