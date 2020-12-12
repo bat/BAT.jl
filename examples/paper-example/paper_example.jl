@@ -8,6 +8,7 @@ using SpecialFunctions
 using ArraysOfArrays
 using TypedTables
 using CSV
+import Cuba
 
 
 function log_pdf_poisson(λ::T, k::U) where {T<:Real,U<:Real}
