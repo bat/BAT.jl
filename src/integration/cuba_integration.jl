@@ -82,6 +82,7 @@ Only supports densities with finite rectangular bounds.
     nincrease::Int = Cuba.NINCREASE
     nbatch::Int = Cuba.NBATCH
     nthreads::Int = Base.Threads.nthreads()
+    strict::Bool = true
 end
 export VEGASIntegration
 
@@ -121,6 +122,7 @@ Only supports densities with finite rectangular bounds.
     nmin::Int = Cuba.NMIN
     flatness::Float64 = Cuba.FLATNESS
     nthreads::Int = Base.Threads.nthreads()
+    strict::Bool = true
 end
 export SuaveIntegration
 
@@ -167,6 +169,7 @@ Only supports densities with finite rectangular bounds.
     ldxgiven::Int = Cuba.LDXGIVEN
     nextra::Int = Cuba.NEXTRA
     nthreads::Int = Base.Threads.nthreads()
+    strict::Bool = true
 end
 export DivonneIntegration
 
@@ -207,6 +210,7 @@ Only supports densities with finite rectangular bounds.
     maxevals::Int = Cuba.MAXEVALS
     key::Int = Cuba.KEY
     nthreads::Int = Base.Threads.nthreads()
+    strict::Bool = true
 end
 export CuhreIntegration
 
@@ -230,6 +234,17 @@ function bat_integrate_impl(target::AnyDensityLike, algorithm::CubaIntegration)
     integrand = CubaIntegrand(density, algorithm.log_density_shift)
 
     r_cuba = bat_integrate_impl(integrand, algorithm)
+
+    if r_cuba.fail != 0
+        buf = IOBuffer()
+        Cuba.print_fail(buf, r_cuba)
+        msg = String(take!(buf))
+        if algorithm.strict
+            throw(ErrorException(msg))
+        else
+            @warn(msg)
+        end
+    end
 
     log_renorm_corr = -integrand.log_density_shift + integrand.log_support_volume
     T = promote_type(BigFloat, typeof(log_renorm_corr))
