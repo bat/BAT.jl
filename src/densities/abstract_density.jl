@@ -40,7 +40,7 @@ Input:
 * `v`: argument, i.e. variate / parameter-values
 
 Note: If `eval_logval_unchecked` is called with an argument that is out of bounds,
-the behaviour is undefined. The result for arguments that are not within
+the behavior is undefined. The result for arguments that are not within
 bounds is *implicitly* `-Inf`, but it is the caller's responsibility to handle
 these cases.
 """

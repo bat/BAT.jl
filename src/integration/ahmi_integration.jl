@@ -4,7 +4,7 @@
 """
     AHMIntegration
 
-Adaptive Harmonic Mean Integration algoritm
+Adaptive Harmonic Mean Integration algorithm
 (Caldwell et al.)[https://arxiv.org/abs/1808.08051].
 
 Constructor:

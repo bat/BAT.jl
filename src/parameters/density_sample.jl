@@ -18,7 +18,7 @@ Fields:
     * `weight`: Weight of the sample
     * `info`: Additional info on the provenance of the sample. Content depends
        on the sampling algorithm.
-    * aux: Custom user-defined information attatched to the sample.
+    * aux: Custom user-defined information attached to the sample.
 
 Constructors:
 

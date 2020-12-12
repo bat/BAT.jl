@@ -24,7 +24,7 @@ export AbstractTransformToUnitspace
 """
     AbstractTransformToInfinite <: AbstractDensityTransformTarget
 
-Abstract type for density transformation targets that specity are
+Abstract type for density transformation targets that specify are
 transformation into unbounded space.
 
 The density that results from such a transformation must be unbounded in all

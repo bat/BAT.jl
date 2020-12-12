@@ -38,7 +38,7 @@ Whitening transformation based on a Cholesky transformation of the empirical
 sample covariance matrix.
 
 Only transforms dimensions (degrees of freedom) for which the marginalized
-distribution aymptotically approaches zero in the positive and negative
+distribution asymptotically approaches zero in the positive and negative
 direction.
 """
 struct CholeskyPartialWhitening <: WhiteningAlgorithm end

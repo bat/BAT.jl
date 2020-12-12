@@ -7,7 +7,8 @@
 !!! note
 
     The details of the `MCMCIterator` and `MCMCAlgorithm` API (see below)
-    currently do not form part of the BAT-API, and may change without notice.
+    currently do not form part of the stable API and are subject to change
+    without deprecation.
 
 The following methods must be defined for subtypes (e.g.
 for `SomeAlgorithm<:MCMCAlgorithm`):
@@ -87,7 +88,8 @@ Represents the current state of a MCMC chain.
 !!! note
 
     The details of the `MCMCIterator` and `MCMCAlgorithm` API (see below)
-    currently do not form part of the BAT-API, and may change without notice.
+    currently do not form part of the stable API and are subject to change
+    without deprecation.
 
 To implement a new MCMC algorithm, subtypes of both [`MCMCAlgorithm`](@ref)
 and `MCMCIterator` are required.

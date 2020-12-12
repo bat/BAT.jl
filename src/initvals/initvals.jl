@@ -54,7 +54,7 @@ end
     InitFromTarget <: InitvalAlgorithm
 
 Generates initial values for sampling, optimization, etc. by direct i.i.d.
-sampling whatever component from th
+sampling whatever component from a target distribution supports it.
 
 * If the target is supports direct i.i.d. sampling, e.g. because it is a
   distribution, initial values are sampled directly from the target.
