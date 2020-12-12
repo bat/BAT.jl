@@ -1,19 +1,37 @@
-export SampledDensity
 
+"""
+    SampledDensity
+
+Can hold a density and samples of it.
+
+A nice report on the density and samples can be generated via `Base.show`.
+
+Constructor:
+
+```julia
+sd = SampledDensity(density::AbstractPosteriorDensity, samples::DensitySampleVector)
+```
+
+This type is likely to evolve into a subtype of `AbstractDensity` in future
+versions.
+"""
 struct SampledDensity{D<:AbstractDensity,S<:DensitySampleVector, G<:AbstractSampleGenerator}
     density::D
     samples::S
     _stats::MCMCBasicStats
-    generator::G
+    _generator::G
 end
+export SampledDensity
+
 
 function SampledDensity(
     density::AbstractPosteriorDensity,
-    samples::DensitySampleVector;
-    generator::AbstractSampleGenerator = UnknownSampleGenerator()
+    samples::DensitySampleVector
+    #;
+    # generator::AbstractSampleGenerator = UnknownSampleGenerator()
 )
     stats = MCMCBasicStats(samples)
-    return SampledDensity(density, samples, stats, generator)
+    return SampledDensity(density, samples, stats, UnknownSampleGenerator())
 end
 
 
@@ -126,7 +144,7 @@ function Base.show(io::IO, mime::MIME"text/plain", sd::SampledDensity)
 
     println(io, "\nSampling:")
     _line(io, length=25)
-    _print_generator(io, sd.generator)
+    _print_generator(io, sd._generator)
     _print_sampling(io, sd)
 
     fpt = fixed_parameter_table(sd)

@@ -109,6 +109,7 @@ PriorToGaussian
 PriorToUniform
 RandResampling
 RepetitionWeighting
+SampledDensity
 SokalAutocorLen
 StatisticalWhitening
 TransformAlgorithm
