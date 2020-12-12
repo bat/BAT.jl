@@ -31,7 +31,7 @@ import Cuba
                 source_X = rand(source_dist, 10^5)
                 target_X = @inferred broadcast(trafo, source_X)
                 @test isapprox(@inferred(broadcast(inv(trafo), (target_X))), source_X, atol = 10^-8)
-                @test isapprox(mean(target_X), mean(target_dist), atol = 0.01)
+                @test isapprox(mean(target_X), mean(target_dist), atol = 0.05)
                 @test isapprox(var(target_X), var(target_dist), atol = 0.1)
 
                 @test @inferred(trafo(convert(AbstractDensity, source_dist))) isa BAT.TransformedDensity
