@@ -125,7 +125,7 @@ posterior_bkg = PosteriorDensity(make_likelihood_bkg(summary_dataset_table, samp
 
 posterior_bkg_signal = PosteriorDensity(make_likelihood_bkg_signal(summary_dataset_table, sample_table), prior_bkg_signal)
 
-nchains = 5
+nchains = 4
 nsteps = 10^6
 
 algorithm = MCMCSampling(mcalg = MetropolisHastings(), trafo = NoDensityTransform(), nchains = nchains, nsteps = nsteps)
