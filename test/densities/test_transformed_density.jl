@@ -97,7 +97,7 @@ import Cuba
         hmc_samples = bat_sample(density, MCMCSampling(mcalg = HamiltonianMC(), trafo = PriorToGaussian(), nsteps = 10^4)).result
         is_samples = bat_sample(density, PriorImportanceSampler(nsamples = 10^4)).result
         @test isapprox(mean(unshaped.(hmc_samples)), mean(unshaped.(is_samples)), rtol = 0.1)
-        @test isapprox(cov(unshaped.(hmc_samples)), cov(unshaped.(is_samples)), rtol = 0.1)
+        @test isapprox(cov(unshaped.(hmc_samples)), cov(unshaped.(is_samples)), rtol = 0.2)
 
         #=
         # Works, but should be unnecessary here:
