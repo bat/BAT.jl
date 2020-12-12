@@ -32,7 +32,7 @@ function bat_read(src::Union{AbstractString,Tuple{AbstractString, AbstractString
     ftype = _file_type_from_extension(src)
     if ftype == "HDF5"
         _h5io_open(src, "r") do input
-            _h5io_read(input)
+            (result = _h5io_read(input),)
         end
     else
         throw(ArgumentError("Unknown file type $ftype"))
@@ -63,4 +63,5 @@ function bat_write(dest::Union{AbstractString,Tuple{AbstractString, AbstractStri
     else
         throw(ArgumentError("Unknown file type $ftype"))
     end
+    nothing
 end
