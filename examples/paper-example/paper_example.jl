@@ -155,6 +155,7 @@ p_1 = plot!(samples_bkg_signal, (:S, :λ), subplot=2, st = :histogram, legend=fa
 p_1 = plot!(samples_bkg_signal, (:S,:λ), subplot=3, legend=true)
 
 savefig(p_1, "prior_posterior.pdf")
+savefig(p_1, "prior_posterior.png")
 
 
 
@@ -171,13 +172,17 @@ p_2 = plot!(samples_bkg_signal, (:mean_B, :σ_B), subplot=2, st = :histogram, le
 p_2 = plot!(samples_bkg_signal, (:mean_B,:σ_B), subplot=3, legend=true)
 
 savefig(p_2, "prior_posterior_hierarchical.pdf")
+savefig(p_2, "prior_posterior_hierarchical.png")
+
 
 pyplot(size=(800,500), layout=(1,1), labelfontsize=20, tickfontsize=17, legendfontsize=20)
 p_hist = histogram(sample_table.E, bins = range(0.0, stop=maximum(sample_table.E)+20., length=100), title = "", xlabel = "Energy [keV]", ylabel = "Counts", label = "", box = :on, grid = :off)
 savefig(p_hist, "total_hist.pdf")
+savefig(p_hist, "total_hist.png")
 
 pyplot(size=(800,500), layout=(1,1), labelfontsize=20, tickfontsize=17, legendfontsize=20)
 p_fit_sum = plot(range(0.0, (maximum(sample_table.E)+20), length=500), fit_function_sum_all, samples_bkg_signal, box = :on, grid = :off, xlabel = "", ylabel = "Background distribution", legend = :topright)
 p_fit_sum = histogram!(twinx(), sample_table.E, bins = range(0.0, stop=maximum(sample_table.E)+20., length=100), xlabel = "Energy [keV]", ylabel = "Counts", label = "Binned data", box = :on, grid = :off, fillalpha = 0.4, linealpha = 0.4, legend = :topleft)
 
 savefig(p_fit_sum, "detector_sum.pdf")
+savefig(p_fit_sum, "detector_sum.png")
