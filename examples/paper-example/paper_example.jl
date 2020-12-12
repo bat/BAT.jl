@@ -132,13 +132,16 @@ algorithm = MCMCSampling(mcalg = HamiltonianMC(), nchains = nchains, nsteps = ns
 
 samples_bkg = bat_sample(posterior_bkg, algorithm).result
 
-@show evidence_bkg = bat_integrate(samples_bkg).result
+@show evidence_bkg_ahmi = bat_integrate(samples_bkg, AHMIntegration()).result
+@show evidence_bkg_cuba = bat_integrate(posterior_bkg, VEGASIntegration(log_density_shift = -maximum(samples_bkg.logd), maxevals = 10^6, rtol = 0.005)).result
 
 samples_bkg_signal = bat_sample(posterior_bkg_signal, algorithm).result
 
-@show evidence_bkg_signal = bat_integrate(samples_bkg_signal).result
+@show evidence_bkg_signal_ahmi = bat_integrate(samples_bkg_signal, AHMIntegration()).result
+@show evidence_bkg_signal_cuba = bat_integrate(posterior_bkg_signal, VEGASIntegration(log_density_shift = -maximum(samples_bkg_signal.logd), maxevals = 10^6, rtol = 0.005)).result
 
-@show BF_exponential = evidence_bkg_signal / evidence_bkg
+@show BF_exponential_ahmi = evidence_bkg_signal_ahmi / evidence_bkg_ahmi
+@show BF_exponential_cuba = evidence_bkg_signal_cuba / evidence_bkg_cuba
 
 @show bkg_sig_marginal_modes = bat_marginalmode(samples_bkg_signal).result
 
