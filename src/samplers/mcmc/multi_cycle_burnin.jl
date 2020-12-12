@@ -64,7 +64,7 @@ function mcmc_burnin!(
     else
         msg = "MCMC tuning of $nchains chains aborted after $cycles cycle(s)."
         if strict_mode
-            @error msg
+            throw(ErrorException(msg))
         else
             @warn msg
         end
