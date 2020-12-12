@@ -146,7 +146,7 @@ samples_bkg_signal = bat_sample(posterior_bkg_signal, algorithm).result
 
 @show bkg_sig_marginal_modes = bat_marginalmode(samples_bkg_signal).result
 
-pyplot(size=(800,500), layout=(2,2), legendfontsize=7)
+pyplot(size=(800,500), layout=(2,2), labelfontsize=12, tickfontsize=10, legendfontsize=7)
 #upper left
 p_1 = plot(samples_bkg_signal, :S, subplot=1, label = "Posterior")
 p_1 = plot!(parent_prior_bkg_signal, :S, subplot=1, label = "Prior", linecolor = "blue")
@@ -163,7 +163,7 @@ savefig(p_1, "prior_posterior.png")
 
 
 
-pyplot(size=(800,500), layout=(2,2), legendfontsize=7)
+pyplot(size=(800,500), layout=(2,2), labelfontsize=12, tickfontsize=10, legendfontsize=7)
 #upper left
 p_2 = plot(samples_bkg_signal, :mean_B, subplot=1, label = "Posterior")
 p_2 = plot!(parent_prior_bkg_signal, :mean_B, subplot=1, label = "Prior", linecolor = "blue")
@@ -179,12 +179,12 @@ savefig(p_2, "prior_posterior_hierarchical.pdf")
 savefig(p_2, "prior_posterior_hierarchical.png")
 
 
-pyplot(size=(800,500), layout=(1,1), labelfontsize=20, tickfontsize=17, legendfontsize=20)
+pyplot(size=(800,500), layout=(1,1), labelfontsize=12, tickfontsize=10, legendfontsize=7)
 p_hist = histogram(sample_table.E, bins = range(0.0, stop=maximum(sample_table.E)+20., length=100), title = "", xlabel = "Energy [keV]", ylabel = "Counts", label = "", box = :on, grid = :off)
 savefig(p_hist, "total_hist.pdf")
 savefig(p_hist, "total_hist.png")
 
-pyplot(size=(800,500), layout=(1,1), labelfontsize=20, tickfontsize=17, legendfontsize=20)
+pyplot(size=(800,500), layout=(1,1), labelfontsize=12, tickfontsize=10, legendfontsize=7)
 p_fit_sum = plot(range(0.0, (maximum(sample_table.E)+20), length=500), fit_function_sum_all, samples_bkg_signal, box = :on, grid = :off, xlabel = "", ylabel = "Background distribution", legend = :topright)
 p_fit_sum = histogram!(twinx(), sample_table.E, bins = range(0.0, stop=maximum(sample_table.E)+20., length=100), xlabel = "Energy [keV]", ylabel = "Counts", label = "Binned data", box = :on, grid = :off, fillalpha = 0.4, linealpha = 0.4, legend = :topleft)
 
