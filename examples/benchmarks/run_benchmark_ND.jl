@@ -240,7 +240,7 @@ function run_ND_benchmark(;
         for j in 1:length(testfunctions)
 
             dis = testfunctions[collect(keys(testfunctions))[j]]
-            iid_sample = bat_sample(dis, MCMCSampling(mcalg = MetropolisHastings(), trafo = NoDensityTransform(), nchains = nchains, nsteps = nsteps)).result
+            iid_sample = bat_sample(dis, IIDSampling(nsamples = nsteps)).result
 
             mcmc_sample = nothing
             tbf = time()
