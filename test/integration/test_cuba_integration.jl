@@ -11,7 +11,7 @@ using Distributions, ValueShapes
     function test_integration(target, algorithm::BAT.CubaIntegration)
         r = bat_integrate(target, algorithm).result
         val_expected = 1
-        @test isapprox(r.val, val_expected, rtol = 100 * algorithm.rtol)
+        @test isapprox(r.val, val_expected, rtol = 20 * algorithm.rtol)
         # @test r.err < 100 * abs(r.val - val_expected)
     end
 
@@ -29,15 +29,15 @@ using Distributions, ValueShapes
         b = truncated(Normal(), 1, 3),
     )
 
-    test_integration(uvprior, VEGASIntegration(trafo = NoDensityTransform()))
-    test_integration(uvprior, VEGASIntegration(trafo = NoDensityTransform(), log_density_shift = 10))
-    test_integration(mvprior, VEGASIntegration(trafo = NoDensityTransform(), nthreads = 1))
-    test_integration(mvprior, VEGASIntegration(trafo = NoDensityTransform(), nthreads = nthreads()))
+    test_integration(uvprior, VEGASIntegration(trafo = NoDensityTransform(), rtol = 1e-3))
+    test_integration(uvprior, VEGASIntegration(trafo = NoDensityTransform(), rtol = 1e-3, log_density_shift = 10))
+    test_integration(mvprior, VEGASIntegration(trafo = NoDensityTransform(), rtol = 1e-3, nthreads = 1))
+    test_integration(mvprior, VEGASIntegration(trafo = NoDensityTransform(), rtol = 1e-3, nthreads = nthreads()))
     test_integration(mvprior, VEGASIntegration())
 
-    test_integration(mvprior, SuaveIntegration(trafo = NoDensityTransform()))
+    test_integration(mvprior, SuaveIntegration(trafo = NoDensityTransform(), rtol = 1e-3))
 
-    test_integration(mvprior_simple, DivonneIntegration(trafo = NoDensityTransform(), rtol = 1e-4))
+    test_integration(mvprior_simple, DivonneIntegration(trafo = NoDensityTransform(), rtol = 1e-3))
 
-    test_integration(mvprior, CuhreIntegration(trafo = NoDensityTransform()))
+    test_integration(mvprior, CuhreIntegration(trafo = NoDensityTransform(), rtol = 1e-3))
 end
