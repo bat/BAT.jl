@@ -130,11 +130,11 @@ nsteps = 10^6
 
 algorithm = MCMCSampling(mcalg = MetropolisHastings(), trafo = NoDensityTransform(), nchains = nchains, nsteps = nsteps)
 
-samples_bkg, chains_bkg = bat_sample(posterior_bkg, algorithm)
+samples_bkg = bat_sample(posterior_bkg, algorithm).result
 
 @show evidence_bkg = bat_integrate(samples_bkg).result
 
-samples_bkg_signal, chains_bkg_signal = bat_sample(posterior_bkg_signal, algorithm)
+samples_bkg_signal = bat_sample(posterior_bkg_signal, algorithm).result
 
 @show evidence_bkg_signal = bat_integrate(samples_bkg_signal).result
 
