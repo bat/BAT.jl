@@ -104,8 +104,8 @@ end
 
 parent_prior_bkg = NamedTupleDist(
     σ_B = Uniform(0.1, 1.0),
-    mean_B = Uniform(0.0, 1e-1 * ΔE),
-    λ = Uniform(0.0, 100.0)
+    mean_B = Uniform(10^-8, 1e-1 * ΔE),
+    λ = Uniform(10^-7, 100.0)
 )
 
 parent_prior_bkg_signal = NamedTupleDist(
@@ -113,8 +113,8 @@ parent_prior_bkg_signal = NamedTupleDist(
     S_μ = 100.0,
     S_σ = 2.0,
     σ_B = Uniform(0.1, 1.0),
-    mean_B = Uniform(0.0, 1e-1 * ΔE),
-    λ = Uniform(0.0, 100.0)
+    mean_B = Uniform(10^-8, 1e-1 * ΔE),
+    λ = Uniform(10^-7, 100.0)
 )
 
 prior_bkg =  HierarchicalDistribution(make_child_prior(length(summary_dataset_table)), parent_prior_bkg)
@@ -128,7 +128,7 @@ posterior_bkg_signal = PosteriorDensity(make_likelihood_bkg_signal(summary_datas
 nchains = 4
 nsteps = 10^6
 
-algorithm = MCMCSampling(mcalg = MetropolisHastings(), trafo = NoDensityTransform(), nchains = nchains, nsteps = nsteps)
+algorithm = MCMCSampling(mcalg = MetropolisHastings(), nchains = nchains, nsteps = nsteps)
 
 samples_bkg = bat_sample(posterior_bkg, algorithm).result
 
