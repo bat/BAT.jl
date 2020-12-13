@@ -2,33 +2,37 @@
 
 
 """
-    BAT.FunnelDistribution([a=1, b=0.5, n=3])
+    struct BAT.FunnelDistribution <: Distribution{Multivariate,Continuous}
 
 *Experimental feature, not part of stable public API.*
 
-Funnel distribution [Caldwell et al.](https://arxiv.org/abs/1808.08051).
-
-# Arguments
-- `a::Real`: Variance of the dominant normal distribution.
-- `b::Real`: Variance of the supporting normal distributions.
-- `n::Int`: Number of dimensions.
+A funnel distribution (see
+[Caldwell et al.](https://arxiv.org/abs/1808.08051) for definition).
 
 Constructors:
 
-```julia
-BAT.FunnelDistribution(a::Real, b::Real, n::Int)
-```
+* ```FunnelDistribution(; a::Real = 1.0, b::Real = 0.5, n::Integer = 3)```
+
+Fields:
+
+$(TYPEDFIELDS)
 """
-struct FunnelDistribution <: ContinuousMultivariateDistribution
-    a::Real
-    b::Real
-    n::Int
+struct FunnelDistribution{T<:Real,U<:Integer} <: Distribution{Multivariate,Continuous}
+    "Variance of the dominant normal distribution."
+    a::T
+
+    "Variance of the supporting normal distributions."
+    b::T
+
+    "Number of dimensions."
+    n::U
 end
 
-function FunnelDistribution(;a::Real=1, b::Real=0.5, n::Integer=3)
-    a, b = promote(a, b)
-    FunnelDistribution(a, b, n)
+function FunnelDistribution(; a::Real = 1.0, b::Real = 0.5, n::Integer = 3)
+    a_pr, b_pr = promote(a, b)
+    FunnelDistribution(a_pr, b_pr, n)
 end
+
 
 Base.length(d::FunnelDistribution) = d.n
 Base.eltype(d::FunnelDistribution) = Base.eltype(d.a)

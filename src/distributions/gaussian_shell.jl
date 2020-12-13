@@ -5,27 +5,38 @@ using Random123
 import AdaptiveRejectionSampling
 
 """
-    BAT.GaussianShell([r=5, w=2, n=2])
+    struct BAT.GaussianShell <: Distribution{Multivariate,Continuous}
 
 *Experimental feature, not part of stable public API.*
 
-Gaussian Shell [Caldwell et al.](https://arxiv.org/abs/1808.08051).
-
-# Arguments
-- `r::Real`: The radius of the Gaussian shell distribution.
-- `w::Real`: Variance of the Gaussian shell distribution.
-- `n::Int`: Number of dimensions.
+Gaussian Shell (see
+[Caldwell et al.](https://arxiv.org/abs/1808.08051) for definition).
 
 Constructors:
-```julia
-BAT.GaussianShell(r::Real, w::Real, c::Vector, n::Int)
-```
+
+* ```BAT.GaussianShell(; r::Real=5, w::Real=2, n::Integer=2)```
+
+Fields:
+
+$(TYPEDFIELDS)
+
+!!! note
+
+    Fields `c` and `lognorm` are considered internal and subject to
+    change without deprecation.
 """
-struct GaussianShell{T<:Real, V<:AbstractVector{<:Real}, F<:AbstractFloat} <: ContinuousMultivariateDistribution
+struct GaussianShell{T<:Real, V<:AbstractVector{<:Real}, F<:AbstractFloat} <: Distribution{Multivariate,Continuous}
+    "The radius of the Gaussian shell distribution."
     r::T
+
+    "Variance of the Gaussian shell distribution"
     w::T
-    c::V
+
+    "Number of dimensions"
     n::Int
+
+    c::V
+
     lognorm::F
 end
 
@@ -37,7 +48,7 @@ function GaussianShell(;r::Real=5, w::Real=2, n::Integer=2)
     # Normalization for coordinate transform
     radial_norm = (sqrt(2)*π^((n-1)/2)) / (gamma(n/2)*w)*QuadGK.quadgk(radial_integral, 0, r+w*20)[1]
     lognorm = log(density_norm) + log(radial_norm)
-    GaussianShell(r, w, c, n, lognorm)
+    GaussianShell(r, w, n, c, lognorm)
 end
 
 nball_surf_area(r, ndims) = 2 * π^(ndims/2) / gamma(ndims/2) * r^(ndims-1)
