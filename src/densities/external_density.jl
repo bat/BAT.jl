@@ -104,7 +104,7 @@ _bat_proto_decode!(buffer::IOBuffer, ::Type{LogDensityValueDMsg}) = LogDensityVa
 
 
 """
-    BAT.ExternalDensity <: AbstractDensity
+    struct BAT.ExternalDensity <: AbstractDensity
 
 *Experimental feature, not part of stable public API.*
 
@@ -116,6 +116,9 @@ Constructor:
 ```julia
 ExternalDensity(cmd::Cmd, density_id::Integer = 0)
 ```
+
+All fields of this type are considered internal and subject to change without
+deprecation.
 """
 struct ExternalDensity <: AbstractDensity
     cmd::Cmd

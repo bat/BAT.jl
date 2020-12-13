@@ -3,6 +3,8 @@
 
 Hamiltonian Monte Carlo sampling algorithm.
 
+The gradient of the target density is computed via auto-differentiation.
+
 * Note: The fields of `HamiltonianMC` are still subject to change, and not
 yet part of stable public API!*
 

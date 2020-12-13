@@ -1,16 +1,30 @@
 
 """
-    SampledDensity
+    struct SampledDensity
 
-Can hold a density and samples of it.
+Stores a density and samples drawn from it.
 
-A nice report on the density and samples can be generated via `Base.show`.
+A report on the density, samples, properties of variates/parameters, etc. can
+be generated via `Base.show`.
 
-Constructor:
+Constructors:
 
-```julia
-sd = SampledDensity(density::AbstractPosteriorDensity, samples::DensitySampleVector)
-```
+* ```SampledDensity(density::AbstractPosteriorDensity, samples::DensitySampleVector)```
+
+Fields:
+
+* ```density::AbstractDensity```
+
+* ```samples::DensitySamplesVector```
+
+* ```_stats::BAT.MCMCBasicStats```
+
+* ```_generator::AbstractSampleGenerator```
+
+!!! note
+
+    Fields `_stats` and `_generator` do not form part of the stable public
+    API and are subject to change without deprecation.
 
 This type is likely to evolve into a subtype of `AbstractDensity` in future
 versions.

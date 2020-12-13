@@ -65,7 +65,7 @@ end
 
 
 """
-    SokalAutocorLen <: AutocorLenAlgorithm
+    struct SokalAutocorLen <: AutocorLenAlgorithm
     
 Integrated autocorrelation length estimation based on the automated windowing
 procedure descibed in

@@ -4,7 +4,7 @@
 """
     TransformedDensity <: AbstractDensity
 
-Abstract super-type for transformed densities.
+Abstract type for transformed densities.
 
 In addition to the [`AbstractDensity`](@ref) interface, subtypes must support
 the functions `Base.parent` and [`trafoof`](@ref):

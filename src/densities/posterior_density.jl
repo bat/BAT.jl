@@ -4,7 +4,7 @@
 """
     abstract type AbstractPosteriorDensity <: AbstractDensity end
 
-Abstract super-type for posterior probability densities.
+Abstract type for posterior probability densities.
 """
 abstract type AbstractPosteriorDensity <: AbstractDensity end
 export AbstractPosteriorDensity
@@ -84,15 +84,14 @@ end
 
 
 """
-    PosteriorDensity{
+    struct PosteriorDensity{
         Li<:AbstractDensity,
         Pr<:DistLikeDensity,
         ...
     } <: AbstractPosteriorDensity
 
-A representation of a PosteriorDensity, based a likelihood and prior, a
-representation of the posterior density is cached internally. The densities
-be accessed via
+A representation of a PosteriorDensity, based a likelihood and prior.
+Likelihood and prior be accessed via
 
 ```julia
 getlikelihood(posterior::PosteriorDensity)::Li
@@ -101,11 +100,18 @@ getprior(posterior::PosteriorDensity)::Pr
 
 Constructors:
 
-```julia
-PosteriorDensity(likelihood::AbstractDensity, prior::AbstractDensity)
-PosteriorDensity(likelihood::Any, prior::Any)
-PosteriorDensity(log_likelihood::Function, prior::Any)
-```
+* ```PosteriorDensity(likelihood, prior)```
+
+`likelihood` and `prior` must be convertible to an [`AbstractDensity`](@ref).
+
+Fields:
+
+$(TYPEDFIELDS)
+
+!!! note
+
+    Fields `parbounds` and `parbounds` do not form part of the stable public
+    API and are subject to change without deprecation.
 """
 struct PosteriorDensity{
     L<:AbstractDensity,

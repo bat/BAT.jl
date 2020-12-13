@@ -2,14 +2,14 @@
 
 
 """
-    ModeAsDefined <: AbstractModeEstimator
-
-Constructors:
-
-    ModeAsDefined()
+    struct ModeAsDefined <: AbstractModeEstimator
 
 Get the mode as defined by the density, resp. the underlying distribution
 (if available), via `StatsBase.mode`.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)()```        
 """
 struct ModeAsDefined <: AbstractModeEstimator end
 export ModeAsDefined
@@ -54,7 +54,8 @@ end
     struct MaxDensityNelderMead <: AbstractModeEstimator
 
 Estimates the mode of a probability density using Nelder-Mead optimization
-(via [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl)).
+(currently via [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl),
+subject to change).
 
 Constructors:
 
@@ -89,11 +90,11 @@ end
 """
     struct MaxDensityLBFGS <: AbstractModeEstimator
 
-Estimates the mode of a probability density using LBFGS optimization (via
-[Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl)). The gradient
-of the density is computed using forward-mode auto-differentiation (via
-[ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl)).
+Estimates the mode of a probability density using LBFGS optimization
+(currently via [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl),
+subject to change).
 
+The gradient of the target density is computed via auto-differentiation.
 
 Constructors:
 

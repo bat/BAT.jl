@@ -8,9 +8,8 @@ Constructors:
 
     GenericDensity(f)
 
-Turns the density function `f` into a BAT-compatible [`AbstractDensity)(@ref).
-`f(v)` must return either a [`LogDVal`](@ref) (recommended) or a
-[`LinDVal`](@ref).
+Turns the density function `f` into a BAT-compatible [`AbstractDensity`](@ref).
+The return type of `f(v)` must supported by [`logvalof`](@ref).
 
 It must be safe to execute `f` in parallel on multiple threads and
 processes.

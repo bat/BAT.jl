@@ -35,7 +35,7 @@ export MCMCInitAlgorithm
 """
     abstract type MCMCTuningAlgorithm
 
-Abstract super-type for MCMC tuning algorithms.
+Abstract type for MCMC tuning algorithms.
 """
 abstract type MCMCTuningAlgorithm end
 export MCMCTuningAlgorithm
@@ -45,7 +45,7 @@ export MCMCTuningAlgorithm
 """
     abstract type MCMCBurninAlgorithm
 
-Abstract super-type for MCMC burn-in algorithms.
+Abstract type for MCMC burn-in algorithms.
 """
 abstract type MCMCBurninAlgorithm end
 export MCMCBurninAlgorithm
@@ -54,8 +54,8 @@ export MCMCBurninAlgorithm
 """
     abstract type MCMCConvergenceTest
 
-Abstract super-type for MCMC convergence tests.
-"""
+        Abstract type for MCMC convergence testing algorithms.
+            """
 abstract type MCMCConvergenceTest end
 export MCMCConvergenceTest
 
@@ -72,7 +72,7 @@ end
 """
     abstract type MCMCIterator end
 
-Represents the current state of a MCMC chain.
+Represents the current state of an MCMC chain.
 
 !!! note
 

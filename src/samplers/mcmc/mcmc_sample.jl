@@ -4,7 +4,7 @@
 """
     struct MCMCSampling <: AbstractSamplingAlgorithm
 
-Samplers a probability density using Markov chain Monte Carlo.
+Samples a probability density using Markov chain Monte Carlo.
 
 Constructors:
 

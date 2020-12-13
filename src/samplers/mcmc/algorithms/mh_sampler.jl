@@ -4,7 +4,7 @@
 """
     abstract type MHProposalDistTuning
 
-Abstract super-type for Metropolis-Hastings tuning strategies for
+Abstract type for Metropolis-Hastings tuning strategies for
 proposal distributions.
 """
 abstract type MHProposalDistTuning <: MCMCTuningAlgorithm end

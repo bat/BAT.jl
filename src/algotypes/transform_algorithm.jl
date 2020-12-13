@@ -90,10 +90,14 @@ end
 
 
 """
-    NoDensityTransform <: AbstractDensityTransformTarget
+    struct NoDensityTransform <: AbstractDensityTransformTarget
 
 The identity density transformation target, specifies that densities
 should not be transformed.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)()```
 """
 struct NoDensityTransform <: AbstractDensityTransformTarget end
 export NoDensityTransform
@@ -101,7 +105,7 @@ export NoDensityTransform
 
 
 """
-    DensityIdentityTransform <: TransformAlgorithm
+    struct DensityIdentityTransform <: TransformAlgorithm
 
 A no-op density transform algorithm that leaves any density unchanged.
 
@@ -121,10 +125,14 @@ end
 
 
 """
-    PriorToUniform <: AbstractTransformToUnitspace
+    struct PriorToUniform <: AbstractTransformToUnitspace
 
 Specifies that posterior densities should be transformed in a way that makes
 their pior equivalent to a uniform distribution over the unit hypercube.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)()```
 """
 struct PriorToUniform <: AbstractTransformToUnitspace end
 export PriorToUniform
@@ -137,11 +145,15 @@ end
 
 
 """
-    PriorToGaussian <: AbstractTransformToInfinite
+    struct PriorToGaussian <: AbstractTransformToInfinite
 
 Specifies that posterior densities should be transformed in a way that makes
 their pior equivalent to a standard multivariate normal distribution with an
 identity covariance matrix.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)()```
 """
 struct PriorToGaussian <: AbstractTransformToInfinite end
 export PriorToGaussian
@@ -184,12 +196,16 @@ end
 
 
 """
-    PriorSubstitution <: TransformAlgorithm
+    struct PriorSubstitution <: TransformAlgorithm
 
 Substitute the prior by a given distribution and transform the
 likelihood accordingly. The `log(abs(jacobian))` of the transformation does
 not need to be auto-differentiable even for operations that use the
 gradient of the posterior.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)()```
 """
 struct PriorSubstitution <: TransformAlgorithm end
 export PriorSubstitution

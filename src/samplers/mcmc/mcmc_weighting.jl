@@ -28,7 +28,6 @@ because a Markov chain has not moved during a sampling step).
 Constructors:
 
 * ```$(FUNCTIONNAME)()```
-```
 """
 struct RepetitionWeighting{T<:Real} <: AbstractMCMCWeightingScheme{T} end
 export RepetitionWeighting

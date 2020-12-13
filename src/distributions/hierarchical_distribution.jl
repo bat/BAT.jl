@@ -26,7 +26,7 @@ end
 
 
 """
-    HierarchicalDistribution <: ContinuousDistribution
+    struct HierarchicalDistribution <: ContinuousDistribution
 
 *Experimental feature, not part of stable public API.*
 
@@ -34,9 +34,7 @@ A hierarchical distribution, useful for hierarchical models/priors.
 
 Constructors:
 
-```julia
-HierarchicalDistribution(f::Function, primary_dist::NamedTupleDist)
-```
+* ```HierarchicalDistribution(f::Function, primary_dist::NamedTupleDist)```
 
 with a functon `f` that returns a `ContinuousDistribution` for any
 variate `v` drawn from `primary_dist`.
@@ -62,6 +60,11 @@ varshape(hd) == NamedTupleShape(
 
 v = rand(hd)
 ```
+
+!!! note
+
+    All fields of `HierarchicalDistribution` are considered internal and
+    subject to change without deprecation.
 """
 struct HierarchicalDistribution{
     VF <: VariateForm,

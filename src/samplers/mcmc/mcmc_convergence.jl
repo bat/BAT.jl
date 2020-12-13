@@ -1,14 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-"""
-    abstract type MCMCConvergenceTest
-
-Abstract type for MCMC convergence testing algorithms.
-"""
-abstract type MCMCConvergenceTest end
-
-
 abstract type MCMCConvergenceTestResult end
 
 
@@ -87,13 +79,13 @@ end
 
 
 
-"""
+@doc doc"""
     bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats}; corrected::Bool = false)
     bg_R_2sqr(samples::AbstractVector{<:DensitySampleVector}; corrected::Bool = false)
 
 *BAT-internal, not part of stable public API.*
 
-Brooks-Gelman $R_2^2$ for all DOF.
+Brooks-Gelman R_2^2 for all DOF.
 If normality is assumed, 'corrected' should be set to true to account for the sampling variability.
 """
 function bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats}; corrected::Bool = false)
