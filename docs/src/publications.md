@@ -1,3 +1,0 @@
-# Publications and Talks
-
-... to be written ...

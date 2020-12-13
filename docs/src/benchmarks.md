@@ -1,3 +1,0 @@
-# Benchmarks and Performance Tests
-
-... to be written ...
