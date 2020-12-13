@@ -7,31 +7,18 @@ const _default_LDT = Float64 # Default type for log-density values
 
 
 """
-    DensitySample
+    struct DensitySample
 
 A weighted sample drawn according to an statistical density,
 e.g. a [`BAT.AbstractDensity`](@ref).
 
-Fields:
-
-* `v`: Multivariate parameter vector
-* `logd`: log of the value of the density at `v`
-* `weight`: Weight of the sample
-* `info`: Additional info on the provenance of the sample. Content depends
-    on the sampling algorithm.
-* aux: Custom user-defined information attached to the sample.
-
 Constructors:
 
-```julia
-DensitySample(
-    v::AbstractVector{<:Real},
-    logd::Real,
-    weight::Real,
-    info::Any,
-    aux::Any
-)
-```
+* ```DensitySampleVector(v::Any, logd::Real, weight::Real, info::Any, aux::Any)```
+
+Fields:
+
+$(TYPEDFIELDS)
 
 Use [`DensitySampleVector`](@ref) to store vectors of multiple samples with
 an efficient column-based memory layout.
@@ -43,10 +30,20 @@ struct DensitySample{
     R,
     Q
 }
+    "variate value"
     v::P
+
+    "log(density) value at `v`"
     logd::T
+
+    "Weight of the sample"
     weight::W
+
+    "Additional info on the provenance of the sample. Content depends
+    on the sampling algorithm."
     info::R
+
+    "Custom user-defined information attached to the sample."
     aux::Q
 end
 
@@ -90,9 +87,13 @@ end
 
 
 """
-    DensitySampleVector
+    struct DensitySampleVector <: AbstractVector{<:DensitySample}
 
-Type alias for `StructArrays.StructArray{<:DensitySample,...}`.
+A vector of [`DensitySample`](@ref) elements.
+
+`DensitySampleVector` is currently a type alias for
+`StructArrays.StructArray{<:DensitySample,...}`, though this is subject to
+change without deprecation.
 
 Constructors:
 

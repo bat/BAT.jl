@@ -53,7 +53,11 @@ export TransformAlgorithm
 
 Transform `density` to another variate space defined/implied by `target`.
 
-Returns a NamedTuple: (result = x::AbstractDensity, ...)
+Returns a NamedTuple of the shape
+
+```julia
+(result = newdensity::AbstractDensity, trafo = vartrafo::AbstractVariateTransform, ...)
+```
 
 Result properties not listed here are algorithm-specific and are not part
 of the stable public API.
@@ -100,6 +104,10 @@ export NoDensityTransform
     DensityIdentityTransform <: TransformAlgorithm
 
 A no-op density transform algorithm that leaves any density unchanged.
+
+Constructors:
+
+* ```DensityIdentityTransform()```
 """
 struct DensityIdentityTransform <: TransformAlgorithm end
 export DensityIdentityTransform

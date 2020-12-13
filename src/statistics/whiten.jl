@@ -25,6 +25,10 @@ export NoWhitening
 
 Whitening transformation based on a Cholesky transformation of the empirical
 sample covariance matrix.
+
+Constructors:
+
+* ```CholeskyWhitening()```
 """
 struct CholeskyWhitening <: WhiteningAlgorithm end
 export CholeskyWhitening
@@ -40,6 +44,10 @@ sample covariance matrix.
 Only transforms dimensions (degrees of freedom) for which the marginalized
 distribution asymptotically approaches zero in the positive and negative
 direction.
+
+Constructors:
+
+* ```CholeskyPartialWhitening()```
 """
 struct CholeskyPartialWhitening <: WhiteningAlgorithm end
 export CholeskyPartialWhitening
@@ -49,6 +57,11 @@ export CholeskyPartialWhitening
     StatisticalWhitening <: WhiteningAlgorithm
 
 Whitening transformation based statistical whitening.
+CholeskyPartialWhitening
+
+Constructors:
+
+* ```StatisticalWhitening()```
 """
 struct StatisticalWhitening <: WhiteningAlgorithm end
 export StatisticalWhitening
