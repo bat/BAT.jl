@@ -9,8 +9,6 @@
 
 Welcome to BAT, a Bayesian analysis toolkit in Julia.
 
-Starting out as a rewrite/redesign of [BAT](https://github.com/bat/bat), the Bayesian Analysis Toolkit in C++, BAT.jl now offer a different set of functionality and a wider variety of algorithms than it's C++ predecessor.
-
 BAT.jl currently includes:
 
 * Metropolis-Hastings MCMC sampling
@@ -18,6 +16,8 @@ BAT.jl currently includes:
 * Plotting recipes for MCMC samples and statistics
 
 Additional sampling algorithms and other features are in preparation.
+
+BAT.jl originated as a rewrite/redesign of [BAT](https://github.com/bat/bat), the Bayesian Analysis Toolkit in C++. BAT.jl now offer a different set of functionality and a wider variety of algorithms than it's C++ predecessor.
 
 
 ## Installation

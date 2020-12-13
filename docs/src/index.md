@@ -4,11 +4,11 @@ BAT.jl is a Bayesian Analysis Toolkit in Julia. It is a high high-performance to
 
 Typical applications for this package are parameter inference given a model (in the form of a likelihood function and prior), the comparison of different models in the light of a given data set, and the test of the validity of a model to represent the data set at hand. BAT.jl provides access to the full Bayesian posterior distribution to enable parameter estimation, limit setting and uncertainty propagation. BAT.jl also provides supporting functionality like plotting recipes and reporting functions.
 
-BAT.jl is implemented in pure Julia and allows for a flexible definition of mathematical models and applications while enabling the user to code for the performance required for computationally expensive numerical operations. BAT.jl provides implementations (internally and via other Julia packages) of algorithms for sampling, optimization and integration. BAT's main focus is on the analysis of complex custom models. It is designed to enable multi-threaded and distributed (work in progress) code execution at various levels, running multiple MCMC chains in parallel is provided out-of-the-box.
+BAT.jl is implemented in pure Julia and allows for a flexible definition of mathematical models and applications while enabling the user to code for the performance required for computationally expensive numerical operations. BAT.jl provides implementations (internally and via other Julia packages) of algorithms for sampling, optimization and integration. BAT's main focus is on the analysis of complex custom models. It is designed to enable parallel code execution at various levels (running multiple MCMC chains in parallel is provided out-of-the-box).
 
 It's possible to use BAT.jl with likelihood functions implemented in languages other than Julia: Julia allows for [calling code in C and Fortran](https://docs.julialang.org/en/v1/manual/calling-c-and-fortran-code/index.html), [C++](https://github.com/JuliaInterop/Cxx.jl), [Python](https://github.com/JuliaPy/PyCall.jl) and [several other languages](https://github.com/JuliaInterop) directly. In addition, BAT.jl provides (as an experimental feature) a very lightweight binary RPC protocol that is easy to implement, to call non-Julia likelihood functions written in another language and running in separate processes.
 
-Starting out as a rewrite/redesign of [BAT](https://github.com/bat/bat), the Bayesian Analysis Toolkit in C++, BAT.jl now offer a different set of functionality and a wider variety of algorithms than it's C++ predecessor.
+BAT.jl originated as a rewrite/redesign of [BAT](https://github.com/bat/bat), the Bayesian Analysis Toolkit in C++. BAT.jl now offer a different set of functionality and a wider variety of algorithms than it's C++ predecessor.
 
 !!! note
 
@@ -89,7 +89,7 @@ If you use [`BAT.PartitionedSampling`](@ref) (experimental feature) as an import
 
 ## Learning (more about) Julia
 
-BAT.jl supersedes [BAT in C++](https://github.com/bat/bat). If you're considering to switch to BAT.jl but you're new to Julia and want to learn more about the the language, here are a few resources to get started:
+BAT.jl supersedes [BAT in C++](https://github.com/bat/bat). If you're considering to switch to BAT.jl, but you're new to Julia and want to learn more about the the language, here are a few resources to get started:
 
 The [Julia website](https://julialang.org/) provides many [links to introductory videos and written tutorials](https://julialang.org/learning/), e.g. ["Intro to Julia"](https://www.youtube.com/watch?v=fMa1qSg_LxA),
 [Think Julia: How to Think Like a Computer Scientist](https://benlauwens.github.io/ThinkJulia.jl/latest/book.html)
