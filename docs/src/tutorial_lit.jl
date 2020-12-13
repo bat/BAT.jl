@@ -455,3 +455,47 @@ samples = bat_sample(
 ).result
 #md nothing # hide
 #nb nothing # hide
+
+# ## Saving result data to files
+#
+# The package [FileIO.jl](https://github.com/JuliaIO/FileIO.jl)(in conjuction
+# with [JLD2.jl](https://github.com/JuliaIO/JLD2.jl)) offers a convenient way
+# to store results like posterior samples to file:
+#
+# ```julia
+# using FileIO
+# FileIO.save("results.jld2", Dict("samples" => samples))
+# ```
+#
+# JLD2 presists the full information (including value shapes), so you can
+# reload exactly the same data into memory in a new Julia session via
+#
+# ```julia
+# using FileIO, BAT
+# samples = FileIO.load("results.jld2", "samples")
+# ```
+#
+# provided you use compatible versions of BAT and it's dependencies. Note that
+# JLD2 is *not* a long-term stable file format. Also note that this functionality
+# is provided by FileIO.jl and JLD2.jl and not part of the BAT API itself.
+#
+# BAT.jl itself can write samples to standard HDF5 files in a form suitable for
+# long-term storage (via [HDF5.jl](https://github.com/JuliaIO/HDF5.jl)):
+#
+# ```julia
+# import HDF5
+# bat_write("results.h5", samples)
+#
+# The resulting files have an intuitive HDF5 layout and can be read with the
+# standard HDF5 libraries, so they are easily accessible from other programming
+# languages as well. Not all value shape information can be preserved, though.
+# To read BAT.jl HDF5 sample data, use
+#
+# ```julia
+# using BAT
+# import HDF5
+# samples = bat_read("results.h5").result
+# ```
+#
+# BAT.jl's HDF5 file format may evolve over time, but future versions of BAT.jl
+# will be able to read HDF5 sample data written by this version of BAT.jl.
