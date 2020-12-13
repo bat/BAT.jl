@@ -56,7 +56,7 @@ Gelman-Rubin maximum R^2 convergence test.
 
 Constructors:
 
-* ```GelmanRubinConvergence(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 
@@ -142,7 +142,7 @@ Brooks-Gelman maximum R^2 convergence test.
 
 Constructors:
 
-* ```BrooksGelmanConvergence(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 

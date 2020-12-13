@@ -13,7 +13,7 @@ of the previous samples.
 
 Constructors:
 
-* ```AdaptiveMHTuning(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 

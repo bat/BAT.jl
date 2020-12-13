@@ -9,7 +9,7 @@ Adaptive Harmonic Mean Integration algorithm
 
 Constructors:
 
-* ```AdaptiveMHTuning(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 

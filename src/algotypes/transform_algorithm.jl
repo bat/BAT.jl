@@ -107,7 +107,7 @@ A no-op density transform algorithm that leaves any density unchanged.
 
 Constructors:
 
-* ```DensityIdentityTransform()```
+* ```$(FUNCTIONNAME)()```
 """
 struct DensityIdentityTransform <: TransformAlgorithm end
 export DensityIdentityTransform

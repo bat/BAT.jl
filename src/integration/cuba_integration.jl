@@ -67,7 +67,7 @@ VEGASIntegration integration algorithm.
 
 Constructors:
 
-* ```VEGASIntegration(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 
@@ -115,7 +115,7 @@ SuaveIntegration integration algorithm.
 
 Constructors:
 
-* ```SuaveIntegration(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 
@@ -163,7 +163,7 @@ DivonneIntegration integration algorithm.
 
 Constructors:
 
-* ```DivonneIntegration(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 
@@ -221,7 +221,7 @@ CuhreIntegration integration algorithm.
 
 Constructors:
 
-* ```CuhreIntegration(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 

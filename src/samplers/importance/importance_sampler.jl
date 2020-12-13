@@ -7,7 +7,7 @@ Sample from Sobol sequence. Also see [Sobol.jl](https://github.com/stevengj/Sobo
 
 Constructors:
 
-* ```SobolSampler(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 
@@ -30,7 +30,7 @@ Sample from equidistantly distributed points in each dimension.
 
 Constructors:
 
-* ```GridSampler(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 
@@ -93,7 +93,7 @@ Importance sampler using IID samples from the prior.
 
 Constructors:
 
-* ```PriorImportanceSampler(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 

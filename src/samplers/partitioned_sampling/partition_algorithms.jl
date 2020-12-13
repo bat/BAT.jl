@@ -16,7 +16,7 @@ by setting `extend_bounds = false`.
 
 Constructors:
 
-* ```KDTreePartitioning(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 

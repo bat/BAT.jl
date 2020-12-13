@@ -8,7 +8,7 @@ yet part of stable public API!*
 
 Constructors:
 
-* ```HamiltonianMC(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 

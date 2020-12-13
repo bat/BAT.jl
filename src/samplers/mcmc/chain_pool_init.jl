@@ -8,7 +8,7 @@ MCMC chain pool initialization strategy.
 
 Constructors:
 
-* ```MCMCChainPoolInit(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 

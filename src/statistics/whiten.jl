@@ -28,7 +28,7 @@ sample covariance matrix.
 
 Constructors:
 
-* ```CholeskyWhitening()```
+* ```$(FUNCTIONNAME)()```
 """
 struct CholeskyWhitening <: WhiteningAlgorithm end
 export CholeskyWhitening
@@ -47,7 +47,7 @@ direction.
 
 Constructors:
 
-* ```CholeskyPartialWhitening()```
+* ```$(FUNCTIONNAME)()```
 """
 struct CholeskyPartialWhitening <: WhiteningAlgorithm end
 export CholeskyPartialWhitening
@@ -61,7 +61,7 @@ CholeskyPartialWhitening
 
 Constructors:
 
-* ```StatisticalWhitening()```
+* ```$(FUNCTIONNAME)()```
 """
 struct StatisticalWhitening <: WhiteningAlgorithm end
 export StatisticalWhitening

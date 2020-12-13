@@ -8,7 +8,7 @@ A multi-cycle MCMC burn-in algorithm.
 
 Constructors:
 
-* ```MCMCMultiCycleBurnin(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 

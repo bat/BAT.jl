@@ -10,7 +10,7 @@ samples/integrates them independently ([Caldwell et al.](https://arxiv.org/abs/2
 
 Constructors:
 
-* ```PartitionedSampling(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 

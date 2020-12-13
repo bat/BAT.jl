@@ -58,7 +58,7 @@ Estimates the mode of a probability density using Nelder-Mead optimization
 
 Constructors:
 
-* ```MaxDensityNelderMead(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 
@@ -97,7 +97,7 @@ of the density is computed using forward-mode auto-differentiation (via
 
 Constructors:
 
-* ```MaxDensityLBFGS(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 

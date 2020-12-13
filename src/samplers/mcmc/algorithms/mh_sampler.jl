@@ -18,7 +18,7 @@ Metropolis-Hastings MCMC sampling algorithm.
 
 Constructors:
 
-* ```MetropolisHastings(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 

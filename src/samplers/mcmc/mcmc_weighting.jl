@@ -48,9 +48,7 @@ acceptance probability.
 
 Constructors:
 
-```julia
-ARPWeighting()
-```
+* ```$(FUNCTIONNAME)()```
 
 Additional constructors are not part of the stable public API.
 """

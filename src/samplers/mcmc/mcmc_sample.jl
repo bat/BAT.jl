@@ -8,7 +8,7 @@ Samplers a probability density using Markov chain Monte Carlo.
 
 Constructors:
 
-* ```MCMCSampling(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 

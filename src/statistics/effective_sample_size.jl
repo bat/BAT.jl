@@ -78,7 +78,7 @@ Same procedure is used by the emcee Python package (v3.0).
 
 Constructors:
 
-* ```SokalAutocorLen(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 

@@ -20,7 +20,7 @@ Sample via `Random.rand`. Only supported for posteriors of type
 
 Constructors:
 
-* ```IIDSampling(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 
@@ -59,7 +59,7 @@ Resamples from a given set of samples.
 
 Constructors:
 
-* ```RandResampling(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 
@@ -96,7 +96,7 @@ weights.
 
 Constructors:
 
-* ```OrderedResampling(; fields...)```
+* ```$(FUNCTIONNAME)(; fields...)```
 
 Fields:
 
