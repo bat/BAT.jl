@@ -99,13 +99,13 @@ sample_table = CSV.read("sample_table.csv", Table)
 
 function make_child_prior(N)
     v -> begin
-        return NamedTupleDist(B = fill(LogNormal(μ_log_normal(v.mean_B, v.σ_B), v.σ_B), N))
+        return NamedTupleDist(B = fill(LogNormal(μ_log_normal(v.m_B, v.σ_B), v.σ_B), N))
     end
 end
 
 parent_prior_bkg = NamedTupleDist(
     σ_B = Uniform(0.1, 1.0),
-    mean_B = Uniform(10^-10, 1e-1 * ΔE),
+    m_B = Uniform(10^-10, 1e-1 * ΔE),
     λ = Uniform(10^-10, 100.0)
 )
 
@@ -114,7 +114,7 @@ parent_prior_bkg_signal = NamedTupleDist(
     S_μ = 100.0,
     S_σ = 2.0,
     σ_B = Uniform(0.1, 1.0),
-    mean_B = Uniform(10^-10, 1e-1 * ΔE),
+    m_B = Uniform(10^-10, 1e-1 * ΔE),
     λ = Uniform(10^-10, 100.0)
 )
 
@@ -146,9 +146,9 @@ samples_bkg_signal = bat_sample(posterior_bkg_signal, algorithm).result
 
 @show bkg_sig_marginal_modes = bat_marginalmode(samples_bkg_signal).result
 
-pyplot(size=(800,500), layout=(2,2), labelfontsize=12, tickfontsize=10, legendfontsize=7)
+p_1 = plot(size=(800,500), layout=(2,2), labelfontsize=12, tickfontsize=10, legendfontsize=7)
 #upper left
-p_1 = plot(samples_bkg_signal, :S, subplot=1, label = "Posterior")
+p_1 = plot!(samples_bkg_signal, :S, subplot=1, label = "Posterior")
 p_1 = plot!(parent_prior_bkg_signal, :S, subplot=1, label = "Prior", linecolor = "blue")
 #lower right
 p_1 = plot!(samples_bkg_signal, :λ, subplot=4, label = "Posterior", legend=false)
@@ -163,30 +163,31 @@ savefig(p_1, "prior_posterior.png")
 
 
 
-pyplot(size=(800,500), layout=(2,2), labelfontsize=12, tickfontsize=10, legendfontsize=7)
+p_2 = plot(size=(800,500), layout=(2,2), labelfontsize=12, tickfontsize=10, legendfontsize=7)
 #upper left
-p_2 = plot(samples_bkg_signal, :mean_B, subplot=1, label = "Posterior")
-p_2 = plot!(parent_prior_bkg_signal, :mean_B, subplot=1, label = "Prior", linecolor = "blue")
+p_2 = plot!(samples_bkg_signal, :m_B, subplot=1, label = "Posterior")
+p_2 = plot!(parent_prior_bkg_signal, :m_B, subplot=1, label = "Prior", linecolor = "blue")
 #lower right
 p_2 = plot!(samples_bkg_signal, :σ_B, subplot=4, label = "Posterior", legend=false)
 p_2 = plot!(parent_prior_bkg_signal, :σ_B, subplot=4, label = "Prior", linecolor = "blue")
 #upper right
-p_2 = plot!(samples_bkg_signal, (:mean_B, :σ_B), subplot=2, st = :histogram, legend=false, colorbar=false)
+p_2 = plot!(samples_bkg_signal, (:m_B, :σ_B), subplot=2, st = :histogram, legend=false, colorbar=false)
 #lower left
-p_2 = plot!(samples_bkg_signal, (:mean_B,:σ_B), subplot=3, legend=true)
+p_2 = plot!(samples_bkg_signal, (:m_B,:σ_B), subplot=3, legend=true)
 
 savefig(p_2, "prior_posterior_hierarchical.pdf")
 savefig(p_2, "prior_posterior_hierarchical.png")
 
 
-pyplot(size=(800,500), layout=(1,1), labelfontsize=12, tickfontsize=10, legendfontsize=7)
-p_hist = histogram(sample_table.E, bins = range(0.0, stop=maximum(sample_table.E)+20., length=100), title = "", xlabel = "Energy [keV]", ylabel = "Counts", label = "", box = :on, grid = :off)
+p_hist = plot(size=(800,500), layout=(1,1), labelfontsize=12, tickfontsize=10, legendfontsize=7)
+p_hist = histogram!(sample_table.E, bins = range(0.0, stop=maximum(sample_table.E)+20., length=100), title = "", xlabel = "Energy [keV]", ylabel = "Counts", label = "", box = :on, grid = :off)
+
 savefig(p_hist, "total_hist.pdf")
 savefig(p_hist, "total_hist.png")
 
-pyplot(size=(800,500), layout=(1,1), labelfontsize=12, tickfontsize=10, legendfontsize=7)
-p_fit_sum = plot(range(0.0, (maximum(sample_table.E)+20), length=500), fit_function_sum_all, samples_bkg_signal, box = :on, grid = :off, xlabel = "", ylabel = "Background distribution", legend = :topright)
-p_fit_sum = histogram!(twinx(), sample_table.E, bins = range(0.0, stop=maximum(sample_table.E)+20., length=100), xlabel = "Energy [keV]", ylabel = "Counts", label = "Binned data", box = :on, grid = :off, fillalpha = 0.4, linealpha = 0.4, legend = :topleft)
+p_fit_sum = plot(size=(800,500), layout=(1,1), labelfontsize=12, tickfontsize=10, legendfontsize=7)
+p_fit_sum = plot!(range(0.0, (maximum(sample_table.E)+20), length=500), fit_function_sum_all, samples_bkg_signal, box = :on, grid = :off, xlabel = "Energy [keV]", ylabel = "Background distribution", legend = :topright)
+p_fit_sum = histogram!(twinx(), xticks=([], []), sample_table.E, bins = range(0.0, stop=maximum(sample_table.E)+20., length=100), ylabel = "Counts", label = "Binned data", box = :on, grid = :off, fillalpha = 0.4, linealpha = 0.4, legend = :topleft)
 
 savefig(p_fit_sum, "detector_sum.pdf")
 savefig(p_fit_sum, "detector_sum.png")
