@@ -18,8 +18,8 @@ abstract type AbstractSamplingAlgorithm end
 
 Draw samples from `target` using `algorithm`.
 
-Also depending on sampling algorithm, the samples may be independent or
-correlated (e.g. when using MCMC).
+Depending on sampling algorithm, the samples may be independent or correlated
+(e.g. when using MCMC).
 
 Returns a NamedTuple of the shape
 
@@ -28,12 +28,12 @@ Returns a NamedTuple of the shape
 ```
 
 Result properties not listed here are algorithm-specific and are not part
-of the stable BAT API.
+of the stable public API.
 
 !!! note
 
     Do not add add methods to `bat_sample`, add methods to
-    `bat_sample_impl` instead (same arguments).
+    `bat_sample_impl` instead.
 """
 function bat_sample end
 export bat_sample

@@ -5,8 +5,7 @@ export HamiltonianMC
 
 Hamiltonian Monte Carlo sampling algorithm.
 
-* The arguments/options of `HamiltonianMC` are still subject to change, and not yet
-part of stable public API.*
+* The arguments/options of `HamiltonianMC` are still subject to change, and not yet part of stable public API.*
 """
 @with_kw struct HamiltonianMC <: MCMCAlgorithm
     metric::HMCMetric = DiagEuclideanMetric()

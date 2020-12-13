@@ -24,6 +24,12 @@ Read data from a file `filename`, resp. from an internal sub-path of the file
 Currently supported file formats are:
 
 * HDF5 with file extension ".h5" or ".hdf5"
+
+!!! note
+
+    HDF5 I/O functionality is only available when the
+    [HDF5](https://github.com/JuliaIO/HDF5.jl) package is loaded (e.g. via
+    `import HDF5`).
 """
 function bat_read end
 export bat_read
@@ -50,6 +56,12 @@ Write data to a file `filename`, resp. to an internal sub-path of the file
 Currently supported file formats are:
 
 * HDF5 with file extension ".h5" or ".hdf5"
+
+!!! note
+
+    HDF5 I/O functionality is only available when the
+    [HDF5](https://github.com/JuliaIO/HDF5.jl) package is loaded (e.g. via
+    `import HDF5`).
 """
 function bat_write end
 export bat_write

@@ -44,9 +44,9 @@ end
 
 
 @doc doc"""
-    GelmanRubinConvergence
+    GelmanRubinConvergence <: MCMCConvergenceTest
 
-Gelman-Rubin ``\$maximum(R^2)\$`` convergence test.
+Gelman-Rubin $maximum(R^2)$ convergence test.
 """
 @with_kw struct GelmanRubinConvergence <: MCMCConvergenceTest
     threshold::Float64 = 1.1
@@ -122,7 +122,7 @@ end
 
 
 @doc doc"""
-    BrooksGelmanConvergence
+    BrooksGelmanConvergence <: MCMCConvergenceTest
 
 Brooks-Gelman $maximum(R^2)$ convergence test.
 """

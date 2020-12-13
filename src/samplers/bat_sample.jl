@@ -11,12 +11,15 @@ end
 getalgorithm(sg::GenericSampleGenerator) = sg.algorithm
 
 
+
 """
     IIDSampling
 
 Constructors:
 
     IIDSampling(;kwargs...)
+
+``
 
 Sample via `Random.rand`. Only supported for posteriors of type
 `Distributions.MultivariateDistribution` and `BAT.DistLikeDensity`.

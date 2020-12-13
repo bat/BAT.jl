@@ -29,9 +29,9 @@ Constructors:
 
 ```julia
 RepetitionWeighting()
-
-RepetitionWeighting{T}()
 ```
+
+Additional constructors are not part of the stable public API.
 """
 struct RepetitionWeighting{T<:Real} <: AbstractMCMCWeightingScheme{T} end
 export RepetitionWeighting
@@ -39,7 +39,7 @@ RepetitionWeighting() = RepetitionWeighting{Int}()
 
 
 """
-    struct ARPWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T}
+    ARPWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T}
 
 Sample weighting scheme suitable for accept/reject-based sampling algorithms
 (e.g. [`MetropolisHastings`](@ref)). Both accepted and rejected samples
@@ -50,9 +50,9 @@ Constructors:
 
 ```julia
 ARPWeighting()
-
-ARPWeighting{T}()
 ```
+
+Additional constructors are not part of the stable public API.
 """
 struct ARPWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T} end
 export ARPWeighting

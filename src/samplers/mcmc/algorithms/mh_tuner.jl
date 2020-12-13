@@ -11,36 +11,31 @@ Adaptive MCMC tuning strategy for Metropolis-Hastings samplers.
 Adapts the proposal function based on the acceptance ratio and covariance
 of the previous samples.
 
-Fields:
-
-* `λ`: Controls the weight given to new covariance information in adapting
-  the proposal distribution. Defaults to `0.5`.
-
-* `α`: Metropolis-Hastings acceptance ratio target, tuning will try to
-  adapt the proposal distribution to bring the acceptance ratio inside this
-  interval. Defaults to `IntervalSets.ClosedInterval(0.15, 0.35)`
-
-* `β`: Controls how much the spread of the proposal distribution is
-  widened/narrowed depending on the current MH acceptance ratio.
-
-* `c`: Interval for allowed scale/spread of the proposal distribution.
-  Defaults to `ClosedInterval(1e-4, 1e2)`.
-
-* `r`: Reweighting factor. Take accumulated sample statistics of previous
-  tuning cycles into account with a relative weight of `r`. Set to `0` to
-  completely reset sample statistics between each tuning cycle.
-
 Constructors:
 
 ```julia
-AdaptiveMHTuning(
-    λ::Real,
-    α::IntervalSets.ClosedInterval{<:Real},
-    β::Real,
-    c::IntervalSets.ClosedInterval{<:Real},
-    r::Real
+AdaptiveMHTuning(; kwargs...)
 )
 ```
+
+with `kwargs`
+
+* `λ::Real`: Controls the weight given to new covariance information in
+  adapting the proposal distribution.
+
+* `α::IntervalSets.ClosedInterval{<:Real}`: Metropolis-Hastings acceptance
+  ratio target, tuning will try to adapt the proposal distribution to bring
+  the acceptance ratio inside this interval.
+
+* `β::Real`: Controls how much the spread of the proposal distribution is
+  widened/narrowed depending on the current MH acceptance ratio.
+
+* `c::IntervalSets.ClosedInterval{<:Real}`: Interval for allowed
+  scale/spread of the proposal distribution.
+
+* `r::Real`: Reweighting factor. Take accumulated sample statistics of
+  previous tuning cycles into account with a relative weight of `r`. Set to
+  `0` to completely reset sample statistics between each tuning cycle.
 """
 @with_kw struct AdaptiveMHTuning <: MHProposalDistTuning
     λ::Float64 = 0.5

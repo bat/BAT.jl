@@ -26,12 +26,12 @@ Returns a NamedTuple of the shape
 ```
 
 Result properties not listed here are algorithm-specific and are not part
-of the stable BAT API.
+of the stable public API.
 
 !!! note
 
     Do not add add methods to `bat_findmode`, add methods to
-    `bat_findmode_impl` instead (same arguments).
+    `bat_findmode_impl` instead.
 """
 function bat_findmode end
 export bat_findmode
@@ -90,12 +90,12 @@ Returns a NamedTuple of the shape
 ```
 
 Result properties not listed here are algorithm-specific and are not part
-of the stable BAT API.
+of the stable public API.
 
 !!! note
 
     Do not add add methods to `bat_marginalmode`, add methods to
-    `bat_marginalmode_impl` instead (same arguments).
+    `bat_marginalmode_impl` instead.
 """
 function bat_marginalmode end
 export bat_marginalmode

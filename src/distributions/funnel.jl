@@ -4,7 +4,9 @@
 @doc doc"""
     BAT.FunnelDistribution([a=1, b=0.5, n=3])
 
-Funnel distribution (Caldwell et al.)[https://arxiv.org/abs/1808.08051].
+*Experimental feature, not part of stable public API.*
+
+Funnel distribution [Caldwell et al.](https://arxiv.org/abs/1808.08051).
 
 # Arguments
 - `a::Real`: Variance of the dominant normal distribution.

@@ -28,6 +28,8 @@ end
 """
     HierarchicalDistribution <: ContinuousDistribution
 
+*Experimental feature, not part of stable public API.*
+
 A hierarchical distribution, useful for hierarchical models/priors.
 
 Constructors:

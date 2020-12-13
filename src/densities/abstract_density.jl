@@ -22,7 +22,7 @@ Densities with known variate bounds may also implement
 !!! note
 
     The function `BAT.var_bounds` is not part of the stable public BAT-API,
-    it's name and arguments may change without notice.
+    it's name and arguments may change without deprecation.
 """
 abstract type AbstractDensity end
 export AbstractDensity
@@ -345,7 +345,7 @@ eval_gradlogval(density::AbstractDensity) = LogValGradOfDensity(density)
     DistLikeDensity <: AbstractDensity
 
 A density that implements part of the `Distributions.Distribution` interface.
-Such densities are suitable to be used as a priors.
+Such densities are suitable for use as a priors.
 
 Typically, custom priors should be implemented as subtypes of
 `Distributions.Distribution`. BAT will automatically wrap them in a subtype of
@@ -362,18 +362,18 @@ The following functions must be implemented for subtypes:
 
 * `BAT.eval_logval_unchecked`
 
-* `BAT.var_bounds`
-
 * `ValueShapes.varshape`
 
 * `Distributions.sampler`
 
 * `Statistics.cov`
 
+* `BAT.var_bounds`
+
 !!! note
 
     The function `BAT.var_bounds` is not part of the stable public BAT-API,
-    it's name and arguments may change without notice.
+    it's name and arguments may change without deprecation.
 """
 abstract type DistLikeDensity <: AbstractDensity end
 export DistLikeDensity
@@ -402,7 +402,7 @@ ValueShapes.totalndof(density::DistLikeDensity) = totalndof(var_bounds(density))
 """
     BAT.AnyDensityLike = Union{...}
 
-Union of all types that BAT will accept as a probability Density, resp. that
+Union of all types that BAT will accept as a probability density, resp. that
 `convert(AbstractDenstiy, d)` supports:
     
 * [`AbstractDensity`](@ref)

@@ -5,29 +5,31 @@
     AHMIntegration
 
 Adaptive Harmonic Mean Integration algorithm
-(Caldwell et al.)[https://arxiv.org/abs/1808.08051].
+([Caldwell et al.](https://arxiv.org/abs/1808.08051)).
 
 Constructor:
 
+```julia
 AHMIntegration(;kwargs...)
+```
 
-Optional Parameters/settings (`kwargs`):
+With `kwargs`
 
-* `whitening::WhiteningAlgorithm = CholeskyPartialWhitening()`
+* `whitening::WhiteningAlgorithm`
 
-* `autocorlen::AutocorLenAlgorithm = GeyerAutocorLen()`
+* `autocorlen::AutocorLenAlgorithm`
 
-* `volumetype::Symbol = :HyperRectangle`
+* `volumetype::Symbol`
 
-* `max_startingIDs::Int = 10000`
+* `max_startingIDs::Int`
 
-* `max_startingIDs_fraction::Float64 = 2.5`
+* `max_startingIDs_fraction::Float64`
 
-* `rect_increase::Float64 = 0.1`
+* `rect_increase::Float64`
 
-* `warning_minstartingids::Int = 16`
+* `warning_minstartingids::Int`
 
-* `dotrimming::Bool = true`
+* `dotrimming::Bool`
 
 * `uncertainty::Vector{Symbol} = [:cov]`: List of uncertainty estimation methods
   to use, first entry will be used for primary result. Valid values:

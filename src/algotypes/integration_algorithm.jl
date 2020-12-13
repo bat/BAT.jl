@@ -18,24 +18,19 @@ export IntegrationAlgorithm
 
 Calculate the integral (evidence) of `target`.
 
-Returns a NamedTuple: (result = x::Measurement.Measurement, ...)
-
-Result properties not listed here are algorithm-specific and are not part
-of the stable BAT API.
-
 Returns a NamedTuple of the shape
 
 ```julia
-(result = X::AbstractVector{<:Real}, ...)
+(result = X::Measurements.Measurement, ...)
 ```
 
 Result properties not listed here are algorithm-specific and are not part
-of the stable BAT API.
+of the stable public API.
 
 !!! note
 
     Do not add add methods to `bat_integrate`, add methods to
-    `bat_integrate_impl` instead (same arguments).
+    `bat_integrate_impl` instead.
 """
 function bat_integrate end
 export bat_integrate

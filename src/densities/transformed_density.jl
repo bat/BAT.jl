@@ -21,10 +21,10 @@ export AbstractTransformedDensity
 @doc doc"""
     trafoof(d::AbstractTransformedDensity)::AbstractDensity
 
-Get the transform from `parent(d)` to d, so that
+Get the transform from `parent(d)` to `d`, so that
 
 ```julia
-trafoof(parent(d)) == d
+trafoof(d)(parent(d)) == d
 ```
 """
 function trafoof end

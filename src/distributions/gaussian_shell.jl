@@ -7,7 +7,9 @@ import AdaptiveRejectionSampling
 """
     BAT.GaussianShell([r=5, w=2, n=2])
 
-Gaussian Shell (Caldwell et al.)[https://arxiv.org/abs/1808.08051].
+*Experimental feature, not part of stable public API.*
+
+Gaussian Shell [Caldwell et al.](https://arxiv.org/abs/1808.08051).
 
 # Arguments
 - `r::Real`: The radius of the Gaussian shell distribution.

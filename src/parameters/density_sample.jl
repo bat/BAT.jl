@@ -7,18 +7,19 @@ const _default_LDT = Float64 # Default type for log-density values
 
 
 """
-    struct DensitySample
+    DensitySample
 
 A weighted sample drawn according to an statistical density,
 e.g. a [`BAT.AbstractDensity`](@ref).
 
 Fields:
-    * `v`: Multivariate parameter vector
-    * `logd`: log of the value of the density at `v`
-    * `weight`: Weight of the sample
-    * `info`: Additional info on the provenance of the sample. Content depends
-       on the sampling algorithm.
-    * aux: Custom user-defined information attached to the sample.
+
+* `v`: Multivariate parameter vector
+* `logd`: log of the value of the density at `v`
+* `weight`: Weight of the sample
+* `info`: Additional info on the provenance of the sample. Content depends
+    on the sampling algorithm.
+* aux: Custom user-defined information attached to the sample.
 
 Constructors:
 

@@ -1,8 +1,8 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 """
-    bat_default(f::Function, argname::Symbol, objective...)
-    bat_default(f::Function, argname::Val, objective...)
+    bat_default(f::Base.Callable, argname::Symbol, objective...)
+    bat_default(f::Base.Callable, argname::Val, objective...)
 
 Get the default value for argument `argname` of function `f` to use
 for `objective`(s).
@@ -22,12 +22,12 @@ bat_default(bat_sample, Val(:algorithm), samples::DensitySampleVector) == Ordere
 function bat_default end
 export bat_default
 
-@inline bat_default(f::Function, argname::Symbol, objective...) = bat_default(f, Val{argname}(), objective...)
+@inline bat_default(f::Base.Callable, argname::Symbol, objective...) = bat_default(f, Val{argname}(), objective...)
 
 
 
 """
-    argchoice_msg(f::Function, argname::Val, x)
+    argchoice_msg(f::Base.Callable, argname::Val, x)
 
 *BAT-internal, not part of stable public API.*
 
@@ -39,14 +39,14 @@ The value `x` will often be the result of [`bat_default`](@ref).
 function argchoice_msg end
 
 
-function bat_default_withinfo(f::Function, argname::Val, objective...)
-    default = bat_default(f::Function, argname::Val, objective...)
+function bat_default_withinfo(f::Base.Callable, argname::Val, objective...)
+    default = bat_default(f::Base.Callable, argname::Val, objective...)
     @info argchoice_msg(f, argname::Val, default)
     default
 end
 
-function bat_default_withdebug(f::Function, argname::Val, objective...)
-    default = bat_default(f::Function, argname::Val, objective...)
+function bat_default_withdebug(f::Base.Callable, argname::Val, objective...)
+    default = bat_default(f::Base.Callable, argname::Val, objective...)
     @debug argchoice_msg(f, argname::Val, default)
     default
 end

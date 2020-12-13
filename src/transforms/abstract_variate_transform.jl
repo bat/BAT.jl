@@ -6,16 +6,18 @@
 
 Abstract super-type for change-of-variables transformations.
 
-Subtypes (e.g. `SomeTrafo <: AbstractVariateTransform`) must support
-[`ValueShapes.varshape`](@ref) and
+Subtypes (e.g. `SomeTrafo <: AbstractVariateTransform`) must support (with
+`trafo::SomeTrafo`):
 
 ```julia
     (trafo)(v_prev::SomeVariate) == v_new
     (trafo)(v_prev::SomeVariate, ladj_prev::Real)) == (v = v_new, ladj = ladj_new)
-    (trafo)(s_prev::DensitySample) == s_new::DensitySample
+    (trafo)(s_prev::DensitySample)::DensitySample
     ((trafo2 ∘ trafo1)(v)::AbstractVariateTransform)(v) == trafo2(trafo1(v))
     inv(trafo)(trafo(v)) == v
     inv(inv(trafo)) == trafo
+
+    ValueShapes.varshape(trafo)::ValueShapes.AbstractValueShape
 ```
 
 with `varshape(v_prev) == varshape(trafo)`.
@@ -30,7 +32,7 @@ export AbstractVariateTransform
 @doc doc"""
     ladjof(r::NamedTuple{(...,:ladj,...)})::Real
 
-Extract the `log(abs(det(jacobian)))`` value that is part of a result `r`.
+Extract the `log(abs(det(jacobian)))` value that is part of a result `r`.
 
 Examples:
 

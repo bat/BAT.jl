@@ -27,12 +27,12 @@ Returns a NamedTuple of the shape
 ```
 
 Result properties not listed here are algorithm-specific and are not part
-of the stable BAT API.
+of the stable public API.
 
 !!! note
 
     Do not add add methods to `bat_integrated_autocorr_len`, add methods to
-    `bat_integrated_autocorr_len_impl` instead (same arguments).
+    `bat_integrated_autocorr_len_impl` instead.
 """
 function bat_integrated_autocorr_len end
 export bat_integrated_autocorr_len
@@ -76,12 +76,12 @@ Returns a NamedTuple of the shape
 ```
 
 Result properties not listed here are algorithm-specific and are not part
-of the stable BAT API.
+of the stable public API.
 
 !!! note
 
     Do not add add methods to `bat_eff_sample_size`, add methods to
-    `bat_eff_sample_size_impl` instead (same arguments).
+    `bat_eff_sample_size_impl` instead.
 """
 function bat_eff_sample_size end
 export bat_eff_sample_size

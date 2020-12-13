@@ -3,7 +3,9 @@
 @doc doc"""
     BAT.MultimodalCauchy([μ=1, σ=0.5, n=3])
 
-The Multimodal Cauchy Distribution (Caldwell et al.)[https://arxiv.org/abs/1808.08051].
+*Experimental feature, not part of stable public API.*
+
+The Multimodal Cauchy Distribution [Caldwell et al.](https://arxiv.org/abs/1808.08051).
 
 Assumes two bimodal peaks, each in its own dimension.
 

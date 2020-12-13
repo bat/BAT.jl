@@ -11,7 +11,7 @@ export WhiteningAlgorithm
 
 
 """
-NoWhitening
+    NoWhitening <: WhiteningAlgorithm
 
 No-op whitening transformation, leaves samples unchanged.
 """
@@ -21,7 +21,7 @@ export NoWhitening
 
 
 """
-    CholeskyWhitening
+    CholeskyWhitening <: WhiteningAlgorithm
 
 Whitening transformation based on a Cholesky transformation of the empirical
 sample covariance matrix.
@@ -32,7 +32,7 @@ export CholeskyWhitening
 
 
 """
-    CholeskyPartialWhitening
+    CholeskyPartialWhitening <: WhiteningAlgorithm
 
 Whitening transformation based on a Cholesky transformation of the empirical
 sample covariance matrix.
@@ -46,7 +46,7 @@ export CholeskyPartialWhitening
 
 
 """
-    StatisticalWhitening
+    StatisticalWhitening <: WhiteningAlgorithm
 
 Whitening transformation based statistical whitening.
 """

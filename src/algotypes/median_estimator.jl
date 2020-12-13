@@ -14,12 +14,12 @@ Returns a NamedTuple of the shape
 ```
 
 Result properties not listed here are algorithm-specific and are not part
-of the stable BAT API.
+of the stable public API.
 
 !!! note
 
     Do not add add methods to `bat_findmedian`, add methods to
-    `bat_findmedian_impl` instead (same arguments).
+    `bat_findmedian_impl` instead.
 """
 function bat_findmedian end
 export bat_findmedian

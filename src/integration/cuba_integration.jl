@@ -61,13 +61,13 @@ end
 """
     VEGASIntegration
 
-VEGASIntegration integration algorithm.
+*Experimental feature, not part of stable public API.*
 
-Only supports densities with finite rectangular bounds.
+VEGASIntegration integration algorithm.
 
 !!! note
 
-    This functionality is only available then the
+    This functionality is only available when the
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """
@@ -101,13 +101,13 @@ end
 """
     SuaveIntegration
 
-    SuaveIntegration integration algorithm.
+*Experimental feature, not part of stable public API.*
 
-Only supports densities with finite rectangular bounds.
+SuaveIntegration integration algorithm.
 
 !!! note
 
-    This functionality is only available then the
+    This functionality is only available when the
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """
@@ -141,13 +141,13 @@ end
 """
     DivonneIntegration
 
-    DivonneIntegration integration algorithm.
+*Experimental feature, not part of stable public API.*
 
-Only supports densities with finite rectangular bounds.
+DivonneIntegration integration algorithm.
 
 !!! note
 
-    This functionality is only available then the
+    This functionality is only available when the
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """
@@ -191,13 +191,13 @@ end
 """
     CuhreIntegration
 
-    CuhreIntegration integration algorithm.
+*Experimental feature, not part of stable public API.*
 
-Only supports densities with finite rectangular bounds.
+CuhreIntegration integration algorithm.
 
 !!! note
 
-    This functionality is only available then the
+    This functionality is only available when the
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """

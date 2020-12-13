@@ -4,7 +4,7 @@
 
     This is the documentation of BAT's internal API. The internal API is
     fully accessible to users, but all aspects of it are subject to
-    change without notice. Functionalities of the internal API that, over
+    change without deprecation. Functionalities of the internal API that, over
     time, turn out to require user access (e.g. to support advanced use cases)
     will be evolved to gain a stable interface and then promoted to the public
     API.

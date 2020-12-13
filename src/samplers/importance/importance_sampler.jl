@@ -1,6 +1,8 @@
 """
     SobolSampler
 
+*Experimental feature, not part of stable public API.*
+
 Constructors:
 
     SobolSampler(nsamples::Int = 10^5)
@@ -17,6 +19,8 @@ export SobolSampler
 
 """
     GridSampler
+
+*Experimental feature, not part of stable public API.*
 
 Constructors:
 
@@ -74,6 +78,8 @@ end
 
 """
     PriorImportanceSampler
+
+*Experimental feature, not part of stable public API.*
 
 Constructors:
 

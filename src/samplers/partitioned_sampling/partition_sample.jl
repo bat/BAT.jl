@@ -3,10 +3,10 @@
 """
     PartitionedSampling
 
-*BAT-internal, not part of stable public API.*
+*Experimental feature, not part of stable public API.*
 
-The algorithm that partitions parameter space by multiple subspaces and
-samples/integrates them independently (See arXiv reference [not available yet]).
+A sampling algorithm that partitions parameter space into multiple subspaces and
+samples/integrates them independently ([Caldwell et al.](https://arxiv.org/abs/2008.03098)).
 
 Constructor:
 

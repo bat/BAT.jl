@@ -38,7 +38,7 @@ GeyerAutocorLen()
 
 The same algorithm is used by
 [STAN (v2.21)](https://mc-stan.org/docs/2_21/reference-manual/effective-sample-size-section.html#estimation-of-effective-sample-size)
-and (MCMCChains.jl (v3.0, function `ess_rhat`))[https://github.com/TuringLang/MCMCChains.jl/blob/v4.0.0/src/ess.jl#L288].
+and [MCMCChains.jl (v3.0, function `ess_rhat`)](https://github.com/TuringLang/MCMCChains.jl/blob/v4.0.0/src/ess.jl#L288).
 """
 struct GeyerAutocorLen <: AutocorLenAlgorithm
 end
