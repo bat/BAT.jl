@@ -21,6 +21,7 @@ using ArraysOfArrays
 using Clustering
 using Colors
 using Distributions
+using DocStringExtensions
 using DoubleFloats
 using ElasticArrays
 using FFTW
