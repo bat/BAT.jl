@@ -97,7 +97,7 @@ _SampleAux() = _SampleInfo(0)
         logd_gs = [logpdf(gs, x1), logpdf(gs, x2)]
 
         dsv_gs1 = DensitySampleVector(v_gs, logd_gs, weight=[1,1])
-        dsv_gs2 = DensitySampleVector(v_gs, logd_gs, weight=:RepetitionWeight)
+        dsv_gs2 = DensitySampleVector(v_gs, logd_gs, weight=:multiplicity)
 
         @test dsv_gs1 == dsv_gs2
         @test dsv_gs1.v == v_gs
@@ -105,7 +105,7 @@ _SampleAux() = _SampleInfo(0)
         @test dsv_gs1.weight == [1,1]
         @test dsv_gs2.weight == [1,1]
         
-        @test @inferred(length(DensitySampleVector(dsv_merged.v, dsv_merged.logd, weight=:RepetitionWeight))) == @inferred(length(dsv_merged))-1
+        @test @inferred(length(DensitySampleVector(dsv_merged.v, dsv_merged.logd, weight=:multiplicity))) == @inferred(length(dsv_merged))-1
 
         rtol = eps(typeof(float(1)))
         X = @inferred(flatview(dsv_merged.v))

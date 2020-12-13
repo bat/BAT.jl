@@ -116,7 +116,9 @@ Constructors:
             aux::AbstractVector = fill(nothing, length(eachindex(v)))
         )
 ```
-    For `weight = :RepetitionWeight`, repeated samples will be dropped and the weight of the corresponding sample will be increased.
+
+With `weight = :multiplicity` repeated samples will be replaced by a
+single sample, with a weight equal to the number of repetitions.
 """
 const DensitySampleVector{
     P,T<:AbstractFloat,W<:Real,R,Q,
@@ -175,7 +177,7 @@ function DensitySampleVector(
     info::AbstractVector = fill(nothing, length(eachindex(v))),
     aux::AbstractVector = fill(nothing, length(eachindex(v)))
 )
-    if weight == :RepetitionWeight
+    if weight == :multiplicity
         idxs, weight = repetition_to_weights(v)
         return DensitySampleVector((ArrayOfSimilarArrays(v[idxs]), logval[idxs], weight, info[idxs], aux[idxs]))
     else
