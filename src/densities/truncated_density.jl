@@ -1,5 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
-@doc doc"""
+"""
     TruncatedDensity
 
 Constructor:
@@ -55,7 +55,7 @@ end
 
 
 
-@doc doc"""
+"""
     BAT.truncate_density(density::AbstractDensity, bounds::AbstractVarBounds)::AbstractDensity
 
 *BAT-internal, not part of stable public API.*
@@ -108,7 +108,7 @@ end
 
 
 
-@doc doc"""
+"""
     BAT.truncate_dist_hard(dist::Distribution{Univariate}, bounds::Interval)::Distribution{Univariate}
     BAT.truncate_dist_hard(dist::Distribution{Multivariate}, bounds::AbstractArray{<:Interval})::Distribution{Multivariate}
 
@@ -190,7 +190,7 @@ function truncate_dist_hard(dist::NamedTupleDist{names}, bounds::AbstractArray{<
 end
 
 
-@doc doc"""
+"""
     BAT.trunc_logpdf_ratio(orig_dist::Distribution{TP}, trunc_dist::Distribution{TP})::AbstractFloat
 
 *BAT-internal, not part of stable public API.*

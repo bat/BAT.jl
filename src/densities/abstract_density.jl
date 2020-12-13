@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-@doc doc"""
+"""
     abstract type AbstractDensity
 
 Subtypes of `AbstractDensity` must implement the function
@@ -28,7 +28,7 @@ abstract type AbstractDensity end
 export AbstractDensity
 
 
-@doc doc"""
+"""
     BAT.eval_logval_unchecked(density::AbstractDensity, v::Any)
 
 Compute log of the value of a multivariate density function for the given
@@ -47,7 +47,7 @@ these cases.
 function eval_logval_unchecked end
 
 
-@doc doc"""
+"""
     var_bounds(
         density::AbstractDensity
     )::Union{AbstractVarBounds,Missing}
@@ -62,7 +62,7 @@ handle any parameter values.
 var_bounds(density::AbstractDensity) = missing
 
 
-@doc doc"""
+"""
     ValueShapes.totalndof(density::AbstractDensity)::Union{Int,Missing}
 
 Get the number of degrees of freedom of the variates of `density`. May return
@@ -74,7 +74,7 @@ function ValueShapes.totalndof(density::AbstractDensity)
 end
 
 
-@doc doc"""
+"""
     ValueShapes.varshape(
         density::AbstractDensity
     )::Union{ValueShapes.AbstractValueShape,Missing}
@@ -91,7 +91,7 @@ the prior only supports unshaped variate/parameter vectors.
 ValueShapes.varshape(density::AbstractDensity) = missing
 
 
-@doc doc"""
+"""
     eval_logval(
         density::AbstractDensity,
         v::Any,
@@ -194,7 +194,7 @@ end
 
 
 
-@doc doc"""
+"""
     eval_gradlogval(density::AbstractDensity, v::AbstractVector{<:Real})
     grad
 *BAT-internal, not part of stable public API.*
@@ -241,7 +241,7 @@ function eval_gradlogval(
 end
 
 
-@doc doc"""
+"""
     BAT.density_logval_type(v::Any, density::AbstractDensity, T::Type{<:Real} = Float32)
 
 *BAT-internal, not part of stable public API.*
@@ -261,7 +261,7 @@ end
 end
 
 
-@doc doc"""
+"""
     BAT.log_zero_density(T::Type{<:Real})
 
 log-density value to assume for regions of implicit zero density, e.g.
@@ -272,7 +272,7 @@ Returns an equivalent of negative infinity.
 log_zero_density(T::Type{<:Real}) = float(T)(-Inf)
 
 
-@doc doc"""
+"""
     BAT.is_log_zero(x::Real, T::Type{<:Real} = typeof(x)}
 
 *BAT-internal, not part of stable public API.*
@@ -341,7 +341,7 @@ eval_gradlogval(density::AbstractDensity) = LogValGradOfDensity(density)
 
 
 
-@doc doc"""
+"""
     abstract type DistLikeDensity <: AbstractDensity
 
 A density that implements part of the `Distributions.Distribution` interface.
@@ -379,7 +379,7 @@ abstract type DistLikeDensity <: AbstractDensity end
 export DistLikeDensity
 
 
-@doc doc"""
+"""
     var_bounds(density::DistLikeDensity)::AbstractVarBounds
 
 *BAT-internal, not part of stable public API.*
@@ -389,7 +389,7 @@ Get the parameter bounds of `density`. Must not be `missing`.
 function var_bounds end
 
 
-@doc doc"""
+"""
     ValueShapes.totalndof(density::DistLikeDensity)::Int
 
 Get the number of degrees of freedom of the variates of `density`. Must not be

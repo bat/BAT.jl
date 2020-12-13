@@ -26,7 +26,7 @@ end
 
 
 
-@doc doc"""
+"""
     gr_Rsqr(stats::AbstractVector{<:MCMCBasicStats})
     gr_Rsqr(samples::AbstractVector{<:DensitySampleVector})
 
@@ -87,7 +87,7 @@ end
 
 
 
-@doc doc"""
+"""
     bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats}; corrected::Bool = false)
     bg_R_2sqr(samples::AbstractVector{<:DensitySampleVector}; corrected::Bool = false)
 

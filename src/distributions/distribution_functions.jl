@@ -8,7 +8,7 @@ end
 
 
 
-@doc doc"""
+"""
     bat_sampler(d::Distribution)
 
 *BAT-internal, not part of stable public API.*
@@ -31,7 +31,7 @@ bat_sampler(d::Distribution) = Distributions.sampler(d)
 
 
 
-@doc doc"""
+"""
     issymmetric_around_origin(d::Distribution)
 
 *BAT-internal, not part of stable public API.*

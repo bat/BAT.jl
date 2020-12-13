@@ -19,7 +19,7 @@ of `BAT.distribution_logpdf!`.
 abstract type AbstractProposalDist end
 
 
-@doc doc"""
+"""
     distribution_logpdf(
         p::AbstractArray,
         pdist::AbstractProposalDist,
@@ -36,7 +36,7 @@ function distribution_logpdf end
 # TODO: Implement distribution_logpdf for included proposal distributions
 
 
-@doc doc"""
+"""
     distribution_logpdf!(
         p::AbstractArray,
         pdist::AbstractProposalDist,
@@ -73,7 +73,7 @@ function distribution_logpdf! end
 # TODO: Default implementation of distribution_logpdf!
 
 
-@doc doc"""
+"""
     function proposal_rand!(
         rng::AbstractRNG,
         pdist::GenericProposalDist,

@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-@doc doc"""
+"""
     TransformedDensity <: AbstractDensity
 
 Abstract super-type for transformed densities.
@@ -18,7 +18,7 @@ struct AbstractTransformedDensity end
 export AbstractTransformedDensity
 
 
-@doc doc"""
+"""
     trafoof(d::AbstractTransformedDensity)::AbstractDensity
 
 Get the transform from `parent(d)` to `d`, so that
@@ -36,7 +36,7 @@ struct TDNoCorr <: TDVolCorr end
 struct TDLADJCorr <: TDVolCorr end
 
 
-@doc doc"""
+"""
     TransformedDensity
 
 *BAT-internal, not part of stable public API.*

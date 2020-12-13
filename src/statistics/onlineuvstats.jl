@@ -3,7 +3,7 @@
 using Base: @propagate_inbounds
 
 
-@doc doc"""
+"""
     OnlineUvMean{T<:AbstractFloat}
 
 *BAT-internal, not part of stable public API.*
@@ -66,7 +66,7 @@ end
 
 
 
-@doc doc"""
+"""
     OnlineUvVar{T<:AbstractFloat,W}
 
 *BAT-internal, not part of stable public API.*

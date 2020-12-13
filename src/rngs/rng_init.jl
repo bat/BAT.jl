@@ -4,7 +4,7 @@ using Random123: Philox4x, Threefry4x
 using Random123: random123_r, gen_seed
 
 
-@doc doc"""
+"""
     bat_rng()
 
 *Experimental feature, not part of stable public API.*

@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-@doc doc"""
+"""
     abstract type AbstractPosteriorDensity <: AbstractDensity end
 
 Abstract super-type for posterior probability densities.
@@ -10,7 +10,7 @@ abstract type AbstractPosteriorDensity <: AbstractDensity end
 export AbstractPosteriorDensity
 
 
-@doc doc"""
+"""
     getlikelihood(posterior::AbstractPosteriorDensity)::AbstractDensity
 
 *BAT-internal, not part of stable public API.*
@@ -21,7 +21,7 @@ normalized.
 function getlikelihood end
 
 
-@doc doc"""
+"""
     getprior(posterior::AbstractPosteriorDensity)::AbstractDensity
 
 *BAT-internal, not part of stable public API.*
@@ -83,7 +83,7 @@ end
 
 
 
-@doc doc"""
+"""
     PosteriorDensity{
         Li<:AbstractDensity,
         Pr<:DistLikeDensity,

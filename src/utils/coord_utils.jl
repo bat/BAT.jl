@@ -4,7 +4,7 @@
 _all_in_ui(X::AbstractArray) = _all_lteq_impl(0, X, 1)
 
 
-@doc doc"""
+"""
     y = fromui(x::Real, lo::Real, hi::Real)
     y = fromui(x::Real, lo_hi::ClosedInterval{<:Real})
 

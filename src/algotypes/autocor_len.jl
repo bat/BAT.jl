@@ -55,7 +55,7 @@ end
 
 
 
-@doc doc"""
+"""
     bat_eff_sample_size(
         v::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}},
         [algorithm::AutocorLenAlgorithm]

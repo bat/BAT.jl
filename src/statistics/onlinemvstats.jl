@@ -27,7 +27,7 @@ end
 
 
 
-@doc doc"""
+"""
     OnlineMvMean{T<:AbstractFloat} <: AbstractVector{T}
 
 *BAT-internal, not part of stable public API.*
@@ -117,7 +117,7 @@ end
 
 
 
-@doc doc"""
+"""
     OnlineMvCov{T<:AbstractFloat,W} <: AbstractMatrix{T}
 
 *BAT-internal, not part of stable public API.*
@@ -302,7 +302,7 @@ end
 
 
 
-@doc doc"""
+"""
     BasicMvStatistics{T<:Real,W}
 
 *BAT-internal, not part of stable public API.*

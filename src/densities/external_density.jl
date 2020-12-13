@@ -103,7 +103,7 @@ _bat_proto_decode!(buffer::IOBuffer, ::Type{LogDensityValueDMsg}) = LogDensityVa
 )
 
 
-@doc doc"""
+"""
     BAT.ExternalDensity <: AbstractDensity
 
 *Experimental feature, not part of stable public API.*

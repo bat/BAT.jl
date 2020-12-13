@@ -56,7 +56,7 @@ Base.in(x::Any, bounds::VarVolumeBounds) = in(x, bounds.vol)
 ValueShapes.totalndof(b::VarVolumeBounds) = ndims(b.vol)
 
 
-@doc doc"""
+"""
     spatialvolume(b::VarVolumeBounds)::SpatialVolume
 
 *BAT-internal, not part of stable public API.*

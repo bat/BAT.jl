@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-@doc doc"""
+"""
     BAT.MultimodalCauchy([μ=1, σ=0.5, n=3])
 
 *Experimental feature, not part of stable public API.*

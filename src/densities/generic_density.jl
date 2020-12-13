@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-@doc doc"""
+"""
     GenericDensity{F<:Function} <: AbstractDensity
 
 Constructors:
