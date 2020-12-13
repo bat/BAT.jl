@@ -51,16 +51,18 @@ end
 
 
 """
-    MaxDensityNelderMead <: AbstractModeEstimator
+    struct MaxDensityNelderMead <: AbstractModeEstimator
+
+Estimates the mode of a probability density using Nelder-Mead optimization
+(via [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl)).
 
 Constructors:
 
-```julia
-MaxDensityNelderMead(init::InitvalAlgorithm = InitFromTarget)
-```
+* ```MaxDensityNelderMead(; fields...)```
 
-Estimate the mode of a probability density using Nelder-Mead optimization
-(via [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl)).
+Fields:
+
+$(TYPEDFIELDS)
 """
 @with_kw struct MaxDensityNelderMead{
     TR<:AbstractDensityTransformTarget,
@@ -85,18 +87,21 @@ end
 
 
 """
-    MaxDensityLBFGS <: AbstractModeEstimator
+    struct MaxDensityLBFGS <: AbstractModeEstimator
 
-Constructors:
-
-```julia
-MaxDensityLBFGS(init::InitvalAlgorithm = InitFromTarget)
-```
-
-Estimate the mode of a probability density using LBFGS optimization (via
+Estimates the mode of a probability density using LBFGS optimization (via
 [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl)). The gradient
 of the density is computed using forward-mode auto-differentiation (via
 [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl)).
+
+
+Constructors:
+
+* ```MaxDensityLBFGS(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
 """
 @with_kw struct MaxDensityLBFGS{
     TR<:AbstractDensityTransformTarget,

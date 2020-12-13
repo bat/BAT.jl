@@ -1,13 +1,17 @@
 """
-    SobolSampler
+    struct SobolSampler <: AbstractSamplingAlgorithm
 
 *Experimental feature, not part of stable public API.*
 
+Sample from Sobol sequence. Also see [Sobol.jl](https://github.com/stevengj/Sobol.jl).
+
 Constructors:
 
-    SobolSampler(nsamples::Int = 10^5)
+* ```SobolSampler(; fields...)```
 
-Sample from Sobol sequence. Also see [Sobol.jl](https://github.com/stevengj/Sobol.jl).
+Fields:
+
+$(TYPEDFIELDS)
 """
 @with_kw struct SobolSampler{TR<:AbstractDensityTransformTarget} <: AbstractSamplingAlgorithm
     trafo::TR = PriorToUniform()
@@ -18,15 +22,19 @@ export SobolSampler
 
 
 """
-    GridSampler
+    struct GridSampler <: AbstractSamplingAlgorithm
 
 *Experimental feature, not part of stable public API.*
 
+Sample from equidistantly distributed points in each dimension.
+
 Constructors:
 
-    GridSampler(ppa::Int = 100)
+* ```GridSampler(; fields...)```
 
-Sample from equidistantly distributed points in each dimension.
+Fields:
+
+$(TYPEDFIELDS)
 """
 @with_kw struct GridSampler{TR<:AbstractDensityTransformTarget} <: AbstractSamplingAlgorithm
     trafo::TR = PriorToUniform()
@@ -77,15 +85,19 @@ end
 
 
 """
-    PriorImportanceSampler
+    struct PriorImportanceSampler <: AbstractSamplingAlgorithm
 
 *Experimental feature, not part of stable public API.*
 
+Importance sampler using IID samples from the prior.
+
 Constructors:
 
-    PriorImportanceSampler(nsamples::Int = 10^5)
+* ```PriorImportanceSampler(; fields...)```
 
-Sample randomly from prior distribution.
+Fields:
+
+$(TYPEDFIELDS)
 """
 @with_kw struct PriorImportanceSampler <: AbstractSamplingAlgorithm
     nsamples::Int = 10^5

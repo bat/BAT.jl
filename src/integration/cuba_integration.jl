@@ -59,11 +59,19 @@ end
 
 
 """
-    VEGASIntegration
+    struct VEGASIntegration <: IntegrationAlgorithm
 
 *Experimental feature, not part of stable public API.*
 
 VEGASIntegration integration algorithm.
+
+Constructors:
+
+* ```VEGASIntegration(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
 
 !!! note
 
@@ -99,11 +107,19 @@ end
 
 
 """
-    SuaveIntegration
+    struct SuaveIntegration <: IntegrationAlgorithm
 
 *Experimental feature, not part of stable public API.*
 
 SuaveIntegration integration algorithm.
+
+Constructors:
+
+* ```SuaveIntegration(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
 
 !!! note
 
@@ -139,11 +155,19 @@ end
 
 
 """
-    DivonneIntegration
+    struct DivonneIntegration <: IntegrationAlgorithm
 
 *Experimental feature, not part of stable public API.*
 
 DivonneIntegration integration algorithm.
+
+Constructors:
+
+* ```DivonneIntegration(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
 
 !!! note
 
@@ -189,11 +213,19 @@ end
 
 
 """
-    CuhreIntegration
+    struct CuhreIntegration <: IntegrationAlgorithm
 
 *Experimental feature, not part of stable public API.*
 
 CuhreIntegration integration algorithm.
+
+Constructors:
+
+* ```CuhreIntegration(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
 
 !!! note
 

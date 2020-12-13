@@ -4,7 +4,7 @@ abstract type SpacePartitioningAlgorithm end
 export SpacePartitioningAlgorithm
 
 """
-	KDTreePartitioning
+    struct KDTreePartitioning <: SpacePartitioningAlgorithm
 
 *BAT-internal, not part of stable public API.*
 
@@ -14,10 +14,13 @@ manually by using `partition_dims` argument. By default, bounds of the
 partitioning tree are extended to those given by prior. This can be changed
 by setting `extend_bounds = false`.
 
-Constructor:
+Constructors:
 
-	PartitionedSampling(;partition_dims=:auto, extend_bounds::Bool = true)
+* ```KDTreePartitioning(; fields...)```
 
+Fields:
+
+$(TYPEDFIELDS)
 """
 @with_kw struct KDTreePartitioning <: SpacePartitioningAlgorithm
 	partition_dims::Union{Array{Int64,1}, Symbol} = :auto

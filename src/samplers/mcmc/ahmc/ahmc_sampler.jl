@@ -1,11 +1,18 @@
-export HamiltonianMC
-
 """
-    HamiltonianMC <: MCMCAlgorithm
+    struct HamiltonianMC <: MCMCAlgorithm
 
 Hamiltonian Monte Carlo sampling algorithm.
 
-* The arguments/options of `HamiltonianMC` are still subject to change, and not yet part of stable public API.*
+* Note: The fields of `HamiltonianMC` are still subject to change, and not
+yet part of stable public API!*
+
+Constructors:
+
+* ```HamiltonianMC(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
 """
 @with_kw struct HamiltonianMC <: MCMCAlgorithm
     metric::HMCMetric = DiagEuclideanMetric()
@@ -14,6 +21,8 @@ Hamiltonian Monte Carlo sampling algorithm.
     proposal::HMCProposal = NUTS()
     adaptor::HMCAdaptor = StanHMCAdaptor()
 end
+
+export HamiltonianMC
 
 
 bat_default(::Type{MCMCSampling}, ::Val{:trafo}, mcalg::HamiltonianMC) = PriorToGaussian()

@@ -4,7 +4,7 @@
 # ToDo: Add literature references to AdaptiveMHTuning docstring.
 
 """
-    AdaptiveMHTuning(...) <: MHProposalDistTuning
+    struct AdaptiveMHTuning <: MHProposalDistTuning
 
 Adaptive MCMC tuning strategy for Metropolis-Hastings samplers.
 
@@ -13,35 +13,31 @@ of the previous samples.
 
 Constructors:
 
-```julia
-AdaptiveMHTuning(; kwargs...)
-)
-```
+* ```AdaptiveMHTuning(; fields...)```
 
-with `kwargs`
+Fields:
 
-* `λ::Real`: Controls the weight given to new covariance information in
-  adapting the proposal distribution.
-
-* `α::IntervalSets.ClosedInterval{<:Real}`: Metropolis-Hastings acceptance
-  ratio target, tuning will try to adapt the proposal distribution to bring
-  the acceptance ratio inside this interval.
-
-* `β::Real`: Controls how much the spread of the proposal distribution is
-  widened/narrowed depending on the current MH acceptance ratio.
-
-* `c::IntervalSets.ClosedInterval{<:Real}`: Interval for allowed
-  scale/spread of the proposal distribution.
-
-* `r::Real`: Reweighting factor. Take accumulated sample statistics of
-  previous tuning cycles into account with a relative weight of `r`. Set to
-  `0` to completely reset sample statistics between each tuning cycle.
+$(TYPEDFIELDS)
 """
 @with_kw struct AdaptiveMHTuning <: MHProposalDistTuning
+    "Controls the weight given to new covariance information in adapting the
+    proposal distribution."
     λ::Float64 = 0.5
+
+    "Metropolis-Hastings acceptance ratio target, tuning will try to adapt
+    the proposal distribution to bring the acceptance ratio inside this interval."
     α::IntervalSets.ClosedInterval{Float64} = ClosedInterval(0.15, 0.35)
+
+    "Controls how much the spread of the proposal distribution is
+    widened/narrowed depending on the current MH acceptance ratio."
     β::Float64 = 1.5
+
+    "Interval for allowed scale/spread of the proposal distribution."
     c::IntervalSets.ClosedInterval{Float64} = ClosedInterval(1e-4, 1e2)
+
+    "Reweighting factor. Take accumulated sample statistics of previous
+    tuning cycles into account with a relative weight of `r`. Set to
+    `0` to completely reset sample statistics between each tuning cycle."
     r::Real = 0.5
 end
 

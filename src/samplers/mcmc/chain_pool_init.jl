@@ -4,7 +4,15 @@
 """
     struct MCMCChainPoolInit <: MCMCInitAlgorithm
 
- MCMC chain pool initialization strategy.
+MCMC chain pool initialization strategy.
+
+Constructors:
+
+* ```MCMCChainPoolInit(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
 """
 @with_kw struct MCMCChainPoolInit <: MCMCInitAlgorithm
     init_tries_per_chain::ClosedInterval{Int64} = ClosedInterval(8, 128)

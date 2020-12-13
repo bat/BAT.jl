@@ -1,7 +1,13 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+"""
+    abstract type MCMCConvergenceTest
+
+Abstract type for MCMC convergence testing algorithms.
+"""
 abstract type MCMCConvergenceTest end
+
 
 abstract type MCMCConvergenceTestResult end
 
@@ -43,10 +49,18 @@ end
 
 
 
-@doc doc"""
-    GelmanRubinConvergence <: MCMCConvergenceTest
+"""
+    struct GelmanRubinConvergence <: MCMCConvergenceTest
 
-Gelman-Rubin $maximum(R^2)$ convergence test.
+Gelman-Rubin maximum R^2 convergence test.
+
+Constructors:
+
+* ```GelmanRubinConvergence(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
 """
 @with_kw struct GelmanRubinConvergence <: MCMCConvergenceTest
     threshold::Float64 = 1.1
@@ -121,10 +135,18 @@ end
 
 
 
-@doc doc"""
-    BrooksGelmanConvergence <: MCMCConvergenceTest
+"""
+    struct BrooksGelmanConvergence <: MCMCConvergenceTest
 
-Brooks-Gelman $maximum(R^2)$ convergence test.
+Brooks-Gelman maximum R^2 convergence test.
+
+Constructors:
+
+* ```BrooksGelmanConvergence(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
 """
 @with_kw struct BrooksGelmanConvergence <: MCMCConvergenceTest
     threshold::Float64 = 1.1

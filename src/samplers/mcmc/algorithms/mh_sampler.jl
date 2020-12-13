@@ -12,18 +12,17 @@ export MHProposalDistTuning
 
 
 """
-    MetropolisHastings
+    struct MetropolisHastings <: MCMCAlgorithm
 
 Metropolis-Hastings MCMC sampling algorithm.
 
 Constructors:
 
-```julia
-MetropolisHastings(
-    proposal::ProposalDistSpec
-    weighting::AbstractMCMCWeightingScheme
-    tuning::TN = MHProposalDistTuning
-)
+* ```MetropolisHastings(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
 """
 @with_kw struct MetropolisHastings{
     Q<:ProposalDistSpec,

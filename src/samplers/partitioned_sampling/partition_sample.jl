@@ -1,35 +1,20 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 """
-    PartitionedSampling
+    struct PartitionedSampling <: AbstractSamplingAlgorithm
 
 *Experimental feature, not part of stable public API.*
 
 A sampling algorithm that partitions parameter space into multiple subspaces and
 samples/integrates them independently ([Caldwell et al.](https://arxiv.org/abs/2008.03098)).
 
-Constructor:
+Constructors:
 
-    PartitionedSampling(;kwargs...)
+* ```PartitionedSampling(; fields...)```
 
-Optional Parameters/settings (`kwargs`):
+Fields:
 
-* `npartitions::Integer = 10` number of space partitions.
-
-* `sampler::S = MCMCSampling()` algorithm to generate samples.
-
-* `exploration_sampler::S = MCMCSampling(nchains=30)` algorithm to generate exploration samples.
-
-* `partitioner::P = KDTreePartitioning()` algorithm to partition parameter space.
-
-* `integrator::I = AHMIntegration()` algorithm to integrate posterior.
-
-* `exploration_kwargs::NamedTuple = NamedTuple()` kwargs to be used in the function `bat_sample()` to generate exploration samples.
-
-* `sampling_kwargs::NamedTuple = NamedTuple()` kwargs to be used in the function `bat_sample()` to generate final samples.
-
-* `n_exp_samples::Integer = 10^3` number of exploration samples.
-
+$(TYPEDFIELDS)
 """
 @with_kw struct PartitionedSampling{
     TR<:AbstractDensityTransformTarget,

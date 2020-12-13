@@ -2,42 +2,18 @@
 
 
 """
-    AHMIntegration
+    struct AHMIntegration <: IntegrationAlgorithm
 
 Adaptive Harmonic Mean Integration algorithm
 ([Caldwell et al.](https://arxiv.org/abs/1808.08051)).
 
-Constructor:
+Constructors:
 
-```julia
-AHMIntegration(;kwargs...)
-```
+* ```AdaptiveMHTuning(; fields...)```
 
-With `kwargs`
+Fields:
 
-* `whitening::WhiteningAlgorithm`
-
-* `autocorlen::AutocorLenAlgorithm`
-
-* `volumetype::Symbol`
-
-* `max_startingIDs::Int`
-
-* `max_startingIDs_fraction::Float64`
-
-* `rect_increase::Float64`
-
-* `warning_minstartingids::Int`
-
-* `dotrimming::Bool`
-
-* `uncertainty::Vector{Symbol} = [:cov]`: List of uncertainty estimation methods
-  to use, first entry will be used for primary result. Valid values:
-    * `:cov`: Integral uncertainty for integration regions is estimated based
-      on covariance of integrals of subsets of samples in the regions
-
-    * `:ess`: Integral uncertainty for integration regions is estimated based
-      on estimated effective number of samples in each region.
+$(TYPEDFIELDS)
 """
 @with_kw struct AHMIntegration{
     WA<:WhiteningAlgorithm,
@@ -51,6 +27,17 @@ With `kwargs`
     rect_increase::Float64 = 0.1
     warning_minstartingids::Int = 16
     dotrimming::Bool = true
+
+    """
+    List of uncertainty estimation methods
+    to use, first entry will be used for primary result. Valid values:
+
+    * `:cov`: Integral uncertainty for integration regions is estimated based
+      on covariance of integrals of subsets of samples in the regions
+  
+    * `:ess`: Integral uncertainty for integration regions is estimated based
+      on estimated effective number of samples in each region.
+    """
     uncertainty::Vector{Symbol} = [:cov]
 end
 export AHMIntegration

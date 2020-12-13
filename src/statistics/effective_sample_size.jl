@@ -74,17 +74,18 @@ Integrated autocorrelation length estimation based on the automated windowing
 procedure descibed in
 [A. D. Sokal, "Monte Carlo Methods in Statistical Mechanics" (1996)](https://pdfs.semanticscholar.org/0bfe/9e3db30605fe2d4d26e1a288a5e2997e7225.pdf)
 
-Constructor:
-
-```julia
-SokalAutocorLen(;c::Integer = 5)
-```
-
-* `c`: Step size for window search.
-
 Same procedure is used by the emcee Python package (v3.0).
+
+Constructors:
+
+* ```XXXXXXXXX(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
 """
 @with_kw struct SokalAutocorLen <: AutocorLenAlgorithm
+    "Step size for window search"
     c::Int = 5  
 end
 

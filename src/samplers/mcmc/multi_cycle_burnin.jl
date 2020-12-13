@@ -2,9 +2,17 @@
 
 
 """
-    MCMCMultiCycleBurnin <: MCMCBurninAlgorithm
+    struct MCMCMultiCycleBurnin <: MCMCBurninAlgorithm
 
 A multi-cycle MCMC burn-in algorithm.
+
+Constructors:
+
+* ```MCMCMultiCycleBurnin(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
 """
 @with_kw struct MCMCMultiCycleBurnin <: MCMCBurninAlgorithm
     nsteps_per_cycle::Int64 = 10000

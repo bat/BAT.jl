@@ -13,16 +13,18 @@ getalgorithm(sg::GenericSampleGenerator) = sg.algorithm
 
 
 """
-    IIDSampling
-
-Constructors:
-
-    IIDSampling(;kwargs...)
-
-``
+    struct IIDSampling <: AbstractSamplingAlgorithm
 
 Sample via `Random.rand`. Only supported for posteriors of type
 `Distributions.MultivariateDistribution` and `BAT.DistLikeDensity`.
+
+Constructors:
+
+* ```IIDSampling(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
 """
 @with_kw struct IIDSampling <: AbstractSamplingAlgorithm
     nsamples::Int = 10^5
@@ -51,13 +53,17 @@ end
 
 
 """
-    RandResampling <: AbstractSamplingAlgorithm
+    struct RandResampling <: AbstractSamplingAlgorithm
+
+Resamples from a given set of samples.
 
 Constructors:
 
-    RandResampling(;kwargs...)
+* ```RandResampling(; fields...)```
 
-Resamples from a given set of samples.
+Fields:
+
+$(TYPEDFIELDS)
 """
 @with_kw struct RandResampling <: AbstractSamplingAlgorithm
     nsamples::Int = 10^5
@@ -80,15 +86,21 @@ end
 
 
 """
-OrderedResampling <: AbstractSamplingAlgorithm
+    struct OrderedResampling <: AbstractSamplingAlgorithm
+
+Efficiently resamples from a given series of samples, keeping the order of
+samples.
+
+Can be used to efficiently convert weighted samples into samples with unity
+weights.
 
 Constructors:
 
-    OrderedResampling(;kwargs...)
+* ```OrderedResampling(; fields...)```
 
-    Efficiently resamples from a given series of samples, keeping the order of samples.
+Fields:
 
-    Can be used to efficiently convert weighted samples into samples with uniform
+$(TYPEDFIELDS)
 """
 @with_kw struct OrderedResampling <: AbstractSamplingAlgorithm
     nsamples::Int = 10^5

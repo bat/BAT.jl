@@ -1,14 +1,18 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-@doc doc"""
-    MCMCSampling <: AbstractSamplingAlgorithm
+"""
+    struct MCMCSampling <: AbstractSamplingAlgorithm
 
-Constructor:
+Samplers a probability density using Markov chain Monte Carlo.
 
-```julia
-MCMCSampling(;kwargs...)
-```
+Constructors:
+
+* ```MCMCSampling(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
 """
 @with_kw struct MCMCSampling{
     AL<:MCMCAlgorithm,
