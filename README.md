@@ -7,10 +7,9 @@
 [![Codecov](https://codecov.io/gh/bat/BAT.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/bat/BAT.jl)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.2587213.svg)](https://doi.org/10.5281/zenodo.2587213)
 
-Welcome to BAT, the Bayesian analysis toolkit. This is a rewrite of the
-previous [C++-BAT](https://github.com/bat/bat) in Julia. BAT.jl provides
-several improvements over it's C++ predecessor, but has not reached feature
-parity yet in some areas.
+Welcome to BAT, a Bayesian analysis toolkit in Julia.
+
+Starting out as a rewrite/redesign of [BAT](https://github.com/bat/bat), the Bayesian Analysis Toolkit in C++, BAT.jl now offer a different set of functionality and a wider variety of algorithms than it's C++ predecessor.
 
 BAT.jl currently includes:
 
@@ -32,7 +31,7 @@ julia> pkg"add BAT"
 
 !!! note
 
-    BAT.jl requires Julia >= v1.3.
+    BAT.jl requires Julia >= v1.3, we recommend to use Julia >= v1.5.
 
 
 ## Documentation
