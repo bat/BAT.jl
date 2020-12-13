@@ -1,10 +1,10 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-@doc doc"""
-    AbstractVariateTransform <: Function
+"""
+    abstract type AbstractVariateTransform <: Function
 
-Abstract super-type for change-of-variables transformations.
+Abstract type for change-of-variables transformations.
 
 Subtypes (e.g. `SomeTrafo <: AbstractVariateTransform`) must support (with
 `trafo::SomeTrafo`):
@@ -29,7 +29,7 @@ export AbstractVariateTransform
 
 
 
-@doc doc"""
+"""
     ladjof(r::NamedTuple{(...,:ladj,...)})::Real
 
 Extract the `log(abs(det(jacobian)))` value that is part of a result `r`.
@@ -97,8 +97,8 @@ end
 
 
 
-@doc doc"""
-    VariateTransform{VF:<VariateForm,ST<:VariateSpace,SF<:VariateSpace}
+"""
+    abstract type VariateTransform{VF:<VariateForm,ST<:VariateSpace,SF<:VariateSpace}
 
 *BAT-internal, not part of stable public API.*
 

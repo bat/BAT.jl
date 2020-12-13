@@ -50,11 +50,12 @@ end
 
 
 
-@doc doc"""
-    InitFromTarget <: InitvalAlgorithm
+"""
+    struct InitFromTarget <: InitvalAlgorithm
 
 Generates initial values for sampling, optimization, etc. by direct i.i.d.
-sampling whatever component from a target distribution supports it.
+sampling a suitable component of that target density (e.g. it's prior)
+that supports it.
 
 * If the target is supports direct i.i.d. sampling, e.g. because it is a
   distribution, initial values are sampled directly from the target.
@@ -64,6 +65,10 @@ sampling whatever component from a target distribution supports it.
 
 * If the target is a sampled density, initial values are (re-)sampled from
   the available samples.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)()```
 """
 struct InitFromTarget <: InitvalAlgorithm end
 export InitFromTarget
@@ -102,11 +107,15 @@ function bat_initval_impl(rng::AbstractRNG, target::TransformedDensity, n::Integ
 end
 
 
-@doc doc"""
-    InitFromSamples <: InitvalAlgorithm
+"""
+    struct InitFromSamples <: InitvalAlgorithm
 
 Generates initial values for sampling, optimization, etc. by direct sampling
 from a given i.i.d. sampleable source.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)()```
 """
 struct InitFromSamples{SV<:DensitySampleVector} <: InitvalAlgorithm
     samples::SV
@@ -124,11 +133,15 @@ end
 
 
 
-@doc doc"""
-    InitFromIID <: InitvalAlgorithm
+"""
+    struct InitFromIID <: InitvalAlgorithm
 
 Generates initial values for sampling, optimization, etc. by random
 resampling from a given set of samples.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)()```
 """
 struct InitFromIID{D<:AnyIIDSampleable} <: InitvalAlgorithm
     src::D
@@ -146,11 +159,19 @@ end
 
 
 
-@doc doc"""
-    ExplicitInit <: InitvalAlgorithm
+"""
+    struct ExplicitInit <: InitvalAlgorithm
 
 Uses initial values from a given vector of one or more values/variates. The
 values are used in the order they appear in the vector, not randomly.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
 """
 struct ExplicitInit{V<:AbstractVector} <: InitvalAlgorithm
     xs::V

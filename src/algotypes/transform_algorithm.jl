@@ -2,7 +2,7 @@
 
 
 """
-    AbstractDensityTransformTarget
+    abstract type AbstractDensityTransformTarget
 
 Abstract type for probability density transformation targets.
 """
@@ -12,7 +12,7 @@ export AbstractDensityTransformTarget
 
 
 """
-    AbstractTransformToUnitspace <: AbstractDensityTransformTarget
+    abstract type AbstractTransformToUnitspace <: AbstractDensityTransformTarget
 
 Abstract type for density transformation targets that specify a
 transformation into the unit hypercube.
@@ -22,7 +22,7 @@ export AbstractTransformToUnitspace
 
 
 """
-    AbstractTransformToInfinite <: AbstractDensityTransformTarget
+    abstract type AbstractTransformToInfinite <: AbstractDensityTransformTarget
 
 Abstract type for density transformation targets that specify are
 transformation into unbounded space.
@@ -36,7 +36,7 @@ export AbstractTransformToInfinite
 
 
 """
-    TransformAlgorithm
+    abstract type TransformAlgorithm
 
 Abstract type for density transformation algorithms.
 """
@@ -154,11 +154,15 @@ end
 
 
 """
-    FullDensityTransform <: TransformAlgorithm
+    struct FullDensityTransform <: TransformAlgorithm
 
 Transform the density as a whole a given specified target space. Operations
 that use the gradient of the density will require to the `log(abs(jacobian))`
 of the transformation to be auto-differentiable.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)()```
 """
 struct FullDensityTransform <: TransformAlgorithm end
 export FullDensityTransform

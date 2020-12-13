@@ -2,7 +2,7 @@
 
 
 """
-    AbstractMCMCWeightingScheme{T<:Real}
+    abstract type AbstractMCMCWeightingScheme{T<:Real}
 
 Abstract class for weighting schemes for MCMC samples.
 
@@ -27,14 +27,12 @@ because a Markov chain has not moved during a sampling step).
 
 Constructors:
 
-```julia
-RepetitionWeighting()
+* ```$(FUNCTIONNAME)()```
 ```
-
-Additional constructors are not part of the stable public API.
 """
 struct RepetitionWeighting{T<:Real} <: AbstractMCMCWeightingScheme{T} end
 export RepetitionWeighting
+
 RepetitionWeighting() = RepetitionWeighting{Int}()
 
 
@@ -49,9 +47,8 @@ acceptance probability.
 Constructors:
 
 * ```$(FUNCTIONNAME)()```
-
-Additional constructors are not part of the stable public API.
 """
 struct ARPWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T} end
 export ARPWeighting
+
 ARPWeighting() = ARPWeighting{Float64}()

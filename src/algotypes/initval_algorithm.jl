@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 """
-    BAT.InitvalAlgorithm
+    abstract type BAT.InitvalAlgorithm
 
 Abstract type for BAT initial/starting value generation algorithms.
 

@@ -1,8 +1,8 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-@doc doc"""
-    AbstractProposalDist
+"""
+    abstract type AbstractProposalDist
 
 *BAT-internal, not part of stable public API.*
 

@@ -1,30 +1,19 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-@doc doc"""
-    abstract type MCMCAlgorithm end
+"""
+    abstract type MCMCAlgorithm
 
-!!! note
-
-    The details of the `MCMCIterator` and `MCMCAlgorithm` API (see below)
-    currently do not form part of the stable API and are subject to change
-    without deprecation.
-
-The following methods must be defined for subtypes (e.g.
-for `SomeAlgorithm<:MCMCAlgorithm`):
-
-```julia
-MCMCIterator(
-    rng::AbstractRNG,
-    algorithm::SomeAlgorithm,
-    density::AbstractDensity,
-    chainid::Integer,
-    [startpos::AbstractVector{<:Real}]
-)
-```
+Abstract type for Markov chain Monte Carlo algorithms.
 
 To implement a new MCMC algorithm, subtypes of both `MCMCAlgorithm` and
 [`MCMCIterator`](@ref) are required.
+
+!!! note
+
+    The details of the `MCMCIterator` and `MCMCAlgorithm` API required to
+    implement a new MCMC algorithm currently do not (yet) form part of the
+    stable API and are subject to change without deprecation.
 """
 abstract type MCMCAlgorithm end
 export MCMCAlgorithm
@@ -33,8 +22,8 @@ export MCMCAlgorithm
 function get_mcmc_tuning end
 
 
-@doc doc"""
-abstract type MCMCInitAlgorithm end
+"""
+    abstract type MCMCInitAlgorithm
 
 Abstract type for MCMC initialization algorithms.
 """
@@ -44,7 +33,7 @@ export MCMCInitAlgorithm
 
 
 """
-MCMCTuningAlgorithm
+    abstract type MCMCTuningAlgorithm
 
 Abstract super-type for MCMC tuning algorithms.
 """
@@ -54,7 +43,7 @@ export MCMCTuningAlgorithm
 
 
 """
-MCMCBurninAlgorithm
+    abstract type MCMCBurninAlgorithm
 
 Abstract super-type for MCMC burn-in algorithms.
 """
@@ -63,7 +52,7 @@ export MCMCBurninAlgorithm
 
 
 """
-MCMCBurninAlgorithm
+    abstract type MCMCConvergenceTest
 
 Abstract super-type for MCMC convergence tests.
 """
@@ -80,7 +69,7 @@ export MCMCConvergenceTest
 end
 
 
-@doc doc"""
+"""
     abstract type MCMCIterator end
 
 Represents the current state of a MCMC chain.

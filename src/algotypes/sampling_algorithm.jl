@@ -2,7 +2,7 @@
 
 
 """
-    BAT.AbstractSamplingAlgorithm
+    abstract type BAT.AbstractSamplingAlgorithm
 
 Abstract type for BAT sampling algorithms. See [`bat_sample`](@ref).
 """
@@ -77,7 +77,7 @@ end
 
 
 """
-    AbstractSampleGenerator
+    abstract type AbstractSampleGenerator
 
 *BAT-internal, not part of stable public API.*
 

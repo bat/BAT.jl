@@ -2,7 +2,7 @@
 
 
 """
-    MHProposalDistTuning
+    abstract type MHProposalDistTuning
 
 Abstract super-type for Metropolis-Hastings tuning strategies for
 proposal distributions.

@@ -2,7 +2,7 @@
 
 
 """
-    IntegrationAlgorithm
+    abstract type IntegrationAlgorithm
 
 Abstract type for integration algorithms.
 """

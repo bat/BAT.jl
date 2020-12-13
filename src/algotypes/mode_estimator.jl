@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 """
-    BAT.AbstractModeEstimator
+    abstract type BAT.AbstractModeEstimator
 
 Abstract type for BAT optimization algorithms.
 

@@ -2,7 +2,7 @@
 
 
 @doc doc"""
-    AbstractDensity
+    abstract type AbstractDensity
 
 Subtypes of `AbstractDensity` must implement the function
 
@@ -342,7 +342,7 @@ eval_gradlogval(density::AbstractDensity) = LogValGradOfDensity(density)
 
 
 @doc doc"""
-    DistLikeDensity <: AbstractDensity
+    abstract type DistLikeDensity <: AbstractDensity
 
 A density that implements part of the `Distributions.Distribution` interface.
 Such densities are suitable for use as a priors.
@@ -352,7 +352,7 @@ Typically, custom priors should be implemented as subtypes of
 `DistLikeDensity`.
 
 Subtypes of `DistLikeDensity` are required to support more functionality
-than a `AbstractDensity`, but less than a
+than an [`AbstractDensity`](@ref), but less than a
 `Distribution{Multivariate,Continuous}`.
 
 A `d::Distribution{Multivariate,Continuous}` can be converted into (wrapped
@@ -372,8 +372,8 @@ The following functions must be implemented for subtypes:
 
 !!! note
 
-    The function `BAT.var_bounds` is not part of the stable public BAT-API,
-    it's name and arguments may change without deprecation.
+    The function `BAT.var_bounds` is not part of the stable public BAT-API
+    and subject to change without deprecation.
 """
 abstract type DistLikeDensity <: AbstractDensity end
 export DistLikeDensity

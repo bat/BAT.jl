@@ -2,7 +2,7 @@
 
 
 """
-    WhiteningAlgorithm
+    abstract type WhiteningAlgorithm
 
 Abstract type for sample whitening algorithms.
 """
@@ -11,9 +11,13 @@ export WhiteningAlgorithm
 
 
 """
-    NoWhitening <: WhiteningAlgorithm
+    struct NoWhitening <: WhiteningAlgorithm
 
 No-op whitening transformation, leaves samples unchanged.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)()```
 """
 struct NoWhitening <: WhiteningAlgorithm end
 export NoWhitening
@@ -21,7 +25,7 @@ export NoWhitening
 
 
 """
-    CholeskyWhitening <: WhiteningAlgorithm
+    struct CholeskyWhitening <: WhiteningAlgorithm
 
 Whitening transformation based on a Cholesky transformation of the empirical
 sample covariance matrix.
@@ -36,7 +40,7 @@ export CholeskyWhitening
 
 
 """
-    CholeskyPartialWhitening <: WhiteningAlgorithm
+    struct CholeskyPartialWhitening <: WhiteningAlgorithm
 
 Whitening transformation based on a Cholesky transformation of the empirical
 sample covariance matrix.
@@ -54,7 +58,7 @@ export CholeskyPartialWhitening
 
 
 """
-    StatisticalWhitening <: WhiteningAlgorithm
+    struct StatisticalWhitening <: WhiteningAlgorithm
 
 Whitening transformation based statistical whitening.
 CholeskyPartialWhitening

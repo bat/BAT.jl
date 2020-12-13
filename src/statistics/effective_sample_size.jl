@@ -22,19 +22,16 @@ end
 
 
 """
-    GeyerAutocorLen <: AutocorLenAlgorithm
+    struct GeyerAutocorLen <: AutocorLenAlgorithm
     
 Integrated autocorrelation length estimation based on Geyer’s initial monotone sequence criterion
 
 See [C. J. Geyer, "Practical Markov Chain Monte Carlo" (1992)](https://projecteuclid.org/download/pdf_1/euclid.ss/1177011137)
 and [C. J. Geyer, "Introduction to Markov Chain Monte Carlo" (2011)](https://www.semanticscholar.org/paper/1-Introduction-to-Markov-Chain-Monte-Carlo-Geyer/21a92825dcec23c743e77451ff5b5ee6b1091651).
 
+Constructors:
 
-Constructor:
-
-```julia
-GeyerAutocorLen()
-```
+* ```$(FUNCTIONNAME)()```
 
 The same algorithm is used by
 [STAN (v2.21)](https://mc-stan.org/docs/2_21/reference-manual/effective-sample-size-section.html#estimation-of-effective-sample-size)
