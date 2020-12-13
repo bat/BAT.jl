@@ -60,14 +60,16 @@ If you use [`BAT.AHMIntegration`](@ref) as an important part of your work, pleas
 > Caldwell et al. "Integration with an Adaptive Harmonic Mean Algorithm" (2020) [arXiv:1808.08051](https://arxiv.org/abs/1808.08051)
 
 ```
-@article{Caldwell:2018ufl,
-    author = "Caldwell, Allen and Eller, Philipp and Hafych, Vasyl and Schick, Rafael C. and Schulz, Oliver and Szalay, Marco",
-    title = "{Integration with an Adaptive Harmonic Mean Algorithm}",
-    eprint = "1808.08051",
-    archivePrefix = "arXiv",
-    primaryClass = "physics.data-an",
-    month = "8",
-    year = "2018"
+@article{caldwell2020integration,
+    author = "Caldwell, Allen and Eller, Philipp and Hafych, Vasyl and Schick, Rafael and Schulz, Oliver and Szalay, Marco",
+    title = "{Integration with an adaptive harmonic mean algorithm}",
+    journal = "International Journal of Modern Physics A",
+    volume = "35",
+    number = "24",
+    pages = "2050142",
+    year = "2020",
+    publisher = "World Scientific",
+    doi = "10.1142/S0217751X20501420"
 }
 ```
 
