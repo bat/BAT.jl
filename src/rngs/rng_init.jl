@@ -7,6 +7,8 @@ using Random123: random123_r, gen_seed
 @doc doc"""
     bat_rng()
 
+*Experimental feature, not part of stable public API.*
+
 Return a new BAT-compatible random number generator, with a random seed drawn
 from the system entropy pool.
 """

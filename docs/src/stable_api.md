@@ -37,9 +37,7 @@ bat_findmode
 bat_initval
 bat_integrate
 bat_integrated_autocorr_len
-bat_marginalmode
 bat_read
-bat_rng
 bat_sample
 bat_write
 ladjof

@@ -61,6 +61,8 @@ end
         nbins::Union{Integer, Symbol} = 200
     )::DensitySampleVector
 
+*Experimental feature, not part of stable public API.*
+
 Estimates a local mode of `samples` by finding the maximum of marginalized posterior for each dimension.
 
 Returns a NamedTuple of the shape
