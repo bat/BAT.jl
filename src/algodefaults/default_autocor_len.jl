@@ -6,17 +6,3 @@ bat_default(
     ::Val{:algorithm},
     ::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}}
 ) = GeyerAutocorLen()
-
-
-bat_default(
-    ::typeof(bat_eff_sample_size),
-    ::Val{:algorithm},
-    ::AbstractVectorOfSimilarVectors{<:Real}
-) = GeyerAutocorLen()
-
-bat_default(
-    ::typeof(bat_eff_sample_size),
-    ::Val{:algorithm},
-    ::DensitySampleVector
-
-) = GeyerAutocorLen()

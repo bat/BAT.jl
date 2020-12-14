@@ -70,6 +70,8 @@ DensityIdentityTransform
 DensitySample
 DensitySampleVector
 DistLikeDensity
+EffSampleSizeAlgorithm
+EffSampleSizeFromAC
 ExplicitInit
 FullDensityTransform
 GelmanRubinConvergence

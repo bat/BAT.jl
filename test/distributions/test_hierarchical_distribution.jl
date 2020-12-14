@@ -32,7 +32,7 @@ using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
         @test @inferred(logpdf(hd, stripscalar(varshape(hd)(ux)))) == logpdf(ud, ux)
 
         samples = bat_sample(hd, MCMCSampling(mcalg = MetropolisHastings(), trafo = NoDensityTransform(), nsteps = 10^5)).result
-        @test isapprox(cov(unshaped.(samples)), cov(ud), rtol = 0.2)
+        @test isapprox(cov(unshaped.(samples)), cov(ud), rtol = 0.25)
     end
 
     let

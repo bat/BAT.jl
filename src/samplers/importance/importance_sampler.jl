@@ -57,10 +57,14 @@ function bat_sample_impl(
     logvals = eval_logval.(Ref(density), samples)
     weights = exp.(logvals)
 
+    vol = exp(BigFloat(log_volume(spatialvolume(var_bounds(density)))))
+    est_integral = mean(weights) * vol
+    # ToDo: Add integral error estimate
+
     samples_trafo = shape.(DensitySampleVector(samples, logvals, weight = weights))
     samples_notrafo = inv(trafo).(samples_trafo)
 
-    return (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo)
+    return (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, integral = est_integral)
 end
 
 
@@ -120,7 +124,10 @@ function bat_sample_impl(
     posterior_logd = eval_logval.(Ref(posterior), v)
     weight = exp.(posterior_logd - unshaped_prior_samples.logd) .* prior_weight
 
+    est_integral = mean(weight)
+    # ToDo: Add integral error estimate
+
     posterior_samples = shape.(DensitySampleVector(v, posterior_logd, weight = weight))
 
-    return (result = posterior_samples, prior_samples = prior_samples)
+    return (result = posterior_samples, prior_samples = prior_samples, integral = est_integral)
 end

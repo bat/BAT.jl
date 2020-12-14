@@ -12,7 +12,12 @@ using LinearAlgebra: Diagonal, ones
                               dist::Distribution; val_expected::Real=1.0,
                               val_rtol::Real=3.5, err_max::Real=0.2)
         @testset "$title" begin
-            samplingalg = MCMCSampling(mcalg = MetropolisHastings(), trafo = NoDensityTransform(), nsteps = 10^5)
+            samplingalg = MCMCSampling(
+                mcalg = MetropolisHastings(),
+                trafo = NoDensityTransform(),
+                nsteps = 2*10^5,
+                burnin = MCMCMultiCycleBurnin(nsteps_per_cycle = 4*10^4, max_ncycles = 60)
+            )
             sample = bat_sample(dist, samplingalg).result
             sample_integral = bat_integrate(sample, algorithm).result
 

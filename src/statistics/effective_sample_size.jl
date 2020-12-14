@@ -107,15 +107,37 @@ end
 
 
 
-function bat_eff_sample_size_impl(v::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}}, algorithm::AutocorLenAlgorithm)
-    tau_int = bat_integrated_autocorr_len(v, algorithm).result
+"""
+    struct EffSampleSizeFromAC <: EffSampleSizeAlgorithm
+    
+Effective sample size estimation based on the integrated autocorrelation
+length of the samples.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
+"""
+@with_kw struct EffSampleSizeFromAC{AC<:AutocorLenAlgorithm} <: EffSampleSizeAlgorithm
+    acalg::AC = GeyerAutocorLen()
+end
+
+export EffSampleSizeFromAC
+
+
+
+function bat_eff_sample_size_impl(v::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}}, algorithm::EffSampleSizeFromAC)
+    tau_int = bat_integrated_autocorr_len(v, algorithm.acalg).result
     n = length(eachindex(v))
     ess = min.(n, n./ tau_int)
     (result = ess,)
 end
 
 
-function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::AutocorLenAlgorithm)
+function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::EffSampleSizeFromAC)
     vs = varshape(smpls)
     unshaped_smpls = unshaped.(smpls)
     n = length(eachindex(unshaped_smpls))

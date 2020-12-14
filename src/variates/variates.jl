@@ -2,5 +2,5 @@
 
 include("shaped_variates.jl")
 include("spatialvolume.jl")
-include("parambounds.jl")
+include("varbounds.jl")
 include("density_sample.jl")

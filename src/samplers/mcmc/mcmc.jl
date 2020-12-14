@@ -10,5 +10,5 @@ include("mcmc_convergence.jl")
 include("chain_pool_init.jl")
 include("multi_cycle_burnin.jl")
 include("mcmc_sample.jl")
-include("algorithms/algorithms.jl") #!!!!! Rename to "mh/mh.jl"
+include("mh/mh.jl")
 include("ahmc/ahmc.jl")

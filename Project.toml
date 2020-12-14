@@ -1,6 +1,6 @@
 name = "BAT"
 uuid = "c0cd4b16-88b7-57fa-983b-ab80aecada7e"
-version = "2.0.0-DEV"
+version = "2.0.0"
 
 [deps]
 AdaptiveRejectionSampling = "c75e803d-635f-53bd-ab7d-544e482d8c75"

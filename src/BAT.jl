@@ -66,7 +66,7 @@ import CPUTime
 include("utils/utils.jl")
 include("rngs/rngs.jl")
 include("distributions/distributions.jl")
-include("parameters/parameters.jl")
+include("variates/variates.jl")
 include("transforms/transforms.jl")
 include("densities/densities.jl")
 include("algotypes/algotypes.jl")
