@@ -162,15 +162,31 @@ function apply_dist_trafo(trg_d::StdMvDist, src_d::Distribution{Univariate}, src
 end
 
 
+_trafo_cdf(d::Distribution{Univariate,Continuous}, x::Real) = cdf(d, x)
+_trafo_quantile(d::Distribution{Univariate,Continuous}, u::Real) = quantile(d, u)
 
-@inline function _value_and_ladj(::typeof(cdf), d::Distribution{Univariate,Continuous}, x::Real)
-    u = cdf(d, x)
+function _trafo_cdf(dist::Distribution{Univariate,Continuous}, x::ForwardDiff.Dual{TAG}) where TAG
+    x_v = ForwardDiff.value(x)
+    u = cdf(dist, x_v)
+    dudx = pdf(dist, x_v)
+    ForwardDiff.Dual{TAG}(u, dudx * ForwardDiff.partials(x))
+end
+
+function _trafo_quantile(dist::Distribution{Univariate,Continuous}, u::ForwardDiff.Dual{TAG}) where TAG
+    x = quantile(dist, ForwardDiff.value(u))
+    dxdu = inv(pdf(dist, x))
+    ForwardDiff.Dual{TAG}(x, dxdu * ForwardDiff.partials(u))
+end
+
+
+@inline function _value_and_ladj(::typeof(_trafo_cdf), d::Distribution{Univariate,Continuous}, x::Real)
+    u = _trafo_cdf(d, x)
     ladj = + logpdf(d, x)
     (u, ladj)
 end
 
-@inline function _value_and_ladj(::typeof(quantile), d::Distribution{Univariate,Continuous}, u::Real)
-    x = quantile(d, u)
+@inline function _value_and_ladj(::typeof(_trafo_quantile), d::Distribution{Univariate,Continuous}, u::Real)
+    x = _trafo_quantile(d, u)
     ladj = - logpdf(d, x)
     (x, ladj)
 end
@@ -198,14 +214,14 @@ function _eval_dist_trafo_func(f::Function, d::Distribution{Univariate,Continuou
 end
 
 function apply_dist_trafo(::StandardUvUniform, src_d::Distribution{Univariate,Continuous}, src_v::Real, prev_ladj::Real)
-    _eval_dist_trafo_func(cdf, src_d, src_v, prev_ladj)
+    _eval_dist_trafo_func(_trafo_cdf, src_d, src_v, prev_ladj)
 end
 
 function apply_dist_trafo(trg_d::Distribution{Univariate,Continuous}, ::StandardUvUniform, src_v::Real, prev_ladj::Real)
     TV = float(typeof(src_v))
     # Avoid src_v ≈ 0 and src_v ≈ 1 to avoid infinite variate values for target distributions with infinite support:
     mod_src_v = ifelse(src_v == 0, zero(TV) + eps(TV), ifelse(src_v == 1, one(TV) - eps(TV), convert(TV, src_v)))
-    trg_v, ladj = _eval_dist_trafo_func(quantile, trg_d, mod_src_v, prev_ladj)
+    trg_v, ladj = _eval_dist_trafo_func(_trafo_quantile, trg_d, mod_src_v, prev_ladj)
     (v = trg_v, ladj = ladj)
 end
 
