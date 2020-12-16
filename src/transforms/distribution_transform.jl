@@ -292,6 +292,28 @@ function apply_dist_trafo(trg_d::MvNormal, src_d::StandardMvUniform, src_v::Abst
 end
 
 
+eff_totalndof(d::Dirichlet) = length(d) - 1
+
+function apply_dist_trafo(trg_d::StandardMvUniform, src_d::Dirichlet, src_v::AbstractVector{<:Real}, prev_ladj::Real)
+    throw(ErrorException("Dirichlet to StandardMvUniform is not available (yet)"))
+end
+
+function apply_dist_trafo(trg_d::Dirichlet, src_d::StandardMvUniform, src_v::AbstractVector{<:Real}, prev_ladj::Real)
+    # See https://arxiv.org/abs/1010.3436
+    len_t = length(trg_d)
+    @argcheck len_t == length(src_d) + 1
+    in_d = product_distribution([Beta(sum(trg_d.alpha[i+1:end]),trg_d.alpha[i]) for i in 1:len_t-1])
+    in_v, in_ladj = apply_dist_trafo(in_d, src_d, src_v, prev_ladj)
+    trg_v = [prod(in_v[1:i-1]) * (i < len_t ? 1-in_v[i] : 1) for i in 1:len_t]
+    if isnan(prev_ladj)
+        var_trafo_result(trg_v, src_v)
+    else
+        trafo_ladj = - logpdf(trg_d, trg_v)
+        var_trafo_result(trg_v, src_v, trafo_ladj, prev_ladj)
+    end
+end
+
+
 function apply_dist_trafo(trg_d::Distributions.Product, src_d::Distributions.Product, src_v::AbstractVector{<:Real}, prev_ladj::Real)
     rs = apply_dist_trafo.(trg_d.v, src_d.v, src_v, zero(Float32))
     trg_v = broadcast(r -> r.v, rs)
