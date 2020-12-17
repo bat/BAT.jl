@@ -218,7 +218,16 @@ function Base.copy(
     trafo = instance.f
     s_src = instance.args[1]
     vs_trg = valshape(trafo(first(s_src.v)))
-    s_trg_unshaped = deepcopy(unshaped.(s_src))
+    s_src_us = unshaped.(s_src)
+
+    n = length(eachindex(s_src_us))
+    s_trg_unshaped = DensitySampleVector((
+        nestedview(similar(flatview(s_src_us.v), totalndof(vs_trg), n)),
+        zero(s_src_us.logd),
+        deepcopy(s_src_us.weight),
+        deepcopy(s_src_us.info),
+        deepcopy(s_src_us.aux),
+    ))
     @assert axes(s_trg_unshaped) == axes(s_src)
     @assert s_trg_unshaped.v isa ArrayOfSimilarArrays
     @threads for i in eachindex(s_trg_unshaped, s_src)
