@@ -16,7 +16,7 @@ using LinearAlgebra: Diagonal, ones
                 mcalg = MetropolisHastings(),
                 trafo = NoDensityTransform(),
                 nsteps = 2*10^5,
-                burnin = MCMCMultiCycleBurnin(nsteps_per_cycle = 4*10^4, max_ncycles = 60)
+                burnin = MCMCMultiCycleBurnin(nsteps_per_cycle = 10^5, max_ncycles = 60)
             )
             sample = bat_sample(dist, samplingalg).result
             sample_integral = bat_integrate(sample, algorithm).result
@@ -26,7 +26,7 @@ using LinearAlgebra: Diagonal, ones
         end
     end
     test_integration(AHMIntegration(), "funnel distribution", BAT.FunnelDistribution(), val_rtol = 15)
-    test_integration(AHMIntegration(), "multimodal cauchy", BAT.MultimodalCauchy(), val_rtol = 35)
+    test_integration(AHMIntegration(), "multimodal cauchy", BAT.MultimodalCauchy(), val_rtol = 50)
     test_integration(AHMIntegration(), "Gaussian shell", BAT.GaussianShell(), val_rtol = 15)
     test_integration(AHMIntegration(), "MvNormal", MvNormal(Diagonal(ones(5))), val_rtol = 15)
 
