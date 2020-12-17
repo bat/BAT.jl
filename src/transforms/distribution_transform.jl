@@ -5,6 +5,9 @@ function eff_totalndof end
 
 eff_totalndof(d::Distribution) = length(d)
 
+# NamedTupleDist, e.g., currently doesn't support `length()`:
+eff_totalndof(d::Distribution{<:ValueShapes.StructVariate}) = totalndof(varshape(d))
+
 
 struct DistributionTransform{
     VF <: VariateForm,
