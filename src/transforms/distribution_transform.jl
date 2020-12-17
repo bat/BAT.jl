@@ -264,8 +264,12 @@ function apply_dist_trafo(trg_d::StandardMvNormal, src_d::MvNormal, src_v::Abstr
     @argcheck length(trg_d) == length(src_d)
     A = cholesky(src_d.Σ).U
     trg_v = transpose(A) \ (src_v - src_d.μ)
-    trafo_ladj = -logabsdet(A)[1]
-    var_trafo_result(trg_v, src_v, trafo_ladj, prev_ladj)
+    if isnan(prev_ladj)
+        var_trafo_result(trg_v, src_v)
+    else
+        trafo_ladj = -logabsdet(A)[1]
+        var_trafo_result(trg_v, src_v, trafo_ladj, prev_ladj)
+    end
 end
 
 function apply_dist_trafo(trg_d::MvNormal, src_d::StandardMvNormal, src_v::AbstractVector{<:Real}, prev_ladj::Real)
@@ -273,7 +277,12 @@ function apply_dist_trafo(trg_d::MvNormal, src_d::StandardMvNormal, src_v::Abstr
     A = cholesky(trg_d.Σ).U
     trg_v = transpose(A) * src_v + trg_d.μ
     trafo_ladj = logabsdet(A)[1]
-    var_trafo_result(trg_v, src_v, trafo_ladj, prev_ladj)
+    if isnan(prev_ladj)
+        var_trafo_result(trg_v, src_v)
+    else
+        trafo_ladj = logabsdet(A)[1]
+        var_trafo_result(trg_v, src_v, trafo_ladj, prev_ladj)
+    end
 end
 
 function apply_dist_trafo(trg_d::StandardMvUniform, src_d::MvNormal, src_v::AbstractVector{<:Real}, prev_ladj::Real)
