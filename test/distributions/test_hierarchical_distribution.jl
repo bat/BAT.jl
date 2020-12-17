@@ -8,7 +8,7 @@ using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
 @testset "hierarchial_distribution" begin
     let
         primary_dist = NamedTupleDist(
-            foo = Exponential(3.5),
+            foo = LogNormal(1, 0.3),
             bar = Normal(2.0, 1.0)
         )
 
@@ -31,7 +31,7 @@ using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
         @test @inferred(logpdf(hd, varshape(hd)(ux))) == logpdf(ud, ux)
         @test @inferred(logpdf(hd, stripscalar(varshape(hd)(ux)))) == logpdf(ud, ux)
 
-        samples = bat_sample(hd, MCMCSampling(mcalg = MetropolisHastings(), trafo = NoDensityTransform(), nsteps = 10^5)).result
+        samples = bat_sample(hd, MCMCSampling(mcalg = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4)).result
         @test isapprox(cov(unshaped.(samples)), cov(ud), rtol = 0.25)
     end
 
