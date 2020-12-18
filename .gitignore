@@ -4,3 +4,8 @@
 *.jl.mem
 .ipynb_checkpoints
 Manifest.toml
+
+*.dll
+*.so
+*.so.*
+*.dylib
