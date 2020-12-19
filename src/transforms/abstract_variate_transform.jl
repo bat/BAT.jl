@@ -212,6 +212,30 @@ function Base.copy(
         <:Base.Broadcast.AbstractArrayStyle{1},
         <:Any,
         <:VariateTransform,
+        <:Tuple{<:Union{VectorOfSimilarVectors{<:Real},ShapedAsNTArray{<:Any,1}}}
+    }
+)
+    trafo = instance.f
+    v_src = instance.args[1]
+    vs_trg = valshape(trafo(first(v_src)))
+    v_src_us = unshaped.(v_src)
+
+    n = length(eachindex(v_src_us))
+    v_trg_unshaped = nestedview(similar(flatview(v_src_us), totalndof(vs_trg), n))
+    @assert axes(v_trg_unshaped) == axes(v_src)
+    @assert v_trg_unshaped isa ArrayOfSimilarArrays
+    @threads for i in eachindex(v_trg_unshaped, v_src)
+        r = trafo(v_src[i])
+        v_trg_unshaped[i] .= unshaped(r)
+    end
+    vs_trg.(v_trg_unshaped)
+end
+
+function Base.copy(
+    instance::Base.Broadcast.Broadcasted{
+        <:Base.Broadcast.AbstractArrayStyle{1},
+        <:Any,
+        <:VariateTransform,
         <:Tuple{DensitySampleVector}
     }
 )
