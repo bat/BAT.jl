@@ -113,3 +113,7 @@ end
 function argchoice_msg(::typeof(bat_initval), ::Val{:algorithm}, x::InitvalAlgorithm)
     "Using initval algorithm $x"
 end
+
+
+# Internal for now:
+apply_trafo_to_init(trafo::AbstractVariateTransform, initalg::InitvalAlgorithm) = initalg

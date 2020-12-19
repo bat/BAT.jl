@@ -212,7 +212,7 @@ function Base.copy(
         <:Base.Broadcast.AbstractArrayStyle{1},
         <:Any,
         <:VariateTransform,
-        <:Tuple{<:Union{VectorOfSimilarVectors{<:Real},ShapedAsNTArray{<:Any,1}}}
+        <:Tuple{<:Union{ArrayOfSimilarVectors{<:Real},ShapedAsNTArray}}
     }
 )
     trafo = instance.f
