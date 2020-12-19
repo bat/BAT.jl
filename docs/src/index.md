@@ -1,6 +1,6 @@
 # BAT.jl Documentation
 
-BAT.jl is a Bayesian Analysis Toolkit in Julia. It is a high high-performance tool box for Bayesian inference with statistical models expressed in a general-purpose programming language instead of a domain-specific language.
+BAT.jl is a Bayesian Analysis Toolkit in Julia. It is a high-performance tool box for Bayesian inference with statistical models expressed in a general-purpose programming language instead of a domain-specific language.
 
 Typical applications for this package are parameter inference given a model (in the form of a likelihood function and prior), the comparison of different models in the light of a given data set, and the test of the validity of a model to represent the data set at hand. BAT.jl provides access to the full Bayesian posterior distribution to enable parameter estimation, limit setting and uncertainty propagation. BAT.jl also provides supporting functionality like plotting recipes and reporting functions.
 
