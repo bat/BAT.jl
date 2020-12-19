@@ -192,7 +192,7 @@ function mcmc_iterate!(
     end_time = time()
     elapsed_time = end_time - start_time
 
-    @debug "Finished iteration over MCMC chain $(chain.info.id), nsteps = $(nsteps(chain)), time = $(Float32(elapsed_time))"
+    @debug "Finished iteration over MCMC chain $(chain.info.id), nsteps = $(nsteps(chain)), nsamples = $(nsamples(chain)), time = $(Float32(elapsed_time))"
 
     nothing
 end
