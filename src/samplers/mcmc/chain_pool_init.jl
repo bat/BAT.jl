@@ -128,23 +128,25 @@ function mcmc_init!(
     tidxs = LinearIndices(tuners)
     n = length(tidxs)
 
-    modes = hcat(broadcast(samples -> Array(bat_findmode(samples, MaxDensitySampleSearch()).result), outputs)...)
+    lastpositions = reduce(hcat, (o -> last(o).v).(outputs))
+    # Rate chains by number of accepted samples:
+    chainratings = nsamples.(chains)
 
     final_chains = similar(chains, 0)
     final_tuners = similar(tuners, 0)
     final_outputs = similar(outputs, 0)
 
-    if 2 <= m < size(modes, 2)
-        clusters = kmeans(modes, m, init = KmCentralityAlg())
+    if 2 <= m < size(lastpositions, 2)
+        clusters = kmeans(lastpositions, m, init = KmCentralityAlg())
         clusters.converged || error("k-means clustering of MCMC chains did not converge")
 
-        mincosts = fill(Inf, m)
+        maxrating = fill(-Inf, m)
         chain_sel_idxs = fill(0, m)
 
         for i in tidxs
             j = clusters.assignments[i]
-            if clusters.costs[i] < mincosts[j]
-                mincosts[j] = clusters.costs[i]
+            if chainratings[i] > maxrating[j]
+                maxrating[j] = chainratings[i]
                 chain_sel_idxs[j] = i
             end
         end
