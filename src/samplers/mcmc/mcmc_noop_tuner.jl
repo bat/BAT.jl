@@ -31,6 +31,10 @@ function tuning_init!(tuner::MCMCNoOpTuner, chain::MCMCIterator)
 end
 
 
+function tuning_postinit!(tuner::MCMCNoOpTuner, chain::MCMCIterator, samples::DensitySampleVector)
+end
+
+
 function tuning_update!(tuner::MCMCNoOpTuner, chain::MCMCIterator, samples::DensitySampleVector)
     chain.info = MCMCIteratorInfo(chain.info, tuned = true)
     nothing
