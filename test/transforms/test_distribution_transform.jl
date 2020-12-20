@@ -72,6 +72,16 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
         Cuba.vegas(f_cuba, 1, 1).integral[1]
     end
     =#
+
+    @testset "Custom cdf and quantile for dual numbers" begin
+        Dual = ForwardDiff.Dual
+
+        @test BAT._trafo_cdf(Normal(Dual(0, 1, 0, 0), Dual(1, 0, 1, 0)), Dual(0.5, 0, 0, 1)) == cdf(Normal(Dual(0, 1, 0, 0), Dual(1, 0, 1, 0)), Dual(0.5, 0, 0, 1))
+        @test BAT._trafo_cdf(Normal(0, 1), Dual(0.5, 1)) == cdf(Normal(0, 1), Dual(0.5, 1))
+
+        @test BAT._trafo_quantile(Normal(0, 1), Dual(0.5, 1)) == quantile(Normal(0, 1), Dual(0.5, 1))
+        @test BAT._trafo_quantile(Normal(Dual(0, 1, 0, 0), Dual(1, 0, 1, 0)), Dual(0.5, 0, 0, 1)) == quantile(Normal(Dual(0, 1, 0, 0), Dual(1, 0, 1, 0)), Dual(0.5, 0, 0, 1))
+    end
 end
 
 @testset "bat_transform_defaults" begin

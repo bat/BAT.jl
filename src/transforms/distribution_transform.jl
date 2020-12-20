@@ -156,19 +156,25 @@ function apply_dist_trafo(trg_d::StdMvDist, src_d::Distribution{Univariate}, src
 end
 
 
-_trafo_cdf(d::Distribution{Univariate,Continuous}, x::Real) = cdf(d, x)
-_trafo_quantile(d::Distribution{Univariate,Continuous}, u::Real) = quantile(d, u)
+@inline _trafo_cdf(d::Distribution{Univariate,Continuous}, x::Real) = _trafo_cdf_impl(params(d), d, x)
 
-function _trafo_cdf(dist::Distribution{Univariate,Continuous}, x::ForwardDiff.Dual{TAG}) where TAG
+@inline _trafo_cdf_impl(::NTuple, d::Distribution{Univariate,Continuous}, x::Real) = cdf(d, x)
+
+@inline function _trafo_cdf_impl(::NTuple{N,Union{Integer,AbstractFloat}}, d::Distribution{Univariate,Continuous}, x::ForwardDiff.Dual{TAG}) where {N,TAG}
     x_v = ForwardDiff.value(x)
-    u = cdf(dist, x_v)
-    dudx = pdf(dist, x_v)
+    u = cdf(d, x_v)
+    dudx = pdf(d, x_v)
     ForwardDiff.Dual{TAG}(u, dudx * ForwardDiff.partials(x))
 end
 
-function _trafo_quantile(dist::Distribution{Univariate,Continuous}, u::ForwardDiff.Dual{TAG}) where TAG
-    x = quantile(dist, ForwardDiff.value(u))
-    dxdu = inv(pdf(dist, x))
+
+@inline _trafo_quantile(d::Distribution{Univariate,Continuous}, u::Real) = _trafo_quantile_impl(params(d), d, u)
+
+@inline _trafo_quantile_impl(::NTuple, d::Distribution{Univariate,Continuous}, u::Real) = quantile(d, u)
+
+@inline function _trafo_quantile_impl(::NTuple{N,Union{Integer,AbstractFloat}}, d::Distribution{Univariate,Continuous}, u::ForwardDiff.Dual{TAG}) where {N,TAG}
+    x = quantile(d, ForwardDiff.value(u))
+    dxdu = inv(pdf(d, x))
     ForwardDiff.Dual{TAG}(x, dxdu * ForwardDiff.partials(u))
 end
 
