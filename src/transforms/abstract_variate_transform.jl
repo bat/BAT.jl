@@ -322,8 +322,8 @@ function Base.copy(
         <:Base.Broadcast.AbstractArrayStyle{1},
         <:Any,
         <:Union{IdentityVT,InvVT{<:IdentityVT}},
-        <:Tuple{DensitySampleVector}
+        <:Tuple{<:Union{ArrayOfSimilarVectors{<:Real},ShapedAsNTArray,DensitySampleVector}}
     }
 )
-    instance.args[1]
+    deepcopy(instance.args[1])
 end
