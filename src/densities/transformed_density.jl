@@ -71,16 +71,18 @@ ValueShapes.varshape(density::TransformedDensity{<:AbstractDensity,<:Distributio
 ValueShapes.totalndof(density::TransformedDensity) = totalndof(varshape(density))
 
 
-var_bounds(density::TransformedDensity) = var_bounds(density.trafo)
+var_bounds(density::TransformedDensity) = _trafo_var_bounds(density.trafo)
 
-function var_bounds(trafo::VariateTransform)
-    n = totalndof(varshape(trafo))
-    HyperRectBounds(fill(_default_PT(-Inf), n), fill(_default_PT(+Inf), n))
+_trafo_var_bounds(trafo::VariateTransform) = missing
+
+function _trafo_var_bounds(trafo::DistributionTransform{<:Any,<:Any,<:Union{StandardUvUniform,StandardMvUniform}})
+    n = totalndof(trafo.target_varshape)
+    HyperRectBounds(fill(_default_PT(0), n), fill(_default_PT(1), n))
 end
 
-function var_bounds(trafo::VariateTransform{<:VariateForm,<:UnitSpace})
-    n = totalndof(varshape(trafo))
-    HyperRectBounds(fill(_default_PT(0), n), fill(_default_PT(1), n))
+function _trafo_var_bounds(trafo::DistributionTransform{<:Any,<:Any,<:Union{StandardUvNormal,StandardMvNormal}})
+    n = totalndof(trafo.target_varshape)
+    HyperRectBounds(fill(_default_PT(-Inf), n), fill(_default_PT(+Inf), n))
 end
 
 

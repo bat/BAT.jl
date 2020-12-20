@@ -41,7 +41,6 @@ BAT.HMISettings
 BAT.IntegrationVolume
 BAT.KDTreePartitioning
 BAT.MCMCSampleGenerator
-BAT.NamedTupleTransform
 BAT.OnlineMvCov
 BAT.OnlineMvMean
 BAT.OnlineUvMean
@@ -55,7 +54,6 @@ BAT.StandardUvNormal
 BAT.StandardUvUniform
 BAT.TransformedDensity
 BAT.TruncatedDensity
-BAT.VariateSpace
 BAT.VariateTransform
 BAT.WhiteningResult
 

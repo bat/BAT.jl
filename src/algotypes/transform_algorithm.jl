@@ -118,8 +118,7 @@ export DensityIdentityTransform
 
 
 function bat_transform_impl(target::NoDensityTransform, density::AnyDensityLike, algorithm::DensityIdentityTransform)
-    # ToDo: Return suitable VariateSpace instead of always returning MixedSpace()
-    (result = convert(AbstractDensity, density), trafo = IdentityVT(MixedSpace(), varshape(density)))
+    (result = convert(AbstractDensity, density), trafo = IdentityVT(varshape(density)))
 end
 
 
@@ -140,7 +139,7 @@ export PriorToUniform
 _distribution_density_trafo(target::PriorToUniform, density::DistributionDensity) = DistributionTransform(Uniform, parent(density))
 
 function bat_transform_impl(target::PriorToUniform, density::StandardUniformDensity, algorithm::DensityIdentityTransform)
-    (result = density, trafo = IdentityVT(UnitSpace(), varshape(density)))
+    (result = density, trafo = IdentityVT(varshape(density)))
 end
 
 
@@ -161,7 +160,7 @@ export PriorToGaussian
 _distribution_density_trafo(target::PriorToGaussian, density::DistributionDensity) = DistributionTransform(Normal, parent(density))
 
 function bat_transform_impl(target::PriorToGaussian, density::StandardNormalDensity, algorithm::DensityIdentityTransform)
-    (result = density, trafo = IdentityVT(InfiniteSpace(), varshape(density)))
+    (result = density, trafo = IdentityVT(varshape(density)))
 end
 
 

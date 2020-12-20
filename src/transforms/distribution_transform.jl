@@ -1,6 +1,10 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+const StdUvDist = Union{StandardUvUniform, StandardUvNormal}
+const StdMvDist = Union{StandardMvUniform, StandardMvNormal}
+
+
 function eff_totalndof end
 
 eff_totalndof(d::Distribution) = length(d)
@@ -10,27 +14,25 @@ eff_totalndof(d::Distribution{<:ValueShapes.StructVariate}) = totalndof(varshape
 
 
 struct DistributionTransform{
-    VF <: VariateForm,
-    ST <: VariateSpace,
-    SF <: VariateSpace,
+    VT <: AbstractValueShape,
+    VF <: AbstractValueShape,
     DT <: ContinuousDistribution,
-    DF <: Distribution{VF,Continuous}
-} <: VariateTransform{VF,ST,SF}
+    DF <: ContinuousDistribution
+} <: VariateTransform{VT,VF}
     target_dist::DT
     source_dist::DF
-    target_space::ST
-    source_space::SF
+    target_varshape::VT
+    source_varshape::VF
 end
 
-# ToDo: Add field to cache dist-specific pre-calculated values? May be useful
-# for truncated dists and others.
+# ToDo: Add specialized dist trafo types able to cache relevant quantities, etc.
 
 
 function _distrafo_ctor_impl(target_dist::Distribution, source_dist::Distribution)
     @argcheck eff_totalndof(target_dist) == eff_totalndof(source_dist)
-    target_space = getspace(target_dist)
-    source_space = getspace(source_dist)
-    DistributionTransform(target_dist, source_dist, target_space, source_space)
+    target_varshape = varshape(target_dist)
+    source_varshape = varshape(source_dist)
+    DistributionTransform(target_dist, source_dist, target_varshape, source_varshape)
 end
 
 DistributionTransform(target_dist::Distribution{VF,Continuous}, source_dist::Distribution{VF,Continuous}) where VF =
@@ -50,9 +52,6 @@ DistributionTransform(target_dist::Distribution{Multivariate,Continuous}, source
 function apply_dist_trafo end
 
 
-target_space(trafo::DistributionTransform) = trafo.target_space
-source_space(trafo::DistributionTransform) = trafo.source_space
-
 import Base.∘
 function ∘(a::DistributionTransform, b::DistributionTransform)
     @argcheck a.source_dist == b.target_dist
@@ -61,16 +60,11 @@ end
 
 Base.inv(trafo::DistributionTransform) = DistributionTransform(trafo.source_dist, trafo.target_dist)
 
-ValueShapes.varshape(trafo::DistributionTransform) = varshape(trafo.target_dist)
+ValueShapes.varshape(trafo::DistributionTransform) = varshape(trafo.source_varshape)
 
 
 function apply_vartrafo_impl(trafo::DistributionTransform, v::Any, prev_ladj::Real)
     apply_dist_trafo(trafo.target_dist, trafo.source_dist, v, prev_ladj)
-end
-
-
-function apply_vartrafo_impl(trafo::InvVT{<:DistributionTransform}, v::Any, prev_ladj::Real)
-    apply_vartrafo_impl(inv(trafo.orig), v, prev_ladj)
 end
 
 
