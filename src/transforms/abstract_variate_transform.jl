@@ -310,20 +310,20 @@ Base.inv(trafo::IdentityVT) = trafo
 ValueShapes.varshape(trafo::IdentityVT) = trafo.varshape
 
 
-function apply_vartrafo_impl(trafo::Union{IdentityVT,InvVT{<:IdentityVT}}, v::Any, prev_ladj::Real)
-    (v = v, ladj = prev_ladj)
-end
+@inline apply_vartrafo_impl(trafo::IdentityVT}, v::Any, prev_ladj::Real) = (v = v, ladj = prev_ladj)
 
-(trafo::Union{IdentityVT,InvVT{<:IdentityVT}})(s::DensitySample) = s
+(trafo::IdentityVT)(s::DensitySample) = s
+
 
 # Custom broadcast(::IdentityVT, DensitySampleVector), multithreaded:
+
 function Base.copy(
     instance::Base.Broadcast.Broadcasted{
         <:Base.Broadcast.AbstractArrayStyle{1},
         <:Any,
         <:Union{IdentityVT,InvVT{<:IdentityVT}},
-        <:Tuple{DensitySampleVector}
+        <:Tuple{<:Union{ArrayOfSimilarVectors{<:Real},ShapedAsNTArray,DensitySampleVector}}
     }
 )
-    instance.args[1]
+    deepcopy(instance.args[1])
 end
