@@ -55,6 +55,17 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
         Cuba.vegas(f_cuba, 1, 1).integral[1]
     end
     =#
+
+
+    @testset "trafo broadcasting" begin
+        dist = NamedTupleDist(a = Weibull(), b = Exponential())
+        smpls = bat_sample(dist, IIDSampling(nsamples = 100)).result
+        trafo = BAT.DistributionTransform(Normal, dist)
+        @inferred(broadcast(trafo, smpls)) isa DensitySampleVector
+        smpls_tr = trafo.(smpls)
+        smpls_tr_cmp = [trafo(s) for s in smpls]
+        @test smpls_tr == smpls_tr_cmp
+    end
 end
 
 @testset "bat_transform_defaults" begin

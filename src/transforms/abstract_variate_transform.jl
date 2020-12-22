@@ -257,7 +257,7 @@ function Base.copy(
     @threads for i in eachindex(s_trg_unshaped, s_src)
         r = trafo(s_src.v[i], zero(Float32))
         s_trg_unshaped.v[i] .= unshaped(r.v)
-        s_trg_unshaped.logd[i] -= r.ladj
+        s_trg_unshaped.logd[i] = s_src_us.logd[i] - r.ladj
     end
     vs_trg.(s_trg_unshaped)
 end
