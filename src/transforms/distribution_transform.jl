@@ -314,9 +314,7 @@ end
 
 eff_totalndof(d::Dirichlet) = length(d) - 1
 
-function apply_dist_trafo(trg_d::StandardMvUniform, src_d::Dirichlet, src_v::AbstractVector{<:Real}, prev_ladj::Real)
-    throw(ErrorException("Dirichlet to StandardMvUniform is not available (yet)"))
-end
+std_dist_to(trg_d::Dirichlet) = StandardMvUniform(eff_totalndof(trg_d))
 
 function apply_dist_trafo(trg_d::Dirichlet, src_d::StandardMvUniform, src_v::AbstractVector{<:Real}, prev_ladj::Real)
     # See https://arxiv.org/abs/1010.3436
