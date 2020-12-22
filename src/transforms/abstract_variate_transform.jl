@@ -71,12 +71,15 @@ ladjof(trafo::AbstractVariateTransform) = LADJOfVarTrafo(trafo)
 
 
 
-function (trafo::AbstractVariateTransform)(s::DensitySample)
+function _transform_density_sample(trafo::AbstractVariateTransform, s::DensitySample)
     r = trafo(s.v, zero(Float32))
     v = stripscalar(r.v)  # ToDo: Do we want to use stripscalar here?
     logd = s.logd - r.ladj
     DensitySample(v, logd, s.weight, s.info, s.aux)
 end
+
+(trafo::AbstractVariateTransform)(s::DensitySample) = _transform_density_sample(trafo, s)
+
 
 # Custom broadcast(::AbstractVariateTransform, DensitySampleVector), multithreaded:
 function Base.copy(
@@ -219,6 +222,7 @@ apply_vartrafo(trafo::VariateTransform{<:Any,<:ValueShapes.NamedTupleShape{names
 
 (trafo::VariateTransform)(v::Any) = apply_vartrafo(trafo, v, Float32(NaN)).v
 (trafo::VariateTransform)(v::Any, prev_ladj::Real) = apply_vartrafo(trafo, v, prev_ladj)
+(trafo::VariateTransform)(s::DensitySample) = _transform_density_sample(trafo, s)
 
 
 
