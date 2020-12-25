@@ -22,6 +22,7 @@ GridSampler
 HierarchicalDistribution
 PartitionedSampling
 PriorImportanceSampler
+ReactiveNestedSampling
 SobolSampler
 SuaveIntegration
 VEGASIntegration

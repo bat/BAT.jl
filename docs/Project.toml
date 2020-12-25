@@ -14,7 +14,9 @@ Random123 = "74087812-796a-5b5d-8853-05524746bad3"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
+UltraNest = "6822f173-b0be-4018-9ee2-28bf56348d09"
 ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
+
 
 [compat]
 Cuba = "2"
