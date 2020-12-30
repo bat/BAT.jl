@@ -69,7 +69,7 @@ $(TYPEDFIELDS)
     TR<:AbstractDensityTransformTarget,
     IA<:InitvalAlgorithm
 } <: AbstractModeEstimator
-    trafo::TR = NoDensityTransform()
+    trafo::TR = PriorToUniform()
     init::IA = InitFromTarget()
 end
 export MaxDensityNelderMead
