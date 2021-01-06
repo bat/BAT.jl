@@ -79,8 +79,7 @@ include("algodefaults/algodefaults.jl")
 include("io/io.jl")
 include("plotting/plotting.jl")
 
-precompile(bat_sample, (PosteriorDensity{BAT.DistributionDensity{MvNormal{Float64,PDMats.PDiagMat{Float64,Array{Float64,1}},FillArrays.Zeros{Float64,1,Tuple{Base.OneTo{Int64}}}},BAT.HyperRectBounds{Float32}},BAT.DistributionDensity{NamedTupleDist{(:a, :b),Tuple{Weibull{Float64},MvNormal{Float64,PDMats.PDiagMat{Float64,Array{Float64,1}},FillArrays.Zeros{Float64,1,Tuple{Base.OneTo{Int64}}}}},Tuple{ValueAccessor{ScalarShape{Real}},ValueAccessor{ArrayShape{Real,1}}}},BAT.HyperRectBounds{Float64}},BAT.HyperRectBounds{Float32},NamedTupleShape{(:a, :b),Tuple{ValueAccessor{ScalarShape{Real}},ValueAccessor{ArrayShape{Real,1}}}}}, MCMCSampling{MetropolisHastings{BAT.MvTDistProposal,RepetitionWeighting{Int64},AdaptiveMHTuning},PriorToGaussian,MCMCChainPoolInit,MCMCMultiCycleBurnin,BrooksGelmanConvergence,typeof(BAT.nop_func)}))
-precompile(bat_sample, (PosteriorDensity{BAT.DistributionDensity{MvNormal{Float64,PDiagMat{Float64,Array{Float64,1}},FillArrays.Zeros{Float64,1,Tuple{Base.OneTo{Int64}}}},BAT.HyperRectBounds{Float32}},BAT.DistributionDensity{NamedTupleDist{(:a, :b),Tuple{Weibull{Float64},MvNormal{Float64,PDiagMat{Float64,Array{Float64,1}},FillArrays.Zeros{Float64,1,Tuple{Base.OneTo{Int64}}}}},Tuple{ValueAccessor{ScalarShape{Real}},ValueAccessor{ArrayShape{Real,1}}}},BAT.HyperRectBounds{Float64}},BAT.HyperRectBounds{Float32},NamedTupleShape{(:a, :b),Tuple{ValueAccessor{ScalarShape{Real}},ValueAccessor{ArrayShape{Real,1}}}}}, MCMCSampling{HamiltonianMC,PriorToGaussian,MCMCChainPoolInit,MCMCMultiCycleBurnin,BrooksGelmanConvergence,typeof(BAT.nop_func)}))
+include("precompile.jl")
 
 
 const _PLOTS_MODULE = Ref{Union{Module,Nothing}}(nothing)
