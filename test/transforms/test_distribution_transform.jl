@@ -93,6 +93,19 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
         smpls_tr_cmp = [trafo(s) for s in smpls]
         @test smpls_tr == smpls_tr_cmp
     end
+
+    @testset "density transform" begin
+        likelihood = @inferred(NamedTupleDist(a = Normal(), b = Exponential()))
+	prior = product_distribution([Normal(), Gamma()]) 
+	posterior_density = PosteriorDensity(likelihood, prior)
+
+	posterior_density_trafod = @inferred(bat_transform(PriorToUniform(), posterior_density, FullDensityTransform()))
+
+	@test posterior_density_trafod.result.orig.likelihood.dist == likelihood
+	@test posterior_density_trafod.result.orig.prior.dist == prior
+
+	@test posterior_density_trafod.result.trafo.target_dist isa BAT.StandardMvUniform
+    end
 end
 
 
