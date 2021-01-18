@@ -1,6 +1,11 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+function eff_totalndof end
+
+eff_totalndof(d::Distribution) = length(d)
+
+
 struct DistributionTransform{
     VF <: VariateForm,
     ST <: VariateSpace,
@@ -19,7 +24,7 @@ end
 
 
 function _distrafo_ctor_impl(target_dist::Distribution, source_dist::Distribution)
-    @argcheck totalndof(varshape(target_dist)) == totalndof(varshape(source_dist))
+    @argcheck eff_totalndof(target_dist) == eff_totalndof(source_dist)
     target_space = getspace(target_dist)
     source_space = getspace(source_dist)
     DistributionTransform(target_dist, source_dist, target_space, source_space)
@@ -81,31 +86,17 @@ end
 
 function _trg_dist(disttype::Type{<:_StdDistType}, source_dist::Distribution{Multivariate,Continuous})
     trg_dt = _trg_disttype(disttype, Multivariate)
-    trg_dt(length(source_dist))
+    trg_dt(eff_totalndof(source_dist))
 end
 
 function _trg_dist(disttype::Type{<:_StdDistType}, source_dist::ContinuousDistribution)
-    trg_vs = varshape(source_dist)
     trg_dt = _trg_disttype(disttype, Multivariate)
-    trg_dt(totalndof(trg_vs))
+    trg_dt(eff_totalndof(source_dist))
 end
 
-
-function DistributionTransform(disttype::Type{<:_StdDistType}, source_dist::Distribution{Univariate,Continuous})
-    trg_dt = _trg_disttype(disttype, Univariate)
-    DistributionTransform(trg_dt(), source_dist)
-end
-
-function DistributionTransform(disttype::Type{<:_StdDistType}, source_dist::Distribution{Multivariate,Continuous})
-    trg_dt = _trg_disttype(disttype, Multivariate)
-    trg_d = trg_dt(length(source_dist))
-    DistributionTransform(trg_d, source_dist)
-end
 
 function DistributionTransform(disttype::Type{<:_StdDistType}, source_dist::ContinuousDistribution)
-    trg_vs = varshape(source_dist)
-    trg_dt = _trg_disttype(disttype, Multivariate)
-    trg_d = trg_dt(totalndof(trg_vs))
+    trg_d = _trg_dist(disttype, source_dist)
     DistributionTransform(trg_d, source_dist)
 end
 
