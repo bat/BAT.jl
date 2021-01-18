@@ -104,33 +104,49 @@ function DistributionTransform(disttype::Type{<:_StdDistType}, source_dist::Cont
 end
 
 
-function apply_dist_trafo(trg_d::Distribution{Multivariate}, src_d::ReshapedDist, src_v::Any, prev_ladj::Real)
-    src_vs = varshape(src_d)
-    @argcheck length(trg_d) == totalndof(src_vs)
-    apply_dist_trafo(trg_d, unshaped(src_d), unshaped(src_v, src_vs), prev_ladj)
+
+function std_dist_from(src_d::Distribution)
+    throw(ArgumentError("No standard intermediate distribution defined to tranform into from $(typename(src_d).name)"))
 end
 
-function apply_dist_trafo(trg_d::ReshapedDist, src_d::Distribution{Multivariate}, src_v::AbstractVector{<:Real}, prev_ladj::Real)
-    trg_vs = varshape(trg_d)
-    @argcheck totalndof(trg_vs) == length(src_d)
-    r = apply_dist_trafo(unshaped(trg_d), src_d, src_v, prev_ladj)
-    (v = trg_vs(r.v), ladj = r.ladj)
-end
-
-function apply_dist_trafo(trg_d::ReshapedDist, src_d::ReshapedDist, src_v::AbstractVector{<:Real}, prev_ladj::Real)
-    trg_vs = varshape(trg_d)
-    src_vs = varshape(src_d)
-    @argcheck totalndof(trg_vs) == totalndof(src_vs)
-    r = apply_dist_trafo(unshaped(trg_d), unshaped(src_d), unshaped(src_v, src_vs), prev_ladj)
-    (v = trg_vs(r.v), ladj = r.ladj)
+function std_dist_to(trg_d::Distribution)
+    throw(ArgumentError("No standard intermediate distribution defined to tranform into $(typename(trg_d).name) from"))
 end
 
 
-function apply_dist_trafo(trg_d::Distribution{VF,VS}, src_d::Distribution{VF,VS}, src_v::Any, prev_ladj::Real) where {VF,VS}
-    uniform_dist = _trg_dist(Uniform, src_d)
-    @assert uniform_dist == _trg_dist(Uniform, trg_d)
-    uniform_v, uniform_ladj = apply_dist_trafo(uniform_dist, src_d, src_v, prev_ladj)
-    apply_dist_trafo(trg_d, uniform_dist, uniform_v, uniform_ladj)
+@inline function _intermediate_std_dist(trg_d::Distribution, src_d::Distribution)
+    _select_intermediate_dist(std_dist_to(trg_d), std_dist_from(src_d))
+end
+
+@inline _intermediate_std_dist(::Union{StdUvDist,StdMvDist}, src_d::Distribution) = std_dist_from(src_d)
+
+@inline _intermediate_std_dist(trg_d::Distribution, ::Union{StdUvDist,StdMvDist}) = std_dist_to(trg_d)
+
+function _intermediate_std_dist(::Union{StdUvDist,StdMvDist}, ::Union{StdUvDist,StdMvDist})
+    throw(ArgumentError("Direct conversions must be used between standard intermediate distributions"))
+end
+
+@inline _select_intermediate_dist(a::D, ::D) where D<:Union{StdUvDist,StdMvDist} = a
+@inline _select_intermediate_dist(a::D, ::D) where D<:Union{StandardUvUniform,StandardMvUniform} = a
+@inline _select_intermediate_dist(a::Union{StandardUvUniform,StandardMvUniform}, ::Union{StdUvDist,StdMvDist}) = a
+@inline _select_intermediate_dist(::Union{StdUvDist,StdMvDist}, b::Union{StandardUvUniform,StandardMvUniform}) = b
+
+_check_conv_eff_totalndof(trg_d::Uniform, src_d::Uniform) = nothing
+
+function _check_conv_eff_totalndof(trg_d::Distribution, src_d::Distribution)
+    trg_d_n = eff_totalndof(trg_d)
+    src_d_n = eff_totalndof(src_d)
+    if trg_d_n != src_d_n
+        throw(ArgumentError("Can't convert to $(typeof(trg_d).name) with $(trg_d_n) eff. DOF from $(typeof(src_d).name) with $(src_d_n) eff. DOF"))
+    end
+    nothing
+end
+
+function apply_dist_trafo(trg_d::Distribution, src_d::Distribution, src_v::Any, prev_ladj::Real)
+    _check_conv_eff_totalndof(trg_d, src_d)
+    intermediate_d = _intermediate_std_dist(trg_d, src_d)
+    intermediate_v, intermediate_ladj = apply_dist_trafo(intermediate_d, src_d, src_v, prev_ladj)
+    apply_dist_trafo(trg_d, intermediate_d, intermediate_v, intermediate_ladj)
 end
 
 
@@ -191,9 +207,13 @@ function _eval_dist_trafo_func(f::Function, d::Distribution{Univariate,Continuou
     end
 end
 
+std_dist_from(src_d::Distribution{Univariate,Continuous}) = StandardUvUniform()
+
 function apply_dist_trafo(::StandardUvUniform, src_d::Distribution{Univariate,Continuous}, src_v::Real, prev_ladj::Real)
     _eval_dist_trafo_func(cdf, src_d, src_v, prev_ladj)
 end
+
+std_dist_to(trg_d::Distribution{Univariate,Continuous}) = StandardUvUniform()
 
 function apply_dist_trafo(trg_d::Distribution{Univariate,Continuous}, ::StandardUvUniform, src_v::Real, prev_ladj::Real)
     TV = float(typeof(src_v))
@@ -218,6 +238,14 @@ end
 apply_dist_trafo(trg_d::Uniform, src_d::Uniform, src_v::Real, prev_ladj::Real) = _dist_trafo_rescale_impl(trg_d, src_d, src_v, prev_ladj)
 apply_dist_trafo(trg_d::StandardUvUniform, src_d::Uniform, src_v::Real, prev_ladj::Real) = _dist_trafo_rescale_impl(trg_d, src_d, src_v, prev_ladj)
 apply_dist_trafo(trg_d::Uniform, src_d::StandardUvUniform, src_v::Real, prev_ladj::Real) = _dist_trafo_rescale_impl(trg_d, src_d, src_v, prev_ladj)
+
+# ToDo: Use StandardUvNormal as standard intermediate dist for Normal? Would
+# be useful if StandardUvNormal would be a better standard intermediate than
+# StandardUvUniform for some other uniform distributions as well.
+#
+#     std_dist_from(src_d::Normal) = StandardUvNormal()
+#     std_dist_to(trg_d::Normal) = StandardUvNormal()
+
 apply_dist_trafo(trg_d::Normal, src_d::Normal, src_v::Real, prev_ladj::Real) = _dist_trafo_rescale_impl(trg_d, src_d, src_v, prev_ladj)
 apply_dist_trafo(trg_d::StandardUvNormal, src_d::Normal, src_v::Real, prev_ladj::Real) = _dist_trafo_rescale_impl(trg_d, src_d, src_v, prev_ladj)
 apply_dist_trafo(trg_d::Normal, src_d::StandardUvNormal, src_v::Real, prev_ladj::Real) = _dist_trafo_rescale_impl(trg_d, src_d, src_v, prev_ladj)
@@ -238,6 +266,8 @@ function apply_dist_trafo(trg_d::StandardMvNormal, src_d::StandardMvUniform, src
 end
 
 
+std_dist_from(src_d::MvNormal) = StandardMvNormal(length(src_d))
+
 function apply_dist_trafo(trg_d::StandardMvNormal, src_d::MvNormal, src_v::AbstractVector{<:Real}, prev_ladj::Real)
     @argcheck length(trg_d) == length(src_d)
     A = cholesky(src_d.Σ).U
@@ -246,24 +276,14 @@ function apply_dist_trafo(trg_d::StandardMvNormal, src_d::MvNormal, src_v::Abstr
     var_trafo_result(trg_v, src_v, trafo_ladj, prev_ladj)
 end
 
+std_dist_to(trg_d::MvNormal) = StandardMvNormal(length(trg_d))
+
 function apply_dist_trafo(trg_d::MvNormal, src_d::StandardMvNormal, src_v::AbstractVector{<:Real}, prev_ladj::Real)
     @argcheck length(trg_d) == length(src_d)
     A = cholesky(trg_d.Σ).U
     trg_v = transpose(A) * src_v + trg_d.μ
     trafo_ladj = logabsdet(A)[1]
     var_trafo_result(trg_v, src_v, trafo_ladj, prev_ladj)
-end
-
-function apply_dist_trafo(trg_d::StandardMvUniform, src_d::MvNormal, src_v::AbstractVector{<:Real}, prev_ladj::Real)
-    intermediate_d = StandardMvNormal(length(src_d))
-    intermediate_v, intermediate_ladj = apply_dist_trafo(intermediate_d, src_d, src_v, prev_ladj)
-    apply_dist_trafo(trg_d, intermediate_d, intermediate_v, intermediate_ladj)
-end
-
-function apply_dist_trafo(trg_d::MvNormal, src_d::StandardMvUniform, src_v::AbstractVector{<:Real}, prev_ladj::Real)
-    intermediate_d = StandardMvNormal(length(src_d))
-    intermediate_v, intermediate_ladj = apply_dist_trafo(intermediate_d, src_d, src_v, prev_ladj)
-    apply_dist_trafo(trg_d, intermediate_d, intermediate_v, intermediate_ladj)
 end
 
 
@@ -331,6 +351,27 @@ function apply_dist_trafo(trg_d::NamedTupleDist, src_d::StdMvDist, src_v::Abstra
     (v = varshape(trg_d)(unshaped_result.v), ladj = unshaped_result.ladj)
 end
 
+
+function apply_dist_trafo(trg_d::Distribution{Multivariate}, src_d::ReshapedDist, src_v::Any, prev_ladj::Real)
+    src_vs = varshape(src_d)
+    @argcheck length(trg_d) == totalndof(src_vs)
+    apply_dist_trafo(trg_d, unshaped(src_d), unshaped(src_v, src_vs), prev_ladj)
+end
+
+function apply_dist_trafo(trg_d::ReshapedDist, src_d::Distribution{Multivariate}, src_v::AbstractVector{<:Real}, prev_ladj::Real)
+    trg_vs = varshape(trg_d)
+    @argcheck totalndof(trg_vs) == length(src_d)
+    r = apply_dist_trafo(unshaped(trg_d), src_d, src_v, prev_ladj)
+    (v = trg_vs(r.v), ladj = r.ladj)
+end
+
+function apply_dist_trafo(trg_d::ReshapedDist, src_d::ReshapedDist, src_v::AbstractVector{<:Real}, prev_ladj::Real)
+    trg_vs = varshape(trg_d)
+    src_vs = varshape(src_d)
+    @argcheck totalndof(trg_vs) == totalndof(src_vs)
+    r = apply_dist_trafo(unshaped(trg_d), unshaped(src_d), unshaped(src_v, src_vs), prev_ladj)
+    (v = trg_vs(r.v), ladj = r.ladj)
+end
 
 
 function apply_dist_trafo(trg_d::StdMvDist, src_d::UnshapedHDist, src_v::AbstractVector{<:Real}, prev_ladj::Real)
