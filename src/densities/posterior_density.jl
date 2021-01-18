@@ -193,3 +193,18 @@ _posterior_parbounds(li_bounds::AbstractVarBounds, pr_bounds::AbstractVarBounds)
      li_bounds ∩ pr_bounds
 
 _posterior_parbounds(li_bounds::Missing, pr_bounds::AbstractVarBounds) = pr_bounds
+
+
+
+function example_posterior()
+    likelihood = MvNormal(float(I(7)))
+    prior = NamedTupleDist(
+        a = Exponential(),
+        b = [4.2, 3.3],
+        c = Normal(1, 3),
+        d = [Weibull(), Weibull()],
+        e = Beta(),
+        f = MvNormal([0.3, -2.9], [1.7 0.5; 0.5 2.3])
+    )
+    PosteriorDensity(likelihood, prior)
+end
