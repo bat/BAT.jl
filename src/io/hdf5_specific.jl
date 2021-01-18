@@ -1,11 +1,11 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-_h5io_keys(df::HDF5.DataFile) = HDF5.names(df)
-_h5io_keys(df::HDF5.HDF5Dataset) = nothing
+_h5io_keys(df::HDF5.H5DataStore) = keys(df)
+_h5io_keys(df::HDF5.Dataset) = nothing
 
-_h5io_objtype(df::HDF5.DataFile) = Val(:datafile)
-_h5io_objtype(df::HDF5.HDF5Dataset) = Val(:dataset)
+_h5io_objtype(df::HDF5.H5DataStore) = Val(:datafile)
+_h5io_objtype(df::HDF5.Dataset) = Val(:dataset)
 
 
 function _h5io_open(body::Function, filename::AbstractString, mode::AbstractString)
@@ -24,8 +24,8 @@ end
 
 
 """
-    bat_read(src::HDF5.DataFile)
-    bat_read(src_with_subpath::Tuple{HDF5.DataFile, AbstractString})
+    bat_read(src::HDF5.H5DataStore)
+    bat_read(src_with_subpath::Tuple{HDF5.H5DataStore, AbstractString})
 
 Read data from HDF5 file or group `src` (optionally from an HDF5-path
 relative to `src`).
@@ -36,8 +36,8 @@ end
 
 
 """
-    bat_write(dest::HDF5.DataFile, data)
-    bat_write(dest_with_subpath::Tuple{HDF5.DataFile, AbstractString}, data)
+    bat_write(dest::HDF5.H5DataStore, data)
+    bat_write(dest_with_subpath::Tuple{HDF5.H5DataStore, AbstractString}, data)
 
 Write `data` to HDF5 file or group `dest` (optionally to an HDF5-path
 relative to `dest`).
