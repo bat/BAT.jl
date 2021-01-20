@@ -94,7 +94,7 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
         @test smpls_tr == smpls_tr_cmp
     end
 
-    @testset "density transform" begin
+    @testset "full density transform" begin
         likelihood = @inferred(NamedTupleDist(a = Normal(), b = Exponential()))
 	prior = product_distribution([Normal(), Gamma()]) 
 	posterior_density = PosteriorDensity(likelihood, prior)
@@ -105,6 +105,28 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
 	@test posterior_density_trafod.result.orig.prior.dist == prior
 
 	@test posterior_density_trafod.result.trafo.target_dist isa BAT.StandardMvUniform
+
+	lower_bounds = Float32.([-10, -10, -10])
+	upper_bounds = Float32.([10, 10, 10])
+	rect_bounds = @inferred(BAT.HyperRectBounds(lower_bounds, upper_bounds))
+        mvn = @inferred(product_distribution(Normal.(randn(3))))
+	dist_density = @inferred(BAT.DistributionDensity(mvn, rect_bounds))
+
+	dist_density_trafod = @inferred(bat_transform(PriorToUniform(), dist_density, FullDensityTransform()))
+
+	@test dist_density_trafod.trafo.target_dist isa BAT.StandardMvUniform
+	@test dist_density_trafod.result.orig == dist_density
+	@test dist_density_trafod.trafo.source_dist == dist_density_trafod.result.trafo.source_dist == mvn
+
+	@test dist_density_trafod.trafo.target_varshape == @inferred(varshape(dist_density))
+
+	dist_density_trafod = @inferred(bat_transform(PriorToGaussian(), dist_density, FullDensityTransform()))
+
+	@test dist_density_trafod.trafo.target_dist isa BAT.StandardMvNormal
+	@test dist_density_trafod.result.orig == dist_density
+	@test dist_density_trafod.trafo.source_dist == dist_density_trafod.result.trafo.source_dist == mvn
+
+	@test dist_density_trafod.trafo.target_varshape == @inferred(varshape(dist_density))
     end
 end
 
