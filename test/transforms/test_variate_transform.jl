@@ -28,5 +28,11 @@ using ValueShapes, Distributions
         @test isnan(BAT.apply_vartrafo(inv(nttrafo), ntvalue, NaN).ladj)
 
         @test @inferred(nttrafo ∘ nttrafo) === nttrafo
+
+        arrayshape_trafo = @inferred(BAT.IdentityVT(ArrayShape{Real}(1)))
+        hoeldertable_trafo = @inferred((arrayshape_trafo)(HoelderTable(), volcorr=Val(false)))
+
+        @test hoeldertable_trafo.volcorr == @inferred(BAT.TDNoCorr())
+        @test hoeldertable_trafo.trafo isa BAT.IdentityVT
     end
 end
