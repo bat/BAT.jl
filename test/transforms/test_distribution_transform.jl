@@ -94,6 +94,24 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
         @test smpls_tr == smpls_tr_cmp
     end
 
+    @testset "trafo composition" begin
+        dist1 = @inferred(NamedTupleDist(a = Normal(), b = Uniform(), c = Cauchy()))
+	dist2 = @inferred(NamedTupleDist(a = Exponential(), b = Weibull(), c = Beta()))
+	normal1 = Normal()
+	normal2 = Normal(2)
+
+	trafo = @inferred(BAT.DistributionTransform(dist1, dist2))
+	inv_trafo = @inferred(inv(trafo))
+	
+	composed_trafo = @inferred(∘(trafo, inv_trafo))
+	@test composed_trafo.source_dist == composed_trafo.target_dist == dist1
+	@test composed_trafo ∘ trafo == trafo
+	@test_throws ArgumentError  trafo ∘ composed_trafo
+
+	trafo = @inferred(BAT.DistributionTransform(normal1, normal2))
+	@test_throws ArgumentError trafo ∘ trafo
+    end
+
     @testset "full density transform" begin
         likelihood = @inferred(NamedTupleDist(a = Normal(), b = Exponential()))
 	prior = product_distribution([Normal(), Gamma()]) 
