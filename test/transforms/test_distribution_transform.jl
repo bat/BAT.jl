@@ -92,6 +92,7 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
         smpls_tr = trafo.(smpls)
         smpls_tr_cmp = [trafo(s) for s in smpls]
         @test smpls_tr == smpls_tr_cmp
+	@test @inferred(varshape(trafo)) == @inferred(varshape(dist)) == trafo.source_varshape
     end
 
     @testset "trafo composition" begin
