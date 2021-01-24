@@ -60,7 +60,7 @@ end
 
 Base.inv(trafo::DistributionTransform) = DistributionTransform(trafo.source_dist, trafo.target_dist)
 
-ValueShapes.varshape(trafo::DistributionTransform) = varshape(trafo.source_varshape)
+ValueShapes.varshape(trafo::DistributionTransform) = trafo.source_varshape
 
 
 function apply_vartrafo_impl(trafo::DistributionTransform, v::Any, prev_ladj::Real)
