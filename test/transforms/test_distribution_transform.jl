@@ -24,13 +24,15 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
         end
     end
 
-    function test_dist_trafo_moments(trg_d::Distribution, src_d::BAT.StdMvDist)
+    function test_dist_trafo_moments(trg_d, src_d)
         @testset "check moments of trafo $(typeof(trg_d).name) <- $(typeof(src_d).name)" begin
             let trg_d = trg_d, src_d = src_d
-                X = rand(src_d, 10^5)
+               #X = rand(src_d, 10^5)
+               #X = smpl_dist(src_d)
+                X = flatview(rand(src_d, 10^5))
                 trgxs = (x -> BAT.apply_dist_trafo(trg_d, src_d, x, 0.0).v).(nestedview(X))
                 unshaped_trgxs = map(unshaped, trgxs)
-                @test isapprox(mean(unshaped_trgxs), mean(unshaped(trg_d)), rtol = 0.1)
+                @test isapprox(mean(unshaped_trgxs), mean(unshaped(trg_d)), atol = 0.1)
                 @test isapprox(cov(unshaped_trgxs), cov(unshaped(trg_d)), rtol = 0.1)
             end
         end
@@ -38,6 +40,8 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
 
     standnorm1 = BAT.StandardMvNormal(1)
     standnorm2 = BAT.StandardMvNormal(2)
+
+    standnorm2_reshaped = ReshapedDist(standnorm2, varshape(standnorm2))
 
     mvnorm = MvNormal([0.3, -2.9], [1.7 0.5; 0.5 2.3])
     beta = Beta(3,1)
@@ -53,6 +57,11 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
 
     test_dist_trafo_moments(mvnorm, standnorm2)
     test_dist_trafo_moments(dirich, standnorm1)
+
+    test_dist_trafo_moments(mvnorm, standnorm2_reshaped)
+    test_dist_trafo_moments(standnorm2_reshaped, mvnorm)
+    test_dist_trafo_moments(standnorm2, standnorm2_reshaped)
+    test_dist_trafo_moments(standnorm2_reshaped, standnorm2_reshaped)
 
     let
         primary_dist = NamedTupleDist(x = Normal(2), c = 5)
