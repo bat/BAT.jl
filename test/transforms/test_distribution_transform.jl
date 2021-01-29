@@ -7,7 +7,7 @@ using LinearAlgebra
 using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
 
 @testset "test_distribution_transform" begin
-    function test_back_and_forth(trg_d::Distribution, src_d::BAT.StdMvDist)
+    function test_back_and_forth(trg_d, src_d)
         @testset "transform $(typeof(trg_d).name) <-> $(typeof(src_d).name)" begin
             src_v = rand(src_d)
             prev_ladj = 7.9
@@ -24,13 +24,22 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
         end
     end
 
+   #function test_back_and_forth(trg_d::Distribution, src_d::BAT.StdMvDist)
+
+    function get_trgxs(trg_d, src_d, X)
+        return (x -> BAT.apply_dist_trafo(trg_d, src_d, x, 0.0).v).(nestedview(X))
+    end
+
+    function get_trgxs(trg_d, src_d::Distribution{Univariate}, X)
+        return (x -> BAT.apply_dist_trafo(trg_d, src_d, x, 0.0).v).(X)
+    end
+
     function test_dist_trafo_moments(trg_d, src_d)
         @testset "check moments of trafo $(typeof(trg_d).name) <- $(typeof(src_d).name)" begin
             let trg_d = trg_d, src_d = src_d
-               #X = rand(src_d, 10^5)
-               #X = smpl_dist(src_d)
                 X = flatview(rand(src_d, 10^5))
-                trgxs = (x -> BAT.apply_dist_trafo(trg_d, src_d, x, 0.0).v).(nestedview(X))
+               #trgxs = (x -> BAT.apply_dist_trafo(trg_d, src_d, x, 0.0).v).(nestedview(X))
+                trgxs = get_trgxs(trg_d, src_d, X)
                 unshaped_trgxs = map(unshaped, trgxs)
                 @test isapprox(mean(unshaped_trgxs), mean(unshaped(trg_d)), atol = 0.1)
                 @test isapprox(cov(unshaped_trgxs), cov(unshaped(trg_d)), rtol = 0.1)
@@ -38,8 +47,12 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
         end
     end
 
+    uvnorm = BAT.StandardUvNormal()
+
     standnorm1 = BAT.StandardMvNormal(1)
     standnorm2 = BAT.StandardMvNormal(2)
+
+    standuni2 = BAT.StandardMvUniform(2)
 
     standnorm2_reshaped = ReshapedDist(standnorm2, varshape(standnorm2))
 
@@ -52,16 +65,39 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
     test_back_and_forth(gamma, standnorm1)
     test_back_and_forth(mvnorm, standnorm2)
 
+    test_back_and_forth(mvnorm, standuni2)
+
+    test_dist_trafo_moments(beta, gamma)
+    test_dist_trafo_moments(uvnorm, standnorm1)
+
     test_dist_trafo_moments(beta, standnorm1)
     test_dist_trafo_moments(gamma, standnorm1)
 
     test_dist_trafo_moments(mvnorm, standnorm2)
     test_dist_trafo_moments(dirich, standnorm1)
 
+    test_dist_trafo_moments(mvnorm, standuni2)
+    test_dist_trafo_moments(standuni2, mvnorm)
+
+    test_dist_trafo_moments(standnorm2, standuni2)
+
     test_dist_trafo_moments(mvnorm, standnorm2_reshaped)
     test_dist_trafo_moments(standnorm2_reshaped, mvnorm)
     test_dist_trafo_moments(standnorm2, standnorm2_reshaped)
     test_dist_trafo_moments(standnorm2_reshaped, standnorm2_reshaped)
+
+    let
+
+        x = rand()
+        @test_throws ArgumentError BAT.apply_dist_trafo(uvnorm, mvnorm, x, 0.0)
+        @test_throws ArgumentError BAT.apply_dist_trafo(uvnorm, standnorm1, x, 0.0)
+        @test_throws ArgumentError BAT.apply_dist_trafo(uvnorm, standnorm2, x, 0.0)
+
+        x = rand(2)
+        @test_throws ArgumentError BAT.apply_dist_trafo(uvnorm, mvnorm, x, 0.0)
+        @test_throws ArgumentError BAT.apply_dist_trafo(uvnorm, standnorm1, x, 0.0)
+        @test_throws ArgumentError BAT.apply_dist_trafo(uvnorm, standnorm2, x, 0.0)
+    end
 
     let
         primary_dist = NamedTupleDist(x = Normal(2), c = 5)
