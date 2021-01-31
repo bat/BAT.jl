@@ -24,8 +24,6 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
         end
     end
 
-   #function test_back_and_forth(trg_d::Distribution, src_d::BAT.StdMvDist)
-
     function get_trgxs(trg_d, src_d, X)
         return (x -> BAT.apply_dist_trafo(trg_d, src_d, x, 0.0).v).(nestedview(X))
     end
@@ -38,7 +36,6 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
         @testset "check moments of trafo $(typeof(trg_d).name) <- $(typeof(src_d).name)" begin
             let trg_d = trg_d, src_d = src_d
                 X = flatview(rand(src_d, 10^5))
-               #trgxs = (x -> BAT.apply_dist_trafo(trg_d, src_d, x, 0.0).v).(nestedview(X))
                 trgxs = get_trgxs(trg_d, src_d, X)
                 unshaped_trgxs = map(unshaped, trgxs)
                 @test isapprox(mean(unshaped_trgxs), mean(unshaped(trg_d)), atol = 0.1)
@@ -46,6 +43,12 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
             end
         end
     end
+
+    uniform1 = Uniform(-5.0, -0.01)
+    uniform2 = Uniform(0.01, 5.0)
+ 
+    normal1 = Normal(-10, 1)
+    normal2 = Normal(10, 5)
 
     uvnorm = BAT.StandardUvNormal()
 
@@ -63,9 +66,13 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
 
     test_back_and_forth(beta, standnorm1)
     test_back_and_forth(gamma, standnorm1)
-    test_back_and_forth(mvnorm, standnorm2)
 
+    test_back_and_forth(mvnorm, mvnorm)
+    test_back_and_forth(mvnorm, standnorm2)
     test_back_and_forth(mvnorm, standuni2)
+
+    test_dist_trafo_moments(normal2, normal1)
+    test_dist_trafo_moments(uniform2, uniform1)
 
     test_dist_trafo_moments(beta, gamma)
     test_dist_trafo_moments(uvnorm, standnorm1)
@@ -87,6 +94,7 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
     test_dist_trafo_moments(standnorm2_reshaped, standnorm2_reshaped)
 
     let
+        mvuni = product_distribution([Uniform(), Uniform()])
 
         x = rand()
         @test_throws ArgumentError BAT.apply_dist_trafo(uvnorm, mvnorm, x, 0.0)
@@ -94,6 +102,8 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
         @test_throws ArgumentError BAT.apply_dist_trafo(uvnorm, standnorm2, x, 0.0)
 
         x = rand(2)
+	@test_throws ArgumentError BAT.apply_dist_trafo(mvuni, mvnorm, x, 0.0)
+	@test_throws ArgumentError BAT.apply_dist_trafo(mvnorm, mvuni, x, 0.0)
         @test_throws ArgumentError BAT.apply_dist_trafo(uvnorm, mvnorm, x, 0.0)
         @test_throws ArgumentError BAT.apply_dist_trafo(uvnorm, standnorm1, x, 0.0)
         @test_throws ArgumentError BAT.apply_dist_trafo(uvnorm, standnorm2, x, 0.0)
