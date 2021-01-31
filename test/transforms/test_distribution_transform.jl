@@ -46,7 +46,7 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
 
     uniform1 = Uniform(-5.0, -0.01)
     uniform2 = Uniform(0.01, 5.0)
- 
+
     normal1 = Normal(-10, 1)
     normal2 = Normal(10, 5)
 
@@ -158,7 +158,7 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
 
 	trafo = @inferred(BAT.DistributionTransform(dist1, dist2))
 	inv_trafo = @inferred(inv(trafo))
-	
+
 	composed_trafo = @inferred(∘(trafo, inv_trafo))
 	@test composed_trafo.source_dist == composed_trafo.target_dist == dist1
 	@test composed_trafo ∘ trafo == trafo
@@ -170,7 +170,7 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
 
     @testset "full density transform" begin
         likelihood = @inferred(NamedTupleDist(a = Normal(), b = Exponential()))
-	prior = product_distribution([Normal(), Gamma()]) 
+	prior = product_distribution([Normal(), Gamma()])
 	posterior_density = PosteriorDensity(likelihood, prior)
 
 	posterior_density_trafod = @inferred(bat_transform(PriorToUniform(), posterior_density, FullDensityTransform()))
