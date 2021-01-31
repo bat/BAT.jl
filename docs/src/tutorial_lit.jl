@@ -485,6 +485,7 @@ samples = bat_sample(
 # ```julia
 # import HDF5
 # bat_write("results.h5", samples)
+# ```
 #
 # The resulting files have an intuitive HDF5 layout and can be read with the
 # standard HDF5 libraries, so they are easily accessible from other programming

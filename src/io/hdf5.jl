@@ -41,6 +41,13 @@ function _h5io_write!(dest, data::NamedTuple{names}) where {names}
     nothing
 end
 
+function _h5io_write!(dest, data::FillArrays.Fill{<:Real,1})
+    _h5io_write!(dest, convert(Array, data))
+end
+
+function _h5io_write!(dest, data::FillArrays.Fill{<:AbstractVector{<:Real},1})
+    _h5io_write!(dest, convert(VectorOfSimilarVectors, data))
+end
 
 function _h5io_write!(dest, data)
     Tables.istable(data) || throw(ArgumentError("data is not a table."))
