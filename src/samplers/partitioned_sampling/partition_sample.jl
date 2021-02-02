@@ -41,7 +41,7 @@ function bat_sample_impl(rng::AbstractRNG, target::PosteriorDensity, algorithm::
     exploration_samples = bat_sample(posterior, algorithm.exploration_sampler).result
 
     @info "Constructing Partition Tree"
-    partition_tree, cost_values = partition_space(exploration_samples, algorithm.nsubspaces, algorithm.partitioner)
+    partition_tree, cost_values = partition_space(exploration_samples, algorithm.npartitions, algorithm.partitioner)
     # Convert 'partition_tree' structure into a set of truncated posteriors:
     posteriors_array = convert_to_posterior(posterior, partition_tree, extend_bounds = algorithm.partitioner.extend_bounds)
 
