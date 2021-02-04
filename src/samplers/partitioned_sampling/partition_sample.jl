@@ -26,7 +26,7 @@ $(TYPEDFIELDS)
     trafo::TR = PriorToUniform()
     npartitions::Integer = 10
     sampler::S = MCMCSampling()
-    exploration_sampler::E = MCMCSampling(nchains=30)
+    exploration_sampler::E = MCMCSampling(nchains=30, nsteps = 1000, trafo = NoDensityTransform())
     partitioner::P = KDTreePartitioning()
     integrator::I = AHMIntegration()
 end
@@ -48,10 +48,10 @@ function bat_sample_impl(rng::AbstractRNG, target::PosteriorDensity, algorithm::
     @info "Sampling Subspaces"
     iterator_subspaces = [
         [subspace_ind, posteriors_array[subspace_ind],
-        n_samples,
+        algorithm.sampler.nsteps,
         algorithm.sampler,
-        algorithm.integrator,
-        algorithm.sampling_kwargs] for subspace_ind in Base.OneTo(n_subspaces)]
+        algorithm.integrator
+        ] for subspace_ind in Base.OneTo(algorithm.npartitions)]
     samples_subspaces = pmap(inp -> sample_subspace(inp...), iterator_subspaces)
 
     @info "Combining Samples"
@@ -79,7 +79,6 @@ function sample_subspace(
     n::Integer,
     sampling_algorithm::A,
     integration_algorithm::I,
-    sampling_kwargs::N
 ) where {N<:NamedTuple, A<:AbstractSamplingAlgorithm, I<:IntegrationAlgorithm}
 
     @info "Sampling subspace #$space_id"
