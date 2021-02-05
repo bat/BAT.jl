@@ -122,7 +122,7 @@ function bat_sample_impl(
     end
 
     ndims = totalndof(vs)
-    paramnames = ["v_$i" for i in 1:ndims]
+    paramnames = all_active_names(vs)
 
     smplr = UltraNest.ultranest.ReactiveNestedSampler(
         paramnames, vec_ultranest_logpstr, vectorized = true,
