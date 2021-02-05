@@ -122,7 +122,7 @@ function bat_sample_impl(
     end
 
     ndims = totalndof(vs)
-    paramnames = all_active_names(vs)
+    paramnames = all_active_names(varshape(density_notrafo))
 
     smplr = UltraNest.ultranest.ReactiveNestedSampler(
         paramnames, vec_ultranest_logpstr, vectorized = true,
