@@ -60,7 +60,7 @@ end
 
 Base.inv(trafo::DistributionTransform) = DistributionTransform(trafo.source_dist, trafo.target_dist)
 
-ValueShapes.varshape(trafo::DistributionTransform) = varshape(trafo.source_varshape)
+ValueShapes.varshape(trafo::DistributionTransform) = trafo.source_varshape
 
 
 function apply_vartrafo_impl(trafo::DistributionTransform, v::Any, prev_ladj::Real)
@@ -100,11 +100,11 @@ end
 
 
 function std_dist_from(src_d::Distribution)
-    throw(ArgumentError("No standard intermediate distribution defined to tranform into from $(typename(src_d).name)"))
+    throw(ArgumentError("No standard intermediate distribution defined to tranform from $(typeof(src_d).name)"))
 end
 
 function std_dist_to(trg_d::Distribution)
-    throw(ArgumentError("No standard intermediate distribution defined to tranform into $(typename(trg_d).name) from"))
+    throw(ArgumentError("No standard intermediate distribution defined to tranform into $(typeof(trg_d).name)"))
 end
 
 

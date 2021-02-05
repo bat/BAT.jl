@@ -187,7 +187,6 @@ end
 
 
 function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::DistributionDensity, algorithm::FullDensityTransform)
-    orig_prior = getprior(density)
     trafo = _distribution_density_trafo(target, density)
     (result = TransformedDensity(density, trafo, TDLADJCorr()), trafo = trafo)
 end
