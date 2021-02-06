@@ -1,0 +1,20 @@
+\begin{table}
+  \begin{tabular}{rrrr}
+    \hline\hline
+    \textbf{name} & \textbf{normal} & \textbf{multi cauchy} & \textbf{funnel} \\\hline
+    mode target & [15.0, 10.0] & [5.0, 5.0] & [-1.0, 0.0] \\
+    mode test & [15.002, 9.994] & [4.799, 4.839] & [-1.003, -0.001] \\
+    mode diff (abs) & [-0.002, 0.006] & [0.201, 0.161] & [0.003, 0.001] \\
+    mode diff (rel) & [-0.0, 0.001] & [0.04, 0.032] & [-0.003, Inf] \\
+    mean target & [15.0, 10.0] & [0.0, 0.0] & [0.0, 0.0] \\
+    mean test & [14.999, 10.005] & [3.197, -0.662] & [-0.001, -0.01] \\
+    mean diff (abs) & [0.001, -0.005] & [-3.197, 0.662] & [0.001, 0.01] \\
+    mean diff (rel) & [0.0, -0.0] & [-Inf, Inf] & [Inf, Inf] \\
+    var target & [2.25, 6.25] & [Inf, Inf] & [1.0, 7.407] \\
+    var test & [2.25, 6.276] & [3903.78, 2913.45] & [0.999, 6.234] \\
+    var diff (abs) & [-0.0, -0.026] & [Inf, Inf] & [0.001, 1.173] \\
+    var diff (rel) & [-0.0, -0.004] & [NaN, NaN] & [0.001, 0.158] \\
+    KS test p-value & [0.817, 0.979] & [0.981, 1.0] & [0.999, 1.0] \\
+    AHMI integral & [1.008, 0.005] & [1.013, 0.005] & [1.0, 0.004] \\\hline\hline
+  \end{tabular}
+\end{table}

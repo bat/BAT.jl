@@ -114,6 +114,15 @@ function all_active_names(vs::NamedTupleShape)
     return reduce(vcat, names)
 end
 
+function all_active_names(vs::ScalarShape)
+    return "v"
+end
+
+function all_active_names(vs::ArrayShape)
+    ndims = totalndof(vs)
+    return ["v_$i" for i in 1:ndims]
+end
+
 # Return array of strings with the names of all indices.
 # For a multivariate distribution, the name is repeated for all its dimensions.
 function repeatednames(vs::NamedTupleShape)
