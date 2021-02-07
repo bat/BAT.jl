@@ -22,41 +22,11 @@ function asindex(vs::NamedTupleShape, name::Expr)
     end
 end
 
-# for samples
-function isshaped(samples::BAT.DensitySampleVector)
-    isa(varshape(samples), NamedTupleShape) ? (return true) : (return false)
-end
-
-function asindex(samples::BAT.DensitySampleVector, name::Union{Expr, Symbol})
-    if isshaped(samples)
-        return asindex(varshape(samples), name)
-    else
-        throw(ArgumentError("Samples are unshaped. Key :$name cannot be matched. Use index instead."))
-    end
-end
 
 # for prior
 function asindex(ntd::NamedTupleDist, name::Union{Expr, Symbol})
     return asindex(varshape(ntd), name)
 end
-
-function asindex(
-    x::Union{DensitySampleVector, NamedTupleDist, MarginalDist},
-    key::Integer
-)
-    return key
-end
-
-#for MarginalDist
-function asindex(marg::MarginalDist, name::Union{Expr, Symbol})
-    idx = asindex(marg.origvalshape, name)
-    if idx in marg.dims
-        return idx
-    else
-        throw(ArgumentError("Key :$name not in MarginalDist"))
-    end
-end
-
 
 # Return the name corresponding to the index as Symbol (for univariate)
 # or Expr for (multivariate) distributions
@@ -77,26 +47,6 @@ function getstring(prior::NamedTupleDist, idx::Integer)
     return names[idx]
 end
 
-
-function getstring(samples::BAT.DensitySampleVector, idx::Integer)
-    if isshaped(samples)
-        vs = varshape(samples)
-        names = all_active_names(vs)
-        return names[idx]
-    else
-        throw(ArgumentError("Samples are unshaped. Key :$name cannot be matched. Use index instead."))
-    end
-end
-
-function getstring(marg::MarginalDist, idx::Integer)
-    if idx in marg.dims
-        vs = marg.origvalshape
-        names = all_active_names(vs)
-        return names[idx]
-    else
-        throw(ArgumentError("Index $idx not in MarginalDist"))
-    end
-end
 
 # Return array of strings with the names of all indices.
 # For a multivariate distribution, names for each dimension are created by appending "[i]" to the name.
@@ -134,7 +84,6 @@ end
 function subname(name::String, indx::Integer)
     return name*"["*string(indx)*"]"
 end
-
 
 
 function get_fixed_names(vs::NamedTupleShape)
