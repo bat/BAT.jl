@@ -8,7 +8,7 @@
 
 The following functions must be implemented for subtypes:
 
-* `BAT.distribution_logpdf`
+* `BAT.proposaldist_logpdf`
 * `BAT.proposal_rand!`
 * `ValueShapes.totalndof`, returning the number of DOF (i.e. dimensionality).
 * `LinearAlgebra.issymmetric`, indicating whether p(a -> b) == p(b -> a) holds true.
@@ -17,7 +17,7 @@ abstract type AbstractProposalDist end
 
 
 """
-    distribution_logpdf(
+    proposaldist_logpdf(
         p::AbstractArray,
         pdist::AbstractProposalDist,
         v_proposed::AbstractVector,
@@ -29,9 +29,9 @@ abstract type AbstractProposalDist end
 Returns log(PDF) value of `pdist` for transitioning from current to proposed
 variate/parameters.
 """
-function distribution_logpdf end
+function proposaldist_logpdf end
 
-# TODO: Implement distribution_logpdf for included proposal distributions
+# TODO: Implement proposaldist_logpdf for included proposal distributions
 
 
 """
@@ -104,7 +104,7 @@ get_cov(q::GenericProposalDist) = get_cov(q.d)
 set_cov(q::GenericProposalDist, Σ::PosDefMatLike) = similar(q, set_cov(q.d, Σ))
 
 
-function distribution_logpdf(
+function proposaldist_logpdf(
     pdist::GenericProposalDist,
     v_proposed::AbstractVector,
     v_current::AbstractVector
@@ -152,7 +152,7 @@ ValueShapes.totalndof(pdist::GenericUvProposalDist) = size(pdist.scale, 1)
 
 LinearAlgebra.issymmetric(pdist::GenericUvProposalDist) = issymmetric_around_origin(pdist.d)
 
-function BAT.distribution_logpdf(
+function BAT.proposaldist_logpdf(
     pdist::GenericUvProposalDist,
     v_proposed::Union{AbstractVector,VectorOfSimilarVectors},
     v_current::Union{AbstractVector,VectorOfSimilarVectors}
