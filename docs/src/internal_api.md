@@ -66,7 +66,6 @@ BAT.create_hypercube
 BAT.create_hyperrectangle
 BAT.density_logval_type
 BAT.distribution_logpdf
-BAT.distribution_logpdf!
 BAT.drop_low_weight_samples
 BAT.eval_gradlogval
 BAT.eval_logval

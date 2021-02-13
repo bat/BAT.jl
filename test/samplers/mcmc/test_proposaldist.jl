@@ -82,15 +82,6 @@ test_sampler(tmv::test_mvdist) = tmv.d
 
         p = zeros(3)
 
-        BAT.distribution_logpdf!(p,
-            gpd, VectorOfSimilarVectors([0.0 -0.5 1.5;0.0 0.5 0.0]), [0.1,-0.1])
-        @test p ≈ [-2.1441505, -2.8830174, -3.6814116]
-
-        p = zeros(1)
-        BAT.distribution_logpdf!(p,
-            gpd, [0.0,0.0], [0.1,-0.1])
-        @test p ≈ [-2.1441505]
-
         @test BAT.distribution_logpdf(
             gpd, [0.0,0.0], [0.1,-0.1]) ≈ -2.1441505
     end
