@@ -233,7 +233,7 @@ end
 
 function Base.copy(
     instance::Base.Broadcast.Broadcasted{
-        <:Base.Broadcast.AbstractArrayStyle{1},
+        <:Union{Base.Broadcast.AbstractArrayStyle{1},StructArrays.StructArrayStyle},
         <:Any,
         <:VariateTransform,
         <:Tuple{DensitySampleVector}
@@ -319,7 +319,7 @@ end
 # Custom broadcast(::IdentityVT, DensitySampleVector), multithreaded:
 function Base.copy(
     instance::Base.Broadcast.Broadcasted{
-        <:Base.Broadcast.AbstractArrayStyle{1},
+        <:Union{Base.Broadcast.AbstractArrayStyle{1},StructArrays.StructArrayStyle},
         <:Any,
         <:Union{IdentityVT,InvVT{<:IdentityVT}},
         <:Tuple{<:Union{ArrayOfSimilarVectors{<:Real},ShapedAsNTArray,DensitySampleVector}}
