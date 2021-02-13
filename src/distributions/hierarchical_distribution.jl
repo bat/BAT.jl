@@ -186,12 +186,6 @@ function _hd_split(ud::UnshapedHDist, x::AbstractVector{<:Real})
 end
 
 
-
-
-function Distributions.logpdf(d::HierarchicalDistribution, x::Any)
-    logpdf(unshaped(d), unshaped(x, d.vs))
-end
-
 function Distributions.logpdf(ud::UnshapedHDist, x::AbstractVector{<:Real})
     x_primary, x_secondary = _hd_split(ud, x)
     logval1 = logpdf(_hd_pridist(ud), x_primary)
