@@ -108,7 +108,7 @@ end
 
 function Base.copy(
     instance::Base.Broadcast.Broadcasted{
-        <:Base.Broadcast.AbstractArrayStyle{1},
+        <:Union{Base.Broadcast.AbstractArrayStyle{1},StructArrays.StructArrayStyle},
         <:Any,
         <:AbstractVariateTransform,
         <:Tuple{DensitySampleVector}
@@ -251,7 +251,7 @@ import Base.∘
 
 function Base.copy(
     instance::Base.Broadcast.Broadcasted{
-        <:Base.Broadcast.AbstractArrayStyle{1},
+        <:Union{Base.Broadcast.AbstractArrayStyle{1},StructArrays.StructArrayStyle},
         <:Any,
         <:IdentityVT,
         <:Tuple{<:Union{ArrayOfSimilarVectors{<:Real},ShapedAsNTArray,DensitySampleVector}}

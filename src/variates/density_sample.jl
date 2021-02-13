@@ -233,7 +233,7 @@ end
 
 Base.copy(
     instance::Base.Broadcast.Broadcasted{
-        <:Base.Broadcast.AbstractArrayStyle{1},
+        <:Union{Base.Broadcast.AbstractArrayStyle{1},StructArrays.StructArrayStyle},
         <:Any,
         <:Union{AbstractValueShape,typeof(unshaped)},
         <:Tuple{DensitySampleVector}

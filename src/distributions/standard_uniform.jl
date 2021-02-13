@@ -151,12 +151,12 @@ Distributions.logdetcov(d::StandardMvUniform{T}) where T = logdet(cov(d))
 StatsBase.entropy(d::StandardMvUniform{T}) where T = zero(T)
 
 
-function Distributions.logpdf(d::StandardMvUniform{T}, x::AbstractVector{U}) where {T,U<:Real}
+function Distributions._logpdf(d::StandardMvUniform{T}, x::AbstractVector{U}) where {T,U<:Real}
     R = float(promote_type(T,U))
     ifelse(insupport(d, x), R(0), R(-Inf))
 end
 
-function Distributions.pdf(d::StandardMvUniform{T}, x::AbstractVector{U}) where {T,U<:Real}
+function Distributions._pdf(d::StandardMvUniform{T}, x::AbstractVector{U}) where {T,U<:Real}
     R = promote_type(T,U)
     ifelse(insupport(d, x), one(R), zero(R))
 end

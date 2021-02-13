@@ -125,8 +125,8 @@ Distributions.logdetcov(d::StandardMvNormal{T}) where T = zero(T)
 
 StatsBase.entropy(d::StandardMvNormal) = entropy(MvNormal(d))
 
-Distributions.logpdf(d::StandardMvNormal, x::AbstractVector{<:Real}) = logpdf(MvNormal(d), x)
-Distributions.pdf(d::StandardMvNormal, x::AbstractVector{<:Real}) = pdf(MvNormal(d), x)
+Distributions._logpdf(d::StandardMvNormal, x::AbstractVector{<:Real}) = logpdf(MvNormal(d), x)
+Distributions._pdf(d::StandardMvNormal, x::AbstractVector{<:Real}) = pdf(MvNormal(d), x)
 Distributions.sqmahal(d::StandardMvNormal, x::AbstractVector{<:Real}) = sqmahal(MvNormal(d), x)
 # Distributions.sqmahal!(r::AbstractVector{<:Real}, d::StandardMvNormal, x::AbstractMatrix{<:Real}) = sqmahal!(r, MvNormal(d), x)
 
