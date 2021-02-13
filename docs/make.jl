@@ -38,7 +38,7 @@ makedocs(
         canonical = "https://bat.github.io/BAT.jl/stable/"
     ),
     authors = "The BAT development team",
-    pages=[
+    pages = [
         "Home" => "index.md",
         "Installation" => "installation.md",
         "Tutorial" => "tutorial.md",
@@ -50,7 +50,7 @@ makedocs(
         "License" => "license.md",
     ],
     doctest = ("fixdoctests" in ARGS) ? :fix : true,
-    linkcheck = ("linkcheck" in ARGS),
+    linkcheck = "linkcheck" in ARGS,
     strict = !("nonstrict" in ARGS),
 )
 
