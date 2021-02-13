@@ -263,8 +263,8 @@ function mcmc_step!(chain::MHIterator)
         log_tpr = if issymmetric(proposaldist)
             T(0)
         else
-            log_tp_fwd = distribution_logpdf(proposaldist, proposed_params, current_params)
-            log_tp_rev = distribution_logpdf(proposaldist, current_params, proposed_params)
+            log_tp_fwd = proposaldist_logpdf(proposaldist, proposed_params, current_params)
+            log_tp_rev = proposaldist_logpdf(proposaldist, current_params, proposed_params)
             T(log_tp_fwd - log_tp_rev)
         end
 
