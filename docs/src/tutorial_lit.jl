@@ -34,8 +34,8 @@
 # ["LinearAlgebra"](https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/)
 # and ["Statistics"](https://docs.julialang.org/en/v1/stdlib/Statistics/),
 # as well as the packages
-# ["Distributions"](https://juliastats.github.io/Distributions.jl/stable/)
-# and ["StatsBase"](http://juliastats.github.io/StatsBase.jl/stable/):
+# ["Distributions"](https://juliastats.org/Distributions.jl/stable/)
+# and ["StatsBase"](https://juliastats.org/StatsBase.jl/stable/):
 
 using Random, LinearAlgebra, Statistics, Distributions, StatsBase
 
