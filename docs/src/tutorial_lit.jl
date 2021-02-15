@@ -467,7 +467,7 @@ samples = bat_sample(
 # FileIO.save("results.jld2", Dict("samples" => samples))
 # ```
 #
-# JLD2 presists the full information (including value shapes), so you can
+# JLD2 persists the full information (including value shapes), so you can
 # reload exactly the same data into memory in a new Julia session via
 #
 # ```julia
