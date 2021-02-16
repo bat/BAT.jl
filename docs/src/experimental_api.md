@@ -16,6 +16,7 @@ BAT.ExternalDensity
 BAT.FunnelDistribution
 BAT.GaussianShell
 BAT.MultimodalCauchy
+BAT.LogUniform
 CuhreIntegration
 DivonneIntegration
 GridSampler
