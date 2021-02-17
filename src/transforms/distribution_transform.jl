@@ -100,11 +100,11 @@ end
 
 
 function std_dist_from(src_d::Distribution)
-    throw(ArgumentError("No standard intermediate distribution defined to tranform from $(typeof(src_d).name)"))
+    throw(ArgumentError("No standard intermediate distribution defined to transform from $(typeof(src_d).name)"))
 end
 
 function std_dist_to(trg_d::Distribution)
-    throw(ArgumentError("No standard intermediate distribution defined to tranform into $(typeof(trg_d).name)"))
+    throw(ArgumentError("No standard intermediate distribution defined to transform into $(typeof(trg_d).name)"))
 end
 
 
