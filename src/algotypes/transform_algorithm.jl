@@ -84,7 +84,7 @@ end
 
 
 function argchoice_msg(::typeof(bat_transform), ::Val{:algorithm}, x::TransformAlgorithm)
-    "Using tranform algorithm $x"
+    "Using transform algorithm $x"
 end
 
 
