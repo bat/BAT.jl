@@ -180,12 +180,29 @@ end
 
 @inline _trafo_quantile(d::Distribution{Univariate,Continuous}, u::Real) = _trafo_quantile_impl(params(d), d, u)
 
-@inline _trafo_quantile_impl(::NTuple, d::Distribution{Univariate,Continuous}, u::Real) = quantile(d, u)
+@inline _trafo_quantile_impl(::NTuple, d::Distribution{Univariate,Continuous}, u::Real) = _trafo_quantile_impl_generic(d, u)
 
 @inline function _trafo_quantile_impl(::NTuple{N,Union{Integer,AbstractFloat}}, d::Distribution{Univariate,Continuous}, u::ForwardDiff.Dual{TAG}) where {N,TAG}
-    x = quantile(d, ForwardDiff.value(u))
+    x = _trafo_quantile_impl_generic(d, ForwardDiff.value(u))
     dxdu = inv(pdf(d, x))
     ForwardDiff.Dual{TAG}(x, dxdu * ForwardDiff.partials(u))
+end
+
+@inline _trafo_quantile_impl_generic(d::Distribution{Univariate,Continuous}, u::Real) = quantile(d, u)
+
+# Workaround for rounding errors that can result in quantile values outside of support of Truncated:
+@inline function _trafo_quantile_impl_generic(d::Truncated{<:Distribution{Univariate,Continuous}}, u::Real)
+    x = quantile(d, u)
+    T = typeof(x)
+    min_x = T(minimum(d))
+    max_x = T(maximum(d))
+    if x < min_x && isapprox(x, min_x, atol = 4 * eps(T))
+        min_x
+    elseif x > max_x && isapprox(x, max_x, atol = 4 * eps(T))
+        max_x
+    else
+        x
+    end
 end
 
 
