@@ -33,6 +33,7 @@ using Distributions, ValueShapes
     test_integration(uvprior, VEGASIntegration(trafo = NoDensityTransform(), rtol = 1e-3, log_density_shift = 10))
     test_integration(mvprior, VEGASIntegration(trafo = NoDensityTransform(), rtol = 1e-3, nthreads = 1))
     test_integration(mvprior, VEGASIntegration(trafo = NoDensityTransform(), rtol = 1e-3, nthreads = nthreads()))
+    test_integration(mvprior, VEGASIntegration(nthreads=2))
     test_integration(mvprior, VEGASIntegration())
 
     test_integration(mvprior, SuaveIntegration(trafo = NoDensityTransform(), rtol = 1e-3))
@@ -40,4 +41,7 @@ using Distributions, ValueShapes
     test_integration(mvprior_simple, DivonneIntegration(trafo = NoDensityTransform(), rtol = 1e-3))
 
     test_integration(mvprior, CuhreIntegration(trafo = NoDensityTransform(), rtol = 1e-3))
+    
+    @test_throws ErrorException test_integration(mvprior, CuhreIntegration(maxevals=4))
+    test_integration(mvprior, CuhreIntegration(maxevals=4, strict=false))
 end
