@@ -49,7 +49,7 @@ using Random, Distributions, StatsBase
         dist = MvNormal([0.4, 0.6], [2.0 1.2; 1.2 3.0])
         result = @inferred(bat_sample(dist, IIDSampling(nsamples = 10^5))).result
 
-        #@test length(@inferred(bat_sample(result, OrderedResampling(nsamples = 10^3))).result) == 10^3#Commented out: fails but looks intended behav?
+        @test isapprox(mean([length(@inferred(bat_sample(result, OrderedResampling(nsamples = 10))).result.v) for i in 1:10^3]), 10, rtol = 10^-1)
 
         @test @inferred(bat_sample(Random.GLOBAL_RNG, result)).result isa DensitySampleVector#Check that types are consistent
         @test @inferred(bat_sample(result, BAT.OrderedResampling())).result isa DensitySampleVector
