@@ -52,7 +52,7 @@ function bat_sample_impl(
     density, trafo = bat_transform(algorithm.trafo, density_notrafo)
     shape = varshape(density)
 
-    samples = _gen_samples(density, algorithm)
+    samples = _gen_samples(density, algorithm) # type unstable
 
     logvals = eval_logval.(Ref(density), samples)
     weights = exp.(logvals)
@@ -61,8 +61,8 @@ function bat_sample_impl(
     est_integral = mean(weights) * vol
     # ToDo: Add integral error estimate
 
-    samples_trafo = shape.(DensitySampleVector(samples, logvals, weight = weights))
-    samples_notrafo = inv(trafo).(samples_trafo)
+    samples_trafo = shape.(DensitySampleVector(samples, logvals, weight = weights)) # type unstable
+    samples_notrafo = inv(trafo).(samples_trafo) # type unstable because of samples_trafo
 
     return (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, integral = est_integral)
 end
@@ -71,8 +71,13 @@ end
 function _gen_samples(density::AbstractDensity, algorithm::SobolSampler)
     bounds = var_bounds(density)
     isinf(bounds) && throw(ArgumentError("SobolSampler doesn't support densities with infinite support"))
-    sobol = Sobol.SobolSeq(bounds.vol.lo, bounds.vol.hi)
-    p = vcat([[Sobol.next!(sobol)] for i in 1:algorithm.nsamples]...)
+    N = length(bounds.vol.lo)
+    T = eltype(bounds.vol.lo)
+    sobol = convert(Sobol.ScaledSobolSeq{N, T}, Sobol.SobolSeq(bounds.vol.lo, bounds.vol.hi))
+    p = Vector{Vector{T}}(undef, algorithm.nsamples)
+    for i in eachindex(p)
+        p[i] = Sobol.next!(sobol)
+    end
     return p
 end
 
