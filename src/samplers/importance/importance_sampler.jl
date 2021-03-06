@@ -61,8 +61,8 @@ function bat_sample_impl(
     est_integral = mean(weights) * vol
     # ToDo: Add integral error estimate
 
-    samples_trafo = shape.(DensitySampleVector(samples, logvals, weight = weights)) # type unstable
-    samples_notrafo = inv(trafo).(samples_trafo) # type unstable because of samples_trafo
+    samples_trafo = shape.(DensitySampleVector(samples, logvals, weight = weights))
+    samples_notrafo = inv(trafo).(samples_trafo)
 
     return (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, integral = est_integral)
 end
@@ -86,10 +86,12 @@ function _gen_samples(density::AbstractDensity, algorithm::GridSampler)
     bounds = var_bounds(density)
     isinf(bounds) && throw(ArgumentError("SobolSampler doesn't support densities with infinite support"))
     dim = totalndof(density)
-    ppa = algorithm.ppa
-    ranges = [range(bounds.vol.lo[i], bounds.vol.hi[i], length = trunc(Int, ppa)) for i in 1:dim]
-    p = vec(collect(Iterators.product(ranges...)))
-    return [collect(p[i]) for i in 1:length(p)]
+    ppa = trunc(Int, algorithm.ppa)
+    local lb = copy(bounds.vol.lo)
+    local ub = copy(bounds.vol.hi)
+    ranges = ntuple(i -> range(lb[i], ub[i], length = ppa), Val(dim)) # type unstable due to Val(dim)
+    p = Iterators.product(ranges...) |> collect |> vec
+    return map(i -> collect(i), p)
 end
 
 

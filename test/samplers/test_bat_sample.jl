@@ -35,7 +35,7 @@ using Random, Distributions, StatsBase
 
     @testset "importance_sampling" begin
         function test_moments(dist::AnyDensityLike, algo::BAT.AbstractSamplingAlgorithm; rtol::Real=0.01)
-            samples = bat_sample(dist, algo).result # @inferred doesn't work
+            samples = @inferred(bat_sample(dist, algo)).result
 
             @test isapprox(@inferred(mean(samples)), @inferred(mean(dist)), rtol=rtol)
             @test isapprox(@inferred(var(samples)), @inferred(var(dist)), rtol=rtol)
