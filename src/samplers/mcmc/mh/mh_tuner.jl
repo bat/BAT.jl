@@ -59,7 +59,10 @@ end
 
 function ProposalCovTuner(tuning::AdaptiveMHTuning, chain::MHIterator)
     m = totalndof(getdensity(chain))
+
+    #Gelman et al. "Efficient Metropolis jumping rules", Bayesian Statistics 5, 599-607, 1996; Section 3.1:
     scale = 2.38^2 / m
+
     ProposalCovTuner(tuning, MCMCBasicStats(chain), 1, scale)
 end
 
