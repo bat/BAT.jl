@@ -19,6 +19,29 @@ end
 
 
 """
+    struct MCMCAlwaysConverged <: MCMCConvergenceTest
+
+*Experimental feature, not part of stable public API.*
+
+Declare MCMC chains to be converged no matter what.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)()```
+"""
+struct MCMCAlwaysConverged <: MCMCConvergenceTest
+end
+
+export MCMCAlwaysConverged
+
+
+function check_convergence(ct::MCMCAlwaysConverged, samples::AbstractVector{<:DensitySampleVector})
+    (converged = true,)
+end
+
+
+
+"""
     gr_Rsqr(stats::AbstractVector{<:MCMCBasicStats})
     gr_Rsqr(samples::AbstractVector{<:DensitySampleVector})
 

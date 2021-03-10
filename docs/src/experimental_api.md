@@ -10,17 +10,18 @@ versions, but may still evolve in a API-breaking fashion during that process.
 
 ```@docs
 bat_compare
-bat_rng
 bat_marginalmode
+bat_rng
 BAT.ExternalDensity
 BAT.FunnelDistribution
 BAT.GaussianShell
-BAT.MultimodalCauchy
 BAT.LogUniform
+BAT.MultimodalCauchy
 CuhreIntegration
 DivonneIntegration
 GridSampler
 HierarchicalDistribution
+MCMCAlwaysConverged
 PartitionedSampling
 PriorImportanceSampler
 ReactiveNestedSampling
