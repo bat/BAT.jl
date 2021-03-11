@@ -12,10 +12,10 @@ using StatsBase, Distributions, StatsBase, ValueShapes
     density = @inferred(convert(AbstractDensity, target))
     @test density isa BAT.DistributionDensity
 
-    algorithm = MetropolisHastings()
     nchains = 4
  
     @testset "MCMC iteration" begin
+        algorithm = MetropolisHastings()
         v_init = bat_initval(rng, density, InitFromTarget()).result
         @test @inferred(MCMCIterator(deepcopy(rng), algorithm, density, 1, unshaped(v_init, varshape(density)))) isa BAT.MHIterator
         chain = @inferred(MCMCIterator(deepcopy(rng), algorithm, density, 1, unshaped(v_init, varshape(density)))) 
@@ -34,85 +34,89 @@ using StatsBase, Distributions, StatsBase, ValueShapes
     end
  
     @testset "MCMC tuning and burn-in" begin
-        init_alg = MCMCChainPoolInit()
-        tuning_alg = AdaptiveMHTuning()
-        burnin_alg = MCMCMultiCycleBurnin()
-        convergence_test = BrooksGelmanConvergence()
-        strict = true
-        nonzero_weights = false
-        callback = (x...) -> nothing
-        max_nsteps = 10^5
+        for tuning_alg in (AdaptiveMHTuning(), DynamicMHTuning())
+            algorithm = MetropolisHastings(tuning = tuning_alg)
+            init_alg = MCMCChainPoolInit()
+            burnin_alg = MCMCMultiCycleBurnin()
+            convergence_test = BrooksGelmanConvergence()
+            strict = true
+            nonzero_weights = false
+            callback = (x...) -> nothing
+            max_nsteps = 10^5
 
-        init_result = @inferred(BAT.mcmc_init!(
-            rng,
-            algorithm,
-            density,
-            nchains,
-            init_alg,
-            tuning_alg,
-            nonzero_weights,
-            callback,
-        ))
+            init_result = @inferred(BAT.mcmc_init!(
+                rng,
+                algorithm,
+                density,
+                nchains,
+                init_alg,
+                BAT.get_mcmc_tuning(algorithm),
+                nonzero_weights,
+                callback,
+            ))
 
-        (chains, tuners, outputs) = init_result
-        @test chains isa AbstractVector{<:BAT.MHIterator}
-        @test tuners isa AbstractVector{<:BAT.ProposalCovTuner}
-        @test outputs isa AbstractVector{<:DensitySampleVector}
+            (chains, tuners, outputs) = init_result
+            @test chains isa AbstractVector{<:BAT.MHIterator}
+            @test outputs isa AbstractVector{<:DensitySampleVector}
 
-        BAT.mcmc_burnin!(
-            outputs,
-            tuners,
-            chains,
-            burnin_alg,
-            convergence_test,
-            strict,
-            nonzero_weights,
-            callback
-        )
+            BAT.mcmc_burnin!(
+                outputs,
+                tuners,
+                chains,
+                burnin_alg,
+                convergence_test,
+                strict,
+                nonzero_weights,
+                callback
+            )
 
-        BAT.mcmc_iterate!(
-            outputs,
-            chains;
-            max_nsteps = div(max_nsteps, length(chains)),
-            nonzero_weights = nonzero_weights,
-            callback = callback
-        )
+            BAT.mcmc_iterate!(
+                outputs,
+                chains;
+                max_nsteps = div(max_nsteps, length(chains)),
+                nonzero_weights = nonzero_weights,
+                callback = callback
+            )
 
-        samples = DensitySampleVector(first(chains))
-        append!.(Ref(samples), outputs)
-        
-        @test length(samples) == sum(samples.weight)
-        @test isapprox(mean(samples), [1, -1, 2], atol = 0.3)
-        @test isapprox(cov(samples), cov(unshaped(target)), atol = 0.4)
+            samples = DensitySampleVector(first(chains))
+            append!.(Ref(samples), outputs)
+            
+            @test length(samples) == sum(samples.weight)
+            @test isapprox(mean(samples), [1, -1, 2], atol = 0.3)
+            @test isapprox(cov(samples), cov(unshaped(target)), atol = 0.4)
+        end
     end
 
     @testset "MCMC tuning and burn-in" begin
-        samples = BAT.bat_sample(
-            density,
-            MCMCSampling(
-                mcalg = algorithm,
-                trafo = NoDensityTransform(),
-                nsteps = 10^5,
-                store_burnin = true
-            )
-        ).result
+        for tuning_alg in (AdaptiveMHTuning(), DynamicMHTuning())
+            algorithm = MetropolisHastings(tuning = tuning_alg)
+            samples = BAT.bat_sample(
+                density,
+                MCMCSampling(
+                    mcalg = algorithm,
+                    trafo = NoDensityTransform(),
+                    nsteps = 10^5,
+                    store_burnin = true
+                )
+            ).result
 
-        @test first(samples).info.chaincycle == 1
+            @test first(samples).info.chaincycle == 1
 
-        samples = BAT.bat_sample(
-            density,
-            MCMCSampling(
-                mcalg = algorithm,
-                trafo = NoDensityTransform(),
-                nsteps = 10^5,
-                store_burnin = false
-            )
-        ).result
+            samples = BAT.bat_sample(
+                density,
+                MCMCSampling(
+                    mcalg = algorithm,
+                    trafo = NoDensityTransform(),
+                    nsteps = 10^5,
+                    store_burnin = false
+                )
+            ).result
 
-        @test first(samples).info.chaincycle >= 2
+            @test first(samples).info.chaincycle >= 2
 
-        @test samples.v isa ShapedAsNTArray
-        @test isapprox(mean(unshaped.(samples)), [1, -1, 2], atol = 0.3)
-        @test isapprox(cov(unshaped.(samples)), cov(unshaped(target)), atol = 0.4)
+            @test samples.v isa ShapedAsNTArray
+            @test isapprox(mean(unshaped.(samples)), [1, -1, 2], atol = 0.3)
+            @test isapprox(cov(unshaped.(samples)), cov(unshaped(target)), atol = 0.4)
+        end
     end
 end

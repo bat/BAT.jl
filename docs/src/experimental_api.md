@@ -19,6 +19,7 @@ BAT.LogUniform
 BAT.MultimodalCauchy
 CuhreIntegration
 DivonneIntegration
+DynamicMHTuning
 GridSampler
 HierarchicalDistribution
 MCMCAlwaysConverged
