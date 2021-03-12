@@ -83,15 +83,14 @@ end
 
 
 function _gen_samples(density::AbstractDensity, algorithm::GridSampler)
+    # ToDo: Make type stable
     bounds = var_bounds(density)
-    isinf(bounds) && throw(ArgumentError("SobolSampler doesn't support densities with infinite support"))
+    isinf(bounds) && throw(ArgumentError("GridSampler doesn't support densities with infinite support"))
     dim = totalndof(density)
-    ppa = trunc(Int, algorithm.ppa)
-    local lb = copy(bounds.vol.lo)
-    local ub = copy(bounds.vol.hi)
-    ranges = ntuple(i -> range(lb[i], ub[i], length = ppa), Val(dim)) # type unstable due to Val(dim)
-    p = Iterators.product(ranges...) |> collect |> vec
-    return map(i -> collect(i), p)
+    ppa = algorithm.ppa
+    ranges = [range(bounds.vol.lo[i], bounds.vol.hi[i], length = trunc(Int, ppa)) for i in 1:dim]
+    p = vec(collect(Iterators.product(ranges...)))
+    return [collect(p[i]) for i in 1:length(p)]
 end
 
 
