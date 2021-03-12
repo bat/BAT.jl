@@ -36,6 +36,10 @@ function _reshape_realvec(shape::AbstractValueShape, v::AbstractVector{<:Real})
     shape(v)
 end
 
+function reshape_variate(shape::NamedTupleShape{names}, v::NamedTuple{names}) where {names}
+    shape(unshaped(v, shape))
+end
+
 
 reshape_variates(shape::Missing, vs::AbstractVector{<:Any}) = v
 
