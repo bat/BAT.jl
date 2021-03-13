@@ -47,7 +47,7 @@
         
         if smoothing != 0
             ker = ImageFiltering.Kernel.gaussian(smoothing)
-            m = imfilter(m, ker)
+            m = ImageFiltering.imfilter(m, ker)
         end
         
         # quick fix: needed when plotting contour on top of histogram
