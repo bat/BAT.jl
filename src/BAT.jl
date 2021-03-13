@@ -26,6 +26,7 @@ using DoubleFloats
 using ElasticArrays
 using FFTW
 using FillArrays
+using ImageFiltering
 using IntervalSets
 using KernelDensity
 using LaTeXStrings
