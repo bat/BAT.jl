@@ -76,22 +76,13 @@ test_sampler(tmv::test_mvdist) = tmv.d
 
     end
 
-    @testset "BAT.distribution_logpdf" begin
+    @testset "BAT.proposaldist_logpdf" begin
         d = MvTDist(1.5, zeros(2), PDMat([1. 0.5; 0.5 2]))
         gpd = @inferred BAT.GenericProposalDist(d)
 
         p = zeros(3)
 
-        BAT.distribution_logpdf!(p,
-            gpd, VectorOfSimilarVectors([0.0 -0.5 1.5;0.0 0.5 0.0]), [0.1,-0.1])
-        @test p ≈ [-2.1441505, -2.8830174, -3.6814116]
-
-        p = zeros(1)
-        BAT.distribution_logpdf!(p,
-            gpd, [0.0,0.0], [0.1,-0.1])
-        @test p ≈ [-2.1441505]
-
-        @test BAT.distribution_logpdf(
+        @test BAT.proposaldist_logpdf(
             gpd, [0.0,0.0], [0.1,-0.1]) ≈ -2.1441505
     end
 

@@ -63,7 +63,7 @@ import Cuba
 
                 @test minimum(target_dist) <= stripscalar(bat_findmode(density, MaxDensityLBFGS(trafo = NoDensityTransform())).result) <= maximum(target_dist)
 
-                if BAT.target_space(trafo) == BAT.UnitSpace()
+                if trafo.target_dist isa Union{BAT.StandardUvUniform,BAT.StandardMvUniform}
                     @test isapprox(bat_integrate(density, VEGASIntegration(trafo = NoDensityTransform())).result, 1, rtol = 10^-7)
                 end
             end
@@ -98,39 +98,5 @@ import Cuba
         is_samples = bat_sample(density, PriorImportanceSampler(nsamples = 10^4)).result
         @test isapprox(mean(unshaped.(hmc_samples)), mean(unshaped.(is_samples)), rtol = 0.1)
         @test isapprox(cov(unshaped.(hmc_samples)), cov(unshaped.(is_samples)), rtol = 0.2)
-
-        #=
-        # Works, but should be unnecessary here:
-        prior = src_d
-        likelihood = MvNormal(Diagonal(fill(1.0, 4)))
-        posterior = PosteriorDensity(likelihood, prior)
-        trafo = BAT.DistributionTransform(Normal, prior)
-        posterior_is = trafo(posterior)
-        samples = bat_sample(posterior_is, MCMCSampling(mcalg = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4)).result
-        =#
-    end
-
-
-    @testset "generic space transforms" begin
-        # ToDo:
-        #=
-        density = convert(AbstractDensity, Uniform(-2, 3))
-        td = BAT.transform_to(BAT.InfiniteSpace(), density)
-        trafo = td.trafo
-        bat_initval(td).result
-
-        bat_findmode(td, MaxDensityLBFGS(trafo = NoDensityTransform()))
-        bat_sample(td, MCMCSampling(mcalg = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4))
-
-        density = convert(AbstractDensity, MvNormal([2.0 0.5; 0.5 3.0]))
-        td = BAT.transform_to(BAT.InfiniteSpace(), density)
-        trafo = td.trafo
-        bat_initval(td).result
-
-        bat_findmode(td, MaxDensityLBFGS(trafo = NoDensityTransform()))
-        bat_sample(td, MCMCSampling(mcalg = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4))
-
-        # ...
-        =#
     end
 end

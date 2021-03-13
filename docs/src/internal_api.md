@@ -41,7 +41,6 @@ BAT.HMISettings
 BAT.IntegrationVolume
 BAT.KDTreePartitioning
 BAT.MCMCSampleGenerator
-BAT.NamedTupleTransform
 BAT.OnlineMvCov
 BAT.OnlineMvMean
 BAT.OnlineUvMean
@@ -55,7 +54,6 @@ BAT.StandardUvNormal
 BAT.StandardUvUniform
 BAT.TransformedDensity
 BAT.TruncatedDensity
-BAT.VariateSpace
 BAT.VariateTransform
 BAT.WhiteningResult
 
@@ -65,8 +63,7 @@ BAT.bg_R_2sqr
 BAT.create_hypercube
 BAT.create_hyperrectangle
 BAT.density_logval_type
-BAT.distribution_logpdf
-BAT.distribution_logpdf!
+BAT.proposaldist_logpdf
 BAT.drop_low_weight_samples
 BAT.eval_gradlogval
 BAT.eval_logval

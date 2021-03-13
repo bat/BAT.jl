@@ -79,11 +79,11 @@ dist_param_bounds(d::HierarchicalDistribution) =
 
 
 const StandardUniformDensity = Union{
-    BAT.DistributionDensity{<:BAT.StandardUvUniform},
-    BAT.DistributionDensity{<:BAT.StandardMvUniform}
+    DistributionDensity{<:StandardUvUniform},
+    DistributionDensity{<:StandardMvUniform}
 }
 
 const StandardNormalDensity= Union{
-    BAT.DistributionDensity{<:BAT.StandardUvNormal},
-    BAT.DistributionDensity{<:BAT.StandardUvNormal}
+    DistributionDensity{<:StandardUvNormal},
+    DistributionDensity{<:StandardMvNormal}
 }

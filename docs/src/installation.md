@@ -43,7 +43,7 @@ We recommend that you install the [Anaconda](https://www.anaconda.com/) Python d
 
 To install Anaconda
 
-* [Download Anaconda](https://www.anaconda.com/distribution/).
+* [Download Anaconda](https://www.anaconda.com/products/individual).
 
 * Run the installer
 

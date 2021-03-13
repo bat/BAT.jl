@@ -7,6 +7,7 @@ Test.@testset "distributions" begin
     include("test_standard_uniform.jl")
     include("test_standard_normal.jl")
     include("test_hierarchical_distribution.jl")
+    include("test_log_uniform.jl")
 
     Test.@testset "multimodal cauchy" begin
         @test_throws ArgumentError BAT.MultimodalCauchy(n=1)

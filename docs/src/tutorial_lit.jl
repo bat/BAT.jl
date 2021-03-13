@@ -34,8 +34,8 @@
 # ["LinearAlgebra"](https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/)
 # and ["Statistics"](https://docs.julialang.org/en/v1/stdlib/Statistics/),
 # as well as the packages
-# ["Distributions"](https://juliastats.github.io/Distributions.jl/stable/)
-# and ["StatsBase"](http://juliastats.github.io/StatsBase.jl/stable/):
+# ["Distributions"](https://juliastats.org/Distributions.jl/stable/)
+# and ["StatsBase"](https://juliastats.org/StatsBase.jl/stable/):
 
 using Random, LinearAlgebra, Statistics, Distributions, StatsBase
 
@@ -467,7 +467,7 @@ samples = bat_sample(
 # FileIO.save("results.jld2", Dict("samples" => samples))
 # ```
 #
-# JLD2 presists the full information (including value shapes), so you can
+# JLD2 persists the full information (including value shapes), so you can
 # reload exactly the same data into memory in a new Julia session via
 #
 # ```julia
@@ -485,6 +485,7 @@ samples = bat_sample(
 # ```julia
 # import HDF5
 # bat_write("results.h5", samples)
+# ```
 #
 # The resulting files have an intuitive HDF5 layout and can be read with the
 # standard HDF5 libraries, so they are easily accessible from other programming

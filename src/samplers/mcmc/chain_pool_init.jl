@@ -170,8 +170,8 @@ function mcmc_init!(
         copyto!(final_outputs, outputs)
     end
 
-
     @info "Selected $(length(final_tuners)) MCMC chain(s)."
+    tuning_postinit!.(final_tuners, final_chains, final_outputs)
 
     (chains = final_chains, tuners = final_tuners, outputs = final_outputs)
 end

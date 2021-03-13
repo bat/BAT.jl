@@ -188,3 +188,9 @@ function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, 
     idxs = eachindex(xs)
     (result = xs[idxs[1:n]],)
 end
+
+
+function apply_trafo_to_init(trafo::AbstractVariateTransform, initalg::ExplicitInit)
+    xs_tr = trafo.(initalg.xs)
+    ExplicitInit(xs_tr)
+end

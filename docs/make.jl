@@ -9,7 +9,13 @@ using Literate
 using BAT
 
 using ValueShapes
-import Cuba, HDF5
+import Cuba, UltraNest
+
+# Import HDF5 only on 64-bit, automated installation of HDF5 doesn't seem to work
+# properly on 32-bit on CI system:
+if Int == Int64
+    import HDF5
+end
 
 
 function fix_literate_output(content)
@@ -32,7 +38,7 @@ makedocs(
         canonical = "https://bat.github.io/BAT.jl/stable/"
     ),
     authors = "The BAT development team",
-    pages=[
+    pages = [
         "Home" => "index.md",
         "Installation" => "installation.md",
         "Tutorial" => "tutorial.md",
@@ -44,7 +50,7 @@ makedocs(
         "License" => "license.md",
     ],
     doctest = ("fixdoctests" in ARGS) ? :fix : true,
-    linkcheck = ("linkcheck" in ARGS),
+    linkcheck = "linkcheck" in ARGS,
     strict = !("nonstrict" in ARGS),
 )
 

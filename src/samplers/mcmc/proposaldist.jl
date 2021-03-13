@@ -8,19 +8,16 @@
 
 The following functions must be implemented for subtypes:
 
-* `BAT.distribution_logpdf`
+* `BAT.proposaldist_logpdf`
 * `BAT.proposal_rand!`
 * `ValueShapes.totalndof`, returning the number of DOF (i.e. dimensionality).
 * `LinearAlgebra.issymmetric`, indicating whether p(a -> b) == p(b -> a) holds true.
-
-In some cases, it may be desirable to override the default implementation
-of `BAT.distribution_logpdf!`.
 """
 abstract type AbstractProposalDist end
 
 
 """
-    distribution_logpdf(
+    proposaldist_logpdf(
         p::AbstractArray,
         pdist::AbstractProposalDist,
         v_proposed::AbstractVector,
@@ -29,48 +26,12 @@ abstract type AbstractProposalDist end
 
 *BAT-internal, not part of stable public API.*
 
-Analog to `distribution_logpdf!`, but for a single variate/parameter vector.
-"""
-function distribution_logpdf end
-
-# TODO: Implement distribution_logpdf for included proposal distributions
-
-
-"""
-    distribution_logpdf!(
-        p::AbstractArray,
-        pdist::AbstractProposalDist,
-        v_proposed::Union{AbstractVector,VectorOfSimilarVectors},
-        v_current:::Union{AbstractVector,VectorOfSimilarVectors}
-    )
-
-*BAT-internal, not part of stable public API.*
-
 Returns log(PDF) value of `pdist` for transitioning from current to proposed
-variate/parameter arguments values for a variate/parameter sets.
-
-end
-
-Input:
-
-* `v_proposed`: New values (column vectors)
-* `v_current`: Old values (column vectors)
-
-Output is stored in
-
-* `p`: Array of PDF values, length must match, shape is ignored
-
-Array size requirements:
-
-* `size(v_current, 1) == size(v_proposed, 1) == length(pdist)`
-* `size(v_current, 2) == size(v_proposed, 2)` or `size(v_current, 2) == 1`
-* `size(v_proposed, 2) == length(p)`
-
-Implementations of `distribution_logpdf!` must be thread-safe.
+variate/parameters.
 """
-function distribution_logpdf! end
+function proposaldist_logpdf end
 
-# TODO: Default implementation of distribution_logpdf!
+# TODO: Implement proposaldist_logpdf for included proposal distributions
 
 
 """
@@ -143,35 +104,13 @@ get_cov(q::GenericProposalDist) = get_cov(q.d)
 set_cov(q::GenericProposalDist, Σ::PosDefMatLike) = similar(q, set_cov(q.d, Σ))
 
 
-function distribution_logpdf!(
-    p::AbstractArray,
-    pdist::GenericProposalDist,
-    v_proposed::VectorOfSimilarVectors,
-    v_current::Union{AbstractVector,VectorOfSimilarVectors}
-)
-    params_diff = flatview(v_proposed) .- flatview(v_current) # TODO: Avoid memory allocation
-    Distributions.logpdf!(p, pdist.d, params_diff)
-end
-
-
-function distribution_logpdf!(
-    p::AbstractArray,
-    pdist::GenericProposalDist,
-    v_proposed::AbstractVector,
-    v_current::AbstractVector
-)
-    p[1] = distribution_logpdf(pdist, v_proposed, v_current)
-    p
-end
-
-
-function distribution_logpdf(
+function proposaldist_logpdf(
     pdist::GenericProposalDist,
     v_proposed::AbstractVector,
     v_current::AbstractVector
 )
     params_diff = v_proposed .- v_current # TODO: Avoid memory allocation
-    Distributions.logpdf(pdist.d, params_diff)
+    logpdf(pdist.d, params_diff)
 end
 
 
@@ -213,13 +152,13 @@ ValueShapes.totalndof(pdist::GenericUvProposalDist) = size(pdist.scale, 1)
 
 LinearAlgebra.issymmetric(pdist::GenericUvProposalDist) = issymmetric_around_origin(pdist.d)
 
-function BAT.distribution_logpdf(
+function BAT.proposaldist_logpdf(
     pdist::GenericUvProposalDist,
     v_proposed::Union{AbstractVector,VectorOfSimilarVectors},
     v_current::Union{AbstractVector,VectorOfSimilarVectors}
 )
     params_diff = (flatview(v_proposed) .- flatview(v_current)) ./ pdist.scale  # TODO: Avoid memory allocation
-    sum_first_dim(Distributions.logpdf.(pdist.d, params_diff))  # TODO: Avoid memory allocation
+    sum_first_dim(logpdf.(pdist.d, params_diff))  # TODO: Avoid memory allocation
 end
 
 function BAT.proposal_rand!(

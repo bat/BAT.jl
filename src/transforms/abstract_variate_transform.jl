@@ -71,94 +71,72 @@ ladjof(trafo::AbstractVariateTransform) = LADJOfVarTrafo(trafo)
 
 
 
-"""
-    abstract type VariateSpace <: Function
-
-*BAT-internal, not part of stable public API.*
-
-Abstract type for variate spaces.
-"""
-abstract type VariateSpace end
-
-struct UnitSpace <: VariateSpace end
-struct InfiniteSpace <: VariateSpace end
-struct MixedSpace <: VariateSpace end
-
-
-product_varspace(s::VariateSpace) = s
-
-product_varspace(::UnitSpace, ::UnitSpace) = MixedSpace
-product_varspace(::InfiniteSpace, ::InfiniteSpace) = MixedSpace
-product_varspace(::VariateSpace, ::VariateSpace) = MixedSpace
-
-function product_varspace(s1::VariateSpace, s2::VariateSpace, spcs::VariateSpace...)
-    product_varspace(product_varspace(s1, s2), spcs...)
+function _transform_density_sample(trafo::AbstractVariateTransform, s::DensitySample)
+    r = trafo(s.v, zero(Float32))
+    v = stripscalar(r.v)  # ToDo: Do we want to use stripscalar here?
+    logd = s.logd - r.ladj
+    DensitySample(v, logd, s.weight, s.info, s.aux)
 end
 
+(trafo::AbstractVariateTransform)(s::DensitySample) = _transform_density_sample(trafo, s)
 
 
-"""
-    abstract type VariateTransform{VF:<VariateForm,ST<:VariateSpace,SF<:VariateSpace}
+# Custom broadcast(::AbstractVariateTransform, DensitySampleVector), multithreaded:
+function Base.copy(
+    instance::Base.Broadcast.Broadcasted{
+        <:Base.Broadcast.AbstractArrayStyle{1},
+        <:Any,
+        <:AbstractVariateTransform,
+        <:Tuple{<:Union{ArrayOfSimilarVectors{<:Real},ShapedAsNTArray}}
+    }
+)
+    trafo = instance.f
+    v_src = instance.args[1]
+    vs_trg = valshape(trafo(first(v_src)))
+    v_src_us = unshaped.(v_src)
 
-*BAT-internal, not part of stable public API.*
-
-Abstract parameterized type for change-of-variables transformations.
-
-Subtypes (e.g. `SomeTrafo <: VariateTransform`) must implement:
-
-* `BAT.target_space(trafo::SomeTrafo, v)`
-* `BAT.source_space(trafo::SomeTrafo, v)`
-* `BAT.apply_vartrafo_impl(trafo::SomeTrafo, v)`
-* `BAT.apply_vartrafo_impl(inv_trafo::InverseVT{SomeTrafo}, v)`
-* `ValueShapes.varshape(trafo::SomeTrafo)`
-
-for real values and/or real-valued vectors `v`.
-"""
-abstract type VariateTransform{
-    VF<:VariateForm,ST<:VariateSpace,SF<:VariateSpace
-} <: AbstractVariateTransform end
-
-
-function target_space end
-
-function source_space end
-
-function apply_vartrafo end
-
-function apply_vartrafo_impl end
-
-
-apply_vartrafo(trafo::VariateTransform{Univariate}, v::Real, prev_ladj::Real) =
-    apply_vartrafo_impl(trafo, v, prev_ladj)
-
-function apply_vartrafo(trafo::VariateTransform{Univariate}, v::AbstractArray{<:Real,0}, prev_ladj::Real)
-    r = apply_vartrafo_impl(trafo, v[], prev_ladj)
-    (v = fill(r.v), ladj = r.ladj)
+    n = length(eachindex(v_src_us))
+    v_trg_unshaped = nestedview(similar(flatview(v_src_us), totalndof(vs_trg), n))
+    @assert axes(v_trg_unshaped) == axes(v_src)
+    @assert v_trg_unshaped isa ArrayOfSimilarArrays
+    @threads for i in eachindex(v_trg_unshaped, v_src)
+        r = trafo(v_src[i])
+        v_trg_unshaped[i] .= unshaped(r)
+    end
+    vs_trg.(v_trg_unshaped)
 end
-    
-apply_vartrafo(trafo::VariateTransform{Multivariate}, v::AbstractVector{<:Real}, prev_ladj::Real) =
-    apply_vartrafo_impl(trafo, v, prev_ladj)
 
-apply_vartrafo(trafo::VariateTransform{Matrixvariate}, v::AbstractMatrix{<:Real}, prev_ladj::Real) =
-    apply_vartrafo_impl(trafo, v, prev_ladj)
+function Base.copy(
+    instance::Base.Broadcast.Broadcasted{
+        <:Base.Broadcast.AbstractArrayStyle,
+        <:Any,
+        <:AbstractVariateTransform,
+        <:Tuple{DensitySampleVector}
+    }
+)
+    trafo = instance.f
+    s_src = instance.args[1]
+    vs_trg = valshape(trafo(first(s_src.v)))
+    s_src_us = unshaped.(s_src)
 
-apply_vartrafo(trafo::VariateTransform{ValueShapes.NamedTupleVariate{names}}, v::NamedTuple{names}, prev_ladj::Real) where names =
-    apply_vartrafo_impl(trafo, v, prev_ladj)
+    n = length(eachindex(s_src_us))
+    s_trg_unshaped = DensitySampleVector((
+        nestedview(similar(flatview(s_src_us.v), totalndof(vs_trg), n)),
+        zero(s_src_us.logd),
+        deepcopy(s_src_us.weight),
+        deepcopy(s_src_us.info),
+        deepcopy(s_src_us.aux),
+    ))
+    @assert axes(s_trg_unshaped) == axes(s_src)
+    @assert s_trg_unshaped.v isa ArrayOfSimilarArrays
+    @threads for i in eachindex(s_trg_unshaped, s_src)
+        r = trafo(s_src.v[i], zero(Float32))
+        s_trg_unshaped.v[i] .= unshaped(r.v)
+        s_trg_unshaped.logd[i] = s_src_us.logd[i] - r.ladj
+    end
+    vs_trg.(s_trg_unshaped)
+end
 
-apply_vartrafo(trafo::VariateTransform{ValueShapes.NamedTupleVariate{names}}, v::ShapedAsNT{<:NamedTuple{names}}, prev_ladj::Real) where names =
-    apply_vartrafo_impl(trafo, v, prev_ladj)
-
-
-(trafo::VariateTransform)(v::Any) = apply_vartrafo(trafo, v, Float32(NaN)).v
-(trafo::VariateTransform)(v::Any, prev_ladj::Real) = apply_vartrafo(trafo, v, prev_ladj)
-
-
-
-# ToDo: Move to ValueShapes.jl:
-_variate_form(shape::ScalarShape{<:Real}) = Univariate
-_variate_form(shape::ArrayShape{<:Real,1}) = Multivariate
-_variate_form(shape::ArrayShape{<:Real,2}) = Matrixvariate
-_variate_form(shape::NamedTupleShape{names}) where names = ValueShapes.NamedTupleVariate{names}
 
 
 function var_trafo_result(trg_v::Real, src_v::Real, trafo_ladj::Real, prev_ladj::Real)
@@ -198,99 +176,86 @@ function var_trafo_result(trg_v::AbstractVector{<:Real}, src_v::AbstractVector{<
 end
 
 
+# ToDo: Remove intermediate type `VariateTransform`?
 
-function (trafo::VariateTransform)(s::DensitySample)
-    r = trafo(s.v, zero(Float32))
-    v = stripscalar(r.v)  # ToDo: Do we want to use stripscalar here?
-    logd = s.logd - r.ladj
-    DensitySample(v, logd, s.weight, s.info, s.aux)
+"""
+    abstract type VariateTransform{VT<:AbstractValueShape,VF<:AbstractValueShape}
+
+*BAT-internal, not part of stable public API.*
+
+Abstract parameterized type for change-of-variables transformations.
+
+Subtypes (e.g. `SomeTrafo <: VariateTransform`) must implement:
+
+* `BAT.apply_vartrafo_impl(trafo::SomeTrafo, v)`
+* `BAT.apply_vartrafo_impl(inv_trafo::InverseVT{SomeTrafo}, v)`
+* `ValueShapes.varshape(trafo::SomeTrafo)`
+
+for real values and/or real-valued vectors `v`.
+"""
+abstract type VariateTransform{
+    VT<:AbstractValueShape,VF<:AbstractValueShape
+} <: AbstractVariateTransform end
+
+function apply_vartrafo end
+
+function apply_vartrafo_impl end
+
+
+apply_vartrafo(trafo::VariateTransform{<:Any,<:ScalarShape{T}}, v::T, prev_ladj::Real) where {T<:Real} =
+    apply_vartrafo_impl(trafo, v, prev_ladj)
+
+function apply_vartrafo(trafo::VariateTransform{<:Any,<:ScalarShape{T}}, v::AbstractArray{<:T,0}, prev_ladj::Real) where {T<:Real}
+    r = apply_vartrafo_impl(trafo, v[], prev_ladj)
+    (v = fill(r.v), ladj = r.ladj)
 end
+    
+apply_vartrafo(trafo::VariateTransform{<:Any,<:ArrayShape{T,N}}, v::AbstractArray{<:T,N}, prev_ladj::Real) where {T<:Real,N} =
+    apply_vartrafo_impl(trafo, v, prev_ladj)
 
-# Custom broadcast(::VariateTransform, DensitySampleVector), multithreaded:
-function Base.copy(
-    instance::Base.Broadcast.Broadcasted{
-        <:Base.Broadcast.AbstractArrayStyle{1},
-        <:Any,
-        <:VariateTransform,
-        <:Tuple{DensitySampleVector}
-    }
-)
-    trafo = instance.f
-    s_src = instance.args[1]
-    vs_trg = valshape(trafo(first(s_src.v)))
-    s_trg_unshaped = deepcopy(unshaped.(s_src))
-    @assert axes(s_trg_unshaped) == axes(s_src)
-    @assert s_trg_unshaped.v isa ArrayOfSimilarArrays
-    @threads for i in eachindex(s_trg_unshaped, s_src)
-        r = trafo(s_src.v[i], zero(Float32))
-        s_trg_unshaped.v[i] .= unshaped(r.v)
-        s_trg_unshaped.logd[i] -= r.ladj
-    end
-    vs_trg.(s_trg_unshaped)
-end
+apply_vartrafo(trafo::VariateTransform{<:Any,<:ValueShapes.NamedTupleShape{names}}, v::NamedTuple{names}, prev_ladj::Real) where names =
+    apply_vartrafo_impl(trafo, v, prev_ladj)
+
+apply_vartrafo(trafo::VariateTransform{<:Any,<:ValueShapes.NamedTupleShape{names}}, v::ShapedAsNT{<:NamedTuple{names}}, prev_ladj::Real) where names =
+    apply_vartrafo_impl(trafo, v, prev_ladj)
 
 
-
-struct InvVT{
-    VF <: VariateForm,
-    ST <: VariateSpace,
-    SF <: VariateSpace,
-    FT <: VariateTransform{VF,ST,SF}
-} <: VariateTransform{VF,SF,ST}
-    orig::FT
-end
-
-
-Base.inv(trafo::VariateTransform) = InvVT(trafo)
-Base.inv(trafo::InvVT) = trafo.orig
-
-ValueShapes.varshape(trafo::InvVT) = varshape(trafo.orig)
-
-
-target_space(trafo::InvVT) = source_space(trafo.orig)
-
-source_space(trafo::InvVT) = target_space(trafo.orig)
-
-
-const InverseVT{FT} = InvVT{VF,ST,SF,FT} where {VF,ST,SF}
+(trafo::VariateTransform)(v::Any) = apply_vartrafo(trafo, v, Float32(NaN)).v
+(trafo::VariateTransform)(v::Any, prev_ladj::Real) = apply_vartrafo(trafo, v, prev_ladj)
+(trafo::VariateTransform)(s::DensitySample) = _transform_density_sample(trafo, s)
 
 
 
 struct IdentityVT{
-    VF <: VariateForm,
-    S <: VariateSpace,
-    VS <: AbstractValueShape
-} <: VariateTransform{VF,S,S}
-    space::S
-    varshape::VS
-end
-
-function IdentityVT(space::VariateSpace, shape::AbstractValueShape)
-    VF = _variate_form(shape)
-    S = typeof(space)
-    VS = typeof(shape)
-    IdentityVT{VF,S,VS}(space, shape)
+    VTF <: AbstractValueShape
+} <: VariateTransform{VTF,VTF}
+    varshape::VTF
 end
 
 Base.inv(trafo::IdentityVT) = trafo
 
 ValueShapes.varshape(trafo::IdentityVT) = trafo.varshape
 
+import Base.∘
+@inline ∘(a::AbstractVariateTransform, b::IdentityVT) = a
+@inline ∘(a::IdentityVT, b::IdentityVT) = a
+@inline ∘(a::IdentityVT, b::AbstractVariateTransform) = b
 
-function apply_vartrafo_impl(trafo::Union{IdentityVT,InvVT{<:IdentityVT}}, v::Any, prev_ladj::Real)
-    (v = v, ladj = prev_ladj)
-end
 
-(trafo::Union{IdentityVT,InvVT{<:IdentityVT}})(s::DensitySample) = s
+@inline apply_vartrafo_impl(trafo::IdentityVT, v::Any, prev_ladj::Real) = (v = v, ladj = prev_ladj)
+
+(trafo::IdentityVT)(s::DensitySample) = s
+
 
 # Custom broadcast(::IdentityVT, DensitySampleVector), multithreaded:
+
 function Base.copy(
     instance::Base.Broadcast.Broadcasted{
-        <:Base.Broadcast.AbstractArrayStyle{1},
+        <:Base.Broadcast.AbstractArrayStyle,
         <:Any,
-        <:Union{IdentityVT,InvVT{<:IdentityVT}},
-        <:Tuple{DensitySampleVector}
+        <:IdentityVT,
+        <:Tuple{<:Union{ArrayOfSimilarVectors{<:Real},ShapedAsNTArray,DensitySampleVector}}
     }
 )
-    instance.args[1]
+    deepcopy(instance.args[1])
 end

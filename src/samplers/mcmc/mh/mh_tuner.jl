@@ -82,6 +82,14 @@ function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator)
 end
 
 
+function tuning_postinit!(tuner::ProposalCovTuner, chain::MHIterator, samples::DensitySampleVector)
+    # The very first samples of a chain can be very valuable to init tuner
+    # stats, especially if the chain gets stuck early after:
+    stats = tuner.stats
+    append!(stats, samples)
+end
+
+
 function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator, samples::DensitySampleVector)
     stats = tuner.stats
     stats_reweight_factor = tuner.config.r
