@@ -68,12 +68,12 @@ function bat_sample_impl(
 end
 
 
-function _gen_samples(density::AbstractDensity, algorithm::SobolSampler)
+function _gen_samples(density::AbstractDensity, algorithm::SobolSampler)::Vector{Vector{Real}}
     bounds = var_bounds(density)
     isinf(bounds) && throw(ArgumentError("SobolSampler doesn't support densities with infinite support"))
     N = length(bounds.vol.lo)
     T = eltype(bounds.vol.lo)
-    sobol = convert(Sobol.ScaledSobolSeq{N, T}, Sobol.SobolSeq(bounds.vol.lo, bounds.vol.hi))
+    sobol = convert(Sobol.ScaledSobolSeq{N, T}, Sobol.SobolSeq(bounds.vol.lo, bounds.vol.hi))::Sobol.ScaledSobolSeq{N, T}
     p = Vector{Vector{T}}(undef, algorithm.nsamples)
     for i in eachindex(p)
         p[i] = Sobol.next!(sobol)
