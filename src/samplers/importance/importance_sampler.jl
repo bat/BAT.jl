@@ -52,7 +52,9 @@ function bat_sample_impl(
     density, trafo = bat_transform(algorithm.trafo, density_notrafo)
     shape = varshape(density)
 
-    samples = _gen_samples(density, algorithm)
+    sample_eltype = eltype(var_bounds(density).vol.lo)
+    # ToDo: Make type stable for Julia < 1.6
+    samples = _gen_samples(density, algorithm)::Vector{Vector{sample_eltype}}
 
     logvals = eval_logval.(Ref(density), samples)
     weights = exp.(logvals)
@@ -68,7 +70,7 @@ function bat_sample_impl(
 end
 
 
-function _gen_samples(density::AbstractDensity, algorithm::SobolSampler)::Vector{Vector{Real}}
+function _gen_samples(density::AbstractDensity, algorithm::SobolSampler)
     bounds = var_bounds(density)
     isinf(bounds) && throw(ArgumentError("SobolSampler doesn't support densities with infinite support"))
     N = length(bounds.vol.lo)
@@ -83,7 +85,6 @@ end
 
 
 function _gen_samples(density::AbstractDensity, algorithm::GridSampler)
-    # ToDo: Make type stable
     bounds = var_bounds(density)
     isinf(bounds) && throw(ArgumentError("GridSampler doesn't support densities with infinite support"))
     dim = totalndof(density)
