@@ -46,8 +46,8 @@
         m = hist.weights
         
         if smoothing != 0
-            ker = ImageFiltering.Kernel.gaussian(smoothing)
-            m = ImageFiltering.imfilter(m, ker)
+            ker = gaussian_kernel(smoothing)
+            m = convolution(m, ker, padding=:same)    
         end
         
         # quick fix: needed when plotting contour on top of histogram

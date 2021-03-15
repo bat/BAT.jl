@@ -47,7 +47,6 @@ import DistributionsAD
 import EmpiricalDistributions
 import ForwardDiff
 import HypothesisTests
-import ImageFiltering
 import Measurements
 import NamedArrays
 import NLSolversBase
