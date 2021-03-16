@@ -118,7 +118,7 @@
         end
     end
 
-    # local mode(s)
+    # marginal mode(s)
     if marginalmode_options != ()
         marginalmode_values = find_marginalmodes(marg)
 
@@ -126,9 +126,9 @@
          @series begin
             seriestype := :line
             if length(marginalmode_values)==1
-                label := get(marginalmode_options, "label", "local mode")
+                label := get(marginalmode_options, "label", "marginal mode")
             elseif i ==1
-                label := get(marginalmode_options, "label", "local modes")
+                label := get(marginalmode_options, "label", "marginal modes")
             else
                 label :=""
             end

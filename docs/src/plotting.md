@@ -49,7 +49,7 @@ The plot style of the mean can be customized using a `Dict`.  For `mean = true`,
 `Dict("linestyle" => :dash, "linewidth" => 1, "linecolor" => :black, "alpha" => 1, "label" => "global mode")`
 
 * `marginalmode::Union{Dict, Bool} = true`: indicate the marginal mode(s), i.e. the center of the highest histogram bin(s) (currently only for samples). The style can be passed as a `Dict`. If `marginalmode = true`, the default style is:  
-`Dict("linestyle" => :dot, "linewidth" => 1, "linecolor" => :black, "alpha" => 1, "label" => "local mode")`
+`Dict("linestyle" => :dot, "linewidth" => 1, "linecolor" => :black, "alpha" => 1, "label" => "marginal mode")`
 
 * (only for samples) `filter::Bool = false`: if `true`, `BAT.drop_low_weight_samples()` is applied before plotting
 
@@ -72,6 +72,7 @@ plot(
     std = false,
     globalmode = false,
     marginalmode = true,
+	smoothing = 0,
     diagonal = Dict(),
     upper = Dict(),
     right = Dict(),
@@ -111,7 +112,9 @@ The plot style of the mean can be customized using a `Dict`.  For `mean = true`,
 `Dict("linestyle" => :dash, "linewidth" => 1, "linecolor" => :black, "alpha" => 1, "label" => "global mode")`
 
 * `marginalmode::Union{Dict, Bool} = true`: indicate the marginalmode(s), i.e. the center of the highest histogram bin(s) (currently only for samples). The style can be passed as a `Dict`. If `marginalmode = true`, the default style is:
-`Dict("linestyle" => :dot, "linewidth" => 1, "linecolor" => :black, "alpha" => 1, "label" => "local mode")`
+`Dict("linestyle" => :dot, "linewidth" => 1, "linecolor" => :black, "alpha" => 1, "label" => "marginal mode")`
+
+* `smoothing = 0`: When plotting contours, a Gaussian filtering can be applied for smoothing the contour lines. The keyword `smoothing` accepts  positive real number (or a tuple of two positive real numbers), specifying the standard deviation of the Gaussian kernel (for each dimension) of the filtering.
 
 *  `diagonal = Dict()`: Used only for the seriestype `:marginal`. The dictionary can contain the seriestypes and plot options for 2D distributions explained above to modify the 2D plot of the marginal plot. Nested Dictionaries are possible to modify the styles of the estimators as described above
 

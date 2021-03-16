@@ -5,7 +5,7 @@ using Plots
 using StatsBase
 
 
-@testset "bin centers & local modes" begin
+@testset "bin centers & marginal modes" begin
 
     data1 = [1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 9, 10]
     hist_1d = fit(Histogram, data1, nbins = 10, closed = :left)

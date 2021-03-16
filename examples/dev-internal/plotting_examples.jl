@@ -58,7 +58,7 @@ using Plots
 
 plot(samples, :a) #default seriestype = :smallest_intervals (alias :HDR)
 #or: plot(samples, 2)
-# The default seriestype for plotting samples is `:smallest_intervals` (alias `:HDR`), highlighting the smallest intervals (the highest density region) containing 68.3, 95.5 and 99.7 perecent of the posterior probability. By default, the local mode(s) of the histogram is(are) indicated as dotted black line(s).
+# The default seriestype for plotting samples is `:smallest_intervals` (alias `:HDR`), highlighting the smallest intervals (the highest density region) containing 68.3, 95.5 and 99.7 perecent of the posterior probability. By default, the marginal mode(s) of the histogram is(are) indicated as dotted black line(s).
 
 # ### Default 1D plot of prior:
 # Priors can be plotted either by their index or by using the parameter name:
@@ -118,7 +118,7 @@ plot(samples, :a, marginalmode=false,
 # ### Default 2D plot  of samples:
 pyplot()
 plot(samples, (:a, :(b[1])), mean=true, std=true) #default seriestype = :smallest_intervals (alias :HDR)
-# The default seriestype for plotting samples is a 3-color heatmap showing the smallest intervals (highest density regions) containing 68.3%, 95.5% and 99.7% of the posterior probability. By default, the local mode
+# The default seriestype for plotting samples is a 3-color heatmap showing the smallest intervals (highest density regions) containing 68.3%, 95.5% and 99.7% of the posterior probability. By default, the marginal mode
 # of the histogram is indicated by a black square.
 
 # ### Default 2D plot  of priors:
@@ -136,9 +136,9 @@ plot(samples, (:a,:(b[2])), seriestype = :histogram)
 # (currently only correctly supported with `pyplot()` backend)
 plot(samples, (:a,:(b[2])), seriestype=:smallest_intervals_contour, bins=40)
 
-# ### smallest intervals as filled contours:
+# ### smallest intervals as filled contours with smoothing:
 # (currently only correctly supported with `pyplot()` backend)
-plot(samples, (:a,:(b[2])), seriestype=:smallest_intervals_contourf, bins=40)
+plot(samples, (:a,:(b[2])), seriestype=:smallest_intervals_contourf, bins=40, smoothing=1)
 
 # ### Customizing smallest interval plots:
 # The probability intervals to be highlighted can be specified using the `intervals` keyword.

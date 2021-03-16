@@ -4,6 +4,7 @@
     vsel::NTuple{2,Union{Symbol, Expr, Integer}};
     intervals = default_credibilities,
     colors = default_colors,
+    smoothing = 0,
     diagonal = Dict(),
     upper = Dict(),
     right = Dict(),
@@ -43,7 +44,12 @@
         lev = calculate_levels(hist, intervals)
         x, y = get_bin_centers(marg)
         m = hist.weights
-
+        
+        if smoothing != 0
+            ker = gaussian_kernel(smoothing)
+            m = convolution(m, ker, padding=:same)    
+        end
+        
         # quick fix: needed when plotting contour on top of histogram
         # otherwise scaling of histogram colorbar would change scaling
         lev = lev/10000
