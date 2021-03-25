@@ -76,8 +76,9 @@ export MaxDensityNelderMead
 
 function bat_findmode_impl(target::AnySampleable, algorithm::MaxDensityNelderMead)
     density_notrafo = convert(AbstractDensity, target)
-    density, trafo = bat_transform(algorithm.trafo, density_notrafo)
-    shape = varshape(density)
+    shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)
+    shape = varshape(shaped_density)
+    density = unshaped(shaped_density)
 
     rng = bat_determ_rng()
     x = collect(unshaped(bat_initval(rng, density, apply_trafo_to_init(trafo, algorithm.init)).result))
@@ -117,8 +118,9 @@ export MaxDensityLBFGS
 
 function bat_findmode_impl(target::AnySampleable, algorithm::MaxDensityLBFGS)
     density_notrafo = convert(AbstractDensity, target)
-    density, trafo = bat_transform(algorithm.trafo, density_notrafo)
-    shape = varshape(density)
+    shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)
+    shape = varshape(shaped_density)
+    density = unshaped(shaped_density)
 
     rng = bat_determ_rng()
     x = collect(unshaped(bat_initval(rng, density, apply_trafo_to_init(trafo, algorithm.init)).result))

@@ -262,7 +262,8 @@ const CubaIntegration = Union{VEGASIntegration, SuaveIntegration, DivonneIntegra
 
 function bat_integrate_impl(target::AnyDensityLike, algorithm::CubaIntegration)
     density_notrafo = convert(AbstractDensity, target)
-    density, trafo = bat_transform(algorithm.trafo, density_notrafo)
+    shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)
+    density = unshaped(shaped_density)
     integrand = CubaIntegrand(density, algorithm.log_density_shift)
 
     r_cuba = bat_integrate_impl(integrand, algorithm)

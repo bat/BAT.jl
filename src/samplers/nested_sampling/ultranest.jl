@@ -109,8 +109,9 @@ function bat_sample_impl(
     algorithm::ReactiveNestedSampling
 )
     density_notrafo = convert(AbstractDensity, target)
-    density, trafo = bat_transform(algorithm.trafo, density_notrafo)
-    vs = varshape(density)
+    shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)
+    vs = varshape(shaped_density)
+    density = unshaped(shaped_density)
 
     bounds = var_bounds(density)
     if !(all(isequal(0), bounds.vol.lo) && all(isequal(1), bounds.vol.hi))

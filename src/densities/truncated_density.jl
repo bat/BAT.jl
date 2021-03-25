@@ -24,33 +24,32 @@ var_bounds(density::TruncatedDensity) = density.bounds
 
 ValueShapes.varshape(density::TruncatedDensity) = varshape(parent(density))
 
+ValueShapes.unshaped(density::TruncatedDensity) = TruncatedDensity(unshaped(density.density), density.bounds, density.logscalecorr)
+
+(shape::AbstractValueShape)(density::TruncatedDensity) = TruncatedDensity(shape(density.density), density.bounds, density.logscalecorr)
+
+
 
 function eval_logval(
     density::TruncatedDensity,
     v::Any,
-    T::Type{<:Real} = density_logval_type(v, density);
-    use_bounds::Bool = true,
-    strict::Bool = false
+    T::Type{<:Real} = density_logval_type(v, density)
 )
-    v_shaped = reshape_variate(varshape(density), v)
-    if use_bounds && !variate_is_inbounds(density, v_shaped, strict)
+    v_shaped = fixup_variate(varshape(density), v)
+
+    unshaped_v = unshaped_variate(varshape(density), v_shaped)
+    if !(unshaped_v in density.bounds)
         return log_zero_density(T)
     end
 
-    parent_logval = eval_logval(
-        parent(density), v_shaped,
-        use_bounds = false, strict = false
-    )  
+    parent_logval = eval_logval(parent(density), v_shaped, T)
     
-    parent_logval + density.logscalecorr
+    return T(parent_logval + density.logscalecorr)
 end
 
 
 function eval_logval_unchecked(density::TruncatedDensity, v::Any)
-    eval_logval(
-        density, v,
-        use_bounds = false, strict = false
-    )
+    eval_logval(density, v)
 end
 
 

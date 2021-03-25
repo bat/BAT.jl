@@ -9,7 +9,9 @@ using StatsBase, Distributions, StatsBase, ValueShapes
     rng = bat_rng()
     target = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
 
-    density = @inferred(convert(AbstractDensity, target))
+    shaped_density = @inferred(convert(AbstractDensity, target))
+    @test shaped_density isa BAT.DistributionDensity
+    density = unshaped(shaped_density)
     @test density isa BAT.DistributionDensity
 
     algorithm = MetropolisHastings()
@@ -88,7 +90,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes
 
     @testset "MCMC tuning and burn-in" begin
         samples = BAT.bat_sample(
-            density,
+            shaped_density,
             MCMCSampling(
                 mcalg = algorithm,
                 trafo = NoDensityTransform(),
@@ -100,7 +102,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         @test first(samples).info.chaincycle == 1
 
         samples = BAT.bat_sample(
-            density,
+            shaped_density,
             MCMCSampling(
                 mcalg = algorithm,
                 trafo = NoDensityTransform(),
