@@ -9,4 +9,5 @@ Test.@testset "mcmc" begin
     include("test_mh.jl")
     include("test_hmc.jl")
     include("test_mcmc_sampleid.jl")
+    include("test_mcmc_stats.jl")
 end
