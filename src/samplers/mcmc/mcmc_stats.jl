@@ -9,7 +9,7 @@ AbstractMCMCStats
 struct MCMCNullStats <: AbstractMCMCStats end
 
 
-Base.push!(stats::MCMCNullStats, sv::DensitySampleVector) = stats
+Base.push!(stats::MCMCNullStats, sv::DensitySample) = stats
 
 Base.append!(stats::MCMCNullStats, sv::DensitySampleVector) = stats
 
