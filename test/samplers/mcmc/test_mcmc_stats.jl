@@ -15,23 +15,31 @@ using Test
     density_sample_2 = DensitySample(x2, logpdf(mvnorm, x2), 1.0, nothing, nothing)
     density_sample_3 = DensitySample(x3, logpdf(mvnorm, x3), 1.0, nothing, nothing)
 
-    basic_stats = @inferred(BAT.MCMCBasicStats(density_sample_vector))
-    moments = @inferred(BAT._bat_stats(basic_stats))
-
-    @inferred(append!(basic_stats, density_sample_vector))
-    moments_appended = @inferred(BAT._bat_stats(basic_stats))
-
-    for i in eachindex(moments)
-        @test isapprox(moments[i], moments_appended[i])
+    @testset "null stats" begin
+        null_stats = @inferred(BAT.MCMCNullStats())
+        @test @inferred(append!(null_stats, density_sample_vector)) == null_stats
+        @test @inferred(push!(null_stats, density_sample_1)) == null_stats
     end
+
+    @testset "basic stats" begin
+        basic_stats = @inferred(BAT.MCMCBasicStats(density_sample_vector))
+        moments = @inferred(BAT._bat_stats(basic_stats))
+
+        @inferred(append!(basic_stats, density_sample_vector))
+        moments_appended = @inferred(BAT._bat_stats(basic_stats))
+
+        for i in eachindex(moments)
+            @test isapprox(moments[i], moments_appended[i])
+        end
     
-    @inferred(empty!(basic_stats))
-    moments_empty = BAT._bat_stats(basic_stats)
-    for i in eachindex(moments_empty)
-        @test isnan.(moments_empty[i]) == fill(1, size(moments[i]))
-    end
+        @inferred(empty!(basic_stats))
+        moments_empty = BAT._bat_stats(basic_stats)
+        for i in eachindex(moments_empty)
+            @test isnan.(moments_empty[i]) == fill(1, size(moments[i]))
+        end
 
-    @inferred(push!(basic_stats, density_sample_1))
-    @inferred(push!(basic_stats, density_sample_2))
-    @inferred(push!(basic_stats, density_sample_3))
+        @inferred(push!(basic_stats, density_sample_1))
+        @inferred(push!(basic_stats, density_sample_2))
+        @inferred(push!(basic_stats, density_sample_3))
+    end
 end 
