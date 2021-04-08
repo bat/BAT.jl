@@ -8,4 +8,5 @@ Test.@testset "mcmc" begin
     include("test_mcmc_convergence.jl")
     include("test_mh.jl")
     include("test_hmc.jl")
+    include("test_mcmc_sampleid.jl")
 end
