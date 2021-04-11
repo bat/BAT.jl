@@ -2,7 +2,7 @@
 using BAT
 using Test
 
-using LinearAlgebra
+using LinearAlgebra, IntervalSets
 using StatsBase, Distributions, StatsBase, ValueShapes
 
 @testset "HamiltonianMC" begin
@@ -123,52 +123,34 @@ using StatsBase, Distributions, StatsBase, ValueShapes
     end
 
     @testset "ahmc_adaptor" begin
-        function test_ahmc_adaptor(target, adaptor::BAT.HMCAdaptor; nchains::Integer=4, strict::Bool=true, testset_name::String, atol::Real=0.05)
+        function test_ahmc_adaptor(target, adaptor::BAT.HMCAdaptor; 
+            nchains::Integer=4, init::MCMCInitAlgorithm=MCMCChainPoolInit(), burnin::MCMCBurninAlgorithm=MCMCMultiCycleBurnin(),
+            strict::Bool=true, testset_name::String, atol::Real=0.05)
             @testset "$testset_name" begin
                 target_mean = [mean(getproperty(target, p)) for p in propertynames(target)]
 
                 mcalg = HamiltonianMC(adaptor=adaptor)
-                algorithm = MCMCSampling(mcalg=mcalg, nchains=nchains, store_burnin=false, strict=strict)
-
-                density_sample_vector = bat_sample(target, algorithm).result
-
-                sample_mean = @inferred(mean(density_sample_vector))[1]
-                for i in eachindex(target_mean)
-                    @test isapprox(sample_mean[i], target_mean[i], atol=atol)
-                end
-            end
-        end
-
-        test_ahmc_adaptor(target, BAT.NoAdaptor(), testset_name="NoAdaptor")
-        test_ahmc_adaptor(target, BAT.MassMatrixAdaptor(), testset_name="MassMatrixAdaptor")
-        test_ahmc_adaptor(target, BAT.StepSizeAdaptor(), testset_name="StepSizeAdaptor")
-        test_ahmc_adaptor(target, BAT.NaiveHMCAdaptor(), testset_name="NaiveHMCAdaptor")
-    end
-
-    @testset "ahmc_integrator" begin
-        function test_ahmc_integrator(target, integrator::BAT.HMCIntegrator; nchains::Integer=4, strict::Bool=true, testset_name::String, atol::Real=0.05)
-            @testset "$testset_name" begin
-                target_mean = [mean(getproperty(target, p)) for p in propertynames(target)]
-
-                mcalg = HamiltonianMC(integrator=integrator)
-                algorithm = MCMCSampling(mcalg=mcalg, nchains=nchains, store_burnin=false, strict=strict)
+                algorithm = MCMCSampling(mcalg=mcalg, nchains=nchains, store_burnin=false, init=init, burnin=burnin, strict=strict)
 
                 out = bat_sample(target, algorithm)
                 chains = out.generator.chains
                 density_sample_vector = out.result
 
                 for chain in chains
-                    @test chain.algorithm.integrator == integrator
+                    @test chain.algorithm.adaptor == adaptor
                 end
-            
+
                 sample_mean = @inferred(mean(density_sample_vector))[1]
                 for i in eachindex(target_mean)
                     @test isapprox(sample_mean[i], target_mean[i], atol=atol)
                 end
             end
         end
-
-        test_ahmc_integrator(target, BAT.JitteredLeapfrogIntegrator(), testset_name="JitteredLeapfrogIntegrator")
-        test_ahmc_integrator(target, BAT.TemperedLeapfrogIntegrator(), testset_name="TemperedLeapfrogIntegrator")
+        #init = MCMCChainPoolInit(init_tries_per_chain=8..500)
+        #burnin = MCMCMultiCycleBurnin(nsteps_per_cycle=20000, max_ncycles=100)
+        #test_ahmc_adaptor(target, BAT.NoAdaptor(), init=init, burnin=burnin, testset_name="NoAdaptor")
+        #test_ahmc_adaptor(target, BAT.MassMatrixAdaptor(), init=init, burnin=burnin, testset_name="MassMatrixAdaptor")
+        test_ahmc_adaptor(target, BAT.StepSizeAdaptor(), testset_name="StepSizeAdaptor")
+        test_ahmc_adaptor(target, BAT.NaiveHMCAdaptor(), testset_name="NaiveHMCAdaptor")
     end
 end
