@@ -121,4 +121,27 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         @test isapprox(mean(unshaped.(samples)), [1, -1, 2], atol = 0.3)
         @test isapprox(cov(unshaped.(samples)), cov(unshaped(target)), atol = 0.4)
     end
+
+    @testset "ahmc_adaptor" begin
+        function test_ahmc_adaptor(target, adaptor::BAT.HMCAdaptor; nchains::Integer=4, strict::Bool=true, testset_name::String, atol::Real=0.05)
+            @testset "$testset_name" begin
+                target_mean = [mean(getproperty(target, p)) for p in propertynames(target)]
+
+                mcalg = HamiltonianMC(adaptor=adaptor)
+                algorithm = MCMCSampling(mcalg=mcalg, nchains=nchains, store_burnin=false, strict=strict)
+
+                density_sample_vector = bat_sample(target, algorithm).result
+
+                sample_mean = @inferred(mean(density_sample_vector))[1]
+                for i in eachindex(target_mean)
+                    @test isapprox(sample_mean[i], target_mean[i], atol=atol)
+                end
+            end
+        end
+
+        test_ahmc_adaptor(target, BAT.NoAdaptor(), testset_name="NoAdaptor")
+        test_ahmc_adaptor(target, BAT.MassMatrixAdaptor(), testset_name="MassMatrixAdaptor")
+        test_ahmc_adaptor(target, BAT.StepSizeAdaptor(), testset_name="StepSizeAdaptor")
+        test_ahmc_adaptor(target, BAT.NaiveHMCAdaptor(), testset_name="NaiveHMCAdaptor")
+    end
 end
