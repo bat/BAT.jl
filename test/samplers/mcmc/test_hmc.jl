@@ -153,4 +153,34 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         test_ahmc_adaptor(target, BAT.StepSizeAdaptor(), testset_name="StepSizeAdaptor")
         test_ahmc_adaptor(target, BAT.NaiveHMCAdaptor(), testset_name="NaiveHMCAdaptor")
     end
+
+    @testset "ahmc_integrator" begin
+        function test_ahmc_integrator(target, integrator::BAT.HMCIntegrator; nchains::Integer=4, strict::Bool=true, testset_name::String, atol::Real=0.05)
+            @testset "$testset_name" begin
+                target_mean = [mean(getproperty(target, p)) for p in propertynames(target)]
+
+                mcalg = @inferred(HamiltonianMC(integrator=integrator))
+
+                @test mcalg.integrator == integrator
+
+                algorithm = @inferred(MCMCSampling(mcalg=mcalg, nchains=nchains, store_burnin=false, strict=strict))
+
+                out = bat_sample(target, algorithm)
+                chains = out.generator.chains
+                density_sample_vector = out.result
+
+                for chain in chains
+                    @test chain.algorithm.integrator == integrator
+                end
+            
+                sample_mean = @inferred(mean(density_sample_vector))[1]
+                for i in eachindex(target_mean)
+                    @test isapprox(sample_mean[i], target_mean[i], atol=atol)
+                end
+            end
+        end
+
+        test_ahmc_integrator(target, BAT.JitteredLeapfrogIntegrator(), testset_name="JitteredLeapfrogIntegrator")
+        test_ahmc_integrator(target, BAT.TemperedLeapfrogIntegrator(), testset_name="TemperedLeapfrogIntegrator")
+    end
 end
