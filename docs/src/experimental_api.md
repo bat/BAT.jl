@@ -12,6 +12,7 @@ versions, but may still evolve in a API-breaking fashion during that process.
 bat_compare
 bat_rng
 bat_marginalmode
+logdensityof
 BAT.ExternalDensity
 BAT.FunnelDistribution
 BAT.GaussianShell

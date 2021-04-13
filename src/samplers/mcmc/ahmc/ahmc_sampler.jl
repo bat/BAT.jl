@@ -78,7 +78,7 @@ function AHMCIterator(
     params_vec .= x_init
     !(params_vec in var_bounds(density)) && throw(ArgumentError("Parameter(s) out of bounds"))
 
-    log_posterior_value = eval_logval(density, params_vec, strict = true)
+    log_posterior_value = eval_logval(density, params_vec)
 
     T = typeof(log_posterior_value)
     W = Float64 # ToDo: Support other sample weight types
@@ -93,9 +93,8 @@ function AHMCIterator(
     rngpart_cycle = RNGPartition(rng, 0:(typemax(Int16) - 2))
 
     metric = AHMCMetric(algorithm.metric, npar)
-    logval_posterior(v) = eval_logval(density, v)
 
-    hamiltonian = AdvancedHMC.Hamiltonian(metric, logval_posterior, algorithm.gradient)
+    hamiltonian = AdvancedHMC.Hamiltonian(metric, logdensityof(density), algorithm.gradient)
     hamiltonian, t = AdvancedHMC.sample_init(rng, hamiltonian, params_vec)
 
     algorithm.integrator.step_size == 0.0 ? algorithm.integrator.step_size = AdvancedHMC.find_good_stepsize(hamiltonian, params_vec) : nothing
@@ -277,7 +276,7 @@ function mcmc_step!(chain::AHMCIterator)
     T = typeof(current_log_posterior)
 
     # Evaluate prior and likelihood with proposed variate:
-    proposed_log_posterior = eval_logval(density, proposed_params, strict = false)
+    proposed_log_posterior = eval_logval(density, proposed_params)
 
     samples.logd[proposed] = proposed_log_posterior
 

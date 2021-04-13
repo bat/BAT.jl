@@ -55,7 +55,7 @@ import Cuba
     
                 @test isapprox(fix_nni.(logvalof(density).(tX)), logpdf.(target_dist, tX), atol = 1e-10)
                 @test @inferred(logvalof(density)(target_x)) isa Real
-                @test @inferred(logvalof(density)(unshaped(target_x))) isa Real
+                @test @inferred(logvalof(unshaped(density))(unshaped(target_x))) isa Real
                 !any(isnan, @inferred(broadcast(ForwardDiff.derivative, logvalof(density), tX)))
 
                 tX_finite = tX[findall(isfinite, fix_nni.(logvalof(density).(tX)))]
@@ -93,7 +93,9 @@ import Cuba
 
         primary_dist = NamedTupleDist(a = Normal(), b = Weibull(), c = 5)
         f_secondary = x -> NamedTupleDist(y = Normal(x.a, x.b), z = MvNormal([1.3 0.5; 0.5 2.2]))
-        density = PosteriorDensity(MvNormal(Diagonal(fill(1.0, 5))), HierarchicalDistribution(f_secondary, primary_dist))
+        prior = HierarchicalDistribution(f_secondary, primary_dist)
+        likelihood = varshape(prior)(MvNormal(Diagonal(fill(1.0, totalndof(varshape(prior))))))
+        density = PosteriorDensity(likelihood, prior)
         hmc_samples = bat_sample(density, MCMCSampling(mcalg = HamiltonianMC(), trafo = PriorToGaussian(), nsteps = 10^4)).result
         is_samples = bat_sample(density, PriorImportanceSampler(nsamples = 10^4)).result
         @test isapprox(mean(unshaped.(hmc_samples)), mean(unshaped.(is_samples)), rtol = 0.1)

@@ -91,6 +91,19 @@ function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, 
 end
 
 
+function bat_initval_impl(rng::AbstractRNG, target::ReshapedDensity, algorithm::InitFromTarget)
+    v_orig = bat_initval_impl(rng, parent(target), algorithm).result
+    v = varshape(target)(unshaped(v_orig))
+    (result = v,)
+end
+
+function bat_initval_impl(rng::AbstractRNG, target::ReshapedDensity, n::Integer, algorithm::InitFromTarget)
+    v_orig = bat_initval_impl(rng, parent(target), n, algorithm).result
+    v = varshape(target).(unshaped.(v_orig))
+    (result = v,)
+end
+
+
 function bat_initval_impl(rng::AbstractRNG, target::TransformedDensity, algorithm::InitFromTarget)
     v_orig = bat_initval_impl(rng, target.orig, algorithm).result
     v = target.trafo(v_orig)

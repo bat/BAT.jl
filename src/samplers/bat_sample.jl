@@ -33,8 +33,9 @@ export IIDSampling
 
 
 function bat_sample_impl(rng::AbstractRNG, target::AnyIIDSampleable, algorithm::IIDSampling)
-    density = convert(DistLikeDensity, target)
-    shape = varshape(density)
+    shaped_density = convert(DistLikeDensity, target)
+    density = unshaped(shaped_density)
+    shape = varshape(shaped_density)
     n = algorithm.nsamples
 
     # ToDo: Parallelize, using hierarchical RNG (separate RNG for each sample)

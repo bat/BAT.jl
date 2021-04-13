@@ -9,6 +9,7 @@
     std = false,
     globalmode = false,
     marginalmode = true,
+    smoothing = 0,
     diagonal = Dict(),
     upper = Dict(),
     right = Dict(),
@@ -92,6 +93,7 @@
             diagonal --> diagonal
             upper --> upper
             right --> right
+            smoothing --> smoothing
 
             marg, (xindx, yindx)
         end
@@ -168,9 +170,9 @@
          @series begin
             seriestype := :scatter
             if i==1 && length(marginalmode_values)==1
-                label := get(marginalmode_options, "label", "local mode")
+                label := get(marginalmode_options, "label", "marginal mode")
             elseif i ==1
-                label := get(marginalmode_options, "label", "local modes")
+                label := get(marginalmode_options, "label", "marginal modes")
             else
                 label :=""
             end

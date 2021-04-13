@@ -64,6 +64,14 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
     gamma = Gamma(0.1,0.7)
     dirich = Dirichlet([0.1,4])
 
+    ntdist = NamedTupleDist(
+        a = uniform1,
+        b = mvnorm,
+        c = [4.2, 3.7],
+        x = beta,
+        y = gamma
+    )
+
     test_back_and_forth(beta, standnorm1)
     test_back_and_forth(gamma, standnorm1)
 
@@ -92,6 +100,9 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
     test_dist_trafo_moments(standnorm2_reshaped, mvnorm)
     test_dist_trafo_moments(standnorm2, standnorm2_reshaped)
     test_dist_trafo_moments(standnorm2_reshaped, standnorm2_reshaped)
+    
+    test_back_and_forth(ntdist, BAT.StandardMvNormal(5))
+    test_back_and_forth(ntdist, BAT.StandardMvUniform(5))
 
     let
         mvuni = product_distribution([Uniform(), Uniform()])
@@ -102,8 +113,8 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
         @test_throws ArgumentError BAT.apply_dist_trafo(uvnorm, standnorm2, x, 0.0)
 
         x = rand(2)
-	@test_throws ArgumentError BAT.apply_dist_trafo(mvuni, mvnorm, x, 0.0)
-	@test_throws ArgumentError BAT.apply_dist_trafo(mvnorm, mvuni, x, 0.0)
+        @test_throws ArgumentError BAT.apply_dist_trafo(mvuni, mvnorm, x, 0.0)
+        @test_throws ArgumentError BAT.apply_dist_trafo(mvnorm, mvuni, x, 0.0)
         @test_throws ArgumentError BAT.apply_dist_trafo(uvnorm, mvnorm, x, 0.0)
         @test_throws ArgumentError BAT.apply_dist_trafo(uvnorm, standnorm1, x, 0.0)
         @test_throws ArgumentError BAT.apply_dist_trafo(uvnorm, standnorm2, x, 0.0)
