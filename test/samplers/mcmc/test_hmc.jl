@@ -3,7 +3,7 @@ using BAT
 using Test
 
 using LinearAlgebra
-using StatsBase, Distributions, StatsBase, ValueShapes
+using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
 
 @testset "HamiltonianMC" begin
     rng = bat_rng()
@@ -120,5 +120,17 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         @test samples.v isa ShapedAsNTArray
         @test isapprox(mean(unshaped.(samples)), [1, -1, 2], atol = 0.3)
         @test isapprox(cov(unshaped.(samples)), cov(unshaped(target)), atol = 0.4)
+    end
+
+    @testset "MCMC sampling in transformed space" begin
+        prior = BAT.example_posterior().prior
+        likelihood = (logdensity = v -> 0,)
+        inner_posterior = PosteriorDensity(likelihood, prior)
+        # Test with nested posteriors:
+        posterior = PosteriorDensity(likelihood, inner_posterior)
+        smpls = bat_sample(posterior, MCMCSampling(mcalg = HamiltonianMC(), trafo = PriorToGaussian())).result
+
+        @test isapprox(mean(unshaped.(smpls)), mean(nestedview(rand(unshaped(prior).dist, 10^5))), rtol = 0.1)
+        @test isapprox(cov(unshaped.(smpls)), cov(unshaped(prior).dist), rtol = 0.1)
     end
 end
