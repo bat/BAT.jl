@@ -42,6 +42,7 @@ using Tables
 using ValueShapes
 
 import AdvancedHMC
+import ChainRulesCore
 import DiffResults
 import DistributionsAD
 import EmpiricalDistributions
