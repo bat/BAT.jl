@@ -172,7 +172,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes
                 for chain in chains
                     @test chain.algorithm.integrator == integrator
                 end
-            
+
                 sample_mean = @inferred(mean(density_sample_vector))[1]
                 for i in eachindex(target_mean)
                     @test isapprox(sample_mean[i], target_mean[i], atol=atol)
@@ -182,5 +182,34 @@ using StatsBase, Distributions, StatsBase, ValueShapes
 
         test_ahmc_integrator(target, BAT.JitteredLeapfrogIntegrator(), testset_name="JitteredLeapfrogIntegrator")
         test_ahmc_integrator(target, BAT.TemperedLeapfrogIntegrator(), testset_name="TemperedLeapfrogIntegrator")
+    end
+
+    @testset "ahmc_sampleid" begin
+        mvnorm = @inferred(product_distribution([Normal(), Normal()]))
+        sampling_method = @inferred(MCMCSampling(mcalg=HamiltonianMC(), nchains=2, nsteps=10^3))
+    
+        samples_1 = bat_sample(mvnorm, sampling_method).result
+        samples_2 = bat_sample(mvnorm, sampling_method).result
+    
+        id_vector_1 = samples_1.info
+        id_vector_2 = samples_2.info
+
+        @test id_vector_1 isa BAT.AHMCSampleIDVector
+        @test id_vector_2 isa BAT.AHMCSampleIDVector
+
+        id_vector_12 = @inferred(merge(id_vector_1, id_vector_2))
+    
+        num_sample_ids_1 = @inferred(length(id_vector_1))
+        num_sample_ids_2 = @inferred(length(id_vector_2))
+    
+        @test @inferred(length(id_vector_12)) == num_sample_ids_1 + num_sample_ids_2
+    
+        @test id_vector_12[1:num_sample_ids_1] == id_vector_1
+        @test id_vector_12[num_sample_ids_1+1:end] == id_vector_2
+    
+        @test @inferred(isempty(@inferred(BAT.MCMCSampleIDVector())))
+
+        merge!(id_vector_1, id_vector_2)
+        @test id_vector_1 == id_vector_12
     end
 end

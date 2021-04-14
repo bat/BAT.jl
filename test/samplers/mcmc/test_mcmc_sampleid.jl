@@ -21,4 +21,7 @@ using Distributions, Test
     @test id_vector_12[num_sample_ids_1+1:end] == id_vector_2
 
     @test @inferred(isempty(@inferred(BAT.MCMCSampleIDVector())))
+
+    merge!(id_vector_1, id_vector_2)
+    @test id_vector_1 == id_vector_12
 end
