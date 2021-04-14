@@ -45,6 +45,7 @@ import AdvancedHMC
 import DiffResults
 import DistributionsAD
 import EmpiricalDistributions
+import FiniteDiff
 import ForwardDiff
 import HypothesisTests
 import Measurements
