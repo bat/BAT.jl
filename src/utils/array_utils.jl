@@ -67,8 +67,13 @@ convert_numtype(::Type{T}, x::AbstractArray{T}) where {T<:Real} = x
 convert_numtype(::Type{T}, x::AbstractArray{<:Real}) where {T<:Real} = convert.(T, x)
 
 
-float_numtypeof(src_v::Real) = float(typeof(src_v))
-float_numtypeof(src_v::AbstractVector{<:Real}) = float(eltype(src_v))
+# ToDo: Move to ValueShapes?
+getnumtype(::Type{T}) where {T<:Real} = T
+getnumtype(::Type{<:AbstractArray{T}}) where {T<:Real} = T
+getnumtype(::Type{<:ShapedAsNT{<:Any,<:AbstractArray{T}}}) where {T<:Real} = T
+getnumtype(::Type{<:ShapedAsNTArray{<:Any,N,<:AbstractArray{<:AbstractArray{T}}}}) where {T<:Real,N} = T
+getnumtype(tp::Type) = throw(ArgumentError("Can't derive numeric type for type $tp"))
+getnumtype(x) = getnumtype(typeof(x))
 
 
 any_isinf(trg_v::Real) = isinf(trg_v)

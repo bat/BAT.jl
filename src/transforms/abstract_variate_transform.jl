@@ -157,7 +157,7 @@ function _combined_trafo_ladj(trafo_ladj::OptionalLADJ, prev_ladj::OptionalLADJ,
 end
 
 function var_trafo_result(trg_v::Any, src_v::Any, trafo_ladj::OptionalLADJ, prev_ladj::OptionalLADJ)
-    R = float_numtypeof(src_v)
+    R = float(getnumtype(src_v))
     trg_ladj = _combined_trafo_ladj(trafo_ladj, prev_ladj, any_isinf(trg_v))
     (v = convert_numtype(R, trg_v), ladj = trg_ladj)
 end
