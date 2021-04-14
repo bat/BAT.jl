@@ -1,6 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+const OptionalLADJ = Union{Real,Missing}
+
+
 """
     abstract type AbstractVariateTransform <: Function
 
@@ -11,7 +14,7 @@ Subtypes (e.g. `SomeTrafo <: AbstractVariateTransform`) must support (with
 
 ```julia
     (trafo)(v_prev::SomeVariate) == v_new
-    (trafo)(v_prev::SomeVariate, ladj_prev::Real)) == (v = v_new, ladj = ladj_new)
+    (trafo)(v_prev::SomeVariate, ladj_prev::Union{Real,Missing})) == (v = v_new, ladj = ladj_new)
     (trafo)(s_prev::DensitySample)::DensitySample
     ((trafo2 ∘ trafo1)(v)::AbstractVariateTransform)(v) == trafo2(trafo1(v))
     inv(trafo)(trafo(v)) == v
@@ -30,7 +33,7 @@ export AbstractVariateTransform
 
 
 """
-    ladjof(r::NamedTuple{(...,:ladj,...)})::Real
+    ladjof(r::NamedTuple{(...,:ladj,...)})::Union{Real,Missing}
 
 Extract the `log(abs(det(jacobian)))` value that is part of a result `r`.
 
@@ -53,7 +56,7 @@ struct LADJOfVarTrafo{T<:AbstractVariateTransform} <: Function
 end
 
 (ladjof_trafo::LADJOfVarTrafo)(v::Any) = ladjof(trafo(v, 0))
-(ladjof_trafo::LADJOfVarTrafo)(v::Any, prev_ladj::Real) = ladjof(trafo(v, prev_ladj))
+(ladjof_trafo::LADJOfVarTrafo)(v::Any, prev_ladj::OptionalLADJ) = ladjof(trafo(v, prev_ladj))
 
 
 """
@@ -68,7 +71,6 @@ a given variate `v`:
 ```
 """
 ladjof(trafo::AbstractVariateTransform) = LADJOfVarTrafo(trafo)
-
 
 
 function _transform_density_sample(trafo::AbstractVariateTransform, s::DensitySample)
@@ -138,41 +140,26 @@ function Base.copy(
 end
 
 
-
-function var_trafo_result(trg_v::Real, src_v::Real, trafo_ladj::Real, prev_ladj::Real)
-    R = float(typeof(src_v))
-    ladj_sum = convert(R, trafo_ladj + prev_ladj)
-    trg_ladj = if !isnan(ladj_sum)
-        ladj_sum
+function _combined_trafo_ladj(trafo_ladj::OptionalLADJ, prev_ladj::OptionalLADJ, trg_v_isinf::Bool)
+    if ismissing(trafo_ladj) || ismissing(prev_ladj)
+        missing
     else
-        # Should be safe to assume that target dist goes to zero at infinity, should win out over infinite prev_ladj:
-        ladjs_should_cancel = (trafo_ladj == R(-Inf) && prev_ladj == R(+Inf) && isinf(trg_v))
-        ladjs_should_cancel ? zero(R) : ladj_sum
+        ladj_sum = trafo_ladj + prev_ladj
+        R = typeof(ladj_sum)
+        if !isnan(ladj_sum)
+            ladj_sum
+        else
+            # Should be safe to assume that target dist goes to zero at infinity, should win out over infinite prev_ladj:
+            ladjs_should_cancel = (trafo_ladj == R(-Inf) && prev_ladj == R(+Inf) && trg_v_isinf)
+            ladjs_should_cancel ? zero(R) : ladj_sum
+        end
     end
-    (v = convert(R, trg_v), ladj = trg_ladj)
 end
 
-function var_trafo_result(trg_v::Real, src_v::Real)
-    R = float(typeof(src_v))
-    (v = convert(R, trg_v), ladj = convert(R, NaN))
-end
-
-function var_trafo_result(trg_v::AbstractVector{<:Real}, src_v::AbstractVector{<:Real}, trafo_ladj::Real, prev_ladj::Real)
-    R = float(eltype(src_v))
-    ladj_sum = convert(R, trafo_ladj + prev_ladj)
-    trg_ladj = if !isnan(ladj_sum)
-        ladj_sum
-    else
-        # Should be safe to assume that target dist goes to zero at infinity, should win out over infinite prev_ladj:
-        ladjs_should_cancel = (trafo_ladj == R(-Inf) && prev_ladj == R(+Inf) && any(isinf, trg_v))
-        ladjs_should_cancel ? zero(R) : ladj_sum
-    end
-    (v = convert_eltype(R, trg_v), ladj = trg_ladj)
-end
-
-function var_trafo_result(trg_v::AbstractVector{<:Real}, src_v::AbstractVector{<:Real})
-    R = float(eltype(src_v))
-    (v = convert_eltype(R, trg_v), ladj = convert(R, NaN))
+function var_trafo_result(trg_v::Any, src_v::Any, trafo_ladj::OptionalLADJ, prev_ladj::OptionalLADJ)
+    R = float_numtypeof(src_v)
+    trg_ladj = _combined_trafo_ladj(trafo_ladj, prev_ladj, any_isinf(trg_v))
+    (v = convert_numtype(R, trg_v), ladj = trg_ladj)
 end
 
 
@@ -202,26 +189,26 @@ function apply_vartrafo end
 function apply_vartrafo_impl end
 
 
-apply_vartrafo(trafo::VariateTransform{<:Any,<:ScalarShape{T}}, v::T, prev_ladj::Real) where {T<:Real} =
+apply_vartrafo(trafo::VariateTransform{<:Any,<:ScalarShape{T}}, v::T, prev_ladj::OptionalLADJ) where {T<:Real} =
     apply_vartrafo_impl(trafo, v, prev_ladj)
 
-function apply_vartrafo(trafo::VariateTransform{<:Any,<:ScalarShape{T}}, v::AbstractArray{<:T,0}, prev_ladj::Real) where {T<:Real}
+function apply_vartrafo(trafo::VariateTransform{<:Any,<:ScalarShape{T}}, v::AbstractArray{<:T,0}, prev_ladj::OptionalLADJ) where {T<:Real}
     r = apply_vartrafo_impl(trafo, v[], prev_ladj)
     (v = fill(r.v), ladj = r.ladj)
 end
     
-apply_vartrafo(trafo::VariateTransform{<:Any,<:ArrayShape{T,N}}, v::AbstractArray{<:T,N}, prev_ladj::Real) where {T<:Real,N} =
+apply_vartrafo(trafo::VariateTransform{<:Any,<:ArrayShape{T,N}}, v::AbstractArray{<:T,N}, prev_ladj::OptionalLADJ) where {T<:Real,N} =
     apply_vartrafo_impl(trafo, v, prev_ladj)
 
-apply_vartrafo(trafo::VariateTransform{<:Any,<:ValueShapes.NamedTupleShape{names}}, v::NamedTuple{names}, prev_ladj::Real) where names =
+apply_vartrafo(trafo::VariateTransform{<:Any,<:ValueShapes.NamedTupleShape{names}}, v::NamedTuple{names}, prev_ladj::OptionalLADJ) where names =
     apply_vartrafo_impl(trafo, v, prev_ladj)
 
-apply_vartrafo(trafo::VariateTransform{<:Any,<:ValueShapes.NamedTupleShape{names}}, v::ShapedAsNT{<:NamedTuple{names}}, prev_ladj::Real) where names =
+apply_vartrafo(trafo::VariateTransform{<:Any,<:ValueShapes.NamedTupleShape{names}}, v::ShapedAsNT{<:NamedTuple{names}}, prev_ladj::OptionalLADJ) where names =
     apply_vartrafo_impl(trafo, v, prev_ladj)
 
 
 (trafo::VariateTransform)(v::Any) = apply_vartrafo(trafo, v, Float32(NaN)).v
-(trafo::VariateTransform)(v::Any, prev_ladj::Real) = apply_vartrafo(trafo, v, prev_ladj)
+(trafo::VariateTransform)(v::Any, prev_ladj::OptionalLADJ) = apply_vartrafo(trafo, v, prev_ladj)
 (trafo::VariateTransform)(s::DensitySample) = _transform_density_sample(trafo, s)
 
 
@@ -242,7 +229,7 @@ import Base.∘
 @inline ∘(a::IdentityVT, b::AbstractVariateTransform) = b
 
 
-@inline apply_vartrafo_impl(trafo::IdentityVT, v::Any, prev_ladj::Real) = (v = v, ladj = prev_ladj)
+@inline apply_vartrafo_impl(trafo::IdentityVT, v::Any, prev_ladj::OptionalLADJ) = (v = v, ladj = prev_ladj)
 
 (trafo::IdentityVT)(s::DensitySample) = s
 

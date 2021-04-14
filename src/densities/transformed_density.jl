@@ -87,7 +87,7 @@ end
 
 
 function eval_logval(
-    density::TransformedDensity{D,FT,<:TDNoCorr},
+    density::TransformedDensity{D,FT,TDNoCorr},
     v::Any,
     T::Type{<:Real} = density_logval_type(v, density)
 ) where {D,FT,}
@@ -98,7 +98,7 @@ end
 
 
 function eval_logval(
-    density::TransformedDensity{D,FT,<:TDLADJCorr},
+    density::TransformedDensity{D,FT,TDLADJCorr},
     v::Any,
     T::Type{<:Real} = density_logval_type(v, density)
 ) where {D,FT,}

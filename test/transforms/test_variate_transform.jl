@@ -22,10 +22,10 @@ using ValueShapes, Distributions
 
         @test @inferred(BAT.apply_vartrafo(nttrafo, ntvalue, 0)).v === ntvalue
         @test BAT.apply_vartrafo(nttrafo, ntvalue, 0.79).ladj == 0.79
-        @test isnan(BAT.apply_vartrafo(nttrafo, ntvalue, NaN).ladj)
+        @test ismissing(BAT.apply_vartrafo(nttrafo, ntvalue, missing).ladj)
         @test @inferred(BAT.apply_vartrafo(inv(nttrafo), ntvalue, 0.79)).v === ntvalue
         @test BAT.apply_vartrafo(inv(nttrafo), ntvalue, 0.79).ladj == 0.79
-        @test isnan(BAT.apply_vartrafo(inv(nttrafo), ntvalue, NaN).ladj)
+        @test ismissing(BAT.apply_vartrafo(inv(nttrafo), ntvalue, missing).ladj)
 
         @test @inferred(nttrafo ∘ nttrafo) === nttrafo
 
