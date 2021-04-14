@@ -49,7 +49,7 @@ function(==)(A::AHMCSampleIDVector, B::AHMCSampleIDVector)
     A.hamiltonian_energy == B.hamiltonian_energy &&
     A.tree_depth == B.tree_depth &&
     A.divergent == B.divergent &&
-    A.step_size == B.stepsize
+    A.step_size == B.step_size
 end
 
 
