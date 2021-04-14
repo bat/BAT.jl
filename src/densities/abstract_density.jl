@@ -151,16 +151,11 @@ function _check_density_logval(density::AbstractDensity, v::Any, logval::Real)
 end
 
 
-_strip_duals(x) = x
-_strip_duals(x::AbstractVector{<:ForwardDiff.Dual}) = ForwardDiff.value.(x)
-
-function variate_for_msg(v::Any)
-    # Strip dual numbers to make errors more readable:
-    shape = valshape(v)
-    v_real_unshaped = _strip_duals(unshaped(v))
-    v_real_shaped = shape(v_real_unshaped)
-    stripscalar(v_real_shaped)
-end
+variate_for_msg(v::Real) = v
+# Strip dual numbers to make errors more readable:
+variate_for_msg(v::ForwardDiff.Dual) = ForwardDiff.value(v)
+variate_for_msg(v::AbstractArray) = variate_for_msg.(v)
+variate_for_msg(v::NamedTuple) = map(variate_for_msg, v)
 
 
 """
