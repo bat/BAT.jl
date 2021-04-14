@@ -111,21 +111,20 @@ function eval_logval end
     v_shaped = fixup_variate(varshape(density), v)
     R = density_logval_type(v_shaped, T)
     v_stripped = stripscalar(v_shaped)
+    _generic_eval_logval_impl(density, v_stripped, R)
+end
 
-    # ToDo: Make Zygote-compatible, by wrapping the following exception
-    # augmentation mechanism in a function `get_density_logval_with_rethrow`
-    # with a custom pullback:
+
+function _generic_eval_logval_impl(density::AbstractDensity, v::Any, T::Type)
     logval = try
-        # ToDo: Mechanism to allow versions of eval_logval_unchecked for
-        # wrapped distributions and similar that avoid stripscalar:
-        convert(R, eval_logval_unchecked(density, stripscalar(v_shaped)))::R
+        eval_logval_unchecked(density, v)
     catch err
         rethrow(_density_eval_error(density, v, err))
     end
 
     _check_density_logval(density, v, logval)
 
-    return logval
+    return convert(T, logval)::T
 end
 
 function _density_eval_error(density::AbstractDensity, v::Any, err::Any)
