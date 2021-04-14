@@ -37,10 +37,7 @@ Depth = 1
 ## Citing BAT.jl
 
 When using BAT.jl for research, teaching or similar, please cite
-
-> Schulz et al. "BAT.jl: A Julia-Based Tool for Bayesian Inference", [SNCS (2021)](https://doi.org/10.1007/s42979-021-00626-4)
-
-SNCS volume 2, Article number: 210 (2021) 
+*Schulz et al. "BAT.jl: A Julia-Based Tool for Bayesian Inference", [SNCS (2021)](https://doi.org/10.1007/s42979-021-00626-4)*.
 
 ```
 @article{Schulz:2021BAT,
@@ -60,8 +57,7 @@ SNCS volume 2, Article number: 210 (2021)
 ```
 
 If you use [`BAT.AHMIntegration`](@ref) as an important part of your work, please also cite 
-
-> Caldwell et al. "Integration with an Adaptive Harmonic Mean Algorithm", [IJMPA (2020)](http://doi.org/10.1142/S0217751X20501420)
+*Caldwell et al. "Integration with an Adaptive Harmonic Mean Algorithm", [IJMPA (2020)](http://doi.org/10.1142/S0217751X20501420).*
 
 ```
 @article{Caldwell:2020AHMI,
@@ -78,8 +74,7 @@ If you use [`BAT.AHMIntegration`](@ref) as an important part of your work, pleas
 ```
 
 If you use [`BAT.PartitionedSampling`](@ref) (experimental feature) as an important part of your work, please also cite 
-
-> Hafych et al. "Parallelizing MCMC Sampling via Space Partitioning", [arXiv:2008.03098 (2020)](https://arxiv.org/abs/2008.03098)
+*Hafych et al. "Parallelizing MCMC Sampling via Space Partitioning", [arXiv:2008.03098 (2020)](https://arxiv.org/abs/2008.03098)*.
 
 ```
 @article{Hafych:2008.03098,
