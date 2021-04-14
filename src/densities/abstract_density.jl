@@ -262,7 +262,7 @@ struct LogDensityOf{D<:AbstractDensity} <: Function
     density::D
 end
 
-(lvd::LogDensityOf)(v::Any) = logdensityof(lvd.density, v)
+@inline (lvd::LogDensityOf)(v::Any) = logdensityof(lvd.density, v)
 
 
 
