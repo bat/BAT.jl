@@ -179,8 +179,11 @@ struct FullDensityTransform <: TransformAlgorithm end
 export FullDensityTransform
 
 
+_get_deep_prior_for_trafo(density::AbstractPosteriorDensity) = _get_deep_prior_for_trafo(getprior(density))
+_get_deep_prior_for_trafo(density::DistributionDensity) = density
+
 function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::AbstractPosteriorDensity, algorithm::FullDensityTransform)
-    orig_prior = getprior(density)
+    orig_prior = _get_deep_prior_for_trafo(density)
     trafo = _distribution_density_trafo(target, orig_prior)
     (result = TransformedDensity(density, trafo, TDLADJCorr()), trafo = trafo)
 end
@@ -212,9 +215,8 @@ export PriorSubstitution
 function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::AbstractPosteriorDensity, algorithm::PriorSubstitution)
     orig_prior = getprior(density)
     orig_likelihood = getlikelihood(density)
-    trafo = _distribution_density_trafo(target, orig_prior)
+    new_prior, trafo = bat_transform_impl(target, orig_prior, algorithm)
     new_likelihood = TransformedDensity(orig_likelihood, trafo, TDNoCorr())
-    new_prior = trafo.target_dist
     (result = PosteriorDensity(new_likelihood, new_prior), trafo = trafo)
 end
 
