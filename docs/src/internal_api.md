@@ -40,6 +40,7 @@ BAT.HMIData
 BAT.HMISettings
 BAT.IntegrationVolume
 BAT.KDTreePartitioning
+BAT.LogFuncDensity
 BAT.MCMCSampleGenerator
 BAT.OnlineMvCov
 BAT.OnlineMvMean
