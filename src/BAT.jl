@@ -36,6 +36,7 @@ using PositiveFactorizations
 using ProgressMeter
 using RecipesBase
 using Requires
+using StaticArrays
 using StatsBase
 using StructArrays
 using Tables
