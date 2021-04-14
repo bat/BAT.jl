@@ -118,7 +118,7 @@ function eval_logval end
     logval = try
         # ToDo: Mechanism to allow versions of eval_logval_unchecked for
         # wrapped distributions and similar that avoid stripscalar:
-        convert(R, eval_logval_unchecked(density, stripscalar(v_shaped)))
+        convert(R, eval_logval_unchecked(density, stripscalar(v_shaped)))::R
     catch err
         rethrow(_density_eval_error(density, v, err))
     end
