@@ -78,7 +78,7 @@ function AHMCIterator(
     params_vec .= x_init
     !(params_vec in var_bounds(density)) && throw(ArgumentError("Parameter(s) out of bounds"))
 
-    log_posterior_value = eval_logval(density, params_vec)
+    log_posterior_value = eval_logval(density, params_vec, default_dlt())
 
     T = typeof(log_posterior_value)
     W = Float64 # ToDo: Support other sample weight types
@@ -276,7 +276,7 @@ function mcmc_step!(chain::AHMCIterator)
     T = typeof(current_log_posterior)
 
     # Evaluate prior and likelihood with proposed variate:
-    proposed_log_posterior = eval_logval(density, proposed_params)
+    proposed_log_posterior = eval_logval(density, proposed_params, default_dlt())
 
     samples.logd[proposed] = proposed_log_posterior
 

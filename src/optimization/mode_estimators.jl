@@ -82,7 +82,7 @@ function bat_findmode_impl(target::AnySampleable, algorithm::MaxDensityNelderMea
 
     rng = bat_determ_rng()
     x = collect(unshaped(bat_initval(rng, density, apply_trafo_to_init(trafo, algorithm.init)).result))
-    r_optim = Optim.maximize(p -> eval_logval(density, p), x, Optim.NelderMead())
+    r_optim = Optim.maximize(p -> eval_logval(density, p, default_dlt()), x, Optim.NelderMead())
     mode_trafo = shape(Optim.minimizer(r_optim.res))
     mode_notrafo = inv(trafo)(mode_trafo)
     (result = mode_notrafo, result_trafo = mode_trafo, trafo = trafo, info = r_optim)
@@ -124,7 +124,7 @@ function bat_findmode_impl(target::AnySampleable, algorithm::MaxDensityLBFGS)
 
     rng = bat_determ_rng()
     x = collect(unshaped(bat_initval(rng, density, apply_trafo_to_init(trafo, algorithm.init)).result))
-    r_optim = Optim.maximize(p -> eval_logval(density, p), x, Optim.LBFGS(); autodiff = :forward)
+    r_optim = Optim.maximize(p -> eval_logval(density, p, default_dlt()), x, Optim.LBFGS(); autodiff = :forward)
     mode_trafo = shape(Optim.minimizer(r_optim.res))
     mode_notrafo = inv(trafo)(mode_trafo)
     (result = mode_notrafo, result_trafo = mode_trafo, trafo = trafo, info = r_optim)

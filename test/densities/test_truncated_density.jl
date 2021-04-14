@@ -53,15 +53,15 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets, ValueShapes
     @test @inferred(BAT.truncate_density(prior, bounds)) isa BAT.TruncatedDensity
 
 
-    @test BAT.eval_logval(unshaped(BAT.truncate_density(prior, bounds)), [1, 2, 0, 3]) ≈ BAT.eval_logval(unshaped(prior), [1, 2, 0, 3])
-    @test BAT.eval_logval(BAT.truncate_density(prior, bounds), varshape(prior)([1, 2, 0, 3])) ≈ BAT.eval_logval(prior, varshape(prior)([1, 2, 0, 3]))
+    @test BAT.eval_logval(unshaped(BAT.truncate_density(prior, bounds)), [1, 2, 0, 3], BAT.default_dlt()) ≈ BAT.eval_logval(unshaped(prior), [1, 2, 0, 3], BAT.default_dlt())
+    @test BAT.eval_logval(BAT.truncate_density(prior, bounds), varshape(prior)([1, 2, 0, 3]), BAT.default_dlt()) ≈ BAT.eval_logval(prior, varshape(prior)([1, 2, 0, 3]), BAT.default_dlt())
     @test varshape(BAT.truncate_density(prior, bounds)) == varshape(prior)
 
     @test @inferred(BAT.truncate_density(posterior, bounds)) isa PosteriorDensity
 
     trunc_pstr = BAT.truncate_density(posterior, bounds)
-    @test @inferred(BAT.eval_logval(unshaped(trunc_pstr), [1, 2, 0, 3])) ≈ BAT.eval_logval(unshaped(posterior), [1, 2, 0, 3])
-    @test @inferred(BAT.eval_logval(unshaped(trunc_pstr), [-1, -1, -1, -1])) ≈ -Inf
+    @test @inferred(BAT.eval_logval(unshaped(trunc_pstr), [1, 2, 0, 3], BAT.default_dlt())) ≈ BAT.eval_logval(unshaped(posterior), [1, 2, 0, 3], BAT.default_dlt())
+    @test @inferred(BAT.eval_logval(unshaped(trunc_pstr), [-1, -1, -1, -1], BAT.default_dlt())) ≈ -Inf
     @test varshape(trunc_pstr) == varshape(posterior)
 
     let

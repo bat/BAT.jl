@@ -31,27 +31,24 @@ The prior density of `posterior`. The prior may or may not be normalized.
 function getprior end
 
 
-function eval_logval(
-    density::AbstractPosteriorDensity,
-    v::Any,
-    T::Type{<:Real} = density_logval_type(v, density)
-)
+function eval_logval(density::AbstractPosteriorDensity, v::Any, T::Type{<:Real})
     v_shaped = fixup_variate(varshape(density), v)
-
-    prior_logval = eval_logval(getprior(density), v_shaped)
+    R = density_logval_type(v_shaped, T)
+    
+    prior_logval = eval_logval(getprior(density), v_shaped, R)
 
     # Don't evaluate likelihood if prior probability is zero. Prevents
     # failures when algorithms try to explore parameter space outside of
     # definition of likelihood (as long as prior is chosen correctly).
-    if !is_log_zero(prior_logval, T)
-        likelihood_logval = eval_logval(getlikelihood(density), v_shaped)
-        convert(T, likelihood_logval + prior_logval)
+    if !is_log_zero(prior_logval, R)
+        likelihood_logval = eval_logval(getlikelihood(density), v_shaped, R)
+        convert(R, likelihood_logval + prior_logval)
     else
-        log_zero_density(T)
+        log_zero_density(R)
     end
 end
 
-eval_logval_unchecked(density::AbstractPosteriorDensity, v::Any) = eval_logval(density, v)
+eval_logval_unchecked(density::AbstractPosteriorDensity, v::Any) = eval_logval(density, v, default_dlt())
 
 
 function var_bounds(density::AbstractPosteriorDensity)

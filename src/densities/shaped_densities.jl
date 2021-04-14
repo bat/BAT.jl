@@ -30,16 +30,11 @@ var_bounds(density::ReshapedDensity) = var_bounds(density.density)
 ValueShapes.varshape(density::ReshapedDensity) = density.shape
 
 
-function eval_logval(
-    density::ReshapedDensity,
-    v::Any,
-    T::Type{<:Real} = density_logval_type(v, density)
-)
+function eval_logval(density::ReshapedDensity, v::Any, T::Type{<:Real})
     v_shaped = fixup_variate(varshape(density), v)
-
     orig_density = parent(density)
     orig_varshape = varshape(orig_density)
-    v_reshaped = reshape_variate(orig_varshape, v)
+    v_reshaped = reshape_variate(orig_varshape, v_shaped)
     eval_logval(orig_density, v_reshaped, T)
 end
 
