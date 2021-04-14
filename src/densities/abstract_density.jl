@@ -252,6 +252,23 @@ end
 
 @inline (lvd::LogDensityOf)(v::Any) = logdensityof(lvd.density, v)
 
+(Base.:-)(lvd::LogDensityOf) = NegLogDensityOf(lvd.density)
+
+ValueShapes.varshape(lvd::LogDensityOf) = varshape(lvd.density)
+ValueShapes.unshaped(lvd::LogDensityOf) = LogDensityOf(unshaped(lvd.density))
+
+
+struct NegLogDensityOf{D<:AbstractDensity} <: Function
+    density::D
+end
+
+@inline (lvd::NegLogDensityOf)(v::Any) = - logdensityof(lvd.density, v)
+
+(Base.:-)(lvd::NegLogDensityOf) = LogDensityOf(lvd.density)
+
+ValueShapes.varshape(lvd::NegLogDensityOf) = varshape(lvd.density)
+ValueShapes.unshaped(lvd::NegLogDensityOf) = NegLogDensityOf(unshaped(lvd.density))
+
 
 
 """
