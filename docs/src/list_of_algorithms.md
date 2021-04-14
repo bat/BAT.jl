@@ -5,56 +5,119 @@ BAT.jl offers performant implementations of mutliple algorithms for sampling, in
 
 ## Sampling algorithms
 
-- [IIDSampling](https://bat.github.io/BAT.jl/dev/stable_api/#BAT.IIDSampling)
-	```
-	IIDSampling(nsamples=10^5)
-	```
+All following sampling algorithms can be passed to [`bat_sample`](@ref):
+```julia
+samples = bat_sample(sampleable, sampling_algorithm).result
+```
 
-- [Metropolis-Hastings]([https://bat.github.io/BAT.jl/dev/stable_api/#BAT.MetropolisHastings](https://bat.github.io/BAT.jl/dev/stable_api/#BAT.MetropolisHastings))
-	```
-	MCMCSampling(mcalg = MetropolisHastings(), nsteps = 10^6, nchains = 4)
-	```
-
--   [Hamiltonian MC](https://bat.github.io/BAT.jl/dev/stable_api/#BAT.HamiltonianMC)
-	```
-	MCMCSampling(mcalg = HamiltonianMC())
-	```
-
--   [Reactive Nested Sampling](https://bat.github.io/BAT.jl/dev/experimental_api/#BAT.ReactiveNestedSampling)
-	```
-	ReactiveNestedSampling()
-	```
-
--   [Partitioned Sampling](https://bat.github.io/BAT.jl/dev/experimental_api/#BAT.PartitionedSampling)
-
--   [Sobol Sampler](https://bat.github.io/BAT.jl/dev/experimental_api/#BAT.SobolSampler)
-	```
-	SobolSampler(nsamples=10^5)
-	```
+### IIDSampling
+BAT.jl sampling algorithm type: [`IIDSampling`](@ref)
+```julia
+sampling_algorithm = IIDSampling(nsamples=10^5)
+```
 
 
--   [Grid Sampler](https://bat.github.io/BAT.jl/dev/experimental_api/#BAT.GridSampler)
-	```
-	GridSampler(ppa=100)
-	```
--   [Prior Importance Sampler](https://bat.github.io/BAT.jl/dev/experimental_api/#BAT.PriorImportanceSampler)
-	```
-	GridSampler(nsamples=10^5)
-	```
+### Metropolis-Hastings
+BAT.jl sampling algorithm type: [`MCMCSampling`](@ref)  
+MCMC algorithm subtype: [`MetropolisHastings`](@ref)
+```julia
+sampling_algorithm = MCMCSampling(mcalg = MetropolisHastings(), nsteps = 10^6, nchains = 4)
+```
+
+
+
+### Hamiltonian MC
+BAT.jl sampling algorithm type: [`MCMCSampling`](@ref)  
+MCMC algorithm subtype: [`HamiltonianMC`](@ref)
+```julia
+sampling_algorithm = MCMCSampling(mcalg = HamiltonianMC())
+```
+
+### Reactive Nested Sampling
+BAT.jl sampling algorithm type: [`ReactiveNestedSampling`](@ref)
+```julia
+sampling_algorithm = ReactiveNestedSampling()
+```
+
+### Partitioned Sampling
+BAT.jl sampling algorithm type: [`PartitionedSampling`](@ref)
+```julia
+sampling_algorithm = ReactiveNestedSampling()
+```
+
+
+### Sobol Sampler
+BAT.jl sampling algorithm type: [`SobolSampler`](@ref)
+```julia
+sampling_algorithm = SobolSampler(nsamples=10^5)
+```
+
+
+### Grid Sampler
+BAT.jl sampling algorithm type: [`GridSampler`](@ref)
+```julia
+sampling_algorithm = GridSampler(ppa=100)
+```
+
+
+## Prior Importance Sampler
+BAT.jl sampling algorithm type: [`PriorImportanceSampler`](@ref)
+```julia
+sampling_algorithm = GridSampler(nsamples=10^5)
+```
 
 
 ## Integration algorithms:
+All following integration algorithms can be passed to [`bat_integrate`](@ref):
+```julia
+integral = bat_integrate(sampleable, integration_algorithm).result
+```
 
--   [Adaptive Harmonic Mean Integration (AHMI)](https://bat.github.io/BAT.jl/dev/stable_api/#BAT.AHMIntegration)
+### Adaptive Harmonic Mean Integration (AHMI)]
+BAT.jl integration algorithm type: [`AHMIntegration`](@ref) 
+```julia
+integration_algorithm = AHMIntegration()
+```
 
--   [Vegas Integration](https://bat.github.io/BAT.jl/dev/experimental_api/#BAT.VEGASIntegration)
+### Vegas Integration
+BAT.jl integration algorithm type: [`VEGASIntegration`](@ref) 
+```julia
+integration_algorithm = VEGASIntegration()
+```
 
--   [Cuhre Integration](https://bat.github.io/BAT.jl/dev/experimental_api/#BAT.CuhreIntegration)
+### Cuhre Integration
+BAT.jl integration algorithm type: [`CuhreIntegration`](@ref) 
+```julia
+integration_algorithm = CuhreIntegration()
+```
 
--   [Divonne Integration](https://bat.github.io/BAT.jl/dev/experimental_api/#BAT.DivonneIntegration)
+### Divonne Integration
+BAT.jl integration algorithm type: [`DivonneIntegration`](@ref) 
+```julia
+integration_algorithm = DivonneIntegration()
+```
 
-## Optimization algorithms:
 
--  [Nelder-Mead algorithm](https://bat.github.io/BAT.jl/dev/stable_api/#BAT.MaxDensityNelderMead)
+## Mode finding algorithms:
+All following mode finding algorithms can be passed to [`bat_findmode`](@ref):
+```julia
+mode = bat_findmode(sampleable, modefinding_algorithm).result
+```
 
--   [LBFGS](https://bat.github.io/BAT.jl/dev/stable_api/#BAT.MaxDensityLBFGS)
+### Nelder-Mead Optimization
+BAT.jl mode finding algorithm type: [`MaxDensityNelderMead`](@ref) 
+```julia
+modefinding_algorithm = MaxDensityNelderMead()
+```
+
+### LBFGS Optimization
+BAT.jl mode finding algorithm type: [`MaxDensityLBFGS`](@ref) 
+```julia
+modefinding_algorithm = MaxDensityLBFGS()
+```
+
+### Maximum Sample Estimator
+BAT.jl mode finding algorithm type: [`MaxDensitySampleSearch`](@ref) 
+```julia
+modefinding_algorithm = MaxDensitySampleSearch()
+```
