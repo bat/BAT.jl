@@ -18,7 +18,7 @@ Base.convert(::Type{DistLikeDensity}, d::ContinuousDistribution) = DistributionD
 Base.parent(density::DistributionDensity) = density.dist
 
 
-function eval_logval_unchecked(density::DistributionDensity, v::Any)
+function eval_logval_unchecked(density::DistributionDensity{<:Distribution{Univariate,Continuous}}, v::Real)
     d = density.dist
     logd = logpdf(d, v)
     R = typeof(logd)
