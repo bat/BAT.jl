@@ -18,7 +18,6 @@ $(TYPEDFIELDS)
 """
 @with_kw struct HamiltonianMC <: MCMCAlgorithm
     metric::HMCMetric = DiagEuclideanMetric()
-    gradient::Module = ForwardDiff
     integrator::HMCIntegrator = LeapfrogIntegrator()
     proposal::HMCProposal = NUTS()
     adaptor::HMCAdaptor = StanHMCAdaptor()
@@ -94,7 +93,11 @@ function AHMCIterator(
 
     metric = AHMCMetric(algorithm.metric, npar)
 
-    hamiltonian = AdvancedHMC.Hamiltonian(metric, logdensityof(density), algorithm.gradient)
+    f = logdensityof(density)
+    diffalg = bat_default(bat_valgrad, Val(:algorithm), f)
+    fg = fg = bat_valgrad(f, diffalg).result
+
+    hamiltonian = AdvancedHMC.Hamiltonian(metric, f, fg)
     hamiltonian, t = AdvancedHMC.sample_init(rng, hamiltonian, params_vec)
 
     algorithm.integrator.step_size == 0.0 ? algorithm.integrator.step_size = AdvancedHMC.find_good_stepsize(hamiltonian, params_vec) : nothing
