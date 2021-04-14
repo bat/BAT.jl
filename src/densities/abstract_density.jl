@@ -143,7 +143,7 @@ function _check_density_logval(density::AbstractDensity, v::Any, logval::Real)
         throw(ErrorException("Log-density must not evaluate to NaN, v = $(variate_for_msg(v)) , density has type $(typeof(density))"))
     end
 
-    if !(logval < typeof(logval)(+Inf))
+    if !(logval < float(typeof(logval))(+Inf))
         throw(ErrorException("Log-density must not evaluate to posivite infinity, v = $(variate_for_msg(v)), density has type $(typeof(density))"))
     end
 
