@@ -39,7 +39,7 @@ BAT.jl sampling algorithm type: [`ReactiveNestedSampling`](@ref)
 sampling_algorithm = ReactiveNestedSampling()
 ```
 
-### Partitioned Sampling
+### Partitioned Sampling (experimental)
 BAT.jl sampling algorithm type: [`PartitionedSampling`](@ref)
 ```julia
 sampling_algorithm = ReactiveNestedSampling()
