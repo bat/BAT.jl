@@ -56,6 +56,7 @@ import Optim
 import Random123
 import Sobol
 import TypedTables
+import ZygoteRules
 
 #for AHMI
 using DataStructures
