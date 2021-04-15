@@ -212,4 +212,49 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         merge!(id_vector_1, id_vector_2)
         @test id_vector_1 == id_vector_12
     end
+
+    @testset "ahmc_metric" begin
+        function test_metric_mass(sample_generator::BAT.MCMCSampleGenerator, metric::BAT.UnitEuclideanMetric)
+            @testset "mass matrix" begin
+                for chain in sample_generator.chains
+                    mass_inv = chain.hamiltonian.metric.M⁻¹
+                    @test isdiag(mass_inv)
+                end
+            end
+        end
+
+        function test_metric_mass(sample_generator::BAT.MCMCSampleGenerator, metric::BAT.DenseEuclideanMetric)
+            @testset "mass matrix" begin
+                for chain in sample_generator.chains
+                    mass_inv = chain.hamiltonian.metric.M⁻¹
+                    sparsity = sum(iszero.(mass_inv)) / length(mass_inv)
+                    @test sparsity == 0
+                end
+            end
+        end
+
+        function test_euclidean_metric(dist::BAT.AnySampleable; metric::BAT.HMCMetric, nchains::Integer=2, testset_name::String, rtol::Real=0.1)
+            @testset "$testset_name" begin
+                mcalg = HamiltonianMC(metric=metric)
+                algorithm = MCMCSampling(mcalg=mcalg, store_burnin=false, nchains=nchains)
+
+                s = bat_sample(dist, algorithm)
+
+                for chain in s.generator.chains
+                    @test size(chain.hamiltonian.metric) == size(dist) # dense has no size property
+                    @test chain.algorithm.metric == metric
+                end
+
+                test_metric_mass(s.generator, metric)
+
+                @test @inferred(isapprox(mean(s.result.v), mean(dist), rtol=rtol))
+                @test @inferred(isapprox(var(s.result.v), var(dist), rtol=rtol))
+            end
+        end
+
+        dist = product_distribution([Beta(2,2), Normal(-4, 5.)])
+
+        test_euclidean_metric(dist, metric=BAT.UnitEuclideanMetric(), testset_name="UnitEuclideanMetric")
+        test_euclidean_metric(dist, metric=BAT.DenseEuclideanMetric(), testset_name="DenseEuclideanMetric")
+    end
 end
