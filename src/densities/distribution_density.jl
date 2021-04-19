@@ -18,10 +18,11 @@ Base.convert(::Type{DistLikeDensity}, d::ContinuousDistribution) = DistributionD
 Base.parent(density::DistributionDensity) = density.dist
 
 
-function eval_logval_unchecked(density::DistributionDensity, v::Any)
+function eval_logval_unchecked(density::DistributionDensity{<:Distribution{Univariate,Continuous}}, v::Real)
     d = density.dist
     logd = logpdf(d, v)
     R = typeof(logd)
+    # ToDo: Move these workarounds somewhere else? Still necessary at all?
     if isnan(logd)
         if isinf(v)
             # Weibull yields NaN logpdf at infinity (Distributions.jl issue #1197), possibly others too,
@@ -42,7 +43,7 @@ function eval_logval_unchecked(density::DistributionDensity, v::Any)
     end
 end
 
-eval_logval_unchecked(density::DistributionDensity, v::AbstractVector{<:Real}) = Distributions.logpdf(unshaped(density.dist), v)
+eval_logval_unchecked(density::DistributionDensity, v::Any) = Distributions.logpdf(density.dist, v)
 
 
 ValueShapes.varshape(density::DistributionDensity) = varshape(density.dist)

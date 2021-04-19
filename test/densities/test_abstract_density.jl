@@ -31,13 +31,13 @@ end
     @test @inferred(isequal(@inferred(varshape(td)), missing))
 
     x = rand(3)
-    @test_throws ArgumentError BAT.eval_logval(td, [Inf, Inf, Inf])
-    @test_throws ErrorException BAT.eval_logval(tds, [Inf, Inf, Inf])
-    @test_throws ErrorException BAT.eval_logval(tds, [NaN, NaN, NaN])
-    @test_throws ArgumentError BAT.eval_logval(tds, rand(length(mvn)+1))
-    @test_throws ArgumentError BAT.eval_logval(tds, rand(length(mvn)-1))
+    @test_throws ArgumentError BAT.eval_logval(td, [Inf, Inf, Inf], BAT.default_dlt())
+    @test_throws ErrorException BAT.eval_logval(tds, [Inf, Inf, Inf], BAT.default_dlt())
+    @test_throws ErrorException BAT.eval_logval(tds, [NaN, NaN, NaN], BAT.default_dlt())
+    @test_throws ArgumentError BAT.eval_logval(tds, rand(length(mvn)+1), BAT.default_dlt())
+    @test_throws ArgumentError BAT.eval_logval(tds, rand(length(mvn)-1), BAT.default_dlt())
 
-    @test @inferred(BAT.eval_logval(tds, x)) == @inferred(logpdf(mvn, x))
+    @test @inferred(BAT.eval_logval(tds, x, BAT.default_dlt())) == @inferred(logpdf(mvn, x))
 
 
     mvu = product_distribution([Uniform() for i in 1:3])
@@ -51,15 +51,15 @@ end
     ud_shape_2 = NamedTupleShape(a=ArrayShape{Real}(3))
     ud = _UniformDensityStruct()
 
-    @test @inferred(BAT.eval_logval(ud, x)) == -Inf
-    @test @inferred(BAT.eval_logval(ud_shape_1(ud), ud_shape_1(x))) == @inferred(logpdf(mvu, x))
-    @test @inferred(BAT.eval_logval(ud_shape_2(ud), ud_shape_2(x))) == @inferred(logpdf(mvu, x))
+    @test @inferred(BAT.eval_logval(ud, x, BAT.default_dlt())) == -Inf
+    @test @inferred(BAT.eval_logval(ud_shape_1(ud), ud_shape_1(x), BAT.default_dlt())) == @inferred(logpdf(mvu, x))
+    @test @inferred(BAT.eval_logval(ud_shape_2(ud), ud_shape_2(x), BAT.default_dlt())) == @inferred(logpdf(mvu, x))
 
-    @test_throws ArgumentError BAT.eval_logval(ud, vcat(x,x))
+    @test_throws ArgumentError BAT.eval_logval(ud, vcat(x,x), BAT.default_dlt())
 
-    @test BAT.eval_logval(ud, x .- eps(1.0)) == -Inf
+    @test BAT.eval_logval(ud, x .- eps(1.0), BAT.default_dlt()) == -Inf
 
-    @test_throws ArgumentError @inferred(BAT.eval_logval(ud, [0 0 0]))
+    @test_throws ArgumentError @inferred(BAT.eval_logval(ud, [0 0 0], BAT.default_dlt()))
 
     ntshape = NamedTupleShape(a=ScalarShape{Real}(), b=ScalarShape{Real}(), c=ScalarShape{Real}())
     shapedasnt = ShapedAsNT(x, ntshape)
@@ -70,8 +70,8 @@ end
 
     dd = _DeltaDensityStruct()
     dds = BAT.DensityWithShape(dd, ScalarShape{Real}())
-    @test_throws ArgumentError BAT.eval_logval(dd, 0)
-    @test_throws ErrorException BAT.eval_logval(dds, 0)
+    @test_throws ArgumentError BAT.eval_logval(dd, 0, BAT.default_dlt())
+    @test_throws ErrorException BAT.eval_logval(dds, 0, BAT.default_dlt())
 
     ntdist = NamedTupleDist(a=mvn, b=mvu)
     ValueShapes.varshape(sd::_ShapeDensityStruct) = varshape(ntdist)
@@ -89,8 +89,8 @@ end
 
     sd = _ShapeDensityStruct()
 
-    @test BAT.eval_logval(sd, x_for_sd_good_shape) == logpdf(mvn, x1_for_sd) + logpdf(mvu, x2_for_sd)
-    @test_throws ArgumentError BAT.eval_logval(sd, x_for_sd_bad_shape)
+    @test BAT.eval_logval(sd, x_for_sd_good_shape, BAT.default_dlt()) == logpdf(mvn, x1_for_sd) + logpdf(mvu, x2_for_sd)
+    @test_throws ArgumentError BAT.eval_logval(sd, x_for_sd_bad_shape, BAT.default_dlt())
 
     @testset "rand" begin
         td = _TestDensityStruct()

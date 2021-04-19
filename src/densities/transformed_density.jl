@@ -86,27 +86,20 @@ function _trafo_var_bounds(trafo::DistributionTransform{<:Any,<:Any,<:Union{Stan
 end
 
 
-function eval_logval(
-    density::TransformedDensity{D,FT,<:TDNoCorr},
-    v::Any,
-    T::Type{<:Real} = density_logval_type(v, density)
-) where {D,FT,}
+function eval_logval(density::TransformedDensity{D,FT,TDNoCorr}, v::Any, T::Type{<:Real}) where {D,FT}
     v_shaped = fixup_variate(varshape(density), v)
     v_orig = inv(density.trafo)(v_shaped)
     eval_logval(parent(density), v_orig, T)
 end
 
 
-function eval_logval(
-    density::TransformedDensity{D,FT,<:TDLADJCorr},
-    v::Any,
-    T::Type{<:Real} = density_logval_type(v, density)
-) where {D,FT,}
+function eval_logval(density::TransformedDensity{D,FT,TDLADJCorr}, v::Any, T::Type{<:Real}) where {D,FT,}
     v_shaped = fixup_variate(varshape(density), v)
+    R = density_logval_type(v_shaped, T)
     r = inv(density.trafo)(v_shaped, 0)
     v_orig = r.v
     ldaj = r.ladj
-    logd_orig = eval_logval(parent(density), v_orig, T)
+    logd_orig = eval_logval(parent(density), v_orig, R)
 
     logd_result = logd_orig + ldaj
     R = typeof(logd_result)
@@ -126,5 +119,5 @@ end
 
 
 function eval_logval_unchecked(density::TransformedDensity, v::Any)
-    eval_logval(density, v)
+    eval_logval(density, v, default_dlt())
 end

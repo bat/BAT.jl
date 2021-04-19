@@ -2,8 +2,8 @@
 using BAT
 using Test
 
-using LinearAlgebra, IntervalSets
-using StatsBase, Distributions, StatsBase, ValueShapes
+using LinearAlgebra
+using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
 
 @testset "HamiltonianMC" begin
     rng = bat_rng()
@@ -256,5 +256,16 @@ using StatsBase, Distributions, StatsBase, ValueShapes
 
         test_euclidean_metric(dist, metric=BAT.UnitEuclideanMetric(), testset_name="UnitEuclideanMetric")
         test_euclidean_metric(dist, metric=BAT.DenseEuclideanMetric(), testset_name="DenseEuclideanMetric")
+    
+    @testset "MCMC sampling in transformed space" begin
+        prior = BAT.example_posterior().prior
+        likelihood = (logdensity = v -> 0,)
+        inner_posterior = PosteriorDensity(likelihood, prior)
+        # Test with nested posteriors:
+        posterior = PosteriorDensity(likelihood, inner_posterior)
+        smpls = bat_sample(posterior, MCMCSampling(mcalg = HamiltonianMC(), trafo = PriorToGaussian())).result
+
+        @test isapprox(mean(unshaped.(smpls)), mean(nestedview(rand(unshaped(prior).dist, 10^5))), rtol = 0.1)
+        @test isapprox(cov(unshaped.(smpls)), cov(unshaped(prior).dist), rtol = 0.1)
     end
 end

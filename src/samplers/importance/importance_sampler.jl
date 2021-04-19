@@ -55,7 +55,7 @@ function bat_sample_impl(
 
     samples = _gen_samples(density, algorithm)
 
-    logvals = eval_logval.(Ref(density), samples)
+    logvals = map(logdensityof(density), samples)
     weights = exp.(logvals)
 
     vol = exp(BigFloat(log_volume(spatialvolume(var_bounds(density)))))
@@ -122,7 +122,7 @@ function bat_sample_impl(
 
     v = unshaped_prior_samples.v
     prior_weight = unshaped_prior_samples.weight
-    posterior_logd = eval_logval.(Ref(unshaped(posterior)), v)
+    posterior_logd = map(logdensityof(unshaped(posterior)), v)
     weight = exp.(posterior_logd - unshaped_prior_samples.logd) .* prior_weight
 
     est_integral = mean(weight)

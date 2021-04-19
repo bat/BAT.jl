@@ -1,6 +1,21 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+function eff_totalndof end
+
+eff_totalndof(d::Distribution{Univariate}) = length(d)
+eff_totalndof(d::Distribution{Multivariate}) = length(d)
+eff_totalndof(d::Distribution{Matrixvariate}) = length(d)
+
+eff_totalndof(d::ConstValueDist) = 0
+
+# ToDo: Find more generic way of handling this:
+eff_totalndof(d::NamedTupleDist) = sum(map(eff_totalndof, values(d)))
+eff_totalndof(d::ValueShapes.UnshapedNTD) = eff_totalndof(d.shaped)
+eff_totalndof(d::ReshapedDist) = eff_totalndof(unshaped(d))
+
+
+
 function _check_rand_compat(s::Sampleable{Multivariate}, A::Union{AbstractVector,AbstractMatrix})
     size(A, 1) == length(s) || throw(DimensionMismatch("Output size inconsistent with sample length."))
     nothing

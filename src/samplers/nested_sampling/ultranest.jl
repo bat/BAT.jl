@@ -119,7 +119,7 @@ function bat_sample_impl(
     end
 
     function vec_ultranest_logpstr(V_rowwise::AbstractMatrix{<:Real})
-        eval_logval.(Ref(density), nestedview(copy(V_rowwise')))
+        map(logdensityof(density), nestedview(copy(V_rowwise')))
     end
 
     ndims = totalndof(vs)
@@ -162,7 +162,7 @@ function bat_sample_impl(
     samples_notrafo = inv(trafo).(samples_trafo)
 
     uwv_trafo_us = nestedview(convert(Matrix{Float64}, r["samples"]'))
-    uwlogvals_trafo = eval_logval.(Ref(density), uwv_trafo_us)
+    uwlogvals_trafo = map(logdensityof(density), uwv_trafo_us)
     uwsamples_trafo = DensitySampleVector(vs.(uwv_trafo_us), uwlogvals_trafo)
     uwsamples_notrafo = inv(trafo).(uwsamples_trafo)
 

@@ -70,7 +70,7 @@ function _reshape_realvecs(shape::AbstractValueShape, vs::AbstractVector{<:Abstr
 end
 
 
-unshaped_variate(shape::AbstractValueShape, v::Any) = unshaped(reshape_variate(shape, v), shape)
+unshaped_variate(shape::AbstractValueShape, v::Any) = unshaped(v, shape)
 
 unshaped_variate(shape::Missing, v::Any) = unshaped(v)
 

@@ -27,7 +27,7 @@ function (integrand::CubaIntegrand)(x::AbstractVector{<:Real}, f::AbstractVector
 
     vol = spatialvolume(var_bounds(integrand.density))
     x_trafo = fromuhc(x, vol)
-    logd = eval_logval(integrand.density, x_trafo)
+    logd = eval_logval(integrand.density, x_trafo, default_dlt())
     @assert _cuba_valid_value(logd)
 
     f[first(idxs)] = exp(logd + integrand.log_density_shift)
@@ -46,7 +46,7 @@ function (integrand::CubaIntegrand)(X::AbstractMatrix{<:Real}, f::AbstractMatrix
     vol = spatialvolume(var_bounds(integrand.density))
     x_trafo = fromuhc(nestedview(X), vol)
     @threads for i in idxs2
-        logd = eval_logval(integrand.density, x_trafo[i])
+        logd = eval_logval(integrand.density, x_trafo[i], default_dlt())
         @assert _cuba_valid_value(logd)
         y = exp(logd + integrand.log_density_shift)
         @assert _cuba_valid_value(y)

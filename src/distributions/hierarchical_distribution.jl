@@ -78,6 +78,7 @@ struct HierarchicalDistribution{
     pdist::PD
     vs::VS
     secondary_vs::SVS
+    effndof::Int
 end
 
 export HierarchicalDistribution
@@ -107,13 +108,17 @@ function HierarchicalDistribution(f::Function, primary_dist::ContinuousDistribut
     VS = typeof(vs)
     SVS = typeof(vs_secondary)
 
-    HierarchicalDistribution{VF,T,F,PD,VS,SVS}(f, primary_dist, vs, vs_secondary)
+    effndof = eff_totalndof(primary_dist) + eff_totalndof(secondary_dist)
+
+    HierarchicalDistribution{VF,T,F,PD,VS,SVS}(f, primary_dist, vs, vs_secondary, effndof)
 end
 
 
 ValueShapes.varshape(d::HierarchicalDistribution) = d.vs
 
 Base.length(d::HierarchicalDistribution) = totalndof(varshape(d))
+
+eff_totalndof(d::HierarchicalDistribution) = d.effndof
 
 
 function Base.show(io::IO, d::HierarchicalDistribution)
@@ -147,7 +152,12 @@ Base.eltype(ud::UnshapedHDist{VF,T}) where {VF,T} = T
 
 
 _hd_pridist(d::HierarchicalDistribution) = d.pdist
-_hd_secdist(d::HierarchicalDistribution, x::Any) = d.f(stripscalar(x))
+
+function _hd_secdist(d::HierarchicalDistribution, x::Any)
+    secondary_dist = d.f(stripscalar(x))
+    @assert eff_totalndof(d.pdist) + eff_totalndof(secondary_dist) == d.effndof
+    secondary_dist
+end
 
 _hd_pridist(ud::UnshapedHDist) = unshaped(_hd_pridist(ud.shaped))
 _hd_secdist(ud::UnshapedHDist, x::AbstractVector{<:Real}) = unshaped(_hd_secdist(ud.shaped, varshape(ud.shaped.pdist)(x)))
