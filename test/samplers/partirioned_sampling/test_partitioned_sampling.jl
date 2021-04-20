@@ -38,7 +38,62 @@ results = bat_sample(posterior , ps)
 #Tests
 
 @testset "BAT_partitioned_sampling" begin
-    @testset "Exploratory Phase" begin
+    @testset "ExploratoryPhase" begin
+        #Checks the reading was correct and data types are consistent
+        #Tests of algorithm results in next test set
         @test ps.exploration_sampler.nsteps == 10^4
+        @test ps.exploration_sampler.mcalg isa MetropolisHastings
+        @test ps.exploration_sampler.nchains == 4
+        @test ps.exploration_sampler.nchains == 4
+        @test ps.exploration_sampler.trafo isa NoDensityTransform
+        @test results.exp_samples isa StructVector
+    end
+    @testset "PartitioningAlgorithm" begin
+        #Checks reading and data types
+        @test ps.npartitions == 4
+        @test ps.partitioner isa BAT.KDTreePartitioning#Only partitioner alg implemented now is KDTree 
+        @test ps.partitioner.extend_bounds == true
+        @test ps.partitioner.partition_dims == :auto
+
+        #Tests of results
+        part_tree_bounds = BAT.get_tree_par_bounds(results.part_tree)
+
+        function point_within_bounds(bounds, array)
+            #Checks if the point  is within any of the bounds in bounds matrix. Return a boolean Matrix
+            boolean_matrix = trues(size(bounds)[1],size(bounds[1])[1])
+            for (i, b) in enumerate(bounds)
+                for (j, bi) in enumerate(eachrow(b))
+                    boolean_value =  bi[1] <= array[j] & array[j] <= bi[2]
+                    boolean_matrix[i, j] = boolean_value
+                end
+            end
+            return boolean_matrix
+        end
+
+        # Iterate over all the elements of the array and compare them with the boundary matrix, 
+        # return the index where the point is between the boundaries
+        pos = zeros(Int8, size(μ, 1))
+        for i=1:size(μ,1)
+            a = point_within_bounds(part_tree_bounds, μ[i,:]);
+            pos[i] = findall([a[i, :] == trues(3) for i=1:size(a,1)])[1]
+        end
+
+        @test sort(pos) == 1:size(μ,1)
+        @test results.cost_values isa Vector{Float64} #prevents Nan
+        @test results.part_tree isa BAT.SpacePartTree
+        @test results.part_tree.left_child isa BAT.SpacePartTree
+        @test results.part_tree.right_child isa BAT.SpacePartTree
+        @test results.part_tree.cut_coordinate isa Union{Float64, Float32, Float16}
+        @test results.part_tree.terminated_leaf isa Bool
+        @test results.part_tree.cut_axis isa Union{Int, Int128, Int64, Int32, Int16, Int8}
+        @test results.part_tree.cost_part isa Union{Float64, Float32, Float16}
+        @test results.part_tree.cost isa Union{Float64, Float32, Float16}
+        @test results.part_tree.bounds isa Matrix{AbstractFloat}
+    end
+    @testset "PosteriorsArray" begin
+        posteriors_array = BAT.convert_to_posterior(posterior, results.part_tree, extend_bounds = true)
+
+        @test posteriors_array isa Vector
+        @test 
     end
 end
