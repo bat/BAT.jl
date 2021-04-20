@@ -38,7 +38,7 @@ results = bat_sample(posterior , ps)
 #Tests
 
 @testset "BAT_partitioned_sampling" begin
-    @testset "ExploratoryPhase" begin
+    @testset "Exploratory Phase" begin
         #Checks the reading was correct and data types are consistent
         #Tests of algorithm results in next test set
         @test ps.exploration_sampler.nsteps == 10^4
@@ -48,7 +48,7 @@ results = bat_sample(posterior , ps)
         @test ps.exploration_sampler.trafo isa NoDensityTransform
         @test results.exp_samples isa StructVector
     end
-    @testset "PartitioningAlgorithm" begin
+    @testset "Partitioning Algorithm" begin
         #Checks reading and data types
         @test ps.npartitions == 4
         @test ps.partitioner isa BAT.KDTreePartitioning#Only partitioner alg implemented now is KDTree 
@@ -90,10 +90,39 @@ results = bat_sample(posterior , ps)
         @test results.part_tree.cost isa Union{Float64, Float32, Float16}
         @test results.part_tree.bounds isa Matrix{AbstractFloat}
     end
-    @testset "PosteriorsArray" begin
-        posteriors_array = BAT.convert_to_posterior(posterior, results.part_tree, extend_bounds = true)
+    @testset "Sampling Subspaces" begin
+        posteriors_array = BAT.convert_to_posterior(posterior, results.part_tree, extend_bounds = true)#Partition Posterior
 
         @test posteriors_array isa Vector
-        @test 
+        @test all(map(x -> x isa BAT.PosteriorDensity, posteriors_array))#Each partition should be a posterior
+        @test typeof(posteriors_array[1]) == typeof(posteriors_array[2])#The subtypes should be exactly the same
+
+        subspace = [1, posteriors_array[1], 10^3, MCMCSampling(mcalg = MetropolisHastings(), nsteps = 5*10^5, trafo = NoDensityTransform(),), 
+        AHMIntegration()]#parameters
+        samples_subspace = BAT.sample_subspace(subspace...)#function to test
+        md_array = Array(samples_subspace.samples.v.a)
+        md_array = hcat(md_array...)#convert from array of arrays to 2D array
+        sample_mean = mean(md_array, dims = 2);#mean coordinate in 3D space
+
+        tree_bounds = BAT.get_tree_par_bounds(results.part_tree)[1]# this always returns (-1,-1,-1), correct?
+        @test isapprox(sample_mean[1], -1., atol = 1e-2)# test mean
+        @test isapprox(sample_mean[2], -1., atol = 1e-2)
+        @test isapprox(sample_mean[3], -1., atol = 1e-2)
+        @test all(isapprox.(std(md_array, dims = 2).^2, 0.1, atol = 1e-1))#test std
+        #test that the sum of weights should be equal to the integral of posterior
+        @test isapprox(sum(samples_subspace.samples.weight), samples_subspace.info.density_integral[1].val)
+
+        #test types
+        @test samples_subspace isa NamedTuple
+        @test keys(samples_subspace) == (:samples, :info)
+        @test samples_subspace.samples isa StructVector
+        @test all([t in sort(collect(propertynames(samples_subspace.samples))) for t in [:aux, :info, :logd, :v, :weight]])
+        @test samples_subspace.info isa Table
+    end
+    @testset "Combinig Samples" begin
+    
+        @test isapprox(size(results.result)[1], 4*10^4, rtol = 1e-1)#Total number of samples approx 4*10^4
+        @test size(results.info)[1] == 4#4 partitions
+        @test results.cost_values isa Union{Vector{Float64}, Vector{Float32}, Vector{Float16}}# data type
     end
 end
