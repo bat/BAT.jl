@@ -4,6 +4,7 @@ using Test
 
 using LinearAlgebra
 using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
+using IntervalSets
 
 @testset "HamiltonianMC" begin
     rng = bat_rng()
