@@ -256,6 +256,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
 
         test_euclidean_metric(dist, metric=BAT.UnitEuclideanMetric(), testset_name="UnitEuclideanMetric")
         test_euclidean_metric(dist, metric=BAT.DenseEuclideanMetric(), testset_name="DenseEuclideanMetric")
+    end
     
     @testset "MCMC sampling in transformed space" begin
         prior = BAT.example_posterior().prior
