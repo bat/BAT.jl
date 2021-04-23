@@ -1,6 +1,6 @@
 The BAT.jl package is licensed under the MIT "Expat" License:
 
-> Copyright (c) 2017-2019:
+> Copyright (c) 2017-2021:
 >
 >    Oliver Schulz <oschulz@mpp.mpg.de>
 >    and contributors
