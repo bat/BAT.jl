@@ -345,7 +345,12 @@ end
 
 
 _transformed_ntd_elshape(d::Distribution{Univariate}) = varshape(d)
-_transformed_ntd_elshape(d::Distribution) = ArrayShape{Real}(eff_totalndof(d))
+_transformed_ntd_elshape(d::Distribution{Multivariate}) = ArrayShape{Real}(eff_totalndof(d))
+function _transformed_ntd_elshape(d::Distribution)
+    vs = varshape(d)
+    @argcheck totalndof(vs) == eff_totalndof(d)
+    vs
+end
 
 function _transformed_ntd_accessors(d::NamedTupleDist{names}) where names
     shapes = map(_transformed_ntd_elshape, values(d))
@@ -396,20 +401,22 @@ function apply_dist_trafo(trg_d::NamedTupleDist, src_d::StdMvDist, src_v::Abstra
 end
 
 
-function apply_dist_trafo(trg_d::Distribution{Multivariate}, src_d::ReshapedDist, src_v::Any, prev_ladj::OptionalLADJ)
+const AnyReshapedDist = Union{ReshapedDist,MatrixReshaped}
+
+function apply_dist_trafo(trg_d::Distribution{Multivariate}, src_d::AnyReshapedDist, src_v::Any, prev_ladj::OptionalLADJ)
     src_vs = varshape(src_d)
     @argcheck length(trg_d) == totalndof(src_vs)
     apply_dist_trafo(trg_d, unshaped(src_d), unshaped(src_v, src_vs), prev_ladj)
 end
 
-function apply_dist_trafo(trg_d::ReshapedDist, src_d::Distribution{Multivariate}, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
+function apply_dist_trafo(trg_d::AnyReshapedDist, src_d::Distribution{Multivariate}, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
     trg_vs = varshape(trg_d)
     @argcheck totalndof(trg_vs) == length(src_d)
     r = apply_dist_trafo(unshaped(trg_d), src_d, src_v, prev_ladj)
     (v = trg_vs(r.v), ladj = r.ladj)
 end
 
-function apply_dist_trafo(trg_d::ReshapedDist, src_d::ReshapedDist, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
+function apply_dist_trafo(trg_d::AnyReshapedDist, src_d::AnyReshapedDist, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
     trg_vs = varshape(trg_d)
     src_vs = varshape(src_d)
     @argcheck totalndof(trg_vs) == totalndof(src_vs)
