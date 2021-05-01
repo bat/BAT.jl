@@ -3,8 +3,7 @@
 #Import Libraries
 using BAT
 using Test
-using Distributions, StatsBase, StructArrays
-using IntervalSets, ValueShapes, TypedTables, Random, LinearAlgebra
+using Distributions, LinearAlgebra, ValueShapes
 
 
 ############# Preliminars: define model, prior, likelihood, posterior, algorithms and run partitioned sampling ###############
@@ -63,7 +62,7 @@ ps = PartitionedSampling(sampler = mcmc, npartitions=4, exploration_sampler=mcmc
 
     end
     @testset "Array of Posteriors" begin
-        posteriors_array = @inferred(BAT.convert_to_posterior(posterior, results.part_tree, extend_bounds = true))#Partition Posterior
+        posteriors_array = BAT.convert_to_posterior(posterior, results.part_tree, extend_bounds = true)#Partition Posterior
 
         @test posteriors_array isa AbstractVector{<:BAT.AbstractPosteriorDensity}
         #can I retrieve the samples from a subspace and compare them to theoretical values?
