@@ -31,44 +31,24 @@ The prior density of `posterior`. The prior may or may not be normalized.
 function getprior end
 
 
-function eval_logval(
-    density::AbstractPosteriorDensity,
-    v::Any,
-    T::Type{<:Real} = density_logval_type(v, density);
-    use_bounds::Bool = true,
-    strict::Bool = false
-)
-    v_shaped = reshape_variate(varshape(density), v)
-    if use_bounds && !variate_is_inbounds(density, v_shaped, strict)
-        return log_zero_density(T)
-    end
-
-    prior_logval = eval_logval(
-        getprior(density), v_shaped,
-        use_bounds = false, strict = false
-    )
+function eval_logval(density::AbstractPosteriorDensity, v::Any, T::Type{<:Real})
+    v_shaped = fixup_variate(varshape(density), v)
+    R = density_logval_type(v_shaped, T)
+    
+    prior_logval = eval_logval(getprior(density), v_shaped, R)
 
     # Don't evaluate likelihood if prior probability is zero. Prevents
     # failures when algorithms try to explore parameter space outside of
     # definition of likelihood (as long as prior is chosen correctly).
-    if !is_log_zero(prior_logval, T)
-        likelihood_logval = eval_logval(
-            getlikelihood(density), v_shaped,
-            use_bounds = false, strict = false
-        )
-        convert(T, likelihood_logval + prior_logval)
+    if !is_log_zero(prior_logval, R)
+        likelihood_logval = eval_logval(getlikelihood(density), v_shaped, R)
+        convert(R, likelihood_logval + prior_logval)
     else
-        log_zero_density(T)
+        log_zero_density(R)
     end
 end
 
-
-function eval_logval_unchecked(density::AbstractPosteriorDensity, v::Any)
-    eval_logval(
-        density, v,
-        use_bounds = false, strict = false
-    )
-end
+eval_logval_unchecked(density::AbstractPosteriorDensity, v::Any) = eval_logval(density, v, default_dlt())
 
 
 function var_bounds(density::AbstractPosteriorDensity)
@@ -131,17 +111,15 @@ function PosteriorDensity(likelihood::Any, prior::Any)
     li = convert(AbstractDensity, likelihood)
     pr = convert(AbstractDensity, prior)
 
-    parbounds = _posterior_parbounds(
-        var_bounds(li),
-        var_bounds(pr)
-    )
+    parbounds = _posterior_parbounds(var_bounds(li), var_bounds(pr))
 
-    parshapes = _posterior_parshapes(
-        varshape(li),
-        varshape(pr)
-    )
+    li_shape = varshape(li)
+    pr_shape = varshape(pr)
+    parshapes = _posterior_parshapes(li_shape, pr_shape)
 
-    PosteriorDensity(li, pr, parbounds, parshapes)
+    li_with_shape = _density_with_shape(li, parshapes, li_shape)
+
+    PosteriorDensity(li_with_shape, pr, parbounds, parshapes)
 end
 
 
@@ -152,6 +130,10 @@ getprior(posterior::PosteriorDensity) = posterior.prior
 var_bounds(posterior::PosteriorDensity) = posterior.parbounds
 
 ValueShapes.varshape(posterior::PosteriorDensity) = posterior.parshapes
+
+ValueShapes.unshaped(density::PosteriorDensity) = PosteriorDensity(unshaped(density.likelihood), unshaped(density.prior))
+
+(shape::AbstractValueShape)(density::PosteriorDensity) = PosteriorDensity(shape(density.likelihood), shape(density.prior))
 
 
 function _posterior_parshapes(li_ps::AbstractValueShape, pr_ps::AbstractValueShape)
@@ -195,9 +177,20 @@ _posterior_parbounds(li_bounds::AbstractVarBounds, pr_bounds::AbstractVarBounds)
 _posterior_parbounds(li_bounds::Missing, pr_bounds::AbstractVarBounds) = pr_bounds
 
 
+function _density_with_shape(density::AbstractDensity, requested_shape::AbstractValueShape, orig_shape::AbstractValueShape)
+    if requested_shape == orig_shape
+        density
+    else
+        throw(ArgumentError("Original and requested variable shape are incompatible"))
+    end
+end
+
+function _density_with_shape(density::AbstractDensity, requested_shape::AbstractValueShape, orig_shape::Missing)
+    DensityWithShape(density, requested_shape)
+end
+
 
 function example_posterior()
-    likelihood = MvNormal(float(I(7)))
     prior = NamedTupleDist(
         a = Exponential(),
         b = [4.2, 3.3],
@@ -206,5 +199,7 @@ function example_posterior()
         e = Beta(),
         f = MvNormal([0.3, -2.9], [1.7 0.5; 0.5 2.3])
     )
+    n = totalndof(varshape(prior))
+    likelihood = varshape(prior)(MvNormal(float(I(n))))
     PosteriorDensity(likelihood, prior)
 end

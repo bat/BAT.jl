@@ -37,52 +37,54 @@ Depth = 1
 ## Citing BAT.jl
 
 When using BAT.jl for research, teaching or similar, please cite
-
-> Schulz et al. "BAT.jl - A Bayesian Analysis Toolkit in Julia" (2020) [arXiv:2008.03132](https://arxiv.org/abs/2008.03132)
+*Schulz et al. "BAT.jl: A Julia-Based Tool for Bayesian Inference", [SNCS (2021)](https://doi.org/10.1007/s42979-021-00626-4)*.
 
 ```
-@article{Schulz:2020ebm,
-    author = "Schulz, Oliver and Beaujean, Frederik and Caldwell, Allen and Grunwald, Cornelius and Hafych, Vasyl and Kröninger, Kevin and La Cagnina, Salvatore and Röhrig, Lars and Shtembari, Lolian",
-    title = "{BAT.jl -- A Julia-based tool for Bayesian inference}",
-    eprint = "2008.03132",
-    archivePrefix = "arXiv",
-    primaryClass = "stat.CO",
-    month = "8",
-    year = "2020"
+@article{Schulz:2021BAT,
+  author  = {Schulz, Oliver and Beaujean, Frederik and Caldwell, Allen and Grunwald, Cornelius and Hafych, Vasyl and Kr{\"o}ninger, Kevin and Cagnina, Salvatore La and R{\"o}hrig, Lars and Shtembari, Lolian},
+  journal = {SN Computer Science},
+  title   = {BAT.jl: A Julia-Based Tool for Bayesian Inference},
+  year    = {2021},
+  issn    = {2661-8907},
+  month   = {Apr},
+  number  = {3},
+  pages   = {210},
+  volume  = {2},
+  day     = {12},
+  doi     = {10.1007/s42979-021-00626-4},
+  url     = {https://doi.org/10.1007/s42979-021-00626-4},
 }
 ```
 
 If you use [`BAT.AHMIntegration`](@ref) as an important part of your work, please also cite 
-
-> Caldwell et al. "Integration with an Adaptive Harmonic Mean Algorithm" (2020) [arXiv:1808.08051](https://arxiv.org/abs/1808.08051)
+*Caldwell et al. "Integration with an Adaptive Harmonic Mean Algorithm", [IJMPA (2020)](http://doi.org/10.1142/S0217751X20501420).*
 
 ```
-@article{caldwell2020integration,
-    author = "Caldwell, Allen and Eller, Philipp and Hafych, Vasyl and Schick, Rafael and Schulz, Oliver and Szalay, Marco",
-    title = "{Integration with an adaptive harmonic mean algorithm}",
-    journal = "International Journal of Modern Physics A",
-    volume = "35",
-    number = "24",
-    pages = "2050142",
-    year = "2020",
-    publisher = "World Scientific",
-    doi = "10.1142/S0217751X20501420"
+@article{Caldwell:2020AHMI,
+  author    = {Caldwell, Allen and Eller, Philipp and Hafych, Vasyl and Schick, Rafael and Schulz, Oliver and Szalay, Marco},
+  journal   = {International Journal of Modern Physics A},
+  title     = {Integration with an adaptive harmonic mean algorithm},
+  year      = {2020},
+  number    = {24},
+  pages     = {2050142},
+  volume    = {35},
+  doi       = {10.1142/S0217751X20501420},
+  publisher = {World Scientific},
 }
 ```
 
 If you use [`BAT.PartitionedSampling`](@ref) (experimental feature) as an important part of your work, please also cite 
-
-> Hafych et al. "Parallelizing MCMC Sampling via Space Partitioning" (2020) [arXiv:2008.03098](https://arxiv.org/abs/2008.03098)
+*Hafych et al. "Parallelizing MCMC Sampling via Space Partitioning", [arXiv:2008.03098 (2020)](https://arxiv.org/abs/2008.03098)*.
 
 ```
 @article{Hafych:2008.03098,
-    author = "Hafych, Vasyl and Eller, Philipp and Caldwell, Allen and Schulz, Oliver",
-    title = "{Parallelizing MCMC Sampling via Space Partitioning}",
-    eprint = "2008.03098",
-    archivePrefix = "arXiv",
-    primaryClass = "stat.CO",
-    month = "8",
-    year = "2018"
+  author        = {Hafych, Vasyl and Eller, Philipp and Caldwell, Allen and Schulz, Oliver},
+  title         = {Parallelizing MCMC Sampling via Space Partitioning},
+  year          = {2018},
+  month         = {8},
+  archiveprefix = {arXiv},
+  eprint        = {2008.03098},
+  primaryclass  = {stat.CO},
 }
 ```
 

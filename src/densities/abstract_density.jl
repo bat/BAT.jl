@@ -69,8 +69,8 @@ Get the number of degrees of freedom of the variates of `density`. May return
 `missing`, if the shape of the variates is not fixed.
 """
 function ValueShapes.totalndof(density::AbstractDensity)
-    bounds = var_bounds(density)
-    ismissing(bounds) ? missing : ValueShapes.totalndof(bounds)
+    shape = varshape(density)
+    ismissing(shape) ? missing : ValueShapes.totalndof(shape)
 end
 
 
@@ -92,13 +92,7 @@ ValueShapes.varshape(density::AbstractDensity) = missing
 
 
 """
-    eval_logval(
-        density::AbstractDensity,
-        v::Any,
-        T::Type{:Real} = density_logval_type(v, density);
-        use_bounds::Bool = true,
-        strict::Bool = false
-    )::T
+    eval_logval(density::AbstractDensity, v::Any, T::Type{<:Real})
 
 *BAT-internal, not part of stable public API.*
 
@@ -110,55 +104,39 @@ Throws an exception on any of these conditions:
 * The return value of `eval_logval_unchecked` is `NaN`.
 * The return value of `eval_logval_unchecked` is an equivalent of positive
   infinity.
-
-Options:
-
-* `use_bounds`: Return an equivalent of negative infinity if `v` is out of
-  bounds. `use_bounds` should only be set to `false` when it is known that
-  the `v` is within bounds.
-
-* `strict`: Throw an exception if `v` is out of bounds.
 """
 function eval_logval end
 
-function eval_logval(
-    density::AbstractDensity,
-    v::Any,
-    T::Type{<:Real} = density_logval_type(v, density);
-    use_bounds::Bool = true,
-    strict::Bool = false
-)
-    v_shaped = reshape_variate(varshape(density), v)
-    if use_bounds && !variate_is_inbounds(density, v_shaped, strict)
-        return log_zero_density(T)
-    end
+@inline function eval_logval(density::AbstractDensity, v::Any, T::Type{<:Real})
+    v_shaped = fixup_variate(varshape(density), v)
+    R = density_logval_type(v_shaped, T)
+    v_stripped = stripscalar(v_shaped)
+    _generic_eval_logval_impl(density, v_stripped, R)
+end
 
-    # ToDo: Make Zygote-compatible, by wrapping the following exception
-    # augmentation mechanism in a function `get_density_logval_with_rethrow`
-    # with a custom pullback:
-    logval::T = try
-        # ToDo: Mechanism to allow versions of eval_logval_unchecked for
-        # wrapped distributions and similar that avoid stripscalar:
-        eval_logval_unchecked(density, stripscalar(v_shaped))
+
+function _generic_eval_logval_impl(density::AbstractDensity, v::Any, T::Type)
+    logval = try
+        eval_logval_unchecked(density, v)
     catch err
         rethrow(_density_eval_error(density, v, err))
     end
 
-    _check_density_logval(density, v, logval, strict)
+    _check_density_logval(density, v, logval)
 
-    return logval
+    return convert(T, logval)::T
 end
 
 function _density_eval_error(density::AbstractDensity, v::Any, err::Any)
     ErrorException("Density evaluation failed at v = $(variate_for_msg(v)) due to exception $err, density has type $(typeof(density))")
 end
 
-function _check_density_logval(density::AbstractDensity, v::Any, logval::Real, strict::Bool)
+function _check_density_logval(density::AbstractDensity, v::Any, logval::Real)
     if isnan(logval)
         throw(ErrorException("Log-density must not evaluate to NaN, v = $(variate_for_msg(v)) , density has type $(typeof(density))"))
     end
 
-    if !(logval < typeof(logval)(+Inf))
+    if !(logval < float(typeof(logval))(+Inf))
         throw(ErrorException("Log-density must not evaluate to posivite infinity, v = $(variate_for_msg(v)), density has type $(typeof(density))"))
     end
 
@@ -166,99 +144,29 @@ function _check_density_logval(density::AbstractDensity, v::Any, logval::Real, s
 end
 
 
-function variate_is_inbounds(density::AbstractDensity, v::Any, strict::Bool)
-    unshaped_v = unshaped_variate(varshape(density), v)
-    bounds = var_bounds(density)
-    if !ismissing(bounds) && !(unshaped_v in bounds)
-        if strict
-            throw(ArgumentError("Parameter(s) out of bounds, density has type $(typeof(density))"))
-        else
-            return false
-        end
-    else
-        true
-    end
-end
-
-
-_strip_duals(x) = x
-_strip_duals(x::AbstractVector{<:ForwardDiff.Dual}) = ForwardDiff.value.(x)
-
-function variate_for_msg(v::Any)
-    # Strip dual numbers to make errors more readable:
-    shape = valshape(v)
-    v_real_unshaped = _strip_duals(unshaped(v))
-    v_real_shaped = shape(v_real_unshaped)
-    stripscalar(v_real_shaped)
-end
-
+variate_for_msg(v::Real) = v
+# Strip dual numbers to make errors more readable:
+variate_for_msg(v::ForwardDiff.Dual) = ForwardDiff.value(v)
+variate_for_msg(v::AbstractArray) = variate_for_msg.(v)
+variate_for_msg(v::NamedTuple) = map(variate_for_msg, v)
 
 
 """
-    eval_gradlogval(density::AbstractDensity, v::AbstractVector{<:Real})
-    grad
-*BAT-internal, not part of stable public API.*
-
-Compute the log of the value of a multivariate density function, as well as
-the gradient of the log-value for the given variate/parameter-values.
-
-Input:
-
-* `density`: density function
-* `v`: argument, i.e. variate / parameter-values
-
-Returns a tuple of the log density value and it's gradient.
-
-Note: This function should *not* be specialized for custom density types!
-"""
-function eval_gradlogval end
-
-
-function eval_gradlogval(
-    density::AbstractDensity,
-    v::Any,
-)
-    log_f = logvalof(density)
-
-    shape = valshape(v)
-    v_unshaped = unshaped(v)
-
-    n = length(eachindex(v_unshaped))
-    P = eltype(v_unshaped)
-    T = density_logval_type(v_unshaped, density)
-
-    grad_logd_unshaped = Vector{P}(undef, n)
-    chunk = ForwardDiff.Chunk(v_unshaped)
-    config = ForwardDiff.GradientConfig(log_f, v_unshaped, chunk)
-    result = DiffResults.MutableDiffResult(zero(T), (grad_logd_unshaped,))
-    ForwardDiff.gradient!(result, log_f, v_unshaped, config)
-    logd = DiffResults.value(result)
-
-    gradshape = replace_const_shapes(ValueShapes.const_zero_shape, shape)
-
-    grad_logd = gradshape(grad_logd_unshaped)
-    (logd = logd, grad_logd = grad_logd)
-end
-
-
-"""
-    BAT.density_logval_type(v::Any, density::AbstractDensity, T::Type{<:Real} = Float32)
+    BAT.density_logval_type(v::Any, T::Type{<:Real})
 
 *BAT-internal, not part of stable public API.*
 
 Determine a suitable return type of log-density functions, given a variate
-`v` and an optional additional default result type `T`.
+shape `vs` and a default result type `T`.
 """
 function density_logval_type end
 
-@inline function density_logval_type(v::AbstractArray{<:Real}, density::AbstractDensity, T::Type{<:Real} = Float32)
-    U = float(eltype(v))
+@inline function density_logval_type(v::Any, T::Type{<:Real})
+    U = float(getnumtype(v))
     promote_type(T, U)
 end
 
-@inline function density_logval_type(v::Any, density::AbstractDensity, T::Type{<:Real} = Float32)
-    density_logval_type(unshaped_variate(varshape(density), v), density, T)
-end
+default_dlt() = Float32
 
 
 """
@@ -298,14 +206,7 @@ function is_log_zero(x::Real, T::Type{<:Real} = typeof(x))
 end
 
 
-
-struct LogValOfDensity{D<:AbstractDensity} <: Function
-    density::D
-end
-
-(lvd::LogValOfDensity)(v::Any) = eval_logval(lvd.density, v)
-
-
+# ToDO: Consider deprecation in favor of logdensityof
 """
     logvalof(density::AbstractDensity)::Function
 
@@ -317,27 +218,55 @@ f = logvalof(density)
 log_density_at_v = f(v)
 ```
 """
-logvalof(density::AbstractDensity) = LogValOfDensity(density)
+logvalof(density::AbstractDensity) = logdensityof(density)
 
 
+"""
+    logdensityof(density::AbstractDensity, v)::Real
+    logdensityof(density::AbstractDensity)::Function
 
-struct LogValGradOfDensity{D<:AbstractDensity} <: Function
+*Experimental feature, not part of stable public API.*
+
+Computes the logarithmic value of `density` at a given point, resp. returns a
+function that does so:
+
+```julia
+logy = logdensityof(density, v)
+logdensityof(density, v) == logdensityof(density)(v)
+```
+
+Note: This function should *not* be specialized for custom density types!
+"""
+function logdensityof end
+export logdensityof
+
+logdensityof(density::AbstractDensity, v::Any) = eval_logval(density, v, default_dlt())
+
+logdensityof(density::AbstractDensity) = LogDensityOf(density)
+
+
+struct LogDensityOf{D<:AbstractDensity} <: Function
     density::D
 end
 
-(lvdg::LogValGradOfDensity)(v::Any) = eval_gradlogval(lvdg.density, v)
+@inline (lvd::LogDensityOf)(v::Any) = logdensityof(lvd.density, v)
+
+(Base.:-)(lvd::LogDensityOf) = NegLogDensityOf(lvd.density)
+
+ValueShapes.varshape(lvd::LogDensityOf) = varshape(lvd.density)
+ValueShapes.unshaped(lvd::LogDensityOf) = LogDensityOf(unshaped(lvd.density))
 
 
-"""
-    eval_gradlogval(density::AbstractDensity)::Function
+struct NegLogDensityOf{D<:AbstractDensity} <: Function
+    density::D
+end
 
-Returns a function that is equivalent to
+@inline (lvd::NegLogDensityOf)(v::Any) = - logdensityof(lvd.density, v)
 
-```julia
-    v -> eval_gradlogval(density, v)
-```
-"""
-eval_gradlogval(density::AbstractDensity) = LogValGradOfDensity(density)
+(Base.:-)(lvd::NegLogDensityOf) = LogDensityOf(lvd.density)
+
+ValueShapes.varshape(lvd::NegLogDensityOf) = varshape(lvd.density)
+ValueShapes.unshaped(lvd::NegLogDensityOf) = NegLogDensityOf(unshaped(lvd.density))
 
 
 
@@ -403,7 +332,7 @@ ValueShapes.totalndof(density::DistLikeDensity) = totalndof(var_bounds(density))
     BAT.AnyDensityLike = Union{...}
 
 Union of all types that BAT will accept as a probability density, resp. that
-`convert(AbstractDenstiy, d)` supports:
+`convert(AbstractDensity, d)` supports:
     
 * [`AbstractDensity`](@ref)
 * `Distributions.Distribution`

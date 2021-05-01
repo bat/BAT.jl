@@ -40,6 +40,7 @@ BAT.HMIData
 BAT.HMISettings
 BAT.IntegrationVolume
 BAT.KDTreePartitioning
+BAT.LogFuncDensity
 BAT.MCMCSampleGenerator
 BAT.OnlineMvCov
 BAT.OnlineMvMean
@@ -65,7 +66,6 @@ BAT.create_hyperrectangle
 BAT.density_logval_type
 BAT.proposaldist_logpdf
 BAT.drop_low_weight_samples
-BAT.eval_gradlogval
 BAT.eval_logval
 BAT.find_hypercube_centers
 BAT.find_marginalmodes

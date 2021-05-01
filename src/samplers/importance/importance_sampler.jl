@@ -49,12 +49,13 @@ function bat_sample_impl(
     algorithm::Union{SobolSampler, GridSampler}
 )
     density_notrafo = convert(AbstractDensity, target)
-    density, trafo = bat_transform(algorithm.trafo, density_notrafo)
-    shape = varshape(density)
+    shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)
+    shape = varshape(shaped_density)
+    density = unshaped(shaped_density)
 
     samples = _gen_samples(density, algorithm)
 
-    logvals = eval_logval.(Ref(density), samples)
+    logvals = map(logdensityof(density), samples)
     weights = exp.(logvals)
 
     vol = exp(BigFloat(log_volume(spatialvolume(var_bounds(density)))))
@@ -121,7 +122,7 @@ function bat_sample_impl(
 
     v = unshaped_prior_samples.v
     prior_weight = unshaped_prior_samples.weight
-    posterior_logd = eval_logval.(Ref(posterior), v)
+    posterior_logd = map(logdensityof(unshaped(posterior)), v)
     weight = exp.(posterior_logd - unshaped_prior_samples.logd) .* prior_weight
 
     est_integral = mean(weight)

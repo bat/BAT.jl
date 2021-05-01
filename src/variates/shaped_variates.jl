@@ -70,6 +70,41 @@ function _reshape_realvecs(shape::AbstractValueShape, vs::AbstractVector{<:Abstr
 end
 
 
-unshaped_variate(shape::AbstractValueShape, v::Any) = unshaped(reshape_variate(shape, v), shape)
+unshaped_variate(shape::AbstractValueShape, v::Any) = unshaped(v, shape)
 
 unshaped_variate(shape::Missing, v::Any) = unshaped(v)
+
+
+
+fixup_variate(shape::ScalarShape{Real}, v::Real) = v
+
+fixup_variate(shape::ScalarShape{Real}, v::AbstractArray{<:Real,0}) = v
+
+function fixup_variate(shape::ArrayShape{<:Real,N}, v::AbstractArray{<:Real,N}) where N
+    ndof = length(eachindex(v))
+    ndof_expected = totalndof(shape)
+    if ndof != ndof_expected
+        throw(ArgumentError("Invalid length ($ndof) of variate, target shape  $(shape) has $ndof_expected degrees of freedom"))
+    end
+    v
+end
+
+function fixup_variate(shape::NamedTupleShape, v::ShapedAsNT)
+    if !(valshape(v) <= shape)
+        throw(ArgumentError("Shape of variate incompatible with target variate shape, with variate of type $(typeof(v)) and expected shape $(shape)"))
+    end
+    v
+end
+
+function fixup_variate(shape::NamedTupleShape, v::NamedTuple)
+    unshaped_v = unshaped(v, shape)
+    shape(unshaped_v)
+end
+
+function fixup_variate(shape::Any, v::Any)
+    throw(ArgumentError("Shape of variate incompatible with target variate shape, with variate of type $(typeof(v)) and expected shape $(shape)"))
+end
+
+function fixup_variate(shape::Missing, v::Any)
+    throw(ArgumentError("Cannot evaluate without value shape information"))
+end

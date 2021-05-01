@@ -36,15 +36,18 @@ using PositiveFactorizations
 using ProgressMeter
 using RecipesBase
 using Requires
+using StaticArrays
 using StatsBase
 using StructArrays
 using Tables
 using ValueShapes
 
 import AdvancedHMC
+import ChainRulesCore
 import DiffResults
 import DistributionsAD
 import EmpiricalDistributions
+import FiniteDiff
 import ForwardDiff
 import HypothesisTests
 import Measurements
@@ -54,6 +57,7 @@ import Optim
 import Random123
 import Sobol
 import TypedTables
+import ZygoteRules
 
 #for AHMI
 using DataStructures
@@ -72,6 +76,7 @@ include("densities/densities.jl")
 include("algotypes/algotypes.jl")
 include("initvals/initvals.jl")
 include("statistics/statistics.jl")
+include("differentiation/differentiation.jl")
 include("optimization/optimization.jl")
 include("samplers/samplers.jl")
 include("integration/integration.jl")

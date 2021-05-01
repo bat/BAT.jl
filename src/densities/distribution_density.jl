@@ -18,10 +18,11 @@ Base.convert(::Type{DistLikeDensity}, d::ContinuousDistribution) = DistributionD
 Base.parent(density::DistributionDensity) = density.dist
 
 
-function eval_logval_unchecked(density::DistributionDensity, v::Any)
+function eval_logval_unchecked(density::DistributionDensity{<:Distribution{Univariate,Continuous}}, v::Real)
     d = density.dist
     logd = logpdf(d, v)
     R = typeof(logd)
+    # ToDo: Move these workarounds somewhere else? Still necessary at all?
     if isnan(logd)
         if isinf(v)
             # Weibull yields NaN logpdf at infinity (Distributions.jl issue #1197), possibly others too,
@@ -42,10 +43,15 @@ function eval_logval_unchecked(density::DistributionDensity, v::Any)
     end
 end
 
-eval_logval_unchecked(density::DistributionDensity, v::AbstractVector{<:Real}) = Distributions.logpdf(unshaped(density.dist), v)
+eval_logval_unchecked(density::DistributionDensity, v::Any) = Distributions.logpdf(density.dist, v)
 
 
 ValueShapes.varshape(density::DistributionDensity) = varshape(density.dist)
+
+ValueShapes.unshaped(density::DistributionDensity) = DistributionDensity(unshaped(density.dist))
+
+(shape::AbstractValueShape)(density::DistributionDensity) = DistributionDensity(shape(density.dist))
+
 
 Distributions.sampler(density::DistributionDensity) = bat_sampler(unshaped(density.dist))
 
@@ -64,6 +70,8 @@ dist_param_bounds(d::Distribution{Univariate,Continuous}) =
 dist_param_bounds(d::Distribution{Multivariate,Continuous}) =
     HyperRectBounds(fill(_default_PT(-Inf), length(d)), fill(_default_PT(+Inf), length(d)))
 
+dist_param_bounds(d::ReshapedDist) = dist_param_bounds(unshaped(d))
+
 dist_param_bounds(d::StandardMvUniform) =
     HyperRectBounds(fill(_default_PT(Float32(0)), length(d)), fill(_default_PT(Float32(1)), length(d)))
 
@@ -71,7 +79,9 @@ dist_param_bounds(d::Product{Continuous}) =
     HyperRectBounds(minimum.(d.v), maximum.(d.v))
 
 dist_param_bounds(d::ConstValueDist) = HyperRectBounds(Int32[], Int32[])
+
 dist_param_bounds(d::NamedTupleDist) = vcat(map(x -> dist_param_bounds(x), values(d))...)
+dist_param_bounds(d::ValueShapes.UnshapedNTD) = dist_param_bounds(d.shaped)
 
 dist_param_bounds(d::HierarchicalDistribution) =
     HyperRectBounds(fill(_default_PT(-Inf), length(d)), fill(_default_PT(+Inf), length(d)))

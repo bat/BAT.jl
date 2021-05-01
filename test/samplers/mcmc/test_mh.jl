@@ -3,13 +3,15 @@ using BAT
 using Test
 
 using LinearAlgebra
-using StatsBase, Distributions, StatsBase, ValueShapes
+using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
 
 @testset "MetropolisHastings" begin
     rng = bat_rng()
     target = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
 
-    density = @inferred(convert(AbstractDensity, target))
+    shaped_density = @inferred(convert(AbstractDensity, target))
+    @test shaped_density isa BAT.DistributionDensity
+    density = unshaped(shaped_density)
     @test density isa BAT.DistributionDensity
 
     algorithm = MetropolisHastings()
@@ -88,7 +90,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes
 
     @testset "MCMC tuning and burn-in" begin
         samples = BAT.bat_sample(
-            density,
+            shaped_density,
             MCMCSampling(
                 mcalg = algorithm,
                 trafo = NoDensityTransform(),
@@ -100,7 +102,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         @test first(samples).info.chaincycle == 1
 
         samples = BAT.bat_sample(
-            density,
+            shaped_density,
             MCMCSampling(
                 mcalg = algorithm,
                 trafo = NoDensityTransform(),
@@ -114,5 +116,17 @@ using StatsBase, Distributions, StatsBase, ValueShapes
         @test samples.v isa ShapedAsNTArray
         @test isapprox(mean(unshaped.(samples)), [1, -1, 2], atol = 0.3)
         @test isapprox(cov(unshaped.(samples)), cov(unshaped(target)), atol = 0.4)
+    end
+
+    @testset "MCMC sampling in transformed space" begin
+        prior = BAT.example_posterior().prior
+        likelihood = (logdensity = v -> 0,)
+        inner_posterior = PosteriorDensity(likelihood, prior)
+        # Test with nested posteriors:
+        posterior = PosteriorDensity(likelihood, inner_posterior)
+        smpls = bat_sample(posterior, MCMCSampling(mcalg = MetropolisHastings(), trafo = PriorToGaussian())).result
+
+        isapprox(mean(unshaped.(smpls)), mean(nestedview(rand(unshaped(prior).dist, 10^5))), rtol = 0.1)
+        isapprox(cov(unshaped.(smpls)), cov(unshaped(prior).dist), rtol = 0.1)
     end
 end

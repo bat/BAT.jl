@@ -61,7 +61,20 @@ sum_first_dim(A::AbstractVector) = sum(A)
 const SingleArrayIndex = Union{Integer, CartesianIndex}
 
 
+convert_numtype(::Type{T}, x::T) where {T<:Real} = x
+convert_numtype(::Type{T}, x::Real) where {T<:Real} = convert(T, x)
+convert_numtype(::Type{T}, x::AbstractArray{T}) where {T<:Real} = x
+convert_numtype(::Type{T}, x::AbstractArray{<:Real}) where {T<:Real} = convert.(T, x)
 
-convert_eltype(::Type{T}, x::AbstractArray) where T = convert.(T, x)
 
-convert_eltype(::Type{T}, x::AbstractArray{T}) where T = x
+# ToDo: Move to ValueShapes?
+getnumtype(::Type{T}) where {T<:Real} = T
+getnumtype(::Type{<:AbstractArray{T}}) where {T<:Real} = T
+getnumtype(::Type{<:ShapedAsNT{<:Any,<:AbstractArray{T}}}) where {T<:Real} = T
+getnumtype(::Type{<:ShapedAsNTArray{<:Any,N,<:AbstractArray{<:AbstractArray{T}}}}) where {T<:Real,N} = T
+getnumtype(tp::Type) = throw(ArgumentError("Can't derive numeric type for type $tp"))
+getnumtype(x) = getnumtype(typeof(x))
+
+
+any_isinf(trg_v::Real) = isinf(trg_v)
+any_isinf(trg_v::AbstractVector{<:Real}) = any(isinf, trg_v)
