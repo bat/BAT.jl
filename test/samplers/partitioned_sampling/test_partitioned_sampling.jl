@@ -41,32 +41,17 @@ ps = PartitionedSampling(sampler = mcmc, npartitions=4, exploration_sampler=mcmc
     mcmc_samples = @inferred(bat_sample(posterior, mcmc))#sample from original pdf with MCMC, is that what you wanted?
     ks_test = bat_compare(mcmc_samples.result, results.result)
     @test all(ks_test.result.ks_p_values .> 0.9)
-
-    @testset "Partitioning Algorithm" begin
-        #Checks results
-        part_tree_bounds = @inferred(BAT.get_tree_par_bounds(results.part_tree))
-        ## Important: with Sobol the modes are not always separated in different subspaces, with MCMC they are
-
-        belongs_to_subpace = zeros(4,4)#Matrix where rows are subspaces and cols points in 3D space (modes)
-        pos = zeros(4)#in which subspace a mode is in
-        for (i, subspace) in enumerate(eachrow(part_tree_bounds))
-            for (j, point) in enumerate(eachrow(μ))
-                belongs_to_subpace[i,j] = all(subspace[1][:,2] .> point) &  all(subspace[1][:,1] .< point)# checks point is within bounds
-                if belongs_to_subpace[i,j] == true#in which subspace a mode is in
-                    pos[i] = j
-                end
-            end
-        end
-
-        @test sort(pos) == 1:size(μ,1)# Are all the points assigned to different boundaries and they cover all the subdivisions?
-
-    end
     @testset "Array of Posteriors" begin
         posteriors_array = BAT.convert_to_posterior(posterior, results.part_tree, extend_bounds = true)#Partition Posterior
 
         @test posteriors_array isa AbstractVector{<:BAT.AbstractPosteriorDensity}
-        #can I retrieve the samples from a subspace and compare them to theoretical values?
-        #And create @test Sampling Subspaces
+        
+        #Creates a matrix whose rows represents subspaces, shoe cols represents means and whose entries are 1s or 0s
+        #1 if mean is in the corresponding subspace, 0 otherwise
+        position_matrix = [Base.in(u, post.parbounds.vol) for u in eachrow(μ), post in posteriors_array]
+        #Check that each mode is in a different subspace
+        @test sort([index[1] for index in findall(x -> x == true, position_matrix)]) == 1:4
+
     end
     @testset "Combinig Samples" begin
         #Sum of the weights should be equal to sum of integrals
