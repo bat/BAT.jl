@@ -13,7 +13,7 @@ using Distributions, LinearAlgebra, ValueShapes
 μ = [1 1 1; -1 1 0; -1 -1 -1; 1 -1 0]
 mixture_model = MixtureModel(MvNormal[MvNormal(μ[i,:], Matrix(Hermitian(σ)) ) for i in 1:4])
 #Define a flat prior
-prior = NamedTupleDist(a = [Uniform(-50,50), Uniform(-50,50), Uniform(-50,50)])
+prior = NamedTupleDist(a = [Uniform(-2,2), Uniform(-2,2), Uniform(-2)])
 #Define the Likelihood
 likelihood = let model = mixture_model
     params -> LogDVal(logpdf(model, params.a))
@@ -24,7 +24,7 @@ posterior = PosteriorDensity(likelihood, prior)
 #Sampling and integration algorithms
 mcmc = MCMCSampling(mcalg = MetropolisHastings(), nsteps = 10^3, trafo = NoDensityTransform(),);
 #vegas = BAT.VEGASIntegration(trafo = NoDensityTransform(), rtol = 0.001, atol = 1.0e-8)
-ahmi = AHMIntegration()
+ahmi = ahmi = AHMIntegration(whitening = BAT.NoWhitening(), max_startingIDs = 10^3)
 #sobol = BAT.SobolSampler(nsamples = 500, trafo = NoDensityTransform())
 mcmc_exp = MCMCSampling(mcalg = MetropolisHastings(), nchains =4, nsteps = 400, trafo = NoDensityTransform(),);
 
