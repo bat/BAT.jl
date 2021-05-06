@@ -38,15 +38,15 @@ ps = PartitionedSampling(sampler = mcmc, npartitions=4, exploration_sampler=sobo
     results = bat_sample(posterior , ps)
     
     #Kolmogorov-Smirnov Test
-    mcmc_samples = @inferred(bat_sample(posterior, mcmc))#sample from original pdf with MCMC, is that what you wanted?
-    ks_test = bat_compare(mcmc_samples.result, results.result)
-    @test all(ks_test.result.ks_p_values .> 0.7)
+    mcmc_samples = @inferred(bat_sample(posterior, mcmc))#sample from original pdf with MCMC
+    ks_test = bat_compare(mcmc_samples.result, results.result)#Run Kolmogorov-Smirnov test
+    @test all(ks_test.result.ks_p_values .> 0.7)#Check that all the p-values are bigger than 0.7
     @testset "Array of Posteriors" begin
         posteriors_array = BAT.convert_to_posterior(posterior, results.part_tree, extend_bounds = true)#Partition Posterior
 
         @test posteriors_array isa AbstractVector{<:BAT.AbstractPosteriorDensity}
         
-        #Creates a matrix whose rows represents subspaces, shoe cols represents means and whose entries are 1s or 0s
+        #Creates a matrix whose rows represents subspaces, cols represents modes and whose entries are 1s or 0s
         #1 if mean is in the corresponding subspace, 0 otherwise
         position_matrix = [Base.in(u, post.parbounds.vol) for u in eachrow(μ), post in posteriors_array]
         #Check that each mode is in a different subspace
