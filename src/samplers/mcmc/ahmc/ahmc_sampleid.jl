@@ -28,8 +28,8 @@ AHMCSampleIDVector(contents::NTuple{8,Any}) = StructArray{AHMCSampleID}(contents
 
 AHMCSampleIDVector(::UndefInitializer, len::Integer) = AHMCSampleIDVector((
     Vector{Int32}(undef, len), Vector{Int32}(undef, len),
-    Vector{Int64}(undef, len), Vector{Int64}(undef, len),
-    Vector{Float64}(undef, len), Vector{Int64}(undef, len),
+    Vector{Int64}(undef, len), Vector{Int32}(undef, len),
+    Vector{Float64}(undef, len), Vector{Int32}(undef, len),
     Vector{Bool}(undef, len), Vector{Float64}(undef, len),
 ))
 
