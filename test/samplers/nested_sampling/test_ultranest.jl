@@ -24,7 +24,8 @@ import UltraNest
             # lofpdf on MixtureModel returns NaN in gaps between distributions, and UltraNest
             # doesn't like -Inf, so return -1E10
             T = promote_type(Float32, typeof(ll))
-            (log = isnan(ll) ? T(-1E10) : T(ll),)
+            # isnan(ll) here only required for Distributions < v0.25
+            (log = isnan(ll) || isinf(ll) && ll < 0 ? T(-1E10) : T(ll),)
         end
     end
 
