@@ -42,6 +42,8 @@ function bat_sample_impl end
 
 
 @inline function bat_sample(rng::AbstractRNG, target::AnySampleable, algorithm::AbstractSamplingAlgorithm; kwargs...)
+    #dump(target)
+    #dump(algorithm)
     r = bat_sample_impl(rng, target, algorithm; kwargs...)
     result_with_args(r, (rng = rng, algorithm = algorithm), kwargs)
 end
