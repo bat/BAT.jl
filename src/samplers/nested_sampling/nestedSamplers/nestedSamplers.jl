@@ -11,9 +11,12 @@ include("ns_proposals.jl")
     
     bound::NSBound = MultiEllipsoidBound()
     
-    proposal::NSProposal = Uniformly()
+    proposal::NSProposal = AutoProposal() 
 
     enlarge::Float64 = 1.25
+
+    # Not sure about what this does yet
+    # update_interval =
     
     min_ncall::Int64 = 2*num_live_points
     
@@ -99,7 +102,7 @@ function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::Us
 
 end
 
-
+# For comparison here is a copy of the ultranestfunction
 # function bat_sample_impl(
 #     rng::AbstractRNG,
 #     target::AnyDensityLike,

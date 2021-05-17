@@ -6,6 +6,8 @@ abstract type NSProposal end
 
 struct Uniformly <: NSProposal end
 
+struct AutoProposal <: NSProposal end
+
 @with_kw struct RandomWalk <: NSProposal
     ratio::Float64 = 0.5
     walks::Int64 = 25
@@ -32,6 +34,11 @@ function NSprop(prop::Uniformly)
     return Proposals.Uniform()
 end
 
+function NSprop(prop::AutoProposal)
+    # :auto declaration: ndims < 10: Proposals.Uniform, 10 ≤ ndims ≤ 20: Proposals.RWalk, ndims > 20: Proposals.Slice
+    return :auto
+end
+
 function NSprop(prop::RandomWalk)
     return Proposals.RWalk(;prop.ratio, prop.walks, prop.scale)
 end
@@ -49,5 +56,5 @@ function NSprop(prop::RSlicing)
 end
 
 function NSprop(prop::NSProposal) # wenn nichts ausgewählt wird
-    return Proposals.RandomWalk()
+    return :auto
 end
