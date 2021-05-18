@@ -86,7 +86,6 @@ include("plotting/plotting.jl")
 
 include("precompile.jl")
 
-
 const _PLOTS_MODULE = Ref{Union{Module,Nothing}}(nothing)
 _plots_module() = _PLOTS_MODULE[]
 
@@ -95,6 +94,7 @@ function __init__()
     @require HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f" include("io/hdf5_specific.jl")
     @require Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80" _PLOTS_MODULE[] = Plots
     @require UltraNest = "6822f173-b0be-4018-9ee2-28bf56348d09" include("samplers/nested_sampling/ultranest.jl")
+    @require NestedSamplers = "41ceaf6f-1696-4a54-9b49-2e7a9ec3782e" include("samplers/nested_sampling/turing_nestedSamplers/turing_nestedSamplers.jl")
 end
 
 end # module

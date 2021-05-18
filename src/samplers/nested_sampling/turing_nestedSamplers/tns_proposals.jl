@@ -1,60 +1,60 @@
 export Uniformly
 export RandomWalk
 
-abstract type NSProposal end
+abstract type TNS_Proposal end
 
 
-struct Uniformly <: NSProposal end
+struct Uniformly <: TNS_Proposal end
 
-struct AutoProposal <: NSProposal end
+struct AutoProposal <: TNS_Proposal end
 
-@with_kw struct RandomWalk <: NSProposal
+@with_kw struct RandomWalk <: TNS_Proposal
     ratio::Float64 = 0.5
     walks::Int64 = 25
     scale::Float64 = 1.0 # >= 0
 end
 
-@with_kw struct RStaggering <: NSProposal
+@with_kw struct RStaggering <: TNS_Proposal
     ratio::Float64 = 0.5
     walks::Int64 = 25
     scale::Float64 = 1.0 # >= 0
 end
 
-@with_kw struct Slicing <: NSProposal
+@with_kw struct Slicing <: TNS_Proposal
     slices::Int64 = 5
     scale::Float64 = 1.0 # >= 0
 end
 
-@with_kw struct RSlicing <: NSProposal
+@with_kw struct RSlicing <: TNS_Proposal
     slices::Int64 = 5
     scale::Float64 = 1.0 # >= 0
 end
 
-function NSprop(prop::Uniformly)
+function TNS_prop(prop::Uniformly)
     return Proposals.Uniform()
 end
 
-function NSprop(prop::AutoProposal)
+function TNS_prop(prop::AutoProposal)
     # :auto declaration: ndims < 10: Proposals.Uniform, 10 ≤ ndims ≤ 20: Proposals.RWalk, ndims > 20: Proposals.Slice
     return :auto
 end
 
-function NSprop(prop::RandomWalk)
+function TNS_prop(prop::RandomWalk)
     return Proposals.RWalk(;prop.ratio, prop.walks, prop.scale)
 end
 
-function NSprop(prop::RStaggering)
+function TNS_prop(prop::RStaggering)
     Proposals.RStagger(;prop.ratio, prop.walks, prop.scale)
 end
 
-function NSprop(prop::Slicing)
+function TNS_prop(prop::Slicing)
     return Proposals.Slice(;prop.slices, prop.scale)
 end
 
-function NSprop(prop::RSlicing)
+function TNS_prop(prop::RSlicing)
     return Proposals.RSlice(;prop.slices, prop.scale)
 end
 
-function NSprop(prop::NSProposal) # wenn nichts ausgewählt wird
+function TNS_prop(prop::TNS_Proposal) # if nothing is choosen
     return :auto
 end

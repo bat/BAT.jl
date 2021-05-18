@@ -16,6 +16,7 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
 UltraNest = "6822f173-b0be-4018-9ee2-28bf56348d09"
 ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
+NestedSamplers = "41ceaf6f-1696-4a54-9b49-2e7a9ec3782e"
 
 
 [compat]
