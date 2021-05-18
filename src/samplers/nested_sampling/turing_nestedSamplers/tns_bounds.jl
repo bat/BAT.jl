@@ -1,8 +1,10 @@
+# Here are the definitions of the NestedSamplers bounds, which discribe the volume represent by the live-points
 export NoBounds
 export EllipsoidBound
 export MultiEllipsoidBound
 
 abstract type TNS_Bound end
+
 
 struct NoBounds <: TNS_Bound end
 

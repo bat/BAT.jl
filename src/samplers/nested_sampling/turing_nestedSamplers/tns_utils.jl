@@ -1,20 +1,25 @@
 ############################################################################################################
 # Here are transformation functions to convert datatypes
 ############################################################################################################
-function const2normal(c::ValueShapes.ConstValueDist)
+
+# If the prior for the parameter is a constant value transform it to an Normaldistribution without standardderivation
+function const_2_normaldistribution(c::ValueShapes.ConstValueDist)
     return Distributions.Normal(c.value, 0)
 end
 
-function const2normal(c)
+# Otherwise return the Distribution
+function const_2_normaldistribution(c)
     return c
 end
 
-function prior2array(posterior)
+# This function transforms a batprior to an array for NestedSamplers
+function batPrior_2_array(posterior::AnyDensityLike)
     p = collect(values(BAT.getprior(posterior).dist._internal_distributions))
-    return const2normal.(p)
+    return const_2_normaldistribution.(p)
 end
 
-function chain2batsamples(chain::Chains, shape)
+# For plotting this function creates bat-standardversions of samples
+function chain_2_batsamples(chain::Chains, shape)
     weights = chain.value.data[:, end]                                                      # The last elements of the vectors are the weights
     logvals = zeros(length(weights))
 
@@ -23,18 +28,18 @@ function chain2batsamples(chain::Chains, shape)
 end
 
 
-function batPosterior2nestedModel(posterior; num_live_points, bound::TNS_Bound, proposal::TNS_Proposal, enlarge, min_ncall, min_eff)
+function batPosterior_2_nestedModel(posterior::AnyDensityLike; num_live_points::Int64, bound::TNS_Bound, proposal::TNS_Proposal, enlarge::Float64, min_ncall::Int64, min_eff::Float64)
     
     # The likelihoodfunction has to be a fuction of only x for NestedSamplers 
-    function nestedLikelihood(x)
+    function nestedSamplers_Likelihood(x)
         ks = keys(BAT.varshape(posterior))
         nx = (;zip(ks, x)...)
         return BAT.eval_logval_unchecked(BAT.getlikelihood(posterior),nx)
     end
 
-    priors = prior2array(posterior)                                                         # NestedSamplers expects an array as prior
+    priors = batPrior_2_array(posterior)                                                         # NestedSamplers expects an array as prior
 
-    model = NestedModel(nestedLikelihood, priors);
+    model = NestedModel(nestedSamplers_Likelihood, priors);
 
     bounding = TNS_Bounding(bound)
     prop = TNS_prop(proposal)

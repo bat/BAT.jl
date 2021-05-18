@@ -1,3 +1,4 @@
+# Here are the definitions of the NestedSamplers proposals, which discribe the algorithm to choose new live-points
 export Uniformly
 export RandomWalk
 
@@ -7,6 +8,7 @@ abstract type TNS_Proposal end
 struct Uniformly <: TNS_Proposal end
 
 struct AutoProposal <: TNS_Proposal end
+
 
 @with_kw struct RandomWalk <: TNS_Proposal
     ratio::Float64 = 0.5
