@@ -1,5 +1,5 @@
 ############################################################################################################
-# Here are transformation functions to convert datatypes
+# Here are transformation functions to convert datatypes which are used by turing_nestedSamplers.jl
 ############################################################################################################
 
 # If the prior for the parameter is a constant value transform it to an Normaldistribution without standard deviation
@@ -18,18 +18,17 @@ function batPrior_to_array(posterior::AnyDensityLike)
     return const_to_normaldistribution.(p)
 end
 
-# For plotting this function creates bat-standardversions of samples
+# This function creates bat-standardversions of samples for plotting
 function chain_to_batsamples(chain::Chains, posterior::AnyDensityLike)
     shape = BAT.varshape(BAT.getprior(posterior))
-    weights = chain.value.data[:, end]                                                      # The last elements of the vectors are the weights
-    logvals = zeros(length(weights)) ############### @TODO: implement the correct logvals, they dont seem to be in the chain
 
+    weights = chain.value.data[:, end]                                                      # the last elements of the vectors are the weights
     nsamples = size(chain.value.data,1)
-    samples = [chain.value.data[i, 1:end-1] for i in 1:nsamples]                            # The other ones between 1 and end-1 are the samples
-    
+    samples = [chain.value.data[i, 1:end-1] for i in 1:nsamples]                            # the other ones between 1 and end-1 are the samples
+    logvals = map(logdensityof(unshaped(posterior)), samples)                               # posterior values of the samples
+
     return shape.(BAT.DensitySampleVector(samples, logvals, weight = weights))
 end
-
 
 function batPosterior_to_nestedModel(posterior::AnyDensityLike; num_live_points::Int64, bound::TNS_Bound, proposal::TNS_Proposal, enlarge::Float64, min_ncall::Int64, min_eff::Float64)
     

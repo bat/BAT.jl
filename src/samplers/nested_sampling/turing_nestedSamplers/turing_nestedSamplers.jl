@@ -7,8 +7,9 @@ include("tns_proposals.jl")
 include("tns_utils.jl")
 
 
-@with_kw struct TuringNestedSamplers <: AbstractSamplingAlgorithm
-    
+@with_kw struct TuringNestedSamplers{TR<:AbstractDensityTransformTarget} <: AbstractSamplingAlgorithm
+    trafo::TR = PriorToUniform()
+
     num_live_points::Int = 1000                         # the number of live-points
     bound::TNS_Bound = TNS_MultiEllipsoidBound()        # volume around the live-points
     proposal::TNS_Proposal = TNS_AutoProposal()         # algorithm to choose new live-points
