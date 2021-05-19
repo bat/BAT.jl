@@ -1,6 +1,6 @@
 # They are used in this file, because this file ist only load if it is required
-using NestedSamplers
-using MCMCChains: Chains
+using .NestedSamplers
+using .MCMCChains: Chains
 
 include("tns_bounds.jl")
 include("tns_proposals.jl")
