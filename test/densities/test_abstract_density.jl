@@ -32,8 +32,8 @@ end
 
     x = rand(3)
     @test_throws ArgumentError BAT.eval_logval(td, [Inf, Inf, Inf], BAT.default_dlt())
-    @test_throws ErrorException BAT.eval_logval(tds, [Inf, Inf, Inf], BAT.default_dlt())
-    @test_throws ErrorException BAT.eval_logval(tds, [NaN, NaN, NaN], BAT.default_dlt())
+    @test_throws BAT.DensityEvalException BAT.eval_logval(tds, [Inf, Inf, Inf], BAT.default_dlt())
+    @test_throws BAT.DensityEvalException BAT.eval_logval(tds, [NaN, NaN, NaN], BAT.default_dlt())
     @test_throws ArgumentError BAT.eval_logval(tds, rand(length(mvn)+1), BAT.default_dlt())
     @test_throws ArgumentError BAT.eval_logval(tds, rand(length(mvn)-1), BAT.default_dlt())
 
@@ -71,7 +71,7 @@ end
     dd = _DeltaDensityStruct()
     dds = BAT.DensityWithShape(dd, ScalarShape{Real}())
     @test_throws ArgumentError BAT.eval_logval(dd, 0, BAT.default_dlt())
-    @test_throws ErrorException BAT.eval_logval(dds, 0, BAT.default_dlt())
+    @test_throws BAT.DensityEvalException BAT.eval_logval(dds, 0, BAT.default_dlt())
 
     ntdist = NamedTupleDist(a=mvn, b=mvu)
     ValueShapes.varshape(sd::_ShapeDensityStruct) = varshape(ntdist)
