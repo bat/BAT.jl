@@ -28,6 +28,22 @@ abstract type AbstractDensity end
 export AbstractDensity
 
 
+show_value_shape(io::IO, vs::AbstractValueShape) = show(io, vs)
+function show_value_shape(io::IO, vs::NamedTupleShape)
+    print(io, Base.typename(typeof(vs)).name, "(")
+    show(propertynames(vs))
+    print(io, "}(…)")
+end
+
+function Base.show(io::IO, d::AbstractDensity)
+    print(io, Base.typename(typeof(d)).name, "(objectid = ")
+    show(io, objectid(d))
+    print(io, ", varshape = ")
+    show_value_shape(io, varshape(d))
+    print(io, ")")
+end
+
+
 """
     struct DensityEvalException <: Exception
 
