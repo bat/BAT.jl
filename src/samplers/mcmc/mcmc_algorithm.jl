@@ -131,6 +131,15 @@ abstract type MCMCIterator end
 export MCMCIterator
 
 
+function Base.show(io::IO, chain::MCMCIterator)
+    print(io, Base.typename(typeof(chain)).name, "(")
+    print(io, "id = "); show(io, mcmc_info(chain).id)
+    print(io, ", nsamples = "); show(io, nsamples(chain))
+    print(io, ", density = "); show(io, getdensity(chain))
+    print(io, ")") 
+end
+
+
 function getalgorithm end
 
 function getdensity end
@@ -249,6 +258,15 @@ end
 
 getalgorithm(sg::MCMCSampleGenerator) = sg.chains[1].spec.algorithm
 
+
+function Base.show(io::IO, generator::MCMCSampleGenerator)
+    print(io, Base.typename(typeof(generator)).name, "(")
+    if !isempty(generator.chains)
+        show(io, first(generator.chains))
+        print(", …")
+    end
+    print(")")
+end
 
 
 abstract type AbstractMCMCTunerInstance end
