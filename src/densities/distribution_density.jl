@@ -14,6 +14,9 @@ DistributionDensity(d::Distribution) = DistributionDensity(d, dist_param_bounds(
 Base.convert(::Type{AbstractDensity}, d::ContinuousDistribution) = DistributionDensity(d)
 Base.convert(::Type{DistLikeDensity}, d::ContinuousDistribution) = DistributionDensity(d)
 
+Base.convert(::Type{Distribution}, d::DistributionDensity) = d.dist
+Base.convert(::Type{ContinuousDistribution}, d::DistributionDensity) = d.dist
+
 
 Base.parent(density::DistributionDensity) = density.dist
 
