@@ -60,6 +60,10 @@ import Sobol
 import TypedTables
 import ZygoteRules
 
+# ChainRulesCore type aliases, replace by `using ChainRulesCore: ...` eventually,
+# when not supporting older versioins of ChainRulesCore anymore.
+using ForwardDiffPullbacks: AbstractTangent, NoTangent, Tangent, ZeroTangent
+
 #for AHMI
 using DataStructures
 using QuadGK
