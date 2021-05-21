@@ -97,9 +97,10 @@ end
 
 # ToDo: Reject out-of-bounds samples, in case density contains distributions that can't be truncated (e.g. multivariate)
 Distributions.sampler(density::TruncatedDensity{<:DistributionDensity}) = Distributions.sampler(parent(density))
+bat_sampler(density::TruncatedDensity{<:DistributionDensity}) = bat_sampler(parent(density))
 
 function Statistics.cov(density::TruncatedDensity{<:DistributionDensity})
-    cov(nestedview(rand(bat_determ_rng(), sampler(density), 10^5)))
+    cov(nestedview(rand(bat_determ_rng(), bat_sampler(density), 10^5)))
 end
 
 

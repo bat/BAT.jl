@@ -150,6 +150,9 @@ the prior only supports unshaped variate/parameter vectors.
 ValueShapes.varshape(density::AbstractDensity) = missing
 
 
+bat_sampler(d::AbstractDensity) = Distributions.sampler(d)
+
+
 """
     eval_logval(density::AbstractDensity, v::Any, T::Type{<:Real})
 

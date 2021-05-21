@@ -94,6 +94,6 @@ end
 
     @testset "rand" begin
         td = _TestDensityStruct()
-        @test rand(StableRNG(7002), sampler(td)) ≈ [2.386799038, 1.072161895, 0.791486531]
+        @test rand(StableRNG(7002), bat_sampler(td)) ≈ [2.386799038, 1.072161895, 0.791486531]
     end
 end

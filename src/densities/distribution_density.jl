@@ -53,10 +53,8 @@ ValueShapes.unshaped(density::DistributionDensity) = DistributionDensity(unshape
 (shape::AbstractValueShape)(density::DistributionDensity) = DistributionDensity(shape(density.dist))
 
 
-Distributions.sampler(density::DistributionDensity) = bat_sampler(unshaped(density.dist))
-
-
-# Random.Sampler(rng::AbstractRNG, density::DistributionDensity, repetition::Val{1}) = sampler(density)
+Distributions.sampler(density::DistributionDensity) = Distributions.sampler(density.dist)
+bat_sampler(density::DistributionDensity) = bat_sampler(density.dist)
 
 Statistics.cov(density::DistributionDensity) = cov(unshaped(density.dist))
 
