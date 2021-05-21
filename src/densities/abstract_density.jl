@@ -189,6 +189,19 @@ function _generic_eval_logval_impl(density::AbstractDensity, v::Any, T::Type)
     return convert(T, logval)::T
 end
 
+ZygoteRules.@adjoint _generic_eval_logval_impl(density::AbstractDensity, v::Any, T::Type) = begin
+    zygote_logdensity(v) = eval_logval_unchecked(density, v)
+    logval, back = try
+        ZygoteRules.pullback(zygote_logdensity, v)
+    catch err
+        rethrow(_density_eval_error(density, v, err))
+    end
+    _check_density_logval(density, v, logval)
+    eval_logval_pullback(logval::Real) = (nothing, first(back(logval)), nothing)
+    (logval, eval_logval_pullback)
+end
+
+
 
 function _check_density_logval(density::AbstractDensity, v::Any, logval::Real)
     if isnan(logval) || !(logval < float(typeof(logval))(+Inf))
