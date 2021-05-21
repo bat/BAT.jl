@@ -216,26 +216,26 @@ end
 
 
 @inline function _eval_dist_trafo_func(f::typeof(_trafo_cdf), d::Distribution{Univariate,Continuous}, src_v::Real, prev_ladj::OptionalLADJ)
-    R_V = float(typeof(src_v))
-    R_LADJ = !ismissing(prev_ladj) ? float(promote_type(typeof(src_v), typeof(prev_ladj))) : Missing
+    R_V = float(promote_type(typeof(src_v), eltype(params(d)), ismissing(prev_ladj) ? Bool : typeof(prev_ladj)))
+    R_LADJ = !ismissing(prev_ladj) ? R_V : Missing
     if insupport(d, src_v)
         trg_v = f(d, src_v)
         trafo_ladj = !ismissing(prev_ladj) ? + logpdf(d, src_v) : missing
         var_trafo_result(convert(R_V, trg_v), src_v, convert(R_LADJ, trafo_ladj), prev_ladj)
     else
-        var_trafo_result(convert(R_V, NaN), src_v, convert(R_LADJ, NaN), prev_ladj)
+        var_trafo_result(convert(R_V, NaN), src_v, convert(R_LADJ, !ismissing(prev_ladj) ? NaN : missing), prev_ladj)
     end
 end
 
 @inline function _eval_dist_trafo_func(f::typeof(_trafo_quantile), d::Distribution{Univariate,Continuous}, src_v::Real, prev_ladj::OptionalLADJ)
-    R_V = float(typeof(src_v))
-    R_LADJ = !ismissing(prev_ladj) ? float(promote_type(typeof(src_v), typeof(prev_ladj))) : Missing
+    R_V = float(promote_type(typeof(src_v), eltype(params(d)), ismissing(prev_ladj) ? Bool : typeof(prev_ladj)))
+    R_LADJ = !ismissing(prev_ladj) ? R_V : Missing
     if 0 <= src_v <= 1
         trg_v = f(d, src_v)
         trafo_ladj = !ismissing(prev_ladj) ? - logpdf(d, trg_v) : missing
         var_trafo_result(convert(R_V, trg_v), src_v, convert(R_LADJ, trafo_ladj), prev_ladj)
     else
-        var_trafo_result(convert(R_V, NaN), src_v, convert(R_LADJ, NaN), prev_ladj)
+        var_trafo_result(convert(R_V, NaN), src_v, convert(R_LADJ, !ismissing(prev_ladj) ? NaN : missing), prev_ladj)
     end
 end
 
@@ -335,7 +335,7 @@ end
 
 
 function apply_dist_trafo(trg_d::Distributions.Product, src_d::Distributions.Product, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
-    rs = apply_dist_trafo.(trg_d.v, src_d.v, src_v, zero(Float32))
+    rs = fwddiff(apply_dist_trafo).(trg_d.v, src_d.v, src_v, ismissing(prev_ladj) ? missing : zero(Float32))
     trg_v = broadcast(r -> r.v, rs)
     trafo_ladj = !ismissing(prev_ladj) ? sum(map(r -> r.ladj, rs)) : missing
     var_trafo_result(trg_v, src_v, trafo_ladj, prev_ladj)
