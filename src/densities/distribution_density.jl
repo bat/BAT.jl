@@ -55,6 +55,10 @@ ValueShapes.unshaped(density::DistributionDensity) = DistributionDensity(unshape
 
 (shape::AbstractValueShape)(density::DistributionDensity) = DistributionDensity(shape(density.dist))
 
+# For user convenience, don't use within BAT:
+@inline Random.rand(rng::AbstractRNG, density::DistributionDensity) = rand(rng, density.dist)
+@inline Random.rand(rng::AbstractRNG, density::DistributionDensity, dims::Dims) = rand(rng, density.dist, dims)
+@inline Random.rand(rng::AbstractRNG, density::DistributionDensity, dims::Integer...) = rand(rng, density.dist, dims...)
 
 Distributions.sampler(density::DistributionDensity) = Distributions.sampler(density.dist)
 bat_sampler(density::DistributionDensity) = bat_sampler(density.dist)
