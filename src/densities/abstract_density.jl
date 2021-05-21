@@ -318,6 +318,15 @@ ValueShapes.varshape(lvd::NegLogDensityOf) = varshape(lvd.density)
 ValueShapes.unshaped(lvd::NegLogDensityOf) = NegLogDensityOf(unshaped(lvd.density))
 
 
+function Base.show(io::IO, f::Union{LogDensityOf,NegLogDensityOf})
+    print(io, Base.typename(typeof(f)).name, "(")
+    show(io, f.density)
+    print(io, ")")
+end
+
+Base.show(io::IO, M::MIME"text/plain", f::Union{LogDensityOf,NegLogDensityOf}) = show(io, f)
+
+
 
 """
     abstract type DistLikeDensity <: AbstractDensity
