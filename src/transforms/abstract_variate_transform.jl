@@ -218,7 +218,7 @@ apply_vartrafo(trafo::VariateTransform{<:Any,<:ValueShapes.NamedTupleShape{names
     apply_vartrafo_impl(trafo, v, prev_ladj)
 
 
-(trafo::VariateTransform)(v::Any) = apply_vartrafo(trafo, v, Float32(NaN)).v
+(trafo::VariateTransform)(v::Any) = apply_vartrafo(trafo, v, missing).v
 (trafo::VariateTransform)(v::Any, prev_ladj::OptionalLADJ) = apply_vartrafo(trafo, v, prev_ladj)
 (trafo::VariateTransform)(s::DensitySample) = _transform_density_sample(trafo, s)
 
