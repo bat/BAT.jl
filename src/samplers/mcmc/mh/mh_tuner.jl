@@ -65,7 +65,7 @@ end
 
 
 
-_approx_cov(target::Distribution) = cov(unshaped(target))
+_approx_cov(target::Distribution) = cov(target)
 _approx_cov(target::DistLikeDensity) = cov(target)
 _approx_cov(target::AbstractPosteriorDensity) = _approx_cov(getprior(target))
 _approx_cov(target::BAT.TransformedDensity{<:Any,<:BAT.DistributionTransform}) =
