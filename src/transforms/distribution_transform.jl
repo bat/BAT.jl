@@ -43,7 +43,7 @@ DistributionTransform(target_dist::Distribution{Multivariate,Continuous}, source
 show_distribution(io::IO, d::Distribution) = show(io, d)
 function show_distribution(io::IO, d::NamedTupleDist)
     print(io, Base.typename(typeof(d)).name, "{")
-    show(propertynames(d))
+    show(io, propertynames(d))
     print(io, "}(…)")
 end
     

@@ -31,7 +31,7 @@ export AbstractDensity
 show_value_shape(io::IO, vs::AbstractValueShape) = show(io, vs)
 function show_value_shape(io::IO, vs::NamedTupleShape)
     print(io, Base.typename(typeof(vs)).name, "(")
-    show(propertynames(vs))
+    show(io, propertynames(vs))
     print(io, "}(…)")
 end
 

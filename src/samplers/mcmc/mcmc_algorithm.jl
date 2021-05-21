@@ -263,9 +263,9 @@ function Base.show(io::IO, generator::MCMCSampleGenerator)
     print(io, Base.typename(typeof(generator)).name, "(")
     if !isempty(generator.chains)
         show(io, first(generator.chains))
-        print(", …")
+        print(io, ", …")
     end
-    print(")")
+    print(io, ")")
 end
 
 
