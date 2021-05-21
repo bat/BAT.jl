@@ -63,7 +63,7 @@ ValueShapes.unshaped(density::DistributionDensity) = DistributionDensity(unshape
 Distributions.sampler(density::DistributionDensity) = Distributions.sampler(density.dist)
 bat_sampler(density::DistributionDensity) = bat_sampler(density.dist)
 
-Statistics.cov(density::DistributionDensity) = cov(unshaped(density.dist))
+Statistics.cov(density::DistributionDensity{<:MultivariateDistribution}) = cov(density.dist)
 
 
 var_bounds(density::DistributionDensity) = density.bounds
