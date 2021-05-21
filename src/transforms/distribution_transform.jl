@@ -5,6 +5,83 @@ const StdUvDist = Union{StandardUvUniform, StandardUvNormal}
 const StdMvDist = Union{StandardMvUniform, StandardMvNormal}
 
 
+
+_nogradient(f) = f()
+
+function ChainRulesCore.rrule(::typeof(_nogradient), f)
+    result = _nogradient(f)
+    _nogradient_pullback(ΔΩ) = (ChainRulesCore.NO_FIELDS, ZeroTangent())
+    return result, _nogradient_pullback
+end
+
+
+function _pushfront(v::AbstractVector, x)
+    T = promote_type(eltype(v), typeof(x))
+    r = similar(v, T, length(eachindex(v)) + 1)
+    r[firstindex(r)] = x
+    r[firstindex(r)+1:lastindex(r)] = v
+    r
+end
+
+function ChainRulesCore.rrule(::typeof(_pushfront), v::AbstractVector, x)
+    result = _pushfront(v, x)
+    function _pushfront_pullback(thunked_ΔΩ)
+        ΔΩ = ChainRulesCore.unthunk(thunked_ΔΩ)
+        (ChainRulesCore.NO_FIELDS, ΔΩ[firstindex(ΔΩ)+1:lastindex(ΔΩ)], ΔΩ[firstindex(ΔΩ)])
+    end
+    return result, _pushfront_pullback
+end
+
+
+function _pushback(v::AbstractVector, x)
+    T = promote_type(eltype(v), typeof(x))
+    r = similar(v, T, length(eachindex(v)) + 1)
+    r[lastindex(r)] = x
+    r[firstindex(r):lastindex(r)-1] = v
+    r
+end
+
+function ChainRulesCore.rrule(::typeof(_pushback), v::AbstractVector, x)
+    result = _pushback(v, x)
+    function _pushback_pullback(thunked_ΔΩ)
+        ΔΩ = ChainRulesCore.unthunk(thunked_ΔΩ)
+        (ChainRulesCore.NO_FIELDS, ΔΩ[firstindex(ΔΩ):lastindex(ΔΩ)-1], ΔΩ[lastindex(ΔΩ)])
+    end
+    return result, _pushback_pullback
+end
+
+
+_dropfront(v::AbstractVector) = v[firstindex(v)+1:lastindex(v)]
+
+_dropback(v::AbstractVector) = v[firstindex(v):lastindex(v)-1]
+
+
+_rev_cumsum(xs::AbstractVector) = reverse(cumsum(reverse(xs)))
+
+function ChainRulesCore.rrule(::typeof(_rev_cumsum), xs::AbstractVector)
+    result = _rev_cumsum(xs)
+    function _rev_cumsum_pullback(ΔΩ)
+        ∂xs = ChainRulesCore.@thunk cumsum(ChainRulesCore.unthunk(ΔΩ))
+        (ChainRulesCore.NO_FIELDS, ∂xs)
+    end
+    return result, _rev_cumsum_pullback
+end
+
+
+# Equivalent to `cumprod(xs)``:
+_exp_cumsum_log(xs::AbstractVector) = exp.(cumsum(log.(xs)))
+
+function ChainRulesCore.rrule(::typeof(_exp_cumsum_log), xs::AbstractVector)
+    result = _exp_cumsum_log(xs)
+    function _exp_cumsum_log_pullback(ΔΩ)
+        ∂xs = inv.(xs) .* _rev_cumsum(exp.(cumsum(log.(xs))) .* ChainRulesCore.unthunk(ΔΩ))
+        (ChainRulesCore.NO_FIELDS, ∂xs)
+    end
+    return result, _exp_cumsum_log_pullback
+end
+
+
+
 struct DistributionTransform{
     VT <: AbstractValueShape,
     VF <: AbstractValueShape,
@@ -59,6 +136,8 @@ Base.show(io::IO, M::MIME"text/plain", trafo::DistributionTransform) = show(io, 
 
 # apply_dist_trafo(trg_d, src_d, src_v, prev_ladj)
 function apply_dist_trafo end
+
+apply_dist_trafo_noladj(trg_d::Distribution, src_d::Distribution, src_v::Any) = apply_dist_trafo(trg_d, src_d, src_v, missing).v
 
 
 import Base.∘
@@ -197,6 +276,9 @@ end
     ForwardDiff.Dual{TAG}(x, dxdu * ForwardDiff.partials(u))
 end
 
+# Workaround for Beta dist, ForwardDiff doesn't work for parameters:
+_trafo_quantile_impl(::NTuple{N,ForwardDiff.Dual}, d::Beta, x::Real) where N = convert(float(typeof(x)), NaN)
+
 @inline _trafo_quantile_impl_generic(d::Distribution{Univariate,Continuous}, u::Real) = quantile(d, u)
 
 # Workaround for rounding errors that can result in quantile values outside of support of Truncated:
@@ -287,13 +369,14 @@ end
 # ToDo: Optimized implementation for Distributions.Truncated <-> StandardUvUniform
 
 
-
 @inline function apply_dist_trafo(trg_d::StandardMvUniform, src_d::StandardMvNormal, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
-    apply_dist_trafo(convert(Product, trg_d), convert(Product, src_d), src_v, prev_ladj)
+    _nogradient(() -> @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d))
+    _product_dist_trafo_impl(StandardUvUniform(), StandardUvNormal(), src_v, prev_ladj)
 end
 
 @inline function apply_dist_trafo(trg_d::StandardMvNormal, src_d::StandardMvUniform, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
-    apply_dist_trafo(convert(Product, trg_d), convert(Product, src_d), src_v, prev_ladj)
+    _nogradient(() -> @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d))
+    _product_dist_trafo_impl(StandardUvNormal(), StandardUvUniform(), src_v, prev_ladj)
 end
 
 
@@ -319,34 +402,81 @@ end
 
 
 eff_totalndof(d::Dirichlet) = length(d) - 1
+eff_totalndof(d::DistributionsAD.TuringDirichlet) = length(d) - 1
 
 std_dist_to(trg_d::Dirichlet) = StandardMvUniform(eff_totalndof(trg_d))
+std_dist_to(trg_d::DistributionsAD.TuringDirichlet) = StandardMvUniform(eff_totalndof(trg_d))
+
 
 function apply_dist_trafo(trg_d::Dirichlet, src_d::StandardMvUniform, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
-    # See https://arxiv.org/abs/1010.3436
-    len_t = length(trg_d)
-    @argcheck len_t == length(src_d) + 1
-    in_d = product_distribution([Beta(sum(trg_d.alpha[i+1:end]),trg_d.alpha[i]) for i in 1:len_t-1])
-    in_v, in_ladj = apply_dist_trafo(in_d, src_d, src_v, missing)
-    trg_v = [prod(in_v[1:i-1]) * (i < len_t ? 1-in_v[i] : 1) for i in 1:len_t]
-    trafo_ladj = !ismissing(prev_ladj) ? - logpdf(trg_d, trg_v) : missing
+    apply_dist_trafo(DistributionsAD.TuringDirichlet(trg_d.alpha), src_d, src_v, prev_ladj)
+end
+
+function _dirichlet_beta_trafo(α::Real, β::Real, src_v::Real)
+    R = float(promote_type(typeof(α), typeof(β), typeof(src_v)))
+    convert(R, apply_dist_trafo(Beta(α, β), StandardUvUniform(), src_v, missing).v)::R
+end
+
+_a_times_one_minus_b(a::Real, b::Real) = a * (1 - b)
+
+function apply_dist_trafo(trg_d::DistributionsAD.TuringDirichlet, src_d::StandardMvUniform, src_v::AbstractVector{<:Real}, prev_ladj::Missing)
+    # See M. J. Betancourt, "Cruising The Simplex: Hamiltonian Monte Carlo and the Dirichlet Distribution",
+    # https://arxiv.org/abs/1010.3436
+
+    _nogradient(() -> @argcheck length(trg_d) == length(src_d) + 1)
+    αs = _dropfront(_rev_cumsum(trg_d.alpha))
+    βs = _dropback(trg_d.alpha)
+    beta_v = fwddiff(_dirichlet_beta_trafo).(αs, βs, src_v)
+    beta_v_cp = _exp_cumsum_log(_pushfront(beta_v, 1))
+    beta_v_ext = _pushback(beta_v, 0)
+    trg_v = fwddiff(_a_times_one_minus_b).(beta_v_cp, beta_v_ext)
+    var_trafo_result(trg_v, src_v, missing, prev_ladj)
+end
+
+function apply_dist_trafo(trg_d::DistributionsAD.TuringDirichlet, src_d::StandardMvUniform, src_v::AbstractVector{<:Real}, prev_ladj::Real)
+    trg_v = apply_dist_trafo(trg_d, src_d, src_v, missing).v
+    trafo_ladj = - logpdf(trg_d, trg_v)
     var_trafo_result(trg_v, src_v, trafo_ladj, prev_ladj)
 end
 
+
+g_debug = nothing
+function _product_dist_trafo_impl(trg_ds, src_ds, src_v::AbstractVector{<:Real}, prev_ladj::Missing)
+    global g_debug = (trg_ds=trg_ds, src_ds=src_ds, src_v=src_v, prev_ladj=missing)
+    trg_v = fwddiff(apply_dist_trafo_noladj).(trg_ds, src_ds, src_v)
+    var_trafo_result(trg_v, src_v, missing, missing)
+end
+
+function _product_dist_trafo_impl(trg_ds, src_ds, src_v::AbstractVector{<:Real}, prev_ladj::Real)
+    rs = fwddiff(apply_dist_trafo).(trg_ds, src_ds, src_v, zero(prev_ladj))
+    trg_v = map(r -> r.v, rs)
+    trafo_ladj = sum(map(r -> r.ladj, rs))
+    var_trafo_result(trg_v, src_v, trafo_ladj, prev_ladj)
+end
 
 function apply_dist_trafo(trg_d::Distributions.Product, src_d::Distributions.Product, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
-    rs = fwddiff(apply_dist_trafo).(trg_d.v, src_d.v, src_v, ismissing(prev_ladj) ? missing : zero(Float32))
-    trg_v = broadcast(r -> r.v, rs)
-    trafo_ladj = !ismissing(prev_ladj) ? sum(map(r -> r.ladj, rs)) : missing
-    var_trafo_result(trg_v, src_v, trafo_ladj, prev_ladj)
+    _nogradient(() -> @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d))
+    _product_dist_trafo_impl(trg_d.v, src_d.v, src_v, prev_ladj)
 end
 
-function apply_dist_trafo(trg_d::StdMvDist, src_d::Distributions.Product, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
-    apply_dist_trafo(convert(Distributions.Product, trg_d), src_d, src_v, prev_ladj)
+function apply_dist_trafo(trg_d::StandardMvUniform, src_d::Distributions.Product, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
+    _nogradient(() -> @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d))
+    _product_dist_trafo_impl(StandardUvUniform(), src_d.v, src_v, prev_ladj)
 end
 
-function apply_dist_trafo(trg_d::Distributions.Product, src_d::StdMvDist, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
-    apply_dist_trafo(trg_d, convert(Distributions.Product, src_d), src_v, prev_ladj)
+function apply_dist_trafo(trg_d::StandardMvNormal, src_d::Distributions.Product, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
+    _nogradient(() -> @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d))
+    _product_dist_trafo_impl(StandardUvNormal(), src_d.v, src_v, prev_ladj)
+end
+
+function apply_dist_trafo(trg_d::Distributions.Product, src_d::StandardMvUniform, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
+    _nogradient(() -> @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d))
+    _product_dist_trafo_impl(trg_d.v, StandardUvUniform(), src_v, prev_ladj)
+end
+
+function apply_dist_trafo(trg_d::Distributions.Product, src_d::StandardMvNormal, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
+    _nogradient(() -> @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d))
+    _product_dist_trafo_impl(trg_d.v, StandardUvNormal(), src_v, prev_ladj)
 end
 
 
