@@ -63,25 +63,22 @@ function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::Tu
     return ( ########### Here is more to do i think
         result = res,
     )
-
 end
 
+# This version does the prior transformation in BAT instead of NestedSamplers. Thus, it fits better in the package.
 function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::TuringNestedSamplersTR)
     
     density_notrafo = convert(AbstractDensity, target)
-    shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)
+    shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)                 # BAT prior transformation
     vs = varshape(shaped_density)
     density = unshaped(shaped_density)
 
-    # The likelihoodfunction has to be a fuction of only x for NestedSamplers 
+    # This function is used for likelihood calculations by NestedSamplers. It has to be a fuction of only x. It includes the Prior.
     function nestedSamplers_Likelihood(x)
-        #ks = keys(BAT.varshape(density_notrafo))
-        ks = keys(BAT.varshape(density.likelihood.orig))
-        nx = (;zip(ks, x)...)
-        return BAT.eval_logval_unchecked(density.likelihood.orig,nx)
+        return BAT.eval_logval_unchecked(density,x)
     end
 
-    prior_trafo(x) = x                                                                            # identity, because we Use the BAT.PriorTrafo instead
+    prior_trafo(x) = x                                                                      # identity, because the we use the BAT version of prior transformation instead
     model = NestedModel(nestedSamplers_Likelihood, prior_trafo);
 
     bounding = TNS_Bounding(algorithm.bound)
@@ -96,20 +93,19 @@ function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::Tu
         maxcall = algorithm.max_ncalls, maxlogl = algorithm.maxlogl, chain_type=Chains
     )
 
-    weights = chain.value.data[:, end]                                                            # the last elements of the vectors are the weights
+    weights = chain.value.data[:, end]                                                      # the last elements of the vectors are the weights
     nsamples = size(chain.value.data,1)
-    samples = [chain.value.data[i, 1:end-1] for i in 1:nsamples]                                  # the other ones between 1 and end-1 are the samples
-    logvals = map(logdensityof(density), samples)                                                 # posterior values of the samples
+    samples = [chain.value.data[i, 1:end-1] for i in 1:nsamples]                            # the other ones (between 1 and end-1) are the samples
+    logvals = map(logdensityof(density), samples)                                           # posterior values of the samples
     samples_trafo = vs.(BAT.DensitySampleVector(samples, logvals, weight = weights))
-    samples_notrafo = inv(trafo).(samples_trafo)
+    samples_notrafo = inv(trafo).(samples_trafo)                                            # Here the samples are retransformed
 
     z = samples_notrafo.v.__internal_data.data
-    samples_notrafo = [Vector([z[1,i],z[2,i],z[3,i]]) for i in 1:nsamples]                        # Shaping the from of the samples to the same like samples_trafo
+    samples_notrafo = [Vector([z[1,i],z[2,i],z[3,i]]) for i in 1:nsamples]                  # samples_trafo should have the right shape
 
     shape = BAT.varshape(BAT.getprior(density_notrafo))
     res = shape.(BAT.DensitySampleVector(samples_notrafo, logvals, weight = weights))
-    return ( ########### Here is more to do i think
+    return (                                                                                # possibly there are more informations which could been returned
         result = res, result_trafo = samples_trafo, trafo = trafo,
     )
-
 end
