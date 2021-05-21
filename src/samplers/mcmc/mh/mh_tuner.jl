@@ -71,6 +71,7 @@ _approx_cov(target::AbstractPosteriorDensity) = _approx_cov(getprior(target))
 _approx_cov(target::BAT.TransformedDensity{<:Any,<:BAT.DistributionTransform}) =
     BAT._approx_cov(target.trafo.target_dist)
 _approx_cov(target::TruncatedDensity{<:DistributionDensity}) = cov(target)
+_approx_cov(target::DensityWithDiff) = _approx_cov(parent(target))
 
 
 function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator)

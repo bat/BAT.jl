@@ -32,4 +32,5 @@ ReactiveNestedSampling
 SobolSampler
 SuaveIntegration
 VEGASIntegration
+ZygoteAD
 ```
