@@ -159,7 +159,7 @@ using ForwardDiff, Zygote, DistributionsAD
         smpls_tr = trafo.(smpls)
         smpls_tr_cmp = [trafo(s) for s in smpls]
         @test smpls_tr == smpls_tr_cmp
-	    @test @inferred(varshape(trafo)) == @inferred(varshape(dist)) == trafo.source_varshape
+	    @test @inferred(varshape(trafo)) == @inferred(varshape(dist)) == trafo._varshape
     end
 
     @testset "trafo composition" begin
@@ -204,7 +204,7 @@ using ForwardDiff, Zygote, DistributionsAD
         @test dist_density_trafod.result.orig == dist_density
         @test dist_density_trafod.trafo.source_dist == dist_density_trafod.result.trafo.source_dist == mvn
 
-        @test dist_density_trafod.trafo.target_varshape == @inferred(varshape(dist_density))
+        @test dist_density_trafod.trafo._valshape == @inferred(varshape(dist_density))
 
         dist_density_trafod = @inferred(bat_transform(PriorToGaussian(), dist_density, FullDensityTransform()))
 
@@ -212,7 +212,7 @@ using ForwardDiff, Zygote, DistributionsAD
         @test dist_density_trafod.result.orig == dist_density
         @test dist_density_trafod.trafo.source_dist == dist_density_trafod.result.trafo.source_dist == mvn
 
-        @test dist_density_trafod.trafo.target_varshape == @inferred(varshape(dist_density))
+        @test dist_density_trafod.trafo._valshape == @inferred(varshape(dist_density))
     end
 
     @testset "trafo autodiff pullbacks" begin

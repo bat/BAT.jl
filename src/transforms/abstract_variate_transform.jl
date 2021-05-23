@@ -21,9 +21,11 @@ Subtypes (e.g. `SomeTrafo <: AbstractVariateTransform`) must support (with
     inv(inv(trafo)) == trafo
 
     ValueShapes.varshape(trafo)::ValueShapes.AbstractValueShape
+    ValueShapes.valshape(trafo)::ValueShapes.AbstractValueShape
 ```
 
-with `varshape(v_prev) == varshape(trafo)`.
+with `valshape(v_prev) == varshape(trafo)` and
+`valshape(trafo(v_prev)) == valshape(trafo)`
 
 `ladj` must be `logabsdet(jacobian(trafo, v))`.
 """
@@ -83,6 +85,7 @@ end
 (trafo::AbstractVariateTransform)(s::DensitySample) = _transform_density_sample(trafo, s)
 
 
+
 # Custom broadcast(::AbstractVariateTransform, DensitySampleVector), multithreaded:
 function Base.copy(
     instance::Base.Broadcast.Broadcasted{
@@ -94,11 +97,12 @@ function Base.copy(
 )
     trafo = instance.f
     v_src = instance.args[1]
-    vs_trg = valshape(trafo(first(v_src)))
+    vs_trg = valshape(trafo)
+    R = eltype(unshaped(trafo(first(v_src)), vs_trg))
     v_src_us = unshaped.(v_src)
 
     n = length(eachindex(v_src_us))
-    v_trg_unshaped = nestedview(similar(flatview(v_src_us), totalndof(vs_trg), n))
+    v_trg_unshaped = nestedview(similar(flatview(v_src_us), R, totalndof(vs_trg), n))
     @assert axes(v_trg_unshaped) == axes(v_src)
     @assert v_trg_unshaped isa ArrayOfSimilarArrays
     @threads for i in eachindex(v_trg_unshaped, v_src)
@@ -118,12 +122,13 @@ function Base.copy(
 )
     trafo = instance.f
     s_src = instance.args[1]
-    vs_trg = valshape(trafo(first(s_src.v)))
+    vs_trg = valshape(trafo)
+    R = eltype(unshaped(trafo(first(s_src.v)), vs_trg))
     s_src_us = unshaped.(s_src)
 
     n = length(eachindex(s_src_us))
     s_trg_unshaped = DensitySampleVector((
-        nestedview(similar(flatview(s_src_us.v), totalndof(vs_trg), n)),
+        nestedview(similar(flatview(s_src_us.v), R, totalndof(vs_trg), n)),
         zero(s_src_us.logd),
         deepcopy(s_src_us.weight),
         deepcopy(s_src_us.info),
@@ -233,6 +238,7 @@ end
 Base.inv(trafo::IdentityVT) = trafo
 
 ValueShapes.varshape(trafo::IdentityVT) = trafo.varshape
+ValueShapes.valshape(trafo::IdentityVT) = trafo.varshape
 
 import Base.∘
 @inline ∘(a::AbstractVariateTransform, b::IdentityVT) = a

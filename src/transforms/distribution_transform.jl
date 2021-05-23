@@ -94,8 +94,8 @@ struct DistributionTransform{
 } <: VariateTransform{VT,VF}
     target_dist::DT
     source_dist::DF
-    target_varshape::VT
-    source_varshape::VF
+    _valshape::VT
+    _varshape::VF
 end
 
 # ToDo: Add specialized dist trafo types able to cache relevant quantities, etc.
@@ -103,9 +103,9 @@ end
 
 function _distrafo_ctor_impl(target_dist::Distribution, source_dist::Distribution)
     @argcheck eff_totalndof(target_dist) == eff_totalndof(source_dist)
-    target_varshape = varshape(target_dist)
-    source_varshape = varshape(source_dist)
-    DistributionTransform(target_dist, source_dist, target_varshape, source_varshape)
+    _valshape = varshape(target_dist)
+    _varshape = varshape(source_dist)
+    DistributionTransform(target_dist, source_dist, _valshape, _varshape)
 end
 
 DistributionTransform(target_dist::Distribution{VF,Continuous}, source_dist::Distribution{VF,Continuous}) where VF =
@@ -160,7 +160,9 @@ end
 
 Base.inv(trafo::DistributionTransform) = DistributionTransform(trafo.source_dist, trafo.target_dist)
 
-ValueShapes.varshape(trafo::DistributionTransform) = trafo.source_varshape
+
+ValueShapes.varshape(trafo::DistributionTransform) = trafo._varshape
+ValueShapes.valshape(trafo::DistributionTransform) = trafo._valshape
 
 
 function apply_vartrafo_impl(trafo::DistributionTransform, v::Any, prev_ladj::OptionalLADJ)
