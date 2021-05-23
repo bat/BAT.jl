@@ -143,6 +143,14 @@ function apply_dist_trafo end
 
 apply_dist_trafo_noladj(trg_d::Distribution, src_d::Distribution, src_v::Any) = apply_dist_trafo(trg_d, src_d, src_v, missing).v
 
+# Use ForwardDiff for univariate distribution transformations:
+@inline function ChainRulesCore.rrule(::typeof(apply_dist_trafo), trg_d::Distribution{Univariate}, src_d::Distribution{Univariate}, src_v::Any, prev_ladj::OptionalLADJ)
+    ChainRulesCore.rrule(fwddiff(apply_dist_trafo), trg_d, src_d, src_v, prev_ladj)
+end
+@inline function ChainRulesCore.rrule(::typeof(apply_dist_trafo_noladj), trg_d::Distribution{Univariate}, src_d::Distribution{Univariate}, src_v::Any)
+    ChainRulesCore.rrule(fwddiff(apply_dist_trafo_noladj), trg_d, src_d, src_v)
+end
+
 
 import Base.∘
 function ∘(a::DistributionTransform, b::DistributionTransform)
