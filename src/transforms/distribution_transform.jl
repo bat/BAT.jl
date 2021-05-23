@@ -6,12 +6,16 @@ const StdMvDist = Union{StandardMvUniform, StandardMvNormal}
 
 
 
-_nogradient(f) = f()
+_adignore(f) = f()
 
-function ChainRulesCore.rrule(::typeof(_nogradient), f)
-    result = _nogradient(f)
+function ChainRulesCore.rrule(::typeof(_adignore), f)
+    result = _adignore(f)
     _nogradient_pullback(ΔΩ) = (ChainRulesCore.NO_FIELDS, ZeroTangent())
     return result, _nogradient_pullback
+end
+
+macro _adignore(expr)
+    :(_adignore(() -> $(esc(expr))))
 end
 
 
@@ -243,7 +247,7 @@ end
 
 
 function apply_dist_trafo(trg_d::Distribution{Univariate}, src_d::StdMvDist, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
-    @argcheck length(src_d) == length(eachindex(src_v)) == 1
+    @_adignore @argcheck length(src_d) == length(eachindex(src_v)) == 1
     apply_dist_trafo(trg_d, view(src_d, 1), first(src_v), prev_ladj)
 end
 
@@ -370,12 +374,12 @@ end
 
 
 @inline function apply_dist_trafo(trg_d::StandardMvUniform, src_d::StandardMvNormal, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
-    _nogradient(() -> @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d))
+    @_adignore @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d)
     _product_dist_trafo_impl(StandardUvUniform(), StandardUvNormal(), src_v, prev_ladj)
 end
 
 @inline function apply_dist_trafo(trg_d::StandardMvNormal, src_d::StandardMvUniform, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
-    _nogradient(() -> @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d))
+    @_adignore @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d)
     _product_dist_trafo_impl(StandardUvNormal(), StandardUvUniform(), src_v, prev_ladj)
 end
 
@@ -423,7 +427,7 @@ function apply_dist_trafo(trg_d::DistributionsAD.TuringDirichlet, src_d::Standar
     # See M. J. Betancourt, "Cruising The Simplex: Hamiltonian Monte Carlo and the Dirichlet Distribution",
     # https://arxiv.org/abs/1010.3436
 
-    _nogradient(() -> @argcheck length(trg_d) == length(src_d) + 1)
+    @_adignore @argcheck length(trg_d) == length(src_d) + 1
     αs = _dropfront(_rev_cumsum(trg_d.alpha))
     βs = _dropback(trg_d.alpha)
     beta_v = fwddiff(_dirichlet_beta_trafo).(αs, βs, src_v)
@@ -455,27 +459,27 @@ function _product_dist_trafo_impl(trg_ds, src_ds, src_v::AbstractVector{<:Real},
 end
 
 function apply_dist_trafo(trg_d::Distributions.Product, src_d::Distributions.Product, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
-    _nogradient(() -> @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d))
+    @_adignore @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d)
     _product_dist_trafo_impl(trg_d.v, src_d.v, src_v, prev_ladj)
 end
 
 function apply_dist_trafo(trg_d::StandardMvUniform, src_d::Distributions.Product, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
-    _nogradient(() -> @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d))
+    @_adignore @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d)
     _product_dist_trafo_impl(StandardUvUniform(), src_d.v, src_v, prev_ladj)
 end
 
 function apply_dist_trafo(trg_d::StandardMvNormal, src_d::Distributions.Product, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
-    _nogradient(() -> @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d))
+    @_adignore @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d)
     _product_dist_trafo_impl(StandardUvNormal(), src_d.v, src_v, prev_ladj)
 end
 
 function apply_dist_trafo(trg_d::Distributions.Product, src_d::StandardMvUniform, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
-    _nogradient(() -> @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d))
+    @_adignore @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d)
     _product_dist_trafo_impl(trg_d.v, StandardUvUniform(), src_v, prev_ladj)
 end
 
 function apply_dist_trafo(trg_d::Distributions.Product, src_d::StandardMvNormal, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
-    _nogradient(() -> @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d))
+    @_adignore @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d)
     _product_dist_trafo_impl(trg_d.v, StandardUvNormal(), src_v, prev_ladj)
 end
 
