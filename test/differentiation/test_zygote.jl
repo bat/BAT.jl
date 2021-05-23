@@ -13,8 +13,8 @@ using ForwardDiff, Zygote, DistributionsAD
     target, trafo = bat_transform(PriorToGaussian(), posterior)
     v = bat_initval(target).result
     f = logdensityof(target)
-    gradlogp_zg = bat_valgrad(f).result
-    gradlogp_fd = bat_valgrad(logdensityof(bat_transform(PriorToGaussian(), ForwardDiffAD() | BAT.example_posterior_with_dirichlet()).result)).result
+    gradlogp_zg = valgradof(f)
+    gradlogp_fd = valgradof(logdensityof(bat_transform(PriorToGaussian(), ForwardDiffAD() | BAT.example_posterior_with_dirichlet()).result))
     @test @inferred(gradlogp_zg(v))[1] ≈ gradlogp_fd(v)[1]
     @test @inferred(gradlogp_zg(v))[2] ≈ gradlogp_fd(v)[2]
 

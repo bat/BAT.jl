@@ -12,7 +12,7 @@ versions, but may still evolve in a API-breaking fashion during that process.
 bat_compare
 bat_marginalmode
 bat_rng
-bat_valgrad
+valgradof
 BAT.DensityEvalException
 BAT.ExternalDensity
 BAT.FunnelDistribution

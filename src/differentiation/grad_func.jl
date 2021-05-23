@@ -70,6 +70,6 @@ function (gf::GradFunc)(::typeof(!), grad_f::Any, v::Any)
 end
 
 
-function bat_valgrad_impl(f::Function, algorithm::DifferentiationAlgorithm)
-    (result = GradFunc(f, algorithm),)
+function valgradof(f::Function, algorithm::DifferentiationAlgorithm = vjp_algorithm(f))
+    GradFunc(f, algorithm)
 end

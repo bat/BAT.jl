@@ -32,7 +32,7 @@ using ForwardDiff
     
     v = rand(posterior.density.prior)
     f = logdensityof(posterior)
-    gradlogp = bat_valgrad(f).result
+    gradlogp = valgradof(f)
     @test @inferred(gradlogp(v))[1] == f(v)
     @test @inferred(gradlogp(v))[2] == gradient_shape(varshape(posterior))(ForwardDiff.gradient(unshaped(f), (unshaped(v, varshape(posterior)))))
 

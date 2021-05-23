@@ -1,8 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-function vjp_algorithm end
-vjp_algorithm(f::Function) = ZygoteAD()
 vjp_algorithm(d::AbstractDensity) = ForwardDiffAD()
 vjp_algorithm(d::AbstractPosteriorDensity) = vjp_algorithm(getlikelihood(d))
 vjp_algorithm(d::DensityWithShape) = vjp_algorithm(parent(d))
@@ -12,8 +10,6 @@ vjp_algorithm(d::TruncatedDensity) = vjp_algorithm(parent(d))
 vjp_algorithm(f::Union{LogDensityOf,NegLogDensityOf}) = vjp_algorithm(f.density)
 
 
-function jvp_algorithm end
-jvp_algorithm(f::Function) = ForwardDiffAD()
 jvp_algorithm(d::AbstractDensity) = ForwardDiffAD()
 jvp_algorithm(d::AbstractPosteriorDensity) = jvp_algorithm(getprior(d))
 jvp_algorithm(d::DensityWithShape) = jvp_algorithm(parent(d))
