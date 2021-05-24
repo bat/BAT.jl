@@ -17,6 +17,7 @@ BAT.DensityEvalException
 BAT.ExternalDensity
 BAT.FunnelDistribution
 BAT.GaussianShell
+BAT.LogFuncDensityWithGrad
 BAT.LogUniform
 BAT.MultimodalCauchy
 CuhreIntegration
