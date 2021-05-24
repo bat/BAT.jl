@@ -30,13 +30,11 @@ function AHMCProposal(
     return AdvancedHMC.HMCDA(integrator, proposal.trajectory_length)
 end
 
-
 function AHMCProposal(
     proposal::NUTS,
     integrator::AdvancedHMC.AbstractIntegrator
 )
-    sampling_type = getfield(AdvancedHMC, proposal.sampling)
-    nuts_type = getfield(AdvancedHMC, proposal.nuts)
-
+    sampling_type = getfield(AdvancedHMC, :MultinomialTS)
+    nuts_type = getfield(AdvancedHMC, :ClassicNoUTurn)
     return AdvancedHMC.NUTS{sampling_type, nuts_type}(integrator)
 end
