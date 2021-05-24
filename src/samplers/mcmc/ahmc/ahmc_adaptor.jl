@@ -23,7 +23,7 @@ function AHMCAdaptor(
     metric::AdvancedHMC.AbstractMetric,
     integrator::AdvancedHMC.AbstractIntegrator
 )
-    return AdvancedHMC.NoAdaptation()
+    return convert(AdvancedHMC.Adaptation.NoAdaptation, AdvancedHMC.NoAdaptation())::AdvancedHMC.Adaptation.NoAdaptation
 end
 
 
