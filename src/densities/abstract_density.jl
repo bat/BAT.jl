@@ -38,8 +38,11 @@ end
 function Base.show(io::IO, d::AbstractDensity)
     print(io, Base.typename(typeof(d)).name, "(objectid = ")
     show(io, objectid(d))
-    print(io, ", varshape = ")
-    show_value_shape(io, varshape(d))
+    vs = varshape(d)
+    if !ismissing(vs)
+        print(io, ", varshape = ")
+        show_value_shape(io, vs)
+    end
     print(io, ")")
 end
 
