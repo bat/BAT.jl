@@ -34,18 +34,19 @@ function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::Tu
     shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)                 # BAT prior transformation
     vs = varshape(shaped_density)
     density = unshaped(shaped_density)
+    dims = totalndof(vs)
 
     # This function is used for likelihood calculations by NestedSamplers. It has to be a fuction of only x. It includes the prior.
-    function nestedSamplers_Likelihood(x)
+    function tns_posterior(x)
         return BAT.eval_logval_unchecked(density,x)
     end
 
-    prior_trafo(x) = x                                                                      # identity, because the we use the BAT version of prior transformation instead
-    model = NestedModel(nestedSamplers_Likelihood, prior_trafo);
+    tns_prior_trafo(x) = x                                                                  # identity, because the we use the BAT version of prior transformation instead
+    model = NestedModel(tns_posterior, tns_prior_trafo);
 
     bounding = TNS_Bounding(algorithm.bound)
     prop = TNS_prop(algorithm.proposal)
-    sampler = Nested(totalndof(vs), algorithm.num_live_points; 
+    sampler = Nested(dims, algorithm.num_live_points; 
                         bounding, prop,
                         algorithm.enlarge, algorithm.min_ncall, algorithm.min_eff
     ) 
@@ -63,9 +64,9 @@ function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::Tu
     samples_notrafo = inv(trafo).(samples_trafo)                                            # Here the samples are retransformed
 
     z = samples_notrafo.v.__internal_data.data
-    samples_notrafo = [Vector([z[1,i],z[2,i],z[3,i]]) for i in 1:nsamples]                  # samples_trafo should have the right shape
+    samples_notrafo = [Vector([z[x,i] for x in 1:dims]) for i in 1:nsamples]                # samples_trafo should have the right shape
 
-    shape = BAT.varshape(BAT.getprior(density_notrafo))
+    shape = BAT.varshape(BAT.getprior(density_notrafo))                                     # in this shape are the names of the parameters
     res = shape.(BAT.DensitySampleVector(samples_notrafo, logvals, weight = weights))
     return (                                                                                # possibly there are more informations which could been returned
         result = res, result_trafo = samples_trafo, trafo = trafo,
