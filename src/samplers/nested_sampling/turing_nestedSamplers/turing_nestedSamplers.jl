@@ -5,18 +5,57 @@ using .MCMCChains: Chains
 include("tns_bounds.jl")
 include("tns_proposals.jl")
 
+"""
+    struct TuringNestedSamplers <: AbstractUltraNestAlgorithm
+
+*Experimental feature, not part of stable public API.*
+
+Uses the julia package
+[NestedSamplers.jl](https://github.com/TuringLang/NestedSamplers.jl) to use nested sampling algorithm.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
+
+
+!!! note
+
+    This functionality is only available when the
+    [NestedSamplers.jl](https://github.com/TuringLang/NestedSamplers.jl) package and the
+    [MCMCChains.jl](https://github.com/TuringLang/MCMCChains.jl) package
+    are loaded (e.g. via
+    `import`).
+"""
+
 @with_kw struct TuringNestedSamplers{TR<:AbstractDensityTransformTarget} <: AbstractSamplingAlgorithm
     trafo::TR = PriorToUniform()
 
-    num_live_points::Int = 1000                         # the number of live-points
-    bound::TNS_Bound = TNS_MultiEllipsoidBound()        # volume around the live-points
-    proposal::TNS_Proposal = TNS_AutoProposal()         # algorithm to choose new live-points
-    enlarge::Float64 = 1.25                             # scale-factor for the volume
-    # update_interval::Float64 =                        # not sure about how this works yet
-    min_ncall::Int64 = 2*num_live_points                # number of iterations before the first bound will be fit
-    min_eff::Float64 = 0.10                             # efficiency before fitting the first bound
+    "Number of live-points."
+    num_live_points::Int = 1000
 
-    # The following four are the possible convergence criteria to end the algorithm
+    "Volume around the live-points."
+    bound::TNS_Bound = TNS_MultiEllipsoidBound()
+
+    "Algorithm used to choose new live-points."
+    proposal::TNS_Proposal = TNS_AutoProposal()
+    
+    "Scale factor for the volume."
+    enlarge::Float64 = 1.25
+    
+    # "Not sure about how this works yet."
+    # update_interval::Float64 =
+    
+    "Number of iterations before the first bound will be fit."
+    min_ncall::Int64 = 2*num_live_points
+    
+    "Efficiency before fitting the first bound."
+    min_eff::Float64 = 0.101
+
+    "The following four are the possible convergence criteria to end the algorithm."
     dlogz::Float64 = 0.1
     max_iters = Inf
     max_ncalls = Inf
