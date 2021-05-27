@@ -28,6 +28,62 @@ abstract type AbstractDensity end
 export AbstractDensity
 
 
+show_value_shape(io::IO, vs::AbstractValueShape) = show(io, vs)
+function show_value_shape(io::IO, vs::NamedTupleShape)
+    print(io, Base.typename(typeof(vs)).name, "(")
+    show(io, propertynames(vs))
+    print(io, "}(…)")
+end
+
+function Base.show(io::IO, d::AbstractDensity)
+    print(io, Base.typename(typeof(d)).name, "(objectid = ")
+    show(io, objectid(d))
+    print(io, ", varshape = ")
+    show_value_shape(io, varshape(d))
+    print(io, ")")
+end
+
+
+"""
+    struct DensityEvalException <: Exception
+
+Constructors:
+
+* ```$(FUNCTIONNAME)(func::Function, density::AbstractDensity, v::Any, ret::Any)```
+
+Fields:
+
+$(TYPEDFIELDS)
+"""
+struct DensityEvalException{F<:Function,D<:AbstractDensity,V,C} <: Exception
+    "Density evaluation function that failed."
+    func::F
+
+    "Density being evaluated."
+    density::D
+
+    "Variate at which the evaluation of `density` (applying `f` to `d` at `v`) failed."
+    v::V
+
+    "Cause of failure, either the invalid return value of `f` on `d` at `v`, or another expection (on rethrow)."
+    ret::C
+end
+
+function Base.showerror(io::IO, err::DensityEvalException)
+    print(io, "Density evaluation with $(err.func) failed at ")
+    show(io, value_for_msg(err.v))
+    if err.ret isa Exception
+        print(io, " due to exception ")
+        showerror(io, err.ret)
+    else
+        print(io, ", must not evaluate to ")
+        show(io, value_for_msg(err.ret))
+    end
+    print(io, ", density is ")
+    show(io, err.density)
+end
+
+
 """
     BAT.eval_logval_unchecked(density::AbstractDensity, v::Any)
 
@@ -98,7 +154,7 @@ ValueShapes.varshape(density::AbstractDensity) = missing
 
 Evaluates density log-value via `eval_logval_unchecked`.
 
-Throws an exception on any of these conditions:
+Throws a `BAT.DensityEvalException` on any of these conditions:
 
 * The variate shape of `density` (if known) does not match the shape of `v`.
 * The return value of `eval_logval_unchecked` is `NaN`.
@@ -119,7 +175,7 @@ function _generic_eval_logval_impl(density::AbstractDensity, v::Any, T::Type)
     logval = try
         eval_logval_unchecked(density, v)
     catch err
-        rethrow(_density_eval_error(density, v, err))
+        rethrow(DensityEvalException(eval_logval, density, v, err))
     end
 
     _check_density_logval(density, v, logval)
@@ -127,28 +183,21 @@ function _generic_eval_logval_impl(density::AbstractDensity, v::Any, T::Type)
     return convert(T, logval)::T
 end
 
-function _density_eval_error(density::AbstractDensity, v::Any, err::Any)
-    ErrorException("Density evaluation failed at v = $(variate_for_msg(v)) due to exception $err, density has type $(typeof(density))")
-end
 
 function _check_density_logval(density::AbstractDensity, v::Any, logval::Real)
-    if isnan(logval)
-        throw(ErrorException("Log-density must not evaluate to NaN, v = $(variate_for_msg(v)) , density has type $(typeof(density))"))
-    end
-
-    if !(logval < float(typeof(logval))(+Inf))
-        throw(ErrorException("Log-density must not evaluate to posivite infinity, v = $(variate_for_msg(v)), density has type $(typeof(density))"))
+    if isnan(logval) || !(logval < float(typeof(logval))(+Inf))
+        throw(DensityEvalException(eval_logval, density, v, logval))
     end
 
     nothing
 end
 
 
-variate_for_msg(v::Real) = v
+value_for_msg(v::Real) = v
 # Strip dual numbers to make errors more readable:
-variate_for_msg(v::ForwardDiff.Dual) = ForwardDiff.value(v)
-variate_for_msg(v::AbstractArray) = variate_for_msg.(v)
-variate_for_msg(v::NamedTuple) = map(variate_for_msg, v)
+value_for_msg(v::ForwardDiff.Dual) = ForwardDiff.value(v)
+value_for_msg(v::AbstractArray) = value_for_msg.(v)
+value_for_msg(v::NamedTuple) = map(value_for_msg, v)
 
 
 """
@@ -267,6 +316,15 @@ end
 
 ValueShapes.varshape(lvd::NegLogDensityOf) = varshape(lvd.density)
 ValueShapes.unshaped(lvd::NegLogDensityOf) = NegLogDensityOf(unshaped(lvd.density))
+
+
+function Base.show(io::IO, f::Union{LogDensityOf,NegLogDensityOf})
+    print(io, Base.typename(typeof(f)).name, "(")
+    show(io, f.density)
+    print(io, ")")
+end
+
+Base.show(io::IO, M::MIME"text/plain", f::Union{LogDensityOf,NegLogDensityOf}) = show(io, f)
 
 
 

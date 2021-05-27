@@ -28,8 +28,8 @@ AHMCSampleIDVector(contents::NTuple{8,Any}) = StructArray{AHMCSampleID}(contents
 
 AHMCSampleIDVector(::UndefInitializer, len::Integer) = AHMCSampleIDVector((
     Vector{Int32}(undef, len), Vector{Int32}(undef, len),
-    Vector{Int64}(undef, len), Vector{Int64}(undef, len),
-    Vector{Float64}(undef, len), Vector{Int64}(undef, len),
+    Vector{Int64}(undef, len), Vector{Int32}(undef, len),
+    Vector{Float64}(undef, len), Vector{Int32}(undef, len),
     Vector{Bool}(undef, len), Vector{Float64}(undef, len),
 ))
 
@@ -49,7 +49,7 @@ function(==)(A::AHMCSampleIDVector, B::AHMCSampleIDVector)
     A.hamiltonian_energy == B.hamiltonian_energy &&
     A.tree_depth == B.tree_depth &&
     A.divergent == B.divergent &&
-    A.step_size == B.stepsize
+    A.step_size == B.step_size
 end
 
 

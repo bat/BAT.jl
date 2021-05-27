@@ -40,6 +40,23 @@ DistributionTransform(target_dist::Distribution{Multivariate,Continuous}, source
     _distrafo_ctor_impl(target_dist, source_dist)
 
 
+show_distribution(io::IO, d::Distribution) = show(io, d)
+function show_distribution(io::IO, d::NamedTupleDist)
+    print(io, Base.typename(typeof(d)).name, "{")
+    show(io, propertynames(d))
+    print(io, "}(…)")
+end
+    
+function Base.show(io::IO, trafo::DistributionTransform)
+    print(io, Base.typename(typeof(trafo)).name, "(")
+    show_distribution(io, trafo.target_dist)
+    print(io, ", ")
+    show_distribution(io, trafo.source_dist)
+    print(io, ")")
+end
+
+Base.show(io::IO, M::MIME"text/plain", trafo::DistributionTransform) = show(io, trafo)
+
 # apply_dist_trafo(trg_d, src_d, src_v, prev_ladj)
 function apply_dist_trafo end
 

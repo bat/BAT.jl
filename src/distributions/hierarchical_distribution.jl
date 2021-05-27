@@ -122,7 +122,7 @@ eff_totalndof(d::HierarchicalDistribution) = d.effndof
 
 
 function Base.show(io::IO, d::HierarchicalDistribution)
-    print(io, "HierarchicalDistribution(")
+    print(io, Base.typename(typeof(d)).name, "(")
     Base.show(io, d.f)
     print(io, ", ")
     Base.show(io, d.pdist)
