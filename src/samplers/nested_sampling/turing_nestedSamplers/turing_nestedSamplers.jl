@@ -59,7 +59,6 @@ function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::Tu
     weights = chain.value.data[:, end]                                                      # the last elements of the vectors are the weights
     nsamples = size(chain.value.data,1)
     samples = [chain.value.data[i, 1:end-1] for i in 1:nsamples]                            # the other ones (between 1 and end-1) are the samples
-
     logvals = map(logdensityof(density), samples)                                           # posterior values of the samples
     samples_trafo = vs.(BAT.DensitySampleVector(samples, logvals, weight = weights))
     samples_notrafo = inv(trafo).(samples_trafo)                                            # Here the samples are retransformed
