@@ -6,7 +6,7 @@ include("tns_bounds.jl")
 include("tns_proposals.jl")
 
 """
-    struct TuringNestedSamplers <: AbstractUltraNestAlgorithm
+    struct TuringNestedSamplers <: AbstractSamplingAlgorithm
 
 *Experimental feature, not part of stable public API.*
 
@@ -55,7 +55,7 @@ $(TYPEDFIELDS)
     "Efficiency before fitting the first bound."
     min_eff::Float64 = 0.101
 
-    "The following four are the possible convergence criteria to end the algorithm."
+    # "The following four are the possible convergence criteria to end the algorithm."
     dlogz::Float64 = 0.1
     max_iters = Inf
     max_ncalls = Inf
