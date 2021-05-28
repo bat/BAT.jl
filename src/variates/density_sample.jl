@@ -61,6 +61,10 @@ function ==(A::DensitySample, B::DensitySample)
 end
 
 
+# Required for TypedTables.showtable:
+Base.getindex(s::DensitySample, k::Symbol) = getproperty(s, k)
+
+
 function Base.similar(s::DensitySample{P,T,W,R,Q}) where {P<:AbstractVector{<:Real},T,W,R,Q}
     v = fill!(similar(s.v), eltype(s.v)(NaN))
     logd = convert(T, NaN)
@@ -185,6 +189,26 @@ function DensitySampleVector(
     else
         return DensitySampleVector((ArrayOfSimilarArrays(v), logval, weight, info, aux))
     end
+end
+
+
+
+function Base.show(io::IO, A::DensitySampleVector)
+    print(io, "DensitySampleVector(length = ")
+    show(io, length(eachindex(A)))
+    print(io, ", varshape = ")
+    show_value_shape(io, varshape(A))
+    print(io, ")")
+end
+
+# Required for TypedTables.showtable:
+TypedTables.columnnames(A::DensitySampleVector) = propertynames(A)
+# Required for TypedTables.showtable:
+Base.getindex(A::DensitySampleVector, k::Symbol) = getproperty(A, k)
+
+function Base.show(io::IO, M::MIME"text/plain", A::DensitySampleVector)
+    print(io, "DensitySampleVector, ")
+    TypedTables.showtable(io, A)
 end
 
 

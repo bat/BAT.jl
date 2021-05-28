@@ -13,6 +13,7 @@ bat_compare
 bat_marginalmode
 bat_rng
 bat_valgrad
+BAT.DensityEvalException
 BAT.ExternalDensity
 BAT.FunnelDistribution
 BAT.GaussianShell
