@@ -21,7 +21,7 @@ using Statistics
     @test isapprox(@inferred(Statistics.cov(funnel)), [1.00256 -0.0124585 -0.00373376; -0.0124585 7.04822 -0.165097;  -0.00373376  -0.165097  7.1126])
 
     #logpdf
-    @test isapprox(@inferred(Distributions._logpdf(funnel, [0., 0., 0.])), -2.75681)
+    @test isapprox(@inferred(Distributions._logpdf(funnel, [0., 0., 0.])), -2.75681, atol = 1e-5)
 
     #How to call ._rand!? Tried Distributions._rand!(BAT.bat_rng(), funnel, []) but didnt work
 end
