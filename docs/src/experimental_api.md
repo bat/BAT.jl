@@ -12,14 +12,16 @@ versions, but may still evolve in a API-breaking fashion during that process.
 bat_compare
 bat_marginalmode
 bat_rng
-valgradof
 BAT.DensityEvalException
+BAT.enable_error_log
+BAT.error_log
 BAT.ExternalDensity
 BAT.FunnelDistribution
 BAT.GaussianShell
 BAT.LogFuncDensityWithGrad
 BAT.LogUniform
 BAT.MultimodalCauchy
+valgradof
 CuhreIntegration
 DifferentiationAlgorithm
 DivonneIntegration
