@@ -69,7 +69,7 @@ end
 
 function AHMCIterator(
     rng::AbstractRNG,
-    algorithm::MCMCAlgorithm,
+    algorithm::HamiltonianMC,
     density::AbstractDensity,
     info::MCMCIteratorInfo,
     x_init::AbstractVector{P},
