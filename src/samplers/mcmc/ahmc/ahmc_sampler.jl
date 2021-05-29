@@ -16,11 +16,16 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct HamiltonianMC <: MCMCAlgorithm
-    metric::HMCMetric = DiagEuclideanMetric()
-    integrator::HMCIntegrator = LeapfrogIntegrator()
-    proposal::HMCProposal = NUTS()
-    adaptor::HMCAdaptor = StanHMCAdaptor()
+@with_kw struct HamiltonianMC{
+    M<:HMCMetric,
+    I<:HMCIntegrator,
+    P<:HMCProposal,
+    A<:HMCAdaptor
+} <: MCMCAlgorithm
+    metric::M = DiagEuclideanMetric()
+    integrator::I = LeapfrogIntegrator()
+    proposal::P = NUTS()
+    adaptor::A = StanHMCAdaptor()
 end
 
 export HamiltonianMC
