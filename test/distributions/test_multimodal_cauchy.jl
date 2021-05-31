@@ -34,10 +34,6 @@ using Statistics, StatsBase, Distributions
     @test params[3] == 4
 
     #logpdf
-    #Error in @inferred
-    #@test @inferred(Distributions._logpdf(mmc, [-1., 0., 1., 2.])) == -11.283438151658
-    @test Distributions._logpdf(mmc, [-1., 0., 1., 2.]) == -11.283438151658
-
-    #Waht are ._rand! and _construct_dist?
+    @test @inferred(Distributions._logpdf(mmc, [-1., 0., 1., 2.])) == -11.283438151658
 
 end
