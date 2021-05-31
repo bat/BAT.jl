@@ -26,6 +26,7 @@ using DoubleFloats
 using ElasticArrays
 using FFTW
 using FillArrays
+using ForwardDiffPullbacks
 using IntervalSets
 using KernelDensity
 using LaTeXStrings
@@ -57,7 +58,12 @@ import Optim
 import Random123
 import Sobol
 import TypedTables
+import Zygote
 import ZygoteRules
+
+# ChainRulesCore type aliases, replace by `using ChainRulesCore: ...` eventually,
+# when not supporting older versioins of ChainRulesCore anymore.
+using ForwardDiffPullbacks: AbstractTangent, NoTangent, Tangent, ZeroTangent
 
 #for AHMI
 using DataStructures

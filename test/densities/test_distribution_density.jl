@@ -23,7 +23,7 @@ using ArraysOfArrays, Distributions, StatsBase, PDMats, IntervalSets, ValueShape
         let
             dist = @inferred NamedTupleDist(a = 5, b = Normal(), c = -4..5, d = MvNormal([1.2 0.5; 0.5 2.1]), e = [Normal(1.1, 0.2)] )
             density = @inferred BAT.DistributionDensity(dist)
-            s = sampler(density)
+            s = BAT.bat_sampler(unshaped(density))
             @test all([rand(s) in BAT.var_bounds(density) for i in 1:10^4])
         end
     end

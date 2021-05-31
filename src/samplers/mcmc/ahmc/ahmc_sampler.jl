@@ -94,8 +94,7 @@ function AHMCIterator(
     metric = AHMCMetric(algorithm.metric, npar)
 
     f = logdensityof(density)
-    diffalg = bat_default(bat_valgrad, Val(:algorithm), f)
-    fg = fg = bat_valgrad(f, diffalg).result
+    fg = fg = valgradof(f)
 
     hamiltonian = AdvancedHMC.Hamiltonian(metric, f, fg)
     hamiltonian, t = AdvancedHMC.sample_init(rng, hamiltonian, params_vec)
