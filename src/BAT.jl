@@ -93,9 +93,7 @@ _plots_module() = _PLOTS_MODULE[]
 function __init__()
     @require Cuba = "8a292aeb-7a57-582c-b821-06e4c11590b1" include("integration/cuba_integration.jl")
     @require HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f" include("io/hdf5_specific.jl")
-    @require NestedSamplers = "41ceaf6f-1696-4a54-9b49-2e7a9ec3782e" begin
-        @require MCMCChains = "c7f686f2-ff18-58e9-bc7b-31028e88f75d" include("samplers/nested_sampling/turing_nestedSamplers/turing_nestedSamplers.jl") # loads if both packages there
-    end
+    @require NestedSamplers = "41ceaf6f-1696-4a54-9b49-2e7a9ec3782e" include("samplers/nested_sampling/turing_nestedSamplers/turing_nestedSamplers.jl")
     @require Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80" _PLOTS_MODULE[] = Plots
     @require UltraNest = "6822f173-b0be-4018-9ee2-28bf56348d09" include("samplers/nested_sampling/ultranest.jl")
 end

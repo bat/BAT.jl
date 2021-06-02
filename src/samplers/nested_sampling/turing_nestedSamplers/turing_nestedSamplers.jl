@@ -1,6 +1,5 @@
-# They are used in this file, because this file ist only load if it is required
-using .NestedSamplers
-using .MCMCChains: Chains
+
+using .NestedSamplers               # used in this file, because this file ist only load if it is required
 
 include("tns_bounds.jl")
 include("tns_proposals.jl")
@@ -53,7 +52,7 @@ $(TYPEDFIELDS)
     min_ncall::Int64 = 2*num_live_points
     
     "Efficiency before fitting the first bound."
-    min_eff::Float64 = 0.101
+    min_eff::Float64 = 0.1
 
     # "The following four are the possible convergence criteria to end the algorithm."
     dlogz::Float64 = 0.1
@@ -64,9 +63,6 @@ end
 export TuringNestedSamplers
 
 
-############################################################################################################
-# Here is the bat_sample implementation for the NestedSamplers package
-############################################################################################################
 function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::TuringNestedSamplers)
     
     density_notrafo = convert(AbstractDensity, target)
@@ -75,14 +71,7 @@ function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::Tu
     density = unshaped(shaped_density)
     dims = totalndof(vs)
 
-    # This function is used for likelihood calculations by NestedSamplers. It has to be a fuction of only x. It includes the prior.
-    function tns_posterior(x)
-        return BAT.eval_logval_unchecked(density,x)
-    end
-
-    tns_prior_trafo(x) = x                                                                  # identity, because the we use the BAT version of prior transformation instead
-    model = NestedModel(tns_posterior, tns_prior_trafo);
-
+    model = NestedModel(logdensityof(density), identity);                                   # identity, because ahead the BAT prior transformation is used instead
     bounding = TNS_Bounding(algorithm.bound)
     prop = TNS_prop(algorithm.proposal)
     sampler = Nested(dims, algorithm.num_live_points; 
@@ -90,19 +79,22 @@ function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::Tu
                         algorithm.enlarge, algorithm.min_ncall, algorithm.min_eff
     ) 
 
-    chain, state = sample(model, sampler; 
+    samples_w, state = sample(model, sampler;                                               # returns samples with weights as one vector and the actual state
         dlogz = algorithm.dlogz, maxiter = algorithm.max_iters,
-        maxcall = algorithm.max_ncalls, maxlogl = algorithm.maxlogl, chain_type=Chains
+        maxcall = algorithm.max_ncalls, maxlogl = algorithm.maxlogl, chain_type=Array
     )
 
-    weights = chain.value.data[:, end]                                                      # the last elements of the vectors are the weights
-    nsamples = size(chain.value.data,1)
-    samples = [chain.value.data[i, 1:end-1] for i in 1:nsamples]                            # the other ones (between 1 and end-1) are the samples
+    weights = samples_w[:, end]                                                             # the last elements of the vectors are the weights
+    nsamples = size(samples_w,1)
+    samples = [samples_w[i, 1:end-1] for i in 1:nsamples]                                   # the other ones (between 1 and end-1) are the samples
     logvals = map(logdensityof(density), samples)                                           # posterior values of the samples
     samples_trafo = vs.(BAT.DensitySampleVector(samples, logvals, weight = weights))
     samples_notrafo = inv(trafo).(samples_trafo)                                            # Here the samples are retransformed
-
-    return (                                                                                # possibly there are more informations which could been returned
-        result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo,
+    
+    logintegral = Measurements.measurement(state.logz, state.logzerr)
+    return (
+        result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, 
+        logintegral = logintegral,
+        info = state
     )
 end
