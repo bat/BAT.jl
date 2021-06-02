@@ -171,7 +171,7 @@ function ChainRulesCore.rrule(::typeof(var_trafo_result), trg_v::Any, src_v::Any
     result = var_trafo_result(trg_v, src_v, trafo_ladj, prev_ladj)
     function var_trafo_result_pullback(thunked_ΔΩ)
         ΔΩ = ChainRulesCore.unthunk(thunked_ΔΩ)
-        (ChainRulesCore.NO_FIELDS, ΔΩ.v, ZeroTangent(),
+        (NoTangent(), ΔΩ.v, ZeroTangent(),
             ismissing(trafo_ladj) ? missing : ΔΩ.ladj, ismissing(prev_ladj) ? missing : ΔΩ.ladj)
     end
     return result, var_trafo_result_pullback
