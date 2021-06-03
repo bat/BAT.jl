@@ -22,11 +22,15 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
         # Note: No @inferred, since MCMCIterator is not type stable (yet) with HamiltonianMC
         @test MCMCIterator(deepcopy(rng), algorithm, density, 1, unshaped(v_init, varshape(density))) isa BAT.AHMCIterator
         chain = MCMCIterator(deepcopy(rng), algorithm, density, 1, unshaped(v_init, varshape(density)))
+        tuner = BAT.StanHMCTuning()(chain)
+        nsteps = 10^4
+        BAT.tuning_init!(tuner, chain, 0)
+        BAT.tuning_reinit!(tuner, chain, div(nsteps, 10))
         samples = DensitySampleVector(chain)
-        BAT.mcmc_iterate!(samples, chain, max_nsteps = 10^5, nonzero_weights = false)
-        @test chain.stepno == 10^5
+        BAT.mcmc_iterate!(samples, chain, tuner, max_nsteps = nsteps, nonzero_weights = false)
+        @test chain.stepno == nsteps
         @test minimum(samples.weight) == 0
-        @test isapprox(length(samples), 10^5, atol = 20)
+        @test isapprox(length(samples), nsteps, atol = 20)
         @test length(samples) == sum(samples.weight)
         @test isapprox(mean(samples), [1, -1, 2], atol = 0.2)
         @test isapprox(cov(samples), cov(unshaped(target)), atol = 0.3)
@@ -35,16 +39,17 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
         BAT.mcmc_iterate!(samples, chain, max_nsteps = 10^3, nonzero_weights = true)
         @test minimum(samples.weight) == 1
     end
- 
+
     @testset "MCMC tuning and burn-in" begin
-        init_alg = MCMCChainPoolInit()
-        tuning_alg = MCMCNoOpTuning()
-        burnin_alg = MCMCMultiCycleBurnin()
+        max_nsteps = 10^5
+        tuning_alg = BAT.StanHMCTuning()
+        trafo = NoDensityTransform()
+        init_alg = bat_default(MCMCSampling, Val(:init), algorithm, trafo, nchains, max_nsteps)
+        burnin_alg = bat_default(MCMCSampling, Val(:burnin), algorithm, trafo, nchains, max_nsteps)
         convergence_test = BrooksGelmanConvergence()
         strict = true
         nonzero_weights = false
         callback = (x...) -> nothing
-        max_nsteps = 10^5
 
         # Note: No @inferred, not type stable (yet) with HamiltonianMC
         init_result = BAT.mcmc_init!(
@@ -60,7 +65,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
 
         (chains, tuners, outputs) = init_result
         @test chains isa AbstractVector{<:BAT.AHMCIterator}
-        @test tuners isa AbstractVector{<:BAT.MCMCNoOpTuner}
+        @test tuners isa AbstractVector{<:BAT.AHMCTuner}
         @test outputs isa AbstractVector{<:DensitySampleVector}
 
         BAT.mcmc_burnin!(
