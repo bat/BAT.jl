@@ -21,11 +21,6 @@ using Statistics, StatsBase, Distributions
     @test @inferred(Base.length(mmc)) == 4
     @test @inferred(Base.eltype(mmc)) == Float64
 
-    #Mean, var and covariance all give NaN for default values, expected behaviour?
-    # mean(mmc)
-    # var(mmc)
-    # cov(mmc)
-
     params = @inferred(StatsBase.params(mmc))
     
     #Parameters
