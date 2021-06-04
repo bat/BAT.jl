@@ -89,7 +89,7 @@ function ChainRulesCore.rrule(::typeof(eval_logval_unchecked), density::LogFuncD
         ΔΩ = ChainRulesCore.unthunk(thunked_ΔΩ)
         @assert ΔΩ isa Real
         tangent = gradient * ΔΩ
-        (ChainRulesCore.NO_FIELDS, ZeroTangent(), tangent)
+        (NoTangent(), ZeroTangent(), tangent)
     end
     return value, lfdwg_pullback
 end

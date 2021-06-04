@@ -61,9 +61,7 @@ import TypedTables
 import Zygote
 import ZygoteRules
 
-# ChainRulesCore type aliases, replace by `using ChainRulesCore: ...` eventually,
-# when not supporting older versioins of ChainRulesCore anymore.
-using ForwardDiffPullbacks: AbstractTangent, NoTangent, Tangent, ZeroTangent
+using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent
 
 #for AHMI
 using DataStructures
