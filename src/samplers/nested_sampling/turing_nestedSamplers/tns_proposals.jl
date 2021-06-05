@@ -41,8 +41,7 @@ function TNS_prop(prop::TNS_Uniformly)
 end
 
 function TNS_prop(prop::TNS_AutoProposal)
-    # :auto declaration: ndims < 10: Proposals.Uniform, 10 ≤ ndims ≤ 20: Proposals.RWalk, ndims > 20: Proposals.Slice
-    return :auto
+    return :auto     # :auto declaration: ndims < 10: Proposals.Uniform, 10 ≤ ndims ≤ 20: Proposals.RWalk, ndims > 20: Proposals.Slice
 end
 
 function TNS_prop(prop::TNS_RandomWalk)

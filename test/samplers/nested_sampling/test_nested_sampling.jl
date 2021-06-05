@@ -7,5 +7,6 @@ Test.@testset "nested_sampling" begin
     # 32-bit systems:
     if Int == Int64
         include("test_ultranest.jl")
+        include("test_turing_nestedSamplers.jl")
     end
 end

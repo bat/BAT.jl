@@ -1,4 +1,3 @@
-
 using .NestedSamplers               # used in this file, because this file ist only load if it is required
 
 include("tns_bounds.jl")
@@ -37,7 +36,7 @@ $(TYPEDFIELDS)
     num_live_points::Int = 1000
 
     "Volume around the live-points."
-    bound::TNS_Bound = TNS_MultiEllipsoidBound()
+    bound::TNS_Bound = TNS_EllipsoidBound()
 
     "Algorithm used to choose new live-points."
     proposal::TNS_Proposal = TNS_AutoProposal()
@@ -55,9 +54,9 @@ $(TYPEDFIELDS)
     min_eff::Float64 = 0.1
 
     # "The following four are the possible convergence criteria to end the algorithm."
-    dlogz::Float64 = 0.1
+    dlogz::Float64 = 0.01
     max_iters = Inf
-    max_ncalls = Inf
+    max_ncalls = 10^7
     maxlogl = Inf
 end
 export TuringNestedSamplers
@@ -83,7 +82,7 @@ function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::Tu
         dlogz = algorithm.dlogz, maxiter = algorithm.max_iters,
         maxcall = algorithm.max_ncalls, maxlogl = algorithm.maxlogl, chain_type=Array
     )
-
+    
     weights = samples_w[:, end]                                                             # the last elements of the vectors are the weights
     nsamples = size(samples_w,1)
     samples = [samples_w[i, 1:end-1] for i in 1:nsamples]                                   # the other ones (between 1 and end-1) are the samples
