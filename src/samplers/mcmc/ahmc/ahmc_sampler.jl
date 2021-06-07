@@ -99,7 +99,7 @@ function AHMCIterator(
     metric = AHMCMetric(algorithm.metric, npar)
 
     f = logdensityof(density)
-    fg = fg = valgradof(f)
+    fg = valgradof(f)
 
     hamiltonian = AdvancedHMC.Hamiltonian(metric, f, fg)
     hamiltonian, t = AdvancedHMC.sample_init(rng, hamiltonian, params_vec)
