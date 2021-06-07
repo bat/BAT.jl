@@ -74,15 +74,17 @@ _approx_cov(target::TruncatedDensity{<:DistributionDensity}) = cov(target)
 _approx_cov(target::DensityWithDiff) = _approx_cov(parent(target))
 
 
-function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator)
+function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator, max_nsteps::Int)
     Σ_unscaled = _approx_cov(getdensity(chain))
     Σ = Σ_unscaled * tuner.scale
 
-    next_cycle!(chain) # ToDo: This would be better placed in the burn-in algorithm
     chain.proposaldist = set_cov(chain.proposaldist, Σ)
 
     nothing
 end
+
+
+tuning_reinit!(tuner::ProposalCovTuner, chain::MCMCIterator, max_nsteps::Int) = nothing
 
 
 function tuning_postinit!(tuner::ProposalCovTuner, chain::MHIterator, samples::DensitySampleVector)
@@ -144,3 +146,6 @@ function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator, samples::Den
 
     nothing
 end
+
+
+tuning_callback(::ProposalCovTuner) = nop_func

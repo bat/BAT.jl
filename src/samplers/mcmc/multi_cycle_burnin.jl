@@ -36,6 +36,8 @@ function mcmc_burnin!(
 
     nchains = length(chains)
 
+    tuning_reinit!.(tuners, chains, burnin_alg.nsteps_per_cycle * burnin_alg.max_ncycles)
+
     cycles = zero(Int)
     successful = false
     while !successful && cycles < burnin_alg.max_ncycles
@@ -43,9 +45,10 @@ function mcmc_burnin!(
 
         new_outputs = DensitySampleVector.(chains)
 
+        next_cycle!.(chains)
+
         mcmc_iterate!(
-            new_outputs,
-            chains,
+            new_outputs, chains, tuners,
             max_nsteps = burnin_alg.nsteps_per_cycle,
             nonzero_weights = nonzero_weights,
             callback = callback
@@ -63,8 +66,6 @@ function mcmc_burnin!(
         callback(Val(:mcmc_burnin), tuners, chains)
 
         @info "MCMC Tuning cycle $cycles finished, $nchains chains, $ntuned tuned, $nconverged converged."
-
-        next_cycle!.(chains)
     end
 
     if successful

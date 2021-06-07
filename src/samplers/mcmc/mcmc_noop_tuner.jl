@@ -1,8 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-# ToDo: Add literature references to AdaptiveMHTuning docstring.
-
 """
     MCMCNoOpTuning <: MCMCTuningAlgorithm
 
@@ -25,17 +23,16 @@ function MCMCNoOpTuning(tuning::MCMCNoOpTuning, chain::MCMCIterator)
 end
 
 
-function tuning_init!(tuner::MCMCNoOpTuner, chain::MCMCIterator)
-    chain.info = MCMCIteratorInfo(chain.info, cycle = chain.info.cycle + 1)
-    nothing
-end
-
-
-function tuning_postinit!(tuner::MCMCNoOpTuner, chain::MCMCIterator, samples::DensitySampleVector)
-end
-
-
-function tuning_update!(tuner::MCMCNoOpTuner, chain::MCMCIterator, samples::DensitySampleVector)
+function tuning_init!(tuner::MCMCNoOpTuning, chain::MCMCIterator, max_nsteps::Int)
     chain.info = MCMCIteratorInfo(chain.info, tuned = true)
     nothing
 end
+
+
+tuning_postinit!(tuner::MCMCNoOpTuner, chain::MCMCIterator, samples::DensitySampleVector) = nothing
+
+tuning_reinit!(tuner::MCMCNoOpTuner, chain::MCMCIterator, max_nsteps::Int) = nothing
+
+tuning_update!(tuner::MCMCNoOpTuner, chain::MCMCIterator, samples::DensitySampleVector) = nothing
+
+tuning_callback(::MCMCNoOpTuning) = nop_func

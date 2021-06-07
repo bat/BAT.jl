@@ -75,6 +75,8 @@ function bat_sample_impl(
         algorithm.store_burnin ? algorithm.callback : nop_func
     )
 
+    next_cycle!.(chains)
+
     mcmc_iterate!(
         chain_outputs,
         chains;
