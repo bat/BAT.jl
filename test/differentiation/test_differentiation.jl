@@ -3,5 +3,6 @@
 using Test
 
 Test.@testset "integration" begin
-    include("test_forwarddiff_utils.jl")
+    include("test_forwarddiff.jl")
+    include("test_zygote.jl")
 end

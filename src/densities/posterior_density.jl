@@ -203,3 +203,11 @@ function example_posterior()
     likelihood = varshape(prior)(MvNormal(float(I(n))))
     PosteriorDensity(likelihood, prior)
 end
+
+
+function example_posterior_with_dirichlet()
+    prior = merge(BAT.example_posterior().prior.dist, (g = Dirichlet([1.2, 2.4, 3.6]),))
+    n = totalndof(varshape(prior))
+    likelihood = varshape(prior)(MvNormal(float(I(n))))
+    PosteriorDensity(likelihood, prior)
+end
