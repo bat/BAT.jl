@@ -1,17 +1,17 @@
 abstract type HMCIntegrator end
 
-@with_kw mutable struct LeapfrogIntegrator <: HMCIntegrator
-    step_size::Float64 = 0.0
+@with_kw mutable struct LeapfrogIntegrator{T<:Float64} <: HMCIntegrator
+    step_size::T = 0.0
 end
 
-@with_kw mutable struct JitteredLeapfrogIntegrator <: HMCIntegrator
-    step_size::Float64 = 0.0
-    jitter_rate::Float64 = 1.0
+@with_kw mutable struct JitteredLeapfrogIntegrator{T<:Float64} <: HMCIntegrator
+    step_size::T = 0.0
+    jitter_rate::T = 1.0
 end
 
-@with_kw mutable struct TemperedLeapfrogIntegrator <: HMCIntegrator
-    step_size::Float64 = 0.0
-    tempering_rate::Float64 = 1.05
+@with_kw mutable struct TemperedLeapfrogIntegrator{T<:Float64} <: HMCIntegrator
+    step_size::T = 0.0
+    tempering_rate::T = 1.05
 end
 
 

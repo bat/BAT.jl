@@ -4,17 +4,17 @@ struct NoAdaptor <: HMCAdaptor end
 
 struct MassMatrixAdaptor <: HMCAdaptor end
 
-@with_kw struct StepSizeAdaptor <: HMCAdaptor
-    target_acceptance::Float64 = 0.8
+@with_kw struct StepSizeAdaptor{T<:Float64} <: HMCAdaptor
+    target_acceptance::T = 0.8
 end
 
-@with_kw struct NaiveHMCAdaptor <: HMCAdaptor
-    target_acceptance::Float64 = 0.8
+@with_kw struct NaiveHMCAdaptor{T<:Float64} <: HMCAdaptor
+    target_acceptance::T = 0.8
 end
 
-@with_kw struct StanHMCAdaptor <: HMCAdaptor
-    target_acceptance::Float64 = 0.8
-    n_adapts::Int64 = 500
+@with_kw struct StanHMCAdaptor{T<:Float64, U<:Int64} <: HMCAdaptor
+    target_acceptance::T = 0.8
+    n_adapts::U = 500
 end
 
 

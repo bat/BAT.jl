@@ -1,16 +1,16 @@
 abstract type HMCProposal end
 
-@with_kw struct FixedStepNumber <: HMCProposal
-    nsteps::Int64 = 10
+@with_kw struct FixedStepNumber{T<:Int64} <: HMCProposal
+    nsteps::T = 10
 end
 
-@with_kw struct FixedTrajectoryLength <: HMCProposal
-    trajectory_length::Float64 = 2.0
+@with_kw struct FixedTrajectoryLength{T<:Float64} <: HMCProposal
+    trajectory_length::T = 2.0
 end
 
-@with_kw struct NUTS <: HMCProposal
-    sampling::Symbol = :MultinomialTS
-    nuts::Symbol = :ClassicNoUTurn
+@with_kw struct NUTS{T<:Symbol} <: HMCProposal
+    sampling::T = :MultinomialTS
+    nuts::T = :ClassicNoUTurn
 end
 
 
