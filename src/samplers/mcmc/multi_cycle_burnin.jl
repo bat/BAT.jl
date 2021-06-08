@@ -37,8 +37,6 @@ function mcmc_burnin!(
 
     @info "Begin tuning of $nchains MCMC chain(s)."
 
-    tuning_reinit!.(tuners, chains, burnin_alg.nsteps_per_cycle * burnin_alg.max_ncycles)
-
     cycles = zero(Int)
     successful = false
     while !successful && cycles < burnin_alg.max_ncycles
@@ -47,6 +45,8 @@ function mcmc_burnin!(
         new_outputs = DensitySampleVector.(chains)
 
         next_cycle!.(chains)
+
+        tuning_reinit!.(tuners, chains, burnin_alg.nsteps_per_cycle)
 
         mcmc_iterate!(
             new_outputs, chains, tuners,
