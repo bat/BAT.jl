@@ -48,7 +48,7 @@ function mcmc_init!(
     algorithm::MCMCAlgorithm,
     density::AbstractDensity,
     nchains::Integer,
-    init_alg::MCMCInitAlgorithm,
+    init_alg::MCMCChainPoolInit,
     tuning_alg::MCMCTuningAlgorithm,
     nonzero_weights::Bool,
     callback::Function
