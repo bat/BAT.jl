@@ -181,6 +181,8 @@ function tuning_reinit! end
 
 function tuning_update! end
 
+function tuning_finalize! end
+
 function tuning_callback end
 
 

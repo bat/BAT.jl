@@ -147,5 +147,6 @@ function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator, samples::Den
     nothing
 end
 
+tuning_finalize!(tuner::ProposalCovTuner, chain::MCMCIterator) = nothing
 
 tuning_callback(::ProposalCovTuner) = nop_func

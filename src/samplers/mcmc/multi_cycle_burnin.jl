@@ -69,6 +69,8 @@ function mcmc_burnin!(
         @info "MCMC Tuning cycle $cycles finished, $nchains chains, $ntuned tuned, $nconverged converged."
     end
 
+    tuning_finalize!.(tuners, chains)
+    
     if successful
         @info "MCMC tuning of $nchains chains successful after $cycles cycle(s)."
     else

@@ -83,28 +83,24 @@ end
 mutable struct AHMCTuner{A<:AdvancedHMC.AbstractAdaptor} <: AbstractMCMCTunerInstance
     target_acceptance::Float64
     adaptor::A
-    stepno::Int
-    n_adapts::Int
 end
 
 function (tuning::HMCTuningAlgorithm)(chain::MCMCIterator)
     adaptor = ahmc_adaptor(tuning, chain.hamiltonian.metric, chain.proposal.integrator)
-    AHMCTuner(tuning.target_acceptance, adaptor, 0, 0)
+    AHMCTuner(tuning.target_acceptance, adaptor)
 end
 
 
 function tuning_init!(tuner::AHMCTuner, chain::MCMCIterator, max_nsteps::Int)
-    tuner.stepno = 0
-    tuner.n_adapts = 0
+    AdvancedHMC.Adaptation.initialize!(tuner.adaptor, max_nsteps - 1)
     nothing
 end
-
 
 tuning_postinit!(tuner::AHMCTuner, chain::MCMCIterator, samples::DensitySampleVector) = nothing
 
 function tuning_reinit!(tuner::AHMCTuner, chain::MCMCIterator, max_nsteps::Int)
-    tuner.stepno = 0
-    tuner.n_adapts = max_nsteps - 1
+    AdvancedHMC.Adaptation.initialize!(tuner.adaptor, max_nsteps - 1)
+    nothing
 end
 
 function tuning_update!(tuner::AHMCTuner, chain::MCMCIterator, samples::DensitySampleVector)
@@ -117,11 +113,18 @@ function tuning_update!(tuner::AHMCTuner, chain::MCMCIterator, samples::DensityS
         chain.info = MCMCIteratorInfo(chain.info, tuned = false)
         @debug "MCMC chain $(chain.info.id) *not* tuned, acceptance ratio = $(Float32(accept_ratio)), integrator = $(chain.proposal.integrator), max. log posterior = $(Float32(max_log_posterior))"
     end
+    nothing
 end
 
+function tuning_finalize!(tuner::AHMCTuner, chain::MCMCIterator)
+    adaptor = tuner.adaptor
+    AdvancedHMC.finalize!(adaptor)
+    chain.hamiltonian = AdvancedHMC.reconstruct(chain.hamiltonian, adaptor)
+    chain.proposal = AdvancedHMC.reconstruct(chain.proposal, adaptor)
+    nothing
+end
 
 tuning_callback(tuner::AHMCTuner) = AHMCTunerCallback(tuner)
-
 
 
 
@@ -131,31 +134,13 @@ end
 
 
 function (callback::AHMCTunerCallback)(::Val{:mcmc_step}, chain::AHMCIterator)
-    tuner = callback.tuner
-    adaptor = tuner.adaptor
-    n_adapts = tuner.n_adapts
+    adaptor = callback.tuner.adaptor
+    tstat = AdvancedHMC.stat(chain.transition)
 
-    if n_adapts > 0
-        tuner.stepno += 1
+    AdvancedHMC.adapt!(adaptor, chain.transition.z.θ, tstat.acceptance_rate)
+    chain.hamiltonian = AdvancedHMC.reconstruct(chain.hamiltonian, adaptor)
+    chain.proposal = AdvancedHMC.reconstruct(chain.proposal, adaptor)
+    tstat = merge(tstat, (is_adapt =true,))
 
-        i = tuner.stepno
-        # First value of i must be 1 for AdvancedHMC.adapt! to initialize
-        # chain.adaptor, so i must never be less than 1:
-        @assert i >= 1
-
-        tstat = AdvancedHMC.stat(chain.transition)
-
-        # First value of i must be 1 for AdvancedHMC.adapt! to initialize chain.adaptor!
-        chain.hamiltonian, chain.proposal, isadapted = AdvancedHMC.adapt!(
-            chain.hamiltonian,
-            chain.proposal,
-            adaptor,
-            Int(i),
-            Int(n_adapts),
-            chain.transition.z.θ,
-            tstat.acceptance_rate
-        )
-
-        tstat = merge(tstat, (is_adapt=isadapted,))
-    end
+    nothing
 end
