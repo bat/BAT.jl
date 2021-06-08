@@ -91,7 +91,7 @@ function mcmc_init!(
 
         mcmc_iterate!(
             new_outputs, new_chains, new_tuners;
-            max_nsteps = max(50, div(init_alg.nsteps_init, 5)),
+            max_nsteps = clamp(div(init_alg.nsteps_init, 5), 10, 50),
             callback = callback,
             nonzero_weights = nonzero_weights
         )
