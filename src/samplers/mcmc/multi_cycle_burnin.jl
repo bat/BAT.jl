@@ -17,6 +17,7 @@ $(TYPEDFIELDS)
 @with_kw struct MCMCMultiCycleBurnin <: MCMCBurninAlgorithm
     nsteps_per_cycle::Int64 = 10000
     max_ncycles::Int = 30
+    nsteps_final::Int64 = div(nsteps_per_cycle, 10)
 end
 
 export MCMCMultiCycleBurnin
@@ -32,9 +33,9 @@ function mcmc_burnin!(
     nonzero_weights::Bool,
     callback::Function
 )
-    @info "Begin tuning of $(length(tuners)) MCMC chain(s)."
-
     nchains = length(chains)
+
+    @info "Begin tuning of $nchains MCMC chain(s)."
 
     tuning_reinit!.(tuners, chains, burnin_alg.nsteps_per_cycle * burnin_alg.max_ncycles)
 
@@ -77,6 +78,19 @@ function mcmc_burnin!(
         else
             @warn msg
         end
+    end
+
+    if burnin_alg.nsteps_final > 0
+        @info "Running post-tuning stabilization steps for $nchains MCMC chain(s)."
+
+        next_cycle!.(chains)
+
+        mcmc_iterate!(
+            outputs, chains,
+            max_nsteps = burnin_alg.nsteps_final,
+            nonzero_weights = nonzero_weights,
+            callback = callback
+        )
     end
 
     successful
