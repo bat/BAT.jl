@@ -17,13 +17,16 @@ end
 
 
 function AHMCIntegrator(integrator::LeapfrogIntegrator)
-    return AdvancedHMC.Leapfrog(integrator.step_size)
+    @unpack step_size = integrator
+    return AdvancedHMC.Leapfrog(step_size)
 end
 
 function AHMCIntegrator(integrator::JitteredLeapfrogIntegrator)
-    return AdvancedHMC.JitteredLeapfrog(integrator.step_size, integrator.jitter_rate)
+    @unpack step_size, jitter_rate = integrator
+    return AdvancedHMC.JitteredLeapfrog(step_size, jitter_rate)
 end
 
 function AHMCIntegrator(integrator::TemperedLeapfrogIntegrator)
-    return AdvancedHMC.TemperedLeapfrog(integrator.step_size, integrator.tempering_rate)
+    @unpack step_size, tempering_rate = integrator
+    return AdvancedHMC.TemperedLeapfrog(step_size, tempering_rate)
 end

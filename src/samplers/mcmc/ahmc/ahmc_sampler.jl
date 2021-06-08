@@ -96,7 +96,8 @@ function AHMCIterator(
 
     rngpart_cycle = RNGPartition(rng, 0:(typemax(Int16) - 2))
 
-    metric = AHMCMetric(algorithm.metric, npar)
+    @unpack metric, proposal, adaptor = algorithm
+    metric = AHMCMetric(metric, npar)
 
     f = logdensityof(density)
     fg = valgradof(f)
@@ -105,10 +106,11 @@ function AHMCIterator(
     hamiltonian, t = AdvancedHMC.sample_init(rng, hamiltonian, params_vec)
 
     algorithm.integrator.step_size == 0.0 ? algorithm.integrator.step_size = AdvancedHMC.find_good_stepsize(hamiltonian, params_vec) : nothing
-    ahmc_integrator = AHMCIntegrator(algorithm.integrator)
+    @unpack integrator = algorithm
+    ahmc_integrator = AHMCIntegrator(integrator)
 
-    ahmc_proposal = AHMCProposal(algorithm.proposal, ahmc_integrator)
-    ahmc_adaptor = AHMCAdaptor(algorithm.adaptor, metric, ahmc_integrator)
+    ahmc_proposal = AHMCProposal(proposal, ahmc_integrator)
+    ahmc_adaptor = AHMCAdaptor(adaptor, metric, ahmc_integrator)
 
 
     chain = AHMCIterator(
