@@ -1,15 +1,17 @@
-# Here are the definitions of the NestedSamplers bounds, which discribe the volume represent by the live-points
 export TNS_NoBounds
 export TNS_EllipsoidBound
 export TNS_MultiEllipsoidBound
 
+"The subtypes of TNS_Bound discribe the volume represent by the live-points."
 abstract type TNS_Bound end
 
-
+"No bounds is equivalent to the volume from the unit Cube."
 struct TNS_NoBounds <: TNS_Bound end
 
+"Bounds are n-dimensional ellipsoids."
 struct TNS_EllipsoidBound <: TNS_Bound end
 
+"For the bounds multiple ellipsoids are used in an optimal clustering."
 struct TNS_MultiEllipsoidBound <: TNS_Bound end
 
 
