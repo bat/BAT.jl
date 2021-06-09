@@ -74,7 +74,7 @@ _approx_cov(target::TruncatedDensity{<:DistributionDensity}) = cov(target)
 _approx_cov(target::DensityWithDiff) = _approx_cov(parent(target))
 
 
-function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator, max_nsteps::Int)
+function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator, max_nsteps::Integer)
     Σ_unscaled = _approx_cov(getdensity(chain))
     Σ = Σ_unscaled * tuner.scale
 
@@ -84,7 +84,7 @@ function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator, max_nsteps::In
 end
 
 
-tuning_reinit!(tuner::ProposalCovTuner, chain::MCMCIterator, max_nsteps::Int) = nothing
+tuning_reinit!(tuner::ProposalCovTuner, chain::MCMCIterator, max_nsteps::Integer) = nothing
 
 
 function tuning_postinit!(tuner::ProposalCovTuner, chain::MHIterator, samples::DensitySampleVector)

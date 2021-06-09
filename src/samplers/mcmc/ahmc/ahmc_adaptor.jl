@@ -91,15 +91,15 @@ function (tuning::HMCTuningAlgorithm)(chain::MCMCIterator)
 end
 
 
-function tuning_init!(tuner::AHMCTuner, chain::MCMCIterator, max_nsteps::Int)
-    AdvancedHMC.Adaptation.initialize!(tuner.adaptor, max_nsteps - 1)
+function tuning_init!(tuner::AHMCTuner, chain::MCMCIterator, max_nsteps::Integer)
+    AdvancedHMC.Adaptation.initialize!(tuner.adaptor, Int(max_nsteps - 1))
     nothing
 end
 
 tuning_postinit!(tuner::AHMCTuner, chain::MCMCIterator, samples::DensitySampleVector) = nothing
 
-function tuning_reinit!(tuner::AHMCTuner, chain::MCMCIterator, max_nsteps::Int)
-    AdvancedHMC.Adaptation.initialize!(tuner.adaptor, max_nsteps - 1)
+function tuning_reinit!(tuner::AHMCTuner, chain::MCMCIterator, max_nsteps::Integer)
+    AdvancedHMC.Adaptation.initialize!(tuner.adaptor, Int(max_nsteps - 1))
     nothing
 end
 
