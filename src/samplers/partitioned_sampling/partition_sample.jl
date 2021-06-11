@@ -25,14 +25,14 @@ $(TYPEDFIELDS)
 } <: AbstractSamplingAlgorithm
     trafo::TR = PriorToUniform()
     npartitions::Integer = 10
-    sampler::S = MCMCSampling()
-    exploration_sampler::E = MCMCSampling(nchains=30, nsteps = 1000, trafo = NoDensityTransform())
+    sampler::S = MCMCSampling(strict=false)
+    exploration_sampler::E = MCMCSampling(nchains=30, nsteps = 1000, trafo = NoDensityTransform(), strict=false)
     partitioner::P = KDTreePartitioning()
     integrator::I = AHMIntegration()
+    nmax_resampling::AbstractFloat = 5
 end
 
 export PartitionedSampling
-
 
 function bat_sample_impl(rng::AbstractRNG, target::PosteriorDensity, algorithm::PartitionedSampling)
     posterior = target
@@ -52,7 +52,67 @@ function bat_sample_impl(rng::AbstractRNG, target::PosteriorDensity, algorithm::
         algorithm.sampler,
         algorithm.integrator
         ] for subspace_ind in Base.OneTo(algorithm.npartitions)]
-    samples_subspaces = pmap(inp -> sample_subspace(inp...), iterator_subspaces)
+    samples_subspaces_run = pmap(inp -> sample_subspace(inp...), iterator_subspaces)
+
+    unconv_mask = [check_conv(samples_subspace.chains) for samples_subspace in samples_subspaces_run] # false if unconverged
+    unconv_ind = findall(x->x==false, unconv_mask)
+    rep_sspace = !isempty(unconv_ind)
+
+    if algorithm.nmax_resampling > 0
+        samples_subspaces = samples_subspaces_run[unconv_mask]
+    else
+        samples_subspaces = samples_subspaces_run
+    end
+
+    rec_level = 1
+    resampled_trees = []
+
+    while rep_sspace && rec_level <= algorithm.nmax_resampling
+
+        @info "Re-Sampling Subspaces: #$rec_level"
+
+        posteriors_array_run = []
+
+        for (ind, rep_ind) in enumerate(unconv_ind)
+
+            exploration_samples_rep = bat_sample(
+                samples_subspaces_run[rep_ind].samples,
+                OrderedResampling(nsamples=algorithm.exploration_sampler.nsteps)
+            ).result
+
+            partition_tree_rep, _ = partition_space(exploration_samples_rep, 2, algorithm.partitioner)
+            push!(resampled_trees, partition_tree_rep)
+            posteriors_rep_array = convert_to_posterior_resampled(posterior, partition_tree_rep, posteriors_array[rep_ind], extend_bounds = algorithm.partitioner.extend_bounds)
+
+            append!(posteriors_array_run, posteriors_rep_array)
+
+        end
+
+        iterator_subspaces = [
+            [subspace_ind, posteriors_array_run[subspace_ind],
+            algorithm.sampler.nsteps,
+            algorithm.sampler,
+            algorithm.integrator
+            ] for subspace_ind in Base.OneTo(length(posteriors_array_run))]
+        samples_subspaces_run = pmap(inp -> sample_subspace(inp...), iterator_subspaces)
+
+
+        unconv_mask = [check_conv(samples_subspace.chains) for samples_subspace in samples_subspaces_run] # false if unconverged
+        unconv_ind = findall(x->x==false, unconv_mask)
+        rep_sspace = !isempty(unconv_ind)
+
+        rec_level += 1
+        if rep_sspace && (rec_level > algorithm.nmax_resampling)
+            @warn "Convergence is not reached. Try to increase the number of resampling steps. "
+            append!(samples_subspaces, samples_subspaces_run)
+        else
+            append!(samples_subspaces, samples_subspaces_run[unconv_mask])
+        end
+
+        posteriors_array = posteriors_array_run
+
+    end
+
 
     @info "Combining Samples"
     # Save indices from different subspaces:
@@ -69,7 +129,8 @@ function bat_sample_impl(rng::AbstractRNG, target::PosteriorDensity, algorithm::
                 info = samples_subspaces[1].info,
                 exp_samples = exploration_samples,
                 part_tree = partition_tree,
-                cost_values = cost_values
+                cost_values = cost_values,
+                resampled_trees = resampled_trees
             )
 end
 
@@ -84,7 +145,9 @@ function sample_subspace(
     @info "Sampling subspace #$space_id"
     sampling_wc_start = Dates.Time(Dates.now())
     sampling_cpu_time = CPUTime.@CPUelapsed begin
-        samples_subspace = bat_sample(posterior, sampling_algorithm).result
+        sampling_output = bat_sample(posterior, sampling_algorithm)
+        samples_subspace = sampling_output.result
+        chains = sampling_output.generator.chains
     end
     sampling_wc_stop = Dates.Time(Dates.now())
 
@@ -116,8 +179,41 @@ function sample_subspace(
             sum_weights = [sum(samples_subspace.weight)],
         )
 
-    return (samples = samples_subspace_reweighted, info = info_subspace)
+    return (samples = samples_subspace_reweighted, info = info_subspace, chains=chains)
 end
+
+function convert_to_posterior_resampled(
+    posterior::PosteriorDensity,
+    partition_tree::SpacePartTree,
+    posterior_subspace::PosteriorDensity;
+    extend_bounds::Bool=true
+)
+
+    if extend_bounds
+        # Exploration samples might not always cover properly tails of the distribution.
+        # We will extend boudnaries of the partition tree with original bounds which are:
+        lo_bounds = getprior(posterior_subspace).bounds.vol.lo
+        hi_bounds = getprior(posterior_subspace).bounds.vol.hi
+        extend_tree_bounds!(partition_tree, lo_bounds, hi_bounds)
+    end
+
+    #Get flattened rectangular parameter bounds from tree
+    subspaces_rect_bounds = get_tree_par_bounds(partition_tree)
+
+    n_params = size(subspaces_rect_bounds[1])[1]
+
+    posterior_array = map(
+        x -> begin
+            bounds = HyperRectBounds(x[:,1], x[:,2])
+            prior_dist = BAT.truncate_density(getprior(posterior), bounds)
+            PosteriorDensity(getlikelihood(posterior), prior_dist)
+        end,
+    subspaces_rect_bounds)
+
+    return posterior_array
+end
+
+
 
 function convert_to_posterior(posterior::PosteriorDensity, partition_tree::SpacePartTree; extend_bounds::Bool=true)
 
@@ -143,4 +239,8 @@ function convert_to_posterior(posterior::PosteriorDensity, partition_tree::Space
     subspaces_rect_bounds)
 
     return posterior_array
+end
+
+function check_conv(chains)
+    return prod([i.info.converged for i in chains])
 end
