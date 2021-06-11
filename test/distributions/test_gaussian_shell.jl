@@ -21,7 +21,4 @@ using Distributions
 
     @test isapprox(@inferred(Distributions._logpdf(gs, [0., 0., 0.])), -453.34571, atol = 1e-5)
 
-    #gauss_shell_radial_samples, what to test here?
-    #Test random number generator
-
 end
