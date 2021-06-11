@@ -1,6 +1,8 @@
 using BAT
 using Test
 using Statistics
+using StatsBase
+using Distributions
 
 @testset "Funnel Distribution" begin
     #Tests different forms of instantiate Funnel Distribution
@@ -23,5 +25,4 @@ using Statistics
     #logpdf
     @test isapprox(@inferred(Distributions._logpdf(funnel, [0., 0., 0.])), -2.75681, atol = 1e-5)
 
-    #How to call ._rand!? Tried Distributions._rand!(BAT.bat_rng(), funnel, []) but didnt work
 end
