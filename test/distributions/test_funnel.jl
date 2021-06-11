@@ -3,6 +3,7 @@ using Test
 using Statistics
 using StatsBase
 using Distributions
+using HypothesisTests
 
 @testset "Funnel Distribution" begin
     #Tests different forms of instantiate Funnel Distribution
@@ -24,5 +25,16 @@ using Distributions
 
     #logpdf
     @test isapprox(@inferred(Distributions._logpdf(funnel, [0., 0., 0.])), -2.75681, atol = 1e-5)
+
+    #KS Test
+    #Test the constant-variance Gaussian
+    funnel = BAT.FunnelDistribution(a = 1., b = 0., n = 1)
+    ks_test = HypothesisTests.ExactOneSampleKSTest(rand(funnel, 10^7)[:], Normal(0., 1.))
+    @test pvalue(ks_test) > 0.05
+    
+    #Test the variable-variance Gaussian
+    funnel = BAT.FunnelDistribution(a = 0., b = 0., n = 2)
+    ks_test = HypothesisTests.ExactOneSampleKSTest(rand(funnel, 10^7)[2,:], Normal(0., 1.))
+    @test pvalue(ks_test) > 0.05
 
 end
