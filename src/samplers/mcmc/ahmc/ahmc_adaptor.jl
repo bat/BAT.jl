@@ -106,7 +106,7 @@ end
 function tuning_update!(tuner::AHMCTuner, chain::MCMCIterator, samples::DensitySampleVector)
     max_log_posterior = maximum(samples.logd)
     accept_ratio = eff_acceptance_ratio(chain)
-    if accept_ratio >= tuner.target_acceptance
+    if accept_ratio >= 0.9 * tuner.target_acceptance
         chain.info = MCMCIteratorInfo(chain.info, tuned = true)
         @debug "MCMC chain $(chain.info.id) tuned, acceptance ratio = $(Float32(accept_ratio)), integrator = $(chain.proposal.integrator), max. log posterior = $(Float32(max_log_posterior))"
     else
