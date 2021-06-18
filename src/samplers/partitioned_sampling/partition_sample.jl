@@ -42,7 +42,7 @@ function bat_sample_impl(rng::AbstractRNG, target::PosteriorDensity, algorithm::
 
     @info "Constructing Partition Tree"
     partition_tree, cost_values = partition_space(exploration_samples, algorithm.npartitions, algorithm.partitioner)
-    # Convert 'partition_tree' structure into a set of truncated posteriors:
+    # Convert 'partition_tree' structure into a set of truncated targets:
     posteriors_array = convert_to_posterior(posterior, partition_tree, extend_bounds = algorithm.partitioner.extend_bounds)
 
     @info "Sampling Subspaces"
@@ -54,9 +54,9 @@ function bat_sample_impl(rng::AbstractRNG, target::PosteriorDensity, algorithm::
         ] for subspace_ind in Base.OneTo(algorithm.npartitions)]
     samples_subspaces_run = pmap(inp -> sample_subspace(inp...), iterator_subspaces)
 
-    unconv_mask = [check_conv(samples_subspace.chains) for samples_subspace in samples_subspaces_run] # false if unconverged
+    unconv_mask = [_check_conv(samples_subspace.chains) for samples_subspace in samples_subspaces_run] # returns "false" if subspace was not converged during tuning cycle
     unconv_ind = findall(x->x==false, unconv_mask)
-    rep_sspace = !isempty(unconv_ind)
+    rep_sspace = !isempty(unconv_ind) # perform resampling if "true"
 
     if algorithm.nmax_resampling > 0
         samples_subspaces = samples_subspaces_run[unconv_mask]
@@ -97,13 +97,13 @@ function bat_sample_impl(rng::AbstractRNG, target::PosteriorDensity, algorithm::
         samples_subspaces_run = pmap(inp -> sample_subspace(inp...), iterator_subspaces)
 
 
-        unconv_mask = [check_conv(samples_subspace.chains) for samples_subspace in samples_subspaces_run] # false if unconverged
+        unconv_mask = [_check_conv(samples_subspace.chains) for samples_subspace in samples_subspaces_run] # false if unconverged
         unconv_ind = findall(x->x==false, unconv_mask)
         rep_sspace = !isempty(unconv_ind)
 
         rec_level += 1
         if rep_sspace && (rec_level > algorithm.nmax_resampling)
-            @warn "Convergence is not reached. Try to increase the number of resampling steps. "
+            @warn "Convergence is not reached. Try to increase the number of resampling cycles."
             append!(samples_subspaces, samples_subspaces_run)
         else
             append!(samples_subspaces, samples_subspaces_run[unconv_mask])
@@ -120,7 +120,6 @@ function bat_sample_impl(rng::AbstractRNG, target::PosteriorDensity, algorithm::
     for subspace in samples_subspaces[2:end]
         start_ind, stop_ind = length(samples_subspaces[1].samples)+1, length(samples_subspaces[1].samples)+length(subspace.samples)
         subspace.info.samples_ind[1] = start_ind:stop_ind
-
         append!(samples_subspaces[1].samples, subspace.samples)
         append!(samples_subspaces[1].info, subspace.info)
     end
@@ -189,6 +188,9 @@ function convert_to_posterior_resampled(
     extend_bounds::Bool=true
 )
 
+    # Note: this function is very inefficient
+    # To improve it, truncation of truncated densities should be defined, or use space transformaton
+
     if extend_bounds
         # Exploration samples might not always cover properly tails of the distribution.
         # We will extend boudnaries of the partition tree with original bounds which are:
@@ -241,6 +243,6 @@ function convert_to_posterior(posterior::PosteriorDensity, partition_tree::Space
     return posterior_array
 end
 
-function check_conv(chains)
+function _check_conv(chains::AbstractVector{I}) where {I<:BAT.MHIterator}
     return prod([i.info.converged for i in chains])
 end
