@@ -21,7 +21,8 @@ using HypothesisTests
 
     #Check mean and covariance
     @test @inferred(Statistics.mean(funnel)) == [0.0, 0.0, 0.0] #Check mean
-    @test isapprox(@inferred(Statistics.cov(funnel)), [1.00256 -0.0124585 -0.00373376; -0.0124585 7.04822 -0.165097;  -0.00373376  -0.165097  7.1126])
+    @test isapprox(@inferred(Statistics.cov(funnel)), [1.00256 -0.0124585 -0.00373376; 
+    -0.0124585 7.04822 -0.165097;  -0.00373376  -0.165097  7.1126], rtol = 1e-1, atol = 0)
 
     #logpdf
     @test isapprox(@inferred(Distributions._logpdf(funnel, [0., 0., 0.])), -2.75681, atol = 1e-5)
