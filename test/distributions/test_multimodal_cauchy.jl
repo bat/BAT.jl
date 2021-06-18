@@ -31,4 +31,10 @@ using Statistics, StatsBase, Distributions
     #logpdf
     @test @inferred(Distributions._logpdf(mmc, [-1., 0., 1., 2.])) == -11.283438151658
 
+    #If μ = 0 the Distribution should be Cauchy-like in every dimension
+    mmc = BAT.MultimodalCauchy(μ = 0., σ = 0.1, n=2)
+    ks_test = HypothesisTests.ExactOneSampleKSTest(rand(mmc, 10^7)[1,:], Cauchy(0., 0.1))#First dimension
+    @test pvalue(ks_test) > 0.05
+    ks_test = HypothesisTests.ExactOneSampleKSTest(rand(mmc, 10^7)[2,:], Cauchy(0., 0.1))#Second dimension
+    @test pvalue(ks_test) > 0.05
 end
