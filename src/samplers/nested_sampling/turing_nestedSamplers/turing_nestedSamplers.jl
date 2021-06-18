@@ -23,9 +23,8 @@ $(TYPEDFIELDS)
 !!! note
 
     This functionality is only available when the
-    [NestedSamplers.jl](https://github.com/TuringLang/NestedSamplers.jl) package and the
-    [MCMCChains.jl](https://github.com/TuringLang/MCMCChains.jl) package
-    are loaded (e.g. via
+    [NestedSamplers.jl](https://github.com/TuringLang/NestedSamplers.jl) package 
+    is loaded (e.g. via
     `import`).
 """
 
@@ -82,7 +81,7 @@ function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::Tu
         dlogz = algorithm.dlogz, maxiter = algorithm.max_iters,
         maxcall = algorithm.max_ncalls, maxlogl = algorithm.maxlogl, chain_type=Array
     )
-    
+
     weights = samples_w[:, end]                                                             # the last elements of the vectors are the weights
     nsamples = size(samples_w,1)
     samples = [samples_w[i, 1:end-1] for i in 1:nsamples]                                   # the other ones (between 1 and end-1) are the samples
@@ -93,7 +92,7 @@ function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::Tu
     logintegral = Measurements.measurement(state.logz, state.logzerr)
     return (
         result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, 
-        logintegral = logintegral,
+        logintegral = logintegral, ess=length(weights) / (1.0 + sum((length(weights) .* weights .- 1).^2) / length(weights)), # copied from ultranest, not sure if it works here in the same way
         info = state
     )
 end
