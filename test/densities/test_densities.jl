@@ -10,7 +10,8 @@ Test.@testset "densities" begin
     include("test_density_product.jl")
     include("test_distribution_density.jl")
     include("test_parameter_mapped_density.jl")
-    include("test_external_density.jl")
-    include("test_truncated_density.jl")
+    include("test_renormalize_density.jl")
+    include("test_truncate_density.jl")
     include("test_transformed_density.jl")
+    include("test_external_density.jl")
 end

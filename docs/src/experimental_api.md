@@ -21,7 +21,6 @@ BAT.GaussianShell
 BAT.LogFuncDensityWithGrad
 BAT.LogUniform
 BAT.MultimodalCauchy
-valgradof
 CuhreIntegration
 DifferentiationAlgorithm
 DivonneIntegration
@@ -32,8 +31,11 @@ logdensityof
 PartitionedSampling
 PriorImportanceSampler
 ReactiveNestedSampling
+renormalize_density
 SobolSampler
 SuaveIntegration
+truncate_density
+valgradof
 VEGASIntegration
 ZygoteAD
 ```
