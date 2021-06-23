@@ -30,12 +30,12 @@ using HypothesisTests
     #KS Test
     #Test the constant-variance Gaussian
     funnel = BAT.FunnelDistribution(a = 1., b = 0., n = 1)
-    ks_test = HypothesisTests.ExactOneSampleKSTest(rand(funnel, 10^7)[:], Normal(0., 1.))
+    ks_test = HypothesisTests.ExactOneSampleKSTest(rand(funnel, 10^6)[:], Normal(0., 1.))
     @test pvalue(ks_test) > 0.05
     
     #Test the variable-variance Gaussian
     funnel = BAT.FunnelDistribution(a = 0., b = 0., n = 2)
-    ks_test = HypothesisTests.ExactOneSampleKSTest(rand(funnel, 10^7)[2,:], Normal(0., 1.))
+    ks_test = HypothesisTests.ExactOneSampleKSTest(rand(funnel, 10^6)[2,:], Normal(0., 1.))
     @test pvalue(ks_test) > 0.05
 
 end
