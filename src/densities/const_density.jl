@@ -19,6 +19,8 @@ Base.@deprecate ConstDensity(::typeof(one), bounds::VarVolumeBounds) ConstDensit
 Base.convert(::Type{ConstDensity}, value::LogDVal) = ConstDensity(value)
 Base.convert(::Type{AbstractDensity}, value::LogDVal) = convert(ConstDensity, value)
 
+Base.:(==)(a::ConstDensity, b::ConstDensity) = a.value == b.value && a.bounds == b.bounds
+
 
 @inline eval_logval_unchecked(density::ConstDensity, v::Any) = logvalof(density.value)
 

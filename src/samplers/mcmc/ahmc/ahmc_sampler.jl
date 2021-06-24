@@ -1,3 +1,7 @@
+abstract type HMCTuningAlgorithm <: MCMCTuningAlgorithm end
+
+
+
 """
     struct HamiltonianMC <: MCMCAlgorithm
 
@@ -16,11 +20,16 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct HamiltonianMC <: MCMCAlgorithm
-    metric::HMCMetric = DiagEuclideanMetric()
-    integrator::HMCIntegrator = LeapfrogIntegrator()
-    proposal::HMCProposal = NUTS()
-    adaptor::HMCAdaptor = StanHMCAdaptor()
+@with_kw struct HamiltonianMC{
+    MT<:HMCMetric,
+    IT<:HMCIntegrator,
+    PR<:HMCProposal,
+    TN<:HMCTuningAlgorithm
+} <: MCMCAlgorithm
+    metric::MT = DiagEuclideanMetric()
+    integrator::IT = LeapfrogIntegrator()
+    proposal::PR = NUTS()
+    tuning::TN = StanHMCTuning()
 end
 
 export HamiltonianMC
@@ -30,8 +39,14 @@ bat_default(::Type{MCMCSampling}, ::Val{:trafo}, mcalg::HamiltonianMC) = PriorTo
 
 bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, mcalg::HamiltonianMC, trafo::AbstractDensityTransformTarget, nchains::Integer) = 10^4
 
+bat_default(::Type{MCMCSampling}, ::Val{:init}, mcalg::HamiltonianMC, trafo::AbstractDensityTransformTarget, nchains::Integer, nsteps::Integer) =
+    MCMCChainPoolInit(nsteps_init = 25) # clamp(div(nsteps, 100), 25, 250)
 
-get_mcmc_tuning(algorithm::HamiltonianMC) = MCMCNoOpTuning()
+bat_default(::Type{MCMCSampling}, ::Val{:burnin}, mcalg::HamiltonianMC, trafo::AbstractDensityTransformTarget, nchains::Integer, nsteps::Integer) =
+    MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 250), max_ncycles = 4)
+
+
+get_mcmc_tuning(algorithm::HamiltonianMC) = algorithm.tuning
 
 
 # MCMCIterator subtype for HamiltonianMC
@@ -41,10 +56,9 @@ mutable struct AHMCIterator{
     R<:AbstractRNG,
     PR<:RNGPartition,
     SV<:DensitySampleVector,
-    I<:AdvancedHMC.AbstractIntegrator,
-    P<:AdvancedHMC.AbstractProposal,
-    A<:AdvancedHMC.AbstractAdaptor,
-    H<:AdvancedHMC.Hamiltonian,
+    HA<:AdvancedHMC.Hamiltonian,
+    TR<:AdvancedHMC.Transition,
+    PL<:AdvancedHMC.AbstractProposal
 } <: MCMCIterator
     algorithm::AL
     density::D
@@ -54,11 +68,9 @@ mutable struct AHMCIterator{
     samples::SV
     nsamples::Int64
     stepno::Int64
-    hamiltonian::H
-    transition::AdvancedHMC.Transition
-    integrator::I
-    proposal::P
-    adaptor::A
+    hamiltonian::HA
+    transition::TR
+    proposal::PL
 end
 
 
@@ -91,20 +103,18 @@ function AHMCIterator(
 
     rngpart_cycle = RNGPartition(rng, 0:(typemax(Int16) - 2))
 
-    metric = AHMCMetric(algorithm.metric, npar)
+    metric = ahmc_metric(algorithm.metric, npar)
 
     f = logdensityof(density)
     fg = fg = valgradof(f)
 
-    hamiltonian = AdvancedHMC.Hamiltonian(metric, f, fg)
-    hamiltonian, t = AdvancedHMC.sample_init(rng, hamiltonian, params_vec)
+    init_hamiltonian = AdvancedHMC.Hamiltonian(metric, f, fg)
+    hamiltonian, init_transition = AdvancedHMC.sample_init(rng, init_hamiltonian, params_vec)
+    integrator = ahmc_integrator(rng, algorithm.integrator, hamiltonian, params_vec)
+    proposal = ahmc_proposal(algorithm.proposal, integrator)
 
-    algorithm.integrator.step_size == 0.0 ? algorithm.integrator.step_size = AdvancedHMC.find_good_stepsize(hamiltonian, params_vec) : nothing
-    ahmc_integrator = AHMCIntegrator(algorithm.integrator)
-
-    ahmc_proposal = AHMCProposal(algorithm.proposal, ahmc_integrator)
-    ahmc_adaptor = AHMCAdaptor(algorithm.adaptor, metric, ahmc_integrator)
-
+    # Perform a dummy step to get type-stable transition value:
+    transition = AdvancedHMC.step(deepcopy(rng), deepcopy(hamiltonian), deepcopy(proposal), init_transition.z)
 
     chain = AHMCIterator(
         algorithm,
@@ -116,10 +126,8 @@ function AHMCIterator(
         nsamples,
         stepno,
         hamiltonian,
-        t,
-        ahmc_integrator,
-        ahmc_proposal,
-        ahmc_adaptor
+        transition,
+        proposal
     )
 
     reset_rng_counters!(chain)
@@ -271,8 +279,8 @@ function mcmc_step!(chain::AHMCIterator)
     # Propose new variate:
     samples.weight[proposed] = 0
 
-    ahmc_step!(rng, algorithm, chain, proposed_params, current_params)
-    tstat = chain.transition.stat
+    chain.transition = AdvancedHMC.step(rng, chain.hamiltonian, chain.proposal, chain.transition.z)
+    proposed_params[:] = chain.transition.z.θ
     
     current_log_posterior = samples.logd[current]
     T = typeof(current_log_posterior)
@@ -289,7 +297,9 @@ function mcmc_step!(chain::AHMCIterator)
         samples.info.sampletype[proposed] = CURRENT_SAMPLE
         chain.nsamples += 1
 
+        tstat = AdvancedHMC.stat(chain.transition)
         samples.info.hamiltonian_energy[proposed] = tstat.hamiltonian_energy
+        # ToDo: Handle proposal-dependent tstat (only NUTS has tree_depth):
         samples.info.tree_depth[proposed] = tstat.tree_depth
         samples.info.divergent[proposed] = tstat.numerical_error
         samples.info.step_size[proposed] = tstat.step_size
@@ -310,37 +320,4 @@ function mcmc_step!(chain::AHMCIterator)
 end
 
 
-function ahmc_step!(rng, algorithm, chain, proposed_params, current_params)
-
-    chain.transition = AdvancedHMC.step(rng, chain.hamiltonian, chain.proposal, chain.transition.z)
-
-    tstat = AdvancedHMC.stat(chain.transition)
-
-    if typeof(algorithm.adaptor) <: StanHMCAdaptor
-        i = chain.adaptor.state.i
-        n_adapts = algorithm.adaptor.n_adapts
-    else
-        i, n_adapts = chain.info.converged ? (3, 2) : (1, 1)
-    end
-    
-    chain.hamiltonian, chain.proposal, isadapted = AdvancedHMC.adapt!(
-        chain.hamiltonian,
-        chain.proposal,
-        chain.adaptor,
-        Int(i),
-        Int(n_adapts),
-        chain.transition.z.θ,
-        tstat.acceptance_rate
-    )
-
-   
-    if i == n_adapts
-        chain.info = MCMCIteratorInfo(chain.info, tuned = isadapted)
-    end
-
-    tstat = merge(tstat, (is_adapt=isadapted,))
-
-    
-    proposed_params[:] = chain.transition.z.θ
-    nothing
-end
+eff_acceptance_ratio(chain::AHMCIterator) = nsamples(chain) / nsteps(chain)

@@ -91,6 +91,9 @@ function HyperRectBounds(bounds::Vector{<:AbstractInterval})
 end
 
 
+Base.:(==)(a::HyperRectBounds, b::HyperRectBounds) = a.vol == b.vol
+
+
 Base.similar(bounds::HyperRectBounds) = HyperRectBounds(
         HyperRectVolume(
             fill!(similar(bounds.vol.lo), zero(eltype(bounds.vol.lo))),

@@ -179,8 +179,10 @@ struct FullDensityTransform <: TransformAlgorithm end
 export FullDensityTransform
 
 
-_get_deep_prior_for_trafo(density::AbstractPosteriorDensity) = _get_deep_prior_for_trafo(getprior(density))
 _get_deep_prior_for_trafo(density::DistributionDensity) = density
+_get_deep_prior_for_trafo(density::AbstractPosteriorDensity) = _get_deep_prior_for_trafo(getprior(density))
+_get_deep_prior_for_trafo(density::RenormalizedDensity) = _get_deep_prior_for_trafo(parent(density))
+
 
 function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::AbstractPosteriorDensity, algorithm::FullDensityTransform)
     orig_prior = _get_deep_prior_for_trafo(density)
@@ -212,6 +214,13 @@ struct PriorSubstitution <: TransformAlgorithm end
 export PriorSubstitution
 
 
+function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::DistributionDensity, algorithm::PriorSubstitution)
+    trafo = _distribution_density_trafo(target, density)
+    transformed_density = DistributionDensity(trafo.target_dist)
+    (result = transformed_density, trafo = trafo)
+end
+
+
 function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::AbstractPosteriorDensity, algorithm::PriorSubstitution)
     orig_prior = getprior(density)
     orig_likelihood = getlikelihood(density)
@@ -221,8 +230,7 @@ function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, densi
 end
 
 
-function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::DistributionDensity, algorithm::PriorSubstitution)
-    trafo = _distribution_density_trafo(target, density)
-    transformed_density = DistributionDensity(trafo.target_dist)
-    (result = transformed_density, trafo = trafo)
+function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::RenormalizedDensity, algorithm::PriorSubstitution)
+    new_parent_density, trafo = bat_transform_impl(target, parent(density), algorithm)
+    (result = RenormalizedDensity(new_parent_density, density.logrenormf), trafo = trafo)
 end

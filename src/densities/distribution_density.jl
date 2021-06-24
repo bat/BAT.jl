@@ -21,6 +21,9 @@ Base.convert(::Type{ContinuousDistribution}, d::DistributionDensity) = d.dist
 Base.parent(density::DistributionDensity) = density.dist
 
 
+Base.:(==)(a::DistributionDensity, b::DistributionDensity) = a.dist == b.dist && a.bounds == b.bounds
+
+
 function eval_logval_unchecked(density::DistributionDensity{<:Distribution{Univariate,Continuous}}, v::Real)
     d = density.dist
     logd = logpdf(d, v)

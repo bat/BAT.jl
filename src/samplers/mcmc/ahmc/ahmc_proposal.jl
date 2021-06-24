@@ -1,21 +1,12 @@
 abstract type HMCProposal end
 
+
+
 @with_kw struct FixedStepNumber <: HMCProposal
     nsteps::Int64 = 10
 end
 
-@with_kw struct FixedTrajectoryLength <: HMCProposal
-    trajectory_length::Float64 = 2.0
-end
-
-@with_kw struct NUTS <: HMCProposal
-    sampling::Symbol = :MultinomialTS
-    nuts::Symbol = :ClassicNoUTurn
-end
-
-
-
-function AHMCProposal(
+function ahmc_proposal(
     proposal::FixedStepNumber,
     integrator::AdvancedHMC.AbstractIntegrator
 )
@@ -23,7 +14,12 @@ function AHMCProposal(
 end
 
 
-function AHMCProposal(
+
+@with_kw struct FixedTrajectoryLength <: HMCProposal
+    trajectory_length::Float64 = 2.0
+end
+
+function ahmc_proposal(
     proposal::FixedTrajectoryLength,
     integrator::AdvancedHMC.AbstractIntegrator
 )
@@ -31,7 +27,13 @@ function AHMCProposal(
 end
 
 
-function AHMCProposal(
+
+@with_kw struct NUTS <: HMCProposal
+    sampling::Symbol = :MultinomialTS
+    nuts::Symbol = :ClassicNoUTurn
+end
+
+function ahmc_proposal(
     proposal::NUTS,
     integrator::AdvancedHMC.AbstractIntegrator
 )
