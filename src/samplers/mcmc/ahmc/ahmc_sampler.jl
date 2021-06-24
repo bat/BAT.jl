@@ -28,7 +28,7 @@ $(TYPEDFIELDS)
 } <: MCMCAlgorithm
     metric::MT = DiagEuclideanMetric()
     integrator::IT = LeapfrogIntegrator()
-    proposal::PR = NUTS()
+    proposal::PR = NUTSProposal()
     tuning::TN = StanHMCTuning()
 end
 
