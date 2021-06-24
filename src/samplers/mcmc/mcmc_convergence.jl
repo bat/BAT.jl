@@ -92,13 +92,13 @@ function bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats}; corrected::Bool = fa
     p = totalndof(first(stats))
     m = length(stats)
     n = mean(Float64.(nsamples.(stats)))
-    
+
     σ_W = var([cs.param_stats.cov[i,i] for cs in stats, i in 1:p], dims = 1)[:]
     B  = var([cs.param_stats.mean[i] for cs in stats, i in 1:p], dims = 1)[:]
     W = mean([cs.param_stats.cov[i,i] for cs in stats, i in 1:p], dims = 1)[:]
 
     σ_sq = m * (n - 1) / (m*n - 1) * W + n * (m - 1) / (m*n - 1) * B
-    
+
     R_unc = σ_sq ./ W
 
     if corrected == false
@@ -107,10 +107,10 @@ function bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats}; corrected::Bool = fa
 
     σ_ij = [cs.param_stats.cov[i,i] for cs in stats, i in 1:p]
     x_ij = [cs.param_stats.mean[i] for cs in stats, i in 1:p]
-    
+
     cov_σx = [cov(σ_ij[:,j], x_ij[:,j]) for j in 1:p]
     cov_σx_sq = [cov(σ_ij[:,j], x_ij[:,j].^2) for j in 1:p]
-    
+
     N = (n-1)/n
     M = (m-1)/m
     V = N*σ_sq + M*B
@@ -162,4 +162,18 @@ function check_convergence(ct::BrooksGelmanConvergence, samples::AbstractVector{
         "Chains $success_str converged, max(R^2) = $(max_Rsqr), threshold = $(ct.threshold)"
     end
     GRConvergenceResult(converged, max_Rsqr)
+end
+
+function check_convergence(ct::BrooksGelmanConvergence, samples::DensitySampleVector)
+
+    # create a vector of chains
+    chains_ind = unique([i.chainid for i in samples.info])
+    vector_chains = DensitySampleVector[]
+    for i in chains_ind
+        mask_chain = [j.chainid == i for j in samples.info]
+        push!(vector_chains, samples[mask_chain])
+    end
+
+    check_convergence(ct, vector_chains)
+
 end

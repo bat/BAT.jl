@@ -91,5 +91,7 @@ function bat_sample_impl(
 
     samples_notrafo = inv(trafo).(samples_trafo)
 
-    (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = MCMCSampleGenerator(chains))
+    isvalid = check_convergence(algorithm.convergence, samples_notrafo).converged
+
+    (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = MCMCSampleGenerator(chains), isvalid = isvalid)
 end

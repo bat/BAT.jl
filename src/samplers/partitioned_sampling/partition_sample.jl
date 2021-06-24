@@ -25,16 +25,17 @@ $(TYPEDFIELDS)
 } <: AbstractSamplingAlgorithm
     trafo::TR = PriorToUniform()
     npartitions::Integer = 10
-    sampler::S = MCMCSampling()
-    exploration_sampler::E = MCMCSampling(nchains=30, nsteps = 1000)
+    sampler::S = MCMCSampling(strict=false)
+    exploration_sampler::E = MCMCSampling(nchains=30, nsteps = 800, strict=false)
     partitioner::P = KDTreePartitioning()
     integrator::I = AHMIntegration()
+    nmax_resampling::AbstractFloat = 5
 end
 
 export PartitionedSampling
 
-
 function bat_sample_impl(rng::AbstractRNG, target::PosteriorDensity, algorithm::PartitionedSampling)
+
     density_notrafo = convert(AbstractDensity, target)
     shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)
     density = unshaped(shaped_density)
@@ -49,12 +50,65 @@ function bat_sample_impl(rng::AbstractRNG, target::PosteriorDensity, algorithm::
 
     @info "Sampling Subspaces"
     iterator_subspaces = [
-        [subspace_ind, posteriors_array[subspace_ind],
-        algorithm.sampler.nsteps,
-        algorithm.sampler,
-        algorithm.integrator
-        ] for subspace_ind in Base.OneTo(algorithm.npartitions)]
-    samples_subspaces = pmap(inp -> sample_subspace(inp...), iterator_subspaces)
+        [subspace_ind, posteriors_array[subspace_ind], algorithm.sampler] for subspace_ind in Base.OneTo(algorithm.npartitions)]
+    samples_subspaces_run = pmap(inp -> sample_subspace(inp...), iterator_subspaces)
+
+    unconv_mask = [samples_subspace.isvalid for samples_subspace in samples_subspaces_run] # returns "false" if subspace was not converged during tuning cycle
+    unconv_ind = findall(x->x==false, unconv_mask)
+    rep_sspace = !isempty(unconv_ind) # perform resampling if "true"
+
+    if algorithm.nmax_resampling > 0
+        samples_subspaces = samples_subspaces_run[unconv_mask]
+    else
+        samples_subspaces = samples_subspaces_run
+    end
+
+    rec_level = 1
+    resampled_trees = []
+
+    while rep_sspace && rec_level <= algorithm.nmax_resampling
+
+        @info "Re-Sampling Subspaces: #$rec_level"
+
+        posteriors_array_run = []
+
+        for (ind, rep_ind) in enumerate(unconv_ind)
+
+            exploration_samples_rep = bat_sample(
+                samples_subspaces_run[rep_ind].samples,
+                OrderedResampling(nsamples=algorithm.exploration_sampler.nsteps)
+            ).result
+
+            partition_tree_rep, _ = partition_space(exploration_samples_rep, 2, algorithm.partitioner)
+            push!(resampled_trees, partition_tree_rep)
+            posteriors_rep_array = convert_to_posterior(posteriors_array[rep_ind], partition_tree_rep, extend_bounds = algorithm.partitioner.extend_bounds)
+
+            append!(posteriors_array_run, posteriors_rep_array)
+
+        end
+
+        iterator_subspaces = [
+            [subspace_ind, posteriors_array_run[subspace_ind], algorithm.sampler] for subspace_ind in Base.OneTo(length(posteriors_array_run))]
+        samples_subspaces_run = pmap(inp -> sample_subspace(inp...), iterator_subspaces)
+
+        unconv_mask = [samples_subspace.isvalid for samples_subspace in samples_subspaces_run]
+        unconv_ind = findall(x->x==false, unconv_mask)
+        rep_sspace = !isempty(unconv_ind)
+
+        rec_level += 1
+        if rep_sspace && (rec_level > algorithm.nmax_resampling)
+            @warn "Convergence is not reached. Try to increase the number of resampling cycles."
+            append!(samples_subspaces, samples_subspaces_run)
+        else
+            append!(samples_subspaces, samples_subspaces_run[unconv_mask])
+        end
+
+        posteriors_array = posteriors_array_run
+
+    end
+
+    @info "Integrating Subspaces"
+    samples_subspaces = pmap(inp -> integrate_subspace(inp, algorithm.integrator), samples_subspaces)
 
     @info "Combining Samples"
     samples = deepcopy(samples_subspaces[1].samples)
@@ -75,25 +129,44 @@ function bat_sample_impl(rng::AbstractRNG, target::PosteriorDensity, algorithm::
         result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo,
         info = info,
         exp_samples = exploration_samples, part_tree = partition_tree,
-        cost_values = cost_values
+        cost_values = cost_values,
+        resampled_trees = resampled_trees
     )
 end
 
 function sample_subspace(
     space_id::Integer,
     posterior::PosteriorDensity,
-    n::Integer,
     sampling_algorithm::A,
-    integration_algorithm::I,
 ) where {N<:NamedTuple, A<:AbstractSamplingAlgorithm, I<:IntegrationAlgorithm}
 
     @info "Sampling subspace #$space_id"
     sampling_wc_start = Dates.Time(Dates.now())
     sampling_cpu_time = CPUTime.@CPUelapsed begin
-        sampling_result = bat_sample(posterior, sampling_algorithm)
-        samples_subspace, samples_subspace_trafo = sampling_result.result, sampling_result.result_trafo
+        sampling_output = bat_sample(posterior, sampling_algorithm)
+        samples_subspace = sampling_output.result
+        isvalid = sampling_output.isvalid
     end
     sampling_wc_stop = Dates.Time(Dates.now())
+
+    info_subspace = TypedTables.Table(
+            sampling_cpu_time = [sampling_cpu_time],
+            sampling_wc = [Dates.value(sampling_wc_start):Dates.value(sampling_wc_stop)],
+            worker_id = [Distributed.myid()],
+            n_threads = [Threads.nthreads()],
+            samples_ind = [0:0],
+            sum_weights = [sum(samples_subspace.weight)],
+        )
+
+    return (samples = samples_subspace, info = info_subspace, isvalid=isvalid)
+end
+
+function integrate_subspace(
+    sampling_reuslt::N,
+    integration_algorithm::I,
+) where {N<:NamedTuple, A<:AbstractSamplingAlgorithm, I<:IntegrationAlgorithm}
+
+    samples_subspace = sampling_reuslt.samples
 
     integration_wc_start = Dates.Time(Dates.now())
     integration_cpu_time = CPUTime.@CPUelapsed begin
@@ -114,18 +187,48 @@ function sample_subspace(
 
     info_subspace = TypedTables.Table(
             density_integral = [integras_subspace],
-            sampling_cpu_time = [sampling_cpu_time],
             integration_cpu_time = [integration_cpu_time],
-            sampling_wc = [Dates.value(sampling_wc_start):Dates.value(sampling_wc_stop)],
             integration_wc = [Dates.value(integration_wc_start):Dates.value(integration_wc_stop)],
-            worker_id = [Distributed.myid()],
-            n_threads = [Threads.nthreads()],
-            samples_ind = [0:0],
-            sum_weights = [sum(samples_subspace.weight)],
         )
 
-    return (samples = samples_subspace_reweighted, info = info_subspace)
+    return (samples = samples_subspace_reweighted, info = TypedTables.Table(info_subspace, sampling_reuslt.info))
 end
+
+function convert_to_posterior_resampled(
+    posterior::PosteriorDensity,
+    partition_tree::SpacePartTree,
+    posterior_subspace::PosteriorDensity;
+    extend_bounds::Bool=true
+)
+
+    # Note: this function is very inefficient
+    # To improve it, truncation of truncated densities should be defined, or use space transformaton
+
+    if extend_bounds
+        # Exploration samples might not always cover properly tails of the distribution.
+        # We will extend boudnaries of the partition tree with original bounds which are:
+        lo_bounds = getprior(posterior_subspace).bounds.vol.lo
+        hi_bounds = getprior(posterior_subspace).bounds.vol.hi
+        extend_tree_bounds!(partition_tree, lo_bounds, hi_bounds)
+    end
+
+    #Get flattened rectangular parameter bounds from tree
+    subspaces_rect_bounds = get_tree_par_bounds(partition_tree)
+
+    n_params = size(subspaces_rect_bounds[1])[1]
+
+    posterior_array = map(
+        x -> begin
+            bounds = HyperRectBounds(x[:,1], x[:,2])
+            prior_dist = BAT.truncate_density(getprior(posterior), bounds)
+            PosteriorDensity(getlikelihood(posterior), prior_dist)
+        end,
+    subspaces_rect_bounds)
+
+    return posterior_array
+end
+
+
 
 function convert_to_posterior(posterior::PosteriorDensity, partition_tree::SpacePartTree; extend_bounds::Bool=true)
 
