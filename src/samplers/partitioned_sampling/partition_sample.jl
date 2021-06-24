@@ -251,7 +251,3 @@ function convert_to_posterior(posterior::PosteriorDensity, partition_tree::Space
 
     return posterior_array
 end
-
-function _check_conv(chains::AbstractVector{I}) where {I<:BAT.MHIterator}
-    return prod([i.info.converged for i in chains])
-end
