@@ -28,7 +28,7 @@ import NestedSamplers
     end
 
     posterior = PosteriorDensity(likelihood, prior)
-    algorithm = TuringNestedSamplers()
+    algorithm = TuringNestedSamplers(dlogz=-Inf, max_ncalls=10^4)
     r = bat_sample(posterior, algorithm);
     smpls = r.result
 
@@ -36,9 +36,9 @@ import NestedSamplers
 
     iid = BAT.NamedTupleDist(a=dist)
     iidsamples, chains = bat_sample(iid, IIDSampling());
-    @test ones(3) ≈ isapprox.(bat_compare(smpls,iidsamples).result.ks_p_values, 1.0, atol = 0.3)
+    @test ones(3) ≈ isapprox.(bat_compare(iidsamples, smpls, nsamples=:nested, nested_eff_ss=r.ess).result.ks_p_values, 1.0, atol = 0.3)
 
-    logz_expected = -log(prod(160))
-    @test isapprox(r.logintegral.val, logz_expected, atol = 1000 * r.logintegral.err)
+    logz_expected = -log(prod(160))*3
+    @test isapprox(r.logintegral.val, logz_expected, atol = 100 * r.logintegral.err)
 
 end

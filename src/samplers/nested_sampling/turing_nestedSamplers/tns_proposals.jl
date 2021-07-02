@@ -1,4 +1,4 @@
-export TNS_Uniformly
+export TNS_Uniformly 
 export TNS_RandomWalk
 export TNS_Slice
 export TNS_AutoProposal
