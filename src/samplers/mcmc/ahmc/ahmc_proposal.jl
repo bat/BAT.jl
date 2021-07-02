@@ -28,17 +28,11 @@ end
 
 
 
-@with_kw struct NUTS <: HMCProposal
-    sampling::Symbol = :MultinomialTS
-    nuts::Symbol = :ClassicNoUTurn
-end
+struct NUTSProposal <: HMCProposal end
 
 function ahmc_proposal(
-    proposal::NUTS,
+    proposal::NUTSProposal,
     integrator::AdvancedHMC.AbstractIntegrator
 )
-    sampling_type = getfield(AdvancedHMC, proposal.sampling)
-    nuts_type = getfield(AdvancedHMC, proposal.nuts)
-
-    return AdvancedHMC.NUTS{sampling_type, nuts_type}(integrator)
+    return AdvancedHMC.NUTS{AdvancedHMC.MultinomialTS, AdvancedHMC.ClassicNoUTurn}(integrator)
 end
