@@ -37,6 +37,7 @@ makedocs(
     pages=[
         "Home" => "index.md",
         "Installation" => "installation.md",
+        "List of algorithms" => "list_of_algorithms.md",
         #"Tutorial" => "tutorial.md",
         "API Documentation" => "stable_api.md",
         "Experimental Features" => "experimental_api.md",

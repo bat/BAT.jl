@@ -102,7 +102,6 @@ export MaxDensityLBFGS
 bat_findmode_impl(target::AnySampleable, algorithm::MaxDensityLBFGS) = _bat_findmode_impl_optim(target, algorithm)
 
 function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::MaxDensityLBFGS)
-    diffalg = bat_default(bat_valgrad, Val(:algorithm), f)
-    fg = bat_valgrad(f, diffalg).result
+    fg = valgradof(f)
     _optim_optimize(Optim.only_fg!(fg), x_init, Optim.LBFGS())
 end

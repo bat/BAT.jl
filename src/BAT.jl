@@ -26,6 +26,7 @@ using DoubleFloats
 using ElasticArrays
 using FFTW
 using FillArrays
+using ForwardDiffPullbacks
 using IntervalSets
 using KernelDensity
 using LaTeXStrings
@@ -57,7 +58,10 @@ import Optim
 import Random123
 import Sobol
 import TypedTables
+import Zygote
 import ZygoteRules
+
+using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent
 
 #for AHMI
 using DataStructures

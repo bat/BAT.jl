@@ -12,25 +12,27 @@ abstract type DifferentiationAlgorithm end
 export DifferentiationAlgorithm
 
 
+function vjp_algorithm end
+vjp_algorithm(f::Function) = ZygoteAD()
+
+
+function jvp_algorithm end
+jvp_algorithm(f::Function) = ForwardDiffAD()
+
+
 
 """
-    bat_valgrad(f::Function, [algorithm::DifferentiationAlgorithm])
+    valgradof(f::Function, algorithm::DifferentiationAlgorithm  = vjp_algorithm(f))
 
 *Experimental feature, not part of stable public API.*
 
-Generated a function that calculates both value and gradient of `f` at given
-points.
+Generates a function that calculates both value and gradient of `f` at given
+points. The differentiation algorithm used depends on `f`.
 
 The function `f` must support `ValueShapes.varshape(f)` and
 `ValueShapes.unshaped(f)`.
 
-Returns a NamedTuple of the shape
-
-```julia
-(result = valgrad_f, ...)
-```
-
-with
+Returns function `valgrad_f` with
 
 ```julia
 f_at_x, grad_of_f_at_x = valgrad_f(x)
@@ -38,38 +40,9 @@ f_at_x, grad_of_f_at_x = valgrad_f(x)
 grad_of_f_at_x = zero(x)
 f_at_x = valgrad_f(!, grad_of_f_at_x, x)
 ```
-
-Result properties not listed here are algorithm-specific and are not part
-of the stable public API.
-
-!!! note
-
-    Do not add add methods to `bat_valgrad`, add methods to
-    `bat_valgrad_impl` instead.
 """
-function bat_valgrad end
-export bat_valgrad
-
-function bat_valgrad_impl end
+function valgradof end
+export valgradof
 
 
-function bat_valgrad(
-    f::Function,
-    algorithm = bat_default_withdebug(bat_valgrad, Val(:algorithm), f)
-)
-    r = bat_valgrad_impl(f, algorithm)
-    result_with_args(r, (algorithm = algorithm,))
-end
-
-
-function argchoice_msg(::typeof(bat_valgrad), ::Val{:algorithm}, x::DifferentiationAlgorithm)
-    "Using automiatic differentiation algorithm $x"
-end
-
-
-
-gradient_shape(vs::AbstractValueShape) = replace_const_shapes(ValueShapes.const_zero_shape, vs)
-
-
-abstract type GradientFunction end
-
+abstract type GradientFunction <: Function end

@@ -40,7 +40,7 @@ Base.eltype(d::FunnelDistribution) = Base.eltype(d.a)
 Statistics.mean(d::FunnelDistribution) = zeros(d.n)
 
 function Statistics.cov(dist::BAT.FunnelDistribution)
-    cov(nestedview(rand(bat_determ_rng(), sampler(dist), 10^5)))
+    cov(nestedview(rand(bat_determ_rng(), bat_sampler(dist), 10^5)))
 end
 
 StatsBase.params(d::FunnelDistribution) = (d.a, d.b, d.n)

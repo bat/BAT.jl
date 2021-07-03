@@ -37,7 +37,7 @@ using ArraysOfArrays, ValueShapes, Distributions
     @testset "sampler" begin
         density = gen_density_n()
 
-        s = @inferred sampler(density)
+        s = @inferred BAT.bat_sampler(density)
         @test typeof(s) <: BAT.SpatialVolume
         @test s.lo ≈ [-1., 0.5]
         @test s.hi ≈ [2., 1.]

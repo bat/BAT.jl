@@ -26,12 +26,8 @@ $(TYPEDFIELDS)
     trafo::TR = bat_default(MCMCSampling, Val(:trafo), mcalg)
     nchains::Int = 4
     nsteps::Int = bat_default(MCMCSampling, Val(:nsteps), mcalg, trafo, nchains)
-    init::IN = MCMCChainPoolInit(
-        nsteps_init = max(div(nsteps, 100), 250)
-    )
-    burnin::BI = MCMCMultiCycleBurnin(
-        nsteps_per_cycle = max(div(nsteps, 10), 2500)
-    )
+    init::IN = bat_default(MCMCSampling, Val(:init), mcalg, trafo, nchains, nsteps)
+    burnin::BI = bat_default(MCMCSampling, Val(:burnin), mcalg, trafo, nchains, nsteps)
     convergence::CT = BrooksGelmanConvergence()
     strict::Bool = true
     store_burnin::Bool = false
@@ -79,6 +75,8 @@ function bat_sample_impl(
         algorithm.store_burnin ? algorithm.callback : nop_func
     )
 
+    next_cycle!.(chains)
+
     mcmc_iterate!(
         chain_outputs,
         chains;
@@ -93,5 +91,7 @@ function bat_sample_impl(
 
     samples_notrafo = inv(trafo).(samples_trafo)
 
-    (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = MCMCSampleGenerator(chains))
+    isvalid = check_convergence(algorithm.convergence, samples_notrafo).converged
+
+    (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = MCMCSampleGenerator(chains), isvalid = isvalid)
 end

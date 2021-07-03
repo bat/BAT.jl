@@ -11,15 +11,13 @@ function _reshape_vs(target::AnyDensityLike, vs::AbstractVector)
 end
 
 
-_rand_v(rng::AbstractRNG, src::Distribution) = rand(rng, src)
-_rand_v(rng::AbstractRNG, src::Distribution{<:ValueShapes.StructVariate}) = rand(rng, src, ())
-
 _reshape_rand_output(x::Any) = x
 _reshape_rand_output(x::AbstractMatrix) = nestedview(x)
-_rand_v(rng::AbstractRNG, src::Distribution, n::Integer) = _reshape_rand_output(rand(rng, src, n))
 
-_rand_v(rng::AbstractRNG, src::DistLikeDensity) = rand(rng, sampler(src))
-_rand_v(rng::AbstractRNG, src::DistLikeDensity, n::Integer) = _reshape_rand_output(rand(rng, sampler(src), n))
+_rand_v(rng::AbstractRNG, src::Distribution) = varshape(src)(rand(rng, bat_sampler(unshaped(src))))
+_rand_v(rng::AbstractRNG, src::DistLikeDensity) = varshape(src)(rand(rng, bat_sampler(unshaped(src))))
+_rand_v(rng::AbstractRNG, src::Distribution, n::Integer) = _reshape_rand_output(rand(rng, bat_sampler(src), n))
+_rand_v(rng::AbstractRNG, src::DistLikeDensity, n::Integer) = _reshape_rand_output(rand(rng, bat_sampler(src), n))
 
 function _rand_v(rng::AbstractRNG, src::AnyIIDSampleable)
     _rand_v(rng, convert(DistLikeDensity, src))
@@ -77,7 +75,7 @@ export InitFromTarget
 function get_initsrc_from_target end
 
 get_initsrc_from_target(target::AnyIIDSampleable) = target
-get_initsrc_from_target(target::TruncatedDensity{<:DistributionDensity}) = sampler(target)
+get_initsrc_from_target(target::RenormalizedDensity{<:DistributionDensity}) = bat_sampler(target)
 
 get_initsrc_from_target(target::AbstractPosteriorDensity) = get_initsrc_from_target(getprior(target))
 
