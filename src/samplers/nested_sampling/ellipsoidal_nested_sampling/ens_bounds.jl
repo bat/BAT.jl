@@ -1,18 +1,35 @@
-export ENS_NoBounds
-export ENS_EllipsoidBound
-export ENS_MultiEllipsoidBound
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-"The subtypes of ENS_Bound discribe the volume represent by the live-points."
+"""
+    abstract type ENS_Bound 
+
+Abstract type for the bounds of the sampling region used by EllipsoidalNestedSampling.
+"""
 abstract type ENS_Bound end
 
-"No bounds is equivalent to the volume from the unit Cube."
+"""
+    struct ENS_NoBounds <: ENS_Bound
+
+No bounds means that the whole volume from the unit Cube is used to find new points.
+"""
 struct ENS_NoBounds <: ENS_Bound end
+export ENS_NoBounds
 
-"Bounds are n-dimensional ellipsoids."
+"""
+    struct ENS_EllipsoidBound <: ENS_Bound
+
+Ellipsoid bound means that a n-dimensional ellipsoid limits the sampling volume.
+"""
 struct ENS_EllipsoidBound <: ENS_Bound end
+export ENS_EllipsoidBound
 
-"For the bounds multiple ellipsoids are used in an optimal clustering."
+"""
+    struct ENS_MultiEllipsoidBound <: ENS_Bound
+
+Multi ellipsoid bound means that there are multiple elliposid in an optimal clustering are used to limit the sampling volume.
+"""
 struct ENS_MultiEllipsoidBound <: ENS_Bound end
+export ENS_MultiEllipsoidBound
 
 
 function ENS_Bounding(bound::ENS_NoBounds)

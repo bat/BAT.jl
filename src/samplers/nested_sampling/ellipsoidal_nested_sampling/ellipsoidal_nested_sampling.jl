@@ -1,3 +1,5 @@
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
 using .NestedSamplers               # used in this file, because this file ist only load if it is required
 
 include("ens_bounds.jl")
