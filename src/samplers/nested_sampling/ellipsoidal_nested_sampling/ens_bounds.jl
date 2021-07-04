@@ -1,49 +1,53 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 """
-    abstract type ENS_Bound 
+    abstract type ENSBound 
+
+*Experimental feature, not part of stable public API.*
 
 Abstract type for the bounds of the sampling region used by EllipsoidalNestedSampling.
 """
-abstract type ENS_Bound end
+abstract type ENSBound end
 
 """
-    struct ENS_NoBounds <: ENS_Bound
+    struct BAT.ENSNoBounds <: ENSBound
+
+*Experimental feature, not part of stable public API.*
 
 No bounds means that the whole volume from the unit Cube is used to find new points.
 """
-struct ENS_NoBounds <: ENS_Bound end
-export ENS_NoBounds
+struct ENSNoBounds <: ENSBound end
 
 """
-    struct ENS_EllipsoidBound <: ENS_Bound
+    struct BAT.ENSEllipsoidBound <: ENSBound
+
+*Experimental feature, not part of stable public API.*
 
 Ellipsoid bound means that a n-dimensional ellipsoid limits the sampling volume.
 """
-struct ENS_EllipsoidBound <: ENS_Bound end
-export ENS_EllipsoidBound
+struct ENSEllipsoidBound <: ENSBound end
 
 """
-    struct ENS_MultiEllipsoidBound <: ENS_Bound
+    struct BAT.ENSMultiEllipsoidBound <: ENSBound
+
+*Experimental feature, not part of stable public API.*
 
 Multi ellipsoid bound means that there are multiple elliposid in an optimal clustering are used to limit the sampling volume.
 """
-struct ENS_MultiEllipsoidBound <: ENS_Bound end
-export ENS_MultiEllipsoidBound
+struct ENSMultiEllipsoidBound <: ENSBound end
 
-
-function ENS_Bounding(bound::ENS_NoBounds)
+function ENSBounding(bound::ENSNoBounds)
     return Bounds.NoBounds
 end
 
-function ENS_Bounding(bound::ENS_EllipsoidBound)
+function ENSBounding(bound::ENSEllipsoidBound)
     return Bounds.Ellipsoid
 end
 
-function ENS_Bounding(bound::ENS_MultiEllipsoidBound)
+function ENSBounding(bound::ENSMultiEllipsoidBound)
     return Bounds.MultiEllipsoid
 end
 
-function ENS_Bounding(bound::ENS_Bound) # If nothing ist choosen
+function ENSBounding(bound::ENSBound) # If nothing ist choosen
     return Bounds.MultiEllipsoid        # the bounds are MultiEllipsoid
 end

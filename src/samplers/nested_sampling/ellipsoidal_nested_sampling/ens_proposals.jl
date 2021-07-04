@@ -1,70 +1,101 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 """
-    abstract type ENS_Proposal
+    abstract type ENSProposal
+
+*Experimental feature, not part of stable public API.*
 
 Abstract type for the algorithms to propose new live points used used by EllipsoidalNestedSampling.
 """
-abstract type ENS_Proposal end
+abstract type ENSProposal end
 
 """
-    struct ENS_Uniformly <: ENS_Proposal
+    struct BAT.ENSUniformly <: ENSProposal
+
+*Experimental feature, not part of stable public API.*
 
 Each point in the bounding volume has an uniform chance to be proposed as a new live point.
 """
-struct ENS_Uniformly <: ENS_Proposal end
-export ENS_Uniformly 
+struct ENSUniformly <: ENSProposal end
 
 """
-    struct ENS_AutoProposal <: ENS_Proposal
+    struct BAT.ENSAutoProposal <: ENSProposal
+
+*Experimental feature, not part of stable public API.*
 
 Choose the proposal depending from the number of dimensions:
      ndims < 10: Proposals.Uniform, 
      10 ≤ ndims ≤ 20: Proposals.RWalk, 
      ndims > 20: Proposals.Slice
 """
-struct ENS_AutoProposal <: ENS_Proposal end
-export ENS_AutoProposal
+struct ENSAutoProposal <: ENSProposal end
 
 """
-    struct ENS_RandomWalk <: ENS_Proposal
+    struct BAT.ENSRandomWalk <: ENSProposal
+
+*Experimental feature, not part of stable public API.*
 
 New live point is proposed by using a random walk away from an existing live point.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)(; fields...)```
+
+Fields:
+$(TYPEDFIELDS)
 """
-@with_kw struct ENS_RandomWalk <: ENS_Proposal
+@with_kw struct ENSRandomWalk <: ENSProposal
+
+    "Acceptance ratio for the random walk."
     ratio::Float64 = 0.5
+
+    "Minimum number of random walk steps."
     walks::Int64 = 25
+
+    "Scale of the proposal distribution."
     scale::Float64 = 1.0 # >= 0
 end
-export ENS_RandomWalk
 
 """
-    struct ENS_Slice <: ENS_Proposal
+    struct BAT.ENSSlice <: ENSProposal
+
+*Experimental feature, not part of stable public API.*
 
 New live point is proposed by a serie of random slices from an existing live-point.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
 """
-@with_kw struct ENS_Slice <: ENS_Proposal
+@with_kw struct ENSSlice <: ENSProposal
+
+    "Minimum number of slices"
     slices::Int64 = 5
+
+    "Scale of the proposal distribution."
     scale::Float64 = 1.0 # >= 0
 end
-export ENS_Slice
 
-function ENS_prop(prop::ENS_Uniformly)
+function ENSprop(prop::ENSUniformly)
     return Proposals.Uniform()
 end
 
-function ENS_prop(prop::ENS_AutoProposal)
+function ENSprop(prop::ENSAutoProposal)
     return :auto     # :auto declaration: ndims < 10: Proposals.Uniform, 10 ≤ ndims ≤ 20: Proposals.RWalk, ndims > 20: Proposals.Slice
 end
 
-function ENS_prop(prop::ENS_RandomWalk)
+function ENSprop(prop::ENSRandomWalk)
     return Proposals.RWalk(;prop.ratio, prop.walks, prop.scale)
 end
 
-function ENS_prop(prop::ENS_Slice)
+function ENSprop(prop::ENSSlice)
     return Proposals.Slice(;prop.slices, prop.scale)
 end
 
-function ENS_prop(prop::ENS_Proposal) # if nothing is choosen
+function ENSprop(prop::ENSProposal) # if nothing is choosen
     return :auto
 end

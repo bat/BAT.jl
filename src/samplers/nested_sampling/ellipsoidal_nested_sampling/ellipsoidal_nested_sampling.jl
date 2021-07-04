@@ -37,10 +37,10 @@ $(TYPEDFIELDS)
     num_live_points::Int = 1000
 
     "Volume around the live-points."
-    bound::ENS_Bound = ENS_EllipsoidBound()
+    bound::ENSBound = ENSEllipsoidBound()
 
     "Algorithm used to choose new live-points."
-    proposal::ENS_Proposal = ENS_AutoProposal()
+    proposal::ENSProposal = ENSAutoProposal()
     
     "Scale factor for the volume."
     enlarge::Float64 = 1.25
@@ -72,8 +72,8 @@ function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::El
     dims = totalndof(vs)
 
     model = NestedModel(logdensityof(density), identity);                                   # identity, because ahead the BAT prior transformation is used instead
-    bounding = ENS_Bounding(algorithm.bound)
-    prop = ENS_prop(algorithm.proposal)
+    bounding = ENSBounding(algorithm.bound)
+    prop = ENSprop(algorithm.proposal)
     sampler = Nested(dims, algorithm.num_live_points; 
                         bounding, prop,
                         algorithm.enlarge, algorithm.min_ncall, algorithm.min_eff
