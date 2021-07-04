@@ -9,7 +9,7 @@ using HypothesisTests
 import NestedSamplers
 
 
-@testset "test_turing_nestedSamplers" begin
+@testset "test_ellipsoidal_nested_sampling" begin
 
     p = Uniform(-80,80)
     prior = BAT.NamedTupleDist(a=[p,p,p])
@@ -28,7 +28,7 @@ import NestedSamplers
     end
 
     posterior = PosteriorDensity(likelihood, prior)
-    algorithm = TuringNestedSamplers()
+    algorithm = EllipsoidalNestedSampling()
     r = bat_sample(posterior, algorithm);
     smpls = r.result
 

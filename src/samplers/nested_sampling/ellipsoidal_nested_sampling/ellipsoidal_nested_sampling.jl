@@ -1,10 +1,10 @@
 using .NestedSamplers               # used in this file, because this file ist only load if it is required
 
-include("tns_bounds.jl")
-include("tns_proposals.jl")
+include("ens_bounds.jl")
+include("ens_proposals.jl")
 
 """
-    struct TuringNestedSamplers <: AbstractSamplingAlgorithm
+    struct EllipsoidalNestedSampling <: AbstractSamplingAlgorithm
 
 *Experimental feature, not part of stable public API.*
 
@@ -28,17 +28,17 @@ $(TYPEDFIELDS)
     `import`).
 """
 
-@with_kw struct TuringNestedSamplers{TR<:AbstractDensityTransformTarget} <: AbstractSamplingAlgorithm
+@with_kw struct EllipsoidalNestedSampling{TR<:AbstractDensityTransformTarget} <: AbstractSamplingAlgorithm
     trafo::TR = PriorToUniform()
 
     "Number of live-points."
     num_live_points::Int = 1000
 
     "Volume around the live-points."
-    bound::TNS_Bound = TNS_EllipsoidBound()
+    bound::ENS_Bound = ENS_EllipsoidBound()
 
     "Algorithm used to choose new live-points."
-    proposal::TNS_Proposal = TNS_AutoProposal()
+    proposal::ENS_Proposal = ENS_AutoProposal()
     
     "Scale factor for the volume."
     enlarge::Float64 = 1.25
@@ -58,10 +58,10 @@ $(TYPEDFIELDS)
     max_ncalls = 10^7
     maxlogl = Inf
 end
-export TuringNestedSamplers
+export EllipsoidalNestedSampling
 
 
-function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::TuringNestedSamplers)
+function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::EllipsoidalNestedSampling)
     
     density_notrafo = convert(AbstractDensity, target)
     shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)                 # BAT prior transformation
@@ -70,8 +70,8 @@ function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::Tu
     dims = totalndof(vs)
 
     model = NestedModel(logdensityof(density), identity);                                   # identity, because ahead the BAT prior transformation is used instead
-    bounding = TNS_Bounding(algorithm.bound)
-    prop = TNS_prop(algorithm.proposal)
+    bounding = ENS_Bounding(algorithm.bound)
+    prop = ENS_prop(algorithm.proposal)
     sampler = Nested(dims, algorithm.num_live_points; 
                         bounding, prop,
                         algorithm.enlarge, algorithm.min_ncall, algorithm.min_eff
