@@ -39,7 +39,7 @@ function bat_sample_impl(rng::AbstractRNG, target::AnyIIDSampleable, algorithm::
     n = algorithm.nsamples
 
     # ToDo: Parallelize, using hierarchical RNG (separate RNG for each sample)
-    v = nestedview(rand(rng, sampler(density), n))
+    v = nestedview(rand(rng, bat_sampler(density), n))
     logd = map(logdensityof(density), v)
 
     weight = fill(_default_int_WT(1), length(eachindex(logd)))

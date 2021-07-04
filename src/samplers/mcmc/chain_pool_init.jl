@@ -48,7 +48,7 @@ function mcmc_init!(
     algorithm::MCMCAlgorithm,
     density::AbstractDensity,
     nchains::Integer,
-    init_alg::MCMCInitAlgorithm,
+    init_alg::MCMCChainPoolInit,
     tuning_alg::MCMCTuningAlgorithm,
     nonzero_weights::Bool,
     callback::Function
@@ -83,14 +83,15 @@ function mcmc_init!(
 
         new_tuners = tuning_alg.(new_chains)
         new_outputs = DensitySampleVector.(new_chains)
-        tuning_init!.(new_tuners, new_chains)
+        next_cycle!.(new_chains)
+        tuning_init!.(new_tuners, new_chains, init_alg.nsteps_init)
         ncandidates += n
 
         @debug "Testing $(length(new_tuners)) MCMC chain(s)."
 
         mcmc_iterate!(
-            new_outputs, new_chains;
-            max_nsteps = max(50, div(init_alg.nsteps_init, 5)),
+            new_outputs, new_chains, new_tuners;
+            max_nsteps = clamp(div(init_alg.nsteps_init, 5), 10, 50),
             callback = callback,
             nonzero_weights = nonzero_weights
         )
@@ -104,7 +105,7 @@ function mcmc_init!(
 
         if !isempty(viable_tuners)
             mcmc_iterate!(
-                viable_outputs, viable_chains;
+                viable_outputs, viable_chains, viable_tuners;
                 max_nsteps = init_alg.nsteps_init,
                 callback = callback,
                 nonzero_weights = nonzero_weights

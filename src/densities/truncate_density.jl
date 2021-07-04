@@ -1,105 +1,46 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
-"""
-    TruncatedDensity
-
-Constructor:
-
-    TruncatedDensity(D<:AbstractDensity, B<:VarVolumeBounds)
-
-*BAT-internal, not part of stable public API.*
-
-A density truncated to given bounds, forced to effectively zero outside of
-those bounds. In contrast to a truncated distribution, the density is
-*not* renormalized.
-"""
-struct TruncatedDensity{D<:AbstractDensity,B<:AbstractVarBounds,T<:Real} <: AbstractDensity
-    density::D
-    bounds::B
-    logscalecorr::T
-end
-
-Base.parent(density::TruncatedDensity) = density.density
-
-var_bounds(density::TruncatedDensity) = density.bounds
-
-ValueShapes.varshape(density::TruncatedDensity) = varshape(parent(density))
-
-ValueShapes.unshaped(density::TruncatedDensity) = TruncatedDensity(unshaped(density.density), density.bounds, density.logscalecorr)
-
-(shape::AbstractValueShape)(density::TruncatedDensity) = TruncatedDensity(shape(density.density), density.bounds, density.logscalecorr)
-
-
-
-function eval_logval(density::TruncatedDensity, v::Any, T::Type{<:Real})
-    v_shaped = fixup_variate(varshape(density), v)
-    R = density_logval_type(v_shaped, T)
-    
-    unshaped_v = unshaped_variate(varshape(density), v_shaped)
-    if !(unshaped_v in density.bounds)
-        return log_zero_density(R)
-    end
-
-    parent_logval = eval_logval(parent(density), v_shaped, R)
-    
-    return R(parent_logval + density.logscalecorr)
-end
-
-
-function eval_logval_unchecked(density::TruncatedDensity, v::Any)
-    eval_logval(density, v, default_dlt())
-end
-
 
 
 """
-    BAT.truncate_density(density::AbstractDensity, bounds::AbstractVarBounds)::AbstractDensity
+    BAT.truncate_density(density::AbstractDensity, bounds::AbstractArray{<:Interval})::AbstractDensity
 
-*BAT-internal, not part of stable public API.*
+*Experimental feature, not part of stable public API.*
 
 Truncate `density` to `bounds`, the resulting density will be effectively
-zero outside of those bounds. In contrast `Distributions.truncated`, `truncate_density`
-does *not* renormalize the density.
+zero outside of those bounds. In contrast `Distributions.truncated`,
+`truncate_density` does *not* renormalize the density.
 
-Currently implemented for `BAT.HyperRectBounds` only.
+Requires `varshape(density) isa ArrayShape`.
+
+Only supports densities that are essentially products of univariate
+distributions, as well as posterior densities with such densities as priors.
 """
 function truncate_density end
+export truncate_density
 
 
-function truncate_density(density::AbstractPosteriorDensity, bounds::AbstractVarBounds)
-    old_prior = getprior(density)
-    old_bounds = var_bounds(old_prior)
-    new_bounds = ismissing(old_bounds) ? bounds : var_bounds(old_prior) ∩ bounds
-    newprior = truncate_density(getprior(density), new_bounds)
-    PosteriorDensity(getlikelihood(density), newprior)
+function truncate_density(density::AbstractPosteriorDensity, bounds::AbstractArray{<:Interval})
+    @argcheck varshape(density) isa ArrayShape
+    PosteriorDensity(getlikelihood(density), truncate_density(getprior(density), bounds))
 end
 
 
-function truncate_density(density::ConstDensity, bounds::AbstractVarBounds)
+function truncate_density(density::ConstDensity, bounds::AbstractArray{<:Interval})
     old_bounds = var_bounds(density)
-    new_bounds = ismissing(old_bounds) ? bounds : var_bounds(density) ∩ bounds
+    b = HyperRectBounds(bounds)
+    new_bounds = ismissing(old_bounds) ? b : var_bounds(density) ∩ b
     ConstDensity(density.value, new_bounds)
 end
 
 
-function truncate_density(density::DistributionDensity, bounds::HyperRectBounds)
-    old_bounds = var_bounds(density)
-    new_bounds = ismissing(old_bounds) ? bounds : var_bounds(density) ∩ bounds
-    interval_bounds = Interval.(new_bounds.vol.lo, new_bounds.vol.hi)
-    dist = density.dist
-    r = truncate_dist_hard(dist, interval_bounds)
-    TruncatedDensity(DistributionDensity(r.dist), new_bounds, r.logscalecorr)
+function truncate_density(density::DistributionDensity{<:MultivariateDistribution}, bounds::AbstractArray{<:Interval})
+    r = truncate_dist_hard(density.dist, bounds)
+    RenormalizedDensity(DistributionDensity(r.dist), r.logrenormf)
 end
 
-function truncate_density(density::TruncatedDensity{<:DistributionDensity}, bounds::AbstractVarBounds)
-    # Tricky: How to decide whether to propagate renormalization of inner densities/distributions ?
-    @assert false # Not implemented yet
-end
-
-# ToDo: Reject out-of-bounds samples, in case density contains distributions that can't be truncated (e.g. multivariate)
-Distributions.sampler(density::TruncatedDensity{<:DistributionDensity}) = Distributions.sampler(parent(density))
-
-function Statistics.cov(density::TruncatedDensity{<:DistributionDensity})
-    cov(nestedview(rand(bat_determ_rng(), sampler(density), 10^5)))
+function truncate_density(density::RenormalizedDensity{<:DistributionDensity{<:MultivariateDistribution}}, bounds::AbstractArray{<:Interval})
+    r = truncate_dist_hard(density.density.dist, bounds)
+    RenormalizedDensity(DistributionDensity(r.dist), r.logrenormf + density.logrenormf)
 end
 
 
@@ -117,7 +58,7 @@ be truncated, may return the original distribution.
 Returns a `NamedTuple`
 
 ```julia
-    (dist = trunc_dist, logscalecorr = logscalecorr)
+    (dist = trunc_dist, logrenormf = logrenormf)
 ```
 
 with the truncated distribution and the log-PDF amplitude difference to
@@ -140,8 +81,8 @@ function truncate_dist_hard(dist::Distribution{Univariate}, bounds::Interval)
     hi = clamp(max(lo, maximum(bounds)), min_lo, max_hi)
 
     trunc_dist = truncated(dist, lo, hi)
-    logscalecorr = trunc_logpdf_ratio(dist, trunc_dist)
-    return (dist = trunc_dist, logscalecorr = logscalecorr)
+    logrenormf = trunc_logpdf_ratio(dist, trunc_dist)
+    return (dist = trunc_dist, logrenormf = logrenormf)
 end
 
 
@@ -154,8 +95,8 @@ function truncate_dist_hard(dist::Distributions.Truncated, bounds::Interval)
     lo = clamp(max(minimum(bounds), dist.lower), min_lo, max_hi)
     hi = clamp(max(lo, min(maximum(bounds), dist.upper)), min_lo, max_hi)
     trunc_dist = truncated(untrunc_dist, lo, hi)
-    logscalecorr = trunc_logpdf_ratio(dist, trunc_dist)
-    return (dist = trunc_dist, logscalecorr = logscalecorr)
+    logrenormf = trunc_logpdf_ratio(dist, trunc_dist)
+    return (dist = trunc_dist, logrenormf = logrenormf)
 end
 
 
@@ -163,16 +104,25 @@ function truncate_dist_hard(d::Product, bounds::AbstractArray{<:Interval})
     @argcheck length(eachindex(bounds)) == length(d)
     r = truncate_dist_hard.(d.v, bounds)
     trunc_dists = map(x -> x.dist, r)
-    logscalecorr = sum(x.logscalecorr for x in r)
+    logrenormf = sum(x.logrenormf for x in r)
 
-    return (dist = Product(trunc_dists), logscalecorr = logscalecorr)
+    return (dist = Product(trunc_dists), logrenormf = logrenormf)
+end
+
+
+function truncate_dist_hard(d::StandardMvUniform, bounds::AbstractArray{<:Interval})
+    @argcheck length(eachindex(bounds)) == length(d)
+    n = length(eachindex(bounds))
+    pd = product_distribution(Uniform.(fill(false, n), fill(true, n)))
+    return truncate_dist_hard(pd, bounds)
 end
 
 
 function truncate_dist_hard(dist::ConstValueDist, bounds::AbstractVector{<:Interval})
     @argcheck length(eachindex(bounds)) == 0
-    (dist = dist, logscalecorr = 0)
+    (dist = dist, logrenormf = 0)
 end
+
 
 function truncate_dist_hard(dist::NamedTupleDist{names}, bounds::AbstractArray{<:Interval}) where names
     @argcheck length(eachindex(bounds)) == totalndof(varshape(dist))
@@ -181,8 +131,14 @@ function truncate_dist_hard(dist::NamedTupleDist{names}, bounds::AbstractArray{<
 
     r = map((dist, acc) -> truncate_dist_hard(dist, view(bounds, ValueShapes.view_idxs(eachindex(bounds), acc))), distributions, accessors)
     trunc_dist = NamedTupleDist(NamedTuple{names}(map(x -> x.dist, r)))
-    logscalecorr = sum(map(x -> x.logscalecorr, r))
-    (dist = trunc_dist, logscalecorr = logscalecorr)
+    logrenormf = sum(map(x -> x.logrenormf, r))
+    (dist = trunc_dist, logrenormf = logrenormf)
+end
+
+function truncate_dist_hard(dist::ValueShapes.UnshapedNTD, bounds::AbstractArray{<:Interval}) where names
+    @argcheck length(eachindex(bounds)) == length(dist)
+    r = truncate_dist_hard(dist.shaped, bounds)
+    (dist = unshaped(r.dist), logrenormf = r.logrenormf)
 end
 
 
@@ -199,8 +155,8 @@ The PDF of both distributions must have the same shape within the support of
 `trunc_dist` and may only differ in amplitude.
 
 Mainly used to implement [`BAT.truncate_density`](@ref), in conjunction with
-[`BAT.truncate_dist_hard`](@ref). The result contributes to the `logscalecorr`
-factor of a [`TruncatedDensity`] that uses truncated distributions internally,
+[`BAT.truncate_dist_hard`](@ref). The result contributes to the `logrenormf`
+factor of a [`RenormalizedDensity`] that uses truncated distributions internally,
 to ensure the density does not get renormalized.
 """
 function trunc_logpdf_ratio end
@@ -211,7 +167,7 @@ function trunc_logpdf_ratio(orig_dist::Distribution, trunc_dist::Distribution)
 end
 
 function _trunc_logpdf_ratio_fallback(orig_dist::Distribution, trunc_dist::Distribution)
-    x = mean(trunc_dist)
+    x = rand(bat_determ_rng(), trunc_dist)
     +logpdf(orig_dist, x) - logpdf(trunc_dist, x)
 end
 

@@ -80,6 +80,8 @@ end
 
 HyperRectVolume(lo::AbstractVector{T}, hi::AbstractVector{T}) where {T<:Real} = HyperRectVolume{T}(lo, hi)
 
+Base.:(==)(a::HyperRectVolume, b::HyperRectVolume) = a.lo == b.lo && a.hi == b.hi
+
 Base.ndims(vol::HyperRectVolume) = size(vol.lo, 1)
 
 function Base.isempty(vol::HyperRectVolume)

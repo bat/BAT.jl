@@ -41,6 +41,12 @@ bat_default(::Type{MCMCSampling}, ::Val{:trafo}, mcalg::MetropolisHastings) = Pr
 
 bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, mcalg::MetropolisHastings, trafo::AbstractDensityTransformTarget, nchains::Integer) = 10^5
 
+bat_default(::Type{MCMCSampling}, ::Val{:init}, mcalg::MetropolisHastings, trafo::AbstractDensityTransformTarget, nchains::Integer, nsteps::Integer) =
+    MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
+
+bat_default(::Type{MCMCSampling}, ::Val{:burnin}, mcalg::MetropolisHastings, trafo::AbstractDensityTransformTarget, nchains::Integer, nsteps::Integer) =
+    MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
+
 
 get_mcmc_tuning(algorithm::MetropolisHastings) = algorithm.tuning
 

@@ -170,12 +170,40 @@ DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(sample_type(chain
 
 
 
+abstract type AbstractMCMCTunerInstance end
+
+
+function tuning_init! end
+
+function tuning_postinit! end
+
+function tuning_reinit! end
+
+function tuning_update! end
+
+function tuning_finalize! end
+
+function tuning_callback end
+
+
+function mcmc_init! end
+
+function mcmc_burnin! end
+
+
+function isvalidchain end
+
+function isviablechain end
+
+
+
 function mcmc_iterate! end
 
 
 function mcmc_iterate!(
     output::Union{DensitySampleVector,Nothing},
-    chain::MCMCIterator;
+    chain::MCMCIterator,
+    tuner::Nothing = nothing;
     max_nsteps::Integer = 1,
     max_time::Real = Inf,
     nonzero_weights::Bool = true,
@@ -201,15 +229,35 @@ function mcmc_iterate!(
     end_time = time()
     elapsed_time = end_time - start_time
 
-    @debug "Finished iteration over MCMC chain $(chain.info.id), nsteps = $(nsteps(chain)), nsamples = $(nsamples(chain)), time = $(Float32(elapsed_time))"
+    @debug "Finished iteration over MCMC chain $(chain.info.id), nsteps = $(nsteps(chain) - start_nsteps), nsamples = $(nsamples(chain)), time = $(Float32(elapsed_time))"
 
-    nothing
+    return nothing
+end
+
+
+function mcmc_iterate!(
+    output::Union{DensitySampleVector,Nothing},
+    chain::MCMCIterator,
+    tuner::AbstractMCMCTunerInstance;
+    max_nsteps::Integer = 1,
+    max_time::Real = Inf,
+    nonzero_weights::Bool = true,
+    callback::Function = nop_func
+)
+    cb = combine_callbacks(tuning_callback(tuner), callback)
+    mcmc_iterate!(
+        output, chain;
+        max_nsteps = max_nsteps, max_time = max_time, nonzero_weights = nonzero_weights, callback = cb
+    )
+
+    return nothing
 end
 
 
 function mcmc_iterate!(
     outputs::Union{AbstractVector{<:DensitySampleVector},Nothing},
-    chains::AbstractVector{<:MCMCIterator};
+    chains::AbstractVector{<:MCMCIterator},
+    tuners::Union{AbstractVector{<:AbstractMCMCTunerInstance},Nothing} = nothing;
     kwargs...
 )
     if isempty(chains)
@@ -219,17 +267,14 @@ function mcmc_iterate!(
         @debug "Starting iteration over $(length(chains)) MCMC chain(s)"
     end
 
-    if !isnothing(outputs)
-        @sync for i in eachindex(outputs, chains)
-            Base.Threads.@spawn mcmc_iterate!(outputs[i], chains[i]; kwargs...)
-        end
-    else
-        @sync for i in eachindex(chains)
-            Base.Threads.@spawn mcmc_iterate!(nothing, chains[i]; kwargs...)
-        end
+    outs = isnothing(outputs) ? fill(nothing, size(chains)...) : outputs
+    tnrs = isnothing(tuners) ? fill(nothing, size(chains)...) : tuners
+
+    @sync for i in eachindex(outs, chains, tnrs)
+        Base.Threads.@spawn mcmc_iterate!(outs[i], chains[i], tnrs[i]; kwargs...)
     end
 
-    nothing
+    return nothing
 end
 
 
@@ -267,17 +312,3 @@ function Base.show(io::IO, generator::MCMCSampleGenerator)
     end
     print(io, ")")
 end
-
-
-abstract type AbstractMCMCTunerInstance end
-
-function tuning_init! end
-
-function mcmc_init! end
-
-function mcmc_burnin! end
-
-
-function isvalidchain end
-
-function isviablechain end

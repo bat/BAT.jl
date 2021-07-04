@@ -4,7 +4,8 @@ using BAT
 using Test
 
 using LinearAlgebra
-using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
+using ValueShapes, Distributions, ArraysOfArrays
+using ForwardDiff, Zygote, DistributionsAD
 
 @testset "test_distribution_transform" begin
     function test_back_and_forth(trg_d, src_d)
@@ -158,7 +159,7 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
         smpls_tr = trafo.(smpls)
         smpls_tr_cmp = [trafo(s) for s in smpls]
         @test smpls_tr == smpls_tr_cmp
-	    @test @inferred(varshape(trafo)) == @inferred(varshape(dist)) == trafo.source_varshape
+	    @test @inferred(varshape(trafo)) == @inferred(varshape(dist)) == trafo._varshape
     end
 
     @testset "trafo composition" begin
@@ -203,7 +204,7 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
         @test dist_density_trafod.result.orig == dist_density
         @test dist_density_trafod.trafo.source_dist == dist_density_trafod.result.trafo.source_dist == mvn
 
-        @test dist_density_trafod.trafo.target_varshape == @inferred(varshape(dist_density))
+        @test dist_density_trafod.trafo._valshape == @inferred(varshape(dist_density))
 
         dist_density_trafod = @inferred(bat_transform(PriorToGaussian(), dist_density, FullDensityTransform()))
 
@@ -211,7 +212,27 @@ using ValueShapes, Distributions, ArraysOfArrays, ForwardDiff
         @test dist_density_trafod.result.orig == dist_density
         @test dist_density_trafod.trafo.source_dist == dist_density_trafod.result.trafo.source_dist == mvn
 
-        @test dist_density_trafod.trafo.target_varshape == @inferred(varshape(dist_density))
+        @test dist_density_trafod.trafo._valshape == @inferred(varshape(dist_density))
+    end
+
+    @testset "trafo autodiff pullbacks" begin
+        # ToDo: Test for type stability and fix where necessary.
+
+        xs = rand(5)
+        @test Zygote.jacobian(BAT._pushfront, xs, 42)[1] ≈ ForwardDiff.jacobian(xs -> BAT._pushfront(xs, 1), xs)
+        @test Zygote.jacobian(BAT._pushfront, xs, 42)[2] ≈ vec(ForwardDiff.jacobian(x -> BAT._pushfront(xs, x[1]), [42]))
+        @test Zygote.jacobian(BAT._pushback, xs, 42)[1] ≈ ForwardDiff.jacobian(xs -> BAT._pushback(xs, 1), xs)
+        @test Zygote.jacobian(BAT._pushback, xs, 42)[2] ≈ vec(ForwardDiff.jacobian(x -> BAT._pushback(xs, x[1]), [42]))
+        @test Zygote.jacobian(BAT._rev_cumsum, xs)[1] ≈ ForwardDiff.jacobian(BAT._rev_cumsum, xs)
+        @test Zygote.jacobian(BAT._exp_cumsum_log, xs)[1] ≈ ForwardDiff.jacobian(BAT._exp_cumsum_log, xs) ≈ ForwardDiff.jacobian(cumprod, xs)
+
+        src_v = [0.6, 0.7, 0.8, 0.9]
+        f = inv(BAT.DistributionTransform(Uniform, DistributionsAD.TuringDirichlet([3.0, 4.0, 5.0, 6.0, 7.0])))
+        @test isapprox(ForwardDiff.jacobian(f, src_v), Zygote.jacobian(f, src_v)[1], rtol = 10^-4)
+        f = inv(BAT.DistributionTransform(Uniform, Dirichlet([3.0, 4.0, 5.0, 6.0, 7.0])))
+        @test isapprox(ForwardDiff.jacobian(f, src_v), Zygote.jacobian(f, src_v)[1], rtol = 10^-4)
+        f = inv(BAT.DistributionTransform(Normal, Dirichlet([3.0, 4.0, 5.0, 6.0, 7.0])))
+        @test isapprox(ForwardDiff.jacobian(f, src_v), Zygote.jacobian(f, src_v)[1], rtol = 10^-4)
     end
 end
 

@@ -14,8 +14,14 @@ DistributionDensity(d::Distribution) = DistributionDensity(d, dist_param_bounds(
 Base.convert(::Type{AbstractDensity}, d::ContinuousDistribution) = DistributionDensity(d)
 Base.convert(::Type{DistLikeDensity}, d::ContinuousDistribution) = DistributionDensity(d)
 
+Base.convert(::Type{Distribution}, d::DistributionDensity) = d.dist
+Base.convert(::Type{ContinuousDistribution}, d::DistributionDensity) = d.dist
+
 
 Base.parent(density::DistributionDensity) = density.dist
+
+
+Base.:(==)(a::DistributionDensity, b::DistributionDensity) = a.dist == b.dist && a.bounds == b.bounds
 
 
 function eval_logval_unchecked(density::DistributionDensity{<:Distribution{Univariate,Continuous}}, v::Real)
@@ -52,13 +58,15 @@ ValueShapes.unshaped(density::DistributionDensity) = DistributionDensity(unshape
 
 (shape::AbstractValueShape)(density::DistributionDensity) = DistributionDensity(shape(density.dist))
 
+# For user convenience, don't use within BAT:
+@inline Random.rand(rng::AbstractRNG, density::DistributionDensity) = rand(rng, density.dist)
+@inline Random.rand(rng::AbstractRNG, density::DistributionDensity, dims::Dims) = rand(rng, density.dist, dims)
+@inline Random.rand(rng::AbstractRNG, density::DistributionDensity, dims::Integer...) = rand(rng, density.dist, dims...)
 
-Distributions.sampler(density::DistributionDensity) = bat_sampler(unshaped(density.dist))
+Distributions.sampler(density::DistributionDensity) = Distributions.sampler(density.dist)
+bat_sampler(density::DistributionDensity) = bat_sampler(density.dist)
 
-
-# Random.Sampler(rng::AbstractRNG, density::DistributionDensity, repetition::Val{1}) = sampler(density)
-
-Statistics.cov(density::DistributionDensity) = cov(unshaped(density.dist))
+Statistics.cov(density::DistributionDensity{<:MultivariateDistribution}) = cov(density.dist)
 
 
 var_bounds(density::DistributionDensity) = density.bounds

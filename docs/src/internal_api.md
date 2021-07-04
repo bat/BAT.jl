@@ -54,7 +54,7 @@ BAT.StandardMvUniform
 BAT.StandardUvNormal
 BAT.StandardUvUniform
 BAT.TransformedDensity
-BAT.TruncatedDensity
+BAT.RenormalizedDensity
 BAT.VariateTransform
 BAT.WhiteningResult
 
@@ -94,7 +94,6 @@ BAT.repetition_to_weights
 BAT.spatialvolume
 BAT.sum_first_dim
 BAT.trunc_logpdf_ratio
-BAT.truncate_density
 BAT.truncate_dist_hard
 BAT.var_bounds
 ```
