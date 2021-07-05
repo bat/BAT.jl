@@ -36,7 +36,7 @@ import NestedSamplers
 
     iid = BAT.NamedTupleDist(a=dist)
     iidsamples, chains = bat_sample(iid, IIDSampling());
-    @test ones(3) ≈ isapprox.(bat_compare(smpls,iidsamples).result.ks_p_values, 1.0, atol = 0.3)
+    @test ones(3) ≈ isapprox.(bat_compare(smpls,iidsamples).result.ks_p_values, 1.0, atol = 0.8)
 
     logz_expected = -log(prod(160))*3
     @test isapprox(r.logintegral.val, logz_expected, atol = 100 * r.logintegral.err)
