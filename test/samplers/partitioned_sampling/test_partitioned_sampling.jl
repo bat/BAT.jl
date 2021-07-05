@@ -9,7 +9,6 @@ using Distributions, LinearAlgebra, ValueShapes
     σ = [0.1 0 0; 0 0.1 0; 0 0 0.1]
     μ = [1 1 1; -1 1 0; -1 -1 -1; 1 -1 0]
     mixture_model = MixtureModel(MvNormal[MvNormal(μ[i,:], Matrix(Hermitian(σ)) ) for i in 1:4])
-    # ToDo: Use more complex prior with non-uniform distribution
     prior = NamedTupleDist(a = [Normal(0,2), Normal(0,2), Normal(0, 2)])
     likelihood = let model = mixture_model
         params -> LogDVal(logpdf(model, params.a))
@@ -21,8 +20,7 @@ using Distributions, LinearAlgebra, ValueShapes
     #Sampling and integration algorithms
     mcmc = MCMCSampling(mcalg = MetropolisHastings(), nsteps = 10^3);
     ahmi = ahmi = AHMIntegration(whitening = BAT.NoWhitening(), max_startingIDs = 10^3)
-    #sobol = BAT.SobolSampler(nsamples = 500)
-    mcmc_exp = MCMCSampling(mcalg = MetropolisHastings(), nsteps = 1000, nchains=20, strict=false)
+    mcmc_exp = MCMCSampling(mcalg = MetropolisHastings(), nsteps = 400, nchains=4, strict=false)
 
     ps = PartitionedSampling(sampler = mcmc, npartitions=4, exploration_sampler=mcmc_exp, integrator = ahmi, nmax_resampling=5);
 
@@ -31,10 +29,8 @@ using Distributions, LinearAlgebra, ValueShapes
     results = bat_sample(posterior , ps)
     
     #Kolmogorov-Smirnov Test
-    #mcmc_samples = @inferred(bat_sample(posterior, mcmc))#sample from original pdf with MCMC
-    #mcmc_samples =bat_sample(posterior, mcmc) #sample from original pdf with MCMC
     iid_distribution = NamedTupleDist(a = mixture_model,)
-    iid_samples = bat_sample(iid_distribution, IIDSampling(nsamples=10^6))
+    iid_samples = bat_sample(iid_distribution, IIDSampling(nsamples=10^6))#Get iid samples
     ks_test = bat_compare(iid_samples.result, results.result)#Run Kolmogorov-Smirnov test
     @test all(ks_test.result.ks_p_values .> 0.7)#Check that all the p-values are bigger than 0.7
     @testset "Array of Posteriors" begin
