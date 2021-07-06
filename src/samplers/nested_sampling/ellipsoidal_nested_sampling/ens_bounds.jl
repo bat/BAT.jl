@@ -49,5 +49,5 @@ function ENSBounding(bound::ENSMultiEllipsoidBound)
 end
 
 function ENSBounding(bound::ENSBound) # If nothing ist choosen
-    return Bounds.MultiEllipsoid        # the bounds are MultiEllipsoid
+    return Bounds.Ellipsoid           # the bound is Ellipsoid
 end
