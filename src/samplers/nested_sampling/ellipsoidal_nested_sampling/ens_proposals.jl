@@ -89,11 +89,11 @@ function ENSprop(prop::ENSAutoProposal)
 end
 
 function ENSprop(prop::ENSRandomWalk)
-    return Proposals.RWalk(;prop.ratio, prop.walks, prop.scale)
+    return Proposals.RWalk(;ratio=prop.ratio, walks=prop.walks, scale=prop.scale)
 end
 
 function ENSprop(prop::ENSSlice)
-    return Proposals.Slice(;prop.slices, prop.scale)
+    return Proposals.Slice(;slices=prop.slices, scale=prop.scale)
 end
 
 function ENSprop(prop::ENSProposal) # if nothing is choosen

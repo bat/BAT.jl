@@ -75,8 +75,8 @@ function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::El
     bounding = ENSBounding(algorithm.bound)
     prop = ENSprop(algorithm.proposal)
     sampler = Nested(dims, algorithm.num_live_points; 
-                        bounding, prop,
-                        algorithm.enlarge, algorithm.min_ncall, algorithm.min_eff
+                        bounds=bounding, proposal=prop,
+                        enlarge=algorithm.enlarge, min_ncall=algorithm.min_ncall, min_eff=algorithm.min_eff
     ) 
 
     samples_w, state = sample(model, sampler;                                               # returns samples with weights as one vector and the actual state
