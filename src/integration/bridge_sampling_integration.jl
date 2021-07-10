@@ -8,12 +8,10 @@ export bridge_sampling_integral
 function bridge_sampling_integral(
     target_density::AbstractDensity, 
     target_samples::DensitySampleVector, 
-    proposal_density::AnyIIDSampleable, 
+    proposal_density::AbstractDensity, 
     proposal_samples::DensitySampleVector, 
     ess_alg::EffSampleSizeAlgorithm = bat_default_withdebug(bat_eff_sample_size, Val(:algorithm), target_samples)
     )
-    
-    proposal_density = unshaped(convert(DistLikeDensity, proposal_density))
 
     N1 = Int(sum(target_samples.weight))
     N2 = Int(sum(proposal_samples.weight))
@@ -51,19 +49,20 @@ function bridge_sampling_integral(
     #################
     #Evaluate error #
     #################
-    #pre calculate objects of error estimate
+    #pre calculate objects for error estimate
     f1 = [exp(logdensityof(target_density,x))*current_int/(s1*exp(logdensityof(target_density,x))*current_int+s2*exp(proposal_samples.logd[i])) for (i,x) in enumerate(proposal_samples.v)]
     f2 = [[exp(logdensityof(proposal_density,x))/(s1*exp(target_samples.logd[i])*current_int+s2*exp(logdensityof(proposal_density,x)))] for (i,x) in enumerate(target_samples.v)]
-    mean1 = mean(f1)  #TODO: weighted variance
-    var1 = var(f1)
-    mean2 = sum([f2[i][1]*w for (i, w) in enumerate(target_samples.weight)])/N1 
-    var2 = sum([w*(f2[i][1]-mean2)^2 for (i, w) in enumerate(target_samples.weight)])/(N1-1)
     f2_density_vector = DensitySampleVector(f2,target_samples.logd,weight=target_samples.weight)
+
+    mean1, var1 = StatsBase.mean_and_var(f1, FrequencyWeights(proposal_samples.weight))
+    mean2, var2 = mean(f2_density_vector)[1],cov(f2_density_vector)[1]
+
     N1_eff = bat_eff_sample_size(f2_density_vector,ess_alg).result[1] 
+    # calculate  Root mean squared error
+    r_MSE = sqrt((var1/(mean1^2*N2)+(var2/mean2^2)/N1_eff)*current_int) 
 
-    # calculate relative Root mean squared error
-    r_MSE = sqrt(var1/(mean1^2*N2)+ *(var2/mean2^2)/N1_eff)
 
+    
     integral = Measurements.measurement(current_int, r_MSE)
 
     return integral
@@ -84,25 +83,15 @@ function bridge_sampling_integral(
     #####################
     # proposal function #
     #####################
-    #expand first batch
-    len = Int(sum(first_batch.weight))
-    first_batch_flat = collect(flatview(unshaped.(first_batch.v)))
-    first_batch_expanded = zeros((size(first_batch_flat)[1], len))
-    counter =1
-    for (i, w) in enumerate(first_batch.weight)
-        for _=1:w
-            first_batch_expanded[:,counter] = first_batch_flat[:,i]
-            counter += 1
-        end
-    end    
     
     #Determine proposal function
-    post_mean = vec(StatsBase.mean(first_batch_expanded, dims=2))
-    post_cov = Matrix(StatsBase.cov(first_batch_expanded, dims=2)) #TODO: other covariance approximations
+    post_mean = vec(mean(first_batch))
+    post_cov = Matrix(cov(unshaped.(first_batch))) #TODO: other covariance approximations
     
 
     proposal_density =  MvNormal(post_mean,post_cov)
     proposal_samples = bat_sample(proposal_density,IIDSampling(nsamples=Int(sum(second_batch.weight)))).result
+    proposal_density = unshaped(convert(DistLikeDensity, proposal_density))
 
     bridge_sampling_integral(target_density,second_batch,proposal_density,proposal_samples,ess_alg)
 end
