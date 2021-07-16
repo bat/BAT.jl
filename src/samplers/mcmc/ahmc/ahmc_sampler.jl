@@ -58,7 +58,7 @@ mutable struct AHMCIterator{
     SV<:DensitySampleVector,
     HA<:AdvancedHMC.Hamiltonian,
     TR<:AdvancedHMC.Transition,
-    PL<:AdvancedHMC.AbstractProposal
+    PL<:AdvancedHMC.HMCKernel
 } <: MCMCIterator
     algorithm::AL
     density::D

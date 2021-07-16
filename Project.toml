@@ -61,7 +61,7 @@ ZygoteRules = "700de1a5-db45-46bc-99cf-38207098b444"
 
 [compat]
 AdaptiveRejectionSampling = "0.1.1"
-AdvancedHMC = "0.2"
+AdvancedHMC = "0.3"
 ArgCheck = "1, 2.0"
 ArraysOfArrays = "0.4, 0.5"
 CPUTime = "1.0"
