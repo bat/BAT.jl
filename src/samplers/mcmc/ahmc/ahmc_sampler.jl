@@ -58,7 +58,7 @@ mutable struct AHMCIterator{
     SV<:DensitySampleVector,
     HA<:AdvancedHMC.Hamiltonian,
     TR<:AdvancedHMC.Transition,
-    PL<:AdvancedHMC.AbstractProposal
+    PL<:AdvancedHMC.HMCKernel
 } <: MCMCIterator
     algorithm::AL
     density::D
@@ -114,7 +114,7 @@ function AHMCIterator(
     proposal = ahmc_proposal(algorithm.proposal, integrator)
 
     # Perform a dummy step to get type-stable transition value:
-    transition = AdvancedHMC.step(deepcopy(rng), deepcopy(hamiltonian), deepcopy(proposal), init_transition.z)
+    transition = AdvancedHMC.transition(deepcopy(rng), deepcopy(hamiltonian), deepcopy(proposal), init_transition.z)
 
     chain = AHMCIterator(
         algorithm,
@@ -279,7 +279,7 @@ function mcmc_step!(chain::AHMCIterator)
     # Propose new variate:
     samples.weight[proposed] = 0
 
-    chain.transition = AdvancedHMC.step(rng, chain.hamiltonian, chain.proposal, chain.transition.z)
+    chain.transition = AdvancedHMC.transition(rng, chain.hamiltonian, chain.proposal, chain.transition.z)
     proposed_params[:] = chain.transition.z.θ
     
     current_log_posterior = samples.logd[current]
