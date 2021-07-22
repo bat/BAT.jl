@@ -34,7 +34,6 @@ struct MultimodalStudentT{M<:MixtureModel, P<:Product} <: Distribution{Multivari
     bimodals::M
     σ::Float64
     n::Int
-    #d::Int
     dist::P
 end
 
