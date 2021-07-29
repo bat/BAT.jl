@@ -58,7 +58,7 @@ mutable struct AHMCIterator{
     SV<:DensitySampleVector,
     HA<:AdvancedHMC.Hamiltonian,
     TR<:AdvancedHMC.Transition,
-    PL<:AdvancedHMC.HMCKernel
+    PL<:Union{AdvancedHMC.HMCKernel, AdvancedHMC.Trajectory}
 } <: MCMCIterator
     algorithm::AL
     density::D
@@ -73,6 +73,9 @@ mutable struct AHMCIterator{
     proposal::PL
 end
 
+function AdvancedHMC.transition(rng::AbstractRNG, hamiltonian::AdvancedHMC.Hamiltonian, proposal::AdvancedHMC.Trajectory, z::AdvancedHMC.PhasePoint)
+    AdvancedHMC.transition(rng, proposal, hamiltonian, z)
+end
 
 function AHMCIterator(
     rng::AbstractRNG,
@@ -115,7 +118,6 @@ function AHMCIterator(
 
     # Perform a dummy step to get type-stable transition value:
     transition = AdvancedHMC.transition(deepcopy(rng), deepcopy(hamiltonian), deepcopy(proposal), init_transition.z)
-
     chain = AHMCIterator(
         algorithm,
         density,
@@ -221,7 +223,6 @@ function next_cycle!(chain::AHMCIterator)
     chain.samples.weight[i] = 1
 
     t_stat = chain.transition.stat
-    
     chain.samples.info[i] = AHMCSampleID(
         chain.info.id, chain.info.cycle, chain.stepno, CURRENT_SAMPLE,
         t_stat.hamiltonian_energy, t_stat.tree_depth,

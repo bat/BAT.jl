@@ -9,8 +9,10 @@ end
 function ahmc_proposal(
     proposal::FixedStepNumber,
     integrator::AdvancedHMC.AbstractIntegrator
-)
-    return AdvancedHMC.StaticTrajectory(integrator, proposal.nsteps)
+    )
+    @unpack nsteps = proposal
+    return AdvancedHMC.Trajectory{AdvancedHMC.MultinomialTS}(integrator, AdvancedHMC.FixedNSteps(nsteps))
+
 end
 
 
@@ -23,10 +25,9 @@ function ahmc_proposal(
     proposal::FixedTrajectoryLength,
     integrator::AdvancedHMC.AbstractIntegrator
 )
-    return AdvancedHMC.HMCDA(integrator, proposal.trajectory_length)
+    @unpack trajectory_length = proposal
+    return AdvancedHMC.Trajectory{AdvancedHMC.MultinomialTS}(integrator, AdvancedHMC.FixedIntegrationTime(trajectory_length))
 end
-
-
 
 struct NUTSProposal <: HMCProposal end
 

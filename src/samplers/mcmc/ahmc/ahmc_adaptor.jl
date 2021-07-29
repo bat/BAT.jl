@@ -85,8 +85,17 @@ mutable struct AHMCTuner{A<:AdvancedHMC.AbstractAdaptor} <: AbstractMCMCTunerIns
     adaptor::A
 end
 
+function _get_integrator(proposal::AdvancedHMC.HMCKernel)
+    return proposal.τ.integrator
+end
+
+function _get_integrator(τ::AdvancedHMC.Trajectory)
+    return τ.integrator
+end
+
 function (tuning::HMCTuningAlgorithm)(chain::MCMCIterator)
-    adaptor = ahmc_adaptor(tuning, chain.hamiltonian.metric, chain.proposal.τ.integrator)
+    proposal = chain.proposal
+    adaptor = ahmc_adaptor(tuning, chain.hamiltonian.metric, _get_integrator(proposal))
     AHMCTuner(tuning.target_acceptance, adaptor)
 end
 
