@@ -86,7 +86,7 @@ mutable struct AHMCTuner{A<:AdvancedHMC.AbstractAdaptor} <: AbstractMCMCTunerIns
 end
 
 function (tuning::HMCTuningAlgorithm)(chain::MCMCIterator)
-    adaptor = ahmc_adaptor(tuning, chain.hamiltonian.metric, chain.proposal.integrator)
+    adaptor = ahmc_adaptor(tuning, chain.hamiltonian.metric, chain.proposal.τ.integrator)
     AHMCTuner(tuning.target_acceptance, adaptor)
 end
 
@@ -119,8 +119,8 @@ end
 function tuning_finalize!(tuner::AHMCTuner, chain::MCMCIterator)
     adaptor = tuner.adaptor
     AdvancedHMC.finalize!(adaptor)
-    chain.hamiltonian = AdvancedHMC.reconstruct(chain.hamiltonian, adaptor)
-    chain.proposal = AdvancedHMC.reconstruct(chain.proposal, adaptor)
+    chain.hamiltonian = AdvancedHMC.update(chain.hamiltonian, adaptor)
+    chain.proposal = AdvancedHMC.update(chain.proposal, adaptor)
     nothing
 end
 
@@ -138,8 +138,8 @@ function (callback::AHMCTunerCallback)(::Val{:mcmc_step}, chain::AHMCIterator)
     tstat = AdvancedHMC.stat(chain.transition)
 
     AdvancedHMC.adapt!(adaptor, chain.transition.z.θ, tstat.acceptance_rate)
-    chain.hamiltonian = AdvancedHMC.reconstruct(chain.hamiltonian, adaptor)
-    chain.proposal = AdvancedHMC.reconstruct(chain.proposal, adaptor)
+    chain.hamiltonian = AdvancedHMC.update(chain.hamiltonian, adaptor)
+    chain.proposal = AdvancedHMC.update(chain.proposal, adaptor)
     tstat = merge(tstat, (is_adapt =true,))
 
     nothing
