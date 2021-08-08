@@ -31,7 +31,7 @@ $(TYPEDFIELDS)
     [UltraNest](https://github.com/bat/UltraNest.jl) package is loaded (e.g. via
     `import UltraNest`).
 """
-@with_kw struct ReactiveNestedSampling{TR<:AbstractDensityTransformTarget} <: AbstractSamplingAlgorithm
+@with_kw struct ReactiveNestedSampling{TR<:AbstractDensityTransformTarget,Ex} <: AbstractSamplingAlgorithm
     trafo::TR = PriorToUniform()
 
     # "Indicating whether this parameter wraps around (circular parameter)"
@@ -99,6 +99,9 @@ $(TYPEDFIELDS)
     
     "Number of iterations after which the insertion order test is reset."
     insertion_test_zscore_threshold::Float64 = 2.0
+
+    "Executor for posterior evaluation."
+    executor::Ex = default_executor()
 end
 export ReactiveNestedSampling
 
@@ -118,8 +121,13 @@ function bat_sample_impl(
         throw(ArgumentError("ReactiveNestedSampling only supports (transformed) densities defined on the unit hypercube"))
     end
 
+    LogDType = Float64
+
     function vec_ultranest_logpstr(V_rowwise::AbstractMatrix{<:Real})
-        map(logdensityof(density), nestedview(copy(V_rowwise')))
+        V = copy(V_rowwise')
+        logd = similar(V, LogDType, size(V,2))
+        V_nested = nestedview(V)
+        exec_map!(logdensityof(density), algorithm.executor, logd, V_nested)
     end
 
     ndims = totalndof(vs)
