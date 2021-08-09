@@ -4,7 +4,6 @@ using BAT
 using Test
 
 using Random, StatsBase, Distributions, ArraysOfArrays
-using HypothesisTests
 
 import UltraNest
 
@@ -40,10 +39,7 @@ import UltraNest
     @test logvalof(posterior).(uwsmpls.v) ≈ uwsmpls.logd
     @test all(isequal(1), uwsmpls.weight)
 
-    uwsamples_flat = flatview(uwsmpls.v)
-    X_iid = rand(dist, 10^4)
-    pvalues_ad = [pvalue(KSampleADTest(uwsamples_flat[i,:], X_iid[i,:])) for i in axes(uwsamples_flat, 1)]
-    @test all(x -> x > 1E-7, pvalues_ad)
+    @test BAT.likelihood_pvalue(dist, r.result; ess = floor(Int, r.ess)) > 10^-3
 
     logz_expected = -log(prod(maximum.(prior.v) .- minimum.(prior.v)))
     @test isapprox(r.logintegral.val, logz_expected, atol = 10 * r.logintegral.err)
