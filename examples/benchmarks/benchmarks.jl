@@ -12,7 +12,7 @@ function setup_benchmark()
     end
 
     include("utils.jl")
-    #include("functions_1D.jl")
+    include("functions_1D.jl")
     include("functions_2D.jl")
     #include("run_benchmark_1D.jl")
     include("run_benchmark_2D.jl")
