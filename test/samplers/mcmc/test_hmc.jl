@@ -32,8 +32,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
         @test minimum(samples.weight) == 0
         @test isapprox(length(samples), nsteps, atol = 20)
         @test length(samples) == sum(samples.weight)
-        @test isapprox(mean(samples), [1, -1, 2], atol = 0.2)
-        @test isapprox(cov(samples), cov(unshaped(target)), atol = 0.3)
+        @test BAT.likelihood_pvalue(unshaped(target), samples) > 10^-3
 
         samples = DensitySampleVector(chain)
         BAT.mcmc_iterate!(samples, chain, max_nsteps = 10^3, nonzero_weights = true)
@@ -91,8 +90,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
         append!.(Ref(samples), outputs)
         
         @test length(samples) == sum(samples.weight)
-        @test isapprox(mean(samples), [1, -1, 2], atol = 0.3)
-        @test isapprox(cov(samples), cov(unshaped(target)), atol = 0.4)
+        @test BAT.likelihood_pvalue(unshaped(target), samples) > 10^-3
     end
 
     @testset "bat_sample" begin
@@ -123,8 +121,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
         @test first(samples).info.chaincycle >= 2
 
         @test samples.v isa ShapedAsNTArray
-        @test isapprox(mean(unshaped.(samples)), [1, -1, 2], atol = 0.3)
-        @test isapprox(cov(unshaped.(samples)), cov(unshaped(target)), atol = 0.4)
+        @test BAT.likelihood_pvalue(unshaped(target), unshaped.(samples)) > 10^-3
     end
 
     @testset "MCMC sampling in transformed space" begin
@@ -134,8 +131,6 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
         # Test with nested posteriors:
         posterior = PosteriorDensity(likelihood, inner_posterior)
         smpls = bat_sample(posterior, MCMCSampling(mcalg = HamiltonianMC(), trafo = PriorToGaussian())).result
-
-        @test isapprox(mean(unshaped.(smpls)), mean(nestedview(rand(unshaped(prior).dist, 10^5))), rtol = 0.1)
-        @test isapprox(cov(unshaped.(smpls)), cov(unshaped(prior).dist), rtol = 0.1)
+        @test BAT.likelihood_pvalue(unshaped(prior.dist), unshaped.(smpls)) > 10^-3
     end
 end
