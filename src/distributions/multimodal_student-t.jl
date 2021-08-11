@@ -12,13 +12,13 @@ Assumes two bimodal peaks, each in its own dimension.
 
 Constructors:
 
-* ```BAT.MultimodalStudentT(; μ::Real=1, σ::Float64=0.2, d::Integer=1, n::Integer=4)```
+* ```BAT.MultimodalStudentT(; μ::Real=1, σ::Float64=0.2, ν::Integer=1, n::Integer=4)```
 
 Arguments:
 
 * `μ::Real`: The location parameter used for the two bimodal peaks.
 * `σ::Float64`: The scale parameter shared among all components.
-* `d::Int`: The degrees of freedom.
+* `ν::Int`: The degrees of freedom.
 * `n::Int`: The number of dimensions.
 
 Fields:
@@ -37,10 +37,10 @@ struct MultimodalStudentT{M<:MixtureModel, P<:Product} <: Distribution{Multivari
     dist::P
 end
 
-function MultimodalStudentT(;μ::Real=1., σ::Float64=0.2, d::Int=1, n::Integer=4)
+function MultimodalStudentT(;μ::Real=1., σ::Float64=0.2, ν::Int=1, n::Integer=4)
     @argcheck n > 1 "Minimum number of dimensions for MultimodalCauchy is 2" 
-    mixture_model = MixtureModel([LocationScale(-μ, σ, TDist(d)), LocationScale(μ, σ, TDist(d))])
-    dist = _construct_dist(mixture_model, σ, d, n)
+    mixture_model = MixtureModel([LocationScale(-μ, σ, TDist(ν)), LocationScale(μ, σ, TDist(ν))])
+    dist = _construct_dist(mixture_model, σ, ν, n)
     MultimodalStudentT(mixture_model, σ, n, dist)
 end
 
@@ -68,8 +68,8 @@ function Distributions._rand!(rng::AbstractRNG, d::MultimodalStudentT, x::Abstra
     Distributions._rand!(rng, d.dist, x)
 end
 
-function _construct_dist(mixture_model::MixtureModel, σ::Real, d::Int, n::Integer)
-    vector_of_dists = vcat(mixture_model, mixture_model, [LocationScale(0, σ, TDist(d)) for i in 3:n])
+function _construct_dist(mixture_model::MixtureModel, σ::Real, ν::Int, n::Integer)
+    vector_of_dists = vcat(mixture_model, mixture_model, [LocationScale(0, σ, TDist(ν)) for i in 3:n])
     dist = product_distribution(vector_of_dists)
     return dist
 end

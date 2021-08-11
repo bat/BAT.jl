@@ -14,7 +14,7 @@ Test.@testset "distributions" begin
         for i in 2:6
             μ = randn()
             σ = rand(0.01:0.1:2)
-            mmc = BAT.MultimodalStudentT(μ=μ,σ=σ, d=1, n=i)
+            mmc = BAT.MultimodalStudentT(μ=μ,σ=σ, ν=1, n=i)
             @test isequal(mean(mmc), fill(NaN, i))
             @test isequal(var(mmc), fill(NaN, i))
             @test isequal(diag(cov(mmc)), fill(NaN, i))
