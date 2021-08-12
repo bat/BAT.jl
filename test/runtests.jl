@@ -2,6 +2,9 @@
 
 using Test
 
+import Logging
+Logging.disable_logging(Logging.Warn) 
+
 Test.@testset "Package BAT" begin
     include("utils/test_utils.jl")
     include("rngs/test_rngs.jl")
