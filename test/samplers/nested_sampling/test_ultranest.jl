@@ -5,7 +5,16 @@ using Test
 
 using Random, StatsBase, Distributions, ArraysOfArrays
 
-import UltraNest
+import UltraNest, PyCall
+
+
+# Disable UltraNest progress output
+# ToDo: Find a cleaner way to do this.
+PyCall.py"""
+import os
+import sys
+sys.stdout = open(os.devnull, 'w')
+"""
 
 
 @testset "test_ultranest" begin
