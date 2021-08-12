@@ -6,7 +6,7 @@
 
 
 """
-    struct ReactiveNestedSampling <: AbstractUltraNestAlgorithm
+    struct ReactiveNestedSampling <: AbstractUltraNestAlgorithmReactiv
 
 *Experimental feature, not part of stable public API.*
 
@@ -31,7 +31,7 @@ $(TYPEDFIELDS)
     [UltraNest](https://github.com/bat/UltraNest.jl) package is loaded (e.g. via
     `import UltraNest`).
 """
-@with_kw struct ReactiveNestedSampling{TR<:AbstractDensityTransformTarget} <: AbstractSamplingAlgorithm
+@with_kw struct ReactiveNestedSampling{TR<:AbstractDensityTransformTarget,VC<:Union{Function,Nothing},Ex} <: AbstractSamplingAlgorithm
     trafo::TR = PriorToUniform()
 
     # "Indicating whether this parameter wraps around (circular parameter)"
@@ -61,8 +61,8 @@ $(TYPEDFIELDS)
     "Show integration progress as a status line."
     show_status::Bool = true
     
-    # "Callback function when region was rebuilt. Allows to show current state of the live points."
-    # viz_callback::Function = nop_func
+    "Callback function when region was rebuilt. Allows to show current state of the live points."
+    viz_callback::VC = nothing
 
     "Target evidence uncertainty. This is the std between bootstrapped logz integrators."
     dlogz::Float64 = 0.5
@@ -72,7 +72,7 @@ $(TYPEDFIELDS)
     
     "Integrate until this fraction of the integral is left in the remainder. Set to a low number (1e-2 … 1e-5) to make sure peaks are discovered. Set to a higher number (0.5) if you know the posterior is simple."
     frac_remain::Float64 = 0.01
-    
+
     "Terminate when live point likelihoods are all the same, within Lepsilon tolerance. Increase this when your likelihood function is inaccurate, to avoid unnecessary search."
     Lepsilon::Float64 = 0.001
     
@@ -99,6 +99,9 @@ $(TYPEDFIELDS)
     
     "Number of iterations after which the insertion order test is reset."
     insertion_test_zscore_threshold::Float64 = 2.0
+
+    "Executor for posterior evaluation."
+    executor::Ex = default_executor()
 end
 export ReactiveNestedSampling
 
@@ -118,8 +121,13 @@ function bat_sample_impl(
         throw(ArgumentError("ReactiveNestedSampling only supports (transformed) densities defined on the unit hypercube"))
     end
 
+    LogDType = Float64
+
     function vec_ultranest_logpstr(V_rowwise::AbstractMatrix{<:Real})
-        map(logdensityof(density), nestedview(copy(V_rowwise')))
+        V = copy(V_rowwise')
+        logd = similar(V, LogDType, size(V,2))
+        V_nested = nestedview(V)
+        exec_map!(logdensityof(density), algorithm.executor, logd, V_nested)
     end
 
     ndims = totalndof(vs)
@@ -137,7 +145,7 @@ function bat_sample_impl(
     unest_result = smplr.run(
         log_interval = algorithm.log_interval < 0 ? nothing : algorithm.log_interval,
         show_status = algorithm.show_status,
-        #viz_callback = algorithm.# viz_callback,
+        viz_callback = algorithm.viz_callback,
         dlogz = algorithm.dlogz,
         dKL = algorithm.dKL,
         frac_remain = algorithm.frac_remain,
