@@ -288,3 +288,8 @@ function bat_integrate_impl(target::AnyDensityLike, algorithm::CubaIntegration)
 
     (result = Measurements.measurement(ival, ierr), cuba_result = r_cuba, renorm_corr = renorm_corr)
 end
+
+
+function bat_integrate_impl(target::SampledDensity, algorithm::CubaIntegration)
+    bat_integrate_impl(target.density, algorithm)
+end

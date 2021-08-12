@@ -1,8 +1,37 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-function bridge_sampling_integral end
-export bridge_sampling_integral
+"""
+    struct BridgeSampling <: IntegrationAlgorithm
+
+*Experimental feature, not part of stable public API.*
+
+BridgeSampling integration algorithm.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
+"""
+@with_kw struct BridgeSampling{TR<:AbstractDensityTransformTarget,ESS<:EffSampleSizeAlgorithm} <: IntegrationAlgorithm
+    trafo::TR = PriorToGaussian()    
+    essalg::ESS = EffSampleSizeFromAC()
+    # ToDo: add argument for proposal density generator
+end
+export BridgeSampling
+
+
+function bat_integrate_impl(target::SampledDensity, algorithm::BridgeSampling)
+    transformed_target, trafo = bat_transform(algorithm.trafo, target)
+    density = unshaped(transformed_target.density)
+    samples = unshaped.(transformed_target.samples)
+
+    integral = bridge_sampling_integral(density, samples, algorithm.essalg)
+    (result = integral,)
+end
 
 
 function bridge_sampling_integral(
@@ -86,12 +115,12 @@ function bridge_sampling_integral(
     
     #Determine proposal function
     post_mean = vec(mean(first_batch))
-    post_cov = Matrix(cov(unshaped.(first_batch))) #TODO: other covariance approximations
-    
+    post_cov = Array(cov(first_batch)) #TODO: other covariance approximations
+    post_cov_pd = PDMat(cholesky(Positive, post_cov))
 
-    proposal_density =  MvNormal(post_mean,post_cov)
+    proposal_density = MvNormal(post_mean,post_cov_pd)
     proposal_samples = bat_sample(proposal_density,IIDSampling(nsamples=Int(sum(second_batch.weight)))).result
-    proposal_density = unshaped(convert(DistLikeDensity, proposal_density))
+    proposal_density = convert(DistLikeDensity, proposal_density)
 
     bridge_sampling_integral(target_density,second_batch,proposal_density,proposal_samples,ess_alg)
 end

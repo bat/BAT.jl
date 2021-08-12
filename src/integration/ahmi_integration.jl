@@ -82,3 +82,7 @@ function bat_integrate_impl(target::AnySampleable, algorithm::AHMIntegration)
     samples = bat_sample(target).result::DensitySampleVector
     bat_integrate(samples, algorithm)
 end
+
+function bat_integrate_impl(target::SampledDensity, algorithm::AHMIntegration)
+    bat_integrate_impl(target.samples, algorithm)
+end

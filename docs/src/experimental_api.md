@@ -21,6 +21,7 @@ BAT.GaussianShell
 BAT.LogFuncDensityWithGrad
 BAT.LogUniform
 BAT.MultimodalStudentT
+BridgeSampling
 CuhreIntegration
 DifferentiationAlgorithm
 DivonneIntegration
