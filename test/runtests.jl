@@ -3,7 +3,11 @@
 using Test
 
 import Logging
-Logging.disable_logging(Logging.Warn) 
+import TerminalLoggers
+Logging.global_logger(TerminalLoggers.TerminalLogger(stderr, Logging.Error))
+
+import AbstractMCMC
+AbstractMCMC.setprogress!(false)
 
 Test.@testset "Package BAT" begin
     include("utils/test_utils.jl")
