@@ -24,7 +24,7 @@ Base.parent(density::DistributionDensity) = density.dist
 Base.:(==)(a::DistributionDensity, b::DistributionDensity) = a.dist == b.dist && a.bounds == b.bounds
 
 
-function eval_logval_unchecked(density::DistributionDensity{<:Distribution{Univariate,Continuous}}, v::Real)
+function DensityInterface.logdensityof(density::DistributionDensity{<:Distribution{Univariate,Continuous}}, v::Real)
     d = density.dist
     logd = logpdf(d, v)
     R = typeof(logd)
@@ -49,7 +49,7 @@ function eval_logval_unchecked(density::DistributionDensity{<:Distribution{Univa
     end
 end
 
-eval_logval_unchecked(density::DistributionDensity, v::Any) = Distributions.logpdf(density.dist, v)
+DensityInterface.logdensityof(density::DistributionDensity, v::Any) = Distributions.logpdf(density.dist, v)
 
 
 ValueShapes.varshape(density::DistributionDensity) = varshape(density.dist)
@@ -78,10 +78,13 @@ dist_param_bounds(d::Distribution{Univariate,Continuous}) =
 dist_param_bounds(d::Distribution{Multivariate,Continuous}) =
     HyperRectBounds(fill(_default_PT(-Inf), length(d)), fill(_default_PT(+Inf), length(d)))
 
-dist_param_bounds(d::ReshapedDist) = dist_param_bounds(unshaped(d))
-
-dist_param_bounds(d::StandardMvUniform) =
+dist_param_bounds(d::StandardUniformDist) =
     HyperRectBounds(fill(_default_PT(Float32(0)), length(d)), fill(_default_PT(Float32(1)), length(d)))
+
+dist_param_bounds(d::StandardNormalDist) =
+    HyperRectBounds(fill(_default_PT(Float32(-Inf)), length(d)), fill(_default_PT(Float32(+Inf)), length(d)))
+
+dist_param_bounds(d::ReshapedDist) = dist_param_bounds(unshaped(d))
 
 dist_param_bounds(d::Product{Continuous}) =
     HyperRectBounds(minimum.(d.v), maximum.(d.v))
@@ -93,15 +96,3 @@ dist_param_bounds(d::ValueShapes.UnshapedNTD) = dist_param_bounds(d.shaped)
 
 dist_param_bounds(d::HierarchicalDistribution) =
     HyperRectBounds(fill(_default_PT(-Inf), length(d)), fill(_default_PT(+Inf), length(d)))
-
-
-
-const StandardUniformDensity = Union{
-    DistributionDensity{<:StandardUvUniform},
-    DistributionDensity{<:StandardMvUniform}
-}
-
-const StandardNormalDensity= Union{
-    DistributionDensity{<:StandardUvNormal},
-    DistributionDensity{<:StandardMvNormal}
-}

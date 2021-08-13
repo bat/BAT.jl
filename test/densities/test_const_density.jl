@@ -17,7 +17,7 @@ using ArraysOfArrays, ValueShapes, Distributions
         @test density.value == LogDVal(zero(Int))
 
         density = @inferred gen_density_n()
-        @test logvalof(density.value) ≈ -0.4054651081081644
+        @test density.value.logval ≈ -0.4054651081081644
 
         pbounds = @inferred BAT.var_bounds(density)
         @test pbounds.vol.lo ≈ [-1., 0.5]
@@ -29,9 +29,9 @@ using ArraysOfArrays, ValueShapes, Distributions
         @test typeof(cdensity) <: BAT.ConstDensity
     end
 
-    @testset "BAT.eval_logval_unchecked" begin
+    @testset "DensityInterface.logdensityof" begin
         density = gen_density_n()
-        @test BAT.eval_logval_unchecked(density, [1.,2.]) ≈ -0.4054651081081644
+        @test DensityInterface.logdensityof(density, [1.,2.]) ≈ -0.4054651081081644
     end
 
     @testset "sampler" begin

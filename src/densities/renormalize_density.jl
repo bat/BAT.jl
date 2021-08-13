@@ -42,16 +42,18 @@ function Base.show(io::IO, d::RenormalizedDensity)
 end
 
 
-function eval_logval(density::RenormalizedDensity, v::Any, T::Type{<:Real})
-    parent_logd = eval_logval(parent(density),v,T)
+function DensityInterface.logdensityof(density::RenormalizedDensity, v::Any)
+    parent_logd = logdensityof(parent(density),v)
     R = float(typeof(parent_logd))
     convert(R, parent_logd + density.logrenormf)
 end
 
-
-function eval_logval_unchecked(density::RenormalizedDensity, v::Any)
-    eval_logval_unchecked(parent(density), v) + density.logrenormf
+function checked_logdensityof(density::RenormalizedDensity, v::Any)
+    parent_logd = checked_logdensityof(parent(density),v)
+    R = float(typeof(parent_logd))
+    convert(R, parent_logd + density.logrenormf)
 end
+
 
 
 Distributions.sampler(density::RenormalizedDensity) = Distributions.sampler(parent(density))
@@ -74,6 +76,8 @@ logdensityof(renormalize_density(density, logrenormf))(v) ==
 """
 function renormalize_density end
 export renormalize_density
+
+renormalize_density(density::Any, logrenormf::Real) = renormalize_density(convert(AbstractDensity, density), logrenormf)
 
 renormalize_density(density::AbstractDensity, logrenormf::Real) = RenormalizedDensity(density, logrenormf)
 

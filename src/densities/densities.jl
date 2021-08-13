@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-include("logdval.jl")
 include("abstract_density.jl")
+include("logdval.jl")
 include("shaped_densities.jl")
 include("generic_density.jl")
 include("const_density.jl")

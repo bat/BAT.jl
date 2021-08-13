@@ -1,4 +1,5 @@
 using BAT
+using DensityInterface
 using ValueShapes
 using Distributions
 using Plots
@@ -64,15 +65,15 @@ end
 
 
 function make_likelihood_bkg(summary_dataset_table, sample_table)
-    p -> begin
+    logfuncdensity(function(p)
         ll_a = sum(log_pdf_poisson.(p.B .* summary_dataset_table.exposure, summary_dataset_table.event_counts))
         ll_b = sum(-log(p.λ) .- sample_table.E ./ p.λ)
-        return LogDVal(ll_a + ll_b)
-    end
+        return ll_a + ll_b
+    end)
 end
 
 function make_likelihood_bkg_signal(summary_dataset_table, sample_table)
-    p -> begin
+    logfuncdensity(function(p)
         ν_B = summary_dataset_table.exposure .* p.B
         ν_S = summary_dataset_table.exposure .* summary_dataset_table.efficiency .* p.S
         help_B = ν_B[sample_table.dataset]
@@ -81,8 +82,8 @@ function make_likelihood_bkg_signal(summary_dataset_table, sample_table)
         ll_a = sum(log_pdf_poisson.(ν_B .+ ν_S, summary_dataset_table.event_counts))
         ll_b = sum(log_bkg_signal_pdf.(help_B, help_S, p.λ, p.S_μ, p.S_σ, sample_table.E))
 
-        return LogDVal(ll_a + ll_b)
-    end
+        ll_a + ll_b
+    end)
 end
 
 

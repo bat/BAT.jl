@@ -20,7 +20,7 @@ function bat_findmode_impl(target::AnySampleable, algorithm::ModeAsDefined)
 end
 
 function bat_findmode_impl(target::Distribution, algorithm::ModeAsDefined)
-    (result = varshape(target)(StatsBase.mode(unshaped(target))),)
+    (result = strip_realscalar(varshape(target)(StatsBase.mode(unshaped(target)))),)
 end
 
 function bat_findmode_impl(target::DistributionDensity, algorithm::ModeAsDefined)

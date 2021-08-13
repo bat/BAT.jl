@@ -5,14 +5,7 @@
     logvalof(r::NamedTuple{(...,:log,...)})::Real
     logvalof(r::LogDVal)::Real
 
-Extract the log-density value from a result `r`.
-
-Examples:
-
-```julia
-logvalof((..., log = log_value, ...)) == log_value
-logvalof(LogDVal(log_value)) == log_value
-```
+**logvalof is deprecated and may be removed in future BAT versions.**
 """
 function logvalof end
 export logvalof
@@ -43,23 +36,14 @@ Base.@noinline function _logvalof_deprecated(x::NamedTuple, ::Val{name}) where n
 end
 
 
+Base.@deprecate logvalof(density::AbstractDensity) DensityInterface.logdensityof(density)
+
+
+
 """
-    LogDVal{T<:Real}
+    struct LogDVal{T<:Real}
 
-Represent the logarithm of the value of a statistical density at some point.
-`LogDVal` provides means to unambiguously distinguish between linear and
-logarithmic values of a density.
-
-Constructor:
-
-    LogDVal(logd::Real)
-
-Use [`logvalof`](@ref) to extract the actual log-density value from
-a `LogDVal`:
-
-```julia
-    logvalof(LogDVal(d)) == d
-```
+**LogDVal is deprecated and may be removed in future BAT versions.**
 """
 struct LogDVal{T<:Real}
     logval::T

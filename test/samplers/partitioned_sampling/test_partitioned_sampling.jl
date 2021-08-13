@@ -2,7 +2,7 @@
 
 using BAT
 using Test
-using Distributions, LinearAlgebra, ValueShapes
+using Distributions, LinearAlgebra, DensityInterface, ValueShapes
 
 
 @testset "BAT_partitioned_sampling" begin
@@ -10,9 +10,9 @@ using Distributions, LinearAlgebra, ValueShapes
     μ = [1 1 1; -1 1 0; -1 -1 -1; 1 -1 0]
     mixture_model = MixtureModel(MvNormal[MvNormal(μ[i,:], Matrix(Hermitian(σ)) ) for i in 1:4])
     prior = NamedTupleDist(a = [Normal(0,2), Normal(0,2), Normal(0, 2)])
-    likelihood = let model = mixture_model
-        params -> LogDVal(logpdf(model, params.a))
-    end
+    likelihood = logfuncdensity(let model = mixture_model
+        params -> logpdf(model, params.a)
+    end)
 
     posterior = PosteriorDensity(likelihood, prior)
     transformed_posterior, trafo = bat_transform(PriorToUniform(), posterior)

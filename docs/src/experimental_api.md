@@ -18,7 +18,6 @@ BAT.error_log
 BAT.ExternalDensity
 BAT.FunnelDistribution
 BAT.GaussianShell
-BAT.LogFuncDensityWithGrad
 BAT.LogUniform
 BAT.MultimodalStudentT
 BridgeSampling
@@ -29,7 +28,6 @@ EllipsoidalNestedSampling
 ForwardDiffAD
 GridSampler
 HierarchicalDistribution
-logdensityof
 PartitionedSampling
 PriorImportanceSampler
 ReactiveNestedSampling

@@ -14,7 +14,9 @@ struct ForwardDiffAD <: DifferentiationAlgorithm end
 export ForwardDiffAD
 
 
-function unshaped_gradient!(grad_f_x::AbstractVector{<:Real}, ::Type{R}, f::Function, x::AbstractVector{<:Real}, diffalg::ForwardDiffAD) where {R<:Real}
+function unshaped_gradient!(grad_f_x::AbstractVector{<:Real}, f::Function, x::AbstractVector{<:Real}, diffalg::ForwardDiffAD)
+    R = promote_type(eltype(x), Float64) # ToDo: Don't use fixed type Float64
+
     result = DiffResults.MutableDiffResult(zero(R), (grad_f_x,))
 
     # chunk = ForwardDiff.Chunk(x)

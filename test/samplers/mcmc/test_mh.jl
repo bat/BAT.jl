@@ -3,7 +3,7 @@ using BAT
 using Test
 
 using LinearAlgebra
-using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
+using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityInterface
 
 @testset "MetropolisHastings" begin
     rng = bat_rng()
@@ -118,7 +118,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
 
     @testset "MCMC sampling in transformed space" begin
         prior = BAT.example_posterior().prior
-        likelihood = (logdensity = v -> 0,)
+        likelihood = logfuncdensity(v -> 0)
         inner_posterior = PosteriorDensity(likelihood, prior)
         # Test with nested posteriors:
         posterior = PosteriorDensity(likelihood, inner_posterior)

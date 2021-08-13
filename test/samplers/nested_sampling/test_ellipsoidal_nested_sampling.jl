@@ -3,7 +3,7 @@
 using BAT
 using Test
 
-using Random, StatsBase, Distributions
+using Random, StatsBase, Distributions, DensityInterface
 using HypothesisTests
 
 import NestedSamplers
@@ -20,19 +20,19 @@ import NestedSamplers
         MixtureModel(Normal, [(-40.0,5.0),(10.0,1.0)],[0.5,0.5])
     ]
 
-    likelihood = params -> begin
+    likelihood = logfuncdensity(params -> begin
         r1 = logpdf(dist[1],params.a[1])
         r2 = logpdf(dist[2],params.a[2])
         r3 = logpdf(dist[3],params.a[3])
-        return LogDVal(r1+r2+r3)
-    end
+        return r1+r2+r3
+    end)
 
     posterior = PosteriorDensity(likelihood, prior)
     algorithm = EllipsoidalNestedSampling()
     r = bat_sample(posterior, algorithm);
     smpls = r.result
 
-    @test logvalof(posterior).(smpls.v) ≈ smpls.logd
+    @test logdensityof(posterior).(smpls.v) ≈ smpls.logd
 
     iid = BAT.NamedTupleDist(a=dist)
     iidsamples, chains = bat_sample(iid, IIDSampling());

@@ -5,7 +5,7 @@ using Distributions
 using IntervalSets
 
 # ## Generate samples to be plotted
-likelihood = params -> begin
+likelihood = logfuncdensity(params -> begin
 
     r1 = logpdf.(
     MixtureModel(Normal[
@@ -20,8 +20,8 @@ likelihood = params -> begin
 
     r3 = logpdf.(Normal(2.0, 1.5), params.b[2])
 
-    return LogDVal(r1+r2+r3)
-end
+    return r1+r2+r3
+end)
 
 prior = BAT.NamedTupleDist(
     a = Normal(-3, 4.5),

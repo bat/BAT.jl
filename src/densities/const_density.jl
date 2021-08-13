@@ -22,7 +22,7 @@ Base.convert(::Type{AbstractDensity}, value::LogDVal) = convert(ConstDensity, va
 Base.:(==)(a::ConstDensity, b::ConstDensity) = a.value == b.value && a.bounds == b.bounds
 
 
-@inline eval_logval_unchecked(density::ConstDensity, v::Any) = logvalof(density.value)
+@inline DensityInterface.logdensityof(density::ConstDensity, v::Any) = density.value.logval
 
 
 var_bounds(density::ConstDensity) = density.bounds

@@ -8,8 +8,7 @@ using Documenter
 using Literate
 using BAT
 
-using ValueShapes
-import Cuba, UltraNest
+using DensityInterface, ValueShapes
 import Cuba, UltraNest, NestedSamplers
 
 # Import HDF5 only on 64-bit, automated installation of HDF5 doesn't seem to work

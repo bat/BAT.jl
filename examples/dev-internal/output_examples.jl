@@ -7,13 +7,13 @@ using LinearAlgebra
 using PrettyTables
 
 
-likelihood = params -> begin
+likelihood = logfuncdensity(params -> begin
     r1 = logpdf.(Normal(-10.0, 1.2), params.a)
     r2 = logpdf.(Normal(-5.0, 0.8), params.c[1])
     r3 = logpdf.(Normal(12.0, 1.4), params.c[2])
 
-    return LogDVal(r1+r2+r3)
-end
+    return r1+r2+r3
+end)
 
 prior = BAT.NamedTupleDist(
     a = Normal(-3, 4.5),

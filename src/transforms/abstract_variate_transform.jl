@@ -33,6 +33,16 @@ abstract type AbstractVariateTransform <: Function end
 export AbstractVariateTransform
 
 
+ValueShapes.unshaped(trafo::AbstractVariateTransform) =
+    _generic_unshaped_impl(trafo, varshape(trafo), valshape(trafo))
+
+_generic_unshaped_impl(trafo::AbstractVariateTransform, ::ArrayShape{<:Real,1}, ::ArrayShape{<:Real,1}) =
+    trafo
+
+# ToDo: Add `UnshapedVariateTransform` that shapes at input and unshaped at
+# output, to return from
+# `_generic_unshaped_impl(trafo::AbstractVariateTransform, ::AbstractValueShape, ::AbstractValueShape)`.
+
 
 """
     ladjof(r::NamedTuple{(...,:ladj,...)})::Union{Real,Missing}
@@ -77,7 +87,7 @@ ladjof(trafo::AbstractVariateTransform) = LADJOfVarTrafo(trafo)
 
 function _transform_density_sample(trafo::AbstractVariateTransform, s::DensitySample)
     r = trafo(s.v, zero(Float32))
-    v = stripscalar(r.v)  # ToDo: Do we want to use stripscalar here?
+    v = r.v
     logd = s.logd - r.ladj
     DensitySample(v, logd, s.weight, s.info, s.aux)
 end
@@ -100,14 +110,14 @@ function Base.copy(
     vs_trg = valshape(trafo)
     R = eltype(unshaped(trafo(first(v_src)), vs_trg))
     v_src_us = unshaped.(v_src)
+    trafo_us = unshaped(trafo)
 
     n = length(eachindex(v_src_us))
     v_trg_unshaped = nestedview(similar(flatview(v_src_us), R, totalndof(vs_trg), n))
     @assert axes(v_trg_unshaped) == axes(v_src)
     @assert v_trg_unshaped isa ArrayOfSimilarArrays
     @threads for i in eachindex(v_trg_unshaped, v_src)
-        r = trafo(v_src[i])
-        v_trg_unshaped[i] .= unshaped(r)
+        v_trg_unshaped[i] = trafo_us(v_src_us[i])
     end
     vs_trg.(v_trg_unshaped)
 end
@@ -125,6 +135,7 @@ function Base.copy(
     vs_trg = valshape(trafo)
     R = eltype(unshaped(trafo(first(s_src.v)), vs_trg))
     s_src_us = unshaped.(s_src)
+    trafo_us = unshaped(trafo)
 
     n = length(eachindex(s_src_us))
     s_trg_unshaped = DensitySampleVector((
@@ -137,8 +148,8 @@ function Base.copy(
     @assert axes(s_trg_unshaped) == axes(s_src)
     @assert s_trg_unshaped.v isa ArrayOfSimilarArrays
     @threads for i in eachindex(s_trg_unshaped, s_src)
-        r = trafo(s_src.v[i], zero(Float32))
-        s_trg_unshaped.v[i] .= unshaped(r.v)
+        r = trafo_us(s_src_us.v[i], zero(Float32))
+        s_trg_unshaped.v[i] .= r.v
         s_trg_unshaped.logd[i] = s_src_us.logd[i] - r.ladj
     end
     vs_trg.(s_trg_unshaped)
@@ -239,6 +250,8 @@ Base.inv(trafo::IdentityVT) = trafo
 
 ValueShapes.varshape(trafo::IdentityVT) = trafo.varshape
 ValueShapes.valshape(trafo::IdentityVT) = trafo.varshape
+
+ValueShapes.unshaped(trafo::IdentityVT{<:ArrayShape{<:Any,1}}) = trafo
 
 import Base.∘
 @inline ∘(a::AbstractVariateTransform, b::IdentityVT) = a

@@ -2,21 +2,25 @@
 
 
 vjp_algorithm(d::AbstractDensity) = ForwardDiffAD()
+vjp_algorithm(d::WrappedNonBATDensity) = jvp_algorithm(parent(d))
 vjp_algorithm(d::AbstractPosteriorDensity) = vjp_algorithm(getlikelihood(d))
 vjp_algorithm(d::DensityWithShape) = vjp_algorithm(parent(d))
 vjp_algorithm(d::TransformedDensity) = vjp_algorithm(parent(d))
 vjp_algorithm(d::RenormalizedDensity) = vjp_algorithm(parent(d))
 
-vjp_algorithm(f::Union{LogDensityOf,NegLogDensityOf}) = vjp_algorithm(f.density)
+vjp_algorithm(f::Base.Fix1{F,<:AbstractDensity}) where F = vjp_algorithm(f.x)
+vjp_algorithm(f::Negative) = vjp_algorithm(negative(f))
 
 
 jvp_algorithm(d::AbstractDensity) = ForwardDiffAD()
+jvp_algorithm(d::WrappedNonBATDensity) = jvp_algorithm(parent(d))
 jvp_algorithm(d::AbstractPosteriorDensity) = jvp_algorithm(getprior(d))
 jvp_algorithm(d::DensityWithShape) = jvp_algorithm(parent(d))
 jvp_algorithm(d::TransformedDensity) = jvp_algorithm(parent(d))
 jvp_algorithm(d::RenormalizedDensity) = jvp_algorithm(parent(d))
 
-jvp_algorithm(f::Union{LogDensityOf,NegLogDensityOf}) = jvp_algorithm(f.density)
+jvp_algorithm(f::Base.Fix1{F,<:AbstractDensity}) where F = jvp_algorithm(f.x)
+jvp_algorithm(f::Negative) = jvp_algorithm(f.density)
 
 
 struct DensityWithDiff{JVP<:DifferentiationAlgorithm,D<:AbstractDensity,VJP<:DifferentiationAlgorithm} <: AbstractDensity
@@ -58,13 +62,12 @@ ValueShapes.varshape(density::DensityWithDiff) = varshape(density.density)
 
 ValueShapes.unshaped(density::DensityWithDiff) = DensityWithDiff(density.vjpalg, unshaped(density.density), density.jvpalg)
 
-@inline function eval_logval_unchecked(density::DensityWithDiff, v::Any)
-    eval_logval_unchecked(density.density, v)
-end
 
-@inline function eval_logval(density::DensityWithDiff, v::Any, T::Type{<:Real})
-    eval_logval(density.density, v, T)
-end
+@inline DensityInterface.logdensityof(density::DensityWithDiff, v::Any) = logdensityof(density.density, v)
+@inline DensityInterface.logdensityof(density::DensityWithDiff) = logdensityof(density.density)
+
+@inline checked_logdensityof(density::DensityWithDiff, v::Any) = checked_logdensityof(density.density, v)
+
 
 @inline get_initsrc_from_target(target::DensityWithDiff) = get_initsrc_from_target(target.density)
 

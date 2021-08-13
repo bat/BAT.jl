@@ -121,7 +121,7 @@ plot!(
 # In addition to the Julia packages loaded above, we need BAT itself, as
 # well as [IntervalSets](https://github.com/JuliaMath/IntervalSets.jl):
 
-using BAT, IntervalSets
+using BAT, DensityInterface, IntervalSets
 
 
 # ### Likelihood Definition
@@ -131,7 +131,7 @@ using BAT, IntervalSets
 # BAT represents densities like likelihoods and priors as subtypes of
 # `BAT.AbstractDensity`. Custom likelihood can be defined by
 # creating a new subtype of `AbstractDensity` and by implementing (at minimum)
-# `BAT.eval_logval_unchecked` for that type - in complex uses cases, this may
+# `DensityInterface.logdensityof` for that type - in complex uses cases, this may
 # become necessary. Typically, however, it is sufficient to define a custom
 # likelihood as a simple function that returns the log-likelihood value for
 # a given set of parameters. BAT will automatically convert such a
@@ -143,8 +143,8 @@ using BAT, IntervalSets
 # inside of a [let-statement](https://docs.julialang.org/en/v1/base/base/#let)
 # to capture the value of the global variable `hist` in a local variable `h`
 # (and to shorten function name `fit_function` to `f`, purely for
-# convenience). The likelihood function wraps it's result in a [`LogDVal`](@ref)
-# to indicate that it returns a log-likelihood value:
+# convenience). `DensityInterface.logfuncdensity` turns a log-likelihood
+# function into a density object.
 
 likelihood = let h = hist, f = fit_function
     ## Histogram counts for each bin as an array:
@@ -157,7 +157,7 @@ likelihood = let h = hist, f = fit_function
     bin_widths = bin_edges_right - bin_edges_left
     bin_centers = (bin_edges_right + bin_edges_left) / 2
 
-    params -> begin
+    logfuncdensity(function (params)
         ## Log-likelihood for a single bin:
         function bin_log_likelihood(i)
             ## Simple mid-point rule integration of fit function `f` over bin:
@@ -172,9 +172,8 @@ likelihood = let h = hist, f = fit_function
             ll_value += bin_log_likelihood(i)
         end
 
-        ## Wrap `ll_value` in `LogDVal` so BAT knows it's a log density-value.
-        return LogDVal(ll_value)
-    end
+        return ll_value
+    end)
 end
 
 # BAT makes use of Julia's parallel programming facilities if possible, e.g.
@@ -190,9 +189,9 @@ end
 # [`JULIA_NUM_THREADS`](https://docs.julialang.org/en/v1/manual/environment-variables/#JULIA_NUM_THREADS-1)
 # to specify the desired number of Julia threads.
 
-# We can evaluate `likelihood`, e.g. for the true parameter values:
+# We can evaluate `likelihood`, e.g. at the true parameter values:
 
-likelihood(true_par_values)
+logdensityof(likelihood, true_par_values)
 
 
 # ### Prior Definition

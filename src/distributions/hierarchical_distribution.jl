@@ -88,7 +88,7 @@ function HierarchicalDistribution(f::Function, primary_dist::ContinuousDistribut
     vs_primary = varshape(primary_dist)
     vf_primary = _variate_form(primary_dist)
     x_primary_us = rand(bat_determ_rng(), unshaped(primary_dist))
-    x_primary = stripscalar(vs_primary(x_primary_us))
+    x_primary = strip_shapedasnt(vs_primary(x_primary_us))
 
     secondary_dist = f(x_primary)
     vs_secondary = varshape(secondary_dist)
@@ -154,7 +154,7 @@ Base.eltype(ud::UnshapedHDist{VF,T}) where {VF,T} = T
 _hd_pridist(d::HierarchicalDistribution) = d.pdist
 
 function _hd_secdist(d::HierarchicalDistribution, x::Any)
-    secondary_dist = d.f(stripscalar(x))
+    secondary_dist = d.f(strip_shapedasnt(x))
     @assert eff_totalndof(d.pdist) + eff_totalndof(secondary_dist) == d.effndof
     secondary_dist
 end
@@ -218,8 +218,7 @@ Distributions.pdf(ud::UnshapedHDist, x::AbstractVector{<:Real}) = exp(logpdf(ud,
 
 Random.rand(rng::AbstractRNG, d::HierarchicalDistribution, dims::Tuple{}) = varshape(d)(rand(rng, unshaped(d)))
 
-# ToDo/Decision: Use stripscalar on result or not?
-Random.rand(rng::AbstractRNG, d::HierarchicalDistribution) = stripscalar(rand(rng, d, ()))
+Random.rand(rng::AbstractRNG, d::HierarchicalDistribution) = strip_shapedasnt(rand(rng, d, ()))
 
 function Random.rand(rng::AbstractRNG, d::HierarchicalDistribution, dims::Dims)
     ud = unshaped(d)

@@ -70,7 +70,7 @@ using Distributions, PDMats
         @test BAT.var_bounds(up) == pb
     end
 
-    @testset "BAT.eval_logval_unchecked" begin
-        @test BAT.eval_logval_unchecked(dp, params[1]) ≈ -8.8547305        
+    @testset "DensityInterface.logdensityof" begin
+        @test DensityInterface.logdensityof(dp, params[1]) ≈ -8.8547305        
     end
 end

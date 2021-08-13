@@ -78,7 +78,7 @@ end
 
 function _apply_shape(shape::AbstractValueShape, s::DensitySample)
     DensitySample(
-        stripscalar(shape(s.v)),
+        strip_shapedasnt(shape(s.v)),
         s.logd,
         s.weight,
         s.info,
