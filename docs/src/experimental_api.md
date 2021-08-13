@@ -20,7 +20,7 @@ BAT.FunnelDistribution
 BAT.GaussianShell
 BAT.LogFuncDensityWithGrad
 BAT.LogUniform
-BAT.MultimodalCauchy
+BAT.MultimodalStudentT
 CuhreIntegration
 DifferentiationAlgorithm
 DivonneIntegration
