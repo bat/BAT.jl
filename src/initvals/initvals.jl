@@ -46,6 +46,17 @@ function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::Any, n
     _reshape_vs(target, _rand_v(rng, src, n))
 end
 
+_get_first(x::ShapedAsNTArray) = view(x, firstindex(x))
+_get_first(x) = first(x)
+
+function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::DensitySampleVector)
+    _get_first(_rand_v_for_target(rng, target, src, 1))
+end
+
+function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::DensitySampleVector, n::Integer)
+    bat_sample(rng, src, RandResampling(nsamples = n)).result.v
+end
+
 
 
 """

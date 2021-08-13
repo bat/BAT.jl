@@ -1,6 +1,6 @@
 
 """
-    struct SampledDensity
+    struct SampledDensity <: AbstractDensity
 
 Stores a density and samples drawn from it.
 
@@ -29,7 +29,7 @@ Fields:
 This type is likely to evolve into a subtype of `AbstractDensity` in future
 versions.
 """
-struct SampledDensity{D<:AbstractDensity,S<:DensitySampleVector, G<:AbstractSampleGenerator}
+struct SampledDensity{D<:AbstractDensity,S<:DensitySampleVector, G<:AbstractSampleGenerator} <: AbstractDensity
     density::D
     samples::S
     _stats::MCMCBasicStats
@@ -38,16 +38,50 @@ end
 export SampledDensity
 
 
-function SampledDensity(
-    density::AbstractPosteriorDensity,
-    samples::DensitySampleVector
-    #;
-    # generator::AbstractSampleGenerator = UnknownSampleGenerator()
-)
+function SampledDensity(density::AbstractDensity, samples::DensitySampleVector)
     stats = MCMCBasicStats(samples)
     return SampledDensity(density, samples, stats, UnknownSampleGenerator())
 end
 
+function SampledDensity(density::SampledDensity, samples::DensitySampleVector)
+    return SampledDensity(density.density, samples)
+end
+
+function SampledDensity(target::AnyDensityLike, samples::DensitySampleVector)
+    return SampledDensity(convert(AbstractDensity, target), samples)
+end
+
+
+eval_logval(density::SampledDensity, v::Any, T::Type{<:Real}) = eval_logval(density.density, v, T)
+
+eval_logval_unchecked(density::SampledDensity, v::Any) = eval_logval_unchecked(density.density, v)
+
+ValueShapes.varshape(density::SampledDensity) = varshape(density.density)
+
+var_bounds(density::SampledDensity) = var_bounds(density.density)
+
+
+# ToDo: Distributions.sampler(density::SampledDensity)
+# ToDo: bat_sampler(density::SampledDensity)
+
+
+get_initsrc_from_target(target::SampledDensity) = target.samples
+
+
+_get_deep_prior_for_trafo(density::SampledDensity) = _get_deep_prior_for_trafo(density.density)
+
+function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::SampledDensity, algorithm::PriorSubstitution)
+    new_parent_density, trafo = bat_transform_impl(target, density.density, algorithm)
+    new_samples = trafo.(density.samples)
+    (result = SampledDensity(new_parent_density, new_samples), trafo = trafo)
+end
+
+# ToDo: truncate_density(density::SampledDensity, bounds::AbstractArray{<:Interval})
+
+vjp_algorithm(d::SampledDensity) = vjp_algorithm(parent(d.density))
+jvp_algorithm(d::SampledDensity) = jvp_algorithm(parent(d.density))
+
+_approx_cov(target::SampledDensity) = cov(target.samples)
 
 
 function getdensity(sd::SampledDensity)
@@ -64,10 +98,6 @@ end
 
 function nfixedparams(sd::SampledDensity)
     return length(get_fixed_names(varshape(sd)))
-end
-
-function ValueShapes.varshape(sd::SampledDensity)
-    return varshape(sd.samples)
 end
 
 function fixedparams(sd::SampledDensity)
@@ -214,6 +244,3 @@ function _print_generator(io::IO, generator::MCMCSampleGenerator)
     println(io, "number of chains converged:", repeat(' ', 3), n_converged_chains)
     println(io, "number of samples per chain:", repeat(' ', 2), nsamples(chains[1]), "\n")
 end
-
-
-get_initsrc_from_target(target::SampledDensity) = target.samples

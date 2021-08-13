@@ -9,12 +9,12 @@ Test.@testset "distributions" begin
     include("test_hierarchical_distribution.jl")
     include("test_log_uniform.jl")
 
-    Test.@testset "multimodal cauchy" begin
-        @test_throws ArgumentError BAT.MultimodalCauchy(n=1)
+    Test.@testset "multimodal student-t distribution" begin
+        @test_throws ArgumentError BAT.MultimodalStudentT(n=1)
         for i in 2:6
             μ = randn()
             σ = rand(0.01:0.1:2)
-            mmc = BAT.MultimodalCauchy(μ=μ,σ=σ, n=i)
+            mmc = BAT.MultimodalStudentT(μ=μ,σ=σ, ν=1, n=i)
             @test isequal(mean(mmc), fill(NaN, i))
             @test isequal(var(mmc), fill(NaN, i))
             @test isequal(diag(cov(mmc)), fill(NaN, i))

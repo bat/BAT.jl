@@ -96,6 +96,12 @@ BAT.jl integration algorithm type: [`DivonneIntegration`](@ref)
 integration_algorithm = DivonneIntegration()
 ```
 
+### Integration via Bridge Sampling (experimental)
+BAT.jl integration algorithm type: [`BridgeSampling`](@ref) 
+```julia
+integration_algorithm = BridgeSampling()
+```
+
 
 ## Mode finding algorithms:
 All following mode finding algorithms can be passed to [`bat_findmode`](@ref):

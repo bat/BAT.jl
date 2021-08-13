@@ -26,7 +26,7 @@ using LinearAlgebra: Diagonal, ones
         end
     end
     test_integration(AHMIntegration(), "funnel distribution", BAT.FunnelDistribution(), val_rtol = 15)
-    test_integration(AHMIntegration(), "multimodal cauchy", BAT.MultimodalCauchy(), val_rtol = 50)
+    test_integration(AHMIntegration(), "multimodal student-t distribution", BAT.MultimodalStudentT(), val_rtol = 50)
     test_integration(AHMIntegration(), "Gaussian shell", BAT.GaussianShell(), val_rtol = 15)
     test_integration(AHMIntegration(), "MvNormal", MvNormal(Diagonal(ones(5))), val_rtol = 15)
 
