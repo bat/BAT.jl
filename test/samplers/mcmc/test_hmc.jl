@@ -3,9 +3,11 @@ using BAT
 using Test
 
 using LinearAlgebra
+using HypothesisTests
 using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
 
 @testset "HamiltonianMC" begin
+
     rng = bat_rng()
     target = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
 
@@ -132,5 +134,61 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
         posterior = PosteriorDensity(likelihood, inner_posterior)
         smpls = bat_sample(posterior, MCMCSampling(mcalg = HamiltonianMC(), trafo = PriorToGaussian())).result
         @test BAT.likelihood_pvalue(unshaped(prior.dist), unshaped.(smpls)) > 10^-3
+    end
+
+    @testset "ahmc_sampler.jl" begin
+        function test_sampler(; 
+            num_dims::Integer = 2,
+            mcalg::HamiltonianMC=HamiltonianMC(), 
+            nsteps::Integer=10^4, 
+            trafo::BAT.AbstractDensityTransformTarget=PriorToGaussian(),
+            burnin::MCMCBurninAlgorithm=MCMCMultiCycleBurnin(),
+            strict::Bool=true,
+            test_name::String
+            )
+            @testset "$test_name" begin
+            
+                sampling_algorithm = MCMCSampling(mcalg=mcalg, nsteps=nsteps, trafo=trafo, burnin=burnin, strict=strict)
+                
+                μ = rand(num_dims)
+                σ = rand(num_dims) |> x -> abs.(x)
+        
+                normal_dists = Vector{Normal{eltype(σ)}}(undef, num_dims)
+                for i in eachindex(normal_dists)
+                    normal_dists[i] = Normal(μ[i], σ[i])
+                end
+        
+                mvnormal = product_distribution(normal_dists)
+        
+                samples = bat_sample(mvnormal, sampling_algorithm)
+                X = samples.result.v.data
+        
+                @testset "KS Test" begin
+                    for i in 1:num_dims
+                        @test pvalue(ExactOneSampleKSTest(unique(X[i, :]), normal_dists[i]), tail=:both) > 0.045
+                    end
+                end
+    
+                @testset "chains" begin
+                    chains = samples.generator.chains
+                    num_chains = @inferred(length(chains))
+
+                    @test num_chains == sampling_algorithm.nchains
+
+                    for chain in chains
+                        chain_info = chain.info
+
+                        @test @inferred(BAT.mcmc_info(chain)) == chain_info
+                        @test chain_info.converged == true
+                        @test chain_info.tuned == true
+                    end
+                end
+            end
+        end
+        @testset "Multivariate Gaussian" begin
+            tuning = BAT.StanHMCTuning(target_acceptance=0.90)
+            mcalg = HamiltonianMC(tuning=tuning)
+            test_sampler(num_dims=4, mcalg=mcalg, test_name="NUTS")
+        end
     end
 end
