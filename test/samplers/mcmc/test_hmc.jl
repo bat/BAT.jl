@@ -191,4 +191,31 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
             test_sampler(num_dims=4, mcalg=mcalg, test_name="NUTS")
         end
     end
+
+    @testset "ahmc sampleid" begin
+        mvnorm = @inferred(product_distribution([Normal(), Normal()]))
+        sampling_algo = @inferred(MCMCSampling(mcalg=HamiltonianMC(), nchains=2, trafo=NoDensityTransform(), nsteps=10^3))
+    
+        # Use @inferred when type stable
+        samples_1 = bat_sample(mvnorm, sampling_algo).result
+        samples_2 = bat_sample(mvnorm, sampling_algo).result
+    
+        id_vector_1 = samples_1.info
+        id_vector_2 = samples_2.info
+        id_vector_12 = @inferred(merge(id_vector_1, id_vector_2))
+    
+        num_sample_ids_1 = @inferred(length(id_vector_1))
+        num_sample_ids_2 = @inferred(length(id_vector_2))
+    
+        @test @inferred(length(id_vector_12)) == num_sample_ids_1 + num_sample_ids_2
+    
+        @test id_vector_12[1:num_sample_ids_1] == id_vector_1
+        @test id_vector_12[num_sample_ids_1+1:end] == id_vector_2
+    
+        empty_sample_idvec = @inferred(BAT.MCMCSampleIDVector())
+        @test @inferred(isempty(empty_sample_idvec))
+    
+        merge!(id_vector_1, id_vector_2)
+        @test id_vector_1 == id_vector_12
+    end
 end
