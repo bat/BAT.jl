@@ -136,7 +136,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
         @test BAT.likelihood_pvalue(unshaped(prior.dist), unshaped.(smpls)) > 10^-3
     end
 
-    @testset "ahmc_sampler.jl" begin
+    @testset "sampling" begin
         function test_sampler(; 
             num_dims::Integer = 2,
             mcalg::HamiltonianMC=HamiltonianMC(), 
@@ -185,10 +185,17 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
                 end
             end
         end
-        @testset "Multivariate Gaussian" begin
+        @testset "NUTS" begin
             tuning = BAT.StanHMCTuning(target_acceptance=0.90)
             mcalg = HamiltonianMC(tuning=tuning)
             test_sampler(num_dims=4, mcalg=mcalg, test_name="NUTS")
+        end
+        
+        @testset "ahmc integrators" begin
+            mcalg_jittered_lf = HamiltonianMC(integrator=BAT.JitteredLeapfrogIntegrator())
+            test_sampler(num_dims=4, mcalg=mcalg_jittered_lf, test_name="jittered leapfrog")
+            mcalg_tempered_lf = HamiltonianMC(integrator=BAT.TemperedLeapfrogIntegrator())
+            test_sampler(num_dims=4, mcalg=mcalg_tempered_lf, test_name="tempered leapfrog")
         end
     end
 
