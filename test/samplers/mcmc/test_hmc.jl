@@ -194,8 +194,17 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
         @testset "ahmc integrators" begin
             mcalg_jittered_lf = HamiltonianMC(integrator=BAT.JitteredLeapfrogIntegrator())
             test_sampler(num_dims=4, mcalg=mcalg_jittered_lf, test_name="jittered leapfrog")
+
             mcalg_tempered_lf = HamiltonianMC(integrator=BAT.TemperedLeapfrogIntegrator())
             test_sampler(num_dims=4, mcalg=mcalg_tempered_lf, test_name="tempered leapfrog")
+        end
+
+        @testset "ahmc metrics" begin
+            mcalg_unit_euc = HamiltonianMC(metric=BAT.UnitEuclideanMetric())
+            test_sampler(num_dims=4, mcalg=mcalg_unit_euc, test_name="unit euclidean")
+
+            mcalg_dense_euc = HamiltonianMC(metric=BAT.DenseEuclideanMetric())
+            test_sampler(num_dims=4, mcalg=mcalg_dense_euc, test_name="dense euclidean")
         end
     end
 
