@@ -86,6 +86,8 @@ function subname(name::String, indx::Integer)
 end
 
 
+get_fixed_names(vs::AbstractValueShape) = Vector{String}()
+
 function get_fixed_names(vs::NamedTupleShape)
     active_names = all_active_names(vs)
     all_names = allnames(vs)
