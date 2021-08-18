@@ -89,7 +89,7 @@ function getdensity(sd::SampledDensity)
 end
 
 function nfreeparams(sd::SampledDensity)
-    return varshape(sd)._flatdof
+    return totalndof(varshape(sd))
 end
 
 function freeparams(sd::SampledDensity)
@@ -118,7 +118,7 @@ function eff_sample_size(sd::SampledDensity)
 end
 
 function active_keys(sd::SampledDensity)
-    return Symbol.(all_active_names(sd.samples.v.__internal_elshape))
+    return Symbol.(all_active_names(elshape(sd.samples.v)))
 end
 
 function Statistics.mean(sd::SampledDensity)
