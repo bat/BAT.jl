@@ -161,12 +161,9 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
                 mvnormal = product_distribution(normal_dists)
         
                 samples = bat_sample(mvnormal, sampling_algorithm)
-                X = samples.result.v.data
         
-                @testset "KS Test" begin
-                    for i in 1:num_dims
-                        @test pvalue(ExactOneSampleKSTest(unique(X[i, :]), normal_dists[i]), tail=:both) > 0.045
-                    end
+                @testset "likelihood pvalue test" begin
+                    @test BAT.likelihood_pvalue(mvnormal, samples.result) >= 0.05
                 end
     
                 @testset "chains" begin
