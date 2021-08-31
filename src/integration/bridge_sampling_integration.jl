@@ -19,6 +19,7 @@ $(TYPEDFIELDS)
 @with_kw struct BridgeSampling{TR<:AbstractDensityTransformTarget,ESS<:EffSampleSizeAlgorithm} <: IntegrationAlgorithm
     trafo::TR = PriorToGaussian()    
     essalg::ESS = EffSampleSizeFromAC()
+    strict::Bool = true
     # ToDo: add argument for proposal density generator
 end
 export BridgeSampling
@@ -28,8 +29,8 @@ function bat_integrate_impl(target::SampledDensity, algorithm::BridgeSampling)
     transformed_target, trafo = bat_transform(algorithm.trafo, target)
     density = unshaped(transformed_target.density)
     samples = unshaped.(transformed_target.samples)
-
-    integral = bridge_sampling_integral(density, samples, algorithm.essalg)
+    
+    integral = bridge_sampling_integral(density, samples,algorithm.strict, algorithm.essalg )
     (result = integral,)
 end
 
@@ -39,6 +40,7 @@ function bridge_sampling_integral(
     target_samples::DensitySampleVector, 
     proposal_density::AbstractDensity, 
     proposal_samples::DensitySampleVector, 
+    strict::Bool,
     ess_alg::EffSampleSizeAlgorithm = bat_default_withdebug(bat_eff_sample_size, Val(:algorithm), target_samples)
     )
 
@@ -56,6 +58,7 @@ function bridge_sampling_integral(
 
     #calculate marginal likelhood iteratively
     prev_int = 0
+    counter = 0
     current_int = 0.1
     while abs(current_int-prev_int)/current_int > 10^(-15)
         prev_int = current_int
@@ -72,15 +75,23 @@ function bridge_sampling_integral(
         denominator = denominator/N1
 
         current_int = numerator/denominator
+        if counter == 500
+            msg = "The iterative scheme is not converging!!"
+            if strict
+                throw(ErrorException(msg))
+            else
+                @warn(msg)
+            end
+        end
+        counter=counter+1
     end
-
 
     #################
     #Evaluate error #
     #################
     #pre calculate objects for error estimate
-    f1 = [exp(logdensityof(target_density,x))*current_int/(s1*exp(logdensityof(target_density,x))*current_int+s2*exp(proposal_samples.logd[i])) for (i,x) in enumerate(proposal_samples.v)]
-    f2 = [[exp(logdensityof(proposal_density,x))/(s1*exp(target_samples.logd[i])*current_int+s2*exp(logdensityof(proposal_density,x)))] for (i,x) in enumerate(target_samples.v)]
+    f1 = [exp(logdensityof(target_density,x))/current_int/(s1*exp(logdensityof(target_density,x))/current_int+s2*exp(proposal_samples.logd[i])) for (i,x) in enumerate(proposal_samples.v)]
+    f2 = [[exp(logdensityof(proposal_density,x))/(s1*exp(target_samples.logd[i])/current_int+s2*exp(logdensityof(proposal_density,x)))] for (i,x) in enumerate(target_samples.v)]
     f2_density_vector = DensitySampleVector(f2,target_samples.logd,weight=target_samples.weight)
 
     mean1, var1 = StatsBase.mean_and_var(f1, FrequencyWeights(proposal_samples.weight))
@@ -90,7 +101,6 @@ function bridge_sampling_integral(
     # calculate  Root mean squared error
     r_MSE = sqrt((var1/(mean1^2*N2)+(var2/mean2^2)/N1_eff)*current_int) 
 
-
     
     integral = Measurements.measurement(current_int, r_MSE)
 
@@ -98,9 +108,11 @@ function bridge_sampling_integral(
 end
 
 
+
 function bridge_sampling_integral(
     target_density::AbstractDensity,
-    target_samples::DensitySampleVector, 
+    target_samples::DensitySampleVector,
+    strict::Bool,
     ess_alg::EffSampleSizeAlgorithm = bat_default_withdebug(bat_eff_sample_size, Val(:algorithm), target_samples)
     )
 
@@ -122,5 +134,5 @@ function bridge_sampling_integral(
     proposal_samples = bat_sample(proposal_density,IIDSampling(nsamples=Int(sum(second_batch.weight)))).result
     proposal_density = convert(DistLikeDensity, proposal_density)
 
-    bridge_sampling_integral(target_density,second_batch,proposal_density,proposal_samples,ess_alg)
+    bridge_sampling_integral(target_density,second_batch,proposal_density,proposal_samples,strict,ess_alg)
 end
