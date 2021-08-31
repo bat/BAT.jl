@@ -128,31 +128,30 @@ single sample, with a weight equal to the number of repetitions.
 """
 const DensitySampleVector{
     P,T<:AbstractFloat,W<:Real,R,Q,
-    PV<:AbstractVector{P},TV<:AbstractVector{T},WV<:AbstractVector{W},RV<:AbstractVector{R},QV<:AbstractVector{Q}
+    PV<:AbstractVector{P},TV<:AbstractVector{T},WV<:AbstractVector{W},RV<:AbstractVector{R},QV<:AbstractVector{Q},
+    IDX # Can't be just Int yet, for compatibility with older versions of ArraysOfArrays and ValueShapes
 } = StructArray{
     DensitySample{P,T,W,R,Q},
     1,
-    NamedTuple{(:v, :logd, :weight, :info, :aux), Tuple{PV,TV,WV,RV,QV}}
+    NamedTuple{(:v, :logd, :weight, :info, :aux), Tuple{PV,TV,WV,RV,QV}},
+    IDX
 }
 
 export DensitySampleVector
 
 
-function StructArray{DensitySample}(
-    contents::Tuple{
-        AbstractVector{P},
-        AbstractVector{T},
-        AbstractVector{W},
-        AbstractVector{R},
-        AbstractVector{Q},
-    }
-) where {P,T<:AbstractFloat,W<:Real,R,Q}
-    v, logd, weight, info, aux = contents
-    StructArray{DensitySample{P,T,W,R,Q}}(contents)
+# Workaround for type instability in StructArray constructor (see StructArrays.jl issue #203):
+_structvector_indexstyle(contents::Tuple) = _structvector_indexstyle_impl(map(IndexStyle, map(typeof, contents)))
+_structvector_indexstyle_impl(::NTuple{N,IndexLinear}) where N = Int
+_structvector_indexstyle_impl(::NTuple{N,IndexStyle}) where N = CartesianIndex{1}
+
+function DensitySampleVector(contents::Tuple{PV,TV,WV,RV,QV}) where {
+    P,T<:AbstractFloat,W<:Real,R,Q,
+    PV<:AbstractVector{P},TV<:AbstractVector{T},WV<:AbstractVector{W},RV<:AbstractVector{R},QV<:AbstractVector{Q}
+}
+    IXS = _structvector_indexstyle(contents)
+    StructArray{DensitySample{P,T,W,R,Q}}(contents)::DensitySampleVector{P,T,W,R,Q,PV,TV,WV,RV,QV,IXS}
 end
-
-
-DensitySampleVector(contents::NTuple{5,Any}) = StructArray{DensitySample}(contents)
 
 
 _create_undef_vector(::Type{T}, len::Integer) where T = Vector{T}(undef, len)
@@ -191,6 +190,10 @@ function DensitySampleVector(
     end
 end
 
+
+function Base.similar(s::DensitySampleVector, sz::Tuple) where {T}
+    DensitySampleVector(map(c -> similar(c, sz), values(StructArrays.components(s))))
+end
 
 
 function Base.show(io::IO, A::DensitySampleVector)
