@@ -24,7 +24,9 @@ const MCMCSampleIDVector{TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Int64}
 }
 
 
-MCMCSampleIDVector(contents::NTuple{4,Any}) = StructArray{MCMCSampleID}(contents)
+function MCMCSampleIDVector(contents::Tuple{TV,TV,UV,UV}) where {TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Int64}}
+    StructArray{MCMCSampleID}(contents)::MCMCSampleIDVector{TV,UV}
+end
 
 MCMCSampleIDVector(::UndefInitializer, len::Integer) = MCMCSampleIDVector((
     Vector{Int32}(undef, len), Vector{Int32}(undef, len),
