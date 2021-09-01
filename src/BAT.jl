@@ -61,7 +61,7 @@ import TypedTables
 import Zygote
 import ZygoteRules
 
-using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent
+using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, AbstractThunk, unthunk
 
 #for AHMI
 using DataStructures
