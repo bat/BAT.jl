@@ -52,7 +52,7 @@ struct LADJOfVarTrafo{T<:AbstractVariateTransform} <: Function
     trafo::T
 end
 
-(ladjof_trafo::LADJOfVarTrafo)(v::Any) = ladjof(trafo(v, 1))
+(ladjof_trafo::LADJOfVarTrafo)(v::Any) = ladjof(trafo(v, 0))
 (ladjof_trafo::LADJOfVarTrafo)(v::Any, prev_ladj::Real) = ladjof(trafo(v, prev_ladj))
 
 
@@ -63,7 +63,7 @@ Returns a function that computes the `log(abs(det(jacobian)))` of `trafo` for
 a given variate `v`:
 
 ```julia
-    ladjof(trafo)(v) == ladjof(trafo(v, 1))
+    ladjof(trafo)(v) == ladjof(trafo(v, 0))
     ladjof(trafo)(v, prev_ladj) == ladjof(trafo(v, prev_ladj))
 ```
 """
