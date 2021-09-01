@@ -24,7 +24,7 @@ with `varshape(v_prev) == varshape(trafo)`.
 
 `ladj` must be `logabsdet(jacobian(trafo, v))`.
 """
-abstract type AbstractVariateTransform end
+abstract type AbstractVariateTransform <: Function end
 export AbstractVariateTransform
 
 
