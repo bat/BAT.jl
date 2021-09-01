@@ -60,7 +60,7 @@ function StatsBase.params(d::MultimodalCauchy)
 end
 
 function Distributions._logpdf(d::MultimodalCauchy, x::AbstractArray)
-    Distributions._logpdf(d.dist, x)
+    convert(eltype(x), Distributions._logpdf(d.dist, x))::eltype(x)
 end
 
 function Distributions._rand!(rng::AbstractRNG, d::MultimodalCauchy, x::AbstractVector)
