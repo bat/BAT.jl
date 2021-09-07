@@ -188,18 +188,31 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
         end
         
         @testset "ahmc integrators" begin
-            mcalg_jittered_lf = HamiltonianMC(integrator=BAT.JitteredLeapfrogIntegrator())
-            test_sampler(num_dims=2, mcalg=mcalg_jittered_lf, test_name="jittered leapfrog")
+            tuning = BAT.StanHMCTuning(target_acceptance=0.999)
+            burnin = MCMCMultiCycleBurnin(max_ncycles=100000)
+            chain_init = MCMCChainPoolInit(init_tries_per_chain=8..5000, nsteps_init=2000)
 
-            mcalg_tempered_lf = HamiltonianMC(integrator=BAT.TemperedLeapfrogIntegrator())
-            test_sampler(num_dims=2, mcalg=mcalg_tempered_lf, test_name="tempered leapfrog")
+            mcalg_jittered_lf = HamiltonianMC(integrator=BAT.JitteredLeapfrogIntegrator(), tuning=tuning)
+            sampling_algo = MCMCSampling(init=chain_init, burnin=burnin, mcalg=mcalg_jittered_lf)
+            test_sampler(num_dims=2, sampling_algo=sampling_algo, test_name="jittered leapfrog")
+
+            mcalg_tempered_lf = HamiltonianMC(integrator=BAT.TemperedLeapfrogIntegrator(), tuning=tuning)
+            sampling_algo = MCMCSampling(init=chain_init, burnin=burnin, mcalg=mcalg_tempered_lf)
+            test_sampler(num_dims=2, sampling_algo=sampling_algo, test_name="tempered leapfrog")
         end
 
         @testset "ahmc metrics" begin
-            mcalg_unit_euc = HamiltonianMC(metric=BAT.UnitEuclideanMetric())
+            tuning = BAT.StanHMCTuning(target_acceptance=0.999)
+
+            burnin = MCMCMultiCycleBurnin(max_ncycles=100000)
+            chain_init = MCMCChainPoolInit(init_tries_per_chain=8..5000, nsteps_init=2000)
+
+            mcalg_unit_euc = HamiltonianMC(metric=BAT.UnitEuclideanMetric(), tuning=tuning)
+            sampling_algo = MCMCSampling(init=chain_init, burnin=burnin, mcalg=mcalg_unit_euc)
             test_sampler(num_dims=2, mcalg=mcalg_unit_euc, test_name="unit euclidean")
 
-            mcalg_dense_euc = HamiltonianMC(metric=BAT.DenseEuclideanMetric())
+            mcalg_dense_euc = HamiltonianMC(metric=BAT.DenseEuclideanMetric(), tuning=tuning)
+            sampling_algo = MCMCSampling(init=chain_init, burnin=burnin, mcalg=mcalg_dense_euc)
             test_sampler(num_dims=2, mcalg=mcalg_dense_euc, test_name="dense euclidean")
         end
     end
