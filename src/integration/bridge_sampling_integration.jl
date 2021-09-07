@@ -99,7 +99,7 @@ function bridge_sampling_integral(
 
     N1_eff = bat_eff_sample_size(f2_density_vector,ess_alg).result[1] 
     # calculate  Root mean squared error
-    r_MSE = sqrt((var1/(mean1^2*N2)+(var2/mean2^2)/N1_eff)*current_int) 
+    r_MSE = sqrt(var1/(mean1^2*N2)+(var2/mean2^2)/N1_eff)*current_int 
 
     
     integral = Measurements.measurement(current_int, r_MSE)
