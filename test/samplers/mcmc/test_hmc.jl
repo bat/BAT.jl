@@ -139,17 +139,10 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
     @testset "sampling" begin
         function test_sampler(; 
             num_dims::Integer = 2,
-            mcalg::HamiltonianMC=HamiltonianMC(), 
-            nsteps::Integer=10^4, 
-            trafo::BAT.AbstractDensityTransformTarget=PriorToGaussian(),
-            burnin::MCMCBurninAlgorithm=MCMCMultiCycleBurnin(),
-            strict::Bool=true,
+            sampling_algo=MCMCSampling(mcalg=HamiltonianMC()),
             test_name::String
             )
             @testset "$test_name" begin
-            
-                sampling_algorithm = MCMCSampling(mcalg=mcalg, nsteps=nsteps, trafo=trafo, burnin=burnin, strict=strict)
-                
                 μ = rand(num_dims)
                 σ = rand(num_dims) |> x -> abs.(x)
         
@@ -161,9 +154,9 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
                 mvnormal = product_distribution(normal_dists)
         
                 samples = bat_sample(mvnormal, sampling_algorithm)
-        
+
                 @testset "likelihood pvalue test" begin
-                    @test BAT.likelihood_pvalue(mvnormal, samples.result) >= 0.045
+                    @test BAT.likelihood_pvalue(mvnormal, samples.result) >= 0.05
                 end
     
                 @testset "chains" begin
@@ -183,9 +176,15 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
             end
         end
         @testset "NUTS" begin
-            tuning = BAT.StanHMCTuning(target_acceptance=0.90)
+            tuning = BAT.StanHMCTuning(target_acceptance=0.999)
             mcalg = HamiltonianMC(tuning=tuning)
-            test_sampler(num_dims=2, mcalg=mcalg, test_name="NUTS")
+
+            burnin = MCMCMultiCycleBurnin(max_ncycles=100000)
+            chain_init = MCMCChainPoolInit(init_tries_per_chain=8..5000, nsteps_init=2000)
+
+            sampling_algo = MCMCSampling(init=chain_init, burnin=burnin, mcalg=mcalg)
+
+            test_sampler(num_dims=2, sampling_algo=sampling_algo, test_name="NUTS")
         end
         
         @testset "ahmc integrators" begin
