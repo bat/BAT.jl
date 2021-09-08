@@ -6,6 +6,8 @@ using Test
 using LinearAlgebra, Random
 using Distributions, PDMats
 using ArraysOfArrays
+using ValueShapes
+
 
 struct test_mvdist <: Distribution{Multivariate, Continuous}
     d::Distribution{Multivariate, Continuous}
