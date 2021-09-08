@@ -153,7 +153,15 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
         
                 mvnormal = product_distribution(normal_dists)
         
-                samples = bat_sample(mvnormal, sampling_algorithm)
+                samples = bat_sample(mvnormal, sampling_algo)
+
+                @testset "ahmi integration" begin
+                    integral_res = bat_integrate(samples.result).result
+                    integral_val = integral_res.val
+                    integral_err = integral_res.err
+        
+                    @test isapprox(1, integral_val, atol=2*integral_err)
+                end
 
                 @testset "likelihood pvalue test" begin
                     @test BAT.likelihood_pvalue(mvnormal, samples.result) >= 0.05
@@ -163,7 +171,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
                     chains = samples.generator.chains
                     num_chains = @inferred(length(chains))
 
-                    @test num_chains == sampling_algorithm.nchains
+                    @test num_chains == sampling_algo.nchains
 
                     for chain in chains
                         chain_info = chain.info
@@ -209,11 +217,11 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
 
             mcalg_unit_euc = HamiltonianMC(metric=BAT.UnitEuclideanMetric(), tuning=tuning)
             sampling_algo = MCMCSampling(init=chain_init, burnin=burnin, mcalg=mcalg_unit_euc)
-            test_sampler(num_dims=2, mcalg=mcalg_unit_euc, test_name="unit euclidean")
+            test_sampler(num_dims=2, sampling_algo=sampling_algo, test_name="unit euclidean")
 
             mcalg_dense_euc = HamiltonianMC(metric=BAT.DenseEuclideanMetric(), tuning=tuning)
             sampling_algo = MCMCSampling(init=chain_init, burnin=burnin, mcalg=mcalg_dense_euc)
-            test_sampler(num_dims=2, mcalg=mcalg_dense_euc, test_name="dense euclidean")
+            test_sampler(num_dims=2, sampling_algo=sampling_algo, test_name="dense euclidean")
         end
     end
 
