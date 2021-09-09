@@ -4,6 +4,7 @@ using Test
 
 using LinearAlgebra
 using HypothesisTests
+using IntervalSets
 using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
 
 @testset "HamiltonianMC" begin
@@ -187,7 +188,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
                 end
             end
         end
-        @testset "NUTS" begin
+        @testset "ahmc kernels" begin
             tuning = BAT.StanHMCTuning(target_acceptance=0.999)
             mcalg = HamiltonianMC(tuning=tuning)
 
