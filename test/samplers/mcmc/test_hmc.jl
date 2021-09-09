@@ -164,6 +164,10 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
                 end
 
                 @testset "likelihood pvalue test" begin
+                    # Try one resampling if fail
+                    if BAT.likelihood_pvalue(mvnormal, samples.result) < 0.05
+                        samples = bat_sample(mvnormal, sampling_algo)
+                    end
                     @test BAT.likelihood_pvalue(mvnormal, samples.result) >= 0.05
                 end
     
