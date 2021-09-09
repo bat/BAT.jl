@@ -160,7 +160,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
                     integral_val = integral_res.val
                     integral_err = integral_res.err
         
-                    @test isapprox(1, integral_val, atol=2*integral_err)
+                    @test isapprox(1, integral_val, rtol=7*integral_err)
                 end
 
                 @testset "likelihood pvalue test" begin
