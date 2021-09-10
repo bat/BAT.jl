@@ -195,7 +195,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
             burnin = MCMCMultiCycleBurnin(max_ncycles=100000)
             chain_init = MCMCChainPoolInit(init_tries_per_chain=8..5000, nsteps_init=2000)
 
-            sampling_algo = MCMCSampling(init=chain_init, burnin=burnin, mcalg=mcalg)
+            sampling_algo = MCMCSampling(trafo=BAT.NoDensityTransform(), init=chain_init, burnin=burnin, mcalg=mcalg)
 
             test_sampler(num_dims=2, sampling_algo=sampling_algo, test_name="NUTS")
         end
@@ -227,6 +227,19 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
             mcalg_dense_euc = HamiltonianMC(metric=BAT.DenseEuclideanMetric(), tuning=tuning)
             sampling_algo = MCMCSampling(init=chain_init, burnin=burnin, mcalg=mcalg_dense_euc)
             test_sampler(num_dims=2, sampling_algo=sampling_algo, test_name="dense euclidean")
+        end
+
+        @testset "ahmc adaptors" begin
+            burnin = MCMCMultiCycleBurnin(max_ncycles=100000)
+            chain_init = MCMCChainPoolInit(init_tries_per_chain=8..5000, nsteps_init=2000)
+
+            mcalg_massmat = HamiltonianMC(tuning=BAT.MassMatrixAdaptor(0.999))
+            sampling_algo = MCMCSampling(init=chain_init, burnin=burnin, trafo=BAT.NoDensityTransform(), mcalg=mcalg_massmat)
+            test_sampler(num_dims=2, sampling_algo=sampling_algo, test_name="mass matrix")
+
+            mcalg_stepsize = HamiltonianMC(tuning=BAT.StepSizeAdaptor())
+            sampling_algo = MCMCSampling(trafo=BAT.NoDensityTransform(), mcalg=mcalg_stepsize)
+            test_sampler(num_dims=2, sampling_algo=sampling_algo, test_name="step size")
         end
     end
 
