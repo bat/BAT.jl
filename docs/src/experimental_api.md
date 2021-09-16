@@ -25,6 +25,7 @@ BridgeSampling
 CuhreIntegration
 DifferentiationAlgorithm
 DivonneIntegration
+EllipsoidalNestedSampling
 ForwardDiffAD
 GridSampler
 HierarchicalDistribution

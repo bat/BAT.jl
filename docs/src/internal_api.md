@@ -36,6 +36,15 @@ BAT.AbstractProposalDist
 BAT.AbstractSampleGenerator
 BAT.BasicMvStatistics
 BAT.DataSet
+BAT.ENSAutoProposal
+BAT.ENSBound
+BAT.ENSEllipsoidBound
+BAT.ENSMultiEllipsoidBound
+BAT.ENSNoBounds
+BAT.ENSProposal
+BAT.ENSRandomWalk
+BAT.ENSSlice
+BAT.ENSUniformly
 BAT.HMIData
 BAT.HMISettings
 BAT.IntegrationVolume

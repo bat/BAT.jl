@@ -38,6 +38,12 @@ BAT.jl sampling algorithm type: [`ReactiveNestedSampling`](@ref)
 sampling_algorithm = ReactiveNestedSampling()
 ```
 
+### Ellipsoidal Nested Sampling (experimental)
+BAT.jl sampling algorithm type: [`EllipsoidalNestedSampling`](@ref)
+```julia
+sampling_algorithm = EllipsoidalNestedSampling()
+```
+
 ### Partitioned Sampling (experimental)
 BAT.jl sampling algorithm type: [`PartitionedSampling`](@ref)
 ```julia
