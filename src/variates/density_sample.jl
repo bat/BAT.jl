@@ -140,17 +140,12 @@ const DensitySampleVector{
 export DensitySampleVector
 
 
-# Workaround for type instability in StructArray constructor (see StructArrays.jl issue #203):
-_structvector_indexstyle(contents::Tuple) = _structvector_indexstyle_impl(map(IndexStyle, map(typeof, contents)))
-_structvector_indexstyle_impl(::NTuple{N,IndexLinear}) where N = Int
-_structvector_indexstyle_impl(::NTuple{N,IndexStyle}) where N = CartesianIndex{1}
 
 function DensitySampleVector(contents::Tuple{PV,TV,WV,RV,QV}) where {
     P,T<:AbstractFloat,W<:Real,R,Q,
     PV<:AbstractVector{P},TV<:AbstractVector{T},WV<:AbstractVector{W},RV<:AbstractVector{R},QV<:AbstractVector{Q}
 }
-    IXS = _structvector_indexstyle(contents)
-    StructArray{DensitySample{P,T,W,R,Q}}(contents)::DensitySampleVector{P,T,W,R,Q,PV,TV,WV,RV,QV,IXS}
+    StructArray{DensitySample{P,T,W,R,Q}}(contents)
 end
 
 
