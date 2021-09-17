@@ -12,6 +12,32 @@ getalgorithm(sg::GenericSampleGenerator) = sg.algorithm
 
 
 
+function sample_and_verify(
+    rng::AbstractRNG, target::AnySampleable, algorithm::AbstractSamplingAlgorithm, ref_dist::Distribution = target;
+    pvalue_threshold::Real = 10^-3, max_retries::Integer = 1
+)
+    initial_smplres = bat_sample(rng, target, algorithm)
+    smplres::typeof(initial_smplres) = initial_smplres
+    initial_pvalue = dist_samples_pvalue(rng, ref_dist, smplres.result)
+    pvalue::typeof(initial_pvalue) = initial_pvalue
+    n_retries::Int = 0
+    while !(pvalue >= pvalue_threshold) && n_retries < max_retries
+        n_retries += 1
+        smplres = bat_sample(rng, target, algorithm)
+        pvalue = dist_samples_pvalue(rng, ref_dist, smplres.result)
+    end
+    verified = pvalue >= pvalue_threshold
+    merge(smplres, (verified = verified, verification_pvalue = pvalue, n_retries = n_retries))
+end
+
+function sample_and_verify(
+    target::AnySampleable, algorithm::AbstractSamplingAlgorithm, ref_dist::Distribution = target; kwargs...
+)
+    sample_and_verify(bat_rng(), target, algorithm, ref_dist; kwargs...)
+end
+
+
+
 """
     struct IIDSampling <: AbstractSamplingAlgorithm
 

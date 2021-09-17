@@ -32,7 +32,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
         @test minimum(samples.weight) == 0
         @test isapprox(length(samples), nsteps, atol = 20)
         @test length(samples) == sum(samples.weight)
-        @test BAT.likelihood_pvalue(unshaped(target), samples) > 10^-3
+        @test BAT.dist_samples_pvalue(unshaped(target), samples) > 10^-3
 
         samples = DensitySampleVector(chain)
         BAT.mcmc_iterate!(samples, chain, max_nsteps = 10^3, nonzero_weights = true)
@@ -90,7 +90,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
         append!.(Ref(samples), outputs)
         
         @test length(samples) == sum(samples.weight)
-        @test BAT.likelihood_pvalue(unshaped(target), samples) > 10^-3
+        @test BAT.dist_samples_pvalue(unshaped(target), samples) > 10^-3
     end
 
     @testset "bat_sample" begin
@@ -108,20 +108,20 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
         # @test first(samples).info.chaincycle == 1
         @test samples[2].info.chaincycle == 1
 
-        samples = bat_sample(
+        smplres = BAT.sample_and_verify(
             shaped_density,
             MCMCSampling(
                 mcalg = algorithm,
                 trafo = NoDensityTransform(),
                 nsteps = 10^4,
                 store_burnin = false
-            )
-        ).result
-
+            ),
+            target
+        )
+        samples = smplres.result
         @test first(samples).info.chaincycle >= 2
-
         @test samples.v isa ShapedAsNTArray
-        @test BAT.likelihood_pvalue(unshaped(target), unshaped.(samples)) > 10^-3
+        @test smplres.verified
     end
 
     @testset "MCMC sampling in transformed space" begin
@@ -130,7 +130,6 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
         inner_posterior = PosteriorDensity(likelihood, prior)
         # Test with nested posteriors:
         posterior = PosteriorDensity(likelihood, inner_posterior)
-        smpls = bat_sample(posterior, MCMCSampling(mcalg = HamiltonianMC(), trafo = PriorToGaussian())).result
-        @test BAT.likelihood_pvalue(unshaped(prior.dist), unshaped.(smpls)) > 10^-3
+        @test BAT.sample_and_verify(posterior, MCMCSampling(mcalg = HamiltonianMC(), trafo = PriorToGaussian()), prior.dist).verified
     end
 end
