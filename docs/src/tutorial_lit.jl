@@ -92,7 +92,7 @@ end
 # The true values for the model/fit parameters are the values we used to
 # generate the data:
 
-true_par_values = (a = [500, 1000], mu = (-1.0, 2.0), sigma = 0.5)
+true_par_values = (a = [500, 1000], mu = [-1.0, 2.0], sigma = 0.5)
 #md nothing # hide
 
 # Let's visually compare the histogram and the fit function, using these true
