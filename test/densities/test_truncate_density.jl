@@ -74,6 +74,4 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets
         @test isapprox(cov_est[1,1], var(trunc_prior_dist.shaped.a), rtol = 0.05)
         @test isapprox(cov_est[4,4], var(trunc_prior_dist.shaped.d.v[2]), rtol = 0.05)      
     end
-
-    @test @inferred(truncate_density(BAT.ConstDensity(LogDVal(0)), bounds)) == BAT.ConstDensity(LogDVal(0), BAT.HyperRectBounds(bounds))
 end

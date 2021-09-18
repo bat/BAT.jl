@@ -13,8 +13,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
     Σ = @inferred PDMat(cmat)
     mv_dist = MvNormal(mvec, Σ)
     likelihood = @inferred BAT.DistributionDensity(mv_dist)
-    bounds = @inferred BAT.HyperRectBounds([-5, -8], [5, 8])
-    prior = BAT.ConstDensity(LogDVal(0), bounds)
+    prior = product_distribution(Uniform.([-5, -8], [5, 8]))
     nchains = 4
     nsteps = 10^4
 
