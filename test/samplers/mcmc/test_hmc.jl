@@ -235,14 +235,15 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
 
         @testset "ahmc adaptors" begin
             burnin = MCMCMultiCycleBurnin(max_ncycles=1000, nsteps_final=2000)
-            chain_init = MCMCChainPoolInit(init_tries_per_chain=8..600, nsteps_init=2000)
+            chain_init_more = MCMCChainPoolInit(init_tries_per_chain=8..1200, nsteps_init=2000)
+            chain_init_most = MCMCChainPoolInit(init_tries_per_chain=8..600, nsteps_init=2000)
 
             mcalg_massmat = HamiltonianMC(tuning=BAT.MassMatrixAdaptor(0.999))
-            sampling_algo = MCMCSampling(nchains=8, init=chain_init, burnin=burnin, trafo=BAT.NoDensityTransform(), mcalg=mcalg_massmat)
+            sampling_algo = MCMCSampling(nchains=8, init=chain_init_most, burnin=burnin, trafo=BAT.NoDensityTransform(), mcalg=mcalg_massmat)
             test_sampler(num_dims=2, sampling_algo=sampling_algo, test_name="mass matrix")
 
             mcalg_stepsize = HamiltonianMC(tuning=BAT.StepSizeAdaptor())
-            sampling_algo = MCMCSampling(nchains=8, trafo=BAT.NoDensityTransform(), mcalg=mcalg_stepsize)
+            sampling_algo = MCMCSampling(nchains=8, init=chain_init_more, trafo=BAT.NoDensityTransform(), mcalg=mcalg_stepsize)
             test_sampler(num_dims=2, sampling_algo=sampling_algo, test_name="step size")
         end
     end
