@@ -153,7 +153,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         
                 mvnormal = product_distribution(normal_dists)
         
-                samples = bat_sample(mvnormal, sampling_algo)
+                samples = BAT.sample_and_verify(mvnormal, sampling_algo)
 
                 @testset "ahmi integration" begin
                     integral_res = bat_integrate(samples.result).result
@@ -163,12 +163,8 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
                     @test isapprox(1, integral_val, rtol=7*integral_err)
                 end
 
-                @testset "likelihood pvalue test" begin
-                    # Try one resampling if fail
-                    if BAT.likelihood_pvalue(mvnormal, samples.result) < 0.05
-                        samples = bat_sample(mvnormal, sampling_algo)
-                    end
-                    @test BAT.likelihood_pvalue(mvnormal, samples.result) >= 0.05
+                @testset "sampler test" begin
+                    @test samples.verified
                 end
     
                 @testset "chains" begin
@@ -233,12 +229,12 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         end
 
         @testset "ahmc adaptors" begin
-            burnin = MCMCMultiCycleBurnin(max_ncycles=1000, nsteps_final=2000)
-            chain_init_more = MCMCChainPoolInit(init_tries_per_chain=8..1200, nsteps_init=2000)
-            chain_init_most = MCMCChainPoolInit(init_tries_per_chain=8..600, nsteps_init=2000)
+            burnin = MCMCMultiCycleBurnin(max_ncycles=2000, nsteps_final=2000)
+            chain_init_more = MCMCChainPoolInit(init_tries_per_chain=8..600, nsteps_init=2000)
+            chain_init_most = MCMCChainPoolInit(init_tries_per_chain=8..1200, nsteps_init=2000)
 
-            mcalg_massmat = HamiltonianMC(tuning=BAT.MassMatrixAdaptor(0.999))
-            sampling_algo = MCMCSampling(nchains=8, init=chain_init_most, burnin=burnin, trafo=BAT.NoDensityTransform(), mcalg=mcalg_massmat)
+            mcalg_massmat = HamiltonianMC(tuning=BAT.MassMatrixAdaptor(0.999), metric=BAT.DenseEuclideanMetric())
+            sampling_algo = MCMCSampling(nchains=8, init=chain_init_most, burnin=burnin, mcalg=mcalg_massmat)
             test_sampler(num_dims=2, sampling_algo=sampling_algo, test_name="mass matrix")
 
             mcalg_stepsize = HamiltonianMC(tuning=BAT.StepSizeAdaptor())
