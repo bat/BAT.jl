@@ -137,7 +137,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
     end
 
     @testset "sampling" begin
-        function test_sampler(; 
+        function test_sampler(;
             num_dims::Integer = 2,
             sampling_algo=MCMCSampling(mcalg=HamiltonianMC()),
             test_name::String
@@ -145,7 +145,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
             @testset "$test_name" begin
                 μ = rand(num_dims)
                 σ = rand(num_dims) |> x -> abs.(x)
-        
+ 
                 normal_dists = Vector{Normal{eltype(σ)}}(undef, num_dims)
                 for i in eachindex(normal_dists)
                     normal_dists[i] = Normal(μ[i], σ[i])
