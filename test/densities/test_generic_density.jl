@@ -19,9 +19,9 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
 
     params = [0.0, 0.0]
 
-    @testset "BAT.eval_logval_unchecked" begin
-        @test @inferred(BAT.eval_logval_unchecked(density, params)) ≈ logpdf(mvnorm, params)
-        @test @inferred(BAT.eval_logval_unchecked(density, params)) ≈ logpdf(mvnorm, params)
+    @testset "DensityInterface.logdensityof" begin
+        @test @inferred(DensityInterface.logdensityof(density, params)) ≈ logpdf(mvnorm, params)
+        @test @inferred(DensityInterface.logdensityof(density, params)) ≈ logpdf(mvnorm, params)
     end
 
     @testset "parent" begin

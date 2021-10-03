@@ -6,8 +6,6 @@ Test.@testset "densities" begin
     include("test_logdval.jl")
     include("test_abstract_density.jl")
     include("test_generic_density.jl")
-    include("test_const_density.jl")
-    include("test_density_product.jl")
     include("test_distribution_density.jl")
     include("test_parameter_mapped_density.jl")
     include("test_renormalize_density.jl")

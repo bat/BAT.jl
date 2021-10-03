@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+include("negative.jl")
 include("error_log.jl")
 include("util_functions.jl")
 include("array_utils.jl")

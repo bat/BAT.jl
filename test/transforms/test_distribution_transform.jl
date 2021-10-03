@@ -21,7 +21,7 @@ using ForwardDiff, Zygote, DistributionsAD
 
             @test src_v ≈ src_v_reco
             @test prev_ladj ≈ prev_ladj_reco
-            @test trg_ladj ≈ logabsdet(ForwardDiff.jacobian(x -> unshaped(BAT.apply_dist_trafo(trg_d, src_d, x, prev_ladj).v), src_v))[1] + prev_ladj
+            @test trg_ladj ≈ logabsdet(ForwardDiff.jacobian(x -> unshaped(BAT.apply_dist_trafo(trg_d, src_d, x, prev_ladj).v, varshape(trg_d)), src_v))[1] + prev_ladj
         end
     end
 
@@ -135,7 +135,7 @@ using ForwardDiff, Zygote, DistributionsAD
     using Cuba
     function integrate_over_unit(density::AbstractDensity)
         vs = varshape(density)
-        f_cuba(source_x, y) = y[1] = exp(logvalof(density)(vs(source_x)))
+        f_cuba(source_x, y) = y[1] = exp(logdensityof(density)(vs(source_x)))
         Cuba.vegas(f_cuba, 1, 1).integral[1]
     end
     =#

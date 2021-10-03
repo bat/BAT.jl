@@ -25,14 +25,6 @@ function truncate_density(density::AbstractPosteriorDensity, bounds::AbstractArr
 end
 
 
-function truncate_density(density::ConstDensity, bounds::AbstractArray{<:Interval})
-    old_bounds = var_bounds(density)
-    b = HyperRectBounds(bounds)
-    new_bounds = ismissing(old_bounds) ? b : var_bounds(density) ∩ b
-    ConstDensity(density.value, new_bounds)
-end
-
-
 function truncate_density(density::DistributionDensity{<:MultivariateDistribution}, bounds::AbstractArray{<:Interval})
     r = truncate_dist_hard(density.dist, bounds)
     RenormalizedDensity(DistributionDensity(r.dist), r.logrenormf)

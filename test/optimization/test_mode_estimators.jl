@@ -12,23 +12,23 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes
         a = MvNormal([1.5, 0.5, 2.5], Matrix{Float32}(I, 3, 3))
     )
 
-    posterior = PosteriorDensity(LogDVal(0), prior)
+    posterior = PosteriorDensity(logfuncdensity(v -> 0), prior)
 
     true_mode_flat = [2.0, 1.5, 0.5, 2.5]
-    true_mode = stripscalar(varshape(prior)(true_mode_flat))
+    true_mode = BAT.strip_shapedasnt(varshape(prior)(true_mode_flat))
 
     samples = @inferred(bat_sample(prior, IIDSampling(nsamples = 10^5))).result
 
 
     function test_findmode(posterior, algorithm, rtol)
         res = @inferred(bat_findmode(posterior, algorithm))
-        @test keys(stripscalar(res.result)) == keys(true_mode)
+        @test keys(BAT.strip_shapedasnt(res.result)) == keys(true_mode)
         @test isapprox(unshaped(res.result), true_mode_flat, rtol = rtol)
     end
 
     function test_findmode_noinferred(posterior, algorithm, rtol)
         res = (bat_findmode(posterior, algorithm))
-        @test keys(stripscalar(res.result)) == keys(true_mode)
+        @test keys(BAT.strip_shapedasnt(res.result)) == keys(true_mode)
         @test isapprox(unshaped(res.result), true_mode_flat, rtol = rtol)
     end
 
@@ -47,7 +47,7 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes
     @testset "MaxDensitySampleSearch" begin
         @test @inferred(bat_findmode(samples, MaxDensitySampleSearch())).result isa ShapedAsNT
         m = bat_findmode(samples, MaxDensitySampleSearch())
-        @test samples[m.mode_idx].v == stripscalar(m.result)
+        @test samples[m.mode_idx].v == BAT.strip_shapedasnt(m.result)
         @test isapprox(unshaped(m.result), true_mode_flat, rtol = 0.05)
     end
 

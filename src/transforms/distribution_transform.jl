@@ -87,10 +87,10 @@ end
 
 
 struct DistributionTransform{
+    DT <: ContinuousDistribution,
+    DF <: ContinuousDistribution,
     VT <: AbstractValueShape,
     VF <: AbstractValueShape,
-    DT <: ContinuousDistribution,
-    DF <: ContinuousDistribution
 } <: VariateTransform{VT,VF}
     target_dist::DT
     source_dist::DF
@@ -163,6 +163,9 @@ Base.inv(trafo::DistributionTransform) = DistributionTransform(trafo.source_dist
 
 ValueShapes.varshape(trafo::DistributionTransform) = trafo._varshape
 ValueShapes.valshape(trafo::DistributionTransform) = trafo._valshape
+
+ValueShapes.unshaped(trafo::DistributionTransform) =
+    DistributionTransform(unshaped(trafo.target_dist), unshaped(trafo.source_dist))
 
 
 function apply_vartrafo_impl(trafo::DistributionTransform, v::Any, prev_ladj::OptionalLADJ)
@@ -560,7 +563,7 @@ end
 
 function apply_dist_trafo(trg_d::NamedTupleDist, src_d::StdMvDist, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
     unshaped_result = apply_dist_trafo(unshaped(trg_d), src_d, src_v, prev_ladj)
-    (v = varshape(trg_d)(unshaped_result.v), ladj = unshaped_result.ladj)
+    (v = strip_shapedasnt(varshape(trg_d)(unshaped_result.v)), ladj = unshaped_result.ladj)
 end
 
 

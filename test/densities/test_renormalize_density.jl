@@ -3,6 +3,7 @@
 using BAT
 using Test
 
+using DensityInterface
 using Distributions, Statistics, StatsBase, IntervalSets, ValueShapes
 
 @testset "truncated_density" begin
@@ -21,8 +22,8 @@ using Distributions, Statistics, StatsBase, IntervalSets, ValueShapes
     @test @inferred(vs(unshaped(density))) == renormalize_density(vs(unshaped(parent_density)), logrenormf)   
 
     v = rand(parent_dist)
-    @test @inferred(BAT.eval_logval(density, v, Float64)) == BAT.eval_logval(parent_density, v, Float64) + logrenormf
-    @test @inferred(BAT.eval_logval_unchecked(density, v)) == BAT.eval_logval_unchecked(parent_density, v) + logrenormf
+    @test @inferred(BAT.checked_logdensityof(density, v)) == BAT.checked_logdensityof(parent_density, v) + logrenormf
+    @test @inferred(DensityInterface.logdensityof(density, v)) == DensityInterface.logdensityof(parent_density, v) + logrenormf
     @test @inferred(logdensityof(density, v)) == logdensityof(parent_density, v) + logrenormf
 
     rng = bat_rng()

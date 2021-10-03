@@ -41,15 +41,19 @@ function Base.show(io::IO, M::MIME"text/plain", gf::GradFunc)
 end
 
 
+_fixup_var(shape::AbstractValueShape, v::Any) = v
+
+_fixup_var(shape::NamedTupleShape, v::NamedTuple) = shape(unshaped(v, shape))
+
+
 function (gf::GradFunc)(v::Any)
     input_shape = gf._input_shape
-    v_shaped = fixup_variate(input_shape, v)
+    v_shaped = _fixup_var(input_shape, v)
     v_unshaped = unshaped(v_shaped)
-    R = density_logval_type(v_unshaped, default_dlt())
 
     grad_f_unshaped = similar(v_unshaped)
 
-    value = unshaped_gradient!(grad_f_unshaped, R, gf._unshaped_f, v_unshaped, gf._diffalg)
+    value = unshaped_gradient!(grad_f_unshaped, gf._unshaped_f, v_unshaped, gf._diffalg)
 
     (value, gf._grad_shape(grad_f_unshaped))
 end
@@ -57,15 +61,14 @@ end
 
 function (gf::GradFunc)(::typeof(!), grad_f::Any, v::Any)
     input_shape = gf._input_shape
-    v_shaped = fixup_variate(input_shape, v)
+    v_shaped = _fixup_var(input_shape, v)
     v_unshaped = unshaped(v_shaped)
-    R = density_logval_type(v_unshaped, default_dlt())
 
     if isnothing(grad_f)
         R(gf._unshaped_f(v_unshaped))
     else
         grad_f_unshaped = unshaped(grad_f, gf._grad_shape)
-        unshaped_gradient!(grad_f_unshaped, R, gf._unshaped_f, v_unshaped, gf._diffalg)
+        unshaped_gradient!(grad_f_unshaped, gf._unshaped_f, v_unshaped, gf._diffalg)
     end
 end
 

@@ -14,8 +14,8 @@ struct ZygoteAD <: DifferentiationAlgorithm end
 export ZygoteAD
 
 
-function unshaped_gradient!(grad_f_x::AbstractVector{<:Real}, ::Type{R}, f::Function, x::AbstractVector{<:Real}, diffalg::ZygoteAD) where {R<:Real}
+function unshaped_gradient!(grad_f_x::AbstractVector{<:Real}, f::Function, x::AbstractVector{<:Real}, diffalg::ZygoteAD)
     value, back = Zygote.pullback(f, x)
     grad_f_x[:] = first(back(Zygote.sensitivity(value)))
-    return convert(R, value)::R
+    return value
 end

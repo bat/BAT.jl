@@ -40,7 +40,7 @@ import Cuba
                 @test isapprox(@inferred(inv(density.trafo)(target_x)), source_x, atol = 10^-5)
                 @test isapprox(@inferred(inv(density.trafo)(fill(target_x))), fill(source_x), atol = 10^-5)
 
-                @test minimum(target_dist) <= stripscalar(@inferred(bat_initval(density, InitFromTarget())).result) <= maximum(target_dist)
+                @test minimum(target_dist) <= @inferred(bat_initval(density, InitFromTarget())).result <= maximum(target_dist)
                 @test all(minimum(target_dist) .<= @inferred(bat_initval(density, 100, InitFromTarget())).result .<= maximum(target_dist))
 
                 fix_nni(x::T) where {T<:Real} = x <= BAT.near_neg_inf(T) ? T(-Inf) : x
@@ -53,15 +53,15 @@ import Cuba
                     @assert false
                 end
     
-                @test isapprox(fix_nni.(logvalof(density).(tX)), logpdf.(target_dist, tX), atol = 1e-10)
-                @test @inferred(logvalof(density)(target_x)) isa Real
-                @test @inferred(logvalof(unshaped(density))(unshaped(target_x))) isa Real
-                !any(isnan, @inferred(broadcast(ForwardDiff.derivative, logvalof(density), tX)))
+                @test isapprox(fix_nni.(logdensityof(density).(tX)), logpdf.(target_dist, tX), atol = 1e-10)
+                @test @inferred(logdensityof(density)(target_x)) isa Real
+                @test @inferred(logdensityof(unshaped(density))(unshaped(target_x))) isa Real
+                !any(isnan, @inferred(broadcast(ForwardDiff.derivative, logdensityof(density), tX)))
 
-                tX_finite = tX[findall(isfinite, fix_nni.(logvalof(density).(tX)))]
-                @test isapprox(@inferred(broadcast(ForwardDiff.derivative, logvalof(density), tX_finite)), broadcast(ForwardDiff.derivative, x -> logpdf(target_dist, x), tX_finite), atol = 10^-7)
+                tX_finite = tX[findall(isfinite, fix_nni.(logdensityof(density).(tX)))]
+                @test isapprox(@inferred(broadcast(ForwardDiff.derivative, logdensityof(density), tX_finite)), broadcast(ForwardDiff.derivative, x -> logpdf(target_dist, x), tX_finite), atol = 10^-7)
 
-                @test minimum(target_dist) <= stripscalar(bat_findmode(density, MaxDensityLBFGS(trafo = NoDensityTransform())).result) <= maximum(target_dist)
+                @test minimum(target_dist) <= bat_findmode(density, MaxDensityLBFGS(trafo = NoDensityTransform())).result <= maximum(target_dist)
 
                 if trafo.target_dist isa Union{BAT.StandardUvUniform,BAT.StandardMvUniform}
                     @test isapprox(bat_integrate(density, VEGASIntegration(trafo = NoDensityTransform())).result, 1, rtol = 10^-7)
@@ -81,7 +81,7 @@ import Cuba
         src_d = NamedTupleDist(a = Exponential(), b = [4.2, 3.3], c = Weibull(), d = [Normal(1, 3), Normal(3, 2)], e = Uniform(-2, 3), f = MvNormal([0.3, -2.9], [1.7 0.5; 0.5 2.3]))
         trafo = @inferred(BAT.DistributionTransform(Normal, src_d))
         density = @inferred(trafo(convert(AbstractDensity, trafo.source_dist)))
-        @test isfinite(@inferred logvalof(density)(@inferred(bat_initval(density)).result))
+        @test isfinite(@inferred logdensityof(density)(@inferred(bat_initval(density)).result))
         @test isapprox(cov(@inferred(bat_initval(density, 10^4)).result), I(totalndof(density)), rtol = 0.1)
 
         samples_is = bat_sample(density, MCMCSampling(mcalg = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4)).result

@@ -39,16 +39,15 @@ sys.stdout = open(os.devnull, 'w')
 
     posterior = PosteriorDensity(likelihood, prior)
     algorithm = ReactiveNestedSampling()
-    r = bat_sample(posterior, algorithm)
+    r = BAT.sample_and_verify(posterior, algorithm, dist)
+    @test r.verified
 
     smpls = r.result
-    @test logvalof(posterior).(smpls.v) ≈ smpls.logd
+    @test logdensityof(posterior).(smpls.v) ≈ smpls.logd
 
     uwsmpls = r.uwresult
-    @test logvalof(posterior).(uwsmpls.v) ≈ uwsmpls.logd
+    @test logdensityof(posterior).(uwsmpls.v) ≈ uwsmpls.logd
     @test all(isequal(1), uwsmpls.weight)
-
-    @test BAT.likelihood_pvalue(dist, r.result; ess = floor(Int, r.ess)) > 10^-3
 
     logz_expected = -log(prod(maximum.(prior.v) .- minimum.(prior.v)))
     @test isapprox(r.logintegral.val, logz_expected, atol = 10 * r.logintegral.err)

@@ -1,6 +1,6 @@
 using BAT
 using StatsBase
-using Distributions
+using Distributions, DensityInterface
 using Test
 
 
@@ -18,11 +18,11 @@ end
 
 
 likelihood = let D = 5
-    params -> begin
+    logfuncdensity(params -> begin
         r = logpdf(MvNormal(zeros(D), ones(D)), params.θ)
         r2 = logpdf(Normal(5, 1.5), params.ϕ)
-        LogDVal(r+r2)
-    end
+        r+r2
+    end)
 end;
 
 prior = BAT.NamedTupleDist(

@@ -3,7 +3,7 @@ using BAT
 using Test
 
 using LinearAlgebra
-using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
+using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityInterface
 
 @testset "MetropolisHastings" begin
     rng = bat_rng()
@@ -84,11 +84,11 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
         append!.(Ref(samples), outputs)
         
         @test length(samples) == sum(samples.weight)
-        @test BAT.likelihood_pvalue(unshaped(target), samples) > 10^-3
+        @test BAT.dist_samples_pvalue(unshaped(target), samples) > 10^-3
     end
 
-    @testset "MCMC tuning and burn-in" begin
-        samples = BAT.bat_sample(
+    @testset "bat_sample" begin
+        samples = bat_sample(
             shaped_density,
             MCMCSampling(
                 mcalg = algorithm,
@@ -100,29 +100,28 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays
 
         @test first(samples).info.chaincycle == 1
 
-        samples = BAT.bat_sample(
+        smplres = BAT.sample_and_verify(
             shaped_density,
             MCMCSampling(
                 mcalg = algorithm,
                 trafo = NoDensityTransform(),
                 nsteps = 10^5,
                 store_burnin = false
-            )
-        ).result
-
+            ),
+            target
+        )
+        samples = smplres.result
         @test first(samples).info.chaincycle >= 2
-
         @test samples.v isa ShapedAsNTArray
-        @test BAT.likelihood_pvalue(unshaped(target), unshaped.(samples)) > 10^-3
+        @test smplres.verified
     end
 
     @testset "MCMC sampling in transformed space" begin
         prior = BAT.example_posterior().prior
-        likelihood = (logdensity = v -> 0,)
+        likelihood = logfuncdensity(v -> 0)
         inner_posterior = PosteriorDensity(likelihood, prior)
         # Test with nested posteriors:
         posterior = PosteriorDensity(likelihood, inner_posterior)
-        smpls = bat_sample(posterior, MCMCSampling(mcalg = MetropolisHastings(), trafo = PriorToGaussian())).result
-        @test BAT.likelihood_pvalue(unshaped(prior.dist), unshaped.(smpls)) > 10^-3
+        @test BAT.sample_and_verify(posterior, MCMCSampling(mcalg = MetropolisHastings(), trafo = PriorToGaussian()), prior.dist).verified
     end
 end

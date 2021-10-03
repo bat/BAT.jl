@@ -1,6 +1,11 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+# ToDO: Use Distributions.ArrayLikeVariate and merge with standard uniform
+# and normal dists into a single standard-dist struct
+# StandardDist{Normal|Uniform,T,N}. Propose inclusion into Distributions.
+
+
 """
     StandardUvUniform{T<:Real} <: Distributions.Distribution{Univariate,Continuous}
 
@@ -176,3 +181,6 @@ end
 function Distributions._rand!(rng::AbstractRNG, d::StandardMvUniform, A::AbstractMatrix{T}) where {T<:Real}
     broadcast!(x -> rand(rng, T), A, A)
 end
+
+
+const StandardUniformDist = Union{StandardUvUniform, StandardMvUniform}

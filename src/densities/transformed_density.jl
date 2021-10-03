@@ -62,53 +62,41 @@ end
 Base.parent(density::TransformedDensity) = density.orig
 trafoof(density::TransformedDensity) = density.trafo
 
-# var_bounds(density::TransformedDensity) = ...
-
-ValueShapes.varshape(density::TransformedDensity{<:AbstractDensity,<:DistributionTransform}) = varshape(density.trafo.target_dist)
+ValueShapes.varshape(density::TransformedDensity) = valshape(density.trafo)
 
 # ToDo: Should not be neccessary, improve default implementation of
 # ValueShapes.totalndof(density::AbstractDensity):
 ValueShapes.totalndof(density::TransformedDensity) = totalndof(varshape(density))
 
+var_bounds(density::TransformedDensity{<:Any,<:DistributionTransform}) = dist_param_bounds(density.trafo.target_dist)
 
-var_bounds(density::TransformedDensity) = _trafo_var_bounds(density.trafo)
 
-_trafo_var_bounds(trafo::VariateTransform) = missing
-
-function _trafo_var_bounds(trafo::DistributionTransform{<:Any,<:Any,<:Union{StandardUvUniform,StandardMvUniform}})
-    n = totalndof(trafo._valshape)
-    HyperRectBounds(fill(_default_PT(0), n), fill(_default_PT(1), n))
+function DensityInterface.logdensityof(density::TransformedDensity{D,FT,TDNoCorr}, v::Any) where {D,FT}
+    v_orig = inv(density.trafo)(v)
+    logdensityof(parent(density), v_orig)
 end
 
-function _trafo_var_bounds(trafo::DistributionTransform{<:Any,<:Any,<:Union{StandardUvNormal,StandardMvNormal}})
-    n = totalndof(trafo._valshape)
-    HyperRectBounds(fill(_default_PT(-Inf), n), fill(_default_PT(+Inf), n))
-end
-
-
-function eval_logval(density::TransformedDensity{D,FT,TDNoCorr}, v::Any, T::Type{<:Real}) where {D,FT}
-    v_shaped = fixup_variate(varshape(density), v)
-    v_orig = inv(density.trafo)(v_shaped)
-    eval_logval(parent(density), v_orig, T)
+function checked_logdensityof(density::TransformedDensity{D,FT,TDNoCorr}, v::Any) where {D,FT}
+    v_orig = inv(density.trafo)(v)
+    checked_logdensityof(parent(density), v_orig)
 end
 
 
-function eval_logval(density::TransformedDensity{D,FT,TDLADJCorr}, v::Any, T::Type{<:Real}) where {D,FT,}
-    v_shaped = fixup_variate(varshape(density), v)
-    R = density_logval_type(v_shaped, T)
-    r = inv(density.trafo)(v_shaped, 0)
-    v_orig = r.v
-    ldaj = r.ladj
-    logd_orig = eval_logval(parent(density), v_orig, R)
+function _v_orig_and_ladj(density::TransformedDensity, v::Any)
+    r = inv(density.trafo)(v, 0)
+    r.v, r.ladj
+end
 
-    logd_result = logd_orig + ldaj
+# TODO: Would profit from custom pullback:
+function _combine_logd_with_ladj(logd_orig::Real, ladj::Real)
+    logd_result = logd_orig + ladj
     R = typeof(logd_result)
 
-    if isnan(logd_result) && logd_orig == -Inf && ldaj == +Inf
+    if isnan(logd_result) && logd_orig == -Inf && ladj == +Inf
         # Zero density wins against infinite volume:
         R(-Inf)
-    elseif isfinite(logd_orig) && (ldaj == -Inf)
-        # Maybe  also for (logd_orig == -Inf) && isfinite(ldaj) ?
+    elseif isfinite(logd_orig) && (ladj == -Inf)
+        # Maybe  also for (logd_orig == -Inf) && isfinite(ladj) ?
         # Return constant -Inf to prevent problems with ForwardDiff:
         #R(-Inf)
         near_neg_inf(R) # Avoids AdvancedHMC warnings
@@ -117,7 +105,14 @@ function eval_logval(density::TransformedDensity{D,FT,TDLADJCorr}, v::Any, T::Ty
     end
 end
 
+function DensityInterface.logdensityof(density::TransformedDensity{D,FT,TDLADJCorr}, v::Any) where {D,FT,}
+    v_orig, ladj = _v_orig_and_ladj(density, v)
+    logd_orig = logdensityof(parent(density), v_orig)
+    _combine_logd_with_ladj(logd_orig, ladj)
+end
 
-function eval_logval_unchecked(density::TransformedDensity, v::Any)
-    eval_logval(density, v, default_dlt())
+function checked_logdensityof(density::TransformedDensity{D,FT,TDLADJCorr}, v::Any) where {D,FT,}
+    v_orig, ladj = _v_orig_and_ladj(density, v)
+    logd_orig = checked_logdensityof(parent(density), v_orig)
+    _combine_logd_with_ladj(logd_orig, ladj)
 end

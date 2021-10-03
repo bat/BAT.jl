@@ -63,18 +63,46 @@ const SingleArrayIndex = Union{Integer, CartesianIndex}
 
 convert_numtype(::Type{T}, x::T) where {T<:Real} = x
 convert_numtype(::Type{T}, x::Real) where {T<:Real} = convert(T, x)
+
 convert_numtype(::Type{T}, x::AbstractArray{T}) where {T<:Real} = x
 convert_numtype(::Type{T}, x::AbstractArray{<:Real}) where {T<:Real} = convert.(T, x)
 
+convert_numtype(::Type{T}, x::ShapedAsNT{<:Any,<:AbstractArray{T}}) where {T<:Real} = x
+convert_numtype(::Type{T}, x::ShapedAsNT{<:Any,<:AbstractArray{<:Real}}) where {T<:Real} =
+    varshape(x)(convert_numtype(T, unshaped(x)))
+
+convert_numtype(::Type{T}, x::ShapedAsNTArray{<:Any,N,<:AbstractArray{<:AbstractArray{T}}}) where {T<:Real,N} = x
+convert_numtype(::Type{T}, x::ShapedAsNTArray{<:Any,N,<:AbstractArray{<:AbstractArray{<:Real}}}) where {T<:Real,N} =
+    varshape(x).(convert_numtype(T, unshaped.(x)))
+
+convert_numtype(::Type{T}, x::ArrayOfSimilarArrays{T,M,N}) where {T<:Real,M,N} = x
+convert_numtype(::Type{T}, x::VectorOfSimilarArrays{<:Real,M,N}) where {T<:Real,M,N} =
+    ArrayOfSimilarArrays{T,M,N}(convert_numtype(T, flatview(x)))
+
 
 # ToDo: Move to ValueShapes?
+getnumtype(x) = getnumtype(typeof(x))
+getnumtype(::Type{T}) where T = throw(ArgumentError("Can't derive numeric type for type $tp"))
+
 getnumtype(::Type{T}) where {T<:Real} = T
 getnumtype(::Type{<:AbstractArray{T}}) where {T<:Real} = T
+getnumtype(::Type{<:NamedTuple{names,T}}) where {names,T} = getnumtype(T)
 getnumtype(::Type{<:ShapedAsNT{<:Any,<:AbstractArray{T}}}) where {T<:Real} = T
 getnumtype(::Type{<:ShapedAsNTArray{<:Any,N,<:AbstractArray{<:AbstractArray{T}}}}) where {T<:Real,N} = T
-getnumtype(tp::Type) = throw(ArgumentError("Can't derive numeric type for type $tp"))
-getnumtype(x) = getnumtype(typeof(x))
+
+getnumtype(::Type{NTuple{N,T}}) where {N,T} = getnumtype(T)
+
+@generated function getnumtype(::Type{T}) where {T<:Tuple}
+    :(promote_type(map(getnumtype, $((T.parameters...,)))...))
+end
 
 
 any_isinf(trg_v::Real) = isinf(trg_v)
 any_isinf(trg_v::AbstractVector{<:Real}) = any(isinf, trg_v)
+
+
+strip_shapedasnt(v::Any) = v
+strip_shapedasnt(v::ShapedAsNT) = v[]
+
+strip_realscalar(v::Any) = v
+strip_realscalar(v::AbstractArray{<:Real,0}) = v[]

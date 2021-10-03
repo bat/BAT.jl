@@ -20,6 +20,7 @@ using ArgCheck
 using ArraysOfArrays
 using Clustering
 using Colors
+using DensityInterface
 using Distributions
 using DocStringExtensions
 using DoubleFloats

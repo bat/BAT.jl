@@ -32,10 +32,16 @@ MCMC algorithm subtype: [`HamiltonianMC`](@ref)
 sampling_algorithm = MCMCSampling(mcalg = HamiltonianMC())
 ```
 
-### Reactive Nested Sampling
+### Reactive Nested Sampling (experimental)
 BAT.jl sampling algorithm type: [`ReactiveNestedSampling`](@ref)
 ```julia
 sampling_algorithm = ReactiveNestedSampling()
+```
+
+### Ellipsoidal Nested Sampling (experimental)
+BAT.jl sampling algorithm type: [`EllipsoidalNestedSampling`](@ref)
+```julia
+sampling_algorithm = EllipsoidalNestedSampling()
 ```
 
 ### Partitioned Sampling (experimental)

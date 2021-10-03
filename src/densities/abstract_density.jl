@@ -4,12 +4,19 @@
 """
     abstract type AbstractDensity
 
-Subtypes of `AbstractDensity` must implement the function
+Subtypes of `AbstractDensity` must be implement the function
 
-* `BAT.eval_logval_unchecked`
+* `DensityInterface.logdensityof(density::SomeDensity, v)`
 
-For likelihood densities this is typically sufficient, since shape, and
-variate bounds will be inferred from the prior.
+For likelihood densities this is typically sufficient, since BAT can infer
+variate shape and bounds from the prior.
+
+!!! note
+
+    If `DensityInterface.logdensityof` is called with an argument that is out
+    of bounds, the behavior is undefined. The result for arguments that are
+    not within bounds is *implicitly* `-Inf`, but it is the caller's
+    responsibility to handle these cases.
 
 Densities with a known variate shape may also implement
 
@@ -26,6 +33,22 @@ Densities with known variate bounds may also implement
 """
 abstract type AbstractDensity end
 export AbstractDensity
+
+Base.convert(::Type{AbstractDensity}, density::AbstractDensity) = density
+Base.convert(::Type{AbstractDensity}, density::Any) = convert(WrappedNonBATDensity, density)
+
+DensityInterface.isdensitytype(::Type{<:AbstractDensity}) = true
+
+@inline ValueShapes.varshape(f::Base.Fix1{typeof(DensityInterface.logdensityof),<:AbstractDensity}) = varshape(f.x)
+@inline ValueShapes.unshaped(f::Base.Fix1{typeof(DensityInterface.logdensityof),<:AbstractDensity}) = logdensityof(unshaped(f.x))
+
+
+"""
+    BAT.eval_logval_unchecked(density::AbstractDensity, v::Any)
+
+**DEPRECATED** use/overload `DensityInterface.logdensityof` instead.
+"""
+const eval_logval_unchecked = logdensityof
 
 
 show_value_shape(io::IO, vs::AbstractValueShape) = show(io, vs)
@@ -88,35 +111,14 @@ end
 
 
 """
-    BAT.eval_logval_unchecked(density::AbstractDensity, v::Any)
-
-Compute log of the value of a multivariate density function for the given
-variate/parameter-values.
-
-Input:
-
-* `density`: density function
-* `v`: argument, i.e. variate / parameter-values
-
-Note: If `eval_logval_unchecked` is called with an argument that is out of bounds,
-the behavior is undefined. The result for arguments that are not within
-bounds is *implicitly* `-Inf`, but it is the caller's responsibility to handle
-these cases.
-"""
-function eval_logval_unchecked end
-
-
-"""
     var_bounds(
         density::AbstractDensity
     )::Union{AbstractVarBounds,Missing}
 
 *BAT-internal, not part of stable public API.*
 
-Get the parameter bounds of `density`. See `eval_logval_unchecked` and
-`eval_logval` for the implications and handling of bounds.
-If bounds are missing, `eval_logval_unchecked` must be prepared to
-handle any parameter values.
+Get the parameter bounds of `density`. See [`AbstractDensity`](@ref) for the
+implications and handling of bounds.
 """
 var_bounds(density::AbstractDensity) = missing
 
@@ -154,60 +156,61 @@ bat_sampler(d::AbstractDensity) = Distributions.sampler(d)
 
 
 """
-    eval_logval(density::AbstractDensity, v::Any, T::Type{<:Real})
+    checked_logdensityof(density::AbstractDensity, v::Any, T::Type{<:Real})
 
 *BAT-internal, not part of stable public API.*
 
-Evaluates density log-value via `eval_logval_unchecked`.
+Evaluates density log-value via `DensityInterface.logdensityof` and performs
+additional checks.
 
 Throws a `BAT.DensityEvalException` on any of these conditions:
 
 * The variate shape of `density` (if known) does not match the shape of `v`.
-* The return value of `eval_logval_unchecked` is `NaN`.
-* The return value of `eval_logval_unchecked` is an equivalent of positive
+* The return value of `DensityInterface.logdensityof` is `NaN`.
+* The return value of `DensityInterface.logdensityof` is an equivalent of positive
   infinity.
 """
-function eval_logval end
+function checked_logdensityof end
 
-@inline function eval_logval(density::AbstractDensity, v::Any, T::Type{<:Real})
-    v_shaped = fixup_variate(varshape(density), v)
-    R = density_logval_type(v_shaped, T)
-    v_stripped = stripscalar(v_shaped)
-    _generic_eval_logval_impl(density, v_stripped, R)
-end
+@inline checked_logdensityof(density::AbstractDensity) = Base.Fix1(checked_logdensityof, density)
 
+@inline ValueShapes.varshape(f::Base.Fix1{typeof(checked_logdensityof),<:AbstractDensity}) = varshape(f.x)
+@inline ValueShapes.unshaped(f::Base.Fix1{typeof(checked_logdensityof),<:AbstractDensity}) = checked_logdensityof(unshaped(f.x))
 
-function _generic_eval_logval_impl(density::AbstractDensity, v::Any, T::Type)
+@inline DensityInterface.logfuncdensity(f::Base.Fix1{typeof(checked_logdensityof)}) = f.x
+
+function checked_logdensityof(density::AbstractDensity, v::Any)
+    check_variate(varshape(density), v)
+
     logval = try
-        eval_logval_unchecked(density, v)
+        logdensityof(density, v)
     catch err
-        @rethrow_logged DensityEvalException(eval_logval, density, v, err)
+        @rethrow_logged DensityEvalException(logdensityof, density, v, err)
     end
 
     _check_density_logval(density, v, logval)
 
-    return convert(T, logval)::T
+    #R = density_valtype(density, v_shaped)
+    #return convert(R, logval)::R
+    return logval
 end
 
-ZygoteRules.@adjoint _generic_eval_logval_impl(density::AbstractDensity, v::Any, T::Type) = begin
-    zygote_logdensity(v) = eval_logval_unchecked(density, v)
+ZygoteRules.@adjoint checked_logdensityof(density::AbstractDensity, v::Any) = begin
+    check_variate(varshape(density), v)
     logval, back = try
-        ZygoteRules.pullback(zygote_logdensity, v)
+        ZygoteRules.pullback(logdensityof(density), v)
     catch err
-        @rethrow_logged DensityEvalException(eval_logval, density, v, err)
+        @rethrow_logged DensityEvalException(logdensityof, density, v, err)
     end
     _check_density_logval(density, v, logval)
-    eval_logval_pullback(logval::Real) = (nothing, first(back(logval)), nothing)
+    eval_logval_pullback(logval::Real) = (nothing, first(back(logval)))
     (logval, eval_logval_pullback)
 end
 
-
-
 function _check_density_logval(density::AbstractDensity, v::Any, logval::Real)
     if isnan(logval) || !(logval < float(typeof(logval))(+Inf))
-        throw(DensityEvalException(eval_logval, density, v, logval))
+        throw(DensityEvalException(logdensityof, density, v, logval))
     end
-
     nothing
 end
 
@@ -220,21 +223,49 @@ value_for_msg(v::NamedTuple) = map(value_for_msg, v)
 
 
 """
-    BAT.density_logval_type(v::Any, T::Type{<:Real})
+    BAT.density_valtype(density::AbstractDensity, v::Any)
 
 *BAT-internal, not part of stable public API.*
 
-Determine a suitable return type of log-density functions, given a variate
-shape `vs` and a default result type `T`.
+Determine a suitable return type for the (log-)density value
+of the given density for the given variate.
 """
-function density_logval_type end
+function density_valtype end
 
-@inline function density_logval_type(v::Any, T::Type{<:Real})
-    U = float(getnumtype(v))
-    promote_type(T, U)
+@inline function density_valtype(density::AbstractDensity, v::Any)
+    T = float(getnumtype(v))
+    promote_type(T, default_val_numtype(density))
 end
 
-default_dlt() = Float32
+function ChainRulesCore.rrule(::typeof(density_valtype), density::AbstractDensity, v::Any)
+    result = density_valtype(density, v)
+    _density_valtype_pullback(ΔΩ) = (NoTangent(), NoTangent(), ZeroTangent())
+    return result, _density_valtype_pullback
+end
+
+
+"""
+    BAT.default_var_numtype(density::AbstractDensity)
+
+*BAT-internal, not part of stable public API.*
+
+Returns the default/preferred underlying numerical type for (elements of)
+variates of `density`.
+"""
+function default_var_numtype end
+default_var_numtype(density::AbstractDensity) = Float64
+
+
+"""
+    BAT.default_val_numtype(density::AbstractDensity)
+
+*BAT-internal, not part of stable public API.*
+
+Returns the default/preferred numerical type (log-)density values of
+`density`.
+"""
+function default_val_numtype end
+default_val_numtype(density::AbstractDensity) = Float64
 
 
 """
@@ -274,78 +305,6 @@ function is_log_zero(x::Real, T::Type{<:Real} = typeof(x))
 end
 
 
-# ToDO: Consider deprecation in favor of logdensityof
-"""
-    logvalof(density::AbstractDensity)::Function
-
-Returns a function that computes the logarithmic value of `density` at a
-given point:
-
-```julia
-f = logvalof(density)
-log_density_at_v = f(v)
-```
-"""
-logvalof(density::AbstractDensity) = logdensityof(density)
-
-
-"""
-    logdensityof(density::AbstractDensity, v)::Real
-    logdensityof(density::AbstractDensity)::Function
-
-*Experimental feature, not part of stable public API.*
-
-Computes the logarithmic value of `density` at a given point, resp. returns a
-function that does so:
-
-```julia
-logy = logdensityof(density, v)
-logdensityof(density, v) == logdensityof(density)(v)
-```
-
-Note: This function should *not* be specialized for custom density types!
-"""
-function logdensityof end
-export logdensityof
-
-logdensityof(density::AbstractDensity, v::Any) = eval_logval(density, v, default_dlt())
-
-logdensityof(density::AbstractDensity) = LogDensityOf(density)
-
-
-struct LogDensityOf{D<:AbstractDensity} <: Function
-    density::D
-end
-
-@inline (lvd::LogDensityOf)(v::Any) = logdensityof(lvd.density, v)
-
-(Base.:-)(lvd::LogDensityOf) = NegLogDensityOf(lvd.density)
-
-ValueShapes.varshape(lvd::LogDensityOf) = varshape(lvd.density)
-ValueShapes.unshaped(lvd::LogDensityOf) = LogDensityOf(unshaped(lvd.density))
-
-
-struct NegLogDensityOf{D<:AbstractDensity} <: Function
-    density::D
-end
-
-@inline (lvd::NegLogDensityOf)(v::Any) = - logdensityof(lvd.density, v)
-
-(Base.:-)(lvd::NegLogDensityOf) = LogDensityOf(lvd.density)
-
-ValueShapes.varshape(lvd::NegLogDensityOf) = varshape(lvd.density)
-ValueShapes.unshaped(lvd::NegLogDensityOf) = NegLogDensityOf(unshaped(lvd.density))
-
-
-function Base.show(io::IO, f::Union{LogDensityOf,NegLogDensityOf})
-    print(io, Base.typename(typeof(f)).name, "(")
-    show(io, f.density)
-    print(io, ")")
-end
-
-Base.show(io::IO, M::MIME"text/plain", f::Union{LogDensityOf,NegLogDensityOf}) = show(io, f)
-
-
 
 """
     abstract type DistLikeDensity <: AbstractDensity
@@ -366,7 +325,7 @@ in) an `DistLikeDensity` via `conv(DistLikeDensity, d)`.
 
 The following functions must be implemented for subtypes:
 
-* `BAT.eval_logval_unchecked`
+* `DensityInterface.logdensityof`
 
 * `ValueShapes.varshape`
 
@@ -412,10 +371,12 @@ Union of all types that BAT will accept as a probability density, resp. that
 `convert(AbstractDensity, d)` supports:
     
 * [`AbstractDensity`](@ref)
+* `DensityInterface.LogFuncDensity`
 * `Distributions.Distribution`
 """
 const AnyDensityLike = Union{
     AbstractDensity,
+    DensityInterface.LogFuncDensity,
     Distributions.ContinuousDistribution
 }
 export AnyDensityLike
@@ -428,11 +389,13 @@ Union of all types that BAT can sample from:
 
 * [`AbstractDensity`](@ref)
 * [`DensitySampleVector`](@ref)
+* `DensityInterface.LogFuncDensity`
 * `Distributions.Distribution`
 """
 const AnySampleable = Union{
     AbstractDensity,
     DensitySampleVector,
+    DensityInterface.LogFuncDensity,
     Distributions.Distribution
 }
 export AnySampleable
@@ -452,3 +415,38 @@ const AnyIIDSampleable = Union{
     Distributions.Distribution
 }
 export AnyIIDSampleable
+
+
+
+"""
+    struct BAT.WrappedNonBATDensity{F<:Base.Callable}
+
+*BAT-internal, not part of stable public API.*
+
+Wraps a log-density function `log_f`.
+"""
+struct WrappedNonBATDensity{D} <: AbstractDensity
+    _d::D
+
+    function WrappedNonBATDensity{D}(density::D) where D
+        @argcheck isdensitytype(D)
+        new{D}(density)
+    end
+
+    WrappedNonBATDensity(density::D) where D = WrappedNonBATDensity{D}(density)
+end
+
+Base.convert(::Type{WrappedNonBATDensity}, density::Any) = WrappedNonBATDensity(density)
+
+@inline Base.parent(density::WrappedNonBATDensity) = density._d
+
+@inline DensityInterface.logdensityof(density::WrappedNonBATDensity, x) = logdensityof(parent(density), x)
+@inline DensityInterface.logdensityof(density::WrappedNonBATDensity) = logdensityof(parent(density))
+
+ValueShapes.varshape(density::WrappedNonBATDensity) = varshape(parent(density))
+
+function Base.show(io::IO, density::WrappedNonBATDensity)
+    print(io, Base.typename(typeof(density)).name, "(")
+    show(io, parent(density))
+    print(io, ")")
+end

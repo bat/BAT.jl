@@ -12,10 +12,7 @@ var_bounds(density::DensityWithShape) = var_bounds(parent(density))
 
 ValueShapes.varshape(density::DensityWithShape) = density.shape
 
-function eval_logval_unchecked(density::DensityWithShape, v::Any)
-    eval_logval_unchecked(parent(density), v)
-end
-
+DensityInterface.logdensityof(density::DensityWithShape, v::Any) = logdensityof(parent(density), v)
 
 
 struct ReshapedDensity{D<:AbstractDensity,S<:AbstractValueShape} <: AbstractDensity
@@ -30,12 +27,19 @@ var_bounds(density::ReshapedDensity) = var_bounds(density.density)
 ValueShapes.varshape(density::ReshapedDensity) = density.shape
 
 
-function eval_logval(density::ReshapedDensity, v::Any, T::Type{<:Real})
-    v_shaped = fixup_variate(varshape(density), v)
-    orig_density = parent(density)
-    orig_varshape = varshape(orig_density)
-    v_reshaped = reshape_variate(orig_varshape, v_shaped)
-    eval_logval(orig_density, v_reshaped, T)
+function _reshapeddensity_variate(density::ReshapedDensity, v::Any)
+    orig_varshape = varshape(parent(density))
+    reshape_variate(orig_varshape, v)
+end
+
+function DensityInterface.logdensityof(density::ReshapedDensity, v::Any)
+    v_reshaped = _reshapeddensity_variate(density, v)
+    logdensityof(parent(density), v_reshaped)
+end
+
+function checked_logdensityof(density::ReshapedDensity, v::Any)
+    v_reshaped = _reshapeddensity_variate(density, v)
+    checked_logdensityof(parent(density), v_reshaped)
 end
 
 

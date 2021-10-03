@@ -29,7 +29,6 @@ $(TYPEDFIELDS)
     is loaded (e.g. via
     `import`).
 """
-
 @with_kw struct EllipsoidalNestedSampling{TR<:AbstractDensityTransformTarget} <: AbstractSamplingAlgorithm
     trafo::TR = PriorToUniform()
 

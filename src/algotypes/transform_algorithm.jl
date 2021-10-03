@@ -122,6 +122,7 @@ function bat_transform_impl(target::NoDensityTransform, density::AnyDensityLike,
 end
 
 
+# ToDo: Merge PriorToUniform and PriorToGaussian into PriorTo{Uniform|Normal}.
 
 """
     struct PriorToUniform <: AbstractTransformToUnitspace
@@ -138,7 +139,7 @@ export PriorToUniform
 
 _distribution_density_trafo(target::PriorToUniform, density::DistributionDensity) = DistributionTransform(Uniform, parent(density))
 
-function bat_transform_impl(target::PriorToUniform, density::StandardUniformDensity, algorithm::DensityIdentityTransform)
+function bat_transform_impl(target::PriorToUniform, density::DistributionDensity{<:StandardUniformDist}, algorithm::DensityIdentityTransform)
     (result = density, trafo = IdentityVT(varshape(density)))
 end
 
@@ -159,7 +160,7 @@ export PriorToGaussian
 
 _distribution_density_trafo(target::PriorToGaussian, density::DistributionDensity) = DistributionTransform(Normal, parent(density))
 
-function bat_transform_impl(target::PriorToGaussian, density::StandardNormalDensity, algorithm::DensityIdentityTransform)
+function bat_transform_impl(target::PriorToGaussian, density::DistributionDensity{<:StandardNormalDist}, algorithm::DensityIdentityTransform)
     (result = density, trafo = IdentityVT(varshape(density)))
 end
 
