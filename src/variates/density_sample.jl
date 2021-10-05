@@ -140,7 +140,6 @@ const DensitySampleVector{
 export DensitySampleVector
 
 
-
 function DensitySampleVector(contents::Tuple{PV,TV,WV,RV,QV}) where {
     P,T<:AbstractFloat,W<:Real,R,Q,
     PV<:AbstractVector{P},TV<:AbstractVector{T},WV<:AbstractVector{W},RV<:AbstractVector{R},QV<:AbstractVector{Q}

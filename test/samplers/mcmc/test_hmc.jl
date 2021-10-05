@@ -187,8 +187,8 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
             tuning = BAT.StanHMCTuning(target_acceptance=0.999)
             mcalg = HamiltonianMC(tuning=tuning)
 
-            burnin = MCMCMultiCycleBurnin(max_ncycles=1000)
-            chain_init = MCMCChainPoolInit(init_tries_per_chain=8..500, nsteps_init=2000)
+            burnin = MCMCMultiCycleBurnin(max_ncycles=100)
+            chain_init = MCMCChainPoolInit(init_tries_per_chain=8..500, nsteps_init=1000)
 
             sampling_algo = MCMCSampling(nchains=8, trafo=BAT.NoDensityTransform(), init=chain_init, burnin=burnin, mcalg=mcalg)
 
@@ -197,7 +197,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         
         @testset "ahmc integrators" begin
             tuning = BAT.StanHMCTuning(target_acceptance=0.999)
-            burnin = MCMCMultiCycleBurnin(max_ncycles=1000, nsteps_final=2000)
+            burnin = MCMCMultiCycleBurnin(max_ncycles=100)
             chain_init = MCMCChainPoolInit(init_tries_per_chain=8..600, nsteps_init=2000)
 
             mcalg_lf = HamiltonianMC(integrator=BAT.LeapfrogIntegrator(1.0), tuning=tuning)
@@ -216,7 +216,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         @testset "ahmc metrics" begin
             tuning = BAT.StanHMCTuning(target_acceptance=0.999)
 
-            burnin = MCMCMultiCycleBurnin(max_ncycles=1000, nsteps_final=2000)
+            burnin = MCMCMultiCycleBurnin(max_ncycles=100)
             chain_init = MCMCChainPoolInit(init_tries_per_chain=8..600, nsteps_init=2000)
 
             mcalg_unit_euc = HamiltonianMC(metric=BAT.UnitEuclideanMetric(), tuning=tuning)
@@ -229,17 +229,18 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         end
 
         @testset "ahmc adaptors" begin
-            burnin = MCMCMultiCycleBurnin(max_ncycles=2000, nsteps_final=2000)
+            burnin = MCMCMultiCycleBurnin(max_ncycles=100)
             chain_init_more = MCMCChainPoolInit(init_tries_per_chain=8..600, nsteps_init=2000)
-            chain_init_most = MCMCChainPoolInit(init_tries_per_chain=8..1200, nsteps_init=2000)
 
-            mcalg_massmat = HamiltonianMC(tuning=BAT.MassMatrixAdaptor(0.999), metric=BAT.DenseEuclideanMetric())
-            sampling_algo = MCMCSampling(nchains=8, init=chain_init_most, burnin=burnin, mcalg=mcalg_massmat)
+            mcalg_massmat = HamiltonianMC(tuning=BAT.MassMatrixAdaptor(0.1), metric=BAT.UnitEuclideanMetric())
+            sampling_algo = MCMCSampling(mcalg=mcalg_massmat)
             test_sampler(num_dims=2, sampling_algo=sampling_algo, test_name="mass matrix")
 
             mcalg_stepsize = HamiltonianMC(tuning=BAT.StepSizeAdaptor())
-            sampling_algo = MCMCSampling(nchains=8, init=chain_init_more, trafo=BAT.NoDensityTransform(), mcalg=mcalg_stepsize)
+            sampling_algo = MCMCSampling(nchains=4, init=chain_init_more, trafo=BAT.NoDensityTransform(), mcalg=mcalg_stepsize)
             test_sampler(num_dims=2, sampling_algo=sampling_algo, test_name="step size")
+
+            # Add BAT.NaiveHMCTuning when implemented
         end
     end
 
