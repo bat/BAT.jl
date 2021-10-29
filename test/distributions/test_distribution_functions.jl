@@ -4,7 +4,7 @@ using BAT
 using Test
 
 using LinearAlgebra, Random
-using Distributions, PDMats, StatsBase
+using Distributions, PDMats, StatsBase, SparseArrays
 
 
 @testset "distribution_functions" begin
@@ -23,6 +23,7 @@ using Distributions, PDMats, StatsBase
         @test BAT.issymmetric_around_origin(MvTDist(1.5, zeros(2), PDMat(Matrix{Float64}(I, 2, 2))))
         @test BAT.issymmetric_around_origin(MvTDist(1.5, ones(2), PDMat(Matrix{Float64}(I, 2, 2)))) == false
     end
+
     @testset "BAT.cov2pdmat" begin 
         @test BAT.cov2pdmat(Float64, PDMat(Matrix(1.0I, 2, 2))) == PDMat(Matrix(1.0I, 2, 2))
         @test BAT.cov2pdmat(Float64, PDiagMat([1, 1])) == BAT.cov2pdmat(Float64, Matrix(PDiagMat([1, 1])))
