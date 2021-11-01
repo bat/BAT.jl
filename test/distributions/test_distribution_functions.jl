@@ -4,7 +4,7 @@ using BAT
 using Test
 
 using LinearAlgebra, Random
-using Distributions, PDMats, StatsBase, SparseArrays
+using Distributions, PDMats, StatsBase
 
 
 @testset "distribution_functions" begin
@@ -28,7 +28,6 @@ using Distributions, PDMats, StatsBase, SparseArrays
         @test BAT.cov2pdmat(Float64, PDMat(Matrix(1.0I, 2, 2))) == PDMat(Matrix(1.0I, 2, 2))
         @test BAT.cov2pdmat(Float64, PDiagMat([1, 1])) == BAT.cov2pdmat(Float64, Matrix(PDiagMat([1, 1])))
         @test BAT.cov2pdmat(Float64, ScalMat(2, 3)) == BAT.cov2pdmat(Float64, Matrix(ScalMat(2, 3)))
-        @test BAT.cov2pdmat(Float64, PDSparseMat(sparse(Matrix(1.0I, 2, 2)))) == BAT.cov2pdmat(Float64, Matrix(PDSparseMat(sparse(Matrix(1.0I, 2, 2)))))
         @test BAT.cov2pdmat(Float64, cholesky(Matrix(1.0I, 2, 2))) == PDMat(cholesky(Matrix(1.0I, 2, 2)))
         @test BAT.cov2pdmat(Float16, cholesky(Matrix(1.0I, 2, 2))) == BAT.cov2pdmat(Float16, Matrix(1.0I, 2, 2))
     end
