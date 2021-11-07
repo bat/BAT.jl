@@ -30,7 +30,7 @@ function LogUniform(a::Real, b::Real)
     LogUniform{T}(a, b)
 end
 
-LogUniform() = LogUniform{Float64}(0, 1)
+LogUniform() = LogUniform{Float64}(1, 2)
 
 
 Base.minimum(d::LogUniform{T}) where T = d.a
