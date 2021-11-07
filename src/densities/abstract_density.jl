@@ -37,7 +37,7 @@ export AbstractDensity
 Base.convert(::Type{AbstractDensity}, density::AbstractDensity) = density
 Base.convert(::Type{AbstractDensity}, density::Any) = convert(WrappedNonBATDensity, density)
 
-DensityInterface.isdensitytype(::Type{<:AbstractDensity}) = true
+@inline DensityInterface.hasdensity(::AbstractDensity) = true
 
 @inline ValueShapes.varshape(f::Base.Fix1{typeof(DensityInterface.logdensityof),<:AbstractDensity}) = varshape(f.x)
 @inline ValueShapes.unshaped(f::Base.Fix1{typeof(DensityInterface.logdensityof),<:AbstractDensity}) = logdensityof(unshaped(f.x))
@@ -429,7 +429,7 @@ struct WrappedNonBATDensity{D} <: AbstractDensity
     _d::D
 
     function WrappedNonBATDensity{D}(density::D) where D
-        @argcheck isdensitytype(D)
+        @argcheck hasdensity(density)
         new{D}(density)
     end
 

@@ -10,7 +10,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
 struct _TestDensityStruct{T} <: AbstractDensity
     mvn::T
 end
-DensityInterface.isdensitytype(::Type{<:_TestDensityStruct}) = true
+@inline DensityInterface.hasdensity(::_TestDensityStruct) = true
 DensityInterface.logdensityof(density::_TestDensityStruct, v::Any) = Distributions.logpdf(density.mvn, v)
 ValueShapes.totalndof(td::_TestDensityStruct) = Int(3)
 BAT.sampler(td::_TestDensityStruct) = BAT.sampler(td.mvn)
@@ -18,7 +18,7 @@ BAT.sampler(td::_TestDensityStruct) = BAT.sampler(td.mvn)
 struct _UniformDensityStruct{T} <: AbstractDensity
     mvu::T
 end
-DensityInterface.isdensitytype(::Type{<:_UniformDensityStruct}) = true
+@inline DensityInterface.hasdensity(::_UniformDensityStruct) = true
 DensityInterface.logdensityof(ud::_UniformDensityStruct, v::Any) = logpdf(ud.mvu, v)
 ValueShapes.varshape(ud::_UniformDensityStruct) = varshape(ud.mvu)
 ValueShapes.totalndof(ud::_UniformDensityStruct) = Int(3)
@@ -27,22 +27,22 @@ BAT.var_bounds(ud::_UniformDensityStruct) = BAT.HyperRectBounds(BAT.HyperRectVol
 struct _DeltaDensityStruct{T} <: AbstractDensity
     cvd::T
 end
-DensityInterface.isdensitytype(::Type{<:_DeltaDensityStruct}) = true
+@inline DensityInterface.hasdensity(::_DeltaDensityStruct) = true
 DensityInterface.logdensityof(dd::_DeltaDensityStruct, v::Any) = Distributions.logpdf(dd.cvd, v)
 ValueShapes.totalndof(dd::_DeltaDensityStruct) = Int(1)
 
 struct _ShapeDensityStruct{T} <: AbstractDensity
     ntdist::T
 end
-DensityInterface.isdensitytype(::Type{<:_ShapeDensityStruct}) = true
+@inline DensityInterface.hasdensity(::_ShapeDensityStruct) = true
 DensityInterface.logdensityof(sd::_ShapeDensityStruct, v) = logpdf(sd.ntdist, v)
 ValueShapes.varshape(sd::_ShapeDensityStruct) = varshape(sd.ntdist)
 
 
-struct NonBATDensity end
-DensityInterface.isdensitytype(::Type{<:NonBATDensity}) = true
-DensityInterface.logdensityof(d::NonBATDensity, v) = log(norm(v)^2)
-ValueShapes.varshape(d::NonBATDensity) = ArrayShape{Real}(2)
+struct _NonBATDensity end
+@inline DensityInterface.hasdensity(::_NonBATDensity) = true
+DensityInterface.logdensityof(d::_NonBATDensity, v) = log(norm(v)^2)
+ValueShapes.varshape(d::_NonBATDensity) = ArrayShape{Real}(2)
 
 
 @testset "abstract_density" begin
@@ -54,6 +54,7 @@ ValueShapes.varshape(d::NonBATDensity) = ArrayShape{Real}(2)
     @test @inferred(isequal(@inferred(varshape(td)), missing))
 
     x = rand(3)
+    DensityInterface.test_density_interface(tds, x, logpdf(mvn, x))
     @test_throws ArgumentError BAT.checked_logdensityof(td, [Inf, Inf, Inf])
     @test_throws BAT.DensityEvalException BAT.checked_logdensityof(tds, [Inf, Inf, Inf])
     @test_throws BAT.DensityEvalException BAT.checked_logdensityof(tds, [Inf, Inf, Inf])
@@ -69,7 +70,9 @@ ValueShapes.varshape(d::NonBATDensity) = ArrayShape{Real}(2)
     mvu = product_distribution([Uniform() for i in 1:3])
     ud = _UniformDensityStruct(mvu)
 
+    DensityInterface.test_density_interface(ud, x, -Inf)
     @test @inferred(BAT.checked_logdensityof(ud, x)) == -Inf
+    DensityInterface.test_density_interface(ud_shape_1(ud), ud_shape_1(x), logpdf(mvu, x))
     @test @inferred(BAT.checked_logdensityof(ud_shape_1(ud), ud_shape_1(x))) == @inferred(logpdf(mvu, x))
     @test @inferred(BAT.checked_logdensityof(ud_shape_2(ud), ud_shape_2(x))) == @inferred(logpdf(mvu, x))
 
@@ -85,7 +88,9 @@ ValueShapes.varshape(d::NonBATDensity) = ArrayShape{Real}(2)
     cvd = ConstValueDist(0)
     dd = _DeltaDensityStruct(cvd)
     dds = BAT.DensityWithShape(dd, ScalarShape{Real}())
+    DensityInterface.test_density_interface(dd, 0, Distributions.logpdf(dd.cvd, 0))
     @test_throws ArgumentError BAT.checked_logdensityof(dd, 0)
+    DensityInterface.test_density_interface(dds, 0, Distributions.logpdf(dd.cvd, 0))
     @test_throws BAT.DensityEvalException BAT.checked_logdensityof(dds, 0)
 
     ntdist = NamedTupleDist(a=mvn, b=mvu)
@@ -102,6 +107,7 @@ ValueShapes.varshape(d::NonBATDensity) = ArrayShape{Real}(2)
 
     sd = _ShapeDensityStruct(ntdist)
 
+    DensityInterface.test_density_interface(sd, x_for_sd_good_shape, logpdf(mvn, x1_for_sd) + logpdf(mvu, x2_for_sd))
     @test BAT.checked_logdensityof(sd, x_for_sd_good_shape) == logpdf(mvn, x1_for_sd) + logpdf(mvu, x2_for_sd)
     @test_throws ArgumentError BAT.checked_logdensityof(sd, x_for_sd_bad_shape)
 
@@ -111,10 +117,11 @@ ValueShapes.varshape(d::NonBATDensity) = ArrayShape{Real}(2)
     end
 
     @testset "non-BAT densities" begin
-        d = NonBATDensity()
+        d = _NonBATDensity()
         x = randn(3)
         @test @inferred(convert(AbstractDensity, d)) isa BAT.WrappedNonBATDensity
         bd = convert(AbstractDensity, d)
+        DensityInterface.test_density_interface(bd, x, logdensityof(d, x))
         @test @inferred(logdensityof(bd, x)) == logdensityof(d, x)
         @test @inferred(logdensityof(bd)) == logdensityof(d)
         @test @inferred(varshape(bd)) == varshape(d)
