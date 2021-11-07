@@ -20,7 +20,7 @@ using StatsBase, FillArrays
     d = BAT.LogUniform(0.1, 100)
     X = @inferred(rand(stblrng(), d, 10^5))
     
-    @test_throws ArgumentError BAT.LogUniform()  
+    @test BAT.LogUniform() == BAT.LogUniform{Float64}(1, 2)  
 
     @test params(d) == (0.1, 100)
     @test @inferred(minimum(d)) == 0.1
