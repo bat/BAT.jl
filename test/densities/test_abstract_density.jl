@@ -10,7 +10,7 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
 struct _TestDensityStruct{T} <: AbstractDensity
     mvn::T
 end
-@inline DensityInterface.hasdensity(::_TestDensityStruct) = true
+@inline DensityInterface.DensityKind(::_TestDensityStruct) = IsDensity()
 DensityInterface.logdensityof(density::_TestDensityStruct, v::Any) = Distributions.logpdf(density.mvn, v)
 ValueShapes.totalndof(td::_TestDensityStruct) = Int(3)
 BAT.sampler(td::_TestDensityStruct) = BAT.sampler(td.mvn)
@@ -18,7 +18,7 @@ BAT.sampler(td::_TestDensityStruct) = BAT.sampler(td.mvn)
 struct _UniformDensityStruct{T} <: AbstractDensity
     mvu::T
 end
-@inline DensityInterface.hasdensity(::_UniformDensityStruct) = true
+@inline DensityInterface.DensityKind(::_UniformDensityStruct) = IsDensity()
 DensityInterface.logdensityof(ud::_UniformDensityStruct, v::Any) = logpdf(ud.mvu, v)
 ValueShapes.varshape(ud::_UniformDensityStruct) = varshape(ud.mvu)
 ValueShapes.totalndof(ud::_UniformDensityStruct) = Int(3)
@@ -27,20 +27,20 @@ BAT.var_bounds(ud::_UniformDensityStruct) = BAT.HyperRectBounds(BAT.HyperRectVol
 struct _DeltaDensityStruct{T} <: AbstractDensity
     cvd::T
 end
-@inline DensityInterface.hasdensity(::_DeltaDensityStruct) = true
+@inline DensityInterface.DensityKind(::_DeltaDensityStruct) = IsDensity()
 DensityInterface.logdensityof(dd::_DeltaDensityStruct, v::Any) = Distributions.logpdf(dd.cvd, v)
 ValueShapes.totalndof(dd::_DeltaDensityStruct) = Int(1)
 
 struct _ShapeDensityStruct{T} <: AbstractDensity
     ntdist::T
 end
-@inline DensityInterface.hasdensity(::_ShapeDensityStruct) = true
+@inline DensityInterface.DensityKind(::_ShapeDensityStruct) = IsDensity()
 DensityInterface.logdensityof(sd::_ShapeDensityStruct, v) = logpdf(sd.ntdist, v)
 ValueShapes.varshape(sd::_ShapeDensityStruct) = varshape(sd.ntdist)
 
 
 struct _NonBATDensity end
-@inline DensityInterface.hasdensity(::_NonBATDensity) = true
+@inline DensityInterface.DensityKind(::_NonBATDensity) = IsDensity()
 DensityInterface.logdensityof(d::_NonBATDensity, v) = log(norm(v)^2)
 ValueShapes.varshape(d::_NonBATDensity) = ArrayShape{Real}(2)
 
