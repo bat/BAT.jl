@@ -443,7 +443,7 @@ Base.convert(::Type{WrappedNonBATDensity}, density::Any) = WrappedNonBATDensity(
 @inline DensityInterface.logdensityof(density::WrappedNonBATDensity, x) = logdensityof(parent(density), x)
 @inline DensityInterface.logdensityof(density::WrappedNonBATDensity) = logdensityof(parent(density))
 
-ValueShapes.varshape(density::WrappedNonBATDensity) = varshape(parent(density))
+ValueShapes.varshape(density::WrappedNonBATDensity) = missing
 
 function Base.show(io::IO, density::WrappedNonBATDensity)
     print(io, Base.typename(typeof(density)).name, "(")
