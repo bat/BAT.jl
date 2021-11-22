@@ -43,6 +43,12 @@ Base.convert(::Type{AbstractDensity}, density::Any) = convert(WrappedNonBATDensi
 @inline ValueShapes.unshaped(f::Base.Fix1{typeof(DensityInterface.logdensityof),<:AbstractDensity}) = logdensityof(unshaped(f.x))
 
 
+function ValueShapes.unshaped(density::AbstractDensity, vs::AbstractValueShape)
+    varshape(density) <= vs || throw(ArgumentError("Shape of density not compatible with given shape"))
+    unshaped(density)
+end
+
+
 """
     BAT.eval_logval_unchecked(density::AbstractDensity, v::Any)
 

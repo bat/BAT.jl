@@ -249,25 +249,9 @@ function apply_dist_trafo(trg_d::Distribution, src_d::Distribution, src_v::Any, 
 end
 
 
-function apply_dist_trafo(trg_d::DT, src_d::DT, src_v::Real, prev_ladj::OptionalLADJ) where {DT <: StdUvDist}
-    (v = src_v, ladj = prev_ladj)
-end
-
 function apply_dist_trafo(trg_d::DT, src_d::DT, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ) where {DT <: StdMvDist}
     @argcheck length(trg_d) == length(src_d) == length(eachindex(src_v))
     (v = src_v, ladj = prev_ladj)
-end
-
-
-function apply_dist_trafo(trg_d::Distribution{Univariate}, src_d::StdMvDist, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
-    @_adignore @argcheck length(src_d) == length(eachindex(src_v)) == 1
-    apply_dist_trafo(trg_d, view(src_d, 1), first(src_v), prev_ladj)
-end
-
-function apply_dist_trafo(trg_d::StdMvDist, src_d::Distribution{Univariate}, src_v::Real, prev_ladj::OptionalLADJ)
-    @argcheck length(trg_d) == 1
-    r = apply_dist_trafo(view(trg_d, 1), src_d, first(src_v), prev_ladj)
-    (v = unshaped(r.v), ladj = r.ladj)
 end
 
 
@@ -388,6 +372,23 @@ end
 # ToDo: Optimized implementation for Distributions.Truncated <-> StandardUvUniform
 
 
+@inline function apply_dist_trafo(trg_d::StandardUvUniform, src_d::StandardUvUniform, src_v::Real, prev_ladj::OptionalLADJ)
+    (v = src_v, ladj = prev_ladj)
+end
+
+@inline function apply_dist_trafo(trg_d::StandardUvNormal, src_d::StandardUvNormal, src_v::Real, prev_ladj::OptionalLADJ)
+    (v = src_v, ladj = prev_ladj)
+end
+
+@inline function apply_dist_trafo(trg_d::StandardUvUniform, src_d::StandardUvNormal, src_v::Real, prev_ladj::OptionalLADJ)
+    apply_dist_trafo(StandardUvUniform(), Normal(), src_v, prev_ladj)
+end
+
+@inline function apply_dist_trafo(trg_d::StandardUvNormal, src_d::StandardUvUniform, src_v::Real, prev_ladj::OptionalLADJ)
+    apply_dist_trafo(Normal(), StandardUvUniform(), src_v, prev_ladj)
+end
+
+
 @inline function apply_dist_trafo(trg_d::StandardMvUniform, src_d::StandardMvNormal, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
     @_adignore @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d)
     _product_dist_trafo_impl(StandardUvUniform(), StandardUvNormal(), src_v, prev_ladj)
@@ -500,8 +501,8 @@ end
 
 
 function _ntdistelem_to_stdmv(trg_d::StdMvDist, sd::Distribution, src_v_unshaped::AbstractVector{<:Real}, trg_acc::ValueAccessor, init_ladj::OptionalLADJ)
-    td = view(trg_d, ValueShapes.view_range(Base.OneTo(length(trg_d)), trg_acc))
-    sv = stripscalar(view(src_v_unshaped, trg_acc))
+    td = view(trg_d, ValueShapes.view_idxs(Base.OneTo(length(trg_d)), trg_acc))
+    sv = trg_acc(src_v_unshaped)
     apply_dist_trafo(td, sd, sv, init_ladj)
 end
 
@@ -518,14 +519,13 @@ function _transformed_ntd_elshape(d::Distribution)
     vs
 end
 
-function _transformed_ntd_accessors(d::NamedTupleDist{names}) where names
+function _transformed_ntd_accessors(d::NamedTupleDist{names,DT,AT,VT}) where {names,DT,AT,VT}
     shapes = map(_transformed_ntd_elshape, values(d))
-    vs = NamedTupleShape(NamedTuple{names}(shapes))
+    vs = NamedTupleShape(VT, NamedTuple{names}(shapes))
     values(vs)
 end
 
 function apply_dist_trafo(trg_d::StdMvDist, src_d::ValueShapes.UnshapedNTD, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
-    src_vs = varshape(src_d.shaped)
     @argcheck length(src_d) == length(eachindex(src_v))
     trg_accessors = _transformed_ntd_accessors(src_d.shaped)
     init_ladj = ismissing(prev_ladj) ? missing : zero(Float32)
@@ -541,8 +541,8 @@ function apply_dist_trafo(trg_d::StdMvDist, src_d::NamedTupleDist, src_v::Union{
 end
 
 function _stdmv_to_ntdistelem(td::Distribution, src_d::StdMvDist, src_v::AbstractVector{<:Real}, src_acc::ValueAccessor, init_ladj::OptionalLADJ)
-    sd = view(src_d, ValueShapes.view_range(Base.OneTo(length(src_d)), src_acc))
-    sv = view(src_v, ValueShapes.view_range(axes(src_v, 1), src_acc))
+    sd = view(src_d, ValueShapes.view_idxs(Base.OneTo(length(src_d)), src_acc))
+    sv = src_acc(src_v)
     apply_dist_trafo(td, sd, sv, init_ladj)
 end
 
@@ -551,7 +551,6 @@ function _stdmv_to_ntdistelem(td::ConstValueDist, src_d::StdMvDist, src_v::Abstr
 end
 
 function apply_dist_trafo(trg_d::ValueShapes.UnshapedNTD, src_d::StdMvDist, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
-    trg_vs = varshape(trg_d.shaped)
     @argcheck length(src_d) == length(eachindex(src_v))
     src_accessors = _transformed_ntd_accessors(trg_d.shaped)
     init_ladj = ismissing(prev_ladj) ? missing : zero(Float32)
@@ -563,7 +562,7 @@ end
 
 function apply_dist_trafo(trg_d::NamedTupleDist, src_d::StdMvDist, src_v::AbstractVector{<:Real}, prev_ladj::OptionalLADJ)
     unshaped_result = apply_dist_trafo(unshaped(trg_d), src_d, src_v, prev_ladj)
-    (v = strip_shapedasnt(varshape(trg_d)(unshaped_result.v)), ladj = unshaped_result.ladj)
+    (v = varshape(trg_d)(unshaped_result.v), ladj = unshaped_result.ladj)
 end
 
 

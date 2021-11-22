@@ -28,8 +28,9 @@ ValueShapes.varshape(density::ReshapedDensity) = density.shape
 
 
 function _reshapeddensity_variate(density::ReshapedDensity, v::Any)
-    orig_varshape = varshape(parent(density))
-    reshape_variate(orig_varshape, v)
+    vs = varshape(density)
+    orig_vs = varshape(parent(density))
+    reshape_variate(orig_vs, vs, v)
 end
 
 function DensityInterface.logdensityof(density::ReshapedDensity, v::Any)

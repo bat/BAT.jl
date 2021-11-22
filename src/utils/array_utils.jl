@@ -99,10 +99,3 @@ end
 
 any_isinf(trg_v::Real) = isinf(trg_v)
 any_isinf(trg_v::AbstractVector{<:Real}) = any(isinf, trg_v)
-
-
-strip_shapedasnt(v::Any) = v
-strip_shapedasnt(v::ShapedAsNT) = v[]
-
-strip_realscalar(v::Any) = v
-strip_realscalar(v::AbstractArray{<:Real,0}) = v[]

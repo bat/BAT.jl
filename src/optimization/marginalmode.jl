@@ -22,7 +22,7 @@ function bat_marginalmode_impl(samples::DensitySampleVector; nbins::Union{Intege
         end
         push!(marginalmode_params, marginalmode_param[1][1])
     end
-    (result = strip_realscalar(shape(marginalmode_params)),)
+    (result = shape(marginalmode_params),)
 end
 
 

@@ -124,7 +124,7 @@ function bat_sample_impl(
     LogDType = Float64
 
     function vec_ultranest_logpstr(V_rowwise::AbstractMatrix{<:Real})
-        V = copy(V_rowwise')
+        V = deepcopy(V_rowwise')
         logd = similar(V, LogDType, size(V,2))
         V_nested = nestedview(V)
         exec_map!(logdensityof(density), algorithm.executor, logd, V_nested)

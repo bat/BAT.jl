@@ -139,7 +139,7 @@ function Distributions.mode(sd::SampledDensity)
 end
 
 function marginalmode(sd::SampledDensity)
-    modes = unshaped(bat_marginalmode(sd.samples).result)
+    modes = bat_marginalmode(unshaped.(sd.samples)).result
     return (; zip(active_keys(sd), modes)...,)
 end
 

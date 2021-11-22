@@ -30,7 +30,7 @@ function _bat_findmode_impl_optim(target::AnySampleable, algorithm::AbstractMode
     f = negative(logdensityof(density))
     r_optim = Optim.MaximizationWrapper(_run_optim(f, x_init, algorithm))
     mode_trafo_unshaped = Optim.minimizer(r_optim.res)
-    mode_trafo = strip_realscalar(shape(mode_trafo_unshaped))
+    mode_trafo = shape(mode_trafo_unshaped)
     mode_notrafo = inv(trafo)(mode_trafo)
     (result = mode_notrafo, result_trafo = mode_trafo, trafo = trafo, info = r_optim)
 end

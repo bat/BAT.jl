@@ -27,7 +27,7 @@ using Random, Distributions, StatsBase
         dist_sample_vector_bmode = @inferred(bat_findmode(samples)).result
         @test @inferred(length(dist_sample_vector_bmode)) == 2
 
-        isapprox(var(bat_sample(Normal(), BAT.IIDSampling(nsamples = 10^3)).result), [1], rtol = 10^-1)
+        isapprox(var(bat_sample(Normal(), BAT.IIDSampling(nsamples = 10^3)).result), 1, rtol = 10^-1)
     end
 
     @testset "RandResampling" begin

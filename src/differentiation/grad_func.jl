@@ -41,15 +41,9 @@ function Base.show(io::IO, M::MIME"text/plain", gf::GradFunc)
 end
 
 
-_fixup_var(shape::AbstractValueShape, v::Any) = v
-
-_fixup_var(shape::NamedTupleShape, v::NamedTuple) = shape(unshaped(v, shape))
-
-
 function (gf::GradFunc)(v::Any)
     input_shape = gf._input_shape
-    v_shaped = _fixup_var(input_shape, v)
-    v_unshaped = unshaped(v_shaped)
+    v_unshaped = unshaped(v, input_shape)
 
     grad_f_unshaped = similar(v_unshaped)
 
@@ -61,8 +55,7 @@ end
 
 function (gf::GradFunc)(::typeof(!), grad_f::Any, v::Any)
     input_shape = gf._input_shape
-    v_shaped = _fixup_var(input_shape, v)
-    v_unshaped = unshaped(v_shaped)
+    v_unshaped = unshaped(v, input_shape)
 
     if isnothing(grad_f)
         R(gf._unshaped_f(v_unshaped))

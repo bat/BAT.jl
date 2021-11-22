@@ -78,7 +78,7 @@ end
 
 function _apply_shape(shape::AbstractValueShape, s::DensitySample)
     DensitySample(
-        strip_shapedasnt(shape(s.v)),
+        shape(s.v),
         s.logd,
         s.weight,
         s.info,
@@ -307,7 +307,7 @@ function _get_mode(samples::DensitySampleVector)
     shape = varshape(samples)
     i = findmax(samples.logd)[2]
     v_unshaped = unshaped.(samples.v)[i]
-    v = copy(shape(v_unshaped))
+    v = deepcopy(shape(v_unshaped))
     (v, i)
 end
 

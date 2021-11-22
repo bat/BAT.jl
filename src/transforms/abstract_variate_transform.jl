@@ -230,7 +230,7 @@ apply_vartrafo(trafo::VariateTransform{<:Any,<:ArrayShape{T,N}}, v::AbstractArra
 apply_vartrafo(trafo::VariateTransform{<:Any,<:ValueShapes.NamedTupleShape{names}}, v::NamedTuple{names}, prev_ladj::OptionalLADJ) where names =
     apply_vartrafo_impl(trafo, v, prev_ladj)
 
-apply_vartrafo(trafo::VariateTransform{<:Any,<:ValueShapes.NamedTupleShape{names}}, v::ShapedAsNT{<:NamedTuple{names}}, prev_ladj::OptionalLADJ) where names =
+apply_vartrafo(trafo::VariateTransform{<:Any,<:ValueShapes.NamedTupleShape{names}}, v::ShapedAsNT{names}, prev_ladj::OptionalLADJ) where names =
     apply_vartrafo_impl(trafo, v, prev_ladj)
 
 
