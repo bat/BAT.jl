@@ -122,7 +122,6 @@ ValueShapes.varshape(d::_NonBATDensity) = ArrayShape{Real}(2)
         DensityInterface.test_density_interface(bd, x, logdensityof(d, x))
         @test @inferred(logdensityof(bd, x)) == logdensityof(d, x)
         @test @inferred(logdensityof(bd)) == logdensityof(d)
-        # ToDo: Enable once ValueShapes defines varshape(::Any) = missing
-        # @test @inferred(varshape(bd)) == varshape(d)
+        @test @inferred(varshape(bd)) == varshape(d)
     end
 end
