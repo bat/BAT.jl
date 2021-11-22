@@ -1,8 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+vjp_algorithm(::Any) = ForwardDiffAD()
 vjp_algorithm(d::AbstractDensity) = ForwardDiffAD()
-#vjp_algorithm(d::WrappedNonBATDensity) = jvp_algorithm(parent(d)) #  ToDo: How to forward if defined?
+vjp_algorithm(d::WrappedNonBATDensity) = jvp_algorithm(parent(d))
 vjp_algorithm(d::AbstractPosteriorDensity) = vjp_algorithm(getlikelihood(d))
 vjp_algorithm(d::DensityWithShape) = vjp_algorithm(parent(d))
 vjp_algorithm(d::TransformedDensity) = vjp_algorithm(parent(d))
@@ -12,8 +13,9 @@ vjp_algorithm(f::Base.Fix1{F,<:AbstractDensity}) where F = vjp_algorithm(f.x)
 vjp_algorithm(f::Negative) = vjp_algorithm(negative(f))
 
 
+jvp_algorithm(::Any) = ForwardDiffAD()
 jvp_algorithm(d::AbstractDensity) = ForwardDiffAD()
-#jvp_algorithm(d::WrappedNonBATDensity) = jvp_algorithm(parent(d)) #  ToDo: How to forward if defined?
+jvp_algorithm(d::WrappedNonBATDensity) = jvp_algorithm(parent(d))
 jvp_algorithm(d::AbstractPosteriorDensity) = jvp_algorithm(getprior(d))
 jvp_algorithm(d::DensityWithShape) = jvp_algorithm(parent(d))
 jvp_algorithm(d::TransformedDensity) = jvp_algorithm(parent(d))
