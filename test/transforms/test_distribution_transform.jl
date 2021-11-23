@@ -159,6 +159,13 @@ using InverseFunctions, ChangesOfVariables
         @test BAT._trafo_quantile(Normal(Dual(0, 1, 0, 0), Dual(1, 0, 1, 0)), Dual(0.5, 0, 0, 1)) == quantile(Normal(Dual(0, 1, 0, 0), Dual(1, 0, 1, 0)), Dual(0.5, 0, 0, 1))
     end
 
+    for VT in (NamedTuple, ShapedAsNT)
+        src_dist = unshaped(NamedTupleDist(VT, a = Weibull(), b = MvNormal([1.3 0.6; 0.6 2.4])))
+        f = BAT.DistributionTransform(Normal, src_dist)
+        x = rand(src_dist)
+        InverseFunctions.test_inverse(f, x)
+        ChangesOfVariables.test_with_logabsdet_jacobian(f, x, ForwardDiff.jacobian)
+    end
 
     @testset "trafo broadcasting" begin
         dist = NamedTupleDist(a = Weibull(), b = Exponential())

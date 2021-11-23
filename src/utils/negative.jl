@@ -1,5 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+# ToDo: Use
+# const Negative{F} = ComposedFunction{typeof(-),F}
+# instead of custom struct Negative
+# Move ValueShapes.varshape(f::Negative) to ValueShapes
 
 struct Negative{F<:Base.Callable} <: Function
     orig_f::F

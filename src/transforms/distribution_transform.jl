@@ -158,7 +158,16 @@ function ∘(a::DistributionTransform, b::DistributionTransform)
     DistributionTransform(a.target_dist, b.source_dist)
 end
 
-Base.inv(trafo::DistributionTransform) = DistributionTransform(trafo.source_dist, trafo.target_dist)
+InverseFunctions.inverse(trafo::DistributionTransform) = DistributionTransform(trafo.source_dist, trafo.target_dist)
+
+import Base.inv
+Base.@deprecate inv(trafo::DistributionTransform) inverse(trafo)
+
+function ChangesOfVariables.with_logabsdet_jacobian(trafo::DistributionTransform, x)
+    y = trafo(x)
+    ladj = logpdf(trafo.source_dist, x) - logpdf(trafo.target_dist, y)
+    y, ladj
+end
 
 
 ValueShapes.varshape(trafo::DistributionTransform) = trafo._varshape

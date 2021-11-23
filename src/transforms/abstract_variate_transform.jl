@@ -33,6 +33,14 @@ abstract type AbstractVariateTransform <: Function end
 export AbstractVariateTransform
 
 
+InverseFunctions.inverse(trafo::AbstractVariateTransform) = inv(trafo)
+
+function ChangesOfVariables.with_logabsdet_jacobian(trafo::AbstractVariateTransform, x)
+    r = trafo(x, 0)
+    return r.v, r.ladj
+end
+
+
 ValueShapes.unshaped(trafo::AbstractVariateTransform) =
     _generic_unshaped_impl(trafo, varshape(trafo), valshape(trafo))
 
