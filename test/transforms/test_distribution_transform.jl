@@ -170,7 +170,8 @@ using InverseFunctions, ChangesOfVariables
         smpls_tr = trafo.(smpls)
         smpls_tr_cmp = [trafo(s) for s in smpls]
         @test smpls_tr == smpls_tr_cmp
-	    @test @inferred(varshape(trafo)) == @inferred(varshape(dist)) == trafo._varshape
+	    @test @inferred(varshape(trafo)) == varshape(trafo.source_dist)
+	    @test @inferred(trafo(varshape(trafo))) == varshape(trafo.target_dist)
     end
 
     @testset "trafo composition" begin
@@ -215,7 +216,7 @@ using InverseFunctions, ChangesOfVariables
         @test dist_density_trafod.result.orig == dist_density
         @test dist_density_trafod.trafo.source_dist == dist_density_trafod.result.trafo.source_dist == mvn
 
-        @test dist_density_trafod.trafo._valshape == @inferred(varshape(dist_density))
+        @test dist_density_trafod.trafo(varshape(dist_density_trafod.trafo)) == @inferred(varshape(dist_density))
 
         dist_density_trafod = @inferred(bat_transform(PriorToGaussian(), dist_density, FullDensityTransform()))
 
@@ -223,7 +224,7 @@ using InverseFunctions, ChangesOfVariables
         @test dist_density_trafod.result.orig == dist_density
         @test dist_density_trafod.trafo.source_dist == dist_density_trafod.result.trafo.source_dist == mvn
 
-        @test dist_density_trafod.trafo._valshape == @inferred(varshape(dist_density))
+        @test dist_density_trafod.trafo(varshape(dist_density_trafod.trafo)) == @inferred(varshape(dist_density))
     end
 
     @testset "trafo autodiff pullbacks" begin

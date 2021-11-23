@@ -82,7 +82,7 @@ function Base.copy(
 )
     trafo = instance.f
     v_src = instance.args[1]
-    vs_trg = valshape(trafo)
+    vs_trg = trafo(elshape(v_src))
     R = eltype(unshaped(trafo(first(v_src)), vs_trg))
     v_src_us = unshaped.(v_src)
     trafo_us = unshaped(trafo)
@@ -107,7 +107,7 @@ function Base.copy(
 )
     trafo = instance.f
     s_src = instance.args[1]
-    vs_trg = valshape(trafo)
+    vs_trg = trafo(elshape(s_src.v))
     R = eltype(unshaped(trafo(first(s_src.v)), vs_trg))
     s_src_us = unshaped.(s_src)
     trafo_us = unshaped(trafo)

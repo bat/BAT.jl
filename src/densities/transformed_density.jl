@@ -41,12 +41,16 @@ struct TDLADJCorr <: TDVolCorr end
 
 *BAT-internal, not part of stable public API.*
 """
-struct TransformedDensity{D<:AbstractDensity,FT<:VariateTransform,VC<:TDVolCorr} <: AbstractDensity
+struct TransformedDensity{D<:AbstractDensity,FT<:VariateTransform,VC<:TDVolCorr,VS<:AbstractValueShape} <: AbstractDensity
     orig::D
-    trafo::FT
+    trafo::FT  # ToDo: store inverse(trafo) instead?
     volcorr::VC
+    _varshape::VS
+end
 
-    # ToDo: Check varshape(orig) == varshape(trafo) in ctor
+function TransformedDensity(orig::AbstractDensity, trafo::VariateTransform, volcorr::TDVolCorr)
+    vs = trafo(varshape(orig))
+    TransformedDensity(orig, trafo, volcorr, vs)
 end
 
 
@@ -62,7 +66,7 @@ end
 Base.parent(density::TransformedDensity) = density.orig
 trafoof(density::TransformedDensity) = density.trafo
 
-ValueShapes.varshape(density::TransformedDensity) = valshape(density.trafo)
+ValueShapes.varshape(density::TransformedDensity) = density._varshape
 
 # ToDo: Should not be neccessary, improve default implementation of
 # ValueShapes.totalndof(density::AbstractDensity):

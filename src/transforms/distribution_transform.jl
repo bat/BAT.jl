@@ -94,18 +94,21 @@ struct DistributionTransform{
 } <: VariateTransform{VT,VF}
     target_dist::DT
     source_dist::DF
-    _valshape::VT
-    _varshape::VF
 end
 
 # ToDo: Add specialized dist trafo types able to cache relevant quantities, etc.
 
 
+function _distrafo_ctor_impl(target_dist::DT, source_dist::DF) where {DT<:ContinuousDistribution,DF<:ContinuousDistribution}
+    @argcheck eff_totalndof(target_dist) == eff_totalndof(source_dist)
+    VT = typeof(varshape(target_dist))
+    VF = typeof(varshape(source_dist))
+    DistributionTransform{DT,DF,VT,VF}(target_dist, source_dist)
+end
+
 function _distrafo_ctor_impl(target_dist::Distribution, source_dist::Distribution)
     @argcheck eff_totalndof(target_dist) == eff_totalndof(source_dist)
-    _valshape = varshape(target_dist)
-    _varshape = varshape(source_dist)
-    DistributionTransform(target_dist, source_dist, _valshape, _varshape)
+    DistributionTransform(target_dist, source_dist)
 end
 
 DistributionTransform(target_dist::Distribution{VF,Continuous}, source_dist::Distribution{VF,Continuous}) where VF =
@@ -172,8 +175,16 @@ function ∘(a::DistributionTransform, b::DistributionTransform)
 end
 
 
-ValueShapes.varshape(trafo::DistributionTransform) = trafo._varshape
-ValueShapes.valshape(trafo::DistributionTransform) = trafo._valshape
+ValueShapes.varshape(trafo::DistributionTransform) = varshape(trafo.source_dist)
+
+function (trafo::DistributionTransform)(vs::AbstractValueShape)
+    @argcheck vs <= varshape(trafo)
+    varshape(trafo.target_dist)
+end
+
+import ValueShapes.valshape
+# Mandated by deprecated AbstractVariateTransform:
+@deprecate valshape(trafo::DistributionTransform) trafo(varshape(trafo))
 
 ValueShapes.unshaped(trafo::DistributionTransform) =
     DistributionTransform(unshaped(trafo.target_dist), unshaped(trafo.source_dist))
