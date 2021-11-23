@@ -244,6 +244,7 @@ end
 function apply_dist_trafo(trg_d::Distribution, src_d::Distribution, src_v::Any, prev_ladj::OptionalLADJ)
     _check_conv_eff_totalndof(trg_d, src_d)
     intermediate_d = _intermediate_std_dist(trg_d, src_d)
+    intermediate_d === trg_d && throw(ArgumentError("No transformation path between distributions"))
     intermediate_v, intermediate_ladj = apply_dist_trafo(intermediate_d, src_d, src_v, prev_ladj)
     apply_dist_trafo(trg_d, intermediate_d, intermediate_v, intermediate_ladj)
 end
