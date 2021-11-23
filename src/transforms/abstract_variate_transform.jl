@@ -7,27 +7,7 @@ const OptionalLADJ = Union{Real,Missing}
 """
     abstract type AbstractVariateTransform <: Function
 
-Abstract type for change-of-variables transformations.
-
-Subtypes (e.g. `SomeTrafo <: AbstractVariateTransform`) must support (with
-`trafo::SomeTrafo`):
-
-```julia
-    (trafo)(v_prev::SomeVariate) == v_new
-    (trafo)(v_prev::SomeVariate, ladj_prev::Union{Real,Missing})) == (v = v_new, ladj = ladj_new)
-    (trafo)(s_prev::DensitySample)::DensitySample
-    ((trafo2 ∘ trafo1)(v)::AbstractVariateTransform)(v) == trafo2(trafo1(v))
-    inv(trafo)(trafo(v)) == v
-    inv(inv(trafo)) == trafo
-
-    ValueShapes.varshape(trafo)::ValueShapes.AbstractValueShape
-    ValueShapes.valshape(trafo)::ValueShapes.AbstractValueShape
-```
-
-with `valshape(v_prev) == varshape(trafo)` and
-`valshape(trafo(v_prev)) == valshape(trafo)`
-
-`ladj` must be `logabsdet(jacobian(trafo, v))`.
+**Deprecated**
 """
 abstract type AbstractVariateTransform <: Function end
 export AbstractVariateTransform
@@ -55,14 +35,7 @@ _generic_unshaped_impl(trafo::AbstractVariateTransform, ::ArrayShape{<:Real,1}, 
 """
     ladjof(r::NamedTuple{(...,:ladj,...)})::Union{Real,Missing}
 
-Extract the `log(abs(det(jacobian)))` value that is part of a result `r`.
-
-Examples:
-
-```julia
-ladjof((..., ladj = some_ladj, ...)) == some_ladj
-ladjof(trafo)(v) = trafo(v, )
-```
+**Deprecated**
 """
 function ladjof end
 export ladjof
@@ -82,13 +55,7 @@ end
 """
     ladjof(trafo::AbstractVariateTransform)::Function
 
-Returns a function that computes the `log(abs(det(jacobian)))` of `trafo` for
-a given variate `v`:
-
-```julia
-    ladjof(trafo)(v) == ladjof(trafo(v, 0))
-    ladjof(trafo)(v, prev_ladj) == ladjof(trafo(v, prev_ladj))
-```
+**Deprecated**
 """
 ladjof(trafo::AbstractVariateTransform) = LADJOfVarTrafo(trafo)
 
@@ -187,17 +154,7 @@ end
 """
     abstract type VariateTransform{VT<:AbstractValueShape,VF<:AbstractValueShape}
 
-*BAT-internal, not part of stable public API.*
-
-Abstract parameterized type for change-of-variables transformations.
-
-Subtypes (e.g. `SomeTrafo <: VariateTransform`) must implement:
-
-* `BAT.apply_vartrafo_impl(trafo::SomeTrafo, v)`
-* `BAT.apply_vartrafo_impl(inv_trafo::InverseVT{SomeTrafo}, v)`
-* `ValueShapes.varshape(trafo::SomeTrafo)`
-
-for real values and/or real-valued vectors `v`.
+**Deprecated**
 """
 abstract type VariateTransform{
     VT<:AbstractValueShape,VF<:AbstractValueShape
