@@ -5,6 +5,7 @@ using Test
 
 using LinearAlgebra
 using ValueShapes, ArraysOfArrays, Distributions, ForwardDiff
+using DensityInterface
 
 import Cuba
 

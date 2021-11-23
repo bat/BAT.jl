@@ -12,30 +12,25 @@ using InverseFunctions, ChangesOfVariables
     function test_back_and_forth(trg_d, src_d)
         @testset "transform $(typeof(trg_d).name) <-> $(typeof(src_d).name)" begin
             src_v = rand(src_d)
-            prev_ladj = 7.9
-
-            @test @inferred(BAT.apply_dist_trafo(trg_d, src_d, src_v, prev_ladj)) isa NamedTuple{(:v,:ladj)}
-            trg_v, trg_ladj = BAT.apply_dist_trafo(trg_d, src_d, src_v, prev_ladj)
-            @test logpdf(src_d, src_v) - logpdf(trg_d, trg_v) ≈ trg_ladj - prev_ladj
-
-            @test BAT.apply_dist_trafo(src_d, trg_d, trg_v, trg_ladj) isa NamedTuple{(:v,:ladj)}
-            src_v_reco, prev_ladj_reco = BAT.apply_dist_trafo(src_d, trg_d, trg_v, trg_ladj)
+            trg_v = BAT.apply_dist_trafo(trg_d, src_d, src_v)
+            src_v_reco = BAT.apply_dist_trafo(src_d, trg_d, trg_v)
 
             @test src_v ≈ src_v_reco
-            @test prev_ladj ≈ prev_ladj_reco
+
             let vs_trg = varshape(trg_d), vs_src = varshape(src_d)
-                f = unshaped_x -> inverse(vs_trg)(BAT.apply_dist_trafo(trg_d, src_d, vs_src(unshaped_x), prev_ladj).v)
-                @test trg_ladj ≈ logabsdet(ForwardDiff.jacobian(f, inverse(vs_src)(src_v)))[1] + prev_ladj
+                f = unshaped_x -> inverse(vs_trg)(BAT.apply_dist_trafo(trg_d, src_d, vs_src(unshaped_x)))
+                ref_ladj = logpdf(src_d, src_v) - logpdf(trg_d, trg_v)
+                @test ref_ladj ≈ logabsdet(ForwardDiff.jacobian(f, inverse(vs_src)(src_v)))[1]
             end
         end
     end
 
     function get_trgxs(trg_d, src_d, X)
-        return (x -> BAT.apply_dist_trafo(trg_d, src_d, x, 0.0).v).(nestedview(X))
+        return (x -> BAT.apply_dist_trafo(trg_d, src_d, x)).(nestedview(X))
     end
 
     function get_trgxs(trg_d, src_d::Distribution{Univariate}, X)
-        return (x -> BAT.apply_dist_trafo(trg_d, src_d, x, 0.0).v).(X)
+        return (x -> BAT.apply_dist_trafo(trg_d, src_d, x)).(X)
     end
 
     function test_dist_trafo_moments(trg_d, src_d)
@@ -118,16 +113,16 @@ using InverseFunctions, ChangesOfVariables
         mvuni = product_distribution([Uniform(), Uniform()])
 
         x = rand()
-        @test_throws ArgumentError BAT.apply_dist_trafo(stduvnorm, mvnorm, x, 0.0)
-        @test_throws ArgumentError BAT.apply_dist_trafo(stduvnorm, stdmvnorm1, x, 0.0)
-        @test_throws ArgumentError BAT.apply_dist_trafo(stduvnorm, stdmvnorm2, x, 0.0)
+        @test_throws ArgumentError BAT.apply_dist_trafo(stduvnorm, mvnorm, x)
+        @test_throws ArgumentError BAT.apply_dist_trafo(stduvnorm, stdmvnorm1, x)
+        @test_throws ArgumentError BAT.apply_dist_trafo(stduvnorm, stdmvnorm2, x)
 
         x = rand(2)
-        @test_throws ArgumentError BAT.apply_dist_trafo(mvuni, mvnorm, x, 0.0)
-        @test_throws ArgumentError BAT.apply_dist_trafo(mvnorm, mvuni, x, 0.0)
-        @test_throws ArgumentError BAT.apply_dist_trafo(stduvnorm, mvnorm, x, 0.0)
-        @test_throws ArgumentError BAT.apply_dist_trafo(stduvnorm, stdmvnorm1, x, 0.0)
-        @test_throws ArgumentError BAT.apply_dist_trafo(stduvnorm, stdmvnorm2, x, 0.0)
+        @test_throws ArgumentError BAT.apply_dist_trafo(mvuni, mvnorm, x)
+        @test_throws ArgumentError BAT.apply_dist_trafo(mvnorm, mvuni, x)
+        @test_throws ArgumentError BAT.apply_dist_trafo(stduvnorm, mvnorm, x)
+        @test_throws ArgumentError BAT.apply_dist_trafo(stduvnorm, stdmvnorm1, x)
+        @test_throws ArgumentError BAT.apply_dist_trafo(stduvnorm, stdmvnorm2, x)
     end
 
     let
