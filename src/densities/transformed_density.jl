@@ -72,18 +72,18 @@ var_bounds(density::TransformedDensity{<:Any,<:DistributionTransform}) = dist_pa
 
 
 function DensityInterface.logdensityof(density::TransformedDensity{D,FT,TDNoCorr}, v::Any) where {D,FT}
-    v_orig = inv(density.trafo)(v)
+    v_orig = inverse(density.trafo)(v)
     logdensityof(parent(density), v_orig)
 end
 
 function checked_logdensityof(density::TransformedDensity{D,FT,TDNoCorr}, v::Any) where {D,FT}
-    v_orig = inv(density.trafo)(v)
+    v_orig = inverse(density.trafo)(v)
     checked_logdensityof(parent(density), v_orig)
 end
 
 
 function _v_orig_and_ladj(density::TransformedDensity, v::Any)
-    r = inv(density.trafo)(v, 0)
+    r = inverse(density.trafo)(v, 0)
     r.v, r.ladj
 end
 

@@ -167,12 +167,12 @@ function bat_sample_impl(
     logvals_trafo = convert(Vector{Float64}, unest_wsamples["logl"])
     weight = convert(Vector{Float64}, unest_wsamples["weights"])
     samples_trafo = DensitySampleVector(vs.(v_trafo_us), logvals_trafo, weight = weight)
-    samples_notrafo = inv(trafo).(samples_trafo)
+    samples_notrafo = inverse(trafo).(samples_trafo)
 
     uwv_trafo_us = nestedview(convert(Matrix{Float64}, r["samples"]'))
     uwlogvals_trafo = map(logdensityof(density), uwv_trafo_us)
     uwsamples_trafo = DensitySampleVector(vs.(uwv_trafo_us), uwlogvals_trafo)
-    uwsamples_notrafo = inv(trafo).(uwsamples_trafo)
+    uwsamples_notrafo = inverse(trafo).(uwsamples_trafo)
 
     logz = convert(BigFloat, r["logz"])::BigFloat
     logzerr = convert(BigFloat, r["logzerr"])::BigFloat

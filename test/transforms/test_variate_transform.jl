@@ -18,14 +18,14 @@ using ValueShapes, Distributions
         ntvalue = (a = 4.2, b = [5, 7])
 
         @test @inferred(varshape(nttrafo)) == ntshape
-        @test @inferred(inv(nttrafo)) === nttrafo
+        @test @inferred(inverse(nttrafo)) === nttrafo
 
         @test @inferred(BAT.apply_vartrafo(nttrafo, ntvalue, 0)).v === ntvalue
         @test BAT.apply_vartrafo(nttrafo, ntvalue, 0.79).ladj == 0.79
         @test ismissing(BAT.apply_vartrafo(nttrafo, ntvalue, missing).ladj)
-        @test @inferred(BAT.apply_vartrafo(inv(nttrafo), ntvalue, 0.79)).v === ntvalue
-        @test BAT.apply_vartrafo(inv(nttrafo), ntvalue, 0.79).ladj == 0.79
-        @test ismissing(BAT.apply_vartrafo(inv(nttrafo), ntvalue, missing).ladj)
+        @test @inferred(BAT.apply_vartrafo(inverse(nttrafo), ntvalue, 0.79)).v === ntvalue
+        @test BAT.apply_vartrafo(inverse(nttrafo), ntvalue, 0.79).ladj == 0.79
+        @test ismissing(BAT.apply_vartrafo(inverse(nttrafo), ntvalue, missing).ladj)
 
         @test @inferred(nttrafo ∘ nttrafo) === nttrafo
 

@@ -180,7 +180,7 @@ using InverseFunctions, ChangesOfVariables
         normal2 = Normal(2)
 
         trafo = @inferred(BAT.DistributionTransform(dist1, dist2))
-        inv_trafo = @inferred(inv(trafo))
+        inv_trafo = @inferred(inverse(trafo))
 
         composed_trafo = @inferred(∘(trafo, inv_trafo))
         @test composed_trafo.source_dist == composed_trafo.target_dist == dist1
@@ -238,11 +238,11 @@ using InverseFunctions, ChangesOfVariables
         @test Zygote.jacobian(BAT._exp_cumsum_log, xs)[1] ≈ ForwardDiff.jacobian(BAT._exp_cumsum_log, xs) ≈ ForwardDiff.jacobian(cumprod, xs)
 
         src_v = [0.6, 0.7, 0.8, 0.9]
-        f = inv(BAT.DistributionTransform(Uniform, DistributionsAD.TuringDirichlet([3.0, 4.0, 5.0, 6.0, 7.0])))
+        f = inverse(BAT.DistributionTransform(Uniform, DistributionsAD.TuringDirichlet([3.0, 4.0, 5.0, 6.0, 7.0])))
         @test isapprox(ForwardDiff.jacobian(f, src_v), Zygote.jacobian(f, src_v)[1], rtol = 10^-4)
-        f = inv(BAT.DistributionTransform(Uniform, Dirichlet([3.0, 4.0, 5.0, 6.0, 7.0])))
+        f = inverse(BAT.DistributionTransform(Uniform, Dirichlet([3.0, 4.0, 5.0, 6.0, 7.0])))
         @test isapprox(ForwardDiff.jacobian(f, src_v), Zygote.jacobian(f, src_v)[1], rtol = 10^-4)
-        f = inv(BAT.DistributionTransform(Normal, Dirichlet([3.0, 4.0, 5.0, 6.0, 7.0])))
+        f = inverse(BAT.DistributionTransform(Normal, Dirichlet([3.0, 4.0, 5.0, 6.0, 7.0])))
         @test isapprox(ForwardDiff.jacobian(f, src_v), Zygote.jacobian(f, src_v)[1], rtol = 10^-4)
     end
 end

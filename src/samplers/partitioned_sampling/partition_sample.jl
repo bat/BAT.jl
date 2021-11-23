@@ -123,7 +123,7 @@ function bat_sample_impl(rng::AbstractRNG, target::PosteriorDensity, algorithm::
     end
 
     samples_trafo = varshape(shaped_density).(samples)
-    samples_notrafo = inv(trafo).(samples_trafo)
+    samples_notrafo = inverse(trafo).(samples_trafo)
 
     return (
         result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo,

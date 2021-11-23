@@ -63,7 +63,7 @@ function bat_sample_impl(
     # ToDo: Add integral error estimate
 
     samples_trafo = shape.(DensitySampleVector(samples, logvals, weight = weights))
-    samples_notrafo = inv(trafo).(samples_trafo)
+    samples_notrafo = inverse(trafo).(samples_trafo)
 
     return (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, integral = est_integral)
 end

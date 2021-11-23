@@ -20,7 +20,7 @@ using ForwardDiff, Zygote, DistributionsAD
 
     utarget, utrafo = bat_transform(PriorToGaussian(), unshaped(posterior))
     x = bat_initval(utarget).result
-    @test @inferred(Zygote.jacobian(inv(utrafo), x)[1]) ≈ ForwardDiff.jacobian(inv(utrafo), x)
+    @test @inferred(Zygote.jacobian(inverse(utrafo), x)[1]) ≈ ForwardDiff.jacobian(inverse(utrafo), x)
 
     hmc_sampling_alg = MCMCSampling(
         mcalg = HamiltonianMC(),

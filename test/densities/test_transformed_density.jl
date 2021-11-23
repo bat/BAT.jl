@@ -31,15 +31,15 @@ import Cuba
 
                 source_X = rand(source_dist, 10^5)
                 target_X = @inferred broadcast(trafo, source_X)
-                @test isapprox(@inferred(broadcast(inv(trafo), (target_X))), source_X, atol = 10^-8)
+                @test isapprox(@inferred(broadcast(inverse(trafo), (target_X))), source_X, atol = 10^-8)
                 @test isapprox(mean(target_X), mean(target_dist), atol = 0.05)
                 @test isapprox(var(target_X), var(target_dist), atol = 0.1)
 
                 @test @inferred(trafo(convert(AbstractDensity, source_dist))) isa BAT.TransformedDensity
                 density = trafo(convert(AbstractDensity, source_dist))
 
-                @test isapprox(@inferred(inv(density.trafo)(target_x)), source_x, atol = 10^-5)
-                @test isapprox(@inferred(inv(density.trafo)(fill(target_x))), fill(source_x), atol = 10^-5)
+                @test isapprox(@inferred(inverse(density.trafo)(target_x)), source_x, atol = 10^-5)
+                @test isapprox(@inferred(inverse(density.trafo)(fill(target_x))), fill(source_x), atol = 10^-5)
 
                 @test minimum(target_dist) <= @inferred(bat_initval(density, InitFromTarget())).result <= maximum(target_dist)
                 @test all(minimum(target_dist) .<= @inferred(bat_initval(density, 100, InitFromTarget())).result .<= maximum(target_dist))
@@ -87,7 +87,7 @@ import Cuba
 
         samples_is = bat_sample(density, MCMCSampling(mcalg = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4)).result
         @test isapprox(cov(samples_is), I(totalndof(density)), rtol = 0.1)
-        samples_os = inv(trafo).(samples_is)
+        samples_os = inverse(trafo).(samples_is)
         @test all(isfinite, logpdf.(Ref(src_d), samples_os.v))
         @test isapprox(cov(unshaped.(samples_os)), cov(unshaped(src_d)), rtol = 0.1)
         @test isapprox(mean(unshaped.(samples_os)), mean(rand(unshaped(src_d), 10^5), dims = 2), rtol = 0.1)

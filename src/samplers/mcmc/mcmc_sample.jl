@@ -89,7 +89,7 @@ function bat_sample_impl(
     isnothing(output) || append!.(Ref(output), chain_outputs)
     samples_trafo = varshape(shaped_density).(output)
 
-    samples_notrafo = inv(trafo).(samples_trafo)
+    samples_notrafo = inverse(trafo).(samples_trafo)
 
     isvalid = check_convergence(algorithm.convergence, samples_notrafo).converged
 
