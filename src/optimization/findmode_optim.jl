@@ -18,21 +18,18 @@ end
 
 
 function _bat_findmode_impl_optim(target::AnySampleable, algorithm::AbstractModeEstimator)
-    density_notrafo = convert(AbstractDensity, target)
-    trafoalg = bat_default(bat_transform, Val(:algorithm), algorithm.trafo, density_notrafo)
-    shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo, trafoalg)
-    shape = varshape(shaped_density)
-    density = unshaped(shaped_density)
+    transformed_density, trafo = transform_and_unshape(algorithm.trafo, target)
 
     rng = bat_determ_rng()
-    x_init = collect(unshaped(bat_initval(rng, density, apply_trafo_to_init(trafo, algorithm.init)).result))
+    initalg = apply_trafo_to_init(trafo, algorithm.init)
+    x_init = collect(bat_initval(rng, transformed_density, initalg).result)
 
-    f = negative(logdensityof(density))
+    f = negative(logdensityof(transformed_density))
     r_optim = Optim.MaximizationWrapper(_run_optim(f, x_init, algorithm))
-    mode_trafo_unshaped = Optim.minimizer(r_optim.res)
-    mode_trafo = shape(mode_trafo_unshaped)
-    mode_notrafo = inverse(trafo)(mode_trafo)
-    (result = mode_notrafo, result_trafo = mode_trafo, trafo = trafo, info = r_optim)
+    transformed_mode = Optim.minimizer(r_optim.res)
+    result_mode = inverse(trafo)(transformed_mode)
+
+    (result = result_mode, result_trafo = transformed_mode, trafo = trafo, info = r_optim)
 end
 
 

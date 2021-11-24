@@ -11,7 +11,7 @@ the functions `Base.parent` and [`trafoof`](@ref):
 
 ```julia
 parent(d::SomeTransformedDensity)::AbstractDensity
-trafoof(d::SomeTransformedDensity)::AbstractVariateTransform
+trafoof(d::SomeTransformedDensity)::Function
 ```
 """
 struct AbstractTransformedDensity end
@@ -41,20 +41,20 @@ struct TDLADJCorr <: TDVolCorr end
 
 *BAT-internal, not part of stable public API.*
 """
-struct TransformedDensity{D<:AbstractDensity,FT<:VariateTransform,VC<:TDVolCorr,VS<:AbstractValueShape} <: AbstractDensity
+struct TransformedDensity{D<:AbstractDensity,FT<:Function,VC<:TDVolCorr,VS<:AbstractValueShape} <: AbstractDensity
     orig::D
     trafo::FT  # ToDo: store inverse(trafo) instead?
     volcorr::VC
     _varshape::VS
 end
 
-function TransformedDensity(orig::AbstractDensity, trafo::VariateTransform, volcorr::TDVolCorr)
+function TransformedDensity(orig::AbstractDensity, trafo::Function, volcorr::TDVolCorr)
     vs = trafo(varshape(orig))
     TransformedDensity(orig, trafo, volcorr, vs)
 end
 
 
-@inline function (trafo::VariateTransform)(density::AbstractDensity; volcorr::Val{vc} = Val(true)) where vc
+@inline function (trafo::DistributionTransform)(density::AbstractDensity; volcorr::Val{vc} = Val(true)) where vc
     if vc
         TransformedDensity(density, trafo, TDLADJCorr())
     else
@@ -87,8 +87,7 @@ end
 
 
 function _v_orig_and_ladj(density::TransformedDensity, v::Any)
-    r = inverse(density.trafo)(v, 0)
-    r.v, r.ladj
+    with_logabsdet_jacobian(inverse(density.trafo), v)
 end
 
 # TODO: Would profit from custom pullback:

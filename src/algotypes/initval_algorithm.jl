@@ -116,4 +116,4 @@ end
 
 
 # Internal for now:
-apply_trafo_to_init(trafo::AbstractVariateTransform, initalg::InitvalAlgorithm) = initalg
+apply_trafo_to_init(trafo::Function, initalg::InitvalAlgorithm) = initalg

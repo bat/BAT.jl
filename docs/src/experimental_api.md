@@ -13,6 +13,7 @@ bat_compare
 bat_marginalmode
 bat_rng
 BAT.DensityEvalException
+BAT.DistributionTransform
 BAT.enable_error_log
 BAT.error_log
 BAT.ExternalDensity

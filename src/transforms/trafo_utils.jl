@@ -1,7 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# ToDo: Support bat_transform for vectors of variates and DensitySampleVector?
-
 
 broadcast_trafo(f::Any, v_src::Any) = f.(v_src)
 

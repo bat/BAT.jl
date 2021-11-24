@@ -114,12 +114,9 @@ function bat_initval_impl(rng::AbstractRNG, target::TransformedDensity, algorith
 end
 
 function bat_initval_impl(rng::AbstractRNG, target::TransformedDensity, n::Integer, algorithm::InitFromTarget)
-    v = bat_initval_impl(rng, target.orig, n, algorithm).result
-    # ToDo: Improve implementation
-    trg_vs = valshape(target.trafo(first(v)))
-    unshaped_v = unshaped.(v)
-    unshaped_v .= unshaped.(target.trafo.(v))
-    (result = trg_vs.(unshaped_v),)
+    vs_orig = bat_initval_impl(rng, target.orig, n, algorithm).result
+    vs = BAT.broadcast_trafo(target.trafo, vs_orig)
+    (result = vs,)
 end
 
 
@@ -206,7 +203,7 @@ function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, 
 end
 
 
-function apply_trafo_to_init(trafo::AbstractVariateTransform, initalg::ExplicitInit)
-    xs_tr = trafo.(initalg.xs)
+function apply_trafo_to_init(trafo::Function, initalg::ExplicitInit)
+    xs_tr = broadcast_trafo(trafo, initalg.xs)
     ExplicitInit(xs_tr)
 end

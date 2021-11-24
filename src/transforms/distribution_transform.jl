@@ -85,18 +85,31 @@ function ChainRulesCore.rrule(::typeof(_exp_cumsum_log), xs::AbstractVector)
 end
 
 
+"""
+    abstract type DistributionTransform{VT<:AbstractValueShape,VF<:AbstractValueShape} <: Function
 
+*Experimental feature, not part of stable public API.*
+
+Transform variate values between distributions
+
+Constructors:
+
+```julia
+DistributionTransform(target_dist, source_dist)
+DistributionTransform(Uniform, source_dist)
+DistributionTransform(Normal, source_dist)
+```
+"""
 struct DistributionTransform{
     DT <: ContinuousDistribution,
     DF <: ContinuousDistribution,
     VT <: AbstractValueShape,
     VF <: AbstractValueShape,
-} <: VariateTransform{VT,VF}
+} <: Function
     target_dist::DT
     source_dist::DF
 end
 
-# ToDo: Add specialized dist trafo types able to cache relevant quantities, etc.
 
 
 function _distrafo_ctor_impl(target_dist::DT, source_dist::DF) where {DT<:ContinuousDistribution,DF<:ContinuousDistribution}
@@ -145,6 +158,9 @@ Base.show(io::IO, M::MIME"text/plain", trafo::DistributionTransform) = show(io, 
 function apply_dist_trafo end
 
 
+(trafo::DistributionTransform)(x) = apply_dist_trafo(trafo.target_dist, trafo.source_dist, x)
+
+
 InverseFunctions.inverse(trafo::DistributionTransform) = DistributionTransform(trafo.source_dist, trafo.target_dist)
 
 import Base.inv
@@ -152,7 +168,7 @@ Base.@deprecate inv(trafo::DistributionTransform) inverse(trafo)
 
 
 function ChangesOfVariables.with_logabsdet_jacobian(trafo::DistributionTransform, x)
-    y = apply_dist_trafo(trafo.target_dist, trafo.source_dist, x)
+    y = trafo(x)
     logpdf_src = logpdf(trafo.source_dist, x)
     logpdf_trg = logpdf(trafo.target_dist, y)
     ladj = logpdf_src - logpdf_trg
@@ -160,6 +176,10 @@ function ChangesOfVariables.with_logabsdet_jacobian(trafo::DistributionTransform
     fixed_ladj = logpdf_src == logpdf_trg == -Inf ? zero(ladj) : ladj
     y, fixed_ladj
 end
+
+
+Base.:(∘)(::typeof(identity), f::DistributionTransform) = f
+Base.:(∘)(f::DistributionTransform, ::typeof(identity)) = f
 
 
 function Base.Broadcast.broadcasted(
@@ -205,22 +225,9 @@ function (trafo::DistributionTransform)(vs::AbstractValueShape)
     varshape(trafo.target_dist)
 end
 
-import ValueShapes.valshape
-# Mandated by deprecated AbstractVariateTransform:
-@deprecate valshape(trafo::DistributionTransform) trafo(varshape(trafo))
 
 ValueShapes.unshaped(trafo::DistributionTransform) =
     DistributionTransform(unshaped(trafo.target_dist), unshaped(trafo.source_dist))
-
-
-function apply_vartrafo_impl(trafo::DistributionTransform, x::Any, prev_ladj::Missing)
-    (v = apply_dist_trafo(trafo.target_dist, trafo.source_dist, x), ladj = missing)
-end
-
-function apply_vartrafo_impl(trafo::DistributionTransform, x::Any, prev_ladj::Real)
-    y, ladj = with_logabsdet_jacobian(trafo, x)
-    return (v = y, ladj = ladj + prev_ladj)
-end
 
 
 

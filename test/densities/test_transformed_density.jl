@@ -27,7 +27,6 @@ import Cuba
                 source_x = mean(target_dist) + std(target_dist) / 2
                 @test @inferred(trafo(source_x)) isa Real
                 target_x = trafo(source_x)
-                @test @inferred(trafo(fill(source_x))) == fill(target_x)
 
                 source_X = rand(source_dist, 10^5)
                 target_X = @inferred broadcast(trafo, source_X)
@@ -39,7 +38,6 @@ import Cuba
                 density = trafo(convert(AbstractDensity, source_dist))
 
                 @test isapprox(@inferred(inverse(density.trafo)(target_x)), source_x, atol = 10^-5)
-                @test isapprox(@inferred(inverse(density.trafo)(fill(target_x))), fill(source_x), atol = 10^-5)
 
                 @test minimum(target_dist) <= @inferred(bat_initval(density, InitFromTarget())).result <= maximum(target_dist)
                 @test all(minimum(target_dist) .<= @inferred(bat_initval(density, 100, InitFromTarget())).result .<= maximum(target_dist))

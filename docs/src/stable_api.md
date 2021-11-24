@@ -40,7 +40,6 @@ bat_integrated_autocorr_len
 bat_read
 bat_sample
 bat_write
-ladjof
 trafoof
 
 BAT.fft_autocor
@@ -54,7 +53,6 @@ AbstractPosteriorDensity
 AbstractTransformedDensity
 AbstractTransformToInfinite
 AbstractTransformToUnitspace
-AbstractVariateTransform
 AdaptiveMHTuning
 AHMIntegration
 AnyDensityLike
