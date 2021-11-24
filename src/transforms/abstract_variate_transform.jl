@@ -70,67 +70,6 @@ end
 (trafo::AbstractVariateTransform)(s::DensitySample) = _transform_density_sample(trafo, s)
 
 
-
-# Custom broadcast(::AbstractVariateTransform, DensitySampleVector), multithreaded:
-function Base.copy(
-    instance::Base.Broadcast.Broadcasted{
-        <:Base.Broadcast.AbstractArrayStyle{1},
-        <:Any,
-        <:AbstractVariateTransform,
-        <:Tuple{<:Union{ArrayOfSimilarVectors{<:Real},ShapedAsNTArray}}
-    }
-)
-    trafo = instance.f
-    v_src = instance.args[1]
-    vs_trg = trafo(elshape(v_src))
-    R = eltype(unshaped(trafo(first(v_src)), vs_trg))
-    v_src_us = unshaped.(v_src)
-    trafo_us = unshaped(trafo)
-
-    n = length(eachindex(v_src_us))
-    v_trg_unshaped = nestedview(similar(flatview(v_src_us), R, totalndof(vs_trg), n))
-    @assert axes(v_trg_unshaped) == axes(v_src)
-    @assert v_trg_unshaped isa ArrayOfSimilarArrays
-    @threads for i in eachindex(v_trg_unshaped, v_src)
-        v_trg_unshaped[i] = trafo_us(v_src_us[i])
-    end
-    vs_trg.(v_trg_unshaped)
-end
-
-function Base.copy(
-    instance::Base.Broadcast.Broadcasted{
-        <:Base.Broadcast.AbstractArrayStyle,
-        <:Any,
-        <:AbstractVariateTransform,
-        <:Tuple{DensitySampleVector}
-    }
-)
-    trafo = instance.f
-    s_src = instance.args[1]
-    vs_trg = trafo(elshape(s_src.v))
-    R = eltype(unshaped(trafo(first(s_src.v)), vs_trg))
-    s_src_us = unshaped.(s_src)
-    trafo_us = unshaped(trafo)
-
-    n = length(eachindex(s_src_us))
-    s_trg_unshaped = DensitySampleVector((
-        nestedview(similar(flatview(s_src_us.v), R, totalndof(vs_trg), n)),
-        zero(s_src_us.logd),
-        deepcopy(s_src_us.weight),
-        deepcopy(s_src_us.info),
-        deepcopy(s_src_us.aux),
-    ))
-    @assert axes(s_trg_unshaped) == axes(s_src)
-    @assert s_trg_unshaped.v isa ArrayOfSimilarArrays
-    @threads for i in eachindex(s_trg_unshaped, s_src)
-        r = trafo_us(s_src_us.v[i], zero(Float32))
-        s_trg_unshaped.v[i] .= r.v
-        s_trg_unshaped.logd[i] = s_src_us.logd[i] - r.ladj
-    end
-    vs_trg.(s_trg_unshaped)
-end
-
-
 function _combined_trafo_ladj(trafo_ladj::OptionalLADJ, prev_ladj::OptionalLADJ, trg_v_isinf::Bool)
     if ismissing(trafo_ladj) || ismissing(prev_ladj)
         missing
@@ -210,18 +149,35 @@ import Base.∘
 
 @inline apply_vartrafo_impl(trafo::IdentityVT, v::Any, prev_ladj::OptionalLADJ) = (v = v, ladj = prev_ladj)
 
+
+function broadcast_trafo(
+    ::IdentityVT,
+    v_src::Union{ArrayOfSimilarVectors{<:Real},ShapedAsNTArray}
+)
+    deepcopy(v_src)
+end
+
+function broadcast_trafo(
+    ::IdentityVT,
+    s_src::DensitySampleVector
+)
+    deepcopy(s_src)
+end
+
+
 (trafo::IdentityVT)(s::DensitySample) = s
 
 
-# Custom broadcast(::IdentityVT, DensitySampleVector), multithreaded:
-
-function Base.copy(
-    instance::Base.Broadcast.Broadcasted{
-        <:Base.Broadcast.AbstractArrayStyle,
-        <:Any,
-        <:IdentityVT,
-        <:Tuple{<:Union{ArrayOfSimilarVectors{<:Real},ShapedAsNTArray,DensitySampleVector}}
-    }
+function Base.Broadcast.broadcasted(
+    ::IdentityVT,
+    v_src::Union{ArrayOfSimilarVectors{<:Real},ShapedAsNTArray}
 )
-    deepcopy(instance.args[1])
+    broadcast_trafo(identity, v_src)
+end
+
+function Base.Broadcast.broadcasted(
+    ::IdentityVT,
+    s_src::DensitySampleVector
+)
+    broadcast_trafo(identity, s_src)
 end

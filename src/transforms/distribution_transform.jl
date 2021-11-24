@@ -162,6 +162,29 @@ function ChangesOfVariables.with_logabsdet_jacobian(trafo::DistributionTransform
 end
 
 
+function Base.Broadcast.broadcasted(
+    trafo::DistributionTransform,
+    v_src::Union{ArrayOfSimilarVectors{<:Real},ShapedAsNTArray}
+)
+    broadcast_trafo(trafo, v_src)
+end
+
+
+function (trafo::DistributionTransform)(s::DensitySample)
+    v, ladj = with_logabsdet_jacobian(trafo, s.v)
+    logd = s.logd - ladj
+    DensitySample(v, logd, s.weight, s.info, s.aux)
+end
+
+
+function Base.Broadcast.broadcasted(
+    trafo::DistributionTransform,
+    s_src::DensitySampleVector
+)
+    broadcast_trafo(trafo, s_src)
+end
+
+
 # Use ForwardDiff for univariate distribution transformations:
 @inline function ChainRulesCore.rrule(::typeof(apply_dist_trafo), trg_d::Distribution{Univariate}, src_d::Distribution{Univariate}, src_v::Any)
     ChainRulesCore.rrule(fwddiff(apply_dist_trafo), trg_d, src_d, src_v)
