@@ -239,7 +239,7 @@ of the given density for the given variate.
 function density_valtype end
 
 @inline function density_valtype(density::AbstractDensity, v::Any)
-    T = float(getnumtype(v))
+    T = float(realnumtype(typeof((v))))
     promote_type(T, default_val_numtype(density))
 end
 
