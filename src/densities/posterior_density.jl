@@ -191,13 +191,7 @@ function _posterior_parshapes(li_ps::AbstractValueShape, pr_ps::AbstractValueSha
 end
 
 function _posterior_parshapes(li_ps::AbstractValueShape, pr_ps::ArrayShape{T,1}) where T
-    n = totalndof(li_ps)
-    if n == totalndof(pr_ps)
-        @assert size(pr_ps) == (n,)
-        li_ps
-    else
-        throw(ArgumentError("Likelihood and prior have different number of free parameters"))
-    end
+    throw(ArgumentError("Variable shapes of likelihood and prior are incompatible"))
 end
 
 _posterior_parshapes(li_ps::ArrayShape{T,1}, pr_ps::AbstractValueShape) where T =

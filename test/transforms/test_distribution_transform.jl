@@ -193,8 +193,8 @@ using InverseFunctions, ChangesOfVariables
     end
 
     @testset "full density transform" begin
-        likelihood = @inferred(NamedTupleDist(a = Normal(), b = Exponential()))
-        prior = product_distribution([Normal(), Gamma()])
+        likelihood = NamedTupleDist(a = Normal(), b = Exponential())
+        prior = NamedTupleDist(a = Normal(), b = Gamma())
         posterior_density = PosteriorDensity(likelihood, prior)
 
         posterior_density_trafod = @inferred(bat_transform(PriorToUniform(), posterior_density, FullDensityTransform()))
