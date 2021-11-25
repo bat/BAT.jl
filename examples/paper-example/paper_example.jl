@@ -63,7 +63,7 @@ function fit_function_sum_all(p, E)
 end
 
 
-
+# We can define a likelihood via logfuncdensity
 function make_likelihood_bkg(summary_dataset_table, sample_table)
     logfuncdensity(function(p)
         ll_a = sum(log_pdf_poisson.(p.B .* summary_dataset_table.exposure, summary_dataset_table.event_counts))
@@ -72,18 +72,28 @@ function make_likelihood_bkg(summary_dataset_table, sample_table)
     end)
 end
 
-function make_likelihood_bkg_signal(summary_dataset_table, sample_table)
-    logfuncdensity(function(p)
-        ν_B = summary_dataset_table.exposure .* p.B
-        ν_S = summary_dataset_table.exposure .* summary_dataset_table.efficiency .* p.S
-        help_B = ν_B[sample_table.dataset]
-        help_S = ν_S[sample_table.dataset]
 
-        ll_a = sum(log_pdf_poisson.(ν_B .+ ν_S, summary_dataset_table.event_counts))
-        ll_b = sum(log_bkg_signal_pdf.(help_B, help_S, p.λ, p.S_μ, p.S_σ, sample_table.E))
+# We can also define a likelihood as a struct that supports `densitykind` and `logdensityof`:
+struct SignalBkgLikelihood{DS,ST}
+    summary_dataset_table::DS
+    sample_table::ST
+end
 
-        ll_a + ll_b
-    end)
+@inline DensityInterface.DensityKind(::SignalBkgLikelihood) = IsDensity()
+
+function DensityInterface.logdensityof(likelihood::SignalBkgLikelihood, p)
+    summary_dataset_table =  likelihood.summary_dataset_table
+    sample_table =  likelihood.sample_table
+
+    ν_B = summary_dataset_table.exposure .* p.B
+    ν_S = summary_dataset_table.exposure .* summary_dataset_table.efficiency .* p.S
+    help_B = ν_B[sample_table.dataset]
+    help_S = ν_S[sample_table.dataset]
+
+    ll_a = sum(log_pdf_poisson.(ν_B .+ ν_S, summary_dataset_table.event_counts))
+    ll_b = sum(log_bkg_signal_pdf.(help_B, help_S, p.λ, p.S_μ, p.S_σ, sample_table.E))
+
+    ll_a + ll_b
 end
 
 
@@ -125,7 +135,7 @@ prior_bkg_signal = HierarchicalDistribution(make_child_prior(length(summary_data
 
 posterior_bkg = PosteriorDensity(make_likelihood_bkg(summary_dataset_table, sample_table), prior_bkg)
 
-posterior_bkg_signal = PosteriorDensity(make_likelihood_bkg_signal(summary_dataset_table, sample_table), prior_bkg_signal)
+posterior_bkg_signal = PosteriorDensity(SignalBkgLikelihood(summary_dataset_table, sample_table), prior_bkg_signal)
 
 nchains = 4
 nsteps = 10^5
