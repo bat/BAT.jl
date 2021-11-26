@@ -65,7 +65,6 @@ BAT.StandardMvUniform
 BAT.StandardUvNormal
 BAT.StandardUvUniform
 BAT.TransformedDensity
-BAT.VariateTransform
 BAT.WhiteningResult
 BAT.WrappedNonBATDensity
 

@@ -12,16 +12,23 @@ using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
             bar = Normal(2.0, 1.0)
         )
 
+        snt_primary_dist = NamedTupleDist(
+            ShapedAsNT,
+            foo = LogNormal(1, 0.3),
+            bar = Normal(2.0, 1.0)
+        )
+
         f = v -> NamedTupleDist(baz = fill(Normal(v.bar, v.foo), 3))
 
         @test @inferred(HierarchicalDistribution(f, primary_dist)) isa HierarchicalDistribution
         hd = HierarchicalDistribution(f, primary_dist)
+        snt_hd = HierarchicalDistribution(f, snt_primary_dist)
 
         @test @inferred(unshaped(hd)) isa BAT.UnshapedHDist
         ud = unshaped(hd)
 
         @test @inferred(rand(hd)) isa NamedTuple
-        @test @inferred(rand(hd, ())) isa ShapedAsNT
+        @test @inferred(rand(snt_hd)) isa ShapedAsNT
         @test @inferred(rand(ud)) isa AbstractVector{<:Real}
         @test @inferred(varshape(hd)) == NamedTupleShape(foo = ScalarShape{Real}(), bar = ScalarShape{Real}(), baz = ArrayShape{Real}(3))
         @test @inferred(varshape(ud)) == ArrayShape{Real}(5)
@@ -29,7 +36,7 @@ using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
         ux = [2.7, 4.3, 8.7, 8.7, 8.7]
         @test @inferred(logpdf(ud, ux)) ≈ logpdf(primary_dist.foo, 2.7) + logpdf(primary_dist.bar, 4.3) + 3 * logpdf(Normal(4.3, 2.7), 8.7)
         @test @inferred(logpdf(hd, varshape(hd)(ux))) == logpdf(ud, ux)
-        @test @inferred(logpdf(hd, BAT.strip_shapedasnt(varshape(hd)(ux)))) == logpdf(ud, ux)
+        @test @inferred(logpdf(hd, varshape(hd)(ux))) == logpdf(ud, ux)
 
         samples = bat_sample(hd, MCMCSampling(mcalg = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4)).result
         @test isapprox(cov(unshaped.(samples)), cov(ud), rtol = 0.25)

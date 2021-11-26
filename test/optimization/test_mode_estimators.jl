@@ -15,28 +15,28 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes
     posterior = PosteriorDensity(logfuncdensity(v -> 0), prior)
 
     true_mode_flat = [2.0, 1.5, 0.5, 2.5]
-    true_mode = BAT.strip_shapedasnt(varshape(prior)(true_mode_flat))
+    true_mode = varshape(prior)(true_mode_flat)
 
     samples = @inferred(bat_sample(prior, IIDSampling(nsamples = 10^5))).result
 
 
     function test_findmode(posterior, algorithm, rtol)
         res = @inferred(bat_findmode(posterior, algorithm))
-        @test keys(BAT.strip_shapedasnt(res.result)) == keys(true_mode)
-        @test isapprox(unshaped(res.result), true_mode_flat, rtol = rtol)
+        @test keys(res.result) == keys(true_mode)
+        @test isapprox(unshaped(res.result, varshape(posterior)), true_mode_flat, rtol = rtol)
     end
 
     function test_findmode_noinferred(posterior, algorithm, rtol)
         res = (bat_findmode(posterior, algorithm))
-        @test keys(BAT.strip_shapedasnt(res.result)) == keys(true_mode)
-        @test isapprox(unshaped(res.result), true_mode_flat, rtol = rtol)
+        @test keys(res.result) == keys(true_mode)
+        @test isapprox(unshaped(res.result, varshape(posterior)), true_mode_flat, rtol = rtol)
     end
 
 
     @testset "ModeAsDefined" begin
-        @test @inferred(bat_findmode(prior, ModeAsDefined())).result[] == true_mode
-        @test @inferred(bat_findmode(BAT.DistributionDensity(prior), ModeAsDefined())).result[] == true_mode
-        let post_modes = @inferred(bat_findmode(posterior)).result[]
+        @test @inferred(bat_findmode(prior, ModeAsDefined())).result == true_mode
+        @test @inferred(bat_findmode(BAT.DistributionDensity(prior), ModeAsDefined())).result == true_mode
+        let post_modes = @inferred(bat_findmode(posterior)).result
             for k in keys(post_modes)
                 @test isapprox(post_modes[k], true_mode[k], atol=0.001)
             end
@@ -45,10 +45,10 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes
 
 
     @testset "MaxDensitySampleSearch" begin
-        @test @inferred(bat_findmode(samples, MaxDensitySampleSearch())).result isa ShapedAsNT
+        @test @inferred(bat_findmode(samples, MaxDensitySampleSearch())).result isa NamedTuple
         m = bat_findmode(samples, MaxDensitySampleSearch())
-        @test samples[m.mode_idx].v == BAT.strip_shapedasnt(m.result)
-        @test isapprox(unshaped(m.result), true_mode_flat, rtol = 0.05)
+        @test samples[m.mode_idx].v == m.result
+        @test isapprox(unshaped(m.result, elshape(samples.v)), true_mode_flat, rtol = 0.05)
     end
 
 

@@ -11,8 +11,8 @@ end
 
 _ntshape_names(::NamedTupleShape{names}) where names = names
 
-function _direct_valueshape_sum(vs_a::NamedTupleShape{names_a}, vs_b::NamedTupleShape{names_b}) where {names_a,names_b}
-    r = NamedTupleShape(; vs_a..., vs_b...)
+function _direct_valueshape_sum(vs_a::NamedTupleShape{names_a,AT,VT}, vs_b::NamedTupleShape{names_b}) where {names_a,AT,VT,names_b}
+    r = NamedTupleShape(VT; vs_a..., vs_b...)
     _ntshape_names(r) == (names_a..., names_b...) || throw(ArgumentError("Can't generate direct sum of NamedTupleShapes that share field names"))
     r
 end
@@ -88,7 +88,7 @@ function HierarchicalDistribution(f::Function, primary_dist::ContinuousDistribut
     vs_primary = varshape(primary_dist)
     vf_primary = _variate_form(primary_dist)
     x_primary_us = rand(bat_determ_rng(), unshaped(primary_dist))
-    x_primary = strip_shapedasnt(vs_primary(x_primary_us))
+    x_primary = vs_primary(x_primary_us)
 
     secondary_dist = f(x_primary)
     vs_secondary = varshape(secondary_dist)
@@ -154,7 +154,7 @@ Base.eltype(ud::UnshapedHDist{VF,T}) where {VF,T} = T
 _hd_pridist(d::HierarchicalDistribution) = d.pdist
 
 function _hd_secdist(d::HierarchicalDistribution, x::Any)
-    secondary_dist = d.f(strip_shapedasnt(x))
+    secondary_dist = d.f(x)
     @assert eff_totalndof(d.pdist) + eff_totalndof(secondary_dist) == d.effndof
     secondary_dist
 end
@@ -180,7 +180,7 @@ end
     _split_nt(x, vsp)
 end
 
-@inline function _hd_split(d::HierarchicalDistribution{ValueShapes.NamedTupleVariate{names}}, x::ShapedAsNT{<:NamedTuple{names}}) where names
+@inline function _hd_split(d::HierarchicalDistribution{ValueShapes.NamedTupleVariate{names}}, x::ShapedAsNT{names}) where names
     x_primary_us, x_secondary_us = _hd_split(unshaped(d), x)
     varshape(d.pdist)(x_primary_us), d.secondary_vs(x_secondary_us)
 end
@@ -216,9 +216,8 @@ Distributions.pdf(d::HierarchicalDistribution, x::Any) where names = exp(logpdf(
 Distributions.pdf(ud::UnshapedHDist, x::AbstractVector{<:Real}) = exp(logpdf(ud, x))
 
 
-Random.rand(rng::AbstractRNG, d::HierarchicalDistribution, dims::Tuple{}) = varshape(d)(rand(rng, unshaped(d)))
-
-Random.rand(rng::AbstractRNG, d::HierarchicalDistribution) = strip_shapedasnt(rand(rng, d, ()))
+Random.rand(rng::AbstractRNG, d::HierarchicalDistribution) = varshape(d)(rand(rng, unshaped(d)))
+ 
 
 function Random.rand(rng::AbstractRNG, d::HierarchicalDistribution, dims::Dims)
     ud = unshaped(d)

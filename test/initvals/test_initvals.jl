@@ -19,7 +19,7 @@ using Distributions, PDMats, StatsBase, ValueShapes, ArraysOfArrays
 
         ds = NamedTupleDist(a = Normal(), b = Exponential(), c = Uniform(-1, 2))
         @test @inferred(bat_default(bat_initval, Val(:algorithm), du)) == InitFromTarget()
-        @test @inferred(bat_initval(ds)).result isa ShapedAsNT
+        @test @inferred(bat_initval(ds)).result isa NamedTuple
         @test bat_initval(ds).optargs.algorithm == InitFromTarget()
         @test pdf(ds, bat_initval(ds).result) > 0
         @test @inferred(bat_initval(ds, 10)).result isa ShapedAsNTArray

@@ -43,6 +43,12 @@ Base.convert(::Type{AbstractDensity}, density::Any) = convert(WrappedNonBATDensi
 @inline ValueShapes.unshaped(f::Base.Fix1{typeof(DensityInterface.logdensityof),<:AbstractDensity}) = logdensityof(unshaped(f.x))
 
 
+function ValueShapes.unshaped(density::AbstractDensity, vs::AbstractValueShape)
+    varshape(density) <= vs || throw(ArgumentError("Shape of density not compatible with given shape"))
+    unshaped(density)
+end
+
+
 """
     BAT.eval_logval_unchecked(density::AbstractDensity, v::Any)
 
@@ -233,7 +239,7 @@ of the given density for the given variate.
 function density_valtype end
 
 @inline function density_valtype(density::AbstractDensity, v::Any)
-    T = float(getnumtype(v))
+    T = float(realnumtype(typeof((v))))
     promote_type(T, default_val_numtype(density))
 end
 
@@ -443,9 +449,7 @@ Base.convert(::Type{WrappedNonBATDensity}, density::Any) = WrappedNonBATDensity(
 @inline DensityInterface.logdensityof(density::WrappedNonBATDensity, x) = logdensityof(parent(density), x)
 @inline DensityInterface.logdensityof(density::WrappedNonBATDensity) = logdensityof(parent(density))
 
-# ToDo: Enable once ValueShapes defines varshape(::Any) = missing
-# ValueShapes.varshape(density::WrappedNonBATDensity) = varshape(parent(density))
-ValueShapes.varshape(density::WrappedNonBATDensity) = missing
+ValueShapes.varshape(density::WrappedNonBATDensity) = varshape(parent(density))
 
 function Base.show(io::IO, density::WrappedNonBATDensity)
     print(io, Base.typename(typeof(density)).name, "(")

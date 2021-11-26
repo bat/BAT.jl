@@ -6,6 +6,7 @@ using Test
 using Distributions, PDMats
 using ArraysOfArrays
 using ParallelProcessingTools
+using DensityInterface
 
 
 if Sys.isunix()

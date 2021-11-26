@@ -75,7 +75,7 @@ ValueShapes.unshaped(density::DensityWithDiff) = DensityWithDiff(density.vjpalg,
 
 
 function bat_transform_impl(target::NoDensityTransform, density::DensityWithDiff, algorithm::DensityIdentityTransform)
-    (result = density, trafo = IdentityVT(varshape(density)))
+    (result = density, trafo = identity)
 end
 
 function bat_transform_impl(target::AbstractDensityTransformTarget, density::DensityWithDiff, algorithm::TransformAlgorithm)

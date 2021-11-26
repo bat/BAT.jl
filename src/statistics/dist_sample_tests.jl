@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-_default_min_ess(samples::DensitySampleVector) = minimum(unshaped(bat_eff_sample_size(samples).result))
+_default_min_ess(samples::DensitySampleVector) = minimum(bat_eff_sample_size(unshaped.(samples)).result)
 
 
 function dist_samples_pvalue(

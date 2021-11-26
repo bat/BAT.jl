@@ -223,7 +223,7 @@ end
     end
 
     if global_mode
-        global_mode_params = mode(samples)[1]
+        global_mode_params = mode(samples)
         @series begin
             linecolor --> :black
             linestyle --> :dot
@@ -234,7 +234,7 @@ end
     end
 
     if marginal_mode
-        marginal_mode_params = bat_marginalmode(samples).result[1]
+        marginal_mode_params = bat_marginalmode(samples).result
         @series begin
             linecolor --> :black
             linestyle --> :dash

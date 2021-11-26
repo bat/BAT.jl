@@ -116,13 +116,13 @@ function truncate_dist_hard(dist::ConstValueDist, bounds::AbstractVector{<:Inter
 end
 
 
-function truncate_dist_hard(dist::NamedTupleDist{names}, bounds::AbstractArray{<:Interval}) where names
+function truncate_dist_hard(dist::NamedTupleDist{names,DT,AT,VT}, bounds::AbstractArray{<:Interval}) where {names,DT,AT,VT}
     @argcheck length(eachindex(bounds)) == totalndof(varshape(dist))
     distributions = values(dist)
     accessors = values(varshape(dist))
 
     r = map((dist, acc) -> truncate_dist_hard(dist, view(bounds, ValueShapes.view_idxs(eachindex(bounds), acc))), distributions, accessors)
-    trunc_dist = NamedTupleDist(NamedTuple{names}(map(x -> x.dist, r)))
+    trunc_dist = NamedTupleDist(VT, NamedTuple{names}(map(x -> x.dist, r)))
     logrenormf = sum(map(x -> x.logrenormf, r))
     (dist = trunc_dist, logrenormf = logrenormf)
 end

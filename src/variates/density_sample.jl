@@ -78,7 +78,7 @@ end
 
 function _apply_shape(shape::AbstractValueShape, s::DensitySample)
     DensitySample(
-        strip_shapedasnt(shape(s.v)),
+        shape(s.v),
         s.logd,
         s.weight,
         s.info,
@@ -242,9 +242,9 @@ end
 Base.merge(X::DensitySampleVector, Xs::DensitySampleVector...) = merge!(deepcopy(X), Xs...)
 
 
-Base.@propagate_inbounds function _bcasted_apply_to_params(f, A::DensitySampleVector)
+function Base.Broadcast.broadcasted(shaper::Union{AbstractValueShape, typeof(unshaped)}, A::DensitySampleVector)
     DensitySampleVector((
-        f.(A.v),
+        shaper.(A.v),
         A.logd,
         A.weight,
         A.info,
@@ -252,14 +252,18 @@ Base.@propagate_inbounds function _bcasted_apply_to_params(f, A::DensitySampleVe
     ))
 end
 
-Base.copy(
-    instance::Base.Broadcast.Broadcasted{
-        <:Base.Broadcast.AbstractArrayStyle,
-        <:Any,
-        <:Union{AbstractValueShape,typeof(unshaped)},
-        <:Tuple{DensitySampleVector}
-    }
-) = _bcasted_apply_to_params(instance.f, instance.args[1])
+function foobar(shaper::Union{AbstractValueShape, typeof(unshaped)}, A::DensitySampleVector)
+    DensitySampleVector((
+        shaper.(A.v),
+        A.logd,
+        A.weight,
+        A.info,
+        A.aux
+    ))
+end
+
+
+Base.Broadcast.broadcasted(::typeof(identity), s_src::DensitySampleVector) = deepcopy(s_src)
 
 
 ValueShapes.varshape(A::DensitySampleVector) = elshape(A.v)
@@ -307,7 +311,7 @@ function _get_mode(samples::DensitySampleVector)
     shape = varshape(samples)
     i = findmax(samples.logd)[2]
     v_unshaped = unshaped.(samples.v)[i]
-    v = copy(shape(v_unshaped))
+    v = deepcopy(shape(v_unshaped))
     (v, i)
 end
 

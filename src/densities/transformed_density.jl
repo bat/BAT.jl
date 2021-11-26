@@ -11,7 +11,7 @@ the functions `Base.parent` and [`trafoof`](@ref):
 
 ```julia
 parent(d::SomeTransformedDensity)::AbstractDensity
-trafoof(d::SomeTransformedDensity)::AbstractVariateTransform
+trafoof(d::SomeTransformedDensity)::Function
 ```
 """
 struct AbstractTransformedDensity end
@@ -41,16 +41,20 @@ struct TDLADJCorr <: TDVolCorr end
 
 *BAT-internal, not part of stable public API.*
 """
-struct TransformedDensity{D<:AbstractDensity,FT<:VariateTransform,VC<:TDVolCorr} <: AbstractDensity
+struct TransformedDensity{D<:AbstractDensity,FT<:Function,VC<:TDVolCorr,VS<:AbstractValueShape} <: AbstractDensity
     orig::D
-    trafo::FT
+    trafo::FT  # ToDo: store inverse(trafo) instead?
     volcorr::VC
+    _varshape::VS
+end
 
-    # ToDo: Check varshape(orig) == varshape(trafo) in ctor
+function TransformedDensity(orig::AbstractDensity, trafo::Function, volcorr::TDVolCorr)
+    vs = trafo(varshape(orig))
+    TransformedDensity(orig, trafo, volcorr, vs)
 end
 
 
-@inline function (trafo::VariateTransform)(density::AbstractDensity; volcorr::Val{vc} = Val(true)) where vc
+@inline function (trafo::DistributionTransform)(density::AbstractDensity; volcorr::Val{vc} = Val(true)) where vc
     if vc
         TransformedDensity(density, trafo, TDLADJCorr())
     else
@@ -62,7 +66,7 @@ end
 Base.parent(density::TransformedDensity) = density.orig
 trafoof(density::TransformedDensity) = density.trafo
 
-ValueShapes.varshape(density::TransformedDensity) = valshape(density.trafo)
+ValueShapes.varshape(density::TransformedDensity) = density._varshape
 
 # ToDo: Should not be neccessary, improve default implementation of
 # ValueShapes.totalndof(density::AbstractDensity):
@@ -72,19 +76,18 @@ var_bounds(density::TransformedDensity{<:Any,<:DistributionTransform}) = dist_pa
 
 
 function DensityInterface.logdensityof(density::TransformedDensity{D,FT,TDNoCorr}, v::Any) where {D,FT}
-    v_orig = inv(density.trafo)(v)
+    v_orig = inverse(density.trafo)(v)
     logdensityof(parent(density), v_orig)
 end
 
 function checked_logdensityof(density::TransformedDensity{D,FT,TDNoCorr}, v::Any) where {D,FT}
-    v_orig = inv(density.trafo)(v)
+    v_orig = inverse(density.trafo)(v)
     checked_logdensityof(parent(density), v_orig)
 end
 
 
 function _v_orig_and_ladj(density::TransformedDensity, v::Any)
-    r = inv(density.trafo)(v, 0)
-    r.v, r.ladj
+    with_logabsdet_jacobian(inverse(density.trafo), v)
 end
 
 # TODO: Would profit from custom pullback:

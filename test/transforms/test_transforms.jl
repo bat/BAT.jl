@@ -3,6 +3,5 @@
 using Test
 
 Test.@testset "transforms" begin
-    include("test_variate_transform.jl")
     include("test_distribution_transform.jl")
 end

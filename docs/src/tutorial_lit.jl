@@ -364,16 +364,14 @@ samples_mode = mode(samples)
 # unshaped form. `samples_mode` is presented as a 0-dimensional array that
 # contains a NamedTuple, this representation preserves the shape information:
 
-samples_mode[] isa NamedTuple
-
-unshaped(samples_mode)
+samples_mode isa NamedTuple
 
 # `samples_mode` is only an estimate of the mode of the posterior
 # distribution. It can be further refined using [`bat_findmode`](@ref):
 
 findmode_result = bat_findmode(posterior, MaxDensityNelderMead(init = ExplicitInit([samples_mode])))
 
-fit_par_values = findmode_result.result[]
+fit_par_values = findmode_result.result
 
 
 # Let's plot the data and fit function given the true parameters and MCMC samples

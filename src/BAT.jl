@@ -18,6 +18,7 @@ using Statistics
 
 using ArgCheck
 using ArraysOfArrays
+using ChangesOfVariables
 using Clustering
 using Colors
 using DensityInterface
@@ -29,6 +30,7 @@ using FFTW
 using FillArrays
 using ForwardDiffPullbacks
 using IntervalSets
+using InverseFunctions
 using KernelDensity
 using LaTeXStrings
 using ParallelProcessingTools

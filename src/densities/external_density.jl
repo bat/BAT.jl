@@ -123,27 +123,22 @@ deprecation.
 struct ExternalDensity <: AbstractDensity
     cmd::Cmd
     density_id::Int
-    proc::ThreadLocal{Base.Process}
-    lock::ThreadLocal{ThreadSafeReentrantLock}
+    proc::Ref{Base.Process}
+    lock::ThreadSafeReentrantLock
 end
 
 function ExternalDensity(cmd::Cmd, density_id = 0)
-    proc = ThreadLocal{Base.Process}(undef)
-    lock = ThreadLocal{ThreadSafeReentrantLock}(undef)
-    all_procs = getallvalues(proc)
-    all_locks = getallvalues(lock)
-    for i in eachindex(all_locks)
-        all_locks[i] = ThreadSafeReentrantLock()
-    end
+    proc = Ref{Base.Process}()
+    lock = ThreadSafeReentrantLock()
     ExternalDensity(cmd, density_id, proc, lock)
 end
 
 
-function DensityInterface.logdensityof(density::ExternalDensity, v::AbstractVector{Float64})
-    # TODO: Fix multithreading support
+# TODO: Add multithreading support
+# TODO: Add finalize
 
-    result = Ref(NaN)
-    lock(density.lock[]) do
+function DensityInterface.logdensityof(density::ExternalDensity, v::AbstractVector{Float64})
+    lock(density.lock) do
         request_id = rand(0:typemax(Int32))
         req = GetLogDensityValueDMsg(request_id, density.density_id, v)
         # @debug "Sending request $req"
@@ -157,22 +152,16 @@ function DensityInterface.logdensityof(density::ExternalDensity, v::AbstractVect
         # @debug "Received response $resp"
         resp.request_id == req.request_id || throw(ErrorException("Unexpexted response id $(resp.request_id) for request id $(req.request_id)"))
         resp.density_id == req.density_id || throw(ErrorException("Unexpexted density_id $(resp.density_id) in response to requested id $(req.density_id)"))
-        result[] = resp.log_density
+        resp.log_density
     end
-    result[]
 end
 
 
 function Base.close(density::ExternalDensity)
-    let all_procs = getallvalues(density.proc)
-        for i in eachindex(all_procs)
-            @critical begin
-                if isassigned(all_procs, i)
-                    p = all_procs[i]
-                    @info "Closing external process $i: $(p.cmd)"
-                    close(p)
-                end
-            end
+    lock(density.lock) do
+        if isassigned(density.proc)
+            @info "Closing external process: $(density.proc[].cmd)"
+            close(density.proc[])
         end
     end
 end

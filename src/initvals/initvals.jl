@@ -1,23 +1,13 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-function _reshape_v(target::AnyDensityLike, v::Any)
-    shape = varshape(convert(AbstractDensity, target))
-    reshape_variate(shape, v)
-end
 
-function _reshape_vs(target::AnyDensityLike, vs::AbstractVector)
-    shape = varshape(convert(AbstractDensity, target))
-    reshape_variates(shape, vs)
-end
+_reshape_rand_n_output(x::Any) = x
+_reshape_rand_n_output(x::AbstractMatrix) = nestedview(x)
 
-
-_reshape_rand_output(x::Any) = strip_realscalar(x)
-_reshape_rand_output(x::AbstractMatrix) = strip_realscalar(nestedview(x))
-
-_rand_v(rng::AbstractRNG, src::Distribution) = strip_realscalar(varshape(src)(rand(rng, bat_sampler(unshaped(src)))))
-_rand_v(rng::AbstractRNG, src::DistLikeDensity) = strip_realscalar(varshape(src)(convert_numtype(default_var_numtype(src), rand(rng, bat_sampler(unshaped(src))))))
-_rand_v(rng::AbstractRNG, src::Distribution, n::Integer) = _reshape_rand_output(rand(rng, bat_sampler(src), n))
-_rand_v(rng::AbstractRNG, src::DistLikeDensity, n::Integer) = _reshape_rand_output(convert_numtype(default_var_numtype(src), rand(rng, bat_sampler(src), n)))
+_rand_v(rng::AbstractRNG, src::Distribution) = varshape(src)(rand(rng, bat_sampler(unshaped(src))))
+_rand_v(rng::AbstractRNG, src::DistLikeDensity) = varshape(src)(convert_numtype(default_var_numtype(src), rand(rng, bat_sampler(unshaped(src)))))
+_rand_v(rng::AbstractRNG, src::Distribution, n::Integer) = _reshape_rand_n_output(rand(rng, bat_sampler(src), n))
+_rand_v(rng::AbstractRNG, src::DistLikeDensity, n::Integer) = _reshape_rand_n_output(convert_numtype(default_var_numtype(src), rand(rng, bat_sampler(src), n)))
 
 function _rand_v(rng::AbstractRNG, src::AnyIIDSampleable)
     _rand_v(rng, convert(DistLikeDensity, src))
@@ -39,18 +29,22 @@ end
 
 
 function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::Any)
-    _reshape_v(target, _rand_v(rng, src))
+    vs_target = varshape(convert(AbstractDensity, target))
+    vs_src = varshape(convert(AbstractDensity, src))
+    x = _rand_v(rng, src)
+    reshape_variate(vs_target, vs_src, x)
 end
 
 function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::Any, n::Integer)
-    _reshape_vs(target, _rand_v(rng, src, n))
+    vs_target = varshape(convert(AbstractDensity, target))
+    vs_src = varshape(convert(AbstractDensity, src))
+    xs = _rand_v(rng, src, n)
+    reshape_variates(vs_target, vs_src, xs)
 end
 
-_get_first(x::ShapedAsNTArray) = view(x, firstindex(x))
-_get_first(x) = first(x)
 
 function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::DensitySampleVector)
-    _get_first(_rand_v_for_target(rng, target, src, 1))
+    first(_rand_v_for_target(rng, target, src, 1))
 end
 
 function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::DensitySampleVector, n::Integer)
@@ -120,12 +114,9 @@ function bat_initval_impl(rng::AbstractRNG, target::TransformedDensity, algorith
 end
 
 function bat_initval_impl(rng::AbstractRNG, target::TransformedDensity, n::Integer, algorithm::InitFromTarget)
-    v = bat_initval_impl(rng, target.orig, n, algorithm).result
-    # ToDo: Improve implementation
-    trg_vs = valshape(target.trafo(first(v)))
-    unshaped_v = unshaped.(v)
-    unshaped_v .= unshaped.(target.trafo.(v))
-    (result = trg_vs.(unshaped_v),)
+    vs_orig = bat_initval_impl(rng, target.orig, n, algorithm).result
+    vs = BAT.broadcast_trafo(target.trafo, vs_orig)
+    (result = vs,)
 end
 
 
@@ -212,7 +203,7 @@ function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, 
 end
 
 
-function apply_trafo_to_init(trafo::AbstractVariateTransform, initalg::ExplicitInit)
-    xs_tr = trafo.(initalg.xs)
+function apply_trafo_to_init(trafo::Function, initalg::ExplicitInit)
+    xs_tr = broadcast_trafo(trafo, initalg.xs)
     ExplicitInit(xs_tr)
 end

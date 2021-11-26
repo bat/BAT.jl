@@ -56,7 +56,7 @@ Transform `density` to another variate space defined/implied by `target`.
 Returns a NamedTuple of the shape
 
 ```julia
-(result = newdensity::AbstractDensity, trafo = vartrafo::AbstractVariateTransform, ...)
+(result = newdensity::AbstractDensity, trafo = vartrafo::Function, ...)
 ```
 
 Result properties not listed here are algorithm-specific and are not part
@@ -118,7 +118,7 @@ export DensityIdentityTransform
 
 
 function bat_transform_impl(target::NoDensityTransform, density::AnyDensityLike, algorithm::DensityIdentityTransform)
-    (result = convert(AbstractDensity, density), trafo = IdentityVT(varshape(density)))
+    (result = convert(AbstractDensity, density), trafo = identity)
 end
 
 
@@ -140,7 +140,7 @@ export PriorToUniform
 _distribution_density_trafo(target::PriorToUniform, density::DistributionDensity) = DistributionTransform(Uniform, parent(density))
 
 function bat_transform_impl(target::PriorToUniform, density::DistributionDensity{<:StandardUniformDist}, algorithm::DensityIdentityTransform)
-    (result = density, trafo = IdentityVT(varshape(density)))
+    (result = density, trafo = identity)
 end
 
 
@@ -161,7 +161,7 @@ export PriorToGaussian
 _distribution_density_trafo(target::PriorToGaussian, density::DistributionDensity) = DistributionTransform(Normal, parent(density))
 
 function bat_transform_impl(target::PriorToGaussian, density::DistributionDensity{<:StandardNormalDist}, algorithm::DensityIdentityTransform)
-    (result = density, trafo = IdentityVT(varshape(density)))
+    (result = density, trafo = identity)
 end
 
 
@@ -234,4 +234,26 @@ end
 function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::RenormalizedDensity, algorithm::PriorSubstitution)
     new_parent_density, trafo = bat_transform_impl(target, parent(density), algorithm)
     (result = RenormalizedDensity(new_parent_density, density.logrenormf), trafo = trafo)
+end
+
+
+# ToDo: Support bat_transform for vectors of variates and DensitySampleVector?
+
+
+unshaping_trafo(::ArrayShape{Real, 1}) = identity
+unshaping_trafo(vs::AbstractValueShape) = inverse(vs)
+
+
+function transform_and_unshape(trafotarget::AbstractDensityTransformTarget, object::Any)
+    transform_and_unshape(bat_transform, trafotarget, object)
+end
+
+function transform_and_unshape(bat_trafofunc::Function, trafotarget::AbstractDensityTransformTarget, object::Any)
+    orig_denstiy = convert(AbstractDensity, object)
+    trafoalg = bat_default(bat_trafofunc, Val(:algorithm), trafotarget, orig_denstiy)
+    transformed_density, initial_trafo = bat_trafofunc(trafotarget, orig_denstiy, trafoalg)
+    us_trafo = unshaping_trafo(varshape(transformed_density))
+    result_density = us_trafo(transformed_density)
+    result_trafo = us_trafo ∘ initial_trafo
+    return result_density, result_trafo
 end
