@@ -170,3 +170,27 @@ function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::EffSamp
 
     (result = ess,)
 end
+
+
+
+"""
+    struct KishESS <: EffSampleSizeAlgorithm
+    
+Kish's effective sample size estimator, uses only the sample weights.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)()```
+
+"""
+struct KishESS <: EffSampleSizeAlgorithm
+end
+
+export KishESS
+
+
+function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::KishESS)
+    W = smpls.weight
+    ess = sum(W)^2 / sum(x -> x^2, W)
+    (result = ess,)
+end

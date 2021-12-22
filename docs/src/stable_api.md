@@ -81,6 +81,7 @@ InitFromSamples
 InitFromTarget
 InitvalAlgorithm
 IntegrationAlgorithm
+KishESS
 LogDVal
 MaxDensityLBFGS
 MaxDensityNelderMead
