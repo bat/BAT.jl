@@ -3,6 +3,50 @@
 _default_min_ess(samples::DensitySampleVector) = minimum(bat_eff_sample_size(unshaped.(samples)).result)
 
 
+function test_dist_samples(
+    rng::AbstractRNG, dist::Distribution, samples::DensitySampleVector;
+    nsamples::Integer = floor(Int, _default_min_ess(samples)),
+    ess::Integer = floor(Int, _default_min_ess(samples)),
+    logpdfdist_pvalue_threshold = 10^-4,
+    Rsq_threshold = 1.2
+)
+    r = dist_sample_qualities(rng, dist, samples; nsamples = nsamples, ess = ess)
+    r.logpdfdist_pvalue >= logpdfdist_pvalue_threshold && r.max_Rsq <= Rsq_threshold
+end
+
+function test_dist_samples(dist::Distribution, samples::DensitySampleVector; kwargs...)
+    test_dist_samples(bat_rng(), dist, samples; kwargs...)
+end
+
+
+function dist_sample_qualities(
+    rng::AbstractRNG, dist::Distribution, samples::DensitySampleVector;
+    nsamples::Integer = floor(Int, _default_min_ess(samples)),
+    ess::Integer = floor(Int, _default_min_ess(samples))
+)
+    samples_v = bat_sample(rng, samples, OrderedResampling(nsamples = ess)).result.v
+    samples_dist_logpdfs = logpdf.(Ref(dist), samples_v)
+    ref_samples = bat_sample(rng, dist, IIDSampling(nsamples = nsamples)).result
+    ref_dist_logpdfs = ref_samples.logd
+    samples_dist_logpdfs, ref_dist_logpdfs
+
+    # KS and AD have trouble with large number of samples on 32-bit systems:
+    #HypothesisTests.pvalue(HypothesisTests.ApproximateTwoSampleKSTest(samples_dist_logpdfs, ref_dist_logpdfs))
+    #HypothesisTests.pvalue(HypothesisTests.KSampleADTest(Vector(samples_dist_logpdfs), Vector(ref_dist_logpdfs)))
+    # So use custom KS-calculation instead:
+    logpdfdist_pvalue = ks_pvalue(fast_ks_delta(samples_dist_logpdfs, ref_dist_logpdfs), length(samples_dist_logpdfs), length(ref_dist_logpdfs))
+
+    uv = unshaped.(samples_v)
+    ref_uv = unshaped.(ref_samples)
+
+    W = mean(hcat(var(uv), var(ref_uv)), dims = 2)
+    B = var(hcat(mean(uv), mean(ref_uv)), dims = 2)
+    max_Rsq = maximum((W .+ B) ./ W)
+ 
+    (logpdfdist_pvalue = logpdfdist_pvalue, max_Rsq = max_Rsq)
+end
+
+
 function dist_samples_pvalue(
     rng::AbstractRNG, dist::Distribution, samples::DensitySampleVector;
     nsamples::Integer = floor(Int, _default_min_ess(samples)),
