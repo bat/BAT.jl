@@ -52,5 +52,8 @@ sys.stdout = open(os.devnull, 'w')
     logz_expected = -log(prod(maximum.(prior.v) .- minimum.(prior.v)))
     @test isapprox(r.logintegral.val, logz_expected, atol = 10 * r.logintegral.err)
 
+    # Ultranest uses Kish's ESS estimator:
+    @test r.ess ≈ bat_eff_sample_size(r.result, KishESS()).result
+
     @test r.ess > 50
 end

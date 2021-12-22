@@ -32,7 +32,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         @test minimum(samples.weight) == 0
         @test isapprox(length(samples), nsteps, atol = 20)
         @test length(samples) == sum(samples.weight)
-        @test BAT.dist_samples_pvalue(unshaped(target), samples) > 10^-3
+        @test BAT.test_dist_samples(unshaped(target), samples)
 
         samples = DensitySampleVector(chain)
         BAT.mcmc_iterate!(samples, chain, max_nsteps = 10^3, nonzero_weights = true)
@@ -90,7 +90,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         append!.(Ref(samples), outputs)
         
         @test length(samples) == sum(samples.weight)
-        @test BAT.dist_samples_pvalue(unshaped(target), samples) > 10^-3
+        @test BAT.test_dist_samples(unshaped(target), samples)
     end
 
     @testset "bat_sample" begin

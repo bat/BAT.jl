@@ -91,9 +91,11 @@ function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::El
     samples_notrafo = inverse(trafo).(samples_trafo)                                            # Here the samples are retransformed
     
     logintegral = Measurements.measurement(state.logz, state.logzerr)
+    ess = bat_eff_sample_size(samples_notrafo, KishESS()).result
+
     return (
         result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, 
-        logintegral = logintegral, ess=length(weights) / (1.0 + sum((length(weights) .* weights .- 1).^2) / length(weights)), # copied from ultranest, not sure if it works here in the same way
+        logintegral = logintegral, ess = ess,
         info = state
     )
 end

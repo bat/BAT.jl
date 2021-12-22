@@ -7,7 +7,7 @@ function test_dist_samples(
     rng::AbstractRNG, dist::Distribution, samples::DensitySampleVector;
     nsamples::Integer = floor(Int, _default_min_ess(samples)),
     ess::Integer = floor(Int, _default_min_ess(samples)),
-    logpdfdist_pvalue_threshold = 10^-4,
+    logpdfdist_pvalue_threshold = 10^-3,
     Rsq_threshold = 1.2
 )
     r = dist_sample_qualities(rng, dist, samples; nsamples = nsamples, ess = ess)
@@ -44,30 +44,6 @@ function dist_sample_qualities(
     max_Rsq = maximum((W .+ B) ./ W)
  
     (logpdfdist_pvalue = logpdfdist_pvalue, max_Rsq = max_Rsq)
-end
-
-
-function dist_samples_pvalue(
-    rng::AbstractRNG, dist::Distribution, samples::DensitySampleVector;
-    nsamples::Integer = floor(Int, _default_min_ess(samples)),
-    ess::Integer = floor(Int, _default_min_ess(samples)),
-)
-    samples_v = bat_sample(rng, samples, OrderedResampling(nsamples = ess)).result.v
-    samples_dist_logpdfs = logpdf.(Ref(dist), samples_v)
-    ref_samples = bat_sample(rng, dist, IIDSampling(nsamples = nsamples)).result
-    ref_dist_logpdfs = ref_samples.logd
-    samples_dist_logpdfs, ref_dist_logpdfs
-
-    # KS and AD have trouble with large number of samples on 32-bit systems:
-    #HypothesisTests.pvalue(HypothesisTests.ApproximateTwoSampleKSTest(samples_dist_logpdfs, ref_dist_logpdfs))
-    #HypothesisTests.pvalue(HypothesisTests.KSampleADTest(Vector(samples_dist_logpdfs), Vector(ref_dist_logpdfs)))
-    # So use custom KS-calculation instead:
-    ks_pvalue(fast_ks_delta(samples_dist_logpdfs, ref_dist_logpdfs), length(samples_dist_logpdfs), length(ref_dist_logpdfs))
-end
-
-
-function dist_samples_pvalue(dist::Distribution, samples::DensitySampleVector; kwargs...)
-    dist_samples_pvalue(bat_rng(), dist, samples; kwargs...)
 end
 
 

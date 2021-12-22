@@ -84,7 +84,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         append!.(Ref(samples), outputs)
         
         @test length(samples) == sum(samples.weight)
-        @test BAT.dist_samples_pvalue(unshaped(target), samples) > 10^-3
+        @test BAT.test_dist_samples(unshaped(target), samples)
     end
 
     @testset "bat_sample" begin

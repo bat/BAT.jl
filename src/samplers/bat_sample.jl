@@ -14,20 +14,18 @@ getalgorithm(sg::GenericSampleGenerator) = sg.algorithm
 
 function sample_and_verify(
     rng::AbstractRNG, target::AnySampleable, algorithm::AbstractSamplingAlgorithm, ref_dist::Distribution = target;
-    pvalue_threshold::Real = 10^-3, max_retries::Integer = 1
+    max_retries::Integer = 1
 )
     initial_smplres = bat_sample(rng, target, algorithm)
     smplres::typeof(initial_smplres) = initial_smplres
-    initial_pvalue = dist_samples_pvalue(rng, ref_dist, smplres.result)
-    pvalue::typeof(initial_pvalue) = initial_pvalue
+    verified::Bool = test_dist_samples(rng, ref_dist, smplres.result)
     n_retries::Int = 0
-    while !(pvalue >= pvalue_threshold) && n_retries < max_retries
+    while !(verified) && n_retries < max_retries
         n_retries += 1
         smplres = bat_sample(rng, target, algorithm)
-        pvalue = dist_samples_pvalue(rng, ref_dist, smplres.result)
+        verified = test_dist_samples(rng, ref_dist, smplres.result)
     end
-    verified = pvalue >= pvalue_threshold
-    merge(smplres, (verified = verified, verification_pvalue = pvalue, n_retries = n_retries))
+    merge(smplres, (verified = verified, n_retries = n_retries))
 end
 
 function sample_and_verify(
