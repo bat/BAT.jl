@@ -161,7 +161,7 @@ function check_convergence(ct::BrooksGelmanConvergence, samples::AbstractVector{
         success_str = converged ? "have" : "have *not*"
         "Chains $success_str converged, max(R^2) = $(max_Rsqr), threshold = $(ct.threshold)"
     end
-    GRConvergenceResult(converged, max_Rsqr)
+    BGConvergenceResult(converged, max_Rsqr)
 end
 
 function check_convergence(ct::BrooksGelmanConvergence, samples::DensitySampleVector)
