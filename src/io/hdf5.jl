@@ -84,8 +84,43 @@ _h5io_read_postprocess(VV::AbstractMatrix{<:Real}) = VectorOfSimilarVectors(VV)
 
 _h5io_read_postprocess(nt::NamedTuple) = TypedTables.Table(nt)
 
-_h5io_read_postprocess(nt::NamedTuple{(:info, :logd, :v, :weight)}) =
-    DensitySampleVector((nt.v, nt.logd, nt.weight, nt.info, Array{Nothing}(undef, size(nt.info)...)))
+function _h5io_read_postprocess(nt::NamedTuple{(:info, :logd, :v, :weight)})
+    DensitySampleVector((
+        _h5io_read_postprocess_samples(nt.v),
+        nt.logd, nt.weight, nt.info, Array{Nothing}(undef, size(nt.info)...))
+    )
+end
 
 _h5io_read_postprocess(nt::NamedTuple{(:chaincycle, :chainid, :sampletype, :stepno)}) =
     MCMCSampleIDVector((nt.chainid, nt.chaincycle, nt.stepno, nt.sampletype))
+
+
+function _const_col_value(col::AbstractVector)
+    r = first(col)
+    all(isequal(r), col) ? r : missing
+end
+
+_normalize_vs(shape::AbstractValueShape) = shape
+
+function _normalize_vs(shape::NamedTupleShape{names,AT,VT}) where {names,AT,VT}
+    NamedTupleShape(VT, map(_normalize_vs, (;shape...)))
+end
+
+_normalize_vs(shape::ScalarShape{<:Real}) = ScalarShape{Real}()
+_normalize_vs(shape::ArrayShape{<:Real}) = ArrayShape{Real}(size(shape)...)
+
+function _infer_vs_from_table(v::TypedTables.Table)
+    cols = Tables.columns(v)
+    raw_vs = map(valshape, map(first, cols))
+    const_v = map(_const_col_value, cols)
+    NamedTupleShape(map((c, shp) -> ismissing(c) ? _normalize_vs(shp) : ConstValueShape(copy(deepcopy(c))), const_v, (;raw_vs...)))
+end
+
+
+_h5io_read_postprocess_samples(v::AbstractVector) = v
+
+function _h5io_read_postprocess_samples(v::TypedTables.Table)
+    shp = _infer_vs_from_table(v)
+    unshaped_v = VectorOfSimilarVectors(unshaped.(v, Ref(shp)))
+    shp.(unshaped_v)
+end
