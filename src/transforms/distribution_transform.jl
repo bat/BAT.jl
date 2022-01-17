@@ -585,8 +585,11 @@ function apply_dist_trafo(trg_d::NamedTupleDist, src_d::StdMvDist, src_v::Abstra
     varshape(trg_d)(unshaped_result)
 end
 
-
-const AnyReshapedDist = Union{ReshapedDist,MatrixReshaped}
+@static if isdefined(Distributions, :ReshapedDistribution)
+    const AnyReshapedDist = Union{Distributions.ReshapedDistribution,ValueShapes.ReshapedDist}
+else
+    const AnyReshapedDist = Union{Distributions.MatrixReshaped,ValueShapes.ReshapedDist}
+end
 
 function apply_dist_trafo(trg_d::Distribution{Multivariate}, src_d::AnyReshapedDist, src_v::Any)
     src_vs = varshape(src_d)
