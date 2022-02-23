@@ -338,7 +338,9 @@ end
 # Workaround for Beta dist, ForwardDiff doesn't work for parameters:
 @inline _trafo_quantile_impl(::NTuple{N,ForwardDiff.Dual}, d::Beta, u::Real) where N = convert(float(typeof(u)), NaN)
 # Workaround for Beta dist, current quantile implementation only supports Float64:
-@inline _trafo_quantile_impl(::NTuple{N,Real}, d::Beta, u::Float32) where N = quantile(d, convert(promote_type(Float64, typeof(u)), u))
+@inline _trafo_quantile_impl(::NTuple{N,T}, d::Beta, u::Float32) where {N,T<:Union{Integer,AbstractFloat}} = _trafo_quantile_impl(NTuple{N,T}, d, convert(promote_type(Float64, typeof(u)), u))
+# Workaround for StatsFuns issues #133:
+@inline _trafo_quantile_impl(::NTuple{N,T}, d::Beta, u::Float64) where {N,T<:Union{Integer,AbstractFloat}} = (d.α ≈ 1 && d.β ≈ 1 && u < 1e-19) ? u : quantile(d, u)
 
 @inline _trafo_quantile_impl_generic(d::Distribution{Univariate,Continuous}, u::Real) = quantile(d, u)
 
