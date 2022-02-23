@@ -91,6 +91,11 @@ function _h5io_read_postprocess(nt::NamedTuple{(:info, :logd, :v, :weight)})
     )
 end
 
+# Column :info will be missing if `eltype(samples.info)` was `Nothing`:
+function _h5io_read_postprocess(nt::NamedTuple{(:logd, :v, :weight)})
+    _h5io_read_postprocess(merge((info = Array{Nothing}(undef, size(nt.weight)...),), nt))
+end
+
 _h5io_read_postprocess(nt::NamedTuple{(:chaincycle, :chainid, :sampletype, :stepno)}) =
     MCMCSampleIDVector((nt.chainid, nt.chaincycle, nt.stepno, nt.sampletype))
 
