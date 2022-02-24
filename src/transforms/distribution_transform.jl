@@ -313,11 +313,14 @@ function apply_dist_trafo(trg_d::DT, src_d::DT, src_v::AbstractVector{<:Real}) w
 end
 
 
-@inline _trafo_cdf(d::Distribution{Univariate,Continuous}, x::Real) = _trafo_cdf_impl(params(d), d, x)
+_dist_params_numtype(d::Distribution) = promote_type(map(typeof, Distributions.params(d))...)
 
-@inline _trafo_cdf_impl(::NTuple, d::Distribution{Univariate,Continuous}, x::Real) = cdf(d, x)
 
-@inline function _trafo_cdf_impl(::NTuple{N,Union{Integer,AbstractFloat}}, d::Distribution{Univariate,Continuous}, x::ForwardDiff.Dual{TAG}) where {N,TAG}
+@inline _trafo_cdf(d::Distribution{Univariate,Continuous}, x::Real) = _trafo_cdf_impl(_dist_params_numtype(d), d, x)
+
+@inline _trafo_cdf_impl(::Type{<:Real}, d::Distribution{Univariate,Continuous}, x::Real) = cdf(d, x)
+
+@inline function _trafo_cdf_impl(::Type{<:Union{Integer,AbstractFloat}}, d::Distribution{Univariate,Continuous}, x::ForwardDiff.Dual{TAG}) where {N,TAG}
     x_v = ForwardDiff.value(x)
     u = cdf(d, x_v)
     dudx = pdf(d, x_v)
@@ -325,22 +328,22 @@ end
 end
 
 
-@inline _trafo_quantile(d::Distribution{Univariate,Continuous}, u::Real) = _trafo_quantile_impl(params(d), d, u)
+@inline _trafo_quantile(d::Distribution{Univariate,Continuous}, u::Real) = _trafo_quantile_impl(_dist_params_numtype(d), d, u)
 
-@inline _trafo_quantile_impl(::NTuple, d::Distribution{Univariate,Continuous}, u::Real) = _trafo_quantile_impl_generic(d, u)
+@inline _trafo_quantile_impl(::Type{<:Real}, d::Distribution{Univariate,Continuous}, u::Real) = _trafo_quantile_impl_generic(d, u)
 
-@inline function _trafo_quantile_impl(::NTuple{N,Union{Integer,AbstractFloat}}, d::Distribution{Univariate,Continuous}, u::ForwardDiff.Dual{TAG}) where {N,TAG}
+@inline function _trafo_quantile_impl(::Type{<:Union{Integer,AbstractFloat}}, d::Distribution{Univariate,Continuous}, u::ForwardDiff.Dual{TAG}) where {TAG}
     x = _trafo_quantile_impl_generic(d, ForwardDiff.value(u))
     dxdu = inv(pdf(d, x))
     ForwardDiff.Dual{TAG}(x, dxdu * ForwardDiff.partials(u))
 end
 
 # Workaround for Beta dist, ForwardDiff doesn't work for parameters:
-@inline _trafo_quantile_impl(::NTuple{N,ForwardDiff.Dual}, d::Beta, u::Real) where N = convert(float(typeof(u)), NaN)
+@inline _trafo_quantile_impl_generic(d::Beta{T}, u::Real) where {T<:ForwardDiff.Dual} = convert(float(typeof(u)), NaN)
 # Workaround for Beta dist, current quantile implementation only supports Float64:
-@inline _trafo_quantile_impl(::NTuple{N,T}, d::Beta, u::Float32) where {N,T<:Union{Integer,AbstractFloat}} = _trafo_quantile_impl(NTuple{N,T}, d, convert(promote_type(Float64, typeof(u)), u))
+@inline _trafo_quantile_impl_generic(d::Beta{T}, u::Union{Integer,AbstractFloat}) where {T<:Union{Integer,AbstractFloat}} = _trafo_quantile_impl(T, d, convert(promote_type(Float64, typeof(u)), u))
 # Workaround for StatsFuns issues #133:
-@inline _trafo_quantile_impl(::NTuple{N,T}, d::Beta, u::Float64) where {N,T<:Union{Integer,AbstractFloat}} = (d.α ≈ 1 && d.β ≈ 1 && u < 1e-19) ? u : quantile(d, u)
+@inline _trafo_quantile_impl_generic(d::Beta{T}, u::Float64) where {T<:Union{Integer,AbstractFloat}} = (d.α ≈ 1 && d.β ≈ 1 && u < 1e-19) ? u : convert(Float64, quantile(d, u))
 
 @inline _trafo_quantile_impl_generic(d::Distribution{Univariate,Continuous}, u::Real) = quantile(d, u)
 
