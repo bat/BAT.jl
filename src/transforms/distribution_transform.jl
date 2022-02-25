@@ -342,7 +342,7 @@ end
 @inline _trafo_quantile_impl_generic(d::Beta{T}, u::Real) where {T<:ForwardDiff.Dual} = convert(float(typeof(u)), NaN)
 # Workaround for Beta dist, current quantile implementation only supports Float64:
 @inline _trafo_quantile_impl_generic(d::Beta{T}, u::Union{Integer,AbstractFloat}) where {T<:Union{Integer,AbstractFloat}} = _trafo_quantile_impl(T, d, convert(promote_type(Float64, typeof(u)), u))
-# Workaround for StatsFuns issues #133:
+# Workaround for StatsFuns issues #133, caused by SpecialFunctions, fixed in SpecialFunctions v2.1.4:
 @inline _trafo_quantile_impl_generic(d::Beta{T}, u::Float64) where {T<:Union{Integer,AbstractFloat}} = (d.α ≈ 1 && d.β ≈ 1 && u < 1e-19) ? u : convert(Float64, quantile(d, u))
 
 @inline _trafo_quantile_impl_generic(d::Distribution{Univariate,Continuous}, u::Real) = quantile(d, u)
