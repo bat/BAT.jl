@@ -83,10 +83,10 @@ julia> using Pkg
 julia> pkg"add BAT ArraysOfArrays Distributions ElasticArrays IntervalSets Parameters Plots ValueShapes StatsBase Tables TypedTables"
 ```
 
-To install the latest development version of BAT (master branch), instead of the latest stable release, use
+To install the latest development version of BAT (main branch), instead of the latest stable release, use
 
 ```julia
-julia> pkg"add BAT#master"
+julia> pkg"add BAT#main"
 ```
 
 If you'd like to [precompile](https://docs.julialang.org/en/v1/manual/modules/index.html#Module-initialization-and-precompilation-1) all installed packages right aways (otherwise they'll get precompiled when loaded for the first time), run
