@@ -1,7 +1,11 @@
-struct MarginalDist{N,D<:Distribution,VS<:AbstractValueShape}
-    dims::NTuple{N,Int}
-    dist::D
-    origvalshape::VS
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
+struct Marginalization
+    samples::DensitySampleVector
+    vsel::Union{Integer, Symbol, Expr}
+end
+struct MarginalDist
+    dist::Distribution
 end
 
 function _get_edges(data::Tuple, nbins::Tuple{Vararg{<:Integer}}, closed::Symbol)
@@ -17,7 +21,7 @@ function _get_edges(data::Any, nbins::Union{AbstractRange, Tuple{AbstractRange}}
 end
 
 
-function get_marginal_dist(
+function MarginalDist(
     maybe_shaped_samples::DensitySampleVector,
     key::Union{Integer, Symbol, Expr};
     bins = 200,
@@ -43,13 +47,13 @@ function get_marginal_dist(
 
 
     uvbd = EmpiricalDistributions.UvBinnedDist(hist)
-    marg = MarginalDist((idx,), uvbd, varshape(maybe_shaped_samples))
 
-    return (result = marg, )
+    return MarginalDist(uvbd)
+
 end
 
 
-function get_marginal_dist(
+function MarginalDist(
     maybe_shaped_samples::DensitySampleVector,
     key::Union{NTuple{n,Integer}, NTuple{n,Union{Symbol, Expr}}} where n;
     bins = 200,
@@ -78,14 +82,13 @@ function get_marginal_dist(
             closed = closed)
 
     mvbd = EmpiricalDistributions.MvBinnedDist(hist)
-    marg =  MarginalDist(idxs, mvbd, varshape(maybe_shaped_samples))
-
-    return (result = marg, )
+    
+    return MarginalDist(mvbd)
 end
 
 
 #for prior
-function get_marginal_dist(
+function MarginalDist(
     prior::NamedTupleDist,
     key::Union{Integer, Symbol};
     bins = 200,
@@ -101,13 +104,12 @@ function get_marginal_dist(
     hist = fit(Histogram, r[idx, :], edges, closed = closed)
 
     uvbd = EmpiricalDistributions.UvBinnedDist(hist)
-    marg = MarginalDist((idx,), uvbd, varshape(prior))
 
-    return (result = marg, )
+    return MarginalDist(uvbd)
 end
 
 
-function get_marginal_dist(
+function MarginalDist(
     prior::NamedTupleDist,
     key::Union{NTuple{2, Symbol}, NTuple{2, Integer}};
     bins = 200,
@@ -131,14 +133,13 @@ function get_marginal_dist(
             closed = closed)
 
     mvbd = EmpiricalDistributions.MvBinnedDist(hist)
-    marg =  MarginalDist(idxs, mvbd, varshape(prior))
 
-    return (result = marg, )
+    return MarginalDist(mvbd)
 end
 
 
 
-function get_marginal_dist(
+function MarginalDist(
     original::MarginalDist,
     vsel::NTuple{n, Int} where n
 )
@@ -158,7 +159,5 @@ function get_marginal_dist(
         EmpiricalDistributions.MvBinnedDist(hist)
     end
 
-    marg = MarginalDist(vsel, bd, original.origvalshape)
-
-    return (result = marg, )
+    return MarginalDist(bd)
 end
