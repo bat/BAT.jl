@@ -81,3 +81,15 @@ convert_numtype(::Type{T}, x::VectorOfSimilarArrays{<:Real,M,N}) where {T<:Real,
 
 any_isinf(trg_v::Real) = isinf(trg_v)
 any_isinf(trg_v::AbstractVector{<:Real}) = any(isinf, trg_v)
+
+
+# Similar to ForwardDiffPullbacks._fieldvals:
+
+object_contents(x::Tuple) = x
+object_contents(x::AbstractArray) = x
+object_contents(x::Tuple) = values(x)
+
+@generated function object_contents(x)
+    accessors = [:(getfield(x, $i)) for i in 1:fieldcount(x)]
+    :(($(accessors...),))
+end
