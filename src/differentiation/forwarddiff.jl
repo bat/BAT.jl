@@ -27,3 +27,8 @@ function unshaped_gradient!(grad_f_x::AbstractVector{<:Real}, f::Function, x::Ab
     @assert DiffResults.gradient(result) === grad_f_x
     convert(R, DiffResults.value(result))::R
 end
+
+
+promote_jvp_algorithm(a::ForwardDiffAD, b::ForwardDiffAD) = a
+promote_jvp_algorithm(a::ForwardDiffAD, b::DifferentiationAlgorithm) = a
+promote_jvp_algorithm(a::DifferentiationAlgorithm, b::ForwardDiffAD) = b

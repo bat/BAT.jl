@@ -78,9 +78,6 @@ end
 
 # ToDo: truncate_density(density::SampledDensity, bounds::AbstractArray{<:Interval})
 
-vjp_algorithm(d::SampledDensity) = vjp_algorithm(parent(d.density))
-jvp_algorithm(d::SampledDensity) = jvp_algorithm(parent(d.density))
-
 _approx_cov(target::SampledDensity) = cov(target.samples)
 
 

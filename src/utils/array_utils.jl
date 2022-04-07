@@ -87,7 +87,7 @@ any_isinf(trg_v::AbstractVector{<:Real}) = any(isinf, trg_v)
 
 object_contents(x::Tuple) = x
 object_contents(x::AbstractArray) = x
-object_contents(x::Tuple) = values(x)
+object_contents(x::NamedTuple) = values(x)
 
 @generated function object_contents(x)
     accessors = [:(getfield(x, $i)) for i in 1:fieldcount(x)]

@@ -19,3 +19,8 @@ function unshaped_gradient!(grad_f_x::AbstractVector{<:Real}, f::Function, x::Ab
     grad_f_x[:] = first(back(Zygote.sensitivity(value)))
     return value
 end
+
+
+promote_vjp_algorithm(a::ZygoteAD, b::ZygoteAD) = a
+promote_vjp_algorithm(a::ZygoteAD, b::DifferentiationAlgorithm) = a
+promote_vjp_algorithm(a::DifferentiationAlgorithm, b::ZygoteAD) = b

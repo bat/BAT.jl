@@ -66,6 +66,6 @@ function (gf::GradFunc)(::typeof(!), grad_f::Any, v::Any)
 end
 
 
-function valgradof(f::Function, algorithm::DifferentiationAlgorithm = vjp_algorithm(f))
+function valgradof(f::Function, algorithm::DifferentiationAlgorithm = some_vjp_algorithm(f))
     GradFunc(f, algorithm)
 end
