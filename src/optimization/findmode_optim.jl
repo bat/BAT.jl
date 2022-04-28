@@ -16,11 +16,10 @@ function (gf::NLSolversFG!)(val_f::Nothing, grad_f::Any, v::Any)
     return Nothing
 end
 
-
 function _bat_findmode_impl_optim(target::AnySampleable, algorithm::AbstractModeEstimator)
     transformed_density, trafo = transform_and_unshape(algorithm.trafo, target)
 
-    rng = bat_determ_rng()
+    rng = bat_rng()
     initalg = apply_trafo_to_init(trafo, algorithm.init)
     x_init = collect(bat_initval(rng, transformed_density, initalg).result)
 
