@@ -1,7 +1,7 @@
 using BAT
 using Test
 
-using LinearAlgebra, Distributions, StatsBase, ValueShapes, Random123
+using LinearAlgebra, Distributions, StatsBase, ValueShapes, Random123, DensityInterface
 
 @testset "mode_estimators" begin
     prior = NamedTupleDist(
@@ -10,7 +10,7 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes, Random123
         a = MvNormal([1.5, 0.5, 2.5], Matrix{Float32}(I, 3, 3))
     )
 
-    posterior = PosteriorDensity(BAT.logfuncdensity(v -> 0), prior)
+    posterior = PosteriorDensity(logfuncdensity(v -> 0), prior)
 
     true_mode_flat = [2.0, 1.5, 0.5, 2.5]
     true_mode = varshape(prior)(true_mode_flat)
