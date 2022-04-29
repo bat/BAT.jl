@@ -13,6 +13,7 @@ abstract type AbstractModeEstimator end
 
 """
     bat_findmode(
+        [rng::AbstractRNG],
         target::BAT.AnySampleable,
         [algorithm::BAT.AbstractModeEstimator]
     )::DensitySampleVector
@@ -38,16 +39,29 @@ export bat_findmode
 
 function bat_findmode_impl end
 
+function bat_findmode(
+    rng::AbstractRNG,
+    target::AnySampleable,
+    algorithm = bat_default_withdebug(bat_findmode, Val(:algorithm), target);
+    kwargs...
+)
+    r = bat_findmode_impl(rng, target, algorithm; kwargs...)
+    result_with_args(r, (algorithm = algorithm,))
+end
 
 function bat_findmode(
     target::AnySampleable,
     algorithm = bat_default_withdebug(bat_findmode, Val(:algorithm), target);
     kwargs...
 )
-    r = bat_findmode_impl(target, algorithm; kwargs...)
+    rng = bat_default_withinfo(bat_findmode, Val(:rng), target)
+    r = bat_findmode_impl(rng, target, algorithm; kwargs...)
     result_with_args(r, (algorithm = algorithm,))
 end
 
+function argchoice_msg(::typeof(bat_findmode), ::Val{:rng}, x::AbstractRNG)
+    "Initializing new RNG of type $(typeof(x))"
+end
 
 function argchoice_msg(::typeof(bat_findmode), ::Val{:algorithm}, x::AbstractModeEstimator)
     "Using mode estimator $x"

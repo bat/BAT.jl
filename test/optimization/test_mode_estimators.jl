@@ -1,9 +1,7 @@
-# This file is a part of BAT.jl, licensed under the MIT License (MIT).
-
 using BAT
 using Test
 
-using LinearAlgebra, Distributions, StatsBase, ValueShapes
+using LinearAlgebra, Distributions, StatsBase, ValueShapes, Random123, DensityInterface
 
 @testset "mode_estimators" begin
     prior = NamedTupleDist(
@@ -28,6 +26,12 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes
 
     function test_findmode_noinferred(posterior, algorithm, rtol)
         res = (bat_findmode(posterior, algorithm))
+        @test keys(res.result) == keys(true_mode)
+        @test isapprox(unshaped(res.result, varshape(posterior)), true_mode_flat, rtol = rtol)
+    end
+
+    function test_findmode_rng(rng, posterior, algorithm, rtol)
+        res = (bat_findmode(rng, posterior, algorithm))
         @test keys(res.result) == keys(true_mode)
         @test isapprox(unshaped(res.result, varshape(posterior)), true_mode_flat, rtol = rtol)
     end
@@ -60,5 +64,8 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes
     @testset "MaxDensityLBFGS" begin
         # Result Optim.maximize with LBFGS is not type-stable:
         test_findmode_noinferred(posterior, MaxDensityLBFGS(trafo = NoDensityTransform()), 0.01)
+
+        rng = Philox4x((0, 0))
+        test_findmode_rng(rng, posterior, MaxDensityLBFGS(trafo = NoDensityTransform()), 0.01)
     end
 end

@@ -137,11 +137,11 @@ export InitFromSamples
 
 
 function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::InitFromSamples)
-    (result = _rand_v(rng, target, algorithm.samples),)
+    (result = _rand_v_for_target(rng, target, algorithm.samples),)
 end
 
 function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, algorithm::InitFromSamples)
-    (result = _rand_v(rng, target, algorithm.samples, n),)
+    (result = _rand_v_for_target(rng, target, algorithm.samples, n),)
 end
 
 
@@ -163,11 +163,11 @@ export InitFromIID
 
 
 function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::InitFromIID)
-    (result = _rand_v(rng, target, algorithm.src),)
+    (result = _rand_v_for_target(rng, target, algorithm.src),)
 end
 
 function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, algorithm::InitFromIID)
-    (result = _rand_v(rng, target, algorithm.src, n),)
+    (result = _rand_v_for_target(rng, target, algorithm.src, n),)
 end
 
 
