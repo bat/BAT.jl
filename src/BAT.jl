@@ -60,6 +60,7 @@ import NLSolversBase
 import Optim
 import Random123
 import Sobol
+import StableRNGs
 import TypedTables
 import Zygote
 import ZygoteRules
