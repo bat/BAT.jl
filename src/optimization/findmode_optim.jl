@@ -24,17 +24,59 @@ function _bat_findmode_impl_optim(rng::AbstractRNG, target::AnySampleable, algor
     x_init = collect(bat_initval(rng, transformed_density, initalg).result)
 
     f = negative(logdensityof(transformed_density))
-    r_optim = Optim.MaximizationWrapper(_run_optim(f, x_init, algorithm))
+    optim_result = _run_optim(f, x_init, algorithm)
+    r_optim = Optim.MaximizationWrapper(optim_result)
     transformed_mode = Optim.minimizer(r_optim.res)
     result_mode = inverse(trafo)(transformed_mode)
 
-    (result = result_mode, result_trafo = transformed_mode, trafo = trafo, info = r_optim)
+    dummy_f_x = f(x_init) # ToDo: Avoid recomputation
+    trace_trafo = StructArray(;_neg_opt_trace(optim_result, x_init, dummy_f_x) ...)
+
+    (result = result_mode, result_trafo = transformed_mode, trafo = trafo, trace_trafo = trace_trafo, info = r_optim)
 end
 
 
 # Wrapper for type stability of optimize result (why does this work?):
 function _optim_optimize(f, x0::AbstractArray, method::Optim.AbstractOptimizer, options = Optim.Options(); kwargs...)
     Optim.optimize(f, x0, method, options; kwargs...)
+end
+
+
+function _neg_opt_trace(
+    @nospecialize(optim_result::Optim.MultivariateOptimizationResults),
+    dummy_x::AbstractVector{<:Real}, dummy_f_x::Real
+)
+    trc = Optim.trace(optim_result)
+    tr_len = length(eachindex(trc))
+    nd = length(eachindex(dummy_x))
+
+    v = nestedview(similar(dummy_x, nd, tr_len))
+    foreach((a,b) -> a[:] = b, v, Optim.x_trace(optim_result))
+
+    logd = similar(dummy_x, typeof(dummy_f_x), tr_len)
+    logd[:] = - Optim.f_trace(optim_result)
+
+    if optim_result isa Optim.MultivariateOptimizationResults{<:Optim.ZerothOrderOptimizer}
+        (v = v, logd = logd)
+    else
+        grad_logd = nestedview(similar(dummy_x, nd, tr_len))
+        foreach((a,b) -> a[:] = -b.metadata["g(x)"], grad_logd, trc)
+        (v = v, logd = logd, grad_logd = grad_logd)
+    end
+end
+
+function _neg_opt_trace(
+    @nospecialize(optim_result::Optim.MultivariateOptimizationResults{<:Optim.NelderMead}),
+    dummy_x::AbstractVector{<:Real}, dummy_f_x::Real
+)
+    trc = Optim.trace(optim_result)
+    tr_len = length(eachindex(trc))
+    nd = length(eachindex(dummy_x))
+
+    v = nestedview(similar(dummy_x, nd, tr_len))
+    foreach((a,b) -> a[:] = b, v, Optim.centroid_trace(optim_result))
+
+    (;v = v)
 end
 
 
@@ -63,7 +105,8 @@ end
 export MaxDensityNelderMead
 
 function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::MaxDensityNelderMead)
-    _optim_optimize(f, x_init, Optim.NelderMead())
+    opts = Optim.Options(store_trace = true, extended_trace=true)
+    _optim_optimize(f, x_init, Optim.NelderMead(), opts)
 end
 
 bat_findmode_impl(rng::AbstractRNG, target::AnySampleable, algorithm::MaxDensityNelderMead) = _bat_findmode_impl_optim(rng, target, algorithm)
@@ -99,5 +142,6 @@ bat_findmode_impl(rng::AbstractRNG, target::AnySampleable, algorithm::MaxDensity
 
 function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::MaxDensityLBFGS)
     fg = valgradof(f)
-    _optim_optimize(Optim.only_fg!(fg), x_init, Optim.LBFGS())
+    opts = Optim.Options(store_trace = true, extended_trace=true)
+    _optim_optimize(Optim.only_fg!(fg), x_init, Optim.LBFGS(), opts)
 end

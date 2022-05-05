@@ -2,6 +2,7 @@ using BAT
 using Test
 
 using LinearAlgebra, Distributions, StatsBase, ValueShapes, Random123, DensityInterface
+using UnPack, InverseFunctions, ForwardDiff
 
 @testset "mode_estimators" begin
     prior = NamedTupleDist(
@@ -18,16 +19,23 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes, Random123, DensityIn
     samples = @inferred(bat_sample(prior, IIDSampling(nsamples = 10^5))).result
 
 
-    function test_findmode(posterior, algorithm, rtol)
-        res = @inferred(bat_findmode(posterior, algorithm))
+    function test_findmode(posterior, algorithm, rtol; inferred::Bool = true)
+        res = if inferred
+            @inferred(bat_findmode(posterior, algorithm))
+        else
+            (bat_findmode(posterior, algorithm))
+        end
         @test keys(res.result) == keys(true_mode)
         @test isapprox(unshaped(res.result, varshape(posterior)), true_mode_flat, rtol = rtol)
-    end
-
-    function test_findmode_noinferred(posterior, algorithm, rtol)
-        res = (bat_findmode(posterior, algorithm))
-        @test keys(res.result) == keys(true_mode)
-        @test isapprox(unshaped(res.result, varshape(posterior)), true_mode_flat, rtol = rtol)
+        
+        if hasproperty(res.trace_trafo, :grad_logd)
+            @unpack v, logd, grad_logd = res.trace_trafo
+            f_logd = logdensityof(posterior) ∘ inverse(res.trafo)
+            @test all(f_logd.(v) .≈ logd)
+            @test all(grad_logd .≈ ForwardDiff.gradient.(Ref(f_logd), v))
+        else
+            @test hasproperty(res.trace_trafo, :v)
+        end
     end
 
     function test_findmode_rng(rng, posterior, algorithm, rtol)
@@ -63,7 +71,7 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes, Random123, DensityIn
 
     @testset "MaxDensityLBFGS" begin
         # Result Optim.maximize with LBFGS is not type-stable:
-        test_findmode_noinferred(posterior, MaxDensityLBFGS(trafo = NoDensityTransform()), 0.01)
+        test_findmode(posterior, MaxDensityLBFGS(trafo = NoDensityTransform()), 0.01, inferred = false)
 
         rng = Philox4x((0, 0))
         test_findmode_rng(rng, posterior, MaxDensityLBFGS(trafo = NoDensityTransform()), 0.01)
