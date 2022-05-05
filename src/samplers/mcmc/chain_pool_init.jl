@@ -129,7 +129,7 @@ function mcmc_init!(
     tidxs = LinearIndices(tuners)
     n = length(tidxs)
 
-    modes = hcat(broadcast(samples -> Array(bat_findmode(samples, MaxDensitySampleSearch()).result), outputs)...)
+    modes = hcat(broadcast(samples -> Array(bat_findmode(rng, samples, MaxDensitySampleSearch()).result), outputs)...)
 
     final_chains = similar(chains, 0)
     final_tuners = similar(tuners, 0)
