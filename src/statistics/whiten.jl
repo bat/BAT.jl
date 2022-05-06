@@ -73,10 +73,4 @@ export StatisticalWhitening
 
 
 # ToDo: Move whitening code from AHMI here, add new public API
-# function `bat_whiten`. Remove `_amhi_whitening_func` and
-# change AHMI to use `bat_whiten` directly.
-
-_amhi_whitening_func(algorithm::NoWhitening) = no_whitening
-_amhi_whitening_func(algorithm::CholeskyWhitening) = cholesky_whitening!
-_amhi_whitening_func(algorithm::CholeskyPartialWhitening) = cholesky_partial_whitening!
-_amhi_whitening_func(algorithm::StatisticalWhitening) = statistical_whitening!
+# function `bat_whiten`.

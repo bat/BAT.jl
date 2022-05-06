@@ -37,7 +37,6 @@ using ParallelProcessingTools
 using Parameters
 using PDMats
 using PositiveFactorizations
-using ProgressMeter
 using RecipesBase
 using Requires
 using StaticArrays
@@ -67,12 +66,10 @@ import ZygoteRules
 
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, AbstractThunk, unthunk
 
-#for AHMI
-using DataStructures
-using QuadGK
-
-#for Space Partitioning
-import CPUTime
+# For GaussianShell:
+import AdaptiveRejectionSampling
+import QuadGK
+import SpecialFunctions
 
 
 include("utils/utils.jl")

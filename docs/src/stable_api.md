@@ -54,7 +54,6 @@ AbstractTransformedDensity
 AbstractTransformToInfinite
 AbstractTransformToUnitspace
 AdaptiveMHTuning
-AHMIntegration
 AnyDensityLike
 AnyIIDSampleable
 AnySampleable

@@ -1,4 +1,5 @@
 using BAT, ValueShapes, IntervalSets, Distributions, Plots, EmpiricalDistributions
+using AHMI
 using StatsBase, ArraysOfArrays, LinearAlgebra, LaTeXStrings, QuadGK, PrettyTables, HypothesisTests, Statistics
 ENV["JULIA_DEBUG"] = "BAT"
 

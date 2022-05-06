@@ -29,7 +29,6 @@ EllipsoidalNestedSampling
 ForwardDiffAD
 GridSampler
 HierarchicalDistribution
-PartitionedSampling
 PriorImportanceSampler
 ReactiveNestedSampling
 renormalize_density

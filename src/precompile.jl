@@ -8,7 +8,6 @@ let
     precompile(show, map(typeof, (dummy_samples,)))
 
     precompile(SampledDensity, map(typeof, (posterior, dummy_samples)))
-    precompile(bat_integrate, map(typeof, (dummy_samples, AHMIntegration())))
 
     for mcalg in (MetropolisHastings(), HamiltonianMC())
         precompile(bat_sample, map(typeof, (posterior, MCMCSampling(mcalg = mcalg))))

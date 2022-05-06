@@ -45,9 +45,9 @@ sampling_algorithm = EllipsoidalNestedSampling()
 ```
 
 ### Partitioned Sampling (experimental)
-BAT.jl sampling algorithm type: [`PartitionedSampling`](@ref)
+BAT.jl sampling algorithm type: `PartitionedSampling`, requires [PartitionedParallelSampling.jl](https://github.com/bat/PartitionedParallelSampling.jl).
 ```julia
-sampling_algorithm = ReactiveNestedSampling()
+sampling_algorithm = PartitionedParallelSampling.PartitionedSampling()
 ```
 
 
@@ -79,9 +79,9 @@ integral = bat_integrate(sampleable, integration_algorithm).result
 ```
 
 ### Adaptive Harmonic Mean Integration (AHMI)]
-BAT.jl integration algorithm type: [`AHMIntegration`](@ref) 
+BAT.jl integration algorithm type: `AHMI.AHMIntegration`, requires [AHMI.jl](https://github.com/bat/AHMI.jl).
 ```julia
-integration_algorithm = AHMIntegration()
+integration_algorithm = AHMI.AHMIntegration()
 ```
 
 ### Vegas Integration
