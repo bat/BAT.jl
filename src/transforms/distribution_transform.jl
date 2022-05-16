@@ -399,6 +399,16 @@ function apply_dist_trafo(trg_d::Distribution{Univariate,Continuous}, ::Standard
     _eval_dist_trafo_func(_trafo_quantile, trg_d, mod_src_v)
 end
 
+function apply_dist_trafo(
+    trg_d::Distributions.ReshapedDistribution,
+    src_d::StdMvDist,
+    src_v::Base.ReshapedArray
+)
+    src_v_flat = view(src_v, :)
+    unshaped_trg = unshaped(trg_d)
+    apply_dist_trafo(unshaped_trg, src_d, src_v_flat)
+end
+
 
 
 function _dist_trafo_rescale_impl(trg_d, src_d, src_v::Real)

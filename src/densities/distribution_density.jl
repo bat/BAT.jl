@@ -86,6 +86,8 @@ dist_param_bounds(d::StandardNormalDist) =
 
 dist_param_bounds(d::ReshapedDist) = dist_param_bounds(unshaped(d))
 
+dist_param_bounds(d::Distributions.ReshapedDistribution) = dist_param_bounds(unshaped(d))
+
 dist_param_bounds(d::Product{Continuous}) =
     HyperRectBounds(minimum.(d.v), maximum.(d.v))
 

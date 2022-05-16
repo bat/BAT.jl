@@ -13,6 +13,8 @@ eff_totalndof(d::ConstValueDist) = 0
 eff_totalndof(d::NamedTupleDist) = sum(map(eff_totalndof, values(d)))
 eff_totalndof(d::ValueShapes.UnshapedNTD) = eff_totalndof(d.shaped)
 eff_totalndof(d::ReshapedDist) = eff_totalndof(unshaped(d))
+eff_totalndof(d::Distributions.ReshapedDistribution) = eff_totalndof(BAT.unshaped(d))
+
 
 
 
