@@ -19,7 +19,18 @@ _h5io_add_path_to_dest(dest, path::AbstractString) = (dest, path)
 
 function _h5io_write!(dest_with_subpath::Tuple{Any,AbstractString}, data::AbstractArray{<:Real})
     dest, path = dest_with_subpath
-    dest[path] = data
+    if occursin('/', path)
+        group_name = dirname(path)
+        dataset_name = basename(path)
+        g = if !haskey(dest, group_name)
+            HDF5.create_group(dest, group_name; track_order = true)
+        else
+            HDF5.open_group(dest, group_name)
+        end
+        g[dataset_name] = data
+    else
+        dest[path] = data
+    end
     nothing
 end
 
@@ -70,7 +81,7 @@ _h5io_read(src) = _h5io_read(src, _h5io_objtype(src))
 _h5io_read(src, ::Val{:dataset}) = _h5io_read_postprocess(read(src))
 
 function _h5io_read(src, ::Val{:datafile})
-    names = (sort(_h5io_keys(src))...,)
+    names = (_h5io_keys(src)...,)
     values = map(k -> _h5io_read((src, k)), names)
     name_symbols = map(Symbol, names)
     x = NamedTuple{name_symbols}(values)
@@ -84,7 +95,14 @@ _h5io_read_postprocess(VV::AbstractMatrix{<:Real}) = VectorOfSimilarVectors(VV)
 
 _h5io_read_postprocess(nt::NamedTuple) = TypedTables.Table(nt)
 
+function _h5io_read_postprocess(nt::NamedTuple{(:v, :logd, :weight, :info)})
+    DensitySampleVector((
+        _h5io_read_postprocess_samples(nt.v),
+        nt.logd, nt.weight, nt.info, Array{Nothing}(undef, size(nt.info)...))
+    )
+end
 function _h5io_read_postprocess(nt::NamedTuple{(:info, :logd, :v, :weight)})
+    # This method is needed for older hdf5 files where `track_order` was not yet used
     DensitySampleVector((
         _h5io_read_postprocess_samples(nt.v),
         nt.logd, nt.weight, nt.info, Array{Nothing}(undef, size(nt.info)...))
@@ -92,13 +110,21 @@ function _h5io_read_postprocess(nt::NamedTuple{(:info, :logd, :v, :weight)})
 end
 
 # Column :info will be missing if `eltype(samples.info)` was `Nothing`:
+function _h5io_read_postprocess(nt::NamedTuple{(:v, :logd, :weight)})
+    _h5io_read_postprocess(merge(nt, (info = Array{Nothing}(undef, size(nt.weight)...),)))
+end
 function _h5io_read_postprocess(nt::NamedTuple{(:logd, :v, :weight)})
+    # This method is needed for older hdf5 files where `track_order` was not yet used
     _h5io_read_postprocess(merge((info = Array{Nothing}(undef, size(nt.weight)...),), nt))
 end
 
-_h5io_read_postprocess(nt::NamedTuple{(:chaincycle, :chainid, :sampletype, :stepno)}) =
+
+_h5io_read_postprocess(nt::NamedTuple{(:chainid, :chaincycle, :stepno, :sampletype)}) =
     MCMCSampleIDVector((nt.chainid, nt.chaincycle, nt.stepno, nt.sampletype))
 
+# This method is needed for older hdf5 files where `track_order` was not yet used
+h5io_read_postprocess(nt::NamedTuple{(:chaincycle, :chainid, :sampletype, :stepno)}) =
+    MCMCSampleIDVector((nt.chainid, nt.chaincycle, nt.stepno, nt.sampletype))
 
 function _const_col_value(col::AbstractVector)
     r = first(col)
