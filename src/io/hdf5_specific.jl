@@ -7,9 +7,16 @@ _h5io_keys(df::HDF5.Dataset) = nothing
 _h5io_objtype(df::HDF5.H5DataStore) = Val(:datafile)
 _h5io_objtype(df::HDF5.Dataset) = Val(:dataset)
 
+# Should be available from HDF5 v0.16.3 
+_h5_track_order_available() = isdefined(HDF5, :class_getproperty) && 
+    isdefined(HDF5, :FileCreateProperties) && 
+    in(:track_order, HDF5.class_propertynames(HDF5.FileCreateProperties)) 
+
+_h5open(args...) = _h5_track_order_available() ? HDF5.h5open(args...; track_order = true) : HDF5.h5open(args...)
+
 
 function _h5io_open(body::Function, filename::AbstractString, mode::AbstractString)
-    HDF5.h5open(filename, mode, track_order = true) do f
+    _h5open(filename, mode) do f
         body(f)        
     end
 end
@@ -17,7 +24,7 @@ end
 
 function _h5io_open(body::Function, fn_with_subpath::Tuple{AbstractString, AbstractString}, mode::AbstractString)
     filename, subpath = fn_with_subpath
-    HDF5.h5open(filename, mode) do f
+    _h5open(filename, mode) do f
         body((f, subpath))     
     end
 end
@@ -36,16 +43,20 @@ function bat_read(dest)
         Thus, HDF5.IDX_TYPE[] has to be set manually.
         The try-catch-block is necessary in order to be able to load old files.
     =#
-    prev = HDF5.IDX_TYPE[] 
-    HDF5.IDX_TYPE[] = HDF5.API.H5_INDEX_CRT_ORDER
-    r = try
-        _h5io_read(dest)
-    catch err
+    if _h5_track_order_available()
+        prev = HDF5.IDX_TYPE[] 
+        HDF5.IDX_TYPE[] = HDF5.API.H5_INDEX_CRT_ORDER
+        r = try
+            _h5io_read(dest)
+        catch err
+            HDF5.IDX_TYPE[] = prev
+            _h5io_read(dest)
+        end
         HDF5.IDX_TYPE[] = prev
+        r
+    else
         _h5io_read(dest)
     end
-    HDF5.IDX_TYPE[] = prev
-    r
 end
 
 
