@@ -307,7 +307,8 @@ function apply_dist_trafo(trg_d::Distribution, src_d::Distribution, src_v::Any)
 end
 
 
-function apply_dist_trafo(trg_d::DT, src_d::DT, src_v::AbstractVector{<:Real}) where {DT <: StdMvDist}
+function apply_dist_trafo(trg_d::DT, src_d::DT, src_v) where {DT <: StdMvDist}
+    @argcheck src_v isa AbstractVector{<:Real}
     @argcheck length(trg_d) == length(src_d) == length(eachindex(src_v))
     return src_v
 end
@@ -531,35 +532,29 @@ function apply_dist_trafo(trg_d::Distributions.Product, src_d::StandardMvNormal,
 end
 
 
-function _ntdistelem_to_stdmv(trg_d::StdMvDist, sd::Distribution, src_v_unshaped::AbstractVector{<:Real}, trg_acc::ValueAccessor)
-    td = view(trg_d, ValueShapes.view_idxs(Base.OneTo(length(trg_d)), trg_acc))
-    sv = trg_acc(src_v_unshaped)
-    apply_dist_trafo(td, sd, sv)
-end
+_flat_ntd_elshape(d::Distribution) = ArrayShape{Real}(eff_totalndof(d))
 
-function _ntdistelem_to_stdmv(trg_d::StdMvDist, sd::ConstValueDist, src_v_unshaped::AbstractVector{<:Real}, trg_acc::ValueAccessor)
-    Bool[]
-end
-
-
-_transformed_ntd_elshape(d::Distribution{Univariate}) = varshape(d)
-_transformed_ntd_elshape(d::Distribution{Multivariate}) = ArrayShape{Real}(eff_totalndof(d))
-function _transformed_ntd_elshape(d::Distribution)
-    vs = varshape(d)
-    @argcheck totalndof(vs) == eff_totalndof(d)
-    vs
-end
-
-function _transformed_ntd_accessors(d::NamedTupleDist{names,DT,AT,VT}) where {names,DT,AT,VT}
-    shapes = map(_transformed_ntd_elshape, values(d))
+function _flat_ntd_accessors(d::NamedTupleDist{names,DT,AT,VT}) where {names,DT,AT,VT}
+    shapes = map(_flat_ntd_elshape, values(d))
     vs = NamedTupleShape(VT, NamedTuple{names}(shapes))
     values(vs)
 end
 
+
+function _flat_ntdistelem_to_stdmv(trg_d::StdMvDist, sd::Distribution, src_v_unshaped::AbstractVector{<:Real}, trg_acc::ValueAccessor)
+    td = view(trg_d, ValueShapes.view_idxs(Base.OneTo(length(trg_d)), trg_acc))
+    sv = trg_acc(src_v_unshaped)
+    apply_dist_trafo(td, unshaped(sd), sv)
+end
+
+function _flat_ntdistelem_to_stdmv(trg_d::StdMvDist, sd::ConstValueDist, src_v_unshaped::AbstractVector{<:Real}, trg_acc::ValueAccessor)
+    Bool[]
+end
+
 function apply_dist_trafo(trg_d::StdMvDist, src_d::ValueShapes.UnshapedNTD, src_v::AbstractVector{<:Real})
     @argcheck length(src_d) == length(eachindex(src_v))
-    trg_accessors = _transformed_ntd_accessors(src_d.shaped)
-    rs = map((acc, sd) -> _ntdistelem_to_stdmv(trg_d, sd, src_v, acc), trg_accessors, values(src_d.shaped))
+    trg_accessors = _flat_ntd_accessors(src_d.shaped)
+    rs = map((acc, sd) -> _flat_ntdistelem_to_stdmv(trg_d, sd, src_v, acc), trg_accessors, values(src_d.shaped))
     vcat(rs...)
 end
 
@@ -568,20 +563,21 @@ function apply_dist_trafo(trg_d::StdMvDist, src_d::NamedTupleDist, src_v::Union{
     apply_dist_trafo(trg_d, unshaped(src_d), src_v_unshaped)
 end
 
-function _stdmv_to_ntdistelem(td::Distribution, src_d::StdMvDist, src_v::AbstractVector{<:Real}, src_acc::ValueAccessor)
+
+function _stdmv_to_flat_ntdistelem(td::Distribution, src_d::StdMvDist, src_v::AbstractVector{<:Real}, src_acc::ValueAccessor)
     sd = view(src_d, ValueShapes.view_idxs(Base.OneTo(length(src_d)), src_acc))
     sv = src_acc(src_v)
-    apply_dist_trafo(td, sd, sv)
+    apply_dist_trafo(unshaped(td), sd, sv)
 end
 
-function _stdmv_to_ntdistelem(td::ConstValueDist, src_d::StdMvDist, src_v::AbstractVector{<:Real}, src_acc::ValueAccessor)
+function _stdmv_to_flat_ntdistelem(td::ConstValueDist, src_d::StdMvDist, src_v::AbstractVector{<:Real}, src_acc::ValueAccessor)
     Bool[]
 end
 
 function apply_dist_trafo(trg_d::ValueShapes.UnshapedNTD, src_d::StdMvDist, src_v::AbstractVector{<:Real})
     @argcheck length(src_d) == length(eachindex(src_v))
-    src_accessors = _transformed_ntd_accessors(trg_d.shaped)
-    rs = map((acc, td) -> _stdmv_to_ntdistelem(td, src_d, src_v, acc), src_accessors, values(trg_d.shaped))
+    src_accessors = _flat_ntd_accessors(trg_d.shaped)
+    rs = map((acc, td) -> _stdmv_to_flat_ntdistelem(td, src_d, src_v, acc), src_accessors, values(trg_d.shaped))
     vcat(rs...)
 end
 
@@ -596,15 +592,19 @@ else
     const AnyReshapedDist = Union{Distributions.MatrixReshaped,ValueShapes.ReshapedDist}
 end
 
+eff_totalndof(d::AnyReshapedDist) = eff_totalndof(unshaped(d))
+std_dist_from(src_d::AnyReshapedDist) = std_dist_from(unshaped(src_d))
+std_dist_to(trg_d::AnyReshapedDist) = std_dist_to(unshaped(trg_d))
+
 function apply_dist_trafo(trg_d::Distribution{Multivariate}, src_d::AnyReshapedDist, src_v::Any)
     src_vs = varshape(src_d)
-    @argcheck length(trg_d) == totalndof(src_vs)
+    @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d)
     apply_dist_trafo(trg_d, unshaped(src_d), unshaped(src_v, src_vs))
 end
 
 function apply_dist_trafo(trg_d::AnyReshapedDist, src_d::Distribution{Multivariate}, src_v::AbstractVector{<:Real})
     trg_vs = varshape(trg_d)
-    @argcheck totalndof(trg_vs) == length(src_d)
+    @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d)
     r = apply_dist_trafo(unshaped(trg_d), src_d, src_v)
     trg_vs(r)
 end
