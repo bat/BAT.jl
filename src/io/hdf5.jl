@@ -19,7 +19,7 @@ _h5io_add_path_to_dest(dest, path::AbstractString) = (dest, path)
 
 function _h5io_write!(dest_with_subpath::Tuple{Any,AbstractString}, data::AbstractArray{<:Real})
     dest, path = dest_with_subpath
-    if occursin('/', path)
+    if occursin('/', path) && _h5_track_order_available()
         group_name = dirname(path)
         dataset_name = basename(path)
         g = if !haskey(dest, group_name)
