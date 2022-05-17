@@ -9,7 +9,7 @@ _h5io_objtype(df::HDF5.Dataset) = Val(:dataset)
 
 
 function _h5io_open(body::Function, filename::AbstractString, mode::AbstractString)
-    HDF5.h5open(filename, mode) do f
+    HDF5.h5open(filename, mode, track_order = true) do f
         body(f)        
     end
 end
@@ -31,7 +31,21 @@ Read data from HDF5 file or group `src` (optionally from an HDF5-path
 relative to `src`).
 """
 function bat_read(dest)
-    _h5io_read(dest)
+    #=
+        Currently (HDF5.jl - v0.16.9), the keyword `track_order` is ignored in read-in. 
+        Thus, HDF5.IDX_TYPE[] has to be set manually.
+        The try-catch-block is necessary in order to be able to load old files.
+    =#
+    prev = HDF5.IDX_TYPE[] 
+    HDF5.IDX_TYPE[] = HDF5.API.H5_INDEX_CRT_ORDER
+    r = try
+        _h5io_read(dest)
+    catch err
+        HDF5.IDX_TYPE[] = prev
+        _h5io_read(dest)
+    end
+    HDF5.IDX_TYPE[] = prev
+    r
 end
 
 
