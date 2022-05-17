@@ -11,7 +11,7 @@ Welcome to BAT, a Bayesian analysis toolkit in Julia.
 
 BAT.jl offers a variety of posterior sampling, mode estimation and integration algorithms, supplemented by plotting recipes and I/O functionality.
 
-BAT.jl originated as a rewrite/redesign of [BAT](https://github.com/bat/bat), the Bayesian Analysis Toolkit in C++. BAT.jl now offer a different set of functionality and a wider variety of algorithms than it's C++ predecessor.
+BAT.jl originated as a rewrite/redesign of [BAT](https://github.com/bat/bat), the Bayesian Analysis Toolkit in C++. BAT.jl now offer a different set of functionality and a wider variety of algorithms than its C++ predecessor.
 
 
 ## Installation
