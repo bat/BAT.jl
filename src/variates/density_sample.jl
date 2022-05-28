@@ -54,7 +54,7 @@ export DensitySample
 @inline Base.Broadcast.broadcastable(s::DensitySample) = Ref(s)
 
 # Necessary to make StructArrays.maybe_convert_elt happy:
-convert(::Type{DensitySample{P,T,W,R,Q}}, s::DensitySample) where {P,T,W,R,Q} = DensitySample{P,T,W,R,Q}(
+Base.convert(::Type{DensitySample{P,T,W,R,Q}}, s::DensitySample) where {P,T,W,R,Q} = DensitySample{P,T,W,R,Q}(
     convert(P, s.v), convert(T, s.logd), convert(W, s.weight), convert(R, s.info), convert(Q, s.aux)
 )
 
