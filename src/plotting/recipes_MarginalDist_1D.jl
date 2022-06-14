@@ -18,9 +18,7 @@ end
     colors = default_colors,
     interval_labels = []
 )
-    indx = asindex(origmarg, vsel)
-
-    marg = get_marginal_dist(origmarg, (indx, )).result
+    marg = MarginalDist(origmarg, vsel)
     hist = convert(Histogram, marg.dist)
 
     orientation = get(plotattributes, :orientation, :vertical)
@@ -29,8 +27,8 @@ end
 
     seriestype = get(plotattributes, :seriestype, :stephist)
 
-    xlabel = get(plotattributes, :xguide, "x$(indx)")
-    ylabel = get(plotattributes, :yguide, "p(x$(indx))")
+    xlabel = get(plotattributes, :xguide, vsel isa Integer ? "x$(vsel)" : "$vsel")
+    ylabel = get(plotattributes, :yguide, vsel isa Integer ? "p(x$(indx))" : "p($vsel)")
 
     if swap
         xguide := ylabel

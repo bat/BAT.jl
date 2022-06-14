@@ -45,13 +45,13 @@
     xguide := get(plotattributes, :xguide, xlabel)
     yguide := get(plotattributes, :yguide, ylabel)
 
-    marg = get_marginal_dist(
+    marg = MarginalDist(
         samples,
         (xindx, yindx),
         bins = bins,
         closed = closed,
         filter = filter
-    ).result
+    )
 
     if seriestype == :scatter
         base_markersize = get(plotattributes, :markersize, 1.5)

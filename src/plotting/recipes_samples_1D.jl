@@ -20,13 +20,13 @@
         throw(ArgumentError("Symbol :$vsel refers to a multivariate parameter. Use :($vsel[i]) instead."))
     end
 
-    marg = get_marginal_dist(
+    marg = MarginalDist(
         maybe_shaped_samples,
         vsel,
         bins = bins,
         closed = closed,
         filter = filter
-    ).result
+    )
 
     orientation = get(plotattributes, :orientation, :vertical)
     (orientation != :vertical) ? swap=true : swap = false

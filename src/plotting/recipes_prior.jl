@@ -59,8 +59,6 @@
 
 end
 
-
-
 # 2D plots
 @recipe function f(
     prior::NamedTupleDist,
@@ -87,13 +85,12 @@ end
     end
 
 
-    marg = get_marginal_dist(
+    marg = MarginalDist(
         prior,
         (xidx, yidx),
         bins = bins,
         closed = closed
-    ).result
-
+    )
 
     xlabel, ylabel = if isa(vsel, Symbol) || isa(vsel, Expr)
         "$(vsel[1])", "$(vsel[2])"

@@ -80,8 +80,6 @@ function get_interval_edges(h::StatsBase.Histogram; atol::Real = 0)
 end
 
 
-# This file is a part of BAT.jl, licensed under the MIT License (MIT).
-
 # for 1d and 2d histogramsm
 function get_smallest_intervals(
     histogram::StatsBase.Histogram,
