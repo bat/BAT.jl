@@ -54,7 +54,7 @@ function bat_sample_impl(
         mcmc_algorithm,
         density,
         algorithm.nchains,
-        algorithm.init,
+        apply_trafo_to_init(trafo, algorithm.init),
         get_mcmc_tuning(mcmc_algorithm),
         algorithm.nonzero_weights,
         algorithm.store_burnin ? algorithm.callback : nop_func
