@@ -147,7 +147,7 @@ function marg_idxs_shaped(samples::DensitySampleVector,
 
                 new_dims = shape_acc.shape.dims .* whole_dims .+ slice_dims
 
-                new_axes = new_dims[whole_dims .|| sliced_dims]
+                new_axes = new_dims[whole_dims .| sliced_dims]
         
                 shape = length(new_axes) > 0 ? ArrayShape{Real}(new_axes...) : ScalarShape{Real}()
 
