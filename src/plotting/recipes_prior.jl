@@ -20,13 +20,13 @@
         throw(ArgumentError("Symbol :$vsel refers to a multivariate parameter. Use :($vsel[i]) instead."))
     end
 
-    marg = get_marginal_dist(
+    marg = bat_marginalize(
         prior,
-        idx,
-        bins = bins,
-        nsamples = nsamples,
-        closed = closed
-    ).result
+        idx;
+        bins,
+        closed,
+        nsamples
+    )
 
     xlabel = if isa(vsel, Symbol) || isa(vsel, Expr)
         "$vsel"
