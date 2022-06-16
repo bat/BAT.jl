@@ -47,7 +47,7 @@ function MarginalDist(
     hist = fit(Histogram, cols, edges, closed = closed)
 
     binned_dist = EmpiricalDistributions.MvBinnedDist(hist)
-    binned_dist = ReshapedDist(vs(binned_dist), vs) 
+    binned_dist = binned_dist isa ReshapedDist ? vs(binned_dist) : ReshapedDist(vs(binned_dist), vs) 
 
     return MarginalDist(binned_dist)
 end
