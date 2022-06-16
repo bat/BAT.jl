@@ -205,7 +205,7 @@ function encode_name(name::Symbol)
 
     return name
 end
-
+#=
 """
     bat_marginalize(
         samples::DensitySampleVector, 
@@ -260,6 +260,7 @@ varshape(marg_samples) == NamedTupleShape{(:a⌞1ˌ2ˌː⌟,), Tuple{ValueAccess
 marg_unshaped_samples = bat_marginalize(orig_unshaped_smaples, [1,2,3])
 '''
 """
+=#
 function bat_marginalize(samples::DensitySampleVector, 
                          vsel::Union{E, S, I, U, AbstractVector{Union{E, S, I, U}}} where E<:Expr where S<:Symbol where I<:Integer where U<:UnitRange # maybe just use Any
 )
