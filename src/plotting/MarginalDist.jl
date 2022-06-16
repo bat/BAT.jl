@@ -22,7 +22,7 @@ end
 
 function MarginalDist(
     samples::Union{DensitySampleVector, StructArrays.StructVector},
-    vsel::Union{T, Vector{T}} where T<:Union{Integer, UnitRange, Symbol, Expr};
+    vsel::Union{T, Vector{T}, Tuple{T}} where T<:Union{Integer, UnitRange, Symbol, Expr};
     bins = 200, #::Union{I, Vector{I}, Tuple{I}} where I<:Integer
     closed::Symbol = :left,
     filter::Bool = false
@@ -56,7 +56,7 @@ end
 #TODO: think about implementing parsing of already marginalized names for remarginalization
 function MarginalDist(
     dist::Union{NamedTupleDist, MarginalDist},
-    vsel::Union{T, Vector{T}} where T<:Union{Integer, UnitRange, Symbol, Expr};
+    vsel::Union{T, Vector{T}, Tuple{T}} where T<:Union{Integer, UnitRange, Symbol, Expr};
     bins = 200, #::Union{I, Vector{I}, Tuple{I}} where I<:Integer
     closed::Symbol = :left,
     nsamples::Integer = 10^6,

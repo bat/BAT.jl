@@ -262,11 +262,12 @@ marg_unshaped_samples = bat_marginalize(orig_unshaped_smaples, [1,2,3])
 """
 =#
 function bat_marginalize(samples::DensitySampleVector, 
-                         vsel::Union{E, S, I, U, AbstractVector{Union{E, S, I, U}}} where E<:Expr where S<:Symbol where I<:Integer where U<:UnitRange # maybe just use Any
+                         vsel::Union{E, S, I, U, AbstractVector{Union{E, S, I, U}}, Tuple{Union{E, S, I, U}}} where E<:Expr where S<:Symbol where I<:Integer where U<:UnitRange # maybe just use Any
 )
 
     shaped = isshaped(samples)
     vs = varshape(samples)
+    vsel = vsel isa Tuple ? [vsel...] : vsel
 
     if shaped
         
