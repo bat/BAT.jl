@@ -150,7 +150,7 @@ end
 # :a⌞1ˌ3ˌ5⌟ = : a \llcorner 1 \verti 3 \verti 5 \lrcorner
 
 function encode_name(name::Expr)
-    code = replace(String(name), "[" => "⌞", ":" => "ː", "," => "ˌ", "]" => "⌟")     
+    code = replace(string(name)," " => "", "[" => "⌞", ":" => "ː", "," => "ˌ", "]" => "⌟")     
     return Symbol(code)
 end 
 
