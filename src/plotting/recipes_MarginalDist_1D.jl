@@ -28,7 +28,7 @@ end
     seriestype = get(plotattributes, :seriestype, :stephist)
 
     xlabel = get(plotattributes, :xguide, vsel isa Integer ? "x$(vsel)" : "$vsel")
-    ylabel = get(plotattributes, :yguide, vsel isa Integer ? "p(x$(indx))" : "p($vsel)")
+    ylabel = get(plotattributes, :yguide, vsel isa Integer ? "p(x$(vsel))" : "p($vsel)")
 
     if swap
         xguide := ylabel

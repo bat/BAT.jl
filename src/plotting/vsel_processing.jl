@@ -10,8 +10,12 @@
 # 
 # Symbol -> Vector{Union{Symbol,Expr})
 
-function _normalize_vsel_unshaped(vsel::Union{T, AbstractVector{T}, AbstractVector{UnitRange{T}}}) where T <: Integer
-    return vsel isa Integer ? Int[vsel] : vsel
+function _normalize_vsel_unshaped(vsel::Union{AbstractVector{T}, AbstractVector{UnitRange{T}}}) where T <: Integer
+    return vsel
+end
+
+function _normalize_vsel_unshaped(vsel::Integer) where T <: Integer
+    return Int[vsel]
 end
 
 function _normalize_vsel_unshaped(vsel::AbstractVector)
@@ -19,27 +23,28 @@ function _normalize_vsel_unshaped(vsel::AbstractVector)
     return vsel
 end
 
+function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::AbstractVector{UnitRange}) 
+    @argcheck length(vsel) == 1 throw(ArgumentError("Can't use multidimensional cartesian index for shaped samples or distribution, please use keys instead"))
+    return [key for key in keys(vs)[vsel[1]]]
+end
 
-function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::Union{T, AbstractVector{T}, AbstractVector{UnitRange{T}}}) where T <: Integer
-    if vsel isa AbstractVector{UnitRange{T}}    
-        @argcheck length(vsel) == 1 throw(ArgumentError("Can't use multidimensional cartesian index for shaped samples or distribution, please use keys instead"))
-        return [key for key in keys(vs)[vsel[1]]]
-    elseif vsel isa Integer
-        return [keys(vs)[vsel]]
-    else
-        return [keys(vs)[i] for i in vsel]
-    end
+function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::Integer)
+    return [keys(vs)[vsel]]
+end
+
+function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::AbstractVector{Integer})
+    return [keys(vs)[i] for i in vsel]
 end
 
 function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::Expr)
     if isexpr(vsel, :vect) || isexpr(vsel, :call)
         if @capture(vsel, [s_:e_]) || @capture(vsel, (s_:e_))
             return [keys(vs)[i] for i in s:e]
+
         elseif @capture(vsel, [dims__]) && all(broadcast(x -> x isa Integer, dims))
             return [keys(vs)[i] for i in dims]
         else
             vsel_norm = [_normalize_vsel_shaped(vs, el isa QuoteNode ? el.value : el) for el in vsel.args]
-
             return vcat(vsel_norm...) # for user convenience, does :([a[1,2], b, c]) -> [:(a[1,2]), :b, :c]
         end
     end
@@ -145,23 +150,7 @@ end
 # :a⌞1ˌ3ˌ5⌟ = : a \llcorner 1 \verti 3 \verti 5 \lrcorner
 
 function encode_name(name::Expr)
-    name = string(name)
-    code = ""
-    for char in name
-        if char == '['
-            code *= '⌞'
-        elseif char == ':'
-            code *= 'ː'
-        elseif char == ','
-            code *= 'ˌ'
-        elseif char == ']'
-            code *= '⌟'
-        elseif char == ' '
-            code = code
-        else
-            code *= char
-        end
-    end       
+    code = replace(String(name), "[" => "⌞", ":" => "ː", "," => "ˌ", "]" => "⌟")     
     return Symbol(code)
 end 
 
@@ -225,7 +214,7 @@ marg_unshaped_samples = bat_marginalize(orig_unshaped_smaples, [1,2,3])
 """
 =#
 function bat_marginalize(samples::DensitySampleVector, 
-                         vsel::Union{E, S, I, U, AbstractVector{Union{E, S, I, U}}, Tuple{Union{E, S, I, U}}} where E<:Expr where S<:Symbol where I<:Integer where U<:UnitRange # maybe just use Any
+                         vsel
 )
     shaped = isshaped(samples)
     vs = varshape(samples)
