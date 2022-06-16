@@ -15,7 +15,11 @@ function bat_marginalmode_impl(samples::DensitySampleVector; nbins::Union{Intege
             number_of_bins = nbins
         end
 
+<<<<<<< HEAD
         marginalmode_param = find_marginalmodes(MarginalDist(samples, param, bins = number_of_bins).dist)
+=======
+        marginalmode_param = find_marginalmodes(bat_marginalize(samples, param; number_of_bins).dist)
+>>>>>>> 572df8c10fc2107074d0624701fff0d349117e89
 
         if length(marginalmode_param[1]) > 1
             @warn "More than one bin with the same weight is found. Returned the first one"
