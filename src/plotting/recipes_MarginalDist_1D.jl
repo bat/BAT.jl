@@ -19,7 +19,7 @@ end
     interval_labels = []
 )
     marg = MarginalDist(origmarg, vsel)
-    hist = convert(Histogram, marg.dist)
+    hist = convert(Histogram, marg.dist.dist)
 
     orientation = get(plotattributes, :orientation, :vertical)
     (orientation != :vertical) ? swap = true : swap = false
