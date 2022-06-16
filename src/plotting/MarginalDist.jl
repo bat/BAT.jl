@@ -21,7 +21,7 @@ end
 
 
 function MarginalDist(
-    samples::DensitySampleVector,
+    samples::Union{DensitySampleVector, StructArrays.StructVector},
     vsel::Union{T, Vector{T}} where T<:Union{Integer, UnitRange, Symbol, Expr};
     bins = 200, #::Union{I, Vector{I}, Tuple{I}} where I<:Integer
     closed::Symbol = :left,
