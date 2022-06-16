@@ -107,7 +107,7 @@ function marg_idxs_shaped(samples::DensitySampleVector,
             idx_acc = getproperty(shaped_idxs, el)
 
             shape = shape_acc.shape
-            append!(sel_idxs, vec(idx_acc))
+            append!(sel_idxs, idx_acc isa Integer ? Int64[idx_acc] : vec(idx_acc))
 
         # :(a[1]) or :(a[1:4]) or :(a[1,2,3]) or :(a[1,2,:])
         elseif @capture(el, a_[args__])
