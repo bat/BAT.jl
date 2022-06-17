@@ -12,7 +12,7 @@ function _get_edges(data::Tuple, nbins::Tuple{Vararg{<:Integer}}, closed::Symbol
 end
 
 function _get_edges(data::Any, nbins::Integer, closed::Symbol)
-    return StatsBase.histrange(data, StatsBase._nbins_tuple(data, (nbins,)), closed)[1]
+    return StatsBase.histrange(data, StatsBase._nbins_tuple((data,), (nbins,)), closed)[1]
 end
 
 function _get_edges(data::Any, nbins::Union{AbstractRange, Tuple{AbstractRange}}, closed::Symbol)
