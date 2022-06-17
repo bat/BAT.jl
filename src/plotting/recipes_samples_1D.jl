@@ -58,7 +58,7 @@
         colors --> colors
         interval_labels --> interval_labels
 
-        marg, idx
+        marg
     end
 
     #------ stats ----------------------------
