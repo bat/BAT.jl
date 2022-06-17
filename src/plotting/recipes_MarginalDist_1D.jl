@@ -13,12 +13,16 @@ end
 
 @recipe function f(
     origmarg::MarginalDist,
-    vsel::Union{Integer, Symbol, Expr};
+    vsel::Union{Integer, Symbol, Expr} = :novsel;
     intervals = default_credibilities,
     colors = default_colors,
     interval_labels = []
-)
-    marg = MarginalDist(origmarg, vsel)
+)   
+    if vsel == :novsel
+        marg = origmarg
+    else 
+        marg = MarginalDist(origmarg, vsel)
+    end
     hist = convert(Histogram, marg.dist.dist)
 
     orientation = get(plotattributes, :orientation, :vertical)
