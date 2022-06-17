@@ -103,7 +103,7 @@
                     xguide --> xlabel[j]
                     yguide --> xlabel[i]
 
-                    samples, (vsel[j], vsel[i])
+                    unshaped.samples, (vsel[j], vsel[i])
                 else
                     xguide --> xlabel[i]
                     yguide --> xlabel[j]
