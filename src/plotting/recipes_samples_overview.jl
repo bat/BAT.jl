@@ -76,7 +76,7 @@
             xguide --> xlabel[i]
             yguide --> ylabel[i]
 
-            unshaped.samples, (vsel[i])
+            unshaped.(samples), (vsel[i])
         end
 
 
@@ -103,12 +103,12 @@
                     xguide --> xlabel[j]
                     yguide --> xlabel[i]
 
-                    unshaped.samples, (vsel[j], vsel[i])
+                    unshaped.(samples), (vsel[j], vsel[i])
                 else
                     xguide --> xlabel[i]
                     yguide --> xlabel[j]
 
-                    unshaped.samples, (vsel[i], vsel[j])
+                    unshaped.(samples), (vsel[i], vsel[j])
                 end
             end
 
@@ -157,7 +157,7 @@
                  xguide --> xlabel[i]
                  yguide --> xlabel[j]
 
-                 unshaped.samples, (vsel[i], vsel[j])
+                 unshaped.(samples), (vsel[i], vsel[j])
              end
 
         end
