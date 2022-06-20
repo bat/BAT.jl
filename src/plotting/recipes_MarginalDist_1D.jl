@@ -13,15 +13,17 @@ end
 
 @recipe function f(
     origmarg::MarginalDist,
-    vsel::Union{Integer, Symbol, Expr};
+    vsel::Union{Integer, Symbol, Expr} = :novsel;
     intervals = default_credibilities,
     colors = default_colors,
     interval_labels = []
-)
-    indx = asindex(origmarg, vsel)
-
-    marg = get_marginal_dist(origmarg, (indx, )).result
-    hist = convert(Histogram, marg.dist)
+)   
+    if vsel == :novsel
+        marg = origmarg
+    else 
+        marg = MarginalDist(origmarg, vsel)
+    end
+    hist = convert(Histogram, marg.dist.dist)
 
     orientation = get(plotattributes, :orientation, :vertical)
     (orientation != :vertical) ? swap = true : swap = false
@@ -29,8 +31,8 @@ end
 
     seriestype = get(plotattributes, :seriestype, :stephist)
 
-    xlabel = get(plotattributes, :xguide, "x$(indx)")
-    ylabel = get(plotattributes, :yguide, "p(x$(indx))")
+    xlabel = get(plotattributes, :xguide, vsel isa Integer ? "x$(vsel)" : "$vsel")
+    ylabel = get(plotattributes, :yguide, vsel isa Integer ? "p(x$(vsel))" : "p($vsel)")
 
     if swap
         xguide := ylabel

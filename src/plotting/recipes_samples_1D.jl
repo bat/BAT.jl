@@ -20,13 +20,13 @@
         throw(ArgumentError("Symbol :$vsel refers to a multivariate parameter. Use :($vsel[i]) instead."))
     end
 
-    marg = get_marginal_dist(
+    marg = MarginalDist(
         maybe_shaped_samples,
         vsel,
         bins = bins,
         closed = closed,
         filter = filter
-    ).result
+    )
 
     orientation = get(plotattributes, :orientation, :vertical)
     (orientation != :vertical) ? swap=true : swap = false
@@ -58,13 +58,13 @@
         colors --> colors
         interval_labels --> interval_labels
 
-        marg, idx
+        marg
     end
 
     #------ stats ----------------------------
     stats = MCMCBasicStats(maybe_shaped_samples)
 
-    line_height = maximum(convert(Histogram, marg.dist).weights)*1.03
+    line_height = maximum(convert(Histogram, marg.dist.dist).weights)*1.03
 
     mean_options = convert_to_options(mean)
     globalmode_options = convert_to_options(globalmode)
