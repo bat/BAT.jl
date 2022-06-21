@@ -53,6 +53,7 @@ import EmpiricalDistributions
 import FiniteDiff
 import ForwardDiff
 import HypothesisTests
+import MeasureBase
 import Measurements
 import NamedArrays
 import NLSolversBase
