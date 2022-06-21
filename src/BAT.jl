@@ -95,6 +95,7 @@ include("integration/integration.jl")
 include("algodefaults/algodefaults.jl")
 include("io/io.jl")
 include("plotting/plotting.jl")
+include("deprecations.jl")
 
 # include("precompile.jl")
 
