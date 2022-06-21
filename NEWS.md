@@ -62,7 +62,7 @@ Breaking changes
   likelihood = MyLikeLihood(mydata)
   ```
 
-  This allows for defining likelihoods without depending on BAT. Avoid creating custom subtypes of `BAT.AbstractDensity`.
+  This allows for defining likelihoods without depending on BAT. Avoid creating custom subtypes of `BAT.AbstractMeasureOrDensity`.
 
 * New behavior of `ValueShapes.NamedTupleShape` and  `ValueShapes.NamedTupleDist`: Due to changes in [ValueShapes](https://github.com/oschulz/ValueShapes.jl) v0.10, `NamedTupleShape` and `NamedTupleDist` now either (by default) use `NamedTuple` or (optionally) `ValueShapes.ShapedAsNT`, but no longer a mix of them. As a result, the behavior of BAT has changed as well when using a `NamedTupleDist` as a prior. For example, `mode(samples).result` returns a `NamedTuple` now directly.
 
@@ -71,7 +71,7 @@ New experimental features
 -------------------------
 
 * `bat_rng`[@ref]
-* `BAT.DensityEvalException`[@ref]
+* `BAT.EvalException`[@ref]
 * `BAT.DistributionTransform`[@ref]
 * `BAT.enable_error_log`[@ref]
 * `BAT.error_log`[@ref]

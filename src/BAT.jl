@@ -48,6 +48,7 @@ using ValueShapes
 import AdvancedHMC
 import ChainRulesCore
 import DiffResults
+import DistributionMeasures
 import DistributionsAD
 import EmpiricalDistributions
 import FiniteDiff
@@ -64,6 +65,11 @@ import StableRNGs
 import TypedTables
 import Zygote
 import ZygoteRules
+
+using MeasureBase: AbstractMeasure, DensityMeasure
+using MeasureBase: basemeasure, getdof
+
+using DistributionMeasures: DistributionMeasure
 
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, AbstractThunk, unthunk
 

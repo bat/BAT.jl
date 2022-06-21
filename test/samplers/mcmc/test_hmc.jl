@@ -9,10 +9,10 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
     rng = bat_rng()
     target = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
 
-    shaped_density = @inferred(convert(AbstractDensity, target))
-    @test shaped_density isa BAT.DistributionDensity
+    shaped_density = @inferred(convert(AbstractMeasureOrDensity, target))
+    @test shaped_density isa BAT.DistMeasure
     density = unshaped(shaped_density)
-    @test density isa BAT.DistributionDensity
+    @test density isa BAT.DistMeasure
 
     algorithm = HamiltonianMC()
     nchains = 4
@@ -42,7 +42,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
     @testset "MCMC tuning and burn-in" begin
         max_nsteps = 10^5
         tuning_alg = BAT.StanHMCTuning()
-        trafo = NoDensityTransform()
+        trafo = DoNotTransform()
         init_alg = bat_default(MCMCSampling, Val(:init), algorithm, trafo, nchains, max_nsteps)
         burnin_alg = bat_default(MCMCSampling, Val(:burnin), algorithm, trafo, nchains, max_nsteps)
         convergence_test = BrooksGelmanConvergence()
@@ -98,7 +98,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
             shaped_density,
             MCMCSampling(
                 mcalg = algorithm,
-                trafo = NoDensityTransform(),
+                trafo = DoNotTransform(),
                 nsteps = 10^4,
                 store_burnin = true
             )
@@ -112,7 +112,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
             shaped_density,
             MCMCSampling(
                 mcalg = algorithm,
-                trafo = NoDensityTransform(),
+                trafo = DoNotTransform(),
                 nsteps = 10^4,
                 store_burnin = false
             ),
@@ -127,9 +127,9 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
     @testset "MCMC sampling in transformed space" begin
         prior = BAT.example_posterior().prior
         likelihood = logfuncdensity(v -> 0)
-        inner_posterior = PosteriorDensity(likelihood, prior)
+        inner_posterior = PosteriorMeasure(likelihood, prior)
         # Test with nested posteriors:
-        posterior = PosteriorDensity(likelihood, inner_posterior)
+        posterior = PosteriorMeasure(likelihood, inner_posterior)
         @test BAT.sample_and_verify(posterior, MCMCSampling(mcalg = HamiltonianMC(), trafo = PriorToGaussian()), prior.dist).verified
     end
 end

@@ -29,7 +29,7 @@ end
 
 generic_vjp_algorithm(obj::T) where {T} = promote_vjp_algorithm(map(vjp_algorithm, object_contents(obj))...)
 vjp_algorithm(f::F) where {F<:Function} = generic_vjp_algorithm(f)
-vjp_algorithm(d::AbstractDensity) = generic_vjp_algorithm(d)
+vjp_algorithm(d::AbstractMeasureOrDensity) = generic_vjp_algorithm(d)
 
 # ToDo: Switch default from ForwardDiff to Zygote:
 default_vjp_algorithm() = ForwardDiffAD()

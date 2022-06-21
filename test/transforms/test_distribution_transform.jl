@@ -6,7 +6,7 @@ using Test
 using LinearAlgebra
 using ValueShapes, Distributions, ArraysOfArrays
 using ForwardDiff, Zygote, DistributionsAD
-using InverseFunctions, ChangesOfVariables
+using InverseFunctions, ChangesOfVariables, DensityInterface
 
 @testset "test_distribution_transform" begin
     function test_back_and_forth(trg_d, src_d)
@@ -137,7 +137,7 @@ using InverseFunctions, ChangesOfVariables
 
     #=
     using Cuba
-    function integrate_over_unit(density::AbstractDensity)
+    function integrate_over_unit(density::AbstractMeasureOrDensity)
         vs = varshape(density)
         f_cuba(source_x, y) = y[1] = exp(logdensityof(density)(vs(source_x)))
         Cuba.vegas(f_cuba, 1, 1).integral[1]
@@ -193,13 +193,13 @@ using InverseFunctions, ChangesOfVariables
     end
 
     @testset "full density transform" begin
-        likelihood = NamedTupleDist(a = Normal(), b = Exponential())
+        likelihood = logfuncdensity(logdensityof(NamedTupleDist(a = Normal(), b = Exponential())))
         prior = NamedTupleDist(a = Normal(), b = Gamma())
-        posterior_density = PosteriorDensity(likelihood, prior)
+        posterior_density = PosteriorMeasure(likelihood, prior)
 
-        posterior_density_trafod = @inferred(bat_transform(PriorToUniform(), posterior_density, FullDensityTransform()))
+        posterior_density_trafod = @inferred(bat_transform(PriorToUniform(), posterior_density, FullMeasureTransform()))
 
-        @test posterior_density_trafod.result.orig.likelihood.dist == likelihood
+        @test posterior_density_trafod.result.orig.likelihood.density._log_f == likelihood._log_f
         @test posterior_density_trafod.result.orig.prior.dist == prior
 
         @test posterior_density_trafod.result.trafo.target_dist isa BAT.StandardMvUniform
@@ -208,9 +208,9 @@ using InverseFunctions, ChangesOfVariables
         upper_bounds = Float32.([10, 10, 10])
         rect_bounds = @inferred(BAT.HyperRectBounds(lower_bounds, upper_bounds))
             mvn = @inferred(product_distribution(Normal.(randn(3))))
-        dist_density = @inferred(BAT.DistributionDensity(mvn, rect_bounds))
+        dist_density = @inferred(BAT.DistMeasure(mvn, rect_bounds))
 
-        dist_density_trafod = @inferred(bat_transform(PriorToUniform(), dist_density, FullDensityTransform()))
+        dist_density_trafod = @inferred(bat_transform(PriorToUniform(), dist_density, FullMeasureTransform()))
 
         @test dist_density_trafod.trafo.target_dist isa BAT.StandardMvUniform
         @test dist_density_trafod.result.orig == dist_density
@@ -218,7 +218,7 @@ using InverseFunctions, ChangesOfVariables
 
         @test dist_density_trafod.trafo(varshape(dist_density_trafod.trafo)) == @inferred(varshape(dist_density))
 
-        dist_density_trafod = @inferred(bat_transform(PriorToGaussian(), dist_density, FullDensityTransform()))
+        dist_density_trafod = @inferred(bat_transform(PriorToGaussian(), dist_density, FullMeasureTransform()))
 
         @test dist_density_trafod.trafo.target_dist isa BAT.StandardMvNormal
         @test dist_density_trafod.result.orig == dist_density
@@ -253,19 +253,19 @@ end
     mvn = @inferred(product_distribution([Normal(-1), Normal(), Normal(1)]))
     uniform_prior = @inferred(product_distribution([Uniform(-3, 1), Uniform(-2, 2), Uniform(-1, 3)]))
 
-    posterior_uniform_prior = @inferred(PosteriorDensity(mvn, uniform_prior))
-    posterior_gaussian_prior = @inferred(PosteriorDensity(mvn, mvn))
+    posterior_uniform_prior = @inferred(PosteriorMeasure(logfuncdensity(logdensityof(mvn)), uniform_prior))
+    posterior_gaussian_prior = @inferred(PosteriorMeasure(logfuncdensity(logdensityof(mvn)), mvn))
 
     @test @inferred(bat_transform(PriorToGaussian(), posterior_uniform_prior)).result.prior.dist == @inferred(BAT.StandardMvNormal(3))
     @test @inferred(bat_transform(PriorToUniform(), posterior_gaussian_prior)).result.prior.dist == @inferred(BAT.StandardMvUniform(3))
-    @test @inferred(bat_transform(NoDensityTransform(), posterior_uniform_prior)).result.prior.dist == uniform_prior
+    @test @inferred(bat_transform(DoNotTransform(), posterior_uniform_prior)).result.prior.dist == uniform_prior
     pd = @inferred(product_distribution([Uniform() for i in 1:3]))
-    density = @inferred(BAT.DistributionDensity(pd))
-    @test @inferred(bat_transform(NoDensityTransform(), density)).result.dist == density.dist
+    density = @inferred(BAT.DistMeasure(pd))
+    @test @inferred(bat_transform(DoNotTransform(), density)).result.dist == density.dist
 
     # ToDo: Improve comparison for bounds so `.dist` is not required here:
-    @inferred(bat_transform(PriorToUniform(), convert(AbstractDensity, BAT.StandardUvUniform()))).result.dist == convert(AbstractDensity, BAT.StandardUvUniform()).dist
-    @inferred(bat_transform(PriorToUniform(), convert(AbstractDensity, BAT.StandardMvUniform(4)))).result.dist == convert(AbstractDensity, BAT.StandardMvUniform(4)).dist
-    @inferred(bat_transform(PriorToGaussian(), convert(AbstractDensity, BAT.StandardUvNormal()))).result.dist == convert(AbstractDensity, BAT.StandardUvNormal()).dist
-    @inferred(bat_transform(PriorToGaussian(), convert(AbstractDensity, BAT.StandardMvNormal(4)))).result.dist == convert(AbstractDensity, BAT.StandardMvNormal(4)).dist
+    @inferred(bat_transform(PriorToUniform(), convert(AbstractMeasureOrDensity, BAT.StandardUvUniform()))).result.dist == convert(AbstractMeasureOrDensity, BAT.StandardUvUniform()).dist
+    @inferred(bat_transform(PriorToUniform(), convert(AbstractMeasureOrDensity, BAT.StandardMvUniform(4)))).result.dist == convert(AbstractMeasureOrDensity, BAT.StandardMvUniform(4)).dist
+    @inferred(bat_transform(PriorToGaussian(), convert(AbstractMeasureOrDensity, BAT.StandardUvNormal()))).result.dist == convert(AbstractMeasureOrDensity, BAT.StandardUvNormal()).dist
+    @inferred(bat_transform(PriorToGaussian(), convert(AbstractMeasureOrDensity, BAT.StandardMvNormal(4)))).result.dist == convert(AbstractMeasureOrDensity, BAT.StandardMvNormal(4)).dist
 end

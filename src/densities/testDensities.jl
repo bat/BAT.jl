@@ -1,4 +1,4 @@
-struct Rastrigin{B<:Vector{Float64}, P<:Real} <: AbstractDensity
+struct Rastrigin{B<:Vector{Float64}, P<:Real} <: AbstractMeasureOrDensity
     bounds::B
     a::P
     b::P
@@ -15,10 +15,10 @@ end
 DensityInterface.logdensityof(density::Rastrigin,v::Any) = log(broadcast(density.dist,v))
 
 """
-    Rastrigin <: AbstractDensity
+    Rastrigin <: AbstractMeasureOrDensity
 """
 
-struct SineSquared{B<:Vector{Float64}} <: AbstractDensity
+struct SineSquared{B<:Vector{Float64}} <: AbstractMeasureOrDensity
     bounds::B
     dist
 end
@@ -32,10 +32,10 @@ end
 DensityInterface.logdensityof(density::SineSquared,v::Any) = log(broadcast(density.dist,v))
 
 """
-    SineSquared <: AbstractDensity
+    SineSquared <: AbstractMeasureOrDensity
 """
 
-struct HoelderTable{B<:Vector{Float64}} <: AbstractDensity
+struct HoelderTable{B<:Vector{Float64}} <: AbstractMeasureOrDensity
     bounds::B
     dist
 end
@@ -52,6 +52,6 @@ DensityInterface.logdensityof(density::HoelderTable,v::Any) = log(broadcast(dens
 
 
 """
-    HoelderTable <: AbstractDensity
+    HoelderTable <: AbstractMeasureOrDensity
     Fixed bounds, integral not easily calculable
 """

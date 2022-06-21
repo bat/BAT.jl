@@ -37,7 +37,7 @@ sys.stdout = open(os.devnull, 'w')
         end
     end
 
-    posterior = PosteriorDensity(likelihood, prior)
+    posterior = PosteriorMeasure(likelihood, prior)
     algorithm = ReactiveNestedSampling()
     r = BAT.sample_and_verify(posterior, algorithm, dist)
     @test r.verified

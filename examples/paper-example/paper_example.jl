@@ -134,9 +134,9 @@ prior_bkg =  HierarchicalDistribution(make_child_prior(length(summary_dataset_ta
 
 prior_bkg_signal = HierarchicalDistribution(make_child_prior(length(summary_dataset_table)), parent_prior_bkg_signal)
 
-posterior_bkg = PosteriorDensity(make_likelihood_bkg(summary_dataset_table, sample_table), prior_bkg)
+posterior_bkg = PosteriorMeasure(make_likelihood_bkg(summary_dataset_table, sample_table), prior_bkg)
 
-posterior_bkg_signal = PosteriorDensity(SignalBkgLikelihood(summary_dataset_table, sample_table), prior_bkg_signal)
+posterior_bkg_signal = PosteriorMeasure(SignalBkgLikelihood(summary_dataset_table, sample_table), prior_bkg_signal)
 
 nchains = 4
 nsteps = 10^5

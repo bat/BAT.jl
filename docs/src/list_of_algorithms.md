@@ -116,19 +116,19 @@ mode = bat_findmode(sampleable, modefinding_algorithm).result
 ```
 
 ### Nelder-Mead Optimization
-BAT.jl mode finding algorithm type: [`MaxDensityNelderMead`](@ref) 
+BAT.jl mode finding algorithm type: [`NelderMeadOpt`](@ref) 
 ```julia
-modefinding_algorithm = MaxDensityNelderMead()
+modefinding_algorithm = NelderMeadOpt()
 ```
 
 ### LBFGS Optimization
-BAT.jl mode finding algorithm type: [`MaxDensityLBFGS`](@ref) 
+BAT.jl mode finding algorithm type: [`LBFGSOpt`](@ref) 
 ```julia
-modefinding_algorithm = MaxDensityLBFGS()
+modefinding_algorithm = LBFGSOpt()
 ```
 
 ### Maximum Sample Estimator
-BAT.jl mode finding algorithm type: [`MaxDensitySampleSearch`](@ref) 
+BAT.jl mode finding algorithm type: [`MaxDensitySearch`](@ref) 
 ```julia
-modefinding_algorithm = MaxDensitySampleSearch()
+modefinding_algorithm = MaxDensitySearch()
 ```

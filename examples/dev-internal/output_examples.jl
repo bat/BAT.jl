@@ -21,12 +21,12 @@ prior = BAT.NamedTupleDist(
     c = [-20.0..20.0, -10..10]
 )
 
-posterior = PosteriorDensity(likelihood, prior);
+posterior = PosteriorMeasure(likelihood, prior);
 
 samples, chains = bat_sample(posterior, MCMCSampling(mcalg = MetropolisHastings(), nsteps = 10^5));
 #samples = bat_sample(posterior, SobolSampler(nsamples = 10^5)).result;
 
-sd = SampledDensity(posterior, samples)
+sd = SampledMeasure(posterior, samples)
 display(sd)
 
 

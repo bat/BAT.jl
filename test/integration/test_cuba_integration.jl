@@ -29,18 +29,18 @@ using Distributions, ValueShapes
         b = truncated(Normal(), 1, 3),
     )
 
-    test_integration(uvprior, VEGASIntegration(trafo = NoDensityTransform(), rtol = 1e-3))
-    test_integration(uvprior, VEGASIntegration(trafo = NoDensityTransform(), rtol = 1e-3, log_density_shift = 10))
-    test_integration(mvprior, VEGASIntegration(trafo = NoDensityTransform(), rtol = 1e-3, nthreads = 1))
-    test_integration(mvprior, VEGASIntegration(trafo = NoDensityTransform(), rtol = 1e-3, nthreads = nthreads()))
+    test_integration(uvprior, VEGASIntegration(trafo = DoNotTransform(), rtol = 1e-3))
+    test_integration(uvprior, VEGASIntegration(trafo = DoNotTransform(), rtol = 1e-3, log_density_shift = 10))
+    test_integration(mvprior, VEGASIntegration(trafo = DoNotTransform(), rtol = 1e-3, nthreads = 1))
+    test_integration(mvprior, VEGASIntegration(trafo = DoNotTransform(), rtol = 1e-3, nthreads = nthreads()))
     test_integration(mvprior, VEGASIntegration(nthreads=2))
     test_integration(mvprior, VEGASIntegration())
 
-    test_integration(mvprior, SuaveIntegration(trafo = NoDensityTransform(), rtol = 1e-3))
+    test_integration(mvprior, SuaveIntegration(trafo = DoNotTransform(), rtol = 1e-3))
 
-    test_integration(mvprior_simple, DivonneIntegration(trafo = NoDensityTransform(), rtol = 1e-3))
+    test_integration(mvprior_simple, DivonneIntegration(trafo = DoNotTransform(), rtol = 1e-3))
 
-    test_integration(mvprior, CuhreIntegration(trafo = NoDensityTransform(), rtol = 1e-3))
+    test_integration(mvprior, CuhreIntegration(trafo = DoNotTransform(), rtol = 1e-3))
     
     @test_throws ErrorException test_integration(mvprior, CuhreIntegration(maxevals=4))
     test_integration(mvprior, CuhreIntegration(maxevals=4, strict=false))

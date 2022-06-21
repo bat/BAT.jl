@@ -249,7 +249,7 @@ function run_ND_benchmark(;
                     dis,
                     MCMCSampling(
                         mcalg = algorithm,
-                        trafo = NoDensityTransform(),
+                        trafo = DoNotTransform(),
                         nchains = nchains,
                         nsteps = nsteps,
                         init = init,
@@ -262,7 +262,7 @@ function run_ND_benchmark(;
             elseif isa(algorithm,BAT.HamiltonianMC)
                 mcmc_sample = bat_sample(
                     dis,
-                    MCMCSampling(mcalg = algorithm, trafo = NoDensityTransform(), nchains = nchains, nsteps = nsteps)
+                    MCMCSampling(mcalg = algorithm, trafo = DoNotTransform(), nchains = nchains, nsteps = nsteps)
                 ).result
             end
             taf = time()
@@ -276,7 +276,7 @@ function run_ND_benchmark(;
                             dis,
                             MCMCSampling(
                                 mcalg = algorithm,
-                                trafo = NoDensityTransform(),
+                                trafo = DoNotTransform(),
                                 nchains = nchains,
                                 nsteps = nsteps,
                                 init = init,
@@ -289,7 +289,7 @@ function run_ND_benchmark(;
                     elseif isa(algorithm,BAT.HamiltonianMC)
                         bat_sample(
                             dis,
-                            MCMCSampling(mcalg = algorithm, trafo = NoDensityTransform(), nchains = nchains, nsteps = nsteps)
+                            MCMCSampling(mcalg = algorithm, trafo = DoNotTransform(), nchains = nchains, nsteps = nsteps)
                         ).result
                     end
                     taf = time()

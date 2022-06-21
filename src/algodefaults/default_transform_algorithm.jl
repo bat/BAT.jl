@@ -1,23 +1,23 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::NoDensityTransform, ::AnyDensityLike) = DensityIdentityTransform()
-bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::NoDensityTransform, ::AbstractPosteriorDensity) = DensityIdentityTransform()
-bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::NoDensityTransform, ::DensityWithDiff{<:Any,<:AbstractPosteriorDensity}) = DensityIdentityTransform()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::DoNotTransform, ::AnyMeasureOrDensity) = IdentityTransformAlgorithm()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::DoNotTransform, ::AbstractPosteriorMeasure) = IdentityTransformAlgorithm()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::DoNotTransform, ::WithDiff{<:Any,<:AbstractPosteriorMeasure}) = IdentityTransformAlgorithm()
 
-bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::AbstractPosteriorDensity) = PriorSubstitution()
-bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::DensityWithDiff{<:Any,<:AbstractPosteriorDensity}) = PriorSubstitution()
-bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::DistributionDensity) = PriorSubstitution()
-bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::RenormalizedDensity{<:DistributionDensity}) = PriorSubstitution()
-bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::SampledDensity{<:DistributionDensity}) = PriorSubstitution()
-bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::DistributionDensity{<:StandardUniformDist}) = DensityIdentityTransform()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::AbstractPosteriorMeasure) = PriorSubstitution()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::WithDiff{<:Any,<:AbstractPosteriorMeasure}) = PriorSubstitution()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::DistMeasure) = PriorSubstitution()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::Renormalized{<:DistMeasure}) = PriorSubstitution()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::SampledMeasure{<:DistMeasure}) = PriorSubstitution()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::DistMeasure{<:StandardUniformDist}) = IdentityTransformAlgorithm()
 
-bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::AbstractPosteriorDensity) = PriorSubstitution()
-bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::DensityWithDiff{<:Any,<:AbstractPosteriorDensity}) = PriorSubstitution()
-bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::DistributionDensity) = PriorSubstitution()
-bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::RenormalizedDensity{<:DistributionDensity}) = PriorSubstitution()
-bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::SampledDensity) = PriorSubstitution()
-bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::DistributionDensity{<:StandardNormalDist}) = DensityIdentityTransform()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::AbstractPosteriorMeasure) = PriorSubstitution()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::WithDiff{<:Any,<:AbstractPosteriorMeasure}) = PriorSubstitution()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::DistMeasure) = PriorSubstitution()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::Renormalized{<:DistMeasure}) = PriorSubstitution()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::SampledMeasure) = PriorSubstitution()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::DistMeasure{<:StandardNormalDist}) = IdentityTransformAlgorithm()
 
 
 # ToDo: Add ToUnitBounded and ToUnbounded

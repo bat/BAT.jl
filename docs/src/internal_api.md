@@ -51,12 +51,12 @@ BAT.OnlineMvCov
 BAT.OnlineMvMean
 BAT.OnlineUvMean
 BAT.OnlineUvVar
-BAT.RenormalizedDensity
+BAT.Renormalized
 BAT.StandardMvNormal
 BAT.StandardMvUniform
 BAT.StandardUvNormal
 BAT.StandardUvUniform
-BAT.TransformedDensity
+BAT.Transformed
 
 BAT.WrappedNonBATDensity
 

@@ -129,13 +129,13 @@ using BAT, DensityInterface, IntervalSets
 # First, we need to define the likelihood (function) for our problem.
 #
 # BAT represents densities like likelihoods and priors as subtypes of
-# `BAT.AbstractDensity`. Custom likelihood can be defined by
-# creating a new subtype of `AbstractDensity` and by implementing (at minimum)
+# `BAT.AbstractMeasureOrDensity`. Custom likelihood can be defined by
+# creating a new subtype of `AbstractMeasureOrDensity` and by implementing (at minimum)
 # `DensityInterface.logdensityof` for that type - in complex uses cases, this may
 # become necessary. Typically, however, it is sufficient to define a custom
 # likelihood as a simple function that returns the log-likelihood value for
 # a given set of parameters. BAT will automatically convert such a
-# likelihood function into a subtype of `AbstractDensity`.
+# likelihood function into a subtype of `AbstractMeasureOrDensity`.
 #
 # For performance reasons, functions should [not access global variables
 # directly] (https://docs.julialang.org/en/v1/manual/performance-tips/index.html#Avoid-global-variables-1).
@@ -208,12 +208,12 @@ prior = NamedTupleDist(
 
 #md nothing # hide
 
-# In general, BAT allows instances of any subtype of `AbstractDensity` to
+# In general, BAT allows instances of any subtype of `AbstractMeasureOrDensity` to
 # be uses as a prior, as long as a sampler is defined for it. This way, users
 # may implement complex application-specific priors. You can also
-# use `convert(AbstractDensity, distribution)` to convert any
+# use `convert(AbstractMeasureOrDensity, distribution)` to convert any
 # continuous multivariate `Distributions.Distribution` to a
-# `BAT.AbstractDensity` that can be used as a prior (or likelihood).
+# `BAT.AbstractMeasureOrDensity` that can be used as a prior (or likelihood).
 #
 # The prior also implies the shapes of the parameters:
 
@@ -225,10 +225,10 @@ parshapes = varshape(prior)
 
 # ### Bayesian Model Definition
 #
-# Given the likelihood and prior definition, a `BAT.PosteriorDensity` is simply
+# Given the likelihood and prior definition, a `BAT.PosteriorMeasure` is simply
 # defined via
 
-posterior = PosteriorDensity(likelihood, prior)
+posterior = PosteriorMeasure(likelihood, prior)
 #md nothing # hide
 
 
@@ -250,10 +250,10 @@ samples = bat_sample(posterior, MCMCSampling(mcalg = MetropolisHastings(), nstep
 #md nothing # hide
 #nb nothing # hide
 
-# Construct a `SampledDensity` to get a quick overview of the properties
+# Construct a `SampledMeasure` to get a quick overview of the properties
 # of the sampled posterior, estimates of the fit parameters:
 
-SampledDensity(posterior, samples)
+SampledMeasure(posterior, samples)
 
 
 # Let's calculate some statistics on the posterior samples:
@@ -369,7 +369,7 @@ samples_mode isa NamedTuple
 # `samples_mode` is only an estimate of the mode of the posterior
 # distribution. It can be further refined using [`bat_findmode`](@ref):
 
-findmode_result = bat_findmode(posterior, MaxDensityNelderMead(init = ExplicitInit([samples_mode])))
+findmode_result = bat_findmode(posterior, NelderMeadOpt(init = ExplicitInit([samples_mode])))
 
 fit_par_values = findmode_result.result
 

@@ -2,38 +2,40 @@
 
 
 """
-    struct RenormalizedDensity <: AbstractDensity
+    struct Renormalized <: AbstractMeasureOrDensity
 
 Constructors:
 
-* ```$(FUNCTIONNAME)(density::AbstractDensity, logrenormf::Real)```
+* ```$(FUNCTIONNAME)(density::AbstractMeasureOrDensity, logrenormf::Real)```
 
 A renormalized density derived from `density`, with
 
 ```julia
-logdensityof(RenormalizedDensity(density, logrenormf))(v) ==
+logdensityof(Renormalized(density, logrenormf))(v) ==
     logdensityof(density)(v) + logrenormf
 ```
 """
-struct RenormalizedDensity{D<:AbstractDensity,T<:Real} <: AbstractDensity
+struct Renormalized{D<:AbstractMeasureOrDensity,T<:Real} <: AbstractMeasureOrDensity
     density::D
     logrenormf::T
 end
 
-Base.parent(density::RenormalizedDensity) = density.density
+@inline DensityInterface.DensityKind(x::Renormalized) = DensityKind(x.density)
 
-Base.:(==)(a::RenormalizedDensity, b::RenormalizedDensity) = a.density == b.density && a.logrenormf == b.logrenormf
+Base.parent(density::Renormalized) = density.density
 
-var_bounds(density::RenormalizedDensity) = var_bounds(parent(density))
+Base.:(==)(a::Renormalized, b::Renormalized) = a.density == b.density && a.logrenormf == b.logrenormf
 
-ValueShapes.varshape(density::RenormalizedDensity) = varshape(parent(density))
+var_bounds(density::Renormalized) = var_bounds(parent(density))
 
-ValueShapes.unshaped(density::RenormalizedDensity) = RenormalizedDensity(unshaped(density.density), density.logrenormf)
+ValueShapes.varshape(density::Renormalized) = varshape(parent(density))
 
-(shape::AbstractValueShape)(density::RenormalizedDensity) = RenormalizedDensity(shape(density.density), density.logrenormf)
+ValueShapes.unshaped(density::Renormalized) = Renormalized(unshaped(density.density), density.logrenormf)
+
+(shape::AbstractValueShape)(density::Renormalized) = Renormalized(shape(density.density), density.logrenormf)
 
 
-function Base.show(io::IO, d::RenormalizedDensity)
+function Base.show(io::IO, d::Renormalized)
     print(io, Base.typename(typeof(d)).name, "(")
     show(io, d.density)
     print(io, ", ")
@@ -42,13 +44,13 @@ function Base.show(io::IO, d::RenormalizedDensity)
 end
 
 
-function DensityInterface.logdensityof(density::RenormalizedDensity, v::Any)
+function DensityInterface.logdensityof(density::Renormalized, v::Any)
     parent_logd = logdensityof(parent(density),v)
     R = float(typeof(parent_logd))
     convert(R, parent_logd + density.logrenormf)
 end
 
-function checked_logdensityof(density::RenormalizedDensity, v::Any)
+function checked_logdensityof(density::Renormalized, v::Any)
     parent_logd = checked_logdensityof(parent(density),v)
     R = float(typeof(parent_logd))
     convert(R, parent_logd + density.logrenormf)
@@ -56,14 +58,14 @@ end
 
 
 
-Distributions.sampler(density::RenormalizedDensity) = Distributions.sampler(parent(density))
-bat_sampler(density::RenormalizedDensity) = bat_sampler(parent(density))
+Distributions.sampler(density::Renormalized) = Distributions.sampler(parent(density))
+bat_sampler(density::Renormalized) = bat_sampler(parent(density))
 
-Statistics.cov(density::RenormalizedDensity) = cov(parent(density))
+Statistics.cov(density::Renormalized) = cov(parent(density))
 
 
 """
-    BAT.renormalize_density(density::AbstractDensity, logrenormf::Real)::AbstractDensity
+    BAT.renormalize_density(density::AbstractMeasureOrDensity, logrenormf::Real)::AbstractMeasureOrDensity
 
 *Experimental feature, not part of stable public API.*
 
@@ -77,8 +79,8 @@ logdensityof(renormalize_density(density, logrenormf))(v) ==
 function renormalize_density end
 export renormalize_density
 
-renormalize_density(density::Any, logrenormf::Real) = renormalize_density(convert(AbstractDensity, density), logrenormf)
+renormalize_density(density::Any, logrenormf::Real) = renormalize_density(convert(AbstractMeasureOrDensity, density), logrenormf)
 
-renormalize_density(density::AbstractDensity, logrenormf::Real) = RenormalizedDensity(density, logrenormf)
+renormalize_density(density::AbstractMeasureOrDensity, logrenormf::Real) = Renormalized(density, logrenormf)
 
-renormalize_density(density::RenormalizedDensity, logrenormf::Real) = renormalize_density(parent(density), density.logrenormf + logrenormf)
+renormalize_density(density::Renormalized, logrenormf::Real) = renormalize_density(parent(density), density.logrenormf + logrenormf)

@@ -15,7 +15,7 @@ Which arguments are considered to be objectives is function-specific.
 For example:
 
 ```julia
-bat_default(bat_sample, :algorithm, density::PosteriorDensity) == MetropolisHastings()
+bat_default(bat_sample, :algorithm, density::PosteriorMeasure) == MetropolisHastings()
 bat_default(bat_sample, Val(:algorithm), samples::DensitySampleVector) == OrderedResampling()
 ```
 """

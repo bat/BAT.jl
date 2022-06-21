@@ -23,27 +23,27 @@ function bat_findmode_impl(rng::AbstractRNG, target::Distribution, algorithm::Mo
     (result = varshape(target)(StatsBase.mode(unshaped(target))),)
 end
 
-function bat_findmode_impl(rng::AbstractRNG, target::DistributionDensity, algorithm::ModeAsDefined)
+function bat_findmode_impl(rng::AbstractRNG, target::DistMeasure, algorithm::ModeAsDefined)
     bat_findmode_impl(rng, parent(target), algorithm)
 end
 
 
 
 """
-    MaxDensitySampleSearch <: AbstractModeEstimator
+    MaxDensitySearch <: AbstractModeEstimator
 
 Constructors:
 
-    MaxDensitySampleSearch()
+    MaxDensitySearch()
 
 Estimate the mode as the variate with the highest posterior density value
 within a given set of samples.
 """
-struct MaxDensitySampleSearch <: AbstractModeEstimator end
-export MaxDensitySampleSearch
+struct MaxDensitySearch <: AbstractModeEstimator end
+export MaxDensitySearch
 
 
-function bat_findmode_impl(rng::AbstractRNG, target::DensitySampleVector, algorithm::MaxDensitySampleSearch)
+function bat_findmode_impl(rng::AbstractRNG, target::DensitySampleVector, algorithm::MaxDensitySearch)
     v, i = _get_mode(target)
     (result = v, mode_idx = i)
 end

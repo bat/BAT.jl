@@ -81,7 +81,7 @@ end
 
 
 """
-    struct MaxDensityNelderMead <: AbstractModeEstimator
+    struct NelderMeadOpt <: AbstractModeEstimator
 
 Estimates the mode of a probability density using Nelder-Mead optimization
 (currently via [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl),
@@ -95,25 +95,25 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct MaxDensityNelderMead{
-    TR<:AbstractDensityTransformTarget,
+@with_kw struct NelderMeadOpt{
+    TR<:AbstractTransformTarget,
     IA<:InitvalAlgorithm
 } <: AbstractModeEstimator
-    trafo::TR = NoDensityTransform()
+    trafo::TR = DoNotTransform()
     init::IA = InitFromTarget()
 end
-export MaxDensityNelderMead
+export NelderMeadOpt
 
-function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::MaxDensityNelderMead)
+function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::NelderMeadOpt)
     opts = Optim.Options(store_trace = true, extended_trace=true)
     _optim_optimize(f, x_init, Optim.NelderMead(), opts)
 end
 
-bat_findmode_impl(rng::AbstractRNG, target::AnySampleable, algorithm::MaxDensityNelderMead) = _bat_findmode_impl_optim(rng, target, algorithm)
+bat_findmode_impl(rng::AbstractRNG, target::AnySampleable, algorithm::NelderMeadOpt) = _bat_findmode_impl_optim(rng, target, algorithm)
 
 
 """
-    struct MaxDensityLBFGS <: AbstractModeEstimator
+    struct LBFGSOpt <: AbstractModeEstimator
 
 Estimates the mode of a probability density using LBFGS optimization
 (currently via [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl),
@@ -129,18 +129,18 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct MaxDensityLBFGS{
-    TR<:AbstractDensityTransformTarget,
+@with_kw struct LBFGSOpt{
+    TR<:AbstractTransformTarget,
     IA<:InitvalAlgorithm
 } <: AbstractModeEstimator
     trafo::TR = PriorToGaussian()
     init::IA = InitFromTarget()
 end
-export MaxDensityLBFGS
+export LBFGSOpt
 
-bat_findmode_impl(rng::AbstractRNG, target::AnySampleable, algorithm::MaxDensityLBFGS) = _bat_findmode_impl_optim(rng, target, algorithm)
+bat_findmode_impl(rng::AbstractRNG, target::AnySampleable, algorithm::LBFGSOpt) = _bat_findmode_impl_optim(rng, target, algorithm)
 
-function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::MaxDensityLBFGS)
+function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::LBFGSOpt)
     fg = valgradof(f)
     opts = Optim.Options(store_trace = true, extended_trace=true)
     _optim_optimize(Optim.only_fg!(fg), x_init, Optim.LBFGS(), opts)

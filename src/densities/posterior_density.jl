@@ -2,16 +2,16 @@
 
 
 """
-    abstract type AbstractPosteriorDensity <: AbstractDensity end
+    abstract type AbstractPosteriorMeasure <: BATMeasure end
 
 Abstract type for posterior probability densities.
 """
-abstract type AbstractPosteriorDensity <: AbstractDensity end
-export AbstractPosteriorDensity
+abstract type AbstractPosteriorMeasure <: BATMeasure end
+export AbstractPosteriorMeasure
 
 
 """
-    getlikelihood(posterior::AbstractPosteriorDensity)::AbstractDensity
+    getlikelihood(posterior::AbstractPosteriorMeasure)::BATDenstiy
 
 *BAT-internal, not part of stable public API.*
 
@@ -22,7 +22,7 @@ function getlikelihood end
 
 
 """
-    getprior(posterior::AbstractPosteriorDensity)::AbstractDensity
+    getprior(posterior::AbstractPosteriorMeasure)::BATMeasure
 
 *BAT-internal, not part of stable public API.*
 
@@ -31,7 +31,7 @@ The prior density of `posterior`. The prior may or may not be normalized.
 function getprior end
 
 
-function DensityInterface.logdensityof(density::AbstractPosteriorDensity, v::Any)
+function DensityInterface.logdensityof(density::AbstractPosteriorMeasure, v::Any)
     R = density_valtype(density, v)
 
     prior_logval = logdensityof(getprior(density), v)
@@ -48,7 +48,7 @@ function DensityInterface.logdensityof(density::AbstractPosteriorDensity, v::Any
 end
 
 
-function checked_logdensityof(density::AbstractPosteriorDensity, v::Any)
+function checked_logdensityof(density::AbstractPosteriorMeasure, v::Any)
     R = density_valtype(density, v)
 
     prior_logval = checked_logdensityof(getprior(density), v)
@@ -66,7 +66,7 @@ end
 
 
 
-function var_bounds(density::AbstractPosteriorDensity)
+function var_bounds(density::AbstractPosteriorMeasure)
     li_bounds = var_bounds(getlikelihood(density))
     pr_bounds = var_bounds(getprior(density))
     if ismissing(li_bounds)
@@ -79,26 +79,26 @@ end
 
 
 """
-    struct PosteriorDensity{
-        Li<:AbstractDensity,
-        Pr<:DistLikeDensity,
+    struct PosteriorMeasure{
+        Li<:AbstractMeasureOrDensity,
+        Pr<:DistLikeMeasure,
         ...
-    } <: AbstractPosteriorDensity
+    } <: AbstractPosteriorMeasure
 
-A representation of a PosteriorDensity, based a likelihood and prior.
+A representation of a PosteriorMeasure, based a likelihood and prior.
 Likelihood and prior be accessed via
 
 ```julia
-getlikelihood(posterior::PosteriorDensity)::Li
-getprior(posterior::PosteriorDensity)::Pr
+getlikelihood(posterior::PosteriorMeasure)::Li
+getprior(posterior::PosteriorMeasure)::Pr
 ```
 
 Constructors:
 
-* ```PosteriorDensity(likelihood, prior)```
-* ```PosteriorDensity{T<:Real}(likelihood, prior)```
+* ```PosteriorMeasure(likelihood, prior)```
+* ```PosteriorMeasure{T<:Real}(likelihood, prior)```
 
-`likelihood` and `prior` must be convertible to an [`AbstractDensity`](@ref).
+`likelihood` and `prior` must be convertible to an [`AbstractMeasureOrDensity`](@ref).
 
 Fields:
 
@@ -109,35 +109,42 @@ $(TYPEDFIELDS)
     Fields `parbounds` and `parbounds` do not form part of the stable public
     API and are subject to change without deprecation.
 """
-struct PosteriorDensity{
+struct PosteriorMeasure{
     VT<:Real,
     DT<:Real,
-    L<:AbstractDensity,
-    P<:AbstractDensity,
+    L<:AbstractMeasureOrDensity,
+    P<:AbstractMeasureOrDensity,
     S<:AbstractValueShape,
     B<:AbstractVarBounds,
-} <: AbstractPosteriorDensity
+} <: AbstractPosteriorMeasure
     likelihood::L
     prior::P
     parshapes::S
     parbounds::B
 end
 
-export PosteriorDensity
+export PosteriorMeasure
 
 
-function PosteriorDensity{VT,DT}(
-    likelihood::AbstractDensity, prior::AbstractDensity, parshapes::AbstractValueShape, parbounds::AbstractVarBounds
+function PosteriorMeasure{VT,DT}(
+    likelihood::AbstractMeasureOrDensity, prior::AbstractMeasureOrDensity, parshapes::AbstractValueShape, parbounds::AbstractVarBounds
 ) where {VT<:Real,DT<:Real}
+    @argcheck DensityKind(likelihood) isa IsDensity
+    @argcheck DensityKind(prior) isa HasDensity
+
     L = typeof(likelihood); P = typeof(prior);
     S = typeof(parshapes); B = typeof(parbounds);
-    PosteriorDensity{VT,DT,L,P,S,B}(likelihood, prior, parshapes, parbounds)
+    PosteriorMeasure{VT,DT,L,P,S,B}(likelihood, prior, parshapes, parbounds)
 end
 
 
+PosteriorMeasure(μ::DensityMeasure) = PosteriorMeasure(μ.f, μ.base)
+Base.convert(::Type{AbstractMeasureOrDensity}, μ::DensityMeasure) = PosteriorMeasure(μ)
+
+
 function _preproc_likelihood_prior(likelihood::Any, prior::Any)
-    li = convert(AbstractDensity, likelihood)
-    pr = convert(AbstractDensity, prior)
+    li = convert(AbstractMeasureOrDensity, likelihood)
+    pr = convert(AbstractMeasureOrDensity, prior)
 
     parbounds = _posterior_parbounds(var_bounds(li), var_bounds(pr))
 
@@ -150,36 +157,36 @@ function _preproc_likelihood_prior(likelihood::Any, prior::Any)
 end
 
 
-function PosteriorDensity{VT,DT}(likelihood::Any, prior::Any) where {VT<:Real,DT<:Real}
+function PosteriorMeasure{VT,DT}(likelihood::Any, prior::Any) where {VT<:Real,DT<:Real}
     li, pr, parshapes, parbounds = _preproc_likelihood_prior(likelihood, prior)
-    PosteriorDensity{VT,DT}(li, pr, parshapes, parbounds)
+    PosteriorMeasure{VT,DT}(li, pr, parshapes, parbounds)
 end
 
-function PosteriorDensity{VT}(likelihood::Any, prior::Any) where {VT<:Real}
+function PosteriorMeasure{VT}(likelihood::Any, prior::Any) where {VT<:Real}
     li, pr, parshapes, parbounds = _preproc_likelihood_prior(likelihood, prior)
     DT = default_val_numtype(li)
-    PosteriorDensity{VT,DT}(li, pr, parshapes, parbounds)
+    PosteriorMeasure{VT,DT}(li, pr, parshapes, parbounds)
 end
 
-function PosteriorDensity(likelihood::Any, prior::Any)
+function PosteriorMeasure(likelihood::Any, prior::Any)
     li, pr, parshapes, parbounds = _preproc_likelihood_prior(likelihood, prior)
     VT = default_val_numtype(li)
     DT = default_val_numtype(li)
-    PosteriorDensity{VT,DT}(li, pr, parshapes, parbounds)
+    PosteriorMeasure{VT,DT}(li, pr, parshapes, parbounds)
 end
 
 
-getlikelihood(posterior::PosteriorDensity) = posterior.likelihood
+getlikelihood(posterior::PosteriorMeasure) = posterior.likelihood
 
-getprior(posterior::PosteriorDensity) = posterior.prior
+getprior(posterior::PosteriorMeasure) = posterior.prior
 
-var_bounds(posterior::PosteriorDensity) = posterior.parbounds
+var_bounds(posterior::PosteriorMeasure) = posterior.parbounds
 
-ValueShapes.varshape(posterior::PosteriorDensity) = posterior.parshapes
+ValueShapes.varshape(posterior::PosteriorMeasure) = posterior.parshapes
 
-ValueShapes.unshaped(density::PosteriorDensity) = PosteriorDensity(unshaped(density.likelihood), unshaped(density.prior))
+ValueShapes.unshaped(density::PosteriorMeasure) = PosteriorMeasure(unshaped(density.likelihood), unshaped(density.prior))
 
-(shape::AbstractValueShape)(density::PosteriorDensity) = PosteriorDensity(shape(density.likelihood), shape(density.prior))
+(shape::AbstractValueShape)(density::PosteriorMeasure) = PosteriorMeasure(shape(density.likelihood), shape(density.prior))
 
 
 function _posterior_parshapes(li_ps::AbstractValueShape, pr_ps::AbstractValueShape)
@@ -217,7 +224,7 @@ _posterior_parbounds(li_bounds::AbstractVarBounds, pr_bounds::AbstractVarBounds)
 _posterior_parbounds(li_bounds::Missing, pr_bounds::AbstractVarBounds) = pr_bounds
 
 
-function _density_with_shape(density::AbstractDensity, requested_shape::AbstractValueShape, orig_shape::AbstractValueShape)
+function _density_with_shape(density::AbstractMeasureOrDensity, requested_shape::AbstractValueShape, orig_shape::AbstractValueShape)
     if requested_shape == orig_shape
         density
     else
@@ -225,7 +232,7 @@ function _density_with_shape(density::AbstractDensity, requested_shape::Abstract
     end
 end
 
-function _density_with_shape(density::AbstractDensity, requested_shape::AbstractValueShape, orig_shape::Missing)
+function _density_with_shape(density::AbstractMeasureOrDensity, requested_shape::AbstractValueShape, orig_shape::Missing)
     DensityWithShape(density, requested_shape)
 end
 
@@ -242,8 +249,8 @@ function example_posterior()
     )
     n = totalndof(varshape(prior))
     A = randn(rng, n, n)
-    likelihood = varshape(prior)(MvNormal(A * A'))
-    PosteriorDensity(likelihood, prior)
+    likelihood = logfuncdensity(logdensityof(varshape(prior)(MvNormal(A * A'))))
+    PosteriorMeasure(likelihood, prior)
 end
 
 
@@ -252,6 +259,6 @@ function example_posterior_with_dirichlet()
     prior = merge(BAT.example_posterior().prior.dist, (g = Dirichlet([1.2, 2.4, 3.6]),))
     n = totalndof(varshape(prior))
     A = randn(rng, n, n)
-    likelihood = varshape(prior)(MvNormal(A * A'))
-    PosteriorDensity(likelihood, prior)
+    likelihood = logfuncdensity(logdensityof(varshape(prior)(MvNormal(A * A'))))
+    PosteriorMeasure(likelihood, prior)
 end

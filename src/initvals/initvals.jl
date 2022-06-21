@@ -5,16 +5,16 @@ _reshape_rand_n_output(x::Any) = x
 _reshape_rand_n_output(x::AbstractMatrix) = nestedview(x)
 
 _rand_v(rng::AbstractRNG, src::Distribution) = varshape(src)(rand(rng, bat_sampler(unshaped(src))))
-_rand_v(rng::AbstractRNG, src::DistLikeDensity) = varshape(src)(convert_numtype(default_var_numtype(src), rand(rng, bat_sampler(unshaped(src)))))
+_rand_v(rng::AbstractRNG, src::DistLikeMeasure) = varshape(src)(convert_numtype(default_var_numtype(src), rand(rng, bat_sampler(unshaped(src)))))
 _rand_v(rng::AbstractRNG, src::Distribution, n::Integer) = _reshape_rand_n_output(rand(rng, bat_sampler(src), n))
-_rand_v(rng::AbstractRNG, src::DistLikeDensity, n::Integer) = _reshape_rand_n_output(convert_numtype(default_var_numtype(src), rand(rng, bat_sampler(src), n)))
+_rand_v(rng::AbstractRNG, src::DistLikeMeasure, n::Integer) = _reshape_rand_n_output(convert_numtype(default_var_numtype(src), rand(rng, bat_sampler(src), n)))
 
 function _rand_v(rng::AbstractRNG, src::AnyIIDSampleable)
-    _rand_v(rng, convert(DistLikeDensity, src))
+    _rand_v(rng, convert(DistLikeMeasure, src))
 end  
     
 function _rand_v(rng::AbstractRNG, src::AnyIIDSampleable, n::Integer)
-    _rand_v(rng, convert(DistLikeDensity, src), n)
+    _rand_v(rng, convert(DistLikeMeasure, src), n)
 end  
 
 _rand_v(rng::AbstractRNG, src::DensitySampleVector) =
@@ -29,15 +29,15 @@ end
 
 
 function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::Any)
-    vs_target = varshape(convert(AbstractDensity, target))
-    vs_src = varshape(convert(AbstractDensity, src))
+    vs_target = varshape(convert(AbstractMeasureOrDensity, target))
+    vs_src = varshape(convert(AbstractMeasureOrDensity, src))
     x = _rand_v(rng, src)
     reshape_variate(vs_target, vs_src, x)
 end
 
 function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::Any, n::Integer)
-    vs_target = varshape(convert(AbstractDensity, target))
-    vs_src = varshape(convert(AbstractDensity, src))
+    vs_target = varshape(convert(AbstractMeasureOrDensity, target))
+    vs_src = varshape(convert(AbstractMeasureOrDensity, src))
     xs = _rand_v(rng, src, n)
     reshape_variates(vs_target, vs_src, xs)
 end
@@ -80,16 +80,16 @@ export InitFromTarget
 function get_initsrc_from_target end
 
 get_initsrc_from_target(target::AnyIIDSampleable) = target
-get_initsrc_from_target(target::RenormalizedDensity{<:DistributionDensity}) = bat_sampler(target)
+get_initsrc_from_target(target::Renormalized{<:DistMeasure}) = bat_sampler(target)
 
-get_initsrc_from_target(target::AbstractPosteriorDensity) = get_initsrc_from_target(getprior(target))
+get_initsrc_from_target(target::AbstractPosteriorMeasure) = get_initsrc_from_target(getprior(target))
 
 
-function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::InitFromTarget)
+function bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, algorithm::InitFromTarget)
     (result = _rand_v_for_target(rng, target, get_initsrc_from_target(target)),)
 end
 
-function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, algorithm::InitFromTarget)
+function bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, n::Integer, algorithm::InitFromTarget)
     (result = _rand_v_for_target(rng, target, get_initsrc_from_target(target), n),)
 end
 
@@ -107,13 +107,13 @@ function bat_initval_impl(rng::AbstractRNG, target::ReshapedDensity, n::Integer,
 end
 
 
-function bat_initval_impl(rng::AbstractRNG, target::TransformedDensity, algorithm::InitFromTarget)
+function bat_initval_impl(rng::AbstractRNG, target::Transformed, algorithm::InitFromTarget)
     v_orig = bat_initval_impl(rng, target.orig, algorithm).result
     v = target.trafo(v_orig)
     (result = v,)
 end
 
-function bat_initval_impl(rng::AbstractRNG, target::TransformedDensity, n::Integer, algorithm::InitFromTarget)
+function bat_initval_impl(rng::AbstractRNG, target::Transformed, n::Integer, algorithm::InitFromTarget)
     vs_orig = bat_initval_impl(rng, target.orig, n, algorithm).result
     vs = BAT.broadcast_trafo(target.trafo, vs_orig)
     (result = vs,)
@@ -136,11 +136,11 @@ end
 export InitFromSamples
 
 
-function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::InitFromSamples)
+function bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, algorithm::InitFromSamples)
     (result = _rand_v_for_target(rng, target, algorithm.samples),)
 end
 
-function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, algorithm::InitFromSamples)
+function bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, n::Integer, algorithm::InitFromSamples)
     (result = _rand_v_for_target(rng, target, algorithm.samples, n),)
 end
 
@@ -162,11 +162,11 @@ end
 export InitFromIID
 
 
-function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::InitFromIID)
+function bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, algorithm::InitFromIID)
     (result = _rand_v_for_target(rng, target, algorithm.src),)
 end
 
-function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, algorithm::InitFromIID)
+function bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, n::Integer, algorithm::InitFromIID)
     (result = _rand_v_for_target(rng, target, algorithm.src, n),)
 end
 
@@ -192,11 +192,11 @@ end
 export ExplicitInit
 
 
-function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::ExplicitInit)
+function bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, algorithm::ExplicitInit)
     (result = first(algorithm.xs),)
 end
 
-function bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, algorithm::ExplicitInit)
+function bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, n::Integer, algorithm::ExplicitInit)
     xs = algorithm.xs
     idxs = eachindex(xs)
     (result = xs[idxs[1:n]],)

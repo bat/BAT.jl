@@ -10,9 +10,9 @@ using Distributions, Statistics, StatsBase, IntervalSets, ValueShapes
     parent_dist = NamedTupleDist(a = Normal(), b = Weibull())
     vs = varshape(parent_dist)
     logrenormf = 4.2
-    parent_density = convert(AbstractDensity, parent_dist)
+    parent_density = convert(AbstractMeasureOrDensity, parent_dist)
 
-    @test @inferred(BAT.renormalize_density(parent_density, logrenormf)) isa BAT.RenormalizedDensity
+    @test @inferred(BAT.renormalize_density(parent_density, logrenormf)) isa BAT.Renormalized
     density = renormalize_density(parent_density, logrenormf)
 
     @test @inferred(parent(density)) === parent_density

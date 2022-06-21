@@ -37,12 +37,12 @@ export HamiltonianMC
 
 bat_default(::Type{MCMCSampling}, ::Val{:trafo}, mcalg::HamiltonianMC) = PriorToGaussian()
 
-bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, mcalg::HamiltonianMC, trafo::AbstractDensityTransformTarget, nchains::Integer) = 10^4
+bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, mcalg::HamiltonianMC, trafo::AbstractTransformTarget, nchains::Integer) = 10^4
 
-bat_default(::Type{MCMCSampling}, ::Val{:init}, mcalg::HamiltonianMC, trafo::AbstractDensityTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{MCMCSampling}, ::Val{:init}, mcalg::HamiltonianMC, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCChainPoolInit(nsteps_init = 25) # clamp(div(nsteps, 100), 25, 250)
 
-bat_default(::Type{MCMCSampling}, ::Val{:burnin}, mcalg::HamiltonianMC, trafo::AbstractDensityTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{MCMCSampling}, ::Val{:burnin}, mcalg::HamiltonianMC, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 250), max_ncycles = 4)
 
 
@@ -52,7 +52,7 @@ get_mcmc_tuning(algorithm::HamiltonianMC) = algorithm.tuning
 # MCMCIterator subtype for HamiltonianMC
 mutable struct AHMCIterator{
     AL<:HamiltonianMC,
-    D<:AbstractDensity,
+    D<:AbstractMeasureOrDensity,
     R<:AbstractRNG,
     PR<:RNGPartition,
     SV<:DensitySampleVector,
@@ -77,7 +77,7 @@ end
 function AHMCIterator(
     rng::AbstractRNG,
     algorithm::MCMCAlgorithm,
-    density::AbstractDensity,
+    density::AbstractMeasureOrDensity,
     info::MCMCIteratorInfo,
     x_init::AbstractVector{P},
 ) where {P<:Real}
@@ -139,7 +139,7 @@ end
 function MCMCIterator(
     rng::AbstractRNG,
     algorithm::HamiltonianMC,
-    density::AbstractDensity,
+    density::AbstractMeasureOrDensity,
     chainid::Integer,
     startpos::AbstractVector{<:Real}
 )

@@ -13,7 +13,7 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct SobolSampler{TR<:AbstractDensityTransformTarget} <: AbstractSamplingAlgorithm
+@with_kw struct SobolSampler{TR<:AbstractTransformTarget} <: AbstractSamplingAlgorithm
     trafo::TR = PriorToUniform()
     nsamples::Int = 10^5
 end
@@ -36,7 +36,7 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct GridSampler{TR<:AbstractDensityTransformTarget} <: AbstractSamplingAlgorithm
+@with_kw struct GridSampler{TR<:AbstractTransformTarget} <: AbstractSamplingAlgorithm
     trafo::TR = PriorToUniform()
     ppa::Int = 100
 end
@@ -45,10 +45,10 @@ export GridSampler
 
 function bat_sample_impl(
     rng::AbstractRNG,
-    target::AnyDensityLike,
+    target::AnyMeasureOrDensity,
     algorithm::Union{SobolSampler, GridSampler}
 )
-    density_notrafo = convert(AbstractDensity, target)
+    density_notrafo = convert(AbstractMeasureOrDensity, target)
     shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)
     shape = varshape(shaped_density)
     density = unshaped(shaped_density)
@@ -69,7 +69,7 @@ function bat_sample_impl(
 end
 
 
-function _gen_samples(density::AbstractDensity, algorithm::SobolSampler)
+function _gen_samples(density::AbstractMeasureOrDensity, algorithm::SobolSampler)
     bounds = var_bounds(density)
     isinf(bounds) && throw(ArgumentError("SobolSampler doesn't support densities with infinite support"))
     sobol = Sobol.SobolSeq(bounds.vol.lo, bounds.vol.hi)
@@ -78,7 +78,7 @@ function _gen_samples(density::AbstractDensity, algorithm::SobolSampler)
 end
 
 
-function _gen_samples(density::AbstractDensity, algorithm::GridSampler)
+function _gen_samples(density::AbstractMeasureOrDensity, algorithm::GridSampler)
     bounds = var_bounds(density)
     isinf(bounds) && throw(ArgumentError("SobolSampler doesn't support densities with infinite support"))
     dim = totalndof(density)
@@ -111,7 +111,7 @@ export PriorImportanceSampler
 
 function bat_sample_impl(
     rng::AbstractRNG,
-    posterior::AbstractPosteriorDensity,
+    posterior::AbstractPosteriorMeasure,
     algorithm::PriorImportanceSampler
 )
     shape = varshape(posterior)

@@ -9,6 +9,9 @@ Logging.global_logger(TerminalLoggers.TerminalLogger(stderr, Logging.Error))
 import AbstractMCMC
 AbstractMCMC.setprogress!(false)
 
+# ToDo - Temporary:
+using BAT: AbstractMeasureOrDensity, BATMeasure, BATDensity
+
 Test.@testset "Package BAT" begin
     include("utils/test_utils.jl")
     include("rngs/test_rngs.jl")

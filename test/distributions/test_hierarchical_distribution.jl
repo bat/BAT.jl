@@ -38,7 +38,7 @@ using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
         @test @inferred(logpdf(hd, varshape(hd)(ux))) == logpdf(ud, ux)
         @test @inferred(logpdf(hd, varshape(hd)(ux))) == logpdf(ud, ux)
 
-        samples = bat_sample(hd, MCMCSampling(mcalg = HamiltonianMC(), trafo = NoDensityTransform(), nsteps = 10^4)).result
+        samples = bat_sample(hd, MCMCSampling(mcalg = HamiltonianMC(), trafo = DoNotTransform(), nsteps = 10^4)).result
         @test isapprox(cov(unshaped.(samples)), cov(ud), rtol = 0.25)
     end
 

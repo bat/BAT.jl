@@ -1,7 +1,7 @@
 using BAT, ValueShapes
 
 #Model definition to generate samples from a n-dim gaussian shell
-struct GaussianShellDensity<:AbstractDensity
+struct GaussianShellDensity<:AbstractMeasureOrDensity
     lambda::Vector{Float64}
     r::Float64
     sigma::Float64
@@ -40,7 +40,7 @@ bounds = BAT.HyperRectBounds(lo_bounds, hi_bounds)
 
 
 #BAT.jl samples
-bat_samples = bat_sample(PosteriorDensity(model, bounds), algorithm).result
+bat_samples = bat_sample(PosteriorMeasure(model, bounds), algorithm).result
 data = BAT.HMIData(bat_samples)
 BAT.hm_integrate!(data)
 

@@ -36,7 +36,7 @@ Base.@noinline function _logvalof_deprecated(x::NamedTuple, ::Val{name}) where n
 end
 
 
-Base.@deprecate logvalof(density::AbstractDensity) DensityInterface.logdensityof(density)
+Base.@deprecate logvalof(density::AbstractMeasureOrDensity) DensityInterface.logdensityof(density)
 
 
 

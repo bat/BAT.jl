@@ -1,14 +1,14 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct CubaIntegrand{D<:AbstractDensity,T<:Real} <: Function
+struct CubaIntegrand{D<:AbstractMeasureOrDensity,T<:Real} <: Function
     density::D
     log_density_shift::T
     log_support_volume::T
 end
 
 
-function CubaIntegrand(density::AbstractDensity, log_density_shift::Real)
+function CubaIntegrand(density::AbstractMeasureOrDensity, log_density_shift::Real)
     vol = spatialvolume(var_bounds(density))
     isinf(vol) && throw(ArgumentError("CUBA integration doesn't support densities with infinite support"))
     log_support_volume = log_volume(vol)
@@ -79,7 +79,7 @@ $(TYPEDFIELDS)
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """
-@with_kw struct VEGASIntegration{TR<:AbstractDensityTransformTarget} <: IntegrationAlgorithm
+@with_kw struct VEGASIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
     trafo::TR = PriorToUniform()
     log_density_shift::Float64 = 0.0
     rtol::Float64 = Cuba.RTOL
@@ -127,7 +127,7 @@ $(TYPEDFIELDS)
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """
-@with_kw struct SuaveIntegration{TR<:AbstractDensityTransformTarget} <: IntegrationAlgorithm
+@with_kw struct SuaveIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
     trafo::TR = PriorToUniform()
     log_density_shift::Float64 = 0.0
     rtol::Float64 = Cuba.RTOL
@@ -175,7 +175,7 @@ $(TYPEDFIELDS)
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """
-@with_kw struct DivonneIntegration{TR<:AbstractDensityTransformTarget} <: IntegrationAlgorithm
+@with_kw struct DivonneIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
     trafo::TR = PriorToUniform()
     log_density_shift::Float64 = 0.0
     rtol::Float64 = Cuba.RTOL
@@ -233,7 +233,7 @@ $(TYPEDFIELDS)
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """
-@with_kw struct CuhreIntegration{TR<:AbstractDensityTransformTarget} <: IntegrationAlgorithm
+@with_kw struct CuhreIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
     trafo::TR = PriorToUniform()
     log_density_shift::Float64 = 0.0
     rtol::Float64 = Cuba.RTOL
@@ -260,8 +260,8 @@ end
 
 const CubaIntegration = Union{VEGASIntegration, SuaveIntegration, DivonneIntegration, CuhreIntegration}
 
-function bat_integrate_impl(target::AnyDensityLike, algorithm::CubaIntegration)
-    density_notrafo = convert(AbstractDensity, target)
+function bat_integrate_impl(target::AnyMeasureOrDensity, algorithm::CubaIntegration)
+    density_notrafo = convert(AbstractMeasureOrDensity, target)
     shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)
     density = unshaped(shaped_density)
     integrand = CubaIntegrand(density, algorithm.log_density_shift)
@@ -290,6 +290,6 @@ function bat_integrate_impl(target::AnyDensityLike, algorithm::CubaIntegration)
 end
 
 
-function bat_integrate_impl(target::SampledDensity, algorithm::CubaIntegration)
+function bat_integrate_impl(target::SampledMeasure, algorithm::CubaIntegration)
     bat_integrate_impl(target.density, algorithm)
 end

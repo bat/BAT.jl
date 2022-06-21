@@ -15,13 +15,13 @@ export InitvalAlgorithm
 """
     bat_initval(
         [rng::AbstractRNG,]
-        target::BAT.AnyDensityLike,
+        target::BAT.AnyMeasureOrDensity,
         [algorithm::BAT.InitvalAlgorithm],
     )::V
 
     bat_initval(
         [rng::AbstractRNG,]
-        target::BAT.AnyDensityLike,
+        target::BAT.AnyMeasureOrDensity,
         n::Integer,
         [algorithm::BAT.InitvalAlgorithm],
     )::AbstractVector{<:V}
@@ -44,8 +44,8 @@ of the stable public API.
     Do not add add methods to `bat_initval`, add methods like
 
     ```julia
-    bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::InitvalAlgorithm; kwargs...)
-    bat_initval_impl(rng::AbstractRNG, target::AnyDensityLike, n::Integer, algorithm::InitvalAlgorithm; kwargs...)
+    bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, algorithm::InitvalAlgorithm; kwargs...)
+    bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, n::Integer, algorithm::InitvalAlgorithm; kwargs...)
     ```
 
     to `bat_initval_impl` instead.
@@ -56,51 +56,51 @@ export bat_initval
 function bat_initval_impl end
 
 
-@inline function bat_initval(rng::AbstractRNG, target::AnyDensityLike, algorithm::InitvalAlgorithm; kwargs...)
+@inline function bat_initval(rng::AbstractRNG, target::AnyMeasureOrDensity, algorithm::InitvalAlgorithm; kwargs...)
     r = bat_initval_impl(rng, target, algorithm; kwargs...)
     result_with_args(r, (rng = rng, algorithm = algorithm), kwargs)
 end
 
 
-@inline function bat_initval(target::AnyDensityLike; kwargs...)
+@inline function bat_initval(target::AnyMeasureOrDensity; kwargs...)
     rng = bat_default_withinfo(bat_initval, Val(:rng), target)
     algorithm = bat_default_withinfo(bat_initval, Val(:algorithm), target)
     bat_initval(rng, target, algorithm; kwargs...)
 end
 
 
-@inline function bat_initval(target::AnyDensityLike, algorithm::InitvalAlgorithm; kwargs...)
+@inline function bat_initval(target::AnyMeasureOrDensity, algorithm::InitvalAlgorithm; kwargs...)
     rng = bat_default_withinfo(bat_initval, Val(:rng), target)
     bat_initval(rng, target, algorithm; kwargs...)
 end
 
 
-@inline function bat_initval(rng::AbstractRNG, target::AnyDensityLike; kwargs...)
+@inline function bat_initval(rng::AbstractRNG, target::AnyMeasureOrDensity; kwargs...)
     algorithm = bat_default_withinfo(bat_initval, Val(:algorithm), target)
     bat_initval(rng, target, algorithm; kwargs...)
 end
 
 
-@inline function bat_initval(rng::AbstractRNG, target::AnyDensityLike, n::Integer, algorithm::InitvalAlgorithm; kwargs...)
+@inline function bat_initval(rng::AbstractRNG, target::AnyMeasureOrDensity, n::Integer, algorithm::InitvalAlgorithm; kwargs...)
     r = bat_initval_impl(rng, target, n, algorithm; kwargs...)
     result_with_args(r, (rng = rng, algorithm = algorithm), kwargs)
 end
 
 
-@inline function bat_initval(target::AnyDensityLike, n::Integer; kwargs...)
+@inline function bat_initval(target::AnyMeasureOrDensity, n::Integer; kwargs...)
     rng = bat_default_withinfo(bat_initval, Val(:rng), target)
     algorithm = bat_default_withinfo(bat_initval, Val(:algorithm), target)
     bat_initval(rng, target, n, algorithm; kwargs...)
 end
 
 
-@inline function bat_initval(target::AnyDensityLike, n::Integer, algorithm::InitvalAlgorithm; kwargs...)
+@inline function bat_initval(target::AnyMeasureOrDensity, n::Integer, algorithm::InitvalAlgorithm; kwargs...)
     rng = bat_default_withinfo(bat_initval, Val(:rng), target)
     bat_initval(rng, target, n, algorithm; kwargs...)
 end
 
 
-@inline function bat_initval(rng::AbstractRNG, target::AnyDensityLike, n::Integer; kwargs...)
+@inline function bat_initval(rng::AbstractRNG, target::AnyMeasureOrDensity, n::Integer; kwargs...)
     algorithm = bat_default_withinfo(bat_initval, Val(:algorithm), target)
     bat_initval(rng, target, n, algorithm; kwargs...)
 end

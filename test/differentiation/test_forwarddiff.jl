@@ -3,7 +3,8 @@
 using BAT
 using Test
 
-using Distributions, StatsBase, ValueShapes
+using Distributions, StatsBase, ValueShapes, DensityInterface, InverseFunctions
+using IntervalSets
 using ForwardDiff
 
 @testset "forwarddiff" begin
@@ -13,7 +14,7 @@ using ForwardDiff
         mcalg = MetropolisHastings(),
         nchains = 2,
         nsteps = 10^4,
-        trafo = NoDensityTransform(),
+        trafo = DoNotTransform(),
         burnin = MCMCMultiCycleBurnin(nsteps_per_cycle = 1000, max_ncycles = 2),
         strict = false
     )
@@ -22,18 +23,18 @@ using ForwardDiff
         mcalg = HamiltonianMC(),
         nchains = 2,
         nsteps = 100,
-        init = MCMCChainPoolInit(init_tries_per_chain = 2, nsteps_init = 5),
+        init = MCMCChainPoolInit(init_tries_per_chain = 2..2, nsteps_init = 5),
         burnin = MCMCMultiCycleBurnin(nsteps_per_cycle = 100, max_ncycles = 1),
         strict = false
     )
 
-    # Test basic sampling of posterior wrapped in DensityWithDiff works, with all required functions forwarded:
+    # Test basic sampling of posterior wrapped in WithDiff works, with all required functions forwarded:
     @test @inferred(bat_sample(posterior, mh_notrafo_sampling_alg)).result isa DensitySampleVector
     
-    v = rand(posterior.density.prior)
+    v = rand(posterior.prior)
     f = logdensityof(posterior)
     gradlogp = valgradof(f)
-    @test @inferred(gradlogp(v))[1] == f(v)
+    @test isapprox(@inferred(gradlogp(v))[1], f(v), rtol = 10^-5)
     @test @inferred(gradlogp(v))[2] == gradient_shape(varshape(posterior))(ForwardDiff.gradient(unshaped(f), (unshaped(v, varshape(posterior)))))
 
     @test bat_sample(posterior, hmc_sampling_alg).result isa DensitySampleVector

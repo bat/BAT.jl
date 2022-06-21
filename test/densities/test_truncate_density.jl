@@ -13,11 +13,11 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets
         c = [1 2; 3 4],
         d = [-3..3, -4..4]
     ))
-    prior = convert(AbstractDensity, prior_dist)
+    prior = convert(AbstractMeasureOrDensity, prior_dist)
 
     likelihood = v -> (logval = 0,)
 
-    posterior = PosteriorDensity(likelihood, prior)
+    posterior = PosteriorMeasure(likelihood, prior)
 
     bounds = [-1..3, 1..4, -2..2, 0..4]
 
@@ -50,14 +50,14 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets
         @test logpdf(unshaped(trunc_dist), [1, 2, 0, 3]) + logrenormf ≈ logpdf(unshaped(prior_dist), [1, 2, 0, 3])
     end
 
-    @test @inferred(truncate_density(prior, bounds)) isa BAT.RenormalizedDensity
+    @test @inferred(truncate_density(prior, bounds)) isa BAT.Renormalized
 
 
     @test BAT.checked_logdensityof(unshaped(truncate_density(prior, bounds)), [1, 2, 0, 3]) ≈ BAT.checked_logdensityof(unshaped(prior), [1, 2, 0, 3])
     @test BAT.checked_logdensityof(truncate_density(prior, bounds), varshape(prior)([1, 2, 0, 3])) ≈ BAT.checked_logdensityof(prior, varshape(prior)([1, 2, 0, 3]))
     @test varshape(truncate_density(prior, bounds)) == varshape(prior)
 
-    @test @inferred(truncate_density(posterior, bounds)) isa PosteriorDensity
+    @test @inferred(truncate_density(posterior, bounds)) isa PosteriorMeasure
 
     trunc_pstr = truncate_density(posterior, bounds)
     @test @inferred(BAT.checked_logdensityof(unshaped(trunc_pstr), [1, 2, 0, 3])) ≈ BAT.checked_logdensityof(unshaped(posterior), [1, 2, 0, 3])
@@ -66,7 +66,7 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets
 
     let
         trunc_prior_dist = parent(BAT.getprior(trunc_pstr)).dist
-        s = bat_sample(trunc_pstr, MCMCSampling(mcalg = MetropolisHastings(), trafo = NoDensityTransform(), nsteps = 10^5)).result
+        s = bat_sample(trunc_pstr, MCMCSampling(mcalg = MetropolisHastings(), trafo = DoNotTransform(), nsteps = 10^5)).result
         s_flat = flatview(unshaped.(s))
         @test all(minimum.(bounds) .< minimum(s_flat))
         @test all(maximum.(bounds) .> maximum(s_flat))
