@@ -95,7 +95,7 @@
             right --> right
             smoothing --> smoothing
 
-            marg
+            marg, (xindx, yindx)
         end
     end
 
