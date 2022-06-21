@@ -94,7 +94,7 @@ _approx_cov(target::DensityWithDiff) = _approx_cov(parent(target))
 function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator, max_nsteps::Integer)
     Σ_unscaled = _approx_cov(getdensity(chain))
     Σ = Σ_unscaled * tuner.scale
-
+    
     chain.proposaldist = set_cov(chain.proposaldist, Σ)
 
     nothing

@@ -43,10 +43,9 @@ function bat_sample_impl(
     target::AnyDensityLike,
     algorithm::MCMCSampling
 )
+    
     density_notrafo = convert(AbstractDensity, target)
-    shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)
-    density = unshaped(shaped_density)
-
+    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo)
     mcmc_algorithm = algorithm.mcalg
 
     (chains, tuners, chain_outputs) = mcmc_init!(
@@ -87,7 +86,7 @@ function bat_sample_impl(
 
     output = DensitySampleVector(first(chains))
     isnothing(output) || append!.(Ref(output), chain_outputs)
-    samples_trafo = varshape(shaped_density).(output)
+    samples_trafo = varshape(density).(output)
 
     samples_notrafo = inverse(trafo).(samples_trafo)
 

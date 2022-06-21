@@ -22,11 +22,14 @@ end
 
 export MCMCChainPoolInit
 
-apply_trafo_to_init(trafo::Function, initalg::MCMCChainPoolInit) = MCMCChainPoolInit(
+
+function apply_trafo_to_init(trafo::Function, initalg::MCMCChainPoolInit)
+    MCMCChainPoolInit(
     initalg.init_tries_per_chain,
     initalg.nsteps_init,
     apply_trafo_to_init(trafo, initalg.initval_alg)
-)
+    )
+end
 
 
 
@@ -38,7 +41,8 @@ function _construct_chain(
     initval_alg::InitvalAlgorithm
 )
     rng = AbstractRNG(rngpart, id)
-    v_init = unshaped(bat_initval(rng, density, initval_alg).result, varshape(density))
+    v_init = bat_initval(rng, density, initval_alg).result
+
     MCMCIterator(rng, algorithm, density, id, v_init)
 end
 
