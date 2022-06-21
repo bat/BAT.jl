@@ -9,7 +9,7 @@ Find the modes of a MarginalDist.
 Returns a vector of the bin-centers of the bin(s) with the heighest weight.
 """
 function find_marginalmodes(marg::MarginalDist)
-    hist = convert(Histogram, marg.dist.dist)
+    hist = convert(Histogram, marg.dist)
     dims = ndims(hist.weights)
 
     max = maximum(hist.weights)
@@ -29,7 +29,7 @@ end
 Returns a vector of the bin-centers.
 """
 function get_bin_centers(marg::MarginalDist)
-    hist = convert(Histogram, marg.dist.dist)
+    hist = convert(Histogram, marg.dist)
     edges = hist.edges
     dims = ndims(hist.weights)
 
@@ -79,6 +79,8 @@ function get_interval_edges(h::StatsBase.Histogram; atol::Real = 0)
     return lower, upper
 end
 
+
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 # for 1d and 2d histogramsm
 function get_smallest_intervals(

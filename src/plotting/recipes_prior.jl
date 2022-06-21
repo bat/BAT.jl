@@ -20,13 +20,13 @@
         throw(ArgumentError("Symbol :$vsel refers to a multivariate parameter. Use :($vsel[i]) instead."))
     end
 
-    marg = MarginalDist(
+    marg = get_marginal_dist(
         prior,
         idx,
         bins = bins,
-        closed = closed,
-        nsamples = nsamples
-    )
+        nsamples = nsamples,
+        closed = closed
+    ).result
 
     xlabel = if isa(vsel, Symbol) || isa(vsel, Expr)
         "$vsel"
@@ -54,10 +54,12 @@
         colors --> colors
         interval_labels --> interval_labels
 
-        marg
+        marg, idx
     end
 
 end
+
+
 
 # 2D plots
 @recipe function f(
@@ -85,12 +87,13 @@ end
     end
 
 
-    marg = MarginalDist(
+    marg = get_marginal_dist(
         prior,
         (xidx, yidx),
         bins = bins,
         closed = closed
-    )
+    ).result
+
 
     xlabel, ylabel = if isa(vsel, Symbol) || isa(vsel, Expr)
         "$(vsel[1])", "$(vsel[2])"
