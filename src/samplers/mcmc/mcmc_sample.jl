@@ -16,7 +16,7 @@ $(TYPEDFIELDS)
 """
 @with_kw struct MCMCSampling{
     AL<:MCMCAlgorithm,
-    TR<:AbstractDensityTransformTarget,
+    TR<:AbstractTransformTarget,
     IN<:MCMCInitAlgorithm,
     BI<:MCMCBurninAlgorithm,
     CT<:MCMCConvergenceTest,
@@ -40,12 +40,13 @@ export MCMCSampling
 
 function bat_sample_impl(
     rng::AbstractRNG,
-    target::AnyDensityLike,
+    target::AnyMeasureOrDensity,
     algorithm::MCMCSampling
 )
-    
-    density_notrafo = convert(AbstractDensity, target)
-    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo)
+    density_notrafo = convert(AbstractMeasureOrDensity, target)
+    shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)
+    density = unshaped(shaped_density)
+
     mcmc_algorithm = algorithm.mcalg
 
     (chains, tuners, chain_outputs) = mcmc_init!(

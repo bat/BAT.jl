@@ -1,6 +1,6 @@
 
 """
-    struct SampledDensity <: AbstractDensity
+    struct SampledMeasure <: BATMeasure
 
 Stores a density and samples drawn from it.
 
@@ -9,11 +9,11 @@ be generated via `Base.show`.
 
 Constructors:
 
-* ```SampledDensity(density::AbstractPosteriorDensity, samples::DensitySampleVector)```
+* ```SampledMeasure(density::AbstractPosteriorMeasure, samples::DensitySampleVector)```
 
 Fields:
 
-* ```density::AbstractDensity```
+* ```density::BATMeasure```
 
 * ```samples::DensitySamplesVector```
 
@@ -25,129 +25,126 @@ Fields:
 
     Fields `_stats` and `_generator` do not form part of the stable public
     API and are subject to change without deprecation.
-
-This type is likely to evolve into a subtype of `AbstractDensity` in future
-versions.
 """
-struct SampledDensity{D<:AbstractDensity,S<:DensitySampleVector, G<:AbstractSampleGenerator} <: AbstractDensity
+struct SampledMeasure{D<:BATMeasure,S<:DensitySampleVector, G<:AbstractSampleGenerator} <: BATMeasure
     density::D
     samples::S
     _stats::MCMCBasicStats
     _generator::G
 end
-export SampledDensity
+export SampledMeasure
 
 
-function SampledDensity(density::AbstractDensity, samples::DensitySampleVector)
+function SampledMeasure(density::BATMeasure, samples::DensitySampleVector)
     stats = MCMCBasicStats(samples)
-    return SampledDensity(density, samples, stats, UnknownSampleGenerator())
+    return SampledMeasure(density, samples, stats, UnknownSampleGenerator())
 end
 
-function SampledDensity(density::SampledDensity, samples::DensitySampleVector)
-    return SampledDensity(density.density, samples)
+function SampledMeasure(density::SampledMeasure, samples::DensitySampleVector)
+    return SampledMeasure(density.density, samples)
 end
 
-function SampledDensity(target::AnyDensityLike, samples::DensitySampleVector)
-    return SampledDensity(convert(AbstractDensity, target), samples)
+function SampledMeasure(target::AnyMeasureOrDensity, samples::DensitySampleVector)
+    return SampledMeasure(convert(AbstractMeasureOrDensity, target), samples)
 end
 
 
-eval_logval(density::SampledDensity, v::Any, T::Type{<:Real}) = eval_logval(density.density, v, T)
+eval_logval(density::SampledMeasure, v::Any, T::Type{<:Real}) = eval_logval(density.density, v, T)
 
-eval_logval_unchecked(density::SampledDensity, v::Any) = eval_logval_unchecked(density.density, v)
+eval_logval_unchecked(density::SampledMeasure, v::Any) = eval_logval_unchecked(density.density, v)
 
-ValueShapes.varshape(density::SampledDensity) = varshape(density.density)
+ValueShapes.varshape(density::SampledMeasure) = varshape(density.density)
 
-var_bounds(density::SampledDensity) = var_bounds(density.density)
-
-
-# ToDo: Distributions.sampler(density::SampledDensity)
-# ToDo: bat_sampler(density::SampledDensity)
+var_bounds(density::SampledMeasure) = var_bounds(density.density)
 
 
-get_initsrc_from_target(target::SampledDensity) = target.samples
+# ToDo: Distributions.sampler(density::SampledMeasure)
+# ToDo: bat_sampler(density::SampledMeasure)
 
 
-_get_deep_prior_for_trafo(density::SampledDensity) = _get_deep_prior_for_trafo(density.density)
+get_initsrc_from_target(target::SampledMeasure) = target.samples
 
-function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::SampledDensity, algorithm::PriorSubstitution)
+
+_get_deep_prior_for_trafo(density::SampledMeasure) = _get_deep_prior_for_trafo(density.density)
+
+function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::SampledMeasure, algorithm::PriorSubstitution)
     new_parent_density, trafo = bat_transform_impl(target, density.density, algorithm)
     new_samples = trafo.(density.samples)
-    (result = SampledDensity(new_parent_density, new_samples), trafo = trafo)
+    (result = SampledMeasure(new_parent_density, new_samples), trafo = trafo)
 end
 
-# ToDo: truncate_density(density::SampledDensity, bounds::AbstractArray{<:Interval})
+# ToDo: truncate_density(density::SampledMeasure, bounds::AbstractArray{<:Interval})
 
-_approx_cov(target::SampledDensity) = cov(target.samples)
+_approx_cov(target::SampledMeasure) = cov(target.samples)
 
 
-function getdensity(sd::SampledDensity)
+function getdensity(sd::SampledMeasure)
     return sd.density
 end
 
-function nfreeparams(sd::SampledDensity)
+function nfreeparams(sd::SampledMeasure)
     return totalndof(varshape(sd))
 end
 
-function freeparams(sd::SampledDensity)
+function freeparams(sd::SampledMeasure)
     return active_keys(sd)
 end
 
-function nfixedparams(sd::SampledDensity)
+function nfixedparams(sd::SampledMeasure)
     return length(get_fixed_names(varshape(sd)))
 end
 
-function fixedparams(sd::SampledDensity)
+function fixedparams(sd::SampledMeasure)
     param_shape = varshape(sd)
     fixed_param_keys = Symbol.(get_fixed_names(param_shape))
     fixed_values = [getproperty(param_shape, f).shape.value for f in fixed_param_keys]
     return (; zip(fixed_param_keys, fixed_values)...,)
 end
 
-function numberofsamples(sd::SampledDensity)
+function numberofsamples(sd::SampledMeasure)
     return length(sd.samples)
 end
 
-function eff_sample_size(sd::SampledDensity)
+function eff_sample_size(sd::SampledMeasure)
     effsize = bat_eff_sample_size(unshaped.(sd.samples)).result
     return (; zip(active_keys(sd), effsize)...,)
 
 end
 
-function active_keys(sd::SampledDensity)
+function active_keys(sd::SampledMeasure)
     return Symbol.(all_active_names(elshape(sd.samples.v)))
 end
 
-function Statistics.mean(sd::SampledDensity)
+function Statistics.mean(sd::SampledMeasure)
     means = sd._stats.param_stats.mean
     return (; zip(active_keys(sd), means)...,)
 end
 
-function Statistics.std(sd::SampledDensity)
+function Statistics.std(sd::SampledMeasure)
     covm = collect(sd._stats.param_stats.cov)
     stds = sqrt.(LinearAlgebra.diag(covm))
 
     return (; zip(active_keys(sd), stds)...,)
 end
 
-function Distributions.mode(sd::SampledDensity)
+function Distributions.mode(sd::SampledMeasure)
     modes = sd._stats.mode
     return (; zip(active_keys(sd), modes)...,)
 end
 
-function marginalmode(sd::SampledDensity)
+function marginalmode(sd::SampledMeasure)
     modes = bat_marginalmode(unshaped.(sd.samples)).result
     return (; zip(active_keys(sd), modes)...,)
 end
 
-function Statistics.cov(sd::SampledDensity)
+function Statistics.cov(sd::SampledMeasure)
     covm = collect(sd._stats.param_stats.cov)
     names = string.(active_keys(sd))
 
     return NamedArrays.NamedArray(covm, (names, names), ("cov",""))
 end
 
-function Statistics.cor(sd::SampledDensity)
+function Statistics.cor(sd::SampledMeasure)
     covm = collect(sd._stats.param_stats.cov)
     corm = cov2cor(covm, sqrt.(diag(covm)))
     names = string.(active_keys(sd))
@@ -156,7 +153,7 @@ function Statistics.cor(sd::SampledDensity)
 end
 
 
-function parameter_table(sd::SampledDensity)
+function parameter_table(sd::SampledMeasure)
     tab = TypedTables.Table(
         parameter = active_keys(sd),
         mean = collect(mean(sd)),
@@ -167,7 +164,7 @@ function parameter_table(sd::SampledDensity)
     return tab
 end
 
-function fixed_parameter_table(sd::SampledDensity)
+function fixed_parameter_table(sd::SampledMeasure)
     fixed = fixedparams(sd)
     freekeys = collect(keys(fixed))
 
@@ -179,8 +176,8 @@ function fixed_parameter_table(sd::SampledDensity)
 end
 
 
-function Base.show(io::IO, mime::MIME"text/plain", sd::SampledDensity)
-    println(io, "BAT.jl - SampledDensity")
+function Base.show(io::IO, mime::MIME"text/plain", sd::SampledMeasure)
+    println(io, "BAT.jl - SampledMeasure")
     _line(io, length=30)
 
     println(io, "\nSampling:")
@@ -212,7 +209,7 @@ function _line(io::IO; length=25, indent=0)
 end
 
 
-function _print_sampling(io::IO, sd::SampledDensity)
+function _print_sampling(io::IO, sd::SampledMeasure)
     println(io, "total number of samples:", repeat(' ', 6), numberofsamples(sd))
     println(io, "effective number of samples: ", eff_sample_size(sd))
 end

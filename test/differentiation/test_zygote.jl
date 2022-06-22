@@ -3,8 +3,9 @@
 using BAT
 using Test
 
-using Distributions, StatsBase, ValueShapes
+using Distributions, StatsBase, ValueShapes, DensityInterface, InverseFunctions
 using LinearAlgebra
+using IntervalSets
 using ForwardDiff, Zygote, DistributionsAD
 
 @testset "zygote" begin
@@ -26,7 +27,7 @@ using ForwardDiff, Zygote, DistributionsAD
         mcalg = HamiltonianMC(),
         nchains = 2,
         nsteps = 100,
-        init = MCMCChainPoolInit(init_tries_per_chain = 2, nsteps_init = 5),
+        init = MCMCChainPoolInit(init_tries_per_chain = 2..2, nsteps_init = 5),
         burnin = MCMCMultiCycleBurnin(nsteps_per_cycle = 100, max_ncycles = 1),
         strict = false
     )

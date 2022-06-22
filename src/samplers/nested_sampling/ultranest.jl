@@ -31,7 +31,7 @@ $(TYPEDFIELDS)
     [UltraNest](https://github.com/bat/UltraNest.jl) package is loaded (e.g. via
     `import UltraNest`).
 """
-@with_kw struct ReactiveNestedSampling{TR<:AbstractDensityTransformTarget,VC<:Union{Function,Nothing},Ex} <: AbstractSamplingAlgorithm
+@with_kw struct ReactiveNestedSampling{TR<:AbstractTransformTarget,VC<:Union{Function,Nothing},Ex} <: AbstractSamplingAlgorithm
     trafo::TR = PriorToUniform()
 
     # "Indicating whether this parameter wraps around (circular parameter)"
@@ -108,10 +108,10 @@ export ReactiveNestedSampling
 
 function bat_sample_impl(
     rng::AbstractRNG,
-    target::AnyDensityLike,
+    target::AnyMeasureOrDensity,
     algorithm::ReactiveNestedSampling
 )
-    density_notrafo = convert(AbstractDensity, target)
+    density_notrafo = convert(AbstractMeasureOrDensity, target)
     shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)
     vs = varshape(shaped_density)
     density = unshaped(shaped_density)

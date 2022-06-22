@@ -7,7 +7,7 @@ using LinearAlgebra, Random, StableRNGs
 using DensityInterface, ValueShapes
 using ArraysOfArrays, Distributions, PDMats, StatsBase
 
-struct _TestDensityStruct{T} <: AbstractDensity
+struct _TestDensityStruct{T} <: BATDensity
     mvn::T
 end
 @inline DensityInterface.DensityKind(::_TestDensityStruct) = IsDensity()
@@ -15,7 +15,7 @@ DensityInterface.logdensityof(density::_TestDensityStruct, v::Any) = Distributio
 ValueShapes.totalndof(td::_TestDensityStruct) = Int(3)
 BAT.sampler(td::_TestDensityStruct) = BAT.sampler(td.mvn)
 
-struct _UniformDensityStruct{T} <: AbstractDensity
+struct _UniformDensityStruct{T} <: BATDensity
     mvu::T
 end
 @inline DensityInterface.DensityKind(::_UniformDensityStruct) = IsDensity()
@@ -24,14 +24,14 @@ ValueShapes.varshape(ud::_UniformDensityStruct) = varshape(ud.mvu)
 ValueShapes.totalndof(ud::_UniformDensityStruct) = Int(3)
 BAT.var_bounds(ud::_UniformDensityStruct) = BAT.HyperRectBounds(BAT.HyperRectVolume(zeros(3), ones(3)))
 
-struct _DeltaDensityStruct{T} <: AbstractDensity
+struct _DeltaDensityStruct{T} <: BATDensity
     value::T
 end
 @inline DensityInterface.DensityKind(::_DeltaDensityStruct) = IsDensity()
 DensityInterface.logdensityof(dd::_DeltaDensityStruct, v::Any) = (v == dd.value) ? Inf : -Inf
 ValueShapes.totalndof(dd::_DeltaDensityStruct) = Int(1)
 
-struct _ShapeDensityStruct{T} <: AbstractDensity
+struct _ShapeDensityStruct{T} <: BATDensity
     ntdist::T
 end
 @inline DensityInterface.DensityKind(::_ShapeDensityStruct) = IsDensity()
@@ -56,9 +56,9 @@ ValueShapes.varshape(d::_NonBATDensity) = ArrayShape{Real}(2)
     x = rand(3)
     DensityInterface.test_density_interface(tds, x, logpdf(mvn, x))
     @test_throws ArgumentError BAT.checked_logdensityof(td, [Inf, Inf, Inf])
-    @test_throws BAT.DensityEvalException BAT.checked_logdensityof(tds, [Inf, Inf, Inf])
-    @test_throws BAT.DensityEvalException BAT.checked_logdensityof(tds, [Inf, Inf, Inf])
-    @test_throws BAT.DensityEvalException BAT.checked_logdensityof(tds, [NaN, NaN, NaN])
+    @test_throws BAT.EvalException BAT.checked_logdensityof(tds, [Inf, Inf, Inf])
+    @test_throws BAT.EvalException BAT.checked_logdensityof(tds, [Inf, Inf, Inf])
+    @test_throws BAT.EvalException BAT.checked_logdensityof(tds, [NaN, NaN, NaN])
     @test_throws ArgumentError BAT.checked_logdensityof(tds, rand(length(mvn)+1))
     @test_throws ArgumentError BAT.checked_logdensityof(tds, rand(length(mvn)-1))
 
@@ -88,7 +88,7 @@ ValueShapes.varshape(d::_NonBATDensity) = ArrayShape{Real}(2)
     dd = _DeltaDensityStruct(0)
     dds = BAT.DensityWithShape(dd, ScalarShape{Real}())
     DensityInterface.test_density_interface(dd, 0, Inf)
-    @test_throws BAT.DensityEvalException BAT.checked_logdensityof(dds, 0)
+    @test_throws BAT.EvalException BAT.checked_logdensityof(dds, 0)
     DensityInterface.test_density_interface(dds, 0, Inf)
 
     ntdist = NamedTupleDist(a=mvn, b=mvu)
@@ -107,7 +107,7 @@ ValueShapes.varshape(d::_NonBATDensity) = ArrayShape{Real}(2)
 
     DensityInterface.test_density_interface(sd, x_for_sd_good_shape, logpdf(mvn, x1_for_sd) + logpdf(mvu, x2_for_sd))
     @test BAT.checked_logdensityof(sd, x_for_sd_good_shape) == logpdf(mvn, x1_for_sd) + logpdf(mvu, x2_for_sd)
-    @test_throws BAT.DensityEvalException BAT.checked_logdensityof(sd, x_for_sd_bad_shape)
+    @test_throws BAT.EvalException BAT.checked_logdensityof(sd, x_for_sd_bad_shape)
 
     @testset "rand" begin
         td = _TestDensityStruct(mvn)
@@ -117,8 +117,8 @@ ValueShapes.varshape(d::_NonBATDensity) = ArrayShape{Real}(2)
     @testset "non-BAT densities" begin
         d = _NonBATDensity()
         x = randn(3)
-        @test @inferred(convert(AbstractDensity, d)) isa BAT.WrappedNonBATDensity
-        bd = convert(AbstractDensity, d)
+        @test @inferred(convert(AbstractMeasureOrDensity, d)) isa BAT.WrappedNonBATDensity
+        bd = convert(AbstractMeasureOrDensity, d)
         DensityInterface.test_density_interface(bd, x, logdensityof(d, x))
         @test @inferred(logdensityof(bd, x)) == logdensityof(d, x)
         @test @inferred(logdensityof(bd)) == logdensityof(d)

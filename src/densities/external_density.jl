@@ -104,7 +104,7 @@ _bat_proto_decode!(buffer::IOBuffer, ::Type{LogDensityValueDMsg}) = LogDensityVa
 
 
 """
-    struct BAT.ExternalDensity <: AbstractDensity
+    struct BAT.ExternalDensity <: BATDensity
 
 *Experimental feature, not part of stable public API.*
 
@@ -120,7 +120,7 @@ ExternalDensity(cmd::Cmd, density_id::Integer = 0)
 All fields of this type are considered internal and subject to change without
 deprecation.
 """
-struct ExternalDensity <: AbstractDensity
+struct ExternalDensity <: BATDensity
     cmd::Cmd
     density_id::Int
     proc::Ref{Base.Process}

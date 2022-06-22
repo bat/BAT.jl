@@ -3,4 +3,4 @@
 
 bat_default(::typeof(bat_initval), ::Val{:rng}, ::Any) = bat_rng()
 
-bat_default(::typeof(bat_initval), ::Val{:algorithm}, ::AnyDensityLike) = InitFromTarget()
+bat_default(::typeof(bat_initval), ::Val{:algorithm}, ::AnyMeasureOrDensity) = InitFromTarget()

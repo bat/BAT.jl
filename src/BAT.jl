@@ -33,6 +33,7 @@ using IntervalSets
 using InverseFunctions
 using KernelDensity
 using LaTeXStrings
+using MacroTools
 using ParallelProcessingTools
 using Parameters
 using PDMats
@@ -48,11 +49,13 @@ using ValueShapes
 import AdvancedHMC
 import ChainRulesCore
 import DiffResults
+import DistributionMeasures
 import DistributionsAD
 import EmpiricalDistributions
 import FiniteDiff
 import ForwardDiff
 import HypothesisTests
+import MeasureBase
 import Measurements
 import NamedArrays
 import NLSolversBase
@@ -63,6 +66,11 @@ import StableRNGs
 import TypedTables
 import Zygote
 import ZygoteRules
+
+using MeasureBase: AbstractMeasure, DensityMeasure
+using MeasureBase: basemeasure, getdof
+
+using DistributionMeasures: DistributionMeasure
 
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, AbstractThunk, unthunk
 
@@ -88,6 +96,7 @@ include("integration/integration.jl")
 include("algodefaults/algodefaults.jl")
 include("io/io.jl")
 include("plotting/plotting.jl")
+include("deprecations.jl")
 
 # include("precompile.jl")
 

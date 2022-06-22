@@ -16,7 +16,7 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct BridgeSampling{TR<:AbstractDensityTransformTarget,ESS<:EffSampleSizeAlgorithm} <: IntegrationAlgorithm
+@with_kw struct BridgeSampling{TR<:AbstractTransformTarget,ESS<:EffSampleSizeAlgorithm} <: IntegrationAlgorithm
     trafo::TR = PriorToGaussian()    
     essalg::ESS = EffSampleSizeFromAC()
     strict::Bool = true
@@ -25,7 +25,7 @@ end
 export BridgeSampling
 
 
-function bat_integrate_impl(target::SampledDensity, algorithm::BridgeSampling)
+function bat_integrate_impl(target::SampledMeasure, algorithm::BridgeSampling)
     transformed_target, trafo = bat_transform(algorithm.trafo, target)
     density = unshaped(transformed_target.density)
     samples = unshaped.(transformed_target.samples)
@@ -36,9 +36,9 @@ end
 
 
 function bridge_sampling_integral(
-    target_density::AbstractDensity, 
+    target_density::AbstractMeasureOrDensity, 
     target_samples::DensitySampleVector, 
-    proposal_density::AbstractDensity, 
+    proposal_density::AbstractMeasureOrDensity, 
     proposal_samples::DensitySampleVector, 
     strict::Bool,
     ess_alg::EffSampleSizeAlgorithm = bat_default_withdebug(bat_eff_sample_size, Val(:algorithm), target_samples)
@@ -110,7 +110,7 @@ end
 
 
 function bridge_sampling_integral(
-    target_density::AbstractDensity,
+    target_density::AbstractMeasureOrDensity,
     target_samples::DensitySampleVector,
     strict::Bool,
     ess_alg::EffSampleSizeAlgorithm = bat_default_withdebug(bat_eff_sample_size, Val(:algorithm), target_samples)
@@ -132,7 +132,7 @@ function bridge_sampling_integral(
 
     proposal_density = MvNormal(post_mean,post_cov_pd)
     proposal_samples = bat_sample(proposal_density,IIDSampling(nsamples=Int(sum(second_batch.weight)))).result
-    proposal_density = convert(DistLikeDensity, proposal_density)
+    proposal_density = convert(DistLikeMeasure, proposal_density)
 
     bridge_sampling_integral(target_density,second_batch,proposal_density,proposal_samples,strict,ess_alg)
 end

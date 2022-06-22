@@ -2,11 +2,11 @@
 
 
 """
-    GenericDensity{F<:Function} <: AbstractDensity
+    GenericDensity{F<:Function} <: BATDensity
 
 **GenericDensity is deprecated and may be removed in future BAT versions**
 """
-struct GenericDensity{F<:Function} <: AbstractDensity
+struct GenericDensity{F<:Function} <: BATDensity
     f::F
 
     @noinline function GenericDensity(f::F) where {F<:Function}
@@ -18,8 +18,8 @@ end
 
 Base.convert(::Type{GenericDensity}, f::Function) = GenericDensity(f)
 
-@noinline function Base.convert(::Type{AbstractDensity}, f::Function)
-    Base.depwarn("`convert(BAT.AbstractDensity, f::Function)` is deprecated, use `convert(AbstractDensity, logfuncdensity(g))` with a function `g` that returns the log-density value directly instead.", :convert)
+@noinline function Base.convert(::Type{AbstractMeasureOrDensity}, f::Function)
+    Base.depwarn("`convert(BAT.AbstractMeasureOrDensity, f::Function)` is deprecated, use `convert(AbstractMeasureOrDensity, logfuncdensity(g))` with a function `g` that returns the log-density value directly instead.", :convert)
     GenericDensity(f)
 end
 
@@ -38,12 +38,12 @@ end
 
 Wraps a log-density function `log_f`.
 """
-struct LFDensity{F} <: AbstractDensity
+struct LFDensity{F} <: BATDensity
     _log_f::F
 end
 
 Base.convert(::Type{LFDensity}, density::DensityInterface.LogFuncDensity) = LFDensity(logdensityof(density))
-Base.convert(::Type{AbstractDensity}, density::DensityInterface.LogFuncDensity) = convert(LFDensity, density)
+Base.convert(::Type{AbstractMeasureOrDensity}, density::DensityInterface.LogFuncDensity) = convert(LFDensity, density)
 
 @inline DensityInterface.logdensityof(density::LFDensity, x) = density._log_f(x)
 @inline DensityInterface.logdensityof(density::LFDensity) = density._log_f
@@ -56,7 +56,7 @@ end
 
 
 """
-    BAT.LFDensityWithGrad{F<:Function} <: AbstractDensity
+    BAT.LFDensityWithGrad{F<:Function} <: BATDensity
 
 *BAT-internal, not part of stable public API.*
 
@@ -70,7 +70,7 @@ points, as well as a function that computes both the value and the gradient.
 It must be safe to execute both functions in parallel on multiple threads and
 processes.
 """
-struct LFDensityWithGrad{F<:Function,G<:Function} <: AbstractDensity
+struct LFDensityWithGrad{F<:Function,G<:Function} <: BATDensity
     logf::F
     valgradlogf::G
 end

@@ -39,12 +39,12 @@ export MetropolisHastings
 
 bat_default(::Type{MCMCSampling}, ::Val{:trafo}, mcalg::MetropolisHastings) = PriorToGaussian()
 
-bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, mcalg::MetropolisHastings, trafo::AbstractDensityTransformTarget, nchains::Integer) = 10^5
+bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, mcalg::MetropolisHastings, trafo::AbstractTransformTarget, nchains::Integer) = 10^5
 
-bat_default(::Type{MCMCSampling}, ::Val{:init}, mcalg::MetropolisHastings, trafo::AbstractDensityTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{MCMCSampling}, ::Val{:init}, mcalg::MetropolisHastings, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
 
-bat_default(::Type{MCMCSampling}, ::Val{:burnin}, mcalg::MetropolisHastings, trafo::AbstractDensityTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{MCMCSampling}, ::Val{:burnin}, mcalg::MetropolisHastings, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
 
@@ -54,7 +54,7 @@ get_mcmc_tuning(algorithm::MetropolisHastings) = algorithm.tuning
 
 mutable struct MHIterator{
     AL<:MetropolisHastings,
-    D<:AbstractDensity,
+    D<:AbstractMeasureOrDensity,
     R<:AbstractRNG,
     PR<:RNGPartition,
     Q<:AbstractProposalDist,
@@ -75,7 +75,7 @@ end
 function MHIterator(
     rng::AbstractRNG,
     algorithm::MCMCAlgorithm,
-    density::AbstractDensity,
+    density::AbstractMeasureOrDensity,
     info::MCMCIteratorInfo,
     x_init::AbstractVector{P},
 ) where {P<:Real}
@@ -124,7 +124,7 @@ end
 function MCMCIterator(
     rng::AbstractRNG,
     algorithm::MetropolisHastings,
-    density::AbstractDensity,
+    density::AbstractMeasureOrDensity,
     chainid::Integer,
     startpos::AbstractVector{<:Real}
 )

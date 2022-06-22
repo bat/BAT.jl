@@ -12,7 +12,7 @@ versions, but may still evolve in a API-breaking fashion during that process.
 bat_compare
 bat_marginalmode
 bat_rng
-BAT.DensityEvalException
+BAT.EvalException
 BAT.DistributionTransform
 BAT.enable_error_log
 BAT.error_log

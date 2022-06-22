@@ -30,7 +30,7 @@ prior = BAT.NamedTupleDist(
     ϕ = Normal(1, 0.2)
 )
 
-posterior = PosteriorDensity(likelihood, prior);
+posterior = PosteriorMeasure(likelihood, prior);
 algorithm = MCMCSampling(mcalg = MetropolisHastings(), nchains = 4, nsteps = 10^4)
 shaped_samples = bat_sample(posterior, algorithm).result
 unshaped_samples = BAT.unshaped.(shaped_samples)

@@ -2,9 +2,9 @@
 
 
 """
-    abstract type AbstractDensity
+    abstract type AbstractMeasureOrDensity
 
-Subtypes of `AbstractDensity` must be implement the function
+Subtypes of `AbstractMeasureOrDensity` must be implement the function
 
 * `DensityInterface.logdensityof(density::SomeDensity, v)`
 
@@ -26,31 +26,38 @@ Densities with known variate bounds may also implement
 
 * `BAT.var_bounds`
 
-!!! note
+!!! noteWithDiff
 
     The function `BAT.var_bounds` is not part of the stable public BAT-API,
     it's name and arguments may change without deprecation.
 """
-abstract type AbstractDensity end
-export AbstractDensity
+abstract type AbstractMeasureOrDensity end
 
-Base.convert(::Type{AbstractDensity}, density::AbstractDensity) = density
-Base.convert(::Type{AbstractDensity}, density::Any) = convert(WrappedNonBATDensity, density)
+abstract type BATDensity <: AbstractMeasureOrDensity end
+@inline DensityInterface.DensityKind(::BATDensity) = IsDensity()
 
-@inline DensityInterface.DensityKind(::AbstractDensity) = IsDensity()
-
-@inline ValueShapes.varshape(f::Base.Fix1{typeof(DensityInterface.logdensityof),<:AbstractDensity}) = varshape(f.x)
-@inline ValueShapes.unshaped(f::Base.Fix1{typeof(DensityInterface.logdensityof),<:AbstractDensity}) = logdensityof(unshaped(f.x))
+abstract type BATMeasure <:AbstractMeasureOrDensity end
+@inline DensityInterface.DensityKind(::BATMeasure) = HasDensity()
 
 
-function ValueShapes.unshaped(density::AbstractDensity, vs::AbstractValueShape)
+
+Base.convert(::Type{AbstractMeasureOrDensity}, density::AbstractMeasureOrDensity) = density
+Base.convert(::Type{AbstractMeasureOrDensity}, density::Any) = convert(WrappedNonBATDensity, density)
+
+@inline DensityInterface.DensityKind(::AbstractMeasureOrDensity) = IsDensity()
+
+@inline ValueShapes.varshape(f::Base.Fix1{typeof(DensityInterface.logdensityof),<:AbstractMeasureOrDensity}) = varshape(f.x)
+@inline ValueShapes.unshaped(f::Base.Fix1{typeof(DensityInterface.logdensityof),<:AbstractMeasureOrDensity}) = logdensityof(unshaped(f.x))
+
+
+function ValueShapes.unshaped(density::AbstractMeasureOrDensity, vs::AbstractValueShape)
     varshape(density) <= vs || throw(ArgumentError("Shape of density not compatible with given shape"))
     unshaped(density)
 end
 
 
 """
-    BAT.eval_logval_unchecked(density::AbstractDensity, v::Any)
+    BAT.eval_logval_unchecked(density::AbstractMeasureOrDensity, v::Any)
 
 **DEPRECATED** use/overload `DensityInterface.logdensityof` instead.
 """
@@ -64,7 +71,7 @@ function show_value_shape(io::IO, vs::NamedTupleShape)
     print(io, "}(…)")
 end
 
-function Base.show(io::IO, d::AbstractDensity)
+function Base.show(io::IO, d::AbstractMeasureOrDensity)
     print(io, Base.typename(typeof(d)).name, "(objectid = ")
     show(io, objectid(d))
     vs = varshape(d)
@@ -77,17 +84,17 @@ end
 
 
 """
-    struct DensityEvalException <: Exception
+    struct EvalException <: Exception
 
 Constructors:
 
-* ```$(FUNCTIONNAME)(func::Function, density::AbstractDensity, v::Any, ret::Any)```
+* ```$(FUNCTIONNAME)(func::Function, density::AbstractMeasureOrDensity, v::Any, ret::Any)```
 
 Fields:
 
 $(TYPEDFIELDS)
 """
-struct DensityEvalException{F<:Function,D<:AbstractDensity,V,C} <: Exception
+struct EvalException{F<:Function,D<:AbstractMeasureOrDensity,V,C} <: Exception
     "Density evaluation function that failed."
     func::F
 
@@ -101,7 +108,7 @@ struct DensityEvalException{F<:Function,D<:AbstractDensity,V,C} <: Exception
     ret::C
 end
 
-function Base.showerror(io::IO, err::DensityEvalException)
+function Base.showerror(io::IO, err::EvalException)
     print(io, "Density evaluation with $(err.func) failed at ")
     show(io, value_for_msg(err.v))
     if err.ret isa Exception
@@ -118,24 +125,24 @@ end
 
 """
     var_bounds(
-        density::AbstractDensity
+        density::AbstractMeasureOrDensity
     )::Union{AbstractVarBounds,Missing}
 
 *BAT-internal, not part of stable public API.*
 
-Get the parameter bounds of `density`. See [`AbstractDensity`](@ref) for the
+Get the parameter bounds of `density`. See [`AbstractMeasureOrDensity`](@ref) for the
 implications and handling of bounds.
 """
-var_bounds(density::AbstractDensity) = missing
+var_bounds(density::AbstractMeasureOrDensity) = missing
 
 
 """
-    ValueShapes.totalndof(density::AbstractDensity)::Union{Int,Missing}
+    ValueShapes.totalndof(density::AbstractMeasureOrDensity)::Union{Int,Missing}
 
 Get the number of degrees of freedom of the variates of `density`. May return
 `missing`, if the shape of the variates is not fixed.
 """
-function ValueShapes.totalndof(density::AbstractDensity)
+function ValueShapes.totalndof(density::AbstractMeasureOrDensity)
     shape = varshape(density)
     ismissing(shape) ? missing : ValueShapes.totalndof(shape)
 end
@@ -143,11 +150,11 @@ end
 
 """
     ValueShapes.varshape(
-        density::AbstractDensity
+        density::AbstractMeasureOrDensity
     )::Union{ValueShapes.AbstractValueShape,Missing}
 
     ValueShapes.varshape(
-        density::DistLikeDensity
+        density::DistLikeMeasure
     )::ValueShapes.AbstractValueShape
 
 Get the shapes of the variates of `density`.
@@ -155,21 +162,21 @@ Get the shapes of the variates of `density`.
 For prior densities, the result must not be `missing`, but may be `nothing` if
 the prior only supports unshaped variate/parameter vectors.
 """
-ValueShapes.varshape(density::AbstractDensity) = missing
+ValueShapes.varshape(density::AbstractMeasureOrDensity) = missing
 
 
-bat_sampler(d::AbstractDensity) = Distributions.sampler(d)
+bat_sampler(d::AbstractMeasureOrDensity) = Distributions.sampler(d)
 
 
 """
-    checked_logdensityof(density::AbstractDensity, v::Any, T::Type{<:Real})
+    checked_logdensityof(density::AbstractMeasureOrDensity, v::Any, T::Type{<:Real})
 
 *BAT-internal, not part of stable public API.*
 
 Evaluates density log-value via `DensityInterface.logdensityof` and performs
 additional checks.
 
-Throws a `BAT.DensityEvalException` on any of these conditions:
+Throws a `BAT.EvalException` on any of these conditions:
 
 * The variate shape of `density` (if known) does not match the shape of `v`.
 * The return value of `DensityInterface.logdensityof` is `NaN`.
@@ -178,20 +185,20 @@ Throws a `BAT.DensityEvalException` on any of these conditions:
 """
 function checked_logdensityof end
 
-@inline checked_logdensityof(density::AbstractDensity) = Base.Fix1(checked_logdensityof, density)
+@inline checked_logdensityof(density::AbstractMeasureOrDensity) = Base.Fix1(checked_logdensityof, density)
 
-@inline ValueShapes.varshape(f::Base.Fix1{typeof(checked_logdensityof),<:AbstractDensity}) = varshape(f.x)
-@inline ValueShapes.unshaped(f::Base.Fix1{typeof(checked_logdensityof),<:AbstractDensity}) = checked_logdensityof(unshaped(f.x))
+@inline ValueShapes.varshape(f::Base.Fix1{typeof(checked_logdensityof),<:AbstractMeasureOrDensity}) = varshape(f.x)
+@inline ValueShapes.unshaped(f::Base.Fix1{typeof(checked_logdensityof),<:AbstractMeasureOrDensity}) = checked_logdensityof(unshaped(f.x))
 
 @inline DensityInterface.logfuncdensity(f::Base.Fix1{typeof(checked_logdensityof)}) = f.x
 
-function checked_logdensityof(density::AbstractDensity, v::Any)
+function checked_logdensityof(density::AbstractMeasureOrDensity, v::Any)
     check_variate(varshape(density), v)
 
     logval = try
         logdensityof(density, v)
     catch err
-        @rethrow_logged DensityEvalException(logdensityof, density, v, err)
+        @rethrow_logged EvalException(logdensityof, density, v, err)
     end
 
     _check_density_logval(density, v, logval)
@@ -201,21 +208,21 @@ function checked_logdensityof(density::AbstractDensity, v::Any)
     return logval
 end
 
-ZygoteRules.@adjoint checked_logdensityof(density::AbstractDensity, v::Any) = begin
+ZygoteRules.@adjoint checked_logdensityof(density::AbstractMeasureOrDensity, v::Any) = begin
     check_variate(varshape(density), v)
     logval, back = try
         ZygoteRules.pullback(logdensityof(density), v)
     catch err
-        @rethrow_logged DensityEvalException(logdensityof, density, v, err)
+        @rethrow_logged EvalException(logdensityof, density, v, err)
     end
     _check_density_logval(density, v, logval)
     eval_logval_pullback(logval::Real) = (nothing, first(back(logval)))
     (logval, eval_logval_pullback)
 end
 
-function _check_density_logval(density::AbstractDensity, v::Any, logval::Real)
+function _check_density_logval(density::AbstractMeasureOrDensity, v::Any, logval::Real)
     if isnan(logval) || !(logval < float(typeof(logval))(+Inf))
-        throw(DensityEvalException(logdensityof, density, v, logval))
+        throw(EvalException(logdensityof, density, v, logval))
     end
     nothing
 end
@@ -229,7 +236,7 @@ value_for_msg(v::NamedTuple) = map(value_for_msg, v)
 
 
 """
-    BAT.density_valtype(density::AbstractDensity, v::Any)
+    BAT.density_valtype(density::AbstractMeasureOrDensity, v::Any)
 
 *BAT-internal, not part of stable public API.*
 
@@ -238,12 +245,12 @@ of the given density for the given variate.
 """
 function density_valtype end
 
-@inline function density_valtype(density::AbstractDensity, v::Any)
+@inline function density_valtype(density::AbstractMeasureOrDensity, v::Any)
     T = float(realnumtype(typeof((v))))
     promote_type(T, default_val_numtype(density))
 end
 
-function ChainRulesCore.rrule(::typeof(density_valtype), density::AbstractDensity, v::Any)
+function ChainRulesCore.rrule(::typeof(density_valtype), density::AbstractMeasureOrDensity, v::Any)
     result = density_valtype(density, v)
     _density_valtype_pullback(ΔΩ) = (NoTangent(), NoTangent(), ZeroTangent())
     return result, _density_valtype_pullback
@@ -251,7 +258,7 @@ end
 
 
 """
-    BAT.default_var_numtype(density::AbstractDensity)
+    BAT.default_var_numtype(density::AbstractMeasureOrDensity)
 
 *BAT-internal, not part of stable public API.*
 
@@ -259,11 +266,11 @@ Returns the default/preferred underlying numerical type for (elements of)
 variates of `density`.
 """
 function default_var_numtype end
-default_var_numtype(density::AbstractDensity) = Float64
+default_var_numtype(density::AbstractMeasureOrDensity) = Float64
 
 
 """
-    BAT.default_val_numtype(density::AbstractDensity)
+    BAT.default_val_numtype(density::AbstractMeasureOrDensity)
 
 *BAT-internal, not part of stable public API.*
 
@@ -271,7 +278,7 @@ Returns the default/preferred numerical type (log-)density values of
 `density`.
 """
 function default_val_numtype end
-default_val_numtype(density::AbstractDensity) = Float64
+default_val_numtype(density::AbstractMeasureOrDensity) = Float64
 
 
 """
@@ -313,21 +320,21 @@ end
 
 
 """
-    abstract type DistLikeDensity <: AbstractDensity
+    abstract type DistLikeMeasure <: BATMeasure
 
 A density that implements part of the `Distributions.Distribution` interface.
 Such densities are suitable for use as a priors.
 
 Typically, custom priors should be implemented as subtypes of
 `Distributions.Distribution`. BAT will automatically wrap them in a subtype of
-`DistLikeDensity`.
+`DistLikeMeasure`.
 
-Subtypes of `DistLikeDensity` are required to support more functionality
-than an [`AbstractDensity`](@ref), but less than a
+Subtypes of `DistLikeMeasure` are required to support more functionality
+than an [`AbstractMeasureOrDensity`](@ref), but less than a
 `Distribution{Multivariate,Continuous}`.
 
 A `d::Distribution{Multivariate,Continuous}` can be converted into (wrapped
-in) an `DistLikeDensity` via `conv(DistLikeDensity, d)`.
+in) an `DistLikeMeasure` via `conv(DistLikeMeasure, d)`.
 
 The following functions must be implemented for subtypes:
 
@@ -346,12 +353,12 @@ The following functions must be implemented for subtypes:
     The function `BAT.var_bounds` is not part of the stable public BAT-API
     and subject to change without deprecation.
 """
-abstract type DistLikeDensity <: AbstractDensity end
-export DistLikeDensity
+abstract type DistLikeMeasure <: BATMeasure end
+export DistLikeMeasure
 
 
 """
-    var_bounds(density::DistLikeDensity)::AbstractVarBounds
+    var_bounds(density::DistLikeMeasure)::AbstractVarBounds
 
 *BAT-internal, not part of stable public API.*
 
@@ -361,31 +368,32 @@ function var_bounds end
 
 
 """
-    ValueShapes.totalndof(density::DistLikeDensity)::Int
+    ValueShapes.totalndof(density::DistLikeMeasure)::Int
 
 Get the number of degrees of freedom of the variates of `density`. Must not be
-`missing`, a `DistLikeDensity` must have a fixed variate shape.
+`missing`, a `DistLikeMeasure` must have a fixed variate shape.
 """
-ValueShapes.totalndof(density::DistLikeDensity) = totalndof(var_bounds(density))
+ValueShapes.totalndof(density::DistLikeMeasure) = totalndof(var_bounds(density))
 
 
 
 """
-    BAT.AnyDensityLike = Union{...}
+    BAT.AnyMeasureOrDensity = Union{...}
 
 Union of all types that BAT will accept as a probability density, resp. that
-`convert(AbstractDensity, d)` supports:
+`convert(AbstractMeasureOrDensity, d)` supports:
     
-* [`AbstractDensity`](@ref)
+* [`AbstractMeasureOrDensity`](@ref)
 * `DensityInterface.LogFuncDensity`
 * `Distributions.Distribution`
 """
-const AnyDensityLike = Union{
-    AbstractDensity,
-    DensityInterface.LogFuncDensity,
-    Distributions.ContinuousDistribution
+const AnyMeasureOrDensity = Union{
+    AbstractMeasureOrDensity,
+    MeasureBase.AbstractMeasure,
+    Distributions.ContinuousDistribution,
+    DensityInterface.LogFuncDensity
 }
-export AnyDensityLike
+export AnyMeasureOrDensity
 
 
 """
@@ -393,16 +401,16 @@ export AnyDensityLike
 
 Union of all types that BAT can sample from:
 
-* [`AbstractDensity`](@ref)
+* [`AbstractMeasureOrDensity`](@ref)
 * [`DensitySampleVector`](@ref)
 * `DensityInterface.LogFuncDensity`
 * `Distributions.Distribution`
 """
 const AnySampleable = Union{
-    AbstractDensity,
-    DensitySampleVector,
-    DensityInterface.LogFuncDensity,
-    Distributions.Distribution
+    AbstractMeasureOrDensity,
+    MeasureBase.AbstractMeasure,
+    Distributions.Distribution,
+    DensitySampleVector
 }
 export AnySampleable
 
@@ -413,12 +421,13 @@ export AnySampleable
 Union of all distribution/density-like types that BAT can draw i.i.d.
 (independent and identically distributed) samples from:
 
-* [`DistLikeDensity`](@ref)
+* [`DistLikeMeasure`](@ref)
 * `Distributions.Distribution`
 """
 const AnyIIDSampleable = Union{
-    DistLikeDensity,
-    Distributions.Distribution
+    DistLikeMeasure,
+    Distributions.Distribution,
+    DistributionMeasure,
 }
 export AnyIIDSampleable
 
@@ -431,11 +440,11 @@ export AnyIIDSampleable
 
 Wraps a log-density function `log_f`.
 """
-struct WrappedNonBATDensity{D} <: AbstractDensity
+struct WrappedNonBATDensity{D} <: BATDensity
     _d::D
 
     function WrappedNonBATDensity{D}(density::D) where D
-        @argcheck DensityKind(density) isa IsOrHasDensity
+        @argcheck DensityKind(density) isa IsDensity
         new{D}(density)
     end
 

@@ -2,7 +2,7 @@
 
 
 """
-    BAT.truncate_density(density::AbstractDensity, bounds::AbstractArray{<:Interval})::AbstractDensity
+    BAT.truncate_density(density::AbstractMeasureOrDensity, bounds::AbstractArray{<:Interval})::AbstractMeasureOrDensity
 
 *Experimental feature, not part of stable public API.*
 
@@ -19,20 +19,20 @@ function truncate_density end
 export truncate_density
 
 
-function truncate_density(density::AbstractPosteriorDensity, bounds::AbstractArray{<:Interval})
+function truncate_density(density::AbstractPosteriorMeasure, bounds::AbstractArray{<:Interval})
     @argcheck varshape(density) isa ArrayShape
-    PosteriorDensity(getlikelihood(density), truncate_density(getprior(density), bounds))
+    PosteriorMeasure(getlikelihood(density), truncate_density(getprior(density), bounds))
 end
 
 
-function truncate_density(density::DistributionDensity{<:MultivariateDistribution}, bounds::AbstractArray{<:Interval})
+function truncate_density(density::DistMeasure{<:MultivariateDistribution}, bounds::AbstractArray{<:Interval})
     r = truncate_dist_hard(density.dist, bounds)
-    RenormalizedDensity(DistributionDensity(r.dist), r.logrenormf)
+    Renormalized(DistMeasure(r.dist), r.logrenormf)
 end
 
-function truncate_density(density::RenormalizedDensity{<:DistributionDensity{<:MultivariateDistribution}}, bounds::AbstractArray{<:Interval})
+function truncate_density(density::Renormalized{<:DistMeasure{<:MultivariateDistribution}}, bounds::AbstractArray{<:Interval})
     r = truncate_dist_hard(density.density.dist, bounds)
-    RenormalizedDensity(DistributionDensity(r.dist), r.logrenormf + density.logrenormf)
+    Renormalized(DistMeasure(r.dist), r.logrenormf + density.logrenormf)
 end
 
 
@@ -148,7 +148,7 @@ The PDF of both distributions must have the same shape within the support of
 
 Mainly used to implement [`BAT.truncate_density`](@ref), in conjunction with
 [`BAT.truncate_dist_hard`](@ref). The result contributes to the `logrenormf`
-factor of a [`RenormalizedDensity`] that uses truncated distributions internally,
+factor of a [`Renormalized`] that uses truncated distributions internally,
 to ensure the density does not get renormalized.
 """
 function trunc_logpdf_ratio end

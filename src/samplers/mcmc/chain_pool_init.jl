@@ -37,7 +37,7 @@ function _construct_chain(
     rngpart::RNGPartition,
     id::Integer,
     algorithm::MCMCAlgorithm,
-    density::AbstractDensity,
+    density::AbstractMeasureOrDensity,
     initval_alg::InitvalAlgorithm
 )
     rng = AbstractRNG(rngpart, id)
@@ -50,7 +50,7 @@ _gen_chains(
     rngpart::RNGPartition,
     ids::AbstractRange{<:Integer},
     algorithm::MCMCAlgorithm,
-    density::AbstractDensity,
+    density::AbstractMeasureOrDensity,
     initval_alg::InitvalAlgorithm
 ) = [_construct_chain(rngpart, id, algorithm, density, initval_alg) for id in ids]
 
@@ -58,7 +58,7 @@ _gen_chains(
 function mcmc_init!(
     rng::AbstractRNG,
     algorithm::MCMCAlgorithm,
-    density::AbstractDensity,
+    density::AbstractMeasureOrDensity,
     nchains::Integer,
     init_alg::MCMCChainPoolInit,
     tuning_alg::MCMCTuningAlgorithm,
@@ -141,7 +141,7 @@ function mcmc_init!(
     tidxs = LinearIndices(tuners)
     n = length(tidxs)
 
-    modes = hcat(broadcast(samples -> Array(bat_findmode(rng, samples, MaxDensitySampleSearch()).result), outputs)...)
+    modes = hcat(broadcast(samples -> Array(bat_findmode(rng, samples, MaxDensitySearch()).result), outputs)...)
 
     final_chains = similar(chains, 0)
     final_tuners = similar(tuners, 0)

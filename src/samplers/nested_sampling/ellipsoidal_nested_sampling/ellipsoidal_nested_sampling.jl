@@ -29,7 +29,7 @@ $(TYPEDFIELDS)
     is loaded (e.g. via
     `import`).
 """
-@with_kw struct EllipsoidalNestedSampling{TR<:AbstractDensityTransformTarget} <: AbstractSamplingAlgorithm
+@with_kw struct EllipsoidalNestedSampling{TR<:AbstractTransformTarget} <: AbstractSamplingAlgorithm
     trafo::TR = PriorToUniform()
 
     "Number of live-points."
@@ -62,9 +62,9 @@ end
 export EllipsoidalNestedSampling
 
 
-function bat_sample_impl(rng::AbstractRNG, target::AnyDensityLike, algorithm::EllipsoidalNestedSampling)
+function bat_sample_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, algorithm::EllipsoidalNestedSampling)
     
-    density_notrafo = convert(AbstractDensity, target)
+    density_notrafo = convert(AbstractMeasureOrDensity, target)
     shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)                 # BAT prior transformation
     vs = varshape(shaped_density)
     density = unshaped(shaped_density)

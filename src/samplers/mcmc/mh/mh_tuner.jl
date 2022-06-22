@@ -83,12 +83,12 @@ function _cov_with_fallback(d)
 end
 
 _approx_cov(target::Distribution) = _cov_with_fallback(target)
-_approx_cov(target::DistLikeDensity) = _cov_with_fallback(target)
-_approx_cov(target::AbstractPosteriorDensity) = _approx_cov(getprior(target))
-_approx_cov(target::BAT.TransformedDensity{<:Any,<:BAT.DistributionTransform}) =
+_approx_cov(target::DistLikeMeasure) = _cov_with_fallback(target)
+_approx_cov(target::AbstractPosteriorMeasure) = _approx_cov(getprior(target))
+_approx_cov(target::BAT.Transformed{<:Any,<:BAT.DistributionTransform}) =
     BAT._approx_cov(target.trafo.target_dist)
-_approx_cov(target::RenormalizedDensity) = _approx_cov(parent(target))
-_approx_cov(target::DensityWithDiff) = _approx_cov(parent(target))
+_approx_cov(target::Renormalized) = _approx_cov(parent(target))
+_approx_cov(target::WithDiff) = _approx_cov(parent(target))
 
 
 function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator, max_nsteps::Integer)

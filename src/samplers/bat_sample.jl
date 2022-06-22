@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# when constructing a without generator infos like `SampledDensity(density, samples)`:
+# when constructing a without generator infos like `SampledMeasure(density, samples)`:
 struct UnknownSampleGenerator<: AbstractSampleGenerator end
 getalgorithm(sg::UnknownSampleGenerator) = nothing
 
@@ -40,7 +40,7 @@ end
     struct IIDSampling <: AbstractSamplingAlgorithm
 
 Sample via `Random.rand`. Only supported for posteriors of type
-`Distributions.MultivariateDistribution` and `BAT.DistLikeDensity`.
+`Distributions.MultivariateDistribution` and `BAT.DistLikeMeasure`.
 
 Constructors:
 
@@ -57,7 +57,7 @@ export IIDSampling
 
 
 function bat_sample_impl(rng::AbstractRNG, target::AnyIIDSampleable, algorithm::IIDSampling)
-    shaped_density = convert(DistLikeDensity, target)
+    shaped_density = convert(DistLikeMeasure, target)
     density = unshaped(shaped_density)
     shape = varshape(shaped_density)
     n = algorithm.nsamples

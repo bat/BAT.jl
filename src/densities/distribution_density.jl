@@ -1,30 +1,34 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct DistributionDensity{
+struct DistMeasure{
     D<:ContinuousDistribution,
     B<:AbstractVarBounds
-} <: DistLikeDensity
+} <: DistLikeMeasure
     dist::D
     bounds::B
 end
 
-DistributionDensity(d::Distribution) = DistributionDensity(d, dist_param_bounds(d))
+DistMeasure(d::Distribution) = DistMeasure(d, dist_param_bounds(d))
+DistMeasure(d::DistributionMeasure) = DistMeasure(d.d, dist_param_bounds(d.d))
 
-Base.convert(::Type{AbstractDensity}, d::ContinuousDistribution) = DistributionDensity(d)
-Base.convert(::Type{DistLikeDensity}, d::ContinuousDistribution) = DistributionDensity(d)
+Base.convert(::Type{AbstractMeasureOrDensity}, d::ContinuousDistribution) = DistMeasure(d)
+Base.convert(::Type{DistLikeMeasure}, d::ContinuousDistribution) = DistMeasure(d)
 
-Base.convert(::Type{Distribution}, d::DistributionDensity) = d.dist
-Base.convert(::Type{ContinuousDistribution}, d::DistributionDensity) = d.dist
+Base.convert(::Type{Distribution}, d::DistMeasure) = d.dist
+Base.convert(::Type{ContinuousDistribution}, d::DistMeasure) = d.dist
 
-
-Base.parent(density::DistributionDensity) = density.dist
-
-
-Base.:(==)(a::DistributionDensity, b::DistributionDensity) = a.dist == b.dist && a.bounds == b.bounds
+Base.convert(::Type{AbstractMeasureOrDensity}, d::DistributionMeasure) = DistMeasure(d)
+Base.convert(::Type{DistLikeMeasure}, d::DistributionMeasure) = DistMeasure(d)
 
 
-function DensityInterface.logdensityof(density::DistributionDensity{<:Distribution{Univariate,Continuous}}, v::Real)
+Base.parent(density::DistMeasure) = density.dist
+
+
+Base.:(==)(a::DistMeasure, b::DistMeasure) = a.dist == b.dist && a.bounds == b.bounds
+
+
+function DensityInterface.logdensityof(density::DistMeasure{<:Distribution{Univariate,Continuous}}, v::Real)
     d = density.dist
     logd = logpdf(d, v)
     R = typeof(logd)
@@ -49,27 +53,27 @@ function DensityInterface.logdensityof(density::DistributionDensity{<:Distributi
     end
 end
 
-DensityInterface.logdensityof(density::DistributionDensity, v::Any) = Distributions.logpdf(density.dist, v)
+DensityInterface.logdensityof(density::DistMeasure, v::Any) = Distributions.logpdf(density.dist, v)
 
 
-ValueShapes.varshape(density::DistributionDensity) = varshape(density.dist)
+ValueShapes.varshape(density::DistMeasure) = varshape(density.dist)
 
-ValueShapes.unshaped(density::DistributionDensity) = DistributionDensity(unshaped(density.dist))
+ValueShapes.unshaped(density::DistMeasure) = DistMeasure(unshaped(density.dist))
 
-(shape::AbstractValueShape)(density::DistributionDensity) = DistributionDensity(shape(density.dist))
+(shape::AbstractValueShape)(density::DistMeasure) = DistMeasure(shape(density.dist))
 
 # For user convenience, don't use within BAT:
-@inline Random.rand(rng::AbstractRNG, density::DistributionDensity) = rand(rng, density.dist)
-@inline Random.rand(rng::AbstractRNG, density::DistributionDensity, dims::Dims) = rand(rng, density.dist, dims)
-@inline Random.rand(rng::AbstractRNG, density::DistributionDensity, dims::Integer...) = rand(rng, density.dist, dims...)
+@inline Random.rand(rng::AbstractRNG, density::DistMeasure) = rand(rng, density.dist)
+@inline Random.rand(rng::AbstractRNG, density::DistMeasure, dims::Dims) = rand(rng, density.dist, dims)
+@inline Random.rand(rng::AbstractRNG, density::DistMeasure, dims::Integer...) = rand(rng, density.dist, dims...)
 
-Distributions.sampler(density::DistributionDensity) = Distributions.sampler(density.dist)
-bat_sampler(density::DistributionDensity) = bat_sampler(density.dist)
+Distributions.sampler(density::DistMeasure) = Distributions.sampler(density.dist)
+bat_sampler(density::DistMeasure) = bat_sampler(density.dist)
 
-Statistics.cov(density::DistributionDensity{<:MultivariateDistribution}) = cov(density.dist)
+Statistics.cov(density::DistMeasure{<:MultivariateDistribution}) = cov(density.dist)
 
 
-var_bounds(density::DistributionDensity) = density.bounds
+var_bounds(density::DistMeasure) = density.bounds
 
 
 dist_param_bounds(d::Distribution{Univariate,Continuous}) =

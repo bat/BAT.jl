@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct DensityWithShape{D<:AbstractDensity,S<:AbstractValueShape} <: AbstractDensity
+struct DensityWithShape{D<:AbstractMeasureOrDensity,S<:AbstractValueShape} <: AbstractMeasureOrDensity
     density::D
     shape::S
 end 
@@ -12,10 +12,12 @@ var_bounds(density::DensityWithShape) = var_bounds(parent(density))
 
 ValueShapes.varshape(density::DensityWithShape) = density.shape
 
+@inline DensityInterface.DensityKind(x::DensityWithShape) = DensityKind(x.density)
+
 DensityInterface.logdensityof(density::DensityWithShape, v::Any) = logdensityof(parent(density), v)
 
 
-struct ReshapedDensity{D<:AbstractDensity,S<:AbstractValueShape} <: AbstractDensity
+struct ReshapedDensity{D<:AbstractMeasureOrDensity,S<:AbstractValueShape} <: AbstractMeasureOrDensity
     density::D
     shape::S
 end 
@@ -23,6 +25,8 @@ end
 Base.parent(density::ReshapedDensity) = density.density
 
 var_bounds(density::ReshapedDensity) = var_bounds(density.density)
+
+@inline DensityInterface.DensityKind(x::ReshapedDensity) = DensityKind(x.density)
 
 ValueShapes.varshape(density::ReshapedDensity) = density.shape
 
@@ -44,15 +48,15 @@ function checked_logdensityof(density::ReshapedDensity, v::Any)
 end
 
 
-ValueShapes.unshaped(density::AbstractDensity) = _unshaped_density(density, varshape(density))
+ValueShapes.unshaped(density::AbstractMeasureOrDensity) = _unshaped_density(density, varshape(density))
 
-_unshaped_density(density::AbstractDensity, ::ArrayShape{<:Real,1}) = density
-_unshaped_density(density::AbstractDensity, ::AbstractValueShape) = ReshapedDensity(density, ArrayShape{Real}(totalndof(density)))
+_unshaped_density(density::AbstractMeasureOrDensity, ::ArrayShape{<:Real,1}) = density
+_unshaped_density(density::AbstractMeasureOrDensity, ::AbstractValueShape) = ReshapedDensity(density, ArrayShape{Real}(totalndof(density)))
 
 
-(shape::AbstractValueShape)(density::AbstractDensity) = _reshaped_density(density, shape, varshape(density))
+(shape::AbstractValueShape)(density::AbstractMeasureOrDensity) = _reshaped_density(density, shape, varshape(density))
 
-function _reshaped_density(density::AbstractDensity, new_shape::VS, orig_shape::VS) where {VS<:AbstractValueShape}
+function _reshaped_density(density::AbstractMeasureOrDensity, new_shape::VS, orig_shape::VS) where {VS<:AbstractValueShape}
     if orig_shape == new_shape
         density
     else
@@ -60,7 +64,7 @@ function _reshaped_density(density::AbstractDensity, new_shape::VS, orig_shape::
     end
 end
 
-function _reshaped_density(density::AbstractDensity, new_shape::AbstractValueShape, orig_shape::AbstractValueShape)
+function _reshaped_density(density::AbstractMeasureOrDensity, new_shape::AbstractValueShape, orig_shape::AbstractValueShape)
     if totalndof(orig_shape) == totalndof(new_shape)
         ReshapedDensity(density, new_shape)
     else
