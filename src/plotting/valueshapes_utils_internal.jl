@@ -40,11 +40,11 @@ function getstring(samples::BAT.DensitySampleVector, idx::Integer)
 end
 
 function getstring(marg::MarginalDist, idx::Integer)
-    if idx in marg.dims
-        vs = marg.origvalshape
-        names = all_active_names(vs)
+    vs = marg.dist.shape
+    names = all_active_names(vs)
+    if checkbounds(Bool, names, idx)
         return names[idx]
     else
-        throw(ArgumentError("Index $idx not in MarginalDist"))
+        throw(ArgumentError("Index $idx not in $marg"))
     end
 end
