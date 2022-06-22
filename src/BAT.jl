@@ -33,6 +33,7 @@ using IntervalSets
 using InverseFunctions
 using KernelDensity
 using LaTeXStrings
+using MacroTools
 using ParallelProcessingTools
 using Parameters
 using PDMats
