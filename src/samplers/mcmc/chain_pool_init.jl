@@ -17,9 +17,20 @@ $(TYPEDFIELDS)
 @with_kw struct MCMCChainPoolInit <: MCMCInitAlgorithm
     init_tries_per_chain::ClosedInterval{Int64} = ClosedInterval(8, 128)
     nsteps_init::Int64 = 1000
+    initval_alg::InitvalAlgorithm = InitFromTarget()
 end
 
 export MCMCChainPoolInit
+
+
+function apply_trafo_to_init(trafo::Function, initalg::MCMCChainPoolInit)
+    MCMCChainPoolInit(
+    initalg.init_tries_per_chain,
+    initalg.nsteps_init,
+    apply_trafo_to_init(trafo, initalg.initval_alg)
+    )
+end
+
 
 
 function _construct_chain(
@@ -30,7 +41,8 @@ function _construct_chain(
     initval_alg::InitvalAlgorithm
 )
     rng = AbstractRNG(rngpart, id)
-    v_init = unshaped(bat_initval(rng, density, initval_alg).result, varshape(density))
+    v_init = bat_initval(rng, density, initval_alg).result
+
     MCMCIterator(rng, algorithm, density, id, v_init)
 end
 
@@ -55,7 +67,7 @@ function mcmc_init!(
 )
     @info "Trying to generate $nchains viable MCMC chain(s)."
 
-    initval_alg = InitFromTarget()
+    initval_alg = init_alg.initval_alg
 
     min_nviable::Int = minimum(init_alg.init_tries_per_chain) * nchains
     max_ncandidates::Int = maximum(init_alg.init_tries_per_chain) * nchains
