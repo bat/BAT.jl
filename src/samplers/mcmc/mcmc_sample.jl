@@ -44,8 +44,7 @@ function bat_sample_impl(
     algorithm::MCMCSampling
 )
     density_notrafo = convert(AbstractMeasureOrDensity, target)
-    shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)
-    density = unshaped(shaped_density)
+    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo)
 
     mcmc_algorithm = algorithm.mcalg
 
@@ -87,9 +86,13 @@ function bat_sample_impl(
 
     output = DensitySampleVector(first(chains))
     isnothing(output) || append!.(Ref(output), chain_outputs)
-    samples_trafo = varshape(shaped_density).(output)
+    samples_trafo = varshape(density).(output)
 
-    samples_notrafo = inverse(trafo).(samples_trafo)
+    samples_notrafo = try
+        inverse(trafo).(samples_trafo)
+    catch err
+        inverse(trafo)(samples_trafo) # if 'trafo' is something like 'identity ∘ identity' broadcasting fails
+    end
 
     isvalid = check_convergence(algorithm.convergence, samples_notrafo).converged
 
