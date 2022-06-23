@@ -22,7 +22,7 @@ ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
 
 [compat]
 Cuba = "2"
-Documenter = "0.26"
+Documenter = "0.27"
 HDF5 = "0.15"
 Literate = "2"
 Plots = "0.28, 0.29, 1"
