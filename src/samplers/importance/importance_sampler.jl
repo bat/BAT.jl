@@ -49,9 +49,8 @@ function bat_sample_impl(
     algorithm::Union{SobolSampler, GridSampler}
 )
     density_notrafo = convert(AbstractMeasureOrDensity, target)
-    shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)
-    shape = varshape(shaped_density)
-    density = unshaped(shaped_density)
+    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo)
+    shape = varshape(density)
 
     samples = _gen_samples(density, algorithm)
 
