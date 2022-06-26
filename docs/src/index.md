@@ -63,7 +63,7 @@ BAT.jl supersedes [BAT in C++](https://github.com/bat/bat). If you're considerin
 
 The [Julia website](https://julialang.org/) provides many [links to introductory videos and written tutorials](https://julialang.org/learning/), e.g. ["Intro to Julia"](https://www.youtube.com/watch?v=fMa1qSg_LxA),
 [Think Julia: How to Think Like a Computer Scientist](https://benlauwens.github.io/ThinkJulia.jl/latest/book.html)
-and ["The Fast Track to Julia"](https://juliadocs.github.io/Julia-Cheat-Sheet/). If you are familar with MATLAB or Python, you may also want to take a look at the ["MATLAB–Python–Julia cheatsheet"](https://cheatsheets.quantecon.org/).
+and ["The Fast Track to Julia"](https://juliadocs.github.io/Julia-Cheat-Sheet/). If you are familiar with MATLAB or Python, you may also want to take a look at the ["MATLAB–Python–Julia cheatsheet"](https://cheatsheets.quantecon.org/).
 
 The in-depth article [Why Numba and Cython are not substitutes for Julia](http://www.stochasticlifestyle.com/why-numba-and-cython-are-not-substitutes-for-julia/) explains how Julia addresses several fundamental challenges inherent to scientific high-performance computing.
 

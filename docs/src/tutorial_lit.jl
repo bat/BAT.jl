@@ -455,7 +455,7 @@ samples = bat_sample(
 
 # ## Saving result data to files
 #
-# The package [FileIO.jl](https://github.com/JuliaIO/FileIO.jl)(in conjuction
+# The package [FileIO.jl](https://github.com/JuliaIO/FileIO.jl)(in conjunction
 # with [JLD2.jl](https://github.com/JuliaIO/JLD2.jl)) offers a convenient way
 # to store results like posterior samples to file:
 #

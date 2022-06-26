@@ -94,7 +94,7 @@ Keyword arguments:
     * `:scatter`
 
 
-* `bins::Union{Integer, NTuple{2, Integer}, NTuple{2, AbstractRange}} = 200`: number of histogram bins or bin edges. Use a `NTuple{2, Union{Integer, AbstractRange}}` to specify bins/edges of x and y axes seperately.
+* `bins::Union{Integer, NTuple{2, Integer}, NTuple{2, AbstractRange}} = 200`: number of histogram bins or bin edges. Use a `NTuple{2, Union{Integer, AbstractRange}}` to specify bins/edges of x and y axes separately.
 
 * `intervals::Array{<:Real, 1} = [0.683, 0.955, 0.997]`  probability to be enclosed in the smallest intervals when using the corresponding seriestypes
 
