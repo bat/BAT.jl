@@ -88,15 +88,7 @@ function bat_sample_impl(
     isnothing(output) || append!.(Ref(output), chain_outputs)
     samples_trafo = varshape(density).(output)
 
-    samples_notrafo = try
-        inverse(trafo).(samples_trafo)
-    catch err
-        inverse(trafo)(samples_trafo) 
-        # if 'trafo' is something like 'identity ∘ identity' broadcasting fails and is not needed. 
-        # strangely, in "importance_sampler.jl" and "ellipsoidal_nested_sampling.jl" 
-        # basically the same code is used but works with broadcasting...
-    end
-
+    samples_notrafo = inverse(trafo).(samples_trafo)
     isvalid = check_convergence(algorithm.convergence, samples_notrafo).converged
 
     (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = MCMCSampleGenerator(chains), isvalid = isvalid)

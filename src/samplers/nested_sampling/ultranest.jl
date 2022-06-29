@@ -167,15 +167,7 @@ function bat_sample_impl(
     logvals_trafo = convert(Vector{Float64}, unest_wsamples["logl"])
     weight = convert(Vector{Float64}, unest_wsamples["weights"])
     samples_trafo = DensitySampleVector(vs.(v_trafo_us), logvals_trafo, weight = weight)
-
-    samples_notrafo = try
-        inverse(trafo).(samples_trafo)
-    catch err
-        inverse(trafo)(samples_trafo) 
-        # if 'trafo' is something like 'identity ∘ identity' broadcasting fails. 
-        # strangely, in "importance_sampler.jl" and "ellipsoidal_nested_sampling.jl" basically the same code is used but works with broadcasting
-    end
-
+    samples_notrafo = inverse(trafo).(samples_trafo) 
 
     uwv_trafo_us = nestedview(convert(Matrix{Float64}, r["samples"]'))
     uwlogvals_trafo = map(logdensityof(density), uwv_trafo_us)
