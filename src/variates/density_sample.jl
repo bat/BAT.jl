@@ -269,6 +269,11 @@ end
 
 Base.Broadcast.broadcasted(::typeof(identity), s_src::DensitySampleVector) = deepcopy(s_src)
 
+function Base.Broadcast.broadcasted(f::ComposedFunction, s_src::DensitySampleVector)
+    broadcast(f.outer, broadcast(f.inner, s_src))
+end
+
+
 
 ValueShapes.varshape(A::DensitySampleVector) = elshape(A.v)
 

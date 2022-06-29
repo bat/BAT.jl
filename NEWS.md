@@ -29,7 +29,7 @@ Breaking changes
   likelihood = let data = mydata
       function(v)
           log_likelihood_value = ...
-          return LogDVal(log_likelihood_value))
+          return LogDVal(log_likelihood_value)
       end
   end
   ```
