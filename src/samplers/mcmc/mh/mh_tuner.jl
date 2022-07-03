@@ -58,7 +58,7 @@ end
 
 
 function ProposalCovTuner(tuning::AdaptiveMHTuning, chain::MHIterator)
-    m = totalndof(getdensity(chain))
+    m = totalndof(getmeasure(chain))
     scale = 2.38^2 / m
     ProposalCovTuner(tuning, MCMCBasicStats(chain), 1, scale)
 end
@@ -92,7 +92,7 @@ _approx_cov(target::WithDiff) = _approx_cov(parent(target))
 
 
 function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator, max_nsteps::Integer)
-    Σ_unscaled = _approx_cov(getdensity(chain))
+    Σ_unscaled = _approx_cov(getmeasure(chain))
     Σ = Σ_unscaled * tuner.scale
 
     chain.proposaldist = set_cov(chain.proposaldist, Σ)

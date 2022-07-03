@@ -157,7 +157,7 @@ end
 
 getalgorithm(chain::AHMCIterator) = chain.algorithm
 
-getdensity(chain::AHMCIterator) = chain.density
+getmeasure(chain::AHMCIterator) = chain.density
 
 getrng(chain::AHMCIterator) = chain.rng
 
@@ -259,7 +259,7 @@ function mcmc_step!(chain::AHMCIterator)
     reset_rng_counters!(chain)
 
     rng = getrng(chain)
-    density = getdensity(chain)
+    density = getmeasure(chain)
 
 
     # Grow samples vector by one:

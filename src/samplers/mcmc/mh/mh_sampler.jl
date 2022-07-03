@@ -142,7 +142,7 @@ end
 
 getalgorithm(chain::MHIterator) = chain.algorithm
 
-getdensity(chain::MHIterator) = chain.density
+getmeasure(chain::MHIterator) = chain.density
 
 getrng(chain::MHIterator) = chain.rng
 
@@ -237,7 +237,7 @@ function mcmc_step!(chain::MHIterator)
     reset_rng_counters!(chain)
 
     rng = getrng(chain)
-    density = getdensity(chain)
+    density = getmeasure(chain)
 
     proposaldist = chain.proposaldist
 
