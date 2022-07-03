@@ -83,6 +83,7 @@ BAT.log_zero_density
 BAT.proposal_rand!
 BAT.proposaldist_logpdf
 BAT.repetition_to_weights
+BAT.smallest_credible_intervals
 BAT.spatialvolume
 BAT.sum_first_dim
 BAT.trunc_logpdf_ratio
