@@ -30,6 +30,8 @@ Abstract type for MCMC initialization algorithms.
 abstract type MCMCInitAlgorithm end
 export MCMCInitAlgorithm
 
+apply_trafo_to_init(trafo::Function, initalg::MCMCInitAlgorithm) = initalg
+
 
 
 """

@@ -65,9 +65,8 @@ export EllipsoidalNestedSampling
 function bat_sample_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, algorithm::EllipsoidalNestedSampling)
     
     density_notrafo = convert(AbstractMeasureOrDensity, target)
-    shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)                 # BAT prior transformation
-    vs = varshape(shaped_density)
-    density = unshaped(shaped_density)
+    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo)                 # BAT prior transformation
+    vs = varshape(density)
     dims = totalndof(vs)
 
     model = NestedModel(logdensityof(density), identity);                                   # identity, because ahead the BAT prior transformation is used instead
