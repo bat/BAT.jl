@@ -290,14 +290,16 @@ Statistics.mean(samples::DensitySampleVector) = _get_statw(mean, samples, varsha
 Statistics.var(samples::DensitySampleVector) = _get_statw(var, samples, replace_const_shapes(ValueShapes.const_zero_shape, varshape(samples)))
 Statistics.std(samples::DensitySampleVector) = _get_statw(std, samples, replace_const_shapes(ValueShapes.const_zero_shape, varshape(samples)))
 
-function Statistics.median(samples::DensitySampleVector)
+Statistics.median(samples::DensitySampleVector) = quantile(samples, 0.5)
+
+function Statistics.quantile(samples::DensitySampleVector, p::Real)
     shape = varshape(samples)
     flat_samples = flatview(unshaped.(samples.v))
     n_params = size(flat_samples)[1]
     median_params = Vector{Float64}()
 
     for param in Base.OneTo(n_params)
-        median_param = quantile(flat_samples[param,:], FrequencyWeights(samples.weight), 0.5)
+        median_param = quantile(flat_samples[param,:], FrequencyWeights(samples.weight), p)
         push!(median_params, median_param)
     end
     shape(median_params)
