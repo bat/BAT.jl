@@ -2,11 +2,7 @@
 
 
 function markdown_append!(md::Markdown.MD, content::AbstractString)
-    buf = IOBuffer()
-    for l in eachline(IOBuffer(content))
-        println(buf, lstrip(l))
-    end
-    push!(md.content, Markdown.parse(String(take!(buf))))
+    push!(md.content, Markdown.parse(content))
     return md
 end
 

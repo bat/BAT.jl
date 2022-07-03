@@ -301,14 +301,48 @@ struct MCMCSampleGenerator{T<:AbstractVector{<:MCMCIterator}} <: AbstractSampleG
     chains::T
 end
 
-getalgorithm(sg::MCMCSampleGenerator) = sg.chains[1].spec.algorithm
+getalgorithm(sg::MCMCSampleGenerator) = sg.chains[1].algorithm
 
 
 function Base.show(io::IO, generator::MCMCSampleGenerator)
-    print(io, Base.typename(typeof(generator)).name, "(")
-    if !isempty(generator.chains)
-        show(io, first(generator.chains))
-        print(io, ", …")
+    if get(io, :compact, false)
+        print(io, nameof(typeof(generator)), "(")
+        if !isempty(generator.chains)
+            show(io, first(generator.chains))
+            print(io, ", …")
+        end
+        print(io, ")")
+    else
+        println(io, nameof(typeof(generator)), ":")
+        chains = generator.chains
+        nchains = length(chains)
+        n_tuned_chains = count(c -> c.info.tuned, chains)
+        n_converged_chains = count(c -> c.info.converged, chains)
+        print(io, "algorithm: ")
+        show(io, "text/plain", getalgorithm(generator))
+        println(io, "number of chains:", repeat(' ', 13), nchains)
+        println(io, "number of chains tuned:", repeat(' ', 7), n_tuned_chains)
+        println(io, "number of chains converged:", repeat(' ', 3), n_converged_chains)
+        print(io, "number of samples per chain:", repeat(' ', 2), nsamples(chains[1]))
     end
-    print(io, ")")
+end
+
+
+
+
+function bat_report!(md::Markdown.MD, generator::MCMCSampleGenerator)
+    mcalg = getalgorithm(generator)
+    chains = generator.chains
+    nchains = length(chains)
+    n_tuned_chains = count(c -> c.info.tuned, chains)
+    n_converged_chains = count(c -> c.info.converged, chains)
+
+    markdown_append!(md, """
+    ### Sample generation
+
+    * Algorithm: MCMC, $(nameof(typeof(mcalg)))
+    * MCMC chains: $nchains ($n_tuned_chains tuned, $n_converged_chains converged)
+    """)
+
+    return md
 end

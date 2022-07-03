@@ -38,13 +38,15 @@ bat_initval
 bat_integrate
 bat_integrated_autocorr_len
 bat_read
+bat_report
 bat_sample
 bat_write
 trafoof
 
+BAT.bat_report!
+BAT.eval_logval_unchecked
 BAT.fft_autocor
 BAT.fft_autocov
-BAT.eval_logval_unchecked
 
 BAT.AbstractMeasureOrDensity
 

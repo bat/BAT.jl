@@ -250,11 +250,6 @@ samples = bat_sample(posterior, MCMCSampling(mcalg = MetropolisHastings(), nstep
 #md nothing # hide
 #nb nothing # hide
 
-# Construct a `SampledMeasure` to get a quick overview of the properties
-# of the sampled posterior, estimates of the fit parameters:
-
-SampledMeasure(posterior, samples)
-
 
 # Let's calculate some statistics on the posterior samples:
 
@@ -289,6 +284,11 @@ println("Covariance: $par_cov")
 # specific parameters:
 
 par_cov[parshapes.mu, parshapes.sigma]
+
+
+# Use `bat_report` to generate an overview of the sampling result and parameter estimates (based on the marginal distributions):
+
+bat_report(samples)
 
 
 # ### Visualization of Results
