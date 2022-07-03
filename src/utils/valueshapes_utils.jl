@@ -65,7 +65,7 @@ function all_active_names(vs::NamedTupleShape)
 end
 
 function all_active_names(vs::ScalarShape)
-    return "v"
+    return ["v"]
 end
 
 function all_active_names(vs::ArrayShape)
