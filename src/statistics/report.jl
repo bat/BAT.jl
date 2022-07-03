@@ -35,10 +35,7 @@ function marginal_table(smplv::DensitySampleVector)
 
     usmplv = unshaped.(smplv)
 
-    credible_interval = ClosedInterval.(
-        quantile(usmplv, StatsFuns.normcdf(-1)),
-        quantile(usmplv, StatsFuns.normcdf(+1))
-    )
+    credible_intervals = smallest_credible_intervals(usmplv)
 
     mhist = hist_unicode.(marginal_histograms(usmplv))
 
@@ -48,7 +45,7 @@ function marginal_table(smplv::DensitySampleVector)
         std = std(usmplv),
         global_mode = mode(usmplv),
         marginal_mode = bat_marginalmode(usmplv).result,
-        credible_interval = credible_interval,
+        credible_intervals = credible_intervals,
         marginal_histogram = mhist,
     )
 end
@@ -80,9 +77,12 @@ function bat_report!(md::Markdown.MD, smplv::DensitySampleVector)
     #### Marginals
     """)
 
+    only_one_ci(viv::AbstractVector{<:Interval}) = length(viv) == 1 ? only(viv) : :multiple
+
     marg_tbl = marginal_table(smplv)
-    marg_headermap = Dict(:parameter => "Parameter", :mean => "Mean", :std => "Std. dev.", :global_mode => "Gobal mode", :marginal_mode => "Marg. mode", :credible_interval => "Cred. interval", :marginal_histogram => "Histogram")
-    push!(md.content, BAT.markdown_table(marg_tbl, headermap = marg_headermap, align = [:l, :l, :l, :l, :l, :c, :l]))
+    mod_marg_tbl = merge(Tables.columns(marg_tbl), (credible_intervals = map(only_one_ci, marg_tbl.credible_intervals),))
+    marg_headermap = Dict(:parameter => "Parameter", :mean => "Mean", :std => "Std. dev.", :global_mode => "Gobal mode", :marginal_mode => "Marg. mode", :credible_intervals => "Cred. interval", :marginal_histogram => "Histogram")
+    push!(md.content, BAT.markdown_table(Tables.columns(mod_marg_tbl), headermap = marg_headermap, align = [:l, :l, :l, :l, :l, :c, :l]))
 
     fixed_tbl = fixed_parameter_table(smplv)
     if !isempty(fixed_tbl)
