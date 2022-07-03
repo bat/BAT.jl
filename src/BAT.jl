@@ -63,6 +63,7 @@ import Optim
 import Random123
 import Sobol
 import StableRNGs
+import StatsFuns
 import TypedTables
 import Zygote
 import ZygoteRules
