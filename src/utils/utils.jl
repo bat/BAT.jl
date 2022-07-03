@@ -8,5 +8,6 @@ include("convolution_utils.jl")
 include("coord_utils.jl")
 include("valueshapes_utils.jl")
 include("executors.jl")
+include("markdown_utils.jl")
 
 # Included via @require: "executors_folds.jl")
