@@ -278,6 +278,24 @@ end
 ValueShapes.varshape(A::DensitySampleVector) = elshape(A.v)
 
 
+@inline _ncolons(::Val{N}) where N = ntuple(_ -> Colon(), Val{N}())
+
+_mean(X::AbstractVectorOfSimilarArrays{T,M}, w::AbstractWeights) where {T,M} =
+    mean(flatview(X), w, dims = M + 1)[_ncolons(Val{M}())...]
+
+_var(X::AbstractVectorOfSimilarArrays{T,M}, w::AbstractWeights; mean = nothing) where {T,M} =
+    var(flatview(X), w, M + 1; mean = mean, corrected = true)[_ncolons(Val{M}())...]
+
+_std(X::AbstractVectorOfSimilarArrays{T,M}, w::AbstractWeights; mean = nothing) where {T,M} =
+    std(flatview(X), w, M + 1; mean = mean, corrected = true)[_ncolons(Val{M}())...]
+
+_cov(X::AbstractVectorOfSimilarVectors, w::AbstractWeights; corrected::Bool = true) =
+    cov(flatview(X), w, 2; corrected = true)
+
+_cor(X::AbstractVectorOfSimilarVectors, w::AbstractWeights) =
+    cor(flatview(X), w, 2)
+
+
 function _get_statw(f::Function, samples::DensitySampleVector, resultshape::AbstractValueShape)
     shape = varshape(samples)
     X = unshaped.(samples.v)
@@ -286,9 +304,9 @@ function _get_statw(f::Function, samples::DensitySampleVector, resultshape::Abst
     resultshape(r_unshaped)
 end
 
-Statistics.mean(samples::DensitySampleVector) = _get_statw(mean, samples, varshape(samples))
-Statistics.var(samples::DensitySampleVector) = _get_statw(var, samples, replace_const_shapes(ValueShapes.const_zero_shape, varshape(samples)))
-Statistics.std(samples::DensitySampleVector) = _get_statw(std, samples, replace_const_shapes(ValueShapes.const_zero_shape, varshape(samples)))
+Statistics.mean(samples::DensitySampleVector) = _get_statw(_mean, samples, varshape(samples))
+Statistics.var(samples::DensitySampleVector) = _get_statw(_var, samples, replace_const_shapes(ValueShapes.const_zero_shape, varshape(samples)))
+Statistics.std(samples::DensitySampleVector) = _get_statw(_std, samples, replace_const_shapes(ValueShapes.const_zero_shape, varshape(samples)))
 
 Statistics.median(samples::DensitySampleVector) = quantile(samples, 0.5)
 
@@ -315,8 +333,8 @@ end
 Base.minimum(samples::DensitySampleVector) = _get_stat(minimum, samples)
 Base.maximum(samples::DensitySampleVector) = _get_stat(maximum, samples)
 
-Statistics.cov(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = cov(samples.v, FrequencyWeights(samples.weight))
-Statistics.cor(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = cor(samples.v, FrequencyWeights(samples.weight))
+Statistics.cov(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = _cov(samples.v, FrequencyWeights(samples.weight))
+Statistics.cor(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = _cor(samples.v, FrequencyWeights(samples.weight))
 
 function _get_mode(samples::DensitySampleVector)
     shape = varshape(samples)
