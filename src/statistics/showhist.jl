@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-default_unicode_bars = [' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█']
+default_unicode_bars = ['\u2800', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█']
 
 function showhist_unicode(io::IO, h::Histogram{<:Real,1}; bar_symbols::AbstractVector{Char} = default_unicode_bars)
     @argcheck first(h.edges) isa AbstractRange
@@ -16,7 +16,7 @@ function showhist_unicode(io::IO, h::Histogram{<:Real,1}; bar_symbols::AbstractV
     mean_idx = StatsBase.binindex(h, mean(X, FrequencyWeights(W)))
     median_idx = StatsBase.binindex(h, median(X, FrequencyWeights(W)))
     
-    print(io, minimum(edge))
+    print(io, replace(lpad(@sprintf("%8.3g", minimum(edge)), 8, '\u2800'), " " => "\u2800"))
     print(io, h.closed == :left ? "[" : "]")
     for (i) in eachindex(W)
         color = if i == mean_idx == median_idx
@@ -32,5 +32,5 @@ function showhist_unicode(io::IO, h::Histogram{<:Real,1}; bar_symbols::AbstractV
         printstyled(io, sym; color=color)
     end
     print(io, h.closed == :right ? "]" : "[")
-    print(io, maximum(edge))
+    print(io, replace(lpad(@sprintf("%-8.3g", maximum(edge)), 8, '\u2800'), " " => "\u2800"))
 end
