@@ -283,14 +283,14 @@ ValueShapes.varshape(A::DensitySampleVector) = elshape(A.v)
 _mean(X::AbstractVectorOfSimilarArrays{T,M}, w::AbstractWeights) where {T,M} =
     mean(flatview(X), w, dims = M + 1)[_ncolons(Val{M}())...]
 
-_var(X::AbstractVectorOfSimilarArrays{T,M}, w::AbstractWeights; mean = nothing) where {T,M} =
-    var(flatview(X), w, M + 1; mean = mean, corrected = true)[_ncolons(Val{M}())...]
+_var(X::AbstractVectorOfSimilarArrays{T,M}, w::AbstractWeights; mean = nothing, corrected::Bool = true) where {T,M} =
+    var(flatview(X), w, M + 1; mean = mean, corrected = corrected)[_ncolons(Val{M}())...]
 
-_std(X::AbstractVectorOfSimilarArrays{T,M}, w::AbstractWeights; mean = nothing) where {T,M} =
-    std(flatview(X), w, M + 1; mean = mean, corrected = true)[_ncolons(Val{M}())...]
+_std(X::AbstractVectorOfSimilarArrays{T,M}, w::AbstractWeights; mean = nothing, corrected::Bool = true) where {T,M} =
+    std(flatview(X), w, M + 1; mean = mean, corrected = corrected)[_ncolons(Val{M}())...]
 
 _cov(X::AbstractVectorOfSimilarVectors, w::AbstractWeights; corrected::Bool = true) =
-    cov(flatview(X), w, 2; corrected = true)
+    cov(flatview(X), w, 2; corrected = corrected)
 
 _cor(X::AbstractVectorOfSimilarVectors, w::AbstractWeights) =
     cor(flatview(X), w, 2)
