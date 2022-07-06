@@ -79,7 +79,7 @@ using ArraysOfArrays, StatsBase
                 push!(mvcov, data[i], w[i]);
             end
 
-            @test mvcov ≈ cov(data, wKind(w); corrected = (wKind != Weights))
+            @test mvcov ≈ BAT._cov(data, wKind(w); corrected = (wKind != Weights))
         end
 
         countMvCovs = 3
@@ -95,7 +95,7 @@ using ArraysOfArrays, StatsBase
         end
 
         res = merge(mvcovs...)
-        @test res ≈ cov(data, ProbabilityWeights(w); corrected = true)
+        @test res ≈ BAT._cov(data, ProbabilityWeights(w); corrected = true)
         @test res ≈ mvcovc
         @test Float64(res.sum_w) ≈ Float64(mvcovc.sum_w)
         @test Float64(res.sum_w2) ≈ Float64(mvcovc.sum_w2)
@@ -108,7 +108,7 @@ using ArraysOfArrays, StatsBase
         res = append!(deepcopy(mvcov), data)
         @test res ≈ cov(data)
         res = append!(deepcopy(mvcov), data, w)
-        @test res ≈ cov(data, ProbabilityWeights(w); corrected = true)
+        @test res ≈ BAT._cov(data, ProbabilityWeights(w); corrected = true)
     end
 
     @testset "BAT.BasicMvStatistic" begin
