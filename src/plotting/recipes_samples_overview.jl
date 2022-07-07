@@ -167,13 +167,15 @@ end
 
 
 @recipe function f(x::Union{StepRangeLen, Vector},
-        model::Function,
-        sample_from::Union{DensitySampleVector};
-        n_samples = 10^4,
-        intervals = default_credibilities,
-        colors = default_colors,
-        global_mode = true,
-        marginal_mode = false)
+    model::Function,
+    sample_from::Union{DensitySampleVector};
+    n_samples = 10^4,
+    intervals = default_credibilities,
+    colors = default_colors,
+    median = true,
+    global_mode = true,
+    marginal_mode = false
+)
 
     if typeof(sample_from) <: DensitySampleVector
         samples = bat_sample(sample_from, OrderedResampling(nsamples = n_samples)).result
@@ -214,12 +216,14 @@ end
         end
     end
 
-    @series begin
-        linecolor --> :black
-        linestyle --> :solid
-        linewidth --> 1.5
-        label --> "Median"
-        x, y_median
+    if median
+        @series begin
+            linecolor --> :black
+            linestyle --> :solid
+            linewidth --> 1.5
+            label --> "Median"
+            x, y_median
+        end
     end
 
     if global_mode
