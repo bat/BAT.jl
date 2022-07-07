@@ -170,7 +170,7 @@ end
         model::Function,
         sample_from::Union{DensitySampleVector};
         n_samples = 10^4,
-        conf_intervals = default_credibilities,
+        intervals = default_credibilities,
         colors = default_colors,
         global_mode = true,
         marginal_mode = false)
@@ -181,12 +181,12 @@ end
         samples = bat_sample(sample_from.prior.dist, IIDSampling(nsamples = n_samples)).result
     end
 
-    y_ribbons = zeros(Float64, length(x), 2*length(conf_intervals))
+    y_ribbons = zeros(Float64, length(x), 2*length(intervals))
     y_median = zeros(Float64, length(x))
-    quantile_values = zeros(Float64, 2*length(conf_intervals))
+    quantile_values = zeros(Float64, 2*length(intervals))
 
-    quantile_values[1:2:end] .= 0.5*(1 .- conf_intervals)
-    quantile_values[2:2:end] .= 1 .- 0.5*(1 .- conf_intervals)
+    quantile_values[1:2:end] .= 0.5*(1 .- intervals)
+    quantile_values[2:2:end] .= 1 .- 0.5*(1 .- intervals)
 
     for x_ind in Base.OneTo(length(x))
         y_samples = model.(samples.v, x[x_ind])
@@ -201,7 +201,7 @@ end
     legend --> :topleft
     size --> (600, 400)
 
-    for interval_ind in length(conf_intervals):-1:1
+    for interval_ind in length(intervals):-1:1
         @series begin
             ribbon --> (y_ribbons[:,interval_ind*2 - 1],y_ribbons[:,interval_ind*2])
             fillcolor --> colors[interval_ind]
@@ -209,7 +209,7 @@ end
             seriesalpha --> 1
             linealpha --> 1
             fillalpha --> 1
-            label --> "$(conf_intervals[interval_ind])"
+            label --> "$(intervals[interval_ind])"
             x, y_median
         end
     end
