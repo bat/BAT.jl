@@ -18,7 +18,7 @@
     all_exprs = _all_exprs(prior)
     vsel = all_exprs[vsel]
 
-    xlabel = string.[vsel]
+    xlabel = string.(vsel)
     ylabel = ["p($l)" for l in xlabel]
 
     if length(vsel_label) > 0
