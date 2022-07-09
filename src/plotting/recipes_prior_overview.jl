@@ -114,10 +114,10 @@ function _all_exprs(dist::NamedTupleDist)
     accs = vs._accessors
     syms = keys(accs)
     lengths = length.(values(accs))
-    vsel = Expr[]
+    vsel = Any[]
 
     for (i,sym) in enumerate(syms)
-        vsel_tmp = Expr[]
+        vsel_tmp = Any[]
 
         if lengths[i] == 1 
             push!(vsel_tmp, Meta.parse("$sym"))
