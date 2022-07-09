@@ -97,7 +97,7 @@
             right --> right
             smoothing --> smoothing
 
-            marg, vsel
+            marg, (1,2)
         end
     end
 
