@@ -31,7 +31,7 @@ function MarginalDist(
     marg_samples = bat_marginalize(samples, vsel)
     vs = varshape(marg_samples)
     shapes = [getproperty(acc, :shape) for acc in vs._accessors]
-    UV = all(broadcast(shape -> shape isa ScalarShape, shapes)) || (length(shapes) == 1 && getproperty(shapes[1], :dims) == (1,))
+    UV = length(shapes) == 1 && (shapes[1] isa ScalarShape || getproperty(shapes[1], :dims) == (1,))
 
     if filter
         marg_samples = BAT.drop_low_weight_samples(marg_samples)
