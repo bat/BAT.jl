@@ -47,7 +47,7 @@
 
     marg = MarginalDist(
         samples,
-        (xindx, yindx),
+        vsel,
         bins = bins,
         closed = closed,
         filter = filter
