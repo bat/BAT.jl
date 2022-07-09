@@ -22,7 +22,7 @@
 
     marg = MarginalDist(
         prior,
-        idx,
+        vsel,
         bins = bins,
         closed = closed,
         nsamples = nsamples
