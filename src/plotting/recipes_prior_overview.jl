@@ -15,6 +15,8 @@
         vsel = reduce(vcat, vsel)
     end
     vsel = vsel[vsel .<=  totalndof(BAT.varshape(prior))]
+    all_exprs = _all_exprs(prior)
+    vsel = all_exprs[vsel]
 
     xlabel = [getstring(prior, i) for i in vsel]
     ylabel = ["p($l)" for l in xlabel]
@@ -105,4 +107,23 @@
         end
     end
 
+end
+
+function _all_exprs(dist::NamedTupleDist)
+    vs = varshape(dist)
+    accs = vs._accessors
+    syms = keys(accs)
+    lengths = length.(values(accs))
+    vsel = Expr[]
+
+    for (i,sym) in enumerate(syms)
+        vsel_tmp = Expr[]
+        for id in 1:lengths[i]
+            push!(vsel_tmp, Meta.parse("$sym[$id]"))
+        end
+
+        push!(vsel, vsel_tmp...)
+    end
+
+    return vsel
 end
