@@ -4,7 +4,7 @@ struct Marginalization{D} <: AbstractVector{D}
 end
 
 struct MarginalDist
-    dist::ReshapedDist
+    dist::Union{ReshapedDist, Distribution}
 end
 
 function _get_edges(data::Tuple, nbins::Tuple{Vararg{<:Integer}}, closed::Symbol)
@@ -30,6 +30,8 @@ function MarginalDist(
 
     marg_samples = bat_marginalize(samples, vsel)
     vs = varshape(marg_samples)
+    shapes = [getproperty(acc, :shape) for acc in vs._accessors]
+    UV = all(broadcast(shape -> shape isa ScalarShape, shapes)) || (length(shapes) == 1 && getproperty(shapes[1], :dims) == (1,))
 
     if filter
         marg_samples = BAT.drop_low_weight_samples(marg_samples)
@@ -46,8 +48,8 @@ function MarginalDist(
 
     hist = fit(Histogram, cols, edges, closed = closed)
 
-    binned_dist = EmpiricalDistributions.MvBinnedDist(hist)
-    binned_dist = vs(binned_dist) isa ReshapedDist ? vs(binned_dist) : ReshapedDist(vs(binned_dist), vs) 
+    binned_dist = UV ? EmpiricalDistributions.UvBinnedDist(hist) : EmpiricalDistributions.MvBinnedDist(hist)
+    binned_dist = UV ? binned_dist : vs(binned_dist) isa ReshapedDist ? vs(binned_dist) : ReshapedDist(vs(binned_dist), vs)
 
     return MarginalDist(binned_dist)
 end

@@ -13,12 +13,12 @@ end
 
 @recipe function f(
     origmarg::MarginalDist,
-    vsel::Union{Integer, Symbol, Expr} = :novsel;
+    vsel::Union{Nothing, Integer, Symbol, Expr} = nothing;
     intervals = default_credibilities,
     colors = default_colors,
     interval_labels = []
 )   
-    if vsel == :novsel
+    if vsel === nothing
         marg = origmarg
     else 
         marg = MarginalDist(origmarg, vsel)
@@ -31,8 +31,11 @@ end
 
     seriestype = get(plotattributes, :seriestype, :stephist)
 
-    xlabel = get(plotattributes, :xguide, vsel isa Integer ? "x$(vsel)" : "$vsel")
-    ylabel = get(plotattributes, :yguide, vsel isa Integer ? "p(x$(vsel))" : "p($vsel)")
+    xl = vsel === nothing ? "x" : vsel isa Integer ? "x$(vsel)" : "$vsel"
+    yl = vsel === nothing ? "p(x)" : vsel isa Integer ? "p(x$(vsel))" : "p($vsel)"
+
+    xlabel = get(plotattributes, :xguide, xl)
+    ylabel = get(plotattributes, :yguide, yl)
 
     if swap
         xguide := ylabel
