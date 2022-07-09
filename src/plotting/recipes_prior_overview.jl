@@ -118,10 +118,14 @@ function _all_exprs(dist::NamedTupleDist)
 
     for (i,sym) in enumerate(syms)
         vsel_tmp = Expr[]
-        for id in 1:lengths[i]
-            push!(vsel_tmp, Meta.parse("$sym[$id]"))
-        end
 
+        if lengths[i] == 1 
+            push!(vsel_tmp, Meta.parse("$sym"))
+        else
+            for id in 1:lengths[i]
+                push!(vsel_tmp, Meta.parse("$sym[$id]"))
+            end
+        end
         push!(vsel, vsel_tmp...)
     end
 
