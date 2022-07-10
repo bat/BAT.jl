@@ -34,7 +34,7 @@ function MarginalDist(
     UV = (vs isa ArrayShape && vsel isa Integer) || (length(shapes) == 1 && (shapes[1] isa ScalarShape || getproperty(shapes[1], :dims) == (1,)))
     
     if bins isa Tuple
-        for i in 1:lenght(bins)
+        for i in 1:length(bins)
             bins[i] = bins[i] isa Real ? Integer(bins[i]) : bins[i]
         end
     end
