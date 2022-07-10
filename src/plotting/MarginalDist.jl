@@ -48,7 +48,7 @@ function MarginalDist(
         _get_edges(cols, bins, closed)
     end
 
-    hist = fit(Histogram, cols, edges, closed = closed)
+    hist = fit(Histogram, cols, FrequencyWeights(samples.weight), edges, closed = closed)
 
     binned_dist = UV ? EmpiricalDistributions.UvBinnedDist(hist) : EmpiricalDistributions.MvBinnedDist(hist)
     binned_dist = UV ? binned_dist : vs(binned_dist) isa ReshapedDist ? vs(binned_dist) : ReshapedDist(vs(binned_dist), vs)
