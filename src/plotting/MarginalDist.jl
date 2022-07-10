@@ -45,7 +45,7 @@ function MarginalDist(
     elseif bins isa Tuple
         Tuple(_get_edges(cols[i], bins[i], closed) for i in 1:length(bins))
     else 
-        Tuple(_get_edges(cols, bins, closed))
+        (_get_edges(cols, bins, closed),)
     end
 
     hist = fit(Histogram, cols, FrequencyWeights(samples.weight), edges, closed = closed)
