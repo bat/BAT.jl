@@ -40,6 +40,7 @@ function MarginalDist(
     marg_samples = flatview(unshaped.(marg_samples).v)
     cols = Tuple(Vector.(eachrow(marg_samples)))
 
+    bins = Integer.(bins)
     edges = if isa(bins, Integer)
         _get_edges(cols, (bins,), closed)
     else
