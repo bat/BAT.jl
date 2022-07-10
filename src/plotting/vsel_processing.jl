@@ -167,7 +167,7 @@ end
 Create a new `DensitySampleVector` containing the selected 
 dimensions `vsel` of the input `samples`.
 
-Returns a `DensitySampleVector`. If the input is shaped, the new samples
+Returns a NamedTuple `(result = marg_samples::DensitySampleVector)`. If the input is shaped, the new samples
 will have the shape of the selected dimensions.
 
 `samples` may be shaped or unshaped, vsel may be an `Int`, `UnitRange`, 
@@ -240,5 +240,5 @@ function bat_marginalize(samples::DensitySampleVector,
     aux = samples.aux
 
     marg_samples = shaped ? new_shape.(DensitySampleVector(marg_data, logd, info = info, aux = aux)) : DensitySampleVector(marg_data, logd, info = info, aux = aux)
-    return marg_samples
+    return (result = marg_samples,)
 end

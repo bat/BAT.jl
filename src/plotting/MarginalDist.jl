@@ -28,7 +28,7 @@ function MarginalDist(
     filter::Bool = false
 )
 
-    marg_samples = bat_marginalize(samples, vsel)
+    marg_samples = bat_marginalize(samples, vsel).result
     vs = varshape(marg_samples)
     vs isa NamedTupleShape ? shapes = [getproperty(acc, :shape) for acc in vs._accessors] : shapes = [0,0]
     UV = (vs isa ArrayShape && vsel isa Integer) || (length(shapes) == 1 && (shapes[1] isa ScalarShape || getproperty(shapes[1], :dims) == (1,)))
