@@ -23,7 +23,7 @@ end
 function MarginalDist(
     samples::Union{DensitySampleVector, StructArrays.StructVector},
     vsel;
-    bins = 200, #::Union{I, Vector{I}, Tuple{I}} where I<:Integer
+    bins::Union{I, Tuple{I}, R, Tuple{R}} where I<:Integer where R<:AbstractRange = 200,
     closed::Symbol = :left,
     filter::Bool = false
 )
@@ -40,7 +40,6 @@ function MarginalDist(
     marg_samples = flatview(unshaped.(marg_samples).v)
     cols = Tuple(Vector.(eachrow(marg_samples)))
 
-    bins = Integer.(bins)
     edges = if isa(bins, Integer)
         _get_edges(cols, (bins,), closed)
     else
