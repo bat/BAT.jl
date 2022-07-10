@@ -42,8 +42,10 @@ function MarginalDist(
 
     edges = if isa(bins, Integer)
         _get_edges(cols, (bins,), closed)
-    else
-        Tuple(_get_edges(cols[i], bins[i] isa Real ? Integer(bins[i]) : bins[i], closed) for i in 1:length(bins))
+    elseif bins isa Tuple
+        Tuple(_get_edges(cols[i], bins[i] i, closed) for i in 1:length(bins))
+    else 
+        _get_edges(cols, bins, closed)
     end
 
     hist = fit(Histogram, cols, edges, closed = closed)
