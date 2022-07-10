@@ -38,7 +38,7 @@
     elseif isa(bins, NamedTuple)
         tmp_bins::Vector{Any} = fill(200, length(vsel))
         for k in keys(bins)
-            idx = findfirst(isequal(string(k)), getstring.(Ref(prior), [1:length(vsel)]))
+            idx = findfirst(isequal(string(k)), getstring.(Ref(prior), Vector(1:length(vsel))))
             tmp_bins[idx] = bins[idx]
         end
         tmp_bins
