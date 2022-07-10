@@ -23,7 +23,7 @@ end
 function MarginalDist(
     samples::Union{DensitySampleVector, StructArrays.StructVector},
     vsel;
-    bins::Union{I, R, Tuple{Union{I, R}}} where I<:Integer where R<:AbstractRange = 200,
+    bins = 200,
     closed::Symbol = :left,
     filter::Bool = false
 )
@@ -32,6 +32,12 @@ function MarginalDist(
     vs = varshape(marg_samples)
     vs isa NamedTupleShape ? shapes = [getproperty(acc, :shape) for acc in vs._accessors] : shapes = [0,0]
     UV = (vs isa ArrayShape && vsel isa Integer) || (length(shapes) == 1 && (shapes[1] isa ScalarShape || getproperty(shapes[1], :dims) == (1,)))
+    
+    if bins isa Tuple
+        for i in 1:lenght(bins)
+            bins[i] = bins[i] isa Real ? Integer(bins[i]) : bins[i]
+        end
+    end
 
     if filter
         marg_samples = BAT.drop_low_weight_samples(marg_samples)
