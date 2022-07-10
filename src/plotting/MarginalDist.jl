@@ -32,12 +32,6 @@ function MarginalDist(
     vs = varshape(marg_samples)
     vs isa NamedTupleShape ? shapes = [getproperty(acc, :shape) for acc in vs._accessors] : shapes = [0,0]
     UV = (vs isa ArrayShape && vsel isa Integer) || (length(shapes) == 1 && (shapes[1] isa ScalarShape || getproperty(shapes[1], :dims) == (1,)))
-    
-    if bins isa Tuple
-        for i in 1:length(bins)
-            bins[i] = bins[i] isa Real ? Integer(bins[i]) : bins[i]
-        end
-    end
 
     if filter
         marg_samples = BAT.drop_low_weight_samples(marg_samples)
@@ -49,7 +43,7 @@ function MarginalDist(
     edges = if isa(bins, Integer)
         _get_edges(cols, (bins,), closed)
     else
-        Tuple(_get_edges(cols[i], bins[i], closed) for i in 1:length(bins))
+        Tuple(_get_edges(cols[i], bins[i] isa Real ? Integer(bins[i]) : bins[i], closed) for i in 1:length(bins))
     end
 
     hist = fit(Histogram, cols, edges, closed = closed)
