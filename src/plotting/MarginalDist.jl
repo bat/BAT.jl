@@ -23,7 +23,7 @@ end
 function MarginalDist(
     samples::Union{DensitySampleVector, StructArrays.StructVector},
     vsel;
-    bins::Union{I, Tuple{I}, R, Tuple{R}} where I<:Integer where R<:AbstractRange = 200,
+    bins::Union{I, R, Tuple{Union{I, R}}} where I<:Integer where R<:AbstractRange = 200,
     closed::Symbol = :left,
     filter::Bool = false
 )
