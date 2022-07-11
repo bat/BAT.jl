@@ -22,7 +22,7 @@
 
     marg = MarginalDist(
         prior,
-        idx,
+        vsel,
         bins = bins,
         closed = closed,
         nsamples = nsamples
@@ -87,7 +87,7 @@ end
 
     marg = MarginalDist(
         prior,
-        (xidx, yidx),
+        vsel,
         bins = bins,
         closed = closed
     )
@@ -110,6 +110,6 @@ end
         upper --> upper
         right --> right
 
-        marg, (xidx, yidx)
+        marg, vsel
     end
 end

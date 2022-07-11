@@ -15,8 +15,10 @@
         vsel = reduce(vcat, vsel)
     end
     vsel = vsel[vsel .<=  totalndof(BAT.varshape(prior))]
+    all_exprs = _all_exprs(prior)
+    vsel = all_exprs[vsel]
 
-    xlabel = [getstring(prior, i) for i in vsel]
+    xlabel = string.(vsel)
     ylabel = ["p($l)" for l in xlabel]
 
     if length(vsel_label) > 0
@@ -36,7 +38,7 @@
     elseif isa(bins, NamedTuple)
         tmp_bins::Vector{Any} = fill(200, length(vsel))
         for k in keys(bins)
-            idx = findfirst(isequal(string(k)), getstring.(Ref(prior), vsel))
+            idx = findfirst(isequal(string(k)), getstring.(Ref(prior), Vector(1:length(vsel))))
             tmp_bins[idx] = bins[idx]
         end
         tmp_bins
@@ -105,4 +107,27 @@
         end
     end
 
+end
+
+function _all_exprs(dist::NamedTupleDist)
+    vs = varshape(dist)
+    accs = vs._accessors
+    syms = keys(accs)
+    lengths = length.(values(accs))
+    vsel = Any[]
+
+    for (i,sym) in enumerate(syms)
+        vsel_tmp = Any[]
+
+        if lengths[i] == 1 
+            push!(vsel_tmp, Meta.parse("$sym"))
+        else
+            for id in 1:lengths[i]
+                push!(vsel_tmp, Meta.parse("$sym[$id]"))
+            end
+        end
+        push!(vsel, vsel_tmp...)
+    end
+
+    return vsel
 end

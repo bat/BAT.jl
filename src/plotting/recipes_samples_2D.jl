@@ -25,8 +25,10 @@
         throw(ArgumentError("Symbol :$(vsel[2]) refers to a multivariate parameter. Use :($(vsel[2])[i]) instead."))
     end
 
+    vs = varshape(maybe_shaped_samples)
     samples = unshaped.(maybe_shaped_samples)
     filter ? samples = BAT.drop_low_weight_samples(samples) : nothing
+    reshaped_samples = vs.(samples)
 
     bins = get(plotattributes, :bins, 200)
     seriestype = get(plotattributes, :seriestype, :smallest_intervals)
@@ -46,8 +48,8 @@
     yguide := get(plotattributes, :yguide, ylabel)
 
     marg = MarginalDist(
-        samples,
-        (xindx, yindx),
+        reshaped_samples,
+        vsel,
         bins = bins,
         closed = closed,
         filter = filter
@@ -95,7 +97,7 @@
             right --> right
             smoothing --> smoothing
 
-            marg, (xindx, yindx)
+            marg, (1,2)
         end
     end
 

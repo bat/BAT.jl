@@ -9,7 +9,7 @@ Find the modes of a MarginalDist.
 Returns a vector of the bin-centers of the bin(s) with the heighest weight.
 """
 function find_marginalmodes(marg::MarginalDist)
-    hist = convert(Histogram, marg.dist.dist)
+    hist = convert(Histogram, marg.dist isa ReshapedDist ? marg.dist.dist : marg.dist)
     dims = ndims(hist.weights)
 
     max = maximum(hist.weights)
@@ -29,7 +29,7 @@ end
 Returns a vector of the bin-centers.
 """
 function get_bin_centers(marg::MarginalDist)
-    hist = convert(Histogram, marg.dist.dist)
+    hist = convert(Histogram, marg.dist isa ReshapedDist ? marg.dist.dist : marg.dist)
     edges = hist.edges
     dims = ndims(hist.weights)
 

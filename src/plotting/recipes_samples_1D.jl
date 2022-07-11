@@ -64,7 +64,7 @@
     #------ stats ----------------------------
     stats = MCMCBasicStats(maybe_shaped_samples)
 
-    line_height = maximum(convert(Histogram, marg.dist.dist).weights)*1.03
+    line_height = maximum(convert(Histogram, marg.dist isa ReshapedDist ? marg.dist.dist : marg.dist).weights)*1.03
 
     mean_options = convert_to_options(mean)
     globalmode_options = convert_to_options(globalmode)

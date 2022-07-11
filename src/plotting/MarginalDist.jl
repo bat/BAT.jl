@@ -4,7 +4,7 @@ struct Marginalization{D} <: AbstractVector{D}
 end
 
 struct MarginalDist
-    dist::ReshapedDist
+    dist::Union{ReshapedDist, Distribution}
 end
 
 function _get_edges(data::Tuple, nbins::Tuple{Vararg{<:Integer}}, closed::Symbol)
@@ -23,13 +23,15 @@ end
 function MarginalDist(
     samples::Union{DensitySampleVector, StructArrays.StructVector},
     vsel;
-    bins = 200, #::Union{I, Vector{I}, Tuple{I}} where I<:Integer
+    bins = 200,
     closed::Symbol = :left,
     filter::Bool = false
 )
 
-    marg_samples = bat_marginalize(samples, vsel)
+    marg_samples = bat_marginalize(samples, vsel).result
     vs = varshape(marg_samples)
+    vs isa NamedTupleShape ? shapes = [getproperty(acc, :shape) for acc in vs._accessors] : shapes = [0,0]
+    UV = (vs isa ArrayShape && vsel isa Integer) || (length(shapes) == 1 && (shapes[1] isa ScalarShape || getproperty(shapes[1], :dims) == (1,)))
 
     if filter
         marg_samples = BAT.drop_low_weight_samples(marg_samples)
@@ -40,14 +42,16 @@ function MarginalDist(
 
     edges = if isa(bins, Integer)
         _get_edges(cols, (bins,), closed)
-    else
+    elseif bins isa Tuple
         Tuple(_get_edges(cols[i], bins[i], closed) for i in 1:length(bins))
+    else 
+        (_get_edges(cols, bins, closed),)
     end
 
-    hist = fit(Histogram, cols, edges, closed = closed)
+    hist = fit(Histogram, cols, FrequencyWeights(samples.weight), edges, closed = closed)
 
-    binned_dist = EmpiricalDistributions.MvBinnedDist(hist)
-    binned_dist = vs(binned_dist) isa ReshapedDist ? vs(binned_dist) : ReshapedDist(vs(binned_dist), vs) 
+    binned_dist = UV ? EmpiricalDistributions.UvBinnedDist(hist) : EmpiricalDistributions.MvBinnedDist(hist)
+    binned_dist = UV ? binned_dist : vs(binned_dist) isa ReshapedDist ? vs(binned_dist) : ReshapedDist(vs(binned_dist), vs)
 
     return MarginalDist(binned_dist)
 end
