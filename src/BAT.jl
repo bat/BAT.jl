@@ -75,6 +75,8 @@ using DistributionMeasures: DistributionMeasure
 
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, AbstractThunk, unthunk
 
+using Functors: fmap, @functor
+
 # For GaussianShell:
 import AdaptiveRejectionSampling
 import QuadGK
