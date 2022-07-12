@@ -56,13 +56,13 @@ end
 
 
 """
-    BAT.LFDensityWithGrad{F<:Function} <: BATDensity
+    BAT.LFDensityWithGrad{F,G} <: BATDensity
 
 *BAT-internal, not part of stable public API.*
 
 Constructors:
 
-    LFDensityWithGrad(logf::Function, valgradlogf::Function)
+    LFDensityWithGrad(logf, valgradlogf)
 
 A density defined by a function that computes it's logarithmic value at given
 points, as well as a function that computes both the value and the gradient.
@@ -70,7 +70,7 @@ points, as well as a function that computes both the value and the gradient.
 It must be safe to execute both functions in parallel on multiple threads and
 processes.
 """
-struct LFDensityWithGrad{F<:Function,G<:Function} <: BATDensity
+struct LFDensityWithGrad{F,G} <: BATDensity
     logf::F
     valgradlogf::G
 end
