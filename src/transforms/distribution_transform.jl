@@ -455,18 +455,21 @@ end
 
 std_dist_from(src_d::MvNormal) = StandardMvNormal(length(src_d))
 
+_cholesky_L(A) = cholesky(A).L
+_cholesky_L(A::Diagonal{<:Real}) = Diagonal(sqrt.(diag(A)))
+_cholesky_L(A::PDiagMat{<:Real}) = Diagonal(sqrt.(A.diag))
+_cholesky_L(A::ScalMat{<:Real}) = Diagonal(Fill(sqrt(A.value), A.dim))
+
 function apply_dist_trafo(trg_d::StandardMvNormal, src_d::MvNormal, src_v::AbstractVector{<:Real})
     @argcheck length(trg_d) == length(src_d)
-    A = cholesky(src_d.Σ).U
-    transpose(A) \ (src_v - src_d.μ)
+    _cholesky_L(src_d.Σ) \ (src_v - src_d.μ)
 end
 
 std_dist_to(trg_d::MvNormal) = StandardMvNormal(length(trg_d))
 
 function apply_dist_trafo(trg_d::MvNormal, src_d::StandardMvNormal, src_v::AbstractVector{<:Real})
     @argcheck length(trg_d) == length(src_d)
-    A = cholesky(trg_d.Σ).U
-    transpose(A) * src_v + trg_d.μ
+    _cholesky_L(trg_d.Σ) * src_v + trg_d.μ
 end
 
 
