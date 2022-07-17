@@ -77,6 +77,9 @@ using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, Abstract
 
 using Functors: fmap, @functor
 
+# For StandardMvNormal:
+using IrrationalConstants: log2π, invsqrt2π
+
 # For GaussianShell:
 import AdaptiveRejectionSampling
 import QuadGK
