@@ -49,8 +49,11 @@ StatsBase.kurtosis(d::StandardUvNormal{T}) where {T<:Real} = zero(T)
 
 StatsBase.entropy(d::StandardUvNormal) = entropy(Normal(d))
 
-Distributions.logpdf(d::StandardUvNormal, x::Real) = logpdf(Normal(d), x)
-Distributions.pdf(d::StandardUvNormal, x::Real) = pdf(Normal(d), x)
+_normal_logpdf(x::U) where {U<:Real} = muladd(abs2(x), -U(1)/U(2), -log2π/U(2))
+_normal_pdf(x::U) where {U<:Real} = invsqrt2π * exp(-abs2(x)/U(2))
+
+Distributions.logpdf(d::StandardUvNormal, x::Real) = _normal_logpdf(x)
+Distributions.pdf(d::StandardUvNormal, x::Real) = _normal_pdf(x)
 Distributions.logcdf(d::StandardUvNormal, x::Real) = logcdf(Normal(d), x)
 Distributions.cdf(d::StandardUvNormal, x::Real) = cdf(Normal(d), x)
 Distributions.logccdf(d::StandardUvNormal, x::Real) = logccdf(Normal(d), x)
@@ -60,7 +63,7 @@ Distributions.cquantile(d::StandardUvNormal, p::Real) = cquantile(Normal(d), p)
 Distributions.mgf(d::StandardUvNormal, t::Real) = mgf(Normal(d), t)
 Distributions.cf(d::StandardUvNormal, t::Real) = cf(Normal(d), t)
 
-Distributions.gradlogpdf(d::StandardUvNormal, x::Real) = gradlogpdf(Normal(d), x)
+Distributions.gradlogpdf(d::StandardUvNormal, x::Real) = -x
 
 Base.rand(rng::AbstractRNG, d::StandardUvNormal{T}) where T = randn(rng, float(T))
 
@@ -130,12 +133,12 @@ Distributions.logdetcov(d::StandardMvNormal{T}) where T = zero(T)
 
 StatsBase.entropy(d::StandardMvNormal) = entropy(MvNormal(d))
 
-Distributions._logpdf(d::StandardMvNormal, x::AbstractVector{<:Real}) = logpdf(MvNormal(d), x)
-Distributions._pdf(d::StandardMvNormal, x::AbstractVector{<:Real}) = pdf(MvNormal(d), x)
+Distributions._logpdf(d::StandardMvNormal, x::AbstractVector{<:Real}) = sum(_normal_logpdf.(x))
+Distributions._pdf(d::StandardMvNormal, x::AbstractVector{<:Real}) = exp(Distributions._logpdf(d, x))
 Distributions.sqmahal(d::StandardMvNormal, x::AbstractVector{<:Real}) = sqmahal(MvNormal(d), x)
 # Distributions.sqmahal!(r::AbstractVector{<:Real}, d::StandardMvNormal, x::AbstractMatrix{<:Real}) = sqmahal!(r, MvNormal(d), x)
 
-Distributions.gradlogpdf(d::StandardMvNormal, x::AbstractVector{<:Real}) = Distributions.gradlogpdf(MvNormal(d), x)
+Distributions.gradlogpdf(d::StandardMvNormal, x::AbstractVector{<:Real}) = -x
 
 function Distributions._rand!(rng::AbstractRNG, d::StandardMvNormal, A::AbstractVector{T}) where {T<:Real}
     broadcast!(x -> randn(rng, T), A, A)
