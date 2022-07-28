@@ -20,44 +20,53 @@ end
 
 function _normalize_vsel_unshaped(vsel::AbstractVector)
     @argcheck all(broadcast(x -> x isa Union{T, AbstractVector{T}, AbstractVector{UnitRange{T}}} where T <: Integer, vsel)) throw(ArgumentError("Samples or distribution are unshaped, please use Integer, Vector of Integers, or UnitRange for indexing."))
+    return Union{typeof.(vsel)...}[vsel...]
+end
+
+function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::Union{UR, AbstractVector{UR}} where UR <: AbstractRange) 
+    rng = vsel isa AbstractVector ? vsel[1] : vsel
+    if length(rng) < 6
+        vsel = _all_exprs(vs)[vsel]
+    else
+        vsel = UnitRange[rng]
+    end
     return vsel
 end
 
-function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::AbstractVector{UnitRange}) 
-    @argcheck length(vsel) == 1 throw(ArgumentError("Can't use multidimensional cartesian index for shaped samples or distribution, please use keys instead"))
-    return [key for key in keys(vs)[vsel[1]]]
-end
-
 function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::Integer)
-    return [keys(vs)[vsel]]
+    n_vsel = _all_exprs(vs)[vsel]
+    return typeof(n_vsel)[n_vsel]
 end
 
 function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::AbstractVector{Integer})
-    return [keys(vs)[i] for i in vsel]
+    n_vsel = [_all_exprs(vs)[el] for el in vsel]
+    return Union{typeof.(n_vsel)...}[nvsel...]
 end
 
 function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::Expr)
     if isexpr(vsel, :vect) || isexpr(vsel, :call)
         if @capture(vsel, [s_:e_]) || @capture(vsel, (s_:e_))
-            return [keys(vs)[i] for i in s:e]
+            return _normalize_vsel_shaped(vs, s:e)
 
         elseif @capture(vsel, [dims__]) && all(broadcast(x -> x isa Integer, dims))
-            return [keys(vs)[i] for i in dims]
+            return _normalize_vsel_shaped(vs, [dims...])
         else
             vsel_norm = [_normalize_vsel_shaped(vs, el isa QuoteNode ? el.value : el) for el in vsel.args]
-            return vcat(vsel_norm...) # for user convenience, does :([a[1,2], b, c]) -> [:(a[1,2]), :b, :c]
+            vcat(vsel_norm...) # for user convenience, does :([a[1,2], b, c]) -> [:(a[1,2]), :b, :c]
+            return Union{typeof.(n_vsel)...}[n_vsel...]
         end
     end
-    return [vsel]
+    return Expr[vsel]
 end
 
 function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::Symbol)   
-    return [vsel]
+    return Symbol[vsel]
 end
 
 function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::AbstractVector)
     vsel_norm = [_normalize_vsel_shaped(vs, el isa QuoteNode ? el.value : el) for el in vsel]
-    return vcat(vsel_norm...)
+    n_vsel = vcat(vsel_norm...)
+    return Union{typeof.(n_vsel)...}[n_vsel...]
 end
 
 
@@ -72,13 +81,15 @@ function marg_idxs_unshaped(samples::DensitySampleVector,
 end
 
 function marg_idxs_shaped(samples::DensitySampleVector,
-                         vsel::AbstractVector
+                          vsel::Union{AbstractVector{E}, AbstractVector{S}, AbstractVector{Union{S, E}}} where E <: Expr where S <: Symbol
 )
     shapes = []
     sel_idxs = Int[]
 
     vs = varshape(samples)
-    flat_idxs = axes(ValueShapes.flatview(unshaped.(samples).v), 1)
+    flat_v = ValueShapes.flatview(unshaped.(samples).v)
+
+    flat_idxs = axes(flat_v, 1)
     shaped_idxs = vs(flat_idxs)
 
     for el in vsel 
@@ -92,7 +103,7 @@ function marg_idxs_shaped(samples::DensitySampleVector,
             append!(sel_idxs, idx_acc isa Integer ? Int64[idx_acc] : vec(idx_acc))
 
         # :(a[1]) or :(a[1:4]) or :(a[1,2,3]) or :(a[1,2,:])
-        elseif @capture(el, a_[args__])
+        else @capture(el, a_[args__])
             shape_acc = getproperty(vs, a)
             idx_acc = getproperty(shaped_idxs, a)
 
@@ -129,9 +140,9 @@ function marg_idxs_shaped(samples::DensitySampleVector,
 
                 idxs = idx_acc[args...]
                 append!(sel_idxs, ndims(idxs) > 0 ? vec(idxs) : idxs)
-
             end
         end
+
         el = encode_name(el)
         append!(shapes, (el = shape,))
     end
@@ -142,6 +153,22 @@ function marg_idxs_shaped(samples::DensitySampleVector,
 end 
 
 
+function marg_idxs_shaped(samples::DensitySampleVector,
+                          vsel::AbstractVector{AbstractUnitRange}
+)    
+    vs = varshape(samples)
+    flat_v = ValueShapes.flatview(unshaped.(samples).v)
+    strs = _all_exprs_as_strings(vs)[vsel[1]]
+
+    keys = encode_name.(strs)
+    shapes = fill(ScalarShape{Real}(), length(vsel[1]))
+
+    sel_idxs = firstindex(flat_v) .+ vsel[1]
+    new_shape = NamedTupleShape(NamedTuple(keys .=> shapes))
+
+    return sel_idxs, new_shape
+end 
+
 # Encode dim names to preserve indexing information 
 #
 # unicode encodings to preserve indexing information:
@@ -149,7 +176,7 @@ end
 # :a⌞2ː4⌟   = : a \llcorner 2 \lmrk 4 \lrcorner 
 # :a⌞1ˌ3ˌ5⌟ = : a \llcorner 1 \verti 3 \verti 5 \lrcorner
 
-function encode_name(name::Expr)
+function encode_name(name::Union{Expr, String})
     code = replace(string(name)," " => "", "[" => "⌞", ":" => "ː", "," => "ˌ", "]" => "⌟")     
     return Symbol(code)
 end 
@@ -218,18 +245,14 @@ function bat_marginalize(samples::DensitySampleVector,
 )
     shaped = isshaped(samples)
     vs = varshape(samples)
-    vsel = vsel isa Tuple ? [vsel...] : vsel
+    vsel = vsel isa Tuple ? Union{typeof.(vsel)...}[vsel...] : vsel
 
     if shaped
        vsel = _normalize_vsel_shaped(vs, vsel)
+       flat_idxs, new_shape = marg_idxs_shaped(samples, vsel)
     else
        vsel = _normalize_vsel_unshaped(vsel)
-    end
-
-    if shaped
-        flat_idxs, new_shape = marg_idxs_shaped(samples, vsel)
-    else
-        flat_idxs = marg_idxs_unshaped(samples, vsel)
+       flat_idxs = marg_idxs_unshaped(samples, vsel)
     end
 
     flat_orig_data = ValueShapes.flatview(unshaped.(samples).v)
