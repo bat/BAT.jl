@@ -208,7 +208,7 @@ function calculate_levels(
     return sort(levels)
 end
 
-function _all_exprs(vs::AbstractValueShape)
+function _all_exprs(vs::NamedTupleShape)
     accs = vs._accessors
     syms = keys(accs)
     lengths = length.(values(accs))
@@ -230,7 +230,7 @@ function _all_exprs(vs::AbstractValueShape)
     return exprs
 end
 
-function _all_exprs_as_strings(vs::AbstractValueShape)
+function _all_exprs_as_strings(vs::NamedTupleShape)
     accs = vs._accessors
     syms = keys(accs)
     lengths = length.(values(accs))

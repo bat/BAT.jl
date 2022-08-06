@@ -3,6 +3,7 @@
 using BAT
 using Distributions
 using IntervalSets
+using DensityInterface
 
 # ## Generate samples to be plotted
 likelihood = logfuncdensity(params -> begin
