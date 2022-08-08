@@ -29,6 +29,7 @@ using ElasticArrays
 using FFTW
 using FillArrays
 using ForwardDiffPullbacks
+using FunctionChains
 using IntervalSets
 using InverseFunctions
 using KernelDensity
