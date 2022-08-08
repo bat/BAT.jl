@@ -19,5 +19,7 @@ bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::Ren
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::SampledMeasure) = PriorSubstitution()
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::DistMeasure{<:StandardNormalDist}) = IdentityTransformAlgorithm()
 
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::Function, ::DensitySampleVector) = SampleTransformation()
+
 
 # ToDo: Add ToUnitBounded and ToUnbounded

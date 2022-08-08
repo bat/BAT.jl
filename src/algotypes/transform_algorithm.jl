@@ -257,3 +257,28 @@ function transform_and_unshape(bat_trafofunc::Function, trafotarget::AbstractTra
     result_trafo = us_trafo ∘ initial_trafo
     return result_density, result_trafo
 end
+
+
+
+"""
+    bat_transform(
+        f::Function,
+        smpls::DensitySampleVector,
+        [algorithm::TransformAlgorithm]
+    )::DensitySampleVector
+"""
+function bat_transform(
+    f::Function,
+    smpls::DensitySampleVector,
+    algorithm::TransformAlgorithm = bat_default_withinfo(bat_transform, Val(:algorithm), f, smpls)
+)
+    r = bat_transform_impl(f, smpls, algorithm)
+    result_with_args(r, (algorithm = algorithm,))
+end
+
+
+struct SampleTransformation <: TransformAlgorithm end
+
+function bat_transform_impl(f::Function, smpls::DensitySampleVector, ::SampleTransformation)
+    (result = broadcast_arbitrary_trafo(f, smpls),)
+end

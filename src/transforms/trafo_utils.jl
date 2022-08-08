@@ -62,3 +62,24 @@ function broadcast_trafo(
     end
     vs_trg.(s_trg_unshaped)
 end
+
+
+# ToDo: Unify with broadcast_trafo
+
+function broadcast_arbitrary_trafo(
+    trafo::Any,
+    smpls::DensitySampleVector
+)
+    dummy_x = first(smpls.v)
+    dummy_y = trafo(dummy_x)
+    y_shape = valshape(dummy_y)
+    unshaped_Y = VectorOfSimilarVectors(FunctionChain((trafo, inverse(y_shape))).(smpls.v))
+    Y = y_shape.(unshaped_Y)
+    DensitySampleVector((
+        Y,
+        Fill(NaN, length(eachindex(smpls.logd))),
+        deepcopy(smpls.weight),
+        deepcopy(smpls.info),
+        deepcopy(smpls.aux),
+    ))
+end
