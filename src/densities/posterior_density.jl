@@ -240,8 +240,8 @@ end
 function example_posterior()
     rng = StableRNGs.StableRNG(0x4cf83495c736cac2)
     prior = NamedTupleDist(
-        a = Exponential(),
         b = [4.2, 3.3],
+        a = Exponential(),
         c = Normal(1, 3),
         d = [Weibull(), Weibull()],
         e = Beta(),
