@@ -38,21 +38,20 @@ function bat_read(src::Union{AbstractString,Tuple{AbstractString, AbstractString
     ftype = _file_type_from_extension(src)
     if ftype == "HDF5"
         _h5io_open(src, "r") do input
-            #=
-                Currently (HDF5.jl - v0.16.9), the keyword `track_order` is ignored in read-in. 
-                Thus, HDF5.IDX_TYPE[] has to be set manually.
-                The try-catch-block is necessary in order to be able to load old files.
-            =#
-            prev = HDF5.IDX_TYPE[] 
-            HDF5.IDX_TYPE[] = HDF5.API.H5_INDEX_CRT_ORDER
-            r = try
-                (result = _h5io_read(input),)
-            catch err
+            if _h5_IDX_TYPE_available() 
+                prev = HDF5.IDX_TYPE[] 
+                HDF5.IDX_TYPE[] = HDF5.API.H5_INDEX_CRT_ORDER
+                r = try
+                    (result = _h5io_read(input),)
+                catch err
+                    HDF5.IDX_TYPE[] = prev
+                    (result = _h5io_read(input),)
+                end
                 HDF5.IDX_TYPE[] = prev
+                r            
+            else
                 (result = _h5io_read(input),)
             end
-            HDF5.IDX_TYPE[] = prev
-            r            
         end
     else
         throw(ArgumentError("Unknown file type $ftype"))

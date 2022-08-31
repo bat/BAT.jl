@@ -19,7 +19,7 @@ _h5io_add_path_to_dest(dest, path::AbstractString) = (dest, path)
 
 function _h5io_write!(dest_with_subpath::Tuple{Any,AbstractString}, data::AbstractArray{<:Real})
     dest, path = dest_with_subpath
-    if occursin('/', path) && _h5_track_order_available()
+    if occursin('/', path) && _h5_track_order_kw_available()
         group_name = dirname(path)
         dataset_name = basename(path)
         g = if !haskey(dest, group_name)
@@ -123,7 +123,7 @@ _h5io_read_postprocess(nt::NamedTuple{(:chainid, :chaincycle, :stepno, :samplety
     MCMCSampleIDVector((nt.chainid, nt.chaincycle, nt.stepno, nt.sampletype))
 
 # This method is needed for older hdf5 files where `track_order` was not yet used
-h5io_read_postprocess(nt::NamedTuple{(:chaincycle, :chainid, :sampletype, :stepno)}) =
+_h5io_read_postprocess(nt::NamedTuple{(:chaincycle, :chainid, :sampletype, :stepno)}) =
     MCMCSampleIDVector((nt.chainid, nt.chaincycle, nt.stepno, nt.sampletype))
 
 function _const_col_value(col::AbstractVector)
