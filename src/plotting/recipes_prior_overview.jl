@@ -109,20 +109,22 @@
 
 end
 
-function _all_exprs(dist::NamedTupleDist)
+function _all_active_exprs(dist::NamedTupleDist)
     vs = varshape(dist)
     accs = vs._accessors
     syms = keys(accs)
-    lengths = length.(values(accs))
     vsel = Any[]
 
     for (i,sym) in enumerate(syms)
         vsel_tmp = Any[]
 
-        if lengths[i] == 1 
+	lengths_i = getproperty(vs, sym).len
+	if lengths_i == 0
+           skip
+        elseif lengths_i == 1 
             push!(vsel_tmp, Meta.parse("$sym"))
         else
-            for id in 1:lengths[i]
+            for id in 1:lengths_i
                 push!(vsel_tmp, Meta.parse("$sym[$id]"))
             end
         end
