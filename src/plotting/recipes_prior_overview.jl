@@ -15,8 +15,8 @@
         vsel = reduce(vcat, vsel)
     end
     vsel = vsel[vsel .<=  totalndof(BAT.varshape(prior))]
-    all_exprs = _all_exprs(prior)
-    vsel = all_exprs[vsel]
+    all_active_exprs = _all_active_exprs(prior)
+    vsel = all_active_exprs[vsel]
 
     xlabel = string.(vsel)
     ylabel = ["p($l)" for l in xlabel]
