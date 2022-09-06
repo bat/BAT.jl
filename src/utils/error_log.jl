@@ -48,16 +48,22 @@ function enable_error_log(enable::Bool = true)
 end
 
 
-function log_error(entry::ErrLogEntry)
+function store_errlogentry(entry::ErrLogEntry)
     if !isnothing(error_log())
         push!(error_log(), entry)
     end
     if myid() != 1
-        remotecall(() -> log_error(entry), 1)
+        remotecall(() -> store_errlogentry(entry), 1)
     end
 end
 
-log_error(err::Exception) = log_error(ErrLogEntry(now(), threadid(), myid(), err))
+
+log_error(err::Exception) = store_errlogentry(ErrLogEntry(now(), threadid(), myid(), err))
+
+function ChainRulesCore.rrule(::typeof(log_error), err::Exception)
+    return log_error(), _log_error_pullback
+end
+_log_error_pullback(ΔΩ) = (NoTangent(), NoTangent())
 
 
 macro throw_logged(expr)
