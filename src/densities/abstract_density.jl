@@ -222,10 +222,16 @@ end
 
 function _check_density_logval(density::AbstractMeasureOrDensity, v::Any, logval::Real)
     if isnan(logval) || !(logval < float(typeof(logval))(+Inf))
-        throw(EvalException(logdensityof, density, v, logval))
+        @throw_logged(EvalException(logdensityof, density, v, logval))
     end
     nothing
 end
+
+function ChainRulesCore.rrule(::typeof(_check_density_logval), density::AbstractMeasureOrDensity, v::Any, logval::Real)
+    return _check_density_logval(density, v, logval), _check_density_logval_pullback
+end
+_check_density_logval_pullback(ΔΩ) = (NoTangent(), NoTangent(), ZeroTangent(), ZeroTangent())
+
 
 
 value_for_msg(v::Real) = v
