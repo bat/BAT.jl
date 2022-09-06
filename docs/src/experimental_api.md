@@ -30,7 +30,7 @@ ForwardDiffAD
 GridSampler
 HierarchicalDistribution
 PriorImportanceSampler
-ReactiveNestedSampling
+#ReactiveNestedSampling
 renormalize_density
 SobolSampler
 SuaveIntegration

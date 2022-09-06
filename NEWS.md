@@ -83,7 +83,7 @@ New experimental features
 * `DifferentiationAlgorithm`[@ref]
 * `EllipsoidalNestedSampling`[@ref]
 * `ForwardDiffAD`[@ref]
-* `ReactiveNestedSampling`[@ref]
+* `ReactiveNestedSampling`
 * `renormalize_density`[@ref]
 * `truncate_density`[@ref]
 * `valgradof`[@ref]

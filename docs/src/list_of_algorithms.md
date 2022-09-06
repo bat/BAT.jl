@@ -33,7 +33,7 @@ sampling_algorithm = MCMCSampling(mcalg = HamiltonianMC())
 ```
 
 ### Reactive Nested Sampling (experimental)
-BAT.jl sampling algorithm type: [`ReactiveNestedSampling`](@ref)
+BAT.jl sampling algorithm type: `ReactiveNestedSampling`, requires [UltraNest.jl](https://github.com/bat/UltraNest.jl).
 ```julia
 sampling_algorithm = ReactiveNestedSampling()
 ```
