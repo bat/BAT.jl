@@ -53,15 +53,6 @@ abstract type MCMCBurninAlgorithm end
 export MCMCBurninAlgorithm
 
 
-"""
-    abstract type MCMCConvergenceTest
-
-        Abstract type for MCMC convergence testing algorithms.
-            """
-abstract type MCMCConvergenceTest end
-export MCMCConvergenceTest
-
-
 
 @with_kw struct MCMCIteratorInfo
     id::Int32

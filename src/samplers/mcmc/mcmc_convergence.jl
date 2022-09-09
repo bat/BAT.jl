@@ -1,17 +1,14 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-abstract type MCMCConvergenceTestResult end
-
-
 function check_convergence!(
-    ct::MCMCConvergenceTest,
     chains::AbstractVector{<:MCMCIterator},
-    samples::AbstractVector{<:DensitySampleVector}
+    samples::AbstractVector{<:DensitySampleVector},
+    algorithm::ConvergenceTest,
 )
-    result = check_convergence(ct, samples)
+    result = convert(Bool, bat_convergence(samples, algorithm).result)
     for chain in chains
-        chain.info = MCMCIteratorInfo(chain.info, converged = result.converged)
+        chain.info = MCMCIteratorInfo(chain.info, converged = result)
     end
     result
 end
@@ -42,7 +39,7 @@ end
 
 
 """
-    struct GelmanRubinConvergence <: MCMCConvergenceTest
+    struct GelmanRubinConvergence <: ConvergenceTest
 
 Gelman-Rubin maximum R^2 convergence test.
 
@@ -54,27 +51,21 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct GelmanRubinConvergence <: MCMCConvergenceTest
+@with_kw struct GelmanRubinConvergence <: ConvergenceTest
     threshold::Float64 = 1.1
 end
 
 export GelmanRubinConvergence
 
-
-struct GRConvergenceResult <: MCMCConvergenceTestResult
-    converged::Bool
-    max_Rsqr::Float64
-end
-
-
-function check_convergence(ct::GelmanRubinConvergence, samples::AbstractVector{<:DensitySampleVector})
+function bat_convergence_impl(samples::AbstractVector{<:DensitySampleVector}, algorithm::GelmanRubinConvergence)
     max_Rsqr = maximum(gr_Rsqr(samples))
-    converged = max_Rsqr <= ct.threshold
+    vt = ValueAndThreshold{max_Rsqr}(max_Rsqr, <=, algorithm.threshold)
+    converged = convert(Bool, vt)
     @debug begin
         success_str = converged ? "have" : "have *not*"
-        "Chains $success_str converged, max(R^2) = $(max_Rsqr), threshold = $(ct.threshold)"
+        "Chains $success_str converged, max(R^2) = $(vt.value), threshold = $(vt.threshold)"
     end
-    GRConvergenceResult(converged, max_Rsqr)
+    (result = vt,)
 end
 
 
@@ -128,7 +119,7 @@ end
 
 
 """
-    struct BrooksGelmanConvergence <: MCMCConvergenceTest
+    struct BrooksGelmanConvergence <: ConvergenceTest
 
 Brooks-Gelman maximum R^2 convergence test.
 
@@ -140,40 +131,35 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct BrooksGelmanConvergence <: MCMCConvergenceTest
+@with_kw struct BrooksGelmanConvergence <: ConvergenceTest
     threshold::Float64 = 1.1
     corrected::Bool = false
 end
 
 export BrooksGelmanConvergence
 
-
-struct BGConvergenceResult <: MCMCConvergenceTestResult
-    converged::Bool
-    max_Rsqr::Float64
-end
-
-
-function check_convergence(ct::BrooksGelmanConvergence, samples::AbstractVector{<:DensitySampleVector})
-    max_Rsqr = maximum(bg_R_2sqr(samples, corrected = ct.corrected))
-    converged = max_Rsqr <= ct.threshold
+function bat_convergence_impl(samples::AbstractVector{<:DensitySampleVector}, algorithm::BrooksGelmanConvergence)
+    max_Rsqr = maximum(bg_R_2sqr(samples, corrected = algorithm.corrected))
+    vt = ValueAndThreshold{max_Rsqr}(max_Rsqr, <=, algorithm.threshold)
+    converged = convert(Bool, vt)
     @debug begin
         success_str = converged ? "have" : "have *not*"
-        "Chains $success_str converged, max(R^2) = $(max_Rsqr), threshold = $(ct.threshold)"
+        "Chains $success_str converged, max(R^2) = $(vt.value), threshold = $(vt.threshold)"
     end
-    BGConvergenceResult(converged, max_Rsqr)
+    (result = vt,)
 end
 
-function check_convergence(ct::BrooksGelmanConvergence, samples::DensitySampleVector)
 
+
+function bat_convergence_impl(samples::DensitySampleVector, algorithm::Union{GelmanRubinConvergence, BrooksGelmanConvergence})
     # create a vector of chains
     chains_ind = unique([i.chainid for i in samples.info])
     vector_chains = DensitySampleVector[]
+    # ToDo: Improve implementation
     for i in chains_ind
         mask_chain = [j.chainid == i for j in samples.info]
         push!(vector_chains, samples[mask_chain])
     end
 
-    check_convergence(ct, vector_chains)
-
+    bat_convergence_impl(vector_chains, algorithm)
 end

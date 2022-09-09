@@ -30,6 +30,7 @@ Order = [:macro, :function]
 ```@docs
 logvalof
 
+bat_convergence
 bat_default
 bat_eff_sample_size
 bat_findmedian
@@ -50,29 +51,30 @@ BAT.fft_autocov
 
 BAT.AbstractMeasureOrDensity
 
-AbstractTransformTarget
 AbstractMCMCWeightingScheme
 AbstractPosteriorMeasure
 AbstractTransformed
+AbstractTransformTarget
 AbstractTransformToInfinite
 AbstractTransformToUnitspace
 AdaptiveMHTuning
-AnyMeasureOrDensity
 AnyIIDSampleable
+AnyMeasureOrDensity
 AnySampleable
 ARPWeighting
+AssumeConvergence
 AutocorLenAlgorithm
 bat_transform
 BrooksGelmanConvergence
 CholeskyPartialWhitening
 CholeskyWhitening
-IdentityTransformAlgorithm
 DensitySample
 DensitySampleVector
 DistLikeMeasure
 EffSampleSizeAlgorithm
 EffSampleSizeFromAC
 ExplicitInit
+IdentityTransformAlgorithm
 FullMeasureTransform
 GelmanRubinConvergence
 GeyerAutocorLen
@@ -91,7 +93,6 @@ MaxDensitySearch
 MCMCAlgorithm
 MCMCBurninAlgorithm
 MCMCChainPoolInit
-MCMCConvergenceTest
 MCMCInitAlgorithm
 MCMCIterator
 MCMCMultiCycleBurnin
@@ -118,6 +119,7 @@ WhiteningAlgorithm
 
 BAT.AbstractModeEstimator
 BAT.AbstractSamplingAlgorithm
+BAT.ConvergenceTest
 BAT.GenericDensity
 
 ValueShapes.totalndof

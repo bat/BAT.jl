@@ -19,7 +19,7 @@ $(TYPEDFIELDS)
     TR<:AbstractTransformTarget,
     IN<:MCMCInitAlgorithm,
     BI<:MCMCBurninAlgorithm,
-    CT<:MCMCConvergenceTest,
+    CT<:ConvergenceTest,
     CB<:Function
 } <: AbstractSamplingAlgorithm
     mcalg::AL = MetropolisHastings()
@@ -89,7 +89,6 @@ function bat_sample_impl(
     samples_trafo = varshape(density).(output)
 
     samples_notrafo = inverse(trafo).(samples_trafo)
-    isvalid = check_convergence(algorithm.convergence, samples_notrafo).converged
 
-    (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = MCMCSampleGenerator(chains), isvalid = isvalid)
+    (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = MCMCSampleGenerator(chains))
 end

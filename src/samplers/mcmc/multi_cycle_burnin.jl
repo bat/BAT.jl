@@ -28,7 +28,7 @@ function mcmc_burnin!(
     tuners::AbstractVector{<:AbstractMCMCTunerInstance},
     chains::AbstractVector{<:MCMCIterator},
     burnin_alg::MCMCMultiCycleBurnin,
-    convergence_test::MCMCConvergenceTest,
+    convergence_test::ConvergenceTest,
     strict_mode::Bool,
     nonzero_weights::Bool,
     callback::Function
@@ -58,7 +58,7 @@ function mcmc_burnin!(
         tuning_update!.(tuners, chains, new_outputs)
         isnothing(outputs) || append!.(outputs, new_outputs)
 
-        ct_result = check_convergence!(convergence_test, chains, new_outputs)
+        check_convergence!(chains, new_outputs, convergence_test)
 
         ntuned = count(c -> c.info.tuned, chains)
         nconverged = count(c -> c.info.converged, chains)
