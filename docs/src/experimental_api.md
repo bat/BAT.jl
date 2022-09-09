@@ -36,6 +36,7 @@ SobolSampler
 SuaveIntegration
 truncate_density
 valgradof
+ValueAndThreshold
 VEGASIntegration
 ZygoteAD
 ```
