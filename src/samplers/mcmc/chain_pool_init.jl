@@ -169,6 +169,11 @@ function mcmc_init!(
             push!(final_tuners, tuners[i])
             push!(final_outputs, outputs[i])
         end
+    elseif m == 1
+        i = findmax(nsamples.(chains))[2]
+        push!(final_chains, chains[i])
+        push!(final_tuners, tuners[i])
+        push!(final_outputs, outputs[i])
     else
         @assert length(chains) == nchains
         resize!(final_chains, nchains)
