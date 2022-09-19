@@ -10,12 +10,13 @@
     vsel_label = []
 )
     vsel = collect(vsel)
+    vs = BAT.varshape(prior)
     if isa(vsel, Vector{<:Integer}) == false
-        vsel = asindex.(Ref(BAT.varshape(prior)), vsel)
+        vsel = asindex.(Ref(vs), vsel)
         vsel = reduce(vcat, vsel)
     end
-    vsel = vsel[vsel .<=  totalndof(BAT.varshape(prior))]
-    all_exprs = _all_exprs(prior)
+    vsel = vsel[vsel .<=  totalndof(vs)]
+    all_exprs = _all_exprs(vs)
     vsel = all_exprs[vsel]
 
     xlabel = string.(vsel)
@@ -107,27 +108,4 @@
         end
     end
 
-end
-
-function _all_exprs(dist::NamedTupleDist)
-    vs = varshape(dist)
-    accs = vs._accessors
-    syms = keys(accs)
-    lengths = length.(values(accs))
-    vsel = Any[]
-
-    for (i,sym) in enumerate(syms)
-        vsel_tmp = Any[]
-
-        if lengths[i] == 1 
-            push!(vsel_tmp, Meta.parse("$sym"))
-        else
-            for id in 1:lengths[i]
-                push!(vsel_tmp, Meta.parse("$sym[$id]"))
-            end
-        end
-        push!(vsel, vsel_tmp...)
-    end
-
-    return vsel
 end
