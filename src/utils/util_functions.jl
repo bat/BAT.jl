@@ -50,3 +50,6 @@ combine_callbacks(f::CombinedCallback, g::CombinedCallback) = CombinedCallback((
 
 
 near_neg_inf(::Type{T}) where T<:Real = T(-1E38) # Still fits into Float32
+
+isneginf(x) = isinf(x) && x < 0 
+isposinf(x) = isinf(x) && x > 0 

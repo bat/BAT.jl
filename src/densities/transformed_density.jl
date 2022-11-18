@@ -97,11 +97,11 @@ function _combine_logd_with_ladj(logd_orig::Real, ladj::Real)
     logd_result = logd_orig + ladj
     R = typeof(logd_result)
 
-    if isnan(logd_result) && logd_orig == -Inf && ladj == +Inf
+    if isnan(logd_result) && isneginf(logd_orig) && isposinf(ladj)
         # Zero density wins against infinite volume:
         R(-Inf)
-    elseif isfinite(logd_orig) && (ladj == -Inf)
-        # Maybe  also for (logd_orig == -Inf) && isfinite(ladj) ?
+    elseif isfinite(logd_orig) && isneginf(ladj)
+        # Maybe  also for isneginf(logd_orig) && isfinite(ladj) ?
         # Return constant -Inf to prevent problems with ForwardDiff:
         #R(-Inf)
         near_neg_inf(R) # Avoids AdvancedHMC warnings
@@ -118,6 +118,7 @@ end
 
 function checked_logdensityof(density::Transformed{D,FT,TDLADJCorr}, v::Any) where {D,FT,}
     v_orig, ladj = _v_orig_and_ladj(density, v)
-    logd_orig = checked_logdensityof(parent(density), v_orig)
+    logd_orig = logdensityof(parent(density), v_orig)
+    isnan(logd_orig) && @throw_logged EvalException(logdensityof, density, v, 0)
     _combine_logd_with_ladj(logd_orig, ladj)
 end

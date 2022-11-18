@@ -173,7 +173,7 @@ function ChangesOfVariables.with_logabsdet_jacobian(trafo::DistributionTransform
     logpdf_trg = logpdf(trafo.target_dist, y)
     ladj = logpdf_src - logpdf_trg
     # If logpdf_src and logpdf_trg are -Inf setting lafj to zero is safe:
-    fixed_ladj = logpdf_src == logpdf_trg == -Inf ? zero(ladj) : ladj
+    fixed_ladj = isneginf(logpdf_src) && isneginf(logpdf_trg) ? zero(ladj) : ladj
     y, fixed_ladj
 end
 
@@ -396,7 +396,7 @@ std_dist_to(trg_d::Distribution{Univariate,Continuous}) = StandardUvUniform()
 function apply_dist_trafo(trg_d::Distribution{Univariate,Continuous}, ::StandardUvUniform, src_v::Real)
     TV = float(typeof(src_v))
     # Avoid src_v ≈ 0 and src_v ≈ 1 to avoid infinite variate values for target distributions with infinite support:
-    mod_src_v = ifelse(src_v == 0, zero(TV) + eps(TV), ifelse(src_v == 1, one(TV) - eps(TV), convert(TV, src_v)))
+    mod_src_v = ifelse(src_v ≈ 0, zero(TV) + eps(TV), ifelse(src_v ≈ 1, one(TV) - eps(TV), convert(TV, src_v)))
     _eval_dist_trafo_func(_trafo_quantile, trg_d, mod_src_v)
 end
 
