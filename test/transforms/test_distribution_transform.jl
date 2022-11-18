@@ -15,12 +15,14 @@ using InverseFunctions, ChangesOfVariables, DensityInterface
             trg_v = BAT.apply_dist_trafo(trg_d, src_d, src_v)
             src_v_reco = BAT.apply_dist_trafo(src_d, trg_d, trg_v)
 
-            @test src_v ≈ src_v_reco
+            @test isapprox(src_v, src_v_reco, rtol = 1e-5)
 
-            let vs_trg = varshape(trg_d), vs_src = varshape(src_d)
-                f = unshaped_x -> inverse(vs_trg)(BAT.apply_dist_trafo(trg_d, src_d, vs_src(unshaped_x)))
-                ref_ladj = logpdf(src_d, src_v) - logpdf(trg_d, trg_v)
-                @test ref_ladj ≈ logabsdet(ForwardDiff.jacobian(f, inverse(vs_src)(src_v)))[1]
+            if (totalndof(varshape(trg_d)) == totalndof(varshape(src_d)))
+                let vs_trg = varshape(trg_d), vs_src = varshape(src_d)
+                    f = unshaped_x -> inverse(vs_trg)(BAT.apply_dist_trafo(trg_d, src_d, vs_src(unshaped_x)))
+                    ref_ladj = logpdf(src_d, src_v) - logpdf(trg_d, trg_v)
+                    @test ref_ladj ≈ logabsdet(ForwardDiff.jacobian(f, inverse(vs_src)(src_v)))[1]
+                end
             end
         end
     end
@@ -62,7 +64,7 @@ using InverseFunctions, ChangesOfVariables, DensityInterface
     mvnorm = MvNormal([0.3, -2.9], [1.7 0.5; 0.5 2.3])
     beta = Beta(3,1)
     gamma = Gamma(0.1,0.7)
-    dirich = Dirichlet([0.1,4])
+    dirich = Dirichlet([0.1, 4.0, 2.2, 0.7])
 
     ntdist = NamedTupleDist(
         a = uniform1,
@@ -94,7 +96,7 @@ using InverseFunctions, ChangesOfVariables, DensityInterface
     test_dist_trafo_moments(gamma, stduvnorm)
 
     test_dist_trafo_moments(mvnorm, stdmvnorm2)
-    test_dist_trafo_moments(dirich, stdmvnorm1)
+    test_dist_trafo_moments(dirich, BAT.StandardMvNormal(3))
 
     test_dist_trafo_moments(mvnorm, stdmvuni2)
     test_dist_trafo_moments(stdmvuni2, mvnorm)
@@ -105,7 +107,9 @@ using InverseFunctions, ChangesOfVariables, DensityInterface
     test_dist_trafo_moments(standnorm2_reshaped, mvnorm)
     test_dist_trafo_moments(stdmvnorm2, standnorm2_reshaped)
     test_dist_trafo_moments(standnorm2_reshaped, standnorm2_reshaped)
-    
+
+    test_back_and_forth(dirich, BAT.StandardMvNormal(3))
+
     test_back_and_forth(ntdist, BAT.StandardMvNormal(5))
     test_back_and_forth(ntdist, BAT.StandardMvUniform(5))
 
@@ -264,8 +268,8 @@ end
     @test @inferred(bat_transform(DoNotTransform(), density)).result.dist == density.dist
 
     # ToDo: Improve comparison for bounds so `.dist` is not required here:
-    @inferred(bat_transform(PriorToUniform(), convert(AbstractMeasureOrDensity, BAT.StandardUvUniform()))).result.dist == convert(AbstractMeasureOrDensity, BAT.StandardUvUniform()).dist
-    @inferred(bat_transform(PriorToUniform(), convert(AbstractMeasureOrDensity, BAT.StandardMvUniform(4)))).result.dist == convert(AbstractMeasureOrDensity, BAT.StandardMvUniform(4)).dist
-    @inferred(bat_transform(PriorToGaussian(), convert(AbstractMeasureOrDensity, BAT.StandardUvNormal()))).result.dist == convert(AbstractMeasureOrDensity, BAT.StandardUvNormal()).dist
-    @inferred(bat_transform(PriorToGaussian(), convert(AbstractMeasureOrDensity, BAT.StandardMvNormal(4)))).result.dist == convert(AbstractMeasureOrDensity, BAT.StandardMvNormal(4)).dist
+    @inferred(bat_transform(PriorToUniform(), convert(BAT.AbstractMeasureOrDensity, BAT.StandardUvUniform()))).result.dist == convert(BAT.AbstractMeasureOrDensity, BAT.StandardUvUniform()).dist
+    @inferred(bat_transform(PriorToUniform(), convert(BAT.AbstractMeasureOrDensity, BAT.StandardMvUniform(4)))).result.dist == convert(BAT.AbstractMeasureOrDensity, BAT.StandardMvUniform(4)).dist
+    @inferred(bat_transform(PriorToGaussian(), convert(BAT.AbstractMeasureOrDensity, BAT.StandardUvNormal()))).result.dist == convert(BAT.AbstractMeasureOrDensity, BAT.StandardUvNormal()).dist
+    @inferred(bat_transform(PriorToGaussian(), convert(BAT.AbstractMeasureOrDensity, BAT.StandardMvNormal(4)))).result.dist == convert(BAT.AbstractMeasureOrDensity, BAT.StandardMvNormal(4)).dist
 end

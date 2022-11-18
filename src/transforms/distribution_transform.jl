@@ -479,9 +479,16 @@ eff_totalndof(d::DistributionsAD.TuringDirichlet) = length(d) - 1
 std_dist_to(trg_d::Dirichlet) = StandardMvUniform(eff_totalndof(trg_d))
 std_dist_to(trg_d::DistributionsAD.TuringDirichlet) = StandardMvUniform(eff_totalndof(trg_d))
 
+std_dist_from(trg_d::Dirichlet) = StandardMvUniform(eff_totalndof(trg_d))
+std_dist_from(trg_d::DistributionsAD.TuringDirichlet) = StandardMvUniform(eff_totalndof(trg_d))
+
 
 function apply_dist_trafo(trg_d::Dirichlet, src_d::StandardMvUniform, src_v::AbstractVector{<:Real})
     apply_dist_trafo(DistributionsAD.TuringDirichlet(trg_d.alpha), src_d, src_v)
+end
+
+function apply_dist_trafo(trg_d::StandardMvUniform, src_d::Dirichlet, src_v::AbstractVector{<:Real})
+    apply_dist_trafo(trg_d, DistributionsAD.TuringDirichlet(src_d.alpha), src_v)
 end
 
 function _dirichlet_beta_trafo(α::Real, β::Real, src_v::Real)
@@ -502,6 +509,35 @@ function apply_dist_trafo(trg_d::DistributionsAD.TuringDirichlet, src_d::Standar
     beta_v_cp = _exp_cumsum_log(_pushfront(beta_v, 1))
     beta_v_ext = _pushback(beta_v, 0)
     fwddiff(_a_times_one_minus_b).(beta_v_cp, beta_v_ext)
+end
+
+function _inv_dirichlet_beta_trafo(α::Real, β::Real, beta_v::Real)
+    R = float(promote_type(typeof(α), typeof(β), typeof(beta_v)))
+    convert(R, apply_dist_trafo(StandardUvUniform(), Beta(α, β), beta_v))::R
+end
+
+# ToDo: Find efficient pullback for this:
+function _dirichlet_variate_to_beta_v(src_v::AbstractVector{<:Real})
+    idxs = eachindex(src_v)
+    beta_v = similar(src_v, length(idxs) - 1)
+    @assert firstindex(beta_v) == firstindex(src_v)
+    @assert lastindex(beta_v) == lastindex(src_v) - 1
+    T = eltype(src_v)
+    sum_log_beta_v::T = 0
+    @inbounds for i in eachindex(beta_v)
+        beta_v[i] = 1 - src_v[i] / exp(sum_log_beta_v)
+        sum_log_beta_v += log(beta_v[i])
+    end
+    return beta_v
+end
+
+# ToDo: Make Zygote-compatible:
+function apply_dist_trafo(trg_d::StandardMvUniform, src_d::DistributionsAD.TuringDirichlet, src_v::AbstractVector{<:Real})
+    @_adignore @argcheck length(trg_d) == length(src_d) - 1
+    αs = _dropfront(_rev_cumsum(src_d.alpha))
+    βs = _dropback(src_d.alpha)
+    beta_v = _dirichlet_variate_to_beta_v(src_v)
+    fwddiff(_inv_dirichlet_beta_trafo).(αs, βs, beta_v)
 end
 
 
