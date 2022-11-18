@@ -211,7 +211,7 @@ function Distributions.logpdf(ud::UnshapedHDist, x::AbstractVector{<:Real})
 end
 
 
-Distributions.pdf(d::HierarchicalDistribution, x::Any) where names = exp(logpdf(d, x))
+Distributions.pdf(d::HierarchicalDistribution, x::Any) = exp(logpdf(d, x))
 
 Distributions.pdf(ud::UnshapedHDist, x::AbstractVector{<:Real}) = exp(logpdf(ud, x))
 

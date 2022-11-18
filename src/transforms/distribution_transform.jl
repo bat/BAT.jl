@@ -321,7 +321,7 @@ _dist_params_numtype(d::Distribution) = promote_type(map(typeof, Distributions.p
 
 @inline _trafo_cdf_impl(::Type{<:Real}, d::Distribution{Univariate,Continuous}, x::Real) = cdf(d, x)
 
-@inline function _trafo_cdf_impl(::Type{<:Union{Integer,AbstractFloat}}, d::Distribution{Univariate,Continuous}, x::ForwardDiff.Dual{TAG}) where {N,TAG}
+@inline function _trafo_cdf_impl(::Type{<:Union{Integer,AbstractFloat}}, d::Distribution{Univariate,Continuous}, x::ForwardDiff.Dual{TAG}) where TAG
     x_v = ForwardDiff.value(x)
     u = cdf(d, x_v)
     dudx = pdf(d, x_v)

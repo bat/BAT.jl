@@ -127,7 +127,7 @@ function truncate_dist_hard(dist::NamedTupleDist{names,DT,AT,VT}, bounds::Abstra
     (dist = trunc_dist, logrenormf = logrenormf)
 end
 
-function truncate_dist_hard(dist::ValueShapes.UnshapedNTD, bounds::AbstractArray{<:Interval}) where names
+function truncate_dist_hard(dist::ValueShapes.UnshapedNTD, bounds::AbstractArray{<:Interval})
     @argcheck length(eachindex(bounds)) == length(dist)
     r = truncate_dist_hard(dist.shaped, bounds)
     (dist = unshaped(r.dist), logrenormf = r.logrenormf)

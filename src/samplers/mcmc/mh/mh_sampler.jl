@@ -303,7 +303,7 @@ function _mh_weights(
     algorithm::MetropolisHastings{Q,<:RepetitionWeighting},
     p_accept::Real,
     accepted::Bool
-) where {Q,W}
+) where Q
     if accepted
         (0, 1)
     else
@@ -316,7 +316,7 @@ function _mh_weights(
     algorithm::MetropolisHastings{Q,<:ARPWeighting},
     p_accept::Real,
     accepted::Bool
-) where {Q,W}
+) where Q
     T = typeof(p_accept)
     if p_accept ≈ 1
         (zero(T), one(T))

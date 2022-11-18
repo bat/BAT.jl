@@ -189,7 +189,7 @@ function DensitySampleVector(
 end
 
 
-function Base.similar(s::DensitySampleVector, sz::Tuple) where {T}
+function Base.similar(s::DensitySampleVector, sz::Tuple)
     DensitySampleVector(map(c -> similar(c, sz), values(StructArrays.components(s))))
 end
 

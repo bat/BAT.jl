@@ -14,7 +14,7 @@ function _normalize_vsel_unshaped(vsel::Union{AbstractVector{I}, AbstractVector{
     return vsel
 end
 
-function _normalize_vsel_unshaped(vsel::Integer) where T <: Integer
+function _normalize_vsel_unshaped(vsel::Integer)
     return Int[vsel]
 end
 
