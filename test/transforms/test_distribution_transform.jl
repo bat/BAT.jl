@@ -64,7 +64,7 @@ using InverseFunctions, ChangesOfVariables, DensityInterface
     mvnorm = MvNormal([0.3, -2.9], [1.7 0.5; 0.5 2.3])
     beta = Beta(3,1)
     gamma = Gamma(0.1,0.7)
-    dirich = Dirichlet([0.1, 4.0, 2.2, 0.7])
+    dirich = Dirichlet([0.5, 4.0, 2.2, 0.7])
 
     ntdist = NamedTupleDist(
         a = uniform1,
