@@ -10,16 +10,12 @@ struct DistMeasure{
 end
 
 DistMeasure(d::Distribution) = DistMeasure(d, dist_param_bounds(d))
-DistMeasure(d::DistributionMeasure) = DistMeasure(d.d, dist_param_bounds(d.d))
 
 Base.convert(::Type{AbstractMeasureOrDensity}, d::ContinuousDistribution) = DistMeasure(d)
 Base.convert(::Type{DistLikeMeasure}, d::ContinuousDistribution) = DistMeasure(d)
 
 Base.convert(::Type{Distribution}, d::DistMeasure) = d.dist
 Base.convert(::Type{ContinuousDistribution}, d::DistMeasure) = d.dist
-
-Base.convert(::Type{AbstractMeasureOrDensity}, d::DistributionMeasure) = DistMeasure(d)
-Base.convert(::Type{DistLikeMeasure}, d::DistributionMeasure) = DistMeasure(d)
 
 
 Base.parent(density::DistMeasure) = density.dist

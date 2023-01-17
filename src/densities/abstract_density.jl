@@ -433,7 +433,6 @@ Union of all distribution/density-like types that BAT can draw i.i.d.
 const AnyIIDSampleable = Union{
     DistLikeMeasure,
     Distributions.Distribution,
-    DistributionMeasure,
 }
 export AnyIIDSampleable
 
