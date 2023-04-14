@@ -65,7 +65,7 @@ function mcmc_init!(
     nonzero_weights::Bool,
     callback::Function
 )
-    @info "Trying to generate $nchains viable MCMC chain(s)."
+    @info "MCMCChainPoolInit: trying to generate $nchains viable MCMC chain(s)."
 
     initval_alg = init_alg.initval_alg
 
@@ -75,6 +75,8 @@ function mcmc_init!(
     rngpart = RNGPartition(rng, Base.OneTo(max_ncandidates))
 
     ncandidates::Int = 0
+
+    @debug "Generating dummy MCMC chain to determine chain, output and tuner types."
 
     dummy_initval = unshaped(bat_initval(rng, density, InitFromTarget()).result, varshape(density))
     dummy_chain = MCMCIterator(deepcopy(rng), algorithm, density, 1, dummy_initval)
@@ -87,7 +89,7 @@ function mcmc_init!(
 
     while length(tuners) < min_nviable && ncandidates < max_ncandidates
         n = min(min_nviable, max_ncandidates - ncandidates)
-        @debug "Generating $n $(cycle > 1 ? "additional " : "")MCMC chain(s)."
+        @debug "Generating $n $(cycle > 1 ? "additional " : "")candidate MCMC chain(s)."
 
         new_chains = _gen_chains(rngpart, ncandidates .+ (one(Int64):n), algorithm, density, initval_alg)
 
@@ -99,7 +101,7 @@ function mcmc_init!(
         tuning_init!.(new_tuners, new_chains, init_alg.nsteps_init)
         ncandidates += n
 
-        @debug "Testing $(length(new_tuners)) MCMC chain(s)."
+        @debug "Testing $(length(new_tuners)) candidate MCMC chain(s)."
 
         mcmc_iterate!(
             new_outputs, new_chains, new_tuners;
