@@ -181,7 +181,7 @@ function mcmc_init!(
 
         @assert length(tuners) == nchains
         resize!(final_tuners, nchains)
-        copyto!(final_tuners, outputs)
+        copyto!(final_tuners, tuners)
 
         @assert length(outputs) == nchains
         resize!(final_outputs, nchains)
