@@ -48,7 +48,7 @@ $(TYPEDFIELDS)
     # update_interval::Float64 =
     
     "Number of iterations before the first bound will be fit."
-    min_ncall::Int64 = 2*num_live_points
+    min_ncall::Int = 2*num_live_points
     
     "Efficiency before fitting the first bound."
     min_eff::Float64 = 0.1
@@ -72,9 +72,10 @@ function bat_sample_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, algorith
     model = NestedModel(logdensityof(density), identity);                                   # identity, because ahead the BAT prior transformation is used instead
     bounding = ENSBounding(algorithm.bound)
     prop = ENSprop(algorithm.proposal)
-    sampler = Nested(dims, algorithm.num_live_points; 
-                        bounds=bounding, proposal=prop,
-                        enlarge=algorithm.enlarge, min_ncall=algorithm.min_ncall, min_eff=algorithm.min_eff
+    sampler = Nested(
+        dims, algorithm.num_live_points; 
+        bounds=bounding, proposal=prop,
+        enlarge=algorithm.enlarge, min_ncall=algorithm.min_ncall, min_eff=algorithm.min_eff
     ) 
 
     samples_w, state = sample(model, sampler;                                               # returns samples with weights as one vector and the actual state
