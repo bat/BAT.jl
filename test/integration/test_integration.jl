@@ -3,6 +3,6 @@
 using Test
 
 Test.@testset "integration" begin
-    # include("test_ahmi_integration.jl")
+    include("test_brigde_sampling_integration.jl")
     include("test_cuba_integration.jl")
 end
