@@ -41,7 +41,7 @@ function SampledMeasure(density::SampledMeasure, samples::DensitySampleVector)
 end
 
 function SampledMeasure(target::AnyMeasureOrDensity, samples::DensitySampleVector)
-    @argcheck target isa HasDensity
+    @argcheck DensityKind(target) isa HasDensity
     return SampledMeasure(convert(AbstractMeasureOrDensity, target), samples)
 end
 
