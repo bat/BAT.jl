@@ -2,6 +2,7 @@ name: CI
 
 env:
   JULIA_NUM_THREADS: 2
+  PYTHON: ''
 
 on:
   push:
@@ -52,9 +53,9 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v1
+        with:
+          cache-packages: "false"
       - uses: julia-actions/julia-buildpkg@v1
-        env:
-          PYTHON: 'Conda'
       - uses: julia-actions/julia-runtest@v1
         with:
           coverage: ${{ matrix.version == '1' && matrix.os == 'ubuntu-latest' && matrix.arch == 'x64' }}
@@ -73,9 +74,9 @@ jobs:
         with:
           version: '1'
       - uses: julia-actions/cache@v1
+        with:
+          cache-packages: "false"
       - uses: julia-actions/julia-buildpkg@v1
-        env:
-          PYTHON: 'Conda'
       - uses: julia-actions/julia-docdeploy@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
