@@ -2,6 +2,14 @@
 
 using Test
 
+@info "Running tests with $(Base.Threads.nthreads()) Julia threads active."
+
+import Pkg
+if "PyCall" in keys(Pkg.project().dependencies)
+    import PyCall
+    @info "Python configuration:" get(ENV, "PYTHON", "not set") PyCall.PYTHONHOME PyCall.python PyCall.conda
+end
+
 import Logging
 import TerminalLoggers
 Logging.global_logger(TerminalLoggers.TerminalLogger(stderr, Logging.Error))
