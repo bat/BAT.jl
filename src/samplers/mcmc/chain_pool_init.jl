@@ -22,6 +22,13 @@ end
 
 export MCMCChainPoolInit
 
+apply_trafo_to_init(trafo::Function, initalg::MCMCChainPoolInit) = MCMCChainPoolInit(
+    initalg.init_tries_per_chain,
+    initalg.nsteps_init,
+    apply_trafo_to_init(trafo, initalg.initval_alg)
+)
+
+
 
 function apply_trafo_to_init(trafo::Function, initalg::MCMCChainPoolInit)
     MCMCChainPoolInit(
