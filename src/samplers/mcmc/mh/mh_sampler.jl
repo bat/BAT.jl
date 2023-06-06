@@ -69,6 +69,7 @@ mutable struct MHIterator{
     samples::SV
     nsamples::Int64
     stepno::Int64
+    last_p_accept::Float64
 end
 
 
@@ -112,7 +113,8 @@ function MHIterator(
         proposaldist,
         samples,
         nsamples,
-        stepno
+        stepno,
+        0
     )
 
     reset_rng_counters!(chain)
@@ -282,6 +284,7 @@ function mcmc_step!(chain::MHIterator)
 
     @assert p_accept >= 0
     accepted = rand(chain.rng, float(typeof(p_accept))) < p_accept
+    chain.last_p_accept = p_accept
 
     if accepted
         samples.info.sampletype[current] = ACCEPTED_SAMPLE

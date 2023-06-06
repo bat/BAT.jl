@@ -1,6 +1,33 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+function _cov_with_fallback(d)
+    rng = bat_determ_rng()
+    smplr = bat_sampler(d)
+    T = float(eltype(rand(rng, smplr)))
+    n = totalndof(varshape(d))
+    C = fill(T(NaN), n, n)
+    try
+        C[:] = cov(d)
+    catch err
+        if err isa MethodError
+            C[:] = cov(nestedview(rand(rng, smplr, 10^5)))
+        else
+            throw(err)
+        end
+    end
+    return C
+end
+
+_approx_cov(target::Distribution) = _cov_with_fallback(target)
+_approx_cov(target::DistLikeMeasure) = _cov_with_fallback(target)
+_approx_cov(target::AbstractPosteriorMeasure) = _approx_cov(getprior(target))
+_approx_cov(target::BAT.Transformed{<:Any,<:BAT.DistributionTransform}) =
+    BAT._approx_cov(target.trafo.target_dist)
+_approx_cov(target::Renormalized) = _approx_cov(parent(target))
+_approx_cov(target::WithDiff) = _approx_cov(parent(target))
+
+
 # ToDo: Add literature references to AdaptiveMHTuning docstring.
 
 """
@@ -62,33 +89,6 @@ function ProposalCovTuner(tuning::AdaptiveMHTuning, chain::MHIterator)
     scale = 2.38^2 / m
     ProposalCovTuner(tuning, MCMCBasicStats(chain), 1, scale)
 end
-
-
-function _cov_with_fallback(d)
-    rng = bat_determ_rng()
-    smplr = bat_sampler(d)
-    T = float(eltype(rand(rng, smplr)))
-    n = totalndof(varshape(d))
-    C = fill(T(NaN), n, n)
-    try
-        C[:] = cov(d)
-    catch err
-        if err isa MethodError
-            C[:] = cov(nestedview(rand(rng, smplr, 10^5)))
-        else
-            throw(err)
-        end
-    end
-    return C
-end
-
-_approx_cov(target::Distribution) = _cov_with_fallback(target)
-_approx_cov(target::DistLikeMeasure) = _cov_with_fallback(target)
-_approx_cov(target::AbstractPosteriorMeasure) = _approx_cov(getprior(target))
-_approx_cov(target::BAT.Transformed{<:Any,<:BAT.DistributionTransform}) =
-    BAT._approx_cov(target.trafo.target_dist)
-_approx_cov(target::Renormalized) = _approx_cov(parent(target))
-_approx_cov(target::WithDiff) = _approx_cov(parent(target))
 
 
 function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator, max_nsteps::Integer)
