@@ -249,7 +249,7 @@ function _cleanup_samples(chain::AHMCIterator)
 end
 
 
-function mcmc_step!(chain::AHMCIterator)
+function mcmc_step!(chain::AHMCIterator, tuner::Union{AbstractMCMCTunerInstance,Nothing})
     _cleanup_samples(chain)
 
     samples = chain.samples
@@ -291,6 +291,8 @@ function mcmc_step!(chain::AHMCIterator)
     samples.logd[proposed] = proposed_log_posterior
 
     accepted = current_params != proposed_params
+
+    tuning_update_step!(tuner, chain, MCMCStepInfo(current_params, proposed_params, NaN, accepted))
 
     if accepted
         samples.info.sampletype[current] = ACCEPTED_SAMPLE

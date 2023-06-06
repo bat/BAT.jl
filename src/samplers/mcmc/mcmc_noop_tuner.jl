@@ -33,8 +33,8 @@ tuning_postinit!(tuner::MCMCNoOpTuner, chain::MCMCIterator, samples::DensitySamp
 
 tuning_reinit!(tuner::MCMCNoOpTuner, chain::MCMCIterator, max_nsteps::Integer) = nothing
 
-tuning_update!(tuner::MCMCNoOpTuner, chain::MCMCIterator, samples::DensitySampleVector) = nothing
+tuning_update_step!(::MCMCNoOpTuning, ::MCMCIterator, ::MCMCStepInfo) = nothing
+
+tuning_update_cycle!(tuner::MCMCNoOpTuner, chain::MCMCIterator, samples::DensitySampleVector) = nothing
 
 tuning_finalize!(tuner::MCMCNoOpTuner, chain::MCMCIterator) = nothing
-
-tuning_callback(::MCMCNoOpTuning) = nop_func

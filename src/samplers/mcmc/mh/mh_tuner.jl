@@ -111,8 +111,9 @@ function tuning_postinit!(tuner::ProposalCovTuner, chain::MHIterator, samples::D
     append!(stats, samples)
 end
 
+tuning_update_step!(::ProposalCovTuner, ::MCMCIterator, ::MCMCStepInfo) = nothing
 
-function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator, samples::DensitySampleVector)
+function tuning_update_cycle!(tuner::ProposalCovTuner, chain::MHIterator, samples::DensitySampleVector)
     stats = tuner.stats
     stats_reweight_factor = tuner.config.r
     reweight_relative!(stats, stats_reweight_factor)
@@ -165,5 +166,3 @@ function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator, samples::Den
 end
 
 tuning_finalize!(tuner::ProposalCovTuner, chain::MCMCIterator) = nothing
-
-tuning_callback(::ProposalCovTuner) = nop_func

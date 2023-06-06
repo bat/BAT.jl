@@ -55,7 +55,7 @@ function mcmc_burnin!(
             callback = callback
         )
 
-        tuning_update!.(tuners, chains, new_outputs)
+        tuning_update_cycle!.(tuners, chains, new_outputs)
         isnothing(outputs) || append!.(outputs, new_outputs)
 
         check_convergence!(chains, new_outputs, convergence_test)

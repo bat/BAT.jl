@@ -103,8 +103,8 @@ BAT.get_samples!(samples::DensitySampleVector, chain::SomeMCMCIter, nonzero_weig
 BAT.next_cycle!(chain::SomeMCMCIter)::SomeMCMCIter
 
 BAT.mcmc_step!(
-    chain::SomeMCMCIter
-    callback::Function,
+    chain::SomeMCMCIter,
+    tuner::Union{AbstractMCMCTunerInstance,Nothing}
 )::nothing
 ```
 
@@ -162,6 +162,13 @@ function mcmc_step! end
 DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(sample_type(chain), totalndof(getmeasure(chain)))
 
 
+struct MCMCStepInfo{T<:Real,VT<:AbstractVector{T},U<:Real}
+    current::VT
+    proposed::VT
+    p_accept::U
+    accepted::Bool
+end
+
 
 abstract type AbstractMCMCTunerInstance end
 
@@ -172,12 +179,12 @@ function tuning_postinit! end
 
 function tuning_reinit! end
 
-function tuning_update! end
+function tuning_update_step! end
+tuning_update_step!(::Nothing, ::MCMCIterator, ::MCMCStepInfo) = nothing
+
+function tuning_update_cycle! end
 
 function tuning_finalize! end
-
-function tuning_callback end
-
 
 function mcmc_init! end
 
@@ -196,7 +203,7 @@ function mcmc_iterate! end
 function mcmc_iterate!(
     output::Union{DensitySampleVector,Nothing},
     chain::MCMCIterator,
-    tuner::Nothing = nothing;
+    tuner::Union{AbstractMCMCTunerInstance,Nothing} = nothing;
     max_nsteps::Integer = 1,
     max_time::Real = Inf,
     nonzero_weights::Bool = true,
@@ -213,7 +220,7 @@ function mcmc_iterate!(
         (nsteps(chain) - start_nsteps) < max_nsteps &&
         (time() - start_time) < max_time
     )
-        mcmc_step!(chain)
+        mcmc_step!(chain, tuner)
         callback(Val(:mcmc_step), chain)
         if !isnothing(output)
             get_samples!(output, chain, nonzero_weights)
@@ -230,25 +237,6 @@ function mcmc_iterate!(
     current_time = time()
     elapsed_time = current_time - start_time
     @debug "Finished iteration over MCMC chain $(chain.info.id), completed $(nsteps(chain) - start_nsteps) steps and produced $(nsamples(chain) - start_nsamples) samples in $(@sprintf "%.1f s" elapsed_time)."
-
-    return nothing
-end
-
-
-function mcmc_iterate!(
-    output::Union{DensitySampleVector,Nothing},
-    chain::MCMCIterator,
-    tuner::AbstractMCMCTunerInstance;
-    max_nsteps::Integer = 1,
-    max_time::Real = Inf,
-    nonzero_weights::Bool = true,
-    callback::Function = nop_func
-)
-    cb = combine_callbacks(tuning_callback(tuner), callback)
-    mcmc_iterate!(
-        output, chain;
-        max_nsteps = max_nsteps, max_time = max_time, nonzero_weights = nonzero_weights, callback = cb
-    )
 
     return nothing
 end

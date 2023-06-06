@@ -227,7 +227,7 @@ function _cleanup_samples(chain::MHIterator)
 end
 
 
-function mcmc_step!(chain::MHIterator)
+function mcmc_step!(chain::MHIterator, tuner::Union{AbstractMCMCTunerInstance,Nothing})
     _cleanup_samples(chain)
 
     samples = chain.samples
@@ -282,6 +282,8 @@ function mcmc_step!(chain::MHIterator)
 
     @assert p_accept >= 0
     accepted = rand(chain.rng, float(typeof(p_accept))) < p_accept
+
+    tuning_update_step!(tuner, chain, MCMCStepInfo(current_params, proposed_params, p_accept, accepted))
 
     if accepted
         samples.info.sampletype[current] = ACCEPTED_SAMPLE

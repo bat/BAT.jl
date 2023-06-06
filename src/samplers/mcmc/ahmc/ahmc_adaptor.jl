@@ -103,7 +103,19 @@ function tuning_reinit!(tuner::AHMCTuner, chain::MCMCIterator, max_nsteps::Integ
     nothing
 end
 
-function tuning_update!(tuner::AHMCTuner, chain::MCMCIterator, samples::DensitySampleVector)
+function tuning_update_step!(tuner::AHMCTuner, chain::MCMCIterator, ::MCMCStepInfo)
+    adaptor = tuner.adaptor
+    tstat = AdvancedHMC.stat(chain.transition)
+
+    AdvancedHMC.adapt!(adaptor, chain.transition.z.θ, tstat.acceptance_rate)
+    chain.hamiltonian = AdvancedHMC.update(chain.hamiltonian, adaptor)
+    chain.proposal = AdvancedHMC.update(chain.proposal, adaptor)
+    tstat = merge(tstat, (is_adapt =true,))
+
+    nothing
+end
+
+function tuning_update_cycle!(tuner::AHMCTuner, chain::MCMCIterator, samples::DensitySampleVector)
     max_log_posterior = maximum(samples.logd)
     accept_ratio = eff_acceptance_ratio(chain)
     if accept_ratio >= 0.9 * tuner.target_acceptance
@@ -121,26 +133,5 @@ function tuning_finalize!(tuner::AHMCTuner, chain::MCMCIterator)
     AdvancedHMC.finalize!(adaptor)
     chain.hamiltonian = AdvancedHMC.update(chain.hamiltonian, adaptor)
     chain.proposal = AdvancedHMC.update(chain.proposal, adaptor)
-    nothing
-end
-
-tuning_callback(tuner::AHMCTuner) = AHMCTunerCallback(tuner)
-
-
-
-struct AHMCTunerCallback{T<:AHMCTuner} <: Function
-    tuner::T
-end
-
-
-function (callback::AHMCTunerCallback)(::Val{:mcmc_step}, chain::AHMCIterator)
-    adaptor = callback.tuner.adaptor
-    tstat = AdvancedHMC.stat(chain.transition)
-
-    AdvancedHMC.adapt!(adaptor, chain.transition.z.θ, tstat.acceptance_rate)
-    chain.hamiltonian = AdvancedHMC.update(chain.hamiltonian, adaptor)
-    chain.proposal = AdvancedHMC.update(chain.proposal, adaptor)
-    tstat = merge(tstat, (is_adapt =true,))
-
     nothing
 end
