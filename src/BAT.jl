@@ -78,11 +78,6 @@ using Functors: fmap, @functor
 # For StandardMvNormal:
 using IrrationalConstants: log2π, invsqrt2π
 
-# For GaussianShell:
-import AdaptiveRejectionSampling
-import QuadGK
-import SpecialFunctions
-
 
 include("utils/utils.jl")
 include("rngs/rngs.jl")
