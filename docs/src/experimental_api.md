@@ -17,10 +17,7 @@ BAT.DistributionTransform
 BAT.enable_error_log
 BAT.error_log
 BAT.ExternalDensity
-BAT.FunnelDistribution
-BAT.GaussianShell
 BAT.LogUniform
-BAT.MultimodalStudentT
 BridgeSampling
 CuhreIntegration
 DifferentiationAlgorithm

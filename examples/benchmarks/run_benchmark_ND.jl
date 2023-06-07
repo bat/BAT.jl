@@ -187,8 +187,8 @@ function create_testfunction_for_dim(i_dim::Integer,maxdim=10;hmc_safe=false)
         end
     end
     normal = MvNormal(means,sig)
-    cauchy = BAT.MultimodalStudentT(µ=5. * i_dim, σ=0.2 * i_dim, ν = 1, n=i_dim)
-    funnel = BAT.FunnelDistribution(a=0.5, b=0.5, n=i_dim)
+    cauchy = MultimodalStudentT(µ=5. * i_dim, σ=0.2 * i_dim, ν = 1, n=i_dim)
+    funnel = FunnelDistribution(a=0.5, b=0.5, n=i_dim)
 	if hmc_safe
 		return Dict(
 	        "funnel" => funnel

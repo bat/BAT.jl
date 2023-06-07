@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-using BAT
+using BAT, BATTestCases
 using Distributions
 using StatsBase
 using Test
@@ -90,7 +90,7 @@ _SampleAux() = _SampleInfo(0)
             @test isassigned(v) == false
         end
 
-        gs = BAT.GaussianShell(n=5)
+        gs = GaussianShell(n=5)
         x1 = rand(5)
         x2 = rand(5)
         v_gs = ArrayOfSimilarArrays([x1, x2])

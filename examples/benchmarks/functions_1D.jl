@@ -5,7 +5,7 @@ exp1 = (posterior= Exponential(1),mode=0,mean=1,var=1,chi2=[9999],ks=[9999.],ahm
 cauchy = (posterior=Cauchy(0,1),mode=0,mean=0,var=Inf,chi2=[9999],ks=[9999.],ahmi=[9999.])
 #cauchy_variance_for_edges = x -> 0.6365969042714238*x+-0.9834816540023621
 
-funnel = (posterior=BAT.FunnelDistribution(1.2,0.,1),mode=0,mean=0,var=2.07350,chi2=[9999],ks=[9999.],ahmi=[9999.])
+funnel = (posterior=FunnelDistribution(1.2,0.,1),mode=0,mean=0,var=2.07350,chi2=[9999],ks=[9999.],ahmi=[9999.])
 
 testfunctions_1D = Dict(
 	"normal" 		=> normal,

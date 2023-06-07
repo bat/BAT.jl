@@ -1,6 +1,7 @@
 using BAT
 using Test
 
+using BATTestCases
 using Distributions
 using ValueShapes
 using IntervalSets
@@ -26,10 +27,9 @@ using LinearAlgebra: Diagonal, ones
             @test sample_integral.err < err_max
         end
     end
-    test_integration(BridgeSampling(trafo=DoNotTransform()), "funnel distribution", BAT.FunnelDistribution(), val_rtol = 15)
-    test_integration(BridgeSampling(trafo=DoNotTransform()), "multimodal student-t distribution", BAT.MultimodalStudentT(), val_rtol = 50)
+    test_integration(BridgeSampling(trafo=DoNotTransform()), "funnel distribution", FunnelDistribution(), val_rtol = 15)
+    test_integration(BridgeSampling(trafo=DoNotTransform()), "multimodal student-t distribution", MultimodalStudentT(), val_rtol = 50)
     #! ToDo: Fix this test
-    # test_integration(BridgeSampling(trafo=DoNotTransform()), "Gaussian shell", BAT.GaussianShell(), val_rtol = 15)
+    # test_integration(BridgeSampling(trafo=DoNotTransform()), "Gaussian shell", GaussianShell(), val_rtol = 15)
     test_integration(BridgeSampling(trafo=DoNotTransform()), "MvNormal", MvNormal(Diagonal(ones(5))), val_rtol = 15)
-
 end

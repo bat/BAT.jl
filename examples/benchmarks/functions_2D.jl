@@ -14,14 +14,14 @@ analytical_stats_multi_cauchy2D[1] = [[-5,-5],[-5,5],[5,-5],[5,5]]      #analyti
 analytical_stats_multi_cauchy2D[2] = [0,0]                              #analytical_mean_multi_cauchy2D
 analytical_stats_multi_cauchy2D[3] = [Inf,Inf]                #analytical_var_multi_cauchy2D
 #MultimodalStudentT ν = 1 = MultimodalCauchy
-multi_cauchy2D = (posterior=BAT.MultimodalStudentT(µ=5.,σ=4.,ν = 1, n=2),mode=analytical_stats_multi_cauchy2D[1],mean=analytical_stats_multi_cauchy2D[2],var=analytical_stats_multi_cauchy2D[3],chi2=[9999],ks=[9999.,9999.],ahmi=[9999.,9999.])
+multi_cauchy2D = (posterior=MultimodalStudentT(µ=5.,σ=4.,ν = 1, n=2),mode=analytical_stats_multi_cauchy2D[1],mean=analytical_stats_multi_cauchy2D[2],var=analytical_stats_multi_cauchy2D[3],chi2=[9999],ks=[9999.,9999.],ahmi=[9999.,9999.])
 
 ################function funnel 2D##############################################################
 analytical_stats_funnel2D = Vector{Any}(undef,length(stats_names2D))
 analytical_stats_funnel2D[1] = [-1.0,0.0]
 analytical_stats_funnel2D[2] = [0.0,0.0]
 analytical_stats_funnel2D[3] = [1.0,7.406718]
-funnel2D = (posterior=BAT.FunnelDistribution(1.,0.5,2),mode=analytical_stats_funnel2D[1],mean=analytical_stats_funnel2D[2],var=analytical_stats_funnel2D[3],chi2=[9999],ks=[9999.,9999.],ahmi=[9999.,9999.])
+funnel2D = (posterior=FunnelDistribution(1.,0.5,2),mode=analytical_stats_funnel2D[1],mean=analytical_stats_funnel2D[2],var=analytical_stats_funnel2D[3],chi2=[9999],ks=[9999.,9999.],ahmi=[9999.,9999.])
 
 ################################################################################################
 testfunctions_2D = Dict(

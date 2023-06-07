@@ -78,7 +78,6 @@ New experimental features
 * `BAT.enable_error_log`[@ref]
 * `BAT.error_log`[@ref]
 * `BAT.LogUniform`[@ref]
-* `BAT.MultimodalStudentT`[@ref]
 * `BridgeSampling`[@ref]
 * `DifferentiationAlgorithm`[@ref]
 * `EllipsoidalNestedSampling`[@ref]

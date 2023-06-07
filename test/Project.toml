@@ -1,6 +1,7 @@
 [deps]
 AbstractMCMC = "80f14c24-f653-4e6a-9b94-39d6b0f70001"
 ArraysOfArrays = "65a8f2f4-9b39-5baf-92e2-a9cc46fdf018"
+BATTestCases = "91d0e2c9-dbaa-453b-b50b-030d574b201f"
 ChangesOfVariables = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
 Cuba = "8a292aeb-7a57-582c-b821-06e4c11590b1"
 DensityInterface = "b429d917-457f-4dbc-8f4c-0cc954292b1d"
@@ -37,3 +38,6 @@ UltraNest = "6822f173-b0be-4018-9ee2-28bf56348d09"
 UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
 ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
+
+[compat]
+BATTestCases = "0.1"

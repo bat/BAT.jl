@@ -101,7 +101,7 @@ function plot1D(
 
 	lo = minimum([BAT.flatview(samples.v)...])
 	hi = maximum([BAT.flatview(samples.v)...])
-	if(!isa(testfunctions_1D[name].posterior, BAT.FunnelDistribution))
+	if(!isa(testfunctions_1D[name].posterior, FunnelDistribution))
 		lo, hi = quantile.(testfunctions_1D[name].posterior, [0.001, 0.999]) #BAT Distributions do not support quantiles
 	end
 	if(isa(testfunctions_1D[name].posterior, Distributions.Cauchy))
