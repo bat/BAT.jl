@@ -11,7 +11,6 @@
     interval_labels = [],
     normalize = true
 )
-    _plots_module() != nothing || throw(ErrorException("Package Plots not available, but required for this operation"))
     hist = convert(Histogram, marg.dist isa ReshapedDist ? marg.dist.dist : marg.dist)
     seriestype = get(plotattributes, :seriestype, :histogram2d)
 
@@ -26,7 +25,7 @@
             yguide --> ylabel
             colorbar --> true
 
-            hist.edges[1], hist.edges[2], _plots_module().Surface(hist.weights)
+            hist.edges[1], hist.edges[2], _Plots_Surface(hist.weights)
         end
 
 
@@ -59,7 +58,7 @@
         xguide --> xlabel
         yguide --> ylabel
 
-        if _plots_module().backend() == _plots_module().PyPlotBackend()
+        if _Plots_backend_is_pyplot()
             @series begin
                 seriestype := plotstyle
                 levels --> lev
@@ -86,11 +85,11 @@
         for (i, int) in enumerate(realintervals)
             @series begin
                 seriestype := :bins2d
-                seriescolor --> _plots_module().cgrad([colors[i], colors[i]])
+                seriescolor --> _Plots_cgrad([colors[i], colors[i]])
                 xguide --> xlabel
                 yguide --> ylabel
 
-                hists[i].edges[1], hists[i].edges[2], _plots_module().Surface(hists[i].weights)
+                hists[i].edges[1], hists[i].edges[2], _Plots_Surface(hists[i].weights)
             end
 
             # fake a legend
@@ -110,7 +109,7 @@
     # marginal histograms
     elseif seriestype == :marginal
 
-        layout --> _plots_module().grid(2,2, widths=(0.8, 0.2), heights=(0.2, 0.8))
+        layout --> _Plots_grid(2,2, widths=(0.8, 0.2), heights=(0.2, 0.8))
         link --> :both
 
         if get(diagonal, "seriestype", :histogram) != :histogram

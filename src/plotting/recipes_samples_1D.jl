@@ -164,16 +164,12 @@ end
 
 
 function uncertaintyband(m, u, h; swap=false)
-    if _plots_module() != nothing
-        x = [m-u,m+u,m+u,m-u]
-        y = [0,0,h,h]
+    x = [m-u,m+u,m+u,m-u]
+    y = [0,0,h,h]
 
-        if swap
-            x, y = y, x
-        end
-
-        return _plots_module().Shape(x, y)
-    else
-        ()
+    if swap
+        x, y = y, x
     end
+
+    return _Plots_Shape(x, y)
 end

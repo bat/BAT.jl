@@ -12,12 +12,15 @@ versions, but may still evolve in a API-breaking fashion during that process.
 bat_compare
 bat_marginalmode
 bat_rng
-BAT.EvalException
 BAT.DistributionTransform
 BAT.enable_error_log
 BAT.error_log
+BAT.EvalException
+BAT.ext_default
 BAT.ExternalDensity
 BAT.LogUniform
+BAT.PackageExtension
+BAT.pkgext
 BridgeSampling
 CuhreIntegration
 DifferentiationAlgorithm
@@ -27,7 +30,7 @@ ForwardDiffAD
 GridSampler
 HierarchicalDistribution
 PriorImportanceSampler
-#ReactiveNestedSampling
+ReactiveNestedSampling
 renormalize_density
 SobolSampler
 SuaveIntegration

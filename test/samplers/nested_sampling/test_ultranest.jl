@@ -4,6 +4,7 @@ using BAT
 using Test
 
 using Random, StatsBase, Distributions, ArraysOfArrays
+using DensityInterface
 
 import UltraNest, PyCall
 
@@ -27,14 +28,14 @@ sys.stdout = open(os.devnull, 'w')
     prior = product_distribution(Uniform.(minimum.(dist.v), maximum.(dist.v)))
 
     likelihood = let dist = dist
-        function (v::AbstractVector{<:Real})
+        logfuncdensity(function (v::AbstractVector{<:Real})
             ll = logpdf(dist, v)
             # lofpdf on MixtureModel returns NaN in gaps between distributions, and UltraNest
             # doesn't like -Inf, so return -1E10
             T = promote_type(Float32, typeof(ll))
             # isnan(ll) here only required for Distributions < v0.25
-            (log = isnan(ll) || isinf(ll) && ll < 0 ? T(-1E10) : T(ll),)
-        end
+            isnan(ll) || isinf(ll) && ll < 0 ? T(-1E10) : T(ll)
+        end)
     end
 
     posterior = PosteriorMeasure(likelihood, prior)

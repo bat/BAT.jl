@@ -1,71 +1,70 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-using .NestedSamplers               # used in this file, because this file ist only load if it is required
+module BATNestedSamplersExt
 
-include("ens_bounds.jl")
-include("ens_proposals.jl")
-
-"""
-    struct EllipsoidalNestedSampling <: AbstractSamplingAlgorithm
-
-*Experimental feature, not part of stable public API.*
-
-Uses the julia package
-[NestedSamplers.jl](https://github.com/TuringLang/NestedSamplers.jl) to use nested sampling algorithm.
-
-Constructors:
-
-* ```$(FUNCTIONNAME)(; fields...)```
-
-Fields:
-
-$(TYPEDFIELDS)
-
-
-!!! note
-
-    This functionality is only available when the
-    [NestedSamplers.jl](https://github.com/TuringLang/NestedSamplers.jl) package 
-    is loaded (e.g. via
-    `import`).
-"""
-@with_kw struct EllipsoidalNestedSampling{TR<:AbstractTransformTarget} <: AbstractSamplingAlgorithm
-    trafo::TR = PriorToUniform()
-
-    "Number of live-points."
-    num_live_points::Int = 1000
-
-    "Volume around the live-points."
-    bound::ENSBound = ENSEllipsoidBound()
-
-    "Algorithm used to choose new live-points."
-    proposal::ENSProposal = ENSAutoProposal()
-    
-    "Scale factor for the volume."
-    enlarge::Float64 = 1.25
-    
-    # "Not sure about how this works yet."
-    # update_interval::Float64 =
-    
-    "Number of iterations before the first bound will be fit."
-    min_ncall::Int = 2*num_live_points
-    
-    "Efficiency before fitting the first bound."
-    min_eff::Float64 = 0.1
-
-    # "The following four are the possible convergence criteria to end the algorithm."
-    dlogz::Float64 = 0.01
-    max_iters = Inf
-    max_ncalls = 10^7
-    maxlogl = Inf
+@static if isdefined(Base, :get_extension)
+    using NestedSamplers
+else
+    using ..NestedSamplers
 end
-export EllipsoidalNestedSampling
+
+using BAT
+
+BAT.pkgext(::Val{:NestedSamplers}) = BAT.PackageExtension{:NestedSamplers}()
+
+using BAT: AbstractMeasureOrDensity
+using BAT: ENSBound, ENSNoBounds, ENSEllipsoidBound, ENSMultiEllipsoidBound
+using BAT: ENSProposal, ENSUniformly, ENSAutoProposal, ENSRandomWalk, ENSSlice 
+
+using Statistics, StatsBase
+using DensityInterface, InverseFunctions, ValueShapes
+import Measurements
+
+using Random
 
 
-function bat_sample_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, algorithm::EllipsoidalNestedSampling)
-    
+function ENSBounding(bound::ENSNoBounds)
+    return Bounds.NoBounds
+end
+
+function ENSBounding(bound::ENSEllipsoidBound)
+    return Bounds.Ellipsoid
+end
+
+function ENSBounding(bound::ENSMultiEllipsoidBound)
+    return Bounds.MultiEllipsoid
+end
+
+function ENSBounding(bound::ENSBound) # If nothing ist choosen
+    return Bounds.Ellipsoid           # the bound is Ellipsoid
+end
+
+
+function ENSprop(prop::ENSUniformly)
+    return Proposals.Uniform()
+end
+
+function ENSprop(prop::ENSAutoProposal)
+    return :auto     # :auto declaration: ndims < 10: Proposals.Uniform, 10 ≤ ndims ≤ 20: Proposals.RWalk, ndims > 20: Proposals.Slice
+end
+
+function ENSprop(prop::ENSRandomWalk)
+    return Proposals.RWalk(;ratio=prop.ratio, walks=prop.walks, scale=prop.scale)
+end
+
+function ENSprop(prop::ENSSlice)
+    return Proposals.Slice(;slices=prop.slices, scale=prop.scale)
+end
+
+function ENSprop(prop::ENSProposal) # if nothing is choosen
+    return :auto
+end
+
+
+
+function BAT.bat_sample_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, algorithm::EllipsoidalNestedSampling)
     density_notrafo = convert(AbstractMeasureOrDensity, target)
-    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo)                 # BAT prior transformation
+    density, trafo = BAT.transform_and_unshape(algorithm.trafo, density_notrafo)                 # BAT prior transformation
     vs = varshape(density)
     dims = totalndof(vs)
 
@@ -99,3 +98,6 @@ function bat_sample_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, algorith
         info = state
     )
 end
+
+
+end # module BATNestedSamplersExt

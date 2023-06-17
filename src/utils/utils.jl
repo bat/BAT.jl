@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+include("pkgext_utils.jl")
 include("value_and_threshold.jl")
 include("negative.jl")
 include("error_log.jl")

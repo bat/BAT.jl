@@ -214,7 +214,10 @@ end
 # :a⌞1ˌ3ˌ5⌟ = : a \llcorner 1 \verti 3 \verti 5 \lrcorner
 
 function encode_name(name::Union{Expr, String})
-    code = replace(string(name)," " => "", "[" => "⌞", ":" => "ː", "," => "ˌ", "]" => "⌟")     
+    # Nested replace to make Julia v1.6 happy:
+    code = replace(replace(replace(replace(replace(
+        string(name)," " => ""), "[" => "⌞"), ":" => "ː"), "," => "ˌ"), "]" => "⌟"
+    )
     return Symbol(code)
 end 
 

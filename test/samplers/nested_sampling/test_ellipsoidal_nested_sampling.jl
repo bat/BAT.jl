@@ -8,7 +8,6 @@ using HypothesisTests
 
 import NestedSamplers
 
-
 @testset "test_ellipsoidal_nested_sampling" begin
     p = Uniform(-80,80)
     prior = BAT.NamedTupleDist(a=[p,p,p])
