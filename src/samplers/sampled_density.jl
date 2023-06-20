@@ -45,6 +45,7 @@ function SampledMeasure(target::AnyMeasureOrDensity, samples::DensitySampleVecto
     return SampledMeasure(convert(AbstractMeasureOrDensity, target), samples)
 end
 
+MeasureBase.getdof(m::SampledMeasure) = MeasureBase.getdof(m.density)
 
 eval_logval(density::SampledMeasure, v::Any, T::Type{<:Real}) = eval_logval(density.density, v, T)
 

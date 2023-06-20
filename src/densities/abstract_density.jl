@@ -39,6 +39,12 @@ abstract type BATDensity <: AbstractMeasureOrDensity end
 abstract type BATMeasure <:AbstractMeasureOrDensity end
 @inline DensityInterface.DensityKind(::BATMeasure) = HasDensity()
 
+MeasureBase.logdensity_def(m::BATMeasure, x) = logdensityof(m, x)
+MeasureBase.basemeasure(m::BATMeasure) = _varshape_basemeasure(varshape(m))
+MeasureBase.insupport(m::BATMeasure, ::Any) = MeasureBase.NoFastInsupport{typeof(m)}()
+MeasureBase.localmeasure(m::BATMeasure, ::Any) = m
+
+_varshape_basemeasure(vs::ArrayShape{<:Real,1}) = MeasureBase.LebesgueBase()^length(vs)
 
 
 Base.convert(::Type{AbstractMeasureOrDensity}, density::AbstractMeasureOrDensity) = density

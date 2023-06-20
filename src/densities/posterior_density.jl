@@ -9,6 +9,9 @@ Abstract type for posterior probability densities.
 abstract type AbstractPosteriorMeasure <: BATMeasure end
 export AbstractPosteriorMeasure
 
+MeasureBase.basemeasure(m::AbstractPosteriorMeasure) = MeasureBase.basemeasure(getprior(m))
+MeasureBase.getdof(m::AbstractPosteriorMeasure) = MeasureBase.getdof(getprior(m))
+
 
 """
     getlikelihood(posterior::AbstractPosteriorMeasure)::BATDenstiy

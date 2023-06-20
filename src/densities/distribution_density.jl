@@ -9,6 +9,8 @@ struct DistMeasure{
     bounds::B
 end
 
+MeasureBase.getdof(m::DistMeasure) = eff_totalndof(m.dist)
+
 DistMeasure(d::Distribution) = DistMeasure(d, dist_param_bounds(d))
 
 Base.convert(::Type{AbstractMeasureOrDensity}, d::ContinuousDistribution) = DistMeasure(d)
