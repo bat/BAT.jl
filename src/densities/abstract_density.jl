@@ -41,7 +41,13 @@ abstract type BATMeasure <:AbstractMeasureOrDensity end
 
 MeasureBase.logdensity_def(m::BATMeasure, x) = logdensityof(m, x)
 MeasureBase.basemeasure(m::BATMeasure) = _varshape_basemeasure(varshape(m))
-MeasureBase.insupport(m::BATMeasure, ::Any) = MeasureBase.NoFastInsupport{typeof(m)}()
+
+@static if isdefined(MeasureBase, :NoFastInsupport)
+    MeasureBase.insupport(m::BATMeasure, ::Any) = MeasureBase.NoFastInsupport{typeof(m)}()
+else
+    # Workaround:
+    MeasureBase.insupport(m::BATMeasure, ::Any) = true
+end
 
 @static if isdefined(MeasureBase, :localmeasure)
     MeasureBase.localmeasure(m::BATMeasure, ::Any) = m
