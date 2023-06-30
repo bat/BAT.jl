@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-function check_convergence!(
+function transformed_check_convergence!(
     chains::AbstractVector{<:MCMCIterator},
     samples::AbstractVector{<:DensitySampleVector},
     algorithm::ConvergenceTest,
@@ -23,7 +23,8 @@ end
 
 Gelman-Rubin ``\$R^2\$`` for all DOF.
 """
-function gr_Rsqr end
+# TODO AC: reactivate
+# function gr_Rsqr end
 
 function gr_Rsqr(stats::AbstractVector{<:TransformedMCMCBasicStats})
     m = totalndof(first(stats))
@@ -32,9 +33,10 @@ function gr_Rsqr(stats::AbstractVector{<:TransformedMCMCBasicStats})
     (W .+ B) ./ W
 end
 
-function gr_Rsqr(samples::AbstractVector{<:DensitySampleVector})
-    gr_Rsqr(TransformedMCMCBasicStats.(samples))
-end
+#TODO AC: reactivate
+# function gr_Rsqr(samples::AbstractVector{<:DensitySampleVector})
+#     gr_Rsqr(TransformedMCMCBasicStats.(samples))
+# end
 
 
 

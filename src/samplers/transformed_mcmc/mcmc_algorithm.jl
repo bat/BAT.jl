@@ -13,7 +13,8 @@ Abstract type for MCMC initialization algorithms.
 abstract type MCMCInitAlgorithm end
 export MCMCInitAlgorithm
 
-apply_trafo_to_init(trafo::Function, initalg::MCMCInitAlgorithm) = initalg
+#TODO AC: reactivate
+#apply_trafo_to_init(trafo::Function, initalg::MCMCInitAlgorithm) = initalg
 
 
 
@@ -106,13 +107,14 @@ abstract type MCMCIterator end
 export MCMCIterator
 
 
-function Base.show(io::IO, chain::MCMCIterator)
-    print(io, Base.typename(typeof(chain)).name, "(")
-    print(io, "id = "); show(io, mcmc_info(chain).id)
-    print(io, ", nsamples = "); show(io, nsamples(chain))
-    print(io, ", density = "); show(io, getmeasure(chain))
-    print(io, ")") 
-end
+#TODO AC: reactivate
+# function Base.show(io::IO, chain::MCMCIterator)
+#     print(io, Base.typename(typeof(chain)).name, "(")
+#     print(io, "id = "); show(io, mcmc_info(chain).id)
+#     print(io, ", nsamples = "); show(io, nsamples(chain))
+#     print(io, ", density = "); show(io, getmeasure(chain))
+#     print(io, ")") 
+# end
 
 
 function getalgorithm end

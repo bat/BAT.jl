@@ -24,7 +24,7 @@ struct TransformedMCMCDispatch end
     pre_transform::TR = bat_default(TransformedMCMCDispatch, Val(:pre_transform))
     tuning_alg::MCMCTuningAlgorithm = TransformedRAMTuner() # TODO: use bat_defaults
     adaptive_transform::AdaptiveTransformSpec = default_adaptive_transform(tuning_alg)
-    proposal::MCMCProposal = TransformedMHProposal(Normal()) #TODO: use bat_defaults
+    proposal::TransformedMCMCProposal = TransformedMHProposal(Normal()) #TODO: use bat_defaults
     tempering = TransformedNoMCMCTempering() # TODO: use bat_defaults
     nchains::Int = 4
     nsteps::Int = 10^5

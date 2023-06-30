@@ -3,7 +3,7 @@ mutable struct TransformedMCMCIterator{
     PR<:RNGPartition,
     D<:BATMeasure,
     F,
-    Q<:MCMCProposal,
+    Q<:TransformedMCMCProposal,
     SV<:DensitySampleVector,
     S<:DensitySample,
 } <: MCMCIterator
