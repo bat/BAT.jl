@@ -46,65 +46,66 @@ export TransformedMCMCBurninAlgorithm
 end
 
 
-"""
-    abstract type MCMCIterator end
+# TODO AC: reactivate
+# """
+#     abstract type MCMCIterator end
 
-Represents the current state of an MCMC chain.
+# Represents the current state of an MCMC chain.
 
-!!! note
+# !!! note
 
-    The details of the `MCMCIterator` and `MCMCAlgorithm` API (see below)
-    currently do not form part of the stable API and are subject to change
-    without deprecation.
+#     The details of the `MCMCIterator` and `MCMCAlgorithm` API (see below)
+#     currently do not form part of the stable API and are subject to change
+#     without deprecation.
 
-To implement a new MCMC algorithm, subtypes of both [`MCMCAlgorithm`](@ref)
-and `MCMCIterator` are required.
+# To implement a new MCMC algorithm, subtypes of both [`MCMCAlgorithm`](@ref)
+# and `MCMCIterator` are required.
 
-The following methods must be defined for subtypes of `MCMCIterator` (e.g.
-`SomeMCMCIter<:MCMCIterator`):
+# The following methods must be defined for subtypes of `MCMCIterator` (e.g.
+# `SomeMCMCIter<:MCMCIterator`):
 
-```julia
+# ```julia
 
-BAT.getmeasure(chain::SomeMCMCIter)::AbstractMeasureOrDensity
+# BAT.getmeasure(chain::SomeMCMCIter)::AbstractMeasureOrDensity
 
-BAT.getrng(chain::SomeMCMCIter)::AbstractRNG
+# BAT.getrng(chain::SomeMCMCIter)::AbstractRNG
 
-BAT.mcmc_info(chain::SomeMCMCIter)::TransformedMCMCIteratorInfo
+# BAT.mcmc_info(chain::SomeMCMCIter)::TransformedMCMCIteratorInfo
 
-BAT.nsteps(chain::SomeMCMCIter)::Int
+# BAT.nsteps(chain::SomeMCMCIter)::Int
 
-BAT.nsamples(chain::SomeMCMCIter)::Int
+# BAT.nsamples(chain::SomeMCMCIter)::Int
 
-BAT.current_sample(chain::SomeMCMCIter)::DensitySample
+# BAT.current_sample(chain::SomeMCMCIter)::DensitySample
 
-BAT.sample_type(chain::SomeMCMCIter)::Type{<:DensitySample}
+# BAT.sample_type(chain::SomeMCMCIter)::Type{<:DensitySample}
 
-BAT.samples_available(chain::SomeMCMCIter, nonzero_weights::Bool = false)::Bool
+# BAT.samples_available(chain::SomeMCMCIter, nonzero_weights::Bool = false)::Bool
 
-BAT.get_samples!(samples::DensitySampleVector, chain::SomeMCMCIter, nonzero_weights::Bool)::typeof(samples)
+# BAT.get_samples!(samples::DensitySampleVector, chain::SomeMCMCIter, nonzero_weights::Bool)::typeof(samples)
 
-BAT.next_cycle!(chain::SomeMCMCIter)::SomeMCMCIter
+# BAT.next_cycle!(chain::SomeMCMCIter)::SomeMCMCIter
 
-BAT.mcmc_step!(
-    chain::SomeMCMCIter
-    callback::Function,
-)::nothing
-```
+# BAT.mcmc_step!(
+#     chain::SomeMCMCIter
+#     callback::Function,
+# )::nothing
+# ```
 
-The following methods are implemented by default:
+# The following methods are implemented by default:
 
-```julia
-getalgorithm(chain::MCMCIterator)
-getmeasure(chain::MCMCIterator)
-DensitySampleVector(chain::MCMCIterator)
-mcmc_iterate!(chain::MCMCIterator, ...)
-mcmc_iterate!(chains::AbstractVector{<:MCMCIterator}, ...)
-isvalidchain(chain::MCMCIterator)
-isviablechain(chain::MCMCIterator)
-```
-"""
-abstract type MCMCIterator end
-export MCMCIterator
+# ```julia
+# getalgorithm(chain::MCMCIterator)
+# getmeasure(chain::MCMCIterator)
+# DensitySampleVector(chain::MCMCIterator)
+# mcmc_iterate!(chain::MCMCIterator, ...)
+# mcmc_iterate!(chains::AbstractVector{<:MCMCIterator}, ...)
+# isvalidchain(chain::MCMCIterator)
+# isviablechain(chain::MCMCIterator)
+# ```
+# """
+# abstract type MCMCIterator end
+# export MCMCIterator
 
 
 #TODO AC: reactivate
@@ -142,9 +143,8 @@ function next_cycle! end
 function mcmc_step! end
 
 
-
-DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(sample_type(chain), totalndof(getmeasure(chain)))
-
+# TODO AC: reactivate
+#DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(sample_type(chain), totalndof(getmeasure(chain)))
 
 
 abstract type TransformedAbstractMCMCTunerInstance end

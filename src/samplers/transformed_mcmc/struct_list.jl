@@ -23,7 +23,7 @@ struct TransformedUvTDistProposalSpec <: TransformedProposalDistSpec
 # Constructors:
 # @with_kw struct TransformedMCMCMultiCycleBurnin <: TransformedMCMCBurninAlgorithm
 struct TransformedNoTransformedMCMCTempering <: TransformedMCMCTempering end
-# struct NoTransformedTransformedMCMCTemperingInstance <: TransformedTransformedMCMCTemperingInstance end
+# struct NoTransformedMCMCTemperingInstance <: TransformedMCMCTemperingInstance end
     struct TransformedMCMCChainPoolInit <: TransformedMCMCInitAlgorithm
 # Constructors:
 # @with_kw struct TransformedMCMCChainPoolInit <: TransformedMCMCInitAlgorithm

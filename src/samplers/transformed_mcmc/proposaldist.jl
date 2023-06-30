@@ -1,6 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-
 """
     abstract type TransformedAbstractProposalDist
 
@@ -15,57 +14,57 @@ The following functions must be implemented for subtypes:
 """
 abstract type TransformedAbstractProposalDist end
 
+# TODO AC: reactivate
+# """
+#     proposaldist_logpdf(
+#         p::AbstractArray,
+#         pdist::TransformedAbstractProposalDist,
+#         v_proposed::AbstractVector,
+#         v_current:::AbstractVector
+#     )
 
-"""
-    proposaldist_logpdf(
-        p::AbstractArray,
-        pdist::TransformedAbstractProposalDist,
-        v_proposed::AbstractVector,
-        v_current:::AbstractVector
-    )
+# *BAT-internal, not part of stable public API.*
 
-*BAT-internal, not part of stable public API.*
-
-Returns log(PDF) value of `pdist` for transitioning from current to proposed
-variate/parameters.
-"""
-function proposaldist_logpdf end
+# Returns log(PDF) value of `pdist` for transitioning from current to proposed
+# variate/parameters.
+# """#function proposaldist_logpdf end
 
 # TODO: Implement proposaldist_logpdf for included proposal distributions
 
 
-"""
-    function proposal_rand!(
-        rng::AbstractRNG,
-        pdist::TransformedGenericProposalDist,
-        v_proposed::Union{AbstractVector,VectorOfSimilarVectors},
-        v_current::Union{AbstractVector,VectorOfSimilarVectors}
-    )
+# TODO AC: reactivate
+# """
+#     function proposal_rand!(
+#         rng::AbstractRNG,
+#         pdist::TransformedGenericProposalDist,
+#         v_proposed::Union{AbstractVector,VectorOfSimilarVectors},
+#         v_current::Union{AbstractVector,VectorOfSimilarVectors}
+#     )
 
-*BAT-internal, not part of stable public API.*
+# *BAT-internal, not part of stable public API.*
 
-Generate one or multiple proposed variate/parameter vectors, based on one or
-multiple previous vectors.
+# Generate one or multiple proposed variate/parameter vectors, based on one or
+# multiple previous vectors.
 
-Input:
+# Input:
 
-* `rng`: Random number generator to use
-* `pdist`: Proposal distribution to use
-* `v_current`: Old values (vector or column vectors, if a matrix)
+# * `rng`: Random number generator to use
+# * `pdist`: Proposal distribution to use
+# * `v_current`: Old values (vector or column vectors, if a matrix)
 
-Output is stored in
+# Output is stored in
 
-* `v_proposed`: New values (vector or column vectors, if a matrix)
+# * `v_proposed`: New values (vector or column vectors, if a matrix)
 
-The caller must guarantee:
+# The caller must guarantee:
 
-* `size(v_current, 1) == size(v_proposed, 1)`
-* `size(v_current, 2) == size(v_proposed, 2)` or `size(v_current, 2) == 1`
-* `v_proposed !== v_current` (no aliasing)
+# * `size(v_current, 1) == size(v_proposed, 1)`
+# * `size(v_current, 2) == size(v_proposed, 2)` or `size(v_current, 2) == 1`
+# * `v_proposed !== v_current` (no aliasing)
 
-Implementations of `proposal_rand!` must be thread-safe.
-"""
-function proposal_rand! end
+# Implementations of `proposal_rand!` must be thread-safe.
+# """
+# function proposal_rand! end
 
 
 

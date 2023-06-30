@@ -3,7 +3,7 @@ mutable struct TransformedMCMCIterator{
     PR<:RNGPartition,
     D<:BATMeasure,
     F,
-    Q<:TransformedTransformedMCMCProposal,
+    Q<:TransformedMCMCProposal,
     SV<:DensitySampleVector,
     S<:DensitySample,
 } <: MCMCIterator
@@ -155,7 +155,7 @@ end
 function transformed_mcmc_step!!(
     iter::TransformedMCMCIterator,
     tuner::TransformedAbstractMCMCTunerInstance,
-    tempering::TransformedTransformedMCMCTemperingInstance,
+    tempering::TransformedMCMCTemperingInstance,
 )
     @unpack rng, μ, f_transform, proposal, samples, sample_z, stepno = iter
     sample_x = last(samples)
@@ -207,7 +207,7 @@ end
 function transformed_mcmc_iterate!(
     chain::TransformedMCMCIterator,
     tuner::TransformedAbstractMCMCTunerInstance,
-    tempering::TransformedTransformedMCMCTemperingInstance;
+    tempering::TransformedMCMCTemperingInstance;
     max_nsteps::Integer = 1,
     max_time::Real = Inf,
     nonzero_weights::Bool = true,
@@ -249,7 +249,7 @@ end
 function transformed_mcmc_iterate!(
     chain::MCMCIterator,
     tuner::TransformedAbstractMCMCTunerInstance,
-    tempering::TransformedTransformedMCMCTemperingInstance;
+    tempering::TransformedMCMCTemperingInstance;
     # tuner::TransformedAbstractMCMCTunerInstance;
     max_nsteps::Integer = 1,
     max_time::Real = Inf,
@@ -270,7 +270,7 @@ end
 function transformed_mcmc_iterate!(
     chains::AbstractVector{<:MCMCIterator},
     tuners::AbstractVector{<:TransformedAbstractMCMCTunerInstance},
-    temperers::AbstractVector{<:TransformedTransformedMCMCTemperingInstance};
+    temperers::AbstractVector{<:TransformedMCMCTemperingInstance};
     kwargs...
 )
     if isempty(chains)

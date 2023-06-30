@@ -114,9 +114,10 @@ function bg_R_2sqr(stats::AbstractVector{<:TransformedMCMCBasicStats}; corrected
     R_unc.*(d.+3)./(d.+1)
 end
 
-function bg_R_2sqr(samples::AbstractVector{<:DensitySampleVector}; corrected::Bool = false)
-    bg_R_2sqr(TransformedMCMCBasicStats.(samples), corrected = corrected)
-end
+# TODO AC: reactivate
+# function bg_R_2sqr(samples::AbstractVector{<:DensitySampleVector}; corrected::Bool = false)
+#     bg_R_2sqr(TransformedMCMCBasicStats.(samples), corrected = corrected)
+# end
 
 
 

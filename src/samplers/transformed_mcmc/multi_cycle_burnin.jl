@@ -27,7 +27,7 @@ function mcmc_burnin!(
     outputs::Union{DensitySampleVector,Nothing},
     chains::AbstractVector{<:MCMCIterator},
     tuners::AbstractVector{<:TransformedAbstractMCMCTunerInstance},
-    temperers::AbstractVector{<:TransformedTransformedMCMCTemperingInstance},
+    temperers::AbstractVector{<:TransformedMCMCTemperingInstance},
     burnin_alg::TransformedMCMCMultiCycleBurnin,
     convergence_test::ConvergenceTest,
     strict_mode::Bool,
