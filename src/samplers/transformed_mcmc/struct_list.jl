@@ -8,34 +8,34 @@ struct TransformedGelmanRubinConvergence <: ConvergenceTest
     struct TransformedBrooksGelmanConvergence <: ConvergenceTest
 # Constructors:
 # @with_kw struct TransformedBrooksGelmanConvergence <: ConvergenceTest
-struct TransformedMCMCNullStats <: AbstractMCMCStats end
-struct TransformedMCMCBasicStats{L<:Real,P<:Real} <: AbstractMCMCStats
-    struct TransformedRepetitionWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T}
+struct TransformedMCMCNullStats <: TransformedAbstractMCMCStats end
+struct TransformedMCMCBasicStats{L<:Real,P<:Real} <: TransformedAbstractMCMCStats
+    struct TransformedRepetitionWeighting{T<:AbstractFloat} <: TransformedAbstractMCMCWeightingScheme{T}
 # Constructors:
-# struct TransformedRepetitionWeighting{T<:Real} <: AbstractMCMCWeightingScheme{T} end
+# struct TransformedRepetitionWeighting{T<:Real} <: TransformedAbstractMCMCWeightingScheme{T} end
 # Constructors:
-struct TransformedARPWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T} end
-struct TransformedGenericProposalDist{D<:Distribution{Multivariate},SamplerF,S<:Sampleable} <: AbstractProposalDist
-struct TransformedGenericUvProposalDist{D<:Distribution{Univariate},T<:Real,SamplerF,S<:Sampleable} <: AbstractProposalDist
-struct TransformedMvTDistProposal <: ProposalDistSpec
-struct TransformedUvTDistProposalSpec <: ProposalDistSpec
-    struct TransformedMCMCMultiCycleBurnin <: MCMCBurninAlgorithm
+struct TransformedARPWeighting{T<:AbstractFloat} <: TransformedAbstractMCMCWeightingScheme{T} end
+struct TransformedGenericProposalDist{D<:Distribution{Multivariate},SamplerF,S<:Sampleable} <: TransformedAbstractProposalDist
+struct TransformedGenericUvProposalDist{D<:Distribution{Univariate},T<:Real,SamplerF,S<:Sampleable} <: TransformedAbstractProposalDist
+struct TransformedMvTDistProposal <: TransformedProposalDistSpec
+struct TransformedUvTDistProposalSpec <: TransformedProposalDistSpec
+    struct TransformedMCMCMultiCycleBurnin <: TransformedMCMCBurninAlgorithm
 # Constructors:
-# @with_kw struct TransformedMCMCMultiCycleBurnin <: MCMCBurninAlgorithm
-struct TransformedNoMCMCTempering <: MCMCTempering end
-# struct NoMCMCTemperingInstance <: MCMCTemperingInstance end
-    struct TransformedMCMCChainPoolInit <: MCMCInitAlgorithm
+# @with_kw struct TransformedMCMCMultiCycleBurnin <: TransformedMCMCBurninAlgorithm
+struct TransformedNoMCMCTempering <: TransformedMCMCTempering end
+# struct NoMCMCTemperingInstance <: TransformedMCMCTemperingInstance end
+    struct TransformedMCMCChainPoolInit <: TransformedMCMCInitAlgorithm
 # Constructors:
-# @with_kw struct TransformedMCMCChainPoolInit <: MCMCInitAlgorithm
+# @with_kw struct TransformedMCMCChainPoolInit <: TransformedMCMCInitAlgorithm
 # function _construct_chain(
 # ) = [_construct_chain(rngpart, id, algorithm, density, initval_alg) for id in ids]
 struct TransformedMCMCSampleID{
-struct TransformedMCMCNoOpTuning <: MCMCTuningAlgorithm end
-struct TransformedMCMCNoOpTuner <: AbstractMCMCTunerInstance end
-@with_kw struct TransformedAdaptiveMHTuning <: MCMCTuningAlgorithm
+struct TransformedMCMCNoOpTuning <: TransformedMCMCTuningAlgorithm end
+struct TransformedMCMCNoOpTuner <: TransformedAbstractMCMCTunerInstance end
+@with_kw struct TransformedAdaptiveMHTuning <: TransformedMCMCTuningAlgorithm
 mutable struct TransformedProposalCovTuner{
-@with_kw struct TransformedRAMTuner <: MCMCTuningAlgorithm #TODO: rename to RAMTuning
-@with_kw mutable struct TransformedRAMTunerInstance <: AbstractMCMCTunerInstance
+@with_kw struct TransformedRAMTuner <: TransformedMCMCTuningAlgorithm #TODO: rename to RAMTuning
+@with_kw mutable struct TransformedRAMTunerInstance <: TransformedAbstractMCMCTunerInstance
 @with_kw struct TransformedMCMCIteratorInfo
 Constructors:
 struct TransformedMCMCSampleGenerator{

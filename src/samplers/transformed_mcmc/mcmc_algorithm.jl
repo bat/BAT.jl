@@ -6,34 +6,34 @@ function get_mcmc_tuning end #TODO: still needed
 
 
 """
-    abstract type MCMCInitAlgorithm
+    abstract type TransformedMCMCInitAlgorithm
 
 Abstract type for MCMC initialization algorithms.
 """
-abstract type MCMCInitAlgorithm end
-export MCMCInitAlgorithm
+abstract type TransformedMCMCInitAlgorithm end
+export TransformedMCMCInitAlgorithm
 
 apply_trafo_to_init(trafo::Function, initalg::MCMCInitAlgorithm) = initalg
 
 
 
 """
-    abstract type MCMCTuningAlgorithm
+    abstract type TransformedMCMCTuningAlgorithm
 
 Abstract type for MCMC tuning algorithms.
 """
-abstract type MCMCTuningAlgorithm end
-export MCMCTuningAlgorithm
+abstract type TransformedMCMCTuningAlgorithm end
+export TransformedMCMCTuningAlgorithm
 
 
 
 """
-    abstract type MCMCBurninAlgorithm
+    abstract type TransformedMCMCBurninAlgorithm
 
 Abstract type for MCMC burn-in algorithms.
 """
-abstract type MCMCBurninAlgorithm end
-export MCMCBurninAlgorithm
+abstract type TransformedMCMCBurninAlgorithm end
+export TransformedMCMCBurninAlgorithm
 
 
 
@@ -46,7 +46,7 @@ end
 
 
 """
-    abstract type MCMCIterator end
+    abstract type TransformedMCMCIterator end
 
 Represents the current state of an MCMC chain.
 
@@ -102,8 +102,8 @@ isvalidchain(chain::MCMCIterator)
 isviablechain(chain::MCMCIterator)
 ```
 """
-abstract type MCMCIterator end
-export MCMCIterator
+abstract type TransformedMCMCIterator end
+export TransformedMCMCIterator
 
 
 function Base.show(io::IO, chain::MCMCIterator)
@@ -145,7 +145,7 @@ DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(sample_type(chain
 
 
 
-abstract type AbstractMCMCTunerInstance end
+abstract type TransformedAbstractMCMCTunerInstance end
 
 
 function tuning_init! end

@@ -1,4 +1,4 @@
-abstract type MCMCProposal end
+abstract type TransformedMCMCProposal end
 """
     BAT.TransformedMHProposal
 
@@ -6,7 +6,7 @@ abstract type MCMCProposal end
 """
 struct TransformedMHProposal{
     D<:Union{Distribution, AbstractMeasure}
-}<: MCMCProposal
+}<: TransformedMCMCProposal
     proposal_dist::D
 end      
 

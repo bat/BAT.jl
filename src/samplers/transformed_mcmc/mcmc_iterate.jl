@@ -6,7 +6,7 @@ mutable struct TransformedMCMCIterator{
     Q<:MCMCProposal,
     SV<:DensitySampleVector,
     S<:DensitySample,
-} <: MCMCIterator
+} <: TransformedMCMCIterator
     rng::R
     rngpart_cycle::PR
     μ::D

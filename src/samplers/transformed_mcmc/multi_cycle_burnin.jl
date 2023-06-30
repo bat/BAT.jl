@@ -2,7 +2,7 @@
 
 
 """
-    struct TransformedMCMCMultiCycleBurnin <: MCMCBurninAlgorithm
+    struct TransformedMCMCMultiCycleBurnin <: TransformedMCMCBurninAlgorithm
 
 A multi-cycle MCMC burn-in algorithm.
 
@@ -14,7 +14,7 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct TransformedMCMCMultiCycleBurnin <: MCMCBurninAlgorithm
+@with_kw struct TransformedMCMCMultiCycleBurnin <: TransformedMCMCBurninAlgorithm
     nsteps_per_cycle::Int64 = 10000
     max_ncycles::Int = 30
     nsteps_final::Int64 = div(nsteps_per_cycle, 10)

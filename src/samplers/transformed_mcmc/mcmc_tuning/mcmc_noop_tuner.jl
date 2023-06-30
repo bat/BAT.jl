@@ -2,18 +2,18 @@
 
 
 """
-    TransformedMCMCNoOpTuning <: MCMCTuningAlgorithm
+    TransformedMCMCNoOpTuning <: TransformedMCMCTuningAlgorithm
 
 No-op tuning, marks MCMC chains as tuned without performing any other changes
 on them. Useful if chains are pre-tuned or tuning is an internal part of the
 MCMC sampler implementation.
 """
-struct TransformedMCMCNoOpTuning <: MCMCTuningAlgorithm end
+struct TransformedMCMCNoOpTuning <: TransformedMCMCTuningAlgorithm end
 export TransformedMCMCNoOpTuning
 
 
 
-struct TransformedMCMCNoOpTuner <: AbstractMCMCTunerInstance end
+struct TransformedMCMCNoOpTuner <: TransformedAbstractMCMCTunerInstance end
 
 (tuning::TransformedMCMCNoOpTuning)(chain::MCMCIterator) = TransformedMCMCNoOpTuner()
 get_tuner(tuning::TransformedMCMCNoOpTuning, chain::MCMCIterator) = TransformedMCMCNoOpTuner() 

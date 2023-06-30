@@ -1,11 +1,11 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-abstract type SampleID end
+abstract type TransformedSampleID end
 
 struct TransformedMCMCSampleID{
     T<:Int32,
     U<:Int64,
-} <: SampleID
+} <: TransformedSampleID
     chainid::T
     chaincycle::T
     stepno::U
