@@ -1,12 +1,12 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-abstract type TransformedAbstractMCMCStats end
+abstract type AbstractMCMCStats end
 AbstractMCMCStats
 
 
 
-struct TransformedMCMCNullStats <: TransformedAbstractMCMCStats end
+struct TransformedMCMCNullStats <: AbstractMCMCStats end
 
 
 Base.push!(stats::TransformedMCMCNullStats, sv::DensitySampleVector) = stats
@@ -15,7 +15,7 @@ Base.append!(stats::TransformedMCMCNullStats, sv::DensitySampleVector) = stats
 
 
 
-struct TransformedMCMCBasicStats{L<:Real,P<:Real} <: TransformedAbstractMCMCStats
+struct TransformedMCMCBasicStats{L<:Real,P<:Real} <: AbstractMCMCStats
     param_stats::BasicMvStatistics{P,FrequencyWeights}
     logtf_stats::BasicUvStatistics{L,FrequencyWeights}
     mode::Vector{P}

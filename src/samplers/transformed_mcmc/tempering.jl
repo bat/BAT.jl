@@ -1,5 +1,5 @@
-abstract type TransformedMCMCTempering end
-struct TransformedNoMCMCTempering <: TransformedMCMCTempering end
+abstract type MCMCTempering end
+struct TransformedNoMCMCTempering <: MCMCTempering end
 
 """
     temper_mcmc_target!!(tempering::MCMCTemperingInstance, μ::BATMeasure, stepno::Integer)
@@ -8,9 +8,9 @@ function temper_mcmc_target!! end
 
 
 
-abstract type TransformedMCMCTemperingInstance end
+abstract type MCMCTemperingInstance end
 
-struct NoMCMCTemperingInstance <: TransformedMCMCTemperingInstance end
+struct NoMCMCTemperingInstance <: MCMCTemperingInstance end
 
 temper_mcmc_target!!(tempering::NoMCMCTemperingInstance, μ::BATMeasure, stepno::Integer) = tempering, μ
 

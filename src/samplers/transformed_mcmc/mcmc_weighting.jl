@@ -2,14 +2,14 @@
 
 
 """
-    abstract type TransformedAbstractMCMCWeightingScheme{T<:Real}
+    abstract type AbstractMCMCWeightingScheme{T<:Real}
 
 Abstract class for weighting schemes for MCMC samples.
 
 Weight values will have type `T`.
 """
-abstract type TransformedAbstractMCMCWeightingScheme{T<:Real} end
-export TransformedAbstractMCMCWeightingScheme
+abstract type AbstractMCMCWeightingScheme{T<:Real} end
+export AbstractMCMCWeightingScheme
 
 
 sample_weight_type(::Type{<:AbstractMCMCWeightingScheme{T}}) where {T} = T
@@ -17,7 +17,7 @@ sample_weight_type(::Type{<:AbstractMCMCWeightingScheme{T}}) where {T} = T
 
 
 """
-    struct TransformedRepetitionWeighting{T<:AbstractFloat} <: TransformedAbstractMCMCWeightingScheme{T}
+    struct TransformedRepetitionWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T}
 
 Sample weighting scheme suitable for sampling algorithms which may repeated
 samples multiple times in direct succession (e.g.
@@ -29,14 +29,14 @@ Constructors:
 
 * ```$(FUNCTIONNAME)()```
 """
-struct TransformedRepetitionWeighting{T<:Real} <: TransformedAbstractMCMCWeightingScheme{T} end
+struct TransformedRepetitionWeighting{T<:Real} <: AbstractMCMCWeightingScheme{T} end
 export TransformedRepetitionWeighting
 
 TransformedRepetitionWeighting() = TransformedRepetitionWeighting{Int}()
 
 
 """
-    TransformedARPWeighting{T<:AbstractFloat} <: TransformedAbstractMCMCWeightingScheme{T}
+    TransformedARPWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T}
 
 Sample weighting scheme suitable for accept/reject-based sampling algorithms
 (e.g. [`MetropolisHastings`](@ref)). Both accepted and rejected samples
@@ -47,7 +47,7 @@ Constructors:
 
 * ```$(FUNCTIONNAME)()```
 """
-struct TransformedARPWeighting{T<:AbstractFloat} <: TransformedAbstractMCMCWeightingScheme{T} end
+struct TransformedARPWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T} end
 export TransformedARPWeighting
 
 TransformedARPWeighting() = TransformedARPWeighting{Float64}()

@@ -2,7 +2,7 @@
 
 
 """
-    abstract type TransformedAbstractProposalDist
+    abstract type AbstractProposalDist
 
 *BAT-internal, not part of stable public API.*
 
@@ -13,7 +13,7 @@ The following functions must be implemented for subtypes:
 * `ValueShapes.totalndof`, returning the number of DOF (i.e. dimensionality).
 * `LinearAlgebra.issymmetric`, indicating whether p(a -> b) == p(b -> a) holds true.
 """
-abstract type TransformedAbstractProposalDist end
+abstract type AbstractProposalDist end
 
 
 """
@@ -69,7 +69,7 @@ function proposal_rand! end
 
 
 
-struct TransformedGenericProposalDist{D<:Distribution{Multivariate},SamplerF,S<:Sampleable} <: TransformedAbstractProposalDist
+struct TransformedGenericProposalDist{D<:Distribution{Multivariate},SamplerF,S<:Sampleable} <: AbstractProposalDist
     d::D
     sampler_f::SamplerF
     s::S
@@ -133,7 +133,7 @@ LinearAlgebra.issymmetric(pdist::TransformedGenericProposalDist) = issymmetric_a
 
 
 
-struct TransformedGenericUvProposalDist{D<:Distribution{Univariate},T<:Real,SamplerF,S<:Sampleable} <: TransformedAbstractProposalDist
+struct TransformedGenericUvProposalDist{D<:Distribution{Univariate},T<:Real,SamplerF,S<:Sampleable} <: AbstractProposalDist
     d::D
     scale::Vector{T}
     sampler_f::SamplerF
@@ -175,10 +175,10 @@ end
 
 
 
-abstract type TransformedProposalDistSpec end
+abstract type ProposalDistSpec end
 
 
-struct TransformedMvTDistProposal <: TransformedProposalDistSpec
+struct TransformedMvTDistProposal <: ProposalDistSpec
     df::Float64
 end
 
@@ -197,7 +197,7 @@ function TransformedGenericProposalDist(::Type{MvTDist}, T::Type{<:AbstractFloat
 end
 
 
-struct TransformedUvTDistProposalSpec <: TransformedProposalDistSpec
+struct TransformedUvTDistProposalSpec <: ProposalDistSpec
     df::Float64
 end
 

@@ -1,4 +1,4 @@
-@with_kw struct TransformedAdaptiveMHTuning <: TransformedMCMCTuningAlgorithm
+@with_kw struct TransformedAdaptiveMHTuning <: MCMCTuningAlgorithm
     "Controls the weight given to new covariance information in adapting the
     proposal distribution."
     λ::Float64 = 0.5
@@ -22,7 +22,7 @@ end
 
 mutable struct TransformedProposalCovTuner{
     S<:TransformedMCMCBasicStats
-} <: TransformedAbstractMCMCTunerInstance
+} <: AbstractMCMCTunerInstance
     config::TransformedAdaptiveMHTuning
     stats::S
     iteration::Int
