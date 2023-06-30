@@ -16,6 +16,7 @@ using Printf
 using Random
 using Statistics
 
+using AffineMaps
 using ArgCheck
 using ArraysOfArrays
 using ChangesOfVariables
@@ -60,6 +61,7 @@ import Measurements
 import NamedArrays
 import NLSolversBase
 import Optim
+import ProgressMeter
 import Random123
 import Sobol
 import StableRNGs
