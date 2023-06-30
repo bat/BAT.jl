@@ -6,35 +6,35 @@ function get_mcmc_tuning end #TODO: still needed
 
 
 """
-    abstract type MCMCInitAlgorithm
+    abstract type TransformedMCMCInitAlgorithm
 
 Abstract type for MCMC initialization algorithms.
 """
-abstract type MCMCInitAlgorithm end
-export MCMCInitAlgorithm
+abstract type TransformedMCMCInitAlgorithm end
+export TransformedMCMCInitAlgorithm
 
 #TODO AC: reactivate
-#apply_trafo_to_init(trafo::Function, initalg::MCMCInitAlgorithm) = initalg
+#apply_trafo_to_init(trafo::Function, initalg::TransformedMCMCInitAlgorithm) = initalg
 
 
 
 """
-    abstract type MCMCTuningAlgorithm
+    abstract type TransformedMCMCTuningAlgorithm
 
 Abstract type for MCMC tuning algorithms.
 """
-abstract type MCMCTuningAlgorithm end
-export MCMCTuningAlgorithm
+abstract type TransformedMCMCTuningAlgorithm end
+export TransformedMCMCTuningAlgorithm
 
 
 
 """
-    abstract type MCMCBurninAlgorithm
+    abstract type TransformedMCMCBurninAlgorithm
 
 Abstract type for MCMC burn-in algorithms.
 """
-abstract type MCMCBurninAlgorithm end
-export MCMCBurninAlgorithm
+abstract type TransformedMCMCBurninAlgorithm end
+export TransformedMCMCBurninAlgorithm
 
 
 
@@ -147,7 +147,7 @@ DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(sample_type(chain
 
 
 
-abstract type AbstractMCMCTunerInstance end
+abstract type TransformedAbstractMCMCTunerInstance end
 
 
 function tuning_init! end

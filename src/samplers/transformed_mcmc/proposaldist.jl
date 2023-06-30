@@ -2,7 +2,7 @@
 
 
 """
-    abstract type AbstractProposalDist
+    abstract type TransformedAbstractProposalDist
 
 *BAT-internal, not part of stable public API.*
 
@@ -13,13 +13,13 @@ The following functions must be implemented for subtypes:
 * `ValueShapes.totalndof`, returning the number of DOF (i.e. dimensionality).
 * `LinearAlgebra.issymmetric`, indicating whether p(a -> b) == p(b -> a) holds true.
 """
-abstract type AbstractProposalDist end
+abstract type TransformedAbstractProposalDist end
 
 
 """
     proposaldist_logpdf(
         p::AbstractArray,
-        pdist::AbstractProposalDist,
+        pdist::TransformedAbstractProposalDist,
         v_proposed::AbstractVector,
         v_current:::AbstractVector
     )
@@ -69,7 +69,7 @@ function proposal_rand! end
 
 
 
-struct TransformedGenericProposalDist{D<:Distribution{Multivariate},SamplerF,S<:Sampleable} <: AbstractProposalDist
+struct TransformedGenericProposalDist{D<:Distribution{Multivariate},SamplerF,S<:Sampleable} <: TransformedAbstractProposalDist
     d::D
     sampler_f::SamplerF
     s::S
@@ -94,7 +94,7 @@ TransformedGenericProposalDist(D::Type{<:Distribution{Multivariate}}, varndof::I
 Base.similar(q::TransformedGenericProposalDist, d::Distribution{Multivariate}) =
     TransformedGenericProposalDist(d, q.sampler_f)
 
-function Base.convert(::Type{AbstractProposalDist}, q::TransformedGenericProposalDist, T::Type{<:AbstractFloat}, varndof::Integer)
+function Base.convert(::Type{TransformedAbstractProposalDist}, q::TransformedGenericProposalDist, T::Type{<:AbstractFloat}, varndof::Integer)
     varndof != totalndof(q) && throw(ArgumentError("q has wrong number of DOF"))
     q
 end
@@ -133,7 +133,7 @@ LinearAlgebra.issymmetric(pdist::TransformedGenericProposalDist) = issymmetric_a
 
 
 
-struct TransformedGenericUvProposalDist{D<:Distribution{Univariate},T<:Real,SamplerF,S<:Sampleable} <: AbstractProposalDist
+struct TransformedGenericUvProposalDist{D<:Distribution{Univariate},T<:Real,SamplerF,S<:Sampleable} <: TransformedAbstractProposalDist
     d::D
     scale::Vector{T}
     sampler_f::SamplerF
@@ -175,10 +175,10 @@ end
 
 
 
-abstract type ProposalDistSpec end
+abstract type TransformedProposalDistSpec end
 
 
-struct TransformedMvTDistProposal <: ProposalDistSpec
+struct TransformedMvTDistProposal <: TransformedProposalDistSpec
     df::Float64
 end
 
@@ -197,7 +197,7 @@ function TransformedGenericProposalDist(::Type{MvTDist}, T::Type{<:AbstractFloat
 end
 
 
-struct TransformedUvTDistProposalSpec <: ProposalDistSpec
+struct TransformedUvTDistProposalSpec <: TransformedProposalDistSpec
     df::Float64
 end
 

@@ -1,18 +1,18 @@
-abstract type MCMCTempering end
-struct TransformedNoMCMCTempering <: MCMCTempering end
+abstract type TransformedMCMCTempering end
+struct TransformedNoTransformedMCMCTempering <: TransformedMCMCTempering end
 
 """
-    temper_mcmc_target!!(tempering::MCMCTemperingInstance, μ::BATMeasure, stepno::Integer)
+    temper_mcmc_target!!(tempering::TransformedTransformedMCMCTemperingInstance, μ::BATMeasure, stepno::Integer)
 """
 function temper_mcmc_target!! end
 
 
 
-abstract type MCMCTemperingInstance end
+abstract type TransformedTransformedMCMCTemperingInstance end
 
-struct NoMCMCTemperingInstance <: MCMCTemperingInstance end
+struct NoTransformedTransformedMCMCTemperingInstance <: TransformedTransformedMCMCTemperingInstance end
 
-temper_mcmc_target!!(tempering::NoMCMCTemperingInstance, μ::BATMeasure, stepno::Integer) = tempering, μ
+temper_mcmc_target!!(tempering::NoTransformedTransformedMCMCTemperingInstance, μ::BATMeasure, stepno::Integer) = tempering, μ
 
-get_temperer(tempering::TransformedNoMCMCTempering, density::BATMeasure) = NoMCMCTemperingInstance()
-get_temperer(tempering::TransformedNoMCMCTempering, chain::MCMCIterator) = get_temperer(tempering, chain.μ)
+get_temperer(tempering::TransformedNoTransformedMCMCTempering, density::BATMeasure) = NoTransformedTransformedMCMCTemperingInstance()
+get_temperer(tempering::TransformedNoTransformedMCMCTempering, chain::MCMCIterator) = get_temperer(tempering, chain.μ)

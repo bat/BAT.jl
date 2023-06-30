@@ -3,7 +3,7 @@ mutable struct TransformedMCMCIterator{
     PR<:RNGPartition,
     D<:BATMeasure,
     F,
-    Q<:TransformedMCMCProposal,
+    Q<:TransformedTransformedMCMCProposal,
     SV<:DensitySampleVector,
     S<:DensitySample,
 } <: MCMCIterator
@@ -75,7 +75,7 @@ function TransformedMCMCIterator(
     g = init_adaptive_transform(rng, adaptive_transform_spec, μ)
 
     logd_x = logdensityof(μ, v_init)
-    sample_x = DensitySample(v_init, logd_x, 1, TransformedMCMCSampleID(id, 1, 0), nothing) # TODO
+    sample_x = DensitySample(v_init, logd_x, 1, TransformedMCMCTransformedSampleID(id, 1, 0), nothing) # TODO
     inverse_g = inverse(g)
     z = inverse_g(v_init) # sample_x.v
     logd_z = logdensityof(MeasureBase.pullback(g, μ),z)
@@ -154,8 +154,8 @@ end
 
 function transformed_mcmc_step!!(
     iter::TransformedMCMCIterator,
-    tuner::AbstractMCMCTunerInstance,
-    tempering::MCMCTemperingInstance,
+    tuner::TransformedAbstractMCMCTunerInstance,
+    tempering::TransformedTransformedMCMCTemperingInstance,
 )
     @unpack rng, μ, f_transform, proposal, samples, sample_z, stepno = iter
     sample_x = last(samples)
@@ -181,7 +181,7 @@ function transformed_mcmc_step!!(
     end
 
     sample_x_new, sample_z_new, samples_new = if accepted
-        sample_x_new = DensitySample(x_new, logd_x_new, 1, TransformedMCMCSampleID(iter.info.id, iter.info.cycle, iter.stepno), nothing)
+        sample_x_new = DensitySample(x_new, logd_x_new, 1, TransformedMCMCTransformedSampleID(iter.info.id, iter.info.cycle, iter.stepno), nothing)
         push!(samples, sample_x_new) 
         sample_x_new, _rebuild_density_sample(sample_z, z_new, logd_z_new), samples
     else
@@ -206,8 +206,8 @@ end
 
 function transformed_mcmc_iterate!(
     chain::TransformedMCMCIterator,
-    tuner::AbstractMCMCTunerInstance,
-    tempering::MCMCTemperingInstance;
+    tuner::TransformedAbstractMCMCTunerInstance,
+    tempering::TransformedTransformedMCMCTemperingInstance;
     max_nsteps::Integer = 1,
     max_time::Real = Inf,
     nonzero_weights::Bool = true,
@@ -248,9 +248,9 @@ end
 
 function transformed_mcmc_iterate!(
     chain::MCMCIterator,
-    tuner::AbstractMCMCTunerInstance,
-    tempering::MCMCTemperingInstance;
-    # tuner::AbstractMCMCTunerInstance;
+    tuner::TransformedAbstractMCMCTunerInstance,
+    tempering::TransformedTransformedMCMCTemperingInstance;
+    # tuner::TransformedAbstractMCMCTunerInstance;
     max_nsteps::Integer = 1,
     max_time::Real = Inf,
     nonzero_weights::Bool = true,
@@ -269,8 +269,8 @@ end
 
 function transformed_mcmc_iterate!(
     chains::AbstractVector{<:MCMCIterator},
-    tuners::AbstractVector{<:AbstractMCMCTunerInstance},
-    temperers::AbstractVector{<:MCMCTemperingInstance};
+    tuners::AbstractVector{<:TransformedAbstractMCMCTunerInstance},
+    temperers::AbstractVector{<:TransformedTransformedMCMCTemperingInstance};
     kwargs...
 )
     if isempty(chains)
@@ -322,7 +322,7 @@ function next_cycle!(
     resize!(chain.samples, 1)
 
     chain.samples.weight[1] = 1
-    chain.samples.info[1] = TransformedMCMCSampleID(chain.info.id, chain.info.cycle, chain.stepno)
+    chain.samples.info[1] = TransformedMCMCTransformedSampleID(chain.info.id, chain.info.cycle, chain.stepno)
     
     chain
 end

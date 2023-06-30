@@ -1,61 +1,61 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-abstract type SampleID end
+abstract type TransformedSampleID end
 
-struct TransformedMCMCSampleID{
+struct TransformedMCMCTransformedSampleID{
     T<:Int32,
     U<:Int64,
-} <: SampleID
+} <: TransformedSampleID
     chainid::T
     chaincycle::T
     stepno::U
 end
 
-function TransformedMCMCSampleID(
+function TransformedMCMCTransformedSampleID(
     chainid::Integer,
     chaincycle::Integer,
     stepno::Integer,
 )
-    TransformedMCMCSampleID(Int32(chainid), Int32(chaincycle), Int64(stepno))
+    TransformedMCMCTransformedSampleID(Int32(chainid), Int32(chaincycle), Int64(stepno))
 end
 
-const TransformedMCMCSampleIDVector{TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Int64}} = StructArray{
-    TransformedMCMCSampleID,
+const TransformedMCMCTransformedSampleIDVector{TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Int64}} = StructArray{
+    TransformedMCMCTransformedSampleID,
     1,
     NamedTuple{(:chainid, :chaincycle, :stepno), Tuple{TV,TV,UV}},
     Int
 }
 
 
-function TransformedMCMCSampleIDVector(contents::Tuple{TV,TV,UV}) where {TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Int64}}
-    StructArray{TransformedMCMCSampleID}(contents)::TransformedMCMCSampleIDVector{TV,UV}
+function TransformedMCMCTransformedSampleIDVector(contents::Tuple{TV,TV,UV}) where {TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Int64}}
+    StructArray{TransformedMCMCTransformedSampleID}(contents)::TransformedMCMCTransformedSampleIDVector{TV,UV}
 end
 
-TransformedMCMCSampleIDVector(::UndefInitializer, len::Integer) = TransformedMCMCSampleIDVector((
+TransformedMCMCTransformedSampleIDVector(::UndefInitializer, len::Integer) = TransformedMCMCTransformedSampleIDVector((
     Vector{Int32}(undef, len), Vector{Int32}(undef, len),
     Vector{Int64}(undef, len)
 ))
 
-TransformedMCMCSampleIDVector() = TransformedMCMCSampleIDVector(undef, 0)
+TransformedMCMCTransformedSampleIDVector() = TransformedMCMCTransformedSampleIDVector(undef, 0)
 
 
-_create_undef_vector(::Type{TransformedMCMCSampleID}, len::Integer) = TransformedMCMCSampleIDVector(undef, len)
+_create_undef_vector(::Type{TransformedMCMCTransformedSampleID}, len::Integer) = TransformedMCMCTransformedSampleIDVector(undef, len)
 
 
 # Specialize comparison, currently StructArray seems fall back to `(==)(A::AbstractArray, B::AbstractArray)`
 import Base.==
-function(==)(A::TransformedMCMCSampleIDVector, B::TransformedMCMCSampleIDVector)
+function(==)(A::TransformedMCMCTransformedSampleIDVector, B::TransformedMCMCTransformedSampleIDVector)
     A.chainid == B.chainid &&
     A.chaincycle == B.chaincycle &&
     A.stepno == B.stepno
 end
 
 
-function Base.merge!(X::TransformedMCMCSampleIDVector, Xs::TransformedMCMCSampleIDVector...)
+function Base.merge!(X::TransformedMCMCTransformedSampleIDVector, Xs::TransformedMCMCTransformedSampleIDVector...)
     for Y in Xs
         append!(X, Y)
     end
     X
 end
 
-Base.merge(X::TransformedMCMCSampleIDVector, Xs::TransformedMCMCSampleIDVector...) = merge!(deepcopy(X), Xs...)
+Base.merge(X::TransformedMCMCTransformedSampleIDVector, Xs::TransformedMCMCTransformedSampleIDVector...) = merge!(deepcopy(X), Xs...)

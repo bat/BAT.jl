@@ -1,4 +1,4 @@
-abstract type MCMCProposal end
+abstract type TransformedMCMCProposal end
 """
     BAT.TransformedMHProposal
 
@@ -6,7 +6,7 @@ abstract type MCMCProposal end
 """
 struct TransformedMHProposal{
     D<:Union{Distribution, AbstractMeasure}
-}<: MCMCProposal
+}<: TransformedMCMCProposal
     proposal_dist::D
 end      
 
@@ -16,16 +16,16 @@ struct TransformedMCMCDispatch end
 
 @with_kw struct TransformedMCMCSampling{
     TR<:AbstractTransformTarget,
-    IN<:MCMCInitAlgorithm,
-    BI<:MCMCBurninAlgorithm,
+    IN<:TransformedMCMCInitAlgorithm,
+    BI<:TransformedMCMCBurninAlgorithm,
     CT<:ConvergenceTest,
     CB<:Function
 } <: AbstractSamplingAlgorithm
     pre_transform::TR = bat_default(TransformedMCMCDispatch, Val(:pre_transform))
-    tuning_alg::MCMCTuningAlgorithm = TransformedRAMTuner() # TODO: use bat_defaults
+    tuning_alg::TransformedMCMCTuningAlgorithm = TransformedRAMTuner() # TODO: use bat_defaults
     adaptive_transform::AdaptiveTransformSpec = default_adaptive_transform(tuning_alg)
-    proposal::TransformedMCMCProposal = TransformedMHProposal(Normal()) #TODO: use bat_defaults
-    tempering = TransformedNoMCMCTempering() # TODO: use bat_defaults
+    proposal::TransformedTransformedMCMCProposal = TransformedMHProposal(Normal()) #TODO: use bat_defaults
+    tempering = TransformedNoTransformedMCMCTempering() # TODO: use bat_defaults
     nchains::Int = 4
     nsteps::Int = 10^5
     #TODO: max_time ?
@@ -145,7 +145,7 @@ function _run_sample_impl(
     transformed_mcmc_iterate!(
         chains,
         get_tuner.(Ref(TransformedMCMCNoOpTuning()),chains),
-        get_temperer.(Ref(TransformedNoMCMCTempering()), chains),
+        get_temperer.(Ref(TransformedNoTransformedMCMCTempering()), chains),
         max_nsteps = algorithm.nsteps, #TODO: maxtime
         nonzero_weights = algorithm.nonzero_weights,
         callback = (kwargs...) -> let pm=progress_meter; ProgressMeter.next!(pm) ; end,

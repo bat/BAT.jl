@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 """
-    struct TransformedMCMCChainPoolInit <: MCMCInitAlgorithm
+    struct TransformedMCMCChainPoolInit <: TransformedMCMCInitAlgorithm
 
 MCMC chain pool initialization strategy.
 
@@ -13,7 +13,7 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct TransformedMCMCChainPoolInit <: MCMCInitAlgorithm
+@with_kw struct TransformedMCMCChainPoolInit <: TransformedMCMCInitAlgorithm
     init_tries_per_chain::ClosedInterval{Int64} = ClosedInterval(8, 128)
     nsteps_init::Int64 = 1000
     initval_alg::InitvalAlgorithm = InitFromTarget()
@@ -60,7 +60,7 @@ function mcmc_init!(
     density::AbstractMeasureOrDensity,
     nchains::Integer,
     init_alg::TransformedMCMCChainPoolInit,
-    tuning_alg::MCMCTuningAlgorithm, # TODO: part of algorithm? # MCMCTuner
+    tuning_alg::TransformedMCMCTuningAlgorithm, # TODO: part of algorithm? # MCMCTuner
     nonzero_weights::Bool,
     callback::Function
 )

@@ -1,10 +1,10 @@
-@with_kw struct TransformedRAMTuner <: MCMCTuningAlgorithm #TODO: rename to RAMTuning
+@with_kw struct TransformedRAMTuner <: TransformedMCMCTuningAlgorithm #TODO: rename to RAMTuning
     target_acceptance::Float64 = 0.234 #TODO AC: how to pass custom intitial value for cov matrix?
     σ_target_acceptance::Float64 = 0.05
     gamma::Float64 = 2/3
 end
 
-@with_kw mutable struct TransformedRAMTunerInstance <: AbstractMCMCTunerInstance
+@with_kw mutable struct TransformedRAMTunerInstance <: TransformedAbstractMCMCTunerInstance
     config::TransformedRAMTuner
     nsteps::Int = 0
 end
