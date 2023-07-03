@@ -17,11 +17,20 @@ rng = Philox4x()
 posterior = BAT.example_posterior()
 
 my_result = @time BAT.bat_sample_impl(rng, posterior, TransformedMCMCSampling(pre_transform=PriorToGaussian(), nchains=4, nsteps=4*100000))
+
+
+
+
+density_notrafo = convert(BAT.AbstractMeasureOrDensity, posterior)
+density, trafo = BAT.transform_and_unshape(PriorToGaussian(), density_notrafo)
+
+c = BAT._approx_cov(density)
+f = BAT.CustomTransform(Mul(c))
+
+my_result = @time BAT.bat_sample_impl(rng, posterior, TransformedMCMCSampling(pre_transform=PriorToGaussian(), tuning_alg=TransformedAdaptiveMHTuning(), nchains=4, nsteps=4*100000, adaptive_transform=f))
+
 my_samples = my_result.result
 
-mh_result = @time BAT.bat_sample_impl(rng, posterior, TransformedMCMCSampling(tuning_alg=TransformedAdaptiveMHTuning(), pre_transform=PriorToGaussian(), nchains=4, nsteps=4*100000))
-
-(;chain, tuner) = BAT.g_state
 
 
 using Plots

@@ -12,7 +12,7 @@ function init_adaptive_transform(
     adaptive_transform::CustomTransform,
     density
 )
-    return adaptive_transform
+    return adaptive_transform.f
 end
 
 
