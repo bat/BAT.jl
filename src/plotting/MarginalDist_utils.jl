@@ -208,7 +208,7 @@ function calculate_levels(
     return sort(levels)
 end
 
-function _all_exprs(vs::NamedTupleShape)
+function _all_active_exprs(vs::NamedTupleShape)
     accs = vs._accessors
     syms = keys(accs)
     lengths = length.(values(accs))
