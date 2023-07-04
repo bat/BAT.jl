@@ -84,10 +84,8 @@ function tuning_update!(tuner::TransformedProposalCovTuner, chain::MCMCIterator,
     
     transform = chain.f_transform
 
-
-    #TODO AC: rename S_L to S, check with Oli
-    S_L = transform.A
-    Σ_old = S_L
+    A = transform.A
+    Σ_old = A*A'
 
     S = convert(Array, stats.param_stats.cov)
     a_t = 1 / t^λ
@@ -112,9 +110,9 @@ function tuning_update!(tuner::TransformedProposalCovTuner, chain::MCMCIterator,
     end
 
     Σ_new = new_Σ_unscal * tuner.scale
-    #TODO AC: check
-    #S = cholesky(Positive, Σ_new)
-    chain.f_transform = Mul(Σ_new)
+
+    S_new = cholesky(Positive, Σ_new)
+    chain.f_transform = Mul(S_new.L)
     tuner.iteration += 1
 
     nothing
