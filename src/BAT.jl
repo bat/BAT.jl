@@ -18,6 +18,7 @@ using Statistics
 
 using ArgCheck
 using ArraysOfArrays
+using AutoDiffOperators
 using ChangesOfVariables
 using Clustering
 using Colors
@@ -30,6 +31,7 @@ using FFTW
 using FillArrays
 using ForwardDiffPullbacks
 using FunctionChains
+using HeterogeneousComputing
 using IntervalSets
 using InverseFunctions
 using KernelDensity
