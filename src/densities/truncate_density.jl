@@ -159,7 +159,7 @@ function trunc_logpdf_ratio(orig_dist::Distribution, trunc_dist::Distribution)
 end
 
 function _trunc_logpdf_ratio_fallback(orig_dist::Distribution, trunc_dist::Distribution)
-    x = rand(bat_determ_rng(), trunc_dist)
+    x = rand(_bat_determ_rng(), trunc_dist)
     +logpdf(orig_dist, x) - logpdf(trunc_dist, x)
 end
 

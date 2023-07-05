@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+include("bat_context.jl")
 include("bat_default.jl")
 include("convergence_test.jl")
 include("initval_algorithm.jl")

@@ -15,16 +15,16 @@ struct ModeAsDefined <: AbstractModeEstimator end
 export ModeAsDefined
 
 
-function bat_findmode_impl(rng::AbstractRNG, target::AnySampleable, algorithm::ModeAsDefined)
+function bat_findmode_impl(target::AnySampleable, algorithm::ModeAsDefined, context::BATContext)
     (result = StatsBase.mode(target),)
 end
 
-function bat_findmode_impl(rng::AbstractRNG, target::Distribution, algorithm::ModeAsDefined)
+function bat_findmode_impl(target::Distribution, algorithm::ModeAsDefined, context::BATContext)
     (result = varshape(target)(StatsBase.mode(unshaped(target))),)
 end
 
-function bat_findmode_impl(rng::AbstractRNG, target::DistMeasure, algorithm::ModeAsDefined)
-    bat_findmode_impl(rng, parent(target), algorithm)
+function bat_findmode_impl(target::DistMeasure, algorithm::ModeAsDefined, context::BATContext)
+    bat_findmode_impl(parent(target), algorithm, context)
 end
 
 
@@ -43,7 +43,7 @@ struct MaxDensitySearch <: AbstractModeEstimator end
 export MaxDensitySearch
 
 
-function bat_findmode_impl(rng::AbstractRNG, target::DensitySampleVector, algorithm::MaxDensitySearch)
+function bat_findmode_impl(target::DensitySampleVector, algorithm::MaxDensitySearch, context::BATContext)
     v, i = _get_mode(target)
     (result = v, mode_idx = i)
 end

@@ -4,29 +4,27 @@ _default_min_ess(samples::DensitySampleVector) = minimum(bat_eff_sample_size(uns
 
 
 function test_dist_samples(
-    rng::AbstractRNG, dist::Distribution, samples::DensitySampleVector;
+    dist::Distribution, samples::DensitySampleVector,
+    context::BATContext = default_context();
     nsamples::Integer = floor(Int, _default_min_ess(samples)),
     ess::Integer = floor(Int, _default_min_ess(samples)),
     logpdfdist_pvalue_threshold = 10^-3,
     Rsq_threshold = 1.2
 )
-    r = dist_sample_qualities(rng, dist, samples; nsamples = nsamples, ess = ess)
+    r = dist_sample_qualities(dist, samples, context; nsamples = nsamples, ess = ess)
     r.logpdfdist_pvalue >= logpdfdist_pvalue_threshold && r.max_Rsq <= Rsq_threshold
-end
-
-function test_dist_samples(dist::Distribution, samples::DensitySampleVector; kwargs...)
-    test_dist_samples(bat_rng(), dist, samples; kwargs...)
 end
 
 
 function dist_sample_qualities(
-    rng::AbstractRNG, dist::Distribution, samples::DensitySampleVector;
+    dist::Distribution, samples::DensitySampleVector,
+    context::BATContext = default_context();
     nsamples::Integer = floor(Int, _default_min_ess(samples)),
     ess::Integer = floor(Int, _default_min_ess(samples))
 )
-    samples_v = bat_sample(rng, samples, OrderedResampling(nsamples = ess)).result.v
+    samples_v = bat_sample(samples, OrderedResampling(nsamples = ess), context).result.v
     samples_dist_logpdfs = logpdf.(Ref(dist), samples_v)
-    ref_samples = bat_sample(rng, dist, IIDSampling(nsamples = nsamples)).result
+    ref_samples = bat_sample(dist, IIDSampling(nsamples = nsamples), context).result
     ref_dist_logpdfs = ref_samples.logd
     samples_dist_logpdfs, ref_dist_logpdfs
 

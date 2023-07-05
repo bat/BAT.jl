@@ -25,12 +25,12 @@ end
 export BridgeSampling
 
 
-function bat_integrate_impl(target::SampledMeasure, algorithm::BridgeSampling)
+function bat_integrate_impl(target::SampledMeasure, algorithm::BridgeSampling, context::BATContext)
     transformed_target, trafo = bat_transform(algorithm.trafo, target)
     density = unshaped(transformed_target.density)
     samples = unshaped.(transformed_target.samples)
     
-    integral = bridge_sampling_integral(density, samples,algorithm.strict, algorithm.essalg )
+    integral = bridge_sampling_integral(density, samples,algorithm.strict, algorithm.essalg, context)
     (result = integral,)
 end
 
@@ -41,7 +41,8 @@ function bridge_sampling_integral(
     proposal_density::AbstractMeasureOrDensity, 
     proposal_samples::DensitySampleVector, 
     strict::Bool,
-    ess_alg::EffSampleSizeAlgorithm = bat_default_withdebug(bat_eff_sample_size, Val(:algorithm), target_samples)
+    ess_alg::EffSampleSizeAlgorithm,
+    context::BATContext
     )
 
     N1 = Int(sum(target_samples.weight))
@@ -113,7 +114,8 @@ function bridge_sampling_integral(
     target_density::AbstractMeasureOrDensity,
     target_samples::DensitySampleVector,
     strict::Bool,
-    ess_alg::EffSampleSizeAlgorithm = bat_default_withdebug(bat_eff_sample_size, Val(:algorithm), target_samples)
+    ess_alg::EffSampleSizeAlgorithm,
+    context::BATContext
     )
 
     num_samples = size(target_samples.weight)[1]
@@ -131,8 +133,8 @@ function bridge_sampling_integral(
     post_cov_pd = PDMat(cholesky(Positive, post_cov))
 
     proposal_density = MvNormal(post_mean,post_cov_pd)
-    proposal_samples = bat_sample(proposal_density,IIDSampling(nsamples=Int(sum(second_batch.weight)))).result
+    proposal_samples = bat_sample(proposal_density,IIDSampling(nsamples=Int(sum(second_batch.weight))), context).result
     proposal_density = convert(DistLikeMeasure, proposal_density)
 
-    bridge_sampling_integral(target_density,second_batch,proposal_density,proposal_samples,strict,ess_alg)
+    bridge_sampling_integral(target_density,second_batch,proposal_density,proposal_samples,strict,ess_alg,context)
 end

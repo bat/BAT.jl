@@ -14,16 +14,16 @@ export InitvalAlgorithm
 
 """
     bat_initval(
-        [rng::AbstractRNG,]
         target::BAT.AnyMeasureOrDensity,
         [algorithm::BAT.InitvalAlgorithm],
+        [context::BATContext]
     )::V
 
     bat_initval(
-        [rng::AbstractRNG,]
         target::BAT.AnyMeasureOrDensity,
         n::Integer,
         [algorithm::BAT.InitvalAlgorithm],
+        [context::BATContext]
     )::AbstractVector{<:V}
 
 Generate one or `n` random initial/starting value(s) suitable for
@@ -44,8 +44,8 @@ of the stable public API.
     Do not add add methods to `bat_initval`, add methods like
 
     ```julia
-    bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, algorithm::InitvalAlgorithm; kwargs...)
-    bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, n::Integer, algorithm::InitvalAlgorithm; kwargs...)
+    bat_initval_impl(target::AnyMeasureOrDensity, algorithm::InitvalAlgorithm, context::BATContext; kwargs...)
+    bat_initval_impl(target::AnyMeasureOrDensity, n::Integer, algorithm::InitvalAlgorithm, context::BATContext; kwargs...)
     ```
 
     to `bat_initval_impl` instead.
@@ -56,59 +56,52 @@ export bat_initval
 function bat_initval_impl end
 
 
-@inline function bat_initval(rng::AbstractRNG, target::AnyMeasureOrDensity, algorithm::InitvalAlgorithm; kwargs...)
-    r = bat_initval_impl(rng, target, algorithm; kwargs...)
-    result_with_args(r, (rng = rng, algorithm = algorithm), kwargs)
+@inline function bat_initval(target::AnyMeasureOrDensity, algorithm::InitvalAlgorithm, context::BATContext; kwargs...)
+    orig_context = deepcopy(context)
+    r = bat_initval_impl(target, algorithm, context; kwargs...)
+    result_with_args(r, (algorithm = algorithm, context = orig_context), kwargs)
 end
-
 
 @inline function bat_initval(target::AnyMeasureOrDensity; kwargs...)
-    rng = bat_default_withinfo(bat_initval, Val(:rng), target)
     algorithm = bat_default_withinfo(bat_initval, Val(:algorithm), target)
-    bat_initval(rng, target, algorithm; kwargs...)
+    context = default_context()
+    bat_initval(target, algorithm, context; kwargs...)
 end
-
 
 @inline function bat_initval(target::AnyMeasureOrDensity, algorithm::InitvalAlgorithm; kwargs...)
-    rng = bat_default_withinfo(bat_initval, Val(:rng), target)
-    bat_initval(rng, target, algorithm; kwargs...)
+    context = default_context()
+    bat_initval(target, algorithm, context; kwargs...)
 end
 
-
-@inline function bat_initval(rng::AbstractRNG, target::AnyMeasureOrDensity; kwargs...)
+@inline function bat_initval(target::AnyMeasureOrDensity, context::BATContext; kwargs...)
     algorithm = bat_default_withinfo(bat_initval, Val(:algorithm), target)
-    bat_initval(rng, target, algorithm; kwargs...)
+    bat_initval(target, algorithm, context; kwargs...)
 end
 
 
-@inline function bat_initval(rng::AbstractRNG, target::AnyMeasureOrDensity, n::Integer, algorithm::InitvalAlgorithm; kwargs...)
-    r = bat_initval_impl(rng, target, n, algorithm; kwargs...)
-    result_with_args(r, (rng = rng, algorithm = algorithm), kwargs)
+@inline function bat_initval(target::AnyMeasureOrDensity, n::Integer, algorithm::InitvalAlgorithm, context::BATContext; kwargs...)
+    orig_context = deepcopy(context)
+    r = bat_initval_impl(target, n, algorithm, context; kwargs...)
+    result_with_args(r, (algorithm = algorithm, context = orig_context), kwargs)
 end
-
 
 @inline function bat_initval(target::AnyMeasureOrDensity, n::Integer; kwargs...)
-    rng = bat_default_withinfo(bat_initval, Val(:rng), target)
     algorithm = bat_default_withinfo(bat_initval, Val(:algorithm), target)
-    bat_initval(rng, target, n, algorithm; kwargs...)
+    context = default_context()
+    bat_initval(target, n, algorithm, context; kwargs...)
 end
-
 
 @inline function bat_initval(target::AnyMeasureOrDensity, n::Integer, algorithm::InitvalAlgorithm; kwargs...)
-    rng = bat_default_withinfo(bat_initval, Val(:rng), target)
-    bat_initval(rng, target, n, algorithm; kwargs...)
+    context = default_context()
+    bat_initval(target, n, algorithm, context; kwargs...)
 end
 
-
-@inline function bat_initval(rng::AbstractRNG, target::AnyMeasureOrDensity, n::Integer; kwargs...)
+@inline function bat_initval(target::AnyMeasureOrDensity, n::Integer, context::BATContext; kwargs...)
     algorithm = bat_default_withinfo(bat_initval, Val(:algorithm), target)
-    bat_initval(rng, target, n, algorithm; kwargs...)
+    bat_initval(target, n, algorithm, context; kwargs...)
 end
 
 
-function argchoice_msg(::typeof(bat_initval), ::Val{:rng}, x::AbstractRNG)
-    "Initializing new RNG of type $(typeof(x))"
-end
 
 function argchoice_msg(::typeof(bat_initval), ::Val{:algorithm}, x::InitvalAlgorithm)
     "Using initval algorithm $x"

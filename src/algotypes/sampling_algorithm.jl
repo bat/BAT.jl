@@ -11,9 +11,9 @@ abstract type AbstractSamplingAlgorithm end
 
 """
     bat_sample(
-        [rng::AbstractRNG],
         target::BAT.AnySampleable,
-        [algorithm::BAT.AbstractSamplingAlgorithm]
+        [algorithm::BAT.AbstractSamplingAlgorithm],
+        [context::BATContext]
     )::DensitySampleVector
 
 Draw samples from `target` using `algorithm`.
@@ -41,34 +41,26 @@ export bat_sample
 function bat_sample_impl end
 
 
-@inline function bat_sample(rng::AbstractRNG, target::AnySampleable, algorithm::AbstractSamplingAlgorithm; kwargs...)
-    r = bat_sample_impl(rng, target, algorithm; kwargs...)
-    result_with_args(r, (rng = rng, algorithm = algorithm), kwargs)
+function bat_sample(target::AnySampleable, algorithm::AbstractSamplingAlgorithm, context::BATContext; kwargs...)
+    orig_context = deepcopy(context)
+    r = bat_sample_impl(target, algorithm, context; kwargs...)
+    result_with_args(r, (algorithm = algorithm, context = orig_context), kwargs)
 end
 
-
-@inline function bat_sample(target::AnySampleable; kwargs...)
-    rng = bat_default_withinfo(bat_sample, Val(:rng), target)
+function bat_sample(target::AnySampleable, context::BATContext; kwargs...)
     algorithm = bat_default_withinfo(bat_sample, Val(:algorithm), target)
-    bat_sample(rng, target, algorithm; kwargs...)
+    bat_sample(target, algorithm, context; kwargs...)
 end
 
-
-@inline function bat_sample(target::AnySampleable, algorithm::AbstractSamplingAlgorithm; kwargs...)
-    rng = bat_default_withinfo(bat_sample, Val(:rng), target)
-    bat_sample(rng, target, algorithm; kwargs...)
-end
-
-
-@inline function bat_sample(rng::AbstractRNG, target::AnySampleable; kwargs...)
+function bat_sample(target::AnySampleable; kwargs...)
     algorithm = bat_default_withinfo(bat_sample, Val(:algorithm), target)
-    bat_sample(rng, target, algorithm; kwargs...)
+    bat_sample(target, algorithm, default_context(); kwargs...)
 end
 
-
-function argchoice_msg(::typeof(bat_sample), ::Val{:rng}, x::AbstractRNG)
-    "Initializing new RNG of type $(typeof(x))"
+function bat_sample(target::AnySampleable, algorithm::AbstractSamplingAlgorithm; kwargs...)
+    bat_sample(target, algorithm, default_context(); kwargs...)
 end
+
 
 function argchoice_msg(::typeof(bat_sample), ::Val{:algorithm}, x::AbstractSamplingAlgorithm)
     "Using sampling algorithm $x"

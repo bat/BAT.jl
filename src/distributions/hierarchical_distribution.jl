@@ -87,7 +87,7 @@ export HierarchicalDistribution
 function HierarchicalDistribution(f::Function, primary_dist::ContinuousDistribution)
     vs_primary = varshape(primary_dist)
     vf_primary = _variate_form(primary_dist)
-    x_primary_us = rand(bat_determ_rng(), unshaped(primary_dist))
+    x_primary_us = rand(_bat_determ_rng(), unshaped(primary_dist))
     x_primary = vs_primary(x_primary_us)
 
     secondary_dist = f(x_primary)
@@ -243,9 +243,9 @@ end
 
 
 function Statistics.mean(ud::UnshapedHDist)
-    mean(nestedview(rand(bat_determ_rng(), ud, 10^5)))
+    mean(nestedview(rand(_bat_determ_rng(), ud, 10^5)))
 end
 
 function Statistics.cov(ud::UnshapedHDist)
-    cov(nestedview(rand(bat_determ_rng(), ud, 10^5)))
+    cov(nestedview(rand(_bat_determ_rng(), ud, 10^5)))
 end

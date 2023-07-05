@@ -22,9 +22,9 @@ import Measurements
 
 
 function BAT.bat_sample_impl(
-    rng::AbstractRNG,
     target::AnyMeasureOrDensity,
-    algorithm::ReactiveNestedSampling
+    algorithm::ReactiveNestedSampling,
+    ::BATContext
 )
     density_notrafo = convert(AbstractMeasureOrDensity, target)
     density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo)

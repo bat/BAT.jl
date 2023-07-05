@@ -65,7 +65,7 @@ end
 
 
 function _cov_with_fallback(d)
-    rng = bat_determ_rng()
+    rng = _bat_determ_rng()
     smplr = bat_sampler(d)
     T = float(eltype(rand(rng, smplr)))
     n = totalndof(varshape(d))

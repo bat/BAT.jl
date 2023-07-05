@@ -29,11 +29,11 @@ using ArraysOfArrays, Distributions, PDMats, StatsBase
 
     @test BAT.sample_and_verify(mv_dist, algorithmPW).verified
 
-    gensamples(rng::AbstractRNG) = bat_sample(rng, PosteriorMeasure(logfuncdensity(logdensityof(mv_dist)), prior), algorithmPW).result
+    gensamples(context::BATContext) = bat_sample(PosteriorMeasure(logfuncdensity(logdensityof(mv_dist)), prior), algorithmPW, context).result
 
-    rng = bat_rng()
-    @test gensamples(rng) != gensamples(rng)
-    @test gensamples(deepcopy(rng)) == gensamples(deepcopy(rng))
+    context = BATContext()
+    @test gensamples(context) != gensamples(context)
+    @test gensamples(deepcopy(context)) == gensamples(deepcopy(context))
     
     @test BAT.sample_and_verify(Normal(), MCMCSampling(mcalg = MetropolisHastings(), trafo = DoNotTransform(), nsteps = 10^4)).verified
 end

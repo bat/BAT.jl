@@ -39,9 +39,9 @@ export MCMCSampling
 
 
 function bat_sample_impl(
-    rng::AbstractRNG,
     target::AnyMeasureOrDensity,
-    algorithm::MCMCSampling
+    algorithm::MCMCSampling,
+    context::BATContext
 )
     density_notrafo = convert(AbstractMeasureOrDensity, target)
     density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo)
@@ -49,14 +49,14 @@ function bat_sample_impl(
     mcmc_algorithm = algorithm.mcalg
 
     (chains, tuners, chain_outputs) = mcmc_init!(
-        rng,
         mcmc_algorithm,
         density,
         algorithm.nchains,
         apply_trafo_to_init(trafo, algorithm.init),
         get_mcmc_tuning(mcmc_algorithm),
         algorithm.nonzero_weights,
-        algorithm.store_burnin ? algorithm.callback : nop_func
+        algorithm.store_burnin ? algorithm.callback : nop_func,
+        context
     )
 
     if !algorithm.store_burnin

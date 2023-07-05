@@ -415,6 +415,7 @@ mcmcalgo = MetropolisHastings(
 
 using Random123
 rng = Philox4x()
+context = BATContext(rng = Philox4x())
 #md nothing # hide
 
 
@@ -436,7 +437,7 @@ convergence = BrooksGelmanConvergence()
 # something like
 
 samples = bat_sample(
-    rng, posterior,
+    posterior,
     MCMCSampling(
         mcalg = mcmcalgo,
         nchains = 4,
@@ -448,7 +449,8 @@ samples = bat_sample(
         store_burnin = false,
         nonzero_weights = true,
         callback = (x...) -> nothing
-    )
+    ),
+    context
 ).result
 #md nothing # hide
 #nb nothing # hide

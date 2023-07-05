@@ -24,14 +24,12 @@ $(TYPEDFIELDS)
     MT<:HMCMetric,
     IT<:HMCIntegrator,
     PR<:HMCProposal,
-    TN<:HMCTuningAlgorithm,
-    AD<:ADSelector
+    TN<:HMCTuningAlgorithm
 } <: MCMCAlgorithm
     metric::MT = DiagEuclideanMetric()
     integrator::IT = LeapfrogIntegrator()
     proposal::PR = NUTSProposal()
     tuning::TN = StanHMCTuning()
-    adsel::AD = ADModule(:ForwardDiff)
 end
 
 export HamiltonianMC
@@ -55,16 +53,15 @@ get_mcmc_tuning(algorithm::HamiltonianMC) = algorithm.tuning
 mutable struct AHMCIterator{
     AL<:HamiltonianMC,
     D<:AbstractMeasureOrDensity,
-    R<:AbstractRNG,
     PR<:RNGPartition,
     SV<:DensitySampleVector,
     HA<:AdvancedHMC.Hamiltonian,
     TR<:AdvancedHMC.Transition,
-    PL<:AdvancedHMC.HMCKernel
+    PL<:AdvancedHMC.HMCKernel,
+    CTX<:BATContext
 } <: MCMCIterator
     algorithm::AL
     density::D
-    rng::R
     rngpart_cycle::PR
     info::MCMCIteratorInfo
     samples::SV
@@ -73,16 +70,18 @@ mutable struct AHMCIterator{
     hamiltonian::HA
     transition::TR
     proposal::PL
+    context::CTX
 end
 
 
 function AHMCIterator(
-    rng::AbstractRNG,
     algorithm::HamiltonianMC,
     density::AbstractMeasureOrDensity,
     info::MCMCIteratorInfo,
     x_init::AbstractVector{P},
+    context::BATContext,
 ) where {P<:Real}
+    rng = get_rng(context)
     stepno::Int64 = 0
 
     npar = totalndof(density)
@@ -107,8 +106,14 @@ function AHMCIterator(
 
     metric = ahmc_metric(algorithm.metric, npar)
 
+    # ToDo!: Pass context explicitly:
+    adsel = get_adselector(context)
+    if adsel isa _NoADSelected
+        throw(ErrorException("HamiltonianMC requires an ADSelector to be specified in the BAT context"))
+    end
+
     f = checked_logdensityof(density)
-    fg = valgrad_func(f, algorithm.adsel)
+    fg = valgrad_func(f, adsel)
 
     init_hamiltonian = AdvancedHMC.Hamiltonian(metric, f, fg)
     hamiltonian, init_transition = AdvancedHMC.sample_init(rng, init_hamiltonian, params_vec)
@@ -121,7 +126,6 @@ function AHMCIterator(
     chain = AHMCIterator(
         algorithm,
         density,
-        rng,
         rngpart_cycle,
         info,
         samples,
@@ -129,7 +133,8 @@ function AHMCIterator(
         stepno,
         hamiltonian,
         transition,
-        proposal
+        proposal,
+        context
     )
 
     reset_rng_counters!(chain)
@@ -139,17 +144,17 @@ end
 
 
 function MCMCIterator(
-    rng::AbstractRNG,
     algorithm::HamiltonianMC,
     density::AbstractMeasureOrDensity,
     chainid::Integer,
-    startpos::AbstractVector{<:Real}
+    startpos::AbstractVector{<:Real},
+    context::BATContext
 )
     cycle = 0
     tuned = false
     converged = false
     info = MCMCIteratorInfo(chainid, cycle, tuned, converged)
-    AHMCIterator(rng, algorithm, density, info, startpos)
+    AHMCIterator(algorithm, density, info, startpos, context)
 end
 
 
@@ -161,7 +166,7 @@ getalgorithm(chain::AHMCIterator) = chain.algorithm
 
 getmeasure(chain::AHMCIterator) = chain.density
 
-getrng(chain::AHMCIterator) = chain.rng
+get_context(chain::AHMCIterator) = chain.context
 
 mcmc_info(chain::AHMCIterator) = chain.info
 
@@ -176,9 +181,10 @@ sample_type(chain::AHMCIterator) = eltype(chain.samples)
 
 
 function reset_rng_counters!(chain::AHMCIterator)
-    set_rng!(chain.rng, chain.rngpart_cycle, chain.info.cycle)
-    rngpart_step = RNGPartition(chain.rng, 0:(typemax(Int32) - 2))
-    set_rng!(chain.rng, rngpart_step, chain.stepno)
+    rng = get_rng(get_context(chain))
+    set_rng!(rng, chain.rngpart_cycle, chain.info.cycle)
+    rngpart_step = RNGPartition(rng, 0:(typemax(Int32) - 2))
+    set_rng!(rng, rngpart_step, chain.stepno)
     nothing
 end
 
@@ -260,7 +266,7 @@ function mcmc_step!(chain::AHMCIterator)
     chain.stepno += 1
     reset_rng_counters!(chain)
 
-    rng = getrng(chain)
+    rng = get_rng(get_context(chain))
     density = getmeasure(chain)
 
 

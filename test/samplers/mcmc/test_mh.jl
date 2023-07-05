@@ -6,7 +6,7 @@ using LinearAlgebra
 using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityInterface
 
 @testset "MetropolisHastings" begin
-    rng = bat_rng()
+    context = BATContext()
     target = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
 
     shaped_density = @inferred(convert(AbstractMeasureOrDensity, target))
@@ -18,9 +18,9 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
     nchains = 4
  
     @testset "MCMC iteration" begin
-        v_init = bat_initval(rng, density, InitFromTarget()).result
-        @test @inferred(MCMCIterator(deepcopy(rng), algorithm, density, 1, unshaped(v_init, varshape(density)))) isa BAT.MHIterator
-        chain = @inferred(MCMCIterator(deepcopy(rng), algorithm, density, 1, unshaped(v_init, varshape(density)))) 
+        v_init = bat_initval(density, InitFromTarget(), context).result
+        @test @inferred(MCMCIterator(algorithm, density, 1, unshaped(v_init, varshape(density)), deepcopy(context))) isa BAT.MHIterator
+        chain = @inferred(MCMCIterator(algorithm, density, 1, unshaped(v_init, varshape(density)), deepcopy(context))) 
         samples = DensitySampleVector(chain)
         BAT.mcmc_iterate!(samples, chain, max_nsteps = 10^5, nonzero_weights = false)
         @test chain.stepno == 10^5
@@ -46,7 +46,6 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         max_nsteps = 10^5
 
         init_result = @inferred(BAT.mcmc_init!(
-            rng,
             algorithm,
             density,
             nchains,
@@ -54,6 +53,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
             tuning_alg,
             nonzero_weights,
             callback,
+            context
         ))
 
         (chains, tuners, outputs) = init_result
@@ -95,7 +95,8 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
                 trafo = DoNotTransform(),
                 nsteps = 10^5,
                 store_burnin = true
-            )
+            ),
+            context
         ).result
 
         @test first(samples).info.chaincycle == 1

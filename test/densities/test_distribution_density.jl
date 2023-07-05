@@ -6,6 +6,8 @@ using Test
 using ArraysOfArrays, Distributions, StatsBase, PDMats, IntervalSets, ValueShapes
 
 @testset "distribution_density" begin
+    context = BATContext()
+
     mvt = @inferred MvTDist(1.5, PDMat([2.0 1.0; 1.0 3.0]))
     mvdd = @inferred BAT.DistMeasure(mvt)
 
@@ -31,6 +33,6 @@ using ArraysOfArrays, Distributions, StatsBase, PDMats, IntervalSets, ValueShape
     @testset "statistics" begin
         mvn = @inferred(product_distribution([Normal(-1.0), Normal(0.0), Normal(1.0)]))
         dist_density = @inferred(BAT.DistMeasure(mvn))
-        @test @inferred(bat_findmode(dist_density)).result == mode(mvn)
+        @test @inferred(bat_findmode(dist_density, context)).result == mode(mvn)
     end
 end

@@ -28,14 +28,14 @@ function (fg!::NLSolversFG!)(::Nothing, grad_f::AbstractVector{<:Real}, x::Abstr
 end
 
 
-function _bat_findmode_impl_optim(rng::AbstractRNG, target::AnySampleable, algorithm::AbstractModeEstimator)
+function _bat_findmode_impl_optim(target::AnySampleable, algorithm::AbstractModeEstimator, context::BATContext)
     transformed_density, trafo = transform_and_unshape(algorithm.trafo, target)
 
     initalg = apply_trafo_to_init(trafo, algorithm.init)
-    x_init = collect(bat_initval(rng, transformed_density, initalg).result)
+    x_init = collect(bat_initval(transformed_density, initalg, context).result)
 
     f = negative(logdensityof(transformed_density))
-    optim_result = _run_optim(f, x_init, algorithm)
+    optim_result = _run_optim(f, x_init, algorithm, context)
     r_optim = Optim.MaximizationWrapper(optim_result)
     transformed_mode = Optim.minimizer(r_optim.res)
     result_mode = inverse(trafo)(transformed_mode)
@@ -115,12 +115,12 @@ $(TYPEDFIELDS)
 end
 export NelderMeadOpt
 
-function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::NelderMeadOpt)
+function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::NelderMeadOpt, context::BATContext)
     opts = Optim.Options(store_trace = true, extended_trace=true)
     _optim_optimize(f, x_init, Optim.NelderMead(), opts)
 end
 
-bat_findmode_impl(rng::AbstractRNG, target::AnySampleable, algorithm::NelderMeadOpt) = _bat_findmode_impl_optim(rng, target, algorithm)
+bat_findmode_impl(target::AnySampleable, algorithm::NelderMeadOpt, context::BATContext) = _bat_findmode_impl_optim(target, algorithm, context)
 
 
 """
@@ -142,19 +142,21 @@ $(TYPEDFIELDS)
 """
 @with_kw struct LBFGSOpt{
     TR<:AbstractTransformTarget,
-    IA<:InitvalAlgorithm,
-    AD<:ADSelector
+    IA<:InitvalAlgorithm
 } <: AbstractModeEstimator
     trafo::TR = PriorToGaussian()
     init::IA = InitFromTarget()
-    adsel::AD = ADModule(:ForwardDiff)
 end
 export LBFGSOpt
 
-bat_findmode_impl(rng::AbstractRNG, target::AnySampleable, algorithm::LBFGSOpt) = _bat_findmode_impl_optim(rng, target, algorithm)
+bat_findmode_impl(target::AnySampleable, algorithm::LBFGSOpt, context::BATContext) = _bat_findmode_impl_optim(target, algorithm, context)
 
-function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::LBFGSOpt)
-    fg! = NLSolversFG!(f, algorithm.adsel)
+function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::LBFGSOpt, context::BATContext)
+    adsel = get_adselector(context)
+    if adsel isa _NoADSelected
+        throw(ErrorException("LBFGSOpt requires an ADSelector to be specified in the BAT context"))
+    end
+    fg! = NLSolversFG!(f, adsel)
     opts = Optim.Options(store_trace = true, extended_trace=true)
     _optim_optimize(Optim.only_fg!(fg!), x_init, Optim.LBFGS(), opts)
 end

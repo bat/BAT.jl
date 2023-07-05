@@ -85,36 +85,38 @@ get_initsrc_from_target(target::Renormalized{<:DistMeasure}) = bat_sampler(targe
 get_initsrc_from_target(target::AbstractPosteriorMeasure) = get_initsrc_from_target(getprior(target))
 
 
-function bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, algorithm::InitFromTarget)
+function bat_initval_impl(target::AnyMeasureOrDensity, algorithm::InitFromTarget, context::BATContext)
+    rng = get_rng(context)
     (result = _rand_v_for_target(rng, target, get_initsrc_from_target(target)),)
 end
 
-function bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, n::Integer, algorithm::InitFromTarget)
+function bat_initval_impl(target::AnyMeasureOrDensity, n::Integer, algorithm::InitFromTarget, context::BATContext)
+    rng = get_rng(context)
     (result = _rand_v_for_target(rng, target, get_initsrc_from_target(target), n),)
 end
 
 
-function bat_initval_impl(rng::AbstractRNG, target::ReshapedDensity, algorithm::InitFromTarget)
-    v_orig = bat_initval_impl(rng, parent(target), algorithm).result
+function bat_initval_impl(target::ReshapedDensity, algorithm::InitFromTarget, context::BATContext)
+    v_orig = bat_initval_impl(parent(target), algorithm, context).result
     v = varshape(target)(unshaped(v_orig))
     (result = v,)
 end
 
-function bat_initval_impl(rng::AbstractRNG, target::ReshapedDensity, n::Integer, algorithm::InitFromTarget)
-    v_orig = bat_initval_impl(rng, parent(target), n, algorithm).result
+function bat_initval_impl(target::ReshapedDensity, n::Integer, algorithm::InitFromTarget, context::BATContext)
+    v_orig = bat_initval_impl(parent(target), n, algorithm, context).result
     v = varshape(target).(unshaped.(v_orig))
     (result = v,)
 end
 
 
-function bat_initval_impl(rng::AbstractRNG, target::Transformed, algorithm::InitFromTarget)
-    v_orig = bat_initval_impl(rng, target.orig, algorithm).result
+function bat_initval_impl(target::Transformed, algorithm::InitFromTarget, context::BATContext)
+    v_orig = bat_initval_impl(target.orig, algorithm, context).result
     v = target.trafo(v_orig)
     (result = v,)
 end
 
-function bat_initval_impl(rng::AbstractRNG, target::Transformed, n::Integer, algorithm::InitFromTarget)
-    vs_orig = bat_initval_impl(rng, target.orig, n, algorithm).result
+function bat_initval_impl(target::Transformed, n::Integer, algorithm::InitFromTarget, context::BATContext)
+    vs_orig = bat_initval_impl(target.orig, n, algorithm, context).result
     vs = BAT.broadcast_trafo(target.trafo, vs_orig)
     (result = vs,)
 end
@@ -136,11 +138,13 @@ end
 export InitFromSamples
 
 
-function bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, algorithm::InitFromSamples)
+function bat_initval_impl(target::AnyMeasureOrDensity, algorithm::InitFromSamples, context::BATContext)
+    rng = get_rng(context)
     (result = _rand_v_for_target(rng, target, algorithm.samples),)
 end
 
-function bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, n::Integer, algorithm::InitFromSamples)
+function bat_initval_impl(target::AnyMeasureOrDensity, n::Integer, algorithm::InitFromSamples, context::BATContext)
+    rng = get_rng(context)
     (result = _rand_v_for_target(rng, target, algorithm.samples, n),)
 end
 
@@ -162,11 +166,13 @@ end
 export InitFromIID
 
 
-function bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, algorithm::InitFromIID)
+function bat_initval_impl(target::AnyMeasureOrDensity, algorithm::InitFromIID, context::BATContext)
+    rng = get_rng(context)
     (result = _rand_v_for_target(rng, target, algorithm.src),)
 end
 
-function bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, n::Integer, algorithm::InitFromIID)
+function bat_initval_impl(target::AnyMeasureOrDensity, n::Integer, algorithm::InitFromIID, context::BATContext)
+    rng = get_rng(context)
     (result = _rand_v_for_target(rng, target, algorithm.src, n),)
 end
 
@@ -192,11 +198,13 @@ end
 export ExplicitInit
 
 
-function bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, algorithm::ExplicitInit)
+function bat_initval_impl(target::AnyMeasureOrDensity, algorithm::ExplicitInit, context::BATContext)
+    rng = get_rng(context)
     (result = first(algorithm.xs),)
 end
 
-function bat_initval_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, n::Integer, algorithm::ExplicitInit)
+function bat_initval_impl(target::AnyMeasureOrDensity, n::Integer, algorithm::ExplicitInit, context::BATContext)
+    rng = get_rng(context)
     xs = algorithm.xs
     idxs = eachindex(xs)
     (result = xs[idxs[1:n]],)

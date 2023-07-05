@@ -55,30 +55,31 @@ get_mcmc_tuning(algorithm::MetropolisHastings) = algorithm.tuning
 mutable struct MHIterator{
     AL<:MetropolisHastings,
     D<:AbstractMeasureOrDensity,
-    R<:AbstractRNG,
     PR<:RNGPartition,
     Q<:AbstractProposalDist,
-    SV<:DensitySampleVector
+    SV<:DensitySampleVector,
+    CTX<:BATContext
 } <: MCMCIterator
     algorithm::AL
     density::D
-    rng::R
     rngpart_cycle::PR
     info::MCMCIteratorInfo
     proposaldist::Q
     samples::SV
     nsamples::Int64
     stepno::Int64
+    context::CTX
 end
 
 
 function MHIterator(
-    rng::AbstractRNG,
     algorithm::MCMCAlgorithm,
     density::AbstractMeasureOrDensity,
     info::MCMCIteratorInfo,
     x_init::AbstractVector{P},
+    context::BATContext
 ) where {P<:Real}
+    rng = get_rng(context)
     stepno::Int64 = 0
 
     npar = totalndof(density)
@@ -106,13 +107,13 @@ function MHIterator(
     chain = MHIterator(
         algorithm,
         density,
-        rng,
         rngpart_cycle,
         info,
         proposaldist,
         samples,
         nsamples,
-        stepno
+        stepno,
+        context
     )
 
     reset_rng_counters!(chain)
@@ -122,17 +123,17 @@ end
 
 
 function MCMCIterator(
-    rng::AbstractRNG,
     algorithm::MetropolisHastings,
     density::AbstractMeasureOrDensity,
     chainid::Integer,
-    startpos::AbstractVector{<:Real}
+    startpos::AbstractVector{<:Real},
+    context::BATContext
 )
     cycle = 0
     tuned = false
     converged = false
     info = MCMCIteratorInfo(chainid, cycle, tuned, converged)
-    MHIterator(rng, algorithm, density, info, startpos)
+    MHIterator(algorithm, density, info, startpos, context)
 end
 
 
@@ -144,7 +145,7 @@ getalgorithm(chain::MHIterator) = chain.algorithm
 
 getmeasure(chain::MHIterator) = chain.density
 
-getrng(chain::MHIterator) = chain.rng
+get_context(chain::MHIterator) = chain.context
 
 mcmc_info(chain::MHIterator) = chain.info
 
@@ -158,9 +159,10 @@ sample_type(chain::MHIterator) = eltype(chain.samples)
 
 
 function reset_rng_counters!(chain::MHIterator)
-    set_rng!(chain.rng, chain.rngpart_cycle, chain.info.cycle)
-    rngpart_step = RNGPartition(chain.rng, 0:(typemax(Int32) - 2))
-    set_rng!(chain.rng, rngpart_step, chain.stepno)
+    rng = get_rng(get_context(chain))
+    set_rng!(rng, chain.rngpart_cycle, chain.info.cycle)
+    rngpart_step = RNGPartition(rng, 0:(typemax(Int32) - 2))
+    set_rng!(rng, rngpart_step, chain.stepno)
     nothing
 end
 
@@ -228,6 +230,8 @@ end
 
 
 function mcmc_step!(chain::MHIterator)
+    rng = get_rng(get_context(chain))
+
     _cleanup_samples(chain)
 
     samples = chain.samples
@@ -236,7 +240,7 @@ function mcmc_step!(chain::MHIterator)
     chain.stepno += 1
     reset_rng_counters!(chain)
 
-    rng = getrng(chain)
+    rng = get_rng(get_context(chain))
     density = getmeasure(chain)
 
     proposaldist = chain.proposaldist
@@ -281,7 +285,7 @@ function mcmc_step!(chain::MHIterator)
     end
 
     @assert p_accept >= 0
-    accepted = rand(chain.rng, float(typeof(p_accept))) < p_accept
+    accepted = rand(rng, float(typeof(p_accept))) < p_accept
 
     if accepted
         samples.info.sampletype[current] = ACCEPTED_SAMPLE
