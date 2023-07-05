@@ -44,8 +44,8 @@ of the stable public API.
     Do not add add methods to `bat_initval`, add methods like
 
     ```julia
-    bat_initval_impl(target::AnyMeasureOrDensity, algorithm::InitvalAlgorithm, context::BATContext; kwargs...)
-    bat_initval_impl(target::AnyMeasureOrDensity, n::Integer, algorithm::InitvalAlgorithm, context::BATContext; kwargs...)
+    bat_initval_impl(target::AnyMeasureOrDensity, algorithm::InitvalAlgorithm, context::BATContext)
+    bat_initval_impl(target::AnyMeasureOrDensity, n::Integer, algorithm::InitvalAlgorithm, context::BATContext)
     ```
 
     to `bat_initval_impl` instead.
@@ -56,49 +56,49 @@ export bat_initval
 function bat_initval_impl end
 
 
-@inline function bat_initval(target::AnyMeasureOrDensity, algorithm::InitvalAlgorithm, context::BATContext; kwargs...)
+@inline function bat_initval(target::AnyMeasureOrDensity, algorithm::InitvalAlgorithm, context::BATContext)
     orig_context = deepcopy(context)
-    r = bat_initval_impl(target, algorithm, context; kwargs...)
-    result_with_args(r, (algorithm = algorithm, context = orig_context), kwargs)
+    r = bat_initval_impl(target, algorithm, context)
+    result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
-@inline function bat_initval(target::AnyMeasureOrDensity; kwargs...)
+@inline function bat_initval(target::AnyMeasureOrDensity)
     algorithm = bat_default_withinfo(bat_initval, Val(:algorithm), target)
     context = default_context()
-    bat_initval(target, algorithm, context; kwargs...)
+    bat_initval(target, algorithm, context)
 end
 
-@inline function bat_initval(target::AnyMeasureOrDensity, algorithm::InitvalAlgorithm; kwargs...)
+@inline function bat_initval(target::AnyMeasureOrDensity, algorithm::InitvalAlgorithm)
     context = default_context()
-    bat_initval(target, algorithm, context; kwargs...)
+    bat_initval(target, algorithm, context)
 end
 
-@inline function bat_initval(target::AnyMeasureOrDensity, context::BATContext; kwargs...)
+@inline function bat_initval(target::AnyMeasureOrDensity, context::BATContext)
     algorithm = bat_default_withinfo(bat_initval, Val(:algorithm), target)
-    bat_initval(target, algorithm, context; kwargs...)
+    bat_initval(target, algorithm, context)
 end
 
 
-@inline function bat_initval(target::AnyMeasureOrDensity, n::Integer, algorithm::InitvalAlgorithm, context::BATContext; kwargs...)
+@inline function bat_initval(target::AnyMeasureOrDensity, n::Integer, algorithm::InitvalAlgorithm, context::BATContext)
     orig_context = deepcopy(context)
-    r = bat_initval_impl(target, n, algorithm, context; kwargs...)
-    result_with_args(r, (algorithm = algorithm, context = orig_context), kwargs)
+    r = bat_initval_impl(target, n, algorithm, context)
+    result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
-@inline function bat_initval(target::AnyMeasureOrDensity, n::Integer; kwargs...)
+@inline function bat_initval(target::AnyMeasureOrDensity, n::Integer)
     algorithm = bat_default_withinfo(bat_initval, Val(:algorithm), target)
     context = default_context()
-    bat_initval(target, n, algorithm, context; kwargs...)
+    bat_initval(target, n, algorithm, context)
 end
 
-@inline function bat_initval(target::AnyMeasureOrDensity, n::Integer, algorithm::InitvalAlgorithm; kwargs...)
+@inline function bat_initval(target::AnyMeasureOrDensity, n::Integer, algorithm::InitvalAlgorithm)
     context = default_context()
-    bat_initval(target, n, algorithm, context; kwargs...)
+    bat_initval(target, n, algorithm, context)
 end
 
-@inline function bat_initval(target::AnyMeasureOrDensity, n::Integer, context::BATContext; kwargs...)
+@inline function bat_initval(target::AnyMeasureOrDensity, n::Integer, context::BATContext)
     algorithm = bat_default_withinfo(bat_initval, Val(:algorithm), target)
-    bat_initval(target, n, algorithm, context; kwargs...)
+    bat_initval(target, n, algorithm, context)
 end
 
 

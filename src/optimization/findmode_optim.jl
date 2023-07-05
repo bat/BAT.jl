@@ -48,8 +48,8 @@ end
 
 
 # Wrapper for type stability of optimize result (why does this work?):
-function _optim_optimize(f, x0::AbstractArray, method::Optim.AbstractOptimizer, options = Optim.Options(); kwargs...)
-    Optim.optimize(f, x0, method, options; kwargs...)
+function _optim_optimize(f, x0::AbstractArray, method::Optim.AbstractOptimizer, options = Optim.Options())
+    Optim.optimize(f, x0, method, options)
 end
 
 

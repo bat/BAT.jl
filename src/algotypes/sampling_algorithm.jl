@@ -41,24 +41,24 @@ export bat_sample
 function bat_sample_impl end
 
 
-function bat_sample(target::AnySampleable, algorithm::AbstractSamplingAlgorithm, context::BATContext; kwargs...)
+function bat_sample(target::AnySampleable, algorithm::AbstractSamplingAlgorithm, context::BATContext)
     orig_context = deepcopy(context)
-    r = bat_sample_impl(target, algorithm, context; kwargs...)
-    result_with_args(r, (algorithm = algorithm, context = orig_context), kwargs)
+    r = bat_sample_impl(target, algorithm, context)
+    result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
-function bat_sample(target::AnySampleable, context::BATContext; kwargs...)
+function bat_sample(target::AnySampleable, context::BATContext)
     algorithm = bat_default_withinfo(bat_sample, Val(:algorithm), target)
-    bat_sample(target, algorithm, context; kwargs...)
+    bat_sample(target, algorithm, context)
 end
 
-function bat_sample(target::AnySampleable; kwargs...)
+function bat_sample(target::AnySampleable)
     algorithm = bat_default_withinfo(bat_sample, Val(:algorithm), target)
-    bat_sample(target, algorithm, default_context(); kwargs...)
+    bat_sample(target, algorithm, default_context())
 end
 
-function bat_sample(target::AnySampleable, algorithm::AbstractSamplingAlgorithm; kwargs...)
-    bat_sample(target, algorithm, default_context(); kwargs...)
+function bat_sample(target::AnySampleable, algorithm::AbstractSamplingAlgorithm)
+    bat_sample(target, algorithm, default_context())
 end
 
 

@@ -117,7 +117,7 @@ export bat_marginalmode
 function bat_marginalmode_impl end
 
 
-function bat_marginalmode(samples::DensitySampleVector; kwargs...)
-    r = bat_marginalmode_impl(samples::DensitySampleVector; kwargs...)
-    result_with_args(r, NamedTuple(), kwargs)
+function bat_marginalmode(samples::DensitySampleVector)
+    r = bat_marginalmode_impl(samples::DensitySampleVector)
+    result_with_args(r, NamedTuple())
 end
