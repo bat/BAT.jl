@@ -23,10 +23,8 @@ BAT.PackageExtension
 BAT.pkgext
 BridgeSampling
 CuhreIntegration
-DifferentiationAlgorithm
 DivonneIntegration
 EllipsoidalNestedSampling
-ForwardDiffAD
 GridSampler
 HierarchicalDistribution
 PriorImportanceSampler
@@ -35,8 +33,6 @@ renormalize_density
 SobolSampler
 SuaveIntegration
 truncate_density
-valgradof
 ValueAndThreshold
 VEGASIntegration
-ZygoteAD
 ```

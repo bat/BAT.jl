@@ -54,20 +54,16 @@ import ChainRulesCore
 import DiffResults
 import DistributionsAD
 import EmpiricalDistributions
-import FiniteDiff
-import ForwardDiff
 import HypothesisTests
 import MeasureBase
 import Measurements
 import NamedArrays
-import NLSolversBase
 import Optim
 import Random123
 import Sobol
 import StableRNGs
 import StatsFuns
 import TypedTables
-import Zygote
 import ZygoteRules
 
 using MeasureBase: AbstractMeasure, DensityMeasure
@@ -76,6 +72,9 @@ using MeasureBase: basemeasure, getdof
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, AbstractThunk, unthunk
 
 using Functors: fmap, @functor
+
+# For Dual specializations:
+import ForwardDiff
 
 # For StandardMvNormal:
 using IrrationalConstants: log2π, invsqrt2π
@@ -90,7 +89,6 @@ include("densities/densities.jl")
 include("algotypes/algotypes.jl")
 include("initvals/initvals.jl")
 include("statistics/statistics.jl")
-include("differentiation/differentiation.jl")
 include("optimization/optimization.jl")
 include("samplers/samplers.jl")
 include("integration/integration.jl")

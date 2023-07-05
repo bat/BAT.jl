@@ -93,8 +93,6 @@ function ChainRulesCore.rrule(::typeof(DensityInterface.logdensityof), density::
     return value, lfdwg_pullback
 end
 
-vjp_algorithm(density::LFDensityWithGrad) = ZygoteAD()
-
 
 function Base.show(io::IO, density::LFDensityWithGrad)
     print(io, Base.typename(typeof(density)).name, "(")

@@ -79,11 +79,7 @@ New experimental features
 * `BAT.error_log`[@ref]
 * `BAT.LogUniform`[@ref]
 * `BridgeSampling`[@ref]
-* `DifferentiationAlgorithm`[@ref]
 * `EllipsoidalNestedSampling`[@ref]
-* `ForwardDiffAD`[@ref]
 * `ReactiveNestedSampling`
 * `renormalize_density`[@ref]
 * `truncate_density`[@ref]
-* `valgradof`[@ref]
-* `ZygoteAD`[@ref]

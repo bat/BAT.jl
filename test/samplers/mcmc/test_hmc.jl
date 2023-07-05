@@ -4,6 +4,9 @@ using Test
 
 using LinearAlgebra
 using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityInterface
+using IntervalSets
+using AutoDiffOperators
+import ForwardDiff, Zygote
 
 @testset "HamiltonianMC" begin
     rng = bat_rng()
@@ -131,5 +134,24 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         # Test with nested posteriors:
         posterior = PosteriorMeasure(likelihood, inner_posterior)
         @test BAT.sample_and_verify(posterior, MCMCSampling(mcalg = HamiltonianMC(), trafo = PriorToGaussian()), prior.dist).verified
+    end
+
+    @testset "HMC autodiff" begin
+        posterior = BAT.example_posterior()
+    
+        for adsel in [ADModule(:ForwardDiff), ADModule(:Zygote)]
+            @testset "$adsel" begin
+                hmc_sampling_alg = MCMCSampling(
+                    mcalg = HamiltonianMC(adsel = adsel),
+                    nchains = 2,
+                    nsteps = 100,
+                    init = MCMCChainPoolInit(init_tries_per_chain = 2..2, nsteps_init = 5),
+                    burnin = MCMCMultiCycleBurnin(nsteps_per_cycle = 100, max_ncycles = 1),
+                    strict = false
+                )
+                
+                @test bat_sample(posterior, hmc_sampling_alg).result isa DensitySampleVector
+            end
+        end
     end
 end

@@ -1,18 +1,29 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+struct NLSolversFG!{F,AD} <: Function
+    f::F
+    ad::AD
+end
+NLSolversFG!(::Type{FT}, ad::AD) where {FT,AD<:ADSelector}  = NLSolversFG!{Type{FT},AD}(FT, ad)
 
-struct NLSolversFG!{F<:GradientFunction}
-    gradfunc::F
+function (fg!::NLSolversFG!)(::Real, grad_f::Nothing, x::AbstractVector{<:Real})
+    y = fg!.f(x)
+    return y
 end
 
-NLSolversBase.only_fg!(f::GradientFunction) = NLSolversBase.only_fg!(NLSolversFG!(f))
-
-function (gf::NLSolversFG!)(val_f::Real, grad_f::Any, v::Any)
-    return gf.gradfunc(!, grad_f, v)
+function (fg!::NLSolversFG!)(::Real, grad_f::AbstractVector{<:Real}, x::AbstractVector{<:Real})
+    y, r_grad_f = with_gradient!!(fg!.f, grad_f, x, fg!.ad)
+    if !(grad_f === r_grad_f)
+        grad_f .= r_grad_f
+    end
+    return y
 end
 
-function (gf::NLSolversFG!)(val_f::Nothing, grad_f::Any, v::Any)
-    gf.gradfunc(!, grad_f, v)
+function (fg!::NLSolversFG!)(::Nothing, grad_f::AbstractVector{<:Real}, x::AbstractVector{<:Real})
+    _, r_grad_f = with_gradient!!(fg!.f, grad_f, x, fg!.ad)
+    if !(grad_f === r_grad_f)
+        grad_f .= r_grad_f
+    end
     return Nothing
 end
 
@@ -131,17 +142,19 @@ $(TYPEDFIELDS)
 """
 @with_kw struct LBFGSOpt{
     TR<:AbstractTransformTarget,
-    IA<:InitvalAlgorithm
+    IA<:InitvalAlgorithm,
+    AD<:ADSelector
 } <: AbstractModeEstimator
     trafo::TR = PriorToGaussian()
     init::IA = InitFromTarget()
+    adsel::AD = ADModule(:ForwardDiff)
 end
 export LBFGSOpt
 
 bat_findmode_impl(rng::AbstractRNG, target::AnySampleable, algorithm::LBFGSOpt) = _bat_findmode_impl_optim(rng, target, algorithm)
 
 function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::LBFGSOpt)
-    fg = valgradof(f)
+    fg! = NLSolversFG!(f, algorithm.adsel)
     opts = Optim.Options(store_trace = true, extended_trace=true)
-    _optim_optimize(Optim.only_fg!(fg), x_init, Optim.LBFGS(), opts)
+    _optim_optimize(Optim.only_fg!(fg!), x_init, Optim.LBFGS(), opts)
 end

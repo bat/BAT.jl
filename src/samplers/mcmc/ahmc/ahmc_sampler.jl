@@ -24,12 +24,14 @@ $(TYPEDFIELDS)
     MT<:HMCMetric,
     IT<:HMCIntegrator,
     PR<:HMCProposal,
-    TN<:HMCTuningAlgorithm
+    TN<:HMCTuningAlgorithm,
+    AD<:ADSelector
 } <: MCMCAlgorithm
     metric::MT = DiagEuclideanMetric()
     integrator::IT = LeapfrogIntegrator()
     proposal::PR = NUTSProposal()
     tuning::TN = StanHMCTuning()
+    adsel::AD = ADModule(:ForwardDiff)
 end
 
 export HamiltonianMC
@@ -76,7 +78,7 @@ end
 
 function AHMCIterator(
     rng::AbstractRNG,
-    algorithm::MCMCAlgorithm,
+    algorithm::HamiltonianMC,
     density::AbstractMeasureOrDensity,
     info::MCMCIteratorInfo,
     x_init::AbstractVector{P},
@@ -106,7 +108,7 @@ function AHMCIterator(
     metric = ahmc_metric(algorithm.metric, npar)
 
     f = checked_logdensityof(density)
-    fg = valgradof(f)
+    fg = valgrad_func(f, algorithm.adsel)
 
     init_hamiltonian = AdvancedHMC.Hamiltonian(metric, f, fg)
     hamiltonian, init_transition = AdvancedHMC.sample_init(rng, init_hamiltonian, params_vec)
