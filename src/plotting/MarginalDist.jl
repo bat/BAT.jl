@@ -7,7 +7,7 @@ struct MarginalDist
     dist::Union{ReshapedDist, Distribution}
 end
 
-function _get_edges(data::Tuple, nbins::Tuple{Vararg{<:Integer}}, closed::Symbol)
+function _get_edges(data::Tuple, nbins::Tuple{Vararg{Integer}}, closed::Symbol)
     return StatsBase.histrange(data, StatsBase._nbins_tuple(data, nbins), closed)
 end
 
