@@ -3,7 +3,6 @@ uuid = "c0cd4b16-88b7-57fa-983b-ab80aecada7e"
 version = "3.0.0-DEV"
 
 [deps]
-AdvancedHMC = "0bf59076-c3b1-5ca4-86bd-e02cd72cde3d"
 ArgCheck = "dce04be8-c92d-5529-be00-80e4d2c0e197"
 ArraysOfArrays = "65a8f2f4-9b39-5baf-92e2-a9cc46fdf018"
 AutoDiffOperators = "6e1301d5-4f4d-4fb5-9679-7191e22f0e0e"
@@ -66,6 +65,7 @@ ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
 ZygoteRules = "700de1a5-db45-46bc-99cf-38207098b444"
 
 [weakdeps]
+AdvancedHMC = "0bf59076-c3b1-5ca4-86bd-e02cd72cde3d"
 Cuba = "8a292aeb-7a57-582c-b821-06e4c11590b1"
 Folds = "41a02a25-b8f0-4f67-bc48-60067656b558"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
@@ -75,6 +75,7 @@ Transducers = "28d57a85-8fef-5791-bfe6-a80928e7c999"
 UltraNest = "6822f173-b0be-4018-9ee2-28bf56348d09"
 
 [extensions]
+BATAdvancedHMCExt = "AdvancedHMC"
 BATCubaExt = "Cuba"
 BATFoldsExt = ["Folds", "Transducers"]
 BATHDF5Ext = "HDF5"
@@ -147,6 +148,7 @@ ZygoteRules = "0.2"
 julia = "1.6"
 
 [extras]
+AdvancedHMC = "0bf59076-c3b1-5ca4-86bd-e02cd72cde3d"
 Cuba = "8a292aeb-7a57-582c-b821-06e4c11590b1"
 Folds = "41a02a25-b8f0-4f67-bc48-60067656b558"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"

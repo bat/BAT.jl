@@ -8,7 +8,7 @@ using ValueShapes, ArraysOfArrays, Distributions, ForwardDiff
 using DensityInterface, InverseFunctions, ChangesOfVariables
 using AutoDiffOperators, ForwardDiff
 
-import Cuba
+import Cuba, AdvancedHMC
 
 
 @testset "transformed_density" begin

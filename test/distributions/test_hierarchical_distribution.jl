@@ -6,6 +6,9 @@ using Test
 using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
 using AutoDiffOperators, ForwardDiff
 
+import AdvancedHMC
+
+
 @testset "hierarchial_distribution" begin
     context = BATContext(ad = ADModule(:ForwardDiff))
 

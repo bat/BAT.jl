@@ -49,7 +49,6 @@ using StructArrays
 using Tables
 using ValueShapes
 
-import AdvancedHMC
 import ChainRulesCore
 import DiffResults
 import DistributionsAD
@@ -106,6 +105,7 @@ end
 
 function __init__()
     @static if !isdefined(Base, :get_extension)
+        @require AdvancedHMC = "0bf59076-c3b1-5ca4-86bd-e02cd72cde3d" include("../ext/BATAdvancedHMCExt.jl")
         @require Folds = "41a02a25-b8f0-4f67-bc48-60067656b558" @require Transducers = "28d57a85-8fef-5791-bfe6-a80928e7c999" include("../ext/BATFoldsExt.jl")
         @require Cuba = "8a292aeb-7a57-582c-b821-06e4c11590b1" include("../ext/BATCubaExt.jl")
         @require HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f" include("../ext/BATHDF5Ext.jl")
