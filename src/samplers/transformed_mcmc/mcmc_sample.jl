@@ -51,22 +51,22 @@ bat_default(::Type{TransformedMCMCDispatch}, ::Val{:burnin}, trafo::AbstractTran
 
 
 function bat_sample_impl(
-    rng::AbstractRNG,
     target::AnyMeasureOrDensity,
-    algorithm::TransformedMCMCSampling
+    algorithm::TransformedMCMCSampling,
+    context::BATContext
 )
     density_notrafo = convert(AbstractMeasureOrDensity, target)
     density, trafo = transform_and_unshape(algorithm.pre_transform, density_notrafo)
 
     init = mcmc_init!(
-        rng,
         algorithm,
         density,
         algorithm.nchains,
         apply_trafo_to_init(trafo, algorithm.init),
         algorithm.tuning_alg,
         algorithm.nonzero_weights,
-        algorithm.store_burnin ? algorithm.callback : nop_func
+        algorithm.store_burnin ? algorithm.callback : nop_func,
+        context
     )
     
     @unpack chains, tuners, temperers = init

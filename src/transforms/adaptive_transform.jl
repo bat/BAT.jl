@@ -8,9 +8,9 @@ end
 CustomTransform() = CustomTransform(identity)
 
 function init_adaptive_transform(
-    rng::AbstractRNG,
     adaptive_transform::CustomTransform,
-    density
+    density,
+    context
 )
     return adaptive_transform.f
 end
@@ -20,9 +20,9 @@ end
 struct TriangularAffineTransform <: AdaptiveTransformSpec end
 
 function init_adaptive_transform(
-    rng::AbstractRNG,
     adaptive_transform::TriangularAffineTransform,
-    density
+    density,
+    context
 )
     M = _approx_cov(density)
     s = cholesky(M).L

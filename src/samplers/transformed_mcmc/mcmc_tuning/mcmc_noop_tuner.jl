@@ -32,13 +32,13 @@ end
 
 
 function tune_mcmc_transform!!(
-    rng::AbstractRNG,
     tuner::TransformedMCMCNoOpTuner, 
     transform,
     p_accept::Real,
     z_proposed::Vector{<:Float64}, #TODO: use DensitySamples instead
     z_current::Vector{<:Float64},
-    stepno::Int
+    stepno::Int,
+    context::BATContext
 )
     return (tuner, transform)
 

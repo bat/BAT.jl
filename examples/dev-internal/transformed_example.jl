@@ -6,19 +6,18 @@ using BAT.LinearAlgebra
 using BAT.Distributions
 using BAT.InverseFunctions
 import BAT: TransformedMCMCIterator, TransformedAdaptiveMHTuning, TransformedRAMTuner, TransformedMHProposal, TransformedNoTransformedMCMCTempering, transformed_mcmc_step!!, TransformedMCMCTransformedSampleID
-using BAT.Random123
+using Random123
+using AutoDiffOperators
 
 import BAT: mcmc_iterate!, transformed_mcmc_iterate!, TransformedMCMCSampling
 
 #ENV["JULIA_DEBUG"] = "BAT"
 
-rng = Philox4x()
+context = BATContext(ad = ADModule(:ForwardDiff))
 
 posterior = BAT.example_posterior()
 
-my_result = @time BAT.bat_sample_impl(rng, posterior, TransformedMCMCSampling(pre_transform=PriorToGaussian(), nchains=4, nsteps=4*100000))
-
-
+my_result = @time BAT.bat_sample_impl(posterior, TransformedMCMCSampling(pre_transform=PriorToGaussian(), nchains=4, nsteps=4*100000), context)
 
 
 density_notrafo = convert(BAT.AbstractMeasureOrDensity, posterior)
@@ -27,7 +26,7 @@ density, trafo = BAT.transform_and_unshape(PriorToGaussian(), density_notrafo)
 c = BAT._approx_cov(density)
 f = BAT.CustomTransform(Mul(c))
 
-my_result = @time BAT.bat_sample_impl(rng, posterior, TransformedMCMCSampling(pre_transform=PriorToGaussian(), tuning_alg=TransformedAdaptiveMHTuning(), nchains=4, nsteps=4*100000, adaptive_transform=f))
+my_result = @time BAT.bat_sample_impl(posterior, TransformedMCMCSampling(pre_transform=PriorToGaussian(), tuning_alg=TransformedAdaptiveMHTuning(), nchains=4, nsteps=4*100000, adaptive_transform=f), context)
 
 my_samples = my_result.result
 
@@ -36,9 +35,9 @@ my_samples = my_result.result
 using Plots
 plot(my_samples)
 
-r_mh = @time BAT.bat_sample_impl(rng, posterior, MCMCSampling( nchains=4, nsteps=4*100000, store_burnin=true) )
+r_mh = @time BAT.bat_sample_impl(posterior, MCMCSampling( nchains=4, nsteps=4*100000, store_burnin=true), context)
 
-r_hmc = @time BAT.bat_sample_impl(rng, posterior, MCMCSampling(mcalg=HamiltonianMC(), nchains=4, nsteps=4*20000) )
+r_hmc = @time BAT.bat_sample_impl(posterior, MCMCSampling(mcalg=HamiltonianMC(), nchains=4, nsteps=4*20000), context)
  
 plot(bat_sample(posterior).result)
 
@@ -60,9 +59,8 @@ posterior.likelihood.density._log_f(rand(prior2))
 posterior2 = PosteriorDensity(BAT.logfuncdensity(posterior.likelihood.density._log_f), prior2)
 
 
-@profview r_ram2 = @time BAT.bat_sample_impl(rng, posterior2, TransformedMCMCSampling(pre_transform=PriorToGaussian(), nchains=4, nsteps=4*100000))
+@profview r_ram2 = @time BAT.bat_sample_impl(posterior2, TransformedMCMCSampling(pre_transform=PriorToGaussian(), nchains=4, nsteps=4*100000), context)
 
-@profview r_mh2 = @time BAT.bat_sample_impl(rng, posterior2, MCMCSampling( nchains=4, nsteps=4*100000, store_burnin=true) )
+@profview r_mh2 = @time BAT.bat_sample_impl(posterior2, MCMCSampling( nchains=4, nsteps=4*100000, store_burnin=true), context)
 
-r_hmc2 = @time BAT.bat_sample_impl(rng, posterior2, MCMCSampling(mcalg=HamiltonianMC(), nchains=4, nsteps=4*20000) )
-
+r_hmc2 = @time BAT.bat_sample_impl(posterior2, MCMCSampling(mcalg=HamiltonianMC(), nchains=4, nsteps=4*20000), context)

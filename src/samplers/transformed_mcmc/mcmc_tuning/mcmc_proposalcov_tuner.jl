@@ -129,13 +129,13 @@ tuning_callback(::TransformedProposalCovTuner) = nop_func
 
 # this function is called in each mcmc_iterate step during tuning 
 function tune_mcmc_transform!!(
-    rng::AbstractRNG,
     tuner::TransformedProposalCovTuner,
     transform::Any, #AffineMaps.AbstractAffineMap,#{<:typeof(*), <:LowerTriangular{<:Real}},
     p_accept::Real,
     z_proposed::Vector{<:Float64}, #TODO: use DensitySamples instead
     z_current::Vector{<:Float64},
-    stepno::Int
+    stepno::Int,
+    context::BATContext
 )
 
     return (tuner, transform)

@@ -37,12 +37,12 @@ function _construct_chain(
     id::Integer,
     algorithm::TransformedMCMCSampling,
     density::AbstractMeasureOrDensity,
-    initval_alg::InitvalAlgorithm
+    initval_alg::InitvalAlgorithm,
+    parent_context::BATContext
 )
-    rng = AbstractRNG(rngpart, id)
-    v_init = bat_initval(rng, density, initval_alg).result
-
-    TransformedMCMCIterator(rng, algorithm, density, id, v_init)
+    new_context = set_rng(parent_context, AbstractRNG(rngpart, id))
+    v_init = bat_initval(density, initval_alg, new_context).result
+    return TransformedMCMCIterator(algorithm, density, id, v_init, new_context)
 end
 
 _gen_chains(
@@ -50,19 +50,20 @@ _gen_chains(
     ids::AbstractRange{<:Integer},
     algorithm::TransformedMCMCSampling,
     density::AbstractMeasureOrDensity,
-    initval_alg::InitvalAlgorithm
-) = [_construct_chain(rngpart, id, algorithm, density, initval_alg) for id in ids]
+    initval_alg::InitvalAlgorithm,
+    context::BATContext
+) = [_construct_chain(rngpart, id, algorithm, density, initval_alg, context) for id in ids]
 
 #TODO
 function mcmc_init!(
-    rng::AbstractRNG,
     algorithm::TransformedMCMCSampling,
     density::AbstractMeasureOrDensity,
     nchains::Integer,
     init_alg::TransformedMCMCChainPoolInit,
     tuning_alg::TransformedMCMCTuningAlgorithm, # TODO: part of algorithm? # MCMCTuner
     nonzero_weights::Bool,
-    callback::Function
+    callback::Function,
+    context::BATContext
 )
     @info "TransformedMCMCChainPoolInit: trying to generate $nchains viable MCMC chain(s)."
 
@@ -71,14 +72,15 @@ function mcmc_init!(
     min_nviable::Int = minimum(init_alg.init_tries_per_chain) * nchains
     max_ncandidates::Int = maximum(init_alg.init_tries_per_chain) * nchains
 
-    rngpart = RNGPartition(rng, Base.OneTo(max_ncandidates))
+    rngpart = RNGPartition(get_rng(context), Base.OneTo(max_ncandidates))
 
     ncandidates::Int = 0
 
     @debug "Generating dummy MCMC chain to determine chain, output and tuner types." #TODO: remove!
 
-    dummy_initval = unshaped(bat_initval(rng, density, InitFromTarget()).result, varshape(density))
-    dummy_chain = TransformedMCMCIterator(rng, algorithm, density, 1, dummy_initval) 
+    dummy_context = deepcopy(context)
+    dummy_initval = unshaped(bat_initval(density, InitFromTarget(), dummy_context).result, varshape(density))
+    dummy_chain = TransformedMCMCIterator(algorithm, density, 1, dummy_initval, dummy_context) 
     dummy_tuner = get_tuner(tuning_alg, dummy_chain)
     dummy_temperer = get_temperer(algorithm.tempering, density)
 
@@ -93,7 +95,7 @@ function mcmc_init!(
         n = min(min_nviable, max_ncandidates - ncandidates)
         @debug "Generating $n $(init_tries > 1 ? "additional " : "")candidate MCMC chain(s)."
 
-        new_chains = _gen_chains(rngpart, ncandidates .+ (one(Int64):n), algorithm, density, initval_alg)
+        new_chains = _gen_chains(rngpart, ncandidates .+ (one(Int64):n), algorithm, density, initval_alg, context)
 
         filter!(isvalidchain, new_chains)
 
@@ -135,7 +137,6 @@ function mcmc_init!(
             nsamples_thresh = floor(Int, 0.8 * median([nsamples(chain) for chain in viable_chains]))
             good_idxs = findall(chain -> nsamples(chain) >= nsamples_thresh, viable_chains)
             @debug "Found $(length(viable_chains)) MCMC chain(s) with at least $(nsamples_thresh) unique accepted samples."
-            
 
             append!(chains, view(viable_chains, good_idxs))
             append!(tuners, view(viable_tuners, good_idxs))
@@ -153,7 +154,7 @@ function mcmc_init!(
     tidxs = LinearIndices(chains)
     n = length(tidxs)
 
-    modes = hcat(broadcast(samples -> Array(bat_findmode(rng, samples, MaxDensitySearch()).result), outputs)...)
+    modes = hcat(broadcast(samples -> Array(bat_findmode(samples, MaxDensitySearch(), context).result), outputs)...)
 
     final_chains = similar(chains, 0)
     final_tuners = similar(tuners, 0)

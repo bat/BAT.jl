@@ -1,13 +1,12 @@
 mutable struct TransformedMCMCIterator{
-    R<:AbstractRNG,
     PR<:RNGPartition,
     D<:BATMeasure,
     F,
     Q<:TransformedMCMCProposal,
     SV<:DensitySampleVector,
     S<:DensitySample,
+    CTX<:BATContext,
 } <: MCMCIterator
-    rng::R
     rngpart_cycle::PR
     μ::D
     f_transform::F
@@ -17,11 +16,12 @@ mutable struct TransformedMCMCIterator{
     stepno::Int
     n_accepted::Int
     info::TransformedMCMCIteratorInfo
+    context::CTX
 end
 
 getmeasure(chain::TransformedMCMCIterator) = chain.μ
 
-getrng(chain::TransformedMCMCIterator) = chain.rng
+get_context(chain::TransformedMCMCIterator) = chain.context
 
 mcmc_info(chain::TransformedMCMCIterator) = chain.info 
 
@@ -45,25 +45,25 @@ eff_acceptance_ratio(chain::TransformedMCMCIterator) = nsamples(chain) / chain.s
 
 #ctor
 function TransformedMCMCIterator(
-    rng::AbstractRNG,
     algorithm::TransformedMCMCSampling,
     target,
     id::Integer,
-    v_init::AbstractVector{<:Real}
+    v_init::AbstractVector{<:Real},
+    context::BATContext
 ) 
-     TransformedMCMCIterator(rng, algorithm, target, Int32(id), v_init)
+     TransformedMCMCIterator(algorithm, target, Int32(id), v_init, context)
 end
 
 
 #ctor
 function TransformedMCMCIterator(
-    rng::AbstractRNG,
     algorithm::TransformedMCMCSampling,
     target,
     id::Int32,
     v_init::AbstractVector{<:Real},
+    context::BATContext,
 )
-    rngpart_cycle = RNGPartition(rng, 0:(typemax(Int16) - 2))
+    rngpart_cycle = RNGPartition(get_rng(context), 0:(typemax(Int16) - 2))
 
     μ = target
     proposal = algorithm.proposal
@@ -72,7 +72,7 @@ function TransformedMCMCIterator(
     n_accepted = 0
 
     adaptive_transform_spec = algorithm.adaptive_transform
-    g = init_adaptive_transform(rng, adaptive_transform_spec, μ)
+    g = init_adaptive_transform(adaptive_transform_spec, μ, context)
 
     logd_x = logdensityof(μ, v_init)
     sample_x = DensitySample(v_init, logd_x, 1, TransformedMCMCTransformedSampleID(id, 1, 0), nothing) # TODO
@@ -84,7 +84,6 @@ function TransformedMCMCIterator(
     samples = DensitySampleVector(([sample_x.v], [sample_x.logd], [sample_x.weight], [sample_x.info], [sample_x.aux] ))
     
     iter = TransformedMCMCIterator(
-        rng,
         rngpart_cycle,
         target,
         g,
@@ -93,7 +92,8 @@ function TransformedMCMCIterator(
         sample_z,
         stepno,
         n_accepted,
-        TransformedMCMCIteratorInfo(id, cycle, false, false)
+        TransformedMCMCIteratorInfo(id, cycle, false, false),
+        context
     )
     
 
@@ -109,9 +109,10 @@ end
 
 
 function propose_mcmc(
-    iter::TransformedMCMCIterator{<:Any, <:Any, <:Any, <:Any, <:TransformedMHProposal}
+    iter::TransformedMCMCIterator{<:Any, <:Any, <:Any, <:TransformedMHProposal}
 )
-    @unpack rng, μ, f_transform, proposal, samples, sample_z, stepno = iter
+    @unpack μ, f_transform, proposal, samples, sample_z, stepno, context = iter
+    rng = get_rng(context)
     sample_x = last(samples)
     x, logd_x = sample_x.v, sample_x.logd
     z, logd_z = sample_z.v, sample_z.logd
@@ -157,7 +158,8 @@ function transformed_mcmc_step!!(
     tuner::TransformedAbstractMCMCTunerInstance,
     tempering::TransformedMCMCTemperingInstance,
 )
-    @unpack rng, μ, f_transform, proposal, samples, sample_z, stepno = iter
+    @unpack  μ, f_transform, proposal, samples, sample_z, stepno, context = iter
+    rng = get_rng(context)
     sample_x = last(samples)
     x, logd_x = sample_x.v, sample_x.logd
     z, logd_z = sample_z.v, sample_z.logd
@@ -168,7 +170,7 @@ function transformed_mcmc_step!!(
     z_proposed, logd_z_proposed = sample_z_proposed.v, sample_z_proposed.logd
     x_proposed, logd_x_proposed = sample_x_proposed.v, sample_x_proposed.logd
 
-    tuner_new, f_transform = tune_mcmc_transform!!(rng, tuner, f_transform, p_accept, z_proposed, z, stepno)
+    tuner_new, f_transform = tune_mcmc_transform!!(tuner, f_transform, p_accept, z_proposed, z, stepno, context)
     
     accepted = rand(rng) <= p_accept
 
@@ -193,11 +195,11 @@ function transformed_mcmc_step!!(
 
     f_new = f_transform
 
-    # iter_new = TransformedMCMCIterator(rng, μ_new, f_new, proposal, samples_new, sample_z_new, stepno, n_accepted+Int(accepted))
-    iter.rng = rng
+    # iter_new = TransformedMCMCIterator(μ_new, f_new, proposal, samples_new, sample_z_new, stepno, n_accepted+Int(accepted), context)
     iter.μ, iter.f_transform, iter.samples, iter.sample_z = μ_new, f_new, samples_new, sample_z_new
     iter.n_accepted += Int(accepted)
     iter.stepno += 1
+    @assert iter.context === context
 
     return (iter, tuner_new, tempering_new)
 end
@@ -288,6 +290,8 @@ function transformed_mcmc_iterate!(
 end
 
 
+#=
+# Unused?
 function reset_chain(
     rng::AbstractRNG,
     chain::TransformedMCMCIterator,
@@ -296,15 +300,18 @@ function reset_chain(
     #TODO reset cycle count?
     chain.rngpart_cycle = rngpart_cycle
     chain.info = TransformedMCMCIteratorInfo(chain.info, cycle=0)
+    chain.context = set_rng(chain.context, rng)
     # wants a next_cycle!
     # reset_rng_counters!(chain)
 end
+=#
 
 
 function reset_rng_counters!(chain::TransformedMCMCIterator)
-    set_rng!(chain.rng, chain.rngpart_cycle, chain.info.cycle)
-    rngpart_step = RNGPartition(chain.rng, 0:(typemax(Int32) - 2))
-    set_rng!(chain.rng, rngpart_step, chain.stepno)
+    rng = get_rng(get_context(chain))
+    set_rng!(rng, chain.rngpart_cycle, chain.info.cycle)
+    rngpart_step = RNGPartition(rng, 0:(typemax(Int32) - 2))
+    set_rng!(rng, rngpart_step, chain.stepno)
     nothing
 end
 

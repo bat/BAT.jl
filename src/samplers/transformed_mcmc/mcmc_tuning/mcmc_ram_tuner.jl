@@ -61,13 +61,13 @@ tuning_finalize!(tuner::TransformedRAMTunerInstance, chain::MCMCIterator) = noth
 default_adaptive_transform(tuner::TransformedRAMTuner) = TriangularAffineTransform() 
 
 function tune_mcmc_transform!!(
-    rng::AbstractRNG,
     tuner::TransformedRAMTunerInstance, 
     transform::Mul{<:LowerTriangular}, #AffineMaps.AbstractAffineMap,#{<:typeof(*), <:LowerTriangular{<:Real}},
     p_accept::Real,
     z_proposed::Vector{<:Float64}, #TODO: use DensitySamples instead
     z_current::Vector{<:Float64},
-    stepno::Int
+    stepno::Int,
+    context::BATContext
 )
     @unpack target_acceptance, gamma = tuner.config
     n = size(z_current,1)
@@ -85,5 +85,3 @@ function tune_mcmc_transform!!(
 
     return (tuner, transform_new)
 end
-
-
