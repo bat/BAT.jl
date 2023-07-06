@@ -58,7 +58,7 @@ end
 
 # this function is called once after each tuning cycle
 g_state = nothing
-function tuning_update!(tuner::TransformedProposalCovTuner, chain::MCMCIterator, samples::DensitySampleVector)
+function tuning_update!(tuner::TransformedProposalCovTuner, chain::TransformedMCMCIterator, samples::DensitySampleVector)
     global g_state = (;tuner, chain)
     
     stats = tuner.stats

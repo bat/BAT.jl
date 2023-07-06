@@ -6,7 +6,7 @@ using BAT.LinearAlgebra
 using BAT.Distributions
 using BAT.InverseFunctions
 import BAT: TransformedMCMCIterator, TransformedAdaptiveMHTuning, TransformedRAMTuner, TransformedMHProposal, TransformedNoTransformedMCMCTempering, transformed_mcmc_step!!, TransformedMCMCTransformedSampleID
-using Random123
+using Random123, PositiveFactorizations
 using AutoDiffOperators
 
 import BAT: mcmc_iterate!, transformed_mcmc_iterate!, TransformedMCMCSampling
@@ -23,8 +23,8 @@ my_result = @time BAT.bat_sample_impl(posterior, TransformedMCMCSampling(pre_tra
 density_notrafo = convert(BAT.AbstractMeasureOrDensity, posterior)
 density, trafo = BAT.transform_and_unshape(PriorToGaussian(), density_notrafo)
 
-c = BAT._approx_cov(density)
-f = BAT.CustomTransform(Mul(c))
+s = cholesky(Positive, BAT._approx_cov(density)).L
+f = BAT.CustomTransform(Mul(s))
 
 my_result = @time BAT.bat_sample_impl(posterior, TransformedMCMCSampling(pre_transform=PriorToGaussian(), tuning_alg=TransformedAdaptiveMHTuning(), nchains=4, nsteps=4*100000, adaptive_transform=f), context)
 
