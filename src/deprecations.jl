@@ -1,5 +1,8 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+@deprecate LogDVal(logval::Real) exp(ULogarithmic, logval)
+
+
 @noinline function MaxDensityNelderMead(;kwargs...)
     Base.depwarn("`MaxDensityNelderMead(;kwargs...)` is deprecated, use `OptimAlg(;optalg = Optim.NelderMead, kwargs...)` instead.", :MaxDensityNelderMead)
     optalg = BAT.ext_default(pkgext(Val(:Optim)), Val(:NELDERMEAD_ALG))

@@ -28,8 +28,6 @@ Order = [:macro, :function]
 
 
 ```@docs
-logvalof
-
 bat_convergence
 bat_default
 bat_eff_sample_size
@@ -89,7 +87,6 @@ InitFromTarget
 InitvalAlgorithm
 IntegrationAlgorithm
 KishESS
-LogDVal
 MaxDensitySearch
 MCMCAlgorithm
 MCMCBurninAlgorithm

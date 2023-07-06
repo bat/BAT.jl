@@ -23,7 +23,7 @@ Breaking changes
 
 * `AbstractVariateTransform` and the function `ladjof` have been removed, BAT parameter transformation do not need to have a specific supertype any longer (see above).
 
-* Pending: [`LogDVal` will deprecated soon and removed before the BAT.jl v3.0.0 release. Instead of
+* `LogDVal` is deprecated soon and removed before the BAT.jl v3.0.0 release. Instead of
 
   ```julia
   likelihood = let data = mydata

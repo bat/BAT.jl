@@ -46,6 +46,7 @@ BAT.ENSSlice
 BAT.ENSUniformly
 BAT.LFDensity
 BAT.LFDensityWithGrad
+BAT.LogDVal
 BAT.MCMCSampleGenerator
 BAT.OnlineMvCov
 BAT.OnlineMvMean
@@ -80,6 +81,7 @@ BAT.is_log_zero
 BAT.issymmetric_around_origin
 BAT.log_volume
 BAT.log_zero_density
+BAT.logvalof
 BAT.proposal_rand!
 BAT.proposaldist_logpdf
 BAT.repetition_to_weights

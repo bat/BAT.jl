@@ -14,6 +14,8 @@ function logvalof(d::Real)
     throw(ArgumentError("Can't get a logarithmic value from $d, unknown if it represents a lin or log value itself."))
 end
 
+logvalof(x::ULogarithmic) = log(x)
+
 
 @inline function logvalof(x::T) where {T<:NamedTuple}
     if hasfield(T, :logval) + hasfield(T, :logd) + hasfield(T, :log) > 1
@@ -31,24 +33,6 @@ end
 end
 
 Base.@noinline function _logvalof_deprecated(x::NamedTuple, ::Val{name}) where name
-    Base.depwarn("logvalof support for NamedTuple field $name is deprecated, use NamedTuples with field :logval instead", :logvalof)
+    Base.depwarn("logvalof support for NamedTuples is deprecated, use LogarithmicNumbers instead", :logvalof)
     getfield(x, name)
 end
-
-
-Base.@deprecate logvalof(density::AbstractMeasureOrDensity) DensityInterface.logdensityof(density)
-
-
-
-"""
-    struct LogDVal{T<:Real}
-
-**LogDVal is deprecated and may be removed in future BAT versions.**
-"""
-struct LogDVal{T<:Real}
-    logval::T
-end
-
-export LogDVal
-
-logvalof(d::LogDVal) = d.logval
