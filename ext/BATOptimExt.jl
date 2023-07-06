@@ -13,7 +13,7 @@ BAT.pkgext(::Val{:Optim}) = BAT.PackageExtension{:Optim}()
 
 
 using Random
-using DensityInterface, ChangesOfVariables, InverseFunctions
+using DensityInterface, ChangesOfVariables, InverseFunctions, FunctionChains
 using HeterogeneousComputing, AutoDiffOperators
 using StructArrays, ArraysOfArrays
 
@@ -60,17 +60,19 @@ function (fg!::NLSolversFG!)(::Nothing, grad_f::AbstractVector{<:Real}, x::Abstr
 end
 
 
-function BAT.bat_findmode_impl(target::AnySampleable, algorithm::OptimAlg, context::BATContext)
+function BAT.bat_findmode_impl(target::AnyMeasureOrDensity, algorithm::OptimAlg, context::BATContext)
     transformed_density, trafo = transform_and_unshape(algorithm.trafo, target)
+    inv_trafo = inverse(trafo)
 
     initalg = apply_trafo_to_init(trafo, algorithm.init)
     x_init = collect(bat_initval(transformed_density, initalg, context).result)
 
-    f = negative(logdensityof(transformed_density))
-    optim_result = _run_optim(f, x_init, algorithm.optalg, context)
+    # Maximize density of original target, but run in transformed space, don't apply LADJ:
+    f = fchain(inv_trafo, logdensityof(target), -)
+    optim_result = _optim_minimize(f, x_init, algorithm.optalg, context)
     r_optim = Optim.MaximizationWrapper(optim_result)
     transformed_mode = Optim.minimizer(r_optim.res)
-    result_mode = inverse(trafo)(transformed_mode)
+    result_mode = inv_trafo(transformed_mode)
 
     # ToDo: Re-enable trace, make it type stable:
     #dummy_f_x = f(x_init) # ToDo: Avoid recomputation
@@ -79,12 +81,12 @@ function BAT.bat_findmode_impl(target::AnySampleable, algorithm::OptimAlg, conte
     (result = result_mode, result_trafo = transformed_mode, trafo = trafo, #=trace_trafo = trace_trafo,=# info = r_optim)
 end
 
-function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::Optim.ZerothOrderOptimizer, context::BATContext)
+function _optim_minimize(f::Function, x_init::AbstractArray{<:Real}, algorithm::Optim.ZerothOrderOptimizer, ::BATContext)
     opts = Optim.Options(store_trace = true, extended_trace=true)
     _optim_optimize(f, x_init, algorithm, opts)
 end
 
-function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::Optim.FirstOrderOptimizer, context::BATContext)
+function _optim_minimize(f::Function, x_init::AbstractArray{<:Real}, algorithm::Optim.FirstOrderOptimizer, context::BATContext)
     adsel = get_adselector(context)
     if adsel isa _NoADSelected
         throw(ErrorException("$(nameof(typeof(algorithm))) requires an ADSelector to be specified in the BAT context"))
