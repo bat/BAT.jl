@@ -2,7 +2,7 @@
 
 @recipe function f(
     prior::NamedTupleDist;
-    vsel=collect(1:5),
+    vsel::AbstractVector=collect(1:5),
     bins = 200,
     diagonal = Dict(),
     upper = Dict(),
@@ -16,8 +16,8 @@
         vsel = reduce(vcat, vsel)
     end
     vsel = vsel[vsel .<=  totalndof(vs)]
-    all_exprs = _all_exprs(vs)
-    vsel = all_exprs[vsel]
+    all_active_exprs = _all_active_exprs(vs)
+    vsel = all_active_exprs[vsel]
 
     xlabel = string.(vsel)
     ylabel = ["p($l)" for l in xlabel]
@@ -107,5 +107,4 @@
 
         end
     end
-
 end

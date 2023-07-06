@@ -158,9 +158,9 @@ function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::EffSamp
 
         # RNG seed for resampling should be the same for the same samples:
         rng_seed = trunc(UInt64, mean(W) * n)
-        rng = Philox4x((0x0, rng_seed))::Philox4x{UInt64,10}
+        context = BATContext(rng = Philox4x((0x0, rng_seed))::Philox4x{UInt64,10})
 
-        unweighted_smpls = bat_sample(rng, unshaped_smpls, OrderedResampling(nsamples = n_resample)).result
+        unweighted_smpls = bat_sample(unshaped_smpls, OrderedResampling(nsamples = n_resample), context).result
         resampled_ess = bat_eff_sample_size_impl(unweighted_smpls.v, algorithm).result
         min.(n, resampled_ess)
     end

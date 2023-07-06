@@ -13,9 +13,9 @@ abstract type AbstractModeEstimator end
 
 """
     bat_findmode(
-        [rng::AbstractRNG],
         target::BAT.AnySampleable,
-        [algorithm::BAT.AbstractModeEstimator]
+        [algorithm::BAT.AbstractModeEstimator],
+        [context::BATContext]
     )::DensitySampleVector
 
 Estimate the global mode of `target`.
@@ -39,29 +39,29 @@ export bat_findmode
 
 function bat_findmode_impl end
 
-function bat_findmode(
-    rng::AbstractRNG,
-    target::AnySampleable,
-    algorithm = bat_default_withdebug(bat_findmode, Val(:algorithm), target);
-    kwargs...
-)
-    r = bat_findmode_impl(rng, target, algorithm; kwargs...)
-    result_with_args(r, (algorithm = algorithm,))
+
+function bat_findmode(target::AnySampleable, algorithm, context::BATContext)
+    orig_context = deepcopy(context)
+    r = bat_findmode_impl(target, algorithm, context)
+    result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
-function bat_findmode(
-    target::AnySampleable,
+function bat_findmode(target::AnySampleable)
     algorithm = bat_default_withdebug(bat_findmode, Val(:algorithm), target);
-    kwargs...
-)
-    rng = bat_default_withinfo(bat_findmode, Val(:rng), target)
-    r = bat_findmode_impl(rng, target, algorithm; kwargs...)
-    result_with_args(r, (algorithm = algorithm,))
+    context = default_context()
+    bat_findmode(target, algorithm, context)
 end
 
-function argchoice_msg(::typeof(bat_findmode), ::Val{:rng}, x::AbstractRNG)
-    "Initializing new RNG of type $(typeof(x))"
+function bat_findmode(target::AnySampleable, algorithm)
+    context = default_context()
+    bat_findmode(target, algorithm, context)
 end
+
+function bat_findmode(target::AnySampleable, context::BATContext)
+    algorithm = bat_default_withdebug(bat_findmode, Val(:algorithm), target);
+    bat_findmode(target, algorithm, context)
+end
+
 
 function argchoice_msg(::typeof(bat_findmode), ::Val{:algorithm}, x::AbstractModeEstimator)
     "Using mode estimator $x"
@@ -117,7 +117,7 @@ export bat_marginalmode
 function bat_marginalmode_impl end
 
 
-function bat_marginalmode(samples::DensitySampleVector; kwargs...)
-    r = bat_marginalmode_impl(samples::DensitySampleVector; kwargs...)
-    result_with_args(r, NamedTuple(), kwargs)
+function bat_marginalmode(samples::DensitySampleVector)
+    r = bat_marginalmode_impl(samples::DensitySampleVector)
+    result_with_args(r, NamedTuple())
 end

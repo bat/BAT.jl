@@ -4,20 +4,9 @@ using Random123: Philox4x, Threefry4x
 using Random123: random123_r, gen_seed
 
 
-"""
-    bat_rng()
+@deprecate bat_rng() HeterogeneousComputing.get_rng(BAT.default_context())
 
-*Experimental feature, not part of stable public API.*
-
-Return a new BAT-compatible random number generator, with a random seed drawn
-from the system entropy pool.
-"""
-function bat_rng end
-export bat_rng
-
-bat_rng() = Philox4x()::Philox4x{UInt64,10}
-
-bat_determ_rng() = Philox4x((0, 0))::Philox4x{UInt64,10}
+_bat_determ_rng() = Philox4x((0, 0))::Philox4x{UInt64,10}
 
 
 

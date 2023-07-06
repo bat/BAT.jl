@@ -13,7 +13,8 @@ export IntegrationAlgorithm
 """
     bat_integrate(
         target::AnySampleable,
-        [algorithm::IntegrationAlgorithm]
+        [algorithm::IntegrationAlgorithm],
+        [context::BATContext]
     )::DensitySampleVector
 
 Calculate the integral (evidence) of `target`.
@@ -38,12 +39,26 @@ export bat_integrate
 function bat_integrate_impl end
 
 
-function bat_integrate(
-    target::AnySampleable,
+function bat_integrate(target::AnySampleable, algorithm::IntegrationAlgorithm, context::BATContext)
+    orig_context = deepcopy(context)
+    r = bat_integrate_impl(target, algorithm, context)
+    result_with_args(r, (algorithm = algorithm, context = orig_context))
+end
+
+function bat_integrate(target::AnySampleable)
     algorithm::IntegrationAlgorithm = bat_default_withinfo(bat_integrate, Val(:algorithm), target)
-)
-    r = bat_integrate_impl(target, algorithm)
-    result_with_args(r, (algorithm = algorithm,))
+    context = default_context()
+    bat_integrate(target, algorithm, context)
+end
+
+function bat_integrate(target::AnySampleable, algorithm::IntegrationAlgorithm)
+    context = default_context()
+    bat_integrate(target, algorithm, context)
+end
+
+function bat_integrate(target::AnySampleable, context::BATContext)
+    algorithm::IntegrationAlgorithm = bat_default_withinfo(bat_integrate, Val(:algorithm), target)
+    bat_integrate(target, algorithm, context)
 end
 
 

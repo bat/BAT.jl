@@ -4,8 +4,11 @@ using BAT
 using Test
 
 using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
+using AutoDiffOperators, ForwardDiff
 
 @testset "hierarchial_distribution" begin
+    context = BATContext(ad = ADModule(:ForwardDiff))
+
     let
         primary_dist = NamedTupleDist(
             foo = LogNormal(1, 0.3),
@@ -38,7 +41,7 @@ using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
         @test @inferred(logpdf(hd, varshape(hd)(ux))) == logpdf(ud, ux)
         @test @inferred(logpdf(hd, varshape(hd)(ux))) == logpdf(ud, ux)
 
-        samples = bat_sample(hd, MCMCSampling(mcalg = HamiltonianMC(), trafo = DoNotTransform(), nsteps = 10^4)).result
+        samples = bat_sample(hd, MCMCSampling(mcalg = HamiltonianMC(), trafo = DoNotTransform(), nsteps = 10^4), context).result
         @test isapprox(cov(unshaped.(samples)), cov(ud), rtol = 0.25)
     end
 

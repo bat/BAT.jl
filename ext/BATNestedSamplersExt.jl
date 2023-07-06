@@ -9,6 +9,7 @@ else
 end
 
 using BAT
+using HeterogeneousComputing
 
 BAT.pkgext(::Val{:NestedSamplers}) = BAT.PackageExtension{:NestedSamplers}()
 
@@ -62,7 +63,10 @@ end
 
 
 
-function BAT.bat_sample_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, algorithm::EllipsoidalNestedSampling)
+function BAT.bat_sample_impl(target::AnyMeasureOrDensity, algorithm::EllipsoidalNestedSampling, context::BATContext)
+    # ToDo: Forward RNG from context!
+    rng = get_rng(context)
+
     density_notrafo = convert(AbstractMeasureOrDensity, target)
     density, trafo = BAT.transform_and_unshape(algorithm.trafo, density_notrafo)                 # BAT prior transformation
     vs = varshape(density)
@@ -77,7 +81,7 @@ function BAT.bat_sample_impl(rng::AbstractRNG, target::AnyMeasureOrDensity, algo
         enlarge=algorithm.enlarge, min_ncall=algorithm.min_ncall, min_eff=algorithm.min_eff
     ) 
 
-    samples_w, state = sample(model, sampler;                                               # returns samples with weights as one vector and the actual state
+    samples_w, state = sample(rng, model, sampler;                                               # returns samples with weights as one vector and the actual state
         dlogz = algorithm.dlogz, maxiter = algorithm.max_iters,
         maxcall = algorithm.max_ncalls, maxlogl = algorithm.maxlogl, chain_type=Array
     )

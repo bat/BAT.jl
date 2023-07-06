@@ -4,9 +4,12 @@ using Test
 
 using LinearAlgebra
 using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityInterface
+using IntervalSets
+using AutoDiffOperators
+import ForwardDiff, Zygote
 
 @testset "HamiltonianMC" begin
-    rng = bat_rng()
+    context = BATContext(ad = ADModule(:ForwardDiff))
     target = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
 
     shaped_density = @inferred(convert(AbstractMeasureOrDensity, target))
@@ -18,10 +21,10 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
     nchains = 4
  
     @testset "MCMC iteration" begin
-        v_init = bat_initval(rng, density, InitFromTarget()).result
+        v_init = bat_initval(density, InitFromTarget(), context).result
         # Note: No @inferred, since MCMCIterator is not type stable (yet) with HamiltonianMC
-        @test MCMCIterator(deepcopy(rng), algorithm, density, 1, unshaped(v_init, varshape(density))) isa BAT.AHMCIterator
-        chain = MCMCIterator(deepcopy(rng), algorithm, density, 1, unshaped(v_init, varshape(density)))
+        @test MCMCIterator(algorithm, density, 1, unshaped(v_init, varshape(density)), deepcopy(context)) isa BAT.AHMCIterator
+        chain = MCMCIterator(algorithm, density, 1, unshaped(v_init, varshape(density)), deepcopy(context))
         tuner = BAT.StanHMCTuning()(chain)
         nsteps = 10^4
         BAT.tuning_init!(tuner, chain, 0)
@@ -52,7 +55,6 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
 
         # Note: No @inferred, not type stable (yet) with HamiltonianMC
         init_result = BAT.mcmc_init!(
-            rng,
             algorithm,
             density,
             nchains,
@@ -60,6 +62,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
             tuning_alg,
             nonzero_weights,
             callback,
+            context
         )
 
         (chains, tuners, outputs) = init_result
@@ -101,7 +104,8 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
                 trafo = DoNotTransform(),
                 nsteps = 10^4,
                 store_burnin = true
-            )
+            ),
+            context
         ).result
 
         # ToDo: First HMC sample currently had chaincycle set to 0, should be fixed.
@@ -116,7 +120,8 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
                 nsteps = 10^4,
                 store_burnin = false
             ),
-            target
+            target,
+            context
         )
         samples = smplres.result
         @test first(samples).info.chaincycle >= 2
@@ -130,6 +135,27 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         inner_posterior = PosteriorMeasure(likelihood, prior)
         # Test with nested posteriors:
         posterior = PosteriorMeasure(likelihood, inner_posterior)
-        @test BAT.sample_and_verify(posterior, MCMCSampling(mcalg = HamiltonianMC(), trafo = PriorToGaussian()), prior.dist).verified
+        @test BAT.sample_and_verify(posterior, MCMCSampling(mcalg = HamiltonianMC(), trafo = PriorToGaussian()), prior.dist, context).verified
+    end
+
+    @testset "HMC autodiff" begin
+        posterior = BAT.example_posterior()
+
+        for adsel in [ADModule(:ForwardDiff), ADModule(:Zygote)]
+            @testset "$adsel" begin
+                context = BATContext(ad = adsel)
+
+                hmc_sampling_alg = MCMCSampling(
+                    mcalg = HamiltonianMC(),
+                    nchains = 2,
+                    nsteps = 100,
+                    init = MCMCChainPoolInit(init_tries_per_chain = 2..2, nsteps_init = 5),
+                    burnin = MCMCMultiCycleBurnin(nsteps_per_cycle = 100, max_ncycles = 1),
+                    strict = false
+                )
+                
+                @test bat_sample(posterior, hmc_sampling_alg, context).result isa DensitySampleVector
+            end
+        end
     end
 end

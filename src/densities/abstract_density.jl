@@ -26,7 +26,7 @@ Densities with known variate bounds may also implement
 
 * `BAT.var_bounds`
 
-!!! noteWithDiff
+!!! note
 
     The function `BAT.var_bounds` is not part of the stable public BAT-API,
     it's name and arguments may change without deprecation.

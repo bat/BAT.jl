@@ -1,30 +1,41 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+struct NLSolversFG!{F,AD} <: Function
+    f::F
+    ad::AD
+end
+NLSolversFG!(::Type{FT}, ad::AD) where {FT,AD<:ADSelector}  = NLSolversFG!{Type{FT},AD}(FT, ad)
 
-struct NLSolversFG!{F<:GradientFunction}
-    gradfunc::F
+function (fg!::NLSolversFG!)(::Real, grad_f::Nothing, x::AbstractVector{<:Real})
+    y = fg!.f(x)
+    return y
 end
 
-NLSolversBase.only_fg!(f::GradientFunction) = NLSolversBase.only_fg!(NLSolversFG!(f))
-
-function (gf::NLSolversFG!)(val_f::Real, grad_f::Any, v::Any)
-    return gf.gradfunc(!, grad_f, v)
+function (fg!::NLSolversFG!)(::Real, grad_f::AbstractVector{<:Real}, x::AbstractVector{<:Real})
+    y, r_grad_f = with_gradient!!(fg!.f, grad_f, x, fg!.ad)
+    if !(grad_f === r_grad_f)
+        grad_f .= r_grad_f
+    end
+    return y
 end
 
-function (gf::NLSolversFG!)(val_f::Nothing, grad_f::Any, v::Any)
-    gf.gradfunc(!, grad_f, v)
+function (fg!::NLSolversFG!)(::Nothing, grad_f::AbstractVector{<:Real}, x::AbstractVector{<:Real})
+    _, r_grad_f = with_gradient!!(fg!.f, grad_f, x, fg!.ad)
+    if !(grad_f === r_grad_f)
+        grad_f .= r_grad_f
+    end
     return Nothing
 end
 
 
-function _bat_findmode_impl_optim(rng::AbstractRNG, target::AnySampleable, algorithm::AbstractModeEstimator)
+function _bat_findmode_impl_optim(target::AnySampleable, algorithm::AbstractModeEstimator, context::BATContext)
     transformed_density, trafo = transform_and_unshape(algorithm.trafo, target)
 
     initalg = apply_trafo_to_init(trafo, algorithm.init)
-    x_init = collect(bat_initval(rng, transformed_density, initalg).result)
+    x_init = collect(bat_initval(transformed_density, initalg, context).result)
 
     f = negative(logdensityof(transformed_density))
-    optim_result = _run_optim(f, x_init, algorithm)
+    optim_result = _run_optim(f, x_init, algorithm, context)
     r_optim = Optim.MaximizationWrapper(optim_result)
     transformed_mode = Optim.minimizer(r_optim.res)
     result_mode = inverse(trafo)(transformed_mode)
@@ -37,8 +48,8 @@ end
 
 
 # Wrapper for type stability of optimize result (why does this work?):
-function _optim_optimize(f, x0::AbstractArray, method::Optim.AbstractOptimizer, options = Optim.Options(); kwargs...)
-    Optim.optimize(f, x0, method, options; kwargs...)
+function _optim_optimize(f, x0::AbstractArray, method::Optim.AbstractOptimizer, options = Optim.Options())
+    Optim.optimize(f, x0, method, options)
 end
 
 
@@ -104,12 +115,12 @@ $(TYPEDFIELDS)
 end
 export NelderMeadOpt
 
-function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::NelderMeadOpt)
+function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::NelderMeadOpt, context::BATContext)
     opts = Optim.Options(store_trace = true, extended_trace=true)
     _optim_optimize(f, x_init, Optim.NelderMead(), opts)
 end
 
-bat_findmode_impl(rng::AbstractRNG, target::AnySampleable, algorithm::NelderMeadOpt) = _bat_findmode_impl_optim(rng, target, algorithm)
+bat_findmode_impl(target::AnySampleable, algorithm::NelderMeadOpt, context::BATContext) = _bat_findmode_impl_optim(target, algorithm, context)
 
 
 """
@@ -138,10 +149,14 @@ $(TYPEDFIELDS)
 end
 export LBFGSOpt
 
-bat_findmode_impl(rng::AbstractRNG, target::AnySampleable, algorithm::LBFGSOpt) = _bat_findmode_impl_optim(rng, target, algorithm)
+bat_findmode_impl(target::AnySampleable, algorithm::LBFGSOpt, context::BATContext) = _bat_findmode_impl_optim(target, algorithm, context)
 
-function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::LBFGSOpt)
-    fg = valgradof(f)
+function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::LBFGSOpt, context::BATContext)
+    adsel = get_adselector(context)
+    if adsel isa _NoADSelected
+        throw(ErrorException("LBFGSOpt requires an ADSelector to be specified in the BAT context"))
+    end
+    fg! = NLSolversFG!(f, adsel)
     opts = Optim.Options(store_trace = true, extended_trace=true)
-    _optim_optimize(Optim.only_fg!(fg), x_init, Optim.LBFGS(), opts)
+    _optim_optimize(Optim.only_fg!(fg!), x_init, Optim.LBFGS(), opts)
 end

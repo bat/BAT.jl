@@ -3,7 +3,7 @@
 let
     posterior = BAT.example_posterior()
 
-    dummy_samples = bat_sample(BAT.bat_determ_rng(), posterior.prior, IIDSampling(nsamples=10)).result
+    dummy_samples = bat_sample(BAT._bat_determ_rng(), posterior.prior, IIDSampling(nsamples=10)).result
     precompile(bat_eff_sample_size, map(typeof, (dummy_samples,)))
     precompile(show, map(typeof, (dummy_samples,)))
 

@@ -11,29 +11,22 @@ end
 getalgorithm(sg::GenericSampleGenerator) = sg.algorithm
 
 
-
 function sample_and_verify(
-    rng::AbstractRNG, target::AnySampleable, algorithm::AbstractSamplingAlgorithm, ref_dist::Distribution = target;
+    target::AnySampleable, algorithm::AbstractSamplingAlgorithm,
+    ref_dist::Distribution = target, context::BATContext = default_context();
     max_retries::Integer = 1
 )
-    initial_smplres = bat_sample(rng, target, algorithm)
+    initial_smplres = bat_sample(target, algorithm, context)
     smplres::typeof(initial_smplres) = initial_smplres
-    verified::Bool = test_dist_samples(rng, ref_dist, smplres.result)
+    verified::Bool = test_dist_samples(ref_dist, smplres.result, context)
     n_retries::Int = 0
     while !(verified) && n_retries < max_retries
         n_retries += 1
-        smplres = bat_sample(rng, target, algorithm)
-        verified = test_dist_samples(rng, ref_dist, smplres.result)
+        smplres = bat_sample(target, algorithm, context)
+        verified = test_dist_samples(ref_dist, smplres.result, context)
     end
     merge(smplres, (verified = verified, n_retries = n_retries))
 end
-
-function sample_and_verify(
-    target::AnySampleable, algorithm::AbstractSamplingAlgorithm, ref_dist::Distribution = target; kwargs...
-)
-    sample_and_verify(bat_rng(), target, algorithm, ref_dist; kwargs...)
-end
-
 
 
 """
@@ -56,7 +49,8 @@ end
 export IIDSampling
 
 
-function bat_sample_impl(rng::AbstractRNG, target::AnyIIDSampleable, algorithm::IIDSampling)
+function bat_sample_impl(target::AnyIIDSampleable, algorithm::IIDSampling, context::BATContext)
+    rng = get_rng(context)
     shaped_density = convert(DistLikeMeasure, target)
     density = unshaped(shaped_density)
     shape = varshape(shaped_density)
@@ -96,11 +90,12 @@ end
 export RandResampling
 
 
-function bat_sample_impl(rng::AbstractRNG, posterior::DensitySampleVector, algorithm::RandResampling)
+function bat_sample_impl(posterior::DensitySampleVector, algorithm::RandResampling, context::BATContext)
+    rng = get_rng(context)
     n = algorithm.nsamples
     orig_idxs = eachindex(posterior)
     weights = FrequencyWeights(float(posterior.weight))
-    resampled_idxs = sample(orig_idxs, weights, n, replace=true, ordered=false)
+    resampled_idxs = sample(rng, orig_idxs, weights, n, replace=true, ordered=false)
 
     samples = posterior[resampled_idxs]
     samples.weight .= 1
@@ -133,7 +128,8 @@ end
 export OrderedResampling
 
 
-function bat_sample_impl(rng::AbstractRNG, samples::DensitySampleVector, algorithm::OrderedResampling)
+function bat_sample_impl(samples::DensitySampleVector, algorithm::OrderedResampling, context::BATContext)
+    rng = get_rng(context)
     @assert axes(samples) == axes(samples.weight)
     W = samples.weight
     idxs = eachindex(samples)

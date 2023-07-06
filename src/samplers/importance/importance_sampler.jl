@@ -44,9 +44,9 @@ export GridSampler
 
 
 function bat_sample_impl(
-    rng::AbstractRNG,
     target::AnyMeasureOrDensity,
-    algorithm::Union{SobolSampler, GridSampler}
+    algorithm::Union{SobolSampler, GridSampler},
+    context::BATContext
 )
     density_notrafo = convert(AbstractMeasureOrDensity, target)
     density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo)
@@ -109,14 +109,14 @@ end
 export PriorImportanceSampler
 
 function bat_sample_impl(
-    rng::AbstractRNG,
     posterior::AbstractPosteriorMeasure,
-    algorithm::PriorImportanceSampler
+    algorithm::PriorImportanceSampler,
+    context::BATContext
 )
     shape = varshape(posterior)
 
     prior = getprior(posterior)
-    prior_samples = bat_sample(prior, IIDSampling(nsamples = algorithm.nsamples)).result
+    prior_samples = bat_sample(prior, IIDSampling(nsamples = algorithm.nsamples), context).result
     unshaped_prior_samples = unshaped.(prior_samples)
 
     v = unshaped_prior_samples.v

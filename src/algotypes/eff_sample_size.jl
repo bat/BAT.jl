@@ -56,10 +56,9 @@ end
 
 function bat_eff_sample_size(
     smpls::DensitySampleVector,
-    algorithm = bat_default_withdebug(bat_eff_sample_size, Val(:algorithm), smpls);
-    kwargs...
+    algorithm = bat_default_withdebug(bat_eff_sample_size, Val(:algorithm), smpls)
 )
-    r = bat_eff_sample_size_impl(smpls, algorithm; kwargs...)
+    r = bat_eff_sample_size_impl(smpls, algorithm)
     result_with_args(r, (algorithm = algorithm,))
 end
 

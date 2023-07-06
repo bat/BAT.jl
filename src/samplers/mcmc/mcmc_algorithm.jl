@@ -84,7 +84,7 @@ BAT.getalgorithm(chain::SomeMCMCIter)::MCMCAlgorithm
 
 BAT.getmeasure(chain::SomeMCMCIter)::AbstractMeasureOrDensity
 
-BAT.getrng(chain::SomeMCMCIter)::AbstractRNG
+BAT.get_context(chain::SomeMCMCIter)::BATContext
 
 BAT.mcmc_info(chain::SomeMCMCIter)::MCMCIteratorInfo
 
@@ -136,8 +136,6 @@ end
 function getalgorithm end
 
 function getmeasure end
-
-function getrng end
 
 function mcmc_info end
 

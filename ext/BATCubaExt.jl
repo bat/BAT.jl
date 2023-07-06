@@ -101,7 +101,7 @@ function (integrand::CubaIntegrand)(X::AbstractMatrix{<:Real}, f::AbstractMatrix
 end
 
 
-function BAT.bat_integrate_impl(integrand::CubaIntegrand, algorithm::VEGASIntegration)
+function _integrate_impl_cuba(integrand::CubaIntegrand, algorithm::VEGASIntegration, context::BATContext)
     r = Cuba.vegas(
         integrand, totalndof(integrand.density), 1, nvec = algorithm.nthreads,
         rtol = algorithm.rtol, atol = algorithm.atol,
@@ -111,7 +111,7 @@ function BAT.bat_integrate_impl(integrand::CubaIntegrand, algorithm::VEGASIntegr
 end
 
 
-function BAT.bat_integrate_impl(integrand::CubaIntegrand, algorithm::SuaveIntegration)
+function _integrate_impl_cuba(integrand::CubaIntegrand, algorithm::SuaveIntegration, context::BATContext)
     Cuba.suave(
         integrand, totalndof(integrand.density), 1, nvec = algorithm.nthreads,
         rtol = algorithm.rtol, atol = algorithm.atol,
@@ -121,7 +121,7 @@ function BAT.bat_integrate_impl(integrand::CubaIntegrand, algorithm::SuaveIntegr
 end
 
 
-function BAT.bat_integrate_impl(integrand::CubaIntegrand, algorithm::DivonneIntegration)
+function _integrate_impl_cuba(integrand::CubaIntegrand, algorithm::DivonneIntegration, context::BATContext)
     Cuba.divonne(
         integrand, totalndof(integrand.density), 1, nvec = algorithm.nthreads,
         rtol = algorithm.rtol, atol = algorithm.atol,
@@ -134,7 +134,7 @@ function BAT.bat_integrate_impl(integrand::CubaIntegrand, algorithm::DivonneInte
 end
 
 
-function BAT.bat_integrate_impl(integrand::CubaIntegrand, algorithm::CuhreIntegration)
+function _integrate_impl_cuba(integrand::CubaIntegrand, algorithm::CuhreIntegration, context::BATContext)
     Cuba.cuhre(
         integrand, totalndof(integrand.density), 1, nvec = algorithm.nthreads,
         rtol = algorithm.rtol, atol = algorithm.atol,
@@ -144,13 +144,13 @@ function BAT.bat_integrate_impl(integrand::CubaIntegrand, algorithm::CuhreIntegr
 end
 
 
-function BAT.bat_integrate_impl(target::AnyMeasureOrDensity, algorithm::CubaIntegration)
+function BAT.bat_integrate_impl(target::AnyMeasureOrDensity, algorithm::CubaIntegration, context::BATContext)
     density_notrafo = convert(AbstractMeasureOrDensity, target)
     shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)
     density = unshaped(shaped_density)
     integrand = CubaIntegrand(density, algorithm.log_density_shift)
 
-    r_cuba = bat_integrate_impl(integrand, algorithm)
+    r_cuba = _integrate_impl_cuba(integrand, algorithm, context)
 
     if r_cuba.fail != 0
         buf = IOBuffer()
@@ -174,8 +174,8 @@ function BAT.bat_integrate_impl(target::AnyMeasureOrDensity, algorithm::CubaInte
 end
 
 
-function BAT.bat_integrate_impl(target::SampledMeasure, algorithm::CubaIntegration)
-    bat_integrate_impl(target.density, algorithm)
+function BAT.bat_integrate_impl(target::SampledMeasure, algorithm::CubaIntegration, context::BATContext)
+    bat_integrate_impl(target.density, algorithm, context)
 end
 
 

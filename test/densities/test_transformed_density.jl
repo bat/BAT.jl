@@ -6,11 +6,14 @@ using Test
 using LinearAlgebra
 using ValueShapes, ArraysOfArrays, Distributions, ForwardDiff
 using DensityInterface, InverseFunctions, ChangesOfVariables
+using AutoDiffOperators, ForwardDiff
 
 import Cuba
 
 
 @testset "transformed_density" begin
+    context = BATContext(ad = ADModule(:ForwardDiff))
+
     @testset "distribution transforms" begin
         function test_uv_transformed(target_type::Type{<:Distribution}, source_dist::Distribution)
             trafo = BAT.DistributionTransform(target_type, source_dist)
@@ -39,8 +42,8 @@ import Cuba
 
                 @test isapprox(@inferred(inverse(density.trafo)(target_x)), source_x, atol = 10^-5)
 
-                @test minimum(target_dist) <= @inferred(bat_initval(density, InitFromTarget())).result <= maximum(target_dist)
-                @test all(minimum(target_dist) .<= @inferred(bat_initval(density, 100, InitFromTarget())).result .<= maximum(target_dist))
+                @test minimum(target_dist) <= @inferred(bat_initval(density, InitFromTarget(), context)).result <= maximum(target_dist)
+                @test all(minimum(target_dist) .<= @inferred(bat_initval(density, 100, InitFromTarget(), context)).result .<= maximum(target_dist))
 
                 fix_nni(x::T) where {T<:Real} = x <= BAT.near_neg_inf(T) ? T(-Inf) : x
 
@@ -60,10 +63,10 @@ import Cuba
                 tX_finite = tX[findall(isfinite, fix_nni.(logdensityof(density).(tX)))]
                 @test isapprox(@inferred(broadcast(ForwardDiff.derivative, logdensityof(density), tX_finite)), broadcast(ForwardDiff.derivative, x -> logpdf(target_dist, x), tX_finite), atol = 10^-7)
 
-                @test minimum(target_dist) <= bat_findmode(density, LBFGSOpt(trafo = DoNotTransform())).result <= maximum(target_dist)
+                @test minimum(target_dist) <= bat_findmode(density, LBFGSOpt(trafo = DoNotTransform()), context).result <= maximum(target_dist)
 
                 if trafo.target_dist isa Union{BAT.StandardUvUniform,BAT.StandardMvUniform}
-                    @test isapprox(bat_integrate(density, VEGASIntegration(trafo = DoNotTransform())).result, 1, rtol = 10^-7)
+                    @test isapprox(bat_integrate(density, VEGASIntegration(trafo = DoNotTransform()), context).result, 1, rtol = 10^-7)
                 end
             end
         end
@@ -80,10 +83,10 @@ import Cuba
         src_d = NamedTupleDist(a = Exponential(), b = [4.2, 3.3], c = Weibull(), d = [Normal(1, 3), Normal(3, 2)], e = Uniform(-2, 3), f = MvNormal([0.3, -2.9], [1.7 0.5; 0.5 2.3]))
         trafo = @inferred(BAT.DistributionTransform(Normal, src_d))
         density = @inferred(trafo(convert(AbstractMeasureOrDensity, trafo.source_dist)))
-        @test isfinite(@inferred logdensityof(density)(@inferred(bat_initval(density)).result))
-        @test isapprox(cov(@inferred(bat_initval(density, 10^4)).result), I(totalndof(density)), rtol = 0.1)
+        @test isfinite(@inferred logdensityof(density)(@inferred(bat_initval(density, context)).result))
+        @test isapprox(cov(@inferred(bat_initval(density, 10^4, context)).result), I(totalndof(density)), rtol = 0.1)
 
-        samples_is = bat_sample(density, MCMCSampling(mcalg = HamiltonianMC(), trafo = DoNotTransform(), nsteps = 10^4)).result
+        samples_is = bat_sample(density, MCMCSampling(mcalg = HamiltonianMC(), trafo = DoNotTransform(), nsteps = 10^4), context).result
         @test isapprox(cov(samples_is), I(totalndof(density)), rtol = 0.1)
         samples_os = inverse(trafo).(samples_is)
         @test all(isfinite, logpdf.(Ref(src_d), samples_os.v))
@@ -95,8 +98,8 @@ import Cuba
         prior = HierarchicalDistribution(f_secondary, primary_dist)
         likelihood = logfuncdensity(logdensityof(varshape(prior)(MvNormal(Diagonal(fill(1.0, totalndof(varshape(prior))))))))
         density = PosteriorMeasure(likelihood, prior)
-        hmc_samples = bat_sample(density, MCMCSampling(mcalg = HamiltonianMC(), trafo = PriorToGaussian(), nsteps = 10^4)).result
-        is_samples = bat_sample(density, PriorImportanceSampler(nsamples = 10^4)).result
+        hmc_samples = bat_sample(density, MCMCSampling(mcalg = HamiltonianMC(), trafo = PriorToGaussian(), nsteps = 10^4), context).result
+        is_samples = bat_sample(density, PriorImportanceSampler(nsamples = 10^4), context).result
         @test isapprox(mean(unshaped.(hmc_samples)), mean(unshaped.(is_samples)), rtol = 0.1)
         @test isapprox(cov(unshaped.(hmc_samples)), cov(unshaped.(is_samples)), rtol = 0.2)
     end
