@@ -16,6 +16,7 @@ using Printf
 using Random
 using Statistics
 
+using AffineMaps
 using ArgCheck
 using ArraysOfArrays
 using AutoDiffOperators
