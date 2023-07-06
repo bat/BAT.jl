@@ -68,6 +68,8 @@ import ZygoteRules
 using MeasureBase: AbstractMeasure, DensityMeasure
 using MeasureBase: basemeasure, getdof
 
+using LogarithmicNumbers: ULogarithmic
+
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, AbstractThunk, unthunk
 
 using Functors: fmap, @functor
