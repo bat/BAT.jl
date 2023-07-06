@@ -1,5 +1,37 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+module BATOptimExt
+
+@static if isdefined(Base, :get_extension)
+    import Optim
+else
+    import ..Optim
+end
+
+using BAT
+BAT.pkgext(::Val{:Optim}) = BAT.PackageExtension{:Optim}()
+
+
+using Random
+using DensityInterface, ChangesOfVariables, InverseFunctions
+using HeterogeneousComputing, AutoDiffOperators
+using StructArrays, ArraysOfArrays
+
+using BAT: AbstractMeasureOrDensity
+
+using BAT: get_context, get_adselector, _NoADSelected
+using BAT: bat_initval, transform_and_unshape, apply_trafo_to_init
+using BAT: negative
+
+
+AbstractModeEstimator(optalg::Optim.AbstractOptimizer) = OptimAlg(optalg)
+convert(::Type{AbstractModeEstimator}, alg::OptimAlg) = alg.optalg
+
+BAT.ext_default(::BAT.PackageExtension{:Optim}, ::Val{:DEFAULT_OPTALG}) = Optim.NelderMead()
+BAT.ext_default(::BAT.PackageExtension{:Optim}, ::Val{:NELDERMEAD_ALG}) = Optim.NelderMead()
+BAT.ext_default(::BAT.PackageExtension{:Optim}, ::Val{:LBFGS_ALG}) = Optim.LBFGS()
+
+
 struct NLSolversFG!{F,AD} <: Function
     f::F
     ad::AD
@@ -28,24 +60,39 @@ function (fg!::NLSolversFG!)(::Nothing, grad_f::AbstractVector{<:Real}, x::Abstr
 end
 
 
-function _bat_findmode_impl_optim(target::AnySampleable, algorithm::AbstractModeEstimator, context::BATContext)
+function BAT.bat_findmode_impl(target::AnySampleable, algorithm::OptimAlg, context::BATContext)
     transformed_density, trafo = transform_and_unshape(algorithm.trafo, target)
 
     initalg = apply_trafo_to_init(trafo, algorithm.init)
     x_init = collect(bat_initval(transformed_density, initalg, context).result)
 
     f = negative(logdensityof(transformed_density))
-    optim_result = _run_optim(f, x_init, algorithm, context)
+    optim_result = _run_optim(f, x_init, algorithm.optalg, context)
     r_optim = Optim.MaximizationWrapper(optim_result)
     transformed_mode = Optim.minimizer(r_optim.res)
     result_mode = inverse(trafo)(transformed_mode)
 
-    dummy_f_x = f(x_init) # ToDo: Avoid recomputation
-    trace_trafo = StructArray(;_neg_opt_trace(optim_result, x_init, dummy_f_x) ...)
+    # ToDo: Re-enable trace, make it type stable:
+    #dummy_f_x = f(x_init) # ToDo: Avoid recomputation
+    #trace_trafo = StructArray(;_neg_opt_trace(optim_result, x_init, dummy_f_x) ...)
 
-    (result = result_mode, result_trafo = transformed_mode, trafo = trafo, trace_trafo = trace_trafo, info = r_optim)
+    (result = result_mode, result_trafo = transformed_mode, trafo = trafo, #=trace_trafo = trace_trafo,=# info = r_optim)
 end
 
+function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::Optim.ZerothOrderOptimizer, context::BATContext)
+    opts = Optim.Options(store_trace = true, extended_trace=true)
+    _optim_optimize(f, x_init, algorithm, opts)
+end
+
+function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::Optim.FirstOrderOptimizer, context::BATContext)
+    adsel = get_adselector(context)
+    if adsel isa _NoADSelected
+        throw(ErrorException("$(nameof(typeof(algorithm))) requires an ADSelector to be specified in the BAT context"))
+    end
+    fg! = NLSolversFG!(f, adsel)
+    opts = Optim.Options(store_trace = true, extended_trace=true)
+    _optim_optimize(Optim.only_fg!(fg!), x_init, algorithm, opts)
+end
 
 # Wrapper for type stability of optimize result (why does this work?):
 function _optim_optimize(f, x0::AbstractArray, method::Optim.AbstractOptimizer, options = Optim.Options())
@@ -91,72 +138,4 @@ function _neg_opt_trace(
 end
 
 
-"""
-    struct NelderMeadOpt <: AbstractModeEstimator
-
-Estimates the mode of a probability density using Nelder-Mead optimization
-(currently via [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl),
-subject to change).
-
-Constructors:
-
-* ```$(FUNCTIONNAME)(; fields...)```
-
-Fields:
-
-$(TYPEDFIELDS)
-"""
-@with_kw struct NelderMeadOpt{
-    TR<:AbstractTransformTarget,
-    IA<:InitvalAlgorithm
-} <: AbstractModeEstimator
-    trafo::TR = DoNotTransform()
-    init::IA = InitFromTarget()
-end
-export NelderMeadOpt
-
-function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::NelderMeadOpt, context::BATContext)
-    opts = Optim.Options(store_trace = true, extended_trace=true)
-    _optim_optimize(f, x_init, Optim.NelderMead(), opts)
-end
-
-bat_findmode_impl(target::AnySampleable, algorithm::NelderMeadOpt, context::BATContext) = _bat_findmode_impl_optim(target, algorithm, context)
-
-
-"""
-    struct LBFGSOpt <: AbstractModeEstimator
-
-Estimates the mode of a probability density using LBFGS optimization
-(currently via [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl),
-subject to change).
-
-The gradient of the target density is computed via auto-differentiation.
-
-Constructors:
-
-* ```$(FUNCTIONNAME)(; fields...)```
-
-Fields:
-
-$(TYPEDFIELDS)
-"""
-@with_kw struct LBFGSOpt{
-    TR<:AbstractTransformTarget,
-    IA<:InitvalAlgorithm
-} <: AbstractModeEstimator
-    trafo::TR = PriorToGaussian()
-    init::IA = InitFromTarget()
-end
-export LBFGSOpt
-
-bat_findmode_impl(target::AnySampleable, algorithm::LBFGSOpt, context::BATContext) = _bat_findmode_impl_optim(target, algorithm, context)
-
-function _run_optim(f::Function, x_init::AbstractArray{<:Real}, algorithm::LBFGSOpt, context::BATContext)
-    adsel = get_adselector(context)
-    if adsel isa _NoADSelected
-        throw(ErrorException("LBFGSOpt requires an ADSelector to be specified in the BAT context"))
-    end
-    fg! = NLSolversFG!(f, adsel)
-    opts = Optim.Options(store_trace = true, extended_trace=true)
-    _optim_optimize(Optim.only_fg!(fg!), x_init, Optim.LBFGS(), opts)
-end
+end # module BATOptimExt

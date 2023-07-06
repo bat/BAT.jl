@@ -17,7 +17,6 @@ using HeterogeneousComputing, AutoDiffOperators
 
 using BAT: AbstractMeasureOrDensity
 
-using BAT: bat_default
 using BAT: get_context, get_adselector, _NoADSelected
 using BAT: getalgorithm, getmeasure
 using BAT: MCMCIterator, MCMCIteratorInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin, AbstractMCMCTunerInstance

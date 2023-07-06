@@ -58,7 +58,6 @@ import HypothesisTests
 import MeasureBase
 import Measurements
 import NamedArrays
-import Optim
 import Random123
 import Sobol
 import StableRNGs
@@ -111,6 +110,7 @@ function __init__()
         @require Cuba = "8a292aeb-7a57-582c-b821-06e4c11590b1" include("../ext/BATCubaExt.jl")
         @require HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f" include("../ext/BATHDF5Ext.jl")
         @require NestedSamplers = "41ceaf6f-1696-4a54-9b49-2e7a9ec3782e" include("../ext/BATNestedSamplersExt.jl")
+        @require Optim = "429524aa-4258-5aef-a3af-852621145aeb" include("../ext/BATOptimExt.jl")
         @require Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80" include("../ext/BATPlotsExt.jl")
         @require UltraNest = "6822f173-b0be-4018-9ee2-28bf56348d09" include("../ext/BATUltraNestExt.jl")
     end

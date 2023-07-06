@@ -1,10 +1,18 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::DensitySampleVector) = MaxDensitySearch()
+bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::DensitySampleVector, context) = MaxDensitySearch()
 
-bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::AbstractMeasureOrDensity) = NelderMeadOpt()
+function bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::AbstractMeasureOrDensity, context)
+    optalg = if get_adselector(context) isa _NoADSelected
+        BAT.ext_default(pkgext(Val(:Optim)), Val(:NELDERMEAD_ALG))
+    else
+        BAT.ext_default(pkgext(Val(:Optim)), Val(:LBFGS_ALG))
+    end
 
-bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::Distribution) = ModeAsDefined()
+    OptimAlg(optalg = optalg)
+end
 
-bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::DistLikeMeasure) = ModeAsDefined()
+bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::Distribution, context) = ModeAsDefined()
+
+bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::DistLikeMeasure, context) = ModeAsDefined()

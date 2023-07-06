@@ -89,7 +89,6 @@ InitFromTarget
 InitvalAlgorithm
 IntegrationAlgorithm
 KishESS
-LBFGSOpt
 LogDVal
 MaxDensitySearch
 MCMCAlgorithm
@@ -104,8 +103,8 @@ MCMCTuningAlgorithm
 MetropolisHastings
 MHProposalDistTuning
 ModeAsDefined
-NelderMeadOpt
 NoWhitening
+OptimAlg
 OrderedResampling
 PosteriorMeasure
 PriorSubstitution

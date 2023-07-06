@@ -369,7 +369,12 @@ samples_mode isa NamedTuple
 # `samples_mode` is only an estimate of the mode of the posterior
 # distribution. It can be further refined using [`bat_findmode`](@ref):
 
-findmode_result = bat_findmode(posterior, NelderMeadOpt(init = ExplicitInit([samples_mode])))
+using Optim
+
+findmode_result = bat_findmode(
+    posterior,
+    OptimAlg(optalg = Optim.NelderMead(), init = ExplicitInit([samples_mode]))
+)
 
 fit_par_values = findmode_result.result
 

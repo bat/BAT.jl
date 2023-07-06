@@ -108,23 +108,17 @@ BAT.jl integration algorithm type: [`BridgeSampling`](@ref)
 integration_algorithm = BridgeSampling()
 ```
 
-
 ## Mode finding algorithms:
 All following mode finding algorithms can be passed to [`bat_findmode`](@ref):
 ```julia
 mode = bat_findmode(sampleable, modefinding_algorithm).result
 ```
 
-### Nelder-Mead Optimization
-BAT.jl mode finding algorithm type: [`NelderMeadOpt`](@ref) 
+### Optim.jl Optimization Algorithms
+BAT.jl mode finding algorithm type: [`OptimAlg`](@ref) 
 ```julia
-modefinding_algorithm = NelderMeadOpt()
-```
-
-### LBFGS Optimization
-BAT.jl mode finding algorithm type: [`LBFGSOpt`](@ref) 
-```julia
-modefinding_algorithm = LBFGSOpt()
+modefinding_algorithm = OptimAlg(optalg = Optim.NelderMead())
+modefinding_algorithm = OptimAlg(optalg = Optim.LBFGS())
 ```
 
 ### Maximum Sample Estimator

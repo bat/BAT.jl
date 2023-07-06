@@ -46,19 +46,12 @@ function bat_findmode(target::AnySampleable, algorithm, context::BATContext)
     result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
-function bat_findmode(target::AnySampleable)
-    algorithm = bat_default_withdebug(bat_findmode, Val(:algorithm), target);
-    context = default_context()
-    bat_findmode(target, algorithm, context)
-end
+bat_findmode(target::AnySampleable) = bat_findmode(target, default_context())
 
-function bat_findmode(target::AnySampleable, algorithm)
-    context = default_context()
-    bat_findmode(target, algorithm, context)
-end
+bat_findmode(target::AnySampleable, algorithm) = bat_findmode(target, algorithm, default_context())
 
 function bat_findmode(target::AnySampleable, context::BATContext)
-    algorithm = bat_default_withdebug(bat_findmode, Val(:algorithm), target);
+    algorithm = bat_default_withdebug(bat_findmode, Val(:algorithm), target, context);
     bat_findmode(target, algorithm, context)
 end
 
