@@ -9,7 +9,7 @@ The [Hamiltonian Monte Carlo](https://en.wikipedia.org/wiki/Hamiltonian_Monte_Ca
 Uses the HMC implementation provided by the package
 [AdvancedHMC](https://github.com/TuringLang/AdvancedHMC.jl).
 
-HMC uses gradients of the target measure's density, so your [`BATContext`](@)
+HMC uses gradients of the target measure's density, so your [`BATContext`](@ref)
 needs to include an `ADSelector` to specify which automatic differentiation
 backend should be used.
 
