@@ -69,3 +69,21 @@ Distributions.sampler(density::DistMeasure) = Distributions.sampler(density.dist
 bat_sampler(density::DistMeasure) = bat_sampler(density.dist)
 
 Statistics.cov(density::DistMeasure{<:MultivariateDistribution}) = cov(density.dist)
+
+
+
+"""
+    BAT.AnyIIDSampleable = Union{...}
+
+*BAT-internal, not part of stable public API.*
+
+Union of all distribution/density-like types that BAT can draw i.i.d.
+(independent and identically distributed) samples from:
+
+* [`DistLikeMeasure`](@ref)
+* `Distributions.Distribution`
+"""
+const AnyIIDSampleable = Union{
+    DistMeasure,
+    Distributions.Distribution,
+}

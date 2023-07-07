@@ -23,6 +23,7 @@ BAT.LogUniform
 BAT.PackageExtension
 BAT.pkgext
 BAT.set_rng
+BAT.AnyMeasureLike
 BATContext
 BridgeSampling
 CuhreIntegration

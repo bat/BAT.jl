@@ -2,6 +2,25 @@
 
 
 """
+    BAT.MeasureLike = Union{...}
+
+*Experimental feature, not yet part of stable public API.*
+
+Union of all types that BAT will accept as a probability measure
+(though not all algorithms will work with all types):
+    
+* `MeasureBase.AbstractMeasure`
+* `Distributions.ContinuousDistribution`
+"""
+const AnyMeasureLike = Union{
+    MeasureBase.AbstractMeasure,
+    Distributions.ContinuousDistribution
+}
+export AnyMeasureLike
+
+
+
+"""
     abstract type BATDensity <: Function
 
 *BAT-internal, not part of stable public API.*
@@ -40,7 +59,7 @@ WrappedNonBATDensity(density) = _wrapdensity_impl(density, DensityKind(density))
 _wrapdensity_impl(density::D, ::IsDensity) where D = WrappedNonBATDensity(D)(density)
 _wrapdensity_impl(density::Function, ::NoDensity) = WrappedNonBATDensity(logfuncdensity(logvalof ∘ density))
 _wrapdensity_impl(density, ::NoDensity) = throw(ArgumentError("Can't wrap an object of type $(nameof(typeof(density))) as a density."))
-_wrapdensity_impl(density, ::HasDensity) where D = throw(ArgumentError("Can't wrap an measure-like object of type $(nameof(typeof(density))) as a density."))
+_wrapdensity_impl(density, ::HasDensity) = throw(ArgumentError("Can't wrap an measure-like object of type $(nameof(typeof(density))) as a density."))
 
 @inline Base.parent(density::WrappedNonBATDensity) = density._d
 
@@ -366,23 +385,6 @@ abstract type DistLikeMeasure <: BATMeasure end
 
 
 
-
-"""
-    BAT.MeasureLike = Union{...}
-
-Union of all types that BAT will accept as a probability measure
-(though not all algorithms will work with all types):
-    
-* `MeasureBase.AbstractMeasure`
-* `Distributions.ContinuousDistribution`
-"""
-const AnyMeasureLike = Union{
-    MeasureBase.AbstractMeasure,
-    Distributions.ContinuousDistribution
-}
-export AnyMeasureLike
-
-
 """
     BAT.AnySampleable = Union{...}
 
@@ -398,20 +400,3 @@ const AnySampleable = Union{
     DensitySampleVector
 }
 export AnySampleable
-
-
-"""
-    BAT.AnyIIDSampleable = Union{...}
-
-*BAT-internal, not part of stable public API.*
-
-Union of all distribution/density-like types that BAT can draw i.i.d.
-(independent and identically distributed) samples from:
-
-* [`DistLikeMeasure`](@ref)
-* `Distributions.Distribution`
-"""
-const AnyIIDSampleable = Union{
-    DistMeasure,
-    Distributions.Distribution,
-}

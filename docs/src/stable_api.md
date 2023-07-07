@@ -52,7 +52,6 @@ AbstractTransformTarget
 AbstractTransformToInfinite
 AbstractTransformToUnitspace
 AdaptiveMHTuning
-AnyMeasureLike
 AnySampleable
 ARPWeighting
 AssumeConvergence
