@@ -40,7 +40,7 @@ function SampledMeasure(density::SampledMeasure, samples::DensitySampleVector)
     return SampledMeasure(density.density, samples)
 end
 
-function SampledMeasure(target::AnyMeasureOrDensity, samples::DensitySampleVector)
+function SampledMeasure(target::AnyMeasureLike, samples::DensitySampleVector)
     @argcheck DensityKind(target) isa HasDensity
     return SampledMeasure(convert(AbstractMeasureOrDensity, target), samples)
 end
@@ -63,7 +63,7 @@ var_bounds(density::SampledMeasure) = var_bounds(density.density)
 get_initsrc_from_target(target::SampledMeasure) = target.samples
 
 
-_get_deep_prior_for_trafo(density::SampledMeasure) = _get_deep_prior_for_trafo(density.density)
+_get_deep_transformable_base(density::SampledMeasure) = _get_deep_transformable_base(density.density)
 
 function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::SampledMeasure, algorithm::PriorSubstitution)
     new_parent_density, trafo = bat_transform_impl(target, density.density, algorithm)

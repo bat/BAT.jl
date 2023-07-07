@@ -47,13 +47,14 @@ BAT.ext_default(::BAT.PackageExtension{:Cuba}, ::Val{:RTOL}) = Cuba.RTOL
 
 struct CubaIntegrand{LF<:Function} <: Function
     log_f::D
+    dof::Int
 end
 
 function CubaIntegrand(mu::BATMeasure)
-    if !(BAT._get_deep_prior_for_trafo(mu) isa BAT.StdMvUniform)
+    if !(BAT._get_deep_transformable_base(mu) isa BAT.StdMvUniform)
         throw(ArgumentError("CUBA integration doesn't don't have (or be transformed to) unit volume support"))
     end
-    CubaIntegrand(logdensityof(mu))
+    CubaIntegrand(logdensityof(mu), BAT.totalndof(varshape(mu)))
 end
 
 _cuba_valid_value(x) = !isnan(x) && x < typeof(x)(+Inf)
@@ -96,7 +97,7 @@ end
 
 function _integrate_impl_cuba(integrand::CubaIntegrand, algorithm::VEGASIntegration, context::BATContext)
     r = Cuba.vegas(
-        integrand, totalndof(integrand.density), 1, nvec = algorithm.nthreads,
+        integrand, integrand.dof, 1, nvec = algorithm.nthreads,
         rtol = algorithm.rtol, atol = algorithm.atol,
         minevals = algorithm.minevals, maxevals = algorithm.maxevals,
         nstart = algorithm.nstart, nincrease = algorithm.nincrease, nbatch = algorithm.nbatch
@@ -106,7 +107,7 @@ end
 
 function _integrate_impl_cuba(integrand::CubaIntegrand, algorithm::SuaveIntegration, context::BATContext)
     Cuba.suave(
-        integrand, totalndof(integrand.density), 1, nvec = algorithm.nthreads,
+        integrand, integrand.dof, 1, nvec = algorithm.nthreads,
         rtol = algorithm.rtol, atol = algorithm.atol,
         minevals = algorithm.minevals, maxevals = algorithm.maxevals,
         nnew = algorithm.nnew, nmin = algorithm.nmin, flatness = algorithm.flatness
@@ -116,7 +117,7 @@ end
 
 function _integrate_impl_cuba(integrand::CubaIntegrand, algorithm::DivonneIntegration, context::BATContext)
     Cuba.divonne(
-        integrand, totalndof(integrand.density), 1, nvec = algorithm.nthreads,
+        integrand, integrand.dof, 1, nvec = algorithm.nthreads,
         rtol = algorithm.rtol, atol = algorithm.atol,
         minevals = algorithm.minevals, maxevals = algorithm.maxevals,
         key1 = algorithm.key1, key2 = algorithm.key2, key3 = algorithm.key3,
@@ -129,7 +130,7 @@ end
 
 function _integrate_impl_cuba(integrand::CubaIntegrand, algorithm::CuhreIntegration, context::BATContext)
     Cuba.cuhre(
-        integrand, totalndof(integrand.density), 1, nvec = algorithm.nthreads,
+        integrand, integrand.dof, 1, nvec = algorithm.nthreads,
         rtol = algorithm.rtol, atol = algorithm.atol,
         minevals = algorithm.minevals, maxevals = algorithm.maxevals,
         key = algorithm.key

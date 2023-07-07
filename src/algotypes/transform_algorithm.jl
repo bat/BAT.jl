@@ -4,7 +4,7 @@
 """
     abstract type AbstractTransformTarget
 
-Abstract type for probability density transformation targets.
+Abstract type for measure transformation targets.
 """
 abstract type AbstractTransformTarget end
 export AbstractTransformTarget
@@ -14,7 +14,7 @@ export AbstractTransformTarget
 """
     abstract type AbstractTransformToUnitspace <: AbstractTransformTarget
 
-Abstract type for density transformation targets that specify a
+Abstract type for measure transformation targets that specify a
 transformation into the unit hypercube.
 """
 abstract type AbstractTransformToUnitspace <: AbstractTransformTarget end
@@ -24,10 +24,10 @@ export AbstractTransformToUnitspace
 """
     abstract type AbstractTransformToInfinite <: AbstractTransformTarget
 
-Abstract type for density transformation targets that specify are
+Abstract type for measure transformation targets that specify are
 transformation into unbounded space.
 
-The density that results from such a transformation must be unbounded in all
+The measure that results from such a transformation must be unbounded in all
 dimensions and that should taper off to zero somewhat smoothly in any
 direction.
 """
@@ -38,7 +38,7 @@ export AbstractTransformToInfinite
 """
     abstract type TransformAlgorithm
 
-Abstract type for density transformation algorithms.
+Abstract type for measure transformation algorithms.
 """
 abstract type TransformAlgorithm end
 export TransformAlgorithm
@@ -47,16 +47,16 @@ export TransformAlgorithm
 """
     bat_transform(
         target::AbstractTransformTarget,
-        density::AnyMeasureOrDensity,
+        measure::AnyMeasureLike,
         [algorithm::TransformAlgorithm]
-    )::AbstractMeasureOrDensity
+    )
 
-Transform `density` to another variate space defined/implied by `target`.
+Transform `measure` to another variate space defined/implied by `target`.
 
 Returns a NamedTuple of the shape
 
 ```julia
-(result = newdensity::AbstractMeasureOrDensity, trafo = vartrafo::Function, ...)
+(result = new_measure::AnyMeasureLike, trafo = vartrafo::Function, ...)
 ```
 
 Result properties not listed here are algorithm-specific and are not part
@@ -75,10 +75,10 @@ function bat_transform_impl end
 
 function bat_transform(
     target::AbstractTransformTarget,
-    density::AnyMeasureOrDensity,
-    algorithm::TransformAlgorithm = bat_default_withinfo(bat_transform, Val(:algorithm), target, density)
+    measure::AnyMeasureLike,
+    algorithm::TransformAlgorithm = bat_default_withinfo(bat_transform, Val(:algorithm), target, measure)
 )
-    r = bat_transform_impl(target, density, algorithm)
+    r = bat_transform_impl(target, measure, algorithm)
     result_with_args(r, (algorithm = algorithm,))
 end
 
@@ -92,7 +92,7 @@ end
 """
     struct DoNotTransform <: AbstractTransformTarget
 
-The identity density transformation target, specifies that densities
+The identity transformation target, specifies that densities
 should not be transformed.
 
 Constructors:
@@ -107,7 +107,7 @@ export DoNotTransform
 """
     struct IdentityTransformAlgorithm <: TransformAlgorithm
 
-A no-op density transform algorithm that leaves any density unchanged.
+A no-op transform algorithm that leaves any measure unchanged.
 
 Constructors:
 
@@ -117,8 +117,8 @@ struct IdentityTransformAlgorithm <: TransformAlgorithm end
 export IdentityTransformAlgorithm
 
 
-function bat_transform_impl(target::DoNotTransform, density::AnyMeasureOrDensity, algorithm::IdentityTransformAlgorithm)
-    (result = convert(AbstractMeasureOrDensity, density), trafo = identity)
+function bat_transform_impl(::DoNotTransform, measure::AnyMeasureLike, algorithm::IdentityTransformAlgorithm)
+    (result = convert(BATMeasure, measure), trafo = identity)
 end
 
 
@@ -137,10 +137,10 @@ Constructors:
 struct PriorToUniform <: AbstractTransformToUnitspace end
 export PriorToUniform
 
-_distribution_density_trafo(target::PriorToUniform, density::DistMeasure) = DistributionTransform(Uniform, parent(density))
+_distribution_density_trafo(target::PriorToUniform, measure::DistMeasure) = DistributionTransform(Uniform, parent(measure))
 
-function bat_transform_impl(target::PriorToUniform, density::DistMeasure{<:StandardUniformDist}, algorithm::IdentityTransformAlgorithm)
-    (result = density, trafo = identity)
+function bat_transform_impl(target::PriorToUniform, measure::DistMeasure{<:StandardUniformDist}, algorithm::IdentityTransformAlgorithm)
+    (result = measure, trafo = identity)
 end
 
 
@@ -158,45 +158,17 @@ Constructors:
 struct PriorToGaussian <: AbstractTransformToInfinite end
 export PriorToGaussian
 
-_distribution_density_trafo(target::PriorToGaussian, density::DistMeasure) = DistributionTransform(Normal, parent(density))
+_distribution_density_trafo(target::PriorToGaussian, measure::DistMeasure) = DistributionTransform(Normal, parent(measure))
 
-function bat_transform_impl(target::PriorToGaussian, density::DistMeasure{<:StandardNormalDist}, algorithm::IdentityTransformAlgorithm)
-    (result = density, trafo = identity)
+function bat_transform_impl(target::PriorToGaussian, measure::DistMeasure{<:StandardNormalDist}, algorithm::IdentityTransformAlgorithm)
+    (result = measure, trafo = identity)
 end
 
 
-"""
-    struct FullMeasureTransform <: TransformAlgorithm
-
-Transform the density as a whole a given specified target space. Operations
-that use the gradient of the density will require to the `log(abs(jacobian))`
-of the transformation to be auto-differentiable.
-
-Constructors:
-
-* ```$(FUNCTIONNAME)()```
-"""
-struct FullMeasureTransform <: TransformAlgorithm end
-export FullMeasureTransform
-
-
-_get_deep_prior_for_trafo(density::DistMeasure) = density
-_get_deep_prior_for_trafo(density::AbstractPosteriorMeasure) = _get_deep_prior_for_trafo(getprior(density))
-_get_deep_prior_for_trafo(density::Renormalized) = _get_deep_prior_for_trafo(parent(density))
-
-
-function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::AbstractPosteriorMeasure, algorithm::FullMeasureTransform)
-    orig_prior = _get_deep_prior_for_trafo(density)
-    trafo = _distribution_density_trafo(target, orig_prior)
-    (result = Transformed(density, trafo, TDLADJCorr()), trafo = trafo)
-end
-
-
-function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::DistMeasure, algorithm::FullMeasureTransform)
-    trafo = _distribution_density_trafo(target, density)
-    (result = Transformed(density, trafo, TDLADJCorr()), trafo = trafo)
-end
-
+_get_deep_transformable_base(measure::DistMeasure) = measure
+_get_deep_transformable_base(measure::AbstractPosteriorMeasure) = _get_deep_transformable_base(getprior(measure))
+# ToDo: Try via basemeasure as well:
+_get_deep_transformable_base(measure::AbstractMeasure) = transport_origin(measure)
 
 
 """
@@ -244,14 +216,13 @@ unshaping_trafo(::ArrayShape{Real, 1}) = identity
 unshaping_trafo(vs::AbstractValueShape) = inverse(vs)
 
 
-function transform_and_unshape(trafotarget::AbstractTransformTarget, object::Any)
-    transform_and_unshape(bat_transform, trafotarget, object)
+function transform_and_unshape(trafotarget::AbstractTransformTarget, measure::Any)
+    transform_and_unshape(bat_transform, trafotarget, measure)
 end
 
-function transform_and_unshape(bat_trafofunc::Function, trafotarget::AbstractTransformTarget, object::Any)
-    orig_denstiy = convert(AbstractMeasureOrDensity, object)
-    trafoalg = bat_default(bat_trafofunc, Val(:algorithm), trafotarget, orig_denstiy)
-    transformed_density, initial_trafo = bat_trafofunc(trafotarget, orig_denstiy, trafoalg)
+function transform_and_unshape(bat_trafofunc::Function, trafotarget::AbstractTransformTarget, measure::BATMeasure)
+    trafoalg = bat_default(bat_trafofunc, Val(:algorithm), trafotarget, measure)
+    transformed_density, initial_trafo = bat_trafofunc(trafotarget, measure, trafoalg)
     us_trafo = unshaping_trafo(varshape(transformed_density))
     result_density = us_trafo(transformed_density)
     result_trafo = us_trafo ∘ initial_trafo

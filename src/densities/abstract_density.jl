@@ -2,41 +2,15 @@
 
 
 """
-    abstract type AbstractMeasureOrDensity
-
-Subtypes of `AbstractMeasureOrDensity` must be implement the function
-
-* `DensityInterface.logdensityof(density::SomeDensity, v)`
-
-For likelihood densities this is typically sufficient, since BAT can infer
-variate shape and bounds from the prior.
-
-!!! note
-
-    If `DensityInterface.logdensityof` is called with an argument that is out
-    of bounds, the behavior is undefined. The result for arguments that are
-    not within bounds is *implicitly* `-Inf`, but it is the caller's
-    responsibility to handle these cases.
-
-Densities with a known variate shape may also implement
-
-* `ValueShapes.varshape`
-
-Densities with known variate bounds may also implement
-
-* `BAT.var_bounds`
-
-!!! note
-
-    The function `BAT.var_bounds` is not part of the stable public BAT-API,
-    it's name and arguments may change without deprecation.
+    abstract type BATDensity <: Function
 """
-abstract type AbstractMeasureOrDensity end
-
-abstract type BATDensity <: AbstractMeasureOrDensity end
+abstract type BATDensity <: Function end
 @inline DensityInterface.DensityKind(::BATDensity) = IsDensity()
 
-abstract type BATMeasure <:AbstractMeasureOrDensity end
+#!!!!!!!!!!
+Base.convert(::Type{AbstractMeasureOrDensity}, measure::Any) = convert(WrappedNonBATDensity, measure)
+
+abstract type BATMeasure <: AbstractMeasure end
 @inline DensityInterface.DensityKind(::BATMeasure) = HasDensity()
 
 MeasureBase.logdensity_def(m::BATMeasure, x) = logdensityof(m, x)
@@ -49,25 +23,23 @@ else
     MeasureBase.insupport(m::BATMeasure, ::Any) = true
 end
 
-@static if isdefined(MeasureBase, :localmeasure)
-    MeasureBase.localmeasure(m::BATMeasure, ::Any) = m
-end
+#@static if isdefined(MeasureBase, :localmeasure)
+#    MeasureBase.localmeasure(m::BATMeasure, ::Any) = m
+#end
 
 _varshape_basemeasure(vs::ArrayShape{<:Real,1}) = MeasureBase.LebesgueBase()^length(vs)
 
-
-Base.convert(::Type{AbstractMeasureOrDensity}, density::AbstractMeasureOrDensity) = density
-Base.convert(::Type{AbstractMeasureOrDensity}, density::Any) = convert(WrappedNonBATDensity, density)
-
-@inline DensityInterface.DensityKind(::AbstractMeasureOrDensity) = IsDensity()
-
-@inline ValueShapes.varshape(f::Base.Fix1{typeof(DensityInterface.logdensityof),<:AbstractMeasureOrDensity}) = varshape(f.x)
-@inline ValueShapes.unshaped(f::Base.Fix1{typeof(DensityInterface.logdensityof),<:AbstractMeasureOrDensity}) = logdensityof(unshaped(f.x))
+Base.convert(::Type{BATMeasure}, measure::BATMeasure) = measure
+Base.convert(::Type{BATMeasure}, measure::BATMeasure) = measure
 
 
-function ValueShapes.unshaped(density::AbstractMeasureOrDensity, vs::AbstractValueShape)
-    varshape(density) <= vs || throw(ArgumentError("Shape of density not compatible with given shape"))
-    unshaped(density)
+@inline ValueShapes.varshape(f::Base.Fix1{typeof(DensityInterface.logdensityof),<:BATMeasure}) = varshape(f.x)
+@inline ValueShapes.unshaped(f::Base.Fix1{typeof(DensityInterface.logdensityof),<:BATMeasure}) = logdensityof(unshaped(f.x))
+
+
+function ValueShapes.unshaped(measure::BATMeasure, vs::AbstractValueShape)
+    varshape(measure) <= vs || throw(ArgumentError("Shape of density not compatible with given shape"))
+    unshaped(measure)
 end
 
 
@@ -396,15 +368,6 @@ Get the number of degrees of freedom of the variates of `density`. Must not be
 """
 ValueShapes.totalndof(density::DistLikeMeasure) = totalndof(var_bounds(density))
 
-
-# !!!!!!!!!!!! remove
-const AnyMeasureOrDensity = Union{
-    AbstractMeasureOrDensity,
-    MeasureBase.AbstractMeasure,
-    Distributions.ContinuousDistribution,
-    DensityInterface.LogFuncDensity
-}
-export AnyMeasureOrDensity
 
 """
     BAT.MeasureLike = Union{...}

@@ -40,7 +40,7 @@
 using Random, LinearAlgebra, Statistics, Distributions, StatsBase
 
 # As the underlying truth of our input data/histogram, let us choose an
-# non-normalized probability density composed of two Gaussian peaks with a peak
+# probability measure composed of two Gaussian peaks with a peak
 # area of 500 and 1000, a mean of -1.0 and 2.0 and a standard error of 0.5
 
 data = vcat(

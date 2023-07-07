@@ -13,7 +13,7 @@ using HeterogeneousComputing
 
 BAT.pkgext(::Val{:NestedSamplers}) = BAT.PackageExtension{:NestedSamplers}()
 
-using BAT: AbstractMeasureOrDensity
+using BAT: AnyMeasureLike
 using BAT: ENSBound, ENSNoBounds, ENSEllipsoidBound, ENSMultiEllipsoidBound
 using BAT: ENSProposal, ENSUniformly, ENSAutoProposal, ENSRandomWalk, ENSSlice 
 
@@ -67,12 +67,12 @@ function BAT.bat_sample_impl(target::AnyMeasureLike, algorithm::EllipsoidalNeste
     # ToDo: Forward RNG from context!
     rng = get_rng(context)
 
-    density_notrafo = target
-    density, trafo = BAT.transform_and_unshape(algorithm.trafo, density_notrafo)                 # BAT prior transformation
-    vs = varshape(density)
+    orig_measure = BATMeasure(target)
+    transformed_measure, trafo = BAT.transform_and_unshape(algorithm.trafo, orig_measure)                 # BAT prior transformation
+    vs = varshape(transformed_measure)
     dims = totalndof(vs)
 
-    model = NestedModel(logdensityof(density), identity);                                   # identity, because ahead the BAT prior transformation is used instead
+    model = NestedModel(logdensityof(transformed_measure), identity);                                   # identity, because ahead the BAT prior transformation is used instead
     bounding = ENSBounding(algorithm.bound)
     prop = ENSprop(algorithm.proposal)
     sampler = Nested(
@@ -89,7 +89,7 @@ function BAT.bat_sample_impl(target::AnyMeasureLike, algorithm::EllipsoidalNeste
     weights = samples_w[:, end]                                                             # the last elements of the vectors are the weights
     nsamples = size(samples_w,1)
     samples = [samples_w[i, 1:end-1] for i in 1:nsamples]                                   # the other ones (between 1 and end-1) are the samples
-    logvals = map(logdensityof(density), samples)                                           # posterior values of the samples
+    logvals = map(logdensityof(transformed_measure), samples)                                           # posterior values of the samples
     samples_trafo = vs.(BAT.DensitySampleVector(samples, logvals, weight = weights))
     samples_notrafo = inverse(trafo).(samples_trafo)                                            # Here the samples are retransformed
     

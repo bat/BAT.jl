@@ -39,7 +39,7 @@ export MCMCSampling
 
 
 function bat_sample_impl(
-    target::AnyMeasureOrDensity,
+    target::AnyMeasureLike,
     algorithm::MCMCSampling,
     context::BATContext
 )
@@ -86,7 +86,10 @@ function bat_sample_impl(
 
     output = DensitySampleVector(first(chains))
     isnothing(output) || append!.(Ref(output), chain_outputs)
-    samples_trafo = varshape(transformed_measure).(output)
+
+    @assert output.v isa AbstractVector{<:AbstractVector{<:Real}}
+    #!!!!!!!!!!!!! remove
+    #samples_trafo = varshape(transformed_measure).(output)
 
     samples_notrafo = inverse(trafo).(samples_trafo)
 

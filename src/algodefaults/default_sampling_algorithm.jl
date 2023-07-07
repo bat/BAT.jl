@@ -5,6 +5,5 @@ bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::AnyIIDSampleable) = IIDSa
 
 bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::DensitySampleVector) = OrderedResampling()
 
-bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::AbstractMeasureOrDensity) = MCMCSampling()
-
-bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::DensityMeasure) = MCMCSampling()
+bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::BATMeasure) = MCMCSampling()
+bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::MeasureBase.DensityMeasure) = MCMCSampling()

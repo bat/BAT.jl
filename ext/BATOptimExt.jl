@@ -17,7 +17,7 @@ using DensityInterface, ChangesOfVariables, InverseFunctions, FunctionChains
 using HeterogeneousComputing, AutoDiffOperators
 using StructArrays, ArraysOfArrays
 
-using BAT: AbstractMeasureOrDensity
+using BAT: AnyMeasureLike
 
 using BAT: get_context, get_adselector, _NoADSelected
 using BAT: bat_initval, transform_and_unshape, apply_trafo_to_init

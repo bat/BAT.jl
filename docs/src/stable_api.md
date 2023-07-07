@@ -73,7 +73,6 @@ DoNotTransform
 EffSampleSizeAlgorithm
 EffSampleSizeFromAC
 ExplicitInit
-FullMeasureTransform
 GelmanRubinConvergence
 GeyerAutocorLen
 HamiltonianMC

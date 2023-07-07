@@ -15,7 +15,7 @@ export BATIOAlgorithm
         filename::AbstractString,
         content,
         [algorithm::BATIOAlgorithm]
-    )::AbstractMeasureOrDensity
+    )
 
 Write `content` to file `filename` using `algorithm`.
 
@@ -74,7 +74,7 @@ end
         filename::AbstractString,
         [key,]
         [algorithm::BATIOAlgorithm]
-    )::AbstractMeasureOrDensity
+    )
 
 Read data (optionally selected by `key`) from `filename` using `algorithm`.
 

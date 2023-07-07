@@ -52,7 +52,6 @@ BAT.OnlineMvCov
 BAT.OnlineMvMean
 BAT.OnlineUvMean
 BAT.OnlineUvVar
-BAT.Renormalized
 BAT.StandardMvNormal
 BAT.StandardMvUniform
 BAT.StandardUvNormal

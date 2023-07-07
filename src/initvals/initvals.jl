@@ -85,12 +85,12 @@ get_initsrc_from_target(target::Renormalized{<:DistMeasure}) = bat_sampler(targe
 get_initsrc_from_target(target::AbstractPosteriorMeasure) = get_initsrc_from_target(getprior(target))
 
 
-function bat_initval_impl(target::AnyMeasureOrDensity, algorithm::InitFromTarget, context::BATContext)
+function bat_initval_impl(target::AnyMeasureLike, algorithm::InitFromTarget, context::BATContext)
     rng = get_rng(context)
     (result = _rand_v_for_target(rng, target, get_initsrc_from_target(target)),)
 end
 
-function bat_initval_impl(target::AnyMeasureOrDensity, n::Integer, algorithm::InitFromTarget, context::BATContext)
+function bat_initval_impl(target::AnyMeasureLike, n::Integer, algorithm::InitFromTarget, context::BATContext)
     rng = get_rng(context)
     (result = _rand_v_for_target(rng, target, get_initsrc_from_target(target), n),)
 end
@@ -138,12 +138,12 @@ end
 export InitFromSamples
 
 
-function bat_initval_impl(target::AnyMeasureOrDensity, algorithm::InitFromSamples, context::BATContext)
+function bat_initval_impl(target::AnyMeasureLike, algorithm::InitFromSamples, context::BATContext)
     rng = get_rng(context)
     (result = _rand_v_for_target(rng, target, algorithm.samples),)
 end
 
-function bat_initval_impl(target::AnyMeasureOrDensity, n::Integer, algorithm::InitFromSamples, context::BATContext)
+function bat_initval_impl(target::AnyMeasureLike, n::Integer, algorithm::InitFromSamples, context::BATContext)
     rng = get_rng(context)
     (result = _rand_v_for_target(rng, target, algorithm.samples, n),)
 end
@@ -166,12 +166,12 @@ end
 export InitFromIID
 
 
-function bat_initval_impl(target::AnyMeasureOrDensity, algorithm::InitFromIID, context::BATContext)
+function bat_initval_impl(target::AnyMeasureLike, algorithm::InitFromIID, context::BATContext)
     rng = get_rng(context)
     (result = _rand_v_for_target(rng, target, algorithm.src),)
 end
 
-function bat_initval_impl(target::AnyMeasureOrDensity, n::Integer, algorithm::InitFromIID, context::BATContext)
+function bat_initval_impl(target::AnyMeasureLike, n::Integer, algorithm::InitFromIID, context::BATContext)
     rng = get_rng(context)
     (result = _rand_v_for_target(rng, target, algorithm.src, n),)
 end
@@ -198,12 +198,12 @@ end
 export ExplicitInit
 
 
-function bat_initval_impl(target::AnyMeasureOrDensity, algorithm::ExplicitInit, context::BATContext)
+function bat_initval_impl(target::AnyMeasureLike, algorithm::ExplicitInit, context::BATContext)
     rng = get_rng(context)
     (result = first(algorithm.xs),)
 end
 
-function bat_initval_impl(target::AnyMeasureOrDensity, n::Integer, algorithm::ExplicitInit, context::BATContext)
+function bat_initval_impl(target::AnyMeasureLike, n::Integer, algorithm::ExplicitInit, context::BATContext)
     rng = get_rng(context)
     xs = algorithm.xs
     idxs = eachindex(xs)

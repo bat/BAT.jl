@@ -18,7 +18,7 @@ BAT.get_mcmc_tuning(algorithm::HamiltonianMC) = algorithm.tuning
 # MCMCIterator subtype for HamiltonianMC
 mutable struct AHMCIterator{
     AL<:HamiltonianMC,
-    D<:AbstractMeasureOrDensity,
+    D<:BATMeasure,
     PR<:RNGPartition,
     SV<:DensitySampleVector,
     HA<:AdvancedHMC.Hamiltonian,
@@ -42,7 +42,7 @@ end
 
 function AHMCIterator(
     algorithm::HamiltonianMC,
-    density::AbstractMeasureOrDensity,
+    density::BATMeasure,
     info::MCMCIteratorInfo,
     x_init::AbstractVector{P},
     context::BATContext,
@@ -111,7 +111,7 @@ end
 
 function MCMCIterator(
     algorithm::HamiltonianMC,
-    density::AbstractMeasureOrDensity,
+    density::BATMeasure,
     chainid::Integer,
     startpos::AbstractVector{<:Real},
     context::BATContext

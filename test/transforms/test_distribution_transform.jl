@@ -196,41 +196,6 @@ using InverseFunctions, ChangesOfVariables, DensityInterface
         @test_throws ArgumentError trafo ∘ trafo
     end
 
-    @testset "full density transform" begin
-        likelihood = logfuncdensity(logdensityof(NamedTupleDist(a = Normal(), b = Exponential())))
-        prior = NamedTupleDist(a = Normal(), b = Gamma())
-        posterior_density = PosteriorMeasure(likelihood, prior)
-
-        posterior_density_trafod = @inferred(bat_transform(PriorToUniform(), posterior_density, FullMeasureTransform()))
-
-        @test posterior_density_trafod.result.orig.likelihood.density._log_f == likelihood._log_f
-        @test posterior_density_trafod.result.orig.prior.dist == prior
-
-        @test posterior_density_trafod.result.trafo.target_dist isa BAT.StandardMvUniform
-
-        lower_bounds = Float32.([-10, -10, -10])
-        upper_bounds = Float32.([10, 10, 10])
-        rect_bounds = @inferred(BAT.HyperRectBounds(lower_bounds, upper_bounds))
-            mvn = @inferred(product_distribution(Normal.(randn(3))))
-        dist_density = @inferred(BAT.DistMeasure(mvn, rect_bounds))
-
-        dist_density_trafod = @inferred(bat_transform(PriorToUniform(), dist_density, FullMeasureTransform()))
-
-        @test dist_density_trafod.trafo.target_dist isa BAT.StandardMvUniform
-        @test dist_density_trafod.result.orig == dist_density
-        @test dist_density_trafod.trafo.source_dist == dist_density_trafod.result.trafo.source_dist == mvn
-
-        @test dist_density_trafod.trafo(varshape(dist_density_trafod.trafo)) == @inferred(varshape(dist_density))
-
-        dist_density_trafod = @inferred(bat_transform(PriorToGaussian(), dist_density, FullMeasureTransform()))
-
-        @test dist_density_trafod.trafo.target_dist isa BAT.StandardMvNormal
-        @test dist_density_trafod.result.orig == dist_density
-        @test dist_density_trafod.trafo.source_dist == dist_density_trafod.result.trafo.source_dist == mvn
-
-        @test dist_density_trafod.trafo(varshape(dist_density_trafod.trafo)) == @inferred(varshape(dist_density))
-    end
-
     @testset "trafo autodiff pullbacks" begin
         # ToDo: Test for type stability and fix where necessary.
 

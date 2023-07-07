@@ -12,7 +12,7 @@ using BAT
 
 BAT.pkgext(::Val{:UltraNest}) = BAT.PackageExtension{:UltraNest}()
 
-using BAT: AbstractMeasureOrDensity
+using BAT: AnyMeasureLike
 using BAT: transform_and_unshape, var_bounds, all_active_names, exec_map!
 
 using Random
@@ -31,7 +31,7 @@ function BAT.bat_sample_impl(
 
     vs = varshape(transformed_measure)
 
-    if !(BAT._get_deep_prior_for_trafo(transformed_measure) isa BAT.StdMvUniform)
+    if !(BAT._get_deep_transformable_base(transformed_measure) isa BAT.StdMvUniform)
         throw(ArgumentError("ReactiveNestedSampling only supports (transformed) densities defined on the unit hypercube"))
     end
 

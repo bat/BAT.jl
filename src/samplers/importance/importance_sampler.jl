@@ -44,20 +44,20 @@ export GridSampler
 
 
 function bat_sample_impl(
-    target::AnyMeasureOrDensity,
+    target::AnyMeasureLike,
     algorithm::Union{SobolSampler, GridSampler},
     context::BATContext
 )
-    density_notrafo = convert(AbstractMeasureOrDensity, target)
-    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo)
-    shape = varshape(density)
+    orig_measure = convert(BATMeasure, target)
+    transformed_measure, trafo = transform_and_unshape(algorithm.trafo, orig_measure)
+    shape = varshape(transformed_measure)
 
-    samples = _gen_samples(density, algorithm)
+    samples = _gen_samples(transformed_measure, algorithm)
 
-    logvals = map(logdensityof(density), samples)
+    logvals = map(logdensityof(transformed_measure), samples)
     weights = exp.(logvals)
 
-    vol = exp(BigFloat(log_volume(spatialvolume(var_bounds(density)))))
+    vol = exp(BigFloat(log_volume(spatialvolume(var_bounds(transformed_measure)))))
     est_integral = mean(weights) * vol
     # ToDo: Add integral error estimate
 
