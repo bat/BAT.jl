@@ -242,9 +242,20 @@ end
         smpls::DensitySampleVector,
         [algorithm::TransformAlgorithm]
     )::DensitySampleVector
+
+Transform the variates of `smpls` using `f`.
+
+As a convenience,
+
+```julia
+flat_smpls, f_flatten = bat_transform(Vector, smpls)
+```
+
+can be used to flatten the variates of `smpls` into
+flat real-valued vectors.
 """
 function bat_transform(
-    f::Function,
+    f,
     smpls::DensitySampleVector,
     algorithm::TransformAlgorithm = bat_default_withinfo(bat_transform, Val(:algorithm), f, smpls)
 )
@@ -256,5 +267,14 @@ end
 struct SampleTransformation <: TransformAlgorithm end
 
 function bat_transform_impl(f::Function, smpls::DensitySampleVector, ::SampleTransformation)
-    (result = broadcast_arbitrary_trafo(f, smpls),)
+    (result = broadcast_arbitrary_trafo(f, smpls), trafo = f)
+end
+
+function bat_transform_impl(::Type{Vector}, smpls::DensitySampleVector, ::SampleTransformation)
+    shp = elshape(smpls.v)
+    (result = unshaped.(smpls), trafo = inverse(shp))
+end
+
+function bat_transform_impl(shp::AbstractValueShape, smpls::DensitySampleVector, ::SampleTransformation)
+    (result = shp.(smpls), trafo = shp)
 end
