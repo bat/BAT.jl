@@ -1,6 +1,5 @@
 using BAT
 using DensityInterface
-using ValueShapes
 using Distributions
 using Plots
 using StatsBase
@@ -114,17 +113,17 @@ sample_table = CSV.read("sample_table.csv", Table)
 
 function make_child_prior(N)
     v -> begin
-        return NamedTupleDist(B = fill(LogNormal(μ_log_normal(v.m_B, v.σ_B), v.σ_B), N))
+        return distprod(B = fill(LogNormal(μ_log_normal(v.m_B, v.σ_B), v.σ_B), N))
     end
 end
 
-parent_prior_bkg = NamedTupleDist(
+parent_prior_bkg = distprod(
     σ_B = Uniform(0.1, 1.0),
     m_B = Uniform(10^-10, 1e-1 * ΔE),
     λ = Uniform(10^-10, 100.0)
 )
 
-parent_prior_bkg_signal = NamedTupleDist(
+parent_prior_bkg_signal = distprod(
     S = Uniform(0.0, 10.0),
     S_μ = 100.0,
     S_σ = 2.0,
@@ -133,9 +132,9 @@ parent_prior_bkg_signal = NamedTupleDist(
     λ = Uniform(10^-10, 100.0)
 )
 
-prior_bkg =  HierarchicalDistribution(make_child_prior(length(summary_dataset_table)), parent_prior_bkg)
+prior_bkg =  distbind(make_child_prior(length(summary_dataset_table)), parent_prior_bkg, merge)
 
-prior_bkg_signal = HierarchicalDistribution(make_child_prior(length(summary_dataset_table)), parent_prior_bkg_signal)
+prior_bkg_signal = distbind(make_child_prior(length(summary_dataset_table)), parent_prior_bkg_signal, merge)
 
 posterior_bkg = PosteriorMeasure(make_likelihood_bkg(summary_dataset_table, sample_table), prior_bkg)
 
