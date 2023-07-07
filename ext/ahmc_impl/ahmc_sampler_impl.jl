@@ -54,7 +54,6 @@ function AHMCIterator(
 
     params_vec = Vector{P}(undef, npar)
     params_vec .= x_init
-    !(params_vec in var_bounds(density)) && throw(ArgumentError("Parameter(s) out of bounds"))
 
     log_posterior_value = checked_logdensityof(density, params_vec)
 

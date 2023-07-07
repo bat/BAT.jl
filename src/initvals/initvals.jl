@@ -4,10 +4,10 @@
 _reshape_rand_n_output(x::Any) = x
 _reshape_rand_n_output(x::AbstractMatrix) = nestedview(x)
 
-_rand_v(rng::AbstractRNG, src::Distribution) = varshape(src)(rand(rng, bat_sampler(unshaped(src))))
-_rand_v(rng::AbstractRNG, src::DistLikeMeasure) = varshape(src)(convert_numtype(default_var_numtype(src), rand(rng, bat_sampler(unshaped(src)))))
-_rand_v(rng::AbstractRNG, src::Distribution, n::Integer) = _reshape_rand_n_output(rand(rng, bat_sampler(src), n))
-_rand_v(rng::AbstractRNG, src::DistLikeMeasure, n::Integer) = _reshape_rand_n_output(convert_numtype(default_var_numtype(src), rand(rng, bat_sampler(src), n)))
+_rand_v(rng::AbstractRNG, src::Distribution) = varshape(src)(rand(rng, unshaped(src)))
+_rand_v(rng::AbstractRNG, src::DistLikeMeasure) = varshape(src)(convert_numtype(default_var_numtype(src), rand(rng, unshaped(src))))
+_rand_v(rng::AbstractRNG, src::Distribution, n::Integer) = _reshape_rand_n_output(rand(rng, src, n))
+_rand_v(rng::AbstractRNG, src::DistLikeMeasure, n::Integer) = _reshape_rand_n_output(convert_numtype(default_var_numtype(src), rand(rng, src, n)))
 
 function _rand_v(rng::AbstractRNG, src::AnyIIDSampleable)
     _rand_v(rng, convert(DistLikeMeasure, src))

@@ -69,24 +69,8 @@ end
 
 
 
-function var_bounds(density::AbstractPosteriorMeasure)
-    li_bounds = var_bounds(getlikelihood(density))
-    pr_bounds = var_bounds(getprior(density))
-    if ismissing(li_bounds)
-        pr_bounds
-    else
-        li_bounds ∩ pr_bounds
-    end
-end
-
-
-
 """
-    struct PosteriorMeasure{
-        Li<:AbstractMeasureOrDensity,
-        Pr<:DistLikeMeasure,
-        ...
-    } <: AbstractPosteriorMeasure
+    struct PosteriorMeasure
 
 A representation of a PosteriorMeasure, based a likelihood and prior.
 Likelihood and prior be accessed via
@@ -95,35 +79,13 @@ Likelihood and prior be accessed via
 getlikelihood(posterior::PosteriorMeasure)::Li
 getprior(posterior::PosteriorMeasure)::Pr
 ```
-
-Constructors:
-
-* ```PosteriorMeasure(likelihood, prior)```
-* ```PosteriorMeasure{T<:Real}(likelihood, prior)```
-
-`likelihood` and `prior` must be convertible to an [`AbstractMeasureOrDensity`](@ref).
-
-Fields:
-
-$(TYPEDFIELDS)
-
-!!! note
-
-    Fields `parbounds` and `parbounds` do not form part of the stable public
-    API and are subject to change without deprecation.
 """
 struct PosteriorMeasure{
-    VT<:Real,
-    DT<:Real,
-    L<:AbstractMeasureOrDensity,
-    P<:AbstractMeasureOrDensity,
-    S<:AbstractValueShape,
-    B<:AbstractVarBounds,
+    L<:BATDensity,
+    P<:BATMeasure,
 } <: AbstractPosteriorMeasure
     likelihood::L
     prior::P
-    parshapes::S
-    parbounds::B
 end
 
 export PosteriorMeasure

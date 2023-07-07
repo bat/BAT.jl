@@ -57,6 +57,8 @@ BAT.StandardMvUniform
 BAT.StandardUvNormal
 BAT.StandardUvUniform
 BAT.Transformed
+BAT.DistLikeMeasure
+BAT.AnyIIDSampleable
 
 BAT.WrappedNonBATDensity
 
@@ -89,5 +91,4 @@ BAT.spatialvolume
 BAT.sum_first_dim
 BAT.trunc_logpdf_ratio
 BAT.truncate_dist_hard
-BAT.var_bounds
 ```

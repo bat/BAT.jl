@@ -49,8 +49,6 @@ MeasureBase.getdof(m::SampledMeasure) = MeasureBase.getdof(m.density)
 
 eval_logval(density::SampledMeasure, v::Any, T::Type{<:Real}) = eval_logval(density.density, v, T)
 
-eval_logval_unchecked(density::SampledMeasure, v::Any) = eval_logval_unchecked(density.density, v)
-
 ValueShapes.varshape(density::SampledMeasure) = varshape(density.density)
 
 var_bounds(density::SampledMeasure) = var_bounds(density.density)

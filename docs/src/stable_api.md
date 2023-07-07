@@ -43,7 +43,6 @@ bat_write
 trafoof
 
 BAT.bat_report!
-BAT.eval_logval_unchecked
 BAT.fft_autocor
 BAT.fft_autocov
 
@@ -54,7 +53,6 @@ AbstractTransformTarget
 AbstractTransformToInfinite
 AbstractTransformToUnitspace
 AdaptiveMHTuning
-AnyIIDSampleable
 AnyMeasureLike
 AnySampleable
 ARPWeighting
@@ -68,7 +66,6 @@ CholeskyPartialWhitening
 CholeskyWhitening
 DensitySample
 DensitySampleVector
-DistLikeMeasure
 DoNotTransform
 EffSampleSizeAlgorithm
 EffSampleSizeFromAC
@@ -115,7 +112,6 @@ WhiteningAlgorithm
 BAT.AbstractModeEstimator
 BAT.AbstractSamplingAlgorithm
 BAT.ConvergenceTest
-BAT.GenericDensity
 
 ValueShapes.totalndof
 ValueShapes.varshape

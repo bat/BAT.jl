@@ -13,7 +13,7 @@ MeasureBase.getdof(m::DistMeasure) = eff_totalndof(m.dist)
 
 DistMeasure(d::Distribution) = DistMeasure(d, dist_param_bounds(d))
 
-Base.convert(::Type{AbstractMeasureOrDensity}, d::ContinuousDistribution) = DistMeasure(d)
+Base.convert(::Type{BATMeasure}, d::ContinuousDistribution) = DistMeasure(d)
 Base.convert(::Type{DistLikeMeasure}, d::ContinuousDistribution) = DistMeasure(d)
 
 Base.convert(::Type{Distribution}, d::DistMeasure) = d.dist
@@ -26,7 +26,7 @@ Base.parent(density::DistMeasure) = density.dist
 Base.:(==)(a::DistMeasure, b::DistMeasure) = a.dist == b.dist && a.bounds == b.bounds
 
 
-function DensityInterface.logdensityof(density::DistMeasure{<:Distribution{Univariate,Continuous}}, v::Real)
+function logdensityof_batmeasure(density::DistMeasure{<:Distribution{Univariate,Continuous}}, v::Real)
     d = density.dist
     logd = logpdf(d, v)
     R = typeof(logd)
@@ -51,7 +51,7 @@ function DensityInterface.logdensityof(density::DistMeasure{<:Distribution{Univa
     end
 end
 
-DensityInterface.logdensityof(density::DistMeasure, v::Any) = Distributions.logpdf(density.dist, v)
+logdensityof_batmeasure(density::DistMeasure, v::Any) = Distributions.logpdf(density.dist, v)
 
 
 ValueShapes.varshape(density::DistMeasure) = varshape(density.dist)
@@ -69,32 +69,3 @@ Distributions.sampler(density::DistMeasure) = Distributions.sampler(density.dist
 bat_sampler(density::DistMeasure) = bat_sampler(density.dist)
 
 Statistics.cov(density::DistMeasure{<:MultivariateDistribution}) = cov(density.dist)
-
-
-var_bounds(density::DistMeasure) = density.bounds
-
-
-dist_param_bounds(d::Distribution{Univariate,Continuous}) =
-    HyperRectBounds([minimum(d)], [maximum(d)])
-
-dist_param_bounds(d::Distribution{Multivariate,Continuous}) =
-    HyperRectBounds(fill(_default_PT(-Inf), length(d)), fill(_default_PT(+Inf), length(d)))
-
-dist_param_bounds(d::StandardUniformDist) =
-    HyperRectBounds(fill(_default_PT(Float32(0)), length(d)), fill(_default_PT(Float32(1)), length(d)))
-
-dist_param_bounds(d::StandardNormalDist) =
-    HyperRectBounds(fill(_default_PT(Float32(-Inf)), length(d)), fill(_default_PT(Float32(+Inf)), length(d)))
-
-dist_param_bounds(d::ReshapedDist) = dist_param_bounds(unshaped(d))
-
-dist_param_bounds(d::Product{Continuous}) =
-    HyperRectBounds(minimum.(d.v), maximum.(d.v))
-
-dist_param_bounds(d::ConstValueDist) = HyperRectBounds(Int32[], Int32[])
-
-dist_param_bounds(d::NamedTupleDist) = vcat(map(x -> dist_param_bounds(x), values(d))...)
-dist_param_bounds(d::ValueShapes.UnshapedNTD) = dist_param_bounds(d.shaped)
-
-dist_param_bounds(d::HierarchicalDistribution) =
-    HyperRectBounds(fill(_default_PT(-Inf), length(d)), fill(_default_PT(+Inf), length(d)))

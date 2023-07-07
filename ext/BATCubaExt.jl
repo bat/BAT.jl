@@ -12,7 +12,7 @@ using BAT
 BAT.pkgext(::Val{:Cuba}) = BAT.PackageExtension{:Cuba}()
 
 using BAT: BATMeasure, CubaIntegration
-using BAT: var_bounds, spatialvolume, log_volume, bat_integrate_impl
+using BAT: bat_integrate_impl
 using BAT: fromuhc
 
 using Base.Threads: @threads

@@ -13,7 +13,7 @@ using BAT
 BAT.pkgext(::Val{:UltraNest}) = BAT.PackageExtension{:UltraNest}()
 
 using BAT: AnyMeasureLike
-using BAT: transform_and_unshape, var_bounds, all_active_names, exec_map!
+using BAT: transform_and_unshape, all_active_names, exec_map!
 
 using Random
 using ArraysOfArrays
