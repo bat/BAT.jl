@@ -1,128 +1,195 @@
-# List of algorithms 
+# List of BAT algorithms 
 
-BAT.jl offers performant implementations of mutliple algorithms for sampling, integration and optimization.
+BAT offers multiple algorithms for sampling, integration and optimization:
+
 
 ## Sampling algorithms
 
-All following sampling algorithms can be passed to [`bat_sample`](@ref):
-```julia
-samples = bat_sample(sampleable, sampling_algorithm).result
-```
+BAT function: [`bat_sample`](@ref)
+
 
 ### IIDSampling
-BAT.jl sampling algorithm type: [`IIDSampling`](@ref)
+
+BAT sampling algorithm type: [`IIDSampling`](@ref)
+
 ```julia
-sampling_algorithm = IIDSampling(nsamples=10^5)
+bat_sample(target.prior, IIDSampling(nsamples=10^5))
 ```
 
 
 ### Metropolis-Hastings
-BAT.jl sampling algorithm type: [`MCMCSampling`](@ref)  
-MCMC algorithm subtype: [`MetropolisHastings`](@ref)
-```julia
-sampling_algorithm = MCMCSampling(mcalg = MetropolisHastings(), nsteps = 10^6, nchains = 4)
-```
 
+BAT sampling algorithm type: [`MCMCSampling`](@ref), MCMC algorithm subtype: [`MetropolisHastings`](@ref)
+
+```julia
+bat_sample(target, MCMCSampling(mcalg = MetropolisHastings(), nsteps = 10^5, nchains = 4))
+```
 
 
 ### Hamiltonian MC
-BAT.jl sampling algorithm type: [`MCMCSampling`](@ref)  
-MCMC algorithm subtype: [`HamiltonianMC`](@ref)
+
+BAT sampling algorithm type: [`MCMCSampling`](@ref), MCMC algorithm subtype: [`HamiltonianMC`](@ref)
+
 ```julia
-sampling_algorithm = MCMCSampling(mcalg = HamiltonianMC())
+import AdvancedHMC, ForwardDiff
+set_batcontext(ad = ADModule(:ForwardDiff))
+bat_sample(target, MCMCSampling(mcalg = HamiltonianMC()))
 ```
+Requires the [AdvancedHMC](https://github.com/TuringLang/AdvancedHMC.jl) Julia package to be loaded explicitly.
+
 
 ### Reactive Nested Sampling (experimental)
-BAT.jl sampling algorithm type: `ReactiveNestedSampling`, requires [UltraNest.jl](https://github.com/bat/UltraNest.jl).
+
+BAT sampling algorithm type: `ReactiveNestedSampling`
+
 ```julia
-sampling_algorithm = ReactiveNestedSampling()
+import UltraNest
+bat_sample(target, ReactiveNestedSampling())
 ```
+
+Requires the [UltraNest](https://github.com/bat/UltraNest.jl) Julia package to be loaded explicitly.
+
 
 ### Ellipsoidal Nested Sampling (experimental)
-BAT.jl sampling algorithm type: [`EllipsoidalNestedSampling`](@ref)
+
+BAT sampling algorithm type: [`EllipsoidalNestedSampling`](@ref)
 ```julia
-sampling_algorithm = EllipsoidalNestedSampling()
+import NestedSamplers
+bat_sample(target, EllipsoidalNestedSampling())
 ```
 
-### Partitioned Sampling (experimental)
-BAT.jl sampling algorithm type: `PartitionedSampling`, requires [PartitionedParallelSampling.jl](https://github.com/bat/PartitionedParallelSampling.jl).
-```julia
-sampling_algorithm = PartitionedParallelSampling.PartitionedSampling()
-```
+Requires the [NestedSamplers](https://github.com/TuringLang/NestedSamplers.jl) Julia package to be loaded explicitly.
 
 
 ### Sobol Sampler
-BAT.jl sampling algorithm type: [`SobolSampler`](@ref)
+BAT sampling algorithm type: [`SobolSampler`](@ref)
+
 ```julia
-sampling_algorithm = SobolSampler(nsamples=10^5)
+bat_sample(target, SobolSampler(nsamples=10^5))
 ```
 
 
 ### Grid Sampler
-BAT.jl sampling algorithm type: [`GridSampler`](@ref)
+
+BAT sampling algorithm type: [`GridSampler`](@ref)
+
 ```julia
-sampling_algorithm = GridSampler(ppa=100)
+bat_sample(target, GridSampler(ppa=100))
 ```
 
 
 ## Prior Importance Sampler
-BAT.jl sampling algorithm type: [`PriorImportanceSampler`](@ref)
+
+BAT sampling algorithm type: [`PriorImportanceSampler`](@ref)
+
 ```julia
-sampling_algorithm = GridSampler(nsamples=10^5)
+bat_sample(target, PriorImportanceSampler(nsamples=10^5))
 ```
 
 
-## Integration algorithms:
-All following integration algorithms can be passed to [`bat_integrate`](@ref):
-```julia
-integral = bat_integrate(sampleable, integration_algorithm).result
-```
+## Integration algorithms
 
-### Adaptive Harmonic Mean Integration (AHMI)]
-BAT.jl integration algorithm type: `AHMI.AHMIntegration`, requires [AHMI.jl](https://github.com/bat/AHMI.jl).
-```julia
-integration_algorithm = AHMI.AHMIntegration()
-```
+BAT function: [`bat_integrate`](@ref)
 
 ### Vegas Integration
-BAT.jl integration algorithm type: [`VEGASIntegration`](@ref) 
+
+BAT integration algorithm type: [`VEGASIntegration`](@ref)
+
 ```julia
-integration_algorithm = VEGASIntegration()
+import Cuba
+bat_integrate(target, VEGASIntegration())
 ```
+
+Requires the [Cuba](https://github.com/giordano/Cuba.jl) Julia package to be loaded explicitly.
+
 
 ### Cuhre Integration
-BAT.jl integration algorithm type: [`CuhreIntegration`](@ref) 
+
+BAT integration algorithm type: [`CuhreIntegration`](@ref)
+
 ```julia
-integration_algorithm = CuhreIntegration()
+import Cuba
+bat_integrate(target, CuhreIntegration())
 ```
+Requires the [Cuba](https://github.com/giordano/Cuba.jl) Julia package to be loaded explicitly.
+
 
 ### Divonne Integration
-BAT.jl integration algorithm type: [`DivonneIntegration`](@ref) 
+
+BAT integration algorithm type: [`DivonneIntegration`](@ref) 
+
 ```julia
-integration_algorithm = DivonneIntegration()
+import Cuba
+bat_integrate(target, DivonneIntegration())
 ```
+Requires the [Cuba](https://github.com/giordano/Cuba.jl) Julia package to be loaded explicitly.
+
 
 ### Integration via Bridge Sampling (experimental)
-BAT.jl integration algorithm type: [`BridgeSampling`](@ref) 
+
+BAT integration algorithm type: [`BridgeSampling`](@ref) 
+
 ```julia
-integration_algorithm = BridgeSampling()
+bat_integrate(SampledMeasure(target, smpls), BridgeSampling())
 ```
 
-## Mode finding algorithms:
-All following mode finding algorithms can be passed to [`bat_findmode`](@ref):
-```julia
-mode = bat_findmode(sampleable, modefinding_algorithm).result
-```
+
+## Mode finding algorithms
+
+BAT function: [`bat_findmode`](@ref)
+
 
 ### Optim.jl Optimization Algorithms
-BAT.jl mode finding algorithm type: [`OptimAlg`](@ref) 
+
+BAT mode finding algorithm type: [`OptimAlg`](@ref).
+
 ```julia
-modefinding_algorithm = OptimAlg(optalg = Optim.NelderMead())
-modefinding_algorithm = OptimAlg(optalg = Optim.LBFGS())
+using Optim
+bat_findmode(target, OptimAlg(optalg = Optim.NelderMead()))
+
+import ForwardDiff
+set_batcontext(ad = ADModule(:ForwardDiff))
+bat_findmode(target, OptimAlg(optalg = Optim.LBFGS()))
 ```
 
+Requires the [Optim](https://github.com/JuliaNLSolvers/Optim.jl) Julia package to be loaded explicitly.
+
+
 ### Maximum Sample Estimator
-BAT.jl mode finding algorithm type: [`MaxDensitySearch`](@ref) 
+
+BAT mode finding algorithm type: [`MaxDensitySearch`](@ref) 
+
 ```julia
-modefinding_algorithm = MaxDensitySearch()
+bat_findmode(smpls, MaxDensitySearch())
+```
+
+
+## File-I/O
+
+### Plain HDF5
+
+BAT I/O algorithm type: [`BATHDF5IO`](@ref) 
+
+```julia
+import HDF5
+bat_write("results.h5", smpls)
+
+# ... later ...
+
+smpls = bat_read("results.h5").result
+```
+
+### JLD2
+
+Not BAT-specific, JLD2 is able to handle complex Julia data structures in
+general.
+
+```julia
+using FileIO
+import JLD2
+FileIO.save("results.jld2", Dict("smpls" => smpls))
+
+# ... later ...
+
+smpls = FileIO.load("results.jld2", "smpls")
 ```

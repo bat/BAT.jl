@@ -41,12 +41,15 @@ function marginal_table(smplv::DensitySampleVector)
 
     mhist = hist_unicode.(marginal_histograms(usmplv))
 
+    mm_alg = bat_default(_g_dummy_context, bat_marginalmode, Val(:algorithm), usmplv)
+    marginal_mode = bat_marginalmode_impl(usmplv, mm_alg, _g_dummy_context).result
+
     TypedTables.Table(
         parameter = parnames,
         mean = mean(usmplv),
         std = std(usmplv),
         global_mode = mode(usmplv),
-        marginal_mode = bat_marginalmode(usmplv).result,
+        marginal_mode = marginal_mode,
         credible_intervals = credible_intervals,
         marginal_histogram = mhist,
     )
@@ -62,10 +65,13 @@ end
 
 
 function bat_report!(md::Markdown.MD, smplv::DensitySampleVector)
+    # ToDo: Forward context somehow instead of creating a new one here?
+    context = BATContext()
+
     usmplv = unshaped.(smplv)
     nsamples = length(eachindex(smplv))
     total_weight = sum(smplv.weight)
-    ess = round.(Int, bat_eff_sample_size(usmplv).result)
+    ess = round.(Int, bat_eff_sample_size(usmplv, context).result)
 
     markdown_append!(md, """
     ### Sampling result

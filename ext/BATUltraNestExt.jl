@@ -24,10 +24,10 @@ import Measurements
 function BAT.bat_sample_impl(
     target::AnyMeasureOrDensity,
     algorithm::ReactiveNestedSampling,
-    ::BATContext
+    context::BATContext
 )
     density_notrafo = convert(AbstractMeasureOrDensity, target)
-    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo)
+    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo, context)
 
     vs = varshape(density)
 

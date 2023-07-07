@@ -178,9 +178,9 @@ end
 )
 
     if typeof(sample_from) <: DensitySampleVector
-        samples = bat_sample(sample_from, OrderedResampling(nsamples = n_samples)).result
+        samples = bat_sample_impl(sample_from, OrderedResampling(nsamples = n_samples), _g_dummy_context).result
     else
-        samples = bat_sample(sample_from.prior.dist, IIDSampling(nsamples = n_samples)).result
+        samples = bat_sample_impl(sample_from.prior.dist, IIDSampling(nsamples = n_samples), _g_dummy_context).result
     end
 
     y_ribbons = zeros(Float64, length(x), 2*length(intervals))
@@ -238,7 +238,8 @@ end
     end
 
     if marginal_mode
-        marginal_mode_params = bat_marginalmode(samples).result
+        mm_alg = bat_default(_g_dummy_context, bat_marginalmode, Val(:algorithm), samples)
+        marginal_mode_params = bat_marginalmode_impl(samples, mm_alg, _g_dummy_context).result
         @series begin
             linecolor --> :black
             linestyle --> :dash

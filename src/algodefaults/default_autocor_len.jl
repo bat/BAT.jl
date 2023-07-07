@@ -2,7 +2,8 @@
 
 
 bat_default(
+    ::BATContext,
     ::typeof(bat_integrated_autocorr_len),
     ::Val{:algorithm},
-    ::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}}
+    ::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}},
 ) = GeyerAutocorLen()

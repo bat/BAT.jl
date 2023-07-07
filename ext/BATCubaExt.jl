@@ -147,7 +147,7 @@ end
 
 function BAT.bat_integrate_impl(target::AnyMeasureOrDensity, algorithm::CubaIntegration, context::BATContext)
     density_notrafo = convert(AbstractMeasureOrDensity, target)
-    shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)
+    shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo, context)
     density = unshaped(shaped_density)
     integrand = CubaIntegrand(density, algorithm.log_density_shift)
 

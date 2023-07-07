@@ -31,7 +31,7 @@ using StableRNGs
     @testset "bat_integrated_autocorr_len" begin
         dist = product_distribution([Normal() for i in 1:3])
         data = @inferred(nestedview(rand(dist, 10^4)))
-        @test isapprox(@inferred(bat_integrated_autocorr_len(data)).result, ones(length(dist)), rtol=0.2)
+        @test isapprox(@inferred(bat_integrated_autocorr_len(data, BATContext())).result, ones(length(dist)), rtol=0.2)
     end
 
     @testset "BAT.fft_autocov" begin

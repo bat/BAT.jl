@@ -63,8 +63,8 @@ get_initsrc_from_target(target::SampledMeasure) = target.samples
 
 _get_deep_prior_for_trafo(density::SampledMeasure) = _get_deep_prior_for_trafo(density.density)
 
-function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::SampledMeasure, algorithm::PriorSubstitution)
-    new_parent_density, trafo = bat_transform_impl(target, density.density, algorithm)
+function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::SampledMeasure, algorithm::PriorSubstitution, context::BATContext)
+    new_parent_density, trafo = bat_transform_impl(target, density.density, algorithm, context)
     new_samples = trafo.(density.samples)
     (result = SampledMeasure(new_parent_density, new_samples), trafo = trafo)
 end

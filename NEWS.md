@@ -72,7 +72,7 @@ Breaking changes
 New experimental features
 -------------------------
 
-* `BATContext` and `BAT.default_context`
+* `BATContext`, `get_batcontext` and `set_batcontext`
 * `BAT.EvalException`
 * `BAT.DistributionTransform`
 * `BAT.enable_error_log`

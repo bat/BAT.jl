@@ -47,18 +47,17 @@ function bat_sample(target::AnySampleable, algorithm::AbstractSamplingAlgorithm,
     result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
-function bat_sample(target::AnySampleable, context::BATContext)
-    algorithm = bat_default_withinfo(bat_sample, Val(:algorithm), target)
-    bat_sample(target, algorithm, context)
-end
-
 function bat_sample(target::AnySampleable)
-    algorithm = bat_default_withinfo(bat_sample, Val(:algorithm), target)
-    bat_sample(target, algorithm, default_context())
+    bat_sample(target, get_batcontext())
 end
 
 function bat_sample(target::AnySampleable, algorithm::AbstractSamplingAlgorithm)
-    bat_sample(target, algorithm, default_context())
+    bat_sample(target, algorithm, get_batcontext())
+end
+
+function bat_sample(target::AnySampleable, context::BATContext)
+    algorithm = bat_default_withinfo(context, bat_sample, Val(:algorithm), target)
+    bat_sample(target, algorithm, context)
 end
 
 

@@ -42,16 +42,21 @@ bat_sample
 bat_write
 bat_transform
 
+get_batcontext
+set_batcontext
+
 distbind
 distprod
 lbqintegral
 
 AbstractMCMCWeightingScheme
+AbstractMedianEstimator
 AbstractPosteriorMeasure
 AbstractTransformTarget
 AdaptiveMHTuning
 AssumeConvergence
 AutocorLenAlgorithm
+BATContext
 BATHDF5IO
 BATIOAlgorithm
 BrooksGelmanConvergence
@@ -96,6 +101,7 @@ RandResampling
 RepetitionWeighting
 SampledMeasure
 SokalAutocorLen
+SampleMedianEstimator
 SuaveIntegration
 TransformAlgorithm
 VEGASIntegration

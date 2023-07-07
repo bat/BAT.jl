@@ -62,19 +62,16 @@ function bat_initval_impl end
     result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
-@inline function bat_initval(target::AnyMeasureOrDensity)
-    algorithm = bat_default_withinfo(bat_initval, Val(:algorithm), target)
-    context = default_context()
-    bat_initval(target, algorithm, context)
+@inline function bat_initval(target::AnyMeasureOrDensity, algorithm::InitvalAlgorithm)
+    bat_initval(target, algorithm, get_batcontext())
 end
 
-@inline function bat_initval(target::AnyMeasureOrDensity, algorithm::InitvalAlgorithm)
-    context = default_context()
-    bat_initval(target, algorithm, context)
+@inline function bat_initval(target::AnyMeasureOrDensity)
+    bat_initval(target, get_batcontext())
 end
 
 @inline function bat_initval(target::AnyMeasureOrDensity, context::BATContext)
-    algorithm = bat_default_withinfo(bat_initval, Val(:algorithm), target)
+    algorithm = bat_default_withinfo(context, bat_initval, Val(:algorithm), target)
     bat_initval(target, algorithm, context)
 end
 
@@ -86,18 +83,15 @@ end
 end
 
 @inline function bat_initval(target::AnyMeasureOrDensity, n::Integer)
-    algorithm = bat_default_withinfo(bat_initval, Val(:algorithm), target)
-    context = default_context()
-    bat_initval(target, n, algorithm, context)
+    bat_initval(target, n, get_batcontext())
 end
 
 @inline function bat_initval(target::AnyMeasureOrDensity, n::Integer, algorithm::InitvalAlgorithm)
-    context = default_context()
-    bat_initval(target, n, algorithm, context)
+    bat_initval(target, n, algorithm, get_batcontext())
 end
 
 @inline function bat_initval(target::AnyMeasureOrDensity, n::Integer, context::BATContext)
-    algorithm = bat_default_withinfo(bat_initval, Val(:algorithm), target)
+    algorithm = bat_default_withinfo(context, bat_initval, Val(:algorithm), target)
     bat_initval(target, n, algorithm, context)
 end
 

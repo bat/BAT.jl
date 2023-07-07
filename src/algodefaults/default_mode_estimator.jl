@@ -1,9 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::DensitySampleVector, context) = MaxDensitySearch()
+bat_default(::BATContext, ::typeof(bat_findmode), ::Val{:algorithm}, ::DensitySampleVector) = MaxDensitySearch()
 
-function bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::AbstractMeasureOrDensity, context)
+function bat_default(context::BATContext, ::typeof(bat_findmode), ::Val{:algorithm}, ::AbstractMeasureOrDensity)
     optalg = if get_adselector(context) isa _NoADSelected
         BAT.ext_default(pkgext(Val(:Optim)), Val(:NELDERMEAD_ALG))
     else
@@ -13,6 +13,8 @@ function bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::AbstractMeasur
     OptimAlg(optalg = optalg)
 end
 
-bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::Distribution, context) = ModeAsDefined()
+bat_default(::BATContext, ::typeof(bat_findmode), ::Val{:algorithm}, ::Distribution) = ModeAsDefined()
 
-bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::DistLikeMeasure, context) = ModeAsDefined()
+bat_default(::BATContext, ::typeof(bat_findmode), ::Val{:algorithm}, ::DistLikeMeasure) = ModeAsDefined()
+
+bat_default(::BATContext, ::typeof(bat_marginalmode), ::Val{:algorithm}, ::DensitySampleVector) = BinnedModeEstimator()

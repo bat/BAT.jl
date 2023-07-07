@@ -45,16 +45,23 @@ of the stable public API.
 function bat_transform end
 export bat_transform
 
+
 function bat_transform_impl end
 
+bat_transform(trafo_how, trafo_from) = bat_transform(trafo_how, trafo_from, get_batcontext())
 
-function bat_transform(
-    target::AbstractTransformTarget,
-    density::AnyMeasureOrDensity,
-    algorithm::TransformAlgorithm = bat_default_withinfo(bat_transform, Val(:algorithm), target, density)
-)
-    r = bat_transform_impl(target, density, algorithm)
-    result_with_args(r, (algorithm = algorithm,))
+bat_transform(trafo_how, trafo_from, algorithm) = bat_transform(trafo_how, trafo_from, algorithm, get_batcontext())
+
+function bat_transform(trafo_how, trafo_from, context::BATContext)
+    algorithm = bat_default_withinfo(context, bat_transform, Val(:algorithm), trafo_how, trafo_from)
+    bat_transform(trafo_how, trafo_from, algorithm, context)
+end
+
+
+function bat_transform(target::AbstractTransformTarget, density::AnyMeasureOrDensity, algorithm::TransformAlgorithm, context::BATContext)
+    orig_context = deepcopy(context)
+    r = bat_transform_impl(target, density, algorithm, context)
+    result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
 
@@ -92,7 +99,7 @@ struct IdentityTransformAlgorithm <: TransformAlgorithm end
 export IdentityTransformAlgorithm
 
 
-function bat_transform_impl(target::DoNotTransform, density::AnyMeasureOrDensity, algorithm::IdentityTransformAlgorithm)
+function bat_transform_impl(target::DoNotTransform, density::AnyMeasureOrDensity, algorithm::IdentityTransformAlgorithm, context::BATContext)
     (result = convert(AbstractMeasureOrDensity, density), trafo = identity)
 end
 
@@ -114,7 +121,7 @@ export PriorToUniform
 
 _distribution_density_trafo(target::PriorToUniform, density::DistMeasure) = DistributionTransform(Uniform, parent(density))
 
-function bat_transform_impl(target::PriorToUniform, density::DistMeasure{<:StandardUniformDist}, algorithm::IdentityTransformAlgorithm)
+function bat_transform_impl(target::PriorToUniform, density::DistMeasure{<:StandardUniformDist}, algorithm::IdentityTransformAlgorithm, context::BATContext)
     (result = density, trafo = identity)
 end
 
@@ -135,7 +142,7 @@ export PriorToGaussian
 
 _distribution_density_trafo(target::PriorToGaussian, density::DistMeasure) = DistributionTransform(Normal, parent(density))
 
-function bat_transform_impl(target::PriorToGaussian, density::DistMeasure{<:StandardNormalDist}, algorithm::IdentityTransformAlgorithm)
+function bat_transform_impl(target::PriorToGaussian, density::DistMeasure{<:StandardNormalDist}, algorithm::IdentityTransformAlgorithm, context::BATContext)
     (result = density, trafo = identity)
 end
 
@@ -161,14 +168,14 @@ _get_deep_prior_for_trafo(density::AbstractPosteriorMeasure) = _get_deep_prior_f
 _get_deep_prior_for_trafo(density::Renormalized) = _get_deep_prior_for_trafo(parent(density))
 
 
-function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::AbstractPosteriorMeasure, algorithm::FullMeasureTransform)
+function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::AbstractPosteriorMeasure, algorithm::FullMeasureTransform, context::BATContext)
     orig_prior = _get_deep_prior_for_trafo(density)
     trafo = _distribution_density_trafo(target, orig_prior)
     (result = Transformed(density, trafo, TDLADJCorr()), trafo = trafo)
 end
 
 
-function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::DistMeasure, algorithm::FullMeasureTransform)
+function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::DistMeasure, algorithm::FullMeasureTransform, context::BATContext)
     trafo = _distribution_density_trafo(target, density)
     (result = Transformed(density, trafo, TDLADJCorr()), trafo = trafo)
 end
@@ -191,24 +198,24 @@ struct PriorSubstitution <: TransformAlgorithm end
 export PriorSubstitution
 
 
-function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::DistMeasure, algorithm::PriorSubstitution)
+function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::DistMeasure, algorithm::PriorSubstitution, context::BATContext)
     trafo = _distribution_density_trafo(target, density)
     transformed_density = DistMeasure(trafo.target_dist)
     (result = transformed_density, trafo = trafo)
 end
 
 
-function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::AbstractPosteriorMeasure, algorithm::PriorSubstitution)
+function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::AbstractPosteriorMeasure, algorithm::PriorSubstitution, context::BATContext)
     orig_prior = getprior(density)
     orig_likelihood = getlikelihood(density)
-    new_prior, trafo = bat_transform_impl(target, orig_prior, algorithm)
+    new_prior, trafo = bat_transform_impl(target, orig_prior, algorithm, context)
     new_likelihood = Transformed(orig_likelihood, trafo, TDNoCorr())
     (result = PosteriorMeasure(new_likelihood, new_prior), trafo = trafo)
 end
 
 
-function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::Renormalized, algorithm::PriorSubstitution)
-    new_parent_density, trafo = bat_transform_impl(target, parent(density), algorithm)
+function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::Renormalized, algorithm::PriorSubstitution, context::BATContext)
+    new_parent_density, trafo = bat_transform_impl(target, parent(density), algorithm, context)
     (result = Renormalized(new_parent_density, density.logrenormf), trafo = trafo)
 end
 
@@ -220,14 +227,10 @@ unshaping_trafo(::ArrayShape{Real, 1}) = identity
 unshaping_trafo(vs::AbstractValueShape) = inverse(vs)
 
 
-function transform_and_unshape(trafotarget::AbstractTransformTarget, object::Any)
-    transform_and_unshape(bat_transform, trafotarget, object)
-end
-
-function transform_and_unshape(bat_trafofunc::Function, trafotarget::AbstractTransformTarget, object::Any)
-    orig_denstiy = convert(AbstractMeasureOrDensity, object)
-    trafoalg = bat_default(bat_trafofunc, Val(:algorithm), trafotarget, orig_denstiy)
-    transformed_density, initial_trafo = bat_trafofunc(trafotarget, orig_denstiy, trafoalg)
+function transform_and_unshape(trafotarget::AbstractTransformTarget, object::Any, context::BATContext)
+    orig_density = convert(AbstractMeasureOrDensity, object)
+    trafoalg = bat_default(context, bat_transform, Val(:algorithm), trafotarget, orig_density)
+    transformed_density, initial_trafo = bat_transform(trafotarget, orig_density, trafoalg, context)
     us_trafo = unshaping_trafo(varshape(transformed_density))
     result_density = us_trafo(transformed_density)
     result_trafo = us_trafo ∘ initial_trafo
@@ -254,27 +257,24 @@ flat_smpls, f_flatten = bat_transform(Vector, smpls)
 can be used to flatten the variates of `smpls` into
 flat real-valued vectors.
 """
-function bat_transform(
-    f,
-    smpls::DensitySampleVector,
-    algorithm::TransformAlgorithm = bat_default_withinfo(bat_transform, Val(:algorithm), f, smpls)
-)
-    r = bat_transform_impl(f, smpls, algorithm)
-    result_with_args(r, (algorithm = algorithm,))
+function bat_transform(f, smpls::DensitySampleVector, algorithm::TransformAlgorithm, context::BATContext)
+    orig_context = deepcopy(context)
+    r = bat_transform_impl_f_smpls(f, smpls, algorithm, context)
+    result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
 
 struct SampleTransformation <: TransformAlgorithm end
 
-function bat_transform_impl(f::Function, smpls::DensitySampleVector, ::SampleTransformation)
+function bat_transform_impl_f_smpls(f::Function, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)
     (result = broadcast_arbitrary_trafo(f, smpls), trafo = f)
 end
 
-function bat_transform_impl(::Type{Vector}, smpls::DensitySampleVector, ::SampleTransformation)
+function bat_transform_impl_f_smpls(::Type{Vector}, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)
     shp = elshape(smpls.v)
     (result = unshaped.(smpls), trafo = inverse(shp))
 end
 
-function bat_transform_impl(shp::AbstractValueShape, smpls::DensitySampleVector, ::SampleTransformation)
+function bat_transform_impl_f_smpls(shp::AbstractValueShape, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)
     (result = shp.(smpls), trafo = shp)
 end

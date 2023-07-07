@@ -61,7 +61,7 @@ end
 
 
 function BAT.bat_findmode_impl(target::AnyMeasureOrDensity, algorithm::OptimAlg, context::BATContext)
-    transformed_density, trafo = transform_and_unshape(algorithm.trafo, target)
+    transformed_density, trafo = transform_and_unshape(algorithm.trafo, target, context)
     inv_trafo = inverse(trafo)
 
     initalg = apply_trafo_to_init(trafo, algorithm.init)

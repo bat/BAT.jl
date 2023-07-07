@@ -40,6 +40,8 @@ Returns a NamedTuple of the shape
 ```
 """
 function bat_compare(samples_1::DensitySampleVector, samples_2::DensitySampleVector;  nsamples::Symbol=:effective, nested_eff_ss=:0)
+    # ToDo: Handle this differently?
+    context = _g_dummy_context
 
     n_params_1 = size(flatview(unshaped.(samples_1.v)))[1]
     n_params_2 = size(flatview(unshaped.(samples_2.v)))[1]
@@ -53,12 +55,12 @@ function bat_compare(samples_1::DensitySampleVector, samples_2::DensitySampleVec
 
     if nsamples == :effective
         @info "Using effective number of samples in the Kolmogorov–Smirnov distribution"
-        smpl_size_1 = round.(Int64, bat_eff_sample_size(unshaped.(samples_1)).result)
-        smpl_size_2 = round.(Int64, bat_eff_sample_size(unshaped.(samples_2)).result)
+        smpl_size_1 = round.(Int64, bat_eff_sample_size(unshaped.(samples_1), context).result)
+        smpl_size_2 = round.(Int64, bat_eff_sample_size(unshaped.(samples_2), context).result)
     elseif nsamples == :nested
         @info "Using effective number of samples of nested sampling algorithm"
         if (nested_eff_ss==0) throw(ArgumentError("You have to give nested_eff_ss for bat_compare")) end
-        smpl_size_1 = round.(Int64, bat_eff_sample_size(unshaped.(samples_1)).result)
+        smpl_size_1 = round.(Int64, bat_eff_sample_size(unshaped.(samples_1), context).result)
         smpl_size_2_pK = round.(Int64, nested_eff_ss/length(smpl_size_1))
         smpl_size_2 = []
         for i in 1:length(smpl_size_1)

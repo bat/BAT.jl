@@ -68,7 +68,7 @@ function BAT.bat_sample_impl(target::AnyMeasureOrDensity, algorithm::Ellipsoidal
     rng = get_rng(context)
 
     density_notrafo = convert(AbstractMeasureOrDensity, target)
-    density, trafo = BAT.transform_and_unshape(algorithm.trafo, density_notrafo)                 # BAT prior transformation
+    density, trafo = BAT.transform_and_unshape(algorithm.trafo, density_notrafo, context)                 # BAT prior transformation
     vs = varshape(density)
     dims = totalndof(vs)
 
@@ -94,7 +94,7 @@ function BAT.bat_sample_impl(target::AnyMeasureOrDensity, algorithm::Ellipsoidal
     samples_notrafo = inverse(trafo).(samples_trafo)                                            # Here the samples are retransformed
     
     logintegral = Measurements.measurement(state.logz, state.logzerr)
-    ess = bat_eff_sample_size(samples_notrafo, KishESS()).result
+    ess = bat_eff_sample_size(samples_notrafo, KishESS(), context).result
 
     return (
         result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, 

@@ -26,7 +26,8 @@ export BridgeSampling
 
 
 function bat_integrate_impl(target::SampledMeasure, algorithm::BridgeSampling, context::BATContext)
-    transformed_target, trafo = bat_transform(algorithm.trafo, target)
+    trafoalg = bat_default(BATContext(), bat_transform, Val(:algorithm), DoNotTransform(), target)
+    transformed_target, trafo = bat_transform_impl(algorithm.trafo, target, trafoalg, context)
     density = unshaped(transformed_target.density)
     samples = unshaped.(transformed_target.samples)
     
@@ -98,7 +99,7 @@ function bridge_sampling_integral(
     mean1, var1 = StatsBase.mean_and_var(f1, FrequencyWeights(proposal_samples.weight))
     mean2, var2 = mean(f2_density_vector)[1],cov(f2_density_vector)[1]
 
-    N1_eff = bat_eff_sample_size(f2_density_vector,ess_alg).result[1] 
+    N1_eff = bat_eff_sample_size_impl(f2_density_vector,ess_alg,context).result[1] 
     # calculate  Root mean squared error
     r_MSE = sqrt(var1/(mean1^2*N2)+(var2/mean2^2)/N1_eff)*current_int 
 
@@ -133,7 +134,7 @@ function bridge_sampling_integral(
     post_cov_pd = PDMat(cholesky(Positive, post_cov))
 
     proposal_density = MvNormal(post_mean,post_cov_pd)
-    proposal_samples = bat_sample(proposal_density,IIDSampling(nsamples=Int(sum(second_batch.weight))), context).result
+    proposal_samples = bat_sample_impl(proposal_density,IIDSampling(nsamples=Int(sum(second_batch.weight))), context).result
     proposal_density = convert(DistLikeMeasure, proposal_density)
 
     bridge_sampling_integral(target_density,second_batch,proposal_density,proposal_samples,strict,ess_alg,context)

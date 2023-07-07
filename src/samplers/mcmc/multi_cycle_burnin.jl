@@ -58,7 +58,12 @@ function mcmc_burnin!(
         tuning_update!.(tuners, chains, new_outputs)
         isnothing(outputs) || append!.(outputs, new_outputs)
 
-        check_convergence!(chains, new_outputs, convergence_test)
+        # ToDo: Convergence tests are a special case, they're not supposed
+        # to change any state, so we don't want to use the context of the
+        # first chain here. But just making a new context is also not ideal.
+        # Better copy the context of the first chain and replace the RNG
+        # with a new one in the future:
+        check_convergence!(chains, new_outputs, convergence_test, BATContext())
 
         ntuned = count(c -> c.info.tuned, chains)
         nconverged = count(c -> c.info.converged, chains)

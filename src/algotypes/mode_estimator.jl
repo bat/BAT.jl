@@ -46,12 +46,12 @@ function bat_findmode(target::AnySampleable, algorithm, context::BATContext)
     result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
-bat_findmode(target::AnySampleable) = bat_findmode(target, default_context())
+bat_findmode(target::AnySampleable) = bat_findmode(target, get_batcontext())
 
-bat_findmode(target::AnySampleable, algorithm) = bat_findmode(target, algorithm, default_context())
+bat_findmode(target::AnySampleable, algorithm) = bat_findmode(target, algorithm, get_batcontext())
 
 function bat_findmode(target::AnySampleable, context::BATContext)
-    algorithm = bat_default_withdebug(bat_findmode, Val(:algorithm), target, context);
+    algorithm = bat_default_withdebug(context, bat_findmode, Val(:algorithm), target);
     bat_findmode(target, algorithm, context)
 end
 
@@ -64,40 +64,20 @@ end
 
 """
     bat_marginalmode(
-        samples::DensitySampleVector;
-        nbins::Union{Integer, Symbol} = 200
+        target::DensitySampleVector,
+        algorithm::AbstractModeEstimator,
+        [context::BATContext]
     )::DensitySampleVector
 
 *Experimental feature, not part of stable public API.*
 
-Estimates a marginal mode of `samples` by finding the maximum of marginalized posterior for each dimension.
+Estimates a marginal mode of `target` by finding the maximum of marginalized posterior for each dimension.
 
 Returns a NamedTuple of the shape
 
 ```julia
 (result = X::DensitySampleVector, ...)
 ```
-
-`nbins` specifies the number of bins that are used for marginalization. The default value is `nbins=200`. The optimal number of bins can be estimated using  the following keywords:
-
-* `:sqrt`  — Square-root choice
-
-* `:sturges` — Sturges' formula
-
-* `:rice` — Rice Rule
-
-* `:scott` — Scott's normal reference rule
-
-* `:fd` —  Freedman–Diaconis rule
-
-Returns a NamedTuple of the shape
-
-```julia
-(result = X::DensitySampleVector, ...)
-```
-
-Result properties not listed here are algorithm-specific and are not part
-of the stable public API.
 
 !!! note
 
@@ -110,7 +90,17 @@ export bat_marginalmode
 function bat_marginalmode_impl end
 
 
-function bat_marginalmode(samples::DensitySampleVector)
-    r = bat_marginalmode_impl(samples::DensitySampleVector)
-    result_with_args(r, NamedTuple())
+function bat_marginalmode(measure::AnySampleable, algorithm, context::BATContext)
+    orig_context = deepcopy(context)
+    r = bat_marginalmode_impl(measure, algorithm, context)
+    result_with_args(r, (algorithm = algorithm, context = orig_context))
+end
+
+bat_marginalmode(measure::AnySampleable) = bat_marginalmode(measure, get_batcontext())
+
+bat_marginalmode(measure::AnySampleable, algorithm) = bat_marginalmode(measure, algorithm, get_batcontext())
+
+function bat_marginalmode(measure::AnySampleable, context::BATContext)
+    algorithm = bat_default_withdebug(context, bat_marginalmode, Val(:algorithm), measure);
+    bat_marginalmode(measure, algorithm, context)
 end
