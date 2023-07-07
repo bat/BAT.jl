@@ -23,7 +23,6 @@ $(TYPEDFIELDS)
 """
 @with_kw struct VEGASIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
     trafo::TR = PriorToUniform()
-    log_density_shift::Float64 = 0.0
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))
@@ -61,7 +60,6 @@ $(TYPEDFIELDS)
 """
 @with_kw struct SuaveIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
     trafo::TR = PriorToUniform()
-    log_density_shift::Float64 = 0.0
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))
@@ -99,7 +97,6 @@ $(TYPEDFIELDS)
 """
 @with_kw struct DivonneIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
     trafo::TR = PriorToUniform()
-    log_density_shift::Float64 = 0.0
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))
@@ -143,7 +140,6 @@ $(TYPEDFIELDS)
 """
 @with_kw struct CuhreIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
     trafo::TR = PriorToUniform()
-    log_density_shift::Float64 = 0.0
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))

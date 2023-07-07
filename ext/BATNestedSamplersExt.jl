@@ -63,11 +63,11 @@ end
 
 
 
-function BAT.bat_sample_impl(target::AnyMeasureOrDensity, algorithm::EllipsoidalNestedSampling, context::BATContext)
+function BAT.bat_sample_impl(target::AnyMeasureLike, algorithm::EllipsoidalNestedSampling, context::BATContext)
     # ToDo: Forward RNG from context!
     rng = get_rng(context)
 
-    density_notrafo = convert(AbstractMeasureOrDensity, target)
+    density_notrafo = target
     density, trafo = BAT.transform_and_unshape(algorithm.trafo, density_notrafo)                 # BAT prior transformation
     vs = varshape(density)
     dims = totalndof(vs)

@@ -30,7 +30,6 @@ using Distributions, ValueShapes
     )
 
     test_integration(uvprior, VEGASIntegration(trafo = DoNotTransform(), rtol = 1e-3))
-    test_integration(uvprior, VEGASIntegration(trafo = DoNotTransform(), rtol = 1e-3, log_density_shift = 10))
     test_integration(mvprior, VEGASIntegration(trafo = DoNotTransform(), rtol = 1e-3, nthreads = 1))
     test_integration(mvprior, VEGASIntegration(trafo = DoNotTransform(), rtol = 1e-3, nthreads = nthreads()))
     test_integration(mvprior, VEGASIntegration(nthreads=2))

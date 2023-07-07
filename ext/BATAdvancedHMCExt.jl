@@ -15,7 +15,7 @@ using Random
 using DensityInterface
 using HeterogeneousComputing, AutoDiffOperators
 
-using BAT: AbstractMeasureOrDensity
+using BAT: BATMeasure
 
 using BAT: get_context, get_adselector, _NoADSelected
 using BAT: getalgorithm, getmeasure

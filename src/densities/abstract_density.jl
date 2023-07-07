@@ -397,17 +397,7 @@ Get the number of degrees of freedom of the variates of `density`. Must not be
 ValueShapes.totalndof(density::DistLikeMeasure) = totalndof(var_bounds(density))
 
 
-
-"""
-    BAT.AnyMeasureOrDensity = Union{...}
-
-Union of all types that BAT will accept as a probability density, resp. that
-`convert(AbstractMeasureOrDensity, d)` supports:
-    
-* [`AbstractMeasureOrDensity`](@ref)
-* `DensityInterface.LogFuncDensity`
-* `Distributions.Distribution`
-"""
+# !!!!!!!!!!!! remove
 const AnyMeasureOrDensity = Union{
     AbstractMeasureOrDensity,
     MeasureBase.AbstractMeasure,
@@ -415,6 +405,21 @@ const AnyMeasureOrDensity = Union{
     DensityInterface.LogFuncDensity
 }
 export AnyMeasureOrDensity
+
+"""
+    BAT.MeasureLike = Union{...}
+
+Union of all types that BAT will accept as a probability measure
+(though not all algorithms will work with all types):
+    
+* `MeasureBase.AbstractMeasure`
+* `Distributions.ContinuousDistribution`
+"""
+const AnyMeasureLike = Union{
+    MeasureBase.AbstractMeasure,
+    Distributions.ContinuousDistribution
+}
+export AnyMeasureLike
 
 
 """

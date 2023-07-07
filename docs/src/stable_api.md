@@ -47,8 +47,6 @@ BAT.eval_logval_unchecked
 BAT.fft_autocor
 BAT.fft_autocov
 
-BAT.AbstractMeasureOrDensity
-
 AbstractMCMCWeightingScheme
 AbstractPosteriorMeasure
 AbstractTransformed
@@ -57,7 +55,7 @@ AbstractTransformToInfinite
 AbstractTransformToUnitspace
 AdaptiveMHTuning
 AnyIIDSampleable
-AnyMeasureOrDensity
+AnyMeasureLike
 AnySampleable
 ARPWeighting
 AssumeConvergence

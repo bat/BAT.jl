@@ -128,14 +128,12 @@ using BAT, DensityInterface, IntervalSets
 #
 # First, we need to define the likelihood (function) for our problem.
 #
-# BAT represents densities like likelihoods and priors as subtypes of
-# `BAT.AbstractMeasureOrDensity`. Custom likelihood can be defined by
-# creating a new subtype of `AbstractMeasureOrDensity` and by implementing (at minimum)
-# `DensityInterface.logdensityof` for that type - in complex uses cases, this may
-# become necessary. Typically, however, it is sufficient to define a custom
-# likelihood as a simple function that returns the log-likelihood value for
-# a given set of parameters. BAT will automatically convert such a
-# likelihood function into a subtype of `AbstractMeasureOrDensity`.
+# BAT represents requires likelihoods to implement The
+# [DensityInterface](https://github.com/JuliaMath/DensityInterface.jl)
+# API. A convenient way to construct such a likelihood is to wrap
+# a log-likelihood function via `DensityInterface.logfuncdensity`.
+#  `DensityInterface.logfuncdensity` turns a function (that must return
+# log-likelihood values) into a density object.
 #
 # For performance reasons, functions should [not access global variables
 # directly] (https://docs.julialang.org/en/v1/manual/performance-tips/index.html#Avoid-global-variables-1).
@@ -143,8 +141,7 @@ using BAT, DensityInterface, IntervalSets
 # inside of a [let-statement](https://docs.julialang.org/en/v1/base/base/#let)
 # to capture the value of the global variable `hist` in a local variable `h`
 # (and to shorten function name `fit_function` to `f`, purely for
-# convenience). `DensityInterface.logfuncdensity` turns a log-likelihood
-# function into a density object.
+# convenience).
 
 likelihood = let h = hist, f = fit_function
     ## Histogram counts for each bin as an array:
@@ -208,16 +205,16 @@ prior = NamedTupleDist(
 
 #md nothing # hide
 
-# In general, BAT allows instances of any subtype of `AbstractMeasureOrDensity` to
-# be uses as a prior, as long as a sampler is defined for it. This way, users
-# may implement complex application-specific priors. You can also
-# use `convert(AbstractMeasureOrDensity, distribution)` to convert any
-# continuous multivariate `Distributions.Distribution` to a
-# `BAT.AbstractMeasureOrDensity` that can be used as a prior (or likelihood).
+# BAT requires priors to be distributions, or measures in general, and
+# in principle only requires that they support `rand`. However,
+# many BAT algorithms rely on automatic parameter transformations,
+# and so the prior should ideally be transformable. BAT supports this
+# for many distributions in the Julia Distributions package and for
+# combinationy of them.
 #
-# The prior also implies the shapes of the parameters:
+# The prior implies the shapes of the parameters:
 
-parshapes = varshape(prior)
+parshapes = varshape(prior) #!!!!!!!!!!!!!!!!
 
 # These will come in handy later on, e.g. to access (the posterior
 # distribution of) individual parameter values.

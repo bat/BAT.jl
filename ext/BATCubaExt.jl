@@ -11,7 +11,7 @@ end
 using BAT
 BAT.pkgext(::Val{:Cuba}) = BAT.PackageExtension{:Cuba}()
 
-using BAT: AbstractMeasureOrDensity, CubaIntegration
+using BAT: BATMeasure, CubaIntegration
 using BAT: var_bounds, spatialvolume, log_volume, bat_integrate_impl
 using BAT: fromuhc
 
@@ -45,59 +45,52 @@ BAT.ext_default(::BAT.PackageExtension{:Cuba}, ::Val{:NSTART}) = Cuba.NSTART
 BAT.ext_default(::BAT.PackageExtension{:Cuba}, ::Val{:RTOL}) = Cuba.RTOL
 
 
-struct CubaIntegrand{D<:AbstractMeasureOrDensity,T<:Real} <: Function
-    density::D
-    log_density_shift::T
-    log_support_volume::T
+struct CubaIntegrand{LF<:Function} <: Function
+    log_f::D
 end
 
-
-function CubaIntegrand(density::AbstractMeasureOrDensity, log_density_shift::Real)
-    vol = spatialvolume(var_bounds(density))
-    isinf(vol) && throw(ArgumentError("CUBA integration doesn't support densities with infinite support"))
-    log_support_volume = log_volume(vol)
-    @assert _cuba_valid_value(log_support_volume)
-
-    CubaIntegrand(density, float(log_density_shift), log_support_volume)
+function CubaIntegrand(mu::BATMeasure)
+    if !(BAT._get_deep_prior_for_trafo(mu) isa BAT.StdMvUniform)
+        throw(ArgumentError("CUBA integration doesn't don't have (or be transformed to) unit volume support"))
+    end
+    CubaIntegrand(logdensityof(mu))
 end
-
 
 _cuba_valid_value(x) = !isnan(x) && x < typeof(x)(+Inf)
 
 
-function (integrand::CubaIntegrand)(x::AbstractVector{<:Real}, f::AbstractVector{<:Real})
-    idxs = axes(f, 1)
+function (integrand::CubaIntegrand)(x::AbstractVector{<:Real}, f_x::AbstractVector{<:Real})
+    idxs = axes(f_x, 1)
     @assert length(idxs) == 1
 
-    vol = spatialvolume(var_bounds(integrand.density))
-    x_trafo = fromuhc(x, vol)
-    logd = logdensityof(integrand.density, x_trafo)
-    @assert _cuba_valid_value(logd)
+    log_y = integrand.log_f(x_trafo)
+    @assert _cuba_valid_value(log_y)
+    y = exp(log_y)
+    @assert _cuba_valid_value(y)
+    f_x[first(idxs)] = <
+    @assert all(_cuba_valid_value, f_x)
 
-    f[first(idxs)] = exp(logd + integrand.log_density_shift)
-    @assert all(_cuba_valid_value,f)
-
-    f
+    return f_x
 end
 
 
-function (integrand::CubaIntegrand)(X::AbstractMatrix{<:Real}, f::AbstractMatrix{<:Real})
-    idxs1 = axes(f, 1)
+function (integrand::CubaIntegrand)(X::AbstractMatrix{<:Real}, f_X::AbstractMatrix{<:Real})
+    idxs1 = axes(f_X, 1)
     @assert length(idxs1) == 1
-    idxs2 = axes(f, 2)
+    idxs2 = axes(f_X, 2)
     @assert idxs2 == axes(X, 2)
 
-    vol = spatialvolume(var_bounds(integrand.density))
-    x_trafo = fromuhc(nestedview(X), vol)
+    xs = nestedview(X)
     @threads for i in idxs2
-        logd = logdensityof(integrand.density, x_trafo[i])
-        @assert _cuba_valid_value(logd)
-        y = exp(logd + integrand.log_density_shift)
+        log_y = integrand.log_f(xs[i])
+        @assert _cuba_valid_value(log_y)
+        y = exp(log_y)
         @assert _cuba_valid_value(y)
-        f[first(idxs1), i] = y
+        f_X[first(idxs1), i] = y
     end
+    @assert all(_cuba_valid_value, f_X)
 
-    f
+    return f_X
 end
 
 
@@ -144,11 +137,10 @@ function _integrate_impl_cuba(integrand::CubaIntegrand, algorithm::CuhreIntegrat
 end
 
 
-function BAT.bat_integrate_impl(target::AnyMeasureOrDensity, algorithm::CubaIntegration, context::BATContext)
-    density_notrafo = convert(AbstractMeasureOrDensity, target)
-    shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)
-    density = unshaped(shaped_density)
-    integrand = CubaIntegrand(density, algorithm.log_density_shift)
+function BAT.bat_integrate_impl(target::AnyMeasureLike, algorithm::CubaIntegration, context::BATContext)
+    orig_measure = convert(BATMeasure, target)
+    transformed_measure, _ = transform_and_unshape(algorithm.trafo, orig_measure)
+    integrand = CubaIntegrand(transformed_measure)
 
     r_cuba = _integrate_impl_cuba(integrand, algorithm, context)
 
@@ -163,12 +155,8 @@ function BAT.bat_integrate_impl(target::AnyMeasureOrDensity, algorithm::CubaInte
         end
     end
 
-    log_renorm_corr = -integrand.log_density_shift + integrand.log_support_volume
-    T = promote_type(BigFloat, typeof(log_renorm_corr))
-    renorm_corr = exp(convert(T, log_renorm_corr))
-
-    ival = first(r_cuba.integral) * renorm_corr
-    ierr = first(r_cuba.error) * renorm_corr
+    ival = BigFloat(first(r_cuba.integral))
+    ierr = BigFloat(first(r_cuba.error))
 
     (result = Measurements.measurement(ival, ierr), cuba_result = r_cuba, renorm_corr = renorm_corr)
 end

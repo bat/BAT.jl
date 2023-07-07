@@ -1,7 +1,7 @@
 using BAT, ValueShapes
 
 #Model definition to generate samples from a n-dim gaussian shell
-struct GaussianShellDensity<:AbstractMeasureOrDensity
+struct GaussianShellDensity<:BATDensity
     lambda::Vector{Float64}
     r::Float64
     sigma::Float64
