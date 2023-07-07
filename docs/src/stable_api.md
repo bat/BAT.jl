@@ -41,6 +41,7 @@ bat_report
 bat_sample
 bat_write
 trafoof
+lbqintegral
 
 BAT.bat_report!
 BAT.fft_autocor
@@ -48,7 +49,6 @@ BAT.fft_autocov
 
 AbstractMCMCWeightingScheme
 AbstractPosteriorMeasure
-AbstractTransformed
 AbstractTransformTarget
 AbstractTransformToInfinite
 AbstractTransformToUnitspace

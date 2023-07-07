@@ -72,7 +72,11 @@ abstract type BATMeasure <: AbstractMeasure end
 @inline DensityInterface.DensityKind(::BATMeasure) = HasDensity()
 
 BATMeasure(measure::BATMeasure) = measure
+BATMeasure(dist::Distribution) = DistMeasure(dist)
+BATMeasure(density::MeasureBase.DensityMeasure) = PosteriorMeasure(density.f, density.base)
+
 Base.convert(::Type{BATMeasure}, measure::BATMeasure) = measure
+Base.convert(::Type{BATMeasure}, measure) = BATMeasure(measure)
 
 DensityInterface.logdensityof(m::BATMeasure, x) = logdensityof_batmeasure(m, x)
 MeasureBase.logdensity_def(m::BATMeasure, x) = logdensityof_batmeasure(m, x)
