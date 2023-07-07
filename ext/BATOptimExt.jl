@@ -60,12 +60,13 @@ function (fg!::NLSolversFG!)(::Nothing, grad_f::AbstractVector{<:Real}, x::Abstr
 end
 
 
-function BAT.bat_findmode_impl(target::AnyMeasureOrDensity, algorithm::OptimAlg, context::BATContext)
-    transformed_density, trafo = transform_and_unshape(algorithm.trafo, target)
+function BAT.bat_findmode_impl(target::AnyMeasureLike, algorithm::OptimAlg, context::BATContext)
+    orig_measure = convert(BATMeasure, target)
+    transformed_measure, trafo = transform_and_unshape(algorithm.trafo, orig_measure)
     inv_trafo = inverse(trafo)
 
     initalg = apply_trafo_to_init(trafo, algorithm.init)
-    x_init = collect(bat_initval(transformed_density, initalg, context).result)
+    x_init = collect(bat_initval(transformed_measure, initalg, context).result)
 
     # Maximize density of original target, but run in transformed space, don't apply LADJ:
     f = fchain(inv_trafo, logdensityof(target), -)

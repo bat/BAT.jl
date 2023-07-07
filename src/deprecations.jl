@@ -52,8 +52,8 @@ export SampledMeasure
 @deprecate bat_findmode(rng::AbstractRNG, target::AnySampleable, algorithm) bat_findmode(target, algorithm, BAT.set_rng(BAT.default_context(), rng))
 @deprecate bat_findmode(rng::AbstractRNG, target::AnySampleable) bat_findmode(target, BAT.set_rng(BAT.default_context(), rng))
 
-@deprecate bat_initval(rng::AbstractRNG, target::AnyMeasureOrDensity, algorithm::InitvalAlgorithm) = bat_initval(target, algorithm, BAT.set_rng(BAT.default_context(), rng))
-@deprecate bat_initval(rng::AbstractRNG, target::AnyMeasureOrDensity) = bat_initval(target, BAT.set_rng(BAT.default_context(), rng))
-@deprecate bat_initval(rng::AbstractRNG, target::AnyMeasureOrDensity, n::Integer, algorithm::InitvalAlgorithm) = bat_initval(target, n, algorithm, BAT.set_rng(BAT.default_context(), rng))
-@deprecate bat_initval(rng::AbstractRNG, target::AnyMeasureOrDensity, n::Integer) = bat_initval(target, n, BAT.set_rng(BAT.default_context(), rng))
+@deprecate bat_initval(rng::AbstractRNG, target::AnyMeasureLike, algorithm::InitvalAlgorithm) = bat_initval(target, algorithm, BAT.set_rng(BAT.default_context(), rng))
+@deprecate bat_initval(rng::AbstractRNG, target::AnyMeasureLike) = bat_initval(target, BAT.set_rng(BAT.default_context(), rng))
+@deprecate bat_initval(rng::AbstractRNG, target::AnyMeasureLike, n::Integer, algorithm::InitvalAlgorithm) = bat_initval(target, n, algorithm, BAT.set_rng(BAT.default_context(), rng))
+@deprecate bat_initval(rng::AbstractRNG, target::AnyMeasureLike, n::Integer) = bat_initval(target, n, BAT.set_rng(BAT.default_context(), rng))
 =#

@@ -22,17 +22,16 @@ import Measurements
 
 
 function BAT.bat_sample_impl(
-    target::AnyMeasureOrDensity,
+    target::AnyMeasureLike,
     algorithm::ReactiveNestedSampling,
     ::BATContext
 )
-    density_notrafo = convert(AbstractMeasureOrDensity, target)
-    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo)
+    orig_measure = convert(BATMeasure, target)
+    transformed_measure, trafo = transform_and_unshape(algorithm.trafo, orig_measure)
 
-    vs = varshape(density)
+    vs = varshape(transformed_measure)
 
-    bounds = var_bounds(density)
-    if !(all(isequal(0), bounds.vol.lo) && all(isequal(1), bounds.vol.hi))
+    if !(BAT._get_deep_prior_for_trafo(transformed_measure) isa BAT.StdMvUniform)
         throw(ArgumentError("ReactiveNestedSampling only supports (transformed) densities defined on the unit hypercube"))
     end
 
@@ -42,11 +41,11 @@ function BAT.bat_sample_impl(
         V = deepcopy(V_rowwise')
         logd = similar(V, LogDType, size(V,2))
         V_nested = nestedview(V)
-        exec_map!(logdensityof(density), algorithm.executor, logd, V_nested)
+        exec_map!(logdensityof(transformed_measure), algorithm.executor, logd, V_nested)
     end
 
     ndims = totalndof(vs)
-    paramnames = all_active_names(varshape(density_notrafo))
+    paramnames = all_active_names(varshape(orig_measure))
 
     smplr = UltraNest.ultranest.ReactiveNestedSampler(
         paramnames, vec_ultranest_logpstr, vectorized = true,
@@ -85,7 +84,7 @@ function BAT.bat_sample_impl(
     samples_notrafo = inverse(trafo).(samples_trafo) 
 
     uwv_trafo_us = nestedview(convert(Matrix{Float64}, r["samples"]'))
-    uwlogvals_trafo = map(logdensityof(density), uwv_trafo_us)
+    uwlogvals_trafo = map(logdensityof(transformed_measure), uwv_trafo_us)
     uwsamples_trafo = DensitySampleVector(vs.(uwv_trafo_us), uwlogvals_trafo)
     uwsamples_notrafo = inverse(trafo).(uwsamples_trafo)
 
