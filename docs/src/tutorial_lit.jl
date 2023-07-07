@@ -213,13 +213,6 @@ prior = distprod(
 # use `convert(AbstractMeasureOrDensity, distribution)` to convert any
 # continuous multivariate `Distributions.Distribution` to a
 # `BAT.AbstractMeasureOrDensity` that can be used as a prior (or likelihood).
-#
-# The prior also implies the shapes of the parameters:
-
-parshapes = varshape(prior)
-
-# These will come in handy later on, e.g. to access (the posterior
-# distribution of) individual parameter values.
 
 
 # ### Bayesian Model Definition
@@ -260,29 +253,15 @@ println("Stddev: $(std(samples))")
 # Internally, BAT often needs to represent variates as flat real-valued
 # vectors:
 
-unshaped.(samples).v
-
-# BAT uses [ValueShapes.jl](https://github.com/oschulz/ValueShapes.jl)
-# to implement a dual view of variate values in both shaped and unshaped form,
-# based on shape inferred from the prior and propagated to the posterior.
-# Shaped and unshaped samples are views of the same data in memory.
-# The variate/parameter shape can be accessed via
-
-parshapes = varshape(posterior)
+unshaped_samples, f_flatten = bat_transform(Vector, samples)
 
 # The statisics above (mode, mean and std-dev) are presented in shaped form.
 # However, it's not possible to represent statistics with matrix shape, e.g.
 # the parameter covariance matrix, this way. So the covariance has to be
 # accessed in unshaped form:
 
-par_cov = cov(unshaped.(samples))
+par_cov = cov(unshaped_samples)
 println("Covariance: $par_cov")
-
-# Our `parshapes` is a `NamedTupleShape`. It's properties (i.e. individual
-# parameter accessors) can be used as indices to query the covariance between
-# specific parameters:
-
-par_cov[parshapes.mu, parshapes.sigma]
 
 
 # Use `bat_report` to generate an overview of the sampling result and parameter estimates (based on the marginal distributions):
