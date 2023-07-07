@@ -1,8 +1,5 @@
-BAT.jl v3.0.0-DEV Release Notes
-===============================
-
-**Note: Subject to change before the BAT.jl v3.0.0 release**.
-
+BAT.jl v3.0.0 Release Notes
+===========================
 
 New features
 ------------
@@ -17,13 +14,33 @@ New features
 
 can now be used as a parameter transformation in BAT.
 
+* `BATContext`, `get_batcontext` and `set_batcontext`
+
+* `bat_transform` with enhanced capabilities
+
+* `distprod`, `distbind` and `lbqintegral` are the new ways to express priors and posteriors in BAT.
+
+* `bat_report`
+
+* `BAT.enable_error_log` (experimental)
+
+* `BAT.error_log` (experimental)
+
+* `BridgeSampling` (experimental)
+
+* `EllipsoidalNestedSampling` (experimental)
+
+* `ReactiveNestedSampling` (experimental)
+
 
 Breaking changes
 ----------------
 
-* `AbstractVariateTransform` and the function `ladjof` have been removed, BAT parameter transformation do not need to have a specific supertype any longer (see above).
+* `AbstractVariateTransform` and the function `ladjof` have been removed, BAT parameter transformations do not need to have a specific supertype any longer (see above).
 
-* Pending: [`LogDVal` will deprecated soon and removed before the BAT.jl v3.0.0 release. Instead of
+* The new `BATContext` replaces passing `rng::AbstractRNG` random number generators around.
+
+* Pending: `LogDVal` has been deprecated soon and will removed in BAT v3.1 or v3.2. Do *not* do this any longer:
 
   ```julia
   likelihood = let data = mydata
@@ -34,7 +51,7 @@ Breaking changes
   end
   ```
 
-  use the [DensityInterface](https://github.com/JuliaMath/DensityInterface.jl) API (see above):
+  Instead, use the [DensityInterface](https://github.com/JuliaMath/DensityInterface.jl) API (see above), like this:
 
   ```julia
   likelihood = let data = mydata
@@ -45,7 +62,7 @@ Breaking changes
   end
   ```
 
-  or
+  or like this
 
   ```julia
   struct MyLikeLihood{D}
@@ -66,20 +83,6 @@ Breaking changes
 
 * New behavior of `ValueShapes.NamedTupleShape` and  `ValueShapes.NamedTupleDist`: Due to changes in [ValueShapes](https://github.com/oschulz/ValueShapes.jl) v0.10, `NamedTupleShape` and `NamedTupleDist` now either (by default) use `NamedTuple` or (optionally) `ValueShapes.ShapedAsNT`, but no longer a mix of them. As a result, the behavior of BAT has changed as well when using a `NamedTupleDist` as a prior. For example, `mode(samples).result` returns a `NamedTuple` now directly.
 
+* Pending: BAT will rely less on ValueShapes in the future. Do not use ValueShapes functionality directly where avoidable. Use `distprod` instead of using `ValueShapes.NamedTupleDist` directly, and favor using `bat_transform` instead of shaping and unshaping data using values shapes directly, if possible.
+
 * Use the new function `bat_report` to generate a sampling output report instead of `show(BAT.SampledDensity(samples))`.
-
-
-New experimental features
--------------------------
-
-* `BATContext`, `get_batcontext` and `set_batcontext`
-* `BAT.EvalException`
-* `BAT.DistributionTransform`
-* `BAT.enable_error_log`
-* `BAT.error_log`
-* `BAT.LogUniform`
-* `BridgeSampling`
-* `EllipsoidalNestedSampling`
-* `ReactiveNestedSampling`
-* `renormalize_density`
-* `truncate_density`
