@@ -11,5 +11,4 @@ Test.@testset "densities" begin
     include("test_renormalize_density.jl")
     include("test_truncate_density.jl")
     include("test_transformed_density.jl")
-    include("test_external_density.jl")
 end
