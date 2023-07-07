@@ -17,7 +17,6 @@ BAT.enable_error_log
 BAT.error_log
 BAT.EvalException
 BAT.ext_default
-BAT.ExternalDensity
 BAT.get_adselector
 BAT.get_context
 BAT.LogUniform
