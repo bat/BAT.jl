@@ -11,7 +11,8 @@ end
 using BAT
 BAT.pkgext(::Val{:Cuba}) = BAT.PackageExtension{:Cuba}()
 
-using BAT: AbstractMeasureOrDensity, CubaIntegration
+using BAT: AnyMeasureOrDensity, AbstractMeasureOrDensity
+using BAT: CubaIntegration
 using BAT: var_bounds, spatialvolume, log_volume, bat_integrate_impl
 using BAT: fromuhc
 

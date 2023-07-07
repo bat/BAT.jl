@@ -4,6 +4,8 @@
 """
     struct Renormalized <: AbstractMeasureOrDensity
 
+*BAT-internal, not part of stable public API.*
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(density::AbstractMeasureOrDensity, logrenormf::Real)```

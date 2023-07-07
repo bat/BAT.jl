@@ -7,6 +7,7 @@ using LinearAlgebra
 using ValueShapes, Distributions, ArraysOfArrays
 using ForwardDiff, Zygote, DistributionsAD
 using InverseFunctions, ChangesOfVariables, DensityInterface
+using BAT: FullMeasureTransform
 
 @testset "test_distribution_transform" begin
     function test_back_and_forth(trg_d, src_d)

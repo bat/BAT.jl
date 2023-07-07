@@ -65,6 +65,8 @@ end
 """
     abstract type MCMCIterator end
 
+*BAT-internal, not part of stable public API.*
+
 Represents the current state of an MCMC chain.
 
 !!! note
@@ -121,7 +123,6 @@ isviablechain(chain::MCMCIterator)
 ```
 """
 abstract type MCMCIterator end
-export MCMCIterator
 
 
 function Base.show(io::IO, chain::MCMCIterator)

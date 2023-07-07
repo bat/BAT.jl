@@ -10,31 +10,6 @@ abstract type AbstractTransformTarget end
 export AbstractTransformTarget
 
 
-
-"""
-    abstract type AbstractTransformToUnitspace <: AbstractTransformTarget
-
-Abstract type for density transformation targets that specify a
-transformation into the unit hypercube.
-"""
-abstract type AbstractTransformToUnitspace <: AbstractTransformTarget end
-export AbstractTransformToUnitspace
-
-
-"""
-    abstract type AbstractTransformToInfinite <: AbstractTransformTarget
-
-Abstract type for density transformation targets that specify are
-transformation into unbounded space.
-
-The density that results from such a transformation must be unbounded in all
-dimensions and that should taper off to zero somewhat smoothly in any
-direction.
-"""
-abstract type AbstractTransformToInfinite <: AbstractTransformTarget end
-export AbstractTransformToInfinite
-
-
 """
     abstract type TransformAlgorithm
 
@@ -125,7 +100,7 @@ end
 # ToDo: Merge PriorToUniform and PriorToGaussian into PriorTo{Uniform|Normal}.
 
 """
-    struct PriorToUniform <: AbstractTransformToUnitspace
+    struct PriorToUniform <: AbstractTransformTarget
 
 Specifies that posterior densities should be transformed in a way that makes
 their pior equivalent to a uniform distribution over the unit hypercube.
@@ -134,7 +109,7 @@ Constructors:
 
 * ```$(FUNCTIONNAME)()```
 """
-struct PriorToUniform <: AbstractTransformToUnitspace end
+struct PriorToUniform <: AbstractTransformTarget end
 export PriorToUniform
 
 _distribution_density_trafo(target::PriorToUniform, density::DistMeasure) = DistributionTransform(Uniform, parent(density))
@@ -145,7 +120,7 @@ end
 
 
 """
-    struct PriorToGaussian <: AbstractTransformToInfinite
+    struct PriorToGaussian <: AbstractTransformTarget
 
 Specifies that posterior densities should be transformed in a way that makes
 their pior equivalent to a standard multivariate normal distribution with an
@@ -155,7 +130,7 @@ Constructors:
 
 * ```$(FUNCTIONNAME)()```
 """
-struct PriorToGaussian <: AbstractTransformToInfinite end
+struct PriorToGaussian <: AbstractTransformTarget end
 export PriorToGaussian
 
 _distribution_density_trafo(target::PriorToGaussian, density::DistMeasure) = DistributionTransform(Normal, parent(density))
@@ -168,6 +143,8 @@ end
 """
     struct FullMeasureTransform <: TransformAlgorithm
 
+*BAT-internal, not part of stable public API.*
+
 Transform the density as a whole a given specified target space. Operations
 that use the gradient of the density will require to the `log(abs(jacobian))`
 of the transformation to be auto-differentiable.
@@ -177,7 +154,6 @@ Constructors:
 * ```$(FUNCTIONNAME)()```
 """
 struct FullMeasureTransform <: TransformAlgorithm end
-export FullMeasureTransform
 
 
 _get_deep_prior_for_trafo(density::DistMeasure) = density

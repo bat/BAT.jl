@@ -25,8 +25,8 @@ import AdvancedHMC
     @testset "MCMC iteration" begin
         v_init = bat_initval(density, InitFromTarget(), context).result
         # Note: No @inferred, since MCMCIterator is not type stable (yet) with HamiltonianMC
-        @test MCMCIterator(algorithm, density, 1, unshaped(v_init, varshape(density)), deepcopy(context)) isa BAT.MCMCIterator
-        chain = MCMCIterator(algorithm, density, 1, unshaped(v_init, varshape(density)), deepcopy(context))
+        @test BAT.MCMCIterator(algorithm, density, 1, unshaped(v_init, varshape(density)), deepcopy(context)) isa BAT.MCMCIterator
+        chain = BAT.MCMCIterator(algorithm, density, 1, unshaped(v_init, varshape(density)), deepcopy(context))
         tuner = BAT.StanHMCTuning()(chain)
         nsteps = 10^4
         BAT.tuning_init!(tuner, chain, 0)

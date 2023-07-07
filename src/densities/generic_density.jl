@@ -4,7 +4,7 @@
 """
     GenericDensity{F<:Function} <: BATDensity
 
-**GenericDensity is deprecated and may be removed in future BAT versions**
+*BAT-internal, not part of stable public API.*
 """
 struct GenericDensity{F<:Function} <: BATDensity
     f::F

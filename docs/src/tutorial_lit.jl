@@ -39,9 +39,10 @@
 
 using Random, LinearAlgebra, Statistics, Distributions, StatsBase
 
-# As the underlying truth of our input data/histogram, let us choose an
-# non-normalized probability density composed of two Gaussian peaks with a peak
-# area of 500 and 1000, a mean of -1.0 and 2.0 and a standard error of 0.5
+# As the underlying truth of our input data/histogram, let us choose the
+# expected count to follow the sum of two Gaussian peaks with peak
+# areas of 500 and 1000, a mean of -1.0 and 2.0 and a standard error of 0.5.
+# Then 
 
 data = vcat(
     rand(Normal(-1.0, 0.5), 500),
@@ -198,9 +199,7 @@ logdensityof(likelihood, true_par_values)
 #
 # Next, we need to choose a sensible prior for the fit:
 
-using ValueShapes
-
-prior = NamedTupleDist(
+prior = distprod(
     a = [Weibull(1.1, 5000), Weibull(1.1, 5000)],
     mu = [-2.0..0.0, 1.0..3.0],
     sigma = Weibull(1.2, 2)

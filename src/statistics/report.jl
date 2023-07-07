@@ -23,6 +23,8 @@ end
 """
     BAT.bat_report!(md::Markdown.MD, obj)
 
+*BAT-internal, not part of stable public API.*
+
 Add report on `obj` to `md`.
 
 See [`bat_report`](@ref).

@@ -5,17 +5,17 @@
     logvalof(r::NamedTuple{(...,:log,...)})::Real
     logvalof(r::LogDVal)::Real
 
-**logvalof is deprecated and may be removed in future BAT versions.**
+*BAT-internal, not part of stable public API.*
 """
 function logvalof end
-export logvalof
 
 function logvalof(d::Real)
     throw(ArgumentError("Can't get a logarithmic value from $d, unknown if it represents a lin or log value itself."))
 end
 
 
-@inline function logvalof(x::T) where {T<:NamedTuple}
+Base.@noinline function logvalof(x::T) where {T<:NamedTuple}
+    Base.depwarn("logvalof support for NamedTuples is deprecated, construct your density using DensityInterface.logfuncdensity instead of return a NamedTuple with a log field.", :logvalof)
     if hasfield(T, :logval) + hasfield(T, :logd) + hasfield(T, :log) > 1
         throw(ArgumentError("NamedTuples is ambiguous for logvalof contains fields $(join(map(string, filter(name -> name in (:logval, :logd, :log), fieldnames(T))), " and "))"))
     end
@@ -24,26 +24,18 @@ end
     elseif hasfield(T, :logd)
         x.logd
     elseif hasfield(T, :log)
-        _logvalof_deprecated(x, Val(:log))
+        x.log
     else
         throw(ArgumentError("NamedTuple with fields $(fieldnames(T)) not supported by logvalof, doesn't have a field like :logval"))
     end
 end
-
-Base.@noinline function _logvalof_deprecated(x::NamedTuple, ::Val{name}) where name
-    Base.depwarn("logvalof support for NamedTuple field $name is deprecated, use NamedTuples with field :logval instead", :logvalof)
-    getfield(x, name)
-end
-
-
-Base.@deprecate logvalof(density::AbstractMeasureOrDensity) DensityInterface.logdensityof(density)
 
 
 
 """
     struct LogDVal{T<:Real}
 
-**LogDVal is deprecated and may be removed in future BAT versions.**
+*LogDVal is deprecated and will be removed in future major or even minor BAT versions.*
 """
 struct LogDVal{T<:Real}
     logval::T
@@ -51,4 +43,7 @@ end
 
 export LogDVal
 
-logvalof(d::LogDVal) = d.logval
+Base.@noinline function logvalof(d::LogDVal)
+    Base.depwarn("LogDVal is deprecated, construct your density using DensityInterface.logfuncdensity instead returning a LogDVal object.", :logvalof)
+    d.logval
+end

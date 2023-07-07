@@ -24,6 +24,7 @@ BAT.LogUniform
 BAT.PackageExtension
 BAT.pkgext
 BAT.set_rng
+bat_integrated_autocorr_len
 BATContext
 BridgeSampling
 CuhreIntegration
@@ -39,4 +40,5 @@ SuaveIntegration
 truncate_density
 ValueAndThreshold
 VEGASIntegration
+ARPWeighting
 ```

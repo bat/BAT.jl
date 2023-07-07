@@ -17,6 +17,8 @@ export AutocorLenAlgorithm
         algorithm::AutocorLenAlgorithm = GeyerAutocorLen()
     )
 
+*Experimental feature, not yet part of stable public API.*
+
 Estimate the integrated autocorrelation length of variate series `v`,
 separately for each degree of freedom.
 

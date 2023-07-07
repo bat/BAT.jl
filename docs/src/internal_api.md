@@ -57,9 +57,29 @@ BAT.StandardMvUniform
 BAT.StandardUvNormal
 BAT.StandardUvUniform
 BAT.Transformed
+BAT.AnyIIDSampleable
+BAT.AnyMeasureOrDensity
+BAT.AnySampleable
+BAT.AbstractMeasureOrDensity
+BAT.CholeskyPartialWhitening
+BAT.CholeskyWhitening
+BAT.NoWhitening
+BAT.StatisticalWhitening
+BAT.WhiteningAlgorithm
+BAT.GenericDensity
+BAT.DistLikeMeasure
+BAT.FullMeasureTransform
+BAT.LogDVal
+BAT.MCMCIterator
+
 
 BAT.WrappedNonBATDensity
 
+BAT.trafoof
+BAT.logvalof
+BAT.bat_report!
+BAT.fft_autocor
+BAT.fft_autocov
 BAT.argchoice_msg
 BAT.bat_sampler
 BAT.bg_R_2sqr

@@ -28,7 +28,6 @@ Order = [:macro, :function]
 
 
 ```@docs
-logvalof
 
 bat_convergence
 bat_default
@@ -37,47 +36,30 @@ bat_findmedian
 bat_findmode
 bat_initval
 bat_integrate
-bat_integrated_autocorr_len
 bat_read
 bat_report
 bat_sample
 bat_write
-trafoof
+bat_transform
 
-BAT.bat_report!
-BAT.eval_logval_unchecked
-BAT.fft_autocor
-BAT.fft_autocov
-
-BAT.AbstractMeasureOrDensity
+distbind
+distprod
+lbqintegral
 
 AbstractMCMCWeightingScheme
 AbstractPosteriorMeasure
-AbstractTransformed
-AbstractTransformTarget
-AbstractTransformToInfinite
-AbstractTransformToUnitspace
 AdaptiveMHTuning
-AnyIIDSampleable
-AnyMeasureOrDensity
-AnySampleable
-ARPWeighting
 AssumeConvergence
 AutocorLenAlgorithm
-bat_transform
 BATHDF5IO
 BATIOAlgorithm
 BrooksGelmanConvergence
-CholeskyPartialWhitening
-CholeskyWhitening
 DensitySample
 DensitySampleVector
-DistLikeMeasure
 DoNotTransform
 EffSampleSizeAlgorithm
 EffSampleSizeFromAC
 ExplicitInit
-FullMeasureTransform
 GelmanRubinConvergence
 GeyerAutocorLen
 HamiltonianMC
@@ -89,13 +71,11 @@ InitFromTarget
 InitvalAlgorithm
 IntegrationAlgorithm
 KishESS
-LogDVal
 MaxDensitySearch
 MCMCAlgorithm
 MCMCBurninAlgorithm
 MCMCChainPoolInit
 MCMCInitAlgorithm
-MCMCIterator
 MCMCMultiCycleBurnin
 MCMCNoOpTuning
 MCMCSampling
@@ -103,7 +83,6 @@ MCMCTuningAlgorithm
 MetropolisHastings
 MHProposalDistTuning
 ModeAsDefined
-NoWhitening
 OptimAlg
 OrderedResampling
 PosteriorMeasure
@@ -114,15 +93,10 @@ RandResampling
 RepetitionWeighting
 SampledMeasure
 SokalAutocorLen
-StatisticalWhitening
 TransformAlgorithm
-WhiteningAlgorithm
+AbstractTransformTarget
 
 BAT.AbstractModeEstimator
 BAT.AbstractSamplingAlgorithm
 BAT.ConvergenceTest
-BAT.GenericDensity
-
-ValueShapes.totalndof
-ValueShapes.varshape
 ```

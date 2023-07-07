@@ -4,6 +4,8 @@
 """
     abstract type AbstractMeasureOrDensity
 
+*BAT-internal, not part of stable public API.*
+
 Subtypes of `AbstractMeasureOrDensity` must be implement the function
 
 * `DensityInterface.logdensityof(density::SomeDensity, v)`
@@ -17,19 +19,6 @@ variate shape and bounds from the prior.
     of bounds, the behavior is undefined. The result for arguments that are
     not within bounds is *implicitly* `-Inf`, but it is the caller's
     responsibility to handle these cases.
-
-Densities with a known variate shape may also implement
-
-* `ValueShapes.varshape`
-
-Densities with known variate bounds may also implement
-
-* `BAT.var_bounds`
-
-!!! note
-
-    The function `BAT.var_bounds` is not part of the stable public BAT-API,
-    it's name and arguments may change without deprecation.
 """
 abstract type AbstractMeasureOrDensity end
 
@@ -69,14 +58,6 @@ function ValueShapes.unshaped(density::AbstractMeasureOrDensity, vs::AbstractVal
     varshape(density) <= vs || throw(ArgumentError("Shape of density not compatible with given shape"))
     unshaped(density)
 end
-
-
-"""
-    BAT.eval_logval_unchecked(density::AbstractMeasureOrDensity, v::Any)
-
-**DEPRECATED** use/overload `DensityInterface.logdensityof` instead.
-"""
-const eval_logval_unchecked = logdensityof
 
 
 show_value_shape(io::IO, vs::AbstractValueShape) = show(io, vs)
@@ -151,32 +132,12 @@ implications and handling of bounds.
 var_bounds(density::AbstractMeasureOrDensity) = missing
 
 
-"""
-    ValueShapes.totalndof(density::AbstractMeasureOrDensity)::Union{Int,Missing}
-
-Get the number of degrees of freedom of the variates of `density`. May return
-`missing`, if the shape of the variates is not fixed.
-"""
 function ValueShapes.totalndof(density::AbstractMeasureOrDensity)
     shape = varshape(density)
     ismissing(shape) ? missing : ValueShapes.totalndof(shape)
 end
 
 
-"""
-    ValueShapes.varshape(
-        density::AbstractMeasureOrDensity
-    )::Union{ValueShapes.AbstractValueShape,Missing}
-
-    ValueShapes.varshape(
-        density::DistLikeMeasure
-    )::ValueShapes.AbstractValueShape
-
-Get the shapes of the variates of `density`.
-
-For prior densities, the result must not be `missing`, but may be `nothing` if
-the prior only supports unshaped variate/parameter vectors.
-"""
 ValueShapes.varshape(density::AbstractMeasureOrDensity) = missing
 
 
@@ -343,6 +304,8 @@ end
 """
     abstract type DistLikeMeasure <: BATMeasure
 
+*BAT-internal, not part of stable public API.*
+
 A density that implements part of the `Distributions.Distribution` interface.
 Such densities are suitable for use as a priors.
 
@@ -361,8 +324,6 @@ The following functions must be implemented for subtypes:
 
 * `DensityInterface.logdensityof`
 
-* `ValueShapes.varshape`
-
 * `Distributions.sampler`
 
 * `Statistics.cov`
@@ -375,7 +336,6 @@ The following functions must be implemented for subtypes:
     and subject to change without deprecation.
 """
 abstract type DistLikeMeasure <: BATMeasure end
-export DistLikeMeasure
 
 
 """
@@ -388,18 +348,14 @@ Get the parameter bounds of `density`. Must not be `missing`.
 function var_bounds end
 
 
-"""
-    ValueShapes.totalndof(density::DistLikeMeasure)::Int
-
-Get the number of degrees of freedom of the variates of `density`. Must not be
-`missing`, a `DistLikeMeasure` must have a fixed variate shape.
-"""
 ValueShapes.totalndof(density::DistLikeMeasure) = totalndof(var_bounds(density))
 
 
 
 """
     BAT.AnyMeasureOrDensity = Union{...}
+
+*BAT-internal, not part of stable public API.*
 
 Union of all types that BAT will accept as a probability density, resp. that
 `convert(AbstractMeasureOrDensity, d)` supports:
@@ -414,7 +370,7 @@ const AnyMeasureOrDensity = Union{
     Distributions.ContinuousDistribution,
     DensityInterface.LogFuncDensity
 }
-export AnyMeasureOrDensity
+
 
 
 """
@@ -439,6 +395,8 @@ export AnySampleable
 """
     BAT.AnyIIDSampleable = Union{...}
 
+*BAT-internal, not part of stable public API.*
+
 Union of all distribution/density-like types that BAT can draw i.i.d.
 (independent and identically distributed) samples from:
 
@@ -449,7 +407,6 @@ const AnyIIDSampleable = Union{
     DistLikeMeasure,
     Distributions.Distribution,
 }
-export AnyIIDSampleable
 
 
 

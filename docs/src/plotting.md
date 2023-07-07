@@ -21,7 +21,7 @@ plot(
 )
 ```
 Required inputs:
-  * `samples::DensitySampleVector` or `prior::NamedTupleDist`: samples (shaped or unshaped) or prior to be plotted
+  * `samples::DensitySampleVector` or `prior::NamedTupleDist`: samples or prior to be plotted
   * `vsel::Union{Integer, Symbol, Expr}`: index or name of the parameter to be plotted
 
 Keyword arguments:
@@ -81,7 +81,7 @@ plot(
 )
 ```
 Required inputs:
-  * `samples::DensitySampleVector` or `prior::NamedTupleDist`: samples (shaped or unshaped) or prior to be plotted
+  * `samples::DensitySampleVector` or `prior::NamedTupleDist`: samples or prior to be plotted
   * `vsel::Union{NTuple{2, Integer}, NTuple{2, Union{Symbol, Expr}}}`: indices or names of the two parameters to be plotted
 
 Keyword arguments:
@@ -146,7 +146,7 @@ plot(
 Plot a grid with the 1D marginalized distributions on the diagonal and all combinations of the 2D marginalized distributions in the lower and upper triangle.
 
 Required inputs:
-  * `samples::DensitySampleVector` or `prior::NamedTupleDist`: samples (shaped or unshaped) or prior to be plotted
+  * `samples::DensitySampleVector` or `prior::NamedTupleDist`: samples or prior to be plotted
 
 Keyword arguments:
   * `vsel = collect(1:5)`: indices or parameter names of the parameters to be plotted. By default (up to) the first five parameters are plotted.

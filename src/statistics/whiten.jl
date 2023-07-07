@@ -4,14 +4,17 @@
 """
     abstract type WhiteningAlgorithm
 
+*BAT-internal, not part of stable public API.*
+
 Abstract type for sample whitening algorithms.
 """
 abstract type WhiteningAlgorithm end
-export WhiteningAlgorithm
 
 
 """
     struct NoWhitening <: WhiteningAlgorithm
+
+*BAT-internal, not part of stable public API.*
 
 No-op whitening transformation, leaves samples unchanged.
 
@@ -20,12 +23,13 @@ Constructors:
 * ```$(FUNCTIONNAME)()```
 """
 struct NoWhitening <: WhiteningAlgorithm end
-export NoWhitening
 
 
 
 """
     struct CholeskyWhitening <: WhiteningAlgorithm
+
+*BAT-internal, not part of stable public API.*
 
 Whitening transformation based on a Cholesky transformation of the empirical
 sample covariance matrix.
@@ -35,12 +39,13 @@ Constructors:
 * ```$(FUNCTIONNAME)()```
 """
 struct CholeskyWhitening <: WhiteningAlgorithm end
-export CholeskyWhitening
 
 
 
 """
     struct CholeskyPartialWhitening <: WhiteningAlgorithm
+
+*BAT-internal, not part of stable public API.*
 
 Whitening transformation based on a Cholesky transformation of the empirical
 sample covariance matrix.
@@ -54,11 +59,12 @@ Constructors:
 * ```$(FUNCTIONNAME)()```
 """
 struct CholeskyPartialWhitening <: WhiteningAlgorithm end
-export CholeskyPartialWhitening
 
 
 """
     struct StatisticalWhitening <: WhiteningAlgorithm
+
+*BAT-internal, not part of stable public API.*
 
 Whitening transformation based statistical whitening.
 CholeskyPartialWhitening
@@ -68,7 +74,6 @@ Constructors:
 * ```$(FUNCTIONNAME)()```
 """
 struct StatisticalWhitening <: WhiteningAlgorithm end
-export StatisticalWhitening
 
 
 
