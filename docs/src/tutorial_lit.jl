@@ -446,6 +446,7 @@ samples = bat_sample(
 #
 # ```julia
 # using FileIO
+# import JLD2
 # FileIO.save("results.jld2", Dict("samples" => samples))
 # ```
 #
@@ -453,7 +454,8 @@ samples = bat_sample(
 # reload exactly the same data into memory in a new Julia session via
 #
 # ```julia
-# using FileIO, BAT
+# using FileIO
+# import JLD2
 # samples = FileIO.load("results.jld2", "samples")
 # ```
 #
