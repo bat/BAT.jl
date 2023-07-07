@@ -3,8 +3,6 @@
 """
     struct VEGASIntegration <: IntegrationAlgorithm
 
-*Experimental feature, not part of stable public API.*
-
 VEGASIntegration integration algorithm.
 
 Constructors:
@@ -41,8 +39,6 @@ export VEGASIntegration
 """
     struct SuaveIntegration <: IntegrationAlgorithm
 
-*Experimental feature, not part of stable public API.*
-
 SuaveIntegration integration algorithm.
 
 Constructors:
@@ -78,8 +74,6 @@ export SuaveIntegration
 
 """
     struct DivonneIntegration <: IntegrationAlgorithm
-
-*Experimental feature, not part of stable public API.*
 
 DivonneIntegration integration algorithm.
 
@@ -122,8 +116,6 @@ export DivonneIntegration
 
 """
     struct CuhreIntegration <: IntegrationAlgorithm
-
-*Experimental feature, not part of stable public API.*
 
 CuhreIntegration integration algorithm.
 

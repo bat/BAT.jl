@@ -48,14 +48,17 @@ lbqintegral
 
 AbstractMCMCWeightingScheme
 AbstractPosteriorMeasure
+AbstractTransformTarget
 AdaptiveMHTuning
 AssumeConvergence
 AutocorLenAlgorithm
 BATHDF5IO
 BATIOAlgorithm
 BrooksGelmanConvergence
+CuhreIntegration
 DensitySample
 DensitySampleVector
+DivonneIntegration
 DoNotTransform
 EffSampleSizeAlgorithm
 EffSampleSizeFromAC
@@ -93,8 +96,9 @@ RandResampling
 RepetitionWeighting
 SampledMeasure
 SokalAutocorLen
+SuaveIntegration
 TransformAlgorithm
-AbstractTransformTarget
+VEGASIntegration
 
 BAT.AbstractModeEstimator
 BAT.AbstractSamplingAlgorithm

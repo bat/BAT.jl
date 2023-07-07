@@ -26,8 +26,6 @@ BAT.set_rng
 bat_integrated_autocorr_len
 BATContext
 BridgeSampling
-CuhreIntegration
-DivonneIntegration
 EllipsoidalNestedSampling
 GridSampler
 HierarchicalDistribution
@@ -35,9 +33,7 @@ PriorImportanceSampler
 ReactiveNestedSampling
 renormalize_density
 SobolSampler
-SuaveIntegration
 truncate_density
 ValueAndThreshold
-VEGASIntegration
 ARPWeighting
 ```
