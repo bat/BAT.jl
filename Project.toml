@@ -1,6 +1,6 @@
 name = "BAT"
 uuid = "c0cd4b16-88b7-57fa-983b-ab80aecada7e"
-version = "3.0.0-DEV"
+version = "3.0.0"
 
 [deps]
 AffineMaps = "2c83c9a8-abf5-4329-a0d7-deffaf474661"
