@@ -42,7 +42,7 @@ end
 
 function SampledMeasure(target::AnyMeasureLike, samples::DensitySampleVector)
     @argcheck DensityKind(target) isa HasDensity
-    return SampledMeasure(convert(AbstractMeasureOrDensity, target), samples)
+    return SampledMeasure(convert(BATMeasure, target), samples)
 end
 
 MeasureBase.getdof(m::SampledMeasure) = MeasureBase.getdof(m.density)

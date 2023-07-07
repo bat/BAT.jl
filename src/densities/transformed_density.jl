@@ -1,21 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-"""
-    trafoof(d::AbstractTransformed)::AbstractMeasureOrDensity
-
-*Experimental feature, not yet part of stable public API.*
-
-Get the transform from `parent(d)` to `d`, so that
-
-```julia
-trafoof(d)(parent(d)) == d
-```
-"""
-function trafoof end
-export trafoof
-
-
 abstract type TDVolCorr end
 struct TDNoCorr <: TDVolCorr end
 struct TDLADJCorr <: TDVolCorr end
@@ -26,14 +11,14 @@ struct TDLADJCorr <: TDVolCorr end
 
 *BAT-internal, not part of stable public API.*
 """
-struct Transformed{D<:AbstractMeasureOrDensity,FT<:Function,VC<:TDVolCorr,VS<:AbstractValueShape} <: BATMeasure
+struct Transformed{D<:BATMeasure,FT<:Function,VC<:TDVolCorr,VS<:AbstractValueShape} <: BATMeasure
     orig::D
     trafo::FT  # ToDo: store inverse(trafo) instead?
     volcorr::VC
     _varshape::VS
 end
 
-function Transformed(orig::AbstractMeasureOrDensity, trafo::Function, volcorr::TDVolCorr)
+function Transformed(orig::BATMeasure, trafo::Function, volcorr::TDVolCorr)
     vs = trafo(varshape(orig))
     Transformed(orig, trafo, volcorr, vs)
 end
@@ -50,14 +35,13 @@ end
 
 
 Base.parent(measure::Transformed) = measure.orig
-trafoof(measure::Transformed) = measure.trafo
 
 @inline DensityInterface.DensityKind(x::Transformed) = DensityKind(x.orig)
 
 ValueShapes.varshape(measure::Transformed) = measure._varshape
 
 # ToDo: Should not be neccessary, improve default implementation of
-# ValueShapes.totalndof(measure::AbstractMeasureOrDensity):
+# ValueShapes.totalndof(measure::BATMeasure):
 ValueShapes.totalndof(measure::Transformed) = totalndof(varshape(measure))
 
 

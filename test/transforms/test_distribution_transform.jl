@@ -141,7 +141,7 @@ using InverseFunctions, ChangesOfVariables, DensityInterface
 
     #=
     using Cuba
-    function integrate_over_unit(density::AbstractMeasureOrDensity)
+    function integrate_over_unit(density::BATMeasure)
         vs = varshape(density)
         f_cuba(source_x, y) = y[1] = exp(logdensityof(density)(vs(source_x)))
         Cuba.vegas(f_cuba, 1, 1).integral[1]
@@ -233,8 +233,8 @@ end
     @test @inferred(bat_transform(DoNotTransform(), density)).result.dist == density.dist
 
     # ToDo: Improve comparison for bounds so `.dist` is not required here:
-    @inferred(bat_transform(PriorToUniform(), convert(BAT.AbstractMeasureOrDensity, BAT.StandardUvUniform()))).result.dist == convert(BAT.AbstractMeasureOrDensity, BAT.StandardUvUniform()).dist
-    @inferred(bat_transform(PriorToUniform(), convert(BAT.AbstractMeasureOrDensity, BAT.StandardMvUniform(4)))).result.dist == convert(BAT.AbstractMeasureOrDensity, BAT.StandardMvUniform(4)).dist
-    @inferred(bat_transform(PriorToGaussian(), convert(BAT.AbstractMeasureOrDensity, BAT.StandardUvNormal()))).result.dist == convert(BAT.AbstractMeasureOrDensity, BAT.StandardUvNormal()).dist
-    @inferred(bat_transform(PriorToGaussian(), convert(BAT.AbstractMeasureOrDensity, BAT.StandardMvNormal(4)))).result.dist == convert(BAT.AbstractMeasureOrDensity, BAT.StandardMvNormal(4)).dist
+    @inferred(bat_transform(PriorToUniform(), convert(BAT.BATMeasure, BAT.StandardUvUniform()))).result.dist == convert(BAT.BATMeasure, BAT.StandardUvUniform()).dist
+    @inferred(bat_transform(PriorToUniform(), convert(BAT.BATMeasure, BAT.StandardMvUniform(4)))).result.dist == convert(BAT.BATMeasure, BAT.StandardMvUniform(4)).dist
+    @inferred(bat_transform(PriorToGaussian(), convert(BAT.BATMeasure, BAT.StandardUvNormal()))).result.dist == convert(BAT.BATMeasure, BAT.StandardUvNormal()).dist
+    @inferred(bat_transform(PriorToGaussian(), convert(BAT.BATMeasure, BAT.StandardMvNormal(4)))).result.dist == convert(BAT.BATMeasure, BAT.StandardMvNormal(4)).dist
 end

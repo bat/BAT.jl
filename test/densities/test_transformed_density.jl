@@ -38,8 +38,8 @@ using Optim
                 @test isapprox(mean(target_X), mean(target_dist), atol = 0.05)
                 @test isapprox(var(target_X), var(target_dist), atol = 0.1)
 
-                @test @inferred(trafo(convert(AbstractMeasureOrDensity, source_dist))) isa BAT.Transformed
-                density = trafo(convert(AbstractMeasureOrDensity, source_dist))
+                @test @inferred(trafo(convert(BATMeasure, source_dist))) isa BAT.Transformed
+                density = trafo(convert(BATMeasure, source_dist))
 
                 @test isapprox(@inferred(inverse(density.trafo)(target_x)), source_x, atol = 10^-5)
 
@@ -83,7 +83,7 @@ using Optim
 
         src_d = NamedTupleDist(a = Exponential(), b = [4.2, 3.3], c = Weibull(), d = [Normal(1, 3), Normal(3, 2)], e = Uniform(-2, 3), f = MvNormal([0.3, -2.9], [1.7 0.5; 0.5 2.3]))
         trafo = @inferred(BAT.DistributionTransform(Normal, src_d))
-        density = @inferred(trafo(convert(AbstractMeasureOrDensity, trafo.source_dist)))
+        density = @inferred(trafo(convert(BATMeasure, trafo.source_dist)))
         @test isfinite(@inferred logdensityof(density)(@inferred(bat_initval(density, context)).result))
         @test isapprox(cov(@inferred(bat_initval(density, 10^4, context)).result), I(totalndof(density)), rtol = 0.1)
 

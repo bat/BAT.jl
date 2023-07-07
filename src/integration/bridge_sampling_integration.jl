@@ -26,9 +26,9 @@ export BridgeSampling
 
 
 function bat_integrate_impl(target::SampledMeasure, algorithm::BridgeSampling, context::BATContext)
-    transformed_target, trafo = bat_transform(algorithm.trafo, target)
+    transformed_target, _ = bat_transform_impl(algorithm.trafo, target)
     density = unshaped(transformed_target.density)
-    samples = unshaped.(transformed_target.samples)
+    samples = unshaped(transformed_target.samples)
     
     integral = bridge_sampling_integral(density, samples,algorithm.strict, algorithm.essalg, context)
     (result = integral,)
@@ -36,9 +36,9 @@ end
 
 
 function bridge_sampling_integral(
-    target_density::AbstractMeasureOrDensity, 
+    target_density::BATMeasure, 
     target_samples::DensitySampleVector, 
-    proposal_density::AbstractMeasureOrDensity, 
+    proposal_density::BATMeasure, 
     proposal_samples::DensitySampleVector, 
     strict::Bool,
     ess_alg::EffSampleSizeAlgorithm,
@@ -111,7 +111,7 @@ end
 
 
 function bridge_sampling_integral(
-    target_density::AbstractMeasureOrDensity,
+    target_density::BATMeasure,
     target_samples::DensitySampleVector,
     strict::Bool,
     ess_alg::EffSampleSizeAlgorithm,

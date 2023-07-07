@@ -198,14 +198,8 @@ function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, densi
     orig_prior = getprior(density)
     orig_likelihood = getlikelihood(density)
     new_prior, trafo = bat_transform_impl(target, orig_prior, algorithm)
-    new_likelihood = Transformed(orig_likelihood, trafo, TDNoCorr())
+    new_likelihood = orig_likelihood ∘ inverse(trafo)
     (result = PosteriorMeasure(new_likelihood, new_prior), trafo = trafo)
-end
-
-
-function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::Renormalized, algorithm::PriorSubstitution)
-    new_parent_density, trafo = bat_transform_impl(target, parent(density), algorithm)
-    (result = Renormalized(new_parent_density, density.logrenormf), trafo = trafo)
 end
 
 

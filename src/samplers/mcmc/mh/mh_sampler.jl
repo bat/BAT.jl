@@ -54,7 +54,7 @@ get_mcmc_tuning(algorithm::MetropolisHastings) = algorithm.tuning
 
 mutable struct MHIterator{
     AL<:MetropolisHastings,
-    D<:AbstractMeasureOrDensity,
+    D<:BATMeasure,
     PR<:RNGPartition,
     Q<:AbstractProposalDist,
     SV<:DensitySampleVector,
@@ -74,7 +74,7 @@ end
 
 function MHIterator(
     algorithm::MCMCAlgorithm,
-    density::AbstractMeasureOrDensity,
+    density::BATMeasure,
     info::MCMCIteratorInfo,
     x_init::AbstractVector{P},
     context::BATContext
@@ -124,7 +124,7 @@ end
 
 function MCMCIterator(
     algorithm::MetropolisHastings,
-    density::AbstractMeasureOrDensity,
+    density::BATMeasure,
     chainid::Integer,
     startpos::AbstractVector{<:Real},
     context::BATContext

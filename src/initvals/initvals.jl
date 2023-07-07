@@ -29,15 +29,15 @@ end
 
 
 function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::Any)
-    vs_target = varshape(convert(AbstractMeasureOrDensity, target))
-    vs_src = varshape(convert(AbstractMeasureOrDensity, src))
+    vs_target = varshape(convert(BATMeasure, target))
+    vs_src = varshape(convert(BATMeasure, src))
     x = _rand_v(rng, src)
     reshape_variate(vs_target, vs_src, x)
 end
 
 function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::Any, n::Integer)
-    vs_target = varshape(convert(AbstractMeasureOrDensity, target))
-    vs_src = varshape(convert(AbstractMeasureOrDensity, src))
+    vs_target = varshape(convert(BATMeasure, target))
+    vs_src = varshape(convert(BATMeasure, src))
     xs = _rand_v(rng, src, n)
     reshape_variates(vs_target, vs_src, xs)
 end
@@ -93,19 +93,6 @@ end
 function bat_initval_impl(target::AnyMeasureLike, n::Integer, algorithm::InitFromTarget, context::BATContext)
     rng = get_rng(context)
     (result = _rand_v_for_target(rng, target, get_initsrc_from_target(target), n),)
-end
-
-
-function bat_initval_impl(target::ReshapedDensity, algorithm::InitFromTarget, context::BATContext)
-    v_orig = bat_initval_impl(parent(target), algorithm, context).result
-    v = varshape(target)(unshaped(v_orig))
-    (result = v,)
-end
-
-function bat_initval_impl(target::ReshapedDensity, n::Integer, algorithm::InitFromTarget, context::BATContext)
-    v_orig = bat_initval_impl(parent(target), n, algorithm, context).result
-    v = varshape(target).(unshaped.(v_orig))
-    (result = v,)
 end
 
 

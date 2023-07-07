@@ -85,9 +85,6 @@ end
 _approx_cov(target::Distribution) = _cov_with_fallback(target)
 _approx_cov(target::DistLikeMeasure) = _cov_with_fallback(target)
 _approx_cov(target::AbstractPosteriorMeasure) = _approx_cov(getprior(target))
-_approx_cov(target::BAT.Transformed{<:Any,<:BAT.DistributionTransform}) =
-    BAT._approx_cov(target.trafo.target_dist)
-_approx_cov(target::Renormalized) = _approx_cov(parent(target))
 
 
 function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator, max_nsteps::Integer)

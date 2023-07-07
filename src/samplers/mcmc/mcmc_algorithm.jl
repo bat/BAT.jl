@@ -82,7 +82,7 @@ The following methods must be defined for subtypes of `MCMCIterator` (e.g.
 ```julia
 BAT.getalgorithm(chain::SomeMCMCIter)::MCMCAlgorithm
 
-BAT.getmeasure(chain::SomeMCMCIter)::AbstractMeasureOrDensity
+BAT.getmeasure(chain::SomeMCMCIter)::BATMeasure
 
 BAT.get_context(chain::SomeMCMCIter)::BATContext
 

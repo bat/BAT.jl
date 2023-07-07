@@ -68,19 +68,22 @@ function bat_sample_impl(
 end
 
 
-function _gen_samples(density::AbstractMeasureOrDensity, algorithm::SobolSampler)
-    bounds = var_bounds(density)
-    isinf(bounds) && throw(ArgumentError("SobolSampler doesn't support densities with infinite support"))
-    sobol = Sobol.SobolSeq(bounds.vol.lo, bounds.vol.hi)
+function _gen_samples(measure::BATMeasure, algorithm::SobolSampler)
+    if !(BAT._get_deep_transformable_base(measure) isa BAT.StdMvUniform)
+        throw(ArgumentError("SobolSampler target doesn't have (or could be transformed to) unit volume support"))
+    end
+    dim = totalndof(measure)
+    sobol = Sobol.SobolSeq(fill[0.0, dim], fill[1.0, dim])
     p = vcat([[Sobol.next!(sobol)] for i in 1:algorithm.nsamples]...)
     return p
 end
 
 
-function _gen_samples(density::AbstractMeasureOrDensity, algorithm::GridSampler)
-    bounds = var_bounds(density)
-    isinf(bounds) && throw(ArgumentError("SobolSampler doesn't support densities with infinite support"))
-    dim = totalndof(density)
+function _gen_samples(measure::BATMeasure, algorithm::GridSampler)
+    if !(BAT._get_deep_transformable_base(measure) isa BAT.StdMvUniform)
+        throw(ArgumentError("GridSampler target doesn't have (or could be transformed to) unit volume support"))
+    end
+    dim = totalndof(measure)
     ppa = algorithm.ppa
     ranges = [range(bounds.vol.lo[i], bounds.vol.hi[i], length = trunc(Int, ppa)) for i in 1:dim]
     p = vec(collect(Iterators.product(ranges...)))

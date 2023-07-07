@@ -52,7 +52,7 @@ end
 
 function CubaIntegrand(mu::BATMeasure)
     if !(BAT._get_deep_transformable_base(mu) isa BAT.StdMvUniform)
-        throw(ArgumentError("CUBA integration doesn't don't have (or be transformed to) unit volume support"))
+        throw(ArgumentError("CUBA integration target doesn't have (or could be transformed to) unit volume support"))
     end
     CubaIntegrand(logdensityof(mu), BAT.totalndof(varshape(mu)))
 end

@@ -14,7 +14,7 @@ import AdvancedHMC
     context = BATContext(ad = ADModule(:ForwardDiff))
     target = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
 
-    shaped_density = @inferred(convert(AbstractMeasureOrDensity, target))
+    shaped_density = @inferred(convert(BATMeasure, target))
     @test shaped_density isa BAT.DistMeasure
     density = unshaped(shaped_density)
     @test density isa BAT.DistMeasure

@@ -18,7 +18,7 @@ import AbstractMCMC
 AbstractMCMC.setprogress!(false)
 
 # ToDo - Temporary:
-using BAT: AbstractMeasureOrDensity, BATMeasure, BATDensity
+using BAT: BATMeasure, BATDensity
 
 Test.@testset "Package BAT" begin
     include("utils/test_utils.jl")

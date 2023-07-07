@@ -12,7 +12,7 @@ using ArraysOfArrays, Distributions, StatsBase, PDMats, IntervalSets, ValueShape
     mvdd = @inferred BAT.DistMeasure(mvt)
 
     @testset "properties" begin
-        @test typeof(mvdd) <: AbstractMeasureOrDensity
+        @test typeof(mvdd) <: BATMeasure
         @test parent(mvdd) == mvt
         @test totalndof(mvdd) == 2
     end

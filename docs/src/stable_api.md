@@ -40,7 +40,6 @@ bat_read
 bat_report
 bat_sample
 bat_write
-trafoof
 lbqintegral
 
 BAT.bat_report!
