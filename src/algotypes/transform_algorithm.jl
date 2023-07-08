@@ -9,6 +9,9 @@ Abstract type for probability density transformation targets.
 abstract type AbstractTransformTarget end
 export AbstractTransformTarget
 
+AbstractTransformTarget(::Type{Vector}) = ToRealVector()
+Base.convert(::Type{AbstractTransformTarget}, x) = AbstractTransformTarget(x)
+
 
 """
     abstract type TransformAlgorithm
@@ -21,12 +24,19 @@ export TransformAlgorithm
 
 """
     bat_transform(
-        target::AbstractTransformTarget,
-        density::AnyMeasureOrDensity,
+        how::AbstractTransformTarget,
+        object,
         [algorithm::TransformAlgorithm]
     )::AbstractMeasureOrDensity
 
-Transform `density` to another variate space defined/implied by `target`.
+    bat_transform(
+        f,
+        object,
+        [algorithm::TransformAlgorithm]
+    )::AbstractMeasureOrDensity
+
+Transform `object` to another variate space defined/implied by `target`,
+res. using the transformation function `f`.
 
 Returns a NamedTuple of the shape
 
@@ -39,29 +49,40 @@ of the stable public API.
 
 !!! note
 
-    Do not add add methods to `bat_transform`, add methods to
-    `bat_transform_impl` instead.
+As a convenience,
+
+```julia
+flat_smpls, f_flatten = bat_transform(Vector, measure)
+flat_smpls, f_flatten = bat_transform(Vector, samples)
+```
+
+can be used to flatten a the variate type of a measure (res. samples of a
+measure) to something like `Vector{<:Real}`.
 """
 function bat_transform end
 export bat_transform
 
 
+_convert_trafo_how(trafo_how) = trafo_how
+_convert_trafo_how(::Type{<:Vector}) = AbstractTransformTarget(Vector)
+
 function bat_transform_impl end
+
+function bat_transform(trafo_how, trafo_from, algorithm::TransformAlgorithm, context::BATContext)
+    new_trafo_how = _convert_trafo_how(trafo_how)
+    orig_context = deepcopy(context)
+    r = bat_transform_impl(new_trafo_how, trafo_from, algorithm, context)
+    result_with_args(r, (algorithm = algorithm, context = orig_context))
+end
 
 bat_transform(trafo_how, trafo_from) = bat_transform(trafo_how, trafo_from, get_batcontext())
 
 bat_transform(trafo_how, trafo_from, algorithm) = bat_transform(trafo_how, trafo_from, algorithm, get_batcontext())
 
 function bat_transform(trafo_how, trafo_from, context::BATContext)
-    algorithm = bat_default_withinfo(bat_transform, Val(:algorithm), trafo_how, trafo_from)
-    bat_transform(trafo_how, trafo_from, algorithm, context)
-end
-
-
-function bat_transform(target::AbstractTransformTarget, density::AnyMeasureOrDensity, algorithm::TransformAlgorithm, context::BATContext)
-    orig_context = deepcopy(context)
-    r = bat_transform_impl(target, density, algorithm, context)
-    result_with_args(r, (algorithm = algorithm, context = orig_context))
+    new_trafo_how = _convert_trafo_how(trafo_how)
+    algorithm = bat_default_withinfo(bat_transform, Val(:algorithm), new_trafo_how, trafo_from)
+    bat_transform(new_trafo_how, trafo_from, algorithm, context)
 end
 
 
@@ -102,6 +123,20 @@ export IdentityTransformAlgorithm
 function bat_transform_impl(target::DoNotTransform, density::AnyMeasureOrDensity, algorithm::IdentityTransformAlgorithm, context::BATContext)
     (result = convert(AbstractMeasureOrDensity, density), trafo = identity)
 end
+
+
+"""
+    struct ToRealVector <: AbstractTransformTarget
+
+Specifies that the input should be transformed into a measure over the space
+of real-valued flat vectors.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)()```
+"""
+struct ToRealVector <: AbstractTransformTarget end
+export ToRealVector
 
 
 # ToDo: Merge PriorToUniform and PriorToGaussian into PriorTo{Uniform|Normal}.
@@ -227,6 +262,7 @@ unshaping_trafo(::ArrayShape{Real, 1}) = identity
 unshaping_trafo(vs::AbstractValueShape) = inverse(vs)
 
 
+# ToDo: Remove transform_and_unshape in favor of using `ToRealVector` instead of `DoNotTransform`.
 function transform_and_unshape(trafotarget::AbstractTransformTarget, object::Any, context::BATContext)
     orig_density = convert(AbstractMeasureOrDensity, object)
     trafoalg = bat_default(bat_transform, Val(:algorithm), trafotarget, orig_density)
@@ -240,41 +276,42 @@ end
 
 
 """
-    bat_transform(
-        f::Function,
-        smpls::DensitySampleVector,
-        [algorithm::TransformAlgorithm]
-    )::DensitySampleVector
+    struct SampleTransformation <: TransformAlgorithm
 
-Transform the variates of `smpls` using `f`.
-
-As a convenience,
-
-```julia
-flat_smpls, f_flatten = bat_transform(Vector, smpls)
-```
-
-can be used to flatten the variates of `smpls` into
-flat real-valued vectors.
+*BAT-internal, not part of stable public API.*
 """
-function bat_transform(f, smpls::DensitySampleVector, algorithm::TransformAlgorithm, context::BATContext)
-    orig_context = deepcopy(context)
-    r = bat_transform_impl(f, smpls, algorithm, context)
-    result_with_args(r, (algorithm = algorithm, context = orig_context))
-end
-
-
 struct SampleTransformation <: TransformAlgorithm end
 
 function bat_transform_impl(f::Function, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)
     (result = broadcast_arbitrary_trafo(f, smpls), trafo = f)
 end
 
-function bat_transform_impl(::Type{Vector}, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)
-    shp = elshape(smpls.v)
-    (result = unshaped.(smpls), trafo = inverse(shp))
-end
-
 function bat_transform_impl(shp::AbstractValueShape, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)
     (result = shp.(smpls), trafo = shp)
+end
+
+
+"""
+    struct UnshapeTransformation <: TransformAlgorithm
+
+*BAT-internal, not part of stable public API.*
+"""
+struct UnshapeTransformation <: TransformAlgorithm end
+
+function bat_transform_impl(::ToRealVector, obj::Union{BATMeasure,DensitySampleVector}, ::UnshapeTransformation, context::BATContext)
+    trafo = inverse(varshape(obj))
+    trafoalg = bat_default(bat_transform, Val(:algorithm), trafo, obj)
+    bat_transform_impl(trafo, obj, trafoalg, context)
+end
+
+
+function bat_transform_impl(f::Base.Fix2{typeof(unshaped)}, measure::BATMeasure, ::FullMeasureTransform, context::BATContext)
+    shp = f.x
+    (result = unshaped(measure, shp), trafo = f)
+end
+
+function bat_transform_impl(f::Base.Fix2{typeof(unshaped)}, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)
+    unshape_vs = f.x
+    @argcheck elshape(smpls.v) <= unshape_vs
+    (result = unshaped.(smpls), trafo = f)
 end
