@@ -86,3 +86,9 @@ renormalize_density(density::Any, logrenormf::Real) = renormalize_density(conver
 renormalize_density(density::AbstractMeasureOrDensity, logrenormf::Real) = Renormalized(density, logrenormf)
 
 renormalize_density(density::Renormalized, logrenormf::Real) = renormalize_density(parent(density), density.logrenormf + logrenormf)
+
+function renormalize_density(measure::PosteriorMeasure, logrenormf::Real)
+    likelihood, prior = getlikelihood(measure), getprior(measure)
+    new_likelihood = logfuncdensity(Add(logrenormf) ∘ logdensityof(likelihood))
+    lbqintegral(new_likelihood, prior)
+end
