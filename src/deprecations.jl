@@ -38,13 +38,6 @@ export NoDensityTransform
 Base.@deprecate PosteriorDensity(args...) PosteriorMeasure(args...)
 export PosteriorDensity
 
-Base.@deprecate SampledDensity(args...; kwargs...) EvaluatedMeasure(args...; kwargs...)
-export SampledDensity
-
-Base.@deprecate SampledMeasure(args...; kwargs...) EvaluatedMeasure(args...; kwargs...)
-export SampledMeasure
-
-
 #=
 @deprecate bat_sample(rng::AbstractRNG, target::AnySampleable, algorithm::AbstractSamplingAlgorithm) bat_sample(target, algorithm, BAT.set_rng(BAT.get_batcontext(), rng))
 @deprecate bat_sample(rng::AbstractRNG, target::AnySampleable) bat_sample(target, BAT.set_rng(BAT.get_batcontext(), rng))

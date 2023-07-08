@@ -12,6 +12,7 @@ versions, but may still evolve in a API-breaking fashion during that process.
 bat_compare
 bat_marginalmode
 BAT.DistributionTransform
+BAT.auto_renormalize
 BAT.enable_error_log
 BAT.error_log
 BAT.EvalException

@@ -26,15 +26,15 @@ export BridgeSampling
 
 
 function bat_integrate_impl(target::EvaluatedMeasure, algorithm::BridgeSampling, context::BATContext)
-    transformed_target, trafo = transform_and_unshape(algorithm.trafo, target, context)
-    logrenormf = -maximum(transformed_target.samples.logd)
-
-    renomalized_target = renormalize_density(transformed_target, logrenormf)
-    measure, samples = renomalized_target.density, renomalized_target.samples
+    @argcheck !isnothing(target.samples)
+    transformed_target, _ = transform_and_unshape(algorithm.trafo, target, context)
+    renomalized_target, logrenormf = auto_renormalize(transformed_target)
+    measure, samples = renomalized_target.measure, renomalized_target.samples
 
     (value, error) = bridge_sampling_integral(measure, samples, algorithm.strict, algorithm.essalg, context)
     rescaled_value, rescaled_error = exp(BigFloat(log(value) - logrenormf)), exp(BigFloat(log(error) - logrenormf))
-    return (result = Measurements.measurement(rescaled_value, rescaled_error),)
+    result = Measurements.measurement(rescaled_value, rescaled_error)
+    return (result = result, logrenormf = logrenormf)
 end
 
 
@@ -94,6 +94,7 @@ function bridge_sampling_integral(
     #Evaluate error #
     #################
     #pre calculate objects for error estimate
+    # ToDo: Make this type-stable:
     f1 = [exp(logdensityof(target_density,x))/current_int/(s1*exp(logdensityof(target_density,x))/current_int+s2*exp(proposal_samples.logd[i])) for (i,x) in enumerate(proposal_samples.v)]
     f2 = [[exp(logdensityof(proposal_density,x))/(s1*exp(target_samples.logd[i])/current_int+s2*exp(logdensityof(proposal_density,x)))] for (i,x) in enumerate(target_samples.v)]
     f2_density_vector = DensitySampleVector(f2,target_samples.logd,weight=target_samples.weight)
@@ -106,7 +107,7 @@ function bridge_sampling_integral(
     r_MSE = sqrt(var1/(mean1^2*N2)+(var2/mean2^2)/N1_eff)*current_int 
 
     value, error = current_int, r_MSE
-    return (value, error)
+    return (Float64(value)::Float64, Float64(error)::Float64) # Force type stability, see above.
 end
 
 
