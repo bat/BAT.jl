@@ -51,6 +51,13 @@ eval_logval(density::EvaluatedMeasure, v::Any, T::Type{<:Real}) = eval_logval(de
 
 ValueShapes.varshape(density::EvaluatedMeasure) = varshape(density.density)
 
+function _unshaped_density(density::EvaluatedMeasure, vs::AbstractValueShape)
+    new_measure = unshaped(density.density, vs)
+    @assert elshape(density.samples.v) <= vs
+    new_samples = unshaped.(density.samples)
+    return EvaluatedMeasure(new_measure, new_samples)
+end
+
 var_bounds(density::EvaluatedMeasure) = var_bounds(density.density)
 
 
