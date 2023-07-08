@@ -175,7 +175,7 @@ function BAT.bat_integrate_impl(target::AnyMeasureOrDensity, algorithm::CubaInte
 end
 
 
-function BAT.bat_integrate_impl(target::SampledMeasure, algorithm::CubaIntegration, context::BATContext)
+function BAT.bat_integrate_impl(target::EvaluatedMeasure, algorithm::CubaIntegration, context::BATContext)
     bat_integrate_impl(target.density, algorithm, context)
 end
 

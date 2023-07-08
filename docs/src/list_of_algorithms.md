@@ -130,7 +130,7 @@ Requires the [Cuba](https://github.com/giordano/Cuba.jl) Julia package to be loa
 BAT integration algorithm type: [`BridgeSampling`](@ref) 
 
 ```julia
-bat_integrate(SampledMeasure(target, smpls), BridgeSampling())
+bat_integrate(EvaluatedMeasure(target, smpls), BridgeSampling())
 ```
 
 

@@ -20,7 +20,7 @@ using LinearAlgebra: Diagonal, ones
                 burnin = MCMCMultiCycleBurnin(nsteps_per_cycle = 10^5, max_ncycles = 60)
             )
             sample = bat_sample(dist, samplingalg).result
-            sd = SampledMeasure(dist, sample)
+            sd = EvaluatedMeasure(dist, sample)
             sample_integral = bat_integrate(sd, algorithm).result
 
             @test isapprox(sample_integral.val, val_expected, atol=val_rtol*sample_integral.err)

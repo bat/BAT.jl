@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# when constructing a without generator infos like `SampledMeasure(density, samples)`:
+# when constructing a without generator infos like `EvaluatedMeasure(density, samples)`:
 struct UnknownSampleGenerator<: AbstractSampleGenerator end
 getalgorithm(sg::UnknownSampleGenerator) = nothing
 

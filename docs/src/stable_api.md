@@ -67,6 +67,7 @@ DivonneIntegration
 DoNotTransform
 EffSampleSizeAlgorithm
 EffSampleSizeFromAC
+EvaluatedMeasure
 ExplicitInit
 GelmanRubinConvergence
 GeyerAutocorLen
@@ -99,9 +100,8 @@ PriorToGaussian
 PriorToUniform
 RandResampling
 RepetitionWeighting
-SampledMeasure
-SokalAutocorLen
 SampleMedianEstimator
+SokalAutocorLen
 SuaveIntegration
 TransformAlgorithm
 VEGASIntegration

@@ -25,7 +25,7 @@ end
 export BridgeSampling
 
 
-function bat_integrate_impl(target::SampledMeasure, algorithm::BridgeSampling, context::BATContext)
+function bat_integrate_impl(target::EvaluatedMeasure, algorithm::BridgeSampling, context::BATContext)
     trafoalg = bat_default(bat_transform, Val(:algorithm), DoNotTransform(), target)
     transformed_target, trafo = bat_transform_impl(algorithm.trafo, target, trafoalg, context)
     density = unshaped(transformed_target.density)

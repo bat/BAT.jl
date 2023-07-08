@@ -2,5 +2,5 @@
 
 include("bat_sample.jl")
 include("mcmc/mcmc.jl")
-include("sampled_density.jl")
+include("evaluated_measure.jl")
 include("importance/importance_sampler.jl")
