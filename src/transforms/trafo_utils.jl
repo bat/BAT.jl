@@ -64,12 +64,6 @@ function broadcast_trafo(
 end
 
 
-# ToDo: Unify with broadcast_trafo
-
-function broadcast_arbitrary_trafo(trafo::DistributionTransform, smpls::DensitySampleVector)
-    broadcast_trafo(trafo, smpls)
-end
-
 function broadcast_arbitrary_trafo(
     trafo::Any,
     smpls::DensitySampleVector
