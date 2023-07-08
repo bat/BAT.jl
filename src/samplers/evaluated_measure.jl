@@ -83,7 +83,12 @@ end
 
 _approx_cov(target::EvaluatedMeasure) = cov(target.samples)
 
-
+function renormalize_density(em::EvaluatedMeasure, logrenormf::Real)
+    new_measure = renormalize_density(em.density, logrenormf)
+    smpls = em.samples
+    new_samples = DensitySampleVector((smpls.v, smpls.logd .+ logrenormf, smpls.weight, smpls.info, smpls.aux))
+    return EvaluatedMeasure(new_measure, new_samples)
+end
 
 # function Base.show(io::IO, mime::MIME"text/plain", sd::EvaluatedMeasure)
 #     if get(io, :compact, false)
