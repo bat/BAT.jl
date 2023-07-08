@@ -11,7 +11,7 @@ using Distributions, PDMats, StatsBase, ValueShapes, ArraysOfArrays
     context = BATContext()
     @testset "bat_initval" begin
         du = MvNormal(Diagonal(fill(1.0, 2)))
-        @test @inferred(bat_default(context, bat_initval, Val(:algorithm), du)) == InitFromTarget()
+        @test @inferred(bat_default(bat_initval, Val(:algorithm), du)) == InitFromTarget()
         @test @inferred(bat_initval(du, context)).result isa Vector{<:AbstractFloat}
         @test bat_initval(du, context).optargs.algorithm == InitFromTarget()
         @test pdf(du, bat_initval(du, context).result) > 0
@@ -19,7 +19,7 @@ using Distributions, PDMats, StatsBase, ValueShapes, ArraysOfArrays
         @test all(x -> x > 0, pdf.(Ref(du), bat_initval(du, 10, context).result))
 
         ds = NamedTupleDist(a = Normal(), b = Exponential(), c = Uniform(-1, 2))
-        @test @inferred(bat_default(context, bat_initval, Val(:algorithm), du)) == InitFromTarget()
+        @test @inferred(bat_default(bat_initval, Val(:algorithm), du)) == InitFromTarget()
         @test @inferred(bat_initval(ds, context)).result isa NamedTuple
         @test bat_initval(ds, context).optargs.algorithm == InitFromTarget()
         @test pdf(ds, bat_initval(ds, context).result) > 0

@@ -66,7 +66,7 @@ function bat_write(@nospecialize(filename::AbstractString), @nospecialize(conten
 end
 
 function bat_write(@nospecialize(filename::AbstractString), @nospecialize(content), context::BATContext)
-    algorithm = bat_default_withinfo(context, bat_write, Val(:algorithm), String(filename), content)
+    algorithm = bat_default_withinfo(bat_write, Val(:algorithm), String(filename), content)
     bat_write(filename, content, algorithm, context)
 end
 
@@ -132,7 +132,7 @@ function bat_read(@nospecialize(filename::AbstractString), key, algorithm::BATIO
 end
 
 function bat_read(@nospecialize(filename::AbstractString), key, context::BATContext)
-    algorithm = bat_default_withinfo(context, bat_read, Val(:algorithm), String(filename), String(key))
+    algorithm = bat_default_withinfo(bat_read, Val(:algorithm), String(filename), String(key))
     bat_read(filename, key, algorithm, context)
 end
 
@@ -150,7 +150,7 @@ function bat_read(@nospecialize(filename::AbstractString), algorithm::BATIOAlgor
 end
 
 function bat_read(@nospecialize(filename::AbstractString), context::BATContext)
-    algorithm = bat_default_withinfo(context, bat_read, Val(:algorithm), String(filename))
+    algorithm = bat_default_withinfo(bat_read, Val(:algorithm), String(filename))
     bat_read(filename, algorithm, context)
 end
 

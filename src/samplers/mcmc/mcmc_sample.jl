@@ -23,11 +23,11 @@ $(TYPEDFIELDS)
     CB<:Function
 } <: AbstractSamplingAlgorithm
     mcalg::AL = MetropolisHastings()
-    trafo::TR = bat_default(_g_dummy_context, MCMCSampling, Val(:trafo), mcalg)
+    trafo::TR = bat_default(MCMCSampling, Val(:trafo), mcalg)
     nchains::Int = 4
-    nsteps::Int = bat_default(_g_dummy_context, MCMCSampling, Val(:nsteps), mcalg, trafo, nchains)
-    init::IN = bat_default(_g_dummy_context, MCMCSampling, Val(:init), mcalg, trafo, nchains, nsteps)
-    burnin::BI = bat_default(_g_dummy_context, MCMCSampling, Val(:burnin), mcalg, trafo, nchains, nsteps)
+    nsteps::Int = bat_default(MCMCSampling, Val(:nsteps), mcalg, trafo, nchains)
+    init::IN = bat_default(MCMCSampling, Val(:init), mcalg, trafo, nchains, nsteps)
+    burnin::BI = bat_default(MCMCSampling, Val(:burnin), mcalg, trafo, nchains, nsteps)
     convergence::CT = BrooksGelmanConvergence()
     strict::Bool = true
     store_burnin::Bool = false

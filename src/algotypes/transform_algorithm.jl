@@ -53,7 +53,7 @@ bat_transform(trafo_how, trafo_from) = bat_transform(trafo_how, trafo_from, get_
 bat_transform(trafo_how, trafo_from, algorithm) = bat_transform(trafo_how, trafo_from, algorithm, get_batcontext())
 
 function bat_transform(trafo_how, trafo_from, context::BATContext)
-    algorithm = bat_default_withinfo(context, bat_transform, Val(:algorithm), trafo_how, trafo_from)
+    algorithm = bat_default_withinfo(bat_transform, Val(:algorithm), trafo_how, trafo_from)
     bat_transform(trafo_how, trafo_from, algorithm, context)
 end
 
@@ -229,7 +229,7 @@ unshaping_trafo(vs::AbstractValueShape) = inverse(vs)
 
 function transform_and_unshape(trafotarget::AbstractTransformTarget, object::Any, context::BATContext)
     orig_density = convert(AbstractMeasureOrDensity, object)
-    trafoalg = bat_default(context, bat_transform, Val(:algorithm), trafotarget, orig_density)
+    trafoalg = bat_default(bat_transform, Val(:algorithm), trafotarget, orig_density)
     transformed_density, initial_trafo = bat_transform(trafotarget, orig_density, trafoalg, context)
     us_trafo = unshaping_trafo(varshape(transformed_density))
     result_density = us_trafo(transformed_density)

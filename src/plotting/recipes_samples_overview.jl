@@ -238,7 +238,7 @@ end
     end
 
     if marginal_mode
-        mm_alg = bat_default(_g_dummy_context, bat_marginalmode, Val(:algorithm), samples)
+        mm_alg = bat_default(bat_marginalmode, Val(:algorithm), samples)
         marginal_mode_params = bat_marginalmode_impl(samples, mm_alg, _g_dummy_context).result
         @series begin
             linecolor --> :black

@@ -37,14 +37,14 @@ end
 export MetropolisHastings
 
 
-bat_default(::BATContext, ::Type{MCMCSampling}, ::Val{:trafo}, mcalg::MetropolisHastings) = PriorToGaussian()
+bat_default(::Type{MCMCSampling}, ::Val{:trafo}, mcalg::MetropolisHastings) = PriorToGaussian()
 
-bat_default(::BATContext, ::Type{MCMCSampling}, ::Val{:nsteps}, mcalg::MetropolisHastings, trafo::AbstractTransformTarget, nchains::Integer) = 10^5
+bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, mcalg::MetropolisHastings, trafo::AbstractTransformTarget, nchains::Integer) = 10^5
 
-bat_default(::BATContext, ::Type{MCMCSampling}, ::Val{:init}, mcalg::MetropolisHastings, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{MCMCSampling}, ::Val{:init}, mcalg::MetropolisHastings, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
 
-bat_default(::BATContext, ::Type{MCMCSampling}, ::Val{:burnin}, mcalg::MetropolisHastings, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{MCMCSampling}, ::Val{:burnin}, mcalg::MetropolisHastings, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
 

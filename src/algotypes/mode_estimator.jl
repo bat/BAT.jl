@@ -51,7 +51,7 @@ bat_findmode(target::AnySampleable) = bat_findmode(target, get_batcontext())
 bat_findmode(target::AnySampleable, algorithm) = bat_findmode(target, algorithm, get_batcontext())
 
 function bat_findmode(target::AnySampleable, context::BATContext)
-    algorithm = bat_default_withdebug(context, bat_findmode, Val(:algorithm), target);
+    algorithm = bat_default_withdebug(bat_findmode, Val(:algorithm), target);
     bat_findmode(target, algorithm, context)
 end
 
@@ -101,6 +101,6 @@ bat_marginalmode(measure::AnySampleable) = bat_marginalmode(measure, get_batcont
 bat_marginalmode(measure::AnySampleable, algorithm) = bat_marginalmode(measure, algorithm, get_batcontext())
 
 function bat_marginalmode(measure::AnySampleable, context::BATContext)
-    algorithm = bat_default_withdebug(context, bat_marginalmode, Val(:algorithm), measure);
+    algorithm = bat_default_withdebug(bat_marginalmode, Val(:algorithm), measure);
     bat_marginalmode(measure, algorithm, context)
 end

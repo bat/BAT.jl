@@ -41,7 +41,7 @@ function marginal_table(smplv::DensitySampleVector)
 
     mhist = hist_unicode.(marginal_histograms(usmplv))
 
-    mm_alg = bat_default(_g_dummy_context, bat_marginalmode, Val(:algorithm), usmplv)
+    mm_alg = bat_default(bat_marginalmode, Val(:algorithm), usmplv)
     marginal_mode = bat_marginalmode_impl(usmplv, mm_alg, _g_dummy_context).result
 
     TypedTables.Table(

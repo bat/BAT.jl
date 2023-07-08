@@ -56,7 +56,7 @@ function bat_sample(target::AnySampleable, algorithm::AbstractSamplingAlgorithm)
 end
 
 function bat_sample(target::AnySampleable, context::BATContext)
-    algorithm = bat_default_withinfo(context, bat_sample, Val(:algorithm), target)
+    algorithm = bat_default_withinfo(bat_sample, Val(:algorithm), target)
     bat_sample(target, algorithm, context)
 end
 

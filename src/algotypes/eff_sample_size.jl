@@ -64,7 +64,7 @@ bat_eff_sample_size(target::_ESSTarget) = bat_eff_sample_size(target, get_batcon
 bat_eff_sample_size(target::_ESSTarget, algorithm) = bat_eff_sample_size(target, algorithm, get_batcontext())
 
 function bat_eff_sample_size(target::_ESSTarget, context::BATContext)
-    algorithm = bat_default_withdebug(context, bat_eff_sample_size, Val(:algorithm), target)
+    algorithm = bat_default_withdebug(bat_eff_sample_size, Val(:algorithm), target)
     bat_eff_sample_size(target, algorithm, context)
 end
 

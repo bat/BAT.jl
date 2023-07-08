@@ -48,7 +48,7 @@ bat_findmedian(samples::DensitySampleVector) = bat_findmedian(samples, get_batco
 bat_findmedian(samples::DensitySampleVector, algorithm) = bat_findmedian(samples, algorithm, get_batcontext())
 
 function bat_findmedian(samples::DensitySampleVector, context::BATContext)
-    algorithm = bat_default_withdebug(context, bat_findmedian, Val(:algorithm), samples)
+    algorithm = bat_default_withdebug(bat_findmedian, Val(:algorithm), samples)
     bat_findmedian(samples, algorithm, context)
 end
 

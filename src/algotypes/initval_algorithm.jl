@@ -71,7 +71,7 @@ end
 end
 
 @inline function bat_initval(target::AnyMeasureOrDensity, context::BATContext)
-    algorithm = bat_default_withinfo(context, bat_initval, Val(:algorithm), target)
+    algorithm = bat_default_withinfo(bat_initval, Val(:algorithm), target)
     bat_initval(target, algorithm, context)
 end
 
@@ -91,7 +91,7 @@ end
 end
 
 @inline function bat_initval(target::AnyMeasureOrDensity, n::Integer, context::BATContext)
-    algorithm = bat_default_withinfo(context, bat_initval, Val(:algorithm), target)
+    algorithm = bat_default_withinfo(bat_initval, Val(:algorithm), target)
     bat_initval(target, n, algorithm, context)
 end
 

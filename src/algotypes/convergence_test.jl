@@ -54,7 +54,7 @@ bat_convergence(result::Any) = bat_convergence(result, get_batcontext())
 bat_convergence(result::Any, algorithm) = bat_convergence(result, algorithm, get_batcontext())
 
 function bat_convergence(result::Any, context::BATContext)
-    algorithm = bat_default_withdebug(context, bat_convergence, Val(:algorithm), result)
+    algorithm = bat_default_withdebug(bat_convergence, Val(:algorithm), result)
     bat_convergence(result, algorithm, context)
 end
 

@@ -48,8 +48,8 @@ import AdvancedHMC
         max_nsteps = 10^5
         tuning_alg = BAT.StanHMCTuning()
         trafo = DoNotTransform()
-        init_alg = bat_default(context, MCMCSampling, Val(:init), algorithm, trafo, nchains, max_nsteps)
-        burnin_alg = bat_default(context, MCMCSampling, Val(:burnin), algorithm, trafo, nchains, max_nsteps)
+        init_alg = bat_default(MCMCSampling, Val(:init), algorithm, trafo, nchains, max_nsteps)
+        burnin_alg = bat_default(MCMCSampling, Val(:burnin), algorithm, trafo, nchains, max_nsteps)
         convergence_test = BrooksGelmanConvergence()
         strict = true
         nonzero_weights = false

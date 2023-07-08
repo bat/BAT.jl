@@ -52,7 +52,7 @@ function bat_integrate(target::AnySampleable, algorithm::IntegrationAlgorithm)
 end
 
 function bat_integrate(target::AnySampleable, context::BATContext)
-    algorithm::IntegrationAlgorithm = bat_default_withinfo(context, bat_integrate, Val(:algorithm), target)
+    algorithm::IntegrationAlgorithm = bat_default_withinfo(bat_integrate, Val(:algorithm), target)
     bat_integrate(target, algorithm, context)
 end
 

@@ -58,7 +58,7 @@ function bat_integrated_autocorr_len(v::_ACLenTarget, algorithm::AutocorLenAlgor
 end
 
 function bat_integrated_autocorr_len(v::_ACLenTarget, context::BATContext)
-    algorithm = bat_default_withdebug(context, bat_integrated_autocorr_len, Val(:algorithm), v)
+    algorithm = bat_default_withdebug(bat_integrated_autocorr_len, Val(:algorithm), v)
     bat_integrated_autocorr_len(v, algorithm, context)
 end
 
