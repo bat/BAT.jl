@@ -103,6 +103,18 @@ bat_integrate(target, VEGASIntegration())
 Requires the [Cuba](https://github.com/giordano/Cuba.jl) Julia package to be loaded explicitly.
 
 
+### Suave Integration
+
+BAT integration algorithm type: [`SuaveIntegration`](@ref)
+
+```julia
+import Cuba
+bat_integrate(target, SuaveIntegration())
+```
+
+Requires the [Cuba](https://github.com/giordano/Cuba.jl) Julia package to be loaded explicitly.
+
+
 ### Cuhre Integration
 
 BAT integration algorithm type: [`CuhreIntegration`](@ref)
