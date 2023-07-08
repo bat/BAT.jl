@@ -26,13 +26,15 @@ export BridgeSampling
 
 
 function bat_integrate_impl(target::EvaluatedMeasure, algorithm::BridgeSampling, context::BATContext)
-    trafoalg = bat_default(bat_transform, Val(:algorithm), DoNotTransform(), target)
-    transformed_target, trafo = bat_transform_impl(algorithm.trafo, target, trafoalg, context)
-    density = unshaped(transformed_target.density)
-    samples = unshaped.(transformed_target.samples)
-    
-    integral = bridge_sampling_integral(density, samples,algorithm.strict, algorithm.essalg, context)
-    (result = integral,)
+    transformed_target, trafo = transform_and_unshape(algorithm.trafo, target, context)
+    logrenormf = -maximum(transformed_target.samples.logd)
+
+    renomalized_target = renormalize_density(transformed_target, logrenormf)
+    measure, samples = renomalized_target.density, renomalized_target.samples
+
+    (value, error) = bridge_sampling_integral(measure, samples, algorithm.strict, algorithm.essalg, context)
+    rescaled_value, rescaled_error = exp(BigFloat(log(value) - logrenormf)), exp(BigFloat(log(error) - logrenormf))
+    return (result = Measurements.measurement(rescaled_value, rescaled_error),)
 end
 
 
@@ -96,17 +98,15 @@ function bridge_sampling_integral(
     f2 = [[exp(logdensityof(proposal_density,x))/(s1*exp(target_samples.logd[i])/current_int+s2*exp(logdensityof(proposal_density,x)))] for (i,x) in enumerate(target_samples.v)]
     f2_density_vector = DensitySampleVector(f2,target_samples.logd,weight=target_samples.weight)
 
-    mean1, var1 = StatsBase.mean_and_var(f1, FrequencyWeights(proposal_samples.weight))
+    mean1, var1 = StatsBase.mean_and_var(f1, FrequencyWeights(proposal_samples.weight), corrected = true)
     mean2, var2 = mean(f2_density_vector)[1],cov(f2_density_vector)[1]
 
     N1_eff = bat_eff_sample_size_impl(f2_density_vector,ess_alg,context).result[1] 
     # calculate  Root mean squared error
     r_MSE = sqrt(var1/(mean1^2*N2)+(var2/mean2^2)/N1_eff)*current_int 
 
-    
-    integral = Measurements.measurement(current_int, r_MSE)
-
-    return integral
+    value, error = current_int, r_MSE
+    return (value, error)
 end
 
 
