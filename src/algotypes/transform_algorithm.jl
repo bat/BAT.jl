@@ -259,22 +259,22 @@ flat real-valued vectors.
 """
 function bat_transform(f, smpls::DensitySampleVector, algorithm::TransformAlgorithm, context::BATContext)
     orig_context = deepcopy(context)
-    r = bat_transform_impl_f_smpls(f, smpls, algorithm, context)
+    r = bat_transform_impl(f, smpls, algorithm, context)
     result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
 
 struct SampleTransformation <: TransformAlgorithm end
 
-function bat_transform_impl_f_smpls(f::Function, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)
+function bat_transform_impl(f::Function, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)
     (result = broadcast_arbitrary_trafo(f, smpls), trafo = f)
 end
 
-function bat_transform_impl_f_smpls(::Type{Vector}, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)
+function bat_transform_impl(::Type{Vector}, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)
     shp = elshape(smpls.v)
     (result = unshaped.(smpls), trafo = inverse(shp))
 end
 
-function bat_transform_impl_f_smpls(shp::AbstractValueShape, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)
+function bat_transform_impl(shp::AbstractValueShape, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)
     (result = shp.(smpls), trafo = shp)
 end
