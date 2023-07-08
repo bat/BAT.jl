@@ -2,7 +2,7 @@
 
 @recipe function f(
     prior::NamedTupleDist;
-    vsel::AbstractVector=collect(1:5),
+    vsel = collect(1:5),
     bins = 200,
     diagonal = Dict(),
     upper = Dict(),
