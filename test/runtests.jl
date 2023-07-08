@@ -21,6 +21,7 @@ AbstractMCMC.setprogress!(false)
 using BAT: AbstractMeasureOrDensity, BATMeasure, BATDensity
 
 Test.@testset "Package BAT" begin
+    include("test_aqua.jl")
     include("utils/test_utils.jl")
     include("rngs/test_rngs.jl")
     include("distributions/test_distributions.jl")

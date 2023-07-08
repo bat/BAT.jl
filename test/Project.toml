@@ -2,6 +2,7 @@
 AbstractMCMC = "80f14c24-f653-4e6a-9b94-39d6b0f70001"
 AdvancedHMC = "0bf59076-c3b1-5ca4-86bd-e02cd72cde3d"
 AffineMaps = "2c83c9a8-abf5-4329-a0d7-deffaf474661"
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 ArraysOfArrays = "65a8f2f4-9b39-5baf-92e2-a9cc46fdf018"
 AutoDiffOperators = "6e1301d5-4f4d-4fb5-9679-7191e22f0e0e"
 BATTestCases = "91d0e2c9-dbaa-453b-b50b-030d574b201f"
