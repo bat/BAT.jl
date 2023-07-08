@@ -45,9 +45,10 @@ function EvaluatedMeasure(target::AnyMeasureOrDensity, samples::DensitySampleVec
     return EvaluatedMeasure(convert(AbstractMeasureOrDensity, target), samples)
 end
 
-MeasureBase.getdof(m::EvaluatedMeasure) = MeasureBase.getdof(m.density)
+DensityInterface.logdensityof(density::EvaluatedMeasure, v::Any) = logdensityof(density.density, v)
+DensityInterface.logdensityof(density::EvaluatedMeasure) = logdensityof(density.density)
 
-eval_logval(density::EvaluatedMeasure, v::Any, T::Type{<:Real}) = eval_logval(density.density, v, T)
+MeasureBase.getdof(m::EvaluatedMeasure) = MeasureBase.getdof(m.density)
 
 ValueShapes.varshape(density::EvaluatedMeasure) = varshape(density.density)
 
