@@ -7,7 +7,7 @@ let
     precompile(bat_eff_sample_size, map(typeof, (dummy_samples,)))
     precompile(show, map(typeof, (dummy_samples,)))
 
-    precompile(SampledMeasure, map(typeof, (posterior, dummy_samples)))
+    precompile(EvaluatedMeasure, map(typeof, (posterior, dummy_samples)))
 
     for mcalg in (MetropolisHastings(), HamiltonianMC())
         precompile(bat_sample, map(typeof, (posterior, MCMCSampling(mcalg = mcalg))))

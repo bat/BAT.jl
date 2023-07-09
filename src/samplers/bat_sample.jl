@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# when constructing a without generator infos like `SampledMeasure(density, samples)`:
+# when constructing a without generator infos like `EvaluatedMeasure(density, samples)`:
 struct UnknownSampleGenerator<: AbstractSampleGenerator end
 getalgorithm(sg::UnknownSampleGenerator) = nothing
 
@@ -13,16 +13,16 @@ getalgorithm(sg::GenericSampleGenerator) = sg.algorithm
 
 function sample_and_verify(
     target::AnySampleable, algorithm::AbstractSamplingAlgorithm,
-    ref_dist::Distribution = target, context::BATContext = default_context();
+    ref_dist::Distribution = target, context::BATContext = get_batcontext();
     max_retries::Integer = 1
 )
-    initial_smplres = bat_sample(target, algorithm, context)
+    initial_smplres = bat_sample_impl(target, algorithm, context)
     smplres::typeof(initial_smplres) = initial_smplres
     verified::Bool = test_dist_samples(ref_dist, smplres.result, context)
     n_retries::Int = 0
     while !(verified) && n_retries < max_retries
         n_retries += 1
-        smplres = bat_sample(target, algorithm, context)
+        smplres = bat_sample_impl(target, algorithm, context)
         verified = test_dist_samples(ref_dist, smplres.result, context)
     end
     merge(smplres, (verified = verified, n_retries = n_retries))

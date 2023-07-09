@@ -21,6 +21,8 @@ end
     fft_autocov(v::AbstractVector{<:Real})
     fft_autocov(v::AbstractVectorOfSimilarVectors{<:Real})
 
+*BAT-internal, not part of stable public API.*
+
 Compute the autocovariance of of variate series `v`, separately for each
 degree of freedom.
 
@@ -68,6 +70,8 @@ end
 """
     fft_autocor(v::AbstractVector{<:Real})
     fft_autocor(v::AbstractVectorOfSimilarVectors{<:Real})
+
+*BAT-internal, not part of stable public API.*
 
 Compute the autocorrelation function (ACF) of variate series `v`, separately
 for each degree of freedom.

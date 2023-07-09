@@ -28,7 +28,6 @@ Order = [:macro, :function]
 
 
 ```@docs
-logvalof
 
 bat_convergence
 bat_default
@@ -37,47 +36,38 @@ bat_findmedian
 bat_findmode
 bat_initval
 bat_integrate
-bat_integrated_autocorr_len
 bat_read
 bat_report
 bat_sample
 bat_write
-trafoof
+bat_transform
 
-BAT.bat_report!
-BAT.eval_logval_unchecked
-BAT.fft_autocor
-BAT.fft_autocov
+get_batcontext
+set_batcontext
 
-BAT.AbstractMeasureOrDensity
+distbind
+distprod
+lbqintegral
 
 AbstractMCMCWeightingScheme
 AbstractPosteriorMeasure
-AbstractTransformed
 AbstractTransformTarget
-AbstractTransformToInfinite
-AbstractTransformToUnitspace
 AdaptiveMHTuning
-AnyIIDSampleable
-AnyMeasureOrDensity
-AnySampleable
-ARPWeighting
 AssumeConvergence
 AutocorLenAlgorithm
-bat_transform
+BATContext
 BATHDF5IO
 BATIOAlgorithm
 BrooksGelmanConvergence
-CholeskyPartialWhitening
-CholeskyWhitening
+CuhreIntegration
 DensitySample
 DensitySampleVector
-DistLikeMeasure
+DivonneIntegration
 DoNotTransform
 EffSampleSizeAlgorithm
 EffSampleSizeFromAC
+EvaluatedMeasure
 ExplicitInit
-FullMeasureTransform
 GelmanRubinConvergence
 GeyerAutocorLen
 HamiltonianMC
@@ -89,14 +79,11 @@ InitFromTarget
 InitvalAlgorithm
 IntegrationAlgorithm
 KishESS
-LBFGSOpt
-LogDVal
 MaxDensitySearch
 MCMCAlgorithm
 MCMCBurninAlgorithm
 MCMCChainPoolInit
 MCMCInitAlgorithm
-MCMCIterator
 MCMCMultiCycleBurnin
 MCMCNoOpTuning
 MCMCSampling
@@ -104,8 +91,7 @@ MCMCTuningAlgorithm
 MetropolisHastings
 MHProposalDistTuning
 ModeAsDefined
-NelderMeadOpt
-NoWhitening
+OptimAlg
 OrderedResampling
 PosteriorMeasure
 PriorSubstitution
@@ -113,17 +99,22 @@ PriorToGaussian
 PriorToUniform
 RandResampling
 RepetitionWeighting
-SampledMeasure
+SampleMedianEstimator
 SokalAutocorLen
-StatisticalWhitening
+SuaveIntegration
 TransformAlgorithm
-WhiteningAlgorithm
+VEGASIntegration
+BinningAlgorithm
+FixedNBins
+FreedmanDiaconisBinning
+RiceBinning
+ScottBinning
+SquareRootBinning
+SturgesBinning
+ToRealVector
 
+BAT.AbstractMedianEstimator
 BAT.AbstractModeEstimator
 BAT.AbstractSamplingAlgorithm
 BAT.ConvergenceTest
-BAT.GenericDensity
-
-ValueShapes.totalndof
-ValueShapes.varshape
 ```

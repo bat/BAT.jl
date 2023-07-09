@@ -7,7 +7,7 @@ using Random, Distributions, StatsBase
 
 
 @testset "importance_samplers" begin
-    function test_moments(dist::AnyMeasureOrDensity, algo::BAT.AbstractSamplingAlgorithm; rtol::Real=0.01)
+    function test_moments(dist::BAT.AnyMeasureOrDensity, algo::BAT.AbstractSamplingAlgorithm; rtol::Real=0.01)
         # ToDo: Wrap in @inferred when type stable
         samples = bat_sample(dist, algo).result
 

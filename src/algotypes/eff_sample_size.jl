@@ -14,12 +14,14 @@ export EffSampleSizeAlgorithm
 """
     bat_eff_sample_size(
         v::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}},
-        [algorithm::EffSampleSizeAlgorithm]
+        [algorithm::EffSampleSizeAlgorithm],
+        [context::BATContext]
     )
 
     bat_eff_sample_size(
         smpls::DensitySampleVector,
-        [algorithm::EffSampleSizeAlgorithm]
+        [algorithm::EffSampleSizeAlgorithm],
+        [context::BATContext]
     )
 
 Estimate effective sample size estimation for variate series `v`, resp.
@@ -45,21 +47,25 @@ export bat_eff_sample_size
 function bat_eff_sample_size_impl end
 
 
-function bat_eff_sample_size(
-    v::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}},
-    algorithm = bat_default_withdebug(bat_eff_sample_size, Val(:algorithm), v)
-)
-    r = bat_eff_sample_size_impl(v, algorithm)
-    result_with_args(r, (algorithm = algorithm,))
+const _ESSTarget = Union{
+    AbstractVector{<:Real},
+    AbstractVectorOfSimilarVectors{<:Real},
+    DensitySampleVector
+}
+
+function bat_eff_sample_size(target::_ESSTarget, algorithm, context::BATContext)
+    orig_context = deepcopy(context)
+    r = bat_eff_sample_size_impl(target, algorithm, context)
+    result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
+bat_eff_sample_size(target::_ESSTarget) = bat_eff_sample_size(target, get_batcontext())
 
-function bat_eff_sample_size(
-    smpls::DensitySampleVector,
-    algorithm = bat_default_withdebug(bat_eff_sample_size, Val(:algorithm), smpls)
-)
-    r = bat_eff_sample_size_impl(smpls, algorithm)
-    result_with_args(r, (algorithm = algorithm,))
+bat_eff_sample_size(target::_ESSTarget, algorithm) = bat_eff_sample_size(target, algorithm, get_batcontext())
+
+function bat_eff_sample_size(target::_ESSTarget, context::BATContext)
+    algorithm = bat_default_withdebug(bat_eff_sample_size, Val(:algorithm), target)
+    bat_eff_sample_size(target, algorithm, context)
 end
 
 

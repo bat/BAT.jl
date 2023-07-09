@@ -53,13 +53,21 @@ export bat_write
 function bat_write_impl end
 
 
-function bat_write(
-    @nospecialize(filename::AbstractString),
-    content,
-    algorithm::BATIOAlgorithm = bat_default_withinfo(bat_write, Val(:algorithm), String(filename), content)
-)
-    r = bat_write_impl(String(filename), content, algorithm)
-    result_with_args(r, (algorithm = algorithm,))
+function bat_write(@nospecialize(filename::AbstractString), @nospecialize(content), algorithm::BATIOAlgorithm, context::BATContext)
+    orig_context = deepcopy(context)
+    r = bat_write_impl(String(filename), content, algorithm, context)
+    result_with_args(r, (algorithm = algorithm, context = orig_context))
+end
+
+bat_write(@nospecialize(filename::AbstractString), @nospecialize(content)) = bat_write(filename, content, get_batcontext())
+
+function bat_write(@nospecialize(filename::AbstractString), @nospecialize(content), algorithm::BATIOAlgorithm)
+    bat_write(filename, content, algorithm, get_batcontext())
+end
+
+function bat_write(@nospecialize(filename::AbstractString), @nospecialize(content), context::BATContext)
+    algorithm = bat_default_withinfo(bat_write, Val(:algorithm), String(filename), content)
+    bat_write(filename, content, algorithm, context)
 end
 
 
@@ -111,21 +119,39 @@ export bat_read
 function bat_read_impl end
 
 
-function bat_read(
-    @nospecialize(filename::AbstractString),
-    key,
-    algorithm::BATIOAlgorithm = bat_default_withinfo(bat_read, Val(:algorithm), String(filename), String(key))
-)
-    r = bat_read_impl(String(filename), String(key), algorithm)
-    result_with_args(r, (algorithm = algorithm,))
+function bat_read(@nospecialize(filename::AbstractString), key, algorithm::BATIOAlgorithm, context::BATContext)
+    orig_context = deepcopy(context)
+    r = bat_read_impl(String(filename), String(key), algorithm, context)
+    result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
-function bat_read(
-    @nospecialize(filename::AbstractString),
-    algorithm::BATIOAlgorithm = bat_default_withinfo(bat_read, Val(:algorithm), String(filename))
-)
-    r = bat_read_impl(String(filename), algorithm)
-    result_with_args(r, (algorithm = algorithm,))
+bat_read(@nospecialize(filename::AbstractString), key) = bat_read(filename, key, get_batcontext())
+
+function bat_read(@nospecialize(filename::AbstractString), key, algorithm::BATIOAlgorithm)
+    bat_read(filename, key, algorithm, get_batcontext())
+end
+
+function bat_read(@nospecialize(filename::AbstractString), key, context::BATContext)
+    algorithm = bat_default_withinfo(bat_read, Val(:algorithm), String(filename), String(key))
+    bat_read(filename, key, algorithm, context)
+end
+
+
+function bat_read(@nospecialize(filename::AbstractString), algorithm::BATIOAlgorithm, context::BATContext)
+    orig_context = deepcopy(context)
+    r = bat_read_impl(String(filename), algorithm, context)
+    result_with_args(r, (algorithm = algorithm, context = orig_context))
+end
+
+bat_read(@nospecialize(filename::AbstractString)) = bat_read(filename, get_batcontext())
+
+function bat_read(@nospecialize(filename::AbstractString), algorithm::BATIOAlgorithm)
+    bat_read(filename, algorithm, get_batcontext())
+end
+
+function bat_read(@nospecialize(filename::AbstractString), context::BATContext)
+    algorithm = bat_default_withinfo(bat_read, Val(:algorithm), String(filename))
+    bat_read(filename, algorithm, context)
 end
 
 

@@ -45,15 +45,10 @@ function bat_integrate(target::AnySampleable, algorithm::IntegrationAlgorithm, c
     result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
-function bat_integrate(target::AnySampleable)
-    algorithm::IntegrationAlgorithm = bat_default_withinfo(bat_integrate, Val(:algorithm), target)
-    context = default_context()
-    bat_integrate(target, algorithm, context)
-end
+bat_integrate(target::AnySampleable) = bat_integrate(target, get_batcontext())
 
 function bat_integrate(target::AnySampleable, algorithm::IntegrationAlgorithm)
-    context = default_context()
-    bat_integrate(target, algorithm, context)
+    bat_integrate(target, algorithm, get_batcontext())
 end
 
 function bat_integrate(target::AnySampleable, context::BATContext)

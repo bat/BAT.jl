@@ -13,9 +13,12 @@ export AutocorLenAlgorithm
 
 """
     bat_integrated_autocorr_len(
-        v::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}},
-        algorithm::AutocorLenAlgorithm = GeyerAutocorLen()
+        v::_ACLenTarget,
+        algorithm::AutocorLenAlgorithm = GeyerAutocorLen(),
+        [context::BATContext]
     )
+
+*Experimental feature, not yet part of stable public API.*
 
 Estimate the integrated autocorrelation length of variate series `v`,
 separately for each degree of freedom.
@@ -40,12 +43,23 @@ export bat_integrated_autocorr_len
 function bat_integrated_autocorr_len_impl end
 
 
-function bat_integrated_autocorr_len(
-    v::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}},
+const _ACLenTarget = Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}}
+
+function bat_integrated_autocorr_len(v::_ACLenTarget, algorithm::AutocorLenAlgorithm, context::BATContext)
+    orig_context = deepcopy(context)
+    r = bat_integrated_autocorr_len_impl(v, algorithm, context)
+    result_with_args(r, (algorithm = algorithm, context = orig_context))
+end
+
+bat_integrated_autocorr_len(v::_ACLenTarget) = bat_integrated_autocorr_len(v, get_batcontext())
+
+function bat_integrated_autocorr_len(v::_ACLenTarget, algorithm::AutocorLenAlgorithm)
+    bat_integrated_autocorr_len(v, algorithm, get_batcontext())
+end
+
+function bat_integrated_autocorr_len(v::_ACLenTarget, context::BATContext)
     algorithm = bat_default_withdebug(bat_integrated_autocorr_len, Val(:algorithm), v)
-)
-    r = bat_integrated_autocorr_len_impl(v, algorithm)
-    result_with_args(r, (algorithm = algorithm,))
+    bat_integrated_autocorr_len(v, algorithm, context)
 end
 
 

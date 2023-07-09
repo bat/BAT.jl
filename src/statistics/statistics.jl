@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+include("binning_rules.jl")
 include("onlineuvstats.jl")
 include("onlinemvstats.jl")
 include("autocor.jl")

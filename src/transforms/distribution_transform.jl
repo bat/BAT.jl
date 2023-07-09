@@ -111,6 +111,11 @@ struct DistributionTransform{
 end
 
 
+# ToDo: Unify with broadcast_trafo
+function broadcast_arbitrary_trafo(trafo::DistributionTransform, smpls::DensitySampleVector)
+    broadcast_trafo(trafo, smpls)
+end
+
 
 function _distrafo_ctor_impl(target_dist::DT, source_dist::DF) where {DT<:ContinuousDistribution,DF<:ContinuousDistribution}
     @argcheck eff_totalndof(target_dist) == eff_totalndof(source_dist)

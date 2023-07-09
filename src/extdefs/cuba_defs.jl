@@ -3,8 +3,6 @@
 """
     struct VEGASIntegration <: IntegrationAlgorithm
 
-*Experimental feature, not part of stable public API.*
-
 VEGASIntegration integration algorithm.
 
 Constructors:
@@ -23,7 +21,6 @@ $(TYPEDFIELDS)
 """
 @with_kw struct VEGASIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
     trafo::TR = PriorToUniform()
-    log_density_shift::Float64 = 0.0
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))
@@ -40,8 +37,6 @@ export VEGASIntegration
 
 """
     struct SuaveIntegration <: IntegrationAlgorithm
-
-*Experimental feature, not part of stable public API.*
 
 SuaveIntegration integration algorithm.
 
@@ -61,7 +56,6 @@ $(TYPEDFIELDS)
 """
 @with_kw struct SuaveIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
     trafo::TR = PriorToUniform()
-    log_density_shift::Float64 = 0.0
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))
@@ -78,8 +72,6 @@ export SuaveIntegration
 
 """
     struct DivonneIntegration <: IntegrationAlgorithm
-
-*Experimental feature, not part of stable public API.*
 
 DivonneIntegration integration algorithm.
 
@@ -99,7 +91,6 @@ $(TYPEDFIELDS)
 """
 @with_kw struct DivonneIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
     trafo::TR = PriorToUniform()
-    log_density_shift::Float64 = 0.0
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))
@@ -123,8 +114,6 @@ export DivonneIntegration
 """
     struct CuhreIntegration <: IntegrationAlgorithm
 
-*Experimental feature, not part of stable public API.*
-
 CuhreIntegration integration algorithm.
 
 Constructors:
@@ -143,7 +132,6 @@ $(TYPEDFIELDS)
 """
 @with_kw struct CuhreIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
     trafo::TR = PriorToUniform()
-    log_density_shift::Float64 = 0.0
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))

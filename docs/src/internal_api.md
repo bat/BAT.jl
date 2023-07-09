@@ -32,9 +32,16 @@ Order = [:macro, :function]
 # Documentation
 
 ```@docs
+BAT.AbstractMeasureOrDensity
 BAT.AbstractProposalDist
 BAT.AbstractSampleGenerator
+BAT.AnyIIDSampleable
+BAT.AnyMeasureOrDensity
+BAT.AnySampleable
 BAT.BasicMvStatistics
+BAT.CholeskyPartialWhitening
+BAT.CholeskyWhitening
+BAT.DistLikeMeasure
 BAT.ENSAutoProposal
 BAT.ENSBound
 BAT.ENSEllipsoidBound
@@ -44,22 +51,37 @@ BAT.ENSProposal
 BAT.ENSRandomWalk
 BAT.ENSSlice
 BAT.ENSUniformly
+BAT.FullMeasureTransform
+BAT.GenericDensity
 BAT.LFDensity
 BAT.LFDensityWithGrad
+BAT.LogDVal
+BAT.MCMCIterator
 BAT.MCMCSampleGenerator
+BAT.NoWhitening
 BAT.OnlineMvCov
 BAT.OnlineMvMean
 BAT.OnlineUvMean
 BAT.OnlineUvVar
 BAT.Renormalized
+BAT.SampleTransformation
 BAT.StandardMvNormal
 BAT.StandardMvUniform
 BAT.StandardUvNormal
 BAT.StandardUvUniform
+BAT.StatisticalWhitening
 BAT.Transformed
+BAT.UnshapeTransformation
+BAT.WhiteningAlgorithm
+
 
 BAT.WrappedNonBATDensity
 
+BAT.trafoof
+BAT.logvalof
+BAT.bat_report!
+BAT.fft_autocor
+BAT.fft_autocov
 BAT.argchoice_msg
 BAT.bat_sampler
 BAT.bg_R_2sqr

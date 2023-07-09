@@ -8,7 +8,8 @@ using Documenter
 using Literate
 using BAT
 
-using DensityInterface, ValueShapes
+using DensityInterface
+using Optim
 
 # Import HDF5 only on 64-bit, automated installation of HDF5 doesn't seem to work
 # properly on 32-bit on CI system:

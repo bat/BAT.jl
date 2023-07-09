@@ -26,7 +26,7 @@ posterior = PosteriorMeasure(likelihood, prior);
 samples, chains = bat_sample(posterior, MCMCSampling(mcalg = MetropolisHastings(), nsteps = 10^5));
 #samples = bat_sample(posterior, SobolSampler(nsamples = 10^5)).result;
 
-sd = SampledMeasure(posterior, samples)
+sd = EvaluatedMeasure(posterior, samples)
 display(sd)
 
 

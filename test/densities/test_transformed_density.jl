@@ -8,7 +8,8 @@ using ValueShapes, ArraysOfArrays, Distributions, ForwardDiff
 using DensityInterface, InverseFunctions, ChangesOfVariables
 using AutoDiffOperators, ForwardDiff
 
-import Cuba
+import Cuba, AdvancedHMC
+using Optim
 
 
 @testset "transformed_density" begin
@@ -63,7 +64,7 @@ import Cuba
                 tX_finite = tX[findall(isfinite, fix_nni.(logdensityof(density).(tX)))]
                 @test isapprox(@inferred(broadcast(ForwardDiff.derivative, logdensityof(density), tX_finite)), broadcast(ForwardDiff.derivative, x -> logpdf(target_dist, x), tX_finite), atol = 10^-7)
 
-                @test minimum(target_dist) <= bat_findmode(density, LBFGSOpt(trafo = DoNotTransform()), context).result <= maximum(target_dist)
+                @test minimum(target_dist) <= bat_findmode(density, OptimAlg(optalg = LBFGS(), trafo = DoNotTransform()), context).result <= maximum(target_dist)
 
                 if trafo.target_dist isa Union{BAT.StandardUvUniform,BAT.StandardMvUniform}
                     @test isapprox(bat_integrate(density, VEGASIntegration(trafo = DoNotTransform()), context).result, 1, rtol = 10^-7)

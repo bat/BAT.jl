@@ -46,7 +46,7 @@ _h5open(args...) = _h5_track_order_kw_available() ? HDF5.h5open(args...; track_o
 
 
 
-function BAT.bat_write_impl(filename::AbstractString, content, alg::BATHDF5IO)
+function BAT.bat_write_impl(filename::AbstractString, content, alg::BATHDF5IO, ::BATContext)
     @nospecialize filename, content, alg
     _h5open(filename, "w") do datastore
         _h5io_write(datastore, content)
@@ -124,12 +124,12 @@ end
 
 
 
-function BAT.bat_read_impl(filename::AbstractString, alg::BATHDF5IO)
+function BAT.bat_read_impl(filename::AbstractString, alg::BATHDF5IO, context::BATContext)
     @nospecialize filename, alg
-    BAT.bat_read_impl(filename, ".", alg)
+    BAT.bat_read_impl(filename, ".", alg, context)
 end
 
-function BAT.bat_read_impl(filename::AbstractString, key::AbstractString, alg::BATHDF5IO)
+function BAT.bat_read_impl(filename::AbstractString, key::AbstractString, alg::BATHDF5IO, ::BATContext)
     @nospecialize filename, key, alg
     h5open(filename, "r") do input
         if _h5_IDX_TYPE_available() 

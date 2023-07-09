@@ -10,7 +10,6 @@ The following functions must be implemented for subtypes:
 
 * `BAT.proposaldist_logpdf`
 * `BAT.proposal_rand!`
-* `ValueShapes.totalndof`, returning the number of DOF (i.e. dimensionality).
 * `LinearAlgebra.issymmetric`, indicating whether p(a -> b) == p(b -> a) holds true.
 """
 abstract type AbstractProposalDist end

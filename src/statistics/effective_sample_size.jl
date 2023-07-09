@@ -4,13 +4,13 @@
 function tau_int_from_atc end
 
 
-function bat_integrated_autocorr_len_impl(v::AbstractVector{<:Real}, algorithm::AutocorLenAlgorithm)
+function bat_integrated_autocorr_len_impl(v::AbstractVector{<:Real}, algorithm::AutocorLenAlgorithm, ::BATContext)
     atc = fft_autocor(v)
     tau_int_est = tau_int_from_atc(atc, algorithm)
     (result = tau_int_est,)
 end
 
-function bat_integrated_autocorr_len_impl(v::AbstractVectorOfSimilarVectors{<:Real}, algorithm::AutocorLenAlgorithm)
+function bat_integrated_autocorr_len_impl(v::AbstractVectorOfSimilarVectors{<:Real}, algorithm::AutocorLenAlgorithm, ::BATContext)
     atc = fft_autocor(v)
     flat_atc = flatview(atc)
     tau_int_est = map(axes(flat_atc, 1)) do i
@@ -129,15 +129,15 @@ export EffSampleSizeFromAC
 
 
 
-function bat_eff_sample_size_impl(v::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}}, algorithm::EffSampleSizeFromAC)
-    tau_int = bat_integrated_autocorr_len(v, algorithm.acalg).result
+function bat_eff_sample_size_impl(v::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}}, algorithm::EffSampleSizeFromAC, context::BATContext)
+    tau_int = bat_integrated_autocorr_len_impl(v, algorithm.acalg, context).result
     n = length(eachindex(v))
     ess = min.(n, n./ tau_int)
     (result = ess,)
 end
 
 
-function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::EffSampleSizeFromAC)
+function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::EffSampleSizeFromAC, context::BATContext)
     vs = varshape(smpls)
     unshaped_smpls = unshaped.(smpls)
     n = length(eachindex(unshaped_smpls))
@@ -160,8 +160,8 @@ function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::EffSamp
         rng_seed = trunc(UInt64, mean(W) * n)
         context = BATContext(rng = Philox4x((0x0, rng_seed))::Philox4x{UInt64,10})
 
-        unweighted_smpls = bat_sample(unshaped_smpls, OrderedResampling(nsamples = n_resample), context).result
-        resampled_ess = bat_eff_sample_size_impl(unweighted_smpls.v, algorithm).result
+        unweighted_smpls = bat_sample_impl(unshaped_smpls, OrderedResampling(nsamples = n_resample), context).result
+        resampled_ess = bat_eff_sample_size_impl(unweighted_smpls.v, algorithm, context).result
         min.(n, resampled_ess)
     end
 
@@ -189,7 +189,7 @@ end
 export KishESS
 
 
-function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::KishESS)
+function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::KishESS, context::BATContext)
     W = smpls.weight
     ess = sum(W)^2 / sum(x -> x^2, W)
     (result = ess,)

@@ -2,24 +2,7 @@
 
 
 """
-    Transformed <: AbstractMeasureOrDensity
-
-Abstract type for transformed densities.
-
-In addition to the [`AbstractMeasureOrDensity`](@ref) interface, subtypes must support
-the functions `Base.parent` and [`trafoof`](@ref):
-
-```julia
-parent(d::SomeTransformedDensity)::AbstractMeasureOrDensity
-trafoof(d::SomeTransformedDensity)::Function
-```
-"""
-struct AbstractTransformed end
-export AbstractTransformed
-
-
-"""
-    trafoof(d::AbstractTransformed)::AbstractMeasureOrDensity
+    trafoof(d::Transformed)::AbstractMeasureOrDensity
 
 Get the transform from `parent(d)` to `d`, so that
 

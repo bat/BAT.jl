@@ -4,11 +4,11 @@
 bat_default(
     ::typeof(bat_eff_sample_size),
     ::Val{:algorithm},
-    samples::AbstractVectorOfSimilarVectors{<:Real}
+    samples::AbstractVectorOfSimilarVectors{<:Real},
 ) = EffSampleSizeFromAC()
 
 bat_default(
     ::typeof(bat_eff_sample_size),
     ::Val{:algorithm},
-    samples::DensitySampleVector
+    samples::DensitySampleVector,
 ) = EffSampleSizeFromAC()

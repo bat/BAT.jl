@@ -5,8 +5,9 @@ function check_convergence!(
     chains::AbstractVector{<:MCMCIterator},
     samples::AbstractVector{<:DensitySampleVector},
     algorithm::ConvergenceTest,
+    context::BATContext
 )
-    result = convert(Bool, bat_convergence(samples, algorithm).result)
+    result = convert(Bool, bat_convergence(samples, algorithm, context).result)
     for chain in chains
         chain.info = MCMCIteratorInfo(chain.info, converged = result)
     end
@@ -57,7 +58,7 @@ end
 
 export GelmanRubinConvergence
 
-function bat_convergence_impl(samples::AbstractVector{<:DensitySampleVector}, algorithm::GelmanRubinConvergence)
+function bat_convergence_impl(samples::AbstractVector{<:DensitySampleVector}, algorithm::GelmanRubinConvergence, ::BATContext)
     max_Rsqr = maximum(gr_Rsqr(samples))
     vt = ValueAndThreshold{max_Rsqr}(max_Rsqr, <=, algorithm.threshold)
     converged = convert(Bool, vt)
@@ -138,7 +139,7 @@ end
 
 export BrooksGelmanConvergence
 
-function bat_convergence_impl(samples::AbstractVector{<:DensitySampleVector}, algorithm::BrooksGelmanConvergence)
+function bat_convergence_impl(samples::AbstractVector{<:DensitySampleVector}, algorithm::BrooksGelmanConvergence, ::BATContext)
     max_Rsqr = maximum(bg_R_2sqr(samples, corrected = algorithm.corrected))
     vt = ValueAndThreshold{max_Rsqr}(max_Rsqr, <=, algorithm.threshold)
     converged = convert(Bool, vt)
@@ -151,7 +152,7 @@ end
 
 
 
-function bat_convergence_impl(samples::DensitySampleVector, algorithm::Union{GelmanRubinConvergence, BrooksGelmanConvergence})
+function bat_convergence_impl(samples::DensitySampleVector, algorithm::Union{GelmanRubinConvergence, BrooksGelmanConvergence}, context::BATContext)
     # create a vector of chains
     chains_ind = unique([i.chainid for i in samples.info])
     vector_chains = DensitySampleVector[]
@@ -161,5 +162,5 @@ function bat_convergence_impl(samples::DensitySampleVector, algorithm::Union{Gel
         push!(vector_chains, samples[mask_chain])
     end
 
-    bat_convergence_impl(vector_chains, algorithm)
+    bat_convergence_impl(vector_chains, algorithm, context)
 end

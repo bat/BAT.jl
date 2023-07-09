@@ -1,6 +1,5 @@
 using BAT
 using DensityInterface
-using ValueShapes
 using Distributions
 using Plots
 using StatsBase
@@ -9,8 +8,11 @@ using SpecialFunctions
 using ArraysOfArrays
 using TypedTables
 using CSV
-import Cuba
-using AHMI
+import Cuba, AdvancedHMC, ForwardDiff
+using AutoDiffOperators
+#using AHMI
+
+BAT.set_batcontext(ad = ADModule(:ForwardDiff))
 
 
 function log_pdf_poisson(λ::T, k::U) where {T<:Real,U<:Real}
@@ -111,17 +113,17 @@ sample_table = CSV.read("sample_table.csv", Table)
 
 function make_child_prior(N)
     v -> begin
-        return NamedTupleDist(B = fill(LogNormal(μ_log_normal(v.m_B, v.σ_B), v.σ_B), N))
+        return distprod(B = fill(LogNormal(μ_log_normal(v.m_B, v.σ_B), v.σ_B), N))
     end
 end
 
-parent_prior_bkg = NamedTupleDist(
+parent_prior_bkg = distprod(
     σ_B = Uniform(0.1, 1.0),
     m_B = Uniform(10^-10, 1e-1 * ΔE),
     λ = Uniform(10^-10, 100.0)
 )
 
-parent_prior_bkg_signal = NamedTupleDist(
+parent_prior_bkg_signal = distprod(
     S = Uniform(0.0, 10.0),
     S_μ = 100.0,
     S_σ = 2.0,
@@ -130,9 +132,9 @@ parent_prior_bkg_signal = NamedTupleDist(
     λ = Uniform(10^-10, 100.0)
 )
 
-prior_bkg =  HierarchicalDistribution(make_child_prior(length(summary_dataset_table)), parent_prior_bkg)
+prior_bkg =  distbind(make_child_prior(length(summary_dataset_table)), parent_prior_bkg, merge)
 
-prior_bkg_signal = HierarchicalDistribution(make_child_prior(length(summary_dataset_table)), parent_prior_bkg_signal)
+prior_bkg_signal = distbind(make_child_prior(length(summary_dataset_table)), parent_prior_bkg_signal, merge)
 
 posterior_bkg = PosteriorMeasure(make_likelihood_bkg(summary_dataset_table, sample_table), prior_bkg)
 
@@ -144,16 +146,18 @@ nsteps = 10^5
 algorithm = MCMCSampling(mcalg = HamiltonianMC(), nchains = nchains, nsteps = nsteps)
 
 samples_bkg = bat_sample(posterior_bkg, algorithm).result
+eval_bkg = EvaluatedMeasure(posterior_bkg, samples = samples_bkg)
 
-@show evidence_bkg_ahmi = bat_integrate(samples_bkg, AHMIntegration()).result
-@show evidence_bkg_cuba = bat_integrate(posterior_bkg, VEGASIntegration(log_density_shift = -maximum(samples_bkg.logd), maxevals = 10^6, rtol = 0.005)).result
+@show evidence_bkg_bridge = bat_integrate(eval_bkg, BridgeSampling()).result
+@show evidence_bkg_cuba = bat_integrate(eval_bkg, VEGASIntegration(maxevals = 10^6, rtol = 0.005)).result
 
 samples_bkg_signal = bat_sample(posterior_bkg_signal, algorithm).result
+eval_bkg_signal = EvaluatedMeasure(posterior_bkg_signal, samples = samples_bkg_signal)
 
-@show evidence_bkg_signal_ahmi = bat_integrate(samples_bkg_signal, AHMIntegration()).result
-@show evidence_bkg_signal_cuba = bat_integrate(posterior_bkg_signal, VEGASIntegration(log_density_shift = -maximum(samples_bkg_signal.logd), maxevals = 10^6, rtol = 0.005)).result
+@show evidence_bkg_signal_bridge = bat_integrate(eval_bkg_signal, BridgeSampling()).result
+@show evidence_bkg_signal_cuba = bat_integrate(eval_bkg_signal, VEGASIntegration(maxevals = 10^6, rtol = 0.005)).result
 
-@show BF_exponential_ahmi = evidence_bkg_signal_ahmi / evidence_bkg_ahmi
+#@show BF_exponential_bridge = evidence_bkg_signal_bridge / evidence_bkg_bridge
 @show BF_exponential_cuba = evidence_bkg_signal_cuba / evidence_bkg_cuba
 
 @show bkg_sig_marginal_modes = bat_marginalmode(samples_bkg_signal).result
@@ -161,10 +165,10 @@ samples_bkg_signal = bat_sample(posterior_bkg_signal, algorithm).result
 p_1 = plot(size=(800,500), layout=(2,2), labelfontsize=12, tickfontsize=10, legendfontsize=7)
 #upper left
 p_1 = plot!(samples_bkg_signal, :S, subplot=1, label = "Posterior")
-p_1 = plot!(parent_prior_bkg_signal, :S, subplot=1, label = "Prior", linecolor = "blue")
+#p_1 = plot!(parent_prior_bkg_signal, :S, subplot=1, label = "Prior", linecolor = "blue")
 #lower right
 p_1 = plot!(samples_bkg_signal, :λ, subplot=4, label = "Posterior", legend=false)
-p_1 = plot!(parent_prior_bkg_signal, :λ, subplot=4, label = "Prior", linecolor = "blue")
+#p_1 = plot!(parent_prior_bkg_signal, :λ, subplot=4, label = "Prior", linecolor = "blue")
 #upper right
 p_1 = plot!(samples_bkg_signal, (:S, :λ), subplot=2, st = :histogram, legend=false, colorbar=false)
 #lower left
@@ -178,10 +182,10 @@ savefig(p_1, "prior_posterior.png")
 p_2 = plot(size=(800,500), layout=(2,2), labelfontsize=12, tickfontsize=10, legendfontsize=7)
 #upper left
 p_2 = plot!(samples_bkg_signal, :m_B, subplot=1, label = "Posterior")
-p_2 = plot!(parent_prior_bkg_signal, :m_B, subplot=1, label = "Prior", linecolor = "blue")
+#p_2 = plot!(parent_prior_bkg_signal, :m_B, subplot=1, label = "Prior", linecolor = "blue")
 #lower right
 p_2 = plot!(samples_bkg_signal, :σ_B, subplot=4, label = "Posterior", legend=false)
-p_2 = plot!(parent_prior_bkg_signal, :σ_B, subplot=4, label = "Prior", linecolor = "blue")
+#p_2 = plot!(parent_prior_bkg_signal, :σ_B, subplot=4, label = "Prior", linecolor = "blue")
 #upper right
 p_2 = plot!(samples_bkg_signal, (:m_B, :σ_B), subplot=2, st = :histogram, legend=false, colorbar=false)
 #lower left

@@ -224,6 +224,8 @@ end
 function encode_name(name::Symbol)
     return name
 end
+
+
 #=
 """
     bat_marginalize(
@@ -280,6 +282,8 @@ marg_unshaped_samples = bat_marginalize(orig_unshaped_smaples, [1,2,3])
 '''
 """
 =#
+
+# ToDo: Turn this into a proper public API:
 function bat_marginalize(samples::DensitySampleVector, 
                          vsel
 )

@@ -44,7 +44,7 @@ function bat_sample_impl(
     context::BATContext
 )
     density_notrafo = convert(AbstractMeasureOrDensity, target)
-    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo)
+    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo, context)
 
     mcmc_algorithm = algorithm.mcalg
 

@@ -13,7 +13,8 @@ abstract type ConvergenceTest end
 """
     bat_convergence(
         algoutput,
-        [algorithm::ConvergenceTest]
+        [algorithm::ConvergenceTest],
+        [context::BATContext]
     )
 
 Check if an algorithm has converged, based on it's output `algoutput`
@@ -42,12 +43,19 @@ export bat_convergence
 function bat_convergence_impl end
 
 
-function bat_convergence(
-    algoutput::Any,
-    algorithm = bat_default_withdebug(bat_convergence, Val(:algorithm), algoutput)
-)
-    r = bat_convergence_impl(algoutput, algorithm)
-    result_with_args(r, (algorithm = algorithm,))
+function bat_convergence(result::Any, algorithm, context::BATContext)
+    orig_context = deepcopy(context)
+    r = bat_convergence_impl(result, algorithm, context)
+    result_with_args(r, (algorithm = algorithm, context = orig_context))
+end
+
+bat_convergence(result::Any) = bat_convergence(result, get_batcontext())
+
+bat_convergence(result::Any, algorithm) = bat_convergence(result, algorithm, get_batcontext())
+
+function bat_convergence(result::Any, context::BATContext)
+    algorithm = bat_default_withdebug(bat_convergence, Val(:algorithm), result)
+    bat_convergence(result, algorithm, context)
 end
 
 

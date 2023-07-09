@@ -1,13 +1,13 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-_default_min_ess(samples::DensitySampleVector) = minimum(bat_eff_sample_size(unshaped.(samples)).result)
+_default_min_ess(samples::DensitySampleVector, context) = minimum(bat_eff_sample_size(unshaped.(samples), context).result)
 
 
 function test_dist_samples(
     dist::Distribution, samples::DensitySampleVector,
-    context::BATContext = default_context();
-    nsamples::Integer = floor(Int, _default_min_ess(samples)),
-    ess::Integer = floor(Int, _default_min_ess(samples)),
+    context::BATContext = get_batcontext();
+    nsamples::Integer = floor(Int, _default_min_ess(samples, context)),
+    ess::Integer = floor(Int, _default_min_ess(samples, context)),
     logpdfdist_pvalue_threshold = 10^-3,
     Rsq_threshold = 1.2
 )
@@ -18,13 +18,13 @@ end
 
 function dist_sample_qualities(
     dist::Distribution, samples::DensitySampleVector,
-    context::BATContext = default_context();
-    nsamples::Integer = floor(Int, _default_min_ess(samples)),
-    ess::Integer = floor(Int, _default_min_ess(samples))
+    context::BATContext = get_batcontext();
+    nsamples::Integer = floor(Int, _default_min_ess(samples, context)),
+    ess::Integer = floor(Int, _default_min_ess(samples, context))
 )
-    samples_v = bat_sample(samples, OrderedResampling(nsamples = ess), context).result.v
+    samples_v = bat_sample_impl(samples, OrderedResampling(nsamples = ess), context).result.v
     samples_dist_logpdfs = logpdf.(Ref(dist), samples_v)
-    ref_samples = bat_sample(dist, IIDSampling(nsamples = nsamples), context).result
+    ref_samples = bat_sample_impl(dist, IIDSampling(nsamples = nsamples), context).result
     ref_dist_logpdfs = ref_samples.logd
     samples_dist_logpdfs, ref_dist_logpdfs
 

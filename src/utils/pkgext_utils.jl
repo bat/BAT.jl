@@ -35,11 +35,11 @@ end
 
 
 """
-    BAT.ext_default(::PackageExtension{SomePackage}, ::Val{:SomeConstant})
+    BAT.ext_default(::PackageExtension{SomePackage}, ::Val{:SomeLabel}, args; kwargs...)
     
 *Experimental feature, not part of stable public API.*
 
-Returns the default value selected by `:SomeConstant` within the context of
+Returns the default value selected by `:SomeLabel` within the context of
 the package extension that depends on `SomePackage`.
 """
 function ext_default end

@@ -19,6 +19,8 @@ sys.stdout = open(os.devnull, 'w')
 
 
 @testset "test_ultranest" begin
+    context = BATContext()
+
     dist = product_distribution([
         MixtureModel([truncated(Normal(-1, 0.1), -2, 0), truncated(Normal(1, 0.1), 0, 2)], [0.5, 0.5]),
         MixtureModel([truncated(Normal(-2, 0.25), -3, -1), truncated(Normal(2, 0.25), 1, 3)], [0.3, 0.7]),
@@ -54,7 +56,7 @@ sys.stdout = open(os.devnull, 'w')
     @test isapprox(r.logintegral.val, logz_expected, atol = 10 * r.logintegral.err)
 
     # Ultranest uses Kish's ESS estimator:
-    @test r.ess ≈ bat_eff_sample_size(r.result, KishESS()).result
+    @test r.ess ≈ bat_eff_sample_size(r.result, KishESS(), context).result
 
     @test r.ess > 50
 end

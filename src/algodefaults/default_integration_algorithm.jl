@@ -2,4 +2,4 @@
 
 
 # ToDo: bat_default(::typeof(bat_integrate), ::Val{:algorithm}, ::AnySampleable) = BridgeSampling()
-bat_default(::typeof(bat_integrate), ::Val{:algorithm}, ::SampledMeasure) = BridgeSampling()
+bat_default(::typeof(bat_integrate), ::Val{:algorithm}, ::EvaluatedMeasure) = BridgeSampling()

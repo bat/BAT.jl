@@ -12,7 +12,7 @@ using BAT
 
 BAT.pkgext(::Val{:UltraNest}) = BAT.PackageExtension{:UltraNest}()
 
-using BAT: AbstractMeasureOrDensity
+using BAT: AnyMeasureOrDensity, AbstractMeasureOrDensity
 using BAT: transform_and_unshape, var_bounds, all_active_names, exec_map!
 
 using Random
@@ -24,10 +24,10 @@ import Measurements
 function BAT.bat_sample_impl(
     target::AnyMeasureOrDensity,
     algorithm::ReactiveNestedSampling,
-    ::BATContext
+    context::BATContext
 )
     density_notrafo = convert(AbstractMeasureOrDensity, target)
-    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo)
+    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo, context)
 
     vs = varshape(density)
 

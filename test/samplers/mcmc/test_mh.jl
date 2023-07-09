@@ -19,8 +19,8 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
  
     @testset "MCMC iteration" begin
         v_init = bat_initval(density, InitFromTarget(), context).result
-        @test @inferred(MCMCIterator(algorithm, density, 1, unshaped(v_init, varshape(density)), deepcopy(context))) isa BAT.MHIterator
-        chain = @inferred(MCMCIterator(algorithm, density, 1, unshaped(v_init, varshape(density)), deepcopy(context))) 
+        @test @inferred(BAT.MCMCIterator(algorithm, density, 1, unshaped(v_init, varshape(density)), deepcopy(context))) isa BAT.MHIterator
+        chain = @inferred(BAT.MCMCIterator(algorithm, density, 1, unshaped(v_init, varshape(density)), deepcopy(context))) 
         samples = DensitySampleVector(chain)
         BAT.mcmc_iterate!(samples, chain, max_nsteps = 10^5, nonzero_weights = false)
         @test chain.stepno == 10^5

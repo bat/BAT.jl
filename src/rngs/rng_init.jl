@@ -4,7 +4,7 @@ using Random123: Philox4x, Threefry4x
 using Random123: random123_r, gen_seed
 
 
-@deprecate bat_rng() HeterogeneousComputing.get_rng(BAT.default_context())
+@deprecate bat_rng() HeterogeneousComputing.get_rng(BAT.get_batcontext())
 
 _bat_determ_rng() = Philox4x((0, 0))::Philox4x{UInt64,10}
 

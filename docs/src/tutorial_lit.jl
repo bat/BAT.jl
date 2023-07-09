@@ -39,9 +39,10 @@
 
 using Random, LinearAlgebra, Statistics, Distributions, StatsBase
 
-# As the underlying truth of our input data/histogram, let us choose an
-# non-normalized probability density composed of two Gaussian peaks with a peak
-# area of 500 and 1000, a mean of -1.0 and 2.0 and a standard error of 0.5
+# As the underlying truth of our input data/histogram, let us choose the
+# expected count to follow the sum of two Gaussian peaks with peak
+# areas of 500 and 1000, a mean of -1.0 and 2.0 and a standard error of 0.5.
+# Then 
 
 data = vcat(
     rand(Normal(-1.0, 0.5), 500),
@@ -198,9 +199,7 @@ logdensityof(likelihood, true_par_values)
 #
 # Next, we need to choose a sensible prior for the fit:
 
-using ValueShapes
-
-prior = NamedTupleDist(
+prior = distprod(
     a = [Weibull(1.1, 5000), Weibull(1.1, 5000)],
     mu = [-2.0..0.0, 1.0..3.0],
     sigma = Weibull(1.2, 2)
@@ -214,13 +213,6 @@ prior = NamedTupleDist(
 # use `convert(AbstractMeasureOrDensity, distribution)` to convert any
 # continuous multivariate `Distributions.Distribution` to a
 # `BAT.AbstractMeasureOrDensity` that can be used as a prior (or likelihood).
-#
-# The prior also implies the shapes of the parameters:
-
-parshapes = varshape(prior)
-
-# These will come in handy later on, e.g. to access (the posterior
-# distribution of) individual parameter values.
 
 
 # ### Bayesian Model Definition
@@ -261,29 +253,15 @@ println("Stddev: $(std(samples))")
 # Internally, BAT often needs to represent variates as flat real-valued
 # vectors:
 
-unshaped.(samples).v
-
-# BAT uses [ValueShapes.jl](https://github.com/oschulz/ValueShapes.jl)
-# to implement a dual view of variate values in both shaped and unshaped form,
-# based on shape inferred from the prior and propagated to the posterior.
-# Shaped and unshaped samples are views of the same data in memory.
-# The variate/parameter shape can be accessed via
-
-parshapes = varshape(posterior)
+unshaped_samples, f_flatten = bat_transform(Vector, samples)
 
 # The statisics above (mode, mean and std-dev) are presented in shaped form.
 # However, it's not possible to represent statistics with matrix shape, e.g.
 # the parameter covariance matrix, this way. So the covariance has to be
 # accessed in unshaped form:
 
-par_cov = cov(unshaped.(samples))
+par_cov = cov(unshaped_samples)
 println("Covariance: $par_cov")
-
-# Our `parshapes` is a `NamedTupleShape`. It's properties (i.e. individual
-# parameter accessors) can be used as indices to query the covariance between
-# specific parameters:
-
-par_cov[parshapes.mu, parshapes.sigma]
 
 
 # Use `bat_report` to generate an overview of the sampling result and parameter estimates (based on the marginal distributions):
@@ -369,7 +347,12 @@ samples_mode isa NamedTuple
 # `samples_mode` is only an estimate of the mode of the posterior
 # distribution. It can be further refined using [`bat_findmode`](@ref):
 
-findmode_result = bat_findmode(posterior, NelderMeadOpt(init = ExplicitInit([samples_mode])))
+using Optim
+
+findmode_result = bat_findmode(
+    posterior,
+    OptimAlg(optalg = Optim.NelderMead(), init = ExplicitInit([samples_mode]))
+)
 
 fit_par_values = findmode_result.result
 
@@ -463,6 +446,7 @@ samples = bat_sample(
 #
 # ```julia
 # using FileIO
+# import JLD2
 # FileIO.save("results.jld2", Dict("samples" => samples))
 # ```
 #
@@ -470,7 +454,8 @@ samples = bat_sample(
 # reload exactly the same data into memory in a new Julia session via
 #
 # ```julia
-# using FileIO, BAT
+# using FileIO
+# import JLD2
 # samples = FileIO.load("results.jld2", "samples")
 # ```
 #

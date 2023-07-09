@@ -4,6 +4,8 @@
 """
     struct Renormalized <: AbstractMeasureOrDensity
 
+*BAT-internal, not part of stable public API.*
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(density::AbstractMeasureOrDensity, logrenormf::Real)```
@@ -64,6 +66,7 @@ bat_sampler(density::Renormalized) = bat_sampler(parent(density))
 Statistics.cov(density::Renormalized) = cov(parent(density))
 
 
+# ToDo: Turns this into a proper bat_renormalize API function with context handling, etc.:
 """
     BAT.renormalize_density(density::AbstractMeasureOrDensity, logrenormf::Real)::AbstractMeasureOrDensity
 
@@ -84,3 +87,45 @@ renormalize_density(density::Any, logrenormf::Real) = renormalize_density(conver
 renormalize_density(density::AbstractMeasureOrDensity, logrenormf::Real) = Renormalized(density, logrenormf)
 
 renormalize_density(density::Renormalized, logrenormf::Real) = renormalize_density(parent(density), density.logrenormf + logrenormf)
+
+function renormalize_density(measure::PosteriorMeasure, logrenormf::Real)
+    likelihood, prior = getlikelihood(measure), getprior(measure)
+    new_likelihood = logfuncdensity(Add(logrenormf) ∘ logdensityof(likelihood))
+    lbqintegral(new_likelihood, prior)
+end
+
+
+_estimated_max_logd(::AnyMeasureOrDensity) = missing
+_estimated_max_logd(::Nothing) = missing
+
+function _estimated_max_logd(samples::DensitySampleVector)
+    logrenormf = maximum(samples.logd)
+    isnan(logrenormf) || isinf(logrenormf) ? zero(logrenormf) : logrenormf
+end
+
+function _generic_auto_renormalize_impl(measure::AnyMeasureOrDensity, max_logd::Real)
+    logrenormf = - max_logd
+    result = renormalize_density(measure, logrenormf)
+    (result = result, logrenormf = logrenormf)
+end
+
+function _generic_auto_renormalize_impl(measure::AnyMeasureOrDensity, ::Missing)
+    (result = measure, logrenormf = false)
+end
+
+
+# ToDo: This should just be a method of a proper `bat_renormalize`` API function
+# when using an `AutoRenormalize` (or similar name) algorithm:
+"""
+    BAT.auto_renormalize(measure::AnyMeasureOrDensity)
+
+*Experimental feature, not part of stable public API.*
+
+Returns `(result = new_measure, logrenormf = logrenormf)`.
+
+Tries to automatically renormalize `measure` if a maxium log-density value
+is available, returns `measure` unchanged otherwise.
+"""
+function auto_renormalize(measure::AnyMeasureOrDensity)
+    _generic_auto_renormalize_impl(measure, _estimated_max_logd(measure))
+end

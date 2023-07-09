@@ -7,6 +7,8 @@ using LinearAlgebra, Random, StableRNGs
 using DensityInterface, ValueShapes
 using ArraysOfArrays, Distributions, PDMats, StatsBase
 
+using BAT: BATDensity
+
 struct _TestDensityStruct{T} <: BATDensity
     mvn::T
 end

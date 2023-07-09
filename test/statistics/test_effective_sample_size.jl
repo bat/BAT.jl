@@ -21,10 +21,11 @@ using StableRNGs
     v1 = flatview(v)[1, :]
 
     @testset "BAT.bat_integrated_autocorr_len" begin
-        @test @inferred(bat_integrated_autocorr_len(v1, GeyerAutocorLen())).result ≈ 52.2404651916953
-        @test @inferred(bat_integrated_autocorr_len(v, GeyerAutocorLen())).result ≈ [52.240465191695314, 17.04353447359818, 38.393838710754345]
+        context = BATContext()
+        @test @inferred(bat_integrated_autocorr_len(v1, GeyerAutocorLen(), context)).result ≈ 52.2404651916953
+        @test @inferred(bat_integrated_autocorr_len(v, GeyerAutocorLen(), context)).result ≈ [52.240465191695314, 17.04353447359818, 38.393838710754345]
 
-        @test @inferred(bat_integrated_autocorr_len(v1, SokalAutocorLen())).result ≈ 44.243392655975356
-        @test @inferred(bat_integrated_autocorr_len(v, SokalAutocorLen())).result ≈ [44.243392655975356, 16.794891919657566, 31.94870020972804]
+        @test @inferred(bat_integrated_autocorr_len(v1, SokalAutocorLen(), context)).result ≈ 44.243392655975356
+        @test @inferred(bat_integrated_autocorr_len(v, SokalAutocorLen(), context)).result ≈ [44.243392655975356, 16.794891919657566, 31.94870020972804]
     end
 end

@@ -9,25 +9,23 @@ The features listed here are likely to transition to the stable API in future
 versions, but may still evolve in a API-breaking fashion during that process.
 
 ```@docs
+ARPWeighting
 bat_compare
+bat_integrated_autocorr_len
 bat_marginalmode
-BAT.default_context
+BAT.auto_renormalize
+BAT.BinnedModeEstimator
 BAT.DistributionTransform
 BAT.enable_error_log
 BAT.error_log
 BAT.EvalException
 BAT.ext_default
-BAT.ExternalDensity
 BAT.get_adselector
-BAT.get_context
 BAT.LogUniform
 BAT.PackageExtension
 BAT.pkgext
 BAT.set_rng
-BATContext
 BridgeSampling
-CuhreIntegration
-DivonneIntegration
 EllipsoidalNestedSampling
 GridSampler
 HierarchicalDistribution
@@ -35,8 +33,6 @@ PriorImportanceSampler
 ReactiveNestedSampling
 renormalize_density
 SobolSampler
-SuaveIntegration
 truncate_density
 ValueAndThreshold
-VEGASIntegration
 ```

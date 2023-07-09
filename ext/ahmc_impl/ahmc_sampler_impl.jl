@@ -1,52 +1,18 @@
-abstract type HMCTuningAlgorithm <: MCMCTuningAlgorithm end
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+BAT.bat_default(::Type{MCMCSampling}, ::Val{:trafo}, mcalg::HamiltonianMC) = PriorToGaussian()
 
-"""
-    struct HamiltonianMC <: MCMCAlgorithm
+BAT.bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, mcalg::HamiltonianMC, trafo::AbstractTransformTarget, nchains::Integer) = 10^4
 
-Hamiltonian Monte Carlo sampling algorithm.
-
-The gradient of the target density is computed via auto-differentiation.
-
-* Note: The fields of `HamiltonianMC` are still subject to change, and not
-yet part of stable public API!*
-
-Constructors:
-
-* ```$(FUNCTIONNAME)(; fields...)```
-
-Fields:
-
-$(TYPEDFIELDS)
-"""
-@with_kw struct HamiltonianMC{
-    MT<:HMCMetric,
-    IT<:HMCIntegrator,
-    PR<:HMCProposal,
-    TN<:HMCTuningAlgorithm
-} <: MCMCAlgorithm
-    metric::MT = DiagEuclideanMetric()
-    integrator::IT = LeapfrogIntegrator()
-    proposal::PR = NUTSProposal()
-    tuning::TN = StanHMCTuning()
-end
-
-export HamiltonianMC
-
-
-bat_default(::Type{MCMCSampling}, ::Val{:trafo}, mcalg::HamiltonianMC) = PriorToGaussian()
-
-bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, mcalg::HamiltonianMC, trafo::AbstractTransformTarget, nchains::Integer) = 10^4
-
-bat_default(::Type{MCMCSampling}, ::Val{:init}, mcalg::HamiltonianMC, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+BAT.bat_default(::Type{MCMCSampling}, ::Val{:init}, mcalg::HamiltonianMC, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCChainPoolInit(nsteps_init = 25) # clamp(div(nsteps, 100), 25, 250)
 
-bat_default(::Type{MCMCSampling}, ::Val{:burnin}, mcalg::HamiltonianMC, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+BAT.bat_default(::Type{MCMCSampling}, ::Val{:burnin}, mcalg::HamiltonianMC, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 250), max_ncycles = 4)
 
 
-get_mcmc_tuning(algorithm::HamiltonianMC) = algorithm.tuning
+BAT.get_mcmc_tuning(algorithm::HamiltonianMC) = algorithm.tuning
 
 
 # MCMCIterator subtype for HamiltonianMC
@@ -162,25 +128,25 @@ end
 @inline _proposed_sample_idx(chain::AHMCIterator) = lastindex(chain.samples)
 
 
-getalgorithm(chain::AHMCIterator) = chain.algorithm
+BAT.getalgorithm(chain::AHMCIterator) = chain.algorithm
 
-getmeasure(chain::AHMCIterator) = chain.density
+BAT.getmeasure(chain::AHMCIterator) = chain.density
 
-get_context(chain::AHMCIterator) = chain.context
+BAT.get_context(chain::AHMCIterator) = chain.context
 
-mcmc_info(chain::AHMCIterator) = chain.info
+BAT.mcmc_info(chain::AHMCIterator) = chain.info
 
-nsteps(chain::AHMCIterator) = chain.stepno
+BAT.nsteps(chain::AHMCIterator) = chain.stepno
 
-nsamples(chain::AHMCIterator) = chain.nsamples
+BAT.nsamples(chain::AHMCIterator) = chain.nsamples
 
-current_sample(chain::AHMCIterator) = chain.samples[_current_sample_idx(chain)]
+BAT.current_sample(chain::AHMCIterator) = chain.samples[_current_sample_idx(chain)]
 
-sample_type(chain::AHMCIterator) = eltype(chain.samples)
+BAT.sample_type(chain::AHMCIterator) = eltype(chain.samples)
 
 
 
-function reset_rng_counters!(chain::AHMCIterator)
+function BAT.reset_rng_counters!(chain::AHMCIterator)
     rng = get_rng(get_context(chain))
     set_rng!(rng, chain.rngpart_cycle, chain.info.cycle)
     rngpart_step = RNGPartition(rng, 0:(typemax(Int32) - 2))
@@ -189,13 +155,13 @@ function reset_rng_counters!(chain::AHMCIterator)
 end
 
 
-function samples_available(chain::AHMCIterator)
+function BAT.samples_available(chain::AHMCIterator)
     i = _current_sample_idx(chain::AHMCIterator)
     chain.samples.info.sampletype[i] == ACCEPTED_SAMPLE
 end
 
 
-function get_samples!(appendable, chain::AHMCIterator, nonzero_weights::Bool)::typeof(appendable)
+function BAT.get_samples!(appendable, chain::AHMCIterator, nonzero_weights::Bool)::typeof(appendable)
     if samples_available(chain)
         samples = chain.samples
 
@@ -213,7 +179,7 @@ function get_samples!(appendable, chain::AHMCIterator, nonzero_weights::Bool)::t
 end
 
 
-function next_cycle!(chain::AHMCIterator)
+function BAT.next_cycle!(chain::AHMCIterator)
     _cleanup_samples(chain)
 
     chain.info = MCMCIteratorInfo(chain.info, cycle = chain.info.cycle + 1)
@@ -257,7 +223,7 @@ function _cleanup_samples(chain::AHMCIterator)
 end
 
 
-function mcmc_step!(chain::AHMCIterator)
+function BAT.mcmc_step!(chain::AHMCIterator)
     _cleanup_samples(chain)
 
     samples = chain.samples
@@ -328,4 +294,4 @@ function mcmc_step!(chain::AHMCIterator)
 end
 
 
-eff_acceptance_ratio(chain::AHMCIterator) = nsamples(chain) / nsteps(chain)
+BAT.eff_acceptance_ratio(chain::AHMCIterator) = nsamples(chain) / nsteps(chain)

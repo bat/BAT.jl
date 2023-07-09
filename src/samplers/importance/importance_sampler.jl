@@ -49,7 +49,7 @@ function bat_sample_impl(
     context::BATContext
 )
     density_notrafo = convert(AbstractMeasureOrDensity, target)
-    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo)
+    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo, context)
     shape = varshape(density)
 
     samples = _gen_samples(density, algorithm)
@@ -116,7 +116,7 @@ function bat_sample_impl(
     shape = varshape(posterior)
 
     prior = getprior(posterior)
-    prior_samples = bat_sample(prior, IIDSampling(nsamples = algorithm.nsamples), context).result
+    prior_samples = bat_sample_impl(prior, IIDSampling(nsamples = algorithm.nsamples), context).result
     unshaped_prior_samples = unshaped.(prior_samples)
 
     v = unshaped_prior_samples.v
