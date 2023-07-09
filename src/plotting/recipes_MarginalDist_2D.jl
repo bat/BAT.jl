@@ -184,6 +184,8 @@
 end
 
 
+# Shouldn't be used anymore:
+#=
 
 # rectangle bounds
 @recipe function f(bounds::HyperRectBounds, vsel::NTuple{2,Integer})
@@ -209,3 +211,5 @@ end
 
     nothing
 end
+
+=#
