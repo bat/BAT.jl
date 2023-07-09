@@ -8,6 +8,7 @@ using BAT.InverseFunctions
 import BAT: TransformedMCMCIterator, TransformedAdaptiveMHTuning, TransformedRAMTuner, TransformedMHProposal, TransformedNoTransformedMCMCTempering, transformed_mcmc_step!!, TransformedMCMCTransformedSampleID
 using Random123, PositiveFactorizations
 using AutoDiffOperators
+import AdvancedHMC
 
 import BAT: mcmc_iterate!, transformed_mcmc_iterate!, TransformedMCMCSampling
 
@@ -21,7 +22,7 @@ my_result = @time BAT.bat_sample_impl(posterior, TransformedMCMCSampling(pre_tra
 
 
 density_notrafo = convert(BAT.AbstractMeasureOrDensity, posterior)
-density, trafo = BAT.transform_and_unshape(PriorToGaussian(), density_notrafo)
+density, trafo = BAT.transform_and_unshape(PriorToGaussian(), density_notrafo, context)
 
 s = cholesky(Positive, BAT._approx_cov(density)).L
 f = BAT.CustomTransform(Mul(s))
