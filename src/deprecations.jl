@@ -8,7 +8,7 @@ end
 export MaxDensityNelderMead
 
 @noinline function MaxDensityLBFGS(; kwargs...)
-    Base.depwarn("`MaxDensityLBFGS(;kwargs...)` is deprecated, use `OptimAlg(;optalg = Optim.NelderMead, kwargs...)` instead.", :MaxDensityLBFGS)
+    Base.depwarn("`MaxDensityLBFGS(;kwargs...)` is deprecated, use `OptimAlg(;optalg = Optim.LBFGS, kwargs...)` instead.", :MaxDensityLBFGS)
     optalg = BAT.ext_default(pkgext(Val(:Optim)), Val(:LBFGS_ALG))
     OptimAlg(; optalg=optalg, kwargs...)
 end
@@ -22,7 +22,7 @@ end
 export NelderMeadOpt
 
 @noinline function LBFGSOpt(; kwargs...)
-    Base.depwarn("`NelderMeadOpt(;kwargs...)` is deprecated, use `LBFGSOpt(;optalg = Optim.NelderMead, kwargs...)` instead.", :LBFGSOpt)
+    Base.depwarn("`LBFGSOpt(;kwargs...)` is deprecated, use `OptimAlg(;optalg = Optim.LBFGS, kwargs...)` instead.", :LBFGSOpt)
     optalg = BAT.ext_default(pkgext(Val(:Optim)), Val(:LBFGS_ALG))
     OptimAlg(; optalg=optalg, kwargs...)
 end
