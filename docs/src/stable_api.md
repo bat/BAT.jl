@@ -50,7 +50,6 @@ distprod
 lbqintegral
 
 AbstractMCMCWeightingScheme
-AbstractMedianEstimator
 AbstractPosteriorMeasure
 AbstractTransformTarget
 AdaptiveMHTuning
@@ -105,7 +104,16 @@ SokalAutocorLen
 SuaveIntegration
 TransformAlgorithm
 VEGASIntegration
+BinningAlgorithm
+FixedNBins
+FreedmanDiaconisBinning
+RiceBinning
+ScottBinning
+SquareRootBinning
+SturgesBinning
+ToRealVector
 
+BAT.AbstractMedianEstimator
 BAT.AbstractModeEstimator
 BAT.AbstractSamplingAlgorithm
 BAT.ConvergenceTest
