@@ -85,6 +85,8 @@ Breaking changes
 
 * `SampledMeasure` (formerly `SampledDensity`) have been replaced by `EvaluatedMeasure`.
 
+* Some type-pirating prior plotting recipes have been removed, to be re-added in a clean way.
+
 * Pending: BAT will rely less on ValueShapes in the future. Do not use ValueShapes functionality directly where avoidable. Use `distprod` instead of using `ValueShapes.NamedTupleDist` directly, and favor using `bat_transform` instead of shaping and unshaping data using values shapes directly, if possible.
 
 * Use the new function `bat_report` to generate a sampling output report instead of `show(BAT.SampledDensity(samples))`.

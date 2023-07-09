@@ -83,6 +83,6 @@ $(TYPEDFIELDS)
 end
 export AssumeConvergence
 
-function bat_convergence_impl(algoutput::Any, algorithm::AssumeConvergence)
+function bat_convergence_impl(algoutput::Any, algorithm::AssumeConvergence, ::BATContext)
     (result = algorithm.converged,)
 end
