@@ -146,16 +146,18 @@ nsteps = 10^5
 algorithm = MCMCSampling(mcalg = HamiltonianMC(), nchains = nchains, nsteps = nsteps)
 
 samples_bkg = bat_sample(posterior_bkg, algorithm).result
+eval_bkg = EvaluatedMeasure(posterior_bkg, samples = samples_bkg)
 
-#@show evidence_bkg_ahmi = bat_integrate(samples_bkg, AHMIntegration()).result
-@show evidence_bkg_cuba = bat_integrate(posterior_bkg, VEGASIntegration(log_density_shift = -maximum(samples_bkg.logd), maxevals = 10^6, rtol = 0.005)).result
+@show evidence_bkg_bridge = bat_integrate(eval_bkg, BridgeSampling()).result
+@show evidence_bkg_cuba = bat_integrate(eval_bkg, VEGASIntegration(maxevals = 10^6, rtol = 0.005)).result
 
 samples_bkg_signal = bat_sample(posterior_bkg_signal, algorithm).result
+eval_bkg_signal = EvaluatedMeasure(posterior_bkg_signal, samples = samples_bkg_signal)
 
-#@show evidence_bkg_signal_ahmi = bat_integrate(samples_bkg_signal, AHMIntegration()).result
-@show evidence_bkg_signal_cuba = bat_integrate(posterior_bkg_signal, VEGASIntegration(log_density_shift = -maximum(samples_bkg_signal.logd), maxevals = 10^6, rtol = 0.005)).result
+@show evidence_bkg_signal_bridge = bat_integrate(eval_bkg_signal, BridgeSampling()).result
+@show evidence_bkg_signal_cuba = bat_integrate(eval_bkg_signal, VEGASIntegration(maxevals = 10^6, rtol = 0.005)).result
 
-#@show BF_exponential_ahmi = evidence_bkg_signal_ahmi / evidence_bkg_ahmi
+#@show BF_exponential_bridge = evidence_bkg_signal_bridge / evidence_bkg_bridge
 @show BF_exponential_cuba = evidence_bkg_signal_cuba / evidence_bkg_cuba
 
 @show bkg_sig_marginal_modes = bat_marginalmode(samples_bkg_signal).result
