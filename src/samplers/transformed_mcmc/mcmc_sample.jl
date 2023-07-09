@@ -56,7 +56,7 @@ function bat_sample_impl(
     context::BATContext
 )
     density_notrafo = convert(AbstractMeasureOrDensity, target)
-    density, trafo = transform_and_unshape(algorithm.pre_transform, density_notrafo)
+    density, trafo = transform_and_unshape(algorithm.pre_transform, density_notrafo, context)
 
     init = mcmc_init!(
         algorithm,
@@ -113,6 +113,7 @@ function bat_sample_impl(
     (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = TransformedMCMCSampleGenerator(chains, algorithm))
 end
 
+#=
 function _bat_sample_continue(
     target::AnyMeasureOrDensity,
     generator::TransformedMCMCSampleGenerator,
@@ -130,6 +131,7 @@ function _bat_sample_continue(
 
     (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = TransformedMCMCSampleGenerator(chains, algorithm))
 end
+=#
 
 function _run_sample_impl(
     density::AnyMeasureOrDensity,

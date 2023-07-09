@@ -64,7 +64,7 @@ function mcmc_burnin!(
         
         isnothing(outputs) || append!(outputs, reduce(vcat, new_outputs))
 
-        transformed_check_convergence!(chains, new_outputs, convergence_test) # TODO AC: Rename
+        transformed_check_convergence!(chains, new_outputs, convergence_test, BATContext()) # TODO AC: Rename
 
         # check_tuned/update_tuners...
         ntuned = count(c -> c.info.tuned, chains)
