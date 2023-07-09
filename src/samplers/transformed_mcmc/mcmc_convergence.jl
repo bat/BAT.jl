@@ -5,8 +5,9 @@ function transformed_check_convergence!(
     chains::AbstractVector{<:MCMCIterator},
     samples::AbstractVector{<:DensitySampleVector},
     algorithm::ConvergenceTest,
+    context::BATContext
 )
-    result = convert(Bool, bat_convergence(samples, algorithm).result)
+    result = convert(Bool, bat_convergence(samples, algorithm, context).result)
     for chain in chains
         chain.info = TransformedMCMCIteratorInfo(chain.info, converged = result)
     end
@@ -59,7 +60,7 @@ end
 
 export TransformedGelmanRubinConvergence
 
-function bat_convergence_impl(samples::AbstractVector{<:DensitySampleVector}, algorithm::TransformedGelmanRubinConvergence)
+function bat_convergence_impl(samples::AbstractVector{<:DensitySampleVector}, algorithm::TransformedGelmanRubinConvergence, ::BATContext)
     max_Rsqr = maximum(gr_Rsqr(samples))
     vt = ValueAndThreshold{max_Rsqr}(max_Rsqr, <=, algorithm.threshold)
     converged = convert(Bool, vt)
@@ -141,7 +142,7 @@ end
 
 export TransformedBrooksGelmanConvergence
 
-function bat_convergence_impl(samples::AbstractVector{<:DensitySampleVector}, algorithm::TransformedBrooksGelmanConvergence)
+function bat_convergence_impl(samples::AbstractVector{<:DensitySampleVector}, algorithm::TransformedBrooksGelmanConvergence, ::BATContext)
     max_Rsqr = maximum(bg_R_2sqr(samples, corrected = algorithm.corrected))
     vt = ValueAndThreshold{max_Rsqr}(max_Rsqr, <=, algorithm.threshold)
     converged = convert(Bool, vt)
@@ -154,7 +155,7 @@ end
 
 
 
-function bat_convergence_impl(samples::DensitySampleVector, algorithm::Union{TransformedGelmanRubinConvergence, TransformedBrooksGelmanConvergence})
+function bat_convergence_impl(samples::DensitySampleVector, algorithm::Union{TransformedGelmanRubinConvergence, TransformedBrooksGelmanConvergence}, context::BATContext)
     # create a vector of chains
     chains_ind = unique([i.chainid for i in samples.info])
     vector_chains = DensitySampleVector[]
@@ -164,5 +165,5 @@ function bat_convergence_impl(samples::DensitySampleVector, algorithm::Union{Tra
         push!(vector_chains, samples[mask_chain])
     end
 
-    bat_convergence_impl(vector_chains, algorithm)
+    bat_convergence_impl(vector_chains, algorithm, context)
 end
