@@ -1,5 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+# Disabled due to type piracy:
+
+#=
+
 # 1D
 @recipe function f(
     prior::NamedTupleDist,
@@ -113,3 +117,5 @@ end
         marg, vsel
     end
 end
+
+=#

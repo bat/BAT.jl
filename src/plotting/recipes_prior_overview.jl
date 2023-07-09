@@ -1,5 +1,8 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+# Disabled due to type piracy:
+
+#=
 @recipe function f(
     prior::NamedTupleDist;
     vsel = collect(1:5),
@@ -108,3 +111,4 @@
         end
     end
 end
+=#

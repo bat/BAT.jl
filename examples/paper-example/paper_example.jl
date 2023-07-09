@@ -165,10 +165,10 @@ eval_bkg_signal = EvaluatedMeasure(posterior_bkg_signal, samples = samples_bkg_s
 p_1 = plot(size=(800,500), layout=(2,2), labelfontsize=12, tickfontsize=10, legendfontsize=7)
 #upper left
 p_1 = plot!(samples_bkg_signal, :S, subplot=1, label = "Posterior")
-p_1 = plot!(parent_prior_bkg_signal, :S, subplot=1, label = "Prior", linecolor = "blue")
+#p_1 = plot!(parent_prior_bkg_signal, :S, subplot=1, label = "Prior", linecolor = "blue")
 #lower right
 p_1 = plot!(samples_bkg_signal, :λ, subplot=4, label = "Posterior", legend=false)
-p_1 = plot!(parent_prior_bkg_signal, :λ, subplot=4, label = "Prior", linecolor = "blue")
+#p_1 = plot!(parent_prior_bkg_signal, :λ, subplot=4, label = "Prior", linecolor = "blue")
 #upper right
 p_1 = plot!(samples_bkg_signal, (:S, :λ), subplot=2, st = :histogram, legend=false, colorbar=false)
 #lower left
@@ -182,10 +182,10 @@ savefig(p_1, "prior_posterior.png")
 p_2 = plot(size=(800,500), layout=(2,2), labelfontsize=12, tickfontsize=10, legendfontsize=7)
 #upper left
 p_2 = plot!(samples_bkg_signal, :m_B, subplot=1, label = "Posterior")
-p_2 = plot!(parent_prior_bkg_signal, :m_B, subplot=1, label = "Prior", linecolor = "blue")
+#p_2 = plot!(parent_prior_bkg_signal, :m_B, subplot=1, label = "Prior", linecolor = "blue")
 #lower right
 p_2 = plot!(samples_bkg_signal, :σ_B, subplot=4, label = "Posterior", legend=false)
-p_2 = plot!(parent_prior_bkg_signal, :σ_B, subplot=4, label = "Prior", linecolor = "blue")
+#p_2 = plot!(parent_prior_bkg_signal, :σ_B, subplot=4, label = "Prior", linecolor = "blue")
 #upper right
 p_2 = plot!(samples_bkg_signal, (:m_B, :σ_B), subplot=2, st = :histogram, legend=false, colorbar=false)
 #lower left
