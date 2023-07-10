@@ -147,6 +147,8 @@ ValueShapes.unshaped(d::HierarchicalDistribution) = UnshapedHDist(d)
 
 Base.length(ud::UnshapedHDist) = length(ud.shaped)
 
+eff_totalndof(d::UnshapedHDist) = eff_totalndof(d.shaped)
+
 Base.eltype(ud::UnshapedHDist{VF,T}) where {VF,T} = T
 
 
@@ -187,7 +189,7 @@ end
 =#
 
 function _hd_split(ud::UnshapedHDist, x::AbstractVector{<:Real})
-    @argcheck length(ud) == length(eachindex(x))
+    @argcheck eff_totalndof(ud) == length(eachindex(x))
     np = length(_hd_pridist(ud))
     idxs = eachindex(x)
     idxs_primary = first(idxs):(first(idxs) + np - 1)
