@@ -71,7 +71,7 @@ function tune_mcmc_transform!!(
 )
     @unpack target_acceptance, gamma = tuner.config
     n = size(z_current,1)
-    η = min(1, n * stepno^(-gamma))
+    η = min(1, n * tuner.nsteps^(-gamma))
 
     s_L = transform.A
 
