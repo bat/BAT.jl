@@ -147,6 +147,8 @@ ValueShapes.unshaped(d::HierarchicalDistribution) = UnshapedHDist(d)
 
 Base.length(ud::UnshapedHDist) = length(ud.shaped)
 
+eff_totalndof(d::UnshapedHDist) = eff_totalndof(d.shaped)
+
 Base.eltype(ud::UnshapedHDist{VF,T}) where {VF,T} = T
 
 
