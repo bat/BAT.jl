@@ -146,7 +146,7 @@ function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::EffSamp
     w0 = first(W)
 
     unshaped_ess = if all(w -> w ≈ w0, W)
-        bat_eff_sample_size_impl(unshaped_smpls.v, algorithm).result
+        bat_eff_sample_size_impl(unshaped_smpls.v, algorithm, context).result
     else
         # If weights not uniform, resample to get unweighted samples. Kish's
         # approximation of ESS for weighted samples is often not good enough.

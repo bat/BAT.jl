@@ -12,7 +12,7 @@ BAT.jl originated as a rewrite/redesign of [BAT](https://github.com/bat/bat), th
 
 !!! note
 
-    BAT.jl requires Julia >= v1.3, we recommend to use Julia >= v1.6.
+    BAT.jl requires Julia >= v1.6, we recommend to use Julia >= v1.9 for optimal performance.
 
 
 ## Table of contents

@@ -684,7 +684,7 @@ function apply_dist_trafo(trg_d::StdMvDist, src_d::HierarchicalDistribution, src
 end
 
 function apply_dist_trafo(trg_d::UnshapedHDist, src_d::StdMvDist, src_v::AbstractVector{<:Real})
-    src_v_primary, src_v_secondary = _hd_split(trg_d, src_v)
+    src_v_primary, src_v_secondary = _hd_split_efftotalndof(trg_d, src_v)
     src_d_primary = typeof(src_d)(length(eachindex(src_v_primary)))
     src_d_secondary = typeof(src_d)(length(eachindex(src_v_secondary)))
     trg_v_primary = apply_dist_trafo(_hd_pridist(trg_d), src_d_primary, src_v_primary)

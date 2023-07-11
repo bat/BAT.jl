@@ -1,12 +1,12 @@
 # Plot Recipes
-The plot recipes described below apply for plotting samples and priors. Only the plotting of estimators (mean, standard deviation, global mode and local mode) is currently only supported for samples.
+The plot recipes described below apply for plotting samples. Only the plotting of estimators (mean, standard deviation, global mode and local mode) is currently only supported for samples.
 
 Also see the plotting tutorial for examples and further information on the plotting options.
 
 ## 1D plots
 ``` julia
 plot(
-    samples::DensitySampleVector / prior::NamedTupleDist,
+    samples::DensitySampleVector,
     vsel::Union{Integer, Symbol, Expr};
     intervals = BAT.default_credibilities,
     bins = 200,
@@ -21,7 +21,7 @@ plot(
 )
 ```
 Required inputs:
-  * `samples::DensitySampleVector` or `prior::NamedTupleDist`: samples or prior to be plotted
+  * `samples::DensitySampleVector`: samples to be plotted
   * `vsel::Union{Integer, Symbol, Expr}`: index or name of the parameter to be plotted
 
 Keyword arguments:
@@ -30,7 +30,7 @@ Keyword arguments:
 	* `:smallest_intervals` (default for samples), alias `:HDR`
     * `:central_intervals`
     * `:histogram`, alias `:steppost`
-    * `:stephist` (default for prior)
+    * `:stephist`
 
 * `bins::Union{Integer, AbstractRange} = 200`: number of histogram bins or bin edges.
 
@@ -62,7 +62,7 @@ Keyword arguments for [attributes supported by *Plots.jl*](https://docs.juliaplo
 ## 2D plots
 ``` julia
 plot(
-    samples::DensitySampleVector / prior::NamedTupleDist,
+    samples::DensitySampleVector,
     vsel::Union{NTuple{2, Integer}, NTuple{2, Union{Symbol, Expr}}};
     intervals = BAT.default_credibilities,
 	interval_labels = [],
@@ -81,14 +81,14 @@ plot(
 )
 ```
 Required inputs:
-  * `samples::DensitySampleVector` or `prior::NamedTupleDist`: samples or prior to be plotted
+  * `samples::DensitySampleVector`: samples to be plotted
   * `vsel::Union{NTuple{2, Integer}, NTuple{2, Union{Symbol, Expr}}}`: indices or names of the two parameters to be plotted
 
 Keyword arguments:
   * `seriestype::Symbol = :smallest_intervals`: plot style  
 	available seriestypes:
 	* `:smallest_intervals` (default for samples)
-	* `:smallest_intervals_contour` (default for prior)
+	* `:smallest_intervals_contour`
 	* `:smallest_intervals_contourf`: filled contours)
 	* `:histogram`, alias `:hist`, alias `:histogram2d`
     * `:scatter`
@@ -130,7 +130,7 @@ Keyword arguments for [attributes supported by *Plots.jl*](https://docs.juliaplo
 ## 1D & 2D overview plots
 ``` julia
 plot(
-	samples::DensitySampleVector / prior::NamedTupleDist;
+	samples::DensitySampleVector;
     vsel=collect(1:5),
 	bins = 200,
     mean=false,
@@ -146,7 +146,7 @@ plot(
 Plot a grid with the 1D marginalized distributions on the diagonal and all combinations of the 2D marginalized distributions in the lower and upper triangle.
 
 Required inputs:
-  * `samples::DensitySampleVector` or `prior::NamedTupleDist`: samples or prior to be plotted
+  * `samples::DensitySampleVector`: samples to be plotted
 
 Keyword arguments:
   * `vsel = collect(1:5)`: indices or parameter names of the parameters to be plotted. By default (up to) the first five parameters are plotted.

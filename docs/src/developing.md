@@ -6,7 +6,7 @@ To generate and view a local version of the documentation, run
 
 ```shell
 cd docs
-julia make.jl local
+julia make.jl
 ```
 
 then open "docs/build/index.html" in your browser.

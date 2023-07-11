@@ -120,10 +120,13 @@ _estimated_max_logd(measure::EvaluatedMeasure) = _estimated_max_logd(something(m
 # end
 
 
-function bat_report!(md::Markdown.MD, sd::EvaluatedMeasure)
-    #bat_report!(md, sd.measure)
-    bat_report!(md, sd.samples)
-    bat_report!(md, sd._generator)
+function bat_report!(md::Markdown.MD, em::EvaluatedMeasure)
+    if !isnothing(em.samples)
+        bat_report!(md, em.samples)
+    end
+    if !isnothing(em._generator)
+        bat_report!(md, em._generator)
+    end
 
     return md
 end
