@@ -147,6 +147,8 @@ ValueShapes.unshaped(d::HierarchicalDistribution) = UnshapedHDist(d)
 
 Base.length(ud::UnshapedHDist) = length(ud.shaped)
 
+eff_totalndof(d::UnshapedHDist) = eff_totalndof(d.shaped)
+
 Base.eltype(ud::UnshapedHDist{VF,T}) where {VF,T} = T
 
 
@@ -189,12 +191,23 @@ end
 function _hd_split(ud::UnshapedHDist, x::AbstractVector{<:Real})
     @argcheck length(ud) == length(eachindex(x))
     np = length(_hd_pridist(ud))
+
+    __hd_split(ud, x, np)
+end
+
+function __hd_split(ud::UnshapedHDist, x::AbstractVector{<:Real}, np::Integer)
     idxs = eachindex(x)
     idxs_primary = first(idxs):(first(idxs) + np - 1)
     idxs_secondary = (first(idxs) + np):last(idxs)
     (view(x, idxs_primary), view(x, idxs_secondary))
 end
 
+function _hd_split_efftotalndof(ud::UnshapedHDist, x::AbstractVector{<:Real})
+    @argcheck eff_totalndof(ud) == length(eachindex(x))
+    np = eff_totalndof(_hd_pridist(ud))
+
+    __hd_split(ud, x, np)
+end
 
 function Distributions.logpdf(ud::UnshapedHDist, x::AbstractVector{<:Real})
     x_primary, x_secondary = _hd_split(ud, x)
