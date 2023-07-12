@@ -14,6 +14,7 @@ MeasureBase.getdof(m::DistMeasure) = eff_totalndof(m.dist)
 DistMeasure(d::Distribution) = DistMeasure(d, dist_param_bounds(d))
 
 Base.convert(::Type{AbstractMeasureOrDensity}, d::ContinuousDistribution) = DistMeasure(d)
+Base.convert(::Type{BATMeasure}, d::ContinuousDistribution) = DistMeasure(d)
 Base.convert(::Type{DistLikeMeasure}, d::ContinuousDistribution) = DistMeasure(d)
 
 Base.convert(::Type{Distribution}, d::DistMeasure) = d.dist
