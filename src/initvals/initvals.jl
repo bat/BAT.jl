@@ -23,7 +23,7 @@ _rand_v(rng::AbstractRNG, src::DensitySampleVector) =
 function _rand_v(rng::AbstractRNG, src::DensitySampleVector, n::Integer)
     orig_idxs = eachindex(src)
     weights = FrequencyWeights(float(src.weight))
-    resampled_idxs = sample(orig_idxs, weights, n, replace=false, ordered=false)
+    resampled_idxs = sample(rng, orig_idxs, weights, n, replace=false, ordered=false)
     samples = src[resampled_idxs]
 end
 
