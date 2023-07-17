@@ -48,7 +48,7 @@ function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::Densit
 end
 
 function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::DensitySampleVector, n::Integer)
-    bat_sample(src, BAT.set_rng(BAT.get_batcontext(), rng)).result.v
+    _rand_v(rng, src, n).v
 end
 
 
