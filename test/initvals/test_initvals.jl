@@ -27,7 +27,7 @@ using Distributions, PDMats, StatsBase, ValueShapes, ArraysOfArrays
         @test pdf(ds, bat_initval(ds, context).result) > 0
         @test @inferred(bat_initval(ds, 10, context)).result isa ShapedAsNTArray
         @test all(x -> x > 0, pdf.(Ref(ds), bat_initval(ds, 10, context).result))
-        v_s = BAT.bat_sample(du, BAT.IIDSampling(nsamples=1)).result
-        @test BAT.bat_initval(du, BAT.InitFromSamples(v_s), context).result == first(v_s.v)
+        v_s = BAT.bat_sample(ds, BAT.IIDSampling(nsamples=1)).result
+        @test BAT.bat_initval(ds, BAT.InitFromSamples(v_s), context).result == first(v_s.v)
     end
 end
