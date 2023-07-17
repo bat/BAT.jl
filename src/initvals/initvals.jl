@@ -28,14 +28,16 @@ function _rand_v(rng::AbstractRNG, src::DensitySampleVector, n::Integer)
 end
 
 
-function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::Any)
+function _rand_v_for_target(target::AnySampleable, src::Any, context::BATContext)
+    rng = get_rng(context)
     vs_target = varshape(convert(AbstractMeasureOrDensity, target))
     vs_src = varshape(convert(AbstractMeasureOrDensity, src))
     x = _rand_v(rng, src)
     reshape_variate(vs_target, vs_src, x)
 end
 
-function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::Any, n::Integer)
+function _rand_v_for_target(target::AnySampleable, src::Any, n::Integer, context::BATContext)
+    rng = get_rng(context)
     vs_target = varshape(convert(AbstractMeasureOrDensity, target))
     vs_src = varshape(convert(AbstractMeasureOrDensity, src))
     xs = _rand_v(rng, src, n)
@@ -43,12 +45,12 @@ function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::Any, n
 end
 
 
-function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::DensitySampleVector)
-    first(_rand_v_for_target(rng, target, src, 1))
+function _rand_v_for_target(target::AnySampleable, src::DensitySampleVector, context::BATContext)
+    first(_rand_v_for_target(target, src, 1, context))
 end
 
-function _rand_v_for_target(rng::AbstractRNG, target::AnySampleable, src::DensitySampleVector, n::Integer)
-    _rand_v(rng, src, n).v
+function _rand_v_for_target(target::AnySampleable, src::DensitySampleVector, n::Integer, context::BATContext)
+    bat_sample(src, RandResampling(nsamples = n), context).result.v
 end
 
 
@@ -87,12 +89,12 @@ get_initsrc_from_target(target::AbstractPosteriorMeasure) = get_initsrc_from_tar
 
 function bat_initval_impl(target::AnyMeasureOrDensity, algorithm::InitFromTarget, context::BATContext)
     rng = get_rng(context)
-    (result = _rand_v_for_target(rng, target, get_initsrc_from_target(target)),)
+    (result = _rand_v_for_target(target, get_initsrc_from_target(target), context),)
 end
 
 function bat_initval_impl(target::AnyMeasureOrDensity, n::Integer, algorithm::InitFromTarget, context::BATContext)
     rng = get_rng(context)
-    (result = _rand_v_for_target(rng, target, get_initsrc_from_target(target), n),)
+    (result = _rand_v_for_target(target, get_initsrc_from_target(target), n, context),)
 end
 
 
@@ -139,13 +141,11 @@ export InitFromSamples
 
 
 function bat_initval_impl(target::AnyMeasureOrDensity, algorithm::InitFromSamples, context::BATContext)
-    rng = get_rng(context)
-    (result = _rand_v_for_target(rng, target, algorithm.samples),)
+    (result = _rand_v_for_target(target, algorithm.samples, context),)
 end
 
 function bat_initval_impl(target::AnyMeasureOrDensity, n::Integer, algorithm::InitFromSamples, context::BATContext)
-    rng = get_rng(context)
-    (result = _rand_v_for_target(rng, target, algorithm.samples, n),)
+    (result = _rand_v_for_target(target, algorithm.samples, n, context),)
 end
 
 
@@ -167,13 +167,11 @@ export InitFromIID
 
 
 function bat_initval_impl(target::AnyMeasureOrDensity, algorithm::InitFromIID, context::BATContext)
-    rng = get_rng(context)
-    (result = _rand_v_for_target(rng, target, algorithm.src),)
+    (result = _rand_v_for_target(target, algorithm.src, context),)
 end
 
 function bat_initval_impl(target::AnyMeasureOrDensity, n::Integer, algorithm::InitFromIID, context::BATContext)
-    rng = get_rng(context)
-    (result = _rand_v_for_target(rng, target, algorithm.src, n),)
+    (result = _rand_v_for_target(target, algorithm.src, n, context),)
 end
 
 
