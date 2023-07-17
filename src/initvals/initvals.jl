@@ -88,12 +88,10 @@ get_initsrc_from_target(target::AbstractPosteriorMeasure) = get_initsrc_from_tar
 
 
 function bat_initval_impl(target::AnyMeasureOrDensity, algorithm::InitFromTarget, context::BATContext)
-    rng = get_rng(context)
     (result = _rand_v_for_target(target, get_initsrc_from_target(target), context),)
 end
 
 function bat_initval_impl(target::AnyMeasureOrDensity, n::Integer, algorithm::InitFromTarget, context::BATContext)
-    rng = get_rng(context)
     (result = _rand_v_for_target(target, get_initsrc_from_target(target), n, context),)
 end
 
