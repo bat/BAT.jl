@@ -9,6 +9,7 @@ else
 end
 
 using BAT
+BAT.pkgext(::Val{:Plots}) = BAT.PackageExtension{:Plots}()
 
 BAT._Plots_backend(args...; kwargs...) = Plots.backend(args...; kwargs...)
 BAT._Plots_cgrad(args...; kwargs...) = Plots.cgrad(args...; kwargs...)
