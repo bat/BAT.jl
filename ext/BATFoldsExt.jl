@@ -9,6 +9,7 @@ else
 end
 
 using BAT
+BAT.pkgext(::Val{:Folds}) = BAT.PackageExtension{:Folds}()
 
 
 function BAT.exec_map!(f::Base.Callable, executor::Transducers.Executor, Y::AbstractVector, X::AbstractVector)
