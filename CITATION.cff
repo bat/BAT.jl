@@ -1,0 +1,127 @@
+cff-version: 1.2.0
+title: BAT.jl
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Oliver
+    family-names: Schulz
+    email: oschulz@mpp.mpg.de
+    affiliation: 'Max Planck Institute for Physics, Munich, Germany'
+    orcid: 'https://orcid.org/0000-0002-4200-5905'
+  - given-names: Frederik
+    family-names: Beaujean
+    email: beaujean@mpp.mpg.de
+    orcid: 'https://orcid.org/0000-0001-9901-8785'
+    affiliation: 'formerly C2PAP, Excellence Cluster Universe, LMU'
+  - given-names: Allen
+    family-names: Caldwell
+    affiliation: 'Max Planck Institute for Physics, Munich, Germany'
+    email: caldwell@mpp.mpg.de
+    orcid: 'https://orcid.org/0000-0003-0244-5129'
+  - family-names: Grunwald
+    given-names: Cornelius
+    email: cornelius.grunwald@tu-dortmund.de
+    affiliation: TU Dortmund University
+    orcid: 'https://orcid.org/0000-0002-0588-8788'
+  - family-names: Hafych
+    given-names: Vasyl
+    affiliation: >-
+      formerly Max Planck Institute for Physics, Munich,
+      Germany
+    orcid: 'https://orcid.org/0000-0003-4320-6431'
+    email: hafychvasyl@gmail.com
+  - family-names: Kröninger
+    given-names: Kevin
+    email: kevin.kroeninger@tu-dortmund.de
+    orcid: 'https://orcid.org/0000-0001-9873-0228'
+    affiliation: TU Dortmund University
+  - email: salvatore.lacagnina@tu-dortmund.de
+    given-names: Salvatore
+    family-names: La Cagnina
+    affiliation: TU Dortmund University
+  - given-names: Lars
+    family-names: Röhrig
+    affiliation: TU Dortmund University
+    email: lars.roehrig@tu-dortmund.de
+  - given-names: Lolian
+    family-names: Shtembari
+    email: lolian@mpp.mpg.de
+    affiliation: 'Max Planck Institute for Physics, Munich, Germany'
+    orcid: 'https://orcid.org/0000-0002-5030-0285'
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.2587213
+repository-code: 'https://github.com/bat/BAT.jl'
+url: 'https://bat.github.io/BAT.jl/'
+abstract: >-
+  BAT.jl is a Bayesian Analysis Toolkit in Julia. It is a
+  high-performance tool box for Bayesian inference with
+  statistical models expressed in a general-purpose
+  programming language instead of a domain-specific
+  language.
+keywords:
+  - Bayesian analysis
+  - Parameter inference
+  - Model comparison
+  - MCMC
+  - Julia language
+license: MIT
+preferred-citation:
+  type: article
+  authors:
+    - given-names: Oliver
+      family-names: Schulz
+      email: oschulz@mpp.mpg.de
+      affiliation: 'Max Planck Institute for Physics, Munich, Germany'
+      orcid: 'https://orcid.org/0000-0002-4200-5905'
+    - given-names: Frederik
+      family-names: Beaujean
+      email: beaujean@mpp.mpg.de
+      orcid: 'https://orcid.org/0000-0001-9901-8785'
+      affiliation: 'formerly C2PAP, Excellence Cluster Universe, LMU'
+    - given-names: Allen
+      family-names: Caldwell
+      affiliation: 'Max Planck Institute for Physics, Munich, Germany'
+      email: caldwell@mpp.mpg.de
+      orcid: 'https://orcid.org/0000-0003-0244-5129'
+    - family-names: Grunwald
+      given-names: Cornelius
+      email: cornelius.grunwald@tu-dortmund.de
+      affiliation: TU Dortmund University
+      orcid: 'https://orcid.org/0000-0002-0588-8788'
+    - family-names: Hafych
+      given-names: Vasyl
+      affiliation: >-
+        formerly Max Planck Institute for Physics, Munich,
+        Germany
+      orcid: 'https://orcid.org/0000-0003-4320-6431'
+      email: hafychvasyl@gmail.com
+    - family-names: Kröninger
+      given-names: Kevin
+      email: kevin.kroeninger@tu-dortmund.de
+      orcid: 'https://orcid.org/0000-0001-9873-0228'
+      affiliation: TU Dortmund University
+    - email: salvatore.lacagnina@tu-dortmund.de
+      given-names: Salvatore
+      family-names: La Cagnina
+      affiliation: TU Dortmund University
+    - given-names: Lars
+      family-names: Röhrig
+      affiliation: TU Dortmund University
+      email: lars.roehrig@tu-dortmund.de
+    - given-names: Lolian
+      family-names: Shtembari
+      email: lolian@mpp.mpg.de
+      affiliation: 'Max Planck Institute for Physics, Munich, Germany'
+      orcid: 'https://orcid.org/0000-0002-5030-0285'
+  doi: "10.1007/s42979-021-00626-4"
+  journal: "SN Computer Science"
+  start: 210
+  title: "BAT.jl: A Julia-Based Tool for Bayesian Inference"
+  issue: 3
+  volume: 2
+  year: 2021
+  month: 4
+  issn: "2661-8907"
