@@ -66,12 +66,12 @@ function mcmc_init!(
     callback::Function,
     context::BATContext
 )
-    @info "MCMCChainPoolInit: trying to generate $nchains viable MCMC chain(s)."
-
     initval_alg = init_alg.initval_alg
 
     min_nviable::Int = minimum(init_alg.init_tries_per_chain) * nchains
     max_ncandidates::Int = maximum(init_alg.init_tries_per_chain) * nchains
+
+    @info "MCMCChainPoolInit: trying to generate $(min_nviable) viable MCMC chain(s)."
 
     rngpart = RNGPartition(get_rng(context), Base.OneTo(max_ncandidates))
 
@@ -87,35 +87,45 @@ function mcmc_init!(
     chains = similar([dummy_chain], 0)
     tuners = similar([dummy_tuner], 0)
     outputs = similar([DensitySampleVector(dummy_chain)], 0)
-    cycle::Int = 1
+    init_tries::Int = 1
 
     while length(tuners) < min_nviable && ncandidates < max_ncandidates
-        n = min(min_nviable, max_ncandidates - ncandidates)
-        @debug "Generating $n $(cycle > 1 ? "additional " : "")candidate MCMC chain(s)."
+        viable_idxs = Vector{Int}()
+        viable_tuners = similar(tuners, 0)
+        viable_chains = similar(chains, 0)
+        viable_outputs = similar(outputs, 0)
 
-        new_chains = _gen_chains(rngpart, ncandidates .+ (one(Int64):n), algorithm, density, initval_alg, context)
+        # as the iteration after viable check is more costly, fill up to be at least capable to skip a complete reiteration.
+        while length(viable_idxs) < min_nviable-length(tuners) && ncandidates < max_ncandidates
+            n = max(min(min_nviable, max_ncandidates - ncandidates), min(min_nviable, Base.Threads.nthreads()))
+            @debug "Generating $n $(init_tries > 1 ? "additional " : "")candidate MCMC chain(s)."
 
-        filter!(isvalidchain, new_chains)
+            new_chains = _gen_chains(rngpart, ncandidates .+ (one(Int64):n), algorithm, density, initval_alg, context)
 
-        new_tuners = tuning_alg.(new_chains)
-        new_outputs = DensitySampleVector.(new_chains)
-        next_cycle!.(new_chains)
-        tuning_init!.(new_tuners, new_chains, init_alg.nsteps_init)
-        ncandidates += n
+            filter!(isvalidchain, new_chains)
 
-        @debug "Testing $(length(new_tuners)) candidate MCMC chain(s)."
+            new_tuners = tuning_alg.(new_chains)
+            new_outputs = DensitySampleVector.(new_chains)
+            next_cycle!.(new_chains)
+            tuning_init!.(new_tuners, new_chains, init_alg.nsteps_init)
+            ncandidates += n
 
-        mcmc_iterate!(
-            new_outputs, new_chains, new_tuners;
-            max_nsteps = clamp(div(init_alg.nsteps_init, 5), 10, 50),
-            callback = callback,
-            nonzero_weights = nonzero_weights
-        )
+            @debug "Testing $(length(new_tuners)) candidate MCMC chain(s)."
 
-        viable_idxs = findall(isviablechain.(new_chains))
-        viable_tuners = new_tuners[viable_idxs]
-        viable_chains = new_chains[viable_idxs]
-        viable_outputs = new_outputs[viable_idxs]
+            mcmc_iterate!(
+                new_outputs, new_chains, new_tuners;
+                max_nsteps = clamp(div(init_alg.nsteps_init, 5), 10, 50),
+                callback = callback,
+                nonzero_weights = nonzero_weights
+            )
+            @info length.(new_outputs)
+            
+            append!(viable_idxs, findall(isviablechain.(new_chains)))
+
+            append!(viable_tuners, new_tuners[viable_idxs])
+            append!(viable_chains, new_chains[viable_idxs])
+            append!(viable_outputs, new_outputs[viable_idxs])
+        end
 
         @debug "Found $(length(viable_idxs)) viable MCMC chain(s)."
 
@@ -136,7 +146,7 @@ function mcmc_init!(
             append!(outputs, view(viable_outputs, good_idxs))
         end
 
-        cycle += 1
+        init_tries += 1
     end
 
     length(tuners) < min_nviable && error("Failed to generate $min_nviable viable MCMC chains")
