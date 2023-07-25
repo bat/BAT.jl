@@ -130,12 +130,17 @@ function mcmc_init!(
         @debug "Found $(length(viable_idxs)) viable MCMC chain(s)."
 
         if !isempty(viable_tuners)
+            desc_string = string("Init try ", init_tries, " for nvalid=", length(viable_idxs), " of min_nviable=", length(tuners), "/", min_nviable )
+            progress_meter = ProgressMeter.Progress(length(viable_idxs) * init_alg.nsteps_init, desc=desc_string, barlen=80-length(desc_string), dt=0.1)
+
             mcmc_iterate!(
                 viable_outputs, viable_chains, viable_tuners;
                 max_nsteps = init_alg.nsteps_init,
-                callback = callback,
+                callback = (kwargs...)-> let pm=progress_meter, callback=callback ; callback(kwargs) ; ProgressMeter.next!(pm) ; end,
                 nonzero_weights = nonzero_weights
             )
+
+            ProgressMeter.finish!(progress_meter)
 
             nsamples_thresh = floor(Int, 0.8 * median([nsamples(chain) for chain in viable_chains]))
             good_idxs = findall(chain -> nsamples(chain) >= nsamples_thresh, viable_chains)

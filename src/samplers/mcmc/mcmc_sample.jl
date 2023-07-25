@@ -93,13 +93,17 @@ function _run_sample_impl(
 
     next_cycle!.(chains)
 
+    progress_meter = ProgressMeter.Progress(algorithm.nchains * algorithm.nsteps, desc=description, barlen=80 - length(description), dt=0.1)
+
     mcmc_iterate!(
         chain_outputs,
         chains;
         max_nsteps = algorithm.nsteps,
         nonzero_weights = algorithm.nonzero_weights,
-        callback = algorithm.callback
+        callback = (kwargs...) -> let pm=progress_meter, callback=algorithm.callback ; callback(kwargs) ; ProgressMeter.next!(pm) ; end,
     )
+
+    ProgressMeter.finish!(progress_meter)
 
     output = DensitySampleVector(first(chains))
     isnothing(output) || append!.(Ref(output), chain_outputs)

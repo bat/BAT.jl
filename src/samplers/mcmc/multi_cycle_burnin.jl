@@ -48,12 +48,17 @@ function mcmc_burnin!(
 
         tuning_reinit!.(tuners, chains, burnin_alg.nsteps_per_cycle)
 
+        desc_string = string("Burnin cycle ", cycles, "/max_cycles=", burnin_alg.max_ncycles," for nchains=", length(chains))
+        progress_meter = ProgressMeter.Progress(length(chains)*burnin_alg.nsteps_per_cycle, desc=desc_string, barlen=80-length(desc_string), dt=0.1)
+        
         mcmc_iterate!(
             new_outputs, chains, tuners,
             max_nsteps = burnin_alg.nsteps_per_cycle,
             nonzero_weights = nonzero_weights,
-            callback = callback
+            callback = (kwargs...) -> let pm=progress_meter, callback=callback ; callback(kwargs) ; ProgressMeter.next!(progress_meter) ; end,
         )
+
+        ProgressMeter.finish!(progress_meter)
 
         tuning_update!.(tuners, chains, new_outputs)
         isnothing(outputs) || append!.(outputs, new_outputs)
