@@ -68,7 +68,7 @@ function bat_sample_impl(
 
     samples_notrafo = inverse(trafo).(samples_trafo)
 
-    (result=samples_notrafo, result_trafo=samples_trafo, trafo=trafo, generator=generator)
+    (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = generator)
 end
 
 function _run_sample_impl(
