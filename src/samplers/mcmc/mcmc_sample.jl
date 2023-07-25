@@ -56,13 +56,30 @@ function bat_sample_impl(
         get_mcmc_tuning(mcmc_algorithm),
         algorithm.nonzero_weights,
         algorithm.store_burnin ? algorithm.callback : nop_func,
-        context
+        context,
     )
 
     if !algorithm.store_burnin
         chain_outputs .= DensitySampleVector.(chains)
     end
 
+    run_sampling = _run_sample_impl(density, algorithm, chains, tuners, context, chain_outputs=chain_outputs)
+    samples_trafo, generator = run_sampling.result_trafo, run_sampling.generator
+
+    samples_notrafo = inverse(trafo).(samples_trafo)
+
+    (result=samples_notrafo, result_trafo=samples_trafo, trafo=trafo, generator=generator)
+end
+
+function _run_sample_impl(
+    density::AnyMeasureOrDensity,
+    algorithm::MCMCSampling,
+    chains::AbstractVector{<:MCMCIterator},
+    tuners,
+    context::BATContext;
+    description::AbstractString="MCMC iterate",
+    chain_outputs=DensitySampleVector.(chains)
+)
     mcmc_burnin!(
         algorithm.store_burnin ? chain_outputs : nothing,
         tuners,
@@ -88,7 +105,5 @@ function bat_sample_impl(
     isnothing(output) || append!.(Ref(output), chain_outputs)
     samples_trafo = varshape(density).(output)
 
-    samples_notrafo = inverse(trafo).(samples_trafo)
-
-    (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = MCMCSampleGenerator(chains))
+    (result_trafo = samples_trafo, generator = MCMCSampleGenerator(chains))
 end
