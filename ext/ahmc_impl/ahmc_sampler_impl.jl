@@ -78,7 +78,8 @@ function AHMCIterator(
         throw(ErrorException("HamiltonianMC requires an ADSelector to be specified in the BAT context"))
     end
 
-    f = checked_logdensityof(density)
+    # TODO AC ToDo!: discuss with @oschulz
+    f = logdensityof(density)
     fg = valgrad_func(f, adsel)
 
     init_hamiltonian = AdvancedHMC.Hamiltonian(metric, f, fg)
