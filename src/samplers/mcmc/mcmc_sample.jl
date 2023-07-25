@@ -107,3 +107,26 @@ function _run_sample_impl(
 
     (result_trafo = samples_trafo, generator = MCMCSampleGenerator(chains))
 end
+
+function _bat_sample_continue(
+    target::AnyMeasureOrDensity,
+    algorithm::MCMCSampling,
+    generator::MCMCSampleGenerator,
+    context,
+    ;description::AbstractString = "MCMC iterate"
+)
+    @unpack chains = generator
+    density_notrafo = convert(AbstractMeasureOrDensity, target)
+    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo, context)
+
+    chain_outputs = DensitySampleVector.(chains)
+
+    tuners = map(v -> get_mcmc_tuning(getproperty(v, :algorithm))(v), chains)
+
+    run_sampling = _run_sample_impl(density, algorithm, chains, tuners, context, description=description, chain_outputs=chain_outputs)
+    samples_trafo, generator_new = run_sampling.result_trafo, run_sampling.generator
+
+    samples_notrafo = inverse(trafo).(samples_trafo)
+
+    (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = generator_new)
+end
