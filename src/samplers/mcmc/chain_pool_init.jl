@@ -55,6 +55,41 @@ _gen_chains(
     context::BATContext
 ) = [_construct_chain(rngpart, id, algorithm, density, initval_alg, context) for id in ids]
 
+# TODO AC discuss
+function _cluster_selection(
+    chains::AbstractVector{<:MCMCIterator},
+    tuners,
+    outputs::AbstractVector{<:DensitySampleVector},
+    scale::Real=3,
+    decision_range_skip::Real=0.9,
+)
+    logds_by_chain = [view(s.logd,(floor(Int,decision_range_skip*length(s))):length(s)) for s in outputs]
+    means = [mean(x) for x in logds_by_chain]
+    stddevs = [std(x) for x in logds_by_chain]
+
+    # yet uncategoriesed
+    uncat = eachindex(chains, tuners, outputs, logds_by_chain, stddevs, means)
+
+    # clustered indices
+    cidxs = Vector{Vector{eltype(uncat)}}()
+    # categories all to clusters
+    while length(uncat) > 0
+        idxmin = findmin(view(stddevs,uncat))[2]
+
+        cidx_sel = map(means_remaining_uncat -> abs(means_remaining_uncat-means[uncat[idxmin]]) < scale*stddevs[uncat[idxmin]], view(means,uncat))
+
+        push!(cidxs, uncat[cidx_sel])
+        uncat = uncat[.!cidx_sel]
+    end
+    means_c = [ mean(reduce(vcat, view(samples_by_chain.logd, ids))) for ids in cidxs]
+    idx_order = sortperm(means_c, rev=true)
+
+    chains_by_cluster = [ reduce(vcat, view(chains, ids)) for ids in cidxs[idx_order]]
+    tuners_by_cluster = [ reduce(vcat, view(tuners, ids)) for ids in cidxs[idx_order]]
+    outputs_by_cluster = [ reduce(vcat, view(outputs, ids)) for ids in cidxs[idx_order]]
+    ( chains = chains_by_cluster, tuners = tuners_by_cluster, outputs = outputs_by_cluster, )
+end
+
 
 function mcmc_init!(
     algorithm::MCMCAlgorithm,
@@ -152,6 +187,11 @@ function mcmc_init!(
         end
 
         init_tries += 1
+    end
+
+    # TODO AC
+    if true
+        @unpack chains, tuners, outputs = _cluster_selection(chains, tuners, outputs)
     end
 
     length(tuners) < min_nviable && error("Failed to generate $min_nviable viable MCMC chains")
