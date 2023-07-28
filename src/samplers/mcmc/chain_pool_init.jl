@@ -192,9 +192,11 @@ function mcmc_init!(
     # TODO AC
     if true
         @unpack chains, tuners, outputs = _cluster_selection(chains, tuners, outputs)
+        length(tuners) < nchains && error("Failed to generate $nchains viable MCMC chains")
+    else
+        length(tuners) < min_nviable && error("Failed to generate $min_nviable viable MCMC chains")
     end
 
-    length(tuners) < min_nviable && error("Failed to generate $min_nviable viable MCMC chains")
 
     m = nchains
     tidxs = LinearIndices(tuners)
