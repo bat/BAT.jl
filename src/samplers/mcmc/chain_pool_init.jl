@@ -84,9 +84,9 @@ function _cluster_selection(
     medians_c = [ median(reduce(vcat, view(logds_by_chain, ids))) for ids in cidxs]
     idx_order = sortperm(medians_c, rev=true)
 
-    chains_by_cluster = [ reduce(vcat, view(chains, ids)) for ids in cidxs[idx_order]]
-    tuners_by_cluster = [ reduce(vcat, view(tuners, ids)) for ids in cidxs[idx_order]]
-    outputs_by_cluster = [ reduce(vcat, view(outputs, ids)) for ids in cidxs[idx_order]]
+    chains_by_cluster = [ view(chains, ids) for ids in cidxs[idx_order]]
+    tuners_by_cluster = [ view(tuners, ids) for ids in cidxs[idx_order]]
+    outputs_by_cluster = [ view(outputs, ids) for ids in cidxs[idx_order]]
     ( chains = chains_by_cluster[1], tuners = tuners_by_cluster[1], outputs = outputs_by_cluster[1], )
 end
 
