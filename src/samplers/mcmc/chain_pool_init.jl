@@ -64,11 +64,11 @@ function _cluster_selection(
     decision_range_skip::Real=0.9,
 )
     logds_by_chain = [view(s.logd,(floor(Int,decision_range_skip*length(s))):length(s)) for s in outputs]
-    means = [mean(x) for x in logds_by_chain]
+    medians = [median(x) for x in logds_by_chain]
     stddevs = [std(x) for x in logds_by_chain]
 
     # yet uncategoriesed
-    uncat = eachindex(chains, tuners, outputs, logds_by_chain, stddevs, means)
+    uncat = eachindex(chains, tuners, outputs, logds_by_chain, stddevs, medians)
 
     # clustered indices
     cidxs = Vector{Vector{eltype(uncat)}}()
@@ -76,13 +76,13 @@ function _cluster_selection(
     while length(uncat) > 0
         idxmin = findmin(view(stddevs,uncat))[2]
 
-        cidx_sel = map(means_remaining_uncat -> abs(means_remaining_uncat-means[uncat[idxmin]]) < scale*stddevs[uncat[idxmin]], view(means,uncat))
+        cidx_sel = map(means_remaining_uncat -> abs(means_remaining_uncat-medians[uncat[idxmin]]) < scale*stddevs[uncat[idxmin]], view(medians,uncat))
 
         push!(cidxs, uncat[cidx_sel])
         uncat = uncat[.!cidx_sel]
     end
-    means_c = [ mean(reduce(vcat, view(samples_by_chain.logd, ids))) for ids in cidxs]
-    idx_order = sortperm(means_c, rev=true)
+    medians_c = [ median(reduce(vcat, view(logds_by_chain, ids))) for ids in cidxs]
+    idx_order = sortperm(medians_c, rev=true)
 
     chains_by_cluster = [ reduce(vcat, view(chains, ids)) for ids in cidxs[idx_order]]
     tuners_by_cluster = [ reduce(vcat, view(tuners, ids)) for ids in cidxs[idx_order]]
