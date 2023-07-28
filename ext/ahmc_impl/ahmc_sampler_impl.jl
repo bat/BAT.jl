@@ -23,7 +23,7 @@ mutable struct AHMCIterator{
     SV<:DensitySampleVector,
     HA<:AdvancedHMC.Hamiltonian,
     TR<:AdvancedHMC.Transition,
-    PL<:AdvancedHMC.HMCKernel,
+    KRNL<:AdvancedHMC.HMCKernel,
     CTX<:BATContext
 } <: MCMCIterator
     algorithm::AL
@@ -35,7 +35,7 @@ mutable struct AHMCIterator{
     stepno::Int64
     hamiltonian::HA
     transition::TR
-    proposal::PL
+    kernel::KRNL
     context::CTX
 end
 
@@ -70,7 +70,7 @@ function AHMCIterator(
 
     rngpart_cycle = RNGPartition(rng, 0:(typemax(Int16) - 2))
 
-    metric = ahmc_metric(algorithm.metric, npar)
+    metric = ahmc_metric(algorithm.metric, params_vec)
 
     # ToDo!: Pass context explicitly:
     adsel = get_adselector(context)
@@ -83,11 +83,12 @@ function AHMCIterator(
 
     init_hamiltonian = AdvancedHMC.Hamiltonian(metric, f, fg)
     hamiltonian, init_transition = AdvancedHMC.sample_init(rng, init_hamiltonian, params_vec)
-    integrator = ahmc_integrator(rng, algorithm.integrator, hamiltonian, params_vec)
-    proposal = ahmc_proposal(algorithm.proposal, integrator)
+    integrator = _ahmc_set_step_size(algorithm.integrator, hamiltonian, params_vec)
+    termination = _ahmc_convert_termination(algorithm.termination, params_vec)
+    kernel = HMCKernel(Trajectory{MultinomialTS}(integrator, termination))
 
     # Perform a dummy step to get type-stable transition value:
-    transition = AdvancedHMC.transition(deepcopy(rng), deepcopy(hamiltonian), deepcopy(proposal), init_transition.z)
+    transition = AdvancedHMC.transition(deepcopy(rng), deepcopy(hamiltonian), deepcopy(kernel), init_transition.z)
 
     chain = AHMCIterator(
         algorithm,
@@ -99,7 +100,7 @@ function AHMCIterator(
         stepno,
         hamiltonian,
         transition,
-        proposal,
+        kernel,
         context
     )
 
@@ -253,7 +254,7 @@ function BAT.mcmc_step!(chain::AHMCIterator)
     # Propose new variate:
     samples.weight[proposed] = 0
 
-    chain.transition = AdvancedHMC.transition(rng, chain.hamiltonian, chain.proposal, chain.transition.z)
+    chain.transition = AdvancedHMC.transition(rng, chain.hamiltonian, chain.kernel, chain.transition.z)
     proposed_params[:] = chain.transition.z.θ
     
     current_log_posterior = samples.logd[current]

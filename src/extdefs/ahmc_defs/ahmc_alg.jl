@@ -29,15 +29,10 @@ $(TYPEDFIELDS)
     `HamiltonianMC` is only available if the AdvancedHMC package is loaded
     (e.g. via `import AdvancedHMC`). 
 """
-@with_kw struct HamiltonianMC{
-    MT<:HMCMetric,
-    IT<:HMCIntegrator,
-    PR<:HMCProposal,
-    TN<:HMCTuningAlgorithm
-} <: MCMCAlgorithm
-    metric::MT = (pkgext(Val(:AdvancedHMC)); DiagEuclideanMetric())
-    integrator::IT = LeapfrogIntegrator()
-    proposal::PR = NUTSProposal()
+@with_kw struct HamiltonianMC{MT<:HMCMetric,IT,TC,TN<:HMCTuningAlgorithm} <: MCMCAlgorithm
+    metric::MT = DiagEuclideanMetric()
+    integrator::IT = ext_default(pkgext(Val(:AdvancedHMC)), Val(:DEFAULT_INTEGRATOR))
+    termination::TC = ext_default(pkgext(Val(:AdvancedHMC)), Val(:DEFAULT_TERMINATION_CRITERION))
     tuning::TN = StanHMCTuning()
 end
 
