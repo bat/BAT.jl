@@ -125,14 +125,13 @@ function mcmc_init!(
     init_tries::Int = 1
 
     while length(tuners) < min_nviable && ncandidates < max_ncandidates
-        viable_idxs = Vector{Int}()
         viable_tuners = similar(tuners, 0)
         viable_chains = similar(chains, 0)
         viable_outputs = similar(outputs, 0)
 
         # as the iteration after viable check is more costly, fill up to be at least capable to skip a complete reiteration.
-        while length(viable_idxs) < min_nviable-length(tuners) && ncandidates < max_ncandidates
-            n = max(min(min_nviable, max_ncandidates - ncandidates), min(min_nviable, Base.Threads.nthreads()))
+        while length(viable_tuners) < min_nviable-length(tuners) && ncandidates < max_ncandidates
+            n = min(min_nviable, max_ncandidates - ncandidates)
             @debug "Generating $n $(init_tries > 1 ? "additional " : "")candidate MCMC chain(s)."
 
             new_chains = _gen_chains(rngpart, ncandidates .+ (one(Int64):n), algorithm, density, initval_alg, context)
@@ -155,18 +154,18 @@ function mcmc_init!(
             )
             @info length.(new_outputs)
             
-            append!(viable_idxs, findall(isviablechain.(new_chains)))
+            viable_idxs = findall(isviablechain.(new_chains))
 
             append!(viable_tuners, new_tuners[viable_idxs])
             append!(viable_chains, new_chains[viable_idxs])
             append!(viable_outputs, new_outputs[viable_idxs])
         end
 
-        @debug "Found $(length(viable_idxs)) viable MCMC chain(s)."
+        @debug "Found $(length(viable_tuners)) viable MCMC chain(s)."
 
         if !isempty(viable_tuners)
-            desc_string = string("Init try ", init_tries, " for nvalid=", length(viable_idxs), " of min_nviable=", length(tuners), "/", min_nviable )
-            progress_meter = ProgressMeter.Progress(length(viable_idxs) * init_alg.nsteps_init, desc=desc_string, barlen=80-length(desc_string), dt=0.1)
+            desc_string = string("Init try ", init_tries, " for nvalid=", length(viable_tuners), " of min_nviable=", length(tuners), "/", min_nviable )
+            progress_meter = ProgressMeter.Progress(length(viable_tuners) * init_alg.nsteps_init, desc=desc_string, barlen=80-length(desc_string), dt=0.1)
 
             mcmc_iterate!(
                 viable_outputs, viable_chains, viable_tuners;

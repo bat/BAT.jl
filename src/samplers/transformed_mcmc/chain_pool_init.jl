@@ -91,42 +91,50 @@ function mcmc_init!(
     init_tries::Int = 1
 
     while length(tuners) < min_nviable && ncandidates < max_ncandidates
+        viable_tuners = similar(tuners, 0)
+        viable_chains = similar(chains, 0)
+        viable_outputs = similar(outputs, 0)
 
-        n = min(min_nviable, max_ncandidates - ncandidates)
-        @debug "Generating $n $(init_tries > 1 ? "additional " : "")candidate MCMC chain(s)."
+        # as the iteration after viable check is more costly, fill up to be at least capable to skip a complete reiteration.
+        while length(viable_tuners) < min_nviable-length(tuners) && ncandidates < max_ncandidates
+            n = min(min_nviable, max_ncandidates - ncandidates)
+            @debug "Generating $n $(init_tries > 1 ? "additional " : "")candidate MCMC chain(s)."
 
-        new_chains = _gen_chains(rngpart, ncandidates .+ (one(Int64):n), algorithm, density, initval_alg, context)
+            new_chains = _gen_chains(rngpart, ncandidates .+ (one(Int64):n), algorithm, density, initval_alg, context)
 
-        filter!(isvalidchain, new_chains)
+            filter!(isvalidchain, new_chains)
 
-        new_tuners = get_tuner.(Ref(tuning_alg), new_chains)
-        new_temperers = fill(get_temperer(algorithm.tempering, density), size(new_tuners,1))
-        
-        next_cycle!.(new_chains)
-        
-        tuning_init!.(new_tuners, new_chains, init_alg.nsteps_init)
-        ncandidates += n
+            new_tuners = get_tuner.(Ref(tuning_alg), new_chains)
+            new_temperers = fill(get_temperer(algorithm.tempering, density), size(new_tuners,1))
 
-        @debug "Testing $(length(new_chains)) candidate MCMC chain(s)."
+            next_cycle!.(new_chains)
 
-       transformed_mcmc_iterate!(
-            new_chains, new_tuners, new_temperers,
-            max_nsteps = clamp(div(init_alg.nsteps_init, 5), 10, 50),
-            callback = callback,
-            nonzero_weights = nonzero_weights
-        )
+            tuning_init!.(new_tuners, new_chains, init_alg.nsteps_init)
+            ncandidates += n
 
-        # testing if chains are viable:
-        viable_idxs = findall(isviablechain.(new_chains))
-        viable_temperers = new_temperers[viable_idxs]
-        viable_tuners = new_tuners[viable_idxs]
-        viable_chains = new_chains[viable_idxs]
+            @debug "Testing $(length(new_chains)) candidate MCMC chain(s)."
 
-        @debug "Found $(length(viable_idxs)) viable MCMC chain(s)."
+            transformed_mcmc_iterate!(
+                new_chains, new_tuners, new_temperers,
+                max_nsteps = clamp(div(init_alg.nsteps_init, 5), 10, 50),
+                callback = callback,
+                nonzero_weights = nonzero_weights
+            )
+
+            # testing if chains are viable:
+            viable_idxs = findall(isviablechain.(new_chains))
+
+            append!(viable_tuners, new_tuners[viable_idxs])
+            append!(viable_chains, new_chains[viable_idxs])
+            append!(viable_outputs, new_outputs[viable_idxs])
+
+        end
+
+        @debug "Found $(length(viable_tuners)) viable MCMC chain(s)."
 
         if !isempty(viable_chains)
-            desc_string = string("Init try ", init_tries, " for nvalid=", length(viable_idxs), " of min_nviable=", length(tuners), "/", min_nviable )
-            progress_meter = ProgressMeter.Progress(length(viable_idxs) * init_alg.nsteps_init, desc=desc_string, barlen=80-length(desc_string), dt=0.1)
+            desc_string = string("Init try ", init_tries, " for nvalid=", length(viable_tuners), " of min_nviable=", length(tuners), "/", min_nviable )
+            progress_meter = ProgressMeter.Progress(length(viable_tuners) * init_alg.nsteps_init, desc=desc_string, barlen=80-length(desc_string), dt=0.1)
             transformed_mcmc_iterate!(
                 viable_chains, viable_tuners, viable_temperers;
                 max_nsteps = init_alg.nsteps_init,
