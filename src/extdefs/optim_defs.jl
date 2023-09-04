@@ -29,10 +29,12 @@ $(TYPEDFIELDS)
 """
 @with_kw struct OptimAlg{
     ALG,
+    OPTS,
     TR<:AbstractTransformTarget,
     IA<:InitvalAlgorithm
 } <: AbstractModeEstimator
     optalg::ALG = ext_default(pkgext(Val(:Optim)), Val(:DEFAULT_OPTALG))
+    options::OPTS = ext_default(pkgext(Val(:Optim)), Val(:DEFAULT_OPTS))
     trafo::TR = PriorToGaussian()
     init::IA = InitFromTarget()
 end
