@@ -93,7 +93,8 @@ function mcmc_init!(
     while length(tuners) < min_nviable && ncandidates < max_ncandidates
         viable_tuners = similar(tuners, 0)
         viable_chains = similar(chains, 0)
-        viable_outputs = similar(outputs, 0)
+        viable_temperers = similar(temperers, 0)
+        viable_outputs = [] #similar(outputs, 0) #TODO
 
         # as the iteration after viable check is more costly, fill up to be at least capable to skip a complete reiteration.
         while length(viable_tuners) < min_nviable-length(tuners) && ncandidates < max_ncandidates
@@ -124,9 +125,12 @@ function mcmc_init!(
             # testing if chains are viable:
             viable_idxs = findall(isviablechain.(new_chains))
 
+            new_outputs = getproperty.(new_chains, :samples) #TODO ?
+
             append!(viable_tuners, new_tuners[viable_idxs])
             append!(viable_chains, new_chains[viable_idxs])
             append!(viable_outputs, new_outputs[viable_idxs])
+            append!(viable_temperers, new_temperers[viable_idxs])
 
         end
 
