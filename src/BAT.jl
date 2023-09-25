@@ -66,6 +66,8 @@ import StatsFuns
 import TypedTables
 import ZygoteRules
 
+using Accessors: @set
+
 using MeasureBase: AbstractMeasure, DensityMeasure
 using MeasureBase: basemeasure, getdof
 

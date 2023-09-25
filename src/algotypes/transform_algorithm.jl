@@ -66,12 +66,17 @@ export bat_transform
 _convert_trafo_how(trafo_how) = trafo_how
 _convert_trafo_how(::Type{<:Vector}) = AbstractTransformTarget(Vector)
 
+_convert_trafor_from(trafo_from) = trafo_from
+_convert_trafor_from(d::Distribution) = convert(BATMeasure, d)
+
+
 function bat_transform_impl end
 
 function bat_transform(trafo_how, trafo_from, algorithm::TransformAlgorithm, context::BATContext)
     new_trafo_how = _convert_trafo_how(trafo_how)
+    new_trafo_from = _convert_trafor_from(trafo_from)
     orig_context = deepcopy(context)
-    r = bat_transform_impl(new_trafo_how, trafo_from, algorithm, context)
+    r = bat_transform_impl(new_trafo_how, new_trafo_from, algorithm, context)
     result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
@@ -81,8 +86,9 @@ bat_transform(trafo_how, trafo_from, algorithm) = bat_transform(trafo_how, trafo
 
 function bat_transform(trafo_how, trafo_from, context::BATContext)
     new_trafo_how = _convert_trafo_how(trafo_how)
-    algorithm = bat_default_withinfo(bat_transform, Val(:algorithm), new_trafo_how, trafo_from)
-    bat_transform(new_trafo_how, trafo_from, algorithm, context)
+    new_trafo_from = _convert_trafor_from(trafo_from)
+    algorithm = bat_default_withinfo(bat_transform, Val(:algorithm), new_trafo_how, new_trafo_from)
+    bat_transform(new_trafo_how, new_trafo_from, algorithm, context)
 end
 
 

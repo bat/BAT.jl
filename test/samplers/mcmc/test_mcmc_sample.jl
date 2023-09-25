@@ -5,6 +5,7 @@ using Test
 
 using Distributed, Random
 using ArraysOfArrays, Distributions, PDMats, StatsBase
+using DensityInterface
 
 
 @testset "mcmc_sample" begin

@@ -1,40 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# Integrator ==============================================
-
-abstract type HMCIntegrator end
-
-@with_kw struct LeapfrogIntegrator <: HMCIntegrator
-    step_size::Float64 = NaN
-end
-
-@with_kw struct JitteredLeapfrogIntegrator <: HMCIntegrator
-    step_size::Float64 = NaN
-    jitter_rate::Float64 = 1.0
-end
-
-@with_kw struct TemperedLeapfrogIntegrator <: HMCIntegrator
-    step_size::Float64 = NaN
-    tempering_rate::Float64 = 1.05
-end
-
-
-# Proposal ==============================================
-
-
-abstract type HMCProposal end
-
-@with_kw struct FixedStepNumber <: HMCProposal
-    nsteps::Int64 = 10
-end
-
-
-@with_kw struct FixedTrajectoryLength <: HMCProposal
-    trajectory_length::Float64 = 2.0
-end
-
-struct NUTSProposal <: HMCProposal end
-
 
 # Metric ==============================================
 

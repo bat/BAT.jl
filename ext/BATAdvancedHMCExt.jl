@@ -30,10 +30,15 @@ using BAT: CURRENT_SAMPLE, PROPOSED_SAMPLE, INVALID_SAMPLE, ACCEPTED_SAMPLE, REJ
 
 using BAT: HamiltonianMC
 using BAT: AHMCSampleID, AHMCSampleIDVector
-using BAT: HMCIntegrator,LeapfrogIntegrator,JitteredLeapfrogIntegrator,TemperedLeapfrogIntegrator
-using BAT: HMCProposal, FixedStepNumber, FixedTrajectoryLength, NUTSProposal
 using BAT: HMCMetric, DiagEuclideanMetric, UnitEuclideanMetric, DenseEuclideanMetric
 using BAT: HMCTuningAlgorithm, MassMatrixAdaptor, StepSizeAdaptor, NaiveHMCTuning, StanHMCTuning
+
+using Accessors: @set
+
+
+BAT.ext_default(::BAT.PackageExtension{:AdvancedHMC}, ::Val{:DEFAULT_INTEGRATOR}) = AdvancedHMC.Leapfrog(NaN)
+BAT.ext_default(::BAT.PackageExtension{:AdvancedHMC}, ::Val{:DEFAULT_TERMINATION_CRITERION}) = AdvancedHMC.GeneralisedNoUTurn()
+
 
 include("ahmc_impl/ahmc_config_impl.jl")
 include("ahmc_impl/ahmc_sampler_impl.jl")
