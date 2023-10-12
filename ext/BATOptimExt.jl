@@ -60,8 +60,8 @@ end
 
 
 function convert_options(algorithm::OptimAlg)
-    if algorithm.abstol != NaN
-       @warn "The option 'abstol' is not used for this algorithm."
+    if !isnan(algorithm.abstol)
+       @warn "The option 'abstol=$(algorithm.abstol)' is not used for this algorithm."
     end
 
     kwargs = algorithm.kwargs

@@ -24,8 +24,8 @@ $(TYPEDFIELDS)
 
 !!! note
 
-    This algorithm is only available if the Optimization package is loaded (e.g. via
-        `import Optimization`.
+    This algorithm is only available if the `Optimization` package or any of its submodules, like `OptimizationOptimJL`, is loaded (e.g. via
+        `import Optimization`).
 """
 @with_kw struct OptimizationAlg{
     ALG,
