@@ -56,13 +56,30 @@ function bat_sample_impl(
         get_mcmc_tuning(mcmc_algorithm),
         algorithm.nonzero_weights,
         algorithm.store_burnin ? algorithm.callback : nop_func,
-        context
+        context,
     )
 
     if !algorithm.store_burnin
         chain_outputs .= DensitySampleVector.(chains)
     end
 
+    run_sampling = _run_sample_impl(density, algorithm, chains, tuners, context, chain_outputs=chain_outputs)
+    samples_trafo, generator = run_sampling.result_trafo, run_sampling.generator
+
+    samples_notrafo = inverse(trafo).(samples_trafo)
+
+    (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = generator)
+end
+
+function _run_sample_impl(
+    density::AnyMeasureOrDensity,
+    algorithm::MCMCSampling,
+    chains::AbstractVector{<:MCMCIterator},
+    tuners,
+    context::BATContext;
+    description::AbstractString="MCMC iterate",
+    chain_outputs=DensitySampleVector.(chains)
+)
     mcmc_burnin!(
         algorithm.store_burnin ? chain_outputs : nothing,
         tuners,
@@ -76,19 +93,44 @@ function bat_sample_impl(
 
     next_cycle!.(chains)
 
+    progress_meter = ProgressMeter.Progress(algorithm.nchains * algorithm.nsteps, desc=description, barlen=80 - length(description), dt=0.1)
+
     mcmc_iterate!(
         chain_outputs,
         chains;
         max_nsteps = algorithm.nsteps,
         nonzero_weights = algorithm.nonzero_weights,
-        callback = algorithm.callback
+        callback = (kwargs...) -> let pm=progress_meter, callback=algorithm.callback ; callback(kwargs) ; ProgressMeter.next!(pm) ; end,
     )
+
+    ProgressMeter.finish!(progress_meter)
 
     output = DensitySampleVector(first(chains))
     isnothing(output) || append!.(Ref(output), chain_outputs)
     samples_trafo = varshape(density).(output)
 
+    (result_trafo = samples_trafo, generator = MCMCSampleGenerator(chains))
+end
+
+function _bat_sample_continue(
+    target::AnyMeasureOrDensity,
+    algorithm::MCMCSampling,
+    generator::MCMCSampleGenerator,
+    context,
+    ;description::AbstractString = "MCMC iterate"
+)
+    @unpack chains = generator
+    density_notrafo = convert(AbstractMeasureOrDensity, target)
+    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo, context)
+
+    chain_outputs = DensitySampleVector.(chains)
+
+    tuners = map(v -> get_mcmc_tuning(getproperty(v, :algorithm))(v), chains)
+
+    run_sampling = _run_sample_impl(density, algorithm, chains, tuners, context, description=description, chain_outputs=chain_outputs)
+    samples_trafo, generator_new = run_sampling.result_trafo, run_sampling.generator
+
     samples_notrafo = inverse(trafo).(samples_trafo)
 
-    (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = MCMCSampleGenerator(chains))
+    (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = generator_new)
 end
