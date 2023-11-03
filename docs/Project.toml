@@ -21,6 +21,6 @@ UltraNest = "6822f173-b0be-4018-9ee2-28bf56348d09"
 
 [compat]
 Cuba = "2"
-Documenter = "0.27"
+Documenter = "1"
 Literate = "2"
 Plots = "0.28, 0.29, 1"
