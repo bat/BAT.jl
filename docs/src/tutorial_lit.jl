@@ -163,7 +163,8 @@ likelihood = let h = hist, f = fit_function
         function bin_log_likelihood(i)
             ## Simple mid-point rule integration of fit function `f` over bin:
             expected_counts = bin_widths[i] * f(params, bin_centers[i])
-            logpdf(Poisson(expected_counts), observed_counts[i])
+            ## Avoid zero expected counts for numerical stability:
+            logpdf(Poisson(expected_counts + eps(expected_counts)), observed_counts[i])
         end
 
         ## Sum log-likelihood over bins:
