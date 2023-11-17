@@ -600,54 +600,50 @@ function apply_dist_trafo(trg_d::Distributions.Product, src_d::StandardMvNormal,
 end
 
 
-_flat_ntd_orig_elshape(d::Distribution) = ArrayShape{Real}(totalndof(varshape(d)))
-
-function _flat_ntd_orig_accessors(d::NamedTupleDist{names,DT,AT,VT}) where {names,DT,AT,VT}
-    shapes = map(_flat_ntd_orig_elshape, values(d))
-    vs = NamedTupleShape(VT, NamedTuple{names}(shapes))
-    values(vs)
+function _std_from_elem(uv_trg_d::StdUvDist, elem_src_d, elem_src_v)
+    n = eff_totalndof(elem_src_d)
+    apply_dist_trafo(_stddist(uv_trg_d, n), elem_src_d, elem_src_v)
 end
 
-_flat_ntd_eff_elshape(d::Distribution) = ArrayShape{Real}(eff_totalndof(d))
-
-function _flat_ntd_eff_accessors(d::NamedTupleDist{names,DT,AT,VT}) where {names,DT,AT,VT}
-    shapes = map(_flat_ntd_eff_elshape, values(d))
-    vs = NamedTupleShape(VT, NamedTuple{names}(shapes))
-    values(vs)
+function _std_from_elem(uv_trg_d::StdUvDist, elem_src_d::UnivariateDistribution, elem_src_v)
+    @assert eff_totalndof(elem_src_d) == 1
+    Fill(apply_dist_trafo(uv_trg_d, elem_src_d, elem_src_v), 1)
 end
 
-function _flat_ntdistelem_to_stdmv(trg_d::StdMvDist, sd::Distribution, src_v_unshaped::AbstractVector{<:Real}, src_acc::ValueAccessor)
-    td = view(trg_d, Base.OneTo(eff_totalndof(sd)))
-    sv = src_acc(src_v_unshaped)
-    apply_dist_trafo(td, unshaped(sd), sv)
+function _std_from_elem(uv_trg_d::StdUvDist, elem_src_d::ConstValueDist, elem_src_v)
+    @assert elem_src_v == elem_src_d.value
+    Fill(false, 0)
 end
 
-function _flat_ntdistelem_to_stdmv(trg_d::StdMvDist, sd::ConstValueDist, src_v_unshaped::AbstractVector{<:Real}, src_acc::ValueAccessor)
-    Bool[]
+@generated function apply_dist_trafo(trg_d::StdMvDist, src_d::ValueShapes.NamedTupleDist{names}, src_v::Union{NamedTuple,ShapedAsNT}) where names
+    N = length(names)
+    r_vars = [Symbol("r_$i") for i in 1:N]
+
+    body = quote
+        @argcheck src_v isa NamedTuple{names}
+
+        src_dists = values(src_d)
+        src_vals = values(src_v)
+        uv_trg_d = _stddist(trg_d)
+    end
+    for i in 1:N
+        push!(body.args, :($(r_vars[i]) = _std_from_elem(uv_trg_d, src_dists[$i], src_vals[$i])))
+    end
+    push!(body.args, :(r_tuple = ($(r_vars...),)))
+    push!(body.args, :(vcat(r_tuple...)))
+    return body
 end
 
-function apply_dist_trafo(trg_d::StdMvDist, src_d::ValueShapes.UnshapedNTD, src_v::AbstractVector{<:Real})
-    @argcheck length(src_d) == length(eachindex(src_v))
-    src_accessors = _flat_ntd_orig_accessors(src_d.shaped)
-    rs = map((src_acc, sd) -> _flat_ntdistelem_to_stdmv(trg_d, sd, src_v, src_acc), src_accessors, values(src_d.shaped))
-    vcat(rs...)
+function apply_dist_trafo(trg_d::StdMvDist, src_d::ValueShapes.UnshapedNTD, src_v)
+    @argcheck src_v isa AbstractVector{<:Real}
+    @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d) == length(eachindex(src_v))
+
+    src_d_shaped = src_d.shaped
+    src_vs = varshape(src_d_shaped)
+    src_v_shaped = src_vs(src_v)
+    apply_dist_trafo(trg_d, src_d_shaped, src_v_shaped)
 end
 
-function apply_dist_trafo(trg_d::StdMvDist, src_d::NamedTupleDist, src_v::Union{NamedTuple,ShapedAsNT})
-    src_v_unshaped = unshaped(src_v, varshape(src_d))
-    apply_dist_trafo(trg_d, unshaped(src_d), src_v_unshaped)
-end
-
-
-function _stdmv_to_flat_ntdistelem(td::Distribution, src_d::StdMvDist, src_v::AbstractVector{<:Real}, src_acc::ValueAccessor)
-    sd = view(src_d, ValueShapes.view_idxs(Base.OneTo(length(src_d)), src_acc))
-    sv = src_acc(src_v)
-    apply_dist_trafo(unshaped(td), sd, sv)
-end
-
-function _stdmv_to_flat_ntdistelem(td::ConstValueDist, src_d::StdMvDist, src_v::AbstractVector{<:Real}, src_acc::ValueAccessor)
-    Bool[]
-end
 
 function _elem_from_std(elem_trg_d, uv_src_d::StdUvDist, src_v, src_v_pos::Int)
     n = eff_totalndof(elem_trg_d)
@@ -667,18 +663,19 @@ end
 
 @generated function apply_dist_trafo(trg_d::ValueShapes.NamedTupleDist{names}, src_d::StdMvDist, src_v) where {names}
     N = length(names)
-    r_vars = [Symbol("r$i") for i in 1:N]
+    r_vars = [Symbol("r_$i") for i in 1:N]
+    pos_vars = [Symbol("src_v_pos_$i") for i in 1:N+1]
 
     body = quote
         @argcheck src_v isa AbstractVector{<:Real}
         @argcheck length(src_d) == length(eachindex(src_v))
 
         trg_dists = values(trg_d)
-        src_v_pos::Int = firstindex(src_v)
+        src_v_pos_1 = firstindex(src_v)
         uv_src_d = _stddist(src_d)
     end
     for i in 1:N
-        push!(body.args, :(($(r_vars[i]), src_v_pos) = _elem_from_std(trg_dists[$i], uv_src_d, src_v, src_v_pos)))
+        push!(body.args, :(($(r_vars[i]), $(pos_vars[i+1])) = _elem_from_std(trg_dists[$i], uv_src_d, src_v, $(pos_vars[i]))))
     end
     push!(body.args, :(r_values = ($(r_vars...),)))
     push!(body.args, :(return NamedTuple{$names}(r_values)))
@@ -686,16 +683,14 @@ end
 end
 
 function apply_dist_trafo(trg_d::ValueShapes.UnshapedNTD, src_d::StdMvDist, src_v::AbstractVector{<:Real})
-    @argcheck length(src_d) == length(eachindex(src_v))
-    src_accessors = _flat_ntd_eff_accessors(trg_d.shaped)
-    rs = map((acc, td) -> _stdmv_to_flat_ntdistelem(td, src_d, src_v, acc), src_accessors, values(trg_d.shaped))
-    vcat(rs...)
+    @argcheck src_v isa AbstractVector{<:Real}
+    @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d) == length(eachindex(src_v))
+
+    trg_d_shaped = trg_d.shaped
+    trg_v_shaped = apply_dist_trafo(trg_d_shaped, src_d, src_v)
+    unshaped(trg_v_shaped, varshape(trg_d_shaped))
 end
 
-function apply_dist_trafo(trg_d::NamedTupleDist, src_d::StdMvDist, src_v::AbstractVector{<:Real})
-    unshaped_result = apply_dist_trafo(unshaped(trg_d), src_d, src_v)
-    varshape(trg_d)(unshaped_result)
-end
 
 @static if isdefined(Distributions, :ReshapedDistribution)
     const AnyReshapedDist = Union{Distributions.ReshapedDistribution,ValueShapes.ReshapedDist}
