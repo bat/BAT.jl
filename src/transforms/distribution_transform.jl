@@ -270,6 +270,9 @@ function std_dist_from(src_d::Distribution)
     throw(ArgumentError("No standard intermediate distribution defined to transform from $(typeof(src_d).name)"))
 end
 
+std_dist_from(src_d::MvNormal) = StandardMvNormal(length(src_d))
+
+
 function std_dist_to(trg_d::Distribution)
     throw(ArgumentError("No standard intermediate distribution defined to transform into $(typeof(trg_d).name)"))
 end
@@ -312,10 +315,57 @@ function apply_dist_trafo(trg_d::Distribution, src_d::Distribution, src_v::Any)
 end
 
 
+_stddist(::StandardUvUniform) = StandardUvUniform()
+_stddist(::StandardUvNormal) = StandardUvNormal()
+_stddist(::StandardMvUniform) = StandardUvUniform()
+_stddist(::StandardMvNormal) = StandardUvNormal()
+
+_stddist(::StandardUvUniform, n::Integer) = StandardMvUniform(n)
+_stddist(::StandardUvNormal, n::Integer) = StandardMvNormal(n)
+_stddist(::StandardMvUniform, n::Integer) = StandardMvUniform(n)
+_stddist(::StandardMvNormal, n::Integer) = StandardMvNormal(n)
+
+
+@inline apply_dist_trafo(trg_d::StandardUvUniform, src_d::StandardUvUniform, src_v::Real) = src_v
+
+@inline apply_dist_trafo(trg_d::StandardUvNormal, src_d::StandardUvNormal, src_v::Real) = src_v
+
+@inline function apply_dist_trafo(trg_d::StandardUvUniform, src_d::StandardUvNormal, src_v::Real)
+    apply_dist_trafo(StandardUvUniform(), Normal(), src_v)
+end
+
+@inline function apply_dist_trafo(trg_d::StandardUvNormal, src_d::StandardUvUniform, src_v::Real)
+    apply_dist_trafo(Normal(), StandardUvUniform(), src_v)
+end
+
+
 function apply_dist_trafo(trg_d::DT, src_d::DT, src_v) where {DT <: StdMvDist}
     @argcheck src_v isa AbstractVector{<:Real}
     @argcheck length(trg_d) == length(src_d) == length(eachindex(src_v))
     return src_v
+end
+
+@inline function apply_dist_trafo(trg_d::StandardMvUniform, src_d::StandardMvNormal, src_v::AbstractVector{<:Real})
+    @_adignore @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d)
+    _product_dist_trafo_impl(StandardUvUniform(), StandardUvNormal(), src_v)
+end
+
+@inline function apply_dist_trafo(trg_d::StandardMvNormal, src_d::StandardMvUniform, src_v::AbstractVector{<:Real})
+    @_adignore @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d)
+    _product_dist_trafo_impl(StandardUvNormal(), StandardUvUniform(), src_v)
+end
+
+
+@inline function apply_dist_trafo(trg_d::StdMvDist, src_d::StdUvDist, src_v)
+    @argcheck src_v isa Real
+    @argcheck length(trg_d) == 1
+    return Fill(apply_dist_trafo(_stddist(trg_d), src_d, only(src_v)), 1)
+end
+
+@inline function apply_dist_trafo(trg_d::StdUvDist, src_d::StdMvDist, src_v)
+    @argcheck src_v isa AbstractVector{<:Real}
+    @argcheck length(eachindex(src_v)) == 1
+    return apply_dist_trafo(trg_d, _stddist(src_d), only(src_v))
 end
 
 
@@ -433,32 +483,6 @@ end
 
 # ToDo: Optimized implementation for Distributions.Truncated <-> StandardUvUniform
 
-
-@inline apply_dist_trafo(trg_d::StandardUvUniform, src_d::StandardUvUniform, src_v::Real) = src_v
-
-@inline apply_dist_trafo(trg_d::StandardUvNormal, src_d::StandardUvNormal, src_v::Real) = src_v
-
-@inline function apply_dist_trafo(trg_d::StandardUvUniform, src_d::StandardUvNormal, src_v::Real)
-    apply_dist_trafo(StandardUvUniform(), Normal(), src_v)
-end
-
-@inline function apply_dist_trafo(trg_d::StandardUvNormal, src_d::StandardUvUniform, src_v::Real)
-    apply_dist_trafo(Normal(), StandardUvUniform(), src_v)
-end
-
-
-@inline function apply_dist_trafo(trg_d::StandardMvUniform, src_d::StandardMvNormal, src_v::AbstractVector{<:Real})
-    @_adignore @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d)
-    _product_dist_trafo_impl(StandardUvUniform(), StandardUvNormal(), src_v)
-end
-
-@inline function apply_dist_trafo(trg_d::StandardMvNormal, src_d::StandardMvUniform, src_v::AbstractVector{<:Real})
-    @_adignore @argcheck eff_totalndof(trg_d) == eff_totalndof(src_d)
-    _product_dist_trafo_impl(StandardUvNormal(), StandardUvUniform(), src_v)
-end
-
-
-std_dist_from(src_d::MvNormal) = StandardMvNormal(length(src_d))
 
 _cholesky_L(A) = cholesky(A).L
 _cholesky_L(A::Diagonal{<:Real}) = Diagonal(sqrt.(diag(A)))
@@ -623,6 +647,14 @@ end
 
 function _stdmv_to_flat_ntdistelem(td::ConstValueDist, src_d::StdMvDist, src_v::AbstractVector{<:Real}, src_acc::ValueAccessor)
     Bool[]
+end
+
+function apply_dist_trafo(trg_d::ValueShapes.NamedTupleDist, src_d::StdMvDist, src_v::AbstractVector{<:Real})
+    @argcheck length(eff_src_d) == length(eachindex(src_v))
+    src_accessors = _flat_ntd_eff_accessors(trg_d.shaped)
+    rs = map((acc, td) -> _stdmv_to_flat_ntdistelem(td, src_d, src_v, acc), src_accessors, values(trg_d.shaped))
+    vcat(rs...)
+    #!!!!!!
 end
 
 function apply_dist_trafo(trg_d::ValueShapes.UnshapedNTD, src_d::StdMvDist, src_v::AbstractVector{<:Real})
