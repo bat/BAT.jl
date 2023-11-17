@@ -15,6 +15,38 @@ for i in eachindex(parameter_names)
 end
 parameter_nt = NamedTuple{tuple(parameter_names...)}(parameter_dists)
 prior = BAT.distprod(parameter_nt,)
+
+
+using BAT: apply_dist_trafo, _flat_ntd_eff_accessors, _stdmv_to_flat_ntdistelem, _flat_ntd_orig_accessors,
+    eff_totalndof, StdMvDist
+
+trg_d = prior;
+src_d = BAT.StandardMvUniform(totalndof(varshape(trg_d)))
+src_v = rand(src_d)
+
+nms = propertynames(trg_d)
+
+
+trg_dists = values(trg_d)
+N = length(trg_dists)
+n_vars = [Symbol("n$i") for i in 1:N]
+d_vars = [Symbol("d$i") for i in 1:N]
+r_vars = [Symbol("r$i") for i in 1:N]
+i = 1
+
+_resize_stdmv(::T, n::Int) where {T<:StdMvDist} = T(n)
+
+quote
+    src_v_pos = firstindex(src_v)
+end
+quote
+    $(d_vars[i]) = trg_dists[$i]
+    $(n_vars[i]) = eff_totalndof($(d_vars[i]))
+    $(r_vars[i]) = apply_dist_trafo($(d_vars[i]), _resize_stdmv(src_d, $(n_vars[i])), view(src_v, src_v_pos:src_v_pos+$(n_vars[i])-1))
+    src_v_pos += $(n_vars[i])
+end
+
+
 # create some random samples and put into DensitySampleVector
 rand_samples = [rand(Normal(0., 1.), N_free) for i in 1:N_samples]
 sample_id = fill(BAT.MCMCSampleID(1, 0, 0, 0), N_samples)
@@ -28,8 +60,4 @@ samples_trafo = shape.(samples)
 samples_notrafo = inverse(trafo).(samples_trafo)
 #@profview inverse(trafo).(samples_trafo)
 
-using BAT: apply_dist_trafo
-trg_d = prior
-src_d = BAT.StandardMvUniform(totalndof(varshape(trg_d)))
 
-apply_dist_trafo(unshaped(trg_d), src_d, src_v)
