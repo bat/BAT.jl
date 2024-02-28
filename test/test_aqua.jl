@@ -15,7 +15,6 @@ Test.@testset "Aqua tests" begin
     Aqua.test_all(
         BAT,
         ambiguities = false,
-        unbound_args = false,
-        project_toml_formatting = VERSION≥v"1.7"
+        unbound_args = false
     )
 end # testset

@@ -264,7 +264,7 @@ function mcmc_step!(chain::MHIterator)
     T = typeof(current_log_posterior)
 
     # Evaluate prior and likelihood with proposed variate:
-    proposed_log_posterior = logdensityof(density, proposed_params)
+    proposed_log_posterior = checked_logdensityof(density, proposed_params)
 
     samples.logd[proposed] = proposed_log_posterior
 
