@@ -17,6 +17,8 @@ Constructors:
 * ```$(FUNCTIONNAME)(; fields...)```
 
 `optalg` must be an `Optimization.AbstractOptimizer`.
+The field `kwargs` can be used to pass additional keywords to the optimizers
+See the [Optimization.jl documentation](https://docs.sciml.ai/Optimization/stable/) for the available keyword arguments.
 
 Fields:
 

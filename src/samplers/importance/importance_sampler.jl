@@ -60,7 +60,7 @@ function bat_sample_impl(
     vol = exp(BigFloat(log_volume(spatialvolume(var_bounds(density)))))
     est_integral = mean(weights) * vol
     # ToDo: Add integral error estimate
-
+    @show samples
     samples_trafo = shape.(DensitySampleVector(samples, logvals, weight = weights))
     samples_notrafo = inverse(trafo).(samples_trafo)
 

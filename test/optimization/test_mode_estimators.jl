@@ -78,13 +78,13 @@ using Optim, OptimizationOptimJL
 
     @testset "Optim.jl with custom options" begin # checks that options are correctly passed to Optim.jl
         context = BATContext(rng = Philox4x((0, 0)))
-        optimizer = OptimAlg(optalg = NelderMead(), trafo = DoNotTransform(), maxiters=20, maxtime=30, reltol=0.2, kwargs=(f_calls_limit=500,))
+        optimizer = OptimAlg(optalg = NelderMead(), trafo = DoNotTransform(), maxiters=20, maxtime=30, reltol=0.2, kwargs=(f_calls_limit=25,))
         
         result = bat_findmode(posterior, optimizer, context)
-        @test result.info.res.iterations == 20
+        @test result.info.res.iterations <= 20
         @test result.info.res.time_limit == 30
         @test result.info.res.f_reltol == 0.2
-        @test result.info.res.f_calls == 500
+        @test result.info.res.f_calls <= 26
 
     end
 

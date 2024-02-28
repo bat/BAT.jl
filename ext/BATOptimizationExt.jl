@@ -51,11 +51,11 @@ function BAT.bat_findmode_impl(target::AnyMeasureOrDensity, algorithm::Optimizat
 
     # Maximize density of original target, but run in transformed space, don't apply LADJ:
     f = fchain(inv_trafo, logdensityof(target), -)
-    f2 = (x, p) -> f(x)
+    target_f = (x, p) -> f(x)
 
     adsel = get_adselector(context)
 
-    optimization_function = build_optimizationfunction(f2, adsel)
+    optimization_function = build_optimizationfunction(target_f, adsel)
     optimization_problem = Optimization.OptimizationProblem(optimization_function, x_init)
 
     algopts = (maxiters = algorithm.maxiters, maxtime = algorithm.maxtime, abstol = algorithm.abstol, reltol = algorithm.reltol)
