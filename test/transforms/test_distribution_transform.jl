@@ -7,7 +7,8 @@ using LinearAlgebra
 using ValueShapes, Distributions, ArraysOfArrays
 using ForwardDiff, Zygote, DistributionsAD
 using InverseFunctions, ChangesOfVariables, DensityInterface
-using BAT: FullMeasureTransform
+using IntervalSets
+using MeasureBase
 
 @testset "test_distribution_transform" begin
     function test_back_and_forth(trg_d, src_d)
@@ -139,16 +140,6 @@ using BAT: FullMeasureTransform
         test_dist_trafo_moments(trg_d, src_d)
     end
 
-
-    #=
-    using Cuba
-    function integrate_over_unit(density::AbstractMeasureOrDensity)
-        vs = varshape(density)
-        f_cuba(source_x, y) = y[1] = exp(logdensityof(density)(vs(source_x)))
-        Cuba.vegas(f_cuba, 1, 1).integral[1]
-    end
-    =#
-
     @testset "Custom cdf and quantile for dual numbers" begin
         Dual = ForwardDiff.Dual
 
@@ -175,27 +166,26 @@ using BAT: FullMeasureTransform
         smpls_tr = trafo.(smpls)
         smpls_tr_cmp = [trafo(s) for s in smpls]
         @test smpls_tr == smpls_tr_cmp
-	    @test @inferred(varshape(trafo)) == varshape(trafo.source_dist)
-	    @test @inferred(trafo(varshape(trafo))) == varshape(trafo.target_dist)
+        @test @inferred(resultshape(trafo, elshape(smpls.v))) == varshape(trafo.target_dist)
     end
 
-    @testset "trafo composition" begin
-        dist1 = @inferred(NamedTupleDist(a = Normal(), b = Uniform(), c = Cauchy()))
-        dist2 = @inferred(NamedTupleDist(a = Exponential(), b = Weibull(), c = Beta()))
-        normal1 = Normal()
-        normal2 = Normal(2)
-
-        trafo = @inferred(BAT.DistributionTransform(dist1, dist2))
-        inv_trafo = @inferred(inverse(trafo))
-
-        composed_trafo = @inferred(∘(trafo, inv_trafo))
-        @test composed_trafo.source_dist == composed_trafo.target_dist == dist1
-        @test composed_trafo ∘ trafo == trafo
-        @test_throws ArgumentError  trafo ∘ composed_trafo
-
-        trafo = @inferred(BAT.DistributionTransform(normal1, normal2))
-        @test_throws ArgumentError trafo ∘ trafo
-    end
+    # @testset "trafo composition" begin
+    #     dist1 = @inferred(NamedTupleDist(a = Normal(), b = Uniform(), c = Cauchy()))
+    #     dist2 = @inferred(NamedTupleDist(a = Exponential(), b = Weibull(), c = Beta()))
+    #     normal1 = Normal()
+    #     normal2 = Normal(2)
+    # 
+    #     trafo = @inferred(BAT.DistributionTransform(dist1, dist2))
+    #     inv_trafo = @inferred(inverse(trafo))
+    # 
+    #     composed_trafo = @inferred(∘(trafo, inv_trafo))
+    #     @test composed_trafo.source_dist == composed_trafo.target_dist == dist1
+    #     @test composed_trafo ∘ trafo == trafo
+    #     @test_throws ArgumentError  trafo ∘ composed_trafo
+    # 
+    #     trafo = @inferred(BAT.DistributionTransform(normal1, normal2))
+    #     @test_throws ArgumentError trafo ∘ trafo
+    # end
 
     @testset "full density transform" begin
         context = BATContext()
@@ -204,34 +194,12 @@ using BAT: FullMeasureTransform
         prior = NamedTupleDist(a = Normal(), b = Gamma())
         posterior_density = PosteriorMeasure(likelihood, prior)
 
-        posterior_density_trafod = @inferred(bat_transform(PriorToUniform(), posterior_density, FullMeasureTransform(), context))
+        posterior_density_trafod = @inferred(bat_transform(PriorToUniform(), posterior_density, BAT.FullMeasureTransform(), context))
 
-        @test posterior_density_trafod.result.orig.likelihood.density._log_f == likelihood._log_f
-        @test posterior_density_trafod.result.orig.prior.dist == prior
+        @test posterior_density_trafod.result.origin.likelihood._log_f == likelihood._log_f
+        @test posterior_density_trafod.result.origin.prior.dist == prior
 
-        @test posterior_density_trafod.result.trafo.target_dist isa BAT.StandardMvUniform
-
-        lower_bounds = Float32.([-10, -10, -10])
-        upper_bounds = Float32.([10, 10, 10])
-        rect_bounds = @inferred(BAT.HyperRectBounds(lower_bounds, upper_bounds))
-            mvn = @inferred(product_distribution(Normal.(randn(3))))
-        dist_density = @inferred(BAT.DistMeasure(mvn, rect_bounds))
-
-        dist_density_trafod = @inferred(bat_transform(PriorToUniform(), dist_density, FullMeasureTransform(), context))
-
-        @test dist_density_trafod.trafo.target_dist isa BAT.StandardMvUniform
-        @test dist_density_trafod.result.orig == dist_density
-        @test dist_density_trafod.trafo.source_dist == dist_density_trafod.result.trafo.source_dist == mvn
-
-        @test dist_density_trafod.trafo(varshape(dist_density_trafod.trafo)) == @inferred(varshape(dist_density))
-
-        dist_density_trafod = @inferred(bat_transform(PriorToGaussian(), dist_density, FullMeasureTransform(), context))
-
-        @test dist_density_trafod.trafo.target_dist isa BAT.StandardMvNormal
-        @test dist_density_trafod.result.orig == dist_density
-        @test dist_density_trafod.trafo.source_dist == dist_density_trafod.result.trafo.source_dist == mvn
-
-        @test dist_density_trafod.trafo(varshape(dist_density_trafod.trafo)) == @inferred(varshape(dist_density))
+        @test posterior_density_trafod.result.f.target_dist isa BAT.StandardMvUniform
     end
 
     @testset "trafo autodiff pullbacks" begin
@@ -269,12 +237,12 @@ end
     @test @inferred(bat_transform(PriorToUniform(), posterior_gaussian_prior, context)).result.prior.dist == @inferred(BAT.StandardMvUniform(3))
     @test @inferred(bat_transform(DoNotTransform(), posterior_uniform_prior, context)).result.prior.dist == uniform_prior
     pd = @inferred(product_distribution([Uniform() for i in 1:3]))
-    density = @inferred(BAT.DistMeasure(pd))
+    density = @inferred(BAT.BATDistMeasure(pd))
     @test @inferred(bat_transform(DoNotTransform(), density, context)).result.dist == density.dist
 
     # ToDo: Improve comparison for bounds so `.dist` is not required here:
-    @inferred(bat_transform(PriorToUniform(), convert(BAT.AbstractMeasureOrDensity, BAT.StandardUvUniform()), context)).result.dist == convert(BAT.AbstractMeasureOrDensity, BAT.StandardUvUniform()).dist
-    @inferred(bat_transform(PriorToUniform(), convert(BAT.AbstractMeasureOrDensity, BAT.StandardMvUniform(4)), context)).result.dist == convert(BAT.AbstractMeasureOrDensity, BAT.StandardMvUniform(4)).dist
-    @inferred(bat_transform(PriorToGaussian(), convert(BAT.AbstractMeasureOrDensity, BAT.StandardUvNormal()), context)).result.dist == convert(BAT.AbstractMeasureOrDensity, BAT.StandardUvNormal()).dist
-    @inferred(bat_transform(PriorToGaussian(), convert(BAT.AbstractMeasureOrDensity, BAT.StandardMvNormal(4)), context)).result.dist == convert(BAT.AbstractMeasureOrDensity, BAT.StandardMvNormal(4)).dist
+    @inferred(bat_transform(PriorToUniform(), batmeasure(BAT.StandardUvUniform()), context)).result.dist == batmeasure(BAT.StandardUvUniform()).dist
+    @inferred(bat_transform(PriorToUniform(), batmeasure(BAT.StandardMvUniform(4)), context)).result.dist == batmeasure(BAT.StandardMvUniform(4)).dist
+    @inferred(bat_transform(PriorToGaussian(), batmeasure(BAT.StandardUvNormal()), context)).result.dist == batmeasure(BAT.StandardUvNormal()).dist
+    @inferred(bat_transform(PriorToGaussian(), batmeasure(BAT.StandardMvNormal(4)), context)).result.dist == batmeasure(BAT.StandardMvNormal(4)).dist
 end

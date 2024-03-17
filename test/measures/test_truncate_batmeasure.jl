@@ -6,7 +6,7 @@ using Test
 using DensityInterface, ValueShapes
 using ArraysOfArrays, Distributions, StatsBase, IntervalSets
 
-@testset "truncated_density" begin
+@testset "truncate_batmeasure" begin
     prior_dist = unshaped(NamedTupleDist(
         a = truncated(Normal(), -2, 2),
         b = Exponential(),
@@ -25,32 +25,32 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets
 
     let
         orig_dist = Exponential()
-        trunc_dist, logrenormf = @inferred BAT.truncate_dist_hard(orig_dist, -6..6)
+        trunc_dist, logweight = @inferred BAT.truncate_dist_hard(orig_dist, -6..6)
         @test trunc_dist.lower == 0 && trunc_dist.upper == 6
-        @test logpdf(trunc_dist, 3) + logrenormf ≈ logpdf(orig_dist, 3)
+        @test logpdf(trunc_dist, 3) + logweight ≈ logpdf(orig_dist, 3)
     end
 
     let
         orig_dist = truncated(Exponential(), 1, 5)
-        trunc_dist, logrenormf = @inferred BAT.truncate_dist_hard(orig_dist, 0..4)
+        trunc_dist, logweight = @inferred BAT.truncate_dist_hard(orig_dist, 0..4)
         @test trunc_dist.lower == 1 && trunc_dist.upper == 4
-        @test logpdf(trunc_dist, 3) + logrenormf ≈ logpdf(orig_dist, 3)
+        @test logpdf(trunc_dist, 3) + logweight ≈ logpdf(orig_dist, 3)
     end
 
     let
         orig_dist = truncated(Exponential(), 1, 5)
-        trunc_dist, logrenormf = @inferred BAT.truncate_dist_hard(orig_dist, 2..6)
+        trunc_dist, logweight = @inferred BAT.truncate_dist_hard(orig_dist, 2..6)
         @test trunc_dist.lower == 2 && trunc_dist.upper == 5
-        @test logpdf(trunc_dist, 3) + logrenormf ≈ logpdf(orig_dist, 3)
+        @test logpdf(trunc_dist, 3) + logweight ≈ logpdf(orig_dist, 3)
     end
     
     @test @inferred(BAT.truncate_dist_hard(prior_dist, bounds)).dist isa ValueShapes.UnshapedNTD
     let
-        trunc_dist, logrenormf = @inferred BAT.truncate_dist_hard(prior_dist, bounds)
-        @test logpdf(unshaped(trunc_dist), [1, 2, 0, 3]) + logrenormf ≈ logpdf(unshaped(prior_dist), [1, 2, 0, 3])
+        trunc_dist, logweight = @inferred BAT.truncate_dist_hard(prior_dist, bounds)
+        @test logpdf(unshaped(trunc_dist), [1, 2, 0, 3]) + logweight ≈ logpdf(unshaped(prior_dist), [1, 2, 0, 3])
     end
 
-    @test @inferred(truncate_density(prior, bounds)) isa BAT.Renormalized
+    @test @inferred(truncate_density(prior, bounds)) isa BAT.BATWeightedMeasure
 
 
     @test BAT.checked_logdensityof(unshaped(truncate_density(prior, bounds)), [1, 2, 0, 3]) ≈ BAT.checked_logdensityof(unshaped(prior), [1, 2, 0, 3])

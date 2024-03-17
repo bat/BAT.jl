@@ -42,7 +42,7 @@ function MCMCBasicStats(::Type{S}, ndof::Integer) where {
     MCMCBasicStats{SL,SP}(ndof)
 end
 
-MCMCBasicStats(chain::MCMCIterator) = MCMCBasicStats(sample_type(chain), totalndof(getmeasure(chain)))
+MCMCBasicStats(chain::MCMCIterator) = MCMCBasicStats(sample_type(chain), totalndof(varshape(mcmc_target(chain))))
 
 function MCMCBasicStats(sv::DensitySampleVector{<:AbstractVector{<:Real}})
     stats = MCMCBasicStats(eltype(sv), innersize(sv.v, 1))
@@ -87,7 +87,7 @@ function Base.append!(stats::MCMCBasicStats, sv::DensitySampleVector)
 end
 
 
-ValueShapes.totalndof(stats::MCMCBasicStats) = stats.param_stats.m
+_stats_dof(stats::MCMCBasicStats) = stats.param_stats.m
 
 nsamples(stats::MCMCBasicStats) = stats.param_stats.cov.sum_w
 

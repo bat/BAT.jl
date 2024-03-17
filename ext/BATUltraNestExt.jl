@@ -12,8 +12,8 @@ using BAT
 
 BAT.pkgext(::Val{:UltraNest}) = BAT.PackageExtension{:UltraNest}()
 
-using BAT: AnyMeasureOrDensity, AbstractMeasureOrDensity
-using BAT: transform_and_unshape, var_bounds, all_active_names, exec_map!
+using BAT: MeasureLike, BATMeasure
+using BAT: transform_and_unshape, measure_support, all_active_names, exec_map!
 
 using Random
 using ArraysOfArrays
@@ -21,19 +21,11 @@ using DensityInterface, InverseFunctions, ValueShapes
 import Measurements
 
 
-function BAT.bat_sample_impl(
-    target::AnyMeasureOrDensity,
-    algorithm::ReactiveNestedSampling,
-    context::BATContext
-)
-    density_notrafo = convert(AbstractMeasureOrDensity, target)
-    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo, context)
+function BAT.bat_sample_impl(m::BATMeasure, algorithm::ReactiveNestedSampling, context::BATContext)
+    transformed_m, trafo = transform_and_unshape(algorithm.trafo, m, context)
 
-    vs = varshape(density)
-
-    bounds = var_bounds(density)
-    if !(all(isequal(0), bounds.vol.lo) && all(isequal(1), bounds.vol.hi))
-        throw(ArgumentError("ReactiveNestedSampling only supports (transformed) densities defined on the unit hypercube"))
+    if !BAT.has_uhc_support(transformed_m)
+        throw(ArgumentError("$algorithm doesn't measures that are not limited to the unit hypercube"))
     end
 
     LogDType = Float64
@@ -42,11 +34,10 @@ function BAT.bat_sample_impl(
         V = deepcopy(V_rowwise')
         logd = similar(V, LogDType, size(V,2))
         V_nested = nestedview(V)
-        exec_map!(logdensityof(density), algorithm.executor, logd, V_nested)
+        exec_map!(logdensityof(transformed_m), algorithm.executor, logd, V_nested)
     end
 
-    ndims = totalndof(vs)
-    paramnames = all_active_names(varshape(density_notrafo))
+    paramnames = all_active_names(varshape(m))
 
     smplr = UltraNest.ultranest.ReactiveNestedSampler(
         paramnames, vec_ultranest_logpstr, vectorized = true,
@@ -81,13 +72,13 @@ function BAT.bat_sample_impl(
     v_trafo_us = nestedview(convert(Matrix{Float64}, unest_wsamples["points"]'))
     logvals_trafo = convert(Vector{Float64}, unest_wsamples["logl"])
     weight = convert(Vector{Float64}, unest_wsamples["weights"])
-    samples_trafo = DensitySampleVector(vs.(v_trafo_us), logvals_trafo, weight = weight)
-    samples_notrafo = inverse(trafo).(samples_trafo) 
+    transformed_smpls = DensitySampleVector(v_trafo_us, logvals_trafo, weight = weight)
+    smpls = inverse(trafo).(transformed_smpls) 
 
     uwv_trafo_us = nestedview(convert(Matrix{Float64}, r["samples"]'))
-    uwlogvals_trafo = map(logdensityof(density), uwv_trafo_us)
-    uwsamples_trafo = DensitySampleVector(vs.(uwv_trafo_us), uwlogvals_trafo)
-    uwsamples_notrafo = inverse(trafo).(uwsamples_trafo)
+    uwlogvals_trafo = map(logdensityof(transformed_m), uwv_trafo_us)
+    uwtransformed_smpls = DensitySampleVector(uwv_trafo_us, uwlogvals_trafo)
+    uwsmpls = inverse(trafo).(uwtransformed_smpls)
 
     logz = convert(BigFloat, r["logz"])::BigFloat
     logzerr = convert(BigFloat, r["logzerr"])::BigFloat
@@ -96,8 +87,8 @@ function BAT.bat_sample_impl(
     ess = convert(Float64, r["ess"])
 
     return (
-        result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo,
-        uwresult = uwsamples_notrafo, uwresult_trafo = uwsamples_trafo,
+        result = smpls, result_trafo = transformed_smpls, trafo = trafo,
+        uwresult = uwsmpls, uwresult_trafo = uwtransformed_smpls,
         logintegral = logintegral, ess = ess,
         info = r
     )

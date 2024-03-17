@@ -2,36 +2,6 @@
 
 
 """
-    GenericDensity{F<:Function} <: BATDensity
-
-*BAT-internal, not part of stable public API.*
-"""
-struct GenericDensity{F<:Function} <: BATDensity
-    f::F
-
-    @noinline function GenericDensity(f::F) where {F<:Function}
-        Base.depwarn("`BAT.GenericDensity` is deprecated, use package DensityInterface.jl to turn log-density functions into BAT-compatible densities.", :GenericDensity)
-        new{F}(f)
-    end    
-end
-
-
-Base.convert(::Type{GenericDensity}, f::Function) = GenericDensity(f)
-
-@noinline function Base.convert(::Type{AbstractMeasureOrDensity}, f::Function)
-    Base.depwarn("`convert(BAT.AbstractMeasureOrDensity, f::Function)` is deprecated, use `convert(AbstractMeasureOrDensity, logfuncdensity(g))` with a function `g` that returns the log-density value directly instead.", :convert)
-    GenericDensity(f)
-end
-
-Base.parent(density::GenericDensity) = density.f
-
-function DensityInterface.logdensityof(density::GenericDensity, v::Any)
-    logvalof(density.f(v))
-end
-
-
-
-"""
     struct BAT.LFDensity{F}
 
 *BAT-internal, not part of stable public API.*
@@ -43,7 +13,6 @@ struct LFDensity{F} <: BATDensity
 end
 
 Base.convert(::Type{LFDensity}, density::DensityInterface.LogFuncDensity) = LFDensity(logdensityof(density))
-Base.convert(::Type{AbstractMeasureOrDensity}, density::DensityInterface.LogFuncDensity) = convert(LFDensity, density)
 
 @inline DensityInterface.logdensityof(density::LFDensity, x) = density._log_f(x)
 @inline DensityInterface.logdensityof(density::LFDensity) = density._log_f
@@ -53,6 +22,9 @@ function Base.show(io::IO, density::LFDensity)
     show(io, density._log_f)
     print(io, ")")
 end
+
+_precompose_density(density::LFDensity, g) = LFDensity(fcomp(density._log_f, g))
+
 
 
 """

@@ -11,9 +11,9 @@ end
 using BAT
 BAT.pkgext(::Val{:Cuba}) = BAT.PackageExtension{:Cuba}()
 
-using BAT: AnyMeasureOrDensity, AbstractMeasureOrDensity
+using BAT: MeasureLike, BATMeasure
 using BAT: CubaIntegration
-using BAT: var_bounds, bat_integrate_impl
+using BAT: measure_support, bat_integrate_impl
 using BAT: transform_and_unshape, auto_renormalize
 
 using Base.Threads: @threads
@@ -125,17 +125,16 @@ function _integrate_impl_cuba(integrand::CubaIntegrand, algorithm::CuhreIntegrat
 end
 
 
-function BAT.bat_integrate_impl(target::AnyMeasureOrDensity, algorithm::CubaIntegration, context::BATContext)
-    measure = convert(AbstractMeasureOrDensity, target)
+function BAT.bat_integrate_impl(target::MeasureLike, algorithm::CubaIntegration, context::BATContext)
+    measure = batmeasure(target)
     transformed_measure, _ = transform_and_unshape(algorithm.trafo, measure, context)
 
-    vb = var_bounds(transformed_measure)
-    if !(all(isapprox(0), vb.vol.lo) && all(isapprox(1), vb.vol.hi))
-        throw(ArgumentError("CUBA integration requires measures that (can be converted to) have unit volume support"))
+    if !BAT.has_uhc_support(transformed_measure)
+        throw(ArgumentError("CUBA integration requires measures are supported only on the unit hypercube"))
     end
 
-    renormalized_measure, logrenormf = auto_renormalize(transformed_measure)
-    dof = totalndof(renormalized_measure)
+    renormalized_measure, logweight = auto_renormalize(transformed_measure)
+    dof = totalndof(varshape(renormalized_measure))
     integrand = CubaIntegrand(logdensityof(renormalized_measure), dof)
 
     r_cuba = _integrate_impl_cuba(integrand, algorithm, context)
@@ -152,9 +151,9 @@ function BAT.bat_integrate_impl(target::AnyMeasureOrDensity, algorithm::CubaInte
     end
 
     (value, error) = first(r_cuba.integral), first(r_cuba.error)
-    rescaled_value, rescaled_error = exp(BigFloat(log(value) - logrenormf)), exp(BigFloat(log(error) - logrenormf))
+    rescaled_value, rescaled_error = exp(BigFloat(log(value) - logweight)), exp(BigFloat(log(error) - logweight))
     result = Measurements.measurement(rescaled_value, rescaled_error)
-    return (result = result, logrenormf = logrenormf, cuba_result = r_cuba)
+    return (result = result, logweight = logweight, cuba_result = r_cuba)
 end
 
 

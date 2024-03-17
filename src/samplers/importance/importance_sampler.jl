@@ -44,45 +44,52 @@ export GridSampler
 
 
 function bat_sample_impl(
-    target::AnyMeasureOrDensity,
+    m::BATMeasure,
     algorithm::Union{SobolSampler, GridSampler},
     context::BATContext
 )
-    density_notrafo = convert(AbstractMeasureOrDensity, target)
-    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo, context)
-    shape = varshape(density)
+    transformed_measure, trafo = transform_and_unshape(algorithm.trafo, m, context)
 
-    samples = _gen_samples(density, algorithm)
+    if !has_uhc_support(transformed_measure)
+        throw(ArgumentError("$algorithm doesn't measures that are not limited to the unit hypercube"))
+    end
 
-    logvals = map(logdensityof(density), samples)
+    samples = _gen_samples(transformed_measure, algorithm, context)
+
+    logvals = map(logdensityof(transformed_measure), samples)
     weights = exp.(logvals)
+    # ToDo: Renormalize weights
 
-    vol = exp(BigFloat(log_volume(spatialvolume(var_bounds(density)))))
-    est_integral = mean(weights) * vol
+    est_integral = mean(weights)
     # ToDo: Add integral error estimate
 
-    samples_trafo = shape.(DensitySampleVector(samples, logvals, weight = weights))
-    samples_notrafo = inverse(trafo).(samples_trafo)
+    transformed_smpls = DensitySampleVector(samples, logvals, weight = weights)
+    smpls = inverse(trafo).(transformed_smpls)
 
-    return (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, integral = est_integral)
+    return (result = smpls, result_trafo = transformed_smpls, trafo = trafo, integral = est_integral)
 end
 
 
-function _gen_samples(density::AbstractMeasureOrDensity, algorithm::SobolSampler)
-    bounds = var_bounds(density)
-    isinf(bounds) && throw(ArgumentError("SobolSampler doesn't support densities with infinite support"))
-    sobol = Sobol.SobolSeq(bounds.vol.lo, bounds.vol.hi)
-    p = vcat([[Sobol.next!(sobol)] for i in 1:algorithm.nsamples]...)
-    return p
+function _gen_samples(m::BATMeasure, algorithm::SobolSampler, context::BATContext)
+    T = get_precision(context)
+    n = getdof(m)
+    # ToDo: Use BAT context for precision, etc:
+    x = Vector{T}(undef, n)
+    X = VectorOfSimilarVectors(Matrix{T}(undef, n, algorithm.nsamples))
+    sobol = Sobol.SobolSeq(getdof(m))
+    for i in 1:algorithm.nsamples
+        Sobol.next!(sobol, x)
+        X[i] .= x
+    end
+    return X
 end
 
 
-function _gen_samples(density::AbstractMeasureOrDensity, algorithm::GridSampler)
-    bounds = var_bounds(density)
-    isinf(bounds) && throw(ArgumentError("SobolSampler doesn't support densities with infinite support"))
-    dim = totalndof(density)
+function _gen_samples(m::BATMeasure, algorithm::GridSampler, context::BATContext)
+    dim = _rv_dof(m)
     ppa = algorithm.ppa
-    ranges = [range(bounds.vol.lo[i], bounds.vol.hi[i], length = trunc(Int, ppa)) for i in 1:dim]
+    # ToDo: Use BAT context for precision, etc:
+    ranges = [range(0.0, 1.0, length = trunc(Int, ppa)) for i in 1:dim]
     p = vec(collect(Iterators.product(ranges...)))
     return [collect(p[i]) for i in 1:length(p)]
 end
@@ -115,7 +122,7 @@ function bat_sample_impl(
 )
     shape = varshape(posterior)
 
-    prior = getprior(posterior)
+    prior = convert_for(bat_sample, getprior(posterior))
     prior_samples = bat_sample_impl(prior, IIDSampling(nsamples = algorithm.nsamples), context).result
     unshaped_prior_samples = unshaped.(prior_samples)
 

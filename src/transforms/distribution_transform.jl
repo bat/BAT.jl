@@ -86,7 +86,7 @@ end
 
 
 """
-    abstract type DistributionTransform{VT<:AbstractValueShape,VF<:AbstractValueShape} <: Function
+    abstract type DistributionTransform <: Function
 
 *Experimental feature, not part of stable public API.*
 
@@ -102,12 +102,13 @@ DistributionTransform(Normal, source_dist)
 """
 struct DistributionTransform{
     DT <: ContinuousDistribution,
-    DF <: ContinuousDistribution,
-    VT <: AbstractValueShape,
-    VF <: AbstractValueShape,
+    DF <: ContinuousDistribution
 } <: Function
     target_dist::DT
     source_dist::DF
+
+    DistributionTransform{DT,DF}(target_dist::DT, source_dist::DF) where {DT<:ContinuousDistribution,DF<:ContinuousDistribution} =
+        new{DT,DF}(target_dist, source_dist)
 end
 
 
@@ -119,9 +120,7 @@ end
 
 function _distrafo_ctor_impl(target_dist::DT, source_dist::DF) where {DT<:ContinuousDistribution,DF<:ContinuousDistribution}
     @argcheck eff_totalndof(target_dist) == eff_totalndof(source_dist)
-    VT = typeof(varshape(target_dist))
-    VF = typeof(varshape(source_dist))
-    DistributionTransform{DT,DF,VT,VF}(target_dist, source_dist)
+    DistributionTransform{DT,DF}(target_dist, source_dist)
 end
 
 function _distrafo_ctor_impl(target_dist::Distribution, source_dist::Distribution)
@@ -129,16 +128,7 @@ function _distrafo_ctor_impl(target_dist::Distribution, source_dist::Distributio
     DistributionTransform(target_dist, source_dist)
 end
 
-DistributionTransform(target_dist::Distribution{VF,Continuous}, source_dist::Distribution{VF,Continuous}) where VF =
-    _distrafo_ctor_impl(target_dist, source_dist)
-
-DistributionTransform(target_dist::Distribution{Multivariate,Continuous}, source_dist::Distribution{VF,Continuous}) where VF =
-    _distrafo_ctor_impl(target_dist, source_dist)
-
-DistributionTransform(target_dist::Distribution{VF,Continuous}, source_dist::Distribution{Multivariate,Continuous}) where VF =
-    _distrafo_ctor_impl(target_dist, source_dist)
-
-DistributionTransform(target_dist::Distribution{Multivariate,Continuous}, source_dist::Distribution{Multivariate,Continuous}) =
+DistributionTransform(target_dist::ContinuousDistribution, source_dist::ContinuousDistribution) =
     _distrafo_ctor_impl(target_dist, source_dist)
 
 
@@ -183,10 +173,6 @@ function ChangesOfVariables.with_logabsdet_jacobian(trafo::DistributionTransform
 end
 
 
-Base.:(∘)(::typeof(identity), f::DistributionTransform) = f
-Base.:(∘)(f::DistributionTransform, ::typeof(identity)) = f
-
-
 function Base.Broadcast.broadcasted(
     trafo::DistributionTransform,
     v_src::Union{ArrayOfSimilarVectors{<:Real},ShapedAsNTArray}
@@ -216,22 +202,22 @@ end
 end
 
 
-import Base.∘
-function ∘(a::DistributionTransform, b::DistributionTransform)
-    @argcheck a.source_dist == b.target_dist
-    DistributionTransform(a.target_dist, b.source_dist)
-end
+# function Base.:(∘)(a::DistributionTransform, b::DistributionTransform)
+#     @argcheck a.source_dist == b.target_dist
+#     DistributionTransform(a.target_dist, b.source_dist)
+# end
+# 
+# Base.:(∘)(::typeof(identity), g::DistributionTransform) = g
+# Base.:(∘)(f::DistributionTransform, ::typeof(identity)) = f
 
 
-ValueShapes.varshape(trafo::DistributionTransform) = varshape(trafo.source_dist)
-
-function (trafo::DistributionTransform)(vs::AbstractValueShape)
-    @argcheck vs <= varshape(trafo)
+function ValueShapes.resultshape(trafo::DistributionTransform, vs::AbstractValueShape)
+    @argcheck vs <= varshape(trafo.source_dist)
     varshape(trafo.target_dist)
 end
 
 
-ValueShapes.unshaped(trafo::DistributionTransform) =
+_unshaped_trafo(trafo::DistributionTransform) =
     DistributionTransform(unshaped(trafo.target_dist), unshaped(trafo.source_dist))
 
 
@@ -263,7 +249,6 @@ function DistributionTransform(disttype::Type{<:_StdDistType}, source_dist::Cont
     trg_d = _trg_dist(disttype, source_dist)
     DistributionTransform(trg_d, source_dist)
 end
-
 
 
 function std_dist_from(src_d::Distribution)
@@ -614,10 +599,14 @@ function apply_dist_trafo(trg_d::StdMvDist, src_d::ValueShapes.UnshapedNTD, src_
     vcat(rs...)
 end
 
+apply_dist_trafo(trg_d::StdMvDist, src_d::ValueShapes.UnshapedNTD, src_v) = throw(ArgumentError("Invalid variate type $(nameof(typeof(src_v)))) for NamedTupleDist"))
+
 function apply_dist_trafo(trg_d::StdMvDist, src_d::NamedTupleDist, src_v::Union{NamedTuple,ShapedAsNT})
     src_v_unshaped = unshaped(src_v, varshape(src_d))
     apply_dist_trafo(trg_d, unshaped(src_d), src_v_unshaped)
 end
+
+apply_dist_trafo(trg_d::StdMvDist, src_d::NamedTupleDist, src_v) = throw(ArgumentError("Invalid variate type $(nameof(typeof(src_v))) for NamedTupleDist"))
 
 
 function _stdmv_to_flat_ntdistelem(td::Distribution, src_d::StdMvDist, src_v::AbstractVector{<:Real}, src_acc::ValueAccessor)

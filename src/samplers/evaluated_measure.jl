@@ -20,7 +20,7 @@ EvaluatedMeasure(
     API and is subject to change without deprecation.
 """
 struct EvaluatedMeasure{
-    D<:AbstractMeasureOrDensity,
+    D<:BATMeasure,
     S<:Union{DensitySampleVector,Nothing},
     A<:NamedTuple,
     M<:Number,
@@ -37,14 +37,14 @@ end
 export EvaluatedMeasure
 
 function EvaluatedMeasure(
-    measurelike::AnyMeasureOrDensity;
+    measurelike::MeasureLike;
     samples = nothing,
     approx = NamedTuple(),
     mass = MeasureBase.UnknownMass(),
     modes = nothing,
     _generator = nothing
 )
-    measure = convert(AbstractMeasureOrDensity, measurelike)
+    measure = batmeasure(measurelike)
     @argcheck DensityKind(measure) isa HasDensity
     return EvaluatedMeasure(measure, samples, approx, mass, modes, _generator)
 end
@@ -77,11 +77,7 @@ function _unshaped_density(em::EvaluatedMeasure, vs::AbstractValueShape)
     return EvaluatedMeasure(new_measure, new_samples, em.approx, em.mass, em.modes, em._generator)
 end
 
-var_bounds(em::EvaluatedMeasure) = var_bounds(em.measure)
-
-
-# ToDo: Distributions.sampler(em::EvaluatedMeasure)
-# ToDo: bat_sampler(em::EvaluatedMeasure)
+measure_support(em::EvaluatedMeasure) = measure_support(em.measure)
 
 
 get_initsrc_from_target(em::EvaluatedMeasure) = em.samples
@@ -98,14 +94,12 @@ function bat_transform_impl(target::AbstractTransformTarget, em::EvaluatedMeasur
     (result = new_em, trafo = trafo)
 end
 
-# ToDo: truncate_density(em::EvaluatedMeasure, bounds::AbstractArray{<:Interval})
+# ToDo: truncate_batmeasure(em::EvaluatedMeasure, bounds::AbstractArray{<:Interval})
 
-_approx_cov(em::EvaluatedMeasure) = cov(em.samples)
-
-function renormalize_density(em::EvaluatedMeasure, logrenormf::Real)
-    new_measure = renormalize_density(em.measure, logrenormf)
+function MeasureBase.weightedmeasure(logweight::Real, em::EvaluatedMeasure)
+    new_measure = weightedmeasure(logweight, em.measure)
     samples = em.samples
-    new_samples = DensitySampleVector((samples.v, samples.logd .+ logrenormf, samples.weight, samples.info, samples.aux))
+    new_samples = DensitySampleVector((samples.v, samples.logd .+ logweight, samples.weight, samples.info, samples.aux))
     return EvaluatedMeasure(new_measure, new_samples, em.approx, em.mass, em.modes, em._generator)
 end
 

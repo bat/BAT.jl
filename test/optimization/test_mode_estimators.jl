@@ -53,7 +53,7 @@ using Optim
     @testset "ModeAsDefined" begin
         context = BATContext()
         @test @inferred(bat_findmode(prior, ModeAsDefined(), context)).result == true_mode
-        @test @inferred(bat_findmode(BAT.DistMeasure(prior), ModeAsDefined(), context)).result == true_mode
+        @test @inferred(bat_findmode(batmeasure(prior), ModeAsDefined(), context)).result == true_mode
         let post_modes = @inferred(bat_findmode(posterior, context)).result
             for k in keys(post_modes)
                 @test isapprox(post_modes[k], true_mode[k], atol=0.001)

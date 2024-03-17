@@ -22,30 +22,6 @@ function _check_rand_compat(s::Sampleable{Multivariate}, A::Union{AbstractVector
 end
 
 
-
-"""
-    bat_sampler(d::Distribution)
-
-*BAT-internal, not part of stable public API.*
-
-Tries to return a BAT-compatible sampler for Distribution d. A sampler is
-BAT-compatible if it supports random number generation using an arbitrary
-`AbstractRNG`:
-
-    rand(rng::AbstractRNG, s::SamplerType)
-    rand!(rng::AbstractRNG, s::SamplerType, x::AbstractArray)
-
-If no specific method of `bat_sampler` is defined for the type of `d`, it will
-default to `sampler(d)`, which may or may not return a BAT-compatible
-sampler.
-"""
-function bat_sampler end
-
-# ToDo/Decision: Rename? Replace with `bat_default` mechanism?
-bat_sampler(d::Distribution) = Distributions.sampler(d)
-
-
-
 """
     issymmetric_around_origin(d::Distribution)
 

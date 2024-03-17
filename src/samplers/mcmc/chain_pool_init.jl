@@ -37,7 +37,7 @@ function _construct_chain(
     rngpart::RNGPartition,
     id::Integer,
     algorithm::MCMCAlgorithm,
-    density::AbstractMeasureOrDensity,
+    density::BATMeasure,
     initval_alg::InitvalAlgorithm,
     parent_context::BATContext
 )
@@ -50,7 +50,7 @@ _gen_chains(
     rngpart::RNGPartition,
     ids::AbstractRange{<:Integer},
     algorithm::MCMCAlgorithm,
-    density::AbstractMeasureOrDensity,
+    density::BATMeasure,
     initval_alg::InitvalAlgorithm,
     context::BATContext
 ) = [_construct_chain(rngpart, id, algorithm, density, initval_alg, context) for id in ids]
@@ -58,7 +58,7 @@ _gen_chains(
 
 function mcmc_init!(
     algorithm::MCMCAlgorithm,
-    density::AbstractMeasureOrDensity,
+    density::BATMeasure,
     nchains::Integer,
     init_alg::MCMCChainPoolInit,
     tuning_alg::MCMCTuningAlgorithm,
@@ -81,6 +81,7 @@ function mcmc_init!(
 
     dummy_context = deepcopy(context)
     dummy_initval = unshaped(bat_initval(density, InitFromTarget(), dummy_context).result, varshape(density))
+    global g_state = (;dummy_context, dummy_initval, density)
     dummy_chain = MCMCIterator(algorithm, density, 1, dummy_initval, dummy_context)
     dummy_tuner = tuning_alg(dummy_chain)
 
