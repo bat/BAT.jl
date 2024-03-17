@@ -127,7 +127,7 @@ end
 
 function BAT.bat_integrate_impl(target::AnyMeasureOrDensity, algorithm::CubaIntegration, context::BATContext)
     measure = convert(AbstractMeasureOrDensity, target)
-    transformed_measure, _ = transform_and_unshape(algorithm.trafo, target, context)
+    transformed_measure, _ = transform_and_unshape(algorithm.trafo, measure, context)
 
     vb = var_bounds(transformed_measure)
     if !(all(isapprox(0), vb.vol.lo) && all(isapprox(1), vb.vol.hi))
