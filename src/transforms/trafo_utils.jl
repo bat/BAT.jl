@@ -12,10 +12,11 @@ function broadcast_trafo(
     trafo::Any,
     v_src::Union{ArrayOfSimilarVectors{<:Real},ShapedAsNTArray}
 )
-    vs_trg = trafo(elshape(v_src))
+    vs_src = elshape(v_src)
+    vs_trg = resultshape(trafo, vs_src)
     R = eltype(unshaped(trafo(first(v_src)), vs_trg))
     v_src_us = unshaped.(v_src)
-    trafo_us = unshaped(trafo)
+    trafo_us = _unshaped_trafo(trafo)
 
     n = length(eachindex(v_src_us))
     v_trg_unshaped = nestedview(similar(flatview(v_src_us), R, totalndof(vs_trg), n))
@@ -40,10 +41,11 @@ function broadcast_trafo(
     trafo::Any,
     s_src::DensitySampleVector
 )
-    vs_trg = trafo(elshape(s_src.v))
+    vs_src = elshape(s_src.v)
+    vs_trg = resultshape(trafo, vs_src)
     R = eltype(unshaped(trafo(first(s_src.v)), vs_trg))
     s_src_us = unshaped.(s_src)
-    trafo_us = unshaped(trafo)
+    trafo_us = _unshaped_trafo(trafo)
 
     n = length(eachindex(s_src_us))
     s_trg_unshaped = DensitySampleVector((

@@ -12,21 +12,21 @@ import AdvancedHMC
 
 @testset "HamiltonianMC" begin
     context = BATContext(ad = ADModule(:ForwardDiff))
-    target = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
+    objective = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
 
-    shaped_density = @inferred(convert(AbstractMeasureOrDensity, target))
-    @test shaped_density isa BAT.DistMeasure
-    density = unshaped(shaped_density)
-    @test density isa BAT.DistMeasure
+    shaped_target = @inferred(batmeasure(objective))
+    @test shaped_target isa BAT.BATDistMeasure
+    target = unshaped(shaped_target)
+    @test target isa BAT.BATDistMeasure
 
     algorithm = HamiltonianMC()
     nchains = 4
  
     @testset "MCMC iteration" begin
-        v_init = bat_initval(density, InitFromTarget(), context).result
+        v_init = bat_initval(target, InitFromTarget(), context).result
         # Note: No @inferred, since MCMCIterator is not type stable (yet) with HamiltonianMC
-        @test BAT.MCMCIterator(algorithm, density, 1, unshaped(v_init, varshape(density)), deepcopy(context)) isa BAT.MCMCIterator
-        chain = BAT.MCMCIterator(algorithm, density, 1, unshaped(v_init, varshape(density)), deepcopy(context))
+        @test BAT.MCMCIterator(algorithm, target, 1, unshaped(v_init, varshape(target)), deepcopy(context)) isa BAT.MCMCIterator
+        chain = BAT.MCMCIterator(algorithm, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))
         tuner = BAT.StanHMCTuning()(chain)
         nsteps = 10^4
         BAT.tuning_init!(tuner, chain, 0)
@@ -37,7 +37,7 @@ import AdvancedHMC
         @test minimum(samples.weight) == 0
         @test isapprox(length(samples), nsteps, atol = 20)
         @test length(samples) == sum(samples.weight)
-        @test BAT.test_dist_samples(unshaped(target), samples)
+        @test BAT.test_dist_samples(unshaped(objective), samples)
 
         samples = DensitySampleVector(chain)
         BAT.mcmc_iterate!(samples, chain, max_nsteps = 10^3, nonzero_weights = true)
@@ -58,7 +58,7 @@ import AdvancedHMC
         # Note: No @inferred, not type stable (yet) with HamiltonianMC
         init_result = BAT.mcmc_init!(
             algorithm,
-            density,
+            target,
             nchains,
             init_alg,
             tuning_alg,
@@ -95,12 +95,12 @@ import AdvancedHMC
         append!.(Ref(samples), outputs)
         
         @test length(samples) == sum(samples.weight)
-        @test BAT.test_dist_samples(unshaped(target), samples)
+        @test BAT.test_dist_samples(unshaped(objective), samples)
     end
 
     @testset "bat_sample" begin
         samples = bat_sample(
-            shaped_density,
+            shaped_target,
             MCMCSampling(
                 mcalg = algorithm,
                 trafo = DoNotTransform(),
@@ -115,14 +115,14 @@ import AdvancedHMC
         @test samples[2].info.chaincycle == 1
 
         smplres = BAT.sample_and_verify(
-            shaped_density,
+            shaped_target,
             MCMCSampling(
                 mcalg = algorithm,
                 trafo = DoNotTransform(),
                 nsteps = 10^4,
                 store_burnin = false
             ),
-            target,
+            objective,
             context
         )
         samples = smplres.result

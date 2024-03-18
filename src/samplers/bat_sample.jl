@@ -16,13 +16,14 @@ function sample_and_verify(
     ref_dist::Distribution = target, context::BATContext = get_batcontext();
     max_retries::Integer = 1
 )
-    initial_smplres = bat_sample_impl(target, algorithm, context)
+    measure = batsampleable(target)
+    initial_smplres = bat_sample_impl(measure, algorithm, context)
     smplres::typeof(initial_smplres) = initial_smplres
     verified::Bool = test_dist_samples(ref_dist, smplres.result, context)
     n_retries::Int = 0
     while !(verified) && n_retries < max_retries
         n_retries += 1
-        smplres = bat_sample_impl(target, algorithm, context)
+        smplres = bat_sample_impl(measure, algorithm, context)
         verified = test_dist_samples(ref_dist, smplres.result, context)
     end
     merge(smplres, (verified = verified, n_retries = n_retries))
@@ -32,8 +33,7 @@ end
 """
     struct IIDSampling <: AbstractSamplingAlgorithm
 
-Sample via `Random.rand`. Only supported for posteriors of type
-`Distributions.MultivariateDistribution` and `BAT.DistLikeMeasure`.
+Sample via `Random.rand`.
 
 Constructors:
 
@@ -49,25 +49,23 @@ end
 export IIDSampling
 
 
-function bat_sample_impl(target::AnyIIDSampleable, algorithm::IIDSampling, context::BATContext)
+function bat_sample_impl(m::BATMeasure, algorithm::IIDSampling, context::BATContext)
+    global g_state = (;m, algorithm, context)
+    #@assert false
+    cunit = get_compute_unit(context)
     rng = get_rng(context)
-    shaped_density = convert(DistLikeMeasure, target)
-    density = unshaped(shaped_density)
-    shape = varshape(shaped_density)
     n = algorithm.nsamples
 
-    # ToDo: Parallelize, using hierarchical RNG (separate RNG for each sample)
-    v = nestedview(rand(rng, bat_sampler(density), n))
-    logd = map(logdensityof(density), v)
+    v = rand(rng, m^n)
+    # ToDo: Parallelize:
+    logd = map(logdensityof(m), v)
 
-    weight = fill(_default_int_WT(1), length(eachindex(logd)))
-    info = fill(nothing, length(eachindex(logd)))
-    aux = fill(nothing, length(eachindex(logd)))
+    weight = adapt(cunit, fill(one(_IntWeightType), length(eachindex(logd))))
+    info = adapt(cunit, fill(nothing, length(eachindex(logd))))
+    aux = adapt(cunit, fill(nothing, length(eachindex(logd))))
 
-    unshaped_samples = DensitySampleVector((v, logd, weight, info, aux))
-
-    samples = shape.(unshaped_samples)
-    (result = samples,)
+    smpls = DensitySampleVector((v, logd, weight, info, aux))
+    return (result = smpls,)
 end
 
 
@@ -90,16 +88,28 @@ end
 export RandResampling
 
 
-function bat_sample_impl(posterior::DensitySampleVector, algorithm::RandResampling, context::BATContext)
-    rng = get_rng(context)
+function bat_sample_impl(m::DensitySampleMeasure, algorithm::RandResampling, context::BATContext)
     n = algorithm.nsamples
-    orig_idxs = eachindex(posterior)
-    weights = FrequencyWeights(float(posterior.weight))
+    # Always generate R on CPU for now:
+    R = rand(get_rng(context), n)
+    resampled_idxs = searchsortedfirst.(Ref(m._cw), R)
+    smpls = DensitySampleVector(m)
+
+    samples = smpls[resampled_idxs]
+    samples.weight .= 1
+    (result = samples,)
+end
+
+function bat_sample_impl(smpls::DensitySampleVector, algorithm::RandResampling, context::BATContext)
+    n = algorithm.nsamples
+    orig_idxs = eachindex(smpls)
+    weights = FrequencyWeights(float(smpls.weight))
+    # Always generate resampled_idxs on CPU for now:
+    rng = get_rng(context)
     resampled_idxs = sample(rng, orig_idxs, weights, n, replace=true, ordered=false)
 
-    samples = posterior[resampled_idxs]
+    samples = smpls[resampled_idxs]
     samples.weight .= 1
-
     (result = samples,)
 end
 
@@ -128,11 +138,16 @@ end
 export OrderedResampling
 
 
-function bat_sample_impl(samples::DensitySampleVector, algorithm::OrderedResampling, context::BATContext)
+function bat_sample_impl(m::DensitySampleMeasure, algorithm::OrderedResampling, context::BATContext)
+    # ToDo: Utilize m._cw to speed up sampling:
+    bat_sample_impl(DensitySampleVector(m), algorithm, context)
+end
+
+function bat_sample_impl(smpls::DensitySampleVector, algorithm::OrderedResampling, context::BATContext)
     rng = get_rng(context)
-    @assert axes(samples) == axes(samples.weight)
-    W = samples.weight
-    idxs = eachindex(samples)
+    @assert axes(smpls) == axes(smpls.weight)
+    W = smpls.weight
+    idxs = eachindex(smpls)
 
     n = algorithm.nsamples
     resampled_idxs = Vector{Int}()
@@ -149,7 +164,7 @@ function bat_sample_impl(samples::DensitySampleVector, algorithm::OrderedResampl
         end
     end
 
-    new_samples = samples[resampled_idxs]
+    new_samples = smpls[resampled_idxs]
     new_samples.weight .= 1
 
     (result = new_samples,)

@@ -10,7 +10,7 @@ const _default_LDT = Float64 # Default type for log-density values
     struct DensitySample
 
 A weighted sample drawn according to an statistical density,
-e.g. a [`BAT.AbstractMeasureOrDensity`](@ref).
+e.g. a [`BAT.MeasureLike`](@ref).
 
 Constructors:
 

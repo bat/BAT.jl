@@ -28,7 +28,7 @@ a given observation in respect to a prior measure.
 function lbqintegral end
 export lbqintegral
 
-@inline lbqintegral(integrand, measure) = PosteriorMeasure(integrand, measure)
+@inline lbqintegral(integrand, measure) = PosteriorMeasure(integrand, batmeasure(measure))
 
 
 """
@@ -41,6 +41,12 @@ control the type of "flattening".
 function distbind end
 export distbind
 
-@inline function distbind(f_k, dist::Distribution, ::typeof(merge))
+function distbind(f_k, dist::Distribution, ::typeof(merge))
+    @argcheck dist isa NamedTupleDist
+    HierarchicalDistribution(f_k, dist)
+end
+
+function distbind(f_k, dist::Distribution, ::typeof(vcat))
+    @argcheck dist isa Union{UnivariateDistribution, MultivariateDistribution}
     HierarchicalDistribution(f_k, dist)
 end

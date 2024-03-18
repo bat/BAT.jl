@@ -58,23 +58,24 @@ end
 
 
 function ProposalCovTuner(tuning::AdaptiveMHTuning, chain::MHIterator)
-    m = totalndof(getmeasure(chain))
+    m = totalndof(varshape(mcmc_target(chain)))
     scale = 2.38^2 / m
     ProposalCovTuner(tuning, MCMCBasicStats(chain), 1, scale)
 end
 
 
-function _cov_with_fallback(d)
+function _cov_with_fallback(m::BATMeasure)
+    global g_state = m
+    @assert false
     rng = _bat_determ_rng()
-    smplr = bat_sampler(d)
-    T = float(eltype(rand(rng, smplr)))
-    n = totalndof(varshape(d))
+    T = float(eltype(rand(rng, m)))
+    n = totalndof(varshape(m))
     C = fill(T(NaN), n, n)
     try
-        C[:] = cov(d)
+        C[:] = cov(m)
     catch err
         if err isa MethodError
-            C[:] = cov(nestedview(rand(rng, smplr, 10^5)))
+            C[:] = cov(nestedview(rand(rng, m, 10^5)))
         else
             throw(err)
         end
@@ -82,16 +83,9 @@ function _cov_with_fallback(d)
     return C
 end
 
-_approx_cov(target::Distribution) = _cov_with_fallback(target)
-_approx_cov(target::DistLikeMeasure) = _cov_with_fallback(target)
-_approx_cov(target::AbstractPosteriorMeasure) = _approx_cov(getprior(target))
-_approx_cov(target::BAT.Transformed{<:Any,<:BAT.DistributionTransform}) =
-    BAT._approx_cov(target.trafo.target_dist)
-_approx_cov(target::Renormalized) = _approx_cov(parent(target))
-
 
 function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator, max_nsteps::Integer)
-    Σ_unscaled = _approx_cov(getmeasure(chain))
+    Σ_unscaled = get_cov(chain.proposaldist)
     Σ = Σ_unscaled * tuner.scale
     
     chain.proposaldist = set_cov(chain.proposaldist, Σ)

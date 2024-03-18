@@ -38,19 +38,14 @@ end
 export MCMCSampling
 
 
-function bat_sample_impl(
-    target::AnyMeasureOrDensity,
-    algorithm::MCMCSampling,
-    context::BATContext
-)
-    density_notrafo = convert(AbstractMeasureOrDensity, target)
-    density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo, context)
+function bat_sample_impl(m::BATMeasure, algorithm::MCMCSampling, context::BATContext)
+    transformed_m, trafo = transform_and_unshape(algorithm.trafo, m, context)
 
     mcmc_algorithm = algorithm.mcalg
 
     (chains, tuners, chain_outputs) = mcmc_init!(
         mcmc_algorithm,
-        density,
+        transformed_m,
         algorithm.nchains,
         apply_trafo_to_init(trafo, algorithm.init),
         get_mcmc_tuning(mcmc_algorithm),
@@ -84,11 +79,10 @@ function bat_sample_impl(
         callback = algorithm.callback
     )
 
-    output = DensitySampleVector(first(chains))
-    isnothing(output) || append!.(Ref(output), chain_outputs)
-    samples_trafo = varshape(density).(output)
+    transformed_smpls = DensitySampleVector(first(chains))
+    isempty(chain_outputs) || append!.(Ref(transformed_smpls), chain_outputs)
 
-    samples_notrafo = inverse(trafo).(samples_trafo)
+    smpls = inverse(trafo).(transformed_smpls)
 
-    (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = MCMCSampleGenerator(chains))
+    (result = smpls, result_trafo = transformed_smpls, trafo = trafo, generator = MCMCSampleGenerator(chains))
 end

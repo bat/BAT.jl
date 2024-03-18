@@ -41,17 +41,29 @@ export bat_sample
 function bat_sample_impl end
 
 
-function bat_sample(target::AnySampleable, algorithm::AbstractSamplingAlgorithm, context::BATContext)
+function convert_for(::typeof(bat_sample), target)
+    try
+        batsampleable(target)
+    catch err
+        throw(ArgumentError("Can't convert $operation target of type $(nameof(typeof(target))) to a BAT-compatible measure."))
+    end
+end
+
+
+function bat_sample(target, algorithm::AbstractSamplingAlgorithm, context::BATContext)
+    measure = convert_for(bat_sample, target)
     orig_context = deepcopy(context)
-    r = bat_sample_impl(target, algorithm, context)
+    r = bat_sample_impl(measure, algorithm, context)
     result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
 function bat_sample(target::AnySampleable)
-    bat_sample(target, get_batcontext())
+    measure = convert_for(bat_sample, target)
+    bat_sample(measure, get_batcontext())
 end
 
 function bat_sample(target::AnySampleable, algorithm::AbstractSamplingAlgorithm)
+
     bat_sample(target, algorithm, get_batcontext())
 end
 

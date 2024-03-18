@@ -7,20 +7,20 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
 
 @testset "MetropolisHastings" begin
     context = BATContext()
-    target = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
+    objective = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
 
-    shaped_density = @inferred(convert(AbstractMeasureOrDensity, target))
-    @test shaped_density isa BAT.DistMeasure
-    density = unshaped(shaped_density)
-    @test density isa BAT.DistMeasure
+    shaped_target = @inferred(batmeasure(objective))
+    @test shaped_target isa BAT.BATDistMeasure
+    target = unshaped(shaped_target)
+    @test target isa BAT.BATDistMeasure
 
     algorithm = MetropolisHastings()
     nchains = 4
  
     @testset "MCMC iteration" begin
-        v_init = bat_initval(density, InitFromTarget(), context).result
-        @test @inferred(BAT.MCMCIterator(algorithm, density, 1, unshaped(v_init, varshape(density)), deepcopy(context))) isa BAT.MHIterator
-        chain = @inferred(BAT.MCMCIterator(algorithm, density, 1, unshaped(v_init, varshape(density)), deepcopy(context))) 
+        v_init = bat_initval(target, InitFromTarget(), context).result
+        @test @inferred(BAT.MCMCIterator(algorithm, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))) isa BAT.MHIterator
+        chain = @inferred(BAT.MCMCIterator(algorithm, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))) 
         samples = DensitySampleVector(chain)
         BAT.mcmc_iterate!(samples, chain, max_nsteps = 10^5, nonzero_weights = false)
         @test chain.stepno == 10^5
@@ -28,7 +28,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         @test isapprox(length(samples), 10^5, atol = 20)
         @test length(samples) == sum(samples.weight)
         @test isapprox(mean(samples), [1, -1, 2], atol = 0.2)
-        @test isapprox(cov(samples), cov(unshaped(target)), atol = 0.3)
+        @test isapprox(cov(samples), cov(unshaped(objective)), atol = 0.3)
 
         samples = DensitySampleVector(chain)
         BAT.mcmc_iterate!(samples, chain, max_nsteps = 10^3, nonzero_weights = true)
@@ -47,7 +47,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
 
         init_result = @inferred(BAT.mcmc_init!(
             algorithm,
-            density,
+            target,
             nchains,
             init_alg,
             tuning_alg,
@@ -84,12 +84,12 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         append!.(Ref(samples), outputs)
         
         @test length(samples) == sum(samples.weight)
-        @test BAT.test_dist_samples(unshaped(target), samples)
+        @test BAT.test_dist_samples(unshaped(objective), samples)
     end
 
     @testset "bat_sample" begin
         samples = bat_sample(
-            shaped_density,
+            shaped_target,
             MCMCSampling(
                 mcalg = algorithm,
                 trafo = DoNotTransform(),
@@ -102,14 +102,14 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         @test first(samples).info.chaincycle == 1
 
         smplres = BAT.sample_and_verify(
-            shaped_density,
+            shaped_target,
             MCMCSampling(
                 mcalg = algorithm,
                 trafo = DoNotTransform(),
                 nsteps = 10^5,
                 store_burnin = false
             ),
-            target
+            objective
         )
         samples = smplres.result
         @test first(samples).info.chaincycle >= 2

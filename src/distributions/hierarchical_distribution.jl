@@ -251,7 +251,8 @@ end
 function Distributions.insupport(ud::UnshapedHDist, x::AbstractVector)
     x_primary, x_secondary = _hd_split(ud, x)
     primary_dist = _hd_pridist(ud)
-    insupport(primary_dist, x_primary) && insupport(secondary_dist, _hd_secdist(ud, x_primary))
+    secondary_dist = _hd_secdist(ud, x_primary)
+    insupport(primary_dist, x_primary) && insupport(secondary_dist, x_secondary)
 end
 
 

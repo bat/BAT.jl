@@ -17,15 +17,14 @@ using DensityInterface, ChangesOfVariables, InverseFunctions, FunctionChains
 using HeterogeneousComputing, AutoDiffOperators
 using StructArrays, ArraysOfArrays
 
-using BAT: AnyMeasureOrDensity, AbstractMeasureOrDensity
+using BAT: MeasureLike, BATMeasure
 
 using BAT: get_context, get_adselector, _NoADSelected
 using BAT: bat_initval, transform_and_unshape, apply_trafo_to_init
-using BAT: negative
 
 
 AbstractModeEstimator(optalg::Optim.AbstractOptimizer) = OptimAlg(optalg)
-convert(::Type{AbstractModeEstimator}, alg::OptimAlg) = alg.optalg
+Base.convert(::Type{AbstractModeEstimator}, alg::OptimAlg) = alg.optalg
 
 BAT.ext_default(::BAT.PackageExtension{:Optim}, ::Val{:DEFAULT_OPTALG}) = Optim.NelderMead()
 BAT.ext_default(::BAT.PackageExtension{:Optim}, ::Val{:NELDERMEAD_ALG}) = Optim.NelderMead()
@@ -74,7 +73,7 @@ function convert_options(algorithm::OptimAlg)
 end 
 
 
-function BAT.bat_findmode_impl(target::AnyMeasureOrDensity, algorithm::OptimAlg, context::BATContext)
+function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimAlg, context::BATContext)
     transformed_density, trafo = transform_and_unshape(algorithm.trafo, target, context)
     inv_trafo = inverse(trafo)
 
