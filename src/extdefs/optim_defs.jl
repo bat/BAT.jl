@@ -35,5 +35,10 @@ $(TYPEDFIELDS)
     optalg::ALG = ext_default(pkgext(Val(:Optim)), Val(:DEFAULT_OPTALG))
     trafo::TR = PriorToGaussian()
     init::IA = InitFromTarget()
+    maxiters::Int = 1_000
+    maxtime::Float64 = NaN
+    abstol::Float64 = NaN
+    reltol::Float64 = 0.0
+    kwargs::NamedTuple = (;)
 end
 export OptimAlg

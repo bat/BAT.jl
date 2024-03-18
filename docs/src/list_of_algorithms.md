@@ -167,6 +167,22 @@ bat_findmode(target, OptimAlg(optalg = Optim.LBFGS()))
 Requires the [Optim](https://github.com/JuliaNLSolvers/Optim.jl) Julia package to be loaded explicitly.
 
 
+### Optimization.jl Optimization Algorithms
+
+BAT mode finding algorithm type: [`OptimizationAlg`](@ref).
+
+```julia
+using OptimizationOptimJL
+
+alg = OptimizationAlg(; 
+    optalg = OptimizationOptimJL.ParticleSwarm(n_particles=10), 
+    maxiters=200, 
+    kwargs=(f_calls_limit=50,)
+)
+bat_findmode(target, alg)
+```
+Requires one of the [Optimization.jl](https://github.com/SciML/Optimization.jl) packages to be loaded explicitly.
+
 ### Maximum Sample Estimator
 
 BAT mode finding algorithm type: [`MaxDensitySearch`](@ref) 
