@@ -10,7 +10,7 @@
 *BAT-internal, not part of stable public API.*
 
 Find smalles credible intervals with `nsigma_equivalent` of 1, 2 or 3
-(containing 68.27%, 95.45%, or 99.73% of the total probability mass).
+(containing 68.27%, 95.45%, 90.00% or 99.73% of the total probability mass).
 """
 function smallest_credible_intervals(
     X::AbstractVector{<:Real},
