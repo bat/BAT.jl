@@ -10,21 +10,25 @@
 *BAT-internal, not part of stable public API.*
 
 Find smalles credible intervals with `nsigma_equivalent` of 1, 2 or 3
-(containing 68.27%, 9545%, or 0.9973% of the total probability mass).
+(containing 68.27%, 90.00%, 95.45% or 99.73% of the total probability mass).
 """
 function smallest_credible_intervals(
     X::AbstractVector{<:Real},
     W::AbstractWeights = UnitWeights{eltype(X)}(length(eachindex(X)));
-    nsigma_equivalent::Integer = 1
+    nsigma_equivalent::Real = 1
 )
-    m, n = if nsigma_equivalent == 1
-        28, 41  # 0.6827 ≈ 28//41
-    elseif nsigma_equivalent == 2
-        42, 44  # 0.9545 ≈ 42//44
-    elseif nsigma_equivalent == 3
-        369, 370  # 0.9973 ≈ 369/370
+    nsigma_90percent = quantile(Normal(), 0.5 + 0.9/2)   # 90% = 1.6448536269514717
+
+    m, n = if nsigma_equivalent ≈ oftype(nsigma_equivalent, 1)
+        28,  41  # 0.6827 ≈ 28//41
+    elseif nsigma_equivalent ≈ oftype(nsigma_equivalent, 2)
+        42,  44  # 0.9545 ≈ 42//44
+    elseif nsigma_equivalent ≈ oftype(nsigma_equivalent, 3)
+        369,  370  # 0.9973 ≈ 369/370
+    elseif isapprox(nsigma_equivalent, nsigma_90percent, atol = 0.01)   # 0.90 ≈ 1.64
+        90, 100
     else
-        throw(ArgumentError("nsigma_equivalent must be 1, 2 or 3"))
+        throw(ArgumentError("nsigma_equivalent must be 1, 2, 3 or 1.64 (for 90% credibility interval)"))
     end
 
     qs = quantile(X, W, range(0, 1, length = n + 1))
