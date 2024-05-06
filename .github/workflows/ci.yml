@@ -52,7 +52,7 @@ jobs:
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-      - uses: julia-actions/cache@v1
+      - uses: julia-actions/cache@v2
         with:
           cache-packages: "false"
       - uses: julia-actions/julia-buildpkg@v1
@@ -75,7 +75,7 @@ jobs:
       - uses: julia-actions/setup-julia@v1
         with:
           version: '1'
-      - uses: julia-actions/cache@v1
+      - uses: julia-actions/cache@v2
         with:
           cache-packages: "false"
       - uses: julia-actions/julia-buildpkg@v1
