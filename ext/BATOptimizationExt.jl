@@ -17,11 +17,11 @@ using DensityInterface, ChangesOfVariables, InverseFunctions, FunctionChains
 using HeterogeneousComputing, AutoDiffOperators
 using StructArrays, ArraysOfArrays, ADTypes
 
-using BAT: AnyMeasureOrDensity, AbstractMeasureOrDensity
+using BAT: MeasureLike
 
 using BAT: get_context, get_adselector, _NoADSelected
 using BAT: bat_initval, transform_and_unshape, apply_trafo_to_init
-using BAT: negative
+# using BAT: negative #deprecated? 
 
 
 AbstractModeEstimator(optalg::Any) = OptimizationAlg(optalg)
@@ -42,7 +42,7 @@ function build_optimizationfunction(f, adsel::BAT._NoADSelected)
 end
 
 
-function BAT.bat_findmode_impl(target::AnyMeasureOrDensity, algorithm::OptimizationAlg, context::BATContext)
+function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimizationAlg, context::BATContext)
     transformed_density, trafo = transform_and_unshape(algorithm.trafo, target, context)
     inv_trafo = inverse(trafo)
 

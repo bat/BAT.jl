@@ -57,21 +57,6 @@ my_function(; nt...)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 context = get_batcontext()
 target = posterior
 transformed_density, trafo = BAT.transform_and_unshape(PriorToGaussian(), target, context)

@@ -57,7 +57,6 @@ function (fg!::NLSolversFG!)(::Nothing, grad_f::AbstractVector{<:Real}, x::Abstr
     return Nothing
 end
 
-
 function convert_options(algorithm::OptimAlg)
     if !isnan(algorithm.abstol)
        @warn "The option 'abstol=$(algorithm.abstol)' is not used for this algorithm."
@@ -72,7 +71,6 @@ function convert_options(algorithm::OptimAlg)
     return Optim.Options(; algopts...)
 end 
 
-
 function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimAlg, context::BATContext)
     transformed_density, trafo = transform_and_unshape(algorithm.trafo, target, context)
     inv_trafo = inverse(trafo)
@@ -82,9 +80,7 @@ function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimAlg, context
 
     # Maximize density of original target, but run in transformed space, don't apply LADJ:
     f = fchain(inv_trafo, logdensityof(target), -)
-
     opts = convert_options(algorithm)
-    
     optim_result = _optim_minimize(f, x_init, algorithm.optalg, opts, context)
     r_optim = Optim.MaximizationWrapper(optim_result)
     transformed_mode = Optim.minimizer(r_optim.res)
