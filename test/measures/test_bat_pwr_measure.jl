@@ -3,5 +3,7 @@
 using BAT
 using Test
 
-@testset "parameter_mapped_density" begin
+using Distributions, ValueShapes
+
+@testset "bat_pwr_measure" begin
 end

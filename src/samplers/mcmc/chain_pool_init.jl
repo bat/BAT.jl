@@ -37,23 +37,23 @@ function _construct_chain(
     rngpart::RNGPartition,
     id::Integer,
     algorithm::MCMCAlgorithm,
-    density::AbstractMeasureOrDensity,
+    m::BATMeasure,
     initval_alg::InitvalAlgorithm,
     parent_context::BATContext
 )
     new_context = set_rng(parent_context, AbstractRNG(rngpart, id))
-    v_init = bat_initval(density, initval_alg, new_context).result
-    return MCMCIterator(algorithm, density, id, v_init, new_context)
+    v_init = bat_initval(m, initval_alg, new_context).result
+    return MCMCIterator(algorithm, m, id, v_init, new_context)
 end
 
 _gen_chains(
     rngpart::RNGPartition,
     ids::AbstractRange{<:Integer},
     algorithm::MCMCAlgorithm,
-    density::AbstractMeasureOrDensity,
+    m::BATMeasure,
     initval_alg::InitvalAlgorithm,
     context::BATContext
-) = [_construct_chain(rngpart, id, algorithm, density, initval_alg, context) for id in ids]
+) = [_construct_chain(rngpart, id, algorithm, m, initval_alg, context) for id in ids]
 
 # TODO AC discuss
 function _cluster_selection(
@@ -93,14 +93,14 @@ end
 
 function mcmc_init!(
     algorithm::MCMCAlgorithm,
-    density::AbstractMeasureOrDensity,
+    m::BATMeasure,
     nchains::Integer,
     init_alg::MCMCChainPoolInit,
     tuning_alg::MCMCTuningAlgorithm,
     nonzero_weights::Bool,
     callback::Function,
     context::BATContext
-)
+)::NamedTuple{(:chains, :tuners, :outputs), Tuple{Vector, Vector, Vector}} # 'Any' seems to be too general for type inference
     initval_alg = init_alg.initval_alg
 
     min_nviable::Int = minimum(init_alg.init_tries_per_chain) * nchains
@@ -115,8 +115,8 @@ function mcmc_init!(
     @debug "Generating dummy MCMC chain to determine chain, output and tuner types."
 
     dummy_context = deepcopy(context)
-    dummy_initval = unshaped(bat_initval(density, InitFromTarget(), dummy_context).result, varshape(density))
-    dummy_chain = MCMCIterator(algorithm, density, 1, dummy_initval, dummy_context)
+    dummy_initval = unshaped(bat_initval(m, InitFromTarget(), dummy_context).result, varshape(m))
+    dummy_chain = MCMCIterator(algorithm, m, 1, dummy_initval, dummy_context)
     dummy_tuner = tuning_alg(dummy_chain)
 
     chains = similar([dummy_chain], 0)
@@ -134,7 +134,7 @@ function mcmc_init!(
             n = min(min_nviable, max_ncandidates - ncandidates)
             @debug "Generating $n $(init_tries > 1 ? "additional " : "")candidate MCMC chain(s)."
 
-            new_chains = _gen_chains(rngpart, ncandidates .+ (one(Int64):n), algorithm, density, initval_alg, context)
+            new_chains = _gen_chains(rngpart, ncandidates .+ (one(Int64):n), algorithm, m, initval_alg, context)
 
             filter!(isvalidchain, new_chains)
 

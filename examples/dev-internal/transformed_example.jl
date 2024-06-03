@@ -21,7 +21,7 @@ posterior = BAT.example_posterior()
 my_result = @time BAT.bat_sample_impl(posterior, TransformedMCMCSampling(pre_transform=PriorToGaussian(), nchains=4, nsteps=4*100000), context)
 
 
-density_notrafo = convert(BAT.AbstractMeasureOrDensity, posterior)
+density_notrafo = convert(BATMeasure, posterior)
 density, trafo = BAT.transform_and_unshape(PriorToGaussian(), density_notrafo, context)
 
 s = cholesky(Positive, BAT._approx_cov(density)).L

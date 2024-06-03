@@ -51,16 +51,15 @@ bat_default(::Type{TransformedMCMCDispatch}, ::Val{:burnin}, trafo::AbstractTran
 
 
 function bat_sample_impl(
-    target::AnyMeasureOrDensity,
+    target::BATMeasure,
     algorithm::TransformedMCMCSampling,
     context::BATContext
 )
-    density_notrafo = convert(AbstractMeasureOrDensity, target)
-    density, trafo = transform_and_unshape(algorithm.pre_transform, density_notrafo, context)
+    m, trafo = transform_and_unshape(algorithm.pre_transform, target, context)
 
     init = mcmc_init!(
         algorithm,
-        density,
+        m,
         algorithm.nchains,
         apply_trafo_to_init(trafo, algorithm.init),
         algorithm.tuning_alg,
@@ -94,7 +93,7 @@ function bat_sample_impl(
 
     # sampling
     run_sampling  = _run_sample_impl(
-        density,
+        m,
         algorithm,
         chains,
     )
@@ -102,7 +101,7 @@ function bat_sample_impl(
 
     # prepend burnin samples to output
     if algorithm.store_burnin
-        burnin_samples_trafo = varshape(density).(burnin_outputs_coll)
+        burnin_samples_trafo = varshape(m).(burnin_outputs_coll)
         append!(burnin_samples_trafo, samples_trafo)
         samples_trafo = burnin_samples_trafo
     end
@@ -115,12 +114,12 @@ end
 
 #=
 function _bat_sample_continue(
-    target::AnyMeasureOrDensity,
+    target::BATMeasure,
     generator::TransformedMCMCSampleGenerator,
     ;description::AbstractString = "MCMC iterate"
 )
     @unpack algorithm, chains = generator
-    density_notrafo = convert(AbstractMeasureOrDensity, target)
+    density_notrafo = convert(BATMeasure, target)
     density, trafo = transform_and_unshape(algorithm.pre_transform, density_notrafo)
 
     run_sampling = _run_sample_impl(density, algorithm, chains, description=description)
@@ -134,7 +133,7 @@ end
 =#
 
 function _run_sample_impl(
-    density::AnyMeasureOrDensity,
+    m::BATMeasure,
     algorithm::TransformedMCMCSampling,
     chains::AbstractVector{<:MCMCIterator},
     ;description::AbstractString = "MCMC iterate"
@@ -155,7 +154,7 @@ function _run_sample_impl(
     ProgressMeter.finish!(progress_meter)
 
     output = reduce(vcat, getproperty.(chains, :samples))
-    samples_trafo = varshape(density).(output)
+    samples_trafo = varshape(m).(output)
 
     (result_trafo = samples_trafo, generator = TransformedMCMCSampleGenerator(chains, algorithm))
 end

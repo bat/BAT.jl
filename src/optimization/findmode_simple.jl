@@ -23,8 +23,8 @@ function bat_findmode_impl(target::Distribution, algorithm::ModeAsDefined, conte
     (result = varshape(target)(StatsBase.mode(unshaped(target))),)
 end
 
-function bat_findmode_impl(target::DistMeasure, algorithm::ModeAsDefined, context::BATContext)
-    bat_findmode_impl(parent(target), algorithm, context)
+function bat_findmode_impl(target::BATDistMeasure, algorithm::ModeAsDefined, context::BATContext)
+    bat_findmode_impl(Distribution(target), algorithm, context)
 end
 
 

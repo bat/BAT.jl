@@ -52,7 +52,7 @@ makedocs(
     ],
     doctest = ("fixdoctests" in ARGS) ? :fix : true,
     linkcheck = "linkcheck" in ARGS,
-    strict = !("nonstrict" in ARGS),
+    warnonly = ("nonstrict" in ARGS),
 )
 
 deploydocs(

@@ -13,7 +13,7 @@ using HeterogeneousComputing
 
 BAT.pkgext(::Val{:NestedSamplers}) = BAT.PackageExtension{:NestedSamplers}()
 
-using BAT: AnyMeasureOrDensity, AbstractMeasureOrDensity
+using BAT: MeasureLike, BATMeasure
 using BAT: ENSBound, ENSNoBounds, ENSEllipsoidBound, ENSMultiEllipsoidBound
 using BAT: ENSProposal, ENSUniformly, ENSAutoProposal, ENSRandomWalk, ENSSlice 
 
@@ -63,16 +63,18 @@ end
 
 
 
-function BAT.bat_sample_impl(target::AnyMeasureOrDensity, algorithm::EllipsoidalNestedSampling, context::BATContext)
+function BAT.bat_sample_impl(m::BATMeasure, algorithm::EllipsoidalNestedSampling, context::BATContext)
     # ToDo: Forward RNG from context!
     rng = get_rng(context)
 
-    density_notrafo = convert(AbstractMeasureOrDensity, target)
-    density, trafo = BAT.transform_and_unshape(algorithm.trafo, density_notrafo, context)                 # BAT prior transformation
-    vs = varshape(density)
-    dims = totalndof(vs)
+    transformed_m, trafo = BAT.transform_and_unshape(algorithm.trafo, m, context)                 # BAT prior transformation
+    dims = totalndof(varshape(transformed_m))
 
-    model = NestedModel(logdensityof(density), identity);                                   # identity, because ahead the BAT prior transformation is used instead
+    if !BAT.has_uhc_support(transformed_m)
+        throw(ArgumentError("$algorithm doesn't measures that are not limited to the unit hypercube"))
+    end
+
+    model = NestedModel(logdensityof(transformed_m), identity);                                   # identity, because ahead the BAT prior transformation is used instead
     bounding = ENSBounding(algorithm.bound)
     prop = ENSprop(algorithm.proposal)
     sampler = Nested(
@@ -89,15 +91,15 @@ function BAT.bat_sample_impl(target::AnyMeasureOrDensity, algorithm::Ellipsoidal
     weights = samples_w[:, end]                                                             # the last elements of the vectors are the weights
     nsamples = size(samples_w,1)
     samples = [samples_w[i, 1:end-1] for i in 1:nsamples]                                   # the other ones (between 1 and end-1) are the samples
-    logvals = map(logdensityof(density), samples)                                           # posterior values of the samples
-    samples_trafo = vs.(BAT.DensitySampleVector(samples, logvals, weight = weights))
-    samples_notrafo = inverse(trafo).(samples_trafo)                                            # Here the samples are retransformed
+    logvals = map(logdensityof(transformed_m), samples)                                           # posterior values of the samples
+    transformed_smpls = BAT.DensitySampleVector(samples, logvals, weight = weights)
+    smpls = inverse(trafo).(transformed_smpls)                                            # Here the samples are retransformed
     
     logintegral = Measurements.measurement(state.logz, state.logzerr)
-    ess = bat_eff_sample_size(samples_notrafo, KishESS(), context).result
+    ess = bat_eff_sample_size(smpls, KishESS(), context).result
 
     return (
-        result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, 
+        result = smpls, result_trafo = transformed_smpls, trafo = trafo, 
         logintegral = logintegral, ess = ess,
         info = state
     )

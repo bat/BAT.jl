@@ -5,6 +5,7 @@ using Test
 
 using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
 using AutoDiffOperators, ForwardDiff
+using InverseFunctions
 
 import AdvancedHMC
 
@@ -58,5 +59,6 @@ import AdvancedHMC
 
         @test isapprox(cov(unshaped(hd)), cov_expected, rtol = 0.05)
         @test isapprox(mean(unshaped.(rand(sampler(hd), 10^5))), [2.3, 2.3], rtol = 0.05)
+        @test isapprox(inverse(varshape(hd))(mean(hd)), mean(unshaped(hd)), rtol = 0.05)
     end
 end

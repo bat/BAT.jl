@@ -17,14 +17,14 @@ end
 
 
 function dist_sample_qualities(
-    dist::Distribution, samples::DensitySampleVector,
+    dist::Distribution, smpls::DensitySampleVector,
     context::BATContext = get_batcontext();
-    nsamples::Integer = floor(Int, _default_min_ess(samples, context)),
-    ess::Integer = floor(Int, _default_min_ess(samples, context))
+    nsamples::Integer = floor(Int, _default_min_ess(smpls, context)),
+    ess::Integer = floor(Int, _default_min_ess(smpls, context))
 )
-    samples_v = bat_sample_impl(samples, OrderedResampling(nsamples = ess), context).result.v
+    samples_v = bat_sample_impl(smpls, OrderedResampling(nsamples = ess), context).result.v
     samples_dist_logpdfs = logpdf.(Ref(dist), samples_v)
-    ref_samples = bat_sample_impl(dist, IIDSampling(nsamples = nsamples), context).result
+    ref_samples = bat_sample_impl(batmeasure(dist), IIDSampling(nsamples = nsamples), context).result
     ref_dist_logpdfs = ref_samples.logd
     samples_dist_logpdfs, ref_dist_logpdfs
 
@@ -33,7 +33,7 @@ function dist_sample_qualities(
     #HypothesisTests.pvalue(HypothesisTests.KSampleADTest(Vector(samples_dist_logpdfs), Vector(ref_dist_logpdfs)))
     # So use custom KS-calculation instead:
     logpdfdist_pvalue = ks_pvalue(fast_ks_delta(samples_dist_logpdfs, ref_dist_logpdfs), length(samples_dist_logpdfs), length(ref_dist_logpdfs))
-
+global g_state = ref_samples
     uv = unshaped.(samples_v)
     ref_uv = unshaped.(ref_samples)
 

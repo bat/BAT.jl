@@ -251,13 +251,19 @@ end
 function Distributions.insupport(ud::UnshapedHDist, x::AbstractVector)
     x_primary, x_secondary = _hd_split(ud, x)
     primary_dist = _hd_pridist(ud)
-    insupport(primary_dist, x_primary) && insupport(secondary_dist, _hd_secdist(ud, x_primary))
+    secondary_dist = _hd_secdist(ud, x_primary)
+    insupport(primary_dist, x_primary) && insupport(secondary_dist, x_secondary)
 end
 
+
+function Statistics.mean(d::HierarchicalDistribution)
+    varshape(d)(mean(unshaped(d)))
+end
 
 function Statistics.mean(ud::UnshapedHDist)
     mean(nestedview(rand(_bat_determ_rng(), ud, 10^5)))
 end
+
 
 function Statistics.cov(ud::UnshapedHDist)
     cov(nestedview(rand(_bat_determ_rng(), ud, 10^5)))

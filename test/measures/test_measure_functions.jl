@@ -5,7 +5,7 @@ using Test
 
 using Distributions, ValueShapes
 
-@testset "density_functions" begin
+@testset "measure_functions" begin
     @test @inferred(distprod(
         a = Normal(2, 1),
         b = Exponential(1.3),

@@ -66,7 +66,7 @@ end
 
 # ```julia
 
-# BAT.getmeasure(chain::SomeMCMCIter)::AbstractMeasureOrDensity
+# BAT.getmeasure(chain::SomeMCMCIter)::BATMeasure
 
 # BAT.getcontext(chain::SomeMCMCIter)::BATContext
 

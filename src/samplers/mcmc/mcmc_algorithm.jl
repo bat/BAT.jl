@@ -84,7 +84,7 @@ The following methods must be defined for subtypes of `MCMCIterator` (e.g.
 ```julia
 BAT.getalgorithm(chain::SomeMCMCIter)::MCMCAlgorithm
 
-BAT.getmeasure(chain::SomeMCMCIter)::AbstractMeasureOrDensity
+BAT.mcmc_target(chain::SomeMCMCIter)::BATMeasure
 
 BAT.get_context(chain::SomeMCMCIter)::BATContext
 
@@ -114,7 +114,7 @@ The following methods are implemented by default:
 
 ```julia
 getalgorithm(chain::MCMCIterator)
-getmeasure(chain::MCMCIterator)
+mcmc_target(chain::MCMCIterator)
 DensitySampleVector(chain::MCMCIterator)
 mcmc_iterate!(chain::MCMCIterator, ...)
 mcmc_iterate!(chains::AbstractVector{<:MCMCIterator}, ...)
@@ -129,14 +129,14 @@ function Base.show(io::IO, chain::MCMCIterator)
     print(io, Base.typename(typeof(chain)).name, "(")
     print(io, "id = "); show(io, mcmc_info(chain).id)
     print(io, ", nsamples = "); show(io, nsamples(chain))
-    print(io, ", density = "); show(io, getmeasure(chain))
+    print(io, ", target = "); show(io, mcmc_target(chain))
     print(io, ")") 
 end
 
 
 function getalgorithm end
 
-function getmeasure end
+function mcmc_target end
 
 function mcmc_info end
 
@@ -158,7 +158,9 @@ function mcmc_step! end
 
 
 
-DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(sample_type(chain), totalndof(getmeasure(chain)))
+function DensitySampleVector(chain::MCMCIterator)
+    DensitySampleVector(sample_type(chain), totalndof(varshape(mcmc_target(chain))))
+end
 
 
 

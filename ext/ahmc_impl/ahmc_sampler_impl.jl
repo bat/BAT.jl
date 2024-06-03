@@ -18,7 +18,7 @@ BAT.get_mcmc_tuning(algorithm::HamiltonianMC) = algorithm.tuning
 # MCMCIterator subtype for HamiltonianMC
 mutable struct AHMCIterator{
     AL<:HamiltonianMC,
-    D<:AbstractMeasureOrDensity,
+    D<:BATMeasure,
     PR<:RNGPartition,
     SV<:DensitySampleVector,
     HA<:AdvancedHMC.Hamiltonian,
@@ -27,7 +27,7 @@ mutable struct AHMCIterator{
     CTX<:BATContext
 } <: MCMCIterator
     algorithm::AL
-    density::D
+    target::D
     rngpart_cycle::PR
     info::MCMCIteratorInfo
     samples::SV
@@ -42,7 +42,7 @@ end
 
 function AHMCIterator(
     algorithm::HamiltonianMC,
-    density::AbstractMeasureOrDensity,
+    target::BATMeasure,
     info::MCMCIteratorInfo,
     x_init::AbstractVector{P},
     context::BATContext,
@@ -50,13 +50,14 @@ function AHMCIterator(
     rng = get_rng(context)
     stepno::Int64 = 0
 
-    npar = totalndof(density)
+    vs = varshape(target)
+
+    npar = totalndof(vs)
 
     params_vec = Vector{P}(undef, npar)
     params_vec .= x_init
-    !(params_vec in var_bounds(density)) && throw(ArgumentError("Parameter(s) out of bounds"))
 
-    log_posterior_value = checked_logdensityof(density, params_vec)
+    log_posterior_value = checked_logdensityof(target, params_vec)
 
     T = typeof(log_posterior_value)
     W = Float64 # ToDo: Support other sample weight types
@@ -78,8 +79,7 @@ function AHMCIterator(
         throw(ErrorException("HamiltonianMC requires an ADSelector to be specified in the BAT context"))
     end
 
-    # TODO AC ToDo!: discuss with @oschulz
-    f = logdensityof(density)
+    f = checked_logdensityof(target)
     fg = valgrad_func(f, adsel)
 
     init_hamiltonian = AdvancedHMC.Hamiltonian(metric, f, fg)
@@ -93,7 +93,7 @@ function AHMCIterator(
 
     chain = AHMCIterator(
         algorithm,
-        density,
+        target,
         rngpart_cycle,
         info,
         samples,
@@ -113,7 +113,7 @@ end
 
 function MCMCIterator(
     algorithm::HamiltonianMC,
-    density::AbstractMeasureOrDensity,
+    target::BATMeasure,
     chainid::Integer,
     startpos::AbstractVector{<:Real},
     context::BATContext
@@ -122,7 +122,7 @@ function MCMCIterator(
     tuned = false
     converged = false
     info = MCMCIteratorInfo(chainid, cycle, tuned, converged)
-    AHMCIterator(algorithm, density, info, startpos, context)
+    AHMCIterator(algorithm, target, info, startpos, context)
 end
 
 
@@ -132,7 +132,7 @@ end
 
 BAT.getalgorithm(chain::AHMCIterator) = chain.algorithm
 
-BAT.getmeasure(chain::AHMCIterator) = chain.density
+BAT.mcmc_target(chain::AHMCIterator) = chain.target
 
 BAT.get_context(chain::AHMCIterator) = chain.context
 
@@ -235,7 +235,7 @@ function BAT.mcmc_step!(chain::AHMCIterator)
     reset_rng_counters!(chain)
 
     rng = get_rng(get_context(chain))
-    density = getmeasure(chain)
+    target = mcmc_target(chain)
 
 
     # Grow samples vector by one:
@@ -262,7 +262,7 @@ function BAT.mcmc_step!(chain::AHMCIterator)
     T = typeof(current_log_posterior)
 
     # Evaluate prior and likelihood with proposed variate:
-    proposed_log_posterior = logdensityof(density, proposed_params)
+    proposed_log_posterior = logdensityof(target, proposed_params)
 
     samples.logd[proposed] = proposed_log_posterior
 

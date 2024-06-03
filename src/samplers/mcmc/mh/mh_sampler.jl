@@ -25,11 +25,11 @@ Fields:
 $(TYPEDFIELDS)
 """
 @with_kw struct MetropolisHastings{
-    Q<:ProposalDistSpec,
+    Q<:ContinuousDistribution,
     WS<:AbstractMCMCWeightingScheme,
     TN<:MHProposalDistTuning,
 } <: MCMCAlgorithm
-    proposal::Q = MvTDistProposal()
+    proposal::Q = TDist(1.0)
     weighting::WS = RepetitionWeighting()
     tuning::TN = AdaptiveMHTuning()
 end
@@ -54,14 +54,14 @@ get_mcmc_tuning(algorithm::MetropolisHastings) = algorithm.tuning
 
 mutable struct MHIterator{
     AL<:MetropolisHastings,
-    D<:AbstractMeasureOrDensity,
+    D<:BATMeasure,
     PR<:RNGPartition,
-    Q<:AbstractProposalDist,
+    Q<:Distribution{Multivariate,Continuous},
     SV<:DensitySampleVector,
     CTX<:BATContext
 } <: MCMCIterator
     algorithm::AL
-    density::D
+    target::D
     rngpart_cycle::PR
     info::MCMCIteratorInfo
     proposaldist::Q
@@ -74,7 +74,7 @@ end
 
 function MHIterator(
     algorithm::MCMCAlgorithm,
-    density::AbstractMeasureOrDensity,
+    target::BATMeasure,
     info::MCMCIteratorInfo,
     x_init::AbstractVector{P},
     context::BATContext
@@ -82,15 +82,14 @@ function MHIterator(
     rng = get_rng(context)
     stepno::Int64 = 0
 
-    npar = totalndof(density)
+    npar = getdof(target)
 
     params_vec = Vector{P}(undef, npar)
     params_vec .= x_init
-    !(params_vec in var_bounds(density)) && throw(ArgumentError("Parameter(s) out of bounds"))
 
-    proposaldist = algorithm.proposal(P, npar)
+    proposaldist = mv_proposaldist(P, algorithm.proposal, npar)
 
-    log_posterior_value = logdensityof(density, params_vec)
+    log_posterior_value = logdensityof(target, params_vec)
 
     T = typeof(log_posterior_value)
     W = sample_weight_type(typeof(algorithm.weighting))
@@ -106,7 +105,7 @@ function MHIterator(
 
     chain = MHIterator(
         algorithm,
-        density,
+        target,
         rngpart_cycle,
         info,
         proposaldist,
@@ -124,7 +123,7 @@ end
 
 function MCMCIterator(
     algorithm::MetropolisHastings,
-    density::AbstractMeasureOrDensity,
+    target::BATMeasure,
     chainid::Integer,
     startpos::AbstractVector{<:Real},
     context::BATContext
@@ -133,7 +132,7 @@ function MCMCIterator(
     tuned = false
     converged = false
     info = MCMCIteratorInfo(chainid, cycle, tuned, converged)
-    MHIterator(algorithm, density, info, startpos, context)
+    MHIterator(algorithm, target, info, startpos, context)
 end
 
 
@@ -143,7 +142,7 @@ end
 
 getalgorithm(chain::MHIterator) = chain.algorithm
 
-getmeasure(chain::MHIterator) = chain.density
+mcmc_target(chain::MHIterator) = chain.target
 
 get_context(chain::MHIterator) = chain.context
 
@@ -241,7 +240,7 @@ function mcmc_step!(chain::MHIterator)
     reset_rng_counters!(chain)
 
     rng = get_rng(get_context(chain))
-    density = getmeasure(chain)
+    target = mcmc_target(chain)
 
     proposaldist = chain.proposaldist
 
@@ -264,13 +263,13 @@ function mcmc_step!(chain::MHIterator)
     T = typeof(current_log_posterior)
 
     # Evaluate prior and likelihood with proposed variate:
-    proposed_log_posterior = logdensityof(density, proposed_params)
+    proposed_log_posterior = checked_logdensityof(target, proposed_params)
 
     samples.logd[proposed] = proposed_log_posterior
 
     p_accept = if proposed_log_posterior > -Inf
         # log of ratio of forward/reverse transition probability
-        log_tpr = if issymmetric(proposaldist)
+        log_tpr = if issymmetric_around_origin(proposaldist)
             T(0)
         else
             log_tp_fwd = proposaldist_logpdf(proposaldist, proposed_params, current_params)

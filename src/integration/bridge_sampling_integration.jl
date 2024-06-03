@@ -28,20 +28,21 @@ export BridgeSampling
 function bat_integrate_impl(target::EvaluatedMeasure, algorithm::BridgeSampling, context::BATContext)
     @argcheck !isnothing(target.samples)
     transformed_target, _ = transform_and_unshape(algorithm.trafo, target, context)
-    renomalized_target, logrenormf = auto_renormalize(transformed_target)
+    renomalized_target, logweight = auto_renormalize(transformed_target)
     measure, samples = renomalized_target.measure, renomalized_target.samples
 
     (value, error) = bridge_sampling_integral(measure, samples, algorithm.strict, algorithm.essalg, context)
-    rescaled_value, rescaled_error = exp(BigFloat(log(value) - logrenormf)), exp(BigFloat(log(error) - logrenormf))
+    rescaled_value, rescaled_error = exp(BigFloat(log(value) - logweight)), exp(BigFloat(log(error) - logweight))
     result = Measurements.measurement(rescaled_value, rescaled_error)
-    return (result = result, logrenormf = logrenormf)
+    return (result = result, logweight = logweight)
 end
 
 
+#!!!!! Use EvaluatedMeasure
 function bridge_sampling_integral(
-    target_density::AbstractMeasureOrDensity, 
+    target_density::BATMeasure, 
     target_samples::DensitySampleVector, 
-    proposal_density::AbstractMeasureOrDensity, 
+    proposal_density::BATMeasure, 
     proposal_samples::DensitySampleVector, 
     strict::Bool,
     ess_alg::EffSampleSizeAlgorithm,
@@ -111,9 +112,9 @@ function bridge_sampling_integral(
 end
 
 
-
+#!!!!!! Use EvaluatedMeasure
 function bridge_sampling_integral(
-    target_density::AbstractMeasureOrDensity,
+    target_measure::BATMeasure,
     target_samples::DensitySampleVector,
     strict::Bool,
     ess_alg::EffSampleSizeAlgorithm,
@@ -134,9 +135,9 @@ function bridge_sampling_integral(
     post_cov = Array(cov(first_batch)) #TODO: other covariance approximations
     post_cov_pd = PDMat(cholesky(Positive, post_cov))
 
-    proposal_density = MvNormal(post_mean,post_cov_pd)
-    proposal_samples = bat_sample_impl(proposal_density,IIDSampling(nsamples=Int(sum(second_batch.weight))), context).result
-    proposal_density = convert(DistLikeMeasure, proposal_density)
+    proposal_measure = batmeasure(MvNormal(post_mean,post_cov_pd))
+    proposal_samples = bat_sample_impl(proposal_measure, IIDSampling(nsamples=Int(sum(second_batch.weight))), context).result
+    proposal_measure = batmeasure(proposal_measure)
 
-    bridge_sampling_integral(target_density,second_batch,proposal_density,proposal_samples,strict,ess_alg,context)
+    bridge_sampling_integral(target_measure,second_batch,proposal_measure,proposal_samples,strict,ess_alg,context)
 end
