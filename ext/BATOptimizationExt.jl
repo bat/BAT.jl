@@ -23,6 +23,9 @@ using BAT: get_context, get_adselector, _NoADSelected
 using BAT: bat_initval, transform_and_unshape, apply_trafo_to_init
 # using BAT: negative #deprecated? 
 
+function test_bat_optimization_ext()
+    println("BAT_Optimization_Ext is included")
+end
 
 AbstractModeEstimator(optalg::Any) = OptimizationAlg(optalg)
 convert(::Type{AbstractModeEstimator}, alg::OptimizationAlg) = alg.optalg

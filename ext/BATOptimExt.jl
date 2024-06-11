@@ -71,7 +71,7 @@ function convert_options(algorithm::OptimAlg)
     return Optim.Options(; algopts...)
 end 
 
-function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimAlg, context::BATContext)
+function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimAlg, context::BATContext)::NamedTuple{(:result, :result_trafo, :trafo, :info), Tuple{NamedTuple, Vector, Function, Any}}
     transformed_density, trafo = transform_and_unshape(algorithm.trafo, target, context)
     inv_trafo = inverse(trafo)
 
