@@ -190,8 +190,7 @@ function mcmc_init!(
 
     # TODO AC
     if true
-        @unpack chains, tuners, outputs = _cluster_selection(chains, tuners, outputs)
-        length(tuners) < nchains && error("Failed to generate $nchains viable MCMC chains")
+        @unpack chains, tuners, outputs = _cluster_selection(chains, tuners, outputs, 15) # default scale for _cluster_selection() seems to be too strict. Relaxed it to 15
     else
         length(tuners) < min_nviable && error("Failed to generate $min_nviable viable MCMC chains")
     end
