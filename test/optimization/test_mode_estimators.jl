@@ -4,7 +4,8 @@ using Test
 using LinearAlgebra, Distributions, StatsBase, ValueShapes, Random123, DensityInterface
 using UnPack, InverseFunctions
 using AutoDiffOperators, ForwardDiff
-using Optim
+using Optim, OptimizationOptimJL
+include("../../ext/BATOptimizationExt.jl")
 
 @testset "mode_estimators" begin
     prior = NamedTupleDist(
@@ -71,17 +72,54 @@ using Optim
     end
 
 
-    @testset "NelderMead" begin
+    @testset "Optim.jl - NelderMead" begin
         context = BATContext(rng = Philox4x((0, 0)))
         test_findmode(posterior, OptimAlg(optalg = NelderMead(), trafo = DoNotTransform()), 0.01, context)
     end
 
+    @testset "Optim.jl with custom options" begin # checks that options are correctly passed to Optim.jl
+        context = BATContext(rng = Philox4x((0, 0)))
+        optimizer = OptimAlg(optalg = NelderMead(), trafo = DoNotTransform(), maxiters=20, maxtime=30, reltol=0.2, kwargs=(f_calls_limit=25,))
+        
+        result = bat_findmode(posterior, optimizer, context)
+        @test result.info.res.iterations <= 20
+        @test result.info.res.time_limit == 30
+        @test result.info.res.f_reltol == 0.2
+        @test result.info.res.f_calls <= 26
 
-    @testset "LBFGS" begin
+    end
+
+    @testset "Optim.jl - LBFGS" begin
         context = BATContext(rng = Philox4x((0, 0)), ad = ADModule(:ForwardDiff))
         # Result Optim.maximize with LBFGS is not type-stable:
         test_findmode(posterior, OptimAlg(optalg = LBFGS(), trafo = DoNotTransform()), 0.01, inferred = false, context)
 
         test_findmode_ctx(posterior, OptimAlg(optalg = LBFGS(), trafo = DoNotTransform()), 0.01, context)
     end
+
+
+    @testset "Optimization.jl - NelderMead" begin
+        context = BATContext(rng = Philox4x((0, 0)))
+        # result is not type-stable:
+        test_findmode(posterior, OptimizationAlg(optalg = OptimizationOptimJL.NelderMead(), trafo = DoNotTransform()), 0.01, context, inferred = false) 
+    end
+
+    @testset "Optimization.jl with custom options" begin # checks that options are correctly passed to Optimization.jl
+        context = BATContext(rng = Philox4x((0, 0)))
+        optimizer = OptimizationAlg(optalg = OptimizationOptimJL.ParticleSwarm(n_particles=10), maxiters=200, kwargs=(f_calls_limit=500,), trafo=DoNotTransform())
+
+        # result is not type-stable:
+        test_findmode(posterior, optimizer, 0.01, context, inferred = false) 
+
+        optimizer = OptimizationAlg(optalg = OptimizationOptimJL.ParticleSwarm(n_particles=10), 
+        maxiters=200, maxtime=30, reltol=0.2, kwargs=(f_calls_limit=500,), trafo=DoNotTransform())
+
+        result = bat_findmode(posterior, optimizer, context)
+        @test result.info.cache.solver_args.maxiters == 200
+        @test result.info.cache.solver_args.f_calls_limit == 500
+        @test result.info.cache.solver_args.reltol == 0.2
+        @test result.info.cache.solver_args.maxtime == 30
+        @test result.info.original.method.n_particles == 10
+    end
+
 end

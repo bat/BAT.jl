@@ -30,7 +30,6 @@ BAT.ext_default(::BAT.PackageExtension{:Optim}, ::Val{:DEFAULT_OPTALG}) = Optim.
 BAT.ext_default(::BAT.PackageExtension{:Optim}, ::Val{:NELDERMEAD_ALG}) = Optim.NelderMead()
 BAT.ext_default(::BAT.PackageExtension{:Optim}, ::Val{:LBFGS_ALG}) = Optim.LBFGS()
 
-
 struct NLSolversFG!{F,AD} <: Function
     f::F
     ad::AD
@@ -58,8 +57,21 @@ function (fg!::NLSolversFG!)(::Nothing, grad_f::AbstractVector{<:Real}, x::Abstr
     return Nothing
 end
 
+function convert_options(algorithm::OptimAlg)
+    if !isnan(algorithm.abstol)
+       @warn "The option 'abstol=$(algorithm.abstol)' is not used for this algorithm."
+    end
 
-function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimAlg, context::BATContext)
+    kwargs = algorithm.kwargs
+
+    algopts = (; iterations = algorithm.maxiters, time_limit = algorithm.maxtime, f_tol = algorithm.reltol,)
+    algopts = (; algopts..., kwargs...)
+    algopts = (; algopts..., store_trace = true, extended_trace=true) 
+
+    return Optim.Options(; algopts...)
+end 
+
+function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimAlg, context::BATContext)::NamedTuple{(:result, :result_trafo, :trafo, :info), Tuple{NamedTuple, Vector, Function, Any}}
     transformed_density, trafo = transform_and_unshape(algorithm.trafo, target, context)
     inv_trafo = inverse(trafo)
 
@@ -68,7 +80,8 @@ function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimAlg, context
 
     # Maximize density of original target, but run in transformed space, don't apply LADJ:
     f = fchain(inv_trafo, logdensityof(target), -)
-    optim_result = _optim_minimize(f, x_init, algorithm.optalg, context)
+    opts = convert_options(algorithm)
+    optim_result = _optim_minimize(f, x_init, algorithm.optalg, opts, context)
     r_optim = Optim.MaximizationWrapper(optim_result)
     transformed_mode = Optim.minimizer(r_optim.res)
     result_mode = inv_trafo(transformed_mode)
@@ -80,18 +93,16 @@ function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimAlg, context
     (result = result_mode, result_trafo = transformed_mode, trafo = trafo, #=trace_trafo = trace_trafo,=# info = r_optim)
 end
 
-function _optim_minimize(f::Function, x_init::AbstractArray{<:Real}, algorithm::Optim.ZerothOrderOptimizer, ::BATContext)
-    opts = Optim.Options(store_trace = true, extended_trace=true)
+function _optim_minimize(f::Function, x_init::AbstractArray{<:Real}, algorithm::Optim.ZerothOrderOptimizer, opts::Optim.Options, ::BATContext)
     _optim_optimize(f, x_init, algorithm, opts)
 end
 
-function _optim_minimize(f::Function, x_init::AbstractArray{<:Real}, algorithm::Optim.FirstOrderOptimizer, context::BATContext)
+function _optim_minimize(f::Function, x_init::AbstractArray{<:Real}, algorithm::Optim.FirstOrderOptimizer, opts::Optim.Options, context::BATContext)
     adsel = get_adselector(context)
     if adsel isa _NoADSelected
         throw(ErrorException("$(nameof(typeof(algorithm))) requires an ADSelector to be specified in the BAT context"))
     end
     fg! = NLSolversFG!(f, adsel)
-    opts = Optim.Options(store_trace = true, extended_trace=true)
     _optim_optimize(Optim.only_fg!(fg!), x_init, algorithm, opts)
 end
 

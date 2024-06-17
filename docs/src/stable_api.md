@@ -92,6 +92,7 @@ MetropolisHastings
 MHProposalDistTuning
 ModeAsDefined
 OptimAlg
+OptimizationAlg
 OrderedResampling
 PosteriorMeasure
 PriorSubstitution

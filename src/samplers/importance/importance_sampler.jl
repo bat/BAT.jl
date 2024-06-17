@@ -62,6 +62,7 @@ function bat_sample_impl(
 
     est_integral = mean(weights)
     # ToDo: Add integral error estimate
+    # @show samples #disable for testing
 
     transformed_smpls = DensitySampleVector(samples, logvals, weight = weights)
     smpls = inverse(trafo).(transformed_smpls)
