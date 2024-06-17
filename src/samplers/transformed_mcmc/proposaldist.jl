@@ -1,7 +1,15 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+
+function mv_proposaldist(T::Type{<:AbstractFloat}, d::TDist, varndof::Integer)
+    Σ = PDMat(Matrix(I(varndof) * one(T)))
+    df = only(Distributions.params(d))
+    μ = Fill(zero(eltype(Σ)), varndof)
+    Distributions.GenericMvTDist(convert(T, df), μ, Σ)
+end
+
 """
-    abstract type TransformedAbstractProposalDist
+    abstract type AbstractProposalDist
 
 *BAT-internal, not part of stable public API.*
 
@@ -12,13 +20,13 @@ The following functions must be implemented for subtypes:
 * `ValueShapes.totalndof`, returning the number of DOF (i.e. dimensionality).
 * `LinearAlgebra.issymmetric`, indicating whether p(a -> b) == p(b -> a) holds true.
 """
-abstract type TransformedAbstractProposalDist end
+abstract type AbstractProposalDist end
 
 # TODO AC: reactivate
 # """
 #     proposaldist_logpdf(
 #         p::AbstractArray,
-#         pdist::TransformedAbstractProposalDist,
+#         pdist::AbstractProposalDist,
 #         v_proposed::AbstractVector,
 #         v_current:::AbstractVector
 #     )
@@ -36,7 +44,7 @@ abstract type TransformedAbstractProposalDist end
 # """
 #     function proposal_rand!(
 #         rng::AbstractRNG,
-#         pdist::TransformedGenericProposalDist,
+#         pdist::GenericProposalDist,
 #         v_proposed::Union{AbstractVector,VectorOfSimilarVectors},
 #         v_current::Union{AbstractVector,VectorOfSimilarVectors}
 #     )
@@ -68,12 +76,12 @@ abstract type TransformedAbstractProposalDist end
 
 
 
-struct TransformedGenericProposalDist{D<:Distribution{Multivariate},SamplerF,S<:Sampleable} <: TransformedAbstractProposalDist
+struct GenericProposalDist{D<:Distribution{Multivariate},SamplerF,S<:Sampleable} <: AbstractProposalDist
     d::D
     sampler_f::SamplerF
     s::S
 
-    function TransformedGenericProposalDist{D,SamplerF}(d::D, sampler_f::SamplerF) where {D<:Distribution{Multivariate},SamplerF}
+    function GenericProposalDist{D,SamplerF}(d::D, sampler_f::SamplerF) where {D<:Distribution{Multivariate},SamplerF}
         s = sampler_f(d)
         new{D,SamplerF, typeof(s)}(d, sampler_f, s)
     end
@@ -81,30 +89,30 @@ struct TransformedGenericProposalDist{D<:Distribution{Multivariate},SamplerF,S<:
 end
 
 
-TransformedGenericProposalDist(d::D, sampler_f::SamplerF) where {D<:Distribution{Multivariate},SamplerF} =
-    TransformedGenericProposalDist{D,SamplerF}(d, sampler_f)
+GenericProposalDist(d::D, sampler_f::SamplerF) where {D<:Distribution{Multivariate},SamplerF} =
+    GenericProposalDist{D,SamplerF}(d, sampler_f)
 
-TransformedGenericProposalDist(d::Distribution{Multivariate}) = TransformedGenericProposalDist(d, bat_sampler)
+GenericProposalDist(d::Distribution{Multivariate}) = GenericProposalDist(d, bat_sampler)
 
-TransformedGenericProposalDist(D::Type{<:Distribution{Multivariate}}, varndof::Integer, args...) =
-    TransformedGenericProposalDist(D, Float64, varndof, args...)
+GenericProposalDist(D::Type{<:Distribution{Multivariate}}, varndof::Integer, args...) =
+    GenericProposalDist(D, Float64, varndof, args...)
 
 
-Base.similar(q::TransformedGenericProposalDist, d::Distribution{Multivariate}) =
-    TransformedGenericProposalDist(d, q.sampler_f)
+Base.similar(q::GenericProposalDist, d::Distribution{Multivariate}) =
+    GenericProposalDist(d, q.sampler_f)
 
-function Base.convert(::Type{TransformedAbstractProposalDist}, q::TransformedGenericProposalDist, T::Type{<:AbstractFloat}, varndof::Integer)
+function Base.convert(::Type{AbstractProposalDist}, q::GenericProposalDist, T::Type{<:AbstractFloat}, varndof::Integer)
     varndof != totalndof(q) && throw(ArgumentError("q has wrong number of DOF"))
     q
 end
 
 
-get_cov(q::TransformedGenericProposalDist) = get_cov(q.d)
-set_cov(q::TransformedGenericProposalDist, Σ::PosDefMatLike) = similar(q, set_cov(q.d, Σ))
+get_cov(q::GenericProposalDist) = get_cov(q.d)
+set_cov(q::GenericProposalDist, Σ::PosDefMatLike) = similar(q, set_cov(q.d, Σ))
 
 
 function proposaldist_logpdf(
-    pdist::TransformedGenericProposalDist,
+    pdist::GenericProposalDist,
     v_proposed::AbstractVector,
     v_current::AbstractVector
 )
@@ -115,7 +123,7 @@ end
 
 function proposal_rand!(
     rng::AbstractRNG,
-    pdist::TransformedGenericProposalDist,
+    pdist::GenericProposalDist,
     v_proposed::Union{AbstractVector,VectorOfSimilarVectors},
     v_current::Union{AbstractVector,VectorOfSimilarVectors}
 )
@@ -126,13 +134,13 @@ function proposal_rand!(
 end
 
 
-ValueShapes.totalndof(pdist::TransformedGenericProposalDist) = length(pdist.d)
+ValueShapes.totalndof(pdist::GenericProposalDist) = length(pdist.d)
 
-LinearAlgebra.issymmetric(pdist::TransformedGenericProposalDist) = issymmetric_around_origin(pdist.d)
+LinearAlgebra.issymmetric(pdist::GenericProposalDist) = issymmetric_around_origin(pdist.d)
 
 
 
-struct TransformedGenericUvProposalDist{D<:Distribution{Univariate},T<:Real,SamplerF,S<:Sampleable} <: TransformedAbstractProposalDist
+struct GenericUvProposalDist{D<:Distribution{Univariate},T<:Real,SamplerF,S<:Sampleable} <: AbstractProposalDist
     d::D
     scale::Vector{T}
     sampler_f::SamplerF
@@ -140,19 +148,19 @@ struct TransformedGenericUvProposalDist{D<:Distribution{Univariate},T<:Real,Samp
 end
 
 
-TransformedGenericUvProposalDist(d::Distribution{Univariate}, scale::Vector{<:AbstractFloat}, samplerF) =
-    TransformedGenericUvProposalDist(d, scale, samplerF, samplerF(d))
+GenericUvProposalDist(d::Distribution{Univariate}, scale::Vector{<:AbstractFloat}, samplerF) =
+    GenericUvProposalDist(d, scale, samplerF, samplerF(d))
 
-TransformedGenericUvProposalDist(d::Distribution{Univariate}, scale::Vector{<:AbstractFloat}) =
-    TransformedGenericUvProposalDist(d, scale, bat_sampler)
+GenericUvProposalDist(d::Distribution{Univariate}, scale::Vector{<:AbstractFloat}) =
+    GenericUvProposalDist(d, scale, bat_sampler)
 
 
-ValueShapes.totalndof(pdist::TransformedGenericUvProposalDist) = size(pdist.scale, 1)
+ValueShapes.totalndof(pdist::GenericUvProposalDist) = size(pdist.scale, 1)
 
-LinearAlgebra.issymmetric(pdist::TransformedGenericUvProposalDist) = issymmetric_around_origin(pdist.d)
+LinearAlgebra.issymmetric(pdist::GenericUvProposalDist) = issymmetric_around_origin(pdist.d)
 
 function BAT.proposaldist_logpdf(
-    pdist::TransformedGenericUvProposalDist,
+    pdist::GenericUvProposalDist,
     v_proposed::Union{AbstractVector,VectorOfSimilarVectors},
     v_current::Union{AbstractVector,VectorOfSimilarVectors}
 )
@@ -162,7 +170,7 @@ end
 
 function BAT.proposal_rand!(
     rng::AbstractRNG,
-    pdist::TransformedGenericUvProposalDist,
+    pdist::GenericUvProposalDist,
     v_proposed::AbstractVector,
     v_current::AbstractVector
 )
@@ -172,33 +180,59 @@ function BAT.proposal_rand!(
     v_proposed
 end
 
+# TODO: MD Deactivate. Used for transition into transformed Refactor
+function proposaldist_logpdf(
+    pdist::Distribution{Multivariate,Continuous},
+    v_proposed::AbstractVector{<:Real},
+    v_current::AbstractVector{<:Real}
+)
+    logpdf(pdist, v_proposed - v_current)
+end
 
 
-abstract type TransformedProposalDistSpec end
+function proposal_rand!(
+    rng::AbstractRNG,
+    pdist::Distribution{Multivariate,Continuous},
+    v_proposed::AbstractVector{<:Real},
+    v_current::AbstractVector{<:Real}
+)
+    v_proposed .= v_current + rand(rng, pdist)
+end
 
 
-struct TransformedMvTDistProposal <: TransformedProposalDistSpec
+function mv_proposaldist(T::Type{<:AbstractFloat}, d::TDist, varndof::Integer)
+    Σ = PDMat(Matrix(I(varndof) * one(T)))
+    df = only(Distributions.params(d))
+    μ = Fill(zero(eltype(Σ)), varndof)
+    Distributions.GenericMvTDist(convert(T, df), μ, Σ)
+end
+
+
+abstract type ProposalDistSpec end
+
+
+struct MvTDistProposal <: ProposalDistSpec
     df::Float64
 end
 
-TransformedMvTDistProposal() = TransformedMvTDistProposal(1.0)
+MvTDistProposal() = MvTDistProposal(1.0)
 
 
-(ps::TransformedMvTDistProposal)(T::Type{<:AbstractFloat}, varndof::Integer) =
-    TransformedGenericProposalDist(MvTDist, T, varndof, convert(T, ps.df))
+(ps::MvTDistProposal)(T::Type{<:AbstractFloat}, varndof::Integer) =
+    GenericProposalDist(MvTDist, T, varndof, convert(T, ps.df))
 
-function TransformedGenericProposalDist(::Type{MvTDist}, T::Type{<:AbstractFloat}, varndof::Integer, df = one(T))
+function GenericProposalDist(::Type{MvTDist}, T::Type{<:AbstractFloat}, varndof::Integer, df = one(T))
     Σ = PDMat(Matrix(ScalMat(varndof, one(T))))
     μ = Fill(zero(eltype(Σ)), varndof)
     M = typeof(Σ)
     d = Distributions.GenericMvTDist(convert(T, df), μ, Σ)
-    TransformedGenericProposalDist(d)
+    GenericProposalDist(d)
 end
 
 
-struct TransformedUvTDistProposalSpec <: TransformedProposalDistSpec
+struct UvTDistProposalSpec <: ProposalDistSpec
     df::Float64
 end
 
-(ps::TransformedUvTDistProposalSpec)(T::Type{<:AbstractFloat}, varndof::Integer) =
-    TransformedGenericUvProposalDist(TDist(convert(T, ps.df)), fill(one(T), varndof))
+(ps::UvTDistProposalSpec)(T::Type{<:AbstractFloat}, varndof::Integer) =
+    GenericUvProposalDist(TDist(convert(T, ps.df)), fill(one(T), varndof))
