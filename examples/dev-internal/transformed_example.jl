@@ -5,7 +5,7 @@ using ChangesOfVariables
 using BAT.LinearAlgebra
 using BAT.Distributions
 using BAT.InverseFunctions
-import BAT: TransformedMCMCIterator, TransformedAdaptiveMHTuning, TransformedRAMTuner, TransformedMHProposal, TransformedNoTransformedMCMCTempering, transformed_mcmc_step!!, TransformedMCMCTransformedSampleID
+import BAT: TransformedMCMCIterator, TransformedAdaptiveMHTuning, TransformedRAMTuner, TransformedMHProposal, TransformedNoTransformedMCMCTempering, transformed_mcmc_step!!, MCMCSampleID
 using Random123, PositiveFactorizations
 using AutoDiffOperators
 import AdvancedHMC

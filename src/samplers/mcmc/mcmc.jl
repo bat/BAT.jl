@@ -2,7 +2,7 @@
 
 include("../transformed_mcmc/mcmc_weighting.jl")# temporary during transition to transformed MCMC
 include("proposaldist.jl")
-include("mcmc_sampleid.jl")
+include("../transformed_mcmc/mcmc_sampleid.jl")# temporary during transition to transformed MCMC
 include("mcmc_algorithm.jl")
 include("mcmc_noop_tuner.jl")
 include("../transformed_mcmc/mcmc_stats.jl") # temporary during transition to transformed MCMC

@@ -75,7 +75,7 @@ function TransformedMCMCIterator(
     g = init_adaptive_transform(adaptive_transform_spec, μ, context)
 
     logd_x = logdensityof(μ, v_init)
-    sample_x = DensitySample(v_init, logd_x, 1, TransformedMCMCTransformedSampleID(id, 1, 0), nothing) # TODO
+    sample_x = DensitySample(v_init, logd_x, 1, MCMCSampleID(id, 1, 0), nothing) # TODO
     inverse_g = inverse(g)
     z = inverse_g(v_init) # sample_x.v
     logd_z = logdensityof(MeasureBase.pullback(g, μ),z)
@@ -183,7 +183,7 @@ function transformed_mcmc_step!!(
     end
 
     sample_x_new, sample_z_new, samples_new = if accepted
-        sample_x_new = DensitySample(x_new, logd_x_new, 1, TransformedMCMCTransformedSampleID(iter.info.id, iter.info.cycle, iter.stepno), nothing)
+        sample_x_new = DensitySample(x_new, logd_x_new, 1, MCMCSampleID(iter.info.id, iter.info.cycle, iter.stepno), nothing)
         push!(samples, sample_x_new) 
         sample_x_new, _rebuild_density_sample(sample_z, z_new, logd_z_new), samples
     else
@@ -329,7 +329,7 @@ function next_cycle!(
     resize!(chain.samples, 1)
 
     chain.samples.weight[1] = 1
-    chain.samples.info[1] = TransformedMCMCTransformedSampleID(chain.info.id, chain.info.cycle, chain.stepno)
+    chain.samples.info[1] = MCMCSampleID(chain.info.id, chain.info.cycle, chain.stepno)
     
     chain
 end
