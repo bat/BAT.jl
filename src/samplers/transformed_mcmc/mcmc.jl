@@ -2,11 +2,11 @@ using AffineMaps
 
 #include("mcmc_utils.jl")
 
-include("mcmc_weighting.jl")
+#include("mcmc_weighting.jl")
 include("proposaldist.jl")
-include("mcmc_sampleid.jl")
+#include("mcmc_sampleid.jl")
 include("mcmc_algorithm.jl")
-include("mcmc_stats.jl")
+#include("mcmc_stats.jl")
 include("mcmc_sample.jl")
 include("tempering.jl")
 include("mcmc_iterate.jl")

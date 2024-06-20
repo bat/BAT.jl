@@ -88,6 +88,17 @@ _to_flat_array(A::AbstractArray{<:AbstractArray{<:Real}}) = _to_flat_array(Array
 
 const _AnyRealArrayOrArrays = Union{AbstractArray{<:Real},AbstractArray{<:AbstractArray{<:Real}}}
 
+
+# TODO: MD Discuss, is to handle "nothing" entries in MCMCSampleIDVector objects
+function _h5io_write(datastore::H5DataStore, path::AbstractString, data::Vector{Union{Nothing, Int64}})
+    if any(isnothing.(data))
+        data_tmp = fill(0, length(data))
+    else
+        data_tmp = convert(Vector{Int64}, data)
+    end
+    _h5io_write(datastore, path, data_tmp)
+end
+
 function _h5io_write(datastore::H5DataStore, path::AbstractString, data::_AnyRealArrayOrArrays)
     @nospecialize datastore, path, data
     group = _h5io__get_or_create_group(datastore, dirname(path))

@@ -40,7 +40,7 @@ end
 
 MCMCSampleIDVector(::UndefInitializer, len::Integer) = MCMCSampleIDVector((
     Vector{Int32}(undef, len), Vector{Int32}(undef, len),
-    Vector{Int64}(undef, len), Vector{Union{Int64, Nothing}}(undef, len)
+    Vector{Union{Int64, Nothing}}(undef, len), Vector{Union{Int64, Nothing}}(undef, len)
 ))
 
 MCMCSampleIDVector() = MCMCSampleIDVector(undef, 0)
