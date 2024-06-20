@@ -1,6 +1,21 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+"""
+    abstract type MCMCAlgorithm
 
+Abstract type for Markov chain Monte Carlo algorithms.
+
+To implement a new MCMC algorithm, subtypes of both `MCMCAlgorithm` and
+[`MCMCIterator`](@ref) are required.
+
+!!! note
+
+    The details of the `MCMCIterator` and `MCMCAlgorithm` API required to
+    implement a new MCMC algorithm currently do not (yet) form part of the
+    stable API and are subject to change without deprecation.
+"""
+abstract type MCMCAlgorithm end
+export MCMCAlgorithm
 
 function get_mcmc_tuning end #TODO: still needed
 
@@ -14,8 +29,35 @@ abstract type MCMCInitAlgorithm end
 export MCMCInitAlgorithm
 
 #TODO AC: reactivate
-#apply_trafo_to_init(trafo::Function, initalg::MCMCInitAlgorithm) = initalg
+apply_trafo_to_init(trafo::Function, initalg::MCMCInitAlgorithm) = initalg
 
+
+"""
+    abstract type MCMCTuningAlgorithm
+
+Abstract type for MCMC tuning algorithms.
+"""
+abstract type MCMCTuningAlgorithm end
+export MCMCTuningAlgorithm
+
+
+
+"""
+    abstract type MCMCBurninAlgorithm
+
+Abstract type for MCMC burn-in algorithms.
+"""
+abstract type MCMCBurninAlgorithm end
+export MCMCBurninAlgorithm
+
+
+
+@with_kw struct MCMCIteratorInfo
+    id::Int32
+    cycle::Int32
+    tuned::Bool
+    converged::Bool
+end
 
 
 """
@@ -46,79 +88,80 @@ export TransformedMCMCBurninAlgorithm
 end
 
 
-# TODO AC: reactivate
-# """
-#     abstract type MCMCIterator end
+"""
+    abstract type MCMCIterator end
 
-# Represents the current state of an MCMC chain.
+*BAT-internal, not part of stable public API.*
 
-# !!! note
+Represents the current state of an MCMC chain.
 
-#     The details of the `MCMCIterator` and `MCMCAlgorithm` API (see below)
-#     currently do not form part of the stable API and are subject to change
-#     without deprecation.
+!!! note
 
-# To implement a new MCMC algorithm, subtypes of both [`MCMCAlgorithm`](@ref)
-# and `MCMCIterator` are required.
+    The details of the `MCMCIterator` and `MCMCAlgorithm` API (see below)
+    currently do not form part of the stable API and are subject to change
+    without deprecation.
 
-# The following methods must be defined for subtypes of `MCMCIterator` (e.g.
-# `SomeMCMCIter<:MCMCIterator`):
+To implement a new MCMC algorithm, subtypes of both [`MCMCAlgorithm`](@ref)
+and `MCMCIterator` are required.
 
-# ```julia
+The following methods must be defined for subtypes of `MCMCIterator` (e.g.
+`SomeMCMCIter<:MCMCIterator`):
 
-# BAT.getmeasure(chain::SomeMCMCIter)::BATMeasure
+```julia
+BAT.getalgorithm(chain::SomeMCMCIter)::MCMCAlgorithm
 
-# BAT.getcontext(chain::SomeMCMCIter)::BATContext
+BAT.mcmc_target(chain::SomeMCMCIter)::BATMeasure
 
-# BAT.mcmc_info(chain::SomeMCMCIter)::TransformedMCMCIteratorInfo
+BAT.get_context(chain::SomeMCMCIter)::BATContext
 
-# BAT.nsteps(chain::SomeMCMCIter)::Int
+BAT.mcmc_info(chain::SomeMCMCIter)::MCMCIteratorInfo
 
-# BAT.nsamples(chain::SomeMCMCIter)::Int
+BAT.nsteps(chain::SomeMCMCIter)::Int
 
-# BAT.current_sample(chain::SomeMCMCIter)::DensitySample
+BAT.nsamples(chain::SomeMCMCIter)::Int
 
-# BAT.sample_type(chain::SomeMCMCIter)::Type{<:DensitySample}
+BAT.current_sample(chain::SomeMCMCIter)::DensitySample
 
-# BAT.samples_available(chain::SomeMCMCIter, nonzero_weights::Bool = false)::Bool
+BAT.sample_type(chain::SomeMCMCIter)::Type{<:DensitySample}
 
-# BAT.get_samples!(samples::DensitySampleVector, chain::SomeMCMCIter, nonzero_weights::Bool)::typeof(samples)
+BAT.samples_available(chain::SomeMCMCIter, nonzero_weights::Bool = false)::Bool
 
-# BAT.next_cycle!(chain::SomeMCMCIter)::SomeMCMCIter
+BAT.get_samples!(samples::DensitySampleVector, chain::SomeMCMCIter, nonzero_weights::Bool)::typeof(samples)
 
-# BAT.mcmc_step!(
-#     chain::SomeMCMCIter
-#     callback::Function,
-# )::nothing
-# ```
+BAT.next_cycle!(chain::SomeMCMCIter)::SomeMCMCIter
 
-# The following methods are implemented by default:
+BAT.mcmc_step!(
+    chain::SomeMCMCIter
+    callback::Function,
+)::nothing
+```
 
-# ```julia
-# getalgorithm(chain::MCMCIterator)
-# getmeasure(chain::MCMCIterator)
-# DensitySampleVector(chain::MCMCIterator)
-# mcmc_iterate!(chain::MCMCIterator, ...)
-# mcmc_iterate!(chains::AbstractVector{<:MCMCIterator}, ...)
-# isvalidchain(chain::MCMCIterator)
-# isviablechain(chain::MCMCIterator)
-# ```
-# """
-# abstract type MCMCIterator end
-# export MCMCIterator
+The following methods are implemented by default:
+
+```julia
+getalgorithm(chain::MCMCIterator)
+mcmc_target(chain::MCMCIterator)
+DensitySampleVector(chain::MCMCIterator)
+mcmc_iterate!(chain::MCMCIterator, ...)
+mcmc_iterate!(chains::AbstractVector{<:MCMCIterator}, ...)
+isvalidchain(chain::MCMCIterator)
+isviablechain(chain::MCMCIterator)
+```
+"""
+abstract type MCMCIterator end
 
 
-#TODO AC: reactivate
-# function Base.show(io::IO, chain::MCMCIterator)
-#     print(io, Base.typename(typeof(chain)).name, "(")
-#     print(io, "id = "); show(io, mcmc_info(chain).id)
-#     print(io, ", nsamples = "); show(io, nsamples(chain))
-#     print(io, ", density = "); show(io, getmeasure(chain))
-#     print(io, ")") 
-# end
-
+function Base.show(io::IO, chain::MCMCIterator)
+    print(io, Base.typename(typeof(chain)).name, "(")
+    print(io, "id = "); show(io, mcmc_info(chain).id)
+    print(io, ", nsamples = "); show(io, nsamples(chain))
+    print(io, ", target = "); show(io, mcmc_target(chain))
+    print(io, ")") 
+end
 
 function getalgorithm end
+
+function mcmc_target end
 
 function getmeasure end
 
@@ -141,9 +184,12 @@ function next_cycle! end
 function mcmc_step! end
 
 
-# TODO AC: reactivate
-#DensitySampleVector(chain::MCMCIterator) = DensitySampleVector(sample_type(chain), totalndof(getmeasure(chain)))
+function DensitySampleVector(chain::MCMCIterator)
+    DensitySampleVector(sample_type(chain), totalndof(varshape(mcmc_target(chain))))
+end
 
+
+abstract type AbstractMCMCTunerInstance end
 
 abstract type TransformedAbstractMCMCTunerInstance end
 
@@ -174,6 +220,25 @@ function isviablechain end
 
 function mcmc_iterate! end
 
+
+"""
+    BAT.MCMCSampleGenerator
+
+*BAT-internal, not part of stable public API.*
+
+MCMC sample generator.
+
+Constructors:
+
+```julia
+MCMCSampleGenerator(chain::AbstractVector{<:MCMCIterator})
+```
+"""
+struct MCMCSampleGenerator{T<:AbstractVector{<:MCMCIterator}} <: AbstractSampleGenerator
+    chains::T
+end
+
+
 """
     BAT.TransformedMCMCSampleGenerator
 
@@ -195,9 +260,10 @@ struct TransformedMCMCSampleGenerator{
     algorithm::A
 end
 
+getalgorithm(sg::MCMCSampleGenerator) = sg.chains[1].algorithm
 getalgorithm(sg::TransformedMCMCSampleGenerator) = sg.algorithm
 
-function Base.show(io::IO, generator::TransformedMCMCSampleGenerator)
+function Base.show(io::IO, generator::Union{MCMCSampleGenerator, TransformedMCMCSampleGenerator})
     if get(io, :compact, false)
         print(io, nameof(typeof(generator)), "(")
         if !isempty(generator.chains)
@@ -217,14 +283,18 @@ function Base.show(io::IO, generator::TransformedMCMCSampleGenerator)
         println(io, "number of chains:", repeat(' ', 12), nchains)
         println(io, "number of chains tuned:", repeat(' ', 6), n_tuned_chains)
         println(io, "number of chains converged:", repeat(' ', 2), n_converged_chains)
-        println(io, "number of points…")
-        println(io, repeat(' ',10), "… in 1th chain:", repeat(' ', 4), nsamples(first(chains)))
-        print(io, repeat(' ',10), "… on average:", repeat(' ', 6), div(sum(nsamples.(chains)), nchains))
+        if typeof(generator) == TransformedMCMCSampleGenerator
+            println(io, "number of points…")
+            println(io, repeat(' ',10), "… in 1th chain:", repeat(' ', 4), nsamples(first(chains)))
+            print(io, repeat(' ',10), "… on average:", repeat(' ', 6), div(sum(nsamples.(chains)), nchains))
+        else
+            print(io, "number of samples per chain:", repeat(' ', 2), nsamples(chains[1]))
+        end     
     end
 end
 
 
-function bat_report!(md::Markdown.MD, generator::TransformedMCMCSampleGenerator)
+function bat_report!(md::Markdown.MD, generator::Union{MCMCSampleGenerator, TransformedMCMCSampleGenerator})
     mcalg = getalgorithm(generator)
     chains = generator.chains
     nchains = length(chains)

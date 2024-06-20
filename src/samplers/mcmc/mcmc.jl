@@ -5,9 +5,9 @@
 include("proposaldist.jl")
 #include("../transformed_mcmc/mcmc_sampleid.jl")# temporary during transition to transformed MCMC
 include("mcmc_algorithm.jl")
-include("mcmc_noop_tuner.jl")
 #include("../transformed_mcmc/mcmc_stats.jl") # temporary during transition to transformed MCMC
 include("../transformed_mcmc/mcmc.jl")  # temporary during transition to transformed MCMC
+include("mcmc_noop_tuner.jl")
 include("mcmc_convergence.jl")
 #include("../transformed_mcmc/mcmc_sample.jl")# temporary during transition to transformed MCMC
 #include("../transformed_mcmc/tempering.jl")# temporary during transition to transformed MCMC
