@@ -16,7 +16,7 @@ struct TransformedMCMCDispatch end
 
 @with_kw struct TransformedMCMCSampling{
     TR<:AbstractTransformTarget,
-    IN<:TransformedMCMCInitAlgorithm,
+    IN<:MCMCInitAlgorithm,
     BI<:TransformedMCMCBurninAlgorithm,
     CT<:ConvergenceTest,
     CB<:Function
@@ -29,7 +29,7 @@ struct TransformedMCMCDispatch end
     nchains::Int = 4
     nsteps::Int = 10^5
     #TODO: max_time ?
-    init::IN =  bat_default(TransformedMCMCDispatch, Val(:init), pre_transform, nchains, nsteps) #TransformedMCMCChainPoolInit()#TODO AC: use bat_defaults bat_default(MCMCSampling, Val(:init), MetropolisHastings(), pre_transform, nchains, nsteps) #TODO
+    init::IN =  bat_default(TransformedMCMCDispatch, Val(:init), pre_transform, nchains, nsteps) #MCMCChainPoolInit()#TODO AC: use bat_defaults bat_default(MCMCSampling, Val(:init), MetropolisHastings(), pre_transform, nchains, nsteps) #TODO
     burnin::BI = bat_default(TransformedMCMCDispatch, Val(:burnin), pre_transform, nchains, nsteps)
     convergence::CT = TransformedBrooksGelmanConvergence()
     strict::Bool = true
@@ -43,7 +43,7 @@ bat_default(::Type{TransformedMCMCDispatch}, ::Val{:pre_transform}) = PriorToGau
 bat_default(::Type{TransformedMCMCDispatch}, ::Val{:nsteps}, trafo::AbstractTransformTarget, nchains::Integer) = 10^5
 
 bat_default(::Type{TransformedMCMCDispatch}, ::Val{:init}, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
-    TransformedMCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
+    MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
 
 bat_default(::Type{TransformedMCMCDispatch}, ::Val{:burnin}, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     TransformedMCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))

@@ -67,7 +67,7 @@ import AdvancedHMC
             context
         )
 
-        (chains, tuners, outputs) = init_result
+        (chains, tuners, temperers, outputs) = init_result
         #@test chains isa AbstractVector{<:BAT.AHMCIterator}
         #@test tuners isa AbstractVector{<:BAT.AHMCTuner}
         #@test outputs isa AbstractVector{<:DensitySampleVector}

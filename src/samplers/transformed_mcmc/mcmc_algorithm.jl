@@ -6,15 +6,15 @@ function get_mcmc_tuning end #TODO: still needed
 
 
 """
-    abstract type TransformedMCMCInitAlgorithm
+    abstract type MCMCInitAlgorithm
 
 Abstract type for MCMC initialization algorithms.
 """
-abstract type TransformedMCMCInitAlgorithm end
-export TransformedMCMCInitAlgorithm
+abstract type MCMCInitAlgorithm end
+export MCMCInitAlgorithm
 
 #TODO AC: reactivate
-#apply_trafo_to_init(trafo::Function, initalg::TransformedMCMCInitAlgorithm) = initalg
+#apply_trafo_to_init(trafo::Function, initalg::MCMCInitAlgorithm) = initalg
 
 
 

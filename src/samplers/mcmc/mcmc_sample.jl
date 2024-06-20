@@ -43,7 +43,7 @@ function bat_sample_impl(m::BATMeasure, algorithm::MCMCSampling, context::BATCon
 
     mcmc_algorithm = algorithm.mcalg
 
-    (chains, tuners, chain_outputs) = mcmc_init!(
+    (chains, tuners, temperers, chain_outputs) = mcmc_init!(
         mcmc_algorithm,
         transformed_m,
         algorithm.nchains,
