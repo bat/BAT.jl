@@ -5,7 +5,7 @@ include("proposaldist.jl")
 include("mcmc_sampleid.jl")
 include("mcmc_algorithm.jl")
 include("mcmc_noop_tuner.jl")
-include("mcmc_stats.jl")
+include("../transformed_mcmc/mcmc_stats.jl") # temporary during transition to transformed MCMC
 include("mcmc_convergence.jl")
 include("chain_pool_init.jl")
 include("multi_cycle_burnin.jl")

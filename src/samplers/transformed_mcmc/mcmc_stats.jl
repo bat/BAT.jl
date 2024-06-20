@@ -1,26 +1,26 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-abstract type TransformedAbstractMCMCStats end
-TransformedAbstractMCMCStats
+abstract type AbstractMCMCStats end
+AbstractMCMCStats
 
 
 
-struct TransformedMCMCNullStats <: TransformedAbstractMCMCStats end
+struct MCMCNullStats <: AbstractMCMCStats end
 
 
-Base.push!(stats::TransformedMCMCNullStats, sv::DensitySampleVector) = stats
+Base.push!(stats::MCMCNullStats, sv::DensitySampleVector) = stats
 
-Base.append!(stats::TransformedMCMCNullStats, sv::DensitySampleVector) = stats
+Base.append!(stats::MCMCNullStats, sv::DensitySampleVector) = stats
 
 
 
-struct TransformedMCMCBasicStats{L<:Real,P<:Real} <: TransformedAbstractMCMCStats
+struct MCMCBasicStats{L<:Real,P<:Real} <: AbstractMCMCStats
     param_stats::BasicMvStatistics{P,FrequencyWeights}
     logtf_stats::BasicUvStatistics{L,FrequencyWeights}
     mode::Vector{P}
 
-    function TransformedMCMCBasicStats{L,P}(m::Integer) where {L<:Real,P<:Real}
+    function MCMCBasicStats{L,P}(m::Integer) where {L<:Real,P<:Real}
         param_stats = BasicMvStatistics{P,FrequencyWeights}(m)
         logtf_stats = BasicUvStatistics{L,FrequencyWeights}()
         mode = fill(P(NaN), m)
@@ -34,25 +34,25 @@ struct TransformedMCMCBasicStats{L<:Real,P<:Real} <: TransformedAbstractMCMCStat
 end
 
 
-function TransformedMCMCBasicStats(::Type{S}, ndof::Integer) where {
+function MCMCBasicStats(::Type{S}, ndof::Integer) where {
     PT<:Real, T, W, S<:DensitySample{<:AbstractVector{PT},T,W}
 }
     SL = promote_type(T, Float64)
     SP = promote_type(PT, W, Float64)
-    TransformedMCMCBasicStats{SL,SP}(ndof)
+    MCMCBasicStats{SL,SP}(ndof)
 end
 
-TransformedMCMCBasicStats(chain::MCMCIterator) = TransformedMCMCBasicStats(sample_type(chain), totalndof(getmeasure(chain)))
+MCMCBasicStats(chain::MCMCIterator) = MCMCBasicStats(sample_type(chain), totalndof(varshape(mcmc_target(chain))))
 
-function TransformedMCMCBasicStats(sv::DensitySampleVector{<:AbstractVector{<:Real}})
-    stats = TransformedMCMCBasicStats(eltype(sv), innersize(sv.v, 1))
+function MCMCBasicStats(sv::DensitySampleVector{<:AbstractVector{<:Real}})
+    stats = MCMCBasicStats(eltype(sv), innersize(sv.v, 1))
     append!(stats, sv)
 end
 
-TransformedMCMCBasicStats(sv::DensitySampleVector) = TransformedMCMCBasicStats(unshaped.(sv))
+MCMCBasicStats(sv::DensitySampleVector) = MCMCBasicStats(unshaped.(sv))
 
 
-function Base.empty!(stats::TransformedMCMCBasicStats)
+function Base.empty!(stats::MCMCBasicStats)
     empty!(stats.param_stats)
     empty!(stats.logtf_stats)
     fill!(stats.mode, eltype(stats.mode)(NaN))
@@ -61,7 +61,7 @@ function Base.empty!(stats::TransformedMCMCBasicStats)
 end
 
 
-function Base.push!(stats::TransformedMCMCBasicStats, s::DensitySample)
+function Base.push!(stats::MCMCBasicStats, s::DensitySample)
     push!(stats.param_stats, s.v, s.weight)
     if s.logd > stats.logtf_stats.maximum
         stats.mode .= s.v
@@ -71,7 +71,7 @@ function Base.push!(stats::TransformedMCMCBasicStats, s::DensitySample)
 end
 
 
-function Base.append!(stats::TransformedMCMCBasicStats, sv::DensitySampleVector)
+function Base.append!(stats::MCMCBasicStats, sv::DensitySampleVector)
     for i in eachindex(sv)
         p = sv.v[i]
         w = sv.weight[i]
@@ -87,11 +87,11 @@ function Base.append!(stats::TransformedMCMCBasicStats, sv::DensitySampleVector)
 end
 
 
-ValueShapes.totalndof(stats::TransformedMCMCBasicStats) = stats.param_stats.m
+_stats_dof(stats::MCMCBasicStats) = stats.param_stats.m
 
-nsamples(stats::TransformedMCMCBasicStats) = stats.param_stats.cov.sum_w
+nsamples(stats::MCMCBasicStats) = stats.param_stats.cov.sum_w
 
-function Base.merge!(target::TransformedMCMCBasicStats, others::TransformedMCMCBasicStats...)
+function Base.merge!(target::MCMCBasicStats, others::MCMCBasicStats...)
     for x in others
         if (x.logtf_stats.maximum > target.logtf_stats.maximum)
             target.mode .= x.mode
@@ -102,10 +102,10 @@ function Base.merge!(target::TransformedMCMCBasicStats, others::TransformedMCMCB
     target
 end
 
-Base.merge(a::TransformedMCMCBasicStats, bs::TransformedMCMCBasicStats...) = merge!(deepcopy(a), bs...)
+Base.merge(a::MCMCBasicStats, bs::MCMCBasicStats...) = merge!(deepcopy(a), bs...)
 
 
-function reweight_relative!(stats::TransformedMCMCBasicStats, reweighting_factor::Real)
+function reweight_relative!(stats::MCMCBasicStats, reweighting_factor::Real)
     reweight_relative!(stats.param_stats, reweighting_factor)
     reweight_relative!(stats.logtf_stats, reweighting_factor)
 
@@ -113,7 +113,7 @@ function reweight_relative!(stats::TransformedMCMCBasicStats, reweighting_factor
 end
 
 
-function _bat_stats(mcmc_stats::TransformedMCMCBasicStats)
+function _bat_stats(mcmc_stats::MCMCBasicStats)
     (
         mode = mcmc_stats.mode,
         mean = mcmc_stats.param_stats.mean,

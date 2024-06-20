@@ -21,7 +21,7 @@
 end
 
 mutable struct TransformedProposalCovTuner{
-    S<:TransformedMCMCBasicStats
+    S<:MCMCBasicStats
 } <: TransformedAbstractMCMCTunerInstance
     config::TransformedAdaptiveMHTuning
     stats::S
@@ -33,7 +33,7 @@ end
 function TransformedProposalCovTuner(tuning::TransformedAdaptiveMHTuning, chain::MCMCIterator)
     m = totalndof(getmeasure(chain))
     scale = 2.38^2 / m
-    TransformedProposalCovTuner(tuning, TransformedMCMCBasicStats(chain), 1, scale)
+    TransformedProposalCovTuner(tuning, MCMCBasicStats(chain), 1, scale)
 end
 
 get_tuner(tuning::TransformedAdaptiveMHTuning, chain::MCMCIterator) =  TransformedProposalCovTuner(tuning, chain)

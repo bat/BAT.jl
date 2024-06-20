@@ -17,7 +17,7 @@ end
 
 
 """
-    gr_Rsqr(stats::AbstractVector{<:TransformedMCMCBasicStats})
+    gr_Rsqr(stats::AbstractVector{<:MCMCBasicStats})
     gr_Rsqr(samples::AbstractVector{<:DensitySampleVector})
 
 *BAT-internal, not part of stable public API.*
@@ -27,8 +27,8 @@ Gelman-Rubin ``\$R^2\$`` for all DOF.
 # TODO AC: reactivate
 # function gr_Rsqr end
 
-function gr_Rsqr(stats::AbstractVector{<:TransformedMCMCBasicStats})
-    m = totalndof(first(stats))
+function gr_Rsqr(stats::AbstractVector{<:MCMCBasicStats})
+    m = _stats_dof(first(stats))
     W = mean([cs.param_stats.cov[i,i] for cs in stats, i in 1:m], dims=1)[:]
     B = var([cs.param_stats.mean[i] for cs in stats, i in 1:m], dims=1)[:]
     (W .+ B) ./ W
@@ -36,7 +36,7 @@ end
 
 #TODO AC: reactivate
 # function gr_Rsqr(samples::AbstractVector{<:DensitySampleVector})
-#     gr_Rsqr(TransformedMCMCBasicStats.(samples))
+#     gr_Rsqr(MCMCBasicStats.(samples))
 # end
 
 
@@ -74,7 +74,7 @@ end
 
 
 @doc doc"""
-    bg_R_2sqr(stats::AbstractVector{<:TransformedMCMCBasicStats}; corrected::Bool = false)
+    bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats}; corrected::Bool = false)
     bg_R_2sqr(samples::AbstractVector{<:DensitySampleVector}; corrected::Bool = false)
 
 *BAT-internal, not part of stable public API.*
@@ -82,8 +82,8 @@ end
 Brooks-Gelman R_2^2 for all DOF.
 If normality is assumed, 'corrected' should be set to true to account for the sampling variability.
 """
-function bg_R_2sqr(stats::AbstractVector{<:TransformedMCMCBasicStats}; corrected::Bool = false)
-    p = totalndof(first(stats))
+function bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats}; corrected::Bool = false)
+    p = _stats_dof(first(stats))
     m = length(stats)
     n = mean(Float64.(nsamples.(stats)))
 
@@ -117,7 +117,7 @@ end
 
 # TODO AC: reactivate
 # function bg_R_2sqr(samples::AbstractVector{<:DensitySampleVector}; corrected::Bool = false)
-#     bg_R_2sqr(TransformedMCMCBasicStats.(samples), corrected = corrected)
+#     bg_R_2sqr(MCMCBasicStats.(samples), corrected = corrected)
 # end
 
 
