@@ -1,55 +1,55 @@
-# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+# # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-"""
-    abstract type AbstractMCMCWeightingScheme{T<:Real}
+# """
+#     abstract type AbstractMCMCWeightingScheme{T<:Real}
 
-Abstract class for weighting schemes for MCMC samples.
+# Abstract class for weighting schemes for MCMC samples.
 
-Weight values will have type `T`.
-"""
-abstract type AbstractMCMCWeightingScheme{T<:Real} end
-export AbstractMCMCWeightingScheme
-
-
-sample_weight_type(::Type{<:AbstractMCMCWeightingScheme{T}}) where {T} = T
+# Weight values will have type `T`.
+# """
+# abstract type AbstractMCMCWeightingScheme{T<:Real} end
+# export AbstractMCMCWeightingScheme
 
 
-
-"""
-    struct RepetitionWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T}
-
-Sample weighting scheme suitable for sampling algorithms which may repeated
-samples multiple times in direct succession (e.g.
-[`MetropolisHastings`](@ref)). The repeated sample is stored only once,
-with a weight equal to the number of times it has been repeated (e.g.
-because a Markov chain has not moved during a sampling step).
-
-Constructors:
-
-* ```$(FUNCTIONNAME)()```
-"""
-struct RepetitionWeighting{T<:Real} <: AbstractMCMCWeightingScheme{T} end
-export RepetitionWeighting
-
-RepetitionWeighting() = RepetitionWeighting{Int}()
+# sample_weight_type(::Type{<:AbstractMCMCWeightingScheme{T}}) where {T} = T
 
 
-"""
-    ARPWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T}
 
-*Experimental feature, not part of stable public API.*
+# """
+#     struct RepetitionWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T}
 
-Sample weighting scheme suitable for accept/reject-based sampling algorithms
-(e.g. [`MetropolisHastings`](@ref)). Both accepted and rejected samples
-become part of the output, with a weight proportional to their original
-acceptance probability.
+# Sample weighting scheme suitable for sampling algorithms which may repeated
+# samples multiple times in direct succession (e.g.
+# [`MetropolisHastings`](@ref)). The repeated sample is stored only once,
+# with a weight equal to the number of times it has been repeated (e.g.
+# because a Markov chain has not moved during a sampling step).
 
-Constructors:
+# Constructors:
 
-* ```$(FUNCTIONNAME)()```
-"""
-struct ARPWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T} end
-export ARPWeighting
+# * ```$(FUNCTIONNAME)()```
+# """
+# struct RepetitionWeighting{T<:Real} <: AbstractMCMCWeightingScheme{T} end
+# export RepetitionWeighting
 
-ARPWeighting() = ARPWeighting{Float64}()
+# RepetitionWeighting() = RepetitionWeighting{Int}()
+
+
+# """
+#     ARPWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T}
+
+# *Experimental feature, not part of stable public API.*
+
+# Sample weighting scheme suitable for accept/reject-based sampling algorithms
+# (e.g. [`MetropolisHastings`](@ref)). Both accepted and rejected samples
+# become part of the output, with a weight proportional to their original
+# acceptance probability.
+
+# Constructors:
+
+# * ```$(FUNCTIONNAME)()```
+# """
+# struct ARPWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T} end
+# export ARPWeighting
+
+# ARPWeighting() = ARPWeighting{Float64}()

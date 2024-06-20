@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-include("mcmc_weighting.jl")
+include("../transformed_mcmc/mcmc_weighting.jl")# temporary during transition to transformed MCMC
 include("proposaldist.jl")
 include("mcmc_sampleid.jl")
 include("mcmc_algorithm.jl")

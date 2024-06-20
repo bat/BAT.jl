@@ -2,22 +2,22 @@
 
 
 """
-    abstract type TransformedAbstractMCMCWeightingScheme{T<:Real}
+    abstract type AbstractMCMCWeightingScheme{T<:Real}
 
 Abstract class for weighting schemes for MCMC samples.
 
 Weight values will have type `T`.
 """
-abstract type TransformedAbstractMCMCWeightingScheme{T<:Real} end
-export TransformedAbstractMCMCWeightingScheme
+abstract type AbstractMCMCWeightingScheme{T<:Real} end
+export AbstractMCMCWeightingScheme
 
 
-sample_weight_type(::Type{<:TransformedAbstractMCMCWeightingScheme{T}}) where {T} = T
+sample_weight_type(::Type{<:AbstractMCMCWeightingScheme{T}}) where {T} = T
 
 
 
 """
-    struct TransformedRepetitionWeighting{T<:AbstractFloat} <: TransformedAbstractMCMCWeightingScheme{T}
+    struct RepetitionWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T}
 
 Sample weighting scheme suitable for sampling algorithms which may repeated
 samples multiple times in direct succession (e.g.
@@ -29,14 +29,16 @@ Constructors:
 
 * ```$(FUNCTIONNAME)()```
 """
-struct TransformedRepetitionWeighting{T<:Real} <: TransformedAbstractMCMCWeightingScheme{T} end
-export TransformedRepetitionWeighting
+struct RepetitionWeighting{T<:Real} <: AbstractMCMCWeightingScheme{T} end
+export RepetitionWeighting
 
-TransformedRepetitionWeighting() = TransformedRepetitionWeighting{Int}()
+RepetitionWeighting() = RepetitionWeighting{Int}()
 
 
 """
-    TransformedARPWeighting{T<:AbstractFloat} <: TransformedAbstractMCMCWeightingScheme{T}
+    ARPWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T}
+
+*Experimental feature, not part of stable public API.*
 
 Sample weighting scheme suitable for accept/reject-based sampling algorithms
 (e.g. [`MetropolisHastings`](@ref)). Both accepted and rejected samples
@@ -47,7 +49,7 @@ Constructors:
 
 * ```$(FUNCTIONNAME)()```
 """
-struct TransformedARPWeighting{T<:AbstractFloat} <: TransformedAbstractMCMCWeightingScheme{T} end
-export TransformedARPWeighting
+struct ARPWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T} end
+export ARPWeighting
 
-TransformedARPWeighting() = TransformedARPWeighting{Float64}()
+ARPWeighting() = ARPWeighting{Float64}()
