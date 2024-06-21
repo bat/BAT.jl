@@ -155,7 +155,7 @@ end
 
 function transformed_mcmc_step!!(
     iter::TransformedMCMCIterator,
-    tuner::TransformedAbstractMCMCTunerInstance,
+    tuner::AbstractMCMCTunerInstance,
     tempering::TransformedMCMCTemperingInstance,
 )
     @unpack  μ, f_transform, proposal, samples, sample_z, stepno, context = iter
@@ -208,7 +208,7 @@ end
 
 function transformed_mcmc_iterate!(
     chain::TransformedMCMCIterator,
-    tuner::TransformedAbstractMCMCTunerInstance,
+    tuner::AbstractMCMCTunerInstance,
     tempering::TransformedMCMCTemperingInstance;
     max_nsteps::Integer = 1,
     max_time::Real = Inf,
@@ -250,9 +250,9 @@ end
 
 function transformed_mcmc_iterate!(
     chain::MCMCIterator,
-    tuner::TransformedAbstractMCMCTunerInstance,
+    tuner::AbstractMCMCTunerInstance,
     tempering::TransformedMCMCTemperingInstance;
-    # tuner::TransformedAbstractMCMCTunerInstance;
+    # tuner::AbstractMCMCTunerInstance;
     max_nsteps::Integer = 1,
     max_time::Real = Inf,
     nonzero_weights::Bool = true,
@@ -271,7 +271,7 @@ end
 
 function transformed_mcmc_iterate!(
     chains::AbstractVector{<:MCMCIterator},
-    tuners::AbstractVector{<:TransformedAbstractMCMCTunerInstance},
+    tuners::AbstractVector{<:AbstractMCMCTunerInstance},
     temperers::AbstractVector{<:TransformedMCMCTemperingInstance};
     kwargs...
 )

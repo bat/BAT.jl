@@ -26,7 +26,7 @@ export TransformedMCMCMultiCycleBurnin
 function mcmc_burnin!(
     outputs::Union{DensitySampleVector,Nothing},
     chains::AbstractVector{<:MCMCIterator},
-    tuners::AbstractVector{<:TransformedAbstractMCMCTunerInstance},
+    tuners::AbstractVector{<:AbstractMCMCTunerInstance},
     temperers::AbstractVector{<:TransformedMCMCTemperingInstance},
     burnin_alg::TransformedMCMCMultiCycleBurnin,
     convergence_test::ConvergenceTest,
@@ -94,7 +94,7 @@ function mcmc_burnin!(
 
         # turn off tuning
         next_cycle!.(chains)
-        tuners = TransformedMCMCNoOpTuning().(chains)
+        tuners = MCMCNoOpTuning().(chains)
 
         # TODO AC: what about tempering?
         

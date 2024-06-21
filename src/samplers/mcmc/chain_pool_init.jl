@@ -95,7 +95,7 @@ function mcmc_init!(
     m::BATMeasure,
     nchains::Integer,
     init_alg::MCMCChainPoolInit,
-    tuning_alg::Union{TransformedMCMCTuningAlgorithm, MCMCTuningAlgorithm}, # TODO: part of algorithm? # MCMCTuner
+    tuning_alg::Union{MCMCTuningAlgorithm, MCMCTuningAlgorithm}, # TODO: part of algorithm? # MCMCTuner
     nonzero_weights::Bool,
     callback::Function,
     context::BATContext

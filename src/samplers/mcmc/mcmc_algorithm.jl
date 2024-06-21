@@ -61,12 +61,12 @@ end
 
 
 """
-    abstract type TransformedMCMCTuningAlgorithm
+    abstract type MCMCTuningAlgorithm
 
 Abstract type for MCMC tuning algorithms.
 """
-abstract type TransformedMCMCTuningAlgorithm end
-export TransformedMCMCTuningAlgorithm
+abstract type MCMCTuningAlgorithm end
+export MCMCTuningAlgorithm
 
 
 
@@ -191,7 +191,7 @@ end
 
 abstract type AbstractMCMCTunerInstance end
 
-abstract type TransformedAbstractMCMCTunerInstance end
+abstract type AbstractMCMCTunerInstance end
 
 
 function tuning_init! end

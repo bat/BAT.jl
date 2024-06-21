@@ -62,7 +62,7 @@ struct TransformedMCMCDispatch end
     CB<:Function
 } <: AbstractSamplingAlgorithm
     pre_transform::TR = bat_default(TransformedMCMCDispatch, Val(:pre_transform))
-    tuning_alg::TransformedMCMCTuningAlgorithm = TransformedRAMTuner() # TODO: use bat_defaults
+    tuning_alg::MCMCTuningAlgorithm = TransformedRAMTuner() # TODO: use bat_defaults
     adaptive_transform::AdaptiveTransformSpec = default_adaptive_transform(tuning_alg)
     proposal::TransformedMCMCProposal = TransformedMHProposal(Normal()) #TODO: use bat_defaults
     tempering = TransformedNoTransformedMCMCTempering() # TODO: use bat_defaults
@@ -275,7 +275,7 @@ function _run_sample_impl(
     # tuners are set to 'NoOpTuner' for the sampling phase
     transformed_mcmc_iterate!(
         chains,
-        get_tuner.(Ref(TransformedMCMCNoOpTuning()),chains),
+        get_tuner.(Ref(MCMCNoOpTuning()),chains),
         get_temperer.(Ref(TransformedNoTransformedMCMCTempering()), chains),
         max_nsteps = algorithm.nsteps, #TODO: maxtime
         nonzero_weights = algorithm.nonzero_weights,
