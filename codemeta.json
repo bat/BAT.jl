@@ -1,0 +1,189 @@
+{
+    "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
+    "@type": "SoftwareSourceCode",
+    "license": "https://spdx.org/licenses/MIT",
+    "codeRepository": "https://github.com/bat/BAT.jl",
+    "contIntegration": "https://github.com/bat/BAT.jl/actions?query=workflow%3ACI",
+    "dateCreated": "2019-03-08",
+    "datePublished": "2019-03-08",
+    "dateModified": "2024-01-22",
+    "downloadUrl": "https://github.com/bat/BAT.jl/releases/tag/v3.1.2",
+    "issueTracker": "https://github.com/bat/BAT.jl/issues",
+    "name": "BAT.jl",
+    "version": "3.2.1",
+    "identifier": "https://doi.org/10.5281/zenodo.8127864",
+    "description": "A Bayesian Analysis Toolkit in Julia",
+    "applicationCategory": "Bayesian data analysis",
+    "developmentStatus": "active",
+    "referencePublication": "https://doi.org/10.1007/s42979-021-00626-4",
+    "readme": "https://bat.github.io/BAT.jl/stable/",
+    "softwareVersion": "3.2.1",
+    "keywords": [
+        "data analysis",
+        "bayesian inference",
+        "sampling",
+        "MCMC",
+        "statistics",
+        "julia",
+        "posterior",
+        "prior"
+    ],
+    "programmingLanguage": [
+        "Julia"
+    ],
+    "operatingSystem": [
+        "Linux",
+        "Windows",
+        "macOS"
+    ],
+    "author": [
+        {
+            "@type": "Person",
+            "@id": "https://orcid.org/0000-0002-4200-5905",
+            "givenName": "Oliver",
+            "familyName": "Schulz",
+            "email": "oschulz@mpp.mpg.de",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Max Planck Institute for Physics, Munich, Germany"
+            }
+        },
+        {
+            "@type": "Person",
+            "@id": "https://orcid.org/0000-0003-0244-5129",
+            "givenName": "Allen",
+            "familyName": "Caldwell",
+            "email": "caldwell@mpp.mpg.de",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Max Planck Institute for Physics, Munich, Germany"
+            }
+        },
+        {
+            "@type": "Person",
+            "@id": "https://orcid.org/0000-0002-0588-8788",
+            "givenName": "Cornelius",
+            "familyName": "Grunwald",
+            "email": "cornelius.grunwald@tu-dortmund.de",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "TU Dortmund University, Dortmund, Germany"
+            }
+        },
+        {
+            "@type": "Person",
+            "@id": "https://orcid.org/0000-0003-4320-6431",
+            "givenName": "Vasyl",
+            "familyName": "Hafych",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "TU Dortmund University, Dortmund, Germany"
+            }
+        },
+        {
+            "@type": "Person",
+            "@id": "https://orcid.org/0000-0001-9873-0228",
+            "givenName": "Kevin",
+            "familyName": "Kröninger",
+            "email": "kevin.kroeninger@cern.ch",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "TU Dortmund University, Dortmund, Germany"
+            }
+        },
+        {
+            "@type": "Person",
+            "givenName": "Salvatore",
+            "familyName": "La Cagnina",
+            "email": "salvatore.lacagnina@tu-dortmund.de",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "TU Dortmund University, Dortmund, Germany"
+            }
+        },
+        {
+            "@type": "Person",
+            "givenName": "Lars",
+            "familyName": "Röhrig",
+            "email": "lars.roehrig@tu-dortmund.de",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "TU Dortmund University, Dortmund, Germany"
+            }
+        },
+        {
+            "@type": "Person",
+            "@id": "https://orcid.org/0000-0002-5030-0285",
+            "givenName": "Lolian",
+            "familyName": "Shtembari",
+            "email": "lolian.shtembari@tum.de",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Max Planck Institute for Physics, Munich, Germany"
+            }
+        },
+        {
+            "@type": "Person",
+            "@id": "https://orcid.org/0009-0002-0074-9372",
+            "givenName": "Michael",
+            "familyName": "Dudkowiak",
+            "email": "michael.dudkowiak@tum.de",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Max Planck Institute for Physics, Munich, Germany"
+            }
+        },
+        {
+            "@type": "Person",
+            "givenName": "Willy",
+            "familyName": "Weber",
+            "email": "willy.weber@tu-dortmund.de",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "TU Dortmund University, Dortmund, Germany"
+            }
+        },
+        {
+            "@type": "Person",
+            "@id": "https://orcid.org/0000-0001-9901-8785",
+            "givenName": "Frederik",
+            "familyName": "Beaujean",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "formerly Max Planck Institute for Physics, Munich, Germany"
+            }
+        },
+        {
+            "@type": "Person",
+            "@id": "https://orcid.org/0000-0002-1153-2139",
+            "givenName": "Francesca",
+            "familyName": "Capel",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Max Planck Institute for Physics, Munich, Germany"
+            }
+        },
+        {
+            "@type": "Person",
+            "givenName": "Cedrik",
+            "familyName": "Laue",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Max Planck Institute for Physics, Munich, Germany"
+            }
+        }
+    ],
+    "maintainer": [
+        {
+            "@type": "Person",
+            "@id": "https://orcid.org/0000-0002-4200-5905",
+            "givenName": "Oliver",
+            "familyName": "Schulz",
+            "email": "oschulz@mpp.mpg.de",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "Max Planck Institute for Physics, Munich, Germany"
+            }
+        }
+    ]
+}
