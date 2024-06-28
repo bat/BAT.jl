@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Tutorial · BAT</title><script data-outdated-warner src="../assets/warner.js"></script><link rel="canonical" href="https://bat.github.io/BAT.jl/stable/tutorial/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.svg" alt="BAT logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">BAT</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../list_of_algorithms/">List of algorithms</a></li><li class="is-active"><a class="tocitem" href>Tutorial</a><ul class="internal"><li><a class="tocitem" href="#Input-Data-Generation"><span>Input Data Generation</span></a></li><li><a class="tocitem" href="#Bayesian-Fit"><span>Bayesian Fit</span></a></li><li><a class="tocitem" href="#Comparison-of-Truth-and-Best-Fit"><span>Comparison of Truth and Best Fit</span></a></li><li><a class="tocitem" href="#Fine-grained-control"><span>Fine-grained control</span></a></li><li><a class="tocitem" href="#Saving-result-data-to-files"><span>Saving result data to files</span></a></li></ul></li><li><a class="tocitem" href="../stable_api/">API Documentation</a></li><li><a class="tocitem" href="../plotting/">Plotting</a></li><li><a class="tocitem" href="../experimental_api/">Experimental Features</a></li><li><a class="tocitem" href="../internal_api/">Internal API</a></li><li><a class="tocitem" href="../developing/">Developer instructions</a></li><li><a class="tocitem" href="../license/">License</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Tutorial</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Tutorial</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/bat/BAT.jl/blob/main/docs/src/tutorial_lit.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Tutorial"><a class="docs-heading-anchor" href="#Tutorial">Tutorial</a><a id="Tutorial-1"></a><a class="docs-heading-anchor-permalink" href="#Tutorial" title="Permalink"></a></h1><p>This tutorial demonstrates a simple application of BAT.jl: A Bayesian fit of a histogram with two Gaussian peaks.</p><p>You can also download this tutorial as a <a href="../bat_tutorial.ipynb">Jupyter notebook</a> and a plain <a href="../bat_tutorial.jl">Julia source file</a>.</p><p>Table of contents:</p><ul><li><a href="#Tutorial">Tutorial</a></li><li class="no-marker"><ul><li><a href="#Input-Data-Generation">Input Data Generation</a></li><li><a href="#Bayesian-Fit">Bayesian Fit</a></li><li class="no-marker"><ul><li><a href="#Likelihood-Definition">Likelihood Definition</a></li><li><a href="#Prior-Definition">Prior Definition</a></li><li><a href="#Bayesian-Model-Definition">Bayesian Model Definition</a></li><li><a href="#Parameter-Space-Exploration-via-MCMC">Parameter Space Exploration via MCMC</a></li><li><a href="#Visualization-of-Results">Visualization of Results</a></li><li><a href="#Integration-with-Tables.jl">Integration with Tables.jl</a></li></ul></li><li><a href="#Comparison-of-Truth-and-Best-Fit">Comparison of Truth and Best Fit</a></li><li><a href="#Fine-grained-control">Fine-grained control</a></li><li><a href="#Saving-result-data-to-files">Saving result data to files</a></li></ul></li></ul><p>Note: This tutorial is somewhat verbose, as it aims to be easy to follow for users who are new to Julia. For the same reason, we deliberately avoid making use of Julia features like <a href="https://docs.julialang.org/en/v1/devdocs/functions/#Closures-1">closures</a>, <a href="https://docs.julialang.org/en/v1/manual/functions/index.html#man-anonymous-functions-1">anonymous functions</a>, <a href="https://docs.julialang.org/en/v1/manual/arrays/index.html#Broadcasting-1">broadcasting syntax</a>, <a href="https://docs.julialang.org/en/v1/manual/performance-tips/#man-performance-annotations-1">performance annotations</a>, etc.</p><h2 id="Input-Data-Generation"><a class="docs-heading-anchor" href="#Input-Data-Generation">Input Data Generation</a><a id="Input-Data-Generation-1"></a><a class="docs-heading-anchor-permalink" href="#Input-Data-Generation" title="Permalink"></a></h2><p>First, let&#39;s generate some synthetic data to fit. We&#39;ll need the Julia standard-library packages <a href="https://docs.julialang.org/en/v1/stdlib/Random/">&quot;Random&quot;</a>, <a href="https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/">&quot;LinearAlgebra&quot;</a> and <a href="https://docs.julialang.org/en/v1/stdlib/Statistics/">&quot;Statistics&quot;</a>, as well as the packages <a href="https://juliastats.org/Distributions.jl/stable/">&quot;Distributions&quot;</a> and <a href="https://juliastats.org/StatsBase.jl/stable/">&quot;StatsBase&quot;</a>:</p><pre><code class="language-julia hljs">using Random, LinearAlgebra, Statistics, Distributions, StatsBase</code></pre><p>As the underlying truth of our input data/histogram, let us choose an non-normalized probability density composed of two Gaussian peaks with a peak area of 500 and 1000, a mean of -1.0 and 2.0 and a standard error of 0.5</p><pre><code class="language-julia hljs">data = vcat(
+    rand(Normal(-1.0, 0.5), 500),
+    rand(Normal( 2.0, 0.5), 1000)
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1500-element Vector{Float64}:
+ -1.0528541746692628
+ -0.95184725413773
+ -1.2913048328573142
+ -0.9703549143189001
+ -0.8020313396966264
+ -1.3361774815689855
+ -1.7854963234809884
+ -0.3226486252185994
+  0.16401463905812141
+ -1.119158690420227
+  ⋮
+  1.663745999191549
+  2.394708236174004
+  1.064117156050485
+  1.1961301841684688
+  1.3394985651734674
+  1.7350377379477506
+  1.2413869377381943
+  2.0739166144559698
+  2.393958654743404</code></pre><p>resulting in a vector of floating-point numbers:</p><pre><code class="language-julia hljs">typeof(data) == Vector{Float64}</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">true</code></pre><p>Next, we&#39;ll create a histogram of that data, this histogram will serve as the input for the Bayesian fit:</p><pre><code class="language-julia hljs">hist = append!(Histogram(-2:0.1:4), data)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">StatsBase.Histogram{Int64, 1, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}
+edges:
+  -2.0:0.1:4.0
+weights: [2, 7, 20, 17, 18, 30, 32, 33, 41, 42  …  3, 8, 5, 3, 0, 1, 0, 0, 0, 0]
+closed: left
+isdensity: false</code></pre><p>Using the Julia <a href="http://docs.juliaplots.org/latest/">&quot;Plots&quot;</a> package</p><pre><code class="language-julia hljs">using Plots</code></pre><p>we can plot the histogram:</p><pre><code class="language-julia hljs">plot(
+    normalize(hist, mode=:density),
+    st = :steps, label = &quot;Data&quot;,
+    title = &quot;Data&quot;
+)
+savefig(&quot;tutorial-data.pdf&quot;)</code></pre><p><a href="../tutorial-data.pdf"><img src="../tutorial-data.svg" alt="Data"/></a></p><p>Let&#39;s define our fit function - the function that we expect to describe the data histogram, at each x-Axis position <code>x</code>, depending on a given set <code>p</code> of model parameters:</p><pre><code class="language-julia hljs">function fit_function(p::NamedTuple{(:a, :mu, :sigma)}, x::Real)
+    p.a[1] * pdf(Normal(p.mu[1], p.sigma), x) +
+    p.a[2] * pdf(Normal(p.mu[2], p.sigma), x)
+end</code></pre><p>The fit parameters (model parameters) <code>a</code> (peak areas) and <code>mu</code> (peak means) are vectors, parameter <code>sigma</code> (peak width) is a scalar, we assume it&#39;s the same for both Gaussian peaks.</p><p>The true values for the model/fit parameters are the values we used to generate the data:</p><pre><code class="language-julia hljs">true_par_values = (a = [500, 1000], mu = [-1.0, 2.0], sigma = 0.5)</code></pre><p>Let&#39;s visually compare the histogram and the fit function, using these true parameter values, to make sure everything is set up correctly:</p><pre><code class="language-julia hljs">plot(
+    normalize(hist, mode=:density),
+    st = :steps, label = &quot;Data&quot;,
+    title = &quot;Data and True Statistical Model&quot;
+)
+plot!(
+    -4:0.01:4, x -&gt; fit_function(true_par_values, x),
+    label = &quot;Truth&quot;
+)
+savefig(&quot;tutorial-data-and-truth.pdf&quot;)</code></pre><p><a href="../tutorial-data-and-truth.pdf"><img src="../tutorial-data-and-truth.svg" alt="Data and True Statistical Model"/></a></p><h2 id="Bayesian-Fit"><a class="docs-heading-anchor" href="#Bayesian-Fit">Bayesian Fit</a><a id="Bayesian-Fit-1"></a><a class="docs-heading-anchor-permalink" href="#Bayesian-Fit" title="Permalink"></a></h2><p>Now we&#39;ll perform a Bayesian fit of the generated histogram, using BAT, to infer the model parameters from the data histogram.</p><p>In addition to the Julia packages loaded above, we need BAT itself, as well as <a href="https://github.com/JuliaMath/IntervalSets.jl">IntervalSets</a>:</p><pre><code class="language-julia hljs">using BAT, DensityInterface, IntervalSets</code></pre><h3 id="Likelihood-Definition"><a class="docs-heading-anchor" href="#Likelihood-Definition">Likelihood Definition</a><a id="Likelihood-Definition-1"></a><a class="docs-heading-anchor-permalink" href="#Likelihood-Definition" title="Permalink"></a></h3><p>First, we need to define the likelihood (function) for our problem.</p><p>BAT represents densities like likelihoods and priors as subtypes of <code>BAT.AbstractMeasureOrDensity</code>. Custom likelihood can be defined by creating a new subtype of <code>AbstractMeasureOrDensity</code> and by implementing (at minimum) <code>DensityInterface.logdensityof</code> for that type - in complex uses cases, this may become necessary. Typically, however, it is sufficient to define a custom likelihood as a simple function that returns the log-likelihood value for a given set of parameters. BAT will automatically convert such a likelihood function into a subtype of <code>AbstractMeasureOrDensity</code>.</p><p>For performance reasons, functions should <a href="https://docs.julialang.org/en/v1/manual/performance-tips/index.html#Avoid-global-variables-1">not access global variables directly</a>. So we&#39;ll use an <a href="https://docs.julialang.org/en/v1/manual/functions/#man-anonymous-functions-1">anonymous function</a> inside of a <a href="https://docs.julialang.org/en/v1/base/base/#let">let-statement</a> to capture the value of the global variable <code>hist</code> in a local variable <code>h</code> (and to shorten function name <code>fit_function</code> to <code>f</code>, purely for convenience). <code>DensityInterface.logfuncdensity</code> turns a log-likelihood function into a density object.</p><pre><code class="language-julia hljs">likelihood = let h = hist, f = fit_function
+    # Histogram counts for each bin as an array:
+    observed_counts = h.weights
+
+    # Histogram binning:
+    bin_edges = h.edges[1]
+    bin_edges_left = bin_edges[1:end-1]
+    bin_edges_right = bin_edges[2:end]
+    bin_widths = bin_edges_right - bin_edges_left
+    bin_centers = (bin_edges_right + bin_edges_left) / 2
+
+    logfuncdensity(function (params)
+        # Log-likelihood for a single bin:
+        function bin_log_likelihood(i)
+            # Simple mid-point rule integration of fit function `f` over bin:
+            expected_counts = bin_widths[i] * f(params, bin_centers[i])
+            logpdf(Poisson(expected_counts), observed_counts[i])
+        end
+
+        # Sum log-likelihood over bins:
+        idxs = eachindex(observed_counts)
+        ll_value = bin_log_likelihood(idxs[1])
+        for i in idxs[2:end]
+            ll_value += bin_log_likelihood(i)
+        end
+
+        return ll_value
+    end)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogFuncDensity(Main.var&quot;#3#4&quot;{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}, StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}, Vector{Int64}, typeof(Main.fit_function)}(-1.95:0.1:3.95, StepRangeLen(0.1, 0.0, 60), [2, 7, 20, 17, 18, 30, 32, 33, 41, 42  …  3, 8, 5, 3, 0, 1, 0, 0, 0, 0], Main.fit_function))</code></pre><p>BAT makes use of Julia&#39;s parallel programming facilities if possible, e.g. to run multiple Markov chains in parallel. Therefore, log-likelihood (and other) code must be thread-safe. Mark non-thread-safe code with <code>@critical</code> (provided by Julia package <code>ParallelProcessingTools</code>).</p><p>Support for automatic parallelization across multiple (local and remote) Julia processes is planned, but not implemented yet.</p><p>Note that Julia currently starts only a single thread by default. Set the the environment variable <a href="https://docs.julialang.org/en/v1/manual/environment-variables/#JULIA_NUM_THREADS-1"><code>JULIA_NUM_THREADS</code></a> to specify the desired number of Julia threads.</p><p>We can evaluate <code>likelihood</code>, e.g. at the true parameter values:</p><pre><code class="language-julia hljs">logdensityof(likelihood, true_par_values)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">-149.26125200958674</code></pre><h3 id="Prior-Definition"><a class="docs-heading-anchor" href="#Prior-Definition">Prior Definition</a><a id="Prior-Definition-1"></a><a class="docs-heading-anchor-permalink" href="#Prior-Definition" title="Permalink"></a></h3><p>Next, we need to choose a sensible prior for the fit:</p><pre><code class="language-julia hljs">using ValueShapes
+
+prior = NamedTupleDist(
+    a = [Weibull(1.1, 5000), Weibull(1.1, 5000)],
+    mu = [-2.0..0.0, 1.0..3.0],
+    sigma = Weibull(1.2, 2)
+)</code></pre><p>In general, BAT allows instances of any subtype of <code>AbstractMeasureOrDensity</code> to be uses as a prior, as long as a sampler is defined for it. This way, users may implement complex application-specific priors. You can also use <code>convert(AbstractMeasureOrDensity, distribution)</code> to convert any continuous multivariate <code>Distributions.Distribution</code> to a <code>BAT.AbstractMeasureOrDensity</code> that can be used as a prior (or likelihood).</p><p>The prior also implies the shapes of the parameters:</p><pre><code class="language-julia hljs">parshapes = varshape(prior)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">NamedTupleShape((a = ArrayShape{Real, 1}((2,)), mu = ArrayShape{Real, 1}((2,)), sigma = ScalarShape{Real}()))</code></pre><p>These will come in handy later on, e.g. to access (the posterior distribution of) individual parameter values.</p><h3 id="Bayesian-Model-Definition"><a class="docs-heading-anchor" href="#Bayesian-Model-Definition">Bayesian Model Definition</a><a id="Bayesian-Model-Definition-1"></a><a class="docs-heading-anchor-permalink" href="#Bayesian-Model-Definition" title="Permalink"></a></h3><p>Given the likelihood and prior definition, a <code>BAT.PosteriorMeasure</code> is simply defined via</p><pre><code class="language-julia hljs">posterior = PosteriorMeasure(likelihood, prior)</code></pre><h3 id="Parameter-Space-Exploration-via-MCMC"><a class="docs-heading-anchor" href="#Parameter-Space-Exploration-via-MCMC">Parameter Space Exploration via MCMC</a><a id="Parameter-Space-Exploration-via-MCMC-1"></a><a class="docs-heading-anchor-permalink" href="#Parameter-Space-Exploration-via-MCMC" title="Permalink"></a></h3><p>We can now use Markov chain Monte Carlo (MCMC) to explore the space of possible parameter values for the histogram fit.</p><p>To increase the verbosity level of BAT logging output, you may want to set the Julia logging level for BAT to debug via <code>ENV[&quot;JULIA_DEBUG&quot;] = &quot;BAT&quot;</code>.</p><p>Now we can generate a set of MCMC samples via <a href="../stable_api/#BAT.bat_sample"><code>bat_sample</code></a>. We&#39;ll use 4 MCMC chains with 10^5 MC steps in each chain (after tuning/burn-in):</p><pre><code class="language-julia hljs">samples = bat_sample(posterior, MCMCSampling(mcalg = MetropolisHastings(), nsteps = 10^5, nchains = 4)).result</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Initializing new RNG of type Random123.Philox4x{UInt64, 10}
+[ Info: MCMCChainPoolInit: trying to generate 4 viable MCMC chain(s).
+[ Info: Selected 4 MCMC chain(s).
+[ Info: Begin tuning of 4 MCMC chain(s).
+[ Info: MCMC Tuning cycle 1 finished, 4 chains, 0 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 2 finished, 4 chains, 0 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 3 finished, 4 chains, 0 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 4 finished, 4 chains, 0 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 5 finished, 4 chains, 0 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 6 finished, 4 chains, 0 tuned, 4 converged.
+[ Info: MCMC Tuning cycle 7 finished, 4 chains, 0 tuned, 4 converged.
+[ Info: MCMC Tuning cycle 8 finished, 4 chains, 1 tuned, 4 converged.
+[ Info: MCMC Tuning cycle 9 finished, 4 chains, 2 tuned, 4 converged.
+[ Info: MCMC Tuning cycle 10 finished, 4 chains, 3 tuned, 4 converged.
+[ Info: MCMC Tuning cycle 11 finished, 4 chains, 4 tuned, 4 converged.
+[ Info: MCMC tuning of 4 chains successful after 11 cycle(s).
+[ Info: Running post-tuning stabilization steps for 4 MCMC chain(s).</code></pre><p>Let&#39;s calculate some statistics on the posterior samples:</p><pre><code class="language-julia hljs">println(&quot;Truth: $true_par_values&quot;)
+println(&quot;Mode: $(mode(samples))&quot;)
+println(&quot;Mean: $(mean(samples))&quot;)
+println(&quot;Stddev: $(std(samples))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Truth: (a = [500, 1000], mu = [-1.0, 2.0], sigma = 0.5)
+Mode: (a = [500.7941526026058, 1005.1744030034985], mu = [-0.9909965434614276, 1.998118886806925], sigma = 0.5026180261276261)
+Mean: (a = [499.3872866309223, 1000.4300309066682], mu = [-0.9944902865657711, 1.997873408395497], sigma = 0.50432345295101)
+Stddev: (a = [22.94478389975353, 31.611116744352763], mu = [0.025167641308096834, 0.015979935979675838], sigma = 0.00988563085799139)</code></pre><p>Internally, BAT often needs to represent variates as flat real-valued vectors:</p><pre><code class="language-julia hljs">unshaped.(samples).v</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">108987-element ArraysOfArrays.ArrayOfSimilarArrays{Float64, 1, 1, 2, ElasticArrays.ElasticMatrix{Float64, Vector{Float64}}}:
+ [525.1548438815819, 983.0815955314863, -1.0086300556961456, 1.9968264438143946, 0.5084671814523968]
+ [512.1545573101306, 1010.2885866829467, -1.0034082014952994, 1.9790465510080748, 0.4983281936349701]
+ [502.1562266316577, 993.5169578704786, -0.992286398644656, 1.986718499443989, 0.5045877897042397]
+ [500.4219303634805, 995.4057443665104, -0.9942041690212393, 1.9846985160793729, 0.5027280059477288]
+ [499.6353231383176, 993.8740734051394, -0.9940429581365431, 1.980096385277753, 0.49802374098567387]
+ [512.4470173323291, 985.5193817379318, -1.000492804810663, 1.9792255473699545, 0.5062570509594319]
+ [518.3224091490285, 959.7251265188535, -1.000298192610346, 1.9888533886480346, 0.5052067732245306]
+ [523.9415049090909, 965.2285174267918, -1.0055520241064837, 1.9958065599477854, 0.5100816840305566]
+ [516.3967115734416, 967.165112432978, -1.0072114053763914, 2.0078233395136342, 0.5030120466372339]
+ [517.7942085596858, 983.0061766637738, -1.003918205723887, 2.0083472603039403, 0.49667739902245567]
+ ⋮
+ [494.6815185352455, 973.499091481147, -0.9566695892325843, 2.0032702704459195, 0.5144347825322997]
+ [493.6542770402811, 964.7405828722758, -0.9515512708022682, 2.013228057490331, 0.5077319041938674]
+ [507.3329071175606, 982.0514702589448, -0.9285900116636698, 2.0133332444708625, 0.5114881989392308]
+ [497.2548447312173, 985.0233774390687, -0.9493769098769316, 1.992400607260048, 0.5190380555189322]
+ [486.7737323918561, 965.122163678564, -0.9620763611310015, 2.0112191676382793, 0.5138854410741004]
+ [484.0122232559003, 962.6360093285693, -0.9739909675568272, 2.022753084173943, 0.5099017817723286]
+ [478.69339488174205, 955.6201836368181, -0.9756693843893227, 2.034798697057963, 0.5045618605420618]
+ [450.4216011946148, 964.8581459355609, -0.9868198714817218, 2.0254379733989993, 0.4920612724458783]
+ [449.5480059930568, 974.5885761824386, -1.0012574662168527, 2.029517975773971, 0.4868391828787414]</code></pre><p>BAT uses <a href="https://github.com/oschulz/ValueShapes.jl">ValueShapes.jl</a> to implement a dual view of variate values in both shaped and unshaped form, based on shape inferred from the prior and propagated to the posterior. Shaped and unshaped samples are views of the same data in memory. The variate/parameter shape can be accessed via</p><pre><code class="language-julia hljs">parshapes = varshape(posterior)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">NamedTupleShape((a = ArrayShape{Real, 1}((2,)), mu = ArrayShape{Real, 1}((2,)), sigma = ScalarShape{Real}()))</code></pre><p>The statisics above (mode, mean and std-dev) are presented in shaped form. However, it&#39;s not possible to represent statistics with matrix shape, e.g. the parameter covariance matrix, this way. So the covariance has to be accessed in unshaped form:</p><pre><code class="language-julia hljs">par_cov = cov(unshaped.(samples))
+println(&quot;Covariance: $par_cov&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Covariance: [526.4631082063858 -0.14917989583467878 -0.04015751997064998 0.006000600640837545 0.013628421478108502; -0.14917989583467878 999.2627018250868 -0.012007691339760209 0.0012187649004545109 0.0045643645478955; -0.04015751997064998 -0.012007691339760209 0.0006334101690130202 1.034953947007374e-5 -3.195704030046201e-5; 0.006000600640837545 0.0012187649004545109 1.034953947007374e-5 0.0002553583539145432 1.1922589242658788e-7; 0.013628421478108502 0.0045643645478955 -3.195704030046201e-5 1.1922589242658788e-7 9.772569746047211e-5]</code></pre><p>Our <code>parshapes</code> is a <code>NamedTupleShape</code>. It&#39;s properties (i.e. individual parameter accessors) can be used as indices to query the covariance between specific parameters:</p><pre><code class="language-julia hljs">par_cov[parshapes.mu, parshapes.sigma]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2-element ElasticArrays.ElasticVector{Float64, Vector{Float64}}:
+ -3.195704030046201e-5
+  1.1922589242658788e-7</code></pre><p>Use <code>bat_report</code> to generate an overview of the sampling result and parameter estimates (based on the marginal distributions):</p><pre><code class="language-julia hljs">bat_report(samples)</code></pre><div class="markdown"><h3>Sampling result</h3>
+
+<ul>
+<li><p>Total number of samples: 108987</p>
+</li>
+<li><p>Total weight of samples: 399996</p>
+</li>
+<li><p>Effective sample size: between 2371 and 9362</p>
+</li>
+</ul>
+<h4>Marginals</h4>
+
+<table><tr><th align="left">Parameter</th><th align="left">Mean</th><th align="left">Std. dev.</th><th align="left">Gobal mode</th><th align="left">Marg. mode</th><th align="center">Cred. interval</th><th align="left">Histogram</th></tr><tr><td align="left">a&#91;1&#93;</td><td align="left">499.387</td><td align="left">22.9448</td><td align="left">500.794</td><td align="left">499.5</td><td align="center">475.247..521.301</td><td align="left">⠀⠀⠀⠀⠀406&#91;⠀⠀⠀⠀⠀⠀⠀⠀⠀▁▁▂▃▄▅▇█████▇▆▅▄▃▂▁▁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀&#91;602⠀⠀⠀⠀⠀</td></tr><tr><td align="left">a&#91;2&#93;</td><td align="left">1000.43</td><td align="left">31.6111</td><td align="left">1005.17</td><td align="left">997.0</td><td align="center">967.289..1030.54</td><td align="left">⠀⠀⠀⠀⠀885&#91;⠀⠀⠀⠀⠀⠀⠀⠀▁▁▂▃▄▅▆▇████▇▇▆▅▄▃▂▂▁▁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀&#91;1.13e&#43;03</td></tr><tr><td align="left">mu&#91;1&#93;</td><td align="left">-0.99449</td><td align="left">0.0251676</td><td align="left">-0.990997</td><td align="left">-0.995</td><td align="center">-1.02102..-0.97058</td><td align="left">⠀⠀⠀-1.11&#91;⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀▁▁▂▃▄▅▇▇████▇▆▄▃▂▁▁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀&#91;-0.879⠀⠀</td></tr><tr><td align="left">mu&#91;2&#93;</td><td align="left">1.99787</td><td align="left">0.0159799</td><td align="left">1.99812</td><td align="left">1.9955</td><td align="center">1.98109..2.01306</td><td align="left">⠀⠀⠀⠀1.93&#91;⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀▁▁▂▃▄▅▆▇████▇▆▅▄▃▂▁▁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀&#91;2.07⠀⠀⠀⠀</td></tr><tr><td align="left">sigma</td><td align="left">0.504323</td><td align="left">0.00988563</td><td align="left">0.502618</td><td align="left">0.50125</td><td align="center">0.494004..0.513669</td><td align="left">⠀⠀⠀0.464&#91;⠀⠀⠀⠀⠀⠀⠀⠀⠀▁▂▃▄▅▆████▇▆▅▄▃▂▁▁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀&#91;0.556⠀⠀⠀</td></tr></table>
+</div><h3 id="Visualization-of-Results"><a class="docs-heading-anchor" href="#Visualization-of-Results">Visualization of Results</a><a id="Visualization-of-Results-1"></a><a class="docs-heading-anchor-permalink" href="#Visualization-of-Results" title="Permalink"></a></h3><p>BAT.jl comes with an extensive set of plotting recipes for <a href="http://docs.juliaplots.org/latest/">&quot;Plots.jl&quot;</a>. We can plot the marginalized distribution for a single parameter (e.g. parameter 3, i.e. μ[1]):</p><pre><code class="language-julia hljs">plot(
+    samples, :(mu[1]),
+    mean = true, std = true, globalmode = true, marginalmode = true,
+    nbins = 50, title = &quot;Marginalized Distribution for mu[1]&quot;
+)
+savefig(&quot;tutorial-single-par.pdf&quot;)</code></pre><p><a href="../tutorial-single-par.pdf"><img src="../tutorial-single-par.svg" alt="Marginalized Distribution for mu_1"/></a></p><p>or plot the marginalized distribution for a pair of parameters (e.g. parameters 3 and 5, i.e. μ[1] and σ), including information from the parameter stats:</p><pre><code class="language-julia hljs">plot(
+    samples, (:(mu[1]), :sigma),
+    mean = true, std = true, globalmode = true, marginalmode = true,
+    nbins = 50, title = &quot;Marginalized Distribution for mu[1] and sigma&quot;
+)
+plot!(BAT.MCMCBasicStats(samples), (3, 5))
+savefig(&quot;tutorial-param-pair.png&quot;)</code></pre><p><a href="../tutorial-param-pair.png"><img src="../tutorial-param-pair.svg" alt="Marginalized Distribution for mu_1 and sigma"/></a></p><p>We can also create an overview plot of the marginalized distribution for all pairs of parameters:</p><pre><code class="language-julia hljs">plot(
+    samples,
+    mean = false, std = false, globalmode = true, marginalmode = false,
+    nbins = 50
+)
+savefig(&quot;tutorial-all-params.png&quot;)</code></pre><p><a href="../tutorial-all-params.png"><img src="../tutorial-all-params.svg" alt="Pairwise Correlation between Parameters"/></a></p><h3 id="Integration-with-Tables.jl"><a class="docs-heading-anchor" href="#Integration-with-Tables.jl">Integration with Tables.jl</a><a id="Integration-with-Tables.jl-1"></a><a class="docs-heading-anchor-permalink" href="#Integration-with-Tables.jl" title="Permalink"></a></h3><p><code>DensitySamplesVector</code> supports the <a href="https://github.com/JuliaData/Tables.jl">Tables.jl</a> interface, so it is a table itself. We can also convert it to other table types, e.g. a <a href="http://blog.roames.com/TypedTables.jl/stable/"><code>TypedTables.Table</code></a>:</p><pre><code class="language-julia hljs">using TypedTables
+
+tbl = Table(samples)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Table with 5 columns and 108987 rows:
+      v                       logd      weight  info                    aux
+    ┌──────────────────────────────────────────────────────────────────────────
+ 1  │ (a = [525.155, 983.08…  -170.054  2       MCMCSampleID(5, 14, 0…  nothing
+ 2  │ (a = [512.155, 1010.2…  -170.152  1       MCMCSampleID(5, 14, 2…  nothing
+ 3  │ (a = [502.156, 993.51…  -169.292  8       MCMCSampleID(5, 14, 3…  nothing
+ 4  │ (a = [500.422, 995.40…  -169.355  4       MCMCSampleID(5, 14, 1…  nothing
+ 5  │ (a = [499.635, 993.87…  -169.793  6       MCMCSampleID(5, 14, 1…  nothing
+ 6  │ (a = [512.447, 985.51…  -170.031  1       MCMCSampleID(5, 14, 2…  nothing
+ 7  │ (a = [518.322, 959.72…  -170.43   2       MCMCSampleID(5, 14, 2…  nothing
+ 8  │ (a = [523.942, 965.22…  -170.522  11      MCMCSampleID(5, 14, 2…  nothing
+ 9  │ (a = [516.397, 967.16…  -170.215  1       MCMCSampleID(5, 14, 3…  nothing
+ 10 │ (a = [517.794, 983.00…  -170.096  4       MCMCSampleID(5, 14, 3…  nothing
+ 11 │ (a = [540.721, 980.74…  -172.03   1       MCMCSampleID(5, 14, 4…  nothing
+ 12 │ (a = [516.714, 1063.9…  -172.771  1       MCMCSampleID(5, 14, 4…  nothing
+ 13 │ (a = [514.851, 1047.7…  -171.68   2       MCMCSampleID(5, 14, 4…  nothing
+ 14 │ (a = [520.758, 1021.3…  -171.681  5       MCMCSampleID(5, 14, 4…  nothing
+ 15 │ (a = [512.498, 1037.1…  -171.303  2       MCMCSampleID(5, 14, 4…  nothing
+ 16 │ (a = [509.416, 1030.7…  -171.334  9       MCMCSampleID(5, 14, 5…  nothing
+ 17 │ (a = [508.245, 1023.6…  -171.646  1       MCMCSampleID(5, 14, 6…  nothing
+ ⋮  │           ⋮                ⋮        ⋮               ⋮                ⋮</code></pre><p>or a <a href="https://github.com/JuliaData/DataFrames.jl"><code>DataFrames.DataFrame</code></a>, etc.</p><h2 id="Comparison-of-Truth-and-Best-Fit"><a class="docs-heading-anchor" href="#Comparison-of-Truth-and-Best-Fit">Comparison of Truth and Best Fit</a><a id="Comparison-of-Truth-and-Best-Fit-1"></a><a class="docs-heading-anchor-permalink" href="#Comparison-of-Truth-and-Best-Fit" title="Permalink"></a></h2><p>As a final step, we retrieve the parameter values at the mode, representing the best-fit parameters</p><pre><code class="language-julia hljs">samples_mode = mode(samples)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(a = [500.7941526026058, 1005.1744030034985], mu = [-0.9909965434614276, 1.998118886806925], sigma = 0.5026180261276261)</code></pre><p>Like the samples themselves, the result can be viewed in both shaped and unshaped form. <code>samples_mode</code> is presented as a 0-dimensional array that contains a NamedTuple, this representation preserves the shape information:</p><pre><code class="language-julia hljs">samples_mode isa NamedTuple</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">true</code></pre><p><code>samples_mode</code> is only an estimate of the mode of the posterior distribution. It can be further refined using <a href="../stable_api/#BAT.bat_findmode"><code>bat_findmode</code></a>:</p><pre><code class="language-julia hljs">findmode_result = bat_findmode(posterior, NelderMeadOpt(init = ExplicitInit([samples_mode])))
+
+fit_par_values = findmode_result.result</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(a = [498.43553686830575, 1000.7631922658379], mu = [-0.9935428265029806, 1.9978162768166172], sigma = 0.5031222767956812)</code></pre><p>Let&#39;s plot the data and fit function given the true parameters and MCMC samples</p><pre><code class="language-julia hljs">plot(-4:0.01:4, fit_function, samples)
+
+plot!(
+    normalize(hist, mode=:density),
+    color=1, linewidth=2, fillalpha=0.0,
+    st = :steps, fill=false, label = &quot;Data&quot;,
+    title = &quot;Data, True Model and Best Fit&quot;
+)
+
+plot!(-4:0.01:4, x -&gt; fit_function(true_par_values, x), color=4, label = &quot;Truth&quot;)
+savefig(&quot;tutorial-data-truth-bestfit.pdf&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Initializing new RNG of type Random123.Philox4x{UInt64, 10}</code></pre><p><a href="../tutorial-data-truth-bestfit.pdf"><img src="../tutorial-data-truth-bestfit.svg" alt="Data, True Model and Best Fit"/></a></p><h2 id="Fine-grained-control"><a class="docs-heading-anchor" href="#Fine-grained-control">Fine-grained control</a><a id="Fine-grained-control-1"></a><a class="docs-heading-anchor-permalink" href="#Fine-grained-control" title="Permalink"></a></h2><p>BAT provides fine-grained control over the MCMC algorithm options, the MCMC chain initialization, tuning/burn-in strategy and convergence testing. All option value used in the following are the default values, any or all may be omitted.</p><p>We&#39;ll sample using the The Metropolis-Hastings MCMC algorithm:</p><pre><code class="language-julia hljs">mcmcalgo = MetropolisHastings(
+    weighting = RepetitionWeighting(),
+    tuning = AdaptiveMHTuning()
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MetropolisHastings{BAT.MvTDistProposal, RepetitionWeighting{Int64}, AdaptiveMHTuning}
+  proposal: BAT.MvTDistProposal
+  weighting: RepetitionWeighting{Int64} RepetitionWeighting{Int64}()
+  tuning: AdaptiveMHTuning
+</code></pre><p>BAT requires a counter-based random number generator (RNG), since it partitions the RNG space over the MCMC chains. This way, a single RNG seed is sufficient for all chains and results are reproducible even under parallel execution. By default, BAT uses a Philox4x RNG initialized with a random seed drawn from the <a href="https://docs.julialang.org/en/v1/stdlib/Random/index.html#Random.RandomDevice">system entropy pool</a>:</p><pre><code class="language-julia hljs">using Random123
+rng = Philox4x()</code></pre><p>By default, <code>MetropolisHastings()</code> uses the following options.</p><p>For Markov chain initialization:</p><pre><code class="language-julia hljs">init = MCMCChainPoolInit()</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MCMCChainPoolInit
+  init_tries_per_chain: IntervalSets.ClosedInterval{Int64}
+  nsteps_init: Int64 1000
+  initval_alg: InitFromTarget InitFromTarget()
+</code></pre><p>For the MCMC burn-in procedure:</p><pre><code class="language-julia hljs">burnin = MCMCMultiCycleBurnin()</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MCMCMultiCycleBurnin
+  nsteps_per_cycle: Int64 10000
+  max_ncycles: Int64 30
+  nsteps_final: Int64 1000
+</code></pre><p>For convergence testing:</p><pre><code class="language-julia hljs">convergence = BrooksGelmanConvergence()</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">BrooksGelmanConvergence
+  threshold: Float64 1.1
+  corrected: Bool false
+</code></pre><p>To generate MCMC samples with explicit control over all options, use something like</p><pre><code class="language-julia hljs">samples = bat_sample(
+    rng, posterior,
+    MCMCSampling(
+        mcalg = mcmcalgo,
+        nchains = 4,
+        nsteps = 10^5,
+        init = init,
+        burnin = burnin,
+        convergence = convergence,
+        strict = true,
+        store_burnin = false,
+        nonzero_weights = true,
+        callback = (x...) -&gt; nothing
+    )
+).result</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: MCMCChainPoolInit: trying to generate 4 viable MCMC chain(s).
+[ Info: Selected 4 MCMC chain(s).
+[ Info: Begin tuning of 4 MCMC chain(s).
+[ Info: MCMC Tuning cycle 1 finished, 4 chains, 0 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 2 finished, 4 chains, 0 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 3 finished, 4 chains, 0 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 4 finished, 4 chains, 0 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 5 finished, 4 chains, 0 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 6 finished, 4 chains, 0 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 7 finished, 4 chains, 0 tuned, 4 converged.
+[ Info: MCMC Tuning cycle 8 finished, 4 chains, 1 tuned, 4 converged.
+[ Info: MCMC Tuning cycle 9 finished, 4 chains, 1 tuned, 4 converged.
+[ Info: MCMC Tuning cycle 10 finished, 4 chains, 4 tuned, 4 converged.
+[ Info: MCMC tuning of 4 chains successful after 10 cycle(s).
+[ Info: Running post-tuning stabilization steps for 4 MCMC chain(s).</code></pre><h2 id="Saving-result-data-to-files"><a class="docs-heading-anchor" href="#Saving-result-data-to-files">Saving result data to files</a><a id="Saving-result-data-to-files-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-result-data-to-files" title="Permalink"></a></h2><p>The package <a href="https://github.com/JuliaIO/FileIO.jl">FileIO.jl</a>(in conjunction with <a href="https://github.com/JuliaIO/JLD2.jl">JLD2.jl</a>) offers a convenient way to store results like posterior samples to file:</p><pre><code class="language-julia hljs">using FileIO
+FileIO.save(&quot;results.jld2&quot;, Dict(&quot;samples&quot; =&gt; samples))</code></pre><p>JLD2 persists the full information (including value shapes), so you can reload exactly the same data into memory in a new Julia session via</p><pre><code class="language-julia hljs">using FileIO, BAT
+samples = FileIO.load(&quot;results.jld2&quot;, &quot;samples&quot;)</code></pre><p>provided you use compatible versions of BAT and it&#39;s dependencies. Note that JLD2 is <em>not</em> a long-term stable file format. Also note that this functionality is provided by FileIO.jl and JLD2.jl and not part of the BAT API itself.</p><p>BAT.jl itself can write samples to standard HDF5 files in a form suitable for long-term storage (via <a href="https://github.com/JuliaIO/HDF5.jl">HDF5.jl</a>):</p><pre><code class="language-julia hljs">import HDF5
+bat_write(&quot;results.h5&quot;, samples)</code></pre><p>The resulting files have an intuitive HDF5 layout and can be read with the standard HDF5 libraries, so they are easily accessible from other programming languages as well. Not all value shape information can be preserved, though. To read BAT.jl HDF5 sample data, use</p><pre><code class="language-julia hljs">using BAT
+import HDF5
+samples = bat_read(&quot;results.h5&quot;).result</code></pre><p>BAT.jl&#39;s HDF5 file format may evolve over time, but future versions of BAT.jl will be able to read HDF5 sample data written by this version of BAT.jl.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../list_of_algorithms/">« List of algorithms</a><a class="docs-footer-nextpage" href="../stable_api/">API Documentation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Tuesday 2 May 2023 00:34">Tuesday 2 May 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
