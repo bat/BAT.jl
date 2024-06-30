@@ -70,7 +70,6 @@ function bat_convergence_impl(samples::AbstractVector{<:DensitySampleVector}, al
 end
 
 
-
 @doc doc"""
     bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats}; corrected::Bool = false)
     bg_R_2sqr(samples::AbstractVector{<:DensitySampleVector}; corrected::Bool = false)
@@ -118,7 +117,6 @@ function bg_R_2sqr(samples::AbstractVector{<:DensitySampleVector}; corrected::Bo
 end
 
 
-
 """
     struct BrooksGelmanConvergence <: ConvergenceTest
 
@@ -149,7 +147,6 @@ function bat_convergence_impl(samples::AbstractVector{<:DensitySampleVector}, al
     end
     (result = vt,)
 end
-
 
 
 function bat_convergence_impl(samples::DensitySampleVector, algorithm::Union{GelmanRubinConvergence, BrooksGelmanConvergence}, context::BATContext)

@@ -13,7 +13,7 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets
         c = [1 2; 3 4],
         d = [-3..3, -4..4]
     ))
-    prior = convert(AbstractMeasureOrDensity, prior_dist)
+    prior = convert(BATMeasure, prior_dist)
 
     likelihood = v -> (logval = 0,)
 

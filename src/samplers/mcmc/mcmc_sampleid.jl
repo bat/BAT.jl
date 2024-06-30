@@ -8,29 +8,39 @@ const REJECTED_SAMPLE = 2
 
 abstract type SampleID end
 
-struct MCMCSampleID <: SampleID
-    chainid::Int32
-    chaincycle::Int32
-    stepno::Int64
-    sampletype::Int32
+struct MCMCSampleID{
+    T<:Int32,
+    U<:Union{Int64, Nothing},
+} <: SampleID
+    chainid::T
+    chaincycle::T
+    stepno::U
+    sampletype::U
 end
 
+function MCMCSampleID(
+    chainid::Integer,
+    chaincycle::Integer,
+    stepno::Integer,
+)
+    MCMCSampleID(Int32(chainid), Int32(chaincycle), Int64(stepno), nothing)
+end
 
-const MCMCSampleIDVector{TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Int64}} = StructArray{
+const MCMCSampleIDVector{TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Union{Int64, Nothing}}} = StructArray{
     MCMCSampleID,
     1,
-    NamedTuple{(:chainid, :chaincycle, :stepno, :sampletype), Tuple{TV,TV,UV,UV}},
+    NamedTuple{(:chainid, :chaincycle, :stepno, :sampletype), Tuple{TV,TV, UV,UV}},
     Int
 }
 
 
-function MCMCSampleIDVector(contents::Tuple{TV,TV,UV,UV}) where {TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Int64}}
+function MCMCSampleIDVector(contents::Tuple{TV,TV, UV, UV}) where {TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Union{Int64, Nothing}}}
     StructArray{MCMCSampleID}(contents)::MCMCSampleIDVector{TV,UV}
 end
 
 MCMCSampleIDVector(::UndefInitializer, len::Integer) = MCMCSampleIDVector((
     Vector{Int32}(undef, len), Vector{Int32}(undef, len),
-    Vector{Int64}(undef, len), Vector{Int64}(undef, len)
+    Vector{Union{Int64, Nothing}}(undef, len), Vector{Union{Int64, Nothing}}(undef, len)
 ))
 
 MCMCSampleIDVector() = MCMCSampleIDVector(undef, 0)

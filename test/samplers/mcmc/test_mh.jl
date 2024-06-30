@@ -56,7 +56,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
             context
         ))
 
-        (chains, tuners, outputs) = init_result
+        (chains, tuners, temperers, outputs) = init_result
         @test chains isa AbstractVector{<:BAT.MHIterator}
         @test tuners isa AbstractVector{<:BAT.ProposalCovTuner}
         @test outputs isa AbstractVector{<:DensitySampleVector}
