@@ -18,15 +18,16 @@ using DensityInterface
     nchains = 4
     nsteps = 10^4
 
-    algorithmMW = @inferred(MCMCSampling(mcalg = MetropolisHastings(), trafo = DoNotTransform(), nchains = nchains, nsteps = nsteps))
+    algorithmMW = @inferred(TransformedMCMCSampling(pre_transform = DoNotTransform(), nchains = nchains, nsteps = nsteps))
 
     smplres = BAT.sample_and_verify(PosteriorMeasure(likelihood, prior), algorithmMW, mv_dist)
     samples = smplres.result
     @test smplres.verified
     @test (nchains * nsteps - sum(samples.weight)) < 100
 
-
-    algorithmPW = @inferred MCMCSampling(mcalg = MetropolisHastings(weighting = ARPWeighting()), trafo = DoNotTransform(), nsteps = 10^5)
+    # TODO: MD: Reactivate after resolving Weighting schemes in TransformedMCMC iteration
+    # algorithmPW = @inferred MCMCSampling(mcalg = MetropolisHastings(weighting = ARPWeighting()), trafo = DoNotTransform(), nsteps = 10^5)
+    algorithmPW = @inferred TransformedMCMCSampling(pre_transform = DoNotTransform(), nsteps = 10^5)
 
     @test BAT.sample_and_verify(mv_dist, algorithmPW).verified
 
@@ -36,5 +37,5 @@ using DensityInterface
     @test gensamples(context) != gensamples(context)
     @test gensamples(deepcopy(context)) == gensamples(deepcopy(context))
     
-    @test BAT.sample_and_verify(Normal(), MCMCSampling(mcalg = MetropolisHastings(), trafo = DoNotTransform(), nsteps = 10^4)).verified
+    @test BAT.sample_and_verify(Normal(), TransformedMCMCSampling(pre_transform = DoNotTransform(), nsteps = 10^4)).verified
 end

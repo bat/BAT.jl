@@ -10,7 +10,7 @@ abstract type SampleID end
 
 struct MCMCSampleID{
     T<:Int32,
-    U<:Union{Int64, Nothing},
+    U<:Int64
 } <: SampleID
     chainid::T
     chaincycle::T
@@ -23,10 +23,10 @@ function MCMCSampleID(
     chaincycle::Integer,
     stepno::Integer,
 )
-    MCMCSampleID(Int32(chainid), Int32(chaincycle), Int64(stepno), nothing)
+    MCMCSampleID(Int32(chainid), Int32(chaincycle), Int64(stepno), PROPOSED_SAMPLE) # TODO: MD What to set for sampletype?
 end
 
-const MCMCSampleIDVector{TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Union{Int64, Nothing}}} = StructArray{
+const MCMCSampleIDVector{TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Int64}} = StructArray{
     MCMCSampleID,
     1,
     NamedTuple{(:chainid, :chaincycle, :stepno, :sampletype), Tuple{TV,TV, UV,UV}},
@@ -34,13 +34,13 @@ const MCMCSampleIDVector{TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Union{
 }
 
 
-function MCMCSampleIDVector(contents::Tuple{TV,TV, UV, UV}) where {TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Union{Int64, Nothing}}}
+function MCMCSampleIDVector(contents::Tuple{TV,TV, UV, UV}) where {TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Int64}}
     StructArray{MCMCSampleID}(contents)::MCMCSampleIDVector{TV,UV}
 end
 
 MCMCSampleIDVector(::UndefInitializer, len::Integer) = MCMCSampleIDVector((
     Vector{Int32}(undef, len), Vector{Int32}(undef, len),
-    Vector{Union{Int64, Nothing}}(undef, len), Vector{Union{Int64, Nothing}}(undef, len)
+    Vector{Int64}(undef, len), Vector{Int64}(undef, len)
 ))
 
 MCMCSampleIDVector() = MCMCSampleIDVector(undef, 0)

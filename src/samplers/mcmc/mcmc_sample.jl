@@ -45,10 +45,13 @@ abstract type TransformedMCMCProposal end
 *BAT-internal, not part of stable public API.*
 """
 struct TransformedMHProposal{
-    D<:Union{Distribution, AbstractMeasure}
+    D<:Union{Distribution, AbstractMeasure},
+    WS<:AbstractMCMCWeightingScheme
 }<: TransformedMCMCProposal
     proposal_dist::D
-end      
+    weighting::WS # TODO Remve 
+end
+
 
 
 # TODO AC: find a better solution for this. Problem is that in the with_kw constructor below, we need to dispatch on this type.
@@ -64,7 +67,7 @@ struct TransformedMCMCDispatch end
     pre_transform::TR = bat_default(TransformedMCMCDispatch, Val(:pre_transform))
     tuning_alg::MCMCTuningAlgorithm = TransformedRAMTuner() # TODO: use bat_defaults
     adaptive_transform::AdaptiveTransformSpec = default_adaptive_transform(tuning_alg)
-    proposal::TransformedMCMCProposal = TransformedMHProposal(Normal()) #TODO: use bat_defaults
+    proposal::TransformedMCMCProposal = TransformedMHProposal(Normal(), RepetitionWeighting()) #TODO: use bat_defaults
     tempering = TransformedNoTransformedMCMCTempering() # TODO: use bat_defaults
     nchains::Int = 4
     nsteps::Int = 10^5
@@ -77,6 +80,36 @@ struct TransformedMCMCDispatch end
     nonzero_weights::Bool = true
     callback::CB = nop_func
 end
+export TransformedMCMCSampling
+
+
+
+function _get_proposal end
+function _get_adaptive_transform end
+function default_adaptive_transform end
+
+
+_get_proposal(alg::MetropolisHastings, ::BATMeasure, ::BATContext, ::AbstractVector) = TransformedMHProposal(alg.proposal, alg.weighting)
+_get_proposal(sampling::TransformedMCMCSampling, ::BATMeasure, ::BATContext, ::AbstractVector) = sampling.proposal
+
+_get_adaptive_transform(alg::MetropolisHastings) = default_adaptive_transform(alg)
+_get_adaptive_transform(sampling::TransformedMCMCSampling) = sampling.adaptive_transform
+
+# TODO MD: Refactor file structure and sort functions
+
+bat_default(::Type{MCMCSampling}, ::Val{:trafo}, mcalg::MetropolisHastings) = PriorToGaussian()
+
+bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, mcalg::MetropolisHastings, trafo::AbstractTransformTarget, nchains::Integer) = 10^5
+
+bat_default(::Type{MCMCSampling}, ::Val{:init}, mcalg::MetropolisHastings, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+    MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
+
+bat_default(::Type{MCMCSampling}, ::Val{:burnin}, mcalg::MetropolisHastings, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+    MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
+
+
+get_mcmc_tuning(algorithm::MetropolisHastings) = algorithm.tuning
+
 
 bat_default(::Type{TransformedMCMCDispatch}, ::Val{:pre_transform}) = PriorToGaussian()
 
@@ -141,19 +174,16 @@ end
 
 function bat_sample_impl(
     target::BATMeasure,
-    algorithm::TransformedMCMCSampling,
+    sampling::TransformedMCMCSampling,
     context::BATContext
 )
-    m, trafo = transform_and_unshape(algorithm.pre_transform, target, context)
+    m, pre_transform = transform_and_unshape(sampling.pre_transform, target, context)
 
     init = mcmc_init!(
-        algorithm,
+        sampling,
         m,
-        algorithm.nchains,
-        apply_trafo_to_init(trafo, algorithm.init),
-        algorithm.tuning_alg,
-        algorithm.nonzero_weights,
-        algorithm.store_burnin ? algorithm.callback : nop_func,
+        apply_trafo_to_init(pre_transform, sampling.init),
+        sampling.store_burnin ? sampling.callback : nop_func,
         context
     )
     
@@ -161,7 +191,7 @@ function bat_sample_impl(
 
     # output_init = reduce(vcat, getproperty(chains, :samples))
 
-    burnin_outputs_coll = if algorithm.store_burnin
+    burnin_outputs_coll = if sampling.store_burnin
         DensitySampleVector(first(chains))
     else
         nothing
@@ -173,23 +203,23 @@ function bat_sample_impl(
         chains,
         tuners,
         temperers,
-        algorithm.burnin,
-        algorithm.convergence,
-        algorithm.strict,
-        algorithm.nonzero_weights,
-        algorithm.store_burnin ? algorithm.callback : nop_func
+        sampling.burnin,
+        sampling.convergence,
+        sampling.strict,
+        sampling.nonzero_weights,
+        sampling.store_burnin ? sampling.callback : nop_func
     )
 
     # sampling
     run_sampling  = _run_sample_impl(
         m,
-        algorithm,
+        sampling,
         chains,
     )
     samples_trafo, generator = run_sampling.result_trafo, run_sampling.generator
 
     # prepend burnin samples to output
-    if algorithm.store_burnin
+    if sampling.store_burnin
         burnin_samples_trafo = varshape(m).(burnin_outputs_coll)
         append!(burnin_samples_trafo, samples_trafo)
         samples_trafo = burnin_samples_trafo
@@ -198,7 +228,7 @@ function bat_sample_impl(
     samples_notrafo = inverse(trafo).(samples_trafo)
     
 
-    (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = TransformedMCMCSampleGenerator(chains, algorithm))
+    (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = TransformedMCMCSampleGenerator(chains, sampling))
 end
 
 #=

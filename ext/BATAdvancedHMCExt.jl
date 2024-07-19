@@ -14,6 +14,7 @@ BAT.pkgext(::Val{:AdvancedHMC}) = BAT.PackageExtension{:AdvancedHMC}()
 using Random
 using DensityInterface
 using HeterogeneousComputing, AutoDiffOperators
+using BAT.ChangesOfVariables 
 
 using BAT: MeasureLike, BATMeasure
 

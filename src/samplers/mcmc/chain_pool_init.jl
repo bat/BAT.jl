@@ -42,7 +42,7 @@ function _construct_chain(
 )
     new_context = set_rng(parent_context, AbstractRNG(rngpart, id))
     v_init = bat_initval(m, initval_alg, new_context).result
-    return typeof(algorithm) == TransformedMCMCSampling ? TransformedMCMCIterator(algorithm, m, id, v_init, new_context) : MCMCIterator(algorithm, m, id, v_init, new_context)
+    return algorithm isa TransformedMCMCSampling ? TransformedMCMCIterator(algorithm, m, id, v_init, new_context) : MCMCIterator(algorithm, m, id, v_init, new_context)
 end
 
 _gen_chains(
@@ -89,23 +89,45 @@ function _cluster_selection(
     ( chains = chains_by_cluster[1], tuners = tuners_by_cluster[1], outputs = outputs_by_cluster[1], )
 end
 
-
 function mcmc_init!(
-    algorithm::Union{TransformedMCMCSampling, MCMCAlgorithm}, # TODO: replace with MCMCAlgorithm, temporary during transformed transition
+    algorithm::MCMCAlgorithm, # TODO: resolve usage of MCMCAlgorithms
     m::BATMeasure,
     nchains::Integer,
     init_alg::MCMCChainPoolInit,
-    tuning_alg::Union{MCMCTuningAlgorithm, MCMCTuningAlgorithm}, # TODO: part of algorithm? # MCMCTuner
+    tuning_alg::Union{MCMCTuningAlgorithm, MCMCTuningAlgorithm},
     nonzero_weights::Bool,
     callback::Function,
     context::BATContext
+)::NamedTuple{(:chains, :tuners, :temperers, :outputs), Tuple{Vector, Vector, Vector, Vector}}
+
+    sampling = TransformedMCMCSampling(
+                tuning_alg = tuning_alg,
+                proposal = _get_proposal(algorithm, m, context, bat_initval(m, init_alg.initval_alg, context).result), # TODO MD: Resolve initiation of proposal
+                nchains = nchains,
+                init = init_alg,
+                nonzero_weights = nonzero_weights,
+                callback = callback
+    )
+
+    mcmc_init!(sampling, m, context)
+end
+
+function mcmc_init!(
+    sampling::TransformedMCMCSampling,
+    m::BATMeasure,
+    init::MCMCChainPoolInit,
+    callback::Function,
+    context::BATContext
 )::NamedTuple{(:chains, :tuners, :temperers, :outputs), Tuple{Vector, Vector, Vector, Vector}} # 'Any' seems to be too general for type inference 
+    
+    @unpack nchains, tuning_alg, nonzero_weights = sampling
+
     @info "MCMCChainPoolInit: trying to generate $nchains viable MCMC chain(s)."
 
-    initval_alg = init_alg.initval_alg
+    initval_alg = init.initval_alg
 
-    min_nviable::Int = minimum(init_alg.init_tries_per_chain) * nchains
-    max_ncandidates::Int = maximum(init_alg.init_tries_per_chain) * nchains
+    min_nviable::Int = minimum(init.init_tries_per_chain) * nchains
+    max_ncandidates::Int = maximum(init.init_tries_per_chain) * nchains
 
     rngpart = RNGPartition(get_rng(context), Base.OneTo(max_ncandidates))
 
@@ -117,12 +139,12 @@ function mcmc_init!(
     dummy_initval = unshaped(bat_initval(m, InitFromTarget(), dummy_context).result, varshape(m))
 
     # TODO resolve, temporary workaround during transformed transition
-    if typeof(algorithm) == TransformedMCMCSampling
-        dummy_chain = TransformedMCMCIterator(algorithm, m, 1, dummy_initval, dummy_context) 
+    if sampling isa TransformedMCMCSampling
+        dummy_chain = TransformedMCMCIterator(sampling, m, 1, dummy_initval, dummy_context) 
         dummy_tuner = get_tuner(tuning_alg, dummy_chain)
-        dummy_temperer = get_temperer(algorithm.tempering, m)
+        dummy_temperer = get_temperer(sampling.tempering, m)
     else 
-        dummy_chain = MCMCIterator(algorithm, m, 1, dummy_initval, dummy_context)
+        dummy_chain = MCMCIterator(sampling, m, 1, dummy_initval, dummy_context)
         dummy_tuner = tuning_alg(dummy_chain)
         dummy_temperer = nothing
     end 
@@ -145,48 +167,47 @@ function mcmc_init!(
             n = min(min_nviable, max_ncandidates - ncandidates)
             @debug "Generating $n $(init_tries > 1 ? "additional " : "")candidate MCMC chain(s)."
 
-            new_chains = _gen_chains(rngpart, ncandidates .+ (one(Int64):n), algorithm, m, initval_alg, context)
+            new_chains = _gen_chains(rngpart, ncandidates .+ (one(Int64):n), sampling, m, initval_alg, context)
 
             filter!(isvalidchain, new_chains)
-            if typeof(algorithm) == TransformedMCMCSampling# TODO: resolve, temporary workaround during transformed transition
+            if sampling isa TransformedMCMCSampling # TODO: resolve, temporary workaround during transformed transition
                 new_tuners = get_tuner.(Ref(tuning_alg), new_chains)
-                new_temperers = fill(get_temperer(algorithm.tempering, m), size(new_tuners,1))
+                new_temperers = fill(get_temperer(sampling.tempering, m), size(new_tuners,1))
             else
                 new_tuners = tuning_alg.(new_chains)
                 new_outputs = DensitySampleVector.(new_chains)
             end 
 
             next_cycle!.(new_chains)
-            tuning_init!.(new_tuners, new_chains, init_alg.nsteps_init)
+            tuning_init!.(new_tuners, new_chains, init.nsteps_init)
             ncandidates += n
 
             @debug "Testing $(length(new_chains)) candidate MCMC chain(s)."
-            if typeof(algorithm) == TransformedMCMCSampling# TODO: resolve, temporary workaround during transformed transition
+            if sampling isa TransformedMCMCSampling # TODO: resolve, temporary workaround during transformed transition
                 transformed_mcmc_iterate!(
                     new_chains, new_tuners, new_temperers,
-                    max_nsteps = clamp(div(init_alg.nsteps_init, 5), 10, 50),
+                    max_nsteps = clamp(div(init.nsteps_init, 5), 10, 50),
                     callback = callback,
                     nonzero_weights = nonzero_weights
                 )
+                new_outputs = getproperty.(new_chains, :samples) #TODO ?
+                global gstate_iterator = (new_chains, new_outputs, new_tuners, new_temperers, viable_outputs)
             else
                 mcmc_iterate!(
                     new_outputs, new_chains, new_tuners;
-                    max_nsteps = clamp(div(init_alg.nsteps_init, 5), 10, 50),
+                    max_nsteps = clamp(div(init.nsteps_init, 5), 10, 50),
                     callback = callback,
                     nonzero_weights = nonzero_weights
                 )
             end
             # testing if chains are viable:
             viable_idxs = findall(isviablechain.(new_chains))
-            if typeof(algorithm) == TransformedMCMCSampling
-                new_outputs = getproperty.(new_chains, :samples) #TODO ?
-            end
             @info length.(new_outputs)
 
             append!(viable_tuners, new_tuners[viable_idxs])
             append!(viable_chains, new_chains[viable_idxs])
             append!(viable_outputs, new_outputs[viable_idxs])
-            if typeof(algorithm) == TransformedMCMCSampling
+            if sampling isa TransformedMCMCSampling
                 append!(viable_temperers, new_temperers[viable_idxs])
             end
         end
@@ -195,19 +216,19 @@ function mcmc_init!(
 
         if !isempty(viable_chains)
             desc_string = string("Init try ", init_tries, " for nvalid=", length(viable_tuners), " of min_nviable=", length(tuners), "/", min_nviable )
-            progress_meter = ProgressMeter.Progress(length(viable_tuners) * init_alg.nsteps_init, desc=desc_string, barlen=80-length(desc_string), dt=0.1)
+            progress_meter = ProgressMeter.Progress(length(viable_tuners) * init.nsteps_init, desc=desc_string, barlen=80-length(desc_string), dt=0.1)
             
-            if typeof(algorithm) == TransformedMCMCSampling
+            if sampling isa TransformedMCMCSampling
                 transformed_mcmc_iterate!(
                     viable_chains, viable_tuners, viable_temperers;
-                    max_nsteps = init_alg.nsteps_init,
+                    max_nsteps = init.nsteps_init,
                     callback = (kwargs...)-> let pm=progress_meter; ProgressMeter.next!(pm) ; end,
                     nonzero_weights = nonzero_weights
                 )
             else
                 mcmc_iterate!(
                     viable_outputs, viable_chains, viable_tuners;
-                    max_nsteps = init_alg.nsteps_init,
+                    max_nsteps = init.nsteps_init,
                     callback = (kwargs...)-> let pm=progress_meter, callback=callback ; callback(kwargs) ; ProgressMeter.next!(pm) ; end,
                     nonzero_weights = nonzero_weights
                 )
@@ -222,8 +243,9 @@ function mcmc_init!(
 
             append!(chains, view(viable_chains, good_idxs))
             append!(tuners, view(viable_tuners, good_idxs))
-            if typeof(algorithm) == TransformedMCMCSampling
+            if sampling isa TransformedMCMCSampling
                 append!(temperers, view(viable_temperers, good_idxs))
+                append!(outputs, view(viable_outputs, good_idxs))
             else 
                 append!(outputs, view(viable_outputs, good_idxs))
             end
@@ -232,7 +254,7 @@ function mcmc_init!(
         init_tries += 1
     end
     
-    # Disabled, as it kept causing issues öwith too few viable chains
+    # Disabled, as it kept causing issues with too few viable chains
     # # TODO AC
     # if true
     #     @unpack chains, tuners, outputs = _cluster_selection(chains, tuners, outputs, 15) # default scale for _cluster_selection() seems to be too strict. Relaxed it to 15
@@ -253,6 +275,7 @@ function mcmc_init!(
     final_tuners = similar(tuners, 0)
     final_temperers = similar(temperers, 0)
     final_outputs = similar(outputs, 0)
+
 
     # TODO: should we put this into a function?
     if 2 <= m < size(modes, 2)
@@ -275,7 +298,7 @@ function mcmc_init!(
         for i in sort(chain_sel_idxs)
             push!(final_chains, chains[i])
             push!(final_tuners, tuners[i])
-            if typeof(algorithm) == TransformedMCMCSampling
+            if sampling isa TransformedMCMCSampling
                 push!(final_temperers, temperers[i])
             end
             push!(final_outputs, outputs[i])
@@ -284,11 +307,12 @@ function mcmc_init!(
         i = findmax(nsamples.(chains))[2]
         push!(final_chains, chains[i])
         push!(final_tuners, tuners[i])
-        if typeof(algorithm) == TransformedMCMCSampling
+        if sampling isa TransformedMCMCSampling
             push!(final_temperers, temperers[i])
         end
         push!(final_outputs, outputs[i])
     else
+        println("$(length(chains)) == $nchains")
         @assert length(chains) == nchains
         resize!(final_chains, nchains)
         copyto!(final_chains, chains)
@@ -297,7 +321,7 @@ function mcmc_init!(
         resize!(final_tuners, nchains)
         copyto!(final_tuners, tuners)
 
-        if typeof(algorithm) == TransformedMCMCSampling
+        if sampling isa TransformedMCMCSampling
             @assert length(temperers) == nchains
             resize!(final_temperers, nchains)
             copyto!(final_temperers, temperers)
@@ -310,6 +334,8 @@ function mcmc_init!(
 
     @info "Selected $(length(final_chains)) MCMC chain(s)."
     tuning_postinit!.(final_tuners, final_chains, final_outputs) #TODO: implement
+
+    global gstate_post_iteration_init = (final_chains, final_tuners, final_temperers, final_outputs)
 
     (chains = final_chains, tuners = final_tuners, temperers = final_temperers, outputs = final_outputs)
 end

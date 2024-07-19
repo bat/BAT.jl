@@ -31,17 +31,17 @@ end
 
 
 function TransformedProposalCovTuner(tuning::TransformedAdaptiveMHTuning, chain::MCMCIterator)
-    m = totalndof(getmeasure(chain))
+    m = totalndof(varshape(getmeasure(chain)))
     scale = 2.38^2 / m
     TransformedProposalCovTuner(tuning, MCMCBasicStats(chain), 1, scale)
 end
 
 get_tuner(tuning::TransformedAdaptiveMHTuning, chain::MCMCIterator) =  TransformedProposalCovTuner(tuning, chain)
 default_adaptive_transform(tuner::TransformedAdaptiveMHTuning) = TriangularAffineTransform() 
-
+default_adaptive_transform(algorithm::MetropolisHastings) = TriangularAffineTransform() 
 
 function tuning_init!(tuner::TransformedProposalCovTuner, chain::MCMCIterator, max_nsteps::Integer)
-    chain.info = TransformedMCMCIteratorInfo(chain.info, tuned = false)
+    chain.info = MCMCIteratorInfo(chain.info, tuned = false)
 
     nothing
 end
@@ -59,7 +59,6 @@ end
 # this function is called once after each tuning cycle
 g_state = nothing
 function tuning_update!(tuner::TransformedProposalCovTuner, chain::TransformedMCMCIterator, samples::DensitySampleVector)
-    global g_state = (;tuner, chain)
     
     stats = tuner.stats
     stats_reweight_factor = tuner.config.r
@@ -96,10 +95,10 @@ function tuning_update!(tuner::TransformedProposalCovTuner, chain::TransformedMC
     max_log_posterior = stats.logtf_stats.maximum
 
     if α_min <= α <= α_max
-        chain.info = TransformedMCMCIteratorInfo(chain.info, tuned = true)
+        chain.info = MCMCIteratorInfo(chain.info, tuned = true)
         @debug "MCMC chain $(chain.info.id) tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
     else
-        chain.info = TransformedMCMCIteratorInfo(chain.info, tuned = false)
+        chain.info = MCMCIteratorInfo(chain.info, tuned = false)
         @debug "MCMC chain $(chain.info.id) *not* tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
 
         if α > α_max && c < c_max
@@ -138,6 +137,6 @@ function tune_mcmc_transform!!(
     context::BATContext
 )
 
-    return (tuner, transform)
+    return (tuner, transform, false)
 end
 

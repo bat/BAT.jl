@@ -60,15 +60,6 @@ export MCMCBurninAlgorithm
 end
 
 
-"""
-    abstract type MCMCTuningAlgorithm
-
-Abstract type for MCMC tuning algorithms.
-"""
-abstract type MCMCTuningAlgorithm end
-export MCMCTuningAlgorithm
-
-
 
 """
     abstract type TransformedMCMCBurninAlgorithm
@@ -191,9 +182,6 @@ end
 
 abstract type AbstractMCMCTunerInstance end
 
-abstract type AbstractMCMCTunerInstance end
-
-
 function tuning_init! end
 
 function tuning_postinit! end
@@ -220,6 +208,12 @@ function isviablechain end
 
 function mcmc_iterate! end
 
+
+# create_tuning_state(tuning::AbstractMCMCTuning, mc_state::MCMCState, n_steps_hint::Integer)
+function create_tuning_state end
+
+# create_tempering_state(tempering::AbstractMCMCTempering, mc_state::MCMCState, n_steps_hint::Integer)
+function create_tempering_state end
 
 """
     BAT.MCMCSampleGenerator

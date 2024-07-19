@@ -70,6 +70,8 @@ function mcmc_burnin!(
         ntuned = count(c -> c.info.tuned, chains)
         nconverged = count(c -> c.info.converged, chains)
         successful = (ntuned == nconverged == nchains)
+        
+        global g_state_burnin = ntuned, nconverged, nchains, chains, tuners
 
         callback(Val(:mcmc_burnin), tuners, chains)
 
@@ -170,6 +172,8 @@ function mcmc_burnin!(
         )
 
         ProgressMeter.finish!(progress_meter)
+
+        global gstate_burnin = tuners, chains, new_outputs
 
         tuning_update!.(tuners, chains, new_outputs)
         isnothing(outputs) || append!.(outputs, new_outputs)

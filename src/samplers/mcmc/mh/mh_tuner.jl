@@ -54,7 +54,6 @@ mutable struct ProposalCovTuner{
     scale::Float64
 end
 
-(tuning::AdaptiveMHTuning)(chain::MHIterator) = ProposalCovTuner(tuning, chain)
 
 
 function ProposalCovTuner(tuning::AdaptiveMHTuning, chain::MHIterator)
@@ -64,24 +63,24 @@ function ProposalCovTuner(tuning::AdaptiveMHTuning, chain::MHIterator)
 end
 
 
-function _cov_with_fallback(m::BATMeasure)
-    global g_state = m
-    @assert false
-    rng = _bat_determ_rng()
-    T = float(eltype(rand(rng, m)))
-    n = totalndof(varshape(m))
-    C = fill(T(NaN), n, n)
-    try
-        C[:] = cov(m)
-    catch err
-        if err isa MethodError
-            C[:] = cov(nestedview(rand(rng, m, 10^5)))
-        else
-            throw(err)
-        end
-    end
-    return C
-end
+# function _cov_with_fallback(m::BATMeasure)
+#     global g_state = m
+#     @assert false
+#     rng = _bat_determ_rng()
+#     T = float(eltype(rand(rng, m)))
+#     n = totalndof(varshape(m))
+#     C = fill(T(NaN), n, n)
+#     try
+#         C[:] = cov(m)
+#     catch err
+#         if err isa MethodError
+#             C[:] = cov(nestedview(rand(rng, m, 10^5)))
+#         else
+#             throw(err)
+#         end
+#     end
+#     return C
+# end
 
 
 function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator, max_nsteps::Integer)

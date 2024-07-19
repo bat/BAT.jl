@@ -40,7 +40,7 @@ function tune_mcmc_transform!!(
     stepno::Int,
     context::BATContext
 )
-    return (tuner, transform)
+    return (tuner, transform, false)
 
 end
 
