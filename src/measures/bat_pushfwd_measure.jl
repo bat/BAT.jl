@@ -61,7 +61,7 @@ MeasureBase.pullback(f, m::BATMeasure) = _bat_pulbck(f, m, KeepRootMeasure())
 MeasureBase.pullback(f, m::BATMeasure, volcorr::KeepRootMeasure) = _bat_pulbck(f, m, volcorr)
 MeasureBase.pullback(f, m::BATMeasure, volcorr::ChangeRootMeasure) = _bat_pulbck(f, m, volcorr)
 
-_bat_pulbck(f, m::BATMeasure, volcorr::PushFwdStyle) = pushfwd(inverse(f), m, volcorr)
+_bat_pulbck(f, m::BATMeasure, volcorr::PushFwdStyle) = MeasureBase.pushfwd(inverse(f), m, volcorr)
 
 
 # ToDo: remove
@@ -84,18 +84,18 @@ function DensityInterface.logdensityof(@nospecialize(m::_NonBijectiveBATPusfwdMe
 end
 
 function DensityInterface.logdensityof(m::BATPushFwdMeasure{F,I,M,ChangeRootMeasure}, v::Any) where {F,I,M}
-    v_orig = inverse(m.trafo)(v)
-    logdensityof(parent(m), v_orig)
+    v_orig = m.finv(v)
+    logdensityof(m.origin, v_orig)
 end
 
 function checked_logdensityof(m::BATPushFwdMeasure{F,I,M,ChangeRootMeasure}, v::Any) where {F,I,M}
-    v_orig = inverse(m.trafo)(v)
-    checked_logdensityof(parent(m), v_orig)
+    v_orig = m.finv(v)
+    checked_logdensityof(m.origin, v_orig)
 end
 
 
 function _v_orig_and_ladj(m::BATPushFwdMeasure, v::Any)
-    with_logabsdet_jacobian(inverse(m.trafo), v)
+    with_logabsdet_jacobian(m.finv, v)
 end
 
 # TODO: Would profit from custom pullback:
@@ -123,13 +123,13 @@ end
 
 function DensityInterface.logdensityof(m::BATPushFwdMeasure{F,I,M,KeepRootMeasure}, v::Any) where {F,I,M}
     v_orig, ladj = _v_orig_and_ladj(m, v)
-    logd_orig = logdensityof(parent(m), v_orig)
+    logd_orig = logdensityof(m.origin, v_orig)
     _combine_logd_with_ladj(logd_orig, ladj)
 end
 
 function checked_logdensityof(m::BATPushFwdMeasure{F,I,M,KeepRootMeasure}, v::Any) where {F,I,M}
     v_orig, ladj = _v_orig_and_ladj(m, v)
-    logd_orig = logdensityof(parent(m), v_orig)
+    logd_orig = logdensityof(m.origin, v_orig)
     isnan(logd_orig) && @throw_logged EvalException(logdensityof, m, v, 0)
     _combine_logd_with_ladj(logd_orig, ladj)
 end

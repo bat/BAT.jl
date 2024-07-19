@@ -1,6 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-
 """
     abstract type MCMCAlgorithm
 
@@ -18,8 +17,7 @@ To implement a new MCMC algorithm, subtypes of both `MCMCAlgorithm` and
 abstract type MCMCAlgorithm end
 export MCMCAlgorithm
 
-
-function get_mcmc_tuning end
+function get_mcmc_tuning end #TODO: still needed
 
 
 """
@@ -30,8 +28,8 @@ Abstract type for MCMC initialization algorithms.
 abstract type MCMCInitAlgorithm end
 export MCMCInitAlgorithm
 
+#TODO AC: reactivate
 apply_trafo_to_init(trafo::Function, initalg::MCMCInitAlgorithm) = initalg
-
 
 
 """
@@ -55,6 +53,25 @@ export MCMCBurninAlgorithm
 
 
 @with_kw struct MCMCIteratorInfo
+    id::Int32
+    cycle::Int32
+    tuned::Bool
+    converged::Bool
+end
+
+
+
+"""
+    abstract type TransformedMCMCBurninAlgorithm
+
+Abstract type for MCMC burn-in algorithms.
+"""
+abstract type TransformedMCMCBurninAlgorithm end
+export TransformedMCMCBurninAlgorithm
+
+
+
+@with_kw struct TransformedMCMCIteratorInfo
     id::Int32
     cycle::Int32
     tuned::Bool
@@ -133,10 +150,11 @@ function Base.show(io::IO, chain::MCMCIterator)
     print(io, ")") 
 end
 
-
 function getalgorithm end
 
 function mcmc_target end
+
+function getmeasure end
 
 function mcmc_info end
 
@@ -157,15 +175,12 @@ function next_cycle! end
 function mcmc_step! end
 
 
-
 function DensitySampleVector(chain::MCMCIterator)
     DensitySampleVector(sample_type(chain), totalndof(varshape(mcmc_target(chain))))
 end
 
 
-
 abstract type AbstractMCMCTunerInstance end
-
 
 function tuning_init! end
 
@@ -194,96 +209,11 @@ function isviablechain end
 function mcmc_iterate! end
 
 
-function mcmc_iterate!(
-    output::Union{DensitySampleVector,Nothing},
-    chain::MCMCIterator,
-    tuner::Nothing = nothing;
-    max_nsteps::Integer = 1,
-    max_time::Real = Inf,
-    nonzero_weights::Bool = true,
-    callback::Function = nop_func
-)
-    @debug "Starting iteration over MCMC chain $(chain.info.id) with $max_nsteps steps in max. $(@sprintf "%.1f s" max_time)"
+# create_tuning_state(tuning::AbstractMCMCTuning, mc_state::MCMCState, n_steps_hint::Integer)
+function create_tuning_state end
 
-    start_time = time()
-    last_progress_message_time = start_time
-    start_nsteps = nsteps(chain)
-    start_nsamples = nsamples(chain)
-
-    while (
-        (nsteps(chain) - start_nsteps) < max_nsteps &&
-        (time() - start_time) < max_time
-    )
-        mcmc_step!(chain)
-        callback(Val(:mcmc_step), chain)
-        if !isnothing(output)
-            get_samples!(output, chain, nonzero_weights)
-        end
-        current_time = time()
-        elapsed_time = current_time - start_time
-        logging_interval = 5 * round(log2(elapsed_time/60 + 1) + 1)
-        if current_time - last_progress_message_time > logging_interval
-            last_progress_message_time = current_time
-            @debug "Iterating over MCMC chain $(chain.info.id), completed $(nsteps(chain) - start_nsteps) (of $(max_nsteps)) steps and produced $(nsamples(chain) - start_nsamples) samples in $(@sprintf "%.1f s" elapsed_time) so far."
-        end
-    end
-
-    current_time = time()
-    elapsed_time = current_time - start_time
-    @debug "Finished iteration over MCMC chain $(chain.info.id), completed $(nsteps(chain) - start_nsteps) steps and produced $(nsamples(chain) - start_nsamples) samples in $(@sprintf "%.1f s" elapsed_time)."
-
-    return nothing
-end
-
-
-function mcmc_iterate!(
-    output::Union{DensitySampleVector,Nothing},
-    chain::MCMCIterator,
-    tuner::AbstractMCMCTunerInstance;
-    max_nsteps::Integer = 1,
-    max_time::Real = Inf,
-    nonzero_weights::Bool = true,
-    callback::Function = nop_func
-)
-    cb = combine_callbacks(tuning_callback(tuner), callback)
-    mcmc_iterate!(
-        output, chain;
-        max_nsteps = max_nsteps, max_time = max_time, nonzero_weights = nonzero_weights, callback = cb
-    )
-
-    return nothing
-end
-
-
-function mcmc_iterate!(
-    outputs::Union{AbstractVector{<:DensitySampleVector},Nothing},
-    chains::AbstractVector{<:MCMCIterator},
-    tuners::Union{AbstractVector{<:AbstractMCMCTunerInstance},Nothing} = nothing;
-    kwargs...
-)
-    if isempty(chains)
-        @debug "No MCMC chain(s) to iterate over."
-        return chains
-    else
-        @debug "Starting iteration over $(length(chains)) MCMC chain(s)"
-    end
-
-    outs = isnothing(outputs) ? fill(nothing, size(chains)...) : outputs
-    tnrs = isnothing(tuners) ? fill(nothing, size(chains)...) : tuners
-
-    @sync for i in eachindex(outs, chains, tnrs)
-        Base.Threads.@spawn mcmc_iterate!(outs[i], chains[i], tnrs[i]; kwargs...)
-    end
-
-    return nothing
-end
-
-
-isvalidchain(chain::MCMCIterator) = current_sample(chain).logd > -Inf
-
-isviablechain(chain::MCMCIterator) = nsamples(chain) >= 2
-
-
+# create_tempering_state(tempering::AbstractMCMCTempering, mc_state::MCMCState, n_steps_hint::Integer)
+function create_tempering_state end
 
 """
     BAT.MCMCSampleGenerator
@@ -302,10 +232,32 @@ struct MCMCSampleGenerator{T<:AbstractVector{<:MCMCIterator}} <: AbstractSampleG
     chains::T
 end
 
+
+"""
+    BAT.TransformedMCMCSampleGenerator
+
+*BAT-internal, not part of stable public API.*
+
+MCMC sample generator.
+
+Constructors:
+
+```julia
+TransformedMCMCSampleGenerator(chain::AbstractVector{<:MCMCIterator})
+```
+"""
+struct TransformedMCMCSampleGenerator{
+    T<:AbstractVector{<:MCMCIterator},
+    A<:AbstractSamplingAlgorithm,
+} <: AbstractSampleGenerator
+    chains::T
+    algorithm::A
+end
+
 getalgorithm(sg::MCMCSampleGenerator) = sg.chains[1].algorithm
+getalgorithm(sg::TransformedMCMCSampleGenerator) = sg.algorithm
 
-
-function Base.show(io::IO, generator::MCMCSampleGenerator)
+function Base.show(io::IO, generator::Union{MCMCSampleGenerator, TransformedMCMCSampleGenerator})
     if get(io, :compact, false)
         print(io, nameof(typeof(generator)), "(")
         if !isempty(generator.chains)
@@ -321,17 +273,22 @@ function Base.show(io::IO, generator::MCMCSampleGenerator)
         n_converged_chains = count(c -> c.info.converged, chains)
         print(io, "algorithm: ")
         show(io, "text/plain", getalgorithm(generator))
-        println(io, "number of chains:", repeat(' ', 13), nchains)
-        println(io, "number of chains tuned:", repeat(' ', 7), n_tuned_chains)
-        println(io, "number of chains converged:", repeat(' ', 3), n_converged_chains)
-        print(io, "number of samples per chain:", repeat(' ', 2), nsamples(chains[1]))
+        println(io)
+        println(io, "number of chains:", repeat(' ', 12), nchains)
+        println(io, "number of chains tuned:", repeat(' ', 6), n_tuned_chains)
+        println(io, "number of chains converged:", repeat(' ', 2), n_converged_chains)
+        if typeof(generator) == TransformedMCMCSampleGenerator
+            println(io, "number of points…")
+            println(io, repeat(' ',10), "… in 1th chain:", repeat(' ', 4), nsamples(first(chains)))
+            print(io, repeat(' ',10), "… on average:", repeat(' ', 6), div(sum(nsamples.(chains)), nchains))
+        else
+            print(io, "number of samples per chain:", repeat(' ', 2), nsamples(chains[1]))
+        end     
     end
 end
 
 
-
-
-function bat_report!(md::Markdown.MD, generator::MCMCSampleGenerator)
+function bat_report!(md::Markdown.MD, generator::Union{MCMCSampleGenerator, TransformedMCMCSampleGenerator})
     mcalg = getalgorithm(generator)
     chains = generator.chains
     nchains = length(chains)

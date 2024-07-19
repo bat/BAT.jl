@@ -16,6 +16,7 @@ export MCMCNoOpTuning
 struct MCMCNoOpTuner <: AbstractMCMCTunerInstance end
 
 (tuning::MCMCNoOpTuning)(chain::MCMCIterator) = MCMCNoOpTuner()
+get_tuner(tuning::MCMCNoOpTuning, chain::MCMCIterator) = MCMCNoOpTuner() 
 
 
 function MCMCNoOpTuning(tuning::MCMCNoOpTuning, chain::MCMCIterator)
@@ -28,6 +29,20 @@ function tuning_init!(tuner::MCMCNoOpTuning, chain::MCMCIterator, max_nsteps::In
     nothing
 end
 
+
+
+function tune_mcmc_transform!!(
+    tuner::MCMCNoOpTuner, 
+    transform,
+    p_accept::Real,
+    z_proposed::Vector{<:Float64}, #TODO: use DensitySamples instead
+    z_current::Vector{<:Float64},
+    stepno::Int,
+    context::BATContext
+)
+    return (tuner, transform, false)
+
+end
 
 tuning_postinit!(tuner::MCMCNoOpTuner, chain::MCMCIterator, samples::DensitySampleVector) = nothing
 

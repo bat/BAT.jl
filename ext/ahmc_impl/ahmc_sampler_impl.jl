@@ -15,6 +15,55 @@ BAT.bat_default(::Type{MCMCSampling}, ::Val{:burnin}, mcalg::HamiltonianMC, traf
 BAT.get_mcmc_tuning(algorithm::HamiltonianMC) = algorithm.tuning
 
 
+
+"""
+    BAT.TransformedHMCProposal
+
+*BAT-internal, not part of stable public API.*
+"""
+mutable struct TransformedHMCProposal{
+    HA<:AdvancedHMC.Hamiltonian,
+    TR<:AdvancedHMC.Transition,
+    KRNL<:AdvancedHMC.HMCKernel
+}<: BAT.TransformedMCMCProposal
+    hamiltonian::HA
+    transition::TR
+    kernel::KRNL
+end
+
+function TransformedHMCProposal(algorithm::HamiltonianMC, target::BATMeasure, context::BATContext, v_init::AbstractVector)
+    adsel = get_adselector(context)
+    rng = get_rng(context)
+    f = checked_logdensityof(target)
+    metric = ahmc_metric(algorithm.metric, v_init)
+    fg = valgrad_func(f, adsel)
+
+    init_hamiltonian = AdvancedHMC.Hamiltonian(metric, f, fg)
+    hamiltonian, init_transition = AdvancedHMC.sample_init(rng, init_hamiltonian, v_init)
+    integrator = _ahmc_set_step_size(algorithm.integrator, hamiltonian, v_init)
+    termination = _ahmc_convert_termination(algorithm.termination, v_init)
+    kernel = HMCKernel(Trajectory{MultinomialTS}(integrator, termination))
+
+    # Perform a dummy step to get type-stable transition value:
+    transition = AdvancedHMC.transition(deepcopy(rng), deepcopy(hamiltonian), deepcopy(kernel), init_transition.z)
+
+    TransformedHMCProposal(hamiltonian, transition, kernel)
+end
+
+BAT._get_proposal(alg::HamiltonianMC, target::BATMeasure, context::BATContext, v_init::AbstractVector) = TransformedHMCProposal(alg, target, context, v_init)
+BAT._get_adaptive_transform(alg::HamiltonianMC) = BAT.default_adaptive_transform(alg)
+
+function MCMCSampleID(iter::TransformedMCMCIterator{<:Any, <:Any, <:Any, <:TransformedHMCProposal})
+    stat = AdvancedHMC.stat(iter.proposal.transition)
+    
+    # TODO MD: Handle proposal-dependent tstat (only NUTS has tree_depth):
+    AHMCSampleID(
+        iter.info.id, iter.info.cycle, iter.stepno, CURRENT_SAMPLE,
+        stat.hamiltonian_energy, stat.tree_depth,
+        stat.numerical_error, stat.step_size
+    )
+end
+
 # MCMCIterator subtype for HamiltonianMC
 mutable struct AHMCIterator{
     AL<:HamiltonianMC,
@@ -297,3 +346,30 @@ end
 
 
 BAT.eff_acceptance_ratio(chain::AHMCIterator) = nsamples(chain) / nsteps(chain)
+
+
+function BAT.propose_mcmc(
+    iter::TransformedMCMCIterator{<:Any, <:Any, <:Any, <:TransformedHMCProposal}
+)
+    μ, f_transform, proposal, samples, sample_z, context = iter.μ, iter.f_transform, iter.proposal, iter.samples, iter.sample_z, iter.context
+    rng = get_rng(context)
+    sample_x = last(samples)
+    x, logd_x = sample_x.v, sample_x.logd
+    z, logd_z = sample_z.v, sample_z.logd
+
+    n = size(z, 1)
+
+    proposal.transition = AdvancedHMC.transition(rng, proposal.hamiltonian, proposal.kernel, proposal.transition.z)
+
+    z_proposed = proposal.transition.z.θ
+    x_proposed, ladj = ChangesOfVariables.with_logabsdet_jacobian(f_transform, z_proposed)
+    logd_x_proposed = BAT.checked_logdensityof(μ, x_proposed)
+    logd_z_proposed = logd_x_proposed + ladj
+
+    p_accept = clamp(exp(logd_z_proposed-logd_z), 0, 1)
+
+    sample_z_proposed = BAT._rebuild_density_sample(sample_z, z_proposed, logd_z_proposed)
+    sample_x_proposed = BAT._rebuild_density_sample(sample_x, x_proposed, logd_x_proposed)
+
+    return sample_x_proposed, sample_z_proposed, p_accept
+end
