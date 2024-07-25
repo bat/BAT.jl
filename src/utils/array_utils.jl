@@ -45,9 +45,13 @@ const SingleArrayIndex = Union{Integer, CartesianIndex}
 
 convert_numtype(::Type{T}, x::T) where {T<:Real} = x
 convert_numtype(::Type{T}, x::Real) where {T<:Real} = convert(T, x)
+convert_numtype(::Type{T}, x::Integer) where {T<:AbstractFloat} = x
 
 convert_numtype(::Type{T}, x::AbstractArray{T}) where {T<:Real} = x
 convert_numtype(::Type{T}, x::AbstractArray{<:Real}) where {T<:Real} = convert.(T, x)
+
+convert_numtype(::Type{T}, x::Tuple) where {T<:Real} = map(Base.Fix1(convert_numtype, T), x)
+convert_numtype(::Type{T}, x::NamedTuple{names}) where {T<:Real, names} = NamedTuple{names}(convert_numtype(T, values(x)))
 
 convert_numtype(::Type{T}, x::ArrayOfSimilarArrays{T}) where {T<:Real} = x
 convert_numtype(::Type{T}, x::ArrayOfSimilarArrays{<:Real,M,N}) where {T<:Real,M,N} =
