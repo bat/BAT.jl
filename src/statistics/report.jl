@@ -56,11 +56,13 @@ function marginal_table(smplv::DensitySampleVector)
 end
 
 
-function fixed_parameter_table(smplv::DensitySampleVector)
+function _rpt_table_of_constparvals(smplv::DensitySampleVector)
     vs = elshape(smplv.v)
-    parkeys = Symbol.(get_fixed_names(vs))
-    parvalues = [getproperty(vs, f).shape.value for f in parkeys]
-    TypedTables.Table(parameter = parkeys, value = string.(parvalues))
+    # Need to convert, otherwise these can become Vector{Union{}} if parkeys is empty:
+    parkeys = convert(Vector{Symbol}, Symbol.(get_fixed_names(vs)))::Vector{Symbol}
+    parvalues = convert(Vector{Any}, [getproperty(vs, f).shape.value for f in parkeys])
+    str_parvalues = convert(Vector{String}, string.(parvalues))::Vector{String}
+    TypedTables.Table(parameter = parkeys, value = str_parvalues)
 end
 
 
@@ -92,7 +94,7 @@ function bat_report!(md::Markdown.MD, smplv::DensitySampleVector)
     marg_headermap = Dict(:parameter => "Parameter", :mean => "Mean", :std => "Std. dev.", :global_mode => "Gobal mode", :marginal_mode => "Marg. mode", :credible_intervals => "Cred. interval", :marginal_histogram => "Histogram")
     push!(md.content, BAT.markdown_table(Tables.columns(mod_marg_tbl), headermap = marg_headermap, align = [:l, :l, :l, :l, :l, :c, :l]))
 
-    fixed_tbl = fixed_parameter_table(smplv)
+    fixed_tbl = _rpt_table_of_constparvals(smplv)
     if !isempty(fixed_tbl)
         markdown_append!(md, """
         ### Fixed parameters
