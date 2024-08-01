@@ -89,7 +89,7 @@ using Optim, OptimizationOptimJL
     end
 
     @testset "Optim.jl - LBFGS" begin
-        context = BATContext(rng = Philox4x((0, 0)), ad = ADModule(:ForwardDiff))
+        context = BATContext(rng = Philox4x((0, 0)), ad = ADSelector(ForwardDiff))
         # Result Optim.maximize with LBFGS is not type-stable:
         test_findmode(posterior, OptimAlg(optalg = LBFGS(), trafo = DoNotTransform()), 0.01, inferred = false, context)
 

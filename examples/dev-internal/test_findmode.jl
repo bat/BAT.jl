@@ -88,7 +88,7 @@ using AutoDiffOperators
 b = Optimization.SciMLBase.NoAD()
 supertype(typeof(b))
 
-adm = ADModule(:ForwardDiff)
+adm = ADSelector(ForwardDiff)
 
 adsel = BAT.get_adselector(context)
 supertype(typeof(adsel))

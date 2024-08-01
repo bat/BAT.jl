@@ -13,7 +13,7 @@ using Optim
 
 
 @testset "bat_pushfwd_measure" begin
-    context = BATContext(ad = ADModule(:ForwardDiff))
+    context = BATContext(ad = ADSelector(ForwardDiff))
 
     @testset "distribution transforms" begin
         function test_uv_transformed(target_type::Type{<:Distribution}, source_dist::Distribution)

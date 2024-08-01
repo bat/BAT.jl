@@ -12,7 +12,7 @@ import Cuba, AdvancedHMC, ForwardDiff
 using AutoDiffOperators
 #using AHMI
 
-BAT.set_batcontext(ad = ADModule(:ForwardDiff))
+BAT.set_batcontext(ad = ADSelector(ForwardDiff))
 
 
 function log_pdf_poisson(λ::T, k::U) where {T<:Real,U<:Real}

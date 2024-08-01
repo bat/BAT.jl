@@ -11,7 +11,7 @@ import AdvancedHMC
 
 
 @testset "hierarchial_distribution" begin
-    context = BATContext(ad = ADModule(:ForwardDiff))
+    context = BATContext(ad = ADSelector(ForwardDiff))
 
     let
         primary_dist = NamedTupleDist(
