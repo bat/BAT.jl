@@ -21,7 +21,7 @@ Julia is available for Linux, OS-X and Windows, and easy to install:
 
 !!! note
 
-    BAT.jl requires Julia >= v1.6, we strongly recommend to use the latest Julia version for optimal performance.
+    BAT.jl requires Julia >= v1.10, we recommend to use [the latest stable Julia version](https://julialang.org/downloads/) for optimal performance.
 
 
 ## Installing BAT.jl and related Julia packages

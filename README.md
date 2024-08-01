@@ -23,7 +23,9 @@ julia> using Pkg
 julia> pkg"add BAT"
 ```
 
-**Note:** BAT.jl requires Julia >= v1.6, we recommend to use Julia >= v1.10 for optimal performance.
+Note: BAT.jl requires Julia >= v1.10, we recommend to use
+[the latest stable Julia version](https://julialang.org/downloads/)
+for optimal performance.
 
 
 ## Documentation
