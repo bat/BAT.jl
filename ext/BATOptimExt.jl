@@ -2,11 +2,7 @@
 
 module BATOptimExt
 
-@static if isdefined(Base, :get_extension)
-    import Optim
-else
-    import ..Optim
-end
+import Optim
 
 using BAT
 BAT.pkgext(::Val{:Optim}) = BAT.PackageExtension{:Optim}()

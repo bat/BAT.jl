@@ -2,11 +2,7 @@
 
 module BATAdvancedHMCExt
 
-@static if isdefined(Base, :get_extension)
-    using AdvancedHMC
-else
-    using ..AdvancedHMC
-end
+using AdvancedHMC
 
 using BAT
 BAT.pkgext(::Val{:AdvancedHMC}) = BAT.PackageExtension{:AdvancedHMC}()

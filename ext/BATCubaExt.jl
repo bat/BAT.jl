@@ -2,11 +2,7 @@
 
 module BATCubaExt
 
-@static if isdefined(Base, :get_extension)
-    using Cuba
-else
-    using ..Cuba
-end
+using Cuba
 
 using BAT
 BAT.pkgext(::Val{:Cuba}) = BAT.PackageExtension{:Cuba}()

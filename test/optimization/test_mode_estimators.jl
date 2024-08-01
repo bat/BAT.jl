@@ -5,7 +5,6 @@ using LinearAlgebra, Distributions, StatsBase, ValueShapes, Random123, DensityIn
 using UnPack, InverseFunctions
 using AutoDiffOperators, ForwardDiff
 using Optim, OptimizationOptimJL
-include("../../ext/BATOptimizationExt.jl")
 
 @testset "mode_estimators" begin
     prior = NamedTupleDist(

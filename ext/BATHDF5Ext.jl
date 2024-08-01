@@ -2,13 +2,8 @@
 
 module BATHDF5Ext
 
-@static if isdefined(Base, :get_extension)
-    using HDF5
-    using HDF5: H5DataStore
-else
-    using ..HDF5
-    using ..HDF5: H5DataStore
-end
+using HDF5
+using HDF5: H5DataStore
 
 using BAT
 using BAT: MCMCSampleIDVector

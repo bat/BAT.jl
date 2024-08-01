@@ -2,11 +2,7 @@
 
 module BATFoldsExt
 
-@static if isdefined(Base, :get_extension)
-    using Folds, Transducers
-else
-    using ..Folds, ..Transducers
-end
+using Folds, Transducers
 
 using BAT
 

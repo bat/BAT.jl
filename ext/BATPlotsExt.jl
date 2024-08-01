@@ -1,12 +1,10 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+# ToDo: Move BAT plotting into BATPlotsExt.
+
 module BATPlotsExt
 
-@static if isdefined(Base, :get_extension)
-    using Plots
-else
-    using ..Plots
-end
+using Plots
 
 using BAT
 

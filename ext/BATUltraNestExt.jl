@@ -2,11 +2,7 @@
 
 module BATUltraNestExt
 
-@static if isdefined(Base, :get_extension)
-    using UltraNest
-else
-    using ..UltraNest
-end
+using UltraNest
 
 using BAT
 

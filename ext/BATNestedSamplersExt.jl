@@ -2,11 +2,7 @@
 
 module BATNestedSamplersExt
 
-@static if isdefined(Base, :get_extension)
-    using NestedSamplers
-else
-    using ..NestedSamplers
-end
+using NestedSamplers
 
 using BAT
 using HeterogeneousComputing

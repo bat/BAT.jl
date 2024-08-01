@@ -2,13 +2,7 @@
 
 module BATOptimizationExt
 
-# seems to cause compatibility issues between different Julia versions. 
-# @static if isdefined(Base, :get_extension)
-#     import Optimization
-# else
-#     import ..Optimization
-# end
-import ..Optimization
+import Optimization
 
 using BAT
 BAT.pkgext(::Val{:Optimization}) = BAT.PackageExtension{:Optimization}()
