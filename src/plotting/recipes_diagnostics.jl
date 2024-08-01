@@ -27,7 +27,7 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
     description ? ndescription = 1 : ndescription = 0
 
     size --> (ndiagnostics*350+100, nparams*nchains*200)
-    layout --> Main.Plots.grid(nparams*nchains, ndiagnostics+ndescription)
+    layout --> _Plots_grid(nparams*nchains, ndiagnostics+ndescription)
 
     ctr = 1
 
