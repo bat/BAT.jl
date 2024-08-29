@@ -75,8 +75,8 @@ using BAT: BATDensity
     @testset "non-BAT densities" begin
         d = _NonBATDensity()
         x = randn(3)
-        @test @inferred(convert(AbstractMeasureOrDensity, d)) isa BAT.WrappedNonBATDensity
-        bd = convert(AbstractMeasureOrDensity, d)
+        @test @inferred(convert(BATMeasure, d)) isa BAT.WrappedNonBATDensity
+        bd = convert(BATMeasure, d)
         DensityInterface.test_density_interface(bd, x, logdensityof(d, x))
         @test @inferred(logdensityof(bd, x)) == logdensityof(d, x)
         @test @inferred(logdensityof(bd)) == logdensityof(d)

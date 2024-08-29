@@ -6,26 +6,61 @@ mutable struct AHMCTuner{A<:AdvancedHMC.AbstractAdaptor} <: AbstractMCMCTunerIns
     adaptor::A
 end
 
-function (tuning::HMCTuningAlgorithm)(chain::MCMCIterator)
+
+function BAT.get_tuner(tuning::HMCTuningAlgorithm, chain::TransformedMCMCIterator) 
     θ = first(chain.samples).v
-    adaptor = ahmc_adaptor(tuning, chain.hamiltonian.metric, chain.kernel.τ.integrator, θ)
+    adaptor = ahmc_adaptor(tuning, chain.proposal.hamiltonian.metric, chain.proposal.kernel.τ.integrator, θ)
     AHMCTuner(tuning.target_acceptance, adaptor)
 end
 
 
-function BAT.tuning_init!(tuner::AHMCTuner, chain::MCMCIterator, max_nsteps::Integer)
+function (tuning::HMCTuningAlgorithm)(chain::TransformedMCMCIterator)
+    θ = first(chain.samples).v
+    adaptor = ahmc_adaptor(tuning, chain.proposal.hamiltonian.metric, chain.proposal.kernel.τ.integrator, θ)
+    AHMCTuner(tuning.target_acceptance, adaptor)
+end
+
+# function (tuning::HMCTuningAlgorithm)(chain::MCMCIterator)
+#     θ = first(chain.samples).v
+#     adaptor = ahmc_adaptor(tuning, chain.hamiltonian.metric, chain.kernel.τ.integrator, θ)
+#     AHMCTuner(tuning.target_acceptance, adaptor)
+# end
+
+
+function BAT.tuning_init!(tuner::AHMCTuner, chain::TransformedMCMCIterator, max_nsteps::Integer)
     AdvancedHMC.Adaptation.initialize!(tuner.adaptor, Int(max_nsteps - 1))
     nothing
 end
 
-BAT.tuning_postinit!(tuner::AHMCTuner, chain::MCMCIterator, samples::DensitySampleVector) = nothing
+# function BAT.tuning_init!(tuner::AHMCTuner, chain::MCMCIterator, max_nsteps::Integer)
+#     AdvancedHMC.Adaptation.initialize!(tuner.adaptor, Int(max_nsteps - 1))
+#     nothing
+# end
 
-function BAT.tuning_reinit!(tuner::AHMCTuner, chain::MCMCIterator, max_nsteps::Integer)
+
+
+BAT.tuning_postinit!(tuner::AHMCTuner, chain::TransformedMCMCIterator, samples::DensitySampleVector) = nothing
+
+# BAT.tuning_postinit!(tuner::AHMCTuner, chain::MCMCIterator, samples::DensitySampleVector) = nothing
+
+
+
+function BAT.tuning_reinit!(tuner::AHMCTuner, chain::TransformedMCMCIterator, max_nsteps::Integer)
     AdvancedHMC.Adaptation.initialize!(tuner.adaptor, Int(max_nsteps - 1))
     nothing
 end
 
-function BAT.tuning_update!(tuner::AHMCTuner, chain::MCMCIterator, samples::DensitySampleVector)
+
+# function BAT.tuning_reinit!(tuner::AHMCTuner, chain::MCMCIterator, max_nsteps::Integer)
+#     AdvancedHMC.Adaptation.initialize!(tuner.adaptor, Int(max_nsteps - 1))
+#     nothing
+# end
+
+BAT.default_adaptive_transform(algorithm::HamiltonianMC) = BAT.TriangularAffineTransform()
+BAT.default_adaptive_transform(tuning::HMCTuningAlgorithm) = BAT.TriangularAffineTransform()
+
+
+function BAT.tuning_update!(tuner::AHMCTuner, chain::TransformedMCMCIterator, samples::DensitySampleVector)
     max_log_posterior = maximum(samples.logd)
     accept_ratio = eff_acceptance_ratio(chain)
     if accept_ratio >= 0.9 * tuner.target_acceptance
@@ -38,11 +73,11 @@ function BAT.tuning_update!(tuner::AHMCTuner, chain::MCMCIterator, samples::Dens
     nothing
 end
 
-function BAT.tuning_finalize!(tuner::AHMCTuner, chain::MCMCIterator)
+function BAT.tuning_finalize!(tuner::AHMCTuner, chain::TransformedMCMCIterator)
     adaptor = tuner.adaptor
     AdvancedHMC.finalize!(adaptor)
-    chain.hamiltonian = AdvancedHMC.update(chain.hamiltonian, adaptor)
-    chain.kernel = AdvancedHMC.update(chain.kernel, adaptor)
+    chain.proposal.hamiltonian = AdvancedHMC.update(chain.proposal.hamiltonian, adaptor)
+    chain.proposal.kernel = AdvancedHMC.update(chain.proposal.kernel, adaptor)
     nothing
 end
 
@@ -65,4 +100,17 @@ function (callback::AHMCTunerCallback)(::Val{:mcmc_step}, chain::AHMCIterator)
     tstat = merge(tstat, (is_adapt =true,))
 
     nothing
+end
+
+function BAT.tune_mcmc_transform!!(
+    tuner::AHMCTuner,
+    transform::Any, #AffineMaps.AbstractAffineMap,#{<:typeof(*), <:LowerTriangular{<:Real}},
+    p_accept::Real,
+    z_proposed::Vector{<:Float64}, #TODO: use DensitySamples instead
+    z_current::Vector{<:Float64},
+    stepno::Int,
+    context::BATContext
+)
+
+    return (tuner, transform, false)
 end

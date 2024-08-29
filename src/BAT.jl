@@ -56,6 +56,7 @@ import EmpiricalDistributions
 import HypothesisTests
 import Measurements
 import NamedArrays
+import ProgressMeter
 import Random123
 import Sobol
 import StableRNGs

@@ -10,7 +10,7 @@ using Distributions, Statistics, StatsBase, IntervalSets, ValueShapes
     parent_dist = NamedTupleDist(a = Normal(), b = Weibull())
     vs = varshape(parent_dist)
     logweight = 4.2
-    parent_density = convert(AbstractMeasureOrDensity, parent_dist)
+    parent_density = convert(BATMeasure, parent_dist)
 
     @test @inferred(BAT.renormalize_measure(parent_density, logweight)) isa BAT.BATWeightedMeasure
     density = renormalize_measure(parent_density, logweight)

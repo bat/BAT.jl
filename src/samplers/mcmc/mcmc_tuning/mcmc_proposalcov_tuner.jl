@@ -1,25 +1,4 @@
-# This file is a part of BAT.jl, licensed under the MIT License (MIT).
-
-
-# ToDo: Add literature references to AdaptiveMHTuning docstring.
-
-"""
-    struct AdaptiveMHTuning <: MHProposalDistTuning
-
-Adaptive MCMC tuning strategy for Metropolis-Hastings samplers.
-
-Adapts the proposal function based on the acceptance ratio and covariance
-of the previous samples.
-
-Constructors:
-
-* ```$(FUNCTIONNAME)(; fields...)```
-
-Fields:
-
-$(TYPEDFIELDS)
-"""
-@with_kw struct AdaptiveMHTuning <: MHProposalDistTuning
+@with_kw struct TransformedAdaptiveMHTuning <: MCMCTuningAlgorithm
     "Controls the weight given to new covariance information in adapting the
     proposal distribution."
     λ::Float64 = 0.5
@@ -41,75 +20,52 @@ $(TYPEDFIELDS)
     r::Real = 0.5
 end
 
-export AdaptiveMHTuning
-
-
-
-mutable struct ProposalCovTuner{
+mutable struct TransformedProposalCovTuner{
     S<:MCMCBasicStats
 } <: AbstractMCMCTunerInstance
-    config::AdaptiveMHTuning
+    config::TransformedAdaptiveMHTuning
     stats::S
     iteration::Int
     scale::Float64
 end
 
 
-
-function ProposalCovTuner(tuning::AdaptiveMHTuning, chain::MHIterator)
-    m = totalndof(varshape(mcmc_target(chain)))
+function TransformedProposalCovTuner(tuning::TransformedAdaptiveMHTuning, chain::MCMCIterator)
+    m = totalndof(varshape(getmeasure(chain)))
     scale = 2.38^2 / m
-    ProposalCovTuner(tuning, MCMCBasicStats(chain), 1, scale)
+    TransformedProposalCovTuner(tuning, MCMCBasicStats(chain), 1, scale)
 end
 
+get_tuner(tuning::TransformedAdaptiveMHTuning, chain::MCMCIterator) =  TransformedProposalCovTuner(tuning, chain)
+default_adaptive_transform(tuner::TransformedAdaptiveMHTuning) = TriangularAffineTransform() 
+default_adaptive_transform(algorithm::MetropolisHastings) = TriangularAffineTransform() 
 
-# function _cov_with_fallback(m::BATMeasure)
-#     global g_state = m
-#     @assert false
-#     rng = _bat_determ_rng()
-#     T = float(eltype(rand(rng, m)))
-#     n = totalndof(varshape(m))
-#     C = fill(T(NaN), n, n)
-#     try
-#         C[:] = cov(m)
-#     catch err
-#         if err isa MethodError
-#             C[:] = cov(nestedview(rand(rng, m, 10^5)))
-#         else
-#             throw(err)
-#         end
-#     end
-#     return C
-# end
-
-
-function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator, max_nsteps::Integer)
-    Σ_unscaled = get_cov(chain.proposaldist)
-    Σ = Σ_unscaled * tuner.scale
-    
-    chain.proposaldist = set_cov(chain.proposaldist, Σ)
+function tuning_init!(tuner::TransformedProposalCovTuner, chain::MCMCIterator, max_nsteps::Integer)
+    chain.info = MCMCIteratorInfo(chain.info, tuned = false)
 
     nothing
 end
 
+tuning_reinit!(tuner::TransformedProposalCovTuner, chain::MCMCIterator, max_nsteps::Integer) = nothing
 
-tuning_reinit!(tuner::ProposalCovTuner, chain::MCMCIterator, max_nsteps::Integer) = nothing
 
-
-function tuning_postinit!(tuner::ProposalCovTuner, chain::MHIterator, samples::DensitySampleVector)
+function tuning_postinit!(tuner::TransformedProposalCovTuner, chain::MCMCIterator, samples::DensitySampleVector)
     # The very first samples of a chain can be very valuable to init tuner
     # stats, especially if the chain gets stuck early after:
     stats = tuner.stats
     append!(stats, samples)
 end
 
-
-function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator, samples::DensitySampleVector)
+# this function is called once after each tuning cycle
+g_state = nothing
+function tuning_update!(tuner::TransformedProposalCovTuner, chain::TransformedMCMCIterator, samples::DensitySampleVector)
+    
     stats = tuner.stats
     stats_reweight_factor = tuner.config.r
     reweight_relative!(stats, stats_reweight_factor)
     # empty!.(stats)
     append!(stats, samples)
+
 
     config = tuner.config
 
@@ -124,7 +80,11 @@ function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator, samples::Den
     t = tuner.iteration
     λ = config.λ
     c = tuner.scale
-    Σ_old = Matrix(get_cov(chain.proposaldist))
+    
+    transform = chain.f_transform
+
+    A = transform.A
+    Σ_old = A*A'
 
     S = convert(Array, stats.param_stats.cov)
     a_t = 1 / t^λ
@@ -150,12 +110,33 @@ function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator, samples::Den
 
     Σ_new = new_Σ_unscal * tuner.scale
 
-    chain.proposaldist = set_cov(chain.proposaldist, Σ_new)
+    S_new = cholesky(Positive, Σ_new)
+    chain.f_transform = Mul(S_new.L)
     tuner.iteration += 1
 
     nothing
+    
 end
 
-tuning_finalize!(tuner::ProposalCovTuner, chain::MCMCIterator) = nothing
 
-tuning_callback(::ProposalCovTuner) = nop_func
+tuning_finalize!(tuner::TransformedProposalCovTuner, chain::MCMCIterator) = nothing
+
+tuning_callback(::TransformedProposalCovTuner) = nop_func
+
+# default_adaptive_transform(tuner::TransformedProposalCovTuner) = TriangularAffineTransform() 
+
+
+# this function is called in each mcmc_iterate step during tuning 
+function tune_mcmc_transform!!(
+    tuner::TransformedProposalCovTuner,
+    transform::Any, #AffineMaps.AbstractAffineMap,#{<:typeof(*), <:LowerTriangular{<:Real}},
+    p_accept::Real,
+    z_proposed::Vector{<:Float64}, #TODO: use DensitySamples instead
+    z_current::Vector{<:Float64},
+    stepno::Int,
+    context::BATContext
+)
+
+    return (tuner, transform, false)
+end
+
