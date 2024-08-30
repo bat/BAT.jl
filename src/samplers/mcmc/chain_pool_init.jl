@@ -43,7 +43,7 @@ function _construct_chain(
 )
     new_context = set_rng(parent_context, AbstractRNG(rngpart, id))
     v_init = bat_initval(density, initval_alg, new_context).result
-    return MCMCIterator(algorithm, density, id, v_init, new_context)
+    return MCMCState(algorithm, density, id, v_init, new_context)
 end
 
 _gen_chains(
@@ -81,8 +81,7 @@ function mcmc_init!(
 
     dummy_context = deepcopy(context)
     dummy_initval = unshaped(bat_initval(density, InitFromTarget(), dummy_context).result, varshape(density))
-    global g_state = (;dummy_context, dummy_initval, density)
-    dummy_chain = MCMCIterator(algorithm, density, 1, dummy_initval, dummy_context)
+    dummy_chain = MCMCState(algorithm, density, 1, dummy_initval, dummy_context)
     dummy_tuner = tuning_alg(dummy_chain)
 
     chains = similar([dummy_chain], 0)

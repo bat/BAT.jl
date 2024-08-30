@@ -52,18 +52,18 @@ get_mcmc_tuning(algorithm::MetropolisHastings) = algorithm.tuning
 
 
 
-mutable struct MHIterator{
+mutable struct MHState{
     AL<:MetropolisHastings,
     D<:BATMeasure,
     PR<:RNGPartition,
     Q<:Distribution{Multivariate,Continuous},
     SV<:DensitySampleVector,
     CTX<:BATContext
-} <: MCMCIterator
+} <: MCMCState
     algorithm::AL
     target::D
     rngpart_cycle::PR
-    info::MCMCIteratorInfo
+    info::MCMCStateInfo
     proposaldist::Q
     samples::SV
     nsamples::Int64
@@ -72,10 +72,10 @@ mutable struct MHIterator{
 end
 
 
-function MHIterator(
+function MHState(
     algorithm::MCMCAlgorithm,
     target::BATMeasure,
-    info::MCMCIteratorInfo,
+    info::MCMCStateInfo,
     x_init::AbstractVector{P},
     context::BATContext
 ) where {P<:Real}
@@ -103,7 +103,7 @@ function MHIterator(
 
     rngpart_cycle = RNGPartition(rng, 0:(typemax(Int16) - 2))
 
-    chain = MHIterator(
+    chain = MHState(
         algorithm,
         target,
         rngpart_cycle,
@@ -121,7 +121,7 @@ function MHIterator(
 end
 
 
-function MCMCIterator(
+function MCMCState(
     algorithm::MetropolisHastings,
     target::BATMeasure,
     chainid::Integer,
@@ -131,33 +131,33 @@ function MCMCIterator(
     cycle = 0
     tuned = false
     converged = false
-    info = MCMCIteratorInfo(chainid, cycle, tuned, converged)
-    MHIterator(algorithm, target, info, startpos, context)
+    info = MCMCStateInfo(chainid, cycle, tuned, converged)
+    MHState(algorithm, target, info, startpos, context)
 end
 
 
-@inline _current_sample_idx(chain::MHIterator) = firstindex(chain.samples)
-@inline _proposed_sample_idx(chain::MHIterator) = lastindex(chain.samples)
+@inline _current_sample_idx(chain::MHState) = firstindex(chain.samples)
+@inline _proposed_sample_idx(chain::MHState) = lastindex(chain.samples)
 
 
-getalgorithm(chain::MHIterator) = chain.algorithm
+getalgorithm(chain::MHState) = chain.algorithm
 
-mcmc_target(chain::MHIterator) = chain.target
+mcmc_target(chain::MHState) = chain.target
 
-get_context(chain::MHIterator) = chain.context
+get_context(chain::MHState) = chain.context
 
-mcmc_info(chain::MHIterator) = chain.info
+mcmc_info(chain::MHState) = chain.info
 
-nsteps(chain::MHIterator) = chain.stepno
+nsteps(chain::MHState) = chain.stepno
 
-nsamples(chain::MHIterator) = chain.nsamples
+nsamples(chain::MHState) = chain.nsamples
 
-current_sample(chain::MHIterator) = chain.samples[_current_sample_idx(chain)]
+current_sample(chain::MHState) = chain.samples[_current_sample_idx(chain)]
 
-sample_type(chain::MHIterator) = eltype(chain.samples)
+sample_type(chain::MHState) = eltype(chain.samples)
 
 
-function reset_rng_counters!(chain::MHIterator)
+function reset_rng_counters!(chain::MHState)
     rng = get_rng(get_context(chain))
     set_rng!(rng, chain.rngpart_cycle, chain.info.cycle)
     rngpart_step = RNGPartition(rng, 0:(typemax(Int32) - 2))
@@ -166,13 +166,13 @@ function reset_rng_counters!(chain::MHIterator)
 end
 
 
-function samples_available(chain::MHIterator)
-    i = _current_sample_idx(chain::MHIterator)
+function samples_available(chain::MHState)
+    i = _current_sample_idx(chain::MHState)
     chain.samples.info.sampletype[i] == ACCEPTED_SAMPLE
 end
 
 
-function get_samples!(appendable, chain::MHIterator, nonzero_weights::Bool)::typeof(appendable)
+function get_samples!(appendable, chain::MHState, nonzero_weights::Bool)::typeof(appendable)
     if samples_available(chain)
         samples = chain.samples
 
@@ -190,10 +190,10 @@ function get_samples!(appendable, chain::MHIterator, nonzero_weights::Bool)::typ
 end
 
 
-function next_cycle!(chain::MHIterator)
+function next_cycle!(chain::MHState)
     _cleanup_samples(chain)
 
-    chain.info = MCMCIteratorInfo(chain.info, cycle = chain.info.cycle + 1)
+    chain.info = MCMCStateInfo(chain.info, cycle = chain.info.cycle + 1)
     chain.nsamples = 0
     chain.stepno = 0
 
@@ -211,7 +211,7 @@ function next_cycle!(chain::MHIterator)
 end
 
 
-function _cleanup_samples(chain::MHIterator)
+function _cleanup_samples(chain::MHState)
     samples = chain.samples
     current = _current_sample_idx(chain)
     proposed = _proposed_sample_idx(chain)
@@ -228,7 +228,7 @@ function _cleanup_samples(chain::MHIterator)
 end
 
 
-function mcmc_step!(chain::MHIterator)
+function mcmc_step!(chain::MHState)
     rng = get_rng(get_context(chain))
 
     _cleanup_samples(chain)
@@ -331,4 +331,4 @@ function _mh_weights(
 end
 
 
-eff_acceptance_ratio(chain::MHIterator) = nsamples(chain) / nsteps(chain)
+eff_acceptance_ratio(chain::MHState) = nsamples(chain) / nsteps(chain)

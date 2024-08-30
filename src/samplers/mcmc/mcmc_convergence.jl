@@ -2,14 +2,14 @@
 
 
 function check_convergence!(
-    chains::AbstractVector{<:MCMCIterator},
+    chains::AbstractVector{<:MCMCState},
     samples::AbstractVector{<:DensitySampleVector},
     algorithm::ConvergenceTest,
     context::BATContext
 )
     result = convert(Bool, bat_convergence(samples, algorithm, context).result)
     for chain in chains
-        chain.info = MCMCIteratorInfo(chain.info, converged = result)
+        chain.info = MCMCStateInfo(chain.info, converged = result)
     end
     result
 end

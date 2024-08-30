@@ -54,10 +54,10 @@ mutable struct ProposalCovTuner{
     scale::Float64
 end
 
-(tuning::AdaptiveMHTuning)(chain::MHIterator) = ProposalCovTuner(tuning, chain)
+(tuning::AdaptiveMHTuning)(chain::MHState) = ProposalCovTuner(tuning, chain)
 
 
-function ProposalCovTuner(tuning::AdaptiveMHTuning, chain::MHIterator)
+function ProposalCovTuner(tuning::AdaptiveMHTuning, chain::MHState)
     m = totalndof(varshape(mcmc_target(chain)))
     scale = 2.38^2 / m
     ProposalCovTuner(tuning, MCMCBasicStats(chain), 1, scale)
@@ -84,7 +84,7 @@ function _cov_with_fallback(m::BATMeasure)
 end
 
 
-function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator, max_nsteps::Integer)
+function tuning_init!(tuner::ProposalCovTuner, chain::MHState, max_nsteps::Integer)
     Σ_unscaled = get_cov(chain.proposaldist)
     Σ = Σ_unscaled * tuner.scale
     
@@ -94,10 +94,10 @@ function tuning_init!(tuner::ProposalCovTuner, chain::MHIterator, max_nsteps::In
 end
 
 
-tuning_reinit!(tuner::ProposalCovTuner, chain::MCMCIterator, max_nsteps::Integer) = nothing
+tuning_reinit!(tuner::ProposalCovTuner, chain::MCMCState, max_nsteps::Integer) = nothing
 
 
-function tuning_postinit!(tuner::ProposalCovTuner, chain::MHIterator, samples::DensitySampleVector)
+function tuning_postinit!(tuner::ProposalCovTuner, chain::MHState, samples::DensitySampleVector)
     # The very first samples of a chain can be very valuable to init tuner
     # stats, especially if the chain gets stuck early after:
     stats = tuner.stats
@@ -105,7 +105,7 @@ function tuning_postinit!(tuner::ProposalCovTuner, chain::MHIterator, samples::D
 end
 
 
-function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator, samples::DensitySampleVector)
+function tuning_update!(tuner::ProposalCovTuner, chain::MHState, samples::DensitySampleVector)
     stats = tuner.stats
     stats_reweight_factor = tuner.config.r
     reweight_relative!(stats, stats_reweight_factor)
@@ -136,10 +136,10 @@ function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator, samples::Den
     max_log_posterior = stats.logtf_stats.maximum
 
     if α_min <= α <= α_max
-        chain.info = MCMCIteratorInfo(chain.info, tuned = true)
+        chain.info = MCMCStateInfo(chain.info, tuned = true)
         @debug "MCMC chain $(chain.info.id) tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
     else
-        chain.info = MCMCIteratorInfo(chain.info, tuned = false)
+        chain.info = MCMCStateInfo(chain.info, tuned = false)
         @debug "MCMC chain $(chain.info.id) *not* tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
 
         if α > α_max && c < c_max
@@ -157,6 +157,6 @@ function tuning_update!(tuner::ProposalCovTuner, chain::MHIterator, samples::Den
     nothing
 end
 
-tuning_finalize!(tuner::ProposalCovTuner, chain::MCMCIterator) = nothing
+tuning_finalize!(tuner::ProposalCovTuner, chain::MCMCState) = nothing
 
 tuning_callback(::ProposalCovTuner) = nop_func

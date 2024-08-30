@@ -15,8 +15,8 @@ BAT.bat_default(::Type{MCMCSampling}, ::Val{:burnin}, mcalg::HamiltonianMC, traf
 BAT.get_mcmc_tuning(algorithm::HamiltonianMC) = algorithm.tuning
 
 
-# MCMCIterator subtype for HamiltonianMC
-mutable struct AHMCIterator{
+# MCMCState subtype for HamiltonianMC
+mutable struct AHMCState{
     AL<:HamiltonianMC,
     D<:BATMeasure,
     PR<:RNGPartition,
@@ -25,11 +25,11 @@ mutable struct AHMCIterator{
     TR<:AdvancedHMC.Transition,
     KRNL<:AdvancedHMC.HMCKernel,
     CTX<:BATContext
-} <: MCMCIterator
+} <: MCMCState
     algorithm::AL
     target::D
     rngpart_cycle::PR
-    info::MCMCIteratorInfo
+    info::MCMCStateInfo
     samples::SV
     nsamples::Int64
     stepno::Int64
@@ -40,10 +40,10 @@ mutable struct AHMCIterator{
 end
 
 
-function AHMCIterator(
+function AHMCState(
     algorithm::HamiltonianMC,
     target::BATMeasure,
-    info::MCMCIteratorInfo,
+    info::MCMCStateInfo,
     x_init::AbstractVector{P},
     context::BATContext,
 ) where {P<:Real}
@@ -91,7 +91,7 @@ function AHMCIterator(
     # Perform a dummy step to get type-stable transition value:
     transition = AdvancedHMC.transition(deepcopy(rng), deepcopy(hamiltonian), deepcopy(kernel), init_transition.z)
 
-    chain = AHMCIterator(
+    chain = AHMCState(
         algorithm,
         target,
         rngpart_cycle,
@@ -111,7 +111,7 @@ function AHMCIterator(
 end
 
 
-function MCMCIterator(
+function MCMCState(
     algorithm::HamiltonianMC,
     target::BATMeasure,
     chainid::Integer,
@@ -121,34 +121,34 @@ function MCMCIterator(
     cycle = 0
     tuned = false
     converged = false
-    info = MCMCIteratorInfo(chainid, cycle, tuned, converged)
-    AHMCIterator(algorithm, target, info, startpos, context)
+    info = MCMCStateInfo(chainid, cycle, tuned, converged)
+    AHMCState(algorithm, target, info, startpos, context)
 end
 
 
-@inline _current_sample_idx(chain::AHMCIterator) = firstindex(chain.samples)
-@inline _proposed_sample_idx(chain::AHMCIterator) = lastindex(chain.samples)
+@inline _current_sample_idx(chain::AHMCState) = firstindex(chain.samples)
+@inline _proposed_sample_idx(chain::AHMCState) = lastindex(chain.samples)
 
 
-BAT.getalgorithm(chain::AHMCIterator) = chain.algorithm
+BAT.getalgorithm(chain::AHMCState) = chain.algorithm
 
-BAT.mcmc_target(chain::AHMCIterator) = chain.target
+BAT.mcmc_target(chain::AHMCState) = chain.target
 
-BAT.get_context(chain::AHMCIterator) = chain.context
+BAT.get_context(chain::AHMCState) = chain.context
 
-BAT.mcmc_info(chain::AHMCIterator) = chain.info
+BAT.mcmc_info(chain::AHMCState) = chain.info
 
-BAT.nsteps(chain::AHMCIterator) = chain.stepno
+BAT.nsteps(chain::AHMCState) = chain.stepno
 
-BAT.nsamples(chain::AHMCIterator) = chain.nsamples
+BAT.nsamples(chain::AHMCState) = chain.nsamples
 
-BAT.current_sample(chain::AHMCIterator) = chain.samples[_current_sample_idx(chain)]
+BAT.current_sample(chain::AHMCState) = chain.samples[_current_sample_idx(chain)]
 
-BAT.sample_type(chain::AHMCIterator) = eltype(chain.samples)
+BAT.sample_type(chain::AHMCState) = eltype(chain.samples)
 
 
 
-function BAT.reset_rng_counters!(chain::AHMCIterator)
+function BAT.reset_rng_counters!(chain::AHMCState)
     rng = get_rng(get_context(chain))
     set_rng!(rng, chain.rngpart_cycle, chain.info.cycle)
     rngpart_step = RNGPartition(rng, 0:(typemax(Int32) - 2))
@@ -157,13 +157,13 @@ function BAT.reset_rng_counters!(chain::AHMCIterator)
 end
 
 
-function BAT.samples_available(chain::AHMCIterator)
-    i = _current_sample_idx(chain::AHMCIterator)
+function BAT.samples_available(chain::AHMCState)
+    i = _current_sample_idx(chain::AHMCState)
     chain.samples.info.sampletype[i] == ACCEPTED_SAMPLE
 end
 
 
-function BAT.get_samples!(appendable, chain::AHMCIterator, nonzero_weights::Bool)::typeof(appendable)
+function BAT.get_samples!(appendable, chain::AHMCState, nonzero_weights::Bool)::typeof(appendable)
     if samples_available(chain)
         samples = chain.samples
 
@@ -181,10 +181,10 @@ function BAT.get_samples!(appendable, chain::AHMCIterator, nonzero_weights::Bool
 end
 
 
-function BAT.next_cycle!(chain::AHMCIterator)
+function BAT.next_cycle!(chain::AHMCState)
     _cleanup_samples(chain)
 
-    chain.info = MCMCIteratorInfo(chain.info, cycle = chain.info.cycle + 1)
+    chain.info = MCMCStateInfo(chain.info, cycle = chain.info.cycle + 1)
     chain.nsamples = 0
     chain.stepno = 0
 
@@ -208,7 +208,7 @@ function BAT.next_cycle!(chain::AHMCIterator)
 end
 
 
-function _cleanup_samples(chain::AHMCIterator)
+function _cleanup_samples(chain::AHMCState)
     samples = chain.samples
     current = _current_sample_idx(chain)
     proposed = _proposed_sample_idx(chain)
@@ -225,7 +225,7 @@ function _cleanup_samples(chain::AHMCIterator)
 end
 
 
-function BAT.mcmc_step!(chain::AHMCIterator)
+function BAT.mcmc_step!(chain::AHMCState)
     _cleanup_samples(chain)
 
     samples = chain.samples
@@ -296,4 +296,4 @@ function BAT.mcmc_step!(chain::AHMCIterator)
 end
 
 
-BAT.eff_acceptance_ratio(chain::AHMCIterator) = nsamples(chain) / nsteps(chain)
+BAT.eff_acceptance_ratio(chain::AHMCState) = nsamples(chain) / nsteps(chain)

@@ -7,11 +7,11 @@
 Abstract type for Markov chain Monte Carlo algorithms.
 
 To implement a new MCMC algorithm, subtypes of both `MCMCAlgorithm` and
-[`MCMCIterator`](@ref) are required.
+[`MCMCState`](@ref) are required.
 
 !!! note
 
-    The details of the `MCMCIterator` and `MCMCAlgorithm` API required to
+    The details of the `MCMCState` and `MCMCAlgorithm` API required to
     implement a new MCMC algorithm currently do not (yet) form part of the
     stable API and are subject to change without deprecation.
 """
@@ -54,7 +54,7 @@ export MCMCBurninAlgorithm
 
 
 
-@with_kw struct MCMCIteratorInfo
+@with_kw struct MCMCStateInfo
     id::Int32
     cycle::Int32
     tuned::Bool
@@ -63,7 +63,7 @@ end
 
 
 """
-    abstract type MCMCIterator end
+    abstract type MCMCState end
 
 *BAT-internal, not part of stable public API.*
 
@@ -71,15 +71,15 @@ Represents the current state of an MCMC chain.
 
 !!! note
 
-    The details of the `MCMCIterator` and `MCMCAlgorithm` API (see below)
+    The details of the `MCMCState` and `MCMCAlgorithm` API (see below)
     currently do not form part of the stable API and are subject to change
     without deprecation.
 
 To implement a new MCMC algorithm, subtypes of both [`MCMCAlgorithm`](@ref)
-and `MCMCIterator` are required.
+and `MCMCState` are required.
 
-The following methods must be defined for subtypes of `MCMCIterator` (e.g.
-`SomeMCMCIter<:MCMCIterator`):
+The following methods must be defined for subtypes of `MCMCState` (e.g.
+`SomeMCMCIter<:MCMCState`):
 
 ```julia
 BAT.getalgorithm(chain::SomeMCMCIter)::MCMCAlgorithm
@@ -88,7 +88,7 @@ BAT.mcmc_target(chain::SomeMCMCIter)::BATMeasure
 
 BAT.get_context(chain::SomeMCMCIter)::BATContext
 
-BAT.mcmc_info(chain::SomeMCMCIter)::MCMCIteratorInfo
+BAT.mcmc_info(chain::SomeMCMCIter)::MCMCStateInfo
 
 BAT.nsteps(chain::SomeMCMCIter)::Int
 
@@ -113,19 +113,19 @@ BAT.mcmc_step!(
 The following methods are implemented by default:
 
 ```julia
-getalgorithm(chain::MCMCIterator)
-mcmc_target(chain::MCMCIterator)
-DensitySampleVector(chain::MCMCIterator)
-mcmc_iterate!(chain::MCMCIterator, ...)
-mcmc_iterate!(chains::AbstractVector{<:MCMCIterator}, ...)
-isvalidchain(chain::MCMCIterator)
-isviablechain(chain::MCMCIterator)
+getalgorithm(chain::MCMCState)
+mcmc_target(chain::MCMCState)
+DensitySampleVector(chain::MCMCState)
+mcmc_iterate!(chain::MCMCState, ...)
+mcmc_iterate!(chains::AbstractVector{<:MCMCState}, ...)
+isvalidchain(chain::MCMCState)
+isviablechain(chain::MCMCState)
 ```
 """
-abstract type MCMCIterator end
+abstract type MCMCState end
 
 
-function Base.show(io::IO, chain::MCMCIterator)
+function Base.show(io::IO, chain::MCMCState)
     print(io, Base.typename(typeof(chain)).name, "(")
     print(io, "id = "); show(io, mcmc_info(chain).id)
     print(io, ", nsamples = "); show(io, nsamples(chain))
@@ -158,7 +158,7 @@ function mcmc_step! end
 
 
 
-function DensitySampleVector(chain::MCMCIterator)
+function DensitySampleVector(chain::MCMCState)
     DensitySampleVector(sample_type(chain), totalndof(varshape(mcmc_target(chain))))
 end
 
@@ -196,7 +196,7 @@ function mcmc_iterate! end
 
 function mcmc_iterate!(
     output::Union{DensitySampleVector,Nothing},
-    chain::MCMCIterator,
+    chain::MCMCState,
     tuner::Nothing = nothing;
     max_nsteps::Integer = 1,
     max_time::Real = Inf,
@@ -238,7 +238,7 @@ end
 
 function mcmc_iterate!(
     output::Union{DensitySampleVector,Nothing},
-    chain::MCMCIterator,
+    chain::MCMCState,
     tuner::AbstractMCMCTunerInstance;
     max_nsteps::Integer = 1,
     max_time::Real = Inf,
@@ -257,7 +257,7 @@ end
 
 function mcmc_iterate!(
     outputs::Union{AbstractVector{<:DensitySampleVector},Nothing},
-    chains::AbstractVector{<:MCMCIterator},
+    chains::AbstractVector{<:MCMCState},
     tuners::Union{AbstractVector{<:AbstractMCMCTunerInstance},Nothing} = nothing;
     kwargs...
 )
@@ -279,9 +279,9 @@ function mcmc_iterate!(
 end
 
 
-isvalidchain(chain::MCMCIterator) = current_sample(chain).logd > -Inf
+isvalidchain(chain::MCMCState) = current_sample(chain).logd > -Inf
 
-isviablechain(chain::MCMCIterator) = nsamples(chain) >= 2
+isviablechain(chain::MCMCState) = nsamples(chain) >= 2
 
 
 
@@ -295,10 +295,10 @@ MCMC sample generator.
 Constructors:
 
 ```julia
-MCMCSampleGenerator(chain::AbstractVector{<:MCMCIterator})
+MCMCSampleGenerator(chain::AbstractVector{<:MCMCState})
 ```
 """
-struct MCMCSampleGenerator{T<:AbstractVector{<:MCMCIterator}} <: AbstractSampleGenerator
+struct MCMCSampleGenerator{T<:AbstractVector{<:MCMCState}} <: AbstractSampleGenerator
     chains::T
 end
 
