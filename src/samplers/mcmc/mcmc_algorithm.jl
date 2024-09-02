@@ -62,69 +62,6 @@ export MCMCBurninAlgorithm
 end
 
 
-"""
-    abstract type MCMCState end
-
-*BAT-internal, not part of stable public API.*
-
-Represents the current state of an MCMC chain.
-
-!!! note
-
-    The details of the `MCMCState` and `MCMCAlgorithm` API (see below)
-    currently do not form part of the stable API and are subject to change
-    without deprecation.
-
-To implement a new MCMC algorithm, subtypes of both [`MCMCAlgorithm`](@ref)
-and `MCMCState` are required.
-
-The following methods must be defined for subtypes of `MCMCState` (e.g.
-`SomeMCMCIter<:MCMCState`):
-
-```julia
-BAT.getalgorithm(chain::SomeMCMCIter)::MCMCAlgorithm
-
-BAT.mcmc_target(chain::SomeMCMCIter)::BATMeasure
-
-BAT.get_context(chain::SomeMCMCIter)::BATContext
-
-BAT.mcmc_info(chain::SomeMCMCIter)::MCMCStateInfo
-
-BAT.nsteps(chain::SomeMCMCIter)::Int
-
-BAT.nsamples(chain::SomeMCMCIter)::Int
-
-BAT.current_sample(chain::SomeMCMCIter)::DensitySample
-
-BAT.sample_type(chain::SomeMCMCIter)::Type{<:DensitySample}
-
-BAT.samples_available(chain::SomeMCMCIter, nonzero_weights::Bool = false)::Bool
-
-BAT.get_samples!(samples::DensitySampleVector, chain::SomeMCMCIter, nonzero_weights::Bool)::typeof(samples)
-
-BAT.next_cycle!(chain::SomeMCMCIter)::SomeMCMCIter
-
-BAT.mcmc_step!(
-    chain::SomeMCMCIter
-    callback::Function,
-)::nothing
-```
-
-The following methods are implemented by default:
-
-```julia
-getalgorithm(chain::MCMCState)
-mcmc_target(chain::MCMCState)
-DensitySampleVector(chain::MCMCState)
-mcmc_iterate!(chain::MCMCState, ...)
-mcmc_iterate!(chains::AbstractVector{<:MCMCState}, ...)
-isvalidchain(chain::MCMCState)
-isviablechain(chain::MCMCState)
-```
-"""
-abstract type MCMCState end
-
-
 function Base.show(io::IO, chain::MCMCState)
     print(io, Base.typename(typeof(chain)).name, "(")
     print(io, "id = "); show(io, mcmc_info(chain).id)
@@ -279,7 +216,7 @@ function mcmc_iterate!(
 end
 
 
-isvalidchain(chain::MCMCState) = current_sample(chain).logd > -Inf
+isvalidstate(state::MCMCState) = current_sample(state).logd > -Inf
 
 isviablechain(chain::MCMCState) = nsamples(chain) >= 2
 

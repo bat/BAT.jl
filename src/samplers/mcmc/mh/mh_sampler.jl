@@ -136,25 +136,11 @@ function MCMCState(
 end
 
 
-@inline _current_sample_idx(chain::MHState) = firstindex(chain.samples)
-@inline _proposed_sample_idx(chain::MHState) = lastindex(chain.samples)
+@inline _current_sample_idx(state::MCMCState) = firstindex(state.samples)
+@inline _proposed_sample_idx(state::MCMCState) = lastindex(state.samples)
 
 
-getalgorithm(chain::MHState) = chain.algorithm
-
-mcmc_target(chain::MHState) = chain.target
-
-get_context(chain::MHState) = chain.context
-
-mcmc_info(chain::MHState) = chain.info
-
-nsteps(chain::MHState) = chain.stepno
-
-nsamples(chain::MHState) = chain.nsamples
-
-current_sample(chain::MHState) = chain.samples[_current_sample_idx(chain)]
-
-sample_type(chain::MHState) = eltype(chain.samples)
+current_sample(state::MCMCState, proposal::MHProposal) = state.samples[_current_sample_idx(state)]
 
 
 function reset_rng_counters!(chain::MHState)
