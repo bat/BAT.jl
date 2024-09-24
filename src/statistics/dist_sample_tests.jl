@@ -33,7 +33,6 @@ function dist_sample_qualities(
     #HypothesisTests.pvalue(HypothesisTests.KSampleADTest(Vector(samples_dist_logpdfs), Vector(ref_dist_logpdfs)))
     # So use custom KS-calculation instead:
     logpdfdist_pvalue = ks_pvalue(fast_ks_delta(samples_dist_logpdfs, ref_dist_logpdfs), length(samples_dist_logpdfs), length(ref_dist_logpdfs))
-global g_state = ref_samples
     uv = unshaped.(samples_v)
     ref_uv = unshaped.(ref_samples)
 

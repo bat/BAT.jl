@@ -1,16 +1,11 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-abstract type MCMCProposal end
-
 struct MHProposal{
     D<:Union{Distribution, AbstractMeasure},
     WS<:AbstractMCMCWeightingScheme
-}<: TransformedMCMCProposal
+}<: MCMCProposal
     proposal_dist::D
 end
-
-# TODO AC: find a better solution for this. Problem is that in the with_kw constructor below, we need to dispatch on this type.
-struct TransformedMCMCDispatch end
 
 
 """
@@ -29,20 +24,21 @@ $(TYPEDFIELDS)
 @with_kw struct MCMCSampling{
     TR<:AbstractTransformTarget,
     IN<:MCMCInitAlgorithm,
-    BI<:TransformedMCMCBurninAlgorithm,
+    BI<:MCMCBurninAlgorithm,
     CT<:ConvergenceTest,
     CB<:Function
 } <: AbstractSamplingAlgorithm
-    pre_transform::TR = bat_default(TransformedMCMCDispatch, Val(:pre_transform))
-    tuning_alg::MCMCTuningAlgorithm = TransformedRAMTuner() # TODO: use bat_defaults
-    adaptive_transform::AdaptiveTransformSpec = default_adaptive_transform(tuning_alg)
-    proposal::MCMCProposal = TransformedMHProposal(Normal(), RepetitionWeighting()) #TODO: use bat_defaults
-    tempering = NoMCMCTempering() # TODO: use bat_defaults (was TransformedNoTransformedMCMCTempering in RenameTransformed)
+    # TODO: MD, use bat_default to set default values
+    pre_transform::TR = PriorToGaussian()
+    tuning::MCMCTuning = AdaptiveMHTuning()
+    adaptive_transform::AdaptiveTransformSpec = default_adaptive_transform(tuning)
+    proposal::MCMCProposal = MetropolisHastings(proposaldist = Normal())
+    tempering = NoMCMCTempering() 
     nchains::Int = 4
     nsteps::Int = 10^5
     #TODO: max_time ?
-    init::IN =  bat_default(TransformedMCMCDispatch, Val(:init), pre_transform, nchains, nsteps) #MCMCChainPoolInit()#TODO AC: use bat_defaults bat_default(MCMCSampling, Val(:init), MetropolisHastings(), pre_transform, nchains, nsteps) #TODO
-    burnin::BI = bat_default(TransformedMCMCDispatch, Val(:burnin), pre_transform, nchains, nsteps)
+    init::IN = MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
+    burnin::BI = MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
     convergence::CT = BrooksGelmanConvergence()
     strict::Bool = true
     store_burnin::Bool = false
@@ -51,12 +47,21 @@ $(TYPEDFIELDS)
 end
 export MCMCSampling
 
+bat_default(::MCMCSampling, ::Val{:pre_transform}) = PriorToGaussian()
+
+bat_default(::MCMCSampling, ::Val{:nsteps}, trafo::AbstractTransformTarget, nchains::Integer) = 10^5
+
+bat_default(::MCMCSampling, ::Val{:init}, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+    MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
+
+bat_default(::MCMCSampling, ::Val{:burnin}, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+    MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
 function bat_sample_impl(target::BATMeasure, sampling::MCMCSampling, context::BATContext)
     
     target_transformed, pre_transform = transform_and_unshape(sampling.pre_transform, target, context)
 
-    (chains, tuners, chain_outputs, temperers) = mcmc_init!(
+    (mc_states, tuners, chain_outputs, temperers) = mcmc_init!(
         sampling,
         target_transformed,
         apply_trafo_to_init(pre_transform, sampling.init), # TODO: MD: at which point should the init_alg be transformed? Might be better to read, if it's transformed later during init of states
@@ -65,34 +70,31 @@ function bat_sample_impl(target::BATMeasure, sampling::MCMCSampling, context::BA
     )
 
     if !sampling.store_burnin
-        chain_outputs .= DensitySampleVector.(chains)
+        chain_outputs .= DensitySampleVector.(mc_states)
     end
 
     mcmc_burnin!(
         sampling.store_burnin ? chain_outputs : nothing,
         tuners,
-        chains,
-        sampling.burnin,
-        sampling.convergence,
-        sampling.strict,
-        sampling.nonzero_weights,
+        mc_states,
+        sampling,
         sampling.store_burnin ? sampling.callback : nop_func
     )
 
-    next_cycle!.(chains)
+    next_cycle!.(mc_states)
 
     mcmc_iterate!(
         chain_outputs,
-        chains;
+        mc_states;
         max_nsteps = sampling.nsteps,
         nonzero_weights = sampling.nonzero_weights,
         callback = sampling.callback
     )
 
-    samples_transformed = DensitySampleVector(first(chains))
+    samples_transformed = DensitySampleVector(first(mc_states))
     isempty(chain_outputs) || append!.(Ref(samples_transformed), chain_outputs)
 
-    smpls = inverse(trafo).(samples_transformed)
+    smpls = inverse(pre_transform).(samples_transformed)
 
-    (result = smpls, result_trafo = samples_transformed, trafo = trafo, generator = MCMCSampleGenerator(chains))
+    (result = smpls, result_trafo = samples_transformed, trafo = pre_transform, generator = MCMCSampleGenerator(mc_states))
 end

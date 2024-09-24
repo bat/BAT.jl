@@ -26,36 +26,37 @@ export MCMCMultiCycleBurnin
 function mcmc_burnin!(
     outputs::Union{AbstractVector{<:DensitySampleVector},Nothing},
     tuners::AbstractVector{<:AbstractMCMCTunerInstance},
-    chains::AbstractVector{<:MCMCState},
-    burnin_alg::MCMCMultiCycleBurnin,
-    convergence_test::ConvergenceTest,
-    strict_mode::Bool,
-    nonzero_weights::Bool,
+    mc_states::AbstractVector{<:MCMCState},
+    sampling::MCMCSampling,
     callback::Function
 )
-    nchains = length(chains)
+    nchains = length(mc_states)
+
+    @unpack burnin, convergence, strict, nonzero_weights = sampling
 
     @info "Begin tuning of $nchains MCMC chain(s)."
 
     cycles = zero(Int)
     successful = false
-    while !successful && cycles < burnin_alg.max_ncycles
+    while !successful && cycles < burnin.max_ncycles
         cycles += 1
 
-        new_outputs = DensitySampleVector.(chains)
+        new_outputs = DensitySampleVector.(mc_states)
 
-        next_cycle!.(chains)
+        next_cycle!.(mc_states)
 
-        tuning_reinit!.(tuners, chains, burnin_alg.nsteps_per_cycle)
+        tuning_reinit!.(tuners, mc_states, burnin.nsteps_per_cycle)
 
         mcmc_iterate!(
-            new_outputs, chains, tuners,
-            max_nsteps = burnin_alg.nsteps_per_cycle,
+            new_outputs, mc_states;
+            tuners = tuners,
+            max_nsteps = burnin.nsteps_per_cycle,
             nonzero_weights = nonzero_weights,
             callback = callback
         )
 
-        tuning_update!.(tuners, chains, new_outputs)
+        tuning_update!.(tuners, mc_states, new_outputs)
+
         isnothing(outputs) || append!.(outputs, new_outputs)
 
         # ToDo: Convergence tests are a special case, they're not supposed
@@ -63,42 +64,44 @@ function mcmc_burnin!(
         # first chain here. But just making a new context is also not ideal.
         # Better copy the context of the first chain and replace the RNG
         # with a new one in the future:
-        check_convergence!(chains, new_outputs, convergence_test, BATContext())
+        check_convergence!(mc_states, new_outputs, convergence, BATContext())
 
-        ntuned = count(c -> c.info.tuned, chains)
-        nconverged = count(c -> c.info.converged, chains)
+        ntuned = count(c -> c.info.tuned, mc_states)
+        nconverged = count(c -> c.info.converged, mc_states)
         successful = (ntuned == nconverged == nchains)
 
-        callback(Val(:mcmc_burnin), tuners, chains)
+        callback(Val(:mcmc_burnin), tuners, mc_states)
 
         @info "MCMC Tuning cycle $cycles finished, $nchains chains, $ntuned tuned, $nconverged converged."
     end
 
-    tuning_finalize!.(tuners, chains)
+    tuning_finalize!.(tuners, mc_states)
     
     if successful
         @info "MCMC tuning of $nchains chains successful after $cycles cycle(s)."
     else
         msg = "MCMC tuning of $nchains chains aborted after $cycles cycle(s)."
-        if strict_mode
+        if strict
             throw(ErrorException(msg))
         else
             @warn msg
         end
     end
 
-    if burnin_alg.nsteps_final > 0
+    if burnin.nsteps_final > 0
         @info "Running post-tuning stabilization steps for $nchains MCMC chain(s)."
 
-        next_cycle!.(chains)
+        next_cycle!.(mc_states)
 
         mcmc_iterate!(
-            outputs, chains,
-            max_nsteps = burnin_alg.nsteps_final,
+            outputs, mc_states,
+            max_nsteps = burnin.nsteps_final,
             nonzero_weights = nonzero_weights,
             callback = callback
         )
     end
+
+    #TODO: MD, Discuss: Where/When Tempering? 
 
     successful
 end

@@ -14,8 +14,8 @@ using HeterogeneousComputing, AutoDiffOperators
 using BAT: MeasureLike, BATMeasure
 
 using BAT: get_context, get_adselector, _NoADSelected
-using BAT: getalgorithm, mcmc_target
-using BAT: MCMCState, MCMCStateInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin, AbstractMCMCTunerInstance
+using BAT: getproposal, mcmc_target
+using BAT: MCMCState, HMCState, HamiltonianMC, HMCProposalState, MCMCStateInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin, AbstractMCMCTunerInstance
 using BAT: AbstractTransformTarget
 using BAT: RNGPartition, set_rng!
 using BAT: mcmc_step!, nsamples, nsteps, samples_available, eff_acceptance_ratio
@@ -27,7 +27,7 @@ using BAT: CURRENT_SAMPLE, PROPOSED_SAMPLE, INVALID_SAMPLE, ACCEPTED_SAMPLE, REJ
 using BAT: HamiltonianMC
 using BAT: AHMCSampleID, AHMCSampleIDVector
 using BAT: HMCMetric, DiagEuclideanMetric, UnitEuclideanMetric, DenseEuclideanMetric
-using BAT: HMCTuningAlgorithm, MassMatrixAdaptor, StepSizeAdaptor, NaiveHMCTuning, StanHMCTuning
+using BAT: HMCTuning, MassMatrixAdaptor, StepSizeAdaptor, NaiveHMCTuning, StanHMCTuning
 
 using ValueShapes: varshape
 

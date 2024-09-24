@@ -1,8 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-
 # ToDo: Add literature references to AdaptiveMHTuning docstring.
-
 """
     struct AdaptiveMHTuning <: MHProposalDistTuning
 
@@ -43,39 +41,36 @@ end
 
 export AdaptiveMHTuning
 
-
-
-mutable struct ProposalCovTuner{
+mutable struct ProposalCovTunerState{
     S<:MCMCBasicStats
 } <: AbstractMCMCTunerInstance
-    config::AdaptiveMHTuning
+    tuning::AdaptiveMHTuning
     stats::S
     iteration::Int
     scale::Float64
 end
 
-(tuning::AdaptiveMHTuning)(chain::MHState) = ProposalCovTuner(tuning, chain)
+(tuning::AdaptiveMHTuning)(mc_state::MCMCState) = ProposalCovTunerState(tuning, mc_state)
 
+# TODO: MD, what should the default be? 
+default_adaptive_transform(tuning::AdaptiveMHTuning) = TriangularAffineTransform()
 
-function ProposalCovTuner(tuning::AdaptiveMHTuning, chain::MHState)
-    m = totalndof(varshape(mcmc_target(chain)))
+function ProposalCovTunerState(tuning::AdaptiveMHTuning, mc_state::MCMCState)
+    m = totalndof(varshape(mcmc_target(mc_state)))
     scale = 2.38^2 / m
-    ProposalCovTuner(tuning, MCMCBasicStats(chain), 1, scale)
+    ProposalCovTunerState(tuning, MCMCBasicStats(mc_state), 1, scale)
 end
 
 
-function _cov_with_fallback(m::BATMeasure)
-    global g_state = m
-    @assert false
+function _cov_with_fallback(d::UnivariateDistribution, n::Integer)
     rng = _bat_determ_rng()
-    T = float(eltype(rand(rng, m)))
-    n = totalndof(varshape(m))
+    T = float(eltype(rand(rng, d)))
     C = fill(T(NaN), n, n)
     try
-        C[:] = cov(m)
+        C[:] = Diagonal(fill(var(d),n))
     catch err
         if err isa MethodError
-            C[:] = cov(nestedview(rand(rng, m, 10^5)))
+            C[:] = Diagonal(fill(var(nestedview(rand(rng, d, 10^5))),n))
         else
             throw(err)
         end
@@ -83,21 +78,43 @@ function _cov_with_fallback(m::BATMeasure)
     return C
 end
 
+function _cov_with_fallback(d::MultivariateDistribution, n::Integer)
+    rng = _bat_determ_rng()
+    T = float(eltype(rand(rng, d)))
+    C = fill(T(NaN), n, n)
+    try
+        C[:] = cov(d)
+    catch err
+        if err isa MethodError
+            C[:] = cov(nestedview(rand(rng, d, 10^5)))
+        else
+            throw(err)
+        end
+    end
+    return C
+end
 
-function tuning_init!(tuner::ProposalCovTuner, chain::MHState, max_nsteps::Integer)
-    Σ_unscaled = get_cov(chain.proposaldist)
+_approx_cov(target::Distribution, n) = _cov_with_fallback(target, n)
+_approx_cov(target::BATDistMeasure, n) = _cov_with_fallback(Distribution(target), n)
+_approx_cov(target::AbstractPosteriorMeasure, n) = _approx_cov(getprior(target), n)
+
+function tuning_init!(tuner::ProposalCovTunerState, mc_state::MCMCState, max_nsteps::Integer)
+    n = totalndof(varshape(mcmc_target(mc_state)))
+
+    proposaldist = mc_state.proposal.proposaldist
+    Σ_unscaled = _approx_cov(proposaldist, n)
     Σ = Σ_unscaled * tuner.scale
     
-    chain.proposaldist = set_cov(chain.proposaldist, Σ)
+    proposaldist = set_cov(proposaldist, Σ)
 
     nothing
 end
 
 
-tuning_reinit!(tuner::ProposalCovTuner, chain::MCMCState, max_nsteps::Integer) = nothing
+tuning_reinit!(tuner::ProposalCovTunerState, mc_state::MCMCState, max_nsteps::Integer) = nothing
 
 
-function tuning_postinit!(tuner::ProposalCovTuner, chain::MHState, samples::DensitySampleVector)
+function tuning_postinit!(tuner::ProposalCovTunerState, mc_state::MHState, samples::DensitySampleVector)
     # The very first samples of a chain can be very valuable to init tuner
     # stats, especially if the chain gets stuck early after:
     stats = tuner.stats
@@ -105,42 +122,45 @@ function tuning_postinit!(tuner::ProposalCovTuner, chain::MHState, samples::Dens
 end
 
 
-function tuning_update!(tuner::ProposalCovTuner, chain::MHState, samples::DensitySampleVector)
+function tuning_update!(tuner::ProposalCovTunerState, mc_state::MHState, samples::DensitySampleVector)
+    tuning = tuner.tuning
     stats = tuner.stats
-    stats_reweight_factor = tuner.config.r
+    stats_reweight_factor = tuning.r
     reweight_relative!(stats, stats_reweight_factor)
-    # empty!.(stats)
     append!(stats, samples)
 
-    config = tuner.config
+    proposaldist = mc_state.proposal.proposaldist
 
-    α_min = minimum(config.α)
-    α_max = maximum(config.α)
+    α_min = minimum(tuning.α)
+    α_max = maximum(tuning.α)
 
-    c_min = minimum(config.c)
-    c_max = maximum(config.c)
+    c_min = minimum(tuning.c)
+    c_max = maximum(tuning.c)
 
-    β = config.β
+    β = tuning.β
 
     t = tuner.iteration
-    λ = config.λ
+    λ = tuning.λ
     c = tuner.scale
-    Σ_old = Matrix(get_cov(chain.proposaldist))
+
+    f_transform = mc_state.f_transform
+    A = f_transform.A
+    Σ_old = A * A'
 
     S = convert(Array, stats.param_stats.cov)
     a_t = 1 / t^λ
     new_Σ_unscal = (1 - a_t) * (Σ_old/c) + a_t * S
 
-    α = eff_acceptance_ratio(chain)
+    α = eff_acceptance_ratio(mc_state)
 
     max_log_posterior = stats.logtf_stats.maximum
 
     if α_min <= α <= α_max
-        chain.info = MCMCStateInfo(chain.info, tuned = true)
-        @debug "MCMC chain $(chain.info.id) tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
+        mc_state.info = MCMCStateInfo(mc_state.info, tuned = true)
+        @debug "MCMC chain $(mc_state.info.id) tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
     else
-        chain.info = MCMCStateInfo(chain.info, tuned = false)
-        @debug "MCMC chain $(chain.info.id) *not* tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
+        mc_state.info = MCMCStateInfo(mc_state.info, tuned = false)
+        @debug "MCMC chain $(mc_state.info.id) *not* tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
 
         if α > α_max && c < c_max
             tuner.scale = c * β
@@ -150,13 +170,33 @@ function tuning_update!(tuner::ProposalCovTuner, chain::MHState, samples::Densit
     end
 
     Σ_new = new_Σ_unscal * tuner.scale
-
-    chain.proposaldist = set_cov(chain.proposaldist, Σ_new)
+    S_new = cholesky(Positive, Σ_new)
+    
+    mc_state.f_transform = Mul(S_new.L)
+    
     tuner.iteration += 1
 
     nothing
 end
 
-tuning_finalize!(tuner::ProposalCovTuner, chain::MCMCState) = nothing
+tuning_finalize!(tuner::ProposalCovTunerState, mc_state::MCMCState) = nothing
 
-tuning_callback(::ProposalCovTuner) = nop_func
+tuning_callback(::ProposalCovTunerState) = nop_func
+
+tuning_callback(::Nothing) = nop_func
+
+function tune_transform!!(
+    mc_state::MCMCState,
+    tuner::ProposalCovTunerState,
+    p_accept::Real
+)
+    return (tuner, mc_state.f_transform)
+end
+
+function tune_transform!!(
+    mc_state::MCMCState,
+    tuner::Nothing,
+    p_accept::Real
+)
+    return (tuner, mc_state.f_transform)
+end

@@ -2,7 +2,7 @@
 
 
 function check_convergence!(
-    chains::AbstractVector{<:MCMCState},
+    chains::AbstractVector{<:MCMCIterator},
     samples::AbstractVector{<:DensitySampleVector},
     algorithm::ConvergenceTest,
     context::BATContext

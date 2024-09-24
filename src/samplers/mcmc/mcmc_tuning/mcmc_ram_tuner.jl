@@ -1,20 +1,26 @@
-@with_kw struct RAMTuning <: MCMCTuningAlgorithm #TODO: rename to RAMTuning
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
+@with_kw struct RAMTuning <: MCMCTuning
     target_acceptance::Float64 = 0.234 #TODO AC: how to pass custom intitial value for cov matrix?
     σ_target_acceptance::Float64 = 0.05
     gamma::Float64 = 2/3
 end
+export RAMTuning
 
 mutable struct RAMTunerState <: AbstractMCMCTunerInstance
     tuning::RAMTuning
     nsteps::Int
 end
-RAMTunerState(ram::RAMTuning) = RAMTunerState(tuning = ram, nsteps = 0)
 
-get_tuner(tuning::RAMTuning, chain::MCMCState) = RAMTunerState(tuning)# TODO rename to create_tuner_state(tuning::RAMTuner, mc_state::MCMCState, n_steps_hint::Integer)
+(tuning::RAMTuning)(mc_state::MCMCState) = RAMTunerState(tuning, 0)
+
+RAMTunerState(tuning::RAMTuning) = RAMTunerState(tuning, 0)
+
+create_tuner_state(tuning::RAMTuning, chain::MCMCState, n_steps_hint::Integer) = RAMTunerState(tuning, n_steps_hint)
 
 
-function tuning_init!(tuner::RAMTunerState, chain::MCMCState, max_nsteps::Integer)
-    chain.info = MCMCStateInfo(chain.info, tuned = false) # TODO ?
+function tuning_init!(tuner::RAMTunerState, mc_state::MCMCState, max_nsteps::Integer)
+    mc_state.info = MCMCStateInfo(mc_state.info, tuned = false) # TODO ?
     tuner.nsteps = 0
     
     return nothing
@@ -24,7 +30,7 @@ end
 tuning_postinit!(tuner::RAMTunerState, chain::MCMCState, samples::DensitySampleVector) = nothing
 
 # TODO AC: is this still needed?
-# function tuning_postinit!(tuner::ProposalCovTuner, chain::MCMCState, samples::DensitySampleVector)
+# function tuning_postinit!(tuner::ProposalCovTunerState, chain::MCMCState, samples::DensitySampleVector)
 #     # The very first samples of a chain can be very valuable to init tuner
 #     # stats, especially if the chain gets stuck early after:
 #     stats = tuner.stats
@@ -34,11 +40,8 @@ tuning_postinit!(tuner::RAMTunerState, chain::MCMCState, samples::DensitySampleV
 tuning_reinit!(tuner::RAMTunerState, chain::MCMCState, max_nsteps::Integer) = nothing
 
 
-
-
-
 function tuning_update!(tuner::RAMTunerState, chain::MCMCState, samples::DensitySampleVector)
-    α_min, α_max = map(op -> op(1, tuner.config.σ_target_acceptance), [-,+]) .* tuner.config.target_acceptance
+    α_min, α_max = map(op -> op(1, tuner.tuning.σ_target_acceptance), [-,+]) .* tuner.tuning.target_acceptance
     α = eff_acceptance_ratio(chain)
 
     max_log_posterior = maximum(samples.logd)
@@ -54,33 +57,32 @@ end
 
 tuning_finalize!(tuner::RAMTunerState, chain::MCMCState) = nothing
 
-# tuning_callback(::RAMTuning) = nop_func
-
+tuning_callback(::RAMTunerState) = nop_func
 
 
 default_adaptive_transform(tuner::RAMTuning) = TriangularAffineTransform() 
 
-function tune_mcmc_transform!!(
+function tune_transform!!(
+    mc_state::MCMCState,
     tuner::RAMTunerState, 
-    transform::Mul{<:LowerTriangular}, #AffineMaps.AbstractAffineMap,#{<:typeof(*), <:LowerTriangular{<:Real}},
     p_accept::Real,
-    sample_z,
-    stepno::Int,
-    context::BATContext
 )
-    @unpack target_acceptance, gamma = tuner.config
-    n = size(sample_z.v[1],1)
-    η = min(1, n * tuner.nsteps^(-gamma))
+    @unpack target_acceptance, gamma = tuner.tuning
+    @unpack f_transform, sample_z = mc_state
+    
+    n_dims = size(sample_z.v[1], 1)
+    η = min(1, n_dims * tuner.nsteps^(-gamma))
 
-    s_L = transform.A
+    s_L = f_transform.A
 
     u = sample_z.v[2] - sample_z.v[1] # proposed - current
     M = s_L * (I + η * (p_accept - target_acceptance) * (u * u') / norm(u)^2 ) * s_L'
 
     S = cholesky(Positive, M)
-    transform_new  = Mul(S.L)
+    f_transform_new  = Mul(S.L)
 
     tuner.nsteps += 1
+    mc_state.f_transform = f_transform_new
 
-    return (tuner, transform_new, true)
+    return (tuner, f_transform_new)
 end

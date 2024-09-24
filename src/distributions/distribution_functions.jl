@@ -64,12 +64,33 @@ cov2pdmat(::Type{T}, Σ::Cholesky) where {T<:Real} = cov2pdmat(T, Matrix(Σ))
 
 function get_cov end
 
-get_cov(d::Distributions.GenericMvTDist) = d.Σ
+get_cov(d::Distributions.GenericMvTDist, n::Integer) = d.Σ
 
+get_cov(d::Distributions.TDist, n::Integer) = Diagonal(fill(var(d), n))
+
+get_cov(d::Distributions.MultivariateDistribution, n::Integer) = cov(d)
+
+get_cov(d::Distributions.UnivariateDistribution, n::Integer) = Diagonal(fill(var(d), n))
 
 function set_cov end
 
 function set_cov(d::Distributions.GenericMvTDist{T,Cov}, Σ::PosDefMatLike) where {T,Cov<:PDMat{T}}
     Σ_conv = cov2pdmat(T, Σ)
     Distributions.GenericMvTDist(d.df, deepcopy(d.μ), Σ_conv)
+end
+
+# TODO: MD, is this needed? should this stay?
+set_cov(d::Distributions.MultivariateDistribution, Σ::PosDefMatLike) = typeof(d)(mean(d), Σ)
+set_cov(d::Distributions.UnivariateDistribution, Σ::PosDefMatLike) = typeof(d)(mean(d), Σ[1,1])
+
+
+
+# TODO: MD, remove. Only temporary hack
+function set_cov(d::Distributions.TDist{T}, Σ::PosDefMatLike) where {T}
+    Σ_conv = cov2pdmat(T, Σ)
+    var = Σ_conv[1,1]
+
+    ν = 2 * var / (var - 1)
+
+    Distributions.TDist(ν)
 end

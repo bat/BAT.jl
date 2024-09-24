@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+# TODO: MD, Adjust docstring to new typestructure
 """
     struct HamiltonianMC <: MCMCAlgorithm
 
@@ -29,11 +30,44 @@ $(TYPEDFIELDS)
     `HamiltonianMC` is only available if the AdvancedHMC package is loaded
     (e.g. via `import AdvancedHMC`). 
 """
-@with_kw struct HamiltonianMC{MT<:HMCMetric,IT,TC,TN<:HMCTuningAlgorithm} <: MCMCAlgorithm
+@with_kw struct HamiltonianMC{
+    MT<:HMCMetric,
+    IT,
+    TC,
+    WS<:AbstractMCMCWeightingScheme
+} <: MCMCProposal
     metric::MT = DiagEuclideanMetric()
     integrator::IT = ext_default(pkgext(Val(:AdvancedHMC)), Val(:DEFAULT_INTEGRATOR))
     termination::TC = ext_default(pkgext(Val(:AdvancedHMC)), Val(:DEFAULT_TERMINATION_CRITERION))
-    tuning::TN = StanHMCTuning()
+    weighting::WS = RepetitionWeighting()
 end
 
 export HamiltonianMC
+
+
+mutable struct HMCProposalState{
+    IT,
+    TC,
+    HA,#<:AdvancedHMC.Hamiltonian,
+    KRNL,#<:AdvancedHMC.HMCKernel
+    TR,# <:AdvancedHMC.Transition
+    WS<:AbstractMCMCWeightingScheme
+} <: MCMCProposalState
+    integrator::IT
+    termination::TC
+    hamiltonian::HA
+    kernel::KRNL
+    transition::TR
+    weighting::WS 
+end
+
+export HMCProposalState
+
+const HMCState = MCMCState{<:BATMeasure,
+                          <:RNGPartition,
+                          <:Function,
+                          <:HMCProposalState,
+                          <:DensitySampleVector,
+                          <:DensitySampleVector,
+                          <:BATContext
+}
