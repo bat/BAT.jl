@@ -66,28 +66,6 @@ const MHState = MCMCState{<:BATMeasure,
                           <:BATContext
 } 
 
-function samples_available(mc_state::MHState)
-    i = _current_sample_idx(mc_state)
-    mc_state.samples.info.sampletype[i] == ACCEPTED_SAMPLE
-end
-
-function get_samples!(appendable, mc_state::MHState, nonzero_weights::Bool)::typeof(appendable)
-    if samples_available(mc_state)
-        samples = mc_state.samples
-
-        for i in eachindex(samples)
-            st = samples.info.sampletype[i]
-            if (
-                (st == ACCEPTED_SAMPLE || st == REJECTED_SAMPLE) &&
-                (samples.weight[i] > 0 || !nonzero_weights)
-            )
-                push!(appendable, samples[i])
-            end
-        end
-    end
-    appendable
-end
-
 function _weights(
     proposal::MHProposalState{Q,<:RepetitionWeighting},
     p_accept::Real,
