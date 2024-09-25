@@ -40,3 +40,5 @@ hmc_result = BAT.bat_sample_impl(posterior,
                                  MCMCSampling(adaptive_transform = f, proposal = HamiltonianMC(), tuning = StanHMCTuning()),
                                  context
 )
+hmc_samples = hmc_result.result
+plot(hmc_samples)

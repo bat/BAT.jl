@@ -6,6 +6,5 @@ Test.@testset "mcmc" begin
     include("test_proposaldist.jl")
     include("test_mcmc_sample.jl")
     include("test_mh.jl")
-    #TODO: MD, Reactivate
-    #include("test_hmc.jl")
+    include("test_hmc.jl")
 end
