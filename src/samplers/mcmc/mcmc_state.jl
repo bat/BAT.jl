@@ -52,7 +52,7 @@ function MCMCState(
     W = _weight_type(proposal.weighting)
     T = typeof(logd_x)
 
-    info, sample_id_type = _get_sampleid(proposal, Int32(id), cycle, 1, CURRENT_SAMPLE)
+    info, sample_id_type = _get_sample_id(proposal, Int32(id), cycle, 1, CURRENT_SAMPLE)
     sample_x = DensitySample(v_init, logd_x, one(W), info, nothing)
 
     samples = DensitySampleVector{Vector{P}, T, W, sample_id_type, Nothing}(undef, 0, n_dims)
@@ -60,7 +60,7 @@ function MCMCState(
 
     sample_z = DensitySampleVector{Vector{P}, T, W, sample_id_type, Nothing}(undef, 0, n_dims) 
     sample_z_current = DensitySample(z, logd_z, one(W), info, nothing)
-    sample_z_proposed = DensitySample(z, logd_z, one(W), _get_sampleid(proposal, Int32(id), cycle, 1, PROPOSED_SAMPLE)[1], nothing)
+    sample_z_proposed = DensitySample(z, logd_z, one(W), _get_sample_id(proposal, Int32(id), cycle, 1, PROPOSED_SAMPLE)[1], nothing)
     push!(sample_z, sample_z_current, sample_z_proposed)
 
     state = MCMCState(
@@ -117,36 +117,6 @@ function DensitySampleVector(mc_state::MCMCState)
 end
 
 
-# TODO: MD, should this be a !! function?  
-function mcmc_propose!!(mc_state::MCMCState)
-    @unpack target, proposal, f_transform, context = mc_state
-    rng = get_rng(context)
-
-    proposed_x_idx = _proposed_sample_idx(mc_state)
-
-    sample_z_current = current_sample_z(mc_state)
-
-    z_current, logd_z_current = sample_z_current.v, sample_z_current.logd
-
-    n_dims = size(z_current, 1)
-    z_proposed = z_current + rand(rng, proposal.proposaldist, n_dims) #TODO: check if proposal is symmetric? otherwise need additional factor?
-    x_proposed, ladj = with_logabsdet_jacobian(f_transform, z_proposed)
-    logd_x_proposed = BAT.checked_logdensityof(target, x_proposed)
-    logd_z_proposed = logd_x_proposed + ladj
-
-    @assert logd_z_proposed ≈ logdensityof(MeasureBase.pullback(f_transform, target), z_proposed) #TODO: MD, Remove, only for debugging
-
-    mc_state.samples[proposed_x_idx] = DensitySample(x_proposed, logd_x_proposed, 0, _get_sampleid(proposal, mc_state.info.id, mc_state.info.cycle, mc_state.stepno, PROPOSED_SAMPLE)[1], nothing)
-    mc_state.sample_z[2] = DensitySample(z_proposed, logd_z_proposed, 0, _get_sampleid(proposal, mc_state.info.id, mc_state.info.cycle, mc_state.stepno, PROPOSED_SAMPLE)[1], nothing)
-
-    # TODO: MD, should we check for symmetriy of proposal distribution?
-    p_accept = clamp(exp(logd_z_proposed - logd_z_current), 0, 1)
-    @assert p_accept >= 0
-    
-    return mc_state, p_accept
-end
-
-
 function mcmc_step!(mc_state::MCMCState, tuner::Union{AbstractMCMCTunerInstance, Nothing}, temperer::Union{AbstractMCMCTemperingInstance, Nothing})
     # TODO: MD, include sample_z in _cleanup_samples()
     _cleanup_samples(mc_state)
@@ -159,33 +129,18 @@ function mcmc_step!(mc_state::MCMCState, tuner::Union{AbstractMCMCTunerInstance,
     
     resize!(samples, size(samples, 1) + 1)
 
-    samples.info[lastindex(samples)] = _get_sampleid(proposal, mc_state.info.id, mc_state.info.cycle, mc_state.stepno, PROPOSED_SAMPLE)[1]
+    samples.info[lastindex(samples)] = _get_sample_id(proposal, mc_state.info.id, mc_state.info.cycle, mc_state.stepno, PROPOSED_SAMPLE)[1]
 
-    mc_state, p_accept = mcmc_propose!!(mc_state)
+    mc_state, accepted, p_accept = mcmc_propose!!(mc_state)
 
-    tuner_new, f_transform_tuned = tune_transform!!(mc_state, tuner, p_accept)
-
-    accepted = rand(rng) <= p_accept
+    tuner_new, f_transform_tuned = mcmc_tune_transform!!(mc_state, tuner, p_accept)
 
     # TODO: MD, Discuss updating of 'sample_z' due to possibly changed 'f_transform' during transfom tuning_callback
 
     current = _current_sample_idx(mc_state)
     proposed = _proposed_sample_idx(mc_state)
 
-    if accepted
-        samples.info.sampletype[current] = ACCEPTED_SAMPLE
-        samples.info.sampletype[proposed] = CURRENT_SAMPLE
-        
-        mc_state.nsamples += 1
-
-        mc_state.sample_z[1] = deepcopy(proposed_sample_z(mc_state))
-    else
-        samples.info.sampletype[proposed] = REJECTED_SAMPLE
-    end
-
-    delta_w_current, w_proposed = _weights(proposal, p_accept, accepted)
-    samples.weight[current] += delta_w_current
-    samples.weight[proposed] = w_proposed
+    _accept_reject!(mc_state, accepted, p_accept, current, proposed)
 
     nothing
 end

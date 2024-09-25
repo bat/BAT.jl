@@ -111,7 +111,6 @@ function mcmc_init!(
             new_outputs, new_mc_states; 
             tuners = new_tuners,temperers = new_temperers,
             max_nsteps = clamp(div(init_alg.nsteps_init, 5), 10, 50),
-            callback = callback,
             nonzero_weights = nonzero_weights
             )
         
@@ -129,7 +128,6 @@ function mcmc_init!(
                 viable_outputs, viable_mc_states; 
                 tuners = viable_tuners, temperers = viable_temperers,
                 max_nsteps = init_alg.nsteps_init,
-                callback = callback,
                 nonzero_weights = nonzero_weights
             )
 

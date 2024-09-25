@@ -87,8 +87,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
             outputs,
             chains;
             max_nsteps = div(max_nsteps, length(chains)),
-            nonzero_weights = nonzero_weights,
-            callback = callback
+            nonzero_weights = nonzero_weights
         )
 
         samples = DensitySampleVector(first(chains))

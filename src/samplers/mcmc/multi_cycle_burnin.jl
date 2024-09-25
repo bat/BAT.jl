@@ -51,8 +51,7 @@ function mcmc_burnin!(
             new_outputs, mc_states;
             tuners = tuners,
             max_nsteps = burnin.nsteps_per_cycle,
-            nonzero_weights = nonzero_weights,
-            callback = callback
+            nonzero_weights = nonzero_weights
         )
 
         tuning_update!.(tuners, mc_states, new_outputs)
@@ -96,8 +95,7 @@ function mcmc_burnin!(
         mcmc_iterate!(
             outputs, mc_states,
             max_nsteps = burnin.nsteps_final,
-            nonzero_weights = nonzero_weights,
-            callback = callback
+            nonzero_weights = nonzero_weights
         )
     end
 

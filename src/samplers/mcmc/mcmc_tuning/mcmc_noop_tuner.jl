@@ -12,13 +12,13 @@ export MCMCNoOpTuning
 
 
 
-struct MCMCNoOpTuner <: AbstractMCMCTunerInstance end
+struct MCMCNoOpTunerState <: AbstractMCMCTunerInstance end
 
-(tuning::MCMCNoOpTuning)(mc_state::MCMCState) = MCMCNoOpTuner()
+(tuning::MCMCNoOpTuning)(mc_state::MCMCState) = MCMCNoOpTunerState()
 
 
 function MCMCNoOpTuning(tuning::MCMCNoOpTuning, mc_state::MCMCState)
-    MCMCNoOpTuner()
+    MCMCNoOpTunerState()
 end
 
 
@@ -28,12 +28,20 @@ function tuning_init!(tuner::MCMCNoOpTuning, mc_state::MCMCState, max_nsteps::In
 end
 
 
-tuning_postinit!(tuner::MCMCNoOpTuner, mc_state::MCMCState, samples::DensitySampleVector) = nothing
+tuning_postinit!(tuner::MCMCNoOpTunerState, mc_state::MCMCState, samples::DensitySampleVector) = nothing
 
-tuning_reinit!(tuner::MCMCNoOpTuner, mc_state::MCMCState, max_nsteps::Integer) = nothing
+tuning_reinit!(tuner::MCMCNoOpTunerState, mc_state::MCMCState, max_nsteps::Integer) = nothing
 
-tuning_update!(tuner::MCMCNoOpTuner, mc_state::MCMCState, samples::DensitySampleVector) = nothing
+tuning_update!(tuner::MCMCNoOpTunerState, mc_state::MCMCState, samples::DensitySampleVector) = nothing
 
-tuning_finalize!(tuner::MCMCNoOpTuner, mc_state::MCMCState) = nothing
+tuning_finalize!(tuner::MCMCNoOpTunerState, mc_state::MCMCState) = nothing
 
 tuning_callback(::MCMCNoOpTuning) = nop_func
+
+function mcmc_tune_transform!!(mc_state::MCMCState, tuner::MCMCNoOpTunerState, ::Real)
+    return (tuner, mc_state.f_transform)
+end
+
+function mcmc_tune_transform!!(mc_state::MCMCState, tuner::Nothing, ::Real)
+    return (nothing, mc_state.f_transform)
+end

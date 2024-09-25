@@ -43,7 +43,7 @@ end
     "initial width of slow adaptation interval"
     window_size::Int = 25
 end
+export StanHMCTuning
 
 # TODO: MD, what should be the default ? 
-
 default_adaptive_transform(tuning::StanHMCTuning) = TriangularAffineTransform()

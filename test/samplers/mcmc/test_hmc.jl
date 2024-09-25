@@ -76,9 +76,9 @@ import AdvancedHMC
         )
 
         (mc_states, tuners, outputs) = init_result
-        #@test chains isa AbstractVector{<:BAT.HMCState}
-        #@test tuners isa AbstractVector{<:BAT.AHMCTuner}
-        #@test outputs isa AbstractVector{<:DensitySampleVector}
+        @test chains isa AbstractVector{<:BAT.HMCState}
+        @test tuners isa AbstractVector{<:BAT.AHMCTuner}
+        @test outputs isa AbstractVector{<:DensitySampleVector}
 
         BAT.mcmc_burnin!(
             outputs,
@@ -92,8 +92,7 @@ import AdvancedHMC
             outputs,
             mc_states;
             max_nsteps = div(max_nsteps, length(mc_states)),
-            nonzero_weights = nonzero_weights,
-            callback = callback
+            nonzero_weights = nonzero_weights
         )
 
         samples = DensitySampleVector(first(mc_states))

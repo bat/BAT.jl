@@ -185,17 +185,9 @@ tuning_callback(::ProposalCovTunerState) = nop_func
 
 tuning_callback(::Nothing) = nop_func
 
-function tune_transform!!(
+function mcmc_tune_transform!!(
     mc_state::MCMCState,
     tuner::ProposalCovTunerState,
-    p_accept::Real
-)
-    return (tuner, mc_state.f_transform)
-end
-
-function tune_transform!!(
-    mc_state::MCMCState,
-    tuner::Nothing,
     p_accept::Real
 )
     return (tuner, mc_state.f_transform)

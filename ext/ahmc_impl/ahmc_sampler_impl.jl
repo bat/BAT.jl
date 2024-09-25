@@ -54,8 +54,8 @@ function BAT._create_proposal_state(
 end
 
 
-function BAT._get_sampleid(proposal::HMCProposalState, id::Int32, cycle::Int32, stepno::Int64, sampletype::Integer)
-    return AHMCSampleID(id, cycle, stepno, sampletype, 0.0, 0, false, 0.0), AHMCSampleID
+function BAT._get_sample_id(proposal::HMCProposalState, id::Int32, cycle::Int32, stepno::Int64, sample_type::Integer)
+    return AHMCSampleID(id, cycle, stepno, sample_type, 0.0, 0, false, 0.0), AHMCSampleID
 end
 
 function BAT.next_cycle!(mc_state::HMCState)
@@ -84,48 +84,41 @@ function BAT.next_cycle!(mc_state::HMCState)
     mc_state
 end
 
-function BAT.mcmc_step!(mc_state::HMCState)
-    _cleanup_samples(mc_state)
-
-    samples = mc_state.samples
+# TODO: MD, should this be a !! function?  
+function BAT.mcmc_propose!!(mc_state::HMCState)
+    # @unpack target, proposal, f_transform, samples, context = mc_state
+    target = mc_state.target
     proposal = mc_state.proposal
+    f_transform = mc_state.f_transform
+    samples = mc_state.samples
+    context = mc_state.context
 
-    mc_state.stepno += 1
-    reset_rng_counters!(mc_state)
+    rng = get_rng(context)
 
-    rng = get_rng(get_context(mc_state))
-    target = mcmc_target(mc_state)
-
-
-    # Grow samples vector by one:
-    resize!(samples, size(samples, 1) + 1)
-    samples.info[lastindex(samples)] = AHMCSampleID(
-        mc_state.info.id, mc_state.info.cycle, mc_state.stepno, PROPOSED_SAMPLE,
-        0.0, 0, false, 0.0
-    )
-    
     current = _current_sample_idx(mc_state)
     proposed = _proposed_sample_idx(mc_state)
-    @assert current != proposed
 
-    current_params = samples.v[current]
-    proposed_params = samples.v[proposed]
+    x_current = samples.v[current]
+    x_proposed = samples.v[proposed]
+    current_log_posterior = samples.logd[current]
 
-    # Propose new variate:
-    samples.weight[proposed] = 0
 
     proposal.transition = AdvancedHMC.transition(rng, proposal.hamiltonian, proposal.kernel, proposal.transition.z)
-    proposed_params[:] = proposal.transition.z.θ
+    x_proposed[:] = proposal.transition.z.θ
+
+    proposed_log_posterior = logdensityof(target, x_proposed)
     
-    current_log_posterior = samples.logd[current]
-    T = typeof(current_log_posterior)
-
-    # Evaluate prior and likelihood with proposed variate:
-    proposed_log_posterior = logdensityof(target, proposed_params)
-
     samples.logd[proposed] = proposed_log_posterior
 
-    accepted = current_params != proposed_params
+    accepted = x_current != x_proposed
+
+    return mc_state, accepted, Float64(accepted)
+end
+
+function BAT._accept_reject!(mc_state::HMCState, accepted::Bool, p_accept::Float64, current::Integer, proposed::Integer)
+    # @unpack samples, proposal = mc_state
+    samples = mc_state.samples
+    proposal = mc_state.proposal
 
     if accepted
         samples.info.sampletype[current] = ACCEPTED_SAMPLE
@@ -150,8 +143,6 @@ function BAT.mcmc_step!(mc_state::HMCState)
     
     samples.weight[current] += delta_w_current
     samples.weight[proposed] = w_proposed
-
-    nothing
 end
 
 

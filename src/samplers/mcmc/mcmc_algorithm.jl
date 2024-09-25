@@ -183,7 +183,7 @@ function tuning_reinit! end
 
 function tuning_update! end
 
-function tune_transform!! end
+function mcmc_tune_transform!! end
 
 function tuning_finalize! end
 
@@ -210,9 +210,9 @@ function mcmc_iterate!(
     temperer::Union{AbstractMCMCTemperingInstance,Nothing};
     max_nsteps::Integer = 1,
     max_time::Real = Inf,
-    nonzero_weights::Bool = true,
-    callback::Function = nop_func
-)
+    nonzero_weights::Bool = true
+    )
+
     @debug "Starting iteration over MCMC chain $(mc_state.info.id) with $max_nsteps steps in max. $(@sprintf "%.1f s" max_time)"
 
     start_time = time()
@@ -225,7 +225,6 @@ function mcmc_iterate!(
         (time() - start_time) < max_time
     )
         mcmc_step!(mc_state, tuner, temperer)
-        callback(Val(:mcmc_step), mc_state)
         if !isnothing(output)
             get_samples!(output, mc_state, nonzero_weights)
         end
@@ -253,13 +252,11 @@ function mcmc_iterate!(
     temperer::Union{AbstractMCMCTemperingInstance, Nothing} = nothing,
     max_nsteps::Integer = 1,
     max_time::Real = Inf,
-    nonzero_weights::Bool = true,
-    callback::Function = nop_func
+    nonzero_weights::Bool = true
 )
-    #cb = combine_callbacks(tuning_callback(tuner), callback)
     mcmc_iterate!(
         output, mc_state, tuner, temperer;
-        max_nsteps = max_nsteps, max_time = max_time, nonzero_weights = nonzero_weights, callback = callback
+        max_nsteps = max_nsteps, max_time = max_time, nonzero_weights = nonzero_weights
     )
 
     return nothing

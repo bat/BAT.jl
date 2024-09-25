@@ -1,12 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-struct MHProposal{
-    D<:Union{Distribution, AbstractMeasure},
-    WS<:AbstractMCMCWeightingScheme
-}<: MCMCProposal
-    proposal_dist::D
-end
-
 
 """
     struct MCMCSampling <: AbstractSamplingAlgorithm
@@ -87,8 +80,7 @@ function bat_sample_impl(target::BATMeasure, sampling::MCMCSampling, context::BA
         chain_outputs,
         mc_states;
         max_nsteps = sampling.nsteps,
-        nonzero_weights = sampling.nonzero_weights,
-        callback = sampling.callback
+        nonzero_weights = sampling.nonzero_weights
     )
 
     samples_transformed = DensitySampleVector(first(mc_states))
