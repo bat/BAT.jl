@@ -62,6 +62,7 @@ tuning_callback(::RAMTunerState) = nop_func
 
 default_adaptive_transform(tuner::RAMTuning) = TriangularAffineTransform() 
 
+# Return mc_state instead of f_transform
 function mcmc_tune_transform!!(
     mc_state::MCMCState,
     tuner::RAMTunerState, 

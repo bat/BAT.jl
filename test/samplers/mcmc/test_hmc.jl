@@ -35,7 +35,7 @@ import AdvancedHMC
         BAT.tuning_init!(tuner, mc_state, 0)
         BAT.tuning_reinit!(tuner, mc_state, div(nsteps, 10))
         samples = DensitySampleVector(mc_state)
-        BAT.mcmc_iterate!(samples, mc_state; tuner = tuner, max_nsteps = nsteps, nonzero_weights = false)
+        mc_state, tuner, REMOVE_dummy_temperer = BAT.mcmc_iterate!!(samples, mc_state; tuner = tuner, max_nsteps = nsteps, nonzero_weights = false)
         @test mc_state.stepno == nsteps
         @test minimum(samples.weight) == 0
         @test isapprox(length(samples), nsteps, atol = 20)
@@ -43,7 +43,7 @@ import AdvancedHMC
         @test BAT.test_dist_samples(unshaped(objective), samples)
 
         samples = DensitySampleVector(mc_state)
-        BAT.mcmc_iterate!(samples, mc_state, max_nsteps = 10^3, nonzero_weights = true)
+        mc_state, REMOVE_dummy_tuner, REMOVE_dummy_temperer = BAT.mcmc_iterate!!(samples, mc_state, max_nsteps = 10^3, nonzero_weights = true)
         @test minimum(samples.weight) == 1
     end
 
@@ -90,7 +90,7 @@ import AdvancedHMC
             callback
         )
 
-        BAT.mcmc_iterate!(
+        mc_states, REMOVE_dummy_tuners, REMOVE_dummy_temperers = BAT.mcmc_iterate!!(
             outputs,
             mc_states;
             max_nsteps = div(max_nsteps, length(mc_states)),

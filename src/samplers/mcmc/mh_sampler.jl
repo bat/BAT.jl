@@ -67,7 +67,6 @@ const MHState = MCMCState{<:BATMeasure,
                           <:BATContext
 } 
 
-# TODO: MD, should this be a !! function?  
 function mcmc_propose!!(mc_state::MHState)
     @unpack target, proposal, f_transform, context = mc_state
     rng = get_rng(context)
@@ -94,6 +93,10 @@ function mcmc_propose!!(mc_state::MHState)
     @assert p_accept >= 0
 
     accepted = rand(rng) <= p_accept
+
+    # if accepted
+    #     mc_state_new = mcmc_update_z_position!!(mc_state)
+    # end
 
     return mc_state, accepted, p_accept
 end

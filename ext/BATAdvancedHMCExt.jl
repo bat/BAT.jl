@@ -19,7 +19,7 @@ using BAT: MCMCState, HMCState, HamiltonianMC, HMCProposalState, MCMCStateInfo, 
 using BAT: _current_sample_idx, _proposed_sample_idx, _cleanup_samples
 using BAT: AbstractTransformTarget
 using BAT: RNGPartition, get_rng, set_rng!
-using BAT: mcmc_step!, nsamples, nsteps, samples_available, eff_acceptance_ratio
+using BAT: mcmc_step!!, nsamples, nsteps, samples_available, eff_acceptance_ratio
 using BAT: get_samples!, get_mcmc_tuning, reset_rng_counters!
 using BAT: tuning_init!, tuning_postinit!, tuning_reinit!, tuning_update!, tuning_finalize!, tuning_callback
 using BAT: totalndof, measure_support, checked_logdensityof

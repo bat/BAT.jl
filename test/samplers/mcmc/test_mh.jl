@@ -25,18 +25,18 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         # TODO: MD, Reactivate type inference tests
         # @test @inferred(BAT.MCMCState(sampling, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))) isa BAT.MHState
         # chain = @inferred(BAT.MCMCState(sampling, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))) 
-        chain = BAT.MCMCState(sampling, target, 1, unshaped(v_init, varshape(target)), deepcopy(context)) 
-        samples = DensitySampleVector(chain)
-        BAT.mcmc_iterate!(samples, chain, max_nsteps = 10^5, nonzero_weights = false)
-        @test chain.stepno == 10^5
+        mc_state = BAT.MCMCState(sampling, target, 1, unshaped(v_init, varshape(target)), deepcopy(context)) 
+        samples = DensitySampleVector(mc_state)
+        mc_state, REMOVE_dummy_tuner, REMOVE_dummy_temperer = BAT.mcmc_iterate!!(samples, mc_state, max_nsteps = 10^5, nonzero_weights = false)
+        @test mc_state.stepno == 10^5
         @test minimum(samples.weight) == 0
         @test isapprox(length(samples), 10^5, atol = 20)
         @test length(samples) == sum(samples.weight)
         @test isapprox(mean(samples), [1, -1, 2], atol = 0.2)
         @test isapprox(cov(samples), cov(unshaped(objective)), atol = 0.3)
 
-        samples = DensitySampleVector(chain)
-        BAT.mcmc_iterate!(samples, chain, max_nsteps = 10^3, nonzero_weights = true)
+        samples = DensitySampleVector(mc_state)
+        mc_state, REMOVE_dummy_tuner, REMOVE_dummy_temperer = BAT.mcmc_iterate!!(samples, mc_state, max_nsteps = 10^3, nonzero_weights = true)
         @test minimum(samples.weight) == 1
     end
  
@@ -68,29 +68,29 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
             context
         ))
 
-        (chains, tuners, outputs) = init_result
+        (mc_states, tuners, outputs) = init_result
 
         # TODO: MD, Reactivate, for some reason fail
-        # @test chains isa AbstractVector{<:BAT.MHState}
+        # @test mc_states isa AbstractVector{<:BAT.MHState}
         # @test tuners isa AbstractVector{<:BAT.ProposalCovTunerState}
         @test outputs isa AbstractVector{<:DensitySampleVector}
 
         BAT.mcmc_burnin!(
             outputs,
             tuners,
-            chains,
+            mc_states,
             sampling,
             callback
         )
 
-        BAT.mcmc_iterate!(
+        mc_states, REMOVE_dummy_tuners, REMOVE_dummy_temperers = BAT.mcmc_iterate!!(
             outputs,
-            chains;
-            max_nsteps = div(max_nsteps, length(chains)),
+            mc_states;
+            max_nsteps = div(max_nsteps, length(mc_states)),
             nonzero_weights = nonzero_weights
         )
 
-        samples = DensitySampleVector(first(chains))
+        samples = DensitySampleVector(first(mc_states))
         append!.(Ref(samples), outputs)
         
         @test length(samples) == sum(samples.weight)

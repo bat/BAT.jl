@@ -1,6 +1,19 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+
+# struct MCMCStates{
+# C<:MCMCState,
+# ...
+# }
+#     chain_state::C
+#     proposal_tuner_state::PT
+#     transform_tuner_state::TT
+#     tempering_state::T
+# end
+
 # TODO: MD, adjust docstring to new typestructure
+# TODO: MD, use Accessors.jl to make immutable 
+# TODO: MD, rename to MCMCChainState
 mutable struct MCMCState{
     M<:BATMeasure,
     PR<:RNGPartition,
@@ -116,8 +129,9 @@ function DensitySampleVector(mc_state::MCMCState)
     DensitySampleVector(sample_type(mc_state), totalndof(varshape(mcmc_target(mc_state))))
 end
 
-
-function mcmc_step!(mc_state::MCMCState, tuner::Union{AbstractMCMCTunerInstance, Nothing}, temperer::Union{AbstractMCMCTemperingInstance, Nothing})
+# TODO: MD, make into !!
+# TODO: MD, make NoOpTunerState to avoid Union nothing in type
+function mcmc_step!!(mc_state::MCMCState, tuner_state::Union{AbstractMCMCTunerInstance, Nothing}, temperer::Union{AbstractMCMCTemperingInstance, Nothing}) # ,proposal_tuner_state
     # TODO: MD, include sample_z in _cleanup_samples()
     _cleanup_samples(mc_state)
     reset_rng_counters!(mc_state)
@@ -133,16 +147,21 @@ function mcmc_step!(mc_state::MCMCState, tuner::Union{AbstractMCMCTunerInstance,
 
     mc_state, accepted, p_accept = mcmc_propose!!(mc_state)
 
-    tuner_new, f_transform_tuned = mcmc_tune_transform!!(mc_state, tuner, p_accept)
+    # TODO: MD, return a bool if the transform is changed 
+    tuner_new, f_transform_tuned = mcmc_tune_transform!!(mc_state, tuner_state, p_accept)
 
-    # TODO: MD, Discuss updating of 'sample_z' due to possibly changed 'f_transform' during transfom tuning_callback
+    #proosal_new, proposal_tuner_new = mcmc_tune_proposal!!(mc_state, proposal_tuner_state)
 
     current = _current_sample_idx(mc_state)
     proposed = _proposed_sample_idx(mc_state)
 
     _accept_reject!(mc_state, accepted, p_accept, current, proposed)
 
-    nothing
+    #mc_state_new = 
+    #temperer_new = temperer_new
+
+
+    return mc_state, tuner_new, temperer
 end
 
 
@@ -211,4 +230,19 @@ end
 function samples_available(mc_state::MCMCState)
     i = _current_sample_idx(mc_state)
     mc_state.samples.info.sampletype[i] == ACCEPTED_SAMPLE
+end
+
+function mcmc_update_z_position!!(mc_state::MCMCState)
+
+    proposed_sample_x = proposed_sample(mc_state)
+
+    x_proposed, logd_x_proposed = proposed_sample_x.v, proposed_sample_x.logd 
+
+    z_new, ladj_inv = with_logabsdet_jacobian(inverse(mc_state.f_transform), x_proposed)
+
+    logd_z_new = logd_x_proposed - ladj_inv
+
+    mc_state_new = @set mc_state.sample_z[2].v, mc_state.sample_z[2].logd = z_new, logd_z_new
+
+    return mc_state_new
 end

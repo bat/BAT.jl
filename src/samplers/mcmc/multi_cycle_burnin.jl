@@ -47,7 +47,7 @@ function mcmc_burnin!(
 
         tuning_reinit!.(tuners, mc_states, burnin.nsteps_per_cycle)
 
-        mcmc_iterate!(
+        mc_states, tuners, REMOVE_dummy_temperers = mcmc_iterate!!(
             new_outputs, mc_states;
             tuners = tuners,
             max_nsteps = burnin.nsteps_per_cycle,
@@ -92,7 +92,7 @@ function mcmc_burnin!(
 
         next_cycle!.(mc_states)
 
-        mcmc_iterate!(
+        mc_states, REMOVE_dummy_tuners, REMOVE_dummy_temperers = mcmc_iterate!!(
             outputs, mc_states,
             max_nsteps = burnin.nsteps_final,
             nonzero_weights = nonzero_weights

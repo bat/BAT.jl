@@ -105,7 +105,7 @@ BAT.get_samples!(samples::DensitySampleVector, chain::SomeMCMCIter, nonzero_weig
 
 BAT.next_cycle!(chain::SomeMCMCIter)::SomeMCMCIter
 
-BAT.mcmc_step!(
+BAT.mcmc_step!!(
     chain::SomeMCMCIter
     callback::Function,
 )::nothing
@@ -117,8 +117,8 @@ The following methods are implemented by default:
 getproposal(chain::MCMCIterator)
 mcmc_target(chain::MCMCIterator)
 DensitySampleVector(chain::MCMCIterator)
-mcmc_iterate!(chain::MCMCIterator, ...)
-mcmc_iterate!(chains::AbstractVector{<:MCMCIterator}, ...)
+mcmc_iterate!!(chain::MCMCIterator, ...)
+mcmc_iterate!!(chains::AbstractVector{<:MCMCIterator}, ...)
 isvalidchain(chain::MCMCIterator)
 isviablechain(chain::MCMCIterator)
 ```
@@ -169,7 +169,7 @@ function get_samples! end
 
 function next_cycle! end
 
-function mcmc_step! end
+function mcmc_step!! end
 
 
 abstract type AbstractMCMCTunerInstance end
@@ -200,10 +200,11 @@ function isvalidstate end
 function isviablestate end
 
 
-function mcmc_iterate! end
+function mcmc_iterate!! end
 
+# TODO: MD, reincorporate user callback
 # TODO: MD, incorporate use of Tempering, so far temperer is not used 
-function mcmc_iterate!(
+function mcmc_iterate!!(
     output::Union{DensitySampleVector,Nothing},
     mc_state::MCMCIterator,
     tuner::Union{AbstractMCMCTunerInstance,Nothing},
@@ -224,7 +225,8 @@ function mcmc_iterate!(
         (nsteps(mc_state) - start_nsteps) < max_nsteps &&
         (time() - start_time) < max_time
     )
-        mcmc_step!(mc_state, tuner, temperer)
+        mc_state, tuner, temperer = mcmc_step!!(mc_state, tuner, temperer)
+
         if !isnothing(output)
             get_samples!(output, mc_state, nonzero_weights)
         end
@@ -241,11 +243,11 @@ function mcmc_iterate!(
     elapsed_time = current_time - start_time
     @debug "Finished iteration over MCMC chain $(mc_state.info.id), completed $(nsteps(mc_state) - start_nsteps) steps and produced $(nsamples(mc_state) - start_nsamples) samples in $(@sprintf "%.1f s" elapsed_time)."
 
-    return nothing
+    return mc_state, tuner, temperer
 end
 
 
-function mcmc_iterate!(
+function mcmc_iterate!!(
     output::Union{DensitySampleVector,Nothing},
     mc_state::MCMCIterator;
     tuner::Union{AbstractMCMCTunerInstance, Nothing} = nothing,
@@ -254,16 +256,16 @@ function mcmc_iterate!(
     max_time::Real = Inf,
     nonzero_weights::Bool = true
 )
-    mcmc_iterate!(
+    mc_state_new, tuner_new, temperer_new = mcmc_iterate!!(
         output, mc_state, tuner, temperer;
         max_nsteps = max_nsteps, max_time = max_time, nonzero_weights = nonzero_weights
     )
 
-    return nothing
+    return mc_state_new, tuner_new, temperer_new 
 end
 
 
-function mcmc_iterate!(
+function mcmc_iterate!!(
     outputs::Union{AbstractVector{<:DensitySampleVector},Nothing},
     mc_states::AbstractVector{<:MCMCIterator};
     tuners::Union{AbstractVector{<:AbstractMCMCTunerInstance},Nothing} = nothing,
@@ -281,11 +283,15 @@ function mcmc_iterate!(
     tnrs = isnothing(tuners) ? fill(nothing, size(mc_states)...) : tuners
     tmrs = isnothing(temperers) ? fill(nothing, size(mc_states)...) : temperers
 
+    mc_states_new = similar(mc_states)
+    tuners_new = similar(tnrs)
+    temperers_new = similar(tmrs)
+
     @sync for i in eachindex(outs, mc_states, tnrs)
-        Base.Threads.@spawn mcmc_iterate!(outs[i], mc_states[i]; tuner = tnrs[i], temperer = tmrs[i], kwargs...)
+        Base.Threads.@spawn mc_states_new[i], tuners_new[i], temperers_new[i] = mcmc_iterate!!(outs[i], mc_states[i]; tuner = tnrs[i], temperer = tmrs[i], kwargs...)
     end
 
-    return nothing
+    return mc_states_new, tuners_new, temperers_new
 end
 
 

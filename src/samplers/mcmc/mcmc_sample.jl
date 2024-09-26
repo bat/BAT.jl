@@ -76,7 +76,7 @@ function bat_sample_impl(target::BATMeasure, sampling::MCMCSampling, context::BA
 
     next_cycle!.(mc_states)
 
-    mcmc_iterate!(
+    mc_states, REMOVE_dummy_tuners, REMOVE_dummy_temperers = mcmc_iterate!!(
         chain_outputs,
         mc_states;
         max_nsteps = sampling.nsteps,

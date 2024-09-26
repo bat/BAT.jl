@@ -107,9 +107,9 @@ function mcmc_init!(
 
         @debug "Testing $(length(new_tuners)) candidate MCMC chain state(s)."
         
-        mcmc_iterate!(
+        new_mc_states, new_tuners, new_temperers = mcmc_iterate!!(
             new_outputs, new_mc_states; 
-            tuners = new_tuners,temperers = new_temperers,
+            tuners = new_tuners, temperers = new_temperers,
             max_nsteps = clamp(div(init_alg.nsteps_init, 5), 10, 50),
             nonzero_weights = nonzero_weights
             )
@@ -124,7 +124,7 @@ function mcmc_init!(
         @debug "Found $(length(viable_idxs)) viable MCMC chain state(s)."
 
         if !isempty(viable_tuners)
-            mcmc_iterate!(
+            viable_mc_states, viable_tuners, viable_temperers = mcmc_iterate!!(
                 viable_outputs, viable_mc_states; 
                 tuners = viable_tuners, temperers = viable_temperers,
                 max_nsteps = init_alg.nsteps_init,

@@ -41,6 +41,7 @@ end
 
 export AdaptiveMHTuning
 
+# TODO: MD, make immutable and use Accessors.jl
 mutable struct ProposalCovTunerState{
     S<:MCMCBasicStats
 } <: AbstractMCMCTunerInstance
@@ -121,7 +122,7 @@ function tuning_postinit!(tuner::ProposalCovTunerState, mc_state::MHState, sampl
     append!(stats, samples)
 end
 
-
+# TODO, MD: Rename to mcmc_tune_transform_next_cylce!!()
 function tuning_update!(tuner::ProposalCovTunerState, mc_state::MHState, samples::DensitySampleVector)
     tuning = tuner.tuning
     stats = tuner.stats
@@ -185,6 +186,8 @@ tuning_callback(::ProposalCovTunerState) = nop_func
 
 tuning_callback(::Nothing) = nop_func
 
+
+# add a boold to return if the transfom changes 
 function mcmc_tune_transform!!(
     mc_state::MCMCState,
     tuner::ProposalCovTunerState,
