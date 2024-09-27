@@ -2,7 +2,7 @@ using BAT
 using AdvancedHMC
 using AffineMaps
 using AutoDiffOperators
-using Plots
+# using Plots
 using ValueShapes
 
 
@@ -23,12 +23,12 @@ propcov_result = BAT.bat_sample_impl(posterior,
                                      MCMCSampling(adaptive_transform = f), 
                                      context
 )
-propcov_samples = my_result.result
+propcov_samples = propcov_result.result
 plot(propcov_samples)
 
 
 ram_result = BAT.bat_sample_impl(posterior, 
-                                 MCMCSampling(adaptive_transform = f, tuning = RAMTuning()), 
+                                 MCMCSampling(adaptive_transform = f, trafo_tuning = RAMTuning()), 
                                  context
 )
 ram_samples = ram_result.result
@@ -37,7 +37,7 @@ plot(ram_samples)
 # Advanced Hamiltonian MC Sampling
 
 hmc_result = BAT.bat_sample_impl(posterior,
-                                 MCMCSampling(adaptive_transform = f, proposal = HamiltonianMC(), tuning = StanHMCTuning()),
+                                 MCMCSampling(adaptive_transform = f, proposal = HamiltonianMC(), trafo_tuning = StanHMCTuning()),
                                  context
 )
 hmc_samples = hmc_result.result

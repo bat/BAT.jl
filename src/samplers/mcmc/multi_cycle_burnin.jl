@@ -25,12 +25,11 @@ export MCMCMultiCycleBurnin
 
 function mcmc_burnin!(
     outputs::Union{AbstractVector{<:DensitySampleVector},Nothing},
-    tuners::AbstractVector{<:AbstractMCMCTunerInstance},
-    mc_states::AbstractVector{<:MCMCState},
+    mcmc_states::AbstractVector{<:MCMCState},
     sampling::MCMCSampling,
     callback::Function
 )
-    nchains = length(mc_states)
+    nchains = length(mcmc_states)
 
     @unpack burnin, convergence, strict, nonzero_weights = sampling
 
@@ -41,20 +40,19 @@ function mcmc_burnin!(
     while !successful && cycles < burnin.max_ncycles
         cycles += 1
 
-        new_outputs = DensitySampleVector.(mc_states)
+        new_outputs = DensitySampleVector.(mcmc_states)
 
-        next_cycle!.(mc_states)
+        next_cycle!.(mcmc_states)
 
-        tuning_reinit!.(tuners, mc_states, burnin.nsteps_per_cycle)
+        mcmc_tuning_reinit!!.(mcmc_states, burnin.nsteps_per_cycle)
 
-        mc_states, tuners, REMOVE_dummy_temperers = mcmc_iterate!!(
-            new_outputs, mc_states;
-            tuners = tuners,
+        mcmc_states = mcmc_iterate!!(
+            new_outputs, mcmc_states;
             max_nsteps = burnin.nsteps_per_cycle,
             nonzero_weights = nonzero_weights
         )
 
-        tuning_update!.(tuners, mc_states, new_outputs)
+        mcmc_tune_post_cycle!!.(mcmc_states, new_outputs)
 
         isnothing(outputs) || append!.(outputs, new_outputs)
 
@@ -63,18 +61,18 @@ function mcmc_burnin!(
         # first chain here. But just making a new context is also not ideal.
         # Better copy the context of the first chain and replace the RNG
         # with a new one in the future:
-        check_convergence!(mc_states, new_outputs, convergence, BATContext())
+        check_convergence!(mcmc_states, new_outputs, convergence, BATContext())
 
-        ntuned = count(c -> c.info.tuned, mc_states)
-        nconverged = count(c -> c.info.converged, mc_states)
+        ntuned = count(mcmc_state -> mcmc_state.chain_state.info.tuned, mcmc_states)
+        nconverged = count(mcmc_state -> mcmc_state.chain_state.info.converged, mcmc_states)
         successful = (ntuned == nconverged == nchains)
 
-        callback(Val(:mcmc_burnin), tuners, mc_states)
+        callback(Val(:mcmc_burnin), mcmc_states)
 
         @info "MCMC Tuning cycle $cycles finished, $nchains chains, $ntuned tuned, $nconverged converged."
     end
 
-    tuning_finalize!.(tuners, mc_states)
+    mcmc_tuning_finalize!!.(mcmc_states)
     
     if successful
         @info "MCMC tuning of $nchains chains successful after $cycles cycle(s)."
@@ -90,10 +88,10 @@ function mcmc_burnin!(
     if burnin.nsteps_final > 0
         @info "Running post-tuning stabilization steps for $nchains MCMC chain(s)."
 
-        next_cycle!.(mc_states)
+        next_cycle!.(mcmc_states)
 
-        mc_states, REMOVE_dummy_tuners, REMOVE_dummy_temperers = mcmc_iterate!!(
-            outputs, mc_states,
+        mcmc_states= mcmc_iterate!!(
+            outputs, mcmc_states;
             max_nsteps = burnin.nsteps_final,
             nonzero_weights = nonzero_weights
         )

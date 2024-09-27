@@ -10,38 +10,39 @@ MCMC sampler implementation.
 struct MCMCNoOpTuning <: MCMCTuning end
 export MCMCNoOpTuning
 
+struct MCMCNoOpTunerState <: AbstractMCMCTunerState end
 
+(tuning::MCMCNoOpTuning)(mc_state::MCMCChainState) = MCMCNoOpTunerState(), MCMCNoOpTunerState()
 
-struct MCMCNoOpTunerState <: AbstractMCMCTunerInstance end
+default_adaptive_transform(tuning::MCMCNoOpTuning) = nop_func
 
-(tuning::MCMCNoOpTuning)(mc_state::MCMCState) = MCMCNoOpTunerState()
-
-
-function MCMCNoOpTuning(tuning::MCMCNoOpTuning, mc_state::MCMCState)
+function NoOpTunerState(tuning::MCMCNoOpTuning, mc_state::MCMCChainState, iteration::Integer)
     MCMCNoOpTunerState()
 end
 
+create_trafo_tuner_state(tuning::MCMCNoOpTuning, mc_state::MCMCChainState, iteration::Integer) = MCMCNoOpTunerState()
 
-function tuning_init!(tuner::MCMCNoOpTuning, mc_state::MCMCState, max_nsteps::Integer)
-    mc_state.info = MCMCStateInfo(mc_state.info, tuned = true)
-    nothing
-end
+create_proposal_tuner_state(tuning::MCMCNoOpTuning, mc_state::MCMCChainState, iteration::Integer) = MCMCNoOpTunerState()
 
+mcmc_tuning_init!!(tuner_state::MCMCNoOpTunerState, mc_state::MCMCChainState, max_nsteps::Integer) = nothing
 
-tuning_postinit!(tuner::MCMCNoOpTunerState, mc_state::MCMCState, samples::DensitySampleVector) = nothing
+mcmc_tuning_reinit!!(tuner::MCMCNoOpTunerState, mc_state::MCMCChainState, max_nsteps::Integer) = nothing
 
-tuning_reinit!(tuner::MCMCNoOpTunerState, mc_state::MCMCState, max_nsteps::Integer) = nothing
+mcmc_tuning_postinit!!(tuner::MCMCNoOpTunerState, mc_state::MCMCChainState, samples::DensitySampleVector) = nothing
 
-tuning_update!(tuner::MCMCNoOpTunerState, mc_state::MCMCState, samples::DensitySampleVector) = nothing
+mcmc_tune_post_cycle!!(tuner::MCMCNoOpTunerState, mc_state::MCMCChainState, samples::DensitySampleVector) = nothing
 
-tuning_finalize!(tuner::MCMCNoOpTunerState, mc_state::MCMCState) = nothing
+mcmc_tuning_finalize!!(tuner::MCMCNoOpTunerState, mc_state::MCMCChainState) = nothing
 
 tuning_callback(::MCMCNoOpTuning) = nop_func
 
-function mcmc_tune_transform!!(mc_state::MCMCState, tuner::MCMCNoOpTunerState, ::Real)
-    return (tuner, mc_state.f_transform)
+tuning_callback(::Nothing) = nop_func
+
+
+function mcmc_tune_post_step!!(chain_state::MCMCChainState, tuner::MCMCNoOpTunerState, ::Real)
+    return chain_state, tuner, chain_state.f_transform
 end
 
-function mcmc_tune_transform!!(mc_state::MCMCState, tuner::Nothing, ::Real)
-    return (nothing, mc_state.f_transform)
+function mcmc_tune_post_step!!(chain_state::MCMCChainState, tuner::Nothing, ::Real)
+    return chain_state, nothing, chain_state.f_transform
 end

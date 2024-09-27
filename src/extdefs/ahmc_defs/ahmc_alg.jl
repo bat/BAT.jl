@@ -63,7 +63,7 @@ end
 
 export HMCProposalState
 
-const HMCState = MCMCState{<:BATMeasure,
+const HMCState = MCMCChainState{<:BATMeasure,
                           <:RNGPartition,
                           <:Function,
                           <:HMCProposalState,

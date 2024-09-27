@@ -1,20 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-# struct MCMCStates{
-# C<:MCMCState,
-# ...
-# }
-#     chain_state::C
-#     proposal_tuner_state::PT
-#     transform_tuner_state::TT
-#     tempering_state::T
-# end
-
 # TODO: MD, adjust docstring to new typestructure
 # TODO: MD, use Accessors.jl to make immutable 
-# TODO: MD, rename to MCMCChainState
-mutable struct MCMCState{
+mutable struct MCMCChainState{
     M<:BATMeasure,
     PR<:RNGPartition,
     FT<:Function,
@@ -28,15 +17,15 @@ mutable struct MCMCState{
     f_transform::FT
     samples::SVX
     sample_z::SVZ
-    info::MCMCStateInfo
+    info::MCMCChainStateInfo
     rngpart_cycle::PR
     nsamples::Int64
     stepno::Int64
     context::CTX
 end
-export MCMCState
+export MCMCChainState
 
-function MCMCState(
+function MCMCChainState(
     sampling::MCMCSampling,
     target::BATMeasure,
     id::Integer,
@@ -76,13 +65,13 @@ function MCMCState(
     sample_z_proposed = DensitySample(z, logd_z, one(W), _get_sample_id(proposal, Int32(id), cycle, 1, PROPOSED_SAMPLE)[1], nothing)
     push!(sample_z, sample_z_current, sample_z_proposed)
 
-    state = MCMCState(
+    state = MCMCChainState(
         target,
         proposal,
         g,
         samples,
         sample_z,
-        MCMCStateInfo(id, cycle, false, false),
+        MCMCChainStateInfo(id, cycle, false, false),
         rngpart_cycle,
         nsamples,
         stepno,
@@ -95,88 +84,105 @@ function MCMCState(
     state
 end
 
-@inline _current_sample_idx(mc_state::MCMCState) = firstindex(mc_state.samples)
-@inline _proposed_sample_idx(mc_state::MCMCState) = lastindex(mc_state.samples)
+@inline _current_sample_idx(chain_state::MCMCChainState) = firstindex(chain_state.samples)
+@inline _proposed_sample_idx(chain_state::MCMCChainState) = lastindex(chain_state.samples)
 
-@inline _current_sample_z_idx(mc_state::MCMCState) = firstindex(mc_state.sample_z)
-@inline _proposed_sample_z_idx(mc_state::MCMCState) = lastindex(mc_state.sample_z)
+@inline _current_sample_z_idx(chain_state::MCMCChainState) = firstindex(chain_state.sample_z)
+@inline _proposed_sample_z_idx(chain_state::MCMCChainState) = lastindex(chain_state.sample_z)
 
+@inline _current_sample_idx(mcmc_state::MCMCState) = firstindex(mcmc_state.chain_state.samples)
+@inline _proposed_sample_idx(mcmc_state::MCMCState) = lastindex(mcmc_state.chain_state.samples)
 
-get_proposal(state::MCMCState) = state.proposal
-
-mcmc_target(state::MCMCState) = state.target
-
-get_context(state::MCMCState) = state.context
-
-mcmc_info(state::MCMCState) = state.info
-
-nsteps(state::MCMCState) = state.stepno
-
-nsamples(state::MCMCState) = state.nsamples
-
-current_sample(state::MCMCState) = state.samples[_current_sample_idx(state)]
-
-proposed_sample(state::MCMCState) = state.samples[_proposed_sample_idx(state)]
-
-current_sample_z(state::MCMCState) = state.sample_z[_current_sample_z_idx(state)]
-
-proposed_sample_z(state::MCMCState) = state.sample_z[_proposed_sample_z_idx(state)]
-
-sample_type(state::MCMCState) = eltype(state.samples)
+@inline _current_sample_z_idx(mcmc_state::MCMCState) = firstindex(mcmc_state.chain_state.sample_z)
+@inline _proposed_sample_z_idx(mcmc_state::MCMCState) = lastindex(mcmc_state.chain_state.sample_z)
 
 
-function DensitySampleVector(mc_state::MCMCState)
-    DensitySampleVector(sample_type(mc_state), totalndof(varshape(mcmc_target(mc_state))))
+get_proposal(state::MCMCChainState) = state.proposal
+
+mcmc_target(state::MCMCChainState) = state.target
+
+get_context(state::MCMCChainState) = state.context
+
+mcmc_info(state::MCMCChainState) = state.info
+
+nsteps(state::MCMCChainState) = state.stepno
+
+nsamples(state::MCMCChainState) = state.nsamples
+
+current_sample(state::MCMCChainState) = state.samples[_current_sample_idx(state)]
+
+proposed_sample(state::MCMCChainState) = state.samples[_proposed_sample_idx(state)]
+
+current_sample_z(state::MCMCChainState) = state.sample_z[_current_sample_z_idx(state)]
+
+proposed_sample_z(state::MCMCChainState) = state.sample_z[_proposed_sample_z_idx(state)]
+
+sample_type(state::MCMCChainState) = eltype(state.samples)
+
+
+mcmc_target(state::MCMCState) = mcmc_target(state.chain_state)
+
+nsamples(state::MCMCState) = nsamples(state.chain_state)
+
+nsteps(state::MCMCState) = nsteps(state.chain_state)
+
+
+function DensitySampleVector(states::MCMCState)
+    DensitySampleVector(sample_type(states.chain_state), totalndof(varshape(mcmc_target(states))))
+end
+
+function DensitySampleVector(chain_state::MCMCChainState)
+    DensitySampleVector(sample_type(chain_state), totalndof(varshape(mcmc_target(chain_state))))
 end
 
 # TODO: MD, make into !!
-# TODO: MD, make NoOpTunerState to avoid Union nothing in type
-function mcmc_step!!(mc_state::MCMCState, tuner_state::Union{AbstractMCMCTunerInstance, Nothing}, temperer::Union{AbstractMCMCTemperingInstance, Nothing}) # ,proposal_tuner_state
+function mcmc_step!!(mcmc_state::MCMCState)
     # TODO: MD, include sample_z in _cleanup_samples()
-    _cleanup_samples(mc_state)
-    reset_rng_counters!(mc_state)
+    _cleanup_samples(mcmc_state)
+    reset_rng_counters!(mcmc_state)
 
-    @unpack target, proposal, f_transform, samples, sample_z, nsamples, stepno, context = mc_state
-    rng = get_rng(context)
+    chain_state = mcmc_state.chain_state
+
+    @unpack target, proposal, f_transform, samples, sample_z, nsamples, stepno, context = chain_state
     
-    mc_state.stepno += 1
+    chain_state.stepno += 1
     
     resize!(samples, size(samples, 1) + 1)
 
-    samples.info[lastindex(samples)] = _get_sample_id(proposal, mc_state.info.id, mc_state.info.cycle, mc_state.stepno, PROPOSED_SAMPLE)[1]
+    samples.info[lastindex(samples)] = _get_sample_id(proposal, chain_state.info.id, chain_state.info.cycle, chain_state.stepno, PROPOSED_SAMPLE)[1]
 
-    mc_state, accepted, p_accept = mcmc_propose!!(mc_state)
+    chain_state, accepted, p_accept = mcmc_propose!!(chain_state)
 
     # TODO: MD, return a bool if the transform is changed 
-    tuner_new, f_transform_tuned = mcmc_tune_transform!!(mc_state, tuner_state, p_accept)
+    mc_state_new, trafo_tuner_state_new, f_transform_tuned = mcmc_tune_post_step!!(mcmc_state, p_accept)
 
-    #proosal_new, proposal_tuner_new = mcmc_tune_proposal!!(mc_state, proposal_tuner_state)
+    #proosal_new, proposal_tuner_state_new = mcmc_tune_proposal!!(mc_state, proposal_tuner_state)
 
-    current = _current_sample_idx(mc_state)
-    proposed = _proposed_sample_idx(mc_state)
+    current = _current_sample_idx(chain_state)
+    proposed = _proposed_sample_idx(chain_state)
 
-    _accept_reject!(mc_state, accepted, p_accept, current, proposed)
+    _accept_reject!(chain_state, accepted, p_accept, current, proposed)
 
-    #mc_state_new = 
-    #temperer_new = temperer_new
-
-
-    return mc_state, tuner_new, temperer
+    return mcmc_state
 end
 
 
-function reset_rng_counters!(mc_state::MCMCState)
-    rng = get_rng(get_context(mc_state))
-    set_rng!(rng, mc_state.rngpart_cycle, mc_state.info.cycle)
+function reset_rng_counters!(chain_state::MCMCChainState)
+    rng = get_rng(get_context(chain_state))
+    set_rng!(rng, chain_state.rngpart_cycle, chain_state.info.cycle)
     rngpart_step = RNGPartition(rng, 0:(typemax(Int32) - 2))
-    set_rng!(rng, rngpart_step, mc_state.stepno)
+    set_rng!(rng, rngpart_step, chain_state.stepno)
     nothing
 end
 
-function _cleanup_samples(mc_state::MCMCState)
-    samples = mc_state.samples
-    current = _current_sample_idx(mc_state)
-    proposed = _proposed_sample_idx(mc_state)
+function reset_rng_counters!(mcmc_state::MCMCState)
+    reset_rng_counters!(mcmc_state.chain_state)
+end
+
+function _cleanup_samples(chain_state::MCMCChainState)
+    samples = chain_state.samples
+    current = _current_sample_idx(chain_state)
+    proposed = _proposed_sample_idx(chain_state)
     if (current != proposed) && samples.info.sampletype[proposed] == CURRENT_SAMPLE
         # Proposal was accepted in the last step
         @assert samples.info.sampletype[current] == ACCEPTED_SAMPLE
@@ -189,30 +195,38 @@ function _cleanup_samples(mc_state::MCMCState)
     end
 end
 
-function next_cycle!(mc_state::MCMCState)
-    _cleanup_samples(mc_state)
+function _cleanup_samples(mcmc_state::MCMCState)
+    _cleanup_samples(mcmc_state.chain_state)
+end
 
-    mc_state.info = MCMCStateInfo(mc_state.info, cycle = mc_state.info.cycle + 1)
-    mc_state.nsamples = 0
-    mc_state.stepno = 0
+function next_cycle!(chain_state::MCMCChainState)
+    _cleanup_samples(chain_state)
 
-    reset_rng_counters!(mc_state)
+    chain_state.info = MCMCChainStateInfo(chain_state.info, cycle = chain_state.info.cycle + 1)
+    chain_state.nsamples = 0
+    chain_state.stepno = 0
 
-    resize!(mc_state.samples, 1)
+    reset_rng_counters!(chain_state)
 
-    i = _proposed_sample_idx(mc_state)
-    @assert mc_state.samples.info[i].sampletype == CURRENT_SAMPLE
-    mc_state.samples.weight[i] = 1
+    resize!(chain_state.samples, 1)
 
-    mc_state.samples.info[i] = MCMCSampleID(mc_state.info.id, mc_state.info.cycle, mc_state.stepno, CURRENT_SAMPLE)
+    i = _proposed_sample_idx(chain_state)
+    @assert chain_state.samples.info[i].sampletype == CURRENT_SAMPLE
+    chain_state.samples.weight[i] = 1
 
-    mc_state
+    chain_state.samples.info[i] = MCMCSampleID(chain_state.info.id, chain_state.info.cycle, chain_state.stepno, CURRENT_SAMPLE)
+
+    chain_state
+end
+
+function next_cycle!(state::MCMCState)
+    next_cycle!(state.chain_state)
 end
 
 
-function get_samples!(appendable, mc_state::MCMCState, nonzero_weights::Bool)::typeof(appendable)
-    if samples_available(mc_state)
-        samples = mc_state.samples
+function get_samples!(appendable, chain_state::MCMCChainState, nonzero_weights::Bool)::typeof(appendable)
+    if samples_available(chain_state)
+        samples = chain_state.samples
 
         for i in eachindex(samples)
             st = samples.info.sampletype[i]
@@ -227,12 +241,21 @@ function get_samples!(appendable, mc_state::MCMCState, nonzero_weights::Bool)::t
     appendable
 end
 
-function samples_available(mc_state::MCMCState)
-    i = _current_sample_idx(mc_state)
-    mc_state.samples.info.sampletype[i] == ACCEPTED_SAMPLE
+function get_samples!(appendable, mcmc_state::MCMCState, nonzero_weights::Bool)::typeof(appendable)
+    get_samples!(appendable, mcmc_state.chain_state, nonzero_weights)
 end
 
-function mcmc_update_z_position!!(mc_state::MCMCState)
+
+function samples_available(chain_state::MCMCChainState)
+    i = _current_sample_idx(chain_state)
+    chain_state.samples.info.sampletype[i] == ACCEPTED_SAMPLE
+end
+
+function samples_available(mcmc_state::MCMCState)
+    samples_available(mcmc_state.chain_state)
+end
+
+function mcmc_update_z_position!!(mc_state::MCMCChainState)
 
     proposed_sample_x = proposed_sample(mc_state)
 
@@ -246,3 +269,34 @@ function mcmc_update_z_position!!(mc_state::MCMCState)
 
     return mc_state_new
 end
+
+
+function mcmc_tuning_init!!(state::MCMCState, max_nsteps::Integer)
+    mcmc_tuning_init!!(state.trafo_tuner_state, state.chain_state, max_nsteps)
+    mcmc_tuning_init!!(state.proposal_tuner_state, state.chain_state, max_nsteps)
+end
+
+function mcmc_tuning_reinit!!(state::MCMCState, max_nsteps::Integer)
+    mcmc_tuning_reinit!!(state.trafo_tuner_state, state.chain_state, max_nsteps)
+    mcmc_tuning_reinit!!(state.proposal_tuner_state, state.chain_state, max_nsteps)
+end
+
+function mcmc_tuning_postinit!!(state::MCMCState, samples::DensitySampleVector)
+    mcmc_tuning_postinit!!(state.trafo_tuner_state, state.chain_state, samples)
+    mcmc_tuning_postinit!!(state.proposal_tuner_state, state.chain_state, samples)
+end
+
+function mcmc_tune_post_cycle!!(state::MCMCState, samples::DensitySampleVector)
+    mcmc_tune_post_cycle!!(state.trafo_tuner_state, state.chain_state, samples)
+    mcmc_tune_post_cycle!!(state.proposal_tuner_state, state.chain_state, samples)
+end
+
+function mcmc_tune_post_step!!(state::MCMCState, p_accept::Real)
+    mcmc_tune_post_step!!(state.trafo_tuner_state, state.chain_state, p_accept)
+    mcmc_tune_post_step!!(state.proposal_tuner_state, state.chain_state, p_accept)
+end
+
+function mcmc_tuning_finalize!!(state::MCMCState)
+    mcmc_tuning_finalize!!(state.trafo_tuner_state, state.chain_state)
+    mcmc_tuning_finalize!!(state.proposal_tuner_state, state.chain_state)
+end 

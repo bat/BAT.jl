@@ -22,28 +22,32 @@ import AdvancedHMC
     proposal = HamiltonianMC()
     tuning = StanHMCTuning()
     nchains = 4
-    sampling = MCMCSampling(proposal = proposal, tuning = tuning)
+    sampling = MCMCSampling(proposal = proposal, trafo_tuning = tuning)
 
     @testset "MCMC iteration" begin
         v_init = bat_initval(target, InitFromTarget(), context).result
-        # Note: No @inferred, since MCMCState is not type stable (yet) with HamiltonianMC
+        # Note: No @inferred, since MCMCChainState is not type stable (yet) with HamiltonianMC
         # TODO: MD, reactivate
-        @test BAT.MCMCState(sampling, target, 1, unshaped(v_init, varshape(target)), deepcopy(context)) isa BAT.HMCState
-        mc_state = BAT.MCMCState(sampling, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))
-        tuner = BAT.StanHMCTuning()(mc_state)
+        @test BAT.MCMCChainState(sampling, target, 1, unshaped(v_init, varshape(target)), deepcopy(context)) isa BAT.HMCState
+        mcmc_state = BAT.MCMCState(sampling, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))
+        tuner = BAT.create_proposal_tuner_state(StanHMCTuning(), mcmc_state.chain_state, 0)
         nsteps = 10^4
-        BAT.tuning_init!(tuner, mc_state, 0)
-        BAT.tuning_reinit!(tuner, mc_state, div(nsteps, 10))
-        samples = DensitySampleVector(mc_state)
-        mc_state, tuner, REMOVE_dummy_temperer = BAT.mcmc_iterate!!(samples, mc_state; tuner = tuner, max_nsteps = nsteps, nonzero_weights = false)
-        @test mc_state.stepno == nsteps
+        BAT.mcmc_tuning_init!!(mcmc_state, 0)
+        BAT.mcmc_tuning_reinit!!(mcmc_state, div(nsteps, 10))
+
+        sampling = BAT.MCMCSampling(proposal = proposal, trafo_tuning = tuning, nchains = nchains)
+
+
+        samples = DensitySampleVector(mcmc_state)
+        mcmc_state = BAT.mcmc_iterate!!(samples, mcmc_state; max_nsteps = nsteps, nonzero_weights = false)
+        @test mcmc_state.chain_state.stepno == nsteps
         @test minimum(samples.weight) == 0
         @test isapprox(length(samples), nsteps, atol = 20)
         @test length(samples) == sum(samples.weight)
         @test BAT.test_dist_samples(unshaped(objective), samples)
 
-        samples = DensitySampleVector(mc_state)
-        mc_state, REMOVE_dummy_tuner, REMOVE_dummy_temperer = BAT.mcmc_iterate!!(samples, mc_state, max_nsteps = 10^3, nonzero_weights = true)
+        samples = DensitySampleVector(mcmc_state)
+        mcmc_state = BAT.mcmc_iterate!!(samples, mcmc_state; max_nsteps = 10^3, nonzero_weights = true)
         @test minimum(samples.weight) == 1
     end
 
@@ -59,7 +63,7 @@ import AdvancedHMC
         callback = (x...) -> nothing
 
         sampling = MCMCSampling(proposal = proposal,
-                                tuning = tuning_alg, 
+                                trafo_tuning = tuning_alg, 
                                 pre_transform = trafo, 
                                 init = init_alg, 
                                 burnin = burnin_alg, 
@@ -77,27 +81,26 @@ import AdvancedHMC
             context
         )
 
-        (mc_states, tuners, outputs) = init_result
-        # @test mc_states isa AbstractVector{<:BAT.HMCState} # TODO: MD, reactivate, works for AbstractVector{<:MCMCState}, but doesn't seen to like the typealias 
+        (mcmc_states, outputs) = init_result
+        # @test mcmc_states isa AbstractVector{<:BAT.HMCState} # TODO: MD, reactivate, works for AbstractVector{<:MCMCChainState}, but doesn't seen to like the typealias 
         # @test tuners isa AbstractVector{<:BAT.HMCState}
         @test outputs isa AbstractVector{<:DensitySampleVector}
 
         BAT.mcmc_burnin!(
             outputs,
-            tuners,
-            mc_states,
+            mcmc_states,
             sampling,
             callback
         )
 
-        mc_states, REMOVE_dummy_tuners, REMOVE_dummy_temperers = BAT.mcmc_iterate!!(
+        mcmc_states = BAT.mcmc_iterate!!(
             outputs,
-            mc_states;
-            max_nsteps = div(max_nsteps, length(mc_states)),
+            mcmc_states;
+            max_nsteps = div(max_nsteps, length(mcmc_states)),
             nonzero_weights = nonzero_weights
         )
 
-        samples = DensitySampleVector(first(mc_states))
+        samples = DensitySampleVector(first(mcmc_states))
         append!.(Ref(samples), outputs)
         
         @test length(samples) == sum(samples.weight)
@@ -109,7 +112,7 @@ import AdvancedHMC
             shaped_target,
             MCMCSampling(
                 proposal = proposal,
-                tuning = StanHMCTuning(),
+                trafo_tuning = StanHMCTuning(),
                 pre_transform = DoNotTransform(),
                 nsteps = 10^4,
                 store_burnin = true
@@ -125,7 +128,7 @@ import AdvancedHMC
             shaped_target,
             MCMCSampling(
                 proposal = proposal,
-                tuning = StanHMCTuning(),
+                trafo_tuning = StanHMCTuning(),
                 pre_transform = DoNotTransform(),
                 nsteps = 10^4,
                 store_burnin = false
@@ -145,7 +148,7 @@ import AdvancedHMC
         inner_posterior = PosteriorMeasure(likelihood, prior)
         # Test with nested posteriors:
         posterior = PosteriorMeasure(likelihood, inner_posterior)
-        @test BAT.sample_and_verify(posterior, MCMCSampling(proposal = HamiltonianMC(), tuning = StanHMCTuning(), pre_transform = PriorToGaussian()), prior.dist, context).verified
+        @test BAT.sample_and_verify(posterior, MCMCSampling(proposal = HamiltonianMC(), trafo_tuning = StanHMCTuning(), pre_transform = PriorToGaussian()), prior.dist, context).verified
     end
 
     @testset "HMC autodiff" begin
@@ -157,7 +160,7 @@ import AdvancedHMC
 
                 hmc_sampling_alg = MCMCSampling(
                     proposal = HamiltonianMC(),
-                    tuning = StanHMCTuning(),
+                    trafo_tuning = StanHMCTuning(),
                     nchains = 2,
                     nsteps = 100,
                     init = MCMCChainPoolInit(init_tries_per_chain = 2..2, nsteps_init = 5),

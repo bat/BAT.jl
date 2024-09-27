@@ -9,11 +9,20 @@ function check_convergence!(
 )
     result = convert(Bool, bat_convergence(samples, algorithm, context).result)
     for chain in chains
-        chain.info = MCMCStateInfo(chain.info, converged = result)
+        chain.info = MCMCChainStateInfo(chain.info, converged = result)
     end
     result
 end
 
+function check_convergence!(
+    mcmc_states::AbstractVector{<:MCMCState}, 
+    samples::AbstractVector{<:DensitySampleVector}, 
+    algorithm::ConvergenceTest, 
+    context::BATContext
+)
+    chain_states = getfield.(mcmc_states, :chain_state)
+    check_convergence!(chain_states, samples, algorithm, context)
+end
 
 
 """

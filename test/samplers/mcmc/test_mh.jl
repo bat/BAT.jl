@@ -14,7 +14,6 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
     target = unshaped(shaped_target)
     @test target isa BAT.BATDistMeasure
 
-    # These are default values in MCMCSampling()
     proposal = MetropolisHastings()
     nchains = 4
 
@@ -23,20 +22,20 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
     @testset "MCMC iteration" begin
         v_init = bat_initval(target, InitFromTarget(), context).result
         # TODO: MD, Reactivate type inference tests
-        # @test @inferred(BAT.MCMCState(sampling, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))) isa BAT.MHState
-        # chain = @inferred(BAT.MCMCState(sampling, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))) 
-        mc_state = BAT.MCMCState(sampling, target, 1, unshaped(v_init, varshape(target)), deepcopy(context)) 
-        samples = DensitySampleVector(mc_state)
-        mc_state, REMOVE_dummy_tuner, REMOVE_dummy_temperer = BAT.mcmc_iterate!!(samples, mc_state, max_nsteps = 10^5, nonzero_weights = false)
-        @test mc_state.stepno == 10^5
+        # @test @inferred(BAT.MCMCChainState(sampling, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))) isa BAT.MHChainState
+        # chain = @inferred(BAT.MCMCChainState(sampling, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))) 
+        mcmc_state = BAT.MCMCState(sampling, target, 1, unshaped(v_init, varshape(target)), deepcopy(context)) 
+        samples = DensitySampleVector(mcmc_state)
+        mcmc_state = BAT.mcmc_iterate!!(samples, mcmc_state; max_nsteps = 10^5, nonzero_weights = false)
+        @test mcmc_state.chain_state.stepno == 10^5
         @test minimum(samples.weight) == 0
         @test isapprox(length(samples), 10^5, atol = 20)
         @test length(samples) == sum(samples.weight)
         @test isapprox(mean(samples), [1, -1, 2], atol = 0.2)
         @test isapprox(cov(samples), cov(unshaped(objective)), atol = 0.3)
 
-        samples = DensitySampleVector(mc_state)
-        mc_state, REMOVE_dummy_tuner, REMOVE_dummy_temperer = BAT.mcmc_iterate!!(samples, mc_state, max_nsteps = 10^3, nonzero_weights = true)
+        samples = DensitySampleVector(mcmc_state)
+        mcmc_state = BAT.mcmc_iterate!!(samples, mcmc_state; max_nsteps = 10^3, nonzero_weights = true)
         @test minimum(samples.weight) == 1
     end
  
@@ -52,7 +51,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
 
         sampling = MCMCSampling(
             proposal = proposal,
-            tuning = tuning_alg,
+            trafo_tuning = tuning_alg,
             burnin = burnin_alg,
             nchains = nchains,
             convergence = convergence_test,
@@ -68,29 +67,28 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
             context
         ))
 
-        (mc_states, tuners, outputs) = init_result
+        (mcmc_states, outputs) = init_result
 
         # TODO: MD, Reactivate, for some reason fail
-        # @test mc_states isa AbstractVector{<:BAT.MHState}
-        # @test tuners isa AbstractVector{<:BAT.ProposalCovTunerState}
+        # @test mcmc_states isa AbstractVector{<:BAT.MHChainState}
+        # @test tuners isa AbstractVector{<:BAT.AdaptiveMHTrafoTunerState}
         @test outputs isa AbstractVector{<:DensitySampleVector}
 
         BAT.mcmc_burnin!(
             outputs,
-            tuners,
-            mc_states,
+            mcmc_states,
             sampling,
             callback
         )
 
-        mc_states, REMOVE_dummy_tuners, REMOVE_dummy_temperers = BAT.mcmc_iterate!!(
+        mcmc_states = BAT.mcmc_iterate!!(
             outputs,
-            mc_states;
-            max_nsteps = div(max_nsteps, length(mc_states)),
+            mcmc_states;
+            max_nsteps = div(max_nsteps, length(mcmc_states)),
             nonzero_weights = nonzero_weights
         )
 
-        samples = DensitySampleVector(first(mc_states))
+        samples = DensitySampleVector(first(mcmc_states))
         append!.(Ref(samples), outputs)
         
         @test length(samples) == sum(samples.weight)
@@ -133,7 +131,3 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         @test BAT.sample_and_verify(posterior, MCMCSampling(proposal = MetropolisHastings(), pre_transform = PriorToGaussian()), prior.dist).verified
     end
 end
-
-# Test with a custom proposal distribution                                                                                                                                                                                                                                                                                                                                  _A<:Function, _B<:BAT.MCMCProposalState, _C<:DensitySample                                                                
-#MCMCState{BAT.BATDistMeasure{ValueShapes.UnshapedNTD{NamedTupleDist{(:a, :b), Tuple{Normal{Float64}, FullNormal}, Tuple{ValueAccessor{ScalarShape{Real}}, ValueAccessor{ArrayShape{Real, 1}}}, NamedTuple}}}, BAT.RNGPartition{Philox4x{UInt64, 10}, Tuple{UInt64, UInt64}, NTuple{6, UInt32}, UnitRange{Int64}}, AffineMaps.Mul{LowerTriangular{Float64, Matrix{Float64}}}, MHProposalState{Normal{Float64}, RepetitionWeighting{Int64}}, DensitySample{Vector{Float64},Float64, Int64, BAT.MCMCSampleID, Nothing}, StructArrays.StructVector{DensitySample{Vector{Float64}, Float64, Int64, BAT.MCMCSampleID, Nothing}, NamedTuple{(:v, :logd, :weight, :info, :aux), Tuple{ArrayOfSimilarArrays{Float64, 1, 1, 2, ElasticMatrix{Float64, Vector{Float64}}}, Vector{Float64}, Vector{Int64}, StructArrays.StructVector{BAT.MCMCSampleID, NamedTuple{(:chainid, :chaincycle, :stepno, :sampletype), Tuple{Vector{Int32}, Vector{Int32}, Vector{Int64}, Vector{Int64}}}, Int64}, Vector{Nothing}}}, Int64}, BATContext{Float64, Philox4x{UInt64, 10}, HeterogeneousComputing.CPUnit, BAT._NoADSelected}} 
-#MCMCState{BAT.BATDistMeasure{ValueShapes.UnshapedNTD{NamedTupleDist{(:a, :b), Tuple{Normal{Float64}, FullNormal}, Tuple{ValueAccessor{ScalarShape{Real}}, ValueAccessor{ArrayShape{Real, 1}}}, NamedTuple}}}, BAT.RNGPartition{Philox4x{UInt64, 10}, Tuple{UInt64, UInt64}, NTuple{6, UInt32}, UnitRange{Int64}}, _A,                                                       _B,                                                            _C,                                                                       StructArrays.StructVector{DensitySample{Vector{Float64}, Float64, Int64, BAT.MCMCSampleID, Nothing}, NamedTuple{(:v, :logd, :weight, :info, :aux), Tuple{ArrayOfSimilarArrays{Float64, 1, 1, 2, ElasticMatrix{Float64, Vector{Float64}}}, Vector{Float64}, Vector{Int64}, StructArrays.StructVector{BAT.MCMCSampleID, NamedTuple{(:chainid, :chaincycle, :stepno, :sampletype), Tuple{Vector{Int32}, Vector{Int32}, Vector{Int64}, Vector{Int64}}}, Int64}, Vector{Nothing}}}, Int64}, BATContext{Float64, Philox4x{UInt64, 10}, HeterogeneousComputing.CPUnit, BAT._NoADSelected}}

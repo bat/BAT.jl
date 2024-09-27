@@ -58,7 +58,7 @@ function _get_sample_id(proposal::MHProposalState, id::Int32, cycle::Int32, step
 end
 
 
-const MHState = MCMCState{<:BATMeasure,
+const MHChainState = MCMCChainState{<:BATMeasure,
                           <:RNGPartition,
                           <:Function,
                           <:MHProposalState,
@@ -67,7 +67,7 @@ const MHState = MCMCState{<:BATMeasure,
                           <:BATContext
 } 
 
-function mcmc_propose!!(mc_state::MHState)
+function mcmc_propose!!(mc_state::MHChainState)
     @unpack target, proposal, f_transform, context = mc_state
     rng = get_rng(context)
 
@@ -101,7 +101,7 @@ function mcmc_propose!!(mc_state::MHState)
     return mc_state, accepted, p_accept
 end
 
-function _accept_reject!(mc_state::MHState, accepted::Bool, p_accept::Float64, current::Integer, proposed::Integer)
+function _accept_reject!(mc_state::MHChainState, accepted::Bool, p_accept::Float64, current::Integer, proposed::Integer)
     @unpack samples, proposal = mc_state
 
     if accepted
@@ -147,4 +147,4 @@ function _weights(
     end
 end
 
-eff_acceptance_ratio(mc_state::MHState) = nsamples(mc_state) / nsteps(mc_state)
+eff_acceptance_ratio(mc_state::MHChainState) = nsamples(mc_state) / nsteps(mc_state)

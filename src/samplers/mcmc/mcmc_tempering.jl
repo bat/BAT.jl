@@ -3,13 +3,13 @@
 struct NoMCMCTempering <: MCMCTempering end
 
 """
-temper_mcmc_target!!(tempering::AbstractMCMCTemperingInstance, target::BATMeasure, stepno::Integer)
+temper_mcmc_target!!(tempering::AbstractMCMCTempererState, target::BATMeasure, stepno::Integer)
 """
 function temper_mcmc_target!! end
 
-struct NoAbstractMCMCTemperingInstance <: AbstractMCMCTemperingInstance end
+struct MCMCNoTemperingState <: AbstractMCMCTempererState end
 
-temper_mcmc_target!!(tempering::NoAbstractMCMCTemperingInstance, target::BATMeasure, stepno::Integer) = tempering, target
+temper_mcmc_target!!(tempering::MCMCNoTemperingState, target::BATMeasure, stepno::Integer) = tempering, target
 
-create_temperering_state(tempering::NoMCMCTempering, target::BATMeasure) = NoAbstractMCMCTemperingInstance()
-create_temperering_state(tempering::NoMCMCTempering, mc_state::MCMCState) = create_temperering_state(tempering, mc_state.target)
+create_temperering_state(tempering::NoMCMCTempering, target::BATMeasure) = MCMCNoTemperingState()
+create_temperering_state(tempering::NoMCMCTempering, mc_state::MCMCChainState) = create_temperering_state(tempering, mc_state.target)

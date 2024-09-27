@@ -61,7 +61,7 @@ end
 function BAT.next_cycle!(mc_state::HMCState)
     _cleanup_samples(mc_state)
 
-    mc_state.info = MCMCStateInfo(mc_state.info, cycle = mc_state.info.cycle + 1)
+    mc_state.info = MCMCChainStateInfo(mc_state.info, cycle = mc_state.info.cycle + 1)
     mc_state.nsamples = 0
     mc_state.stepno = 0
 

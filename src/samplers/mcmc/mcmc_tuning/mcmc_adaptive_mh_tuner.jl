@@ -42,88 +42,70 @@ end
 export AdaptiveMHTuning
 
 # TODO: MD, make immutable and use Accessors.jl
-mutable struct ProposalCovTunerState{
+mutable struct AdaptiveMHTrafoTunerState{
     S<:MCMCBasicStats
-} <: AbstractMCMCTunerInstance
+} <: AbstractMCMCTunerState
     tuning::AdaptiveMHTuning
     stats::S
     iteration::Int
     scale::Float64
 end
 
-(tuning::AdaptiveMHTuning)(mc_state::MCMCState) = ProposalCovTunerState(tuning, mc_state)
+struct AdaptiveMHProposalTunerState <: AbstractMCMCTunerState end
+
+(tuning::AdaptiveMHTuning)(chain_state::MCMCChainState) = AdaptiveMHTrafoTunerState(tuning, chain_state), AdaptiveMHProposalTunerState()
 
 # TODO: MD, what should the default be? 
 default_adaptive_transform(tuning::AdaptiveMHTuning) = TriangularAffineTransform()
 
-function ProposalCovTunerState(tuning::AdaptiveMHTuning, mc_state::MCMCState)
-    m = totalndof(varshape(mcmc_target(mc_state)))
+function AdaptiveMHTrafoTunerState(tuning::AdaptiveMHTuning, chain_state::MCMCChainState)
+    m = totalndof(varshape(mcmc_target(chain_state)))
     scale = 2.38^2 / m
-    ProposalCovTunerState(tuning, MCMCBasicStats(mc_state), 1, scale)
+    AdaptiveMHTrafoTunerState(tuning, MCMCBasicStats(chain_state), 1, scale)
 end
 
 
-function _cov_with_fallback(d::UnivariateDistribution, n::Integer)
-    rng = _bat_determ_rng()
-    T = float(eltype(rand(rng, d)))
-    C = fill(T(NaN), n, n)
-    try
-        C[:] = Diagonal(fill(var(d),n))
-    catch err
-        if err isa MethodError
-            C[:] = Diagonal(fill(var(nestedview(rand(rng, d, 10^5))),n))
-        else
-            throw(err)
-        end
-    end
-    return C
-end
+AdaptiveMHProposalTunerState(tuning::AdaptiveMHTuning, chain_state::MCMCChainState) = AdaptiveMHProposalTunerState()
 
-function _cov_with_fallback(d::MultivariateDistribution, n::Integer)
-    rng = _bat_determ_rng()
-    T = float(eltype(rand(rng, d)))
-    C = fill(T(NaN), n, n)
-    try
-        C[:] = cov(d)
-    catch err
-        if err isa MethodError
-            C[:] = cov(nestedview(rand(rng, d, 10^5)))
-        else
-            throw(err)
-        end
-    end
-    return C
-end
 
-_approx_cov(target::Distribution, n) = _cov_with_fallback(target, n)
-_approx_cov(target::BATDistMeasure, n) = _cov_with_fallback(Distribution(target), n)
-_approx_cov(target::AbstractPosteriorMeasure, n) = _approx_cov(getprior(target), n)
+create_trafo_tuner_state(tuning::AdaptiveMHTuning, chain_state::MCMCChainState, iteration::Integer) = AdaptiveMHTrafoTunerState(tuning, chain_state)
 
-function tuning_init!(tuner::ProposalCovTunerState, mc_state::MCMCState, max_nsteps::Integer)
-    n = totalndof(varshape(mcmc_target(mc_state)))
+create_proposal_tuner_state(tuning::AdaptiveMHTuning, chain_state::MCMCChainState, iteration::Integer) = AdaptiveMHProposalTunerState()
 
-    proposaldist = mc_state.proposal.proposaldist
+
+function mcmc_tuning_init!!(tuner_state::AdaptiveMHTrafoTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
+    n = totalndof(varshape(mcmc_target(chain_state)))
+
+    proposaldist = chain_state.proposal.proposaldist
     Σ_unscaled = _approx_cov(proposaldist, n)
-    Σ = Σ_unscaled * tuner.scale
+    Σ = Σ_unscaled * tuner_state.scale
     
-    proposaldist = set_cov(proposaldist, Σ)
+    S = cholesky(Positive, Σ)
+    
+    chain_state.f_transform = Mul(S.L)
 
     nothing
 end
 
+mcmc_tuning_init!!(tuner_state::AdaptiveMHProposalTunerState, chain_state::MCMCChainState, max_nsteps::Integer) = nothing
 
-tuning_reinit!(tuner::ProposalCovTunerState, mc_state::MCMCState, max_nsteps::Integer) = nothing
+
+mcmc_tuning_reinit!!(tuner_state::AdaptiveMHTrafoTunerState, chain_state::MCMCChainState, max_nsteps::Integer) = nothing
+
+mcmc_tuning_reinit!!(tuner_state::AdaptiveMHProposalTunerState, chain_state::MCMCChainState, max_nsteps::Integer) = nothing
 
 
-function tuning_postinit!(tuner::ProposalCovTunerState, mc_state::MHState, samples::DensitySampleVector)
+function mcmc_tuning_postinit!!(tuner::AdaptiveMHTrafoTunerState, chain_state::MCMCChainState, samples::DensitySampleVector)
     # The very first samples of a chain can be very valuable to init tuner
     # stats, especially if the chain gets stuck early after:
     stats = tuner.stats
     append!(stats, samples)
 end
 
-# TODO, MD: Rename to mcmc_tune_transform_next_cylce!!()
-function tuning_update!(tuner::ProposalCovTunerState, mc_state::MHState, samples::DensitySampleVector)
+mcmc_tuning_postinit!!(tuner_state::AdaptiveMHProposalTunerState, chain_state::MCMCChainState, samples::DensitySampleVector) = nothing
+
+
+function mcmc_tune_post_cycle!!(tuner::AdaptiveMHTrafoTunerState, mc_state::MCMCChainState, samples::DensitySampleVector)
     tuning = tuner.tuning
     stats = tuner.stats
     stats_reweight_factor = tuning.r
@@ -157,10 +139,10 @@ function tuning_update!(tuner::ProposalCovTunerState, mc_state::MHState, samples
     max_log_posterior = stats.logtf_stats.maximum
 
     if α_min <= α <= α_max
-        mc_state.info = MCMCStateInfo(mc_state.info, tuned = true)
+        mc_state.info = MCMCChainStateInfo(mc_state.info, tuned = true)
         @debug "MCMC chain $(mc_state.info.id) tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
     else
-        mc_state.info = MCMCStateInfo(mc_state.info, tuned = false)
+        mc_state.info = MCMCChainStateInfo(mc_state.info, tuned = false)
         @debug "MCMC chain $(mc_state.info.id) *not* tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
 
         if α > α_max && c < c_max
@@ -180,18 +162,31 @@ function tuning_update!(tuner::ProposalCovTunerState, mc_state::MHState, samples
     nothing
 end
 
-tuning_finalize!(tuner::ProposalCovTunerState, mc_state::MCMCState) = nothing
+mcmc_tune_post_cycle!!(tuner::AdaptiveMHProposalTunerState, mc_state::MCMCChainState, samples::DensitySampleVector) = nothing
 
-tuning_callback(::ProposalCovTunerState) = nop_func
 
-tuning_callback(::Nothing) = nop_func
+mcmc_tuning_finalize!!(tuner::AdaptiveMHTrafoTunerState, mc_state::MCMCChainState) = nothing
 
+mcmc_tuning_finalize!!(tuner::AdaptiveMHProposalTunerState, mc_state::MCMCChainState) = nothing
+
+
+tuning_callback(::AdaptiveMHTrafoTunerState) = nop_func
+
+tuning_callback(::AdaptiveMHProposalTunerState) = nop_func
 
 # add a boold to return if the transfom changes 
-function mcmc_tune_transform!!(
-    mc_state::MCMCState,
-    tuner::ProposalCovTunerState,
+function mcmc_tune_post_step!!(
+    tuner::AdaptiveMHTrafoTunerState,
+    mc_state::MCMCChainState,
     p_accept::Real
 )
-    return (tuner, mc_state.f_transform)
+    return mc_state, tuner, mc_state.f_transform, false
+end
+
+function mcmc_tune_post_step!!(
+    tuner::AdaptiveMHProposalTunerState,
+    mc_state::MCMCChainState,
+    p_accept::Real
+)
+    return mc_state, tuner, mc_state.f_transform, false
 end
