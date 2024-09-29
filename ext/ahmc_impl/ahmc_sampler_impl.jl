@@ -54,7 +54,7 @@ function BAT._create_proposal_state(
 end
 
 
-function BAT._get_sample_id(proposal::HMCProposalState, id::Int32, cycle::Int32, stepno::Int64, sample_type::Integer)
+function BAT._get_sample_id(proposal::HMCProposalState, id::Int32, cycle::Int32, stepno::Integer, sample_type::Integer)
     return AHMCSampleID(id, cycle, stepno, sample_type, 0.0, 0, false, 0.0), AHMCSampleID
 end
 

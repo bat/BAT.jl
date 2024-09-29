@@ -81,22 +81,26 @@ function BAT.mcmc_tune_post_step!!(
     chain_state::MCMCChainState,
     p_accept::Real
 )
-    return chain_state, tuner_state, chain_state.f_transform
+    return chain_state, tuner_state, false
 end
 
+# TODO: MD, make actually !! function
 function BAT.mcmc_tune_post_step!!(
     tuner_state::HMCProposalTunerState,
     chain_state::MCMCChainState,
     p_accept::Real
 )
     adaptor = tuner_state.adaptor
-    proposal = chain_state.proposal
-    tstat = AdvancedHMC.stat(proposal.transition)
+    proposal_new = deepcopy(chain_state.proposal)
+    tstat = AdvancedHMC.stat(proposal_new.transition)
 
-    AdvancedHMC.adapt!(adaptor, proposal.transition.z.θ, tstat.acceptance_rate)
-    proposal.hamiltonian = AdvancedHMC.update(proposal.hamiltonian, adaptor)
-    proposal.kernel = AdvancedHMC.update(proposal.kernel, adaptor)
+    AdvancedHMC.adapt!(adaptor, proposal_new.transition.z.θ, tstat.acceptance_rate)
+    proposal_new.hamiltonian = AdvancedHMC.update(proposal_new.hamiltonian, adaptor)
+    proposal_new.kernel = AdvancedHMC.update(proposal_new.kernel, adaptor)
     tstat = merge(tstat, (is_adapt =true,))
 
-    return chain_state, tuner_state, chain_state.f_transform
+    chain_state_tmp = @set chain_state.proposal.transition.stat = tstat
+    chain_state_final = @set chain_state_tmp.proposal = proposal_new
+
+    return chain_state_final, tuner_state, false
 end

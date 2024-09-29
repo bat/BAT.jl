@@ -2,7 +2,6 @@ using BAT
 using AdvancedHMC
 using AffineMaps
 using AutoDiffOperators
-# using Plots
 using ValueShapes
 
 
@@ -24,6 +23,8 @@ propcov_result = BAT.bat_sample_impl(posterior,
                                      context
 )
 propcov_samples = propcov_result.result
+
+using Plots
 plot(propcov_samples)
 
 

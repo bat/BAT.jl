@@ -53,7 +53,7 @@ function _create_proposal_state(
 end
 
 
-function _get_sample_id(proposal::MHProposalState, id::Int32, cycle::Int32, stepno::Int64, sample_type::Integer)
+function _get_sample_id(proposal::MHProposalState, id::Int32, cycle::Int32, stepno::Integer, sample_type::Integer)
     return MCMCSampleID(id, cycle, stepno, sample_type), MCMCSampleID
 end
 

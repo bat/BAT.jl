@@ -153,17 +153,22 @@ function mcmc_step!!(mcmc_state::MCMCState)
 
     chain_state, accepted, p_accept = mcmc_propose!!(chain_state)
 
-    # TODO: MD, return a bool if the transform is changed 
-    mc_state_new, trafo_tuner_state_new, f_transform_tuned = mcmc_tune_post_step!!(mcmc_state, p_accept)
+    mcmc_state_new, trafo_changed = mcmc_tune_post_step!!(mcmc_state, p_accept)
 
-    #proosal_new, proposal_tuner_state_new = mcmc_tune_proposal!!(mc_state, proposal_tuner_state)
+    chain_state = mcmc_state_new.chain_state
+
+    if trafo_changed
+        chain_state = mcmc_update_z_position!!(chain_state)
+    end
 
     current = _current_sample_idx(chain_state)
     proposed = _proposed_sample_idx(chain_state)
 
     _accept_reject!(chain_state, accepted, p_accept, current, proposed)
 
-    return mcmc_state
+    mcmc_state_final = @set mcmc_state_new.chain_state = chain_state
+
+    return mcmc_state_final
 end
 
 
@@ -261,16 +266,19 @@ function mcmc_update_z_position!!(mc_state::MCMCChainState)
 
     x_proposed, logd_x_proposed = proposed_sample_x.v, proposed_sample_x.logd 
 
-    z_new, ladj_inv = with_logabsdet_jacobian(inverse(mc_state.f_transform), x_proposed)
+    z_new, ladj_inv = with_logabsdet_jacobian(inverse(mc_state.f_transform), vec(x_proposed))
 
     logd_z_new = logd_x_proposed - ladj_inv
 
-    mc_state_new = @set mc_state.sample_z[2].v, mc_state.sample_z[2].logd = z_new, logd_z_new
+    mc_state_tmp = @set mc_state.sample_z.v[2] = vec(z_new)
+    mc_state_new = @set mc_state_tmp.sample_z.logd[2] = logd_z_new
 
     return mc_state_new
 end
 
-
+# TODO: MD, Discuss: 
+# When using different Tuners for proposal and transformation, which should be applied first? 
+# And if the z-position changes during the transformation tuning, should the proposal Tuner run on the updated z-position?
 function mcmc_tuning_init!!(state::MCMCState, max_nsteps::Integer)
     mcmc_tuning_init!!(state.trafo_tuner_state, state.chain_state, max_nsteps)
     mcmc_tuning_init!!(state.proposal_tuner_state, state.chain_state, max_nsteps)
@@ -292,8 +300,15 @@ function mcmc_tune_post_cycle!!(state::MCMCState, samples::DensitySampleVector)
 end
 
 function mcmc_tune_post_step!!(state::MCMCState, p_accept::Real)
-    mcmc_tune_post_step!!(state.trafo_tuner_state, state.chain_state, p_accept)
-    mcmc_tune_post_step!!(state.proposal_tuner_state, state.chain_state, p_accept)
+    chain_state_tmp, trafo_tuner_state_new, trafo_changed = mcmc_tune_post_step!!(state.trafo_tuner_state, state.chain_state, p_accept)
+    chain_state_new, proposal_tuner_state_new, _ = mcmc_tune_post_step!!(state.proposal_tuner_state, chain_state_tmp, p_accept)
+
+    # TODO: MD, inelegant, use AccessorsExtra.jl to set several fields at once? https://github.com/JuliaAPlavin/AccessorsExtra.jl
+    mcmc_state_cs = @set state.chain_state = chain_state_new
+    mcmc_state_tt = @set mcmc_state_cs.trafo_tuner_state = trafo_tuner_state_new
+    mcmc_state_pt = @set mcmc_state_tt.proposal_tuner_state = proposal_tuner_state_new
+    
+    return mcmc_state_pt, trafo_changed
 end
 
 function mcmc_tuning_finalize!!(state::MCMCState)

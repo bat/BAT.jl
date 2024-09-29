@@ -40,9 +40,9 @@ tuning_callback(::Nothing) = nop_func
 
 
 function mcmc_tune_post_step!!(chain_state::MCMCChainState, tuner::MCMCNoOpTunerState, ::Real)
-    return chain_state, tuner, chain_state.f_transform
+    return chain_state, tuner, false
 end
 
 function mcmc_tune_post_step!!(chain_state::MCMCChainState, tuner::Nothing, ::Real)
-    return chain_state, nothing, chain_state.f_transform
+    return chain_state, nothing, false
 end

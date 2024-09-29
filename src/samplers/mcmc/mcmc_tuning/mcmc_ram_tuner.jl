@@ -88,10 +88,11 @@ function mcmc_tune_post_step!!(
     S = cholesky(Positive, M)
     f_transform_new  = Mul(S.L)
 
-    tuner_state.nsteps += 1
-    mc_state.f_transform = f_transform_new
+    tuner_state_new = @set tuner_state.nsteps = tuner_state.nsteps + 1
+    
+    mc_state_new = @set mc_state.f_transform = f_transform_new
 
-    return mc_state, tuner_state, f_transform_new
+    return mc_state_new, tuner_state_new, true
 end
 
 function mcmc_tune_post_step!!(
@@ -99,5 +100,5 @@ function mcmc_tune_post_step!!(
     mc_state::MCMCChainState,
     p_accept::Real,
 )
-    return mc_state, tuner_state, mc_state.f_transform
+    return mc_state, tuner_state, false
 end

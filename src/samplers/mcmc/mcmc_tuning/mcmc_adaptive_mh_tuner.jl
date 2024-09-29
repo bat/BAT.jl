@@ -177,16 +177,16 @@ tuning_callback(::AdaptiveMHProposalTunerState) = nop_func
 # add a boold to return if the transfom changes 
 function mcmc_tune_post_step!!(
     tuner::AdaptiveMHTrafoTunerState,
-    mc_state::MCMCChainState,
+    chain_state::MCMCChainState,
     p_accept::Real
 )
-    return mc_state, tuner, mc_state.f_transform, false
+    return chain_state, tuner, false
 end
 
 function mcmc_tune_post_step!!(
     tuner::AdaptiveMHProposalTunerState,
-    mc_state::MCMCChainState,
+    chain_state::MCMCChainState,
     p_accept::Real
 )
-    return mc_state, tuner, mc_state.f_transform, false
+    return chain_state, tuner, false
 end
