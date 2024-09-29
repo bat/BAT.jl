@@ -377,8 +377,7 @@ plot!(-4:0.01:4, x -> fit_function(true_par_values, x), color=4, label = "Truth"
 # We'll sample using the The Metropolis-Hastings MCMC algorithm:
 
 mcmcalgo = MetropolisHastings(
-    weighting = RepetitionWeighting(),
-    tuning = AdaptiveMHTuning()
+    weighting = RepetitionWeighting()
 )
 
 # BAT requires a counter-based random number generator (RNG), since it

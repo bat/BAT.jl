@@ -44,14 +44,14 @@ export AdaptiveMHTuning
 # TODO: MD, make immutable and use Accessors.jl
 mutable struct AdaptiveMHTrafoTunerState{
     S<:MCMCBasicStats
-} <: AbstractMCMCTunerState
+} <: MCMCTunerState
     tuning::AdaptiveMHTuning
     stats::S
     iteration::Int
     scale::Float64
 end
 
-struct AdaptiveMHProposalTunerState <: AbstractMCMCTunerState end
+struct AdaptiveMHProposalTunerState <: MCMCTunerState end
 
 (tuning::AdaptiveMHTuning)(chain_state::MCMCChainState) = AdaptiveMHTrafoTunerState(tuning, chain_state), AdaptiveMHProposalTunerState()
 

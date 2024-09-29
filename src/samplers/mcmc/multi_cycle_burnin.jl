@@ -52,6 +52,8 @@ function mcmc_burnin!(
             nonzero_weights = nonzero_weights
         )
 
+        global g_state_burnin = mcmc_states, new_outputs, burnin, nonzero_weights
+
         mcmc_tune_post_cycle!!.(mcmc_states, new_outputs)
 
         isnothing(outputs) || append!.(outputs, new_outputs)

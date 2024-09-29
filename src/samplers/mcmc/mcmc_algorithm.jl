@@ -43,8 +43,13 @@ Abstract type for MCMC tuning algorithms.
 abstract type MCMCTuning end
 export MCMCTuning
 
-abstract type AbstractMCMCTunerState end
-export AbstractMCMCTunerState
+"""
+    abstract type MCMCTuning
+
+Abstract type for MCMC tuning algorithm states.
+"""
+abstract type MCMCTunerState end
+export MCMCTunerState
 
 
 """
@@ -55,8 +60,13 @@ Abstract type for MCMC tempering algorithms.
 abstract type MCMCTempering end
 export MCMCTempering
 
-abstract type AbstractMCMCTempererState end
-export AbstractMCMCTempererState
+"""
+    abstract type TemperingState
+
+Abstract type for MCMC tempering algorithm states.
+"""
+abstract type TemperingState end
+export TemperingState
 
 
 # TODO: MD, adjust doctring for new typestructure
@@ -123,10 +133,18 @@ isviablechain(chain::MCMCIterator)
 abstract type MCMCIterator end
 export MCMCIterator
 
+"""
+    abstract type MCMCProposal
 
-# TODO: MD, adjust doctring for new typestructure
+Abstract type for MCMC proposal algorithms.
+"""
 abstract type MCMCProposal end
 
+"""
+    abstract type MCMCProposalState
+
+Abstract type for MCMC proposal algorithm states.
+"""
 abstract type MCMCProposalState end
 
 
@@ -139,11 +157,18 @@ Abstract type for MCMC burn-in algorithms.
 abstract type MCMCBurninAlgorithm end
 export MCMCBurninAlgorithm
 
+
+"""
+    MCMCState
+
+Carrier type for the states of an MCMC chain, and the states 
+of the tuning and tempering algorithms used for sampling.
+"""
 struct MCMCState{
     C<:MCMCIterator,
-    TT<:AbstractMCMCTunerState,
-    PT<:AbstractMCMCTunerState,
-    T<:AbstractMCMCTempererState
+    TT<:MCMCTunerState,
+    PT<:MCMCTunerState,
+    T<:TemperingState
 }
     chain_state::C
     trafo_tuner_state::TT
@@ -152,7 +177,11 @@ struct MCMCState{
 end
 export MCMCState
 
+"""
+    MCMCChainStateInfo
 
+Information about the state of an MCMC chain.
+"""
 @with_kw struct MCMCChainStateInfo
     id::Int32
     cycle::Int32
@@ -231,7 +260,7 @@ function mcmc_iterate!!(
     nonzero_weights::Bool = true
     )
 
-    @debug "Starting iteration over MCMC chain $(mcmc_state.info.id) with $max_nsteps steps in max. $(@sprintf "%.1f s" max_time)"
+    @debug "Starting iteration over MCMC chain $(mcmc_state.chain_state.info.id) with $max_nsteps steps in max. $(@sprintf "%.1f s" max_time)"
 
     start_time = time()
     last_progress_message_time = start_time
@@ -255,13 +284,13 @@ function mcmc_iterate!!(
         logging_interval = 5 * round(log2(elapsed_time/60 + 1) + 1)
         if current_time - last_progress_message_time > logging_interval
             last_progress_message_time = current_time
-            @debug "Iterating over MCMC chain $(mcmc_state.info.id), completed $(nsteps(mcmc_state) - start_nsteps) (of $(max_nsteps)) steps and produced $(nsamples(mcmc_state) - start_nsamples) samples in $(@sprintf "%.1f s" elapsed_time) so far."
+            @debug "Iterating over MCMC chain $(mcmc_state.chain_state.info.id), completed $(nsteps(mcmc_state.chain_state) - start_nsteps) (of $(max_nsteps)) steps and produced $(nsamples(mcmc_state.chain_state) - start_nsamples) samples in $(@sprintf "%.1f s" elapsed_time) so far."
         end
     end
 
     current_time = time()
     elapsed_time = current_time - start_time
-    @debug "Finished iteration over MCMC chain $(mcmc_state.info.id), completed $(nsteps(mcmc_state) - start_nsteps) steps and produced $(nsamples(mcmc_state) - start_nsamples) samples in $(@sprintf "%.1f s" elapsed_time)."
+    @debug "Finished iteration over MCMC chain $(mcmc_state.chain_state.info.id), completed $(nsteps(mcmc_state.chain_state) - start_nsteps) steps and produced $(nsamples(mcmc_state.chain_state) - start_nsamples) samples in $(@sprintf "%.1f s" elapsed_time)."
 
     return mcmc_state
 end

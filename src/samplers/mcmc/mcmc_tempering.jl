@@ -3,11 +3,11 @@
 struct NoMCMCTempering <: MCMCTempering end
 
 """
-temper_mcmc_target!!(tempering::AbstractMCMCTempererState, target::BATMeasure, stepno::Integer)
+temper_mcmc_target!!(tempering::TemperingState, target::BATMeasure, stepno::Integer)
 """
 function temper_mcmc_target!! end
 
-struct MCMCNoTemperingState <: AbstractMCMCTempererState end
+struct MCMCNoTemperingState <: TemperingState end
 
 temper_mcmc_target!!(tempering::MCMCNoTemperingState, target::BATMeasure, stepno::Integer) = tempering, target
 

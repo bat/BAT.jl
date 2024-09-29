@@ -1,9 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct HMCTrafoTunerState <: AbstractMCMCTunerState end
+struct HMCTrafoTunerState <: MCMCTunerState end
 
-mutable struct HMCProposalTunerState{A<:AdvancedHMC.AbstractAdaptor} <: AbstractMCMCTunerState
+mutable struct HMCProposalTunerState{A<:AdvancedHMC.AbstractAdaptor} <: MCMCTunerState
     tuning::HMCTuning
     target_acceptance::Float64
     adaptor::A

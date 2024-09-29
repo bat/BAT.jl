@@ -102,7 +102,7 @@ function mcmc_init!(
         mcmc_tuning_init!!.(new_mcmc_states, init_alg.nsteps_init)
         ncandidates += n
 
-        @debug "Testing $(length(new_tuners)) candidate MCMC chain state(s)."
+        @debug "Testing $(length(new_mcmc_states)) candidate MCMC chain state(s)."
         
         new_mcmc_states = mcmc_iterate!!(
             new_outputs, new_mcmc_states;
@@ -125,7 +125,7 @@ function mcmc_init!(
 
             nsamples_thresh = floor(Int, 0.8 * median([nsamples(states) for states in viable_mcmc_states]))
             good_idxs = findall(states -> nsamples(states) >= nsamples_thresh, viable_mcmc_states)
-            @debug "Found $(length(viable_tuners)) MCMC chain state(s) with at least $(nsamples_thresh) unique accepted samples."
+            @debug "Found $(length(viable_mcmc_states)) MCMC chain state(s) with at least $(nsamples_thresh) unique accepted samples."
 
             append!(mcmc_states, view(viable_mcmc_states, good_idxs))
             append!(outputs, view(viable_outputs, good_idxs))

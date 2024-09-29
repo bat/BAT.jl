@@ -7,12 +7,12 @@
 end
 export RAMTuning
 
-mutable struct RAMTrafoTunerState <: AbstractMCMCTunerState
+mutable struct RAMTrafoTunerState <: MCMCTunerState
     tuning::RAMTuning
     nsteps::Int
 end
 
-mutable struct RAMProposalTunerState <: AbstractMCMCTunerState end
+mutable struct RAMProposalTunerState <: MCMCTunerState end
 
 (tuning::RAMTuning)(mc_state::MCMCChainState) = RAMTrafoTunerState(tuning, 0), RAMProposalTunerState()
 

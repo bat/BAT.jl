@@ -15,7 +15,7 @@ using BAT: MeasureLike, BATMeasure
 
 using BAT: get_context, get_adselector, _NoADSelected
 using BAT: getproposal, mcmc_target
-using BAT: MCMCChainState, HMCState, HamiltonianMC, HMCProposalState, MCMCChainStateInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin, AbstractMCMCTunerState
+using BAT: MCMCChainState, HMCState, HamiltonianMC, HMCProposalState, MCMCChainStateInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin, MCMCTunerState
 using BAT: _current_sample_idx, _proposed_sample_idx, _cleanup_samples
 using BAT: AbstractTransformTarget
 using BAT: RNGPartition, get_rng, set_rng!

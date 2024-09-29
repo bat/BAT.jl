@@ -10,7 +10,7 @@ MCMC sampler implementation.
 struct MCMCNoOpTuning <: MCMCTuning end
 export MCMCNoOpTuning
 
-struct MCMCNoOpTunerState <: AbstractMCMCTunerState end
+struct MCMCNoOpTunerState <: MCMCTunerState end
 
 (tuning::MCMCNoOpTuning)(mc_state::MCMCChainState) = MCMCNoOpTunerState(), MCMCNoOpTunerState()
 
