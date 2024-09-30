@@ -34,6 +34,7 @@ export RepetitionWeighting
 
 RepetitionWeighting() = RepetitionWeighting{Int}()
 
+_weight_type(::RepetitionWeighting) = Int
 
 """
     ARPWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T}
@@ -53,3 +54,5 @@ struct ARPWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T} end
 export ARPWeighting
 
 ARPWeighting() = ARPWeighting{Float64}()
+
+_weight_type(::ARPWeighting) = Float64

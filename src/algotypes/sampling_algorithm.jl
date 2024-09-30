@@ -91,7 +91,7 @@ export AbstractSampleGenerator
 
 
 function bat_report!(md::Markdown.MD, generator::AbstractSampleGenerator)
-    alg = getalgorithm(generator)
+    alg = getproposal(generator)
     if !(isnothing(alg) || ismissing(alg))
         markdown_append!(md, """
         ### Sample generation:

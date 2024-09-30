@@ -87,7 +87,7 @@ MCMCInitAlgorithm
 MCMCMultiCycleBurnin
 MCMCNoOpTuning
 MCMCSampling
-MCMCTuningAlgorithm
+MCMCTuning
 MetropolisHastings
 MHProposalDistTuning
 ModeAsDefined
