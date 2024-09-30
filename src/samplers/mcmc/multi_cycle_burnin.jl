@@ -29,6 +29,7 @@ function mcmc_burnin!(
     sampling::MCMCSampling,
     callback::Function
 )
+    global g_state_burnin = (outputs, deepcopy(mcmc_states), sampling, callback)
     nchains = length(mcmc_states)
 
     @unpack burnin, convergence, strict, nonzero_weights = sampling
@@ -52,9 +53,7 @@ function mcmc_burnin!(
             nonzero_weights = nonzero_weights
         )
 
-        global g_state_burnin = mcmc_states, new_outputs, burnin, nonzero_weights
-
-        mcmc_tune_post_cycle!!.(mcmc_states, new_outputs)
+        mcmc_states = mcmc_tune_post_cycle!!.(mcmc_states, new_outputs)
 
         isnothing(outputs) || append!.(outputs, new_outputs)
 

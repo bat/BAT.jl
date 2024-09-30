@@ -30,7 +30,7 @@ mcmc_tuning_reinit!!(tuner::MCMCNoOpTunerState, mc_state::MCMCChainState, max_ns
 
 mcmc_tuning_postinit!!(tuner::MCMCNoOpTunerState, mc_state::MCMCChainState, samples::DensitySampleVector) = nothing
 
-mcmc_tune_post_cycle!!(tuner::MCMCNoOpTunerState, mc_state::MCMCChainState, samples::DensitySampleVector) = nothing
+mcmc_tune_post_cycle!!(tuner::MCMCNoOpTunerState, mc_state::MCMCChainState, samples::DensitySampleVector) = mc_state, tuner, false
 
 mcmc_tuning_finalize!!(tuner::MCMCNoOpTunerState, mc_state::MCMCChainState) = nothing
 

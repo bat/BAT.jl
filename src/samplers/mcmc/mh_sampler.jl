@@ -90,6 +90,8 @@ function mcmc_propose!!(mc_state::MHChainState)
 
     # TODO: MD, should we check for symmetriy of proposal distribution?
     p_accept = clamp(exp(logd_z_proposed - logd_z_current), 0, 1)
+
+    
     @assert p_accept >= 0
 
     accepted = rand(rng) <= p_accept

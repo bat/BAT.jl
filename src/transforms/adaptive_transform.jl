@@ -9,21 +9,11 @@ end
 
 CustomTransform() = CustomTransform(identity)
 
-function init_adaptive_transform(
-    adaptive_transform::CustomTransform,
-    density,
-    context
-)
-    return adaptive_transform.f
-end
-
-
-
 struct TriangularAffineTransform <: AdaptiveTransformSpec end
 
 # TODO: MD, make typestable
 function init_adaptive_transform(
-    adaptive_transform::TriangularAffineTransform,
+    adaptive_transform::BAT.TriangularAffineTransform,
     target,
     context
 )

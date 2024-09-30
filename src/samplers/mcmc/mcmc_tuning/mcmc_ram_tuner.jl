@@ -43,22 +43,23 @@ mcmc_tuning_postinit!!(tuner::RAMTrafoTunerState, chain::MCMCChainState, samples
 mcmc_tuning_postinit!!(tuner::RAMProposalTunerState, chain::MCMCChainState, samples::DensitySampleVector) = nothing
 
 
-function mcmc_tune_post_cycle!!(tuner::RAMTrafoTunerState, chain::MCMCChainState, samples::DensitySampleVector)
+function mcmc_tune_post_cycle!!(tuner::RAMTrafoTunerState, chain_state::MCMCChainState, samples::DensitySampleVector)
     α_min, α_max = map(op -> op(1, tuner.tuning.σ_target_acceptance), [-,+]) .* tuner.tuning.target_acceptance
-    α = eff_acceptance_ratio(chain)
+    α = eff_acceptance_ratio(chain_state)
 
     max_log_posterior = maximum(samples.logd)
 
     if α_min <= α <= α_max
-        chain.info = MCMCChainStateInfo(chain.info, tuned = true)
-        @debug "MCMC chain $(chain.info.id) tuned, acceptance ratio = $(Float32(α)), max. log posterior = $(Float32(max_log_posterior))"
+        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = true)
+        @debug "MCMC chain $(chain_state.info.id) tuned, acceptance ratio = $(Float32(α)), max. log posterior = $(Float32(max_log_posterior))"
     else
-        chain.info = MCMCChainStateInfo(chain.info, tuned = false)
-        @debug "MCMC chain $(chain.info.id) *not* tuned, acceptance ratio = $(Float32(α)), max. log posterior = $(Float32(max_log_posterior))"
+        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false)
+        @debug "MCMC chain $(chain_state.info.id) *not* tuned, acceptance ratio = $(Float32(α)), max. log posterior = $(Float32(max_log_posterior))"
     end
+    return chain_state, tuner, false
 end
 
-mcmc_tune_post_cycle!!(tuner::RAMProposalTunerState, chain::MCMCChainState, samples::DensitySampleVector) = nothing
+mcmc_tune_post_cycle!!(tuner::RAMProposalTunerState, chain::MCMCChainState, samples::DensitySampleVector) = chain, tuner, false
 
 mcmc_tuning_finalize!!(tuner::RAMTrafoTunerState, chain::MCMCChainState) = nothing
 

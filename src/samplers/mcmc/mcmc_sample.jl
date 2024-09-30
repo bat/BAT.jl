@@ -64,6 +64,8 @@ bat_default(::MCMCSampling, ::Val{:burnin}, trafo::AbstractTransformTarget, ncha
 
 function bat_sample_impl(target::BATMeasure, sampling::MCMCSampling, context::BATContext)
     
+    global g_state_sample_impl = (target, sampling, context)
+
     target_transformed, pre_transform = transform_and_unshape(sampling.pre_transform, target, context)
 
     mcmc_states, chain_outputs = mcmc_init!(

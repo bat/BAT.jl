@@ -43,7 +43,7 @@ BAT.mcmc_tuning_postinit!!(tuner::HMCTrafoTunerState, chain_state::HMCState, sam
 BAT.mcmc_tuning_postinit!!(tuner::HMCProposalTunerState, chain_state::HMCState, samples::DensitySampleVector) = nothing
 
 
-BAT.mcmc_tune_post_cycle!!(tuner::HMCTrafoTunerState, chain_state::HMCState, samples::DensitySampleVector) = nothing
+BAT.mcmc_tune_post_cycle!!(tuner::HMCTrafoTunerState, chain_state::HMCState, samples::DensitySampleVector) = chain_state, tuner, false
 
 function BAT.mcmc_tune_post_cycle!!(tuner::HMCProposalTunerState, chain_state::HMCState, samples::DensitySampleVector)
     max_log_posterior = maximum(samples.logd)
@@ -55,7 +55,7 @@ function BAT.mcmc_tune_post_cycle!!(tuner::HMCProposalTunerState, chain_state::H
         chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false)
         @debug "MCMC chain $(chain_state.info.id) *not* tuned, acceptance ratio = $(Float32(accept_ratio)), integrator = $(chain_state.proposal.τ.integrator), max. log posterior = $(Float32(max_log_posterior))"
     end
-    nothing
+    return chain_state, tuner, false 
 end
 
 

@@ -104,15 +104,13 @@ end
 
 mcmc_tuning_postinit!!(tuner_state::AdaptiveMHProposalTunerState, chain_state::MCMCChainState, samples::DensitySampleVector) = nothing
 
-
-function mcmc_tune_post_cycle!!(tuner::AdaptiveMHTrafoTunerState, mc_state::MCMCChainState, samples::DensitySampleVector)
+# TODO: MD, make properly !!
+function mcmc_tune_post_cycle!!(tuner::AdaptiveMHTrafoTunerState, chain_state::MCMCChainState, samples::DensitySampleVector)
     tuning = tuner.tuning
     stats = tuner.stats
     stats_reweight_factor = tuning.r
     reweight_relative!(stats, stats_reweight_factor)
     append!(stats, samples)
-
-    proposaldist = mc_state.proposal.proposaldist
 
     α_min = minimum(tuning.α)
     α_max = maximum(tuning.α)
@@ -126,7 +124,7 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveMHTrafoTunerState, mc_state::MCMC
     λ = tuning.λ
     c = tuner.scale
 
-    f_transform = mc_state.f_transform
+    f_transform = chain_state.f_transform
     A = f_transform.A
     Σ_old = A * A'
 
@@ -134,16 +132,16 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveMHTrafoTunerState, mc_state::MCMC
     a_t = 1 / t^λ
     new_Σ_unscal = (1 - a_t) * (Σ_old/c) + a_t * S
 
-    α = eff_acceptance_ratio(mc_state)
+    α = eff_acceptance_ratio(chain_state)
 
     max_log_posterior = stats.logtf_stats.maximum
 
     if α_min <= α <= α_max
-        mc_state.info = MCMCChainStateInfo(mc_state.info, tuned = true)
-        @debug "MCMC chain $(mc_state.info.id) tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
+        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = true)
+        @debug "MCMC chain $(chain_state.info.id) tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
     else
-        mc_state.info = MCMCChainStateInfo(mc_state.info, tuned = false)
-        @debug "MCMC chain $(mc_state.info.id) *not* tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
+        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false)
+        @debug "MCMC chain $(chain_state.info.id) *not* tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
 
         if α > α_max && c < c_max
             tuner.scale = c * β
@@ -155,19 +153,19 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveMHTrafoTunerState, mc_state::MCMC
     Σ_new = new_Σ_unscal * tuner.scale
     S_new = cholesky(Positive, Σ_new)
     
-    mc_state.f_transform = Mul(S_new.L)
+    chain_state.f_transform = Mul(S_new.L)
     
     tuner.iteration += 1
 
-    nothing
+    chain_state, tuner, false
 end
 
-mcmc_tune_post_cycle!!(tuner::AdaptiveMHProposalTunerState, mc_state::MCMCChainState, samples::DensitySampleVector) = nothing
+mcmc_tune_post_cycle!!(tuner::AdaptiveMHProposalTunerState, chain_state::MCMCChainState, samples::DensitySampleVector) = chain_state, tuner, false
 
 
-mcmc_tuning_finalize!!(tuner::AdaptiveMHTrafoTunerState, mc_state::MCMCChainState) = nothing
+mcmc_tuning_finalize!!(tuner::AdaptiveMHTrafoTunerState, chain_state::MCMCChainState) = nothing
 
-mcmc_tuning_finalize!!(tuner::AdaptiveMHProposalTunerState, mc_state::MCMCChainState) = nothing
+mcmc_tuning_finalize!!(tuner::AdaptiveMHProposalTunerState, chain_state::MCMCChainState) = nothing
 
 
 tuning_callback(::AdaptiveMHTrafoTunerState) = nop_func
