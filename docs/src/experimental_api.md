@@ -42,6 +42,7 @@ BAT.TemperingState
 BAT.MCMCProposalState
 BAT.MCMCTempering
 BAT.MCMCState
+BAT.MCMCChainState
 BAT.MCMCChainStateInfo
 BAT.MCMCProposal
 ```
