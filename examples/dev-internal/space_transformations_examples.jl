@@ -3,10 +3,10 @@ using AdvancedHMC
 using AffineMaps
 using AutoDiffOperators
 using ValueShapes
+using Random123
 
 
-
-context = BATContext(ad = ADModule(:ForwardDiff))
+context = BATContext(ad = ADModule(:ForwardDiff), rng = Philox4x((4,5)))
 
 posterior = BAT.example_posterior()
 
@@ -48,15 +48,34 @@ plot(hmc_samples)
 ######## Comparison with old BAT
 
 using Revise
+using AutoDiffOperators
 using Random, LinearAlgebra, Statistics, Distributions, StatsBase
 using BAT, DensityInterface, IntervalSets
+using Random123
+using ValueShapes
+using UnPack
 
 using BAT: next_cycle!, mcmc_tuning_reinit!!, get_rng, mcmc_tune_post_cycle!!, mcmc_iterate!!
+using BAT: mcmc_iterate!!, mcmc_propose!!, mcmc_tuning_init!!, isvalidstate
 
+using BAT: _current_sample_idx, _proposed_sample_idx, _gen_mcmc_states, _construct_mcmc_state
+using BAT: MCMCChainPoolInit, MCMCMultiCycleBurnin, MCMCSampling, MCMCState, MCMCChainState, MCMCSampleID
+using BAT: _get_sample_id
+using BAT: PROPOSED_SAMPLE, ACCEPTED_SAMPLE, CURRENT_SAMPLE
+
+using BAT: get_context, get_rng, mcmc_target, _cleanup_samples
+using BAT: getalgorithm
+
+# using Logging
+# global_logger(ConsoleLogger(stderr, Logging.Debug))
+
+
+
+rng = Philox4x((4,5))
 
 data = vcat(
-    rand(Normal(-1.0, 0.5), 500),
-    rand(Normal( 2.0, 0.5), 1000)
+    rand(rng, Normal(-1.0, 0.5), 500),
+    rand(rng, Normal( 2.0, 0.5), 1000)
 );
 hist = append!(Histogram(-2:0.1:4), data);
 
@@ -108,4 +127,61 @@ prior = distprod(
 
 posterior = PosteriorMeasure(likelihood, prior);
 
-samples = bat_sample(posterior, MCMCSampling(proposal = MetropolisHastings(proposaldist = TDist(1.0)), nsteps = 10^5, nchains = 4)).result
+test_context = BATContext(ad = ADModule(:ForwardDiff), rng = Philox4x((4,5)))
+
+context = deepcopy(test_context)
+
+target, trafo = BAT.transform_and_unshape(PriorToGaussian(), posterior, context)
+
+n = totalndof(varshape(target))
+
+# New BAT 
+sampling = MCMCSampling(pre_transform = DoNotTransform(), 
+                        proposal = MetropolisHastings(proposaldist = TDist(1.0)), 
+                        #burnin = MCMCMultiCycleBurnin(nsteps_per_cycle = 100, max_ncycles = 3), 
+                        nsteps = 10^5, 
+                        nchains = 4, 
+                        strict = true, 
+                        store_burnin = false)
+
+samples = bat_sample(target, 
+                     sampling,
+                     deepcopy(context)).result
+
+# Old BAT
+
+
+sampling_old = MCMCSampling(mcalg = MetropolisHastings(), 
+                            trafo = DoNotTransform(), 
+                            #burnin = MCMCMultiCycleBurnin(nsteps_per_cycle = 100, max_ncycles = 3), 
+                            nsteps = 10^5, 
+                            nchains = 4, 
+                            strict = true, 
+                            store_burnin = false)
+
+samples = bat_sample(target, 
+                     sampling_old, 
+                     deepcopy(context)).result
+
+using Plots
+plot(samples)
+
+
+
+
+
+
+
+
+m1 = [2.0, 2.0]
+
+m2 = [-2.0, -2.0]
+
+S1 = [2 0.5; 0.5 1.0]
+
+S2 = [1.0 0.5; 0.5 2.0]
+
+g1 = MvNormal(m1, S1)
+g2 = MvNormal(m2, S2)
+
+t = MixtureModel([g1, g2])

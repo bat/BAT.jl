@@ -271,9 +271,6 @@ function mcmc_iterate!!(
         (nsteps(mcmc_state) - start_nsteps) < max_nsteps &&
         (time() - start_time) < max_time
     )
-        global g_state_mcmc_iterate = (output, mcmc_state, nonzero_weights)
-
-
         mcmc_state = mcmc_step!!(mcmc_state)
 
         if !isnothing(output)
@@ -344,7 +341,7 @@ struct MCMCSampleGenerator{T<:AbstractVector{<:MCMCIterator}} <: AbstractSampleG
     chain_states::T
 end
 
-function MCMCSampleGenerator(mcmc_states::AbstractVector{MCMCState})
+function MCMCSampleGenerator(mcmc_states::AbstractVector{<:MCMCState})
     MCMCSampleGenerator(getfield.(mcmc_states, :chain_state))
 end
 

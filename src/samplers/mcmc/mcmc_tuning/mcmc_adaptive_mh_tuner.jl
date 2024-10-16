@@ -80,7 +80,7 @@ function mcmc_tuning_init!!(tuner_state::AdaptiveMHTrafoTunerState, chain_state:
     Σ_unscaled = _approx_cov(proposaldist, n)
     Σ = Σ_unscaled * tuner_state.scale
     
-    S = cholesky(Positive, Σ)
+    S = cholesky(Σ)
     
     chain_state.f_transform = Mul(S.L)
 
@@ -157,7 +157,8 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveMHTrafoTunerState, chain_state::M
     
     tuner.iteration += 1
 
-    chain_state, tuner, false
+    # TODO: MD, think about keeping old z_position if trafo only slightly changes, and return a bool accordingly, instead of always 'true'
+    chain_state, tuner, true
 end
 
 mcmc_tune_post_cycle!!(tuner::AdaptiveMHProposalTunerState, chain_state::MCMCChainState, samples::DensitySampleVector) = chain_state, tuner, false

@@ -63,9 +63,7 @@ bat_default(::MCMCSampling, ::Val{:burnin}, trafo::AbstractTransformTarget, ncha
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
 function bat_sample_impl(target::BATMeasure, sampling::MCMCSampling, context::BATContext)
-    
-    global g_state_sample_impl = (target, sampling, context)
-
+        
     target_transformed, pre_transform = transform_and_unshape(sampling.pre_transform, target, context)
 
     mcmc_states, chain_outputs = mcmc_init!(
@@ -80,7 +78,7 @@ function bat_sample_impl(target::BATMeasure, sampling::MCMCSampling, context::BA
         chain_outputs .= DensitySampleVector.(mcmc_states)
     end
 
-    mcmc_burnin!(
+    mcmc_states = mcmc_burnin!(
         sampling.store_burnin ? chain_outputs : nothing,
         mcmc_states,
         sampling,

@@ -29,7 +29,6 @@ function mcmc_burnin!(
     sampling::MCMCSampling,
     callback::Function
 )
-    global g_state_burnin = (outputs, deepcopy(mcmc_states), sampling, callback)
     nchains = length(mcmc_states)
 
     @unpack burnin, convergence, strict, nonzero_weights = sampling
@@ -38,6 +37,7 @@ function mcmc_burnin!(
 
     cycles = zero(Int)
     successful = false
+
     while !successful && cycles < burnin.max_ncycles
         cycles += 1
 
@@ -52,7 +52,7 @@ function mcmc_burnin!(
             max_nsteps = burnin.nsteps_per_cycle,
             nonzero_weights = nonzero_weights
         )
-
+        
         mcmc_states = mcmc_tune_post_cycle!!.(mcmc_states, new_outputs)
 
         isnothing(outputs) || append!.(outputs, new_outputs)
@@ -91,7 +91,7 @@ function mcmc_burnin!(
 
         next_cycle!.(mcmc_states)
 
-        mcmc_states= mcmc_iterate!!(
+        mcmc_states = mcmc_iterate!!(
             outputs, mcmc_states;
             max_nsteps = burnin.nsteps_final,
             nonzero_weights = nonzero_weights
@@ -100,5 +100,5 @@ function mcmc_burnin!(
 
     #TODO: MD, Discuss: Where/When Tempering? 
 
-    successful
+    return mcmc_states
 end

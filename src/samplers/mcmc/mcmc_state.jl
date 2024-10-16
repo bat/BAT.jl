@@ -137,11 +137,10 @@ end
 
 # TODO: MD, make into !!
 function mcmc_step!!(mcmc_state::MCMCState)
-    global g_state_step = mcmc_state
-
 
     # TODO: MD, include sample_z in _cleanup_samples()
     _cleanup_samples(mcmc_state)
+    
     reset_rng_counters!(mcmc_state)
 
     chain_state = mcmc_state.chain_state
@@ -259,18 +258,34 @@ function samples_available(mcmc_state::MCMCState)
     samples_available(mcmc_state.chain_state)
 end
 
+function mcmc_update_z_position!!(mcmc_state::MCMCState)
+    chain_state_new = mcmc_update_z_position!!(mcmc_state.chain_state)
+
+    mcmc_state_new = @set mcmc_state.chain_state = chain_state_new
+    return mcmc_state_new
+end
+
+
 function mcmc_update_z_position!!(mc_state::MCMCChainState)
 
+    f_transform = mc_state.f_transform
     proposed_sample_x = proposed_sample(mc_state)
+    current_sample_x = current_sample(mc_state)
 
     x_proposed, logd_x_proposed = proposed_sample_x.v, proposed_sample_x.logd 
+    x_current, logd_x_current = current_sample_x.v, current_sample_x.logd
 
-    z_new, ladj_inv = with_logabsdet_jacobian(inverse(mc_state.f_transform), vec(x_proposed))
+    z_proposed_new, ladj_proposed = with_logabsdet_jacobian(inverse(f_transform), vec(x_proposed))
+    z_current_new, ladj_current = with_logabsdet_jacobian(inverse(f_transform), vec(x_current))
 
-    logd_z_new = logd_x_proposed - ladj_inv
+    logd_z_proposed_new = logd_x_proposed - ladj_proposed
+    logd_z_current_new = logd_x_current - ladj_current
 
-    mc_state_tmp = @set mc_state.sample_z.v[2] = vec(z_new)
-    mc_state_new = @set mc_state_tmp.sample_z.logd[2] = logd_z_new
+    mc_state_tmp_1 = @set mc_state.sample_z.v[2] = vec(z_proposed_new)
+    mc_state_tmp_2 = @set mc_state_tmp_1.sample_z.logd[2] = logd_z_proposed_new
+
+    mc_state_tmp_3 = @set mc_state_tmp_2.sample_z.v[1] = vec(z_current_new)
+    mc_state_new = @set mc_state_tmp_3.sample_z.logd[1] = logd_z_current_new
 
     return mc_state_new
 end

@@ -96,10 +96,6 @@ function mcmc_propose!!(mc_state::MHChainState)
 
     accepted = rand(rng) <= p_accept
 
-    # if accepted
-    #     mc_state_new = mcmc_update_z_position!!(mc_state)
-    # end
-
     return mc_state, accepted, p_accept
 end
 

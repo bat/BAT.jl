@@ -87,8 +87,6 @@ function mcmc_init!(
     cycle::Int32 = 1
 
     while length(mcmc_states) < min_nviable && ncandidates < max_ncandidates
-        global g_state_cp_init = (mcmc_states, sampling, target, rngpart, ncandidates, initval_alg, context, min_nviable, max_ncandidates, cycle, init_alg)
-
         n = min(min_nviable, max_ncandidates - ncandidates)
         @debug "Generating $n $(cycle > 1 ? "additional " : "")candidate MCMC chain state(s)."
 
@@ -100,6 +98,7 @@ function mcmc_init!(
 
         next_cycle!.(new_mcmc_states)
         mcmc_tuning_init!!.(new_mcmc_states, init_alg.nsteps_init)
+        new_mcmc_states = mcmc_update_z_position!!.(new_mcmc_states)
         ncandidates += n
 
         @debug "Testing $(length(new_mcmc_states)) candidate MCMC chain state(s)."

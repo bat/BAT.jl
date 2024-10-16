@@ -16,6 +16,11 @@ function _cov_with_fallback(d::UnivariateDistribution, n::Integer)
     return C
 end
 
+function _cov_with_fallback(d::TDist, n::Integer)
+    Σ = PDMat(Matrix(I(n) * one(Float64)))
+end
+
+
 function _cov_with_fallback(d::MultivariateDistribution, n::Integer)
     rng = _bat_determ_rng()
     T = float(eltype(rand(rng, d)))
