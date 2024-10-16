@@ -2,9 +2,6 @@
 
 struct NoMCMCTempering <: MCMCTempering end
 
-"""
-temper_mcmc_target!!(tempering::TemperingState, target::BATMeasure, stepno::Integer)
-"""
 function temper_mcmc_target!! end
 
 struct MCMCNoTemperingState <: TemperingState end

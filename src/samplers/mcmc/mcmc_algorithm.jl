@@ -8,7 +8,7 @@
 Abstract type for Markov chain Monte Carlo algorithms.
 
 To implement a new MCMC algorithm, subtypes of both `MCMCAlgorithm` and
-[`MCMCIterator`](@ref) are required.
+[`MCMCChainState`](@ref) are required.
 
 !!! note
 

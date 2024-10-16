@@ -35,4 +35,13 @@ ReactiveNestedSampling
 SobolSampler
 truncate_batmeasure
 ValueAndThreshold
+
+BAT.MCMCIterator
+BAT.MCMCTunerState
+BAT.TemperingState
+BAT.MCMCProposalState
+BAT.MCMCTempering
+BAT.MCMCState
+BAT.MCMCChainStateInfo
+BAT.MCMCProposal
 ```
