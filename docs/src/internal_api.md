@@ -55,7 +55,6 @@ BAT.FullMeasureTransform
 BAT.LFDensity
 BAT.LFDensityWithGrad
 BAT.LogDVal
-BAT.MCMCChainState
 BAT.MCMCSampleGenerator
 BAT.MeasureLike
 BAT.NoWhitening

@@ -3,6 +3,11 @@
 
 # TODO: MD, adjust docstring to new typestructure
 # TODO: MD, use Accessors.jl to make immutable 
+"""
+    MCMCChainState
+
+State of a MCMC chain.
+"""
 mutable struct MCMCChainState{
     M<:BATMeasure,
     PR<:RNGPartition,
