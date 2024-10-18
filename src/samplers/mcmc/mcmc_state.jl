@@ -31,7 +31,7 @@ end
 export MCMCChainState
 
 function MCMCChainState(
-    sampling::MCMCSampling,
+    samplingalg::MCMCSampling,
     target::BATMeasure,
     id::Integer,
     v_init::AbstractVector{P},
@@ -43,13 +43,13 @@ function MCMCChainState(
     n_dims = getdof(target)
     
     #Create Proposal state. Necessary in particular for AHMC proposal
-    proposal = _create_proposal_state(sampling.proposal, target, context, v_init, rng)
+    proposal = _create_proposal_state(samplingalg.proposal, target, context, v_init, rng)
     stepno::Int64 = 0
 
     cycle::Int32 = 0
     nsamples::Int64 = 0
 
-    g = init_adaptive_transform(sampling.adaptive_transform, target, context)
+    g = init_adaptive_transform(samplingalg.adaptive_transform, target, context)
 
     logd_x = logdensityof(target, v_init)
     inverse_g = inverse(g)

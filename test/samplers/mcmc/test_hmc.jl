@@ -22,20 +22,20 @@ import AdvancedHMC
     proposal = HamiltonianMC()
     tuning = StanHMCTuning()
     nchains = 4
-    sampling = MCMCSampling(proposal = proposal, trafo_tuning = tuning)
+    samplingalg = MCMCSampling(proposal = proposal, trafo_tuning = tuning)
 
     @testset "MCMC iteration" begin
         v_init = bat_initval(target, InitFromTarget(), context).result
         # Note: No @inferred, since MCMCChainState is not type stable (yet) with HamiltonianMC
         # TODO: MD, reactivate
-        @test BAT.MCMCChainState(sampling, target, 1, unshaped(v_init, varshape(target)), deepcopy(context)) isa BAT.HMCState
-        mcmc_state = BAT.MCMCState(sampling, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))
+        @test BAT.MCMCChainState(samplingalg, target, 1, unshaped(v_init, varshape(target)), deepcopy(context)) isa BAT.HMCState
+        mcmc_state = BAT.MCMCState(samplingalg, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))
         tuner = BAT.create_proposal_tuner_state(StanHMCTuning(), mcmc_state.chain_state, 0)
         nsteps = 10^4
         BAT.mcmc_tuning_init!!(mcmc_state, 0)
         BAT.mcmc_tuning_reinit!!(mcmc_state, div(nsteps, 10))
 
-        sampling = BAT.MCMCSampling(proposal = proposal, trafo_tuning = tuning, nchains = nchains)
+        samplingalg = BAT.MCMCSampling(proposal = proposal, trafo_tuning = tuning, nchains = nchains)
 
 
         samples = DensitySampleVector(mcmc_state)
@@ -62,7 +62,7 @@ import AdvancedHMC
         nonzero_weights = false
         callback = (x...) -> nothing
 
-        sampling = MCMCSampling(proposal = proposal,
+        samplingalg = MCMCSampling(proposal = proposal,
                                 trafo_tuning = tuning_alg, 
                                 pre_transform = trafo, 
                                 init = init_alg, 
@@ -74,7 +74,7 @@ import AdvancedHMC
 
         # Note: No @inferred, not type stable (yet) with HamiltonianMC
         init_result = BAT.mcmc_init!(
-            sampling,
+            samplingalg,
             target,
             init_alg,
             callback,
@@ -89,7 +89,7 @@ import AdvancedHMC
         BAT.mcmc_burnin!(
             outputs,
             mcmc_states,
-            sampling,
+            samplingalg,
             callback
         )
 
@@ -158,7 +158,7 @@ import AdvancedHMC
             @testset "$adsel" begin
                 context = BATContext(ad = adsel)
 
-                hmc_sampling_alg = MCMCSampling(
+                hmc_samplingalg = MCMCSampling(
                     proposal = HamiltonianMC(),
                     trafo_tuning = StanHMCTuning(),
                     nchains = 2,
@@ -168,7 +168,7 @@ import AdvancedHMC
                     strict = false
                 )
                 
-                @test bat_sample(posterior, hmc_sampling_alg, context).result isa DensitySampleVector
+                @test bat_sample(posterior, hmc_samplingalg, context).result isa DensitySampleVector
             end
         end
     end

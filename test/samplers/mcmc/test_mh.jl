@@ -17,14 +17,14 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
     proposal = MetropolisHastings()
     nchains = 4
 
-    sampling = MCMCSampling()
+    samplingalg = MCMCSampling()
  
     @testset "MCMC iteration" begin
         v_init = bat_initval(target, InitFromTarget(), context).result
         # TODO: MD, Reactivate type inference tests
-        # @test @inferred(BAT.MCMCChainState(sampling, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))) isa BAT.MHChainState
-        # chain = @inferred(BAT.MCMCChainState(sampling, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))) 
-        mcmc_state = BAT.MCMCState(sampling, target, 1, unshaped(v_init, varshape(target)), deepcopy(context)) 
+        # @test @inferred(BAT.MCMCChainState(samplingalg, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))) isa BAT.MHChainState
+        # chain = @inferred(BAT.MCMCChainState(samplingalg, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))) 
+        mcmc_state = BAT.MCMCState(samplingalg, target, 1, unshaped(v_init, varshape(target)), deepcopy(context)) 
         samples = DensitySampleVector(mcmc_state)
         mcmc_state = BAT.mcmc_iterate!!(samples, mcmc_state; max_nsteps = 10^5, nonzero_weights = false)
         @test mcmc_state.chain_state.stepno == 10^5
@@ -49,7 +49,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         callback = (x...) -> nothing
         max_nsteps = 10^5
 
-        sampling = MCMCSampling(
+        samplingalg = MCMCSampling(
             proposal = proposal,
             trafo_tuning = tuning_alg,
             burnin = burnin_alg,
@@ -60,7 +60,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         )
 
         init_result = @inferred(BAT.mcmc_init!(
-            sampling,
+            samplingalg,
             target,
             init_alg,
             callback,
@@ -77,7 +77,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         BAT.mcmc_burnin!(
             outputs,
             mcmc_states,
-            sampling,
+            samplingalg,
             callback
         )
 

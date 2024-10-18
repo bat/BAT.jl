@@ -26,12 +26,12 @@ export MCMCMultiCycleBurnin
 function mcmc_burnin!(
     outputs::Union{AbstractVector{<:DensitySampleVector},Nothing},
     mcmc_states::AbstractVector{<:MCMCState},
-    sampling::MCMCSampling,
+    samplingalg::MCMCSampling,
     callback::Function
 )
     nchains = length(mcmc_states)
 
-    @unpack burnin, convergence, strict, nonzero_weights = sampling
+    @unpack burnin, convergence, strict, nonzero_weights = samplingalg
 
     @info "Begin tuning of $nchains MCMC chain(s)."
 

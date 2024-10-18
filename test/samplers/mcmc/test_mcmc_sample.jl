@@ -18,19 +18,19 @@ using DensityInterface
     nchains = 4
     nsteps = 10^4
 
-    samplingMW = @inferred(MCMCSampling(pre_transform = DoNotTransform(), nchains = nchains, nsteps = nsteps))
+    samplingalg_MW = @inferred(MCMCSampling(pre_transform = DoNotTransform(), nchains = nchains, nsteps = nsteps))
 
-    smplres = BAT.sample_and_verify(PosteriorMeasure(likelihood, prior), samplingMW, mv_dist)
+    smplres = BAT.sample_and_verify(PosteriorMeasure(likelihood, prior), samplingalg_MW, mv_dist)
     samples = smplres.result
     @test smplres.verified
     @test (nchains * nsteps - sum(samples.weight)) < 100
 
 
-    samplingPW = @inferred MCMCSampling(proposal = MetropolisHastings(weighting = ARPWeighting()), pre_transform = DoNotTransform(), nsteps = 10^5)
+    samplingalg_PW = @inferred MCMCSampling(proposal = MetropolisHastings(weighting = ARPWeighting()), pre_transform = DoNotTransform(), nsteps = 10^5)
 
-    @test BAT.sample_and_verify(mv_dist, samplingPW).verified
+    @test BAT.sample_and_verify(mv_dist, samplingalg_PW).verified
 
-    gensamples(context::BATContext) = bat_sample(PosteriorMeasure(logfuncdensity(logdensityof(mv_dist)), prior), samplingPW, context).result
+    gensamples(context::BATContext) = bat_sample(PosteriorMeasure(logfuncdensity(logdensityof(mv_dist)), prior), samplingalg_PW, context).result
 
     context = BATContext()
     @test gensamples(context) != gensamples(context)

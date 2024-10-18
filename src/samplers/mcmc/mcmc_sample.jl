@@ -23,7 +23,7 @@ $(TYPEDFIELDS)
 } <: AbstractSamplingAlgorithm
     # TODO: MD, use bat_default to set default values
     pre_transform::TR = PriorToGaussian()
-    trafo_tuning::MCMCTuning = AdaptiveMHTuning()
+    trafo_tuning::MCMCTuning = AdaptiveMHTuning() # Make into RamTuning() for MH
     proposal_tuning::MCMCTuning = trafo_tuning
     adaptive_transform::AdaptiveTransformSpec = default_adaptive_transform(trafo_tuning)
     proposal::MCMCProposal = MetropolisHastings(proposaldist = Normal())
@@ -42,11 +42,11 @@ end
 export MCMCSampling
 
 
-function MCMCState(sampling::MCMCSampling, target::BATMeasure, id::Integer, v_init::AbstractVector, context::BATContext)
-    chain_state = MCMCChainState(sampling, target, Int32(id), v_init, context)
-    trafo_tuner_state = create_trafo_tuner_state(sampling.trafo_tuning, chain_state, 0)
-    proposal_tuner_state = create_proposal_tuner_state(sampling.proposal_tuning, chain_state, 0)
-    temperer_state = create_temperering_state(sampling.tempering, target)
+function MCMCState(samplingalg::MCMCSampling, target::BATMeasure, id::Integer, v_init::AbstractVector, context::BATContext)
+    chain_state = MCMCChainState(samplingalg, target, Int32(id), v_init, context)
+    trafo_tuner_state = create_trafo_tuner_state(samplingalg.trafo_tuning, chain_state, 0)
+    proposal_tuner_state = create_proposal_tuner_state(samplingalg.proposal_tuning, chain_state, 0)
+    temperer_state = create_temperering_state(samplingalg.tempering, target)
     
     MCMCState(chain_state, trafo_tuner_state, proposal_tuner_state, temperer_state)
 end
@@ -62,27 +62,27 @@ bat_default(::MCMCSampling, ::Val{:init}, trafo::AbstractTransformTarget, nchain
 bat_default(::MCMCSampling, ::Val{:burnin}, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
-function bat_sample_impl(target::BATMeasure, sampling::MCMCSampling, context::BATContext)
+function bat_sample_impl(target::BATMeasure, samplingalg::MCMCSampling, context::BATContext)
         
-    target_transformed, pre_transform = transform_and_unshape(sampling.pre_transform, target, context)
+    target_transformed, pre_transform = transform_and_unshape(samplingalg.pre_transform, target, context)
 
     mcmc_states, chain_outputs = mcmc_init!(
-        sampling,
+        samplingalg,
         target_transformed,
-        apply_trafo_to_init(pre_transform, sampling.init), # TODO: MD: at which point should the init_alg be transformed? Might be better to read, if it's transformed later during init of states
-        sampling.store_burnin ? sampling.callback : nop_func,
+        apply_trafo_to_init(pre_transform, samplingalg.init), # TODO: MD: at which point should the init_alg be transformed? Might be better to read, if it's transformed later during init of states
+        samplingalg.store_burnin ? samplingalg.callback : nop_func,
         context
     )
 
-    if !sampling.store_burnin
+    if !samplingalg.store_burnin
         chain_outputs .= DensitySampleVector.(mcmc_states)
     end
 
     mcmc_states = mcmc_burnin!(
-        sampling.store_burnin ? chain_outputs : nothing,
+        samplingalg.store_burnin ? chain_outputs : nothing,
         mcmc_states,
-        sampling,
-        sampling.store_burnin ? sampling.callback : nop_func
+        samplingalg,
+        samplingalg.store_burnin ? samplingalg.callback : nop_func
     )
 
     next_cycle!.(mcmc_states)
@@ -90,8 +90,8 @@ function bat_sample_impl(target::BATMeasure, sampling::MCMCSampling, context::BA
     mcmc_states = mcmc_iterate!!(
         chain_outputs,
         mcmc_states;
-        max_nsteps = sampling.nsteps,
-        nonzero_weights = sampling.nonzero_weights
+        max_nsteps = samplingalg.nsteps,
+        nonzero_weights = samplingalg.nonzero_weights
     )
 
     samples_transformed = DensitySampleVector(first(mcmc_states))

@@ -230,7 +230,7 @@ posterior = PosteriorMeasure(likelihood, prior)
 # Now we can generate a set of MCMC samples via [`bat_sample`](@ref). We'll
 # use 4 MCMC chains with 10^5 MC steps in each chain (after tuning/burn-in):
 
-samples = bat_sample(posterior, MCMCSampling()).result
+samples = bat_sample(posterior, MCMCSampling(proposal = MetropolisHastings(), nsteps = 10^5, nchains = 4)).result
 #md nothing # hide
 #nb nothing # hide
 

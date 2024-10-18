@@ -12,18 +12,18 @@ getproposal(sg::GenericSampleGenerator) = sg.algorithm
 
 
 function sample_and_verify(
-    target::AnySampleable, sampling::AbstractSamplingAlgorithm,
+    target::AnySampleable, samplingalg::AbstractSamplingAlgorithm,
     ref_dist::Distribution = target, context::BATContext = get_batcontext();
     max_retries::Integer = 1
 )
     measure = batsampleable(target)
-    initial_smplres = bat_sample_impl(measure, sampling, context)
+    initial_smplres = bat_sample_impl(measure, samplingalg, context)
     smplres::typeof(initial_smplres) = initial_smplres
     verified::Bool = test_dist_samples(ref_dist, smplres.result, context)
     n_retries::Int = 0
     while !(verified) && n_retries < max_retries
         n_retries += 1
-        smplres = bat_sample_impl(measure, sampling, context)
+        smplres = bat_sample_impl(measure, samplingalg, context)
         verified = test_dist_samples(ref_dist, smplres.result, context)
     end
     merge(smplres, (verified = verified, n_retries = n_retries))
