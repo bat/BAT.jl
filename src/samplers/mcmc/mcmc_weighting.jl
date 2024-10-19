@@ -40,7 +40,7 @@ function mcmc_weight_values(
     ::RepetitionWeighting,
     p_accept::Real,
     accepted::Bool
-) where Q
+)
     if accepted
         (0, 1)
     else
