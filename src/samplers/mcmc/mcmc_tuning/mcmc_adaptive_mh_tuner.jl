@@ -2,7 +2,7 @@
 
 # ToDo: Add literature references to AdaptiveAffineTuning docstring.
 """
-    struct AdaptiveAffineTuning <: MHProposalDistTuning
+    struct AdaptiveAffineTuning <: MCMCTransformTuning
 
 Adaptive cycle-based MCMC tuning strategy.
 
