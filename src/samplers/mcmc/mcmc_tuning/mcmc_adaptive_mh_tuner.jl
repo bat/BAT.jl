@@ -75,6 +75,7 @@ create_proposal_tuner_state(tuning::AdaptiveMHTuning, chain_state::MCMCChainStat
 
 function mcmc_tuning_init!!(tuner_state::AdaptiveMHTrafoTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
     n = totalndof(varshape(mcmc_target(chain_state)))
+    b = chain_state.f_transform.b
 
     proposaldist = chain_state.proposal.proposaldist
     Σ_unscaled = _approx_cov(proposaldist, n)
@@ -82,7 +83,7 @@ function mcmc_tuning_init!!(tuner_state::AdaptiveMHTrafoTunerState, chain_state:
     
     S = cholesky(Σ)
     
-    chain_state.f_transform = Mul(S.L)
+    chain_state.f_transform = MulAdd(S.L, b)
 
     nothing
 end
@@ -111,6 +112,7 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveMHTrafoTunerState, chain_state::M
     stats_reweight_factor = tuning.r
     reweight_relative!(stats, stats_reweight_factor)
     append!(stats, samples)
+    b = chain_state.f_transform.b
 
     α_min = minimum(tuning.α)
     α_max = maximum(tuning.α)
@@ -153,7 +155,7 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveMHTrafoTunerState, chain_state::M
     Σ_new = new_Σ_unscal * tuner.scale
     S_new = cholesky(Positive, Σ_new)
     
-    chain_state.f_transform = Mul(S_new.L)
+    chain_state.f_transform = MulAdd(S_new.L, b)
     
     tuner.iteration += 1
 

@@ -20,11 +20,11 @@ function init_adaptive_transform(
     n = totalndof(varshape(target))
 
     M = _approx_cov(target, n)
+    b = _approx_mean(target, n)
     s = cholesky(M).L
-    g = Mul(s)
+    g = MulAdd(s, b)
 
     return g
 end
-
 
 struct DiagonalAffineTransform <: AbstractAdaptiveTransform end

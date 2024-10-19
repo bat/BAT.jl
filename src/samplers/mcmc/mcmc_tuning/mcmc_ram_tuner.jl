@@ -77,6 +77,7 @@ function mcmc_tune_post_step!!(
 )
     @unpack target_acceptance, gamma = tuner_state.tuning
     @unpack f_transform, sample_z = mc_state
+    b = f_transform.b
     
     n_dims = size(sample_z.v[1], 1)
     η = min(1, n_dims * tuner_state.nsteps^(-gamma))
@@ -87,7 +88,7 @@ function mcmc_tune_post_step!!(
     M = s_L * (I + η * (p_accept - target_acceptance) * (u * u') / norm(u)^2 ) * s_L'
 
     S = cholesky(Positive, M)
-    f_transform_new  = Mul(S.L)
+    f_transform_new  = MulAdd(S.L, b)
 
     tuner_state_new = @set tuner_state.nsteps = tuner_state.nsteps + 1
     

@@ -32,7 +32,7 @@ end
 
 
 function _construct_mcmc_state(
-    sampling::MCMCSampling,
+    samplingalg::MCMCSampling,
     target::BATMeasure,
     rngpart::RNGPartition,
     id::Integer,
@@ -41,27 +41,27 @@ function _construct_mcmc_state(
 )
     new_context = set_rng(parent_context, AbstractRNG(rngpart, id))
     v_init = bat_initval(target, initval_alg, new_context).result
-    return MCMCState(sampling, target, Int32(id), v_init, new_context)
+    return MCMCState(samplingalg, target, Int32(id), v_init, new_context)
 end
 
 _gen_mcmc_states(
-    sampling::MCMCSampling,
+    samplingalg::MCMCSampling,
     target::BATMeasure,
     rngpart::RNGPartition,
     ids::AbstractRange{<:Integer},
     initval_alg::InitvalAlgorithm,
     context::BATContext
-) = [_construct_mcmc_state(sampling, target, rngpart, id, initval_alg, context) for id in ids]
+) = [_construct_mcmc_state(samplingalg, target, rngpart, id, initval_alg, context) for id in ids]
 
 
 function mcmc_init!(
-    sampling::MCMCSampling,
+    samplingalg::MCMCSampling,
     target::BATMeasure,
     init_alg::MCMCChainPoolInit,
     callback::Function,
     context::BATContext
 )::NamedTuple{(:mcmc_states, :outputs), Tuple{Vector{MCMCState}, Vector{DensitySampleVector}}}
-    @unpack tempering, nchains, trafo_tuning, proposal_tuning, nonzero_weights = sampling
+    @unpack tempering, nchains, trafo_tuning, proposal_tuning, nonzero_weights = samplingalg
 
     @info "MCMCChainPoolInit: trying to generate $nchains viable MCMC chain state(s)."
 
@@ -79,7 +79,7 @@ function mcmc_init!(
     dummy_context = deepcopy(context)
     dummy_initval = unshaped(bat_initval(target, InitFromTarget(), dummy_context).result, varshape(target))
 
-    dummy_mcmc_state = MCMCState(sampling, target, one(Int32), dummy_initval, dummy_context)
+    dummy_mcmc_state = MCMCState(samplingalg, target, one(Int32), dummy_initval, dummy_context)
 
     mcmc_states = similar([dummy_mcmc_state], 0)
     outputs = similar([DensitySampleVector(dummy_mcmc_state)], 0)
@@ -90,7 +90,7 @@ function mcmc_init!(
         n = min(min_nviable, max_ncandidates - ncandidates)
         @debug "Generating $n $(cycle > 1 ? "additional " : "")candidate MCMC chain state(s)."
 
-        new_mcmc_states = _gen_mcmc_states(sampling, target, rngpart, ncandidates .+ (one(Int64):n), initval_alg, context)
+        new_mcmc_states = _gen_mcmc_states(samplingalg, target, rngpart, ncandidates .+ (one(Int64):n), initval_alg, context)
 
         filter!(isvalidstate, new_mcmc_states)
 
