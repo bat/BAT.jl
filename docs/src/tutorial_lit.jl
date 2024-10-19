@@ -230,7 +230,7 @@ posterior = PosteriorMeasure(likelihood, prior)
 # Now we can generate a set of MCMC samples via [`bat_sample`](@ref). We'll
 # use 4 MCMC chains with 10^5 MC steps in each chain (after tuning/burn-in):
 
-samples = bat_sample(posterior, MCMCSampling(mcalg = MetropolisHastings(), nsteps = 10^5, nchains = 4)).result
+samples = bat_sample(posterior, MCMCSampling(proposal = MetropolisHastings(), nsteps = 10^5, nchains = 4)).result
 #md nothing # hide
 #nb nothing # hide
 
@@ -377,8 +377,7 @@ plot!(-4:0.01:4, x -> fit_function(true_par_values, x), color=4, label = "Truth"
 # We'll sample using the The Metropolis-Hastings MCMC algorithm:
 
 mcmcalgo = MetropolisHastings(
-    weighting = RepetitionWeighting(),
-    tuning = AdaptiveMHTuning()
+    weighting = RepetitionWeighting()
 )
 
 # BAT requires a counter-based random number generator (RNG), since it
@@ -414,7 +413,7 @@ convergence = BrooksGelmanConvergence()
 samples = bat_sample(
     posterior,
     MCMCSampling(
-        mcalg = mcmcalgo,
+        proposal = mcmcalgo,
         nchains = 4,
         nsteps = 10^5,
         init = init,

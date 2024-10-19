@@ -59,17 +59,3 @@ cov2pdmat(::Type{T}, Σ::AbstractPDMat) where {T<:Real} = cov2pdmat(T, Matrix(Σ
 
 cov2pdmat(::Type{T}, Σ::Cholesky{T}) where {T<:Real} = PDMat(Σ)
 cov2pdmat(::Type{T}, Σ::Cholesky) where {T<:Real} = cov2pdmat(T, Matrix(Σ))
-
-
-
-function get_cov end
-
-get_cov(d::Distributions.GenericMvTDist) = d.Σ
-
-
-function set_cov end
-
-function set_cov(d::Distributions.GenericMvTDist{T,Cov}, Σ::PosDefMatLike) where {T,Cov<:PDMat{T}}
-    Σ_conv = cov2pdmat(T, Σ)
-    Distributions.GenericMvTDist(d.df, deepcopy(d.μ), Σ_conv)
-end

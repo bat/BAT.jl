@@ -19,6 +19,14 @@ function proposal_rand!(
     v_proposed .= v_current + rand(rng, pdist)
 end
 
+function proposal_rand!(
+    rng::AbstractRNG,
+    pdist::Distribution{Univariate,Continuous},
+    v_proposed::AbstractVector{<:Real},
+    v_current::AbstractVector{<:Real}
+)
+    v_proposed .= v_current + rand(rng, pdist, length(v_current))
+end
 
 function mv_proposaldist(T::Type{<:AbstractFloat}, d::TDist, varndof::Integer)
     Σ = PDMat(Matrix(I(varndof) * one(T)))

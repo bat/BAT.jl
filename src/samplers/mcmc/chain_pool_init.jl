@@ -1,6 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-
 """
     struct MCMCChainPoolInit <: MCMCInitAlgorithm
 
@@ -32,41 +31,39 @@ function apply_trafo_to_init(trafo::Function, initalg::MCMCChainPoolInit)
 end
 
 
-
-function _construct_chain(
+function _construct_mcmc_state(
+    sampling::MCMCSampling,
+    target::BATMeasure,
     rngpart::RNGPartition,
     id::Integer,
-    algorithm::MCMCAlgorithm,
-    density::BATMeasure,
     initval_alg::InitvalAlgorithm,
     parent_context::BATContext
 )
     new_context = set_rng(parent_context, AbstractRNG(rngpart, id))
-    v_init = bat_initval(density, initval_alg, new_context).result
-    return MCMCIterator(algorithm, density, id, v_init, new_context)
+    v_init = bat_initval(target, initval_alg, new_context).result
+    return MCMCState(sampling, target, Int32(id), v_init, new_context)
 end
 
-_gen_chains(
+_gen_mcmc_states(
+    sampling::MCMCSampling,
+    target::BATMeasure,
     rngpart::RNGPartition,
     ids::AbstractRange{<:Integer},
-    algorithm::MCMCAlgorithm,
-    density::BATMeasure,
     initval_alg::InitvalAlgorithm,
     context::BATContext
-) = [_construct_chain(rngpart, id, algorithm, density, initval_alg, context) for id in ids]
+) = [_construct_mcmc_state(sampling, target, rngpart, id, initval_alg, context) for id in ids]
 
 
 function mcmc_init!(
-    algorithm::MCMCAlgorithm,
-    density::BATMeasure,
-    nchains::Integer,
+    sampling::MCMCSampling,
+    target::BATMeasure,
     init_alg::MCMCChainPoolInit,
-    tuning_alg::MCMCTuningAlgorithm,
-    nonzero_weights::Bool,
     callback::Function,
     context::BATContext
-)
-    @info "MCMCChainPoolInit: trying to generate $nchains viable MCMC chain(s)."
+)::NamedTuple{(:mcmc_states, :outputs), Tuple{Vector{MCMCState}, Vector{DensitySampleVector}}}
+    @unpack tempering, nchains, trafo_tuning, proposal_tuning, nonzero_weights = sampling
+
+    @info "MCMCChainPoolInit: trying to generate $nchains viable MCMC chain state(s)."
 
     initval_alg = init_alg.initval_alg
 
@@ -77,124 +74,113 @@ function mcmc_init!(
 
     ncandidates::Int = 0
 
-    @debug "Generating dummy MCMC chain to determine chain, output and tuner types."
+    @debug "Generating dummy MCMC chain state to determine chain state, output and tuner types."
 
     dummy_context = deepcopy(context)
-    dummy_initval = unshaped(bat_initval(density, InitFromTarget(), dummy_context).result, varshape(density))
-    global g_state = (;dummy_context, dummy_initval, density)
-    dummy_chain = MCMCIterator(algorithm, density, 1, dummy_initval, dummy_context)
-    dummy_tuner = tuning_alg(dummy_chain)
+    dummy_initval = unshaped(bat_initval(target, InitFromTarget(), dummy_context).result, varshape(target))
 
-    chains = similar([dummy_chain], 0)
-    tuners = similar([dummy_tuner], 0)
-    outputs = similar([DensitySampleVector(dummy_chain)], 0)
-    cycle::Int = 1
+    dummy_mcmc_state = MCMCState(sampling, target, one(Int32), dummy_initval, dummy_context)
 
-    while length(tuners) < min_nviable && ncandidates < max_ncandidates
+    mcmc_states = similar([dummy_mcmc_state], 0)
+    outputs = similar([DensitySampleVector(dummy_mcmc_state)], 0)
+
+    cycle::Int32 = 1
+
+    while length(mcmc_states) < min_nviable && ncandidates < max_ncandidates
         n = min(min_nviable, max_ncandidates - ncandidates)
-        @debug "Generating $n $(cycle > 1 ? "additional " : "")candidate MCMC chain(s)."
+        @debug "Generating $n $(cycle > 1 ? "additional " : "")candidate MCMC chain state(s)."
 
-        new_chains = _gen_chains(rngpart, ncandidates .+ (one(Int64):n), algorithm, density, initval_alg, context)
+        new_mcmc_states = _gen_mcmc_states(sampling, target, rngpart, ncandidates .+ (one(Int64):n), initval_alg, context)
 
-        filter!(isvalidchain, new_chains)
+        filter!(isvalidstate, new_mcmc_states)
 
-        new_tuners = tuning_alg.(new_chains)
-        new_outputs = DensitySampleVector.(new_chains)
-        next_cycle!.(new_chains)
-        tuning_init!.(new_tuners, new_chains, init_alg.nsteps_init)
+        new_outputs = DensitySampleVector.(new_mcmc_states)
+
+        next_cycle!.(new_mcmc_states)
+        mcmc_tuning_init!!.(new_mcmc_states, init_alg.nsteps_init)
+        new_mcmc_states = mcmc_update_z_position!!.(new_mcmc_states)
         ncandidates += n
 
-        @debug "Testing $(length(new_tuners)) candidate MCMC chain(s)."
-
-        mcmc_iterate!(
-            new_outputs, new_chains, new_tuners;
+        @debug "Testing $(length(new_mcmc_states)) candidate MCMC chain state(s)."
+        
+        new_mcmc_states = mcmc_iterate!!(
+            new_outputs, new_mcmc_states;
             max_nsteps = clamp(div(init_alg.nsteps_init, 5), 10, 50),
-            callback = callback,
             nonzero_weights = nonzero_weights
         )
-
-        viable_idxs = findall(isviablechain.(new_chains))
-        viable_tuners = new_tuners[viable_idxs]
-        viable_chains = new_chains[viable_idxs]
+        
+        viable_idxs = findall(isviablestate.(new_mcmc_states))
+        viable_mcmc_states = new_mcmc_states[viable_idxs]
         viable_outputs = new_outputs[viable_idxs]
 
-        @debug "Found $(length(viable_idxs)) viable MCMC chain(s)."
+        @debug "Found $(length(viable_idxs)) viable MCMC chain state(s)."
 
-        if !isempty(viable_tuners)
-            mcmc_iterate!(
-                viable_outputs, viable_chains, viable_tuners;
+        if !isempty(viable_mcmc_states)
+            viable_mcmc_states = mcmc_iterate!!(
+                viable_outputs, viable_mcmc_states;
                 max_nsteps = init_alg.nsteps_init,
-                callback = callback,
                 nonzero_weights = nonzero_weights
             )
 
-            nsamples_thresh = floor(Int, 0.8 * median([nsamples(chain) for chain in viable_chains]))
-            good_idxs = findall(chain -> nsamples(chain) >= nsamples_thresh, viable_chains)
-            @debug "Found $(length(viable_tuners)) MCMC chain(s) with at least $(nsamples_thresh) unique accepted samples."
+            nsamples_thresh = floor(Int, 0.8 * median([nsamples(states) for states in viable_mcmc_states]))
+            good_idxs = findall(states -> nsamples(states) >= nsamples_thresh, viable_mcmc_states)
+            @debug "Found $(length(viable_mcmc_states)) MCMC chain state(s) with at least $(nsamples_thresh) unique accepted samples."
 
-            append!(chains, view(viable_chains, good_idxs))
-            append!(tuners, view(viable_tuners, good_idxs))
+            append!(mcmc_states, view(viable_mcmc_states, good_idxs))
             append!(outputs, view(viable_outputs, good_idxs))
         end
 
         cycle += 1
     end
 
-    length(tuners) < min_nviable && error("Failed to generate $min_nviable viable MCMC chains")
+    length(mcmc_states) < min_nviable && error("Failed to generate $min_nviable viable MCMC chain states")
 
     m = nchains
-    tidxs = LinearIndices(tuners)
+    tidxs = LinearIndices(mcmc_states)
     n = length(tidxs)
 
     modes = hcat(broadcast(samples -> Array(bat_findmode(samples, MaxDensitySearch(), context).result), outputs)...)
 
-    final_chains = similar(chains, 0)
-    final_tuners = similar(tuners, 0)
+    final_mcmc_states = similar(mcmc_states, 0)
     final_outputs = similar(outputs, 0)
 
     if 2 <= m < size(modes, 2)
         clusters = kmeans(modes, m, init = KmCentralityAlg())
-        clusters.converged || error("k-means clustering of MCMC chains did not converge")
+        clusters.converged || error("k-means clustering of MCMC chain states did not converge")
 
         mincosts = fill(Inf, m)
-        chain_sel_idxs = fill(0, m)
+        mcmc_states_sel_idxs = fill(0, m)
 
         for i in tidxs
             j = clusters.assignments[i]
             if clusters.costs[i] < mincosts[j]
                 mincosts[j] = clusters.costs[i]
-                chain_sel_idxs[j] = i
+                mcmc_states_sel_idxs[j] = i
             end
         end
 
-        @assert all(j -> j in tidxs, chain_sel_idxs)
+        @assert all(j -> j in tidxs, mcmc_states_sel_idxs)
 
-        for i in sort(chain_sel_idxs)
-            push!(final_chains, chains[i])
-            push!(final_tuners, tuners[i])
+        for i in sort(mcmc_states_sel_idxs)
+            push!(final_mcmc_states, mcmc_states[i])
             push!(final_outputs, outputs[i])
         end
     elseif m == 1
-        i = findmax(nsamples.(chains))[2]
-        push!(final_chains, chains[i])
-        push!(final_tuners, tuners[i])
+        i = findmax(nsamples.(mcmc_states))[2]
+        push!(final_mcmc_states, mcmc_states[i])
         push!(final_outputs, outputs[i])
     else
-        @assert length(chains) == nchains
-        resize!(final_chains, nchains)
-        copyto!(final_chains, chains)
+        @assert length(mcmc_states) == n_mc_states
+        resize!(final_mcmc_states, n_mc_states)
+        copyto!(final_mcmc_states, mcmc_states)
 
-        @assert length(tuners) == nchains
-        resize!(final_tuners, nchains)
-        copyto!(final_tuners, tuners)
-
-        @assert length(outputs) == nchains
-        resize!(final_outputs, nchains)
+        @assert length(outputs) == n_mc_states
+        resize!(final_outputs, n_mc_states)
         copyto!(final_outputs, outputs)
     end
 
-    @info "Selected $(length(final_tuners)) MCMC chain(s)."
-    tuning_postinit!.(final_tuners, final_chains, final_outputs)
+    @info "Selected $(length(final_mcmc_states)) MCMC chain state(s)."
+    mcmc_tuning_postinit!!.(final_mcmc_states, final_outputs)
 
-    (chains = final_chains, tuners = final_tuners, outputs = final_outputs)
+    (mcmc_states = final_mcmc_states, outputs = final_outputs)
 end

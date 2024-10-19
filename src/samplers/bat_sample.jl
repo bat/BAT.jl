@@ -2,28 +2,28 @@
 
 # when constructing a without generator infos like `EvaluatedMeasure(density, samples)`:
 struct UnknownSampleGenerator<: AbstractSampleGenerator end
-getalgorithm(sg::UnknownSampleGenerator) = nothing
+getproposal(sg::UnknownSampleGenerator) = nothing
 
 # for samplers without specific infos, e.g. current ImportanceSamplers:
 struct GenericSampleGenerator{A <: AbstractSamplingAlgorithm} <: AbstractSampleGenerator
     algorithm::A
 end
-getalgorithm(sg::GenericSampleGenerator) = sg.algorithm
+getproposal(sg::GenericSampleGenerator) = sg.algorithm
 
 
 function sample_and_verify(
-    target::AnySampleable, algorithm::AbstractSamplingAlgorithm,
+    target::AnySampleable, samplingalg::AbstractSamplingAlgorithm,
     ref_dist::Distribution = target, context::BATContext = get_batcontext();
     max_retries::Integer = 1
 )
     measure = batsampleable(target)
-    initial_smplres = bat_sample_impl(measure, algorithm, context)
+    initial_smplres = bat_sample_impl(measure, samplingalg, context)
     smplres::typeof(initial_smplres) = initial_smplres
     verified::Bool = test_dist_samples(ref_dist, smplres.result, context)
     n_retries::Int = 0
     while !(verified) && n_retries < max_retries
         n_retries += 1
-        smplres = bat_sample_impl(measure, algorithm, context)
+        smplres = bat_sample_impl(measure, samplingalg, context)
         verified = test_dist_samples(ref_dist, smplres.result, context)
     end
     merge(smplres, (verified = verified, n_retries = n_retries))
@@ -50,7 +50,6 @@ export IIDSampling
 
 
 function bat_sample_impl(m::BATMeasure, algorithm::IIDSampling, context::BATContext)
-    global g_state = (;m, algorithm, context)
     #@assert false
     cunit = get_compute_unit(context)
     rng = get_rng(context)

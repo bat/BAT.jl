@@ -16,8 +16,7 @@ using LinearAlgebra: Diagonal, ones
                               val_rtol::Real=3.5, err_max::Real=0.2)
         @testset "$title" begin
             samplingalg = MCMCSampling(
-                mcalg = MetropolisHastings(),
-                trafo = DoNotTransform(),
+                pre_transform = DoNotTransform(),
                 nsteps = 2*10^5,
                 burnin = MCMCMultiCycleBurnin(nsteps_per_cycle = 10^5, max_ncycles = 60)
             )
