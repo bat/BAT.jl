@@ -5,7 +5,7 @@ using Test
 using LinearAlgebra
 using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityInterface
 
-@testset "MetropolisHastings" begin
+@testset "RandomWalk" begin
     context = BATContext()
     objective = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
 
@@ -14,7 +14,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
     target = unshaped(shaped_target)
     @test target isa BAT.BATDistMeasure
 
-    proposal = MetropolisHastings()
+    proposal = RandomWalk()
     nchains = 4
 
     samplingalg = MCMCSampling()
@@ -128,6 +128,6 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         inner_posterior = PosteriorMeasure(likelihood, prior)
         # Test with nested posteriors:
         posterior = PosteriorMeasure(likelihood, inner_posterior)
-        @test BAT.sample_and_verify(posterior, MCMCSampling(proposal = MetropolisHastings(), pre_transform = PriorToGaussian()), prior.dist).verified
+        @test BAT.sample_and_verify(posterior, MCMCSampling(proposal = RandomWalk(), pre_transform = PriorToGaussian()), prior.dist).verified
     end
 end

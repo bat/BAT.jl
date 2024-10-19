@@ -91,7 +91,7 @@ MCMCMultiCycleBurnin
 MCMCProposalTuning
 MCMCSampling
 MCMCTransformTuning
-MetropolisHastings
+RandomWalk
 MHProposalDistTuning
 ModeAsDefined
 NoMCMCProposalTuning

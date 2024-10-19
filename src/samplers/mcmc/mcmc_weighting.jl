@@ -21,7 +21,7 @@ sample_weight_type(::Type{<:AbstractMCMCWeightingScheme{T}}) where {T} = T
 
 Sample weighting scheme suitable for sampling algorithms which may repeated
 samples multiple times in direct succession (e.g.
-[`MetropolisHastings`](@ref)). The repeated sample is stored only once,
+[`RandomWalk`](@ref)). The repeated sample is stored only once,
 with a weight equal to the number of times it has been repeated (e.g.
 because a Markov chain has not moved during a sampling step).
 
@@ -42,7 +42,7 @@ _weight_type(::RepetitionWeighting) = Int
 *Experimental feature, not part of stable public API.*
 
 Sample weighting scheme suitable for accept/reject-based sampling algorithms
-(e.g. [`MetropolisHastings`](@ref)). Both accepted and rejected samples
+(e.g. [`RandomWalk`](@ref)). Both accepted and rejected samples
 become part of the output, with a weight proportional to their original
 acceptance probability.
 

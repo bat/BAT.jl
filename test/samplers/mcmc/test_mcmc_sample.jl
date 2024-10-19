@@ -26,7 +26,7 @@ using DensityInterface
     @test (nchains * nsteps - sum(samples.weight)) < 100
 
 
-    samplingalg_PW = @inferred MCMCSampling(proposal = MetropolisHastings(weighting = ARPWeighting()), pre_transform = DoNotTransform(), nsteps = 10^5)
+    samplingalg_PW = @inferred MCMCSampling(proposal = RandomWalk(weighting = ARPWeighting()), pre_transform = DoNotTransform(), nsteps = 10^5)
 
     @test BAT.sample_and_verify(mv_dist, samplingalg_PW).verified
 

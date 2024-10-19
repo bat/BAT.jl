@@ -2,7 +2,7 @@
 
 
 """
-    struct MetropolisHastings <: MCMCAlgorithm
+    struct RandomWalk <: MCMCAlgorithm
 
 Metropolis-Hastings MCMC sampling algorithm.
 
@@ -14,7 +14,7 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct MetropolisHastings{
+@with_kw struct RandomWalk{
     Q<:ContinuousDistribution,
     WS<:AbstractMCMCWeightingScheme,
 } <: MCMCProposal
@@ -22,7 +22,7 @@ $(TYPEDFIELDS)
     weighting::WS = RepetitionWeighting()
 end
 
-export MetropolisHastings
+export RandomWalk
 
 mutable struct MHProposalState{
     Q<:ContinuousDistribution,
@@ -33,27 +33,27 @@ mutable struct MHProposalState{
 end
 export MHProposalState
 
-bat_default(::Type{MCMCSampling}, ::Val{:pre_transform}, proposal::MetropolisHastings) = PriorToGaussian()
+bat_default(::Type{MCMCSampling}, ::Val{:pre_transform}, proposal::RandomWalk) = PriorToGaussian()
 
-bat_default(::Type{MCMCSampling}, ::Val{:proposal_tuning}, proposal::MetropolisHastings) = NoMCMCProposalTuning()
+bat_default(::Type{MCMCSampling}, ::Val{:proposal_tuning}, proposal::RandomWalk) = NoMCMCProposalTuning()
 
-bat_default(::Type{MCMCSampling}, ::Val{:transform_tuning}, proposal::MetropolisHastings) = RAMTuning()
+bat_default(::Type{MCMCSampling}, ::Val{:transform_tuning}, proposal::RandomWalk) = RAMTuning()
 
-bat_default(::Type{MCMCSampling}, ::Val{:adaptive_transform}, proposal::MetropolisHastings) = TriangularAffineTransform()
+bat_default(::Type{MCMCSampling}, ::Val{:adaptive_transform}, proposal::RandomWalk) = TriangularAffineTransform()
 
-bat_default(::Type{MCMCSampling}, ::Val{:tempering}, proposal::MetropolisHastings) = NoMCMCTempering()
+bat_default(::Type{MCMCSampling}, ::Val{:tempering}, proposal::RandomWalk) = NoMCMCTempering()
 
-bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, proposal::MetropolisHastings, pre_transform::AbstractTransformTarget, nchains::Integer) = 10^5
+bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, proposal::RandomWalk, pre_transform::AbstractTransformTarget, nchains::Integer) = 10^5
 
-bat_default(::Type{MCMCSampling}, ::Val{:init}, proposal::MetropolisHastings, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{MCMCSampling}, ::Val{:init}, proposal::RandomWalk, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
 
-bat_default(::Type{MCMCSampling}, ::Val{:burnin}, proposal::MetropolisHastings, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{MCMCSampling}, ::Val{:burnin}, proposal::RandomWalk, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
 
 function _create_proposal_state(
-    proposal::MetropolisHastings, 
+    proposal::RandomWalk, 
     target::BATMeasure, 
     context::BATContext, 
     v_init::AbstractVector{<:Real}, 

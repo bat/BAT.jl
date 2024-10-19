@@ -26,7 +26,7 @@ $(TYPEDFIELDS)
     CT<:ConvergenceTest,
     CB<:Function
 } <: AbstractSamplingAlgorithm
-    proposal::PR = MetropolisHastings(proposaldist = TDist(1.0))
+    proposal::PR = RandomWalk(proposaldist = TDist(1.0))
     proposal_tuning::PRT = bat_default(MCMCSampling, Val(:proposal_tuning), proposal)
     pre_transform::TR = bat_default(MCMCSampling, Val(:pre_transform), proposal)
     adaptive_transform::AT = bat_default(MCMCSampling, Val(:adaptive_transform), proposal)
