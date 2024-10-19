@@ -5,7 +5,7 @@ using Test
 using LinearAlgebra
 using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityInterface
 
-@testset "MetropolisHastings" begin
+@testset "RandomWalk" begin
     context = BATContext()
     objective = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
 
@@ -14,10 +14,10 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
     target = unshaped(shaped_target)
     @test target isa BAT.BATDistMeasure
 
-    proposal = MetropolisHastings()
+    proposal = RandomWalk()
     nchains = 4
 
-    samplingalg = MCMCSampling()
+    samplingalg = TransformedMCMC()
  
     @testset "MCMC iteration" begin
         v_init = bat_initval(target, InitFromTarget(), context).result
@@ -41,7 +41,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
  
     @testset "MCMC tuning and burn-in" begin
         init_alg = MCMCChainPoolInit()
-        tuning_alg = AdaptiveMHTuning()
+        tuning_alg = AdaptiveAffineTuning()
         burnin_alg = MCMCMultiCycleBurnin()
         convergence_test = BrooksGelmanConvergence()
         strict = true
@@ -49,9 +49,9 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         callback = (x...) -> nothing
         max_nsteps = 10^5
 
-        samplingalg = MCMCSampling(
+        samplingalg = TransformedMCMC(
             proposal = proposal,
-            trafo_tuning = tuning_alg,
+            transform_tuning = tuning_alg,
             burnin = burnin_alg,
             nchains = nchains,
             convergence = convergence_test,
@@ -71,7 +71,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
 
         # TODO: MD, Reactivate, for some reason fail
         # @test mcmc_states isa AbstractVector{<:BAT.MHChainState}
-        # @test tuners isa AbstractVector{<:BAT.AdaptiveMHTrafoTunerState}
+        # @test tuners isa AbstractVector{<:BAT.AdaptiveAffineTuningState}
         @test outputs isa AbstractVector{<:DensitySampleVector}
 
         BAT.mcmc_burnin!(
@@ -98,7 +98,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
     @testset "bat_sample" begin
         samples = bat_sample(
             shaped_target,
-            MCMCSampling(
+            TransformedMCMC(
                 proposal = proposal,
                 pre_transform = DoNotTransform(),
                 store_burnin = true
@@ -110,7 +110,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
 
         smplres = BAT.sample_and_verify(
             shaped_target,
-            MCMCSampling(
+            TransformedMCMC(
                 proposal = proposal,
                 pre_transform = DoNotTransform()
             ),
@@ -128,6 +128,6 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         inner_posterior = PosteriorMeasure(likelihood, prior)
         # Test with nested posteriors:
         posterior = PosteriorMeasure(likelihood, inner_posterior)
-        @test BAT.sample_and_verify(posterior, MCMCSampling(proposal = MetropolisHastings(), pre_transform = PriorToGaussian()), prior.dist).verified
+        @test BAT.sample_and_verify(posterior, TransformedMCMC(proposal = RandomWalk(), pre_transform = PriorToGaussian()), prior.dist).verified
     end
 end

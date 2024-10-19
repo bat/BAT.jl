@@ -21,10 +21,10 @@ function setup_benchmark()
     include("run_benchmark_ND.jl")
     end
 
-function do_benchmarks(;algorithm=MetropolisHastings(), nsteps=10^6, nchains=8)
+function do_benchmarks(;algorithm=RandomWalk(), nsteps=10^6, nchains=8)
     #run_1D_benchmark(algorithm=algorithm, nsteps=nsteps, nchains=nchains)
     run_2D_benchmark(algorithm=algorithm, nsteps=nsteps, nchains=nchains)
-    run_ND_benchmark(n_dim=2:2:20,algorithm=MetropolisHastings(), nsteps=nsteps, nchains=4)
+    run_ND_benchmark(n_dim=2:2:20,algorithm=RandomWalk(), nsteps=nsteps, nchains=4)
     run_ks_ahmc_vs_mh(n_dim=20:5:35)
 end
 

@@ -21,7 +21,7 @@ sample_weight_type(::Type{<:AbstractMCMCWeightingScheme{T}}) where {T} = T
 
 Sample weighting scheme suitable for sampling algorithms which may repeated
 samples multiple times in direct succession (e.g.
-[`MetropolisHastings`](@ref)). The repeated sample is stored only once,
+[`RandomWalk`](@ref)). The repeated sample is stored only once,
 with a weight equal to the number of times it has been repeated (e.g.
 because a Markov chain has not moved during a sampling step).
 
@@ -34,7 +34,20 @@ export RepetitionWeighting
 
 RepetitionWeighting() = RepetitionWeighting{Int}()
 
-_weight_type(::RepetitionWeighting) = Int
+mcmc_weight_type(::RepetitionWeighting) = Int
+
+function mcmc_weight_values(
+    ::RepetitionWeighting,
+    p_accept::Real,
+    accepted::Bool
+)
+    if accepted
+        (0, 1)
+    else
+        (1, 0)
+    end
+end
+
 
 """
     ARPWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T}
@@ -42,7 +55,7 @@ _weight_type(::RepetitionWeighting) = Int
 *Experimental feature, not part of stable public API.*
 
 Sample weighting scheme suitable for accept/reject-based sampling algorithms
-(e.g. [`MetropolisHastings`](@ref)). Both accepted and rejected samples
+(e.g. [`RandomWalk`](@ref)). Both accepted and rejected samples
 become part of the output, with a weight proportional to their original
 acceptance probability.
 
@@ -55,4 +68,19 @@ export ARPWeighting
 
 ARPWeighting() = ARPWeighting{Float64}()
 
-_weight_type(::ARPWeighting) = Float64
+mcmc_weight_type(::ARPWeighting) = Float64
+
+function mcmc_weight_values(
+    scheme::ARPWeighting,
+    p_accept::Real,
+    accepted::Bool
+)
+    T = typeof(p_accept)
+    if p_accept ≈ 1
+        (zero(T), one(T))
+    elseif p_accept ≈ 0
+        (one(T), zero(T))
+    else
+        (T(1 - p_accept), p_accept)
+    end
+end

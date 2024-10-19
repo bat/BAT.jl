@@ -19,21 +19,21 @@ bat_sample(target.prior, IIDSampling(nsamples=10^5))
 
 ### Metropolis-Hastings
 
-BAT sampling algorithm type: [`MCMCSampling`](@ref), MCMC algorithm subtype: [`MetropolisHastings`](@ref)
+BAT sampling algorithm type: [`TransformedMCMC`](@ref), MCMC algorithm subtype: [`RandomWalk`](@ref)
 
 ```julia
-bat_sample(target, MCMCSampling(mcalg = MetropolisHastings(), nsteps = 10^5, nchains = 4))
+bat_sample(target, TransformedMCMC(mcalg = RandomWalk(), nsteps = 10^5, nchains = 4))
 ```
 
 
 ### Hamiltonian MC
 
-BAT sampling algorithm type: [`MCMCSampling`](@ref), MCMC algorithm subtype: [`HamiltonianMC`](@ref)
+BAT sampling algorithm type: [`TransformedMCMC`](@ref), MCMC algorithm subtype: [`HamiltonianMC`](@ref)
 
 ```julia
 import AdvancedHMC, ForwardDiff
 set_batcontext(ad = ADSelector(ForwardDiff))
-bat_sample(target, MCMCSampling(mcalg = HamiltonianMC()))
+bat_sample(target, TransformedMCMC(mcalg = HamiltonianMC()))
 ```
 Requires the [AdvancedHMC](https://github.com/TuringLang/AdvancedHMC.jl) Julia package to be loaded explicitly.
 

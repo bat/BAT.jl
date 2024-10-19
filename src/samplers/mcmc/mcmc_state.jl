@@ -13,6 +13,7 @@ mutable struct MCMCChainState{
     PR<:RNGPartition,
     FT<:Function,
     P<:MCMCProposalState,
+    WS<:AbstractMCMCWeightingScheme,
     SVX<:DensitySampleVector,
     SVZ<:DensitySampleVector,
     CTX<:BATContext
@@ -20,6 +21,7 @@ mutable struct MCMCChainState{
     target::M
     proposal::P
     f_transform::FT
+    weighting::WS
     samples::SVX
     sample_z::SVZ
     info::MCMCChainStateInfo
@@ -31,7 +33,7 @@ end
 export MCMCChainState
 
 function MCMCChainState(
-    samplingalg::MCMCSampling,
+    samplingalg::TransformedMCMC,
     target::BATMeasure,
     id::Integer,
     v_init::AbstractVector{P},
@@ -56,7 +58,7 @@ function MCMCChainState(
     z = inverse_g(v_init)
     logd_z = logdensityof(MeasureBase.pullback(g, target), z)
 
-    W = _weight_type(proposal.weighting)
+    W = mcmc_weight_type(samplingalg.sample_weighting)
     T = typeof(logd_x)
 
     info, sample_id_type = _get_sample_id(proposal, Int32(id), cycle, 1, CURRENT_SAMPLE)
@@ -74,6 +76,7 @@ function MCMCChainState(
         target,
         proposal,
         g,
+        samplingalg.sample_weighting,
         samples,
         sample_z,
         MCMCChainStateInfo(id, cycle, false, false),
@@ -140,9 +143,8 @@ function DensitySampleVector(chain_state::MCMCChainState)
     DensitySampleVector(sample_type(chain_state), totalndof(varshape(mcmc_target(chain_state))))
 end
 
-# TODO: MD, make into !!
-function mcmc_step!!(mcmc_state::MCMCState)
 
+function mcmc_step!!(mcmc_state::MCMCState)
     # TODO: MD, include sample_z in _cleanup_samples()
     _cleanup_samples(mcmc_state)
     

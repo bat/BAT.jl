@@ -1,17 +1,11 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-struct HMCTrafoTunerState <: MCMCTunerState end
-
-mutable struct HMCProposalTunerState{A<:AdvancedHMC.AbstractAdaptor} <: MCMCTunerState
+mutable struct HMCProposalTunerState{A<:AdvancedHMC.AbstractAdaptor} <: MCMCProposalTunerState
     tuning::HMCTuning
     target_acceptance::Float64
     adaptor::A
 end
-
-(tuning::HMCTuning)(chain_state::HMCState) = HMCProposalTunerState(tuning, chain_state), HMCTrafoTunerState()
-
-HMCTrafoTunerState(tuning::HMCTuning) = HMCTrafoTunerState()
 
 function HMCProposalTunerState(tuning::HMCTuning, chain_state::MCMCChainState)
     θ = first(chain_state.samples).v
@@ -19,18 +13,14 @@ function HMCProposalTunerState(tuning::HMCTuning, chain_state::MCMCChainState)
     HMCProposalTunerState(tuning, tuning.target_acceptance, adaptor)
 end
 
-BAT.create_trafo_tuner_state(tuning::HMCTuning, chain_state::MCMCChainState, iteration::Integer) = HMCTrafoTunerState(tuning)
-
 BAT.create_proposal_tuner_state(tuning::HMCTuning, chain_state::MCMCChainState, iteration::Integer) = HMCProposalTunerState(tuning, chain_state)
 
-BAT.mcmc_tuning_init!!(tuner::HMCTrafoTunerState, chain_state::HMCState, max_nsteps::Integer) = nothing
 
 function BAT.mcmc_tuning_init!!(tuner::HMCProposalTunerState, chain_state::HMCState, max_nsteps::Integer)
     AdvancedHMC.Adaptation.initialize!(tuner.adaptor, Int(max_nsteps - 1))
     nothing
 end
 
-BAT.mcmc_tuning_reinit!!(tuner::HMCTrafoTunerState, chain_state::HMCState, max_nsteps::Integer) = nothing
 
 function BAT.mcmc_tuning_reinit!!(tuner::HMCProposalTunerState, chain_state::HMCState, max_nsteps::Integer)
     AdvancedHMC.Adaptation.initialize!(tuner.adaptor, Int(max_nsteps - 1))
@@ -38,12 +28,8 @@ function BAT.mcmc_tuning_reinit!!(tuner::HMCProposalTunerState, chain_state::HMC
 end
 
 
-BAT.mcmc_tuning_postinit!!(tuner::HMCTrafoTunerState, chain_state::HMCState, samples::DensitySampleVector) = nothing
-
 BAT.mcmc_tuning_postinit!!(tuner::HMCProposalTunerState, chain_state::HMCState, samples::DensitySampleVector) = nothing
 
-
-BAT.mcmc_tune_post_cycle!!(tuner::HMCTrafoTunerState, chain_state::HMCState, samples::DensitySampleVector) = chain_state, tuner, false
 
 function BAT.mcmc_tune_post_cycle!!(tuner::HMCProposalTunerState, chain_state::HMCState, samples::DensitySampleVector)
     max_log_posterior = maximum(samples.logd)
@@ -59,8 +45,6 @@ function BAT.mcmc_tune_post_cycle!!(tuner::HMCProposalTunerState, chain_state::H
 end
 
 
-BAT.mcmc_tuning_finalize!!(tuner::HMCTrafoTunerState, chain_state::HMCState) = nothing
-
 function BAT.mcmc_tuning_finalize!!(tuner::HMCProposalTunerState, chain_state::HMCState)
     adaptor = tuner.adaptor
     proposal = chain_state.proposal
@@ -70,19 +54,6 @@ function BAT.mcmc_tuning_finalize!!(tuner::HMCProposalTunerState, chain_state::H
     nothing
 end
 
-
-BAT.tuning_callback(::HMCTrafoTunerState) = nop_func
-
-BAT.tuning_callback(::HMCProposalTunerState) = nop_func
-
-
-function BAT.mcmc_tune_post_step!!(
-    tuner_state::HMCTrafoTunerState,
-    chain_state::MCMCChainState,
-    p_accept::Real
-)
-    return chain_state, tuner_state, false
-end
 
 # TODO: MD, make actually !! function
 function BAT.mcmc_tune_post_step!!(

@@ -50,3 +50,33 @@ export PosteriorDensity
 @deprecate bat_initval(rng::AbstractRNG, target::MeasureLike, n::Integer, algorithm::InitvalAlgorithm) = bat_initval(target, n, algorithm, BAT.set_rng(BAT.get_batcontext(), rng))
 @deprecate bat_initval(rng::AbstractRNG, target::MeasureLike, n::Integer) = bat_initval(target, n, BAT.set_rng(BAT.get_batcontext(), rng))
 =#
+
+
+Base.@deprecate MetropolisHastings() RandomWalk()
+
+Base.@deprecate MCMCSampling(;
+    mcalg::MCMCProposal = RandomWalk(),
+    trafo::AbstractTransformTarget = bat_default(TransformedMCMC, Val(:pre_transform), mcalg),
+    nchains::Int = 4,
+    nsteps::Int = bat_default(TransformedMCMC, Val(:nsteps), mcalg, trafo, nchains),
+    init::MCMCInitAlgorithm = bat_default(TransformedMCMC, Val(:init), mcalg, trafo, nchains, nsteps),
+    burnin::MCMCBurninAlgorithm = bat_default(TransformedMCMC, Val(:burnin), mcalg, trafo, nchains, nsteps),
+    convergence::ConvergenceTest = BrooksGelmanConvergence(),
+    strict::Bool = true,
+    store_burnin::Bool = false,
+    nonzero_weights::Bool = true,
+    callback::Function = nop_func
+) TransformedMCMC(
+    proposal = mcalg,
+    pre_transform = trafo,
+    nchains = nchains,
+    nsteps = nsteps,
+    init = init,
+    burnin = burnin,
+    convergence = convergence,
+    strict = strict,
+    store_burnin = store_burnin,
+    nonzero_weights = nonzero_weights,
+    callback = callback
+)
+export MCMCSampling

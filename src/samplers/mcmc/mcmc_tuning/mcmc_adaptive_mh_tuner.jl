@@ -1,13 +1,13 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# ToDo: Add literature references to AdaptiveMHTuning docstring.
+# ToDo: Add literature references to AdaptiveAffineTuning docstring.
 """
-    struct AdaptiveMHTuning <: MHProposalDistTuning
+    struct AdaptiveAffineTuning <: MCMCTransformTuning
 
-Adaptive MCMC tuning strategy for Metropolis-Hastings samplers.
+Adaptive cycle-based MCMC tuning strategy.
 
-Adapts the proposal function based on the acceptance ratio and covariance
-of the previous samples.
+Adapts an affine space transformation based on the acceptance ratio and
+covariance of the previous samples.
 
 Constructors:
 
@@ -17,20 +17,20 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct AdaptiveMHTuning <: MHProposalDistTuning
+@with_kw struct AdaptiveAffineTuning <: MCMCTransformTuning
     "Controls the weight given to new covariance information in adapting the
-    proposal distribution."
+    affine transform."
     λ::Float64 = 0.5
 
     "Metropolis-Hastings acceptance ratio target, tuning will try to adapt
-    the proposal distribution to bring the acceptance ratio inside this interval."
+    the affine transform to bring the acceptance ratio inside this interval."
     α::IntervalSets.ClosedInterval{Float64} = ClosedInterval(0.15, 0.35)
 
-    "Controls how much the spread of the proposal distribution is
+    "Controls how much the scale of the affine transform is
     widened/narrowed depending on the current MH acceptance ratio."
     β::Float64 = 1.5
 
-    "Interval for allowed scale/spread of the proposal distribution."
+    "Interval for allowed scale of the affine transform distribution."
     c::IntervalSets.ClosedInterval{Float64} = ClosedInterval(1e-4, 1e2)
 
     "Reweighting factor. Take accumulated sample statistics of previous
@@ -39,42 +39,32 @@ $(TYPEDFIELDS)
     r::Real = 0.5
 end
 
-export AdaptiveMHTuning
+export AdaptiveAffineTuning
 
 # TODO: MD, make immutable and use Accessors.jl
-mutable struct AdaptiveMHTrafoTunerState{
+mutable struct AdaptiveAffineTuningState{
     S<:MCMCBasicStats
-} <: MCMCTunerState
-    tuning::AdaptiveMHTuning
+} <: MCMCTransformTunerState
+    tuning::AdaptiveAffineTuning
     stats::S
     iteration::Int
     scale::Float64
 end
 
-struct AdaptiveMHProposalTunerState <: MCMCTunerState end
 
-(tuning::AdaptiveMHTuning)(chain_state::MCMCChainState) = AdaptiveMHTrafoTunerState(tuning, chain_state), AdaptiveMHProposalTunerState()
-
-# TODO: MD, what should the default be? 
-default_adaptive_transform(tuning::AdaptiveMHTuning) = TriangularAffineTransform()
-
-function AdaptiveMHTrafoTunerState(tuning::AdaptiveMHTuning, chain_state::MCMCChainState)
+function AdaptiveAffineTuningState(tuning::AdaptiveAffineTuning, chain_state::MCMCChainState)
     m = totalndof(varshape(mcmc_target(chain_state)))
     scale = 2.38^2 / m
-    AdaptiveMHTrafoTunerState(tuning, MCMCBasicStats(chain_state), 1, scale)
+    AdaptiveAffineTuningState(tuning, MCMCBasicStats(chain_state), 1, scale)
 end
 
 
-AdaptiveMHProposalTunerState(tuning::AdaptiveMHTuning, chain_state::MCMCChainState) = AdaptiveMHProposalTunerState()
+create_trafo_tuner_state(tuning::AdaptiveAffineTuning, chain_state::MCMCChainState, iteration::Integer) = AdaptiveAffineTuningState(tuning, chain_state)
 
 
-create_trafo_tuner_state(tuning::AdaptiveMHTuning, chain_state::MCMCChainState, iteration::Integer) = AdaptiveMHTrafoTunerState(tuning, chain_state)
-
-create_proposal_tuner_state(tuning::AdaptiveMHTuning, chain_state::MCMCChainState, iteration::Integer) = AdaptiveMHProposalTunerState()
-
-
-function mcmc_tuning_init!!(tuner_state::AdaptiveMHTrafoTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
+function mcmc_tuning_init!!(tuner_state::AdaptiveAffineTuningState, chain_state::MCMCChainState, max_nsteps::Integer)
     n = totalndof(varshape(mcmc_target(chain_state)))
+    b = chain_state.f_transform.b
 
     proposaldist = chain_state.proposal.proposaldist
     Σ_unscaled = _approx_cov(proposaldist, n)
@@ -82,35 +72,31 @@ function mcmc_tuning_init!!(tuner_state::AdaptiveMHTrafoTunerState, chain_state:
     
     S = cholesky(Σ)
     
-    chain_state.f_transform = Mul(S.L)
+    chain_state.f_transform = MulAdd(S.L, b)
 
     nothing
 end
 
-mcmc_tuning_init!!(tuner_state::AdaptiveMHProposalTunerState, chain_state::MCMCChainState, max_nsteps::Integer) = nothing
+
+mcmc_tuning_reinit!!(tuner_state::AdaptiveAffineTuningState, chain_state::MCMCChainState, max_nsteps::Integer) = nothing
 
 
-mcmc_tuning_reinit!!(tuner_state::AdaptiveMHTrafoTunerState, chain_state::MCMCChainState, max_nsteps::Integer) = nothing
-
-mcmc_tuning_reinit!!(tuner_state::AdaptiveMHProposalTunerState, chain_state::MCMCChainState, max_nsteps::Integer) = nothing
-
-
-function mcmc_tuning_postinit!!(tuner::AdaptiveMHTrafoTunerState, chain_state::MCMCChainState, samples::DensitySampleVector)
+function mcmc_tuning_postinit!!(tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState, samples::DensitySampleVector)
     # The very first samples of a chain can be very valuable to init tuner
     # stats, especially if the chain gets stuck early after:
     stats = tuner.stats
     append!(stats, samples)
 end
 
-mcmc_tuning_postinit!!(tuner_state::AdaptiveMHProposalTunerState, chain_state::MCMCChainState, samples::DensitySampleVector) = nothing
 
 # TODO: MD, make properly !!
-function mcmc_tune_post_cycle!!(tuner::AdaptiveMHTrafoTunerState, chain_state::MCMCChainState, samples::DensitySampleVector)
+function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState, samples::DensitySampleVector)
     tuning = tuner.tuning
     stats = tuner.stats
     stats_reweight_factor = tuning.r
     reweight_relative!(stats, stats_reweight_factor)
     append!(stats, samples)
+    b = chain_state.f_transform.b
 
     α_min = minimum(tuning.α)
     α_max = maximum(tuning.α)
@@ -153,7 +139,7 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveMHTrafoTunerState, chain_state::M
     Σ_new = new_Σ_unscal * tuner.scale
     S_new = cholesky(Positive, Σ_new)
     
-    chain_state.f_transform = Mul(S_new.L)
+    chain_state.f_transform = MulAdd(S_new.L, b)
     
     tuner.iteration += 1
 
@@ -161,29 +147,12 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveMHTrafoTunerState, chain_state::M
     chain_state, tuner, true
 end
 
-mcmc_tune_post_cycle!!(tuner::AdaptiveMHProposalTunerState, chain_state::MCMCChainState, samples::DensitySampleVector) = chain_state, tuner, false
 
-
-mcmc_tuning_finalize!!(tuner::AdaptiveMHTrafoTunerState, chain_state::MCMCChainState) = nothing
-
-mcmc_tuning_finalize!!(tuner::AdaptiveMHProposalTunerState, chain_state::MCMCChainState) = nothing
-
-
-tuning_callback(::AdaptiveMHTrafoTunerState) = nop_func
-
-tuning_callback(::AdaptiveMHProposalTunerState) = nop_func
+mcmc_tuning_finalize!!(tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState) = nothing
 
 # add a boold to return if the transfom changes 
 function mcmc_tune_post_step!!(
-    tuner::AdaptiveMHTrafoTunerState,
-    chain_state::MCMCChainState,
-    p_accept::Real
-)
-    return chain_state, tuner, false
-end
-
-function mcmc_tune_post_step!!(
-    tuner::AdaptiveMHProposalTunerState,
+    tuner::AdaptiveAffineTuningState,
     chain_state::MCMCChainState,
     p_accept::Real
 )

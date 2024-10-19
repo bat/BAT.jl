@@ -14,7 +14,7 @@ struct DenseEuclideanMetric <: HMCMetric end
 
 # Tuning ==============================================
 
-abstract type HMCTuning <: MCMCTuning end
+abstract type HMCTuning <: MCMCProposalTuning end
 
 @with_kw struct MassMatrixAdaptor <: HMCTuning
     target_acceptance::Float64 = 0.8

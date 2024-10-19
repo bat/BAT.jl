@@ -1,17 +1,8 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-"""
-    abstract type MHProposalDistTuning
-
-Abstract type for Metropolis-Hastings tuning strategies for
-proposal distributions.
-"""
-abstract type MHProposalDistTuning <: MCMCTuning end
-export MHProposalDistTuning
-
 
 """
-    struct MetropolisHastings <: MCMCAlgorithm
+    struct RandomWalk <: MCMCAlgorithm
 
 Metropolis-Hastings MCMC sampling algorithm.
 
@@ -23,51 +14,44 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct MetropolisHastings{
-    Q<:ContinuousDistribution,
-    WS<:AbstractMCMCWeightingScheme,
-} <: MCMCProposal
+@with_kw struct RandomWalk{Q<:ContinuousUnivariateDistribution} <: MCMCProposal
     proposaldist::Q = TDist(1.0)
-    weighting::WS = RepetitionWeighting()
 end
 
-export MetropolisHastings
+export RandomWalk
 
-mutable struct MHProposalState{
-    Q<:ContinuousDistribution,
-    WS<:AbstractMCMCWeightingScheme,
-} <: MCMCProposalState
+struct MHProposalState{Q<:ContinuousUnivariateDistribution} <: MCMCProposalState
     proposaldist::Q
-    weighting::WS
 end
 export MHProposalState
 
+bat_default(::Type{TransformedMCMC}, ::Val{:pre_transform}, proposal::RandomWalk) = PriorToGaussian()
 
-bat_default(::Type{MCMCSampling}, ::Val{:pre_transform}, proposal::MetropolisHastings) = PriorToGaussian()
+bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, proposal::RandomWalk) = NoMCMCProposalTuning()
 
-bat_default(::Type{MCMCSampling}, ::Val{:trafo_tuning}, proposal::MetropolisHastings) = RAMTuning()
+bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, proposal::RandomWalk) = RAMTuning()
 
-bat_default(::Type{MCMCSampling}, ::Val{:adaptive_transform}, proposal::MetropolisHastings) = TriangularAffineTransform()
+bat_default(::Type{TransformedMCMC}, ::Val{:adaptive_transform}, proposal::RandomWalk) = TriangularAffineTransform()
 
-bat_default(::Type{MCMCSampling}, ::Val{:tempering}, proposal::MetropolisHastings) = NoMCMCTempering()
+bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, proposal::RandomWalk) = NoMCMCTempering()
 
-bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, proposal::MetropolisHastings, pre_transform::AbstractTransformTarget, nchains::Integer) = 10^5
+bat_default(::Type{TransformedMCMC}, ::Val{:nsteps}, proposal::RandomWalk, pre_transform::AbstractTransformTarget, nchains::Integer) = 10^5
 
-bat_default(::Type{MCMCSampling}, ::Val{:init}, proposal::MetropolisHastings, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{TransformedMCMC}, ::Val{:init}, proposal::RandomWalk, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
 
-bat_default(::Type{MCMCSampling}, ::Val{:burnin}, proposal::MetropolisHastings, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::RandomWalk, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
 
 function _create_proposal_state(
-    proposal::MetropolisHastings, 
+    proposal::RandomWalk, 
     target::BATMeasure, 
     context::BATContext, 
     v_init::AbstractVector{<:Real}, 
     rng::AbstractRNG
 )
-    return MHProposalState(proposal.proposaldist, proposal.weighting)
+    return MHProposalState(proposal.proposaldist)
 end
 
 
@@ -76,14 +60,7 @@ function _get_sample_id(proposal::MHProposalState, id::Int32, cycle::Int32, step
 end
 
 
-const MHChainState = MCMCChainState{<:BATMeasure,
-                          <:RNGPartition,
-                          <:Function,
-                          <:MHProposalState,
-                          <:DensitySampleVector,
-                          <:DensitySampleVector,
-                          <:BATContext
-} 
+const MHChainState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:MHProposalState} 
 
 function mcmc_propose!!(mc_state::MHChainState)
     @unpack target, proposal, f_transform, context = mc_state
@@ -117,6 +94,7 @@ function mcmc_propose!!(mc_state::MHChainState)
     return mc_state, accepted, p_accept
 end
 
+
 function _accept_reject!(mc_state::MHChainState, accepted::Bool, p_accept::Float64, current::Integer, proposed::Integer)
     @unpack samples, proposal = mc_state
 
@@ -131,36 +109,10 @@ function _accept_reject!(mc_state::MHChainState, accepted::Bool, p_accept::Float
         samples.info.sampletype[proposed] = REJECTED_SAMPLE
     end
 
-    delta_w_current, w_proposed = _weights(proposal, p_accept, accepted)
+    delta_w_current, w_proposed = mcmc_weight_values(mc_state.weighting, p_accept, accepted)
     samples.weight[current] += delta_w_current
     samples.weight[proposed] = w_proposed
 end
 
-function _weights(
-    proposal::MHProposalState{Q,<:RepetitionWeighting},
-    p_accept::Real,
-    accepted::Bool
-) where Q
-    if accepted
-        (0, 1)
-    else
-        (1, 0)
-    end
-end
-
-function _weights(
-    proposal::MHProposalState{Q,<:ARPWeighting},
-    p_accept::Real,
-    accepted::Bool
-) where Q
-    T = typeof(p_accept)
-    if p_accept ≈ 1
-        (zero(T), one(T))
-    elseif p_accept ≈ 0
-        (one(T), zero(T))
-    else
-        (T(1 - p_accept), p_accept)
-    end
-end
 
 eff_acceptance_ratio(mc_state::MHChainState) = nsamples(mc_state) / nsteps(mc_state)

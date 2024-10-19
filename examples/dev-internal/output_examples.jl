@@ -23,7 +23,7 @@ prior = BAT.NamedTupleDist(
 
 posterior = PosteriorMeasure(likelihood, prior);
 
-samples, chains = bat_sample(posterior, MCMCSampling(mcalg = MetropolisHastings(), nsteps = 10^5));
+samples, chains = bat_sample(posterior, TransformedMCMC(mcalg = RandomWalk(), nsteps = 10^5));
 #samples = bat_sample(posterior, SobolSampler(nsamples = 10^5)).result;
 
 sd = EvaluatedMeasure(posterior, samples)

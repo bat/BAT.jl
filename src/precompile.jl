@@ -9,7 +9,7 @@ let
 
     precompile(EvaluatedMeasure, map(typeof, (posterior, dummy_samples)))
 
-    for mcalg in (MetropolisHastings(), HamiltonianMC())
-        precompile(bat_sample, map(typeof, (posterior, MCMCSampling(mcalg = mcalg))))
+    for mcalg in (RandomWalk(), HamiltonianMC())
+        precompile(bat_sample, map(typeof, (posterior, TransformedMCMC(mcalg = mcalg))))
     end
 end

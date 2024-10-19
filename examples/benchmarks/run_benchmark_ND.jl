@@ -203,7 +203,7 @@ end
 
 function run_ND_benchmark(;
     n_dim = 2:2:20,
-    algorithm = MetropolisHastings(),
+    algorithm = RandomWalk(),
     nchains = 4,
     nsteps = 4*10^5,
     time_benchmark = true,
@@ -244,10 +244,10 @@ function run_ND_benchmark(;
 
             mcmc_sample = nothing
             tbf = time()
-            if isa(algorithm,BAT.MetropolisHastings)
+            if isa(algorithm,BAT.RandomWalk)
                 mcmc_sample = bat_sample(
                     dis,
-                    MCMCSampling(
+                    TransformedMCMC(
                         mcalg = algorithm,
                         trafo = DoNotTransform(),
                         nchains = nchains,
@@ -262,7 +262,7 @@ function run_ND_benchmark(;
             elseif isa(algorithm,BAT.HamiltonianMC)
                 mcmc_sample = bat_sample(
                     dis,
-                    MCMCSampling(mcalg = algorithm, trafo = DoNotTransform(), nchains = nchains, nsteps = nsteps)
+                    TransformedMCMC(mcalg = algorithm, trafo = DoNotTransform(), nchains = nchains, nsteps = nsteps)
                 ).result
             end
             taf = time()
@@ -271,10 +271,10 @@ function run_ND_benchmark(;
                 time_per_run = Array{Float64}(undef,5)
                 for i in 1:5
                     tbf = time()
-                    if isa(algorithm,BAT.MetropolisHastings)
+                    if isa(algorithm,BAT.RandomWalk)
                         bat_sample(
                             dis,
-                            MCMCSampling(
+                            TransformedMCMC(
                                 mcalg = algorithm,
                                 trafo = DoNotTransform(),
                                 nchains = nchains,
@@ -289,7 +289,7 @@ function run_ND_benchmark(;
                     elseif isa(algorithm,BAT.HamiltonianMC)
                         bat_sample(
                             dis,
-                            MCMCSampling(mcalg = algorithm, trafo = DoNotTransform(), nchains = nchains, nsteps = nsteps)
+                            TransformedMCMC(mcalg = algorithm, trafo = DoNotTransform(), nchains = nchains, nsteps = nsteps)
                         ).result
                     end
                     taf = time()
@@ -359,6 +359,6 @@ end
 
 function run_ks_ahmc_vs_mh(;n_dim=20:5:35,nsteps=2*10^5, nchains=4)
     ks_res_ahmc = run_ND_benchmark(n_dim=n_dim,algorithm=HamiltonianMC(), nsteps=nsteps, nchains=nchains, time_benchmark=false,ahmi_benchmark=false,hmc_benchmark=true)[1]
-    ks_res_mh = run_ND_benchmark(n_dim=n_dim,algorithm=MetropolisHastings(), nsteps=nsteps, nchains=nchains, time_benchmark=false,ahmi_benchmark=false,hmc_benchmark=true)[1]
+    ks_res_mh = run_ND_benchmark(n_dim=n_dim,algorithm=RandomWalk(), nsteps=nsteps, nchains=nchains, time_benchmark=false,ahmi_benchmark=false,hmc_benchmark=true)[1]
     plot_ks_values_ahmc_vs_mh(ks_res_ahmc,ks_res_mh,n_dim)
 end

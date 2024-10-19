@@ -36,13 +36,14 @@ SobolSampler
 truncate_batmeasure
 ValueAndThreshold
 
-BAT.MCMCIterator
-BAT.MCMCTunerState
-BAT.TemperingState
-BAT.MCMCProposalState
-BAT.MCMCTempering
-BAT.MCMCState
 BAT.MCMCChainState
 BAT.MCMCChainStateInfo
+BAT.MCMCIterator
 BAT.MCMCProposal
+BAT.MCMCProposalState
+BAT.MCMCProposalTunerState
+BAT.MCMCState
+BAT.MCMCTempering
+BAT.MCMCTransformTunerState
+BAT.TemperingState
 ```

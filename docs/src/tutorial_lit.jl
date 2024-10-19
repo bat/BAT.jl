@@ -230,7 +230,7 @@ posterior = PosteriorMeasure(likelihood, prior)
 # Now we can generate a set of MCMC samples via [`bat_sample`](@ref). We'll
 # use 4 MCMC chains with 10^5 MC steps in each chain (after tuning/burn-in):
 
-samples = bat_sample(posterior, MCMCSampling(proposal = MetropolisHastings(), nsteps = 10^5, nchains = 4)).result
+samples = bat_sample(posterior, TransformedMCMC(proposal = RandomWalk(), nsteps = 10^5, nchains = 4)).result
 #md nothing # hide
 #nb nothing # hide
 
@@ -374,11 +374,9 @@ plot!(-4:0.01:4, x -> fit_function(true_par_values, x), color=4, label = "Truth"
 # All option value used in the following are the default values, any or all
 # may be omitted.
 
-# We'll sample using the The Metropolis-Hastings MCMC algorithm:
+# We'll sample using the random-walk Metropolis-Hastings MCMC algorithm:
 
-mcmcalgo = MetropolisHastings(
-    weighting = RepetitionWeighting()
-)
+mcmcalgo = RandomWalk()
 
 # BAT requires a counter-based random number generator (RNG), since it
 # partitions the RNG space over the MCMC chains. This way, a single RNG seed
@@ -393,7 +391,7 @@ context = BATContext(rng = Philox4x())
 #md nothing # hide
 
 
-# By default, `MetropolisHastings()` uses the following options.
+# By default, `RandomWalk()` uses the following options.
 #
 # For Markov chain initialization:
 
@@ -412,7 +410,7 @@ convergence = BrooksGelmanConvergence()
 
 samples = bat_sample(
     posterior,
-    MCMCSampling(
+    TransformedMCMC(
         proposal = mcmcalgo,
         nchains = 4,
         nsteps = 10^5,

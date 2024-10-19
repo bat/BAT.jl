@@ -34,20 +34,35 @@ apply_trafo_to_init(trafo::Function, initalg::MCMCInitAlgorithm) = initalg
 
 
 """
-    abstract type MCMCTuning
+    abstract type MCMCProposalTuning
 
 Abstract type for MCMC tuning algorithms.
 """
-abstract type MCMCTuning end
-export MCMCTuning
+abstract type MCMCProposalTuning end
+export MCMCProposalTuning
 
 """
-    abstract type MCMCTuning
+    abstract type MCMCProposalTunerState
 
 Abstract type for MCMC tuning algorithm states.
 """
-abstract type MCMCTunerState end
-export MCMCTunerState
+abstract type MCMCProposalTunerState end
+
+
+"""
+    abstract type MCMCTransformTuning
+
+Abstract type for MCMC tuning algorithms.
+"""
+abstract type MCMCTransformTuning end
+export MCMCTransformTuning
+
+"""
+    abstract type MCMCTransformTunerState
+
+Abstract type for MCMC tuning algorithm states.
+"""
+abstract type MCMCTransformTunerState end
 
 
 """
@@ -164,13 +179,13 @@ of the tuning and tempering algorithms used for sampling.
 """
 struct MCMCState{
     C<:MCMCIterator,
-    TT<:MCMCTunerState,
-    PT<:MCMCTunerState,
+    PT<:MCMCProposalTunerState,
+    TT<:MCMCTransformTunerState,
     T<:TemperingState
 }
     chain_state::C
-    trafo_tuner_state::TT
     proposal_tuner_state::PT
+    trafo_tuner_state::TT
     temperer_state::T
 end
 export MCMCState
@@ -232,8 +247,6 @@ function mcmc_tune_transform_post_cycle!! end
 function mcmc_tune_post_step!! end
 
 function transform_mcmc_tuning_finalize!! end
-
-function tuning_callback end
 
 
 function mcmc_init! end

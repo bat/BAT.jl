@@ -12,7 +12,7 @@ end
 
 bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::DensitySampleVector) = OrderedResampling()
 bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::DensitySampleMeasure) = OrderedResampling()
-bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::PosteriorMeasure) = MCMCSampling()
+bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::PosteriorMeasure) = TransformedMCMC()
 
 function bat_default(::typeof(bat_sample), ::Val{:algorithm}, m::EvaluatedMeasure)
     bat_default(bat_sample, Val(:algorithm), m.measure)
