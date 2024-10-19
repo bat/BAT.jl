@@ -90,7 +90,6 @@ MCMCInitAlgorithm
 MCMCMultiCycleBurnin
 MCMCProposalTuning
 MCMCTransformTuning
-MHProposalDistTuning
 ModeAsDefined
 NoMCMCProposalTuning
 NoMCMCTransformTuning
