@@ -24,6 +24,7 @@ $(TYPEDFIELDS)
     IN<:MCMCInitAlgorithm,
     BI<:MCMCBurninAlgorithm,
     CT<:ConvergenceTest,
+    WS<:AbstractMCMCWeightingScheme,
     CB<:Function
 } <: AbstractSamplingAlgorithm
     proposal::PR = RandomWalk(proposaldist = TDist(1.0))
@@ -41,6 +42,7 @@ $(TYPEDFIELDS)
     strict::Bool = true
     store_burnin::Bool = false
     nonzero_weights::Bool = true
+    sample_weighting::WS = RepetitionWeighting()
     callback::CB = nop_func
 end
 export MCMCSampling

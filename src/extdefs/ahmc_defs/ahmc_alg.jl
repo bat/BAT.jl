@@ -33,13 +33,11 @@ $(TYPEDFIELDS)
 @with_kw struct HamiltonianMC{
     MT<:HMCMetric,
     IT,
-    TC,
-    WS<:AbstractMCMCWeightingScheme
+    TC
 } <: MCMCProposal
     metric::MT = DiagEuclideanMetric()
     integrator::IT = ext_default(pkgext(Val(:AdvancedHMC)), Val(:DEFAULT_INTEGRATOR))
     termination::TC = ext_default(pkgext(Val(:AdvancedHMC)), Val(:DEFAULT_TERMINATION_CRITERION))
-    weighting::WS = RepetitionWeighting()
 end
 
 export HamiltonianMC
@@ -50,24 +48,15 @@ mutable struct HMCProposalState{
     TC,
     HA,#<:AdvancedHMC.Hamiltonian,
     KRNL,#<:AdvancedHMC.HMCKernel
-    TR,# <:AdvancedHMC.Transition
-    WS<:AbstractMCMCWeightingScheme
+    TR# <:AdvancedHMC.Transition
 } <: MCMCProposalState
     integrator::IT
     termination::TC
     hamiltonian::HA
     kernel::KRNL
     transition::TR
-    weighting::WS 
 end
 
 export HMCProposalState
 
-const HMCState = MCMCChainState{<:BATMeasure,
-                          <:RNGPartition,
-                          <:Function,
-                          <:HMCProposalState,
-                          <:DensitySampleVector,
-                          <:DensitySampleVector,
-                          <:BATContext
-}
+const HMCState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:HMCProposalState}

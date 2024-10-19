@@ -50,8 +50,7 @@ function BAT._create_proposal_state(
         termination,
         hamiltonian,
         kernel,
-        transition,
-        proposal.weighting
+        transition
     )
 end
 
@@ -114,7 +113,11 @@ function BAT.mcmc_propose!!(mc_state::HMCState)
 
     accepted = x_current != x_proposed
 
-    return mc_state, accepted, Float64(accepted)
+    # TODO: Setting p_accept to 1 or 0 for now.
+    # Use AdvancedHMC.stat(transition).acceptance_rate in the future?
+    p_accept = Float64(accepted)
+
+    return mc_state, accepted, p_accept
 end
 
 function BAT._accept_reject!(mc_state::HMCState, accepted::Bool, p_accept::Float64, current::Integer, proposed::Integer)
@@ -137,11 +140,7 @@ function BAT._accept_reject!(mc_state::HMCState, accepted::Bool, p_accept::Float
         samples.info.sampletype[proposed] = REJECTED_SAMPLE
     end
 
-    delta_w_current, w_proposed = if accepted
-        (0, 1)
-    else
-        (1, 0)
-    end
+    delta_w_current, w_proposed = BAT.mcmc_weight_values(mc_state.weighting, p_accept, accepted)
     
     samples.weight[current] += delta_w_current
     samples.weight[proposed] = w_proposed

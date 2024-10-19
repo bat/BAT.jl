@@ -34,7 +34,20 @@ export RepetitionWeighting
 
 RepetitionWeighting() = RepetitionWeighting{Int}()
 
-_weight_type(::RepetitionWeighting) = Int
+mcmc_weight_type(::RepetitionWeighting) = Int
+
+function mcmc_weight_values(
+    ::RepetitionWeighting,
+    p_accept::Real,
+    accepted::Bool
+) where Q
+    if accepted
+        (0, 1)
+    else
+        (1, 0)
+    end
+end
+
 
 """
     ARPWeighting{T<:AbstractFloat} <: AbstractMCMCWeightingScheme{T}
@@ -55,4 +68,19 @@ export ARPWeighting
 
 ARPWeighting() = ARPWeighting{Float64}()
 
-_weight_type(::ARPWeighting) = Float64
+mcmc_weight_type(::ARPWeighting) = Float64
+
+function mcmc_weight_values(
+    scheme::ARPWeighting,
+    p_accept::Real,
+    accepted::Bool
+)
+    T = typeof(p_accept)
+    if p_accept ≈ 1
+        (zero(T), one(T))
+    elseif p_accept ≈ 0
+        (one(T), zero(T))
+    else
+        (T(1 - p_accept), p_accept)
+    end
+end

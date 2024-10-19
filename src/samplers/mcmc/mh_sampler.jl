@@ -14,22 +14,14 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct RandomWalk{
-    Q<:ContinuousDistribution,
-    WS<:AbstractMCMCWeightingScheme,
-} <: MCMCProposal
+@with_kw struct RandomWalk{Q<:ContinuousUnivariateDistribution} <: MCMCProposal
     proposaldist::Q = TDist(1.0)
-    weighting::WS = RepetitionWeighting()
 end
 
 export RandomWalk
 
-mutable struct MHProposalState{
-    Q<:ContinuousDistribution,
-    WS<:AbstractMCMCWeightingScheme,
-} <: MCMCProposalState
+struct MHProposalState{Q<:ContinuousUnivariateDistribution} <: MCMCProposalState
     proposaldist::Q
-    weighting::WS
 end
 export MHProposalState
 
@@ -59,7 +51,7 @@ function _create_proposal_state(
     v_init::AbstractVector{<:Real}, 
     rng::AbstractRNG
 )
-    return MHProposalState(proposal.proposaldist, proposal.weighting)
+    return MHProposalState(proposal.proposaldist)
 end
 
 
@@ -68,14 +60,7 @@ function _get_sample_id(proposal::MHProposalState, id::Int32, cycle::Int32, step
 end
 
 
-const MHChainState = MCMCChainState{<:BATMeasure,
-                          <:RNGPartition,
-                          <:Function,
-                          <:MHProposalState,
-                          <:DensitySampleVector,
-                          <:DensitySampleVector,
-                          <:BATContext
-} 
+const MHChainState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:MHProposalState} 
 
 function mcmc_propose!!(mc_state::MHChainState)
     @unpack target, proposal, f_transform, context = mc_state
@@ -109,6 +94,7 @@ function mcmc_propose!!(mc_state::MHChainState)
     return mc_state, accepted, p_accept
 end
 
+
 function _accept_reject!(mc_state::MHChainState, accepted::Bool, p_accept::Float64, current::Integer, proposed::Integer)
     @unpack samples, proposal = mc_state
 
@@ -123,36 +109,10 @@ function _accept_reject!(mc_state::MHChainState, accepted::Bool, p_accept::Float
         samples.info.sampletype[proposed] = REJECTED_SAMPLE
     end
 
-    delta_w_current, w_proposed = _weights(proposal, p_accept, accepted)
+    delta_w_current, w_proposed = mcmc_weight_values(mc_state.weighting, p_accept, accepted)
     samples.weight[current] += delta_w_current
     samples.weight[proposed] = w_proposed
 end
 
-function _weights(
-    proposal::MHProposalState{Q,<:RepetitionWeighting},
-    p_accept::Real,
-    accepted::Bool
-) where Q
-    if accepted
-        (0, 1)
-    else
-        (1, 0)
-    end
-end
-
-function _weights(
-    proposal::MHProposalState{Q,<:ARPWeighting},
-    p_accept::Real,
-    accepted::Bool
-) where Q
-    T = typeof(p_accept)
-    if p_accept ≈ 1
-        (zero(T), one(T))
-    elseif p_accept ≈ 0
-        (one(T), zero(T))
-    else
-        (T(1 - p_accept), p_accept)
-    end
-end
 
 eff_acceptance_ratio(mc_state::MHChainState) = nsamples(mc_state) / nsteps(mc_state)
