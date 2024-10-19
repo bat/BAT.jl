@@ -1,19 +1,21 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-BAT.bat_default(::Type{MCMCSampling}, ::Val{:trafo}, mcalg::HamiltonianMC) = PriorToGaussian()
+BAT.bat_default(::Type{MCMCSampling}, ::Val{:pre_transform}, proposal::HamiltonianMC) = PriorToGaussian()
 
-BAT.bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, mcalg::HamiltonianMC, trafo::AbstractTransformTarget, nchains::Integer) = 10^4
+BAT.bat_default(::Type{MCMCSampling}, ::Val{:trafo_tuning}, proposal::HamiltonianMC) = StanHMCTuning()
 
-BAT.bat_default(::Type{MCMCSampling}, ::Val{:init}, mcalg::HamiltonianMC, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+BAT.bat_default(::Type{MCMCSampling}, ::Val{:adaptive_transform}, proposal::HamiltonianMC) = TriangularAffineTransform()
+
+BAT.bat_default(::Type{MCMCSampling}, ::Val{:tempering}, proposal::HamiltonianMC) = NoMCMCTempering()
+
+BAT.bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, proposal::HamiltonianMC, pre_transform::AbstractTransformTarget, nchains::Integer) = 10^4
+
+BAT.bat_default(::Type{MCMCSampling}, ::Val{:init}, proposal::HamiltonianMC, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCChainPoolInit(nsteps_init = 25) # clamp(div(nsteps, 100), 25, 250)
 
-BAT.bat_default(::Type{MCMCSampling}, ::Val{:burnin}, mcalg::HamiltonianMC, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+BAT.bat_default(::Type{MCMCSampling}, ::Val{:burnin}, proposal::HamiltonianMC, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 250), max_ncycles = 4)
-
-
-BAT.get_mcmc_tuning(algorithm::HamiltonianMC) = algorithm.tuning
-
 
 
 function BAT._create_proposal_state(

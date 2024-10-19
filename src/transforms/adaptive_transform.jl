@@ -1,15 +1,15 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-abstract type AdaptiveTransformSpec end
+abstract type AbstractAdaptiveTransform end
 
 
-struct CustomTransform{F} <: AdaptiveTransformSpec 
+struct CustomTransform{F} <: AbstractAdaptiveTransform 
     f::F
 end
 
 CustomTransform() = CustomTransform(identity)
 
-struct TriangularAffineTransform <: AdaptiveTransformSpec end
+struct TriangularAffineTransform <: AbstractAdaptiveTransform end
 
 # TODO: MD, make typestable
 function init_adaptive_transform(
@@ -27,4 +27,4 @@ function init_adaptive_transform(
 end
 
 
-struct DiagonalAffineTransform <: AdaptiveTransformSpec end
+struct DiagonalAffineTransform <: AbstractAdaptiveTransform end

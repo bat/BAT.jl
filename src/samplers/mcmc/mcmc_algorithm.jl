@@ -20,8 +20,6 @@ abstract type MCMCAlgorithm end
 export MCMCAlgorithm
 
 
-function get_mcmc_tuning end
-
 
 """
     abstract type MCMCInitAlgorithm

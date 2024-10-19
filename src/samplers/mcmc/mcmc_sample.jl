@@ -15,24 +15,27 @@ Fields:
 $(TYPEDFIELDS)
 """
 @with_kw struct MCMCSampling{
+    PR<:MCMCProposal,
+    TU<:MCMCTuning,
     TR<:AbstractTransformTarget,
+    ATR<:AbstractAdaptiveTransform,
+    TE<:MCMCTempering,
     IN<:MCMCInitAlgorithm,
     BI<:MCMCBurninAlgorithm,
     CT<:ConvergenceTest,
     CB<:Function
 } <: AbstractSamplingAlgorithm
-    # TODO: MD, use bat_default to set default values
-    pre_transform::TR = PriorToGaussian()
-    trafo_tuning::MCMCTuning = AdaptiveMHTuning() # Make into RamTuning() for MH
-    proposal_tuning::MCMCTuning = trafo_tuning
-    adaptive_transform::AdaptiveTransformSpec = default_adaptive_transform(trafo_tuning)
-    proposal::MCMCProposal = MetropolisHastings(proposaldist = Normal())
-    tempering = NoMCMCTempering() 
+    proposal::PR = MetropolisHastings(proposaldist = TDist(1.0))
+    pre_transform::TR = bat_default(MCMCSampling, Val(:pre_transform), proposal)
+    trafo_tuning::TU = bat_default(MCMCSampling, Val(:trafo_tuning), proposal)
+    proposal_tuning::TU = trafo_tuning
+    adaptive_transform::ATR = bat_default(MCMCSampling, Val(:adaptive_transform), proposal)
+    tempering::TE = bat_default(MCMCSampling, Val(:tempering), proposal)
     nchains::Int = 4
-    nsteps::Int = 10^5
+    nsteps::Int = bat_default(MCMCSampling, Val(:nsteps), proposal, pre_transform, nchains)
     #TODO: max_time ?
-    init::IN = MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
-    burnin::BI = MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
+    init::IN = bat_default(MCMCSampling, Val(:init), proposal, pre_transform, nchains, nsteps)
+    burnin::BI = bat_default(MCMCSampling, Val(:burnin), proposal, pre_transform, nchains, nsteps)
     convergence::CT = BrooksGelmanConvergence()
     strict::Bool = true
     store_burnin::Bool = false

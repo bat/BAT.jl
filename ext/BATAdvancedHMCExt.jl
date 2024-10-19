@@ -15,12 +15,12 @@ using BAT: MeasureLike, BATMeasure
 
 using BAT: get_context, get_adselector, _NoADSelected
 using BAT: getproposal, mcmc_target
-using BAT: MCMCChainState, HMCState, HamiltonianMC, HMCProposalState, MCMCChainStateInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin, MCMCTunerState
+using BAT: MCMCChainState, HMCState, HamiltonianMC, HMCProposalState, MCMCChainStateInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin, MCMCTunerState, NoMCMCTempering
 using BAT: _current_sample_idx, _proposed_sample_idx, _cleanup_samples
-using BAT: AbstractTransformTarget
+using BAT: AbstractTransformTarget, TriangularAffineTransform
 using BAT: RNGPartition, get_rng, set_rng!
 using BAT: mcmc_step!!, nsamples, nsteps, samples_available, eff_acceptance_ratio
-using BAT: get_samples!, get_mcmc_tuning, reset_rng_counters!
+using BAT: get_samples!, reset_rng_counters!
 using BAT: create_trafo_tuner_state, create_proposal_tuner_state, mcmc_tuning_init!!, mcmc_tuning_postinit!!, mcmc_tuning_reinit!!, mcmc_tune_transform_post_cycle!!, transform_mcmc_tuning_finalize!!, tuning_callback
 using BAT: totalndof, measure_support, checked_logdensityof
 using BAT: CURRENT_SAMPLE, PROPOSED_SAMPLE, INVALID_SAMPLE, ACCEPTED_SAMPLE, REJECTED_SAMPLE

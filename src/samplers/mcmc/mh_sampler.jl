@@ -42,6 +42,24 @@ mutable struct MHProposalState{
 end
 export MHProposalState
 
+
+bat_default(::Type{MCMCSampling}, ::Val{:pre_transform}, proposal::MetropolisHastings) = PriorToGaussian()
+
+bat_default(::Type{MCMCSampling}, ::Val{:trafo_tuning}, proposal::MetropolisHastings) = RAMTuning()
+
+bat_default(::Type{MCMCSampling}, ::Val{:adaptive_transform}, proposal::MetropolisHastings) = TriangularAffineTransform()
+
+bat_default(::Type{MCMCSampling}, ::Val{:tempering}, proposal::MetropolisHastings) = NoMCMCTempering()
+
+bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, proposal::MetropolisHastings, pre_transform::AbstractTransformTarget, nchains::Integer) = 10^5
+
+bat_default(::Type{MCMCSampling}, ::Val{:init}, proposal::MetropolisHastings, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+    MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
+
+bat_default(::Type{MCMCSampling}, ::Val{:burnin}, proposal::MetropolisHastings, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+    MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
+
+
 function _create_proposal_state(
     proposal::MetropolisHastings, 
     target::BATMeasure, 
