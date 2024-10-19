@@ -54,8 +54,6 @@ export PosteriorDensity
 
 Base.@deprecate MetropolisHastings() RandomWalk()
 
-Base.@deprecate MCMCSampling() TransformedMCMC()
-
 Base.@deprecate MCMCSampling(;
     mcalg::MCMCProposal = RandomWalk(),
     trafo::AbstractTransformTarget = bat_default(TransformedMCMC, Val(:pre_transform), mcalg),
