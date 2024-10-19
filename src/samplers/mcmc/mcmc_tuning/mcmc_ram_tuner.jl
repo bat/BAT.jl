@@ -53,7 +53,8 @@ mcmc_tuning_postinit!!(tuner::RAMTrafoTunerState, chain::MCMCChainState, samples
 
 
 function mcmc_tune_post_cycle!!(tuner::RAMTrafoTunerState, chain_state::MCMCChainState, samples::DensitySampleVector)
-    α_min, α_max = map(op -> op(1, tuner.tuning.σ_target_acceptance), [-,+]) .* tuner.tuning.target_acceptance
+    α_min = (1 - tuner.tuning.σ_target_acceptance) * tuner.tuning.target_acceptance
+    α_max = (1 + tuner.tuning.σ_target_acceptance) * tuner.tuning.target_acceptance
     α = eff_acceptance_ratio(chain_state)
 
     max_log_posterior = maximum(samples.logd)
