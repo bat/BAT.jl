@@ -1,8 +1,32 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+"""
+    struct RAMTuning <: MCMCTransformTuning
+
+Tunes MCMC spaces transformations based on the
+[Robust adaptive Metropolis algorithm](https://doi.org/10.1007/s11222-011-9269-5).
+
+In constrast to the original RAM algorithm, `RAMTuning` does not use the
+covariance estimate to change a proposal distribution, but instead
+uses it as the bases for an affine transformation. The sampling process is
+mathematically equivalent, though.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
+"""
 @with_kw struct RAMTuning <: MCMCTransformTuning
-    target_acceptance::Float64 = 0.234 #TODO AC: how to pass custom intitial value for cov matrix?
+    "MCMC target acceptance ratio."
+    target_acceptance::Float64 = 0.234
+
+    "Width around `target_acceptance`."
     σ_target_acceptance::Float64 = 0.05
+
+    "Negative adaption rate exponent."
     gamma::Float64 = 2/3
 end
 export RAMTuning

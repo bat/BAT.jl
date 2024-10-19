@@ -89,9 +89,7 @@ MCMCChainPoolInit
 MCMCInitAlgorithm
 MCMCMultiCycleBurnin
 MCMCProposalTuning
-TransformedMCMC
 MCMCTransformTuning
-RandomWalk
 MHProposalDistTuning
 ModeAsDefined
 NoMCMCProposalTuning
@@ -103,6 +101,8 @@ PosteriorMeasure
 PriorSubstitution
 PriorToGaussian
 PriorToUniform
+RAMTuning
+RandomWalk
 RandResampling
 RepetitionWeighting
 RiceBinning
@@ -114,6 +114,7 @@ SturgesBinning
 SuaveIntegration
 ToRealVector
 TransformAlgorithm
+TransformedMCMC
 VEGASIntegration
 
 BAT.AbstractMedianEstimator
