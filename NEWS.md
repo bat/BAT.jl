@@ -1,40 +1,54 @@
-BAT.jl v3.0.0 Release Notes
-===========================
+BAT.jl Release Notes
+====================
 
-New features
-------------
+BAT.jl v4.0.0
+-------------
 
-* Support for [DensityInterface](https://github.com/JuliaMath/DensityInterface.jl): BAT will now accept any object that implements the DensityInterface API (specifically `DensityInterface.densitykind` and `DensityInterface.logdensityof`) as likelihoods. In return, all BAT priors and posteriors support the DensityInterface API as well.
+### Breaking changes
 
-* Support for [InverseFunctions](https://github.com/JuliaMath/InverseFunctions.jl) and [ChangesOfVariables](https://github.com/JuliaMath/ChangesOfVariables.jl): Parameter transformations in BAT now implement the DensityInterface API. Any function that supports
+Several algorithms have changed their names, but also their role:
 
-    * `InverseFunctions.inverse`
-    * `ChangesOfVariables.with_logabsdet_jacobian`
-    * `output_shape = f(input_shape::ValueShapes.AbstractValueShape)::AbstractValueShape`
+* `MCMCSampling` has become `TransformedMCMC`.
 
-can now be used as a parameter transformation in BAT.
+* `MetropolisHastings` has become `RandomWalk`. It's parameters have
+    changed (no deprecation for the parameter changes). Tuning and
+    sample weighting scheme selection have moved to `TransformedMCMC`.
 
-* `BATContext`, `get_batcontext` and `set_batcontext`
+Partial deprecations are available for the above, a lot of old code should
+run more or less unchanged (with deprecation warnings). Also:
 
-* `bat_transform` with enhanced capabilities
+* `AdaptiveMHTuning` has become `AdaptiveAffineTuning`, but is now
+  used as a parameter for `TransformedMCMC` (formerly `MCMCSampling`)
+  instead of `RandomWalk` (formerly `MetropolisHastings`).
 
-* `distprod`, `distbind` and `lbqintegral` are the new ways to express priors and posteriors in BAT.
+* `MCMCNoOpTuning` has become `NoMCMCTransformTuning`.
 
-* `bat_report`
+* The parameters of `HamiltonianMC` have changed.
 
-* `BAT.enable_error_log` (experimental)
-
-* `BAT.error_log` (experimental)
-
-* `BridgeSampling` (experimental)
-
-* `EllipsoidalNestedSampling` (experimental)
-
-* `ReactiveNestedSampling` (experimental)
+* `MCMCTuningAlgorithm` has been replaced by `MCMCTransformTuning`.
 
 
-Breaking changes
-----------------
+### New features
+
+* The new `RAMTuning` is now the default (transform) tuning algorithm for
+  `RandomWalk` (formerly `MetropolisHastings`). It typically results in a much
+  faster burn-in process than `AdaptiveAffineTuning` (formerly
+  `AdaptiveMHTuning`, the previous default).
+
+* MCMC Sampling handles parameter scale and correlation adaptivity via
+  via tunable space transformations instead of tuning covariance matrices
+  in proposal distributions.
+  
+  MCMC tuning has been split into proposal tuning (algorithms of type
+  `MCMCProposalTuning`) and transform turning (algorithms of type
+  `MCMCTransformTuning`). Proposal tuning has now a much more limited role
+  and often may be `NoMCMCProposalTuning()` (e.g. for `RandomWalk`).
+
+
+BAT.jl v3.0.0
+-------------
+
+### Breaking changes
 
 * `AbstractVariateTransform` and the function `ladjof` have been removed, BAT parameter transformations do not need to have a specific supertype any longer (see above).
 
@@ -90,3 +104,35 @@ Breaking changes
 * Pending: BAT will rely less on ValueShapes in the future. Do not use ValueShapes functionality directly where avoidable. Use `distprod` instead of using `ValueShapes.NamedTupleDist` directly, and favor using `bat_transform` instead of shaping and unshaping data using values shapes directly, if possible.
 
 * Use the new function `bat_report` to generate a sampling output report instead of `show(BAT.SampledDensity(samples))`.
+
+
+### New features
+------------
+
+* Support for [DensityInterface](https://github.com/JuliaMath/DensityInterface.jl): BAT will now accept any object that implements the DensityInterface API (specifically `DensityInterface.densitykind` and `DensityInterface.logdensityof`) as likelihoods. In return, all BAT priors and posteriors support the DensityInterface API as well.
+
+* Support for [InverseFunctions](https://github.com/JuliaMath/InverseFunctions.jl) and [ChangesOfVariables](https://github.com/JuliaMath/ChangesOfVariables.jl): Parameter transformations in BAT now implement the DensityInterface API. Any function that supports
+
+    * `InverseFunctions.inverse`
+    * `ChangesOfVariables.with_logabsdet_jacobian`
+    * `output_shape = f(input_shape::ValueShapes.AbstractValueShape)::AbstractValueShape`
+
+can now be used as a parameter transformation in BAT.
+
+* `BATContext`, `get_batcontext` and `set_batcontext`
+
+* `bat_transform` with enhanced capabilities
+
+* `distprod`, `distbind` and `lbqintegral` are the new ways to express priors and posteriors in BAT.
+
+* `bat_report`
+
+* `BAT.enable_error_log` (experimental)
+
+* `BAT.error_log` (experimental)
+
+* `BridgeSampling` (experimental)
+
+* `EllipsoidalNestedSampling` (experimental)
+
+* `ReactiveNestedSampling` (experimental)
