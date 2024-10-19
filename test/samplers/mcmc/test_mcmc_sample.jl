@@ -25,8 +25,7 @@ using DensityInterface
     @test smplres.verified
     @test (nchains * nsteps - sum(samples.weight)) < 100
 
-
-    samplingalg_PW = @inferred TransformedMCMC(proposal = RandomWalk(weighting = ARPWeighting()), pre_transform = DoNotTransform(), nsteps = 10^5)
+    samplingalg_PW = @inferred TransformedMCMC(proposal = RandomWalk(), pre_transform = DoNotTransform(), nsteps = 10^5, sample_weighting = ARPWeighting())
 
     @test BAT.sample_and_verify(mv_dist, samplingalg_PW).verified
 
