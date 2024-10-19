@@ -1,14 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-"""
-    abstract type MHProposalDistTuning
-
-Abstract type for Metropolis-Hastings tuning strategies for
-proposal distributions.
-"""
-abstract type MHProposalDistTuning <: MCMCTuning end
-export MHProposalDistTuning
-
 
 """
     struct MetropolisHastings <: MCMCAlgorithm
@@ -42,10 +33,11 @@ mutable struct MHProposalState{
 end
 export MHProposalState
 
-
 bat_default(::Type{MCMCSampling}, ::Val{:pre_transform}, proposal::MetropolisHastings) = PriorToGaussian()
 
-bat_default(::Type{MCMCSampling}, ::Val{:trafo_tuning}, proposal::MetropolisHastings) = RAMTuning()
+bat_default(::Type{MCMCSampling}, ::Val{:proposal_tuning}, proposal::MetropolisHastings) = NoMCMCProposalTuning()
+
+bat_default(::Type{MCMCSampling}, ::Val{:transform_tuning}, proposal::MetropolisHastings) = RAMTuning()
 
 bat_default(::Type{MCMCSampling}, ::Val{:adaptive_transform}, proposal::MetropolisHastings) = TriangularAffineTransform()
 

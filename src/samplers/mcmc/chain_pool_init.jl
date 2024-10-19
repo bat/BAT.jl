@@ -61,7 +61,7 @@ function mcmc_init!(
     callback::Function,
     context::BATContext
 )::NamedTuple{(:mcmc_states, :outputs), Tuple{Vector{MCMCState}, Vector{DensitySampleVector}}}
-    @unpack tempering, nchains, trafo_tuning, proposal_tuning, nonzero_weights = samplingalg
+    @unpack tempering, nchains, transform_tuning, proposal_tuning, nonzero_weights = samplingalg
 
     @info "MCMCChainPoolInit: trying to generate $nchains viable MCMC chain state(s)."
 

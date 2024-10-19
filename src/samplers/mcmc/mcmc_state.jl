@@ -140,9 +140,8 @@ function DensitySampleVector(chain_state::MCMCChainState)
     DensitySampleVector(sample_type(chain_state), totalndof(varshape(mcmc_target(chain_state))))
 end
 
-# TODO: MD, make into !!
-function mcmc_step!!(mcmc_state::MCMCState)
 
+function mcmc_step!!(mcmc_state::MCMCState)
     # TODO: MD, include sample_z in _cleanup_samples()
     _cleanup_samples(mcmc_state)
     

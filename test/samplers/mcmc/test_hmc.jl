@@ -22,7 +22,7 @@ import AdvancedHMC
     proposal = HamiltonianMC()
     tuning = StanHMCTuning()
     nchains = 4
-    samplingalg = MCMCSampling(proposal = proposal, trafo_tuning = tuning)
+    samplingalg = MCMCSampling(proposal = proposal, transform_tuning = tuning)
 
     @testset "MCMC iteration" begin
         v_init = bat_initval(target, InitFromTarget(), context).result
@@ -35,7 +35,7 @@ import AdvancedHMC
         BAT.mcmc_tuning_init!!(mcmc_state, 0)
         BAT.mcmc_tuning_reinit!!(mcmc_state, div(nsteps, 10))
 
-        samplingalg = BAT.MCMCSampling(proposal = proposal, trafo_tuning = tuning, nchains = nchains)
+        samplingalg = BAT.MCMCSampling(proposal = proposal, transform_tuning = tuning, nchains = nchains)
 
 
         samples = DensitySampleVector(mcmc_state)
@@ -63,7 +63,7 @@ import AdvancedHMC
         callback = (x...) -> nothing
 
         samplingalg = MCMCSampling(proposal = proposal,
-                                trafo_tuning = tuning_alg, 
+                                transform_tuning = tuning_alg, 
                                 pre_transform = trafo, 
                                 init = init_alg, 
                                 burnin = burnin_alg, 
@@ -112,7 +112,7 @@ import AdvancedHMC
             shaped_target,
             MCMCSampling(
                 proposal = proposal,
-                trafo_tuning = StanHMCTuning(),
+                transform_tuning = StanHMCTuning(),
                 pre_transform = DoNotTransform(),
                 nsteps = 10^4,
                 store_burnin = true
@@ -128,7 +128,7 @@ import AdvancedHMC
             shaped_target,
             MCMCSampling(
                 proposal = proposal,
-                trafo_tuning = StanHMCTuning(),
+                transform_tuning = StanHMCTuning(),
                 pre_transform = DoNotTransform(),
                 nsteps = 10^4,
                 store_burnin = false
@@ -148,7 +148,7 @@ import AdvancedHMC
         inner_posterior = PosteriorMeasure(likelihood, prior)
         # Test with nested posteriors:
         posterior = PosteriorMeasure(likelihood, inner_posterior)
-        @test BAT.sample_and_verify(posterior, MCMCSampling(proposal = HamiltonianMC(), trafo_tuning = StanHMCTuning(), pre_transform = PriorToGaussian()), prior.dist, context).verified
+        @test BAT.sample_and_verify(posterior, MCMCSampling(proposal = HamiltonianMC(), transform_tuning = StanHMCTuning(), pre_transform = PriorToGaussian()), prior.dist, context).verified
     end
 
     @testset "HMC autodiff" begin
@@ -160,7 +160,7 @@ import AdvancedHMC
 
                 hmc_samplingalg = MCMCSampling(
                     proposal = HamiltonianMC(),
-                    trafo_tuning = StanHMCTuning(),
+                    transform_tuning = StanHMCTuning(),
                     nchains = 2,
                     nsteps = 100,
                     init = MCMCChainPoolInit(init_tries_per_chain = 2..2, nsteps_init = 5),

@@ -3,9 +3,9 @@
 
 BAT.bat_default(::Type{MCMCSampling}, ::Val{:pre_transform}, proposal::HamiltonianMC) = PriorToGaussian()
 
-BAT.bat_default(::Type{MCMCSampling}, ::Val{:trafo_tuning}, proposal::HamiltonianMC) = StanHMCTuning()
+BAT.bat_default(::Type{MCMCSampling}, ::Val{:proposal_tuning}, proposal::HamiltonianMC) = StanHMCTuning()
 
-BAT.bat_default(::Type{MCMCSampling}, ::Val{:adaptive_transform}, proposal::HamiltonianMC) = TriangularAffineTransform()
+BAT.bat_default(::Type{MCMCSampling}, ::Val{:adaptive_transform}, proposal::HamiltonianMC) = NoAdaptiveTransform()
 
 BAT.bat_default(::Type{MCMCSampling}, ::Val{:tempering}, proposal::HamiltonianMC) = NoMCMCTempering()
 

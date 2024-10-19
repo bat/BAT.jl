@@ -9,14 +9,20 @@ end
 
 CustomTransform() = CustomTransform(identity)
 
+init_adaptive_transform(at::CustomTransform, ::AbstractMeasure, ::BATContext) = at.f
+
+
+
+struct NoAdaptiveTransform <: AbstractAdaptiveTransform end
+
+init_adaptive_transform(::NoAdaptiveTransform, ::AbstractMeasure, ::BATContext) = identity
+
+
+
 struct TriangularAffineTransform <: AbstractAdaptiveTransform end
 
 # TODO: MD, make typestable
-function init_adaptive_transform(
-    adaptive_transform::BAT.TriangularAffineTransform,
-    target,
-    context
-)
+function init_adaptive_transform(adaptive_transform::TriangularAffineTransform, target::AbstractMeasure, ::BATContext)
     n = totalndof(varshape(target))
 
     M = _approx_cov(target, n)
@@ -27,4 +33,6 @@ function init_adaptive_transform(
     return g
 end
 
+
+# TODO: Implement DiagonalAffineTransform
 struct DiagonalAffineTransform <: AbstractAdaptiveTransform end

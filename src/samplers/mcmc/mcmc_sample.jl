@@ -16,9 +16,10 @@ $(TYPEDFIELDS)
 """
 @with_kw struct MCMCSampling{
     PR<:MCMCProposal,
-    TU<:MCMCTuning,
+    PRT<:MCMCProposalTuning,
     TR<:AbstractTransformTarget,
-    ATR<:AbstractAdaptiveTransform,
+    AT<:AbstractAdaptiveTransform,
+    ATT<:MCMCTransformTuning,
     TE<:MCMCTempering,
     IN<:MCMCInitAlgorithm,
     BI<:MCMCBurninAlgorithm,
@@ -26,10 +27,10 @@ $(TYPEDFIELDS)
     CB<:Function
 } <: AbstractSamplingAlgorithm
     proposal::PR = MetropolisHastings(proposaldist = TDist(1.0))
+    proposal_tuning::PRT = bat_default(MCMCSampling, Val(:proposal_tuning), proposal)
     pre_transform::TR = bat_default(MCMCSampling, Val(:pre_transform), proposal)
-    trafo_tuning::TU = bat_default(MCMCSampling, Val(:trafo_tuning), proposal)
-    proposal_tuning::TU = trafo_tuning
-    adaptive_transform::ATR = bat_default(MCMCSampling, Val(:adaptive_transform), proposal)
+    adaptive_transform::AT = bat_default(MCMCSampling, Val(:adaptive_transform), proposal)
+    transform_tuning::ATT = bat_default(MCMCSampling, Val(:transform_tuning), adaptive_transform)
     tempering::TE = bat_default(MCMCSampling, Val(:tempering), proposal)
     nchains::Int = 4
     nsteps::Int = bat_default(MCMCSampling, Val(:nsteps), proposal, pre_transform, nchains)
@@ -45,13 +46,18 @@ end
 export MCMCSampling
 
 
+bat_default(::Type{MCMCSampling}, ::Val{:transform_tuning}, ::CustomTransform) = NoMCMCTransformTuning()
+bat_default(::Type{MCMCSampling}, ::Val{:transform_tuning}, ::NoAdaptiveTransform) = NoMCMCTransformTuning()
+bat_default(::Type{MCMCSampling}, ::Val{:transform_tuning}, ::TriangularAffineTransform) = RAMTuning()
+
+
 function MCMCState(samplingalg::MCMCSampling, target::BATMeasure, id::Integer, v_init::AbstractVector, context::BATContext)
     chain_state = MCMCChainState(samplingalg, target, Int32(id), v_init, context)
-    trafo_tuner_state = create_trafo_tuner_state(samplingalg.trafo_tuning, chain_state, 0)
+    trafo_tuner_state = create_trafo_tuner_state(samplingalg.transform_tuning, chain_state, 0)
     proposal_tuner_state = create_proposal_tuner_state(samplingalg.proposal_tuning, chain_state, 0)
     temperer_state = create_temperering_state(samplingalg.tempering, target)
     
-    MCMCState(chain_state, trafo_tuner_state, proposal_tuner_state, temperer_state)
+    MCMCState(chain_state, proposal_tuner_state, trafo_tuner_state, temperer_state)
 end
 
 

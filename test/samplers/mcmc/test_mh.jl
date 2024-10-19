@@ -41,7 +41,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
  
     @testset "MCMC tuning and burn-in" begin
         init_alg = MCMCChainPoolInit()
-        tuning_alg = AdaptiveMHTuning()
+        tuning_alg = AdaptiveAffineTuning()
         burnin_alg = MCMCMultiCycleBurnin()
         convergence_test = BrooksGelmanConvergence()
         strict = true
@@ -51,7 +51,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
 
         samplingalg = MCMCSampling(
             proposal = proposal,
-            trafo_tuning = tuning_alg,
+            transform_tuning = tuning_alg,
             burnin = burnin_alg,
             nchains = nchains,
             convergence = convergence_test,
@@ -71,7 +71,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
 
         # TODO: MD, Reactivate, for some reason fail
         # @test mcmc_states isa AbstractVector{<:BAT.MHChainState}
-        # @test tuners isa AbstractVector{<:BAT.AdaptiveMHTrafoTunerState}
+        # @test tuners isa AbstractVector{<:BAT.AdaptiveAffineTuningState}
         @test outputs isa AbstractVector{<:DensitySampleVector}
 
         BAT.mcmc_burnin!(

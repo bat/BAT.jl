@@ -1,48 +1,54 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+
 """
-    MCMCNoOpTuning <: MCMCTuning
+    NoMCMCTransformTuning <: MCMCTransformTuning
 
-No-op tuning, marks MCMC chain states as tuned without performing any other changes
-on them. Useful if chain states are pre-tuned or tuning is an internal part of the
-MCMC sampler implementation.
+Do not perform any MCMC transform turing.
 """
-struct MCMCNoOpTuning <: MCMCTuning end
-export MCMCNoOpTuning
+struct NoMCMCTransformTuning <: MCMCTransformTuning end
+export NoMCMCTransformTuning
 
-struct MCMCNoOpTunerState <: MCMCTunerState end
-
-(tuning::MCMCNoOpTuning)(mc_state::MCMCChainState) = MCMCNoOpTunerState(), MCMCNoOpTunerState()
-
-default_adaptive_transform(tuning::MCMCNoOpTuning) = nop_func
-
-function NoOpTunerState(tuning::MCMCNoOpTuning, mc_state::MCMCChainState, iteration::Integer)
-    MCMCNoOpTunerState()
-end
-
-create_trafo_tuner_state(tuning::MCMCNoOpTuning, mc_state::MCMCChainState, iteration::Integer) = MCMCNoOpTunerState()
-
-create_proposal_tuner_state(tuning::MCMCNoOpTuning, mc_state::MCMCChainState, iteration::Integer) = MCMCNoOpTunerState()
-
-mcmc_tuning_init!!(tuner_state::MCMCNoOpTunerState, mc_state::MCMCChainState, max_nsteps::Integer) = nothing
-
-mcmc_tuning_reinit!!(tuner::MCMCNoOpTunerState, mc_state::MCMCChainState, max_nsteps::Integer) = nothing
-
-mcmc_tuning_postinit!!(tuner::MCMCNoOpTunerState, mc_state::MCMCChainState, samples::DensitySampleVector) = nothing
-
-mcmc_tune_post_cycle!!(tuner::MCMCNoOpTunerState, mc_state::MCMCChainState, samples::DensitySampleVector) = mc_state, tuner, false
-
-mcmc_tuning_finalize!!(tuner::MCMCNoOpTunerState, mc_state::MCMCChainState) = nothing
-
-tuning_callback(::MCMCNoOpTuning) = nop_func
-
-tuning_callback(::Nothing) = nop_func
+struct NoMCMCTransformTuningState <: MCMCTransformTunerState end
 
 
-function mcmc_tune_post_step!!(chain_state::MCMCChainState, tuner::MCMCNoOpTunerState, ::Real)
-    return chain_state, tuner, false
-end
+create_trafo_tuner_state(::NoMCMCTransformTuning, ::MCMCChainState, ::Integer) = NoMCMCTransformTuningState()
 
-function mcmc_tune_post_step!!(chain_state::MCMCChainState, tuner::Nothing, ::Real)
-    return chain_state, nothing, false
-end
+mcmc_tuning_init!!(::NoMCMCTransformTuningState, ::MCMCChainState, ::Integer) = nothing
+
+mcmc_tuning_reinit!!(::NoMCMCTransformTuningState, ::MCMCChainState, ::Integer) = nothing
+
+mcmc_tuning_postinit!!(::NoMCMCTransformTuningState, ::MCMCChainState, ::DensitySampleVector) = nothing
+
+mcmc_tune_post_cycle!!(tuner::NoMCMCTransformTuningState, chain_state::MCMCChainState, ::DensitySampleVector) = chain_state, tuner, false
+
+mcmc_tuning_finalize!!(::NoMCMCTransformTuningState, ::MCMCChainState) = nothing
+
+mcmc_tune_post_step!!(tuner::NoMCMCTransformTuningState, chain_state::MCMCChainState, ::Real) = chain_state, tuner, false
+
+
+
+"""
+    NoMCMCProposalTuning <: MCMCProposalTuning
+
+Do not perform any MCMC proposal tuning.
+"""
+struct NoMCMCProposalTuning <: MCMCProposalTuning end
+export NoMCMCProposalTuning
+
+struct NoMCMCProposalTunerState <: MCMCProposalTunerState end
+
+
+create_proposal_tuner_state(::NoMCMCProposalTuning, ::MCMCChainState, ::Integer) = NoMCMCProposalTunerState()
+
+mcmc_tuning_init!!(::NoMCMCProposalTunerState, ::MCMCChainState, ::Integer) = nothing
+
+mcmc_tuning_reinit!!(::NoMCMCProposalTunerState, ::MCMCChainState, ::Integer) = nothing
+
+mcmc_tuning_postinit!!(::NoMCMCProposalTunerState, ::MCMCChainState, ::DensitySampleVector) = nothing
+
+mcmc_tune_post_cycle!!(tuner::NoMCMCProposalTunerState, chain_state::MCMCChainState, ::DensitySampleVector) = chain_state, tuner, false
+
+mcmc_tuning_finalize!!(::NoMCMCProposalTunerState, ::MCMCChainState) = nothing
+
+mcmc_tune_post_step!!(tuner::NoMCMCProposalTunerState, chain_state::MCMCChainState, ::Real) = chain_state, tuner, false
