@@ -33,7 +33,7 @@ end
 export MCMCChainState
 
 function MCMCChainState(
-    samplingalg::MCMCSampling,
+    samplingalg::TransformedMCMC,
     target::BATMeasure,
     id::Integer,
     v_init::AbstractVector{P},

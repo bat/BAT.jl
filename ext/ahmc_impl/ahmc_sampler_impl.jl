@@ -1,20 +1,20 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-BAT.bat_default(::Type{MCMCSampling}, ::Val{:pre_transform}, proposal::HamiltonianMC) = PriorToGaussian()
+BAT.bat_default(::Type{TransformedMCMC}, ::Val{:pre_transform}, proposal::HamiltonianMC) = PriorToGaussian()
 
-BAT.bat_default(::Type{MCMCSampling}, ::Val{:proposal_tuning}, proposal::HamiltonianMC) = StanHMCTuning()
+BAT.bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, proposal::HamiltonianMC) = StanHMCTuning()
 
-BAT.bat_default(::Type{MCMCSampling}, ::Val{:adaptive_transform}, proposal::HamiltonianMC) = NoAdaptiveTransform()
+BAT.bat_default(::Type{TransformedMCMC}, ::Val{:adaptive_transform}, proposal::HamiltonianMC) = NoAdaptiveTransform()
 
-BAT.bat_default(::Type{MCMCSampling}, ::Val{:tempering}, proposal::HamiltonianMC) = NoMCMCTempering()
+BAT.bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, proposal::HamiltonianMC) = NoMCMCTempering()
 
-BAT.bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, proposal::HamiltonianMC, pre_transform::AbstractTransformTarget, nchains::Integer) = 10^4
+BAT.bat_default(::Type{TransformedMCMC}, ::Val{:nsteps}, proposal::HamiltonianMC, pre_transform::AbstractTransformTarget, nchains::Integer) = 10^4
 
-BAT.bat_default(::Type{MCMCSampling}, ::Val{:init}, proposal::HamiltonianMC, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+BAT.bat_default(::Type{TransformedMCMC}, ::Val{:init}, proposal::HamiltonianMC, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCChainPoolInit(nsteps_init = 25) # clamp(div(nsteps, 100), 25, 250)
 
-BAT.bat_default(::Type{MCMCSampling}, ::Val{:burnin}, proposal::HamiltonianMC, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+BAT.bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::HamiltonianMC, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 250), max_ncycles = 4)
 
 

@@ -10,6 +10,6 @@ let
     precompile(EvaluatedMeasure, map(typeof, (posterior, dummy_samples)))
 
     for mcalg in (RandomWalk(), HamiltonianMC())
-        precompile(bat_sample, map(typeof, (posterior, MCMCSampling(mcalg = mcalg))))
+        precompile(bat_sample, map(typeof, (posterior, TransformedMCMC(mcalg = mcalg))))
     end
 end

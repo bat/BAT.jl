@@ -25,22 +25,22 @@ struct MHProposalState{Q<:ContinuousUnivariateDistribution} <: MCMCProposalState
 end
 export MHProposalState
 
-bat_default(::Type{MCMCSampling}, ::Val{:pre_transform}, proposal::RandomWalk) = PriorToGaussian()
+bat_default(::Type{TransformedMCMC}, ::Val{:pre_transform}, proposal::RandomWalk) = PriorToGaussian()
 
-bat_default(::Type{MCMCSampling}, ::Val{:proposal_tuning}, proposal::RandomWalk) = NoMCMCProposalTuning()
+bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, proposal::RandomWalk) = NoMCMCProposalTuning()
 
-bat_default(::Type{MCMCSampling}, ::Val{:transform_tuning}, proposal::RandomWalk) = RAMTuning()
+bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, proposal::RandomWalk) = RAMTuning()
 
-bat_default(::Type{MCMCSampling}, ::Val{:adaptive_transform}, proposal::RandomWalk) = TriangularAffineTransform()
+bat_default(::Type{TransformedMCMC}, ::Val{:adaptive_transform}, proposal::RandomWalk) = TriangularAffineTransform()
 
-bat_default(::Type{MCMCSampling}, ::Val{:tempering}, proposal::RandomWalk) = NoMCMCTempering()
+bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, proposal::RandomWalk) = NoMCMCTempering()
 
-bat_default(::Type{MCMCSampling}, ::Val{:nsteps}, proposal::RandomWalk, pre_transform::AbstractTransformTarget, nchains::Integer) = 10^5
+bat_default(::Type{TransformedMCMC}, ::Val{:nsteps}, proposal::RandomWalk, pre_transform::AbstractTransformTarget, nchains::Integer) = 10^5
 
-bat_default(::Type{MCMCSampling}, ::Val{:init}, proposal::RandomWalk, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{TransformedMCMC}, ::Val{:init}, proposal::RandomWalk, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
 
-bat_default(::Type{MCMCSampling}, ::Val{:burnin}, proposal::RandomWalk, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::RandomWalk, pre_transform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
 

@@ -17,7 +17,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
     proposal = RandomWalk()
     nchains = 4
 
-    samplingalg = MCMCSampling()
+    samplingalg = TransformedMCMC()
  
     @testset "MCMC iteration" begin
         v_init = bat_initval(target, InitFromTarget(), context).result
@@ -49,7 +49,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         callback = (x...) -> nothing
         max_nsteps = 10^5
 
-        samplingalg = MCMCSampling(
+        samplingalg = TransformedMCMC(
             proposal = proposal,
             transform_tuning = tuning_alg,
             burnin = burnin_alg,
@@ -98,7 +98,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
     @testset "bat_sample" begin
         samples = bat_sample(
             shaped_target,
-            MCMCSampling(
+            TransformedMCMC(
                 proposal = proposal,
                 pre_transform = DoNotTransform(),
                 store_burnin = true
@@ -110,7 +110,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
 
         smplres = BAT.sample_and_verify(
             shaped_target,
-            MCMCSampling(
+            TransformedMCMC(
                 proposal = proposal,
                 pre_transform = DoNotTransform()
             ),
@@ -128,6 +128,6 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         inner_posterior = PosteriorMeasure(likelihood, prior)
         # Test with nested posteriors:
         posterior = PosteriorMeasure(likelihood, inner_posterior)
-        @test BAT.sample_and_verify(posterior, MCMCSampling(proposal = RandomWalk(), pre_transform = PriorToGaussian()), prior.dist).verified
+        @test BAT.sample_and_verify(posterior, TransformedMCMC(proposal = RandomWalk(), pre_transform = PriorToGaussian()), prior.dist).verified
     end
 end

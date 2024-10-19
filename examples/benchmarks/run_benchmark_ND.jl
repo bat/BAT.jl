@@ -247,7 +247,7 @@ function run_ND_benchmark(;
             if isa(algorithm,BAT.RandomWalk)
                 mcmc_sample = bat_sample(
                     dis,
-                    MCMCSampling(
+                    TransformedMCMC(
                         mcalg = algorithm,
                         trafo = DoNotTransform(),
                         nchains = nchains,
@@ -262,7 +262,7 @@ function run_ND_benchmark(;
             elseif isa(algorithm,BAT.HamiltonianMC)
                 mcmc_sample = bat_sample(
                     dis,
-                    MCMCSampling(mcalg = algorithm, trafo = DoNotTransform(), nchains = nchains, nsteps = nsteps)
+                    TransformedMCMC(mcalg = algorithm, trafo = DoNotTransform(), nchains = nchains, nsteps = nsteps)
                 ).result
             end
             taf = time()
@@ -274,7 +274,7 @@ function run_ND_benchmark(;
                     if isa(algorithm,BAT.RandomWalk)
                         bat_sample(
                             dis,
-                            MCMCSampling(
+                            TransformedMCMC(
                                 mcalg = algorithm,
                                 trafo = DoNotTransform(),
                                 nchains = nchains,
@@ -289,7 +289,7 @@ function run_ND_benchmark(;
                     elseif isa(algorithm,BAT.HamiltonianMC)
                         bat_sample(
                             dis,
-                            MCMCSampling(mcalg = algorithm, trafo = DoNotTransform(), nchains = nchains, nsteps = nsteps)
+                            TransformedMCMC(mcalg = algorithm, trafo = DoNotTransform(), nchains = nchains, nsteps = nsteps)
                         ).result
                     end
                     taf = time()

@@ -31,7 +31,7 @@ prior = BAT.NamedTupleDist(
 
 posterior = PosteriorMeasure(likelihood, prior);
 
-samples, chains = bat_sample(posterior, MCMCSampling(mcalg = RandomWalk(), nsteps = 10^5));
+samples, chains = bat_sample(posterior, TransformedMCMC(mcalg = RandomWalk(), nsteps = 10^5));
 
 # ## Set up plotting
 # Set up plotting using the [Plots.jl](https://github.com/JuliaPlots/Plots.jl) package:

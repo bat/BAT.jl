@@ -143,7 +143,7 @@ posterior_bkg_signal = PosteriorMeasure(SignalBkgLikelihood(summary_dataset_tabl
 nchains = 4
 nsteps = 10^5
 
-algorithm = MCMCSampling(proposal = HamiltonianMC(), nchains = nchains, nsteps = nsteps)
+algorithm = TransformedMCMC(proposal = HamiltonianMC(), nchains = nchains, nsteps = nsteps)
 
 samples_bkg = bat_sample(posterior_bkg, algorithm).result
 eval_bkg = EvaluatedMeasure(posterior_bkg, samples = samples_bkg)

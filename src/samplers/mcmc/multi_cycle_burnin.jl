@@ -26,7 +26,7 @@ export MCMCMultiCycleBurnin
 function mcmc_burnin!(
     outputs::Union{AbstractVector{<:DensitySampleVector},Nothing},
     mcmc_states::AbstractVector{<:MCMCState},
-    samplingalg::MCMCSampling,
+    samplingalg::TransformedMCMC,
     callback::Function
 )
     nchains = length(mcmc_states)

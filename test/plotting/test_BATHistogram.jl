@@ -31,7 +31,7 @@ prior = BAT.NamedTupleDist(
 )
 
 posterior = PosteriorMeasure(likelihood, prior);
-algorithm = MCMCSampling(mcalg = RandomWalk(), nchains = 4, nsteps = 10^4)
+algorithm = TransformedMCMC(mcalg = RandomWalk(), nchains = 4, nsteps = 10^4)
 shaped_samples = bat_sample(posterior, algorithm).result
 unshaped_samples = BAT.unshaped.(shaped_samples)
 

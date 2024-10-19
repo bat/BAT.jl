@@ -32,7 +32,7 @@ end
 
 
 function _construct_mcmc_state(
-    samplingalg::MCMCSampling,
+    samplingalg::TransformedMCMC,
     target::BATMeasure,
     rngpart::RNGPartition,
     id::Integer,
@@ -45,7 +45,7 @@ function _construct_mcmc_state(
 end
 
 _gen_mcmc_states(
-    samplingalg::MCMCSampling,
+    samplingalg::TransformedMCMC,
     target::BATMeasure,
     rngpart::RNGPartition,
     ids::AbstractRange{<:Integer},
@@ -55,7 +55,7 @@ _gen_mcmc_states(
 
 
 function mcmc_init!(
-    samplingalg::MCMCSampling,
+    samplingalg::TransformedMCMC,
     target::BATMeasure,
     init_alg::MCMCChainPoolInit,
     callback::Function,

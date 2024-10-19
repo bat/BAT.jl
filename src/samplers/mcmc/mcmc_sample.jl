@@ -2,7 +2,7 @@
 
 
 """
-    struct MCMCSampling <: AbstractSamplingAlgorithm
+    struct TransformedMCMC <: AbstractSamplingAlgorithm
 
 Samples a probability density using Markov chain Monte Carlo.
 
@@ -14,7 +14,7 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct MCMCSampling{
+@with_kw struct TransformedMCMC{
     PR<:MCMCProposal,
     PRT<:MCMCProposalTuning,
     TR<:AbstractTransformTarget,
@@ -28,16 +28,16 @@ $(TYPEDFIELDS)
     CB<:Function
 } <: AbstractSamplingAlgorithm
     proposal::PR = RandomWalk(proposaldist = TDist(1.0))
-    proposal_tuning::PRT = bat_default(MCMCSampling, Val(:proposal_tuning), proposal)
-    pre_transform::TR = bat_default(MCMCSampling, Val(:pre_transform), proposal)
-    adaptive_transform::AT = bat_default(MCMCSampling, Val(:adaptive_transform), proposal)
-    transform_tuning::ATT = bat_default(MCMCSampling, Val(:transform_tuning), adaptive_transform)
-    tempering::TE = bat_default(MCMCSampling, Val(:tempering), proposal)
+    proposal_tuning::PRT = bat_default(TransformedMCMC, Val(:proposal_tuning), proposal)
+    pre_transform::TR = bat_default(TransformedMCMC, Val(:pre_transform), proposal)
+    adaptive_transform::AT = bat_default(TransformedMCMC, Val(:adaptive_transform), proposal)
+    transform_tuning::ATT = bat_default(TransformedMCMC, Val(:transform_tuning), adaptive_transform)
+    tempering::TE = bat_default(TransformedMCMC, Val(:tempering), proposal)
     nchains::Int = 4
-    nsteps::Int = bat_default(MCMCSampling, Val(:nsteps), proposal, pre_transform, nchains)
+    nsteps::Int = bat_default(TransformedMCMC, Val(:nsteps), proposal, pre_transform, nchains)
     #TODO: max_time ?
-    init::IN = bat_default(MCMCSampling, Val(:init), proposal, pre_transform, nchains, nsteps)
-    burnin::BI = bat_default(MCMCSampling, Val(:burnin), proposal, pre_transform, nchains, nsteps)
+    init::IN = bat_default(TransformedMCMC, Val(:init), proposal, pre_transform, nchains, nsteps)
+    burnin::BI = bat_default(TransformedMCMC, Val(:burnin), proposal, pre_transform, nchains, nsteps)
     convergence::CT = BrooksGelmanConvergence()
     strict::Bool = true
     store_burnin::Bool = false
@@ -45,15 +45,15 @@ $(TYPEDFIELDS)
     sample_weighting::WS = RepetitionWeighting()
     callback::CB = nop_func
 end
-export MCMCSampling
+export TransformedMCMC
 
 
-bat_default(::Type{MCMCSampling}, ::Val{:transform_tuning}, ::CustomTransform) = NoMCMCTransformTuning()
-bat_default(::Type{MCMCSampling}, ::Val{:transform_tuning}, ::NoAdaptiveTransform) = NoMCMCTransformTuning()
-bat_default(::Type{MCMCSampling}, ::Val{:transform_tuning}, ::TriangularAffineTransform) = RAMTuning()
+bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::CustomTransform) = NoMCMCTransformTuning()
+bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::NoAdaptiveTransform) = NoMCMCTransformTuning()
+bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::TriangularAffineTransform) = RAMTuning()
 
 
-function MCMCState(samplingalg::MCMCSampling, target::BATMeasure, id::Integer, v_init::AbstractVector, context::BATContext)
+function MCMCState(samplingalg::TransformedMCMC, target::BATMeasure, id::Integer, v_init::AbstractVector, context::BATContext)
     chain_state = MCMCChainState(samplingalg, target, Int32(id), v_init, context)
     trafo_tuner_state = create_trafo_tuner_state(samplingalg.transform_tuning, chain_state, 0)
     proposal_tuner_state = create_proposal_tuner_state(samplingalg.proposal_tuning, chain_state, 0)
@@ -63,17 +63,17 @@ function MCMCState(samplingalg::MCMCSampling, target::BATMeasure, id::Integer, v
 end
 
 
-bat_default(::MCMCSampling, ::Val{:pre_transform}) = PriorToGaussian()
+bat_default(::TransformedMCMC, ::Val{:pre_transform}) = PriorToGaussian()
 
-bat_default(::MCMCSampling, ::Val{:nsteps}, trafo::AbstractTransformTarget, nchains::Integer) = 10^5
+bat_default(::TransformedMCMC, ::Val{:nsteps}, trafo::AbstractTransformTarget, nchains::Integer) = 10^5
 
-bat_default(::MCMCSampling, ::Val{:init}, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::TransformedMCMC, ::Val{:init}, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
 
-bat_default(::MCMCSampling, ::Val{:burnin}, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::TransformedMCMC, ::Val{:burnin}, trafo::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
-function bat_sample_impl(target::BATMeasure, samplingalg::MCMCSampling, context::BATContext)
+function bat_sample_impl(target::BATMeasure, samplingalg::TransformedMCMC, context::BATContext)
         
     target_transformed, pre_transform = transform_and_unshape(samplingalg.pre_transform, target, context)
 

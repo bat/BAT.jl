@@ -89,7 +89,7 @@ MCMCChainPoolInit
 MCMCInitAlgorithm
 MCMCMultiCycleBurnin
 MCMCProposalTuning
-MCMCSampling
+TransformedMCMC
 MCMCTransformTuning
 RandomWalk
 MHProposalDistTuning
