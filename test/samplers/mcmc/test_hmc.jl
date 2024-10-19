@@ -20,9 +20,9 @@ import AdvancedHMC
     @test target isa BAT.BATDistMeasure
 
     proposal = HamiltonianMC()
-    tuning = StanHMCTuning()
+    proposal_tuning = StanHMCTuning()
     nchains = 4
-    samplingalg = TransformedMCMC(proposal = proposal, transform_tuning = tuning)
+    samplingalg = TransformedMCMC(proposal = proposal, proposal_tuning = proposal_tuning, nchains = nchains)
 
     @testset "MCMC iteration" begin
         v_init = bat_initval(target, InitFromTarget(), context).result
@@ -34,9 +34,6 @@ import AdvancedHMC
         nsteps = 10^4
         BAT.mcmc_tuning_init!!(mcmc_state, 0)
         BAT.mcmc_tuning_reinit!!(mcmc_state, div(nsteps, 10))
-
-        samplingalg = BAT.TransformedMCMC(proposal = proposal, transform_tuning = tuning, nchains = nchains)
-
 
         samples = DensitySampleVector(mcmc_state)
         mcmc_state = BAT.mcmc_iterate!!(samples, mcmc_state; max_nsteps = nsteps, nonzero_weights = false)
@@ -53,7 +50,7 @@ import AdvancedHMC
 
     @testset "MCMC tuning and burn-in" begin
         max_nsteps = 10^5
-        tuning_alg = BAT.StanHMCTuning()
+        proposal_tuning = BAT.StanHMCTuning()
         trafo = DoNotTransform()
         init_alg = bat_default(TransformedMCMC, Val(:init), proposal, trafo, nchains, max_nsteps)
         burnin_alg = bat_default(TransformedMCMC, Val(:burnin), proposal, trafo, nchains, max_nsteps)
@@ -63,13 +60,13 @@ import AdvancedHMC
         callback = (x...) -> nothing
 
         samplingalg = TransformedMCMC(proposal = proposal,
-                                transform_tuning = tuning_alg, 
-                                pre_transform = trafo, 
-                                init = init_alg, 
-                                burnin = burnin_alg, 
-                                convergence = convergence_test, 
-                                strict = strict, 
-                                nonzero_weights = nonzero_weights
+            proposal_tuning = proposal_tuning, 
+            pre_transform = trafo, 
+            init = init_alg, 
+            burnin = burnin_alg, 
+            convergence = convergence_test, 
+            strict = strict, 
+            nonzero_weights = nonzero_weights
         )
 
         # Note: No @inferred, not type stable (yet) with HamiltonianMC
@@ -112,7 +109,7 @@ import AdvancedHMC
             shaped_target,
             TransformedMCMC(
                 proposal = proposal,
-                transform_tuning = StanHMCTuning(),
+                proposal_tuning = StanHMCTuning(),
                 pre_transform = DoNotTransform(),
                 nsteps = 10^4,
                 store_burnin = true
@@ -128,7 +125,7 @@ import AdvancedHMC
             shaped_target,
             TransformedMCMC(
                 proposal = proposal,
-                transform_tuning = StanHMCTuning(),
+                proposal_tuning = StanHMCTuning(),
                 pre_transform = DoNotTransform(),
                 nsteps = 10^4,
                 store_burnin = false
@@ -148,7 +145,7 @@ import AdvancedHMC
         inner_posterior = PosteriorMeasure(likelihood, prior)
         # Test with nested posteriors:
         posterior = PosteriorMeasure(likelihood, inner_posterior)
-        @test BAT.sample_and_verify(posterior, TransformedMCMC(proposal = HamiltonianMC(), transform_tuning = StanHMCTuning(), pre_transform = PriorToGaussian()), prior.dist, context).verified
+        @test BAT.sample_and_verify(posterior, TransformedMCMC(proposal = HamiltonianMC(), proposal_tuning = StanHMCTuning(), pre_transform = PriorToGaussian()), prior.dist, context).verified
     end
 
     @testset "HMC autodiff" begin
@@ -160,7 +157,7 @@ import AdvancedHMC
 
                 hmc_samplingalg = TransformedMCMC(
                     proposal = HamiltonianMC(),
-                    transform_tuning = StanHMCTuning(),
+                    proposal_tuning = StanHMCTuning(),
                     nchains = 2,
                     nsteps = 100,
                     init = MCMCChainPoolInit(init_tries_per_chain = 2..2, nsteps_init = 5),
