@@ -64,3 +64,12 @@ isapproxzero(A::AbstractArray) = all(isapproxzero, A)
 
 isapproxone(x::T) where T<:Real = x ≈ one(T)
 isapproxone(A::AbstractArray) = all(isapproxone, A)
+
+
+function should_log_progress_now(start_time::Real, last_log_time::Real)
+    current_time = time()
+    elapsed_time = current_time - start_time
+    logging_interval = 5 * round(log2(elapsed_time/60 + 1) + 1)
+    should_log = current_time - last_log_time > logging_interval
+    return (should_log, should_log ? current_time : last_log_time, elapsed_time)
+end

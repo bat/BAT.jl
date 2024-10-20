@@ -269,12 +269,11 @@ function mcmc_iterate!!(
     max_nsteps::Integer = 1,
     max_time::Real = Inf,
     nonzero_weights::Bool = true
-    )
-
+)
     @debug "Starting iteration over MCMC chain $(mcmc_state.chain_state.info.id) with $max_nsteps steps in max. $(@sprintf "%.1f s" max_time)"
 
     start_time = time()
-    last_progress_message_time = start_time
+    log_time = start_time
     start_nsteps = nsteps(mcmc_state)
     start_nsamples = nsamples(mcmc_state)
 
@@ -287,17 +286,14 @@ function mcmc_iterate!!(
         if !isnothing(output)
             get_samples!(output, mcmc_state, nonzero_weights)
         end
-        current_time = time()
-        elapsed_time = current_time - start_time
-        logging_interval = 5 * round(log2(elapsed_time/60 + 1) + 1)
-        if current_time - last_progress_message_time > logging_interval
-            last_progress_message_time = current_time
+
+        should_log, log_time, elapsed_time = should_log_progress_now(start_time, log_time)
+        if should_log
             @debug "Iterating over MCMC chain $(mcmc_state.chain_state.info.id), completed $(nsteps(mcmc_state.chain_state) - start_nsteps) (of $(max_nsteps)) steps and produced $(nsamples(mcmc_state.chain_state) - start_nsamples) samples in $(@sprintf "%.1f s" elapsed_time) so far."
         end
     end
 
-    current_time = time()
-    elapsed_time = current_time - start_time
+    elapsed_time = time() - start_time
     @debug "Finished iteration over MCMC chain $(mcmc_state.chain_state.info.id), completed $(nsteps(mcmc_state.chain_state) - start_nsteps) steps and produced $(nsamples(mcmc_state.chain_state) - start_nsamples) samples in $(@sprintf "%.1f s" elapsed_time)."
 
     return mcmc_state
