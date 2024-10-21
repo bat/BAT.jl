@@ -71,9 +71,14 @@ function mcmc_propose!!(mc_state::MHChainState)
     sample_z_current = current_sample_z(mc_state)
 
     z_current, logd_z_current = sample_z_current.v, sample_z_current.logd
+    T = eltype(z_current)
+
+    # Theoretical optimally proposal scale, according to
+    # [Gelman et al., Ann. Appl. Probab. 7 (1) 110 - 120, 1997](https://doi.org/10.1214/aoap/1034625254)
+    proposal_scale = T(2.38^2 / m)
 
     n_dims = size(z_current, 1)
-    z_proposed = z_current + rand(rng, proposal.proposaldist, n_dims) #TODO: check if proposal is symmetric? otherwise need additional factor?
+    z_proposed = z_current + proposal_scale .* T.(rand(rng, proposal.proposaldist, n_dims)) #TODO: check if proposal is symmetric? otherwise need additional factor?
     x_proposed, ladj = with_logabsdet_jacobian(f_transform, z_proposed)
     logd_x_proposed = BAT.checked_logdensityof(target, x_proposed)
     logd_z_proposed = logd_x_proposed + ladj
