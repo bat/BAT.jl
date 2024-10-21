@@ -20,40 +20,23 @@ function example_prior_with_dirichlet()
 end
 
 
-
 function example_likelihood(prior::Distribution, rng::AbstractRNG)
     n = totalndof(varshape(prior))
     A = randn(rng, n, n)
-    likelihood = logfuncdensity(logdensityof(varshape(prior)(MvNormal(A * A'))))
-    # ....
-    return Likelihood(data, model)
+    Σ = A * A'
+    f_transform = inverse(varshape(prior))
+    f_model = Base.Fix2(MvNormal, Σ) ∘ f_transform
+    tmp_rng = deepcopy(rng)
+    data = zero(f_transform(rand(tmp_rng, prior)))
+    return Likelihood(f_model, data)
 end
 
 
 function example_posterior(rng::AbstractRNG = example_stable_rng(), prior::Distribution = example_prior())
-    prior = example_prior()
     likelihood = example_likelihood(prior, rng)
     lbqintegral(likelihood, prior)
 end
 
 function example_posterior_with_dirichlet(rng::AbstractRNG = example_stable_rng())
     return example_posterior(rng, example_prior_with_dirichlet())
-end
-
-
-function old_example_posterior()
-    rng = example_stable_rng()
-    n = totalndof(varshape(prior))
-    A = randn(rng, n, n)
-    likelihood = logfuncdensity(logdensityof(varshape(prior)(MvNormal(A * A'))))
-    lbqintegral(likelihood, prior)
-end
-
-function old_example_posterior_with_dirichlet()
-    rng = example_stable_rng()
-    prior = merge(BAT.example_posterior().prior.dist, (g = Dirichlet([1.2, 2.4, 3.6]),))
-    n = totalndof(varshape(prior))
-    A = randn(rng, n, n)
-    likelihood = logfuncdensity(logdensityof(varshape(prior)(MvNormal(A * A'))))
-    PosteriorMeasure(likelihood, prior)
 end
