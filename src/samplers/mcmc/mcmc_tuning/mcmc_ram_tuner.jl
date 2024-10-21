@@ -77,8 +77,8 @@ function mcmc_tune_post_step!!(
     mc_state::MCMCChainState,
     p_accept::Real,
 )
-    @unpack target_acceptance, gamma = tuner_state.tuning
-    @unpack f_transform, sample_z = mc_state
+    (; target_acceptance, gamma) = tuner_state.tuning
+    (; f_transform, sample_z) = mc_state
     b = f_transform.b
     
     n_dims = size(sample_z.v[1], 1)
@@ -88,9 +88,14 @@ function mcmc_tune_post_step!!(
 
     u = sample_z.v[2] - sample_z.v[1] # proposed - current
     M = s_L * (I + η * (p_accept - target_acceptance) * (u * u') / norm(u)^2 ) * s_L'
+    new_s_L = oftype(s_L, cholesky(Positive, M).L)
 
-    S = cholesky(Positive, M)
-    f_transform_new  = MulAdd(S.L, b)
+    x = mc_state.samples[_proposed_sample_idx(mc_state)] # proposed in x-space
+    mean_update_rate = η / 10 # heuristic
+    α = mean_update_rate * p_accept
+    new_b = oftype(b, (1- α) * b + α * x.v)
+
+    f_transform_new  = MulAdd(new_s_L, new_b)
 
     tuner_state_new = @set tuner_state.nsteps = tuner_state.nsteps + 1
     

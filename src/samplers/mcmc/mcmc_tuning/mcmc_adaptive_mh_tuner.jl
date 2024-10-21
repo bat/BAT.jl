@@ -96,7 +96,6 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::M
     stats_reweight_factor = tuning.r
     reweight_relative!(stats, stats_reweight_factor)
     append!(stats, samples)
-    b = chain_state.f_transform.b
 
     α_min = minimum(tuning.α)
     α_max = maximum(tuning.α)
@@ -137,9 +136,12 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::M
     end
 
     Σ_new = new_Σ_unscal * tuner.scale
-    S_new = cholesky(Positive, Σ_new)
+    A_new = oftype(A, cholesky(Positive, Σ_new).L)
     
-    chain_state.f_transform = MulAdd(S_new.L, b)
+    b = chain_state.f_transform.b
+    b_new = oftype(b, (1 - a_t) * b + a_t * stats.param_stats.mean)
+
+    chain_state.f_transform = MulAdd(A_new, b_new)
     
     tuner.iteration += 1
 
