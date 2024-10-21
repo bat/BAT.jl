@@ -64,15 +64,16 @@ create_trafo_tuner_state(tuning::AdaptiveAffineTuning, chain_state::MCMCChainSta
 
 function mcmc_tuning_init!!(tuner_state::AdaptiveAffineTuningState, chain_state::MCMCChainState, max_nsteps::Integer)
     n = totalndof(varshape(mcmc_target(chain_state)))
-    b = chain_state.f_transform.b
-
+    f = chain_state.f_transform::MulAdd
+ 
     proposaldist = chain_state.proposal.proposaldist
     Σ_unscaled = _approx_cov(proposaldist, n)
     Σ = Σ_unscaled * tuner_state.scale
-    
-    S = cholesky(Σ)
-    
-    chain_state.f_transform = MulAdd(S.L, b)
+
+    A = oftype(f.A, cholesky(Positive, Σ).L)
+    b = oftype(f.b, _approx_mean(proposaldist, n))
+
+    chain_state.f_transform = MulAdd(A, b)
 
     nothing
 end

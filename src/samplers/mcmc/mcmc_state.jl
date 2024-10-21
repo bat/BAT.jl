@@ -301,16 +301,19 @@ end
 # When using different Tuners for proposal and transformation, which should be applied first? 
 # And if the z-position changes during the transformation tuning, should the proposal Tuner run on the updated z-position?
 function mcmc_tuning_init!!(state::MCMCState, max_nsteps::Integer)
+    # TODO: mcmc_tuning_init!! should support immutable tuners and states and return the new objects
     mcmc_tuning_init!!(state.trafo_tuner_state, state.chain_state, max_nsteps)
     mcmc_tuning_init!!(state.proposal_tuner_state, state.chain_state, max_nsteps)
 end
 
 function mcmc_tuning_reinit!!(state::MCMCState, max_nsteps::Integer)
+    # TODO: mcmc_tuning_reinit!! should support immutable tuners and states and return the new objects
     mcmc_tuning_reinit!!(state.trafo_tuner_state, state.chain_state, max_nsteps)
     mcmc_tuning_reinit!!(state.proposal_tuner_state, state.chain_state, max_nsteps)
 end
 
 function mcmc_tuning_postinit!!(state::MCMCState, samples::DensitySampleVector)
+    # TODO: mcmc_tuning_postinit!! should support immutable tuners and states and return the new objects
     mcmc_tuning_postinit!!(state.trafo_tuner_state, state.chain_state, samples)
     mcmc_tuning_postinit!!(state.proposal_tuner_state, state.chain_state, samples)
 end
