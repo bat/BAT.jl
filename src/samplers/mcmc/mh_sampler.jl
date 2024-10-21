@@ -60,11 +60,24 @@ function _get_sample_id(proposal::MHProposalState, id::Int32, cycle::Int32, step
 end
 
 
+# Theoretical optimally proposal scale for random walk with gaussian proposal, according to
+# [Gelman et al., Ann. Appl. Probab. 7 (1) 110 - 120, 1997](https://doi.org/10.1214/aoap/1034625254)
+_optimal_proposal_scale(d::ContinuousUnivariateDistribution, n_dims::Integer) = 2.38 / sqrt(n_dims) / sqrt(var(d))
+
+# Determined experimentally for TDist
+const _tdist_corr_exp = [0.5, 0.2, 0.14, 0.085, 0.06, 0.045, 0.035, 0.02, 0.015, 0.015]
+function _optimal_proposal_scale(d::TDist, n_dims::Integer)
+    ν_int = round(Int, d.ν)
+    k = ν_int > 10 ? zero(eltype(_tdist_corr_exp)) : _tdist_corr_exp[ν_int]
+    2.38 / sqrt(n_dims) / n_dims^k
+end
+
 const MHChainState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:MHProposalState} 
 
 function mcmc_propose!!(mc_state::MHChainState)
     @unpack target, proposal, f_transform, context = mc_state
     rng = get_rng(context)
+    pdist = proposal.proposaldist
 
     proposed_x_idx = _proposed_sample_idx(mc_state)
 
@@ -72,13 +85,11 @@ function mcmc_propose!!(mc_state::MHChainState)
 
     z_current, logd_z_current = sample_z_current.v, sample_z_current.logd
     T = eltype(z_current)
-
-    # Theoretical optimally proposal scale, according to
-    # [Gelman et al., Ann. Appl. Probab. 7 (1) 110 - 120, 1997](https://doi.org/10.1214/aoap/1034625254)
-    proposal_scale = T(2.38^2 / m)
-
     n_dims = size(z_current, 1)
-    z_proposed = z_current + proposal_scale .* T.(rand(rng, proposal.proposaldist, n_dims)) #TODO: check if proposal is symmetric? otherwise need additional factor?
+
+    proposal_scale = T(_optimal_proposal_scale(pdist, n_dims))
+
+    z_proposed = z_current + proposal_scale .* T.(rand(rng, pdist, n_dims)) #TODO: check if proposal is symmetric? otherwise need additional factor?
     x_proposed, ladj = with_logabsdet_jacobian(f_transform, z_proposed)
     logd_x_proposed = BAT.checked_logdensityof(target, x_proposed)
     logd_z_proposed = logd_x_proposed + ladj
