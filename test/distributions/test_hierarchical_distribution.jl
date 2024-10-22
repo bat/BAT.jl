@@ -4,14 +4,14 @@ using BAT
 using Test
 
 using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
-using AutoDiffOperators, ForwardDiff
+import ForwardDiff
 using InverseFunctions
 
 import AdvancedHMC
 
 
 @testset "hierarchial_distribution" begin
-    context = BATContext(ad = ADSelector(ForwardDiff))
+    context = BATContext(ad = ForwardDiff)
 
     let
         primary_dist = NamedTupleDist(

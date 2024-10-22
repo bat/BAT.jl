@@ -9,10 +9,9 @@ using ArraysOfArrays
 using TypedTables
 using CSV
 import Cuba, AdvancedHMC, ForwardDiff
-using AutoDiffOperators
 #using AHMI
 
-BAT.set_batcontext(ad = ADSelector(ForwardDiff))
+BAT.set_batcontext(ad = ForwardDiff)
 
 
 function log_pdf_poisson(λ::T, k::U) where {T<:Real,U<:Real}

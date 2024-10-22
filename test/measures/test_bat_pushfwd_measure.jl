@@ -6,14 +6,14 @@ using Test
 using LinearAlgebra
 using ValueShapes, ArraysOfArrays, Distributions, MeasureBase
 using DensityInterface, InverseFunctions, ChangesOfVariables
-using AutoDiffOperators, ForwardDiff
+import ForwardDiff
 
 import Cuba, AdvancedHMC
 using Optim
 
 
 @testset "bat_pushfwd_measure" begin
-    context = BATContext(ad = ADSelector(ForwardDiff))
+    context = BATContext(ad = ForwardDiff)
 
     @testset "distribution transforms" begin
         function test_uv_transformed(target_type::Type{<:Distribution}, source_dist::Distribution)

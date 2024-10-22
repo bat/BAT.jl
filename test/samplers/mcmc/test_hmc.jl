@@ -5,13 +5,12 @@ using Test
 using LinearAlgebra
 using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityInterface
 using IntervalSets
-using AutoDiffOperators
 import ForwardDiff, Zygote
 
 import AdvancedHMC
 
 @testset "HamiltonianMC" begin
-    context = BATContext(ad = ADSelector(ForwardDiff))
+    context = BATContext(ad = ForwardDiff)
     objective = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
 
     shaped_target = @inferred(batmeasure(objective))
@@ -151,9 +150,9 @@ import AdvancedHMC
     @testset "HMC autodiff" begin
         posterior = BAT.example_posterior()
 
-        for adsel in [ADSelector(ForwardDiff), ADSelector(Zygote)]
-            @testset "$adsel" begin
-                context = BATContext(ad = adsel)
+        for admodule in [ForwardDiff, Zygote]
+            @testset "$admodule" begin
+                context = BATContext(ad = admodule)
 
                 hmc_samplingalg = TransformedMCMC(
                     proposal = HamiltonianMC(),

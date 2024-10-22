@@ -3,7 +3,7 @@ using Test
 
 using LinearAlgebra, Distributions, StatsBase, ValueShapes, Random123, DensityInterface
 using UnPack, InverseFunctions
-using AutoDiffOperators, ForwardDiff
+import ForwardDiff
 using Optim, OptimizationOptimJL
 
 @testset "mode_estimators" begin
@@ -89,7 +89,7 @@ using Optim, OptimizationOptimJL
     end
 
     @testset "Optim.jl - LBFGS" begin
-        context = BATContext(rng = Philox4x((0, 0)), ad = ADSelector(ForwardDiff))
+        context = BATContext(rng = Philox4x((0, 0)), ad = ForwardDiff)
         # Result Optim.maximize with LBFGS is not type-stable:
         test_findmode(posterior, OptimAlg(optalg = LBFGS(), trafo = DoNotTransform()), 0.01, inferred = false, context)
 

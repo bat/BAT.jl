@@ -30,7 +30,7 @@ BATContext(;
     precision::Type{<:AbstractFloat} = ...,
     rng::AbstractRNG = ...,
     cunit::HeterogeneousComputing.AbstractComputeUnit = ...,
-    ad::AutoDiffOperators.ADSelector = ...,
+    ad::Union{AutoDiffOperators.ADSelector, Module, Symbol, Val} = ...,
 )
 ```
 
@@ -54,10 +54,15 @@ function BATContext(;
     precision::Type{T} = Float64,
     rng::AbstractRNG = Philox4x()::Philox4x{UInt64,10},
     cunit::AbstractComputeUnit = CPUnit(),
-    ad::Union{<:ADSelector,_NoADSelected} = _NoADSelected(),
+    ad::Union{AutoDiffOperators.ADSelector,_NoADSelected, Module, Symbol, Val} = _NoADSelected(),
 ) where T
-    BATContext{T}(rng, cunit, ad)
+    adsel = _convert_adsel(ad)
+    #adsel = ad isa _NoADSelected ? _NoADSelected() : ADSelector(ad)
+    BATContext{T}(rng, cunit, adsel)
 end
+
+_convert_adsel(ad) = convert(ADSelector, ad)
+_convert_adsel(ad::_NoADSelected) = ad
 
 
 HeterogeneousComputing.get_precision(::BATContext{T}) where T = T
@@ -151,7 +156,9 @@ function set_batcontext(;kwargs...)
         (cuinit = get_compute_unit(c),precision=get_precision(c), rng=get_rng(c), ad=get_adselector(c)),
         (;kwargs...)
     )
-    set_batcontext(BATContext{s.precision}(s.rng, s.cuinit, s.ad))
+    @info s
+    adsel = _convert_adsel(s.ad)
+    set_batcontext(BATContext{s.precision}(s.rng, s.cuinit, adsel))
 end
 
 

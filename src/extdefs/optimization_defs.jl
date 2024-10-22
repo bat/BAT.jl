@@ -1,13 +1,15 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 """
-    OptimizationAlg
+    struct OptimizationAlg
+
 Selects an optimization algorithm from the
 [Optimization.jl](https://github.com/SciML/Optimization.jl)
 package.
 Note that when using first order algorithms like `OptimizationOptimJL.LBFGS`, your
-[`BATContext`](@ref) needs to include an `ADSelector` that specifies
-which automatic differentiation backend should be used.
+[`BATContext`](@ref) needs to have `ad` set to an automatic differentiation
+backend.
+
 Constructors:
 * ```$(FUNCTIONNAME)(; fields...)```
 `optalg` must be an `Optimization.AbstractOptimizer`.

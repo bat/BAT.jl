@@ -32,7 +32,7 @@ BAT sampling algorithm type: [`TransformedMCMC`](@ref), MCMC algorithm subtype: 
 
 ```julia
 import AdvancedHMC, ForwardDiff
-set_batcontext(ad = ADSelector(ForwardDiff))
+set_batcontext(ad = ForwardDiff)
 bat_sample(target, TransformedMCMC(mcalg = HamiltonianMC()))
 ```
 Requires the [AdvancedHMC](https://github.com/TuringLang/AdvancedHMC.jl) Julia package to be loaded explicitly.
@@ -160,7 +160,7 @@ using Optim
 bat_findmode(target, OptimAlg(optalg = Optim.NelderMead()))
 
 import ForwardDiff
-set_batcontext(ad = ADSelector(ForwardDiff))
+set_batcontext(ad = ForwardDiff)
 bat_findmode(target, OptimAlg(optalg = Optim.LBFGS()))
 ```
 
