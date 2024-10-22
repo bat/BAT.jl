@@ -20,7 +20,7 @@ abstract type HMCTuning <: MCMCProposalTuning end
     target_acceptance::Float64 = 0.8
 end
 
-@with_kw struct StepSizeAdaptor <: HMCTuning
+@with_kw struct HMCTrajectoryTuning <: HMCTuning
     target_acceptance::Float64 = 0.8
 end
 

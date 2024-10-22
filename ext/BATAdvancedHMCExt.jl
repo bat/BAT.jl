@@ -15,8 +15,8 @@ using BAT: MeasureLike, BATMeasure
 
 using BAT: get_context, get_adselector, _NoADSelected
 using BAT: getproposal, mcmc_target
-using BAT: MCMCChainState, HMCState, HamiltonianMC, HMCProposalState, MCMCChainStateInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin, MCMCProposalTunerState, MCMCTransformTunerState, NoMCMCTempering
-using BAT: _current_sample_idx, _proposed_sample_idx, _cleanup_samples
+using BAT: MCMCChainState, HMCState, HamiltonianMC, HMCProposalState, MCMCChainStateInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin, MCMCProposalTunerState, MCMCTransformTunerState, NoMCMCTempering, HMCTrajectoryTuning
+using BAT: _current_sample_idx, _proposed_sample_idx, _current_sample_z_idx, _proposed_sample_z_idx, _cleanup_samples
 using BAT: AbstractTransformTarget, NoAdaptiveTransform
 using BAT: RNGPartition, get_rng, set_rng!
 using BAT: mcmc_step!!, nsamples, nsteps, samples_available, eff_acceptance_ratio
@@ -28,11 +28,13 @@ using BAT: CURRENT_SAMPLE, PROPOSED_SAMPLE, INVALID_SAMPLE, ACCEPTED_SAMPLE, REJ
 using BAT: HamiltonianMC
 using BAT: AHMCSampleID, AHMCSampleIDVector
 using BAT: HMCMetric, DiagEuclideanMetric, UnitEuclideanMetric, DenseEuclideanMetric
-using BAT: HMCTuning, MassMatrixAdaptor, StepSizeAdaptor, NaiveHMCTuning, StanHMCTuning
+using BAT: HMCTuning, MassMatrixAdaptor, HMCTrajectoryTuning, NaiveHMCTuning, StanHMCTuning
+
+using ChangesOfVariables: with_logabsdet_jacobian
 
 using ValueShapes: varshape
 
-using Accessors: @set
+using Accessors: @set, @reset
 
 
 BAT.ext_default(::BAT.PackageExtension{:AdvancedHMC}, ::Val{:DEFAULT_INTEGRATOR}) = AdvancedHMC.Leapfrog(NaN)
