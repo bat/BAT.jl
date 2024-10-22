@@ -3,7 +3,9 @@
 
 BAT.bat_default(::Type{TransformedMCMC}, ::Val{:pre_transform}, proposal::HamiltonianMC) = PriorToGaussian()
 
-BAT.bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, proposal::HamiltonianMC) = StanHMCTuning()
+BAT.bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, proposal::HamiltonianMC) = HMCTrajectoryTuning()
+
+bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, proposal::HamiltonianMC) = RAMTuning()
 
 BAT.bat_default(::Type{TransformedMCMC}, ::Val{:adaptive_transform}, proposal::HamiltonianMC) = NoAdaptiveTransform()
 
