@@ -222,10 +222,10 @@ posterior = PosteriorMeasure(likelihood, prior)
 # possible parameter values for the histogram fit.
 #
 # To increase the verbosity level of BAT logging output, you may want to set
-# the Julia logging level for BAT to debug via `ENV["JULIA_DEBUG"] = "BAT"`.
+# the Julia logging level for BAT to debug via `bat_logdebug()`.
 
-#nb ENV["JULIA_DEBUG"] = "BAT"
-#jl ENV["JULIA_DEBUG"] = "BAT"
+#nb bat_logdebug()
+#jl bat_logdebug()
 
 # Now we can generate a set of MCMC samples via [`bat_sample`](@ref). We'll
 # use 4 MCMC chains with 10^5 MC steps in each chain (after tuning/burn-in):

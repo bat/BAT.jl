@@ -2,7 +2,7 @@ using BAT, ValueShapes, IntervalSets, Distributions, Plots, EmpiricalDistributio
 using BATTestCases
 using AHMI
 using StatsBase, ArraysOfArrays, LinearAlgebra, LaTeXStrings, QuadGK, PrettyTables, HypothesisTests, Statistics
-ENV["JULIA_DEBUG"] = "BAT"
+bat_logdebug()
 
 function setup_benchmark()
     if(!(("plots1D" in readdir()) && ("plots2D" in readdir()) && ("results" in readdir())))

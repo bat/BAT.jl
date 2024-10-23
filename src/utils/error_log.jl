@@ -82,3 +82,36 @@ macro rethrow_logged(expr)
         rethrow(err)
     end
 end
+
+
+const _bat_modules = Set([
+    "BAT",
+    "BATAdvancedHMCExt",
+    "BATCubaExt",
+    "BATFoldsExt",
+    "BATHDF5Ext",
+    "BATMGVIExt",
+    "BATNestedSamplersExt",
+    "BATOptimExt",
+    "BATOptimizationExt",
+    "BATPlotsExt",
+    "BATUltraNestExt",
+])
+
+
+"""
+    log_batdebug(enable::Bool = true)
+
+Enable/disable debug-level logging for BAT and all BAT package extensions.
+"""
+function log_batdebug(enable::Bool = true)
+    enabled_modules = Set(filter(!isempty,strip.(split(get(ENV, "JULIA_DEBUG", ""), ","))))
+    new_enabled_modules = if enable
+        union(enabled_modules, _bat_modules)
+    else
+        setdiff(enabled_modules, _bat_modules)
+    end
+    ENV["JULIA_DEBUG"] = join(sort(collect(new_enabled_modules)), ",")
+    nothing
+end
+export log_batdebug

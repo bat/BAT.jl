@@ -44,6 +44,7 @@ bat_transform
 
 get_batcontext
 set_batcontext
+log_batdebug
 
 distbind
 distprod
