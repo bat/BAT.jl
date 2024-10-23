@@ -101,7 +101,7 @@ OptimizationAlg
 OrderedResampling
 PosteriorMeasure
 PriorSubstitution
-PriorToGaussian
+PriorToNormal
 PriorToUniform
 RAMTuning
 RandomWalk

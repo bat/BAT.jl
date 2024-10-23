@@ -59,7 +59,7 @@ my_function(; nt...)
 
 context = get_batcontext()
 target = posterior
-transformed_density, f_transform = BAT.transform_and_unshape(PriorToGaussian(), target, context)
+transformed_density, f_transform = BAT.transform_and_unshape(PriorToNormal(), target, context)
 inv_trafo = inverse(f_transform)
 initalg = BAT.apply_trafo_to_init(f_transform, InitFromTarget())
 x_init = collect(bat_initval(transformed_density, initalg, context).result)

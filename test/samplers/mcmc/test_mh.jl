@@ -128,6 +128,6 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         inner_posterior = PosteriorMeasure(likelihood, prior)
         # Test with nested posteriors:
         posterior = PosteriorMeasure(likelihood, inner_posterior)
-        @test BAT.sample_and_verify(posterior, TransformedMCMC(proposal = RandomWalk(), pretransform = PriorToGaussian()), prior.dist).verified
+        @test BAT.sample_and_verify(posterior, TransformedMCMC(proposal = RandomWalk(), pretransform = PriorToNormal()), prior.dist).verified
     end
 end

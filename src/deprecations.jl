@@ -80,3 +80,6 @@ Base.@deprecate MCMCSampling(;
     callback = callback
 )
 export MCMCSampling
+
+
+@deprecate PriorToGaussian() PriorToNormal()

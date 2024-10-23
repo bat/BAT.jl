@@ -144,7 +144,7 @@ import AdvancedHMC
         inner_posterior = PosteriorMeasure(likelihood, prior)
         # Test with nested posteriors:
         posterior = PosteriorMeasure(likelihood, inner_posterior)
-        @test BAT.sample_and_verify(posterior, TransformedMCMC(proposal = HamiltonianMC(), proposal_tuning = StanHMCTuning(), pretransform = PriorToGaussian()), prior.dist, context).verified
+        @test BAT.sample_and_verify(posterior, TransformedMCMC(proposal = HamiltonianMC(), proposal_tuning = StanHMCTuning(), pretransform = PriorToNormal()), prior.dist, context).verified
     end
 
     @testset "HMC autodiff" begin

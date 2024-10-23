@@ -131,7 +131,7 @@ Fields:
     TR<:AbstractTransformTarget, IA<:InitvalAlgorithm,
     CFG, SD<:MGVISchedule
 } <: AbstractSamplingAlgorithm
-    pretransform::TR = (pkgext(Val(:MGVI)); PriorToGaussian())
+    pretransform::TR = (pkgext(Val(:MGVI)); PriorToNormal())
     init::IA = InitFromTarget()
     nsamples::Int = 10^4
     schedule::SD = FixedMGVISchedule(range(12, nsamples, length = 10))

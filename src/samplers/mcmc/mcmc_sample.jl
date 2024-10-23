@@ -63,7 +63,7 @@ function MCMCState(samplingalg::TransformedMCMC, target::BATMeasure, id::Integer
 end
 
 
-bat_default(::TransformedMCMC, ::Val{:pretransform}) = PriorToGaussian()
+bat_default(::TransformedMCMC, ::Val{:pretransform}) = PriorToNormal()
 
 bat_default(::TransformedMCMC, ::Val{:nsteps}, ::AbstractTransformTarget, nchains::Integer) = 10^5
 

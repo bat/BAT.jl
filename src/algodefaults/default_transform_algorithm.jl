@@ -9,10 +9,10 @@ bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::BATD
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::EvaluatedMeasure) = PriorSubstitution()
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::BATDistMeasure{<:StandardUniformDist}) = IdentityTransformAlgorithm()
 
-bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::AbstractPosteriorMeasure) = PriorSubstitution()
-bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::BATDistMeasure) = PriorSubstitution()
-bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::EvaluatedMeasure) = PriorSubstitution()
-bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToGaussian, ::BATDistMeasure{<:StandardNormalDist}) = IdentityTransformAlgorithm()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToNormal, ::AbstractPosteriorMeasure) = PriorSubstitution()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToNormal, ::BATDistMeasure) = PriorSubstitution()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToNormal, ::EvaluatedMeasure) = PriorSubstitution()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToNormal, ::BATDistMeasure{<:StandardNormalDist}) = IdentityTransformAlgorithm()
 
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::Function, ::DensitySampleVector) = SampleTransformation()
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::AbstractValueShape, ::DensitySampleVector) = SampleTransformation()

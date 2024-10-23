@@ -145,7 +145,7 @@ struct ToRealVector <: AbstractTransformTarget end
 export ToRealVector
 
 
-# ToDo: Merge PriorToUniform and PriorToGaussian into PriorTo{Uniform|Normal}.
+# ToDo: Merge PriorToUniform and PriorToNormal into PriorTo{Uniform|Normal}.
 
 """
     struct PriorToUniform <: AbstractTransformTarget
@@ -168,7 +168,7 @@ end
 
 
 """
-    struct PriorToGaussian <: AbstractTransformTarget
+    struct PriorToNormal <: AbstractTransformTarget
 
 Specifies that posterior densities should be transformed in a way that makes
 their pior equivalent to a standard multivariate normal distribution with an
@@ -178,12 +178,12 @@ Constructors:
 
 * ```$(FUNCTIONNAME)()```
 """
-struct PriorToGaussian <: AbstractTransformTarget end
-export PriorToGaussian
+struct PriorToNormal <: AbstractTransformTarget end
+export PriorToNormal
 
-_distmeasure_trafo(target::PriorToGaussian, density::BATDistMeasure) = DistributionTransform(Normal, Distribution(density))
+_distmeasure_trafo(target::PriorToNormal, density::BATDistMeasure) = DistributionTransform(Normal, Distribution(density))
 
-function bat_transform_impl(target::PriorToGaussian, density::BATDistMeasure{<:StandardNormalDist}, algorithm::IdentityTransformAlgorithm, context::BATContext)
+function bat_transform_impl(target::PriorToNormal, density::BATDistMeasure{<:StandardNormalDist}, algorithm::IdentityTransformAlgorithm, context::BATContext)
     (result = density, f_transform = identity)
 end
 
@@ -208,14 +208,14 @@ _get_deep_prior_for_trafo(m::BATDistMeasure) = m
 _get_deep_prior_for_trafo(m::AbstractPosteriorMeasure) = _get_deep_prior_for_trafo(getprior(m))
 
 
-function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, m::AbstractPosteriorMeasure, algorithm::FullMeasureTransform, context::BATContext)
+function bat_transform_impl(target::Union{PriorToUniform,PriorToNormal}, m::AbstractPosteriorMeasure, algorithm::FullMeasureTransform, context::BATContext)
     orig_prior = _get_deep_prior_for_trafo(m)
     f_transform = _distmeasure_trafo(target, orig_prior)
     (result = BATPushFwdMeasure(f_transform, m, KeepRootMeasure()), f_transform = f_transform)
 end
 
 
-function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, m::BATDistMeasure, algorithm::FullMeasureTransform, context::BATContext)
+function bat_transform_impl(target::Union{PriorToUniform,PriorToNormal}, m::BATDistMeasure, algorithm::FullMeasureTransform, context::BATContext)
     f_transform = _distmeasure_trafo(target, m)
     (result = BATPushFwdMeasure(f_transform, m, KeepRootMeasure()), f_transform = f_transform)
 end
@@ -238,14 +238,14 @@ struct PriorSubstitution <: TransformAlgorithm end
 export PriorSubstitution
 
 
-function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::BATDistMeasure, algorithm::PriorSubstitution, context::BATContext)
+function bat_transform_impl(target::Union{PriorToUniform,PriorToNormal}, density::BATDistMeasure, algorithm::PriorSubstitution, context::BATContext)
     f_transform = _distmeasure_trafo(target, density)
     transformed_density = BATDistMeasure(f_transform.target_dist)
     (result = transformed_density, f_transform = f_transform)
 end
 
 
-function bat_transform_impl(target::Union{PriorToUniform,PriorToGaussian}, density::AbstractPosteriorMeasure, algorithm::PriorSubstitution, context::BATContext)
+function bat_transform_impl(target::Union{PriorToUniform,PriorToNormal}, density::AbstractPosteriorMeasure, algorithm::PriorSubstitution, context::BATContext)
     orig_prior = getprior(density)
     orig_likelihood = getlikelihood(density)
     new_prior, f_transform = bat_transform_impl(target, orig_prior, algorithm, context)

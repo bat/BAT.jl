@@ -25,7 +25,7 @@ struct MHProposalState{Q<:ContinuousUnivariateDistribution} <: MCMCProposalState
 end
 export MHProposalState
 
-bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::RandomWalk) = PriorToGaussian()
+bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::RandomWalk) = PriorToNormal()
 
 bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, proposal::RandomWalk) = NoMCMCProposalTuning()
 

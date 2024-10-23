@@ -233,7 +233,7 @@ end
     posterior_uniform_prior = @inferred(PosteriorMeasure(logfuncdensity(logdensityof(mvn)), uniform_prior))
     posterior_gaussian_prior = @inferred(PosteriorMeasure(logfuncdensity(logdensityof(mvn)), mvn))
 
-    @test @inferred(bat_transform(PriorToGaussian(), posterior_uniform_prior, context)).result.prior.dist == @inferred(BAT.StandardMvNormal(3))
+    @test @inferred(bat_transform(PriorToNormal(), posterior_uniform_prior, context)).result.prior.dist == @inferred(BAT.StandardMvNormal(3))
     @test @inferred(bat_transform(PriorToUniform(), posterior_gaussian_prior, context)).result.prior.dist == @inferred(BAT.StandardMvUniform(3))
     @test @inferred(bat_transform(DoNotTransform(), posterior_uniform_prior, context)).result.prior.dist == uniform_prior
     pd = @inferred(product_distribution([Uniform() for i in 1:3]))
@@ -243,6 +243,6 @@ end
     # ToDo: Improve comparison for bounds so `.dist` is not required here:
     @inferred(bat_transform(PriorToUniform(), batmeasure(BAT.StandardUvUniform()), context)).result.dist == batmeasure(BAT.StandardUvUniform()).dist
     @inferred(bat_transform(PriorToUniform(), batmeasure(BAT.StandardMvUniform(4)), context)).result.dist == batmeasure(BAT.StandardMvUniform(4)).dist
-    @inferred(bat_transform(PriorToGaussian(), batmeasure(BAT.StandardUvNormal()), context)).result.dist == batmeasure(BAT.StandardUvNormal()).dist
-    @inferred(bat_transform(PriorToGaussian(), batmeasure(BAT.StandardMvNormal(4)), context)).result.dist == batmeasure(BAT.StandardMvNormal(4)).dist
+    @inferred(bat_transform(PriorToNormal(), batmeasure(BAT.StandardUvNormal()), context)).result.dist == batmeasure(BAT.StandardUvNormal()).dist
+    @inferred(bat_transform(PriorToNormal(), batmeasure(BAT.StandardMvNormal(4)), context)).result.dist == batmeasure(BAT.StandardMvNormal(4)).dist
 end

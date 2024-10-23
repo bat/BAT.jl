@@ -33,7 +33,7 @@ $(TYPEDFIELDS)
     IA<:InitvalAlgorithm
 } <: AbstractModeEstimator
     optalg::ALG = ext_default(pkgext(Val(:Optim)), Val(:DEFAULT_OPTALG))
-    pretransform::TR = PriorToGaussian()
+    pretransform::TR = PriorToNormal()
     init::IA = InitFromTarget()
     maxiters::Int = 1_000
     maxtime::Float64 = NaN

@@ -14,6 +14,8 @@ Several algorithms have changed their names, but also their role:
     changed (no deprecation for the parameter changes). Tuning and
     sample weighting scheme selection have moved to `TransformedMCMC`.
 
+* `PriorToGaussian` has become `PriorToNormal`.
+
 Partial deprecations are available for the above, a lot of old code should
 run more or less unchanged (with deprecation warnings). Also:
 
