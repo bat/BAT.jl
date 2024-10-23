@@ -18,7 +18,7 @@ import Measurements
 
 
 function BAT.bat_sample_impl(m::BATMeasure, algorithm::ReactiveNestedSampling, context::BATContext)
-    transformed_m, trafo = transform_and_unshape(algorithm.trafo, m, context)
+    transformed_m, f_pretransform = transform_and_unshape(algorithm.pretransform, m, context)
 
     if !BAT.has_uhc_support(transformed_m)
         throw(ArgumentError("$algorithm doesn't measures that are not limited to the unit hypercube"))
@@ -69,12 +69,12 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::ReactiveNestedSampling, c
     logvals_trafo = convert(Vector{Float64}, unest_wsamples["logl"])
     weight = convert(Vector{Float64}, unest_wsamples["weights"])
     transformed_smpls = DensitySampleVector(v_trafo_us, logvals_trafo, weight = weight)
-    smpls = inverse(trafo).(transformed_smpls) 
+    smpls = inverse(f_pretransform).(transformed_smpls) 
 
     uwv_trafo_us = nestedview(convert(Matrix{Float64}, r["samples"]'))
     uwlogvals_trafo = map(logdensityof(transformed_m), uwv_trafo_us)
     uwtransformed_smpls = DensitySampleVector(uwv_trafo_us, uwlogvals_trafo)
-    uwsmpls = inverse(trafo).(uwtransformed_smpls)
+    uwsmpls = inverse(f_pretransform).(uwtransformed_smpls)
 
     logz = convert(BigFloat, r["logz"])::BigFloat
     logzerr = convert(BigFloat, r["logzerr"])::BigFloat
@@ -83,7 +83,7 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::ReactiveNestedSampling, c
     ess = convert(Float64, r["ess"])
 
     return (
-        result = smpls, result_trafo = transformed_smpls, trafo = trafo,
+        result = smpls, result_trafo = transformed_smpls, f_pretransform = f_pretransform,
         uwresult = uwsmpls, uwresult_trafo = uwtransformed_smpls,
         logintegral = logintegral, ess = ess,
         info = r

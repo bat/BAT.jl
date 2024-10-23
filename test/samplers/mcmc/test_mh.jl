@@ -100,7 +100,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
             shaped_target,
             TransformedMCMC(
                 proposal = proposal,
-                pre_transform = DoNotTransform(),
+                pretransform = DoNotTransform(),
                 store_burnin = true
             ),
             context
@@ -112,7 +112,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
             shaped_target,
             TransformedMCMC(
                 proposal = proposal,
-                pre_transform = DoNotTransform()
+                pretransform = DoNotTransform()
             ),
             objective
         )
@@ -128,6 +128,6 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         inner_posterior = PosteriorMeasure(likelihood, prior)
         # Test with nested posteriors:
         posterior = PosteriorMeasure(likelihood, inner_posterior)
-        @test BAT.sample_and_verify(posterior, TransformedMCMC(proposal = RandomWalk(), pre_transform = PriorToGaussian()), prior.dist).verified
+        @test BAT.sample_and_verify(posterior, TransformedMCMC(proposal = RandomWalk(), pretransform = PriorToGaussian()), prior.dist).verified
     end
 end

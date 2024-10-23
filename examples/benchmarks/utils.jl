@@ -207,10 +207,10 @@ function run1D(
 	)
 
     sample_stats_all = []
-    samples, chains = bat_sample(testfunctions[key].posterior, TransformedMCMC(mcalg = algorithm, trafo = DoNotTransform(), nchains = nchains, nsteps = nsteps))
+    samples, chains = bat_sample(testfunctions[key].posterior, TransformedMCMC(mcalg = algorithm, pretransform = DoNotTransform(), nchains = nchains, nsteps = nsteps))
     for i in 1:n_runs
         time_before = time()
-        samples, chains = bat_sample(testfunctions[key].posterior, TransformedMCMC(mcalg = algorithm, trafo = DoNotTransform(), nchains = nchains, nsteps = nsteps))
+        samples, chains = bat_sample(testfunctions[key].posterior, TransformedMCMC(mcalg = algorithm, pretransform = DoNotTransform(), nchains = nchains, nsteps = nsteps))
         time_after = time()
 
     	h = plot1D(samples,testfunctions,key,sample_stats)# posterior, key, analytical_stats,sample_stats)
@@ -438,10 +438,10 @@ function run2D(
 
     sample_stats_all = []
 
-    samples, stats = bat_sample(testfunctions[key].posterior, TransformedMCMC(mcalg = algorithm, trafo = DoNotTransform(), nchains = nchains, nsteps = nsteps))
+    samples, stats = bat_sample(testfunctions[key].posterior, TransformedMCMC(mcalg = algorithm, pretransform = DoNotTransform(), nchains = nchains, nsteps = nsteps))
     for i in 1:n_runs
         time_before = time()
-        samples, stats = bat_sample(testfunctions[key].posterior, TransformedMCMC(mcalg = algorithm, trafo = DoNotTransform(), nchains = nchains, nsteps = nsteps))
+        samples, stats = bat_sample(testfunctions[key].posterior, TransformedMCMC(mcalg = algorithm, pretransform = DoNotTransform(), nchains = nchains, nsteps = nsteps))
         time_after = time()
 
 		h = plot2D(samples, testfunctions, key, sample_stats)

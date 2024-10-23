@@ -113,8 +113,8 @@ end
 
 
 # ToDo: Unify with broadcast_trafo
-function broadcast_arbitrary_trafo(trafo::DistributionTransform, smpls::DensitySampleVector)
-    broadcast_trafo(trafo, smpls)
+function broadcast_arbitrary_trafo(f_transform::DistributionTransform, smpls::DensitySampleVector)
+    broadcast_trafo(f_transform, smpls)
 end
 
 
@@ -139,33 +139,33 @@ function show_distribution(io::IO, d::NamedTupleDist)
     print(io, "}(…)")
 end
     
-function Base.show(io::IO, trafo::DistributionTransform)
-    print(io, Base.typename(typeof(trafo)).name, "(")
-    show_distribution(io, trafo.target_dist)
+function Base.show(io::IO, f_transform::DistributionTransform)
+    print(io, Base.typename(typeof(f_transform)).name, "(")
+    show_distribution(io, f_transform.target_dist)
     print(io, ", ")
-    show_distribution(io, trafo.source_dist)
+    show_distribution(io, f_transform.source_dist)
     print(io, ")")
 end
 
-Base.show(io::IO, M::MIME"text/plain", trafo::DistributionTransform) = show(io, trafo)
+Base.show(io::IO, M::MIME"text/plain", f_transform::DistributionTransform) = show(io, f_transform)
 
 # apply_dist_trafo(trg_d, src_d, src_v)
 function apply_dist_trafo end
 
 
-(trafo::DistributionTransform)(x) = apply_dist_trafo(trafo.target_dist, trafo.source_dist, x)
+(f_transform::DistributionTransform)(x) = apply_dist_trafo(f_transform.target_dist, f_transform.source_dist, x)
 
 
-InverseFunctions.inverse(trafo::DistributionTransform) = DistributionTransform(trafo.source_dist, trafo.target_dist)
+InverseFunctions.inverse(f_transform::DistributionTransform) = DistributionTransform(f_transform.source_dist, f_transform.target_dist)
 
 import Base.inv
-Base.@deprecate inv(trafo::DistributionTransform) inverse(trafo)
+Base.@deprecate inv(f_transform::DistributionTransform) inverse(f_transform)
 
 
-function ChangesOfVariables.with_logabsdet_jacobian(trafo::DistributionTransform, x)
-    y = trafo(x)
-    logpdf_src = logpdf(trafo.source_dist, x)
-    logpdf_trg = logpdf(trafo.target_dist, y)
+function ChangesOfVariables.with_logabsdet_jacobian(f_transform::DistributionTransform, x)
+    y = f_transform(x)
+    logpdf_src = logpdf(f_transform.source_dist, x)
+    logpdf_trg = logpdf(f_transform.target_dist, y)
     ladj = logpdf_src - logpdf_trg
     # If logpdf_src and logpdf_trg are -Inf setting lafj to zero is safe:
     fixed_ladj = isneginf(logpdf_src) && isneginf(logpdf_trg) ? zero(ladj) : ladj
@@ -174,25 +174,25 @@ end
 
 
 function Base.Broadcast.broadcasted(
-    trafo::DistributionTransform,
+    f_transform::DistributionTransform,
     v_src::Union{ArrayOfSimilarVectors{<:Real},ShapedAsNTArray}
 )
-    broadcast_trafo(trafo, v_src)
+    broadcast_trafo(f_transform, v_src)
 end
 
 
-function (trafo::DistributionTransform)(s::DensitySample)
-    v, ladj = with_logabsdet_jacobian(trafo, s.v)
+function (f_transform::DistributionTransform)(s::DensitySample)
+    v, ladj = with_logabsdet_jacobian(f_transform, s.v)
     logd = s.logd - ladj
     DensitySample(v, logd, s.weight, s.info, s.aux)
 end
 
 
 function Base.Broadcast.broadcasted(
-    trafo::DistributionTransform,
+    f_transform::DistributionTransform,
     s_src::DensitySampleVector
 )
-    broadcast_trafo(trafo, s_src)
+    broadcast_trafo(f_transform, s_src)
 end
 
 
@@ -211,14 +211,14 @@ end
 # Base.:(∘)(f::DistributionTransform, ::typeof(identity)) = f
 
 
-function ValueShapes.resultshape(trafo::DistributionTransform, vs::AbstractValueShape)
-    @argcheck vs <= varshape(trafo.source_dist)
-    varshape(trafo.target_dist)
+function ValueShapes.resultshape(f_transform::DistributionTransform, vs::AbstractValueShape)
+    @argcheck vs <= varshape(f_transform.source_dist)
+    varshape(f_transform.target_dist)
 end
 
 
-_unshaped_trafo(trafo::DistributionTransform) =
-    DistributionTransform(unshaped(trafo.target_dist), unshaped(trafo.source_dist))
+_unshaped_trafo(f_transform::DistributionTransform) =
+    DistributionTransform(unshaped(f_transform.target_dist), unshaped(f_transform.source_dist))
 
 
 

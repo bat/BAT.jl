@@ -17,29 +17,29 @@ using Optim
 
     @testset "distribution transforms" begin
         function test_uv_transformed(target_type::Type{<:Distribution}, source_dist::Distribution)
-            trafo = BAT.DistributionTransform(target_type, source_dist)
-            @testset "$(typeof(trafo.source_dist))) to $(typeof(trafo.target_dist))" begin
+            f_transform = BAT.DistributionTransform(target_type, source_dist)
+            @testset "$(typeof(f_transform.source_dist))) to $(typeof(f_transform.target_dist))" begin
                 if target_type == Uniform
-                    @test trafo.target_dist isa BAT.StandardUvUniform
+                    @test f_transform.target_dist isa BAT.StandardUvUniform
                 elseif target_type == Normal
-                    @test trafo.target_dist isa BAT.StandardUvNormal
+                    @test f_transform.target_dist isa BAT.StandardUvNormal
                 end
 
-                target_dist = trafo.target_dist
-                source_dist = trafo.source_dist
+                target_dist = f_transform.target_dist
+                source_dist = f_transform.source_dist
 
                 source_x = mean(target_dist) + std(target_dist) / 2
-                @test @inferred(trafo(source_x)) isa Real
-                target_x = trafo(source_x)
+                @test @inferred(f_transform(source_x)) isa Real
+                target_x = f_transform(source_x)
 
                 source_X = rand(source_dist, 10^5)
-                target_X = @inferred broadcast(trafo, source_X)
-                @test isapprox(@inferred(broadcast(inverse(trafo), (target_X))), source_X, atol = 10^-8)
+                target_X = @inferred broadcast(f_transform, source_X)
+                @test isapprox(@inferred(broadcast(inverse(f_transform), (target_X))), source_X, atol = 10^-8)
                 @test isapprox(mean(target_X), mean(target_dist), atol = 0.05)
                 @test isapprox(var(target_X), var(target_dist), atol = 0.1)
 
-                @test @inferred(pushfwd(trafo, batmeasure(source_dist))) isa BAT.BATPushFwdMeasure
-                m = pushfwd(trafo, batmeasure(source_dist))
+                @test @inferred(pushfwd(f_transform, batmeasure(source_dist))) isa BAT.BATPushFwdMeasure
+                m = pushfwd(f_transform, batmeasure(source_dist))
 
                 @test isapprox(@inferred(inverse(MeasureBase.gettransform(m))(target_x)), source_x, atol = 10^-5)
 
@@ -64,10 +64,10 @@ using Optim
                 tX_finite = tX[findall(isfinite, fix_nni.(logdensityof(m).(tX)))]
                 @test isapprox(@inferred(broadcast(ForwardDiff.derivative, logdensityof(m), tX_finite)), broadcast(ForwardDiff.derivative, x -> logpdf(target_dist, x), tX_finite), atol = 10^-7)
 
-                @test minimum(target_dist) <= bat_findmode(m, OptimAlg(optalg = LBFGS(), trafo = DoNotTransform()), context).result <= maximum(target_dist)
+                @test minimum(target_dist) <= bat_findmode(m, OptimAlg(optalg = LBFGS(), pretransform = DoNotTransform()), context).result <= maximum(target_dist)
 
-                if trafo.target_dist isa Union{BAT.StandardUvUniform,BAT.StandardMvUniform}
-                    @test isapprox(bat_integrate(m, VEGASIntegration(trafo = DoNotTransform()), context).result, 1, rtol = 10^-7)
+                if f_transform.target_dist isa Union{BAT.StandardUvUniform,BAT.StandardMvUniform}
+                    @test isapprox(bat_integrate(m, VEGASIntegration(pretransform = DoNotTransform()), context).result, 1, rtol = 10^-7)
                 end
             end
         end
@@ -82,14 +82,14 @@ using Optim
 
 
         src_d = NamedTupleDist(a = Exponential(), b = [4.2, 3.3], c = Weibull(), d = [Normal(1, 3), Normal(3, 2)], e = Uniform(-2, 3), f = MvNormal([0.3, -2.9], [1.7 0.5; 0.5 2.3]))
-        trafo = @inferred(BAT.DistributionTransform(Normal, src_d))
-        m = @inferred(pushfwd(trafo, basemeasure(trafo.source_dist)))
+        f_transform = @inferred(BAT.DistributionTransform(Normal, src_d))
+        m = @inferred(pushfwd(f_transform, basemeasure(f_transform.source_dist)))
         @test isfinite(@inferred logdensityof(m)(@inferred(bat_initval(m, context)).result))
         @test isapprox(cov(@inferred(bat_initval(m, 10^4, context)).result), I(totalndof(varshape(m))), rtol = 0.1)
 
-        samples_is = bat_sample(m, TransformedMCMC(mcalg = HamiltonianMC(), trafo = DoNotTransform(), nsteps = 10^4), context).result
+        samples_is = bat_sample(m, TransformedMCMC(mcalg = HamiltonianMC(), pretransform = DoNotTransform(), nsteps = 10^4), context).result
         @test isapprox(cov(samples_is), I(totalndof(varshape(m))), rtol = 0.1)
-        samples_os = inverse(trafo).(samples_is)
+        samples_os = inverse(f_transform).(samples_is)
         @test all(isfinite, logpdf.(Ref(src_d), samples_os.v))
         @test isapprox(cov(unshaped.(samples_os)), cov(unshaped(src_d)), rtol = 0.1)
         @test isapprox(mean(unshaped.(samples_os)), mean(rand(unshaped(src_d), 10^5), dims = 2), rtol = 0.1)
@@ -99,7 +99,7 @@ using Optim
         prior = HierarchicalDistribution(f_secondary, primary_dist)
         likelihood = logfuncdensity(logdensityof(varshape(prior)(MvNormal(Diagonal(fill(1.0, totalndof(varshape(prior))))))))
         m = PosteriorMeasure(likelihood, prior)
-        hmc_samples = bat_sample(m, TransformedMCMC(mcalg = HamiltonianMC(), trafo = PriorToGaussian(), nsteps = 10^4), context).result
+        hmc_samples = bat_sample(m, TransformedMCMC(mcalg = HamiltonianMC(), pretransform = PriorToGaussian(), nsteps = 10^4), context).result
         is_samples = bat_sample(m, PriorImportanceSampler(nsamples = 10^4), context).result
         @test isapprox(mean(unshaped.(hmc_samples)), mean(unshaped.(is_samples)), rtol = 0.1)
         @test isapprox(cov(unshaped.(hmc_samples)), cov(unshaped.(is_samples)), rtol = 0.2)

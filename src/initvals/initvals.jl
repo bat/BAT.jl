@@ -163,7 +163,7 @@ function bat_initval_impl(target::MeasureLike, n::Integer, algorithm::ExplicitIn
 end
 
 
-function apply_trafo_to_init(trafo::Function, initalg::ExplicitInit)
-    xs_tr = broadcast_trafo(trafo, initalg.xs)
+function apply_trafo_to_init(f_transform::Function, initalg::ExplicitInit)
+    xs_tr = broadcast_trafo(f_transform, initalg.xs)
     ExplicitInit(xs_tr)
 end

@@ -27,6 +27,9 @@ run more or less unchanged (with deprecation warnings). Also:
 
 * `MCMCTuningAlgorithm` has been replaced by `MCMCTransformTuning`.
 
+* The `trafo` parameter of algorithms has been renamed to `pretransform`, the
+  `trafo` field in algorithm results has been renamed to `f_pretransform`.
+
 
 ### New features
 

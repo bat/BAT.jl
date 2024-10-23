@@ -45,7 +45,7 @@ import AdvancedHMC
         @test @inferred(logpdf(hd, varshape(hd)(ux))) == logpdf(ud, ux)
         @test @inferred(logpdf(hd, varshape(hd)(ux))) == logpdf(ud, ux)
 
-        samples = bat_sample(hd, TransformedMCMC(mcalg = HamiltonianMC(), trafo = DoNotTransform(), nsteps = 10^4), context).result
+        samples = bat_sample(hd, TransformedMCMC(mcalg = HamiltonianMC(), pretransform = DoNotTransform(), nsteps = 10^4), context).result
         @test isapprox(cov(unshaped.(samples)), cov(ud), rtol = 0.25)
     end
 

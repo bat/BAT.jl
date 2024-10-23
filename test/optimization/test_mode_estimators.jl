@@ -34,7 +34,7 @@ using Optim, OptimizationOptimJL
             # # ToDo: Re-enable trace tests once tracing has been re-enabled:
             #if hasproperty(res.trace_trafo, :grad_logd)
             #    @unpack v, logd, grad_logd = res.trace_trafo
-            #    f_logd = logdensityof(posterior) ∘ inverse(res.trafo)
+            #    f_logd = logdensityof(posterior) ∘ inverse(res.f_pretransform)
             #    @test all(f_logd.(v) .≈ logd)
             #    @test all(grad_logd .≈ ForwardDiff.gradient.(Ref(f_logd), v))
             #else
@@ -73,12 +73,12 @@ using Optim, OptimizationOptimJL
 
     @testset "Optim.jl - NelderMead" begin
         context = BATContext(rng = Philox4x((0, 0)))
-        test_findmode(posterior, OptimAlg(optalg = NelderMead(), trafo = DoNotTransform()), 0.01, context)
+        test_findmode(posterior, OptimAlg(optalg = NelderMead(), pretransform = DoNotTransform()), 0.01, context)
     end
 
     @testset "Optim.jl with custom options" begin # checks that options are correctly passed to Optim.jl
         context = BATContext(rng = Philox4x((0, 0)))
-        optimizer = OptimAlg(optalg = NelderMead(), trafo = DoNotTransform(), maxiters=20, maxtime=30, reltol=0.2, kwargs=(f_calls_limit=25,))
+        optimizer = OptimAlg(optalg = NelderMead(), pretransform = DoNotTransform(), maxiters=20, maxtime=30, reltol=0.2, kwargs=(f_calls_limit=25,))
         
         result = bat_findmode(posterior, optimizer, context)
         @test result.info.res.iterations <= 20
@@ -91,27 +91,27 @@ using Optim, OptimizationOptimJL
     @testset "Optim.jl - LBFGS" begin
         context = BATContext(rng = Philox4x((0, 0)), ad = ForwardDiff)
         # Result Optim.maximize with LBFGS is not type-stable:
-        test_findmode(posterior, OptimAlg(optalg = LBFGS(), trafo = DoNotTransform()), 0.01, inferred = false, context)
+        test_findmode(posterior, OptimAlg(optalg = LBFGS(), pretransform = DoNotTransform()), 0.01, inferred = false, context)
 
-        test_findmode_ctx(posterior, OptimAlg(optalg = LBFGS(), trafo = DoNotTransform()), 0.01, context)
+        test_findmode_ctx(posterior, OptimAlg(optalg = LBFGS(), pretransform = DoNotTransform()), 0.01, context)
     end
 
 
     @testset "Optimization.jl - NelderMead" begin
         context = BATContext(rng = Philox4x((0, 0)))
         # result is not type-stable:
-        test_findmode(posterior, OptimizationAlg(optalg = OptimizationOptimJL.NelderMead(), trafo = DoNotTransform()), 0.01, context, inferred = false) 
+        test_findmode(posterior, OptimizationAlg(optalg = OptimizationOptimJL.NelderMead(), pretransform = DoNotTransform()), 0.01, context, inferred = false) 
     end
 
     @testset "Optimization.jl with custom options" begin # checks that options are correctly passed to Optimization.jl
         context = BATContext(rng = Philox4x((0, 0)))
-        optimizer = OptimizationAlg(optalg = OptimizationOptimJL.ParticleSwarm(n_particles=10), maxiters=200, kwargs=(f_calls_limit=500,), trafo=DoNotTransform())
+        optimizer = OptimizationAlg(optalg = OptimizationOptimJL.ParticleSwarm(n_particles=10), maxiters=200, kwargs=(f_calls_limit=500,), pretransform=DoNotTransform())
 
         # result is not type-stable:
         test_findmode(posterior, optimizer, 0.01, context, inferred = false) 
 
         optimizer = OptimizationAlg(optalg = OptimizationOptimJL.ParticleSwarm(n_particles=10), 
-        maxiters=200, maxtime=30, reltol=0.2, kwargs=(f_calls_limit=500,), trafo=DoNotTransform())
+        maxiters=200, maxtime=30, reltol=0.2, kwargs=(f_calls_limit=500,), pretransform=DoNotTransform())
 
         result = bat_findmode(posterior, optimizer, context)
         @test result.info.cache.solver_args.maxiters == 200

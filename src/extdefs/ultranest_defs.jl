@@ -31,7 +31,7 @@ $(TYPEDFIELDS)
     `import UltraNest`).
 """
 @with_kw struct ReactiveNestedSampling{TR<:AbstractTransformTarget,VC<:Union{Function,Nothing},Ex} <: AbstractSamplingAlgorithm
-    trafo::TR = (pkgext(Val(:UltraNest)); PriorToUniform())
+    pretransform::TR = (pkgext(Val(:UltraNest)); PriorToUniform())
 
     # "Indicating whether this parameter wraps around (circular parameter)"
     # wrapped_params::Array{Bool}

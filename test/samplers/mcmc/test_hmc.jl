@@ -50,9 +50,9 @@ import AdvancedHMC
     @testset "MCMC tuning and burn-in" begin
         max_nsteps = 10^5
         proposal_tuning = BAT.StanHMCTuning()
-        trafo = DoNotTransform()
-        init_alg = bat_default(TransformedMCMC, Val(:init), proposal, trafo, nchains, max_nsteps)
-        burnin_alg = bat_default(TransformedMCMC, Val(:burnin), proposal, trafo, nchains, max_nsteps)
+        pretransform = DoNotTransform()
+        init_alg = bat_default(TransformedMCMC, Val(:init), proposal, pretransform, nchains, max_nsteps)
+        burnin_alg = bat_default(TransformedMCMC, Val(:burnin), proposal, pretransform, nchains, max_nsteps)
         convergence_test = BrooksGelmanConvergence()
         strict = true
         nonzero_weights = false
@@ -60,7 +60,7 @@ import AdvancedHMC
 
         samplingalg = TransformedMCMC(proposal = proposal,
             proposal_tuning = proposal_tuning, 
-            pre_transform = trafo, 
+            pretransform = pretransform, 
             init = init_alg, 
             burnin = burnin_alg, 
             convergence = convergence_test, 
@@ -109,7 +109,7 @@ import AdvancedHMC
             TransformedMCMC(
                 proposal = proposal,
                 proposal_tuning = StanHMCTuning(),
-                pre_transform = DoNotTransform(),
+                pretransform = DoNotTransform(),
                 nsteps = 10^4,
                 store_burnin = true
             ),
@@ -125,7 +125,7 @@ import AdvancedHMC
             TransformedMCMC(
                 proposal = proposal,
                 proposal_tuning = StanHMCTuning(),
-                pre_transform = DoNotTransform(),
+                pretransform = DoNotTransform(),
                 nsteps = 10^4,
                 store_burnin = false
             ),
@@ -144,7 +144,7 @@ import AdvancedHMC
         inner_posterior = PosteriorMeasure(likelihood, prior)
         # Test with nested posteriors:
         posterior = PosteriorMeasure(likelihood, inner_posterior)
-        @test BAT.sample_and_verify(posterior, TransformedMCMC(proposal = HamiltonianMC(), proposal_tuning = StanHMCTuning(), pre_transform = PriorToGaussian()), prior.dist, context).verified
+        @test BAT.sample_and_verify(posterior, TransformedMCMC(proposal = HamiltonianMC(), proposal_tuning = StanHMCTuning(), pretransform = PriorToGaussian()), prior.dist, context).verified
     end
 
     @testset "HMC autodiff" begin

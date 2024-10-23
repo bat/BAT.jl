@@ -146,7 +146,7 @@ $(TYPEDFIELDS)
     `import`).
 """
 @with_kw struct EllipsoidalNestedSampling{TR<:AbstractTransformTarget} <: AbstractSamplingAlgorithm
-    trafo::TR = (pkgext(Val(:NestedSamplers)); PriorToUniform())
+    pretransform::TR = (pkgext(Val(:NestedSamplers)); PriorToUniform())
 
     "Number of live-points."
     num_live_points::Int = 1000

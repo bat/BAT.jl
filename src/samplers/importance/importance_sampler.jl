@@ -14,7 +14,7 @@ Fields:
 $(TYPEDFIELDS)
 """
 @with_kw struct SobolSampler{TR<:AbstractTransformTarget} <: AbstractSamplingAlgorithm
-    trafo::TR = PriorToUniform()
+    pretransform::TR = PriorToUniform()
     nsamples::Int = 10^5
 end
 export SobolSampler
@@ -37,7 +37,7 @@ Fields:
 $(TYPEDFIELDS)
 """
 @with_kw struct GridSampler{TR<:AbstractTransformTarget} <: AbstractSamplingAlgorithm
-    trafo::TR = PriorToUniform()
+    pretransform::TR = PriorToUniform()
     ppa::Int = 100
 end
 export GridSampler
@@ -48,7 +48,7 @@ function bat_sample_impl(
     algorithm::Union{SobolSampler, GridSampler},
     context::BATContext
 )
-    transformed_measure, trafo = transform_and_unshape(algorithm.trafo, m, context)
+    transformed_measure, f_pretransform = transform_and_unshape(algorithm.pretransform, m, context)
 
     if !has_uhc_support(transformed_measure)
         throw(ArgumentError("$algorithm doesn't measures that are not limited to the unit hypercube"))
@@ -65,9 +65,9 @@ function bat_sample_impl(
     # @show samples #disable for testing
 
     transformed_smpls = DensitySampleVector(samples, logvals, weight = weights)
-    smpls = inverse(trafo).(transformed_smpls)
+    smpls = inverse(f_pretransform).(transformed_smpls)
 
-    return (result = smpls, result_trafo = transformed_smpls, trafo = trafo, integral = est_integral)
+    return (result = smpls, result_trafo = transformed_smpls, f_pretransform = f_pretransform, integral = est_integral)
 end
 
 

@@ -123,7 +123,7 @@ end
 
 function BAT.bat_integrate_impl(target::MeasureLike, algorithm::CubaIntegration, context::BATContext)
     measure = batmeasure(target)
-    transformed_measure, _ = transform_and_unshape(algorithm.trafo, measure, context)
+    transformed_measure, _ = transform_and_unshape(algorithm.pretransform, measure, context)
 
     if !BAT.has_uhc_support(transformed_measure)
         throw(ArgumentError("CUBA integration requires measures are supported only on the unit hypercube"))

@@ -20,7 +20,7 @@ $(TYPEDFIELDS)
     `import CUBA`).
 """
 @with_kw struct VEGASIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
-    trafo::TR = PriorToUniform()
+    pretransform::TR = PriorToUniform()
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))
@@ -55,7 +55,7 @@ $(TYPEDFIELDS)
     `import CUBA`).
 """
 @with_kw struct SuaveIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
-    trafo::TR = PriorToUniform()
+    pretransform::TR = PriorToUniform()
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))
@@ -90,7 +90,7 @@ $(TYPEDFIELDS)
     `import CUBA`).
 """
 @with_kw struct DivonneIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
-    trafo::TR = PriorToUniform()
+    pretransform::TR = PriorToUniform()
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))
@@ -131,7 +131,7 @@ $(TYPEDFIELDS)
     `import CUBA`).
 """
 @with_kw struct CuhreIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
-    trafo::TR = PriorToUniform()
+    pretransform::TR = PriorToUniform()
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))

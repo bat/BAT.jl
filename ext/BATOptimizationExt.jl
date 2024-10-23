@@ -42,10 +42,10 @@ end
 
 
 function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimizationAlg, context::BATContext)
-    transformed_density, trafo = transform_and_unshape(algorithm.trafo, target, context)
-    inv_trafo = inverse(trafo)
+    transformed_density, f_pretransform = transform_and_unshape(algorithm.pretransform, target, context)
+    inv_trafo = inverse(f_pretransform)
 
-    initalg = apply_trafo_to_init(trafo, algorithm.init)
+    initalg = apply_trafo_to_init(f_pretransform, algorithm.init)
     x_init = collect(bat_initval(transformed_density, initalg, context).result)
 
     # Maximize density of original target, but run in transformed space, don't apply LADJ:
@@ -63,7 +63,7 @@ function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimizationAlg, 
     transformed_mode =  optimization_result.u
     result_mode = inv_trafo(transformed_mode)
 
-    (result = result_mode, result_trafo = transformed_mode, trafo = trafo, info = optimization_result)
+    (result = result_mode, result_trafo = transformed_mode, f_pretransform = f_pretransform, info = optimization_result)
 end
 
 

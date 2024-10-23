@@ -9,14 +9,14 @@ function broadcast_trafo(::typeof(identity), v_src::Any)
 end
 
 function broadcast_trafo(
-    trafo::Any,
+    f_transform::Any,
     v_src::Union{ArrayOfSimilarVectors{<:Real},ShapedAsNTArray}
 )
     vs_src = elshape(v_src)
-    vs_trg = resultshape(trafo, vs_src)
-    R = eltype(unshaped(trafo(first(v_src)), vs_trg))
+    vs_trg = resultshape(f_transform, vs_src)
+    R = eltype(unshaped(f_transform(first(v_src)), vs_trg))
     v_src_us = unshaped.(v_src)
-    trafo_us = _unshaped_trafo(trafo)
+    trafo_us = _unshaped_trafo(f_transform)
 
     n = length(eachindex(v_src_us))
     v_trg_unshaped = nestedview(similar(flatview(v_src_us), R, totalndof(vs_trg), n))
@@ -38,14 +38,14 @@ function broadcast_trafo(
 end
 
 function broadcast_trafo(
-    trafo::Any,
+    f_transform::Any,
     s_src::DensitySampleVector
 )
     vs_src = elshape(s_src.v)
-    vs_trg = resultshape(trafo, vs_src)
-    R = eltype(unshaped(trafo(first(s_src.v)), vs_trg))
+    vs_trg = resultshape(f_transform, vs_src)
+    R = eltype(unshaped(f_transform(first(s_src.v)), vs_trg))
     s_src_us = unshaped.(s_src)
-    trafo_us = _unshaped_trafo(trafo)
+    trafo_us = _unshaped_trafo(f_transform)
 
     n = length(eachindex(s_src_us))
     s_trg_unshaped = DensitySampleVector((
@@ -67,13 +67,13 @@ end
 
 
 function broadcast_arbitrary_trafo(
-    trafo::Any,
+    f_transform::Any,
     smpls::DensitySampleVector
 )
     dummy_x = first(smpls.v)
-    dummy_y = trafo(dummy_x)
+    dummy_y = f_transform(dummy_x)
     y_shape = valshape(dummy_y)
-    unshaped_Y = VectorOfSimilarVectors(FunctionChain((trafo, inverse(y_shape))).(smpls.v))
+    unshaped_Y = VectorOfSimilarVectors(FunctionChain((f_transform, inverse(y_shape))).(smpls.v))
     Y = y_shape.(unshaped_Y)
     DensitySampleVector((
         Y,

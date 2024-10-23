@@ -63,7 +63,7 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::EllipsoidalNestedSampling
     # ToDo: Forward RNG from context!
     rng = get_rng(context)
 
-    transformed_m, trafo = BAT.transform_and_unshape(algorithm.trafo, m, context)                 # BAT prior transformation
+    transformed_m, f_pretransform = BAT.transform_and_unshape(algorithm.pretransform, m, context)                 # BAT prior transformation
     dims = totalndof(varshape(transformed_m))
 
     if !BAT.has_uhc_support(transformed_m)
@@ -89,13 +89,13 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::EllipsoidalNestedSampling
     samples = [samples_w[i, 1:end-1] for i in 1:nsamples]                                   # the other ones (between 1 and end-1) are the samples
     logvals = map(logdensityof(transformed_m), samples)                                           # posterior values of the samples
     transformed_smpls = BAT.DensitySampleVector(samples, logvals, weight = weights)
-    smpls = inverse(trafo).(transformed_smpls)                                            # Here the samples are retransformed
+    smpls = inverse(f_pretransform).(transformed_smpls)                                            # Here the samples are retransformed
     
     logintegral = Measurements.measurement(state.logz, state.logzerr)
     ess = bat_eff_sample_size(smpls, KishESS(), context).result
 
     return (
-        result = smpls, result_trafo = transformed_smpls, trafo = trafo, 
+        result = smpls, result_trafo = transformed_smpls, f_pretransform = f_pretransform, 
         logintegral = logintegral, ess = ess,
         info = state
     )

@@ -183,8 +183,8 @@ MeasureBase.transport_to(mu::BATMeasure, nu::BATMeasure) = _bat_transport_to(mu,
 function _bat_transport_to(mu, nu)
     target_dist, target_pushfwd = _dist_with_pushfwd(mu)
     source_dist, source_pullback = _dist_with_pullback(nu)
-    trafo = DistributionTransform(target_dist, source_dist)
-    return fcomp(target_pushfwd, fcomp(trafo, source_pullback))
+    f_transform = DistributionTransform(target_dist, source_dist)
+    return fcomp(target_pushfwd, fcomp(f_transform, source_pullback))
 end
 
 _dist_with_pushfwd(m::BATMeasure) = Distribution(m), identity

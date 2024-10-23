@@ -66,7 +66,7 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets
 
     let
         trunc_prior_dist = parent(BAT.getprior(trunc_pstr)).dist
-        s = bat_sample(trunc_pstr, TransformedMCMC(mcalg = RandomWalk(), trafo = DoNotTransform(), nsteps = 10^5)).result
+        s = bat_sample(trunc_pstr, TransformedMCMC(mcalg = RandomWalk(), pretransform = DoNotTransform(), nsteps = 10^5)).result
         s_flat = flatview(unshaped.(s))
         @test all(minimum.(bounds) .< minimum(s_flat))
         @test all(maximum.(bounds) .> maximum(s_flat))

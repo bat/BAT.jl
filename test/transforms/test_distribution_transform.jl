@@ -38,7 +38,7 @@ using MeasureBase
     end
 
     function test_dist_trafo_moments(trg_d, src_d)
-        @testset "check moments of trafo $(typeof(trg_d).name) <- $(typeof(src_d).name)" begin
+        @testset "check moments of transform $(typeof(trg_d).name) <- $(typeof(src_d).name)" begin
             X = flatview(rand(src_d, 10^5))
             trgxs = get_trgxs(trg_d, src_d, X)
             unshaped_trgxs = broadcast(unshaped, trgxs, Ref(varshape(trg_d)))
@@ -158,33 +158,33 @@ using MeasureBase
         ChangesOfVariables.test_with_logabsdet_jacobian(f, x, ForwardDiff.jacobian)
     end
 
-    @testset "trafo broadcasting" begin
+    @testset "transfom broadcasting" begin
         dist = NamedTupleDist(a = Weibull(), b = Exponential())
         smpls = bat_sample(dist, IIDSampling(nsamples = 100)).result
-        trafo = BAT.DistributionTransform(Normal, dist)
-        @inferred(broadcast(trafo, smpls)) isa DensitySampleVector
-        smpls_tr = trafo.(smpls)
-        smpls_tr_cmp = [trafo(s) for s in smpls]
+        f_transform = BAT.DistributionTransform(Normal, dist)
+        @inferred(broadcast(f_transform, smpls)) isa DensitySampleVector
+        smpls_tr = f_transform.(smpls)
+        smpls_tr_cmp = [f_transform(s) for s in smpls]
         @test smpls_tr == smpls_tr_cmp
-        @test @inferred(resultshape(trafo, elshape(smpls.v))) == varshape(trafo.target_dist)
+        @test @inferred(resultshape(f_transform, elshape(smpls.v))) == varshape(f_transform.target_dist)
     end
 
-    # @testset "trafo composition" begin
+    # @testset "transform composition" begin
     #     dist1 = @inferred(NamedTupleDist(a = Normal(), b = Uniform(), c = Cauchy()))
     #     dist2 = @inferred(NamedTupleDist(a = Exponential(), b = Weibull(), c = Beta()))
     #     normal1 = Normal()
     #     normal2 = Normal(2)
     # 
-    #     trafo = @inferred(BAT.DistributionTransform(dist1, dist2))
-    #     inv_trafo = @inferred(inverse(trafo))
+    #     f_transform = @inferred(BAT.DistributionTransform(dist1, dist2))
+    #     inv_trafo = @inferred(inverse(f_transform))
     # 
-    #     composed_trafo = @inferred(∘(trafo, inv_trafo))
+    #     composed_trafo = @inferred(∘(f_transform, inv_trafo))
     #     @test composed_trafo.source_dist == composed_trafo.target_dist == dist1
-    #     @test composed_trafo ∘ trafo == trafo
-    #     @test_throws ArgumentError  trafo ∘ composed_trafo
+    #     @test composed_trafo ∘ f_transform == f_transform
+    #     @test_throws ArgumentError  f_transform ∘ composed_trafo
     # 
-    #     trafo = @inferred(BAT.DistributionTransform(normal1, normal2))
-    #     @test_throws ArgumentError trafo ∘ trafo
+    #     f_transform = @inferred(BAT.DistributionTransform(normal1, normal2))
+    #     @test_throws ArgumentError f_transform ∘ f_transform
     # end
 
     @testset "full density transform" begin
@@ -202,7 +202,7 @@ using MeasureBase
         @test posterior_density_trafod.result.f.target_dist isa BAT.StandardMvUniform
     end
 
-    @testset "trafo autodiff pullbacks" begin
+    @testset "transform autodiff pullbacks" begin
         # ToDo: Test for type stability and fix where necessary.
 
         xs = rand(5)

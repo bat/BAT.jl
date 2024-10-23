@@ -86,12 +86,12 @@ get_initsrc_from_target(em::EvaluatedMeasure) = em.samples
 _get_deep_prior_for_trafo(em::EvaluatedMeasure) = _get_deep_prior_for_trafo(em.measure)
 
 function bat_transform_impl(target::AbstractTransformTarget, em::EvaluatedMeasure, algorithm::PriorSubstitution, context::BATContext)
-    new_measure, trafo = bat_transform_impl(target, em.measure, algorithm, context)
+    new_measure, f_transform = bat_transform_impl(target, em.measure, algorithm, context)
     samples = em.samples
-    smpl_trafoalg = bat_default(bat_transform, Val(:algorithm), trafo, samples)
-    new_samples, _ = bat_transform_impl(trafo, samples, smpl_trafoalg, context)
+    smpl_trafoalg = bat_default(bat_transform, Val(:algorithm), f_transform, samples)
+    new_samples, _ = bat_transform_impl(f_transform, samples, smpl_trafoalg, context)
     new_em = EvaluatedMeasure(new_measure, new_samples, em.approx, em.mass, em.modes, em._generator)
-    (result = new_em, trafo = trafo)
+    (result = new_em, f_transform = f_transform)
 end
 
 # ToDo: truncate_batmeasure(em::EvaluatedMeasure, bounds::AbstractArray{<:Interval})

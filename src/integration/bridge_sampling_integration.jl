@@ -17,7 +17,7 @@ Fields:
 $(TYPEDFIELDS)
 """
 @with_kw struct BridgeSampling{TR<:AbstractTransformTarget,ESS<:EffSampleSizeAlgorithm} <: IntegrationAlgorithm
-    trafo::TR = PriorToGaussian()    
+    pretransform::TR = PriorToGaussian()    
     essalg::ESS = EffSampleSizeFromAC()
     strict::Bool = true
     # ToDo: add argument for proposal density generator
@@ -27,7 +27,7 @@ export BridgeSampling
 
 function bat_integrate_impl(target::EvaluatedMeasure, algorithm::BridgeSampling, context::BATContext)
     @argcheck !isnothing(target.samples)
-    transformed_target, _ = transform_and_unshape(algorithm.trafo, target, context)
+    transformed_target, _ = transform_and_unshape(algorithm.pretransform, target, context)
     renomalized_target, logweight = auto_renormalize(transformed_target)
     measure, samples = renomalized_target.measure, renomalized_target.samples
 

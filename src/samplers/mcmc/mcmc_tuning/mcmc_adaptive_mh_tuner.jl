@@ -134,7 +134,7 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::M
     
     tuner.iteration += 1
 
-    # TODO: MD, think about keeping old z_position if trafo only slightly changes, and return a bool accordingly, instead of always 'true'
+    # TODO: MD, think about keeping old z_position if transform changes only slightly, and return a bool accordingly, instead of always 'true'
     chain_state, tuner, true
 end
 

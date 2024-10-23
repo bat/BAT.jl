@@ -56,7 +56,7 @@ Base.@deprecate MetropolisHastings() RandomWalk()
 
 Base.@deprecate MCMCSampling(;
     mcalg::MCMCProposal = RandomWalk(),
-    trafo::AbstractTransformTarget = bat_default(TransformedMCMC, Val(:pre_transform), mcalg),
+    trafo::AbstractTransformTarget = bat_default(TransformedMCMC, Val(:pretransform), mcalg),
     nchains::Int = 4,
     nsteps::Int = bat_default(TransformedMCMC, Val(:nsteps), mcalg, trafo, nchains),
     init::MCMCInitAlgorithm = bat_default(TransformedMCMC, Val(:init), mcalg, trafo, nchains, nsteps),
@@ -68,7 +68,7 @@ Base.@deprecate MCMCSampling(;
     callback::Function = nop_func
 ) TransformedMCMC(
     proposal = mcalg,
-    pre_transform = trafo,
+    pretransform = trafo,
     nchains = nchains,
     nsteps = nsteps,
     init = init,
