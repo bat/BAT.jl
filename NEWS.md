@@ -112,6 +112,8 @@ BAT.jl v3.0.0
 
 * Use the new function `bat_report` to generate a sampling output report instead of `show(BAT.SampledDensity(samples))`.
 
+* The field types of `EvaluatedMeasure` have changed.
+
 
 ### New features
 ------------

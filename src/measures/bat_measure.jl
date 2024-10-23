@@ -15,6 +15,24 @@ measure_support(m::AbstractMeasure) = UnknownDomain()
 struct UnknownDomain end
 
 
+# ToDo: Document and make public:
+maybe_samplesof(::AbstractMeasure) = missing
+maybe_modesof(::AbstractMeasure) = missing
+maybe_approxof(::AbstractMeasure) = missing
+maybe_generator(::AbstractMeasure) = missing
+
+# ToDo: Document and make public:
+function maybe_modeof(m::AbstractMeasure)
+    m_modes = maybe_modesof(m)
+    if ismissing(m_modes)
+        return missing
+    elseif length(m_modes) > 1
+        throw(ArgumentError("Measure of type $(nameof(typeof(m))) has multiple modes"))
+    else
+        return only(m_modes)
+    end
+end
+
 
 """
     abstract type BATMeasure <:AbstractMeasure
