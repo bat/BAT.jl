@@ -25,11 +25,12 @@ end
 export BridgeSampling
 
 
-function bat_integrate_impl(target::EvaluatedMeasure, algorithm::BridgeSampling, context::BATContext)
-    @argcheck !isnothing(target.samples)
-    transformed_target, _ = transform_and_unshape(algorithm.pretransform, target, context)
-    renomalized_target, logweight = auto_renormalize(transformed_target)
-    measure, samples = renomalized_target.measure, renomalized_target.samples
+function bat_integrate_impl(m::EvaluatedMeasure, algorithm::BridgeSampling, context::BATContext)
+    @argcheck !isnothing(m.samples)
+    transformed_m, _ = transform_and_unshape(algorithm.pretransform, m, context)
+    transformed_m_uneval = unevaluated(transformed_m)
+    renomalized_target, logweight = auto_renormalize(transformed_m)
+    measure, samples = transformed_m_uneval, renomalized_target.samples
 
     (value, error) = bridge_sampling_integral(measure, samples, algorithm.strict, algorithm.essalg, context)
     rescaled_value, rescaled_error = exp(BigFloat(log(value) - logweight)), exp(BigFloat(log(error) - logweight))

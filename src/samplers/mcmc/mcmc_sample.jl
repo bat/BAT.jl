@@ -54,7 +54,8 @@ bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::TriangularAffin
 
 
 function MCMCState(samplingalg::TransformedMCMC, target::BATMeasure, id::Integer, v_init::AbstractVector, context::BATContext)
-    chain_state = MCMCChainState(samplingalg, target, Int32(id), v_init, context)
+    target_unevaluated = unevaluated(target)
+    chain_state = MCMCChainState(samplingalg, target_unevaluated, Int32(id), v_init, context)
     trafo_tuner_state = create_trafo_tuner_state(samplingalg.transform_tuning, chain_state, 0)
     proposal_tuner_state = create_proposal_tuner_state(samplingalg.proposal_tuning, chain_state, 0)
     temperer_state = create_temperering_state(samplingalg.tempering, target)
@@ -73,13 +74,12 @@ bat_default(::TransformedMCMC, ::Val{:init}, ::AbstractTransformTarget, nchains:
 bat_default(::TransformedMCMC, ::Val{:burnin}, ::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
-function bat_sample_impl(target::BATMeasure, samplingalg::TransformedMCMC, context::BATContext)
-        
-    target_transformed, f_pretransform = transform_and_unshape(samplingalg.pretransform, target, context)
+function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::BATContext)
+    transformed_m, f_pretransform = transform_and_unshape(samplingalg.pretransform, m, context)
 
     mcmc_states, chain_outputs = mcmc_init!(
         samplingalg,
-        target_transformed,
+        transformed_m,
         apply_trafo_to_init(f_pretransform, samplingalg.init), # TODO: MD: at which point should the init_alg be transformed? Might be better to read, if it's transformed later during init of states
         samplingalg.store_burnin ? samplingalg.callback : nop_func,
         context

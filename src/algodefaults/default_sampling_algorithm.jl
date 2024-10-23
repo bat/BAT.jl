@@ -15,5 +15,5 @@ bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::DensitySampleMeasure) = O
 bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::PosteriorMeasure) = TransformedMCMC()
 
 function bat_default(::typeof(bat_sample), ::Val{:algorithm}, m::EvaluatedMeasure)
-    bat_default(bat_sample, Val(:algorithm), m.measure)
+    bat_default(bat_sample, Val(:algorithm), unevaluated(m))
 end

@@ -48,15 +48,17 @@ function bat_sample_impl(
     algorithm::Union{SobolSampler, GridSampler},
     context::BATContext
 )
-    transformed_measure, f_pretransform = transform_and_unshape(algorithm.pretransform, m, context)
+    transformed_m, f_pretransform = transform_and_unshape(algorithm.pretransform, m, context)
+    transformed_m_uneval = unevaluated(transformed_m)
 
-    if !has_uhc_support(transformed_measure)
+    if !has_uhc_support(transformed_m_uneval)
         throw(ArgumentError("$algorithm doesn't measures that are not limited to the unit hypercube"))
     end
 
-    samples = _gen_samples(transformed_measure, algorithm, context)
+    samples = _gen_samples(transformed_m_uneval, algorithm, context)
 
-    logvals = map(logdensityof(transformed_measure), samples)
+    # TODO: Parallelize
+    logvals = map(logdensityof(transformed_m_uneval), samples)
     weights = exp.(logvals)
     # ToDo: Renormalize weights
 
