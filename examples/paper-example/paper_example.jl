@@ -135,23 +135,21 @@ prior_bkg =  distbind(make_child_prior(length(summary_dataset_table)), parent_pr
 
 prior_bkg_signal = distbind(make_child_prior(length(summary_dataset_table)), parent_prior_bkg_signal, merge)
 
-posterior_bkg = PosteriorMeasure(make_likelihood_bkg(summary_dataset_table, sample_table), prior_bkg)
+posterior_bkg = lbqintegral(make_likelihood_bkg(summary_dataset_table, sample_table), prior_bkg)
 
-posterior_bkg_signal = PosteriorMeasure(SignalBkgLikelihood(summary_dataset_table, sample_table), prior_bkg_signal)
+posterior_bkg_signal = lbqintegral(SignalBkgLikelihood(summary_dataset_table, sample_table), prior_bkg_signal)
 
 nchains = 4
 nsteps = 10^5
 
 algorithm = TransformedMCMC(proposal = HamiltonianMC(), nchains = nchains, nsteps = nsteps)
 
-samples_bkg = bat_sample(posterior_bkg, algorithm).result
-eval_bkg = EvaluatedMeasure(posterior_bkg, samples = samples_bkg)
+samples_bkg, eval_bkg = bat_sample(posterior_bkg, algorithm)
 
 @show evidence_bkg_bridge = bat_integrate(eval_bkg, BridgeSampling()).result
 @show evidence_bkg_cuba = bat_integrate(eval_bkg, VEGASIntegration(maxevals = 10^6, rtol = 0.005)).result
 
-samples_bkg_signal = bat_sample(posterior_bkg_signal, algorithm).result
-eval_bkg_signal = EvaluatedMeasure(posterior_bkg_signal, samples = samples_bkg_signal)
+samples_bkg_signal, eval_bkg_signal = bat_sample(posterior_bkg_signal, algorithm)
 
 @show evidence_bkg_signal_bridge = bat_integrate(eval_bkg_signal, BridgeSampling()).result
 @show evidence_bkg_signal_cuba = bat_integrate(eval_bkg_signal, VEGASIntegration(maxevals = 10^6, rtol = 0.005)).result
