@@ -26,7 +26,7 @@ end
 
 BATMeasure(m::PushforwardMeasure) = BATPushFwdMeasure(m.f, m.finv, batmeasure(m.origin), m.volcorr)
 
-MeasureBase.gettransform(m::BATPushFwdMeasure) = m.trafo
+MeasureBase.gettransform(m::BATPushFwdMeasure) = m.f
 
 MeasureBase.transport_origin(m::BATMeasure) = m.orig
 MeasureBase.from_origin(m::BATMeasure, x) = m.f(x)
@@ -70,8 +70,8 @@ function (f::DistributionTransform)(m::AbstractMeasure; volcorr::Val{vc} = Val(t
 end
 
 
-#!!!!!!!!! Use return type of trafo with testvalue, if no shape change return varshape(m.orig) directly
-ValueShapes.varshape(m::BATPushFwdMeasure) = trafo(varshape(m.orig))
+#!!!!!!!!! Use return type of f with testvalue, if no shape change return varshape(m.orig) directly
+#ValueShapes.varshape(m::BATPushFwdMeasure) = f(varshape(m.orig))
 
 ValueShapes.varshape(m::BATPushFwdMeasure{<:DistributionTransform}) = varshape(m.f.target_dist)
 
@@ -84,12 +84,12 @@ function DensityInterface.logdensityof(@nospecialize(m::_NonBijectiveBATPusfwdMe
 end
 
 function DensityInterface.logdensityof(m::BATPushFwdMeasure{F,I,M,ChangeRootMeasure}, v::Any) where {F,I,M}
-    v_orig = inverse(m.trafo)(v)
+    v_orig = inverse(m.f)(v)
     logdensityof(m.origin, v_orig)
 end
 
 function checked_logdensityof(m::BATPushFwdMeasure{F,I,M,ChangeRootMeasure}, v::Any) where {F,I,M}
-    v_orig = inverse(m.trafo)(v)
+    v_orig = inverse(m.f)(v)
     checked_logdensityof(m.origin, v_orig)
 end
 
