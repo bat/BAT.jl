@@ -54,3 +54,66 @@ end
 result_with_args(r::NamedTuple) = merge(r, (optargs = NamedTuple(),))
 
 result_with_args(r::NamedTuple, optargs::NamedTuple) = merge(r, (optargs = optargs,))
+
+function result_with_args(::Val, ::Any, r::NamedTuple, optargs::NamedTuple)
+    return result_with_args(r, optargs)
+end
+
+function result_with_args(::Val{resultname}, target::Union{AbstractMeasure,Distribution}, r::NamedTuple, optargs::NamedTuple) where resultname
+    measure = batmeasure(target)
+    augmented_result = _augment_bat_retval(Val(resultname), measure, r)
+    result_with_args(augmented_result, optargs)
+end
+
+function _augment_bat_retval(::Val{resultname}, measure, r::R) where {resultname,R}
+    if hasfield(R, :evaluated)
+        return r
+    else
+        if resultname == :samples
+            samples = r.result
+        elseif hasfield(R, :samples)
+            samples = r.samples
+        else
+            samples = maybe_samplesof(measure)
+        end
+
+        if resultname == :approx
+            approx = r.result
+        elseif hasfield(R, :approx)
+            approx = r.approx
+        else
+            approx = maybe_approxof(measure)
+        end
+
+        if resultname == :mass
+            mass = r.result
+        elseif hasfield(R, :mass)
+            mass = r.mass
+        else
+            mass = massof(measure)
+        end
+
+        if resultname == :modes
+            modes = r.result
+        elseif resultname == :mode
+            modes = [r.result]
+        elseif hasfield(R, :modes)
+            modes = r.modes
+        elseif hasfield(R, :mode)
+            modes = [r.mode]
+        else
+            modes = maybe_modesof(measure)
+        end
+
+        if resultname == :generator
+            generator = r.result
+        elseif hasfield(R, :generator)
+            generator = r.generator
+        else
+            generator = maybe_generator(measure)
+        end
+        evaluated = EvaluatedMeasure(unevaluated(measure), samples, approx, mass, modes, generator)
+        r_add = (result = r.result, evaluated = evaluated)
+        return merge(r_add, r)
+    end
+end

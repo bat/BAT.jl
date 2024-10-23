@@ -22,8 +22,10 @@ Calculate the integral (evidence) of `target`.
 Returns a NamedTuple of the shape
 
 ```julia
-(result = X::Measurements.Measurement, ...)
+(result = X::Measurements.Measurement, evaluated::EvaluatedMeasure, ...)
 ```
+
+(The field `evaluated` is only present if `target` is a measure.)
 
 Result properties not listed here are algorithm-specific and are not part
 of the stable public API.
@@ -42,7 +44,7 @@ function bat_integrate_impl end
 function bat_integrate(target::AnySampleable, algorithm::IntegrationAlgorithm, context::BATContext)
     orig_context = deepcopy(context)
     r = bat_integrate_impl(target, algorithm, context)
-    result_with_args(r, (algorithm = algorithm, context = orig_context))
+    result_with_args(Val(:mass), target, r, (algorithm = algorithm, context = orig_context))
 end
 
 bat_integrate(target::AnySampleable) = bat_integrate(target, get_batcontext())
