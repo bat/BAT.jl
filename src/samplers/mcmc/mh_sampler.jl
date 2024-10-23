@@ -73,7 +73,9 @@ function mcmc_propose!!(mc_state::MHChainState)
     z_current, logd_z_current = sample_z_current.v, sample_z_current.logd
 
     n_dims = size(z_current, 1)
+    
     z_proposed = z_current + rand(rng, proposal.proposaldist, n_dims) #TODO: check if proposal is symmetric? otherwise need additional factor?
+
     x_proposed, ladj = with_logabsdet_jacobian(f_transform, z_proposed)
     logd_x_proposed = BAT.checked_logdensityof(target, x_proposed)
     logd_z_proposed = logd_x_proposed + ladj
@@ -84,6 +86,7 @@ function mcmc_propose!!(mc_state::MHChainState)
     mc_state.sample_z[2] = DensitySample(z_proposed, logd_z_proposed, 0, _get_sample_id(proposal, mc_state.info.id, mc_state.info.cycle, mc_state.stepno, PROPOSED_SAMPLE)[1], nothing)
 
     # TODO: MD, should we check for symmetriy of proposal distribution?
+    # TODO: MD, Make more robust
     p_accept = clamp(exp(logd_z_proposed - logd_z_current), 0, 1)
 
     

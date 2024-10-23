@@ -96,7 +96,8 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::M
     stats_reweight_factor = tuning.r
     reweight_relative!(stats, stats_reweight_factor)
     append!(stats, samples)
-    b = chain_state.f_transform.b
+    # TODO: MD, How to tune the shift?
+    b = chain_state.f_transform.b # Is left untouched at the moment
 
     α_min = minimum(tuning.α)
     α_max = maximum(tuning.α)
