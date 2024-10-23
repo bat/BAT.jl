@@ -69,7 +69,7 @@ function bat_sample_impl(
     transformed_smpls = DensitySampleVector(samples, logvals, weight = weights)
     smpls = inverse(f_pretransform).(transformed_smpls)
 
-    return (result = smpls, result_trafo = transformed_smpls, f_pretransform = f_pretransform, integral = est_integral)
+    return (result = smpls, result_trafo = transformed_smpls, f_pretransform = f_pretransform, mass = est_integral)
 end
 
 
@@ -139,5 +139,5 @@ function bat_sample_impl(
 
     posterior_samples = shape.(DensitySampleVector(v, posterior_logd, weight = weight))
 
-    return (result = posterior_samples, prior_samples = prior_samples, integral = est_integral)
+    return (result = posterior_samples, prior_samples = prior_samples, mass = est_integral)
 end
