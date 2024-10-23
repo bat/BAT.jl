@@ -9,7 +9,7 @@ end
 
 function HMCProposalTunerState(tuning::HMCTuning, chain_state::MCMCChainState)
     θ = first(chain_state.samples).v
-    adaptor = ahmc_adaptor(tuning, chain_state.proposal.hamiltonian.metric, chain_state.proposal.kernel.τ.integrator, θ)
+    adaptor = ahmc_adaptor(tuning, chain_state.proposal.hamiltonian.metric, chain_state.proposal.τ.integrator, θ)
     HMCProposalTunerState(tuning, tuning.target_acceptance, adaptor)
 end
 
@@ -50,7 +50,7 @@ function BAT.mcmc_tuning_finalize!!(tuner::HMCProposalTunerState, chain_state::H
     proposal = chain_state.proposal
     AdvancedHMC.finalize!(adaptor)
     proposal.hamiltonian = AdvancedHMC.update(proposal.hamiltonian, adaptor)
-    proposal.kernel = AdvancedHMC.update(proposal.kernel, adaptor)
+    proposal.τ = AdvancedHMC.update(proposal.τ, adaptor)
     nothing
 end
 
@@ -67,7 +67,7 @@ function BAT.mcmc_tune_post_step!!(
 
     AdvancedHMC.adapt!(adaptor, proposal_new.transition.z.θ, tstat.acceptance_rate)
     proposal_new.hamiltonian = AdvancedHMC.update(proposal_new.hamiltonian, adaptor)
-    proposal_new.kernel = AdvancedHMC.update(proposal_new.kernel, adaptor)
+    proposal_new.τ = AdvancedHMC.update(proposal_new.τ, adaptor)
     tstat = merge(tstat, (is_adapt =true,))
 
     chain_state_tmp = @set chain_state.proposal.transition.stat = tstat

@@ -46,14 +46,14 @@ export HamiltonianMC
 mutable struct HMCProposalState{
     IT,
     TC,
-    HA,#<:AdvancedHMC.Hamiltonian,
-    KRNL,#<:AdvancedHMC.HMCKernel
-    TR# <:AdvancedHMC.Transition
+    HA, #<:AdvancedHMC.Hamiltonian,
+    TRJ,#<:AdvancedHMC.Trajectory
+    TR  #<:AdvancedHMC.Transition
 } <: MCMCProposalState
     integrator::IT
     termination::TC
     hamiltonian::HA
-    kernel::KRNL
+    τ::TRJ
     transition::TR
 end
 

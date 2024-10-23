@@ -71,7 +71,6 @@ end
 
 mcmc_tuning_finalize!!(tuner::RAMTrafoTunerState, chain::MCMCChainState) = nothing
 
-# Return mc_state instead of f_transform
 function mcmc_tune_post_step!!(
     tuner_state::RAMTrafoTunerState, 
     mc_state::MCMCChainState,

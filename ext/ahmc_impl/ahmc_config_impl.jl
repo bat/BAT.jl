@@ -51,7 +51,7 @@ function ahmc_adaptor(
 end
 
 function ahmc_adaptor(
-    tuning::StepSizeAdaptor,
+    tuning::HMCTrajectoryTuning,
     metric::AdvancedHMC.AbstractMetric,
     integrator::AdvancedHMC.AbstractIntegrator,
     θ_init::AbstractVector{<:Real}
