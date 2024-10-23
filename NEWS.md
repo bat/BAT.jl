@@ -39,10 +39,12 @@ run more or less unchanged (with deprecation warnings). Also:
   via tunable space transformations instead of tuning covariance matrices
   in proposal distributions.
   
-  MCMC tuning has been split into proposal tuning (algorithms of type
+* MCMC tuning has been split into proposal tuning (algorithms of type
   `MCMCProposalTuning`) and transform turning (algorithms of type
   `MCMCTransformTuning`). Proposal tuning has now a much more limited role
   and often may be `NoMCMCProposalTuning()` (e.g. for `RandomWalk`).
+
+* Added `MGVISampling` for Metric Gaussian Variational Inference.
 
 
 BAT.jl v3.0.0

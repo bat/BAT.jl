@@ -81,6 +81,9 @@ Statistics.cov(m::BATDistMeasure{<:MultivariateDistribution}) = cov(m.dist)
 
 measure_support(m::BATDistMeasure) = dist_support(m.dist)
 
+is_std_mvnormal(m::BATDistMeasure) = is_std_mvnormal(m.dist)
+
+
 dist_support(d::Distribution) = UnknownVarBounds()
 
 dist_support(d::StandardUvUniform) = UnitInterval()
@@ -95,3 +98,8 @@ dist_support(d::AbstractMvNormal) = FullSpace()
 dist_support(d::ReshapedDist) = dist_support(unshaped(d))
 
 dist_support(d::Product{<:Continuous,<:Distribution{Univariate}}) = Rectangle(map(dist_support, d.v))
+
+
+is_std_mvnormal(::Distribution) = false
+is_std_mvnormal(::StandardMvNormal) = true
+is_std_mvnormal(d::MvNormal) = mean(d) ≈ Zeros(length(d)) && cov(d) ≈ I(length(d))

@@ -13,6 +13,12 @@ Returns the automatic differentiation selector specified in `context`.
 """
 function get_adselector end
 
+_check_adselector(::ADSelector, ::Symbol) = nothing
+
+function _check_adselector(::_NoADSelected, algname::Symbol)
+    throw(ErrorException("Algorithm $algname requires automatic differentiation, but none specified, pass a suitable `BATContext` or use (e.g.) `set_batcontext(ad = ForwardDiff)`"))
+end
+
 
 """
     struct BATContext{T}
@@ -73,8 +79,13 @@ function HeterogeneousComputing.get_gencontext(context::BATContext)
     GenContext{get_precision(context)}(get_compute_unit(context), get_rng(context))
 end
 
-BAT.get_adselector(context::BATContext) = context.ad
+get_adselector(context::BATContext) = context.ad
 
+function _get_checked_adselector(context::BATContext, algname::Symbol)
+    ad = get_adselector(context)
+    _check_adselector(ad, algname)
+    return ad
+end
 
 
 """

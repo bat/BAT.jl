@@ -70,6 +70,7 @@ EffSampleSizeAlgorithm
 EffSampleSizeFromAC
 EvaluatedMeasure
 ExplicitInit
+FixedMGVISchedule
 FixedNBins
 FreedmanDiaconisBinning
 GelmanRubinConvergence
@@ -91,6 +92,7 @@ MCMCInitAlgorithm
 MCMCMultiCycleBurnin
 MCMCProposalTuning
 MCMCTransformTuning
+MGVISampling
 ModeAsDefined
 NoMCMCProposalTuning
 NoMCMCTransformTuning
@@ -121,4 +123,5 @@ BAT.AbstractMedianEstimator
 BAT.AbstractModeEstimator
 BAT.AbstractSamplingAlgorithm
 BAT.ConvergenceTest
+BAT.MGVISchedule
 ```

@@ -170,6 +170,8 @@ _is_uhc(d::Rectangle) = isapproxzero(d.a) && isapproxone(d.b)
 
 has_uhc_support(m::BATMeasure) = _is_uhc(measure_support(m))
 
+is_std_mvnormal(::AbstractMeasure) = false
+is_std_mvnormal(::MeasureBase.PowerMeasure{MeasureBase.StdNormal}) = true
 
 ValueShapes.varshape(::BATMeasure) = missing
 
