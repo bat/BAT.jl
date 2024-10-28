@@ -24,21 +24,22 @@ $(TYPEDFIELDS)
 end
 export BridgeSampling
 
+function bat_integrate_impl(m::BATMeasure, algorithm::BridgeSampling, context::BATContext)
+    @argcheck m isa EvaluatedMeasure
+    @argcheck !isnothing(maybe_samplesof(m))
+    transformed_m, _ = transform_and_unshape(algorithm.pretransform, m, context)
+    renomalized_m, logweight = auto_renormalize(transformed_m)
+    renomalized_m_uneval, renormalized_smpls = unevaluated(renomalized_m), maybe_samplesof(renomalized_m)
+    @assert !isnothing(renormalized_smpls)
 
-function bat_integrate_impl(target::EvaluatedMeasure, algorithm::BridgeSampling, context::BATContext)
-    @argcheck !isnothing(target.samples)
-    transformed_target, _ = transform_and_unshape(algorithm.pretransform, target, context)
-    renomalized_target, logweight = auto_renormalize(transformed_target)
-    measure, samples = renomalized_target.measure, renomalized_target.samples
-
-    (value, error) = bridge_sampling_integral(measure, samples, algorithm.strict, algorithm.essalg, context)
+    (value, error) = bridge_sampling_integral(renomalized_m_uneval, renormalized_smpls, algorithm.strict, algorithm.essalg, context)
     rescaled_value, rescaled_error = exp(BigFloat(log(value) - logweight)), exp(BigFloat(log(error) - logweight))
     result = Measurements.measurement(rescaled_value, rescaled_error)
     return (result = result, logweight = logweight)
 end
 
 
-#!!!!! Use EvaluatedMeasure
+#TODO: Use EvaluatedMeasure to get proposal
 function bridge_sampling_integral(
     target_density::BATMeasure, 
     target_samples::DensitySampleVector, 

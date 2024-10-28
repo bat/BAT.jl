@@ -38,7 +38,8 @@ function MCMCChainState(
     id::Integer,
     v_init::AbstractVector{P},
     context::BATContext
-    ) where {P<:Real}
+) where {P<:Real}
+    target_unevaluated = unevaluated(target)
     
     rngpart_cycle = RNGPartition(get_rng(context), 0:(typemax(Int16) - 2))
     rng = get_rng(context)
@@ -53,10 +54,10 @@ function MCMCChainState(
 
     g = init_adaptive_transform(samplingalg.adaptive_transform, target, context)
 
-    logd_x = logdensityof(target, v_init)
+    logd_x = logdensityof(target_unevaluated, v_init)
     inverse_g = inverse(g)
     z = inverse_g(v_init)
-    logd_z = logdensityof(MeasureBase.pullback(g, target), z)
+    logd_z = logdensityof(MeasureBase.pullback(g, target_unevaluated), z)
 
     W = mcmc_weight_type(samplingalg.sample_weighting)
     T = typeof(logd_x)

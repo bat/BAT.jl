@@ -13,7 +13,7 @@ using DensityInterface, ChangesOfVariables, InverseFunctions, FunctionChains
 using HeterogeneousComputing, AutoDiffOperators
 using StructArrays, ArraysOfArrays, ADTypes
 
-using BAT: MeasureLike
+using BAT: MeasureLike, unevaluated
 
 using BAT: get_context, get_adselector, _NoADSelected
 using BAT: bat_initval, transform_and_unshape, apply_trafo_to_init
@@ -42,14 +42,15 @@ end
 
 
 function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimizationAlg, context::BATContext)
-    transformed_density, f_pretransform = transform_and_unshape(algorithm.pretransform, target, context)
+    transformed_m, f_pretransform = transform_and_unshape(algorithm.pretransform, target, context)
+    target_uneval = unevaluated(target)
     inv_trafo = inverse(f_pretransform)
 
     initalg = apply_trafo_to_init(f_pretransform, algorithm.init)
-    x_init = collect(bat_initval(transformed_density, initalg, context).result)
+    x_init = collect(bat_initval(transformed_m, initalg, context).result)
 
     # Maximize density of original target, but run in transformed space, don't apply LADJ:
-    f = fchain(inv_trafo, logdensityof(target), -)
+    f = fchain(inv_trafo, logdensityof(target_uneval), -)
     target_f = (x, p) -> f(x)
 
     adsel = get_adselector(context)

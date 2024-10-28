@@ -6,13 +6,11 @@ import MGVI
 using MGVI: MGVIContext, MGVIConfig, MGVIResult, mgvi_step, mgvi_sample
 
 import BAT
-import MGVI
-using MGVI: MGVIContext, MGVIConfig, MGVIResult, mgvi_step, mgvi_sample
 
 import BAT
 BAT.pkgext(::Val{:MGVI}) = BAT.PackageExtension{:MGVI}()
 
-using BAT: MeasureLike, BATMeasure, DensitySample, DensitySampleVector, BATContext
+using BAT: MeasureLike, BATMeasure, DensitySample, DensitySampleVector, BATContext, unevaluated
 using BAT: transform_and_unshape, bat_initval, apply_trafo_to_init, exec_map!
 using BAT: getlikelihood, getprior, StandardMvNormal
 using BAT: checked_logdensityof
@@ -79,8 +77,9 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::MGVISampling, context::BA
     mgvi_context = MGVIContext(get_gencontext(context), BAT._get_checked_adselector(context, :MGVISampling))
 
     transformed_m, f_pretransform = transform_and_unshape(pretransform, m, context)
+    transformed_m_uneval = unevaluated(transformed_m)
 
-    likelihood, prior = getlikelihood(transformed_m), getprior(transformed_m)
+    likelihood, prior = getlikelihood(transformed_m_uneval), getprior(transformed_m_uneval)
     if !is_std_mvnormal(prior)
         throw(ArgumentError("$(nameof(typeof(algorithm))) can't be used for measures that do not have a standard multivariate normal prior after `pretransform`"))
     end
@@ -119,7 +118,7 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::MGVISampling, context::BA
     dummy_sample = DensitySample(center, zero(result.mnlp), one(BAT._IntWeightType), MGVISampleInfo(0, false, zero(result.mnlp)), nothing)
     transformed_smpls = DensitySampleVector(typeof(dummy_sample), length(center))
     if store_unconverged
-        _append_mgvi_samples!(transformed_smpls, transformed_m, result.samples, MGVISampleInfo(nsteps, false, result.mnlp))
+        _append_mgvi_samples!(transformed_smpls, transformed_m_uneval, result.samples, MGVISampleInfo(nsteps, false, result.mnlp))
     end
 
     isdone::Bool = false
@@ -130,7 +129,7 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::MGVISampling, context::BA
                 result, center = mgvi_step(f_model, obs, step_nsamples, center, config, mgvi_context)
                 nsteps += 1
                 if store_unconverged
-                    _append_mgvi_samples!(transformed_smpls, transformed_m, result.samples, MGVISampleInfo(nsteps, false, result.mnlp))
+                    _append_mgvi_samples!(transformed_smpls, transformed_m_uneval, result.samples, MGVISampleInfo(nsteps, false, result.mnlp))
                 end
             else
                 isdone = true
@@ -150,7 +149,7 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::MGVISampling, context::BA
     nsteps += 1
     n_samples_total = size(final_flat_smpls, 2)
     n_samples_indep = div(n_samples_total, 2)
-    _append_mgvi_samples!(transformed_smpls, transformed_m, final_flat_smpls, MGVISampleInfo(nsteps, true, oftype(result.mnlp,NaN)))
+    _append_mgvi_samples!(transformed_smpls, transformed_m_uneval, final_flat_smpls, MGVISampleInfo(nsteps, true, oftype(result.mnlp,NaN)))
 
     elapsed_time = time() - start_time
     @debug "Generated final MGVI samples in transformed space after $nsteps, produced $n_samples_indep independent samples after $(@sprintf "%.1f s" elapsed_time)."

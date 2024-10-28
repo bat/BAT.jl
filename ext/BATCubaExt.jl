@@ -7,7 +7,7 @@ using Cuba
 using BAT
 BAT.pkgext(::Val{:Cuba}) = BAT.PackageExtension{:Cuba}()
 
-using BAT: MeasureLike, BATMeasure
+using BAT: MeasureLike, BATMeasure, unevaluated
 using BAT: CubaIntegration
 using BAT: measure_support, bat_integrate_impl
 using BAT: transform_and_unshape, auto_renormalize
@@ -130,8 +130,9 @@ function BAT.bat_integrate_impl(target::MeasureLike, algorithm::CubaIntegration,
     end
 
     renormalized_measure, logweight = auto_renormalize(transformed_measure)
+    renormalized_measure_uneval = unevaluated(renormalized_measure)
     dof = totalndof(varshape(renormalized_measure))
-    integrand = CubaIntegrand(logdensityof(renormalized_measure), dof)
+    integrand = CubaIntegrand(logdensityof(renormalized_measure_uneval), dof)
 
     r_cuba = _integrate_impl_cuba(integrand, algorithm, context)
 

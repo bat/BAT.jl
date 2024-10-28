@@ -12,4 +12,8 @@ bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::Distribution) = ModeAsD
 
 bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::BATDistMeasure) = ModeAsDefined()
 
+function bat_default(::typeof(bat_findmode), ::Val{:algorithm}, m::EvaluatedMeasure)
+    bat_default(bat_findmode, Val(:algorithm), unevaluated(m))
+end
+
 bat_default(::typeof(bat_marginalmode), ::Val{:algorithm}, ::DensitySampleVector) = BinnedModeEstimator()
