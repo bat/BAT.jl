@@ -21,11 +21,11 @@ EvaluatedMeasure(
 """
 struct EvaluatedMeasure{
     D<:BATMeasure,
-    S<:Union{DensitySampleVector,Nothing},
-    A<:NamedTuple,
-    M<:Number,
-    P<:Union{DensitySampleVector,Nothing},
-    G<:Union{AbstractSampleGenerator,Nothing}
+    S<:Union{DensitySampleVector,Missing},
+    A<:Union{BATMeasure,Missing},
+    M<:Union{Number,MeasureBase.UnknownMass},
+    P<:Union{AbstractVector,Missing},
+    G<:Union{AbstractSampleGenerator,Missing}
 } <: BATMeasure
     measure::D
     samples::S
@@ -38,11 +38,11 @@ export EvaluatedMeasure
 
 function EvaluatedMeasure(
     measurelike::MeasureLike;
-    samples = nothing,
-    approx = NamedTuple(),
+    samples = missing,
+    approx = missing,
     mass = MeasureBase.UnknownMass(),
-    modes = nothing,
-    _generator = nothing
+    modes = missing,
+    _generator = missing
 )
     measure = batmeasure(measurelike)
     @argcheck DensityKind(measure) isa HasDensity
@@ -79,6 +79,11 @@ end
 
 measure_support(em::EvaluatedMeasure) = measure_support(em.measure)
 
+maybe_samplesof(em::EvaluatedMeasure) = em.samples
+maybe_modesof(em::EvaluatedMeasure) = em.modes
+maybe_approxof(em::EvaluatedMeasure) = em.approx
+maybe_generator(em::EvaluatedMeasure) = em._generator
+
 
 get_initsrc_from_target(em::EvaluatedMeasure) = em.samples
 
@@ -103,7 +108,6 @@ function MeasureBase.weightedmeasure(logweight::Real, em::EvaluatedMeasure)
     return EvaluatedMeasure(new_measure, new_samples, em.approx, em.mass, em.modes, em._generator)
 end
 
-_estimated_max_logd(measure::EvaluatedMeasure) = _estimated_max_logd(something(measure.modes, measure.samples, missing))
 
 # function Base.show(io::IO, mime::MIME"text/plain", sd::EvaluatedMeasure)
 #     if get(io, :compact, false)
@@ -123,4 +127,33 @@ function bat_report!(md::Markdown.MD, em::EvaluatedMeasure)
     end
 
     return md
+end
+
+
+function _approx_mean(em::EvaluatedMeasure, n)
+    smpls = maybe_samplesof(em)
+    if !isnothing(smpls)
+        return mean(smpls)
+    else
+        return _approx_mean(unevaluated(em))
+    end
+end
+
+
+function _approx_cov(em::EvaluatedMeasure, n)
+    smpls = maybe_samplesof(em)
+    if !isnothing(smpls)
+        return cov(smpls)
+    else
+        return _approx_cov(unevaluated(em))
+    end
+end
+
+function _estimated_max_logd(em::EvaluatedMeasure)
+    smpls = maybe_samplesof(em)
+    if !isnothing(smpls) && !any(isnan, smpls.logd)
+        return _estimated_max_logd(smpls)
+    else
+        return _estimated_max_logd(unevaluated(em))
+    end
 end
