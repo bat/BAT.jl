@@ -119,6 +119,8 @@ TransformAlgorithm
 TransformedMCMC
 VEGASIntegration
 
+BAT.unevaluated
+
 BAT.AbstractMedianEstimator
 BAT.AbstractModeEstimator
 BAT.AbstractSamplingAlgorithm

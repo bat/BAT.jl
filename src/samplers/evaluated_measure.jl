@@ -1,5 +1,16 @@
 
 """
+    BAT.unevaluated(obj)
+
+If `obj` is an evaluated object, like a [`EvaluatedMeasure`](@ref),
+return the original (unevaluated) object. Otherwise, return `obj`.
+"""
+function unevaluated end
+
+unevaluated(obj) = obj
+
+
+"""
     struct EvaluatedMeasure <: BATMeasure
 
 Combined a measure with samples, and other information on it.
@@ -7,11 +18,13 @@ Combined a measure with samples, and other information on it.
 Constructors:
 
 ```julia
-EvaluatedMeasure(
+em = EvaluatedMeasure(
     measure;
     samples = ..., approx = ..., mass = ..., mode = ...,
     _generator = ...
 )
+
+BAT.unevaluated(em) === measure
 ```
 
 !!! note
@@ -60,6 +73,8 @@ function EvaluatedMeasure(
     @argcheck DensityKind(em) isa HasDensity
     return EvaluatedMeasure(em.measure, samples, approx, mass, modes, _generator)
 end
+
+unevaluated(em::EvaluatedMeasure) = em.measure
 
 DensityInterface.logdensityof(em::EvaluatedMeasure, v::Any) = logdensityof(em.measure, v)
 DensityInterface.logdensityof(em::EvaluatedMeasure) = logdensityof(em.measure)
