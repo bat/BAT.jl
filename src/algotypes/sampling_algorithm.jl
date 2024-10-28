@@ -24,8 +24,9 @@ Depending on sampling algorithm, the samples may be independent or correlated
 Returns a NamedTuple of the shape
 
 ```julia
-(result = X::DensitySampleVector, ...)
+(result = X::DensitySampleVector, evaluated::EvaluatedMeasure, ...)
 ```
+(The field `evaluated` is only present if `target` is a measure.)
 
 Result properties not listed here are algorithm-specific and are not part
 of the stable public API.
@@ -54,7 +55,7 @@ function bat_sample(target, algorithm::AbstractSamplingAlgorithm, context::BATCo
     measure = convert_for(bat_sample, target)
     orig_context = deepcopy(context)
     r = bat_sample_impl(measure, algorithm, context)
-    result_with_args(r, (algorithm = algorithm, context = orig_context))
+    result_with_args(Val(:samples), target, r, (algorithm = algorithm, context = orig_context))
 end
 
 function bat_sample(target::AnySampleable)

@@ -35,6 +35,10 @@ run more or less unchanged (with deprecation warnings). Also:
 
 ### New features
 
+* Sampling, integration and mode-finding algorithms now generate a return
+  value `result = ..., evaluated::EvaluatedMeasure = ..., ...)` if their
+  target is a probability measure/distribution.
+
 * The new `RAMTuning` is now the default (transform) tuning algorithm for
   `RandomWalk` (formerly `MetropolisHastings`). It typically results in a much
   faster burn-in process than `AdaptiveAffineTuning` (formerly

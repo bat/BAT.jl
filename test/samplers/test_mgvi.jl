@@ -21,6 +21,7 @@ import MGVI, ForwardDiff
     )
     r = bat_sample(pstr, algorithm, context)
     @test r.result isa DensitySampleVector
+    @test r.evaluated isa EvaluatedMeasure
     @test first(r.result.info.converged) == false
     @test last(r.result.info.converged) == true
     @test unique(r.result.info.stepno) == 1:nsteps+1

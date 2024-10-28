@@ -23,8 +23,11 @@ Estimate the global mode of `target`.
 Returns a NamedTuple of the shape
 
 ```julia
-(result = X::DensitySampleVector, ...)
+(result = X::DensitySampleVector, evaluated::EvaluatedMeasure, ...)
 ```
+
+(The field `evaluated` is only present if `target` is a measure.)
+
 
 Result properties not listed here are algorithm-specific and are not part
 of the stable public API.
@@ -43,7 +46,7 @@ function bat_findmode_impl end
 function bat_findmode(target::AnySampleable, algorithm, context::BATContext)
     orig_context = deepcopy(context)
     r = bat_findmode_impl(target, algorithm, context)
-    result_with_args(r, (algorithm = algorithm, context = orig_context))
+    result_with_args(Val(:mode), target, r, (algorithm = algorithm, context = orig_context))
 end
 
 bat_findmode(target::AnySampleable) = bat_findmode(target, get_batcontext())
