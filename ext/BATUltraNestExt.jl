@@ -35,33 +35,50 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::ReactiveNestedSampling, c
 
     paramnames = all_active_names(varshape(m))
 
-    smplr = UltraNest.ultranest.ReactiveNestedSampler(
-        paramnames, vec_ultranest_logpstr, vectorized = true,
-        num_test_samples = algorithm.num_test_samples,
-        draw_multiple = algorithm.draw_multiple,
-        num_bootstraps = algorithm.num_bootstraps,
-        ndraw_min = algorithm.ndraw_min,
-        ndraw_max = algorithm.ndraw_max
-    )
+    ch = Channel()
+    function run_sampler()
+        try
+            smplr = UltraNest.ultranest.ReactiveNestedSampler(
+                paramnames, vec_ultranest_logpstr, vectorized = true,
+                num_test_samples = algorithm.num_test_samples,
+                draw_multiple = algorithm.draw_multiple,
+                num_bootstraps = algorithm.num_bootstraps,
+                ndraw_min = algorithm.ndraw_min,
+                ndraw_max = algorithm.ndraw_max
+            )
 
-    unest_result = smplr.run(
-        log_interval = algorithm.log_interval < 0 ? nothing : algorithm.log_interval,
-        show_status = algorithm.show_status,
-        viz_callback = algorithm.viz_callback,
-        dlogz = algorithm.dlogz,
-        dKL = algorithm.dKL,
-        frac_remain = algorithm.frac_remain,
-        Lepsilon = algorithm.Lepsilon,
-        min_ess = algorithm.min_ess,
-        max_iters = algorithm.max_iters < 0 ? nothing : algorithm.max_iters,
-        max_ncalls = algorithm.max_ncalls < 0 ? nothing : algorithm.max_ncalls,
-        max_num_improvement_loops = algorithm.max_num_improvement_loops,
-        min_num_live_points = algorithm.min_num_live_points,
-        cluster_num_live_points = algorithm.cluster_num_live_points,
-        insertion_test_window = algorithm.insertion_test_window,
-        insertion_test_zscore_threshold = algorithm.insertion_test_zscore_threshold
-    )
-    
+            unest_result = smplr.run(
+                log_interval = algorithm.log_interval < 0 ? nothing : algorithm.log_interval,
+                show_status = algorithm.show_status,
+                viz_callback = algorithm.viz_callback,
+                dlogz = algorithm.dlogz,
+                dKL = algorithm.dKL,
+                frac_remain = algorithm.frac_remain,
+                Lepsilon = algorithm.Lepsilon,
+                min_ess = algorithm.min_ess,
+                max_iters = algorithm.max_iters < 0 ? nothing : algorithm.max_iters,
+                max_ncalls = algorithm.max_ncalls < 0 ? nothing : algorithm.max_ncalls,
+                max_num_improvement_loops = algorithm.max_num_improvement_loops,
+                min_num_live_points = algorithm.min_num_live_points,
+                cluster_num_live_points = algorithm.cluster_num_live_points,
+                insertion_test_window = algorithm.insertion_test_window,
+                insertion_test_zscore_threshold = algorithm.insertion_test_zscore_threshold
+            )
+            put!(ch, unest_result)
+        finally
+            close(ch)
+        end
+    end
+
+    # Force Python interaction to run on thread 1:
+    task_id = 1
+    task = Task(run_sampler)
+    task.sticky = true
+    # From ThreadPools.@tspawnat:
+    ccall(:jl_set_task_tid, Cvoid, (Any, Cint), task, task_id-1)
+    schedule(task)
+    unest_result = take!(ch)
+
     r = convert(Dict{String, Any}, unest_result)
 
     unest_wsamples = convert(Dict{String, Any}, r["weighted_samples"])

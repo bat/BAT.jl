@@ -100,6 +100,6 @@ $(TYPEDFIELDS)
     insertion_test_zscore_threshold::Float64 = 2.0
 
     "Executor for posterior evaluation."
-    executor::Ex = default_executor()
+    executor::Ex = SequentialExec()
 end
 export ReactiveNestedSampling
