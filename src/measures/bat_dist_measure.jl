@@ -17,7 +17,7 @@ MeasureBase.getdof(m::BATDistMeasure) = eff_totalndof(m.dist)
 MeasureBase.rootmeasure(::BATDistMeasure{<:Distribution{Univariate,Continuous}}) = MeasureBase.LebesgueBase()
 MeasureBase.rootmeasure(m::BATDistMeasure{<:Distribution{Multivariate,Continuous}}) = MeasureBase.LebesgueBase() ^ size(m.dist)
 
-MeasureBase.massof(::BATDistMeasure) = static(1.0)
+MeasureBase.massof(::BATDistMeasure) = 1.0f0
 
 
 function DensityInterface.logdensityof(m::BATDistMeasure{<:Distribution{Univariate,Continuous}}, v::Real)
