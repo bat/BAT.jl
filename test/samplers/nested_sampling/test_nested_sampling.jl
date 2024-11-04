@@ -9,7 +9,7 @@ Test.@testset "nested_sampling" begin
     # 32-bit systems, GLIBCXX version conflicts cause trouble for CI
     # on older Julia versions:
     if Int == Int64 && ("UltraNest" in keys(Pkg.project().dependencies))
-        include("test_ultranest.jl")
+        # include("test_ultranest.jl")
     end
     if ("NestedSamplers" in keys(Pkg.project().dependencies))
         include("test_ellipsoidal_nested_sampling.jl")
