@@ -20,7 +20,7 @@ would require an inefficient linear search over all sample points.
 Constructors:
 
 ```julia
-DensitySampleMeasure(smpls::DensitySampleVector, dof::Integer; mass::Real = 1)
+DensitySampleMeasure(smpls::DensitySampleVector, dof::Integer; mass::Number = 1)
 ```
 
 A `DensitySampleMeasure` has mass one by default, as the measure the samples
@@ -32,7 +32,7 @@ struct DensitySampleMeasure{
     P,
     T<:Real,
     W<:Real,
-    M<:Real,
+    M<:Number,
     SV<:DensitySampleVector{P,T,W},
     WV<:AbstractVector{W}
 } <: BATMeasure
@@ -45,7 +45,7 @@ end
 export DensitySampleMeasure
 
 
-function DensitySampleMeasure(smpls::DensitySampleVector, dof::Integer; mass::Real = 1)
+function DensitySampleMeasure(smpls::DensitySampleVector, dof::Integer; mass::Number = 1)
     # ToDo: Ensure smpls are deduplicated.
     # ToDo: Storing logdensity calculation by storing a binary searchable vector
     # over tuples `(point_hash, sample_idx)`.
