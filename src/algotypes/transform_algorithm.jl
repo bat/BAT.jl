@@ -276,6 +276,12 @@ end
 """
 struct SampleTransformation <: TransformAlgorithm end
 
+function bat_transform_impl(f, dsm::DensitySampleMeasure, algorithm::SampleTransformation, context::BATContext)
+    smpls = samplesof(dsm)
+    new_samples, _ = bat_transform_impl(f, smpls, algorithm, context)
+    return DensitySampleMeasure(new_samples, getdof(dsm), mass = massof(dsm))
+end
+
 function bat_transform_impl(f::Function, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)
     (result = broadcast_arbitrary_trafo(f, smpls), f_transform = f)
 end

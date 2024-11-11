@@ -96,12 +96,6 @@ measure_support(dsm::DensitySampleMeasure) = measure_support(dsm.measure)
 get_initsrc_from_target(dsm::DensitySampleMeasure) = samplesof(dsm)
 
 
-function bat_transform_impl(f_transform, dsm::DensitySampleMeasure, algorithm::SampleTransformation, context::BATContext)
-    smpls = samplesof(dsm)
-    new_samples, _ = bat_transform_impl(f_transform, smpls, algorithm, context)
-    return DensitySampleMeasure(new_samples)
-end
-
 function MeasureBase.weightedmeasure(logweight::Real, dsm::DensitySampleMeasure)
     new_mass = _reweighted_mass(logweight, dsm._mass)
     return DensitySampleMeasure(dsm._smpl, dsm._weight_sum, dsm._max_weight, dsm._dof, new_mass)
@@ -117,7 +111,7 @@ end
 # end
 
 
-function Base.rand(gen::GenContext, dsm::DensitySampleMeasure) where {T}
+function Base.rand(gen::GenContext, dsm::DensitySampleMeasure)
     idx = _rand_subsample_idx(gen, dsm)
     return gen_adapt(gen, dsm._smpl.v[idx])
 end
