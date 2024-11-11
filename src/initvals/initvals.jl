@@ -167,3 +167,10 @@ function apply_trafo_to_init(trafo::Function, initalg::ExplicitInit)
     xs_tr = broadcast_trafo(trafo, initalg.xs)
     ExplicitInit(xs_tr)
 end
+
+function apply_trafo_to_init(f_transform::Function, initalg::InitFromSamples)
+    # ToDo: Pass context to apply_trafo_to_init
+    tmp_context = BATContext()
+    transformed_smpls = bat_transform_impl(f_transform, initalg.samples, SampleTransformation(), tmp_context).result
+    InitFromSamples(transformed_smpls)
+end
