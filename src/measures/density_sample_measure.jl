@@ -20,10 +20,7 @@ would require an inefficient linear search over all sample points.
 Constructors:
 
 ```julia
-DensitySampleMeasure(
-    smpls::DensitySampleVector, dof::Integer;
-    mass::Real = exp(ULogarithmic, 0.0f0)
-)
+DensitySampleMeasure(smpls::DensitySampleVector, dof::Integer; mass::Real = 1)
 ```
 
 A `DensitySampleMeasure` hass mass one by default, as the measure the samples
@@ -36,23 +33,24 @@ struct DensitySampleMeasure{
     T<:Real,
     W<:Real,
     M<:Real,
-    SV<:DensitySampleVector{P,T,W}
+    SV<:DensitySampleVector{P,T,W},
+    WV<:AbstractVector{W}
 } <: BATMeasure
-    _smpls::SV
-    _weight_sum::W
+    _smpl::SV
     _max_weight::W
+    _cumulative_weight::WV
     _dof::Integer
     _mass::M
 end
 export DensitySampleMeasure
 
 
-function DensitySampleMeasure(smpls::DensitySampleVector, dof::Integer, mass::Real = 1)
+function DensitySampleMeasure(smpls::DensitySampleVector, dof::Integer; mass::Real = 1)
     # ToDo: Ensure smpls are deduplicated.
     # ToDo: Storing logdensity calcuaion by storing a binary searchable vector
     # over tuples `(point_hash, sample_idx)`.
-    ndof =
-    DensitySampleMeasure(smpls, sum(smpls.weight), maximum(smpls.weight))
+    conv_mass = exp(ULogarithmic, _lfloat(log(mass)))
+    DensitySampleMeasure(smpls, maximum(smpls.weight), cumsum(smpls.weight), dof, conv_mass)
 end
 
 Base.convert(::Type{DensitySampleMeasure}, smpls::DensitySampleVector) = DensitySampleMeasure(smpls)
@@ -62,11 +60,11 @@ Base.convert(::Type{DensitySampleVector}, m::DensitySampleMeasure) = DensitySamp
 
 
 function Base.:(==)(a::DensitySampleMeasure, b::DensitySampleMeasure)
-    return a._smpls == b._smpls && a._dof == b._dof && a._logmass == b._logmass
+    return a._smpl == b._smpl && a._dof == b._dof && a._logmass == b._logmass
 end
 
 function Base.isapprox(a::DensitySampleMeasure, b::DensitySampleMeasure; kwargs...)
-    return isapprox(a._smpls, b._smpls; kwargs...) && isapprox(a._dof, b._dof; kwargs...) &&
+    return isapprox(a._smpl, b._smpl; kwargs...) && isapprox(a._dof, b._dof; kwargs...) &&
         isapprox(a._logmass, b._logmass; kwargs...)
 end
 
@@ -105,11 +103,10 @@ function bat_transform_impl(f_transform, em::DensitySampleMeasure, algorithm::Sa
 end
 
 function MeasureBase.weightedmeasure(logweight::Real, em::DensitySampleMeasure)
-    T = float(typeof(log(weightof(em))))
-    w = exp(ULogarithmic, logweight)
-    smpls = samplesof(em)
-    new_smpls = DensitySampleVector((smpls.v, smpls.logd, rw .* smpls.weight, smpls.info, smpls.aux))
-    return DensitySampleMeasure(new_smpls, em._weight_sum, em._max_weight)
+    current_logmass = _lfloat(log(em._mass))
+    new_lowmass = oftype(current_logmass, logweight) + current_logmass
+    new_mass = exp(ULogarithmic, new_lowmass)
+    return DensitySampleMeasure(em._smpl, em._weight_sum, em._max_weight, em._dof, new_mass)
 end
 
 
@@ -122,29 +119,41 @@ end
 # end
 
 
-
-Base.rand(rng::AbstractRNG, em::DensitySampleMeasure) = ... #!!!!
-Base.rand(rng::AbstractRNG, em::DensitySampleMeasure, n::Integer) = ... #!!!!
-
-#function Base.rand(gen::GenContext, ::Type{T}, m::DensitySampleMeasure) where {T}
-#    r = rand(get_rng(gen))
-#    idx = searchsortedfirst(m._cw, r)
-#    return gen_adapt(gen, m._smpls.v[idx])
-#end
-
-function MeasureBase.testvalue(::Type{T}, m::DensitySampleMeasure) where {T}
-    convert_numtype(T, first(m._smpls.v))
+function Base.rand(gen::GenContext, em::DensitySampleMeasure) where {T}
+    idx = _rand_subsample_idx(gen, em)
+    return gen_adapt(gen, em._smpl.v[idx])
 end
 
-function MeasureBase.testvalue(m::DensitySampleMeasure)
-    first(m._smpls.v)
+function _rand_subsample_idx(gen::GenContext, em::DensitySampleMeasure)
+    # TODO: Use PSIS.
+
+    CW = em._cumulative_weight
+    r = rand(get_rng(gen)) * CW[end]
+    idx = searchsortedfirst(em._cw, r)
+    return idx
+end
+
+function _rand_subsample_idxs(gen::GenContext, em::DensitySampleMeasure, n::Integer)
+    # TODO: Use PSIS.
+
+    CW = em._cumulative_weight
+    # Always generate R on CPU for now:
+    R = rand(get_rng(gen), n) .* CW[end]
+    idxs = searchsortedfirst.(Ref(CW), R)
+    return idxs
 end
 
 @inline supports_rand(::DensitySampleMeasure) = true
 
 
-#!!!!!!!!
-# bat_sample_impl(...) = ...
+function MeasureBase.testvalue(::Type{T}, m::DensitySampleMeasure) where {T}
+    convert_numtype(T, first(m._smpl.v))
+end
+
+function MeasureBase.testvalue(m::DensitySampleMeasure)
+    first(m._smpl.v)
+end
+
 
 
 function bat_report!(md::Markdown.MD, em::DensitySampleMeasure)
