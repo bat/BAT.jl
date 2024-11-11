@@ -26,12 +26,12 @@ export BridgeSampling
 
 function bat_integrate_impl(m::BATMeasure, algorithm::BridgeSampling, context::BATContext)
     @argcheck m isa EvaluatedMeasure
-    @argcheck !isnothing(maybe_samplesof(m))
+    @argcheck !isnothing(maybe_empiricalof(m))
     transformed_m, _ = transform_and_unshape(algorithm.pretransform, m, context)
     renomalized_m, logweight = auto_renormalize(transformed_m)
-    renomalized_m_uneval, renormalized_smpls = unevaluated(renomalized_m), maybe_samplesof(renomalized_m)
-    @assert !isnothing(renormalized_smpls)
+    renomalized_m_uneval, renormalized_smpled = unevaluated(renomalized_m), maybe_empiricalof(renomalized_m)
 
+    renormalized_smpls = samplesof(renormalized_smpled)
     (value, error) = bridge_sampling_integral(renomalized_m_uneval, renormalized_smpls, algorithm.strict, algorithm.essalg, context)
     rescaled_value, rescaled_error = exp(BigFloat(log(value) - logweight)), exp(BigFloat(log(error) - logweight))
     result = Measurements.measurement(rescaled_value, rescaled_error)

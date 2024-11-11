@@ -15,11 +15,21 @@ measure_support(m::AbstractMeasure) = UnknownDomain()
 struct UnknownDomain end
 
 
-# ToDo: Document and make public:
+# ToDo: Document these function and make them public:
+maybe_empiricalof(::AbstractMeasure) = missing
+
 maybe_samplesof(::AbstractMeasure) = missing
+
+@inline samplesof(m::AbstractMeasure) = _samplesof_impl(typeof(m), maybe_samplesof(m))
+samplesof(@nospecialize(M::Type), ::Missing) = throw(ArgumentError("Measure of type $(nameof(M)) doesn't seem to have samples attached to it"))
+@inline samplesof(::Type, smpls) = smpls
+
 maybe_modesof(::AbstractMeasure) = missing
+
 maybe_approxof(::AbstractMeasure) = missing
-maybe_generator(::AbstractMeasure) = missing
+
+maybe_samplegen(::AbstractMeasure) = missing
+
 
 # ToDo: Document and make public:
 function maybe_modeof(m::AbstractMeasure)
@@ -135,6 +145,7 @@ function batmeasure end
 export batmeasure
 
 batmeasure(obj) = convert(BATMeasure, obj)
+batmeasure(::Missing) = missing
 
 
 """
