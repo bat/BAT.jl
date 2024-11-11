@@ -58,6 +58,8 @@ Base.convert(::Type{BATMeasure}, m::BATMeasure) = m
 Base.convert(::Type{BATMeasure}, m::AbstractMeasure) = BATMeasure(m)
 Base.convert(::Type{BATMeasure}, d::Distribution) = BATMeasure(d)
 
+@inline BATMeasure(m::BATMeasure) = m
+
 BATMeasure(::StdUniform) = batmeasure(StandardUvUniform())
 BATMeasure(::StdNormal) = batmeasure(StandardUvNormal())
 
