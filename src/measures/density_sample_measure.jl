@@ -36,7 +36,7 @@ struct DensitySampleMeasure{
     SV<:DensitySampleVector{P,T,W},
     WV<:AbstractVector{W}
 } <: BATMeasure
-    _smpl::SV
+    _smpls::SV
     _max_weight::W
     _cumulative_weight::WV
     _dof::Integer
@@ -60,11 +60,11 @@ Base.convert(::Type{DensitySampleVector}, m::DensitySampleMeasure) = DensitySamp
 
 
 function Base.:(==)(a::DensitySampleMeasure, b::DensitySampleMeasure)
-    return a._smpl == b._smpl && a._dof == b._dof && a._mass == b._mass
+    return a._smpls == b._smpls && a._dof == b._dof && a._mass == b._mass
 end
 
 function Base.isapprox(a::DensitySampleMeasure, b::DensitySampleMeasure; kwargs...)
-    return isapprox(a._smpl, b._smpl; kwargs...) && isapprox(a._dof, b._dof; kwargs...) &&
+    return isapprox(a._smpls, b._smpls; kwargs...) && isapprox(a._dof, b._dof; kwargs...) &&
         isapprox(a._mass, b._mass; kwargs...)
 end
 
@@ -77,19 +77,22 @@ MeasureBase.getdof(dsm::DensitySampleMeasure) = dsm._dof
 
 MeasureBase.massof(dsm::DensitySampleMeasure) = dsm._mass
 
-ValueShapes.varshape(dsm::DensitySampleMeasure) = elshape(samplesof(dsm))
+ValueShapes.varshape(dsm::DensitySampleMeasure) = varshape(samplesof(dsm))
 
-function _unshaped_density(dsm::DensitySampleMeasure, vs::AbstractValueShape)
+function ValueShapes.unshaped(dsm::DensitySampleMeasure, vs::AbstractValueShape)
     new_measure = unshaped(dsm.measure, vs)
-    @assert varshape(dsm.sampled) <= vs
-    new_sampled = unshaped.(dsm.sampled)
-    return DensitySampleMeasure(new_measure, new_sampled, dsm.approx, dsm.mass, dsm.modes, dsm.samplegen)
+    smpls = samplesof(dsm)
+    @assert varshape(smpls) <= vs
+    new_smpls = unshaped.(smpls)
+    return DensitySampleMeasure(new_measure, new_smpls, dsm.approx, dsm.mass, dsm.modes, dsm.samplegen)
 end
 
 measure_support(dsm::DensitySampleMeasure) = measure_support(dsm.measure)
 
-@inline maybe_empiricalof(dsm::DensitySampleMeasure) = dsm.sampled
-@inline maybe_samplesof(dsm::DensitySampleMeasure) = maybe_empiricalof(dsm) isa Missing ? missing : convert(DensitySamplesVector, dsm.sampled)
+@inline maybe_empiricalof(dsm::DensitySampleMeasure) = dsm
+@inline maybe_samplesof(dsm::DensitySampleMeasure) = dsm._smpls
+@inline samplesof(dsm::DensitySampleMeasure) = dsm._smpls
+
 @inline maybe_modesof(dsm::DensitySampleMeasure) = dsm.modes
 
 
@@ -98,7 +101,7 @@ get_initsrc_from_target(dsm::DensitySampleMeasure) = samplesof(dsm)
 
 function MeasureBase.weightedmeasure(logweight::Real, dsm::DensitySampleMeasure)
     new_mass = _reweighted_mass(logweight, dsm._mass)
-    return DensitySampleMeasure(dsm._smpl, dsm._weight_sum, dsm._max_weight, dsm._dof, new_mass)
+    return DensitySampleMeasure(dsm._smpls, dsm._weight_sum, dsm._max_weight, dsm._dof, new_mass)
 end
 
 
@@ -113,7 +116,7 @@ end
 
 function Base.rand(gen::GenContext, dsm::DensitySampleMeasure)
     idx = _rand_subsample_idx(gen, dsm)
-    return gen_adapt(gen, dsm._smpl.v[idx])
+    return gen_adapt(gen, dsm._smpls.v[idx])
 end
 
 function _rand_subsample_idx(gen::GenContext, dsm::DensitySampleMeasure)
@@ -139,11 +142,11 @@ end
 
 
 function MeasureBase.testvalue(::Type{T}, m::DensitySampleMeasure) where {T}
-    convert_numtype(T, first(m._smpl.v))
+    convert_numtype(T, first(m._smpls.v))
 end
 
 function MeasureBase.testvalue(m::DensitySampleMeasure)
-    first(m._smpl.v)
+    first(m._smpls.v)
 end
 
 

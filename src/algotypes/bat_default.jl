@@ -112,6 +112,7 @@ function _augment_bat_retval(::Val{resultkind}, measure, r::R) where {resultkind
         else
             samplegen = maybe_samplegen(measure)
         end
+        global g_state = (unevaluated(measure), empirical, approx, mass, modes, samplegen)
         evaluated = EvaluatedMeasure(unevaluated(measure), empirical, approx, mass, modes, samplegen)
         r_add = (result = r.result, evaluated = evaluated)
         return merge(r_add, r)

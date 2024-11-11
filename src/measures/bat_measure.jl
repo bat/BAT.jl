@@ -21,8 +21,8 @@ maybe_empiricalof(::AbstractMeasure) = missing
 maybe_samplesof(::AbstractMeasure) = missing
 
 @inline samplesof(m::AbstractMeasure) = _samplesof_impl(typeof(m), maybe_samplesof(m))
-samplesof(@nospecialize(M::Type), ::Missing) = throw(ArgumentError("Measure of type $(nameof(M)) doesn't seem to have samples attached to it"))
-@inline samplesof(::Type, smpls) = smpls
+_samplesof_impl(@nospecialize(M::Type), ::Missing) = throw(ArgumentError("Measure of type $(nameof(M)) doesn't seem to have samples attached to it"))
+@inline _samplesof_impl(::Type, smpls) = smpls
 
 maybe_modesof(::AbstractMeasure) = missing
 
