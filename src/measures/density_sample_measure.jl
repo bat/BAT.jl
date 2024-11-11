@@ -103,9 +103,7 @@ function bat_transform_impl(f_transform, em::DensitySampleMeasure, algorithm::Sa
 end
 
 function MeasureBase.weightedmeasure(logweight::Real, em::DensitySampleMeasure)
-    current_logmass = _lfloat(log(em._mass))
-    new_lowmass = oftype(current_logmass, logweight) + current_logmass
-    new_mass = exp(ULogarithmic, new_lowmass)
+    new_mass = _reweighted_mass(logweight, em._mass)
     return DensitySampleMeasure(em._smpl, em._weight_sum, em._max_weight, em._dof, new_mass)
 end
 
@@ -183,6 +181,7 @@ _renormalize_empirical_logd(::Missing) = missing
 
 function _renormalize_empirical_logd(logrenorm::Real, em::DensitySampleMeasure)
     smpls = samplesof(em)
+    new_mass = _reweighted_mass(logrenorm, em._mass)
     new_smpls = DensitySampleVector((smpls.v, smpls.logd .+ logrenorm, smpls.weight, smpls.info, smpls.aux))
-    return DensitySampleMeasure(new_smpls, em._weight_sum, em._max_weight)
+    return DensitySampleMeasure(new_smpls, em._max_weight, em._cumulative_weight, em._dof, new_mass)
 end

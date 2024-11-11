@@ -238,6 +238,13 @@ function _dist_with_pullback_impl(origin, finv)
 end
 
 
+function _reweighted_mass(logweight::Real, current_mass::Real)
+    current_logmass = _lfloat(log(current_mass))
+    new_logmass = oftype(current_logmass, logweight) + current_logmass
+    return exp(ULogarithmic, new_logmass)
+end
+
+
 
 """
     BAT.MeasureLike = Union{...}
