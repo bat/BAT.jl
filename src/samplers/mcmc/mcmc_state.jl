@@ -146,7 +146,6 @@ end
 
 
 function mcmc_step!!(mcmc_state::MCMCState)
-    # TODO: MD, include sample_z in _cleanup_samples()
     _cleanup_samples(mcmc_state)
     
     reset_rng_counters!(mcmc_state)
@@ -194,6 +193,9 @@ function _cleanup_samples(chain_state::MCMCChainState)
     samples = chain_state.samples
     current = _current_sample_idx(chain_state)
     proposed = _proposed_sample_idx(chain_state)
+    sample_z = chain_state.sample_z
+    current_z = _current_sample_z_idx(chain_state)
+    proposed_z = _proposed_sample_z_idx(chain_state)
     if (current != proposed) && samples.info.sampletype[proposed] == CURRENT_SAMPLE
         # Proposal was accepted in the last step
         @assert samples.info.sampletype[current] == ACCEPTED_SAMPLE
@@ -203,6 +205,9 @@ function _cleanup_samples(chain_state::MCMCChainState)
         samples.info[current] = samples.info[proposed]
 
         resize!(samples, 1)
+        # TODO: MD, discuss the usage of sample_z, and if it stays, clean it up and use proper info
+        sample_z.v[current_z] .= sample_z.v[proposed_z]
+        sample_z.logd[current_z] = sample_z.logd[proposed_z]
     end
 end
 
