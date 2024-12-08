@@ -91,6 +91,7 @@ function mcmc_init!(
         @debug "Generating $n $(cycle > 1 ? "additional " : "")candidate MCMC chain state(s)."
 
         new_mcmc_states = _gen_mcmc_states(samplingalg, target, rngpart, ncandidates .+ (one(Int64):n), initval_alg, context)
+        global st_cp_init_pre_misc = deepcopy(new_mcmc_states)
 
         filter!(isvalidstate, new_mcmc_states)
 
@@ -102,13 +103,16 @@ function mcmc_init!(
         ncandidates += n
 
         @debug "Testing $(length(new_mcmc_states)) candidate MCMC chain state(s)."
+        global st_cp_init_post_gen = (deepcopy(new_mcmc_states), deepcopy(new_outputs), init_alg, nonzero_weights)
         
+        #BREAK_INIT 
         new_mcmc_states = mcmc_iterate!!(
             new_outputs, new_mcmc_states;
             max_nsteps = clamp(div(init_alg.nsteps_init, 5), 10, 50),
             nonzero_weights = nonzero_weights
         )
-        
+        global st_cp_init_post_it = deepcopy(new_mcmc_states) 
+        #BREAK_cp_init
         viable_idxs = findall(isviablestate.(new_mcmc_states))
         viable_mcmc_states = new_mcmc_states[viable_idxs]
         viable_outputs = new_outputs[viable_idxs]

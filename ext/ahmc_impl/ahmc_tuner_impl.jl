@@ -49,8 +49,8 @@ function BAT.mcmc_tuning_finalize!!(tuner::HMCProposalTunerState, chain_state::H
     adaptor = tuner.adaptor
     proposal = chain_state.proposal
     AdvancedHMC.finalize!(adaptor)
-    proposal.hamiltonian = AdvancedHMC.update(proposal.hamiltonian, adaptor)
-    proposal.kernel = AdvancedHMC.update(proposal.kernel, adaptor)
+    proposal.hamiltonian = AdvancedHMC.update(proposal.hamiltonian, adaptor) # Remove for transition to trafo based tuning
+    proposal.kernel = AdvancedHMC.update(proposal.kernel, adaptor) 
     nothing
 end
 

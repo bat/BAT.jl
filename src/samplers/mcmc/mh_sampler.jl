@@ -103,7 +103,6 @@ end
 
 const MHChainState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:MHProposalState} 
 
-
 function mcmc_propose!!(mc_state::MHChainState)
     @unpack target, proposal, f_transform, context = mc_state
     rng = get_rng(context)

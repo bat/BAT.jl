@@ -15,8 +15,8 @@ using BAT: MeasureLike, BATMeasure
 
 using BAT: get_context, get_adselector, _NoADSelected
 using BAT: getproposal, mcmc_target
-using BAT: MCMCChainState, HMCState, HamiltonianMC, HMCProposalState, MCMCChainStateInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin, MCMCProposalTunerState, MCMCTransformTunerState, NoMCMCTempering
-using BAT: _current_sample_idx, _proposed_sample_idx, _cleanup_samples
+using BAT: MCMCChainState, HMCState, HamiltonianMC, HMCProposalState, MCMCChainStateInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin, MCMCProposalTunerState, MCMCTransformTunerState, NoMCMCTempering, NoMCMCTransformTuning
+using BAT: _current_sample_idx, _proposed_sample_idx, _cleanup_samples, current_sample_z 
 using BAT: AbstractTransformTarget, NoAdaptiveTransform
 using BAT: RNGPartition, get_rng, set_rng!
 using BAT: mcmc_step!!, nsamples, nsteps, samples_available, eff_acceptance_ratio
@@ -30,9 +30,11 @@ using BAT: AHMCSampleID, AHMCSampleIDVector
 using BAT: HMCMetric, DiagEuclideanMetric, UnitEuclideanMetric, DenseEuclideanMetric
 using BAT: HMCTuning, MassMatrixAdaptor, StepSizeAdaptor, NaiveHMCTuning, StanHMCTuning
 
+using MeasureBase: pullback 
+
 using ValueShapes: varshape
 
-using Accessors: @set
+using Accessors: @set, @reset
 
 
 BAT.ext_default(::BAT.PackageExtension{:AdvancedHMC}, ::Val{:DEFAULT_INTEGRATOR}) = AdvancedHMC.Leapfrog(NaN)

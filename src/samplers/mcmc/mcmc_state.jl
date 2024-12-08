@@ -46,19 +46,22 @@ function MCMCChainState(
     n_dims = getdof(target)
     
     #Create Proposal state. Necessary in particular for AHMC proposal
+    global state_proposal_init = (samplingalg, target, context, v_init, rng)
+    #BREAK_state_init
+
     proposal = _create_proposal_state(samplingalg.proposal, target, context, v_init, rng)
     stepno::Int64 = 0
 
     cycle::Int32 = 0
     nsamples::Int64 = 0
 
-    g = init_adaptive_transform(samplingalg.adaptive_transform, target, context)
-
+    f = init_adaptive_transform(samplingalg.adaptive_transform, target, context)
+    f_inv = inverse(f)
     logd_x = logdensityof(target_unevaluated, v_init)
-    inverse_g = inverse(g)
-    z = inverse_g(v_init)
-    logd_z = logdensityof(MeasureBase.pullback(g, target_unevaluated), z)
-
+    
+    z = f_inv(v_init) 
+    logd_z = logdensityof(MeasureBase.pullback(f, target_unevaluated), z)
+ 
     W = mcmc_weight_type(samplingalg.sample_weighting)
     T = typeof(logd_x)
 
@@ -76,7 +79,7 @@ function MCMCChainState(
     state = MCMCChainState(
         target,
         proposal,
-        g,
+        f,
         samplingalg.sample_weighting,
         samples,
         sample_z,
@@ -88,7 +91,7 @@ function MCMCChainState(
     )
 
     # TODO: MD, resetting the counters necessary/desired? 
-    reset_rng_counters!(state)
+    #reset_rng_counters!(state)
 
     state
 end
@@ -148,7 +151,7 @@ end
 function mcmc_step!!(mcmc_state::MCMCState)
     _cleanup_samples(mcmc_state)
     
-    reset_rng_counters!(mcmc_state)
+    #reset_rng_counters!(mcmc_state)
 
     chain_state = mcmc_state.chain_state
 
@@ -159,7 +162,9 @@ function mcmc_step!!(mcmc_state::MCMCState)
     resize!(samples, size(samples, 1) + 1)
 
     samples.info[lastindex(samples)] = _get_sample_id(proposal, chain_state.info.id, chain_state.info.cycle, chain_state.stepno, PROPOSED_SAMPLE)[1]
-
+    
+    global it_state = deepcopy(chain_state)
+    # BREEAK 
     chain_state, accepted, p_accept = mcmc_propose!!(chain_state)
 
     mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, p_accept)
@@ -222,7 +227,7 @@ function next_cycle!(chain_state::MCMCChainState)
     chain_state.nsamples = 0
     chain_state.stepno = 0
 
-    reset_rng_counters!(chain_state)
+    #reset_rng_counters!(chain_state)
 
     resize!(chain_state.samples, 1)
 

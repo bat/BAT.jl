@@ -3,12 +3,12 @@
 
 # Integrator ==============================================
 
-function _ahmc_set_step_size(integrator::AdvancedHMC.AbstractIntegrator, hamiltonian::AdvancedHMC.Hamiltonian, θ_init::AbstractVector{<:Real})
+function _ahmc_set_step_size(integrator::AdvancedHMC.AbstractIntegrator, hamiltonian::AdvancedHMC.Hamiltonian, θ_init::AbstractVector{<:Real}, rng::AbstractRNG)
     # ToDo: Add way to specify max_n_iters
     T = eltype(θ_init)
     step_size = integrator.ϵ
     if isnan(step_size)
-        new_step_size = AdvancedHMC.find_good_stepsize(hamiltonian, θ_init, max_n_iters = 100)
+        new_step_size = AdvancedHMC.find_good_stepsize(rng, hamiltonian, θ_init, max_n_iters = 100)
         @set integrator.ϵ = T(new_step_size)
     else
         @set integrator.ϵ = T(step_size)
@@ -57,7 +57,7 @@ function ahmc_adaptor(
     θ_init::AbstractVector{<:Real}
 )
     T = eltype(θ_init)
-    return AdvancedHMC.StepSizeAdaptor(tuning.target_acceptance, integrator)
+    return AdvancedHMC.StepSizeAdaptor(T(tuning.target_acceptance), integrator)
 end
 
 function ahmc_adaptor(

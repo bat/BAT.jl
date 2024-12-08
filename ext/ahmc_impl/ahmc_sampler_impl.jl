@@ -5,6 +5,8 @@ BAT.bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::Hamilto
 
 BAT.bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, proposal::HamiltonianMC) = StanHMCTuning()
 
+BAT.bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, proposal::HamiltonianMC) = NoMCMCTransformTuning()
+
 BAT.bat_default(::Type{TransformedMCMC}, ::Val{:adaptive_transform}, proposal::HamiltonianMC) = NoAdaptiveTransform()
 
 BAT.bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, proposal::HamiltonianMC) = NoMCMCTempering()
@@ -38,7 +40,7 @@ function BAT._create_proposal_state(
     metric = ahmc_metric(proposal.metric, params_vec)
     init_hamiltonian = AdvancedHMC.Hamiltonian(metric, f, fg)
     hamiltonian, init_transition = AdvancedHMC.sample_init(rng, init_hamiltonian, params_vec)
-    integrator = _ahmc_set_step_size(proposal.integrator, hamiltonian, params_vec)
+    integrator = _ahmc_set_step_size(proposal.integrator, hamiltonian, params_vec, rng)
     termination = _ahmc_convert_termination(proposal.termination, params_vec)
     kernel = HMCKernel(Trajectory{MultinomialTS}(integrator, termination))
 
@@ -66,7 +68,7 @@ function BAT.next_cycle!(mc_state::HMCState)
     mc_state.nsamples = 0
     mc_state.stepno = 0
 
-    reset_rng_counters!(mc_state)
+    #reset_rng_counters!(mc_state)
 
     resize!(mc_state.samples, 1)
 
@@ -85,9 +87,7 @@ function BAT.next_cycle!(mc_state::HMCState)
     mc_state
 end
 
-# TODO: MD, should this be a !! function?  
 function BAT.mcmc_propose!!(mc_state::HMCState)
-    # @unpack target, proposal, f_transform, samples, context = mc_state
     target = mc_state.target
     proposal = mc_state.proposal
     f_transform = mc_state.f_transform
@@ -96,27 +96,36 @@ function BAT.mcmc_propose!!(mc_state::HMCState)
 
     rng = get_rng(context)
 
-    current = _current_sample_idx(mc_state)
-    proposed = _proposed_sample_idx(mc_state)
+    current_x_idx = _current_sample_idx(mc_state)
+    proposed_x_idx = _proposed_sample_idx(mc_state)
 
-    x_current = samples.v[current]
-    x_proposed = samples.v[proposed]
-    current_log_posterior = samples.logd[current]
+    z_current = current_sample_z(mc_state).v
+    
+    x_current = samples.v[current_x_idx]
+    x_proposed = samples.v[proposed_x_idx]
+    current_log_posterior = samples.logd[current_x_idx]
+    
+    
+    
+    τ = deepcopy(proposal.kernel.τ)
+    @reset τ.integrator = AdvancedHMC.jitter(rng, τ.integrator)
+
+    hamiltonian = proposal.hamiltonian
+    z = AdvancedHMC.phasepoint(hamiltonian, vec(x_current[:]), rand(rng, hamiltonian.metric, hamiltonian.kinetic, vec(x_current[:])))
+
+    proposal.transition = AdvancedHMC.transition(rng, τ, hamiltonian, z)
+    tstat = AdvancedHMC.stat(proposal.transition)
+    p_accept = tstat.acceptance_rate
 
 
-    proposal.transition = AdvancedHMC.transition(rng, proposal.hamiltonian, proposal.kernel, proposal.transition.z)
+
     x_proposed[:] = proposal.transition.z.θ
 
     proposed_log_posterior = logdensityof(target, x_proposed)
     
-    samples.logd[proposed] = proposed_log_posterior
+    samples.logd[proposed_x_idx] = proposed_log_posterior
 
     accepted = x_current != x_proposed
-
-    # TODO: Setting p_accept to 1 or 0 for now.
-    # Use AdvancedHMC.stat(transition).acceptance_rate in the future?
-    p_accept = Float64(accepted)
-
     return mc_state, accepted, p_accept
 end
 
