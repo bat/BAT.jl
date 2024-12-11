@@ -21,7 +21,7 @@ Constructors:
 ```julia
 em = EvaluatedMeasure(
     measure;
-    samples = ..., approx = ..., mass = ..., mode = ...,
+    samples = ..., empirical = ..., mass = ..., mode = ...,
     _samplegen = ...
 )
 
