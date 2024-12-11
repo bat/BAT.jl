@@ -41,16 +41,10 @@ function build_optimizationfunction(f, adsel::BAT._NoADSelected)
 end
 
 
-function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimizationAlg, context::BATContext)
-    transformed_m, f_pretransform = transform_and_unshape(algorithm.pretransform, target, context)
-    target_uneval = unevaluated(target)
-    inv_trafo = inverse(f_pretransform)
+function BAT.bat_maximize_impl(f_target, x_init, algorithm::OptimizationAlg, context::BATContext)
+    # minimize negative target:
+    f = (-) ∘ f_target
 
-    initalg = apply_trafo_to_init(f_pretransform, algorithm.init)
-    x_init = collect(bat_initval(transformed_m, initalg, context).result)
-
-    # Maximize density of original target, but run in transformed space, don't apply LADJ:
-    f = fchain(inv_trafo, logdensityof(target_uneval), -)
     target_f = (x, p) -> f(x)
 
     adsel = get_adselector(context)
@@ -62,13 +56,9 @@ function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimizationAlg, 
     # Not all algorithms support abstol, just filter all NaN-valued opts out:
     filtered_algopts = NamedTuple(filter(p -> !isnan(p[2]), pairs(algopts)))
     optimization_result = Optimization.solve(optimization_problem, algorithm.optalg; filtered_algopts..., algorithm.kwargs...) 
-
-    transformed_mode =  optimization_result.u
-    result_mode = inv_trafo(transformed_mode)
-
-    (result = result_mode, result_trafo = transformed_mode, f_pretransform = f_pretransform, info = optimization_result)
+    x_min = optimization_result.u
+    return (result = x_min, info = optimization_result)
 end
-
 
 
 end # module BATOptimizationExt

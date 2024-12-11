@@ -139,7 +139,7 @@ function mcmc_init!(
     tidxs = LinearIndices(mcmc_states)
     n = length(tidxs)
 
-    modes = hcat(broadcast(samples -> Array(bat_findmode(samples, MaxDensitySearch(), context).result), outputs)...)
+    modes = hcat(broadcast(samples -> Array(bat_findmode(samples, EmpiricalMode(), context).result), outputs)...)
 
     final_mcmc_states = similar(mcmc_states, 0)
     final_outputs = similar(outputs, 0)

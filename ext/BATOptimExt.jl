@@ -67,28 +67,18 @@ function convert_options(algorithm::OptimAlg)
     return Optim.Options(; algopts...)
 end 
 
-function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimAlg, context::BATContext)
-    transformed_density, f_pretransform = transform_and_unshape(algorithm.pretransform, target, context)
-    target_uneval = unevaluated(target)
-    inv_trafo = inverse(f_pretransform)
 
-    initalg = apply_trafo_to_init(f_pretransform, algorithm.init)
-    x_init = collect(bat_initval(transformed_density, initalg, context).result)
+function BAT.bat_maximize_impl(f_target, x_init, algorithm::OptimAlg, context::BATContext)
+    # minimize negative target:
+    f = (-) ∘ f_target
 
-    # Maximize density of original target, but run in transformed space, don't apply LADJ:
-    f = fchain(inv_trafo, logdensityof(target_uneval), -)
     opts = convert_options(algorithm)
     optim_result = _optim_minimize(f, x_init, algorithm.optalg, opts, context)
     r_optim = Optim.MaximizationWrapper(optim_result)
-    transformed_mode = Optim.minimizer(r_optim.res)
-    result_mode = inv_trafo(transformed_mode)
-
-    # ToDo: Re-enable trace, make it type stable:
-    #dummy_f_x = f(x_init) # ToDo: Avoid recomputation
-    #trace_trafo = StructArray(;_neg_opt_trace(optim_result, x_init, dummy_f_x) ...)
-
-    (result = result_mode, result_trafo = transformed_mode, f_pretransform = f_pretransform, #=trace_trafo = trace_trafo,=# info = r_optim)
+    x_min = Optim.minimizer(r_optim.res)
+    return (result = x_min, info = r_optim)
 end
+
 
 function _optim_minimize(f::Function, x_init::AbstractArray{<:Real}, algorithm::Optim.ZerothOrderOptimizer, opts::Optim.Options, ::BATContext)
     _optim_optimize(f, x_init, algorithm, opts)

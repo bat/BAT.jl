@@ -185,10 +185,10 @@ Requires one of the [Optimization.jl](https://github.com/SciML/Optimization.jl) 
 
 ### Maximum Sample Estimator
 
-BAT mode finding algorithm type: [`MaxDensitySearch`](@ref) 
+BAT mode finding algorithm type: [`EmpiricalMode`](@ref)
 
 ```julia
-bat_findmode(smpls, MaxDensitySearch())
+bat_findmode(smpls, EmpiricalMode())
 ```
 
 

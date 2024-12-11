@@ -15,7 +15,7 @@ bat_integrated_autocorr_len
 bat_marginalmode
 BAT.auto_renormalize
 BAT.batsampleable
-BAT.BinnedModeEstimator
+BAT.BinnedMode
 BAT.DistributionTransform
 BAT.enable_error_log
 BAT.error_log

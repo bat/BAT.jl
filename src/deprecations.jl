@@ -29,7 +29,7 @@ end
 export LBFGSOpt
 
 
-Base.@deprecate MaxDensitySampleSearch(args...; kwargs...) MaxDensitySearch(args...; kwargs...)
+Base.@deprecate MaxDensitySampleSearch(args...; kwargs...) EmpiricalMode(args...; kwargs...)
 export MaxDensitySampleSearch
 
 Base.@deprecate NoDensityTransform(args...; kwargs...) DoNotTransform(args...; kwargs...)
@@ -83,3 +83,62 @@ export MCMCSampling
 
 
 @deprecate PriorToGaussian() PriorToNormal()
+
+
+@deprecate ModeAsDefined() PredefinedMode()
+export ModeAsDefined
+
+@deprecate MaxDensitySearch() EmpiricalMode()
+export MaxDensitySearch
+
+@deprecate BinnedModeEstimator() BinnedMode()
+export BinnedModeEstimator
+
+Base.@deprecate OptimAlg(;
+    optalg::ALG = ext_default(pkgext(Val(:Optim)), Val(:DEFAULT_OPTALG))
+    pretransform::AbstractTransformTarget = PriorToNormal()
+    init::InitvalAlgorithm = InitFromTarget()
+    maxiters::Int = 1_000
+    maxtime::Float64 = NaN
+    abstol::Float64 = NaN
+    reltol::Float64 = 0.0
+    kwargs::NamedTuple = (;)
+) ModeOptimization(;
+    optimizer = OptimOpt(;
+        optalg = optalg,
+        maxiters = maxiters,
+        maxtime = maxtime,
+        abstol = abstol,
+        reltol = reltol,
+        optargs = kwargs
+    )
+    pretransform = pretransform,
+    init = init,
+    optalg = optalg,
+)
+export OptimAlg
+
+
+Base.@deprecate OptimizationAlg(;
+    optalg::ALG = ext_default(pkgext(Val(:Optim)), Val(:DEFAULT_OPTALG))
+    pretransform::AbstractTransformTarget = PriorToNormal()
+    init::InitvalAlgorithm = InitFromTarget()
+    maxiters::Int = 1000
+    maxtime::Float64 = NaN
+    abstol::Float64 = NaN
+    reltol::Float64 = 0.0
+    kwargs::NamedTuple = (;)
+) ModeOptimization(;
+    optimizer = OptimizationOpt(;
+        optalg = ext_default(pkgext(Val(:Optimization)), Val(:DEFAULT_OPTALG)),
+        maxiters = maxiters,
+        maxtime = maxtime,
+        abstol = abstol,
+        reltol = reltol,
+        optargs = kwargs
+    )
+    pretransform = pretransform,
+    init = init,
+    optalg = optalg,
+)
+export OptimizationAlg

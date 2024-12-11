@@ -16,6 +16,12 @@ Several algorithms have changed their names, but also their role:
 
 * `PriorToGaussian` has become `PriorToNormal`.
 
+* `ModeAsDefined` has become `PredefinedMode`.
+
+* `MaxDensitySearch` has become `EmpiricalMode`.
+
+* `BinnedModeEstimator` has become `BinnedMode`.
+
 Partial deprecations are available for the above, a lot of old code should
 run more or less unchanged (with deprecation warnings). Also:
 

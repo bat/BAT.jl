@@ -13,12 +13,12 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct BinnedModeEstimator{BA} <: AbstractModeEstimator
+@with_kw struct BinnedMode{BA} <: AbstractModeEstimator
     binning::BA = FreedmanDiaconisBinning()
 end
 
 
-function bat_marginalmode_impl(samples::DensitySampleVector, algorithm::BinnedModeEstimator, context::BATContext)
+function bat_marginalmode_impl(samples::DensitySampleVector, algorithm::BinnedMode, context::BATContext)
     shape = varshape(samples)
     flat_samples = flatview(unshaped.(samples.v))
     n_params = size(flat_samples)[1]

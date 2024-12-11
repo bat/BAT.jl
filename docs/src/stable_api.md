@@ -84,7 +84,7 @@ InitFromTarget
 InitvalAlgorithm
 IntegrationAlgorithm
 KishESS
-MaxDensitySearch
+EmpiricalMode
 MCMCAlgorithm
 MCMCBurninAlgorithm
 MCMCChainPoolInit
@@ -93,7 +93,7 @@ MCMCMultiCycleBurnin
 MCMCProposalTuning
 MCMCTransformTuning
 MGVISampling
-ModeAsDefined
+PredefinedMode
 NoMCMCProposalTuning
 NoMCMCTransformTuning
 OptimAlg
