@@ -12,29 +12,47 @@ measure at the sample points stored as well.
 The sample need not have been drawn in a true IID fashion, but may also be
 the result of MCMC and other sampling methods.
 
-A `DensitySampleMeasure` can be converted to/from a `DensitySampleVector`.
+A `DensitySampleMeasure` can be converted to a `DensitySampleVector`.
+
+Note: `DensitySampleMeasure` currently does not support `logdensityof`, as it
+would require an inefficient linear search over all sample points.
 
 Constructors:
 
 ```julia
-DensitySampleMeasure(smpls::DensitySampleVector)
+DensitySampleMeasure(
+    smpls::DensitySampleVector, dof::Integer;
+    mass::Real = exp(ULogarithmic, 0.0f0)
+)
 ```
+
+A `DensitySampleMeasure` hass mass one by default, as the measure the samples
+were drawn from is treated as implicitly normalized, even if is was a
+scaled probability measure of possibly unknown total mass (e.g. a
+non-normalized Bayesian posterior measure).
 """
 struct DensitySampleMeasure{
     P,
     T<:Real,
     W<:Real,
+    M<:Real,
     SV<:DensitySampleVector{P,T,W}
 } <: BATMeasure
     _smpls::SV
     _weight_sum::W
     _max_weight::W
+    _dof::Integer
+    _mass::M
 end
 export DensitySampleMeasure
 
 
-function DensitySampleMeasure(smpls::DensitySampleVector)
-    return DensitySampleMeasure(smpls, sum(smpls.weight), maximum(smpls.weight))
+function DensitySampleMeasure(smpls::DensitySampleVector, dof::Integer, mass::Real = 1)
+    # ToDo: Ensure smpls are deduplicated.
+    # ToDo: Storing logdensity calcuaion by storing a binary searchable vector
+    # over tuples `(point_hash, sample_idx)`.
+    ndof =
+    DensitySampleMeasure(smpls, sum(smpls.weight), maximum(smpls.weight))
 end
 
 Base.convert(::Type{DensitySampleMeasure}, smpls::DensitySampleVector) = DensitySampleMeasure(smpls)
@@ -43,13 +61,25 @@ DensitySampleVector(m::DensitySampleMeasure) = samplesof(m)
 Base.convert(::Type{DensitySampleVector}, m::DensitySampleMeasure) = DensitySampleVector(m)
 
 
-DensityInterface.logdensityof(m::DensitySampleMeasure, x) = NaN
+function Base.:(==)(a::DensitySampleMeasure, b::DensitySampleMeasure)
+    return a._smpls == b._smpls && a._dof == b._dof && a._logmass == b._logmass
+end
 
-MeasureBase.getdof(em::DensitySampleMeasure) = ... #!!!!!!!!!!!!!!!!
+function Base.isapprox(a::DensitySampleMeasure, b::DensitySampleMeasure; kwargs...)
+    return isapprox(a._smpls, b._smpls; kwargs...) && isapprox(a._dof, b._dof; kwargs...) &&
+        isapprox(a._logmass, b._logmass; kwargs...)
+end
 
-MeasureBase.massof(em::DensitySampleMeasure) = ... #!!!!!!!!!!!!!!!!
+# ToDo: Support efficient logdensity lookup. 
+function DensityInterface.logdensityof(::DensitySampleMeasure, ::Any)
+    throw(ArgumentError("logdensityof is not supported for DensitySampleMeasure."))
+end
 
-ValueShapes.varshape(em::DensitySampleMeasure) = varshape(em.measure)
+MeasureBase.getdof(em::DensitySampleMeasure) = em._dof
+
+MeasureBase.massof(em::DensitySampleMeasure) = em._mass
+
+ValueShapes.varshape(em::DensitySampleMeasure) = elshape(samplesof(em))
 
 function _unshaped_density(em::DensitySampleMeasure, vs::AbstractValueShape)
     new_measure = unshaped(em.measure, vs)
@@ -75,7 +105,8 @@ function bat_transform_impl(f_transform, em::DensitySampleMeasure, algorithm::Sa
 end
 
 function MeasureBase.weightedmeasure(logweight::Real, em::DensitySampleMeasure)
-    rw = exp(logweight)
+    T = float(typeof(log(weightof(em))))
+    w = exp(ULogarithmic, logweight)
     smpls = samplesof(em)
     new_smpls = DensitySampleVector((smpls.v, smpls.logd, rw .* smpls.weight, smpls.info, smpls.aux))
     return DensitySampleMeasure(new_smpls, em._weight_sum, em._max_weight)
