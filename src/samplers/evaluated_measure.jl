@@ -1,3 +1,4 @@
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 """
     BAT.unevaluated(obj)
@@ -20,8 +21,8 @@ Constructors:
 ```julia
 em = EvaluatedMeasure(
     measure;
-    samples = ..., approx = ..., mass = ..., mode = ...,
-    _generator = ...
+    samples = ..., empirical = ..., mass = ..., mode = ...,
+    _samplegen = ...
 )
 
 BAT.unevaluated(em) === measure
@@ -29,7 +30,7 @@ BAT.unevaluated(em) === measure
 
 !!! note
 
-    Field `_generator` does not form part of the stable public
+    Field `_samplegen` does not form part of the stable public
     API and is subject to change without deprecation.
 """
 struct EvaluatedMeasure{
@@ -41,37 +42,37 @@ struct EvaluatedMeasure{
     G<:Union{AbstractSampleGenerator,Missing}
 } <: BATMeasure
     measure::D
-    samples::S
+    empirical::S
     approx::A
     mass::M
     modes::P
-    _generator::G
+    _samplegen::G
 end
 export EvaluatedMeasure
 
 function EvaluatedMeasure(
     measurelike::MeasureLike;
-    samples = missing,
+    empirical = missing,
     approx = missing,
     mass = MeasureBase.UnknownMass(),
     modes = missing,
-    _generator = missing
+    _samplegen = missing
 )
     measure = batmeasure(measurelike)
     @argcheck DensityKind(measure) isa HasDensity
-    return EvaluatedMeasure(measure, samples, approx, mass, modes, _generator)
+    return EvaluatedMeasure(measure, empirical, approx, mass, modes, _samplegen)
 end
 
 function EvaluatedMeasure(
     em::EvaluatedMeasure;
-    samples = em.samples,
+    empirical = em.empirical,
     approx = em.approx,
     mass = em.mass,
     modes = em.modes,
-    _generator = em._generator
+    _samplegen = em._samplegen
 )
     @argcheck DensityKind(em) isa HasDensity
-    return EvaluatedMeasure(em.measure, samples, approx, mass, modes, _generator)
+    return EvaluatedMeasure(em.measure, convert(DensitySampleMeasure, empirical), approx, mass, modes, _samplegen)
 end
 
 unevaluated(em::EvaluatedMeasure) = em.measure
@@ -85,32 +86,33 @@ MeasureBase.massof(em::EvaluatedMeasure) = em.mass
 
 ValueShapes.varshape(em::EvaluatedMeasure) = varshape(em.measure)
 
-function _unshaped_density(em::EvaluatedMeasure, vs::AbstractValueShape)
+function ValueShapes.unshaped(em::EvaluatedMeasure, vs::AbstractValueShape)
     new_measure = unshaped(em.measure, vs)
-    @assert elshape(em.samples.v) <= vs
-    new_samples = unshaped.(em.samples)
-    return EvaluatedMeasure(new_measure, new_samples, em.approx, em.mass, em.modes, em._generator)
+    @assert varshape(em.empirical) <= vs
+    new_sampled = unshaped(em.empirical)
+    return EvaluatedMeasure(new_measure, new_sampled, em.approx, em.mass, em.modes, em._samplegen)
 end
 
 measure_support(em::EvaluatedMeasure) = measure_support(em.measure)
 
-maybe_samplesof(em::EvaluatedMeasure) = em.samples
-maybe_modesof(em::EvaluatedMeasure) = em.modes
-maybe_approxof(em::EvaluatedMeasure) = em.approx
-maybe_generator(em::EvaluatedMeasure) = em._generator
+@inline maybe_empiricalof(em::EvaluatedMeasure) = em.empirical
+@inline maybe_samplesof(em::EvaluatedMeasure) = maybe_empiricalof(em) isa Missing ? missing : convert(DensitySamplesVector, em.empirical)
+@inline maybe_modesof(em::EvaluatedMeasure) = em.modes
+@inline maybe_approxof(em::EvaluatedMeasure) = em.approx
+@inline maybe_samplegen(em::EvaluatedMeasure) = em._samplegen
 
 
-get_initsrc_from_target(em::EvaluatedMeasure) = em.samples
+get_initsrc_from_target(em::EvaluatedMeasure) = em.empirical
 
 
 _get_deep_prior_for_trafo(em::EvaluatedMeasure) = _get_deep_prior_for_trafo(em.measure)
 
 function bat_transform_impl(target::AbstractTransformTarget, em::EvaluatedMeasure, algorithm::PriorSubstitution, context::BATContext)
     new_measure, f_transform = bat_transform_impl(target, em.measure, algorithm, context)
-    samples = em.samples
-    smpl_trafoalg = bat_default(bat_transform, Val(:algorithm), f_transform, samples)
-    new_samples, _ = bat_transform_impl(f_transform, samples, smpl_trafoalg, context)
-    new_em = EvaluatedMeasure(new_measure, new_samples, em.approx, em.mass, em.modes, em._generator)
+    empirical = em.empirical
+    smpl_trafoalg = bat_default(bat_transform, Val(:algorithm), f_transform, empirical)
+    new_samples, _ = bat_transform_impl(f_transform, empirical, smpl_trafoalg, context)
+    new_em = EvaluatedMeasure(new_measure, new_samples, em.approx, em.mass, em.modes, em._samplegen)
     (result = new_em, f_transform = f_transform)
 end
 
@@ -118,9 +120,8 @@ end
 
 function MeasureBase.weightedmeasure(logweight::Real, em::EvaluatedMeasure)
     new_measure = weightedmeasure(logweight, em.measure)
-    samples = em.samples
-    new_samples = DensitySampleVector((samples.v, samples.logd .+ logweight, samples.weight, samples.info, samples.aux))
-    return EvaluatedMeasure(new_measure, new_samples, em.approx, em.mass, em.modes, em._generator)
+    new_empirical = _renormalize_empirical_logd(logweight, maybe_empiricalof(em))
+    return EvaluatedMeasure(new_measure, new_empirical, em.approx, em.mass, em.modes, em._samplegen)
 end
 
 
@@ -134,41 +135,22 @@ end
 
 
 function bat_report!(md::Markdown.MD, em::EvaluatedMeasure)
-    if !isnothing(em.samples)
-        bat_report!(md, em.samples)
-    end
-    if !isnothing(em._generator)
-        bat_report!(md, em._generator)
-    end
-
+    bat_report!(md, maybe_samplesof(em))
+    bat_report!(md, maybe_samplegen(em))
     return md
 end
 
 
-function _approx_mean(em::EvaluatedMeasure, n)
-    smpls = maybe_samplesof(em)
-    if !isnothing(smpls)
-        return mean(smpls)
-    else
-        return _approx_mean(unevaluated(em))
-    end
+function _empirical_or_unevaluated(em::EvaluatedMeasure)
+    empirical = maybe_empiricalof(em)
+    return !isnothing(empirical) ? empirical : unevaluated(em)
 end
 
-
-function _approx_cov(em::EvaluatedMeasure, n)
-    smpls = maybe_samplesof(em)
-    if !isnothing(smpls)
-        return cov(smpls)
-    else
-        return _approx_cov(unevaluated(em))
-    end
-end
+_approx_mean(em::EvaluatedMeasure, n) = _approx_mean(_empirical_or_unevaluated(em))
+_approx_cov(em::EvaluatedMeasure, n) = _approx_cov(_empirical_or_unevaluated(em))
 
 function _estimated_max_logd(em::EvaluatedMeasure)
-    smpls = maybe_samplesof(em)
-    if !isnothing(smpls) && !any(isnan, smpls.logd)
-        return _estimated_max_logd(smpls)
-    else
-        return _estimated_max_logd(unevaluated(em))
-    end
+    _max_logd = _estimated_max_logd(_empirical_or_unevaluated(em))
+    @assert !isnan(_max_logd)
+    return _max_logd
 end

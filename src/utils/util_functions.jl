@@ -66,6 +66,15 @@ isapproxone(x::T) where T<:Real = x ≈ one(T)
 isapproxone(A::AbstractArray) = all(isapproxone, A)
 
 
+@inline function _lfloat(x::T) where T
+    U = _lfloat(T)
+    return convert(U, x)::U
+end
+
+_lfloat(::Type{T}) where T = float(T)
+_lfloat(::Type{<:Integer}) = Float32
+
+
 function should_log_progress_now(start_time::Real, last_log_time::Real)
     current_time = time()
     elapsed_time = current_time - start_time

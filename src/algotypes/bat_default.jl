@@ -59,25 +59,25 @@ function result_with_args(::Val, ::Any, r::NamedTuple, optargs::NamedTuple)
     return result_with_args(r, optargs)
 end
 
-function result_with_args(::Val{resultname}, target::Union{AbstractMeasure,Distribution}, r::NamedTuple, optargs::NamedTuple) where resultname
+function result_with_args(::Val{resultkind}, target::Union{AbstractMeasure,Distribution}, r::NamedTuple, optargs::NamedTuple) where resultkind
     measure = batmeasure(target)
-    augmented_result = _augment_bat_retval(Val(resultname), measure, r)
+    augmented_result = _augment_bat_retval(Val(resultkind), measure, r)
     result_with_args(augmented_result, optargs)
 end
 
-function _augment_bat_retval(::Val{resultname}, measure, r::R) where {resultname,R}
+function _augment_bat_retval(::Val{resultkind}, measure, r::R) where {resultkind,R}
     if hasfield(R, :evaluated)
         return r
     else
-        if resultname == :samples
-            samples = r.result
+        if resultkind == :samples
+            empirical = DensitySampleMeasure(r.result, getdof(measure))
         elseif hasfield(R, :samples)
-            samples = r.samples
+            empirical = DensitySampleMeasure(r.samples, getdof(measure))
         else
-            samples = maybe_samplesof(measure)
+            empirical = maybe_empiricalof(measure)
         end
 
-        if resultname == :approx
+        if resultkind == :approx
             approx = r.result
         elseif hasfield(R, :approx)
             approx = r.approx
@@ -85,7 +85,7 @@ function _augment_bat_retval(::Val{resultname}, measure, r::R) where {resultname
             approx = maybe_approxof(measure)
         end
 
-        if resultname == :mass
+        if resultkind == :mass
             mass = r.result
         elseif hasfield(R, :mass)
             mass = r.mass
@@ -93,9 +93,9 @@ function _augment_bat_retval(::Val{resultname}, measure, r::R) where {resultname
             mass = massof(measure)
         end
 
-        if resultname == :modes
+        if resultkind == :modes
             modes = r.result
-        elseif resultname == :mode
+        elseif resultkind == :mode
             modes = [r.result]
         elseif hasfield(R, :modes)
             modes = r.modes
@@ -105,14 +105,15 @@ function _augment_bat_retval(::Val{resultname}, measure, r::R) where {resultname
             modes = maybe_modesof(measure)
         end
 
-        if resultname == :generator
-            generator = r.result
-        elseif hasfield(R, :generator)
-            generator = r.generator
+        if resultkind == :samplegen
+            samplegen = r.result
+        elseif hasfield(R, :samplegen)
+            samplegen = r.samplegen
         else
-            generator = maybe_generator(measure)
+            samplegen = maybe_samplegen(measure)
         end
-        evaluated = EvaluatedMeasure(unevaluated(measure), samples, approx, mass, modes, generator)
+        global g_state = (unevaluated(measure), empirical, approx, mass, modes, samplegen)
+        evaluated = EvaluatedMeasure(unevaluated(measure), empirical, approx, mass, modes, samplegen)
         r_add = (result = r.result, evaluated = evaluated)
         return merge(r_add, r)
     end

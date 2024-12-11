@@ -402,3 +402,14 @@ function repetition_to_weights(v::AbstractVector)
     end
     return (idxs, counts)
 end
+
+
+function _rand_subsample_idxs(gen::GenContext, smpls::DensitySampleVector, n::Integer)
+    # ToDo: Use PSIS (possible, efficiently?).
+
+    orig_idxs = eachindex(smpls)
+    weights = FrequencyWeights(float(smpls.weight))
+    # Always generate idxs on CPU for now:
+    idxs = sample(get_rng(gen), orig_idxs, weights, n, replace=true, ordered=false)
+    return idxs
+end

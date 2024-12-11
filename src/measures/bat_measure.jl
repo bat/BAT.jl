@@ -15,11 +15,21 @@ measure_support(m::AbstractMeasure) = UnknownDomain()
 struct UnknownDomain end
 
 
-# ToDo: Document and make public:
+# ToDo: Document these function and make them public:
+maybe_empiricalof(::AbstractMeasure) = missing
+
 maybe_samplesof(::AbstractMeasure) = missing
+
+@inline samplesof(m::AbstractMeasure) = _samplesof_impl(typeof(m), maybe_samplesof(m))
+_samplesof_impl(@nospecialize(M::Type), ::Missing) = throw(ArgumentError("Measure of type $(nameof(M)) doesn't seem to have samples attached to it"))
+@inline _samplesof_impl(::Type, smpls) = smpls
+
 maybe_modesof(::AbstractMeasure) = missing
+
 maybe_approxof(::AbstractMeasure) = missing
-maybe_generator(::AbstractMeasure) = missing
+
+maybe_samplegen(::AbstractMeasure) = missing
+
 
 # ToDo: Document and make public:
 function maybe_modeof(m::AbstractMeasure)
@@ -47,6 +57,8 @@ abstract type BATMeasure <: AbstractMeasure end
 Base.convert(::Type{BATMeasure}, m::BATMeasure) = m
 Base.convert(::Type{BATMeasure}, m::AbstractMeasure) = BATMeasure(m)
 Base.convert(::Type{BATMeasure}, d::Distribution) = BATMeasure(d)
+
+@inline BATMeasure(m::BATMeasure) = m
 
 BATMeasure(::StdUniform) = batmeasure(StandardUvUniform())
 BATMeasure(::StdNormal) = batmeasure(StandardUvNormal())
@@ -135,6 +147,7 @@ function batmeasure end
 export batmeasure
 
 batmeasure(obj) = convert(BATMeasure, obj)
+batmeasure(::Missing) = missing
 
 
 """
@@ -222,6 +235,13 @@ _dist_with_pullback(m::BATMeasure) = Distribution(m), identity
 function _dist_with_pullback_impl(origin, finv)
     d, ginv = _dist_with_pullback(origin)
     return d, fcomp(ginv, finv)
+end
+
+
+function _reweighted_mass(logweight::Real, current_mass::Real)
+    current_logmass = _lfloat(log(current_mass))
+    new_logmass = oftype(current_logmass, logweight) + current_logmass
+    return exp(ULogarithmic, new_logmass)
 end
 
 
