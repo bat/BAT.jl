@@ -88,28 +88,22 @@ export RandResampling
 
 
 function bat_sample_impl(m::DensitySampleMeasure, algorithm::RandResampling, context::BATContext)
-    n = algorithm.nsamples
-    # Always generate R on CPU for now:
-    R = rand(get_rng(context), n)
-    resampled_idxs = searchsortedfirst.(Ref(m._cw), R)
-    smpls = DensitySampleVector(m)
-
-    samples = smpls[resampled_idxs]
-    samples.weight .= 1
-    (result = samples,)
+    new_smpls = _bat_rand_subsample_impl(m, samplesof(m), algorithm, context)
+    (result = new_smpls,)
 end
 
 function bat_sample_impl(smpls::DensitySampleVector, algorithm::RandResampling, context::BATContext)
-    n = algorithm.nsamples
-    orig_idxs = eachindex(smpls)
-    weights = FrequencyWeights(float(smpls.weight))
-    # Always generate resampled_idxs on CPU for now:
-    rng = get_rng(context)
-    resampled_idxs = sample(rng, orig_idxs, weights, n, replace=true, ordered=false)
+    new_smpls = _bat_rand_subsample_impl(smpls, smpls, algorithm, context)
+    (result = new_smpls,)
+end
 
-    samples = smpls[resampled_idxs]
-    samples.weight .= 1
-    (result = samples,)
+function _bat_rand_subsample_impl(idxsrc, smpls, algorithm::RandResampling, context::BATContext)
+    gen = get_gencontext(context)
+    n = algorithm.nsamples
+    idxs = _rand_subsample_idxs(gen, idxsrc, n)
+    new_smpls = smpls[idxs]
+    new_smpls.weight .= 1
+    return new_smpls
 end
 
 
@@ -138,11 +132,15 @@ export OrderedResampling
 
 
 function bat_sample_impl(m::DensitySampleMeasure, algorithm::OrderedResampling, context::BATContext)
+    # ToDo: Use PSIS
+
     # ToDo: Utilize m._cw to speed up sampling:
-    bat_sample_impl(DensitySampleVector(m), algorithm, context)
+    bat_sample_impl(getsamples(m), algorithm, context)
 end
 
 function bat_sample_impl(smpls::DensitySampleVector, algorithm::OrderedResampling, context::BATContext)
+    # ToDo: Use PSIS
+
     rng = get_rng(context)
     @assert axes(smpls) == axes(smpls.weight)
     W = smpls.weight

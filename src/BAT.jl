@@ -104,6 +104,8 @@ using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, Abstract
 
 using Functors: fmap
 
+using LogarithmicNumbers: ULogarithmic
+
 # For Dual specializations:
 import ForwardDiff
 
