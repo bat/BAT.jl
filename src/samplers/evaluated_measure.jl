@@ -86,10 +86,10 @@ MeasureBase.massof(em::EvaluatedMeasure) = em.mass
 
 ValueShapes.varshape(em::EvaluatedMeasure) = varshape(em.measure)
 
-function _unshaped_density(em::EvaluatedMeasure, vs::AbstractValueShape)
+function ValueShapes.unshaped(em::EvaluatedMeasure, vs::AbstractValueShape)
     new_measure = unshaped(em.measure, vs)
     @assert varshape(em.empirical) <= vs
-    new_sampled = unshaped.(em.empirical)
+    new_sampled = unshaped(em.empirical)
     return EvaluatedMeasure(new_measure, new_sampled, em.approx, em.mass, em.modes, em._samplegen)
 end
 
