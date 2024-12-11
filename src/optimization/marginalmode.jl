@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 """
-    struct BinnedMarginalModes <: AbstractModeEstimator
+    struct BinnedMarginalModes <: AbstractOptimizer
 
 *Experimental feature, not part of stable public API.*
 
@@ -13,12 +13,12 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct BinnedModeEstimator{BA} <: AbstractModeEstimator
+@with_kw struct BinnedOptimum{BA} <: AbstractOptimizer
     binning::BA = FreedmanDiaconisBinning()
 end
 
 
-function bat_marginalmode_impl(samples::DensitySampleVector, algorithm::BinnedModeEstimator, context::BATContext)
+function bat_marginalmode_impl(samples::DensitySampleVector, algorithm::BinnedOptimum, context::BATContext)
     shape = varshape(samples)
     flat_samples = flatview(unshaped.(samples.v))
     n_params = size(flat_samples)[1]

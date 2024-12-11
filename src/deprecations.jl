@@ -29,7 +29,7 @@ end
 export LBFGSOpt
 
 
-Base.@deprecate MaxDensitySampleSearch(args...; kwargs...) MaxDensitySearch(args...; kwargs...)
+Base.@deprecate MaxDensitySampleSearch(args...; kwargs...) EmpiricalOptimum(args...; kwargs...)
 export MaxDensitySampleSearch
 
 Base.@deprecate NoDensityTransform(args...; kwargs...) DoNotTransform(args...; kwargs...)
@@ -83,3 +83,12 @@ export MCMCSampling
 
 
 @deprecate PriorToGaussian() PriorToNormal()
+
+@deprecate ModeAsDefined() PredefinedOptimum()
+export ModeAsDefined
+
+@deprecate MaxDensitySearch() EmpiricalOptimum()
+export MaxDensitySearch
+
+@deprecate BinnedModeEstimator() BinnedOptimum()
+export BinnedModeEstimator

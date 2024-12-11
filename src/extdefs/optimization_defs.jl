@@ -25,7 +25,7 @@ $(TYPEDFIELDS)
     ALG,
     TR<:AbstractTransformTarget,
     IA<:InitvalAlgorithm
-} <: AbstractModeEstimator
+} <: AbstractOptimizer
     optalg::ALG = ext_default(pkgext(Val(:Optimization)), Val(:DEFAULT_OPTALG))
     pretransform::TR = PriorToNormal()
     init::IA = InitFromTarget()

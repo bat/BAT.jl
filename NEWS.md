@@ -16,6 +16,14 @@ Several algorithms have changed their names, but also their role:
 
 * `PriorToGaussian` has become `PriorToNormal`.
 
+* `AbstractModeEstimator` has become `AbstractOptimizer`.
+
+* `ModeAsDefined` has become `PredefinedOptimum`.
+
+* `MaxDensitySearch` has become `EmpiricalOptimum`.
+
+* `BinnedModeEstimator` has become `BinnedOptimum`.
+
 Partial deprecations are available for the above, a lot of old code should
 run more or less unchanged (with deprecation warnings). Also:
 

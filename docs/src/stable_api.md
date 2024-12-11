@@ -84,7 +84,7 @@ InitFromTarget
 InitvalAlgorithm
 IntegrationAlgorithm
 KishESS
-MaxDensitySearch
+EmpiricalOptimum
 MCMCAlgorithm
 MCMCBurninAlgorithm
 MCMCChainPoolInit
@@ -93,7 +93,7 @@ MCMCMultiCycleBurnin
 MCMCProposalTuning
 MCMCTransformTuning
 MGVISampling
-ModeAsDefined
+PredefinedOptimum
 NoMCMCProposalTuning
 NoMCMCTransformTuning
 OptimAlg
@@ -122,7 +122,7 @@ VEGASIntegration
 BAT.unevaluated
 
 BAT.AbstractMedianEstimator
-BAT.AbstractModeEstimator
+BAT.AbstractOptimizer
 BAT.AbstractSamplingAlgorithm
 BAT.ConvergenceTest
 BAT.MGVISchedule

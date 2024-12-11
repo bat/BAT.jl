@@ -19,8 +19,8 @@ using BAT: get_context, get_adselector, _NoADSelected
 using BAT: bat_initval, transform_and_unshape, apply_trafo_to_init
 
 
-AbstractModeEstimator(optalg::Optim.AbstractOptimizer) = OptimAlg(optalg)
-Base.convert(::Type{AbstractModeEstimator}, alg::OptimAlg) = alg.optalg
+AbstractOptimizer(optalg::Optim.AbstractOptimizer) = OptimAlg(optalg)
+Base.convert(::Type{AbstractOptimizer}, alg::OptimAlg) = alg.optalg
 
 BAT.ext_default(::BAT.PackageExtension{:Optim}, ::Val{:DEFAULT_OPTALG}) = Optim.NelderMead()
 BAT.ext_default(::BAT.PackageExtension{:Optim}, ::Val{:NELDERMEAD_ALG}) = Optim.NelderMead()

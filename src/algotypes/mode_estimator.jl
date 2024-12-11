@@ -1,20 +1,20 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 """
-    abstract type BAT.AbstractModeEstimator
+    abstract type BAT.AbstractOptimizer
 
 Abstract type for BAT optimization algorithms.
 
 A typical application for optimization in BAT is mode estimation
 (see [`bat_findmode`](@ref)),
 """
-abstract type AbstractModeEstimator end
+abstract type AbstractOptimizer end
 
 
 """
     bat_findmode(
         target::BAT.AnySampleable,
-        [algorithm::BAT.AbstractModeEstimator],
+        [algorithm::BAT.AbstractOptimizer],
         [context::BATContext]
     )::DensitySampleVector
 
@@ -59,7 +59,7 @@ function bat_findmode(target::AnySampleable, context::BATContext)
 end
 
 
-function argchoice_msg(::typeof(bat_findmode), ::Val{:algorithm}, x::AbstractModeEstimator)
+function argchoice_msg(::typeof(bat_findmode), ::Val{:algorithm}, x::AbstractOptimizer)
     "Using mode estimator $x"
 end
 
@@ -68,7 +68,7 @@ end
 """
     bat_marginalmode(
         target::DensitySampleVector,
-        algorithm::AbstractModeEstimator,
+        algorithm::AbstractOptimizer,
         [context::BATContext]
     )::DensitySampleVector
 
