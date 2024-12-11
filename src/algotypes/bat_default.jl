@@ -70,11 +70,11 @@ function _augment_bat_retval(::Val{resultname}, measure, r::R) where {resultname
         return r
     else
         if resultname == :samples
-            samples = r.result
+            sampled = batmeasure(r.result)
         elseif hasfield(R, :samples)
-            samples = r.samples
+            sampled = batmeasure(r.samples)
         else
-            samples = maybe_samplesof(measure)
+            sampled = batmeasure(maybe_samplesof(measure))
         end
 
         if resultname == :approx
@@ -105,14 +105,14 @@ function _augment_bat_retval(::Val{resultname}, measure, r::R) where {resultname
             modes = maybe_modesof(measure)
         end
 
-        if resultname == :generator
-            generator = r.result
-        elseif hasfield(R, :generator)
-            generator = r.generator
+        if resultname == :samplegen
+            samplegen = r.result
+        elseif hasfield(R, :samplegen)
+            samplegen = r.samplegen
         else
-            generator = maybe_generator(measure)
+            samplegen = maybe_samplegen(measure)
         end
-        evaluated = EvaluatedMeasure(unevaluated(measure), samples, approx, mass, modes, generator)
+        evaluated = EvaluatedMeasure(unevaluated(measure), sampled, approx, mass, modes, samplegen)
         r_add = (result = r.result, evaluated = evaluated)
         return merge(r_add, r)
     end
