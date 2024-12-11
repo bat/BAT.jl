@@ -101,6 +101,10 @@ using Optim, OptimizationOptimJL
         context = BATContext(rng = Philox4x((0, 0)))
         # result is not type-stable:
         test_findmode(posterior, OptimizationAlg(optalg = OptimizationOptimJL.NelderMead(), trafo = DoNotTransform()), 0.01, context, inferred = false) 
+
+        context = BATContext(rng = Philox4x((0, 0)), ad = ADSelector(ForwardDiff))
+        # result is not type-stable:
+        test_findmode(posterior, OptimizationAlg(optalg = Optimization.LBFGS(), trafo = DoNotTransform()), 0.01, context, inferred = false) 
     end
 
     @testset "Optimization.jl with custom options" begin # checks that options are correctly passed to Optimization.jl
