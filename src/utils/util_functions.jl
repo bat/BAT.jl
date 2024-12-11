@@ -72,7 +72,7 @@ isapproxone(A::AbstractArray) = all(isapproxone, A)
 end
 
 _lfloat(::Type{T}) where T = float(T)
-_lfloat(::Type{T<:Integer}) = Float32
+_lfloat(::Type{<:Integer}) = Float32
 
 
 function should_log_progress_now(start_time::Real, last_log_time::Real)
