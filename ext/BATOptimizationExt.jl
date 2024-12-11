@@ -24,13 +24,13 @@ function test_bat_optimization_ext()
 end
 
 AbstractModeEstimator(optalg::Any) = OptimizationAlg(optalg)
-convert(::Type{AbstractModeEstimator}, alg::OptimizationAlg) = alg.optalg
+Base.convert(::Type{AbstractModeEstimator}, alg::OptimizationAlg) = alg.optalg
 
 BAT.ext_default(::BAT.PackageExtension{:Optimization}, ::Val{:DEFAULT_OPTALG}) = nothing #Optim.NelderMead()
 
 
 function build_optimizationfunction(f, adsel::AutoDiffOperators.ADSelector)
-    adm = convert_ad(ADTypes.AbstractADType, adsel)
+    adm = convert(ADTypes.AbstractADType, reverse_ad_selector(adsel))
     optimization_function = Optimization.OptimizationFunction(f, adm)
     return optimization_function
 end
@@ -59,7 +59,9 @@ function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimizationAlg, 
     optimization_problem = Optimization.OptimizationProblem(optimization_function, x_init)
 
     algopts = (maxiters = algorithm.maxiters, maxtime = algorithm.maxtime, abstol = algorithm.abstol, reltol = algorithm.reltol)
-    optimization_result = Optimization.solve(optimization_problem, algorithm.optalg; algopts..., algorithm.kwargs...) 
+    # Not all algorithms support abstol, just filter all NaN-valued opts out:
+    filtered_algopts = NamedTuple(filter(p -> !isnan(p[2]), pairs(algopts)))
+    optimization_result = Optimization.solve(optimization_problem, algorithm.optalg; filtered_algopts..., algorithm.kwargs...) 
 
     transformed_mode =  optimization_result.u
     result_mode = inv_trafo(transformed_mode)
