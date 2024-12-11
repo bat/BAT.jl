@@ -73,38 +73,38 @@ function DensityInterface.logdensityof(::DensitySampleMeasure, ::Any)
     throw(ArgumentError("logdensityof is not supported for DensitySampleMeasure."))
 end
 
-MeasureBase.getdof(em::DensitySampleMeasure) = em._dof
+MeasureBase.getdof(dsm::DensitySampleMeasure) = dsm._dof
 
-MeasureBase.massof(em::DensitySampleMeasure) = em._mass
+MeasureBase.massof(dsm::DensitySampleMeasure) = dsm._mass
 
-ValueShapes.varshape(em::DensitySampleMeasure) = elshape(samplesof(em))
+ValueShapes.varshape(dsm::DensitySampleMeasure) = elshape(samplesof(dsm))
 
-function _unshaped_density(em::DensitySampleMeasure, vs::AbstractValueShape)
-    new_measure = unshaped(em.measure, vs)
-    @assert varshape(em.sampled) <= vs
-    new_sampled = unshaped.(em.sampled)
-    return DensitySampleMeasure(new_measure, new_sampled, em.approx, em.mass, em.modes, em.samplegen)
+function _unshaped_density(dsm::DensitySampleMeasure, vs::AbstractValueShape)
+    new_measure = unshaped(dsm.measure, vs)
+    @assert varshape(dsm.sampled) <= vs
+    new_sampled = unshaped.(dsm.sampled)
+    return DensitySampleMeasure(new_measure, new_sampled, dsm.approx, dsm.mass, dsm.modes, dsm.samplegen)
 end
 
-measure_support(em::DensitySampleMeasure) = measure_support(em.measure)
+measure_support(dsm::DensitySampleMeasure) = measure_support(dsm.measure)
 
-@inline maybe_empiricalof(em::DensitySampleMeasure) = em.sampled
-@inline maybe_samplesof(em::DensitySampleMeasure) = maybe_empiricalof(em) isa Missing ? missing : convert(DensitySamplesVector, em.sampled)
-@inline maybe_modesof(em::DensitySampleMeasure) = em.modes
-
-
-get_initsrc_from_target(em::DensitySampleMeasure) = samplesof(em)
+@inline maybe_empiricalof(dsm::DensitySampleMeasure) = dsm.sampled
+@inline maybe_samplesof(dsm::DensitySampleMeasure) = maybe_empiricalof(dsm) isa Missing ? missing : convert(DensitySamplesVector, dsm.sampled)
+@inline maybe_modesof(dsm::DensitySampleMeasure) = dsm.modes
 
 
-function bat_transform_impl(f_transform, em::DensitySampleMeasure, algorithm::SampleTransformation, context::BATContext)
-    smpls = samplesof(em)
+get_initsrc_from_target(dsm::DensitySampleMeasure) = samplesof(dsm)
+
+
+function bat_transform_impl(f_transform, dsm::DensitySampleMeasure, algorithm::SampleTransformation, context::BATContext)
+    smpls = samplesof(dsm)
     new_samples, _ = bat_transform_impl(f_transform, smpls, algorithm, context)
     return DensitySampleMeasure(new_samples)
 end
 
-function MeasureBase.weightedmeasure(logweight::Real, em::DensitySampleMeasure)
-    new_mass = _reweighted_mass(logweight, em._mass)
-    return DensitySampleMeasure(em._smpl, em._weight_sum, em._max_weight, em._dof, new_mass)
+function MeasureBase.weightedmeasure(logweight::Real, dsm::DensitySampleMeasure)
+    new_mass = _reweighted_mass(logweight, dsm._mass)
+    return DensitySampleMeasure(dsm._smpl, dsm._weight_sum, dsm._max_weight, dsm._dof, new_mass)
 end
 
 
@@ -117,24 +117,24 @@ end
 # end
 
 
-function Base.rand(gen::GenContext, em::DensitySampleMeasure) where {T}
-    idx = _rand_subsample_idx(gen, em)
-    return gen_adapt(gen, em._smpl.v[idx])
+function Base.rand(gen::GenContext, dsm::DensitySampleMeasure) where {T}
+    idx = _rand_subsample_idx(gen, dsm)
+    return gen_adapt(gen, dsm._smpl.v[idx])
 end
 
-function _rand_subsample_idx(gen::GenContext, em::DensitySampleMeasure)
+function _rand_subsample_idx(gen::GenContext, dsm::DensitySampleMeasure)
     # TODO: Use PSIS.
 
-    CW = em._cumulative_weight
+    CW = dsm._cumulative_weight
     r = rand(get_rng(gen)) * CW[end]
-    idx = searchsortedfirst(em._cw, r)
+    idx = searchsortedfirst(dsm._cw, r)
     return idx
 end
 
-function _rand_subsample_idxs(gen::GenContext, em::DensitySampleMeasure, n::Integer)
+function _rand_subsample_idxs(gen::GenContext, dsm::DensitySampleMeasure, n::Integer)
     # TODO: Use PSIS.
 
-    CW = em._cumulative_weight
+    CW = dsm._cumulative_weight
     # Always generate R on CPU for now:
     R = rand(get_rng(gen), n) .* CW[end]
     idxs = searchsortedfirst.(Ref(CW), R)
@@ -154,24 +154,24 @@ end
 
 
 
-function bat_report!(md::Markdown.MD, em::DensitySampleMeasure)
-    if !isnothing(em.sampled)
-        bat_report!(md, em.sampled)
+function bat_report!(md::Markdown.MD, dsm::DensitySampleMeasure)
+    if !isnothing(dsm.sampled)
+        bat_report!(md, dsm.sampled)
     end
-    if !isnothing(em.samplegen)
-        bat_report!(md, em.samplegen)
+    if !isnothing(dsm.samplegen)
+        bat_report!(md, dsm.samplegen)
     end
 
     return md
 end
 
 
- _approx_mean(em::DensitySampleMeasure, n) = mean(samplesof(em))
+ _approx_mean(dsm::DensitySampleMeasure, n) = mean(samplesof(dsm))
 
- _approx_cov(em::DensitySampleMeasure, n) = cov(samplesof(em))
+ _approx_cov(dsm::DensitySampleMeasure, n) = cov(samplesof(dsm))
 
-function _estimated_max_logd(em::DensitySampleMeasure)
-    smpls = samplesof(em)
+function _estimated_max_logd(dsm::DensitySampleMeasure)
+    smpls = samplesof(dsm)
     @assert !isnothing(smpls)
     return _estimated_max_logd(smpls)
 end
@@ -179,9 +179,9 @@ end
 
 _renormalize_empirical_logd(::Missing) = missing
 
-function _renormalize_empirical_logd(logrenorm::Real, em::DensitySampleMeasure)
-    smpls = samplesof(em)
-    new_mass = _reweighted_mass(logrenorm, em._mass)
+function _renormalize_empirical_logd(logrenorm::Real, dsm::DensitySampleMeasure)
+    smpls = samplesof(dsm)
+    new_mass = _reweighted_mass(logrenorm, dsm._mass)
     new_smpls = DensitySampleVector((smpls.v, smpls.logd .+ logrenorm, smpls.weight, smpls.info, smpls.aux))
-    return DensitySampleMeasure(new_smpls, em._max_weight, em._cumulative_weight, em._dof, new_mass)
+    return DensitySampleMeasure(new_smpls, dsm._max_weight, dsm._cumulative_weight, dsm._dof, new_mass)
 end
