@@ -5,7 +5,7 @@
 
 Represents an
 [Empirical Measure](https://en.wikipedia.org/wiki/Empirical_measure)
-based on a sample of points (of type `P` with weights of type `W`) dawn from
+based on a sample of points (of type `P` with weights of type `W`) drawn from
 a normalizable measure, with the log-density values (of type `T`) of that
 measure at the sample points stored as well.
 
@@ -23,8 +23,8 @@ Constructors:
 DensitySampleMeasure(smpls::DensitySampleVector, dof::Integer; mass::Real = 1)
 ```
 
-A `DensitySampleMeasure` hass mass one by default, as the measure the samples
-were drawn from is treated as implicitly normalized, even if is was a
+A `DensitySampleMeasure` has mass one by default, as the measure the samples
+were drawn from is treated as implicitly normalized, even if it was a
 scaled probability measure of possibly unknown total mass (e.g. a
 non-normalized Bayesian posterior measure).
 """
@@ -47,7 +47,7 @@ export DensitySampleMeasure
 
 function DensitySampleMeasure(smpls::DensitySampleVector, dof::Integer; mass::Real = 1)
     # ToDo: Ensure smpls are deduplicated.
-    # ToDo: Storing logdensity calcuaion by storing a binary searchable vector
+    # ToDo: Storing logdensity calculation by storing a binary searchable vector
     # over tuples `(point_hash, sample_idx)`.
     conv_mass = exp(ULogarithmic, _lfloat(log(mass)))
     DensitySampleMeasure(smpls, maximum(smpls.weight), cumsum(smpls.weight), dof, conv_mass)
@@ -60,12 +60,12 @@ Base.convert(::Type{DensitySampleVector}, m::DensitySampleMeasure) = DensitySamp
 
 
 function Base.:(==)(a::DensitySampleMeasure, b::DensitySampleMeasure)
-    return a._smpl == b._smpl && a._dof == b._dof && a._logmass == b._logmass
+    return a._smpl == b._smpl && a._dof == b._dof && a._mass == b._mass
 end
 
 function Base.isapprox(a::DensitySampleMeasure, b::DensitySampleMeasure; kwargs...)
     return isapprox(a._smpl, b._smpl; kwargs...) && isapprox(a._dof, b._dof; kwargs...) &&
-        isapprox(a._logmass, b._logmass; kwargs...)
+        isapprox(a._mass, b._mass; kwargs...)
 end
 
 # ToDo: Support efficient logdensity lookup. 
@@ -127,7 +127,7 @@ function _rand_subsample_idx(gen::GenContext, dsm::DensitySampleMeasure)
 
     CW = dsm._cumulative_weight
     r = rand(get_rng(gen)) * CW[end]
-    idx = searchsortedfirst(dsm._cw, r)
+    idx = searchsortedfirst(dsm._cumulative_weight, r)
     return idx
 end
 
