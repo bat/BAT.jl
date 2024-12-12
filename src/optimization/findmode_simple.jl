@@ -2,7 +2,7 @@
 
 
 """
-    struct PredefinedOptimum <: AbstractOptimizer
+    struct PredefinedMode <: AbstractModeEstimator
 
 Get the mode as defined by the density, resp. the underlying distribution
 (if available), via `StatsBase.mode`.
@@ -11,39 +11,39 @@ Constructors:
 
 * ```$(FUNCTIONNAME)()```        
 """
-struct PredefinedOptimum <: AbstractOptimizer end
-export PredefinedOptimum
+struct PredefinedMode <: AbstractModeEstimator end
+export PredefinedMode
 
 
-function bat_findmode_impl(target::AnySampleable, algorithm::PredefinedOptimum, context::BATContext)
+function bat_findmode_impl(target::AnySampleable, algorithm::PredefinedMode, context::BATContext)
     (result = StatsBase.mode(target),)
 end
 
-function bat_findmode_impl(target::Distribution, algorithm::PredefinedOptimum, context::BATContext)
+function bat_findmode_impl(target::Distribution, algorithm::PredefinedMode, context::BATContext)
     (result = varshape(target)(StatsBase.mode(unshaped(target))),)
 end
 
-function bat_findmode_impl(target::BATDistMeasure, algorithm::PredefinedOptimum, context::BATContext)
+function bat_findmode_impl(target::BATDistMeasure, algorithm::PredefinedMode, context::BATContext)
     bat_findmode_impl(Distribution(target), algorithm, context)
 end
 
 
 
 """
-    EmpiricalOptimum <: AbstractOptimizer
+    EmpiricalMode <: AbstractModeEstimator
 
 Constructors:
 
-    EmpiricalOptimum()
+    EmpiricalMode()
 
 Estimate the mode as the variate with the highest posterior density value
 within a given set of samples.
 """
-struct EmpiricalOptimum <: AbstractOptimizer end
-export EmpiricalOptimum
+struct EmpiricalMode <: AbstractModeEstimator end
+export EmpiricalMode
 
 
-function bat_findmode_impl(target::DensitySampleVector, algorithm::EmpiricalOptimum, context::BATContext)
+function bat_findmode_impl(target::DensitySampleVector, algorithm::EmpiricalMode, context::BATContext)
     v, i = _get_mode(target)
     (result = v, mode_idx = i)
 end

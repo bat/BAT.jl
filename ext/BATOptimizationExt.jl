@@ -23,8 +23,8 @@ function test_bat_optimization_ext()
     println("BAT_Optimization_Ext is included")
 end
 
-AbstractOptimizer(optalg::Any) = OptimizationAlg(optalg)
-Base.convert(::Type{AbstractOptimizer}, alg::OptimizationAlg) = alg.optalg
+AbstractModeEstimator(optalg::Any) = OptimizationAlg(optalg)
+Base.convert(::Type{AbstractModeEstimator}, alg::OptimizationAlg) = alg.optalg
 
 BAT.ext_default(::BAT.PackageExtension{:Optimization}, ::Val{:DEFAULT_OPTALG}) = nothing #Optim.NelderMead()
 

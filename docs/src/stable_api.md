@@ -84,7 +84,7 @@ InitFromTarget
 InitvalAlgorithm
 IntegrationAlgorithm
 KishESS
-EmpiricalOptimum
+EmpiricalMode
 MCMCAlgorithm
 MCMCBurninAlgorithm
 MCMCChainPoolInit
@@ -93,7 +93,7 @@ MCMCMultiCycleBurnin
 MCMCProposalTuning
 MCMCTransformTuning
 MGVISampling
-PredefinedOptimum
+PredefinedMode
 NoMCMCProposalTuning
 NoMCMCTransformTuning
 OptimAlg
@@ -122,7 +122,7 @@ VEGASIntegration
 BAT.unevaluated
 
 BAT.AbstractMedianEstimator
-BAT.AbstractOptimizer
+BAT.AbstractModeEstimator
 BAT.AbstractSamplingAlgorithm
 BAT.ConvergenceTest
 BAT.MGVISchedule

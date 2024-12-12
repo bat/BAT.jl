@@ -50,10 +50,10 @@ using Optim, OptimizationOptimJL
     end
 
 
-    @testset "PredefinedOptimum" begin
+    @testset "PredefinedMode" begin
         context = BATContext()
-        @test @inferred(bat_findmode(prior, PredefinedOptimum(), context)).result == true_mode
-        @test @inferred(bat_findmode(batmeasure(prior), PredefinedOptimum(), context)).result == true_mode
+        @test @inferred(bat_findmode(prior, PredefinedMode(), context)).result == true_mode
+        @test @inferred(bat_findmode(batmeasure(prior), PredefinedMode(), context)).result == true_mode
         let post_modes = @inferred(bat_findmode(posterior, context)).result
             for k in keys(post_modes)
                 @test isapprox(post_modes[k], true_mode[k], atol=0.001)
@@ -62,10 +62,10 @@ using Optim, OptimizationOptimJL
     end
 
 
-    @testset "EmpiricalOptimum" begin
+    @testset "EmpiricalMode" begin
         context = BATContext()
-        @test @inferred(bat_findmode(samples, EmpiricalOptimum(), context)).result isa NamedTuple
-        m = bat_findmode(samples, EmpiricalOptimum(), context)
+        @test @inferred(bat_findmode(samples, EmpiricalMode(), context)).result isa NamedTuple
+        m = bat_findmode(samples, EmpiricalMode(), context)
         @test samples[m.mode_idx].v == m.result
         @test isapprox(unshaped(m.result, elshape(samples.v)), true_mode_flat, rtol = 0.05)
     end
