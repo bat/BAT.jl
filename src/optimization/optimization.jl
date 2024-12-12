@@ -2,3 +2,4 @@
 
 include("findmode_simple.jl")
 include("marginalmode.jl")
+include("mode_optimization.jl")
