@@ -294,32 +294,15 @@ function mcmc_update_z_position!!(mc_state::MCMCChainState)
     logd_z_current_new = logd_x_current - ladj_current
     logd_z_proposed_new = logd_x_proposed - ladj_proposed
 
-    sample_z_new = _new_similar_density_sample_vector(sample_z)
+    mc_state_new = deepcopy(mc_state)
 
-    sample_z_current_new = _new_similar_density_sample(sample_z[1], z_current_new[:], logd_z_current_new)
-    sample_z_proposed_new = _new_similar_density_sample(sample_z[2], z_proposed_new[:], logd_z_proposed_new)
-
-    push!(sample_z_new, sample_z_current_new, sample_z_proposed_new)
-
-    mc_state_new = @set mc_state.sample_z = sample_z_new
-
+    mc_state_new.sample_z.v[1] = vec(z_current_new)
+    mc_state_new.sample_z.v[2] = vec(z_proposed_new)
+    
+    mc_state_new.sample_z.logd[1] = logd_z_current_new
+    mc_state_new.sample_z.logd[2] = logd_z_proposed_new
+    
     return mc_state_new
-end
-
-# TODO: MD, Discuss wether these should be permanent functions
-function _new_similar_density_sample_vector(dsv_old::DensitySampleVector{P,T,W,R,Q}) where {
-    PT<:Real, P<:AbstractVector{PT}, T<:AbstractFloat, W<:Real, R, Q
-} 
-    return DensitySampleVector{P,T,W,R,Q}(undef, 0, length(dsv_old.v[1])) 
-end 
-
-function _new_similar_density_sample(sample_old::DensitySample{P,T,W,R,Q}, v_new::AbstractVector, logd_new::Real) where {
-    P<:AbstractVector{<:Real},T,W,R,Q
-}
-    info = sample_old.info
-    aux = sample_old.aux
-    P_new = typeof(v_new)
-    return DensitySample{P_new,T,W,R,Q}(v_new, convert(T, logd_new), one(W), info, aux)
 end
 
 # TODO: MD, Discuss: 
