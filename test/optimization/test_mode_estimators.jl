@@ -1,6 +1,7 @@
 using BAT
 using Test
 
+using AutoDiffOperators
 using LinearAlgebra, Distributions, StatsBase, ValueShapes, Random123, DensityInterface
 using UnPack, InverseFunctions
 import ForwardDiff
@@ -104,7 +105,7 @@ using Optim, OptimizationOptimJL
 
         context = BATContext(rng = Philox4x((0, 0)), ad = ADSelector(ForwardDiff))
         # result is not type-stable:
-        test_findmode(posterior, OptimizationAlg(optalg = Optimization.LBFGS(), trafo = DoNotTransform()), 0.01, context, inferred = false) 
+        test_findmode(posterior, OptimizationAlg(optalg = Optimization.LBFGS(), pretransform = DoNotTransform()), 0.01, context, inferred = false) 
     end
 
     @testset "Optimization.jl with custom options" begin # checks that options are correctly passed to Optimization.jl
