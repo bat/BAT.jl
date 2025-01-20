@@ -99,7 +99,7 @@ using DomainSets: UnitInterval, UnitCube, Rectangle, FullSpace, RealNumbers
 
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, AbstractThunk, unthunk
 
-using Functors: fmap, @functor
+using Functors: fmap
 
 # For Dual specializations:
 import ForwardDiff
