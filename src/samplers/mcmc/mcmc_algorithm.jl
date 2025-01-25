@@ -277,14 +277,10 @@ function mcmc_iterate!!(
     start_nsteps = nsteps(mcmc_state)
     start_nsamples = nsamples(mcmc_state)
     
-    global states = Any[]
     while (
         (nsteps(mcmc_state) - start_nsteps) < max_nsteps &&
         (time() - start_time) < max_time
     ) 
-
-        push!(states, deepcopy(mcmc_state))
-        #BREAK_sample_pre_step
         mcmc_state = mcmc_step!!(mcmc_state)
 
         if !isnothing(output)

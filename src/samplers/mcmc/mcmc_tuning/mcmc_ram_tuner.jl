@@ -66,7 +66,7 @@ function mcmc_tune_post_cycle!!(tuner::RAMTrafoTunerState, chain_state::MCMCChai
         chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false)
         @debug "MCMC chain $(chain_state.info.id) *not* tuned, acceptance ratio = $(Float32(α)), max. log posterior = $(Float32(max_log_posterior))"
     end
-    return chain_state, tuner, false
+    return chain_state, tuner
 end
 
 mcmc_tuning_finalize!!(tuner::RAMTrafoTunerState, chain::MCMCChainState) = nothing
@@ -95,11 +95,12 @@ function mcmc_tune_post_step!!(
     α = mean_update_rate * p_accept
     new_b = oftype(b, (1- α) * b + α * x.v)
 
-    f_transform_new  = MulAdd(new_s_L, new_b)
+    f_transform_new = MulAdd(new_s_L, new_b)
 
     tuner_state_new = @set tuner_state.nsteps = tuner_state.nsteps + 1
     
-    mc_state_new = @set mc_state.f_transform = f_transform_new
+    mc_state_new = set_mc_state_transform!!(mc_state, f_transform_new)
+    mc_state_new = mcmc_update_z_position!!(mc_state_new)
 
-    return mc_state_new, tuner_state_new, true
+    return mc_state_new, tuner_state_new
 end

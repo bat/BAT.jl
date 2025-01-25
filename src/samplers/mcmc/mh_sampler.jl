@@ -53,7 +53,8 @@ function _create_proposal_state(
     proposal::RandomWalk, 
     target::BATMeasure, 
     context::BATContext, 
-    v_init::AbstractVector{<:Real}, 
+    v_init::AbstractVector{<:Real},
+    f_transform::Function,
     rng::AbstractRNG
 )
     n_dims = length(v_init)
@@ -156,3 +157,8 @@ end
 
 
 eff_acceptance_ratio(mc_state::MHChainState) = nsamples(mc_state) / nsteps(mc_state)
+
+function set_mc_state_transform!!(mc_state::MHChainState, f_transform_new::Function) 
+    mc_state_new = @set mc_state.f_transform = f_transform_new
+    return mc_state_new
+end

@@ -111,6 +111,4 @@ function check_variate(trgshape::Any, v::Any)
     throw(ArgumentError("Shape of variate incompatible with target variate trgshape, with variate of type $(typeof(v)) and expected trgshape $(trgshape)"))
 end
 
-function check_variate(trgshape::Missing, v::Any)
-    throw(ArgumentError("Cannot evaluate without value trgshape information"))
-end
+check_variate(trgshape::Missing, v::Any) = nothing

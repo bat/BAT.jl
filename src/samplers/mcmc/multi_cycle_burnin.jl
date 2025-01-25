@@ -52,8 +52,7 @@ function mcmc_burnin!(
             max_nsteps = burnin.nsteps_per_cycle,
             nonzero_weights = nonzero_weights
         )
-        global st_burnin_post_it = mcmc_states
-        #BREAK_burnin 
+
         mcmc_states = mcmc_tune_post_cycle!!.(mcmc_states, new_outputs)
 
         isnothing(outputs) || append!.(outputs, new_outputs)

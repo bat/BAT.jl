@@ -85,10 +85,6 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
         context
     )
 
-    global st_sample_post_init = deepcopy(mcmc_states)
-    global st_sample_out = deepcopy(chain_outputs)
-    #BREAK_sample
-
     if !samplingalg.store_burnin
         chain_outputs .= DensitySampleVector.(mcmc_states)
     end
