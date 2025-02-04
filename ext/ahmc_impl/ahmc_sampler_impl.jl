@@ -107,7 +107,7 @@ function BAT.mcmc_propose!!(mc_state::HMCState)
     z_current = sample_z.v[current_z_idx]
     z_proposed = sample_z.v[proposed_z_idx]
 
-    # location in target space ("x-space")
+    # location in target space ("x-space") which is generally pre-transformed
     x_proposed = samples.v[proposed_x_idx]
     
     τ = deepcopy(proposal.kernel.τ)
@@ -120,18 +120,16 @@ function BAT.mcmc_propose!!(mc_state::HMCState)
     # Note: `RiemannianKinetic` requires an additional position argument, but including this causes issues. So only support the other kinetics.
 
     proposal.transition = AdvancedHMC.transition(rng, τ, hamiltonian, z_phase)
-    tstat = AdvancedHMC.stat(proposal.transition)
-    p_accept = tstat.acceptance_rate
-
     z_proposed[:] = proposal.transition.z.θ
-
     x_proposed[:] = f_transform(z_proposed)
-
-    proposed_log_posterior = logdensityof(target, x_proposed)
     
+    proposed_log_posterior = logdensityof(target, x_proposed)
     samples.logd[proposed_x_idx] = proposed_log_posterior
 
     accepted = z_current != z_proposed
+    tstat = AdvancedHMC.stat(proposal.transition)
+    p_accept = accepted ? tstat.acceptance_rate : 0.0
+
     return mc_state, accepted, p_accept
 end
 
