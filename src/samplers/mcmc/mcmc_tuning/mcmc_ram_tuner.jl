@@ -39,7 +39,7 @@ end
 mutable struct RAMProposalTunerState <: MCMCTransformTunerState end
 
 
-create_trafo_tuner_state(tuning::RAMTuning, chain::MCMCChainState, n_steps_hint::Integer) = RAMTrafoTunerState(tuning, 0)
+create_trafo_tuner_state(tuning::RAMTuning, chain_state::MCMCChainState, n_steps_hint::Integer) = RAMTrafoTunerState(tuning, 0)
 
 function mcmc_tuning_init!!(tuner_state::RAMTrafoTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
     chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false) # TODO ?
@@ -71,23 +71,21 @@ end
 
 mcmc_tuning_finalize!!(tuner::RAMTrafoTunerState, chain::MCMCChainState) = nothing
 
-# Return mc_state instead of f_transform
 function mcmc_tune_post_step!!(
     tuner_state::RAMTrafoTunerState, 
     mc_state::MCMCChainState,
     p_accept::Real,
 )
-    (; f_transform, sample_z) = mc_state
-    
-    tuner_state_new = @set tuner_state.nsteps = tuner_state.nsteps + 1
-
-    # TODO: MD: Discuss; apparently the RandomwWalk sampler wants the trafo to be tuned even if p_accept = 0. If not, the burnin does not converge.
+    # TODO: MD: Discuss; apparently the RandomWalk sampler wants the trafo to be tuned even if p_accept = 0. If not, the burnin does not converge.
     if iszero(p_accept) && !(mc_state isa MHChainState)
-        return mc_state, tuner_state_new
+        return mc_state, tuner_state
     end
 
+    (; f_transform, sample_z) = mc_state
     (; target_acceptance, gamma) = tuner_state.tuning
     b = f_transform.b
+    
+    tuner_state_new = @set tuner_state.nsteps = tuner_state.nsteps + 1
     
     n_dims = size(sample_z.v[1], 1)
     η = min(1, n_dims * tuner_state.nsteps^(-gamma))
