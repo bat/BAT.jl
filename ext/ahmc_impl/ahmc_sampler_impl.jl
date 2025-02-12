@@ -69,7 +69,7 @@ function BAT.next_cycle!(mc_state::HMCState)
     mc_state.nsamples = 0
     mc_state.stepno = 0
 
-    #reset_rng_counters!(mc_state)
+    reset_rng_counters!(mc_state)
 
     resize!(mc_state.samples, 1)
 
@@ -119,16 +119,15 @@ function BAT.mcmc_propose!!(mc_state::HMCState)
     z_phase = AdvancedHMC.phasepoint(hamiltonian, vec(z_current[:]), rand(rng, hamiltonian.metric, hamiltonian.kinetic))
     # Note: `RiemannianKinetic` requires an additional position argument, but including this causes issues. So only support the other kinetics.
 
-    proposal.transition = AdvancedHMC.transition(rng, τ, hamiltonian, z_phase)
-    z_proposed[:] = proposal.transition.z.θ
-    x_proposed[:] = f_transform(z_proposed)
-    
-    proposed_log_posterior = logdensityof(target, x_proposed)
-    samples.logd[proposed_x_idx] = proposed_log_posterior
+    proposal.transition, z_proposed_hmc, p_accept = _bat_transition(rng, τ, hamiltonian, z_phase)
+    accepted = z_current[:] != proposal.transition.z.θ
+    z_proposed[:] = accepted ? proposal.transition.z.θ : z_proposed_hmc
 
-    accepted = z_current != z_proposed
-    tstat = AdvancedHMC.stat(proposal.transition)
-    p_accept = accepted ? tstat.acceptance_rate : 0.0
+    p_accept = AdvancedHMC.stat(proposal.transition).acceptance_rate
+
+    x_proposed[:] = f_transform(z_proposed)    
+    logd_x_proposed = logdensityof(target, x_proposed)
+    samples.logd[proposed_x_idx] = logd_x_proposed
 
     return mc_state, accepted, p_accept
 end
@@ -142,7 +141,7 @@ function BAT._accept_reject!(mc_state::HMCState, accepted::Bool, p_accept::Float
         samples.info.sampletype[current] = ACCEPTED_SAMPLE
         samples.info.sampletype[proposed] = CURRENT_SAMPLE
         mc_state.nsamples += 1
-
+        
         tstat = AdvancedHMC.stat(proposal.transition)
         samples.info.hamiltonian_energy[proposed] = tstat.hamiltonian_energy
         # ToDo: Handle proposal-dependent tstat (only NUTS has tree_depth):
@@ -175,4 +174,80 @@ function BAT.set_mc_state_transform!!(mc_state::HMCState, f_transform_new::Funct
 
     mc_state_new = @set mc_state_new.f_transform = f_transform_new
     return mc_state_new
+end
+
+
+# Copied from AdvancedHMC.jl, but also return proposed point
+function _bat_transition(
+    rng::AbstractRNG,
+    τ::AdvancedHMC.Trajectory{TS,I,TC},
+    h::AdvancedHMC.Hamiltonian,
+    z0::AdvancedHMC.PhasePoint,
+) where {
+    TS<:AdvancedHMC.AbstractTrajectorySampler,
+    I<:AdvancedHMC.AbstractIntegrator,
+    TC<:AdvancedHMC.DynamicTerminationCriterion,
+}
+    H0 = AdvancedHMC.energy(z0)
+    tree = AdvancedHMC.BinaryTree(
+        z0,
+        z0,
+        AdvancedHMC.TurnStatistic(τ.termination_criterion, z0),
+        zero(H0),
+        zero(Int),
+        zero(H0),
+    )
+    sampler = TS(rng, z0)
+    termination = AdvancedHMC.Termination(false, false)
+    zcand = z0
+    proposed_zs = Vector[]
+
+    j = 0
+    while !AdvancedHMC.isterminated(termination) && j < τ.termination_criterion.max_depth
+        v = rand(rng, [-1, 1])
+        if v == -1
+            tree′, sampler′, termination′ =
+            AdvancedHMC.build_tree(rng, τ, h, tree.zleft, sampler, v, j, H0)
+            treeleft, treeright = tree′, tree
+        else
+            tree′, sampler′, termination′ =
+            AdvancedHMC.build_tree(rng, τ, h, tree.zright, sampler, v, j, H0)
+            treeleft, treeright = tree, tree′
+        end
+        if !AdvancedHMC.isterminated(termination′)
+            j = j + 1
+            if AdvancedHMC.mh_accept(rng, sampler, sampler′)
+                zcand = sampler′.zcand
+            end
+        end
+        push!(proposed_zs, sampler′.zcand.θ)
+
+        tree = AdvancedHMC.combine(treeleft, treeright)
+        sampler = AdvancedHMC.combine(zcand, sampler, sampler′)
+        termination =
+            termination *
+            termination′ *
+            AdvancedHMC.isterminated(τ.termination_criterion, h, tree, treeleft, treeright)
+    end
+
+    H = AdvancedHMC.energy(zcand)
+    tstat = AdvancedHMC.merge(
+        (
+            n_steps = tree.nα,
+            is_accept = true,
+            acceptance_rate = tree.sum_α / tree.nα,
+            log_density = zcand.ℓπ.value,
+            hamiltonian_energy = H,
+            hamiltonian_energy_error = H - H0,
+            max_hamiltonian_energy_error = tree.ΔH_max,
+            tree_depth = j,
+            numerical_error = termination.numerical,
+        ),
+        AdvancedHMC.stat(τ.integrator),
+    )
+
+    z_proposed = proposed_zs[end]    
+    p_accept = tstat.acceptance_rate
+
+    return AdvancedHMC.Transition(zcand, tstat), z_proposed, p_accept
 end

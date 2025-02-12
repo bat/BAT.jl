@@ -23,7 +23,7 @@ using BAT: MCMCChainState, HMCState, HamiltonianMC, HMCProposalState, MCMCChainS
 using BAT: MCMCBasicStats, push!, reweight_relative!
 using BAT: RAMTuning
 using BAT: MCMCProposalTunerState, MCMCTransformTunerState, NoMCMCTempering, NoMCMCTransformTuning
-using BAT: _current_sample_idx, _proposed_sample_idx, _current_sample_z_idx, _proposed_sample_z_idx, _cleanup_samples, current_sample_z, proposed_sample
+using BAT: _current_sample_idx, _proposed_sample_idx, _current_sample_z_idx, _proposed_sample_z_idx, _cleanup_samples, current_sample_z, proposed_sample_z, proposed_sample
 using BAT: AbstractTransformTarget, NoAdaptiveTransform, TriangularAffineTransform, valgrad_func
 using BAT: RNGPartition, get_rng, set_rng!
 using BAT: mcmc_step!!, nsamples, nsteps, samples_available, eff_acceptance_ratio
@@ -36,6 +36,8 @@ using BAT: HamiltonianMC
 using BAT: AHMCSampleID, AHMCSampleIDVector
 using BAT: HMCMetric, DiagEuclideanMetric, UnitEuclideanMetric, DenseEuclideanMetric
 using BAT: HMCTuning, MassMatrixAdaptor, StepSizeAdaptor, NaiveHMCTuning, StanHMCTuning
+
+using ChangesOfVariables: with_logabsdet_jacobian
 
 using LinearAlgebra: cholesky
 

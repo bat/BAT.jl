@@ -280,7 +280,7 @@ function mcmc_iterate!!(
     while (
         (nsteps(mcmc_state) - start_nsteps) < max_nsteps &&
         (time() - start_time) < max_time
-    ) 
+    )
         mcmc_state = mcmc_step!!(mcmc_state)
 
         if !isnothing(output)

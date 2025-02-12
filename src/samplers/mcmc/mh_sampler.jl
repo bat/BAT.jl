@@ -144,8 +144,6 @@ function _accept_reject!(mc_state::MHChainState, accepted::Bool, p_accept::Float
         samples.info.sampletype[proposed] = CURRENT_SAMPLE
         
         mc_state.nsamples += 1
-
-        mc_state.sample_z[1] = deepcopy(proposed_sample_z(mc_state))
     else
         samples.info.sampletype[proposed] = REJECTED_SAMPLE
     end

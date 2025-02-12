@@ -55,8 +55,9 @@ function BAT.mcmc_tune_post_step!!(
     is_in_window =  stan_state.i >= stan_state.window_start && stan_state.i <= stan_state.window_end
     is_window_end = stan_state.i in stan_state.window_splits
 
-    # What to append?
-    is_in_window && BAT.push!(stats, proposed_sample(chain_state))
+    if is_in_window
+        BAT.push!(stats, proposed_sample(chain_state))
+    end
 
     if is_window_end 
         A = chain_state.f_transform.A

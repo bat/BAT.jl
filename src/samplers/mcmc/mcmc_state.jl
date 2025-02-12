@@ -145,7 +145,7 @@ end
 function mcmc_step!!(mcmc_state::MCMCState)
     _cleanup_samples(mcmc_state)
     
-    #reset_rng_counters!(mcmc_state)
+    reset_rng_counters!(mcmc_state)
 
     chain_state = mcmc_state.chain_state
 
@@ -156,7 +156,7 @@ function mcmc_step!!(mcmc_state::MCMCState)
     resize!(samples, size(samples, 1) + 1)
 
     samples.info[lastindex(samples)] = _get_sample_id(proposal, chain_state.info.id, chain_state.info.cycle, chain_state.stepno, PROPOSED_SAMPLE)[1]
-    
+
     chain_state, accepted, p_accept = mcmc_propose!!(chain_state)
 
     mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, p_accept)
@@ -219,7 +219,7 @@ function next_cycle!(chain_state::MCMCChainState)
     chain_state.nsamples = 0
     chain_state.stepno = 0
 
-    #reset_rng_counters!(chain_state)
+    reset_rng_counters!(chain_state)
 
     resize!(chain_state.samples, 1)
 
@@ -277,7 +277,6 @@ end
 
 function mcmc_update_z_position!!(mc_state::MCMCChainState)
     f_transform = mc_state.f_transform
-    sample_z = mc_state.sample_z
 
     current_sample_x = current_sample(mc_state)
     proposed_sample_x = proposed_sample(mc_state)
