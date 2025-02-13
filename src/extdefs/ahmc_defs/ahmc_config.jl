@@ -30,7 +30,7 @@ end
 
 # Uses Stan (also AdvancedHMC) defaults 
 # (see https://mc-stan.org/docs/2_26/reference-manual/hmc-algorithm-parameters.html):
-@with_kw struct StanHMCTuning <: MCMCTransformTuning
+@with_kw struct StanLikeTuning <: MCMCTransformTuning
     "target acceptance rate"
     target_acceptance::Float64 = 0.8
 
@@ -44,4 +44,4 @@ end
     window_size::Int = 25
 end
 
-export StanHMCTuning
+export StanLikeTuning

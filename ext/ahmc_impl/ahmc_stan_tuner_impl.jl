@@ -1,32 +1,32 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-mutable struct StanHMCTrafoTunerState{
+mutable struct StanLikeTunerState{
     S<:MCMCBasicStats,
 } <: MCMCTransformTunerState
-    tuning::StanHMCTuning
+    tuning::StanLikeTuning
     target_acceptance::Float64
     stats::S
     stan_state::AdvancedHMC.Adaptation.StanHMCAdaptorState
 end
 
-BAT.create_trafo_tuner_state(tuning::StanHMCTuning, chain_state::MCMCChainState, n_steps_hint::Integer) = StanHMCTrafoTunerState(tuning, tuning.target_acceptance, MCMCBasicStats(chain_state), AdvancedHMC.Adaptation.StanHMCAdaptorState())
+BAT.create_trafo_tuner_state(tuning::StanLikeTuning, chain_state::MCMCChainState, n_steps_hint::Integer) = StanLikeTunerState(tuning, tuning.target_acceptance, MCMCBasicStats(chain_state), AdvancedHMC.Adaptation.StanHMCAdaptorState())
 
-function BAT.mcmc_tuning_init!!(tuner::StanHMCTrafoTunerState, chain_state::HMCState, max_nsteps::Integer)
+function BAT.mcmc_tuning_init!!(tuner::StanLikeTunerState, chain_state::HMCState, max_nsteps::Integer)
     tuning = tuner.tuning
     AdvancedHMC.Adaptation.initialize!(tuner.stan_state, tuning.init_buffer, tuning.term_buffer, tuning.window_size, Int(max_nsteps - 1))
     nothing
 end
 
-function BAT.mcmc_tuning_reinit!!(tuner::StanHMCTrafoTunerState, chain_state::HMCState, max_nsteps::Integer)
+function BAT.mcmc_tuning_reinit!!(tuner::StanLikeTunerState, chain_state::HMCState, max_nsteps::Integer)
     tuning = tuner.tuning
     AdvancedHMC.Adaptation.initialize!(tuner.stan_state, tuning.init_buffer, tuning.term_buffer, tuning.window_size, Int(max_nsteps - 1))
     nothing
 end
 
-BAT.mcmc_tuning_postinit!!(tuner::StanHMCTrafoTunerState, chain_state::HMCState, samples::DensitySampleVector) = nothing
+BAT.mcmc_tuning_postinit!!(tuner::StanLikeTunerState, chain_state::HMCState, samples::DensitySampleVector) = nothing
 
 
-function BAT.mcmc_tune_post_cycle!!(tuner::StanHMCTrafoTunerState, chain_state::HMCState, samples::DensitySampleVector)
+function BAT.mcmc_tune_post_cycle!!(tuner::StanLikeTunerState, chain_state::HMCState, samples::DensitySampleVector)
     max_log_posterior = maximum(samples.logd)
     accept_ratio = eff_acceptance_ratio(chain_state)
     if accept_ratio >= 0.9 * tuner.target_acceptance
@@ -40,11 +40,11 @@ function BAT.mcmc_tune_post_cycle!!(tuner::StanHMCTrafoTunerState, chain_state::
 end
 
 
-BAT.mcmc_tuning_finalize!!(tuner::StanHMCTrafoTunerState, chain_state::HMCState) = nothing
+BAT.mcmc_tuning_finalize!!(tuner::StanLikeTunerState, chain_state::HMCState) = nothing
 
 
 function BAT.mcmc_tune_post_step!!(
-    tuner::StanHMCTrafoTunerState,
+    tuner::StanLikeTunerState,
     chain_state::MCMCChainState,
     p_accept::Real
 )

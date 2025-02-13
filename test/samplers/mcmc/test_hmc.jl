@@ -19,7 +19,7 @@ import AdvancedHMC
     @test target isa BAT.BATDistMeasure
 
     proposal = HamiltonianMC()
-    transform_tuning = StanHMCTuning()
+    transform_tuning = StanLikeTuning()
     nchains = 4
     samplingalg = TransformedMCMC(proposal = proposal, transform_tuning = transform_tuning, nchains = nchains)
 
@@ -48,7 +48,7 @@ import AdvancedHMC
 
     @testset "MCMC tuning and burn-in" begin
         max_nsteps = 10^5
-        transform_tuning = BAT.StanHMCTuning()
+        transform_tuning = BAT.StanLikeTuning()
         pretransform = DoNotTransform()
         init_alg = bat_default(TransformedMCMC, Val(:init), proposal, pretransform, nchains, max_nsteps)
         burnin_alg = bat_default(TransformedMCMC, Val(:burnin), proposal, pretransform, nchains, max_nsteps)
@@ -107,7 +107,7 @@ import AdvancedHMC
             shaped_target,
             TransformedMCMC(
                 proposal = proposal,
-                transform_tuning = StanHMCTuning(),
+                transform_tuning = StanLikeTuning(),
                 pretransform = DoNotTransform(),
                 nsteps = 10^4,
                 store_burnin = true
@@ -123,7 +123,7 @@ import AdvancedHMC
             shaped_target,
             TransformedMCMC(
                 proposal = proposal,
-                transform_tuning = StanHMCTuning(),
+                transform_tuning = StanLikeTuning(),
                 pretransform = DoNotTransform(),
                 nsteps = 10^4,
                 store_burnin = false
@@ -143,7 +143,7 @@ import AdvancedHMC
         inner_posterior = PosteriorMeasure(likelihood, prior)
         # Test with nested posteriors:
         posterior = PosteriorMeasure(likelihood, inner_posterior)
-        @test BAT.sample_and_verify(posterior, TransformedMCMC(proposal = HamiltonianMC(), transform_tuning = StanHMCTuning(), pretransform = PriorToNormal()), prior.dist, context).verified
+        @test BAT.sample_and_verify(posterior, TransformedMCMC(proposal = HamiltonianMC(), transform_tuning = StanLikeTuning(), pretransform = PriorToNormal()), prior.dist, context).verified
     end
 
     @testset "HMC autodiff" begin
@@ -155,7 +155,7 @@ import AdvancedHMC
 
                 hmc_samplingalg = TransformedMCMC(
                     proposal = HamiltonianMC(),
-                    transform_tuning = StanHMCTuning(),
+                    transform_tuning = StanLikeTuning(),
                     nchains = 2,
                     nsteps = 100,
                     init = MCMCChainPoolInit(init_tries_per_chain = 2..2, nsteps_init = 5),
