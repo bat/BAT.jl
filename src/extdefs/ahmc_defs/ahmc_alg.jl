@@ -35,7 +35,7 @@ $(TYPEDFIELDS)
     IT,
     TC
 } <: MCMCProposal
-    metric::MT = DiagEuclideanMetric()
+    metric::MT = UnitEuclideanMetric()
     integrator::IT = ext_default(pkgext(Val(:AdvancedHMC)), Val(:DEFAULT_INTEGRATOR))
     termination::TC = ext_default(pkgext(Val(:AdvancedHMC)), Val(:DEFAULT_TERMINATION_CRITERION))
 end

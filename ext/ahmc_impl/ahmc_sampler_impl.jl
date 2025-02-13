@@ -133,7 +133,6 @@ function BAT.mcmc_propose!!(mc_state::HMCState)
 end
 
 function BAT._accept_reject!(mc_state::HMCState, accepted::Bool, p_accept::Float64, current::Integer, proposed::Integer)
-    # @unpack samples, proposal = mc_state
     samples = mc_state.samples
     proposal = mc_state.proposal
 
