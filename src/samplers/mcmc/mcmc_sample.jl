@@ -88,22 +88,23 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
     if !samplingalg.store_burnin
         chain_outputs .= DensitySampleVector.(mcmc_states)
     end
-    
+
     mcmc_states = mcmc_burnin!(
         samplingalg.store_burnin ? chain_outputs : nothing,
         mcmc_states,
         samplingalg,
         samplingalg.store_burnin ? samplingalg.callback : nop_func
     )
-    
+
     next_cycle!.(mcmc_states)
-    
+
     mcmc_states = mcmc_iterate!!(
         chain_outputs,
         mcmc_states;
         max_nsteps = samplingalg.nsteps,
         nonzero_weights = samplingalg.nonzero_weights
-    )    
+    )
+
     samples_transformed = DensitySampleVector(first(mcmc_states))
     isempty(chain_outputs) || append!.(Ref(samples_transformed), chain_outputs)
 

@@ -52,7 +52,7 @@ function mcmc_burnin!(
             max_nsteps = burnin.nsteps_per_cycle,
             nonzero_weights = nonzero_weights
         )
-
+        
         mcmc_states = mcmc_tune_post_cycle!!.(mcmc_states, new_outputs)
 
         isnothing(outputs) || append!.(outputs, new_outputs)

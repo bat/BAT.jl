@@ -98,18 +98,17 @@ function mcmc_init!(
 
         next_cycle!.(new_mcmc_states)
         mcmc_tuning_init!!.(new_mcmc_states, init_alg.nsteps_init)
-
         new_mcmc_states = mcmc_update_z_position!!.(new_mcmc_states)
         ncandidates += n
 
         @debug "Testing $(length(new_mcmc_states)) candidate MCMC chain state(s)."
-
+        
         new_mcmc_states = mcmc_iterate!!(
             new_outputs, new_mcmc_states;
             max_nsteps = clamp(div(init_alg.nsteps_init, 5), 10, 50),
             nonzero_weights = nonzero_weights
         )
-
+        
         viable_idxs = findall(isviablestate.(new_mcmc_states))
         viable_mcmc_states = new_mcmc_states[viable_idxs]
         viable_outputs = new_outputs[viable_idxs]

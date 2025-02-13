@@ -71,7 +71,7 @@ end
 
 
 #!!!!!!!!! Use return type of f with testvalue, if no shape change return varshape(m.orig) directly
-# ValueShapes.varshape(m::BATPushFwdMeasure) = varshape(m.origin)
+#ValueShapes.varshape(m::BATPushFwdMeasure) = f(varshape(m.orig))
 
 ValueShapes.varshape(m::BATPushFwdMeasure{<:DistributionTransform}) = varshape(m.f.target_dist)
 
