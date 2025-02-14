@@ -76,6 +76,11 @@ function mcmc_tune_post_step!!(
     mc_state::MCMCChainState,
     p_accept::Real,
 )
+
+    if current_sample_z(mc_state).v == proposed_sample_z(mc_state)
+        return mc_state, tuner_state
+    end
+
     (; f_transform, sample_z) = mc_state
     (; target_acceptance, gamma) = tuner_state.tuning
     b = f_transform.b

@@ -161,6 +161,8 @@ function mcmc_step!!(mcmc_state::MCMCState)
 
     current = _current_sample_idx(chain_state)
     proposed = _proposed_sample_idx(chain_state)
+
+    # This does not change `sample_z` in the chain_state, that happens in the next mcmc step in `_cleanup_samples()`.
     _accept_reject!(chain_state, accepted, p_accept, current, proposed)
 
     mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, p_accept)
