@@ -159,15 +159,13 @@ function mcmc_step!!(mcmc_state::MCMCState)
 
     chain_state, accepted, p_accept = mcmc_propose!!(chain_state)
 
+    current = _current_sample_idx(chain_state)
+    proposed = _proposed_sample_idx(chain_state)
+    _accept_reject!(chain_state, accepted, p_accept, current, proposed)
+
     mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, p_accept)
 
     chain_state = mcmc_state_new.chain_state
-
-    current = _current_sample_idx(chain_state)
-    proposed = _proposed_sample_idx(chain_state)
-
-    _accept_reject!(chain_state, accepted, p_accept, current, proposed)
-
     mcmc_state_final = @set mcmc_state_new.chain_state = chain_state
 
     return mcmc_state_final

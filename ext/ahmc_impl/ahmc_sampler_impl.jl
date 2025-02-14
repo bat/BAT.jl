@@ -125,9 +125,11 @@ function BAT.mcmc_propose!!(mc_state::HMCState)
 
     p_accept = AdvancedHMC.stat(proposal.transition).acceptance_rate
 
-    x_proposed[:] = f_transform(z_proposed)    
+    x_proposed[:], ladj = with_logabsdet_jacobian(f_transform, z_proposed)    
     logd_x_proposed = logdensityof(target, x_proposed)
     samples.logd[proposed_x_idx] = logd_x_proposed
+
+    sample_z.logd[proposed_z_idx] = logd_x_proposed + ladj
 
     return mc_state, accepted, p_accept
 end
@@ -200,6 +202,7 @@ function _bat_transition(
     termination = AdvancedHMC.Termination(false, false)
     zcand = z0
     proposed_zs = Vector[]
+    accept_probs = Float64[]
 
     j = 0
     while !AdvancedHMC.isterminated(termination) && j < τ.termination_criterion.max_depth
@@ -213,14 +216,18 @@ function _bat_transition(
             AdvancedHMC.build_tree(rng, τ, h, tree.zright, sampler, v, j, H0)
             treeleft, treeright = tree, tree′
         end
+        
+        # This acceptance prob. is specific to AdvancedHMC.MultinomialTS
+        p_tmp = min(1, exp(sampler′.ℓw - sampler.ℓw))
+        push!(accept_probs, p_tmp)
+        push!(proposed_zs, sampler′.zcand.θ)
+
         if !AdvancedHMC.isterminated(termination′)
             j = j + 1
             if AdvancedHMC.mh_accept(rng, sampler, sampler′)
                 zcand = sampler′.zcand
             end
         end
-        push!(proposed_zs, sampler′.zcand.θ)
-
         tree = AdvancedHMC.combine(treeleft, treeright)
         sampler = AdvancedHMC.combine(zcand, sampler, sampler′)
         termination =
@@ -245,7 +252,8 @@ function _bat_transition(
         AdvancedHMC.stat(τ.integrator),
     )
 
-    z_proposed = proposed_zs[end]    
+    accept_total = sum(accept_probs)
+    z_proposed = iszero(accept_total) ? sum(proposed_zs) / length(proposed_zs) : sum(accept_probs .* proposed_zs) / accept_total
     p_accept = tstat.acceptance_rate
 
     return AdvancedHMC.Transition(zcand, tstat), z_proposed, p_accept

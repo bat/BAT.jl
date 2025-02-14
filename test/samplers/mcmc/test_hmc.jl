@@ -26,7 +26,6 @@ import AdvancedHMC
     @testset "MCMC iteration" begin
         v_init = bat_initval(target, InitFromTarget(), context).result
         # Note: No @inferred, since MCMCChainState is not type stable (yet) with HamiltonianMC
-        # TODO: MD, reactivate
         @test BAT.MCMCChainState(samplingalg, target, 1, unshaped(v_init, varshape(target)), deepcopy(context)) isa BAT.HMCState
         mcmc_state = BAT.MCMCState(samplingalg, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))
         nsteps = 10^4
