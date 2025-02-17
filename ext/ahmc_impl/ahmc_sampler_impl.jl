@@ -3,9 +3,11 @@
 
 BAT.bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::HamiltonianMC) = PriorToNormal()
 
-BAT.bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, proposal::HamiltonianMC) = StanHMCTuning()
+BAT.bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, proposal::HamiltonianMC) = StepSizeAdaptor()
 
-BAT.bat_default(::Type{TransformedMCMC}, ::Val{:adaptive_transform}, proposal::HamiltonianMC) = NoAdaptiveTransform()
+BAT.bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, proposal::HamiltonianMC) = RAMTuning()
+
+BAT.bat_default(::Type{TransformedMCMC}, ::Val{:adaptive_transform}, proposal::HamiltonianMC) = TriangularAffineTransform()
 
 BAT.bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, proposal::HamiltonianMC) = NoMCMCTempering()
 
@@ -17,12 +19,13 @@ BAT.bat_default(::Type{TransformedMCMC}, ::Val{:init}, proposal::HamiltonianMC, 
 BAT.bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::HamiltonianMC, pretransform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 250), max_ncycles = 4)
 
-
+# Change to incorporate the initial adaptive transform into f and fg
 function BAT._create_proposal_state(
     proposal::HamiltonianMC, 
     target::BATMeasure, 
     context::BATContext, 
     v_init::AbstractVector{P}, 
+    f_transform::Function,
     rng::AbstractRNG
 ) where {P<:Real}
     vs = varshape(target)
@@ -32,13 +35,13 @@ function BAT._create_proposal_state(
     params_vec .= v_init
 
     adsel = get_adselector(context)
-    f = checked_logdensityof(target)
+    f = checked_logdensityof(pullback(f_transform, target))
     fg = valgrad_func(f, adsel)
 
     metric = ahmc_metric(proposal.metric, params_vec)
     init_hamiltonian = AdvancedHMC.Hamiltonian(metric, f, fg)
     hamiltonian, init_transition = AdvancedHMC.sample_init(rng, init_hamiltonian, params_vec)
-    integrator = _ahmc_set_step_size(proposal.integrator, hamiltonian, params_vec)
+    integrator = _ahmc_set_step_size(proposal.integrator, hamiltonian, params_vec, rng)
     termination = _ahmc_convert_termination(proposal.termination, params_vec)
     kernel = HMCKernel(Trajectory{MultinomialTS}(integrator, termination))
 
@@ -85,43 +88,55 @@ function BAT.next_cycle!(mc_state::HMCState)
     mc_state
 end
 
-# TODO: MD, should this be a !! function?  
 function BAT.mcmc_propose!!(mc_state::HMCState)
-    # @unpack target, proposal, f_transform, samples, context = mc_state
     target = mc_state.target
     proposal = mc_state.proposal
     f_transform = mc_state.f_transform
     samples = mc_state.samples
+    sample_z = mc_state.sample_z
     context = mc_state.context
 
     rng = get_rng(context)
 
-    current = _current_sample_idx(mc_state)
-    proposed = _proposed_sample_idx(mc_state)
+    current_z_idx = _current_sample_z_idx(mc_state)
+    proposed_z_idx = _proposed_sample_z_idx(mc_state)
 
-    x_current = samples.v[current]
-    x_proposed = samples.v[proposed]
-    current_log_posterior = samples.logd[current]
+    proposed_x_idx = _proposed_sample_idx(mc_state)
 
+    # location in normalized (or generally transformed) space ("z-space")
+    z_current = sample_z.v[current_z_idx]
+    z_proposed = sample_z.v[proposed_z_idx]
 
-    proposal.transition = AdvancedHMC.transition(rng, proposal.hamiltonian, proposal.kernel, proposal.transition.z)
-    x_proposed[:] = proposal.transition.z.θ
-
-    proposed_log_posterior = logdensityof(target, x_proposed)
+    # location in target space ("x-space") which is generally pre-transformed
+    x_proposed = samples.v[proposed_x_idx]
     
-    samples.logd[proposed] = proposed_log_posterior
+    τ = deepcopy(proposal.kernel.τ)
+    @reset τ.integrator = AdvancedHMC.jitter(rng, τ.integrator)
 
-    accepted = x_current != x_proposed
+    hamiltonian = proposal.hamiltonian
 
-    # TODO: Setting p_accept to 1 or 0 for now.
-    # Use AdvancedHMC.stat(transition).acceptance_rate in the future?
-    p_accept = Float64(accepted)
+    # Current location in the phase space for Hamiltonian MonteCarlo
+    z_phase = AdvancedHMC.phasepoint(hamiltonian, vec(z_current[:]), rand(rng, hamiltonian.metric, hamiltonian.kinetic))
+    # Note: `RiemannianKinetic` requires an additional position argument, but including this causes issues. So only support the other kinetics.
+
+    proposal.transition = AdvancedHMC.transition(rng, τ, hamiltonian, z_phase)
+    p_accept = AdvancedHMC.stat(proposal.transition).acceptance_rate
+
+    z_proposed[:] =  proposal.transition.z.θ
+    accepted = z_current[:] != z_proposed[:]
+
+    p_accept = AdvancedHMC.stat(proposal.transition).acceptance_rate
+
+    x_proposed[:], ladj = with_logabsdet_jacobian(f_transform, z_proposed)    
+    logd_x_proposed = logdensityof(target, x_proposed)
+    samples.logd[proposed_x_idx] = logd_x_proposed
+
+    sample_z.logd[proposed_z_idx] = logd_x_proposed + ladj
 
     return mc_state, accepted, p_accept
 end
 
 function BAT._accept_reject!(mc_state::HMCState, accepted::Bool, p_accept::Float64, current::Integer, proposed::Integer)
-    # @unpack samples, proposal = mc_state
     samples = mc_state.samples
     proposal = mc_state.proposal
 
@@ -129,7 +144,7 @@ function BAT._accept_reject!(mc_state::HMCState, accepted::Bool, p_accept::Float
         samples.info.sampletype[current] = ACCEPTED_SAMPLE
         samples.info.sampletype[proposed] = CURRENT_SAMPLE
         mc_state.nsamples += 1
-
+        
         tstat = AdvancedHMC.stat(proposal.transition)
         samples.info.hamiltonian_energy[proposed] = tstat.hamiltonian_energy
         # ToDo: Handle proposal-dependent tstat (only NUTS has tree_depth):
@@ -146,5 +161,20 @@ function BAT._accept_reject!(mc_state::HMCState, accepted::Bool, p_accept::Float
     samples.weight[proposed] = w_proposed
 end
 
-
 BAT.eff_acceptance_ratio(mc_state::HMCState) = nsamples(mc_state) / nsteps(mc_state)
+
+function BAT.set_mc_state_transform!!(mc_state::HMCState, f_transform_new::Function) 
+    adsel = get_adselector(mc_state.context)
+    f = checked_logdensityof(pullback(f_transform_new, mc_state.target))
+    fg = valgrad_func(f, adsel)
+    
+    h = mc_state.proposal.hamiltonian 
+
+    h = @set h.ℓπ = f
+    h = @set h.∂ℓπ∂θ = fg 
+
+    mc_state_new = @set mc_state.proposal.hamiltonian = h
+
+    mc_state_new = @set mc_state_new.f_transform = f_transform_new
+    return mc_state_new
+end

@@ -47,8 +47,8 @@ mcmc_tuning_reinit!!(::NoMCMCProposalTunerState, ::MCMCChainState, ::Integer) = 
 
 mcmc_tuning_postinit!!(::NoMCMCProposalTunerState, ::MCMCChainState, ::DensitySampleVector) = nothing
 
-mcmc_tune_post_cycle!!(tuner::NoMCMCProposalTunerState, chain_state::MCMCChainState, ::DensitySampleVector) = chain_state, tuner, false
+mcmc_tune_post_cycle!!(tuner::NoMCMCProposalTunerState, chain_state::MCMCChainState, ::DensitySampleVector) = chain_state, tuner
 
 mcmc_tuning_finalize!!(::NoMCMCProposalTunerState, ::MCMCChainState) = nothing
 
-mcmc_tune_post_step!!(tuner::NoMCMCProposalTunerState, chain_state::MCMCChainState, ::Real) = chain_state, tuner, false
+mcmc_tune_post_step!!(tuner::NoMCMCProposalTunerState, chain_state::MCMCChainState, ::Real) = chain_state, tuner

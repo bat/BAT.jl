@@ -41,7 +41,7 @@ function BAT.mcmc_tune_post_cycle!!(tuner::HMCProposalTunerState, chain_state::H
         chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false)
         @debug "MCMC chain $(chain_state.info.id) *not* tuned, acceptance ratio = $(Float32(accept_ratio)), integrator = $(chain_state.proposal.τ.integrator), max. log posterior = $(Float32(max_log_posterior))"
     end
-    return chain_state, tuner, false 
+    return chain_state, tuner
 end
 
 
@@ -66,12 +66,14 @@ function BAT.mcmc_tune_post_step!!(
     tstat = AdvancedHMC.stat(proposal_new.transition)
 
     AdvancedHMC.adapt!(adaptor, proposal_new.transition.z.θ, tstat.acceptance_rate)
-    proposal_new.hamiltonian = AdvancedHMC.update(proposal_new.hamiltonian, adaptor)
+    h = proposal_new.hamiltonian
+    h = AdvancedHMC.update(h, adaptor)
+    
     proposal_new.kernel = AdvancedHMC.update(proposal_new.kernel, adaptor)
     tstat = merge(tstat, (is_adapt =true,))
 
     chain_state_tmp = @set chain_state.proposal.transition.stat = tstat
     chain_state_final = @set chain_state_tmp.proposal = proposal_new
 
-    return chain_state_final, tuner_state, false
+    return chain_state_final, tuner_state
 end

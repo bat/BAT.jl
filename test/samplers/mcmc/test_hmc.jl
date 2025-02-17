@@ -19,17 +19,15 @@ import AdvancedHMC
     @test target isa BAT.BATDistMeasure
 
     proposal = HamiltonianMC()
-    proposal_tuning = StanHMCTuning()
+    transform_tuning = StanLikeTuning()
     nchains = 4
-    samplingalg = TransformedMCMC(proposal = proposal, proposal_tuning = proposal_tuning, nchains = nchains)
+    samplingalg = TransformedMCMC(proposal = proposal, transform_tuning = transform_tuning, nchains = nchains)
 
     @testset "MCMC iteration" begin
         v_init = bat_initval(target, InitFromTarget(), context).result
         # Note: No @inferred, since MCMCChainState is not type stable (yet) with HamiltonianMC
-        # TODO: MD, reactivate
         @test BAT.MCMCChainState(samplingalg, target, 1, unshaped(v_init, varshape(target)), deepcopy(context)) isa BAT.HMCState
         mcmc_state = BAT.MCMCState(samplingalg, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))
-        tuner = BAT.create_proposal_tuner_state(StanHMCTuning(), mcmc_state.chain_state, 0)
         nsteps = 10^4
         BAT.mcmc_tuning_init!!(mcmc_state, 0)
         BAT.mcmc_tuning_reinit!!(mcmc_state, div(nsteps, 10))
@@ -49,7 +47,7 @@ import AdvancedHMC
 
     @testset "MCMC tuning and burn-in" begin
         max_nsteps = 10^5
-        proposal_tuning = BAT.StanHMCTuning()
+        transform_tuning = BAT.StanLikeTuning()
         pretransform = DoNotTransform()
         init_alg = bat_default(TransformedMCMC, Val(:init), proposal, pretransform, nchains, max_nsteps)
         burnin_alg = bat_default(TransformedMCMC, Val(:burnin), proposal, pretransform, nchains, max_nsteps)
@@ -57,9 +55,9 @@ import AdvancedHMC
         strict = true
         nonzero_weights = false
         callback = (x...) -> nothing
-
+    
         samplingalg = TransformedMCMC(proposal = proposal,
-            proposal_tuning = proposal_tuning, 
+            transform_tuning = transform_tuning, 
             pretransform = pretransform, 
             init = init_alg, 
             burnin = burnin_alg, 
@@ -67,7 +65,7 @@ import AdvancedHMC
             strict = strict, 
             nonzero_weights = nonzero_weights
         )
-
+    
         # Note: No @inferred, not type stable (yet) with HamiltonianMC
         init_result = BAT.mcmc_init!(
             samplingalg,
@@ -76,39 +74,40 @@ import AdvancedHMC
             callback,
             context
         )
-
+    
         (mcmc_states, outputs) = init_result
-        # @test mcmc_states isa AbstractVector{<:BAT.HMCState} # TODO: MD, reactivate, works for AbstractVector{<:MCMCChainState}, but doesn't seen to like the typealias 
-        # @test tuners isa AbstractVector{<:BAT.HMCState}
+        @test mcmc_states isa AbstractVector{<:BAT.MCMCState}
         @test outputs isa AbstractVector{<:DensitySampleVector}
-
-        BAT.mcmc_burnin!(
+    
+        mcmc_states = BAT.mcmc_burnin!(
             outputs,
             mcmc_states,
             samplingalg,
             callback
         )
-
+    
+        BAT.next_cycle!.(mcmc_states)
+    
         mcmc_states = BAT.mcmc_iterate!!(
             outputs,
             mcmc_states;
             max_nsteps = div(max_nsteps, length(mcmc_states)),
             nonzero_weights = nonzero_weights
         )
-
+    
         samples = DensitySampleVector(first(mcmc_states))
         append!.(Ref(samples), outputs)
         
         @test length(samples) == sum(samples.weight)
         @test BAT.test_dist_samples(unshaped(objective), samples)
     end
-
+    
     @testset "bat_sample" begin
         samples = bat_sample(
             shaped_target,
             TransformedMCMC(
                 proposal = proposal,
-                proposal_tuning = StanHMCTuning(),
+                transform_tuning = StanLikeTuning(),
                 pretransform = DoNotTransform(),
                 nsteps = 10^4,
                 store_burnin = true
@@ -124,7 +123,7 @@ import AdvancedHMC
             shaped_target,
             TransformedMCMC(
                 proposal = proposal,
-                proposal_tuning = StanHMCTuning(),
+                transform_tuning = StanLikeTuning(),
                 pretransform = DoNotTransform(),
                 nsteps = 10^4,
                 store_burnin = false
@@ -144,7 +143,7 @@ import AdvancedHMC
         inner_posterior = PosteriorMeasure(likelihood, prior)
         # Test with nested posteriors:
         posterior = PosteriorMeasure(likelihood, inner_posterior)
-        @test BAT.sample_and_verify(posterior, TransformedMCMC(proposal = HamiltonianMC(), proposal_tuning = StanHMCTuning(), pretransform = PriorToNormal()), prior.dist, context).verified
+        @test BAT.sample_and_verify(posterior, TransformedMCMC(proposal = HamiltonianMC(), transform_tuning = StanLikeTuning(), pretransform = PriorToNormal()), prior.dist, context).verified
     end
 
     @testset "HMC autodiff" begin
@@ -156,7 +155,7 @@ import AdvancedHMC
 
                 hmc_samplingalg = TransformedMCMC(
                     proposal = HamiltonianMC(),
-                    proposal_tuning = StanHMCTuning(),
+                    transform_tuning = StanLikeTuning(),
                     nchains = 2,
                     nsteps = 100,
                     init = MCMCChainPoolInit(init_tries_per_chain = 2..2, nsteps_init = 5),

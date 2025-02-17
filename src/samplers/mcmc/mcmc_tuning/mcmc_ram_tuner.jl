@@ -39,7 +39,7 @@ end
 mutable struct RAMProposalTunerState <: MCMCTransformTunerState end
 
 
-create_trafo_tuner_state(tuning::RAMTuning, chain::MCMCChainState, n_steps_hint::Integer) = RAMTrafoTunerState(tuning, 0)
+create_trafo_tuner_state(tuning::RAMTuning, chain_state::MCMCChainState, n_steps_hint::Integer) = RAMTrafoTunerState(tuning, 0)
 
 function mcmc_tuning_init!!(tuner_state::RAMTrafoTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
     chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false) # TODO ?
@@ -66,40 +66,45 @@ function mcmc_tune_post_cycle!!(tuner::RAMTrafoTunerState, chain_state::MCMCChai
         chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false)
         @debug "MCMC chain $(chain_state.info.id) *not* tuned, acceptance ratio = $(Float32(α)), max. log posterior = $(Float32(max_log_posterior))"
     end
-    return chain_state, tuner, false
+    return chain_state, tuner
 end
 
 mcmc_tuning_finalize!!(tuner::RAMTrafoTunerState, chain::MCMCChainState) = nothing
 
-# Return mc_state instead of f_transform
 function mcmc_tune_post_step!!(
     tuner_state::RAMTrafoTunerState, 
     mc_state::MCMCChainState,
     p_accept::Real,
 )
-    (; target_acceptance, gamma) = tuner_state.tuning
+
+    if current_sample_z(mc_state).v == proposed_sample_z(mc_state)
+        return mc_state, tuner_state
+    end
+
     (; f_transform, sample_z) = mc_state
+    (; target_acceptance, gamma) = tuner_state.tuning
     b = f_transform.b
-    
+
+    tuner_state_new = @set tuner_state.nsteps = tuner_state.nsteps + 1
+
     n_dims = size(sample_z.v[1], 1)
     η = min(1, n_dims * tuner_state.nsteps^(-gamma))
 
     s_L = f_transform.A
 
     u = sample_z.v[2] - sample_z.v[1] # proposed - current
-    M = s_L * (I + η * (p_accept - target_acceptance) * (u * u') / norm(u)^2 ) * s_L'
+    M = s_L * (I + η * (p_accept - target_acceptance) * (u * u') / norm(u)^2) * s_L'
     new_s_L = oftype(s_L, cholesky(Positive, M).L)
-
+       
     x = mc_state.samples[_proposed_sample_idx(mc_state)] # proposed in x-space
     mean_update_rate = η / 10 # heuristic
     α = mean_update_rate * p_accept
     new_b = oftype(b, (1- α) * b + α * x.v)
 
-    f_transform_new  = MulAdd(new_s_L, new_b)
+    f_transform_new = MulAdd(new_s_L, new_b)
 
-    tuner_state_new = @set tuner_state.nsteps = tuner_state.nsteps + 1
-    
-    mc_state_new = @set mc_state.f_transform = f_transform_new
+    mc_state_new = set_mc_state_transform!!(mc_state, f_transform_new)
+    mc_state_new = mcmc_update_z_position!!(mc_state_new)
 
-    return mc_state_new, tuner_state_new, true
+    return mc_state_new, tuner_state_new
 end

@@ -45,19 +45,17 @@ function MCMCChainState(
     rng = get_rng(context)
     n_dims = getdof(target)
     
-    #Create Proposal state. Necessary in particular for AHMC proposal
-    proposal = _create_proposal_state(samplingalg.proposal, target, context, v_init, rng)
-    stepno::Int64 = 0
+    f = init_adaptive_transform(samplingalg.adaptive_transform, target, context)
+    f_inv = inverse(f)
+    logd_x = logdensityof(target_unevaluated, v_init)
+    
+    z = f_inv(v_init) 
+    logd_z = logdensityof(MeasureBase.pullback(f, target_unevaluated), z)
 
+    proposal = _create_proposal_state(samplingalg.proposal, target, context, v_init, f, rng)
+    stepno::Int64 = 0
     cycle::Int32 = 0
     nsamples::Int64 = 0
-
-    g = init_adaptive_transform(samplingalg.adaptive_transform, target, context)
-
-    logd_x = logdensityof(target_unevaluated, v_init)
-    inverse_g = inverse(g)
-    z = inverse_g(v_init)
-    logd_z = logdensityof(MeasureBase.pullback(g, target_unevaluated), z)
 
     W = mcmc_weight_type(samplingalg.sample_weighting)
     T = typeof(logd_x)
@@ -76,7 +74,7 @@ function MCMCChainState(
     state = MCMCChainState(
         target,
         proposal,
-        g,
+        f,
         samplingalg.sample_weighting,
         samples,
         sample_z,
@@ -88,8 +86,7 @@ function MCMCChainState(
     )
 
     # TODO: MD, resetting the counters necessary/desired? 
-    reset_rng_counters!(state)
-
+    #reset_rng_counters!(state)
     state
 end
 
@@ -162,15 +159,15 @@ function mcmc_step!!(mcmc_state::MCMCState)
 
     chain_state, accepted, p_accept = mcmc_propose!!(chain_state)
 
-    mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, p_accept)
-
-    chain_state = mcmc_state_new.chain_state
-
     current = _current_sample_idx(chain_state)
     proposed = _proposed_sample_idx(chain_state)
 
+    # This does not change `sample_z` in the chain_state, that happens in the next mcmc step in `_cleanup_samples()`.
     _accept_reject!(chain_state, accepted, p_accept, current, proposed)
 
+    mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, p_accept)
+
+    chain_state = mcmc_state_new.chain_state
     mcmc_state_final = @set mcmc_state_new.chain_state = chain_state
 
     return mcmc_state_final
@@ -280,7 +277,6 @@ end
 
 function mcmc_update_z_position!!(mc_state::MCMCChainState)
     f_transform = mc_state.f_transform
-    sample_z = mc_state.sample_z
 
     current_sample_x = current_sample(mc_state)
     proposed_sample_x = proposed_sample(mc_state)
@@ -328,12 +324,8 @@ end
 
 # TODO: MD, when should the z-position be updated? Before or after the proposal tuning?
 function mcmc_tune_post_cycle!!(state::MCMCState, samples::DensitySampleVector)
-    chain_state_tmp, trafo_tuner_state_new, trafo_changed = mcmc_tune_post_cycle!!(state.trafo_tuner_state, state.chain_state, samples)
-    chain_state_new, proposal_tuner_state_new, _ = mcmc_tune_post_cycle!!(state.proposal_tuner_state, chain_state_tmp, samples)
-
-    if trafo_changed
-        chain_state_new = mcmc_update_z_position!!(chain_state_new)
-    end
+    chain_state_tmp, trafo_tuner_state_new = mcmc_tune_post_cycle!!(state.trafo_tuner_state, state.chain_state, samples)
+    chain_state_new, proposal_tuner_state_new = mcmc_tune_post_cycle!!(state.proposal_tuner_state, chain_state_tmp, samples)
 
     mcmc_state_cs = @set state.chain_state = chain_state_new
     mcmc_state_tt = @set mcmc_state_cs.trafo_tuner_state = trafo_tuner_state_new
@@ -343,12 +335,8 @@ function mcmc_tune_post_cycle!!(state::MCMCState, samples::DensitySampleVector)
 end
 
 function mcmc_tune_post_step!!(state::MCMCState, p_accept::Real)
-    chain_state_tmp, trafo_tuner_state_new, trafo_changed = mcmc_tune_post_step!!(state.trafo_tuner_state, state.chain_state, p_accept)
-    chain_state_new, proposal_tuner_state_new, _ = mcmc_tune_post_step!!(state.proposal_tuner_state, chain_state_tmp, p_accept)
-
-    if trafo_changed
-        chain_state_new = mcmc_update_z_position!!(chain_state_new)
-    end
+    chain_state_tmp, trafo_tuner_state_new = mcmc_tune_post_step!!(state.trafo_tuner_state, state.chain_state, p_accept)
+    chain_state_new, proposal_tuner_state_new = mcmc_tune_post_step!!(state.proposal_tuner_state, chain_state_tmp, p_accept)
 
     # TODO: MD, inelegant, use AccessorsExtra.jl to set several fields at once? https://github.com/JuliaAPlavin/AccessorsExtra.jl
     mcmc_state_cs = @set state.chain_state = chain_state_new

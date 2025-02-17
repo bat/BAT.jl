@@ -53,7 +53,8 @@ function _create_proposal_state(
     proposal::RandomWalk, 
     target::BATMeasure, 
     context::BATContext, 
-    v_init::AbstractVector{<:Real}, 
+    v_init::AbstractVector{<:Real},
+    f_transform::Function,
     rng::AbstractRNG
 )
     n_dims = length(v_init)
@@ -103,7 +104,6 @@ end
 
 const MHChainState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:MHProposalState} 
 
-
 function mcmc_propose!!(mc_state::MHChainState)
     @unpack target, proposal, f_transform, context = mc_state
     rng = get_rng(context)
@@ -144,8 +144,6 @@ function _accept_reject!(mc_state::MHChainState, accepted::Bool, p_accept::Float
         samples.info.sampletype[proposed] = CURRENT_SAMPLE
         
         mc_state.nsamples += 1
-
-        mc_state.sample_z[1] = deepcopy(proposed_sample_z(mc_state))
     else
         samples.info.sampletype[proposed] = REJECTED_SAMPLE
     end
@@ -157,3 +155,8 @@ end
 
 
 eff_acceptance_ratio(mc_state::MHChainState) = nsamples(mc_state) / nsteps(mc_state)
+
+function set_mc_state_transform!!(mc_state::MHChainState, f_transform_new::Function) 
+    mc_state_new = @set mc_state.f_transform = f_transform_new
+    return mc_state_new
+end
