@@ -135,9 +135,15 @@ function checked_logdensityof(m::BATPushFwdMeasure{F,I,M,KeepRootMeasure}, v::An
 end
 
 
-Random.rand(rng::AbstractRNG, ::Type{T}, m::BATPushFwdMeasure) where {T<:Real} = m.f(rand(rng, T, m.origin))
+Random.rand(gen::GenContext, m::BATPushFwdMeasure) = m.f(rand(gen, m.origin))
 
-Random.rand(rng::AbstractRNG, m::BATPushFwdMeasure) = m.f(rand(rng, m.origin))
+function Base.rand(gen::GenContext, m::BATPwrMeasure{<:BATPushFwdMeasure})
+    m_nonpwr, sz = m.parent, m.sz
+    f = m_nonpwr.f
+    m_origin = m_nonpwr.origin ^ sz
+    X_origin = rand(gen, m_origin)
+    return transform_samples(f, X_origin)
+end
 
 supports_rand(m::BATPushFwdMeasure) = supports_rand(m.origin)
 

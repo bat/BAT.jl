@@ -73,7 +73,7 @@ end
 
 function bat_initval_impl(target::BATPushFwdMeasure, n::Integer, algorithm::InitFromTarget, context::BATContext)
     vs_orig = bat_initval_impl(target.orig, n, algorithm, context).result
-    vs = BAT.broadcast_trafo(gettransform(target), vs_orig)
+    vs = BAT.transform_samples(gettransform(target), vs_orig)
     (result = vs,)
 end
 
@@ -164,7 +164,7 @@ end
 
 
 function apply_trafo_to_init(f_transform::Function, initalg::ExplicitInit)
-    xs_tr = broadcast_trafo(f_transform, initalg.xs)
+    xs_tr = transform_samples(f_transform, initalg.xs)
     ExplicitInit(xs_tr)
 end
 

@@ -50,6 +50,13 @@ end
 
 Base.rand(gen::GenContext, m::BATWeightedMeasure) = rand(gen, m.base)
 
+function Base.rand(gen::GenContext, m::BATPwrMeasure{<:BATWeightedMeasure})
+    m_nonpwr, sz = m.parent, m.sz
+    m_origin = m_nonpwr.base ^ sz
+    X_origin = rand(gen, m_origin)
+    return X_origin
+end
+
 supports_rand(m::BATWeightedMeasure) = supports_rand(m.origin)
 
 

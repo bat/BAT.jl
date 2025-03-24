@@ -112,12 +112,6 @@ struct DistributionTransform{
 end
 
 
-# ToDo: Unify with broadcast_trafo
-function broadcast_arbitrary_trafo(f_transform::DistributionTransform, smpls::DensitySampleVector)
-    broadcast_trafo(f_transform, smpls)
-end
-
-
 function _distrafo_ctor_impl(target_dist::DT, source_dist::DF) where {DT<:ContinuousDistribution,DF<:ContinuousDistribution}
     @argcheck eff_totalndof(target_dist) == eff_totalndof(source_dist)
     DistributionTransform{DT,DF}(target_dist, source_dist)
@@ -177,7 +171,7 @@ function Base.Broadcast.broadcasted(
     f_transform::DistributionTransform,
     v_src::Union{ArrayOfSimilarVectors{<:Real},ShapedAsNTArray}
 )
-    broadcast_trafo(f_transform, v_src)
+    transform_samples(f_transform, v_src)
 end
 
 
@@ -192,7 +186,7 @@ function Base.Broadcast.broadcasted(
     f_transform::DistributionTransform,
     s_src::DensitySampleVector
 )
-    broadcast_trafo(f_transform, s_src)
+    transform_samples(f_transform, s_src)
 end
 
 

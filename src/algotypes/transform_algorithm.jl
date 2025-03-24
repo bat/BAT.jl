@@ -277,7 +277,7 @@ end
 struct SampleTransformation <: TransformAlgorithm end
 
 function bat_transform_impl(f::Function, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)
-    (result = broadcast_arbitrary_trafo(f, smpls), f_transform = f)
+    (result = transform_samples(f, smpls), f_transform = f)
 end
 
 function bat_transform_impl(shp::AbstractValueShape, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)

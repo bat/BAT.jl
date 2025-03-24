@@ -34,17 +34,12 @@ function _cartidxs(axs::Tuple{Vararg{AbstractUnitRange,N}}) where {N}
     CartesianIndices(map(_dynamic, axs))
 end
 
+
 function Base.rand(gen::GenContext, m::BATPwrMeasure)
     cunit = get_compute_unit(gen)
     rng = get_rng(gen)
     axs = map(Base.OneTo, m.sz)
     adapt(cunit, map(_ -> rand(rng, m.parent), _cartidxs(axs)))
-end
-
-function Base.rand(gen::GenContext, m::BATPwrMeasure{<:BATDistMeasure})
-    X = rand(get_rng(gen), m.parent.dist, size(marginals(m))...)
-    reshaped_X = _reshape_rand_n_output(X)
-    gen_adapt(gen, reshaped_X)
 end
 
 function Base.rand(gen::GenContext, m::BATPwrMeasure{<:BATDistMeasure})
@@ -75,7 +70,7 @@ MeasureBase.marginals(m::BATPwrMeasure) = Fill(_pwr_base(m), _pwr_size(m))
     @assert size(x) == _pwr_size(m)
     m_base = _pwr_base(m)
     sum(x) do x_i
-        logdensity_def(m_base, x_i)
+        logdensityof(m_base, x_i)
     end
 end
 
