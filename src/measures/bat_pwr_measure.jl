@@ -15,7 +15,7 @@ function BATMeasure(m::MeasureBase.PowerMeasure{<:AbstractMeasure,<:Tuple{Vararg
 end
 
 MeasureBase.powermeasure(m::BATMeasure, dims::Dims) = _bat_pwrmeasure(m, dims)
-MeasureBase.powermeasure(m::BATMeasure, axes::Tuple{Vararg{Base.OneTo}}) = _bat_pwrmeasure(m, map(length(axes)))
+MeasureBase.powermeasure(m::BATMeasure, axes::Tuple{Vararg{Base.OneTo}}) = _bat_pwrmeasure(m, map(length, axes))
 MeasureBase.powermeasure(m::BATMeasure, ::Tuple{}) = m
 
 _bat_pwrmeasure(m::BATMeasure, dims::Tuple{Vararg{Integer}}) = BATPwrMeasure(m, dims)
@@ -36,7 +36,15 @@ end
 
 function Base.rand(gen::GenContext, m::BATPwrMeasure)
     cunit = get_compute_unit(gen)
-    adapt(cunit, map(_ -> rand(rng, m.parent), _cartidxs(m.axes)))
+    rng = get_rng(gen)
+    axs = map(Base.OneTo, m.sz)
+    adapt(cunit, map(_ -> rand(rng, m.parent), _cartidxs(axs)))
+end
+
+function Base.rand(gen::GenContext, m::BATPwrMeasure{<:BATDistMeasure})
+    X = rand(get_rng(gen), m.parent.dist, size(marginals(m))...)
+    reshaped_X = _reshape_rand_n_output(X)
+    gen_adapt(gen, reshaped_X)
 end
 
 function Base.rand(gen::GenContext, m::BATPwrMeasure{<:BATDistMeasure})
@@ -87,3 +95,9 @@ MeasureBase.getdof(m::BATPwrMeasure) = getdof(_pwr_base(m)) * prod(_pwr_size(m))
 MeasureBase.massof(m::BATPwrMeasure) = massof(_pwr_base(m))^prod(_pwr_size(m))
 
 MeasureBase.params(m::BATPwrMeasure) = params(_pwr_base(m))
+
+
+# From MeasureBase:
+_dynamic(x::Number) = dynamic(x)
+#_dynamic(::Static.SOneTo{N}) where {N} = Base.OneTo(N)
+_dynamic(r::AbstractUnitRange) = minimum(r):maximum(r)
