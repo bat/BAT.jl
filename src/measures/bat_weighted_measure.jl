@@ -48,9 +48,7 @@ function checked_logdensityof(m::BATWeightedMeasure, v::Any)
 end
 
 
-Random.rand(rng::AbstractRNG, ::Type{T}, m::BATWeightedMeasure) where {T<:Real} = rand(rng, T, m.base)
-
-Random.rand(rng::AbstractRNG, m::BATWeightedMeasure) = rand(rng, T, m.base)
+Base.rand(gen::GenContext, m::BATWeightedMeasure) = rand(gen, m.base)
 
 supports_rand(m::BATWeightedMeasure) = supports_rand(m.origin)
 
