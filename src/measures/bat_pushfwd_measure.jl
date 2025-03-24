@@ -28,11 +28,11 @@ BATMeasure(m::PushforwardMeasure) = BATPushFwdMeasure(m.f, m.finv, batmeasure(m.
 
 MeasureBase.gettransform(m::BATPushFwdMeasure) = m.trafo
 
-MeasureBase.transport_origin(m::BATMeasure) = m.orig
+MeasureBase.transport_origin(m::BATMeasure) = m.origin
 MeasureBase.from_origin(m::BATMeasure, x) = m.f(x)
 MeasureBase.to_origin(m::BATMeasure, y) = m.finv(y)
 
-MeasureBase.getdof(m::BATPushFwdMeasure) = getdof(m.orig)
+MeasureBase.getdof(m::BATPushFwdMeasure) = getdof(m.origin)
 MeasureBase.getdof(m::_NonBijectiveBATPusfwdMeasure) = MeasureBase.NoDOF{typeof(m)}()
 
 MeasureBase.insupport(m::BATPushFwdMeasure, x) = insupport(transport_origin(m), to_origin(m, x))
@@ -70,8 +70,8 @@ function (f::DistributionTransform)(m::AbstractMeasure; volcorr::Val{vc} = Val(t
 end
 
 
-#!!!!!!!!! Use return type of trafo with testvalue, if no shape change return varshape(m.orig) directly
-ValueShapes.varshape(m::BATPushFwdMeasure) = trafo(varshape(m.orig))
+#!!!!!!!!! Use return type of f with testvalue, if no shape change return varshape(m.origin) directly
+#ValueShapes.varshape(m::BATPushFwdMeasure) = f(varshape(m.origin))
 
 ValueShapes.varshape(m::BATPushFwdMeasure{<:DistributionTransform}) = varshape(m.f.target_dist)
 
