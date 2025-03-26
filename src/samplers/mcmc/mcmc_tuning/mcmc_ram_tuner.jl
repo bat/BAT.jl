@@ -86,7 +86,7 @@ function mcmc_tune_post_step!!(
     (; target_acceptance, gamma) = tuner_state.tuning
     b = f_transform.b
     n_dims = length(b)
-    n_walkers = length(current.x)
+    n_walkers = nwalkers(chain_state)
 
     tuner_state_new = @set tuner_state.nsteps = tuner_state.nsteps + 1
 
@@ -111,7 +111,7 @@ function mcmc_tune_post_step!!(
 
     f_transform_new = MulAdd(s_L, new_b)
 
-    mc_state_new = set_mc_state_transform!!(chain_state, f_transform_new)
+    mc_state_new = set_mc_transform!!(chain_state, f_transform_new)
     mc_state_new = mcmc_update_z_position!!(mc_state_new)
 
     return mc_state_new, tuner_state_new

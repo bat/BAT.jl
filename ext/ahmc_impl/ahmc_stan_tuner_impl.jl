@@ -5,29 +5,30 @@ mutable struct StanLikeTunerState{
 } <: MCMCTransformTunerState
     tuning::StanLikeTuning
     target_acceptance::Float64
-    stats::S
+    stats::AbstractVector{S}
     stan_state::AdvancedHMC.Adaptation.StanHMCAdaptorState
 end
 
 BAT.create_trafo_tuner_state(tuning::StanLikeTuning, chain_state::MCMCChainState, n_steps_hint::Integer) = StanLikeTunerState(tuning, tuning.target_acceptance, MCMCBasicStats(chain_state), AdvancedHMC.Adaptation.StanHMCAdaptorState())
 
-function BAT.mcmc_tuning_init!!(tuner::StanLikeTunerState, chain_state::HMCState, max_nsteps::Integer)
+function BAT.mcmc_tuning_init!!(tuner::StanLikeTunerState, chain_state::HMCChainState, max_nsteps::Integer)
     tuning = tuner.tuning
     AdvancedHMC.Adaptation.initialize!(tuner.stan_state, tuning.init_buffer, tuning.term_buffer, tuning.window_size, Int(max_nsteps - 1))
     nothing
 end
 
-function BAT.mcmc_tuning_reinit!!(tuner::StanLikeTunerState, chain_state::HMCState, max_nsteps::Integer)
+function BAT.mcmc_tuning_reinit!!(tuner::StanLikeTunerState, chain_state::HMCChainState, max_nsteps::Integer)
     tuning = tuner.tuning
     AdvancedHMC.Adaptation.initialize!(tuner.stan_state, tuning.init_buffer, tuning.term_buffer, tuning.window_size, Int(max_nsteps - 1))
     nothing
 end
 
-BAT.mcmc_tuning_postinit!!(tuner::StanLikeTunerState, chain_state::HMCState, samples::DensitySampleVector) = nothing
+BAT.mcmc_tuning_postinit!!(tuner::StanLikeTunerState, chain_state::HMCChainState, samples::AbstractVector{<:DensitySampleVector}) = nothing
 
 
-function BAT.mcmc_tune_post_cycle!!(tuner::StanLikeTunerState, chain_state::HMCState, samples::DensitySampleVector)
-    max_log_posterior = maximum(samples.logd)
+function BAT.mcmc_tune_post_cycle!!(tuner::StanLikeTunerState, chain_state::HMCChainState, samples::AbstractVector{<:DensitySampleVector})
+    logds = [walker_smpls.logd for walker_smpls in samples]
+    max_log_posterior = maximum(maximum.(logds))
     accept_ratio = eff_acceptance_ratio(chain_state)
     if accept_ratio >= 0.9 * tuner.target_acceptance
         chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = true)
@@ -40,13 +41,13 @@ function BAT.mcmc_tune_post_cycle!!(tuner::StanLikeTunerState, chain_state::HMCS
 end
 
 
-BAT.mcmc_tuning_finalize!!(tuner::StanLikeTunerState, chain_state::HMCState) = nothing
+BAT.mcmc_tuning_finalize!!(tuner::StanLikeTunerState, chain_state::HMCChainState) = nothing
 
 
 function BAT.mcmc_tune_post_step!!(
     tuner::StanLikeTunerState,
     chain_state::MCMCChainState,
-    p_accept::Real
+    p_accept::AbstractVector{<:Real}
 )
     stan_state = tuner.stan_state
     stan_state.i += 1
@@ -55,22 +56,34 @@ function BAT.mcmc_tune_post_step!!(
     is_in_window =  stan_state.i >= stan_state.window_start && stan_state.i <= stan_state.window_end
     is_window_end = stan_state.i in stan_state.window_splits
 
+    n_walkers = nwalkers(chain_state)
+
     if is_in_window
-        BAT.push!(stats, proposed_sample(chain_state))
+        for i in 1:n_walkers
+            BAT.push!(stats[i], chain_state.proposed.x[i])
+        end
     end
+    
+    # if is_in_window
+    #     BAT.push!(stats, proposed_sample(chain_state))
+    # end
 
     if is_window_end 
         A = chain_state.f_transform.A
         T = eltype(A)
         n_dims = size(A, 2)
-        
-        M = convert(Array, stats.param_stats.cov)
+
+        # TODO, MD: How should the update work for ensembles? Should it be some kind of average?
+        param_stats = getfield.(stats, :param_stats)
+        covs = convert.(Array, getfield.(param_stats, :cov))
+        M = (1/n_walkers) * sum(covs)
+
         A_new = T.(cholesky(Positive, M).L)
 
-        reweight_relative!(stats, 0)
+        reweight_relative!.(stats, 0)
 
         f_transform_new = MulAdd(A_new, zeros(T, n_dims))
-        chain_state = set_mc_state_transform!!(chain_state, f_transform_new)
+        chain_state = set_mc_transform!!(chain_state, f_transform_new)
     end
 
     chain_state_new = mcmc_update_z_position!!(chain_state) 

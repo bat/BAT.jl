@@ -108,7 +108,7 @@ function mcmc_propose!!(chain_state::MHChainState)
     @unpack target, proposal, f_transform, context = chain_state
     rng = get_rng(context)
     pdist = proposal.proposaldist
-    n_walkers = length(chain_state.current.x.v)
+    n_walkers = nwalkers(chain_state)
 
     current_z = chain_state.current.z.v
     logd_z_current = chain_state.current.z.logd
@@ -161,7 +161,7 @@ end
 
 eff_acceptance_ratio(chain_state::MHChainState) = nsamples(chain_state) / nsteps(chain_state)
 
-function set_mc_state_transform!!(mc_state::MHChainState, f_transform_new::Function) 
+function set_mc_transform!!(mc_state::MHChainState, f_transform_new::Function) 
     mc_state_new = @set mc_state.f_transform = f_transform_new
     return mc_state_new
 end

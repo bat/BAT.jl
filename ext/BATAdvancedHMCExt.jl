@@ -19,16 +19,18 @@ using BAT: MeasureLike, BATMeasure
 
 using BAT: get_context, get_adselector, _NoADSelected
 using BAT: getproposal, mcmc_target
-using BAT: MCMCChainState, HMCState, HamiltonianMC, HMCProposalState, MCMCChainStateInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin
+using BAT: MCMCChainState, HMCChainState, HamiltonianMC, HMCProposalState, MCMCChainStateInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin
 using BAT: MCMCBasicStats, push!, reweight_relative!
 using BAT: RAMTuning
 using BAT: MCMCProposalTunerState, MCMCTransformTunerState, NoMCMCTempering, NoMCMCTransformTuning
-using BAT: _current_sample_idx, _proposed_sample_idx, _current_sample_z_idx, _proposed_sample_z_idx, _cleanup_samples, current_sample_z, proposed_sample_z, proposed_sample
+using BAT: _cleanup_samples, mcmc_weight_values
 using BAT: AbstractTransformTarget, NoAdaptiveTransform, TriangularAffineTransform, valgrad_func
 using BAT: RNGPartition, get_rng, set_rng!
-using BAT: mcmc_step!!, nsamples, nsteps, samples_available, eff_acceptance_ratio
+using BAT: mcmc_step!!, nsamples, nsteps, nwalkers, samples_available, eff_acceptance_ratio
 using BAT: get_samples!, reset_rng_counters!
-using BAT: create_trafo_tuner_state, create_proposal_tuner_state, mcmc_tuning_init!!, mcmc_tuning_postinit!!, mcmc_tuning_reinit!!, mcmc_tune_transform_post_cycle!!, transform_mcmc_tuning_finalize!!, set_mc_state_transform!!, mcmc_update_z_position!!
+using BAT: create_trafo_tuner_state, create_proposal_tuner_state
+using BAT: mcmc_tuning_init!!, mcmc_tuning_postinit!!, mcmc_tuning_reinit!!, mcmc_tune_transform_post_cycle!!, transform_mcmc_tuning_finalize!!
+using BAT: set_mc_transform!!, mcmc_update_z_position!!
 using BAT: totalndof, measure_support, checked_logdensityof
 using BAT: CURRENT_SAMPLE, PROPOSED_SAMPLE, INVALID_SAMPLE, ACCEPTED_SAMPLE, REJECTED_SAMPLE
 

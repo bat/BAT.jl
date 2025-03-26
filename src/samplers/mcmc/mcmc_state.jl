@@ -72,8 +72,6 @@ function MCMCChainState(
                                         )
     dsv_init = similar(current_x_init)
 
-    global gs_cs_init = (current_x_init, current_z_init, dsv_init)
-
     current = (x = current_x_init, z = current_z_init)
     proposed = (x = deepcopy(dsv_init), z = deepcopy(dsv_init))
     output = deepcopy(dsv_init)
@@ -102,19 +100,6 @@ function MCMCChainState(
     state
 end
 
-# @inline _current_sample_idx(chain_state::MCMCChainState) = firstindex(chain_state.samples)
-# @inline _proposed_sample_idx(chain_state::MCMCChainState) = lastindex(chain_state.samples)
-
-# @inline _current_sample_z_idx(chain_state::MCMCChainState) = firstindex(chain_state.sample_z)
-# @inline _proposed_sample_z_idx(chain_state::MCMCChainState) = lastindex(chain_state.sample_z)
-
-# @inline _current_sample_idx(mcmc_state::MCMCState) = firstindex(mcmc_state.chain_state.samples)
-# @inline _proposed_sample_idx(mcmc_state::MCMCState) = lastindex(mcmc_state.chain_state.samples)
-
-# @inline _current_sample_z_idx(mcmc_state::MCMCState) = firstindex(mcmc_state.chain_state.sample_z)
-# @inline _proposed_sample_z_idx(mcmc_state::MCMCState) = lastindex(mcmc_state.chain_state.sample_z)
-
-
 get_proposal(state::MCMCChainState) = state.proposal
 
 mcmc_target(state::MCMCChainState) = state.target
@@ -123,9 +108,11 @@ get_context(state::MCMCChainState) = state.context
 
 mcmc_info(state::MCMCChainState) = state.info
 
+nsamples(state::MCMCChainState) = state.nsamples
+
 nsteps(state::MCMCChainState) = state.stepno
 
-nsamples(state::MCMCChainState) = state.nsamples
+nwalkers(state::MCMCChainState) = length(state.current.x.v)
 
 current_sample(state::MCMCChainState) = state.current.x
 
@@ -144,6 +131,7 @@ nsamples(state::MCMCState) = nsamples(state.chain_state)
 
 nsteps(state::MCMCState) = nsteps(state.chain_state)
 
+nwalkers(state::MCMCState) = nwalkers(state.chain_state)
 
 function DensitySampleVector(state::MCMCState)
     return fill(DensitySampleVector(sample_type(state.chain_state), totalndof(varshape(mcmc_target(state)))), length(state.chain_state.current.x))
@@ -263,7 +251,7 @@ end
 
 function next_cycle!(chain_state::MCMCChainState)
     _cleanup_samples(chain_state)
-    n_walkers = length(chain_state.current.x)
+    n_walkers = nwalkers(chain_state)
 
     chain_state.info = MCMCChainStateInfo(chain_state.info.id, 
                                           chain_state.info.cycle + 1, 

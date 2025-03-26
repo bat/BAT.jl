@@ -59,4 +59,4 @@ end
 
 export HMCProposalState
 
-const HMCState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:HMCProposalState}
+const HMCChainState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:HMCProposalState}

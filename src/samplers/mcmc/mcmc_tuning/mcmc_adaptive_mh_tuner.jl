@@ -71,7 +71,7 @@ function mcmc_tuning_postinit!!(tuner::AdaptiveAffineTuningState, chain_state::M
     # stats, especially if the chain gets stuck early after:
     stats = tuner.stats
 
-    for i in 1:length(samples)
+    for i in nwalkers(chain_state)
         append!(stats[i], samples[i])
     end
     #map!(append!, stats, samples)
@@ -84,7 +84,7 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::M
     stats = tuner.stats
     stats_reweight_factor = tuning.r
     reweight_relative!.(stats, stats_reweight_factor)
-    n_walkers = length(samples)
+    n_walkers = nwalkers(chain_state)
 
     for i in 1:n_walkers
        append!(stats[i], samples[i]) 
