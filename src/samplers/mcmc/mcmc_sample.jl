@@ -105,10 +105,18 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
         nonzero_weights = samplingalg.nonzero_weights
     )
 
-    samples_transformed = DensitySampleVector(first(mcmc_states))
-    isempty(chain_outputs) || append!.(Ref(samples_transformed), chain_outputs)
+    # TODO, MD: Polish creation of DSV's with ensembles
+    samples_transformed = DensitySampleVector(first(mcmc_states))[1]
+    
+    # TODO, MD: Decide how to return the samples. Probably return another field with samples divided by walkers. 
+    #           Currently merging all the samples from all walkers per chain
+    isempty(chain_outputs) || append!.(Ref(samples_transformed), [merge(output...) for output in chain_outputs])
 
     smpls = inverse(f_pretransform).(samples_transformed)
 
     (result = smpls, result_trafo = samples_transformed, f_pretransform = f_pretransform, generator = MCMCSampleGenerator(mcmc_states))
 end
+
+
+DensitySample{SubArray{Float64, 1, ElasticArrays.ElasticMatrix{Float64, Vector{Float64}}, Tuple{Base.Slice{Base.OneTo{Int64}}, Int64}, true}, Float64, Int64, BAT.MCMCSampleID, Nothing}  
+StructArrays.StructVector{DensitySample{Vector{Float64}, Float64, Int64, BAT.MCMCSampleID, Nothing}, @NamedTuple{v::ArraysOfArrays.ArrayOfSimilarArrays{Float64, 1, 1, 2, ElasticArrays.ElasticMatrix{Float64, Vector{Float64}}}, logd::Vector{Float64}, weight::Vector{Int64}, info::StructArrays.StructVector{BAT.MCMCSampleID, @NamedTuple{chainid::Vector{Int32}, chaincycle::Vector{Int32}, stepno::Vector{Int64}, sampletype::Vector{Int64}}, Int64}, aux::Vector{Nothing}}, Int64}

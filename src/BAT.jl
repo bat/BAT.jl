@@ -63,7 +63,7 @@ import StatsFuns
 import TypedTables
 import ZygoteRules
 
-using Accessors: @set
+using Accessors: @set, @reset
 
 import HeterogeneousComputing
 using HeterogeneousComputing: AbstractComputeUnit, CPUnit

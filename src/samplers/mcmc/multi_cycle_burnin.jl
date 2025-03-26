@@ -62,7 +62,8 @@ function mcmc_burnin!(
         # first chain here. But just making a new context is also not ideal.
         # Better copy the context of the first chain and replace the RNG
         # with a new one in the future:
-        check_convergence!(mcmc_states, new_outputs, convergence, BATContext())
+        check_convergence!(mcmc_states, [merge(output...) for output in new_outputs], convergence, BATContext())
+        # TODO, MD: How should the convergence check work for ensembles? Currently merging the samples from all walkers in a chain
 
         ntuned = count(mcmc_state -> mcmc_state.chain_state.info.tuned, mcmc_states)
         nconverged = count(mcmc_state -> mcmc_state.chain_state.info.converged, mcmc_states)

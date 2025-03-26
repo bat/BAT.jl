@@ -264,7 +264,7 @@ function mcmc_iterate!! end
 # TODO: MD, reincorporate user callback
 # TODO: MD, incorporate use of Tempering, so far temperer is not used 
 function mcmc_iterate!!(
-    output::Union{DensitySampleVector,Nothing},
+    output::Union{<:AbstractVector{<:DensitySampleVector},Nothing},
     mcmc_state::MCMCState;
     max_nsteps::Integer = 1,
     max_time::Real = Inf,
@@ -300,7 +300,7 @@ function mcmc_iterate!!(
 end
 
 function mcmc_iterate!!(
-    outputs::Union{AbstractVector{<:DensitySampleVector},Nothing},
+    outputs::Union{AbstractVector{<:AbstractVector{<:DensitySampleVector}}, Nothing},
     mcmc_states::AbstractVector{<:MCMCState};
     kwargs...
 )
@@ -321,13 +321,13 @@ function mcmc_iterate!!(
     return mcmc_states_new
 end
 
-isvalidstate(chain_state::MCMCIterator) = current_sample(chain_state).logd > -Inf
+isvalidstate(chain_state::MCMCIterator) = all(current_sample(chain_state).logd .> -Inf)
 
 isviablestate(chain_state::MCMCIterator) = nsamples(chain_state) >= 2
 
-isvalidstate(states::MCMCState) = current_sample(states.chain_state).logd > -Inf
+isvalidstate(mcmc_state::MCMCState) = isvalidstate(mcmc_state.chain_state)
 
-isviablestate(states::MCMCState) = nsamples(states.chain_state) >= 2
+isviablestate(mcmc_state::MCMCState) = isvalidstate(mcmc_state.chain_state)
 
 
 

@@ -24,7 +24,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
         # TODO: MD, Reactivate type inference tests
         # @test @inferred(BAT.MCMCChainState(samplingalg, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))) isa BAT.MHChainState
         # chain = @inferred(BAT.MCMCChainState(samplingalg, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))) 
-        mcmc_state = BAT.MCMCState(samplingalg, target, 1, unshaped(v_init, varshape(target)), deepcopy(context)) 
+        mcmc_state = BAT.MCMCState(samplingalg, target, 1, [unshaped(v_init, varshape(target))], deepcopy(context)) 
         samples = DensitySampleVector(mcmc_state)
         mcmc_state = BAT.mcmc_iterate!!(samples, mcmc_state; max_nsteps = 10^5, nonzero_weights = false)
         @test mcmc_state.chain_state.stepno == 10^5

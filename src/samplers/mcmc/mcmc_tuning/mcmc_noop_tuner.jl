@@ -18,13 +18,13 @@ mcmc_tuning_init!!(::NoMCMCTransformTuningState, ::MCMCChainState, ::Integer) = 
 
 mcmc_tuning_reinit!!(::NoMCMCTransformTuningState, ::MCMCChainState, ::Integer) = nothing
 
-mcmc_tuning_postinit!!(::NoMCMCTransformTuningState, ::MCMCChainState, ::DensitySampleVector) = nothing
+mcmc_tuning_postinit!!(::NoMCMCTransformTuningState, ::MCMCChainState, ::AbstractVector{<:DensitySampleVector}) = nothing
 
-mcmc_tune_post_cycle!!(tuner::NoMCMCTransformTuningState, chain_state::MCMCChainState, ::DensitySampleVector) = chain_state, tuner, false
+mcmc_tune_post_cycle!!(tuner::NoMCMCTransformTuningState, chain_state::MCMCChainState, ::AbstractVector{<:DensitySampleVector}) = chain_state, tuner
 
 mcmc_tuning_finalize!!(::NoMCMCTransformTuningState, ::MCMCChainState) = nothing
 
-mcmc_tune_post_step!!(tuner::NoMCMCTransformTuningState, chain_state::MCMCChainState, ::Real) = chain_state, tuner, false
+mcmc_tune_post_step!!(tuner::NoMCMCTransformTuningState, chain_state::MCMCChainState, ::AbstractVector{<:Real}) = chain_state, tuner
 
 
 
@@ -45,10 +45,10 @@ mcmc_tuning_init!!(::NoMCMCProposalTunerState, ::MCMCChainState, ::Integer) = no
 
 mcmc_tuning_reinit!!(::NoMCMCProposalTunerState, ::MCMCChainState, ::Integer) = nothing
 
-mcmc_tuning_postinit!!(::NoMCMCProposalTunerState, ::MCMCChainState, ::DensitySampleVector) = nothing
+mcmc_tuning_postinit!!(::NoMCMCProposalTunerState, ::MCMCChainState, ::AbstractVector{<:DensitySampleVector}) = nothing
 
-mcmc_tune_post_cycle!!(tuner::NoMCMCProposalTunerState, chain_state::MCMCChainState, ::DensitySampleVector) = chain_state, tuner
+mcmc_tune_post_cycle!!(tuner::NoMCMCProposalTunerState, chain_state::MCMCChainState, ::AbstractVector{<:DensitySampleVector}) = chain_state, tuner
 
 mcmc_tuning_finalize!!(::NoMCMCProposalTunerState, ::MCMCChainState) = nothing
 
-mcmc_tune_post_step!!(tuner::NoMCMCProposalTunerState, chain_state::MCMCChainState, ::Real) = chain_state, tuner
+mcmc_tune_post_step!!(tuner::NoMCMCProposalTunerState, chain_state::MCMCChainState, ::AbstractVector{<:Real}) = chain_state, tuner

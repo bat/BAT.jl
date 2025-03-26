@@ -116,7 +116,7 @@ function BAT.mcmc_propose!!(mc_state::HMCState)
     hamiltonian = proposal.hamiltonian
 
     # Current location in the phase space for Hamiltonian MonteCarlo
-    z_phase = AdvancedHMC.phasepoint(hamiltonian, vec(z_current[:]), rand(rng, hamiltonian.metric, hamiltonian.kinetic))
+    z_phase = AdvancedHMC.phasepoint(hamiltonian, z_current[:], AdvancedHMC.rand_momentum(rng, hamiltonian.metric, hamiltonian.kinetic, z_current[:]))
     # Note: `RiemannianKinetic` requires an additional position argument, but including this causes issues. So only support the other kinetics.
 
     proposal.transition = AdvancedHMC.transition(rng, τ, hamiltonian, z_phase)

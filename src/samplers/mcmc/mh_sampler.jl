@@ -53,11 +53,11 @@ function _create_proposal_state(
     proposal::RandomWalk, 
     target::BATMeasure, 
     context::BATContext, 
-    v_init::AbstractVector{<:Real},
+    v_init::AbstractVector{PV},
     f_transform::Function,
     rng::AbstractRNG
-)
-    n_dims = length(v_init)
+) where {P<:Real, PV<:AbstractVector{P}}
+    n_dims = totalndof(varshape(target))
     mv_pdist = batmeasure(_full_random_walk_proposal(proposal.proposaldist, n_dims))
     return MHProposalState(mv_pdist)
 end
@@ -104,57 +104,62 @@ end
 
 const MHChainState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:MHProposalState} 
 
-function mcmc_propose!!(mc_state::MHChainState)
-    @unpack target, proposal, f_transform, context = mc_state
+function mcmc_propose!!(chain_state::MHChainState)
+    @unpack target, proposal, f_transform, context = chain_state
     rng = get_rng(context)
     pdist = proposal.proposaldist
+    n_walkers = length(chain_state.current.x.v)
 
-    proposed_x_idx = _proposed_sample_idx(mc_state)
+    current_z = chain_state.current.z.v
+    logd_z_current = chain_state.current.z.logd
 
-    sample_z_current = current_sample_z(mc_state)
-
-    z_current, logd_z_current = sample_z_current.v, sample_z_current.logd
-    T = eltype(z_current)
+    T = eltype(current_z)
 
     # ToDo: Use gen-context:
-    z_proposed = z_current + T.(rand(rng, pdist))
-    x_proposed, ladj = with_logabsdet_jacobian(f_transform, z_proposed)
-    logd_x_proposed = BAT.checked_logdensityof(target, x_proposed)
-    logd_z_proposed = logd_x_proposed + ladj
+    z_proposed = current_z .+ T.(rand(rng, pdist, n_walkers))
 
-    @assert logd_z_proposed ≈ logdensityof(MeasureBase.pullback(f_transform, target), z_proposed) #TODO: MD, Remove, only for debugging
+    trafo_proposed = with_logabsdet_jacobian.(f_transform, z_proposed)
+    x_proposed = getfield.(trafo_proposed, 1)
+    ladj = getfield.(trafo_proposed, 2)
 
-    mc_state.samples[proposed_x_idx] = DensitySample(x_proposed, logd_x_proposed, 0, _get_sample_id(proposal, mc_state.info.id, mc_state.info.cycle, mc_state.stepno, PROPOSED_SAMPLE)[1], nothing)
-    mc_state.sample_z[2] = DensitySample(z_proposed, logd_z_proposed, 0, _get_sample_id(proposal, mc_state.info.id, mc_state.info.cycle, mc_state.stepno, PROPOSED_SAMPLE)[1], nothing)
+    logd_x_proposed = BAT.checked_logdensityof.(target, x_proposed)
+    logd_z_proposed = logd_x_proposed .+ ladj
+
+    @assert logd_z_proposed ≈ logdensityof.(MeasureBase.pullback(f_transform, target), z_proposed) #TODO: MD, Remove, only for debugging
+
+    chain_state.proposed.x.v .= x_proposed
+    chain_state.proposed.z.v .= z_proposed
+
+    chain_state.proposed.x.logd .= logd_x_proposed
+    chain_state.proposed.z.logd .= logd_z_proposed
 
     # TODO: check if proposal is symmetric - otherwise need Hastings correction:
-    p_accept = clamp(exp(logd_z_proposed - logd_z_current), 0, 1)
-    @assert p_accept >= 0
-    accepted = rand(rng) <= p_accept
+    p_accept = clamp.(exp.(logd_z_proposed - logd_z_current), 0, 1)
+    @assert all(p_accept .>= 0)
+    accepted = rand(rng, length(p_accept)) .<= p_accept
 
-    return mc_state, accepted, p_accept
+    chain_state.accepted .= accepted
+
+    return chain_state, p_accept
 end
 
 
-function _accept_reject!(mc_state::MHChainState, accepted::Bool, p_accept::Float64, current::Integer, proposed::Integer)
-    @unpack samples, proposal = mc_state
+function _accept_reject!(chain_state::MHChainState, p_accept::AbstractVector{<:Real})
+    @unpack proposal, current, proposed, accepted = chain_state
 
-    if accepted
-        samples.info.sampletype[current] = ACCEPTED_SAMPLE
-        samples.info.sampletype[proposed] = CURRENT_SAMPLE
-        
-        mc_state.nsamples += 1
-    else
-        samples.info.sampletype[proposed] = REJECTED_SAMPLE
-    end
+    chain_state.nsamples += sum(accepted)
 
-    delta_w_current, w_proposed = mcmc_weight_values(mc_state.weighting, p_accept, accepted)
-    samples.weight[current] += delta_w_current
-    samples.weight[proposed] = w_proposed
+    delta_w_current, w_proposed = mcmc_weight_values(chain_state.weighting, p_accept, accepted)
+   
+    current.x.weight .+= delta_w_current
+    current.z.weight .+= delta_w_current
+
+    proposed.x.weight .= w_proposed
+    proposed.z.weight .= w_proposed
 end
 
 
-eff_acceptance_ratio(mc_state::MHChainState) = nsamples(mc_state) / nsteps(mc_state)
+eff_acceptance_ratio(chain_state::MHChainState) = nsamples(chain_state) / nsteps(chain_state)
 
 function set_mc_state_transform!!(mc_state::MHChainState, f_transform_new::Function) 
     mc_state_new = @set mc_state.f_transform = f_transform_new

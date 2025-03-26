@@ -15,7 +15,7 @@ function BATMeasure(m::MeasureBase.PowerMeasure{<:AbstractMeasure,<:Tuple{Vararg
 end
 
 MeasureBase.powermeasure(m::BATMeasure, dims::Dims) = _bat_pwrmeasure(m, dims)
-MeasureBase.powermeasure(m::BATMeasure, axes::Tuple{Vararg{Base.OneTo}}) = _bat_pwrmeasure(m, map(length(axes)))
+MeasureBase.powermeasure(m::BATMeasure, axes::Tuple{Vararg{Base.OneTo}}) = _bat_pwrmeasure(m, map(length, axes))
 MeasureBase.powermeasure(m::BATMeasure, ::Tuple{}) = m
 
 _bat_pwrmeasure(m::BATMeasure, dims::Tuple{Vararg{Integer}}) = BATPwrMeasure(m, dims)
