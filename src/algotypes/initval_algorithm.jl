@@ -95,6 +95,10 @@ end
     bat_initval(target, n, algorithm, context)
 end
 
+function bat_ensemble_initvals(target::MeasureLike, algorithm::InitvalAlgorithm, nwalkers::Integer, context::BATContext)
+    ensemble_initvals = [bat_initval(target, algorithm, context).result for i in 1:nwalkers]
+    return ensemble_initvals
+end
 
 
 function argchoice_msg(::typeof(bat_initval), ::Val{:algorithm}, x::InitvalAlgorithm)

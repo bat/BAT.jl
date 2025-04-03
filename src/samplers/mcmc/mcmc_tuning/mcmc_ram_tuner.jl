@@ -86,31 +86,28 @@ function mcmc_tune_post_step!!(
     (; target_acceptance, gamma) = tuner_state.tuning
     b = f_transform.b
     n_dims = length(b)
-    n_walkers = nwalkers(chain_state)
 
     tuner_state_new = @set tuner_state.nsteps = tuner_state.nsteps + 1
 
     η = min(1, n_dims * tuner_state.nsteps^(-gamma))
 
-    s_L = f_transform.A
+    Σ_L = f_transform.A
 
     u = proposed.z.v .- current.z.v
-
-    # TODO: Think about making this more elegant 
-    A = sum([(p_accept[i] - target_acceptance) * (u[i] * u[i]') / norm(u[i])^2 for i in eachindex(u)])
-    
-    # TODO: Use η/n_walkers? 
-    M = s_L * (I + η * A) * s_L'
-    s_L = oftype(s_L, cholesky(Positive, M).L)
+    U = stack(u)
+    weights = (p_accept .- target_acceptance) ./ norm.(u).^2
+    U_w = U .* weights'
+    A = Σ_L * (U_w * U') * Σ_L'
+    M = Σ_L * Σ_L' + η * A
+    Σ_L_new = oftype(Σ_L, cholesky(Positive, M).L)
 
     mean_update_rate = η / 10 # heuristic
     α = mean_update_rate .* p_accept
 
-    # TODO, MD: How to update? 
-    update = α .* [v - b for v in proposed.x.v]
-    new_b = 1/n_walkers * oftype.(b, sum([b + uv for uv in update])) # = (1 - α) * b + α * proposed.x.v 
+    update = α .* (proposed.x.v .-[b])
+    new_b = oftype.(b, sum(update .+ [b])) # = (1 - α) * b + α * proposed.x.v 
 
-    f_transform_new = MulAdd(s_L, new_b)
+    f_transform_new = MulAdd(Σ_L_new, new_b)
 
     mc_state_new = set_mc_transform!!(chain_state, f_transform_new)
     mc_state_new = mcmc_update_z_position!!(mc_state_new)

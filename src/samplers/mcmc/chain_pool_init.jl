@@ -40,7 +40,7 @@ function _construct_mcmc_state(
     parent_context::BATContext
 )
     new_context = set_rng(parent_context, AbstractRNG(rngpart, id))
-    v_init = [bat_initval(target, initval_alg, new_context).result]
+    v_init = bat_ensemble_initvals(target, initval_alg, samplingalg.nwalkers, new_context)    
     return MCMCState(samplingalg, target, Int32(id), v_init, new_context)
 end
 
