@@ -5,7 +5,7 @@ mutable struct StanLikeTunerState{
 } <: MCMCTransformTunerState
     tuning::StanLikeTuning
     target_acceptance::Float64
-    stats::AbstractVector{S}
+    stats::S
     stan_state::AdvancedHMC.Adaptation.StanHMCAdaptorState
 end
 
@@ -56,31 +56,20 @@ function BAT.mcmc_tune_post_step!!(
     is_in_window =  stan_state.i >= stan_state.window_start && stan_state.i <= stan_state.window_end
     is_window_end = stan_state.i in stan_state.window_splits
 
-    n_walkers = nwalkers(chain_state)
-
     if is_in_window
-        for i in 1:n_walkers
-            BAT.push!(stats[i], chain_state.proposed.x[i])
-        end
+        BAT.append!(stats, chain_state.proposed.x)
     end
     
-    # if is_in_window
-    #     BAT.push!(stats, proposed_sample(chain_state))
-    # end
-
     if is_window_end 
         A = chain_state.f_transform.A
         T = eltype(A)
         n_dims = size(A, 2)
 
-        # TODO, MD: How should the update work for ensembles? Should it be some kind of average?
-        param_stats = getfield.(stats, :param_stats)
-        covs = convert.(Array, getfield.(param_stats, :cov))
-        M = (1/n_walkers) * sum(covs)
+        M = convert(Array, stats.param_stats.cov)
 
         A_new = T.(cholesky(Positive, M).L)
 
-        reweight_relative!.(stats, 0)
+        reweight_relative!(stats, 0)
 
         f_transform_new = MulAdd(A_new, zeros(T, n_dims))
         chain_state = set_mc_transform!!(chain_state, f_transform_new)

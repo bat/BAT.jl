@@ -61,7 +61,9 @@ function mcmc_init!(
     callback::Function,
     context::BATContext
 )::NamedTuple{(:mcmc_states, :outputs), Tuple{Vector{MCMCState}, Vector{Vector{DensitySampleVector}}}}
-    @unpack tempering, nchains, transform_tuning, proposal_tuning, nonzero_weights = samplingalg
+    @argcheck samplingalg.nwalkers == 1 throw(ArgumentError("Chain pool initialization is not meant for multiple walkers."))
+
+    (;nchains, nonzero_weights) = samplingalg
 
     @info "MCMCChainPoolInit: trying to generate $nchains viable MCMC chain state(s)."
 
@@ -82,7 +84,7 @@ function mcmc_init!(
     dummy_mcmc_state = MCMCState(samplingalg, target, one(Int32), dummy_initval, dummy_context)
 
     mcmc_states = similar([dummy_mcmc_state], 0)
-    outputs = similar([DensitySampleVector(dummy_mcmc_state)], 0)
+    outputs = similar([_empty_chain_outputs(dummy_mcmc_state)], 0)
 
     cycle::Int32 = 1
 
@@ -94,7 +96,7 @@ function mcmc_init!(
 
         filter!(isvalidstate, new_mcmc_states)
 
-        new_outputs = DensitySampleVector.(new_mcmc_states)
+        new_outputs = _empty_chain_outputs.(new_mcmc_states)
 
         next_cycle!.(new_mcmc_states)
         mcmc_tuning_init!!.(new_mcmc_states, init_alg.nsteps_init)
@@ -139,11 +141,10 @@ function mcmc_init!(
     tidxs = LinearIndices(mcmc_states)
     n = length(tidxs)
 
-    # TODO, MD: Discuss how convergence check should function for ensemble sampling. Per walker in the enesemble? Replace walkers that didn't converge?
-    # TODO, MD: Resolve. This is a hack to enable the lower level systems for ensemble sampling. 
-    outputs_hack = map(first, outputs)
+    # Retrieve the outputs of the single walker of each chain
+    outputs_per_chain = map(first, outputs)
 
-    modes = hcat(broadcast(samples -> Array(bat_findmode(samples, MaxDensitySearch(), context).result), outputs_hack)...)
+    modes = hcat(broadcast(samples -> Array(bat_findmode(samples, MaxDensitySearch(), context).result), outputs_per_chain)...)
 
     final_mcmc_states = similar(mcmc_states, 0)
     final_outputs = similar(outputs, 0)
@@ -185,7 +186,6 @@ function mcmc_init!(
 
     @info "Selected $(length(final_mcmc_states)) MCMC chain state(s)."
     
-    global gs_cp_init = (final_mcmc_states, final_outputs)
     mcmc_tuning_postinit!!.(final_mcmc_states, final_outputs)
 
     (mcmc_states = final_mcmc_states, outputs = final_outputs)

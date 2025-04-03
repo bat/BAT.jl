@@ -44,8 +44,8 @@ bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::RandomWalk, pretr
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
 
-function _get_sample_id(proposal::MHProposalState, id::Int32, cycle::Int32, stepno::Integer, sample_type::Integer)
-    return MCMCSampleID(id, cycle, stepno, sample_type), MCMCSampleID
+function _get_sample_id(proposal::MHProposalState, chainid::Int32, walkerid::Int32, cycle::Int32, stepno::Integer, sample_type::Integer)
+    return MCMCSampleID(chainid, walkerid, cycle, stepno, sample_type), MCMCSampleID
 end
 
 
@@ -142,22 +142,6 @@ function mcmc_propose!!(chain_state::MHChainState)
 
     return chain_state, p_accept
 end
-
-
-function _accept_reject!(chain_state::MHChainState, p_accept::AbstractVector{<:Real})
-    @unpack proposal, current, proposed, accepted = chain_state
-
-    chain_state.nsamples += sum(accepted)
-
-    delta_w_current, w_proposed = mcmc_weight_values(chain_state.weighting, p_accept, accepted)
-   
-    current.x.weight .+= delta_w_current
-    current.z.weight .+= delta_w_current
-
-    proposed.x.weight .= w_proposed
-    proposed.z.weight .= w_proposed
-end
-
 
 eff_acceptance_ratio(chain_state::MHChainState) = nsamples(chain_state) / nsteps(chain_state)
 

@@ -19,6 +19,23 @@ BAT.bat_default(::Type{TransformedMCMC}, ::Val{:init}, proposal::HamiltonianMC, 
 BAT.bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::HamiltonianMC, pretransform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 250), max_ncycles = 4)
 
+
+function BAT._get_sample_id(proposal::HMCProposalState, chainid::Int32, walkerid::Int32, cycle::Int32, stepno::Integer, sample_type::Integer)
+    tstat = AdvancedHMC.stat(proposal.transition)
+
+    new_id = AHMCSampleID(chainid,
+                            walkerid,
+                            cycle,
+                            stepno,
+                            sample_type,
+                            tstat.hamiltonian_energy,
+                            tstat.tree_depth,
+                            tstat.numerical_error,
+                            tstat.step_size
+                        )
+    return new_id, AHMCSampleID
+end    
+
 # Change to incorporate the initial adaptive transform into f and fg
 function BAT._create_proposal_state(
     proposal::HamiltonianMC, 
@@ -57,12 +74,6 @@ function BAT._create_proposal_state(
     )
 end
 
-
-function BAT._get_sample_id(proposal::HMCProposalState, id::Int32, cycle::Int32, stepno::Integer, sample_type::Integer)
-    return AHMCSampleID(id, cycle, stepno, sample_type, 0.0, 0, false, 0.0), AHMCSampleID
-end
-
-
 function BAT.mcmc_propose!!(chain_state::HMCChainState)
     (; target, proposal, f_transform, current, proposed, context) = chain_state
     n_walkers = nwalkers(chain_state)
@@ -77,7 +88,7 @@ function BAT.mcmc_propose!!(chain_state::HMCChainState)
 
     # TODO, MD: How should HMC handle multiple walkers?
     for i in 1:n_walkers
-        z_phase = AdvancedHMC.phasepoint(hamiltonian, current.z.v[i][:], AdvancedHMC.rand(rng, hamiltonian.metric, hamiltonian.kinetic, current.z.v[i][:]))
+        z_phase = AdvancedHMC.phasepoint(hamiltonian, current.z.v[i][:], rand(rng, hamiltonian.metric, hamiltonian.kinetic))
         proposal.transition = AdvancedHMC.transition(rng, τ, hamiltonian, z_phase)
         proposed.z.v[i] = proposal.transition.z.θ
         p_accept[i] = AdvancedHMC.stat(proposal.transition).acceptance_rate
@@ -96,38 +107,6 @@ function BAT.mcmc_propose!!(chain_state::HMCChainState)
     chain_state.proposed.z.logd .= logd_z_proposed
 
     return chain_state, p_accept
-end
-
-function BAT._accept_reject!(chain_state::HMCChainState, p_accept::AbstractVector{<:Real})
-    (; proposal, current, proposed, accepted) = chain_state
-
-    chain_state.nsamples += sum(accepted)
-    c_info = chain_state.info
-
-    if any(accepted)
-        tstat = AdvancedHMC.stat(proposal.transition)
-
-        new_id = AHMCSampleID(c_info.id, 
-                              c_info.cycle,
-                              chain_state.stepno,
-                              PROPOSED_SAMPLE,
-                              tstat.hamiltonian_energy,
-                              tstat.tree_depth,
-                              tstat.numerical_error,
-                              tstat.step_size
-                            )
-        new_id_vec = fill(new_id, nwalkers(chain_state))
-        proposed.x.info .= new_id_vec
-        proposed.z.info .= new_id_vec
-    end
-
-    delta_w_current, w_proposed = mcmc_weight_values(chain_state.weighting, p_accept, accepted)
-   
-    current.x.weight .+= delta_w_current
-    current.z.weight .+= delta_w_current
-
-    proposed.x.weight .= w_proposed
-    proposed.z.weight .= w_proposed
 end
 
 BAT.eff_acceptance_ratio(chain_state::HMCChainState) = nsamples(chain_state) / nsteps(chain_state)

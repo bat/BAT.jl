@@ -46,7 +46,7 @@ mutable struct AdaptiveAffineTuningState{
     S<:MCMCBasicStats
 } <: MCMCTransformTunerState
     tuning::AdaptiveAffineTuning
-    stats::AbstractVector{S}
+    stats::S
     iteration::Int
     scale::Float64
 end
@@ -69,28 +69,21 @@ mcmc_tuning_reinit!!(tuner_state::AdaptiveAffineTuningState, chain_state::MCMCCh
 function mcmc_tuning_postinit!!(tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector})
     # The very first samples of a chain can be very valuable to init tuner
     # stats, especially if the chain gets stuck early after:
-    stats = tuner.stats
-
-    for i in nwalkers(chain_state)
-        append!(stats[i], samples[i])
+    for i in 1:nwalkers(chain_state)
+        append!(tuner.stats, samples[i])
     end
-    #map!(append!, stats, samples)
 end
 
 
-# TODO: MD, make properly !!
 function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector})
     tuning = tuner.tuning
     stats = tuner.stats
     stats_reweight_factor = tuning.r
-    reweight_relative!.(stats, stats_reweight_factor)
-    n_walkers = nwalkers(chain_state)
+    reweight_relative!(stats, stats_reweight_factor)
 
-    for i in 1:n_walkers
-       append!(stats[i], samples[i]) 
+    for i in 1:nwalkers(chain_state)
+        append!(stats, samples[i])
     end
-    
-    #map!(append!, stats, samples)
 
     α_min = minimum(tuning.α)
     α_max = maximum(tuning.α)
@@ -108,20 +101,15 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::M
     A = f_transform.A
     Σ_old = A * A'
 
-    # TODO, MD: How should the update work for ensembles? Should it be some kind of average?
-    param_stats = getfield.(stats, :param_stats)
-    covs = convert.(Array, getfield.(param_stats, :cov))
-    S = (1/n_walkers) * sum(covs)
-
-    mean_stat = (1/n_walkers) * sum(getfield.(param_stats, :mean))
+    param_stats = stats.param_stats
+    S = convert(Array, param_stats.cov)
     
     a_t = 1 / t^λ
     new_Σ_unscal = (1 - a_t) * (Σ_old/c) + a_t * S
 
     α = eff_acceptance_ratio(chain_state)
 
-    logtf_stats = getfield.(stats, :logtf_stats)
-    max_log_posterior = maximum(getfield.(logtf_stats, :maximum)) 
+    max_log_posterior = stats.logtf_stats.maximum
 
     if α_min <= α <= α_max
         chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = true)
@@ -140,9 +128,8 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::M
     Σ_new = new_Σ_unscal * tuner.scale
     A_new = oftype(A, cholesky(Positive, Σ_new).L)
     
-    # TODO, MD: See comment above. How should the mean update be computed for ensembles? 
     b = chain_state.f_transform.b
-    b_new = oftype(b, (1 - a_t) * b + a_t * mean_stat)
+    b_new = oftype(b, (1 - a_t) * b + a_t * param_stats.mean)
 
     chain_state.f_transform = MulAdd(A_new, b_new)
     
@@ -157,7 +144,6 @@ end
 
 mcmc_tuning_finalize!!(tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState) = nothing
 
-# add a boold to return if the transfom changes 
 function mcmc_tune_post_step!!(
     tuner::AdaptiveAffineTuningState,
     chain_state::MCMCChainState,

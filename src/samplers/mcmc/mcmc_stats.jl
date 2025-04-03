@@ -34,18 +34,18 @@ struct MCMCBasicStats{L<:Real,P<:Real} <: AbstractMCMCStats
 end
 
 
-function MCMCBasicStats(::Type{S}, ndof::Integer, n_walkers::Integer) where {
+function MCMCBasicStats(::Type{S}, ndof::Integer) where {
     PT<:Real, T, W, S<:DensitySample{<:AbstractVector{PT},T,W}
 }
     SL = promote_type(T, Float64)
     SP = promote_type(PT, W, Float64)
-    return fill(MCMCBasicStats{SL,SP}(ndof), n_walkers)
+    return MCMCBasicStats{SL,SP}(ndof)
 end
 
-MCMCBasicStats(chain::MCMCChainState) = MCMCBasicStats(sample_type(chain), totalndof(varshape(mcmc_target(chain))), length(chain.current.x.v))
+MCMCBasicStats(chain::MCMCChainState) = MCMCBasicStats(sample_type(chain), totalndof(varshape(mcmc_target(chain))))
 
 function MCMCBasicStats(sv::DensitySampleVector{<:AbstractVector{<:Real}})
-    stats = MCMCBasicStats(eltype(sv), innersize(sv.v, 1), 1)[1]
+    stats = MCMCBasicStats(eltype(sv), innersize(sv.v, 1))
     append!(stats, sv)
 end
 

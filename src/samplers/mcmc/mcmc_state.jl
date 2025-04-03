@@ -35,7 +35,7 @@ export MCMCChainState
 function MCMCChainState(
     samplingalg::TransformedMCMC,
     target::BATMeasure,
-    id::Integer,
+    chainid::Integer,
     x_init::AbstractVector{PV},
     context::BATContext
 ) where {P<:Real, PV<:AbstractVector{P}}
@@ -55,20 +55,22 @@ function MCMCChainState(
     logd_z_init = logdensityof.(MeasureBase.pullback(f, target_unevaluated), z_init)
     
     W = mcmc_weight_type(samplingalg.sample_weighting)
-    T = eltype(logd_x_init)
-    info_curr, IT = _get_sample_id(proposal, Int32(id), one(Int32), 1, CURRENT_SAMPLE)
     
+    sample_weights_curr = fill(one(W), n_walkers)
+    sample_info_curr = [_get_sample_id(proposal, Int32(chainid), Int32(i), one(Int32), 1, CURRENT_SAMPLE)[1] for i in 1:n_walkers]
+    sample_aux_curr = fill(nothing, n_walkers)
+
     current_x_init = DensitySampleVector(x_init, 
                                          logd_x_init;
-                                         weight = fill(one(W), n_walkers), 
-                                         info = fill(info_curr, n_walkers),
-                                         aux = fill(nothing, n_walkers)
+                                         weight = sample_weights_curr, 
+                                         info = sample_info_curr,
+                                         aux = sample_aux_curr
                                         )
     current_z_init = DensitySampleVector(z_init, 
                                          logd_z_init;
-                                         weight = fill(one(W), n_walkers), 
-                                         info = fill(info_curr, n_walkers),
-                                         aux = fill(nothing, n_walkers)
+                                         weight = sample_weights_curr, 
+                                         info = sample_info_curr,
+                                         aux = sample_aux_curr
                                         )
     dsv_init = similar(current_x_init)
 
@@ -90,7 +92,7 @@ function MCMCChainState(
         proposed, 
         output, 
         accepted,
-        MCMCChainStateInfo(id, cycle, false, false),
+        MCMCChainStateInfo(chainid, cycle, false, false),
         rngpart_cycle,
         nsamples,
         stepno,
@@ -133,36 +135,65 @@ nsteps(state::MCMCState) = nsteps(state.chain_state)
 
 nwalkers(state::MCMCState) = nwalkers(state.chain_state)
 
-function DensitySampleVector(state::MCMCState)
-    return fill(DensitySampleVector(sample_type(state.chain_state), totalndof(varshape(mcmc_target(state)))), length(state.chain_state.current.x))
+
+_empty_DensitySampleVector(state::MCMCState) =  _empty_DensitySampleVector(state.chain_state)
+
+function _empty_DensitySampleVector(chain_state::MCMCChainState)
+    return DensitySampleVector(sample_type(chain_state), totalndof(varshape(mcmc_target(chain_state))))
 end
 
-function DensitySampleVector(chain_state::MCMCChainState)
-    return fill(DensitySampleVector(sample_type(chain_state), totalndof(varshape(mcmc_target(chain_state)))), length(chain_state.current.x))
+
+_empty_chain_outputs(state::MCMCState) = _empty_chain_outputs(state.chain_state)
+
+function _empty_chain_outputs(chain_state::MCMCChainState)
+    return fill(_empty_DensitySampleVector(chain_state), nwalkers(chain_state))
 end
 
 
 function mcmc_step!!(mcmc_state::MCMCState)
-    _cleanup_samples(mcmc_state)
     
     reset_rng_counters!(mcmc_state)
 
     chain_state = mcmc_state.chain_state
 
-    @unpack target, proposal, f_transform, current, proposed, nsamples, context = chain_state
+    (;current, proposed, accepted) = chain_state
     
     chain_state.stepno += 1
 
-    new_proposed_info, _ = _get_sample_id(proposal, chain_state.info.id, chain_state.info.cycle, chain_state.stepno, PROPOSED_SAMPLE)
-    new_proposed_info_vec = fill(new_proposed_info, length(chain_state.current.x.v))
-
-    chain_state.proposed.x.info .= new_proposed_info_vec
-    chain_state.proposed.z.info .= new_proposed_info_vec
-
     chain_state, p_accept = mcmc_propose!!(chain_state)
 
-    # This does not change `sample_z` in the chain_state, that happens in the next mcmc step in `_cleanup_samples()`.
-    _accept_reject!(chain_state, p_accept)
+    chain_state.nsamples += sum(accepted)
+    
+    # Set weights according to acceptance
+    delta_w_current, w_proposed = mcmc_weight_values(chain_state.weighting, p_accept, accepted)
+   
+    current.x.weight .+= delta_w_current
+    current.z.weight .+= delta_w_current
+
+    proposed.x.weight .= w_proposed
+    proposed.z.weight .= w_proposed
+
+    idxs_acc = findall(chain_state.accepted)
+    idxs_rej = findall(!, chain_state.accepted)
+
+    # Mark proposed samples as accepted or rejected
+    for i in eachindex(chain_state.proposed.x)
+        old_info = chain_state.proposed.x.info[i]
+
+        sample_type = chain_state.accepted[i] ? ACCEPTED_SAMPLE : REJECTED_SAMPLE
+        new_info, _ = _get_sample_id(chain_state.proposal, old_info.chainid, Int32(i), old_info.chaincycle, old_info.stepno, sample_type)
+
+        chain_state.proposed.x.info[i] = new_info
+        chain_state.proposed.z.info[i] = new_info
+    end
+
+    # Save current points to output if they will be overwritten, and save rejeceted proposed points
+    chain_state.output[idxs_acc] = @view chain_state.current.x[idxs_acc]
+    chain_state.output[idxs_rej] = @view chain_state.proposed.x[idxs_rej]
+
+    # Overwrite current points with accepted proposed points
+    chain_state.current.x[idxs_acc] = @view chain_state.proposed.x[idxs_acc]
+    chain_state.current.z[idxs_acc] = @view chain_state.proposed.z[idxs_acc]
 
     mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, p_accept)
 
@@ -184,73 +215,7 @@ function reset_rng_counters!(mcmc_state::MCMCState)
     reset_rng_counters!(mcmc_state.chain_state)
 end
 
-# TODO, MD: Think about merging this and accept_reject so that the weight update and sample cleanup happen in the same place. 
-function _cleanup_samples(chain_state::MCMCChainState)# 
-    #ToChange:
-    # * Mark walker points in current and proposed as accepted/rejected, depending
-    # on accepted vector
-    # * For accepted points, copy current to output and overwrite current
-    # * For rejected points, increase weight of current (here or elsewhere) and
-    # copy proposed point to output.
-    idxs_acc = findall(chain_state.accepted)
-    idxs_rej = findall(!, chain_state.accepted)
-
-    # Save the current points to output if the walker accepted their proposed point
-    chain_state.output[idxs_acc] = chain_state.current.x[idxs_acc]
-
-    # Copy the proposed points that were accepted to current and mark them as accepted
-    chain_state.current.x[idxs_acc] = chain_state.proposed.x[idxs_acc]
-    chain_state.current.z[idxs_acc] = chain_state.proposed.z[idxs_acc]
-    
-    # TODO, MD: Discuss the resetting of the MCMCSampleID. @reset would be elegant, but 
-    #           broadcasting it does not seem to be supported; and also @reset messes up 
-    #           the types of the other fields. 
-    for i in idxs_acc
-        old_info = chain_state.current.x.info[i]
-        # Set sampletype to ACCEPTED_SAMPLE, leave the rest as is.
-        new_info, _ = _get_sample_id(chain_state.proposal, old_info.chainid, old_info.chaincycle, old_info.stepno, ACCEPTED_SAMPLE)
-
-        chain_state.current.x.info[i] = new_info
-        chain_state.current.z.info[i] = new_info
-    end
-
-    # Save the proposed points that were rejected to output
-    chain_state.output[idxs_rej] = chain_state.proposed.x[idxs_rej]
-
-    for i in idxs_rej
-        old_info = chain_state.output.info[i]
-        new_info, _ = _get_sample_id(chain_state.proposal, old_info.chainid, old_info.chaincycle, old_info.stepno, REJECTED_SAMPLE)
-
-        chain_state.output.info[i] = new_info
-    end
-
-    # samples = chain_state.samples
-    # current = _current_sample_idx(chain_state)
-    # proposed = _proposed_sample_idx(chain_state)
-    # sample_z = chain_state.sample_z
-    # current_z = _current_sample_z_idx(chain_state)
-    # proposed_z = _proposed_sample_z_idx(chain_state)
-    # if (current != proposed) && samples.info.sampletype[proposed] == CURRENT_SAMPLE
-    #     # Proposal was accepted in the last step
-    #     @assert samples.info.sampletype[current] == ACCEPTED_SAMPLE
-    #     samples.v[current] .= samples.v[proposed]
-    #     samples.logd[current] = samples.logd[proposed]
-    #     samples.weight[current] = samples.weight[proposed]
-    #     samples.info[current] = samples.info[proposed]
-
-    #     resize!(samples, 1)
-    #     # TODO: MD, discuss the usage of sample_z, and if it stays, clean it up and use proper info
-    #     sample_z.v[current_z] .= sample_z.v[proposed_z]
-    #     sample_z.logd[current_z] = sample_z.logd[proposed_z]
-    # end
-end
-
-function _cleanup_samples(mcmc_state::MCMCState)
-    _cleanup_samples(mcmc_state.chain_state)
-end
-
 function next_cycle!(chain_state::MCMCChainState)
-    _cleanup_samples(chain_state)
     n_walkers = nwalkers(chain_state)
 
     chain_state.info = MCMCChainStateInfo(chain_state.info.id, 
@@ -261,23 +226,17 @@ function next_cycle!(chain_state::MCMCChainState)
     chain_state.nsamples = 0
     chain_state.stepno = 0
 
-    new_current_info, _ = _get_sample_id(chain_state.proposal, chain_state.info.id, chain_state.info.cycle, 0, CURRENT_SAMPLE)
-    new_current_info_vec = fill(new_current_info, n_walkers)
+    chain_info = chain_state.info
+
+    new_current_info_vec = [_get_sample_id(chain_state.proposal, chain_info.id, Int32(i), chain_info.cycle, 0, CURRENT_SAMPLE)[1] for i in 1:n_walkers]
     chain_state.current.x.info .= new_current_info_vec
     chain_state.current.z.info .= new_current_info_vec
     
-    new_proposed_info, _ = _get_sample_id(chain_state.proposal, chain_state.info.id, chain_state.info.cycle, 0, PROPOSED_SAMPLE)
-    new_proposed_info_vec = fill(new_proposed_info, n_walkers)
+    new_proposed_info_vec = [_get_sample_id(chain_state.proposal, chain_info.id, Int32(i), chain_info.cycle, 0, PROPOSED_SAMPLE)[1] for i in 1:n_walkers]
     chain_state.proposed.x.info .= new_proposed_info_vec
     chain_state.proposed.z.info .= new_proposed_info_vec
 
     reset_rng_counters!(chain_state)
-
-    # i = _proposed_sample_idx(chain_state)
-    # @assert chain_state.samples.info[i].sampletype == CURRENT_SAMPLE
-    # chain_state.samples.weight[i] = 1
-
-    # chain_state.samples.info[i] = MCMCSampleID(chain_state.info.id, chain_state.info.cycle, chain_state.stepno, CURRENT_SAMPLE)
 
     chain_state
 end

@@ -23,7 +23,7 @@ using BAT: MCMCChainState, HMCChainState, HamiltonianMC, HMCProposalState, MCMCC
 using BAT: MCMCBasicStats, push!, reweight_relative!
 using BAT: RAMTuning
 using BAT: MCMCProposalTunerState, MCMCTransformTunerState, NoMCMCTempering, NoMCMCTransformTuning
-using BAT: _cleanup_samples, mcmc_weight_values
+using BAT: mcmc_weight_values
 using BAT: AbstractTransformTarget, NoAdaptiveTransform, TriangularAffineTransform, valgrad_func
 using BAT: RNGPartition, get_rng, set_rng!
 using BAT: mcmc_step!!, nsamples, nsteps, nwalkers, samples_available, eff_acceptance_ratio

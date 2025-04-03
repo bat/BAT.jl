@@ -96,11 +96,12 @@ function mcmc_tune_post_step!!(
 
     u = proposed.z.v .- current.z.v
 
-    # TODO, MD: Discuss how the update should work
-    for i in 1:n_walkers
-        M = s_L * (I + η * (p_accept[i] - target_acceptance) * (u[i] * u[i]') / norm(u[i])^2) * s_L'
-        s_L = oftype(s_L, cholesky(Positive, M).L)
-    end
+    # TODO: Think about making this more elegant 
+    A = sum([(p_accept[i] - target_acceptance) * (u[i] * u[i]') / norm(u[i])^2 for i in eachindex(u)])
+    
+    # TODO: Use η/n_walkers? 
+    M = s_L * (I + η * A) * s_L'
+    s_L = oftype(s_L, cholesky(Positive, M).L)
 
     mean_update_rate = η / 10 # heuristic
     α = mean_update_rate .* p_accept

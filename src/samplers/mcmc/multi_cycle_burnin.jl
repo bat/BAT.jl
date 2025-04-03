@@ -24,7 +24,7 @@ export MCMCMultiCycleBurnin
 
 
 function mcmc_burnin!(
-    outputs::Union{AbstractVector{<:DensitySampleVector},Nothing},
+    outputs::Union{AbstractVector{AbstractVector{<:DensitySampleVector}}, Nothing},
     mcmc_states::AbstractVector{<:MCMCState},
     samplingalg::TransformedMCMC,
     callback::Function
@@ -41,7 +41,7 @@ function mcmc_burnin!(
     while !successful && cycles < burnin.max_ncycles
         cycles += 1
 
-        new_outputs = DensitySampleVector.(mcmc_states)
+        new_outputs = _empty_chain_outputs.(mcmc_states)
 
         next_cycle!.(mcmc_states)
 
@@ -57,13 +57,15 @@ function mcmc_burnin!(
 
         isnothing(outputs) || append!.(outputs, new_outputs)
 
+        # TODO, MD: Rewrite this via append!
+        merged_outputs = [merge(walker_output...) for walker_output in new_outputs]
+        
         # ToDo: Convergence tests are a special case, they're not supposed
         # to change any state, so we don't want to use the context of the
         # first chain here. But just making a new context is also not ideal.
         # Better copy the context of the first chain and replace the RNG
         # with a new one in the future:
-        check_convergence!(mcmc_states, [merge(output...) for output in new_outputs], convergence, BATContext())
-        # TODO, MD: How should the convergence check work for ensembles? Currently merging the samples from all walkers in a chain
+        check_convergence!(mcmc_states, merged_outputs, convergence, BATContext())
 
         ntuned = count(mcmc_state -> mcmc_state.chain_state.info.tuned, mcmc_states)
         nconverged = count(mcmc_state -> mcmc_state.chain_state.info.converged, mcmc_states)

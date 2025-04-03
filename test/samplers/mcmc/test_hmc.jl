@@ -32,11 +32,12 @@ import AdvancedHMC
         BAT.mcmc_tuning_init!!(mcmc_state, 0)
         BAT.mcmc_tuning_reinit!!(mcmc_state, div(nsteps, 10))
 
+        # TODO, MD: Decide on handling of samples and fix these tests
         samples = DensitySampleVector(mcmc_state)
         mcmc_state = BAT.mcmc_iterate!!(samples, mcmc_state; max_nsteps = nsteps, nonzero_weights = false)
         @test mcmc_state.chain_state.stepno == nsteps
-        @test minimum(samples.weight) == 0
-        @test isapprox(length(samples), nsteps, atol = 20)
+        @test minimum(minimum.(getfield.(samples, :weight))) == 0
+        @test isapprox(length(samples[1]), nsteps, atol = 20)
         @test length(samples) == sum(samples.weight)
         @test BAT.test_dist_samples(unshaped(objective), samples)
 
