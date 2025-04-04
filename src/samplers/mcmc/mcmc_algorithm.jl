@@ -281,11 +281,19 @@ function mcmc_iterate!!(
         (nsteps(mcmc_state) - start_nsteps) < max_nsteps &&
         (time() - start_time) < max_time
     )
+        global gs_prestep = (deepcopy(mcmc_state), deepcopy(output), nonzero_weights)
+        #BREAKAKAKAKAKAKAKKAKAK
+
         mcmc_state = mcmc_step!!(mcmc_state)
+
+        global gs_poststep = (deepcopy(mcmc_state), deepcopy(output))
 
         if !isnothing(output)
             get_samples!(output, mcmc_state, nonzero_weights)
         end
+
+        global gs_postapp = (deepcopy(mcmc_state), deepcopy(output))
+        #BREEAKAKAKAKAKAK
 
         should_log, log_time, elapsed_time = should_log_progress_now(start_time, log_time)
         if should_log

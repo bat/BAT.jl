@@ -35,10 +35,10 @@ function BAT.mcmc_tune_post_cycle!!(tuner::HMCProposalTunerState, chain_state::H
     accept_ratio = eff_acceptance_ratio(chain_state)
     if accept_ratio >= 0.9 * tuner.target_acceptance
         chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = true)
-        @debug "MCMC chain $(chain_state.info.id) tuned, acceptance ratio = $(Float32(accept_ratio)), integrator = $(chain_state.proposal.τ.integrator), max. log posterior = $(Float32(max_log_posterior))"
+        @debug "MCMC chain $(chain_state.info.id) tuned, acceptance ratio = $(Float32(accept_ratio)), integrator = $(chain_state.proposal.integrator), max. log posterior = $(Float32(max_log_posterior))"
     else
         chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false)
-        @debug "MCMC chain $(chain_state.info.id) *not* tuned, acceptance ratio = $(Float32(accept_ratio)), integrator = $(chain_state.proposal.τ.integrator), max. log posterior = $(Float32(max_log_posterior))"
+        @debug "MCMC chain $(chain_state.info.id) *not* tuned, acceptance ratio = $(Float32(accept_ratio)), integrator = $(chain_state.proposal.integrator), max. log posterior = $(Float32(max_log_posterior))"
     end
     return chain_state, tuner
 end

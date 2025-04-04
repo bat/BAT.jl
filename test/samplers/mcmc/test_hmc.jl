@@ -3,7 +3,7 @@ using BAT
 using Test
 
 using LinearAlgebra
-using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityInterface
+using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
 using IntervalSets
 import ForwardDiff, Zygote
 
@@ -21,28 +21,40 @@ import AdvancedHMC
     proposal = HamiltonianMC()
     transform_tuning = StanLikeTuning()
     nchains = 4
-    samplingalg = TransformedMCMC(proposal = proposal, transform_tuning = transform_tuning, nchains = nchains)
+    nwalkers = 1
+    samplingalg = TransformedMCMC(proposal = proposal, transform_tuning = transform_tuning, nchains = nchains, nwalkers = nwalkers)
 
     @testset "MCMC iteration" begin
-        v_init = bat_initval(target, InitFromTarget(), context).result
+        v_inits = bat_ensemble_initvals(target, InitFromTarget(), nwalkers, context)
         # Note: No @inferred, since MCMCChainState is not type stable (yet) with HamiltonianMC
-        @test BAT.MCMCChainState(samplingalg, target, 1, [unshaped(v_init, varshape(target))], deepcopy(context)) isa BAT.HMCChainState
-        mcmc_state = BAT.MCMCState(samplingalg, target, 1, [unshaped(v_init, varshape(target))], deepcopy(context))
+        @test BAT.MCMCChainState(samplingalg, target, 1, unshaped.(v_inits), deepcopy(context)) isa BAT.HMCChainState
+        mcmc_state = BAT.MCMCState(samplingalg, target, 1, unshaped.(v_inits), deepcopy(context))
         nsteps = 10^4
         BAT.mcmc_tuning_init!!(mcmc_state, 0)
         BAT.mcmc_tuning_reinit!!(mcmc_state, div(nsteps, 10))
 
-        # TODO, MD: Decide on handling of samples and fix these tests
-        samples = DensitySampleVector(mcmc_state)
-        mcmc_state = BAT.mcmc_iterate!!(samples, mcmc_state; max_nsteps = nsteps, nonzero_weights = false)
+        walker_outputs = BAT._empty_chain_outputs(mcmc_state)
+        mcmc_state = BAT.mcmc_iterate!!(walker_outputs, mcmc_state; max_nsteps = nsteps, nonzero_weights = false)
         @test mcmc_state.chain_state.stepno == nsteps
-        @test minimum(minimum.(getfield.(samples, :weight))) == 0
-        @test isapprox(length(samples[1]), nsteps, atol = 20)
+
+        samples = BAT._empty_DensitySampleVector(mcmc_state)
+        for walker_output in walker_outputs
+            append!(samples, walker_output)
+        end
+
+        @test minimum(samples.weight) == 0
+        @test isapprox(length(samples), nsteps, atol = 20)
         @test length(samples) == sum(samples.weight)
         @test BAT.test_dist_samples(unshaped(objective), samples)
 
-        samples = DensitySampleVector(mcmc_state)
-        mcmc_state = BAT.mcmc_iterate!!(samples, mcmc_state; max_nsteps = 10^3, nonzero_weights = true)
+        walker_outputs = BAT._empty_chain_outputs(mcmc_state)
+        mcmc_state = BAT.mcmc_iterate!!(walker_outputs, mcmc_state; max_nsteps = 10^3, nonzero_weights = true)
+
+        samples = BAT._empty_DensitySampleVector(mcmc_state)
+        for walker_output in walker_outputs
+            append!(samples, walker_output)
+        end
+
         @test minimum(samples.weight) == 1
     end
 
@@ -50,8 +62,8 @@ import AdvancedHMC
         max_nsteps = 10^5
         transform_tuning = BAT.StanLikeTuning()
         pretransform = DoNotTransform()
-        init_alg = bat_default(TransformedMCMC, Val(:init), proposal, pretransform, nchains, max_nsteps)
-        burnin_alg = bat_default(TransformedMCMC, Val(:burnin), proposal, pretransform, nchains, max_nsteps)
+        init_alg = bat_default(TransformedMCMC, Val(:init), proposal, pretransform, transform_tuning, nchains, nwalkers, max_nsteps)
+        burnin_alg = bat_default(TransformedMCMC, Val(:burnin), proposal, pretransform, transform_tuning, nchains, nwalkers, max_nsteps)
         convergence_test = BrooksGelmanConvergence()
         strict = true
         nonzero_weights = false
@@ -60,6 +72,7 @@ import AdvancedHMC
         samplingalg = TransformedMCMC(proposal = proposal,
             transform_tuning = transform_tuning, 
             pretransform = pretransform, 
+            nwalkers = nwalkers,
             init = init_alg, 
             burnin = burnin_alg, 
             convergence = convergence_test, 
@@ -76,12 +89,12 @@ import AdvancedHMC
             context
         )
     
-        (mcmc_states, outputs) = init_result
+        (mcmc_states, chain_outputs) = init_result
         @test mcmc_states isa AbstractVector{<:BAT.MCMCState}
-        @test outputs isa AbstractVector{<:DensitySampleVector}
+        @test chain_outputs isa AbstractVector{<:AbstractVector{<:DensitySampleVector}}
     
         mcmc_states = BAT.mcmc_burnin!(
-            outputs,
+            chain_outputs,
             mcmc_states,
             samplingalg,
             callback
@@ -90,15 +103,14 @@ import AdvancedHMC
         BAT.next_cycle!.(mcmc_states)
     
         mcmc_states = BAT.mcmc_iterate!!(
-            outputs,
+            chain_outputs,
             mcmc_states;
             max_nsteps = div(max_nsteps, length(mcmc_states)),
             nonzero_weights = nonzero_weights
         )
     
-        samples = DensitySampleVector(first(mcmc_states))
-        append!.(Ref(samples), outputs)
-        
+        samples = BAT._merge_chain_outputs(first(mcmc_states), chain_outputs)
+
         @test length(samples) == sum(samples.weight)
         @test BAT.test_dist_samples(unshaped(objective), samples)
     end
@@ -110,6 +122,7 @@ import AdvancedHMC
                 proposal = proposal,
                 transform_tuning = StanLikeTuning(),
                 pretransform = DoNotTransform(),
+                nwalkers = nwalkers,
                 nsteps = 10^4,
                 store_burnin = true
             ),
@@ -126,6 +139,7 @@ import AdvancedHMC
                 proposal = proposal,
                 transform_tuning = StanLikeTuning(),
                 pretransform = DoNotTransform(),
+                nwalkers = nwalkers,
                 nsteps = 10^4,
                 store_burnin = false
             ),
@@ -144,7 +158,12 @@ import AdvancedHMC
         inner_posterior = PosteriorMeasure(likelihood, prior)
         # Test with nested posteriors:
         posterior = PosteriorMeasure(likelihood, inner_posterior)
-        @test BAT.sample_and_verify(posterior, TransformedMCMC(proposal = HamiltonianMC(), transform_tuning = StanLikeTuning(), pretransform = PriorToNormal()), prior.dist, context).verified
+        trafo_samplingalg = TransformedMCMC(proposal = HamiltonianMC(), 
+                                            transform_tuning = StanLikeTuning(), 
+                                            pretransform = PriorToNormal(),
+                                            nwalkers = nwalkers
+                                           )
+        @test BAT.sample_and_verify(posterior, trafo_samplingalg, prior.dist, context).verified
     end
 
     @testset "HMC autodiff" begin
@@ -158,6 +177,7 @@ import AdvancedHMC
                     proposal = HamiltonianMC(),
                     transform_tuning = StanLikeTuning(),
                     nchains = 2,
+                    nwalkers = nwalkers,
                     nsteps = 100,
                     init = MCMCChainPoolInit(init_tries_per_chain = 2..2, nsteps_init = 5),
                     burnin = MCMCMultiCycleBurnin(nsteps_per_cycle = 100, max_ncycles = 1),

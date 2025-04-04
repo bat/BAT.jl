@@ -108,21 +108,23 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
         nonzero_weights = samplingalg.nonzero_weights
     )
 
-    samples_transformed = _empty_DensitySampleVector(first(mcmc_states))
-    
-    for walker_outputs in chain_outputs
-        for walker_output in walker_outputs
-            if !isempty(walker_output)
-                append!(samples_transformed, walker_output)
-            end
-        end
-    end
+    samples_transformed = _merge_chain_outputs(first(mcmc_states), chain_outputs)
 
     smpls = inverse(f_pretransform).(samples_transformed)
 
     (result = smpls, result_trafo = samples_transformed, f_pretransform = f_pretransform, generator = MCMCSampleGenerator(mcmc_states))
 end
 
+function _merge_chain_outputs(mcmc_state::MCMCState, chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}})
+    merged_output = _empty_DensitySampleVector(mcmc_state)
 
-DensitySample{SubArray{Float64, 1, ElasticArrays.ElasticMatrix{Float64, Vector{Float64}}, Tuple{Base.Slice{Base.OneTo{Int64}}, Int64}, true}, Float64, Int64, BAT.MCMCSampleID, Nothing}  
-StructArrays.StructVector{DensitySample{Vector{Float64}, Float64, Int64, BAT.MCMCSampleID, Nothing}, @NamedTuple{v::ArraysOfArrays.ArrayOfSimilarArrays{Float64, 1, 1, 2, ElasticArrays.ElasticMatrix{Float64, Vector{Float64}}}, logd::Vector{Float64}, weight::Vector{Int64}, info::StructArrays.StructVector{BAT.MCMCSampleID, @NamedTuple{chainid::Vector{Int32}, chaincycle::Vector{Int32}, stepno::Vector{Int64}, sampletype::Vector{Int64}}, Int64}, aux::Vector{Nothing}}, Int64}
+    for walker_outputs in chain_outputs
+        for walker_output in walker_outputs
+            if !isempty(walker_output)
+                append!(merged_output, walker_output)
+            end
+        end
+    end
+
+    return merged_output
+end

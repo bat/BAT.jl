@@ -24,7 +24,7 @@ export MCMCMultiCycleBurnin
 
 
 function mcmc_burnin!(
-    outputs::Union{AbstractVector{AbstractVector{<:DensitySampleVector}}, Nothing},
+    outputs::Union{AbstractVector{<:AbstractVector{<:DensitySampleVector}}, Nothing},
     mcmc_states::AbstractVector{<:MCMCState},
     samplingalg::TransformedMCMC,
     callback::Function
@@ -47,12 +47,19 @@ function mcmc_burnin!(
 
         mcmc_tuning_reinit!!.(mcmc_states, burnin.nsteps_per_cycle)
 
+        global gs_bi_1 = (deepcopy(mcmc_states), burnin, deepcopy(new_outputs), nonzero_weights)
+
         mcmc_states = mcmc_iterate!!(
             new_outputs, mcmc_states;
             max_nsteps = burnin.nsteps_per_cycle,
             nonzero_weights = nonzero_weights
         )
         
+        global gs_bi_2 = (deepcopy(mcmc_states), burnin, deepcopy(new_outputs), nonzero_weights)
+
+        #BREAK_burnin1
+
+
         mcmc_states = mcmc_tune_post_cycle!!.(mcmc_states, new_outputs)
 
         isnothing(outputs) || append!.(outputs, new_outputs)
@@ -88,6 +95,9 @@ function mcmc_burnin!(
             @warn msg
         end
     end
+
+    global gs_bi = (mcmc_states, outputs, burnin, nonzero_weights)
+    #BREAK_BURNIN
 
     if burnin.nsteps_final > 0
         @info "Running post-tuning stabilization steps for $nchains MCMC chain(s)."

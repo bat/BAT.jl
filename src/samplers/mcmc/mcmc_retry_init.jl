@@ -23,6 +23,8 @@ end
 export MCMCRetryInit
 
 
+
+
 # Draw a random init point for each walker for each chain
 # And let the chains run for nsteps_init steps and unviable walkers get a new random position and let their chains run until 
 # Leave the chains with viable walkers as is 

@@ -105,6 +105,10 @@ end
 const MHChainState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:MHProposalState} 
 
 function mcmc_propose!!(chain_state::MHChainState)
+
+    # global gs_mh_propo = deepcopy(chain_state)
+    # BREAK_POPO
+
     @unpack target, proposal, f_transform, context = chain_state
     rng = get_rng(context)
     pdist = proposal.proposaldist
@@ -116,7 +120,7 @@ function mcmc_propose!!(chain_state::MHChainState)
     T = eltype(current_z)
 
     # ToDo: Use gen-context:
-    z_proposed = current_z .+ T.(rand(rng, pdist, n_walkers))
+    z_proposed = current_z .+ [T(rand(rng, pdist)) for i in 1:n_walkers]
 
     trafo_proposed = with_logabsdet_jacobian.(f_transform, z_proposed)
     x_proposed = getfield.(trafo_proposed, 1)

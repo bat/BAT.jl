@@ -44,7 +44,6 @@ function MCMCChainState(
     
     rngpart_cycle = RNGPartition(get_rng(context), 0:(typemax(Int16) - 2))
     rng = get_rng(context)
-    n_dims = getdof(target)
      
     f = init_adaptive_transform(samplingalg.adaptive_transform, target, context)
     f_inv = inverse(f)
@@ -57,7 +56,7 @@ function MCMCChainState(
     W = mcmc_weight_type(samplingalg.sample_weighting)
     
     sample_weights_curr = fill(one(W), n_walkers)
-    sample_info_curr = [_get_sample_id(proposal, Int32(chainid), Int32(i), one(Int32), 1, CURRENT_SAMPLE)[1] for i in 1:n_walkers]
+    sample_info_curr = [_get_sample_id(proposal, Int32(chainid), Int32(i), one(Int32), 1, ACCEPTED_SAMPLE)[1] for i in 1:n_walkers]
     sample_aux_curr = fill(nothing, n_walkers)
 
     current_x_init = DensitySampleVector(x_init, 
@@ -68,15 +67,15 @@ function MCMCChainState(
                                         )
     current_z_init = DensitySampleVector(z_init, 
                                          logd_z_init;
-                                         weight = sample_weights_curr, 
-                                         info = sample_info_curr,
-                                         aux = sample_aux_curr
+                                         weight = deepcopy(sample_weights_curr), 
+                                         info = deepcopy(sample_info_curr),
+                                         aux = deepcopy(sample_aux_curr)
                                         )
     dsv_init = similar(current_x_init)
 
     current = (x = current_x_init, z = current_z_init)
     proposed = (x = deepcopy(dsv_init), z = deepcopy(dsv_init))
-    output = deepcopy(dsv_init)
+    output = deepcopy(current_x_init)
     accepted = fill(false, n_walkers)
     
     stepno::Int64 = 0
@@ -152,48 +151,52 @@ end
 
 function mcmc_step!!(mcmc_state::MCMCState)
     
-    reset_rng_counters!(mcmc_state)
+    #reset_rng_counters!(mcmc_state)
 
     chain_state = mcmc_state.chain_state
-
-    (;current, proposed, accepted) = chain_state
     
     chain_state.stepno += 1
-
+    
     chain_state, p_accept = mcmc_propose!!(chain_state)
 
+    (;proposal, current, proposed, accepted, output) = chain_state
+    
     chain_state.nsamples += sum(accepted)
     
     # Set weights according to acceptance
     delta_w_current, w_proposed = mcmc_weight_values(chain_state.weighting, p_accept, accepted)
    
+    global gs_weights = (delta_w_current, w_proposed, deepcopy(chain_state), p_accept, accepted)
+
     current.x.weight .+= delta_w_current
     current.z.weight .+= delta_w_current
 
     proposed.x.weight .= w_proposed
     proposed.z.weight .= w_proposed
 
-    idxs_acc = findall(chain_state.accepted)
-    idxs_rej = findall(!, chain_state.accepted)
+    idxs_acc = findall(accepted)
+    idxs_rej = findall(!, accepted)
 
     # Mark proposed samples as accepted or rejected
-    for i in eachindex(chain_state.proposed.x)
-        old_info = chain_state.proposed.x.info[i]
+    for i in eachindex(proposed.x)
+        old_info = proposed.x.info[i]
 
-        sample_type = chain_state.accepted[i] ? ACCEPTED_SAMPLE : REJECTED_SAMPLE
-        new_info, _ = _get_sample_id(chain_state.proposal, old_info.chainid, Int32(i), old_info.chaincycle, old_info.stepno, sample_type)
+        sample_type = accepted[i] ? ACCEPTED_SAMPLE : REJECTED_SAMPLE
+        new_info, _ = _get_sample_id(proposal, old_info.chainid, Int32(i), old_info.chaincycle, chain_state.stepno, sample_type)
 
-        chain_state.proposed.x.info[i] = new_info
-        chain_state.proposed.z.info[i] = new_info
+        proposed.x.info[i] = new_info
+        proposed.z.info[i] = new_info
     end
 
-    # Save current points to output if they will be overwritten, and save rejeceted proposed points
-    chain_state.output[idxs_acc] = @view chain_state.current.x[idxs_acc]
-    chain_state.output[idxs_rej] = @view chain_state.proposed.x[idxs_rej]
+    # Save current points to output if they will be overwritten, and save rejected proposed points
+    output[idxs_acc] = @view current.x[idxs_acc]
+    output[idxs_rej] = @view proposed.x[idxs_rej]
 
     # Overwrite current points with accepted proposed points
-    chain_state.current.x[idxs_acc] = @view chain_state.proposed.x[idxs_acc]
-    chain_state.current.z[idxs_acc] = @view chain_state.proposed.z[idxs_acc]
+    current.x[idxs_acc] = @view proposed.x[idxs_acc]
+    current.z[idxs_acc] = @view proposed.z[idxs_acc]
+
+    global gs_post_prop = (deepcopy(mcmc_state), deepcopy(chain_state), deepcopy(current), deepcopy(proposed), deepcopy(output)) 
 
     mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, p_accept)
 
@@ -222,17 +225,18 @@ function next_cycle!(chain_state::MCMCChainState)
                                           chain_state.info.cycle + 1, 
                                           chain_state.info.tuned, 
                                           chain_state.info.converged
-                                         )
+                                          )
     chain_state.nsamples = 0
     chain_state.stepno = 0
 
-    chain_info = chain_state.info
-
-    new_current_info_vec = [_get_sample_id(chain_state.proposal, chain_info.id, Int32(i), chain_info.cycle, 0, CURRENT_SAMPLE)[1] for i in 1:n_walkers]
+    new_current_info_vec = [_get_sample_id(chain_state.proposal, chain_state.info.id, Int32(i), chain_state.info.cycle, 0, ACCEPTED_SAMPLE)[1] for i in 1:n_walkers]
     chain_state.current.x.info .= new_current_info_vec
     chain_state.current.z.info .= new_current_info_vec
-    
-    new_proposed_info_vec = [_get_sample_id(chain_state.proposal, chain_info.id, Int32(i), chain_info.cycle, 0, PROPOSED_SAMPLE)[1] for i in 1:n_walkers]
+
+    chain_state.current.x.weight .= 1
+    chain_state.current.z.weight .= 1
+
+    new_proposed_info_vec = [_get_sample_id(chain_state.proposal, chain_state.info.id, Int32(i), chain_state.info.cycle, 0, PROPOSED_SAMPLE)[1] for i in 1:n_walkers]
     chain_state.proposed.x.info .= new_proposed_info_vec
     chain_state.proposed.z.info .= new_proposed_info_vec
 
@@ -247,20 +251,14 @@ end
 
 # This assumes 'appendable' to be a vector of appendables that respectively hold the samples for each walker
 function get_samples!(appendable, chain_state::MCMCChainState, nonzero_weights::Bool)::typeof(appendable)
-    if samples_available(chain_state)
-        chain_output = chain_state.output
-
-        sample_types = getfield.(chain_output.info, :sampletype)
-        for i in eachindex(chain_output)
-            st = sample_types[i]
-            if (
-                (st == ACCEPTED_SAMPLE || st == REJECTED_SAMPLE) &&
-                (chain_output.weight[i] > 0 || !nonzero_weights)
-            )
-                push!(appendable[i], chain_output[i])
-            end
+    #if samples_available(chain_state)
+    chain_output = chain_state.output
+    for i in eachindex(chain_output)
+        if (chain_output.weight[i] > 0 || !nonzero_weights)
+            push!(appendable[i], chain_output[i])
         end
     end
+    #end
     appendable
 end
 

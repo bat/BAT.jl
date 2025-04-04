@@ -41,10 +41,10 @@ function mcmc_weight_values(
     p_accept::AbstractVector{<:Real},
     accepted::AbstractVector{Bool}
 )
-    w_current = Float64.(.!accepted)
+    delta_w_current = Float64.(.!accepted)
     w_proposed = Float64.(accepted)
 
-    return (w_current, w_proposed)
+    return (delta_w_current, w_proposed)
 end
 
 
