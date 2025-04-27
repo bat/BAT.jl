@@ -3,7 +3,7 @@ using BAT
 using Test
 
 using LinearAlgebra
-using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityInterface
+using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
 
 @testset "RandomWalk" begin
     context = BATContext()
@@ -94,6 +94,8 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
             samplingalg,
             callback
         )
+
+        BAT.next_cycle!.(mcmc_states)
 
         mcmc_states = BAT.mcmc_iterate!!(
             chain_outputs,

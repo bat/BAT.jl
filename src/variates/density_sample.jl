@@ -184,6 +184,7 @@ function DensitySampleVector(
         idxs, weight = repetition_to_weights(v)
         return DensitySampleVector((ArrayOfSimilarArrays(v[idxs]), logval[idxs], weight, info[idxs], aux[idxs]))
     else
+        global gs_DSV_init = (v, logval, weight, info, aux)
         return DensitySampleVector((ArrayOfSimilarArrays(v), logval, weight, info, aux))
     end
 end

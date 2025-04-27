@@ -17,6 +17,7 @@ $(TYPEDFIELDS)
     init_tries_per_chain::ClosedInterval{Int64} = ClosedInterval(8, 128)
     nsteps_init::Int64 = 1000
     initval_alg::InitvalAlgorithm = InitFromTarget()
+    strict::Bool = true
 end
 
 export MCMCChainPoolInit
@@ -26,33 +27,10 @@ function apply_trafo_to_init(f_transform::Function, initalg::MCMCChainPoolInit)
     MCMCChainPoolInit(
     initalg.init_tries_per_chain,
     initalg.nsteps_init,
-    apply_trafo_to_init(f_transform, initalg.initval_alg)
+    apply_trafo_to_init(f_transform, initalg.initval_alg),
+    initalg.strict
     )
 end
-
-
-function _construct_mcmc_state(
-    samplingalg::TransformedMCMC,
-    target::BATMeasure,
-    rngpart::RNGPartition,
-    id::Integer,
-    initval_alg::InitvalAlgorithm,
-    parent_context::BATContext
-)
-    new_context = set_rng(parent_context, AbstractRNG(rngpart, id))
-    v_init = bat_ensemble_initvals(target, initval_alg, samplingalg.nwalkers, new_context)    
-    return MCMCState(samplingalg, target, Int32(id), v_init, new_context)
-end
-
-_gen_mcmc_states(
-    samplingalg::TransformedMCMC,
-    target::BATMeasure,
-    rngpart::RNGPartition,
-    ids::AbstractRange{<:Integer},
-    initval_alg::InitvalAlgorithm,
-    context::BATContext
-) = [_construct_mcmc_state(samplingalg, target, rngpart, id, initval_alg, context) for id in ids]
-
 
 function mcmc_init!(
     samplingalg::TransformedMCMC,
@@ -98,7 +76,6 @@ function mcmc_init!(
 
         new_outputs = _empty_chain_outputs.(new_mcmc_states)
 
-        
         next_cycle!.(new_mcmc_states)
         mcmc_tuning_init!!.(new_mcmc_states, init_alg.nsteps_init)
         new_mcmc_states = mcmc_update_z_position!!.(new_mcmc_states)

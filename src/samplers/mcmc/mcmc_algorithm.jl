@@ -119,8 +119,6 @@ BAT.current_sample(chain::SomeMCMCIter)::DensitySample
 
 BAT.sample_type(chain::SomeMCMCIter)::Type{<:DensitySample}
 
-BAT.samples_available(chain::SomeMCMCIter, nonzero_weights::Bool = false)::Bool
-
 BAT.get_samples!(samples::DensitySampleVector, chain::SomeMCMCIter, nonzero_weights::Bool)::typeof(samples)
 
 BAT.next_cycle!(chain::SomeMCMCIter)::SomeMCMCIter
@@ -226,8 +224,6 @@ function current_sample end
 
 function sample_type end
 
-function samples_available end
-
 function get_samples! end
 
 function next_cycle! end
@@ -281,24 +277,20 @@ function mcmc_iterate!!(
         (nsteps(mcmc_state) - start_nsteps) < max_nsteps &&
         (time() - start_time) < max_time
     )
-        global gs_prestep = (deepcopy(mcmc_state), deepcopy(output), nonzero_weights)
-        #BREAKAKAKAKAKAKAKKAKAK
-
         mcmc_state = mcmc_step!!(mcmc_state)
-
-        global gs_poststep = (deepcopy(mcmc_state), deepcopy(output))
 
         if !isnothing(output)
             get_samples!(output, mcmc_state, nonzero_weights)
         end
 
-        global gs_postapp = (deepcopy(mcmc_state), deepcopy(output))
-        #BREEAKAKAKAKAKAK
-
         should_log, log_time, elapsed_time = should_log_progress_now(start_time, log_time)
         if should_log
             @debug "Iterating over MCMC chain $(mcmc_state.chain_state.info.id), completed $(nsteps(mcmc_state.chain_state) - start_nsteps) (of $(max_nsteps)) steps and produced $(nsamples(mcmc_state.chain_state) - start_nsamples) samples in $(@sprintf "%.1f s" elapsed_time) so far."
         end
+    end
+
+    if !isnothing(output)
+        get_last_current_samples!(output, mcmc_state)
     end
 
     elapsed_time = time() - start_time

@@ -40,6 +40,7 @@ function MCMCChainState(
     context::BATContext
 ) where {P<:Real, PV<:AbstractVector{P}}
     n_walkers = length(x_init)
+    n_dims = length(x_init[1])
     target_unevaluated = unevaluated(target)
     
     rngpart_cycle = RNGPartition(get_rng(context), 0:(typemax(Int16) - 2))
@@ -59,22 +60,37 @@ function MCMCChainState(
     sample_info_curr = [_get_sample_id(proposal, Int32(chainid), Int32(i), one(Int32), 1, ACCEPTED_SAMPLE)[1] for i in 1:n_walkers]
     sample_aux_curr = fill(nothing, n_walkers)
 
-    current_x_init = DensitySampleVector(x_init, 
-                                         logd_x_init;
-                                         weight = sample_weights_curr, 
-                                         info = sample_info_curr,
-                                         aux = sample_aux_curr
-                                        )
-    current_z_init = DensitySampleVector(z_init, 
-                                         logd_z_init;
-                                         weight = deepcopy(sample_weights_curr), 
-                                         info = deepcopy(sample_info_curr),
-                                         aux = deepcopy(sample_aux_curr)
-                                        )
-    dsv_init = similar(current_x_init)
+    current_x_init = DensitySampleVector(
+        x_init, 
+        logd_x_init;
+        weight = sample_weights_curr, 
+        info = sample_info_curr,
+        aux = sample_aux_curr
+    )
+    current_z_init = DensitySampleVector(
+        z_init, 
+        logd_z_init;
+        weight = deepcopy(sample_weights_curr), 
+        info = deepcopy(sample_info_curr),
+        aux = deepcopy(sample_aux_curr)
+    )
+    
+    prop_locs_init = deepcopy(x_init)
+    prop_logds_init = deepcopy(logd_x_init)
+    sample_weights_prop = fill(zero(W), n_walkers)
+    sample_info_prop = [_get_sample_id(proposal, Int32(chainid), Int32(i), one(Int32), 1, PROPOSED_SAMPLE)[1] for i in 1:n_walkers]
+    sample_aux_prop = fill(nothing, n_walkers)
+
+    proposed_init = DensitySampleVector(
+        prop_locs_init,
+        prop_logds_init;
+        weight = sample_weights_prop,
+        info = sample_info_prop,
+        aux = sample_aux_prop 
+    )
 
     current = (x = current_x_init, z = current_z_init)
-    proposed = (x = deepcopy(dsv_init), z = deepcopy(dsv_init))
+    proposed = (x = deepcopy(proposed_init), z = deepcopy(proposed_init))
     output = deepcopy(current_x_init)
     accepted = fill(false, n_walkers)
     
@@ -159,15 +175,17 @@ function mcmc_step!!(mcmc_state::MCMCState)
     
     chain_state, p_accept = mcmc_propose!!(chain_state)
 
+    mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, p_accept)
+    
+    chain_state = mcmc_state_new.chain_state
+    
     (;proposal, current, proposed, accepted, output) = chain_state
-    
+
     chain_state.nsamples += sum(accepted)
-    
+
     # Set weights according to acceptance
     delta_w_current, w_proposed = mcmc_weight_values(chain_state.weighting, p_accept, accepted)
    
-    global gs_weights = (delta_w_current, w_proposed, deepcopy(chain_state), p_accept, accepted)
-
     current.x.weight .+= delta_w_current
     current.z.weight .+= delta_w_current
 
@@ -195,10 +213,6 @@ function mcmc_step!!(mcmc_state::MCMCState)
     # Overwrite current points with accepted proposed points
     current.x[idxs_acc] = @view proposed.x[idxs_acc]
     current.z[idxs_acc] = @view proposed.z[idxs_acc]
-
-    global gs_post_prop = (deepcopy(mcmc_state), deepcopy(chain_state), deepcopy(current), deepcopy(proposed), deepcopy(output)) 
-
-    mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, p_accept)
 
     chain_state = mcmc_state_new.chain_state
     mcmc_state_final = @set mcmc_state_new.chain_state = chain_state
@@ -233,9 +247,6 @@ function next_cycle!(chain_state::MCMCChainState)
     chain_state.current.x.info .= new_current_info_vec
     chain_state.current.z.info .= new_current_info_vec
 
-    chain_state.current.x.weight .= 1
-    chain_state.current.z.weight .= 1
-
     new_proposed_info_vec = [_get_sample_id(chain_state.proposal, chain_state.info.id, Int32(i), chain_state.info.cycle, 0, PROPOSED_SAMPLE)[1] for i in 1:n_walkers]
     chain_state.proposed.x.info .= new_proposed_info_vec
     chain_state.proposed.z.info .= new_proposed_info_vec
@@ -251,14 +262,12 @@ end
 
 # This assumes 'appendable' to be a vector of appendables that respectively hold the samples for each walker
 function get_samples!(appendable, chain_state::MCMCChainState, nonzero_weights::Bool)::typeof(appendable)
-    #if samples_available(chain_state)
     chain_output = chain_state.output
     for i in eachindex(chain_output)
         if (chain_output.weight[i] > 0 || !nonzero_weights)
             push!(appendable[i], chain_output[i])
         end
     end
-    #end
     appendable
 end
 
@@ -267,13 +276,24 @@ function get_samples!(appendable, mcmc_state::MCMCState, nonzero_weights::Bool):
 end
 
 
-function samples_available(chain_state::MCMCChainState)
-    return any(getfield.(chain_state.output.info, :sampletype) .== ACCEPTED_SAMPLE)
+function get_last_current_samples!(appendable, chain_state::MCMCChainState)::typeof(appendable)
+    (;current, accepted) = chain_state    
+    for i in eachindex(current.x)
+        if !(accepted[i])
+            push!(appendable[i], current.x[i])
+        end
+    end
+    
+    current.x.weight .= 1
+    current.z.weight .= 1
+    
+    appendable
 end
 
-function samples_available(mcmc_state::MCMCState)
-    samples_available(mcmc_state.chain_state)
+function get_last_current_samples!(appendable, mcmc_state::MCMCState)::typeof(appendable)
+    get_last_current_samples!(appendable, mcmc_state.chain_state)
 end
+
 
 function mcmc_update_z_position!!(mcmc_state::MCMCState)
     chain_state_new = mcmc_update_z_position!!(mcmc_state.chain_state)
@@ -357,3 +377,26 @@ function mcmc_tuning_finalize!!(state::MCMCState)
     mcmc_tuning_finalize!!(state.trafo_tuner_state, state.chain_state)
     mcmc_tuning_finalize!!(state.proposal_tuner_state, state.chain_state)
 end 
+
+
+function _construct_mcmc_state(
+    samplingalg::TransformedMCMC,
+    target::BATMeasure,
+    rngpart::RNGPartition,
+    id::Integer,
+    initval_alg::InitvalAlgorithm,
+    parent_context::BATContext
+)
+    new_context = set_rng(parent_context, AbstractRNG(rngpart, id))
+    v_init = bat_ensemble_initvals(target, initval_alg, samplingalg.nwalkers, new_context)    
+    return MCMCState(samplingalg, target, Int32(id), v_init, new_context)
+end
+
+_gen_mcmc_states(
+    samplingalg::TransformedMCMC,
+    target::BATMeasure,
+    rngpart::RNGPartition,
+    ids::AbstractRange{<:Integer},
+    initval_alg::InitvalAlgorithm,
+    context::BATContext
+) = [_construct_mcmc_state(samplingalg, target, rngpart, id, initval_alg, context) for id in ids]
