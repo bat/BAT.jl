@@ -83,9 +83,6 @@ function mcmc_init!(
         
         @debug "Testing $(length(new_mcmc_states)) candidate MCMC chain state(s)."
 
-        global gs_cpi_1 = (deepcopy(new_mcmc_states), deepcopy(new_outputs), init_alg) 
-        #BREAK_INI
-
         new_mcmc_states = mcmc_iterate!!(
             new_outputs, new_mcmc_states;
             max_nsteps = clamp(div(init_alg.nsteps_init, 5), 10, 50),
@@ -99,6 +96,8 @@ function mcmc_init!(
         @debug "Found $(length(viable_idxs)) viable MCMC chain state(s)."
 
         if !isempty(viable_mcmc_states)
+            next_cycle!.(new_mcmc_states)
+            
             viable_mcmc_states = mcmc_iterate!!(
                 viable_outputs, viable_mcmc_states;
                 max_nsteps = init_alg.nsteps_init,
@@ -113,9 +112,6 @@ function mcmc_init!(
             append!(outputs, view(viable_outputs, good_idxs))
         end
 
-        global gs_cpi_2 = (deepcopy(new_mcmc_states), deepcopy(new_outputs))
-        #BREAK_CP_INIT 
-        
         cycle += 1
     end
 

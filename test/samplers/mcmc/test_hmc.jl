@@ -43,8 +43,8 @@ import AdvancedHMC
         end
 
         @test minimum(samples.weight) == 0
-        @test isapprox(length(samples), nsteps, atol = 20)
-        @test length(samples) == sum(samples.weight)
+        # @test isapprox(length(samples), nsteps, atol = 20) Hard to test with the new checked_push function avoiding duplicate samples
+        @test sum(samples.weight) == mcmc_state.chain_state.stepno
         @test BAT.test_dist_samples(unshaped(objective), samples)
 
         walker_outputs = BAT._empty_chain_outputs(mcmc_state)
@@ -111,7 +111,6 @@ import AdvancedHMC
     
         samples = BAT._merge_chain_outputs(first(mcmc_states), chain_outputs)
 
-        @test length(samples) == sum(samples.weight)
         @test BAT.test_dist_samples(unshaped(objective), samples)
     end
     

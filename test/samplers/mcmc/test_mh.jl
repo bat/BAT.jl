@@ -37,7 +37,7 @@ using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
         @test mcmc_state.chain_state.stepno == 10^5
         @test minimum(samples.weight) == 0
         @test isapprox(length(samples), 10^5, atol = 20)
-        @test length(samples) == sum(samples.weight)
+        @test sum(samples.weight) == mcmc_state.chain_state.stepno
         @test isapprox(mean(samples), [1, -1, 2], atol = 0.2)
         @test isapprox(cov(samples), cov(unshaped(objective)), atol = 0.3)
 
@@ -88,7 +88,7 @@ using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
         # @test tuners isa AbstractVector{<:BAT.AdaptiveAffineTuningState}
         @test chain_outputs isa AbstractVector{<:AbstractVector{<:DensitySampleVector}}
 
-        BAT.mcmc_burnin!(
+        mcmc_states = BAT.mcmc_burnin!(
             chain_outputs,
             mcmc_states,
             samplingalg,
@@ -106,7 +106,9 @@ using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
 
         samples = BAT._merge_chain_outputs(first(mcmc_states), chain_outputs)
 
-        @test length(samples) == sum(samples.weight)
+        # The initial sample in each cycle has weight 0, but is still saved to output. Depending on whether or not
+        # the final proposed sample is accepted, the lenght of the final output may vary
+        @test isapprox(length(samples), sum(samples.weight), atol = nchains * mcmc_states[1].chain_state.info.cycle)
         @test BAT.test_dist_samples(unshaped(objective), samples)
     end
 

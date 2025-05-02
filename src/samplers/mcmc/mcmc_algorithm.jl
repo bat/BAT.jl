@@ -272,12 +272,12 @@ function mcmc_iterate!!(
     log_time = start_time
     start_nsteps = nsteps(mcmc_state)
     start_nsamples = nsamples(mcmc_state)
+    perform_step = true 
 
-    while (
-        (nsteps(mcmc_state) - start_nsteps) < max_nsteps &&
-        (time() - start_time) < max_time
-    )
-        mcmc_state = mcmc_step!!(mcmc_state)
+    while (perform_step && (time() - start_time) < max_time)
+        perform_step = nsteps(mcmc_state) - start_nsteps < max_nsteps      
+        
+        mcmc_state = perform_step ? mcmc_step!!(mcmc_state) : flush_samples!!(mcmc_state)
 
         if !isnothing(output)
             get_samples!(output, mcmc_state, nonzero_weights)
@@ -287,10 +287,6 @@ function mcmc_iterate!!(
         if should_log
             @debug "Iterating over MCMC chain $(mcmc_state.chain_state.info.id), completed $(nsteps(mcmc_state.chain_state) - start_nsteps) (of $(max_nsteps)) steps and produced $(nsamples(mcmc_state.chain_state) - start_nsamples) samples in $(@sprintf "%.1f s" elapsed_time) so far."
         end
-    end
-
-    if !isnothing(output)
-        get_last_current_samples!(output, mcmc_state)
     end
 
     elapsed_time = time() - start_time

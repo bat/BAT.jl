@@ -40,7 +40,6 @@ function MCMCChainState(
     context::BATContext
 ) where {P<:Real, PV<:AbstractVector{P}}
     n_walkers = length(x_init)
-    n_dims = length(x_init[1])
     target_unevaluated = unevaluated(target)
     
     rngpart_cycle = RNGPartition(get_rng(context), 0:(typemax(Int16) - 2))
@@ -56,7 +55,7 @@ function MCMCChainState(
     
     W = mcmc_weight_type(samplingalg.sample_weighting)
     
-    sample_weights_curr = fill(one(W), n_walkers)
+    sample_weights_curr = zeros(W, n_walkers)
     sample_info_curr = [_get_sample_id(proposal, Int32(chainid), Int32(i), one(Int32), 1, ACCEPTED_SAMPLE)[1] for i in 1:n_walkers]
     sample_aux_curr = fill(nothing, n_walkers)
 
@@ -77,7 +76,7 @@ function MCMCChainState(
     
     prop_locs_init = deepcopy(x_init)
     prop_logds_init = deepcopy(logd_x_init)
-    sample_weights_prop = fill(zero(W), n_walkers)
+    sample_weights_prop = zeros(W, n_walkers)
     sample_info_prop = [_get_sample_id(proposal, Int32(chainid), Int32(i), one(Int32), 1, PROPOSED_SAMPLE)[1] for i in 1:n_walkers]
     sample_aux_prop = fill(nothing, n_walkers)
 
@@ -167,7 +166,7 @@ end
 
 function mcmc_step!!(mcmc_state::MCMCState)
     
-    #reset_rng_counters!(mcmc_state)
+    reset_rng_counters!(mcmc_state)
 
     chain_state = mcmc_state.chain_state
     
@@ -263,11 +262,13 @@ end
 # This assumes 'appendable' to be a vector of appendables that respectively hold the samples for each walker
 function get_samples!(appendable, chain_state::MCMCChainState, nonzero_weights::Bool)::typeof(appendable)
     chain_output = chain_state.output
-    for i in eachindex(chain_output)
-        if (chain_output.weight[i] > 0 || !nonzero_weights)
-            push!(appendable[i], chain_output[i])
-        end
+    viable_samples = nonzero_weights ? findall(chain_output.weight .> 0) : eachindex(chain_output)
+    
+    for i in viable_samples
+        # If last sample in appendable[i] is equal to the new sample increment its weight, otherwise append new sample
+        checked_push!(appendable[i], chain_output[i])
     end
+    
     appendable
 end
 
@@ -276,22 +277,19 @@ function get_samples!(appendable, mcmc_state::MCMCState, nonzero_weights::Bool):
 end
 
 
-function get_last_current_samples!(appendable, chain_state::MCMCChainState)::typeof(appendable)
-    (;current, accepted) = chain_state    
-    for i in eachindex(current.x)
-        if !(accepted[i])
-            push!(appendable[i], current.x[i])
-        end
-    end
+# TDOD: MD, make properly !!
+function flush_samples!!(chain_state::MCMCChainState)
+    (;current, output) = chain_state
     
-    current.x.weight .= 1
-    current.z.weight .= 1
-    
-    appendable
+    output[:] = @view current.x[:]
+    current.x.weight .= 0
+
+    return chain_state
 end
 
-function get_last_current_samples!(appendable, mcmc_state::MCMCState)::typeof(appendable)
-    get_last_current_samples!(appendable, mcmc_state.chain_state)
+function flush_samples!!(mcmc_state::MCMCState)
+    new_mcmc_state = @set mcmc_state.chain_state = flush_samples!!(mcmc_state.chain_state)
+    return new_mcmc_state
 end
 
 
