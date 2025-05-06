@@ -80,6 +80,7 @@ function mcmc_burnin!(
         callback(Val(:mcmc_burnin), mcmc_states)
 
         @info "MCMC Tuning cycle $cycles finished, $nchains chains, $ntuned tuned, $nconverged converged."
+
     end
 
     mcmc_tuning_finalize!!.(mcmc_states)

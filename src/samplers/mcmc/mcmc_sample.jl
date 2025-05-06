@@ -91,7 +91,7 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
     if !samplingalg.store_burnin
         chain_outputs = _empty_chain_outputs.(mcmc_states)
     end
-
+    
     mcmc_states = mcmc_burnin!(
         samplingalg.store_burnin ? chain_outputs : nothing,
         mcmc_states,

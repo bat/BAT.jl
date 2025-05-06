@@ -106,9 +106,6 @@ const MHChainState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:
 
 function mcmc_propose!!(chain_state::MHChainState)
 
-    # global gs_mh_propo = deepcopy(chain_state)
-    # BREAK_POPO
-
     @unpack target, proposal, f_transform, context = chain_state
     rng = get_rng(context)
     pdist = proposal.proposaldist
@@ -147,7 +144,7 @@ function mcmc_propose!!(chain_state::MHChainState)
     return chain_state, p_accept
 end
 
-eff_acceptance_ratio(chain_state::MHChainState) = nsamples(chain_state) / nsteps(chain_state)
+eff_acceptance_ratio(chain_state::MHChainState) = nsamples(chain_state) / (nsteps(chain_state) * nwalkers(chain_state))
 
 function set_mc_transform!!(mc_state::MHChainState, f_transform_new::Function) 
     mc_state_new = @set mc_state.f_transform = f_transform_new

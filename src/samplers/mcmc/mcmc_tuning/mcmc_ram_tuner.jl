@@ -104,8 +104,8 @@ function mcmc_tune_post_step!!(
     mean_update_rate = η / 10 # heuristic
     α = mean_update_rate .* p_accept
 
-    update = α .* (proposed.x.v .-[b])
-    new_b = oftype.(b, sum(update .+ [b])) # = (1 - α) * b + α * proposed.x.v 
+    update = α .* (proposed.x.v .- [b])
+    new_b = 1 / nwalkers(chain_state) * oftype.(b, sum(update .+ [b])) # = (1 - α) * b + α * proposed.x.v 
 
     f_transform_new = MulAdd(Σ_L_new, new_b)
 
