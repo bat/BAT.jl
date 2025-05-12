@@ -34,9 +34,12 @@ function _cartidxs(axs::Tuple{Vararg{AbstractUnitRange,N}}) where {N}
     CartesianIndices(map(_dynamic, axs))
 end
 
+
 function Base.rand(gen::GenContext, m::BATPwrMeasure)
     cunit = get_compute_unit(gen)
-    adapt(cunit, map(_ -> rand(rng, m.parent), _cartidxs(m.axes)))
+    rng = get_rng(gen)
+    axs = map(Base.OneTo, m.sz)
+    adapt(cunit, map(_ -> rand(rng, m.parent), _cartidxs(axs)))
 end
 
 function Base.rand(gen::GenContext, m::BATPwrMeasure{<:BATDistMeasure})
@@ -67,7 +70,7 @@ MeasureBase.marginals(m::BATPwrMeasure) = Fill(_pwr_base(m), _pwr_size(m))
     @assert size(x) == _pwr_size(m)
     m_base = _pwr_base(m)
     sum(x) do x_i
-        logdensity_def(m_base, x_i)
+        logdensityof(m_base, x_i)
     end
 end
 
@@ -87,3 +90,9 @@ MeasureBase.getdof(m::BATPwrMeasure) = getdof(_pwr_base(m)) * prod(_pwr_size(m))
 MeasureBase.massof(m::BATPwrMeasure) = massof(_pwr_base(m))^prod(_pwr_size(m))
 
 MeasureBase.params(m::BATPwrMeasure) = params(_pwr_base(m))
+
+
+# From MeasureBase:
+_dynamic(x::Number) = dynamic(x)
+#_dynamic(::Static.SOneTo{N}) where {N} = Base.OneTo(N)
+_dynamic(r::AbstractUnitRange) = minimum(r):maximum(r)

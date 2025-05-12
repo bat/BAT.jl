@@ -28,11 +28,11 @@ BATMeasure(m::PushforwardMeasure) = BATPushFwdMeasure(m.f, m.finv, batmeasure(m.
 
 MeasureBase.gettransform(m::BATPushFwdMeasure) = m.f
 
-MeasureBase.transport_origin(m::BATMeasure) = m.orig
+MeasureBase.transport_origin(m::BATMeasure) = m.origin
 MeasureBase.from_origin(m::BATMeasure, x) = m.f(x)
 MeasureBase.to_origin(m::BATMeasure, y) = m.finv(y)
 
-MeasureBase.getdof(m::BATPushFwdMeasure) = getdof(m.orig)
+MeasureBase.getdof(m::BATPushFwdMeasure) = getdof(m.origin)
 MeasureBase.getdof(m::_NonBijectiveBATPusfwdMeasure) = MeasureBase.NoDOF{typeof(m)}()
 
 MeasureBase.insupport(m::BATPushFwdMeasure, x) = insupport(transport_origin(m), to_origin(m, x))
@@ -70,8 +70,8 @@ function (f::DistributionTransform)(m::AbstractMeasure; volcorr::Val{vc} = Val(t
 end
 
 
-#!!!!!!!!! Use return type of f with testvalue, if no shape change return varshape(m.orig) directly
-#ValueShapes.varshape(m::BATPushFwdMeasure) = f(varshape(m.orig))
+#!!!!!!!!! Use return type of f with testvalue, if no shape change return varshape(m.origin) directly
+#ValueShapes.varshape(m::BATPushFwdMeasure) = f(varshape(m.origin))
 
 ValueShapes.varshape(m::BATPushFwdMeasure{<:DistributionTransform}) = varshape(m.f.target_dist)
 
@@ -135,9 +135,15 @@ function checked_logdensityof(m::BATPushFwdMeasure{F,I,M,KeepRootMeasure}, v::An
 end
 
 
-Random.rand(rng::AbstractRNG, ::Type{T}, m::BATPushFwdMeasure) where {T<:Real} = m.f(rand(rng, T, m.origin))
+Random.rand(gen::GenContext, m::BATPushFwdMeasure) = m.f(rand(gen, m.origin))
 
-Random.rand(rng::AbstractRNG, m::BATPushFwdMeasure) = m.f(rand(rng, m.origin))
+function Base.rand(gen::GenContext, m::BATPwrMeasure{<:BATPushFwdMeasure})
+    m_nonpwr, sz = m.parent, m.sz
+    f = m_nonpwr.f
+    m_origin = m_nonpwr.origin ^ sz
+    X_origin = rand(gen, m_origin)
+    return transform_samples(f, X_origin)
+end
 
 supports_rand(m::BATPushFwdMeasure) = supports_rand(m.origin)
 
