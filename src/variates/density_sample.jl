@@ -411,3 +411,86 @@ function repetition_to_weights(v::AbstractVector)
     end
     return (idxs, counts)
 end
+
+
+function LazyReports.pushcontent!(rpt::LazyReport, smplv::DensitySampleVector)
+    # ToDo: Forward context somehow instead of creating a new one here?
+    context = BATContext()
+
+    usmplv = unshaped.(smplv)
+    nsamples = length(eachindex(smplv))
+    total_weight = sum(smplv.weight)
+    ess = round.(Int, bat_eff_sample_size(usmplv, context).result)
+
+    lazyreport!(rpt, """
+    ### Sampling result
+
+    * Total number of samples: $nsamples
+    * Total weight of samples: $total_weight
+    * Effective sample size: between $(minimum(ess)) and $(maximum(ess))
+    """)
+
+    only_one_ci(viv::AbstractVector{<:AbstractInterval}) = length(viv) == 1 ? only(viv) : :multiple
+
+    marg_tbl = _marginal_table(smplv)
+    mod_marg_tbl = merge(Tables.columns(marg_tbl), (credible_intervals = map(only_one_ci, marg_tbl.credible_intervals),))
+    marg_headermap = Dict(:parameter => "Parameter", :mean => "Mean", :std => "Std. dev.", :global_mode => "Gobal mode", :marginal_mode => "Marg. mode", :credible_intervals => "Cred. interval", :marginal_histogram => "Histogram")
+    lazyreport!(
+        rpt,
+        "#### Marginals",
+        lazytable(mod_marg_tbl, headers = marg_headermap)
+    )
+
+    fixed_tbl = _rpt_table_of_constparvals(smplv)
+    if !isempty(fixed_tbl)
+        marg_headermap = Dict(:parameter => "Parameter", :value => "Value")
+
+        lazyreport!(rpt,
+            "#### Fixed parameters",
+            lazytable(fixed_tbl, headers = marg_headermap)
+        )
+    end
+
+    return nothing
+end
+
+
+function _marginal_table(smplv::DensitySampleVector)
+    parnames = map(string, all_active_names(elshape(smplv.v)))
+
+    usmplv = unshaped.(smplv)
+
+    credible_intervals = smallest_credible_intervals(usmplv)
+
+    mhists = _marginal_histograms(usmplv)
+
+    mm_alg = bat_default(bat_marginalmode, Val(:algorithm), usmplv)
+    marginal_mode = bat_marginalmode_impl(usmplv, mm_alg, _g_dummy_context).result
+
+    TypedTables.Table(
+        parameter = parnames,
+        mean = mean(usmplv),
+        std = std(usmplv),
+        global_mode = mode(usmplv),
+        marginal_mode = marginal_mode,
+        credible_intervals = credible_intervals,
+        marginal_histogram = mhists,
+    )
+end
+
+
+function _rpt_table_of_constparvals(smplv::DensitySampleVector)
+    vs = elshape(smplv.v)
+    # Need to convert, otherwise these can become Vector{Union{}} if parkeys is empty:
+    parkeys = convert(Vector{Symbol}, Symbol.(get_fixed_names(vs)))::Vector{Symbol}
+    parvalues = convert(Vector{Any}, [getproperty(vs, f).shape.value for f in parkeys])
+    str_parvalues = convert(Vector{String}, string.(parvalues))::Vector{String}
+    TypedTables.Table(parameter = parkeys, value = str_parvalues)
+end
+
+function _marginal_histograms(smpl::DensitySampleVector{<:AbstractVector{<:Real}}; nbins = 40)
+    trimmed_smpl = drop_low_weight_samples(smpl)
+    V = flatview(trimmed_smpl.v)
+    W = Weights(trimmed_smpl.weight)
+    [fit(Histogram, V[i,:], W, range(minimum(V[i,:]), maximum(V[i,:]), length = 41)) for i in axes(V,1)]
+end

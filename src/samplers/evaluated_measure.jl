@@ -133,15 +133,14 @@ end
 # end
 
 
-function bat_report!(md::Markdown.MD, em::EvaluatedMeasure)
+function LazyReports.pushcontent!(rpt::LazyReport, em::EvaluatedMeasure)
     if !isnothing(em.samples)
-        bat_report!(md, em.samples)
+        lazyreport!(rpt, em.samples)
     end
     if !isnothing(em._generator)
-        bat_report!(md, em._generator)
+        lazyreport!(rpt, em._generator)
     end
-
-    return md
+    return nothing
 end
 
 

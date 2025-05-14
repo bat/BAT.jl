@@ -72,7 +72,6 @@ BAT.UnshapeTransformation
 BAT.WhiteningAlgorithm
 
 BAT.logvalof
-BAT.bat_report!
 BAT.fft_autocor
 BAT.fft_autocov
 BAT.argchoice_msg
