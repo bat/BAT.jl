@@ -91,10 +91,10 @@ abstract type AbstractSampleGenerator end
 export AbstractSampleGenerator
 
 
-function bat_report!(md::Markdown.MD, generator::AbstractSampleGenerator)
+function LazyReports.pushcontent!(rpt::LazyReport, generator::AbstractSampleGenerator)
     alg = getproposal(generator)
     if !(isnothing(alg) || ismissing(alg))
-        markdown_append!(md, """
+        lazyreport!(rpt, """
         ### Sample generation:
 
         * Algorithm: $(nameof(typeof(alg)))

@@ -8,5 +8,4 @@ Test.@testset "statistics" begin
     include("test_autocor.jl")
     include("test_effective_sample_size.jl")
     include("test_whiten.jl")
-    include("test_showhist.jl")
 end

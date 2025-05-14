@@ -32,6 +32,9 @@ run more or less unchanged (with deprecation warnings). Also:
 * The `trafo` parameter of algorithms has been renamed to `pretransform`, the
   `trafo` field in algorithm results has been renamed to `f_pretransform`.
 
+* `bat_report` has been deprecated in favor of `LazyReports.lazyreport`
+  (drop-in compatible).
+
 
 ### New features
 
