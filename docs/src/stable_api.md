@@ -37,7 +37,6 @@ bat_findmode
 bat_initval
 bat_integrate
 bat_read
-bat_report
 bat_sample
 bat_write
 bat_transform

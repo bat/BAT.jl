@@ -331,19 +331,19 @@ end
 
 
 
-function bat_report!(md::Markdown.MD, generator::MCMCSampleGenerator)
+function LazyReports.pushcontent!(rpt::LazyReport, generator::MCMCSampleGenerator)
     mcalg = getalgorithm(generator)
     chains = generator.chains
     nchains = length(chains)
     n_tuned_chains = count(c -> c.info.tuned, chains)
     n_converged_chains = count(c -> c.info.converged, chains)
 
-    markdown_append!(md, """
+    lazyreport!(rpt, """
     ### Sample generation
 
     * Algorithm: MCMC, $(nameof(typeof(mcalg)))
     * MCMC chains: $nchains ($n_tuned_chains tuned, $n_converged_chains converged)
     """)
 
-    return md
+    return nothing
 end

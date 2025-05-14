@@ -256,9 +256,10 @@ par_cov = cov(unshaped_samples)
 println("Covariance: $par_cov")
 
 
-# Use `bat_report` to generate an overview of the sampling result and parameter estimates (based on the marginal distributions):
+# Use `LazyReports.lazyreport` to generate an overview of the sampling result and parameter estimates (based on the marginal distributions):
 
-bat_report(samples)
+using LazyReports
+lazyreport(samples)
 
 
 # ### Visualization of Results

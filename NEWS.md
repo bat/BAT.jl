@@ -32,6 +32,9 @@ can now be used as a parameter transformation in BAT.
 
 * `ReactiveNestedSampling` (experimental)
 
+* `bat_report` has been deprecated in favor of `LazyReports.lazyreport`
+  (drop-in compatible).
+
 
 Breaking changes
 ----------------
