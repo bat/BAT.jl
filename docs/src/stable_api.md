@@ -88,6 +88,7 @@ MaxDensitySearch
 MCMCAlgorithm
 MCMCBurninAlgorithm
 MCMCChainPoolInit
+MCMCRetryInit
 MCMCInitAlgorithm
 MCMCMultiCycleBurnin
 MCMCProposalTuning
