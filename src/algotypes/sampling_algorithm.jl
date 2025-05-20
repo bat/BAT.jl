@@ -44,7 +44,7 @@ function bat_sample_impl end
 
 function convert_for(::typeof(bat_sample), target)
     try
-        batsampleable(target)
+        batmeasure(target)
     catch err
         throw(ArgumentError("Can't convert $operation target of type $(nameof(typeof(target))) to a BAT-compatible measure."))
     end

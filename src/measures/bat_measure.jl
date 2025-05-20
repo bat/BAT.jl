@@ -151,26 +151,6 @@ batmeasure(::Missing) = missing
 
 
 """
-    batsampleable(obj)
-
-*Experimental feature, not part of stable public API.*
-
-Convert `obj` into something that BAT can sample from.
-"""
-batsampleable(obj) = batmeasure(obj)
-batsampleable(smpls::DensitySampleVector) = smpls
-
-
-function convert_for(operation::Function, target)
-    try
-        batmeasure(target)
-    catch err
-        throw(ArgumentError("Can't convert $operation target of type $(nameof(typeof(target))) to a BAT-compatible measure."))
-    end
-end
-
-
-"""
     supports_rand(m)
 
 *BAT-internal, not part of stable public API.*

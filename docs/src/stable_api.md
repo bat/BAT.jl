@@ -41,6 +41,10 @@ bat_sample
 bat_write
 bat_transform
 
+evalmeasure
+BAT.evalmeasure_impl
+BAT.evalmeasure_postproc
+
 get_batcontext
 set_batcontext
 log_batdebug

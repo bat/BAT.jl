@@ -16,7 +16,7 @@ function sample_and_verify(
     ref_dist::Distribution = target, context::BATContext = get_batcontext();
     max_retries::Integer = 1
 )
-    measure = batsampleable(target)
+    measure = convert_for(bat_sample, target)
     initial_smplres = bat_sample_impl(measure, samplingalg, context)
     smplres::typeof(initial_smplres) = initial_smplres
     verified::Bool = test_dist_samples(ref_dist, smplres.result, context)
