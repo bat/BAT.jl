@@ -39,7 +39,7 @@ function MCMCBasicStats(::Type{S}, ndof::Integer) where {
 }
     SL = promote_type(T, Float64)
     SP = promote_type(PT, W, Float64)
-    MCMCBasicStats{SL,SP}(ndof)
+    return MCMCBasicStats{SL,SP}(ndof)
 end
 
 MCMCBasicStats(chain::MCMCChainState) = MCMCBasicStats(sample_type(chain), totalndof(varshape(mcmc_target(chain))))

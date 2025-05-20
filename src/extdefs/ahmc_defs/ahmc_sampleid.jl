@@ -2,6 +2,7 @@
 
 struct AHMCSampleID <: SampleID
     chainid::Int32
+    walker::Int32
     chaincycle::Int32
     stepno::Int64
     sampletype::Int32
@@ -17,20 +18,25 @@ const AHMCSampleIDVector{TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Int64}
     AHMCSampleID,
     1,
     NamedTuple{
-        (:chainid, :chaincycle, :stepno, :sampletype, :hamiltonian_energy, :tree_depth, :divergent, :step_size),
-        Tuple{TV,TV,UV,TV,FV,TV,BV,FV}
+        (:chainid, :walkerid, :chaincycle, :stepno, :sampletype, :hamiltonian_energy, :tree_depth, :divergent, :step_size),
+        Tuple{TV,TV,TV,UV,TV,FV,TV,BV,FV}
     },
     Int
 }
 
 
-AHMCSampleIDVector(contents::NTuple{8,Any}) = StructArray{AHMCSampleID}(contents)
+AHMCSampleIDVector(contents::NTuple{9,Any}) = StructArray{AHMCSampleID}(contents)
 
 AHMCSampleIDVector(::UndefInitializer, len::Integer) = AHMCSampleIDVector((
-    Vector{Int32}(undef, len), Vector{Int32}(undef, len),
-    Vector{Int64}(undef, len), Vector{Int32}(undef, len),
-    Vector{Float64}(undef, len), Vector{Int32}(undef, len),
-    Vector{Bool}(undef, len), Vector{Float64}(undef, len),
+    Vector{Int32}(undef, len), 
+    Vector{Int32}(undef, len),
+    Vector{Int32}(undef, len),
+    Vector{Int64}(undef, len),
+    Vector{Int32}(undef, len),
+    Vector{Float64}(undef, len),
+    Vector{Int32}(undef, len),
+    Vector{Bool}(undef, len),
+    Vector{Float64}(undef, len),
 ))
 
 AHMCSampleIDVector() = AHMCSampleIDVector(undef, 0)
@@ -38,11 +44,11 @@ AHMCSampleIDVector() = AHMCSampleIDVector(undef, 0)
 
 _create_undef_vector(::Type{AHMCSampleID}, len::Integer) = AHMCSampleIDVector(undef, len)
 
-
 # Specialize comparison, currently StructArray seems fall back to `(==)(A::AbstractArray, B::AbstractArray)`
 import Base.==
 function(==)(A::AHMCSampleIDVector, B::AHMCSampleIDVector)
     A.chainid == B.chainid &&
+    A.walkerid == B.walkerid &&
     A.chaincycle == B.chaincycle &&
     A.stepno == B.stepno &&
     A.sampletype == B.sampletype &&

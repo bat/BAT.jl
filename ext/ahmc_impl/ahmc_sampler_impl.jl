@@ -19,20 +19,37 @@ BAT.bat_default(::Type{TransformedMCMC}, ::Val{:init}, proposal::HamiltonianMC, 
 BAT.bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::HamiltonianMC, pretransform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 250), max_ncycles = 4)
 
+
+function BAT._get_sample_id(proposal::HMCProposalState, chainid::Int32, walkerid::Int32, cycle::Int32, stepno::Integer, sample_type::Integer)
+    tstat = AdvancedHMC.stat(proposal.transition)
+
+    new_id = AHMCSampleID(chainid,
+                            walkerid,
+                            cycle,
+                            stepno,
+                            sample_type,
+                            tstat.hamiltonian_energy,
+                            tstat.tree_depth,
+                            tstat.numerical_error,
+                            tstat.step_size
+                        )
+    return new_id, AHMCSampleID
+end    
+
 # Change to incorporate the initial adaptive transform into f and fg
 function BAT._create_proposal_state(
     proposal::HamiltonianMC, 
     target::BATMeasure, 
     context::BATContext, 
-    v_init::AbstractVector{P}, 
+    v_init::AbstractVector{PV},
     f_transform::Function,
     rng::AbstractRNG
-) where {P<:Real}
+) where {P<:Real, PV<:AbstractVector{P}}
     vs = varshape(target)
     npar = totalndof(vs)
 
     params_vec = Vector{P}(undef, npar)
-    params_vec .= v_init
+    params_vec .= v_init[1]# TODO, MD: How to handle proposals for multiple walkers?
 
     adsel = get_adselector(context)
     f = checked_logdensityof(pullback(f_transform, target))
@@ -57,130 +74,62 @@ function BAT._create_proposal_state(
     )
 end
 
-
-function BAT._get_sample_id(proposal::HMCProposalState, id::Int32, cycle::Int32, stepno::Integer, sample_type::Integer)
-    return AHMCSampleID(id, cycle, stepno, sample_type, 0.0, 0, false, 0.0), AHMCSampleID
-end
-
-function BAT.next_cycle!(mc_state::HMCState)
-    _cleanup_samples(mc_state)
-
-    mc_state.info = MCMCChainStateInfo(mc_state.info, cycle = mc_state.info.cycle + 1)
-    mc_state.nsamples = 0
-    mc_state.stepno = 0
-
-    reset_rng_counters!(mc_state)
-
-    resize!(mc_state.samples, 1)
-
-    i = _proposed_sample_idx(mc_state)
-    @assert mc_state.samples.info[i].sampletype == CURRENT_SAMPLE
-    mc_state.samples.weight[i] = 1
-
-    t_stat = mc_state.proposal.transition.stat
-    
-    mc_state.samples.info[i] = AHMCSampleID(
-        mc_state.info.id, mc_state.info.cycle, mc_state.stepno, CURRENT_SAMPLE,
-        t_stat.hamiltonian_energy, t_stat.tree_depth,
-        t_stat.numerical_error, t_stat.step_size
-    )
-
-    mc_state
-end
-
-function BAT.mcmc_propose!!(mc_state::HMCState)
-    target = mc_state.target
-    proposal = mc_state.proposal
-    f_transform = mc_state.f_transform
-    samples = mc_state.samples
-    sample_z = mc_state.sample_z
-    context = mc_state.context
-
+function BAT.mcmc_propose!!(chain_state::HMCChainState)
+    (; target, proposal, f_transform, current, proposed, context) = chain_state
+    n_walkers = nwalkers(chain_state)
     rng = get_rng(context)
 
-    current_z_idx = _current_sample_z_idx(mc_state)
-    proposed_z_idx = _proposed_sample_z_idx(mc_state)
-
-    proposed_x_idx = _proposed_sample_idx(mc_state)
-
-    # location in normalized (or generally transformed) space ("z-space")
-    z_current = sample_z.v[current_z_idx]
-    z_proposed = sample_z.v[proposed_z_idx]
-
-    # location in target space ("x-space") which is generally pre-transformed
-    x_proposed = samples.v[proposed_x_idx]
-    
     τ = deepcopy(proposal.kernel.τ)
     @reset τ.integrator = AdvancedHMC.jitter(rng, τ.integrator)
 
     hamiltonian = proposal.hamiltonian
 
-    @static if isdefined(AdvancedHMC, :rand_momentum) #isdefined(AdvancedHMC.rand_momentum, Tuple{AbstractRNG, AdvancedHMC.AbstractMetric, AdvancedHMC.AbstractKinetic, AbstractVecOrMat})
+    @static if isdefined(AdvancedHMC, :rand_momentum)
         # For AdvnacedHMC.jl v >= 0.7 
         momentum = rand_momentum(rng, hamiltonian.metric, hamiltonian.kinetic, z_current[:])
     else
         momentum = rand(rng, hamiltonian.metric, hamiltonian.kinetic)
     end
-    
-    z_phase = AdvancedHMC.phasepoint(hamiltonian, vec(z_current[:]), momentum)
-    # Note: `RiemannianKinetic` requires an additional position argument, but including this causes issues. So only support the other kinetics.
 
-    proposal.transition = AdvancedHMC.transition(rng, τ, hamiltonian, z_phase)
-    p_accept = AdvancedHMC.stat(proposal.transition).acceptance_rate
+    p_accept = Vector{Float64}(undef, n_walkers)
 
-    z_proposed[:] =  proposal.transition.z.θ
-    accepted = z_current[:] != z_proposed[:]
-
-    p_accept = AdvancedHMC.stat(proposal.transition).acceptance_rate
-
-    x_proposed[:], ladj = with_logabsdet_jacobian(f_transform, z_proposed)    
-    logd_x_proposed = logdensityof(target, x_proposed)
-    samples.logd[proposed_x_idx] = logd_x_proposed
-
-    sample_z.logd[proposed_z_idx] = logd_x_proposed + ladj
-
-    return mc_state, accepted, p_accept
-end
-
-function BAT._accept_reject!(mc_state::HMCState, accepted::Bool, p_accept::Float64, current::Integer, proposed::Integer)
-    samples = mc_state.samples
-    proposal = mc_state.proposal
-
-    if accepted
-        samples.info.sampletype[current] = ACCEPTED_SAMPLE
-        samples.info.sampletype[proposed] = CURRENT_SAMPLE
-        mc_state.nsamples += 1
-        
-        tstat = AdvancedHMC.stat(proposal.transition)
-        samples.info.hamiltonian_energy[proposed] = tstat.hamiltonian_energy
-        # ToDo: Handle proposal-dependent tstat (only NUTS has tree_depth):
-        samples.info.tree_depth[proposed] = tstat.tree_depth
-        samples.info.divergent[proposed] = tstat.numerical_error
-        samples.info.step_size[proposed] = tstat.step_size
-    else
-        samples.info.sampletype[proposed] = REJECTED_SAMPLE
+    # TODO, MD: How should HMC handle multiple walkers?
+    for i in 1:n_walkers
+        z_phase = AdvancedHMC.phasepoint(hamiltonian, current.z.v[i][:], momentum)
+        proposal.transition = AdvancedHMC.transition(rng, τ, hamiltonian, z_phase)
+        proposed.z.v[i] = proposal.transition.z.θ
+        p_accept[i] = AdvancedHMC.stat(proposal.transition).acceptance_rate
     end
 
-    delta_w_current, w_proposed = BAT.mcmc_weight_values(mc_state.weighting, p_accept, accepted)
+    chain_state.accepted = proposed.z.v .!= current.z.v
     
-    samples.weight[current] += delta_w_current
-    samples.weight[proposed] = w_proposed
+    trafo_proposed = with_logabsdet_jacobian.(f_transform, proposed.z.v)
+    proposed.x.v .= getfield.(trafo_proposed, 1)
+    ladj = getfield.(trafo_proposed, 2)
+
+    logd_x_proposed = BAT.checked_logdensityof.(target, proposed.x.v)
+    logd_z_proposed = logd_x_proposed .+ ladj
+
+    chain_state.proposed.x.logd .= logd_x_proposed
+    chain_state.proposed.z.logd .= logd_z_proposed
+
+    return chain_state, p_accept
 end
 
-BAT.eff_acceptance_ratio(mc_state::HMCState) = nsamples(mc_state) / nsteps(mc_state)
+BAT.eff_acceptance_ratio(chain_state::HMCChainState) = nsamples(chain_state) / nsteps(chain_state)
 
-function BAT.set_mc_state_transform!!(mc_state::HMCState, f_transform_new::Function) 
-    adsel = get_adselector(mc_state.context)
-    f = checked_logdensityof(pullback(f_transform_new, mc_state.target))
+function BAT.set_mc_transform!!(chain_state::HMCChainState, f_transform_new::Function) 
+    adsel = get_adselector(chain_state.context)
+    f = checked_logdensityof(pullback(f_transform_new, chain_state.target))
     fg = valgrad_func(f, adsel)
     
-    h = mc_state.proposal.hamiltonian 
+    h = chain_state.proposal.hamiltonian 
 
     h = @set h.ℓπ = f
     h = @set h.∂ℓπ∂θ = fg 
 
-    mc_state_new = @set mc_state.proposal.hamiltonian = h
+    chain_state_new = @set chain_state.proposal.hamiltonian = h
 
-    mc_state_new = @set mc_state_new.f_transform = f_transform_new
-    return mc_state_new
+    chain_state_new = @set chain_state_new.f_transform = f_transform_new
+    return chain_state_new
 end

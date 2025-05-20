@@ -10,6 +10,7 @@ abstract type SampleID end
 
 struct MCMCSampleID <: SampleID
     chainid::Int32
+    walkerid::Int32
     chaincycle::Int32
     stepno::Int64
     sampletype::Int32
@@ -19,18 +20,21 @@ end
 const MCMCSampleIDVector{TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Int64}} = StructArray{
     MCMCSampleID,
     1,
-    NamedTuple{(:chainid, :chaincycle, :stepno, :sampletype), Tuple{TV,TV,UV,UV}},
+    NamedTuple{(:chainid, :walkerid, :chaincycle, :stepno, :sampletype), Tuple{TV,TV,TV,UV,TV}},
     Int
 }
 
 
-function MCMCSampleIDVector(contents::Tuple{TV,TV,UV,UV}) where {TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Int64}}
+function MCMCSampleIDVector(contents::Tuple{TV,TV,TV,UV,TV}) where {TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Int64}}
     StructArray{MCMCSampleID}(contents)::MCMCSampleIDVector{TV,UV}
 end
 
 MCMCSampleIDVector(::UndefInitializer, len::Integer) = MCMCSampleIDVector((
-    Vector{Int32}(undef, len), Vector{Int32}(undef, len),
-    Vector{Int64}(undef, len), Vector{Int64}(undef, len)
+    Vector{Int32}(undef, len),
+    Vector{Int32}(undef, len),
+    Vector{Int32}(undef, len),
+    Vector{Int64}(undef, len),
+    Vector{Int32}(undef, len),
 ))
 
 MCMCSampleIDVector() = MCMCSampleIDVector(undef, 0)
@@ -43,6 +47,7 @@ _create_undef_vector(::Type{MCMCSampleID}, len::Integer) = MCMCSampleIDVector(un
 import Base.==
 function(==)(A::MCMCSampleIDVector, B::MCMCSampleIDVector)
     A.chainid == B.chainid &&
+    A.walkerid == B.walkerid &&
     A.chaincycle == B.chaincycle &&
     A.stepno == B.stepno &&
     A.sampletype == B.sampletype

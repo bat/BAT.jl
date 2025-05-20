@@ -34,10 +34,11 @@ $(TYPEDFIELDS)
     transform_tuning::ATT = bat_default(TransformedMCMC, Val(:transform_tuning), adaptive_transform)
     tempering::TE = bat_default(TransformedMCMC, Val(:tempering), proposal)
     nchains::Int = 4
-    nsteps::Int = bat_default(TransformedMCMC, Val(:nsteps), proposal, pretransform, nchains)
+    nwalkers::Int = bat_default(TransformedMCMC, Val(:nwalkers), proposal, pretransform, transform_tuning, nchains)
+    nsteps::Int = bat_default(TransformedMCMC, Val(:nsteps), proposal, pretransform, transform_tuning, nchains, nwalkers)
     #TODO: max_time ?
-    init::IN = bat_default(TransformedMCMC, Val(:init), proposal, pretransform, nchains, nsteps)
-    burnin::BI = bat_default(TransformedMCMC, Val(:burnin), proposal, pretransform, nchains, nsteps)
+    init::IN = bat_default(TransformedMCMC, Val(:init), proposal, pretransform, transform_tuning, nchains, nwalkers, nsteps)
+    burnin::BI = bat_default(TransformedMCMC, Val(:burnin), proposal, pretransform, transform_tuning, nchains, nwalkers, nsteps)
     convergence::CT = BrooksGelmanConvergence()
     strict::Bool = true
     store_burnin::Bool = false
@@ -64,14 +65,16 @@ function MCMCState(samplingalg::TransformedMCMC, target::BATMeasure, id::Integer
 end
 
 
-bat_default(::TransformedMCMC, ::Val{:pretransform}) = PriorToNormal()
+bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}) = PriorToNormal()
 
-bat_default(::TransformedMCMC, ::Val{:nsteps}, ::AbstractTransformTarget, nchains::Integer) = 10^5
+bat_default(::Type{TransformedMCMC}, ::Val{:nwalkers}, ::MCMCProposal, ::AbstractTransformTarget, ::MCMCTransformTuning, nchains::Integer) = 1
 
-bat_default(::TransformedMCMC, ::Val{:init}, ::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{TransformedMCMC}, ::Val{:nsteps}, ::MCMCProposal, ::AbstractTransformTarget, ::MCMCTransformTuning, nchains::Integer, nwalkers::Integer) = 10^5
+
+bat_default(::Type{TransformedMCMC}, ::Val{:init}, ::MCMCProposal, ::AbstractTransformTarget, ::MCMCTransformTuning, nchains::Integer, nwalkers::Integer, nsteps::Integer) =
     MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
 
-bat_default(::TransformedMCMC, ::Val{:burnin}, ::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, ::MCMCProposal, ::AbstractTransformTarget, ::MCMCTransformTuning, nchains::Integer, nwalkers::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
 function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::BATContext)
@@ -86,9 +89,9 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
     )
 
     if !samplingalg.store_burnin
-        chain_outputs .= DensitySampleVector.(mcmc_states)
+        chain_outputs = _empty_chain_outputs.(mcmc_states)
     end
-
+    
     mcmc_states = mcmc_burnin!(
         samplingalg.store_burnin ? chain_outputs : nothing,
         mcmc_states,
@@ -105,10 +108,23 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
         nonzero_weights = samplingalg.nonzero_weights
     )
 
-    samples_transformed = DensitySampleVector(first(mcmc_states))
-    isempty(chain_outputs) || append!.(Ref(samples_transformed), chain_outputs)
+    samples_transformed = _merge_chain_outputs(first(mcmc_states), chain_outputs)
 
     smpls = inverse(f_pretransform).(samples_transformed)
 
     (result = smpls, result_trafo = samples_transformed, f_pretransform = f_pretransform, generator = MCMCSampleGenerator(mcmc_states))
+end
+
+function _merge_chain_outputs(mcmc_state::MCMCState, chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}})
+    merged_output = _empty_DensitySampleVector(mcmc_state)
+
+    for walker_outputs in chain_outputs
+        for walker_output in walker_outputs
+            if !isempty(walker_output)
+                append!(merged_output, walker_output)
+            end
+        end
+    end
+
+    return merged_output
 end

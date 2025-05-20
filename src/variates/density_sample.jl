@@ -245,6 +245,15 @@ end
 
 Base.merge(X::DensitySampleVector, Xs::DensitySampleVector...) = merge!(deepcopy(X), Xs...)
 
+function checked_push!(samples::DensitySampleVector, new_sample::DensitySample)
+    if !isempty(samples) && last(samples).v == new_sample.v
+        samples.weight[end] += new_sample.weight
+    else
+        push!(samples, new_sample)
+    end
+    samples
+end
+
 
 function Base.Broadcast.broadcasted(shaper::Union{AbstractValueShape, typeof(unshaped)}, A::DensitySampleVector)
     DensitySampleVector((

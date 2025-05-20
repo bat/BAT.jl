@@ -119,8 +119,6 @@ BAT.current_sample(chain::SomeMCMCIter)::DensitySample
 
 BAT.sample_type(chain::SomeMCMCIter)::Type{<:DensitySample}
 
-BAT.samples_available(chain::SomeMCMCIter, nonzero_weights::Bool = false)::Bool
-
 BAT.get_samples!(samples::DensitySampleVector, chain::SomeMCMCIter, nonzero_weights::Bool)::typeof(samples)
 
 BAT.next_cycle!(chain::SomeMCMCIter)::SomeMCMCIter
@@ -226,8 +224,6 @@ function current_sample end
 
 function sample_type end
 
-function samples_available end
-
 function get_samples! end
 
 function next_cycle! end
@@ -264,7 +260,7 @@ function mcmc_iterate!! end
 # TODO: MD, reincorporate user callback
 # TODO: MD, incorporate use of Tempering, so far temperer is not used 
 function mcmc_iterate!!(
-    output::Union{DensitySampleVector,Nothing},
+    output::Union{<:AbstractVector{<:DensitySampleVector},Nothing},
     mcmc_state::MCMCState;
     max_nsteps::Integer = 1,
     max_time::Real = Inf,
@@ -276,12 +272,12 @@ function mcmc_iterate!!(
     log_time = start_time
     start_nsteps = nsteps(mcmc_state)
     start_nsamples = nsamples(mcmc_state)
+    perform_step = true 
 
-    while (
-        (nsteps(mcmc_state) - start_nsteps) < max_nsteps &&
-        (time() - start_time) < max_time
-    )
-        mcmc_state = mcmc_step!!(mcmc_state)
+    while (perform_step && (time() - start_time) < max_time)
+        perform_step = nsteps(mcmc_state) - start_nsteps < max_nsteps      
+        
+        mcmc_state = perform_step ? mcmc_step!!(mcmc_state) : flush_samples!!(mcmc_state)
 
         if !isnothing(output)
             get_samples!(output, mcmc_state, nonzero_weights)
@@ -300,7 +296,7 @@ function mcmc_iterate!!(
 end
 
 function mcmc_iterate!!(
-    outputs::Union{AbstractVector{<:DensitySampleVector},Nothing},
+    outputs::Union{AbstractVector{<:AbstractVector{<:DensitySampleVector}}, Nothing},
     mcmc_states::AbstractVector{<:MCMCState};
     kwargs...
 )
@@ -321,13 +317,13 @@ function mcmc_iterate!!(
     return mcmc_states_new
 end
 
-isvalidstate(chain_state::MCMCIterator) = current_sample(chain_state).logd > -Inf
+isvalidstate(chain_state::MCMCIterator) = all(current_sample(chain_state).logd .> -Inf)
 
 isviablestate(chain_state::MCMCIterator) = nsamples(chain_state) >= 2
 
-isvalidstate(states::MCMCState) = current_sample(states.chain_state).logd > -Inf
+isvalidstate(mcmc_state::MCMCState) = isvalidstate(mcmc_state.chain_state)
 
-isviablestate(states::MCMCState) = nsamples(states.chain_state) >= 2
+isviablestate(mcmc_state::MCMCState) = isvalidstate(mcmc_state.chain_state)
 
 
 

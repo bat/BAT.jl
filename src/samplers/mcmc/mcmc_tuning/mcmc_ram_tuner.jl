@@ -49,15 +49,16 @@ end
 
 mcmc_tuning_reinit!!(tuner_state::RAMTrafoTunerState, chain_state::MCMCChainState, max_nsteps::Integer) = nothing
 
-mcmc_tuning_postinit!!(tuner::RAMTrafoTunerState, chain::MCMCChainState, samples::DensitySampleVector) = nothing
+mcmc_tuning_postinit!!(tuner::RAMTrafoTunerState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector}) = nothing
 
 
-function mcmc_tune_post_cycle!!(tuner::RAMTrafoTunerState, chain_state::MCMCChainState, samples::DensitySampleVector)
+function mcmc_tune_post_cycle!!(tuner::RAMTrafoTunerState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector})
     α_min = (1 - tuner.tuning.σ_target_acceptance) * tuner.tuning.target_acceptance
     α_max = (1 + tuner.tuning.σ_target_acceptance) * tuner.tuning.target_acceptance
     α = eff_acceptance_ratio(chain_state)
 
-    max_log_posterior = maximum(samples.logd)
+    logds = [walker_smpls.logd for walker_smpls in samples]
+    max_log_posterior = maximum(maximum.(logds))
 
     if α_min <= α <= α_max
         chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = true)
@@ -73,37 +74,42 @@ mcmc_tuning_finalize!!(tuner::RAMTrafoTunerState, chain::MCMCChainState) = nothi
 
 function mcmc_tune_post_step!!(
     tuner_state::RAMTrafoTunerState, 
-    mc_state::MCMCChainState,
-    p_accept::Real,
+    chain_state::MCMCChainState,
+    p_accept::AbstractVector{<:Real},
 )
-
-    if current_sample_z(mc_state).v == proposed_sample_z(mc_state)
-        return mc_state, tuner_state
+    (; f_transform, current, proposed) = chain_state
+    
+    if any(current.x.v .== proposed.x.v)
+        return chain_state, tuner_state
     end
-
-    (; f_transform, sample_z) = mc_state
+    
     (; target_acceptance, gamma) = tuner_state.tuning
     b = f_transform.b
+    n_dims = length(b)
 
     tuner_state_new = @set tuner_state.nsteps = tuner_state.nsteps + 1
 
-    n_dims = size(sample_z.v[1], 1)
     η = min(1, n_dims * tuner_state.nsteps^(-gamma))
 
-    s_L = f_transform.A
+    Σ_L = f_transform.A
 
-    u = sample_z.v[2] - sample_z.v[1] # proposed - current
-    M = s_L * (I + η * (p_accept - target_acceptance) * (u * u') / norm(u)^2) * s_L'
-    new_s_L = oftype(s_L, cholesky(Positive, M).L)
-       
-    x = mc_state.samples[_proposed_sample_idx(mc_state)] # proposed in x-space
+    u = proposed.z.v .- current.z.v
+    U = stack(u)
+    weights = (p_accept .- target_acceptance) ./ norm.(u).^2
+    U_w = U .* weights'
+    A = Σ_L * (U_w * U') * Σ_L'
+    M = Σ_L * Σ_L' + η * A
+    Σ_L_new = oftype(Σ_L, cholesky(Positive, M).L)
+
     mean_update_rate = η / 10 # heuristic
-    α = mean_update_rate * p_accept
-    new_b = oftype(b, (1- α) * b + α * x.v)
+    α = mean_update_rate .* p_accept
 
-    f_transform_new = MulAdd(new_s_L, new_b)
+    update = α .* (proposed.x.v .- [b])
+    new_b = 1 / nwalkers(chain_state) * oftype.(b, sum(update .+ [b])) # = (1 - α) * b + α * proposed.x.v 
 
-    mc_state_new = set_mc_state_transform!!(mc_state, f_transform_new)
+    f_transform_new = MulAdd(Σ_L_new, new_b)
+
+    mc_state_new = set_mc_transform!!(chain_state, f_transform_new)
     mc_state_new = mcmc_update_z_position!!(mc_state_new)
 
     return mc_state_new, tuner_state_new

@@ -198,6 +198,10 @@ function _h5io_read_postprocess(nt::NamedTuple{(:logd, :v, :weight)})
 end
 
 
+_h5io_read_postprocess(nt::NamedTuple{(:chainid, :walkerid, :chaincycle, :stepno, :sampletype)}) =
+    MCMCSampleIDVector((nt.chainid, nt.walkerid, nt.chaincycle, nt.stepno, nt.sampletype))
+
+# This method is needed for older hdf5 files where `walkerid` was not yet used
 _h5io_read_postprocess(nt::NamedTuple{(:chainid, :chaincycle, :stepno, :sampletype)}) =
     MCMCSampleIDVector((nt.chainid, nt.chaincycle, nt.stepno, nt.sampletype))
 

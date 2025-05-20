@@ -3,7 +3,7 @@ using BAT
 using Test
 
 using LinearAlgebra
-using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityInterface
+using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
 
 @testset "RandomWalk" begin
     context = BATContext()
@@ -16,26 +16,39 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
 
     proposal = RandomWalk()
     nchains = 4
+    nwalkers = 1
 
-    samplingalg = TransformedMCMC()
+    samplingalg = TransformedMCMC(nchains = nchains, nwalkers = nwalkers)
  
     @testset "MCMC iteration" begin
-        v_init = bat_initval(target, InitFromTarget(), context).result
+        v_inits = BAT.bat_ensemble_initvals(target, InitFromTarget(), nwalkers, context)
         # TODO: MD, Reactivate type inference tests
-        # @test @inferred(BAT.MCMCChainState(samplingalg, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))) isa BAT.MHChainState
-        # chain = @inferred(BAT.MCMCChainState(samplingalg, target, 1, unshaped(v_init, varshape(target)), deepcopy(context))) 
-        mcmc_state = BAT.MCMCState(samplingalg, target, 1, unshaped(v_init, varshape(target)), deepcopy(context)) 
-        samples = DensitySampleVector(mcmc_state)
-        mcmc_state = BAT.mcmc_iterate!!(samples, mcmc_state; max_nsteps = 10^5, nonzero_weights = false)
+        # @test @inferred(BAT.MCMCChainState(samplingalg, target, 1, unshaped.(v_inits), deepcopy(context))) isa BAT.MHChainState
+        # chain = @inferred(BAT.MCMCChainState(samplingalg, target, 1, unshaped.(v_inits), deepcopy(context))) 
+        mcmc_state = BAT.MCMCState(samplingalg, target, 1, unshaped.(v_inits), deepcopy(context))
+        chain_output = BAT._empty_chain_outputs(mcmc_state)
+        mcmc_state = BAT.mcmc_iterate!!(chain_output, mcmc_state; max_nsteps = 10^5, nonzero_weights = false)
+        
+        samples = BAT._empty_DensitySampleVector(mcmc_state)
+        for walker_output in chain_output
+            append!(samples, walker_output)
+        end
+
         @test mcmc_state.chain_state.stepno == 10^5
         @test minimum(samples.weight) == 0
         @test isapprox(length(samples), 10^5, atol = 20)
-        @test length(samples) == sum(samples.weight)
+        @test sum(samples.weight) == mcmc_state.chain_state.stepno
         @test isapprox(mean(samples), [1, -1, 2], atol = 0.2)
         @test isapprox(cov(samples), cov(unshaped(objective)), atol = 0.3)
 
-        samples = DensitySampleVector(mcmc_state)
-        mcmc_state = BAT.mcmc_iterate!!(samples, mcmc_state; max_nsteps = 10^3, nonzero_weights = true)
+        chain_output = BAT._empty_chain_outputs(mcmc_state)
+        mcmc_state = BAT.mcmc_iterate!!(chain_output, mcmc_state; max_nsteps = 10^3, nonzero_weights = true)
+
+        samples = BAT._empty_DensitySampleVector(mcmc_state)
+        for walker_output in chain_output
+            append!(samples, walker_output)
+        end
+
         @test minimum(samples.weight) == 1
     end
  
@@ -54,6 +67,7 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
             transform_tuning = tuning_alg,
             burnin = burnin_alg,
             nchains = nchains,
+            nwalkers = nwalkers,
             convergence = convergence_test,
             strict = true,
             nonzero_weights = nonzero_weights
@@ -67,31 +81,34 @@ using StatsBase, Distributions, StatsBase, ValueShapes, ArraysOfArrays, DensityI
             context
         ))
 
-        (mcmc_states, outputs) = init_result
+        (mcmc_states, chain_outputs) = init_result
 
         # TODO: MD, Reactivate, for some reason fail
         # @test mcmc_states isa AbstractVector{<:BAT.MHChainState}
         # @test tuners isa AbstractVector{<:BAT.AdaptiveAffineTuningState}
-        @test outputs isa AbstractVector{<:DensitySampleVector}
+        @test chain_outputs isa AbstractVector{<:AbstractVector{<:DensitySampleVector}}
 
-        BAT.mcmc_burnin!(
-            outputs,
+        mcmc_states = BAT.mcmc_burnin!(
+            chain_outputs,
             mcmc_states,
             samplingalg,
             callback
         )
 
+        BAT.next_cycle!.(mcmc_states)
+
         mcmc_states = BAT.mcmc_iterate!!(
-            outputs,
+            chain_outputs,
             mcmc_states;
             max_nsteps = div(max_nsteps, length(mcmc_states)),
             nonzero_weights = nonzero_weights
         )
 
-        samples = DensitySampleVector(first(mcmc_states))
-        append!.(Ref(samples), outputs)
-        
-        @test length(samples) == sum(samples.weight)
+        samples = BAT._merge_chain_outputs(first(mcmc_states), chain_outputs)
+
+        # The initial sample in each cycle has weight 0, but is still saved to output. Depending on whether or not
+        # the final proposed sample is accepted, the lenght of the final output may vary
+        @test isapprox(length(samples), sum(samples.weight), atol = nchains * mcmc_states[1].chain_state.info.cycle)
         @test BAT.test_dist_samples(unshaped(objective), samples)
     end
 

@@ -53,7 +53,7 @@ end
 
 
 function AdaptiveAffineTuningState(tuning::AdaptiveAffineTuning, chain_state::MCMCChainState)
-    T = eltype(eltype(chain_state.samples.v))
+    T = eltype(eltype(chain_state.current.x.v))
     scale = one(T)
     AdaptiveAffineTuningState(tuning, MCMCBasicStats(chain_state), 1, scale)
 end
@@ -61,30 +61,29 @@ end
 
 create_trafo_tuner_state(tuning::AdaptiveAffineTuning, chain_state::MCMCChainState, iteration::Integer) = AdaptiveAffineTuningState(tuning, chain_state)
 
-
-function mcmc_tuning_init!!(tuner_state::AdaptiveAffineTuningState, chain_state::MCMCChainState, max_nsteps::Integer)
-    nothing
-end
-
+mcmc_tuning_init!!(tuner_state::AdaptiveAffineTuningState, chain_state::MCMCChainState, max_nsteps::Integer) = nothing
 
 mcmc_tuning_reinit!!(tuner_state::AdaptiveAffineTuningState, chain_state::MCMCChainState, max_nsteps::Integer) = nothing
 
 
-function mcmc_tuning_postinit!!(tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState, samples::DensitySampleVector)
+function mcmc_tuning_postinit!!(tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector})
     # The very first samples of a chain can be very valuable to init tuner
     # stats, especially if the chain gets stuck early after:
-    stats = tuner.stats
-    append!(stats, samples)
+    for i in 1:nwalkers(chain_state)
+        append!(tuner.stats, samples[i])
+    end
 end
 
 
-# TODO: MD, make properly !!
-function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState, samples::DensitySampleVector)
+function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector})
     tuning = tuner.tuning
     stats = tuner.stats
     stats_reweight_factor = tuning.r
     reweight_relative!(stats, stats_reweight_factor)
-    append!(stats, samples)
+
+    for i in 1:nwalkers(chain_state)
+        append!(stats, samples[i])
+    end
 
     α_min = minimum(tuning.α)
     α_max = maximum(tuning.α)
@@ -102,7 +101,9 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::M
     A = f_transform.A
     Σ_old = A * A'
 
-    S = convert(Array, stats.param_stats.cov)
+    param_stats = stats.param_stats
+    S = convert(Array, param_stats.cov)
+    
     a_t = 1 / t^λ
     new_Σ_unscal = (1 - a_t) * (Σ_old/c) + a_t * S
 
@@ -128,7 +129,7 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::M
     A_new = oftype(A, cholesky(Positive, Σ_new).L)
     
     b = chain_state.f_transform.b
-    b_new = oftype(b, (1 - a_t) * b + a_t * stats.param_stats.mean)
+    b_new = oftype(b, (1 - a_t) * b + a_t * param_stats.mean)
 
     chain_state.f_transform = MulAdd(A_new, b_new)
     
@@ -143,11 +144,10 @@ end
 
 mcmc_tuning_finalize!!(tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState) = nothing
 
-# add a boold to return if the transfom changes 
 function mcmc_tune_post_step!!(
     tuner::AdaptiveAffineTuningState,
     chain_state::MCMCChainState,
-    p_accept::Real
+    p_accept::AbstractVector{<:Real}
 )
     return chain_state, tuner
 end

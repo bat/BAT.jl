@@ -46,9 +46,9 @@ export HamiltonianMC
 mutable struct HMCProposalState{
     IT,
     TC,
-    HA,#<:AdvancedHMC.Hamiltonian,
-    KRNL,#<:AdvancedHMC.HMCKernel
-    TR# <:AdvancedHMC.Transition
+    HA,   # <:AdvancedHMC.Hamiltonian,
+    KRNL, # <:AdvancedHMC.HMCKernel
+    TR    # <:AdvancedHMC.Transition
 } <: MCMCProposalState
     integrator::IT
     termination::TC
@@ -59,4 +59,4 @@ end
 
 export HMCProposalState
 
-const HMCState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:HMCProposalState}
+const HMCChainState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:HMCProposalState}

@@ -1,8 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-
-# TODO: MD, adjust docstring to new typestructure
-# TODO: MD, use Accessors.jl to make immutable 
+# TODO: MD, use Accessors.jl to make immutable
 """
     MCMCChainState
 
@@ -22,8 +20,10 @@ mutable struct MCMCChainState{
     proposal::P
     f_transform::FT
     weighting::WS
-    samples::SVX
-    sample_z::SVZ
+    current::@NamedTuple{x::SVX, z::SVZ}
+    proposed::@NamedTuple{x::SVX, z::SVZ}
+    output::SVX
+    accepted::Vector{Bool}
     info::MCMCChainStateInfo
     rngpart_cycle::PR
     nsamples::Int64
@@ -35,73 +35,86 @@ export MCMCChainState
 function MCMCChainState(
     samplingalg::TransformedMCMC,
     target::BATMeasure,
-    id::Integer,
-    v_init::AbstractVector{P},
+    chainid::Integer,
+    x_init::AbstractVector{PV},
     context::BATContext
-) where {P<:Real}
+) where {P<:Real, PV<:AbstractVector{P}}
+    n_walkers = length(x_init)
     target_unevaluated = unevaluated(target)
     
     rngpart_cycle = RNGPartition(get_rng(context), 0:(typemax(Int16) - 2))
     rng = get_rng(context)
-    n_dims = getdof(target)
-    
+     
     f = init_adaptive_transform(samplingalg.adaptive_transform, target, context)
     f_inv = inverse(f)
-    logd_x = logdensityof(target_unevaluated, v_init)
+    proposal = _create_proposal_state(samplingalg.proposal, target, context, x_init, f, rng)
     
-    z = f_inv(v_init) 
-    logd_z = logdensityof(MeasureBase.pullback(f, target_unevaluated), z)
+    logd_x_init = logdensityof.(target_unevaluated, x_init)
+    z_init = f_inv.(x_init) 
+    logd_z_init = logdensityof.(MeasureBase.pullback(f, target_unevaluated), z_init)
+    
+    W = mcmc_weight_type(samplingalg.sample_weighting)
+    
+    sample_weights_curr = zeros(W, n_walkers)
+    sample_info_curr = [_get_sample_id(proposal, Int32(chainid), Int32(i), one(Int32), 1, ACCEPTED_SAMPLE)[1] for i in 1:n_walkers]
+    sample_aux_curr = fill(nothing, n_walkers)
 
-    proposal = _create_proposal_state(samplingalg.proposal, target, context, v_init, f, rng)
+    current_x_init = DensitySampleVector(
+        x_init, 
+        logd_x_init;
+        weight = sample_weights_curr, 
+        info = sample_info_curr,
+        aux = sample_aux_curr
+    )
+    current_z_init = DensitySampleVector(
+        z_init, 
+        logd_z_init;
+        weight = deepcopy(sample_weights_curr), 
+        info = deepcopy(sample_info_curr),
+        aux = deepcopy(sample_aux_curr)
+    )
+    
+    prop_locs_init = deepcopy(x_init)
+    prop_logds_init = deepcopy(logd_x_init)
+    sample_weights_prop = zeros(W, n_walkers)
+    sample_info_prop = [_get_sample_id(proposal, Int32(chainid), Int32(i), one(Int32), 1, PROPOSED_SAMPLE)[1] for i in 1:n_walkers]
+    sample_aux_prop = fill(nothing, n_walkers)
+
+    proposed_init = DensitySampleVector(
+        prop_locs_init,
+        prop_logds_init;
+        weight = sample_weights_prop,
+        info = sample_info_prop,
+        aux = sample_aux_prop 
+    )
+
+    current = (x = current_x_init, z = current_z_init)
+    proposed = (x = deepcopy(proposed_init), z = deepcopy(proposed_init))
+    output = deepcopy(current_x_init)
+    accepted = fill(false, n_walkers)
+    
     stepno::Int64 = 0
     cycle::Int32 = 0
     nsamples::Int64 = 0
-
-    W = mcmc_weight_type(samplingalg.sample_weighting)
-    T = typeof(logd_x)
-
-    info, sample_id_type = _get_sample_id(proposal, Int32(id), cycle, 1, CURRENT_SAMPLE)
-    sample_x = DensitySample(v_init, logd_x, one(W), info, nothing)
-
-    samples = DensitySampleVector{Vector{P}, T, W, sample_id_type, Nothing}(undef, 0, n_dims)
-    push!(samples, sample_x)
-
-    sample_z = DensitySampleVector{Vector{P}, T, W, sample_id_type, Nothing}(undef, 0, n_dims) 
-    sample_z_current = DensitySample(z, logd_z, one(W), info, nothing)
-    sample_z_proposed = DensitySample(z, logd_z, one(W), _get_sample_id(proposal, Int32(id), cycle, 1, PROPOSED_SAMPLE)[1], nothing)
-    push!(sample_z, sample_z_current, sample_z_proposed)
 
     state = MCMCChainState(
         target,
         proposal,
         f,
         samplingalg.sample_weighting,
-        samples,
-        sample_z,
-        MCMCChainStateInfo(id, cycle, false, false),
+        current,
+        proposed, 
+        output, 
+        accepted,
+        MCMCChainStateInfo(chainid, cycle, false, false),
         rngpart_cycle,
         nsamples,
         stepno,
         context
     )
 
-    # TODO: MD, resetting the counters necessary/desired? 
-    #reset_rng_counters!(state)
     state
 end
-
-@inline _current_sample_idx(chain_state::MCMCChainState) = firstindex(chain_state.samples)
-@inline _proposed_sample_idx(chain_state::MCMCChainState) = lastindex(chain_state.samples)
-
-@inline _current_sample_z_idx(chain_state::MCMCChainState) = firstindex(chain_state.sample_z)
-@inline _proposed_sample_z_idx(chain_state::MCMCChainState) = lastindex(chain_state.sample_z)
-
-@inline _current_sample_idx(mcmc_state::MCMCState) = firstindex(mcmc_state.chain_state.samples)
-@inline _proposed_sample_idx(mcmc_state::MCMCState) = lastindex(mcmc_state.chain_state.samples)
-
-@inline _current_sample_z_idx(mcmc_state::MCMCState) = firstindex(mcmc_state.chain_state.sample_z)
-@inline _proposed_sample_z_idx(mcmc_state::MCMCState) = lastindex(mcmc_state.chain_state.sample_z)
-
 
 get_proposal(state::MCMCChainState) = state.proposal
 
@@ -111,19 +124,21 @@ get_context(state::MCMCChainState) = state.context
 
 mcmc_info(state::MCMCChainState) = state.info
 
-nsteps(state::MCMCChainState) = state.stepno
-
 nsamples(state::MCMCChainState) = state.nsamples
 
-current_sample(state::MCMCChainState) = state.samples[_current_sample_idx(state)]
+nsteps(state::MCMCChainState) = state.stepno
 
-proposed_sample(state::MCMCChainState) = state.samples[_proposed_sample_idx(state)]
+nwalkers(state::MCMCChainState) = length(state.current.x.v)
 
-current_sample_z(state::MCMCChainState) = state.sample_z[_current_sample_z_idx(state)]
+current_sample(state::MCMCChainState) = state.current.x
 
-proposed_sample_z(state::MCMCChainState) = state.sample_z[_proposed_sample_z_idx(state)]
+proposed_sample(state::MCMCChainState) = state.proposed.x
 
-sample_type(state::MCMCChainState) = eltype(state.samples)
+current_sample_z(state::MCMCChainState) = state.current.z
+
+proposed_sample_z(state::MCMCChainState) = state.proposed.z
+
+sample_type(state::MCMCChainState) = eltype(state.current.x)
 
 
 mcmc_target(state::MCMCState) = mcmc_target(state.chain_state)
@@ -132,47 +147,77 @@ nsamples(state::MCMCState) = nsamples(state.chain_state)
 
 nsteps(state::MCMCState) = nsteps(state.chain_state)
 
+nwalkers(state::MCMCState) = nwalkers(state.chain_state)
 
-function DensitySampleVector(states::MCMCState)
-    DensitySampleVector(sample_type(states.chain_state), totalndof(varshape(mcmc_target(states))))
+
+_empty_DensitySampleVector(state::MCMCState) =  _empty_DensitySampleVector(state.chain_state)
+
+function _empty_DensitySampleVector(chain_state::MCMCChainState)
+    return DensitySampleVector(sample_type(chain_state), totalndof(varshape(mcmc_target(chain_state))))
 end
 
-function DensitySampleVector(chain_state::MCMCChainState)
-    DensitySampleVector(sample_type(chain_state), totalndof(varshape(mcmc_target(chain_state))))
+
+_empty_chain_outputs(state::MCMCState) = _empty_chain_outputs(state.chain_state)
+
+function _empty_chain_outputs(chain_state::MCMCChainState)
+    return fill(_empty_DensitySampleVector(chain_state), nwalkers(chain_state))
 end
 
 
 function mcmc_step!!(mcmc_state::MCMCState)
-    _cleanup_samples(mcmc_state)
     
     reset_rng_counters!(mcmc_state)
 
     chain_state = mcmc_state.chain_state
-
-    @unpack target, proposal, f_transform, samples, sample_z, nsamples, context = chain_state
     
     chain_state.stepno += 1
     
-    resize!(samples, size(samples, 1) + 1)
-
-    samples.info[lastindex(samples)] = _get_sample_id(proposal, chain_state.info.id, chain_state.info.cycle, chain_state.stepno, PROPOSED_SAMPLE)[1]
-
-    chain_state, accepted, p_accept = mcmc_propose!!(chain_state)
-
-    current = _current_sample_idx(chain_state)
-    proposed = _proposed_sample_idx(chain_state)
-
-    # This does not change `sample_z` in the chain_state, that happens in the next mcmc step in `_cleanup_samples()`.
-    _accept_reject!(chain_state, accepted, p_accept, current, proposed)
+    chain_state, p_accept = mcmc_propose!!(chain_state)
 
     mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, p_accept)
+    
+    chain_state = mcmc_state_new.chain_state
+    
+    (;proposal, current, proposed, accepted, output) = chain_state
+
+    chain_state.nsamples += sum(accepted)
+
+    # Set weights according to acceptance
+    delta_w_current, w_proposed = mcmc_weight_values(chain_state.weighting, p_accept, accepted)
+   
+    current.x.weight .+= delta_w_current
+    current.z.weight .+= delta_w_current
+
+    proposed.x.weight .= w_proposed
+    proposed.z.weight .= w_proposed
+
+    idxs_acc = findall(accepted)
+    idxs_rej = findall(!, accepted)
+
+    # Mark proposed samples as accepted or rejected
+    for i in eachindex(proposed.x)
+        old_info = proposed.x.info[i]
+
+        sample_type = accepted[i] ? ACCEPTED_SAMPLE : REJECTED_SAMPLE
+        new_info, _ = _get_sample_id(proposal, old_info.chainid, Int32(i), old_info.chaincycle, chain_state.stepno, sample_type)
+
+        proposed.x.info[i] = new_info
+        proposed.z.info[i] = new_info
+    end
+
+    # Save current points to output if they will be overwritten, and save rejected proposed points
+    output[idxs_acc] = @view current.x[idxs_acc]
+    output[idxs_rej] = @view proposed.x[idxs_rej]
+
+    # Overwrite current points with accepted proposed points
+    current.x[idxs_acc] = @view proposed.x[idxs_acc]
+    current.z[idxs_acc] = @view proposed.z[idxs_acc]
 
     chain_state = mcmc_state_new.chain_state
     mcmc_state_final = @set mcmc_state_new.chain_state = chain_state
 
     return mcmc_state_final
 end
-
 
 function reset_rng_counters!(chain_state::MCMCChainState)
     rng = get_rng(get_context(chain_state))
@@ -186,48 +231,26 @@ function reset_rng_counters!(mcmc_state::MCMCState)
     reset_rng_counters!(mcmc_state.chain_state)
 end
 
-function _cleanup_samples(chain_state::MCMCChainState)
-    samples = chain_state.samples
-    current = _current_sample_idx(chain_state)
-    proposed = _proposed_sample_idx(chain_state)
-    sample_z = chain_state.sample_z
-    current_z = _current_sample_z_idx(chain_state)
-    proposed_z = _proposed_sample_z_idx(chain_state)
-    if (current != proposed) && samples.info.sampletype[proposed] == CURRENT_SAMPLE
-        # Proposal was accepted in the last step
-        @assert samples.info.sampletype[current] == ACCEPTED_SAMPLE
-        samples.v[current] .= samples.v[proposed]
-        samples.logd[current] = samples.logd[proposed]
-        samples.weight[current] = samples.weight[proposed]
-        samples.info[current] = samples.info[proposed]
-
-        resize!(samples, 1)
-        # TODO: MD, discuss the usage of sample_z, and if it stays, clean it up and use proper info
-        sample_z.v[current_z] .= sample_z.v[proposed_z]
-        sample_z.logd[current_z] = sample_z.logd[proposed_z]
-    end
-end
-
-function _cleanup_samples(mcmc_state::MCMCState)
-    _cleanup_samples(mcmc_state.chain_state)
-end
-
 function next_cycle!(chain_state::MCMCChainState)
-    _cleanup_samples(chain_state)
+    n_walkers = nwalkers(chain_state)
 
-    chain_state.info = MCMCChainStateInfo(chain_state.info, cycle = chain_state.info.cycle + 1)
+    chain_state.info = MCMCChainStateInfo(chain_state.info.id, 
+                                          chain_state.info.cycle + 1, 
+                                          chain_state.info.tuned, 
+                                          chain_state.info.converged
+                                          )
     chain_state.nsamples = 0
     chain_state.stepno = 0
 
+    new_current_info_vec = [_get_sample_id(chain_state.proposal, chain_state.info.id, Int32(i), chain_state.info.cycle, 0, ACCEPTED_SAMPLE)[1] for i in 1:n_walkers]
+    chain_state.current.x.info .= new_current_info_vec
+    chain_state.current.z.info .= new_current_info_vec
+
+    new_proposed_info_vec = [_get_sample_id(chain_state.proposal, chain_state.info.id, Int32(i), chain_state.info.cycle, 0, PROPOSED_SAMPLE)[1] for i in 1:n_walkers]
+    chain_state.proposed.x.info .= new_proposed_info_vec
+    chain_state.proposed.z.info .= new_proposed_info_vec
+
     reset_rng_counters!(chain_state)
-
-    resize!(chain_state.samples, 1)
-
-    i = _proposed_sample_idx(chain_state)
-    @assert chain_state.samples.info[i].sampletype == CURRENT_SAMPLE
-    chain_state.samples.weight[i] = 1
-
-    chain_state.samples.info[i] = MCMCSampleID(chain_state.info.id, chain_state.info.cycle, chain_state.stepno, CURRENT_SAMPLE)
 
     chain_state
 end
@@ -236,21 +259,16 @@ function next_cycle!(state::MCMCState)
     next_cycle!(state.chain_state)
 end
 
-
+# This assumes 'appendable' to be a vector of appendables that respectively hold the samples for each walker
 function get_samples!(appendable, chain_state::MCMCChainState, nonzero_weights::Bool)::typeof(appendable)
-    if samples_available(chain_state)
-        samples = chain_state.samples
-
-        for i in eachindex(samples)
-            st = samples.info.sampletype[i]
-            if (
-                (st == ACCEPTED_SAMPLE || st == REJECTED_SAMPLE) &&
-                (samples.weight[i] > 0 || !nonzero_weights)
-            )
-                push!(appendable, samples[i])
-            end
-        end
+    chain_output = chain_state.output
+    viable_samples = nonzero_weights ? findall(chain_output.weight .> 0) : eachindex(chain_output)
+    
+    for i in viable_samples
+        # If last sample in appendable[i] is equal to the new sample increment its weight, otherwise append new sample
+        checked_push!(appendable[i], chain_output[i])
     end
+    
     appendable
 end
 
@@ -259,14 +277,21 @@ function get_samples!(appendable, mcmc_state::MCMCState, nonzero_weights::Bool):
 end
 
 
-function samples_available(chain_state::MCMCChainState)
-    i = _current_sample_idx(chain_state)
-    chain_state.samples.info.sampletype[i] == ACCEPTED_SAMPLE
+# TDOD: MD, make properly !!
+function flush_samples!!(chain_state::MCMCChainState)
+    (;current, output) = chain_state
+    
+    output[:] = @view current.x[:]
+    current.x.weight .= 0
+
+    return chain_state
 end
 
-function samples_available(mcmc_state::MCMCState)
-    samples_available(mcmc_state.chain_state)
+function flush_samples!!(mcmc_state::MCMCState)
+    new_mcmc_state = @set mcmc_state.chain_state = flush_samples!!(mcmc_state.chain_state)
+    return new_mcmc_state
 end
+
 
 function mcmc_update_z_position!!(mcmc_state::MCMCState)
     chain_state_new = mcmc_update_z_position!!(mcmc_state.chain_state)
@@ -278,25 +303,25 @@ end
 function mcmc_update_z_position!!(mc_state::MCMCChainState)
     f_transform = mc_state.f_transform
 
-    current_sample_x = current_sample(mc_state)
-    proposed_sample_x = proposed_sample(mc_state)
+    x_current = mc_state.current.x.v
+    logd_x_current = mc_state.current.x.logd
 
-    x_current, logd_x_current = current_sample_x.v, current_sample_x.logd
-    x_proposed, logd_x_proposed = proposed_sample_x.v, proposed_sample_x.logd 
+    x_proposed = mc_state.proposed.x.v
+    logd_x_proposed = mc_state.proposed.x.logd
 
-    z_current_new, ladj_current = with_logabsdet_jacobian(inverse(f_transform), x_current[:])
-    z_proposed_new, ladj_proposed = with_logabsdet_jacobian(inverse(f_transform), x_proposed[:])
+    trafo_current = with_logabsdet_jacobian.(inverse(f_transform), x_current)
+    trafo_proposed = with_logabsdet_jacobian.(inverse(f_transform), x_proposed)
 
-    logd_z_current_new = logd_x_current - ladj_current
-    logd_z_proposed_new = logd_x_proposed - ladj_proposed
+    logd_z_current_new = logd_x_current - getfield.(trafo_current, 2) 
+    logd_z_proposed_new = logd_x_proposed - getfield.(trafo_proposed, 2)
 
     mc_state_new = deepcopy(mc_state)
 
-    mc_state_new.sample_z.v[1] = vec(z_current_new)
-    mc_state_new.sample_z.v[2] = vec(z_proposed_new)
+    mc_state_new.current.z.v .= getfield.(trafo_current, 1)
+    mc_state_new.proposed.z.v .= getfield.(trafo_proposed, 1)
     
-    mc_state_new.sample_z.logd[1] = logd_z_current_new
-    mc_state_new.sample_z.logd[2] = logd_z_proposed_new
+    mc_state_new.current.z.logd .= logd_z_current_new
+    mc_state_new.proposed.z.logd .= logd_z_proposed_new
     
     return mc_state_new
 end
@@ -316,14 +341,14 @@ function mcmc_tuning_reinit!!(state::MCMCState, max_nsteps::Integer)
     mcmc_tuning_reinit!!(state.proposal_tuner_state, state.chain_state, max_nsteps)
 end
 
-function mcmc_tuning_postinit!!(state::MCMCState, samples::DensitySampleVector)
+function mcmc_tuning_postinit!!(state::MCMCState, samples::AbstractVector{<:DensitySampleVector})
     # TODO: mcmc_tuning_postinit!! should support immutable tuners and states and return the new objects
     mcmc_tuning_postinit!!(state.trafo_tuner_state, state.chain_state, samples)
     mcmc_tuning_postinit!!(state.proposal_tuner_state, state.chain_state, samples)
 end
 
 # TODO: MD, when should the z-position be updated? Before or after the proposal tuning?
-function mcmc_tune_post_cycle!!(state::MCMCState, samples::DensitySampleVector)
+function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:DensitySampleVector})
     chain_state_tmp, trafo_tuner_state_new = mcmc_tune_post_cycle!!(state.trafo_tuner_state, state.chain_state, samples)
     chain_state_new, proposal_tuner_state_new = mcmc_tune_post_cycle!!(state.proposal_tuner_state, chain_state_tmp, samples)
 
@@ -334,7 +359,7 @@ function mcmc_tune_post_cycle!!(state::MCMCState, samples::DensitySampleVector)
     return mcmc_state_pt
 end
 
-function mcmc_tune_post_step!!(state::MCMCState, p_accept::Real)
+function mcmc_tune_post_step!!(state::MCMCState, p_accept::AbstractVector{<:Real})
     chain_state_tmp, trafo_tuner_state_new = mcmc_tune_post_step!!(state.trafo_tuner_state, state.chain_state, p_accept)
     chain_state_new, proposal_tuner_state_new = mcmc_tune_post_step!!(state.proposal_tuner_state, chain_state_tmp, p_accept)
 
@@ -350,3 +375,26 @@ function mcmc_tuning_finalize!!(state::MCMCState)
     mcmc_tuning_finalize!!(state.trafo_tuner_state, state.chain_state)
     mcmc_tuning_finalize!!(state.proposal_tuner_state, state.chain_state)
 end 
+
+
+function _construct_mcmc_state(
+    samplingalg::TransformedMCMC,
+    target::BATMeasure,
+    rngpart::RNGPartition,
+    id::Integer,
+    initval_alg::InitvalAlgorithm,
+    parent_context::BATContext
+)
+    new_context = set_rng(parent_context, AbstractRNG(rngpart, id))
+    v_init = bat_ensemble_initvals(target, initval_alg, samplingalg.nwalkers, new_context)    
+    return MCMCState(samplingalg, target, Int32(id), v_init, new_context)
+end
+
+_gen_mcmc_states(
+    samplingalg::TransformedMCMC,
+    target::BATMeasure,
+    rngpart::RNGPartition,
+    ids::AbstractRange{<:Integer},
+    initval_alg::InitvalAlgorithm,
+    context::BATContext
+) = [_construct_mcmc_state(samplingalg, target, rngpart, id, initval_alg, context) for id in ids]

@@ -17,6 +17,7 @@ $(TYPEDFIELDS)
     init_tries_per_chain::ClosedInterval{Int64} = ClosedInterval(8, 128)
     nsteps_init::Int64 = 1000
     initval_alg::InitvalAlgorithm = InitFromTarget()
+    strict::Bool = true
 end
 
 export MCMCChainPoolInit
@@ -26,33 +27,10 @@ function apply_trafo_to_init(f_transform::Function, initalg::MCMCChainPoolInit)
     MCMCChainPoolInit(
     initalg.init_tries_per_chain,
     initalg.nsteps_init,
-    apply_trafo_to_init(f_transform, initalg.initval_alg)
+    apply_trafo_to_init(f_transform, initalg.initval_alg),
+    initalg.strict
     )
 end
-
-
-function _construct_mcmc_state(
-    samplingalg::TransformedMCMC,
-    target::BATMeasure,
-    rngpart::RNGPartition,
-    id::Integer,
-    initval_alg::InitvalAlgorithm,
-    parent_context::BATContext
-)
-    new_context = set_rng(parent_context, AbstractRNG(rngpart, id))
-    v_init = bat_initval(target, initval_alg, new_context).result
-    return MCMCState(samplingalg, target, Int32(id), v_init, new_context)
-end
-
-_gen_mcmc_states(
-    samplingalg::TransformedMCMC,
-    target::BATMeasure,
-    rngpart::RNGPartition,
-    ids::AbstractRange{<:Integer},
-    initval_alg::InitvalAlgorithm,
-    context::BATContext
-) = [_construct_mcmc_state(samplingalg, target, rngpart, id, initval_alg, context) for id in ids]
-
 
 function mcmc_init!(
     samplingalg::TransformedMCMC,
@@ -60,8 +38,10 @@ function mcmc_init!(
     init_alg::MCMCChainPoolInit,
     callback::Function,
     context::BATContext
-)::NamedTuple{(:mcmc_states, :outputs), Tuple{Vector{MCMCState}, Vector{DensitySampleVector}}}
-    @unpack tempering, nchains, transform_tuning, proposal_tuning, nonzero_weights = samplingalg
+)::NamedTuple{(:mcmc_states, :outputs), Tuple{Vector{MCMCState}, Vector{Vector{DensitySampleVector}}}}
+    @argcheck samplingalg.nwalkers == 1 throw(ArgumentError("Chain pool initialization is not meant for multiple walkers."))
+
+    (;nchains, nonzero_weights) = samplingalg
 
     @info "MCMCChainPoolInit: trying to generate $nchains viable MCMC chain state(s)."
 
@@ -77,12 +57,12 @@ function mcmc_init!(
     @debug "Generating dummy MCMC chain state to determine chain state, output and tuner types."
 
     dummy_context = deepcopy(context)
-    dummy_initval = unshaped(bat_initval(target, InitFromTarget(), dummy_context).result, varshape(target))
+    dummy_initval = [unshaped(bat_initval(target, InitFromTarget(), dummy_context).result, varshape(target))] # TODO, MD: expand to multiple walkers 
 
     dummy_mcmc_state = MCMCState(samplingalg, target, one(Int32), dummy_initval, dummy_context)
 
     mcmc_states = similar([dummy_mcmc_state], 0)
-    outputs = similar([DensitySampleVector(dummy_mcmc_state)], 0)
+    outputs = similar([_empty_chain_outputs(dummy_mcmc_state)], 0)
 
     cycle::Int32 = 1
 
@@ -94,15 +74,15 @@ function mcmc_init!(
 
         filter!(isvalidstate, new_mcmc_states)
 
-        new_outputs = DensitySampleVector.(new_mcmc_states)
+        new_outputs = _empty_chain_outputs.(new_mcmc_states)
 
         next_cycle!.(new_mcmc_states)
         mcmc_tuning_init!!.(new_mcmc_states, init_alg.nsteps_init)
         new_mcmc_states = mcmc_update_z_position!!.(new_mcmc_states)
         ncandidates += n
-
-        @debug "Testing $(length(new_mcmc_states)) candidate MCMC chain state(s)."
         
+        @debug "Testing $(length(new_mcmc_states)) candidate MCMC chain state(s)."
+
         new_mcmc_states = mcmc_iterate!!(
             new_outputs, new_mcmc_states;
             max_nsteps = clamp(div(init_alg.nsteps_init, 5), 10, 50),
@@ -116,6 +96,8 @@ function mcmc_init!(
         @debug "Found $(length(viable_idxs)) viable MCMC chain state(s)."
 
         if !isempty(viable_mcmc_states)
+            next_cycle!.(new_mcmc_states)
+            
             viable_mcmc_states = mcmc_iterate!!(
                 viable_outputs, viable_mcmc_states;
                 max_nsteps = init_alg.nsteps_init,
@@ -139,7 +121,10 @@ function mcmc_init!(
     tidxs = LinearIndices(mcmc_states)
     n = length(tidxs)
 
-    modes = hcat(broadcast(samples -> Array(bat_findmode(samples, MaxDensitySearch(), context).result), outputs)...)
+    # Retrieve the outputs of the single walker of each chain
+    outputs_per_chain = map(first, outputs)
+
+    modes = hcat(broadcast(samples -> Array(bat_findmode(samples, MaxDensitySearch(), context).result), outputs_per_chain)...)
 
     final_mcmc_states = similar(mcmc_states, 0)
     final_outputs = similar(outputs, 0)
@@ -180,6 +165,7 @@ function mcmc_init!(
     end
 
     @info "Selected $(length(final_mcmc_states)) MCMC chain state(s)."
+    
     mcmc_tuning_postinit!!.(final_mcmc_states, final_outputs)
 
     (mcmc_states = final_mcmc_states, outputs = final_outputs)
