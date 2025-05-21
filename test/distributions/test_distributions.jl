@@ -8,4 +8,5 @@ Test.@testset "distributions" begin
     include("test_standard_normal.jl")
     # TODO: MD, reactivate. Temporarily disabled to test step-wise refactoring of bat_sample
     # include("test_hierarchical_distribution.jl")
+    include("test_polar_shell_distribution.jl")
 end
