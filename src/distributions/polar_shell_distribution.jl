@@ -150,3 +150,43 @@ function ChangesOfVariables.with_logabsdet_jacobian(f::ShellRTransform, r_phi)
     new_r, ladj = with_logabsdet_jacobian(f.r_transform, r)
     return [new_r, phi], ladj
 end
+
+
+struct MinRadiusTransform{T<:Real} <: Function
+    r::T
+    α::T
+end
+
+function (f::MinRadiusTransform)(x)
+    (;r, α) = f
+    return (x^α + r^α)^inv(α)
+end
+
+InverseFunctions.inverse(f::MinRadiusTransform) = InvMinRadiusTransform(f.r, f.α)
+
+function ChangesOfVariables.with_logabsdet_jacobian(f::MinRadiusTransform, x)
+    y = f(x)
+    (;r, α) = f
+    ladj = log(((x^α + r^α)^(inv(α) - 1))*(x^(α - 1)))
+    return y, ladj
+end
+
+
+struct InvMinRadiusTransform{T<:Real} <: Function
+    r::T
+    α::T
+end
+
+function (f::InvMinRadiusTransform)(y)
+    (;r, α) = f
+    (y^α - r^α)^inv(α)
+end
+
+InverseFunctions.inverse(f::InvMinRadiusTransform) = MinRadiusTransform(f.r, f.α)
+
+function ChangesOfVariables.with_logabsdet_jacobian(f::InvMinRadiusTransform, y)
+    x = f(y)
+    (;r, α) = f
+    ladj = -log(((x^α + r^α)^(inv(α) - 1))*(x^(α - 1)))
+    return x, ladj
+end
