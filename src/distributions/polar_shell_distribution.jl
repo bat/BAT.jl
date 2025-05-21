@@ -33,10 +33,10 @@ end
 
 function PolarShellDistribution(
     base_dist::Distributions.Distribution{Multivariate,Continuous} = MvNormal(Diagonal([1,1])),
-    radial_dist::Distributions.Distribution{Univariate,Continuous} = LogNormal(0, 1)
+    radial_dist::Distributions.Distribution{Univariate,Continuous} = Rayleigh()
 )
     base_measure = batmeasure(base_dist)
-    r_transform = BAT.DistributionTransform(radial_dist, Normal())
+    r_transform = BAT.DistributionTransform(radial_dist, truncated(Normal(), 0, Inf))
     shell_transform = ShellRTransform(r_transform)
     full_transform = shell_transform ∘ _cart_to_polar
     m = pushfwd(full_transform, base_measure)
