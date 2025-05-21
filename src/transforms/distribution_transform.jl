@@ -205,9 +205,12 @@ end
 # Base.:(∘)(f::DistributionTransform, ::typeof(identity)) = f
 
 
-function ValueShapes.resultshape(f_transform::DistributionTransform, vs::AbstractValueShape)
-    @argcheck vs <= varshape(f_transform.source_dist)
-    varshape(f_transform.target_dist)
+function ValueShapes.resultshape(f::DistributionTransform, @nospecialize(vs::AbstractValueShape))
+    return varshape(f.target_dist)
+end
+
+function _trafo_input_output_shape(f::DistributionTransform, @nospecialize(xs::AbstractVector))
+    return varshape(f.source_dist), varshape(f.target_dist)
 end
 
 
