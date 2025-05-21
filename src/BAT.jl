@@ -72,6 +72,7 @@ using HeterogeneousComputing: GenContext, get_rng, get_precision, get_compute_un
 import MeasureBase
 using MeasureBase: AbstractMeasure, DensityMeasure, Likelihood
 using MeasureBase: basemeasure, getdof, likelihoodof, testvalue
+using MeasureBase: pushfwd
 using MeasureBase: transport_to, transport_origin, from_origin, to_origin
 using MeasureBase: StdMeasure, StdUniform, StdNormal
 using MeasureBase: PowerMeasure, powermeasure, marginals
