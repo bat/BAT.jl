@@ -190,28 +190,6 @@ end
 _unshaped_trafo(::Any) = missing
 
 
-const _ESCompatible = Union{
-    AbstractArray{<:Real},
-    AbstractArray{<:AbstractArray{<:Real}},
-    ShapedAsNTArray
-}
-
-const _VSCompatible = Union{
-    Real,
-    AbstractArray{<:Real},
-    NamedTuple{names, <:Tuple{Vararg{Union{Real,AbstractArray{<:Real}}}}} where names
-}
-
-_get_point_shape(xs::_ESCompatible) = elshape(xs)
-
-_get_point_shape(xs::AbstractVector) = _get_point_shape_impl(xs, eltype(xs))
-_get_point_shape_impl(xs::AbstractVector, ::Type{<:_VSCompatible}) = valshape(first(xs))
-_get_point_shape_impl(xs::AbstractVector, ::Type) = missing
-
-_maybe_valshape(::Any) = missing
-_maybe_valshape(x::_VSCompatible) = valshape(x)
-
-
 _trafo_unshape_inputs(xs::AbstractVector, x_shape::AbstractValueShape) = inverse(x_shape).(xs)
 _trafo_unshape_inputs(xs::ArrayOfSimilarVectors{<:Real}, ::AbstractValueShape) = unshaped.(xs)
 _trafo_unshape_inputs(xs::ShapedAsNTArray, ::AbstractValueShape) = unshaped.(xs)
@@ -219,7 +197,7 @@ _trafo_unshape_inputs(xs::DensitySampleVector, ::AbstractValueShape) = unshaped.
 
 
 function _trafo_input_output_shape(f, xs::AbstractVector)
-    x_shape = _get_point_shape(xs)
+    x_shape = _maybe_elshape(xs)
     maybe_y_shape = _trafo_resultshape(f, x_shape)
     y_shape = _trafo_output_shape_impl(f, xs, maybe_y_shape)
     return x_shape, y_shape
