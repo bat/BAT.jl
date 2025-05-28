@@ -17,7 +17,7 @@ import Makie: plot, plot!
 # ------------ Type Defs: ----------
 
 export plot_cfg_1d, hist1d, quantile_hist1d, kde1d, quantile_kde1d, mean1d, std1d, pdf1d
-export plot_cfg_2d, hist2d, quantile_hist2d, kde2d, quantile_kde2d, scatter2d, mean2d, cov2d, hexbin2d
+export plot_cfg_2d, hist2d, quantile_hist2d, kde2d, quantile_kde2d, scatter2d, mean2d, std2d, cov2d, hexbin2d
 
 abstract type plot_cfg_1d end
 abstract type plot_cfg_2d end
@@ -106,6 +106,13 @@ end
 end
 
 @kwdef struct std1d <: plot_cfg_1d
+    color = :red
+    linestyle = :solid
+    linewidth::Real = 2
+    nsigma::Real = 1.
+end
+
+@kwdef struct std2d <: plot_cfg_2d
     color = :red
     linestyle = :solid
     linewidth::Real = 2
@@ -215,10 +222,10 @@ function plot2d!(ax::Axis, cfg::cov2d, x::AbstractArray, y::AbstractArray, w::Un
 end
 
 function plot2d!(ax::Axis, cfg::mean2d, x::AbstractArray, y::AbstractArray, w::Union{Real, AbstractArray}=1)
-    data = hcat(x, y)
-    μ = mean(data, ProbabilityWeights(w), dims=1) |> vec  # Make it a vector of length 2
-    hlines!(ax, [μ[2]], color=cfg.color, linestyle=cfg.linestyle, linewidth=cfg.linewidth)
-    vlines!(ax, [μ[1]], color=cfg.color, linestyle=cfg.linestyle, linewidth=cfg.linewidth)
+    μ_x = mean(x, ProbabilityWeights(w))
+    μ_y = mean(y, ProbabilityWeights(w))
+    hlines!(ax, μ_y, color=cfg.color, linestyle=cfg.linestyle, linewidth=cfg.linewidth)
+    vlines!(ax, μ_x, color=cfg.color, linestyle=cfg.linestyle, linewidth=cfg.linewidth)
 end
 
 function plot1d!(ax::Axis, cfg::mean1d, x::AbstractArray, w::Union{Real, AbstractArray}=1)
@@ -230,6 +237,15 @@ function plot1d!(ax::Axis, cfg::std1d, x::AbstractArray, w::Union{Real, Abstract
     μ = mean(x, ProbabilityWeights(w))
     σ = std(x, ProbabilityWeights(w))
     vlines!(ax, [μ-cfg.nsigma*σ,μ+cfg.nsigma*σ] , color=cfg.color, linestyle=cfg.linestyle, linewidth=cfg.linewidth)
+end
+
+function plot2d!(ax::Axis, cfg::std2d, x::AbstractArray, y::AbstractArray, w::Union{Real, AbstractArray}=1)
+    μ_x = mean(x, ProbabilityWeights(w))
+    μ_y = mean(y, ProbabilityWeights(w))
+    σ_x = std(x, ProbabilityWeights(w))
+    σ_y = std(y, ProbabilityWeights(w))
+    hlines!(ax, [μ_y-cfg.nsigma*σ_y, μ_y+cfg.nsigma*σ_y], color=cfg.color, linestyle=cfg.linestyle, linewidth=cfg.linewidth)
+    vlines!(ax, [μ_x-cfg.nsigma*σ_x, μ_x+cfg.nsigma*σ_x], color=cfg.color, linestyle=cfg.linestyle, linewidth=cfg.linewidth)
 end
 
 function plot1d!(ax::Axis, cfg::quantile_hist1d, x::AbstractArray, w::Union{Real, AbstractArray}=1)
