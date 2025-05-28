@@ -249,6 +249,23 @@ function plot1d!(ax::Axis, cfg::quantile_hist1d, x::AbstractArray, w::Union{Real
     barplot!(ax, midpoints(edges), p ./diff(edges) ; width=diff(edges), color=colors, gap=0,
              strokecolor=:black, strokewidth=0.)
 end
+function plot1d!(ax::Axis, cfg::hist1d, x::AbstractArray, w::Union{Real, AbstractArray}=1)
+    edges = LinRange(minimum(x), maximum(x), cfg.nbins)
+    if cfg.filled
+        hist!(ax, x, bins=edges, weights=w, normalization = :pdf, color=(cfg.color, cfg.alpha))
+    end
+    if cfg.edge
+        stephist!(ax, x, bins=edges, weights=w, normalization = :pdf, color=cfg.edgecolor, linewidth=cfg.edgewidth)
+    end
+end
+
+function plot2d!(ax::Axis, cfg::hist2d, x::AbstractArray, y::AbstractArray, w::Union{Real, AbstractArray}=1)
+    # Compute 2D histogram
+    edges_x = LinRange(minimum(x), maximum(x), cfg.nbins[1]+1)
+    edges_y = LinRange(minimum(y), maximum(y), cfg.nbins[2]+1)
+    h = fit(Histogram, (x, y), weights(w), (edges_x, edges_y))
+    heatmap!(ax, edges_x, edges_y, h.weights, colormap=cfg.cmap, alpha=cfg.alpha)
+end
 
 function plot1d!(ax::Axis, cfg::kde1d, x::AbstractArray, w::Union{Real, AbstractArray}=1)
     k = kde(x, weights=w)
