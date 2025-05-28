@@ -16,53 +16,129 @@ import Makie: plot, plot!
 
 # ------------ Type Defs: ----------
 
-export plot_cfg_1d, quantile_hist1d, kde1d, mean1d
-export plot_cfg_2d, quantile_hist2d, scatter2d, cov2d, mean2d, hexbin2d
+export plot_cfg_1d, hist1d, quantile_hist1d, kde1d, quantile_kde1d, mean1d, std1d, pdf1d
+export plot_cfg_2d, hist2d, quantile_hist2d, kde2d, quantile_kde2d, scatter2d, mean2d, cov2d, hexbin2d
 
 abstract type plot_cfg_1d end
 abstract type plot_cfg_2d end
 
-@kwdef struct quantile_hist1d <: plot_cfg_1d
-    levels=cdf(Chi(1), 0:3)
-    nbins=30
-    cmap=:Blues
-    rev=true
-end
 
 @kwdef struct kde1d <: plot_cfg_1d
-    bandwidth=Makie.automatic
-    color=Makie.wong_colors()[1]
+    color = Makie.wong_colors()[1]
+    alpha::Real = 1
+    filled::Bool = true
+    edge::Bool = false
+    edgecolor = Makie.wong_colors()[1]
+    edgewidth::Real = 1
 end
 
-@kwdef struct mean1d <: plot_cfg_1d
-    color=:black
-    linestyle=:dot
+@kwdef struct kde2d <: plot_cfg_2d
+    cmap=:Blues
+    rev::Bool = false
+    alpha::Real = 1
+end
+
+@kwdef struct quantile_kde1d <: plot_cfg_1d
+    levels::AbstractArray{<:Real} = cdf(Chi(1), 0:3)
+    cmap=:Blues
+    rev::Bool = false
+    alpha::Real = 1
+    edge::Bool = false
+    edgecolor = Makie.wong_colors()[1]
+    edgewidth::Real = 1
+end
+
+@kwdef struct quantile_kde2d <: plot_cfg_2d
+    levels::AbstractArray{<:Real} = cdf(Chi(2), 0:3)
+    nbins::Tuple{Int, Int} = (30, 30)
+    cmap = :Blues
+    rev::Bool = false
+    alpha::Real = 1
+end
+
+@kwdef struct hist1d <: plot_cfg_1d
+    nbins::Int = 30
+    color = Makie.wong_colors()[1]
+    alpha::Real = 1
+    filled::Bool = true
+    edge::Bool = false
+    edgecolor = Makie.wong_colors()[1]
+    edgewidth::Real = 1
+end
+
+@kwdef struct hist2d <: plot_cfg_2d
+    cmap=:Blues
+    nbins::Tuple{Int, Int} = (30, 30)
+    rev::Bool = false
+    alpha::Real = 1
+end
+
+@kwdef struct quantile_hist1d <: plot_cfg_1d
+    levels::AbstractArray{<:Real} = cdf(Chi(1), 0:3)
+    nbins::Int = 30
+    cmap = :Blues
+    rev::Bool = false
+    alpha::Real = 1
+    edge::Bool = false
+    edgecolor = Makie.wong_colors()[1]
+    edgewidth::Real = 1
 end
 
 @kwdef struct quantile_hist2d <: plot_cfg_2d
-    levels=cdf(Chi(2), 0:3)
-    nbins=(30, 30)
-    cmap=:Blues
-    rev=true
+    levels::AbstractArray{<:Real} = cdf(Chi(2), 0:3)
+    nbins::Tuple{Int, Int} = (30, 30)
+    cmap = :Blues
+    rev::Bool = false
+    alpha::Real = 1
 end
 
 @kwdef struct scatter2d <: plot_cfg_2d
-    color=Makie.wong_colors()[1]
+    color = Makie.wong_colors()[1]
+    alpha::Real = 1
+    size::Real = 1
 end
 
 @kwdef struct cov2d <: plot_cfg_2d
-    color=:red
+    color = :red
+    linestyle = :solid
+    linewidth::Real = 2
+    nsigma::Real = 1.
+end
+
+@kwdef struct std1d <: plot_cfg_1d
+    color = :red
+    linestyle = :solid
+    linewidth::Real = 2
+    nsigma::Real = 1.
+end
+
+@kwdef struct mean1d <: plot_cfg_1d
+    color = :black
+    linestyle = :dot
+    linewidth::Real = 2
 end
 
 @kwdef struct mean2d <: plot_cfg_2d
-    color=:black
-    linestyle=:dot
+    color = :black
+    linestyle = :dot
+    linewidth::Real = 2
 end
 
 @kwdef struct hexbin2d <: plot_cfg_2d
-    nbins=(30,30)
-    cmap=:Blues
-    rev=true
+    nbins::Tuple{Int, Int} = (30, 30)
+    cmap = :Blues
+    rev::Bool = true
+    alpha::Real = 1
+end
+
+
+@kwdef struct pdf1d <: plot_cfg_1d
+    color = Makie.wong_colors()[1]
+    alpha::Real = 1
+    filled::Bool = true
+    edge::Bool = false
+    edgecolor = Makie.wong_colors()[1]
+    edgewidth::Real = 1
 end
 
 # ----------------------------
@@ -71,15 +147,15 @@ end
 # --------- Implementation of single plots --------
 
 function plot2d!(ax::Axis, cfg::scatter2d, x::AbstractArray, y::AbstractArray, w::Union{Real, AbstractArray}=1)
-    scatter!(ax, x, y, markersize=sqrt.(w./mean(w)), color=cfg.color)
+    scatter!(ax, x, y, markersize=sqrt.(w./mean(w))*cfg.size, color=cfg.color, alpha=cfg.alpha)
 end
 
 function plot2d!(ax::Axis, cfg::hexbin2d, x::AbstractArray, y::AbstractArray)
-    hexbin!(ax, x, y,colormap=cfg.cmap, bins=cfg.nbins)
+    hexbin!(ax, x, y,colormap=cfg.cmap, bins=cfg.nbins, alpha=cfg.alpha)
 end
 
 function plot2d!(ax::Axis, cfg::hexbin2d, x::AbstractArray, y::AbstractArray, w::AbstractArray)
-    Makie.hexbin!(ax, x, y, weights=w, colormap=cfg.cmap, bins=cfg.nbins, threshold=minimum(w[w .> 0]))
+    hexbin!(ax, x, y, weights=w, colormap=cfg.cmap, bins=cfg.nbins, threshold=minimum(w[w .> 0]), alpha=cfg.alpha)
 end
 
 function plot2d!(ax::Axis, cfg::quantile_hist2d, x::AbstractArray, y::AbstractArray, w::Union{Real, AbstractArray}=1)
@@ -95,7 +171,7 @@ function plot2d!(ax::Axis, cfg::quantile_hist2d, x::AbstractArray, y::AbstractAr
     c = cumsum(flat_p[idx])
 
     # Map cumulative probabilities to colors
-    pal = cgrad(cfg.cmap, length(cfg.levels), categorical=true, rev=cfg.rev)
+    pal = cgrad(cfg.cmap, length(cfg.levels), categorical=true, rev=!cfg.rev, alpha=cfg.alpha)
     inds = clamp.(searchsortedlast.(Ref(cfg.levels), c), 1, length(pal))
     flat_colors = pal[inds]
     
@@ -124,30 +200,36 @@ function plot2d!(ax::Axis, cfg::cov2d, x::AbstractArray, y::AbstractArray, w::Un
     circle = [cos.(θ)'; sin.(θ)']  # 2 × 200 matrix
     
     # Transform unit circle into ellipse
-    ellipse = eigvecs * Diagonal(stds) * circle .+ μ  # 2 × 200 matrix + 2-vector
+    ellipse = eigvecs * cfg.nsigma * Diagonal(stds) * circle .+ μ  # 2 × 200 matrix + 2-vector
     
-    lines!(ax, ellipse[1, :], ellipse[2, :], color=cfg.color, linewidth=2, )
+    lines!(ax, ellipse[1, :], ellipse[2, :], color=cfg.color, linestyle=cfg.linestyle, linewidth=cfg.linewidth)
 
     
     for i in 1:2
-        direction = eigvecs[:, i] * stds[i] * 3  # 3σ scaling for visibility
+        direction = eigvecs[:, i] * stds[i] * 2 * cfg.nsigma  # 3σ scaling for visibility
         p1 = μ .- direction
         p2 = μ .+ direction
         lines!(ax, [p1[1], p2[1]], [p1[2], p2[2]],
-               color=cfg.color, linewidth=2)
+               color=cfg.color, linestyle=cfg.linestyle, linewidth=cfg.linewidth)
     end
 end
 
 function plot2d!(ax::Axis, cfg::mean2d, x::AbstractArray, y::AbstractArray, w::Union{Real, AbstractArray}=1)
     data = hcat(x, y)
     μ = mean(data, ProbabilityWeights(w), dims=1) |> vec  # Make it a vector of length 2
-    hlines!(ax, [μ[2]], color=cfg.color, linestyle=cfg.linestyle)
-    vlines!(ax, [μ[1]], color=cfg.color, linestyle=cfg.linestyle)
+    hlines!(ax, [μ[2]], color=cfg.color, linestyle=cfg.linestyle, linewidth=cfg.linewidth)
+    vlines!(ax, [μ[1]], color=cfg.color, linestyle=cfg.linestyle, linewidth=cfg.linewidth)
 end
 
 function plot1d!(ax::Axis, cfg::mean1d, x::AbstractArray, w::Union{Real, AbstractArray}=1)
     μ = mean(x, ProbabilityWeights(w))
-    vlines!(ax, μ, color=cfg.color, linestyle=cfg.linestyle)
+    vlines!(ax, μ, color=cfg.color, linestyle=cfg.linestyle, linewidth=cfg.linewidth)
+end
+
+function plot1d!(ax::Axis, cfg::std1d, x::AbstractArray, w::Union{Real, AbstractArray}=1)
+    μ = mean(x, ProbabilityWeights(w))
+    σ = std(x, ProbabilityWeights(w))
+    vlines!(ax, [μ-cfg.nsigma*σ,μ+cfg.nsigma*σ] , color=cfg.color, linestyle=cfg.linestyle, linewidth=cfg.linewidth)
 end
 
 function plot1d!(ax::Axis, cfg::quantile_hist1d, x::AbstractArray, w::Union{Real, AbstractArray}=1)
@@ -158,19 +240,84 @@ function plot1d!(ax::Axis, cfg::quantile_hist1d, x::AbstractArray, w::Union{Real
     c = cumsum(p[idx])
 
     # Get color palette
-    pal = cgrad(cfg.cmap, length(cfg.levels), categorical=true, rev=cfg.rev)
+    pal = cgrad(cfg.cmap, length(cfg.levels), categorical=true, rev=!cfg.rev, alpha=cfg.alpha)
 
     # Assign color to each bin based on cumulative probability
     inds = clamp.(searchsortedlast.(Ref(cfg.levels), c), 1, length(pal))
     colors = pal[inds][sortperm(idx)]
     # Plot histogram bars with assigned colors
-    barplot!(ax, h.edges[1][1:end-1], p; width=diff(h.edges[1]), color=colors, gap=0,
+    barplot!(ax, midpoints(edges), p ./diff(edges) ; width=diff(edges), color=colors, gap=0,
              strokecolor=:black, strokewidth=0.)
 end
 
 function plot1d!(ax::Axis, cfg::kde1d, x::AbstractArray, w::Union{Real, AbstractArray}=1)
-    density!(ax, x, weights=w, color=cfg.color, bandwidth=cfg.bandwidth)
+    k = kde(x, weights=w)
+    if cfg.edge
+        lines!(ax, k.x, k.density, color=cfg.edgecolor, linewidth=cfg.edgewidth)
+    end
+    if cfg.filled
+        poly!(ax, vcat(k.x, reverse(k.x)), vcat(zeros(length(k.x)), reverse(k.density)), color=cfg.color, alpha=cfg.alpha)
+    end
 end
+
+function plot2d!(ax::Axis, cfg::kde2d, x::AbstractArray, y::AbstractArray, w::Union{Real, AbstractArray}=1)
+    k = kde((x, y), weights=w)
+    heatmap!(ax, k.x, k.y, k.density, colormap=cfg.cmap, alpha=cfg.alpha)
+end
+
+function plot2d!(ax::Axis, cfg::quantile_kde2d, x::AbstractArray, y::AbstractArray, w::Union{Real, AbstractArray}=1)
+    k = kde((x, y), weights=w)
+    xgrid = k.x
+    ygrid = k.y
+    Z = k.density
+    Z_flat = vec(Z)
+    sorted_Z = sort(Z_flat, rev=true)
+    cum = cumsum(sorted_Z)
+    cum ./= cum[end]  # Normalize to 1
+    
+    # Target probability mass
+    thresholds = [sorted_Z[searchsortedfirst(cum, level)] for level in cfg.levels]
+    push!(thresholds, 0.)
+    cmap = cgrad(cfg.cmap, rev=cfg.rev, alpha=cfg.alpha)
+
+    contourf!(ax, xgrid, ygrid, Z, levels=thresholds[end:-1:1], colormap=cmap)
+end
+
+
+function plot1d!(ax::Axis, cfg::quantile_kde1d, x::AbstractArray, w::Union{Real, AbstractArray}=1)
+    k = kde(x, weights=w)
+    #lines!(ax, k.x, k.density)
+
+    p = k.density * step(k.x)
+    # Flatten and sort density values
+    sorted_y = sort(p, rev=true)
+    cum = cumsum(sorted_y)
+    cum ./= cum[end]
+    
+    levels=cfg.levels
+    push!(levels, 1.)
+    pal = cgrad(cfg.cmap, length(levels), categorical=true, rev=!cfg.rev, alpha=cfg.alpha)
+    thresholds = [sorted_y[searchsortedfirst(cum, level)] for level in levels]
+    for i in length(thresholds):-1:1
+        mask = p .>= thresholds[i]
+        x_fill = k.x[mask]
+        y_fill = k.density[mask]
+        poly!(ax, vcat(x_fill, reverse(x_fill)), vcat(zeros(length(x_fill)), reverse(y_fill)), color=pal[i])
+    end
+end
+
+
+function plot1d!(ax::Axis, cfg::pdf1d, d::Distribution)
+    x = LinRange(ax.limits.val[1]..., 300)
+    y = pdf(d, x)
+    if cfg.edge
+        lines!(ax, x, y, color=cfg.edgecolor, linewidth=cfg.edgewidth)
+    end
+    if cfg.filled
+        poly!(ax, vcat(x, reverse(x)), vcat(zeros(length(x)), reverse(y)), color=cfg.color, alpha=cfg.alpha)
+    end
+end
+
 
 function plot1d(cfg::plot_cfg_1d, x::AbstractArray, w::Union{Real, AbstractArray})
     fig = Figure()
@@ -198,6 +345,17 @@ function plot_diagonal!(ax_grid, cfg, x, w)
         var = variables[i]
         ax = ax_grid[i, i]
         plot1d!(ax, cfg, x[var], w)
+    end
+    ax_grid
+end
+
+function plot_diagonal!(ax_grid, cfg::pdf1d, d)
+    variables = collect(keys(d))
+    N = length(variables)
+    for i in 1:N
+        var = variables[i]
+        ax = ax_grid[i, i]
+        plot1d!(ax, cfg, d[var])
     end
     ax_grid
 end
@@ -258,8 +416,56 @@ function flatten(samples::DensitySampleVector)
     return x
 end
 
-function make_flat_samples(samples::DensitySampleVector, variables=nothing)
-    x = flatten(samples)
+function flatten(dists::NamedTupleDist)
+    variables = keys(varshape(samples))
+    ls = [length(varshape(samples)[var]) for var in variables]
+    
+    x = OrderedDict{String, AbstractArray}()
+    
+    for i in 1:length(variables)
+        var = variables[i]
+        col = flatview(getproperty(samples.v, var))
+        if col isa Fill
+            continue
+        else
+            for k in 1:ls[i]
+                if ls[i] > 1
+                    xlabel = String(var) * "[$k]"
+                    x[xlabel] = col[k, :]
+                else
+                    xlabel=String(var)
+                    x[xlabel] = col
+                end
+            end
+        end
+    end
+    return x
+end
+
+function flatten(prior::NamedTupleDist)
+    variables = keys(prior)
+    ls = [length(prior[var]) for var in variables]
+    
+    x = OrderedDict{String, Distribution}()
+    
+    for i in 1:length(variables)
+        var = variables[i]
+        col = prior[var]
+        if col isa ValueShapes.ConstValueDist
+            continue
+        else
+            if ls[i] > 1
+                error("unimplemented")
+            else
+                x[String(var)] = prior[var]
+            end
+        end
+    end
+    return x
+end
+
+function make_flat_dict(collection::Union{DensitySampleVector, NamedTupleDist}, variables=nothing)
+    x = flatten(collection)
 
     if variables isa AbstractDict
         x = OrderedDict(variables[var]=>x[var] for var in keys(variables))
@@ -389,21 +595,21 @@ end
 
 function plot!(fig, samples::DensitySampleVector; diagonal=nothing, lower_triangle=nothing, upper_triangle=nothing, variables=nothing)
 
-    x, variables = make_flat_samples(samples, variables)
+    x, variables = make_flat_dict(samples, variables)
   
     N = length(variables)
 
     ax_grid = [only(contents(fig[i, j])) for i in 2:N+1, j in 2:N+1]
     
-    if !(diagonal isa Nothing)
+    if !isnothing(diagonal)
         plot_diagonal!(ax_grid, diagonal, x, samples.weight)
         diagonal_visible!(fig, true)
     end
-    if !(lower_triangle isa Nothing)
+    if !isnothing(lower_triangle)
         plot_lower_triangle!(ax_grid, lower_triangle, x, samples.weight)
         lower_triangle_visible!(fig, true)
     end
-    if !(upper_triangle isa Nothing)
+    if !isnothing(upper_triangle)
         plot_upper_triangle!(ax_grid, upper_triangle, x, samples.weight)
         upper_triangle_visible!(fig, true)
     end
@@ -411,10 +617,23 @@ function plot!(fig, samples::DensitySampleVector; diagonal=nothing, lower_triang
     fig
 end
 
+function plot!(fig, prior::NamedTupleDist; diagonal=pdf1d(), variables=nothing)
 
-function plot(samples::DensitySampleVector; diagonal=quantile_hist1d(), lower_triangle=quantile_hist2d(), upper_triangle=nothing, variables=nothing)
+    x, variables = make_flat_dict(prior, variables)
+  
+    N = length(variables)
 
-    x, variables = make_flat_samples(samples, variables)
+    ax_grid = [only(contents(fig[i, j])) for i in 2:N+1, j in 2:N+1]
+    
+    plot_diagonal!(ax_grid, diagonal, x)
+    diagonal_visible!(fig, true)
+
+    fig
+end
+
+function plot(samples::DensitySampleVector; diagonal=quantile_hist1d(), lower_triangle=quantile_hist2d(), upper_triangle=nothing, variables=nothing, size=nothing, fontsize=12)
+
+    x, variables = make_flat_dict(samples, variables)
 
     ranges = OrderedDict()
     for var in variables
@@ -425,17 +644,17 @@ function plot(samples::DensitySampleVector; diagonal=quantile_hist1d(), lower_tr
     
     N = length(variables)
 
-    fig = Figure(size=(N*200,N*200), fontsize=12)
+    fig = Figure(size = isnothing(size) ? (N*200,N*200) : size, fontsize=fontsize)
         
     ax_grid = [Axis(fig[i, j], aspect=1) for i in 2:N+1, j in 2:N+1]
     
-    if !(diagonal isa Nothing)
+    if !isnothing(diagonal)
         plot_diagonal!(ax_grid, diagonal, x, samples.weight)
     end
-    if !(lower_triangle isa Nothing)
+    if !isnothing(lower_triangle)
         plot_lower_triangle!(ax_grid, lower_triangle, x, samples.weight)
     end
-    if !(upper_triangle isa Nothing)
+    if !isnothing(upper_triangle)
         plot_upper_triangle!(ax_grid, upper_triangle, x, samples.weight)
     end
 
@@ -477,9 +696,9 @@ function plot(samples::DensitySampleVector; diagonal=quantile_hist1d(), lower_tr
 
     end
 
-    diagonal_visible!(fig, !(diagonal isa Nothing))
-    upper_triangle_visible!(fig, !(upper_triangle isa Nothing))
-    lower_triangle_visible!(fig, !(lower_triangle isa Nothing))
+    diagonal_visible!(fig, !isnothing(diagonal))
+    upper_triangle_visible!(fig, !isnothing(upper_triangle))
+    lower_triangle_visible!(fig, !isnothing(lower_triangle))
 
     fig
 end
