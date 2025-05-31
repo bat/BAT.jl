@@ -49,15 +49,15 @@ of the stable public API.
 
 !!! note
 
-As a convenience,
-
-```julia
-flat_smpls, f_flatten = bat_transform(Vector, measure)
-flat_smpls, f_flatten = bat_transform(Vector, samples)
-```
-
-can be used to flatten a the variate type of a measure (res. samples of a
-measure) to something like `Vector{<:Real}`.
+    As a convenience,
+    
+    ```julia
+    flat_smpls, f_flatten = bat_transform(Vector, measure)
+    flat_smpls, f_flatten = bat_transform(Vector, samples)
+    ```
+    
+    can be used to flatten a the variate type of a measure (res. samples of a
+    measure) to something like `Vector{<:Real}`.
 """
 function bat_transform end
 export bat_transform
