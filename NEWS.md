@@ -1,3 +1,13 @@
+BAT.jl v3.4.0 Release Notes
+===========================
+
+Deprecated features
+-------------------
+
+* `bat_report` has been deprecated in favor of `LazyReports.lazyreport`
+  (drop-in compatible).
+
+
 BAT.jl v3.0.0 Release Notes
 ===========================
 
@@ -31,9 +41,6 @@ can now be used as a parameter transformation in BAT.
 * `EllipsoidalNestedSampling` (experimental)
 
 * `ReactiveNestedSampling` (experimental)
-
-* `bat_report` has been deprecated in favor of `LazyReports.lazyreport`
-  (drop-in compatible).
 
 
 Breaking changes
