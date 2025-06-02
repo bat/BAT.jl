@@ -126,6 +126,7 @@ include("samplers/samplers.jl")
 include("integration/integration.jl")
 include("algodefaults/algodefaults.jl")
 include("plotting/plotting.jl")
+include("plotting/plotting_makie.jl")
 include("extdefs/extdefs.jl")
 include("deprecations.jl")
 
