@@ -16,8 +16,8 @@ import Makie: plot, plot!
 
 # ------------ Type Defs: ----------
 
-export plot_cfg_1d, hist1d, quantile_hist1d, kde1d, quantile_kde1d, mean1d, std1d, pdf1d
-export plot_cfg_2d, hist2d, quantile_hist2d, kde2d, quantile_kde2d, scatter2d, mean2d, std2d, cov2d, hexbin2d
+export plot_cfg_1d, hist1d, quantile_hist1d, kde1d, quantile_kde1d, mean1d, std1d, errorbars1d, pdf1d
+export plot_cfg_2d, hist2d, quantile_hist2d, kde2d, quantile_kde2d, scatter2d, mean2d, std2d, cov2d, errorbars2d, hexbin2d
 
 abstract type plot_cfg_1d end
 abstract type plot_cfg_2d end
@@ -129,6 +129,21 @@ end
     color = :black
     linestyle = :dot
     linewidth::Real = 2
+end
+
+@kwdef struct errorbars2d <: plot_cfg_2d
+    color = :red
+    linewidth::Real = 2
+    nsigma::Real = 1.
+    whiskerwidth::Real = 10
+end
+
+@kwdef struct errorbars1d <: plot_cfg_1d
+    color = :red
+    linewidth::Real = 2
+    nsigma::Real = 1.
+    whiskerwidth::Real = 10
+    rel_y_pos::Real = 0.5
 end
 
 @kwdef struct hexbin2d <: plot_cfg_2d
@@ -248,6 +263,22 @@ function plot2d!(ax::Axis, cfg::std2d, x::AbstractArray, y::AbstractArray, w::Un
     vlines!(ax, [μ_x-cfg.nsigma*σ_x, μ_x+cfg.nsigma*σ_x], color=cfg.color, linestyle=cfg.linestyle, linewidth=cfg.linewidth)
 end
 
+function plot1d!(ax::Axis, cfg::errorbars1d, x::AbstractArray, w::Union{Real, AbstractArray}=1)
+    μ = mean(x, ProbabilityWeights(w))
+    σ = std(x, ProbabilityWeights(w))
+    y_pos = ax.finallimits[].widths[2] * cfg.rel_y_pos
+    errorbars!(ax, [μ,], [y_pos,], [σ*cfg.nsigma,], direction = :x, color=cfg.color, linewidth=cfg.linewidth, whiskerwidth=cfg.whiskerwidth)
+end
+
+function plot2d!(ax::Axis, cfg::errorbars2d, x::AbstractArray, y::AbstractArray, w::Union{Real, AbstractArray}=1)
+    μ_x = mean(x, ProbabilityWeights(w))
+    μ_y = mean(y, ProbabilityWeights(w))
+    σ_x = std(x, ProbabilityWeights(w))
+    σ_y = std(y, ProbabilityWeights(w))
+    errorbars!(ax, [μ_x,], [μ_y,], [σ_y*cfg.nsigma,], color=cfg.color, linewidth=cfg.linewidth, whiskerwidth=cfg.whiskerwidth)
+    errorbars!(ax, [μ_x,], [μ_y,], [σ_x*cfg.nsigma,], direction = :x, color=cfg.color, linewidth=cfg.linewidth, whiskerwidth=cfg.whiskerwidth)
+end
+
 function plot1d!(ax::Axis, cfg::quantile_hist1d, x::AbstractArray, w::Union{Real, AbstractArray}=1)
     edges = LinRange(minimum(x), maximum(x), cfg.nbins)
     h = fit(Histogram, x, weights(w), edges)
@@ -327,7 +358,7 @@ function plot1d!(ax::Axis, cfg::quantile_kde1d, x::AbstractArray, w::Union{Real,
     cum = cumsum(sorted_y)
     cum ./= cum[end]
     
-    levels=cfg.levels
+    levels=copy(cfg.levels)
     push!(levels, 1.)
     pal = cgrad(cfg.cmap, length(levels), categorical=true, rev=!cfg.rev, alpha=cfg.alpha)
     thresholds = [sorted_y[searchsortedfirst(cum, level)] for level in levels]
