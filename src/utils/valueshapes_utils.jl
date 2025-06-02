@@ -93,3 +93,41 @@ function get_fixed_names(vs::NamedTupleShape)
     all_names = allnames(vs)
     fixed_names = [n for n in all_names if !in(n, active_names)]
 end
+
+
+const _ESCompatible = Union{
+    AbstractArray{<:Real},
+    AbstractArray{<:AbstractArray{<:Real}},
+    ShapedAsNTArray
+}
+
+const _VSCompatible = Union{
+    Real,
+    AbstractArray{<:Real},
+    NamedTuple{names, <:Tuple{Vararg{Union{Real,AbstractArray{<:Real}}}}} where names
+}
+
+_maybe_elshape(xs::_ESCompatible) = elshape(xs)
+
+_maybe_elshape(xs::AbstractVector) = _get_point_shape_impl(xs, eltype(xs))
+_get_point_shape_impl(xs::AbstractVector, ::Type{<:_VSCompatible}) = valshape(first(xs))
+_get_point_shape_impl(xs::AbstractVector, ::Type) = missing
+
+_maybe_valshape(::Any) = missing
+_maybe_valshape(x::_VSCompatible) = valshape(x)
+
+
+pushfwd_varshape(f, d::AbstractMeasure) = pushfwd_varshape_impl1(f, d, varshape(d))
+pushfwd_varshape(f, d::Distribution) = pushfwd_varshape_impl1(f, d, varshape(d))
+
+_pushfwd_varshape_impl1(f, d, x_shape) = _pushfwd_varshape_impl2(f, d, resultshape(d, x_shape))
+
+_pushfwd_varshape_impl2(f, d, y_shape::AbstractValueShape) = y_shape
+
+function _pushfwd_varshape_impl2(f, d, ::Misssing)
+    rng = _bat_determ_rng()
+    dummy_x = rand(rng, d)
+    dummy_y = f(dummy_x)
+    y_shape = _maybe_valshape(dummy_y)
+    return y_shape
+end
