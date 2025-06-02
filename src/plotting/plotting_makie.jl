@@ -480,31 +480,6 @@ function flatten(samples::DensitySampleVector)
     return x
 end
 
-function flatten(dists::NamedTupleDist)
-    variables = keys(varshape(samples))
-    ls = [length(varshape(samples)[var]) for var in variables]
-    
-    x = OrderedDict{String, AbstractArray}()
-    
-    for i in 1:length(variables)
-        var = variables[i]
-        col = flatview(getproperty(samples.v, var))
-        if col isa Fill
-            continue
-        else
-            for k in 1:ls[i]
-                if ls[i] > 1
-                    xlabel = String(var) * "[$k]"
-                    x[xlabel] = col[k, :]
-                else
-                    xlabel=String(var)
-                    x[xlabel] = col
-                end
-            end
-        end
-    end
-    return x
-end
 
 function flatten(prior::NamedTupleDist)
     variables = keys(prior)
