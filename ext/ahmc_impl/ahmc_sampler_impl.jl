@@ -84,9 +84,9 @@ function BAT.mcmc_propose!!(chain_state::HMCChainState)
 
     hamiltonian = proposal.hamiltonian
 
-    @static if isdefined(AdvancedHMC, :rand_momentum)
-        # For AdvnacedHMC.jl v >= 0.7 
-        momentum = rand_momentum(rng, hamiltonian.metric, hamiltonian.kinetic, z_current[:])
+    @static if pkgversion(AdvancedHMC) >= v"0.07"
+	foo = [1, 1] # For some reason AdvancedHMC.rand_momentum wants an AbstractVecOrMat in the last argument, but its unused...?
+        momentum = AdvancedHMC.rand_momentum(rng, hamiltonian.metric, hamiltonian.kinetic, foo)
     else
         momentum = rand(rng, hamiltonian.metric, hamiltonian.kinetic)
     end
@@ -96,7 +96,13 @@ function BAT.mcmc_propose!!(chain_state::HMCChainState)
     # TODO, MD: How should HMC handle multiple walkers?
     for i in 1:n_walkers
         z_phase = AdvancedHMC.phasepoint(hamiltonian, current.z.v[i][:], momentum)
-        proposal.transition = AdvancedHMC.transition(rng, τ, hamiltonian, z_phase)
+
+	@static if pkgversion(AdvancedHMC) >= v"0.8" 
+	    proposal.transition = AdvancedHMC.transition(rng, hamiltonian, τ, z_phase)
+	else
+	    proposal.transition = AdvancedHMC.transition(rng, τ, hamiltonian, z_phase)
+	end
+
         proposed.z.v[i] = proposal.transition.z.θ
         p_accept[i] = AdvancedHMC.stat(proposal.transition).acceptance_rate
     end
