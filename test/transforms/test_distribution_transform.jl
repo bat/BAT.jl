@@ -68,13 +68,19 @@ using MeasureBase
     gamma = Gamma(0.1,0.7)
     dirich = Dirichlet([0.5, 4.0, 2.2, 0.7])
 
+    locscaledist = -2 * LogUniform(0.1, 10.0) + 3
+    @test locscaledist isa Distributions.AffineDistribution
+    locscaledist2 = 3 * LogUniform(0.5, 20.0) -2
+
     ntdist = NamedTupleDist(
         a = uniform1,
         b = mvnorm,
         c = [4.2, 3.7],
         x = beta,
-        y = gamma
+        y = gamma,
+        z = locscaledist
     )
+
 
     test_back_and_forth(stduvuni, stduvuni)
     test_back_and_forth(stduvnorm, stduvnorm)
@@ -88,6 +94,15 @@ using MeasureBase
 
     test_back_and_forth(beta, stduvnorm)
     test_back_and_forth(gamma, stduvnorm)
+
+    test_back_and_forth(locscaledist, stduvuni)
+    test_back_and_forth(locscaledist, stduvnorm)
+    test_back_and_forth(stduvuni, locscaledist)
+    test_back_and_forth(stduvnorm, locscaledist)
+    test_back_and_forth(locscaledist2, locscaledist2)
+
+    test_dist_trafo_moments(locscaledist, stduvnorm)
+    test_dist_trafo_moments(locscaledist, locscaledist2)
 
     test_dist_trafo_moments(normal2, normal1)
     test_dist_trafo_moments(uniform2, uniform1)
@@ -112,8 +127,8 @@ using MeasureBase
 
     test_back_and_forth(dirich, BAT.StandardMvNormal(3))
 
-    test_back_and_forth(ntdist, BAT.StandardMvNormal(5))
-    test_back_and_forth(ntdist, BAT.StandardMvUniform(5))
+    test_back_and_forth(ntdist, BAT.StandardMvNormal(6))
+    test_back_and_forth(ntdist, BAT.StandardMvUniform(6))
 
     let
         mvuni = product_distribution([Uniform(), Uniform()])
