@@ -10,7 +10,7 @@ using InverseFunctions, ChangesOfVariables
 
 using BAT: transform_samples
 
-using BAT: _unshaped_trafo, _get_point_shape, _trafo_input_output_shape, _trafo_ladj_available,
+using BAT: _unshaped_trafo, _maybe_elshape, _trafo_input_output_shape, _trafo_ladj_available,
     _trafo_output_numtype, _trafo_output_type, _trafo_create_unshaped_ys
 
 @testset "test_trafo_utils" begin
@@ -26,7 +26,7 @@ using BAT: _unshaped_trafo, _get_point_shape, _trafo_input_output_shape, _trafo_
     x = first(xs)
     logd_xs = xsv.logd
 
-    @test @inferred(_get_point_shape(xs)) isa NamedTupleShape
+    @test @inferred(_maybe_elshape(xs)) isa NamedTupleShape
 
     myidentity(x) = x
     InverseFunctions.inverse(f::typeof(myidentity)) = f
@@ -47,7 +47,7 @@ using BAT: _unshaped_trafo, _get_point_shape, _trafo_input_output_shape, _trafo_
     @test @inferred(_trafo_create_unshaped_ys(f, xs, y_shape)) isa VectorOfSimilarVectors{Float64}
     ys = @inferred(transform_samples(f, xs))
     @test ys isa VectorOfSimilarVectors{Float64}
-    @test @inferred(_get_point_shape(ys)) isa ArrayShape
+    @test @inferred(_maybe_elshape(ys)) isa ArrayShape
     ysv = @inferred(transform_samples(f, xsv))
     @test ysv.v == ys
     @test !any(isnan, ysv.logd)
@@ -63,7 +63,7 @@ using BAT: _unshaped_trafo, _get_point_shape, _trafo_input_output_shape, _trafo_
     @test @inferred(_trafo_create_unshaped_ys(f, xs, y_shape)) isa VectorOfSimilarVectors{Float64}
     ys = @inferred(transform_samples(f, xs))
     @test ys isa VectorOfSimilarVectors{Float64}
-    @test @inferred(_get_point_shape(ys)) isa ArrayShape
+    @test @inferred(_maybe_elshape(ys)) isa ArrayShape
     ysv = @inferred(transform_samples(f, xsv))
     @test ysv.v == ys
     @test !any(isnan, ysv.logd)
@@ -79,7 +79,7 @@ using BAT: _unshaped_trafo, _get_point_shape, _trafo_input_output_shape, _trafo_
     @test @inferred(_trafo_create_unshaped_ys(f, xs, y_shape)) isa VectorOfSimilarVectors{Float64}
     ys = @inferred(transform_samples(f, xs))
     @test ys isa ShapedAsNTArray
-    @test @inferred(_get_point_shape(ys)) isa NamedTupleShape
+    @test @inferred(_maybe_elshape(ys)) isa NamedTupleShape
     ysv = @inferred(transform_samples(f, xsv))
     @test ysv.v == ys
     @test all(isnan, ysv.logd)
@@ -92,7 +92,7 @@ using BAT: _unshaped_trafo, _get_point_shape, _trafo_input_output_shape, _trafo_
     @test @inferred(_trafo_output_type(f, xs)) <: NamedTuple
     ys = @inferred(transform_samples(f, xs))
     @test ys isa AbstractVector{<:NamedTuple}
-    @test @inferred(_get_point_shape(ys)) isa Missing
+    @test @inferred(_maybe_elshape(ys)) isa Missing
     ysv = @inferred(transform_samples(f, xsv))
     @test ysv.v == ys
     @test all(isnan, ysv.logd)
