@@ -96,6 +96,22 @@ function apply_dist_trafo(trg_d::PolarShellDistribution, src_d::StandardMvNormal
 end
 
 
+pushfwd_varshape(f, d::AbstractMeasure) = pushfwd_varshape_impl1(f, d, varshape(d))
+pushfwd_varshape(f, d::Distribution) = pushfwd_varshape_impl1(f, d, varshape(d))
+
+_pushfwd_varshape_impl1(f, d, x_shape) = _pushfwd_varshape_impl2(f, d, resultshape(d, x_shape))
+
+_pushfwd_varshape_impl2(f, d, y_shape::AbstractValueShape) = y_shape
+
+function _pushfwd_varshape_impl2(f, d, ::Misssing)
+    rng = _bat_determ_rng()
+    dummy_x = rand(rng, d)
+    dummy_y = f(dummy_x)
+    y_shape = valshape(dummy_y)
+    return y_shape
+end
+
+
 
 function _cart_to_polar(x)
     x_1, x_2 = x
