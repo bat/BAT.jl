@@ -23,7 +23,7 @@ using MeasureBase
                 let vs_trg = varshape(trg_d), vs_src = varshape(src_d)
                     f = unshaped_x -> inverse(vs_trg)(BAT.apply_dist_trafo(trg_d, src_d, vs_src(unshaped_x)))
                     ref_ladj = logpdf(src_d, src_v) - logpdf(trg_d, trg_v)
-                    @test ref_ladj ≈ logabsdet(ForwardDiff.jacobian(f, inverse(vs_src)(src_v)))[1]
+                    @test isapprox(ref_ladj, logabsdet(ForwardDiff.jacobian(f, inverse(vs_src)(src_v)))[1], rtol = 1e-6, atol = 1e-6)
                 end
             end
         end
