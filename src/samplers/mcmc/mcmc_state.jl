@@ -170,9 +170,15 @@ function mcmc_step!!(mcmc_state::MCMCState)
 
     chain_state = mcmc_state.chain_state
     
-    chain_state.stepno += 1
+    (;proposal, stepno, context) = chain_state
+
+    stepno += 1
     
-    chain_state, p_accept = mcmc_propose!!(chain_state)
+    rng = get_rng(context)
+
+    proposal, current_proposal = get_current_proposal!!(proposal, stepno, rng)
+
+    chain_state, p_accept = mcmc_propose!!(chain_state, current_proposal)
 
     mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, p_accept)
     

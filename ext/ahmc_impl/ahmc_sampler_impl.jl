@@ -74,8 +74,8 @@ function BAT._create_proposal_state(
     )
 end
 
-function BAT.mcmc_propose!!(chain_state::HMCChainState)
-    (; target, proposal, f_transform, current, proposed, context) = chain_state
+function BAT.mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalState)
+    (; target, f_transform, current, proposed, context) = chain_state
     n_walkers = nwalkers(chain_state)
     rng = get_rng(context)
 
@@ -132,7 +132,7 @@ function BAT.set_mc_transform!!(chain_state::HMCChainState, f_transform_new::Fun
     h = chain_state.proposal.hamiltonian 
 
     h = @set h.ℓπ = f
-    h = @set h.∂ℓπ∂θ = fg 
+    h = @set h.∂ℓπ∂θ = fg
 
     chain_state_new = @set chain_state.proposal.hamiltonian = h
 

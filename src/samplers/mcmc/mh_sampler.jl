@@ -14,7 +14,12 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct RandomWalk{Q<:Union{AbstractMeasure,Distribution{<:Union{Univariate,Multivariate},Continuous}}} <: MCMCProposal
+@with_kw struct RandomWalk{
+    Q<:Union{
+        AbstractMeasure,
+        Distribution{<:Union{Univariate,Multivariate},Continuous}
+    }
+} <: MCMCProposal
     proposaldist::Q = TDist(1.0)
 end
 
@@ -104,7 +109,7 @@ end
 
 const MHChainState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:MHProposalState} 
 
-function mcmc_propose!!(chain_state::MHChainState)
+function mcmc_propose!!(chain_state::MCMCChainState, MHProposalState)
 
     @unpack target, proposal, f_transform, context = chain_state
     rng = get_rng(context)
