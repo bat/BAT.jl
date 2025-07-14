@@ -109,7 +109,8 @@ function mcmc_tune_post_step!!(
 
     f_transform_new = MulAdd(Σ_L_new, new_b)
 
-    mc_state_new = set_mc_transform!!(chain_state, f_transform_new)
+    proposal = get_current_proposal(chain_state.proposal)
+    mc_state_new, proposal = set_mc_transform!!(chain_state, proposal, f_transform_new)
     mc_state_new = mcmc_update_z_position!!(mc_state_new)
 
     return mc_state_new, tuner_state_new

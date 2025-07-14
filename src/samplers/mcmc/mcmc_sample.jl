@@ -58,24 +58,59 @@ function MCMCState(samplingalg::TransformedMCMC, target::BATMeasure, id::Integer
     target_unevaluated = unevaluated(target)
     chain_state = MCMCChainState(samplingalg, target_unevaluated, Int32(id), v_init, context)
     trafo_tuner_state = create_trafo_tuner_state(samplingalg.transform_tuning, chain_state, 0)
-    proposal_tuner_state = create_proposal_tuner_state(samplingalg.proposal_tuning, chain_state, 0)
+    proposal_tuner_state = create_proposal_tuner_state(samplingalg.proposal_tuning, chain_state, chain_state.proposal, 0)
     temperer_state = create_temperering_state(samplingalg.tempering, target)
     
     MCMCState(chain_state, proposal_tuner_state, trafo_tuner_state, temperer_state)
 end
 
 
-bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}) = PriorToNormal()
+bat_default(
+    ::Type{TransformedMCMC}, 
+    ::Val{:pretransform},
+    ::MCMCProposal
+) = PriorToNormal()
 
-bat_default(::Type{TransformedMCMC}, ::Val{:nwalkers}, ::MCMCProposal, ::AbstractTransformTarget, ::MCMCTransformTuning, nchains::Integer) = 1
+bat_default(
+    ::Type{TransformedMCMC}, 
+    ::Val{:nwalkers}, 
+    ::MCMCProposal, 
+    ::AbstractTransformTarget, 
+    ::MCMCTransformTuning, 
+    nchains::Integer
+) = 1
 
-bat_default(::Type{TransformedMCMC}, ::Val{:nsteps}, ::MCMCProposal, ::AbstractTransformTarget, ::MCMCTransformTuning, nchains::Integer, nwalkers::Integer) = 10^5
+bat_default(
+    ::Type{TransformedMCMC}, 
+    ::Val{:nsteps}, 
+    ::MCMCProposal, 
+    ::AbstractTransformTarget, 
+    ::MCMCTransformTuning, 
+    nchains::Integer, 
+    nwalkers::Integer
+) = 10^5
 
-bat_default(::Type{TransformedMCMC}, ::Val{:init}, ::MCMCProposal, ::AbstractTransformTarget, ::MCMCTransformTuning, nchains::Integer, nwalkers::Integer, nsteps::Integer) =
-    MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
+bat_default(
+    ::Type{TransformedMCMC}, 
+    ::Val{:init}, 
+    ::MCMCProposal, 
+    ::AbstractTransformTarget, 
+    ::MCMCTransformTuning, 
+    nchains::Integer, 
+    nwalkers::Integer, 
+    nsteps::Integer
+) = MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
 
-bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, ::MCMCProposal, ::AbstractTransformTarget, ::MCMCTransformTuning, nchains::Integer, nwalkers::Integer, nsteps::Integer) =
-    MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
+bat_default(
+    ::Type{TransformedMCMC}, 
+    ::Val{:burnin}, 
+    ::MCMCProposal, 
+    ::AbstractTransformTarget, 
+    ::MCMCTransformTuning, 
+    nchains::Integer, 
+    nwalkers::Integer, 
+    nsteps::Integer
+) = MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
 function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::BATContext)
     transformed_m, f_pretransform = transform_and_unshape(samplingalg.pretransform, m, context)

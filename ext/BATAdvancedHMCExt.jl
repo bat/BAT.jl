@@ -26,7 +26,7 @@ using BAT: MCMCProposalTunerState, MCMCTransformTunerState, NoMCMCTempering, NoM
 using BAT: mcmc_weight_values
 using BAT: AbstractTransformTarget, NoAdaptiveTransform, TriangularAffineTransform, valgrad_func
 using BAT: RNGPartition, get_rng, set_rng!
-using BAT: mcmc_step!!, nsamples, nsteps, nwalkers, eff_acceptance_ratio
+using BAT: mcmc_step!!, nsamples, nsteps, nwalkers, eff_acceptance_ratio, get_current_proposal
 using BAT: get_samples!, reset_rng_counters!
 using BAT: create_trafo_tuner_state, create_proposal_tuner_state
 using BAT: mcmc_tuning_init!!, mcmc_tuning_postinit!!, mcmc_tuning_reinit!!, mcmc_tune_transform_post_cycle!!, transform_mcmc_tuning_finalize!!

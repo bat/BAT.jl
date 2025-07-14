@@ -163,20 +163,27 @@ function _empty_chain_outputs(chain_state::MCMCChainState)
     return fill(_empty_DensitySampleVector(chain_state), nwalkers(chain_state))
 end
 
+function eff_acceptance_ratio(chain_state::MCMCChainState)
+    current_proposal = get_current_proposal(chain_state.proposal)
+    eff_acceptance_ratio_impl(chain_state, current_proposal)
+end
+
 
 function mcmc_step!!(mcmc_state::MCMCState)
+    global gs_step = (mcmc_state,)
+    # BREAK_MCMC_STEP
     
     reset_rng_counters!(mcmc_state)
 
     chain_state = mcmc_state.chain_state
-    
-    (;proposal, stepno, context) = chain_state
+    chain_state.stepno += 1
 
-    stepno += 1
+    (;proposal, stepno, context) = chain_state
     
     rng = get_rng(context)
 
-    proposal, current_proposal = get_current_proposal!!(proposal, stepno, rng)
+    proposal = set_current_proposal!!(proposal, stepno, rng)
+    current_proposal = get_current_proposal(proposal)
 
     chain_state, p_accept = mcmc_propose!!(chain_state, current_proposal)
 
@@ -355,10 +362,22 @@ end
 
 # TODO: MD, when should the z-position be updated? Before or after the proposal tuning?
 function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:DensitySampleVector})
-    chain_state_tmp, trafo_tuner_state_new = mcmc_tune_post_cycle!!(state.trafo_tuner_state, state.chain_state, samples)
-    chain_state_new, proposal_tuner_state_new = mcmc_tune_post_cycle!!(state.proposal_tuner_state, chain_state_tmp, samples)
+    chain_state_trafo_tuned, trafo_tuner_state_new = mcmc_tune_post_cycle!!(
+        state.trafo_tuner_state, 
+        state.chain_state, 
+        samples
+    )
 
-    mcmc_state_cs = @set state.chain_state = chain_state_new
+    proposal_state_new, proposal_tuner_state_new, chain_state_new = mcmc_tune_post_cycle!!(
+        chain_state_trafo_tuned.proposal, 
+        state.proposal_tuner_state, 
+        chain_state_trafo_tuned, 
+        samples
+    )
+
+    chain_state_final = @set chain_state_new.proposal = proposal_state_new
+
+    mcmc_state_cs = @set state.chain_state = chain_state_final
     mcmc_state_tt = @set mcmc_state_cs.trafo_tuner_state = trafo_tuner_state_new
     mcmc_state_pt = @set mcmc_state_tt.proposal_tuner_state = proposal_tuner_state_new
 
@@ -367,10 +386,21 @@ end
 
 function mcmc_tune_post_step!!(state::MCMCState, p_accept::AbstractVector{<:Real})
     chain_state_tmp, trafo_tuner_state_new = mcmc_tune_post_step!!(state.trafo_tuner_state, state.chain_state, p_accept)
-    chain_state_new, proposal_tuner_state_new = mcmc_tune_post_step!!(state.proposal_tuner_state, chain_state_tmp, p_accept)
+
+    proposal_state_new, proposal_tuner_state_new, chain_state_new = mcmc_tune_post_step!!(
+        chain_state_tmp.proposal, 
+        state.proposal_tuner_state, 
+        chain_state_tmp, 
+        p_accept
+    )
+
+    global gs_hmc_prop = (1,1)
+
+    global gs_tps = (chain_state_new, proposal_state_new)
+    chain_state_final = @set chain_state_new.proposal = proposal_state_new
 
     # TODO: MD, inelegant, use AccessorsExtra.jl to set several fields at once? https://github.com/JuliaAPlavin/AccessorsExtra.jl
-    mcmc_state_cs = @set state.chain_state = chain_state_new
+    mcmc_state_cs = @set state.chain_state = chain_state_final
     mcmc_state_tt = @set mcmc_state_cs.trafo_tuner_state = trafo_tuner_state_new
     mcmc_state_pt = @set mcmc_state_tt.proposal_tuner_state = proposal_tuner_state_new
     
@@ -379,7 +409,7 @@ end
 
 function mcmc_tuning_finalize!!(state::MCMCState)
     mcmc_tuning_finalize!!(state.trafo_tuner_state, state.chain_state)
-    mcmc_tuning_finalize!!(state.proposal_tuner_state, state.chain_state)
+    mcmc_tuning_finalize!!(state.chain_state.proposal, state.proposal_tuner_state, state.chain_state)
 end 
 
 

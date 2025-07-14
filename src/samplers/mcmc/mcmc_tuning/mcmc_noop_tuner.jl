@@ -38,7 +38,7 @@ export NoMCMCProposalTuning
 struct NoMCMCProposalTunerState <: MCMCProposalTunerState end
 
 
-create_proposal_tuner_state(::NoMCMCProposalTuning, ::MCMCChainState, ::Integer) = NoMCMCProposalTunerState()
+create_proposal_tuner_state(::NoMCMCProposalTuning, ::MCMCChainState, ::MCMCProposalState, ::Integer) = NoMCMCProposalTunerState()
 
 mcmc_tuning_init!!(::NoMCMCProposalTunerState, ::MCMCChainState, ::Integer) = nothing
 
@@ -46,8 +46,18 @@ mcmc_tuning_reinit!!(::NoMCMCProposalTunerState, ::MCMCChainState, ::Integer) = 
 
 mcmc_tuning_postinit!!(::NoMCMCProposalTunerState, ::MCMCChainState, ::AbstractVector{<:DensitySampleVector}) = nothing
 
-mcmc_tune_post_cycle!!(tuner::NoMCMCProposalTunerState, chain_state::MCMCChainState, ::AbstractVector{<:DensitySampleVector}) = chain_state, tuner
+mcmc_tune_post_cycle!!(
+    proposal::MCMCProposalState, 
+    tuner::NoMCMCProposalTunerState, 
+    chain_state::MCMCChainState, 
+    ::AbstractVector{<:DensitySampleVector}
+) = proposal, tuner, chain_state
 
-mcmc_tuning_finalize!!(::NoMCMCProposalTunerState, ::MCMCChainState) = nothing
+mcmc_tuning_finalize!!(::MCMCProposalState, ::NoMCMCProposalTunerState, ::MCMCChainState) = nothing
 
-mcmc_tune_post_step!!(tuner::NoMCMCProposalTunerState, chain_state::MCMCChainState, ::AbstractVector{<:Real}) = chain_state, tuner
+mcmc_tune_post_step!!(
+    proposal::MCMCProposalState, 
+    tuner::NoMCMCProposalTunerState, 
+    chain_state::MCMCChainState, 
+    ::AbstractVector{<:Real}
+) = proposal, tuner, chain_state 

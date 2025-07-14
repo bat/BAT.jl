@@ -41,7 +41,7 @@ function BAT.mcmc_tune_post_cycle!!(tuner::StanLikeTunerState, chain_state::HMCC
 end
 
 
-BAT.mcmc_tuning_finalize!!(tuner::StanLikeTunerState, chain_state::HMCChainState) = nothing
+BAT.mcmc_tuning_finalize!!(proposal::HMCProposalState, tuner::StanLikeTunerState, chain_state::HMCChainState) = nothing
 
 
 function BAT.mcmc_tune_post_step!!(
@@ -72,7 +72,10 @@ function BAT.mcmc_tune_post_step!!(
         reweight_relative!(stats, 0)
 
         f_transform_new = MulAdd(A_new, zeros(T, n_dims))
-        chain_state = set_mc_transform!!(chain_state, f_transform_new)
+
+        proposal = get_current_proposal(chain_state.proposal)
+
+        chain_state, proposal = set_mc_transform!!(chain_state, proposal, f_transform_new)
     end
 
     chain_state_new = mcmc_update_z_position!!(chain_state) 

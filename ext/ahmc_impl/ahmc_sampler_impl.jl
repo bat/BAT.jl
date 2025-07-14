@@ -63,7 +63,13 @@ function BAT._create_proposal_state(
     kernel = HMCKernel(Trajectory{MultinomialTS}(integrator, termination))
 
     # Perform a dummy step to get type-stable transition value:
-    transition = AdvancedHMC.transition(deepcopy(rng), deepcopy(hamiltonian), deepcopy(kernel), init_transition.z)
+	@static if pkgversion(AdvancedHMC) >= v"0.8" 
+	    transition = AdvancedHMC.transition(deepcopy(rng), deepcopy(hamiltonian), deepcopy(kernel).τ, init_transition.z)
+	else
+	    transition = AdvancedHMC.transition(deepcopy(rng), deepcopy(kernel).τ, deepcopy(hamiltonian), init_transition.z)
+	end
+    
+    transition = @set transition.stat = merge(AdvancedHMC.stat(transition), (is_adapt = false,))
 
     HMCProposalState(
         integrator,
@@ -85,7 +91,7 @@ function BAT.mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalSt
     hamiltonian = proposal.hamiltonian
 
     @static if pkgversion(AdvancedHMC) >= v"0.07"
-	foo = [1, 1] # For some reason AdvancedHMC.rand_momentum wants an AbstractVecOrMat in the last argument, but its unused...?
+	    foo = [1, 1] # For some reason AdvancedHMC.rand_momentum wants an AbstractVecOrMat in the last argument, but its unused...?
         momentum = AdvancedHMC.rand_momentum(rng, hamiltonian.metric, hamiltonian.kinetic, foo)
     else
         momentum = rand(rng, hamiltonian.metric, hamiltonian.kinetic)
@@ -97,11 +103,13 @@ function BAT.mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalSt
     for i in 1:n_walkers
         z_phase = AdvancedHMC.phasepoint(hamiltonian, current.z.v[i][:], momentum)
 
-	@static if pkgversion(AdvancedHMC) >= v"0.8" 
-	    proposal.transition = AdvancedHMC.transition(rng, hamiltonian, τ, z_phase)
-	else
-	    proposal.transition = AdvancedHMC.transition(rng, τ, hamiltonian, z_phase)
-	end
+        global BAT.gs_hmc_prop = (rng, hamiltonian, τ, z_phase, chain_state, proposal)
+
+        @static if pkgversion(AdvancedHMC) >= v"0.8" 
+            proposal = @set proposal.transition = AdvancedHMC.transition(rng, hamiltonian, τ, z_phase)
+        else
+            proposal = @set proposal.transition = AdvancedHMC.transition(rng, τ, hamiltonian, z_phase)
+        end
 
         proposed.z.v[i] = proposal.transition.z.θ
         p_accept[i] = AdvancedHMC.stat(proposal.transition).acceptance_rate
@@ -122,20 +130,21 @@ function BAT.mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalSt
     return chain_state, p_accept
 end
 
-BAT.eff_acceptance_ratio(chain_state::HMCChainState) = nsamples(chain_state) / nsteps(chain_state)
+BAT.eff_acceptance_ratio_impl(chain_state::MCMCChainState, proposal::HMCProposalState) = nsamples(chain_state) / nsteps(chain_state)
 
-function BAT.set_mc_transform!!(chain_state::HMCChainState, f_transform_new::Function) 
+function BAT.set_mc_transform!!(chain_state::MCMCChainState, proposal::HMCProposalState, f_transform_new::Function) 
     adsel = get_adselector(chain_state.context)
     f = checked_logdensityof(pullback(f_transform_new, chain_state.target))
     fg = valgrad_func(f, adsel)
     
-    h = chain_state.proposal.hamiltonian 
+    h = proposal.hamiltonian 
 
     h = @set h.ℓπ = f
     h = @set h.∂ℓπ∂θ = fg
 
-    chain_state_new = @set chain_state.proposal.hamiltonian = h
+    proposal_new = @set proposal.hamiltonian = h
 
-    chain_state_new = @set chain_state_new.f_transform = f_transform_new
-    return chain_state_new
+    chain_state_new = @set chain_state.f_transform = f_transform_new
+
+    return chain_state_new, proposal_new
 end

@@ -52,6 +52,9 @@ function mcmc_init!(
 
     @info "MCMCChainPoolInit: trying to generate $nchains viable MCMC chain state(s)."
 
+    global gs_rt_init = (samplingalg, target, init_alg, callback, context)
+    BREAK_RT_INIT
+    
     initval_alg = init_alg.initval_alg
 
     rngpart = RNGPartition(get_rng(context), Base.OneTo(nchains))
