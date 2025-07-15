@@ -151,7 +151,5 @@ end
 
 eff_acceptance_ratio_impl(chain_state::MCMCChainState, proposal::MHProposalState) = nsamples(chain_state) / (nsteps(chain_state) * nwalkers(chain_state))
 
-function set_mc_transform!!(mc_state::MCMCChainState, proposal::MHProposalState, f_transform_new::Function) 
-    mc_state_new = @set mc_state.f_transform = f_transform_new
-    return mc_state_new, proposal
-end
+set_proposal_transform!!(proposal::MHProposalState, ::MCMCChainState) = proposal
+

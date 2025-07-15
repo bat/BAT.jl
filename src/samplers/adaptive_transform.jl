@@ -17,6 +17,25 @@ struct NoAdaptiveTransform <: AbstractAdaptiveTransform end
 
 init_adaptive_transform(::NoAdaptiveTransform, ::AbstractMeasure, ::BATContext) = identity
 
+struct AdaptiveTransformChain{AT<:AbstractAdaptiveTransform} <: AbstractAdaptiveTransform
+    f::Tuple{Vararg{AT}}
+end
+export AdaptiveTransformChain
+
+function init_adaptive_transform(
+    adaptive_transform::AdaptiveTransformChain, 
+    target::AbstractMeasure, 
+    context::BATContext
+)
+    initialized_trafos = Vector{Function}()
+
+    for trafo in adaptive_transform.f
+        trafo_init = init_adaptive_transform(trafo, target, context)
+        push!(initialized_trafos, trafo_init)
+    end
+
+    return fchain(initialized_trafos)
+end
 
 
 struct TriangularAffineTransform <: AbstractAdaptiveTransform end

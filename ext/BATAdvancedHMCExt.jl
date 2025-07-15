@@ -30,7 +30,6 @@ using BAT: mcmc_step!!, nsamples, nsteps, nwalkers, eff_acceptance_ratio, get_cu
 using BAT: get_samples!, reset_rng_counters!
 using BAT: create_trafo_tuner_state, create_proposal_tuner_state
 using BAT: mcmc_tuning_init!!, mcmc_tuning_postinit!!, mcmc_tuning_reinit!!, mcmc_tune_transform_post_cycle!!, transform_mcmc_tuning_finalize!!
-using BAT: set_mc_transform!!, mcmc_update_z_position!!
 using BAT: totalndof, measure_support, checked_logdensityof
 using BAT: CURRENT_SAMPLE, PROPOSED_SAMPLE, INVALID_SAMPLE, ACCEPTED_SAMPLE, REJECTED_SAMPLE
 

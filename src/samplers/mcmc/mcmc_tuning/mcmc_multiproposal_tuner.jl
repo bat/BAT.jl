@@ -106,7 +106,7 @@ function mcmc_tuning_finalize!!(
         proposal = proposals[i]
         tuner = multi_tuner.proposal_tuners[i] 
 
-        mcmc_tuning_finalize!!(propsal, tuner, chain_state) 
+        mcmc_tuning_finalize!!(proposal, tuner, chain_state) 
     end
 end
 

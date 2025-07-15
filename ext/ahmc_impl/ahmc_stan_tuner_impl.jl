@@ -26,7 +26,12 @@ end
 BAT.mcmc_tuning_postinit!!(tuner::StanLikeTunerState, chain_state::HMCChainState, samples::AbstractVector{<:DensitySampleVector}) = nothing
 
 
-function BAT.mcmc_tune_post_cycle!!(tuner::StanLikeTunerState, chain_state::HMCChainState, samples::AbstractVector{<:DensitySampleVector})
+function BAT.mcmc_tune_post_cycle!!(
+    f_transform::Function, 
+    tuner::StanLikeTunerState, 
+    chain_state::HMCChainState, 
+    samples::AbstractVector{<:DensitySampleVector}
+)
     logds = [walker_smpls.logd for walker_smpls in samples]
     max_log_posterior = maximum(maximum.(logds))
     accept_ratio = eff_acceptance_ratio(chain_state)
@@ -37,7 +42,7 @@ function BAT.mcmc_tune_post_cycle!!(tuner::StanLikeTunerState, chain_state::HMCC
         chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false)
         @debug "MCMC chain $(chain_state.info.id) *not* tuned, acceptance ratio = $(Float32(accept_ratio)), integrator = $(chain_state.proposal.τ.integrator), max. log posterior = $(Float32(max_log_posterior))"
     end
-    return chain_state, tuner
+    return f_transform, tuner, chain_state
 end
 
 
@@ -45,6 +50,7 @@ BAT.mcmc_tuning_finalize!!(proposal::HMCProposalState, tuner::StanLikeTunerState
 
 
 function BAT.mcmc_tune_post_step!!(
+    f_transform::Function,
     tuner::StanLikeTunerState,
     chain_state::MCMCChainState,
     p_accept::AbstractVector{<:Real}
@@ -61,7 +67,7 @@ function BAT.mcmc_tune_post_step!!(
     end
     
     if is_window_end 
-        A = chain_state.f_transform.A
+        A = f_transform.A
         T = eltype(A)
         n_dims = size(A, 2)
 
@@ -72,13 +78,7 @@ function BAT.mcmc_tune_post_step!!(
         reweight_relative!(stats, 0)
 
         f_transform_new = MulAdd(A_new, zeros(T, n_dims))
-
-        proposal = get_current_proposal(chain_state.proposal)
-
-        chain_state, proposal = set_mc_transform!!(chain_state, proposal, f_transform_new)
     end
 
-    chain_state_new = mcmc_update_z_position!!(chain_state) 
-
-    return chain_state_new, tuner
+    return f_transform_new, tuner, chain_state
 end

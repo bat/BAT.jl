@@ -157,3 +157,17 @@ function _create_proposal_state(
         return SequentialMultiProposalState(proposal_states, cumsum(picking_rule), current_proposal_idx)
     end
 end
+
+function set_proposal_transform!!(
+    multi_proposal::Union{SequentialMultiProposalState, RandomMultiProposalState},
+    chain_state::MCMCChainState 
+)
+    f_transform_new = chain_state.f_transform
+
+    for proposal in multi_proposal.proposal_states
+	proposal = set_proposal_transform!!(proposal, f_transform_new, chain_state)
+    end
+
+    return multi_proposal
+end
+

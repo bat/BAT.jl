@@ -362,14 +362,20 @@ end
 
 # TODO: MD, when should the z-position be updated? Before or after the proposal tuning?
 function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:DensitySampleVector})
-    chain_state_trafo_tuned, trafo_tuner_state_new = mcmc_tune_post_cycle!!(
+    f_transform_tuned, trafo_tuner_state_new, chain_state_trafo_tuned = mcmc_tune_post_cycle!!(
+        state.chain_state.f_transform,
         state.trafo_tuner_state, 
         state.chain_state, 
         samples
     )
+    
+    chain_state_trafo_tuned = @set chain_state_trafo_tuned.f_transform = f_transform_tuned
+    proposal = chain_state_trafo_tuned.proposal
+    proposal = set_proposal_transform!!(proposal, chain_state_trafo_tuned)
+    chain_state_trafo_tuned = mcmc_update_z_position!!(chain_state_trafo_tuned)
 
     proposal_state_new, proposal_tuner_state_new, chain_state_new = mcmc_tune_post_cycle!!(
-        chain_state_trafo_tuned.proposal, 
+        proposal, 
         state.proposal_tuner_state, 
         chain_state_trafo_tuned, 
         samples
@@ -385,12 +391,22 @@ function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:Dens
 end
 
 function mcmc_tune_post_step!!(state::MCMCState, p_accept::AbstractVector{<:Real})
-    chain_state_tmp, trafo_tuner_state_new = mcmc_tune_post_step!!(state.trafo_tuner_state, state.chain_state, p_accept)
+    f_transform_tuned, trafo_tuner_state_new, chain_state_trafo_tuned = mcmc_tune_post_step!!(
+        state.chain_state.f_transform,
+        state.trafo_tuner_state, 
+        state.chain_state, 
+        p_accept
+    )
+
+    chain_state_trafo_tuned = @set chain_state_trafo_tuned.f_transform = f_transform_tuned
+    proposal = chain_state_trafo_tuned.proposal
+    proposal = set_proposal_transform!!(proposal, chain_state_trafo_tuned)
+    chain_state_trafo_tuned = mcmc_update_z_position!!(chain_state_trafo_tuned)
 
     proposal_state_new, proposal_tuner_state_new, chain_state_new = mcmc_tune_post_step!!(
-        chain_state_tmp.proposal, 
+        chain_state_trafo_tuned.proposal, 
         state.proposal_tuner_state, 
-        chain_state_tmp, 
+        chain_state_trafo_tuned, 
         p_accept
     )
 

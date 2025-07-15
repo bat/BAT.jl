@@ -132,7 +132,8 @@ end
 
 BAT.eff_acceptance_ratio_impl(chain_state::MCMCChainState, proposal::HMCProposalState) = nsamples(chain_state) / nsteps(chain_state)
 
-function BAT.set_mc_transform!!(chain_state::MCMCChainState, proposal::HMCProposalState, f_transform_new::Function) 
+function BAT.set_proposal_transform!!(proposal::HMCProposalState, chain_state::MCMCChainState) 
+    f_transform_new = chain_state.f_transform
     adsel = get_adselector(chain_state.context)
     f = checked_logdensityof(pullback(f_transform_new, chain_state.target))
     fg = valgrad_func(f, adsel)
@@ -144,7 +145,6 @@ function BAT.set_mc_transform!!(chain_state::MCMCChainState, proposal::HMCPropos
 
     proposal_new = @set proposal.hamiltonian = h
 
-    chain_state_new = @set chain_state.f_transform = f_transform_new
-
-    return chain_state_new, proposal_new
+    return proposal_new
 end
+
