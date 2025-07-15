@@ -56,6 +56,8 @@ function BAT.mcmc_tune_post_step!!(
     proposal::HMCProposalState,
     tuner_state::HMCProposalTunerState,
     chain_state::MCMCChainState,
+    current::DensitySampleVector,
+    proposed::DensitySampleVector,
     p_accept::AbstractVector{<:Real}
 )
     adaptor = tuner_state.adaptor

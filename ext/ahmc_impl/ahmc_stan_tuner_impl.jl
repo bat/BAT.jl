@@ -53,6 +53,8 @@ function BAT.mcmc_tune_post_step!!(
     f_transform::Function,
     tuner::StanLikeTunerState,
     chain_state::MCMCChainState,
+    current::DensitySampleVector,
+    proposed::DensitySampleVector,
     p_accept::AbstractVector{<:Real}
 )
     stan_state = tuner.stan_state

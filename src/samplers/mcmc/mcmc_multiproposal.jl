@@ -2,7 +2,7 @@
 
 struct MCMCMultiProposal{
     P<:Tuple{Vararg{MCMCProposal}},
-    S<:Tuple{Vararg{Union{Integer, AbstractFloat}}}
+    S<:Tuple{Vararg{Union{Integer, AbstractFloat}}} # Make into either Tuple of ints or Categorical distribution
 }<:MCMCProposal
     proposals::P
     picking_rule::S
@@ -10,6 +10,7 @@ end
 
 export MCMCMultiProposal
 
+# Make into one proposal state
 struct SequentialMultiProposalState{
     PS<:Tuple{Vararg{MCMCProposalState}},
     S<:Tuple{Vararg{Integer}},
@@ -88,6 +89,7 @@ function set_current_proposal!!(
     stepno::Integer, 
     rng::AbstractRNG
 )
+    # TODO: Make into Distributions.Categorical()
     idx = findfirst(0 .< rand(rng, proposal_state.picking_distribution))
 
     proposal_state = @set proposal_state.current_idx = idx

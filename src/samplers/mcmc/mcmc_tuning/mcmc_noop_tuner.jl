@@ -23,7 +23,7 @@ mcmc_tune_post_cycle!!(f_transform::Function, tuner::NoMCMCTransformTuningState,
 
 mcmc_tuning_finalize!!(::NoMCMCTransformTuningState, ::MCMCChainState) = nothing
 
-mcmc_tune_post_step!!(tuner::NoMCMCTransformTuningState, chain_state::MCMCChainState, ::AbstractVector{<:Real}) = chain_state, tuner
+mcmc_tune_post_step!!(f_transform::Function, tuner::NoMCMCTransformTuningState, chain_state::MCMCChainState, ::DensitySampleVector, ::DensitySampleVector, ::AbstractVector{<:Real}) = f_transform, tuner, chain_state
 
 
 

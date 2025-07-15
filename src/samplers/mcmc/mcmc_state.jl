@@ -394,7 +394,9 @@ function mcmc_tune_post_step!!(state::MCMCState, p_accept::AbstractVector{<:Real
     f_transform_tuned, trafo_tuner_state_new, chain_state_trafo_tuned = mcmc_tune_post_step!!(
         state.chain_state.f_transform,
         state.trafo_tuner_state, 
-        state.chain_state, 
+        state.chain_state,
+        state.chain_state.current.x,
+        state.chain_state.proposed.x,
         p_accept
     )
 
@@ -410,9 +412,6 @@ function mcmc_tune_post_step!!(state::MCMCState, p_accept::AbstractVector{<:Real
         p_accept
     )
 
-    global gs_hmc_prop = (1,1)
-
-    global gs_tps = (chain_state_new, proposal_state_new)
     chain_state_final = @set chain_state_new.proposal = proposal_state_new
 
     # TODO: MD, inelegant, use AccessorsExtra.jl to set several fields at once? https://github.com/JuliaAPlavin/AccessorsExtra.jl

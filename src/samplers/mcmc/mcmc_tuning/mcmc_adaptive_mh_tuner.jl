@@ -146,8 +146,11 @@ end
 mcmc_tuning_finalize!!(tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState) = nothing
 
 function mcmc_tune_post_step!!(
+    f_transform::Function,
     tuner::AdaptiveAffineTuningState,
     chain_state::MCMCChainState,
+    current::DensitySampleVector,
+    proposed::DensitySampleVector,
     p_accept::AbstractVector{<:Real}
 )
     return chain_state, tuner

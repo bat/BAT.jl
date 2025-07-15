@@ -55,3 +55,25 @@ end
 
 # TODO: Implement DiagonalAffineTransform
 struct DiagonalAffineTransform <: AbstractAdaptiveTransform end
+
+
+(f_transform::Function)(samples::DensitySampleVector) = transform_density_samples(f_transform, samples)
+
+function transform_density_samples(f_transform::Function, samples::DensitySampleVector)
+    logd = samples.logd
+
+    trafo_result = with_logabsdet_jacobian.(f_transform, samples.v)
+    
+    v_transformed = getfield.(trafo_result, 1)
+    logd_transformed = logd - getfield.(trafo_result, 2) 
+
+    samples_transformed = DensitySampleVector(
+        v_transformed, 
+        logd_transformed; 
+        weight = samples.weight, 
+        info = samples.info, 
+        aux = samples.aux
+    )
+
+    return samples_transformed
+end
