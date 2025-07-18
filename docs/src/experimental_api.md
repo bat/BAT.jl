@@ -35,6 +35,7 @@ ReactiveNestedSampling
 SobolSampler
 truncate_batmeasure
 ValueAndThreshold
+WHAMISSampling
 
 BAT.MCMCChainState
 BAT.MCMCChainStateInfo
