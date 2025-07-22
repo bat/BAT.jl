@@ -89,7 +89,7 @@ function mcmc_tune_post_cycle!!(
     samples::AbstractVector{<:DensitySampleVector}
 )
     trafo_components = fchainfs(f_transform)
-    inv_intermediate_results = with_intermediate_results.(inverse(f_transform), samples)
+    inv_intermediate_results = with_intermediate_results.(inverse(f_transform), 1)
 
     prepend!(inv_intermediate_results, samples)
 
@@ -105,11 +105,14 @@ function mcmc_tune_post_cycle!!(
 end
 
 function mcmc_tuning_finalize!!(
+    trafo_chain::Function,
     multi_tuner_state::MultiTrafoTunerState,
     chain_state::MCMCChainState
 )
-    for tuner in multi_tuner_state.trafo_tuners
-        mcmc_tuning_finalize!!(tuner, chain_state)
+    for i in eachindex(multi_tuner_state.trafo_tuners)
+        f_transform = fchainfs(trafo_chain)[i]
+        tuner = multi_tuner_state.trafo_tuners[i]
+        mcmc_tuning_finalize!!(f_transform, tuner, chain_state)
     end 
 end
 
@@ -117,8 +120,8 @@ function mcmc_tune_post_step!!(
     f_transform::FunctionChain,
     multi_tuner_state::MultiTrafoTunerState, 
     chain_state::MCMCChainState,
-    current::DensitySampleVector,
-    proposed::DensitySampleVector,
+    current::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
+    proposed::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
     p_accept::AbstractVector{<:Real}
 )
     trafo_components = fchainfs(f_transform)    

@@ -85,9 +85,10 @@ function mcmc_tune_post_step!!(
     f_transform::Function,
     tuner_state::RAMTrafoTunerState, 
     chain_state::MCMCChainState,
-    p_accept::AbstractVector{<:Real},
+    current::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
+    proposed::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
+    p_accept::AbstractVector{<:Real}
 )
-    (; current, proposed) = chain_state
     
     if any(current.x.v .== proposed.x.v)
         return chain_state, tuner_state

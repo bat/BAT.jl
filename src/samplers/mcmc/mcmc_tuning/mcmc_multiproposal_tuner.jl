@@ -21,7 +21,7 @@ export MultiProposalTunerState
 function create_proposal_tuner_state(
     multi_tuning::MultiProposalTuning, 
     chain_state::MCMCChainState,
-    multi_proposal::Union{SequentialMultiProposalState, RandomMultiProposalState},
+    multi_proposal::MultiProposalState,
     iteration::Integer
 )
     proposal_tuners_init = Vector{MCMCProposalTunerState}()
@@ -79,7 +79,7 @@ end
 
 # Make properly !!. In the for loop the proposals/tuners are overwritten
 function mcmc_tune_post_cycle!!(
-    multi_proposal::Union{SequentialMultiProposalState, RandomMultiProposalState},
+    multi_proposal::MultiProposalState,
     multi_tuner::MultiProposalTunerState,
     chain_state::MCMCChainState,
     samples::AbstractVector{<:DensitySampleVector}
@@ -97,7 +97,7 @@ end
 
 
 function mcmc_tuning_finalize!!(
-    multi_proposal::Union{SequentialMultiProposalState, RandomMultiProposalState},
+    multi_proposal::MultiProposalState,
     multi_tuner::MultiProposalTunerState, 
     chain_state::MCMCChainState
 )
@@ -111,7 +111,7 @@ function mcmc_tuning_finalize!!(
 end
 
 function mcmc_tune_post_step!!(
-    multi_proposal::Union{SequentialMultiProposalState, RandomMultiProposalState},
+    multi_proposal::MultiProposalState,
     multi_tuner::MultiProposalTunerState,
     chain_state::MCMCChainState,
     p_accept::AbstractVector{<:Real}

@@ -395,8 +395,8 @@ function mcmc_tune_post_step!!(state::MCMCState, p_accept::AbstractVector{<:Real
         state.chain_state.f_transform,
         state.trafo_tuner_state, 
         state.chain_state,
-        state.chain_state.current.x,
-        state.chain_state.proposed.x,
+        state.chain_state.current,
+        state.chain_state.proposed,
         p_accept
     )
 
@@ -423,7 +423,7 @@ function mcmc_tune_post_step!!(state::MCMCState, p_accept::AbstractVector{<:Real
 end
 
 function mcmc_tuning_finalize!!(state::MCMCState)
-    mcmc_tuning_finalize!!(state.trafo_tuner_state, state.chain_state)
+    mcmc_tuning_finalize!!(state.chain_state.f_transform, state.trafo_tuner_state, state.chain_state)
     mcmc_tuning_finalize!!(state.chain_state.proposal, state.proposal_tuner_state, state.chain_state)
 end 
 

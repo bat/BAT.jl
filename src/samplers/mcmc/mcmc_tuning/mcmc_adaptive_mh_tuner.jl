@@ -132,7 +132,7 @@ function mcmc_tune_post_cycle!!(
     Σ_new = new_Σ_unscal * tuner.scale
     A_new = oftype(A, cholesky(Positive, Σ_new).L)
     
-    b = chain_state.f_transform.b
+    b = f_transform.b
     b_new = oftype(b, (1 - a_t) * b + a_t * param_stats.mean)
 
     f_transform_new = MulAdd(A_new, b_new)
@@ -143,14 +143,14 @@ function mcmc_tune_post_cycle!!(
 end
 
 
-mcmc_tuning_finalize!!(tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState) = nothing
+mcmc_tuning_finalize!!(::Function, tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState) = nothing
 
 function mcmc_tune_post_step!!(
     f_transform::Function,
     tuner::AdaptiveAffineTuningState,
     chain_state::MCMCChainState,
-    current::DensitySampleVector,
-    proposed::DensitySampleVector,
+    current::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
+    proposed::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
     p_accept::AbstractVector{<:Real}
 )
     return chain_state, tuner

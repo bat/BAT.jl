@@ -2,38 +2,25 @@
 
 struct MCMCMultiProposal{
     P<:Tuple{Vararg{MCMCProposal}},
-    S<:Tuple{Vararg{Union{Integer, AbstractFloat}}} # Make into either Tuple of ints or Categorical distribution
+    R<:Union{Tuple{Integer}, Categorical}
 }<:MCMCProposal
     proposals::P
-    picking_rule::S
+    picking_rule::R
 end
 
 export MCMCMultiProposal
 
-# Make into one proposal state
-struct SequentialMultiProposalState{
+struct MultiProposalState{
     PS<:Tuple{Vararg{MCMCProposalState}},
-    S<:Tuple{Vararg{Integer}},
+    R<:Union{Tuple{Vararg{Integer}}, Categorical},
     I<:Integer
 }<:MCMCProposalState
     proposal_states::PS
-    schedule::S
+    picking_rule::R
     current_idx::I
 end
 
-export SequentialMultiProposalState
-
-struct RandomMultiProposalState{
-    PS<:Tuple{Vararg{MCMCProposalState}},
-    D<:Multinomial,
-    I<:Integer
-}<:MCMCProposalState
-    proposal_states::PS
-    picking_distribution::D
-    current_idx::I
-end
-
-export RandomMultiProposalState
+export MultiProposalState
 
 function bat_default(
     ::Type{TransformedMCMC}, 
@@ -73,38 +60,37 @@ end
 
 
 function set_current_proposal!!(
-    proposal_state::SequentialMultiProposalState, 
+    proposal_state::MultiProposalState{PS, Tuple{Vararg{Integer}}}, 
     stepno::Integer, 
     rng::AbstractRNG
-)
-    m = stepno%last(proposal_state.schedule)
-    idx = findfirst(y -> m<y, proposal_state.schedule)
+) where {PS<:Tuple{Vararg{MCMCProposalState}}}
+    m = stepno%last(proposal_state.picking_rule)
+    idx = findfirst(y -> m<y, proposal_state.picking_rule)
 
     proposal_state = @set proposal_state.current_idx = idx
     return proposal_state
 end
 
 function set_current_proposal!!(
-    proposal_state::RandomMultiProposalState, 
+    proposal_state::MultiProposalState{PS, Categorical}, 
     stepno::Integer, 
     rng::AbstractRNG
-)
-    # TODO: Make into Distributions.Categorical()
-    idx = findfirst(0 .< rand(rng, proposal_state.picking_distribution))
+) where {PS<:Tuple{Vararg{MCMCProposalState}}}
+    idx = rand(rng, proposal_state.picking_rule)
 
     proposal_state = @set proposal_state.current_idx = idx
     return proposal_state
 end
 
 function get_current_proposal(
-    multi_proposal_state::Union{SequentialMultiProposalState, RandomMultiProposalState}
+    multi_proposal_state::MultiProposalState
 )
     current_proposal = multi_proposal_state.proposal_states[multi_proposal_state.current_idx]
     return current_proposal
 end
 
 function _get_sample_id(
-    multi_proposal_state::Union{SequentialMultiProposalState, RandomMultiProposalState},
+    multi_proposal_state::MultiProposalState,
     chainid::Int32, 
     walkerid::Int32, 
     cycle::Int32, 
@@ -148,28 +134,19 @@ function _create_proposal_state(
     proposal_states = Tuple(proposal_states_init)
     picking_rule = multi_proposal.picking_rule
 
-    if picking_rule isa Tuple{Vararg{AbstractFloat}}
-        @assert sum(picking_rule) == 1 throw(ArgumentError("Picking probabilities for proposals do not add up to 1."))
+    idx = picking_rule isa Distribution ? rand(rng, picking_rule) : 1
 
-        picking_distribution = Multinomial(1, collect(picking_rule))
-        current_proposal_idx = findfirst(0 .< rand(rng, picking_distribution))
-        return RandomMultiProposalState(proposal_states, picking_distribution, current_proposal_idx)
-    else
-        current_proposal_idx = 1
-        return SequentialMultiProposalState(proposal_states, cumsum(picking_rule), current_proposal_idx)
-    end
+    return MultiProposalState(proposal_states, picking_rule, idx)
 end
 
 function set_proposal_transform!!(
-    multi_proposal::Union{SequentialMultiProposalState, RandomMultiProposalState},
+    multi_proposal::MultiProposalState,
     chain_state::MCMCChainState 
 )
-    f_transform_new = chain_state.f_transform
 
     for proposal in multi_proposal.proposal_states
-	proposal = set_proposal_transform!!(proposal, f_transform_new, chain_state)
+	    proposal = set_proposal_transform!!(proposal, chain_state)
     end
 
     return multi_proposal
 end
-
