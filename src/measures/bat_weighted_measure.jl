@@ -89,14 +89,14 @@ Tries to automatically renormalize `measure` if a maxium log-m value
 is available, returns `measure` unchanged otherwise.
 """
 function auto_renormalize(measure::AbstractMeasure)
-    _generic_auto_renormalize_impl(_estimated_max_logd(measure), batmeasure(measure))
+    _generic_auto_renormalize_impl(_approx_max_logd(measure), batmeasure(measure))
 end
 
 
-_estimated_max_logd(::AbstractMeasure) = missing
-_estimated_max_logd(::Nothing) = missing
+_approx_max_logd(::AbstractMeasure) = missing
+_approx_max_logd(::Nothing) = missing
 
-function _estimated_max_logd(samples::DensitySampleVector)
+function _approx_max_logd(samples::DensitySampleVector)
     logweight = maximum(samples.logd)
     isnan(logweight) || isinf(logweight) ? zero(logweight) : logweight
 end

@@ -69,8 +69,7 @@ function _append_mgvi_samples!(smpls::DensitySampleVector, m::BATMeasure, flat_s
     append!(smpls.info, new_info); append!(smpls.aux, new_aux)
 end
 
-
-function BAT.bat_sample_impl(m::BATMeasure, algorithm::MGVISampling, context::BATContext)
+function BAT.evalmeasure_impl(m::BATMeasure, algorithm::MGVISampling, context::BATContext)
     start_time = time()
     log_time = start_time
     (; pretransform, init, nsamples, schedule, config, store_unconverged) = algorithm
@@ -160,9 +159,19 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::MGVISampling, context::BA
     elapsed_time = time() - start_time
     @debug "Completed MGVI sampling after $nsteps, produced $n_samples_indep independent samples after $(@sprintf "%.1f s" elapsed_time)."
 
-    return (
-        result = smpls, result_pretransform = transformed_smpls, f_pretransform = f_pretransform, 
-        ess = n_samples_indep, info = (;mnlp = smpls_mnlp)
+    evalresult = (
+        result_pretransform = transformed_smpls, f_pretransform = f_pretransform, 
+        mnlp = smpls_mnlp
+    )
+    dsm = DensitySampleMeasure(smpls, dof = MeasureBase.getdof(em), ess = n_samples)
+
+    return EvalMeasureImplReturn(;
+        empirical = dsm,
+        # ToDo:
+        #approx = ...,
+        #modes = ,,,,
+        #samplegen = ,,,,
+        evalresult = evalresult
     )
 end
 

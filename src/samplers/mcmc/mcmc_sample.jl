@@ -77,8 +77,11 @@ bat_default(::Type{TransformedMCMC}, ::Val{:init}, ::MCMCProposal, ::AbstractTra
 bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, ::MCMCProposal, ::AbstractTransformTarget, ::MCMCTransformTuning, nchains::Integer, nwalkers::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
-function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::BATContext)
+function evalmeasure_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::BATContext)
+    # ToDo: Use information in EvaluatedMeasure if available.
+
     transformed_m, f_pretransform = transform_and_unshape(samplingalg.pretransform, m, context)
+    n_dof = some_dof(transformed_m)
 
     mcmc_states, chain_outputs = mcmc_init!(
         samplingalg,
@@ -112,7 +115,20 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
 
     smpls = inverse(f_pretransform).(samples_transformed)
 
-    (result = smpls, result_trafo = samples_transformed, f_pretransform = f_pretransform, generator = MCMCSampleGenerator(mcmc_states))
+    samplegen = MCMCSampleGenerator(mcmc_states)
+    evalresult = (result_trafo = samples_transformed, f_pretransform = f_pretransform)
+
+    # ToDo: ESS
+    dsm = DensitySampleMeasure(smpls, dof = n_dof)
+
+    return EvalMeasureImplReturn(;
+        empirical = dsm,
+        # ToDo:
+        # approx = ...,
+        dof = n_dof,
+        samplegen = samplegen,
+        evalresult = evalresult
+    )
 end
 
 function _merge_chain_outputs(mcmc_state::MCMCState, chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}})

@@ -59,13 +59,13 @@ end
 
 
 
-function BAT.bat_sample_impl(m::BATMeasure, algorithm::EllipsoidalNestedSampling, context::BATContext)
+function evalmeasure_impl(m::BATMeasure, algorithm::EllipsoidalNestedSampling, context::BATContext)
     # ToDo: Forward RNG from context!
     rng = get_rng(context)
 
     transformed_m, f_pretransform = BAT.transform_and_unshape(algorithm.pretransform, m, context)   
     transformed_m_uneval = unevaluated(transformed_m)
-    dims = totalndof(varshape(transformed_m_uneval))
+    n_dof = some_dof(transformed_m)
 
     if !BAT.has_uhc_support(transformed_m_uneval)
         throw(ArgumentError("$algorithm doesn't measures that are not limited to the unit hypercube"))
@@ -75,7 +75,7 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::EllipsoidalNestedSampling
     bounding = ENSBounding(algorithm.bound)
     prop = ENSprop(algorithm.proposal)
     sampler = Nested(
-        dims, algorithm.num_live_points; 
+        n_dof, algorithm.num_live_points; 
         bounds=bounding, proposal=prop,
         enlarge=algorithm.enlarge, min_ncall=algorithm.min_ncall, min_eff=algorithm.min_eff
     ) 
@@ -92,13 +92,23 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::EllipsoidalNestedSampling
     transformed_smpls = BAT.DensitySampleVector(v = samples, logd = logvals, weight = weights)
     smpls = inverse(f_pretransform).(transformed_smpls)                                            # Here the samples are retransformed
     
-    logintegral = Measurements.measurement(state.logz, state.logzerr)
+    mass = exp(ULogarithmic, Measurements.measurement(state.logz, state.logzerr))
     ess = bat_eff_sample_size(smpls, KishESS(), context).result
 
-    return (
-        result = smpls, result_trafo = transformed_smpls, f_pretransform = f_pretransform, 
-        logintegral = logintegral, ess = ess,
-        info = state
+    evalresult = (
+        result_trafo = transformed_smpls, f_pretransform = f_pretransform, 
+        state = state
+    )
+
+    dsm = DensitySampleMeasure(smpls, dof = n_dof, ess = ess, mass = mass)
+
+    return EvalMeasureImplReturn(;
+        empirical = dsm,
+        dof = n_dof,
+        mass = mass,
+        # ToDo:
+        # modes = ...,
+        evalresult = evalresult
     )
 end
 

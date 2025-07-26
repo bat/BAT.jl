@@ -15,18 +15,12 @@ struct ModeAsDefined <: AbstractModeEstimator end
 export ModeAsDefined
 
 
-function bat_findmode_impl(target::AnySampleable, algorithm::ModeAsDefined, context::BATContext)
-    (result = StatsBase.mode(target),)
+function evalmeasure_impl(measure::BATMeasure, ::ModeAsDefined, ::BATContext)
+    m_uneval = unevaluated(measure)
+    # ToDo: Is this what we want in all cases?
+    m_mode = StatsBase.mode(m_uneval)
+    return EvalMeasureImplReturn(modes = [m_mode])
 end
-
-function bat_findmode_impl(target::Distribution, algorithm::ModeAsDefined, context::BATContext)
-    (result = varshape(target)(StatsBase.mode(unshaped(target))),)
-end
-
-function bat_findmode_impl(target::BATDistMeasure, algorithm::ModeAsDefined, context::BATContext)
-    bat_findmode_impl(Distribution(target), algorithm, context)
-end
-
 
 
 """
@@ -43,7 +37,12 @@ struct MaxDensitySearch <: AbstractModeEstimator end
 export MaxDensitySearch
 
 
-function bat_findmode_impl(target::DensitySampleVector, algorithm::MaxDensitySearch, context::BATContext)
-    v, i = _get_mode(target)
-    (result = v, mode_idx = i)
+function evalmeasure_impl(measure::BATMeasure, ::MaxDensitySearch, ::BATContext)
+    smpls = samplesof(measure)
+    v_mode, mode_idx = _get_mode(smpls)
+
+    return EvalMeasureImplReturn(;
+        modes = [v_mode],
+        evalresult = (;mode_idx = mode_idx),
+    )    
 end

@@ -9,7 +9,7 @@ BAT.pkgext(::Val{:Cuba}) = BAT.PackageExtension{:Cuba}()
 
 using BAT: MeasureLike, BATMeasure, unevaluated
 using BAT: CubaIntegration
-using BAT: measure_support, bat_integrate_impl
+using BAT: measure_support
 using BAT: transform_and_unshape, auto_renormalize
 
 using Base.Threads: @threads
@@ -120,14 +120,14 @@ function _integrate_impl_cuba(integrand::CubaIntegrand, algorithm::CuhreIntegrat
     )
 end
 
-
-function BAT.bat_integrate_impl(target::MeasureLike, algorithm::CubaIntegration, context::BATContext)
-    measure = batmeasure(target)
+function  BAT.evalmeasure_impl(measure::BATMeasure, algorithm::CubaIntegration, context::BATContext)
     transformed_measure, _ = transform_and_unshape(algorithm.pretransform, measure, context)
 
     if !BAT.has_uhc_support(transformed_measure)
         throw(ArgumentError("CUBA integration requires measures are supported only on the unit hypercube"))
     end
+
+    # ToDo: Using log-density range informations from em samples if available.
 
     renormalized_measure, logweight = auto_renormalize(transformed_measure)
     renormalized_measure_uneval = unevaluated(renormalized_measure)
@@ -149,8 +149,12 @@ function BAT.bat_integrate_impl(target::MeasureLike, algorithm::CubaIntegration,
 
     (value, error) = first(r_cuba.integral), first(r_cuba.error)
     rescaled_value, rescaled_error = exp(BigFloat(log(value) - logweight)), exp(BigFloat(log(error) - logweight))
-    result = Measurements.measurement(rescaled_value, rescaled_error)
-    return (result = result, logweight = logweight, cuba_result = r_cuba)
+    mass = Measurements.measurement(rescaled_value, rescaled_error)
+
+    return EvalMeasureImplReturn(;
+        mass = mass,
+        evalresult = (logweight = logweight, cuba_result = r_cuba)
+    )
 end
 
 

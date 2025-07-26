@@ -1,6 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+# ToDo: Rename to measure_domain or so?
 """
     measure_support(measure::AbstractMeasure)
 
@@ -15,21 +16,33 @@ measure_support(m::AbstractMeasure) = UnknownDomain()
 struct UnknownDomain end
 
 
-# ToDo: Document and make public:
-maybe_samplesof(::AbstractMeasure) = missing
-maybe_modesof(::AbstractMeasure) = missing
-maybe_approxof(::AbstractMeasure) = missing
-maybe_generator(::AbstractMeasure) = missing
+"""
+    BAT.unevaluated(obj)
 
-# ToDo: Document and make public:
-function maybe_modeof(m::AbstractMeasure)
-    m_modes = maybe_modesof(m)
-    if ismissing(m_modes)
-        return missing
-    elseif length(m_modes) > 1
-        throw(ArgumentError("Measure of type $(nameof(typeof(m))) has multiple modes"))
+If `obj` is an evaluated object, like a [`EvaluatedMeasure`](@ref),
+return the original (unevaluated) object. Otherwise, return `obj`.
+"""
+function unevaluated end
+export unevaluated
+
+unevaluated(obj) = obj
+
+
+# ToDo: Document these function and make them public:
+empiricalof(::AbstractMeasure) = nothing
+samplesof(::AbstractMeasure) = nothing
+approxof(::AbstractMeasure) = missing
+# samplegenof(::AbstractMeasure) = missing
+getess(::AbstractMeasure) = nothing
+
+maybe_modes(::AbstractMeasure) = nothing
+
+function some_dof(m::AbstractMeasure)
+    n_dof = getdof(m)
+    if n_dof isa MeasureBase.NoDOF
+        throw(ArgumentError("Can't determine degrees of freedom for measure of type $(nameof(typeof(m)))"))
     else
-        return only(m_modes)
+        return n_dof
     end
 end
 
@@ -48,8 +61,10 @@ Base.convert(::Type{BATMeasure}, m::BATMeasure) = m
 Base.convert(::Type{BATMeasure}, m::AbstractMeasure) = BATMeasure(m)
 Base.convert(::Type{BATMeasure}, d::Distribution) = BATMeasure(d)
 
-BATMeasure(::StdUniform) = batmeasure(StandardUvUniform())
-BATMeasure(::StdNormal) = batmeasure(StandardUvNormal())
+@inline BATMeasure(m::BATMeasure) = m
+
+BATMeasure(::StdUniform) = BATMeasure(StandardUvUniform())
+BATMeasure(::StdNormal) = BATMeasure(StandardUvNormal())
 
 
 
@@ -135,26 +150,7 @@ function batmeasure end
 export batmeasure
 
 batmeasure(obj) = convert(BATMeasure, obj)
-
-
-"""
-    batsampleable(obj)
-
-*Experimental feature, not part of stable public API.*
-
-Convert `obj` into something that BAT can sample from.
-"""
-batsampleable(obj) = batmeasure(obj)
-batsampleable(smpls::DensitySampleVector) = smpls
-
-
-function convert_for(operation::Function, target)
-    try
-        batmeasure(target)
-    catch err
-        throw(ArgumentError("Can't convert $operation target of type $(nameof(typeof(target))) to a BAT-compatible measure."))
-    end
-end
+batmeasure(::Missing) = missing
 
 
 """
@@ -222,6 +218,13 @@ _dist_with_pullback(m::BATMeasure) = Distribution(m), identity
 function _dist_with_pullback_impl(origin, finv)
     d, ginv = _dist_with_pullback(origin)
     return d, fcomp(ginv, finv)
+end
+
+
+function _reweighted_mass(logweight::Real, current_mass::Real)
+    current_logmass = _lfloat(log(current_mass))
+    new_logmass = oftype(current_logmass, logweight) + current_logmass
+    return exp(ULogarithmic, new_logmass)
 end
 
 

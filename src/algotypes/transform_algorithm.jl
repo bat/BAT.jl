@@ -206,6 +206,7 @@ struct FullMeasureTransform <: TransformAlgorithm end
 
 _get_deep_prior_for_trafo(m::BATDistMeasure) = m
 _get_deep_prior_for_trafo(m::AbstractPosteriorMeasure) = _get_deep_prior_for_trafo(getprior(m))
+_get_deep_prior_for_trafo(em::EvaluatedMeasure) = _get_deep_prior_for_trafo(unevaluated(em))
 
 
 function bat_transform_impl(target::Union{PriorToUniform,PriorToNormal}, m::AbstractPosteriorMeasure, algorithm::FullMeasureTransform, context::BATContext)
@@ -254,6 +255,16 @@ function bat_transform_impl(target::Union{PriorToUniform,PriorToNormal}, density
 end
 
 
+function bat_transform_impl(target::AbstractTransformTarget, em::EvaluatedMeasure, algorithm::PriorSubstitution, context::BATContext)
+    new_measure, f_transform = bat_transform_impl(target, em.unevaluated, algorithm, context)
+    empirical = em.empirical
+    smpl_trafoalg = bat_default(bat_transform, Val(:algorithm), f_transform, empirical)
+    new_samples, _ = bat_transform_impl(f_transform, empirical, smpl_trafoalg, context)
+    new_em = EvaluatedMeasure(new_measure, new_samples, em.approx, em.mass, em.modes, em.samplegen)
+    (result = new_em, f_transform = f_transform)
+end
+
+
 # ToDo: Support bat_transform for vectors of variates and DensitySampleVector?
 
 
@@ -275,6 +286,12 @@ end
 *BAT-internal, not part of stable public API.*
 """
 struct SampleTransformation <: TransformAlgorithm end
+
+function bat_transform_impl(f, dsm::DensitySampleMeasure, algorithm::SampleTransformation, context::BATContext)
+    smpls = samplesof(dsm)
+    new_samples, _ = bat_transform_impl(f, smpls, algorithm, context)
+    return DensitySampleMeasure(new_samples, getdof(dsm), mass = massof(dsm))
+end
 
 function bat_transform_impl(f::Function, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)
     (result = transform_samples(f, smpls), f_transform = f)

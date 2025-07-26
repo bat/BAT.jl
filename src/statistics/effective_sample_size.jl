@@ -160,7 +160,7 @@ function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::EffSamp
         rng_seed = trunc(UInt64, mean(W) * n)
         context = BATContext(rng = Philox4x((0x0, rng_seed))::Philox4x{UInt64,10})
 
-        unweighted_smpls = bat_sample_impl(unshaped_smpls, OrderedResampling(nsamples = n_resample), context).result
+        unweighted_smpls = samplesof(evalmeasure(unshaped_smpls, OrderedResampling(nsamples = n_resample), context))
         resampled_ess = bat_eff_sample_size_impl(unweighted_smpls.v, algorithm, context).result
         min.(n, resampled_ess)
     end

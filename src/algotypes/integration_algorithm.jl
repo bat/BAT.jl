@@ -30,21 +30,20 @@ Returns a NamedTuple of the shape
 Result properties not listed here are algorithm-specific and are not part
 of the stable public API.
 
-!!! note
+# Implementation
 
-    Do not add add methods to `bat_integrate`, add methods to
-    `bat_integrate_impl` instead.
+`bat_integrate` uses [`evalmeasure`](@ref) internally. Do not specialize
+`bat_integrate`.
 """
 function bat_integrate end
 export bat_integrate
 
-function bat_integrate_impl end
-
 
 function bat_integrate(target::AnySampleable, algorithm::IntegrationAlgorithm, context::BATContext)
     orig_context = deepcopy(context)
-    r = bat_integrate_impl(target, algorithm, context)
-    result_with_args(Val(:mass), target, r, (algorithm = algorithm, context = orig_context))
+    em = evalmeasure(target, algorithm, context)
+    r = (;result = massof(em), evalinfo(em).result...)
+    result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
 bat_integrate(target::AnySampleable) = bat_integrate(target, get_batcontext())

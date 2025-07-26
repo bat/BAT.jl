@@ -41,7 +41,7 @@ function build_optimizationfunction(f, adsel::BAT._NoADSelected)
 end
 
 
-function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimizationAlg, context::BATContext)
+function evalmeasure_impl(target::BATMeasure, algorithm::OptimizationAlg, context::BATContext)
     transformed_m, f_pretransform = transform_and_unshape(algorithm.pretransform, target, context)
     target_uneval = unevaluated(target)
     inv_trafo = inverse(f_pretransform)
@@ -66,9 +66,11 @@ function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimizationAlg, 
     transformed_mode =  optimization_result.u
     result_mode = inv_trafo(transformed_mode)
 
-    (result = result_mode, result_trafo = transformed_mode, f_pretransform = f_pretransform, info = optimization_result)
+    EvalMeasureImplReturn(;
+        modes = [result_mode],
+        evalresult = (result_trafo = transformed_mode, f_pretransform = f_pretransform, info = optimization_result),
+    )
 end
-
 
 
 end # module BATOptimizationExt

@@ -31,20 +31,18 @@ Returns a NamedTuple of the shape
 Result properties not listed here are algorithm-specific and are not part
 of the stable public API.
 
-!!! note
+# Implementation
 
-    Do not add add methods to `bat_sample`, add methods to
-    `bat_sample_impl` instead.
+`bat_sample` uses [`evalmeasure`](@ref) internally. Do not specialize
+`bat_sample`.
 """
 function bat_sample end
 export bat_sample
 
-function bat_sample_impl end
-
 
 function convert_for(::typeof(bat_sample), target)
     try
-        batsampleable(target)
+        batmeasure(target)
     catch err
         throw(ArgumentError("Can't convert $operation target of type $(nameof(typeof(target))) to a BAT-compatible measure."))
     end
@@ -52,10 +50,12 @@ end
 
 
 function bat_sample(target, algorithm::AbstractSamplingAlgorithm, context::BATContext)
-    measure = convert_for(bat_sample, target)
     orig_context = deepcopy(context)
-    r = bat_sample_impl(measure, algorithm, context)
-    result_with_args(Val(:samples), target, r, (algorithm = algorithm, context = orig_context))
+
+    em = evalmeasure(target, algorithm, context)
+    r = (;result = samplesof(em), evalinfo(em).result...)
+
+    result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
 function bat_sample(target::AnySampleable)
@@ -76,28 +76,4 @@ end
 
 function argchoice_msg(::typeof(bat_sample), ::Val{:algorithm}, x::AbstractSamplingAlgorithm)
     "Using sampling algorithm $x"
-end
-
-
-
-"""
-    abstract type AbstractSampleGenerator
-
-*BAT-internal, not part of stable public API.*
-
-Abstract super type for sample generators.
-"""
-abstract type AbstractSampleGenerator end
-export AbstractSampleGenerator
-
-
-function LazyReports.pushcontent!(rpt::LazyReport, generator::AbstractSampleGenerator)
-    alg = getproposal(generator)
-    if !(isnothing(alg) || ismissing(alg))
-        lazyreport!(rpt, """
-        ### Sample generation:
-
-        * Algorithm: $(nameof(typeof(alg)))
-        """)
-    end
 end

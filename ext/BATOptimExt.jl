@@ -67,7 +67,7 @@ function convert_options(algorithm::OptimAlg)
     return Optim.Options(; algopts...)
 end 
 
-function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimAlg, context::BATContext)
+function BAT.evalmeasure_impl(target::BATMeasure, algorithm::OptimAlg, context::BATContext)
     transformed_density, f_pretransform = transform_and_unshape(algorithm.pretransform, target, context)
     target_uneval = unevaluated(target)
     inv_trafo = inverse(f_pretransform)
@@ -87,7 +87,10 @@ function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimAlg, context
     #dummy_f_x = f(x_init) # ToDo: Avoid recomputation
     #trace_trafo = StructArray(;_neg_opt_trace(optim_result, x_init, dummy_f_x) ...)
 
-    (result = result_mode, result_trafo = transformed_mode, f_pretransform = f_pretransform, #=trace_trafo = trace_trafo,=# info = r_optim)
+    return EvalMeasureImplReturn(;
+        modes = [result_mode],
+        evalresult = (result_trafo = transformed_mode, f_pretransform = f_pretransform, #=trace_trafo = trace_trafo,=# info = r_optim),
+    )
 end
 
 function _optim_minimize(f::Function, x_init::AbstractArray{<:Real}, algorithm::Optim.ZerothOrderOptimizer, opts::Optim.Options, ::BATContext)

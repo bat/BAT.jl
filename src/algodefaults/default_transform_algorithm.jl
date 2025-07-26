@@ -15,9 +15,13 @@ bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToNormal, ::Evalu
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToNormal, ::BATDistMeasure{<:StandardNormalDist}) = IdentityTransformAlgorithm()
 
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::Function, ::DensitySampleVector) = SampleTransformation()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::Function, ::DensitySampleMeasure) = SampleTransformation()
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::AbstractValueShape, ::DensitySampleVector) = SampleTransformation()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::AbstractValueShape, ::DensitySampleMeasure) = SampleTransformation()
 
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::ToRealVector, ::Union{BATMeasure,DensitySampleVector}) = UnshapeTransformation()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::ToRealVector, ::Union{BATMeasure,DensitySampleMeasure}) = UnshapeTransformation()
 
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::Base.Fix2{typeof(unshaped)}, ::BATMeasure) = FullMeasureTransform()
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::Base.Fix2{typeof(unshaped)}, ::DensitySampleVector) = SampleTransformation()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::Base.Fix2{typeof(unshaped)}, ::DensitySampleMeasure) = SampleTransformation()

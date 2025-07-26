@@ -1,7 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+include("convert_for.jl")
 include("bat_context.jl")
 include("bat_default.jl")
+include("evalmeasure.jl")
 include("convergence_test.jl")
 include("initval_algorithm.jl")
 include("transform_algorithm.jl")

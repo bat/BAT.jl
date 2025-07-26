@@ -49,11 +49,13 @@ function Base.rand(gen::GenContext, m::BATPwrMeasure{<:BATDistMeasure})
 end
 
 function Base.rand(gen::GenContext, m::BATPwrMeasure{<:DensitySampleMeasure})
-    # Always generate R on CPU for now:
-    R = rand(get_rng(gen), size(marginals(m))...)
-    idxs = searchsortedfirst.(Ref(m.parent._cw), R)
-    gen_adapt(gen, m.parent._smpls.v[idxs])
+    dims = size(marginals(m))
+    n = prod(dims)
+    idxs = _rand_subsample_idxs(gen, m, n)
+    result_vec = gen_adapt(gen, m.parent._smpls.v[idxs])
+    return reshape(result_vec, dims)
 end
+
 
 
 function MeasureBase.testvalue(::Type{T}, m::BATPwrMeasure) where {T}

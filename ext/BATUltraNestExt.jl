@@ -17,8 +17,10 @@ using DensityInterface, InverseFunctions, ValueShapes
 import Measurements
 
 
-function BAT.bat_sample_impl(m::BATMeasure, algorithm::ReactiveNestedSampling, context::BATContext)
+function BAT.evalmeasure_impl(measure::BATMeasure, algorithm::ReactiveNestedSampling, context::BATContext)
+    m = unevaluated(measure)
     transformed_m, f_pretransform = transform_and_unshape(algorithm.pretransform, m, context)
+    n_dof = some_dof(transformed_m)
 
     if !BAT.has_uhc_support(transformed_m)
         throw(ArgumentError("$algorithm doesn't measures that are not limited to the unit hypercube"))
@@ -95,15 +97,25 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::ReactiveNestedSampling, c
 
     logz = convert(BigFloat, r["logz"])::BigFloat
     logzerr = convert(BigFloat, r["logzerr"])::BigFloat
-    logintegral = Measurements.measurement(logz, logzerr)
+    mass = exp(ULogarithmic, Measurements.measurement(logz, logzerr))
 
     ess = convert(Float64, r["ess"])
 
     return (
-        result = smpls, result_trafo = transformed_smpls, f_pretransform = f_pretransform,
+        result_trafo = transformed_smpls, f_pretransform = f_pretransform,
         uwresult = uwsmpls, uwresult_trafo = uwtransformed_smpls,
-        logintegral = logintegral, ess = ess,
-        info = r
+        ultranest_result = r
+    )
+
+    dsm = DensitySampleMeasure(smpls, dof = n_dof, ess = ess, mass = mass)
+
+    return EvalMeasureImplReturn(;
+        empirical = dsm,
+        dof = n_dof,
+        mass = mass,
+        # ToDo:
+        # modes = ...,
+        evalresult = evalresult
     )
 end
 
