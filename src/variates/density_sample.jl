@@ -434,7 +434,7 @@ function LazyReports.pushcontent!(rpt::LazyReport, smplv::DensitySampleVector)
 
     marg_tbl = _marginal_table(smplv)
     mod_marg_tbl = merge(Tables.columns(marg_tbl), (credible_intervals = map(only_one_ci, marg_tbl.credible_intervals),))
-    marg_headermap = Dict(:parameter => "Parameter", :mean => "Mean", :std => "Std. dev.", :global_mode => "Gobal mode", :marginal_mode => "Marg. mode", :credible_intervals => "Cred. interval", :marginal_histogram => "Histogram")
+    marg_headermap = Dict(:parameter => "Variate", :mean => "Mean", :std => "Std. dev.", :global_mode => "Gobal mode", :marginal_mode => "Marg. mode", :credible_intervals => "Cred. interval", :marginal_histogram => "Histogram")
     lazyreport!(
         rpt,
         "#### Marginals",
@@ -443,7 +443,7 @@ function LazyReports.pushcontent!(rpt::LazyReport, smplv::DensitySampleVector)
 
     fixed_tbl = _rpt_table_of_constparvals(smplv)
     if !isempty(fixed_tbl)
-        marg_headermap = Dict(:parameter => "Parameter", :value => "Value")
+        marg_headermap = Dict(:parameter => "Variate", :value => "Value")
 
         lazyreport!(rpt,
             "#### Fixed parameters",
