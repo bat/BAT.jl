@@ -66,7 +66,7 @@ function bat_sample_impl(
     # ToDo: Add integral error estimate
     # @show samples #disable for testing
 
-    transformed_smpls = DensitySampleVector(samples, logvals, weight = weights)
+    transformed_smpls = DensitySampleVector(v = samples, samples = logvals, weight = weights)
     smpls = inverse(f_pretransform).(transformed_smpls)
 
     return (result = smpls, result_trafo = transformed_smpls, f_pretransform = f_pretransform, mass = est_integral)
@@ -137,7 +137,7 @@ function bat_sample_impl(
     est_integral = mean(weight)
     # ToDo: Add integral error estimate
 
-    posterior_samples = shape.(DensitySampleVector(v, posterior_logd, weight = weight))
+    posterior_samples = shape.(DensitySampleVector(v = v, logd = posterior_logd, weight = weight))
 
     return (result = posterior_samples, prior_samples = prior_samples, mass = est_integral)
 end

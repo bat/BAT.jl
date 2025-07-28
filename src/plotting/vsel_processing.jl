@@ -315,6 +315,6 @@ function bat_marginalize(samples::DensitySampleVector,
     marg_data = flat_orig_data[flat_idxs, :]
     marg_data = ndims(marg_data) > 1 ? nestedview(marg_data) : marg_data
    
-    marg_samples = shaped ? new_shape.(DensitySampleVector(marg_data, logd, info = info, aux = aux)) : DensitySampleVector(marg_data, logd, info = info, aux = aux)
+    marg_samples = shaped ? new_shape.(DensitySampleVector(v = marg_data, logd = logd, info = info, aux = aux)) : DensitySampleVector(v = marg_data, logd = logd, info = info, aux = aux)
     return (result = marg_samples,)
 end

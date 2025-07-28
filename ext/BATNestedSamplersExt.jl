@@ -89,7 +89,7 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::EllipsoidalNestedSampling
     nsamples = size(samples_w,1)
     samples = [samples_w[i, 1:end-1] for i in 1:nsamples]                                   # the other ones (between 1 and end-1) are the samples
     logvals = map(logdensityof(transformed_m_uneval), samples)                                           # posterior values of the samples
-    transformed_smpls = BAT.DensitySampleVector(samples, logvals, weight = weights)
+    transformed_smpls = BAT.DensitySampleVector(v = samples, logd = logvals, weight = weights)
     smpls = inverse(f_pretransform).(transformed_smpls)                                            # Here the samples are retransformed
     
     logintegral = Measurements.measurement(state.logz, state.logzerr)

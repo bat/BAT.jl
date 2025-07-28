@@ -69,7 +69,7 @@ function MarginalDist(
     dist = dist isa MarginalDist ? dist.dist : dist
 
     vs = varshape(dist)
-    samples = vs.(DensitySampleVector(unshaped.(rand(dist, nsamples)), fill(NaN, nsamples)))
+    samples = vs.(DensitySampleVector(v = unshaped.(rand(dist, nsamples)), logd = fill(NaN, nsamples)))
 
     return MarginalDist(samples, vsel; bins, closed, filter)
 end

@@ -85,7 +85,7 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::ReactiveNestedSampling, c
     v_trafo_us = nestedview(convert(Matrix{Float64}, unest_wsamples["points"]'))
     logvals_trafo = convert(Vector{Float64}, unest_wsamples["logl"])
     weight = convert(Vector{Float64}, unest_wsamples["weights"])
-    transformed_smpls = DensitySampleVector(v_trafo_us, logvals_trafo, weight = weight)
+    transformed_smpls = DensitySampleVector(v = v_trafo_us, logd = logvals_trafo, weight = weight)
     smpls = inverse(f_pretransform).(transformed_smpls) 
 
     uwv_trafo_us = nestedview(convert(Matrix{Float64}, r["samples"]'))
