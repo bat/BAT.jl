@@ -16,7 +16,7 @@ Several algorithms have changed their names, but also their role:
 
 * `PriorToGaussian` has become `PriorToNormal`.
 
-Partial deprecations are available for the above, a lot of old code should
+Partial deprecations are available for the above, so old code should
 run more or less unchanged (with deprecation warnings). Also:
 
 * `AdaptiveMHTuning` has become `AdaptiveAffineTuning`, but is now
@@ -25,7 +25,7 @@ run more or less unchanged (with deprecation warnings). Also:
 
 * `MCMCNoOpTuning` has become `NoMCMCTransformTuning`.
 
-* The parameters of `HamiltonianMC` have changed.
+* The arguments of `HamiltonianMC` have changed.
 
 * `MCMCTuningAlgorithm` has been replaced by `MCMCTransformTuning`.
 
