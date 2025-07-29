@@ -69,6 +69,9 @@ import HeterogeneousComputing
 using HeterogeneousComputing: AbstractComputeUnit, CPUnit
 using HeterogeneousComputing: GenContext, get_rng, get_precision, get_compute_unit, get_gencontext, allocate_array
 
+import StaticThings
+using StaticThings: IntegerLike, RealLike
+
 import MeasureBase
 using MeasureBase: AbstractMeasure, DensityMeasure, Likelihood
 using MeasureBase: basemeasure, getdof, likelihoodof, testvalue
