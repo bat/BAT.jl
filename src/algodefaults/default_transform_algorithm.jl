@@ -6,11 +6,13 @@ bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::DoNotTransform, ::Abst
 
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::AbstractPosteriorMeasure) = PriorSubstitution()
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::BATDistMeasure) = PriorSubstitution()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::BATPushFwdMeasure) = PriorSubstitution()
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::EvaluatedMeasure) = PriorSubstitution()
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToUniform, ::BATDistMeasure{<:StandardUniformDist}) = IdentityTransformAlgorithm()
 
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToNormal, ::AbstractPosteriorMeasure) = PriorSubstitution()
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToNormal, ::BATDistMeasure) = PriorSubstitution()
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToNormal, ::BATPushFwdMeasure) = PriorSubstitution()
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToNormal, ::EvaluatedMeasure) = PriorSubstitution()
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::PriorToNormal, ::BATDistMeasure{<:StandardNormalDist}) = IdentityTransformAlgorithm()
 

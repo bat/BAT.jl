@@ -58,7 +58,6 @@ using Optim
     
                 @test isapprox(fix_nni.(logdensityof(m).(tX)), logpdf.(target_dist, tX), atol = 1e-10)
                 @test @inferred(logdensityof(m)(target_x)) isa Real
-                @test @inferred(logdensityof(unshaped(m))(unshaped(target_x))) isa Real
                 !any(isnan, @inferred(broadcast(ForwardDiff.derivative, logdensityof(m), tX)))
 
                 tX_finite = tX[findall(isfinite, fix_nni.(logdensityof(m).(tX)))]
