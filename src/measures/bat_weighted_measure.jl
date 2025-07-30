@@ -25,6 +25,7 @@ _bat_weightedmeasure(logweight::Real, m::BATWeightedMeasure) = weightedmeasure(m
 
 MeasureBase.basemeasure(m::BATWeightedMeasure) = m.base
 
+MeasureBase.massof(m::BATWeightedMeasure) = exp(ULogarithmic, m.logweight) * massof(m.base)
 
 function Base.show(io::IO, d::BATWeightedMeasure)
     print(io, Base.typename(typeof(d)).name, "(")

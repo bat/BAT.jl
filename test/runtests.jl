@@ -25,6 +25,7 @@ Test.@testset "Package BAT" begin
     include("variates/test_variates.jl")
     include("transforms/test_transforms.jl")
     include("densities/test_densities.jl")
+    include("densities/test_measures.jl")
     include("initvals/test_initvals.jl")
     include("statistics/test_statistics.jl")
     include("optimization/test_optimization.jl")
