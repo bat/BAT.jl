@@ -3,7 +3,7 @@
 using BAT
 using Test
 
-using Distributions, ValueShapes
+using Distributions, MeasureBase, ValueShapes
 using HeterogeneousComputing
 using ArraysOfArrays
 

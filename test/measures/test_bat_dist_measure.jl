@@ -12,8 +12,9 @@ using DensityInterface
     mvt = @inferred MvTDist(1.5, PDMat([2.0 1.0; 1.0 3.0]))
     mvdd = @inferred BAT.BATDistMeasure(mvt)
 
-    @testset "properties" begin
-        @test parent(mvdd) == mvt
+    @testset "conversion" begin
+        @test Distribution(mvdd) === mvt
+        @test convert(Distribution, mvdd) === mvt
     end
 
     @testset "logdensityof" begin
