@@ -160,10 +160,3 @@ supports_rand(m::BATPushFwdMeasure) = supports_rand(m.origin)
 
 _dist_with_pushfwd(m::BATPushFwdMeasure) = _dist_with_pushfwd_impl(m.origin, m.f)
 _dist_with_pullback(m::BATPushFwdMeasure) = _dist_with_pullback_impl(m.origin, m.finv)
-
-
-function bat_transform_impl(target::AbstractTransformTarget, m::BATPushFwdMeasure, algorithm::PriorSubstitution, context::BATContext)
-    new_measure, f_transform_orig = bat_transform_impl(target, m.origin, algorithm, context)
-    f_transform = ffcomp(f_transform_orig, m.finv)
-    (result = new_measure, f_transform = f_transform)
-end
