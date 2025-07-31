@@ -23,7 +23,7 @@ function Base.show(io::IO, density::LFDensity)
     print(io, ")")
 end
 
-_precompose_density(density::LFDensity, g) = LFDensity(fcomp(density._log_f, g))
+_precompose_density(density::LFDensity, g) = LFDensity(ffcomp(density._log_f, g))
 
 
 

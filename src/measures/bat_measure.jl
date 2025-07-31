@@ -202,26 +202,26 @@ function _bat_transport_to(mu, nu)
     target_dist, target_pushfwd = _dist_with_pushfwd(mu)
     source_dist, source_pullback = _dist_with_pullback(nu)
     f_transform = DistributionTransform(target_dist, source_dist)
-    return fcomp(target_pushfwd, fcomp(f_transform, source_pullback))
+    return ffcomp(target_pushfwd, ffcomp(f_transform, source_pullback))
 end
 
 _dist_with_pushfwd(m::BATMeasure) = Distribution(m), identity
 
 function _dist_with_pushfwd_impl(origin, f)
     d, g = _dist_with_pushfwd(origin)
-    d, fcomp(f, g)
+    d, ffcomp(f, g)
 end
 
 function _combine_dwp_with_f(dwp, f)
     d, g = dwp
-    return d, fcomp(f, g)
+    return d, ffcomp(f, g)
 end
 
 _dist_with_pullback(m::BATMeasure) = Distribution(m), identity
 
 function _dist_with_pullback_impl(origin, finv)
     d, ginv = _dist_with_pullback(origin)
-    return d, fcomp(ginv, finv)
+    return d, ffcomp(ginv, finv)
 end
 
 
