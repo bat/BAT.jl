@@ -26,6 +26,14 @@ end
 
 BATMeasure(m::PushforwardMeasure) = BATPushFwdMeasure(m.f, m.finv, batmeasure(m.origin), m.volcorr)
 
+function Base.show(io::IO, m::BATPushFwdMeasure)
+    print(io, "pushfwd(")
+    show(io, m.f)
+    print(io, ", ")
+    show(io, m.origin)
+    print(io, ")")
+end
+
 MeasureBase.gettransform(m::BATPushFwdMeasure) = m.f
 
 MeasureBase.transport_origin(m::BATMeasure) = m.origin

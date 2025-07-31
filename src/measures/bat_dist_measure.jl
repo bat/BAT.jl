@@ -19,6 +19,11 @@ MeasureBase.rootmeasure(m::BATDistMeasure{<:Distribution{Multivariate,Continuous
 
 MeasureBase.massof(::BATDistMeasure) = 1.0f0
 
+function Base.show(io::IO, m::BATDistMeasure)
+    print(io, "batmeasure(")
+    show(io, m.dist)
+    print(io, ")")
+end
 
 function DensityInterface.logdensityof(m::BATDistMeasure{<:Distribution{Univariate,Continuous}}, v::Real)
     d = m.dist
