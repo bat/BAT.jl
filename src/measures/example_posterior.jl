@@ -25,7 +25,7 @@ function example_likelihood(prior::Distribution, rng::AbstractRNG)
     A = randn(rng, n, n)
     Σ = A * A'
     f_transform = inverse(varshape(prior))
-    f_model = Base.Fix2(MvNormal, Σ) ∘ f_transform
+    f_model = ffcomp(Base.Fix2(MvNormal, Σ), f_transform)
     tmp_rng = deepcopy(rng)
     data = zero(f_transform(rand(tmp_rng, prior)))
     return Likelihood(f_model, data)
