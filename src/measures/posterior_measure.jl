@@ -136,7 +136,7 @@ getlikelihood(posterior::PosteriorMeasure) = posterior.likelihood
 
 getprior(posterior::PosteriorMeasure) = posterior.prior
 
-measure_support(posterior::PosteriorMeasure) = measure_support(getprior(posterior))
+has_uhc_support(posterior::PosteriorMeasure) = has_uhc_support(getprior(posterior))
 
 ValueShapes.varshape(posterior::PosteriorMeasure) = varshape(getprior(posterior))
 

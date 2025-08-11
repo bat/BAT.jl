@@ -9,7 +9,7 @@ BAT.pkgext(::Val{:Cuba}) = BAT.PackageExtension{:Cuba}()
 
 using BAT: MeasureLike, BATMeasure, unevaluated
 using BAT: CubaIntegration
-using BAT: measure_support, bat_integrate_impl
+using BAT: bat_integrate_impl
 using BAT: transform_and_unshape, auto_renormalize
 
 using Base.Threads: @threads
