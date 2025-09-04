@@ -21,7 +21,7 @@ export MultiTrafoTuning
 
 
 mutable struct MultiTrafoTunerState{
-    TTS<:Tuple{Vararg{MCMCTransformTunerState}}
+    TTS<:AbstractVector{MCMCTransformTunerState}
 } <: MCMCTransformTunerState
     trafo_tuners::TTS
 end
@@ -33,7 +33,7 @@ function create_trafo_tuner_state(
     chain_state::MCMCChainState,
     n_steps_hint::Integer
 )
-    trafo_tuners_init = Vector{MCMCTransformTunerState}()
+    trafo_tuners = Vector{MCMCTransformTunerState}()
 
     trafo_tunings = multi_tuning.trafo_tunings
 
@@ -44,10 +44,8 @@ function create_trafo_tuner_state(
             n_steps_hint
         )
 
-        push!(trafo_tuners_init, tuner_tmp)
+        push!(trafo_tuners, tuner_tmp)
     end
-
-    trafo_tuners = Tuple(trafo_tuners_init)
 
     return MultiTrafoTunerState(trafo_tuners)
 end
@@ -88,17 +86,23 @@ function mcmc_tune_post_cycle!!(
     chain_state::MCMCChainState,
     samples::AbstractVector{<:DensitySampleVector}
 )
+    inv_intermediate_results = trafo_samples_with_interm_results(inverse(f_transform), samples)
     trafo_components = fchainfs(f_transform)
-    inv_intermediate_results = with_intermediate_results.(inverse(f_transform), 1)
-
-    prepend!(inv_intermediate_results, samples)
+    trafo_tuners = multi_tuner_state.trafo_tuners
 
     for i in eachindex(trafo_components)
-        trafo = trafo_components[i]
-        tuner = multi_tuner_state.trafo_tuners[i]
-        intermediate_result = inv_intermediate_results[end - i]
+        j = length(trafo_components) + 1 - i
 
-        trafo, tuner, chain_state = mcmc_tune_post_cycle!!(trafo, tuner, chain_state, intermediate_result)
+        trafo = trafo_components[j]
+        tuner = trafo_tuners[j]
+        intermediate_result = inv_intermediate_results[i]
+
+        trafo_components[j], trafo_tuners[j], chain_state = mcmc_tune_post_cycle!!(
+            trafo, 
+            tuner, 
+            chain_state, 
+            intermediate_result
+        )
     end
 
     return f_transform, multi_tuner_state, chain_state
@@ -124,25 +128,23 @@ function mcmc_tune_post_step!!(
     proposed::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
     p_accept::AbstractVector{<:Real}
 )
+    intermediate_results = trafo_samples_with_interm_results(f_transform, current, proposed)
     trafo_components = fchainfs(f_transform)    
-
-    inv_current_intermediate_results = with_intermediate_results(inverse(f_transform), current)
-    prepend!(inv_current_intermediate_results, current)
-    inv_proposed_intermediate_results = with_intermediate_results(inverse(f_transform), proposed)
-    prepend!(inv_proposed_intermediate_results, proposed)
+    trafo_tuners = multi_tuner_state.trafo_tuners
 
     for i in eachindex(trafo_components)
-        trafo = trafo_components[i]
-        tuner = multi_tuner_state.trafo_tuners[i]
-        current_intermediate_result = inv_current_intermediate_results[end - i]
-        proposed_intermediate_result = inv_proposed_intermediate_results[end - i]
+        j = length(trafo_components) + 1 - i
 
-        trafo, tuner, chain_state = mcmc_tune_post_step!!(
+        trafo = trafo_components[j]
+        tuner = trafo_tuners[j]
+        current_interm_res, proposed_interm_res = intermediate_results[j]
+
+        trafo_components[j], trafo_tuners[j], chain_state = mcmc_tune_post_step!!(
             trafo,
             tuner,
             chain_state,
-            current_intermediate_result,
-            proposed_intermediate_result,
+            current_interm_res,
+            proposed_interm_res,
             p_accept
         )
     end

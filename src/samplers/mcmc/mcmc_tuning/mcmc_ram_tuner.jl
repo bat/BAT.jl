@@ -91,7 +91,7 @@ function mcmc_tune_post_step!!(
 )
     
     if any(current.x.v .== proposed.x.v)
-        return chain_state, tuner_state
+        return f_transform, tuner_state, chain_state
     end
     
     (; target_acceptance, gamma) = tuner_state.tuning
@@ -120,5 +120,5 @@ function mcmc_tune_post_step!!(
 
     f_transform_new = MulAdd(Σ_L_new, new_b)
 
-    return f_transform_new, tuner_state_new,  chain_state
+    return f_transform_new, tuner_state_new, chain_state
 end

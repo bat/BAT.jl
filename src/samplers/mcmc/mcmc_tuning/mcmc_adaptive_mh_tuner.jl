@@ -153,5 +153,5 @@ function mcmc_tune_post_step!!(
     proposed::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
     p_accept::AbstractVector{<:Real}
 )
-    return chain_state, tuner
+    return f_transform, tuner, chain_state
 end

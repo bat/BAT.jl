@@ -56,8 +56,6 @@ function BAT.mcmc_tune_post_step!!(
     proposal::HMCProposalState,
     tuner_state::HMCProposalTunerState,
     chain_state::MCMCChainState,
-    current::DensitySampleVector,
-    proposed::DensitySampleVector,
     p_accept::AbstractVector{<:Real}
 )
     adaptor = tuner_state.adaptor
@@ -70,7 +68,7 @@ function BAT.mcmc_tune_post_step!!(
     
     proposal_new.kernel = AdvancedHMC.update(proposal_new.kernel, adaptor)
 
-    proposal_new = @set proposal.transition.stat = merge(tstat, (is_adapt = true,))
+    # proposal_new = @set proposal.transition.stat = merge(tstat, (is_adapt = true,))
 
     return proposal_new, tuner_state, chain_state
 end

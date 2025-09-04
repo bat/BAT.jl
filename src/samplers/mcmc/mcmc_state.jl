@@ -189,6 +189,9 @@ function mcmc_step!!(mcmc_state::MCMCState)
 
     mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, p_accept)
     
+    # global gs_pt = mcmc_state_new
+    # BREAK_step
+
     chain_state = mcmc_state_new.chain_state
     
     (;proposal, current, proposed, accepted, output) = chain_state
@@ -406,7 +409,7 @@ function mcmc_tune_post_step!!(state::MCMCState, p_accept::AbstractVector{<:Real
     chain_state_trafo_tuned = mcmc_update_z_position!!(chain_state_trafo_tuned)
 
     proposal_state_new, proposal_tuner_state_new, chain_state_new = mcmc_tune_post_step!!(
-        chain_state_trafo_tuned.proposal, 
+        proposal, 
         state.proposal_tuner_state, 
         chain_state_trafo_tuned, 
         p_accept
