@@ -63,14 +63,7 @@ function BAT._create_proposal_state(
     kernel = HMCKernel(Trajectory{MultinomialTS}(integrator, termination))
 
     # Perform a dummy step to get type-stable transition value:
-	# @static if pkgversion(AdvancedHMC) >= v"0.8" 
-	#     transition = AdvancedHMC.transition(deepcopy(rng), deepcopy(hamiltonian), deepcopy(kernel).τ, init_transition.z)
-	# else
-	#     transition = AdvancedHMC.transition(deepcopy(rng), deepcopy(kernel).τ, deepcopy(hamiltonian), init_transition.z)
-	# end
     transition = AdvancedHMC.transition(deepcopy(rng), deepcopy(hamiltonian), deepcopy(kernel), init_transition.z)
-
-    # transition = @set transition.stat = merge(AdvancedHMC.stat(transition), (is_adapt = false,))
 
     HMCProposalState(
         integrator,
@@ -104,12 +97,13 @@ function BAT.mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalSt
     for i in 1:n_walkers
         z_phase = AdvancedHMC.phasepoint(hamiltonian, current.z.v[i][:], momentum)
 
-        # global BAT.gs_hmc_prop = (rng, hamiltonian, τ, z_phase, chain_state, proposal)
-
+        # TODO: MD, Make properly in !! style. Still overwrites the proposal
         @static if pkgversion(AdvancedHMC) >= v"0.8" 
-            proposal = @set proposal.transition = AdvancedHMC.transition(rng, hamiltonian, τ, z_phase)
+            # proposal = @set proposal.transition = AdvancedHMC.transition(rng, hamiltonian, τ, z_phase)
+            proposal.transition = AdvancedHMC.transition(rng, hamiltonian, τ, z_phase)
         else
-            proposal = @set proposal.transition = AdvancedHMC.transition(rng, τ, hamiltonian, z_phase)
+            # proposal = @set proposal.transition = AdvancedHMC.transition(rng, τ, hamiltonian, z_phase)
+            proposal.transition = AdvancedHMC.transition(rng, τ, hamiltonian, z_phase)
         end
 
         proposed.z.v[i] = proposal.transition.z.θ

@@ -274,12 +274,8 @@ function mcmc_iterate!!(
     start_nsamples = nsamples(mcmc_state)
     perform_step = true 
 
-    global gs_iterate = mcmc_state
-    # BREAK_ITERATE
-
     while (perform_step && (time() - start_time) < max_time)
         perform_step = nsteps(mcmc_state) - start_nsteps < max_nsteps      
-        
         mcmc_state = perform_step ? mcmc_step!!(mcmc_state) : flush_samples!!(mcmc_state)
 
         if !isnothing(output)

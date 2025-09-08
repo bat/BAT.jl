@@ -43,7 +43,11 @@ function BAT.mcmc_tune_post_cycle!!(proposal::HMCProposalState, tuner::HMCPropos
     return proposal, tuner, chain_state 
 end
 
-function BAT.mcmc_tuning_finalize!!(proposal::HMCProposalState, tuner::HMCProposalTunerState, chain_state::HMCChainState)
+function BAT.mcmc_tuning_finalize!!(
+    proposal::HMCProposalState, 
+    tuner::HMCProposalTunerState, 
+    chain_state::MCMCChainState
+)
     adaptor = tuner.adaptor
     AdvancedHMC.finalize!(adaptor)
     proposal.hamiltonian = AdvancedHMC.update(proposal.hamiltonian, adaptor)

@@ -2,7 +2,7 @@
 
 struct MCMCMultiProposal{
     P<:Tuple{Vararg{MCMCProposal}},
-    R<:Union{Tuple{Integer}, Categorical}
+    R<:Union{Tuple{Vararg{Integer}}, Categorical}
 }<:MCMCProposal
     proposals::P
     picking_rule::R
@@ -60,22 +60,24 @@ end
 
 
 function set_current_proposal!!(
-    proposal_state::MultiProposalState{PS, Tuple{Vararg{Integer}}}, 
+    proposal_state::MultiProposalState{<:Any, <:Tuple{Vararg{Integer}}}, 
     stepno::Integer, 
     rng::AbstractRNG
-) where {PS<:Tuple{Vararg{MCMCProposalState}}}
-    m = stepno%last(proposal_state.picking_rule)
-    idx = findfirst(y -> m<y, proposal_state.picking_rule)
+)
+    picking_rule = proposal_state.picking_rule
+    m = stepno % last(picking_rule)
 
-    proposal_state = @set proposal_state.current_idx = idx
-    return proposal_state
+    idx = m > 0 ? findfirst(y -> m <= y, picking_rule) : lastindex(picking_rule)
+    proposal_state_new = @set proposal_state.current_idx = idx
+
+    return proposal_state_new
 end
 
 function set_current_proposal!!(
-    proposal_state::MultiProposalState{PS, Categorical}, 
+    proposal_state::MultiProposalState{<:Any, <:Distribution}, 
     stepno::Integer, 
     rng::AbstractRNG
-) where {PS<:Tuple{Vararg{MCMCProposalState}}}
+)
     idx = rand(rng, proposal_state.picking_rule)
 
     proposal_state = @set proposal_state.current_idx = idx
@@ -133,6 +135,9 @@ function _create_proposal_state(
 
     proposal_states = Tuple(proposal_states_init)
     picking_rule = multi_proposal.picking_rule
+
+    # To simplify calculation of current proposal, we store the cumulative sum in case of Integer Tuple picking rule.
+    picking_rule = picking_rule isa Distribution ? picking_rule : cumsum(picking_rule)
 
     idx = picking_rule isa Distribution ? rand(rng, picking_rule) : 1
 

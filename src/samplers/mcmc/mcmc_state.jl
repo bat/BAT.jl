@@ -56,7 +56,7 @@ function MCMCChainState(
     W = mcmc_weight_type(samplingalg.sample_weighting)
     
     sample_weights_curr = zeros(W, n_walkers)
-    sample_info_curr = [_get_sample_id(proposal, Int32(chainid), Int32(i), one(Int32), 1, ACCEPTED_SAMPLE)[1] for i in 1:n_walkers]
+    sample_info_curr = SampleID[_get_sample_id(proposal, Int32(chainid), Int32(i), one(Int32), 1, ACCEPTED_SAMPLE)[1] for i in 1:n_walkers]
     sample_aux_curr = fill(nothing, n_walkers)
 
     current_x_init = DensitySampleVector(
@@ -77,7 +77,7 @@ function MCMCChainState(
     prop_locs_init = deepcopy(x_init)
     prop_logds_init = deepcopy(logd_x_init)
     sample_weights_prop = zeros(W, n_walkers)
-    sample_info_prop = [_get_sample_id(proposal, Int32(chainid), Int32(i), one(Int32), 1, PROPOSED_SAMPLE)[1] for i in 1:n_walkers]
+    sample_info_prop = SampleID[_get_sample_id(proposal, Int32(chainid), Int32(i), one(Int32), 1, PROPOSED_SAMPLE)[1] for i in 1:n_walkers]
     sample_aux_prop = fill(nothing, n_walkers)
 
     proposed_init = DensitySampleVector(
@@ -170,9 +170,6 @@ end
 
 
 function mcmc_step!!(mcmc_state::MCMCState)
-    global gs_step = (mcmc_state,)
-    # BREAK_MCMC_STEP
-    
     reset_rng_counters!(mcmc_state)
 
     chain_state = mcmc_state.chain_state
@@ -182,15 +179,13 @@ function mcmc_step!!(mcmc_state::MCMCState)
     
     rng = get_rng(context)
 
-    proposal = set_current_proposal!!(proposal, stepno, rng)
-    current_proposal = get_current_proposal(proposal)
+    chain_state.proposal = set_current_proposal!!(proposal, stepno, rng)
+
+    current_proposal = get_current_proposal(chain_state.proposal)
 
     chain_state, p_accept = mcmc_propose!!(chain_state, current_proposal)
 
     mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, p_accept)
-    
-    # global gs_pt = mcmc_state_new
-    # BREAK_step
 
     chain_state = mcmc_state_new.chain_state
     
@@ -210,7 +205,7 @@ function mcmc_step!!(mcmc_state::MCMCState)
     idxs_acc = findall(accepted)
     idxs_rej = findall(!, accepted)
 
-    # Mark proposed samples as accepted or rejected
+    # For each walker, mark proposed samples as accepted or rejected
     for i in eachindex(proposed.x)
         old_info = proposed.x.info[i]
 
@@ -231,7 +226,7 @@ function mcmc_step!!(mcmc_state::MCMCState)
 
     chain_state = mcmc_state_new.chain_state
     mcmc_state_final = @set mcmc_state_new.chain_state = chain_state
-
+    
     return mcmc_state_final
 end
 
