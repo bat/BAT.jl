@@ -105,28 +105,23 @@ end
 const MHChainState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:MHProposalState} 
 
 function mcmc_propose!!(chain_state::MHChainState)
-
     @unpack target, proposal, f_transform, context = chain_state
-    rng = get_rng(context)
-    pdist = proposal.proposaldist
+    genctx = get_gencontext(context)
+    rng = get_rng(genctx)
+    proposal_measure = batmeasure(proposal.proposaldist)
     n_walkers = nwalkers(chain_state)
 
     current_z = chain_state.current.z.v
     logd_z_current = chain_state.current.z.logd
 
-    T = eltype(current_z)
+    z_proposed = current_z .+ rand(genctx, proposal_measure^n_walkers)
 
-    # ToDo: Use gen-context:
-    z_proposed = current_z .+ [T(rand(rng, pdist)) for i in 1:n_walkers]
-
-    trafo_proposed = with_logabsdet_jacobian.(f_transform, z_proposed)
-    x_proposed = getfield.(trafo_proposed, 1)
-    ladj = getfield.(trafo_proposed, 2)
+    x_ladj_proposed = with_logabsdet_jacobian.(f_transform, z_proposed)
+    x_proposed = first.(x_ladj_proposed)
+    ladj = getsecond.(x_ladj_proposed)
 
     logd_x_proposed = BAT.checked_logdensityof.(target, x_proposed)
-    logd_z_proposed = logd_x_proposed .+ ladj
-
-    @assert logd_z_proposed ≈ logdensityof.(MeasureBase.pullback(f_transform, target), z_proposed) #TODO: MD, Remove, only for debugging
+    logd_z_proposed::typeof(logd_x_proposed) = logd_x_proposed .+ ladj
 
     chain_state.proposed.x.v .= x_proposed
     chain_state.proposed.z.v .= z_proposed
