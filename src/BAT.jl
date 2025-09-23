@@ -64,6 +64,7 @@ import TypedTables
 import ZygoteRules
 
 using Accessors: @set, @reset
+using OneTwoMany: getsecond
 
 import HeterogeneousComputing
 using HeterogeneousComputing: AbstractComputeUnit, CPUnit
