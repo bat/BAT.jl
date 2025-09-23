@@ -101,6 +101,7 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
 
     next_cycle!.(mcmc_states)
 
+    @info "Generate main samples using $(length(mcmc_states)) MCMC chain(s)."
     mcmc_states = mcmc_iterate!!(
         chain_outputs,
         mcmc_states;
