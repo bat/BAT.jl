@@ -301,27 +301,13 @@ function mcmc_update_z_position!!(mcmc_state::MCMCState)
 end
 
 function mcmc_update_z_position!!(mc_state::MCMCChainState)
-    f_transform = mc_state.f_transform
+    f_inv = inverse(mc_state.f_transform)
 
-    x_current = mc_state.current.x.v
-    logd_x_current = mc_state.current.x.logd
+    current_z_new::typeof(mc_state.current.z) = transform_samples(f_inv, mc_state.current.x)
+    proposed_z_new::typeof(mc_state.proposed.z) = transform_samples(f_inv, mc_state.proposed.x)
 
-    x_proposed = mc_state.proposed.x.v
-    logd_x_proposed = mc_state.proposed.x.logd
-
-    trafo_current = with_logabsdet_jacobian.(inverse(f_transform), x_current)
-    trafo_proposed = with_logabsdet_jacobian.(inverse(f_transform), x_proposed)
-
-    logd_z_current_new = logd_x_current - getfield.(trafo_current, 2) 
-    logd_z_proposed_new = logd_x_proposed - getfield.(trafo_proposed, 2)
-
-    mc_state_new = deepcopy(mc_state)
-
-    mc_state_new.current.z.v .= getfield.(trafo_current, 1)
-    mc_state_new.proposed.z.v .= getfield.(trafo_proposed, 1)
-    
-    mc_state_new.current.z.logd .= logd_z_current_new
-    mc_state_new.proposed.z.logd .= logd_z_proposed_new
+    mc_state_new::typeof(mc_state) = @set mc_state.current.z = current_z_new
+    mc_state_new = @set mc_state_new.proposed.z = proposed_z_new
     
     return mc_state_new
 end
