@@ -109,6 +109,8 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
         nonzero_weights = samplingalg.nonzero_weights
     )
 
+    @debug "Merge samples of chains and transform to original space."
+
     samples_transformed = _merge_chain_outputs(first(mcmc_states), chain_outputs)
 
     smpls = transform_samples(inverse(f_pretransform), samples_transformed)
