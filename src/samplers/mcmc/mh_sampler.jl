@@ -49,11 +49,6 @@ bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::RandomWalk, pretr
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
 
-function _get_sample_id(proposal::MHProposalState, chainid::Int32, walkerid::Int32, cycle::Int32, stepno::Integer, sample_type::Integer)
-    return MCMCSampleID(chainid, walkerid, cycle, stepno, sample_type), MCMCSampleID
-end
-
-
 function _create_proposal_state(
     proposal::RandomWalk, 
     target::BATMeasure, 
@@ -105,9 +100,6 @@ function _full_random_walk_proposal(d::TDist, n_dims::Integer)
     Σ = ScalMat(n_dims, proposal_scale^2)
     return Distributions.IsoTDist(ν, Σ)
 end
-
-
-const MHChainState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:MHProposalState} 
 
 function mcmc_propose!!(chain_state::MCMCChainState, proposal::MHProposalState)
 

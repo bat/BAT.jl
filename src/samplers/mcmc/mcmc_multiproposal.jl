@@ -44,6 +44,11 @@ bat_default(
     proposal::MCMCMultiProposal
 ) = NoMCMCTempering()
 
+
+get_current_proposal_idx(proposal_state::MCMCProposalState) = 1
+
+get_current_proposal_idx(proposal_state::MultiProposalState) = proposal_state.current_idx
+
 function set_current_proposal!!(
     proposal_state::MCMCProposalState,
     stepno::Integer,
@@ -89,25 +94,6 @@ function get_current_proposal(
 )
     current_proposal = multi_proposal_state.proposal_states[multi_proposal_state.current_idx]
     return current_proposal
-end
-
-function _get_sample_id(
-    multi_proposal_state::MultiProposalState,
-    chainid::Int32, 
-    walkerid::Int32, 
-    cycle::Int32, 
-    stepno::Integer, 
-    sample_type::Integer
-)
-    current_proposal = get_current_proposal(multi_proposal_state)
-    _get_sample_id(
-        current_proposal,
-        chainid,
-        walkerid,
-        cycle,
-        stepno,
-        sample_type
-    )
 end
 
 function _create_proposal_state(

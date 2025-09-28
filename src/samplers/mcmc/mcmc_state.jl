@@ -56,7 +56,7 @@ function MCMCChainState(
     W = mcmc_weight_type(samplingalg.sample_weighting)
     
     sample_weights_curr = zeros(W, n_walkers)
-    sample_info_curr = SampleID[_get_sample_id(proposal, Int32(chainid), Int32(i), one(Int32), 1, ACCEPTED_SAMPLE)[1] for i in 1:n_walkers]
+    sample_info_curr = MCMCSampleID[MCMCSampleID(Int32(chainid), Int32(i), one(Int32), zero(Int64), get_current_proposal_idx(proposal), true) for i in 1:n_walkers]
     sample_aux_curr = fill(nothing, n_walkers)
 
     current_x_init = DensitySampleVector(
@@ -77,7 +77,7 @@ function MCMCChainState(
     prop_locs_init = deepcopy(x_init)
     prop_logds_init = deepcopy(logd_x_init)
     sample_weights_prop = zeros(W, n_walkers)
-    sample_info_prop = SampleID[_get_sample_id(proposal, Int32(chainid), Int32(i), one(Int32), 1, PROPOSED_SAMPLE)[1] for i in 1:n_walkers]
+    sample_info_prop = deepcopy(sample_info_curr) 
     sample_aux_prop = fill(nothing, n_walkers)
 
     proposed_init = DensitySampleVector(
@@ -209,8 +209,15 @@ function mcmc_step!!(mcmc_state::MCMCState)
     for i in eachindex(proposed.x)
         old_info = proposed.x.info[i]
 
-        sample_type = accepted[i] ? ACCEPTED_SAMPLE : REJECTED_SAMPLE
-        new_info, _ = _get_sample_id(proposal, old_info.chainid, Int32(i), old_info.chaincycle, chain_state.stepno, sample_type)
+        sample_type = accepted[i]
+        new_info = MCMCSampleID(
+            old_info.chainid, 
+            Int32(i), 
+            old_info.chaincycle, 
+            chain_state.stepno, 
+            get_current_proposal_idx(proposal), 
+            sample_type
+        )
 
         proposed.x.info[i] = new_info
         proposed.z.info[i] = new_info
@@ -253,11 +260,28 @@ function next_cycle!(chain_state::MCMCChainState)
     chain_state.nsamples = 0
     chain_state.stepno = 0
 
-    new_current_info_vec = [_get_sample_id(chain_state.proposal, chain_state.info.id, Int32(i), chain_state.info.cycle, 0, ACCEPTED_SAMPLE)[1] for i in 1:n_walkers]
+    proposal = chain_state.proposal
+    info = chain_state.info
+
+    new_current_info_vec = [MCMCSampleID(
+        info.id, 
+        Int32(i), 
+        info.cycle, 
+        zero(Int64), 
+        get_current_proposal_idx(proposal), 
+        true
+        ) for i in 1:n_walkers]
     chain_state.current.x.info .= new_current_info_vec
     chain_state.current.z.info .= new_current_info_vec
 
-    new_proposed_info_vec = [_get_sample_id(chain_state.proposal, chain_state.info.id, Int32(i), chain_state.info.cycle, 0, PROPOSED_SAMPLE)[1] for i in 1:n_walkers]
+    new_proposed_info_vec = [MCMCSampleID(
+        info.id, 
+        Int32(i), 
+        info.cycle, 
+        zero(Int64), 
+        get_current_proposal_idx(proposal),
+        false
+        ) for i in 1:n_walkers]
     chain_state.proposed.x.info .= new_proposed_info_vec
     chain_state.proposed.z.info .= new_proposed_info_vec
 

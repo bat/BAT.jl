@@ -20,22 +20,6 @@ BAT.bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::HamiltonianMC
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 250), max_ncycles = 4)
 
 
-function BAT._get_sample_id(proposal::HMCProposalState, chainid::Int32, walkerid::Int32, cycle::Int32, stepno::Integer, sample_type::Integer)
-    tstat = AdvancedHMC.stat(proposal.transition)
-
-    new_id = AHMCSampleID(chainid,
-                            walkerid,
-                            cycle,
-                            stepno,
-                            sample_type,
-                            tstat.hamiltonian_energy,
-                            tstat.tree_depth,
-                            tstat.numerical_error,
-                            tstat.step_size
-                        )
-    return new_id, AHMCSampleID
-end    
-
 # Change to incorporate the initial adaptive transform into f and fg
 function BAT._create_proposal_state(
     proposal::HamiltonianMC, 
