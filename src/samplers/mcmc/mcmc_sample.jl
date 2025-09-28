@@ -111,7 +111,7 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
 
     samples_transformed = _merge_chain_outputs(first(mcmc_states), chain_outputs)
 
-    smpls = inverse(f_pretransform).(samples_transformed)
+    smpls = transform_samples(inverse(f_pretransform), samples_transformed)
 
     (result = smpls, result_trafo = samples_transformed, f_pretransform = f_pretransform, generator = MCMCSampleGenerator(mcmc_states))
 end
