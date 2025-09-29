@@ -190,6 +190,14 @@ function Base.Broadcast.broadcasted(
     transform_samples(f_transform, s_src)
 end
 
+# _trafo_output_type may be Any for DistributionTransform if target_dist is
+# a NamedTuple product dist with lot's of entries (type inference will fail).
+# But DistributionTransform shouldn't change the precision, so infer based
+# in input for DistributionTransform:
+function _trafo_output_numtype(f::DistributionTransform, xs::AbstractVector)
+    realnumtype(eltype(xs))
+end
+
 
 # Use ForwardDiff for univariate distribution transformations:
 @inline function ChainRulesCore.rrule(::typeof(apply_dist_trafo), trg_d::Distribution{Univariate}, src_d::Distribution{Univariate}, src_v::Any)

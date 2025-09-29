@@ -141,6 +141,7 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
 
     next_cycle!.(mcmc_states)
 
+    @info "Generate main samples using $(length(mcmc_states)) MCMC chain(s)."
     mcmc_states = mcmc_iterate!!(
         chain_outputs,
         mcmc_states;
@@ -148,9 +149,11 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
         nonzero_weights = samplingalg.nonzero_weights
     )
 
+    @debug "Merge samples of chains and transform to original space."
+
     samples_transformed = _merge_chain_outputs(first(mcmc_states), chain_outputs)
 
-    smpls = inverse(f_pretransform).(samples_transformed)
+    smpls = transform_samples(inverse(f_pretransform), samples_transformed)
 
     (result = smpls, result_trafo = samples_transformed, f_pretransform = f_pretransform, generator = MCMCSampleGenerator(mcmc_states))
 end
