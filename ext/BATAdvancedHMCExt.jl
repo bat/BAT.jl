@@ -17,7 +17,7 @@ using AffineMaps: MulAdd
 
 using BAT: MeasureLike, BATMeasure
 
-using BAT: get_context, get_adselector, _NoADSelected
+using BAT: get_context, get_adselector, get_valid_adselector
 using BAT: getproposal, mcmc_target
 using BAT: MCMCChainState, HMCChainState, HamiltonianMC, HMCProposalState, MCMCChainStateInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin
 using BAT: MCMCBasicStats, push!, reweight_relative!

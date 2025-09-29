@@ -14,7 +14,7 @@ using BAT: MeasureLike, BATMeasure, DensitySample, DensitySampleVector, BATConte
 using BAT: transform_and_unshape, bat_initval, apply_trafo_to_init, exec_map!
 using BAT: getlikelihood, getprior, StandardMvNormal
 using BAT: checked_logdensityof
-using BAT: get_adselector
+using BAT: get_valid_adselector
 using BAT: should_log_progress_now
 using BAT: MGVISampling, FixedMGVISchedule, MGVISampleInfo, is_std_mvnormal
 
@@ -74,7 +74,7 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::MGVISampling, context::BA
     start_time = time()
     log_time = start_time
     (; pretransform, init, nsamples, schedule, config, store_unconverged) = algorithm
-    mgvi_context = MGVIContext(get_gencontext(context), BAT._get_checked_adselector(context, :MGVISampling))
+    mgvi_context = MGVIContext(get_gencontext(context), get_valid_adselector(context, algorithm))
 
     transformed_m, f_pretransform = transform_and_unshape(pretransform, m, context)
     transformed_m_uneval = unevaluated(transformed_m)

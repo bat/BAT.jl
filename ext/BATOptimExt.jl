@@ -15,7 +15,7 @@ using StructArrays, ArraysOfArrays
 
 using BAT: MeasureLike, BATMeasure, unevaluated
 
-using BAT: get_context, get_adselector, _NoADSelected
+using BAT: get_context, get_valid_adselector
 using BAT: bat_initval, transform_and_unshape, apply_trafo_to_init
 
 
@@ -95,10 +95,7 @@ function _optim_minimize(f::Function, x_init::AbstractArray{<:Real}, algorithm::
 end
 
 function _optim_minimize(f::Function, x_init::AbstractArray{<:Real}, algorithm::Optim.FirstOrderOptimizer, opts::Optim.Options, context::BATContext)
-    adsel = get_adselector(context)
-    if adsel isa _NoADSelected
-        throw(ErrorException("$(nameof(typeof(algorithm))) requires an ADSelector to be specified in the BAT context"))
-    end
+    adsel = get_valid_adselector(context, algorithm)
     fg! = NLSolversFG!(f, adsel)
     _optim_optimize(Optim.only_fg!(fg!), x_init, algorithm, opts)
 end
