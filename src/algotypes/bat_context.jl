@@ -85,7 +85,7 @@ get_adselector(context::BATContext) = context.ad
 Returns the automatic differentiation selector specified in `context`, to
 be used for `algorithm`.
 
-Throws an exception if `context` specifies `ADTypes.NoAutoDiff`.
+Throws an exception if `context` specifies `AutoDiffOperators.NoAutoDiff`.
 """
 function get_valid_adselector(context::BATContext, @nospecialize(algorithm))
     ad = get_adselector(context)

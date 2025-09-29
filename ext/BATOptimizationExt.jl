@@ -11,7 +11,7 @@ BAT.pkgext(::Val{:Optimization}) = BAT.PackageExtension{:Optimization}()
 using Random
 using DensityInterface, ChangesOfVariables, InverseFunctions, FunctionChains
 using HeterogeneousComputing, AutoDiffOperators
-using StructArrays, ArraysOfArrays, ADTypes
+using StructArrays, ArraysOfArrays
 
 using BAT: MeasureLike, unevaluated
 
@@ -19,7 +19,7 @@ using BAT: get_context, get_adselector
 using BAT: bat_initval, transform_and_unshape, apply_trafo_to_init
 # using BAT: negative #deprecated?
 
-using ADTypes: NoAutoDiff
+using AutoDiffOperators: AbstractADType, NoAutoDiff, reverse_adtype
 
 
 function test_bat_optimization_ext()
@@ -33,12 +33,12 @@ BAT.ext_default(::BAT.PackageExtension{:Optimization}, ::Val{:DEFAULT_OPTALG}) =
 
 
 function build_optimizationfunction(f, adsel::AutoDiffOperators.ADSelector)
-    adm = convert(ADTypes.AbstractADType, reverse_ad_selector(adsel))
+    adm = convert(AbstractADType, reverse_adtype(adsel))
     optimization_function = Optimization.OptimizationFunction(f, adm)
     return optimization_function
 end
 
-function build_optimizationfunction(f, adsel::NoAutoDiff)
+function build_optimizationfunction(f, ::NoAutoDiff)
     optimization_function = Optimization.OptimizationFunction(f)
     return optimization_function
 end

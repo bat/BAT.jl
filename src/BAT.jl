@@ -66,8 +66,6 @@ import ZygoteRules
 using Accessors: @set, @reset
 using OneTwoMany: getsecond
 
-using ADTypes: NoAutoDiff
-
 import HeterogeneousComputing
 using HeterogeneousComputing: AbstractComputeUnit, CPUnit
 using HeterogeneousComputing: GenContext, get_rng, get_precision, get_compute_unit, get_gencontext, allocate_array
