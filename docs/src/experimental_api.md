@@ -22,6 +22,7 @@ BAT.error_log
 BAT.EvalException
 BAT.ext_default
 BAT.get_adselector
+BAT.get_valid_adselector
 BAT.PackageExtension
 BAT.pkgext
 BAT.set_rng

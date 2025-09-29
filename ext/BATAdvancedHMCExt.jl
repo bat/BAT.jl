@@ -9,7 +9,9 @@ BAT.pkgext(::Val{:AdvancedHMC}) = BAT.PackageExtension{:AdvancedHMC}()
 
 using Random
 using DensityInterface
-using HeterogeneousComputing, AutoDiffOperators
+using HeterogeneousComputing
+
+using AutoDiffOperators: valgrad_func
 
 using Accessors: @set, @reset
 
@@ -17,14 +19,14 @@ using AffineMaps: MulAdd
 
 using BAT: MeasureLike, BATMeasure
 
-using BAT: get_context, get_adselector, _NoADSelected
+using BAT: get_context, get_adselector, get_valid_adselector
 using BAT: getproposal, mcmc_target
 using BAT: MCMCChainState, HMCChainState, HamiltonianMC, HMCProposalState, MCMCChainStateInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin
 using BAT: MCMCBasicStats, push!, reweight_relative!
 using BAT: RAMTuning
 using BAT: MCMCProposalTunerState, MCMCTransformTunerState, NoMCMCTempering, NoMCMCTransformTuning
 using BAT: mcmc_weight_values
-using BAT: AbstractTransformTarget, NoAdaptiveTransform, TriangularAffineTransform, valgrad_func
+using BAT: AbstractTransformTarget, NoAdaptiveTransform, TriangularAffineTransform
 using BAT: RNGPartition, get_rng, set_rng!
 using BAT: mcmc_step!!, nsamples, nsteps, nwalkers, eff_acceptance_ratio
 using BAT: get_samples!, reset_rng_counters!

@@ -51,7 +51,7 @@ function BAT._create_proposal_state(
     params_vec = Vector{P}(undef, npar)
     params_vec .= v_init[1]# TODO, MD: How to handle proposals for multiple walkers?
 
-    adsel = get_adselector(context)
+    adsel = get_valid_adselector(context, proposal)
     f = checked_logdensityof(pullback(f_transform, target))
     fg = valgrad_func(f, adsel)
 

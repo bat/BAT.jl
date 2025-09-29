@@ -2,23 +2,6 @@
 
 const _tls_batcontext_key = :_BAT_default_context_
 
-struct _NoADSelected end
-
-"""
-    BAT.get_adselector(context::BATContext)
-
-*Experimental feature, not yet part of stable public API.*
-
-Returns the automatic differentiation selector specified in `context`.
-"""
-function get_adselector end
-
-_check_adselector(::ADSelector, ::Symbol) = nothing
-
-function _check_adselector(::_NoADSelected, algname::Symbol)
-    throw(ErrorException("Algorithm $algname requires automatic differentiation, but none specified, pass a suitable `BATContext` or use (e.g.) `set_batcontext(ad = ForwardDiff)`"))
-end
-
 
 """
     struct BATContext{T}
@@ -42,7 +25,7 @@ BATContext(;
 
 See [`get_batcontext`](@ref) and [`set_batcontext`](@ref).
 """
-struct BATContext{T<:AbstractFloat,RNG<:AbstractRNG,CU<:AbstractComputeUnit,AD<:Union{<:ADSelector,_NoADSelected}}
+struct BATContext{T<:AbstractFloat,RNG<:AbstractRNG,CU<:AbstractComputeUnit,AD<:ADSelector}
     rng::RNG
     cunit::CU
     ad::AD
@@ -52,7 +35,7 @@ export BATContext
 
 function BATContext{T}(
     rng::RNG, cunit::CU, ad::AD
-) where {T<:AbstractFloat,RNG<:AbstractRNG,CU<:AbstractComputeUnit,AD<:Union{<:ADSelector,_NoADSelected}}
+) where {T<:AbstractFloat,RNG<:AbstractRNG,CU<:AbstractComputeUnit,AD<:ADSelector}
     BATContext{T,RNG,CU,AD}(rng, cunit, ad)
 end
 
@@ -60,15 +43,16 @@ function BATContext(;
     precision::Type{T} = Float64,
     rng::AbstractRNG = Philox4x()::Philox4x{UInt64,10},
     cunit::AbstractComputeUnit = CPUnit(),
-    ad::Union{AutoDiffOperators.ADSelector,_NoADSelected, Module, Symbol, Val} = _NoADSelected(),
+    ad::Union{ADSelector, Module, Symbol, Val} = NoAutoDiff(),
 ) where T
-    adsel = _convert_adsel(ad)
-    #adsel = ad isa _NoADSelected ? _NoADSelected() : ADSelector(ad)
+    adsel = _to_adsel(ad)
     BATContext{T}(rng, cunit, adsel)
 end
 
-_convert_adsel(ad) = convert(ADSelector, ad)
-_convert_adsel(ad::_NoADSelected) = ad
+_to_adsel(ad::ADSelector) = ad
+_to_adsel(ad::Module) = ADSelector(ad)
+_to_adsel(ad::Symbol) = ADSelector(ad)
+_to_adsel(ad::Val) = ADSelector(ad)
 
 
 HeterogeneousComputing.get_precision(::BATContext{T}) where T = T
@@ -79,12 +63,43 @@ function HeterogeneousComputing.get_gencontext(context::BATContext)
     GenContext{get_precision(context)}(get_compute_unit(context), get_rng(context))
 end
 
+
+"""
+    BAT.get_adselector(context::BATContext)
+
+*Experimental feature, not yet part of stable public API.*
+
+Returns the automatic differentiation selector specified in `context`.
+"""
+function get_adselector end
+
 get_adselector(context::BATContext) = context.ad
 
-function _get_checked_adselector(context::BATContext, algname::Symbol)
+
+
+"""
+    BAT.get_valid_adselector(context::BATContext, algorithm)
+
+*Experimental feature, not yet part of stable public API.*
+
+Returns the automatic differentiation selector specified in `context`, to
+be used for `algorithm`.
+
+Throws an exception if `context` specifies `AutoDiffOperators.NoAutoDiff`.
+"""
+function get_valid_adselector(context::BATContext, @nospecialize(algorithm))
     ad = get_adselector(context)
-    _check_adselector(ad, algname)
+    _check_adselector(ad, _algname(algorithm))
     return ad
+end
+
+_algname(algname::Symbol) = algname
+_algname(algorithm) = nameof(typeof(algorithm))
+
+_check_adselector(::ADSelector, ::Symbol) = nothing
+
+function _check_adselector(::NoAutoDiff, algname::Symbol)
+    throw(ErrorException("Algorithm $algname requires automatic differentiation, but no AD backend specified. Pass a BAT context like `BATContext(ad = ForwardDiff)` to the algorithm or set a default `BATContext` with AD e.g. via `set_batcontext(ad = ForwardDiff)`"))
 end
 
 
@@ -168,7 +183,7 @@ function set_batcontext(;kwargs...)
         (;kwargs...)
     )
     @info s
-    adsel = _convert_adsel(s.ad)
+    adsel = _to_adsel(s.ad)
     set_batcontext(BATContext{s.precision}(s.rng, s.cuinit, adsel))
 end
 
