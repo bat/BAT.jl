@@ -60,7 +60,7 @@ function convert_options(algorithm::OptimAlg)
 
     kwargs = algorithm.kwargs
 
-    algopts = (; iterations = algorithm.maxiters, time_limit = algorithm.maxtime, f_tol = algorithm.reltol,)
+    algopts = (; iterations = algorithm.maxiters, time_limit = algorithm.maxtime, f_reltol = algorithm.reltol,)
     algopts = (; algopts..., kwargs...)
     algopts = (; algopts..., store_trace = true, extended_trace=true) 
 
