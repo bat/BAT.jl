@@ -75,7 +75,12 @@ function mcmc_tuning_postinit!!(tuner::AdaptiveAffineTuningState, chain_state::M
 end
 
 
-function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector})
+function mcmc_tune_post_cycle!!(
+    f_transform::Function,
+    tuner::AdaptiveAffineTuningState, 
+    chain_state::MCMCChainState, 
+    samples::AbstractVector{<:DensitySampleVector}
+)
     tuning = tuner.tuning
     stats = tuner.stats
     stats_reweight_factor = tuning.r
@@ -97,7 +102,6 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::M
     λ = tuning.λ
     c = tuner.scale
 
-    f_transform = chain_state.f_transform
     A = f_transform.A
     Σ_old = A * A'
 
@@ -128,26 +132,26 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::M
     Σ_new = new_Σ_unscal * tuner.scale
     A_new = oftype(A, cholesky(Positive, Σ_new).L)
     
-    b = chain_state.f_transform.b
+    b = f_transform.b
     b_new = oftype(b, (1 - a_t) * b + a_t * param_stats.mean)
 
-    chain_state.f_transform = MulAdd(A_new, b_new)
+    f_transform_new = MulAdd(A_new, b_new)
     
     tuner.iteration += 1
 
-    # TODO: MD, think about keeping old z_position if transform changes only slightly
-    chain_state_new = mcmc_update_z_position!!(chain_state) 
-
-    return chain_state_new, tuner
+    return f_transform_new, tuner, chain_state
 end
 
 
-mcmc_tuning_finalize!!(tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState) = nothing
+mcmc_tuning_finalize!!(::Function, tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState) = nothing
 
 function mcmc_tune_post_step!!(
+    f_transform::Function,
     tuner::AdaptiveAffineTuningState,
     chain_state::MCMCChainState,
+    current::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
+    proposed::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
     p_accept::AbstractVector{<:Real}
 )
-    return chain_state, tuner
+    return f_transform, tuner, chain_state
 end

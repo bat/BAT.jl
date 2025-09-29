@@ -38,6 +38,8 @@ function mcmc_burnin!(
     cycles = zero(Int)
     successful = false
 
+    global gs_bi_pt = (deepcopy(outputs), deepcopy(mcmc_states), samplingalg, callback)
+
     while !successful && cycles < burnin.max_ncycles
         cycles += 1
 
@@ -81,6 +83,8 @@ function mcmc_burnin!(
 
         @info "MCMC Tuning cycle $cycles finished, $nchains chains, $ntuned tuned, $nconverged converged."
 
+        global gs_bi_at = deepcopy(mcmc_states)
+        # BREAK_BI
     end
 
     mcmc_tuning_finalize!!.(mcmc_states)

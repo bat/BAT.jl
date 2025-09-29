@@ -90,6 +90,9 @@ MCMCChainPoolInit
 MCMCRetryInit
 MCMCInitAlgorithm
 MCMCMultiCycleBurnin
+MCMCMultiProposal
+MCMCMultiProposalTuning
+MCMCMultiTrafoTuning
 MCMCProposalTuning
 MCMCTransformTuning
 MGVISampling

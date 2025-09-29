@@ -69,7 +69,7 @@ function ahmc_adaptor(
     T = eltype(θ_init)
     mma = AdvancedHMC.MassMatrixAdaptor(metric)
     ssa = AdvancedHMC.StepSizeAdaptor(tuning.target_acceptance, integrator)
-    return AdvancedHMC.NaiveHMCTuning(mma, ssa)
+    return AdvancedHMC.NaiveHMCAdaptor(mma, ssa)
 end
 
 function ahmc_adaptor(

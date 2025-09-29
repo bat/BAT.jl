@@ -58,5 +58,3 @@ mutable struct HMCProposalState{
 end
 
 export HMCProposalState
-
-const HMCChainState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:HMCProposalState}

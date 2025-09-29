@@ -2,7 +2,7 @@
 
 
 """
-    struct RandomWalk <: MCMCAlgorithm
+    struct RandomWalk <: MCMCProposal
 
 Metropolis-Hastings MCMC sampling algorithm.
 
@@ -14,7 +14,12 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct RandomWalk{Q<:Union{AbstractMeasure,Distribution{<:Union{Univariate,Multivariate},Continuous}}} <: MCMCProposal
+@with_kw struct RandomWalk{
+    Q<:Union{
+        AbstractMeasure,
+        Distribution{<:Union{Univariate,Multivariate},Continuous}
+    }
+} <: MCMCProposal
     proposaldist::Q = TDist(1.0)
 end
 
@@ -42,11 +47,6 @@ bat_default(::Type{TransformedMCMC}, ::Val{:init}, proposal::RandomWalk, pretran
 
 bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::RandomWalk, pretransform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
-
-
-function _get_sample_id(proposal::MHProposalState, chainid::Int32, walkerid::Int32, cycle::Int32, stepno::Integer, sample_type::Integer)
-    return MCMCSampleID(chainid, walkerid, cycle, stepno, sample_type), MCMCSampleID
-end
 
 
 function _create_proposal_state(
@@ -102,10 +102,8 @@ function _full_random_walk_proposal(d::TDist, n_dims::Integer)
 end
 
 
-const MHChainState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:MHProposalState} 
-
-function mcmc_propose!!(chain_state::MHChainState)
-    @unpack target, proposal, f_transform, context = chain_state
+function mcmc_propose!!(chain_state::MCMCChainState, proposal::MHProposalState)
+    @unpack target, f_transform, context = chain_state
     genctx = get_gencontext(context)
     rng = get_rng(genctx)
     proposal_measure = batmeasure(proposal.proposaldist)
@@ -139,9 +137,7 @@ function mcmc_propose!!(chain_state::MHChainState)
     return chain_state, p_accept
 end
 
-eff_acceptance_ratio(chain_state::MHChainState) = nsamples(chain_state) / (nsteps(chain_state) * nwalkers(chain_state))
+eff_acceptance_ratio_impl(chain_state::MCMCChainState, proposal::MHProposalState) = nsamples(chain_state) / (nsteps(chain_state) * nwalkers(chain_state))
 
-function set_mc_transform!!(mc_state::MHChainState, f_transform_new::Function) 
-    mc_state_new = @set mc_state.f_transform = f_transform_new
-    return mc_state_new
-end
+set_proposal_transform!!(proposal::MHProposalState, ::MCMCChainState) = proposal
+

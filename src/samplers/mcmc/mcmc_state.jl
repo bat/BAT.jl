@@ -56,7 +56,7 @@ function MCMCChainState(
     W = mcmc_weight_type(samplingalg.sample_weighting)
     
     sample_weights_curr = zeros(W, n_walkers)
-    sample_info_curr = [_get_sample_id(proposal, Int32(chainid), Int32(i), one(Int32), 1, ACCEPTED_SAMPLE)[1] for i in 1:n_walkers]
+    sample_info_curr = MCMCSampleID[MCMCSampleID(Int32(chainid), Int32(i), one(Int32), zero(Int64), get_current_proposal_idx(proposal), true) for i in 1:n_walkers]
     sample_aux_curr = fill(nothing, n_walkers)
 
     current_x_init = DensitySampleVector(
@@ -77,7 +77,7 @@ function MCMCChainState(
     prop_locs_init = deepcopy(x_init)
     prop_logds_init = deepcopy(logd_x_init)
     sample_weights_prop = zeros(W, n_walkers)
-    sample_info_prop = [_get_sample_id(proposal, Int32(chainid), Int32(i), one(Int32), 1, PROPOSED_SAMPLE)[1] for i in 1:n_walkers]
+    sample_info_prop = deepcopy(sample_info_curr) 
     sample_aux_prop = fill(nothing, n_walkers)
 
     proposed_init = DensitySampleVector(
@@ -163,19 +163,30 @@ function _empty_chain_outputs(chain_state::MCMCChainState)
     return fill(_empty_DensitySampleVector(chain_state), nwalkers(chain_state))
 end
 
+function eff_acceptance_ratio(chain_state::MCMCChainState)
+    current_proposal = get_current_proposal(chain_state.proposal)
+    eff_acceptance_ratio_impl(chain_state, current_proposal)
+end
+
 
 function mcmc_step!!(mcmc_state::MCMCState)
-    
     reset_rng_counters!(mcmc_state)
 
     chain_state = mcmc_state.chain_state
-    
     chain_state.stepno += 1
+
+    (;proposal, stepno, context) = chain_state
     
-    chain_state, p_accept = mcmc_propose!!(chain_state)
+    rng = get_rng(context)
+
+    chain_state.proposal = set_current_proposal!!(proposal, stepno, rng)
+
+    current_proposal = get_current_proposal(chain_state.proposal)
+
+    chain_state, p_accept = mcmc_propose!!(chain_state, current_proposal)
 
     mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, p_accept)
-    
+
     chain_state = mcmc_state_new.chain_state
     
     (;proposal, current, proposed, accepted, output) = chain_state
@@ -194,12 +205,19 @@ function mcmc_step!!(mcmc_state::MCMCState)
     idxs_acc = findall(accepted)
     idxs_rej = findall(!, accepted)
 
-    # Mark proposed samples as accepted or rejected
+    # For each walker, mark proposed samples as accepted or rejected
     for i in eachindex(proposed.x)
         old_info = proposed.x.info[i]
 
-        sample_type = accepted[i] ? ACCEPTED_SAMPLE : REJECTED_SAMPLE
-        new_info, _ = _get_sample_id(proposal, old_info.chainid, Int32(i), old_info.chaincycle, chain_state.stepno, sample_type)
+        sample_type = accepted[i]
+        new_info = MCMCSampleID(
+            old_info.chainid, 
+            Int32(i), 
+            old_info.chaincycle, 
+            chain_state.stepno, 
+            get_current_proposal_idx(proposal), 
+            sample_type
+        )
 
         proposed.x.info[i] = new_info
         proposed.z.info[i] = new_info
@@ -215,7 +233,7 @@ function mcmc_step!!(mcmc_state::MCMCState)
 
     chain_state = mcmc_state_new.chain_state
     mcmc_state_final = @set mcmc_state_new.chain_state = chain_state
-
+    
     return mcmc_state_final
 end
 
@@ -242,11 +260,28 @@ function next_cycle!(chain_state::MCMCChainState)
     chain_state.nsamples = 0
     chain_state.stepno = 0
 
-    new_current_info_vec = [_get_sample_id(chain_state.proposal, chain_state.info.id, Int32(i), chain_state.info.cycle, 0, ACCEPTED_SAMPLE)[1] for i in 1:n_walkers]
+    proposal = chain_state.proposal
+    info = chain_state.info
+
+    new_current_info_vec = [MCMCSampleID(
+        info.id, 
+        Int32(i), 
+        info.cycle, 
+        zero(Int64), 
+        get_current_proposal_idx(proposal), 
+        true
+        ) for i in 1:n_walkers]
     chain_state.current.x.info .= new_current_info_vec
     chain_state.current.z.info .= new_current_info_vec
 
-    new_proposed_info_vec = [_get_sample_id(chain_state.proposal, chain_state.info.id, Int32(i), chain_state.info.cycle, 0, PROPOSED_SAMPLE)[1] for i in 1:n_walkers]
+    new_proposed_info_vec = [MCMCSampleID(
+        info.id, 
+        Int32(i), 
+        info.cycle, 
+        zero(Int64), 
+        get_current_proposal_idx(proposal),
+        false
+        ) for i in 1:n_walkers]
     chain_state.proposed.x.info .= new_proposed_info_vec
     chain_state.proposed.z.info .= new_proposed_info_vec
 
@@ -335,10 +370,28 @@ end
 
 # TODO: MD, when should the z-position be updated? Before or after the proposal tuning?
 function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:DensitySampleVector})
-    chain_state_tmp, trafo_tuner_state_new = mcmc_tune_post_cycle!!(state.trafo_tuner_state, state.chain_state, samples)
-    chain_state_new, proposal_tuner_state_new = mcmc_tune_post_cycle!!(state.proposal_tuner_state, chain_state_tmp, samples)
+    f_transform_tuned, trafo_tuner_state_new, chain_state_trafo_tuned = mcmc_tune_post_cycle!!(
+        state.chain_state.f_transform,
+        state.trafo_tuner_state, 
+        state.chain_state, 
+        samples
+    )
+    
+    chain_state_trafo_tuned = @set chain_state_trafo_tuned.f_transform = f_transform_tuned
+    proposal = chain_state_trafo_tuned.proposal
+    proposal = set_proposal_transform!!(proposal, chain_state_trafo_tuned)
+    chain_state_trafo_tuned = mcmc_update_z_position!!(chain_state_trafo_tuned)
 
-    mcmc_state_cs = @set state.chain_state = chain_state_new
+    proposal_state_new, proposal_tuner_state_new, chain_state_new = mcmc_tune_post_cycle!!(
+        proposal, 
+        state.proposal_tuner_state, 
+        chain_state_trafo_tuned, 
+        samples
+    )
+
+    chain_state_final = @set chain_state_new.proposal = proposal_state_new
+
+    mcmc_state_cs = @set state.chain_state = chain_state_final
     mcmc_state_tt = @set mcmc_state_cs.trafo_tuner_state = trafo_tuner_state_new
     mcmc_state_pt = @set mcmc_state_tt.proposal_tuner_state = proposal_tuner_state_new
 
@@ -346,11 +399,31 @@ function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:Dens
 end
 
 function mcmc_tune_post_step!!(state::MCMCState, p_accept::AbstractVector{<:Real})
-    chain_state_tmp, trafo_tuner_state_new = mcmc_tune_post_step!!(state.trafo_tuner_state, state.chain_state, p_accept)
-    chain_state_new, proposal_tuner_state_new = mcmc_tune_post_step!!(state.proposal_tuner_state, chain_state_tmp, p_accept)
+    f_transform_tuned, trafo_tuner_state_new, chain_state_trafo_tuned = mcmc_tune_post_step!!(
+        state.chain_state.f_transform,
+        state.trafo_tuner_state, 
+        state.chain_state,
+        state.chain_state.current,
+        state.chain_state.proposed,
+        p_accept
+    )
+
+    chain_state_trafo_tuned = @set chain_state_trafo_tuned.f_transform = f_transform_tuned
+    proposal = chain_state_trafo_tuned.proposal
+    proposal = set_proposal_transform!!(proposal, chain_state_trafo_tuned)
+    chain_state_trafo_tuned = mcmc_update_z_position!!(chain_state_trafo_tuned)
+
+    proposal_state_new, proposal_tuner_state_new, chain_state_new = mcmc_tune_post_step!!(
+        proposal, 
+        state.proposal_tuner_state, 
+        chain_state_trafo_tuned, 
+        p_accept
+    )
+
+    chain_state_final = @set chain_state_new.proposal = proposal_state_new
 
     # TODO: MD, inelegant, use AccessorsExtra.jl to set several fields at once? https://github.com/JuliaAPlavin/AccessorsExtra.jl
-    mcmc_state_cs = @set state.chain_state = chain_state_new
+    mcmc_state_cs = @set state.chain_state = chain_state_final
     mcmc_state_tt = @set mcmc_state_cs.trafo_tuner_state = trafo_tuner_state_new
     mcmc_state_pt = @set mcmc_state_tt.proposal_tuner_state = proposal_tuner_state_new
     
@@ -358,8 +431,8 @@ function mcmc_tune_post_step!!(state::MCMCState, p_accept::AbstractVector{<:Real
 end
 
 function mcmc_tuning_finalize!!(state::MCMCState)
-    mcmc_tuning_finalize!!(state.trafo_tuner_state, state.chain_state)
-    mcmc_tuning_finalize!!(state.proposal_tuner_state, state.chain_state)
+    mcmc_tuning_finalize!!(state.chain_state.f_transform, state.trafo_tuner_state, state.chain_state)
+    mcmc_tuning_finalize!!(state.chain_state.proposal, state.proposal_tuner_state, state.chain_state)
 end 
 
 

@@ -52,7 +52,12 @@ mcmc_tuning_reinit!!(tuner_state::RAMTrafoTunerState, chain_state::MCMCChainStat
 mcmc_tuning_postinit!!(tuner::RAMTrafoTunerState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector}) = nothing
 
 
-function mcmc_tune_post_cycle!!(tuner::RAMTrafoTunerState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector})
+function mcmc_tune_post_cycle!!(
+    f_transform::Function,
+    tuner::RAMTrafoTunerState, 
+    chain_state::MCMCChainState, 
+    samples::AbstractVector{<:DensitySampleVector}
+)
     α_min = (1 - tuner.tuning.σ_target_acceptance) * tuner.tuning.target_acceptance
     α_max = (1 + tuner.tuning.σ_target_acceptance) * tuner.tuning.target_acceptance
     α = eff_acceptance_ratio(chain_state)
@@ -67,20 +72,26 @@ function mcmc_tune_post_cycle!!(tuner::RAMTrafoTunerState, chain_state::MCMCChai
         chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false)
         @debug "MCMC chain $(chain_state.info.id) *not* tuned, acceptance ratio = $(Float32(α)), max. log posterior = $(Float32(max_log_posterior))"
     end
-    return chain_state, tuner
+    return f_transform, tuner, chain_state
 end
 
-mcmc_tuning_finalize!!(tuner::RAMTrafoTunerState, chain::MCMCChainState) = nothing
+mcmc_tuning_finalize!!(
+    f_transform::Function, 
+    tuner::RAMTrafoTunerState, 
+    chain::MCMCChainState
+) = nothing
 
 function mcmc_tune_post_step!!(
+    f_transform::Function,
     tuner_state::RAMTrafoTunerState, 
     chain_state::MCMCChainState,
-    p_accept::AbstractVector{<:Real},
+    current::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
+    proposed::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
+    p_accept::AbstractVector{<:Real}
 )
-    (; f_transform, current, proposed) = chain_state
     
     if any(current.x.v .== proposed.x.v)
-        return chain_state, tuner_state
+        return f_transform, tuner_state, chain_state
     end
     
     (; target_acceptance, gamma) = tuner_state.tuning
@@ -109,8 +120,5 @@ function mcmc_tune_post_step!!(
 
     f_transform_new = MulAdd(Σ_L_new, new_b)
 
-    mc_state_new = set_mc_transform!!(chain_state, f_transform_new)
-    mc_state_new = mcmc_update_z_position!!(mc_state_new)
-
-    return mc_state_new, tuner_state_new
+    return f_transform_new, tuner_state_new, chain_state
 end
