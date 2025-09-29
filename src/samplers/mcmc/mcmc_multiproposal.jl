@@ -1,4 +1,19 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
+"""
+    struct MCMCMultiProposal<: MCMCProposal
+
+MCMC sampling algorithm that allows for using 
+different proposals during sampling.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
+"""
 struct MCMCMultiProposal{
     P<:Tuple{Vararg{MCMCProposal}},
     R<:Union{Tuple{Vararg{Integer}}, Categorical}

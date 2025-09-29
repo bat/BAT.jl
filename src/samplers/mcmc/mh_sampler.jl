@@ -2,7 +2,7 @@
 
 
 """
-    struct RandomWalk <: MCMCAlgorithm
+    struct RandomWalk <: MCMCProposal
 
 Metropolis-Hastings MCMC sampling algorithm.
 

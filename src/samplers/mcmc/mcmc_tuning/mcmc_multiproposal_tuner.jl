@@ -1,5 +1,18 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+"""
+    struct MultiProposalTuning <: MCMCProposalTuning
+
+Tuning algorithm for MCMCMultiProposals.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
+"""
 struct MultiProposalTuning{
     PT<:Tuple{Vararg{MCMCProposalTuning}},
 }<:MCMCProposalTuning

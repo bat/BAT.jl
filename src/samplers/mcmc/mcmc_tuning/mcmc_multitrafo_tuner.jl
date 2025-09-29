@@ -3,6 +3,8 @@
 """
     struct MultiTrafoTuning <: MCMCTransformTuning
 
+Tuning algorithm for chains of adaptive transformations.
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```
