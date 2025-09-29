@@ -53,8 +53,11 @@ bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::CustomTransform
 bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::NoAdaptiveTransform) = NoMCMCTransformTuning()
 bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::TriangularAffineTransform) = RAMTuning()
 
-#TODO: MD, Decide what default to use trafo chain tuning. Use the defaults for the chain components?
-bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::AdaptiveTransformChain) = NoMCMCTransformTuning()
+function bat_default(TM::Type{TransformedMCMC}, tt::Val{:transform_tuning}, f_transform::AdaptiveTransformChain)
+    tunings = bat_default.(TM, tt, f_transform.f)
+    return MultiTrafoTuning(Tuple(tunings))
+end
+
 
 function MCMCState(samplingalg::TransformedMCMC, target::BATMeasure, id::Integer, v_init::AbstractVector, context::BATContext)
     target_unevaluated = unevaluated(target)

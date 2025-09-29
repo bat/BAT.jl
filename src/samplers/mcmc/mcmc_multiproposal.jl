@@ -1,5 +1,13 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+function bat_default(
+    TM::Type{TransformedMCMC}, 
+    pt::Val{:proposal_tuning}, 
+    proposal::MCMCMultiProposal
+)
+    tunings = bat_default.(TM, pt, proposal.proposals)
+    return MultiProposalTuning(tunings)
+end
 struct MCMCMultiProposal{
     P<:Tuple{Vararg{MCMCProposal}},
     R<:Union{Tuple{Vararg{Integer}}, Categorical}
