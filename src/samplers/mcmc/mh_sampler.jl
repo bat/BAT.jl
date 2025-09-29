@@ -102,8 +102,8 @@ function _full_random_walk_proposal(d::TDist, n_dims::Integer)
 end
 
 
-function mcmc_propose!!(chain_state::MHChainState)
-    @unpack target, proposal, f_transform, context = chain_state
+function mcmc_propose!!(chain_state::MCMCChainState, proposal::MHProposalState)
+    @unpack target, f_transform, context = chain_state
     genctx = get_gencontext(context)
     rng = get_rng(genctx)
     proposal_measure = batmeasure(proposal.proposaldist)
