@@ -7,21 +7,13 @@ import Optimization
 using BAT
 BAT.pkgext(::Val{:Optimization}) = BAT.PackageExtension{:Optimization}()
 
-
-using Random
-using DensityInterface, ChangesOfVariables, InverseFunctions, FunctionChains
-using HeterogeneousComputing, AutoDiffOperators
-using StructArrays, ArraysOfArrays, ADTypes
-
 using BAT: MeasureLike, unevaluated
-
-using BAT: get_context, get_adselector, _NoADSelected
+using BAT: get_context, get_adselector
 using BAT: bat_initval, transform_and_unshape, apply_trafo_to_init
-# using BAT: negative #deprecated? 
 
-function test_bat_optimization_ext()
-    println("BAT_Optimization_Ext is included")
-end
+using DensityInterface, InverseFunctions, FunctionChains
+using AutoDiffOperators: AbstractADType, NoAutoDiff, reverse_adtype
+
 
 AbstractModeEstimator(optalg::Any) = OptimizationAlg(optalg)
 Base.convert(::Type{AbstractModeEstimator}, alg::OptimizationAlg) = alg.optalg
@@ -29,16 +21,16 @@ Base.convert(::Type{AbstractModeEstimator}, alg::OptimizationAlg) = alg.optalg
 BAT.ext_default(::BAT.PackageExtension{:Optimization}, ::Val{:DEFAULT_OPTALG}) = nothing #Optim.NelderMead()
 
 
-function build_optimizationfunction(f, adsel::AutoDiffOperators.ADSelector)
-    adm = convert(ADTypes.AbstractADType, reverse_ad_selector(adsel))
-    optimization_function = Optimization.OptimizationFunction(f, adm)
-    return optimization_function
+struct _OptimizationTargetFunc{F} <: Function
+    f::F
 end
+_OptimizationTargetFunc(::Type{F}) where F = _OptimizationTargetFunc{Type{F}}(F)
 
-function build_optimizationfunction(f, adsel::BAT._NoADSelected)
-    optimization_function = Optimization.OptimizationFunction(f)
-    return optimization_function
-end
+(ft::_OptimizationTargetFunc)(x, ::Any) = ft.f(x)
+
+
+build_optimizationfunction(f, ad::AbstractADType) = Optimization.OptimizationFunction(f, ad)
+build_optimizationfunction(f, ::NoAutoDiff) = Optimization.OptimizationFunction(f)
 
 
 function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimizationAlg, context::BATContext)
@@ -51,11 +43,10 @@ function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimizationAlg, 
 
     # Maximize density of original target, but run in transformed space, don't apply LADJ:
     f = fchain(inv_trafo, logdensityof(target_uneval), -)
-    target_f = (x, p) -> f(x)
 
-    adsel = get_adselector(context)
-
-    optimization_function = build_optimizationfunction(target_f, adsel)
+    f_target = _OptimizationTargetFunc(f)
+    ad = reverse_adtype(get_adselector(context))
+    optimization_function = build_optimizationfunction(f_target, ad)
     optimization_problem = Optimization.OptimizationProblem(optimization_function, x_init)
 
     algopts = (maxiters = algorithm.maxiters, maxtime = algorithm.maxtime, abstol = algorithm.abstol, reltol = algorithm.reltol)
@@ -68,7 +59,6 @@ function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimizationAlg, 
 
     (result = result_mode, result_trafo = transformed_mode, f_pretransform = f_pretransform, info = optimization_result)
 end
-
 
 
 end # module BATOptimizationExt
