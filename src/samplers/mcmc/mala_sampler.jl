@@ -130,8 +130,6 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::MALAProposalState
     return chain_state, p_accept
 end
 
-eff_acceptance_ratio_impl(chain_state::MCMCChainState, proposal::MALAProposalState) = nsamples(chain_state) / (nsteps(chain_state) * nwalkers(chain_state))
-
 function set_proposal_transform!!(proposal::MALAProposalState, chain_state::MCMCChainState)
     f_transform_new = chain_state.f_transform
     adsel = get_adselector(chain_state.context)

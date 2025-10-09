@@ -26,7 +26,7 @@ mutable struct MCMCChainState{
     accepted::Vector{Bool}
     info::MCMCChainStateInfo
     rngpart_cycle::PR
-    nsamples::Int64
+    nsamples::Vector{Int64}
     stepno::Int64
     context::CTX
 end
@@ -95,7 +95,9 @@ function MCMCChainState(
 
     stepno::Int64 = 0
     cycle::Int32 = 0
-    nsamples::Int64 = 0
+
+    n_proposals = proposal isa MultiProposalState ? length(proposal.proposal_states) : 1
+    nsamples::Vector{Int64} = zeros(n_proposals)
 
     state = MCMCChainState(
         target,
@@ -124,7 +126,9 @@ get_context(state::MCMCChainState) = state.context
 
 mcmc_info(state::MCMCChainState) = state.info
 
-nsamples(state::MCMCChainState) = state.nsamples
+nsamples(state::MCMCChainState) = sum(state.nsamples)
+
+detailed_nsamples(state::MCMCChainState) = state.nsamples
 
 nsteps(state::MCMCChainState) = state.stepno
 
@@ -165,7 +169,12 @@ end
 
 function eff_acceptance_ratio(chain_state::MCMCChainState)
     current_proposal = get_current_proposal(chain_state.proposal)
-    eff_acceptance_ratio_impl(chain_state, current_proposal)
+    return nsamples(chain_state) / (nsteps(chain_state) * nwalkers(chain_state))
+end
+
+function detailed_eff_acceptance_ratio(chain_state::MCMCChainState)
+    current_proposal = get_current_proposal(chain_state.proposal)
+    return detailed_nsamples(chain_state) ./ (nsteps(chain_state) * nwalkers(chain_state))
 end
 
 
@@ -191,7 +200,8 @@ function mcmc_step!!(mcmc_state::MCMCState)
 
     (;proposal, current, proposed, accepted, output) = chain_state
 
-    chain_state.nsamples += sum(accepted)
+    curr_prop_idx = get_current_proposal_idx(proposal)
+    chain_state.nsamples[curr_prop_idx] += sum(accepted)
 
     # Set weights according to acceptance
     delta_w_current, w_proposed = mcmc_weight_values(chain_state.weighting, p_accept, accepted)
@@ -252,33 +262,33 @@ end
 function next_cycle!(chain_state::MCMCChainState)
     n_walkers = nwalkers(chain_state)
 
-    chain_state.info = MCMCChainStateInfo(chain_state.info.id, 
-                                          chain_state.info.cycle + 1, 
-                                          chain_state.info.tuned, 
+    chain_state.info = MCMCChainStateInfo(chain_state.info.id,
+                                          chain_state.info.cycle + 1,
+                                          chain_state.info.tuned,
                                           chain_state.info.converged
                                           )
-    chain_state.nsamples = 0
+    chain_state.nsamples .= 0
     chain_state.stepno = 0
 
     proposal = chain_state.proposal
     info = chain_state.info
 
     new_current_info_vec = [MCMCSampleID(
-        info.id, 
-        Int32(i), 
-        info.cycle, 
-        zero(Int64), 
-        get_current_proposal_idx(proposal), 
+        info.id,
+        Int32(i),
+        info.cycle,
+        zero(Int64),
+        get_current_proposal_idx(proposal),
         true
         ) for i in 1:n_walkers]
     chain_state.current.x.info .= new_current_info_vec
     chain_state.current.z.info .= new_current_info_vec
 
     new_proposed_info_vec = [MCMCSampleID(
-        info.id, 
-        Int32(i), 
-        info.cycle, 
-        zero(Int64), 
+        info.id,
+        Int32(i),
+        info.cycle,
+        zero(Int64),
         get_current_proposal_idx(proposal),
         false
         ) for i in 1:n_walkers]
@@ -298,12 +308,12 @@ end
 function get_samples!(appendable, chain_state::MCMCChainState, nonzero_weights::Bool)::typeof(appendable)
     chain_output = chain_state.output
     viable_samples = nonzero_weights ? findall(chain_output.weight .> 0) : eachindex(chain_output)
-    
+
     for i in viable_samples
         # If last sample in appendable[i] is equal to the new sample increment its weight, otherwise append new sample
         checked_push!(appendable[i], chain_output[i])
     end
-    
+
     appendable
 end
 
@@ -315,7 +325,7 @@ end
 # TDOD: MD, make properly !!
 function flush_samples!!(chain_state::MCMCChainState)
     (;current, output) = chain_state
-    
+
     output[:] = @view current.x[:]
     current.x.weight .= 0
 
@@ -343,11 +353,11 @@ function mcmc_update_z_position!!(mc_state::MCMCChainState)
 
     mc_state_new::typeof(mc_state) = @set mc_state.current.z = current_z_new
     mc_state_new = @set mc_state_new.proposed.z = proposed_z_new
-    
+
     return mc_state_new
 end
 
-# TODO: MD, Discuss: 
+# TODO: MD, Discuss:
 # When using different Tuners for proposal and transformation, which should be applied first? 
 # And if the z-position changes during the transformation tuning, should the proposal Tuner run on the updated z-position?
 function mcmc_tuning_init!!(state::MCMCState, max_nsteps::Integer)
@@ -384,9 +394,9 @@ function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:Dens
     chain_state_trafo_tuned = mcmc_update_z_position!!(chain_state_trafo_tuned)
 
     proposal_state_new, proposal_tuner_state_new, chain_state_new = mcmc_tune_post_cycle!!(
-        proposal, 
-        state.proposal_tuner_state, 
-        chain_state_trafo_tuned, 
+        proposal,
+        state.proposal_tuner_state,
+        chain_state_trafo_tuned,
         samples
     )
 
@@ -447,7 +457,7 @@ function _construct_mcmc_state(
     parent_context::BATContext
 )
     new_context = set_rng(parent_context, AbstractRNG(rngpart, id))
-    v_init = bat_ensemble_initvals(target, initval_alg, samplingalg.nwalkers, new_context)    
+    v_init = bat_ensemble_initvals(target, initval_alg, samplingalg.nwalkers, new_context)
     return MCMCState(samplingalg, target, Int32(id), v_init, new_context)
 end
 

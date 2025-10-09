@@ -111,8 +111,6 @@ function BAT.mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalSt
     return chain_state, p_accept
 end
 
-BAT.eff_acceptance_ratio_impl(chain_state::MCMCChainState, proposal::HMCProposalState) = nsamples(chain_state) / (nsteps(chain_state) * nwalkers(chain_state))
-
 function BAT.set_proposal_transform!!(proposal::HMCProposalState, chain_state::MCMCChainState) 
     f_transform_new = chain_state.f_transform
     adsel = get_adselector(chain_state.context)

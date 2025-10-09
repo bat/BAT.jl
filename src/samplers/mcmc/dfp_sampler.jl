@@ -116,6 +116,4 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::DFPProposalState)
     return chain_state, p_accept
 end
 
-eff_acceptance_ratio_impl(chain_state::MCMCChainState, ::DFPProposalState) = nsamples(chain_state) / (nsteps(chain_state) * nwalkers(chain_state))
-
 set_proposal_transform!!(proposal::DFPProposalState, ::MCMCChainState) = proposal
