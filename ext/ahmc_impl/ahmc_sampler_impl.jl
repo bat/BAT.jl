@@ -118,7 +118,7 @@ function BAT.set_proposal_transform!!(proposal::HMCProposalState, chain_state::M
     adsel = get_adselector(chain_state.context)
     f = checked_logdensityof(pullback(f_transform_new, chain_state.target))
     fg = valgrad_func(f, adsel)
-    
+
     h = proposal.hamiltonian 
 
     h = @set h.ℓπ = f
