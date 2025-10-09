@@ -22,9 +22,9 @@ BAT.bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::HamiltonianMC
 
 # Change to incorporate the initial adaptive transform into f and fg
 function BAT._create_proposal_state(
-    proposal::HamiltonianMC, 
-    target::BATMeasure, 
-    context::BATContext, 
+    proposal::HamiltonianMC,
+    target::BATMeasure,
+    context::BATContext,
     v_init::AbstractVector{PV},
     f_transform::Function,
     rng::AbstractRNG
@@ -50,6 +50,8 @@ function BAT._create_proposal_state(
     transition = AdvancedHMC.transition(deepcopy(rng), deepcopy(hamiltonian), deepcopy(kernel), init_transition.z)
 
     HMCProposalState(
+        proposal.target_acceptance,
+        proposal.target_acceptance_int,
         integrator,
         termination,
         hamiltonian,

@@ -27,15 +27,17 @@ BAT.mcmc_tuning_postinit!!(tuner::StanLikeTunerState, chain_state::MCMCChainStat
 
 
 function BAT.mcmc_tune_post_cycle!!(
-    f_transform::Function, 
-    tuner::StanLikeTunerState, 
-    chain_state::MCMCChainState, 
+    f_transform::Function,
+    tuner::StanLikeTunerState,
+    chain_state::MCMCChainState,
+    proposal::MCMCProposalState,
     samples::AbstractVector{<:DensitySampleVector}
 )
     logds = [walker_smpls.logd for walker_smpls in samples]
     max_log_posterior = maximum(maximum.(logds))
-    accept_ratio = eff_acceptance_ratio(chain_state)
-    if accept_ratio >= 0.9 * tuner.target_acceptance
+    accept_ratio = eff_acceptance_ratio(chain_state) 
+    α_min, _ = get_target_accept_interval(proposal)
+    if accept_ratio >= α_min
         chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = true)
         @debug "MCMC chain $(chain_state.info.id) tuned, acceptance ratio = $(Float32(accept_ratio)), integrator = $(chain_state.proposal.τ.integrator), max. log posterior = $(Float32(max_log_posterior))"
     else
@@ -53,6 +55,7 @@ function BAT.mcmc_tune_post_step!!(
     f_transform::Function,
     tuner::StanLikeTunerState,
     chain_state::MCMCChainState,
+    proposal::MCMCProposalState,
     current::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
     proposed::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
     p_accept::AbstractVector{<:Real}

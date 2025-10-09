@@ -54,12 +54,12 @@ mcmc_tuning_postinit!!(tuner::RAMTrafoTunerState, chain_state::MCMCChainState, s
 
 function mcmc_tune_post_cycle!!(
     f_transform::Function,
-    tuner::RAMTrafoTunerState, 
-    chain_state::MCMCChainState, 
+    tuner::RAMTrafoTunerState,
+    chain_state::MCMCChainState,
+    proposal::MCMCProposalState,
     samples::AbstractVector{<:DensitySampleVector}
 )
-    α_min = (1 - tuner.tuning.σ_target_acceptance) * tuner.tuning.target_acceptance
-    α_max = (1 + tuner.tuning.σ_target_acceptance) * tuner.tuning.target_acceptance
+    α_min, α_max = get_target_acceptance_int(proposal)
     α = eff_acceptance_ratio(chain_state)
 
     logds = [walker_smpls.logd for walker_smpls in samples]
@@ -83,18 +83,20 @@ mcmc_tuning_finalize!!(
 
 function mcmc_tune_post_step!!(
     f_transform::Function,
-    tuner_state::RAMTrafoTunerState, 
+    tuner_state::RAMTrafoTunerState,
     chain_state::MCMCChainState,
+    proposal::MCMCProposalState,
     current::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
     proposed::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
     p_accept::AbstractVector{<:Real}
 )
-    
+
     if any(current.x.v .== proposed.x.v)
         return f_transform, tuner_state, chain_state
     end
-    
-    (; target_acceptance, gamma) = tuner_state.tuning
+
+    gamma = tuner_state.tuning.gamma
+    target_acceptance = get_target_acceptance_ratio(proposal)
     b = f_transform.b
     n_dims = length(b)
 
@@ -122,3 +124,4 @@ function mcmc_tune_post_step!!(
 
     return f_transform_new, tuner_state_new, chain_state
 end
+

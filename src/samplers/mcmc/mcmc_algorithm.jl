@@ -254,6 +254,13 @@ function isvalidstate end
 
 function isviablestate end
 
+function get_target_acceptance_ratio end
+
+get_target_acceptance_ratio(proposal::MCMCProposalState) = proposal.target_acceptance
+
+function get_target_acceptance_int end
+
+get_target_acceptance_int(proposal::MCMCProposalState) = proposal.target_acceptance_int
 
 function mcmc_iterate!! end
 
@@ -323,7 +330,6 @@ isviablestate(chain_state::MCMCIterator) = nsamples(chain_state) >= 2
 isvalidstate(mcmc_state::MCMCState) = isvalidstate(mcmc_state.chain_state)
 
 isviablestate(mcmc_state::MCMCState) = isvalidstate(mcmc_state.chain_state)
-
 
 
 """

@@ -22,9 +22,9 @@ $(TYPEDFIELDS)
     affine transform."
     λ::Float64 = 0.5
 
-    "Metropolis-Hastings acceptance ratio target, tuning will try to adapt
-    the affine transform to bring the acceptance ratio inside this interval."
-    α::IntervalSets.ClosedInterval{Float64} = ClosedInterval(0.15, 0.35)
+#   "Metropolis-Hastings acceptance ratio target, tuning will try to adapt
+#   the affine transform to bring the acceptance ratio inside this interval."
+#   α::IntervalSets.ClosedInterval{Float64} = ClosedInterval(0.15, 0.35)
 
     "Controls how much the scale of the affine transform is
     widened/narrowed depending on the current MH acceptance ratio."
@@ -77,8 +77,9 @@ end
 
 function mcmc_tune_post_cycle!!(
     f_transform::Function,
-    tuner::AdaptiveAffineTuningState, 
-    chain_state::MCMCChainState, 
+    tuner::AdaptiveAffineTuningState,
+    chain_state::MCMCChainState,
+    proposal::MCMCProposalState,
     samples::AbstractVector{<:DensitySampleVector}
 )
     tuning = tuner.tuning
@@ -90,8 +91,7 @@ function mcmc_tune_post_cycle!!(
         append!(stats, samples[i])
     end
 
-    α_min = minimum(tuning.α)
-    α_max = maximum(tuning.α)
+    α_min, α_max = get_target_acceptance_int(proposal)
 
     c_min = minimum(tuning.c)
     c_max = maximum(tuning.c)
@@ -107,7 +107,7 @@ function mcmc_tune_post_cycle!!(
 
     param_stats = stats.param_stats
     S = convert(Array, param_stats.cov)
-    
+
     a_t = 1 / t^λ
     new_Σ_unscal = (1 - a_t) * (Σ_old/c) + a_t * S
 
@@ -131,12 +131,12 @@ function mcmc_tune_post_cycle!!(
 
     Σ_new = new_Σ_unscal * tuner.scale
     A_new = oftype(A, cholesky(Positive, Σ_new).L)
-    
+
     b = f_transform.b
     b_new = oftype(b, (1 - a_t) * b + a_t * param_stats.mean)
 
     f_transform_new = MulAdd(A_new, b_new)
-    
+
     tuner.iteration += 1
 
     return f_transform_new, tuner, chain_state
@@ -149,9 +149,11 @@ function mcmc_tune_post_step!!(
     f_transform::Function,
     tuner::AdaptiveAffineTuningState,
     chain_state::MCMCChainState,
+    proposal::MCMCProposalState,
     current::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
     proposed::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
     p_accept::AbstractVector{<:Real}
 )
     return f_transform, tuner, chain_state
 end
+

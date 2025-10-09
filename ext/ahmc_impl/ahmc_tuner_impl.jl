@@ -3,14 +3,17 @@
 
 mutable struct HMCProposalTunerState{A<:AdvancedHMC.AbstractAdaptor} <: MCMCProposalTunerState
     tuning::HMCTuning
-    target_acceptance::Float64
     adaptor::A
 end
 
-function HMCProposalTunerState(tuning::HMCTuning, chain_state::MCMCChainState, proposal::HMCProposalState)
+function HMCProposalTunerState(
+    tuning::HMCTuning,
+    chain_state::MCMCChainState,
+    proposal::HMCProposalState
+)
     θ = first(chain_state.current.z).v
     adaptor = ahmc_adaptor(tuning, proposal.hamiltonian.metric, proposal.kernel.τ.integrator, θ)
-    HMCProposalTunerState(tuning, tuning.target_acceptance, adaptor)
+    HMCProposalTunerState(tuning, adaptor)
 end
 
 BAT.create_proposal_tuner_state(tuning::HMCTuning, chain_state::MCMCChainState, proposal::HMCProposalState, iteration::Integer) = HMCProposalTunerState(tuning, chain_state, proposal)
@@ -29,23 +32,29 @@ end
 
 BAT.mcmc_tuning_postinit!!(tuner::HMCProposalTunerState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector}) = nothing
 
-function BAT.mcmc_tune_post_cycle!!(proposal::HMCProposalState, tuner::HMCProposalTunerState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector})
+function BAT.mcmc_tune_post_cycle!!(
+    proposal::HMCProposalState,
+    tuner::HMCProposalTunerState,
+    chain_state::MCMCChainState,
+    samples::AbstractVector{<:DensitySampleVector}
+)
     logds = [walker_smpls.logd for walker_smpls in samples]
     max_log_posterior = maximum(maximum.(logds))
     accept_ratio = eff_acceptance_ratio(chain_state)
-    if accept_ratio >= 0.9 * tuner.target_acceptance
+    α_min, _ = get_target_acceptance_int(proposal)
+    if accept_ratio >= α_min
         chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = true)
         @debug "MCMC chain $(chain_state.info.id) tuned, acceptance ratio = $(Float32(accept_ratio)), integrator = $(chain_state.proposal.integrator), max. log posterior = $(Float32(max_log_posterior))"
     else
         chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false)
         @debug "MCMC chain $(chain_state.info.id) *not* tuned, acceptance ratio = $(Float32(accept_ratio)), integrator = $(chain_state.proposal.integrator), max. log posterior = $(Float32(max_log_posterior))"
     end
-    return proposal, tuner, chain_state 
+    return proposal, tuner, chain_state
 end
 
 function BAT.mcmc_tuning_finalize!!(
-    proposal::HMCProposalState, 
-    tuner::HMCProposalTunerState, 
+    proposal::HMCProposalState,
+    tuner::HMCProposalTunerState,
     chain_state::MCMCChainState
 )
     adaptor = tuner.adaptor
@@ -69,7 +78,7 @@ function BAT.mcmc_tune_post_step!!(
     AdvancedHMC.adapt!(adaptor, proposal_new.transition.z.θ, tstat.acceptance_rate)
     h = proposal_new.hamiltonian
     h = AdvancedHMC.update(h, adaptor)
-    
+
     proposal_new.kernel = AdvancedHMC.update(proposal_new.kernel, adaptor)
 
     # proposal_new = @set proposal.transition.stat = merge(tstat, (is_adapt = true,))

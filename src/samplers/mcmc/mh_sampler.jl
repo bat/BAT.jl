@@ -15,17 +15,28 @@ Fields:
 $(TYPEDFIELDS)
 """
 @with_kw struct RandomWalk{
+    TA<:Real,
+    TAI<:Tuple{Vararg{<:Real}},
     Q<:Union{
         AbstractMeasure,
         Distribution{<:Union{Univariate,Multivariate},Continuous}
     }
 } <: MCMCProposal
+    # TODO: MD, is this correct?
+    target_acceptance::TA = 0.23
+    target_acceptance_int::TAI = (0.15, 0.35)
     proposaldist::Q = TDist(1.0)
 end
 
 export RandomWalk
 
-struct MHProposalState{Q<:BATMeasure} <: MCMCProposalState
+struct MHProposalState{
+    TA<:Real,
+    TAI<:Tuple{Vararg{<:Real}},
+    Q<:BATMeasure
+} <: MCMCProposalState
+    target_acceptance::TA
+    target_acceptance_int::TAI
     proposaldist::Q
 end
 export MHProposalState
@@ -59,7 +70,11 @@ function _create_proposal_state(
 ) where {P<:Real, PV<:AbstractVector{P}}
     n_dims = totalndof(varshape(target))
     mv_pdist = batmeasure(_full_random_walk_proposal(proposal.proposaldist, n_dims))
-    return MHProposalState(mv_pdist)
+    return MHProposalState(
+        proposal.target_acceptance,
+        proposal.target_acceptance_int,
+        mv_pdist
+    )
 end
 
 
