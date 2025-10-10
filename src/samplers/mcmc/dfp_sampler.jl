@@ -67,11 +67,11 @@ function _create_proposal_state(
     f_transform::Function,
     rng::AbstractRNG
 ) where {P<:Real, PV<:AbstractVector{P}}
-    prior = if target isa BAT.PosteriorMeasure
-        target.prior
+    if target isa BAT.PosteriorMeasure
+        prior = target.prior
     else
         n_dims = totalndof(varshape(target))
-        mv_pdist = batmeasure(_full_random_walk_proposal(proposal.prior, n_dims))
+        prior = batmeasure(_full_random_walk_proposal(proposal.prior, n_dims))
     end
 
     return DFPProposalState(
