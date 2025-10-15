@@ -1,11 +1,11 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-module BATOptimizationExt
+module BATOptimizationBaseExt
 
-import Optimization
+import OptimizationBase
 
 using BAT
-BAT.pkgext(::Val{:Optimization}) = BAT.PackageExtension{:Optimization}()
+BAT.pkgext(::Val{:OptimizationBase}) = BAT.PackageExtension{:OptimizationBase}()
 
 using BAT: MeasureLike, unevaluated
 using BAT: get_context, get_adselector
@@ -18,7 +18,7 @@ using AutoDiffOperators: AbstractADType, NoAutoDiff, reverse_adtype
 AbstractModeEstimator(optalg::Any) = OptimizationAlg(optalg)
 Base.convert(::Type{AbstractModeEstimator}, alg::OptimizationAlg) = alg.optalg
 
-BAT.ext_default(::BAT.PackageExtension{:Optimization}, ::Val{:DEFAULT_OPTALG}) = nothing #Optim.NelderMead()
+BAT.ext_default(::BAT.PackageExtension{:OptimizationBase}, ::Val{:DEFAULT_OPTALG}) = nothing #Optim.NelderMead()
 
 
 struct _OptimizationTargetFunc{F} <: Function
@@ -29,8 +29,8 @@ _OptimizationTargetFunc(::Type{F}) where F = _OptimizationTargetFunc{Type{F}}(F)
 (ft::_OptimizationTargetFunc)(x, ::Any) = ft.f(x)
 
 
-build_optimizationfunction(f, ad::AbstractADType) = Optimization.OptimizationFunction(f, ad)
-build_optimizationfunction(f, ::NoAutoDiff) = Optimization.OptimizationFunction(f)
+build_optimizationfunction(f, ad::AbstractADType) = OptimizationBase.OptimizationFunction(f, ad)
+build_optimizationfunction(f, ::NoAutoDiff) = OptimizationBase.OptimizationFunction(f)
 
 
 function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimizationAlg, context::BATContext)
@@ -47,12 +47,12 @@ function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimizationAlg, 
     f_target = _OptimizationTargetFunc(f)
     ad = reverse_adtype(get_adselector(context))
     optimization_function = build_optimizationfunction(f_target, ad)
-    optimization_problem = Optimization.OptimizationProblem(optimization_function, x_init)
+    optimization_problem = OptimizationBase.OptimizationProblem(optimization_function, x_init)
 
     algopts = (maxiters = algorithm.maxiters, maxtime = algorithm.maxtime, abstol = algorithm.abstol, reltol = algorithm.reltol)
     # Not all algorithms support abstol, just filter all NaN-valued opts out:
     filtered_algopts = NamedTuple(filter(p -> !isnan(p[2]), pairs(algopts)))
-    optimization_result = Optimization.solve(optimization_problem, algorithm.optalg; filtered_algopts..., algorithm.kwargs...) 
+    optimization_result = OptimizationBase.solve(optimization_problem, algorithm.optalg; filtered_algopts..., algorithm.kwargs...) 
 
     transformed_mode =  optimization_result.u
     result_mode = inv_trafo(transformed_mode)
@@ -61,4 +61,4 @@ function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimizationAlg, 
 end
 
 
-end # module BATOptimizationExt
+end # module BATOptimizationBaseExt
