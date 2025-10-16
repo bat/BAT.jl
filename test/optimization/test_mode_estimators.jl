@@ -5,7 +5,7 @@ using AutoDiffOperators
 using LinearAlgebra, Distributions, StatsBase, ValueShapes, Random123, DensityInterface
 using UnPack, InverseFunctions
 import ForwardDiff
-using Optim, OptimizationOptimJL
+using Optim, OptimizationOptimJL, OptimizationLBFGSB
 
 @testset "mode_estimators" begin
     prior = NamedTupleDist(
@@ -98,17 +98,17 @@ using Optim, OptimizationOptimJL
     end
 
 
-    @testset "Optimization.jl - NelderMead" begin
+    @testset "OptimizationBase.jl" begin
         context = BATContext(rng = Philox4x((0, 0)))
         # result is not type-stable:
         test_findmode(posterior, OptimizationAlg(optalg = OptimizationOptimJL.NelderMead(), pretransform = DoNotTransform()), 0.01, context, inferred = false) 
 
         context = BATContext(rng = Philox4x((0, 0)), ad = ADSelector(ForwardDiff))
         # result is not type-stable:
-        test_findmode(posterior, OptimizationAlg(optalg = Optimization.LBFGS(), pretransform = DoNotTransform()), 0.01, context, inferred = false) 
+        test_findmode(posterior, OptimizationAlg(optalg = OptimizationLBFGSB.LBFGSB(), pretransform = DoNotTransform()), 0.01, context, inferred = false) 
     end
 
-    @testset "Optimization.jl with custom options" begin # checks that options are correctly passed to Optimization.jl
+    @testset "OptimizationBase.jl with custom options" begin # checks that options are correctly passed to OptimizationBase.jl
         context = BATContext(rng = Philox4x((0, 0)))
         optimizer = OptimizationAlg(optalg = OptimizationOptimJL.ParticleSwarm(n_particles=10), maxiters=200, kwargs=(f_calls_limit=500,), pretransform=DoNotTransform())
 

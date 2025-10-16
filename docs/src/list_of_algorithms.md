@@ -167,7 +167,7 @@ bat_findmode(target, OptimAlg(optalg = Optim.LBFGS()))
 Requires the [Optim](https://github.com/JuliaNLSolvers/Optim.jl) Julia package to be loaded explicitly.
 
 
-### Optimization.jl Optimization Algorithms
+### OptimizationBase.jl Optimization Algorithms
 
 BAT mode finding algorithm type: [`OptimizationAlg`](@ref).
 
@@ -181,7 +181,7 @@ alg = OptimizationAlg(;
 )
 bat_findmode(target, alg)
 ```
-Requires one of the [Optimization.jl](https://github.com/SciML/Optimization.jl) packages to be loaded explicitly.
+Requires the desired package that implements the [OptimizationBase.jl](https://github.com/SciML/OptimizationBase.jl) interface to be loaded (e.g. via `import OptimizationOptimJL`).
 
 ### Maximum Sample Estimator
 
