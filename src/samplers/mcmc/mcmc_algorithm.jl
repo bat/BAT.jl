@@ -264,6 +264,25 @@ get_target_acceptance_int(proposal::MCMCProposalState) = proposal.target_accepta
 
 function mcmc_iterate!! end
 
+
+function get_proposal_tuning_quality end
+
+# TODO, MD: Discuss Default. Picked linear decrease with distance from target acceptance interval.
+function get_proposal_tuning_quality(proposal::MCMCProposalState)
+    lower, upper = proposal.target_acceptance_int
+    interval_width = upper - lower
+
+    eff_acceptance = eff_acceptance_ratio(proposal)
+
+    in_target_interval =  lower < eff_acceptance_ratio < upper
+
+    d = in_target_interval ? 0 : minimum(abs.([lower, upper] .- eff_acceptance))
+
+    quality = clamp(1 - d/(2*interval_widht), 0)
+    return d
+end
+
+
 # TODO: MD, reincorporate user callback
 # TODO: MD, incorporate use of Tempering, so far temperer is not used 
 function mcmc_iterate!!(

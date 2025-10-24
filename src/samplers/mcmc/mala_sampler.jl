@@ -23,11 +23,11 @@ $(TYPEDFIELDS)
     },
     R<:Real
 } <: MCMCProposal
-    # TODO: MD, is this correct?
-    target_acceptance::TA = 0.23
-    target_acceptance_int::TAI = (0.15, 0.35)
+    # TODO: MD, review these values
+    target_acceptance::TA = 0.574
+    target_acceptance_int::TAI = (0.5, 0.65)
     proposaldist::Q = TDist(1.0)
-    τ::R = 0.001
+    τ_base::R = 1.65^2
 end
 
 export MALA
@@ -87,7 +87,7 @@ function _create_proposal_state(
         proposal.target_acceptance_int,
         mv_pdist,
         target_gradient,
-        proposal.τ
+        n_dims^(-1/3) * proposal.τ_base
     )
 end
 
@@ -106,7 +106,7 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::MALAProposalState
     gradient_res = target_gradient.(current_z)
     grads = last.(gradient_res)
 
-    z_proposed = current_z .+ τ .* grads .+ sqrt(2τ) .* rand(genctx, proposal_measure^n_walkers)
+    z_proposed = current_z .+ τ/2 .* grads .+ sqrt(τ) .* rand(genctx, proposal_measure^n_walkers)
 
     x_ladj_proposed = with_logabsdet_jacobian.(f_transform, z_proposed)
     x_proposed = first.(x_ladj_proposed)

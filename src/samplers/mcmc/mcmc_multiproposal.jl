@@ -3,8 +3,8 @@
 """
     struct MCMCMultiProposal<: MCMCProposal
 
-MCMC sampling algorithm that allows for using 
-different proposals during sampling.
+MCMC sampling algorithm that allows for using multiple
+different proposal algorithms during sampling.
 
 Constructors:
 
@@ -14,19 +14,20 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-struct MCMCMultiProposal{
+@with_kw struct MCMCMultiProposal{
     P<:Tuple{Vararg{MCMCProposal}},
-    R<:Union{Tuple{Vararg{Integer}}, Categorical}
+    R<:Union{Vector{Integer}, Categorical}
 }<:MCMCProposal
-    proposals::P
-    picking_rule::R
+    # TODO: MD, should we put a default tuple of proposals, if so, what should it be?
+    proposals::P = (RandomWalk(), HamiltonianMC())
+    picking_rule::R = Categorical(1/length(proposals) .* ones(length(proposals)))
 end
 
 export MCMCMultiProposal
 
 struct MultiProposalState{
     PS<:Tuple{Vararg{MCMCProposalState}},
-    R<:Union{Tuple{Vararg{Integer}}, Categorical},
+    R<:Union{Vector{Integer}, Categorical},
     I<:Integer
 }<:MCMCProposalState
     proposal_states::PS
@@ -150,7 +151,7 @@ function _create_proposal_state(
 ) where {P<:Real, PV<:AbstractVector{P}}
 
     proposal_states_init = Vector{MCMCProposalState}()
-   
+
     for proposal in multi_proposal.proposals
         proposal_state_tmp = _create_proposal_state(
             proposal,

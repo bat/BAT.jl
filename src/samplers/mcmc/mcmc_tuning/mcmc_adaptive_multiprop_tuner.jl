@@ -15,14 +15,16 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@withkw struct AdaptiveMultiPropTuning <:MCMCProposalTuning 
+@with_kw struct AdaptiveMultiPropTuning <:MCMCProposalTuning 
     scale::Float64 = 1.5
+    base_picking_threshold::Float64 = 0.05
 end
 
 export AdaptiveMultiPropTuning
 
 struct AdaptiveMultiPropTunerState <:MCMCProposalTunerState 
     scale::Float64
+    base_picking_threshold::Float64
 end
 
 export AdaptiveMultiPropTunerState
@@ -35,7 +37,7 @@ function create_proposal_tuner_state(
     multi_proposal::MultiProposalState,
     iteration::Integer
 )
-    return AdaptiveMultiPropTunerState(tuning.scale)
+    return AdaptiveMultiPropTunerState(tuning.scale, tuning.base_picking_threshold)
 end
 
 mcmc_tuning_init!!(
@@ -64,30 +66,18 @@ function mcmc_tune_post_cycle!!(
     chain_state::MCMCChainState,
     samples::AbstractVector{<:DensitySampleVector}
 )
-    proposals = multi_proposal.proposal_states
-    target_acceptance_ratios = get_target_acceptance_ratio.(proposals)
-
-    eff_acceptance_ratios = Tuple(detailed_eff_acceptance_ratio(chain_state))
-
-    diff = abs.(target_acceptance_ratios .- eff_acceptance_ratios)
-
-    picking_rule = multi_proposal.picking_rule
-
-    scale = tuner_state.scale
-
-    good_prop = diff .< 0.2
-
-    if any(good_prop)
-        if picking_rule isa Distribution
-            picking_probs_tuned = picking_rule.p[good_prop] .* scale
-            picking_probs_tuned ./= scale  
-            picking_probs_tuned ./= sum(picking_probs_tuned)
-
-            picking_rule_tuned = Categorical(picking_probs_tuned)
-        else
-            # How to adjust schedule-style picking rules?
-            picking_rule_tuned = picking_rule
-        end
+    # At the end of a cycle, multiply picking probabilities with a `tuning_quality_vector` that rewards proposals that 
+    # lie in their respective target acceptance interval and punishes bad tuning. For this, add proposal-specific 
+    # tuning quality methods. E.g. `GlobalProposal` is never punished in this step.
+    tuning_qualities = get_proposal_tuning_quality.(multi_proposal.proposal_states)
+    if picking_rule isa Distribution
+        picking_probs_tuned = picking_rule.p .* tuning_qualities
+        picking_probs_tuned ./= sum(picking_probs_tuned)
+        picking_rule_tuned = Categorical(picking_probs_tuned)
+    else
+        N = sum(picking_rule)
+        picking_rule_tuned = picking_rule ./ N .* tuning_qualities
+        picking_rule_tuned = round.(Integer, picking_rule_tuned .* (N / sum(picking_rule_tuned))
     end
 
     multi_proposal_tuned = @set multi_proposal.picking_rule = picking_rule_tuned
@@ -108,6 +98,36 @@ function mcmc_tune_post_step!!(
     chain_state::MCMCChainState,
     p_accept::AbstractVector{<:Real}
 )
-    return multi_proposal, multi_tuner, chain_state
+    # Every time a proposal is picked, tune picking probability by
+    # `picking_prob * acceptance_prob * small_delta`
+    # and afterwards re-normalize picking probabilities
+
+    curr_idx = multiproposal.current_idx
+    picking_rule = multi_proposal.picking_rule
+    n_proposals = lenght(multi_proposal.proposals)
+
+    n_walkers = nwalkers(chain_state)
+    scale = multi_tuner.scale
+
+    if picking_rule isa Distribution
+        picking_probs_tuned = picking_rule.p
+
+        picking_probs_tuned[curr_idx] *= (1 + 1/n_walkers * sum(p_accept) * scale)
+
+        picking_probs_tuned ./= sum(picking_probs_tuned)
+
+        picking_rule_tuned = Categorical(picking_probs_tuned)
+    else
+        N = sum(picking_rule)
+        picking_rule_tuned = picking_rule ./ N
+
+        picking_rule_tuned[curr_idx] *= (1 + 1/n_walkers * sum(p_accept) * scale)
+
+        picking_rule_tuned = round.(Integer, picking_rule_tuned .* (N / sum(picking_rule_tuned))
+    end
+
+    multi_proposal_tuned = @set multi_proposal.picking_rule = picking_rule_tuned
+
+    return multi_proposal_tuned, multi_tuner, chain_state
 end
 
