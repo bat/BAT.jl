@@ -23,7 +23,7 @@ $(TYPEDFIELDS)
     }
 } <: MCMCProposal
     # TODO: MD, is this correct?
-    target_acceptance::TA = 0.23
+    target_acceptance::TA = 0.234
     target_acceptance_int::TAI = (0.15, 0.35)
     proposaldist::Q = TDist(1.0)
 end

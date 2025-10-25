@@ -77,7 +77,7 @@ function mcmc_tune_post_cycle!!(
     else
         N = sum(picking_rule)
         picking_rule_tuned = picking_rule ./ N .* tuning_qualities
-        picking_rule_tuned = round.(Integer, picking_rule_tuned .* (N / sum(picking_rule_tuned))
+        picking_rule_tuned = round.(Integer, picking_rule_tuned .* (N / sum(picking_rule_tuned)))
     end
 
     multi_proposal_tuned = @set multi_proposal.picking_rule = picking_rule_tuned
@@ -123,7 +123,7 @@ function mcmc_tune_post_step!!(
 
         picking_rule_tuned[curr_idx] *= (1 + 1/n_walkers * sum(p_accept) * scale)
 
-        picking_rule_tuned = round.(Integer, picking_rule_tuned .* (N / sum(picking_rule_tuned))
+        picking_rule_tuned = round.(Integer, picking_rule_tuned .* (N / sum(picking_rule_tuned)))
     end
 
     multi_proposal_tuned = @set multi_proposal.picking_rule = picking_rule_tuned
