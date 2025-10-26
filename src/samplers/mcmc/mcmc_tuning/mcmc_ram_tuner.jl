@@ -20,12 +20,6 @@ Fields:
 $(TYPEDFIELDS)
 """
 @with_kw struct RAMTuning <: MCMCTransformTuning
-    "MCMC target acceptance ratio."
-    target_acceptance::Float64 = 0.234
-
-    "Width around `target_acceptance`."
-    σ_target_acceptance::Float64 = 0.05
-
     "Negative adaption rate exponent."
     gamma::Float64 = 2/3
 end
@@ -43,7 +37,7 @@ create_trafo_tuner_state(tuning::RAMTuning, chain_state::MCMCChainState, n_steps
 
 function mcmc_tuning_init!!(tuner_state::RAMTrafoTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
     chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false) # TODO ?
-    tuner_state.nsteps = 0    
+    tuner_state.nsteps = 0
     return nothing
 end
 
@@ -76,8 +70,8 @@ function mcmc_tune_post_cycle!!(
 end
 
 mcmc_tuning_finalize!!(
-    f_transform::Function, 
-    tuner::RAMTrafoTunerState, 
+    f_transform::Function,
+    tuner::RAMTrafoTunerState,
     chain::MCMCChainState
 ) = nothing
 
@@ -118,7 +112,7 @@ function mcmc_tune_post_step!!(
     α = mean_update_rate .* p_accept
 
     update = α .* (proposed.x.v .- [b])
-    new_b = 1 / nwalkers(chain_state) * oftype.(b, sum(update .+ [b])) # = (1 - α) * b + α * proposed.x.v 
+    new_b = 1 / nwalkers(chain_state) * oftype.(b, sum(update .+ [b])) # = (1 - α) * b + α * proposed.x.v
 
     f_transform_new = MulAdd(Σ_L_new, new_b)
 

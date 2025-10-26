@@ -243,8 +243,46 @@ function mcmc_step!!(mcmc_state::MCMCState)
 
     chain_state = mcmc_state_new.chain_state
     mcmc_state_final = @set mcmc_state_new.chain_state = chain_state
-    
+
     return mcmc_state_final
+end
+
+function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP) where {SMP<:SimpleMCMCProposalState}
+    (; target, f_transform, current, proposed, context) = chain_state
+
+    current_z = current.z.v
+    logd_z_current = current.z.logd
+
+    n_walkers = nwalkers(chain_state)
+
+    genctx = get_gencontext(context)
+    rng = get_rng(genctx)
+
+    # TODO: MD; Make this function ! because it alters genctx?
+    z_proposed, hastings_correction = mcmc_propose_transition(current_z, proposal, n_walkers, genctx)
+
+    x_ladj_proposed = with_logabsdet_jacobian.(f_transform, z_proposed)
+    x_proposed = first.(x_ladj_proposed)
+    ladj = getsecond.(x_ladj_proposed)
+
+    logd_x_proposed = BAT.checked_logdensityof.(target, x_proposed)
+    logd_z_proposed::typeof(logd_x_proposed) = logd_x_proposed .+ ladj
+
+    chain_state.proposed.x.v .= x_proposed
+    chain_state.proposed.z.v .= z_proposed
+
+    chain_state.proposed.x.logd .= logd_x_proposed
+    chain_state.proposed.z.logd .= logd_z_proposed
+
+    p_accept = clamp.(exp.(logd_z_proposed - logd_z_current), 0, 1)
+    # p_accept = clamp.(exp.(logd_z_proposed - logd_z_current + hastings_correction), 0, 1)
+    @assert all(p_accept .>= 0)
+    accepted = rand(rng, length(p_accept)) .<= p_accept
+
+    chain_state.accepted .= accepted
+
+    global gs_mp = (chain_state, genctx, rng)
+    return chain_state, p_accept
 end
 
 function reset_rng_counters!(chain_state::MCMCChainState)

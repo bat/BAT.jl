@@ -158,7 +158,15 @@ Abstract type for MCMC proposal algorithm states.
 """
 abstract type MCMCProposalState end
 
+"""
+    abstract type SimpleMCMCProposalState
 
+Abstract type for the states of simple MCMC proposal
+algorithms, that are implemented in BAT.jl.
+This is used to treat more complicated algorithms -that may depend on
+external packages- differently.
+"""
+abstract type SimpleMCMCProposalState <: MCMCProposalState end
 
 """
     abstract type MCMCBurninAlgorithm

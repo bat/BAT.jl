@@ -34,7 +34,7 @@ struct MHProposalState{
     TA<:Real,
     TAI<:Tuple{Vararg{<:Real}},
     Q<:BATMeasure
-} <: MCMCProposalState
+} <: SimpleMCMCProposalState
     target_acceptance::TA
     target_acceptance_int::TAI
     proposaldist::Q
@@ -61,9 +61,9 @@ bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::RandomWalk, pretr
 
 
 function _create_proposal_state(
-    proposal::RandomWalk, 
-    target::BATMeasure, 
-    context::BATContext, 
+    proposal::RandomWalk,
+    target::BATMeasure,
+    context::BATContext,
     v_init::AbstractVector{PV},
     f_transform::Function,
     rng::AbstractRNG
@@ -117,40 +117,16 @@ function _full_random_walk_proposal(d::TDist, n_dims::Integer)
 end
 
 
-function mcmc_propose!!(chain_state::MCMCChainState, proposal::MHProposalState)
-    @unpack target, f_transform, context = chain_state
-    genctx = get_gencontext(context)
-    rng = get_rng(genctx)
+function mcmc_propose_transition(
+    current_z::ArrayOfSimilarArrays,
+    proposal::MCMCProposalState,
+    n_walkers::Integer,
+    genctx
+)
     proposal_measure = batmeasure(proposal.proposaldist)
-    n_walkers = nwalkers(chain_state)
-
-    current_z = chain_state.current.z.v
-    logd_z_current = chain_state.current.z.logd
-
-    z_proposed = current_z .+ rand(genctx, proposal_measure^n_walkers)
-
-    x_ladj_proposed = with_logabsdet_jacobian.(f_transform, z_proposed)
-    x_proposed = first.(x_ladj_proposed)
-    ladj = getsecond.(x_ladj_proposed)
-
-    logd_x_proposed = BAT.checked_logdensityof.(target, x_proposed)
-    logd_z_proposed::typeof(logd_x_proposed) = logd_x_proposed .+ ladj
-
-    chain_state.proposed.x.v .= x_proposed
-    chain_state.proposed.z.v .= z_proposed
-
-    chain_state.proposed.x.logd .= logd_x_proposed
-    chain_state.proposed.z.logd .= logd_z_proposed
-
-    # TODO: check if proposal is symmetric - otherwise need Hastings correction:
-    p_accept = clamp.(exp.(logd_z_proposed - logd_z_current), 0, 1)
-    @assert all(p_accept .>= 0)
-    accepted = rand(rng, length(p_accept)) .<= p_accept
-
-    chain_state.accepted .= accepted
-
-    return chain_state, p_accept
+    proposed_z = current_z .+ rand(genctx, proposal_measure^n_walkers)
+    hastings_correction = checked_logdensityof.(proposal_measure, current_z) .- checked_logdensityof.(proposal_measure, proposed_z)
+    return proposed_z, hastings_correction
 end
 
 set_proposal_transform!!(proposal::MHProposalState, ::MCMCChainState) = proposal
-
