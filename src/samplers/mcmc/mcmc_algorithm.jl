@@ -275,19 +275,29 @@ function mcmc_iterate!! end
 
 function get_proposal_tuning_quality end
 
-# TODO, MD: Discuss Default. Picked linear decrease with distance from target acceptance interval.
+# TODO: MD, Think about the exponent in the quality calculation. Should it be user-definable? Where should it be stored?
+# Perhaps in the AdaptiveMultiProposalTunerState?
 function get_proposal_tuning_quality(proposal::MCMCProposalState)
     lower, upper = proposal.target_acceptance_int
-    interval_width = upper - lower
-
     eff_acceptance = eff_acceptance_ratio(proposal)
+    target_acceptance = get_target_acceptance_ratio(proposal)
 
     in_target_interval =  lower < eff_acceptance_ratio < upper
 
-    d = in_target_interval ? 0 : minimum(abs.([lower, upper] .- eff_acceptance))
+    if in_target_interval
+        if eff_acceptance_ratio >= target_acceptance
+            normalization = upper - target_acceptance
+            d = (eff_acceptance - target_acceptance) / normalization
+        else
+            normalization = target_acceptance - lower
+            d = (target_acceptance - eff_acceptance) / normalization
+        end
+        quality = clamp((1 - d)^0.5, 0)
+    else
+        quality = 0
+    end
 
-    quality = clamp(1 - d/(2*interval_widht), 0)
-    return d
+    return quality
 end
 
 
@@ -309,8 +319,7 @@ function mcmc_iterate!!(
     perform_step = true
 
     while (perform_step && (time() - start_time) < max_time)
-        perform_step = nsteps(mcmc_state) - start_nsteps < max_nsteps
-        mcmc_state = perform_step ? mcmc_step!!(mcmc_state) : flush_samples!!(mcmc_state)
+        perform_step = nsteps(mcmc_state) - start_nsteps < max_nsteps mcmc_state = perform_step ? mcmc_step!!(mcmc_state) : flush_samples!!(mcmc_state)
 
         if !isnothing(output)
             get_samples!(output, mcmc_state, nonzero_weights)
