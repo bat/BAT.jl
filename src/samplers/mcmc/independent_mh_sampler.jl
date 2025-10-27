@@ -28,8 +28,8 @@ $(TYPEDFIELDS)
 } <: MCMCProposal
     # TODO: MD, review default values. The theoretical target accpeptance rate
     # seems to depend on the ratio of the proposal and target measure.
-    target_acceptance::TA = 0.5
-    target_acceptance_int::TAI = (0., 1.) # We don't want to punish low acceptance ratios
+    target_acceptance::TA = 1.0
+    target_acceptance_int::TAI = (0.01, 1.) # We don't want to punish low acceptance ratios, but kick out if it doesnt perform at all.
     global_proposal::Q = nothing
 end
 
@@ -74,6 +74,10 @@ function _create_proposal_state(
     f_transform::Function,
     rng::AbstractRNG
 ) where {P<:Real, PV<:AbstractVector{P}}
+
+    # Make elseif check into a function that takes the best known approximation;  make new function `_get_approximation()`  for this.
+    # Integrate with the init system.
+    # Look at the get_init() code for this. 
     if !isnothing(proposal.global_proposal)
         global_prop = batmeasure(proposal.global_proposal)
     elseif target isa BAT.PosteriorMeasure

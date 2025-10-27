@@ -4,12 +4,11 @@ mutable struct StanLikeTunerState{
     S<:MCMCBasicStats,
 } <: MCMCTransformTunerState
     tuning::StanLikeTuning
-    target_acceptance::Float64
     stats::S
     stan_state::AdvancedHMC.Adaptation.StanHMCAdaptorState
 end
 
-BAT.create_trafo_tuner_state(tuning::StanLikeTuning, chain_state::MCMCChainState, n_steps_hint::Integer) = StanLikeTunerState(tuning, tuning.target_acceptance, MCMCBasicStats(chain_state), AdvancedHMC.Adaptation.StanHMCAdaptorState())
+BAT.create_trafo_tuner_state(tuning::StanLikeTuning, chain_state::MCMCChainState, n_steps_hint::Integer) = StanLikeTunerState(tuning, MCMCBasicStats(chain_state), AdvancedHMC.Adaptation.StanHMCAdaptorState())
 
 function BAT.mcmc_tuning_init!!(tuner::StanLikeTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
     tuning = tuner.tuning
@@ -36,7 +35,7 @@ function BAT.mcmc_tune_post_cycle!!(
     logds = [walker_smpls.logd for walker_smpls in samples]
     max_log_posterior = maximum(maximum.(logds))
     accept_ratio = eff_acceptance_ratio(chain_state) 
-    α_min, _ = get_target_accept_interval(proposal)
+    α_min, _ = get_target_acceptance_int(proposal)
     if accept_ratio >= α_min
         chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = true)
         @debug "MCMC chain $(chain_state.info.id) tuned, acceptance ratio = $(Float32(accept_ratio)), integrator = $(chain_state.proposal.τ.integrator), max. log posterior = $(Float32(max_log_posterior))"

@@ -319,8 +319,8 @@ function mcmc_iterate!!(
     perform_step = true
 
     while (perform_step && (time() - start_time) < max_time)
-        perform_step = nsteps(mcmc_state) - start_nsteps < max_nsteps mcmc_state = perform_step ? mcmc_step!!(mcmc_state) : flush_samples!!(mcmc_state)
-
+        perform_step = nsteps(mcmc_state) - start_nsteps < max_nsteps
+        mcmc_state = perform_step ? mcmc_step!!(mcmc_state) : flush_samples!!(mcmc_state)
         if !isnothing(output)
             get_samples!(output, mcmc_state, nonzero_weights)
         end

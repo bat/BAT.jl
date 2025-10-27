@@ -45,7 +45,8 @@ function ahmc_adaptor(
     tuning::MassMatrixAdaptor,
     metric::AdvancedHMC.AbstractMetric,
     integrator::AdvancedHMC.AbstractIntegrator,
-    θ_init::AbstractVector{<:Real}
+    θ_init::AbstractVector{<:Real},
+    target_acceptance::Real
 )
     return AdvancedHMC.MassMatrixAdaptor(metric)
 end
@@ -54,21 +55,23 @@ function ahmc_adaptor(
     tuning::StepSizeAdaptor,
     metric::AdvancedHMC.AbstractMetric,
     integrator::AdvancedHMC.AbstractIntegrator,
-    θ_init::AbstractVector{<:Real}
+    θ_init::AbstractVector{<:Real},
+    target_acceptance::Real
 )
     T = eltype(θ_init)
-    return AdvancedHMC.StepSizeAdaptor(T(tuning.target_acceptance), integrator)
+    return AdvancedHMC.StepSizeAdaptor(T(target_acceptance), integrator)
 end
 
 function ahmc_adaptor(
     tuning::NaiveHMCTuning,
     metric::AdvancedHMC.AbstractMetric,
     integrator::AdvancedHMC.AbstractIntegrator,
-    θ_init::AbstractVector{<:Real}
+    θ_init::AbstractVector{<:Real},
+    target_acceptance::Real
 )
     T = eltype(θ_init)
     mma = AdvancedHMC.MassMatrixAdaptor(metric)
-    ssa = AdvancedHMC.StepSizeAdaptor(tuning.target_acceptance, integrator)
+    ssa = AdvancedHMC.StepSizeAdaptor(target_acceptance, integrator)
     return AdvancedHMC.NaiveHMCAdaptor(mma, ssa)
 end
 
@@ -76,11 +79,12 @@ function ahmc_adaptor(
     tuning::StanLikeTuning,
     metric::AdvancedHMC.AbstractMetric,
     integrator::AdvancedHMC.AbstractIntegrator,
-    θ_init::AbstractVector{<:Real}
+    θ_init::AbstractVector{<:Real},
+    target_acceptance::Real
 )
     T = eltype(θ_init)
     mma = AdvancedHMC.MassMatrixAdaptor(metric)
-    ssa = AdvancedHMC.StepSizeAdaptor(T(tuning.target_acceptance), integrator)
+    ssa = AdvancedHMC.StepSizeAdaptor(T(target_acceptance), integrator)
     stan_adaptor = AdvancedHMC.StanHMCAdaptor(
         mma, ssa,
         init_buffer = Int(tuning.initial_bufsize), term_buffer = Int(tuning.term_bufsize), window_size = Int(tuning.window_size)

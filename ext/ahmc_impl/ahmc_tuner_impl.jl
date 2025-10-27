@@ -12,7 +12,7 @@ function HMCProposalTunerState(
     proposal::HMCProposalState
 )
     θ = first(chain_state.current.z).v
-    adaptor = ahmc_adaptor(tuning, proposal.hamiltonian.metric, proposal.kernel.τ.integrator, θ)
+    adaptor = ahmc_adaptor(tuning, proposal.hamiltonian.metric, proposal.kernel.τ.integrator, θ, proposal.target_acceptance)
     HMCProposalTunerState(tuning, adaptor)
 end
 

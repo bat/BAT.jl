@@ -97,7 +97,7 @@ function BAT.mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalSt
     end
 
     chain_state.accepted = proposed.z.v .!= current.z.v
-    
+
     trafo_proposed = with_logabsdet_jacobian.(f_transform, proposed.z.v)
     proposed.x.v .= getfield.(trafo_proposed, 1)
     ladj = getfield.(trafo_proposed, 2)

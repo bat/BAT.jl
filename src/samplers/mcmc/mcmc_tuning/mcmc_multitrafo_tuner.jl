@@ -130,7 +130,7 @@ function mcmc_tune_post_step!!(
     proposed::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
     p_accept::AbstractVector{<:Real}
 )
-    intermediate_results = trafo_samples_with_interm_results(f_transform, current, proposed)
+    intermediate_results = trafo_samples_with_interm_results(f_transform, curredfsdfat, proposed)
     trafo_components = fchainfs(f_transform)    
     trafo_tuners = multi_tuner_state.trafo_tuners
 

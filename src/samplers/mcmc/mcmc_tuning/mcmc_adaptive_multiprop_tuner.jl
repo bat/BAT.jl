@@ -68,7 +68,7 @@ function mcmc_tune_post_cycle!!(
 )
     # At the end of a cycle, multiply picking probabilities with a `tuning_quality_vector` that rewards proposals that 
     # lie in their respective target acceptance interval and punishes bad tuning. For this, add proposal-specific 
-    # tuning quality methods. E.g. `GlobalProposal` is never punished in this step.
+    # tuning quality methods. E.g. `IndependentMH` is never punished in this step.
     tuning_qualities = get_proposal_tuning_quality.(multi_proposal.proposal_states)
     if picking_rule isa Distribution
         picking_probs_tuned = picking_rule.p .* tuning_qualities
@@ -81,6 +81,19 @@ function mcmc_tune_post_cycle!!(
     end
 
     multi_proposal_tuned = @set multi_proposal.picking_rule = picking_rule_tuned
+
+    α = eff_acceptance_ratio(chain_state)
+
+    logds = [walker_smpls.logd for walker_smpls in samples]
+    max_log_posterior = maximum(maximum.(logds))
+
+    if any(tuning_qualities .> 0)
+        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = true)
+        @debug "MCMC chain $(chain_state.info.id) tuned, acceptance ratio = $(Float32(α)), max. log posterior = $(Float32(max_log_posterior))"
+    else
+        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false)
+        @debug "MCMC chain $(chain_state.info.id) *not* tuned, acceptance ratio = $(Float32(α)), max. log posterior = $(Float32(max_log_posterior))"
+    end
 
     return multi_proposal_tuned, multi_tuner, chain_state
 end
@@ -101,6 +114,7 @@ function mcmc_tune_post_step!!(
     # Every time a proposal is picked, tune picking probability by
     # `picking_prob * acceptance_prob * small_delta`
     # and afterwards re-normalize picking probabilities
+    # Ensure no picking probability falls below a base threshold.
 
     curr_idx = multiproposal.current_idx
     picking_rule = multi_proposal.picking_rule
