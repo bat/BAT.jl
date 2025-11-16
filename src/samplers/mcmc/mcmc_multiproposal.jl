@@ -1,5 +1,4 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
-
 """
     struct MCMCMultiProposal<: MCMCProposal
 
@@ -139,6 +138,18 @@ function get_target_acceptance_int(proposal::MultiProposalState)
 
     mean_target_acc_int = (dot(lowers, proposal_probs), dot(uppers, proposal_probs))
     return mean_target_acc_int
+end
+
+function get_tuning_success(
+    chain_state::MCMCChainState,
+    multi_proposal::MultiProposalState
+)
+    component_eff_acc= detailed_eff_acceptance_ratio(chain_state)
+    component_acc_ints = get_target_acceptance_int.(multi_proposal.proposal_states)
+
+    component_tuning_successes = [int[1] <= component_eff_acc[i] <= int[2] for (i, int) in enumerate(component_acc_ints)]
+ 
+    return any(component_tuning_successes)
 end
 
 function _create_proposal_state(

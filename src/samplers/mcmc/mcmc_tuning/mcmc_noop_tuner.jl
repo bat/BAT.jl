@@ -21,7 +21,11 @@ mcmc_tuning_postinit!!(::NoMCMCTransformTuningState, ::MCMCChainState, ::Abstrac
 
 mcmc_tune_post_cycle!!(f_transform::Function, tuner::NoMCMCTransformTuningState, chain_state::MCMCChainState, ::AbstractVector{<:DensitySampleVector}) = f_transform, tuner, chain_state
 
-mcmc_tuning_finalize!!(::Function, ::NoMCMCTransformTuningState, ::MCMCChainState) = nothing
+mcmc_tuning_finalize!!(
+    f_transform::Function,
+    trafo_tuner_state::NoMCMCTransformTuningState,
+    chain_state::MCMCChainState
+) = f_transfrom, trafo_tuner_state, chain_state
 
 mcmc_tune_post_step!!(f_transform::Function, tuner::NoMCMCTransformTuningState, chain_state::MCMCChainState, ::NamedTuple, ::NamedTuple, ::AbstractVector{<:Real}) = f_transform, tuner, chain_state
 
@@ -53,7 +57,11 @@ mcmc_tune_post_cycle!!(
     ::AbstractVector{<:DensitySampleVector}
 ) = proposal, tuner, chain_state
 
-mcmc_tuning_finalize!!(::MCMCProposalState, ::NoMCMCProposalTunerState, ::MCMCChainState) = nothing
+mcmc_tuning_finalize!!(
+    proposal_state::MCMCProposalState,
+    proposal_tuner_state::NoMCMCProposalTunerState, 
+    chain_state::MCMCChainState
+) = proposal_state, proposal_tuner_state, chain_state
 
 mcmc_tune_post_step!!(
     proposal::MCMCProposalState, 

@@ -53,27 +53,14 @@ function mcmc_tune_post_cycle!!(
     proposal::MCMCProposalState,
     samples::AbstractVector{<:DensitySampleVector}
 )
-    α_min, α_max = get_target_acceptance_int(proposal)
-    α = eff_acceptance_ratio(chain_state)
-
-    logds = [walker_smpls.logd for walker_smpls in samples]
-    max_log_posterior = maximum(maximum.(logds))
-
-    if α_min <= α <= α_max
-        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = true)
-        @debug "MCMC chain $(chain_state.info.id) tuned, acceptance ratio = $(Float32(α)), max. log posterior = $(Float32(max_log_posterior))"
-    else
-        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false)
-        @debug "MCMC chain $(chain_state.info.id) *not* tuned, acceptance ratio = $(Float32(α)), max. log posterior = $(Float32(max_log_posterior))"
-    end
     return f_transform, tuner, chain_state
 end
 
 mcmc_tuning_finalize!!(
     f_transform::Function,
-    tuner::RAMTrafoTunerState,
-    chain::MCMCChainState
-) = nothing
+    tuner_state::RAMTrafoTunerState,
+    chain_state::MCMCChainState
+) = f_transform, tuner_state, chain_state
 
 function mcmc_tune_post_step!!(
     f_transform::Function,

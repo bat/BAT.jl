@@ -38,17 +38,6 @@ function BAT.mcmc_tune_post_cycle!!(
     chain_state::MCMCChainState,
     samples::AbstractVector{<:DensitySampleVector}
 )
-    logds = [walker_smpls.logd for walker_smpls in samples]
-    max_log_posterior = maximum(maximum.(logds))
-    accept_ratio = eff_acceptance_ratio(chain_state)
-    α_min, _ = get_target_acceptance_int(proposal)
-    if accept_ratio >= α_min
-        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = true)
-        @debug "MCMC chain $(chain_state.info.id) tuned, acceptance ratio = $(Float32(accept_ratio)), integrator = $(chain_state.proposal.integrator), max. log posterior = $(Float32(max_log_posterior))"
-    else
-        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false)
-        @debug "MCMC chain $(chain_state.info.id) *not* tuned, acceptance ratio = $(Float32(accept_ratio)), integrator = $(chain_state.proposal.integrator), max. log posterior = $(Float32(max_log_posterior))"
-    end
     return proposal, tuner, chain_state
 end
 
@@ -61,7 +50,8 @@ function BAT.mcmc_tuning_finalize!!(
     AdvancedHMC.finalize!(adaptor)
     proposal.hamiltonian = AdvancedHMC.update(proposal.hamiltonian, adaptor)
     proposal.kernel = AdvancedHMC.update(proposal.kernel, adaptor)
-    nothing
+
+    return proposal, tuner, chain_state
 end
 
 # TODO: MD, make actually !! function

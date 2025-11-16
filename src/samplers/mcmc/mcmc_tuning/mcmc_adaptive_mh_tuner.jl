@@ -113,15 +113,7 @@ function mcmc_tune_post_cycle!!(
 
     α = eff_acceptance_ratio(chain_state)
 
-    max_log_posterior = stats.logtf_stats.maximum
-
-    if α_min <= α <= α_max
-        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = true)
-        @debug "MCMC chain $(chain_state.info.id) tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
-    else
-        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false)
-        @debug "MCMC chain $(chain_state.info.id) *not* tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
-
+    if !(α_min <= α <= α_max)
         if α > α_max && c < c_max
             tuner.scale = c * β
         elseif α < α_min && c > c_min
@@ -143,7 +135,11 @@ function mcmc_tune_post_cycle!!(
 end
 
 
-mcmc_tuning_finalize!!(::Function, tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState) = nothing
+mcmc_tuning_finalize!!(
+    f_transform::Function,
+    tuner::AdaptiveAffineTuningState,
+    chain_state::MCMCChainState
+) = f_transform, tuner, chain_state
 
 function mcmc_tune_post_step!!(
     f_transform::Function,

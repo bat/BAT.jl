@@ -120,6 +120,7 @@ function mcmc_tuning_finalize!!(
         tuner = multi_tuner_state.trafo_tuners[i]
         mcmc_tuning_finalize!!(f_transform, tuner, chain_state)
     end 
+    return trafo_chain, multi_tuner_state, chain_state
 end
 
 function mcmc_tune_post_step!!(

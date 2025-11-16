@@ -277,27 +277,41 @@ function get_proposal_tuning_quality end
 
 # TODO: MD, Think about the exponent in the quality calculation. Should it be user-definable? Where should it be stored?
 # Perhaps in the AdaptiveMultiProposalTunerState?
-function get_proposal_tuning_quality(proposal::MCMCProposalState)
+function get_proposal_tuning_quality(
+    proposal::MCMCProposalState,
+    chain_state::MCMCChainState,
+    beta::Float64
+)
     lower, upper = proposal.target_acceptance_int
-    eff_acceptance = eff_acceptance_ratio(proposal)
+    eff_acceptance = eff_acceptance_ratio(chain_state)
     target_acceptance = get_target_acceptance_ratio(proposal)
 
-    in_target_interval =  lower < eff_acceptance_ratio < upper
+    in_target_interval =  lower < eff_acceptance < upper
 
     if in_target_interval
-        if eff_acceptance_ratio >= target_acceptance
+        if eff_acceptance >= target_acceptance
             normalization = upper - target_acceptance
             d = (eff_acceptance - target_acceptance) / normalization
         else
             normalization = target_acceptance - lower
             d = (target_acceptance - eff_acceptance) / normalization
         end
-        quality = clamp((1 - d)^0.5, 0)
+        quality = clamp((1 - d)^beta, 0.0, 1.0)
     else
         quality = 0
     end
 
     return quality
+end
+
+function get_tuning_success(
+    chain_state::CS,
+    proposal::MCMCProposalState
+) where CS<:MCMCIterator
+    α = eff_acceptance_ratio(chain_state_new)
+    α_min, α_max = get_target_acceptance_int(proposal)
+    tuning_success = α_min <= α <= α_max
+    return tuning_success
 end
 
 

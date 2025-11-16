@@ -16,8 +16,9 @@ Fields:
 $(TYPEDFIELDS)
 """
 @with_kw struct AdaptiveMultiPropTuning <:MCMCProposalTuning 
-    scale::Float64 = 1.5
+    scale::Float64 = 0.1
     base_picking_threshold::Float64 = 0.05
+    beta::Float64 = 0.5
 end
 
 export AdaptiveMultiPropTuning
@@ -25,6 +26,7 @@ export AdaptiveMultiPropTuning
 struct AdaptiveMultiPropTunerState <:MCMCProposalTunerState 
     scale::Float64
     base_picking_threshold::Float64
+    beta::Float64
 end
 
 export AdaptiveMultiPropTunerState
@@ -37,7 +39,11 @@ function create_proposal_tuner_state(
     multi_proposal::MultiProposalState,
     iteration::Integer
 )
-    return AdaptiveMultiPropTunerState(tuning.scale, tuning.base_picking_threshold)
+    return AdaptiveMultiPropTunerState(
+        tuning.scale,
+        tuning.base_picking_threshold,
+        tuning.beta
+    )
 end
 
 mcmc_tuning_init!!(
@@ -69,45 +75,101 @@ function mcmc_tune_post_cycle!!(
     # At the end of a cycle, multiply picking probabilities with a `tuning_quality_vector` that rewards proposals that 
     # lie in their respective target acceptance interval and punishes bad tuning. For this, add proposal-specific 
     # tuning quality methods. E.g. `IndependentMH` is never punished in this step.
-    tuning_qualities = get_proposal_tuning_quality.(multi_proposal.proposal_states)
+    tuning_qualities = get_proposal_tuning_quality.(
+        multi_proposal.proposal_states,
+        Ref(chain_state),
+        tuner_state.beta
+    )
+    picking_rule = multi_proposal.picking_rule
+    base_thresh = tuner_state.base_picking_threshold
+
+    global gs_tpc = (multi_proposal, tuner_state, chain_state, samples, tuning_qualities, picking_rule, base_thresh)
+    # BREAK_TPC
+
     if picking_rule isa Distribution
-        picking_probs_tuned = picking_rule.p .* tuning_qualities
-        picking_probs_tuned ./= sum(picking_probs_tuned)
+        valid_proposals = picking_rule.p .> 0.0
+        picking_probs_tuned = deepcopy(picking_rule.p)
+        picking_probs_tuned .*= tuning_qualities
+
+        if any(picking_probs_tuned .>0)
+            picking_probs_tuned ./= sum(picking_probs_tuned)
+
+            below_thresh = (picking_probs_tuned .< base_thresh) .* valid_proposals
+
+            picking_probs_tuned[below_thresh] .= base_thresh
+            rem_prob = 1.0 - sum(below_thresh) * base_thresh
+
+            picking_probs_tuned[.!below_thresh] ./= (sum(picking_probs_tuned[.!below_thresh]) / rem_prob)
+        else
+            picking_probs_tuned[valid_proposals] .= 1/sum(valid_proposals)
+        end
+
         picking_rule_tuned = Categorical(picking_probs_tuned)
     else
+        valid_proposals = picking_rule .> 0.0
         N = sum(picking_rule)
-        picking_rule_tuned = picking_rule ./ N .* tuning_qualities
-        picking_rule_tuned = round.(Integer, picking_rule_tuned .* (N / sum(picking_rule_tuned)))
+
+        picking_rule_tuned = picking_rule ./ N
+        picking_rule_tuned .*= tuning_qualities
+
+        if any(picking_rule_tuned .> 0)
+            picking_rule_tuned = round.(Integer, picking_rule_tuned .* (N / sum(picking_rule_tuned)))
+
+            below_thresh = (picking_rule_tuned .< base_thresh) .* valid_proposals
+
+            picking_rule_tuned[below_thresh] .= base_thresh
+            rem_prob = 1.0 - sum(below_thresh) * (base_thresh/N)
+
+            N_a = sum(picking_rule_tuned[.!below_thresh])
+
+            picking_rule_tuned[.!below_thresh] ./= (sum(picking_probs_tuned[.!below_thresh]) / rem_prob)
+            picking_rule_tuned[.!below_thresh] = round.(Integer, picking_rule_tuned[.!below_thresh] .* N_a)
+        else
+            picking_rule_tuned[valid_proposals] = sum(valid_proposals) / N
+            picking_rule_tuned = round.(Integer, picking_rule_tuned .* N)
+        end
     end
 
     multi_proposal_tuned = @set multi_proposal.picking_rule = picking_rule_tuned
 
-    α = eff_acceptance_ratio(chain_state)
-
-    logds = [walker_smpls.logd for walker_smpls in samples]
-    max_log_posterior = maximum(maximum.(logds))
-
-    if any(tuning_qualities .> 0)
-        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = true)
-        @debug "MCMC chain $(chain_state.info.id) tuned, acceptance ratio = $(Float32(α)), max. log posterior = $(Float32(max_log_posterior))"
-    else
-        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false)
-        @debug "MCMC chain $(chain_state.info.id) *not* tuned, acceptance ratio = $(Float32(α)), max. log posterior = $(Float32(max_log_posterior))"
-    end
-
-    return multi_proposal_tuned, multi_tuner, chain_state
+    return multi_proposal_tuned, tuner_state, chain_state
 end
 
 
-mcmc_tuning_finalize!!(
+function mcmc_tuning_finalize!!(
     multi_proposal::MultiProposalState,
-    multi_tuner::AdaptiveMultiPropTunerState,
+    tuner_state::AdaptiveMultiPropTunerState,
     chain_state::MCMCChainState
-) = nothing
+)
+    component_eff_acc= detailed_eff_acceptance_ratio(chain_state)
+    component_acc_ints = get_target_acceptance_int.(multi_proposal.proposal_states)
+
+    component_tuning_successes = [int[1] <= component_eff_acc[i] <= int[2] for (i, int) in enumerate(component_acc_ints)]
+
+    picking_rule = multi_proposal.picking_rule
+
+    if any(component_tuning_successes)
+        if picking_rule isa Distribution
+            p_unnorm = picking_rule.p .* component_tuning_successes
+            picking_probs_new = p_unnorm ./ sum(p_unnorm)
+            picking_rule_new = Categorical(picking_probs_new)
+        else
+            N = sum(picking_rule)
+            p_unnorm = picking_rule .* component_tuning_successes
+            picking_rule_tuned = round.(Integer, p_unnorm .* (N / sum(p_unnorm)))
+        end
+    else
+        picking_rule_new = picking_rule
+    end
+
+    @reset multi_proposal.picking_rule = picking_rule_new
+
+    return multi_proposal, tuner_state, chain_state
+end
 
 function mcmc_tune_post_step!!(
     multi_proposal::MultiProposalState,
-    multi_tuner::AdaptiveMultiPropTunerState,
+    tuner_state::AdaptiveMultiPropTunerState,
     chain_state::MCMCChainState,
     p_accept::AbstractVector{<:Real}
 )
@@ -116,32 +178,48 @@ function mcmc_tune_post_step!!(
     # and afterwards re-normalize picking probabilities
     # Ensure no picking probability falls below a base threshold.
 
-    curr_idx = multiproposal.current_idx
+    curr_idx = multi_proposal.current_idx
     picking_rule = multi_proposal.picking_rule
-    n_proposals = lenght(multi_proposal.proposals)
+    n_proposals = length(multi_proposal.proposal_states)
 
     n_walkers = nwalkers(chain_state)
-    scale = multi_tuner.scale
+    scale = tuner_state.scale
+    base_thresh = tuner_state.base_picking_threshold
 
     if picking_rule isa Distribution
-        picking_probs_tuned = picking_rule.p
-
+        picking_probs_tuned = deepcopy(picking_rule.p)
         picking_probs_tuned[curr_idx] *= (1 + 1/n_walkers * sum(p_accept) * scale)
-
         picking_probs_tuned ./= sum(picking_probs_tuned)
 
+        valid_proposal = picking_rule.p .> 0.0
+        below_thresh = (picking_probs_tuned .< base_thresh) .* valid_proposal
+
+        picking_probs_tuned[below_thresh] .= base_thresh
+        rem_prob = 1.0 - sum(below_thresh) * base_thresh
+
+        picking_probs_tuned[.!below_thresh] ./= (sum(picking_probs_tuned[.!below_thresh]) / rem_prob)
         picking_rule_tuned = Categorical(picking_probs_tuned)
     else
         N = sum(picking_rule)
+
         picking_rule_tuned = picking_rule ./ N
-
         picking_rule_tuned[curr_idx] *= (1 + 1/n_walkers * sum(p_accept) * scale)
-
         picking_rule_tuned = round.(Integer, picking_rule_tuned .* (N / sum(picking_rule_tuned)))
+
+        valid_proposal = picking_rule .> 0.0
+        below_thresh = (picking_rule_tuned .< base_thresh) .* valid_proposal
+
+        picking_rule_tuned[below_thresh] .= base_thresh
+        rem_prob = 1.0 - sum(below_thresh) * (base_thresh/N)
+
+        N_a = sum(picking_rule_tuned[.!below_thresh])
+
+        picking_rule_tuned[.!below_thresh] ./= (sum(picking_probs_tuned[.!below_thresh]) / rem_prob)
+        picking_rule_tuned[.!below_thresh] = round.(Integer, picking_rule_tuned[.!below_thresh] .* N_a)
     end
 
     multi_proposal_tuned = @set multi_proposal.picking_rule = picking_rule_tuned
 
-    return multi_proposal_tuned, multi_tuner, chain_state
+    return multi_proposal_tuned, tuner_state, chain_state
 end
 

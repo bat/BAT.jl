@@ -106,4 +106,6 @@ function mcmc_propose_transition(
     return proposed_z, hastings_correction
 end
 
+get_proposal_tuning_quality(proposal::IndependentMHProposalState, ::MCMCChainState, ::Float64) = 1.0
+
 set_proposal_transform!!(proposal::IndependentMHProposalState, ::MCMCChainState) = proposal

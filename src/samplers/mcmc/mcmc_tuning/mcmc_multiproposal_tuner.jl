@@ -121,6 +121,8 @@ function mcmc_tuning_finalize!!(
 
         mcmc_tuning_finalize!!(proposal, tuner, chain_state) 
     end
+
+    return multi_proposal, multi_tuner, chain_state
 end
 
 function mcmc_tune_post_step!!(

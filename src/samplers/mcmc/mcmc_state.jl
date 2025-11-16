@@ -438,6 +438,21 @@ function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:Dens
         samples
     )
 
+    α = eff_acceptance_ratio(chain_state_new)
+
+    logds = [walker_smpls.logd for walker_smpls in samples]
+    max_log_posterior = maximum(maximum(logds))
+
+    tuning_success = get_tuning_success(chain_state_new, proposal_state_new)
+
+    if tuning_success
+        chain_state_new.info = MCMCChainStateInfo(chain_state_new.info, tuned = true)
+        @debug "MCMC chain $(chain_state_new.info.id) tuned, acceptance ratio = $(Float32(α)), max. log posterior = $(Float32(max_log_posterior))"
+    else
+        chain_state_new.info = MCMCChainStateInfo(chain_state_new.info, tuned = false)
+        @debug "MCMC chain $(chain_state_new.info.id) *not* tuned, acceptance ratio = $(Float32(α)), max. log posterior = $(Float32(max_log_posterior))"
+    end
+
     chain_state_final = @set chain_state_new.proposal = proposal_state_new
 
     mcmc_state_cs = @set state.chain_state = chain_state_final
@@ -480,9 +495,27 @@ function mcmc_tune_post_step!!(state::MCMCState, proposal::MCMCProposalState, p_
     return mcmc_state_pt
 end
 
-function mcmc_tuning_finalize!!(state::MCMCState)
-    mcmc_tuning_finalize!!(state.chain_state.f_transform, state.trafo_tuner_state, state.chain_state)
-    mcmc_tuning_finalize!!(state.chain_state.proposal, state.proposal_tuner_state, state.chain_state)
+function mcmc_tuning_finalize!!(mcmc_state::MCMCState)
+    f_new, trafo_tuner_state_new, chain_state_new = mcmc_tuning_finalize!!(
+        mcmc_state.chain_state.f_transform,
+        mcmc_state.trafo_tuner_state,
+        mcmc_state.chain_state
+    )
+    @reset chain_state_new.f_transform = f_new
+
+    proposal_new, proposal_tuner_state_new, chain_state_final = mcmc_tuning_finalize!!(
+        chain_state_new.proposal,
+        mcmc_state.proposal_tuner_state,
+        chain_state_new
+    )
+
+    @reset chain_state_final.proposal = proposal_new
+
+    @reset mcmc_state.trafo_tuner_state = trafo_tuner_state_new
+    @reset mcmc_state.proposal_tuner_state = proposal_tuner_state_new
+    @reset mcmc_state.chain_state = chain_state_final
+
+    return mcmc_state
 end
 
 
