@@ -26,8 +26,6 @@ $(TYPEDFIELDS)
         Nothing
     },
 } <: MCMCProposal
-    # TODO: MD, review default values. The theoretical target accpeptance rate
-    # seems to depend on the ratio of the proposal and target measure.
     target_acceptance::TA = 1.0
     target_acceptance_int::TAI = (0.01, 1.) # We don't want to punish low acceptance ratios, but kick out if it doesnt perform at all.
     global_proposal::Q = nothing
@@ -75,15 +73,11 @@ function _create_proposal_state(
     rng::AbstractRNG
 ) where {P<:Real, PV<:AbstractVector{P}}
 
-    # Make elseif check into a function that takes the best known approximation;  make new function `_get_approximation()`  for this.
-    # Integrate with the init system.
-    # Look at the get_init() code for this. 
-    if !isnothing(proposal.global_proposal)
-        global_prop = batmeasure(proposal.global_proposal)
-    elseif target isa BAT.PosteriorMeasure
-        global_prop = target.prior
+    if isnothing(proposal.global_proposal)
+        global_prop = get_best_known_approximation(target)
+        #throw(ArgumentError("No adequate global proposal measure detected. Please supply one to IndependentMH() or make sure the sampling target supplies a suitable measure."))
     else
-        throw(ArgumentError("No adequate global proposal measure detected. Please supply one to IndependentMH() or make sure the sampling target supplies a suitable measure."))
+        global_prop = batmeasure(proposal.global_proposal)
     end
 
     return IndependentMHProposalState(
@@ -109,3 +103,17 @@ end
 get_proposal_tuning_quality(proposal::IndependentMHProposalState, ::MCMCChainState, ::Float64) = 1.0
 
 set_proposal_transform!!(proposal::IndependentMHProposalState, ::MCMCChainState) = proposal
+
+
+function get_best_known_approximation() end
+
+get_best_known_approximation(target::AbstractMeasure) = target
+
+get_best_known_approximation(
+    target::WeightedMeasure
+) = get_best_known_approximation(basemeasure(target))
+
+get_best_known_approximation(
+    target::AbstractPosteriorMeasure
+) = get_best_known_approximation(getprior(target))
+

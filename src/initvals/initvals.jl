@@ -31,7 +31,7 @@ Generates initial values for sampling, optimization, etc. by direct i.i.d.
 sampling a suitable component of that target density (e.g. it's prior)
 that supports it.
 
-* If the target is supports direct i.i.d. sampling, e.g. because it is a
+* If the target supports direct i.i.d. sampling, e.g. because it is a
   distribution, initial values are sampled directly from the target.
 
 * If the target is a posterior density, initial values are sampled from the

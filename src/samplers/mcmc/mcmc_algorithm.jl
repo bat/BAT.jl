@@ -279,9 +279,9 @@ function get_proposal_tuning_quality end
 # Perhaps in the AdaptiveMultiProposalTunerState?
 function get_proposal_tuning_quality(
     proposal::MCMCProposalState,
-    chain_state::MCMCChainState,
+    chain_state::CS,
     beta::Float64
-)
+) where CS<:MCMCIterator
     lower, upper = proposal.target_acceptance_int
     eff_acceptance = eff_acceptance_ratio(chain_state)
     target_acceptance = get_target_acceptance_ratio(proposal)
@@ -308,7 +308,7 @@ function get_tuning_success(
     chain_state::CS,
     proposal::MCMCProposalState
 ) where CS<:MCMCIterator
-    α = eff_acceptance_ratio(chain_state_new)
+    α = eff_acceptance_ratio(chain_state)
     α_min, α_max = get_target_acceptance_int(proposal)
     tuning_success = α_min <= α <= α_max
     return tuning_success
