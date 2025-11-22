@@ -281,7 +281,6 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP) where {SMP<:
 
     chain_state.accepted .= accepted
 
-    global gs_mp = (chain_state, genctx, rng)
     return chain_state, p_accept
 end
 

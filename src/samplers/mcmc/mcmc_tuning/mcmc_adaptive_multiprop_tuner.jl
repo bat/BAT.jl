@@ -16,21 +16,21 @@ Fields:
 $(TYPEDFIELDS)
 """
 @with_kw struct AdaptiveMultiPropTuning <:MCMCProposalTuning 
-    scale::Float64 = 0.1
-    base_picking_threshold::Float64 = 0.05
+    alpha::Float64 = 0.1
     beta::Float64 = 0.5
+    picking_socket::Float64 = 0.8
 end
 
 export AdaptiveMultiPropTuning
 
 struct AdaptiveMultiPropTunerState <:MCMCProposalTunerState 
-    scale::Float64
-    base_picking_threshold::Float64
+    alpha::Float64
     beta::Float64
+    picking_socket::Float64
+    accept_prob::Vector{Float64} # initiate with 0.5
 end
 
 export AdaptiveMultiPropTunerState
-
 
 
 function create_proposal_tuner_state(
@@ -39,96 +39,57 @@ function create_proposal_tuner_state(
     multi_proposal::MultiProposalState,
     iteration::Integer
 )
+    N_proposals = length(multi_proposal.proposal_states)
+
     return AdaptiveMultiPropTunerState(
-        tuning.scale,
-        tuning.base_picking_threshold,
-        tuning.beta
+        tuning.alpha,
+        tuning.beta,
+        tuning.picking_socket,
+        fill(0.5, N_proposals)
     )
 end
 
-mcmc_tuning_init!!(
+mcmc_proposal_tuning_init!!(
     tuner_state::AdaptiveMultiPropTunerState,
     chain_state::MCMCChainState,
     max_nsteps::Integer
 ) = nothing
 
-mcmc_tuning_reinit!!(
+mcmc_proposal_tuning_reinit!!(
     tuner_state::AdaptiveMultiPropTunerState,
     chain_state::MCMCChainState,
     max_nsteps::Integer
 ) = nothing
 
 
-mcmc_tuning_postinit!!(
+mcmc_proposal_tuning_postinit!!(
     tuner_state::AdaptiveMultiPropTunerState,
     chain_state::MCMCChainState,
     samples::AbstractVector{<:DensitySampleVector}
 ) = nothing
 
 
-function mcmc_tune_post_cycle!!(
+function mcmc_tune_proposal_post_cycle!!(
     multi_proposal::MultiProposalState,
     tuner_state::AdaptiveMultiPropTunerState,
     chain_state::MCMCChainState,
     samples::AbstractVector{<:DensitySampleVector}
 )
-    # At the end of a cycle, multiply picking probabilities with a `tuning_quality_vector` that rewards proposals that 
-    # lie in their respective target acceptance interval and punishes bad tuning. For this, add proposal-specific 
-    # tuning quality methods. E.g. `IndependentMH` is never punished in this step.
+    (; proposal_states, picking_rule) = multi_proposal
+    (; beta, picking_socket) = tuner_state
+    
     tuning_qualities = get_proposal_tuning_quality.(
-        multi_proposal.proposal_states,
+        proposal_states,
         Ref(chain_state),
-        tuner_state.beta
+        beta
     )
-    picking_rule = multi_proposal.picking_rule
-    base_thresh = tuner_state.base_picking_threshold
 
-    global gs_tpc = (multi_proposal, tuner_state, chain_state, samples, tuning_qualities, picking_rule, base_thresh)
-    # BREAK_TPC
-
-    if picking_rule isa Distribution
-        valid_proposals = picking_rule.p .> 0.0
-        picking_probs_tuned = deepcopy(picking_rule.p)
-        picking_probs_tuned .*= tuning_qualities
-
-        if any(picking_probs_tuned .>0)
-            picking_probs_tuned ./= sum(picking_probs_tuned)
-
-            below_thresh = (picking_probs_tuned .< base_thresh) .* valid_proposals
-
-            picking_probs_tuned[below_thresh] .= base_thresh
-            rem_prob = 1.0 - sum(below_thresh) * base_thresh
-
-            picking_probs_tuned[.!below_thresh] ./= (sum(picking_probs_tuned[.!below_thresh]) / rem_prob)
-        else
-            picking_probs_tuned[valid_proposals] .= 1/sum(valid_proposals)
-        end
-
-        picking_rule_tuned = Categorical(picking_probs_tuned)
-    else
-        valid_proposals = picking_rule .> 0.0
-        N = sum(picking_rule)
-
-        picking_rule_tuned = picking_rule ./ N
-        picking_rule_tuned .*= tuning_qualities
-
-        if any(picking_rule_tuned .> 0)
-            picking_rule_tuned = round.(Integer, picking_rule_tuned .* (N / sum(picking_rule_tuned)))
-
-            below_thresh = (picking_rule_tuned .< base_thresh) .* valid_proposals
-
-            picking_rule_tuned[below_thresh] .= base_thresh
-            rem_prob = 1.0 - sum(below_thresh) * (base_thresh/N)
-
-            N_a = sum(picking_rule_tuned[.!below_thresh])
-
-            picking_rule_tuned[.!below_thresh] ./= (sum(picking_probs_tuned[.!below_thresh]) / rem_prob)
-            picking_rule_tuned[.!below_thresh] = round.(Integer, picking_rule_tuned[.!below_thresh] .* N_a)
-        else
-            picking_rule_tuned[valid_proposals] = sum(valid_proposals) / N
-            picking_rule_tuned = round.(Integer, picking_rule_tuned .* N)
-        end
-    end
+    picking_rule_tuned = _qualify_picking_rule(
+        picking_rule,
+        tuning_qualities,
+        picking_socket,
+        length(proposal_states)
+    )
 
     multi_proposal_tuned = @set multi_proposal.picking_rule = picking_rule_tuned
 
@@ -136,7 +97,7 @@ function mcmc_tune_post_cycle!!(
 end
 
 
-function mcmc_tuning_finalize!!(
+function mcmc_proposal_tuning_finalize!!(
     multi_proposal::MultiProposalState,
     tuner_state::AdaptiveMultiPropTunerState,
     chain_state::MCMCChainState
@@ -167,59 +128,104 @@ function mcmc_tuning_finalize!!(
     return multi_proposal, tuner_state, chain_state
 end
 
-function mcmc_tune_post_step!!(
+function mcmc_tune_proposal_post_step!!(
     multi_proposal::MultiProposalState,
     tuner_state::AdaptiveMultiPropTunerState,
     chain_state::MCMCChainState,
     p_accept::AbstractVector{<:Real}
 )
-    # Every time a proposal is picked, tune picking probability by
-    # `picking_prob * acceptance_prob * small_delta`
-    # and afterwards re-normalize picking probabilities
-    # Ensure no picking probability falls below a base threshold.
-
+    (;alpha, picking_socket, accept_prob) = tuner_state
     curr_idx = multi_proposal.current_idx
     picking_rule = multi_proposal.picking_rule
-    n_proposals = length(multi_proposal.proposal_states)
+    N = length(multi_proposal.proposal_states)
+ 
+    acc_new = accept_prob[curr_idx] * (1-alpha) + mean(p_accept) * alpha
+    accept_prob[curr_idx] = acc_new
 
-    n_walkers = nwalkers(chain_state)
-    scale = tuner_state.scale
-    base_thresh = tuner_state.base_picking_threshold
-
-    if picking_rule isa Distribution
-        picking_probs_tuned = deepcopy(picking_rule.p)
-        picking_probs_tuned[curr_idx] *= (1 + 1/n_walkers * sum(p_accept) * scale)
-        picking_probs_tuned ./= sum(picking_probs_tuned)
-
-        valid_proposal = picking_rule.p .> 0.0
-        below_thresh = (picking_probs_tuned .< base_thresh) .* valid_proposal
-
-        picking_probs_tuned[below_thresh] .= base_thresh
-        rem_prob = 1.0 - sum(below_thresh) * base_thresh
-
-        picking_probs_tuned[.!below_thresh] ./= (sum(picking_probs_tuned[.!below_thresh]) / rem_prob)
-        picking_rule_tuned = Categorical(picking_probs_tuned)
-    else
-        N = sum(picking_rule)
-
-        picking_rule_tuned = picking_rule ./ N
-        picking_rule_tuned[curr_idx] *= (1 + 1/n_walkers * sum(p_accept) * scale)
-        picking_rule_tuned = round.(Integer, picking_rule_tuned .* (N / sum(picking_rule_tuned)))
-
-        valid_proposal = picking_rule .> 0.0
-        below_thresh = (picking_rule_tuned .< base_thresh) .* valid_proposal
-
-        picking_rule_tuned[below_thresh] .= base_thresh
-        rem_prob = 1.0 - sum(below_thresh) * (base_thresh/N)
-
-        N_a = sum(picking_rule_tuned[.!below_thresh])
-
-        picking_rule_tuned[.!below_thresh] ./= (sum(picking_probs_tuned[.!below_thresh]) / rem_prob)
-        picking_rule_tuned[.!below_thresh] = round.(Integer, picking_rule_tuned[.!below_thresh] .* N_a)
-    end
+    picking_rule_tuned = _tune_picking_rule(picking_rule, acc_new, curr_idx, picking_socket, N)
 
     multi_proposal_tuned = @set multi_proposal.picking_rule = picking_rule_tuned
 
     return multi_proposal_tuned, tuner_state, chain_state
 end
 
+function _tune_picking_rule(
+    picking_rule::Categorical,
+    acc_new::Float64,
+    curr_idx::Integer,
+    picking_socket::Float64,
+    N::Integer
+)
+    p_tuned = picking_rule.p
+    p_tuned[curr_idx] = acc_new
+    p_tuned .*= (1 - picking_socket) / sum(p_tuned)
+    p_tuned .+= picking_socket / N  
+    return Categorical(p_tuned)
+end
+
+function _tune_picking_rule(
+    picking_rule::Tuple,
+    acc_new::Float64,
+    curr_idx::Integer,
+    picking_socket::Float64,
+    N::Integer
+)
+    norm = sum(picking_rule)
+    picking_rule_tuned = picking_rule ./ norm
+    picking_rule_tuned[curr_idx] = acc_new
+    picking_rule_tuned .*=  (1 - picking_socket) / sum(picking_rule_tuned)
+    picking_rule_tuned .+= picking_socket / N
+
+    return round.(Integer, picking_rule_tuned * norm)
+end
+
+function _qualify_picking_rule(
+    picking_rule::Categorical,
+    tuning_qualities::Tuple,
+    picking_socket::Float64,
+    N_props::Integer
+)
+    valid_proposals = picking_rule.p .> 0.0
+    @assert any(valid_proposals) throw Error("All proposals have picking probability 0!")
+
+    p_tuned = picking_rule.p
+    p_tuned .*= tuning_qualities
+
+    if any(p_tuned .> 0)
+        p_tuned ./= sum(p_tuned)
+
+        p_tuned .*= (1 - picking_socket) / sum(p_tuned)
+        p_tuned .+= picking_socket / N_props
+    else
+        p_tuned[valid_proposals] .= 1/sum(valid_proposals)
+        @warn "No proposal was tuned to its target acceptance interval."        
+    end
+
+    return Categorical(p_tuned)
+end
+
+function _qualify_picking_rule(
+    picking_rule::Tuple,
+    tuning_qualities::Tuple,
+    picking_socket::Float64,
+    N_props::Integer
+)
+    N = sum(picking_rule)
+    valid_proposals = picking_rule .> 0 
+    @assert any(valid_proposals) throw Error("All proposals have picking probability 0!")
+
+    picking_rule_tuned = picking_rule ./ N
+    picking_rule_tuned .*= tuning_qualities
+
+    if any(picking_rule_tuned .> 0)
+        picking_rule_tuned .*= (1 - picking_socket) / sum(p_tuned)
+        picking_rule_tuned .+= picking_socket / N_props
+       
+        picking_rule_tuned = round.(Integer, picking_rule_tuned .* N)
+    else
+        picking_rule_tuned[valid_proposals] = sum(valid_proposals) / N
+        picking_rule_tuned = round.(Integer, picking_rule_tuned .* N)
+    end
+
+    return picking_rule_tuned 
+end
