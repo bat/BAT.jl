@@ -10,22 +10,22 @@ end
 
 BAT.create_trafo_tuner_state(tuning::StanLikeTuning, chain_state::MCMCChainState, n_steps_hint::Integer) = StanLikeTunerState(tuning, MCMCBasicStats(chain_state), AdvancedHMC.Adaptation.StanHMCAdaptorState())
 
-function BAT.mcmc_tuning_init!!(tuner::StanLikeTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
+function BAT.mcmc_trafo_tuning_init!!(tuner::StanLikeTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
     tuning = tuner.tuning
     AdvancedHMC.Adaptation.initialize!(tuner.stan_state, tuning.init_buffer, tuning.term_buffer, tuning.window_size, Int(max_nsteps - 1))
     nothing
 end
 
-function BAT.mcmc_tuning_reinit!!(tuner::StanLikeTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
+function BAT.mcmc_trafo_tuning_reinit!!(tuner::StanLikeTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
     tuning = tuner.tuning
     AdvancedHMC.Adaptation.initialize!(tuner.stan_state, tuning.init_buffer, tuning.term_buffer, tuning.window_size, Int(max_nsteps - 1))
     nothing
 end
 
-BAT.mcmc_tuning_postinit!!(tuner::StanLikeTunerState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector}) = nothing
+BAT.mcmc_trafo_tuning_postinit!!(tuner::StanLikeTunerState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector}) = nothing
 
 
-function BAT.mcmc_tune_post_cycle!!(
+function BAT.mcmc_tune_trafo_post_cycle!!(
     f_transform::Function,
     tuner::StanLikeTunerState,
     chain_state::MCMCChainState,
@@ -36,14 +36,14 @@ function BAT.mcmc_tune_post_cycle!!(
 end
 
 
-BAT.mcmc_tuning_finalize!!(
+BAT.mcmc_trafo_tuning_finalize!!(
     f_transform::Function,
     tuner::StanLikeTunerState,
     chain_state::MCMCChainState
 ) = f_transform, tuner, chain_state
 
 
-function BAT.mcmc_tune_post_step!!(
+function BAT.mcmc_tune_trafo_post_step!!(
     f_transform::Function,
     tuner::StanLikeTunerState,
     chain_state::MCMCChainState,

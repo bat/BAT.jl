@@ -52,21 +52,40 @@ mutable struct AdaptiveAffineTuningState{
 end
 
 
-function AdaptiveAffineTuningState(tuning::AdaptiveAffineTuning, chain_state::MCMCChainState)
+function AdaptiveAffineTuningState(
+    tuning::AdaptiveAffineTuning,
+    chain_state::MCMCChainState
+)
     T = eltype(eltype(chain_state.current.x.v))
     scale = one(T)
     AdaptiveAffineTuningState(tuning, MCMCBasicStats(chain_state), 1, scale)
 end
 
 
-create_trafo_tuner_state(tuning::AdaptiveAffineTuning, chain_state::MCMCChainState, iteration::Integer) = AdaptiveAffineTuningState(tuning, chain_state)
+create_trafo_tuner_state(
+    tuning::AdaptiveAffineTuning,
+    chain_state::MCMCChainState,
+    iteration::Integer
+) = AdaptiveAffineTuningState(tuning, chain_state)
 
-mcmc_tuning_init!!(tuner_state::AdaptiveAffineTuningState, chain_state::MCMCChainState, max_nsteps::Integer) = nothing
+mcmc_trafo_tuning_init!!(
+    tuner_state::AdaptiveAffineTuningState,
+    chain_state::MCMCChainState,
+    max_nsteps::Integer
+) = nothing
 
-mcmc_tuning_reinit!!(tuner_state::AdaptiveAffineTuningState, chain_state::MCMCChainState, max_nsteps::Integer) = nothing
+mcmc_trafo_tuning_reinit!!(
+    tuner_state::AdaptiveAffineTuningState,
+    chain_state::MCMCChainState,
+    max_nsteps::Integer
+) = nothing
 
 
-function mcmc_tuning_postinit!!(tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector})
+function mcmc_trafo_tuning_postinit!!(
+    tuner::AdaptiveAffineTuningState,
+    chain_state::MCMCChainState,
+    samples::AbstractVector{<:DensitySampleVector}
+)
     # The very first samples of a chain can be very valuable to init tuner
     # stats, especially if the chain gets stuck early after:
     for i in 1:nwalkers(chain_state)
@@ -75,7 +94,7 @@ function mcmc_tuning_postinit!!(tuner::AdaptiveAffineTuningState, chain_state::M
 end
 
 
-function mcmc_tune_post_cycle!!(
+function mcmc_tune_trafo_post_cycle!!(
     f_transform::Function,
     tuner::AdaptiveAffineTuningState,
     chain_state::MCMCChainState,
@@ -135,13 +154,13 @@ function mcmc_tune_post_cycle!!(
 end
 
 
-mcmc_tuning_finalize!!(
+mcmc_trafo_tuning_finalize!!(
     f_transform::Function,
     tuner::AdaptiveAffineTuningState,
     chain_state::MCMCChainState
 ) = f_transform, tuner, chain_state
 
-function mcmc_tune_post_step!!(
+function mcmc_tune_trafo_post_step!!(
     f_transform::Function,
     tuner::AdaptiveAffineTuningState,
     chain_state::MCMCChainState,
@@ -152,4 +171,3 @@ function mcmc_tune_post_step!!(
 )
     return f_transform, tuner, chain_state
 end
-

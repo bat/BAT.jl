@@ -399,25 +399,25 @@ end
 # And if the z-position changes during the transformation tuning, should the proposal Tuner run on the updated z-position?
 function mcmc_tuning_init!!(state::MCMCState, max_nsteps::Integer)
     # TODO: mcmc_tuning_init!! should support immutable tuners and states and return the new objects
-    mcmc_tuning_init!!(state.trafo_tuner_state, state.chain_state, max_nsteps)
-    mcmc_tuning_init!!(state.proposal_tuner_state, state.chain_state, max_nsteps)
+    mcmc_trafo_tuning_init!!(state.trafo_tuner_state, state.chain_state, max_nsteps)
+    mcmc_proposal_tuning_init!!(state.proposal_tuner_state, state.chain_state, max_nsteps)
 end
 
 function mcmc_tuning_reinit!!(state::MCMCState, max_nsteps::Integer)
     # TODO: mcmc_tuning_reinit!! should support immutable tuners and states and return the new objects
-    mcmc_tuning_reinit!!(state.trafo_tuner_state, state.chain_state, max_nsteps)
-    mcmc_tuning_reinit!!(state.proposal_tuner_state, state.chain_state, max_nsteps)
+    mcmc_trafo_tuning_reinit!!(state.trafo_tuner_state, state.chain_state, max_nsteps)
+    mcmc_proposal_tuning_reinit!!(state.proposal_tuner_state, state.chain_state, max_nsteps)
 end
 
 function mcmc_tuning_postinit!!(state::MCMCState, samples::AbstractVector{<:DensitySampleVector})
     # TODO: mcmc_tuning_postinit!! should support immutable tuners and states and return the new objects
-    mcmc_tuning_postinit!!(state.trafo_tuner_state, state.chain_state, samples)
-    mcmc_tuning_postinit!!(state.proposal_tuner_state, state.chain_state, samples)
+    mcmc_trafo_tuning_postinit!!(state.trafo_tuner_state, state.chain_state, samples)
+    mcmc_proposal_tuning_postinit!!(state.proposal_tuner_state, state.chain_state, samples)
 end
 
 # TODO: MD, when should the z-position be updated? Before or after the proposal tuning?
 function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:DensitySampleVector})
-    f_transform_tuned, trafo_tuner_state_new, chain_state_trafo_tuned = mcmc_tune_post_cycle!!(
+    f_transform_tuned, trafo_tuner_state_new, chain_state_trafo_tuned = mcmc_tune_trafo_post_cycle!!(
         state.chain_state.f_transform,
         state.trafo_tuner_state,
         state.chain_state,
@@ -430,7 +430,7 @@ function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:Dens
     proposal = set_proposal_transform!!(proposal, chain_state_trafo_tuned)
     chain_state_trafo_tuned = mcmc_update_z_position!!(chain_state_trafo_tuned)
 
-    proposal_state_new, proposal_tuner_state_new, chain_state_new = mcmc_tune_post_cycle!!(
+    proposal_state_new, proposal_tuner_state_new, chain_state_new = mcmc_tune_proposal_post_cycle!!(
         proposal,
         state.proposal_tuner_state,
         chain_state_trafo_tuned,
@@ -462,7 +462,7 @@ function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:Dens
 end
 
 function mcmc_tune_post_step!!(state::MCMCState, proposal::MCMCProposalState, p_accept::AbstractVector{<:Real})
-    f_transform_tuned, trafo_tuner_state_new, chain_state_trafo_tuned = mcmc_tune_post_step!!(
+    f_transform_tuned, trafo_tuner_state_new, chain_state_trafo_tuned = mcmc_tune_trafo_post_step!!(
         state.chain_state.f_transform,
         state.trafo_tuner_state,
         state.chain_state,
@@ -477,7 +477,7 @@ function mcmc_tune_post_step!!(state::MCMCState, proposal::MCMCProposalState, p_
     proposal = set_proposal_transform!!(proposal, chain_state_trafo_tuned)
     chain_state_trafo_tuned = mcmc_update_z_position!!(chain_state_trafo_tuned)
 
-    proposal_state_new, proposal_tuner_state_new, chain_state_new = mcmc_tune_post_step!!(
+    proposal_state_new, proposal_tuner_state_new, chain_state_new = mcmc_tune_proposal_post_step!!(
         proposal,
         state.proposal_tuner_state,
         chain_state_trafo_tuned,
@@ -495,14 +495,14 @@ function mcmc_tune_post_step!!(state::MCMCState, proposal::MCMCProposalState, p_
 end
 
 function mcmc_tuning_finalize!!(mcmc_state::MCMCState)
-    f_new, trafo_tuner_state_new, chain_state_new = mcmc_tuning_finalize!!(
+    f_new, trafo_tuner_state_new, chain_state_new = mcmc_trafo_tuning_finalize!!(
         mcmc_state.chain_state.f_transform,
         mcmc_state.trafo_tuner_state,
         mcmc_state.chain_state
     )
     @reset chain_state_new.f_transform = f_new
 
-    proposal_new, proposal_tuner_state_new, chain_state_final = mcmc_tuning_finalize!!(
+    proposal_new, proposal_tuner_state_new, chain_state_final = mcmc_proposal_tuning_finalize!!(
         chain_state_new.proposal,
         mcmc_state.proposal_tuner_state,
         chain_state_new

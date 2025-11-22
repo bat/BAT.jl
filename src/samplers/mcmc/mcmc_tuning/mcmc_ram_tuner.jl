@@ -33,20 +33,35 @@ end
 mutable struct RAMProposalTunerState <: MCMCTransformTunerState end
 
 
-create_trafo_tuner_state(tuning::RAMTuning, chain_state::MCMCChainState, n_steps_hint::Integer) = RAMTrafoTunerState(tuning, 0)
+create_trafo_tuner_state(
+    tuning::RAMTuning,
+    chain_state::MCMCChainState,
+    n_steps_hint::Integer
+) = RAMTrafoTunerState(tuning, 0)
 
-function mcmc_tuning_init!!(tuner_state::RAMTrafoTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
+function mcmc_trafo_tuning_init!!(
+    tuner_state::RAMTrafoTunerState,
+    chain_state::MCMCChainState,
+    max_nsteps::Integer
+)
     chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false) # TODO ?
     tuner_state.nsteps = 0
     return nothing
 end
 
-mcmc_tuning_reinit!!(tuner_state::RAMTrafoTunerState, chain_state::MCMCChainState, max_nsteps::Integer) = nothing
+mcmc_trafo_tuning_reinit!!(
+    tuner_state::RAMTrafoTunerState,
+    chain_state::MCMCChainState,
+    max_nsteps::Integer
+) = nothing
 
-mcmc_tuning_postinit!!(tuner::RAMTrafoTunerState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector}) = nothing
+mcmc_trafo_tuning_postinit!!(
+    tuner::RAMTrafoTunerState,
+    chain_state::MCMCChainState,
+    samples::AbstractVector{<:DensitySampleVector}
+) = nothing
 
-
-function mcmc_tune_post_cycle!!(
+function mcmc_tune_trafo_post_cycle!!(
     f_transform::Function,
     tuner::RAMTrafoTunerState,
     chain_state::MCMCChainState,
@@ -56,13 +71,13 @@ function mcmc_tune_post_cycle!!(
     return f_transform, tuner, chain_state
 end
 
-mcmc_tuning_finalize!!(
+mcmc_trafo_tuning_finalize!!(
     f_transform::Function,
     tuner_state::RAMTrafoTunerState,
     chain_state::MCMCChainState
 ) = f_transform, tuner_state, chain_state
 
-function mcmc_tune_post_step!!(
+function mcmc_tune_trafo_post_step!!(
     f_transform::Function,
     tuner_state::RAMTrafoTunerState,
     chain_state::MCMCChainState,

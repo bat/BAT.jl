@@ -19,20 +19,20 @@ end
 BAT.create_proposal_tuner_state(tuning::HMCTuning, chain_state::MCMCChainState, proposal::HMCProposalState, iteration::Integer) = HMCProposalTunerState(tuning, chain_state, proposal)
 
 
-function BAT.mcmc_tuning_init!!(tuner::HMCProposalTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
+function BAT.mcmc_proposal_tuning_init!!(tuner::HMCProposalTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
     AdvancedHMC.Adaptation.initialize!(tuner.adaptor, Int(max_nsteps - 1))
     nothing
 end
 
 
-function BAT.mcmc_tuning_reinit!!(tuner::HMCProposalTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
+function BAT.mcmc_proposal_tuning_reinit!!(tuner::HMCProposalTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
     AdvancedHMC.Adaptation.initialize!(tuner.adaptor, Int(max_nsteps - 1))
     nothing
 end
 
-BAT.mcmc_tuning_postinit!!(tuner::HMCProposalTunerState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector}) = nothing
+BAT.mcmc_proposal_tuning_postinit!!(tuner::HMCProposalTunerState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector}) = nothing
 
-function BAT.mcmc_tune_post_cycle!!(
+function BAT.mcmc_tune_proposal_post_cycle!!(
     proposal::HMCProposalState,
     tuner::HMCProposalTunerState,
     chain_state::MCMCChainState,
@@ -41,7 +41,7 @@ function BAT.mcmc_tune_post_cycle!!(
     return proposal, tuner, chain_state
 end
 
-function BAT.mcmc_tuning_finalize!!(
+function BAT.mcmc_proposal_tuning_finalize!!(
     proposal::HMCProposalState,
     tuner::HMCProposalTunerState,
     chain_state::MCMCChainState
@@ -55,7 +55,7 @@ function BAT.mcmc_tuning_finalize!!(
 end
 
 # TODO: MD, make actually !! function
-function BAT.mcmc_tune_post_step!!(
+function BAT.mcmc_tune_proposal_post_step!!(
     proposal::HMCProposalState,
     tuner_state::HMCProposalTunerState,
     chain_state::MCMCChainState,

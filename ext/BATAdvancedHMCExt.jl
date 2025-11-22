@@ -32,7 +32,8 @@ using BAT: RNGPartition, get_rng, set_rng!
 using BAT: mcmc_step!!, nsamples, nsteps, nwalkers, eff_acceptance_ratio, get_current_proposal
 using BAT: get_samples!, reset_rng_counters!
 using BAT: create_trafo_tuner_state, create_proposal_tuner_state
-using BAT: mcmc_tuning_init!!, mcmc_tuning_postinit!!, mcmc_tuning_reinit!!, mcmc_tune_transform_post_cycle!!, transform_mcmc_tuning_finalize!!
+using BAT: mcmc_trafo_tuning_init!!, mcmc_trafo_tuning_postinit!!, mcmc_trafo_tuning_reinit!!, mcmc_tune_trafo_post_cycle!!, mcmc_trafo_tuning_finalize!!
+using BAT: mcmc_proposal_tuning_init!!, mcmc_proposal_tuning_postinit!!, mcmc_proposal_tuning_reinit!!, mcmc_tune_proposal_post_cycle!!, mcmc_proposal_tuning_finalize!!
 using BAT: totalndof, measure_support, checked_logdensityof
 
 using BAT: HamiltonianMC

@@ -246,11 +246,25 @@ function mcmc_tuning_postinit!! end
 
 function mcmc_tuning_reinit!! end
 
-function mcmc_tune_transform_post_cycle!! end
-
 function mcmc_tune_post_step!! end
 
-function transform_mcmc_tuning_finalize!! end
+
+function mcmc_trafo_tuning_init!! end
+
+function mcmc_trafo_tuning_postinit!! end
+
+function mcmc_trafo_tuning_reinit!! end
+
+function mcmc_tune_trafo_post_step!! end
+
+
+function mcmc_proposal_tuning_init!! end
+
+function mcmc_proposal_tuning_postinit!! end
+
+function mcmc_proposal_tuning_reinit!! end
+
+function mcmc_tune_proposal_post_step!! end
 
 
 function mcmc_init! end
@@ -298,7 +312,7 @@ function get_proposal_tuning_quality(
         end
         quality = clamp((1 - d)^beta, 0.0, 1.0)
     else
-        quality = 0
+        quality = 0.0
     end
 
     return quality

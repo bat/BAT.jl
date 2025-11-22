@@ -52,37 +52,37 @@ function create_trafo_tuner_state(
     return MultiTrafoTunerState(trafo_tuners)
 end
 
-function mcmc_tuning_init!!(
+function mcmc_trafo_tuning_init!!(
     multi_tuner_state::MultiTrafoTunerState,
     chain_state::MCMCChainState,
     max_nsteps::Integer
 )
     for tuner in multi_tuner_state.trafo_tuners
-        mcmc_tuning_init!!(tuner, chain_state, max_nsteps)
+        mcmc_trafo_tuning_init!!(tuner, chain_state, max_nsteps)
     end
 end
 
-function mcmc_tuning_reinit!!(
+function mcmc_trafo_tuning_reinit!!(
     multi_tuner_state::MultiTrafoTunerState, 
     chain_state::MCMCChainState, 
     max_nsteps::Integer
 )
     for tuner in multi_tuner_state.trafo_tuners
-        mcmc_tuning_reinit!!(tuner, chain_state, max_nsteps)
+        mcmc_trafo_tuning_reinit!!(tuner, chain_state, max_nsteps)
     end    
 end
 
-function mcmc_tuning_postinit!!(
+function mcmc_trafo_tuning_postinit!!(
     multi_tuner_state::MultiTrafoTunerState,
     chain_state::MCMCChainState,
     samples::AbstractVector{<:DensitySampleVector}
 )
     for tuner in multi_tuner_state.trafo_tuners
-        mcmc_tuning_postinit!!(tuner, chain_state, samples)
+        mcmc_trafo_tuning_postinit!!(tuner, chain_state, samples)
     end 
 end
 
-function mcmc_tune_post_cycle!!(
+function mcmc_tune_trafo_post_cycle!!(
     f_transform::FunctionChain,
     multi_tuner_state::MultiTrafoTunerState,
     chain_state::MCMCChainState,
@@ -99,7 +99,7 @@ function mcmc_tune_post_cycle!!(
         tuner = trafo_tuners[j]
         intermediate_result = inv_intermediate_results[i]
 
-        trafo_components[j], trafo_tuners[j], chain_state = mcmc_tune_post_cycle!!(
+        trafo_components[j], trafo_tuners[j], chain_state = mcmc_tune_trafo_post_cycle!!(
             trafo, 
             tuner, 
             chain_state, 
@@ -110,7 +110,7 @@ function mcmc_tune_post_cycle!!(
     return f_transform, multi_tuner_state, chain_state
 end
 
-function mcmc_tuning_finalize!!(
+function mcmc_trafo_tuning_finalize!!(
     trafo_chain::Function,
     multi_tuner_state::MultiTrafoTunerState,
     chain_state::MCMCChainState
@@ -118,12 +118,12 @@ function mcmc_tuning_finalize!!(
     for i in eachindex(multi_tuner_state.trafo_tuners)
         f_transform = fchainfs(trafo_chain)[i]
         tuner = multi_tuner_state.trafo_tuners[i]
-        mcmc_tuning_finalize!!(f_transform, tuner, chain_state)
+        mcmc_trafo_tuning_finalize!!(f_transform, tuner, chain_state)
     end 
     return trafo_chain, multi_tuner_state, chain_state
 end
 
-function mcmc_tune_post_step!!(
+function mcmc_tune_trafo_post_step!!(
     f_transform::FunctionChain,
     multi_tuner_state::MultiTrafoTunerState, 
     chain_state::MCMCChainState,
@@ -142,7 +142,7 @@ function mcmc_tune_post_step!!(
         tuner = trafo_tuners[j]
         current_interm_res, proposed_interm_res = intermediate_results[j]
 
-        trafo_components[j], trafo_tuners[j], chain_state = mcmc_tune_post_step!!(
+        trafo_components[j], trafo_tuners[j], chain_state = mcmc_tune_trafo_post_step!!(
             trafo,
             tuner,
             chain_state,
