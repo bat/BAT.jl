@@ -92,7 +92,11 @@ function mcmc_tune_trafo_post_step!!(
     end
 
     gamma = tuner_state.tuning.gamma
-    target_acceptance = get_target_acceptance_ratio(proposal)
+    # target_acceptance = get_target_acceptance_ratio(proposal)
+    # ONLY FOR DEBUGGING! REMOVE!
+    target_acceptance = 0.234
+
+
     b = f_transform.b
     n_dims = length(b)
 

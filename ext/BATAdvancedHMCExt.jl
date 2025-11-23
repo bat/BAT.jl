@@ -20,8 +20,8 @@ using AffineMaps: MulAdd
 using BAT: MeasureLike, BATMeasure
 
 using BAT: get_context, get_adselector, get_valid_adselector
-using BAT: getproposal, mcmc_target
-using BAT: MCMCChainState, HamiltonianMC, MCMCProposalState, HMCProposalState, MCMCChainStateInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin
+using BAT: getproposal, mcmc_target, get_current_proposal_idx
+using BAT: MCMCChainState, HamiltonianMC, MCMCProposalState, MultiProposalState, HMCProposalState, MCMCChainStateInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin
 using BAT: MCMCBasicStats, push!, reweight_relative!
 using BAT: RAMTuning
 using BAT: get_target_acceptance_int, get_target_acceptance_ratio

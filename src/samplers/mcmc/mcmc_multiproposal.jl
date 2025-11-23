@@ -14,8 +14,8 @@ Fields:
 $(TYPEDFIELDS)
 """
 @with_kw struct MCMCMultiProposal{
-    P<:Tuple{Vararg{MCMCProposal}},
-    R<:Union{Vector{Integer}, Categorical}
+    P<:Vector{<:MCMCProposal},
+    R<:Union{Vector{<:Integer}, Categorical}
 }<:MCMCProposal
     # TODO: MD, should we put a default tuple of proposals, if so, what should it be?
     proposals::P = (RandomWalk(), HamiltonianMC())
@@ -25,8 +25,8 @@ end
 export MCMCMultiProposal
 
 struct MultiProposalState{
-    PS<:Tuple{Vararg{MCMCProposalState}},
-    R<:Union{Vector{Integer}, Categorical},
+    PS<:Vector{<:MCMCProposalState},
+    R<:Union{Vector{<:Integer}, Categorical},
     I<:Integer
 }<:MCMCProposalState
     proposal_states::PS
@@ -78,7 +78,7 @@ end
 
 
 function set_current_proposal!!(
-    proposal_state::MultiProposalState{<:Any, <:Tuple{Vararg{Integer}}}, 
+    proposal_state::MultiProposalState{<:Any, <:Vector{Integer}}, 
     stepno::Integer, 
     rng::AbstractRNG
 )
@@ -175,12 +175,11 @@ function _create_proposal_state(
         push!(proposal_states_init, proposal_state_tmp)
     end
 
-    proposal_states = Tuple(proposal_states_init)
     picking_rule = multi_proposal.picking_rule
 
     idx = picking_rule isa Distribution ? rand(rng, picking_rule) : 1
 
-    return MultiProposalState(proposal_states, picking_rule, idx)
+    return MultiProposalState(proposal_states_init, picking_rule, idx)
 end
 
 function set_proposal_transform!!(
@@ -188,8 +187,8 @@ function set_proposal_transform!!(
     chain_state::MCMCChainState 
 )
 
-    for proposal in multi_proposal.proposal_states
-	    proposal = set_proposal_transform!!(proposal, chain_state)
+    for i in 1:length(multi_proposal.proposal_states)
+	    multi_proposal.proposal_states[i] = set_proposal_transform!!(multi_proposal.proposal_states[i], chain_state)
     end
 
     return multi_proposal

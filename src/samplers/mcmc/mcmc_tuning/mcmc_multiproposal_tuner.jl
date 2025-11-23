@@ -14,7 +14,7 @@ Fields:
 $(TYPEDFIELDS)
 """
 struct MultiProposalTuning{
-    PT<:Tuple{Vararg{MCMCProposalTuning}},
+    PT<:Vector{<:MCMCProposalTuning},
 }<:MCMCProposalTuning
     proposal_tunings::PT
 end
@@ -22,7 +22,7 @@ end
 export MultiProposalTuning
 
 struct MultiProposalTunerState{
-    PTS<:Tuple{Vararg{MCMCProposalTunerState}},
+    PTS<:Vector{<:MCMCProposalTunerState},
 }<:MCMCProposalTunerState
     proposal_tuners::PTS
 end
@@ -53,9 +53,7 @@ function create_proposal_tuner_state(
         push!(proposal_tuners_init, tuner_tmp)
     end
 
-    proposal_tuners = Tuple(proposal_tuners_init)
-
-    return MultiProposalTunerState(proposal_tuners)
+    return MultiProposalTunerState(proposal_tuners_init)
 end
 
 function mcmc_proposal_tuning_init!!(
