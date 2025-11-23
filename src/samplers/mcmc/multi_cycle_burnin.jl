@@ -62,10 +62,10 @@ function mcmc_burnin!(
                 end
             end
         end
-        
+
         # TODO, MD: Rewrite this via append!
         merged_outputs = [merge(walker_output...) for walker_output in new_outputs]
-        
+
         # ToDo: Convergence tests are a special case, they're not supposed
         # to change any state, so we don't want to use the context of the
         # first chain here. But just making a new context is also not ideal.
@@ -80,11 +80,10 @@ function mcmc_burnin!(
         callback(Val(:mcmc_burnin), mcmc_states)
 
         @info "MCMC Tuning cycle $cycles finished, $nchains chains, $ntuned tuned, $nconverged converged."
-
     end
 
-    mcmc_tuning_finalize!!.(mcmc_states)
-    
+    mcmc_states = mcmc_tuning_finalize!!.(mcmc_states)
+
     if successful
         @info "MCMC tuning of $nchains chains successful after $cycles cycle(s)."
     else

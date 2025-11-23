@@ -23,7 +23,6 @@ using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
     @testset "MCMC iteration" begin
         v_inits = BAT.bat_ensemble_initvals(target, InitFromTarget(), nwalkers, context)
         # TODO: MD, Reactivate type inference tests
-        # @test @inferred(BAT.MCMCChainState(samplingalg, target, 1, unshaped.(v_inits), deepcopy(context))) isa BAT.MHChainState
         # chain = @inferred(BAT.MCMCChainState(samplingalg, target, 1, unshaped.(v_inits), deepcopy(context))) 
         mcmc_state = BAT.MCMCState(samplingalg, target, 1, unshaped.(v_inits), deepcopy(context))
         chain_output = BAT._empty_chain_outputs(mcmc_state)
@@ -84,7 +83,6 @@ using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
         (mcmc_states, chain_outputs) = init_result
 
         # TODO: MD, Reactivate, for some reason fail
-        # @test mcmc_states isa AbstractVector{<:BAT.MHChainState}
         # @test tuners isa AbstractVector{<:BAT.AdaptiveAffineTuningState}
         @test chain_outputs isa AbstractVector{<:AbstractVector{<:DensitySampleVector}}
 
