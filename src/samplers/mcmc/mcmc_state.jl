@@ -385,8 +385,8 @@ end
 function mcmc_update_z_position!!(mc_state::MCMCChainState)
     f_inv = inverse(mc_state.f_transform)
 
-    current_z_new::typeof(mc_state.current.z) = transform_samples(f_inv, mc_state.current.x)
-    proposed_z_new::typeof(mc_state.proposed.z) = transform_samples(f_inv, mc_state.proposed.x)
+    current_z_new = _transform_dsv!!(f_inv, mc_state.current.z, mc_state.current.x)
+    proposed_z_new = _transform_dsv!!(f_inv, mc_state.proposed.z, mc_state.proposed.x)
 
     mc_state_new::typeof(mc_state) = @set mc_state.current.z = current_z_new
     mc_state_new = @set mc_state_new.proposed.z = proposed_z_new

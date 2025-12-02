@@ -271,3 +271,17 @@ function _trafo_create_unshaped_ys(f, xs, y_shape::AbstractValueShape)
     n = length(eachindex(xs))
     return nestedview(allocate_array(cpunit, R, (m, n)))
 end
+
+
+function _transform_dsv!!(f, dsv_y::DensitySampleVector, dsv_x::DensitySampleVector)
+    xs = dsv_x.v
+    ys_ladjs = with_logabsdet_jacobian.(f, xs)
+
+    dsv_y.v .= first.(ys_ladjs)
+    dsv_y.logd .= dsv_x.logd .- getsecond.(ys_ladjs)
+    dsv_y.weight .= dsv_x.weight
+    dsv_y.info .= dsv_x.info
+    dsv_y.aux .= dsv_x.aux
+
+    return dsv_y
+end
