@@ -279,105 +279,106 @@ function isviablestate end
 
 function mcmc_trafo_tuning_init!!(
     ::MCMCTransformTunerState,
-    ::MCMCChainState,
+    ::CS,
     ::Integer
-)
+) where CS<:MCMCIterator
     return nothing
 end
 
 function mcmc_trafo_tuning_reinit!!(
     ::MCMCTransformTunerState,
-    ::MCMCChainState,
+    ::CS,
     ::Integer
-)
+) where CS<:MCMCIterator
     return nothing
 end
 
 function mcmc_trafo_tuning_postinit!!(
     tuner::MCMCTransformTunerState,
-    chain_state::MCMCChainState,
+    chain_state::CS,
     samples::AbstractVector{<:DensitySampleVector}
-)
+) where CS<:MCMCIterator
     return nothing
 end
 
 function mcmc_tune_trafo_post_cycle!!(
     f_transform::Function,
     tuner::MCMCTransformTunerState,
-    chain_state::MCMCChainState,
+    chain_state::CS,
     proposal::MCMCProposalState,
     samples::AbstractVector{<:DensitySampleVector}
-)
+) where CS<:MCMCIterator
     return f_transform, tuner, chain_state
 end
 
 function mcmc_trafo_tuning_finalize!!(
     f_transform::Function,
     trafo_tuner_state::MCMCTransformTunerState,
-    chain_state::MCMCChainState
-)
+    chain_state::CS
+) where CS<:MCMCIterator
     return f_transform, trafo_tuner_state, chain_state
 end
 
 function mcmc_tune_trafo_post_step!!(
     f_transform::Function,
     tuner::MCMCTransformTunerState,
-    chain_state::MCMCChainState,
+    chain_state::CS,
+    ::MCMCProposalState,
     ::NamedTuple,
     ::NamedTuple,
     ::AbstractVector{<:Real}
-) 
+) where CS<:MCMCIterator
     return f_transform, tuner, chain_state
 end
 
 
 function mcmc_proposal_tuning_init!!(
     ::MCMCProposalTunerState,
-    ::MCMCChainState,
+    ::CS,
     ::Integer
-)
+) where CS<:MCMCIterator
     return nothing
 end
 
 function mcmc_proposal_tuning_reinit!!(
     ::MCMCProposalTunerState,
-    ::MCMCChainState,
+    ::CS,
     ::Integer
-) 
+) where CS<:MCMCIterator
     return nothing
 end
 
 function mcmc_proposal_tuning_postinit!!(
     ::MCMCProposalTunerState,
-    ::MCMCChainState,
+    ::CS,
     ::AbstractVector{<:DensitySampleVector}
-) 
+) where CS<:MCMCIterator
     return nothing
 end
 
 function mcmc_tune_proposal_post_cycle!!(
     proposal::MCMCProposalState, 
     tuner::MCMCProposalTunerState, 
-    chain_state::MCMCChainState, 
+    chain_state::CS, 
     ::AbstractVector{<:DensitySampleVector}
-) 
+) where CS<:MCMCIterator
     return proposal, tuner, chain_state
 end
 
 function mcmc_proposal_tuning_finalize!!(
     proposal_state::MCMCProposalState,
     proposal_tuner_state::MCMCProposalTunerState, 
-    chain_state::MCMCChainState
-) 
+    chain_state::CS
+) where CS<:MCMCIterator
     return proposal_state, proposal_tuner_state, chain_state
 end
 
 function mcmc_tune_proposal_post_step!!(
     proposal::MCMCProposalState, 
     tuner::MCMCProposalTunerState, 
-    chain_state::MCMCChainState, 
+    chain_state::CS, 
     ::AbstractVector{<:Real}
-) 
+) where CS<:MCMCIterator
     return proposal, tuner, chain_state
 end
 
