@@ -20,10 +20,11 @@ using AffineMaps: MulAdd
 using BAT: MeasureLike, BATMeasure
 
 using BAT: get_context, get_adselector, get_valid_adselector
-using BAT: getproposal, mcmc_target
-using BAT: MCMCChainState, HMCChainState, HamiltonianMC, HMCProposalState, MCMCChainStateInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin
+using BAT: getproposal, mcmc_target, get_active_proposal_idx
+using BAT: MCMCChainState, HamiltonianMC, MCMCProposalState, MultiProposalState, HMCProposalState, MCMCChainStateInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin
 using BAT: MCMCBasicStats, push!, reweight_relative!
 using BAT: RAMTuning
+using BAT: get_target_acceptance_int, get_target_acceptance_ratio
 using BAT: MCMCProposalTunerState, MCMCTransformTunerState, NoMCMCTempering, NoMCMCTransformTuning
 using BAT: mcmc_weight_values
 using BAT: AbstractTransformTarget, NoAdaptiveTransform, TriangularAffineTransform
@@ -31,10 +32,9 @@ using BAT: RNGPartition, get_rng, set_rng!
 using BAT: mcmc_step!!, nsamples, nsteps, nwalkers, eff_acceptance_ratio
 using BAT: get_samples!, reset_rng_counters!
 using BAT: create_trafo_tuner_state, create_proposal_tuner_state
-using BAT: mcmc_tuning_init!!, mcmc_tuning_postinit!!, mcmc_tuning_reinit!!, mcmc_tune_transform_post_cycle!!, transform_mcmc_tuning_finalize!!
-using BAT: set_mc_transform!!, mcmc_update_z_position!!
+using BAT: mcmc_trafo_tuning_init!!, mcmc_trafo_tuning_postinit!!, mcmc_trafo_tuning_reinit!!, mcmc_tune_trafo_post_cycle!!, mcmc_trafo_tuning_finalize!!
+using BAT: mcmc_proposal_tuning_init!!, mcmc_proposal_tuning_postinit!!, mcmc_proposal_tuning_reinit!!, mcmc_tune_proposal_post_cycle!!, mcmc_proposal_tuning_finalize!!
 using BAT: totalndof, measure_support, checked_logdensityof
-using BAT: CURRENT_SAMPLE, PROPOSED_SAMPLE, INVALID_SAMPLE, ACCEPTED_SAMPLE, REJECTED_SAMPLE
 
 using BAT: HamiltonianMC
 using BAT: AHMCSampleID, AHMCSampleIDVector

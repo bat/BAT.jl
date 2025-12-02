@@ -22,9 +22,9 @@ $(TYPEDFIELDS)
     affine transform."
     λ::Float64 = 0.5
 
-    "Metropolis-Hastings acceptance ratio target, tuning will try to adapt
-    the affine transform to bring the acceptance ratio inside this interval."
-    α::IntervalSets.ClosedInterval{Float64} = ClosedInterval(0.15, 0.35)
+#   "Metropolis-Hastings acceptance ratio target, tuning will try to adapt
+#   the affine transform to bring the acceptance ratio inside this interval."
+#   α::IntervalSets.ClosedInterval{Float64} = ClosedInterval(0.15, 0.35)
 
     "Controls how much the scale of the affine transform is
     widened/narrowed depending on the current MH acceptance ratio."
@@ -51,22 +51,27 @@ mutable struct AdaptiveAffineTuningState{
     scale::Float64
 end
 
-
-function AdaptiveAffineTuningState(tuning::AdaptiveAffineTuning, chain_state::MCMCChainState)
+function AdaptiveAffineTuningState(
+    tuning::AdaptiveAffineTuning,
+    chain_state::MCMCChainState
+)
     T = eltype(eltype(chain_state.current.x.v))
     scale = one(T)
     AdaptiveAffineTuningState(tuning, MCMCBasicStats(chain_state), 1, scale)
 end
 
 
-create_trafo_tuner_state(tuning::AdaptiveAffineTuning, chain_state::MCMCChainState, iteration::Integer) = AdaptiveAffineTuningState(tuning, chain_state)
+create_trafo_tuner_state(
+    tuning::AdaptiveAffineTuning,
+    chain_state::MCMCChainState,
+    iteration::Integer
+) = AdaptiveAffineTuningState(tuning, chain_state)
 
-mcmc_tuning_init!!(tuner_state::AdaptiveAffineTuningState, chain_state::MCMCChainState, max_nsteps::Integer) = nothing
-
-mcmc_tuning_reinit!!(tuner_state::AdaptiveAffineTuningState, chain_state::MCMCChainState, max_nsteps::Integer) = nothing
-
-
-function mcmc_tuning_postinit!!(tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector})
+function mcmc_trafo_tuning_postinit!!(
+    tuner::AdaptiveAffineTuningState,
+    chain_state::MCMCChainState,
+    samples::AbstractVector{<:DensitySampleVector}
+)
     # The very first samples of a chain can be very valuable to init tuner
     # stats, especially if the chain gets stuck early after:
     for i in 1:nwalkers(chain_state)
@@ -74,8 +79,13 @@ function mcmc_tuning_postinit!!(tuner::AdaptiveAffineTuningState, chain_state::M
     end
 end
 
-
-function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector})
+function mcmc_tune_trafo_post_cycle!!(
+    f_transform::Function,
+    tuner::AdaptiveAffineTuningState,
+    chain_state::MCMCChainState,
+    proposal::MCMCProposalState,
+    samples::AbstractVector{<:DensitySampleVector}
+)
     tuning = tuner.tuning
     stats = tuner.stats
     stats_reweight_factor = tuning.r
@@ -85,8 +95,7 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::M
         append!(stats, samples[i])
     end
 
-    α_min = minimum(tuning.α)
-    α_max = maximum(tuning.α)
+    α_min, α_max = get_target_acceptance_int(proposal)
 
     c_min = minimum(tuning.c)
     c_max = maximum(tuning.c)
@@ -97,27 +106,18 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::M
     λ = tuning.λ
     c = tuner.scale
 
-    f_transform = chain_state.f_transform
     A = f_transform.A
     Σ_old = A * A'
 
     param_stats = stats.param_stats
     S = convert(Array, param_stats.cov)
-    
+
     a_t = 1 / t^λ
     new_Σ_unscal = (1 - a_t) * (Σ_old/c) + a_t * S
 
     α = eff_acceptance_ratio(chain_state)
 
-    max_log_posterior = stats.logtf_stats.maximum
-
-    if α_min <= α <= α_max
-        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = true)
-        @debug "MCMC chain $(chain_state.info.id) tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
-    else
-        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false)
-        @debug "MCMC chain $(chain_state.info.id) *not* tuned, acceptance ratio = $(Float32(α)), proposal scale = $(Float32(c)), max. log posterior = $(Float32(max_log_posterior))"
-
+    if !(α_min <= α <= α_max)
         if α > α_max && c < c_max
             tuner.scale = c * β
         elseif α < α_min && c > c_min
@@ -127,27 +127,13 @@ function mcmc_tune_post_cycle!!(tuner::AdaptiveAffineTuningState, chain_state::M
 
     Σ_new = new_Σ_unscal * tuner.scale
     A_new = oftype(A, cholesky(Positive, Σ_new).L)
-    
-    b = chain_state.f_transform.b
+
+    b = f_transform.b
     b_new = oftype(b, (1 - a_t) * b + a_t * param_stats.mean)
 
-    chain_state.f_transform = MulAdd(A_new, b_new)
-    
+    f_transform_new = MulAdd(A_new, b_new)
+
     tuner.iteration += 1
 
-    # TODO: MD, think about keeping old z_position if transform changes only slightly
-    chain_state_new = mcmc_update_z_position!!(chain_state) 
-
-    return chain_state_new, tuner
-end
-
-
-mcmc_tuning_finalize!!(tuner::AdaptiveAffineTuningState, chain_state::MCMCChainState) = nothing
-
-function mcmc_tune_post_step!!(
-    tuner::AdaptiveAffineTuningState,
-    chain_state::MCMCChainState,
-    p_accept::AbstractVector{<:Real}
-)
-    return chain_state, tuner
+    return f_transform_new, tuner, chain_state
 end

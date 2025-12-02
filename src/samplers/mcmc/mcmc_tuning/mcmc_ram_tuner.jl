@@ -20,12 +20,6 @@ Fields:
 $(TYPEDFIELDS)
 """
 @with_kw struct RAMTuning <: MCMCTransformTuning
-    "MCMC target acceptance ratio."
-    target_acceptance::Float64 = 0.234
-
-    "Width around `target_acceptance`."
-    σ_target_acceptance::Float64 = 0.05
-
     "Negative adaption rate exponent."
     gamma::Float64 = 2/3
 end
@@ -39,51 +33,38 @@ end
 mutable struct RAMProposalTunerState <: MCMCTransformTunerState end
 
 
-create_trafo_tuner_state(tuning::RAMTuning, chain_state::MCMCChainState, n_steps_hint::Integer) = RAMTrafoTunerState(tuning, 0)
+create_trafo_tuner_state(
+    tuning::RAMTuning,
+    chain_state::MCMCChainState,
+    n_steps_hint::Integer
+) = RAMTrafoTunerState(tuning, 0)
 
-function mcmc_tuning_init!!(tuner_state::RAMTrafoTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
+function mcmc_trafo_tuning_init!!(
+    tuner_state::RAMTrafoTunerState,
+    chain_state::MCMCChainState,
+    max_nsteps::Integer
+)
     chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false) # TODO ?
-    tuner_state.nsteps = 0    
+    tuner_state.nsteps = 0
     return nothing
 end
 
-mcmc_tuning_reinit!!(tuner_state::RAMTrafoTunerState, chain_state::MCMCChainState, max_nsteps::Integer) = nothing
-
-mcmc_tuning_postinit!!(tuner::RAMTrafoTunerState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector}) = nothing
-
-
-function mcmc_tune_post_cycle!!(tuner::RAMTrafoTunerState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector})
-    α_min = (1 - tuner.tuning.σ_target_acceptance) * tuner.tuning.target_acceptance
-    α_max = (1 + tuner.tuning.σ_target_acceptance) * tuner.tuning.target_acceptance
-    α = eff_acceptance_ratio(chain_state)
-
-    logds = [walker_smpls.logd for walker_smpls in samples]
-    max_log_posterior = maximum(maximum.(logds))
-
-    if α_min <= α <= α_max
-        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = true)
-        @debug "MCMC chain $(chain_state.info.id) tuned, acceptance ratio = $(Float32(α)), max. log posterior = $(Float32(max_log_posterior))"
-    else
-        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false)
-        @debug "MCMC chain $(chain_state.info.id) *not* tuned, acceptance ratio = $(Float32(α)), max. log posterior = $(Float32(max_log_posterior))"
-    end
-    return chain_state, tuner
-end
-
-mcmc_tuning_finalize!!(tuner::RAMTrafoTunerState, chain::MCMCChainState) = nothing
-
-function mcmc_tune_post_step!!(
-    tuner_state::RAMTrafoTunerState, 
+function mcmc_tune_trafo_post_step!!(
+    f_transform::Function,
+    tuner_state::RAMTrafoTunerState,
     chain_state::MCMCChainState,
-    p_accept::AbstractVector{<:Real},
+    proposal::MCMCProposalState,
+    current::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
+    proposed::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
+    p_accept::AbstractVector{<:Real}
 )
-    (; f_transform, current, proposed) = chain_state
-    
+
     if any(current.x.v .== proposed.x.v)
-        return chain_state, tuner_state
+        return f_transform, tuner_state, chain_state
     end
-    
-    (; target_acceptance, gamma) = tuner_state.tuning
+
+    gamma = tuner_state.tuning.gamma
+    target_acceptance = get_target_acceptance_ratio(proposal)
     b = f_transform.b
     n_dims = length(b)
 
@@ -105,12 +86,9 @@ function mcmc_tune_post_step!!(
     α = mean_update_rate .* p_accept
 
     update = α .* (proposed.x.v .- [b])
-    new_b = 1 / nwalkers(chain_state) * oftype.(b, sum(update .+ [b])) # = (1 - α) * b + α * proposed.x.v 
+    new_b = 1 / nwalkers(chain_state) * oftype.(b, sum(update .+ [b])) # = (1 - α) * b + α * proposed.x.v
 
     f_transform_new = MulAdd(Σ_L_new, new_b)
 
-    mc_state_new = set_mc_transform!!(chain_state, f_transform_new)
-    mc_state_new = mcmc_update_z_position!!(mc_state_new)
-
-    return mc_state_new, tuner_state_new
+    return f_transform_new, tuner_state_new, chain_state
 end
