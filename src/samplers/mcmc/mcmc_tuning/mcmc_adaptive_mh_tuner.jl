@@ -51,7 +51,6 @@ mutable struct AdaptiveAffineTuningState{
     scale::Float64
 end
 
-
 function AdaptiveAffineTuningState(
     tuning::AdaptiveAffineTuning,
     chain_state::MCMCChainState
@@ -68,19 +67,6 @@ create_trafo_tuner_state(
     iteration::Integer
 ) = AdaptiveAffineTuningState(tuning, chain_state)
 
-mcmc_trafo_tuning_init!!(
-    tuner_state::AdaptiveAffineTuningState,
-    chain_state::MCMCChainState,
-    max_nsteps::Integer
-) = nothing
-
-mcmc_trafo_tuning_reinit!!(
-    tuner_state::AdaptiveAffineTuningState,
-    chain_state::MCMCChainState,
-    max_nsteps::Integer
-) = nothing
-
-
 function mcmc_trafo_tuning_postinit!!(
     tuner::AdaptiveAffineTuningState,
     chain_state::MCMCChainState,
@@ -92,7 +78,6 @@ function mcmc_trafo_tuning_postinit!!(
         append!(tuner.stats, samples[i])
     end
 end
-
 
 function mcmc_tune_trafo_post_cycle!!(
     f_transform::Function,
@@ -151,23 +136,4 @@ function mcmc_tune_trafo_post_cycle!!(
     tuner.iteration += 1
 
     return f_transform_new, tuner, chain_state
-end
-
-
-mcmc_trafo_tuning_finalize!!(
-    f_transform::Function,
-    tuner::AdaptiveAffineTuningState,
-    chain_state::MCMCChainState
-) = f_transform, tuner, chain_state
-
-function mcmc_tune_trafo_post_step!!(
-    f_transform::Function,
-    tuner::AdaptiveAffineTuningState,
-    chain_state::MCMCChainState,
-    proposal::MCMCProposalState,
-    current::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
-    proposed::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
-    p_accept::AbstractVector{<:Real}
-)
-    return f_transform, tuner, chain_state
 end

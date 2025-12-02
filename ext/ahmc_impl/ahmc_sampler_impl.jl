@@ -125,4 +125,3 @@ function BAT.set_proposal_transform!!(proposal::HMCProposalState, chain_state::M
 
     return proposal_new
 end
-

@@ -1,7 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-mutable struct HMCProposalTunerState{A<:AdvancedHMC.AbstractAdaptor} <: MCMCProposalTunerState
+mutable struct HMCProposalTunerState{
+    A<:AdvancedHMC.AbstractAdaptor
+} <: MCMCProposalTunerState
     tuning::HMCTuning
     adaptor::A
 end
@@ -18,27 +20,14 @@ end
 
 BAT.create_proposal_tuner_state(tuning::HMCTuning, chain_state::MCMCChainState, proposal::HMCProposalState, iteration::Integer) = HMCProposalTunerState(tuning, chain_state, proposal)
 
-
 function BAT.mcmc_proposal_tuning_init!!(tuner::HMCProposalTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
     AdvancedHMC.Adaptation.initialize!(tuner.adaptor, Int(max_nsteps - 1))
     nothing
 end
 
-
 function BAT.mcmc_proposal_tuning_reinit!!(tuner::HMCProposalTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
     AdvancedHMC.Adaptation.initialize!(tuner.adaptor, Int(max_nsteps - 1))
     nothing
-end
-
-BAT.mcmc_proposal_tuning_postinit!!(tuner::HMCProposalTunerState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector}) = nothing
-
-function BAT.mcmc_tune_proposal_post_cycle!!(
-    proposal::HMCProposalState,
-    tuner::HMCProposalTunerState,
-    chain_state::MCMCChainState,
-    samples::AbstractVector{<:DensitySampleVector}
-)
-    return proposal, tuner, chain_state
 end
 
 function BAT.mcmc_proposal_tuning_finalize!!(
@@ -70,8 +59,6 @@ function BAT.mcmc_tune_proposal_post_step!!(
     h = AdvancedHMC.update(h, adaptor)
 
     proposal_new.kernel = AdvancedHMC.update(proposal_new.kernel, adaptor)
-
-    # proposal_new = @set proposal.transition.stat = merge(tstat, (is_adapt = true,))
 
     return proposal_new, tuner_state, chain_state
 end

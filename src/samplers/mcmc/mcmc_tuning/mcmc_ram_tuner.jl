@@ -49,34 +49,6 @@ function mcmc_trafo_tuning_init!!(
     return nothing
 end
 
-mcmc_trafo_tuning_reinit!!(
-    tuner_state::RAMTrafoTunerState,
-    chain_state::MCMCChainState,
-    max_nsteps::Integer
-) = nothing
-
-mcmc_trafo_tuning_postinit!!(
-    tuner::RAMTrafoTunerState,
-    chain_state::MCMCChainState,
-    samples::AbstractVector{<:DensitySampleVector}
-) = nothing
-
-function mcmc_tune_trafo_post_cycle!!(
-    f_transform::Function,
-    tuner::RAMTrafoTunerState,
-    chain_state::MCMCChainState,
-    proposal::MCMCProposalState,
-    samples::AbstractVector{<:DensitySampleVector}
-)
-    return f_transform, tuner, chain_state
-end
-
-mcmc_trafo_tuning_finalize!!(
-    f_transform::Function,
-    tuner_state::RAMTrafoTunerState,
-    chain_state::MCMCChainState
-) = f_transform, tuner_state, chain_state
-
 function mcmc_tune_trafo_post_step!!(
     f_transform::Function,
     tuner_state::RAMTrafoTunerState,
@@ -120,4 +92,3 @@ function mcmc_tune_trafo_post_step!!(
 
     return f_transform_new, tuner_state_new, chain_state
 end
-

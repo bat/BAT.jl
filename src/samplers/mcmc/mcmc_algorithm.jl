@@ -276,13 +276,119 @@ function isvalidstate end
 
 function isviablestate end
 
-function get_target_acceptance_ratio end
 
-get_target_acceptance_ratio(proposal::MCMCProposalState) = proposal.target_acceptance
+function mcmc_trafo_tuning_init!!(
+    ::MCMCTransformTunerState,
+    ::MCMCChainState,
+    ::Integer
+)
+    return nothing
+end
 
-function get_target_acceptance_int end
+function mcmc_trafo_tuning_reinit!!(
+    ::MCMCTransformTunerState,
+    ::MCMCChainState,
+    ::Integer
+)
+    return nothing
+end
 
-get_target_acceptance_int(proposal::MCMCProposalState) = proposal.target_acceptance_int
+function mcmc_trafo_tuning_postinit!!(
+    tuner::MCMCTransformTunerState,
+    chain_state::MCMCChainState,
+    samples::AbstractVector{<:DensitySampleVector}
+)
+    return nothing
+end
+
+function mcmc_tune_trafo_post_cycle!!(
+    f_transform::Function,
+    tuner::MCMCTransformTunerState,
+    chain_state::MCMCChainState,
+    proposal::MCMCProposalState,
+    samples::AbstractVector{<:DensitySampleVector}
+)
+    return f_transform, tuner, chain_state
+end
+
+function mcmc_trafo_tuning_finalize!!(
+    f_transform::Function,
+    trafo_tuner_state::MCMCTransformTunerState,
+    chain_state::MCMCChainState
+)
+    return f_transform, trafo_tuner_state, chain_state
+end
+
+function mcmc_tune_trafo_post_step!!(
+    f_transform::Function,
+    tuner::MCMCTransformTunerState,
+    chain_state::MCMCChainState,
+    ::NamedTuple,
+    ::NamedTuple,
+    ::AbstractVector{<:Real}
+) 
+    return f_transform, tuner, chain_state
+end
+
+
+function mcmc_proposal_tuning_init!!(
+    ::MCMCProposalTunerState,
+    ::MCMCChainState,
+    ::Integer
+)
+    return nothing
+end
+
+function mcmc_proposal_tuning_reinit!!(
+    ::MCMCProposalTunerState,
+    ::MCMCChainState,
+    ::Integer
+) 
+    return nothing
+end
+
+function mcmc_proposal_tuning_postinit!!(
+    ::MCMCProposalTunerState,
+    ::MCMCChainState,
+    ::AbstractVector{<:DensitySampleVector}
+) 
+    return nothing
+end
+
+function mcmc_tune_proposal_post_cycle!!(
+    proposal::MCMCProposalState, 
+    tuner::MCMCProposalTunerState, 
+    chain_state::MCMCChainState, 
+    ::AbstractVector{<:DensitySampleVector}
+) 
+    return proposal, tuner, chain_state
+end
+
+function mcmc_proposal_tuning_finalize!!(
+    proposal_state::MCMCProposalState,
+    proposal_tuner_state::MCMCProposalTunerState, 
+    chain_state::MCMCChainState
+) 
+    return proposal_state, proposal_tuner_state, chain_state
+end
+
+function mcmc_tune_proposal_post_step!!(
+    proposal::MCMCProposalState, 
+    tuner::MCMCProposalTunerState, 
+    chain_state::MCMCChainState, 
+    ::AbstractVector{<:Real}
+) 
+    return proposal, tuner, chain_state
+end
+
+
+function get_target_acceptance_ratio(proposal::MCMCProposalState)
+   return proposal.target_acceptance
+end
+
+function get_target_acceptance_int(proposal::MCMCProposalState) 
+    return proposal.target_acceptance_int
+end
 
 function mcmc_iterate!! end
 

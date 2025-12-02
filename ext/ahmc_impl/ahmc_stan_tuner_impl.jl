@@ -22,27 +22,6 @@ function BAT.mcmc_trafo_tuning_reinit!!(tuner::StanLikeTunerState, chain_state::
     nothing
 end
 
-BAT.mcmc_trafo_tuning_postinit!!(tuner::StanLikeTunerState, chain_state::MCMCChainState, samples::AbstractVector{<:DensitySampleVector}) = nothing
-
-
-function BAT.mcmc_tune_trafo_post_cycle!!(
-    f_transform::Function,
-    tuner::StanLikeTunerState,
-    chain_state::MCMCChainState,
-    proposal::MCMCProposalState,
-    samples::AbstractVector{<:DensitySampleVector}
-)
-    return f_transform, tuner, chain_state
-end
-
-
-BAT.mcmc_trafo_tuning_finalize!!(
-    f_transform::Function,
-    tuner::StanLikeTunerState,
-    chain_state::MCMCChainState
-) = f_transform, tuner, chain_state
-
-
 function BAT.mcmc_tune_trafo_post_step!!(
     f_transform::Function,
     tuner::StanLikeTunerState,
