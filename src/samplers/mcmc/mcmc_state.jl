@@ -56,7 +56,7 @@ function MCMCChainState(
     W = mcmc_weight_type(samplingalg.sample_weighting)
 
     sample_weights_curr = zeros(W, n_walkers)
-    sample_info_curr = MCMCSampleID[MCMCSampleID(Int32(chainid), Int32(i), one(Int32), zero(Int64), get_current_proposal_idx(proposal), true) for i in 1:n_walkers]
+    sample_info_curr = MCMCSampleID[MCMCSampleID(Int32(chainid), Int32(i), one(Int32), zero(Int64), get_active_proposal_idx(proposal), true) for i in 1:n_walkers]
     sample_aux_curr = fill(nothing, n_walkers)
 
     current_x_init = DensitySampleVector(
@@ -168,12 +168,12 @@ function _empty_chain_outputs(chain_state::MCMCChainState)
 end
 
 function eff_acceptance_ratio(chain_state::MCMCChainState)
-    current_proposal = get_current_proposal(chain_state.proposal)
+    active_proposal = get_active_proposal(chain_state.proposal)
     return nsamples(chain_state) / (nsteps(chain_state) * nwalkers(chain_state))
 end
 
 function detailed_eff_acceptance_ratio(chain_state::MCMCChainState)
-    current_proposal = get_current_proposal(chain_state.proposal)
+    active_proposal = get_active_proposal(chain_state.proposal)
     return detailed_nsamples(chain_state) ./ (nsteps(chain_state) * nwalkers(chain_state))
 end
 
@@ -187,21 +187,21 @@ function mcmc_step!!(mcmc_state::MCMCState)
     (;proposal, stepno, context) = chain_state
 
     rng = get_rng(context)
+    
+    chain_state.proposal, active_proposal = next_proposal!!(rng, proposal, stepno)
 
-    chain_state.proposal = set_current_proposal!!(proposal, stepno, rng)
+    chain_state, active_proposal_new, p_accept = mcmc_propose!!(chain_state, active_proposal)
 
-    current_proposal = get_current_proposal(chain_state.proposal)
+    chain_state.proposal = update_active_proposal!!(chain_state.proposal, active_proposal_new)
 
-    chain_state, p_accept = mcmc_propose!!(chain_state, current_proposal)
-
-    mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, current_proposal, p_accept)
+    mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, active_proposal, p_accept)
 
     chain_state = mcmc_state_new.chain_state
 
     (;proposal, current, proposed, accepted, output) = chain_state
 
-    curr_prop_idx = get_current_proposal_idx(proposal)
-    chain_state.nsamples[curr_prop_idx] += sum(accepted)
+    active_prop_idx = get_active_proposal_idx(proposal)
+    chain_state.nsamples[active_prop_idx] += sum(accepted)
 
     # Set weights according to acceptance
     delta_w_current, w_proposed = mcmc_weight_values(chain_state.weighting, p_accept, accepted)
@@ -225,7 +225,7 @@ function mcmc_step!!(mcmc_state::MCMCState)
             Int32(i), 
             old_info.chaincycle, 
             chain_state.stepno, 
-            get_current_proposal_idx(proposal), 
+            get_active_proposal_idx(proposal), 
             sample_type
         )
 
@@ -281,7 +281,7 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP) where {SMP<:
 
     chain_state.accepted .= accepted
 
-    return chain_state, p_accept
+    return chain_state, proposal, p_accept
 end
 
 function reset_rng_counters!(chain_state::MCMCChainState)
@@ -315,7 +315,7 @@ function next_cycle!(chain_state::MCMCChainState)
         Int32(i),
         info.cycle,
         zero(Int64),
-        get_current_proposal_idx(proposal),
+        get_active_proposal_idx(proposal),
         true
         ) for i in 1:n_walkers]
     chain_state.current.x.info .= new_current_info_vec
@@ -326,7 +326,7 @@ function next_cycle!(chain_state::MCMCChainState)
         Int32(i),
         info.cycle,
         zero(Int64),
-        get_current_proposal_idx(proposal),
+        get_active_proposal_idx(proposal),
         false
         ) for i in 1:n_walkers]
     chain_state.proposed.x.info .= new_proposed_info_vec

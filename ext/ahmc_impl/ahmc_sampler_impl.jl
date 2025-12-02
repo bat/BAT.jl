@@ -79,7 +79,6 @@ function BAT.mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalSt
 
     p_accept = Vector{Float64}(undef, n_walkers)
 
-    # TODO, MD: How should HMC handle multiple walkers?
     for i in 1:n_walkers
         z_phase = AdvancedHMC.phasepoint(hamiltonian, current.z.v[i][:], momentum)
 
@@ -108,13 +107,7 @@ function BAT.mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalSt
     chain_state.proposed.x.logd .= logd_x_proposed
     chain_state.proposed.z.logd .= logd_z_proposed
 
-    # TODO, MD, This is awkward and goes against the !! style. Discuss the handling of chain_state and proposal state
-    if chain_state.proposal isa MultiProposalState
-        curr_idx = get_current_proposal_idx(chain_state.proposal)
-        chain_state.proposal.proposal_states[curr_idx] = proposal
-    end
-
-    return chain_state, p_accept
+    return chain_state, proposal, p_accept
 end
 
 function BAT.set_proposal_transform!!(proposal::HMCProposalState, chain_state::MCMCChainState) 

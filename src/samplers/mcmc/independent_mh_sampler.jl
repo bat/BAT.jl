@@ -107,6 +107,7 @@ set_proposal_transform!!(proposal::IndependentMHProposalState, ::MCMCChainState)
 
 function get_best_known_approximation() end
 
+# TODO check if target is sampleable or suitable for independent MH, if not throw error. Look into the get_init_source code, and move these functions there.
 get_best_known_approximation(target::AbstractMeasure) = target
 
 get_best_known_approximation(

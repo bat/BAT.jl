@@ -328,6 +328,28 @@ function get_tuning_success(
     return tuning_success
 end
 
+get_active_proposal_idx(proposal_state::MCMCProposalState) = 1
+
+function next_proposal!!(
+    rng::AbstractRNG,
+    proposal_state::MCMCProposalState,
+    stepno::Integer
+)
+    return proposal_state, proposal_state
+end
+
+function get_active_proposal(
+    proposal_state::MCMCProposalState,
+)
+    return proposal_state
+end
+
+function update_active_proposal!!(
+    proposal::MCMCProposalState,
+    active_proposal_new::MCMCProposalState
+)
+    return proposal    
+end
 
 # TODO: MD, reincorporate user callback
 # TODO: MD, incorporate use of Tempering, so far temperer is not used 

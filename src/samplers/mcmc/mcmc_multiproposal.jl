@@ -31,7 +31,7 @@ struct MultiProposalState{
 }<:MCMCProposalState
     proposal_states::PS
     picking_rule::R
-    current_idx::I
+    active_idx::I
 end
 
 export MultiProposalState
@@ -57,68 +57,60 @@ bat_default(
     proposal::MCMCMultiProposal
 ) = NoMCMCTempering()
 
+get_active_proposal_idx(proposal_state::MultiProposalState) = proposal_state.active_idx
 
-get_current_proposal_idx(proposal_state::MCMCProposalState) = 1
-
-get_current_proposal_idx(proposal_state::MultiProposalState) = proposal_state.current_idx
-
-function set_current_proposal!!(
-    proposal_state::MCMCProposalState,
-    stepno::Integer,
-    rng::AbstractRNG
-)
-    return proposal_state
-end
-
-function get_current_proposal(
-    proposal_state::MCMCProposalState,
-)
-    return proposal_state
-end
-
-
-function set_current_proposal!!(
-    proposal_state::MultiProposalState{<:Any, <:Vector{Integer}}, 
-    stepno::Integer, 
-    rng::AbstractRNG
+function next_proposal!!(
+    rng::AbstractRNG,
+    proposal_state::MultiProposalState{<:Any, <:Vector}, 
+    stepno::Integer
 )
     picking_rule_cum = cumsum(proposal_state.picking_rule)
     m = stepno % last(picking_rule_cum)
 
     idx = m > 0 ? findfirst(y -> m <= y, picking_rule_cum) : lastindex(picking_rule_cum)
-    proposal_state_new = @set proposal_state.current_idx = idx
+    proposal_state_new = @set proposal_state.active_idx = idx
 
-    return proposal_state_new
+    active_proposal = get_active_proposal(proposal_state_new)
+
+    return proposal_state_new, active_proposal
 end
 
-function set_current_proposal!!(
+function next_proposal!!(
+    rng::AbstractRNG,
     proposal_state::MultiProposalState{<:Any, <:Distribution}, 
-    stepno::Integer, 
-    rng::AbstractRNG
+    stepno::Integer
 )
     idx = rand(rng, proposal_state.picking_rule)
+    proposal_state_new = @set proposal_state.active_idx = idx
+    active_proposal = get_active_proposal(proposal_state_new)
 
-    proposal_state = @set proposal_state.current_idx = idx
-    return proposal_state
+    return proposal_state_new, active_proposal
 end
 
-function get_current_proposal(
+function get_active_proposal(
     multi_proposal_state::MultiProposalState
 )
-    current_proposal = multi_proposal_state.proposal_states[multi_proposal_state.current_idx]
+    current_proposal = multi_proposal_state.proposal_states[multi_proposal_state.active_idx]
     return current_proposal
+end
+
+function update_active_proposal!!(
+    multi_proposal_state::MultiProposalState,
+    active_proposal_new::MCMCProposalState
+)
+    active_idx = get_active_proposal_idx(multi_proposal_state)
+    active_proposal = multi_proposal_state.proposal_states[active_idx]
+
+    if active_proposal !== active_proposal_new
+        multi_proposal_state.proposal_states[active_idx] = active_proposal_new
+    end
+    return multi_proposal_state
 end
 
 function get_target_acceptance_ratio(proposal::MultiProposalState)
     target_acc_ratios = Tuple(get_target_acceptance_ratio.(proposal.proposal_states))
     picking_rule = proposal.picking_rule
-
-    proposal_probs = if picking_rule isa Distribution
-        Tuple(picking_rule.p)
-    else
-        picking_rule ./ sum(picking_rule)
-    end
-
+    proposal_probs = _get_proposal_picking_probabilities(picking_rule)
     return dot(target_acc_ratios, proposal_probs)
 end
 
@@ -130,14 +122,18 @@ function get_target_acceptance_int(proposal::MultiProposalState)
     lowers = first.(target_acc_ints)
     uppers = last.(target_acc_ints)
 
-    proposal_probs = if picking_rule isa Distribution
-        Tuple(picking_rule.p)
-    else
-        picking_rule ./ sum(picking_rule)
-    end
+    proposal_probs = _get_proposal_picking_probabilities(picking_rule)
 
     mean_target_acc_int = (dot(lowers, proposal_probs), dot(uppers, proposal_probs))
     return mean_target_acc_int
+end
+
+function _get_proposal_picking_probabilities(picking_rule::Distribution)
+    return picking_rule.p
+end
+
+function _get_proposal_picking_probabilities(picking_rule::Vector)
+    return picking_rule ./ sum(picking_rule) 
 end
 
 function get_tuning_success(
@@ -177,9 +173,17 @@ function _create_proposal_state(
 
     picking_rule = multi_proposal.picking_rule
 
-    idx = picking_rule isa Distribution ? rand(rng, picking_rule) : 1
+    idx = _init_active_idx(rng, picking_rule)
 
     return MultiProposalState(proposal_states_init, picking_rule, idx)
+end
+
+function _init_active_idx(rng::AbstractRNG, picking_rule::Distribution)
+    return rand(rng, picking_rule)
+end
+
+function _init_active_idx(rng::AbstractRNG, picking_rule::Vector)
+    return 1
 end
 
 function set_proposal_transform!!(

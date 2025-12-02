@@ -134,19 +134,19 @@ function mcmc_tune_proposal_post_step!!(
     chain_state::MCMCChainState,
     p_accept::AbstractVector{<:Real}
 )
-    idx_current = multi_proposal.current_idx
+    active_idx = multi_proposal.active_idx
     
-    current_proposal = get_current_proposal(multi_proposal)
-    current_tuner = multi_tuner.proposal_tuners[idx_current]
+    active_proposal = get_active_proposal(multi_proposal)
+    active_tuner = multi_tuner.proposal_tuners[active_idx]
 
-    current_proposal_tuned, current_tuner, chain_state = mcmc_tune_proposal_post_step!!(
-        current_proposal, 
-        current_tuner, 
+    active_proposal_tuned, active_tuner, chain_state = mcmc_tune_proposal_post_step!!(
+        active_proposal, 
+        active_tuner, 
         chain_state, 
         p_accept
     )
 
-    multi_proposal = @set multi_proposal.proposal_states[idx_current] = current_proposal_tuned
+    multi_proposal = @set multi_proposal.proposal_states[active_idx] = active_proposal_tuned
 
     return multi_proposal, multi_tuner, chain_state
 end

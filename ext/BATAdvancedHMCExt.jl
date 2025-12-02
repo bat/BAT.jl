@@ -20,7 +20,7 @@ using AffineMaps: MulAdd
 using BAT: MeasureLike, BATMeasure
 
 using BAT: get_context, get_adselector, get_valid_adselector
-using BAT: getproposal, mcmc_target, get_current_proposal_idx
+using BAT: getproposal, mcmc_target, get_active_proposal_idx
 using BAT: MCMCChainState, HamiltonianMC, MCMCProposalState, MultiProposalState, HMCProposalState, MCMCChainStateInfo, MCMCChainPoolInit, MCMCMultiCycleBurnin
 using BAT: MCMCBasicStats, push!, reweight_relative!
 using BAT: RAMTuning
@@ -29,7 +29,7 @@ using BAT: MCMCProposalTunerState, MCMCTransformTunerState, NoMCMCTempering, NoM
 using BAT: mcmc_weight_values
 using BAT: AbstractTransformTarget, NoAdaptiveTransform, TriangularAffineTransform
 using BAT: RNGPartition, get_rng, set_rng!
-using BAT: mcmc_step!!, nsamples, nsteps, nwalkers, eff_acceptance_ratio, get_current_proposal
+using BAT: mcmc_step!!, nsamples, nsteps, nwalkers, eff_acceptance_ratio
 using BAT: get_samples!, reset_rng_counters!
 using BAT: create_trafo_tuner_state, create_proposal_tuner_state
 using BAT: mcmc_trafo_tuning_init!!, mcmc_trafo_tuning_postinit!!, mcmc_trafo_tuning_reinit!!, mcmc_tune_trafo_post_cycle!!, mcmc_trafo_tuning_finalize!!

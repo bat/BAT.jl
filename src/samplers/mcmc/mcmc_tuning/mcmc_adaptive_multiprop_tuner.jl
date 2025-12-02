@@ -117,7 +117,7 @@ function mcmc_proposal_tuning_finalize!!(
         else
             N = sum(picking_rule)
             p_unnorm = picking_rule .* component_tuning_successes
-            picking_rule_tuned = round.(Integer, p_unnorm .* (N / sum(p_unnorm)))
+            picking_rule_new = round.(Integer, p_unnorm .* (N / sum(p_unnorm)))
         end
     else
         picking_rule_new = picking_rule
@@ -135,12 +135,12 @@ function mcmc_tune_proposal_post_step!!(
     p_accept::AbstractVector{<:Real}
 )
     (;alpha, picking_socket, accept_prob) = tuner_state
-    curr_idx = multi_proposal.current_idx
+    active_idx = multi_proposal.active_idx
     picking_rule = multi_proposal.picking_rule
     N = length(multi_proposal.proposal_states)
  
-    acc_new = accept_prob[curr_idx] * (1-alpha) + mean(p_accept) * alpha
-    accept_prob[curr_idx] = acc_new
+    acc_new = accept_prob[active_idx] * (1-alpha) + mean(p_accept) * alpha
+    accept_prob[active_idx] = acc_new
 
     picking_rule_tuned = _tune_picking_rule(picking_rule, acc_new, curr_idx, picking_socket, N)
 
