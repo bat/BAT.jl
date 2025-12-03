@@ -3,7 +3,7 @@
 [![Documentation for stable version](https://img.shields.io/badge/docs-stable-blue.svg)](https://bat.github.io/BAT.jl/stable)
 [![Documentation for development version](https://img.shields.io/badge/docs-dev-blue.svg)](https://bat.github.io/BAT.jl/dev)
 [![License](http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](LICENSE.md)
-[![Build Status](https://github.com/bat/BAT.jl/workflows/CI/badge.svg)](https://github.com/bat/BAT.jl/actions?query=workflow%3ACI)
+[![Build Status](https://github.com/bat/BAT.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/bat/BAT.jl/actions?query=workflow%3ACI)
 [![Codecov](https://codecov.io/gh/bat/BAT.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/bat/BAT.jl)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.2587213.svg)](https://doi.org/10.5281/zenodo.2587213)
 
