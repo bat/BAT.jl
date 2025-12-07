@@ -97,15 +97,26 @@ function mcmc_propose_transition(
     n_walkers::Integer,
     genctx
 )
+    # https://en.wikipedia.org/wiki/Metropolis-adjusted_Langevin_algorithm
+
     proposal_measure = batmeasure(proposal.proposaldist)
     (; target_gradient, τ) = proposal
 
-    gradient_res = target_gradient.(current_z)
-    grads = last.(gradient_res)
+    gradient_res_curr = target_gradient.(current_z)
+    grads_curr = last.(gradient_res_curr)
 
-    proposed_z = current_z .+ τ/2 .* grads .+ sqrt(τ) .* rand(genctx, proposal_measure^n_walkers)
+    transition = τ/2 .* grads_curr .+ sqrt(τ) .* rand(genctx, proposal_measure^n_walkers)
 
-    hastings_correction = checked_logdensityof.(proposal_measure, current_z) .- checked_logdensityof.(proposal_measure, proposed_z)
+    proposed_z = current_z .+ transition
+
+    gradient_res_prop = target_gradient.(proposed_z)
+    grads_prop = last.(gradient_res_prop)
+
+    p_prop_to_curr = norm.(-transition .- τ .* grads_prop).^2
+    p_curr_to_prop = norm.(transition .- τ .* grads_curr).^2
+
+    hastings_correction = (p_curr_to_prop - p_prop_to_curr) ./ (4τ)
+
     return proposed_z, hastings_correction
 end
 

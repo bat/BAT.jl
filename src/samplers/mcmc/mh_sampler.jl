@@ -124,8 +124,15 @@ function mcmc_propose_transition(
     genctx
 )
     proposal_measure = batmeasure(proposal.proposaldist)
-    proposed_z = current_z .+ rand(genctx, proposal_measure^n_walkers)
-    hastings_correction = checked_logdensityof.(proposal_measure, current_z) .- checked_logdensityof.(proposal_measure, proposed_z)
+
+    transition = rand(genctx, proposal_measure^n_walkers)
+    proposed_z = current_z .+ transition
+
+    p_prop_to_curr = checked_logdensityof.(proposal_measure, -transition)
+    p_curr_to_prop = checked_logdensityof.(proposal_measure, transition) 
+
+    hastings_correction = p_prop_to_curr .- p_curr_to_prop
+
     return proposed_z, hastings_correction
 end
 

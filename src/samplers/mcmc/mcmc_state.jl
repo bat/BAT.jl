@@ -248,7 +248,7 @@ function mcmc_step!!(mcmc_state::MCMCState)
 end
 
 function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP) where {SMP<:SimpleMCMCProposalState}
-    (; target, f_transform, current, proposed, context) = chain_state
+    (; target, f_transform, current, context) = chain_state
 
     current_z = current.z.v
     logd_z_current = current.z.logd
@@ -274,8 +274,8 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP) where {SMP<:
     chain_state.proposed.x.logd .= logd_x_proposed
     chain_state.proposed.z.logd .= logd_z_proposed
 
-    p_accept = clamp.(exp.(logd_z_proposed - logd_z_current), 0, 1)
-    # p_accept = clamp.(exp.(logd_z_proposed - logd_z_current + hastings_correction), 0, 1)
+    # p_accept = clamp.(exp.(logd_z_proposed - logd_z_current), 0, 1)
+    p_accept = clamp.(exp.(logd_z_proposed - logd_z_current + hastings_correction), 0, 1)
     @assert all(p_accept .>= 0)
     accepted = rand(rng, length(p_accept)) .<= p_accept
 
