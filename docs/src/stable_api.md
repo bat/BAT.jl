@@ -120,7 +120,6 @@ SokalAutocorLen
 SquareRootBinning
 SturgesBinning
 SuaveIntegration
-SimpleMCMCProposalState
 ToRealVector
 TransformAlgorithm
 TransformedMCMC

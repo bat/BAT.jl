@@ -47,5 +47,6 @@ BAT.MCMCState
 BAT.MCMCTempering
 BAT.MCMCTransformTunerState
 BAT.PolarShellDistribution
+BAT.SimpleMCMCProposalState
 BAT.TemperingState
 ```
