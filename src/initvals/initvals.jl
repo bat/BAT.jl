@@ -56,6 +56,25 @@ get_initsrc_from_target(target::WeightedMeasure) = get_initsrc_from_target(basem
 get_initsrc_from_target(target::AbstractPosteriorMeasure) = get_initsrc_from_target(getprior(target))
 
 
+
+# TODO check if target is sampleable or suitable for independent MH, if not throw error.
+function get_best_known_approximation() end
+
+function get_best_known_approximation(target::AbstractMeasure) 
+    # @assert issampleable(target) throw(Error("The target has no suitable best known approximation for independent Metropolis-Hastings sampling."))
+    return target
+end
+
+get_best_known_approximation(
+    target::WeightedMeasure
+) = get_best_known_approximation(basemeasure(target))
+
+get_best_known_approximation(
+    target::AbstractPosteriorMeasure
+) = get_best_known_approximation(getprior(target))
+
+
+
 function bat_initval_impl(target::MeasureLike, algorithm::InitFromTarget, context::BATContext)
     (result = _maycopy_val(first(_rand_v_for_target(target, get_initsrc_from_target(target), 1, context))),)
 end
