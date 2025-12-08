@@ -4,49 +4,31 @@ mutable struct StanLikeTunerState{
     S<:MCMCBasicStats,
 } <: MCMCTransformTunerState
     tuning::StanLikeTuning
-    target_acceptance::Float64
     stats::S
     stan_state::AdvancedHMC.Adaptation.StanHMCAdaptorState
 end
 
-BAT.create_trafo_tuner_state(tuning::StanLikeTuning, chain_state::MCMCChainState, n_steps_hint::Integer) = StanLikeTunerState(tuning, tuning.target_acceptance, MCMCBasicStats(chain_state), AdvancedHMC.Adaptation.StanHMCAdaptorState())
+BAT.create_trafo_tuner_state(tuning::StanLikeTuning, chain_state::MCMCChainState, n_steps_hint::Integer) = StanLikeTunerState(tuning, MCMCBasicStats(chain_state), AdvancedHMC.Adaptation.StanHMCAdaptorState())
 
-function BAT.mcmc_tuning_init!!(tuner::StanLikeTunerState, chain_state::HMCChainState, max_nsteps::Integer)
+function BAT.mcmc_trafo_tuning_init!!(tuner::StanLikeTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
     tuning = tuner.tuning
     AdvancedHMC.Adaptation.initialize!(tuner.stan_state, tuning.init_buffer, tuning.term_buffer, tuning.window_size, Int(max_nsteps - 1))
     nothing
 end
 
-function BAT.mcmc_tuning_reinit!!(tuner::StanLikeTunerState, chain_state::HMCChainState, max_nsteps::Integer)
+function BAT.mcmc_trafo_tuning_reinit!!(tuner::StanLikeTunerState, chain_state::MCMCChainState, max_nsteps::Integer)
     tuning = tuner.tuning
     AdvancedHMC.Adaptation.initialize!(tuner.stan_state, tuning.init_buffer, tuning.term_buffer, tuning.window_size, Int(max_nsteps - 1))
     nothing
 end
 
-BAT.mcmc_tuning_postinit!!(tuner::StanLikeTunerState, chain_state::HMCChainState, samples::AbstractVector{<:DensitySampleVector}) = nothing
-
-
-function BAT.mcmc_tune_post_cycle!!(tuner::StanLikeTunerState, chain_state::HMCChainState, samples::AbstractVector{<:DensitySampleVector})
-    logds = [walker_smpls.logd for walker_smpls in samples]
-    max_log_posterior = maximum(maximum.(logds))
-    accept_ratio = eff_acceptance_ratio(chain_state)
-    if accept_ratio >= 0.9 * tuner.target_acceptance
-        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = true)
-        @debug "MCMC chain $(chain_state.info.id) tuned, acceptance ratio = $(Float32(accept_ratio)), integrator = $(chain_state.proposal.τ.integrator), max. log posterior = $(Float32(max_log_posterior))"
-    else
-        chain_state.info = MCMCChainStateInfo(chain_state.info, tuned = false)
-        @debug "MCMC chain $(chain_state.info.id) *not* tuned, acceptance ratio = $(Float32(accept_ratio)), integrator = $(chain_state.proposal.τ.integrator), max. log posterior = $(Float32(max_log_posterior))"
-    end
-    return chain_state, tuner
-end
-
-
-BAT.mcmc_tuning_finalize!!(tuner::StanLikeTunerState, chain_state::HMCChainState) = nothing
-
-
-function BAT.mcmc_tune_post_step!!(
+function BAT.mcmc_tune_trafo_post_step!!(
+    f_transform::Function,
     tuner::StanLikeTunerState,
     chain_state::MCMCChainState,
+    proposal::MCMCProposalState,
+    current::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
+    proposed::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
     p_accept::AbstractVector{<:Real}
 )
     stan_state = tuner.stan_state
@@ -56,12 +38,14 @@ function BAT.mcmc_tune_post_step!!(
     is_in_window =  stan_state.i >= stan_state.window_start && stan_state.i <= stan_state.window_end
     is_window_end = stan_state.i in stan_state.window_splits
 
+    f_transform_new = deepcopy(f_transform)
+
     if is_in_window
         BAT.append!(stats, chain_state.proposed.x)
     end
     
     if is_window_end 
-        A = chain_state.f_transform.A
+        A = f_transform.A
         T = eltype(A)
         n_dims = size(A, 2)
 
@@ -72,10 +56,7 @@ function BAT.mcmc_tune_post_step!!(
         reweight_relative!(stats, 0)
 
         f_transform_new = MulAdd(A_new, zeros(T, n_dims))
-        chain_state = set_mc_transform!!(chain_state, f_transform_new)
     end
 
-    chain_state_new = mcmc_update_z_position!!(chain_state) 
-
-    return chain_state_new, tuner
+    return f_transform_new, tuner, chain_state
 end

@@ -31,9 +31,6 @@ end
 # Uses Stan (also AdvancedHMC) defaults 
 # (see https://mc-stan.org/docs/2_26/reference-manual/hmc-algorithm-parameters.html):
 @with_kw struct StanLikeTuning <: MCMCTransformTuning
-    "target acceptance rate"
-    target_acceptance::Float64 = 0.8
-
     "width of initial fast adaptation interval"
     init_buffer::Int = 75
 

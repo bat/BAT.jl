@@ -1,3 +1,6 @@
 include("mcmc_noop_tuner.jl")
 include("mcmc_ram_tuner.jl")
 include("mcmc_adaptive_mh_tuner.jl")
+include("mcmc_multiproposal_tuner.jl")
+include("mcmc_adaptive_multiprop_tuner.jl")
+include("mcmc_multitrafo_tuner.jl")

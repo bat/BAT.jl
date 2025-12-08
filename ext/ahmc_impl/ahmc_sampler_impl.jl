@@ -20,27 +20,11 @@ BAT.bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::HamiltonianMC
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 250), max_ncycles = 4)
 
 
-function BAT._get_sample_id(proposal::HMCProposalState, chainid::Int32, walkerid::Int32, cycle::Int32, stepno::Integer, sample_type::Integer)
-    tstat = AdvancedHMC.stat(proposal.transition)
-
-    new_id = AHMCSampleID(chainid,
-                            walkerid,
-                            cycle,
-                            stepno,
-                            sample_type,
-                            tstat.hamiltonian_energy,
-                            tstat.tree_depth,
-                            tstat.numerical_error,
-                            tstat.step_size
-                        )
-    return new_id, AHMCSampleID
-end    
-
 # Change to incorporate the initial adaptive transform into f and fg
 function BAT._create_proposal_state(
-    proposal::HamiltonianMC, 
-    target::BATMeasure, 
-    context::BATContext, 
+    proposal::HamiltonianMC,
+    target::BATMeasure,
+    context::BATContext,
     v_init::AbstractVector{PV},
     f_transform::Function,
     rng::AbstractRNG
@@ -66,6 +50,8 @@ function BAT._create_proposal_state(
     transition = AdvancedHMC.transition(deepcopy(rng), deepcopy(hamiltonian), deepcopy(kernel), init_transition.z)
 
     HMCProposalState(
+        proposal.target_acceptance,
+        proposal.target_acceptance_int,
         integrator,
         termination,
         hamiltonian,
@@ -74,8 +60,8 @@ function BAT._create_proposal_state(
     )
 end
 
-function BAT.mcmc_propose!!(chain_state::HMCChainState)
-    (; target, proposal, f_transform, current, proposed, context) = chain_state
+function BAT.mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalState)
+    (; target, f_transform, current, proposed, context) = chain_state
     n_walkers = nwalkers(chain_state)
     rng = get_rng(context)
 
@@ -85,7 +71,7 @@ function BAT.mcmc_propose!!(chain_state::HMCChainState)
     hamiltonian = proposal.hamiltonian
 
     @static if pkgversion(AdvancedHMC) >= v"0.07"
-	foo = [1, 1] # For some reason AdvancedHMC.rand_momentum wants an AbstractVecOrMat in the last argument, but its unused...?
+	    foo = [1, 1] # For some reason AdvancedHMC.rand_momentum wants an AbstractVecOrMat in the last argument, but its unused...?
         momentum = AdvancedHMC.rand_momentum(rng, hamiltonian.metric, hamiltonian.kinetic, foo)
     else
         momentum = rand(rng, hamiltonian.metric, hamiltonian.kinetic)
@@ -93,22 +79,24 @@ function BAT.mcmc_propose!!(chain_state::HMCChainState)
 
     p_accept = Vector{Float64}(undef, n_walkers)
 
-    # TODO, MD: How should HMC handle multiple walkers?
     for i in 1:n_walkers
         z_phase = AdvancedHMC.phasepoint(hamiltonian, current.z.v[i][:], momentum)
 
-	@static if pkgversion(AdvancedHMC) >= v"0.8" 
-	    proposal.transition = AdvancedHMC.transition(rng, hamiltonian, τ, z_phase)
-	else
-	    proposal.transition = AdvancedHMC.transition(rng, τ, hamiltonian, z_phase)
-	end
+        # TODO: MD, Make properly in !! style. Still overwrites the proposal
+        @static if pkgversion(AdvancedHMC) >= v"0.8" 
+            # proposal = @set proposal.transition = AdvancedHMC.transition(rng, hamiltonian, τ, z_phase)
+            proposal.transition = AdvancedHMC.transition(rng, hamiltonian, τ, z_phase)
+        else
+            # proposal = @set proposal.transition = AdvancedHMC.transition(rng, τ, hamiltonian, z_phase)
+            proposal.transition = AdvancedHMC.transition(rng, τ, hamiltonian, z_phase)
+        end
 
         proposed.z.v[i] = proposal.transition.z.θ
         p_accept[i] = AdvancedHMC.stat(proposal.transition).acceptance_rate
     end
 
     chain_state.accepted = proposed.z.v .!= current.z.v
-    
+
     trafo_proposed = with_logabsdet_jacobian.(f_transform, proposed.z.v)
     proposed.x.v .= getfield.(trafo_proposed, 1)
     ladj = getfield.(trafo_proposed, 2)
@@ -119,23 +107,21 @@ function BAT.mcmc_propose!!(chain_state::HMCChainState)
     chain_state.proposed.x.logd .= logd_x_proposed
     chain_state.proposed.z.logd .= logd_z_proposed
 
-    return chain_state, p_accept
+    return chain_state, proposal, p_accept
 end
 
-BAT.eff_acceptance_ratio(chain_state::HMCChainState) = nsamples(chain_state) / nsteps(chain_state)
-
-function BAT.set_mc_transform!!(chain_state::HMCChainState, f_transform_new::Function) 
+function BAT.set_proposal_transform!!(proposal::HMCProposalState, chain_state::MCMCChainState) 
+    f_transform_new = chain_state.f_transform
     adsel = get_adselector(chain_state.context)
     f = checked_logdensityof(pullback(f_transform_new, chain_state.target))
     fg = valgrad_func(f, adsel)
-    
-    h = chain_state.proposal.hamiltonian 
+
+    h = proposal.hamiltonian 
 
     h = @set h.ℓπ = f
-    h = @set h.∂ℓπ∂θ = fg 
+    h = @set h.∂ℓπ∂θ = fg
 
-    chain_state_new = @set chain_state.proposal.hamiltonian = h
+    proposal_new = @set proposal.hamiltonian = h
 
-    chain_state_new = @set chain_state_new.f_transform = f_transform_new
-    return chain_state_new
+    return proposal_new
 end

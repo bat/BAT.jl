@@ -31,10 +31,14 @@ $(TYPEDFIELDS)
     (e.g. via `import AdvancedHMC`). 
 """
 @with_kw struct HamiltonianMC{
+    TA<:Real,
+    TAI<:Tuple{Vararg{<:Real}},
     MT<:HMCMetric,
     IT,
     TC
 } <: MCMCProposal
+    target_acceptance::TA = 0.8
+    target_acceptance_int::TAI = (0.9 * target_acceptance, one(Float64))
     metric::MT = UnitEuclideanMetric()
     integrator::IT = ext_default(pkgext(Val(:AdvancedHMC)), Val(:DEFAULT_INTEGRATOR))
     termination::TC = ext_default(pkgext(Val(:AdvancedHMC)), Val(:DEFAULT_TERMINATION_CRITERION))
@@ -44,12 +48,16 @@ export HamiltonianMC
 
 
 mutable struct HMCProposalState{
+    TA<:Real,
+    TAI<:Tuple{Vararg{<:Real}},
     IT,
     TC,
     HA,   # <:AdvancedHMC.Hamiltonian,
     KRNL, # <:AdvancedHMC.HMCKernel
     TR    # <:AdvancedHMC.Transition
 } <: MCMCProposalState
+    target_acceptance::TA
+    target_acceptance_int::TAI
     integrator::IT
     termination::TC
     hamiltonian::HA
@@ -58,5 +66,3 @@ mutable struct HMCProposalState{
 end
 
 export HMCProposalState
-
-const HMCChainState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:HMCProposalState}

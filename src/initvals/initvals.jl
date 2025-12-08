@@ -31,7 +31,7 @@ Generates initial values for sampling, optimization, etc. by direct i.i.d.
 sampling a suitable component of that target density (e.g. it's prior)
 that supports it.
 
-* If the target is supports direct i.i.d. sampling, e.g. because it is a
+* If the target supports direct i.i.d. sampling, e.g. because it is a
   distribution, initial values are sampled directly from the target.
 
 * If the target is a posterior density, initial values are sampled from the
@@ -54,6 +54,34 @@ get_initsrc_from_target(target::AbstractMeasure) = target
 get_initsrc_from_target(target::WeightedMeasure) = get_initsrc_from_target(basemeasure(target))
 
 get_initsrc_from_target(target::AbstractPosteriorMeasure) = get_initsrc_from_target(getprior(target))
+
+
+
+"""
+    get_iid_sampleable_approx()
+
+*BAT-internal, not part of stable public API.*
+
+Obtain a measure from the target that can be sampled to obtain iid samples for a MCMCGlobalProposal.
+"""
+function get_iid_sampleable_approx() end
+
+function get_iid_sampleable_approx(target::AbstractMeasure) 
+    if supports_rand(target)
+        return target
+    else 
+        thow(ArgumentError("The target does not support iid sampling. Please provide a suitable global proposal measure."))
+    end
+end
+
+get_iid_sampleable_approx(
+    target::WeightedMeasure
+) = get_iid_sampleable_approx(basemeasure(target))
+
+get_iid_sampleable_approx(
+    target::AbstractPosteriorMeasure
+) = get_iid_sampleable_approx(getprior(target))
+
 
 
 function bat_initval_impl(target::MeasureLike, algorithm::InitFromTarget, context::BATContext)

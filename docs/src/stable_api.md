@@ -53,6 +53,7 @@ AbstractMCMCWeightingScheme
 AbstractPosteriorMeasure
 AbstractTransformTarget
 AdaptiveAffineTuning
+AdaptiveMultiPropTuning
 AssumeConvergence
 AutocorLenAlgorithm
 BATContext
@@ -76,6 +77,7 @@ GelmanRubinConvergence
 GeyerAutocorLen
 HamiltonianMC
 IdentityTransformAlgorithm
+MCMCGlobalProposal
 IIDSampling
 InitFromIID
 InitFromSamples
@@ -83,6 +85,7 @@ InitFromTarget
 InitvalAlgorithm
 IntegrationAlgorithm
 KishESS
+MALAProposal
 MaxDensitySearch
 MCMCAlgorithm
 MCMCBurninAlgorithm
@@ -90,10 +93,13 @@ MCMCChainPoolInit
 MCMCRetryInit
 MCMCInitAlgorithm
 MCMCMultiCycleBurnin
+MCMCMultiProposal
 MCMCProposalTuning
 MCMCTransformTuning
 MGVISampling
 ModeAsDefined
+MultiProposalTuning
+MultiTrafoTuning
 NoMCMCProposalTuning
 NoMCMCTransformTuning
 OptimAlg

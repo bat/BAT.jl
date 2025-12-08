@@ -2,7 +2,7 @@
 
 
 """
-    struct RandomWalk <: MCMCAlgorithm
+    struct RandomWalk <: MCMCProposal
 
 Metropolis-Hastings MCMC sampling algorithm.
 
@@ -14,16 +14,32 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct RandomWalk{Q<:Union{AbstractMeasure,Distribution{<:Union{Univariate,Multivariate},Continuous}}} <: MCMCProposal
+@with_kw struct RandomWalk{
+    TA<:Real,
+    TAI<:Tuple{Vararg{<:Real}},
+    Q<:Union{
+        AbstractMeasure,
+        Distribution{<:Union{Univariate,Multivariate},Continuous}
+    }
+} <: MCMCProposal
+    # TODO: MD, is this correct?
+    target_acceptance::TA = 0.234
+    target_acceptance_int::TAI = (0.15, 0.35)
     proposaldist::Q = TDist(1.0)
 end
 
 export RandomWalk
 
-struct MHProposalState{Q<:BATMeasure} <: MCMCProposalState
+struct RandomWalkProposalState{
+    TA<:Real,
+    TAI<:Tuple{Vararg{<:Real}},
+    Q<:BATMeasure
+} <: SimpleMCMCProposalState
+    target_acceptance::TA
+    target_acceptance_int::TAI
     proposaldist::Q
 end
-export MHProposalState
+export RandomWalkProposalState
 
 bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::RandomWalk) = PriorToNormal()
 
@@ -44,22 +60,21 @@ bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::RandomWalk, pretr
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
 
-function _get_sample_id(proposal::MHProposalState, chainid::Int32, walkerid::Int32, cycle::Int32, stepno::Integer, sample_type::Integer)
-    return MCMCSampleID(chainid, walkerid, cycle, stepno, sample_type), MCMCSampleID
-end
-
-
 function _create_proposal_state(
-    proposal::RandomWalk, 
-    target::BATMeasure, 
-    context::BATContext, 
+    proposal::RandomWalk,
+    target::BATMeasure,
+    context::BATContext,
     v_init::AbstractVector{PV},
     f_transform::Function,
     rng::AbstractRNG
 ) where {P<:Real, PV<:AbstractVector{P}}
     n_dims = totalndof(varshape(target))
     mv_pdist = batmeasure(_full_random_walk_proposal(proposal.proposaldist, n_dims))
-    return MHProposalState(mv_pdist)
+    return RandomWalkProposalState(
+        proposal.target_acceptance,
+        proposal.target_acceptance_int,
+        mv_pdist
+    )
 end
 
 
@@ -102,46 +117,23 @@ function _full_random_walk_proposal(d::TDist, n_dims::Integer)
 end
 
 
-const MHChainState = MCMCChainState{<:BATMeasure, <:RNGPartition, <:Function, <:MHProposalState} 
-
-function mcmc_propose!!(chain_state::MHChainState)
-    @unpack target, proposal, f_transform, context = chain_state
-    genctx = get_gencontext(context)
-    rng = get_rng(genctx)
+function mcmc_propose_transition(
+    current_z::ArrayOfSimilarArrays,
+    proposal::MCMCProposalState,
+    n_walkers::Integer,
+    genctx
+)
     proposal_measure = batmeasure(proposal.proposaldist)
-    n_walkers = nwalkers(chain_state)
 
-    current_z = chain_state.current.z.v
-    logd_z_current = chain_state.current.z.logd
+    transition = rand(genctx, proposal_measure^n_walkers)
+    proposed_z = current_z .+ transition
 
-    z_proposed = current_z .+ rand(genctx, proposal_measure^n_walkers)
+    p_prop_to_curr = checked_logdensityof.(proposal_measure, -transition)
+    p_curr_to_prop = checked_logdensityof.(proposal_measure, transition) 
 
-    x_ladj_proposed = with_logabsdet_jacobian.(f_transform, z_proposed)
-    x_proposed = first.(x_ladj_proposed)
-    ladj = getsecond.(x_ladj_proposed)
+    hastings_correction = p_prop_to_curr .- p_curr_to_prop
 
-    logd_x_proposed = BAT.checked_logdensityof.(target, x_proposed)
-    logd_z_proposed::typeof(logd_x_proposed) = logd_x_proposed .+ ladj
-
-    chain_state.proposed.x.v .= x_proposed
-    chain_state.proposed.z.v .= z_proposed
-
-    chain_state.proposed.x.logd .= logd_x_proposed
-    chain_state.proposed.z.logd .= logd_z_proposed
-
-    # TODO: check if proposal is symmetric - otherwise need Hastings correction:
-    p_accept = clamp.(exp.(logd_z_proposed - logd_z_current), 0, 1)
-    @assert all(p_accept .>= 0)
-    accepted = rand(rng, length(p_accept)) .<= p_accept
-
-    chain_state.accepted .= accepted
-
-    return chain_state, p_accept
+    return proposed_z, hastings_correction
 end
 
-eff_acceptance_ratio(chain_state::MHChainState) = nsamples(chain_state) / (nsteps(chain_state) * nwalkers(chain_state))
-
-function set_mc_transform!!(mc_state::MHChainState, f_transform_new::Function) 
-    mc_state_new = @set mc_state.f_transform = f_transform_new
-    return mc_state_new
-end
+set_proposal_transform!!(proposal::RandomWalkProposalState, ::MCMCChainState) = proposal

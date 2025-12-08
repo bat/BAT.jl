@@ -80,6 +80,7 @@ BAT.checked_logdensityof
 BAT.drop_low_weight_samples
 BAT.find_marginalmodes
 BAT.get_bin_centers
+BAT.get_iid_sampleable_approx
 BAT.getlikelihood
 BAT.getprior
 BAT.gr_Rsqr

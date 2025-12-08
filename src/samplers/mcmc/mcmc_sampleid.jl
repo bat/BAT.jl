@@ -1,11 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-const CURRENT_SAMPLE = -1
-const PROPOSED_SAMPLE = -2
-const INVALID_SAMPLE = 0
-const ACCEPTED_SAMPLE = 1
-const REJECTED_SAMPLE = 2
-
 abstract type SampleID end
 
 struct MCMCSampleID <: SampleID
@@ -13,29 +7,50 @@ struct MCMCSampleID <: SampleID
     walkerid::Int32
     chaincycle::Int32
     stepno::Int64
-    sampletype::Int32
+    proposalid::Int32
+    sampletype::Bool
 end
 
 
-const MCMCSampleIDVector{TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Int64}} = StructArray{
+const MCMCSampleIDVector{
+    TV<:AbstractVector{<:Int32},
+    UV<:AbstractVector{<:Int64},
+    BV<:AbstractVector{<:Bool}
+    } = StructArray{
     MCMCSampleID,
     1,
-    NamedTuple{(:chainid, :walkerid, :chaincycle, :stepno, :sampletype), Tuple{TV,TV,TV,UV,TV}},
+    NamedTuple{
+        (
+            :chainid, 
+            :walkerid, 
+            :chaincycle, 
+            :stepno,
+            :proposalid,
+            :sampletype
+        ), 
+        Tuple{TV,TV,TV,UV,TV,BV}},
     Int
 }
 
 
-function MCMCSampleIDVector(contents::Tuple{TV,TV,TV,UV,TV}) where {TV<:AbstractVector{<:Int32},UV<:AbstractVector{<:Int64}}
-    StructArray{MCMCSampleID}(contents)::MCMCSampleIDVector{TV,UV}
+function MCMCSampleIDVector(contents::Tuple{TV,TV,TV,UV,TV,BV}) where {
+    TV<:AbstractVector{<:Int32},
+    UV<:AbstractVector{<:Int64},
+    BV<:AbstractVector{<:Bool}
+    }
+    StructArray{MCMCSampleID}(contents)::MCMCSampleIDVector{TV,UV,BV}
 end
 
-MCMCSampleIDVector(::UndefInitializer, len::Integer) = MCMCSampleIDVector((
-    Vector{Int32}(undef, len),
-    Vector{Int32}(undef, len),
-    Vector{Int32}(undef, len),
-    Vector{Int64}(undef, len),
-    Vector{Int32}(undef, len),
-))
+MCMCSampleIDVector(::UndefInitializer, len::Integer) = MCMCSampleIDVector(
+    (
+        Vector{Int32}(undef, len),
+        Vector{Int32}(undef, len),
+        Vector{Int32}(undef, len),
+        Vector{Int64}(undef, len),
+        Vector{Int32}(undef, len),
+        Vector{Bool}(undef, len)
+    )
+)
 
 MCMCSampleIDVector() = MCMCSampleIDVector(undef, 0)
 
@@ -50,6 +65,7 @@ function(==)(A::MCMCSampleIDVector, B::MCMCSampleIDVector)
     A.walkerid == B.walkerid &&
     A.chaincycle == B.chaincycle &&
     A.stepno == B.stepno &&
+    A.proposalid == B.proposalid &&
     A.sampletype == B.sampletype
 end
 

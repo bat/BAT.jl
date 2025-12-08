@@ -158,7 +158,15 @@ Abstract type for MCMC proposal algorithm states.
 """
 abstract type MCMCProposalState end
 
+"""
+    abstract type SimpleMCMCProposalState
 
+Abstract type for the states of simple MCMC proposal
+algorithms, that are implemented in BAT.jl.
+This is used to treat more complicated algorithms -that may depend on
+external packages- differently.
+"""
+abstract type SimpleMCMCProposalState <: MCMCProposalState end
 
 """
     abstract type MCMCBurninAlgorithm
@@ -238,11 +246,25 @@ function mcmc_tuning_postinit!! end
 
 function mcmc_tuning_reinit!! end
 
-function mcmc_tune_transform_post_cycle!! end
-
 function mcmc_tune_post_step!! end
 
-function transform_mcmc_tuning_finalize!! end
+
+function mcmc_trafo_tuning_init!! end
+
+function mcmc_trafo_tuning_postinit!! end
+
+function mcmc_trafo_tuning_reinit!! end
+
+function mcmc_tune_trafo_post_step!! end
+
+
+function mcmc_proposal_tuning_init!! end
+
+function mcmc_proposal_tuning_postinit!! end
+
+function mcmc_proposal_tuning_reinit!! end
+
+function mcmc_tune_proposal_post_step!! end
 
 
 function mcmc_init! end
@@ -255,7 +277,186 @@ function isvalidstate end
 function isviablestate end
 
 
+function mcmc_trafo_tuning_init!!(
+    ::MCMCTransformTunerState,
+    ::CS,
+    ::Integer
+) where CS<:MCMCIterator
+    return nothing
+end
+
+function mcmc_trafo_tuning_reinit!!(
+    ::MCMCTransformTunerState,
+    ::CS,
+    ::Integer
+) where CS<:MCMCIterator
+    return nothing
+end
+
+function mcmc_trafo_tuning_postinit!!(
+    tuner::MCMCTransformTunerState,
+    chain_state::CS,
+    samples::AbstractVector{<:DensitySampleVector}
+) where CS<:MCMCIterator
+    return nothing
+end
+
+function mcmc_tune_trafo_post_cycle!!(
+    f_transform::Function,
+    tuner::MCMCTransformTunerState,
+    chain_state::CS,
+    proposal::MCMCProposalState,
+    samples::AbstractVector{<:DensitySampleVector}
+) where CS<:MCMCIterator
+    return f_transform, tuner, chain_state
+end
+
+function mcmc_trafo_tuning_finalize!!(
+    f_transform::Function,
+    trafo_tuner_state::MCMCTransformTunerState,
+    chain_state::CS
+) where CS<:MCMCIterator
+    return f_transform, trafo_tuner_state, chain_state
+end
+
+function mcmc_tune_trafo_post_step!!(
+    f_transform::Function,
+    tuner::MCMCTransformTunerState,
+    chain_state::CS,
+    ::MCMCProposalState,
+    ::NamedTuple,
+    ::NamedTuple,
+    ::AbstractVector{<:Real}
+) where CS<:MCMCIterator
+    return f_transform, tuner, chain_state
+end
+
+
+function mcmc_proposal_tuning_init!!(
+    ::MCMCProposalTunerState,
+    ::CS,
+    ::Integer
+) where CS<:MCMCIterator
+    return nothing
+end
+
+function mcmc_proposal_tuning_reinit!!(
+    ::MCMCProposalTunerState,
+    ::CS,
+    ::Integer
+) where CS<:MCMCIterator
+    return nothing
+end
+
+function mcmc_proposal_tuning_postinit!!(
+    ::MCMCProposalTunerState,
+    ::CS,
+    ::AbstractVector{<:DensitySampleVector}
+) where CS<:MCMCIterator
+    return nothing
+end
+
+function mcmc_tune_proposal_post_cycle!!(
+    proposal::MCMCProposalState, 
+    tuner::MCMCProposalTunerState, 
+    chain_state::CS, 
+    ::AbstractVector{<:DensitySampleVector}
+) where CS<:MCMCIterator
+    return proposal, tuner, chain_state
+end
+
+function mcmc_proposal_tuning_finalize!!(
+    proposal_state::MCMCProposalState,
+    proposal_tuner_state::MCMCProposalTunerState, 
+    chain_state::CS
+) where CS<:MCMCIterator
+    return proposal_state, proposal_tuner_state, chain_state
+end
+
+function mcmc_tune_proposal_post_step!!(
+    proposal::MCMCProposalState, 
+    tuner::MCMCProposalTunerState, 
+    chain_state::CS, 
+    ::AbstractVector{<:Real}
+) where CS<:MCMCIterator
+    return proposal, tuner, chain_state
+end
+
+
+function get_target_acceptance_ratio(proposal::MCMCProposalState)
+   return proposal.target_acceptance
+end
+
+function get_target_acceptance_int(proposal::MCMCProposalState) 
+    return proposal.target_acceptance_int
+end
+
 function mcmc_iterate!! end
+
+
+function get_proposal_tuning_quality end
+
+# TODO: MD, Think about the exponent in the quality calculation. Should it be user-definable? Where should it be stored?
+# Perhaps in the AdaptiveMultiProposalTunerState?
+function get_proposal_tuning_quality(
+    proposal::MCMCProposalState,
+    chain_state::CS,
+    beta::Float64
+) where CS<:MCMCIterator
+    lower, upper = proposal.target_acceptance_int
+    eff_acceptance = eff_acceptance_ratio(chain_state)
+    target_acceptance = get_target_acceptance_ratio(proposal)
+
+    in_target_interval =  lower < eff_acceptance < upper
+
+    if in_target_interval
+        if eff_acceptance >= target_acceptance
+            normalization = upper - target_acceptance
+            d = (eff_acceptance - target_acceptance) / normalization
+        else
+            normalization = target_acceptance - lower
+            d = (target_acceptance - eff_acceptance) / normalization
+        end
+        quality = clamp((1 - d)^beta, 0.0, 1.0)
+    else
+        quality = 0.0
+    end
+
+    return quality
+end
+
+function get_tuning_success(
+    chain_state::CS,
+    proposal::MCMCProposalState
+) where CS<:MCMCIterator
+    α = eff_acceptance_ratio(chain_state)
+    α_min, α_max = get_target_acceptance_int(proposal)
+    tuning_success = α_min <= α <= α_max
+    return tuning_success
+end
+
+get_active_proposal_idx(proposal_state::MCMCProposalState) = 1
+
+function next_proposal!!(
+    rng::AbstractRNG,
+    proposal_state::MCMCProposalState,
+    stepno::Integer
+)
+    return proposal_state, proposal_state
+end
+
+function get_active_proposal(
+    proposal_state::MCMCProposalState,
+)
+    return proposal_state
+end
+
+function update_active_proposal!!(
+    proposal::MCMCProposalState,
+    active_proposal_new::MCMCProposalState
+)
+    return proposal    
+end
 
 # TODO: MD, reincorporate user callback
 # TODO: MD, incorporate use of Tempering, so far temperer is not used 
@@ -272,13 +473,11 @@ function mcmc_iterate!!(
     log_time = start_time
     start_nsteps = nsteps(mcmc_state)
     start_nsamples = nsamples(mcmc_state)
-    perform_step = true 
+    perform_step = true
 
     while (perform_step && (time() - start_time) < max_time)
-        perform_step = nsteps(mcmc_state) - start_nsteps < max_nsteps      
-        
+        perform_step = nsteps(mcmc_state) - start_nsteps < max_nsteps
         mcmc_state = perform_step ? mcmc_step!!(mcmc_state) : flush_samples!!(mcmc_state)
-
         if !isnothing(output)
             get_samples!(output, mcmc_state, nonzero_weights)
         end
@@ -324,7 +523,6 @@ isviablestate(chain_state::MCMCIterator) = nsamples(chain_state) >= 2
 isvalidstate(mcmc_state::MCMCState) = isvalidstate(mcmc_state.chain_state)
 
 isviablestate(mcmc_state::MCMCState) = isvalidstate(mcmc_state.chain_state)
-
 
 
 """
