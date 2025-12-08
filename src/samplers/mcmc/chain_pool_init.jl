@@ -45,9 +45,6 @@ function mcmc_init!(
 
     @info "MCMCChainPoolInit: trying to generate $nchains viable MCMC chain state(s)."
 
-    global gs_cp_init = (samplingalg, target, init_alg, callback, context)
-    # BREAK_CP_INIT
-
     initval_alg = init_alg.initval_alg
 
     min_nviable::Int = minimum(init_alg.init_tries_per_chain) * nchains

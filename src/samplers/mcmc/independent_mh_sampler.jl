@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 """
-    struct IndependentMH <: MCMCProposal
+    struct MCMCGlobalProposal <: MCMCProposal
 
 MCMC proposal algorithm for drawing samples from a global proposal
 distribution - independent from the current position of the MCMC walker.
@@ -17,7 +17,7 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct IndependentMH{
+@with_kw struct MCMCGlobalProposal{
     TA<:Real,
     TAI<:Tuple{Vararg{<:Real}},
     Q<:Union{
@@ -31,9 +31,9 @@ $(TYPEDFIELDS)
     global_proposal::Q = nothing
 end
 
-export IndependentMH
+export MCMCGlobalProposal
 
-struct IndependentMHProposalState{
+struct MCMCGlobalProposalProposalState{
     TA<:Real,
     TAI<:Tuple{Vararg{<:Real}},
     Q<:BATMeasure,
@@ -43,29 +43,29 @@ struct IndependentMHProposalState{
     global_proposal::Q
 end
 
-export IndependentMHProposalState
+export MCMCGlobalProposalProposalState
 
-bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::IndependentMH) = PriorToNormal()
+bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::MCMCGlobalProposal) = PriorToNormal()
 
-bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, proposal::IndependentMH) = NoMCMCProposalTuning()
+bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, proposal::MCMCGlobalProposal) = NoMCMCProposalTuning()
 
-bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, proposal::IndependentMH) = RAMTuning()
+bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, proposal::MCMCGlobalProposal) = RAMTuning()
 
-bat_default(::Type{TransformedMCMC}, ::Val{:adaptive_transform}, proposal::IndependentMH) = TriangularAffineTransform()
+bat_default(::Type{TransformedMCMC}, ::Val{:adaptive_transform}, proposal::MCMCGlobalProposal) = TriangularAffineTransform()
 
-bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, proposal::IndependentMH) = NoMCMCTempering()
+bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, proposal::MCMCGlobalProposal) = NoMCMCTempering()
 
-bat_default(::Type{TransformedMCMC}, ::Val{:nsteps}, proposal::IndependentMH, pretransform::AbstractTransformTarget, nchains::Integer) = 10^5
+bat_default(::Type{TransformedMCMC}, ::Val{:nsteps}, proposal::MCMCGlobalProposal, pretransform::AbstractTransformTarget, nchains::Integer) = 10^5
 
-bat_default(::Type{TransformedMCMC}, ::Val{:init}, proposal::IndependentMH, pretransform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{TransformedMCMC}, ::Val{:init}, proposal::MCMCGlobalProposal, pretransform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
 
-bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::IndependentMH, pretransform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::MCMCGlobalProposal, pretransform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
 
 function _create_proposal_state(
-    proposal::IndependentMH,
+    proposal::MCMCGlobalProposal,
     target::BATMeasure,
     context::BATContext,
     v_init::AbstractVector{PV},
@@ -74,13 +74,13 @@ function _create_proposal_state(
 ) where {P<:Real, PV<:AbstractVector{P}}
 
     if isnothing(proposal.global_proposal)
-        global_prop = get_best_known_approximation(target)
-        #throw(ArgumentError("No adequate global proposal measure detected. Please supply one to IndependentMH() or make sure the sampling target supplies a suitable measure."))
+        global_prop = get_iid_sampleable_approx(target)
+        #throw(ArgumentError("No adequate global proposal measure detected. Please supply one to MCMCGlobalProposal() or make sure the sampling target supplies a suitable measure."))
     else
         global_prop = batmeasure(proposal.global_proposal)
     end
 
-    return IndependentMHProposalState(
+    return MCMCGlobalProposalProposalState(
         proposal.target_acceptance,
         proposal.target_acceptance_int,
         global_prop
@@ -89,7 +89,7 @@ end
 
 function mcmc_propose_transition(
     current_z::ArrayOfSimilarArrays,
-    proposal::IndependentMHProposalState,
+    proposal::MCMCGlobalProposalProposalState,
     n_walkers::Integer,
     genctx
 )
@@ -100,6 +100,6 @@ function mcmc_propose_transition(
     return proposed_z, hastings_correction
 end
 
-get_proposal_tuning_quality(proposal::IndependentMHProposalState, ::MCMCChainState, ::Float64) = 1.0
+get_proposal_tuning_quality(proposal::MCMCGlobalProposalProposalState, ::MCMCChainState, ::Float64) = 1.0
 
-set_proposal_transform!!(proposal::IndependentMHProposalState, ::MCMCChainState) = proposal
+set_proposal_transform!!(proposal::MCMCGlobalProposalProposalState, ::MCMCChainState) = proposal

@@ -77,7 +77,7 @@ GelmanRubinConvergence
 GeyerAutocorLen
 HamiltonianMC
 IdentityTransformAlgorithm
-IndependentMH
+MCMCGlobalProposal
 IIDSampling
 InitFromIID
 InitFromSamples
@@ -85,7 +85,7 @@ InitFromTarget
 InitvalAlgorithm
 IntegrationAlgorithm
 KishESS
-MALA
+MALAProposal
 MaxDensitySearch
 MCMCAlgorithm
 MCMCBurninAlgorithm

@@ -30,7 +30,7 @@ end
 
 export RandomWalk
 
-struct MHProposalState{
+struct RandomWalkProposalState{
     TA<:Real,
     TAI<:Tuple{Vararg{<:Real}},
     Q<:BATMeasure
@@ -39,7 +39,7 @@ struct MHProposalState{
     target_acceptance_int::TAI
     proposaldist::Q
 end
-export MHProposalState
+export RandomWalkProposalState
 
 bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::RandomWalk) = PriorToNormal()
 
@@ -70,7 +70,7 @@ function _create_proposal_state(
 ) where {P<:Real, PV<:AbstractVector{P}}
     n_dims = totalndof(varshape(target))
     mv_pdist = batmeasure(_full_random_walk_proposal(proposal.proposaldist, n_dims))
-    return MHProposalState(
+    return RandomWalkProposalState(
         proposal.target_acceptance,
         proposal.target_acceptance_int,
         mv_pdist
@@ -136,4 +136,4 @@ function mcmc_propose_transition(
     return proposed_z, hastings_correction
 end
 
-set_proposal_transform!!(proposal::MHProposalState, ::MCMCChainState) = proposal
+set_proposal_transform!!(proposal::RandomWalkProposalState, ::MCMCChainState) = proposal

@@ -102,7 +102,7 @@ function init_adaptive_transform(adaptive_transform::TriangularAffineTransform, 
 
     M = _approx_cov(target, n)
     b = _approx_mean(target, n)
-    s = cholesky(M).L
+    s = cholesky(Positive, M).L
     g = MulAdd(s, b)
 
     return g

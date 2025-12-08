@@ -57,21 +57,30 @@ get_initsrc_from_target(target::AbstractPosteriorMeasure) = get_initsrc_from_tar
 
 
 
-# TODO check if target is sampleable or suitable for independent MH, if not throw error.
-function get_best_known_approximation() end
+"""
+    get_iid_sampleable_approx()
 
-function get_best_known_approximation(target::AbstractMeasure) 
-    # @assert issampleable(target) throw(Error("The target has no suitable best known approximation for independent Metropolis-Hastings sampling."))
-    return target
+*BAT-internal, not part of stable public API.*
+
+Obtain a measure from the target that can be sampled to obtain iid samples for a MCMCGlobalProposal.
+"""
+function get_iid_sampleable_approx() end
+
+function get_iid_sampleable_approx(target::AbstractMeasure) 
+    if supports_rand(target)
+        return target
+    else 
+        thow(ArgumentError("The target does not support iid sampling. Please provide a suitable global proposal measure."))
+    end
 end
 
-get_best_known_approximation(
+get_iid_sampleable_approx(
     target::WeightedMeasure
-) = get_best_known_approximation(basemeasure(target))
+) = get_iid_sampleable_approx(basemeasure(target))
 
-get_best_known_approximation(
+get_iid_sampleable_approx(
     target::AbstractPosteriorMeasure
-) = get_best_known_approximation(getprior(target))
+) = get_iid_sampleable_approx(getprior(target))
 
 
 
