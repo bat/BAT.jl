@@ -19,7 +19,7 @@ $(TYPEDFIELDS)
 """
 @with_kw struct MCMCGlobalProposal{
     TA<:Real,
-    TAI<:Tuple{Vararg{<:Real}},
+    TAI<:Tuple{Vararg{Real}},
     Q<:Union{
         AbstractMeasure,
         Distribution{<:Union{Univariate,Multivariate},Continuous},
@@ -35,7 +35,7 @@ export MCMCGlobalProposal
 
 struct MCMCGlobalProposalProposalState{
     TA<:Real,
-    TAI<:Tuple{Vararg{<:Real}},
+    TAI<:Tuple{Vararg{Real}},
     Q<:BATMeasure,
 } <: SimpleMCMCProposalState
     target_acceptance::TA

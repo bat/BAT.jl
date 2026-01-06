@@ -32,7 +32,7 @@ $(TYPEDFIELDS)
 """
 @with_kw struct HamiltonianMC{
     TA<:Real,
-    TAI<:Tuple{Vararg{<:Real}},
+    TAI<:Tuple{Vararg{Real}},
     MT<:HMCMetric,
     IT,
     TC
@@ -49,7 +49,7 @@ export HamiltonianMC
 
 mutable struct HMCProposalState{
     TA<:Real,
-    TAI<:Tuple{Vararg{<:Real}},
+    TAI<:Tuple{Vararg{Real}},
     IT,
     TC,
     HA,   # <:AdvancedHMC.Hamiltonian,
