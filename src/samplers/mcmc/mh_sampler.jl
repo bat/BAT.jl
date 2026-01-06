@@ -16,7 +16,7 @@ $(TYPEDFIELDS)
 """
 @with_kw struct RandomWalk{
     TA<:Real,
-    TAI<:Tuple{Vararg{<:Real}},
+    TAI<:Tuple{Vararg{Real}},
     Q<:Union{
         AbstractMeasure,
         Distribution{<:Union{Univariate,Multivariate},Continuous}
@@ -32,7 +32,7 @@ export RandomWalk
 
 struct RandomWalkProposalState{
     TA<:Real,
-    TAI<:Tuple{Vararg{<:Real}},
+    TAI<:Tuple{Vararg{Real}},
     Q<:BATMeasure
 } <: SimpleMCMCProposalState
     target_acceptance::TA

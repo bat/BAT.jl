@@ -16,7 +16,7 @@ $(TYPEDFIELDS)
 """
 @with_kw struct MALAProposal{
     TA<:Real,
-    TAI<:Tuple{Vararg{<:Real}},
+    TAI<:Tuple{Vararg{Real}},
     Q<:Union{
         AbstractMeasure,
         Distribution{<:Union{Univariate,Multivariate},Continuous}
@@ -34,7 +34,7 @@ export MALAProposal
 
 struct MALAProposalState{
     TA<:Real,
-    TAI<:Tuple{Vararg{<:Real}},
+    TAI<:Tuple{Vararg{Real}},
     Q<:BATMeasure,
     G<:Function,
     R<:Real
