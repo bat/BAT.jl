@@ -23,7 +23,7 @@ function Makie.plot!(p::Hist1D)
     hist_data = lift(marg_dist, p.normalization) do marg, norm
         d = marg.dist isa BAT.ReshapedDist ? marg.dist.dist : marg.dist
         h_raw = convert(StatsBase.Histogram, d)
-        h_norm = norm == :none ? h_raw : normalize(h_raw, mode = norm)
+        h_norm = norm == :none ? h_raw : StatsBase.normalize(h_raw, mode = norm)
         centers = BAT.get_bin_centers(marg)[1]
         return (centers, h_norm.weights, h_norm.edges[1])
     end
@@ -65,14 +65,14 @@ end
 end
 
 function Makie.plot!(p::Hist2D)
-    marg_dist = lift(p.samples, p.vsel, p.bins, p.closed, p.filter) do smpls, vsel, b, c, f
+    marg_dist = lift(p.samples, p.vsel, p.nbins, p.closed, p.filter) do smpls, vsel, b, c, f
         return MarginalDist(smpls, vsel; bins=b, closed=c, filter=f)
     end
 
     plot_data = lift(marg_dist, p.normalization) do marg, norm
         d = marg.dist isa BAT.ReshapedDist ? marg.dist.dist : marg.dist
         h_raw = convert(StatsBase.Histogram, d)
-        h_norm = norm == :none ? h_raw : normalize(h_raw, mode = norm)
+        h_norm = norm == :none ? h_raw : StatsBase.normalize(h_raw, mode = norm)
         centers = BAT.get_bin_centers(marg)
         return (centers[1], centers[2], h_norm.weights)
     end
@@ -109,14 +109,14 @@ end
     )
 end
 function Makie.plot!(p::QuantileHist1D)
-    marg_dist = lift(p.samples, p.vsel, p.bins, p.closed, p.filter) do smpls, vsel, b, c, f
+    marg_dist = lift(p.samples, p.vsel, p.nbins, p.closed, p.filter) do smpls, vsel, b, c, f
         return MarginalDist(smpls, vsel; bins=b, closed=c, filter=f)
     end
 
     plot_data = lift(marg_dist, p.normalization, p.levels, p.colormap, p.rev, p.alpha) do marg, norm, levels, cmap, rev, alpha
         d = marg.dist isa BAT.ReshapedDist ? marg.dist.dist : marg.dist
         h_raw = convert(StatsBase.Histogram, d)
-        h_norm = norm == :none ? h_raw : normalize(h_raw, mode = norm)
+        h_norm = norm == :none ? h_raw : StatsBase.normalize(h_raw, mode = norm)
 
         valid_intervals = sort(filter(x -> 0 < x < 1, levels))
         hists, _ = BAT.get_smallest_intervals(h_norm, valid_intervals)
@@ -177,14 +177,14 @@ end
 end
 
 function Makie.plot!(p::QuantileHist2D)
-    marg_dist = lift(p.samples, p.vsel, p.bins, p.closed, p.filter) do smpls, vsel, b, c, f
+    marg_dist = lift(p.samples, p.vsel, p.nbins, p.closed, p.filter) do smpls, vsel, b, c, f
         return MarginalDist(smpls, vsel; bins=b, closed=c, filter=f)
     end
 
     plot_data = lift(marg_dist, p.normalization, p.levels, p.colormap, p.rev, p.alpha) do marg, norm, levels, cmap, rev, alpha
         d = marg.dist isa BAT.ReshapedDist ? marg.dist.dist : marg.dist
         h_raw = convert(StatsBase.Histogram, d)
-        h_norm = norm == :none ? h_raw : normalize(h_raw, mode = norm)
+        h_norm = norm == :none ? h_raw : StastBase.normalize(h_raw, mode = norm)
 
         valid_intervals = sort(filter(x -> 0 < x < 1, levels))
         hists, _ = BAT.get_smallest_intervals(h_norm, valid_intervals)
