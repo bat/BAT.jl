@@ -1,21 +1,25 @@
 
-@recipe(BATPlot, samples) do scene
-    Attributes(
-        vsel = collect(1:5),
-        diagonal = QuantileHist1D,
-        lower = QuantileHist2D,
-        upper = nothing,
-        labels = nothing,
-        link_axes = true,
-        bins = 200,
-        closed = :left,
-        filter = false
-    )
+function bat_makie_plot(samples; kwargs...)
+    fig = Figure()
+    bat_makie_plot!(fig, samples; kwargs...)
+    return fig
 end
 
-function Makie.plot!(p::BATPlot)
-    vs = varshape(p.samples[])
-    indices = lift(p.vsel) do vsel_inp
+function bat_makie_plot!(
+    fig::Figure,
+    samples;
+    vsel = Observable(collect(1:5)),
+    diagonal = Observable(QuantileHist1D),
+    lower = Observable(QuantileHist2D),
+    upper = Observable(nothing),
+    labels = Observable(nothing),
+    link_axes = Observable(true),
+    nbins = Observable(200),
+    closed = Observable(:left),
+    filter = Observable(false)
+)
+    vs = varshape(samples[])
+    indices = lift(vsel) do vsel_inp
         vsel = collect(vsel_inp)
         if !(vsel isa Vector{<:Integer})
             vsel = asindex.(Ref(vs), vsel_inp)
@@ -27,19 +31,19 @@ function Makie.plot!(p::BATPlot)
     n_params = lift(idxs -> length(idxs), indices)
 
     ax_grid = lift(n_params, indices) do n, idxs
-        empty!(p.layout)
+        # empty!(fig.layout)
 
         axs = Matrix{Axis}(undef, n, n)
 
         # TODO
         # Catch the case that the user provided lables, but the vsel change during interactive plot
         # Write method for getstring() that does xlabel = ["v$i" for i in vsel] for unshaped samples
-        xlbls = isnothing(p.labels[]) ? getstring.(Ref(p.samples[]), idxs) : p.labels[]
+        xlbls = isnothing(labels[]) ? getstring.(Ref(samples[]), idxs) : labels[]
         ylbls = ["p($l)" for l in xlbls]
 
         for i in 1:n, j in 1:n
-            if i == j || (i > j && !isnothing(p.lower[])) || (j > i && !isnothing(p.upper[]))
-                ax = Axis(p.layout[i, j])
+            if i == j || (i > j && !isnothing(lower[])) || (j > i && !isnothing(upper[]))
+                ax = Axis(fig.layout[i, j])
                 axs[i, j] = ax
                 apply_decorations!(ax, i, j, n, xlbls[j], ylbls[i])
             end
@@ -51,7 +55,7 @@ function Makie.plot!(p::BATPlot)
     # Global bin calculation
     # Reactive Matrix of number of bins for each sub-plot. Pass to MarginalDist below
 
-    on(ax_grid, indices, p.bins, p.closed, p.filter) do axs, idxs, n_bins, clsd, fltr
+    on(ax_grid) do axs
         n = n_params[]
 
         for i in 1:n, j in 1:n
@@ -61,30 +65,37 @@ function Makie.plot!(p::BATPlot)
             # TODO
             # More complex recipe logic for dynamic recipies
             recipe = if i == j
-                p.diagonal[]
+                diagonal[]
             elseif i > j
-                p.lower[]
+                lower[]
             else
-                p.upper[]
+                upper[]
             end
 
-            plot_idxs = (i == j) ? idxs[i] : (idxs[i], idxs[j])
+            plot_idxs = lift(indices) do idxs
+                if (i == j)
+                    idxs[i]
+                else
+                    (idxs[i], idxs[j])
+                end
+            end
+
             recipe(
                 ax,
-                smpls,
+                samples,
                 plot_idxs;
-                nbins = n_bins,
-                closed = clsd,
-                filter = fltr
+                nbins = nbins,
+                closed = closed,
+                filter = filter
             )
         end
 
-        if p.link_axes[]
+        if link_axes[]
             link_axes!(axs)
         end
     end
 
-    return p
+    return fig
 end
 
 function apply_decorations!(
@@ -144,7 +155,7 @@ const BATMakieRecipe = Union{
 function Makie.convert_arguments(
     ::Type{<:BATMakieRecipe},
     samples::DensitySampleVector,
-    idxs::Integer,
+    idxs::Union{Integer, Tuple{Vararg{Integer}}},
     args...
 )
     return (samples, idxs, args...)
