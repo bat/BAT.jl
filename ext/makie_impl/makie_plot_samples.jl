@@ -41,58 +41,51 @@ function bat_makie_plot!(
         xlbls = isnothing(labels[]) ? getstring.(Ref(samples[]), idxs) : labels[]
         ylbls = ["p($l)" for l in xlbls]
 
+        # TODO
+        # Global bin calculation
+        # Reactive Matrix of number of bins for each sub-plot. Pass to MarginalDist below
         for i in 1:n, j in 1:n
             if i == j || (i > j && !isnothing(lower[])) || (j > i && !isnothing(upper[]))
                 ax = Axis(fig.layout[i, j])
                 axs[i, j] = ax
                 apply_decorations!(ax, i, j, n, xlbls[j], ylbls[i])
-            end
-        end
-        return axs
-    end
 
-    # TODO
-    # Global bin calculation
-    # Reactive Matrix of number of bins for each sub-plot. Pass to MarginalDist below
-
-    on(ax_grid) do axs
-        n = n_params[]
-
-        for i in 1:n, j in 1:n
-            isassigned(axs, i, j) || continue
-            ax = axs[i, j]
-
-            # TODO
-            # More complex recipe logic for dynamic recipies
-            recipe = if i == j
-                diagonal[]
-            elseif i > j
-                lower[]
-            else
-                upper[]
-            end
-
-            plot_idxs = lift(indices) do idxs
-                if (i == j)
-                    idxs[i]
+                # TODO
+                # More complex recipe logic for dynamic recipies
+                recipe = if i == j
+                    diagonal[]
+                elseif i > j
+                    lower[]
                 else
-                    (idxs[i], idxs[j])
+                    upper[]
                 end
-            end
 
-            recipe(
-                ax,
-                samples,
-                plot_idxs;
-                nbins = nbins,
-                closed = closed,
-                filter = filter
-            )
+                plot_idxs = lift(indices) do idxs
+                    if (i == j)
+                        idxs[i]
+                    else
+                        (idxs[i], idxs[j])
+                    end
+                end
+                
+                # global gs = (ax, recipe, samples_loc, plot_idxs, nbins, closed, filter)
+                # BREAK
+                plot!(
+                    ax,
+                    recipe,
+                    samples,
+                    plot_idxs;
+                    nbins = nbins,
+                    closed = closed,
+                    filter = filter
+                )
+            end
         end
 
         if link_axes[]
             link_axes!(axs)
         end
+        return axs
     end
 
     return fig
@@ -153,11 +146,20 @@ const BATMakieRecipe = Union{
 }
 
 function Makie.convert_arguments(
-    ::Type{<:BATMakieRecipe},
-    samples::DensitySampleVector,
-    idxs::Union{Integer, Tuple{Vararg{Integer}}},
+    ::Type{<:BATMakieExt.BATMakieRecipe},
+    samples::Observable,
+    idxs::Observable;
     args...
 )
-    return (samples, idxs, args...)
+    return (samples, idxs)
+end
+
+function Makie.convert_arguments(
+    ::Type{<:BATMakieExt.BATMakieRecipe},
+    samples,
+    idxs;
+    args...
+)
+    return (samples, idxs)
 end
 
