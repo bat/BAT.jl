@@ -123,12 +123,14 @@ function Makie.plot!(p::QuantileHist1D)
         pal = cgrad(cmap, length(valid_intervals), categorical=true, rev=!rev, alpha=alpha)
         n_bins = length(h.weights)
         bin_colors = fill(RGBA{Float32}(0,0,0,0), n_bins)
+
         for (i, sub_hist) in enumerate(hists)
             color_idx = length(valid_intervals) - i + 1
             c = pal[color_idx]
             mask = sub_hist.weights .> 0
             bin_colors[mask] .= c
         end
+
         centers = BAT.get_bin_centers(marg)[1]
         return (centers, h.weights, h.edges[1], bin_colors)
     end
