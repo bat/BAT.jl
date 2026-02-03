@@ -62,8 +62,8 @@ end
 end
 
 function Makie.plot!(p::KDE2D)
-    kde_result = lift(p.samples, p.vsel_x, p.vsel_y, p.filter) do smpls, vsel, f
-        marg = bat_marginalize(s, vsel)
+    kde_result = lift(p.samples, p.vsel, p.filter) do smpls, vsel, f
+        marg = bat_marginalize(smpls, vsel)
         marg_res = marg.result
 
         if f
@@ -110,7 +110,7 @@ end
 
 function Makie.plot!(p::QuantileKDE1D)
     kde_result = lift(p.samples, p.vsel, p.filter) do smpls, vsel, f
-        marg = bat_marginalize(s, v)
+        marg = bat_marginalize(smpls, vsel)
         marg_res = marg.result
 
         if f
@@ -198,10 +198,9 @@ end
     )
 end
 
-
 function Makie.plot!(p::QuantileKDE2D)
     kde_result = lift(p.samples, p.vsel, p.filter) do smpls, vsel, f
-        marg = bat_marginalize(s, vsel)
+        marg = bat_marginalize(smpls, vsel)
         marg_res = marg.result
 
         if f

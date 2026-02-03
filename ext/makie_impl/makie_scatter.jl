@@ -10,7 +10,7 @@ end
 
 function Makie.plot!(p::Scatter2D)
     data = lift(p.samples, p.vsel, p.filter) do smpls, vsel, f
-        marg = bat_marginalize(s, vsel)
+        marg = bat_marginalize(smpls, vsel)
         marg_res = marg.result
 
         if f

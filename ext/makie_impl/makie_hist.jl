@@ -121,7 +121,7 @@ function Makie.plot!(p::QuantileHist1D)
         valid_intervals = sort(filter(x -> 0 < x < 1, levels))
         hists, _ = BAT.get_smallest_intervals(h_norm, valid_intervals)
         pal = cgrad(cmap, length(valid_intervals), categorical=true, rev=!rev, alpha=alpha)
-        n_bins = length(h.weights)
+        n_bins = length(h_norm.weights)
         bin_colors = fill(RGBA{Float32}(0,0,0,0), n_bins)
 
         for (i, sub_hist) in enumerate(hists)
@@ -132,7 +132,7 @@ function Makie.plot!(p::QuantileHist1D)
         end
 
         centers = BAT.get_bin_centers(marg)[1]
-        return (centers, h.weights, h.edges[1], bin_colors)
+        return (centers, h_norm.weights, h_norm.edges[1], bin_colors)
     end
 
     centers = lift(d -> d[1], plot_data)
@@ -184,13 +184,13 @@ function Makie.plot!(p::QuantileHist2D)
     plot_data = lift(marg_dist, p.normalization, p.levels, p.colormap, p.rev, p.alpha) do marg, norm, levels, cmap, rev, alpha
         d = marg.dist isa BAT.ReshapedDist ? marg.dist.dist : marg.dist
         h_raw = convert(StatsBase.Histogram, d)
-        h_norm = norm == :none ? h_raw : StastBase.normalize(h_raw, mode = norm)
+        h_norm = norm == :none ? h_raw : StatsBase.normalize(h_raw, mode = norm)
 
         valid_intervals = sort(filter(x -> 0 < x < 1, levels))
         hists, _ = BAT.get_smallest_intervals(h_norm, valid_intervals)
 
         pal = cgrad(cmap, length(valid_intervals), categorical=true, rev=!rev, alpha=alpha)
-        dims = size(h.weights)
+        dims = size(h_norm.weights)
         color_grid = fill(RGBA{Float32}(0,0,0,0), dims)
 
         for (i, sub_hist) in enumerate(hists)
@@ -227,7 +227,7 @@ end
 
 function Makie.plot!(p::Hexbin2D)
     data = lift(p.samples, p.vsel, p.filter) do smpls, vsel, f
-        marg = bat_marginalize(s, vsel)
+        marg = bat_marginalize(smpls, vsel)
         marg_res = marg.result
 
         if f

@@ -11,7 +11,7 @@ end
 
 function Makie.plot!(p::Cov2D)
     stats_data = lift(p.samples, p.vsel, p.filter) do smpls, vsel, f
-        marg = bat_marginalize(s, vsel)
+        marg = bat_marginalize(smpls, vsel)
         marg_res = marg.result
 
         if f
@@ -220,7 +220,7 @@ end
 
 function Makie.plot!(p::Mean2D)
     positions = lift(p.samples, p.vsel, p.filter) do smpls, vsel, f
-        marg = bat_marginalize(s, vsel)
+        marg = bat_marginalize(smpls, vsel)
         marg_res = marg.result
 
         if f
@@ -326,7 +326,7 @@ end
 end
 
 function Makie.plot!(p::Errorbars2D)
-    stats = lift(p.samples, p.filter, p.nsigma) do smpls, vsel, f, nsigma
+    stats = lift(p.samples, p.vsel, p.filter, p.nsigma) do smpls, vsel, f, nsigma
         marg = bat_marginalize(smpls, vsel)
         marg_res = marg.result
 
