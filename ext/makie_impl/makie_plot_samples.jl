@@ -1,4 +1,3 @@
-using Makie, BAT, Statistics
 
 @recipe(BATPlot, samples) do scene
     Attributes(
@@ -138,7 +137,7 @@ const BATMakieRecipe = Union{
     Cov2D,
     Std1D, Std2D,
     Mean1D, Mean2D,
-    ErrorBars1D, ErrorBars2D,
+    Errorbars1D, Errorbars2D,
     PDF1D
 }
 
