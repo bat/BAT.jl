@@ -1,6 +1,7 @@
-@recipe(Cov2D, x, y) do scene
+@recipe(Cov2D, samples, vsel) do scene
     Attributes(
         weights = nothing,
+        filter = false,
         nsigma = 1.0,
         color = :red,
         linestyle = :solid,
@@ -9,15 +10,33 @@
 end
 
 function Makie.plot!(p::Cov2D)
-    geometry = lift(p[1], p[2], p.weights, p.nsigma) do x, y, w, nsigma
-        data = hcat(x, y)
-        w_obj = isnothing(w) ? UnitWeights{Float64}(length(x)) : ProbabilityWeights(w)
+    stats_data = lift(p.samples, p.vsel, p.filter) do smpls, vsel, f
+        marg = bat_marginalize(s, vsel)
+        marg_res = marg.result
 
-        μ = mean(data, w_obj, dims=1) |> vec
-        Σ = cov(data, w_obj)
+        if f
+            marg_res = BAT.drop_low_weight_samples(marg_res)
+        end
+
+        flat_vals = flatview(unshaped.(marg_res).v)
+        x_data = flat_vals[1, :]
+        y_data = flat_vals[2, :]
+        w_data = marg_res.weight
+
+        return (x_data, y_data, w_data)
+    end
+
+    geometry = lift(stats_data, p.nsigma) do d, nsigma
+        x, y, w = d
+        data_matrix = hcat(x, y)
+        w_obj = ProbabilityWeights(w)
+
+        μ = mean(data_matrix, w_obj, dims=1) |> vec
+        Σ = cov(data_matrix, w_obj)
 
         vals, vecs = eigen(Σ)
         stds = sqrt.(clamp.(vals, 0, Inf))
+
         θ = range(0, 2π, length=200)
         circle = [cos.(θ)'; sin.(θ)']
 
@@ -57,6 +76,7 @@ end
 @recipe(Std1D, x) do scene
     Attributes(
         weights = nothing,
+        filter = false,
         nsigma = 1.0,
         color = :red,
         linestyle = :solid,
@@ -65,10 +85,22 @@ end
 end
 
 function Makie.plot!(p::Std1D)
-    positions = lift(p[1], p.weights, p.nsigma) do x, w, nsigma
-        w_obj = isnothing(w) ? UnitWeights{Float64}(length(x)) : ProbabilityWeights(w)
-        μ = mean(x, w_obj)
-        σ = std(x, w_obj)
+    positions = lift(p.samples, p.vsel, p.filter, p.nsigma) do smpls, vsel, f, nsigma
+        marg = bat_marginalize(smpls, vsel)
+        marg_res = marg.result
+
+        if f
+            marg_res = BAT.drop_low_weight_samples(marg_res)
+        end
+
+        vals = flatview(unshaped.(marg_res).v)
+        x_data = vec(vals)
+        w_data = marg_res.weight
+
+        w_obj = ProbabilityWeights(w_data)
+        μ = mean(x_data, w_obj)
+        σ = std(x_data, w_obj)
+
         return [μ - nsigma * σ, μ + nsigma * σ]
     end
 
@@ -82,9 +114,10 @@ function Makie.plot!(p::Std1D)
 end
 
 
-@recipe(Std2D, x, y) do scene
+@recipe(Std2D, samples, vsel) do scene
     Attributes(
         weights = nothing,
+        filter = false,
         nsigma = 1.0,
         color = :red,
         linestyle = :solid,
@@ -93,13 +126,25 @@ end
 end
 
 function Makie.plot!(p::Std2D)
-    positions = lift(p[1], p[2], p.weights, p.nsigma) do x, y, w, nsigma
-        w_obj = isnothing(w) ? UnitWeights{Float64}(length(x)) : ProbabilityWeights(w)
+    lines_data = lift(p.samples, p.vsel, p.filter, p.nsigma) do smpls, vsel, f, nsigma
+        marg = bat_marginalize(smpls, vsel)
+        marg_res = marg.result
 
-        μ_x = mean(x, w_obj)
-        μ_y = mean(y, w_obj)
-        σ_x = std(x, w_obj)
-        σ_y = std(y, w_obj)
+        if f
+            marg_res = BAT.drop_low_weight_samples(marg_res)
+        end
+
+        flat_vals = flatview(unshaped.(marg_res).v)
+        x_data = flat_vals[1, :]
+        y_data = flat_vals[2, :]
+        w_data = marg_res.weight
+
+        w_obj = ProbabilityWeights(w_data)
+
+        μ_x = mean(x_data, w_obj)
+        μ_y = mean(y_data, w_obj)
+        σ_x = std(x_data, w_obj)
+        σ_y = std(y_data, w_obj)
 
         x_lines = [μ_x - nsigma * σ_x, μ_x + nsigma * σ_x]
         y_lines = [μ_y - nsigma * σ_y, μ_y + nsigma * σ_y]
@@ -107,8 +152,8 @@ function Makie.plot!(p::Std2D)
         return (x_lines, y_lines)
     end
 
-    v_pos = lift(pos -> pos[1], positions)
-    h_pos = lift(pos -> pos[2], positions)
+    v_pos = lift(d -> d[1], lines_data)
+    h_pos = lift(d -> d[2], lines_data)
 
     vlines!(p, v_pos;
         color = p.color,
@@ -126,9 +171,10 @@ function Makie.plot!(p::Std2D)
 end
 
 
-@recipe(Mean1D, x) do scene
+@recipe(Mean1D, samples, vsel) do scene
     Attributes(
         weights = nothing,
+        filter = false,
         color = :black,
         linestyle = :dot,
         linewidth = 2.0
@@ -136,9 +182,20 @@ end
 end
 
 function Makie.plot!(p::Mean1D)
-    position = lift(p[1], p.weights) do x, w
-        w_obj = isnothing(w) ? UnitWeights{Float64}(length(x)) : ProbabilityWeights(w)
-        return [mean(x, w_obj)]
+    position = lift(p.samples, p.vsel, p.filter) do smpls, vsel, f
+        marg = bat_marginalize(smpls, vsel)
+        marg_res = marg.result
+
+        if f
+            marg_res = BAT.drop_low_weight_samples(marg_res)
+        end
+
+        vals = flatview(unshaped.(marg_res).v)
+        x_data = vec(vals)
+        w_data = marg_res.weight
+
+        w_obj = ProbabilityWeights(w_data)
+        return [mean(x_data, w_obj)]
     end
 
     vlines!(p, position;
@@ -151,9 +208,10 @@ function Makie.plot!(p::Mean1D)
 end
 
 
-@recipe(Mean2D, x, y) do scene
+@recipe(Mean2D, samples, vsel) do scene
     Attributes(
         weights = nothing,
+        filter = false,
         color = :black,
         linestyle = :dot,
         linewidth = 2.0
@@ -161,10 +219,23 @@ end
 end
 
 function Makie.plot!(p::Mean2D)
-    positions = lift(p[1], p[2], p.weights) do x, y, w
-        w_obj = isnothing(w) ? UnitWeights{Float64}(length(x)) : ProbabilityWeights(w)
-        μ_x = mean(x, w_obj)
-        μ_y = mean(y, w_obj)
+    positions = lift(p.samples, p.vsel, p.filter) do smpls, vsel, f
+        marg = bat_marginalize(s, vsel)
+        marg_res = marg.result
+
+        if f
+            marg_res = BAT.drop_low_weight_samples(marg_res)
+        end
+
+        flat_vals = flatview(unshaped.(marg_res).v)
+        x_data = flat_vals[1, :]
+        y_data = flat_vals[2, :]
+        w_data = marg_res.weight
+
+        w_obj = ProbabilityWeights(w_data)
+        μ_x = mean(x_data, w_obj)
+        μ_y = mean(y_data, w_obj)
+
         return ([μ_x], [μ_y])
     end
 
@@ -187,9 +258,10 @@ function Makie.plot!(p::Mean2D)
 end
 
 
-@recipe(Errorbars1D, x) do scene
+@recipe(Errorbars1D, samples, vsel) do scene
     Attributes(
         weights = nothing,
+        filter = false,
         nsigma = 1.0,
         y = 0.0,
         color = :red,
@@ -199,11 +271,21 @@ end
 end
 
 function Makie.plot!(p::Errorbars1D)
-    stats = lift(p[1], p.weights, p.nsigma) do x, w, nsigma
-        w_obj = isnothing(w) ? UnitWeights{Float64}(length(x)) : ProbabilityWeights(w)
+    stats = lift(p.samples, p.vsel, p.filter, p.nsigma) do smpls, vsel, f, nsigma
+        marg = bat_marginalize(smpls, vsel)
+        marg_res = marg.result
 
-        μ = mean(x, w_obj)
-        σ = std(x, w_obj)
+        if f
+            marg_res = BAT.drop_low_weight_samples(marg_res)
+        end
+
+        vals = flatview(unshaped.(marg_res).v)
+        x_data = vec(vals)
+        w_data = marg_res.weight
+
+        w_obj = ProbabilityWeights(w_data)
+        μ = mean(x_data, w_obj)
+        σ = std(x_data, w_obj)
 
         return (μ, σ * nsigma)
     end
@@ -232,9 +314,10 @@ function Makie.plot!(p::Errorbars1D)
 end
 
 
-@recipe(Errorbars2D, x, y) do scene
+@recipe(Errorbars2D, samples, vsel) do scene
     Attributes(
         weights = nothing,
+        filter = false,
         nsigma = 1.0,
         color = :red,
         linewidth = 2.0,
@@ -243,13 +326,25 @@ end
 end
 
 function Makie.plot!(p::Errorbars2D)
-    stats = lift(p[1], p[2], p.weights, p.nsigma) do x, y, w, nsigma
-        w_obj = isnothing(w) ? UnitWeights{Float64}(length(x)) : ProbabilityWeights(w)
+    stats = lift(p.samples, p.filter, p.nsigma) do smpls, vsel, f, nsigma
+        marg = bat_marginalize(smpls, vsel)
+        marg_res = marg.result
 
-        μ_x = mean(x, w_obj)
-        μ_y = mean(y, w_obj)
-        σ_x = std(x, w_obj)
-        σ_y = std(y, w_obj)
+        if f
+            marg_res = BAT.drop_low_weight_samples(marg_res)
+        end
+
+        flat_vals = flatview(unshaped.(marg_res).v)
+        x_data = flat_vals[1, :]
+        y_data = flat_vals[2, :]
+        w_data = marg_res.weight
+
+        w_obj = ProbabilityWeights(w_data)
+
+        μ_x = mean(x_data, w_obj)
+        μ_y = mean(y_data, w_obj)
+        σ_x = std(x_data, w_obj)
+        σ_y = std(y_data, w_obj)
 
         return (Point2f(μ_x, μ_y), σ_x * nsigma, σ_y * nsigma)
     end
@@ -287,7 +382,8 @@ function Makie.plot!(p::Errorbars2D)
 end
 
 
-@recipe(PDF1D, distribution) do scene
+# TODO REFACTOR
+@recipe(PDF1D, distribution, vsel) do scene
     Attributes(
         color = Makie.wong_colors()[1],
         alpha = 1.0,
@@ -299,6 +395,7 @@ end
     )
 end
 
+# TODO REFACTOR
 function Makie.plot!(p::PDF1D)
     curve_data = lift(p[1], p.npoints) do dist, n
         μ = mean(dist)
