@@ -57,7 +57,9 @@ function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimAlg, context
     #dummy_f_x = f(x_init) # ToDo: Avoid recomputation
     #trace_trafo = StructArray(;_neg_opt_trace(optim_result, x_init, dummy_f_x) ...)
 
-    (result = result_mode, result_trafo = transformed_mode, f_pretransform = f_pretransform, #=trace_trafo = trace_trafo,=# info = r_optim)
+    ret_a = (result = result_mode, result_trafo = transformed_mode, f_pretransform = f_pretransform #=trace_trafo = trace_trafo=#)
+    ret_b = @NamedTuple{info::Optim.MaximizationWrapper}((r_optim,))
+    return merge(ret_a, ret_b)
 end
 
 function _optim_minimize(f::Function, x_init::AbstractArray{<:Real}, algorithm::Optim.ZerothOrderOptimizer, opts::Optim.Options, ::BATContext)
