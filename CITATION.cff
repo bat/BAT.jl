@@ -23,7 +23,7 @@ authors:
   - family-names: Grunwald
     given-names: Cornelius
     email: cornelius.grunwald@tu-dortmund.de
-    affiliation: TU Dortmund University
+    affiliation: 'TU Dortmund University, Dortmund, Germany'
     orcid: 'https://orcid.org/0000-0002-0588-8788'
   - family-names: Hafych
     given-names: Vasyl
@@ -36,20 +36,39 @@ authors:
     given-names: Kevin
     email: kevin.kroeninger@tu-dortmund.de
     orcid: 'https://orcid.org/0000-0001-9873-0228'
-    affiliation: TU Dortmund University
+    affiliation: 'TU Dortmund University, Dortmund, Germany'
   - email: salvatore.lacagnina@tu-dortmund.de
     given-names: Salvatore
     family-names: La Cagnina
-    affiliation: TU Dortmund University
+    affiliation: 'TU Dortmund University, Dortmund, Germany'
   - given-names: Lars
     family-names: Röhrig
-    affiliation: TU Dortmund University
+    affiliation: 'TU Dortmund University, Dortmund, Germany'
     email: lars.roehrig@tu-dortmund.de
   - given-names: Lolian
     family-names: Shtembari
     email: lolian@mpp.mpg.de
     affiliation: 'Max Planck Institute for Physics, Munich, Germany'
     orcid: 'https://orcid.org/0000-0002-5030-0285'
+  - given-names: Michael
+    family-names: Dudkowiak
+    email: michael.dudkowiak@tum.de
+    affiliation: 'Max Planck Institute for Physics, Munich, Germany'
+    orcid: 'https://orcid.org/0009-0002-0074-9372'
+  - given-names: Willy
+    family-names: Weber
+    email: willy.weber@tu-dortmund.de
+    affiliation: 'TU Dortmund University, Dortmund, Germany'
+  - given-names: Francesca
+    family-names: Capel
+    orcid: https://orcid.org/0000-0002-1153-2139
+    email: f.capel@tum.de
+    affiliation: 'Max Planck Institute for Physics, Munich, Germany'
+  - given-names: Cedrik
+    family-names: Laue
+    affiliation: 'Max Planck Institute for Physics, Munich, Germany'
+  
+
 identifiers:
   - type: doi
     value: 10.5281/zenodo.2587213
