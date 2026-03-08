@@ -1,22 +1,22 @@
 
-function bat_makie_plot(samples; kwargs...)
+function bat_makie_plot(samples::BAT.DensitySampleVector; kwargs...)
     fig = Figure()
-    bat_makie_plot!(fig, samples; kwargs...)
+    bat_makie_plot!(fig, Observable(samples); kwargs...)
     return fig
 end
 
 function bat_makie_plot!(
     fig::Figure,
     samples;
-    vsel = Observable(collect(1:5)),
-    diagonal = Observable(QuantileHist1D),
-    lower = Observable(QuantileHist2D),
-    upper = Observable(nothing),
-    labels = Observable(nothing),
-    link_axes = Observable(true),
-    nbins = Observable(200),
-    closed = Observable(:left),
-    filter = Observable(false)
+    vsel=Observable(collect(1:5)),
+    diagonal=Observable(quantilehist1d!),
+    lower=Observable(quantilehist2d!),
+    upper=Observable(nothing),
+    labels=Observable(nothing),
+    link_axes=Observable(true),
+    nbins=Observable(200),
+    closed=Observable(:left),
+    filter=Observable(false)
 )
     vs = varshape(samples[])
     indices = lift(vsel) do vsel_inp
@@ -25,7 +25,7 @@ function bat_makie_plot!(
             vsel = asindex.(Ref(vs), vsel_inp)
             vsel = reduce(vcat, vsel)
         end
-        return vsel[vsel .<= totalndof(vs)]
+        return vsel[vsel.<=totalndof(vs)]
     end
 
     n_params = lift(idxs -> length(idxs), indices)
@@ -67,24 +67,24 @@ function bat_makie_plot!(
                         (idxs[i], idxs[j])
                     end
                 end
-                
+
                 # global gs = (ax, recipe, samples_loc, plot_idxs, nbins, closed, filter)
                 # BREAK
-                plot!(
+                recipe(
                     ax,
-                    recipe,
                     samples,
                     plot_idxs;
-                    nbins = nbins,
-                    closed = closed,
-                    filter = filter
+                    nbins=nbins,
+                    closed=closed,
+                    filter=filter
                 )
             end
         end
 
-        if link_axes[]
-            link_axes!(axs)
-        end
+        # TODO: Only link x-axes in columns and y-axes in rows
+        # if link_axes[]
+        #     linkaxes!(axs)
+        # end
         return axs
     end
 
@@ -102,9 +102,9 @@ function apply_decorations!(
     if i < n
         hidexdecorations!(
             ax,
-            grid = false,
-            ticks = true,
-            ticklabels = true
+            grid=false,
+            ticks=true,
+            ticklabels=true
         )
     else
         ax.xlabel = xlabel
@@ -113,15 +113,15 @@ function apply_decorations!(
     if j > 1
         hideydecorations!(
             ax,
-            grid = false,
-            ticks = true,
-            ticklabels = true
+            grid=false,
+            ticks=true,
+            ticklabels=true
         )
     else
         ax.ylabel = ylabel
     end
 
-    ax.xticklabelrotation = π/4
+    ax.xticklabelrotation = π / 4
     ax.xtickalign = 1
     ax.ytickalign = 1
 
@@ -132,33 +132,25 @@ end
 
 
 const BATMakieRecipe = Union{
-    Hist1D, Hist2D,
-    QuantileHist1D, QuantileHist2D,
+    Hist1D,Hist2D,
+    QuantileHist1D,QuantileHist2D,
     Hexbin2D,
-    KDE1D, KDE2D,
-    QuantileKDE1D, QuantileKDE2D,
+    KDE1D,KDE2D,
+    QuantileKDE1D,QuantileKDE2D,
     Scatter2D,
     Cov2D,
-    Std1D, Std2D,
-    Mean1D, Mean2D,
-    Errorbars1D, Errorbars2D,
+    Std1D,Std2D,
+    Mean1D,Mean2D,
+    Errorbars1D,Errorbars2D,
     PDF1D
 }
 
-function Makie.convert_arguments(
-    ::Type{<:BATMakieExt.BATMakieRecipe},
-    samples::Observable,
-    idxs::Observable;
-    args...
-)
-    return (samples, idxs)
-end
 
 function Makie.convert_arguments(
-    ::Type{<:BATMakieExt.BATMakieRecipe},
-    samples,
-    idxs;
-    args...
+    ::Type{<:Makie.Plot},
+    samples::BAT.DensitySampleVector,
+    idxs
+    #args...
 )
     return (samples, idxs)
 end

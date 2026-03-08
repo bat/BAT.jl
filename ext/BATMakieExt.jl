@@ -1,8 +1,10 @@
 module BATMakieExt
 
+using ArraysOfArrays
 using BAT
 using Colors
 using Distributions
+using LinearAlgebra
 using Makie
 using StatsBase
 using ValueShapes

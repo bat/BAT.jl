@@ -1,14 +1,14 @@
 
 @recipe(KDE1D, samples, vsel) do scene
     Attributes(
-        weights = nothing,
-        filter = false,
-        color = Makie.wong_colors()[1],
-        alpha = 1.0,
-        filled = true,
-        edge = false,
-        strokecolor = Makie.wong_colors()[1],
-        strokewidth = 1
+        weights=nothing,
+        filter=false,
+        color=Makie.wong_colors()[1],
+        alpha=1.0,
+        filled=true,
+        edge=false,
+        strokecolor=Makie.wong_colors()[1],
+        strokewidth=1
     )
 end
 
@@ -21,11 +21,11 @@ function Makie.plot!(p::KDE1D)
             marg_res = drop_low_weight_samples(marg_res)
         end
 
-        vals = flatview(unshaped.(marg_res).v)
+        vals = ArraysOfArrays.flatview(unshaped.(marg_res).v)
         x_data = vec(vals)
         w_data = marg_res.weight
 
-        return kde(x_data, weights = w_data)
+        return kde(x_data, weights=w_data)
     end
 
     poly_points = lift(kde_result) do k
@@ -36,15 +36,15 @@ function Makie.plot!(p::KDE1D)
     end
 
     poly!(p, poly_points;
-        color = p.color,
-        alpha = p.alpha,
-        visible = p.filled
+        color=p.color,
+        alpha=p.alpha,
+        visible=p.filled
     )
 
     lines!(p, lift(k -> k.x, kde_result), lift(k -> k.density, kde_result);
-        color = p.strokecolor,
-        linewidth = p.strokewidth,
-        visible = p.edge
+        color=p.strokecolor,
+        linewidth=p.strokewidth,
+        visible=p.edge
     )
 
     return p
@@ -53,11 +53,11 @@ end
 
 @recipe(KDE2D, samples, vsel) do scene
     Attributes(
-        weights = nothing,
-        filter = false,
-        colormap = :Blues,
-        alpha = 1.0,
-        rev = false
+        weights=nothing,
+        filter=false,
+        colormap=:Blues,
+        alpha=1.0,
+        rev=false
     )
 end
 
@@ -75,7 +75,7 @@ function Makie.plot!(p::KDE2D)
         y_data = flat_vals[2, :]
         w_data = marg_res.weight
 
-        return kde((x_data, y_data), weights = w_data)
+        return kde((x_data, y_data), weights=w_data)
     end
 
     cmap_final = lift(p.colormap, p.rev) do cm, r
@@ -86,8 +86,8 @@ function Makie.plot!(p::KDE2D)
         lift(k -> k.x, kde_result),
         lift(k -> k.y, kde_result),
         lift(k -> k.density, kde_result);
-        colormap = cmap_final,
-        alpha = p.alpha
+        colormap=cmap_final,
+        alpha=p.alpha
     )
 
     return p
@@ -96,15 +96,15 @@ end
 
 @recipe(QuantileKDE1D, samples, vsel) do scene
     Attributes(
-        weights = nothing,
-        filter = false,
-        levels = cdf.(Chi(1), 0:3),
-        colormap = :Blues,
-        alpha = 1.0,
-        rev = false,
-        edge = false,
-        strokecolor = Makie.wong_colors()[1],
-        strokewidth = 1
+        weights=nothing,
+        filter=false,
+        levels=cdf.(Chi(1), 0:3),
+        colormap=:Blues,
+        alpha=1.0,
+        rev=false,
+        edge=false,
+        strokecolor=Makie.wong_colors()[1],
+        strokewidth=1
     )
 end
 
@@ -121,13 +121,13 @@ function Makie.plot!(p::QuantileKDE1D)
         x_data = vec(vals)
         w_data = marg_res.weight
 
-        return kde(x_data, weights = w_data)
+        return kde(x_data, weights=w_data)
     end
 
     geometry_data = lift(kde_result, p.levels, p.colormap, p.alpha, p.rev) do k, levels, cmap, alpha, rev
         dens = k.density
         step_size = step(k.x)
-        prob_mass = dens * step_size 
+        prob_mass = dens * step_size
 
         sorted_p = sort(prob_mass, rev=true)
         cum_p = cumsum(sorted_p)
@@ -171,16 +171,16 @@ function Makie.plot!(p::QuantileKDE1D)
     poly_shapes = lift(x -> x[1], geometry_data)
     poly_colors = lift(x -> x[2], geometry_data)
 
-    poly!(p, poly_shapes; color = poly_colors)
+    poly!(p, poly_shapes; color=poly_colors)
 
     full_line = lift(kde_result) do k
         return Point2f.(k.x, k.density)
     end
 
     lines!(p, full_line;
-        color = p.strokecolor,
-        linewidth = p.strokewidth,
-        visible = p.edge
+        color=p.strokecolor,
+        linewidth=p.strokewidth,
+        visible=p.edge
     )
 
     return p
@@ -189,12 +189,12 @@ end
 
 @recipe(QuantileKDE2D, samples, vsel) do scene
     Attributes(
-        weights = nothing,
-        filter = false,
-        levels = cdf.(Chi(2), 0:3),
-        colormap = :Blues,
-        alpha = 1.0,
-        rev = false
+        weights=nothing,
+        filter=false,
+        levels=cdf.(Chi(2), 0:3),
+        colormap=:Blues,
+        alpha=1.0,
+        rev=false
     )
 end
 
@@ -212,7 +212,7 @@ function Makie.plot!(p::QuantileKDE2D)
         y_data = flat_vals[2, :]
         w_data = marg_res.weight
 
-        return kde((x_data, y_data), weights = w_data)
+        return kde((x_data, y_data), weights=w_data)
     end
 
     plot_data = lift(kde_result, p.levels, p.colormap, p.rev, p.alpha) do k, levels, cmap, rev, alpha
@@ -236,20 +236,20 @@ function Makie.plot!(p::QuantileKDE2D)
         push!(thresholds, 0.0)
         final_levels = sort(thresholds)
 
-        final_cmap = cgrad(cmap, length(final_levels)-1, categorical=true, rev=rev, alpha=alpha)
+        final_cmap = cgrad(cmap, length(final_levels) - 1, categorical=true, rev=rev, alpha=alpha)
 
         return (k.x, k.y, Z, final_levels, final_cmap)
     end
 
-    x_g  = lift(d -> d[1], plot_data)
-    y_g  = lift(d -> d[2], plot_data)
-    Z    = lift(d -> d[3], plot_data)
+    x_g = lift(d -> d[1], plot_data)
+    y_g = lift(d -> d[2], plot_data)
+    Z = lift(d -> d[3], plot_data)
     lvls = lift(d -> d[4], plot_data)
     cmap = lift(d -> d[5], plot_data)
 
     contourf!(p, x_g, y_g, Z;
-        levels = lvls,
-        colormap = cmap
+        levels=lvls,
+        colormap=cmap
     )
 
     return p
