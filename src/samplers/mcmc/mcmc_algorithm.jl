@@ -248,10 +248,13 @@ end
 
 function Base.show(io::IO, mc_state::MCMCIterator)
     print(io, Base.typename(typeof(mc_state)).name, "(")
-    print(io, "id = "); show(io, mcmc_info(mc_state).id)
-    print(io, ", nsamples = "); show(io, nsamples(mc_state))
-    print(io, ", target = "); show(io, mcmc_target(mc_state))
-    print(io, ")") 
+    print(io, "id = ")
+    show(io, mcmc_info(mc_state).id)
+    print(io, ", nsamples = ")
+    show(io, nsamples(mc_state))
+    print(io, ", target = ")
+    show(io, mcmc_target(mc_state))
+    print(io, ")")
 end
 
 
@@ -404,7 +407,7 @@ function mcmc_trafo_tuning_init!!(
     ::MCMCTransformTunerState,
     ::CS,
     ::Integer
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return nothing
 end
 
@@ -412,7 +415,7 @@ function mcmc_trafo_tuning_reinit!!(
     ::MCMCTransformTunerState,
     ::CS,
     ::Integer
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return nothing
 end
 
@@ -420,7 +423,7 @@ function mcmc_trafo_tuning_postinit!!(
     tuner::MCMCTransformTunerState,
     chain_state::CS,
     samples::AbstractVector{<:DensitySampleVector}
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return nothing
 end
 
@@ -430,7 +433,7 @@ function mcmc_tune_trafo_post_cycle!!(
     chain_state::CS,
     proposal::MCMCProposalState,
     samples::AbstractVector{<:DensitySampleVector}
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return f_transform, tuner, chain_state
 end
 
@@ -438,7 +441,7 @@ function mcmc_trafo_tuning_finalize!!(
     f_transform::Function,
     trafo_tuner_state::MCMCTransformTunerState,
     chain_state::CS
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return f_transform, trafo_tuner_state, chain_state
 end
 
@@ -459,7 +462,7 @@ function mcmc_proposal_tuning_init!!(
     ::MCMCProposalTunerState,
     ::CS,
     ::Integer
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return nothing
 end
 
@@ -467,7 +470,7 @@ function mcmc_proposal_tuning_reinit!!(
     ::MCMCProposalTunerState,
     ::CS,
     ::Integer
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return nothing
 end
 
@@ -475,16 +478,16 @@ function mcmc_proposal_tuning_postinit!!(
     ::MCMCProposalTunerState,
     ::CS,
     ::AbstractVector{<:DensitySampleVector}
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return nothing
 end
 
 function mcmc_tune_proposal_post_cycle!!(
-    proposal::MCMCProposalState, 
-    tuner::MCMCProposalTunerState, 
-    chain_state::CS, 
+    proposal::MCMCProposalState,
+    tuner::MCMCProposalTunerState,
+    chain_state::CS,
     ::AbstractVector{<:DensitySampleVector}
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return proposal, tuner, chain_state
 end
 
@@ -492,7 +495,7 @@ function mcmc_proposal_tuning_finalize!!(
     proposal_state::MCMCProposalState,
     proposal_tuner_state::MCMCProposalTunerState,
     chain_state::CS
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return proposal_state, proposal_tuner_state, chain_state
 end
 
@@ -513,10 +516,10 @@ end
 
 
 function get_target_acceptance_ratio(proposal::MCMCProposalState)
-   return proposal.target_acceptance
+    return proposal.target_acceptance
 end
 
-function get_target_acceptance_int(proposal::MCMCProposalState) 
+function get_target_acceptance_int(proposal::MCMCProposalState)
     return proposal.target_acceptance_int
 end
 
@@ -543,7 +546,7 @@ function get_proposal_tuning_quality(
     lower, upper = proposal.target_acceptance_int
     target_acceptance = get_target_acceptance_ratio(proposal)
 
-    in_target_interval =  lower < eff_acceptance < upper
+    in_target_interval = lower < eff_acceptance < upper
 
     if in_target_interval
         if eff_acceptance >= target_acceptance
@@ -564,7 +567,7 @@ end
 function get_tuning_success(
     chain_state::CS,
     proposal::MCMCProposalState
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     α = eff_acceptance_ratio(chain_state)
     α_min, α_max = get_target_acceptance_int(proposal)
     tuning_success = α_min <= α <= α_max
@@ -605,7 +608,7 @@ function update_active_proposal!!(
     proposal::MCMCProposalState,
     active_proposal_new::MCMCProposalState
 )
-    return proposal    
+    return proposal
 end
 
 # TODO: MD, reincorporate user callback
@@ -617,6 +620,7 @@ function mcmc_iterate!!(
     max_time::Real = Inf,
     nonzero_weights::Bool = true,
     _cancelled::Union{Nothing,Base.Threads.Atomic{Bool}} = nothing,
+    callback::Function = nop_func,
 )
     @debug "Starting iteration over MCMC chain $(mcmc_state.chain_state.info.id) with $max_nsteps steps in max. $(@sprintf "%.1f s" max_time)"
 
@@ -642,6 +646,8 @@ function mcmc_iterate!!(
         if should_log
             @debug "Iterating over MCMC chain $(mcmc_state.chain_state.info.id), completed $(nsteps(mcmc_state.chain_state) - start_nsteps) (of $(max_nsteps)) steps and produced $(nsamples(mcmc_state.chain_state) - start_nsamples) samples in $(@sprintf "%.1f s" elapsed_time) so far."
         end
+
+        callback(Val(:mcmc_iterate), mcmc_state)
     end
 
     elapsed_time = time() - start_time
@@ -651,7 +657,7 @@ function mcmc_iterate!!(
 end
 
 function mcmc_iterate!!(
-    outputs::Union{AbstractVector{<:AbstractVector{<:DensitySampleVector}}, Nothing},
+    outputs::Union{AbstractVector{<:AbstractVector{<:DensitySampleVector}},Nothing},
     mcmc_states::AbstractVector{<:MCMCState};
     kwargs...
 )
@@ -749,12 +755,15 @@ function LazyReports.pushcontent!(rpt::LazyReport, generator::MCMCSampleGenerato
     n_tuned_chain_states = count(c -> c.info.tuned, chain_states)
     n_converged_chain_states = count(c -> c.info.converged, chain_states)
 
-    lazyreport!(rpt, """
-    ### Sample generation
+    lazyreport!(
+        rpt,
+        """
+### Sample generation
 
-    * Algorithm: MCMC, $(nameof(typeof(mcalg)))
-    * MCMC chains: $n_chain_states ($n_tuned_chain_states tuned, $n_converged_chain_states converged)
-    """)
+* Algorithm: MCMC, $(nameof(typeof(mcalg)))
+* MCMC chains: $n_chain_states ($n_tuned_chain_states tuned, $n_converged_chain_states converged)
+"""
+    )
 
     return nothing
 end

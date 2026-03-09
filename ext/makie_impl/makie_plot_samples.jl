@@ -1,7 +1,12 @@
 
+
 function bat_makie_plot(samples::BAT.DensitySampleVector; kwargs...)
+    bat_makie_plot(Observable(samples); kwargs...)
+end
+
+function bat_makie_plot(samples::Observable; kwargs...)
     fig = Figure()
-    bat_makie_plot!(fig, Observable(samples); kwargs...)
+    bat_makie_plot!(fig, samples; kwargs...)
     return fig
 end
 

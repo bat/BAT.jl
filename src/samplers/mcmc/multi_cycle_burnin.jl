@@ -24,7 +24,7 @@ export MCMCMultiCycleBurnin
 
 
 function mcmc_burnin!(
-    outputs::Union{AbstractVector{<:AbstractVector{<:DensitySampleVector}}, Nothing},
+    outputs::Union{AbstractVector{<:AbstractVector{<:DensitySampleVector}},Nothing},
     mcmc_states::AbstractVector{<:MCMCState},
     samplingalg::TransformedMCMC,
     callback::Function
@@ -49,8 +49,9 @@ function mcmc_burnin!(
 
         mcmc_states = mcmc_iterate!!(
             new_outputs, mcmc_states;
-            max_nsteps = burnin.nsteps_per_cycle,
-            nonzero_weights = nonzero_weights
+            max_nsteps=burnin.nsteps_per_cycle,
+            nonzero_weights=nonzero_weights,
+            callback=callback
         )
 
         mcmc_states = mcmc_tune_post_cycle!!.(mcmc_states, new_outputs)
@@ -102,8 +103,9 @@ function mcmc_burnin!(
 
         mcmc_states = mcmc_iterate!!(
             outputs, mcmc_states;
-            max_nsteps = burnin.nsteps_final,
-            nonzero_weights = nonzero_weights
+            max_nsteps=burnin.nsteps_final,
+            nonzero_weights=nonzero_weights,
+            callback=callback
         )
     end
 
