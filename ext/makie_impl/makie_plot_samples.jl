@@ -51,7 +51,7 @@ function bat_makie_plot!(
         # Reactive Matrix of number of bins for each sub-plot. Pass to MarginalDist below
         for i in 1:n, j in 1:n
             if i == j || (i > j && !isnothing(lower[])) || (j > i && !isnothing(upper[]))
-                ax = Axis(fig.layout[i, j])
+                ax = Axis(fig.layout[i, j], aspect=AxisAspect(1))
                 axs[i, j] = ax
                 apply_decorations!(ax, i, j, n, xlbls[j], ylbls[i])
 
@@ -85,6 +85,14 @@ function bat_makie_plot!(
                 )
             end
         end
+
+        for i in 1:n
+            colsize!(fig.layout, i, Aspect(1, 1.0))
+        end
+
+        # Set a comfortable, fixed pixel gap between subplots
+        colgap!(fig.layout, 10)
+        rowgap!(fig.layout, 10)
 
         # TODO: Only link x-axes in columns and y-axes in rows
         # if link_axes[]
