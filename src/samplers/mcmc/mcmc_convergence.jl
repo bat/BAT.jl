@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+using Printf
 
 function check_convergence!(
     chains::AbstractVector{<:MCMCIterator},
@@ -71,7 +72,7 @@ function bat_convergence_impl(samples::AbstractVector{<:DensitySampleVector}, al
     max_Rsqr = maximum(gr_Rsqr(samples))
     vt = ValueAndThreshold{max_Rsqr}(max_Rsqr, <=, algorithm.threshold)
     converged = convert(Bool, vt)
-    @debug begin
+    @info begin
         success_str = converged ? "have" : "have *not*"
         "Chains $success_str converged, max(R^2) = $(vt.value), threshold = $(vt.threshold)"
     end
@@ -149,12 +150,25 @@ end
 export BrooksGelmanConvergence
 
 function bat_convergence_impl(samples::AbstractVector{<:DensitySampleVector}, algorithm::BrooksGelmanConvergence, ::BATContext)
-    max_Rsqr = maximum(bg_R_2sqr(samples, corrected = algorithm.corrected))
+    r2 = bg_R_2sqr(samples, corrected = algorithm.corrected)
+
+    max_Rsqr = maximum(r2)
+    mean_Rsqr = mean(r2)
+    
+    n = length(r2)
+    n_conv = length(r2[r2 .<= algorithm.threshold])
+    
     vt = ValueAndThreshold{max_Rsqr}(max_Rsqr, <=, algorithm.threshold)
     converged = convert(Bool, vt)
-    @debug begin
+
+    @info begin
         success_str = converged ? "have" : "have *not*"
-        "Chains $success_str converged, max(R^2) = $(vt.value), threshold = $(vt.threshold)"
+    
+        max_r2  = @sprintf("%.2f", vt.value)
+        thresh  = @sprintf("%.2f", vt.threshold)
+        mean_r2 = @sprintf("%.2f", mean_Rsqr)
+    
+        "Chains $success_str converged, max(R²) = $max_r2, threshold = $thresh mean(R²) = $mean_r2, nconverged $n_conv / $n"
     end
     (result = vt,)
 end
