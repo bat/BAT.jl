@@ -1,7 +1,9 @@
 module BATMakieExt
 
-using ArraysOfArrays
 using BAT
+BAT.pkgext(::Val{:Makie}) = BAT.PackageExtension{:Makie}()
+
+using ArraysOfArrays
 using Colors
 using Distributions
 using LinearAlgebra
@@ -24,7 +26,7 @@ using BAT: MCMCSampleGenerator
 using InverseFunctions: inverse
 
 import BAT: bat_makie_plot, bat_makie_plot!
-import BAT: bat_sample_and_visualize
+import BAT: hist1d, hist2d
 
 include("./makie_impl/makie_plotting.jl")
 
