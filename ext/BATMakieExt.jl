@@ -8,11 +8,16 @@ using Colors
 using Distributions
 using LinearAlgebra
 using Makie
+import Makie.SpecApi as S
+using Parameters: @with_kw
 using StatsBase
 using ValueShapes
 
-using BAT: MarginalDist, BAT.get_bin_centers, get_smallest_intervals, drop_low_weight_samples
-using BAT: bat_marginalize
+
+using BAT: DensitySampleVector
+using BAT: _get_edges
+# using BAT: MarginalDist, BAT.get_bin_centers, get_smallest_intervals, drop_low_weight_samples
+# using BAT: bat_marginalize
 using BAT: asindex, getstring
 
 using BAT: BATMeasure
@@ -25,8 +30,11 @@ using BAT: MCMCSampleGenerator
 
 using InverseFunctions: inverse
 
+import BAT: BATMakieVisualizer, init_visualizer!!, update_visualizer_impl
+import BAT: AbstractSamplingAlgorithm
 import BAT: bat_makie_plot, bat_makie_plot!
 import BAT: hist1d, hist2d
+
 
 include("./makie_impl/makie_plotting.jl")
 

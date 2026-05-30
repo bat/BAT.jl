@@ -29,24 +29,26 @@ struct BATContext{T<:AbstractFloat,RNG<:AbstractRNG,CU<:AbstractComputeUnit,AD<:
     rng::RNG
     cunit::CU
     ad::AD
+    visualizer::BATVisualizer
 end
 
 export BATContext
 
 function BATContext{T}(
-    rng::RNG, cunit::CU, ad::AD
+    rng::RNG, cunit::CU, ad::AD, visualizer::BATVisualizer
 ) where {T<:AbstractFloat,RNG<:AbstractRNG,CU<:AbstractComputeUnit,AD<:ADSelector}
-    BATContext{T,RNG,CU,AD}(rng, cunit, ad)
+    BATContext{T,RNG,CU,AD}(rng, cunit, ad, visualizer)
 end
 
 function BATContext(;
-    precision::Type{T} = Float64,
-    rng::AbstractRNG = Philox4x()::Philox4x{UInt64,10},
-    cunit::AbstractComputeUnit = CPUnit(),
-    ad::Union{ADSelector, Module, Symbol, Val} = NoAutoDiff(),
-) where T
+    precision::Type{T}=Float64,
+    rng::AbstractRNG=Philox4x()::Philox4x{UInt64,10},
+    cunit::AbstractComputeUnit=CPUnit(),
+    ad::Union{ADSelector,Module,Symbol,Val}=NoAutoDiff(),
+    visualizer::BATVisualizer=BATVisualizer()
+) where {T}
     adsel = _to_adsel(ad)
-    BATContext{T}(rng, cunit, adsel)
+    BATContext{T}(rng, cunit, adsel, visualizer)
 end
 
 _to_adsel(ad::ADSelector) = ad
@@ -55,7 +57,7 @@ _to_adsel(ad::Symbol) = ADSelector(ad)
 _to_adsel(ad::Val) = ADSelector(ad)
 
 
-HeterogeneousComputing.get_precision(::BATContext{T}) where T = T
+HeterogeneousComputing.get_precision(::BATContext{T}) where {T} = T
 HeterogeneousComputing.get_rng(context::BATContext) = context.rng
 HeterogeneousComputing.get_compute_unit(context::BATContext) = context.cunit
 
@@ -110,12 +112,12 @@ end
 
 Returns a copy of `context` with the random number generator set to `rng`.
 """
-function set_rng(context::BATContext{T}, rng::AbstractRNG) where T
-    BATContext{T}(rng, get_compute_unit(context), get_adselector(context))
+function set_rng(context::BATContext{T}, rng::AbstractRNG) where {T}
+    BATContext{T}(rng, get_compute_unit(context), get_adselector(context), BATVisualizer())
 end
 
 
-function Base.show(io::IO, context::BATContext{T}) where T
+function Base.show(io::IO, context::BATContext{T}) where {T}
     gen = get_gencontext(context)
     print(io, nameof(typeof(context)), "{", T, "}(")
     print(io, get_rng(gen), ", ")
@@ -176,15 +178,16 @@ function set_batcontext(context::BATContext)
     return get_batcontext()
 end
 
-function set_batcontext(;kwargs...)
+# TODO: MD, add infrastructure for BATVisualizer
+function set_batcontext(; kwargs...)
     c = get_batcontext()
     s = merge(
-        (cuinit = get_compute_unit(c),precision=get_precision(c), rng=get_rng(c), ad=get_adselector(c)),
-        (;kwargs...)
+        (cuinit=get_compute_unit(c), precision=get_precision(c), rng=get_rng(c), ad=get_adselector(c)),
+        (; kwargs...)
     )
     @info s
     adsel = _to_adsel(s.ad)
-    set_batcontext(BATContext{s.precision}(s.rng, s.cuinit, adsel))
+    set_batcontext(BATContext{s.precision}(s.rng, s.cuinit, adsel, BATVisualizer())) # Temporary, to fix
 end
 
 

@@ -144,20 +144,6 @@ function apply_decorations!(
 end
 
 
-const BATMakieRecipe = Union{
-    Hist1D,Hist2D,
-    QuantileHist1D,QuantileHist2D,
-    Hexbin2D,
-    KDE1D,KDE2D,
-    QuantileKDE1D,QuantileKDE2D,
-    Scatter2D,
-    Cov2D,
-    Std1D,Std2D,
-    Mean1D,Mean2D,
-    Errorbars1D,Errorbars2D,
-    PDF1D
-}
-
 
 function Makie.convert_arguments(
     ::Type{<:Makie.Plot},
