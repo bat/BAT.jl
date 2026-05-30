@@ -1,4 +1,25 @@
 
+struct BATMakieVisualizer <: BATVisBackend
+        recipes::NamedTuple
+        vsel::Vector{Integer}
+        N_max::Integer
+        n_batch::Integer
+        graph::Any
+        gridspec::Any
+        ui_controls::NamedTuple
+end
+export BATMakieVisualizer
+
+function BATMakieVisualizer end
+export BATMakieVisualizer
+
+function init_visualizer!! end
+export init_visualizer!!
+
+function update_visualizer!! end
+export update_visualizer!!
+
+
 function bat_makie_plot end
 export bat_makie_plot
 
