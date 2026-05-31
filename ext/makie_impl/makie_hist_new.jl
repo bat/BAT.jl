@@ -27,9 +27,9 @@ function compute_plotting_primitives(
     recipe::Hist1D
 )
     (; normalization, nbins, closed, filter) = recipe
-    hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, normalization)
+    hist = _marginal_view_dist(marg_coords, weights, filter, nbins + 1, closed, normalization)
     centers = _get_bin_centers(hist)
-    return (centers=centers, weights=hist.weights, widths=hist.edges[1])
+    return (centers=centers[1], weights=hist.weights, widths=collect(hist.edges[1]))
 end
 
 
@@ -40,15 +40,19 @@ function compose_plotspecs(
     (; centers, weights, widths) = primitives
     (; color, alpha, filled, strokecolor, strokewidth, edge) = recipe
 
-    bars = barplotspec((centers, widths);
+    bars = S.BarPlot(
+        centers,
+        weights;
         color=color,
         alpha=alpha,
         gap=0.0,
-        width=widths,
+        # width=widths,
         visible=filled
     )
 
-    stairs = stairsspec((widths, vcat(weights, weights[end]));
+    stairs = S.Stairs(
+        widths,
+        vcat(weights, weights[end]);
         step=:post,
         color=strokecolor,
         linewidth=strokewidth,
@@ -95,20 +99,17 @@ function compose_plotspecs(
     primitives::NamedTuple,
     recipe::Hist2D
 )
-
+    (; centers, weights) = primitives
+    (; colormap, alpha, rev) = recipe
     final_cmap = rev ? Reverse(colormap) : colormap
 
-    heat = heatmapspec(plot_data;
+    heat = S.Heatmap(
+        centers[1], centers[2], weights;
         colormap=final_cmap,
-        alpha=p.alpha
+        alpha=alpha
     )
     return [heat]
 end
-
-
-
-
-
 
 
 @with_kw struct QuantileHist1D <: BATMakieRecipe
@@ -126,6 +127,72 @@ end
     strokewidth = 1.0
 end
 
+function compute_plotting_primitives(
+    ::Nothing,
+    ::Nothing,
+    ::QuantileHist1D
+)
+    return (xy_data=Vector{Point2f}(), widths=Vector{Float64}, stairs_data=Vector{Point2f}(), bin_colors=Vector{RGBA}())
+end
+
+function compute_plotting_primitives(
+    marg_coords::SubArray,
+    weights::SubArray,
+    recipe::QuantileHist1D
+)
+    (; normalization, levels, colormap, alpha, rev, nbins, closed, edge, strokewidth) = recipe
+    hist = _marginal_view_dist(marg_coords, weights, recipe.filter, nbins, closed, normalization)
+
+    valid_intervals = sort(filter(x -> 0 < x < 1, levels))
+    sub_hists, _ = BAT.get_smallest_intervals(hist, valid_intervals)
+
+    pal = cgrad(colormap, length(valid_intervals), categorical=true, rev=!rev, alpha=alpha)
+    bin_colors = fill(RGBA{Float32}(0, 0, 0, 0), length(hist.weights))
+
+    for (i, sub_hist) in enumerate(sub_hists)
+        color_idx = length(valid_intervals) - i + 1
+        c = pal[color_idx]
+        mask = sub_hist.weights .> 0
+        bin_colors[mask] .= c
+    end
+
+    centers = _get_bin_centers(hist)[1]
+
+    xy_data = Point2f.(centers, hist.weights)
+    edges = collect(hist.edges)[1]
+
+    widths = diff(edges)
+
+    stairs_y = vcat(hist.weights, hist.weights[end])
+    stairs_data = Point2f.(edges, stairs_y)
+
+    return (xy_data=xy_data, widths=widths, stairs_data=stairs_data, bin_colors=bin_colors)
+end
+
+function compose_plotspecs(
+    primitives::NamedTuple,
+    recipe::QuantileHist1D
+)
+    (; xy_data, widths, stairs_data, bin_colors) = primitives
+    (; edge, strokecolor, strokewidth) = recipe
+
+    bars = S.BarPlot(xy_data;
+        color=bin_colors,
+        width=widths,
+        gap=0.0,
+        visible=true
+    )
+
+    final_strokewidth = edge ? strokewidth : 0.0
+
+    stairs = S.Stairs(stairs_data;
+        step=:post,
+        color=strokecolor,
+        linewidth=final_strokewidth,
+        visible=edge
+    )
+    return [bars, stairs]
+end
 
 
 
@@ -141,14 +208,50 @@ end
     alpha = 1.0
 end
 
+function compute_plotting_primitives(
+    ::Nothing,
+    ::Nothing,
+    ::QuantileHist2D
+)
+    return (1,)
+end
 
+function compute_plotting_primitives(
+    marg_coords::SubArray,
+    weights::SubArray,
+    recipe::QuantileHist2D
+)
 
+    (; normalization, levels, colormap, alpha, rev, nbins, closed) = recipe
+    hist = _marginal_view_dist(marg_coords, weights, recipe.filter, nbins, closed, normalization)
 
+    valid_intervals = sort(filter(x -> 0 < x < 1, levels))
+    sub_hists, _ = BAT.get_smallest_intervals(hist, valid_intervals)
 
+    pal = cgrad(colormap, length(valid_intervals), categorical=true, rev=!rev, alpha=alpha)
+    dims = size(hist.weights)
+    color_grid = fill(RGBA{Float32}(0, 0, 0, 0), dims)
 
+    for (i, sub_hist) in enumerate(sub_hists)
+        color_idx = length(valid_intervals) - i + 1
+        c = pal[color_idx]
+        mask = sub_hist.weights .> 0
+        color_grid[mask] .= c
+    end
 
+    centers = _get_bin_centers(hist)
 
+    return (centers=centers, color_grid=color_grid)
+end
 
+function compose_plotspecs(
+    primitives::NamedTuple,
+    recipe::QuantileHist2D
+)
+    (; centers, color_grid) = primitives
+    heat = S.Heatmap(centers[1], centers[2], color_grid)
+    return [heat]
+end
 
 
 
