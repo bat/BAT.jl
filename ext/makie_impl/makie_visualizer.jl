@@ -225,7 +225,7 @@ function _populate_compute_graph!(
         #1D marginal views
         marg_sym = marg_symbol((i, i))
         map!(
-            (smpls, vsel_map, current_idx) -> view(smpls.v.data, vsel_map[i, i][1], 1:current_idx),
+            (smpls, vsel_map, current_idx) -> view(smpls.v.data, [vsel_map[i, i][1]], 1:current_idx),
             graph,
             [:samples, :vsel_map, :current_idx],
             marg_sym
@@ -273,10 +273,10 @@ function _populate_compute_graph!(
 
                     if islive
                         primitives = compute_plotting_primitives(coords, weights, recipe)
-                        return (primtives,)
+                        return (primitives,)
                     else
-                        empty_primitives = compute_plotting_primitves(nothing, nothing, recipe)
-                        return (emtpy_primitives,)
+                        empty_primitives = compute_plotting_primitives(nothing, nothing, recipe)
+                        return (empty_primitives,)
                     end
                 end
             end
@@ -332,11 +332,7 @@ function _marginal_view_dist(
         # marg_samples = BAT.drop_low_weight_samples(marg_samples)
     end
 
-    global gs_mv = (locations, weights, filter, bins, closed, normalization)
-    # BREAAk
-
-    cols = Tuple(Vector.(eachrow(locations)))
-
+    cols = Tuple(eachrow(locations))
     edges = if isa(bins, Integer)
         _get_edges(cols, (bins,), closed)
     elseif bins isa Tuple
@@ -344,6 +340,7 @@ function _marginal_view_dist(
     else
         (_get_edges(cols, bins, closed),)
     end
+
     hist = fit(Histogram, cols, FrequencyWeights(weights), edges, closed=closed)
     h_norm = normalization == :none ? hist : StatsBase.normalize(hist, mode=normalization)
     return h_norm

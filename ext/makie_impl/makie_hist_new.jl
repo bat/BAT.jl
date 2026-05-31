@@ -27,14 +27,8 @@ function compute_plotting_primitives(
     recipe::Hist1D
 )
     (; normalization, nbins, closed, filter) = recipe
-
-    global gs_cp = (marg_coords, weights, filter, nbins, closed, normalization)
-    BREAK
-
     hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, normalization)
-
     centers = _get_bin_centers(hist)
-
     return (centers=centers, weights=hist.weights, widths=hist.edges[1])
 end
 
@@ -83,7 +77,7 @@ function compute_plotting_primitives(
     return (centers=Matrix{Float64}(), weights=Vector{Float64}())
 end
 
-function compute_plotting_primitves(
+function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
     recipe::Hist2D
@@ -94,7 +88,7 @@ function compute_plotting_primitves(
 
     centers = _get_bin_centers(hist)
 
-    return (centers=centers, weights=h_norm.weights)
+    return (centers=centers, weights=hist.weights)
 end
 
 function compose_plotspecs(
