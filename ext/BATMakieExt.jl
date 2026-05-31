@@ -30,7 +30,7 @@ using BAT: MCMCSampleGenerator
 
 using InverseFunctions: inverse
 
-import BAT: BATMakieVisualizer, init_visualizer!!, update_visualizer_impl
+import BAT: BATMakieVisualizer, init_visualizer, update_visualizer_impl
 import BAT: AbstractSamplingAlgorithm
 import BAT: bat_makie_plot, bat_makie_plot!
 import BAT: hist1d, hist2d

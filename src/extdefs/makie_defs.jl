@@ -4,9 +4,6 @@ struct BATMakieVisualizer <: BATVisBackend
         vsel::Vector{Integer}
         N_max::Integer
         n_batch::Integer
-        graph::Any
-        gridspec::Any
-        ui_controls::NamedTuple
 end
 export BATMakieVisualizer
 
