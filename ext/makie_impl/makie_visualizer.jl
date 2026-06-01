@@ -25,7 +25,10 @@ const BAT_MAKIE_RECIPES_2D = [
 
 
 struct BATMakieVisualizerState
-    vis::BATMakieVisualizer
+    recipes::NamedTuple
+    vsel::Vector{Integer}
+    N_max::Integer
+    n_batch::Integer
     graph::Any
     gridlayout::Any
 end
@@ -37,11 +40,32 @@ function BATMakieVisualizer()
     N_max = 3 # TODO: Can cause errors when the number of dimensions in the data is smaller than N_max. Figure out a way to make safe.
     n_batch = 10
 
+    upper_config = (
+        nbins=(30, 30),)
+
+    diagonal_config = (
+        weights=nothing,
+        nbins=30,
+        closed=:left,
+        normalization=:pdf,
+        filter=false,
+        color=Makie.wong_colors()[1],
+        alpha=1.0,
+        filled=true,
+        edge=false,
+        strokecolor=Makie.wong_colors()[1],
+        strokewidth=1
+    )
+    lower_config = (1,)
+
     vis = BATMakieVisualizer(
         recipes,
         vsel,
         N_max,
-        n_batch
+        n_batch,
+        upper_config,
+        diagonal_config,
+        lower_config,
     )
     return vis
 end
@@ -80,7 +104,7 @@ function init_visualizer(
     smpls::DensitySampleVector,
     sampling::SA
 ) where {SA<:AbstractSamplingAlgorithm}
-    (; recipes, vsel, N_max, n_batch) = vis
+    (; recipes, vsel, N_max, n_batch, upper_config, diagonal_config, lower_config) = vis
     vs = varshape(smpls)
 
     # TODO: Think about whether or not the more expressive vsel symbol approach is desired, or integers are sufficient
@@ -101,7 +125,13 @@ function init_visualizer(
     )
 
     vis_state = BATMakieVisualizerState(
-        vis,
+        recipes,
+        vsel,
+        N_max,
+        n_batch,
+        upper_config,
+        diagonal_config,
+        lower_config,
         graph,
         gridlayout
     )
@@ -225,11 +255,19 @@ function _init_compute_graph(
     for i in 1:n
         #1D marginal views
         marg_sym = marg_symbol((i, i))
+
         map!(
             (smpls, vsel_map, current_idx) -> view(smpls.v.data, [vsel_map[i, i][1]], 1:current_idx),
             graph,
             [:samples, :vsel_map, :current_idx],
             marg_sym
+        )
+
+        map!(
+            (marg, current_idx) -> (minimum(marg) - 0.1 * abs(minimum(marg)), maximum(marg) + 0.1 * abs(minimum(marg))),
+            graph,
+            [marg_sym, :current_idx],
+            Symbol("axis_limits_$i")
         )
 
         primitive_symbols_1D = [primitive_symbol(recipe, (i, i)) for recipe in BAT_MAKIE_RECIPES_1D]
@@ -305,17 +343,54 @@ function _init_gridlayout(
         for i in 1:n
             diagonal_primitives = graph[primitive_symbol(diagonal_recipe, (i, i))][]
             diagonal_plotspecs = compose_plotspecs(diagonal_primitives, diagonal_recipe)
-            matrix[i, i] = S.Axis(plots=diagonal_plotspecs)
+
+            xlims = graph[Symbol("axis_limits_$i")][]
+            show_x_cosmetics = (i == n) || (i == 1)
+            matrix[i, i] = S.Axis(
+                plots=diagonal_plotspecs,
+                limits=(xlims, nothing),
+                xticklabelsvisible=show_x_cosmetics, xticksvisible=show_x_cosmetics,
+                yticklabelsvisible=true,
+                yticklabelrotation=pi / 2,
+                ytickformat="{:.1f}",
+                xgridvisible=true,
+                ygridvisible=true,
+                xaxisposition=(i == 1) ? :top : :bottom
+            )
             for j in i+1:n
                 # TODO: Figure out a way to flip the upper plots along the diagonal
                 upper_primitives = graph[primitive_symbol(upper_recipe, (j, i))][]
                 upper_plotspecs = compose_plotspecs(upper_primitives, upper_recipe)
-                matrix[i, j] = S.Axis(plots=upper_plotspecs)
+
+                ylims = graph[Symbol("axis_limits_$j")][]
+                show_y_cosmetics = (j == n)
+                matrix[i, j] = S.Axis(
+                    plots=upper_plotspecs,
+                    limits=(ylims, xlims),
+                    xticklabelsvisible=show_x_cosmetics, xticksvisible=show_x_cosmetics,
+                    yticklabelsvisible=show_y_cosmetics, yticksvisible=show_y_cosmetics,
+                    yticklabelrotation=pi / 2,
+                    xgridvisible=true,
+                    ygridvisible=true,
+                    xaxisposition=:top,
+                    yaxisposition=:right,
+                )
             end
             for j in 1:i-1
                 lower_primitives = graph[primitive_symbol(lower_recipe, (i, j))][]
                 lower_plotspecs = compose_plotspecs(lower_primitives, lower_recipe)
-                matrix[i, j] = S.Axis(plots=lower_plotspecs)
+
+                ylims = graph[Symbol("axis_limits_$j")][]
+                show_y_cosmetics = (j == 1)
+                matrix[i, j] = S.Axis(
+                    plots=lower_plotspecs,
+                    limits=(xlims, ylims),
+                    xticklabelsvisible=show_x_cosmetics, xticksvisible=show_x_cosmetics,
+                    yticklabelsvisible=show_y_cosmetics, yticksvisible=show_y_cosmetics,
+                    yticklabelrotation=pi / 2,
+                    xgridvisible=true,
+                    ygridvisible=true,
+                )
             end
         end
         return S.GridLayout(matrix)
