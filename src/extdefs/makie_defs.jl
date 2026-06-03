@@ -27,6 +27,8 @@ export bat_makie_plot!
 
 
 abstract type BATMakieRecipe end
+export BATMakieRecipe
+
 
 struct Hist1D <: BATMakieRecipe end
 export Hist1D

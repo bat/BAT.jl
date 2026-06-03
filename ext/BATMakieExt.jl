@@ -10,6 +10,9 @@ using KernelDensity
 using LinearAlgebra
 using Makie
 import Makie.SpecApi as S
+
+using Makie: ComputeGraph, add_input!, register_computation!
+
 using Parameters: @with_kw
 using StatsBase
 using ValueShapes

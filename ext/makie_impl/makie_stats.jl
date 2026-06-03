@@ -47,11 +47,13 @@ end
 
 
 function compute_plotting_primitives(
-        ::Nothing,
-        ::Nothing,
+        ::SubArray,
+        ::SubArray,
         ::Cov2D,
+        ::RS,
+        ::CS,
         ::NamedTuple
-)
+) where {RS<:RecipeStatus,CS<:CellStatus}
         return
 end
 
@@ -59,6 +61,8 @@ function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
         recipe::Cov2D,
+        ::LiveRecipe,
+        ::LiveCell,
         config::NamedTuple
 )
         (; nsigma) = config
@@ -112,11 +116,13 @@ end
 
 
 function compute_plotting_primitives(
-        ::Nothing,
-        ::Nothing,
+        ::SubArray,
+        ::SubArray,
         ::Std1D,
+        ::RS,
+        ::CS,
         ::NamedTuple
-)
+) where {RS<:RecipeStatus,CS<:CellStatus}
         return
 end
 
@@ -124,6 +130,8 @@ function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
         recipe::Std1D,
+        ::LiveRecipe,
+        ::LiveCell,
         config::NamedTuple
 )
         (; nsigma) = config
@@ -150,11 +158,13 @@ end
 
 
 function compute_plotting_primitives(
-        ::Nothing,
-        ::Nothing,
+        ::SubArray,
+        ::SubArray,
         ::Std2D,
+        ::RS,
+        ::CS,
         ::NamedTuple
-)
+) where {RS<:RecipeStatus,CS<:CellStatus}
         return
 end
 
@@ -162,6 +172,8 @@ function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
         recipe::Std2D,
+        ::LiveRecipe,
+        ::LiveCell,
         config::NamedTuple
 )
         (; nsigma) = config
@@ -206,17 +218,21 @@ end
 
 
 function compute_plotting_primitives(
-        ::Nothing,
-        ::Nothing,
+        ::SubArray,
+        ::SubArray,
         ::Mean1D,
+        ::RS,
+        ::CS,
         ::NamedTuple
-)
+) where {RS<:RecipeStatus,CS<:CellStatus}
         return
 end
 
 function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
+        ::LiveRecipe,
+        ::LiveCell,
         recipe::Mean1D,
         config::NamedTuple
 )
@@ -241,11 +257,13 @@ end
 
 
 function compute_plotting_primitives(
-        ::Nothing,
-        ::Nothing,
+        ::SubArray,
+        ::SubArray,
         ::Mean2D,
+        ::RS,
+        ::CS,
         ::NamedTuple
-)
+) where {RS<:RecipeStatus,CS<:CellStatus}
         return
 end
 
@@ -253,6 +271,8 @@ function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
         recipe::Mean2D,
+        ::LiveRecipe,
+        ::LiveCell,
         config::NamedTuple
 )
         w_prob = ProbabilityWeights(weights)
@@ -285,11 +305,13 @@ end
 
 
 function compute_plotting_primitives(
-        ::Nothing,
-        ::Nothing,
+        ::SubArray,
+        ::SubArray,
         ::Errorbars1D,
+        ::RS,
+        ::CS,
         ::NamedTuple
-)
+) where {RS<:RecipeStatus,CS<:CellStatus}
         return
 end
 
@@ -297,6 +319,8 @@ function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
         recipe::Errorbars1D,
+        ::LiveRecipe,
+        ::LiveCell,
         config::NamedTuple
 )
         (; nsigma) = config
@@ -331,11 +355,13 @@ end
 
 
 function compute_plotting_primitives(
-        ::Nothing,
-        ::Nothing,
+        ::SubArray,
+        ::SubArray,
+        ::RS,
+        ::CS,
         ::Errorbars2D,
         ::NamedTuple
-)
+) where {RS<:RecipeStatus,CS<:CellStatus}
         return
 end
 
@@ -343,6 +369,8 @@ function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
         recipe::Errorbars2D,
+        ::LiveRecipe,
+        ::LiveCell,
         config::NamedTuple
 )
         (; nsigma) = config
@@ -389,11 +417,13 @@ end
 
 
 function compute_plotting_primitives(
-        ::Nothing,
-        ::Nothing,
+        ::SubArray,
+        ::SubArray,
         ::PDF1D,
+        ::RS,
+        ::CS,
         ::NamedTuple
-)
+) where {RS<:RecipeStatus,CS<:CellStatus}
         return
 end
 
@@ -402,6 +432,8 @@ function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
         recipe::PDF1D,
+        ::LiveRecipe,
+        ::LiveCell,
         config::NamedTuple
 )
         curve_data = lift(p[1], p.npoints) do dist, n

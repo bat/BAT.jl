@@ -1,10 +1,12 @@
 
 function compute_plotting_primitives(
-        ::Nothing,
-        ::Nothing,
+        ::SubArray,
+        ::SubArray,
         ::Scatter2D,
+        ::RS,
+        ::CS,
         ::NamedTuple
-)
+) where {RS<:RecipeStatus,CS<:CellStatus}
         return (x=SubArray(), y=SubArray(), weights=SubArray())
 end
 
@@ -12,6 +14,8 @@ function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
         recipe::Scatter2D,
+        ::LiveRecipe,
+        ::LiveCell,
         config::NamedTuple
 )
         x = marg_coords[1, :]
