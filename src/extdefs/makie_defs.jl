@@ -4,6 +4,8 @@ struct BATMakieVisualizer <: BATVisBackend
         vsel::Vector{Integer}
         N_max::Integer
         n_batch::Integer
+        triagonal_config::NamedTuple
+        diagonal_config::NamedTuple
 end
 export BATMakieVisualizer
 
@@ -23,35 +25,66 @@ export bat_makie_plot
 function bat_makie_plot! end
 export bat_makie_plot!
 
-function hist1d end
-export hist1d
 
-function hist2d end
-export hist2d
+abstract type BATMakieRecipe end
 
-function quantilehist1d end
-export quantilehist1d
+struct Hist1D <: BATMakieRecipe end
+export Hist1D
 
-function quantilehist2d end
-export quantilehist2d
+struct Hist2D <: BATMakieRecipe end
+export Hist2D
 
-function hexbin2d end
-export hexbin2d
+struct QuantileHist1D <: BATMakieRecipe end
+export QuantileHist1D
 
-function kde1d end
-export kde1d
+struct QuantileHist2D <: BATMakieRecipe end
+export QuantileHist2D
 
-function kde2d end
-export kde2d
+struct Hexbin2D <: BATMakieRecipe end
+export Hexbin2D
 
-function quantilekde1d end
-export kde1d
 
-function quantilekde2d end
-export kde2d
+struct Scatter2D <: BATMakieRecipe end
+export Scatter2D
 
-function scatter2d end
-export scatter2d
+
+struct KDE1D <: BATMakieRecipe end
+export KDE1D
+
+struct KDE2D <: BATMakieRecipe end
+export KDE2D
+
+struct QuantileKDE1D <: BATMakieRecipe end
+export QuantileKDE1D
+
+struct QuantileKDE2D <: BATMakieRecipe end
+export QuantileKDE2D
+
+
+struct Cov2D <: BATMakieRecipe end
+export Cov2D
+
+struct Std1D <: BATMakieRecipe end
+export Std1D
+
+struct Std2D <: BATMakieRecipe end
+export Std2D
+
+struct Mean1D <: BATMakieRecipe end
+export Mean1D
+
+struct Mean2D <: BATMakieRecipe end
+export Mean2D
+
+struct Errorbars1D <: BATMakieRecipe end
+export Errorbars1D
+
+struct Errorbars2D <: BATMakieRecipe end
+export Errorbars2D
+
+struct PDF1D <: BATMakieRecipe end
+export PDF1D
+
 
 function cov2d end
 export cov2d

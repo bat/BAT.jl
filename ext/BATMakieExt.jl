@@ -6,6 +6,7 @@ BAT.pkgext(::Val{:Makie}) = BAT.PackageExtension{:Makie}()
 using ArraysOfArrays
 using Colors
 using Distributions
+using KernelDensity
 using LinearAlgebra
 using Makie
 import Makie.SpecApi as S
@@ -30,10 +31,15 @@ using BAT: MCMCSampleGenerator
 
 using InverseFunctions: inverse
 
+using BAT: BATMakieRecipe
+using BAT: Hist1D, Hist2D, QuantileHist1D, QuantileHist2D, Hexbin2D
+using BAT: Scatter2D
+using BAT: KDE1D, KDE2D, QuantileKDE1D, QuantileKDE2D
+using BAT: Cov2D, Std1D, Std2D, Mean1D, Mean2D, Errorbars1D, Errorbars2D, PDF1D
+
 import BAT: BATMakieVisualizer, init_visualizer, update_visualizer_impl
 import BAT: AbstractSamplingAlgorithm
 import BAT: bat_makie_plot, bat_makie_plot!
-import BAT: hist1d, hist2d
 
 
 include("./makie_impl/makie_plotting.jl")
