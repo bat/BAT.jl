@@ -1,10 +1,12 @@
 
 function compute_plotting_primitives(
-        ::Nothing,
-        ::Nothing,
+        ::SubArray,
+        ::SubArray,
         ::KDE1D,
+        ::RS,
+        ::CS,
         ::NamedTuple
-)
+) where {RS<:RecipeStatus,CS<:CellStatus}
         return (
                 x=StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwicePrecision{Float64},Int64}(),
                 density=Vector{Float64}(),
@@ -16,6 +18,8 @@ function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
         recipe::KDE1D,
+        ::LiveRecipe,
+        ::LiveCell,
         config::NamedTuple
 )
         kde_result = kde(vec(marg_coords), weights=weights)
@@ -51,11 +55,13 @@ end
 
 
 function compute_plotting_primitives(
-        ::Nothing,
-        ::Nothing,
+        ::SubArray,
+        ::SubArray,
         ::KDE2D,
+        ::RS,
+        ::CS,
         ::NamedTuple
-)
+) where {RS<:RecipeStatus,CS<:CellStatus}
         return (
                 x=StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwicePrecision{Float64},Int64}(),
                 y=StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwicePrecision{Float64},Int64}(),
@@ -67,6 +73,8 @@ function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
         recipe::KDE2D,
+        ::LiveRecipe,
+        ::LiveCell,
         config::NamedTuple
 )
         kde_result = kde(marg_coords', weights=weights)
@@ -90,11 +98,13 @@ end
 
 
 function compute_plotting_primitives(
-        ::Nothing,
-        ::Nothing,
+        ::SubArray,
+        ::SubArray,
+        ::RS,
+        ::CS,
         ::QuantileKDE1D,
         ::NamedTuple
-)
+) where {RS<:RecipeStatus,CS<:CellStatus}
         return (
                 polys=Vector{Vector{Point{2,Float32}}}(),
                 fill_colors=Vector{RGBA}(),
@@ -106,6 +116,8 @@ function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
         recipe::QuantileKDE1D,
+        ::LiveRecipe,
+        ::LiveCell,
         config::NamedTuple
 )
         (; levels, colormap, alpha, rev) = config
@@ -180,11 +192,13 @@ end
 
 
 function compute_plotting_primitives(
-        ::Nothing,
-        ::Nothing,
+        ::SubArray,
+        ::SubArray,
         ::QuantileKDE2D,
+        ::RS,
+        ::CS,
         ::NamedTuple
-)
+) where {RS<:RecipeStatus,CS<:CellStatus}
         return (
                 x=StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwicePrecision{Float64},Int64}(),
                 y=StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwicePrecision{Float64},Int64}(),
@@ -196,6 +210,8 @@ function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
         recipe::QuantileKDE2D,
+        ::LiveRecipe,
+        ::LiveCell,
         config::NamedTuple
 )
         (; levels) = config

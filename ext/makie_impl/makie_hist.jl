@@ -1,10 +1,12 @@
 
 function compute_plotting_primitives(
-    ::Nothing,
-    ::Nothing,
+    ::SubArray,
+    ::SubArray,
     ::Hist1D,
+    ::RS,
+    ::CS,
     ::NamedTuple
-)
+) where {RS<:RecipeStatus,CS<:CellStatus}
     return (centers=Vector{Float64}(), weights=Vector{Float64}(), widths=Vector{Float64}())
 end
 
@@ -12,6 +14,8 @@ function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
     recipe::Hist1D,
+    ::LiveRecipe,
+    ::LiveCell,
     config::NamedTuple
 )
     (; normalization, nbins, closed, filter) = config
@@ -51,11 +55,13 @@ function compose_plotspecs(
 end
 
 function compute_plotting_primitives(
-    ::Nothing,
-    ::Nothing,
+    ::SubArray,
+    ::SubArray,
     ::Hist2D,
+    ::RS,
+    ::CS,
     ::NamedTuple
-)
+) where {RS<:RecipeStatus,CS<:CellStatus}
     return (centers=Vector{Vector{Float64}}(), weights=Matrix{Float64}())
 end
 
@@ -63,6 +69,8 @@ function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
     recipe::Hist2D,
+    ::LiveRecipe,
+    ::LiveCell,
     config::NamedTuple
 )
     (; normalization, nbins, closed, filter) = config
@@ -93,11 +101,13 @@ end
 
 
 function compute_plotting_primitives(
-    ::Nothing,
-    ::Nothing,
+    ::SubArray,
+    ::SubArray,
     ::QuantileHist1D,
+    ::RS,
+    ::CS,
     ::NamedTuple
-)
+) where {RS<:RecipeStatus,CS<:CellStatus}
     return (xy_data=Vector{Point{2,Float32}}(), widths=Vector{Float64}, stairs_data=Vector{Point{2,Float32}}(), bin_colors=Vector{RGBA{Float32}}())
 end
 
@@ -105,6 +115,8 @@ function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
     recipe::QuantileHist1D,
+    ::LiveRecipe,
+    ::LiveCell,
     config::NamedTuple
 )
     (; normalization, levels, colormap, alpha, rev, nbins, closed, edge, strokewidth) = config
@@ -164,11 +176,13 @@ end
 
 
 function compute_plotting_primitives(
-    ::Nothing,
-    ::Nothing,
+    ::SubArray,
+    ::SubArray,
     ::QuantileHist2D,
+    ::RS,
+    ::CS,
     ::NamedTuple
-)
+) where {RS<:RecipeStatus,CS<:CellStatus}
     return (centers=Vector{Vector{Float64}}(), color_grid=Matrix{RGBA{Float32}}())
 end
 
@@ -176,9 +190,10 @@ function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
     recipe::QuantileHist2D,
+    ::LiveRecipe,
+    ::LiveCell,
     config::NamedTuple
 )
-
     (; normalization, levels, colormap, alpha, rev, nbins, closed) = config
     hist = _marginal_view_dist(marg_coords, weights, config.filter, nbins, closed, normalization)
 
@@ -213,11 +228,13 @@ end
 
 
 function compute_plotting_primitives(
-    ::Nothing,
-    ::Nothing,
+    ::SubArray,
+    ::SubArray,
     ::Hexbin2D,
+    ::RS,
+    ::CS,
     ::NamedTuple
-)
+) where {RS<:RecipeStatus,CS<:CellStatus}
     return (x=SubArray(), y=SubArray(), weights=SubArray(), thresh=Float64())
 end
 
@@ -225,9 +242,10 @@ function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
     recipe::Hexbin2D,
+    ::LiveRecipe,
+    ::LiveCell,
     config::NamedTuple
 )
-
     (; threshold) = config
     x = marg_coords[1, :]
     y = marg_coords[2, :]

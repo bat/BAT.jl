@@ -32,7 +32,7 @@ end
 
 
 function BATMakieVisualizer()
-    recipes = (upper=QuantileHist2D(), diagonal=Hist1D(), lower=Hist2D())
+    recipes = (upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D)
     vsel = [1, 2, 3] # Figure out default values. Pass samples to determine number of parameters?
     N_max = 3 # TODO: Can cause errors when the number of dimensions in the data is smaller than N_max. Figure out a way to make safe.
     n_batch = 10
@@ -120,12 +120,12 @@ function recipe_symbol(recipe::R) where {R<:BATMakieRecipe}
     return Symbol(string(typeof(recipe)))
 end
 
-function primitive_symbol(recipe::R, vsel::Tuple{Int64,Int64}) where {R<:BATMakieRecipe}
-    return Symbol(string(typeof(recipe)) * "_prim" * "_" * "$(vsel[1])" * "$(vsel[2])")
+function primitive_symbol(recipe, vsel::Tuple{Int64,Int64})
+    return Symbol(string(recipe) * "_prim" * "_" * "$(vsel[1])" * "$(vsel[2])")
 end
 
-function islive_symbol(recipe::R) where {R<:BATMakieRecipe}
-    return Symbol(string(typeof(recipe)) * "_islive")
+function primitive_symbol(recipe::R, vsel::Tuple{Int64,Int64}) where {R<:BATMakieRecipe}
+    return Symbol(string(typeof(recipe)) * "_prim" * "_" * "$(vsel[1])" * "$(vsel[2])")
 end
 
 function marg_symbol(vsel::Tuple{Int64,Int64})
@@ -169,9 +169,6 @@ function init_visualizer(
 
     return vis_state, fig
 end
-
-
-using Makie: ComputeGraph, add_input!, register_computation!
 
 
 function _init_compute_graph(
@@ -233,26 +230,22 @@ function _init_compute_graph(
     ) do inputs, changed, cached
 
         idxs = inputs.idxs
-        if isnothing(cached)
-            live_map = fill(false, n, n)
-        else
-            live_map = cached
-        end
+        live_map = Matrix{CellStatus}(undef, n, n)
 
         # TODO: Refine update logic together with the vsel_map.
         n_active = length(idxs)
         for i in 1:n
             for j in 1:n
-                live_map[i, j] = i <= n_active && j <= n_active
+                live_map[i, j] = LiveCell()
             end
         end
         return (live_map,)
     end
 
     # Control nodes for what primitives are computed and what are set to emtpy
-    add_input!(graph, :upper_recipe, Symbol("$(typeof(recipes.upper))"))
-    add_input!(graph, :diagonal_recipe, Symbol("$(typeof(recipes.diagonal))"))
-    add_input!(graph, :lower_recipe, Symbol("$(typeof(recipes.lower))"))
+    add_input!(graph, :upper_recipe, recipes.upper)
+    add_input!(graph, :diagonal_recipe, recipes.diagonal)
+    add_input!(graph, :lower_recipe, recipes.lower)
 
     add_input!(graph, :show_stats_upper, false)
     add_input!(graph, :show_stats_diag, false)
@@ -263,28 +256,6 @@ function _init_compute_graph(
 
     for recipe in vcat(BAT_MAKIE_RECIPES_1D, BAT_MAKIE_RECIPES_2D)
         add_input!(graph, Symbol("$(typeof(recipe))"), recipe)
-    end
-
-
-    recipe_islives_1D = islive_symbol.(BAT_MAKIE_RECIPES_1D)
-    recipe_islives_2D = islive_symbol.(BAT_MAKIE_RECIPES_2D)
-
-    for i in eachindex(BAT_MAKIE_RECIPES_1D)
-        map!(
-            recipe -> recipe == Symbol("$(typeof(BAT_MAKIE_RECIPES_1D[i]))"),
-            graph,
-            :diagonal_recipe,
-            recipe_islives_1D[i]
-        )
-    end
-
-    for i in eachindex(BAT_MAKIE_RECIPES_1D)
-        map!(
-            (upper, lower) -> upper == Symbol("$(typeof(BAT_MAKIE_RECIPES_2D[i]))") || lower == Symbol("$(typeof(possible_recipes_2D[i]))"),
-            graph,
-            [:upper_recipe, :lower_recipe],
-            recipe_islives_2D[i]
-        )
     end
 
     for i in 1:n
@@ -309,19 +280,16 @@ function _init_compute_graph(
 
         for k in eachindex(primitive_symbols_1D)
             register_computation!(graph,
-                [marg_sym, :weights, recipe_islives_1D[k], :live_map, :diagonal_config],
+                [marg_sym, :weights, :diagonal_recipe, :live_map, :diagonal_config],
                 [primitive_symbols_1D[k]]
             ) do inputs, changed, cached
-                coords, weights, recipe_islive, live_map, config = inputs
+                coords, weights, live_recipe, live_map, config = inputs
                 recipe = BAT_MAKIE_RECIPES_1D[k]
-                islive = recipe_islive && live_map[i, i]
-                if islive
-                    primitives = compute_plotting_primitives(coords, weights, recipe, config)
-                    return (primitives,)
-                else
-                    empty_primitives = compute_plotting_primitives(nothing, nothing, recipe, config)
-                    return (empty_primitives,)
-                end
+                cell_status = live_map[i, i]
+                recipe_status = determine_recipe_status(recipe, live_recipe())
+                primitives = compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, config)
+
+                return (primitives,)
             end
         end
 
@@ -338,20 +306,15 @@ function _init_compute_graph(
 
             for k in eachindex(primitive_symbols_2D)
                 register_computation!(graph,
-                    [marg_sym_2D, :weights, recipe_islives_2D[k], :live_map, :triagonal_config],
+                    [marg_sym_2D, :weights, :upper_recipe, :lower_recipe, :live_map, :triagonal_config],
                     [primitive_symbols_2D[k]]
                 ) do inputs, changed, cached
-                    coords, weights, recipe_islive, live_map, config = inputs
+                    coords, weights, live_recipe_upper, live_recipe_lower, live_map, config = inputs
                     recipe = BAT_MAKIE_RECIPES_2D[k]
-                    islive = recipe_islive && (live_map[j, i] || live_map[i, j])
-
-                    if islive
-                        primitives = compute_plotting_primitives(coords, weights, recipe, config)
-                        return (primitives,)
-                    else
-                        empty_primitives = compute_plotting_primitives(nothing, nothing, recipe, config)
-                        return (empty_primitives,)
-                    end
+                    cell_status = live_map[i, j]
+                    recipe_status = determine_recipe_status(recipe, live_recipe_upper(), live_recipe_lower())
+                    primitives = compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, config)
+                    return (primitives,)
                 end
             end
         end
@@ -372,17 +335,14 @@ function _init_gridlayout(
         graph[:show_stats_upper],
         graph[:show_stats_diag],
         graph[:show_stats_lower]
-    ) do idx, upper_recipe_sym, diagonal_recipe_sym, lower_recipe_sym, stats_upper, stats_diag, stats_lower
+    ) do idx, upper_recipe, diagonal_recipe, lower_recipe, stats_upper, stats_diag, stats_lower
         matrix = Matrix{Any}(undef, n, n)
-        upper_recipe = graph[upper_recipe_sym][]
-        diagonal_recipe = graph[diagonal_recipe_sym][]
-        lower_recipe = graph[lower_recipe_sym][]
         triagonal_config = graph[:triagonal_config][]
         diagonal_config = graph[:diagonal_config][]
 
         for i in 1:n
             diagonal_primitives = graph[primitive_symbol(diagonal_recipe, (i, i))][]
-            diagonal_plotspecs = compose_plotspecs(diagonal_primitives, diagonal_recipe, diagonal_config)
+            diagonal_plotspecs = compose_plotspecs(diagonal_primitives, diagonal_recipe(), diagonal_config)
             stats_specs_1D = stats_diag ? get_stats_plotspecs(graph, (i, i), Makie1DStats(), diagonal_config) : []
             append!(diagonal_plotspecs, stats_specs_1D)
 
@@ -403,7 +363,7 @@ function _init_gridlayout(
             for j in i+1:n
                 # TODO: Figure out a way to flip the upper plots along the diagonal
                 upper_primitives = graph[primitive_symbol(upper_recipe, (j, i))][]
-                upper_plotspecs = compose_plotspecs(upper_primitives, upper_recipe, triagonal_config)
+                upper_plotspecs = compose_plotspecs(upper_primitives, upper_recipe(), triagonal_config)
                 stats_specs_2D = stats_upper ? get_stats_plotspecs(graph, (j, i), Makie2DStats(), triagonal_config) : []
                 append!(upper_plotspecs, stats_specs_2D)
 
@@ -424,7 +384,7 @@ function _init_gridlayout(
             end
             for j in 1:i-1
                 lower_primitives = graph[primitive_symbol(lower_recipe, (i, j))][]
-                lower_plotspecs = compose_plotspecs(lower_primitives, lower_recipe, triagonal_config)
+                lower_plotspecs = compose_plotspecs(lower_primitives, lower_recipe(), triagonal_config)
                 stats_specs_2D = stats_lower ? get_stats_plotspecs(graph, (i, j), Makie2DStats(), triagonal_config) : []
                 append!(lower_plotspecs, stats_specs_2D)
 
@@ -451,25 +411,25 @@ end
 
 function _build_fig(vis_state::BATMakieVisualizerState)
     fig = Figure()
-    ui_layout = fig[2, 1] = GridLayout()
+    ui_layout = fig[2, 1] = GridLayout(tellwidth=false)
 
     options2D = [
-        ("QuantileHist", Symbol(QuantileHist2D)),
-        ("Hist", Symbol(Hist2D)),
-        ("Scatter", Symbol(Scatter2D)),
-        ("Hexbin", Symbol(Hexbin2D)),
-        ("QuantileKDE", Symbol(QuantileKDE2D)),
-        ("KDE", Symbol(KDE2D)),
+        ("QuantileHist", QuantileHist2D),
+        ("Hist", Hist2D),
+        ("Scatter", Scatter2D),
+        ("Hexbin", Hexbin2D),
+        ("QuantileKDE", QuantileKDE2D),
+        ("KDE", KDE2D),
         #("Cov", Symbol(Cov2D)),
         #("Std", Symbol(Std2D)),
         #("Mean", Symbol(Mean2D)),
         #("Errorbars", Symbol(Errorbars2D)),
     ]
     options1D = [
-        ("QuantileHist", Symbol(QuantileHist1D)),
-        ("Hist", Symbol(Hist1D)),
-        ("KDE", Symbol(KDE1D)),
-        ("QuantileKDE", Symbol(QuantileKDE1D)),
+        ("QuantileHist", QuantileHist1D),
+        ("Hist", Hist1D),
+        ("KDE", KDE1D),
+        ("QuantileKDE", QuantileKDE1D),
         #("Std", Symbol(Std1D)),
         #("Mean", Symbol(Mean1D)),
         #("Errorbars", Symbol(Errorbars1D)),
@@ -491,27 +451,23 @@ function _build_fig(vis_state::BATMakieVisualizerState)
 
     slider_curr_idx = Slider(fig, range=1:100000)
 
-    ui_layout[1, 1] = Label(fig, "Upper Recipe")
-    ui_layout[1, 2] = menu_upper
-    ui_layout[1, 3] = Label(fig, "Diagonal Recipe")
-    ui_layout[1, 4] = menu_diagonal
-    ui_layout[1, 5] = Label(fig, "Lower Recipe")
-    ui_layout[1, 6] = menu_lower
+    ui_layout[2, 1] = Label(fig, "Upper")
+    ui_layout[3, 1] = Label(fig, "Diagonal")
+    ui_layout[4, 1] = Label(fig, "Lower")
 
-    ui_layout[1, 7] = Label(fig, "Current Idx")
-    ui_layout[1, 8] = slider_curr_idx
+    ui_layout[1, 2] = Label(fig, "Recipe")
+    ui_layout[2, 2] = menu_upper
+    ui_layout[3, 2] = menu_diagonal
+    ui_layout[4, 2] = menu_lower
 
-    stats_layout = GridLayout(ui_layout[2, 1], tellwidth=false, halign=:left)
-    Label(stats_layout[1, 1], "Show stats:")
+    ui_layout[1, 3] = Label(fig, "Stats overlay")
+    toggle_upper = Toggle(ui_layout[2, 3], active=false)
+    toggle_diag = Toggle(ui_layout[3, 3], active=false)
+    toggle_lower = Toggle(ui_layout[4, 3], active=false)
 
-    Label(stats_layout[2, 1], "Upper:", halign=:left)
-    toggle_upper = Toggle(stats_layout[2, 2], active=false)
+    ui_layout[5, 1] = Label(fig, "Current Idx")
+    ui_layout[5, 2] = slider_curr_idx
 
-    Label(stats_layout[3, 1], "Diagonal", halign=:left)
-    toggle_diag = Toggle(stats_layout[3, 2], active=false)
-
-    Label(stats_layout[4, 1], "Lower", halign=:left)
-    toggle_lower = Toggle(stats_layout[4, 2], active=false)
 
     plot(fig[1, 1], vis_state.gridlayout)
 
