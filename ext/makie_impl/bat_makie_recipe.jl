@@ -1,5 +1,4 @@
 
-abstract type BATMakieRecipe end
 
 function compute_plotting_primitives end
 

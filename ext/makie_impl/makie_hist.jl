@@ -1,311 +1,265 @@
 
-@recipe(Hist1D, samples, vsel) do scene
-    Attributes(
-        weights=nothing,
-        nbins=30,
-        closed=:left,
-        normalization=:pdf,
-        filter=false,
-        color=Makie.wong_colors()[1],
-        alpha=1.0,
-        filled=true,
-        edge=false,
-        strokecolor=Makie.wong_colors()[1],
-        strokewidth=1
-    )
+function compute_plotting_primitives(
+    ::Nothing,
+    ::Nothing,
+    ::Hist1D,
+    ::NamedTuple
+)
+    return (centers=Vector{Float64}(), weights=Vector{Float64}(), widths=Vector{Float64}())
 end
 
-function Makie.plot!(p::Hist1D)
-    marg_dist = lift(p.samples, p.vsel, p.nbins, p.closed, p.filter) do smpls, vsel, b, c, f
-        return MarginalDist(smpls, vsel; bins=b, closed=c, filter=f)
-    end
+function compute_plotting_primitives(
+    marg_coords::SubArray,
+    weights::SubArray,
+    recipe::Hist1D,
+    config::NamedTuple
+)
+    (; normalization, nbins, closed, filter) = config
+    hist = _marginal_view_dist(marg_coords, weights, filter, nbins + 1, closed, normalization)
+    centers = _get_bin_centers(hist)
+    return (centers=centers[1], weights=hist.weights, widths=collect(hist.edges[1]))
+end
 
-    hist_data = lift(marg_dist, p.normalization) do marg, norm
-        d = marg.dist isa BAT.ReshapedDist ? marg.dist.dist : marg.dist
-        h_raw = convert(StatsBase.Histogram, d)
-        h_norm = norm == :none ? h_raw : StatsBase.normalize(h_raw, mode=norm)
 
-        #centers = BAT.get_bin_centers(marg)[1]
+function compose_plotspecs(
+    primitives::NamedTuple,
+    recipe::Hist1D,
+    config::NamedTuple
+)
+    (; centers, weights, widths) = primitives
+    (; color, alpha, filled, strokecolor, strokewidth, edge) = config
 
-        return (centers, h_norm.weights, h_norm.edges[1])
-    end
-
-    d_init = hist_data[]
-    xy_data = Observable((d_init[1], d_init[2]))
-    widths = Observable(diff(d_init[3]))
-    stairs_data = Observable((d_init[3], vcat(d_init[2], d_init[2][end])))
-
-    on(hist_data) do d
-        centers, w, edges = d
-
-        # Silently update kwargs and secondary plots (no redraw triggered)
-        widths.val = diff(edges)
-        stairs_data.val = (edges, vcat(w, w[end]))
-
-        # Trigger the primary plot updates
-        notify(stairs_data)
-        xy_data[] = (centers, w) # The [] assignment updates AND triggers barplot!
-    end
-
-    barplot!(p, xy_data;
-        color=p.color,
-        alpha=p.alpha,
+    bars = S.BarPlot(
+        centers,
+        weights;
+        color=color,
+        alpha=alpha,
         gap=0.0,
-        #width=widths,
-        visible=p.filled
+        # width=widths,
+        visible=filled
     )
 
-    stairs!(p, stairs_data;
+    stairs = S.Stairs(
+        widths,
+        vcat(weights, weights[end]);
         step=:post,
-        color=p.strokecolor,
-        linewidth=p.strokewidth,
-        visible=p.edge
+        color=strokecolor,
+        linewidth=strokewidth,
+        visible=edge
     )
-
-    return p
+    return [bars, stairs]
 end
 
-
-@recipe(Hist2D, samples, vsel) do scene
-    Attributes(
-        weights=nothing,
-        nbins=(30, 30),
-        closed=:left,
-        normalization=:pdf,
-        filter=false,
-        colormap=:Blues,
-        alpha=1.0,
-        rev=false
-    )
+function compute_plotting_primitives(
+    ::Nothing,
+    ::Nothing,
+    ::Hist2D,
+    ::NamedTuple
+)
+    return (centers=Vector{Vector{Float64}}(), weights=Matrix{Float64}())
 end
 
-function Makie.plot!(p::Hist2D)
-    marg_dist = lift(p.samples, p.vsel, p.nbins, p.closed, p.filter) do smpls, vsel, b, c, f
-        return MarginalDist(smpls, vsel; bins=b, closed=c, filter=f)
-    end
+function compute_plotting_primitives(
+    marg_coords::SubArray,
+    weights::SubArray,
+    recipe::Hist2D,
+    config::NamedTuple
+)
+    (; normalization, nbins, closed, filter) = config
 
-    plot_data = lift(marg_dist, p.normalization) do marg, norm
-        d = marg.dist isa BAT.ReshapedDist ? marg.dist.dist : marg.dist
-        h_raw = convert(StatsBase.Histogram, d)
-        h_norm = norm == :none ? h_raw : StatsBase.normalize(h_raw, mode=norm)
-        centers = BAT.get_bin_centers(marg)
-        return (centers[1], centers[2], h_norm.weights)
-    end
+    hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, normalization)
 
-    final_cmap = lift(p.colormap, p.rev) do cm, r
-        r ? Reverse(cm) : cm
-    end
+    centers = _get_bin_centers(hist)
 
-    heatmap!(p, plot_data;
+    return (centers=centers, weights=hist.weights)
+end
+
+function compose_plotspecs(
+    primitives::NamedTuple,
+    recipe::Hist2D,
+    config::NamedTuple
+)
+    (; centers, weights) = primitives
+    (; colormap, alpha, rev) = config
+    final_cmap = rev ? Reverse(colormap) : colormap
+
+    heat = S.Heatmap(
+        centers[1], centers[2], weights;
         colormap=final_cmap,
-        alpha=p.alpha
+        alpha=alpha
     )
-    return p
+    return [heat]
 end
 
-@recipe(QuantileHist1D, samples, vsel) do scene
-    Attributes(
-        weights=nothing,
-        nbins=30,
-        closed=:left,
-        normalization=:pdf,
-        filter=false,
-        levels=cdf.(Chi(1), 0:3),
-        colormap=:Blues,
-        rev=false,
-        alpha=1.0,
-        edge=false,
-        strokecolor=Makie.wong_colors()[1],
-        strokewidth=1.0
-    )
+
+function compute_plotting_primitives(
+    ::Nothing,
+    ::Nothing,
+    ::QuantileHist1D,
+    ::NamedTuple
+)
+    return (xy_data=Vector{Point{2,Float32}}(), widths=Vector{Float64}, stairs_data=Vector{Point{2,Float32}}(), bin_colors=Vector{RGBA{Float32}}())
 end
-function Makie.plot!(p::QuantileHist1D)
-    marg_dist = lift(p.samples, p.vsel, p.nbins, p.closed, p.filter) do smpls, vsel, b, c, f
-        return MarginalDist(smpls, vsel; bins=b, closed=c, filter=f)
+
+function compute_plotting_primitives(
+    marg_coords::SubArray,
+    weights::SubArray,
+    recipe::QuantileHist1D,
+    config::NamedTuple
+)
+    (; normalization, levels, colormap, alpha, rev, nbins, closed, edge, strokewidth) = config
+    hist = _marginal_view_dist(marg_coords, weights, config.filter, nbins, closed, normalization)
+
+    valid_intervals = sort(filter(x -> 0 < x < 1, levels))
+    sub_hists, _ = BAT.get_smallest_intervals(hist, valid_intervals)
+
+    pal = cgrad(colormap, length(valid_intervals), categorical=true, rev=!rev, alpha=alpha)
+    bin_colors = fill(RGBA{Float32}(0, 0, 0, 0), length(hist.weights))
+
+    for (i, sub_hist) in enumerate(sub_hists)
+        color_idx = length(valid_intervals) - i + 1
+        c = pal[color_idx]
+        mask = sub_hist.weights .> 0
+        bin_colors[mask] .= c
     end
 
-    plot_data = lift(marg_dist, p.normalization, p.levels, p.colormap, p.rev, p.alpha) do marg, norm, levels, cmap, rev, alpha
-        d = marg.dist isa BAT.ReshapedDist ? marg.dist.dist : marg.dist
-        h_raw = convert(StatsBase.Histogram, d)
-        h_norm = norm == :none ? h_raw : StatsBase.normalize(h_raw, mode=norm)
+    centers = _get_bin_centers(hist)[1]
 
-        valid_intervals = sort(filter(x -> 0 < x < 1, levels))
-        hists, _ = BAT.get_smallest_intervals(h_norm, valid_intervals)
-        pal = cgrad(cmap, length(valid_intervals), categorical=true, rev=!rev, alpha=alpha)
-        n_bins = length(h_norm.weights)
-        bin_colors = fill(RGBA{Float32}(0, 0, 0, 0), n_bins)
+    xy_data = Point2f.(centers, hist.weights)
+    edges = collect(hist.edges)[1]
 
-        for (i, sub_hist) in enumerate(hists)
-            color_idx = length(valid_intervals) - i + 1
-            c = pal[color_idx]
-            mask = sub_hist.weights .> 0
-            bin_colors[mask] .= c
-        end
+    widths = diff(edges)
 
-        centers = BAT.get_bin_centers(marg)[1]
+    stairs_y = vcat(hist.weights, hist.weights[end])
+    stairs_data = Point2f.(edges, stairs_y)
 
-        # edges = h_norm.edges[1]
-        # centers = (edges[1:end-1] .+ edges[2:end]) ./ 2
+    return (xy_data=xy_data, widths=widths, stairs_data=stairs_data, bin_colors=bin_colors)
+end
 
-        return (centers, h_norm.weights, h_norm.edges[1], bin_colors)
-    end
+function compose_plotspecs(
+    primitives::NamedTuple,
+    recipe::QuantileHist1D,
+    config::NamedTuple
+)
+    (; xy_data, widths, stairs_data, bin_colors) = primitives
+    (; edge, strokecolor, strokewidth) = config
 
-    d_init = plot_data[]
-    xy_data = Observable(Point2f.(d_init[1], d_init[2]))
-    edges_init = d_init[3]
-    widths = Observable(diff(edges_init))
-    colors = Observable(d_init[4])
-
-    stairs_y_init = vcat(d_init[2], d_init[2][end])
-    stairs_data = Observable(Point2f.(edges_init, stairs_y_init))
-
-    on(plot_data) do d
-        centers, w, edges, c = d
-
-        # Silently update kwargs and secondary data (no redraw triggered)
-        widths.val = diff(edges)
-        colors.val = c
-        stairs_data.val = Point2f.(edges, vcat(w, w[end]))
-
-        # Trigger the plot updates in safe order
-        notify(colors)
-        notify(stairs_data)
-        xy_data[] = Point2f.(centers, w) # Updates centers & weights and triggers barplot
-    end
-
-    final_strokewidth = lift(p.edge, p.strokewidth) do e, w
-        e ? w : 0.0
-    end
-
-    barplot!(p, xy_data;
-        color=colors,
-        # width=widths, # TODO: reactivate. Caused dimension mismatch for update of plotting data
+    bars = S.BarPlot(xy_data;
+        color=bin_colors,
+        width=widths,
         gap=0.0,
         visible=true
     )
 
-    stairs!(p, stairs_data;
+    final_strokewidth = edge ? strokewidth : 0.0
+
+    stairs = S.Stairs(stairs_data;
         step=:post,
-        color=p.strokecolor,
+        color=strokecolor,
         linewidth=final_strokewidth,
-        visible=p.edge
+        visible=edge
     )
-
-    return p
+    return [bars, stairs]
 end
 
 
-@recipe(QuantileHist2D, samples, vsel) do scene
-    Attributes(
-        weights=nothing,
-        nbins=(30, 30),
-        closed=:left,
-        normalization=:pdf,
-        filter=false,
-        levels=cdf.(Chi(2), 0:3),
-        colormap=:Blues,
-        rev=false,
-        alpha=1.0
-    )
+function compute_plotting_primitives(
+    ::Nothing,
+    ::Nothing,
+    ::QuantileHist2D,
+    ::NamedTuple
+)
+    return (centers=Vector{Vector{Float64}}(), color_grid=Matrix{RGBA{Float32}}())
 end
 
-function Makie.plot!(p::QuantileHist2D)
-    marg_dist = lift(p.samples, p.vsel, p.nbins, p.closed, p.filter) do smpls, vsel, b, c, f
-        return MarginalDist(smpls, vsel; bins=b, closed=c, filter=f)
+function compute_plotting_primitives(
+    marg_coords::SubArray,
+    weights::SubArray,
+    recipe::QuantileHist2D,
+    config::NamedTuple
+)
+
+    (; normalization, levels, colormap, alpha, rev, nbins, closed) = config
+    hist = _marginal_view_dist(marg_coords, weights, config.filter, nbins, closed, normalization)
+
+    valid_intervals = sort(filter(x -> 0 < x < 1, levels))
+    sub_hists, _ = BAT.get_smallest_intervals(hist, valid_intervals)
+
+    pal = cgrad(colormap, length(valid_intervals), categorical=true, rev=!rev, alpha=alpha)
+    dims = size(hist.weights)
+    color_grid = fill(RGBA{Float32}(0, 0, 0, 0), dims)
+
+    for (i, sub_hist) in enumerate(sub_hists)
+        color_idx = length(valid_intervals) - i + 1
+        c = pal[color_idx]
+        mask = sub_hist.weights .> 0
+        color_grid[mask] .= c
     end
 
-    plot_data = lift(marg_dist, p.normalization, p.levels, p.colormap, p.rev, p.alpha) do marg, norm, levels, cmap, rev, alpha
-        d = marg.dist isa BAT.ReshapedDist ? marg.dist.dist : marg.dist
-        h_raw = convert(StatsBase.Histogram, d)
-        h_norm = norm == :none ? h_raw : StatsBase.normalize(h_raw, mode=norm)
+    centers = _get_bin_centers(hist)
 
-        valid_intervals = sort(filter(x -> 0 < x < 1, levels))
-        hists, _ = BAT.get_smallest_intervals(h_norm, valid_intervals)
+    return (centers=centers, color_grid=color_grid)
+end
 
-        pal = cgrad(cmap, length(valid_intervals), categorical=true, rev=!rev, alpha=alpha)
-        dims = size(h_norm.weights)
-        color_grid = fill(RGBA{Float32}(0, 0, 0, 0), dims)
-
-        for (i, sub_hist) in enumerate(hists)
-            color_idx = length(valid_intervals) - i + 1
-            c = pal[color_idx]
-            mask = sub_hist.weights .> 0
-            color_grid[mask] .= c
-        end
-
-        centers = BAT.get_bin_centers(marg)
-        return (centers[1], centers[2], color_grid)
-    end
-
-    x_centers = lift(d -> d[1], plot_data)
-    y_centers = lift(d -> d[2], plot_data)
-    colors = lift(d -> d[3], plot_data)
-
-    heatmap!(p, x_centers, y_centers, colors)
-    return p
+function compose_plotspecs(
+    primitives::NamedTuple,
+    recipe::QuantileHist2D,
+    config::NamedTuple
+)
+    (; centers, color_grid) = primitives
+    heat = S.Heatmap(centers[1], centers[2], color_grid)
+    return [heat]
 end
 
 
-@recipe(Hexbin2D, samples, vsel) do scene
-    Attributes(
-        weights=nothing,
-        nbins=(30, 30),
-        filter=false,
-        colormap=:Blues,
-        rev=true,
-        alpha=1.0,
-        threshold=nothing
-    )
+function compute_plotting_primitives(
+    ::Nothing,
+    ::Nothing,
+    ::Hexbin2D,
+    ::NamedTuple
+)
+    return (x=SubArray(), y=SubArray(), weights=SubArray(), thresh=Float64())
 end
 
-function Makie.plot!(p::Hexbin2D)
-    data = lift(p.samples, p.vsel, p.filter) do smpls, vsel, f
-        marg = bat_marginalize(smpls, vsel)
-        marg_res = marg.result
+function compute_plotting_primitives(
+    marg_coords::SubArray,
+    weights::SubArray,
+    recipe::Hexbin2D,
+    config::NamedTuple
+)
 
-        if f
-            marg_res = BAT.drop_low_weight_samples(marg_res)
-        end
+    (; threshold) = config
+    x = marg_coords[1, :]
+    y = marg_coords[2, :]
 
-        w = marg_res.weight
-
-        flat_vals = flatview(unshaped.(marg_res).v)
-        x = flat_vals[1, :]
-        y = flat_vals[2, :]
-
-        return (x, y, w)
+    final_thresh = if isnothing(threshold)
+        pos_w = weights[weights.>0]
+        isempty(pos_w) ? 0.0 : minimum(pos_w)
+    else
+        threshold
     end
 
-    x_vals = lift(d -> d[1], data)
-    y_vals = lift(d -> d[2], data)
-    w_vals = lift(d -> d[3], data)
+    return (x=x, y=y, weights=weights, thresh=final_thresh)
+end
 
-    final_thresh = lift(w_vals, p.threshold) do w, user_thresh
-        thresh = if isnothing(user_thresh)
-            pos_w = w[w.>0]
-            isempty(pos_w) ? 0.0 : minimum(pos_w)
-        else
-            user_thresh
-        end
-        return thresh
-    end
+function compose_plotspecs(
+    primitives::NamedTuple,
+    recipe::Hexbin2D,
+    config::NamedTuple
+)
+    (; x, y, weights, thresh) = primitives
+    (; colormap, rev, nbins, alpha) = config
 
-    final_cmap = lift(p.colormap, p.rev) do cm, r
-        r ? Reverse(cm) : cm
-    end
+    final_cmap = rev ? Reverse(colormap) : colormap
 
-    final_bins = lift(p.nbins) do b
-        b isa Integer ? (b, b) : b
-    end
-
-    hexbin!(p, x_vals, y_vals;
-        weights=w_vals,
-        bins=final_bins,
+    hex = S.Hexbin(x, y;
+        weights=weights,
+        bins=nbins,
         colormap=final_cmap,
-        alpha=p.alpha,
-        threshold=final_thresh
+        alpha=alpha,
+        threshold=thresh
     )
 
-    return p
+    return [hex]
 end
 

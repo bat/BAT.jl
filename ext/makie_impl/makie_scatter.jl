@@ -1,57 +1,45 @@
-@recipe(Scatter2D, x, y) do scene
-    Attributes(
-        weights = nothing,
-        filter = false,
-        color = Makie.wong_colors()[1],
-        alpha = 1.0,
-        markersize = 2.0
-    )
+
+function compute_plotting_primitives(
+        ::Nothing,
+        ::Nothing,
+        ::Scatter2D,
+        ::NamedTuple
+)
+        return (x=SubArray(), y=SubArray(), weights=SubArray())
 end
 
-function Makie.plot!(p::Scatter2D)
-    data = lift(p.samples, p.vsel, p.filter) do smpls, vsel, f
-        marg = bat_marginalize(smpls, vsel)
-        marg_res = marg.result
+function compute_plotting_primitives(
+        marg_coords::SubArray,
+        weights::SubArray,
+        recipe::Scatter2D,
+        config::NamedTuple
+)
+        x = marg_coords[1, :]
+        y = marg_coords[2, :]
 
-        if f
-            marg_res = drop_low_weight_samples(marg_res)
+        return (x=x, y=y, weights=weights)
+end
+
+function compose_plotspecs(
+        primitives::NamedTuple,
+        recipe::Scatter2D,
+        config::NamedTuple
+)
+        (; x, y, weights) = primitives
+        (; color, alpha, markersize) = config
+
+        real_markersize = if isempty(weights) || (all(x -> x ≈ weights[1], weights)) || (mean(weights) <= 0)
+                markersize
+        else
+                sqrt.(weights ./ mean(weights)) .* markersize
         end
 
-        flat_vals = flatview(unshaped.(marg_res).v)
-        x = flat_vals[1, :]
-        y = flat_vals[2, :]
-        w = marg_res.weight
+        scatter = S.Scatter(x, y;
+                color=color,
+                alpha=alpha,
+                markersize=real_markersize
+        )
 
-        return (x, y, w)
-    end
-
-    x_vals = lift(d -> d[1], data)
-    y_vals = lift(d -> d[2], data)
-    w_vals = lift(d -> d[3], data)
-
-    real_markersize = lift(w_vals, p.markersize) do w, base_size
-        if isempty(w)
-            return base_size
-        end
-
-        if all(x -> x ≈ w[1], w)
-            return base_size
-        end
-
-        mean_w = mean(w)
-        if mean_w <= 0
-            return base_size
-        end
-
-        return sqrt.(w ./ mean_w) .* base_size
-    end
-
-    scatter!(p, x_vals, y_vals;
-        color = p.color,
-        alpha = p.alpha,
-        markersize = real_markersize
-    )
-
-    return p
+        return [scatter]
 end
 
