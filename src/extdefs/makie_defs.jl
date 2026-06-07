@@ -1,5 +1,5 @@
 
-struct BATMakieVisualizer <: BATVisBackend
+struct BATMakieVisualization <: BATVisBackend
         recipes::NamedTuple
         vsel::Vector{Integer}
         N_max::Integer
@@ -7,7 +7,88 @@ struct BATMakieVisualizer <: BATVisBackend
         triagonal_config::NamedTuple
         diagonal_config::NamedTuple
 end
-export BATMakieVisualizer
+export BATMakieVisualization
+
+function BATMakieVisualization()
+        recipes = (upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D)
+        vsel = [1,2,3] # Figure out default values. Pass samples to determine number of parameters?
+        N_max = 3 # TODO: Can cause errors when the number of dimensions in the data is smaller than N_max. Figure out a way to make safe.
+        n_batch = 10
+
+        triagonal_config = (
+                weights=nothing,
+                nsigma=1.0,
+                nbins=(50, 50),
+                closed=:left,
+                normalization=:pdf,
+                levels=cdf.(Chi(2), 0:3),
+                filter=false,
+                colormap=:Blues,
+                color=:blue,
+                color_stats=:red,
+                alpha=1.0,
+                rev=false,
+                threshold=nothing,
+                markersize=2.0,
+                edge=false,
+                strokecolor=:blue,
+                strokewidth=1.0,
+                strokestyle_stats=:solid,
+                strokewidth_stats=2.0,
+                color_mean=:black,
+                strokestyle_mean=:dot,
+                strokewidth_mean=2.0,
+                color_ebars=:red,
+                whiskerwidth=10
+        )
+
+        diagonal_config = (
+                weights=nothing,
+                nsigma=1.0,
+                nbins=30,
+                closed=:left,
+                normalization=:pdf,
+                levels=cdf.(Chi(1), 0:3),
+                filter=false,
+                color=:Blue,
+                color_stats=:red,
+                colormap=:Blues,
+                alpha=1.0,
+                filled=true,
+                edge=false,
+                strokecolor=:blue,
+                strokewidth=1.0,
+                strokestyle_stats=:solid,
+                strokewidth_stats=2.0,
+                strokestyle_mean=:dot,
+                strokewidth_mean=2.0,
+                y_ebars=0.0,
+                color_ebars=:red,
+                whiskerwidth=10,
+                filled_pdf=true,
+                npoints_pdf=300,
+                rev=false
+        )
+
+        vis_config = BATMakieVisualization(
+                recipes,
+                vsel,
+                N_max,
+                n_batch,
+                triagonal_config,
+                diagonal_config,
+        )
+        return vis_config
+end
+
+
+
+#function init_visualizer(vis::BATVisualizer{BATMakieVisualization})
+#return nothing
+#end
+
+
+
 
 function BATMakieVisualizer end
 export BATMakieVisualizer

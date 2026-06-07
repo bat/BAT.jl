@@ -482,8 +482,16 @@ function mcmc_iterate!!(
     while (perform_step && (time() - start_time) < max_time)
         perform_step = nsteps(mcmc_state) - start_nsteps < max_nsteps
         mcmc_state = perform_step ? mcmc_step!!(mcmc_state) : flush_samples!!(mcmc_state)
-        if !isnothing(output)
+
+        store_output = !isnothing(output)
+        if store_output
+            update_batch = _empty_chain_outputs(mcmc_state)
+
             get_samples!(output, mcmc_state, nonzero_weights)
+            get_samples!(update_batch, mcmc_state, nonzero_weights)
+
+            chain_state = mcmc_state.chain_state
+            #update_visualizer!(chain_state.context.visualizer; chain_state=chain_state, update_batch)
         end
 
         should_log, log_time, elapsed_time = should_log_progress_now(start_time, log_time)

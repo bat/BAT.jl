@@ -25,10 +25,10 @@ export MCMCChainPoolInit
 
 function apply_trafo_to_init(f_transform::Function, initalg::MCMCChainPoolInit)
     MCMCChainPoolInit(
-    initalg.init_tries_per_chain,
-    initalg.nsteps_init,
-    apply_trafo_to_init(f_transform, initalg.initval_alg),
-    initalg.strict
+        initalg.init_tries_per_chain,
+        initalg.nsteps_init,
+        apply_trafo_to_init(f_transform, initalg.initval_alg),
+        initalg.strict
     )
 end
 
@@ -38,10 +38,10 @@ function mcmc_init!(
     init_alg::MCMCChainPoolInit,
     callback::Function,
     context::BATContext
-)::NamedTuple{(:mcmc_states, :outputs), Tuple{Vector{MCMCState}, Vector{Vector{DensitySampleVector}}}}
+)::NamedTuple{(:mcmc_states, :outputs),Tuple{Vector{MCMCState},Vector{Vector{DensitySampleVector}}}}
     @argcheck samplingalg.nwalkers == 1 throw(ArgumentError("Chain pool initialization is not meant for multiple walkers."))
 
-    (;nchains, nonzero_weights) = samplingalg
+    (; nchains, nonzero_weights) = samplingalg
 
     @info "MCMCChainPoolInit: trying to generate $nchains viable MCMC chain state(s)."
 
@@ -80,15 +80,15 @@ function mcmc_init!(
         mcmc_tuning_init!!.(new_mcmc_states, init_alg.nsteps_init)
         new_mcmc_states = mcmc_update_z_position!!.(new_mcmc_states)
         ncandidates += n
-        
+
         @debug "Testing $(length(new_mcmc_states)) candidate MCMC chain state(s)."
 
         new_mcmc_states = mcmc_iterate!!(
             new_outputs, new_mcmc_states;
-            max_nsteps = clamp(div(init_alg.nsteps_init, 5), 10, 50),
-            nonzero_weights = nonzero_weights
+            max_nsteps=clamp(div(init_alg.nsteps_init, 5), 10, 50),
+            nonzero_weights=nonzero_weights
         )
-        
+
         viable_idxs = findall(isviablestate.(new_mcmc_states))
         viable_mcmc_states = new_mcmc_states[viable_idxs]
         viable_outputs = new_outputs[viable_idxs]
@@ -97,11 +97,11 @@ function mcmc_init!(
 
         if !isempty(viable_mcmc_states)
             next_cycle!.(new_mcmc_states)
-            
+
             viable_mcmc_states = mcmc_iterate!!(
                 viable_outputs, viable_mcmc_states;
-                max_nsteps = init_alg.nsteps_init,
-                nonzero_weights = nonzero_weights
+                max_nsteps=init_alg.nsteps_init,
+                nonzero_weights=nonzero_weights
             )
 
             nsamples_thresh = floor(Int, 0.8 * median([nsamples(states) for states in viable_mcmc_states]))
@@ -130,7 +130,7 @@ function mcmc_init!(
     final_outputs = similar(outputs, 0)
 
     if 2 <= m < size(modes, 2)
-        clusters = kmeans(modes, m, init = KmCentralityAlg())
+        clusters = kmeans(modes, m, init=KmCentralityAlg())
         clusters.converged || error("k-means clustering of MCMC chain states did not converge")
 
         mincosts = fill(Inf, m)
@@ -165,8 +165,8 @@ function mcmc_init!(
     end
 
     @info "Selected $(length(final_mcmc_states)) MCMC chain state(s)."
-    
+
     mcmc_tuning_postinit!!.(final_mcmc_states, final_outputs)
 
-    (mcmc_states = final_mcmc_states, outputs = final_outputs)
+    (mcmc_states=final_mcmc_states, outputs=final_outputs)
 end

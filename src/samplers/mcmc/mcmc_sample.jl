@@ -27,7 +27,7 @@ $(TYPEDFIELDS)
     WS<:AbstractMCMCWeightingScheme,
     CB<:Function
 } <: AbstractSamplingAlgorithm
-    proposal::PR = RandomWalk(proposaldist = TDist(1.0))
+    proposal::PR = RandomWalk(proposaldist=TDist(1.0))
     proposal_tuning::PRT = bat_default(TransformedMCMC, Val(:proposal_tuning), proposal)
     pretransform::TR = bat_default(TransformedMCMC, Val(:pretransform), proposal)
     adaptive_transform::AT = bat_default(TransformedMCMC, Val(:adaptive_transform), proposal)
@@ -65,59 +65,61 @@ function MCMCState(samplingalg::TransformedMCMC, target::BATMeasure, id::Integer
     trafo_tuner_state = create_trafo_tuner_state(samplingalg.transform_tuning, chain_state, 0)
     proposal_tuner_state = create_proposal_tuner_state(samplingalg.proposal_tuning, chain_state, chain_state.proposal, 0)
     temperer_state = create_temperering_state(samplingalg.tempering, target)
-    
+
     MCMCState(chain_state, proposal_tuner_state, trafo_tuner_state, temperer_state)
 end
 
 
 bat_default(
-    ::Type{TransformedMCMC}, 
+    ::Type{TransformedMCMC},
     ::Val{:pretransform},
     ::MCMCProposal
 ) = PriorToNormal()
 
 bat_default(
-    ::Type{TransformedMCMC}, 
-    ::Val{:nwalkers}, 
-    ::MCMCProposal, 
-    ::AbstractTransformTarget, 
-    ::MCMCTransformTuning, 
+    ::Type{TransformedMCMC},
+    ::Val{:nwalkers},
+    ::MCMCProposal,
+    ::AbstractTransformTarget,
+    ::MCMCTransformTuning,
     nchains::Integer
 ) = 1
 
 bat_default(
-    ::Type{TransformedMCMC}, 
-    ::Val{:nsteps}, 
-    ::MCMCProposal, 
-    ::AbstractTransformTarget, 
-    ::MCMCTransformTuning, 
-    nchains::Integer, 
+    ::Type{TransformedMCMC},
+    ::Val{:nsteps},
+    ::MCMCProposal,
+    ::AbstractTransformTarget,
+    ::MCMCTransformTuning,
+    nchains::Integer,
     nwalkers::Integer
 ) = 10^5
 
 bat_default(
-    ::Type{TransformedMCMC}, 
-    ::Val{:init}, 
-    ::MCMCProposal, 
-    ::AbstractTransformTarget, 
-    ::MCMCTransformTuning, 
-    nchains::Integer, 
-    nwalkers::Integer, 
+    ::Type{TransformedMCMC},
+    ::Val{:init},
+    ::MCMCProposal,
+    ::AbstractTransformTarget,
+    ::MCMCTransformTuning,
+    nchains::Integer,
+    nwalkers::Integer,
     nsteps::Integer
-) = MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
+) = MCMCChainPoolInit(nsteps_init=max(div(nsteps, 100), 250))
 
 bat_default(
-    ::Type{TransformedMCMC}, 
-    ::Val{:burnin}, 
-    ::MCMCProposal, 
-    ::AbstractTransformTarget, 
-    ::MCMCTransformTuning, 
-    nchains::Integer, 
-    nwalkers::Integer, 
+    ::Type{TransformedMCMC},
+    ::Val{:burnin},
+    ::MCMCProposal,
+    ::AbstractTransformTarget,
+    ::MCMCTransformTuning,
+    nchains::Integer,
+    nwalkers::Integer,
     nsteps::Integer
-) = MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
+) = MCMCMultiCycleBurnin(nsteps_per_cycle=max(div(nsteps, 10), 2500))
 
-function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::BATContext)
+function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context_init::BATContext)
+    context = init_batcontext!!(context_init, samplingalg)
+
     transformed_m, f_pretransform = transform_and_unshape(samplingalg.pretransform, m, context)
 
     mcmc_states, chain_outputs = mcmc_init!(
@@ -131,7 +133,7 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
     if !samplingalg.store_burnin
         chain_outputs = _empty_chain_outputs.(mcmc_states)
     end
-    
+
     mcmc_states = mcmc_burnin!(
         samplingalg.store_burnin ? chain_outputs : nothing,
         mcmc_states,
@@ -141,12 +143,18 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
 
     next_cycle!.(mcmc_states)
 
+    # TODO: Where to activate visualizer? Could be interesting to see initialization of the chains and/or the burnin.
+    # Handle emtpy samples in plotting pipeline
+
+    #register_state_for_vis!.(mcmc_states, chain_outputs, f_pretransform)
+    #activate_visualizer(context.visualizer)
+
     @info "Generate main samples using $(length(mcmc_states)) MCMC chain(s)."
     mcmc_states = mcmc_iterate!!(
         chain_outputs,
         mcmc_states;
-        max_nsteps = samplingalg.nsteps,
-        nonzero_weights = samplingalg.nonzero_weights
+        max_nsteps=samplingalg.nsteps,
+        nonzero_weights=samplingalg.nonzero_weights
     )
 
     @debug "Merge samples of chains and transform to original space."
@@ -155,7 +163,7 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
 
     smpls = transform_samples(inverse(f_pretransform), samples_transformed)
 
-    (result = smpls, result_trafo = samples_transformed, f_pretransform = f_pretransform, generator = MCMCSampleGenerator(mcmc_states))
+    (result=smpls, result_trafo=samples_transformed, f_pretransform=f_pretransform, generator=MCMCSampleGenerator(mcmc_states))
 end
 
 function _merge_chain_outputs(mcmc_state::MCMCState, chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}})

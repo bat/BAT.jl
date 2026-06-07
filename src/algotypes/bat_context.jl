@@ -192,3 +192,11 @@ end
 
 
 const _g_dummy_context = BATContext()
+
+function init_batcontext!!(context::BATContext{T}, sampling) where T
+    #TODO: Reactivate
+    #vis = init_visualizer!!(context.visualizer, sampling)
+    vis = context.visualizer
+    return BATContext(; precision=T, rng=context.rng, cunit=context.cunit, ad=context.ad, visualizer=vis)
+end
+
