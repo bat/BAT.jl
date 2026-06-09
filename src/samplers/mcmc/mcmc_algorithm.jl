@@ -469,6 +469,7 @@ function mcmc_iterate!!(
     max_nsteps::Integer=1,
     max_time::Real=Inf,
     nonzero_weights::Bool=true,
+    update_visualizer::Bool=false,
     callback::Function=nop_func
 )
     @debug "Starting iteration over MCMC chain $(mcmc_state.chain_state.info.id) with $max_nsteps steps in max. $(@sprintf "%.1f s" max_time)"
@@ -485,13 +486,10 @@ function mcmc_iterate!!(
 
         store_output = !isnothing(output)
         if store_output
-            update_batch = _empty_chain_outputs(mcmc_state)
-
             get_samples!(output, mcmc_state, nonzero_weights)
-            get_samples!(update_batch, mcmc_state, nonzero_weights)
 
             chain_state = mcmc_state.chain_state
-            #update_visualizer!(chain_state.context.visualizer; chain_state=chain_state, update_batch)
+            update_visualizer && update_visualizer!(chain_state.context.visualizer; chain_state=chain_state, nonzero_weights=nonzero_weights)
         end
 
         should_log, log_time, elapsed_time = should_log_progress_now(start_time, log_time)

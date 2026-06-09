@@ -1,4 +1,26 @@
 
+
+function determine_recipe_status(subject::Mean1D, live_recipe::R1) where {R1<:BATMakieRecipe}
+        return LiveRecipe()
+end
+
+function determine_recipe_status(subject::Std1D, live_recipe::R1) where {R1<:BATMakieRecipe}
+        return LiveRecipe()
+end
+
+function determine_recipe_status(subject::Mean2D, live_recipe_1::R1, live_recipe_2::R2) where {R1<:BATMakieRecipe,R2<:BATMakieRecipe}
+        return LiveRecipe()
+end
+
+function determine_recipe_status(subject::Cov2D, live_recipe_1::R1, live_recipe_2::R2) where {R1<:BATMakieRecipe,R2<:BATMakieRecipe}
+        return LiveRecipe()
+end
+
+function determine_recipe_status(subject::Std2D, live_recipe_1::R1, live_recipe_2::R2) where {R1<:BATMakieRecipe,R2<:BATMakieRecipe}
+        return LiveRecipe()
+end
+
+
 struct Makie1DStats <: BATMakieRecipe end
 
 function get_stats_plotspecs(
@@ -8,14 +30,13 @@ function get_stats_plotspecs(
         config::NamedTuple
 )
         i = vsel[1]
-        weights = graph[:weights][]
         plotspecs = []
 
         mean_primitives = graph[primitive_symbol(Mean1D(), (i, i))][]
-        append!(plotspecs, compose_plotspecs(mean_primitives, weights, Mean1D(), config))
+        append!(plotspecs, compose_plotspecs(mean_primitives, Mean1D(), config))
 
         std_primitives = graph[primitive_symbol(Std1D(), (i, i))][]
-        append!(plotspecs, compose_plotspecs(std_primitives, weights, Std1D(), config))
+        append!(plotspecs, compose_plotspecs(std_primitives, Std1D(), config))
 
         return plotspecs
 end
@@ -29,17 +50,16 @@ function get_stats_plotspecs(
         config::NamedTuple
 )
         i, j = vsel
-        weights = graph[:weights][]
         plotspecs = []
 
         mean_primitives = graph[primitive_symbol(Mean2D(), (i, j))][]
-        append!(plotspecs, compose_plotspecs(mean_primitives, weights, Mean2D(), config))
+        append!(plotspecs, compose_plotspecs(mean_primitives, Mean2D(), config))
 
         cov_primitives = graph[primitive_symbol(Cov2D(), (i, j))][]
-        append!(plotspecs, compose_plotspecs(cov_primitives, weights, Cov2D(), config))
+        append!(plotspecs, compose_plotspecs(cov_primitives, Cov2D(), config))
 
         std_primitives = graph[primitive_symbol(Std2D(), (i, j))][]
-        append!(plotspecs, compose_plotspecs(std_primitives, weights, Std2D(), config))
+        append!(plotspecs, compose_plotspecs(std_primitives, Std2D(), config))
 
         return plotspecs
 end
@@ -231,9 +251,9 @@ end
 function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
+        recipe::Mean1D,
         ::LiveRecipe,
         ::LiveCell,
-        recipe::Mean1D,
         config::NamedTuple
 )
         return (x=[mean(vec(marg_coords), ProbabilityWeights(weights))],)

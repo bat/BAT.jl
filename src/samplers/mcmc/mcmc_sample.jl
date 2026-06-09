@@ -117,9 +117,7 @@ bat_default(
     nsteps::Integer
 ) = MCMCMultiCycleBurnin(nsteps_per_cycle=max(div(nsteps, 10), 2500))
 
-function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context_init::BATContext)
-    context = init_batcontext!!(context_init, samplingalg)
-
+function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::BATContext)
     transformed_m, f_pretransform = transform_and_unshape(samplingalg.pretransform, m, context)
 
     mcmc_states, chain_outputs = mcmc_init!(
@@ -146,18 +144,21 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context_in
     # TODO: Where to activate visualizer? Could be interesting to see initialization of the chains and/or the burnin.
     # Handle emtpy samples in plotting pipeline
 
-    #register_state_for_vis!.(mcmc_states, chain_outputs, f_pretransform)
-    #activate_visualizer(context.visualizer)
+    init_visualizer!(context.visualizer; mcmc_states=mcmc_states, outputs=chain_outputs, f_pretransform=f_pretransform)
 
     @info "Generate main samples using $(length(mcmc_states)) MCMC chain(s)."
     mcmc_states = mcmc_iterate!!(
         chain_outputs,
         mcmc_states;
         max_nsteps=samplingalg.nsteps,
-        nonzero_weights=samplingalg.nonzero_weights
+        nonzero_weights=samplingalg.nonzero_weights,
+        update_visualizer=true # TODO: MD; discuss the whole update pipeline for visualizer
     )
 
     @debug "Merge samples of chains and transform to original space."
+
+    # close(context.visualizer.content.update_channel)
+    context.visualizer.content.is_live[] = false
 
     samples_transformed = _merge_chain_outputs(first(mcmc_states), chain_outputs)
 
@@ -179,3 +180,99 @@ function _merge_chain_outputs(mcmc_state::MCMCState, chain_outputs::AbstractVect
 
     return merged_output
 end
+
+
+function _append_chain_outputs(
+    mcmc_state::MCMCState,
+    outputs_A, #::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
+    outputs_B  #::AbstractVector{<:AbstractVector{<:DensitySampleVector}}
+)
+    merged_outputs = [_empty_chain_outputs(mcmc_state) for chain_outputs in outputs_A]
+
+    for i in eachindex(outputs_A)
+        for j in eachindex(outputs_A[i])
+            if !isempty(outputs_A[i][j])
+                for sample in outputs_A[i][j]
+                    checked_push!(merged_outputs[i][j], sample)
+                end
+            end
+        end
+    end
+
+    for i in eachindex(outputs_B)
+        for j in eachindex(outputs_B[i])
+            if !isempty(outputs_B[i][j])
+                for sample in outputs_B[i][j]
+                    checked_push!(merged_outputs[i][j], sample)
+                end
+            end
+        end
+    end
+
+    return merged_outputs
+end
+export _append_chain_outputs
+
+
+
+function _append_walker_outputs(
+    mcmc_state::MCMCState,
+    outputs_A, #::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
+    outputs_B  #::AbstractVector{<:AbstractVector{<:DensitySampleVector}}
+)
+    merged_outputs = _empty_chain_outputs(mcmc_state)
+
+    for i in eachindex(outputs_A)
+        if !isempty(outputs_A[i])
+            for sample in outputs_A[i]
+                checked_push!(merged_outputs[i], sample)
+            end
+        end
+    end
+
+    for i in eachindex(outputs_B)
+        if !isempty(outputs_B[i])
+            for sample in outputs_B[i]
+                checked_push!(merged_outputs[i], sample)
+            end
+        end
+    end
+
+    return merged_outputs
+end
+
+
+
+
+
+function _unshape_chain_outputs(
+    outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}}
+)
+    return [[unshaped.(walker_outputs) for walker_outputs in chain_outputs] for chain_outputs in outputs]
+end
+
+function _unshape_walker_outputs(
+    chain_outputs::AbstractVector{<:DensitySampleVector}
+)
+    return [unshaped.(walker_outputs) for walker_outputs in chain_outputs]
+end
+
+
+function _transform_chain_outputs(
+    f_pretransform::Function,
+    outputs   #::AbstractVector{<:AbstractVector{<:DensitySampleVector}}
+)
+    global gs_trafo_co = (f_pretransform, outputs)
+
+    outputs_transformed = [[unshaped.(transform_samples(inverse(f_pretransform), walker_output)) for walker_output in chain_output] for chain_output in outputs]
+    return outputs_transformed
+end
+
+function _transform_walker_outputs(
+    f_pretransform::Function,
+    chain_output   #::AbstractVector{<:DensitySampleVector}
+)
+    outputs_transformed = [unshaped.(transform_samples(inverse(f_pretransform), walker_output)) for walker_output in chain_output]
+    return outputs_transformed
+end
+

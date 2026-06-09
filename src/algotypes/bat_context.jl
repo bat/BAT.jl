@@ -78,7 +78,6 @@ function get_adselector end
 get_adselector(context::BATContext) = context.ad
 
 
-
 """
     BAT.get_valid_adselector(context::BATContext, algorithm)
 
@@ -113,7 +112,7 @@ end
 Returns a copy of `context` with the random number generator set to `rng`.
 """
 function set_rng(context::BATContext{T}, rng::AbstractRNG) where {T}
-    BATContext{T}(rng, get_compute_unit(context), get_adselector(context), BATVisualizer())
+    BATContext{T}(rng, get_compute_unit(context), get_adselector(context), context.visualizer)
 end
 
 
@@ -187,16 +186,9 @@ function set_batcontext(; kwargs...)
     )
     @info s
     adsel = _to_adsel(s.ad)
-    set_batcontext(BATContext{s.precision}(s.rng, s.cuinit, adsel, BATVisualizer())) # Temporary, to fix
+    set_batcontext(BATContext{s.precision}(s.rng, s.cuinit, adsel, c.visualizer)) # Temporary, to fix
 end
 
 
 const _g_dummy_context = BATContext()
-
-function init_batcontext!!(context::BATContext{T}, sampling) where T
-    #TODO: Reactivate
-    #vis = init_visualizer!!(context.visualizer, sampling)
-    vis = context.visualizer
-    return BATContext(; precision=T, rng=context.rng, cunit=context.cunit, ad=context.ad, visualizer=vis)
-end
 

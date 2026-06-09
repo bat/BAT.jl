@@ -11,14 +11,14 @@ export BATMakieVisualization
 
 function BATMakieVisualization()
         recipes = (upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D)
-        vsel = [1,2,3] # Figure out default values. Pass samples to determine number of parameters?
+        vsel = [1, 2, 3] # Figure out default values. Pass samples to determine number of parameters?
         N_max = 3 # TODO: Can cause errors when the number of dimensions in the data is smaller than N_max. Figure out a way to make safe.
         n_batch = 10
 
         triagonal_config = (
                 weights=nothing,
                 nsigma=1.0,
-                nbins=(50, 50),
+                nbins=(100, 100),
                 closed=:left,
                 normalization=:pdf,
                 levels=cdf.(Chi(2), 0:3),
@@ -45,7 +45,7 @@ function BATMakieVisualization()
         diagonal_config = (
                 weights=nothing,
                 nsigma=1.0,
-                nbins=30,
+                nbins=100,
                 closed=:left,
                 normalization=:pdf,
                 levels=cdf.(Chi(1), 0:3),
