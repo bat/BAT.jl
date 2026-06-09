@@ -78,7 +78,12 @@ function compute_plotting_primitives(
         config::NamedTuple
 )
         kde_result = kde(marg_coords', weights=weights)
-        return (x=kde_result.x, y=kde_result.y, density=kde_result.density)
+        density = kde_result.density
+        nonzero_density = fill(NaN, size(density))
+        nonzero_idxs = density .> 0.005
+        nonzero_density[nonzero_idxs] .= density[nonzero_idxs]
+
+        return (x=kde_result.x, y=kde_result.y, density=nonzero_density)
 end
 
 function compose_plotspecs(
@@ -136,7 +141,8 @@ function compute_plotting_primitives(
 
         active_levels = sort(filter(x -> 0 < x < 1, levels))
 
-        pal = cgrad(colormap, length(active_levels), categorical=true, rev=!rev, alpha=alpha)
+        pal = cgrad(colormap, rev=rev, alpha=alpha)
+        pal_values = collect(range(0.05, 0.7, length(active_levels)))
 
         polys = Vector{Point2f}[]
         fill_colors = RGBA[]
@@ -160,8 +166,7 @@ function compute_plotting_primitives(
                 )
                 push!(polys, pts)
 
-                original_idx = length(active_levels) - i + 1
-                push!(fill_colors, pal[original_idx])
+                push!(fill_colors, pal[pal_values[i]])
         end
 
 
@@ -214,7 +219,7 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
-        (; levels) = config
+        (; levels, rev, colormap, alpha) = config
         kde_result = kde((marg_coords[1, :], marg_coords[2, :]), weights=weights)
 
         density = kde_result.density
@@ -234,10 +239,14 @@ function compute_plotting_primitives(
                 push!(thresholds, density_sorted[safe_idx])
         end
 
-        push!(thresholds, 0.0)
+        push!(thresholds, density_sorted[1])
         final_levels = sort(thresholds)
 
-        return (x=kde_result.x, y=kde_result.y, density=density, final_levels=final_levels)
+        pal = cgrad(colormap, rev=rev, alpha=alpha)
+        pal_values = collect(range(0.05, 0.7, length(final_levels)))
+        colors = pal[pal_values]
+
+        return (x=kde_result.x, y=kde_result.y, density=density, final_levels=final_levels, colors=colors)
 end
 
 function compose_plotspecs(
@@ -245,13 +254,12 @@ function compose_plotspecs(
         recipe::QuantileKDE2D,
         config::NamedTuple
 )
-        (; x, y, density, final_levels) = primitives
-        (; rev, alpha, colormap) = config
-        final_cmap = cgrad(colormap, length(final_levels) - 1, categorical=true, rev=rev, alpha=alpha)
+        (; x, y, density, final_levels, colors) = primitives
+        (; rev, alpha) = config
 
         contour = S.Contourf(x, y, density;
                 levels=final_levels,
-                colormap=final_cmap
+                colormap=colors
         )
         return [contour]
 end

@@ -1,156 +1,164 @@
 
-
-function bat_makie_plot(samples::BAT.DensitySampleVector; kwargs...)
-    bat_makie_plot(Observable(samples); kwargs...)
-end
-
-function bat_makie_plot(samples::Observable; kwargs...)
-    fig = Figure()
-    bat_makie_plot!(fig, samples; kwargs...)
-    return fig
-end
-
-function bat_makie_plot!(
-    fig::Figure,
-    samples;
-    vsel=Observable(collect(1:5)),
-    diagonal=Observable(quantilehist1d!),
-    lower=Observable(quantilehist2d!),
-    upper=Observable(nothing),
-    labels=Observable(nothing),
-    link_axes=Observable(true),
-    nbins=Observable(200),
-    closed=Observable(:left),
-    filter=Observable(false)
+function BAT.bat_makie_plot(
+        samples::DensitySampleVector,
+        recipes::NamedTuple=(upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D),
+        vsel::Vector{<:Integer}=[1, 2, 3],
+        N_max::Integer=3,
 )
-    vs = varshape(samples[])
-    indices = lift(vsel) do vsel_inp
-        vsel = collect(vsel_inp)
-        if !(vsel isa Vector{<:Integer})
-            vsel = asindex.(Ref(vs), vsel_inp)
-            vsel = reduce(vcat, vsel)
+        # TODO: MD, Discuss config handling and passing of user attribute overwrites
+        triagonal_config = (
+                weights=nothing,
+                nsigma=1.0,
+                nbins=(100, 100),
+                closed=:left,
+                normalization=:pdf,
+                levels=cdf.(Chi(2), 0:3),
+                filter=false,
+                colormap=:inferno,
+                color=RGB(0.898, 0.361, 0.188),
+                color_stats=:blue,
+                alpha=1.0,
+                rev=false,
+                threshold=nothing,
+                markersize=2.0,
+                edge=false,
+                strokecolor=RGB(0.741, 0.518, 0.02),
+                strokewidth=1.0,
+                strokestyle_stats=:solid,
+                strokewidth_stats=2.0,
+                color_mean=:white,
+                strokestyle_mean=:dot,
+                strokewidth_mean=2.0,
+                color_ebars=:blue,
+                whiskerwidth=10
+        )
+
+        diagonal_config = (
+                weights=nothing,
+                nsigma=1.0,
+                nbins=100,
+                closed=:left,
+                normalization=:pdf,
+                levels=cdf.(Chi(1), 0:3),
+                filter=false,
+                color=RGB(0.898, 0.361, 0.188),
+                color_stats=:blue,
+                colormap=:inferno,
+                alpha=1.0,
+                filled=true,
+                edge=false,
+                strokecolor=:orange,
+                strokewidth=1.0,
+                strokestyle_stats=:solid,
+                strokewidth_stats=2.0,
+                strokestyle_mean=:dot,
+                strokewidth_mean=2.0,
+                y_ebars=0.0,
+                color_ebars=:blue,
+                whiskerwidth=10,
+                filled_pdf=true,
+                npoints_pdf=300,
+                rev=false
+        )
+
+        graph = _init_compute_graph(
+                recipes,
+                triagonal_config,
+                diagonal_config,
+                N_max,
+        )
+
+        samples_graph = graph[:samples][]
+        push!(samples_graph, [unshaped.(samples)])
+        update!(graph, samples=samples_graph)
+
+        current_idxs = [length(samples)]
+        current_idxs_graph = graph[:current_idxs][]
+        push!(current_idxs_graph, current_idxs)
+        update!(graph, current_idxs=current_idxs_graph)
+
+        update!(graph, idxs=vsel)
+
+        with_theme(bat_theme()) do
+                gridlayout = _init_gridlayout(graph, N_max)
+                fig = _build_fig(graph, gridlayout)
+                display(fig)
         end
-        return vsel[vsel.<=totalndof(vs)]
-    end
 
-    n_params = lift(idxs -> length(idxs), indices)
+        return nothing
+end
 
-    ax_grid = lift(n_params, indices) do n, idxs
-        # empty!(fig.layout)
+function bat_theme()
+        # Nice dark purple:
+        #color_inactive = RGBf(0.18, 0.039, 0.353)
 
-        axs = Matrix{Axis}(undef, n, n)
-
-        # TODO
-        # Catch the case that the user provided lables, but the vsel change during interactive plot
-        # Write method for getstring() that does xlabel = ["v$i" for i in vsel] for unshaped samples
-        xlbls = isnothing(labels[]) ? getstring.(Ref(samples[]), idxs) : labels[]
-        ylbls = ["p($l)" for l in xlbls]
-
-        # TODO
-        # Global bin calculation
-        # Reactive Matrix of number of bins for each sub-plot. Pass to MarginalDist below
-        for i in 1:n, j in 1:n
-            if i == j || (i > j && !isnothing(lower[])) || (j > i && !isnothing(upper[]))
-                ax = Axis(fig.layout[i, j], aspect=AxisAspect(1))
-                axs[i, j] = ax
-                apply_decorations!(ax, i, j, n, xlbls[j], ylbls[i])
-
-                # TODO
-                # More complex recipe logic for dynamic recipies
-                recipe = if i == j
-                    diagonal[]
-                elseif i > j
-                    lower[]
-                else
-                    upper[]
-                end
-
-                plot_idxs = lift(indices) do idxs
-                    if (i == j)
-                        idxs[i]
-                    else
-                        (idxs[i], idxs[j])
-                    end
-                end
-
-                # global gs = (ax, recipe, samples_loc, plot_idxs, nbins, closed, filter)
-                # BREAK
-                recipe(
-                    ax,
-                    samples,
-                    plot_idxs;
-                    nbins=nbins,
-                    closed=closed,
-                    filter=filter
+        color_active = RGB(0.451, 0.102, 0.431)
+        color_inactive = RGB(0.15, 0.17, 0.20)
+        color_hover = RGB(0.714, 0.216, 0.322)
+        text_color = RGB(0.80, 0.80, 0.80)
+        return Theme(
+                backgroundcolor=:gray10,
+                textcolor=:gray80,
+                linecolor=:gray70,
+                palette=Makie.generate_default_palette(:gray10),
+                fontsize=20,
+                fonts=Attributes(
+                        :bold => Makie.texfont(:bold),
+                        :bolditalic => Makie.texfont(:bolditalic),
+                        :italic => Makie.texfont(:italic),
+                        :regular => Makie.texfont(:regular),
+                ),
+                Axis=(
+                        backgroundcolor=:transparent,
+                        xgridcolor=:gray50,
+                        ygridcolor=:gray50,
+                        # leftspinevisible=false,
+                        # rightspinevisible=false,
+                        # bottomspinevisible=false,
+                        # topspinevisible=false,
+                        leftspinecolor=:gray20,
+                        rightspinecolor=:gray20,
+                        bottomspinecolor=:gray20,
+                        topspinecolor=:gray20,
+                        xminorticksvisible=false,
+                        yminorticksvisible=false,
+                        xticksvisible=true,
+                        yticksvisible=true,
+                        xlabelpadding=3,
+                        ylabelpadding=3,
+                ),
+                Legend=(
+                        framevisible=false,
+                        padding=(0, 0, 0, 0),
+                ),
+                Colorbar=(
+                        ticksvisible=false,
+                        spinewidth=0,
+                        ticklabelpad=5,
+                ),
+                Menu=(
+                        cell_color_active=color_active,
+                        cell_color_hover=color_hover,
+                        cell_color_inactive_even=RGBf(0.20, 0.20, 0.20),
+                        cell_color_inactive_odd=RGBf(0.15, 0.15, 0.15),
+                        selection_cell_color_inactive=color_inactive,
+                        textcolor=text_color,
+                        dropdown_arrow_color=:grey30
+                ),
+                Slider=(
+                        color_active=color_active,
+                        color_active_dimmed=color_hover,
+                        color_inactive=color_inactive,
+                ),
+                Toggle=(
+                        buttoncolor=color_hover,
+                        framecolor_active=color_active,
+                        framecolor_inactive=color_inactive
+                ),
+                Heatmap=Theme(
+                        colormap=:inferno
                 )
-            end
-        end
-
-        for i in 1:n
-            colsize!(fig.layout, i, Aspect(1, 1.0))
-        end
-
-        # Set a comfortable, fixed pixel gap between subplots
-        colgap!(fig.layout, 10)
-        rowgap!(fig.layout, 10)
-
-        # TODO: Only link x-axes in columns and y-axes in rows
-        # if link_axes[]
-        #     linkaxes!(axs)
-        # end
-        return axs
-    end
-
-    return fig
-end
-
-function apply_decorations!(
-    ax::Axis,
-    i::Integer,
-    j::Integer,
-    n::Integer,
-    xlabel::String,
-    ylabel::String
-)
-    if i < n
-        hidexdecorations!(
-            ax,
-            grid=false,
-            ticks=true,
-            ticklabels=true
         )
-    else
-        ax.xlabel = xlabel
-    end
-
-    if j > 1
-        hideydecorations!(
-            ax,
-            grid=false,
-            ticks=true,
-            ticklabels=true
-        )
-    else
-        ax.ylabel = ylabel
-    end
-
-    ax.xticklabelrotation = π / 4
-    ax.xtickalign = 1
-    ax.ytickalign = 1
-
-    if i < j
-        ax.xaxisposition = :top
-    end
 end
 
-
-
-function Makie.convert_arguments(
-    ::Type{<:Makie.Plot},
-    samples::BAT.DensitySampleVector,
-    idxs
-    #args...
-)
-    return (samples, idxs)
-end
 

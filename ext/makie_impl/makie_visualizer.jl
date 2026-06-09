@@ -41,50 +41,41 @@ end
 
 
 function BATVisualizer(vis::BATMakieVisualization)
-    (; recipes, vsel, N_max, n_batch, triagonal_config, diagonal_config) = vis
+    (; recipes, N_max, triagonal_config, diagonal_config) = vis
 
     # TODO: Think about whether or not the more expressive vsel symbol approach is desired, or integers are sufficient
     # idxs = vsel isa AbstractVector{<:Int64} ? vsel : reduce(vcat, asindex.(Ref(vs), vsel))
     #idxs = filter(<=(totalndof(vs)), vsel)
-    idxs_init = Vector{Integer}()
 
     graph = _init_compute_graph(
-        idxs_init,
         recipes,
         triagonal_config,
         diagonal_config,
         N_max,
-        n_batch
     )
-
-    gridlayout = _init_gridlayout(
-        graph,
-        N_max
-    )
-
-    update_channel = Channel{Tuple{Vector{DensitySampleVector},Integer}}()
 
     content = (
         graph=graph,
-        gridlayout,
-        update_channel=update_channel
+        buffer_lock=ReentrantLock(),
+        chain_ids=Vector{Integer}(),
+        output_buffer=Vector{Vector{DensitySampleVector}}(),
+        n_buffer_samples=Ref(0),
+        is_live=Threads.Atomic{Bool}(true)
     )
 
-    return BATVisualizer(vis.backend, content)
+    return BATVisualizer(vis, content)
 end
 
 
 function _init_compute_graph(
-    idxs::Vector{Integer},
     recipes::NamedTuple,
     triagonal_config::NamedTuple,
     diagonal_config::NamedTuple,
     n::Integer,
-    n_batch_init
 )
     graph = ComputeGraph()
 
-    smpls = Vector{Vector{DensitySampleVector}}()
+    smpls = Any[] #Vector{Vector{DensitySampleVector}}()
 
     add_input!(graph, :samples, smpls)
 
@@ -98,7 +89,7 @@ function _init_compute_graph(
         samples = inputs.samples
         current_idxs = inputs.current_idxs
 
-        walker_views = Vector{SubArray}()
+        walker_views = Any[] #Vector{DensitySampleVector}()
         for i in eachindex(samples)
             for j in eachindex(samples[i])
                 push!(walker_views, view(samples[i][j], 1:current_idxs[i][j]))
@@ -107,19 +98,19 @@ function _init_compute_graph(
         return (vcat(walker_views...),)
     end
 
-    map!(
-        smpls -> smpls.weight,
-        graph,
-        :flat_samples,
-        :flat_weights
-    )
     map!(smpls -> length(smpls),
         graph,
         :flat_samples,
         :current_idx
     )
+    map!(
+        (smpls, idx) -> idx > 0 ? view(smpls.weight, 1:idx) : view(Int64[0], 1:1), # TODO: MD, think of something smarter to determine the weight type. Ad hoc fix to fixed Int64
+        graph,
+        [:flat_samples, :current_idx],
+        :flat_weights
+    )
 
-    add_input!(graph, :idxs, idxs)
+    add_input!(graph, :idxs, Integer[])
 
     register_computation!(graph,
         [:idxs],
@@ -129,7 +120,7 @@ function _init_compute_graph(
         if isnothing(cached)
             vsel_map = [(i, j) for i in 1:n, j in 1:n]
         else
-            vsel_map = cached
+            vsel_map = cached.vsel_map
         end
 
         # TODO: Refine update logic to avoid redundant recomputations
@@ -146,16 +137,15 @@ function _init_compute_graph(
         [:idxs],
         [:live_map],
     ) do inputs, changed, cached
-
         # TODO: Refine update logic together with the vsel_map.
 
+        live_map = fill(false, n, n)
+
         idxs = inputs.idxs
-        live_map = Matrix{CellStatus}(undef, n, n)
-        live_map[:, :] = DeadCell()
         n_active = length(idxs)
-        for i in 1:n
-            for j in 1:n
-                live_map[i, j] = LiveCell()
+        for i in 1:n_active
+            for j in 1:n_active
+                live_map[i, j] = true
             end
         end
         return (live_map,)
@@ -182,14 +172,14 @@ function _init_compute_graph(
         marg_sym = marg_symbol((i, i))
 
         map!(
-            (smpls, vsel_map, current_idx) -> view(smpls.v.data, [vsel_map[i, i][1]], 1:current_idx),
+            (smpls, vsel_map, current_idx) -> current_idx > 0 ? view(smpls.v.data, [vsel_map[i, i][1]], 1:current_idx) : view(ElasticMatrix{Float64,Vector{Float64}}(undef, 1, 0), [1], 1:0),
             graph,
             [:flat_samples, :vsel_map, :current_idx],
             marg_sym
         )
 
         map!(
-            (marg, current_idx) -> (minimum(marg) - 0.1 * abs(minimum(marg)), maximum(marg) + 0.1 * abs(minimum(marg))),
+            (marg, current_idx) -> isempty(marg) ? (0.0, 1.0) : (minimum(marg) - 0.1 * abs(minimum(marg)), maximum(marg) + 0.1 * abs(minimum(marg))),
             graph,
             [marg_sym, :current_idx],
             Symbol("axis_limits_$i")
@@ -204,7 +194,7 @@ function _init_compute_graph(
             ) do inputs, changed, cached
                 coords, weights, live_recipe, live_map, config = inputs
                 recipe = BAT_MAKIE_RECIPES_1D[k]
-                cell_status = live_map[i, i]
+                cell_status = live_map[i, i] ? LiveCell() : DeadCell()
                 recipe_status = determine_recipe_status(recipe, live_recipe())
                 primitives = compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, config)
 
@@ -215,7 +205,7 @@ function _init_compute_graph(
         for j in i+1:n
             marg_sym_2D = marg_symbol((j, i))
             map!(
-                (smpls, vsel_map, current_idx) -> view(smpls.v.data, [vsel_map[j, i]...], 1:current_idx),
+                (smpls, vsel_map, current_idx) -> current_idx > 0 ? view(smpls.v.data, [vsel_map[j, i]...], 1:current_idx) : view(ElasticMatrix{Float64,Vector{Float64}}(undef, 2, 0), [1, 2], 1:0),
                 graph,
                 [:flat_samples, :vsel_map, :current_idx],
                 marg_sym_2D
@@ -230,7 +220,7 @@ function _init_compute_graph(
                 ) do inputs, changed, cached
                     coords, weights, live_recipe_upper, live_recipe_lower, live_map, config = inputs
                     recipe = BAT_MAKIE_RECIPES_2D[k]
-                    cell_status = live_map[i, j]
+                    cell_status = live_map[i, j] ? LiveCell() : DeadCell()
                     recipe_status = determine_recipe_status(recipe, live_recipe_upper(), live_recipe_lower())
                     primitives = compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, config)
                     return (primitives,)
@@ -283,7 +273,7 @@ function _init_gridlayout(
                 # TODO: Figure out a way to flip the upper plots along the diagonal
                 upper_primitives = graph[primitive_symbol(upper_recipe, (j, i))][]
                 upper_plotspecs = compose_plotspecs(upper_primitives, upper_recipe(), triagonal_config)
-                stats_specs_2D = stats_upper ? get_stats_plotspecs(graph, (j, i), Makie2DStats(), triagonal_config) : []
+                stats_specs_2D = stats_upper ? get_stats_plotspecs(graph, (j, i), Makie2DStats(), triagonal_config) : PlotSpec[]
                 append!(upper_plotspecs, stats_specs_2D)
 
                 ylims = graph[Symbol("axis_limits_$j")][]
@@ -304,7 +294,7 @@ function _init_gridlayout(
             for j in 1:i-1
                 lower_primitives = graph[primitive_symbol(lower_recipe, (i, j))][]
                 lower_plotspecs = compose_plotspecs(lower_primitives, lower_recipe(), triagonal_config)
-                stats_specs_2D = stats_lower ? get_stats_plotspecs(graph, (i, j), Makie2DStats(), triagonal_config) : []
+                stats_specs_2D = stats_lower ? get_stats_plotspecs(graph, (i, j), Makie2DStats(), triagonal_config) : PlotSpec[]
                 append!(lower_plotspecs, stats_specs_2D)
 
                 ylims = graph[Symbol("axis_limits_$j")][]
@@ -330,7 +320,13 @@ end
 
 function _build_fig(graph::ComputeGraph, gridlayout::Any)
     fig = Figure()
-    ui_layout = fig[2, 1] = GridLayout(tellwidth=false)
+
+    plot(fig[1, 1], gridlayout)
+
+    colsize!(fig.layout, 1, Aspect(1, 1))
+    rowsize!(fig.layout, 1, Relative(0.8))
+
+    ui_layout = fig[2, 1] = GridLayout()
 
     options2D = [
         ("QuantileHist", QuantileHist2D),
@@ -339,36 +335,35 @@ function _build_fig(graph::ComputeGraph, gridlayout::Any)
         ("Hexbin", Hexbin2D),
         ("QuantileKDE", QuantileKDE2D),
         ("KDE", KDE2D),
-        #("Cov", Symbol(Cov2D)),
-        #("Std", Symbol(Std2D)),
-        #("Mean", Symbol(Mean2D)),
-        #("Errorbars", Symbol(Errorbars2D)),
     ]
     options1D = [
         ("QuantileHist", QuantileHist1D),
         ("Hist", Hist1D),
         ("KDE", KDE1D),
         ("QuantileKDE", QuantileKDE1D),
-        #("Std", Symbol(Std1D)),
-        #("Mean", Symbol(Mean1D)),
-        #("Errorbars", Symbol(Errorbars1D)),
-        #("PDF", Symbol(PDF1D)), TODO: Make work
     ]
+
+    default_upper = options2D[findfirst(x -> x[2] == graph[:upper_recipe][], options2D)][1]
+    default_diag = options1D[findfirst(x -> x[2] == graph[:diagonal_recipe][], options1D)][1]
+    default_lower = options2D[findfirst(x -> x[2] == graph[:lower_recipe][], options2D)][1]
 
     menu_upper = Menu(
         fig,
-        options=options2D
+        options=options2D,
+        default=default_upper
     )
     menu_diagonal = Menu(
         fig,
-        options=options1D
+        options=options1D,
+        default=default_diag
     )
     menu_lower = Menu(
         fig,
-        options=options2D
+        options=options2D,
+        default=default_lower
     )
 
-    slider_curr_idx = Slider(fig, range=1:100000)
+    slider_curr_idx = Slider(fig, range=1:graph[:current_idx][], startvalue=graph[:current_idx][])
 
     ui_layout[2, 1] = Label(fig, "Upper")
     ui_layout[3, 1] = Label(fig, "Diagonal")
@@ -387,10 +382,18 @@ function _build_fig(graph::ComputeGraph, gridlayout::Any)
     ui_layout[5, 1] = Label(fig, "Current Idx")
     ui_layout[5, 2] = slider_curr_idx
 
-    plot(fig[1, 1], gridlayout)
+    colsize!(ui_layout, 1, Auto())
+    colsize!(ui_layout, 2, 200)
+    colsize!(ui_layout, 3, Auto())
+
+    rowsize!(fig.layout, 2, Auto())
 
     on(slider_curr_idx.value) do curr_idx
-        update!(graph, current_idx=curr_idx)
+        if length(graph[:current_idxs][]) > 1
+            println("Figure out how to pan through mulit walker samples.")
+        else
+            update!(graph, current_idxs=[[curr_idx]])
+        end
     end
 
     on(menu_upper.selection) do selected_recipe
@@ -419,65 +422,109 @@ function _build_fig(graph::ComputeGraph, gridlayout::Any)
 end
 
 function register_state_for_vis!(
+    vis::BATVisualizer{BATMakieVisualization},
     mcmc_state::MCMCState,
-    samples::Vector{Vector{DensitySampleVector}},
-    f_pretrafo::Function
+    samples#::Vector{DensitySampleVector}
 )
-    graph = mcmc_state.chain_state.context.visualizer.content.graph
+    (; graph, chain_ids, output_buffer) = vis.content
+
+    empty_walker_outputs = _empty_chain_outputs(mcmc_state)
+    samples_new = _append_walker_outputs(mcmc_state, empty_walker_outputs, samples)
+
     samples_graph = graph[:samples][]
-    push!(samples_graph, samples)
+    push!(samples_graph, samples_new)
     update!(graph, samples=samples_graph)
 
-    current_idxs = length!(samples)
+    current_idxs = length.(samples)
     current_idxs_graph = graph[:current_idxs][]
     push!(current_idxs_graph, current_idxs)
     update!(graph, current_idxs=current_idxs_graph)
+
+    push!(chain_ids, mcmc_state.chain_state.info.id)
+    empty_chain_output = _empty_chain_outputs(mcmc_state)
+    push!(output_buffer, empty_chain_output)
 end
 
-function activate_visualizer(
-    vis::BATVisualizer{BATMakieVisualization}
+function BAT.init_visualizer!(
+    vis::BATVisualizer{BATMakieVisualization};
+    mcmc_states::Vector{<:MCMCState},
+    outputs,#::Vector{Vector{DensitySampleVector}},
+    f_pretransform::Function
 )
-    update_channel = vis.content.update_channel
-    @async begin
-        while true
-            fresh_batch, chain_id = take!(update_channel)
-            fresh_batch_trafo = transform_samples(inverse(f_pretransform), fresh_batch)
+    warmup_makie_shaders()
 
-            samples = graph[:samples][]
-            append_chain_batch!(samples, fresh_batch_trafo, chain_id)
-            update!(graph, samples=samples)
-
-            batch_lengths = length!(fresh_batch)
-            current_idxs = graph[:current_idxs]
-            current_idxs[chain_id] += batch_lengths
-            update!(graph, current_idxs=current_idxs)
-
-            sleep(0.05) # Figure out good sleep time
-        end
+    for (i, state) in enumerate(mcmc_states)
+        #register_state_for_vis!(vis, state, _transform_walker_outputs(f_pretransform, outputs[i]))
+        register_state_for_vis!(vis, state, _unshape_walker_outputs(outputs[i]))
     end
 
-    fig = _build_fig(vis.content)
+    (; graph, chain_ids, buffer_lock, output_buffer, n_buffer_samples, is_live) = vis.content
+
+    errormonitor(
+        @async begin
+            while is_live[]
+                # TODO: MD, Discuss update scheme
+                # TODO: MD, Figure out good sleep time
+                sleep(0.1)
+
+                update_graph = n_buffer_samples[] >= 50
+
+                n_smpls_buff_1 = sum(length.(output_buffer[1]))
+                println("Buffer slot 1 has $n_smpls_buff_1 samples")
+                println("n_buffer_samples = $n_buffer_samples[]")
+                if update_graph
+                    lock(buffer_lock)
+                    extracted_output_buffer = deepcopy(output_buffer)
+                    output_buffer .= _empty_chain_outputs.(mcmc_states)
+                    n_buffer_samples[] = 0
+
+                    # fresh_batch_trafo = _transform_chain_outputs(f_pretransform, extracted_output_buffer)
+                    fresh_batch_trafo = _unshape_chain_outputs(extracted_output_buffer)
+
+                    samples = graph[:samples][]
+                    samples_new = _append_chain_outputs(mcmc_states[1], samples, fresh_batch_trafo)
+
+                    update!(graph, samples=samples_new)
+
+                    batch_lengths = [length.(chain_batch) for chain_batch in fresh_batch_trafo]
+                    current_idxs = graph[:current_idxs][]
+                    current_idxs_new = [current_idxs[i] .+ batch_lengths[i] for i in eachindex(current_idxs)]
+                    update!(graph, current_idxs=current_idxs_new)
+
+                    #TODO: MD, figure out more graceful check. And discuss if it is even desired to activate the vis if no samples exist
+                    exist_samples_for_vis = any([any(.!isempty.(chain_output)) for chain_output in samples])
+                    if exist_samples_for_vis
+                        update!(graph, idxs=vis.backend.vsel)
+                    else
+                        update!(graph, idxs=Integer[])
+                    end
+
+                    unlock(buffer_lock)
+                end
+            end
+        end
+    )
+
+    gridlayout = _init_gridlayout(graph, vis.backend.N_max)
+    fig = _build_fig(graph, gridlayout)
     display(fig)
 end
 
-function append_chain_batch!(
-    samples::Vector{Vector{DensitySampleVector}},
-    new_batch::Vector{DensitySampleVector},
-    chain_id::Integer
-)
-    for i in eachindex(new_batch)
-        append!(samples[chain_id][i], new_batch[i])
-    end
-end
-
-
-function update_visualizer_impl!(
+function BAT.update_visualizer_impl!(
     vis::BATVisualizer{BATMakieVisualization};
     chain_state::MCMCChainState,
-    samples::Vector{<:DensitySampleVector}
+    nonzero_weights::Bool
 )
-    update_package = (samples, chain_state.info.chain_id)
-    put!(vis.content.update_channel, update_package)
+    (; buffer_lock, output_buffer, chain_ids, n_buffer_samples) = vis.content
+    output_id = findfirst(x -> x == chain_state.info.id, chain_ids)
+    n_smpls_start = sum(length.(output_buffer[output_id]))
+    get_samples!(output_buffer[output_id], chain_state, nonzero_weights)
+    n_smpls_end = sum(length.(output_buffer[output_id]))
+
+    lock(buffer_lock)
+    n_new = n_smpls_end - n_smpls_start
+    n_buffer_samples[] += n_new
+    unlock(buffer_lock)
 end
 
 
@@ -515,5 +562,30 @@ function _get_bin_centers(hist::Histogram)
     centers = [[edges[d][i] + 0.5 * (edges[d][i+1] - edges[d][i]) for i in 1:length(edges[d])-1] for d in 1:dims]
 
     return centers
+end
+
+
+function warmup_makie_shaders()
+    @info "Warming up Makie shaders"
+    fig = Figure()
+    ax = Axis(fig[1, 1])
+
+    barplot!(ax, [0.0], [0.0])
+    stairs!(ax, [0.0, 1.0], [0.0, 0.0])
+    vlines!(ax, [0.0])
+    hlines!(ax, [0.0])
+    errorbars!(ax, [0.0], [0.0], [0.1])
+
+    scatter!(ax, [0.0], [0.0])
+    lines!(ax, [0.0, 1.0], [0.0, 1.0])
+    linesegments!(ax, [0.0, 1.0], [0.0, 1.0])
+
+    heatmap!(ax, [0.0, 1.0], [0.0, 1.0], [0.0 1.0; 1.0 0.0])
+    contourf!(ax, [0.0, 1.0], [0.0, 1.0], [0.0 1.0; 1.0 0.0])
+    hexbin!(ax, [0.0], [0.0]; bins=2)
+    poly!(ax, Point2f[(0, 0), (1, 0), (0, 1)])
+
+    Makie.colorbuffer(fig)
+    return nothing
 end
 

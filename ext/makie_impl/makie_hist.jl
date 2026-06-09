@@ -33,6 +33,10 @@ function compose_plotspecs(
     (; centers, weights, widths) = primitives
     (; color, alpha, filled, strokecolor, strokewidth, edge) = config
 
+    if isempty(weights)
+        return PlotSpec[]
+    end
+
     bars = S.BarPlot(
         centers,
         weights;
@@ -62,7 +66,7 @@ function compute_plotting_primitives(
     ::CS,
     ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-    return (centers=Vector{Vector{Float64}}(), weights=Matrix{Float64}())
+    return (centers_x=Vector{Float64}(), centers_y=Vector{Float64}(), weights=Matrix{Float64}(undef, 0, 0))
 end
 
 function compute_plotting_primitives(
@@ -77,9 +81,13 @@ function compute_plotting_primitives(
 
     hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, normalization)
 
-    centers = _get_bin_centers(hist)
+    centers_x, centers_y = _get_bin_centers(hist)
+    hist_weights = hist.weights
+    weights = fill(NaN, size(hist_weights))
+    nonzero_idxs = hist_weights .> 0
+    weights[nonzero_idxs] .= hist_weights[nonzero_idxs]
 
-    return (centers=centers, weights=hist.weights)
+    return (centers_x=centers_x, centers_y=centers_y, weights=weights)
 end
 
 function compose_plotspecs(
@@ -87,14 +95,18 @@ function compose_plotspecs(
     recipe::Hist2D,
     config::NamedTuple
 )
-    (; centers, weights) = primitives
+    (; centers_x, centers_y, weights) = primitives
     (; colormap, alpha, rev) = config
+
+    if isempty(weights)
+        return PlotSpec[]
+    end
+
     final_cmap = rev ? Reverse(colormap) : colormap
 
     heat = S.Heatmap(
-        centers[1], centers[2], weights;
-        colormap=final_cmap,
-        alpha=alpha
+        centers_x, centers_y, weights;
+        alpha=alpha,
     )
     return [heat]
 end
@@ -125,12 +137,15 @@ function compute_plotting_primitives(
     valid_intervals = sort(filter(x -> 0 < x < 1, levels))
     sub_hists, _ = BAT.get_smallest_intervals(hist, valid_intervals)
 
-    pal = cgrad(colormap, length(valid_intervals), categorical=true, rev=!rev, alpha=alpha)
+    pal_values = collect(range(0.4, 0.6, length(valid_intervals)))
+
+    pal = cgrad(colormap, rev=rev, alpha=alpha)
+    pal_values = collect(range(0.05, 0.7, length(valid_intervals)))
     bin_colors = fill(RGBA{Float32}(0, 0, 0, 0), length(hist.weights))
 
     for (i, sub_hist) in enumerate(sub_hists)
         color_idx = length(valid_intervals) - i + 1
-        c = pal[color_idx]
+        c = pal[pal_values[i]]
         mask = sub_hist.weights .> 0
         bin_colors[mask] .= c
     end
@@ -155,6 +170,10 @@ function compose_plotspecs(
 )
     (; xy_data, widths, stairs_data, bin_colors) = primitives
     (; edge, strokecolor, strokewidth) = config
+
+    if isempty(widths)
+        return PlotSpec[]
+    end
 
     bars = S.BarPlot(xy_data;
         color=bin_colors,
@@ -183,7 +202,7 @@ function compute_plotting_primitives(
     ::CS,
     ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-    return (centers=Vector{Vector{Float64}}(), color_grid=Matrix{RGBA{Float32}}())
+    return (centers_x=Vector{Float64}(), centers_y=Vector{Float64}(), color_grid=Matrix{RGBA{Float32}}(undef, 0, 0))
 end
 
 function compute_plotting_primitives(
@@ -200,20 +219,22 @@ function compute_plotting_primitives(
     valid_intervals = sort(filter(x -> 0 < x < 1, levels))
     sub_hists, _ = BAT.get_smallest_intervals(hist, valid_intervals)
 
-    pal = cgrad(colormap, length(valid_intervals), categorical=true, rev=!rev, alpha=alpha)
+    pal = cgrad(colormap, rev=rev, alpha=alpha)
+    pal_values = collect(range(0.05, 0.7, length(valid_intervals)))
+
     dims = size(hist.weights)
     color_grid = fill(RGBA{Float32}(0, 0, 0, 0), dims)
 
     for (i, sub_hist) in enumerate(sub_hists)
         color_idx = length(valid_intervals) - i + 1
-        c = pal[color_idx]
+        c = pal[pal_values[i]]
         mask = sub_hist.weights .> 0
         color_grid[mask] .= c
     end
 
-    centers = _get_bin_centers(hist)
+    centers_x, centers_y = _get_bin_centers(hist)
 
-    return (centers=centers, color_grid=color_grid)
+    return (centers_x=centers_x, centers_y=centers_y, color_grid=color_grid)
 end
 
 function compose_plotspecs(
@@ -221,8 +242,11 @@ function compose_plotspecs(
     recipe::QuantileHist2D,
     config::NamedTuple
 )
-    (; centers, color_grid) = primitives
-    heat = S.Heatmap(centers[1], centers[2], color_grid)
+    (; centers_x, centers_y, color_grid) = primitives
+    if isempty(centers_x)
+        return PlotSpec[]
+    end
+    heat = S.Heatmap(centers_x, centers_y, color_grid)
     return [heat]
 end
 
@@ -267,7 +291,9 @@ function compose_plotspecs(
 )
     (; x, y, weights, thresh) = primitives
     (; colormap, rev, nbins, alpha) = config
-
+    if isempty(weights)
+        return PlotSpec[]
+    end
     final_cmap = rev ? Reverse(colormap) : colormap
 
     hex = S.Hexbin(x, y;
