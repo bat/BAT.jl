@@ -1,4 +1,4 @@
-
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 function determine_recipe_status(subject::Mean1D, live_recipe::R1) where {R1<:BATMakieRecipe}
         return LiveRecipe()

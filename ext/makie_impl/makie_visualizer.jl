@@ -1,3 +1,4 @@
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 const BAT_MAKIE_RECIPES_1D = [
     Hist1D(),
