@@ -157,8 +157,10 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
 
     @debug "Merge samples of chains and transform to original space."
 
-    # close(context.visualizer.content.update_channel)
-    context.visualizer.content.is_live[] = false
+    # TODO: MD, Think of more elegant way to terminate listener
+    if !isnothing(context.visualizer.content)
+        context.visualizer.content.is_live[] = false
+    end
 
     samples_transformed = _merge_chain_outputs(first(mcmc_states), chain_outputs)
 
