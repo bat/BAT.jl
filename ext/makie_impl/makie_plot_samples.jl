@@ -1,7 +1,4 @@
-
-
-
-
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 function Makie.convert_arguments(
         ::Type{<:AbstractPlot},

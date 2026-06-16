@@ -1,3 +1,4 @@
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 function compute_plotting_primitives(
     ::SubArray,
