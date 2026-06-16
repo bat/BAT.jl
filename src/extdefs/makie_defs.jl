@@ -23,22 +23,22 @@ function BATMakieVisualization()
                 normalization=:pdf,
                 levels=cdf.(Chi(2), 0:3),
                 filter=false,
-                colormap=:Blues,
-                color=:blue,
-                color_stats=:red,
+                colormap=:inferno,
+                color=RGB(0.898, 0.361, 0.188),
+                color_stats=:deepskyblue,
                 alpha=1.0,
                 rev=false,
                 threshold=nothing,
                 markersize=2.0,
                 edge=false,
-                strokecolor=:blue,
+                strokecolor=RGB(0.741, 0.518, 0.02),
                 strokewidth=1.0,
                 strokestyle_stats=:solid,
                 strokewidth_stats=2.0,
-                color_mean=:black,
+                color_mean=:white,
                 strokestyle_mean=:dot,
                 strokewidth_mean=2.0,
-                color_ebars=:red,
+                color_ebars=:blue,
                 whiskerwidth=10
         )
 
@@ -50,20 +50,20 @@ function BATMakieVisualization()
                 normalization=:pdf,
                 levels=cdf.(Chi(1), 0:3),
                 filter=false,
-                color=:Blue,
-                color_stats=:red,
-                colormap=:Blues,
+                color=RGB(0.898, 0.361, 0.188),
+                color_stats=:deepskyblue,
+                colormap=:inferno,
                 alpha=1.0,
                 filled=true,
                 edge=false,
-                strokecolor=:blue,
+                strokecolor=:orange,
                 strokewidth=1.0,
                 strokestyle_stats=:solid,
                 strokewidth_stats=2.0,
                 strokestyle_mean=:dot,
                 strokewidth_mean=2.0,
                 y_ebars=0.0,
-                color_ebars=:red,
+                color_ebars=:blue,
                 whiskerwidth=10,
                 filled_pdf=true,
                 npoints_pdf=300,
@@ -192,4 +192,8 @@ export errorbars2d
 
 function pdf1d end
 export pdf1d
+
+
+function bat_theme end
+export bat_theme
 

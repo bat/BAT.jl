@@ -1,11 +1,15 @@
 
-function BAT.bat_makie_plot(
-        samples::DensitySampleVector,
+
+
+
+
+function Makie.convert_arguments(
+        ::Type{<:AbstractPlot},
+        samples::DensitySampleVector;
         recipes::NamedTuple=(upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D),
         vsel::Vector{<:Integer}=[1, 2, 3],
         N_max::Integer=3,
 )
-        # TODO: MD, Discuss config handling and passing of user attribute overwrites
         triagonal_config = (
                 weights=nothing,
                 nsigma=1.0,
@@ -16,7 +20,7 @@ function BAT.bat_makie_plot(
                 filter=false,
                 colormap=:inferno,
                 color=RGB(0.898, 0.361, 0.188),
-                color_stats=:blue,
+                color_stats=:dodgerblue,
                 alpha=1.0,
                 rev=false,
                 threshold=nothing,
@@ -42,7 +46,7 @@ function BAT.bat_makie_plot(
                 levels=cdf.(Chi(1), 0:3),
                 filter=false,
                 color=RGB(0.898, 0.361, 0.188),
-                color_stats=:blue,
+                color_stats=:dodgerblue,
                 colormap=:inferno,
                 alpha=1.0,
                 filled=true,
@@ -79,16 +83,100 @@ function BAT.bat_makie_plot(
 
         update!(graph, idxs=vsel)
 
-        with_theme(bat_theme()) do
-                gridlayout = _init_gridlayout(graph, N_max)
-                fig = _build_fig(graph, gridlayout)
-                display(fig)
-        end
+        gridlayout = _init_gridlayout(graph, N_max)
+
+        return gridlayout[]
+end
+
+
+function BAT.bat_makie_plot(
+        samples::DensitySampleVector,
+        recipes::NamedTuple=(upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D),
+        vsel::Vector{<:Integer}=[1, 2, 3],
+        N_max::Integer=3,
+)
+        # TODO: MD, Discuss config handling and passing of user attribute overwrites
+        triagonal_config = (
+                weights=nothing,
+                nsigma=1.0,
+                nbins=(100, 100),
+                closed=:left,
+                normalization=:pdf,
+                levels=cdf.(Chi(2), 0:3),
+                filter=false,
+                colormap=:inferno,
+                color=RGB(0.898, 0.361, 0.188),
+                color_stats=:dodgerblue,
+                alpha=1.0,
+                rev=false,
+                threshold=nothing,
+                markersize=2.0,
+                edge=false,
+                strokecolor=RGB(0.741, 0.518, 0.02),
+                strokewidth=1.0,
+                strokestyle_stats=:solid,
+                strokewidth_stats=2.0,
+                color_mean=:white,
+                strokestyle_mean=:dot,
+                strokewidth_mean=2.0,
+                color_ebars=:blue,
+                whiskerwidth=10
+        )
+
+        diagonal_config = (
+                weights=nothing,
+                nsigma=1.0,
+                nbins=100,
+                closed=:left,
+                normalization=:pdf,
+                levels=cdf.(Chi(1), 0:3),
+                filter=false,
+                color=RGB(0.898, 0.361, 0.188),
+                color_stats=:dodgerblue,
+                colormap=:inferno,
+                alpha=1.0,
+                filled=true,
+                edge=false,
+                strokecolor=:orange,
+                strokewidth=1.0,
+                strokestyle_stats=:solid,
+                strokewidth_stats=2.0,
+                strokestyle_mean=:dot,
+                strokewidth_mean=2.0,
+                y_ebars=0.0,
+                color_ebars=:blue,
+                whiskerwidth=10,
+                filled_pdf=true,
+                npoints_pdf=300,
+                rev=false
+        )
+
+        graph = _init_compute_graph(
+                recipes,
+                triagonal_config,
+                diagonal_config,
+                N_max,
+        )
+
+        samples_graph = graph[:samples][]
+        push!(samples_graph, [unshaped.(samples)])
+        update!(graph, samples=samples_graph)
+
+        current_idxs = [length(samples)]
+        current_idxs_graph = graph[:current_idxs][]
+        push!(current_idxs_graph, current_idxs)
+        update!(graph, current_idxs=current_idxs_graph)
+
+        update!(graph, idxs=vsel)
+
+        gridlayout = _init_gridlayout(graph, N_max)
+        fig = _build_fig(graph, gridlayout)
+        display(fig)
 
         return nothing
 end
 
-function bat_theme()
+function BAT.bat_theme()
         # Nice dark purple:
         #color_inactive = RGBf(0.18, 0.039, 0.353)
 
@@ -96,6 +184,7 @@ function bat_theme()
         color_inactive = RGB(0.15, 0.17, 0.20)
         color_hover = RGB(0.714, 0.216, 0.322)
         text_color = RGB(0.80, 0.80, 0.80)
+
         return Theme(
                 backgroundcolor=:gray10,
                 textcolor=:gray80,
@@ -160,5 +249,4 @@ function bat_theme()
                 )
         )
 end
-
 

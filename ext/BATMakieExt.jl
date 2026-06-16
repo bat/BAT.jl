@@ -39,8 +39,10 @@ using BAT: BATVisualizer, BATMakieVisualization
 
 import BAT: BATVisualizer
 import BAT: init_visualizer!, register_state_for_vis!, update_visualizer_impl!
-import BAT: bat_makie_plot, bat_makie_plot!
+import BAT: bat_makie_plot, bat_makie_plot!, bat_theme
 
 include("./makie_impl/makie_plotting.jl")
+
+Makie.set_theme!(bat_theme())
 
 end

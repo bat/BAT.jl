@@ -363,7 +363,11 @@ function _build_fig(graph::ComputeGraph, gridlayout::Any)
         default=default_lower
     )
 
-    slider_curr_idx = Slider(fig, range=1:graph[:current_idx][], startvalue=graph[:current_idx][])
+    curr_idxs = graph[:current_idxs][]
+    show_slider = !isempty(curr_idxs[1]) && length(curr_idxs) == 1
+    if show_slider
+        slider_curr_idx = Slider(fig, range=1:graph[:current_idx][], startvalue=graph[:current_idx][])
+    end
 
     ui_layout[2, 1] = Label(fig, "Upper")
     ui_layout[3, 1] = Label(fig, "Diagonal")
@@ -379,8 +383,10 @@ function _build_fig(graph::ComputeGraph, gridlayout::Any)
     toggle_diag = Toggle(ui_layout[3, 3], active=false)
     toggle_lower = Toggle(ui_layout[4, 3], active=false)
 
-    ui_layout[5, 1] = Label(fig, "Current Idx")
-    ui_layout[5, 2] = slider_curr_idx
+    if show_slider
+        ui_layout[5, 1] = Label(fig, "Current Idx")
+        ui_layout[5, 2] = slider_curr_idx
+    end
 
     colsize!(ui_layout, 1, Auto())
     colsize!(ui_layout, 2, 200)
@@ -388,11 +394,13 @@ function _build_fig(graph::ComputeGraph, gridlayout::Any)
 
     rowsize!(fig.layout, 2, Auto())
 
-    on(slider_curr_idx.value) do curr_idx
-        if length(graph[:current_idxs][]) > 1
-            println("Figure out how to pan through mulit walker samples.")
-        else
-            update!(graph, current_idxs=[[curr_idx]])
+    if show_slider
+        on(slider_curr_idx.value) do curr_idx
+            if length(graph[:current_idxs][]) > 1
+                println("Figure out how to pan through mulit walker samples.")
+            else
+                update!(graph, current_idxs=[[curr_idx]])
+            end
         end
     end
 
@@ -470,8 +478,8 @@ function BAT.init_visualizer!(
                 update_graph = n_buffer_samples[] >= 50
 
                 n_smpls_buff_1 = sum(length.(output_buffer[1]))
-                println("Buffer slot 1 has $n_smpls_buff_1 samples")
-                println("n_buffer_samples = $n_buffer_samples[]")
+                # println("Buffer slot 1 has $n_smpls_buff_1 samples")
+                #println("n_buffer_samples = $n_buffer_samples[]")
                 if update_graph
                     lock(buffer_lock)
                     extracted_output_buffer = deepcopy(output_buffer)
@@ -505,9 +513,11 @@ function BAT.init_visualizer!(
         end
     )
 
-    gridlayout = _init_gridlayout(graph, vis.backend.N_max)
-    fig = _build_fig(graph, gridlayout)
-    display(fig)
+    with_theme(bat_theme()) do
+        gridlayout = _init_gridlayout(graph, vis.backend.N_max)
+        fig = _build_fig(graph, gridlayout)
+        display(fig)
+    end
 end
 
 function BAT.update_visualizer_impl!(
@@ -588,4 +598,3 @@ function warmup_makie_shaders()
     Makie.colorbuffer(fig)
     return nothing
 end
-
