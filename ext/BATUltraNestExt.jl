@@ -107,7 +107,7 @@ function BAT.evalmeasure_impl(measure::BATMeasure, algorithm::ReactiveNestedSamp
         ultranest_result = pyconvert(Dict{String,Any}, unest_result)
     )
 
-    dsm = BAT.DensitySampleMeasure(smpls, dof = n_dof, ess = ess, mass = mass)
+    dsm = BAT.DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 
     return BAT.EvalMeasureImplReturn(;
         empirical = dsm,
