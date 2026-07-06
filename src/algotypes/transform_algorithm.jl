@@ -271,9 +271,9 @@ function bat_transform_impl(target::AbstractTransformTarget, em::EvaluatedMeasur
         smpl_trafoalg = bat_default(bat_transform, Val(:algorithm), f_transform, empirical)
         bat_transform_impl(f_transform, empirical, smpl_trafoalg, context).result
     end
-    # approx and modes refer to the untransformed space, don't carry them over:
+    # approx, modes and samplegen refer to the untransformed space, don't carry them over:
     new_em = EvaluatedMeasure(
-        new_measure, new_empirical, nothing, em.dof, em.mass, nothing, em.samplegen, nothing
+        new_measure, new_empirical, nothing, em.dof, em.mass, nothing, nothing, nothing
     )
     (result = new_em, f_transform = f_transform)
 end
