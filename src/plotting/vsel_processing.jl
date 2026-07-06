@@ -18,6 +18,10 @@ function _normalize_vsel_unshaped(vsel::Integer)
     return Int[vsel]
 end
 
+function _normalize_vsel_unshaped(::Union{Symbol,Expr})
+    throw(ArgumentError("Samples or distribution are unshaped, please use Integer, Vector of Integers, or UnitRange for indexing."))
+end
+
 function _normalize_vsel_unshaped(vsel::AbstractVector)
     @argcheck all(broadcast(x -> x isa Union{T, AbstractVector{T}, AbstractVector{UnitRange{T}}} where T <: Integer, vsel)) throw(ArgumentError("Samples or distribution are unshaped, please use Integer, Vector of Integers, or UnitRange for indexing."))
     return Union{typeof.(vsel)...}[vsel...]
