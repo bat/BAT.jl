@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 function sample_and_verify(
-    target::AnySampleable, samplingalg::AbstractSamplingAlgorithm,
+    target::MeasureLike, samplingalg::AbstractSamplingAlgorithm,
     ref_dist::Distribution = target, context::BATContext = get_batcontext();
     max_retries::Integer = 1, essalg = nothing
 )

@@ -226,18 +226,3 @@ const MeasureLike = Union{
     Distributions.Distribution,
     BAT.DensitySampleVector
 }
-
-# !!!!!! Remove AnySampleable and provide conversion from samples to measure
-
-"""
-    BAT.AnySampleable = Union{...}
-
-Union of all types that BAT can sample from:
-
-* [`BAT.MeasureLike`](@ref)
-* [`BAT.DensitySampleVector`](@ref)
-"""
-const AnySampleable = Union{
-    BAT.MeasureLike,
-}
-export AnySampleable

@@ -12,7 +12,7 @@ export IntegrationAlgorithm
 
 """
     bat_integrate(
-        target::AnySampleable,
+        target::MeasureLike,
         [algorithm::IntegrationAlgorithm],
         [context::BATContext]
     )
@@ -37,20 +37,20 @@ function bat_integrate end
 export bat_integrate
 
 
-function bat_integrate(target::AnySampleable, algorithm::IntegrationAlgorithm, context::BATContext)
+function bat_integrate(target::MeasureLike, algorithm::IntegrationAlgorithm, context::BATContext)
     orig_context = deepcopy(context)
     em = evalmeasure(target, algorithm, context)
     r = (;result = massof(em), evaluated = em, _evalresult_nt(em)...)
     result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
-bat_integrate(target::AnySampleable) = bat_integrate(target, get_batcontext())
+bat_integrate(target::MeasureLike) = bat_integrate(target, get_batcontext())
 
-function bat_integrate(target::AnySampleable, algorithm::IntegrationAlgorithm)
+function bat_integrate(target::MeasureLike, algorithm::IntegrationAlgorithm)
     bat_integrate(target, algorithm, get_batcontext())
 end
 
-function bat_integrate(target::AnySampleable, context::BATContext)
+function bat_integrate(target::MeasureLike, context::BATContext)
     algorithm::IntegrationAlgorithm = bat_default_withinfo(bat_integrate, Val(:algorithm), target)
     bat_integrate(target, algorithm, context)
 end
