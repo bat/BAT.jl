@@ -12,11 +12,11 @@ const _SimpleLikelihood = DensityInterface.LogFuncDensity{<:ComposedFunction{<:B
 _get_model(likelihood::_SimpleLikelihood) = likelihood._log_f.inner
 _get_observation(likelihood::_SimpleLikelihood) = likelihood._log_f.outer.x
 
-_precompose_density(likelihood::Likelihood, g) = likelihoodof(fcomp(_get_model(likelihood), g), _get_observation(likelihood))
+_precompose_density(likelihood::Likelihood, g) = likelihoodof(ffcomp(_get_model(likelihood), g), _get_observation(likelihood))
 
 function _precompose_density(density, g)
     @argcheck DensityKind(density) isa IsDensity
-    logfuncdensity(fcomp(logdensityof(density), g))
+    logfuncdensity(ffcomp(logdensityof(density), g))
 end
 
 

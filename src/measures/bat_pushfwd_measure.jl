@@ -50,7 +50,7 @@ MeasureBase.pushfwd(f, m::BATMeasure, volcorr::ChangeRootMeasure) = _bat_pushfwd
 _bat_pushfwd(f, m::BATMeasure, volcorr::PushFwdStyle) = BATPushFwdMeasure(f, m, volcorr)
 
 function _bat_pushfwd(f, m::BATPushFwdMeasure{F,I,M,VC}, volcorr::VC) where {F,I,M,VC}
-    BATPushFwdMeasure(fcomp(f, m.f), fcomp(m.finv, inverse(f)), m, volcorr)
+    BATPushFwdMeasure(ffcomp(f, m.f), ffcomp(m.finv, inverse(f)), m, volcorr)
 end
 
 _bat_pushfwd(::typeof(identity), m::BATMeasure, ::KeepRootMeasure) = m

@@ -14,7 +14,7 @@ MeasureBase.getdof(m::AbstractPosteriorMeasure) = MeasureBase.getdof(getprior(m)
 
 function _bat_weightedmeasure(logweight::Real, m::AbstractPosteriorMeasure)
     likelihood, prior = getlikelihood(m), getprior(m)
-    new_likelihood = logfuncdensity(fcomp(Base.Fix2(+, logweight), logdensityof(likelihood)))
+    new_likelihood = logfuncdensity(ffcomp(Base.Fix2(+, logweight), logdensityof(likelihood)))
     lbqintegral(new_likelihood, prior)
 end
 
@@ -116,7 +116,7 @@ export PosteriorMeasure
 
 _convert_likelihood(likelihood, ::IsDensity) = likelihood
 _convert_likelihood(::Any, ::HasDensity) = throw(ArgumentError("Likelihood must be a density, not like a measure that has a density."))
-_convert_likelihood(f_likelihood, ::NoDensity) = logfuncdensity(fcomp(logvalof, f_likelihood))
+_convert_likelihood(f_likelihood, ::NoDensity) = logfuncdensity(ffcomp(logvalof, f_likelihood))
 
 function PosteriorMeasure(
     likelihood::Any, prior::Union{AbstractMeasure,Distribution}
