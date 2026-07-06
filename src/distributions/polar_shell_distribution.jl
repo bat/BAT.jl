@@ -38,7 +38,7 @@ function PolarShellDistribution(
     base_measure = batmeasure(base_dist)
     r_transform = BAT.DistributionTransform(radial_dist, truncated(Normal(), 0, Inf))
     shell_transform = ShellRTransform(r_transform)
-    full_transform = shell_transform ∘ _cart_to_polar
+    full_transform = ffcomp(shell_transform, _cart_to_polar)
     m = pushfwd(full_transform, base_measure)
 
     return PolarShellDistribution(base_dist, radial_dist, m)
