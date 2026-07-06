@@ -4,7 +4,7 @@ using BAT
 using Test
 
 using Random
-using DensityInterface, MeasureBase
+using DensityInterface, MeasureBase, ValueShapes
 using Distributions, StatsBase, IntervalSets
 
 @testset "evaluated_measure" begin

@@ -87,7 +87,6 @@ struct EvaluatedMeasure{
     U<:Union{Real,MeasureBase.AbstractUnknownMass},
     P<:Union{AbstractVector,Nothing},
     G<:Union{AbstractSampleGenerator,Nothing},
-    R<:Union{MeasureEvalInfo,Nothing},
 } <: BATMeasure
     unevaluated::M
     empirical::S
@@ -96,7 +95,7 @@ struct EvaluatedMeasure{
     mass::U
     modes::P
     samplegen::G
-    evalinfo::R
+    evalinfo::Union{MeasureEvalInfo,Nothing}
 end
 export EvaluatedMeasure
 
