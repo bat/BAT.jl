@@ -16,14 +16,14 @@ function sample_and_verify(
     ref_dist::Distribution = target, context::BATContext = get_batcontext();
     max_retries::Integer = 1
 )
-    measure = batsampleable(target)
-    initial_smplres = bat_sample_impl(measure, samplingalg, context)
+    measure = convert_for(bat_sample, target)
+    initial_smplres = bat_sample(measure, samplingalg, context)
     smplres::typeof(initial_smplres) = initial_smplres
     verified::Bool = test_dist_samples(ref_dist, smplres.result, context)
     n_retries::Int = 0
     while !(verified) && n_retries < max_retries
         n_retries += 1
-        smplres = bat_sample_impl(measure, samplingalg, context)
+        smplres = bat_sample(measure, samplingalg, context)
         verified = test_dist_samples(ref_dist, smplres.result, context)
     end
     merge(smplres, (verified = verified, n_retries = n_retries))
@@ -49,8 +49,8 @@ end
 export IIDSampling
 
 
-function bat_sample_impl(m::BATMeasure, algorithm::IIDSampling, context::BATContext)
-    #@assert false
+function evalmeasure_impl(measure::BATMeasure, algorithm::IIDSampling, context::BATContext)
+    m = unevaluated(measure)
     cunit = get_compute_unit(context)
     rng = get_rng(context)
     n = algorithm.nsamples
@@ -64,7 +64,7 @@ function bat_sample_impl(m::BATMeasure, algorithm::IIDSampling, context::BATCont
     aux = adapt(cunit, fill(nothing, length(eachindex(logd))))
 
     smpls = DensitySampleVector((v, logd, weight, info, aux))
-    return (result = smpls,)
+    return DensitySampleMeasure(smpls, dof = _dofval_or_nothing(getdof(m)), ess = length(smpls))
 end
 
 
@@ -86,30 +86,10 @@ $(TYPEDFIELDS)
 end
 export RandResampling
 
-
-function bat_sample_impl(m::DensitySampleMeasure, algorithm::RandResampling, context::BATContext)
-    n = algorithm.nsamples
-    # Always generate R on CPU for now:
-    R = rand(get_rng(context), n)
-    resampled_idxs = searchsortedfirst.(Ref(m._cw), R)
-    smpls = DensitySampleVector(m)
-
-    samples = smpls[resampled_idxs]
-    samples.weight .= 1
-    (result = samples,)
-end
-
-function bat_sample_impl(smpls::DensitySampleVector, algorithm::RandResampling, context::BATContext)
-    n = algorithm.nsamples
-    orig_idxs = eachindex(smpls)
-    weights = FrequencyWeights(float(smpls.weight))
-    # Always generate resampled_idxs on CPU for now:
-    rng = get_rng(context)
-    resampled_idxs = sample(rng, orig_idxs, weights, n, replace=true, ordered=false)
-
-    samples = smpls[resampled_idxs]
-    samples.weight .= 1
-    (result = samples,)
+function evalmeasure_impl(dsm::DensitySampleMeasure, algorithm::RandResampling, context::BATContext)
+    gen = get_gencontext(context)
+    resampled_idxs = _rand_subsample_idxs(gen, dsm, algorithm.nsamples)
+    return _unweighted_resampling_byidxs(dsm, resampled_idxs)
 end
 
 
@@ -136,19 +116,28 @@ $(TYPEDFIELDS)
 end
 export OrderedResampling
 
-
-function bat_sample_impl(m::DensitySampleMeasure, algorithm::OrderedResampling, context::BATContext)
-    # ToDo: Utilize m._cw to speed up sampling:
-    bat_sample_impl(DensitySampleVector(m), algorithm, context)
+function evalmeasure_impl(m::BATMeasure, algorithm::Union{RandResampling,OrderedResampling}, context::BATContext)
+    dsm = empiricalof(m)
+    if isnothing(dsm)
+        throw(ArgumentError("No samples available for $(nameof(typeof(algorithm)))."))
+    else
+        new_dsm = evalmeasure_impl(dsm, algorithm, context)
+        return EvalMeasureImplReturn(empirical = new_dsm)
+    end
 end
 
-function bat_sample_impl(smpls::DensitySampleVector, algorithm::OrderedResampling, context::BATContext)
+function evalmeasure_impl(dsm::DensitySampleMeasure, algorithm::OrderedResampling, context::BATContext)
+    resampled_idxs = _ordered_resampling_idxs(samplesof(dsm), algorithm.nsamples, context)
+    return _unweighted_resampling_byidxs(dsm, resampled_idxs)
+end
+
+function _ordered_resampling_idxs(smpls::DensitySampleVector, n::Integer, context::BATContext)
+    # ToDo: Use PSIS
+
     rng = get_rng(context)
     @assert axes(smpls) == axes(smpls.weight)
     W = smpls.weight
-    idxs = eachindex(smpls)
 
-    n = algorithm.nsamples
     resampled_idxs = Vector{Int}()
     sizehint!(resampled_idxs, n)
 
@@ -163,8 +152,5 @@ function bat_sample_impl(smpls::DensitySampleVector, algorithm::OrderedResamplin
         end
     end
 
-    new_samples = smpls[resampled_idxs]
-    new_samples.weight .= 1
-
-    (result = new_samples,)
+    return resampled_idxs
 end

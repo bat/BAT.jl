@@ -504,3 +504,14 @@ function _marginal_histograms(smpl::DensitySampleVector{<:AbstractVector{<:Real}
     W = Weights(trimmed_smpl.weight)
     [fit(Histogram, V[i,:], W, range(minimum(V[i,:]), maximum(V[i,:]), length = 41)) for i in axes(V,1)]
 end
+
+
+function _rand_subsample_idxs(gen::GenContext, smpls::DensitySampleVector, n::Integer)
+    # ToDo: Use PSIS (possible, efficiently?).
+
+    orig_idxs = eachindex(smpls)
+    weights = FrequencyWeights(float(smpls.weight))
+    # Always generate idxs on CPU for now:
+    idxs = sample(get_rng(gen), orig_idxs, weights, n, replace=true, ordered=false)
+    return idxs
+end

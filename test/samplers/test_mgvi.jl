@@ -25,8 +25,8 @@ import MGVI, ForwardDiff
     @test first(r.result.info.converged) == false
     @test last(r.result.info.converged) == true
     @test unique(r.result.info.stepno) == 1:nsteps+1
-    @test r.ess == nsmpls
-    @test r.info.mnlp isa Real
+    @test BAT.getess(BAT.empiricalof(r.evaluated)) == nsmpls
+    @test r.mnlp isa Real
 
     # ToDo: Test quality of samples
 end

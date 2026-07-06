@@ -206,6 +206,7 @@ struct FullMeasureTransform <: TransformAlgorithm end
 
 _get_deep_prior_for_trafo(m::BATDistMeasure) = m
 _get_deep_prior_for_trafo(m::AbstractPosteriorMeasure) = _get_deep_prior_for_trafo(getprior(m))
+_get_deep_prior_for_trafo(em::EvaluatedMeasure) = _get_deep_prior_for_trafo(unevaluated(em))
 
 
 function bat_transform_impl(target::Union{PriorToUniform,PriorToNormal}, m::AbstractPosteriorMeasure, algorithm::FullMeasureTransform, context::BATContext)
@@ -261,6 +262,23 @@ function bat_transform_impl(target::Union{PriorToUniform,PriorToNormal}, density
 end
 
 
+function bat_transform_impl(target::AbstractTransformTarget, em::EvaluatedMeasure, algorithm::PriorSubstitution, context::BATContext)
+    new_measure, f_transform = bat_transform_impl(target, em.unevaluated, algorithm, context)
+    empirical = empiricalof(em)
+    new_empirical = if isnothing(empirical)
+        nothing
+    else
+        smpl_trafoalg = bat_default(bat_transform, Val(:algorithm), f_transform, empirical)
+        bat_transform_impl(f_transform, empirical, smpl_trafoalg, context).result
+    end
+    # approx and modes refer to the untransformed space, don't carry them over:
+    new_em = EvaluatedMeasure(
+        new_measure, new_empirical, nothing, em.dof, em.mass, nothing, em.samplegen, nothing
+    )
+    (result = new_em, f_transform = f_transform)
+end
+
+
 # ToDo: Support bat_transform for vectors of variates and DensitySampleVector?
 
 
@@ -282,6 +300,13 @@ end
 *BAT-internal, not part of stable public API.*
 """
 struct SampleTransformation <: TransformAlgorithm end
+
+function bat_transform_impl(f, dsm::DensitySampleMeasure, algorithm::SampleTransformation, context::BATContext)
+    smpls = samplesof(dsm)
+    new_smpls = bat_transform_impl(f, smpls, algorithm, context).result
+    new_dsm = DensitySampleMeasure(new_smpls, dof = dsm._dof, ess = dsm._ess, mass = massof(dsm))
+    (result = new_dsm, f_transform = f)
+end
 
 function bat_transform_impl(f::Function, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)
     (result = transform_samples(f, smpls), f_transform = f)

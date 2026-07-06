@@ -17,3 +17,5 @@ bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::PosteriorMeasure) = Trans
 function bat_default(::typeof(bat_sample), ::Val{:algorithm}, m::EvaluatedMeasure)
     bat_default(bat_sample, Val(:algorithm), unevaluated(m))
 end
+
+bat_default(::typeof(evalmeasure), v::Val{:algorithm}, target::Any) = bat_default(bat_sample, v, target)

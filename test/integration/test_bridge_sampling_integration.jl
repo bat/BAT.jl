@@ -22,7 +22,7 @@ using LinearAlgebra: Diagonal, ones
             )
             samples = bat_sample(dist, samplingalg).result
 
-            sd = EvaluatedMeasure(dist, samples = samples)
+            sd = EvaluatedMeasure(dist, empirical = samples)
             sample_integral = bat_integrate(sd, algorithm, context).result
 
             @test isapprox(sample_integral.val, val_expected, atol=val_rtol*sample_integral.err)

@@ -24,18 +24,22 @@ $(TYPEDFIELDS)
 end
 export BridgeSampling
 
-function bat_integrate_impl(m::BATMeasure, algorithm::BridgeSampling, context::BATContext)
-    @argcheck m isa EvaluatedMeasure
-    @argcheck !isnothing(maybe_samplesof(m))
-    transformed_m, _ = transform_and_unshape(algorithm.pretransform, m, context)
+function evalmeasure_impl(measure::BATMeasure, algorithm::BridgeSampling, context::BATContext)
+    @argcheck measure isa EvaluatedMeasure
+    @argcheck !isnothing(empiricalof(measure))
+    transformed_m, _ = transform_and_unshape(algorithm.pretransform, measure, context)
     renomalized_m, logweight = auto_renormalize(transformed_m)
-    renomalized_m_uneval, renormalized_smpls = unevaluated(renomalized_m), maybe_samplesof(renomalized_m)
-    @assert !isnothing(renormalized_smpls)
+    renomalized_m_uneval, renormalized_smpled = unevaluated(renomalized_m), empiricalof(renomalized_m)
 
+    renormalized_smpls = samplesof(renormalized_smpled)
     (value, error) = bridge_sampling_integral(renomalized_m_uneval, renormalized_smpls, algorithm.strict, algorithm.essalg, context)
     rescaled_value, rescaled_error = exp(BigFloat(log(value) - logweight)), exp(BigFloat(log(error) - logweight))
-    result = Measurements.measurement(rescaled_value, rescaled_error)
-    return (result = result, logweight = logweight)
+    mass = Measurements.measurement(rescaled_value, rescaled_error)
+
+    return EvalMeasureImplReturn(;
+        mass = mass,
+        evalresult = (;logweight = logweight)
+    )
 end
 
 
@@ -137,7 +141,7 @@ function bridge_sampling_integral(
     post_cov_pd = PDMat(cholesky(Positive, post_cov))
 
     proposal_measure = batmeasure(MvNormal(post_mean,post_cov_pd))
-    proposal_samples = bat_sample_impl(proposal_measure, IIDSampling(nsamples=Int(sum(second_batch.weight))), context).result
+    proposal_samples = samplesof(evalmeasure(proposal_measure, IIDSampling(nsamples=Int(sum(second_batch.weight))), context))
     proposal_measure = batmeasure(proposal_measure)
 
     bridge_sampling_integral(target_measure,second_batch,proposal_measure,proposal_samples,strict,ess_alg,context)

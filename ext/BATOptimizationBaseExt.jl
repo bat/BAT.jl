@@ -7,7 +7,7 @@ import OptimizationBase
 using BAT
 BAT.pkgext(::Val{:OptimizationBase}) = BAT.PackageExtension{:OptimizationBase}()
 
-using BAT: MeasureLike, unevaluated
+using BAT: MeasureLike, BATMeasure, unevaluated
 using BAT: get_context, get_adselector
 using BAT: bat_initval, transform_and_unshape, apply_trafo_to_init
 
@@ -30,7 +30,7 @@ build_optimizationfunction(f, ad::AbstractADType) = OptimizationBase.Optimizatio
 build_optimizationfunction(f, ::NoAutoDiff) = OptimizationBase.OptimizationFunction(f)
 
 
-function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimizationAlg, context::BATContext)
+function BAT.evalmeasure_impl(target::BATMeasure, algorithm::OptimizationAlg, context::BATContext)
     transformed_m, f_pretransform = transform_and_unshape(algorithm.pretransform, target, context)
     target_uneval = unevaluated(target)
     inv_trafo = inverse(f_pretransform)
@@ -54,7 +54,10 @@ function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimizationAlg, 
     transformed_mode =  optimization_result.u
     result_mode = inv_trafo(transformed_mode)
 
-    (result = result_mode, result_trafo = transformed_mode, f_pretransform = f_pretransform, info = optimization_result)
+    BAT.EvalMeasureImplReturn(;
+        modes = [result_mode],
+        evalresult = (result_trafo = transformed_mode, f_pretransform = f_pretransform, info = optimization_result),
+    )
 end
 
 

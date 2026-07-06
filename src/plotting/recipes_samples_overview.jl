@@ -178,9 +178,9 @@ end
 )
 
     if typeof(sample_from) <: DensitySampleVector
-        samples = bat_sample_impl(batsampleable(sample_from), OrderedResampling(nsamples = n_samples), _g_dummy_context).result
+        samples = bat_sample(convert_for(evalmeasure, sample_from), OrderedResampling(nsamples = n_samples), _g_dummy_context).result
     else
-        samples = bat_sample_impl(sample_from.prior, IIDSampling(nsamples = n_samples), _g_dummy_context).result
+        samples = bat_sample(sample_from.prior, IIDSampling(nsamples = n_samples), _g_dummy_context).result
     end
 
     y_ribbons = zeros(Float64, length(x), 2*length(intervals))
