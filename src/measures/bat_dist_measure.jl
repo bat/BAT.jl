@@ -79,25 +79,21 @@ Statistics.var(m::BATDistMeasure{<:MultivariateDistribution}) = var(m.dist)
 Statistics.cov(m::BATDistMeasure{<:MultivariateDistribution}) = cov(m.dist)
 
 
-measure_support(m::BATDistMeasure) = dist_support(m.dist)
+has_uhc_support(m::BATDistMeasure) = has_uhc_support(m.dist)
 
 is_std_mvnormal(m::BATDistMeasure) = is_std_mvnormal(m.dist)
 
 
-dist_support(d::Distribution) = UnknownVarBounds()
+has_uhc_support(d::Distribution) = false
 
-dist_support(d::StandardUvUniform) = UnitInterval()
-dist_support(d::StandardUvNormal) = RealNumbers()
-dist_support(d::StandardMvUniform) = UnitCube(prod(size(d)))
-dist_support(::StandardMvNormal) = FullSpace()
+has_uhc_support(d::StandardUvUniform) = true
+has_uhc_support(d::StandardMvUniform) = true
 
-dist_support(d::Distribution{Univariate,Continuous}) = ClosedInterval(minimum(d), maximum(d))
-dist_support(d::Normal) = RealNumbers()
-dist_support(d::AbstractMvNormal) = FullSpace()
+has_uhc_support(d::Distribution{Univariate,Continuous}) = minimum(d) ≈ false && maximum(d) ≈ true
 
-dist_support(d::ReshapedDist) = dist_support(unshaped(d))
+has_uhc_support(d::ReshapedDist) = has_uhc_support(unshaped(d))
 
-dist_support(d::Product{<:Continuous,<:Distribution{Univariate}}) = Rectangle(map(dist_support, d.v))
+has_uhc_support(d::Product{<:Continuous,<:Distribution{Univariate}}) = all(has_uhc_support, d.v)
 
 
 is_std_mvnormal(::Distribution) = false

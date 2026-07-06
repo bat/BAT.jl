@@ -92,7 +92,7 @@ function _unshaped_density(em::EvaluatedMeasure, vs::AbstractValueShape)
     return EvaluatedMeasure(new_measure, new_samples, em.approx, em.mass, em.modes, em._generator)
 end
 
-measure_support(em::EvaluatedMeasure) = measure_support(em.measure)
+has_uhc_support(em::EvaluatedMeasure) = has_uhc_support(em.measure)
 
 maybe_samplesof(em::EvaluatedMeasure) = em.samples
 maybe_modesof(em::EvaluatedMeasure) = em.modes

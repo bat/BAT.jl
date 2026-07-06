@@ -20,10 +20,6 @@ using DensityInterface
         @test (@inferred logdensityof(mvdd, [0.0, 0.0])) ≈ -2.64259602
     end
 
-    @testset "BAT.measure_support" begin
-        #!!!!!!!!!
-    end
-
     @testset "statistics" begin
         mvn = @inferred(product_distribution([Normal(-1.0), Normal(0.0), Normal(1.0)]))
         dist_density = @inferred(BAT.BATDistMeasure(mvn))

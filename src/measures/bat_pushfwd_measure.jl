@@ -76,7 +76,7 @@ end
 ValueShapes.varshape(m::BATPushFwdMeasure{<:DistributionTransform}) = varshape(m.f.target_dist)
 
 
-measure_support(m::BATPushFwdMeasure{<:DistributionTransform}) = dist_support(m.f.target_dist)
+has_uhc_support(m::BATPushFwdMeasure{<:DistributionTransform}) = has_uhc_support(m.f.target_dist)
 
 
 function DensityInterface.logdensityof(@nospecialize(m::_NonBijectiveBATPusfwdMeasure{M,<:ChangeRootMeasure}), @nospecialize(v::Any)) where M

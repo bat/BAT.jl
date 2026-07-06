@@ -16,7 +16,6 @@ using Distributions, Statistics, StatsBase, IntervalSets, ValueShapes
     density = renormalize_measure(parent_density, logweight)
 
     @test @inferred(parent(density)) === parent_density
-    @test @inferred(BAT.measure_support(density)) == BAT.measure_support(parent_density)
     @test @inferred(varshape(density)) == varshape(parent_density)
     @test @inferred(unshaped(density)) == renormalize_measure(unshaped(parent_density), logweight)
     @test @inferred(vs(unshaped(density))) == renormalize_measure(vs(unshaped(parent_density)), logweight)   

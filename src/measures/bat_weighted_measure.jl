@@ -65,7 +65,7 @@ Statistics.var(m::BATWeightedMeasure) = var(m.base)
 Statistics.cov(m::BATWeightedMeasure) = cov(m.base)
 
 
-measure_support(m::BATWeightedMeasure) = measure_support(m.base)
+has_uhc_support(m::BATWeightedMeasure) = has_uhc_support(m.base)
 
 
 ValueShapes.varshape(m::BATWeightedMeasure) = varshape(m.base)

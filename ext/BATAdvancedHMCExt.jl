@@ -34,7 +34,7 @@ using BAT: get_samples!, reset_rng_counters!
 using BAT: create_trafo_tuner_state, create_proposal_tuner_state
 using BAT: mcmc_trafo_tuning_init!!, mcmc_trafo_tuning_postinit!!, mcmc_trafo_tuning_reinit!!, mcmc_tune_trafo_post_cycle!!, mcmc_trafo_tuning_finalize!!
 using BAT: mcmc_proposal_tuning_init!!, mcmc_proposal_tuning_postinit!!, mcmc_proposal_tuning_reinit!!, mcmc_tune_proposal_post_cycle!!, mcmc_proposal_tuning_finalize!!
-using BAT: totalndof, measure_support, checked_logdensityof
+using BAT: totalndof, checked_logdensityof
 
 using BAT: HamiltonianMC
 using BAT: AHMCSampleID, AHMCSampleIDVector
