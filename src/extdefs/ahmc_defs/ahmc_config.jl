@@ -41,4 +41,3 @@ end
     window_size::Int = 25
 end
 
-export StanLikeTuning

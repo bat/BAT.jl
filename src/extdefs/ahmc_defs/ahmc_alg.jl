@@ -65,4 +65,3 @@ mutable struct HMCProposalState{
     transition::TR
 end
 
-export HMCProposalState

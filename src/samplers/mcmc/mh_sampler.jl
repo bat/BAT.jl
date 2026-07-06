@@ -39,7 +39,6 @@ struct RandomWalkProposalState{
     target_acceptance_int::TAI
     proposaldist::Q
 end
-export RandomWalkProposalState
 
 bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::RandomWalk) = PriorToNormal()
 

@@ -27,7 +27,6 @@ struct MultiProposalTunerState{
     proposal_tuners::PTS
 end
 
-export MultiProposalTunerState
 
 
 

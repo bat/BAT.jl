@@ -46,7 +46,6 @@ struct MALAProposalState{
     τ::R
 end
 
-export MALAProposalState
 
 bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::MALAProposal) = PriorToNormal()
 

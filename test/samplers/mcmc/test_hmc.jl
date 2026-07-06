@@ -19,13 +19,13 @@ import AdvancedHMC
     @test target isa BAT.BATDistMeasure
 
     proposal = HamiltonianMC()
-    transform_tuning = StanLikeTuning()
+    transform_tuning = BAT.StanLikeTuning()
     nchains = 4
     nwalkers = 1
     samplingalg = TransformedMCMC(proposal = proposal, transform_tuning = transform_tuning, nchains = nchains, nwalkers = nwalkers)
 
     @testset "MCMC iteration" begin
-        v_inits = bat_ensemble_initvals(target, InitFromTarget(), nwalkers, context)
+        v_inits = BAT.bat_ensemble_initvals(target, InitFromTarget(), nwalkers, context)
         # Note: No @inferred, since MCMCChainState is not type stable (yet) with HamiltonianMC
         mcmc_state = BAT.MCMCState(samplingalg, target, 1, unshaped.(v_inits), deepcopy(context))
         nsteps = 10^4
@@ -118,7 +118,7 @@ import AdvancedHMC
             shaped_target,
             TransformedMCMC(
                 proposal = proposal,
-                transform_tuning = StanLikeTuning(),
+                transform_tuning = BAT.StanLikeTuning(),
                 pretransform = DoNotTransform(),
                 nwalkers = nwalkers,
                 nsteps = 10^4,
@@ -135,7 +135,7 @@ import AdvancedHMC
             shaped_target,
             TransformedMCMC(
                 proposal = proposal,
-                transform_tuning = StanLikeTuning(),
+                transform_tuning = BAT.StanLikeTuning(),
                 pretransform = DoNotTransform(),
                 nwalkers = nwalkers,
                 nsteps = 10^4,
@@ -157,7 +157,7 @@ import AdvancedHMC
         # Test with nested posteriors:
         posterior = PosteriorMeasure(likelihood, inner_posterior)
         trafo_samplingalg = TransformedMCMC(proposal = HamiltonianMC(), 
-                                            transform_tuning = StanLikeTuning(), 
+                                            transform_tuning = BAT.StanLikeTuning(), 
                                             pretransform = PriorToNormal(),
                                             nwalkers = nwalkers
                                            )
@@ -173,7 +173,7 @@ import AdvancedHMC
 
                 hmc_samplingalg = TransformedMCMC(
                     proposal = HamiltonianMC(),
-                    transform_tuning = StanLikeTuning(),
+                    transform_tuning = BAT.StanLikeTuning(),
                     nchains = 2,
                     nwalkers = nwalkers,
                     nsteps = 100,
