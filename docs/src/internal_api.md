@@ -33,7 +33,6 @@ Order = [:macro, :function]
 
 ```@docs
 BAT.AbstractSampleGenerator
-BAT.AnySampleable
 BAT.BasicMvStatistics
 BAT.BATMeasure
 BAT.BATPushFwdMeasure

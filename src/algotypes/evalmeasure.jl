@@ -150,16 +150,16 @@ function evalmeasure(target, algorithm, context::BATContext)
     return new_em
 end
 
-function evalmeasure(target::AnySampleable)
+function evalmeasure(target::MeasureLike)
     measure = convert_for(evalmeasure, target)
     evalmeasure(measure, get_batcontext())
 end
 
-function evalmeasure(target::AnySampleable, algorithm)
+function evalmeasure(target::MeasureLike, algorithm)
     evalmeasure(target, algorithm, get_batcontext())
 end
 
-function evalmeasure(target::AnySampleable, context::BATContext)
+function evalmeasure(target::MeasureLike, context::BATContext)
     measure = convert_for(evalmeasure, target)
     algorithm = bat_default_withinfo(evalmeasure, Val(:algorithm), measure)
     evalmeasure(target, algorithm, context)

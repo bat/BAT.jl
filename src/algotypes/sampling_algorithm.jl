@@ -11,7 +11,7 @@ abstract type AbstractSamplingAlgorithm end
 
 """
     bat_sample(
-        target::BAT.AnySampleable,
+        target::BAT.MeasureLike,
         [algorithm::BAT.AbstractSamplingAlgorithm],
         [context::BATContext]
     )
@@ -57,17 +57,17 @@ function bat_sample(target, algorithm::AbstractSamplingAlgorithm, context::BATCo
     result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
-function bat_sample(target::AnySampleable)
+function bat_sample(target::MeasureLike)
     measure = convert_for(bat_sample, target)
     bat_sample(measure, get_batcontext())
 end
 
-function bat_sample(target::AnySampleable, algorithm::AbstractSamplingAlgorithm)
+function bat_sample(target::MeasureLike, algorithm::AbstractSamplingAlgorithm)
 
     bat_sample(target, algorithm, get_batcontext())
 end
 
-function bat_sample(target::AnySampleable, context::BATContext)
+function bat_sample(target::MeasureLike, context::BATContext)
     algorithm = bat_default_withinfo(bat_sample, Val(:algorithm), target)
     bat_sample(target, algorithm, context)
 end

@@ -43,11 +43,11 @@ Base.@deprecate PosteriorDensity(args...) PosteriorMeasure(args...)
 export PosteriorDensity
 
 #=
-@deprecate bat_sample(rng::AbstractRNG, target::AnySampleable, algorithm::AbstractSamplingAlgorithm) bat_sample(target, algorithm, BAT.set_rng(BAT.get_batcontext(), rng))
-@deprecate bat_sample(rng::AbstractRNG, target::AnySampleable) bat_sample(target, BAT.set_rng(BAT.get_batcontext(), rng))
+@deprecate bat_sample(rng::AbstractRNG, target::MeasureLike, algorithm::AbstractSamplingAlgorithm) bat_sample(target, algorithm, BAT.set_rng(BAT.get_batcontext(), rng))
+@deprecate bat_sample(rng::AbstractRNG, target::MeasureLike) bat_sample(target, BAT.set_rng(BAT.get_batcontext(), rng))
 
-@deprecate bat_findmode(rng::AbstractRNG, target::AnySampleable, algorithm) bat_findmode(target, algorithm, BAT.set_rng(BAT.get_batcontext(), rng))
-@deprecate bat_findmode(rng::AbstractRNG, target::AnySampleable) bat_findmode(target, BAT.set_rng(BAT.get_batcontext(), rng))
+@deprecate bat_findmode(rng::AbstractRNG, target::MeasureLike, algorithm) bat_findmode(target, algorithm, BAT.set_rng(BAT.get_batcontext(), rng))
+@deprecate bat_findmode(rng::AbstractRNG, target::MeasureLike) bat_findmode(target, BAT.set_rng(BAT.get_batcontext(), rng))
 
 @deprecate bat_initval(rng::AbstractRNG, target::MeasureLike, algorithm::InitvalAlgorithm) = bat_initval(target, algorithm, BAT.set_rng(BAT.get_batcontext(), rng))
 @deprecate bat_initval(rng::AbstractRNG, target::MeasureLike) = bat_initval(target, BAT.set_rng(BAT.get_batcontext(), rng))

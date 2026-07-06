@@ -13,7 +13,7 @@ abstract type AbstractModeEstimator end
 
 """
     bat_findmode(
-        target::BAT.AnySampleable,
+        target::BAT.MeasureLike,
         [algorithm::BAT.AbstractModeEstimator],
         [context::BATContext]
     )
@@ -41,7 +41,7 @@ function bat_findmode end
 export bat_findmode
 
 
-function bat_findmode(target::AnySampleable, algorithm, context::BATContext)
+function bat_findmode(target::MeasureLike, algorithm, context::BATContext)
     orig_context = deepcopy(context)
 
     em = evalmeasure(target, algorithm, context)
@@ -50,11 +50,11 @@ function bat_findmode(target::AnySampleable, algorithm, context::BATContext)
     result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
-bat_findmode(target::AnySampleable) = bat_findmode(target, get_batcontext())
+bat_findmode(target::MeasureLike) = bat_findmode(target, get_batcontext())
 
-bat_findmode(target::AnySampleable, algorithm) = bat_findmode(target, algorithm, get_batcontext())
+bat_findmode(target::MeasureLike, algorithm) = bat_findmode(target, algorithm, get_batcontext())
 
-function bat_findmode(target::AnySampleable, context::BATContext)
+function bat_findmode(target::MeasureLike, context::BATContext)
     algorithm = bat_default_withdebug(bat_findmode, Val(:algorithm), target);
     bat_findmode(target, algorithm, context)
 end
@@ -94,17 +94,17 @@ export bat_marginalmode
 function bat_marginalmode_impl end
 
 
-function bat_marginalmode(measure::AnySampleable, algorithm, context::BATContext)
+function bat_marginalmode(measure::MeasureLike, algorithm, context::BATContext)
     orig_context = deepcopy(context)
     r = bat_marginalmode_impl(measure, algorithm, context)
     result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
-bat_marginalmode(measure::AnySampleable) = bat_marginalmode(measure, get_batcontext())
+bat_marginalmode(measure::MeasureLike) = bat_marginalmode(measure, get_batcontext())
 
-bat_marginalmode(measure::AnySampleable, algorithm) = bat_marginalmode(measure, algorithm, get_batcontext())
+bat_marginalmode(measure::MeasureLike, algorithm) = bat_marginalmode(measure, algorithm, get_batcontext())
 
-function bat_marginalmode(measure::AnySampleable, context::BATContext)
+function bat_marginalmode(measure::MeasureLike, context::BATContext)
     algorithm = bat_default_withdebug(bat_marginalmode, Val(:algorithm), measure);
     bat_marginalmode(measure, algorithm, context)
 end
