@@ -96,8 +96,6 @@ end
 
 using IntervalSets: Domain
 
-import DomainSets
-
 import LazyReports
 using LazyReports: LazyReport, lazyreport, lazyreport!, lazytable
 
