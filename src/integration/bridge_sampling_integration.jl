@@ -99,7 +99,7 @@ function bridge_sampling_integral(
     # ToDo: Make this type-stable:
     f1 = [exp(logdensityof(target_density,x))/current_int/(s1*exp(logdensityof(target_density,x))/current_int+s2*exp(proposal_samples.logd[i])) for (i,x) in enumerate(proposal_samples.v)]
     f2 = [[exp(logdensityof(proposal_density,x))/(s1*exp(target_samples.logd[i])/current_int+s2*exp(logdensityof(proposal_density,x)))] for (i,x) in enumerate(target_samples.v)]
-    f2_density_vector = DensitySampleVector(f2,target_samples.logd,weight=target_samples.weight)
+    f2_density_vector = DensitySampleVector(v = f2, logd = target_samples.logd, weight=target_samples.weight)
 
     mean1, var1 = StatsBase.mean_and_var(f1, FrequencyWeights(proposal_samples.weight), corrected = true)
     mean2, var2 = mean(f2_density_vector)[1],cov(f2_density_vector)[1]
