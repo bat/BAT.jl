@@ -100,7 +100,7 @@ function BAT.evalmeasure_impl(m::BATMeasure, algorithm::EllipsoidalNestedSamplin
         state = state
     )
 
-    dsm = DensitySampleMeasure(smpls, dof = n_dof, ess = ess, mass = mass)
+    dsm = DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 
     return BAT.EvalMeasureImplReturn(;
         empirical = dsm,
