@@ -87,3 +87,12 @@ export MCMCSampling
 
 
 @deprecate PriorToGaussian() PriorToNormal()
+
+
+@deprecate DensitySampleVector(
+    v::AbstractVector,
+    logd::AbstractVector{<:Real};
+    weight::Union{AbstractVector{<:Real}, Symbol} = fill(1, length(eachindex(v))),
+    info::AbstractVector = fill(nothing, length(eachindex(v))),
+    aux::AbstractVector = fill(nothing, length(eachindex(v)))
+) DensitySampleVector(v = v, logd = logd, weight = weight, info = info, aux = aux)

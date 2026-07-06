@@ -106,25 +106,25 @@ change without deprecation.
 Constructors:
 
 ```julia
-    DensitySampleVector(
-        (
-            v::AbstractVector{<:AbstractVector{<:Real}},
-            logd::AbstractVector{<:Real},
-            weight::AbstractVector{<:Real},
-            info::AbstractVector{<:Any},
-            aux::AbstractVector{<:Any}
-        )
-    )
+function DensitySampleVector(;
+    v::AbstractVector;
+    logval::AbstractVector{<:Real},
+    weight::Union{AbstractVector{<:Real}, Symbol},
+    info::AbstractVector,
+    aux::AbstractVector
+)
 ```
 
 ```julia
-    DensitySampleVector(
-            v::AbstractVector,
-            logval::AbstractVector{<:Real};
-            weight::Union{AbstractVector{<:Real}, Symbol} = fill(1, length(eachindex(v))),
-            info::AbstractVector = fill(nothing, length(eachindex(v))),
-            aux::AbstractVector = fill(nothing, length(eachindex(v)))
-        )
+DensitySampleVector(
+    (
+        v::AbstractVector{<:AbstractVector{<:Real}},
+        logd::AbstractVector{<:Real},
+        weight::AbstractVector{<:Real},
+        info::AbstractVector{<:Any},
+        aux::AbstractVector{<:Any}
+    )
+)
 ```
 
 With `weight = :multiplicity` repeated samples will be replaced by a
@@ -173,18 +173,28 @@ DensitySampleVector(::Type{S}, varlen::Integer) where {P<:AbstractVector{<:Real}
     DensitySampleVector{P,T,W,R,Q}(undef, 0, varlen)
 
 
-function DensitySampleVector(
+_canonical_variates(xs::VectorOfSimilarArrays) = xs
+_canonical_variates(xs::AbstractSlices) = VectorOfSimilarArrays(xs)
+_canonical_variates(xs::AbstractVector{<:AbstractArray}) = VectorOfSimilarArrays(xs)
+_canonical_variates(xs::AbstractVector{<:Real}) = xs
+_canonical_variates(xs::AbstractVector{<:NamedTuple}) = StructVector(xs)
+_canonical_variates(xs::StructVector) = xs
+_canonical_variates(xs::ShapedAsNTArray) = xs
+
+
+# ToDo: Use Fill instead of fill? Will likely require an `as_appendable` function.
+function DensitySampleVector(;
     v::AbstractVector,
-    logval::AbstractVector{<:Real};
+    logd::AbstractVector{<:Real} = fill(NaN, length(v)),
     weight::Union{AbstractVector{<:Real}, Symbol} = fill(1, length(eachindex(v))),
     info::AbstractVector = fill(nothing, length(eachindex(v))),
     aux::AbstractVector = fill(nothing, length(eachindex(v)))
 )
     if weight == :multiplicity
         idxs, weight = repetition_to_weights(v)
-        return DensitySampleVector((ArrayOfSimilarArrays(v[idxs]), logval[idxs], weight, info[idxs], aux[idxs]))
+        return DensitySampleVector((_canonical_variates(v[idxs]), logd[idxs], weight, info[idxs], aux[idxs]))
     else
-        return DensitySampleVector((ArrayOfSimilarArrays(v), logval, weight, info, aux))
+        return DensitySampleVector((_canonical_variates(v), logd, weight, info, aux))
     end
 end
 
