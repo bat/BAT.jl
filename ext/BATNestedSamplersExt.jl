@@ -68,7 +68,7 @@ function BAT.evalmeasure_impl(m::BATMeasure, algorithm::EllipsoidalNestedSamplin
     n_dof = BAT.some_dof(transformed_m)
 
     if !BAT.has_uhc_support(transformed_m_uneval)
-        throw(ArgumentError("$algorithm doesn't measures that are not limited to the unit hypercube"))
+        throw(ArgumentError("$algorithm doesn't support measures that are not limited to the unit hypercube"))
     end
 
     model = NestedModel(logdensityof(transformed_m_uneval), identity);                                   # identity, because ahead the BAT prior transformation is used instead

@@ -80,7 +80,7 @@ _lfloat(::Type{<:Integer}) = Float32
 @inline choose_something(::Nothing, ::Missing) = throw(ArgumentError("Can't choose between nothing and missing."))
 @inline choose_something(::MeasureBase.NoDOF, b) = b
 @inline choose_something(::MeasureBase.AbstractUnknownMass, b) = b
-@inline choose_something(::MeasureBase.UnknownFiniteMass, ::MeasureBase.UnknownMass) = a
+@inline choose_something(a::MeasureBase.UnknownFiniteMass, ::MeasureBase.UnknownMass) = a
 
 
 function should_log_progress_now(start_time::Real, last_log_time::Real)

@@ -14,7 +14,7 @@ abstract type AbstractSamplingAlgorithm end
         target::BAT.AnySampleable,
         [algorithm::BAT.AbstractSamplingAlgorithm],
         [context::BATContext]
-    )::DensitySampleVector
+    )
 
 Draw samples from `target` using `algorithm`.
 
@@ -26,7 +26,6 @@ Returns a NamedTuple of the shape
 ```julia
 (result = X::DensitySampleVector, evaluated::EvaluatedMeasure, ...)
 ```
-(The field `evaluated` is only present if `target` is a measure.)
 
 Result properties not listed here are algorithm-specific and are not part
 of the stable public API.
@@ -43,8 +42,8 @@ export bat_sample
 function convert_for(::typeof(bat_sample), target)
     try
         batmeasure(target)
-    catch err
-        throw(ArgumentError("Can't convert $operation target of type $(nameof(typeof(target))) to a BAT-compatible measure."))
+    catch
+        throw(ArgumentError("Can't convert target of type $(nameof(typeof(target))) to a BAT-compatible measure for `bat_sample`."))
     end
 end
 

@@ -39,6 +39,7 @@ export MaxDensitySearch
 
 function evalmeasure_impl(measure::BATMeasure, ::MaxDensitySearch, ::BATContext)
     smpls = samplesof(measure)
+    isnothing(smpls) && throw(ArgumentError("No samples available for MaxDensitySearch."))
     v_mode, mode_idx = _get_mode(smpls)
 
     return EvalMeasureImplReturn(;

@@ -1,16 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# when constructing a without generator infos like `EvaluatedMeasure(density, samples)`:
-struct UnknownSampleGenerator<: AbstractSampleGenerator end
-getproposal(sg::UnknownSampleGenerator) = nothing
-
-# for samplers without specific infos, e.g. current ImportanceSamplers:
-struct GenericSampleGenerator{A <: AbstractSamplingAlgorithm} <: AbstractSampleGenerator
-    algorithm::A
-end
-getproposal(sg::GenericSampleGenerator) = sg.algorithm
-
-
 function sample_and_verify(
     target::AnySampleable, samplingalg::AbstractSamplingAlgorithm,
     ref_dist::Distribution = target, context::BATContext = get_batcontext();
@@ -64,7 +53,8 @@ function evalmeasure_impl(measure::BATMeasure, algorithm::IIDSampling, context::
     aux = adapt(cunit, fill(nothing, length(eachindex(logd))))
 
     smpls = DensitySampleVector((v, logd, weight, info, aux))
-    return DensitySampleMeasure(smpls, dof = _dofval_or_nothing(getdof(m)), ess = length(smpls))
+    dsm = DensitySampleMeasure(smpls, dof = _dofval_or_nothing(getdof(m)), ess = length(smpls))
+    return EvalMeasureImplReturn(empirical = dsm)
 end
 
 

@@ -123,7 +123,7 @@ function  BAT.evalmeasure_impl(measure::BATMeasure, algorithm::CubaIntegration, 
     transformed_measure, _ = transform_and_unshape(algorithm.pretransform, measure, context)
 
     if !BAT.has_uhc_support(transformed_measure)
-        throw(ArgumentError("CUBA integration requires measures are supported only on the unit hypercube"))
+        throw(ArgumentError("CUBA integration requires measures that are supported only on the unit hypercube"))
     end
 
     # ToDo: Using log-density range informations from em samples if available.

@@ -128,7 +128,7 @@ of `target` and other estimates.
 `evalmeasure` internally runs [`evalmeasure_impl`](@ref), then post-processes
 the result via [`evalmeasure_postproc`](@ref).
 
-Do not specialize `evalmeasure` directly but specalize `evalmeasure_impl`
+Do not specialize `evalmeasure` directly but specialize `evalmeasure_impl`
 instead to implement new algorithms.
 """
 function evalmeasure end

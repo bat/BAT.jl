@@ -160,7 +160,7 @@ function BAT.evalmeasure_impl(m::BATMeasure, algorithm::MGVISampling, context::B
     @debug "Completed MGVI sampling after $nsteps, produced $n_samples_indep independent samples after $(@sprintf "%.1f s" elapsed_time)."
 
     evalresult = (
-        result_pretransform = transformed_smpls, f_pretransform = f_pretransform, 
+        result_trafo = transformed_smpls, f_pretransform = f_pretransform, 
         mnlp = smpls_mnlp
     )
     dsm = BAT.DensitySampleMeasure(smpls, dof = BAT.some_dof(transformed_m), ess = n_samples_indep)

@@ -110,9 +110,6 @@ function ValueShapes.unshaped(dsm::DensitySampleMeasure, vs::AbstractValueShape)
     return DensitySampleMeasure(new_smpls, dsm._max_weight, dsm._cumulative_weight, dsm._dof, dsm._ess, dsm._mass)
 end
 
-# ToDo: Return some kind of implicit support object?
-# measure_support(dsm::DensitySampleMeasure) = ...
-
 @inline samplesof(dsm::DensitySampleMeasure) = dsm._smpls
 
 
@@ -206,6 +203,6 @@ function _unweighted_resampling_byidxs(dsm::DensitySampleMeasure, resampled_idxs
     new_samples = smpls[resampled_idxs]
     new_samples.weight .= 1
     old_ess = getess(dsm)
-    new_ess = isnothing(old_ess) ? nothing : old_ess * (length(new_samples) / length(smpls))
+    new_ess = isnothing(old_ess) ? nothing : min(old_ess, old_ess * (length(new_samples) / length(smpls)))
     return DensitySampleMeasure(new_samples, dof = dsm._dof, ess = new_ess, mass = massof(dsm))
 end

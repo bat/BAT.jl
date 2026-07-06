@@ -15,7 +15,7 @@ export IntegrationAlgorithm
         target::AnySampleable,
         [algorithm::IntegrationAlgorithm],
         [context::BATContext]
-    )::DensitySampleVector
+    )
 
 Calculate the integral (evidence) of `target`.
 
@@ -24,8 +24,6 @@ Returns a NamedTuple of the shape
 ```julia
 (result = X::Measurements.Measurement, evaluated::EvaluatedMeasure, ...)
 ```
-
-(The field `evaluated` is only present if `target` is a measure.)
 
 Result properties not listed here are algorithm-specific and are not part
 of the stable public API.

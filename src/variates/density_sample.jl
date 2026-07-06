@@ -107,8 +107,8 @@ Constructors:
 
 ```julia
 function DensitySampleVector(;
-    v::AbstractVector;
-    logval::AbstractVector{<:Real},
+    v::AbstractVector,
+    logd::AbstractVector{<:Real},
     weight::Union{AbstractVector{<:Real}, Symbol},
     info::AbstractVector,
     aux::AbstractVector

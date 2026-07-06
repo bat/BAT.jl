@@ -53,7 +53,7 @@ function evalmeasure_impl(
     n_dof = some_dof(transformed_m_uneval)
 
     if !has_uhc_support(transformed_m_uneval)
-        throw(ArgumentError("$algorithm doesn't measures that are not limited to the unit hypercube"))
+        throw(ArgumentError("$algorithm doesn't support measures that are not limited to the unit hypercube"))
     end
 
     samples = _gen_samples(transformed_m_uneval, algorithm, context)

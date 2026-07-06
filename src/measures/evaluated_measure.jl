@@ -196,6 +196,7 @@ end
 MeasureBase.getdof(em::EvaluatedMeasure) = something(em.dof, MeasureBase.NoDOF{typeof(unevaluated(em))}())
 MeasureBase.massof(em::EvaluatedMeasure) = em.mass
 maybe_modes(em::EvaluatedMeasure) = em.modes
+getess(em::EvaluatedMeasure) = getess(_empirical_or_unevaluated(em))
 @inline evalinfo(em::EvaluatedMeasure) = em.evalinfo
 
 _evalresult_nt(obj) = _evalresult_nt(evalinfo(obj))
@@ -273,9 +274,9 @@ ValueShapes.varshape(em::EvaluatedMeasure) = varshape(em.unevaluated)
 function ValueShapes.unshaped(em::EvaluatedMeasure, vs::AbstractValueShape)
     new_measure = unshaped(em.unevaluated, vs)
     new_empirical = isnothing(em.empirical) ? nothing : unshaped(em.empirical, vs)
-    # ToDo: Unshape modes as well:
+    # ToDo: Unshape modes and approx as well instead of dropping them:
     return EvaluatedMeasure(
-        new_measure, new_empirical, em.approx, em.dof, em.mass,
+        new_measure, new_empirical, nothing, em.dof, em.mass,
         nothing, em.samplegen, em.evalinfo
     )
 end
