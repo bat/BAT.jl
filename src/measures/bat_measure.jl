@@ -89,6 +89,12 @@ function ValueShapes.unshaped(measure::BATMeasure, vs::AbstractValueShape)
     unshaped(measure)
 end
 
+ValueShapes.unshaped(m::BATMeasure) = _unshaped_measure_impl(m, Core.Compiler.return_type(testvalue, Tuple{typeof(m)}))
+
+_unshaped_measure_impl(m::BATMeasure, ::Type) = throw(ArgumentError("Don't know how to unshape measure of type $(nameof(typeof(m)))"))
+_unshaped_measure_impl(m::BATMeasure, ::Type{T}) where {T<:Real} = pushfwd(inverse(ScalarShape{T}()), m)
+
+
 
 show_value_shape(io::IO, vs::AbstractValueShape) = show(io, vs)
 function show_value_shape(io::IO, vs::NamedTupleShape)
@@ -160,7 +166,7 @@ Convert a measure-like object `m` supports `rand`.
 
 *BAT-internal, not part of stable public API.*
 
-Does is the support of measure `m` limited to the unit hypercube?
+Is the support of measure `m` limited to the unit hypercube?
 """
 has_uhc_support(m::BATMeasure) = false
 has_uhc_support(::MeasureBase.StdUniform) = true

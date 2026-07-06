@@ -58,7 +58,7 @@ using Optim
     
                 @test isapprox(fix_nni.(logdensityof(m).(tX)), logpdf.(target_dist, tX), atol = 1e-10)
                 @test @inferred(logdensityof(m)(target_x)) isa Real
-                @test @inferred(logdensityof(unshaped(m))(unshaped(target_x))) isa Real
+                @test @inferred(logdensityof(unshaped(m))(unshaped(target_x))) ≈ logdensityof(m)(target_x)
                 !any(isnan, @inferred(broadcast(ForwardDiff.derivative, logdensityof(m), tX)))
 
                 tX_finite = tX[findall(isfinite, fix_nni.(logdensityof(m).(tX)))]
@@ -83,11 +83,11 @@ using Optim
 
         src_d = NamedTupleDist(a = Exponential(), b = [4.2, 3.3], c = Weibull(), d = [Normal(1, 3), Normal(3, 2)], e = Uniform(-2, 3), f = MvNormal([0.3, -2.9], [1.7 0.5; 0.5 2.3]))
         f_transform = @inferred(BAT.DistributionTransform(Normal, src_d))
-        m = @inferred(pushfwd(f_transform, basemeasure(f_transform.source_dist)))
+        m = @inferred(pushfwd(f_transform, batmeasure(f_transform.source_dist)))
         @test isfinite(@inferred logdensityof(m)(@inferred(bat_initval(m, context)).result))
         @test isapprox(cov(@inferred(bat_initval(m, 10^4, context)).result), I(totalndof(varshape(m))), rtol = 0.1)
 
-        samples_is = bat_sample(m, TransformedMCMC(mcalg = HamiltonianMC(), pretransform = DoNotTransform(), nsteps = 10^4), context).result
+        samples_is = bat_sample(m, TransformedMCMC(proposal = HamiltonianMC(), pretransform = DoNotTransform(), nsteps = 10^4), context).result
         @test isapprox(cov(samples_is), I(totalndof(varshape(m))), rtol = 0.1)
         samples_os = inverse(f_transform).(samples_is)
         @test all(isfinite, logpdf.(Ref(src_d), samples_os.v))
@@ -99,7 +99,7 @@ using Optim
         prior = HierarchicalDistribution(f_secondary, primary_dist)
         likelihood = logfuncdensity(logdensityof(varshape(prior)(MvNormal(Diagonal(fill(1.0, totalndof(varshape(prior))))))))
         m = PosteriorMeasure(likelihood, prior)
-        hmc_samples = bat_sample(m, TransformedMCMC(mcalg = HamiltonianMC(), pretransform = PriorToNormal(), nsteps = 10^4), context).result
+        hmc_samples = bat_sample(m, TransformedMCMC(proposal = HamiltonianMC(), pretransform = PriorToNormal(), nsteps = 10^4), context).result
         is_samples = bat_sample(m, PriorImportanceSampler(nsamples = 10^4), context).result
         @test isapprox(mean(unshaped.(hmc_samples)), mean(unshaped.(is_samples)), rtol = 0.1)
         @test isapprox(cov(unshaped.(hmc_samples)), cov(unshaped.(is_samples)), rtol = 0.2)

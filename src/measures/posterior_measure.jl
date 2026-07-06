@@ -110,6 +110,8 @@ $(TYPEDFIELDS)
 struct PosteriorMeasure{L,P<:AbstractMeasure} <: AbstractPosteriorMeasure
     likelihood::L
     prior::P
+
+    PosteriorMeasure{L,P}(likelihood, prior) where {L,P<:AbstractMeasure} = new{L,P}(likelihood, prior)
 end
 
 export PosteriorMeasure

@@ -245,6 +245,13 @@ function bat_transform_impl(target::Union{PriorToUniform,PriorToNormal}, density
 end
 
 
+function bat_transform_impl(target::AbstractTransformTarget, m::BATPushFwdMeasure, algorithm::PriorSubstitution, context::BATContext)
+    new_measure, f_transform_orig = bat_transform_impl(target, m.origin, algorithm, context)
+    f_transform = ffcomp(f_transform_orig, m.finv)
+    (result = new_measure, f_transform = f_transform)
+end
+
+
 function bat_transform_impl(target::Union{PriorToUniform,PriorToNormal}, density::AbstractPosteriorMeasure, algorithm::PriorSubstitution, context::BATContext)
     orig_prior = getprior(density)
     orig_likelihood = getlikelihood(density)

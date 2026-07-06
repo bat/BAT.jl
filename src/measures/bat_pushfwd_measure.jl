@@ -36,9 +36,9 @@ end
 
 MeasureBase.gettransform(m::BATPushFwdMeasure) = m.f
 
-MeasureBase.transport_origin(m::BATMeasure) = m.origin
-MeasureBase.from_origin(m::BATMeasure, x) = m.f(x)
-MeasureBase.to_origin(m::BATMeasure, y) = m.finv(y)
+MeasureBase.transport_origin(m::BATPushFwdMeasure) = m.origin
+MeasureBase.from_origin(m::BATPushFwdMeasure, x) = m.f(x)
+MeasureBase.to_origin(m::BATPushFwdMeasure, y) = m.finv(y)
 
 MeasureBase.getdof(m::BATPushFwdMeasure) = getdof(m.origin)
 MeasureBase.getdof(m::_NonBijectiveBATPusfwdMeasure) = MeasureBase.NoDOF{typeof(m)}()
@@ -56,10 +56,6 @@ MeasureBase.pushfwd(f, m::BATMeasure, volcorr::KeepRootMeasure) = _bat_pushfwd(f
 MeasureBase.pushfwd(f, m::BATMeasure, volcorr::ChangeRootMeasure) = _bat_pushfwd(f, m, volcorr)
 
 _bat_pushfwd(f, m::BATMeasure, volcorr::PushFwdStyle) = BATPushFwdMeasure(f, m, volcorr)
-
-function _bat_pushfwd(f, m::BATPushFwdMeasure{F,I,M,VC}, volcorr::VC) where {F,I,M,VC}
-    BATPushFwdMeasure(ffcomp(f, m.f), ffcomp(m.finv, inverse(f)), m, volcorr)
-end
 
 _bat_pushfwd(::typeof(identity), m::BATMeasure, ::KeepRootMeasure) = m
 _bat_pushfwd(::typeof(identity), m::BATMeasure, ::ChangeRootMeasure) = m
@@ -85,6 +81,15 @@ ValueShapes.varshape(m::BATPushFwdMeasure{<:DistributionTransform}) = varshape(m
 
 
 has_uhc_support(m::BATPushFwdMeasure{<:DistributionTransform}) = has_uhc_support(m.f.target_dist)
+
+
+# Unshaping changes only the shape of the variates, not their values:
+
+const _UnshapingPushFwdMeasure = BATPushFwdMeasure{<:Base.Fix2{typeof(unshaped),<:AbstractValueShape}}
+
+ValueShapes.varshape(m::_UnshapingPushFwdMeasure) = ArrayShape{Real}(totalndof(m.f.x))
+
+has_uhc_support(m::_UnshapingPushFwdMeasure) = has_uhc_support(m.origin)
 
 
 function DensityInterface.logdensityof(@nospecialize(m::_NonBijectiveBATPusfwdMeasure{M,<:ChangeRootMeasure}), @nospecialize(v::Any)) where M

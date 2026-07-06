@@ -70,7 +70,7 @@ function get_iid_sampleable_approx(target::AbstractMeasure)
     if supports_rand(target)
         return target
     else 
-        thow(ArgumentError("The target does not support iid sampling. Please provide a suitable global proposal measure."))
+        throw(ArgumentError("The target does not support iid sampling. Please provide a suitable global proposal measure."))
     end
 end
 
@@ -84,24 +84,26 @@ get_iid_sampleable_approx(
 
 
 
-function bat_initval_impl(target::MeasureLike, algorithm::InitFromTarget, context::BATContext)
+function bat_initval_impl(target::MeasureLike, ::InitFromTarget, context::BATContext)
     (result = _maycopy_val(first(_rand_v_for_target(target, get_initsrc_from_target(target), 1, context))),)
 end
 
-function bat_initval_impl(target::MeasureLike, n::Integer, algorithm::InitFromTarget, context::BATContext)
+function bat_initval_impl(target::MeasureLike, n::Integer, ::InitFromTarget, context::BATContext)
     (result = _rand_v_for_target(target, get_initsrc_from_target(target), n, context),)
 end
 
 
-function bat_initval_impl(target::BATPushFwdMeasure, algorithm::InitFromTarget, context::BATContext)
-    v_orig = bat_initval_impl(target.orig, algorithm, context).result
-    v = gettransform(target)(v_orig)
+function bat_initval_impl(m::BATPushFwdMeasure, algorithm::InitFromTarget, context::BATContext)
+    f, m_orig = gettransform(m), transport_origin(m)
+    v_orig = bat_initval_impl(m_orig, algorithm, context).result
+    v = f(v_orig)
     (result = v,)
 end
 
-function bat_initval_impl(target::BATPushFwdMeasure, n::Integer, algorithm::InitFromTarget, context::BATContext)
-    vs_orig = bat_initval_impl(target.orig, n, algorithm, context).result
-    vs = BAT.transform_samples(gettransform(target), vs_orig)
+function bat_initval_impl(m::BATPushFwdMeasure, n::Integer, algorithm::InitFromTarget, context::BATContext)
+    f, m_orig = gettransform(m), transport_origin(m)
+    vs_orig = bat_initval_impl(m_orig, n, algorithm, context).result
+    vs = BAT.transform_samples(f, vs_orig)
     (result = vs,)
 end
 
