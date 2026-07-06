@@ -34,7 +34,6 @@ struct MultiProposalState{
     active_idx::I
 end
 
-export MultiProposalState
 
 function bat_default(
     TM::Type{TransformedMCMC}, 

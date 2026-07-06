@@ -28,7 +28,6 @@ mutable struct MultiTrafoTunerState{
     trafo_tuners::TTS
 end
 
-export MultiTrafoTunerState
 
 function create_trafo_tuner_state(
     multi_tuning::MultiTrafoTuning,

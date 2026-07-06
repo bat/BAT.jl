@@ -20,7 +20,6 @@ init_adaptive_transform(::NoAdaptiveTransform, ::AbstractMeasure, ::BATContext) 
 struct AdaptiveTransformChain{AT<:AbstractAdaptiveTransform} <: AbstractAdaptiveTransform
     f::Tuple{Vararg{AT}}
 end
-export AdaptiveTransformChain
 
 function init_adaptive_transform(
     adaptive_transform::AdaptiveTransformChain, 

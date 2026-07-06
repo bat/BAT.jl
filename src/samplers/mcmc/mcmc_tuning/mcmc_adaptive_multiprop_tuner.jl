@@ -30,7 +30,6 @@ struct AdaptiveMultiPropTunerState <:MCMCProposalTunerState
     accept_prob::Vector{Float64} # initiate with 0.5
 end
 
-export AdaptiveMultiPropTunerState
 
 
 function create_proposal_tuner_state(

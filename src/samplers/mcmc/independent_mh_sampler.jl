@@ -43,7 +43,6 @@ struct MCMCGlobalProposalProposalState{
     global_proposal::Q
 end
 
-export MCMCGlobalProposalProposalState
 
 bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::MCMCGlobalProposal) = PriorToNormal()
 
