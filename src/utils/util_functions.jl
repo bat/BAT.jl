@@ -3,11 +3,6 @@
 
 @inline nop_func(x...) = nothing
 
-fcomp(f, g) = fchain(g, f)
-fcomp(::typeof(identity), g) = g
-fcomp(f, ::typeof(identity)) = f
-fcomp(::typeof(identity), ::typeof(identity)) = identity
-
 
 struct CombinedCallback{N,Fs<:NTuple{N,Function}} <: Function
     fs::Fs
