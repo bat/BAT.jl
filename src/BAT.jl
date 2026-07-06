@@ -50,12 +50,10 @@ using Tables
 using ValueShapes
 
 import ChainRulesCore
-import DiffResults
 import DistributionsAD
 import EmpiricalDistributions
 import HypothesisTests
 import Measurements
-import NamedArrays
 import Random123
 import Sobol
 import StableRNGs
