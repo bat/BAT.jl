@@ -161,8 +161,8 @@ function evalmeasure_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::
     samplegen = MCMCSampleGenerator(mcmc_states)
     evalresult = (result_trafo = samples_transformed, f_pretransform = f_pretransform)
 
-    # ToDo: ESS
-    dsm = DensitySampleMeasure(smpls, dof = n_dof)
+    ess = minimum(bat_eff_sample_size_impl(samples_transformed, EffSampleSizeFromAC(), context).result)
+    dsm = DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 
     return EvalMeasureImplReturn(;
         empirical = dsm,
