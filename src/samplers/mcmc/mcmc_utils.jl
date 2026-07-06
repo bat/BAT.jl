@@ -40,6 +40,8 @@ end
 _approx_cov(target::Distribution, n) = _cov_with_fallback(target, n)
 _approx_cov(target::BATDistMeasure, n) = _cov_with_fallback(Distribution(target), n)
 _approx_cov(target::AbstractPosteriorMeasure, n) = _approx_cov(getprior(target), n)
+_approx_cov(target::BATWeightedMeasure, n) = _approx_cov(basemeasure(target), n)
+_approx_cov(target::BATMeasure, n) = cov(rand(_bat_determ_rng(), target^10^5))
 
 
 
@@ -83,3 +85,5 @@ end
 _approx_mean(target::Distribution, n) = _mean_with_fallback(target, n)
 _approx_mean(target::BATDistMeasure, n) = _mean_with_fallback(Distribution(target), n)
 _approx_mean(target::AbstractPosteriorMeasure, n) = _approx_mean(getprior(target), n)
+_approx_mean(target::BATWeightedMeasure, n) = _approx_mean(basemeasure(target), n)
+_approx_mean(target::BATMeasure, n) = mean(rand(_bat_determ_rng(), target^10^5))
