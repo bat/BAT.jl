@@ -59,7 +59,6 @@ import NamedArrays
 import Random123
 import Sobol
 import StableRNGs
-import StatsFuns
 import TypedTables
 import ZygoteRules
 
