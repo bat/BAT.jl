@@ -15,9 +15,6 @@ using DensityInterface, InverseFunctions, FunctionChains
 using AutoDiffOperators: AbstractADType, NoAutoDiff, reverse_adtype
 
 
-AbstractModeEstimator(optalg::Any) = OptimizationAlg(optalg)
-Base.convert(::Type{AbstractModeEstimator}, alg::OptimizationAlg) = alg.optalg
-
 BAT.ext_default(::BAT.PackageExtension{:OptimizationBase}, ::Val{:DEFAULT_OPTALG}) = nothing #Optim.NelderMead()
 
 

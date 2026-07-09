@@ -16,9 +16,6 @@ using StructArrays, ArraysOfArrays
 using AutoDiffOperators: reverse_adtype
 
 
-AbstractModeEstimator(optalg::Optim.AbstractOptimizer) = OptimAlg(optalg)
-Base.convert(::Type{AbstractModeEstimator}, alg::OptimAlg) = alg.optalg
-
 BAT.ext_default(::BAT.PackageExtension{:Optim}, ::Val{:DEFAULT_OPTALG}) = Optim.NelderMead()
 BAT.ext_default(::BAT.PackageExtension{:Optim}, ::Val{:NELDERMEAD_ALG}) = Optim.NelderMead()
 BAT.ext_default(::BAT.PackageExtension{:Optim}, ::Val{:LBFGS_ALG}) = Optim.LBFGS()

@@ -153,7 +153,7 @@ end
 
 *BAT-internal, not part of stable public API.*
 
-Convert a measure-like object `m` supports `rand`.
+Check whether a measure-like object `m` supports `rand`.
 """
 @inline supports_rand(::AbstractMeasure) = false
 @inline supports_rand(::StdMeasure) = true

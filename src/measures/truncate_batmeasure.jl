@@ -73,7 +73,7 @@ end
 
 
 function truncate_dist_hard(dist::Distributions.Truncated, bounds::Interval)
-    # Note: Assumes that dist is result of trunctate, not of truncate_dist_hard:
+    # Note: Assumes that dist is result of truncated, not of truncate_dist_hard:
     untrunc_dist = dist.untruncated
 
     min_lo = minimum(untrunc_dist)

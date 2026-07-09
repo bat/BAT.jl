@@ -50,8 +50,8 @@ function bridge_sampling_integral(
     context::BATContext
     )
 
-    N1 = Int(sum(target_samples.weight))
-    N2 = Int(sum(proposal_samples.weight))
+    N1 = round(Int, sum(target_samples.weight))
+    N2 = round(Int, sum(proposal_samples.weight))
 
     #####################
     # Evaluate integral #

@@ -86,7 +86,7 @@ ValueShapes.unshaped(m::BATWeightedMeasure) = weightedmeasure(m.logweight, unsha
 
 Returns `(result = new_measure, logweight = logweight)`.
 
-Tries to automatically renormalize `measure` if a maxium log-m value
+Tries to automatically renormalize `measure` if a maximum log-density value
 is available, returns `measure` unchanged otherwise.
 """
 function auto_renormalize(measure::AbstractMeasure)

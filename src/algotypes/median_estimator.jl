@@ -3,10 +3,8 @@
 """
     abstract type BAT.AbstractMedianEstimator
 
-Abstract type for BAT optimization algorithms.
-
-A typical application for optimization in BAT is mode estimation
-(see [`bat_findmode`](@ref)),
+Abstract type for BAT median estimation algorithms (see
+[`bat_findmedian`](@ref)).
 """
 abstract type AbstractMedianEstimator end
 

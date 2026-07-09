@@ -58,13 +58,13 @@ get_initsrc_from_target(target::AbstractPosteriorMeasure) = get_initsrc_from_tar
 
 
 """
-    get_iid_sampleable_approx()
+    get_iid_sampleable_approx(target)
 
 *BAT-internal, not part of stable public API.*
 
 Obtain a measure from the target that can be sampled to obtain iid samples for a MCMCGlobalProposal.
 """
-function get_iid_sampleable_approx() end
+function get_iid_sampleable_approx end
 
 function get_iid_sampleable_approx(target::AbstractMeasure) 
     if supports_rand(target)

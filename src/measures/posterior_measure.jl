@@ -21,7 +21,7 @@ end
 
 
 """
-    getlikelihood(posterior::AbstractPosteriorMeasure)::BATDenstiy
+    getlikelihood(posterior::AbstractPosteriorMeasure)::BATDensity
 
 *BAT-internal, not part of stable public API.*
 

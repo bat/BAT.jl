@@ -40,7 +40,7 @@ function DensityInterface.logdensityof(m::BATDistMeasure{<:Distribution{Univaria
             # so move an epsilon away from minimum:
             convert(R, logpdf(d, minimum(d) + eps(typeof(v))))
         elseif v ≈ maximum(d)
-            # Likewise at maxiumum:
+            # Likewise at maximum:
             convert(R, logpdf(d, maximum(d) - eps(typeof(v))))
         else
             logd
@@ -69,7 +69,7 @@ function Random.rand(gen::GenContext, m::BATDistMeasure)
 end
 
 _reshape_rand_n_output(x::Any) = x
-x =_reshape_rand_n_output(x::AbstractMatrix) = nestedview(x)
+_reshape_rand_n_output(x::AbstractMatrix) = nestedview(x)
 _reshape_rand_n_output(x::AbstractArray{<:AbstractArray}) = ArrayOfSimilarArrays(x)
 _reshape_rand_n_output(x::ArrayOfSimilarArrays) = x
 
