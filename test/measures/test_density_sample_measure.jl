@@ -6,6 +6,7 @@ using Test
 using Random
 using DensityInterface, MeasureBase, ValueShapes
 using Distributions, Statistics, StatsBase, IntervalSets
+using MeasureBase: weightedmeasure
 
 using BAT: DensitySampleMeasure, samplesof, empiricalof, getess
 
