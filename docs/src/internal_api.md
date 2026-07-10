@@ -74,6 +74,7 @@ BAT.WhiteningAlgorithm
 BAT.argchoice_msg
 BAT.bg_R_2sqr
 BAT.checked_logdensityof
+BAT.dist_samples_mean_zscores
 BAT.drop_low_weight_samples
 BAT.fft_autocor
 BAT.fft_autocov
