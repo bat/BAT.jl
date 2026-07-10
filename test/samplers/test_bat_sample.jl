@@ -19,7 +19,7 @@ using Random, Distributions, StatsBase
         @test @inferred(bat_sample(dist, BAT.IIDSampling(), context)).result isa DensitySampleVector
 
         samples = @inferred(bat_sample(dist, IIDSampling(nsamples = 10^5), context)).result
-        @test isapprox(mean(samples.v), [0.4, 0.6]; rtol = 0.05)
+        @test maximum(BAT.dist_samples_mean_zscores(dist, samples, context)) < 5
         @test isapprox(cov(samples.v), [2.0 1.2; 1.2 3.0]; rtol = 0.05)
         @test all(isequal(1), samples.weight)
 
@@ -29,7 +29,7 @@ using Random, Distributions, StatsBase
         dist_sample_vector_bmode = @inferred(bat_findmode(samples, context)).result
         @test @inferred(length(dist_sample_vector_bmode)) == 2
 
-        isapprox(var(bat_sample(Normal(), BAT.IIDSampling(nsamples = 10^3), context).result), 1, rtol = 10^-1)
+        @test isapprox(var(bat_sample(Normal(), BAT.IIDSampling(nsamples = 10^3), context).result), 1, rtol = 0.25)
     end
 
     @testset "RandResampling" begin

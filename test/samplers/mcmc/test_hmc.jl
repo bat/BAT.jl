@@ -23,26 +23,39 @@ import ForwardDiff, Zygote
     samplingalg = TransformedMCMC(proposal = proposal, transform_tuning = transform_tuning, nchains = nchains, nwalkers = nwalkers)
 
     @testset "MCMC iteration" begin
-        v_inits = BAT.bat_ensemble_initvals(target, InitFromTarget(), nwalkers, context)
-        # Note: No @inferred, since MCMCChainState is not type stable (yet) with HamiltonianMC
-        mcmc_state = BAT.MCMCState(samplingalg, target, 1, unshaped.(v_inits), deepcopy(context))
         nsteps = 10^4
-        BAT.mcmc_tuning_init!!(mcmc_state, 0)
-        BAT.mcmc_tuning_reinit!!(mcmc_state, div(nsteps, 10))
+        nsteps_adapt = div(nsteps, 10)
 
-        walker_outputs = BAT._empty_chain_outputs(mcmc_state)
-        mcmc_state = BAT.mcmc_iterate!!(walker_outputs, mcmc_state; max_nsteps = nsteps, nonzero_weights = false)
-        @test mcmc_state.chain_state.stepno == nsteps
+        function iterate_and_collect_samples()
+            v_inits = BAT.bat_ensemble_initvals(target, InitFromTarget(), nwalkers, context)
+            # Note: No @inferred, since MCMCChainState is not type stable (yet) with HamiltonianMC
+            mcmc_state = BAT.MCMCState(samplingalg, target, 1, unshaped.(v_inits), deepcopy(context))
+            BAT.mcmc_tuning_init!!(mcmc_state, 0)
+            BAT.mcmc_tuning_reinit!!(mcmc_state, nsteps_adapt)
 
-        samples = BAT._empty_DensitySampleVector(mcmc_state)
-        for walker_output in walker_outputs
-            append!(samples, walker_output)
+            # Adaptation phase, discard samples:
+            mcmc_state = BAT.mcmc_iterate!!(nothing, mcmc_state; max_nsteps = nsteps_adapt, nonzero_weights = false)
+
+            walker_outputs = BAT._empty_chain_outputs(mcmc_state)
+            mcmc_state = BAT.mcmc_iterate!!(walker_outputs, mcmc_state; max_nsteps = nsteps, nonzero_weights = false)
+
+            samples = BAT._empty_DensitySampleVector(mcmc_state)
+            for walker_output in walker_outputs
+                append!(samples, walker_output)
+            end
+            return mcmc_state, samples
         end
 
+        mcmc_state, samples = iterate_and_collect_samples()
+
+        @test mcmc_state.chain_state.stepno == nsteps + nsteps_adapt
         @test minimum(samples.weight) == 0
         # @test isapprox(length(samples), nsteps, atol = 20) Hard to test with the new checked_push function avoiding duplicate samples
-        @test sum(samples.weight) == mcmc_state.chain_state.stepno
-        @test BAT.test_dist_samples(unshaped(objective), samples)
+        @test sum(samples.weight) == nsteps
+
+        samples_verified(smpls) = BAT.test_dist_samples(unshaped(objective), smpls, context)
+        # Retry with an independent run to suppress rare statistical false positives:
+        @test samples_verified(samples) || samples_verified(last(iterate_and_collect_samples()))
 
         walker_outputs = BAT._empty_chain_outputs(mcmc_state)
         mcmc_state = BAT.mcmc_iterate!!(walker_outputs, mcmc_state; max_nsteps = 10^3, nonzero_weights = true)

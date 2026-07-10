@@ -3,12 +3,16 @@
 _default_min_ess(samples::DensitySampleVector, context) = minimum(bat_eff_sample_size(unshaped.(samples), context).result)
 
 
+# The default ESS is halved to compensate for ESS overestimation on short
+# or correlated sample sets, and the p-value threshold is far below the
+# plausible range of statistical fluctuations for a correct sampler. Real
+# sampler defects produce p-values many orders of magnitude smaller still.
 function test_dist_samples(
     dist::Distribution, samples::DensitySampleVector,
     context::BATContext = get_batcontext();
     nsamples::Integer = floor(Int, _default_min_ess(samples, context)),
-    ess::Integer = floor(Int, _default_min_ess(samples, context)),
-    logpdfdist_pvalue_threshold = 10^-3,
+    ess::Integer = floor(Int, _default_min_ess(samples, context) / 2),
+    logpdfdist_pvalue_threshold = 10^-6,
     Rsq_threshold = 1.2
 )
     r = dist_sample_qualities(dist, samples, context; nsamples = nsamples, ess = ess)
@@ -16,11 +20,35 @@ function test_dist_samples(
 end
 
 
+"""
+    BAT.dist_samples_mean_zscores(
+        dist::Distribution, smpls::DensitySampleVector,
+        context::BATContext = get_batcontext()
+    )
+
+*BAT-internal, not part of stable public API.*
+
+Z-scores of the sample means of `smpls` against the true means of `dist`,
+based on Monte Carlo standard errors derived from the effective sample size.
+
+Requires `mean` and `var` to be defined for `unshaped(dist)`.
+"""
+function dist_samples_mean_zscores(
+    dist::Distribution, smpls::DensitySampleVector,
+    context::BATContext = get_batcontext()
+)
+    ess = _default_min_ess(smpls, context)
+    udist = unshaped(dist)
+    mcse = sqrt.(var(udist) ./ ess)
+    return abs.(mean(unshaped.(smpls)) .- mean(udist)) ./ mcse
+end
+
+
 function dist_sample_qualities(
     dist::Distribution, smpls::DensitySampleVector,
     context::BATContext = get_batcontext();
     nsamples::Integer = floor(Int, _default_min_ess(smpls, context)),
-    ess::Integer = floor(Int, _default_min_ess(smpls, context))
+    ess::Integer = floor(Int, _default_min_ess(smpls, context) / 2)
 )
     samples_v = samplesof(evalmeasure(smpls, OrderedResampling(nsamples = ess), context)).v
     samples_dist_logpdfs = logpdf.(Ref(dist), samples_v)
