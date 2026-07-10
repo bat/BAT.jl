@@ -45,7 +45,7 @@ function MCMCChainState(
     rngpart_cycle = RNGPartition(get_rng(context), 0:(typemax(Int16) - 2))
     rng = get_rng(context)
 
-    f = init_adaptive_transform(samplingalg.adaptive_transform, target, context)
+    f = init_adaptive_transform(samplingalg.adaptive_transform, target, x_init, context)
     f_inv = inverse(f)
     proposal = _create_proposal_state(samplingalg.proposal, target, context, x_init, f, rng)
 

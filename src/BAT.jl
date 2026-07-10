@@ -38,6 +38,7 @@ using InverseFunctions
 using KernelDensity
 using LaTeXStrings
 using MacroTools
+using MatrixShapedOperators: woodbury_operator, rowgram_factor
 using ParallelProcessingTools
 using Parameters
 using PDMats

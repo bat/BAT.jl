@@ -93,10 +93,88 @@ function trafo_samples_with_interm_results(fc::FunctionChain, samples::AbstractV
 end
 
 
-struct TriangularAffineTransform <: AbstractAdaptiveTransform end
+"""
+    abstract type BAT.AbstractTransformInit
+
+Abstract type for algorithms that initialize adaptive MCMC space
+transformations.
+"""
+abstract type AbstractTransformInit end
+
+
+"""
+    struct BAT.PriorApproxTransformInit <: BAT.AbstractTransformInit
+
+Initializes affine space transformations from the approximate covariance
+and mean of the prior.
+"""
+struct PriorApproxTransformInit <: AbstractTransformInit end
+
+
+"""
+    struct BAT.PathfinderTransformInit <: BAT.AbstractTransformInit
+
+Initializes affine space transformations from local Gaussian target
+approximations obtained by running the Pathfinder algorithm (see
+[`BAT.pathfinder_gaussian_fit`](@ref)) from each initial walker position.
+Requires the [`BATContext`](@ref) to include an `ADSelector`.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
+"""
+@with_kw struct PathfinderTransformInit <: AbstractTransformInit
+    "Maximum number of L-BFGS iterations."
+    maxiters::Int = 1000
+
+    "L-BFGS history length."
+    history_length::Int = 6
+
+    "Number of Monte Carlo draws used to estimate the ELBO."
+    ndraws_elbo::Int = 5
+end
+
+
+"""
+    struct BAT.TriangularAffineTransform <: BAT.AbstractAdaptiveTransform
+
+Adaptive affine space transformation `x = A * z + b` with a
+lower-triangular matrix `A`, initialized via an
+[`BAT.AbstractTransformInit`](@ref) algorithm.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
+"""
+@with_kw struct TriangularAffineTransform{I<:AbstractTransformInit} <: AbstractAdaptiveTransform
+    "Transform initialization algorithm."
+    init::I = PriorApproxTransformInit()
+end
+
+# Adaptive transform initialization may take the initial walker positions
+# into account:
+function init_adaptive_transform(adaptive_transform::AbstractAdaptiveTransform, target::AbstractMeasure, ::Union{AbstractVector,Nothing}, context::BATContext)
+    return init_adaptive_transform(adaptive_transform, target, context)
+end
+
+function init_adaptive_transform(adaptive_transform::TriangularAffineTransform, target::AbstractMeasure, v_init::Union{AbstractVector,Nothing}, context::BATContext)
+    return _init_affine_transform(adaptive_transform.init, target, v_init, context)
+end
+
+function init_adaptive_transform(adaptive_transform::TriangularAffineTransform, target::AbstractMeasure, context::BATContext)
+    return _init_affine_transform(adaptive_transform.init, target, nothing, context)
+end
 
 # TODO: MD, make typestable
-function init_adaptive_transform(adaptive_transform::TriangularAffineTransform, target::AbstractMeasure, ::BATContext)
+function _init_affine_transform(::PriorApproxTransformInit, target::AbstractMeasure, ::Union{AbstractVector,Nothing}, ::BATContext)
     n = totalndof(varshape(target))
 
     M = _approx_cov(target, n)
@@ -105,6 +183,10 @@ function init_adaptive_transform(adaptive_transform::TriangularAffineTransform, 
     g = MulAdd(s, b)
 
     return g
+end
+
+function _init_affine_transform(::PathfinderTransformInit, ::AbstractMeasure, ::Nothing, ::BATContext)
+    throw(ArgumentError("PathfinderTransformInit requires initial positions"))
 end
 
 

@@ -54,6 +54,7 @@ BAT.ENSUniformly
 BAT.FullMeasureTransform
 BAT.JointLikelihood
 BAT.LFDensity
+BAT.AbstractTransformInit
 BAT.LFDensityWithGrad
 BAT.LogDVal
 BAT.MCMCSampleGenerator
@@ -63,6 +64,8 @@ BAT.OnlineMvCov
 BAT.OnlineMvMean
 BAT.OnlineUvMean
 BAT.OnlineUvVar
+BAT.PathfinderTransformInit
+BAT.PriorApproxTransformInit
 BAT.SampleTransformation
 BAT.StanLikeTuning
 BAT.StandardMvNormal
@@ -71,6 +74,7 @@ BAT.StandardUvNormal
 BAT.StandardUvUniform
 BAT.StatisticalWhitening
 BAT.StepSizeAdaptor
+BAT.TriangularAffineTransform
 BAT.UnshapeTransformation
 BAT.WhiteningAlgorithm
 
@@ -95,6 +99,7 @@ BAT.issymmetric_around_origin
 BAT.log_zero_density
 BAT.logvalof
 BAT.maximize_density
+BAT.pathfinder_gaussian_fit
 BAT.repetition_to_weights
 BAT.smallest_credible_intervals
 BAT.sum_first_dim
