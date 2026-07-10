@@ -123,7 +123,7 @@ function _combine_logd_with_ladj(logd_orig::Real, ladj::Real)
         # Maybe  also for isneginf(logd_orig) && isfinite(ladj) ?
         # Return constant -Inf to prevent problems with ForwardDiff:
         #R(-Inf)
-        near_neg_inf(R) # Avoids AdvancedHMC warnings
+        near_neg_inf(R) # Avoids sampler warnings about non-finite log-density values
     else
         logd_result
     end

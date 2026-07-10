@@ -7,8 +7,6 @@ using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
 using IntervalSets
 import ForwardDiff, Zygote
 
-import AdvancedHMC
-
 @testset "HamiltonianMC" begin
     context = BATContext(ad = ForwardDiff)
     objective = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))

@@ -31,11 +31,10 @@ bat_sample(target, TransformedMCMC(proposal = RandomWalk(), nsteps = 10^5, nchai
 BAT sampling algorithm type: [`TransformedMCMC`](@ref), MCMC algorithm subtype: [`HamiltonianMC`](@ref)
 
 ```julia
-import AdvancedHMC, ForwardDiff
+import ForwardDiff
 set_batcontext(ad = ForwardDiff)
 bat_sample(target, TransformedMCMC(proposal = HamiltonianMC()))
 ```
-Requires the [AdvancedHMC](https://github.com/TuringLang/AdvancedHMC.jl) Julia package to be loaded explicitly.
 
 
 ### Reactive Nested Sampling (experimental)

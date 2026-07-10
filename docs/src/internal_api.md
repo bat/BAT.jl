@@ -64,11 +64,13 @@ BAT.OnlineMvMean
 BAT.OnlineUvMean
 BAT.OnlineUvVar
 BAT.SampleTransformation
+BAT.StanLikeTuning
 BAT.StandardMvNormal
 BAT.StandardMvUniform
 BAT.StandardUvNormal
 BAT.StandardUvUniform
 BAT.StatisticalWhitening
+BAT.StepSizeAdaptor
 BAT.UnshapeTransformation
 BAT.WhiteningAlgorithm
 
@@ -86,6 +88,8 @@ BAT.getlikelihood
 BAT.getprior
 BAT.gr_Rsqr
 BAT.has_uhc_support
+BAT.hmc_find_good_stepsize
+BAT.hmc_nuts_transition
 BAT.is_log_zero
 BAT.issymmetric_around_origin
 BAT.log_zero_density

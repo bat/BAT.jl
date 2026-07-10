@@ -64,7 +64,6 @@ ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
 ZygoteRules = "700de1a5-db45-46bc-99cf-38207098b444"
 
 [weakdeps]
-AdvancedHMC = "0bf59076-c3b1-5ca4-86bd-e02cd72cde3d"
 Cuba = "8a292aeb-7a57-582c-b821-06e4c11590b1"
 Folds = "41a02a25-b8f0-4f67-bc48-60067656b558"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
@@ -79,7 +78,6 @@ Transducers = "28d57a85-8fef-5791-bfe6-a80928e7c999"
 UltraNest = "6822f173-b0be-4018-9ee2-28bf56348d09"
 
 [extensions]
-BATAdvancedHMCExt = "AdvancedHMC"
 BATCubaExt = "Cuba"
 BATFoldsExt = ["Folds", "Transducers"]
 BATHDF5Ext = "HDF5"
@@ -94,7 +92,6 @@ BATUltraNestExt = ["UltraNest", "PythonCall"]
 [compat]
 Accessors = "0.1"
 Adapt = "3, 4"
-AdvancedHMC = "0.5, 0.6, 0.7, 0.8"
 AffineMaps = "0.2.3, 0.3"
 ArgCheck = "1, 2"
 ArraysOfArrays = "0.5, 0.6"

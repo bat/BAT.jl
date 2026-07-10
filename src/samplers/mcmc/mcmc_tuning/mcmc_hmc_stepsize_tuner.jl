@@ -69,25 +69,28 @@ function mcmc_proposal_tuning_reinit!!(tuner::HMCStepSizeTunerState, chain_state
     _reset_stepsize_tuner!(tuner, chain_state)
 end
 
+# Nesterov dual averaging update, returns the new step size:
+function _dual_averaging_step!(tuner::HMCStepSizeTunerState, target_acceptance::Real, alpha::Real)
+    (; gamma, t0, kappa) = tuner.tuning
+    T = typeof(tuner.H_bar)
+
+    m = tuner.m += 1
+    eta_H = 1 / (m + T(t0))
+    tuner.H_bar = (1 - eta_H) * tuner.H_bar + eta_H * (T(target_acceptance) - min(one(T), T(alpha)))
+    log_stepsize = tuner.log_mu - tuner.H_bar * sqrt(T(m)) / T(gamma)
+    eta_x = T(m)^(-T(kappa))
+    tuner.log_stepsize_bar = (1 - eta_x) * tuner.log_stepsize_bar + eta_x * log_stepsize
+
+    return exp(log_stepsize)
+end
+
 function mcmc_tune_proposal_post_step!!(
     proposal::HMCProposalState,
     tuner::HMCStepSizeTunerState,
     chain_state::MCMCChainState,
     p_accept::AbstractVector{<:Real}
 )
-    (; gamma, t0, kappa) = tuner.tuning
-    T = typeof(tuner.H_bar)
-    alpha = min(one(T), T(mean(p_accept)))
-    delta = T(get_target_acceptance_ratio(proposal))
-
-    m = tuner.m += 1
-    eta_H = 1 / (m + T(t0))
-    tuner.H_bar = (1 - eta_H) * tuner.H_bar + eta_H * (delta - alpha)
-    log_stepsize = tuner.log_mu - tuner.H_bar * sqrt(T(m)) / T(gamma)
-    eta_x = T(m)^(-T(kappa))
-    tuner.log_stepsize_bar = (1 - eta_x) * tuner.log_stepsize_bar + eta_x * log_stepsize
-
-    stepsize_new = exp(log_stepsize)
+    stepsize_new = _dual_averaging_step!(tuner, get_target_acceptance_ratio(proposal), mean(p_accept))
     proposal_new = if isfinite(stepsize_new)
         @set proposal.step_size = oftype(proposal.step_size, stepsize_new)
     else
