@@ -28,6 +28,20 @@ using BAT: _rank_k_cholesky_update
         end
     end
 
+    @testset "degenerate shrink stays finite" begin
+        # Long streaks of very low acceptance shrink the factor towards
+        # numerical singularity; the update must floor it instead of
+        # producing non-finite values (as plain rank-one downdates would):
+        u = [randn(rng, 3)]
+        w = [-0.8 / norm(u[1])^2]
+        L = Matrix(1.0 * I(3))
+        for _ in 1:5000
+            L = Matrix(_rank_k_cholesky_update(L, u, w))
+        end
+        @test all(isfinite, L)
+        @test istril(L)
+    end
+
     @testset "non-triangular fallback" begin
         A = randn(rng, 5, 5) + 3 * I
         u = [randn(rng, 5)]
