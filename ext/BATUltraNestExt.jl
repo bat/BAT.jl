@@ -3,6 +3,7 @@
 module BATUltraNestExt
 
 using UltraNest
+using PythonCall
 
 using BAT
 
@@ -27,49 +28,48 @@ function BAT.evalmeasure_impl(measure::BATMeasure, algorithm::ReactiveNestedSamp
     end
 
     LogDType = Float64
+    numpy = pyimport("numpy")
 
+    # UltraNest requires the callback to return a numpy array:
     function vec_ultranest_logpstr(V_rowwise::AbstractMatrix{<:Real})
-        V = deepcopy(V_rowwise')
-        logd = similar(V, LogDType, size(V,2))
+        V = convert(Matrix{eltype(V_rowwise)}, V_rowwise')
+        logd = similar(V, LogDType, size(V, 2))
         V_nested = nestedview(V)
-        exec_map!(logdensityof(transformed_m), algorithm.executor, logd, V_nested)
+        numpy.asarray(exec_map!(logdensityof(transformed_m), algorithm.executor, logd, V_nested))
     end
 
     paramnames = all_active_names(varshape(m))
 
     ch = Channel()
     function run_sampler()
-        try
-            smplr = UltraNest.ultranest.ReactiveNestedSampler(
-                paramnames, vec_ultranest_logpstr, vectorized = true,
-                num_test_samples = algorithm.num_test_samples,
-                draw_multiple = algorithm.draw_multiple,
-                num_bootstraps = algorithm.num_bootstraps,
-                ndraw_min = algorithm.ndraw_min,
-                ndraw_max = algorithm.ndraw_max
-            )
+        smplr = UltraNest.ultranest.ReactiveNestedSampler(
+            pylist(paramnames), vec_ultranest_logpstr, vectorized = true,
+            num_test_samples = algorithm.num_test_samples,
+            draw_multiple = algorithm.draw_multiple,
+            num_bootstraps = algorithm.num_bootstraps,
+            ndraw_min = algorithm.ndraw_min,
+            ndraw_max = algorithm.ndraw_max
+        )
 
-            unest_result = smplr.run(
-                log_interval = algorithm.log_interval < 0 ? nothing : algorithm.log_interval,
-                show_status = algorithm.show_status,
-                viz_callback = algorithm.viz_callback,
-                dlogz = algorithm.dlogz,
-                dKL = algorithm.dKL,
-                frac_remain = algorithm.frac_remain,
-                Lepsilon = algorithm.Lepsilon,
-                min_ess = algorithm.min_ess,
-                max_iters = algorithm.max_iters < 0 ? nothing : algorithm.max_iters,
-                max_ncalls = algorithm.max_ncalls < 0 ? nothing : algorithm.max_ncalls,
-                max_num_improvement_loops = algorithm.max_num_improvement_loops,
-                min_num_live_points = algorithm.min_num_live_points,
-                cluster_num_live_points = algorithm.cluster_num_live_points,
-                insertion_test_window = algorithm.insertion_test_window,
-                insertion_test_zscore_threshold = algorithm.insertion_test_zscore_threshold
-            )
-            put!(ch, unest_result)
-        finally
-            close(ch)
-        end
+        unest_result = smplr.run(
+            log_interval = algorithm.log_interval < 0 ? nothing : algorithm.log_interval,
+            show_status = algorithm.show_status,
+            viz_callback = algorithm.viz_callback,
+            dlogz = algorithm.dlogz,
+            dKL = algorithm.dKL,
+            frac_remain = algorithm.frac_remain,
+            Lepsilon = algorithm.Lepsilon,
+            min_ess = algorithm.min_ess,
+            max_iters = algorithm.max_iters < 0 ? nothing : algorithm.max_iters,
+            max_ncalls = algorithm.max_ncalls < 0 ? nothing : algorithm.max_ncalls,
+            max_num_improvement_loops = algorithm.max_num_improvement_loops,
+            min_num_live_points = algorithm.min_num_live_points,
+            cluster_num_live_points = algorithm.cluster_num_live_points,
+            insertion_test_window = algorithm.insertion_test_window,
+            insertion_test_zscore_threshold = algorithm.insertion_test_zscore_threshold
+        )
+        put!(ch, unest_result)
+        return nothing
     end
 
     # Force Python interaction to run on thread 1:
@@ -78,33 +78,33 @@ function BAT.evalmeasure_impl(measure::BATMeasure, algorithm::ReactiveNestedSamp
     task.sticky = true
     # From ThreadPools.@tspawnat:
     ccall(:jl_set_task_tid, Cvoid, (Any, Cint), task, task_id-1)
+    # Propagate sampler failures to take!:
+    bind(ch, task)
     schedule(task)
     unest_result = take!(ch)
 
-    r = convert(Dict{String, Any}, unest_result)
-
-    unest_wsamples = convert(Dict{String, Any}, r["weighted_samples"])
-    v_trafo_us = nestedview(convert(Matrix{Float64}, unest_wsamples["points"]'))
-    logvals_trafo = convert(Vector{Float64}, unest_wsamples["logl"])
-    weight = convert(Vector{Float64}, unest_wsamples["weights"])
+    unest_wsamples = unest_result["weighted_samples"]
+    v_trafo_us = nestedview(convert(Matrix{Float64}, pyconvert(Matrix{Float64}, unest_wsamples["points"])'))
+    logvals_trafo = pyconvert(Vector{Float64}, unest_wsamples["logl"])
+    weight = pyconvert(Vector{Float64}, unest_wsamples["weights"])
     transformed_smpls = DensitySampleVector(v = v_trafo_us, logd = logvals_trafo, weight = weight)
-    smpls = inverse(f_pretransform).(transformed_smpls) 
+    smpls = inverse(f_pretransform).(transformed_smpls)
 
-    uwv_trafo_us = nestedview(convert(Matrix{Float64}, r["samples"]'))
+    uwv_trafo_us = nestedview(convert(Matrix{Float64}, pyconvert(Matrix{Float64}, unest_result["samples"])'))
     uwlogvals_trafo = map(logdensityof(transformed_m), uwv_trafo_us)
     uwtransformed_smpls = DensitySampleVector(uwv_trafo_us, uwlogvals_trafo)
     uwsmpls = inverse(f_pretransform).(uwtransformed_smpls)
 
-    logz = convert(BigFloat, r["logz"])::BigFloat
-    logzerr = convert(BigFloat, r["logzerr"])::BigFloat
+    logz = pyconvert(Float64, unest_result["logz"])
+    logzerr = pyconvert(Float64, unest_result["logzerr"])
     mass = exp(BAT.ULogarithmic, Measurements.measurement(logz, logzerr))
 
-    ess = convert(Float64, r["ess"])
+    ess = pyconvert(Float64, unest_result["ess"])
 
     evalresult = (
         result_trafo = transformed_smpls, f_pretransform = f_pretransform,
         uwresult = uwsmpls, uwresult_trafo = uwtransformed_smpls,
-        ultranest_result = r
+        ultranest_result = pyconvert(Dict{String,Any}, unest_result)
     )
 
     dsm = BAT.DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
