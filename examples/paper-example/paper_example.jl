@@ -8,7 +8,7 @@ using SpecialFunctions
 using ArraysOfArrays
 using TypedTables
 using CSV
-import Cuba, AdvancedHMC, ForwardDiff
+import Cuba, ForwardDiff
 #using AHMI
 
 BAT.set_batcontext(ad = ForwardDiff)
