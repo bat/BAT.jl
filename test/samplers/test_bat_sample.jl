@@ -43,7 +43,8 @@ using Random, Distributions, StatsBase
         samples_rdm = @inferred(bat_sample(result, RandResampling(nsamples = 10^5), context)).result #Sample 100 times from the 2-sample space
         @test length(@inferred(bat_sample(result, RandResampling(nsamples = 100), context)).result) == 100#Check shape is ok
         @test sort(unique(samples_rdm.v)) == sort(result.v)#check it only samples from the 2-sample space
-        @test isapprox(mean(samples_rdm), mean(result), rtol = 10^-1)#means should be the same in both datasets
+        # Means should agree up to the resampling noise, which scales with the spread of the base samples:
+        @test isapprox(mean(samples_rdm), mean(result), atol = 0.01 * abs(result.v[1] - result.v[2]))
     end
 
     @testset "OrderedResampling" begin #Creates new testset for OrderedResampling
