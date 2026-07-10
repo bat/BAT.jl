@@ -52,20 +52,24 @@ end
 # Computes the lower Cholesky factor of `L * (I + sum_i w_i * u_i * u_iᵀ) * Lᵀ`
 # via rank-one factor updates in O(k n²) instead of O(n³), following the
 # original RAM formulation (Vihola 2012). Falls back to a full modified
-# Cholesky decomposition if `L` is not triangular or rounding errors break
-# positive definiteness.
+# Cholesky decomposition if `L` is not triangular or if the factor
+# degenerates numerically. The modified decomposition also acts as a
+# positive-definiteness floor for transformations that have been shrunk to
+# numerically singular factors by long streaks of low acceptance.
 function _rank_k_cholesky_update(L::AbstractMatrix{<:Real}, u::AbstractVector{<:AbstractVector{<:Real}}, w::AbstractVector{<:Real})
     if istril(L)
         C = Cholesky(LowerTriangular(Matrix(L)))
-        try
+        updated = try
             for i in eachindex(u, w)
                 v = sqrt(abs(w[i])) .* (L * u[i])
                 w[i] >= 0 ? lowrankupdate!(C, v) : lowrankdowndate!(C, v)
             end
-            return C.L
+            all(isfinite, C.factors)
         catch err
-            err isa PosDefException || rethrow()
+            err isa Union{PosDefException,DomainError} || rethrow()
+            false
         end
+        updated && return C.L
     end
     M = L * (I + sum(w[i] .* u[i] .* u[i]' for i in eachindex(u, w))) * L'
     return cholesky(Positive, M).L
