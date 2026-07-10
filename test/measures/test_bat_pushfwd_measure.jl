@@ -8,7 +8,7 @@ using ValueShapes, ArraysOfArrays, Distributions, MeasureBase
 using DensityInterface, InverseFunctions, ChangesOfVariables
 import ForwardDiff
 
-import Cuba, AdvancedHMC
+import Cuba
 using Optim
 
 
