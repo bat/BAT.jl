@@ -14,4 +14,6 @@ UltraNest = "0.2"
 
 [sources]
 BAT = {path = "../../.."}
-UltraNest = {url = "https://github.com/bat/UltraNest.jl.git", rev = "main"}
+# TODO: Switch rev to "main" once the UltraNest overhaul is merged, drop
+# the source entirely once UltraNest v0.2 is registered:
+UltraNest = {url = "https://github.com/bat/UltraNest.jl.git", rev = "overhaul"}
