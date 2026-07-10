@@ -49,6 +49,28 @@ function mcmc_trafo_tuning_init!!(
     return nothing
 end
 
+# Computes the lower Cholesky factor of `L * (I + sum_i w_i * u_i * u_iᵀ) * Lᵀ`
+# via rank-one factor updates in O(k n²) instead of O(n³), following the
+# original RAM formulation (Vihola 2012). Falls back to a full modified
+# Cholesky decomposition if `L` is not triangular or rounding errors break
+# positive definiteness.
+function _rank_k_cholesky_update(L::AbstractMatrix{<:Real}, u::AbstractVector{<:AbstractVector{<:Real}}, w::AbstractVector{<:Real})
+    if istril(L)
+        C = Cholesky(LowerTriangular(Matrix(L)))
+        try
+            for i in eachindex(u, w)
+                v = sqrt(abs(w[i])) .* (L * u[i])
+                w[i] >= 0 ? lowrankupdate!(C, v) : lowrankdowndate!(C, v)
+            end
+            return C.L
+        catch err
+            err isa PosDefException || rethrow()
+        end
+    end
+    M = L * (I + sum(w[i] .* u[i] .* u[i]' for i in eachindex(u, w))) * L'
+    return cholesky(Positive, M).L
+end
+
 function mcmc_tune_trafo_post_step!!(
     f_transform::Function,
     tuner_state::RAMTrafoTunerState,
@@ -75,12 +97,8 @@ function mcmc_tune_trafo_post_step!!(
     Σ_L = f_transform.A
 
     u = proposed.z.v .- current.z.v
-    U = stack(u)
     weights = (p_accept .- target_acceptance) ./ norm.(u).^2
-    U_w = U .* weights'
-    A = Σ_L * (U_w * U') * Σ_L'
-    M = Σ_L * Σ_L' + η * A
-    Σ_L_new = oftype(Σ_L, cholesky(Positive, M).L)
+    Σ_L_new = oftype(Σ_L, _rank_k_cholesky_update(Σ_L, u, η .* weights))
 
     mean_update_rate = η / 10 # heuristic
     α = mean_update_rate .* p_accept
