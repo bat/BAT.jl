@@ -73,6 +73,11 @@ using BAT: DensitySampleMeasure, samplesof, empiricalof, getess
         @test massof(udsm) == massof(dsm)
     end
 
+    @testset "empty samples" begin
+        empty_dsm = DensitySampleMeasure(smpls[1:0])
+        @test length(samplesof(empty_dsm)) == 0
+    end
+
     @testset "resampling" begin
         em_rand = evalmeasure(dsm, RandResampling(nsamples = 500), context)
         rsmpls = samplesof(em_rand)

@@ -62,8 +62,9 @@ function DensitySampleMeasure(
     # ToDo: Ensure smpls are deduplicated.
     # ToDo: Enable logdensity calculation by storing a binary searchable vector
     # over tuples `(point_hash, sample_idx)`?
+    max_weight = maximum(smpls.weight, init = zero(eltype(smpls.weight)))
     DensitySampleMeasure(
-        smpls, maximum(smpls.weight), cumsum(smpls.weight),
+        smpls, max_weight, cumsum(smpls.weight),
         dof, ess, _canonical_mass(mass)
     )
 end
