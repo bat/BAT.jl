@@ -66,6 +66,29 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
+  test-optional:
+    name: Optional ${{ matrix.optional-test }} - ${{ github.event_name }}
+    runs-on: ubuntu-latest
+    # Tests of poorly maintained or otherwise troublesome optional
+    # dependencies run isolated and non-blocking:
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        optional-test:
+          - nestedsamplers
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1'
+          arch: x64
+      - uses: julia-actions/cache@v3
+      - name: Run tests
+        run: >-
+          julia --project=test/optional/${{ matrix.optional-test }} -e '
+          using Pkg; Pkg.instantiate();
+          include(joinpath("test", "optional", "${{ matrix.optional-test }}", "runtests.jl"))'
   docs:
     name: Documentation
     runs-on: ubuntu-latest
