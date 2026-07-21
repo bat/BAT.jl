@@ -132,6 +132,11 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
         chain_outputs = _empty_chain_outputs.(mcmc_states)
     end
 
+    # Activated before burn-in so chain initialization/tuning is visible live too;
+    # note that seeing real burn-in samples (rather than an empty grid until the
+    # main run starts) requires samplingalg.store_burnin = true.
+    init_visualizer!(context.visualizer; mcmc_states=mcmc_states, outputs=chain_outputs, f_pretransform=f_pretransform)
+
     mcmc_states = mcmc_burnin!(
         samplingalg.store_burnin ? chain_outputs : nothing,
         mcmc_states,
@@ -141,25 +146,27 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
 
     next_cycle!.(mcmc_states)
 
-    # TODO: Where to activate visualizer? Could be interesting to see initialization of the chains and/or the burnin.
-    # Handle emtpy samples in plotting pipeline
-
-    init_visualizer!(context.visualizer; mcmc_states=mcmc_states, outputs=chain_outputs, f_pretransform=f_pretransform)
-
     @info "Generate main samples using $(length(mcmc_states)) MCMC chain(s)."
     mcmc_states = mcmc_iterate!!(
         chain_outputs,
         mcmc_states;
         max_nsteps=samplingalg.nsteps,
         nonzero_weights=samplingalg.nonzero_weights,
-        update_visualizer=true # TODO: MD; discuss the whole update pipeline for visualizer
+        update_visualizer=true
     )
 
     @debug "Merge samples of chains and transform to original space."
 
-    # TODO: MD, Think of more elegant way to terminate listener
     if !isnothing(context.visualizer.content)
         context.visualizer.content.is_live[] = false
+        listener_task = context.visualizer.content.listener_task[]
+        # Wait for the listener to actually stop before returning; errormonitor
+        # already reports task failures, so swallow them here instead of
+        # propagating a plotting error into the sampling result.
+        isnothing(listener_task) || try
+            wait(listener_task)
+        catch
+        end
     end
 
     samples_transformed = _merge_chain_outputs(first(mcmc_states), chain_outputs)
