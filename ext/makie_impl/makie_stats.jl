@@ -89,7 +89,10 @@ function compute_plotting_primitives(
 
         w_prob = ProbabilityWeights(weights)
         μ = vec(mean(marg_coords, w_prob, dims=2))
-        Σ = cov(Matrix(marg_coords), w_prob, 2; corrected=true) # TODO: Is corrected = true the correct choice? 
+        # Matches Std1D/Std2D, which also don't pass `corrected` (StatsBase's
+        # default for ProbabilityWeights is corrected=false) -- keeps the
+        # covariance ellipse's implied scale consistent with the std error bars.
+        Σ = cov(Matrix(marg_coords), w_prob, 2)
 
         vals, vecs = eigen(Σ)
         stds = sqrt.(clamp.(vals, 0, Inf))
