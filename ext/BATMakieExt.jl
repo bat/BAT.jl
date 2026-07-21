@@ -23,8 +23,9 @@ using ValueShapes
 
 using BAT: DensitySampleVector
 using BAT: _empty_chain_outputs, _empty_DensitySampleVector, _append_chain_outputs, _append_walker_outputs
-using BAT: _transform_chain_outputs, _transform_walker_outputs, _unshape_chain_outputs, _unshape_walker_outputs, get_samples!
+using BAT: _transform_chain_outputs, _transform_walker_outputs, get_samples!
 using BAT: MCMCState, MCMCChainState
+using BAT: mcmc_target
 using BAT: AbstractSamplingAlgorithm
 using BAT: _get_edges
 using BAT: transform_samples

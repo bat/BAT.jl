@@ -247,34 +247,25 @@ end
 
 
 
-function _unshape_chain_outputs(
-    outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}}
-)
-    return [[unshaped.(walker_outputs) for walker_outputs in chain_outputs] for chain_outputs in outputs]
-end
-
-function _unshape_walker_outputs(
-    chain_outputs::AbstractVector{<:DensitySampleVector}
-)
-    return [unshaped.(walker_outputs) for walker_outputs in chain_outputs]
-end
-
-
 function _transform_chain_outputs(
     f_pretransform::Function,
     outputs   #::AbstractVector{<:AbstractVector{<:DensitySampleVector}}
 )
-    global gs_trafo_co = (f_pretransform, outputs)
-
-    outputs_transformed = [[unshaped.(transform_samples(inverse(f_pretransform), walker_output)) for walker_output in chain_output] for chain_output in outputs]
-    return outputs_transformed
+    return [_transform_walker_outputs(f_pretransform, chain_output) for chain_output in outputs]
 end
 
 function _transform_walker_outputs(
     f_pretransform::Function,
     chain_output   #::AbstractVector{<:DensitySampleVector}
 )
-    outputs_transformed = [unshaped.(transform_samples(inverse(f_pretransform), walker_output)) for walker_output in chain_output]
-    return outputs_transformed
+    return [_transform_walker_output(f_pretransform, walker_output) for walker_output in chain_output]
+end
+
+# `transform_samples` infers the transformed shape from the first sample, which
+# fails on an empty `DensitySampleVector` (e.g. before any samples have been
+# produced yet, or when a chain hasn't filled its buffer slot this batch).
+function _transform_walker_output(f_pretransform::Function, walker_output::DensitySampleVector)
+    isempty(walker_output) && return unshaped.(walker_output)
+    return unshaped.(transform_samples(inverse(f_pretransform), walker_output))
 end
 

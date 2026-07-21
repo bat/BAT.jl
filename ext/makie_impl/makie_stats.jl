@@ -388,10 +388,10 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return
+        return (poly_points=Vector{Point2f}(), x=Float64[], y=Float64[])
 end
 
-# TODO: Refactor
+# Overlays the Normal distribution fit (by weighted mean/std) to the 1D marginal.
 function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
@@ -400,33 +400,21 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
-        curve_data = lift(p[1], p.npoints) do dist, n
-                μ = mean(dist)
-                σ = std(dist)
+        (; npoints_pdf) = config
 
-                if σ == 0
-                        x_min = μ - 1
-                        x_max = μ + 1
-                else
-                        x_min = μ - 4σ
-                        x_max = μ + 4σ
-                end
+        w_prob = ProbabilityWeights(weights)
+        μ = mean(vec(marg_coords), w_prob)
+        σ = std(vec(marg_coords), w_prob)
+        dist = Normal(μ, σ)
 
-                x_grid = LinRange(x_min, x_max, n)
-                y_grid = pdf.(dist, x_grid)
+        x_min, x_max = σ == 0 ? (μ - 1, μ + 1) : (μ - 4σ, μ + 4σ)
+        x = collect(LinRange(x_min, x_max, npoints_pdf))
+        y = pdf.(dist, x)
 
-                return (x_grid, y_grid)
-        end
-
-        x = lift(d -> d[1], curve_data)
-        y = lift(d -> d[2], curve_data)
-
-        poly_points = lift(x, y) do x_val, y_val
-                vcat(
-                        Point2f.(x_val, y_val),
-                        Point2f.(reverse(x_val), 0.0)
-                )
-        end
+        poly_points = vcat(
+                Point2f.(x, y),
+                Point2f.(reverse(x), 0.0)
+        )
 
         return (poly_points=poly_points, x=x, y=y)
 end
@@ -437,18 +425,15 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; poly_points, x, y) = primitives
-        (; color, alpha, filled, strokecolor, strokewidht, edge) = config
-        poly = S.Poly(poly_points;
-                color=color,
-                alpha=alpha,
-                visible=filled
-        )
 
-        lines = S.Lines(x, y;
-                color=strokecolor,
-                linewidth=strokewidth,
-                visible=edge
-        )
+        if isempty(x)
+                return PlotSpec[]
+        end
+
+        (; filled_pdf) = config
+
+        poly = S.Poly(poly_points; visible=filled_pdf)
+        lines = S.Lines(x, y)
 
         return [poly, lines]
 end
