@@ -39,18 +39,8 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; x, density, poly_points) = primitives
-        (; color, alpha, filled, strokecolor, strokewidth, edge) = config
-        polys = S.Poly(poly_points;
-                color=color,
-                alpha=alpha,
-                visible=filled
-        )
-
-        lines = S.Lines(x, density;
-                color=strokecolor,
-                linewidth=strokewidth,
-                visible=edge
-        )
+        polys = S.Poly(poly_points)
+        lines = S.Lines(x, density)
         return [polys, lines]
 end
 
@@ -93,11 +83,10 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; x, y, density) = primitives
-        (; alpha, rev, colormap) = config
+        (; rev, colormap) = config
         cmap_final = rev ? Reverse(colormap) : colormap
         heat = S.Heatmap(x, y, density;
-                colormap=cmap_final,
-                alpha=alpha
+                colormap=cmap_final
         )
         return [heat]
 end
@@ -182,15 +171,9 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; polys, fill_colors, full_line) = primitives
-        (; strokecolor, strokewidth, edge) = config
 
         polyspec = S.Poly(polys; color=fill_colors)
-
-        lines = S.Lines(full_line;
-                color=strokecolor,
-                linewidth=strokewidth,
-                visible=edge
-        )
+        lines = S.Lines(full_line)
 
         return [polyspec, lines]
 end
@@ -256,7 +239,6 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; x, y, density, final_levels, colors) = primitives
-        (; rev, alpha) = config
 
         contour = S.Contourf(x, y, density;
                 levels=final_levels,

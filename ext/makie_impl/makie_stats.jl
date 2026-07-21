@@ -117,19 +117,9 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; ellipse_points, axes_segments) = primitives
-        (; color_stats, strokestyle_stats, strokewidth_stats) = config
 
-        lines = S.Lines(ellipse_points;
-                color=color_stats,
-                linestyle=strokestyle_stats,
-                linewidth=strokewidth_stats
-        )
-
-        line_segments = S.LineSegments(axes_segments;
-                color=color_stats,
-                linestyle=strokestyle_stats,
-                linewidth=strokewidth_stats
-        )
+        lines = S.Lines(ellipse_points)
+        line_segments = S.LineSegments(axes_segments)
 
         return [lines, line_segments]
 end
@@ -167,12 +157,7 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; positions) = primitives
-        (; color_stats, strokestyle_stats, strokewidth_stats) = config
-        lines = S.VLines(positions;
-                color=color_stats,
-                linestyle=strokestyle_stats,
-                linewidth=strokewidth_stats
-        )
+        lines = S.VLines(positions)
         return [lines]
 end
 
@@ -219,19 +204,9 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; x_lines, y_lines) = primitives
-        (; color_stats, strokestyle_stats, strokewidth_stats) = config
 
-        vlines = S.VLines(x_lines;
-                color=color_stats,
-                linestyle=strokestyle_stats,
-                linewidth=strokewidth_stats
-        )
-
-        hlines = S.HLines(y_lines;
-                color=color_stats,
-                linestyle=strokestyle_stats,
-                linewidth=strokewidth_stats
-        )
+        vlines = S.VLines(x_lines)
+        hlines = S.HLines(y_lines)
         return [vlines, hlines]
 end
 
@@ -266,12 +241,7 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; x) = primitives
-        (; color_stats, strokestyle_mean, strokewidth_stats) = config
-        lines = S.VLines(x;
-                color=color_stats,
-                linestyle=strokestyle_mean,
-                linewidth=strokewidth_stats
-        )
+        lines = S.VLines(x)
         return [lines]
 end
 
@@ -308,18 +278,8 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; μ_x, μ_y) = primitives
-        (; color_mean, strokestyle_mean, strokewidth_mean) = config
-        vlines = S.VLines(μ_x;
-                color=color_mean,
-                linestyle=strokestyle_mean,
-                linewidth=strokewidth_mean
-        )
-
-        hlines = S.HLines(μ_y;
-                color=color_mean,
-                linestyle=strokestyle_mean,
-                linewidth=strokewidth_mean
-        )
+        vlines = S.VLines(μ_x)
+        hlines = S.HLines(μ_y)
         return [vlines, hlines]
 end
 
@@ -357,18 +317,12 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; μ, err) = primitives
-        (; y_ebars, color_ebars, whiskerwidth, strokewidth_stats) = config
+        (; y_ebars) = config
 
         ebars = S.Errorbars(μ, [y_ebars], err;
-                color=color_ebars,
-                linewidth=strokewidth_stats,
-                whiskerwidth=whiskerwidth,
                 direction=:x
         )
-        points = S.Scatter(μ, [y_ebars];
-                color=color_ebars,
-                markersize=whiskerwidth
-        )
+        points = S.Scatter(μ, [y_ebars])
         return [ebars, points]
 end
 
@@ -412,25 +366,15 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; μ_x, μ_y, err_x, err_y) = primitives
-        (; color_ebars, strokewidth_stats, whiskerwidth) = config
 
         ebars_x = S.Errorbars(μ_x, μ_y, err_x,
-                color=color_ebars,
-                linewidth=strokewidth_stats,
-                whiskerwidth=whiskerwidth,
                 direction=:x
         )
         ebars_y = S.Errorbars(μ_x, μ_y, err_y,
-                color=color_ebars,
-                linewidth=strokewidth_stats,
-                whiskerwidth=whiskerwidth,
                 direction=:y
         )
 
-        point = S.Scatter(μ_x, μ_y;
-                color=color_ebars,
-                markersize=whiskerwidth
-        )
+        point = S.Scatter(μ_x, μ_y)
 
         return [ebars_x, ebars_y, point]
 end

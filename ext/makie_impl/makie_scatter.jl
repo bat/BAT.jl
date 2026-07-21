@@ -31,7 +31,7 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; x, y, weights) = primitives
-        (; color, alpha, markersize) = config
+        (; markersize) = config
 
         real_markersize = if isempty(weights) || (all(x -> x ≈ weights[1], weights)) || (mean(weights) <= 0)
                 markersize
@@ -40,8 +40,6 @@ function compose_plotspecs(
         end
 
         scatter = S.Scatter(x, y;
-                color=color,
-                alpha=alpha,
                 markersize=real_markersize
         )
 

@@ -32,30 +32,14 @@ function compose_plotspecs(
     config::NamedTuple
 )
     (; centers, weights, widths) = primitives
-    (; color, alpha, filled, strokecolor, strokewidth, edge) = config
 
     if isempty(weights)
         return PlotSpec[]
     end
 
-    bars = S.BarPlot(
-        centers,
-        weights;
-        color=color,
-        alpha=alpha,
-        gap=0.0,
-        # width=widths,
-        visible=filled
-    )
+    bars = S.BarPlot(centers, weights)
+    stairs = S.Stairs(widths, vcat(weights, weights[end]))
 
-    stairs = S.Stairs(
-        widths,
-        vcat(weights, weights[end]);
-        step=:post,
-        color=strokecolor,
-        linewidth=strokewidth,
-        visible=edge
-    )
     return [bars, stairs]
 end
 
@@ -126,7 +110,7 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
-    (; normalization, levels, colormap, alpha, rev, nbins, closed, edge, strokewidth) = config
+    (; normalization, levels, colormap, alpha, rev, nbins, closed) = config
     hist = _marginal_view_dist(marg_coords, weights, config.filter, nbins, closed, normalization)
 
     valid_intervals = sort(filter(x -> 0 < x < 1, levels))
@@ -164,7 +148,6 @@ function compose_plotspecs(
     config::NamedTuple
 )
     (; xy_data, widths, stairs_data, bin_colors) = primitives
-    (; edge, strokecolor, strokewidth) = config
 
     if isempty(widths)
         return PlotSpec[]
@@ -173,18 +156,10 @@ function compose_plotspecs(
     bars = S.BarPlot(xy_data;
         color=bin_colors,
         width=widths,
-        gap=0.0,
-        visible=true
     )
 
-    final_strokewidth = edge ? strokewidth : 0.0
+    stairs = S.Stairs(stairs_data)
 
-    stairs = S.Stairs(stairs_data;
-        step=:post,
-        color=strokecolor,
-        linewidth=final_strokewidth,
-        visible=edge
-    )
     return [bars, stairs]
 end
 
@@ -285,7 +260,7 @@ function compose_plotspecs(
     config::NamedTuple
 )
     (; x, y, weights, thresh) = primitives
-    (; colormap, rev, nbins, alpha) = config
+    (; colormap, rev, nbins) = config
     if isempty(weights)
         return PlotSpec[]
     end
@@ -295,7 +270,6 @@ function compose_plotspecs(
         weights=weights,
         bins=nbins,
         colormap=final_cmap,
-        alpha=alpha,
         threshold=thresh
     )
 
