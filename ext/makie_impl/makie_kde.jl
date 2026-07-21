@@ -1,5 +1,14 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+# Dead-cell results are always identical and read-only (isempty-checked, then
+# discarded), so these are shared const sentinels instead of fresh allocations
+# on every recompute (which happens on every new sample batch for every
+# non-selected recipe).
+const _EMPTY_KDE1D_PRIMITIVES = (x=Vector{Float64}(), density=Vector{Float64}(), poly_points=Vector{Point{2,Float32}}())
+const _EMPTY_KDE2D_PRIMITIVES = (x=Vector{Float64}(), y=Vector{Float64}(), density=Matrix{Float64}(undef, 0, 0))
+const _EMPTY_QUANTILEKDE1D_PRIMITIVES = (polys=Vector{Vector{Point{2,Float32}}}(), fill_colors=Vector{RGBA}(), full_line=Vector{Point{2,Float32}}())
+const _EMPTY_QUANTILEKDE2D_PRIMITIVES = (x=Vector{Float64}(), y=Vector{Float64}(), density=Matrix{Float64}(undef, 0, 0), final_levels=Vector{Float64}(), colors=Vector{RGBA{Float64}}())
+
 function compute_plotting_primitives(
         ::SubArray,
         ::SubArray,
@@ -8,11 +17,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return (
-                x=Vector{Float64}(),
-                density=Vector{Float64}(),
-                poly_points=Vector{Point{2,Float32}}()
-        )
+        return _EMPTY_KDE1D_PRIMITIVES
 end
 
 function compute_plotting_primitives(
@@ -58,11 +63,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return (
-                x=Vector{Float64}(),
-                y=Vector{Float64}(),
-                density=Matrix{Float64}(undef, 0, 0)
-        )
+        return _EMPTY_KDE2D_PRIMITIVES
 end
 
 function compute_plotting_primitives(
@@ -110,11 +111,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return (
-                polys=Vector{Vector{Point{2,Float32}}}(),
-                fill_colors=Vector{RGBA}(),
-                full_line=Vector{Point{2,Float32}}()
-        )
+        return _EMPTY_QUANTILEKDE1D_PRIMITIVES
 end
 
 function compute_plotting_primitives(
@@ -202,13 +199,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return (
-                x=Vector{Float64}(),
-                y=Vector{Float64}(),
-                density=Matrix{Float64}(undef, 0, 0),
-                final_levels=Vector{Float64}(),
-                colors=Vector{RGBA{Float64}}()
-        )
+        return _EMPTY_QUANTILEKDE2D_PRIMITIVES
 end
 
 function compute_plotting_primitives(

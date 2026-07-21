@@ -494,7 +494,10 @@ function BAT.init_visualizer!(
                 lock(buffer_lock)
                 update_graph = n_buffer_samples[] >= n_batch
                 if update_graph
-                    extracted_output_buffer = deepcopy(output_buffer)
+                    # Shallow copy: output_buffer's slots get replaced (not mutated)
+                    # below, so the extracted inner vectors are never touched again --
+                    # no need to deep-copy the actual sample data out of them.
+                    extracted_output_buffer = copy(output_buffer)
                     output_buffer .= _empty_chain_outputs.(mcmc_states)
                     n_buffer_samples[] = 0
                 end
