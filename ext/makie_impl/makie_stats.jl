@@ -74,7 +74,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return
+        return (ellipse_points=Vector{Point2f}(), axes_segments=Vector{Point2f}())
 end
 
 function compute_plotting_primitives(
@@ -121,6 +121,10 @@ function compose_plotspecs(
 )
         (; ellipse_points, axes_segments) = primitives
 
+        if isempty(ellipse_points)
+                return PlotSpec[]
+        end
+
         lines = S.Lines(ellipse_points)
         line_segments = S.LineSegments(axes_segments)
 
@@ -136,7 +140,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return
+        return (positions=Vector{Float64}(),)
 end
 
 function compute_plotting_primitives(
@@ -160,6 +164,11 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; positions) = primitives
+
+        if isempty(positions)
+                return PlotSpec[]
+        end
+
         lines = S.VLines(positions)
         return [lines]
 end
@@ -173,7 +182,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return
+        return (x_lines=Vector{Float64}(), y_lines=Vector{Float64}())
 end
 
 function compute_plotting_primitives(
@@ -208,6 +217,10 @@ function compose_plotspecs(
 )
         (; x_lines, y_lines) = primitives
 
+        if isempty(x_lines)
+                return PlotSpec[]
+        end
+
         vlines = S.VLines(x_lines)
         hlines = S.HLines(y_lines)
         return [vlines, hlines]
@@ -223,7 +236,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return
+        return (x=Vector{Float64}(),)
 end
 
 function compute_plotting_primitives(
@@ -244,6 +257,11 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; x) = primitives
+
+        if isempty(x)
+                return PlotSpec[]
+        end
+
         lines = S.VLines(x)
         return [lines]
 end
@@ -257,7 +275,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return
+        return (μ_x=Vector{Float64}(), μ_y=Vector{Float64}())
 end
 
 function compute_plotting_primitives(
@@ -281,6 +299,11 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; μ_x, μ_y) = primitives
+
+        if isempty(μ_x)
+                return PlotSpec[]
+        end
+
         vlines = S.VLines(μ_x)
         hlines = S.HLines(μ_y)
         return [vlines, hlines]
@@ -295,7 +318,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return
+        return (μ=Vector{Float64}(), err=Vector{Float64}())
 end
 
 function compute_plotting_primitives(
@@ -320,6 +343,11 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; μ, err) = primitives
+
+        if isempty(μ)
+                return PlotSpec[]
+        end
+
         (; y_ebars) = config
 
         ebars = S.Errorbars(μ, [y_ebars], err;
@@ -334,12 +362,12 @@ end
 function compute_plotting_primitives(
         ::SubArray,
         ::SubArray,
+        ::Errorbars2D,
         ::RS,
         ::CS,
-        ::Errorbars2D,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return
+        return (μ_x=Vector{Float64}(), μ_y=Vector{Float64}(), err_x=Vector{Float64}(), err_y=Vector{Float64}())
 end
 
 function compute_plotting_primitives(
@@ -369,6 +397,10 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; μ_x, μ_y, err_x, err_y) = primitives
+
+        if isempty(μ_x)
+                return PlotSpec[]
+        end
 
         ebars_x = S.Errorbars(μ_x, μ_y, err_x,
                 direction=:x

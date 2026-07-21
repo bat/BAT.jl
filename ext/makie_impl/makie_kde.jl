@@ -9,7 +9,7 @@ function compute_plotting_primitives(
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
         return (
-                x=StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwicePrecision{Float64},Int64}(),
+                x=Vector{Float64}(),
                 density=Vector{Float64}(),
                 poly_points=Vector{Point{2,Float32}}()
         )
@@ -39,6 +39,11 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; x, density, poly_points) = primitives
+
+        if isempty(x)
+                return PlotSpec[]
+        end
+
         polys = S.Poly(poly_points)
         lines = S.Lines(x, density)
         return [polys, lines]
@@ -54,9 +59,9 @@ function compute_plotting_primitives(
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
         return (
-                x=StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwicePrecision{Float64},Int64}(),
-                y=StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwicePrecision{Float64},Int64}(),
-                density=Matrix{Float64}
+                x=Vector{Float64}(),
+                y=Vector{Float64}(),
+                density=Matrix{Float64}(undef, 0, 0)
         )
 end
 
@@ -83,6 +88,11 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; x, y, density) = primitives
+
+        if isempty(x)
+                return PlotSpec[]
+        end
+
         (; rev, colormap) = config
         cmap_final = rev ? Reverse(colormap) : colormap
         heat = S.Heatmap(x, y, density;
@@ -95,9 +105,9 @@ end
 function compute_plotting_primitives(
         ::SubArray,
         ::SubArray,
+        ::QuantileKDE1D,
         ::RS,
         ::CS,
-        ::QuantileKDE1D,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
         return (
@@ -172,6 +182,10 @@ function compose_plotspecs(
 )
         (; polys, fill_colors, full_line) = primitives
 
+        if isempty(full_line)
+                return PlotSpec[]
+        end
+
         polyspec = S.Poly(polys; color=fill_colors)
         lines = S.Lines(full_line)
 
@@ -189,9 +203,11 @@ function compute_plotting_primitives(
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
         return (
-                x=StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwicePrecision{Float64},Int64}(),
-                y=StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwicePrecision{Float64},Int64}(),
-                density=Matrix{Float64}
+                x=Vector{Float64}(),
+                y=Vector{Float64}(),
+                density=Matrix{Float64}(undef, 0, 0),
+                final_levels=Vector{Float64}(),
+                colors=Vector{RGBA{Float64}}()
         )
 end
 
@@ -239,6 +255,10 @@ function compose_plotspecs(
         config::NamedTuple
 )
         (; x, y, density, final_levels, colors) = primitives
+
+        if isempty(x)
+                return PlotSpec[]
+        end
 
         contour = S.Contourf(x, y, density;
                 levels=final_levels,
