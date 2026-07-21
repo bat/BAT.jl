@@ -16,22 +16,10 @@ function Makie.convert_arguments(
                 levels=cdf.(Chi(2), 0:3),
                 filter=false,
                 colormap=:inferno,
-                color=RGB(0.898, 0.361, 0.188),
-                color_stats=:dodgerblue,
                 alpha=1.0,
                 rev=false,
                 threshold=nothing,
-                markersize=2.0,
-                edge=false,
-                strokecolor=RGB(0.741, 0.518, 0.02),
-                strokewidth=1.0,
-                strokestyle_stats=:solid,
-                strokewidth_stats=2.0,
-                color_mean=:white,
-                strokestyle_mean=:dot,
-                strokewidth_mean=2.0,
-                color_ebars=:blue,
-                whiskerwidth=10
+                markersize=2.0
         )
 
         diagonal_config = (
@@ -42,21 +30,9 @@ function Makie.convert_arguments(
                 normalization=:pdf,
                 levels=cdf.(Chi(1), 0:3),
                 filter=false,
-                color=RGB(0.898, 0.361, 0.188),
-                color_stats=:dodgerblue,
                 colormap=:inferno,
                 alpha=1.0,
-                filled=true,
-                edge=false,
-                strokecolor=:orange,
-                strokewidth=1.0,
-                strokestyle_stats=:solid,
-                strokewidth_stats=2.0,
-                strokestyle_mean=:dot,
-                strokewidth_mean=2.0,
                 y_ebars=0.0,
-                color_ebars=:blue,
-                whiskerwidth=10,
                 filled_pdf=true,
                 npoints_pdf=300,
                 rev=false
@@ -102,22 +78,10 @@ function BAT.bat_makie_plot(
                 levels=cdf.(Chi(2), 0:3),
                 filter=false,
                 colormap=:inferno,
-                color=RGB(0.898, 0.361, 0.188),
-                color_stats=:dodgerblue,
                 alpha=1.0,
                 rev=false,
                 threshold=nothing,
-                markersize=2.0,
-                edge=false,
-                strokecolor=RGB(0.741, 0.518, 0.02),
-                strokewidth=1.0,
-                strokestyle_stats=:solid,
-                strokewidth_stats=2.0,
-                color_mean=:white,
-                strokestyle_mean=:dot,
-                strokewidth_mean=2.0,
-                color_ebars=:blue,
-                whiskerwidth=10
+                markersize=2.0
         )
 
         diagonal_config = (
@@ -128,21 +92,9 @@ function BAT.bat_makie_plot(
                 normalization=:pdf,
                 levels=cdf.(Chi(1), 0:3),
                 filter=false,
-                color=RGB(0.898, 0.361, 0.188),
-                color_stats=:dodgerblue,
                 colormap=:inferno,
                 alpha=1.0,
-                filled=true,
-                edge=false,
-                strokecolor=:orange,
-                strokewidth=1.0,
-                strokestyle_stats=:solid,
-                strokewidth_stats=2.0,
-                strokestyle_mean=:dot,
-                strokewidth_mean=2.0,
                 y_ebars=0.0,
-                color_ebars=:blue,
-                whiskerwidth=10,
                 filled_pdf=true,
                 npoints_pdf=300,
                 rev=false
@@ -202,7 +154,56 @@ function BAT.bat_theme()
                         ticklabelpad=5,
                 ),
                 Heatmap=Theme(
-                        colormap=:inferno
+                        colormap=:inferno,
+                        alpha=1.0
+                ),
+                BarPlot=Theme(
+                        color=RGB(0.898, 0.361, 0.188),
+                        alpha=1.0,
+                        gap=0.0
+                ),
+                Stairs=Theme(
+                        step=:post,
+                        color=:darkblue,
+                        linewidth=1.0,
+                        visible=true
+                ),
+                Lines=Theme(
+                        color=RGB(0.741, 0.518, 0.02),
+                        linewidth=1.0,
+                        visible=true
+                ),
+                Poly=Theme(
+                        color=RGB(0.898, 0.361, 0.188),
+                        alpha=1.0,
+                        visible=true
+                ),
+                Scatter=Theme(
+                        color=RGB(0.898, 0.361, 0.188),
+                        alpha=1.0
+                ),
+                VLines=Theme(
+                        color=:dodgerblue,
+                        linestyle=:solid,
+                        linewidth=2.0
+                ),
+                HLines=Theme(
+                        color=:dodgerblue,
+                        linestyle=:solid,
+                        linewidth=2.0
+                ),
+                LineSegments=Theme(
+                        color=:dodgerblue,
+                        linestyle=:solid,
+                        linewidth=2.0
+                ),
+                Errorbars=Theme(
+                        color=:blue,
+                        linewidth=2.0,
+                        whiskerwidth=10
+                ),
+                Hexbin=Theme(
+                        alpha=1.0
                 )
         )
 end
@@ -276,7 +277,56 @@ function BAT.bat_theme_dark()
                         framecolor_inactive=color_inactive
                 ),
                 Heatmap=Theme(
-                        colormap=:inferno
+                        colormap=:inferno,
+                        alpha=1.0
+                ),
+                BarPlot=Theme(
+                        color=RGB(0.898, 0.361, 0.188),
+                        alpha=1.0,
+                        gap=0.0
+                ),
+                Stairs=Theme(
+                        step=:post,
+                        color=:darkblue,
+                        linewidth=1.0,
+                        visible=true
+                ),
+                Lines=Theme(
+                        color=RGB(0.741, 0.518, 0.02),
+                        linewidth=1.0,
+                        visible=true
+                ),
+                Poly=Theme(
+                        color=RGB(0.898, 0.361, 0.188),
+                        alpha=1.0,
+                        visible=true
+                ),
+                Scatter=Theme(
+                        color=RGB(0.898, 0.361, 0.188),
+                        alpha=1.0
+                ),
+                VLines=Theme(
+                        color=:dodgerblue,
+                        linestyle=:solid,
+                        linewidth=2.0
+                ),
+                HLines=Theme(
+                        color=:dodgerblue,
+                        linestyle=:solid,
+                        linewidth=2.0
+                ),
+                LineSegments=Theme(
+                        color=:dodgerblue,
+                        linestyle=:solid,
+                        linewidth=2.0
+                ),
+                Errorbars=Theme(
+                        color=:blue,
+                        linewidth=2.0,
+                        whiskerwidth=10
+                ),
+                Hexbin=Theme(
+                        alpha=1.0
                 )
         )
 end
