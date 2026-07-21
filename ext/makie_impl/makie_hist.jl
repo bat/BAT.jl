@@ -97,18 +97,12 @@ function compose_plotspecs(
     config::NamedTuple
 )
     (; centers_x, centers_y, weights) = primitives
-    (; colormap, alpha, rev) = config
 
     if isempty(weights)
         return PlotSpec[]
     end
 
-    final_cmap = rev ? Reverse(colormap) : colormap
-
-    heat = S.Heatmap(
-        centers_x, centers_y, weights;
-        alpha=alpha,
-    )
+    heat = S.Heatmap(centers_x, centers_y, weights)
     return [heat]
 end
 

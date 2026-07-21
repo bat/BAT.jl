@@ -166,14 +166,48 @@ function BAT.bat_makie_plot(
 
         update!(graph, idxs=vsel)
 
-        gridlayout = _init_gridlayout(graph, N_max)
-        fig = _build_fig(graph, gridlayout)
-        display(fig)
-
+        with_theme(bat_theme()) do
+                gridlayout = _init_gridlayout(graph, N_max)
+                fig = _build_fig(graph, gridlayout)
+                display(fig)
+        end
         return nothing
 end
 
 function BAT.bat_theme()
+
+        return Theme(
+                fontsize=20,
+                fonts=Attributes(
+                        :bold => Makie.texfont(:bold),
+                        :bolditalic => Makie.texfont(:bolditalic),
+                        :italic => Makie.texfont(:italic),
+                        :regular => Makie.texfont(:regular),
+                ),
+                Axis=(
+                        xminorticksvisible=false,
+                        yminorticksvisible=false,
+                        xticksvisible=true,
+                        yticksvisible=true,
+                        xlabelpadding=3,
+                        ylabelpadding=3,
+                ),
+                Legend=(
+                        framevisible=false,
+                        padding=(0, 0, 0, 0),
+                ),
+                Colorbar=(
+                        ticksvisible=false,
+                        spinewidth=0,
+                        ticklabelpad=5,
+                ),
+                Heatmap=Theme(
+                        colormap=:inferno
+                )
+        )
+end
+
+function BAT.bat_theme_dark()
         # Nice dark purple:
         #color_inactive = RGBf(0.18, 0.039, 0.353)
 
