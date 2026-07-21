@@ -5,6 +5,7 @@ struct BATMakieVisualization <: BATVisBackend
         vsel::Vector{Integer}
         N_max::Integer
         n_batch::Integer
+        poll_interval::Real
         triagonal_config::NamedTuple
         diagonal_config::NamedTuple
 end
@@ -14,7 +15,8 @@ function BATMakieVisualization()
         recipes = (upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D)
         vsel = [1, 2, 3] # Default vsel; truncated in `init_visualizer!` if the posterior has fewer free parameters.
         N_max = 3 # Grid size; cells beyond the (possibly truncated) vsel are simply left dead/empty.
-        n_batch = 10
+        n_batch = 10 # Flush the buffered samples into the plot once this many have accumulated.
+        poll_interval = 0.1 # Seconds between checks of whether a new batch is ready to flush.
 
         triagonal_config = (
                 weights=nothing,
@@ -52,6 +54,7 @@ function BATMakieVisualization()
                 vsel,
                 N_max,
                 n_batch,
+                poll_interval,
                 triagonal_config,
                 diagonal_config,
         )

@@ -60,7 +60,8 @@ function BATVisualizer(vis::BATMakieVisualization)
         chain_ids=Vector{Integer}(),
         output_buffer=Vector{Vector{DensitySampleVector}}(),
         n_buffer_samples=Ref(0),
-        is_live=Threads.Atomic{Bool}(true)
+        is_live=Threads.Atomic{Bool}(true),
+        listener_task=Ref{Union{Task,Nothing}}(nothing)
     )
 
     return BATVisualizer(vis, content)
@@ -123,7 +124,8 @@ function _init_compute_graph(
             vsel_map = cached.vsel_map
         end
 
-        # TODO: Refine update logic to avoid redundant recomputations
+        # idxs only ever changes once per run (see init_visualizer!), so this only
+        # actually recomputes once; the O(n^2) loop itself is cheap since n<=N_max.
         for (i, v_1) in enumerate(idxs)
             for (j, v_2) in enumerate(idxs)
                 vsel_map[i, j] = (v_1, v_2)
@@ -137,8 +139,6 @@ function _init_compute_graph(
         [:idxs],
         [:live_map],
     ) do inputs, changed, cached
-        # TODO: Refine update logic together with the vsel_map.
-
         live_map = fill(false, n, n)
 
         idxs = inputs.idxs
@@ -472,26 +472,26 @@ function BAT.init_visualizer!(
         register_state_for_vis!(vis, state, _transform_walker_outputs(f_pretransform, outputs[i]))
     end
 
-    (; graph, chain_ids, buffer_lock, output_buffer, n_buffer_samples, is_live) = vis.content
+    (; graph, buffer_lock, output_buffer, n_buffer_samples, is_live, listener_task) = vis.content
+    (; n_batch, poll_interval) = vis.backend
 
-    errormonitor(
+    vsel_activated = false
+
+    listener_task[] = errormonitor(
         @async begin
             while is_live[]
-                # TODO: MD, Discuss update scheme
-                # TODO: MD, Figure out good sleep time
-                sleep(0.1)
+                sleep(poll_interval)
 
-                update_graph = n_buffer_samples[] >= 50
-
-                n_smpls_buff_1 = sum(length.(output_buffer[1]))
-                # println("Buffer slot 1 has $n_smpls_buff_1 samples")
-                #println("n_buffer_samples = $n_buffer_samples[]")
+                lock(buffer_lock)
+                update_graph = n_buffer_samples[] >= n_batch
                 if update_graph
-                    lock(buffer_lock)
                     extracted_output_buffer = deepcopy(output_buffer)
                     output_buffer .= _empty_chain_outputs.(mcmc_states)
                     n_buffer_samples[] = 0
+                end
+                unlock(buffer_lock)
 
+                if update_graph
                     fresh_batch_trafo = _transform_chain_outputs(f_pretransform, extracted_output_buffer)
 
                     samples = graph[:samples][]
@@ -499,20 +499,17 @@ function BAT.init_visualizer!(
 
                     update!(graph, samples=samples_new)
 
-                    batch_lengths = [length.(chain_batch) for chain_batch in fresh_batch_trafo]
-                    current_idxs = graph[:current_idxs][]
-                    current_idxs_new = [current_idxs[i] .+ batch_lengths[i] for i in eachindex(current_idxs)]
+                    # Derived from the actual merged length (not the raw batch length):
+                    # checked_push! inside _append_chain_outputs can collapse a sample at
+                    # the batch boundary into a weight increment instead of a new row.
+                    current_idxs_new = [length.(chain_samples) for chain_samples in samples_new]
                     update!(graph, current_idxs=current_idxs_new)
 
-                    #TODO: MD, figure out more graceful check. And discuss if it is even desired to activate the vis if no samples exist
-                    exist_samples_for_vis = any([any(.!isempty.(chain_output)) for chain_output in samples])
-                    if exist_samples_for_vis
+                    # vsel/idxs never change once set, so only activate once instead of every tick.
+                    if !vsel_activated && any(!isempty, Iterators.flatten(samples_new))
                         update!(graph, idxs=vsel)
-                    else
-                        update!(graph, idxs=Integer[])
+                        vsel_activated = true
                     end
-
-                    unlock(buffer_lock)
                 end
             end
         end
