@@ -9,6 +9,18 @@ struct BATMakieVisualization <: BATVisBackend
         dark::Bool
         triagonal_config::NamedTuple
         diagonal_config::NamedTuple
+
+        # N_max fixes the grid size for the life of the visualizer; vsel selects
+        # which N_max (or fewer) variables are shown and may later be changed at
+        # runtime (via a not-yet-implemented UI widget), but can never select more
+        # variables than there are grid slots for.
+        function BATMakieVisualization(recipes, vsel, N_max, n_batch, poll_interval, dark, triagonal_config, diagonal_config)
+                if length(vsel) > N_max
+                        @warn "BATMakieVisualization: vsel $vsel has more entries than N_max=$N_max; truncating to $(vsel[1:N_max])."
+                        vsel = vsel[1:N_max]
+                end
+                new(recipes, vsel, N_max, n_batch, poll_interval, dark, triagonal_config, diagonal_config)
+        end
 end
 export BATMakieVisualization
 

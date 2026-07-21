@@ -54,7 +54,7 @@ function Makie.convert_arguments(
         push!(current_idxs_graph, current_idxs)
         update!(graph, current_idxs=current_idxs_graph)
 
-        update!(graph, idxs=_clamp_vsel(vsel, samples))
+        update!(graph, idxs=_clamp_vsel(vsel, samples, N_max))
 
         gridlayout = _init_gridlayout(graph, N_max)
 
@@ -117,11 +117,19 @@ function BAT.bat_makie_plot(
         push!(current_idxs_graph, current_idxs)
         update!(graph, current_idxs=current_idxs_graph)
 
-        update!(graph, idxs=_clamp_vsel(vsel, samples))
+        n_dof = totalndof(varshape(samples))
+        update!(graph, idxs=_clamp_vsel(vsel, n_dof, N_max))
+
+        picker_info = (
+                N=n_dof,
+                N_max=N_max,
+                initial_vsel=vsel,
+                apply_vsel! = new_vsel -> _apply_vsel_to_graph!(graph, n_dof, N_max, new_vsel),
+        )
 
         with_theme(dark ? bat_theme_dark() : bat_theme()) do
                 gridlayout = _init_gridlayout(graph, N_max)
-                fig = _build_fig(graph, gridlayout)
+                fig = _build_fig(graph, gridlayout, picker_info)
                 display(fig)
         end
         return nothing

@@ -48,14 +48,18 @@ function compute_plotting_primitives end
 function compose_plotspecs end
 
 
-# Truncates a requested vsel to the actual number of free parameters, warning
-# if that changes anything -- avoids indexing a variable that doesn't exist.
-function _clamp_vsel(vsel::AbstractVector{<:Integer}, n_dof::Integer)
+# Truncates a requested vsel to the actual number of free parameters and to at
+# most N_max entries (the fixed grid size), warning if that changes anything --
+# avoids indexing a variable that doesn't exist, or a grid cell that doesn't.
+function _clamp_vsel(vsel::AbstractVector{<:Integer}, n_dof::Integer, N_max::Integer)
         vsel_clamped = filter(<=(n_dof), vsel)
+        if length(vsel_clamped) > N_max
+                vsel_clamped = vsel_clamped[1:N_max]
+        end
         if vsel_clamped != vsel
-                @warn "Requested vsel indices $vsel exceed the number of free parameters ($n_dof); truncating to $vsel_clamped."
+                @warn "Requested vsel indices $vsel are invalid (must reference one of $n_dof free parameters, at most N_max=$N_max at a time); using $vsel_clamped instead."
         end
         return vsel_clamped
 end
 
-_clamp_vsel(vsel::AbstractVector{<:Integer}, samples::DensitySampleVector) = _clamp_vsel(vsel, totalndof(varshape(samples)))
+_clamp_vsel(vsel::AbstractVector{<:Integer}, samples::DensitySampleVector, N_max::Integer) = _clamp_vsel(vsel, totalndof(varshape(samples)), N_max)
