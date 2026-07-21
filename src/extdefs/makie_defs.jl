@@ -12,8 +12,8 @@ export BATMakieVisualization
 
 function BATMakieVisualization()
         recipes = (upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D)
-        vsel = [1, 2, 3] # Figure out default values. Pass samples to determine number of parameters?
-        N_max = 3 # TODO: Can cause errors when the number of dimensions in the data is smaller than N_max. Figure out a way to make safe.
+        vsel = [1, 2, 3] # Default vsel; truncated in `init_visualizer!` if the posterior has fewer free parameters.
+        N_max = 3 # Grid size; cells beyond the (possibly truncated) vsel are simply left dead/empty.
         n_batch = 10
 
         triagonal_config = (

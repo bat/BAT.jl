@@ -8,7 +8,7 @@ const BAT_MAKIE_RECIPES_1D = [
     Std1D(),
     Mean1D(),
     Errorbars1D(),
-    #PDF1D()
+    PDF1D()
 ]
 
 const BAT_MAKIE_RECIPES_2D = [
@@ -46,7 +46,6 @@ function BATVisualizer(vis::BATMakieVisualization)
 
     # TODO: Think about whether or not the more expressive vsel symbol approach is desired, or integers are sufficient
     # idxs = vsel isa AbstractVector{<:Int64} ? vsel : reduce(vcat, asindex.(Ref(vs), vsel))
-    #idxs = filter(<=(totalndof(vs)), vsel)
 
     graph = _init_compute_graph(
         recipes,
@@ -173,9 +172,9 @@ function _init_compute_graph(
         marg_sym = marg_symbol((i, i))
 
         map!(
-            (smpls, vsel_map, current_idx) -> current_idx > 0 ? view(smpls.v.data, [vsel_map[i, i][1]], 1:current_idx) : view(ElasticMatrix{Float64,Vector{Float64}}(undef, 1, 0), [1], 1:0),
+            (smpls, vsel_map, current_idx, live_map) -> (current_idx > 0 && live_map[i, i]) ? view(smpls.v.data, [vsel_map[i, i][1]], 1:current_idx) : view(ElasticMatrix{Float64,Vector{Float64}}(undef, 1, 0), [1], 1:0),
             graph,
-            [:flat_samples, :vsel_map, :current_idx],
+            [:flat_samples, :vsel_map, :current_idx, :live_map],
             marg_sym
         )
 
@@ -206,9 +205,9 @@ function _init_compute_graph(
         for j in i+1:n
             marg_sym_2D = marg_symbol((j, i))
             map!(
-                (smpls, vsel_map, current_idx) -> current_idx > 0 ? view(smpls.v.data, [vsel_map[j, i]...], 1:current_idx) : view(ElasticMatrix{Float64,Vector{Float64}}(undef, 2, 0), [1, 2], 1:0),
+                (smpls, vsel_map, current_idx, live_map) -> (current_idx > 0 && live_map[j, i]) ? view(smpls.v.data, [vsel_map[j, i]...], 1:current_idx) : view(ElasticMatrix{Float64,Vector{Float64}}(undef, 2, 0), [1, 2], 1:0),
                 graph,
-                [:flat_samples, :vsel_map, :current_idx],
+                [:flat_samples, :vsel_map, :current_idx, :live_map],
                 marg_sym_2D
             )
 
@@ -342,6 +341,7 @@ function _build_fig(graph::ComputeGraph, gridlayout::Any)
         ("Hist", Hist1D),
         ("KDE", KDE1D),
         ("QuantileKDE", QuantileKDE1D),
+        ("PDF", PDF1D),
     ]
 
     default_upper = options2D[findfirst(x -> x[2] == graph[:upper_recipe][], options2D)][1]
@@ -462,9 +462,14 @@ function BAT.init_visualizer!(
 )
     warmup_makie_shaders()
 
+    n_dof = totalndof(varshape(mcmc_target(mcmc_states[1])))
+    vsel = filter(<=(n_dof), vis.backend.vsel)
+    if vsel != vis.backend.vsel
+        @warn "BATMakieVisualization: requested vsel indices $(vis.backend.vsel) exceed the number of free parameters ($n_dof); truncating to $vsel."
+    end
+
     for (i, state) in enumerate(mcmc_states)
-        #register_state_for_vis!(vis, state, _transform_walker_outputs(f_pretransform, outputs[i]))
-        register_state_for_vis!(vis, state, _unshape_walker_outputs(outputs[i]))
+        register_state_for_vis!(vis, state, _transform_walker_outputs(f_pretransform, outputs[i]))
     end
 
     (; graph, chain_ids, buffer_lock, output_buffer, n_buffer_samples, is_live) = vis.content
@@ -487,8 +492,7 @@ function BAT.init_visualizer!(
                     output_buffer .= _empty_chain_outputs.(mcmc_states)
                     n_buffer_samples[] = 0
 
-                    # fresh_batch_trafo = _transform_chain_outputs(f_pretransform, extracted_output_buffer)
-                    fresh_batch_trafo = _unshape_chain_outputs(extracted_output_buffer)
+                    fresh_batch_trafo = _transform_chain_outputs(f_pretransform, extracted_output_buffer)
 
                     samples = graph[:samples][]
                     samples_new = _append_chain_outputs(mcmc_states[1], samples, fresh_batch_trafo)
@@ -503,7 +507,7 @@ function BAT.init_visualizer!(
                     #TODO: MD, figure out more graceful check. And discuss if it is even desired to activate the vis if no samples exist
                     exist_samples_for_vis = any([any(.!isempty.(chain_output)) for chain_output in samples])
                     if exist_samples_for_vis
-                        update!(graph, idxs=vis.backend.vsel)
+                        update!(graph, idxs=vsel)
                     else
                         update!(graph, idxs=Integer[])
                     end
