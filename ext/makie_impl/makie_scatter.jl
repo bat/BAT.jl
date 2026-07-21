@@ -8,7 +8,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return (x=SubArray(), y=SubArray(), weights=SubArray())
+        return (x=Float64[], y=Float64[], weights=Float64[])
 end
 
 function compute_plotting_primitives(

@@ -99,7 +99,7 @@ function compute_plotting_primitives(
     ::CS,
     ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-    return (xy_data=Vector{Point{2,Float32}}(), widths=Vector{Float64}, stairs_data=Vector{Point{2,Float32}}(), bin_colors=Vector{RGBA{Float32}}())
+    return (xy_data=Vector{Point{2,Float32}}(), widths=Vector{Float64}(), stairs_data=Vector{Point{2,Float32}}(), bin_colors=Vector{RGBA{Float32}}())
 end
 
 function compute_plotting_primitives(
@@ -229,7 +229,7 @@ function compute_plotting_primitives(
     ::CS,
     ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-    return (x=SubArray(), y=SubArray(), weights=SubArray(), thresh=Float64())
+    return (x=Float64[], y=Float64[], weights=Float64[], thresh=0.0)
 end
 
 function compute_plotting_primitives(
