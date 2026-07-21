@@ -65,28 +65,8 @@ end
 
 
 
-#function init_visualizer(vis::BATVisualizer{BATMakieVisualization})
-#return nothing
-#end
-
-
-
-
-function BATMakieVisualizer end
-export BATMakieVisualizer
-
-function init_visualizer!! end
-export init_visualizer!!
-
-function update_visualizer!! end
-export update_visualizer!!
-
-
 function bat_makie_plot end
 export bat_makie_plot
-
-function bat_makie_plot! end
-export bat_makie_plot!
 
 
 abstract type BATMakieRecipe end
@@ -149,31 +129,6 @@ export Errorbars2D
 
 struct PDF1D <: BATMakieRecipe end
 export PDF1D
-
-
-function cov2d end
-export cov2d
-
-function std1d end
-export std1d
-
-function std2d end
-export std2d
-
-function mean1d end
-export mean1d
-
-function mean2d end
-export mean2d
-
-function errorbars1d end
-export errorbars1d
-
-function errorbars2d end
-export errorbars2d
-
-function pdf1d end
-export pdf1d
 
 
 function bat_theme end
