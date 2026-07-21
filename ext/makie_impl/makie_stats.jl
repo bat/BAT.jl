@@ -1,5 +1,18 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+# Dead-cell results are always identical and read-only (isempty-checked, then
+# discarded), so these are shared const sentinels instead of fresh allocations
+# on every recompute (which happens on every new sample batch for every
+# non-selected recipe).
+const _EMPTY_COV2D_PRIMITIVES = (ellipse_points=Vector{Point2f}(), axes_segments=Vector{Point2f}())
+const _EMPTY_STD1D_PRIMITIVES = (positions=Vector{Float64}(),)
+const _EMPTY_STD2D_PRIMITIVES = (x_lines=Vector{Float64}(), y_lines=Vector{Float64}())
+const _EMPTY_MEAN1D_PRIMITIVES = (x=Vector{Float64}(),)
+const _EMPTY_MEAN2D_PRIMITIVES = (μ_x=Vector{Float64}(), μ_y=Vector{Float64}())
+const _EMPTY_ERRORBARS1D_PRIMITIVES = (μ=Vector{Float64}(), err=Vector{Float64}())
+const _EMPTY_ERRORBARS2D_PRIMITIVES = (μ_x=Vector{Float64}(), μ_y=Vector{Float64}(), err_x=Vector{Float64}(), err_y=Vector{Float64}())
+const _EMPTY_PDF1D_PRIMITIVES = (poly_points=Vector{Point2f}(), x=Float64[], y=Float64[])
+
 function determine_recipe_status(subject::Mean1D, live_recipe::R1) where {R1<:BATMakieRecipe}
         return LiveRecipe()
 end
@@ -74,7 +87,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return (ellipse_points=Vector{Point2f}(), axes_segments=Vector{Point2f}())
+        return _EMPTY_COV2D_PRIMITIVES
 end
 
 function compute_plotting_primitives(
@@ -140,7 +153,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return (positions=Vector{Float64}(),)
+        return _EMPTY_STD1D_PRIMITIVES
 end
 
 function compute_plotting_primitives(
@@ -182,7 +195,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return (x_lines=Vector{Float64}(), y_lines=Vector{Float64}())
+        return _EMPTY_STD2D_PRIMITIVES
 end
 
 function compute_plotting_primitives(
@@ -236,7 +249,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return (x=Vector{Float64}(),)
+        return _EMPTY_MEAN1D_PRIMITIVES
 end
 
 function compute_plotting_primitives(
@@ -275,7 +288,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return (μ_x=Vector{Float64}(), μ_y=Vector{Float64}())
+        return _EMPTY_MEAN2D_PRIMITIVES
 end
 
 function compute_plotting_primitives(
@@ -318,7 +331,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return (μ=Vector{Float64}(), err=Vector{Float64}())
+        return _EMPTY_ERRORBARS1D_PRIMITIVES
 end
 
 function compute_plotting_primitives(
@@ -367,7 +380,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return (μ_x=Vector{Float64}(), μ_y=Vector{Float64}(), err_x=Vector{Float64}(), err_y=Vector{Float64}())
+        return _EMPTY_ERRORBARS2D_PRIMITIVES
 end
 
 function compute_plotting_primitives(
@@ -423,7 +436,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return (poly_points=Vector{Point2f}(), x=Float64[], y=Float64[])
+        return _EMPTY_PDF1D_PRIMITIVES
 end
 
 # Overlays the Normal distribution fit (by weighted mean/std) to the 1D marginal.

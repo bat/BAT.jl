@@ -1,5 +1,15 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+# Dead-cell results are always identical and read-only (isempty-checked, then
+# discarded), so these are shared const sentinels instead of fresh allocations
+# on every recompute (which happens on every new sample batch for every
+# non-selected recipe).
+const _EMPTY_HIST1D_PRIMITIVES = (centers=Vector{Float64}(), weights=Vector{Float64}(), widths=Vector{Float64}())
+const _EMPTY_HIST2D_PRIMITIVES = (centers_x=Vector{Float64}(), centers_y=Vector{Float64}(), weights=Matrix{Float64}(undef, 0, 0))
+const _EMPTY_QUANTILEHIST1D_PRIMITIVES = (xy_data=Vector{Point{2,Float32}}(), widths=Vector{Float64}(), stairs_data=Vector{Point{2,Float32}}(), bin_colors=Vector{RGBA{Float32}}())
+const _EMPTY_QUANTILEHIST2D_PRIMITIVES = (centers_x=Vector{Float64}(), centers_y=Vector{Float64}(), color_grid=Matrix{RGBA{Float32}}(undef, 0, 0))
+const _EMPTY_HEXBIN2D_PRIMITIVES = (x=Float64[], y=Float64[], weights=Float64[], thresh=0.0)
+
 function compute_plotting_primitives(
     ::SubArray,
     ::SubArray,
@@ -8,7 +18,7 @@ function compute_plotting_primitives(
     ::CS,
     ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-    return (centers=Vector{Float64}(), weights=Vector{Float64}(), widths=Vector{Float64}())
+    return _EMPTY_HIST1D_PRIMITIVES
 end
 
 function compute_plotting_primitives(
@@ -51,7 +61,7 @@ function compute_plotting_primitives(
     ::CS,
     ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-    return (centers_x=Vector{Float64}(), centers_y=Vector{Float64}(), weights=Matrix{Float64}(undef, 0, 0))
+    return _EMPTY_HIST2D_PRIMITIVES
 end
 
 function compute_plotting_primitives(
@@ -99,7 +109,7 @@ function compute_plotting_primitives(
     ::CS,
     ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-    return (xy_data=Vector{Point{2,Float32}}(), widths=Vector{Float64}(), stairs_data=Vector{Point{2,Float32}}(), bin_colors=Vector{RGBA{Float32}}())
+    return _EMPTY_QUANTILEHIST1D_PRIMITIVES
 end
 
 function compute_plotting_primitives(
@@ -172,7 +182,7 @@ function compute_plotting_primitives(
     ::CS,
     ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-    return (centers_x=Vector{Float64}(), centers_y=Vector{Float64}(), color_grid=Matrix{RGBA{Float32}}(undef, 0, 0))
+    return _EMPTY_QUANTILEHIST2D_PRIMITIVES
 end
 
 function compute_plotting_primitives(
@@ -229,7 +239,7 @@ function compute_plotting_primitives(
     ::CS,
     ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-    return (x=Float64[], y=Float64[], weights=Float64[], thresh=0.0)
+    return _EMPTY_HEXBIN2D_PRIMITIVES
 end
 
 function compute_plotting_primitives(

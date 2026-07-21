@@ -1,5 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+const _EMPTY_SCATTER2D_PRIMITIVES = (x=Float64[], y=Float64[], weights=Float64[])
+
 function compute_plotting_primitives(
         ::SubArray,
         ::SubArray,
@@ -8,7 +10,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return (x=Float64[], y=Float64[], weights=Float64[])
+        return _EMPTY_SCATTER2D_PRIMITIVES
 end
 
 function compute_plotting_primitives(
