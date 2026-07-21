@@ -6,12 +6,13 @@ struct BATMakieVisualization <: BATVisBackend
         N_max::Integer
         n_batch::Integer
         poll_interval::Real
+        dark::Bool
         triagonal_config::NamedTuple
         diagonal_config::NamedTuple
 end
 export BATMakieVisualization
 
-function BATMakieVisualization()
+function BATMakieVisualization(; dark::Bool=false)
         recipes = (upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D)
         vsel = [1, 2, 3] # Default vsel; truncated in `init_visualizer!` if the posterior has fewer free parameters.
         N_max = 3 # Grid size; cells beyond the (possibly truncated) vsel are simply left dead/empty.
@@ -55,6 +56,7 @@ function BATMakieVisualization()
                 N_max,
                 n_batch,
                 poll_interval,
+                dark,
                 triagonal_config,
                 diagonal_config,
         )

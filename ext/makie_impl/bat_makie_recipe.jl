@@ -46,3 +46,16 @@ end
 function compute_plotting_primitives end
 
 function compose_plotspecs end
+
+
+# Truncates a requested vsel to the actual number of free parameters, warning
+# if that changes anything -- avoids indexing a variable that doesn't exist.
+function _clamp_vsel(vsel::AbstractVector{<:Integer}, n_dof::Integer)
+        vsel_clamped = filter(<=(n_dof), vsel)
+        if vsel_clamped != vsel
+                @warn "Requested vsel indices $vsel exceed the number of free parameters ($n_dof); truncating to $vsel_clamped."
+        end
+        return vsel_clamped
+end
+
+_clamp_vsel(vsel::AbstractVector{<:Integer}, samples::DensitySampleVector) = _clamp_vsel(vsel, totalndof(varshape(samples)))

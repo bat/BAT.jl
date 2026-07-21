@@ -54,7 +54,7 @@ function Makie.convert_arguments(
         push!(current_idxs_graph, current_idxs)
         update!(graph, current_idxs=current_idxs_graph)
 
-        update!(graph, idxs=vsel)
+        update!(graph, idxs=_clamp_vsel(vsel, samples))
 
         gridlayout = _init_gridlayout(graph, N_max)
 
@@ -66,7 +66,8 @@ function BAT.bat_makie_plot(
         samples::DensitySampleVector,
         recipes::NamedTuple=(upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D),
         vsel::Vector{<:Integer}=[1, 2, 3],
-        N_max::Integer=3,
+        N_max::Integer=3;
+        dark::Bool=false,
 )
         # TODO: MD, Discuss config handling and passing of user attribute overwrites
         triagonal_config = (
@@ -116,9 +117,9 @@ function BAT.bat_makie_plot(
         push!(current_idxs_graph, current_idxs)
         update!(graph, current_idxs=current_idxs_graph)
 
-        update!(graph, idxs=vsel)
+        update!(graph, idxs=_clamp_vsel(vsel, samples))
 
-        with_theme(bat_theme()) do
+        with_theme(dark ? bat_theme_dark() : bat_theme()) do
                 gridlayout = _init_gridlayout(graph, N_max)
                 fig = _build_fig(graph, gridlayout)
                 display(fig)

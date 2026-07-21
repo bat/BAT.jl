@@ -105,7 +105,9 @@ function _init_compute_graph(
         :current_idx
     )
     map!(
-        (smpls, idx) -> idx > 0 ? view(smpls.weight, 1:idx) : view(Int64[0], 1:1), # TODO: MD, think of something smarter to determine the weight type. Ad hoc fix to fixed Int64
+        # Empty view of the real weight type/eltype instead of a hardcoded Int64
+        # placeholder, matching the empty marg_coords convention used elsewhere.
+        (smpls, idx) -> view(smpls.weight, 1:idx),
         graph,
         [:flat_samples, :current_idx],
         :flat_weights
@@ -270,7 +272,18 @@ function _init_gridlayout(
             )
 
             for j in i+1:n
-                # TODO: Figure out a way to flip the upper plots along the diagonal
+                # NOTE: upper/lower cells at mirrored grid positions reuse the same
+                # computed primitive (row1=larger-index var, row2=smaller-index var),
+                # to avoid computing each variable pair twice. Upper cells' axis
+                # limits (below) follow that layout, but the lower-triangle cells
+                # (see the `for j in 1:i-1` loop) assign x/y limits the other way
+                # around, so a lower cell's x-axis doesn't align with its column's
+                # diagonal cell -- inconsistent with the standard corner-plot
+                # convention (every cell in column c shares column c's x-range).
+                # Fixing this properly needs a transpose flag threaded through
+                # every 2D recipe's compose_plotspecs (Hist2D, KDE2D, QuantileHist2D,
+                # QuantileKDE2D, Hexbin2D, Scatter2D, Cov2D, Std2D, Mean2D,
+                # Errorbars2D), not a local change here -- deferred as its own pass.
                 upper_primitives = graph[primitive_symbol(upper_recipe, (j, i))][]
                 upper_plotspecs = compose_plotspecs(upper_primitives, upper_recipe(), triagonal_config)
                 stats_specs_2D = stats_upper ? get_stats_plotspecs(graph, (j, i), Makie2DStats(), triagonal_config) : PlotSpec[]
@@ -396,12 +409,11 @@ function _build_fig(graph::ComputeGraph, gridlayout::Any)
     rowsize!(fig.layout, 2, Auto())
 
     if show_slider
+        # show_slider guarantees a single chain, but that chain may still have
+        # multiple walkers; pan all of them to the same position.
         on(slider_curr_idx.value) do curr_idx
-            if length(graph[:current_idxs][]) > 1
-                println("Figure out how to pan through mulit walker samples.")
-            else
-                update!(graph, current_idxs=[[curr_idx]])
-            end
+            n_walkers_here = length(graph[:current_idxs][][1])
+            update!(graph, current_idxs=[fill(curr_idx, n_walkers_here)])
         end
     end
 
@@ -463,10 +475,7 @@ function BAT.init_visualizer!(
     warmup_makie_shaders()
 
     n_dof = totalndof(varshape(mcmc_target(mcmc_states[1])))
-    vsel = filter(<=(n_dof), vis.backend.vsel)
-    if vsel != vis.backend.vsel
-        @warn "BATMakieVisualization: requested vsel indices $(vis.backend.vsel) exceed the number of free parameters ($n_dof); truncating to $vsel."
-    end
+    vsel = _clamp_vsel(vis.backend.vsel, n_dof)
 
     for (i, state) in enumerate(mcmc_states)
         register_state_for_vis!(vis, state, _transform_walker_outputs(f_pretransform, outputs[i]))
@@ -515,7 +524,7 @@ function BAT.init_visualizer!(
         end
     )
 
-    with_theme(bat_theme()) do
+    with_theme(vis.backend.dark ? bat_theme_dark() : bat_theme()) do
         gridlayout = _init_gridlayout(graph, vis.backend.N_max)
         fig = _build_fig(graph, gridlayout)
         display(fig)
@@ -549,8 +558,9 @@ function _marginal_view_dist(
     normalization::Symbol
 )
     if filter
-        # TODO: Figure out how to drop low weight samples from the view
-        # marg_samples = BAT.drop_low_weight_samples(marg_samples)
+        mask = _low_weight_mask(weights)
+        locations = view(locations, :, mask)
+        weights = view(weights, mask)
     end
 
     cols = Tuple(eachrow(locations))
@@ -565,6 +575,23 @@ function _marginal_view_dist(
     hist = fit(Histogram, cols, FrequencyWeights(weights), edges, closed=closed)
     h_norm = normalization == :none ? hist : StatsBase.normalize(hist, mode=normalization)
     return h_norm
+end
+
+# Mirrors BAT.drop_low_weight_samples, but returns a mask over a bare weight
+# vector instead of indexing a DensitySampleVector (locations/weights are
+# already split apart into separate views by the time they get here).
+function _low_weight_mask(weights::AbstractVector, fraction::Real=10^-5, threshold::Real=10^-2)
+    W = float(weights)
+    if minimum(W) / maximum(W) > threshold
+        return trues(length(W))
+    end
+    W_s = sort(W)
+    Q = cumsum(W_s)
+    Q ./= maximum(Q)
+    ind = searchsortedlast(Q, fraction)
+    ind == 0 && return trues(length(W))
+    thresh = W_s[ind]
+    return W .>= thresh
 end
 
 function _get_bin_centers(hist::Histogram)
