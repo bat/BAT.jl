@@ -198,3 +198,5 @@ export pdf1d
 function bat_theme end
 export bat_theme
 
+function bat_theme_dark end
+export bat_theme_dark
