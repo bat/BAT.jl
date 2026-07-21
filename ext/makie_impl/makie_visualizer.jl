@@ -61,7 +61,10 @@ function BATVisualizer(vis::BATMakieVisualization)
         output_buffer=Vector{Vector{DensitySampleVector}}(),
         n_buffer_samples=Ref(0),
         is_live=Threads.Atomic{Bool}(true),
-        listener_task=Ref{Union{Task,Nothing}}(nothing)
+        listener_task=Ref{Union{Task,Nothing}}(nothing),
+        # Set once in init_visualizer! (the model's dimensionality isn't known yet
+        # here); read by _apply_vsel! to (re-)validate any requested vsel change.
+        n_dof=Ref{Int}(0)
     )
 
     return BATVisualizer(vis, content)
@@ -120,18 +123,21 @@ function _init_compute_graph(
         [:vsel_map],
     ) do inputs, changed, cached
         idxs = inputs.idxs
-        if isnothing(cached)
-            vsel_map = [(i, j) for i in 1:n, j in 1:n]
-        else
-            vsel_map = cached.vsel_map
-        end
+        # idxs is meant to be user-changeable at runtime (via _apply_vsel!, which
+        # enforces this), so this is a full stateless recompute on every change --
+        # not a cache mutated in place -- rather than relying on any invariant
+        # about how idxs evolves. Cheap regardless: n<=N_max is small and idxs
+        # changes are rare (user-driven), not a per-sample-batch occurrence.
+        @assert length(idxs) <= n "idxs has $(length(idxs)) entries, exceeding the grid size N_max=$n"
 
-        # idxs only ever changes once per run (see init_visualizer!), so this only
-        # actually recomputes once; the O(n^2) loop itself is cheap since n<=N_max.
-        for (i, v_1) in enumerate(idxs)
-            for (j, v_2) in enumerate(idxs)
-                vsel_map[i, j] = (v_1, v_2)
-            end
+        n_active = length(idxs)
+        vsel_map = Matrix{Tuple{Int,Int}}(undef, n, n)
+        for i in 1:n, j in 1:n
+            # (0, 0) is an unreachable sentinel for cells beyond the current
+            # selection -- live_map already keeps these cells from being read,
+            # but this way a hypothetical future bypass fails loudly (index 0)
+            # instead of silently reusing a stale selection.
+            vsel_map[i, j] = (i <= n_active && j <= n_active) ? (idxs[i], idxs[j]) : (0, 0)
         end
 
         return (vsel_map,)
@@ -141,9 +147,11 @@ function _init_compute_graph(
         [:idxs],
         [:live_map],
     ) do inputs, changed, cached
+        idxs = inputs.idxs
+        @assert length(idxs) <= n "idxs has $(length(idxs)) entries, exceeding the grid size N_max=$n"
+
         live_map = fill(false, n, n)
 
-        idxs = inputs.idxs
         n_active = length(idxs)
         for i in 1:n_active
             for j in 1:n_active
@@ -174,7 +182,14 @@ function _init_compute_graph(
         marg_sym = marg_symbol((i, i))
 
         map!(
-            (smpls, vsel_map, current_idx, live_map) -> (current_idx > 0 && live_map[i, i]) ? view(smpls.v.data, [vsel_map[i, i][1]], 1:current_idx) : view(ElasticMatrix{Float64,Vector{Float64}}(undef, 1, 0), [1], 1:0),
+            # Dead-branch view is over smpls.v.data itself (empty index sets,
+            # so it's always safe regardless of current_idx/n_dof), not a
+            # hardcoded ElasticMatrix placeholder: bat_makie_plot's static path
+            # backs samples with a plain Matrix, and once vsel can change at
+            # runtime there (via the picker), a live view (Matrix-backed) and a
+            # dead view (previously hardcoded ElasticMatrix-backed) of the same
+            # node would be incompatible types, erroring on the transition.
+            (smpls, vsel_map, current_idx, live_map) -> (current_idx > 0 && live_map[i, i]) ? view(smpls.v.data, [vsel_map[i, i][1]], 1:current_idx) : view(smpls.v.data, Int[], 1:0),
             graph,
             [:flat_samples, :vsel_map, :current_idx, :live_map],
             marg_sym
@@ -207,7 +222,9 @@ function _init_compute_graph(
         for j in i+1:n
             marg_sym_2D = marg_symbol((j, i))
             map!(
-                (smpls, vsel_map, current_idx, live_map) -> (current_idx > 0 && live_map[j, i]) ? view(smpls.v.data, [vsel_map[j, i]...], 1:current_idx) : view(ElasticMatrix{Float64,Vector{Float64}}(undef, 2, 0), [1, 2], 1:0),
+                # See the 1D case above for why this is an empty view over the
+                # real smpls.v.data rather than a hardcoded ElasticMatrix.
+                (smpls, vsel_map, current_idx, live_map) -> (current_idx > 0 && live_map[j, i]) ? view(smpls.v.data, [vsel_map[j, i]...], 1:current_idx) : view(smpls.v.data, Int[], 1:0),
                 graph,
                 [:flat_samples, :vsel_map, :current_idx, :live_map],
                 marg_sym_2D
@@ -240,13 +257,16 @@ function _init_gridlayout(
 )
     gridlayout = lift(
         graph[:current_idx],
+        graph[:idxs], # re-render on vsel changes too, not just new sample batches --
+        # otherwise toggling the picker only appears to work during live
+        # sampling, as an accidental side effect of :current_idx also changing.
         graph[:upper_recipe],
         graph[:diagonal_recipe],
         graph[:lower_recipe],
         graph[:show_stats_upper],
         graph[:show_stats_diag],
         graph[:show_stats_lower]
-    ) do idx, upper_recipe, diagonal_recipe, lower_recipe, stats_upper, stats_diag, stats_lower
+    ) do idx, _idxs, upper_recipe, diagonal_recipe, lower_recipe, stats_upper, stats_diag, stats_lower
         matrix = Matrix{Any}(undef, n, n)
         triagonal_config = graph[:triagonal_config][]
         diagonal_config = graph[:diagonal_config][]
@@ -331,7 +351,11 @@ function _init_gridlayout(
 end
 
 
-function _build_fig(graph::ComputeGraph, gridlayout::Any)
+function _build_fig(
+    graph::ComputeGraph,
+    gridlayout::Any,
+    picker_info::Union{NamedTuple,Nothing}=nothing
+)
     fig = Figure()
 
     plot(fig[1, 1], gridlayout)
@@ -340,6 +364,13 @@ function _build_fig(graph::ComputeGraph, gridlayout::Any)
     rowsize!(fig.layout, 1, Relative(0.8))
 
     ui_layout = fig[2, 1] = GridLayout()
+    # A dedicated, fixed-height row for the "Adjust vsel" button -- not nested
+    # inside ui_layout (which shares row 2's space with more and more menus/
+    # toggles as it grows, squeezing everything in it) and not inside the
+    # picker's own collapsible column (or the button would vanish along with
+    # the panel it's meant to reveal).
+    button_row = fig[3, 1] = GridLayout()
+    rowsize!(fig.layout, 3, Fixed(40))
 
     options2D = [
         ("QuantileHist", QuantileHist2D),
@@ -378,7 +409,13 @@ function _build_fig(graph::ComputeGraph, gridlayout::Any)
     )
 
     curr_idxs = graph[:current_idxs][]
-    show_slider = !isempty(curr_idxs[1]) && length(curr_idxs) == 1
+    # curr_idxs[1] being non-empty only means the (single) chain has at least
+    # one walker -- it says nothing about whether any samples have actually
+    # been produced yet. Without also checking current_idx > 0, this builds a
+    # Slider with an empty 1:0 range (crashes) whenever _build_fig runs before
+    # any samples exist, which for the live path is always (it's called
+    # synchronously at figure construction, before the first async flush).
+    show_slider = length(curr_idxs) == 1 && !isempty(curr_idxs[1]) && graph[:current_idx][] > 0
     if show_slider
         slider_curr_idx = Slider(fig, range=1:graph[:current_idx][], startvalue=graph[:current_idx][])
     end
@@ -439,7 +476,147 @@ function _build_fig(graph::ComputeGraph, gridlayout::Any)
         update!(graph, show_stats_lower=is_live)
     end
 
+    if !isnothing(picker_info)
+        (; N, N_max, initial_vsel, apply_vsel!) = picker_info
+        _build_vsel_picker!(fig, button_row, graph, N, N_max, initial_vsel, apply_vsel!)
+    end
+
     return fig
+end
+
+# Pure decision logic, kept separate from the widget wiring below so it can be
+# tested directly without real mouse events (which CairoMakie can't produce).
+# Checking cell (i,j) adds both i and j to the active set (a diagonal cell
+# i==j just adds i); unchecking removes both. The active set -- not individual
+# checkbox states -- is the source of truth, so removal is explicit rather
+# than re-derived from sibling checkboxes that haven't been resynced yet
+# (which would make e.g. unchecking a diagonal while some other still-checked
+# pair references it snap the diagonal back on).
+function _vsel_after_toggle(active_vars::Set{Int}, i::Integer, j::Integer, is_on::Bool)
+    return is_on ? union(active_vars, (i, j)) : setdiff(active_vars, (i, j))
+end
+
+# Whether cell (i,j) should display as checked given the active set: both
+# endpoints must be selected (a diagonal cell i==j just needs i).
+_checkbox_should_be_checked(active_vars::Set{Int}, i::Integer, j::Integer) = (i in active_vars) && (j in active_vars)
+
+# Checkbox has no direct `visible` attribute (unlike Label/Box); it needs its
+# underlying blockscene hidden instead.
+_set_block_visible!(b::Checkbox, v::Bool) = (b.blockscene.visible[] = v)
+_set_block_visible!(b::Union{Label,Box}, v::Bool) = (b.visible[] = v)
+
+# Builds the "Adjust vsel" button (placed into button_row, its own dedicated
+# fixed-height row so it never gets squeezed by ui_layout's growing content,
+# and never collapses along with the panel it's meant to reveal) and its
+# collapsible N x N variable picker panel (N = total model dimensionality, not
+# N_max), placed in a column to the right of button_row/ui_layout, below the
+# corner plot itself. The lower triangle including the diagonal (i >= j) is
+# interactive -- cell (i,j) and (j,i) are the same 2D marginal, so only one
+# needs a checkbox; a diagonal cell (i,i) selects variable i on its own. Only
+# the strict upper triangle is decorative. Checking a cell on/off means
+# "include/exclude these variable(s) in vsel"; the actual N_max x N_max
+# corner-plot grid always shows every pairing among the currently selected
+# variables, so there's no independent per-pair visibility beyond which
+# variables are selected.
+#
+# Takes graph/N/N_max/initial_vsel/apply_vsel! directly rather than a
+# BATVisualizer so it also works for the static bat_makie_plot path, which has
+# no vis/content at all.
+function _build_vsel_picker!(
+    fig::Figure,
+    button_row::GridLayout,
+    graph::ComputeGraph,
+    N::Integer,
+    N_max::Integer,
+    initial_vsel::AbstractVector{<:Integer},
+    apply_vsel!::Function
+)
+    picker_layout = fig[2:3, 2] = GridLayout()
+    colsize!(fig.layout, 2, Fixed(0)) # starts collapsed
+
+    status_label = Label(fig, "", fontsize=12, color=:red)
+    button_row[1, 2] = status_label
+
+    initial_vsel_set = Set(initial_vsel)
+    checkboxes = Dict{Tuple{Int,Int},Checkbox}()
+    all_blocks = Union{Checkbox,Label,Box}[]
+    updating_programmatically = Ref(false)
+
+    for j in 1:N
+        lbl = Label(fig, string(j), fontsize=12)
+        picker_layout[1, j+1] = lbl
+        push!(all_blocks, lbl)
+    end
+    for i in 1:N
+        lbl = Label(fig, string(i), fontsize=12)
+        picker_layout[i+1, 1] = lbl
+        push!(all_blocks, lbl)
+        for j in 1:N
+            if i >= j
+                cb = Checkbox(
+                    picker_layout[i+1, j+1],
+                    checked=(i in initial_vsel_set && j in initial_vsel_set),
+                    roundness=0
+                )
+                checkboxes[(i, j)] = cb
+                push!(all_blocks, cb)
+            else
+                bx = Box(fig, color=:gray70, width=20, height=20)
+                picker_layout[i+1, j+1] = bx
+                push!(all_blocks, bx)
+            end
+        end
+    end
+
+    active_vars = Ref(initial_vsel_set)
+
+    for (i, j) in keys(checkboxes)
+        cb = checkboxes[(i, j)]
+        on(cb.checked) do is_on
+            updating_programmatically[] && return
+
+            new_vars = _vsel_after_toggle(active_vars[], i, j, is_on)
+
+            if is_on && length(new_vars) > N_max
+                updating_programmatically[] = true
+                cb.checked[] = false
+                updating_programmatically[] = false
+                status_label.text[] = "Can't select more than $(N_max) variables at once -- deselect one first."
+                return
+            end
+
+            status_label.text[] = ""
+            active_vars[] = new_vars
+            apply_vsel!(sort(collect(new_vars)))
+
+            # Resync every checkbox to the new active set -- e.g. checking
+            # (2,1) also checks (1,1) and (2,2) automatically, and checking
+            # both (1,1) and (2,2) also checks (2,1) automatically.
+            updating_programmatically[] = true
+            for ((i2, j2), cb2) in checkboxes
+                cb2.checked[] = _checkbox_should_be_checked(new_vars, i2, j2)
+            end
+            updating_programmatically[] = false
+        end
+    end
+
+    adjust_button = Button(fig, label="Adjust vsel")
+    button_row[1, 1] = adjust_button
+    picker_visible = Observable(false)
+    on(picker_visible) do is_visible
+        colsize!(fig.layout, 2, is_visible ? Auto() : Fixed(0))
+        for b in all_blocks
+            _set_block_visible!(b, is_visible)
+        end
+    end
+    for b in all_blocks
+        _set_block_visible!(b, false) # start collapsed AND hidden
+    end
+    on(adjust_button.clicks) do _
+        picker_visible[] = !picker_visible[]
+    end
+
+    return nothing
 end
 
 function register_state_for_vis!(
@@ -466,6 +643,32 @@ function register_state_for_vis!(
     push!(output_buffer, empty_chain_output)
 end
 
+# Core of the vsel choke point, with no dependency on a live BATVisualizer --
+# usable directly by the static bat_makie_plot path, which has no vis/content
+# (and no concurrent listener task to race, so no locking needed there).
+# Clamps the requested selection against both the model's dimensionality and
+# the grid size (N_max), and only touches the graph if the (clamped) selection
+# actually differs from what's already there.
+function _apply_vsel_to_graph!(graph::ComputeGraph, n_dof::Integer, N_max::Integer, requested_vsel::AbstractVector{<:Integer})
+    clamped = _clamp_vsel(requested_vsel, n_dof, N_max)
+    if clamped != graph[:idxs][]
+        update!(graph, idxs=clamped)
+    end
+    return clamped
+end
+
+# Live-path wrapper: this is what a variable-selection UI widget should call to
+# change vsel while the plot is live; it's also used below for the initial
+# activation once real samples exist. Guarded by buffer_lock so a future
+# widget running on a different task can't race the listener's own tick.
+function _apply_vsel!(vis::BATVisualizer{BATMakieVisualization}, requested_vsel::AbstractVector{<:Integer})
+    (; graph, buffer_lock, n_dof) = vis.content
+    lock(buffer_lock) do
+        _apply_vsel_to_graph!(graph, n_dof[], vis.backend.N_max, requested_vsel)
+    end
+    return nothing
+end
+
 function BAT.init_visualizer!(
     vis::BATVisualizer{BATMakieVisualization};
     mcmc_states::Vector{<:MCMCState},
@@ -474,8 +677,7 @@ function BAT.init_visualizer!(
 )
     warmup_makie_shaders()
 
-    n_dof = totalndof(varshape(mcmc_target(mcmc_states[1])))
-    vsel = _clamp_vsel(vis.backend.vsel, n_dof)
+    vis.content.n_dof[] = totalndof(varshape(mcmc_target(mcmc_states[1])))
 
     for (i, state) in enumerate(mcmc_states)
         register_state_for_vis!(vis, state, _transform_walker_outputs(f_pretransform, outputs[i]))
@@ -484,12 +686,15 @@ function BAT.init_visualizer!(
     (; graph, buffer_lock, output_buffer, n_buffer_samples, is_live, listener_task) = vis.content
     (; n_batch, poll_interval) = vis.backend
 
-    vsel_activated = false
-
     listener_task[] = errormonitor(
         @async begin
             while is_live[]
                 sleep(poll_interval)
+
+                # Decoupled from the sample-batch flush below so a vsel change
+                # (vis.backend.vsel mutated by a future UI widget) is picked up
+                # promptly instead of waiting for the next full batch.
+                _apply_vsel!(vis, vis.backend.vsel)
 
                 lock(buffer_lock)
                 update_graph = n_buffer_samples[] >= n_batch
@@ -516,20 +721,21 @@ function BAT.init_visualizer!(
                     # the batch boundary into a weight increment instead of a new row.
                     current_idxs_new = [length.(chain_samples) for chain_samples in samples_new]
                     update!(graph, current_idxs=current_idxs_new)
-
-                    # vsel/idxs never change once set, so only activate once instead of every tick.
-                    if !vsel_activated && any(!isempty, Iterators.flatten(samples_new))
-                        update!(graph, idxs=vsel)
-                        vsel_activated = true
-                    end
                 end
             end
         end
     )
 
+    picker_info = (
+        N=vis.content.n_dof[],
+        N_max=vis.backend.N_max,
+        initial_vsel=vis.backend.vsel,
+        apply_vsel! = new_vsel -> _apply_vsel!(vis, new_vsel),
+    )
+
     with_theme(vis.backend.dark ? bat_theme_dark() : bat_theme()) do
         gridlayout = _init_gridlayout(graph, vis.backend.N_max)
-        fig = _build_fig(graph, gridlayout)
+        fig = _build_fig(graph, gridlayout, picker_info)
         display(fig)
     end
 end
