@@ -37,6 +37,7 @@ using BAT: KDE1D, KDE2D, QuantileKDE1D, QuantileKDE2D
 using BAT: Cov2D, Std1D, Std2D, Mean1D, Mean2D, Errorbars1D, Errorbars2D, PDF1D
 
 using BAT: BATVisualizer, BATMakieVisualization
+using BAT: BasicUvStatistics, BasicMvStatistics
 
 import BAT: BATVisualizer
 import BAT: init_visualizer!, register_state_for_vis!, update_visualizer_impl!
