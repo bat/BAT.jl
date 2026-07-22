@@ -45,14 +45,23 @@ function Makie.convert_arguments(
                 N_max,
         )
 
+        unshaped_samples = unshaped.(samples)
+
         samples_graph = graph[:samples][]
-        push!(samples_graph, [unshaped.(samples)])
+        push!(samples_graph, [unshaped_samples])
         update!(graph, samples=samples_graph)
 
         current_idxs = [length(samples)]
         current_idxs_graph = graph[:current_idxs][]
         push!(current_idxs_graph, current_idxs)
         update!(graph, current_idxs=current_idxs_graph)
+
+        # All samples already exist here (static plot, no further updates) --
+        # use the true data range directly rather than the prior-based
+        # estimate the live path needs (see _domain_from_samples's docs).
+        n_dof = totalndof(varshape(samples))
+        domain_lo, domain_hi = _domain_from_samples(unshaped_samples.v.data, n_dof)
+        update!(graph, domain_lo=domain_lo, domain_hi=domain_hi)
 
         update!(graph, idxs=_clamp_vsel(vsel, samples, N_max))
 
@@ -108,8 +117,10 @@ function BAT.bat_makie_plot(
                 N_max,
         )
 
+        unshaped_samples = unshaped.(samples)
+
         samples_graph = graph[:samples][]
-        push!(samples_graph, [unshaped.(samples)])
+        push!(samples_graph, [unshaped_samples])
         update!(graph, samples=samples_graph)
 
         current_idxs = [length(samples)]
@@ -118,6 +129,13 @@ function BAT.bat_makie_plot(
         update!(graph, current_idxs=current_idxs_graph)
 
         n_dof = totalndof(varshape(samples))
+
+        # All samples already exist here (static plot, no further updates) --
+        # use the true data range directly rather than the prior-based
+        # estimate the live path needs (see _domain_from_samples's docs).
+        domain_lo, domain_hi = _domain_from_samples(unshaped_samples.v.data, n_dof)
+        update!(graph, domain_lo=domain_lo, domain_hi=domain_hi)
+
         update!(graph, idxs=_clamp_vsel(vsel, n_dof, N_max))
 
         picker_info = (
