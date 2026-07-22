@@ -54,9 +54,14 @@ function BATVisualizer(vis::BATMakieVisualization)
         N_max,
     )
 
+    buffer_lock = ReentrantLock()
     content = (
         graph=graph,
-        buffer_lock=ReentrantLock(),
+        buffer_lock=buffer_lock,
+        # Tied to buffer_lock so sampling threads blocked on the high-watermark
+        # (in update_visualizer_impl!) and the listener's flush-and-notify both
+        # synchronize through the same lock, per Threads.Condition's contract.
+        buffer_cond=Threads.Condition(buffer_lock),
         chain_ids=Vector{Integer}(),
         output_buffer=Vector{Vector{DensitySampleVector}}(),
         n_buffer_samples=Ref(0),
@@ -492,7 +497,7 @@ end
 # than re-derived from sibling checkboxes that haven't been resynced yet
 # (which would make e.g. unchecking a diagonal while some other still-checked
 # pair references it snap the diagonal back on).
-function _vsel_after_toggle(active_vars::Set{Int}, i::Integer, j::Integer, is_on::Bool)
+function _vsel_after_toggle(active_vars::Set{Integer}, i::Integer, j::Integer, is_on::Bool)
     return is_on ? union(active_vars, (i, j)) : setdiff(active_vars, (i, j))
 end
 
@@ -683,9 +688,65 @@ function BAT.init_visualizer!(
         register_state_for_vis!(vis, state, _transform_walker_outputs(f_pretransform, outputs[i]))
     end
 
-    (; graph, buffer_lock, output_buffer, n_buffer_samples, is_live, listener_task) = vis.content
+    (; graph, buffer_lock, buffer_cond, output_buffer, n_buffer_samples, is_live, listener_task) = vis.content
     (; n_batch, poll_interval) = vis.backend
 
+    picker_info = (
+        N=vis.content.n_dof[],
+        N_max=vis.backend.N_max,
+        initial_vsel=vis.backend.vsel,
+        (apply_vsel!)=new_vsel -> _apply_vsel!(vis, new_vsel),
+    )
+
+    with_theme(vis.backend.dark ? bat_theme_dark() : bat_theme()) do
+        gridlayout = _init_gridlayout(graph, vis.backend.N_max)
+        fig = _build_fig(graph, gridlayout, picker_info)
+        display(fig)
+    end
+
+    # force=false: only flush once n_batch samples are buffered (the normal
+    # per-tick check). force=true: flush whatever is currently buffered
+    # regardless of n_batch, used once for the final drain below so the last
+    # partial batch isn't silently dropped when is_live[] flips false.
+    function flush_buffer!(; force::Bool=false)
+        lock(buffer_lock)
+        update_graph = force ? n_buffer_samples[] > 0 : n_buffer_samples[] >= n_batch
+        if update_graph
+            # Shallow copy: output_buffer's slots get replaced (not mutated)
+            # below, so the extracted inner vectors are never touched again --
+            # no need to deep-copy the actual sample data out of them.
+            extracted_output_buffer = copy(output_buffer)
+            output_buffer .= _empty_chain_outputs.(mcmc_states)
+            n_buffer_samples[] = 0
+            # Wakes any sampling threads blocked on the high-watermark in
+            # update_visualizer_impl! -- notify while still holding buffer_lock,
+            # matching Threads.Condition's contract.
+            notify(buffer_cond, all=true)
+        end
+        unlock(buffer_lock)
+
+        if update_graph
+            fresh_batch_trafo = _transform_chain_outputs(f_pretransform, extracted_output_buffer)
+
+            samples = graph[:samples][]
+            samples_new = _append_chain_outputs(mcmc_states[1], samples, fresh_batch_trafo)
+
+            update!(graph, samples=samples_new)
+
+            # Derived from the actual merged length (not the raw batch length):
+            # checked_push! inside _append_chain_outputs can collapse a sample at
+            # the batch boundary into a weight increment instead of a new row.
+            current_idxs_new = [length.(chain_samples) for chain_samples in samples_new]
+            update!(graph, current_idxs=current_idxs_new)
+        end
+        return nothing
+    end
+
+    # Started only after the figure above has fully resolved its initial state --
+    # the listener's first tick can mutate :idxs/:samples via _apply_vsel!, which
+    # would otherwise race the still-in-progress initial construction (observed
+    # in practice specifically on a cold/slow first JIT compile of the compute
+    # graph's closures, where construction can take longer than poll_interval).
     listener_task[] = errormonitor(
         @async begin
             while is_live[]
@@ -696,48 +757,18 @@ function BAT.init_visualizer!(
                 # promptly instead of waiting for the next full batch.
                 _apply_vsel!(vis, vis.backend.vsel)
 
-                lock(buffer_lock)
-                update_graph = n_buffer_samples[] >= n_batch
-                if update_graph
-                    # Shallow copy: output_buffer's slots get replaced (not mutated)
-                    # below, so the extracted inner vectors are never touched again --
-                    # no need to deep-copy the actual sample data out of them.
-                    extracted_output_buffer = copy(output_buffer)
-                    output_buffer .= _empty_chain_outputs.(mcmc_states)
-                    n_buffer_samples[] = 0
-                end
-                unlock(buffer_lock)
-
-                if update_graph
-                    fresh_batch_trafo = _transform_chain_outputs(f_pretransform, extracted_output_buffer)
-
-                    samples = graph[:samples][]
-                    samples_new = _append_chain_outputs(mcmc_states[1], samples, fresh_batch_trafo)
-
-                    update!(graph, samples=samples_new)
-
-                    # Derived from the actual merged length (not the raw batch length):
-                    # checked_push! inside _append_chain_outputs can collapse a sample at
-                    # the batch boundary into a weight increment instead of a new row.
-                    current_idxs_new = [length.(chain_samples) for chain_samples in samples_new]
-                    update!(graph, current_idxs=current_idxs_new)
-                end
+                flush_buffer!()
             end
+
+            # is_live[] can flip false between two ticks (bat_sample_impl sets it
+            # right before waiting on this task), which would otherwise drop
+            # whatever's currently buffered -- below n_batch, or even a full
+            # batch this tick hadn't gotten to yet -- leaving the display behind
+            # the true final sample count. One last unconditional flush closes
+            # that gap before the task returns.
+            flush_buffer!(force=true)
         end
     )
-
-    picker_info = (
-        N=vis.content.n_dof[],
-        N_max=vis.backend.N_max,
-        initial_vsel=vis.backend.vsel,
-        apply_vsel! = new_vsel -> _apply_vsel!(vis, new_vsel),
-    )
-
-    with_theme(vis.backend.dark ? bat_theme_dark() : bat_theme()) do
-        gridlayout = _init_gridlayout(graph, vis.backend.N_max)
-        fig = _build_fig(graph, gridlayout, picker_info)
-        display(fig)
-    end
 end
 
 function BAT.update_visualizer_impl!(
@@ -745,7 +776,8 @@ function BAT.update_visualizer_impl!(
     chain_state::MCMCChainState,
     nonzero_weights::Bool
 )
-    (; buffer_lock, output_buffer, chain_ids, n_buffer_samples) = vis.content
+    (; buffer_lock, buffer_cond, output_buffer, chain_ids, n_buffer_samples) = vis.content
+    max_buffered = vis.backend.max_buffered
     output_id = findfirst(x -> x == chain_state.info.id, chain_ids)
     n_smpls_start = sum(length.(output_buffer[output_id]))
     get_samples!(output_buffer[output_id], chain_state, nonzero_weights)
@@ -754,6 +786,15 @@ function BAT.update_visualizer_impl!(
     lock(buffer_lock)
     n_new = n_smpls_end - n_smpls_start
     n_buffer_samples[] += n_new
+    # Backpressure: block this chain's sampling task once the buffer has grown
+    # far enough ahead of the listener that the display would otherwise lag
+    # noticeably behind the true latest samples. Bounded, not per-sample --
+    # sampling still runs in free bursts up to max_buffered before it has to
+    # wait -- so the listener remains the sole bottleneck only when it's
+    # genuinely falling behind, not on every single step.
+    while n_buffer_samples[] >= max_buffered
+        wait(buffer_cond)
+    end
     unlock(buffer_lock)
 end
 
