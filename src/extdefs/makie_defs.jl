@@ -9,8 +9,21 @@ struct BATMakieVisualization <: BATVisBackend
         # flushed, sampling threads block (in update_visualizer_impl!) until the
         # listener catches up. Bounds how far the display can lag behind the true
         # sampler state without throttling every single sample -- sampling still
-        # runs in free bursts up to this many samples ahead.
+        # runs in free bursts up to this many samples ahead. When adaptive_batching
+        # is on, this (like n_batch) is only the *starting* value -- both grow
+        # together at runtime, in the same ratio to one another as configured here.
         max_buffered::Integer
+        # When true (the default), the effective flush threshold grows by
+        # batch_growth_rate after every flush (geometric growth, the same
+        # amortized-doubling trick as dynamic array growth), so the expensive
+        # per-flush recompute (histogram/KDE fits over the *entire* accumulated
+        # sample set) happens on a shrinking fraction of the run as it progresses
+        # -- fixing an otherwise-quadratic total cost over a full run. When false,
+        # n_batch/max_buffered stay exactly as configured for the whole run --
+        # more frequent, uniformly-sized updates, at the cost of more total
+        # recompute work, for users who want maximum live-update resolution.
+        adaptive_batching::Bool
+        batch_growth_rate::Real
         poll_interval::Real
         dark::Bool
         triagonal_config::NamedTuple
@@ -20,17 +33,20 @@ struct BATMakieVisualization <: BATVisBackend
         # which N_max (or fewer) variables are shown and may later be changed at
         # runtime (via a not-yet-implemented UI widget), but can never select more
         # variables than there are grid slots for.
-        function BATMakieVisualization(recipes, vsel, N_max, n_batch, max_buffered, poll_interval, dark, triagonal_config, diagonal_config)
+        function BATMakieVisualization(recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching, batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config)
                 if length(vsel) > N_max
                         @warn "BATMakieVisualization: vsel $vsel has more entries than N_max=$N_max; truncating to $(vsel[1:N_max])."
                         vsel = vsel[1:N_max]
                 end
-                new(recipes, vsel, N_max, n_batch, max_buffered, poll_interval, dark, triagonal_config, diagonal_config)
+                if batch_growth_rate <= 1
+                        throw(ArgumentError("batch_growth_rate must be > 1 (got $batch_growth_rate); it multiplies the effective batch threshold after every flush"))
+                end
+                new(recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching, batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config)
         end
 end
 export BATMakieVisualization
 
-function BATMakieVisualization(; dark::Bool=false, max_buffered::Integer=4 * 50)
+function BATMakieVisualization(; dark::Bool=false, max_buffered::Integer=4 * 50, adaptive_batching::Bool=true, batch_growth_rate::Real=1.2)
         recipes = (upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D)
         vsel = [1, 2, 3] # Default vsel; truncated in `init_visualizer!` if the posterior has fewer free parameters.
         N_max = 3 # Grid size; cells beyond the (possibly truncated) vsel are simply left dead/empty.
@@ -74,6 +90,8 @@ function BATMakieVisualization(; dark::Bool=false, max_buffered::Integer=4 * 50)
                 N_max,
                 n_batch,
                 max_buffered,
+                adaptive_batching,
+                batch_growth_rate,
                 poll_interval,
                 dark,
                 triagonal_config,

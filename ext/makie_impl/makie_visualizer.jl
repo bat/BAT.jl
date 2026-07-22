@@ -65,6 +65,15 @@ function BATVisualizer(vis::BATMakieVisualization)
         chain_ids=Vector{Integer}(),
         output_buffer=Vector{Vector{DensitySampleVector}}(),
         n_buffer_samples=Ref(0),
+        # Current flush-trigger threshold. Starts at vis.n_batch; when
+        # adaptive_batching is on, flush_buffer! grows it geometrically after
+        # every flush. update_visualizer_impl!'s backpressure ceiling is always
+        # derived from this (scaled by the configured max_buffered/n_batch
+        # ratio) rather than a separately-growing value, so the two can never
+        # drift out of the relationship where blocking would deadlock the
+        # sampler against a flush trigger it's not allowed to reach.
+        effective_batch_size=Ref(vis.n_batch),
+        buffer_ratio=vis.max_buffered / vis.n_batch,
         is_live=Threads.Atomic{Bool}(true),
         listener_task=Ref{Union{Task,Nothing}}(nothing),
         # Set once in init_visualizer! (the model's dimensionality isn't known yet
@@ -210,15 +219,26 @@ function _init_compute_graph(
         primitive_symbols_1D = [primitive_symbol(recipe, (i, i)) for recipe in BAT_MAKIE_RECIPES_1D]
 
         for k in eachindex(primitive_symbols_1D)
+            recipe = BAT_MAKIE_RECIPES_1D[k]
+            # Persistent per-cell accumulator for incremental recipes (Mean1D,
+            # Std1D) -- captured by the closure below, one independent instance
+            # per (cell, recipe), so it survives across ticks instead of being
+            # rebuilt from scratch on every recompute.
+            running_state = is_incremental(recipe) ? _IncrementalUvState() : nothing
+
             register_computation!(graph,
-                [marg_sym, :flat_weights, :diagonal_recipe, :live_map, :diagonal_config],
+                [marg_sym, :flat_weights, :diagonal_recipe, :live_map, :diagonal_config, :vsel_map],
                 [primitive_symbols_1D[k]]
             ) do inputs, changed, cached
-                coords, weights, live_recipe, live_map, config = inputs
-                recipe = BAT_MAKIE_RECIPES_1D[k]
+                coords, weights, live_recipe, live_map, config, vsel_map = inputs
                 cell_status = live_map[i, i] ? LiveCell() : DeadCell()
                 recipe_status = determine_recipe_status(recipe, live_recipe())
-                primitives = compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, config)
+                primitives = if cell_status isa LiveCell && is_incremental(recipe)
+                    _update_stats!(running_state, vec(coords), weights, vsel_map[i, i][1])
+                    compute_stats_primitives(recipe, running_state, config)
+                else
+                    compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, config)
+                end
 
                 return (primitives,)
             end
@@ -238,15 +258,24 @@ function _init_compute_graph(
             primitive_symbols_2D = [primitive_symbol(recipe, (j, i)) for recipe in BAT_MAKIE_RECIPES_2D]
 
             for k in eachindex(primitive_symbols_2D)
+                recipe = BAT_MAKIE_RECIPES_2D[k]
+                # Per-(cell, recipe) persistent accumulator for the incremental
+                # 2D stats recipes (Mean2D, Cov2D, Std2D) -- see the 1D case above.
+                running_state = is_incremental(recipe) ? _IncrementalMvState() : nothing
+
                 register_computation!(graph,
-                    [marg_sym_2D, :flat_weights, :upper_recipe, :lower_recipe, :live_map, :triagonal_config],
+                    [marg_sym_2D, :flat_weights, :upper_recipe, :lower_recipe, :live_map, :triagonal_config, :vsel_map],
                     [primitive_symbols_2D[k]]
                 ) do inputs, changed, cached
-                    coords, weights, live_recipe_upper, live_recipe_lower, live_map, config = inputs
-                    recipe = BAT_MAKIE_RECIPES_2D[k]
+                    coords, weights, live_recipe_upper, live_recipe_lower, live_map, config, vsel_map = inputs
                     cell_status = live_map[i, j] ? LiveCell() : DeadCell()
                     recipe_status = determine_recipe_status(recipe, live_recipe_upper(), live_recipe_lower())
-                    primitives = compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, config)
+                    primitives = if cell_status isa LiveCell && is_incremental(recipe)
+                        _update_stats!(running_state, coords, weights, vsel_map[j, i])
+                        compute_stats_primitives(recipe, running_state, config)
+                    else
+                        compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, config)
+                    end
                     return (primitives,)
                 end
             end
@@ -688,8 +717,8 @@ function BAT.init_visualizer!(
         register_state_for_vis!(vis, state, _transform_walker_outputs(f_pretransform, outputs[i]))
     end
 
-    (; graph, buffer_lock, buffer_cond, output_buffer, n_buffer_samples, is_live, listener_task) = vis.content
-    (; n_batch, poll_interval) = vis.backend
+    (; graph, buffer_lock, buffer_cond, output_buffer, n_buffer_samples, effective_batch_size, is_live, listener_task) = vis.content
+    (; poll_interval, adaptive_batching, batch_growth_rate) = vis.backend
 
     picker_info = (
         N=vis.content.n_dof[],
@@ -704,13 +733,13 @@ function BAT.init_visualizer!(
         display(fig)
     end
 
-    # force=false: only flush once n_batch samples are buffered (the normal
-    # per-tick check). force=true: flush whatever is currently buffered
-    # regardless of n_batch, used once for the final drain below so the last
-    # partial batch isn't silently dropped when is_live[] flips false.
+    # force=false: only flush once effective_batch_size[] samples are buffered
+    # (the normal per-tick check). force=true: flush whatever is currently
+    # buffered regardless of threshold, used once for the final drain below so
+    # the last partial batch isn't silently dropped when is_live[] flips false.
     function flush_buffer!(; force::Bool=false)
         lock(buffer_lock)
-        update_graph = force ? n_buffer_samples[] > 0 : n_buffer_samples[] >= n_batch
+        update_graph = force ? n_buffer_samples[] > 0 : n_buffer_samples[] >= effective_batch_size[]
         if update_graph
             # Shallow copy: output_buffer's slots get replaced (not mutated)
             # below, so the extracted inner vectors are never touched again --
@@ -718,6 +747,14 @@ function BAT.init_visualizer!(
             extracted_output_buffer = copy(output_buffer)
             output_buffer .= _empty_chain_outputs.(mcmc_states)
             n_buffer_samples[] = 0
+            # Geometric growth (not on the forced final drain -- there's no
+            # "next tick" for it to matter to): the same amortized-doubling
+            # trick as dynamic array growth, so the number of full-dataset
+            # recomputes over a run is O(log N) instead of O(N), keeping total
+            # redraw work near-linear instead of quadratic in sample count.
+            if !force && adaptive_batching
+                effective_batch_size[] = ceil(Int, effective_batch_size[] * batch_growth_rate)
+            end
             # Wakes any sampling threads blocked on the high-watermark in
             # update_visualizer_impl! -- notify while still holding buffer_lock,
             # matching Threads.Condition's contract.
@@ -776,8 +813,7 @@ function BAT.update_visualizer_impl!(
     chain_state::MCMCChainState,
     nonzero_weights::Bool
 )
-    (; buffer_lock, buffer_cond, output_buffer, chain_ids, n_buffer_samples) = vis.content
-    max_buffered = vis.backend.max_buffered
+    (; buffer_lock, buffer_cond, output_buffer, chain_ids, n_buffer_samples, effective_batch_size, buffer_ratio) = vis.content
     output_id = findfirst(x -> x == chain_state.info.id, chain_ids)
     n_smpls_start = sum(length.(output_buffer[output_id]))
     get_samples!(output_buffer[output_id], chain_state, nonzero_weights)
@@ -792,7 +828,18 @@ function BAT.update_visualizer_impl!(
     # sampling still runs in free bursts up to max_buffered before it has to
     # wait -- so the listener remains the sole bottleneck only when it's
     # genuinely falling behind, not on every single step.
-    while n_buffer_samples[] >= max_buffered
+    #
+    # Derived from effective_batch_size[] (scaled by the fixed configured
+    # ratio) rather than a separately-tracked/grown value: this threshold must
+    # always stay >= the current flush trigger, or sampling would permanently
+    # block below a threshold the listener is never allowed to reach --
+    # deriving it from the same value the flush trigger uses makes that
+    # invariant automatic instead of something two independently-growing
+    # counters could drift out of.
+    # Recomputed every iteration (not hoisted out of the loop) so a waiter
+    # woken by one flush re-checks against whatever effective_batch_size[]
+    # grew to by the time it wakes, not a value that was already stale then.
+    while n_buffer_samples[] >= ceil(Int, effective_batch_size[] * buffer_ratio)
         wait(buffer_cond)
     end
     unlock(buffer_lock)
