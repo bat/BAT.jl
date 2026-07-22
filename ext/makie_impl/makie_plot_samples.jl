@@ -38,6 +38,16 @@ function Makie.convert_arguments(
                 rev=false
         )
 
+        # Warms up backend-specific (CairoMakie/GLMakie) rendering of the raw
+        # plot primitive types -- previously only called from the live path,
+        # leaving this static path with no mitigation at all for the same
+        # first-interaction latency. Complements (doesn't replace) the
+        # PrecompileTools workload in makie_precompile.jl, which handles the
+        # backend-agnostic recipe/SpecApi compilation ahead of time; this part
+        # is backend-specific and can only happen once a concrete backend is
+        # actually loaded, i.e. now.
+        warmup_makie_shaders()
+
         graph = _init_compute_graph(
                 recipes,
                 triagonal_config,
@@ -109,6 +119,16 @@ function BAT.bat_makie_plot(
                 npoints_pdf=300,
                 rev=false
         )
+
+        # Warms up backend-specific (CairoMakie/GLMakie) rendering of the raw
+        # plot primitive types -- previously only called from the live path,
+        # leaving this static path with no mitigation at all for the same
+        # first-interaction latency. Complements (doesn't replace) the
+        # PrecompileTools workload in makie_precompile.jl, which handles the
+        # backend-agnostic recipe/SpecApi compilation ahead of time; this part
+        # is backend-specific and can only happen once a concrete backend is
+        # actually loaded, i.e. now.
+        warmup_makie_shaders()
 
         graph = _init_compute_graph(
                 recipes,

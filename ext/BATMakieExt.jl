@@ -19,6 +19,7 @@ using Makie: ComputeGraph, add_input!, register_computation!
 using StatsBase
 using Statistics: quantile
 using ValueShapes
+using PrecompileTools: @setup_workload, @compile_workload
 
 
 using BAT: DensitySampleVector
@@ -47,5 +48,15 @@ import BAT: bat_makie_plot, bat_theme, bat_theme_dark
 include("./makie_impl/makie_plotting.jl")
 
 Makie.set_theme!(bat_theme())
+
+# See makie_impl/makie_precompile.jl for what this covers and why (in short:
+# every recipe's real compute/compose/SpecApi-reconciliation code path, so
+# switching to it interactively for the first time doesn't pay that
+# compilation cost then instead).
+@setup_workload begin
+    @compile_workload begin
+        _makie_precompile_workload()
+    end
+end
 
 end
