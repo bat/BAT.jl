@@ -17,6 +17,7 @@ import Makie.SpecApi as S
 using Makie: ComputeGraph, add_input!, register_computation!
 
 using StatsBase
+using Statistics: quantile
 using ValueShapes
 
 

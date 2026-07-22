@@ -40,6 +40,78 @@ function marg_symbol(vsel::Tuple{Int64,Int64})
     return Symbol("marg_$(vsel[1])$(vsel[2])")
 end
 
+# Dispatches each incremental recipe to the right kind of persistent per-cell
+# state (Mean1D/Std1D/Mean2D/Cov2D/Std2D need running sufficient statistics;
+# Hist1D/Hist2D/QuantileHist1D/QuantileHist2D need a running fixed-edge
+# Histogram) -- see makie_stats.jl / makie_hist.jl for the state types
+# themselves and is_incremental's definition.
+_make_running_state_1d(::Union{Mean1D,Std1D}) = _IncrementalUvState()
+_make_running_state_1d(::Union{Hist1D,QuantileHist1D}) = _IncrementalHist1DState()
+_make_running_state_2d(::Union{Mean2D,Cov2D,Std2D}) = _IncrementalMvState()
+_make_running_state_2d(::Union{Hist2D,QuantileHist2D}) = _IncrementalHist2DState()
+
+# Estimates a fixed, reasonable initial axis-limit/histogram-bin-edge domain
+# per real model dimension, from the PRIOR alone (before any real samples
+# exist), by drawing a modest number of prior samples and taking robust tail
+# quantiles. Exact when there's no separate likelihood (prior == posterior);
+# a practical heuristic otherwise (a highly informative likelihood leaves the
+# posterior occupying only a fraction of this range -- coarser resolution,
+# not wrong; a prior/likelihood conflict could in principle exceed it). NOT a
+# hard bound either way -- see the overflow-widening in init_visualizer!/
+# flush_buffer! below, which callers must rely on rather than treating this
+# as guaranteed.
+function _estimate_prior_domain(mcmc_states::Vector{<:MCMCState}, n_dof::Integer; n_prior_samples::Integer=2000, tail_prob::Real=0.0015)
+    target = mcmc_target(mcmc_states[1])
+    initsrc = BAT.get_initsrc_from_target(target)
+    shape = varshape(initsrc)
+    draws = [ValueShapes.unshaped(rand(initsrc), shape) for _ in 1:n_prior_samples]
+    M = reduce(hcat, draws)
+    lo = [quantile(view(M, d, :), tail_prob) for d in 1:n_dof]
+    hi = [quantile(view(M, d, :), 1 - tail_prob) for d in 1:n_dof]
+    return lo, hi
+end
+
+# Same purpose as _estimate_prior_domain, but for the static bat_makie_plot
+# path: all samples already exist there, so the true min/max is available
+# directly and is strictly more accurate than a prior-based estimate --
+# no need to guess. Not "the full domain plus margin" -- see the small
+# proportional margin added when this feeds into axis_limits_i.
+function _domain_from_samples(data::AbstractMatrix, n_dof::Integer)
+    lo = [minimum(view(data, d, :)) for d in 1:n_dof]
+    hi = [maximum(view(data, d, :)) for d in 1:n_dof]
+    return lo, hi
+end
+
+# Widens (monotonically -- never shrinks) the graph's fixed domain if new
+# real data exceeds it in any dimension, and propagates the update if so.
+# Called with only the newly-arrived batch (not the full dataset) so this
+# stays O(batch size), not O(total samples so far).
+function _widen_domain!(graph::ComputeGraph, new_samples)
+    isempty(new_samples) && return nothing
+    domain_lo = graph[:domain_lo][]
+    domain_hi = graph[:domain_hi][]
+    isempty(domain_lo) && return nothing
+
+    data = new_samples.v.data
+    new_lo = copy(domain_lo)
+    new_hi = copy(domain_hi)
+    widened = false
+    for d in eachindex(domain_lo)
+        row = view(data, d, :)
+        batch_lo, batch_hi = extrema(row)
+        if batch_lo < new_lo[d]
+            new_lo[d] = batch_lo
+            widened = true
+        end
+        if batch_hi > new_hi[d]
+            new_hi[d] = batch_hi
+            widened = true
+        end
+    end
+    widened && update!(graph, domain_lo=new_lo, domain_hi=new_hi)
+    return nothing
+end
+
 
 function BATVisualizer(vis::BATMakieVisualization)
     (; recipes, N_max, triagonal_config, diagonal_config) = vis
@@ -187,6 +259,15 @@ function _init_compute_graph(
     add_input!(graph, :triagonal_config, triagonal_config)
     add_input!(graph, :diagonal_config, diagonal_config)
 
+    # Fixed per-real-dimension domain (see _estimate_prior_domain/
+    # _domain_from_samples), used for both axis_limits_i below and the
+    # incremental histogram recipes' bin edges. Empty until the caller
+    # (init_visualizer! for the live path, bat_makie_plot/convert_arguments
+    # for the static path) sets it from real information -- axis_limits_i
+    # guards against reading it before then.
+    add_input!(graph, :domain_lo, Float64[])
+    add_input!(graph, :domain_hi, Float64[])
+
     for recipe in vcat(BAT_MAKIE_RECIPES_1D, BAT_MAKIE_RECIPES_2D)
         add_input!(graph, Symbol("$(typeof(recipe))"), recipe)
     end
@@ -209,10 +290,24 @@ function _init_compute_graph(
             marg_sym
         )
 
+        # Fixed from the domain estimate/actual-data-range (see
+        # _estimate_prior_domain/_domain_from_samples), not derived from the
+        # currently-visible marg/current_idx -- this is what keeps limits
+        # stable during live sampling and while panning the static plot's
+        # sample-index slider, instead of jumping around as the visible min/
+        # max changes. Falls back to (0,1) if the domain isn't set yet, or if
+        # this grid position has no active variable (vsel_map's (0,0)
+        # sentinel) -- both guard against indexing into an empty/mismatched
+        # domain vector.
         map!(
-            (marg, current_idx) -> isempty(marg) ? (0.0, 1.0) : (minimum(marg) - 0.1 * abs(minimum(marg)), maximum(marg) + 0.1 * abs(minimum(marg))),
+            (lo, hi, vsel_map) -> begin
+                v = vsel_map[i, i][1]
+                (isempty(lo) || v == 0) && return (0.0, 1.0)
+                margin = 0.05 * (hi[v] - lo[v])
+                (lo[v] - margin, hi[v] + margin)
+            end,
             graph,
-            [marg_sym, :current_idx],
+            [:domain_lo, :domain_hi, :vsel_map],
             Symbol("axis_limits_$i")
         )
 
@@ -220,22 +315,47 @@ function _init_compute_graph(
 
         for k in eachindex(primitive_symbols_1D)
             recipe = BAT_MAKIE_RECIPES_1D[k]
-            # Persistent per-cell accumulator for incremental recipes (Mean1D,
-            # Std1D) -- captured by the closure below, one independent instance
-            # per (cell, recipe), so it survives across ticks instead of being
-            # rebuilt from scratch on every recompute.
-            running_state = is_incremental(recipe) ? _IncrementalUvState() : nothing
+            # Persistent per-cell accumulator for incremental recipes --
+            # captured by the closure below, one independent instance per
+            # (cell, recipe), so it survives across ticks instead of being
+            # rebuilt from scratch on every recompute. Stats recipes
+            # (Mean1D/Std1D) and histogram recipes (Hist1D/QuantileHist1D)
+            # need different underlying state -- see _make_running_state_1d.
+            running_state = is_incremental(recipe) ? _make_running_state_1d(recipe) : nothing
 
             register_computation!(graph,
-                [marg_sym, :flat_weights, :diagonal_recipe, :live_map, :diagonal_config, :vsel_map],
+                [marg_sym, :flat_weights, :diagonal_recipe, :live_map, :diagonal_config, :vsel_map, :domain_lo, :domain_hi],
                 [primitive_symbols_1D[k]]
             ) do inputs, changed, cached
-                coords, weights, live_recipe, live_map, config, vsel_map = inputs
+                coords, weights, live_recipe, live_map, config, vsel_map, domain_lo, domain_hi = inputs
                 cell_status = live_map[i, i] ? LiveCell() : DeadCell()
                 recipe_status = determine_recipe_status(recipe, live_recipe())
-                primitives = if cell_status isa LiveCell && is_incremental(recipe)
-                    _update_stats!(running_state, vec(coords), weights, vsel_map[i, i][1])
-                    compute_stats_primitives(recipe, running_state, config)
+                # filter=true isn't compatible with incremental accumulation
+                # (see is_incremental's docs in makie_hist.jl) -- falls back to
+                # a full recompute for that case even if the recipe otherwise
+                # supports it.
+                primitives = if cell_status isa LiveCell && is_incremental(recipe) && !config.filter
+                    vsel = vsel_map[i, i][1]
+                    if running_state isa _IncrementalHist1DState
+                        # A live cell can still have zero samples (right after
+                        # vsel activates, before the first batch flushes) -- the
+                        # dead-shaped placeholder view isn't just empty but
+                        # actually 0-row, so skip straight to the state's
+                        # current (possibly still-empty) result rather than
+                        # feeding it into _update_hist!.
+                        if isempty(weights)
+                            compute_hist_primitives(recipe, running_state, config)
+                        else
+                            (; nbins, closed) = config
+                            eff_nbins = recipe isa Hist1D ? nbins + 1 : nbins
+                            domain = (domain_lo[vsel], domain_hi[vsel])
+                            _update_hist!(running_state, vec(coords), weights, vsel, domain, eff_nbins, closed)
+                            compute_hist_primitives(recipe, running_state, config)
+                        end
+                    else
+                        _update_stats!(running_state, vec(coords), weights, vsel)
+                        compute_stats_primitives(recipe, running_state, config)
+                    end
                 else
                     compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, config)
                 end
@@ -260,19 +380,38 @@ function _init_compute_graph(
             for k in eachindex(primitive_symbols_2D)
                 recipe = BAT_MAKIE_RECIPES_2D[k]
                 # Per-(cell, recipe) persistent accumulator for the incremental
-                # 2D stats recipes (Mean2D, Cov2D, Std2D) -- see the 1D case above.
-                running_state = is_incremental(recipe) ? _IncrementalMvState() : nothing
+                # 2D recipes -- see _make_running_state_2d and the 1D case above.
+                running_state = is_incremental(recipe) ? _make_running_state_2d(recipe) : nothing
 
                 register_computation!(graph,
-                    [marg_sym_2D, :flat_weights, :upper_recipe, :lower_recipe, :live_map, :triagonal_config, :vsel_map],
+                    [marg_sym_2D, :flat_weights, :upper_recipe, :lower_recipe, :live_map, :triagonal_config, :vsel_map, :domain_lo, :domain_hi],
                     [primitive_symbols_2D[k]]
                 ) do inputs, changed, cached
-                    coords, weights, live_recipe_upper, live_recipe_lower, live_map, config, vsel_map = inputs
+                    coords, weights, live_recipe_upper, live_recipe_lower, live_map, config, vsel_map, domain_lo, domain_hi = inputs
                     cell_status = live_map[i, j] ? LiveCell() : DeadCell()
                     recipe_status = determine_recipe_status(recipe, live_recipe_upper(), live_recipe_lower())
-                    primitives = if cell_status isa LiveCell && is_incremental(recipe)
-                        _update_stats!(running_state, coords, weights, vsel_map[j, i])
-                        compute_stats_primitives(recipe, running_state, config)
+                    primitives = if cell_status isa LiveCell && is_incremental(recipe) && !config.filter
+                        vsel = vsel_map[j, i]
+                        if running_state isa _IncrementalHist2DState
+                            # See the 1D case above: a live cell can still have
+                            # zero samples, and the dead-shaped placeholder view
+                            # is 0-row (not just 0-column), so indexing row 1/2
+                            # of it directly would throw -- skip straight to the
+                            # state's current result instead.
+                            if isempty(weights)
+                                compute_hist_primitives(recipe, running_state, config)
+                            else
+                                (; nbins, closed) = config
+                                domain = ((domain_lo[vsel[1]], domain_hi[vsel[1]]), (domain_lo[vsel[2]], domain_hi[vsel[2]]))
+                                x = view(coords, 1, :)
+                                y = view(coords, 2, :)
+                                _update_hist!(running_state, x, y, weights, vsel, domain, nbins, closed)
+                                compute_hist_primitives(recipe, running_state, config)
+                            end
+                        else
+                            _update_stats!(running_state, coords, weights, vsel)
+                            compute_stats_primitives(recipe, running_state, config)
+                        end
                     else
                         compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, config)
                     end
@@ -713,6 +852,13 @@ function BAT.init_visualizer!(
 
     vis.content.n_dof[] = totalndof(varshape(mcmc_target(mcmc_states[1])))
 
+    # Fixed axis-limit/histogram-bin-edge domain, estimated from the prior
+    # before any real samples exist (see _estimate_prior_domain) -- set here,
+    # before the figure is first built, so the very first render already uses
+    # it rather than some other placeholder.
+    domain_lo, domain_hi = _estimate_prior_domain(mcmc_states, vis.content.n_dof[])
+    update!(vis.content.graph, domain_lo=domain_lo, domain_hi=domain_hi)
+
     for (i, state) in enumerate(mcmc_states)
         register_state_for_vis!(vis, state, _transform_walker_outputs(f_pretransform, outputs[i]))
     end
@@ -775,6 +921,17 @@ function BAT.init_visualizer!(
             # the batch boundary into a weight increment instead of a new row.
             current_idxs_new = [length.(chain_samples) for chain_samples in samples_new]
             update!(graph, current_idxs=current_idxs_new)
+
+            # Checked against only this batch (not the full accumulated
+            # dataset), so this stays cheap regardless of how far into the run
+            # we are -- see _widen_domain!'s docs.
+            new_flat_views = Any[]
+            for chain_batch in fresh_batch_trafo
+                for walker_batch in chain_batch
+                    push!(new_flat_views, walker_batch)
+                end
+            end
+            _widen_domain!(graph, vcat(new_flat_views...))
         end
         return nothing
     end
