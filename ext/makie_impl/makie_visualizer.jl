@@ -454,6 +454,13 @@ function _init_gridlayout(
             show_x_cosmetics = (i == n) || (i == 1)
             matrix[i, i] = S.Axis(
                 plots=diagonal_plotspecs,
+                # Matches the upper/lower 2D cells' aspect=1 below -- without
+                # it, a diagonal cell has no fixed visual aspect ratio at all
+                # (unlike a 2D cell, whose data-derived x/y limits happen to
+                # somewhat constrain its shape) and stretches to fill whatever
+                # rectangle the GridLayout/decorations leave it, typically
+                # taller than wide for a 1D density/histogram.
+                aspect=1,
                 limits=(xlims, nothing),
                 xticklabelsvisible=show_x_cosmetics, xticksvisible=show_x_cosmetics,
                 yticklabelsvisible=true,
@@ -665,13 +672,13 @@ end
 # than re-derived from sibling checkboxes that haven't been resynced yet
 # (which would make e.g. unchecking a diagonal while some other still-checked
 # pair references it snap the diagonal back on).
-function _vsel_after_toggle(active_vars::Set{Integer}, i::Integer, j::Integer, is_on::Bool)
+function _vsel_after_toggle(active_vars::Set{<:Integer}, i::Integer, j::Integer, is_on::Bool)
     return is_on ? union(active_vars, (i, j)) : setdiff(active_vars, (i, j))
 end
 
 # Whether cell (i,j) should display as checked given the active set: both
 # endpoints must be selected (a diagonal cell i==j just needs i).
-_checkbox_should_be_checked(active_vars::Set{Int}, i::Integer, j::Integer) = (i in active_vars) && (j in active_vars)
+_checkbox_should_be_checked(active_vars::Set{<:Integer}, i::Integer, j::Integer) = (i in active_vars) && (j in active_vars)
 
 # Checkbox has no direct `visible` attribute (unlike Label/Box); it needs its
 # underlying blockscene hidden instead.
