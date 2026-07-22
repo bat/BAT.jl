@@ -536,21 +536,58 @@ function _build_fig(
     gridlayout::Any,
     picker_info::Union{NamedTuple,Nothing}=nothing
 )
-    fig = Figure()
+    # Makie's own Figure() default (600x450) is too small for ui_layout (a
+    # fixed 200px recipe-menu column plus labels/toggles) and the vsel picker
+    # matrix to fit side by side without the picker overflowing past the
+    # main grid's edge -- confirmed empirically. A more generous starting
+    # size avoids that on first display; the window remains fully resizable
+    # regardless (GLMakie) or just affects the initial render size (CairoMakie).
+    fig = Figure(size=(900, 700))
 
     plot(fig[1, 1], gridlayout)
 
     colsize!(fig.layout, 1, Aspect(1, 1))
     rowsize!(fig.layout, 1, Relative(0.8))
 
-    ui_layout = fig[2, 1] = GridLayout()
-    # A dedicated, fixed-height row for the "Adjust vsel" button -- not nested
-    # inside ui_layout (which shares row 2's space with more and more menus/
-    # toggles as it grows, squeezing everything in it) and not inside the
-    # picker's own collapsible column (or the button would vanish along with
-    # the panel it's meant to reveal).
-    button_row = fig[3, 1] = GridLayout()
-    rowsize!(fig.layout, 3, Fixed(40))
+    # Always-visible row holding just the controls-collapse toggle (and the
+    # current-index slider, see below) -- kept outside controls_layout so it
+    # never disappears along with the block it's meant to reveal.
+    toggle_row = fig[2, 1] = GridLayout()
+    rowsize!(fig.layout, 2, Fixed(30))
+
+    # Everything else (recipe/stats menus and the vsel picker matrix) now
+    # lives nested inside a single collapsible block, itself entirely within
+    # column 1 -- the same column the main grid occupies and whose width is
+    # locked to the plot's own aspect ratio (colsize! above). That means no
+    # amount of UI content can ever push the figure wider than the corner
+    # plot itself, and collapsing/expanding all of it is a single row-height
+    # toggle rather than something tracked per-widget.
+    controls_layout = fig[3, 1] = GridLayout()
+
+    # ui_layout holds the recipe/stats menus (columns 1-3) *and* the vsel
+    # picker's title/matrix (column 4, added in _build_vsel_picker! below) --
+    # all in the same GridLayout, deliberately, so the picker's title shares
+    # ui_layout's own row 1 (guaranteeing its top/bottom edges exactly match
+    # the "Recipe"/"Stats overlay" header labels there) and the matrix spans
+    # rows 2:4 (guaranteeing its bottom edge exactly matches menu_lower's
+    # row), with no separate alignment bookkeeping needed -- two blocks in
+    # the same grid row/rows share pixel-exact boundaries by construction.
+    ui_layout = controls_layout[1, 1] = GridLayout()
+
+    # A nested GridLayout's `width` attribute defaults to `Auto()`, just like
+    # a Block's -- and just like Menu (see _set_block_visible!'s comments),
+    # `Auto()` means "use my own bottom-up-computed size instead of whatever
+    # the parent cell suggests", not "fill the parent cell". Confirmed
+    # empirically: without this, these end up sized from their own content
+    # instead of the intended column-1 width, overflowing past the main grid
+    # in some cases and auto-centering short of it in others. `width =
+    # nothing` (like Menu's own default) makes a block/layout defer to the
+    # suggested bbox unconditionally, which is the actual "fill this cell"
+    # behavior we want here -- ui_layout is included again now that it's
+    # controls_layout's sole content (the picker moved inside it, see above).
+    for gl in (toggle_row, controls_layout, ui_layout)
+        gl.width[] = nothing
+    end
 
     options2D = [
         ("QuantileHist", QuantileHist2D),
@@ -596,34 +633,106 @@ function _build_fig(
     # any samples exist, which for the live path is always (it's called
     # synchronously at figure construction, before the first async flush).
     show_slider = length(curr_idxs) == 1 && !isempty(curr_idxs[1]) && graph[:current_idx][] > 0
+    # The index slider lives in toggle_row (always visible, right of the
+    # collapse button) rather than inside ui_layout/controls_layout, per
+    # explicit request -- unlike the rest of the recipe/stats controls, it
+    # should never disappear when those are collapsed.
     if show_slider
-        slider_curr_idx = Slider(fig, range=1:graph[:current_idx][], startvalue=graph[:current_idx][])
+        # "Current Index" sits in its own row directly above the slider
+        # (row 1), the slider itself in row 2. The label spans *both*
+        # column 2 (the slider) and column 3 (the value display) rather than
+        # just column 2 -- deliberately, so its centered position (halign
+        # =:center, Label's default) is the midpoint of that whole 2:3 span,
+        # which runs from the slider's left edge (immediately after the
+        # fixed-width button) to the row's own right edge, both of which are
+        # constant. Centering over column 2 alone instead would move the
+        # label every time the value display's text width changes (e.g.
+        # "500" vs "50000"), since that changes how the fixed remaining
+        # width splits between columns 2 and 3 even though their *union*
+        # doesn't move -- confirmed empirically.
+        lbl_idx_title = Label(toggle_row[1, 2:3], "Current Index")
+        slider_curr_idx = Slider(toggle_row[2, 2], range=1:graph[:current_idx][], startvalue=graph[:current_idx][])
+        # No gap between the label/slider rows -- and each pinned to the
+        # outer edge of its own row (valign=:top / :bottom) rather than the
+        # default :center, which would otherwise leave slack split above the
+        # label and below the slider (confirmed empirically: with the
+        # default :center, the slider's bottom sat ~5px short of the button's
+        # bottom, even with the row gap zeroed). Pinning outward is what
+        # makes the label's top and the slider's bottom land exactly on the
+        # button's own top/bottom edges below.
+        rowgap!(toggle_row, 1, 0)
+        lbl_idx_title.valign[] = :top
+        slider_curr_idx.valign[] = :bottom
+        # Deferring to whatever column 2 is given (rather than the slider's
+        # own natural/Auto width) is what makes it actually span the row's
+        # remaining width -- see the width[]=nothing comments above for why
+        # Auto() wouldn't do this (Slider, like most Blocks, reports a real
+        # non-nothing autosize, which would leave its column sized to just
+        # that instead of expanding to fill whatever's left).
+        slider_curr_idx.width[] = nothing
+        # The label also can't be left reporting its own Auto() width to the
+        # column: a column's Auto width is the max over every (single-span)
+        # item placed in it across all rows, skipping only ones reporting
+        # `nothing` -- confirmed empirically that leaving it in place made
+        # column 2 "determined" at the label's own (much narrower) text
+        # width, shrinking the slider to match instead of filling the row.
+        # But unlike the slider, `width[]=nothing` is the wrong fix here: it
+        # makes the label's *own* bbox span the full column too, and Label
+        # always positions its text at `bbox.origin + 0.5*textwidth` (its own
+        # halign attribute isn't consulted for single-line text placement,
+        # only for word-wrap justification) -- so a full-width bbox renders
+        # the text hard against the *left* edge instead of centered
+        # (confirmed empirically). `tellwidth=false` instead removes it from
+        # the column's width computation without touching its own width
+        # attribute (still Auto(), i.e. sized tightly to its own text), so
+        # its computed bbox stays text-sized and its halign=:center (Label's
+        # own default) centers *that* box within column 2's full width.
+        lbl_idx_title.tellwidth[] = false
+        lbl_idx_value = Label(toggle_row[2, 3], lift(string, slider_curr_idx.value))
+        # Column 1 (button) and 3 (value label) are left at their Auto()
+        # default, so they size to their own content and column 2 (the only
+        # one reporting no natural width) absorbs whatever's left over.
+    else
+        # No slider to fill the remaining width in this case -- the button's
+        # own column then needs to explicitly claim the row's full width for
+        # its halign=:left to be flush against the true left edge instead of
+        # a shrink-wrapped, auto-centered one (same reasoning as above).
+        colsize!(toggle_row, 1, Relative(1))
     end
 
-    ui_layout[2, 1] = Label(fig, "Upper")
-    ui_layout[3, 1] = Label(fig, "Diagonal")
-    ui_layout[4, 1] = Label(fig, "Lower")
+    lbl_upper = Label(fig, "Upper")
+    ui_layout[2, 1] = lbl_upper
+    lbl_diag = Label(fig, "Diagonal")
+    ui_layout[3, 1] = lbl_diag
+    lbl_lower = Label(fig, "Lower")
+    ui_layout[4, 1] = lbl_lower
 
-    ui_layout[1, 2] = Label(fig, "Recipe")
+    lbl_recipe = Label(fig, "Recipe")
+    ui_layout[1, 2] = lbl_recipe
     ui_layout[2, 2] = menu_upper
     ui_layout[3, 2] = menu_diagonal
     ui_layout[4, 2] = menu_lower
 
-    ui_layout[1, 3] = Label(fig, "Stats overlay")
+    lbl_stats = Label(fig, "Stats overlay")
+    ui_layout[1, 3] = lbl_stats
     toggle_upper = Toggle(ui_layout[2, 3], active=false)
     toggle_diag = Toggle(ui_layout[3, 3], active=false)
     toggle_lower = Toggle(ui_layout[4, 3], active=false)
 
-    if show_slider
-        ui_layout[5, 1] = Label(fig, "Current Idx")
-        ui_layout[5, 2] = slider_curr_idx
-    end
+    # Collected here (rather than only living as local variables) so the
+    # whole-controls collapse toggle below can show/hide every one of them
+    # together -- one mechanism, not one per widget.
+    ui_blocks = Any[
+        lbl_upper, lbl_diag, lbl_lower, lbl_recipe,
+        menu_upper, menu_diagonal, menu_lower,
+        lbl_stats, toggle_upper, toggle_diag, toggle_lower,
+    ]
 
     colsize!(ui_layout, 1, Auto())
     colsize!(ui_layout, 2, 200)
     colsize!(ui_layout, 3, Auto())
 
-    rowsize!(fig.layout, 2, Auto())
+    rowsize!(controls_layout, 1, Auto())
 
     if show_slider
         # show_slider guarantees a single chain, but that chain may still have
@@ -656,9 +765,52 @@ function _build_fig(
         update!(graph, show_stats_lower=is_live)
     end
 
+    rescale_picker! = nothing
     if !isnothing(picker_info)
         (; N, N_max, initial_vsel, apply_vsel!) = picker_info
-        _build_vsel_picker!(fig, button_row, graph, N, N_max, initial_vsel, apply_vsel!)
+        picker_blocks, rescale_picker! = _build_vsel_picker!(
+            fig, ui_layout, graph, N, N_max, initial_vsel, apply_vsel!
+        )
+        append!(ui_blocks, picker_blocks)
+    end
+
+    # Single toggle that collapses/expands the *entire* controls block
+    # (recipe/stats menus and the always-visible vsel picker matrix) down to
+    # zero height, so the main grid can use the full window when the UI
+    # isn't needed.
+    collapse_button = Button(fig, label="☰", halign=:left, valign=:top)
+    if show_slider
+        # Spans both of the "Current Index" label/slider rows so its own top
+        # and bottom edges land exactly on theirs. `height=Relative(1)` (not
+        # the Auto() default) is what makes it *fill* that combined span
+        # exactly rather than centering its own natural height within it --
+        # Relative sizing uses the assigned bbox height directly as-is, so
+        # there's no leftover space left to offset the alignment. Only safe
+        # here because rows 1/2 have other content (the label/slider) to
+        # derive a real height from; with no slider, the button is the only
+        # content in row 1 and needs its own natural (Auto) height instead.
+        collapse_button.height[] = Relative(1)
+        toggle_row[1:2, 1] = collapse_button
+    else
+        toggle_row[1, 1] = collapse_button
+    end
+    controls_visible = Observable(true)
+    on(controls_visible) do vis
+        rowsize!(fig.layout, 3, vis ? Auto() : Fixed(0))
+        for b in ui_blocks
+            _set_block_visible!(b, vis)
+        end
+        # The per-widget restore loop above processes ui_layout's menus
+        # before the picker matrix's own blocks, so mid-loop the matrix's
+        # available height is transiently smaller than its final value --
+        # _set_block_visible! would otherwise leave checkboxes/labels sized
+        # to that transient value instead of the correct final one (confirmed
+        # empirically). This forces one final, correct pass once everything
+        # else has fully settled.
+        vis && !isnothing(rescale_picker!) && rescale_picker!()
+    end
+    on(collapse_button.clicks) do _
+        controls_visible[] = !controls_visible[]
     end
 
     return fig
@@ -680,46 +832,127 @@ end
 # endpoints must be selected (a diagonal cell i==j just needs i).
 _checkbox_should_be_checked(active_vars::Set{<:Integer}, i::Integer, j::Integer) = (i in active_vars) && (j in active_vars)
 
-# Checkbox has no direct `visible` attribute (unlike Label/Box); it needs its
-# underlying blockscene hidden instead.
-_set_block_visible!(b::Checkbox, v::Bool) = (b.blockscene.visible[] = v)
+# Most Blocks (Button/Menu/Toggle/Slider/Checkbox/...) have no direct
+# `visible` attribute -- confirmed empirically (hasproperty(b, :visible) is
+# false for all of these) -- so toggling their underlying blockscene's
+# visibility is the general mechanism. Label/Box are the exception: they do
+# have their own `visible` attribute directly, and use it instead.
+#
+# blockscene visibility alone isn't enough for these, though: an interactive
+# block's own click handling (Menu's dropdown, Button's click, Toggle/Slider
+# drag, Checkbox's toggle) is driven by a purely geometric hit-test against
+# the block's *own computed bounding box* -- entirely independent of
+# `visible` (confirmed empirically: a Menu still opens its dropdown from a
+# click at its old screen position even with blockscene.visible[]=false).
+# The reason the bbox doesn't shrink on its own: GridLayoutBase's `Fixed(0)`
+# row/column size is only a *suggestion* to the block; whatever the block's
+# own `width`/`height` attribute resolves to takes precedence, and computes
+# its bbox from its natural/reported size regardless of how small the
+# assigned cell actually is. Forcing width/height to a literal `0` collapses
+# the computed bbox to zero area, which *is* geometrically unclickable.
+#
+# The original width/height must be *remembered per block* rather than
+# restored to a hardcoded `Auto()`, though: not every block defaults to
+# `Auto()` -- Menu defaults to `width === nothing`, which means "just use
+# whatever the parent GridLayout cell suggests" (this is exactly what gives
+# every recipe menu here its uniform, column-driven width, since ui_layout's
+# column 2 is a fixed 200px). `Auto()` is a *different* value with different
+# semantics: it means "use my own text-derived autosize if one is available",
+# and Menu unconditionally always makes one available (it recomputes its
+# autosize from its current selected-text bounding box on every change) --
+# so overwriting `nothing` with `Auto()` on restore silently switches a Menu
+# from column-width to shrink-wrapped-to-text width permanently, which is
+# exactly the "Hist"-vs-"QuantileHist" width mismatch this once caused.
+const _BLOCK_NATURAL_SIZE = WeakKeyDict{Any,Tuple{Any,Any}}()
+_natural_size!(b) = get!(() -> (b.width[], b.height[]), _BLOCK_NATURAL_SIZE, b)
+
+function _set_block_visible!(b, v::Bool)
+    b.blockscene.visible[] = v
+    w, h = _natural_size!(b)
+    b.width[] = v ? w : 0
+    b.height[] = v ? h : 0
+    return nothing
+end
 _set_block_visible!(b::Union{Label,Box}, v::Bool) = (b.visible[] = v)
 
-# Builds the "Adjust vsel" button (placed into button_row, its own dedicated
-# fixed-height row so it never gets squeezed by ui_layout's growing content,
-# and never collapses along with the panel it's meant to reveal) and its
-# collapsible N x N variable picker panel (N = total model dimensionality, not
-# N_max), placed in a column to the right of button_row/ui_layout, below the
-# corner plot itself. The lower triangle including the diagonal (i >= j) is
-# interactive -- cell (i,j) and (j,i) are the same 2D marginal, so only one
-# needs a checkbox; a diagonal cell (i,i) selects variable i on its own. Only
-# the strict upper triangle is decorative. Checking a cell on/off means
-# "include/exclude these variable(s) in vsel"; the actual N_max x N_max
-# corner-plot grid always shows every pairing among the currently selected
-# variables, so there's no independent per-pair visibility beyond which
-# variables are selected.
+# Checkbox is a further exception to the generic method above: its clickable
+# area is a *fixed*-size square (its `size` attribute) centered on
+# computedbbox, independent of that bbox's own dimensions (confirmed in
+# Makie's checkbox.jl source) -- so zeroing width/height alone still leaves a
+# fully clickable checkbox sitting at the collapsed bbox's center point. Needs
+# `size` zeroed/restored too; its natural size is remembered (weakly, so a
+# checkbox that's later discarded can still be GC'd) the first time it's
+# hidden, since that capture must happen before it's ever been zeroed.
+const _CHECKBOX_NATURAL_SIZE = WeakKeyDict{Checkbox,Float64}()
+function _set_block_visible!(b::Checkbox, v::Bool)
+    b.blockscene.visible[] = v
+    w, h = _natural_size!(b)
+    b.width[] = v ? w : 0
+    b.height[] = v ? h : 0
+    if v
+        b.size[] = get(_CHECKBOX_NATURAL_SIZE, b, b.size[])
+    else
+        haskey(_CHECKBOX_NATURAL_SIZE, b) || (_CHECKBOX_NATURAL_SIZE[b] = b.size[])
+        b.size[] = 0
+    end
+    return nothing
+end
+
+# Builds the always-visible "Displayed Marginals" title + N x N variable
+# picker matrix (N = total model dimensionality, not N_max), placed as a 4th
+# column of ui_layout (see _build_fig): the title shares ui_layout's row 1
+# with the "Recipe"/"Stats overlay" headers (so their top/bottom edges match
+# exactly, being the same grid row) and the matrix spans rows 2:4 (so its
+# bottom edge exactly matches menu_lower's row) -- both guaranteed by
+# GridLayoutBase, not by manual pixel-matching. The lower triangle including
+# the diagonal (i >= j) is interactive -- cell (i,j) and (j,i) are the same 2D
+# marginal, so only one needs a checkbox; a diagonal cell (i,i) selects
+# variable i on its own. Only the strict upper triangle is decorative.
+# Checking a cell on/off means "include/exclude these variable(s) in vsel";
+# the actual N_max x N_max corner-plot grid always shows every pairing among
+# the currently selected variables, so there's no independent per-pair
+# visibility beyond which variables are selected.
 #
 # Takes graph/N/N_max/initial_vsel/apply_vsel! directly rather than a
 # BATVisualizer so it also works for the static bat_makie_plot path, which has
-# no vis/content at all.
+# no vis/content at all. Returns (blocks, rescale_picker!): every block it
+# creates, so the caller's whole-controls collapse toggle can fold this
+# matrix's visibility into its own (it's no longer independently
+# collapsible), and a callback the caller must invoke once after fully
+# re-expanding the controls. That second call is not redundant with the
+# automatic bbox-driven rescaling above: collapsing/expanding processes
+# ui_blocks (menus first, then this matrix's own blocks) one at a time, so
+# mid-restore the matrix's available height is transiently smaller than its
+# final value -- confirmed empirically to otherwise leave cells sized to that
+# transient value instead of the correct final one.
 function _build_vsel_picker!(
     fig::Figure,
-    button_row::GridLayout,
+    ui_layout::GridLayout,
     graph::ComputeGraph,
     N::Integer,
     N_max::Integer,
     initial_vsel::AbstractVector{<:Integer},
     apply_vsel!::Function
 )
-    picker_layout = fig[2:3, 2] = GridLayout()
-    colsize!(fig.layout, 2, Fixed(0)) # starts collapsed
+    lbl_marginals = Label(fig, "Displayed Marginals")
+    ui_layout[1, 4] = lbl_marginals
 
+    picker_layout = ui_layout[2:4, 4] = GridLayout()
+    # Deferring to the assigned row-span (rather than the matrix's own small
+    # natural size) is what makes it actually *fill* that span all the way
+    # down to row 4's bottom edge, instead of centering its small natural
+    # size somewhere in the middle of it -- see the width[]=nothing comments
+    # above for why a GridLayout's default Auto() sizing wouldn't do this.
+    picker_layout.width[] = nothing
+    picker_layout.height[] = nothing
+
+    # Warning label (e.g. "can't select more than N_max...") sits below the
+    # matrix, spanning its full width.
     status_label = Label(fig, "", fontsize=12, color=:red)
-    button_row[1, 2] = status_label
 
     initial_vsel_set = Set(initial_vsel)
     checkboxes = Dict{Tuple{Int,Int},Checkbox}()
-    all_blocks = Union{Checkbox,Label,Box}[]
+    all_blocks = Union{Checkbox,Label,Box}[status_label, lbl_marginals]
     updating_programmatically = Ref(false)
 
     for j in 1:N
@@ -746,6 +979,51 @@ function _build_vsel_picker!(
                 push!(all_blocks, bx)
             end
         end
+    end
+    picker_layout[N+2, 1:(N+1)] = status_label
+
+    # Scales the matrix's cells (checkbox click-target size, row/column
+    # index label fontsize, decorative box size) to the space picker_layout
+    # actually ends up filling, rather than leaving them at their small
+    # default size with dead space around them now that the matrix fills the
+    # whole label-to-bottom-edge span above. Unconditional (no dedup) so the
+    # explicit external call the caller makes after re-expanding (see this
+    # function's docstring) always forces a fresh, correct application.
+    function rescale_picker!()
+        h = picker_layout.layoutobservables.computedbbox[].widths[2]
+        h < 10 && return
+        cell = h / (N + 2) # matrix rows (N+1) plus the status-label row
+        cb_size = max(4.0, 0.75 * cell)
+        lbl_fontsize = clamp(0.45 * cell, 6.0, 16.0)
+        for b in all_blocks
+            if b isa Checkbox
+                b.size[] = cb_size
+            elseif b isa Box
+                b.width[] = cb_size
+                b.height[] = cb_size
+            elseif b !== lbl_marginals && b !== status_label
+                b.fontsize[] = lbl_fontsize
+            end
+        end
+        return nothing
+    end
+    # Reacts to picker_layout's own resolved bbox (not a one-off calculation
+    # at construction time) so it also adapts to window resizes. last_h
+    # dedupes re-entrant firings *here* specifically: changing a cell's size
+    # above triggers its own relayout (Label/Checkbox both feed their size
+    # back into the layout machinery), which unconditionally renotifies this
+    # same computedbbox Observable even when its value comes out identical
+    # (GridLayoutBase doesn't skip notification on equal values here) --
+    # without this guard that's an infinite loop, confirmed empirically
+    # (StackOverflowError). The explicit external call above bypasses this
+    # dedup entirely (calling rescale_picker! directly, not through here),
+    # which is required -- see this function's docstring for why.
+    last_h = Ref(-1.0)
+    on(picker_layout.layoutobservables.computedbbox) do bbox
+        h = bbox.widths[2]
+        (h < 10 || h == last_h[]) && return
+        last_h[] = h
+        rescale_picker!()
     end
 
     active_vars = Ref(initial_vsel_set)
@@ -780,23 +1058,7 @@ function _build_vsel_picker!(
         end
     end
 
-    adjust_button = Button(fig, label="Adjust vsel")
-    button_row[1, 1] = adjust_button
-    picker_visible = Observable(false)
-    on(picker_visible) do is_visible
-        colsize!(fig.layout, 2, is_visible ? Auto() : Fixed(0))
-        for b in all_blocks
-            _set_block_visible!(b, is_visible)
-        end
-    end
-    for b in all_blocks
-        _set_block_visible!(b, false) # start collapsed AND hidden
-    end
-    on(adjust_button.clicks) do _
-        picker_visible[] = !picker_visible[]
-    end
-
-    return nothing
+    return all_blocks, rescale_picker!
 end
 
 function register_state_for_vis!(
