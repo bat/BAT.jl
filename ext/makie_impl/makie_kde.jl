@@ -28,6 +28,10 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
+        # kde() errors on empty input -- a live cell can still have zero samples
+        # (e.g. right after vsel activates, before the first batch flushes, or if
+        # buffered samples get cleared later), so degrade like a dead cell instead.
+        isempty(weights) && return _EMPTY_KDE1D_PRIMITIVES
         kde_result = kde(vec(marg_coords), weights=weights)
         x = kde_result.x
         density = kde_result.density
@@ -74,6 +78,7 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
+        isempty(weights) && return _EMPTY_KDE2D_PRIMITIVES
         kde_result = kde(marg_coords', weights=weights)
         density = kde_result.density
         nonzero_density = fill(NaN, size(density))
@@ -122,6 +127,7 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
+        isempty(weights) && return _EMPTY_QUANTILEKDE1D_PRIMITIVES
         (; levels, colormap, alpha, rev) = config
         kde_result = kde(vec(marg_coords), weights=weights)
         x = kde_result.x
@@ -210,6 +216,7 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
+        isempty(weights) && return _EMPTY_QUANTILEKDE2D_PRIMITIVES
         (; levels, rev, colormap, alpha) = config
         kde_result = kde((marg_coords[1, :], marg_coords[2, :]), weights=weights)
 

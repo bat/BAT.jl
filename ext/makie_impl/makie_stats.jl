@@ -98,6 +98,11 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
+        # A live cell can still have zero samples (e.g. right after vsel
+        # activates, before the first batch flushes, or if buffered samples get
+        # cleared later) -- mean/cov/eigen all misbehave or error on empty input,
+        # so degrade to the same empty result as a dead cell instead.
+        isempty(weights) && return _EMPTY_COV2D_PRIMITIVES
         (; nsigma) = config
 
         w_prob = ProbabilityWeights(weights)
@@ -164,6 +169,7 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
+        isempty(weights) && return _EMPTY_STD1D_PRIMITIVES
         (; nsigma) = config
         w_prob = ProbabilityWeights(weights)
         μ = mean(vec(marg_coords), w_prob)
@@ -206,6 +212,7 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
+        isempty(weights) && return _EMPTY_STD2D_PRIMITIVES
         (; nsigma) = config
 
         w_prob = ProbabilityWeights(weights)
@@ -260,6 +267,7 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
+        isempty(weights) && return _EMPTY_MEAN1D_PRIMITIVES
         return (x=[mean(vec(marg_coords), ProbabilityWeights(weights))],)
 end
 
@@ -299,6 +307,7 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
+        isempty(weights) && return _EMPTY_MEAN2D_PRIMITIVES
         w_prob = ProbabilityWeights(weights)
         μ_x = mean(marg_coords[1, :], w_prob)
         μ_y = mean(marg_coords[2, :], w_prob)
@@ -342,6 +351,7 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
+        isempty(weights) && return _EMPTY_ERRORBARS1D_PRIMITIVES
         (; nsigma) = config
         w_prob = ProbabilityWeights(weights)
         μ = mean(marg_coords, w_prob)
@@ -391,6 +401,7 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
+        isempty(weights) && return _EMPTY_ERRORBARS2D_PRIMITIVES
         (; nsigma) = config
         w_prob = ProbabilityWeights(weights)
         x = marg_coords[1, :]
@@ -448,6 +459,7 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
+        isempty(weights) && return _EMPTY_PDF1D_PRIMITIVES
         (; npoints_pdf) = config
 
         w_prob = ProbabilityWeights(weights)

@@ -29,6 +29,10 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
+    # A live cell can still have zero samples (e.g. right after vsel activates,
+    # before the first batch flushes, or if buffered samples get cleared later)
+    # -- degrade to the same empty result as a dead cell rather than crashing.
+    isempty(weights) && return _EMPTY_HIST1D_PRIMITIVES
     (; normalization, nbins, closed, filter) = config
     hist = _marginal_view_dist(marg_coords, weights, filter, nbins + 1, closed, normalization)
     centers = _get_bin_centers(hist)
@@ -72,6 +76,7 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
+    isempty(weights) && return _EMPTY_HIST2D_PRIMITIVES
     (; normalization, nbins, closed, filter) = config
 
     hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, normalization)
@@ -120,6 +125,7 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
+    isempty(weights) && return _EMPTY_QUANTILEHIST1D_PRIMITIVES
     (; normalization, levels, colormap, alpha, rev, nbins, closed) = config
     hist = _marginal_view_dist(marg_coords, weights, config.filter, nbins, closed, normalization)
 
@@ -193,6 +199,7 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
+    isempty(weights) && return _EMPTY_QUANTILEHIST2D_PRIMITIVES
     (; normalization, levels, colormap, alpha, rev, nbins, closed) = config
     hist = _marginal_view_dist(marg_coords, weights, config.filter, nbins, closed, normalization)
 

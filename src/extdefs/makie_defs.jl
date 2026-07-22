@@ -5,6 +5,12 @@ struct BATMakieVisualization <: BATVisBackend
         vsel::Vector{Integer}
         N_max::Integer
         n_batch::Integer
+        # Backpressure watermark: once this many samples are buffered and not yet
+        # flushed, sampling threads block (in update_visualizer_impl!) until the
+        # listener catches up. Bounds how far the display can lag behind the true
+        # sampler state without throttling every single sample -- sampling still
+        # runs in free bursts up to this many samples ahead.
+        max_buffered::Integer
         poll_interval::Real
         dark::Bool
         triagonal_config::NamedTuple
@@ -14,21 +20,21 @@ struct BATMakieVisualization <: BATVisBackend
         # which N_max (or fewer) variables are shown and may later be changed at
         # runtime (via a not-yet-implemented UI widget), but can never select more
         # variables than there are grid slots for.
-        function BATMakieVisualization(recipes, vsel, N_max, n_batch, poll_interval, dark, triagonal_config, diagonal_config)
+        function BATMakieVisualization(recipes, vsel, N_max, n_batch, max_buffered, poll_interval, dark, triagonal_config, diagonal_config)
                 if length(vsel) > N_max
                         @warn "BATMakieVisualization: vsel $vsel has more entries than N_max=$N_max; truncating to $(vsel[1:N_max])."
                         vsel = vsel[1:N_max]
                 end
-                new(recipes, vsel, N_max, n_batch, poll_interval, dark, triagonal_config, diagonal_config)
+                new(recipes, vsel, N_max, n_batch, max_buffered, poll_interval, dark, triagonal_config, diagonal_config)
         end
 end
 export BATMakieVisualization
 
-function BATMakieVisualization(; dark::Bool=false)
+function BATMakieVisualization(; dark::Bool=false, max_buffered::Integer=4 * 50)
         recipes = (upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D)
         vsel = [1, 2, 3] # Default vsel; truncated in `init_visualizer!` if the posterior has fewer free parameters.
         N_max = 3 # Grid size; cells beyond the (possibly truncated) vsel are simply left dead/empty.
-        n_batch = 10 # Flush the buffered samples into the plot once this many have accumulated.
+        n_batch = 50 # Flush the buffered samples into the plot once this many have accumulated.
         poll_interval = 0.1 # Seconds between checks of whether a new batch is ready to flush.
 
         triagonal_config = (
@@ -67,6 +73,7 @@ function BATMakieVisualization(; dark::Bool=false)
                 vsel,
                 N_max,
                 n_batch,
+                max_buffered,
                 poll_interval,
                 dark,
                 triagonal_config,
