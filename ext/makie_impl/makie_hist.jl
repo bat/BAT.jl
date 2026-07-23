@@ -385,7 +385,14 @@ function compute_plotting_primitives(
         threshold
     end
 
-    return (x=x, y=y, weights=weights, thresh=final_thresh)
+    # Materialized to Vector{Float64} rather than passed through as the raw
+    # SubArray{<:Any} from :flat_weights -- ComputePipeline's TypedEdge fixes
+    # this node's output type from its first resolution, and the dead-cell
+    # fallback (_EMPTY_HEXBIN2D_PRIMITIVES) hardcodes weights=Float64[]; a
+    # live SubArray{Int64,...} (or any non-Float64 concrete type) here would
+    # make a later live->dead transition (e.g. via vsel reduction) fail to
+    # convert.
+    return (x=x, y=y, weights=Float64.(weights), thresh=final_thresh)
 end
 
 function compose_plotspecs(

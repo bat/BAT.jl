@@ -201,6 +201,21 @@ function _init_compute_graph(
         [:flat_samples, :current_idx],
         :flat_weights
     )
+    map!(
+        # Per-sample chain id, for ChainScatter2D -- only meaningful when the
+        # underlying samples actually carry chain identity (MCMCSampleID/
+        # AHMCSampleID's `.chainid`; not importance sampling, MGVI, etc.,
+        # whose `.info` has no such field). Degrades to an empty Int32[]
+        # otherwise -- ChainScatter2D is never offered in the recipe menu in
+        # that case (see _samples_have_chain_ids in makie_scatter.jl), but
+        # this still needs to not error if the graph is ever resolved before
+        # that's checked (e.g. during precompilation with a plain smoke-test
+        # dataset).
+        (smpls, idx) -> hasfield(eltype(smpls.info), :chainid) ? Int32[s.chainid for s in view(smpls.info, 1:idx)] : Int32[],
+        graph,
+        [:flat_samples, :current_idx],
+        :flat_chainids
+    )
 
     add_input!(graph, :idxs, Integer[])
 
@@ -271,6 +286,12 @@ function _init_compute_graph(
     for recipe in vcat(BAT_MAKIE_RECIPES_1D, BAT_MAKIE_RECIPES_2D)
         add_input!(graph, Symbol("$(typeof(recipe))"), recipe)
     end
+    # ChainScatter2D is deliberately not in BAT_MAKIE_RECIPES_2D (see its own
+    # registration below, in the (i,j) loop) since it needs an extra input
+    # (:flat_chainids) the shared per-recipe registration loop above doesn't
+    # thread through -- but it still needs this same per-type input node
+    # (matching every other recipe) for consistency.
+    add_input!(graph, Symbol("$(ChainScatter2D)"), ChainScatter2D())
 
     for i in 1:n
         #1D marginal views
@@ -417,6 +438,30 @@ function _init_compute_graph(
                     end
                     return (primitives,)
                 end
+            end
+
+            # ChainScatter2D registered separately from the shared loop above
+            # (rather than added to BAT_MAKIE_RECIPES_2D) since it's the only
+            # 2D recipe that needs an extra per-sample input (:flat_chainids)
+            # -- folding it into the shared loop would mean adding a chainids
+            # parameter to all 9 *other* 2D recipes' compute_plotting_primitives
+            # methods too, even though they'd ignore it. Uses the same
+            # primitive_symbol(recipe, (j,i)) naming as the shared loop, so
+            # _init_gridlayout's graph[primitive_symbol(upper_recipe, (j,i))][]
+            # lookup finds it transparently whenever a user actually selects
+            # ChainScatter2D as the upper/lower recipe. Not an is_incremental
+            # recipe (like plain Scatter2D, it just needs the raw point cloud
+            # each time), so no running-state accumulator branch is needed.
+            chainscatter_primitive_sym = primitive_symbol(ChainScatter2D(), (j, i))
+            register_computation!(graph,
+                [marg_sym_2D, :flat_weights, :flat_chainids, :upper_recipe, :lower_recipe, :live_map, :triagonal_config],
+                [chainscatter_primitive_sym]
+            ) do inputs, changed, cached
+                coords, weights, chainids, live_recipe_upper, live_recipe_lower, live_map, config = inputs
+                cell_status = live_map[i, j] ? LiveCell() : DeadCell()
+                recipe_status = determine_recipe_status(ChainScatter2D(), live_recipe_upper(), live_recipe_lower())
+                primitives = compute_plotting_primitives(coords, weights, chainids, ChainScatter2D(), recipe_status, cell_status, config)
+                return (primitives,)
             end
         end
     end
@@ -712,7 +757,8 @@ end
 function _build_fig(
     graph::ComputeGraph,
     gridlayout::Any,
-    picker_info::Union{NamedTuple,Nothing}=nothing
+    picker_info::Union{NamedTuple,Nothing}=nothing;
+    has_chain_info::Bool=false
 )
     # The whole column (main grid, toggle_row, controls_layout -- see below)
     # is locked to a single width via colsize!(fig.layout, 1, Aspect(1,1)),
@@ -896,6 +942,11 @@ function _build_fig(
         ("QuantileKDE", QuantileKDE2D),
         ("KDE", KDE2D),
     ]
+    # Only offered when the plotted samples actually carry chain identity
+    # (see _samples_have_chain_ids in makie_scatter.jl) -- meaningless (and
+    # would just show every point as a single color) for samples from a
+    # non-MCMC sampler.
+    has_chain_info && push!(options2D, ("Scatter (by chain)", ChainScatter2D))
     options1D = [
         ("QuantileHist", QuantileHist1D),
         ("Hist", Hist1D),
@@ -1454,9 +1505,20 @@ function BAT.init_visualizer!(
         (apply_vsel!)=new_vsel -> _apply_vsel!(vis, new_vsel),
     )
 
+    # This entry point is only ever reached from MCMC sampling (mcmc_states::
+    # Vector{<:MCMCState} above), so it's tempting to assume chain info is
+    # always present -- checked via the real sample data anyway (same
+    # predicate the static path uses), so this stays correct even if some
+    # future MCMC-adjacent sampler reuses this visualizer without actually
+    # producing chain-tagged samples. .info is unaffected by
+    # _transform_walker_outputs (that only transforms .v), so checking the
+    # untransformed first chain/walker's output is equivalent to checking
+    # what's actually registered.
+    has_chain_info = _samples_have_chain_ids(outputs[1][1])
+
     with_theme(vis.backend.dark ? bat_theme_dark() : bat_theme()) do
         gridlayout = _init_gridlayout(graph, vis.backend.N_max)
-        fig = _build_fig(graph, gridlayout, picker_info)
+        fig = _build_fig(graph, gridlayout, picker_info; has_chain_info=has_chain_info)
         display(fig)
     end
 

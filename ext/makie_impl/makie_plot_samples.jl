@@ -167,7 +167,7 @@ function BAT.bat_makie_plot(
 
         with_theme(dark ? bat_theme_dark() : bat_theme()) do
                 gridlayout = _init_gridlayout(graph, N_max)
-                fig = _build_fig(graph, gridlayout, picker_info)
+                fig = _build_fig(graph, gridlayout, picker_info; has_chain_info=_samples_have_chain_ids(samples))
                 display(fig)
         end
         return nothing
