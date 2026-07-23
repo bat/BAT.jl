@@ -444,6 +444,36 @@ function _init_gridlayout(
         triagonal_config = graph[:triagonal_config][]
         diagonal_config = graph[:diagonal_config][]
 
+        # Deselecting a variable should visually remove its row/column and
+        # let the remaining ones grow into the freed space. The naive way to
+        # do that -- building an n_active x n_active S.GridLayout matrix
+        # instead of always n x n -- hits a genuine Makie SpecApi
+        # reconciliation bug: shrinking the matrix then growing it back to a
+        # size it held *before* tries to reuse a previously-disconnected
+        # block at that position instead of creating a fresh one, and it
+        # never reappears (confirmed empirically via direct instrumentation
+        # of both the compute graph and this very closure -- both correctly
+        # recomputed n_active back to its original value, yet the rendered
+        # scene stayed frozen at the smaller size).
+        #
+        # So the matrix itself always stays n x n (sidestepping that
+        # reconciliation path entirely, since the *set of positions* never
+        # changes) and inactive rows/columns are instead collapsed to
+        # Fixed(0) via GridLayoutSpec's own rowsizes/colsizes -- the same
+        # mechanism (and the same Fixed(0)-collapses-a-cell trick used
+        # elsewhere in this file for the collapsible controls row) just
+        # applied here to grid rows/columns instead of Figure rows.
+        # GridLayoutBase then naturally redistributes the same total area
+        # across only the n_active non-collapsed cells.
+        n_active = length(_idxs)
+        @assert n_active <= n "idxs has $(n_active) entries, exceeding the grid size N_max=$n"
+        # Explicitly typed as Union{Auto,Fixed} (not left to infer as
+        # Vector{Any}) -- GridLayoutBase.convert_contentsizes requires
+        # Vector{<:ContentSize} and rejects a plain Vector{Any}, which is
+        # what an untyped comprehension over two different concrete types
+        # produces.
+        cellsizes = Union{Auto,Fixed}[i <= n_active ? Auto() : Fixed(0) for i in 1:n]
+
         for i in 1:n
             diagonal_primitives = graph[primitive_symbol(diagonal_recipe, (i, i))][]
             diagonal_plotspecs = compose_plotspecs(diagonal_primitives, diagonal_recipe(), diagonal_config)
@@ -451,7 +481,21 @@ function _init_gridlayout(
             append!(diagonal_plotspecs, stats_specs_1D)
 
             xlims = graph[Symbol("axis_limits_$i")][]
-            show_x_cosmetics = (i == n) || (i == 1)
+            # Cosmetics (tick labels) belong on the edge of the *visible*
+            # grid (n_active), not the fixed N_max one -- cells beyond
+            # n_active are zero-sized and invisible, so n_active is now the
+            # true bottom/right edge.
+            show_x_cosmetics = (i == n_active) || (i == 1)
+            # A Fixed(0) row/column (cellsizes above) collapses the cell's
+            # own plotting area to zero, but ticks/tick-labels/gridlines are
+            # protrusion content drawn *outside* that area -- they don't
+            # automatically disappear just because the cell they're attached
+            # to has shrunk to nothing (confirmed empirically: leftover tick
+            # marks/labels from deselected variables were still visible).
+            # Explicitly forcing every decoration off for an inactive cell,
+            # not just relying on it having zero size, is what actually
+            # removes them.
+            cell_active = i <= n_active
             matrix[i, i] = S.Axis(
                 plots=diagonal_plotspecs,
                 # Matches the upper/lower 2D cells' aspect=1 below -- without
@@ -462,13 +506,15 @@ function _init_gridlayout(
                 # taller than wide for a 1D density/histogram.
                 aspect=1,
                 limits=(xlims, nothing),
-                xticklabelsvisible=show_x_cosmetics, xticksvisible=show_x_cosmetics,
-                yticklabelsvisible=true,
+                xticklabelsvisible=cell_active && show_x_cosmetics, xticksvisible=cell_active && show_x_cosmetics,
+                yticklabelsvisible=cell_active, yticksvisible=cell_active,
                 yticklabelrotation=pi / 2,
                 ytickformat="{:.1f}",
-                xgridvisible=true,
-                ygridvisible=true,
-                xaxisposition=(i == 1) ? :top : :bottom
+                xgridvisible=cell_active,
+                ygridvisible=cell_active,
+                xaxisposition=(i == 1) ? :top : :bottom,
+                leftspinevisible=cell_active, rightspinevisible=cell_active,
+                topspinevisible=cell_active, bottomspinevisible=cell_active,
             )
 
             for j in i+1:n
@@ -490,18 +536,23 @@ function _init_gridlayout(
                 append!(upper_plotspecs, stats_specs_2D)
 
                 ylims = graph[Symbol("axis_limits_$j")][]
-                show_y_cosmetics = (j == n)
+                show_y_cosmetics = (j == n_active)
+                # i < j always in this loop, so j <= n_active already implies
+                # i <= n_active -- checking j alone is sufficient here.
+                cell_active_upper = j <= n_active
                 matrix[i, j] = S.Axis(
                     plots=upper_plotspecs,
                     aspect=1,
                     limits=(ylims, xlims),
-                    xticklabelsvisible=show_x_cosmetics, xticksvisible=show_x_cosmetics,
-                    yticklabelsvisible=show_y_cosmetics, yticksvisible=show_y_cosmetics,
+                    xticklabelsvisible=cell_active_upper && show_x_cosmetics, xticksvisible=cell_active_upper && show_x_cosmetics,
+                    yticklabelsvisible=cell_active_upper && show_y_cosmetics, yticksvisible=cell_active_upper && show_y_cosmetics,
                     yticklabelrotation=pi / 2,
-                    xgridvisible=true,
-                    ygridvisible=true,
+                    xgridvisible=cell_active_upper,
+                    ygridvisible=cell_active_upper,
                     xaxisposition=:top,
                     yaxisposition=:right,
+                    leftspinevisible=cell_active_upper, rightspinevisible=cell_active_upper,
+                    topspinevisible=cell_active_upper, bottomspinevisible=cell_active_upper,
                 )
             end
             for j in 1:i-1
@@ -512,19 +563,24 @@ function _init_gridlayout(
 
                 ylims = graph[Symbol("axis_limits_$j")][]
                 show_y_cosmetics = (j == 1)
+                # j < i always in this loop, so i <= n_active already implies
+                # j <= n_active -- checking i alone is sufficient here.
+                cell_active_lower = i <= n_active
                 matrix[i, j] = S.Axis(
                     plots=lower_plotspecs,
                     aspect=1,
                     limits=(xlims, ylims),
-                    xticklabelsvisible=show_x_cosmetics, xticksvisible=show_x_cosmetics,
-                    yticklabelsvisible=show_y_cosmetics, yticksvisible=show_y_cosmetics,
+                    xticklabelsvisible=cell_active_lower && show_x_cosmetics, xticksvisible=cell_active_lower && show_x_cosmetics,
+                    yticklabelsvisible=cell_active_lower && show_y_cosmetics, yticksvisible=cell_active_lower && show_y_cosmetics,
                     yticklabelrotation=pi / 2,
-                    xgridvisible=true,
-                    ygridvisible=true,
+                    xgridvisible=cell_active_lower,
+                    ygridvisible=cell_active_lower,
+                    leftspinevisible=cell_active_lower, rightspinevisible=cell_active_lower,
+                    topspinevisible=cell_active_lower, bottomspinevisible=cell_active_lower,
                 )
             end
         end
-        return S.GridLayout(matrix)
+        return S.GridLayout(matrix; rowsizes=cellsizes, colsizes=cellsizes)
     end
 
     return gridlayout
@@ -547,6 +603,21 @@ function _build_fig(
     plot(fig[1, 1], gridlayout)
 
     colsize!(fig.layout, 1, Aspect(1, 1))
+    # TODO: Relative(0.8) recomputes on every relayout, not just on real
+    # window resizes -- confirmed a small but real, noticeable size jump in
+    # this row (and, via the Aspect(1,1) column lock above, the whole
+    # column -- main grid *and* the controls/toggle rows below it) when the
+    # vsel selection shrinks/grows, with no window resize involved. Root
+    # cause not isolated (ruled out: per-axis protrusions are identical
+    # between different active-variable counts; toggling tellwidth/
+    # tellheight on the reconciled corner-grid GridLayout makes no
+    # difference). A first attempted fix (driving a Fixed row height off
+    # `fig.scene.viewport` instead) was reverted -- it was only verified in
+    # a headless CairoMakie session and made things worse in a real GLMakie
+    # window (likely a DPI/framebuffer-vs-logical-size mismatch), without
+    # even confirming it fixed the jump there. Needs verification in a real
+    # interactive GLMakie session, not just this extension's usual
+    # CairoMakie-based test harness, before attempting again.
     rowsize!(fig.layout, 1, Relative(0.8))
 
     # Always-visible row holding just the controls-collapse toggle (and the
