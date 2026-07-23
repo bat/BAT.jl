@@ -46,7 +46,7 @@ struct BATMakieVisualization <: BATVisBackend
 end
 export BATMakieVisualization
 
-function BATMakieVisualization(; dark::Bool=false, max_buffered::Integer=4 * 50, adaptive_batching::Bool=true, batch_growth_rate::Real=1.2)
+function BATMakieVisualization(; dark::Bool=false, max_buffered::Integer=4 * 50, adaptive_batching::Bool=true, batch_growth_rate::Real=1.2, trace_nsteps::Integer=20)
         recipes = (upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D)
         vsel = [1, 2, 3] # Default vsel; truncated in `init_visualizer!` if the posterior has fewer free parameters.
         N_max = 3 # Grid size; cells beyond the (possibly truncated) vsel are simply left dead/empty.
@@ -65,7 +65,13 @@ function BATMakieVisualization(; dark::Bool=false, max_buffered::Integer=4 * 50,
                 alpha=1.0,
                 rev=false,
                 threshold=nothing,
-                markersize=2.0
+                markersize=2.0,
+                # How many real MCMC steps back the Trace2D overlay (see
+                # show_trace_upper/lower) shows, measured in actual sampler
+                # steps (stepno + weight - 1), not stored-row count -- a long
+                # dwell at one position ages out of the trace at the correct
+                # rate instead of counting as a single recent point.
+                trace_nsteps=trace_nsteps
         )
 
         diagonal_config = (
@@ -165,6 +171,20 @@ export Mean1D
 
 struct Mean2D <: BATMakieRecipe end
 export Mean2D
+
+# Recency-colored trace of each chain's last `trace_nsteps` real MCMC steps
+# (see BATMakieVisualization's trace_nsteps keyword), drawn as a connecting
+# line + markers with per-vertex alpha fading from the current position
+# (opaque) back through older positions (transparent). An always-live
+# overlay like Mean2D/Std2D/Cov2D (toggled via show_trace_upper/lower, not a
+# selectable main recipe like ChainScatter2D), so it's never offered in the
+# recipe dropdown -- see determine_recipe_status's override for this type.
+# Only meaningful for chain-identified MCMC samples with a stepno field
+# (MCMCSampleID -- not AHMCSampleID, which has chainid but no stepno; not
+# importance sampling/MGVI, which have neither), same availability check
+# style as ChainScatter2D's _samples_have_chain_ids.
+struct Trace2D <: BATMakieRecipe end
+export Trace2D
 
 struct Errorbars1D <: BATMakieRecipe end
 export Errorbars1D

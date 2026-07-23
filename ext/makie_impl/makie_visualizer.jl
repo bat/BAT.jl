@@ -40,6 +40,14 @@ function marg_symbol(vsel::Tuple{Int64,Int64})
     return Symbol("marg_$(vsel[1])$(vsel[2])")
 end
 
+# Untruncated counterpart of marg_symbol -- see Trace2D's own registration
+# and :flat_samples_full's comment below for why it needs the *full*
+# completed dataset rather than the shared current_idx-truncated view every
+# other recipe uses.
+function marg_full_symbol(vsel::Tuple{Int64,Int64})
+    return Symbol("marg_full_$(vsel[1])$(vsel[2])")
+end
+
 # Dispatches each incremental recipe to the right kind of persistent per-cell
 # state (Mean1D/Std1D/Mean2D/Cov2D/Std2D need running sufficient statistics;
 # Hist1D/Hist2D/QuantileHist1D/QuantileHist2D need a running fixed-edge
@@ -216,6 +224,134 @@ function _init_compute_graph(
         [:flat_samples, :current_idx],
         :flat_chainids
     )
+    map!(
+        # Per-sample step number, for Trace2D -- see :flat_chainids' comment
+        # for the general availability-degradation pattern. `stepno` is the
+        # step at which a stored row's position was *first* reached (frozen
+        # at acceptance, not advanced by later rejections at that same spot)
+        # -- Trace2D reconstructs each row's true *last* occupied step as
+        # `stepno + weight - 1` itself, this just supplies the raw field.
+        (smpls, idx) -> hasfield(eltype(smpls.info), :stepno) ? Int64[s.stepno for s in view(smpls.info, 1:idx)] : Int64[],
+        graph,
+        [:flat_samples, :current_idx],
+        :flat_stepnos
+    )
+    map!(
+        # Per-sample walker id, for Trace2D -- needed alongside chainid since
+        # a single chain can have multiple concurrent walkers stepping in
+        # lock-step (sharing overlapping stepno ranges), so chainid alone
+        # can't disentangle one walker's own trajectory. Degrades to an
+        # empty Int32[] whenever chainid/stepno themselves aren't available
+        # (same condition as :flat_chainids/:flat_stepnos, kept consistent
+        # so all three always agree on whether trace support exists and stay
+        # the same length when it does) -- and, only for samples that *do*
+        # have chain identity but happen not to expose a walker id under
+        # either of the two field names BAT's own SampleID subtypes use
+        # (`walkerid` for MCMCSampleID, `walker` for AHMCSampleID -- a
+        # pre-existing naming inconsistency between the two, not introduced
+        # here), falls back to an all-zeros vector (i.e. "assume one walker
+        # per chain") rather than erroring.
+        (smpls, idx) -> begin
+            T = eltype(smpls.info)
+            if !hasfield(T, :chainid) || !hasfield(T, :stepno)
+                Int32[]
+            elseif hasfield(T, :walkerid)
+                Int32[s.walkerid for s in view(smpls.info, 1:idx)]
+            elseif hasfield(T, :walker)
+                Int32[s.walker for s in view(smpls.info, 1:idx)]
+            else
+                zeros(Int32, idx)
+            end
+        end,
+        graph,
+        [:flat_samples, :current_idx],
+        :flat_walkerids
+    )
+
+    # Untruncated (full-completed-dataset) counterparts of :flat_samples/
+    # :flat_weights/:flat_chainids/:flat_stepnos/:flat_walkerids above, used
+    # only by Trace2D (see its own registration below) so it can reveal every
+    # chain *proportionally* as :current_idx pans back and forth, instead of
+    # via one shared row-position cutoff into the flattened array.
+    #
+    # This matters specifically for the static bat_makie_plot/Makie.plot path
+    # reviewing a *completed* multi-chain run: BAT's merged multi-chain
+    # DensitySampleVector is chain-block-concatenated (all of chain A's rows,
+    # then all of chain B's, ...), not time-interleaved across chains --
+    # confirmed empirically (only 3 chainid transitions across 515 row-pairs
+    # for a 4-chain run). A single shared :current_idx cutoff into that
+    # array therefore reveals one chain's *entire* block before any of the
+    # next chain's, so panning the "Current Index" slider makes
+    # already-fully-revealed chains appear to freeze while only the
+    # currently-being-revealed chain's trace visibly moves -- a real,
+    # reported symptom, but not a bug in Trace2D's own compute/caching
+    # (verified directly: a frozen chain's own row count is mathematically
+    # identical at every :current_idx past its block's end, and the
+    # currently-active chain's own row count *does* change over the same
+    # span, ruling out a stale-recompute bug). Reinterpreting :current_idx as
+    # a *fraction* of the full dataset (current_idx / length(full)) and
+    # applying that same fraction to each chain's own full-length group
+    # (computed here) fixes this: every chain now reveals its own history in
+    # lockstep, proportionally, regardless of which block it occupies.
+    #
+    # A no-op for the live path: current_idx there is always exactly
+    # length(:flat_samples) (see the current_idx map! above) -- either
+    # because show_slider is only ever enabled for a single (chain, walker)
+    # (live single-chain or the static path, where "proportional" and "raw"
+    # reveal are identical for the one existing group), or because
+    # current_idxs is never manually rewound below each walker's own true
+    # current length in live multi-chain runs (no slider is shown there at
+    # all) -- so the reveal fraction computed from these nodes is always 1.0
+    # exactly when it would otherwise matter.
+    register_computation!(graph,
+        [:samples],
+        [:flat_samples_full],
+    ) do inputs, changed, cached
+        samples = inputs.samples
+        walker_views = Any[]
+        for i in eachindex(samples)
+            for j in eachindex(samples[i])
+                push!(walker_views, view(samples[i][j], 1:length(samples[i][j])))
+            end
+        end
+        return (vcat(walker_views...),)
+    end
+    map!(
+        smpls -> view(smpls.weight, 1:length(smpls)),
+        graph,
+        :flat_samples_full,
+        :flat_weights_full
+    )
+    map!(
+        smpls -> hasfield(eltype(smpls.info), :chainid) ? Int32[s.chainid for s in view(smpls.info, 1:length(smpls))] : Int32[],
+        graph,
+        :flat_samples_full,
+        :flat_chainids_full
+    )
+    map!(
+        smpls -> hasfield(eltype(smpls.info), :stepno) ? Int64[s.stepno for s in view(smpls.info, 1:length(smpls))] : Int64[],
+        graph,
+        :flat_samples_full,
+        :flat_stepnos_full
+    )
+    map!(
+        smpls -> begin
+            T = eltype(smpls.info)
+            n = length(smpls)
+            if !hasfield(T, :chainid) || !hasfield(T, :stepno)
+                Int32[]
+            elseif hasfield(T, :walkerid)
+                Int32[s.walkerid for s in view(smpls.info, 1:n)]
+            elseif hasfield(T, :walker)
+                Int32[s.walker for s in view(smpls.info, 1:n)]
+            else
+                zeros(Int32, n)
+            end
+        end,
+        graph,
+        :flat_samples_full,
+        :flat_walkerids_full
+    )
 
     add_input!(graph, :idxs, Integer[])
 
@@ -271,6 +407,11 @@ function _init_compute_graph(
     add_input!(graph, :show_stats_diag, false)
     add_input!(graph, :show_stats_lower, false)
 
+    # Trace2D has no diagonal counterpart -- it's an inherently 2D concept
+    # (a path through a 2D marginal), so there's no show_trace_diag.
+    add_input!(graph, :show_trace_upper, false)
+    add_input!(graph, :show_trace_lower, false)
+
     add_input!(graph, :triagonal_config, triagonal_config)
     add_input!(graph, :diagonal_config, diagonal_config)
 
@@ -292,6 +433,12 @@ function _init_compute_graph(
     # thread through -- but it still needs this same per-type input node
     # (matching every other recipe) for consistency.
     add_input!(graph, Symbol("$(ChainScatter2D)"), ChainScatter2D())
+    # Trace2D is likewise not in BAT_MAKIE_RECIPES_2D -- it's an always-live
+    # overlay (like Mean2D/Std2D/Cov2D, via its own determine_recipe_status
+    # override in makie_trace.jl), not a selectable main recipe, and needs
+    # the same extra chain-identity inputs ChainScatter2D does, plus
+    # :flat_stepnos/:flat_walkerids.
+    add_input!(graph, Symbol("$(Trace2D)"), Trace2D())
 
     for i in 1:n
         #1D marginal views
@@ -395,6 +542,15 @@ function _init_compute_graph(
                 [:flat_samples, :vsel_map, :current_idx, :live_map],
                 marg_sym_2D
             )
+            # Untruncated counterpart, for Trace2D only -- see
+            # :flat_samples_full's comment above.
+            marg_sym_2D_full = marg_full_symbol((j, i))
+            map!(
+                (smpls, vsel_map, live_map) -> live_map[j, i] ? view(smpls.v.data, [vsel_map[j, i]...], 1:length(smpls)) : view(smpls.v.data, Int[], 1:0),
+                graph,
+                [:flat_samples_full, :vsel_map, :live_map],
+                marg_sym_2D_full
+            )
 
             primitive_symbols_2D = [primitive_symbol(recipe, (j, i)) for recipe in BAT_MAKIE_RECIPES_2D]
 
@@ -463,6 +619,37 @@ function _init_compute_graph(
                 primitives = compute_plotting_primitives(coords, weights, chainids, ChainScatter2D(), recipe_status, cell_status, config)
                 return (primitives,)
             end
+
+            # Trace2D registered separately, the same way ChainScatter2D is,
+            # since it needs the same extra per-sample chain-identity input
+            # plus :flat_stepnos/:flat_walkerids on top. Unlike ChainScatter2D
+            # (a selectable main recipe, live only when actually chosen),
+            # Trace2D is an always-live overlay -- see its
+            # determine_recipe_status override in makie_trace.jl -- so its
+            # primitives are computed regardless of what upper_recipe/
+            # lower_recipe currently is, exactly like Mean2D/Std2D/Cov2D;
+            # whether it's actually *drawn* is a separate, purely
+            # presentation-layer decision made in _init_gridlayout's lift
+            # below (show_trace_upper/lower), matching how the stats overlay
+            # toggle works.
+            #
+            # Uses the *_full inputs (untruncated) plus :current_idx directly
+            # (rather than the shared current_idx-truncated marg_sym_2D/
+            # flat_weights/flat_chainids/etc every other 2D recipe depends on)
+            # so it can reveal each chain proportionally as current_idx pans
+            # -- see :flat_samples_full's comment above for why a raw shared
+            # truncation makes already-revealed chains appear to freeze.
+            trace_primitive_sym = primitive_symbol(Trace2D(), (j, i))
+            register_computation!(graph,
+                [marg_sym_2D_full, :flat_weights_full, :flat_chainids_full, :flat_walkerids_full, :flat_stepnos_full, :current_idx, :upper_recipe, :lower_recipe, :live_map, :triagonal_config],
+                [trace_primitive_sym]
+            ) do inputs, changed, cached
+                coords, weights, chainids, walkerids, stepnos, current_idx, live_recipe_upper, live_recipe_lower, live_map, config = inputs
+                cell_status = live_map[i, j] ? LiveCell() : DeadCell()
+                recipe_status = determine_recipe_status(Trace2D(), live_recipe_upper(), live_recipe_lower())
+                primitives = compute_plotting_primitives(coords, weights, chainids, walkerids, stepnos, current_idx, Trace2D(), recipe_status, cell_status, config)
+                return (primitives,)
+            end
         end
     end
 
@@ -483,8 +670,10 @@ function _init_gridlayout(
         graph[:lower_recipe],
         graph[:show_stats_upper],
         graph[:show_stats_diag],
-        graph[:show_stats_lower]
-    ) do idx, _idxs, upper_recipe, diagonal_recipe, lower_recipe, stats_upper, stats_diag, stats_lower
+        graph[:show_stats_lower],
+        graph[:show_trace_upper],
+        graph[:show_trace_lower]
+    ) do idx, _idxs, upper_recipe, diagonal_recipe, lower_recipe, stats_upper, stats_diag, stats_lower, trace_upper, trace_lower
         matrix = Matrix{Any}(undef, n, n)
         triagonal_config = graph[:triagonal_config][]
         diagonal_config = graph[:diagonal_config][]
@@ -669,6 +858,8 @@ function _init_gridlayout(
                 upper_plotspecs = compose_plotspecs(upper_primitives, upper_recipe(), triagonal_config)
                 stats_specs_2D = stats_upper ? get_stats_plotspecs(graph, (j, i), Makie2DStats(), triagonal_config) : PlotSpec[]
                 append!(upper_plotspecs, stats_specs_2D)
+                trace_specs_upper = trace_upper ? get_trace_plotspecs(graph, (j, i), Trace2D(), triagonal_config) : PlotSpec[]
+                append!(upper_plotspecs, trace_specs_upper)
 
                 ylims = graph[Symbol("axis_limits_$j")][]
                 # i < j always in this loop, so j <= n_active already implies
@@ -702,6 +893,8 @@ function _init_gridlayout(
                 lower_plotspecs = compose_plotspecs(lower_primitives, lower_recipe(), triagonal_config)
                 stats_specs_2D = stats_lower ? get_stats_plotspecs(graph, (i, j), Makie2DStats(), triagonal_config) : PlotSpec[]
                 append!(lower_plotspecs, stats_specs_2D)
+                trace_specs_lower = trace_lower ? get_trace_plotspecs(graph, (i, j), Trace2D(), triagonal_config) : PlotSpec[]
+                append!(lower_plotspecs, trace_specs_lower)
 
                 ylims = graph[Symbol("axis_limits_$j")][]
                 # j < i always in this loop, so i <= n_active already implies
@@ -909,11 +1102,12 @@ function _build_fig(
     # content gets assigned to new rows.
     rowgap!(fig.layout, 2, ui_box_pad)
 
-    # ui_layout holds the recipe/stats menus (columns 1-3) *and* the vsel
-    # picker's title/matrix (column 4, added in _build_vsel_picker! below) --
-    # all in the same GridLayout, deliberately, so the picker's title shares
-    # ui_layout's own row 1 (guaranteeing its top/bottom edges exactly match
-    # the "Recipe"/"Stats overlay" header labels there) and the matrix spans
+    # ui_layout holds the row labels + recipe/stats/trace menus (columns
+    # 1-4) *and* the vsel picker's title/matrix (column 5, added in
+    # _build_vsel_picker! below) -- all in the same GridLayout, deliberately,
+    # so the picker's title shares ui_layout's own row 1 (guaranteeing its
+    # top/bottom edges exactly match the "Recipe"/"Stats overlay"/"Trace
+    # overlay" header labels there) and the matrix spans
     # rows 2:4 (guaranteeing its bottom edge exactly matches menu_lower's
     # row), with no separate alignment bookkeeping needed -- two blocks in
     # the same grid row/rows share pixel-exact boundaries by construction.
@@ -1069,6 +1263,15 @@ function _build_fig(
     toggle_diag = Toggle(ui_layout[3, 3], active=false)
     toggle_lower = Toggle(ui_layout[4, 3], active=false)
 
+    # Trace2D has no diagonal counterpart (see show_trace_upper/lower's own
+    # comment in _init_compute_graph) -- row 3 (Diagonal) of this column is
+    # deliberately left unassigned rather than given a toggle that would do
+    # nothing.
+    lbl_trace = Label(fig, "Trace overlay")
+    ui_layout[1, 4] = lbl_trace
+    toggle_trace_upper = Toggle(ui_layout[2, 4], active=false)
+    toggle_trace_lower = Toggle(ui_layout[4, 4], active=false)
+
     # Collected here (rather than only living as local variables) so the
     # whole-controls collapse toggle below can show/hide every one of them
     # together -- one mechanism, not one per widget.
@@ -1076,11 +1279,13 @@ function _build_fig(
         lbl_upper, lbl_diag, lbl_lower, lbl_recipe,
         menu_upper, menu_diagonal, menu_lower,
         lbl_stats, toggle_upper, toggle_diag, toggle_lower,
+        lbl_trace, toggle_trace_upper, toggle_trace_lower,
     ]
 
     colsize!(ui_layout, 1, Auto())
     colsize!(ui_layout, 2, 200)
     colsize!(ui_layout, 3, Auto())
+    colsize!(ui_layout, 4, Auto())
 
     rowsize!(controls_layout, 2, Auto())
 
@@ -1115,12 +1320,20 @@ function _build_fig(
         update!(graph, show_stats_lower=is_live)
     end
 
+    on(toggle_trace_upper.active) do is_live
+        update!(graph, show_trace_upper=is_live)
+    end
+
+    on(toggle_trace_lower.active) do is_live
+        update!(graph, show_trace_lower=is_live)
+    end
+
     rescale_picker! = nothing
     lbl_marginals = nothing
     if !isnothing(picker_info)
         (; N, N_max, initial_vsel, apply_vsel!) = picker_info
         picker_blocks, rescale_picker!, lbl_marginals = _build_vsel_picker!(
-            fig, ui_layout, graph, N, N_max, initial_vsel, apply_vsel!
+            fig, ui_layout, graph, N, N_max, initial_vsel, apply_vsel!, 5
         )
         append!(ui_blocks, picker_blocks)
     end
@@ -1245,19 +1458,19 @@ function _build_fig(
         # lbl_marginals ("Displayed Marginals") is a header sharing this same
         # row/style, deliberately excluded from rescale_picker!'s own cell-
         # driven fontsize scaling (see its comment) -- it needs to track this
-        # group instead, or its unscaled width dominates ui_layout's column 4
+        # group instead, or its unscaled width dominates ui_layout's column 5
         # Auto-width and drags the whole panel wider than the actual scaled
         # content (confirmed empirically: this is what caused the panel to
         # overflow past the figure bounds even after everything else here was
         # already scaling correctly).
-        for lbl in (lbl_upper, lbl_diag, lbl_lower, lbl_recipe, lbl_stats, lbl_marginals)
+        for lbl in (lbl_upper, lbl_diag, lbl_lower, lbl_recipe, lbl_stats, lbl_trace, lbl_marginals)
             isnothing(lbl) || (lbl.fontsize[] = fontsize_scaled)
         end
         for menu in (menu_upper, menu_diagonal, menu_lower)
             menu.fontsize[] = fontsize_scaled
             menu.height[] = base_menu_height * s
         end
-        for tgl in (toggle_upper, toggle_diag, toggle_lower)
+        for tgl in (toggle_upper, toggle_diag, toggle_lower, toggle_trace_upper, toggle_trace_lower)
             tgl.width[] = base_toggle_width * s
             tgl.height[] = base_toggle_height * s
             tgl.markersize[] = base_toggle_markersize * s
@@ -1459,11 +1672,12 @@ function _set_block_visible!(b::Checkbox, v::Bool)
 end
 
 # Builds the always-visible "Displayed Marginals" title + N x N variable
-# picker matrix (N = total model dimensionality, not N_max), placed as a 4th
-# column of ui_layout (see _build_fig): the title shares ui_layout's row 1
-# with the "Recipe"/"Stats overlay" headers (so their top/bottom edges match
-# exactly, being the same grid row) and the matrix spans rows 2:4 (so its
-# bottom edge exactly matches menu_lower's row) -- both guaranteed by
+# picker matrix (N = total model dimensionality, not N_max), placed in
+# `picker_col` (a column of ui_layout, see _build_fig -- column 5, after the
+# recipe/stats/trace columns) : the title shares ui_layout's row 1 with the
+# "Recipe"/"Stats overlay"/"Trace overlay" headers (so their top/bottom edges
+# match exactly, being the same grid row) and the matrix spans rows 2:4 (so
+# its bottom edge exactly matches menu_lower's row) -- both guaranteed by
 # GridLayoutBase, not by manual pixel-matching. The lower triangle including
 # the diagonal (i >= j) is interactive -- cell (i,j) and (j,i) are the same 2D
 # marginal, so only one needs a checkbox; a diagonal cell (i,i) selects
@@ -1496,12 +1710,13 @@ function _build_vsel_picker!(
     N::Integer,
     N_max::Integer,
     initial_vsel::AbstractVector{<:Integer},
-    apply_vsel!::Function
+    apply_vsel!::Function,
+    picker_col::Integer=4
 )
     lbl_marginals = Label(fig, "Displayed Marginals")
-    ui_layout[1, 4] = lbl_marginals
+    ui_layout[1, picker_col] = lbl_marginals
 
-    picker_layout = ui_layout[2:4, 4] = GridLayout()
+    picker_layout = ui_layout[2:4, picker_col] = GridLayout()
     # Deferring to the assigned row-span (rather than the matrix's own small
     # natural size) is what makes it actually *fill* that span all the way
     # down to row 4's bottom edge, instead of centering its small natural
