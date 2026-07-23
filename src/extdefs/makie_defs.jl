@@ -129,6 +129,14 @@ export Hexbin2D
 struct Scatter2D <: BATMakieRecipe end
 export Scatter2D
 
+# Colors points by MCMC chain instead of a single flat color -- only
+# meaningful (and only ever offered in the UI) when the plotted samples
+# actually carry chain identity, i.e. `eltype(samples.info) <: SampleID` with
+# a `chainid` field (true for MCMCSampleID/AHMCSampleID, false for e.g.
+# importance sampling or MGVI, whose samples have no chain concept at all).
+struct ChainScatter2D <: BATMakieRecipe end
+export ChainScatter2D
+
 
 struct KDE1D <: BATMakieRecipe end
 export KDE1D

@@ -60,7 +60,10 @@ function _makie_precompile_workload()
     update!(graph, idxs=_clamp_vsel([1, 2], n_dof, N_max))
 
     gridlayout = _init_gridlayout(graph, N_max)
-    fig = _build_fig(graph, gridlayout, nothing) # already wires plot(fig[1,1], gridlayout)
+    # has_chain_info=true: real MCMC samples from bat_sample above always
+    # carry chain identity, matching what the real static/live callers pass
+    # for genuine MCMC data (see _samples_have_chain_ids).
+    fig = _build_fig(graph, gridlayout, nothing; has_chain_info=true) # already wires plot(fig[1,1], gridlayout)
 
     for recipe_1d in BAT_MAKIE_RECIPES_1D
         update!(graph, diagonal_recipe=typeof(recipe_1d))
@@ -72,6 +75,14 @@ function _makie_precompile_workload()
         update!(graph, lower_recipe=typeof(recipe_2d))
         gridlayout[]
     end
+    # ChainScatter2D isn't in BAT_MAKIE_RECIPES_2D (see _init_compute_graph's
+    # comment on why it's registered separately), so it needs its own
+    # explicit precompile cycle here rather than being covered by the loop
+    # above.
+    update!(graph, upper_recipe=ChainScatter2D)
+    gridlayout[]
+    update!(graph, lower_recipe=ChainScatter2D)
+    gridlayout[]
     update!(graph, show_stats_diag=true, show_stats_upper=true, show_stats_lower=true)
     gridlayout[]
 
