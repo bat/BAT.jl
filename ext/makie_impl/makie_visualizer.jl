@@ -627,6 +627,24 @@ function _init_gridlayout(
 end
 
 
+# A color that visually separates from `bg` in whichever direction actually
+# increases contrast, without hardcoding one shade per theme: darkening a
+# fixed amount reads fine starting from a light color but is imperceptible
+# starting from an already-near-black one (0.10 darkened by 0.08 is still
+# 0.02, visually identical) -- so this shifts *away* from whichever extreme
+# `bg` is already closer to (darker if bg is light, lighter if bg is dark).
+# Used twice in a row (see bat_theme()/bat_theme_dark()) to build a 3-step
+# ladder -- page background, then the UI panel a step further, then the
+# widgets on top of the panel a further step still -- each step using the
+# *previous* step's own color as its `bg`, so the two gaps (bg-to-panel,
+# panel-to-widget) are always identical regardless of amount.
+function _panel_bg_color(bg, amount::Real=0.08)
+    rgb = Colors.RGB(Makie.to_color(bg))
+    luminance = 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b
+    delta = luminance > 0.5 ? -amount : amount
+    return Colors.RGB(clamp(rgb.r + delta, 0, 1), clamp(rgb.g + delta, 0, 1), clamp(rgb.b + delta, 0, 1))
+end
+
 function _build_fig(
     graph::ComputeGraph,
     gridlayout::Any,
@@ -699,9 +717,44 @@ function _build_fig(
 
     # Always-visible row holding just the controls-collapse toggle (and the
     # current-index slider, see below) -- kept outside controls_layout so it
-    # never disappears along with the block it's meant to reveal.
-    toggle_row = fig[2, 1] = GridLayout()
-    rowsize!(fig.layout, 2, Fixed(30))
+    # never disappears along with the block it's meant to reveal. Visually
+    # separated from the rest of the figure via a rounded, subtly-shaded
+    # panel behind it: toggle_row itself is a 3x3 wrapper of Fixed(ui_box_pad)
+    # margin rows/cols around a single inner content cell (toggle_row_content,
+    # holding the actual button/label/slider below) purely so the Box
+    # (assigned to the same fig[2,1] span, and thus filling the exact same
+    # resolved bbox as toggle_row itself -- confirmed empirically that a Box
+    # and a GridLayout can coexist at the same grid position, the Box acting
+    # as a background since it's created first and Makie draws blocks in
+    # creation order) shows a visible inset margin around the content instead
+    # of a border tightly hugging it. GridLayout(3, 3) (explicit dims, not
+    # left to auto-expand from content) is required for rowsize!/colsize! to
+    # accept row/col 3 at all -- nothing is ever assigned directly into it.
+    # ui_box_pad is a third of the ambient fontsize (not a fixed pixel guess),
+    # so it scales with the theme rather than needing separate re-tuning.
+    # rowgap!/colgap!(..., 0): GridLayoutBase's own default inter-cell gap
+    # (applied *between* every pair of the 3 rows/cols regardless of their
+    # own sizes) would otherwise stack on top of these margins and make the
+    # padding come out uneven/much larger than ui_box_pad -- confirmed
+    # empirically (padding was ~3.7x the intended value with the default gap
+    # left in place).
+    ui_box_pad = fig.scene.theme[:fontsize][] / 3
+    toggle_row = fig[2, 1] = GridLayout(3, 3)
+    rowgap!(toggle_row, 0)
+    colgap!(toggle_row, 0)
+    Box(fig[2, 1], color=_panel_bg_color(fig.scene.backgroundcolor[]), cornerradius=10, strokewidth=0)
+    toggle_row_content = toggle_row[2, 2] = GridLayout()
+    rowsize!(toggle_row, 1, Fixed(ui_box_pad))
+    rowsize!(toggle_row, 3, Fixed(ui_box_pad))
+    colsize!(toggle_row, 1, Fixed(ui_box_pad))
+    colsize!(toggle_row, 3, Fixed(ui_box_pad))
+    # Auto (not a hardcoded Fixed height guess) so this always matches
+    # whatever toggle_row_content's actual content needs, regardless of
+    # ui_box_pad or font-size changes -- toggle_row's own height is left at
+    # its Block/GridLayout default (unlike width, never set to `nothing`
+    # elsewhere in this file), which is exactly the recursively-computed
+    # natural height Auto needs here (Fixed(pad) + content + Fixed(pad)).
+    rowsize!(fig.layout, 2, Auto())
 
     # Everything else (recipe/stats menus and the vsel picker matrix) now
     # lives nested inside a single collapsible block, itself entirely within
@@ -709,8 +762,29 @@ function _build_fig(
     # locked to the plot's own aspect ratio (colsize! above). That means no
     # amount of UI content can ever push the figure wider than the corner
     # plot itself, and collapsing/expanding all of it is a single row-height
-    # toggle rather than something tracked per-widget.
-    controls_layout = fig[3, 1] = GridLayout()
+    # toggle rather than something tracked per-widget. Same rounded-panel
+    # treatment as toggle_row above (Box behind a 3x3 Fixed(ui_box_pad)-margin
+    # wrapper) -- see its comments for why each piece is needed. Matches
+    # toggle_row's width automatically, with no extra effort: both defer to
+    # the same Aspect(1,1)-locked column (colsize! above), so they're always
+    # identical regardless of either box's own content.
+    controls_layout = fig[3, 1] = GridLayout(3, 3)
+    rowgap!(controls_layout, 0)
+    colgap!(controls_layout, 0)
+    controls_box = Box(fig[3, 1], color=_panel_bg_color(fig.scene.backgroundcolor[]), cornerradius=10, strokewidth=0)
+    rowsize!(controls_layout, 1, Fixed(ui_box_pad))
+    rowsize!(controls_layout, 3, Fixed(ui_box_pad))
+    colsize!(controls_layout, 1, Fixed(ui_box_pad))
+    colsize!(controls_layout, 3, Fixed(ui_box_pad))
+    # Gap between the two boxes (toggle_row's above, controls_layout's below)
+    # -- rowgap! with an explicit row index targets only *this* gap, unlike
+    # the blanket rowgap!(gl, gap) form used to zero out the wrapper grids'
+    # own internal gaps above. Only valid now that fig.layout actually has 3
+    # rows (i.e. after controls_layout's own fig[3,1] assignment above) --
+    # confirmed empirically that calling this any earlier throws ("invalid
+    # row gap 2"), since GridLayoutBase only grows fig.layout's row count as
+    # content gets assigned to new rows.
+    rowgap!(fig.layout, 2, ui_box_pad)
 
     # ui_layout holds the recipe/stats menus (columns 1-3) *and* the vsel
     # picker's title/matrix (column 4, added in _build_vsel_picker! below) --
@@ -720,7 +794,7 @@ function _build_fig(
     # rows 2:4 (guaranteeing its bottom edge exactly matches menu_lower's
     # row), with no separate alignment bookkeeping needed -- two blocks in
     # the same grid row/rows share pixel-exact boundaries by construction.
-    ui_layout = controls_layout[1, 1] = GridLayout()
+    ui_layout = controls_layout[2, 2] = GridLayout()
 
     # A nested GridLayout's `width` attribute defaults to `Auto()`, just like
     # a Block's -- and just like Menu (see _set_block_visible!'s comments),
@@ -733,7 +807,7 @@ function _build_fig(
     # suggested bbox unconditionally, which is the actual "fill this cell"
     # behavior we want here -- ui_layout is included again now that it's
     # controls_layout's sole content (the picker moved inside it, see above).
-    for gl in (toggle_row, controls_layout, ui_layout)
+    for gl in (toggle_row, toggle_row_content, controls_layout, ui_layout)
         gl.width[] = nothing
     end
 
@@ -798,8 +872,8 @@ function _build_fig(
         # "500" vs "50000"), since that changes how the fixed remaining
         # width splits between columns 2 and 3 even though their *union*
         # doesn't move -- confirmed empirically.
-        lbl_idx_title = Label(toggle_row[1, 2:3], "Current Index")
-        slider_curr_idx = Slider(toggle_row[2, 2], range=1:graph[:current_idx][], startvalue=graph[:current_idx][])
+        lbl_idx_title = Label(toggle_row_content[1, 2:3], "Current Index")
+        slider_curr_idx = Slider(toggle_row_content[2, 2], range=1:graph[:current_idx][], startvalue=graph[:current_idx][])
         # No gap between the label/slider rows -- and each pinned to the
         # outer edge of its own row (valign=:top / :bottom) rather than the
         # default :center, which would otherwise leave slack split above the
@@ -808,7 +882,7 @@ function _build_fig(
         # bottom, even with the row gap zeroed). Pinning outward is what
         # makes the label's top and the slider's bottom land exactly on the
         # button's own top/bottom edges below.
-        rowgap!(toggle_row, 1, 0)
+        rowgap!(toggle_row_content, 1, 0)
         lbl_idx_title.valign[] = :top
         slider_curr_idx.valign[] = :bottom
         # Deferring to whatever column 2 is given (rather than the slider's
@@ -836,7 +910,7 @@ function _build_fig(
         # its computed bbox stays text-sized and its halign=:center (Label's
         # own default) centers *that* box within column 2's full width.
         lbl_idx_title.tellwidth[] = false
-        lbl_idx_value = Label(toggle_row[2, 3], lift(string, slider_curr_idx.value))
+        lbl_idx_value = Label(toggle_row_content[2, 3], lift(string, slider_curr_idx.value))
         # Column 1 (button) and 3 (value label) are left at their Auto()
         # default, so they size to their own content and column 2 (the only
         # one reporting no natural width) absorbs whatever's left over.
@@ -845,7 +919,7 @@ function _build_fig(
         # own column then needs to explicitly claim the row's full width for
         # its halign=:left to be flush against the true left edge instead of
         # a shrink-wrapped, auto-centered one (same reasoning as above).
-        colsize!(toggle_row, 1, Relative(1))
+        colsize!(toggle_row_content, 1, Relative(1))
     end
 
     lbl_upper = Label(fig, "Upper")
@@ -880,7 +954,7 @@ function _build_fig(
     colsize!(ui_layout, 2, 200)
     colsize!(ui_layout, 3, Auto())
 
-    rowsize!(controls_layout, 1, Auto())
+    rowsize!(controls_layout, 2, Auto())
 
     if show_slider
         # show_slider guarantees a single chain, but that chain may still have
@@ -938,13 +1012,26 @@ function _build_fig(
         # derive a real height from; with no slider, the button is the only
         # content in row 1 and needs its own natural (Auto) height instead.
         collapse_button.height[] = Relative(1)
-        toggle_row[1:2, 1] = collapse_button
+        toggle_row_content[1:2, 1] = collapse_button
     else
-        toggle_row[1, 1] = collapse_button
+        toggle_row_content[1, 1] = collapse_button
     end
-    controls_visible = Observable(true)
-    on(controls_visible) do vis
+    # Starts collapsed (false) per explicit request -- update=true is what
+    # makes the handler actually apply that at construction time, since `on`
+    # only fires on *future* notifications by default and every ui_block
+    # starts out fully visible/expanded otherwise.
+    controls_visible = Observable(false)
+    on(controls_visible; update=true) do vis
         rowsize!(fig.layout, 3, vis ? Auto() : Fixed(0))
+        # controls_box doesn't go through _set_block_visible! (it's not part
+        # of ui_blocks -- it's the always-created panel background, not a
+        # collapsible widget), so its own visibility needs setting directly:
+        # deferring to fig.layout row 3's Fixed(0) alone left a ~1px sliver
+        # visible at the collapsed height (floating-point rounding in the
+        # nested GridLayout size resolution, confirmed empirically -- never
+        # exactly 0), which a plain flat-color Box has no automatic occlusion
+        # for the way zero-area content naturally would.
+        controls_box.visible[] = vis
         for b in ui_blocks
             _set_block_visible!(b, vis)
         end

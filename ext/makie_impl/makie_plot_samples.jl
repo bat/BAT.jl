@@ -174,6 +174,14 @@ function BAT.bat_makie_plot(
 end
 
 function BAT.bat_theme()
+        # See _panel_bg_color's docstring (ext/makie_impl/makie_visualizer.jl)
+        # for the background -> panel -> widget "shade ladder" this builds:
+        # applying the same step twice keeps the panel-vs-page and
+        # widget-vs-panel contrasts identical, rather than widgets sitting at
+        # Makie's own near-white defaults (0.94/0.97) a single small step from
+        # the panel color and barely standing out against it.
+        panel_color = _panel_bg_color(RGB(1, 1, 1))
+        widget_color = _panel_bg_color(panel_color)
 
         return Theme(
                 fontsize=20,
@@ -212,6 +220,20 @@ function BAT.bat_theme()
                         ticksvisible=false,
                         spinewidth=0,
                         ticklabelpad=5,
+                ),
+                Button=(
+                        buttoncolor=widget_color,
+                ),
+                Menu=(
+                        cell_color_inactive_even=widget_color,
+                        cell_color_inactive_odd=widget_color,
+                        selection_cell_color_inactive=widget_color,
+                ),
+                Slider=(
+                        color_inactive=widget_color,
+                ),
+                Toggle=(
+                        framecolor_inactive=widget_color,
                 ),
                 Heatmap=Theme(
                         colormap=:inferno,
@@ -273,9 +295,16 @@ function BAT.bat_theme_dark()
         #color_inactive = RGBf(0.18, 0.039, 0.353)
 
         color_active = RGB(0.451, 0.102, 0.431)
-        color_inactive = RGB(0.15, 0.17, 0.20)
         color_hover = RGB(0.714, 0.216, 0.322)
         text_color = RGB(0.80, 0.80, 0.80)
+        # See bat_theme()'s matching comment / _panel_bg_color's docstring
+        # (ext/makie_impl/makie_visualizer.jl) for the background -> panel ->
+        # widget shade ladder this builds -- replaces the old hardcoded
+        # RGB(0.15, 0.17, 0.20), which put idle widgets barely one step off
+        # the panel's own color (too low-contrast for the same reason as the
+        # light theme's Makie-default widget colors).
+        panel_color = _panel_bg_color(Makie.to_color(:gray10))
+        color_inactive = _panel_bg_color(panel_color)
 
         return Theme(
                 backgroundcolor=:gray10,
@@ -323,6 +352,9 @@ function BAT.bat_theme_dark()
                         ticksvisible=false,
                         spinewidth=0,
                         ticklabelpad=5,
+                ),
+                Button=(
+                        buttoncolor=color_inactive,
                 ),
                 Menu=(
                         cell_color_active=color_active,
