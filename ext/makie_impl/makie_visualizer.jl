@@ -1116,9 +1116,10 @@ function _build_fig(
     end
 
     rescale_picker! = nothing
+    lbl_marginals = nothing
     if !isnothing(picker_info)
         (; N, N_max, initial_vsel, apply_vsel!) = picker_info
-        picker_blocks, rescale_picker! = _build_vsel_picker!(
+        picker_blocks, rescale_picker!, lbl_marginals = _build_vsel_picker!(
             fig, ui_layout, graph, N, N_max, initial_vsel, apply_vsel!
         )
         append!(ui_blocks, picker_blocks)
@@ -1144,13 +1145,162 @@ function _build_fig(
     else
         toggle_row_content[1, 1] = collapse_button
     end
+    # ---- Reactive whole-UI scale factor -----------------------------------
+    # Everything above (fontsize, ui_box_pad, the fixed 200px menu column,
+    # widget width/height/size/markersize) is sized in absolute pixels tied to
+    # bat_theme's design-time fontsize and this function's Figure(665, 850)
+    # default -- correct at that design size, but none of it shrinks if the
+    # actual window/screen ends up smaller. Collapsing the controls panel
+    # avoids the problem (it's Fixed(0)), but *expanding* it demands the full
+    # unscaled pixel content, which can clip past a small screen's bounds with
+    # no window resize involved (reported directly: the panel clipped when
+    # expanded on a smaller screen).
+    #
+    # ui_scale is current-figure-width / _UI_DESIGN_WIDTH, recomputed from
+    # fig.layout's own resolved bbox -- the same kind of GridLayoutBase-
+    # internal, logical-coordinate signal rescale_picker! above already uses
+    # safely, deliberately NOT fig.scene.viewport (raw window/framebuffer
+    # pixels): driving a row size directly off fig.scene.viewport already
+    # caused one confirmed GLMakie-only regression elsewhere in this function
+    # (see the rowsize!(fig.layout, 1, Relative(0.8)) comment above) -- a
+    # likely DPI/framebuffer-vs-logical-size mismatch that CairoMakie has no
+    # equivalent of, so it looked correct in every headless test there. This
+    # mechanism instead only ever reacts to fig.layout's own top-level bbox,
+    # which -- unlike picker_layout's local one above -- doesn't depend on any
+    # of the nested widget sizes it drives (fig.layout's extent is set
+    # directly by the Figure's own size, not derived from its content), so
+    # there's no analogous re-notify-on-nested-resize loop risk here; the
+    # dedup guard below is kept anyway, purely defensively.
+    #
+    # _UI_DESIGN_WIDTH and every base_* constant below were measured directly
+    # (not derived analytically) against this function's actual
+    # Figure(665, 850)/bat_theme(fontsize) defaults -- re-measure all of them
+    # if the Figure size, fig.layout.alignmode's margins, the corner-grid's
+    # Relative(0.8)/Aspect(1,1) sizing, or bat_theme's fontsize ever change.
+    # Approximate, not exact: uses the *whole* figure's resolved width as the
+    # scale reference without separately accounting for the fixed (never
+    # itself scaled) Outside() margins -- fine for the "stop clipping on a
+    # modestly smaller screen" goal this targets, not pixel-exact at extreme
+    # window sizes.
+    _UI_DESIGN_WIDTH = 665.0
+    # Rows sized with Relative() in a GridLayout that also has Auto()/Fixed()
+    # rows are each resolved as `fraction * (total - Auto/Fixed rows' own
+    # heights and gaps)` *independently* of one another -- confirmed
+    # empirically (not documented behavior found for this GridLayoutBase
+    # version) -- they do NOT renormalize against each other, so if this
+    # value plus the corner grid's own Relative(0.8) (rowsize!(fig.layout,
+    # 1, ...) above) sum to more than 1.0, the panel overflows past the
+    # bottom of the figure by exactly that excess fraction, REGARDLESS of
+    # how much content it actually holds. 0.18 (measured to leave a small
+    # margin under the 0.2 headroom Relative(0.8) leaves) was chosen this
+    # way, not to match any particular content height -- content is instead
+    # made to fit *within* whatever this resolves to, via the s_height
+    # computation below.
+    CONTROLS_RELATIVE_HEIGHT = 0.18
+    base_menu_height = 36.0
+    base_button_width = 34.0
+    base_button_height = 39.0
+    base_toggle_width = 32.0
+    base_toggle_height = 18.0
+    base_toggle_markersize = 18.0
+    base_slider_height = 10.0
+    base_ui_col2_width = 200.0
+    current_ui_scale = Ref(1.0)
+
+    # `expanded` is passed explicitly (rather than this closing over
+    # controls_visible directly) so this can be defined -- and safely called
+    # once immediately, see the reactive hook below -- before
+    # controls_visible even exists.
+    #
+    # Menu/Toggle/Label/Button/Slider width-height writes are skipped
+    # entirely while collapsed: _set_block_visible! (below) caches each
+    # block's width/height into a WeakKeyDict the *first* time it's hidden,
+    # then restores that exact cached pair on every later expand -- writing a
+    # scaled value here while already collapsed would either get silently
+    # cached as the new "natural" size (wrong: that's a collapsed-size-derived
+    # value, not the true design size) or, if already cached from an earlier
+    # expand, get clobbered right back to the stale pre-scale value on the
+    # next expand anyway. controls_visible's own handler explicitly
+    # re-invokes this function (with expanded=true) right after every expand
+    # for exactly this reason -- confirmed empirically necessary: without it,
+    # expanding after this ran while collapsed left every menu back at its
+    # original unscaled Auto() height, exactly mirroring why rescale_picker!
+    # is already re-invoked there too.
+    function rescale_ui!(s::Real, expanded::Bool)
+        current_ui_scale[] = s
+
+        pad = ui_box_pad * s
+        for gl in (toggle_row, controls_layout)
+            rowsize!(gl, 1, Fixed(pad))
+            rowsize!(gl, 3, Fixed(pad))
+            colsize!(gl, 1, Fixed(pad))
+            colsize!(gl, 3, Fixed(pad))
+        end
+        rowgap!(fig.layout, 2, pad)
+        colsize!(ui_layout, 2, base_ui_col2_width * s)
+
+        expanded || return nothing
+
+        fontsize_scaled = fig.scene.theme[:fontsize][] * s
+        # lbl_marginals ("Displayed Marginals") is a header sharing this same
+        # row/style, deliberately excluded from rescale_picker!'s own cell-
+        # driven fontsize scaling (see its comment) -- it needs to track this
+        # group instead, or its unscaled width dominates ui_layout's column 4
+        # Auto-width and drags the whole panel wider than the actual scaled
+        # content (confirmed empirically: this is what caused the panel to
+        # overflow past the figure bounds even after everything else here was
+        # already scaling correctly).
+        for lbl in (lbl_upper, lbl_diag, lbl_lower, lbl_recipe, lbl_stats, lbl_marginals)
+            isnothing(lbl) || (lbl.fontsize[] = fontsize_scaled)
+        end
+        for menu in (menu_upper, menu_diagonal, menu_lower)
+            menu.fontsize[] = fontsize_scaled
+            menu.height[] = base_menu_height * s
+        end
+        for tgl in (toggle_upper, toggle_diag, toggle_lower)
+            tgl.width[] = base_toggle_width * s
+            tgl.height[] = base_toggle_height * s
+            tgl.markersize[] = base_toggle_markersize * s
+        end
+        collapse_button.fontsize[] = fontsize_scaled
+        collapse_button.width[] = base_button_width * s
+        # height is left at its Relative(1) assignment above when
+        # show_slider (it already fills the label+slider span, which is
+        # itself scaled below -- overriding it with a numeric height here
+        # would silently detach it from that span again).
+        show_slider || (collapse_button.height[] = base_button_height * s)
+        if show_slider
+            lbl_idx_title.fontsize[] = fontsize_scaled
+            lbl_idx_value.fontsize[] = fontsize_scaled
+            slider_curr_idx.height[] = base_slider_height * s
+        end
+        return nothing
+    end
+
     # Starts collapsed (false) per explicit request -- update=true is what
     # makes the handler actually apply that at construction time, since `on`
     # only fires on *future* notifications by default and every ui_block
     # starts out fully visible/expanded otherwise.
     controls_visible = Observable(false)
     on(controls_visible; update=true) do vis
-        rowsize!(fig.layout, 3, vis ? Auto() : Fixed(0))
+        # Relative (not Auto()) when expanded -- bounds the panel to a fixed
+        # *fraction* of whatever the current figure height actually is,
+        # rather than letting it demand however much its content naturally
+        # needs. Confirmed empirically necessary: with Auto(), shrinking the
+        # window (see rescale_ui!'s ui_scale computation below, which needs
+        # this bound to correctly account for vertical space too) still let
+        # the panel's content overflow past the bottom edge, since Auto()
+        # rows don't respect any total budget -- only the *individual*
+        # widget heights rescale_ui! sets were shrinking, not their sum.
+        # CONTROLS_RELATIVE_HEIGHT (below) is deliberately *not* chosen to
+        # match this panel's natural content height -- see its own comment:
+        # Relative() rows here don't renormalize against each other, so it's
+        # bounded by the corner grid's Relative(0.8) leaving at most ~0.2 of
+        # headroom, and content is instead scaled down (via s_height below)
+        # to fit within whatever that bound resolves to, even at the design
+        # size -- re-measure _UI_DESIGN_HEIGHT_BUDGET below if the controls
+        # panel's row/column contents ever change.
+        rowsize!(fig.layout, 3, vis ? Relative(CONTROLS_RELATIVE_HEIGHT) : Fixed(0))
         # controls_box doesn't go through _set_block_visible! (it's not part
         # of ui_blocks -- it's the always-created panel background, not a
         # collapsible widget), so its own visibility needs setting directly:
@@ -1171,9 +1321,56 @@ function _build_fig(
         # empirically). This forces one final, correct pass once everything
         # else has fully settled.
         vis && !isnothing(rescale_picker!) && rescale_picker!()
+        # Same idea, for the same reason, for the menus/labels/button/slider
+        # this function's own rescale_ui! manages -- see its docstring above.
+        vis && rescale_ui!(current_ui_scale[], true)
     end
     on(collapse_button.clicks) do _
         controls_visible[] = !controls_visible[]
+    end
+
+    # No dedicated initial call needed beyond `update=true` below: every
+    # widget's already-constructed default state already *is* the correct
+    # s=1 appearance (the base_* constants above were measured directly from
+    # those same defaults), and controls_visible's own update=true firing just
+    # above already applied the (still s=1 at this point) collapse.
+    #
+    # s is the *smaller* of a width-based and a height-based candidate --
+    # confirmed empirically necessary: a width-only scale correctly shrunk
+    # individual widgets, but a *short* window (height-constrained, not just
+    # narrow) still overflowed vertically, since nothing was checking whether
+    # the panel's now-bounded Relative(CONTROLS_RELATIVE_HEIGHT) row (see
+    # controls_visible's handler above) actually had room for that width-
+    # derived widget size. Using the min of both means neither dimension can
+    # overflow, at the cost of sometimes shrinking more than strictly
+    # necessary in the other dimension (e.g. a very short but wide window
+    # shrinks fontsize based on height alone, leaving horizontal slack) --
+    # an accepted trade-off for guaranteeing no clipping over pixel-perfect
+    # sizing.
+    #
+    # _UI_DESIGN_HEIGHT_BUDGET is the height ui_layout's content would need
+    # at s=1 (every base_* height above at its literal, unscaled value) --
+    # deliberately *larger* than CONTROLS_RELATIVE_HEIGHT's own resolved
+    # pixel height at the design (665, 850) size, so that s_height comes out
+    # below 1.0 even at the design size and content is scaled down to
+    # actually fit the bounded row rather than overflowing it. Calibrated
+    # empirically by iterating against the real figure (not derived
+    # analytically -- GridLayoutBase's exact Relative-row solve order wasn't
+    # fully reverse-engineered, just enough of it to know the qualitative
+    # relationship), with headroom added beyond the tightest value that
+    # still fit at design size, since the fit was observed to degrade
+    # somewhat unevenly (not perfectly linearly) as the window shrinks
+    # further. Re-measure/re-tune both this and CONTROLS_RELATIVE_HEIGHT
+    # together if the controls panel's row/column contents ever change.
+    _UI_DESIGN_HEIGHT_BUDGET = 270.0
+    last_ui_wh = Ref((-1.0, -1.0))
+    on(fig.layout.layoutobservables.computedbbox; update=true) do bbox
+        w, h = bbox.widths[1], bbox.widths[2]
+        (w < 10 || h < 10 || (w, h) == last_ui_wh[]) && return
+        last_ui_wh[] = (w, h)
+        s_width = w / _UI_DESIGN_WIDTH
+        s_height = (h * CONTROLS_RELATIVE_HEIGHT) / _UI_DESIGN_HEIGHT_BUDGET
+        rescale_ui!(clamp(min(s_width, s_height), 0.3, 2.0), controls_visible[])
     end
 
     return fig
@@ -1278,13 +1475,17 @@ end
 #
 # Takes graph/N/N_max/initial_vsel/apply_vsel! directly rather than a
 # BATVisualizer so it also works for the static bat_makie_plot path, which has
-# no vis/content at all. Returns (blocks, rescale_picker!): every block it
-# creates, so the caller's whole-controls collapse toggle can fold this
-# matrix's visibility into its own (it's no longer independently
-# collapsible), and a callback the caller must invoke once after fully
-# re-expanding the controls. That second call is not redundant with the
-# automatic bbox-driven rescaling above: collapsing/expanding processes
-# ui_blocks (menus first, then this matrix's own blocks) one at a time, so
+# no vis/content at all. Returns (blocks, rescale_picker!, lbl_marginals):
+# every block it creates, so the caller's whole-controls collapse toggle can
+# fold this matrix's visibility into its own (it's no longer independently
+# collapsible); a callback the caller must invoke once after fully
+# re-expanding the controls; and the "Displayed Marginals" title label itself,
+# so the caller's own whole-UI rescale can keep its fontsize in step with the
+# other column headers (deliberately excluded from rescale_picker!'s own
+# cell-driven scaling below -- see its comment). That second (callback)
+# return value is not redundant with the automatic bbox-driven rescaling
+# above: collapsing/expanding processes ui_blocks (menus first, then this
+# matrix's own blocks) one at a time, so
 # mid-restore the matrix's available height is transiently smaller than its
 # final value -- confirmed empirically to otherwise leave cells sized to that
 # transient value instead of the correct final one.
@@ -1421,7 +1622,7 @@ function _build_vsel_picker!(
         end
     end
 
-    return all_blocks, rescale_picker!
+    return all_blocks, rescale_picker!, lbl_marginals
 end
 
 function register_state_for_vis!(
