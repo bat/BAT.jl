@@ -10,6 +10,7 @@ using Colors
 using Distributions
 using ElasticArrays
 using KernelDensity
+using LaTeXStrings
 using LinearAlgebra
 using Makie
 import Makie.SpecApi as S

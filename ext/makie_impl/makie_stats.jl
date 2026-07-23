@@ -517,3 +517,6 @@ function compose_plotspecs(
         return [poly, lines]
 end
 
+# See makie_hist.jl's _diag_y_extent for Hist1D for what this is for.
+_diag_y_extent(primitives::NamedTuple, ::PDF1D) = isempty(primitives.y) ? 0.0 : maximum(primitives.y)
+

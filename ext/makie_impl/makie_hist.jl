@@ -215,6 +215,17 @@ function compose_plotspecs(
     return [bars, stairs]
 end
 
+# Peak y-value of this diagonal recipe's own primitives (density/bar height),
+# used by _init_gridlayout to link all diagonal cells' y-axis limits to a
+# shared (0, 1.1*max) range instead of each auto-scaling independently.
+# Specific methods below cover the recipes selectable as the diagonal recipe
+# (see options1D in _build_fig); this generic fallback covers the rest
+# (Std1D/Mean1D/Errorbars1D -- stats-overlay-only recipes that can still reach
+# here as `diagonal_recipe`, e.g. via the precompile workload) with 0.0, since
+# they're VLines/errorbars with no "peak density" of their own.
+_diag_y_extent(::NamedTuple, ::BATMakieRecipe) = 0.0
+_diag_y_extent(primitives::NamedTuple, ::Hist1D) = isempty(primitives.weights) ? 0.0 : maximum(primitives.weights)
+
 function compute_plotting_primitives(
     ::SubArray,
     ::SubArray,
@@ -301,6 +312,8 @@ function compose_plotspecs(
 
     return [bars, stairs]
 end
+
+_diag_y_extent(primitives::NamedTuple, ::QuantileHist1D) = isempty(primitives.xy_data) ? 0.0 : maximum(p -> p[2], primitives.xy_data)
 
 
 function compute_plotting_primitives(

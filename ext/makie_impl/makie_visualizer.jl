@@ -474,6 +474,20 @@ function _init_gridlayout(
         # produces.
         cellsizes = Union{Auto,Fixed}[i <= n_active ? Auto() : Fixed(0) for i in 1:n]
 
+        # Shared y-axis limit across all diagonal cells (0 to 1.1x the peak
+        # value of any active diagonal's own recipe primitives -- see
+        # _diag_y_extent's per-recipe methods), rather than each diagonal
+        # auto-scaling to its own peak independently. nothing (Makie's usual
+        # autolimits) until real data exists in at least one active diagonal
+        # cell, matching the graceful-degradation-before-data pattern used
+        # elsewhere in this function (e.g. axis_limits_i falling back to
+        # (0,1)).
+        diag_y_max = maximum(
+            (_diag_y_extent(graph[primitive_symbol(diagonal_recipe, (i, i))][], diagonal_recipe()) for i in 1:n_active);
+            init=0.0
+        )
+        diag_ylims = diag_y_max > 0 ? (0.0, 1.1 * diag_y_max) : nothing
+
         for i in 1:n
             diagonal_primitives = graph[primitive_symbol(diagonal_recipe, (i, i))][]
             diagonal_plotspecs = compose_plotspecs(diagonal_primitives, diagonal_recipe(), diagonal_config)
@@ -481,11 +495,6 @@ function _init_gridlayout(
             append!(diagonal_plotspecs, stats_specs_1D)
 
             xlims = graph[Symbol("axis_limits_$i")][]
-            # Cosmetics (tick labels) belong on the edge of the *visible*
-            # grid (n_active), not the fixed N_max one -- cells beyond
-            # n_active are zero-sized and invisible, so n_active is now the
-            # true bottom/right edge.
-            show_x_cosmetics = (i == n_active) || (i == 1)
             # A Fixed(0) row/column (cellsizes above) collapses the cell's
             # own plotting area to zero, but ticks/tick-labels/gridlines are
             # protrusion content drawn *outside* that area -- they don't
@@ -505,16 +514,33 @@ function _init_gridlayout(
                 # rectangle the GridLayout/decorations leave it, typically
                 # taller than wide for a 1D density/histogram.
                 aspect=1,
-                limits=(xlims, nothing),
-                xticklabelsvisible=cell_active && show_x_cosmetics, xticksvisible=cell_active && show_x_cosmetics,
-                yticklabelsvisible=cell_active, yticksvisible=cell_active,
+                limits=(xlims, diag_ylims),
+                # Every cell shows its own bottom/left tick labels + axis
+                # labels now (per explicit request), with the tick *marks*
+                # themselves removed everywhere to keep the added clutter in
+                # check -- xticksvisible/yticksvisible=false rather than
+                # tying them to visibility of the labels.
+                xticklabelsvisible=cell_active, xticksvisible=false,
+                yticklabelsvisible=cell_active, yticksvisible=false,
                 yticklabelrotation=pi / 2,
                 ytickformat="{:.1f}",
                 xgridvisible=cell_active,
                 ygridvisible=cell_active,
-                xaxisposition=(i == 1) ? :top : :bottom,
                 leftspinevisible=cell_active, rightspinevisible=cell_active,
                 topspinevisible=cell_active, bottomspinevisible=cell_active,
+                # v_i on x, p_i on y -- every diagonal cell shows both,
+                # unconditionally (same "every cell always" rule as ticks
+                # above): each diagonal is the unique anchor identifying
+                # which variable its row/column represents.
+                # Plain "" (not L"") for the inactive/hidden case -- an empty
+                # LaTeXString crashes Makie's glyph-collection computation
+                # even when xlabelvisible=false (confirmed empirically: the
+                # visibility flag doesn't skip glyph layout for the
+                # underlying text, only its own rendering).
+                xlabel=cell_active ? L"v_%$(_idxs[i])" : "",
+                ylabel=cell_active ? L"p_%$(_idxs[i])" : "",
+                xlabelvisible=cell_active,
+                ylabelvisible=cell_active,
             )
 
             for j in i+1:n
@@ -536,7 +562,6 @@ function _init_gridlayout(
                 append!(upper_plotspecs, stats_specs_2D)
 
                 ylims = graph[Symbol("axis_limits_$j")][]
-                show_y_cosmetics = (j == n_active)
                 # i < j always in this loop, so j <= n_active already implies
                 # i <= n_active -- checking j alone is sufficient here.
                 cell_active_upper = j <= n_active
@@ -544,15 +569,23 @@ function _init_gridlayout(
                     plots=upper_plotspecs,
                     aspect=1,
                     limits=(ylims, xlims),
-                    xticklabelsvisible=cell_active_upper && show_x_cosmetics, xticksvisible=cell_active_upper && show_x_cosmetics,
-                    yticklabelsvisible=cell_active_upper && show_y_cosmetics, yticksvisible=cell_active_upper && show_y_cosmetics,
+                    # Every cell shows its own bottom/left ticks+labels now --
+                    # see the diagonal cell's matching comment above. No
+                    # xaxisposition/yaxisposition override either (was :top/
+                    # :right), so this defaults to the same bottom/left as
+                    # every other cell.
+                    xticklabelsvisible=cell_active_upper, xticksvisible=false,
+                    yticklabelsvisible=cell_active_upper, yticksvisible=false,
                     yticklabelrotation=pi / 2,
                     xgridvisible=cell_active_upper,
                     ygridvisible=cell_active_upper,
-                    xaxisposition=:top,
-                    yaxisposition=:right,
                     leftspinevisible=cell_active_upper, rightspinevisible=cell_active_upper,
                     topspinevisible=cell_active_upper, bottomspinevisible=cell_active_upper,
+                    # See the diagonal cell's comment above re: plain "" vs L"".
+                    xlabel=cell_active_upper ? L"v_%$(_idxs[j])" : "",
+                    ylabel=cell_active_upper ? L"v_%$(_idxs[i])" : "",
+                    xlabelvisible=cell_active_upper,
+                    ylabelvisible=cell_active_upper,
                 )
             end
             for j in 1:i-1
@@ -562,7 +595,6 @@ function _init_gridlayout(
                 append!(lower_plotspecs, stats_specs_2D)
 
                 ylims = graph[Symbol("axis_limits_$j")][]
-                show_y_cosmetics = (j == 1)
                 # j < i always in this loop, so i <= n_active already implies
                 # j <= n_active -- checking i alone is sufficient here.
                 cell_active_lower = i <= n_active
@@ -570,13 +602,21 @@ function _init_gridlayout(
                     plots=lower_plotspecs,
                     aspect=1,
                     limits=(xlims, ylims),
-                    xticklabelsvisible=cell_active_lower && show_x_cosmetics, xticksvisible=cell_active_lower && show_x_cosmetics,
-                    yticklabelsvisible=cell_active_lower && show_y_cosmetics, yticksvisible=cell_active_lower && show_y_cosmetics,
+                    # Every cell shows its own bottom/left ticks+labels now --
+                    # see the diagonal cell's matching comment above (this
+                    # cell already defaulted to bottom/left, unlike upper).
+                    xticklabelsvisible=cell_active_lower, xticksvisible=false,
+                    yticklabelsvisible=cell_active_lower, yticksvisible=false,
                     yticklabelrotation=pi / 2,
                     xgridvisible=cell_active_lower,
                     ygridvisible=cell_active_lower,
                     leftspinevisible=cell_active_lower, rightspinevisible=cell_active_lower,
                     topspinevisible=cell_active_lower, bottomspinevisible=cell_active_lower,
+                    # See the diagonal cell's comment above re: plain "" vs L"".
+                    xlabel=cell_active_lower ? L"v_%$(_idxs[i])" : "",
+                    ylabel=cell_active_lower ? L"v_%$(_idxs[j])" : "",
+                    xlabelvisible=cell_active_lower,
+                    ylabelvisible=cell_active_lower,
                 )
             end
         end
@@ -592,13 +632,50 @@ function _build_fig(
     gridlayout::Any,
     picker_info::Union{NamedTuple,Nothing}=nothing
 )
-    # Makie's own Figure() default (600x450) is too small for ui_layout (a
-    # fixed 200px recipe-menu column plus labels/toggles) and the vsel picker
-    # matrix to fit side by side without the picker overflowing past the
-    # main grid's edge -- confirmed empirically. A more generous starting
-    # size avoids that on first display; the window remains fully resizable
-    # regardless (GLMakie) or just affects the initial render size (CairoMakie).
-    fig = Figure(size=(900, 700))
+    # The whole column (main grid, toggle_row, controls_layout -- see below)
+    # is locked to a single width via colsize!(fig.layout, 1, Aspect(1,1)),
+    # which always resolves to whatever height row 1 (the grid) ends up with
+    # -- entirely independent of the Figure's own declared width. A
+    # significantly-wider-than-tall size like the previous (900, 700) default
+    # left ~450px of pure dead canvas beside the content (confirmed
+    # empirically: at (900,700) the grid+controls column resolves to only
+    # ~446px wide, centered, with ~227px of untouched margin on each side).
+    # (665, 850) is sized to exactly match that column's natural width at
+    # that height plus the left/right margin set below -- both numbers need
+    # re-measuring if the grid's Relative(0.8)/Aspect(1,1) row/col sizing
+    # (rowsize!/colsize! below) or the controls row's content ever change,
+    # since they're tied to this specific layout's geometry, not derived
+    # analytically. The window remains fully resizable regardless (GLMakie)
+    # or just affects the initial render size (CairoMakie).
+    fig = Figure(size=(665, 850))
+    # Widens Makie's default 16px figure margin on every side it's actually
+    # needed on, confirmed empirically by measuring each side's peak
+    # protrusion overflow (text rendered beyond the canvas edge -- silently
+    # invisible rather than clipped-looking, since CairoMakie/GLMakie simply
+    # don't rasterize anything outside the canvas). Every cell now shows its
+    # own bottom/left tick labels + axis labels (see _init_gridlayout), so
+    # only the true bottom row and true leftmost column's protrusion can ever
+    # reach the Figure's own outer edge -- top/right stay at the default 16px
+    # (nothing is ever positioned there anymore).
+    #  - left: the leftmost column's p_i/v_i y-labels are sized off the
+    #    *global* fontsize=20 (bat_theme), not the shrunk xticklabelsize/
+    #    yticklabelsize=10 -- so they need much more room than the tick
+    #    labels do, especially now that the Figure's width is tightly fit to
+    #    the grid (no more incidental slack from a much-wider-than-tall
+    #    default to absorb them in). 44px (not just enough for a
+    #    single-digit "v_1") comfortably covers 2-digit variable indices too
+    #    ("v_15" etc.) -- confirmed empirically across N_max=3/5/15 and both
+    #    full and partial vsel selections.
+    #  - right: mirrors left for symmetry/robustness (e.g. if a future change
+    #    ever re-adds right-side content), though nothing currently needs it.
+    #  - top: the diagonal's own p_i label sits above its tick labels, same
+    #    shape of problem as the old top-of-grid case, just now on every
+    #    diagonal cell instead of only the row-1 one -- 40px confirmed
+    #    empirically sufficient (with margin) across the same scenarios above.
+    #  - bottom: comfortably fits in the default 16px, no widening needed.
+    # Re-measure all of this again if xlabelsize/ylabelsize, xticklabelsize/
+    # yticklabelsize, or the Figure size above change.
+    fig.layout.alignmode[] = Outside(44, 44, 16, 40)
 
     plot(fig[1, 1], gridlayout)
 

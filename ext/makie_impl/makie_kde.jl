@@ -58,6 +58,9 @@ function compose_plotspecs(
         return [polys, lines]
 end
 
+# See makie_hist.jl's _diag_y_extent for Hist1D for what this is for.
+_diag_y_extent(primitives::NamedTuple, ::KDE1D) = isempty(primitives.density) ? 0.0 : maximum(primitives.density)
+
 
 function compute_plotting_primitives(
         ::SubArray,
@@ -194,6 +197,8 @@ function compose_plotspecs(
 
         return [polyspec, lines]
 end
+
+_diag_y_extent(primitives::NamedTuple, ::QuantileKDE1D) = isempty(primitives.full_line) ? 0.0 : maximum(p -> p[2], primitives.full_line)
 
 
 
