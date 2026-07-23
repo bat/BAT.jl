@@ -18,7 +18,7 @@
 # Each group's own "now" is its own most recent step, not a global max
 # across all chains, so a slower chain's trace isn't falsely aged by a
 # faster one running alongside it.
-const _EMPTY_TRACE2D_PRIMITIVES = (x=Float64[], y=Float64[], chainids=Int32[], walkerids=Int32[], recency=Float64[])
+const _EMPTY_TRACE2D_PRIMITIVES = (x=Float64[], y=Float64[], chainids=Int32[], walkerids=Int32[], recency=Float64[], group_ranges=Tuple{Int32,Int32,UnitRange{Int}}[])
 
 function compute_plotting_primitives(
         ::SubArray,
@@ -96,6 +96,13 @@ function compute_plotting_primitives(
         out_chainids = Int32[]
         out_walkerids = Int32[]
         out_recency = Float64[]
+        # (chain_id, walker_id, index-range-into-the-above-flat-arrays) per
+        # group that survived the window -- computed once here so
+        # compose_plotspecs doesn't need to re-scan chainids/walkerids and
+        # rebuild an identical grouping Dict from scratch on every call (it
+        # used to; this was a real, measurable, entirely avoidable duplicate
+        # O(window size) cost paid every time the overlay is drawn).
+        group_ranges = Tuple{Int32,Int32,UnitRange{Int}}[]
 
         for (key, idxs) in groups
                 chain_id, walker_id = key
@@ -116,6 +123,8 @@ function compute_plotting_primitives(
                         last_steps[idx] < min_step && break
                         push!(keep, idx)
                 end
+                isempty(keep) && continue
+                range_start = length(out_x) + 1
                 for idx in Iterators.reverse(keep) # restore chronological (oldest-of-window-first) order
                         push!(out_x, x[idx])
                         push!(out_y, y[idx])
@@ -124,9 +133,10 @@ function compute_plotting_primitives(
                         r = trace_nsteps <= 0 ? 1.0 : clamp((last_steps[idx] - min_step) / trace_nsteps, 0.0, 1.0)
                         push!(out_recency, r)
                 end
+                push!(group_ranges, (chain_id, walker_id, range_start:length(out_x)))
         end
 
-        return (x=out_x, y=out_y, chainids=out_chainids, walkerids=out_walkerids, recency=out_recency)
+        return (x=out_x, y=out_y, chainids=out_chainids, walkerids=out_walkerids, recency=out_recency, group_ranges=group_ranges)
 end
 
 function compose_plotspecs(
@@ -134,7 +144,7 @@ function compose_plotspecs(
         recipe::Trace2D,
         config::NamedTuple
 )
-        (; x, y, chainids, walkerids, recency) = primitives
+        (; x, y, chainids, recency, group_ranges) = primitives
 
         if isempty(x)
                 return PlotSpec[]
@@ -145,26 +155,24 @@ function compose_plotspecs(
         # its own comment) -- ranked among *all* chain ids present in this
         # cell's primitives (not just ones with points surviving into the
         # trace window), so a chain's color matches ChainScatter2D's if both
-        # happen to be visible in the same figure.
+        # happen to be visible in the same figure. This is a fresh, cheap
+        # O(window size) scan over just the surviving points -- unlike the
+        # (chainid, walkerid) grouping itself, which no longer needs to be
+        # rebuilt here at all (group_ranges, computed once in
+        # compute_plotting_primitives, replaces the Dict this function used
+        # to reconstruct from scratch on every single call).
         unique_chains = sort(unique(chainids))
         rank_of = Dict(id => r for (r, id) in enumerate(unique_chains))
 
-        groups = Dict{Tuple{Int32,Int32},Vector{Int}}()
-        for idx in eachindex(chainids)
-                key = (chainids[idx], walkerids[idx])
-                push!(get!(() -> Int[], groups, key), idx)
-        end
-
         specs = PlotSpec[]
-        for (key, idxs) in groups
-                chain_id, _ = key
+        for (chain_id, _, range) in group_ranges
                 base_color = _CHAIN_COLOR_PALETTE[mod1(rank_of[chain_id], length(_CHAIN_COLOR_PALETTE))]
                 # 0.15 alpha floor (not 0) for the oldest point in the window
                 # -- a fully transparent oldest point would make a
                 # just-entered-the-window position invisible instead of
                 # merely faint.
-                colors = [RGBA(base_color.r, base_color.g, base_color.b, 0.15 + 0.85 * recency[idx]) for idx in idxs]
-                pts = Point2f.(x[idxs], y[idxs])
+                colors = [RGBA(base_color.r, base_color.g, base_color.b, 0.15 + 0.85 * recency[idx]) for idx in range]
+                pts = Point2f.(x[range], y[range])
                 length(pts) > 1 && push!(specs, S.Lines(pts; color=colors))
                 push!(specs, S.Scatter(pts; color=colors, markersize=markersize * 3))
         end

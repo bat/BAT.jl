@@ -65,8 +65,8 @@ _make_running_state_2d(::Union{Hist2D,QuantileHist2D}) = _IncrementalHist2DState
 # a practical heuristic otherwise (a highly informative likelihood leaves the
 # posterior occupying only a fraction of this range -- coarser resolution,
 # not wrong; a prior/likelihood conflict could in principle exceed it). NOT a
-# hard bound either way -- see the overflow-widening in init_visualizer!/
-# flush_buffer! below, which callers must rely on rather than treating this
+# hard bound either way -- see the domain recompute in flush_buffer! below
+# (init_visualizer!), which callers must rely on rather than treating this
 # as guaranteed.
 function _estimate_prior_domain(mcmc_states::Vector{<:MCMCState}, n_dof::Integer; n_prior_samples::Integer=2000, tail_prob::Real=0.0015)
     target = mcmc_target(mcmc_states[1])
@@ -90,33 +90,57 @@ function _domain_from_samples(data::AbstractMatrix, n_dof::Integer)
     return lo, hi
 end
 
-# Widens (monotonically -- never shrinks) the graph's fixed domain if new
-# real data exceeds it in any dimension, and propagates the update if so.
-# Called with only the newly-arrived batch (not the full dataset) so this
-# stays O(batch size), not O(total samples so far).
-function _widen_domain!(graph::ComputeGraph, new_samples)
-    isempty(new_samples) && return nothing
-    domain_lo = graph[:domain_lo][]
-    domain_hi = graph[:domain_hi][]
-    isempty(domain_lo) && return nothing
-
-    data = new_samples.v.data
-    new_lo = copy(domain_lo)
-    new_hi = copy(domain_hi)
-    widened = false
-    for d in eachindex(domain_lo)
+# Recomputes the graph's domain_lo/domain_hi from scratch against the FULL
+# accumulated sample set on every flush, rather than incrementally widening
+# a separate piece of mutable state from just the newest batch (the earlier
+# design, removed). That incremental state was the root cause of two
+# separate OutOfMemoryError incidents: a single non-finite sample value
+# (e.g. an accepted sample that overflowed to +-Inf under a poorly-tuned
+# constrained<->unconstrained transform -- not necessarily an "extreme
+# model") reaching a batch-local extrema computation could corrupt
+# domain_hi/domain_lo to +-Inf permanently, since widening only ever grows
+# it and never re-validates -- which then fed a degenerate span into
+# StatsBase.histrange downstream (eps(Inf) is NaN, which silently defeated
+# the degenerate-domain guard meant to catch exactly this). Recomputing
+# fresh from the authoritative sample data every time removes that state
+# entirely: there is nothing for a single bad value to corrupt beyond its
+# own recompute, since non-finite values are filtered out fresh on every
+# call rather than needing to be caught once and remembered correctly
+# forever.
+#
+# `prior_lo`/`prior_hi` (the one-time, never-mutated prior-based estimate
+# from _estimate_prior_domain -- see init_visualizer!) are unioned in as a
+# floor/ceiling so the domain still only ever grows over a run, exactly as
+# the old incremental version guaranteed, rather than the axis limits
+# shrinking-then-growing as the real accumulated sample range happens to be
+# narrower than that initial guess early in a run.
+#
+# Cost: O(total samples so far) per flush instead of O(batch size) -- an
+# explicit, accepted trade for removing the incremental state entirely.
+# Sample counts in this live-plotting context are small enough (typically
+# thousands, not millions) for this to be unmeasurable in practice.
+function _recompute_domain!(graph::ComputeGraph, all_samples, prior_lo::Vector{Float64}, prior_hi::Vector{Float64})
+    isempty(all_samples) && return nothing
+    data = all_samples.v.data
+    new_lo = similar(prior_lo)
+    new_hi = similar(prior_hi)
+    for d in eachindex(prior_lo)
         row = view(data, d, :)
-        batch_lo, batch_hi = extrema(row)
-        if batch_lo < new_lo[d]
-            new_lo[d] = batch_lo
-            widened = true
-        end
-        if batch_hi > new_hi[d]
-            new_hi[d] = batch_hi
-            widened = true
+        finite_row = Iterators.filter(isfinite, row)
+        if isempty(finite_row)
+            new_lo[d] = prior_lo[d]
+            new_hi[d] = prior_hi[d]
+        else
+            lo, hi = extrema(finite_row)
+            new_lo[d] = min(lo, prior_lo[d])
+            new_hi[d] = max(hi, prior_hi[d])
         end
     end
-    widened && update!(graph, domain_lo=new_lo, domain_hi=new_hi)
+
+    domain_lo = graph[:domain_lo][]
+    domain_hi = graph[:domain_hi][]
+    (new_lo == domain_lo && new_hi == domain_hi) && return nothing
+    update!(graph, domain_lo=new_lo, domain_hi=new_hi)
     return nothing
 end
 
@@ -624,14 +648,24 @@ function _init_compute_graph(
             # since it needs the same extra per-sample chain-identity input
             # plus :flat_stepnos/:flat_walkerids on top. Unlike ChainScatter2D
             # (a selectable main recipe, live only when actually chosen),
-            # Trace2D is an always-live overlay -- see its
-            # determine_recipe_status override in makie_trace.jl -- so its
-            # primitives are computed regardless of what upper_recipe/
-            # lower_recipe currently is, exactly like Mean2D/Std2D/Cov2D;
-            # whether it's actually *drawn* is a separate, purely
-            # presentation-layer decision made in _init_gridlayout's lift
-            # below (show_trace_upper/lower), matching how the stats overlay
-            # toggle works.
+            # Trace2D's *availability* is always-live regardless of what
+            # upper_recipe/lower_recipe currently is -- see its
+            # determine_recipe_status override in makie_trace.jl, exactly
+            # like Mean2D/Std2D/Cov2D. Whether it's actually *drawn* is a
+            # separate, purely presentation-layer decision made in
+            # _init_gridlayout's lift below (show_trace_upper/lower),
+            # matching how the stats overlay toggle works.
+            #
+            # BUT unlike Mean2D/Std2D/Cov2D (whose computation is cheap
+            # running-statistics accumulation, negligible whether the toggle
+            # is on or not), Trace2D's own compute (grouping + windowing over
+            # the *entire* accumulated dataset -- see its own file's header
+            # comment) is real, non-incremental work. Explicitly threading
+            # :show_trace_upper/:show_trace_lower in and early-returning the
+            # empty sentinel when both are off (below) means this cost is
+            # only ever paid while the overlay is actually visible, rather
+            # than on every single sample batch for every active variable
+            # pair regardless of whether any user ever touches this toggle.
             #
             # Uses the *_full inputs (untruncated) plus :current_idx directly
             # (rather than the shared current_idx-truncated marg_sym_2D/
@@ -641,10 +675,13 @@ function _init_compute_graph(
             # truncation makes already-revealed chains appear to freeze.
             trace_primitive_sym = primitive_symbol(Trace2D(), (j, i))
             register_computation!(graph,
-                [marg_sym_2D_full, :flat_weights_full, :flat_chainids_full, :flat_walkerids_full, :flat_stepnos_full, :current_idx, :upper_recipe, :lower_recipe, :live_map, :triagonal_config],
+                [marg_sym_2D_full, :flat_weights_full, :flat_chainids_full, :flat_walkerids_full, :flat_stepnos_full, :current_idx, :upper_recipe, :lower_recipe, :live_map, :triagonal_config, :show_trace_upper, :show_trace_lower],
                 [trace_primitive_sym]
             ) do inputs, changed, cached
-                coords, weights, chainids, walkerids, stepnos, current_idx, live_recipe_upper, live_recipe_lower, live_map, config = inputs
+                coords, weights, chainids, walkerids, stepnos, current_idx, live_recipe_upper, live_recipe_lower, live_map, config, show_trace_upper, show_trace_lower = inputs
+                if !(show_trace_upper || show_trace_lower)
+                    return (_EMPTY_TRACE2D_PRIMITIVES,)
+                end
                 cell_status = live_map[i, j] ? LiveCell() : DeadCell()
                 recipe_status = determine_recipe_status(Trace2D(), live_recipe_upper(), live_recipe_lower())
                 primitives = compute_plotting_primitives(coords, weights, chainids, walkerids, stepnos, current_idx, Trace2D(), recipe_status, cell_status, config)
@@ -922,6 +959,7 @@ function _init_gridlayout(
                 )
             end
         end
+
         return S.GridLayout(matrix; rowsizes=cellsizes, colsizes=cellsizes)
     end
 
@@ -1467,13 +1505,13 @@ function _build_fig(
             isnothing(lbl) || (lbl.fontsize[] = fontsize_scaled)
         end
         for menu in (menu_upper, menu_diagonal, menu_lower)
-            menu.fontsize[] = fontsize_scaled
-            menu.height[] = base_menu_height * s
+            _silent_set!(menu.fontsize, fontsize_scaled)
+            menu.height[] = base_menu_height * s # last write of this widget's batch -- the only one that actually notifies
         end
         for tgl in (toggle_upper, toggle_diag, toggle_lower, toggle_trace_upper, toggle_trace_lower)
-            tgl.width[] = base_toggle_width * s
-            tgl.height[] = base_toggle_height * s
-            tgl.markersize[] = base_toggle_markersize * s
+            _silent_set!(tgl.width, base_toggle_width * s)
+            _silent_set!(tgl.height, base_toggle_height * s)
+            _silent_set!(tgl.markersize, base_toggle_markersize * s)
             # Toggle's drawn track shape (Makie's own toggle.jl:
             # buttonvertices/rect0) is sized from `length`, a *separate*
             # attribute from `width`/the resolved layout bbox -- confirmed
@@ -1653,11 +1691,28 @@ _checkbox_should_be_checked(active_vars::Set{<:Integer}, i::Integer, j::Integer)
 const _BLOCK_NATURAL_SIZE = WeakKeyDict{Any,Tuple{Any,Any}}()
 _natural_size!(b) = get!(() -> (b.width[], b.height[]), _BLOCK_NATURAL_SIZE, b)
 
+# Sets an Observable's value without notifying its listeners -- used below to
+# collapse several attribute writes on the *same* widget into a single
+# relayout instead of one per attribute. Confirmed empirically necessary,
+# not just a micro-optimization: collapsing/expanding the controls panel for
+# a realistic model (N=10 free variables, 55 vsel-picker cells) measured at
+# 1-2.7s and 10-21M allocations *per click*, in steady state (not a JIT
+# artifact -- 0% compilation time) -- traced to ~4,149 GridLayoutBase
+# relayout notifications for a single click, each individual widget
+# attribute write (width/height/size, 2-4 per widget x ~130 widgets)
+# independently triggering a full relayout cascade up the nested GridLayout
+# hierarchy. Also confirmed empirically that this can't be batched *across*
+# widgets (notifying only the last of many silently-updated widgets leaves
+# every other one showing its old, stale bbox) -- each widget still needs
+# its own final notifying write; this only removes the *redundant extra*
+# writes on top of that one.
+_silent_set!(observable, val) = setexcludinghandlers!(observe(observable), val)
+
 function _set_block_visible!(b, v::Bool)
-    b.blockscene.visible[] = v
+    _silent_set!(b.blockscene.visible, v)
     w, h = _natural_size!(b)
-    b.width[] = v ? w : 0
-    b.height[] = v ? h : 0
+    _silent_set!(b.width, v ? w : 0)
+    b.height[] = v ? h : 0 # last write of this widget's batch -- the only one that actually notifies
     return nothing
 end
 _set_block_visible!(b::Union{Label,Box}, v::Bool) = (b.visible[] = v)
@@ -1672,15 +1727,15 @@ _set_block_visible!(b::Union{Label,Box}, v::Bool) = (b.visible[] = v)
 # hidden, since that capture must happen before it's ever been zeroed.
 const _CHECKBOX_NATURAL_SIZE = WeakKeyDict{Checkbox,Float64}()
 function _set_block_visible!(b::Checkbox, v::Bool)
-    b.blockscene.visible[] = v
+    _silent_set!(b.blockscene.visible, v)
     w, h = _natural_size!(b)
-    b.width[] = v ? w : 0
-    b.height[] = v ? h : 0
+    _silent_set!(b.width, v ? w : 0)
+    _silent_set!(b.height, v ? h : 0)
     if v
-        b.size[] = get(_CHECKBOX_NATURAL_SIZE, b, b.size[])
+        b.size[] = get(_CHECKBOX_NATURAL_SIZE, b, b.size[]) # last write of this widget's batch -- the only one that actually notifies
     else
         haskey(_CHECKBOX_NATURAL_SIZE, b) || (_CHECKBOX_NATURAL_SIZE[b] = b.size[])
-        b.size[] = 0
+        b.size[] = 0 # last write of this widget's batch -- the only one that actually notifies
     end
     return nothing
 end
@@ -1792,8 +1847,8 @@ function _build_vsel_picker!(
             if b isa Checkbox
                 b.size[] = cb_size
             elseif b isa Box
-                b.width[] = cb_size
-                b.height[] = cb_size
+                _silent_set!(b.width, cb_size)
+                b.height[] = cb_size # last write of this widget's batch -- the only one that actually notifies
             elseif b !== lbl_marginals && b !== status_label
                 b.fontsize[] = lbl_fontsize
             end
@@ -1995,16 +2050,17 @@ function BAT.init_visualizer!(
             current_idxs_new = [length.(chain_samples) for chain_samples in samples_new]
             update!(graph, current_idxs=current_idxs_new)
 
-            # Checked against only this batch (not the full accumulated
-            # dataset), so this stays cheap regardless of how far into the run
-            # we are -- see _widen_domain!'s docs.
-            new_flat_views = Any[]
-            for chain_batch in fresh_batch_trafo
-                for walker_batch in chain_batch
-                    push!(new_flat_views, walker_batch)
+            # Deliberately flattens samples_new (the full accumulated dataset)
+            # rather than just fresh_batch_trafo (this batch alone) -- see
+            # _recompute_domain!'s docs for why a full recompute every flush
+            # was chosen over a cheaper incremental version.
+            all_flat_views = Any[]
+            for chain_all in samples_new
+                for walker_all in chain_all
+                    push!(all_flat_views, walker_all)
                 end
             end
-            _widen_domain!(graph, vcat(new_flat_views...))
+            _recompute_domain!(graph, vcat(all_flat_views...), domain_lo, domain_hi)
         end
         return nothing
     end
@@ -2019,12 +2075,28 @@ function BAT.init_visualizer!(
             while is_live[]
                 sleep(poll_interval)
 
-                # Decoupled from the sample-batch flush below so a vsel change
-                # (vis.backend.vsel mutated by a future UI widget) is picked up
-                # promptly instead of waiting for the next full batch.
-                _apply_vsel!(vis, vis.backend.vsel)
+                # Any exception escaping this block previously killed the
+                # whole listener task silently -- errormonitor only logs it
+                # to stderr, it doesn't restart the loop or surface anything
+                # to the user. Since nothing else ever calls flush_buffer! or
+                # notifies buffer_cond, that failure mode wasn't "one bad
+                # tick, skip it" -- it was "the display silently freezes,
+                # sampling tasks blocked on backpressure hang forever, and
+                # output_buffer grows without bound," often manifesting much
+                # later as an apparently unrelated OutOfMemoryError
+                # elsewhere. Catching here bounds any future bug in this loop
+                # to a single skipped tick instead.
+                try
+                    # Decoupled from the sample-batch flush below so a vsel
+                    # change (vis.backend.vsel mutated by a future UI widget)
+                    # is picked up promptly instead of waiting for the next
+                    # full batch.
+                    _apply_vsel!(vis, vis.backend.vsel)
 
-                flush_buffer!()
+                    flush_buffer!()
+                catch e
+                    @error "Error updating live Makie visualization; skipping this tick" exception = (e, catch_backtrace())
+                end
             end
 
             # is_live[] can flip false between two ticks (bat_sample_impl sets it
@@ -2033,7 +2105,11 @@ function BAT.init_visualizer!(
             # batch this tick hadn't gotten to yet -- leaving the display behind
             # the true final sample count. One last unconditional flush closes
             # that gap before the task returns.
-            flush_buffer!(force=true)
+            try
+                flush_buffer!(force=true)
+            catch e
+                @error "Error on final live Makie visualization flush" exception = (e, catch_backtrace())
+            end
         end
     )
 end
@@ -2045,34 +2121,70 @@ function BAT.update_visualizer_impl!(
 )
     (; buffer_lock, buffer_cond, output_buffer, chain_ids, n_buffer_samples, effective_batch_size, buffer_ratio) = vis.content
     output_id = findfirst(x -> x == chain_state.info.id, chain_ids)
-    n_smpls_start = sum(length.(output_buffer[output_id]))
-    get_samples!(output_buffer[output_id], chain_state, nonzero_weights)
-    n_smpls_end = sum(length.(output_buffer[output_id]))
 
-    lock(buffer_lock)
-    n_new = n_smpls_end - n_smpls_start
-    n_buffer_samples[] += n_new
-    # Backpressure: block this chain's sampling task once the buffer has grown
-    # far enough ahead of the listener that the display would otherwise lag
-    # noticeably behind the true latest samples. Bounded, not per-sample --
-    # sampling still runs in free bursts up to max_buffered before it has to
-    # wait -- so the listener remains the sole bottleneck only when it's
-    # genuinely falling behind, not on every single step.
+    # get_samples! mutates output_buffer[output_id] (a DensitySampleVector/
+    # StructArray) field-by-field, non-atomically (StructArrays.push! pushes
+    # onto .v, then .logd, then .weight, then .info, then .aux in sequence --
+    # see BAT.checked_push!). Every MCMC chain runs this on its own thread
+    # concurrently (Threads.@spawn in mcmc_iterate!!), while flush_buffer!
+    # (on a separate listener task) reads/copies output_buffer under
+    # buffer_lock. This used to acquire buffer_lock only *after* get_samples!
+    # had already run -- so a chain's mutation here could race a concurrent
+    # flush_buffer! copy and be caught mid-push, with some fields already
+    # updated and others not yet. Confirmed to reproduce a real
+    # "ArgumentError: all component arrays must have the same shape" deep in
+    # flush_buffer!'s transform step -- thrown inside an errormonitor-wrapped
+    # background task, so it silently kills the listener loop rather than
+    # surfacing to the user. From that point on nothing ever drains
+    # output_buffer or re-notifies buffer_cond again, so sampling threads
+    # blocked on the backpressure wait below hang forever and the buffer
+    # grows without bound -- a very plausible root cause for a much later,
+    # seemingly unrelated OutOfMemoryError. Far more likely to manifest with
+    # a vector-valued parameter: .v's push there resizes an
+    # ElasticArrays-backed ArrayOfSimilarArrays (a measurably slower
+    # operation than a plain Vector's amortized push!), widening the race
+    # window between .v's own push and the other four fields'.
     #
-    # Derived from effective_batch_size[] (scaled by the fixed configured
-    # ratio) rather than a separately-tracked/grown value: this threshold must
-    # always stay >= the current flush trigger, or sampling would permanently
-    # block below a threshold the listener is never allowed to reach --
-    # deriving it from the same value the flush trigger uses makes that
-    # invariant automatic instead of something two independently-growing
-    # counters could drift out of.
-    # Recomputed every iteration (not hoisted out of the loop) so a waiter
-    # woken by one flush re-checks against whatever effective_batch_size[]
-    # grew to by the time it wakes, not a value that was already stale then.
-    while n_buffer_samples[] >= ceil(Int, effective_batch_size[] * buffer_ratio)
-        wait(buffer_cond)
+    # Wrapping get_samples! itself in the same lock flush_buffer! already
+    # uses closes this race at its source, matching the lock discipline the
+    # rest of this function already follows below. try/finally (not a bare
+    # lock/unlock pair) specifically because get_samples! now runs inside
+    # this critical section -- unlike the backpressure wait below (which
+    # isn't expected to throw), get_samples! is real, more complex sampler
+    # code; if it ever did throw here without a finally, buffer_lock would
+    # stay held forever, turning any future bug in it into a permanent
+    # deadlock instead of a recoverable error.
+    lock(buffer_lock)
+    try
+        n_smpls_start = sum(length.(output_buffer[output_id]))
+        get_samples!(output_buffer[output_id], chain_state, nonzero_weights)
+        n_smpls_end = sum(length.(output_buffer[output_id]))
+        n_new = n_smpls_end - n_smpls_start
+        n_buffer_samples[] += n_new
+        # Backpressure: block this chain's sampling task once the buffer has
+        # grown far enough ahead of the listener that the display would
+        # otherwise lag noticeably behind the true latest samples. Bounded,
+        # not per-sample -- sampling still runs in free bursts up to
+        # max_buffered before it has to wait -- so the listener remains the
+        # sole bottleneck only when it's genuinely falling behind, not on
+        # every single step.
+        #
+        # Derived from effective_batch_size[] (scaled by the fixed configured
+        # ratio) rather than a separately-tracked/grown value: this threshold must
+        # always stay >= the current flush trigger, or sampling would permanently
+        # block below a threshold the listener is never allowed to reach --
+        # deriving it from the same value the flush trigger uses makes that
+        # invariant automatic instead of something two independently-growing
+        # counters could drift out of.
+        # Recomputed every iteration (not hoisted out of the loop) so a waiter
+        # woken by one flush re-checks against whatever effective_batch_size[]
+        # grew to by the time it wakes, not a value that was already stale then.
+        while n_buffer_samples[] >= ceil(Int, effective_batch_size[] * buffer_ratio)
+            wait(buffer_cond)
+        end
+    finally
+        unlock(buffer_lock)
     end
-    unlock(buffer_lock)
 end
 
 

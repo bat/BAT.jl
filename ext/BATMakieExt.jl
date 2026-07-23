@@ -16,6 +16,7 @@ using Makie
 import Makie.SpecApi as S
 
 using Makie: ComputeGraph, add_input!, register_computation!
+using Makie.Observables: observe, setexcludinghandlers!
 
 using StatsBase
 using Statistics: quantile
