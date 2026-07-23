@@ -190,6 +190,19 @@ function BAT.bat_theme()
                         yticksvisible=true,
                         xlabelpadding=3,
                         ylabelpadding=3,
+                        # Small, tight ticks/tick labels -- the corner-grid cells
+                        # (ext/makie_impl/makie_visualizer.jl) are only ~100-150px
+                        # square, so full-size (fontsize-inherited) tick labels
+                        # overlap each other and eat into the plotting area via
+                        # their protrusion. Independent of the global fontsize (used
+                        # for titles, the v_i/p_i axis labels, etc.), which is left
+                        # untouched.
+                        xticklabelsize=10,
+                        yticklabelsize=10,
+                        xticklabelpad=1,
+                        yticklabelpad=1,
+                        xticksize=3,
+                        yticksize=3,
                 ),
                 Legend=(
                         framevisible=false,
@@ -294,6 +307,13 @@ function BAT.bat_theme_dark()
                         yticksvisible=true,
                         xlabelpadding=3,
                         ylabelpadding=3,
+                        # See bat_theme()'s matching comment.
+                        xticklabelsize=10,
+                        yticklabelsize=10,
+                        xticklabelpad=1,
+                        yticklabelpad=1,
+                        xticksize=3,
+                        yticksize=3,
                 ),
                 Legend=(
                         framevisible=false,
