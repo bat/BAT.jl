@@ -488,6 +488,51 @@ function _init_gridlayout(
         )
         diag_ylims = diag_y_max > 0 ? (0.0, 1.1 * diag_y_max) : nothing
 
+        # GridLayoutBase only credits a grid's *structurally* first/last
+        # row/column (via ismostin in gridlayout.jl) toward that side's
+        # reported protrusion, regardless of whether that row/col is
+        # actually active -- confirmed by direct layoutobservables.protrusions
+        # inspection. Active columns are always the prefix 1:n_active, so
+        # column 1 (left) is always active and its protrusion is always
+        # correctly reported -- but row n (bottom) is only active when
+        # n_active == n (fully selected); the instant a variable is
+        # deselected, row n goes Fixed(0) and the grid's *reported* bottom
+        # protrusion silently drops to 0, even though the new last-active row
+        # still renders real tick/axis labels below it. Since fig.layout's
+        # Outside(44,44,16,40) alignmode (in _build_fig) trades protrusion
+        # against content size for a fixed total canvas, that erroneously
+        # "freed" protrusion silently inflates the grid's Relative(0.8)/
+        # Aspect(1,1)-computed size -- this is exactly the "small but real
+        # size jump when the vsel selection shrinks/grows" previously left as
+        # an open TODO in _build_fig (bottom protrusion flips between a real
+        # value and exactly 0 depending only on whether n_active == n, with
+        # the resulting size jump matching 0.8x that protrusion delta to five
+        # decimal places).
+        #
+        # Fixed via GridLayoutBase's public alignmode=Mixed(bottom=Protrusion(...))
+        # escape hatch first -- reverted. Confirmed empirically that this
+        # GridLayoutBase version's update! unconditionally calls
+        # determinedirsize(gl, Col()) on every relayout regardless of that
+        # grid's own alignmode, and determinedirsize only handles Inside/
+        # Outside, throwing "Unknown AlignMode of type Mixed" -- reproduced
+        # as a deterministic crash on the very first live-sampling render
+        # (not just an occasional edge case; two isolated static-path test
+        # calls happened not to hit it, which is what made it look safe at
+        # first).
+        #
+        # Fix instead keeps row n's diagonal cell's bottom decorations
+        # logically "on" (so GridLayoutBase's own unmodified, already-correct
+        # ismostin-based protrusion computation credits it) whenever it isn't
+        # really active, but renders them fully transparent so nothing is
+        # visibly drawn -- avoiding both the ghost-decoration bug this would
+        # otherwise reintroduce and the Mixed/determinedirsize crash, while
+        # staying entirely within the already-battle-tested Inside() code
+        # path. Mirrors the real last-*active* row's own variable/limits
+        # (rather than row n's own (0,1) placeholder) so the phantom
+        # protrusion matches what's actually needed, not a guess.
+        text_color = Colors.RGBA(Makie.to_color(Makie.current_default_theme()[:textcolor][]))
+        transparent_text_color = Colors.RGBA(text_color.r, text_color.g, text_color.b, 0.0)
+
         for i in 1:n
             diagonal_primitives = graph[primitive_symbol(diagonal_recipe, (i, i))][]
             diagonal_plotspecs = compose_plotspecs(diagonal_primitives, diagonal_recipe(), diagonal_config)
@@ -505,6 +550,17 @@ function _init_gridlayout(
             # not just relying on it having zero size, is what actually
             # removes them.
             cell_active = i <= n_active
+            # See the long comment above the text_color/transparent_text_color
+            # definitions for the full story: row n's bottom decorations are
+            # kept logically "on" (for GridLayoutBase's own protrusion
+            # bookkeeping) even when this cell isn't really active, but
+            # rendered fully transparent -- and mirroring the real last-
+            # *active* row's own variable/limits, not row n's own (0,1)
+            # placeholder, so the phantom protrusion matches what's actually
+            # needed.
+            is_phantom_row = (i == n) && !cell_active && n_active > 0
+            show_x_decor = cell_active || is_phantom_row
+            effective_xlims = is_phantom_row ? graph[Symbol("axis_limits_$n_active")][] : xlims
             matrix[i, i] = S.Axis(
                 plots=diagonal_plotspecs,
                 # Matches the upper/lower 2D cells' aspect=1 below -- without
@@ -514,16 +570,17 @@ function _init_gridlayout(
                 # rectangle the GridLayout/decorations leave it, typically
                 # taller than wide for a 1D density/histogram.
                 aspect=1,
-                limits=(xlims, diag_ylims),
+                limits=(effective_xlims, diag_ylims),
                 # Every cell shows its own bottom/left tick labels + axis
                 # labels now (per explicit request), with the tick *marks*
                 # themselves removed everywhere to keep the added clutter in
                 # check -- xticksvisible/yticksvisible=false rather than
                 # tying them to visibility of the labels.
-                xticklabelsvisible=cell_active, xticksvisible=false,
+                xticklabelsvisible=show_x_decor, xticksvisible=false,
                 yticklabelsvisible=cell_active, yticksvisible=false,
                 yticklabelrotation=pi / 2,
                 ytickformat="{:.1f}",
+                xticklabelcolor=is_phantom_row ? transparent_text_color : text_color,
                 xgridvisible=cell_active,
                 ygridvisible=cell_active,
                 leftspinevisible=cell_active, rightspinevisible=cell_active,
@@ -537,9 +594,16 @@ function _init_gridlayout(
                 # even when xlabelvisible=false (confirmed empirically: the
                 # visibility flag doesn't skip glyph layout for the
                 # underlying text, only its own rendering).
-                xlabel=cell_active ? L"v_%$(_idxs[i])" : "",
+                xlabel=if is_phantom_row
+                    L"v_%$(_idxs[n_active])"
+                elseif cell_active
+                    L"v_%$(_idxs[i])"
+                else
+                    ""
+                end,
                 ylabel=cell_active ? L"p_%$(_idxs[i])" : "",
-                xlabelvisible=cell_active,
+                xlabelvisible=show_x_decor,
+                xlabelcolor=is_phantom_row ? transparent_text_color : text_color,
                 ylabelvisible=cell_active,
             )
 
@@ -698,21 +762,34 @@ function _build_fig(
     plot(fig[1, 1], gridlayout)
 
     colsize!(fig.layout, 1, Aspect(1, 1))
-    # TODO: Relative(0.8) recomputes on every relayout, not just on real
-    # window resizes -- confirmed a small but real, noticeable size jump in
-    # this row (and, via the Aspect(1,1) column lock above, the whole
-    # column -- main grid *and* the controls/toggle rows below it) when the
-    # vsel selection shrinks/grows, with no window resize involved. Root
-    # cause not isolated (ruled out: per-axis protrusions are identical
-    # between different active-variable counts; toggling tellwidth/
-    # tellheight on the reconciled corner-grid GridLayout makes no
-    # difference). A first attempted fix (driving a Fixed row height off
-    # `fig.scene.viewport` instead) was reverted -- it was only verified in
-    # a headless CairoMakie session and made things worse in a real GLMakie
-    # window (likely a DPI/framebuffer-vs-logical-size mismatch), without
-    # even confirming it fixed the jump there. Needs verification in a real
-    # interactive GLMakie session, not just this extension's usual
-    # CairoMakie-based test harness, before attempting again.
+    # Relative(0.8) recomputes on every relayout, not just on real window
+    # resizes -- this previously caused a small but real, noticeable size
+    # jump in this row (and, via the Aspect(1,1) column lock above, the whole
+    # column) whenever the vsel selection shrank/grew, with no window resize
+    # involved. Root cause (fully isolated, not just worked around): a real
+    # GridLayoutBase bug where the corner grid's *reported* bottom protrusion
+    # depends on whether the grid's structurally-last row happens to be
+    # active, not on the actual last *active* row's real content -- see the
+    # phantom-protrusion fix (text_color/is_phantom_row) and its long comment
+    # in _init_gridlayout for the full diagnosis. That fix keeps the grid's
+    # own reported protrusion stable regardless of n_active, which is what
+    # actually stopped Relative(0.8)'s resolved size from depending on
+    # n_active at all -- Relative(0.8) itself was never the problem, just the
+    # unstable input it was reacting to. Two fix attempts were tried and
+    # discarded before this one: driving a Fixed row height off
+    # `fig.scene.viewport` (verified only in headless CairoMakie, made things
+    # worse in a real GLMakie window -- likely a DPI/framebuffer-vs-logical-
+    # size mismatch), and GridLayoutBase's own alignmode=Mixed(bottom=
+    # Protrusion(...)) escape hatch (confirmed correct in isolated tests, but
+    # this GridLayoutBase version's update! unconditionally calls
+    # determinedirsize on every relayout regardless of alignmode, and that
+    # function doesn't handle Mixed at all -- crashed deterministically on
+    # the very first live-sampling render). The current fix instead operates
+    # entirely within the already-battle-tested Inside() alignmode code path
+    # (no Mixed, no viewport/DPI/backend-specific concept involved), so it
+    # should behave identically in GLMakie -- still confirm in a real
+    # interactive session before treating this as fully closed, per the
+    # lesson from the first attempt.
     rowsize!(fig.layout, 1, Relative(0.8))
 
     # Always-visible row holding just the controls-collapse toggle (and the
