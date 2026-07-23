@@ -6,6 +6,7 @@ function Makie.convert_arguments(
         recipes::NamedTuple=(upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D),
         vsel::Vector{<:Integer}=[1, 2, 3],
         N_max::Integer=3,
+        trace_nsteps::Integer=20,
 )
         triagonal_config = (
                 weights=nothing,
@@ -19,7 +20,8 @@ function Makie.convert_arguments(
                 alpha=1.0,
                 rev=false,
                 threshold=nothing,
-                markersize=2.0
+                markersize=2.0,
+                trace_nsteps=trace_nsteps
         )
 
         diagonal_config = (
@@ -87,6 +89,7 @@ function BAT.bat_makie_plot(
         vsel::Vector{<:Integer}=[1, 2, 3],
         N_max::Integer=3;
         dark::Bool=false,
+        trace_nsteps::Integer=20,
 )
         # TODO: MD, Discuss config handling and passing of user attribute overwrites
         triagonal_config = (
@@ -101,7 +104,8 @@ function BAT.bat_makie_plot(
                 alpha=1.0,
                 rev=false,
                 threshold=nothing,
-                markersize=2.0
+                markersize=2.0,
+                trace_nsteps=trace_nsteps
         )
 
         diagonal_config = (

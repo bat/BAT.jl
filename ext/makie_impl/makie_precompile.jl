@@ -34,7 +34,7 @@ function _makie_precompile_workload()
     triagonal_config = (
         weights=nothing, nsigma=1.0, nbins=(20, 20), closed=:left, normalization=:pdf,
         levels=[0.3934693402873665, 0.8646647167633873], filter=false, colormap=:inferno,
-        alpha=1.0, rev=false, threshold=nothing, markersize=2.0
+        alpha=1.0, rev=false, threshold=nothing, markersize=2.0, trace_nsteps=20
     )
     diagonal_config = (
         weights=nothing, nsigma=1.0, nbins=20, closed=:left, normalization=:pdf,
@@ -84,6 +84,11 @@ function _makie_precompile_workload()
     update!(graph, lower_recipe=ChainScatter2D)
     gridlayout[]
     update!(graph, show_stats_diag=true, show_stats_upper=true, show_stats_lower=true)
+    gridlayout[]
+    # Trace2D is likewise not in BAT_MAKIE_RECIPES_2D (an always-live overlay,
+    # not a selectable main recipe -- see its own determine_recipe_status
+    # override) -- exercise its toggle the same way show_stats_* is above.
+    update!(graph, show_trace_upper=true, show_trace_lower=true)
     gridlayout[]
 
     return nothing
