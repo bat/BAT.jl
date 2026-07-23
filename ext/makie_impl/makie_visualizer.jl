@@ -1474,6 +1474,20 @@ function _build_fig(
             tgl.width[] = base_toggle_width * s
             tgl.height[] = base_toggle_height * s
             tgl.markersize[] = base_toggle_markersize * s
+            # Toggle's drawn track shape (Makie's own toggle.jl:
+            # buttonvertices/rect0) is sized from `length`, a *separate*
+            # attribute from `width`/the resolved layout bbox -- confirmed
+            # empirically (and via Makie's own source) that leaving this
+            # unscaled while width/bbox shrink makes the drawn track stay at
+            # its full original size while the knob's on/off endpoints are
+            # computed relative to the now-smaller bbox, so the knob lands
+            # partway across the (visually oversized) track instead of at
+            # its true edge -- reported directly as "the circle sits in the
+            # middle" when active. Default length == default width (32) at
+            # construction, since width is normally Auto-derived *from*
+            # length (see Makie's initialize_block!) -- reusing
+            # base_toggle_width here is intentional, not a coincidence.
+            tgl.length[] = base_toggle_width * s
         end
         collapse_button.fontsize[] = fontsize_scaled
         collapse_button.width[] = base_button_width * s
