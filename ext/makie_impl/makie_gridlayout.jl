@@ -4,23 +4,109 @@ function _init_gridlayout(
     graph::ComputeGraph,
     n::Int64
 )
-    gridlayout = lift(
-        graph[:current_idx],
-        graph[:idxs], # re-render on vsel changes too, not just new sample batches --
+    # This used to be a plain Observables.lift(...) over just the 10 "control"
+    # observables below, with everything else (every cell's own primitive,
+    # the stats/trace overlay primitives, the per-dimension axis limits) read
+    # reentrantly via graph[symbol][] *inside* the lift body. That reentrant
+    # read pattern is what caused a real, reproducible bug: a real mouse
+    # click's callback chain runs synchronously nested inside
+    # ComputePipeline's own locked _update!/resolve! call (Observables'
+    # notify() is synchronous, and ComputePipeline's graph.lock is a
+    # ReentrantLock, so the nested graph[symbol][] read doesn't deadlock --
+    # it just silently corrupts ComputePipeline's internal edge-resolution
+    # bookkeeping instead). Confirmed directly and reproducibly: a
+    # closure-captured, otherwise-immutable Integer parameter (this very `n`)
+    # was observed reading back as 100 (matching a config's nbins) in one
+    # capture and 93568 (matching the sample count) in another, immediately
+    # after a real click -- two different *other* integers from the same
+    # closure's environment, not random memory corruption, exactly what
+    # stale/reentrant-corrupted edge state would produce. Never reproducible
+    # by driving the identical Observable change programmatically (no active
+    # GLFW event-poll context involved there) -- only by a real mouse click,
+    # which is what let this hide for as long as it did.
+    #
+    # Fixed by making this a genuine ComputePipeline computation instead,
+    # matching the pattern every *other* node in this graph already uses:
+    # register_computation! requires a static input list (fixed at
+    # registration time, since it can't vary by whichever recipe happens to
+    # be selected right now), so this lists *every* symbol this cell matrix
+    # could ever need -- every recipe, not just the currently-selected one --
+    # rather than just the 10 control signals. ComputePipeline resolves all
+    # of them (cheaply -- resolving an edge that isn't dirty is a checked
+    # no-op) before invoking this callback, so the callback body itself does
+    # zero graph reads, only NamedTuple field lookups on the already-resolved
+    # `inputs`. No new work this adds: :diagonal_recipe/:upper_recipe/
+    # :lower_recipe are already declared inputs to every per-recipe primitive
+    # computation today, so switching recipes already wakes every recipe's
+    # (cheap, dead-sentinel) computation regardless of this change.
+    # Mean1D/Std1D are already part of BAT_MAKIE_RECIPES_1D (and
+    # Mean2D/Cov2D/Std2D already part of BAT_MAKIE_RECIPES_2D) -- only
+    # ChainScatter2D and Trace2D need adding, since those two are
+    # deliberately excluded from BAT_MAKIE_RECIPES_2D itself (see their own
+    # registration comments in makie_compute_graph.jl for why). Re-adding an
+    # already-listed recipe here would register the same primitive_symbol
+    # twice in register_computation!'s input list below, one of several
+    # ways to a duplicate-field NamedTuple error.
+    diag_recipes = BAT_MAKIE_RECIPES_1D
+    pair_recipes = vcat(BAT_MAKIE_RECIPES_2D, [ChainScatter2D(), Trace2D()])
+
+    primitive_inputs = Symbol[]
+    for i in 1:n
+        for recipe in diag_recipes
+            push!(primitive_inputs, primitive_symbol(recipe, (i, i)))
+        end
+    end
+    # (j, i) with j > i, matching the (bigger, smaller) convention every 2D
+    # primitive is actually registered under in _init_compute_graph (shared
+    # between the upper and lower cell at the same unordered pair).
+    for i in 1:n, j in i+1:n
+        for recipe in pair_recipes
+            push!(primitive_inputs, primitive_symbol(recipe, (j, i)))
+        end
+    end
+    axis_limit_inputs = [Symbol("axis_limits_$i") for i in 1:n]
+
+    control_inputs = [
+        :current_idx,
+        :idxs, # re-render on vsel changes too, not just new sample batches --
         # otherwise toggling the picker only appears to work during live
         # sampling, as an accidental side effect of :current_idx also changing.
-        graph[:upper_recipe],
-        graph[:diagonal_recipe],
-        graph[:lower_recipe],
-        graph[:show_stats_upper],
-        graph[:show_stats_diag],
-        graph[:show_stats_lower],
-        graph[:show_trace_upper],
-        graph[:show_trace_lower]
-    ) do idx, _idxs, upper_recipe, diagonal_recipe, lower_recipe, stats_upper, stats_diag, stats_lower, trace_upper, trace_lower
+        :upper_recipe,
+        :diagonal_recipe,
+        :lower_recipe,
+        :show_stats_upper,
+        :show_stats_diag,
+        :show_stats_lower,
+        :show_trace_upper,
+        :show_trace_lower,
+    ]
+
+    # :triagonal_config/:diagonal_config are never updated after construction
+    # (no code anywhere calls update!(graph, triagonal_config=...) or
+    # diagonal_config=...), so a single plain read here -- at setup time,
+    # before this computation is ever registered/invoked, not reentrant -- is
+    # exactly equivalent to re-reading them on every invocation, and avoids
+    # needing them as declared inputs at all.
+    triagonal_config = graph[:triagonal_config][]
+    diagonal_config = graph[:diagonal_config][]
+
+    register_computation!(
+        graph,
+        vcat(control_inputs, primitive_inputs, axis_limit_inputs),
+        [:gridlayout],
+    ) do inputs, changed, cached
+        idx = inputs.current_idx
+        _idxs = inputs.idxs
+        upper_recipe = inputs.upper_recipe
+        diagonal_recipe = inputs.diagonal_recipe
+        lower_recipe = inputs.lower_recipe
+        stats_upper = inputs.show_stats_upper
+        stats_diag = inputs.show_stats_diag
+        stats_lower = inputs.show_stats_lower
+        trace_upper = inputs.show_trace_upper
+        trace_lower = inputs.show_trace_lower
+
         matrix = Matrix{Any}(undef, n, n)
-        triagonal_config = graph[:triagonal_config][]
-        diagonal_config = graph[:diagonal_config][]
 
         # Deselecting a variable should visually remove its row/column and
         # let the remaining ones grow into the freed space. The naive way to
@@ -61,18 +147,18 @@ function _init_gridlayout(
         # elsewhere in this function (e.g. axis_limits_i falling back to
         # (0,1)).
         diag_y_max = maximum(
-            (_diag_y_extent(graph[primitive_symbol(diagonal_recipe, (i, i))][], diagonal_recipe()) for i in 1:n_active);
+            (_diag_y_extent(getproperty(inputs, primitive_symbol(diagonal_recipe, (i, i))), diagonal_recipe()) for i in 1:n_active);
             init=0.0
         )
         diag_ylims = diag_y_max > 0 ? (0.0, 1.1 * diag_y_max) : nothing
 
         for i in 1:n
-            diagonal_primitives = graph[primitive_symbol(diagonal_recipe, (i, i))][]
+            diagonal_primitives = getproperty(inputs, primitive_symbol(diagonal_recipe, (i, i)))
             diagonal_plotspecs = compose_plotspecs(diagonal_primitives, diagonal_recipe(), diagonal_config)
-            stats_specs_1D = stats_diag ? get_stats_plotspecs(graph, (i, i), Makie1DStats(), diagonal_config) : []
+            stats_specs_1D = stats_diag ? get_stats_plotspecs(inputs, (i, i), Makie1DStats(), diagonal_config) : []
             append!(diagonal_plotspecs, stats_specs_1D)
 
-            xlims = graph[Symbol("axis_limits_$i")][]
+            xlims = getproperty(inputs, Symbol("axis_limits_$i"))
             # A Fixed(0) row/column (cellsizes above) collapses the cell's
             # own plotting area to zero, but ticks/tick-labels/gridlines are
             # protrusion content drawn *outside* that area -- they don't
@@ -81,23 +167,13 @@ function _init_gridlayout(
             # marks/labels from deselected variables were still visible).
             # Explicitly forcing every decoration off for an inactive cell,
             # not just relying on it having zero size, is what actually
-            # removes them. Doing so no longer risks a resize jump the way it
-            # once did: this whole grid carries its own alignmode=Outside(...)
-            # (see the S.GridLayout call below) instead of the GridLayoutBase
-            # default Inside(), so its reported protrusion to its parent
-            # (fig.layout, in _build_fig) is always that same fixed margin,
-            # regardless of which/how many rows are actually active. Under
-            # the old default Inside() alignmode, the parent's own row size
-            # depended on this grid's *reported* protrusion, which
-            # GridLayoutBase only ever credits from the grid's structurally
-            # *last* row/column (ismostin in gridlayout.jl) regardless of
-            # whether that row/column was really active -- deselecting a
-            # variable made the reported protrusion flip even though real
-            # content hadn't changed, which is what caused the old small but
-            # real size jump on vsel changes (previously worked around with a
-            # transparent phantom last row echoing the true last-active row's
-            # decorations). Moot now: the parent never sees this grid's
-            # internal protrusion at all.
+            # removes them. This grid's own alignmode=Outside(...) (see the
+            # S.GridLayout call below) means its reported protrusion to its
+            # parent (fig.layout, in _build_fig) is always a fixed margin,
+            # regardless of which/how many rows are actually active, so
+            # there's no size-jump risk from an inactive cell's decorations
+            # being on/off the way there once was under the GridLayoutBase
+            # default Inside() alignmode.
             cell_active = i <= n_active
             matrix[i, i] = S.Axis(
                 plots=diagonal_plotspecs,
@@ -150,14 +226,14 @@ function _init_gridlayout(
                 # every 2D recipe's compose_plotspecs (Hist2D, KDE2D, QuantileHist2D,
                 # QuantileKDE2D, Hexbin2D, Scatter2D, Cov2D, Std2D, Mean2D,
                 # Errorbars2D), not a local change here -- deferred as its own pass.
-                upper_primitives = graph[primitive_symbol(upper_recipe, (j, i))][]
+                upper_primitives = getproperty(inputs, primitive_symbol(upper_recipe, (j, i)))
                 upper_plotspecs = compose_plotspecs(upper_primitives, upper_recipe(), triagonal_config)
-                stats_specs_2D = stats_upper ? get_stats_plotspecs(graph, (j, i), Makie2DStats(), triagonal_config) : PlotSpec[]
+                stats_specs_2D = stats_upper ? get_stats_plotspecs(inputs, (j, i), Makie2DStats(), triagonal_config) : PlotSpec[]
                 append!(upper_plotspecs, stats_specs_2D)
-                trace_specs_upper = trace_upper ? get_trace_plotspecs(graph, (j, i), Trace2D(), triagonal_config) : PlotSpec[]
+                trace_specs_upper = trace_upper ? get_trace_plotspecs(inputs, (j, i), Trace2D(), triagonal_config) : PlotSpec[]
                 append!(upper_plotspecs, trace_specs_upper)
 
-                ylims = graph[Symbol("axis_limits_$j")][]
+                ylims = getproperty(inputs, Symbol("axis_limits_$j"))
                 # i < j always in this loop, so j <= n_active already implies
                 # i <= n_active -- checking j alone is sufficient here.
                 cell_active_upper = j <= n_active
@@ -185,14 +261,14 @@ function _init_gridlayout(
                 )
             end
             for j in 1:i-1
-                lower_primitives = graph[primitive_symbol(lower_recipe, (i, j))][]
+                lower_primitives = getproperty(inputs, primitive_symbol(lower_recipe, (i, j)))
                 lower_plotspecs = compose_plotspecs(lower_primitives, lower_recipe(), triagonal_config)
-                stats_specs_2D = stats_lower ? get_stats_plotspecs(graph, (i, j), Makie2DStats(), triagonal_config) : PlotSpec[]
+                stats_specs_2D = stats_lower ? get_stats_plotspecs(inputs, (i, j), Makie2DStats(), triagonal_config) : PlotSpec[]
                 append!(lower_plotspecs, stats_specs_2D)
-                trace_specs_lower = trace_lower ? get_trace_plotspecs(graph, (i, j), Trace2D(), triagonal_config) : PlotSpec[]
+                trace_specs_lower = trace_lower ? get_trace_plotspecs(inputs, (i, j), Trace2D(), triagonal_config) : PlotSpec[]
                 append!(lower_plotspecs, trace_specs_lower)
 
-                ylims = graph[Symbol("axis_limits_$j")][]
+                ylims = getproperty(inputs, Symbol("axis_limits_$j"))
                 # j < i always in this loop, so i <= n_active already implies
                 # j <= n_active -- checking i alone is sufficient here.
                 cell_active_lower = i <= n_active
@@ -236,8 +312,8 @@ function _init_gridlayout(
         # grid is rebuilt fresh via S.GridLayout(...) on every reactive
         # update, and an alignmode assigned after construction gets silently
         # reset to Inside() on the next rebuild.
-        return S.GridLayout(matrix; rowsizes=cellsizes, colsizes=cellsizes, alignmode=Outside(44, 44, 16, 40))
+        return (S.GridLayout(matrix; rowsizes=cellsizes, colsizes=cellsizes, alignmode=Outside(44, 44, 16, 40)),)
     end
 
-    return gridlayout
+    return graph[:gridlayout]
 end

@@ -22,15 +22,14 @@ const _PICKER_CELL_WIDTH = 22.0
 const _UI_LAYOUT_COL_GAP = 16.0
 
 # The controls panel's (and, matching it, the anchor row's) total needed
-# width -- computed directly from known quantities (N, fontsize-derived
-# label measurements above), not by asking GridLayoutBase to determine it
-# bottom-up through several nested GridLayout levels. That bottom-up
-# approach was tried and reverted: a GridLayout/Block reporting `nothing`
-# (as ui_layout and picker_layout both do, deliberately, to fill their
-# assigned cell -- see their own width[] comments below) contributes
-# *nothing* toward an ancestor's own Auto() size determination, and a single
-# `nothing` anywhere in a multi-level chain makes the whole chain's
-# determination fail -- fragile in a way a direct formula isn't.
+# width -- computed directly from known quantities (N, the label
+# measurements above), not by asking GridLayoutBase to determine it
+# bottom-up through several nested GridLayout levels: a GridLayout/Block
+# reporting `nothing` (as ui_layout and picker_layout both do, deliberately,
+# to fill their assigned cell -- see their own width[] comments below)
+# contributes *nothing* toward an ancestor's own Auto() size determination,
+# and a single `nothing` anywhere in a multi-level chain makes the whole
+# chain's determination fail -- fragile in a way a direct formula isn't.
 function _controls_panel_width(picker_info::Union{NamedTuple,Nothing}, ui_box_pad::Real)
     fixed_cols = _LBL_ROW_WIDTH + _UI_COL2_MENU_WIDTH + _LBL_STATS_WIDTH + _LBL_TRACE_WIDTH
     picker_col_width = if isnothing(picker_info)
@@ -42,6 +41,15 @@ function _controls_panel_width(picker_info::Union{NamedTuple,Nothing}, ui_box_pa
     return 2 * ui_box_pad + fixed_cols + picker_col_width + (n_cols - 1) * _UI_LAYOUT_COL_GAP
 end
 
+# Gives a panel piece (a GridLayout or its background Box) this session's
+# constant, grid-independent width: a literal Fixed size (not Auto()) so it
+# never depends on the grid's own Aspect(1,1)-driven column, and
+# halign=:center so it's centered under the grid regardless of whether that
+# column ends up wider (extra space split evenly on both sides) or narrower
+# (protrudes evenly past both edges -- see rowsize!(fig.layout,1,...) below
+# for why that's an accepted tradeoff).
+_fix_panel_size!(x, panel_width::Real) = (x.width[] = Fixed(panel_width); x.halign[] = :center)
+
 function _build_fig(
     graph::ComputeGraph,
     gridlayout::Any,
@@ -49,17 +57,13 @@ function _build_fig(
     has_chain_info::Bool=false
 )
     # fig.layout's column 1 holds the grid (row 1), toggle_row (row 2), and
-    # controls_layout (row 3), but only the *grid's own* width is actually
-    # driven by this column's Aspect(1,1)/Auto() sizing below -- toggle_row
-    # and controls_layout each get their own explicit, constant Fixed width
-    # instead of deferring to this column (see their own width[] comments
-    # further below), so the grid stays free to be as large as the available
-    # viewport allows (particularly important while the panel is collapsed),
-    # without being capped by the panel's own width need. The two used to be
-    # coupled -- the whole column locked to the grid's own Aspect(1,1)-driven
-    # width, which is what made the anchor/controls panel visibly narrow
-    # (clipping its own labels) whenever the grid did, e.g. on expanding the
-    # panel. Just a reasonable starting Figure size below, not load-bearing.
+    # controls_layout (row 3), but only the *grid's own* width is driven by
+    # this column's Aspect(1,1)/Auto() sizing below -- toggle_row and
+    # controls_layout each get their own explicit, constant Fixed width
+    # instead (_fix_panel_size! above), so the grid stays free to be as
+    # large as the available viewport allows (particularly while the panel
+    # is collapsed) without being capped by the panel's own width need. Just
+    # a reasonable starting Figure size below, not load-bearing.
     fig = Figure(size=(665, 850))
 
     plot(fig[1, 1], gridlayout)
@@ -73,23 +77,20 @@ function _build_fig(
     # claim their own real, content-derived Auto heights -- see
     # _init_gridlayout's alignmode=Outside(...) for why this row's resolved
     # size also no longer depends on which/how many variables are selected.
-    # Confirmed directly against a minimal GridLayoutBase repro that
-    # Relative(x) would be the wrong tool here even at x=1.0: Relative
-    # resolves as x * this grid's own total available space, not x * the
-    # remainder after sibling rows (compute_col_row_sizes in
-    # GridLayoutBase's gridlayout.jl), so it would silently overflow past
-    # the anchor/controls rows instead of sharing space with them.
+    # Relative(x) would be the wrong tool here even at x=1.0: it resolves as
+    # x * this grid's own total available space, not x * the remainder
+    # after sibling rows (compute_col_row_sizes in GridLayoutBase's
+    # gridlayout.jl), so it would silently overflow past the anchor/controls
+    # rows instead of sharing space with them.
     #
-    # Confirmed via a minimal repro that this Aspect(1,1)/Auto() pair keeps
-    # the grid genuinely maximal (using nearly the full figure) regardless of
-    # toggle_row/controls_layout's own Fixed width below -- the grid can end
-    # up *smaller* than that fixed width when vertical room is scarce (a
-    # short window), in which case the anchor/panel visibly extend a little
-    # past the grid's own edges rather than the grid growing non-square or
-    # overflowing the figure -- an accepted, milder trade confirmed directly
-    # (a real GridLayoutBase repro at a deliberately short figure size), and
-    # explicitly fine per the user: taking up all available space is a lower
-    # priority than a simple, robust mechanism once the panel is expanded.
+    # This Aspect(1,1)/Auto() pair keeps the grid genuinely maximal (using
+    # nearly the full figure) independent of toggle_row/controls_layout's
+    # own Fixed width below. In a short window, the grid can end up
+    # *smaller* than that fixed width -- the anchor/panel then visibly
+    # extend a little past the grid's own edges, an accepted tradeoff
+    # (maximal space is lower priority than a simple, robust mechanism once
+    # the panel is expanded) rather than the grid growing non-square or the
+    # figure overflowing.
     rowsize!(fig.layout, 1, Auto())
 
     # Always-visible row holding just the controls-collapse toggle (and the
@@ -116,23 +117,19 @@ function _build_fig(
     # empirically (padding was ~3.7x the intended value with the default gap
     # left in place).
     ui_box_pad = fig.scene.theme[:fontsize][] / 3
-    # The one constant this whole panel is built around -- see
-    # _controls_panel_width's own docstring for why it's computed directly
-    # rather than measured bottom-up through GridLayoutBase. Computed once,
+    # The one constant this whole panel is built around -- computed once
     # from N alone (fixed for the life of this figure), never touched again:
     # this *is* what makes the anchor bar and the controls panel genuinely
-    # constant-width, by construction, rather than by coincidence.
+    # constant-width, by construction. See _controls_panel_width's own
+    # comment for why it's a direct formula rather than measured bottom-up.
     panel_width = _controls_panel_width(picker_info, ui_box_pad)
     toggle_row = fig[2, 1] = GridLayout(3, 3)
     rowgap!(toggle_row, 0)
     colgap!(toggle_row, 0)
-    # width/halign set to match toggle_row itself (below) -- a Box left to
-    # defer (its own default) would instead fill the *whole* grid-derived
-    # column, rendering as a wide background with toggle_row's actual content
-    # off-center rather than tightly matching it.
+    # A Box left at its own default width would fill the *whole*
+    # grid-derived column instead of tightly matching toggle_row's content.
     toggle_box = Box(fig[2, 1], color=_panel_bg_color(fig.scene.backgroundcolor[]), cornerradius=10, strokewidth=0)
-    toggle_box.width[] = Fixed(panel_width)
-    toggle_box.halign[] = :center
+    _fix_panel_size!(toggle_box, panel_width)
     toggle_row_content = toggle_row[2, 2] = GridLayout()
     rowsize!(toggle_row, 1, Fixed(ui_box_pad))
     rowsize!(toggle_row, 3, Fixed(ui_box_pad))
@@ -142,41 +139,23 @@ function _build_fig(
     # whatever toggle_row_content's actual content needs, regardless of
     # ui_box_pad or font-size changes -- toggle_row's own height is left at
     # its Block/GridLayout default, which is exactly the recursively-computed
-    # natural height Auto needs here (Fixed(pad) + content + Fixed(pad)).
-    #
-    # width, by contrast, IS explicitly set (to the same constant
-    # controls_layout uses below) -- and halign=:center so it's centered
-    # under the grid regardless of whether fig.layout's column 1 (driven by
-    # the grid, see colsize! above) is wider or narrower than this fixed
-    # value. Confirmed via a minimal repro: a GridLayout with an explicit
-    # Fixed width/halign=:center renders at exactly that width, centered,
-    # regardless of its assigned column being wider (extra space split
-    # evenly on both sides) or narrower (it protrudes evenly past both edges
-    # -- the accepted trade from the Aspect(1,1) comment above).
-    toggle_row.width[] = Fixed(panel_width)
-    toggle_row.halign[] = :center
+    # natural height Auto needs here (Fixed(pad) + content + Fixed(pad));
+    # width is set explicitly instead, via _fix_panel_size! above.
+    _fix_panel_size!(toggle_row, panel_width)
     rowsize!(fig.layout, 2, Auto())
 
     # Everything else (recipe/stats menus and the vsel picker matrix) now
     # lives nested inside a single collapsible block. Same rounded-panel
-    # treatment as toggle_row above (Box behind a 3x3 Fixed(ui_box_pad)-margin
-    # wrapper) -- see its comments for why each piece is needed, and for why
-    # this is given the same explicit Fixed(panel_width)/halign=:center
-    # rather than deferring to fig.layout's own column: both this and
-    # toggle_row share the identical constant, so they're always the same
-    # width as each other by construction, independent of whatever the
-    # grid's own column happens to be.
+    # treatment as toggle_row above -- see its comments for why each piece
+    # is needed. Gets the identical _fix_panel_size!(panel_width) too, so
+    # this and toggle_row are always the same width as each other by
+    # construction, independent of whatever the grid's own column is.
     controls_layout = fig[3, 1] = GridLayout(3, 3)
     rowgap!(controls_layout, 0)
     colgap!(controls_layout, 0)
-    controls_layout.width[] = Fixed(panel_width)
-    controls_layout.halign[] = :center
-    # width/halign matching controls_layout itself -- see toggle_box's own
-    # comment above for why a Box left at its default would otherwise fill
-    # the whole grid-derived column instead of tightly matching its content.
+    _fix_panel_size!(controls_layout, panel_width)
     controls_box = Box(fig[3, 1], color=_panel_bg_color(fig.scene.backgroundcolor[]), cornerradius=10, strokewidth=0)
-    controls_box.width[] = Fixed(panel_width)
-    controls_box.halign[] = :center
+    _fix_panel_size!(controls_box, panel_width)
     rowsize!(controls_layout, 1, Fixed(ui_box_pad))
     rowsize!(controls_layout, 3, Fixed(ui_box_pad))
     colsize!(controls_layout, 1, Fixed(ui_box_pad))

@@ -169,7 +169,7 @@ end
 struct Makie1DStats <: BATMakieRecipe end
 
 function get_stats_plotspecs(
-        graph::ComputeGraph,
+        inputs::NamedTuple,
         vsel::Tuple{Integer,Integer},
         recipe::Makie1DStats,
         config::NamedTuple
@@ -177,10 +177,10 @@ function get_stats_plotspecs(
         i = vsel[1]
         plotspecs = []
 
-        mean_primitives = graph[primitive_symbol(Mean1D(), (i, i))][]
+        mean_primitives = getproperty(inputs, primitive_symbol(Mean1D(), (i, i)))
         append!(plotspecs, compose_plotspecs(mean_primitives, Mean1D(), config))
 
-        std_primitives = graph[primitive_symbol(Std1D(), (i, i))][]
+        std_primitives = getproperty(inputs, primitive_symbol(Std1D(), (i, i)))
         append!(plotspecs, compose_plotspecs(std_primitives, Std1D(), config))
 
         return plotspecs
@@ -189,7 +189,7 @@ end
 struct Makie2DStats <: BATMakieRecipe end
 
 function get_stats_plotspecs(
-        graph::ComputeGraph,
+        inputs::NamedTuple,
         vsel::Tuple{Integer,Integer},
         recipe::Makie2DStats,
         config::NamedTuple
@@ -197,13 +197,13 @@ function get_stats_plotspecs(
         i, j = vsel
         plotspecs = []
 
-        mean_primitives = graph[primitive_symbol(Mean2D(), (i, j))][]
+        mean_primitives = getproperty(inputs, primitive_symbol(Mean2D(), (i, j)))
         append!(plotspecs, compose_plotspecs(mean_primitives, Mean2D(), config))
 
-        cov_primitives = graph[primitive_symbol(Cov2D(), (i, j))][]
+        cov_primitives = getproperty(inputs, primitive_symbol(Cov2D(), (i, j)))
         append!(plotspecs, compose_plotspecs(cov_primitives, Cov2D(), config))
 
-        std_primitives = graph[primitive_symbol(Std2D(), (i, j))][]
+        std_primitives = getproperty(inputs, primitive_symbol(Std2D(), (i, j)))
         append!(plotspecs, compose_plotspecs(std_primitives, Std2D(), config))
 
         return plotspecs

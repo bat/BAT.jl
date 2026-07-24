@@ -185,11 +185,11 @@ function determine_recipe_status(subject::Trace2D, live_recipe_1::R1, live_recip
 end
 
 function get_trace_plotspecs(
-        graph::ComputeGraph,
+        inputs::NamedTuple,
         vsel::Tuple{Integer,Integer},
         recipe::Trace2D,
         config::NamedTuple
 )
-        trace_primitives = graph[primitive_symbol(Trace2D(), vsel)][]
+        trace_primitives = getproperty(inputs, primitive_symbol(Trace2D(), vsel))
         return compose_plotspecs(trace_primitives, Trace2D(), config)
 end

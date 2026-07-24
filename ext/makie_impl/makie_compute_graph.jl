@@ -361,15 +361,33 @@ function _init_compute_graph(
     map!(
         smpls -> begin
             T = eltype(smpls.info)
-            n = length(smpls)
+            # Named n_smpls, deliberately NOT n: this closure lives in the same
+            # top-level scope as _init_compute_graph's own `n` (the grid size)
+            # parameter, which is captured by many other closures registered
+            # in this function (vsel_map, live_map, ...). An anonymous
+            # function's own local assignment to a name doesn't get its own
+            # independent binding here -- Julia treats `n = ...` inside this
+            # lambda as *assigning to the same captured variable* every other
+            # closure in this scope shares (confirmed directly: a minimal
+            # reproduction of exactly this shape showed every other closure's
+            # `n` change to match this lambda's last-assigned value after a
+            # single call). That's exactly the mechanism behind this session's
+            # real, reproducible bug: every time this computation re-ran (on
+            # every new sample batch), it silently overwrote the shared grid
+            # size with the current sample count, so soon after the first live
+            # sample batch, every other computation's "n" (E.g. vsel_map's
+            # `idxs has $(length(idxs)) entries, exceeding the grid size
+            # N_max=$n` assertion) started reading a stale, wrong value
+            # instead of the true, constant grid size.
+            n_smpls = length(smpls)
             if !hasfield(T, :chainid) || !hasfield(T, :stepno)
                 Int32[]
             elseif hasfield(T, :walkerid)
-                Int32[s.walkerid for s in view(smpls.info, 1:n)]
+                Int32[s.walkerid for s in view(smpls.info, 1:n_smpls)]
             elseif hasfield(T, :walker)
-                Int32[s.walker for s in view(smpls.info, 1:n)]
+                Int32[s.walker for s in view(smpls.info, 1:n_smpls)]
             else
-                zeros(Int32, n)
+                zeros(Int32, n_smpls)
             end
         end,
         graph,

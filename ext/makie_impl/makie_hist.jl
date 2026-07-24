@@ -140,7 +140,13 @@ end
 function _hist1d_output(hist::Histogram, normalization::Symbol)
     h_norm = normalization == :none ? hist : StatsBase.normalize(hist, mode=normalization)
     centers = _get_bin_centers(h_norm)
-    return (centers=centers[1], weights=h_norm.weights, widths=collect(h_norm.edges[1]))
+    # Float64.(...): h_norm.weights only gets promoted to Float64 by
+    # StatsBase.normalize when normalization != :none -- with :none (currently
+    # unreachable, normalization is hardcoded to :pdf everywhere in this
+    # codebase) it would keep the input samples' own weight eltype (Int64 by
+    # default), mismatching _EMPTY_HIST1D_PRIMITIVES's declared Vector{Float64}
+    # the same way KDE1D/KDE2D/QuantileKDE2D's StepRangeLen mismatch did.
+    return (centers=centers[1], weights=Float64.(h_norm.weights), widths=collect(h_norm.edges[1]))
 end
 
 function _hist2d_output(hist::Histogram, normalization::Symbol)
@@ -432,9 +438,15 @@ function compute_plotting_primitives(
     x = marg_coords[1, :]
     y = marg_coords[2, :]
 
+    # Float64(...): minimum(pos_w) otherwise inherits the samples' own weight
+    # eltype (Int64 by default) rather than matching
+    # _EMPTY_HEXBIN2D_PRIMITIVES's declared thresh::Float64 -- harmless today
+    # (scalar Int64->Float64 always converts, unlike the Vector/Range
+    # mismatches this same pattern guards against elsewhere in this file) but
+    # kept consistent defensively.
     final_thresh = if isnothing(threshold)
         pos_w = weights[weights.>0]
-        isempty(pos_w) ? 0.0 : minimum(pos_w)
+        isempty(pos_w) ? 0.0 : Float64(minimum(pos_w))
     else
         threshold
     end
