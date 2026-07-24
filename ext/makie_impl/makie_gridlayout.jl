@@ -146,8 +146,13 @@ function _init_gridlayout(
         # cell, matching the graceful-degradation-before-data pattern used
         # elsewhere in this function (e.g. axis_limits_i falling back to
         # (0,1)).
+        # Filters out non-finite extents (e.g. a NaN from a zero-weight
+        # diagonal cell -- see makie_hist.jl's _safe_normalize) before
+        # taking the max: maximum()'s NaN-poisoning would otherwise let one
+        # degenerate/zero-weight cell silently corrupt the shared y-axis
+        # limit for every *other*, perfectly valid diagonal cell too.
         diag_y_max = maximum(
-            (_diag_y_extent(getproperty(inputs, primitive_symbol(diagonal_recipe, (i, i))), diagonal_recipe()) for i in 1:n_active);
+            Iterators.filter(isfinite, (_diag_y_extent(getproperty(inputs, primitive_symbol(diagonal_recipe, (i, i))), diagonal_recipe()) for i in 1:n_active));
             init=0.0
         )
         diag_ylims = diag_y_max > 0 ? (0.0, 1.1 * diag_y_max) : nothing

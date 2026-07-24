@@ -109,7 +109,17 @@ end
 
 function compute_stats_primitives(::Mean1D, state::_IncrementalUvState, config::NamedTuple)
         state.n == 0 && return _EMPTY_MEAN1D_PRIMITIVES
-        return (x=[state.stats.mean[]],)
+        μ = state.stats.mean[]
+        # All-zero-weight samples can still be folded in (state.n > 0) while
+        # contributing nothing to the weight sum -- BAT's OnlineUvMean/
+        # OnlineUvVar/OnlineMvMean/OnlineMvCov all divide by that sum and
+        # return NaN rather than erroring when it's zero. Degrading to the
+        # empty sentinel (rather than rendering a NaN line, confirmed to
+        # silently draw nothing) keeps this consistent with Cov2D below,
+        # where the same NaN state is fatal (eigen() on a non-finite matrix
+        # throws) rather than silently swallowed.
+        isfinite(μ) || return _EMPTY_MEAN1D_PRIMITIVES
+        return (x=[μ],)
 end
 
 function compute_stats_primitives(::Std1D, state::_IncrementalUvState, config::NamedTuple)
@@ -117,12 +127,17 @@ function compute_stats_primitives(::Std1D, state::_IncrementalUvState, config::N
         (; nsigma) = config
         μ = state.stats.mean[]
         σ = sqrt(state.stats.var[])
+        # See Mean1D's matching comment above -- sqrt(NaN) is NaN, not an
+        # error, so this check safely runs after computing σ.
+        (isfinite(μ) && isfinite(σ)) || return _EMPTY_STD1D_PRIMITIVES
         return (positions=[μ - nsigma * σ, μ + nsigma * σ],)
 end
 
 function compute_stats_primitives(::Mean2D, state::_IncrementalMvState, config::NamedTuple)
         state.n == 0 && return _EMPTY_MEAN2D_PRIMITIVES
-        return (μ_x=[state.stats.mean[1]], μ_y=[state.stats.mean[2]])
+        μ_x, μ_y = state.stats.mean[1], state.stats.mean[2]
+        (isfinite(μ_x) && isfinite(μ_y)) || return _EMPTY_MEAN2D_PRIMITIVES
+        return (μ_x=[μ_x], μ_y=[μ_y])
 end
 
 function compute_stats_primitives(::Std2D, state::_IncrementalMvState, config::NamedTuple)
@@ -131,6 +146,7 @@ function compute_stats_primitives(::Std2D, state::_IncrementalMvState, config::N
         μ_x, μ_y = state.stats.mean[1], state.stats.mean[2]
         σ_x = sqrt(state.stats.cov[1, 1])
         σ_y = sqrt(state.stats.cov[2, 2])
+        all(isfinite, (μ_x, μ_y, σ_x, σ_y)) || return _EMPTY_STD2D_PRIMITIVES
         return (
                 x_lines=[μ_x - nsigma * σ_x, μ_x + nsigma * σ_x],
                 y_lines=[μ_y - nsigma * σ_y, μ_y + nsigma * σ_y]
@@ -142,6 +158,13 @@ function compute_stats_primitives(::Cov2D, state::_IncrementalMvState, config::N
         (; nsigma) = config
         μ = [state.stats.mean[1], state.stats.mean[2]]
         Σ = [state.stats.cov[1, 1] state.stats.cov[1, 2]; state.stats.cov[2, 1] state.stats.cov[2, 2]]
+        # All-zero-weight samples make Σ all-NaN (see Mean1D's comment
+        # above) -- eigen() on a non-finite matrix throws
+        # ArgumentError("matrix contains Infs or NaNs"), confirmed directly.
+        # Without this guard, a zero-weight dataset crashes the whole
+        # visualizer regardless of which recipe is actually selected, since
+        # Cov2D is always computed in the background.
+        (all(isfinite, μ) && all(isfinite, Σ)) || return _EMPTY_COV2D_PRIMITIVES
         return _cov_ellipse_primitives(μ, Σ, nsigma)
 end
 
@@ -222,6 +245,47 @@ function compute_plotting_primitives(
         return _EMPTY_COV2D_PRIMITIVES
 end
 
+# Cov2D is_incremental (see is_incremental's definition above), so
+# _init_compute_graph only reaches this method -- rather than the
+# incremental running-state accumulator (compute_stats_primitives above) --
+# when config.filter==true: the incremental accumulator can't apply the
+# low-weight cutoff after the fact (it depends on the *global*,
+# retroactively-recomputed weight distribution, not something folded in
+# incrementally), so this is a full recompute over the filtered sample set
+# every time, mirroring how Hist1D/Hist2D/QuantileHist1D/QuantileHist2D
+# already handle their own filter=true case via _marginal_view_dist/
+# _low_weight_mask. Before this was added, Cov2D (and Mean1D/Std1D/Mean2D/
+# Std2D below) had no live+filtered method at all, so Julia's dispatch fell
+# through silently to the empty dead-cell sentinel -- filter=true was a
+# silent no-op for every stats overlay. Confirmed via direct dispatch test.
+function compute_plotting_primitives(
+        marg_coords::SubArray,
+        weights::SubArray,
+        recipe::Cov2D,
+        ::LiveRecipe,
+        ::LiveCell,
+        config::NamedTuple
+)
+        isempty(weights) && return _EMPTY_COV2D_PRIMITIVES
+        (; nsigma) = config
+        mask = _low_weight_mask(weights)
+        w = view(weights, mask)
+        isempty(w) && return _EMPTY_COV2D_PRIMITIVES
+        w_prob = ProbabilityWeights(w)
+        # Plain indexing (not view): StatsBase.cov(::DenseMatrix, ...) doesn't
+        # accept a SubArray -- confirmed directly (MethodError). The masked
+        # subset is already small, so materializing it here is cheap.
+        coords_m = marg_coords[:, mask]
+        μ = [mean(view(coords_m, 1, :), w_prob), mean(view(coords_m, 2, :), w_prob)]
+        Σ = StatsBase.cov(coords_m, w_prob, 2)
+        # See Cov2D's compute_stats_primitives comment for why this guard is
+        # needed even after masking -- a low-weight-filtered set can still be
+        # entirely zero-weight if every remaining sample happens to carry
+        # zero weight.
+        (all(isfinite, μ) && all(isfinite, Σ)) || return _EMPTY_COV2D_PRIMITIVES
+        return _cov_ellipse_primitives(μ, Σ, nsigma)
+end
+
 function compose_plotspecs(
         primitives::NamedTuple,
         recipe::Cov2D,
@@ -251,6 +315,28 @@ function compute_plotting_primitives(
         return _EMPTY_STD1D_PRIMITIVES
 end
 
+# See Cov2D's matching comment above -- reached only when config.filter==true.
+function compute_plotting_primitives(
+        marg_coords::SubArray,
+        weights::SubArray,
+        recipe::Std1D,
+        ::LiveRecipe,
+        ::LiveCell,
+        config::NamedTuple
+)
+        isempty(weights) && return _EMPTY_STD1D_PRIMITIVES
+        (; nsigma) = config
+        mask = _low_weight_mask(weights)
+        w = view(weights, mask)
+        isempty(w) && return _EMPTY_STD1D_PRIMITIVES
+        coords_m = view(vec(marg_coords), mask)
+        w_prob = ProbabilityWeights(w)
+        μ = mean(coords_m, w_prob)
+        σ = std(coords_m, w_prob)
+        (isfinite(μ) && isfinite(σ)) || return _EMPTY_STD1D_PRIMITIVES
+        return (positions=[μ - nsigma * σ, μ + nsigma * σ],)
+end
+
 function compose_plotspecs(
         primitives::NamedTuple,
         recipe::Std1D,
@@ -276,6 +362,32 @@ function compute_plotting_primitives(
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
         return _EMPTY_STD2D_PRIMITIVES
+end
+
+# See Cov2D's matching comment above -- reached only when config.filter==true.
+function compute_plotting_primitives(
+        marg_coords::SubArray,
+        weights::SubArray,
+        recipe::Std2D,
+        ::LiveRecipe,
+        ::LiveCell,
+        config::NamedTuple
+)
+        isempty(weights) && return _EMPTY_STD2D_PRIMITIVES
+        (; nsigma) = config
+        mask = _low_weight_mask(weights)
+        w = view(weights, mask)
+        isempty(w) && return _EMPTY_STD2D_PRIMITIVES
+        w_prob = ProbabilityWeights(w)
+        coords_m = view(marg_coords, :, mask)
+        x, y = view(coords_m, 1, :), view(coords_m, 2, :)
+        μ_x, μ_y = mean(x, w_prob), mean(y, w_prob)
+        σ_x, σ_y = std(x, w_prob), std(y, w_prob)
+        all(isfinite, (μ_x, μ_y, σ_x, σ_y)) || return _EMPTY_STD2D_PRIMITIVES
+        return (
+                x_lines=[μ_x - nsigma * σ_x, μ_x + nsigma * σ_x],
+                y_lines=[μ_y - nsigma * σ_y, μ_y + nsigma * σ_y]
+        )
 end
 
 function compose_plotspecs(
@@ -307,6 +419,24 @@ function compute_plotting_primitives(
         return _EMPTY_MEAN1D_PRIMITIVES
 end
 
+# See Cov2D's matching comment above -- reached only when config.filter==true.
+function compute_plotting_primitives(
+        marg_coords::SubArray,
+        weights::SubArray,
+        recipe::Mean1D,
+        ::LiveRecipe,
+        ::LiveCell,
+        config::NamedTuple
+)
+        isempty(weights) && return _EMPTY_MEAN1D_PRIMITIVES
+        mask = _low_weight_mask(weights)
+        w = view(weights, mask)
+        isempty(w) && return _EMPTY_MEAN1D_PRIMITIVES
+        μ = mean(view(vec(marg_coords), mask), ProbabilityWeights(w))
+        isfinite(μ) || return _EMPTY_MEAN1D_PRIMITIVES
+        return (x=[μ],)
+end
+
 function compose_plotspecs(
         primitives::NamedTuple,
         recipe::Mean1D,
@@ -332,6 +462,27 @@ function compute_plotting_primitives(
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
         return _EMPTY_MEAN2D_PRIMITIVES
+end
+
+# See Cov2D's matching comment above -- reached only when config.filter==true.
+function compute_plotting_primitives(
+        marg_coords::SubArray,
+        weights::SubArray,
+        recipe::Mean2D,
+        ::LiveRecipe,
+        ::LiveCell,
+        config::NamedTuple
+)
+        isempty(weights) && return _EMPTY_MEAN2D_PRIMITIVES
+        mask = _low_weight_mask(weights)
+        w = view(weights, mask)
+        isempty(w) && return _EMPTY_MEAN2D_PRIMITIVES
+        w_prob = ProbabilityWeights(w)
+        coords_m = view(marg_coords, :, mask)
+        μ_x = mean(view(coords_m, 1, :), w_prob)
+        μ_y = mean(view(coords_m, 2, :), w_prob)
+        (isfinite(μ_x) && isfinite(μ_y)) || return _EMPTY_MEAN2D_PRIMITIVES
+        return (μ_x=[μ_x], μ_y=[μ_y])
 end
 
 function compose_plotspecs(
@@ -484,6 +635,13 @@ function compute_plotting_primitives(
         w_prob = ProbabilityWeights(weights)
         μ = mean(vec(marg_coords), w_prob)
         σ = std(vec(marg_coords), w_prob)
+        # isempty(weights) above only guards zero *count* -- a nonempty but
+        # all-zero-weight vector passes it, and std() with an all-zero
+        # ProbabilityWeights returns NaN (0/0), which Normal(μ, NaN) rejects
+        # with a DomainError. Unlike Errorbars1D/2D (confirmed dormant, no
+        # picker entry), PDF1D is live in the recipe picker, so this is
+        # reachable in normal use, not just latent.
+        (isfinite(μ) && isfinite(σ)) || return _EMPTY_PDF1D_PRIMITIVES
         dist = Normal(μ, σ)
 
         x_min, x_max = σ == 0 ? (μ - 1, μ + 1) : (μ - 4σ, μ + 4σ)

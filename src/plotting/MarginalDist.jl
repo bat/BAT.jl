@@ -52,8 +52,29 @@ function _safe_edges_fallback(data, nbins::Integer)
     # (admittedly uninformative) fixed placeholder bin instead of erroring
     # out of the whole plotting callback.
     (isfinite(lo) && isfinite(hi)) || return range(0.0, 1.0, length=2)
-    lo == hi && return range(lo, lo, length=2)
-    return range(lo, hi, length=nbins + 1)
+    if lo == hi
+        # range(lo, lo, length=2) -- a genuinely zero-width bin -- silently
+        # drops every single sample: confirmed directly that
+        # fit(Histogram, ..., closed=:left/:right) on a [lo,lo)/(lo,lo]
+        # interval contains nothing, not even lo itself, regardless of how
+        # many samples exist. That zeroed every bin's weight, which then
+        # made StatsBase.normalize(mode=:pdf) divide 0/0 into NaN downstream
+        # (see _hist1d_output etc.'s own guard against that). Padding by an
+        # amount scaled to lo's own magnitude (not a fixed absolute amount)
+        # keeps the padded bounds representable and genuinely distinct even
+        # at extreme magnitudes, where a tiny fixed pad could round back to
+        # lo exactly.
+        pad = max(abs(lo), one(lo)) * 0.05
+        return range(lo - pad, lo + pad, length=2)
+    end
+    # Small proportional margin beyond the true extrema (matching what
+    # StatsBase.histrange's own "nice number" edges do implicitly, via
+    # rounding up past the data): without it, a sample exactly at `hi` is
+    # silently excluded from the last bin under closed=:left (this fallback
+    # is only reached when the true span is already degenerate/near-eps, so
+    # this matters for every sample at the boundary, not just an edge case).
+    margin = (hi - lo) * 1e-3
+    return range(lo - margin, hi + margin, length=nbins + 1)
 end
 
 function _get_edges(data::Tuple, nbins::Tuple{Vararg{Integer}}, closed::Symbol)
