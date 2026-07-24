@@ -79,6 +79,60 @@ function _update_hist!(state::_IncrementalHist2DState, x::AbstractVector, y::Abs
     return state.hist
 end
 
+function _marginal_view_dist(
+    locations::SubArray,
+    weights::SubArray,
+    filter::Bool,
+    bins::Union{Tuple{Vararg{Int64}},Int64},
+    closed::Symbol,
+    normalization::Symbol
+)
+    if filter
+        mask = _low_weight_mask(weights)
+        locations = view(locations, :, mask)
+        weights = view(weights, mask)
+    end
+
+    cols = Tuple(eachrow(locations))
+    edges = if isa(bins, Integer)
+        _get_edges(cols, (bins,), closed)
+    elseif bins isa Tuple
+        Tuple(_get_edges(cols[i], bins[i], closed) for i in 1:length(bins))
+    else
+        (_get_edges(cols, bins, closed),)
+    end
+
+    hist = fit(Histogram, cols, FrequencyWeights(weights), edges, closed=closed)
+    h_norm = normalization == :none ? hist : StatsBase.normalize(hist, mode=normalization)
+    return h_norm
+end
+
+# Mirrors BAT.drop_low_weight_samples, but returns a mask over a bare weight
+# vector instead of indexing a DensitySampleVector (locations/weights are
+# already split apart into separate views by the time they get here).
+function _low_weight_mask(weights::AbstractVector, fraction::Real=10^-5, threshold::Real=10^-2)
+    W = float(weights)
+    if minimum(W) / maximum(W) > threshold
+        return trues(length(W))
+    end
+    W_s = sort(W)
+    Q = cumsum(W_s)
+    Q ./= maximum(Q)
+    ind = searchsortedlast(Q, fraction)
+    ind == 0 && return trues(length(W))
+    thresh = W_s[ind]
+    return W .>= thresh
+end
+
+function _get_bin_centers(hist::Histogram)
+    edges = hist.edges
+    dims = ndims(hist.weights)
+
+    centers = [[edges[d][i] + 0.5 * (edges[d][i+1] - edges[d][i]) for i in 1:length(edges[d])-1] for d in 1:dims]
+
+    return centers
+end
+
 # Shared postprocessing (normalize + derive plot primitives) between the
 # incremental path above and the full-recompute path below, so the two only
 # differ in *how* the raw Histogram gets built, not in what happens to it

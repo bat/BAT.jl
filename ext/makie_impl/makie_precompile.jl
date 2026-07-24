@@ -200,16 +200,14 @@ function _makie_precompile_workload()
     # Collapse/expand button: exercises _set_block_visible!'s restore-to-
     # visible branch (never reached by controls_visible's own construction-
     # time update=true firing, which only ever sees the initial collapsed
-    # value), and therefore rescale_ui!'s entire font/size-rescale branch and
-    # rescale_picker!() -- both otherwise cold until a real user's first ☰
-    # click.
+    # value), and therefore rescale_picker!() too -- otherwise cold until a
+    # real user's first ☰ click.
     button = filter(x -> x isa Button, fig.content)[1]
     notify(button.clicks)
 
-    # A real resize (not just the initial computedbbox firing at
-    # Figure(665,850)'s own construction-time size) -- exercises the
-    # window-size-driven UI rescale mechanism (see rescale_ui! in
-    # makie_visualizer.jl) against a genuine geometry change.
+    # A real resize -- exercises GridLayoutBase's own Auto()/Aspect(1,1)
+    # relayout solve (row 1's corner grid absorbing whatever the anchor/
+    # controls rows don't need) against a genuine geometry change.
     resize!(fig, 500, 650)
 
     # Current-Index slider only exists when show_slider is true (a single
