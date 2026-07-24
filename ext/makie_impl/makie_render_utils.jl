@@ -18,6 +18,21 @@ function _panel_bg_color(bg, amount::Real=0.08)
     return Colors.RGB(clamp(rgb.r + delta, 0, 1), clamp(rgb.g + delta, 0, 1), clamp(rgb.b + delta, 0, 1))
 end
 
+# Palette sample positions for the quantile-level color gradient shared by
+# QuantileHist1D/2D and QuantileKDE1D/2D. range(0.05, 0.7, length=n) throws
+# ArgumentError("endpoints differ") for n==1 (a single point can't have two
+# distinct endpoints) -- unguarded in all four recipes, so a config with
+# exactly one level surviving `filter(x -> 0<x<1, levels)` (a deliberate
+# single-level levels=[0.68], or QuantileKDE2D's own unconditional extra
+# threshold making even an empty levels come out at length 1) crashed the
+# whole recompute. Confirmed via direct reproduction. n==0 is unaffected
+# (range(...,0) is a valid empty range); n>=2 is unaffected too -- only n==1
+# is special-cased here, to a single fixed midpoint palette value.
+function _quantile_palette_positions(n::Integer)
+    n <= 1 && return fill(0.375, n)
+    return collect(range(0.05, 0.7, length=n))
+end
+
 function warmup_makie_shaders()
     @info "Warming up Makie shaders"
     fig = Figure()

@@ -159,7 +159,7 @@ function compute_plotting_primitives(
         active_levels = sort(filter(x -> 0 < x < 1, levels))
 
         pal = cgrad(colormap, rev=rev, alpha=alpha)
-        pal_values = collect(range(0.05, 0.7, length(active_levels)))
+        pal_values = _quantile_palette_positions(length(active_levels))
 
         polys = Vector{Point2f}[]
         fill_colors = RGBA[]
@@ -257,7 +257,7 @@ function compute_plotting_primitives(
         final_levels = sort(thresholds)
 
         pal = cgrad(colormap, rev=rev, alpha=alpha)
-        pal_values = collect(range(0.05, 0.7, length(final_levels)))
+        pal_values = _quantile_palette_positions(length(final_levels))
         colors = pal[pal_values]
 
         # collect(...): see KDE1D's matching comment above -- kde_result.x/.y

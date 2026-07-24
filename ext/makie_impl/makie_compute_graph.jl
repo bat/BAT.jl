@@ -513,7 +513,15 @@ function _init_compute_graph(
             (lo, hi, vsel_map) -> begin
                 v = vsel_map[i, i][1]
                 (isempty(lo) || v == 0) && return (0.0, 1.0)
-                margin = 0.05 * (hi[v] - lo[v])
+                # 0.05*(hi[v]-lo[v]) is exactly 0 when hi[v]==lo[v] (a
+                # variable that's fixed/frozen, or hasn't moved yet in a live
+                # run) -- confirmed directly that this renders the whole
+                # panel completely blank (a literally zero-width Axis limits
+                # argument), silently, with no error. Falling back to an
+                # absolute margin scaled to the value's own magnitude when
+                # the span is zero keeps the panel showing something.
+                span = hi[v] - lo[v]
+                margin = iszero(span) ? max(abs(hi[v]), one(hi[v])) * 0.05 : 0.05 * span
                 (lo[v] - margin, hi[v] + margin)
             end,
             graph,

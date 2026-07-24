@@ -50,6 +50,23 @@ end
 # for why that's an accepted tradeoff).
 _fix_panel_size!(x, panel_width::Real) = (x.width[] = Fixed(panel_width); x.halign[] = :center)
 
+# Looks up `current_recipe`'s dropdown label in `options` (a Vector of
+# (label, RecipeType) tuples) -- raises a clear, actionable ArgumentError
+# instead of an opaque "invalid index: nothing" if current_recipe isn't
+# actually one of `options` (e.g. ChainScatter2D configured directly via the
+# `recipes` argument against a sample set with no chain identity, bypassing
+# the has_chain_info gating that only applies to this dropdown's own
+# contents -- confirmed reachable via direct live repro).
+function _default_recipe_label(options::Vector, current_recipe)
+    idx = findfirst(x -> x[2] == current_recipe, options)
+    isnothing(idx) && throw(ArgumentError(
+        "Recipe $current_recipe is not a valid choice here (e.g. ChainScatter2D " *
+        "requires samples with chain identity -- has_chain_info must be true) -- " *
+        "check the `recipes` argument passed to bat_makie_plot/Makie.plot."
+    ))
+    return options[idx][1]
+end
+
 function _build_fig(
     graph::ComputeGraph,
     gridlayout::Any,
@@ -220,9 +237,18 @@ function _build_fig(
         ("PDF", PDF1D),
     ]
 
-    default_upper = options2D[findfirst(x -> x[2] == graph[:upper_recipe][], options2D)][1]
-    default_diag = options1D[findfirst(x -> x[2] == graph[:diagonal_recipe][], options1D)][1]
-    default_lower = options2D[findfirst(x -> x[2] == graph[:lower_recipe][], options2D)][1]
+    # graph[:upper_recipe][]/etc. might not actually be present in `options`
+    # -- e.g. ChainScatter2D configured directly via the `recipes` argument
+    # (bypassing this dropdown, which is correctly gated by has_chain_info
+    # above, but a caller can still pass recipes=(upper=ChainScatter2D,...)
+    # straight through to bat_makie_plot/Makie.plot against a sample set with
+    # no chain identity). findfirst then returns `nothing`, and indexing
+    # options[nothing] previously threw an opaque "invalid index: nothing of
+    # type Nothing" -- confirmed via direct live repro. Raising a clear,
+    # actionable error here instead.
+    default_upper = _default_recipe_label(options2D, graph[:upper_recipe][])
+    default_diag = _default_recipe_label(options1D, graph[:diagonal_recipe][])
+    default_lower = _default_recipe_label(options2D, graph[:lower_recipe][])
 
     menu_upper = Menu(
         fig,

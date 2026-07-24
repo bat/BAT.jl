@@ -137,8 +137,21 @@ end
 # incremental path above and the full-recompute path below, so the two only
 # differ in *how* the raw Histogram gets built, not in what happens to it
 # afterwards.
+# StatsBase.normalize(hist, mode=:pdf) divides every bin by the total
+# weight -- 0/0 = NaN when that total is exactly zero (either genuinely
+# all-zero-weight samples, or -- before _safe_edges_fallback's own fix --
+# a degenerate domain whose zero-width bin silently dropped every sample).
+# That NaN then propagates into _diag_y_extent/diag_y_max (makie_gridlayout.jl),
+# silently corrupting the shared diagonal y-axis limit for every diagonal
+# cell, not just this one. Skipping normalization when the total is zero
+# leaves a real, all-zero (not NaN) histogram instead -- renders as empty/
+# flat bars, matching what an actually-empty dataset looks like elsewhere in
+# this codebase, rather than corrupting shared state.
+_safe_normalize(hist::Histogram, normalization::Symbol) =
+    (normalization == :none || iszero(sum(hist.weights))) ? hist : StatsBase.normalize(hist, mode=normalization)
+
 function _hist1d_output(hist::Histogram, normalization::Symbol)
-    h_norm = normalization == :none ? hist : StatsBase.normalize(hist, mode=normalization)
+    h_norm = _safe_normalize(hist, normalization)
     centers = _get_bin_centers(h_norm)
     # Float64.(...): h_norm.weights only gets promoted to Float64 by
     # StatsBase.normalize when normalization != :none -- with :none (currently
@@ -150,7 +163,7 @@ function _hist1d_output(hist::Histogram, normalization::Symbol)
 end
 
 function _hist2d_output(hist::Histogram, normalization::Symbol)
-    h_norm = normalization == :none ? hist : StatsBase.normalize(hist, mode=normalization)
+    h_norm = _safe_normalize(hist, normalization)
     centers_x, centers_y = _get_bin_centers(h_norm)
     hist_weights = h_norm.weights
     weights = fill(NaN, size(hist_weights))
@@ -161,13 +174,13 @@ end
 
 function _quantilehist1d_output(hist::Histogram, config::NamedTuple)
     (; normalization, levels, colormap, alpha, rev) = config
-    h_norm = normalization == :none ? hist : StatsBase.normalize(hist, mode=normalization)
+    h_norm = _safe_normalize(hist, normalization)
 
     valid_intervals = sort(filter(x -> 0 < x < 1, levels))
     sub_hists, _ = BAT.get_smallest_intervals(h_norm, valid_intervals)
 
     pal = cgrad(colormap, rev=rev, alpha=alpha)
-    pal_values = collect(range(0.05, 0.7, length(valid_intervals)))
+    pal_values = _quantile_palette_positions(length(valid_intervals))
     bin_colors = fill(RGBA{Float32}(0, 0, 0, 0), length(h_norm.weights))
 
     for (i, sub_hist) in enumerate(sub_hists)
@@ -188,13 +201,13 @@ end
 
 function _quantilehist2d_output(hist::Histogram, config::NamedTuple)
     (; normalization, levels, colormap, alpha, rev) = config
-    h_norm = normalization == :none ? hist : StatsBase.normalize(hist, mode=normalization)
+    h_norm = _safe_normalize(hist, normalization)
 
     valid_intervals = sort(filter(x -> 0 < x < 1, levels))
     sub_hists, _ = BAT.get_smallest_intervals(h_norm, valid_intervals)
 
     pal = cgrad(colormap, rev=rev, alpha=alpha)
-    pal_values = collect(range(0.05, 0.7, length(valid_intervals)))
+    pal_values = _quantile_palette_positions(length(valid_intervals))
 
     dims = size(h_norm.weights)
     color_grid = fill(RGBA{Float32}(0, 0, 0, 0), dims)
