@@ -33,7 +33,16 @@ function compute_plotting_primitives(
         # buffered samples get cleared later), so degrade like a dead cell instead.
         isempty(weights) && return _EMPTY_KDE1D_PRIMITIVES
         kde_result = kde(vec(marg_coords), weights=weights)
-        x = kde_result.x
+        # collect(...): kde_result.x is a StepRangeLen, not a Vector{Float64} --
+        # matching _EMPTY_KDE1D_PRIMITIVES's declared type here (rather than the
+        # other way around) avoids the same live/dead ComputePipeline TypedEdge
+        # type-lock crash documented for ChainScatter2D/Scatter2D/Hexbin2D
+        # (a live cell resolving first locks in StepRangeLen; a later live->dead
+        # transition then fails to convert the dead branch's Vector{Float64}
+        # into that locked type). Confirmed via direct reproduction: cycling the
+        # diagonal recipe then deselecting a variable crashed with exactly
+        # "Cannot convert Vector{Float64} to StepRangeLen{...}".
+        x = collect(kde_result.x)
         density = kde_result.density
         poly_points = vcat(
                 Point2f.(x, density),
@@ -88,7 +97,9 @@ function compute_plotting_primitives(
         nonzero_idxs = density .> 0.005
         nonzero_density[nonzero_idxs] .= density[nonzero_idxs]
 
-        return (x=kde_result.x, y=kde_result.y, density=nonzero_density)
+        # collect(...): see KDE1D's matching comment above -- kde_result.x/.y
+        # are StepRangeLen, not Vector{Float64} like _EMPTY_KDE2D_PRIMITIVES.
+        return (x=collect(kde_result.x), y=collect(kde_result.y), density=nonzero_density)
 end
 
 function compose_plotspecs(
@@ -249,7 +260,9 @@ function compute_plotting_primitives(
         pal_values = collect(range(0.05, 0.7, length(final_levels)))
         colors = pal[pal_values]
 
-        return (x=kde_result.x, y=kde_result.y, density=density, final_levels=final_levels, colors=colors)
+        # collect(...): see KDE1D's matching comment above -- kde_result.x/.y
+        # are StepRangeLen, not Vector{Float64} like _EMPTY_QUANTILEKDE2D_PRIMITIVES.
+        return (x=collect(kde_result.x), y=collect(kde_result.y), density=density, final_levels=final_levels, colors=colors)
 end
 
 function compose_plotspecs(
