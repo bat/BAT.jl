@@ -18,19 +18,35 @@ function _panel_bg_color(bg, amount::Real=0.08)
     return Colors.RGB(clamp(rgb.r + delta, 0, 1), clamp(rgb.g + delta, 0, 1), clamp(rgb.b + delta, 0, 1))
 end
 
-# Palette sample positions for the quantile-level color gradient shared by
-# QuantileHist1D/2D and QuantileKDE1D/2D. range(0.05, 0.7, length=n) throws
-# ArgumentError("endpoints differ") for n==1 (a single point can't have two
-# distinct endpoints) -- unguarded in all four recipes, so a config with
-# exactly one level surviving `filter(x -> 0<x<1, levels)` (a deliberate
-# single-level levels=[0.68], or QuantileKDE2D's own unconditional extra
-# threshold making even an empty levels come out at length 1) crashed the
-# whole recompute. Confirmed via direct reproduction. n==0 is unaffected
-# (range(...,0) is a valid empty range); n>=2 is unaffected too -- only n==1
-# is special-cased here, to a single fixed midpoint palette value.
-function _quantile_palette_positions(n::Integer)
-    n <= 1 && return fill(0.375, n)
-    return collect(range(0.05, 0.7, length=n))
+# Fixed, hand-picked colors for all four quantile-level recipes' credible-
+# region bands (QuantileHist1D/2D in makie_hist.jl, QuantileKDE1D/2D in
+# makie_kde.jl) -- replaces a previous cgrad(config.colormap)-sampled
+# continuous gradient, per explicit user request. Shared here (rather than
+# defined once per file) because all four recipes' own "i" loop-index
+# convention already agrees on what index 1 vs index 3 means (confirmed
+# directly, not assumed): ascending index -> loosest/widest credible region
+# first, narrowest/tightest last, for every one of the four -- so plugging
+# this same lookup into all four preserves a single consistent visual
+# convention across the whole quantile-recipe family without needing to
+# special-case or reverse the order anywhere.
+#
+# Only supports up to length(_QUANTILE_LEVEL_COLORS) distinct levels -- the
+# default config (3 levels after filtering) fits exactly; an explicit, clear
+# error rather than a BoundsError if a caller ever configures more.
+const _QUANTILE_LEVEL_COLORS = [
+    RGB(1.0, 0.0, 0.0),
+    RGB(1.0, 1.0, 0.0),
+    RGB(0.462, 0.933, 0.0),
+]
+
+function _quantile_level_color(i::Integer)
+    i <= length(_QUANTILE_LEVEL_COLORS) || throw(ArgumentError(
+        "The quantile-level recipes only support up to " *
+        "$(length(_QUANTILE_LEVEL_COLORS)) credible levels with the " *
+        "current fixed color list (_QUANTILE_LEVEL_COLORS) -- got level " *
+        "index $i. Reduce the number of configured `levels`."
+    ))
+    return _QUANTILE_LEVEL_COLORS[i]
 end
 
 function warmup_makie_shaders()

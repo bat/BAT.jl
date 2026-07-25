@@ -210,13 +210,14 @@ function _makie_precompile_workload()
     # controls rows don't need) against a genuine geometry change.
     resize!(fig, 500, 650)
 
-    # Current-Index slider only exists when show_slider is true (a single
+    # Index-range slider only exists when show_slider is true (a single
     # (chain, walker) entry -- true here, since current_idxs was synthesized
     # above as one entry). Real live/static callers can also hit this path
-    # for a genuine single-chain run.
-    sliders = filter(x -> x isa Slider, fig.content)
+    # for a genuine single-chain run. IntervalSlider (not Slider) since the
+    # slider now selects a (start, end) window rather than a single cutoff.
+    sliders = filter(x -> x isa IntervalSlider, fig.content)
     if !isempty(sliders)
-        sliders[1].value[] = max(1, length(samples) ÷ 2)
+        sliders[1].interval[] = (max(1, length(samples) ÷ 4), max(1, length(samples) ÷ 2))
     end
 
     return nothing

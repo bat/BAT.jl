@@ -13,6 +13,13 @@ const _EMPTY_ERRORBARS1D_PRIMITIVES = (μ=Vector{Float64}(), err=Vector{Float64}
 const _EMPTY_ERRORBARS2D_PRIMITIVES = (μ_x=Vector{Float64}(), μ_y=Vector{Float64}(), err_x=Vector{Float64}(), err_y=Vector{Float64}())
 const _EMPTY_PDF1D_PRIMITIVES = (poly_points=Vector{Point2f}(), x=Float64[], y=Float64[])
 
+# Precomputed once (not inline `linestyle=:dash` on every recompute) and
+# wrapped in Makie.Linestyle -- see Mean1D's own compose_plotspecs comment
+# for why the wrapper matters (avoids a deprecation warning that fires when
+# a bare `:dash`-converted Vector gets re-resolved, as happens continuously
+# under GLMakie's per-frame render loop for a live-updating plot).
+const _MEAN1D_DASH = Makie.Linestyle(Makie.line_pattern(:dash, :normal))
+
 # Mean1D/Std1D/Mean2D/Cov2D/Std2D are updated incrementally from running
 # (weighted) sufficient statistics instead of being refit from the full
 # accumulated sample set on every batch. Reuses BAT's own online-statistics
@@ -33,34 +40,50 @@ is_incremental(::Union{Mean1D,Std1D,Mean2D,Cov2D,Std2D}) = true
 #
 # The wrapper only adds what BAT's online-stats types don't track themselves:
 # which real variable(s) (`vsel`) this grid cell's accumulator currently
-# represents, and how many samples (`n`) have been folded in so far -- needed
-# to detect "the picker changed which variable this cell shows" or "the
-# buffered data shrank" and trigger a reset (via `empty!`) rather than an
-# incorrect incremental merge.
+# represents, how many samples (`n`) have been folded in so far, and the
+# index-range slider's low end (`wstart`) -- needed to detect "the picker
+# changed which variable this cell shows", "the buffered data shrank", or
+# "the window panned to a different (same-width) range" and trigger a reset
+# (via `empty!`) rather than an incorrect incremental merge. See
+# _update_stats!'s comment below for why `wstart` specifically is needed
+# (same underlying issue as _IncrementalHist1DState/2DState in makie_hist.jl).
 mutable struct _IncrementalUvState
         stats::BasicUvStatistics{Float64,Weights}
         n::Int
         vsel::Int       # real variable index this state currently tracks (0 = none yet)
+        wstart::Int     # window_start this state was last updated against
 end
-_IncrementalUvState() = _IncrementalUvState(BasicUvStatistics{Float64,Weights}(), 0, 0)
+_IncrementalUvState() = _IncrementalUvState(BasicUvStatistics{Float64,Weights}(), 0, 0, 1)
 
 mutable struct _IncrementalMvState
         stats::BasicMvStatistics{Float64,Weights}
         n::Int
         vsel::Tuple{Int,Int}
+        wstart::Int
 end
-_IncrementalMvState() = _IncrementalMvState(BasicMvStatistics{Float64,Weights}(2), 0, (0, 0))
+_IncrementalMvState() = _IncrementalMvState(BasicMvStatistics{Float64,Weights}(2), 0, (0, 0), 1)
 
 # Folds only the newly-arrived samples (coords[state.n+1:end]) into `state`,
 # resetting and reprocessing everything from scratch instead if `vsel` (the
-# real variable this cell tracks) changed or the data shrank relative to what
-# this state was last updated against.
-function _update_stats!(state::_IncrementalUvState, coords::AbstractVector, weights::AbstractVector, vsel::Int)
+# real variable this cell tracks) changed, the data shrank relative to what
+# this state was last updated against, or `wstart` (the index-range slider's
+# low handle) moved: this state's only signal for "how much of `coords` is
+# genuinely new" is length, which silently breaks once `coords` can be a
+# *panned* window instead of always growing from a fixed start -- shifting
+# the whole interval (both slider handles at once) keeps the window's width,
+# and therefore `n`, exactly constant while every sample in it changes.
+# Without this check that shift is invisible to the `n_now > state.n` guard
+# below (it's neither a genuine shrink nor a genuine growth in length), so
+# the stats overlay would silently keep showing pre-shift values forever --
+# the same bug confirmed via direct repro for the histogram recipes' own
+# incremental state.
+function _update_stats!(state::_IncrementalUvState, coords::AbstractVector, weights::AbstractVector, vsel::Int, wstart::Integer)
         n_now = length(coords)
-        if state.vsel != vsel || state.n > n_now
+        if state.vsel != vsel || state.wstart != wstart || state.n > n_now
                 empty!(state.stats)
                 state.n = 0
                 state.vsel = vsel
+                state.wstart = wstart
         end
         for k in (state.n+1):n_now
                 push!(state.stats, coords[k], weights[k])
@@ -71,12 +94,14 @@ end
 
 # `coords` is the 2xN marg_coords view (not pre-split into x/y): each column
 # is one sample, matching BasicMvStatistics.push!'s expected per-sample vector.
-function _update_stats!(state::_IncrementalMvState, coords::AbstractMatrix, weights::AbstractVector, vsel::Tuple{Int,Int})
+# See the Uv method's comment above for why `wstart` must also force a reset.
+function _update_stats!(state::_IncrementalMvState, coords::AbstractMatrix, weights::AbstractVector, vsel::Tuple{Int,Int}, wstart::Integer)
         n_now = length(weights)
-        if state.vsel != vsel || state.n > n_now
+        if state.vsel != vsel || state.wstart != wstart || state.n > n_now
                 empty!(state.stats)
                 state.n = 0
                 state.vsel = vsel
+                state.wstart = wstart
         end
         for k in (state.n+1):n_now
                 push!(state.stats, view(coords, :, k), weights[k])
@@ -220,8 +245,14 @@ function get_stats_plotspecs(
         i, j = vsel
         plotspecs = []
 
-        mean_primitives = getproperty(inputs, primitive_symbol(Mean2D(), (i, j)))
-        append!(plotspecs, compose_plotspecs(mean_primitives, Mean2D(), config))
+        # Mean2D (a crosshair -- vlines/hlines exactly at the mean) is
+        # deliberately not drawn here, per explicit request -- unlike
+        # Makie1DStats above, which keeps its own Mean1D line. Mean2D's own
+        # recipe machinery (compute_plotting_primitives/compute_stats_primitives)
+        # is untouched and still runs in the background (it's is_incremental,
+        # always computed regardless of what's actually drawn, and still
+        # registered via BAT_MAKIE_RECIPES_2D in _init_compute_graph) -- this
+        # only stops it from being rendered as part of the 2D stats overlay.
 
         cov_primitives = getproperty(inputs, primitive_symbol(Cov2D(), (i, j)))
         append!(plotspecs, compose_plotspecs(cov_primitives, Cov2D(), config))
@@ -297,8 +328,13 @@ function compose_plotspecs(
                 return PlotSpec[]
         end
 
-        lines = S.Lines(ellipse_points)
-        line_segments = S.LineSegments(axes_segments)
+        # color=:black set explicitly here (not via the shared Lines/
+        # LineSegments theme) per explicit request -- Makie's automatic
+        # color-*cycling* (enabled by default for both plot types) silently
+        # overrides a theme-level color default, confirmed directly; an
+        # explicit per-call color is the only way that reliably takes effect.
+        lines = S.Lines(ellipse_points; color=:black)
+        line_segments = S.LineSegments(axes_segments; color=:black)
 
         return [lines, line_segments]
 end
@@ -348,7 +384,9 @@ function compose_plotspecs(
                 return PlotSpec[]
         end
 
-        lines = S.VLines(positions)
+        # color=:black set explicitly -- see Cov2D's matching comment above
+        # (VLines' automatic color-cycling overrides a theme-level default).
+        lines = S.VLines(positions; color=:black)
         return [lines]
 end
 
@@ -401,8 +439,9 @@ function compose_plotspecs(
                 return PlotSpec[]
         end
 
-        vlines = S.VLines(x_lines)
-        hlines = S.HLines(y_lines)
+        # color=:black set explicitly -- see Cov2D's matching comment above.
+        vlines = S.VLines(x_lines; color=:black)
+        hlines = S.HLines(y_lines; color=:black)
         return [vlines, hlines]
 end
 
@@ -448,7 +487,22 @@ function compose_plotspecs(
                 return PlotSpec[]
         end
 
-        lines = S.VLines(x)
+        # linestyle=_MEAN1D_DASH (not the bare Symbol :dash) by explicit
+        # request, distinguishing the 1D stats overlay's mean line from
+        # Std1D's own (solid) VLines -- set directly on this PlotSpec, not
+        # via the shared VLines theme, since Std1D/Std2D/Mean2D all use the
+        # same VLines type and should stay solid. Wrapped in Makie.Linestyle
+        # specifically: a bare `:dash` gets converted to a plain
+        # Vector{Float32} pattern internally, and re-resolving that already-
+        # converted vector a second time -- confirmed this happens on GLMakie's
+        # per-frame render loop for a live-updating plot, though not under
+        # CairoMakie's one-shot static render -- hits Makie's own deprecated
+        # bare-Vector linestyle path and warns on every frame. A `Linestyle`
+        # wrapper is genuinely idempotent under repeated resolution (Makie's
+        # own recommended fix for this warning).
+        # color=:black set explicitly too -- see Cov2D's matching comment
+        # above (VLines' automatic color-cycling overrides a theme default).
+        lines = S.VLines(x; linestyle=_MEAN1D_DASH, color=:black)
         return [lines]
 end
 
@@ -496,8 +550,11 @@ function compose_plotspecs(
                 return PlotSpec[]
         end
 
-        vlines = S.VLines(μ_x)
-        hlines = S.HLines(μ_y)
+        # color=:black set explicitly -- see Cov2D's matching comment above.
+        # (Mean2D itself is no longer invoked by the 2D stats overlay --
+        # see get_stats_plotspecs's own comment -- kept consistent regardless.)
+        vlines = S.VLines(μ_x; color=:black)
+        hlines = S.HLines(μ_y; color=:black)
         return [vlines, hlines]
 end
 

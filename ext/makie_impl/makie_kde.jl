@@ -7,7 +7,7 @@
 const _EMPTY_KDE1D_PRIMITIVES = (x=Vector{Float64}(), density=Vector{Float64}(), poly_points=Vector{Point{2,Float32}}())
 const _EMPTY_KDE2D_PRIMITIVES = (x=Vector{Float64}(), y=Vector{Float64}(), density=Matrix{Float64}(undef, 0, 0))
 const _EMPTY_QUANTILEKDE1D_PRIMITIVES = (polys=Vector{Vector{Point{2,Float32}}}(), fill_colors=Vector{RGBA}(), full_line=Vector{Point{2,Float32}}())
-const _EMPTY_QUANTILEKDE2D_PRIMITIVES = (x=Vector{Float64}(), y=Vector{Float64}(), density=Matrix{Float64}(undef, 0, 0), final_levels=Vector{Float64}(), colors=Vector{RGBA{Float64}}())
+const _EMPTY_QUANTILEKDE2D_PRIMITIVES = (x=Vector{Float64}(), y=Vector{Float64}(), color_grid=Matrix{RGBA{Float32}}(undef, 0, 0))
 
 function compute_plotting_primitives(
         ::SubArray,
@@ -142,7 +142,7 @@ function compute_plotting_primitives(
         config::NamedTuple
 )
         isempty(weights) && return _EMPTY_QUANTILEKDE1D_PRIMITIVES
-        (; levels, colormap, alpha, rev) = config
+        (; levels) = config
         kde_result = kde(vec(marg_coords), weights=weights)
         x = kde_result.x
         density = kde_result.density
@@ -158,12 +158,15 @@ function compute_plotting_primitives(
 
         active_levels = sort(filter(x -> 0 < x < 1, levels))
 
-        pal = cgrad(colormap, rev=rev, alpha=alpha)
-        pal_values = _quantile_palette_positions(length(active_levels))
-
         polys = Vector{Point2f}[]
         fill_colors = RGBA[]
 
+        # enumerate(reverse(active_levels)): i=1 is the *largest* level value
+        # (e.g. 0.9973), which needs the lowest density threshold to reach --
+        # confirmed directly that this makes i=1 the loosest/widest region and
+        # the last i the tightest/narrowest (closest to the peak), the same
+        # ascending-index convention _quantile_level_color's other three
+        # callers (QuantileHist1D/2D, QuantileKDE2D) already use.
         for (i, level) in enumerate(reverse(active_levels))
                 idx = searchsortedfirst(cum_p, level)
                 safe_idx = clamp(idx, 1, length(sorted_p))
@@ -183,7 +186,7 @@ function compute_plotting_primitives(
                 )
                 push!(polys, pts)
 
-                push!(fill_colors, pal[pal_values[i]])
+                push!(fill_colors, _quantile_level_color(i))
         end
 
 
@@ -204,7 +207,15 @@ function compose_plotspecs(
         end
 
         polyspec = S.Poly(polys; color=fill_colors)
-        lines = S.Lines(full_line)
+        # visible=false by default, per explicit request -- this outline
+        # traces the full (unclipped) KDE curve on top of the filled
+        # credible-region bands, which visually reads as an odd extra edge
+        # drawn over the plot. Set directly on this one PlotSpec (not via
+        # the shared `Lines` theme block, the way Hist1D's Stairs outline
+        # was hidden) since S.Lines is also used by KDE1D's own main curve,
+        # Cov2D's ellipse, PDF1D, and Trace2D -- a theme-level default would
+        # have hidden all of those too.
+        lines = S.Lines(full_line; visible=false)
 
         return [polyspec, lines]
 end
@@ -233,7 +244,7 @@ function compute_plotting_primitives(
         config::NamedTuple
 )
         isempty(weights) && return _EMPTY_QUANTILEKDE2D_PRIMITIVES
-        (; levels, rev, colormap, alpha) = config
+        (; levels) = config
         kde_result = kde((marg_coords[1, :], marg_coords[2, :]), weights=weights)
 
         density = kde_result.density
@@ -244,25 +255,51 @@ function compute_plotting_primitives(
         total_p = cum_p[end]
         cum_p ./= total_p
 
-        thresholds = Float64[]
         valid_levels = sort(filter(x -> 0 < x < 1, levels))
 
-        for level in valid_levels
+        # Explicit per-cell color grid + Heatmap, instead of Contourf(levels=,
+        # colormap=...) -- mirrors QuantileHist2D's own color_grid+Heatmap
+        # approach exactly (makie_hist.jl), and for the same reason:
+        # confirmed directly that Contourf's built-in colormap sampling
+        # evaluates each *band*'s color at the arithmetic midpoint of that
+        # band's threshold range (Makie's own calculate_contourf_polys!,
+        # levelcenters = (highs.+lows)./2), mapped through a continuous (not
+        # flat/stepped) gradient -- for the highly non-uniform threshold
+        # spacing real KDE density levels typically have (can span orders of
+        # magnitude), that midpoint essentially never lands exactly on one of
+        # the intended color "stops", so a band renders as a visible blend of
+        # two neighboring colors instead of a clean, flat one. Reported
+        # directly: the middle band showed as a dirty yellow-green blend
+        # instead of clear yellow. An explicit per-cell color sidesteps
+        # colormap interpolation entirely -- Heatmap just draws each cell's
+        # own final RGBA directly, no continuous sampling involved. Bonus:
+        # this also removes the previous Contourf-specific need for an
+        # "extra unused" level/color slot (density_sorted[1]'s unconditional
+        # push) -- no `levels` list is being handed to Makie anymore, so
+        # there's nothing for it to reject as degenerate.
+        color_grid = fill(RGBA{Float32}(0, 0, 0, 0), size(density))
+
+        # enumerate(reverse(valid_levels)): j=1 is the largest level value
+        # (e.g. 0.9973), which needs the lowest density threshold to reach --
+        # confirmed directly that this makes j=1 the loosest/widest region
+        # (the same ascending-index convention _quantile_level_color's other
+        # callers use -- see QuantileKDE1D's matching comment). Writing
+        # color_grid in this order (widest region's color first, then
+        # progressively narrower -- and therefore strictly nested-subset --
+        # regions overwriting their own inner portion) is what produces
+        # correctly nested rings, the same "later write wins" mechanism
+        # QuantileHist2D's own color_grid construction relies on.
+        for (j, level) in enumerate(reverse(valid_levels))
                 idx = searchsortedfirst(cum_p, level)
                 safe_idx = clamp(idx, 1, length(density_sorted))
-                push!(thresholds, density_sorted[safe_idx])
+                threshold = density_sorted[safe_idx]
+                mask = density .>= threshold
+                color_grid[mask] .= _quantile_level_color(j)
         end
-
-        push!(thresholds, density_sorted[1])
-        final_levels = sort(thresholds)
-
-        pal = cgrad(colormap, rev=rev, alpha=alpha)
-        pal_values = _quantile_palette_positions(length(final_levels))
-        colors = pal[pal_values]
 
         # collect(...): see KDE1D's matching comment above -- kde_result.x/.y
         # are StepRangeLen, not Vector{Float64} like _EMPTY_QUANTILEKDE2D_PRIMITIVES.
-        return (x=collect(kde_result.x), y=collect(kde_result.y), density=density, final_levels=final_levels, colors=colors)
+        return (x=collect(kde_result.x), y=collect(kde_result.y), color_grid=color_grid)
 end
 
 function compose_plotspecs(
@@ -270,16 +307,13 @@ function compose_plotspecs(
         recipe::QuantileKDE2D,
         config::NamedTuple
 )
-        (; x, y, density, final_levels, colors) = primitives
+        (; x, y, color_grid) = primitives
 
         if isempty(x)
                 return PlotSpec[]
         end
 
-        contour = S.Contourf(x, y, density;
-                levels=final_levels,
-                colormap=colors
-        )
-        return [contour]
+        heat = S.Heatmap(x, y, color_grid)
+        return [heat]
 end
 
