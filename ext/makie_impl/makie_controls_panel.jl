@@ -291,8 +291,13 @@ function _build_fig(
         # "500" vs "50000"), since that changes how the fixed remaining
         # width splits between columns 2 and 3 even though their *union*
         # doesn't move -- confirmed empirically.
-        lbl_idx_title = Label(toggle_row_content[1, 2:3], "Current Index")
-        slider_curr_idx = Slider(toggle_row_content[2, 2], range=1:graph[:current_idx][], startvalue=graph[:current_idx][])
+        lbl_idx_title = Label(toggle_row_content[1, 2:3], "Index Range")
+        # IntervalSlider (not Slider): shows only the samples between a
+        # start and an end index, rather than always from sample 1 up to a
+        # single cutoff, per explicit request. startvalues=(1, current_idx)
+        # matches the old Slider's own initial state exactly (everything
+        # revealed, from the very beginning).
+        slider_curr_idx = IntervalSlider(toggle_row_content[2, 2], range=1:graph[:current_idx][], startvalues=(1, graph[:current_idx][]))
         # No gap between the label/slider rows -- and each pinned to the
         # outer edge of its own row (valign=:top / :bottom) rather than the
         # default :center, which would otherwise leave slack split above the
@@ -329,7 +334,7 @@ function _build_fig(
         # its computed bbox stays text-sized and its halign=:center (Label's
         # own default) centers *that* box within column 2's full width.
         lbl_idx_title.tellwidth[] = false
-        lbl_idx_value = Label(toggle_row_content[2, 3], lift(string, slider_curr_idx.value))
+        lbl_idx_value = Label(toggle_row_content[2, 3], lift(iv -> "$(iv[1]):$(iv[2])", slider_curr_idx.interval))
         # Column 1 (button) and 3 (value label) are left at their Auto()
         # default, so they size to their own content and column 2 (the only
         # one reporting no natural width) absorbs whatever's left over.
@@ -388,10 +393,10 @@ function _build_fig(
 
     if show_slider
         # show_slider guarantees a single chain, but that chain may still have
-        # multiple walkers; pan all of them to the same position.
-        on(slider_curr_idx.value) do curr_idx
+        # multiple walkers; pan all of them to the same (start, end) window.
+        on(slider_curr_idx.interval) do (start_idx, end_idx)
             n_walkers_here = length(graph[:current_idxs][][1])
-            update!(graph, current_idxs=[fill(curr_idx, n_walkers_here)])
+            update!(graph, current_idxs=[fill(end_idx, n_walkers_here)], window_start=start_idx)
         end
     end
 

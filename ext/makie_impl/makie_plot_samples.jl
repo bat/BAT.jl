@@ -236,6 +236,13 @@ function BAT.bat_theme()
                 Slider=(
                         color_inactive=widget_color,
                 ),
+                # IntervalSlider is a distinct type from Slider (Makie themes
+                # key by exact type name), so it needs its own block even
+                # though it shares the same attribute names -- confirmed via
+                # propertynames(IntervalSlider(...)).
+                IntervalSlider=(
+                        color_inactive=widget_color,
+                ),
                 Toggle=(
                         framecolor_inactive=widget_color,
                 ),
@@ -248,11 +255,17 @@ function BAT.bat_theme()
                         alpha=1.0,
                         gap=0.0
                 ),
+                # Hist1D (and any other recipe drawing a Stairs outline atop
+                # its own fill, e.g. QuantileHist1D's stairs_data) no longer
+                # shows this outline by default in the light theme -- purely
+                # a light-theme cosmetic default, per explicit request; the
+                # dark theme's own Stairs block below is untouched
+                # (visible=true still).
                 Stairs=Theme(
                         step=:post,
                         color=:darkblue,
                         linewidth=1.0,
-                        visible=true
+                        visible=false
                 ),
                 Lines=Theme(
                         color=RGB(0.741, 0.518, 0.02),
@@ -268,6 +281,16 @@ function BAT.bat_theme()
                         color=RGB(0.898, 0.361, 0.188),
                         alpha=1.0
                 ),
+                # VLines/HLines/LineSegments's color here is NOT actually
+                # applied to plots of these types -- confirmed directly: all
+                # three have Makie's automatic color-*cycling* enabled by
+                # default (a `cycle=[[:color]=>:color]` attribute), and cycling
+                # silently overrides any theme-level `color` default rather
+                # than the other way around. So the stats-overlay recipes'
+                # black color (per explicit request) is set directly on each
+                # PlotSpec instead (makie_stats.jl), not via this theme block --
+                # left here anyway since linestyle/linewidth *do* still apply
+                # via the theme (only `color` is affected by cycling).
                 VLines=Theme(
                         color=:dodgerblue,
                         linestyle=:solid,
@@ -370,6 +393,13 @@ function BAT.bat_theme_dark()
                         dropdown_arrow_color=:grey30
                 ),
                 Slider=(
+                        color_active=color_active,
+                        color_active_dimmed=color_hover,
+                        color_inactive=color_inactive,
+                ),
+                # See bat_theme()'s matching comment -- IntervalSlider needs
+                # its own theme block despite sharing Slider's attribute names.
+                IntervalSlider=(
                         color_active=color_active,
                         color_active_dimmed=color_hover,
                         color_inactive=color_inactive,

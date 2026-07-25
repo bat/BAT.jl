@@ -204,17 +204,35 @@ function _init_compute_graph(
     curr_idxs = Vector{Vector{Integer}}()
     add_input!(graph, :current_idxs, curr_idxs)
 
+    # Window start (per-walker end position is current_idxs above, already
+    # existing) -- the "Current Index" slider used to always reveal samples
+    # from position 1 up to its single value; it's now an IntervalSlider, so
+    # this is the low end of that interval. Defaults to 1 ("from the
+    # beginning", i.e. exactly the old behavior) and is never touched at all
+    # outside of that slider's own callback -- every other caller (live
+    # multi-chain runs with no slider shown, precompilation, etc.) sees
+    # identical behavior to before this was added.
+    add_input!(graph, :window_start, 1)
+
     register_computation!(graph,
-        [:samples, :current_idxs],
+        [:samples, :current_idxs, :window_start],
         [:flat_samples],
     ) do inputs, changed, cached
         samples = inputs.samples
         current_idxs = inputs.current_idxs
+        window_start = inputs.window_start
 
         walker_views = Any[] #Vector{DensitySampleVector}()
         for i in eachindex(samples)
             for j in eachindex(samples[i])
-                push!(walker_views, view(samples[i][j], 1:current_idxs[i][j]))
+                wend = current_idxs[i][j]
+                # clamp: a shorter walker (e.g. early in a live run, before
+                # every walker has produced equally many samples) must never
+                # see a start position past its own end -- 1:0-style empty
+                # ranges are fine (a valid empty UnitRange), a start > end
+                # the other way (e.g. 5:3) is not.
+                wstart = clamp(window_start, 1, max(wend, 1))
+                push!(walker_views, view(samples[i][j], wstart:wend))
             end
         end
         return (vcat(walker_views...),)
@@ -542,10 +560,10 @@ function _init_compute_graph(
             running_state = is_incremental(recipe) ? _make_running_state_1d(recipe) : nothing
 
             register_computation!(graph,
-                [marg_sym, :flat_weights, :diagonal_recipe, :live_map, :diagonal_config, :vsel_map, :domain_lo, :domain_hi],
+                [marg_sym, :flat_weights, :diagonal_recipe, :live_map, :diagonal_config, :vsel_map, :domain_lo, :domain_hi, :window_start],
                 [primitive_symbols_1D[k]]
             ) do inputs, changed, cached
-                coords, weights, live_recipe, live_map, config, vsel_map, domain_lo, domain_hi = inputs
+                coords, weights, live_recipe, live_map, config, vsel_map, domain_lo, domain_hi, window_start = inputs
                 cell_status = live_map[i, i] ? LiveCell() : DeadCell()
                 recipe_status = determine_recipe_status(recipe, live_recipe())
                 # filter=true isn't compatible with incremental accumulation
@@ -567,11 +585,11 @@ function _init_compute_graph(
                             (; nbins, closed) = config
                             eff_nbins = recipe isa Hist1D ? nbins + 1 : nbins
                             domain = (domain_lo[vsel], domain_hi[vsel])
-                            _update_hist!(running_state, vec(coords), weights, vsel, domain, eff_nbins, closed)
+                            _update_hist!(running_state, vec(coords), weights, vsel, domain, eff_nbins, closed, window_start)
                             compute_hist_primitives(recipe, running_state, config)
                         end
                     else
-                        _update_stats!(running_state, vec(coords), weights, vsel)
+                        _update_stats!(running_state, vec(coords), weights, vsel, window_start)
                         compute_stats_primitives(recipe, running_state, config)
                     end
                 else
@@ -611,10 +629,10 @@ function _init_compute_graph(
                 running_state = is_incremental(recipe) ? _make_running_state_2d(recipe) : nothing
 
                 register_computation!(graph,
-                    [marg_sym_2D, :flat_weights, :upper_recipe, :lower_recipe, :live_map, :triagonal_config, :vsel_map, :domain_lo, :domain_hi],
+                    [marg_sym_2D, :flat_weights, :upper_recipe, :lower_recipe, :live_map, :triagonal_config, :vsel_map, :domain_lo, :domain_hi, :window_start],
                     [primitive_symbols_2D[k]]
                 ) do inputs, changed, cached
-                    coords, weights, live_recipe_upper, live_recipe_lower, live_map, config, vsel_map, domain_lo, domain_hi = inputs
+                    coords, weights, live_recipe_upper, live_recipe_lower, live_map, config, vsel_map, domain_lo, domain_hi, window_start = inputs
                     cell_status = live_map[i, j] ? LiveCell() : DeadCell()
                     recipe_status = determine_recipe_status(recipe, live_recipe_upper(), live_recipe_lower())
                     primitives = if cell_status isa LiveCell && is_incremental(recipe) && !config.filter
@@ -632,11 +650,11 @@ function _init_compute_graph(
                                 domain = ((domain_lo[vsel[1]], domain_hi[vsel[1]]), (domain_lo[vsel[2]], domain_hi[vsel[2]]))
                                 x = view(coords, 1, :)
                                 y = view(coords, 2, :)
-                                _update_hist!(running_state, x, y, weights, vsel, domain, nbins, closed)
+                                _update_hist!(running_state, x, y, weights, vsel, domain, nbins, closed, window_start)
                                 compute_hist_primitives(recipe, running_state, config)
                             end
                         else
-                            _update_stats!(running_state, coords, weights, vsel)
+                            _update_stats!(running_state, coords, weights, vsel, window_start)
                             compute_stats_primitives(recipe, running_state, config)
                         end
                     else

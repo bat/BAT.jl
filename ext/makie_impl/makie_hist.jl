@@ -24,34 +24,51 @@ is_incremental(::Union{Hist1D,Hist2D,QuantileHist1D,QuantileHist2D}) = true
 # Running (fixed-edge) histogram state for the incremental recipes above.
 # Reset (full rebuild, not merge) if the real variable(s) this grid cell
 # represents changes (a vsel change), the fixed domain the edges were built
-# from widens (see makie_visualizer.jl's overflow handling), or the sample
-# count goes backwards (e.g. buffered samples get cleared).
+# from widens (see makie_visualizer.jl's overflow handling), the sample count
+# goes backwards (e.g. buffered samples get cleared), or the window's start
+# position moves (the index-range slider's low handle -- see wstart's comment
+# on _update_hist! below).
 mutable struct _IncrementalHist1DState
     hist::Union{Histogram,Nothing}
     n::Int
     vsel::Int       # real variable index this state currently tracks (0 = none yet)
     domain::Tuple{Float64,Float64}
+    wstart::Int     # window_start this state was last built/updated against
 end
-_IncrementalHist1DState() = _IncrementalHist1DState(nothing, 0, 0, (0.0, 0.0))
+_IncrementalHist1DState() = _IncrementalHist1DState(nothing, 0, 0, (0.0, 0.0), 1)
 
 mutable struct _IncrementalHist2DState
     hist::Union{Histogram,Nothing}
     n::Int
     vsel::Tuple{Int,Int}
     domain::Tuple{Tuple{Float64,Float64},Tuple{Float64,Float64}}
+    wstart::Int
 end
-_IncrementalHist2DState() = _IncrementalHist2DState(nothing, 0, (0, 0), ((0.0, 0.0), (0.0, 0.0)))
+_IncrementalHist2DState() = _IncrementalHist2DState(nothing, 0, (0, 0), ((0.0, 0.0), (0.0, 0.0)), 1)
 
 # Folds only the newly-arrived samples (coords[state.n+1:end]) into the
 # running histogram (fit over just the new slice, then merge!'d into the
 # existing one -- both share the same fixed edges), rebuilding from scratch
 # over the full current view instead if vsel/domain changed or data shrank.
-function _update_hist!(state::_IncrementalHist1DState, coords::AbstractVector, weights::AbstractVector, vsel::Int, domain::Tuple{Float64,Float64}, nbins::Integer, closed::Symbol)
+#
+# `wstart` (the index-range slider's low end, see :window_start in
+# makie_compute_graph.jl) must also force a rebuild, not just a shrink in
+# `n`: this state's only signal for "how much of `coords` is genuinely new"
+# is length, which silently breaks once `coords` can be a *panned* window
+# instead of always growing from a fixed start -- shifting the whole
+# interval (both slider handles at once) keeps the window's width, and
+# therefore `n`, exactly constant while every sample in it changes. Without
+# this check that shift is invisible to the `n_now > state.n` branch below,
+# so the plot would silently keep showing the stale pre-shift histogram
+# forever (confirmed via direct repro: shifting a fixed-width window left/
+# right produced bit-identical `weights` output despite `coords` itself
+# genuinely differing).
+function _update_hist!(state::_IncrementalHist1DState, coords::AbstractVector, weights::AbstractVector, vsel::Int, domain::Tuple{Float64,Float64}, nbins::Integer, closed::Symbol, wstart::Integer)
     n_now = length(coords)
-    if isnothing(state.hist) || state.vsel != vsel || state.domain != domain || state.n > n_now
+    if isnothing(state.hist) || state.vsel != vsel || state.domain != domain || state.wstart != wstart || state.n > n_now
         edges = _get_edges(([domain[1], domain[2]],), (nbins,), closed)
         state.hist = fit(Histogram, (coords,), FrequencyWeights(weights), edges, closed=closed)
-        state.n, state.vsel, state.domain = n_now, vsel, domain
+        state.n, state.vsel, state.domain, state.wstart = n_now, vsel, domain, wstart
     elseif n_now > state.n
         rng = (state.n+1):n_now
         new_hist = fit(Histogram, (view(coords, rng),), FrequencyWeights(view(weights, rng)), state.hist.edges, closed=closed)
@@ -62,14 +79,15 @@ function _update_hist!(state::_IncrementalHist1DState, coords::AbstractVector, w
 end
 
 # coords/x/y here are full 2xN (or separate x,y) views over the *entire*
-# current sample range, matching the 1D case's convention above.
-function _update_hist!(state::_IncrementalHist2DState, x::AbstractVector, y::AbstractVector, weights::AbstractVector, vsel::Tuple{Int,Int}, domain::Tuple{Tuple{Float64,Float64},Tuple{Float64,Float64}}, nbins::Tuple{Int,Int}, closed::Symbol)
+# current sample range, matching the 1D case's convention above. See the 1D
+# method's comment for why `wstart` must also force a rebuild.
+function _update_hist!(state::_IncrementalHist2DState, x::AbstractVector, y::AbstractVector, weights::AbstractVector, vsel::Tuple{Int,Int}, domain::Tuple{Tuple{Float64,Float64},Tuple{Float64,Float64}}, nbins::Tuple{Int,Int}, closed::Symbol, wstart::Integer)
     n_now = length(weights)
-    if isnothing(state.hist) || state.vsel != vsel || state.domain != domain || state.n > n_now
+    if isnothing(state.hist) || state.vsel != vsel || state.domain != domain || state.wstart != wstart || state.n > n_now
         (dlo1, dhi1), (dlo2, dhi2) = domain
         edges = _get_edges(([dlo1, dhi1], [dlo2, dhi2]), nbins, closed)
         state.hist = fit(Histogram, (x, y), FrequencyWeights(weights), edges, closed=closed)
-        state.n, state.vsel, state.domain = n_now, vsel, domain
+        state.n, state.vsel, state.domain, state.wstart = n_now, vsel, domain, wstart
     elseif n_now > state.n
         rng = (state.n+1):n_now
         new_hist = fit(Histogram, (view(x, rng), view(y, rng)), FrequencyWeights(view(weights, rng)), state.hist.edges, closed=closed)
@@ -173,18 +191,16 @@ function _hist2d_output(hist::Histogram, normalization::Symbol)
 end
 
 function _quantilehist1d_output(hist::Histogram, config::NamedTuple)
-    (; normalization, levels, colormap, alpha, rev) = config
+    (; normalization, levels) = config
     h_norm = _safe_normalize(hist, normalization)
 
     valid_intervals = sort(filter(x -> 0 < x < 1, levels))
     sub_hists, _ = BAT.get_smallest_intervals(h_norm, valid_intervals)
 
-    pal = cgrad(colormap, rev=rev, alpha=alpha)
-    pal_values = _quantile_palette_positions(length(valid_intervals))
     bin_colors = fill(RGBA{Float32}(0, 0, 0, 0), length(h_norm.weights))
 
     for (i, sub_hist) in enumerate(sub_hists)
-        c = pal[pal_values[i]]
+        c = _quantile_level_color(i)
         mask = sub_hist.weights .> 0
         bin_colors[mask] .= c
     end
@@ -200,20 +216,17 @@ function _quantilehist1d_output(hist::Histogram, config::NamedTuple)
 end
 
 function _quantilehist2d_output(hist::Histogram, config::NamedTuple)
-    (; normalization, levels, colormap, alpha, rev) = config
+    (; normalization, levels) = config
     h_norm = _safe_normalize(hist, normalization)
 
     valid_intervals = sort(filter(x -> 0 < x < 1, levels))
     sub_hists, _ = BAT.get_smallest_intervals(h_norm, valid_intervals)
 
-    pal = cgrad(colormap, rev=rev, alpha=alpha)
-    pal_values = _quantile_palette_positions(length(valid_intervals))
-
     dims = size(h_norm.weights)
     color_grid = fill(RGBA{Float32}(0, 0, 0, 0), dims)
 
     for (i, sub_hist) in enumerate(sub_hists)
-        c = pal[pal_values[i]]
+        c = _quantile_level_color(i)
         mask = sub_hist.weights .> 0
         color_grid[mask] .= c
     end
