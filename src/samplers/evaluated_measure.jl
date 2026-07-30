@@ -134,10 +134,10 @@ end
 
 
 function LazyReports.pushcontent!(rpt::LazyReport, em::EvaluatedMeasure)
-    if !isnothing(em.samples)
+    if !ismissing(em.samples)
         lazyreport!(rpt, em.samples)
     end
-    if !isnothing(em._generator)
+    if !ismissing(em._generator)
         lazyreport!(rpt, em._generator)
     end
     return nothing
@@ -146,26 +146,26 @@ end
 
 function _approx_mean(em::EvaluatedMeasure, n)
     smpls = maybe_samplesof(em)
-    if !isnothing(smpls)
+    if !ismissing(smpls)
         return mean(smpls)
     else
-        return _approx_mean(unevaluated(em))
+        return _approx_mean(unevaluated(em), n)
     end
 end
 
 
 function _approx_cov(em::EvaluatedMeasure, n)
     smpls = maybe_samplesof(em)
-    if !isnothing(smpls)
+    if !ismissing(smpls)
         return cov(smpls)
     else
-        return _approx_cov(unevaluated(em))
+        return _approx_cov(unevaluated(em), n)
     end
 end
 
 function _estimated_max_logd(em::EvaluatedMeasure)
     smpls = maybe_samplesof(em)
-    if !isnothing(smpls) && !any(isnan, smpls.logd)
+    if !ismissing(smpls) && !any(isnan, smpls.logd)
         return _estimated_max_logd(smpls)
     else
         return _estimated_max_logd(unevaluated(em))
