@@ -2,7 +2,6 @@ name: CI
 
 env:
   JULIA_NUM_THREADS: 2
-  PYTHON: ''
 
 on:
   push:
@@ -77,6 +76,7 @@ jobs:
       matrix:
         optional-test:
           - nestedsamplers
+          - ultranest
     steps:
       - uses: actions/checkout@v7
       - uses: julia-actions/setup-julia@v3

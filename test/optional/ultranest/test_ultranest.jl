@@ -3,19 +3,10 @@
 using BAT
 using Test
 
-using Random, StatsBase, Distributions, ArraysOfArrays
+using Random, StatsBase, Distributions
 using DensityInterface
 
-import UltraNest, PyCall
-
-
-# Disable UltraNest progress output
-# ToDo: Find a cleaner way to do this.
-PyCall.py"""
-import os
-import sys
-sys.stdout = open(os.devnull, 'w')
-"""
+import UltraNest
 
 
 @testset "test_ultranest" begin
@@ -41,7 +32,7 @@ sys.stdout = open(os.devnull, 'w')
     end
 
     posterior = PosteriorMeasure(likelihood, prior)
-    algorithm = ReactiveNestedSampling()
+    algorithm = ReactiveNestedSampling(show_status = false)
     r = BAT.sample_and_verify(posterior, algorithm, dist)
     @test r.verified
 

@@ -13,7 +13,7 @@
 sampling algorithm with.
 
 Uses the UltraNest Python package, via
-[UltraNest.jl](https://github.com/bat/UltraNest.jl) (and PyCall).
+[UltraNest.jl](https://github.com/bat/UltraNest.jl) (and PythonCall).
 
 Constructors:
 
