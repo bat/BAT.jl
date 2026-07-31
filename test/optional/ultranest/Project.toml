@@ -14,5 +14,3 @@ UltraNest = "0.2"
 
 [sources]
 BAT = {path = "../../.."}
-# TODO: Drop this source entirely once UltraNest v0.2 is registered:
-UltraNest = {url = "https://github.com/bat/UltraNest.jl.git", rev = "main"}
