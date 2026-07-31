@@ -33,7 +33,9 @@ import UltraNest
 
     posterior = PosteriorMeasure(likelihood, prior)
     algorithm = ReactiveNestedSampling(show_status = false)
-    r = BAT.sample_and_verify(posterior, algorithm, dist)
+    # Nested sampling produces importance-weighted samples, for which the
+    # autocorrelation-based ESS is not meaningful:
+    r = BAT.sample_and_verify(posterior, algorithm, dist, context, essalg = KishESS())
     @test r.verified
 
     smpls = r.result

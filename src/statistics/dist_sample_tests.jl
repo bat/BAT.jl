@@ -1,6 +1,20 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-_default_min_ess(samples::DensitySampleVector, context) = minimum(bat_eff_sample_size(unshaped.(samples), context).result)
+# Some ESS algorithms, like KishESS, return a scalar instead of a per-dimension ESS:
+_min_ess_value(ess::Real) = ess
+_min_ess_value(ess) = minimum(ess)
+
+# `essalg` selects the effective sample size algorithm, `nothing` uses the
+# default for the given samples. The autocorrelation-based default is not
+# meaningful for importance-weighted samples, e.g. the output of nested
+# sampling, where it underestimates the ESS by orders of magnitude. Pass
+# `KishESS()` for those.
+function _default_min_ess(samples::DensitySampleVector, context, essalg = nothing)
+    unshaped_samples = unshaped.(samples)
+    r = isnothing(essalg) ? bat_eff_sample_size(unshaped_samples, context) :
+                            bat_eff_sample_size(unshaped_samples, essalg, context)
+    _min_ess_value(r.result)
+end
 
 
 # The default ESS is halved to compensate for ESS overestimation on short
@@ -10,8 +24,9 @@ _default_min_ess(samples::DensitySampleVector, context) = minimum(bat_eff_sample
 function test_dist_samples(
     dist::Distribution, samples::DensitySampleVector,
     context::BATContext = get_batcontext();
-    nsamples::Integer = floor(Int, _default_min_ess(samples, context)),
-    ess::Integer = floor(Int, _default_min_ess(samples, context) / 2),
+    essalg = nothing,
+    nsamples::Integer = floor(Int, _default_min_ess(samples, context, essalg)),
+    ess::Integer = floor(Int, _default_min_ess(samples, context, essalg) / 2),
     logpdfdist_pvalue_threshold = 10^-6,
     Rsq_threshold = 1.2
 )
@@ -35,9 +50,10 @@ Requires `mean` and `var` to be defined for `unshaped(dist)`.
 """
 function dist_samples_mean_zscores(
     dist::Distribution, smpls::DensitySampleVector,
-    context::BATContext = get_batcontext()
+    context::BATContext = get_batcontext();
+    essalg = nothing
 )
-    ess = _default_min_ess(smpls, context)
+    ess = _default_min_ess(smpls, context, essalg)
     udist = unshaped(dist)
     mcse = sqrt.(var(udist) ./ ess)
     return abs.(mean(unshaped.(smpls)) .- mean(udist)) ./ mcse
@@ -47,8 +63,9 @@ end
 function dist_sample_qualities(
     dist::Distribution, smpls::DensitySampleVector,
     context::BATContext = get_batcontext();
-    nsamples::Integer = floor(Int, _default_min_ess(smpls, context)),
-    ess::Integer = floor(Int, _default_min_ess(smpls, context) / 2)
+    essalg = nothing,
+    nsamples::Integer = floor(Int, _default_min_ess(smpls, context, essalg)),
+    ess::Integer = floor(Int, _default_min_ess(smpls, context, essalg) / 2)
 )
     samples_v = bat_sample_impl(smpls, OrderedResampling(nsamples = ess), context).result.v
     samples_dist_logpdfs = logpdf.(Ref(dist), samples_v)
