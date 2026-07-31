@@ -101,7 +101,12 @@ using Optim
         m = PosteriorMeasure(likelihood, prior)
         hmc_samples = bat_sample(m, TransformedMCMC(proposal = HamiltonianMC(), pretransform = PriorToNormal(), nsteps = 10^4), context).result
         is_samples = bat_sample(m, PriorImportanceSampler(nsamples = 10^4), context).result
-        @test isapprox(mean(unshaped.(hmc_samples)), mean(unshaped.(is_samples)), rtol = 0.1)
+        # Compare the means on the scale of the distribution itself: most of
+        # these variates have a mean close to zero, where a relative tolerance
+        # demands far more precision than the Monte Carlo error allows.
+        is_stddevs = sqrt.(diag(cov(unshaped.(is_samples))))
+        mean_deviations = abs.(mean(unshaped.(hmc_samples)) .- mean(unshaped.(is_samples)))
+        @test all(mean_deviations .<= 0.15 .* is_stddevs)
         @test isapprox(cov(unshaped.(hmc_samples)), cov(unshaped.(is_samples)), rtol = 0.2)
     end
 end
