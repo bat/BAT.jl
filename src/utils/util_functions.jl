@@ -90,3 +90,10 @@ function should_log_progress_now(start_time::Real, last_log_time::Real)
     should_log = current_time - last_log_time > logging_interval
     return (should_log, should_log ? current_time : last_log_time, elapsed_time)
 end
+
+
+function _logaddexp(a::Real, b::Real)
+    m = max(a, b)
+    isfinite(m) || return m
+    return m + log1p(exp(-abs(a - b)))
+end

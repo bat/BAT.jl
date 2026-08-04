@@ -71,11 +71,6 @@ function _hmc_tree_leaf(z::HMCPhasePoint, H0::Real, max_delta_energy::Real)
     return HMCBinaryTree(z, z, z, z.p, -dH, alpha, 1), divergent
 end
 
-function _logaddexp(a::Real, b::Real)
-    m = max(a, b)
-    isfinite(m) ? m + log1p(exp(-abs(a - b))) : m
-end
-
 function _merge_trees(tl::HMCBinaryTree, tr::HMCBinaryTree, zcand::HMCPhasePoint, logw::Real)
     HMCBinaryTree(
         tl.zleft, tr.zright, zcand,
