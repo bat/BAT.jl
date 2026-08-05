@@ -92,14 +92,12 @@ function should_log_progress_now(start_time::Real, last_log_time::Real)
 end
 
 
-# Branchwise smooth, so AD yields correct derivatives even at a == b, unlike
-# max/abs-based formulations:
+# Branch-free for SIMD/GPU compatibility. Unlike max/abs-based formulations
+# the selected expressions are smooth, so AD yields correct derivatives even
+# at x == y:
 function _logaddexp(a::Real, b::Real)
-    if a > b
-        isfinite(a) || return a
-        return a + log1p(exp(b - a))
-    else
-        isfinite(b) || return b
-        return b + log1p(exp(a - b))
-    end
+    x, y = promote(a, b)
+    m = ifelse(x > y, x, y)
+    d = ifelse(x > y, y - x, x - y)
+    return ifelse(isfinite(m), m + log1p(exp(d)), m)
 end
