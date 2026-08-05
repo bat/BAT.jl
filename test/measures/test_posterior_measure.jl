@@ -4,6 +4,7 @@ using BAT
 using Test
 
 using DensityInterface, Distributions, FunctionChains, ValueShapes
+using PropertyFunctions: PropertyFunction, @pf
 import ForwardDiff, Zygote
 
 @testset "posterior_measure" begin
@@ -37,6 +38,23 @@ import ForwardDiff, Zygote
         f_dval = q -> jlike(reparam(q))
         @test BAT._split_density_transform(f_dval) === nothing
         @test logdensityof(BAT.getlikelihood(PosteriorMeasure(f_dval, prior)), q) ≈ logdensityof(jlike, reparam(q))
+    end
+
+    @testset "likelihoods absorbed into property functions" begin
+        # PropertyFunctions' function-chain fusion absorbs a following
+        # likelihood into a property function. BATPropertyFunctionsExt
+        # inverts the wrappers, so that the likelihood is precomposed with
+        # the transform re-wrapped as a property function:
+        pf = @pf (mu = $m_offs + 1.0, sigma = $s)
+        f_likelihood = ffchain(pf, ℒ)
+        @test f_likelihood isa PropertyFunction
+
+        ℒ_split, g = BAT._split_density_transform(f_likelihood)
+        @test ℒ_split === ℒ
+        @test g isa PropertyFunction{typeof(pf).parameters[1]}
+        @test g(q) == pf(q)
+
+        @test logdensityof(BAT.getlikelihood(PosteriorMeasure(f_likelihood, prior)), q) ≈ logdensityof(ℒ, pf(q))
     end
 
     @testset "AD through measure construction" begin
