@@ -13,6 +13,8 @@ function logvalof(d::Real)
     throw(ArgumentError("Can't get a logarithmic value from $d, unknown if it represents a lin or log value itself."))
 end
 
+logvalof(d::ULogarithmic) = log(d)
+
 
 Base.@noinline function logvalof(x::T) where {T<:NamedTuple}
     Base.depwarn("logvalof support for NamedTuples is deprecated, construct your density using DensityInterface.logfuncdensity instead of return a NamedTuple with a log field.", :logvalof)
