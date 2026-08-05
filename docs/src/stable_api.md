@@ -47,6 +47,7 @@ log_batdebug
 
 distbind
 distprod
+joint_likelihood
 lbqintegral
 
 AbstractMCMCWeightingScheme

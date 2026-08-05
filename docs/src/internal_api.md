@@ -53,6 +53,7 @@ BAT.ENSRandomWalk
 BAT.ENSSlice
 BAT.ENSUniformly
 BAT.FullMeasureTransform
+BAT.JointLikelihood
 BAT.LFDensity
 BAT.LFDensityWithGrad
 BAT.LogDVal

@@ -3,3 +3,4 @@
 include("abstract_density.jl")
 include("logdval.jl")
 include("generic_density.jl")
+include("joint_likelihood.jl")
