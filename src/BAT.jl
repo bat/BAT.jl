@@ -78,6 +78,7 @@ using MeasureBase: transport_to, transport_origin, from_origin, to_origin
 using MeasureBase: StdMeasure, StdUniform, StdNormal
 using MeasureBase: PowerMeasure, powermeasure, marginals
 using MeasureBase: WeightedMeasure, weightedmeasure
+using MeasureBase: SuperpositionMeasure, superpose
 using MeasureBase: massof
 
 using MeasureBase: PushforwardMeasure, gettransform

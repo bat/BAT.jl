@@ -38,6 +38,7 @@ BAT.BasicMvStatistics
 BAT.BATMeasure
 BAT.BATPushFwdMeasure
 BAT.BATPwrMeasure
+BAT.BATSuperpositionMeasure
 BAT.BATWeightedMeasure
 BAT.CholeskyPartialWhitening
 BAT.CholeskyWhitening
