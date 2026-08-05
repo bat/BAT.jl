@@ -92,8 +92,14 @@ function should_log_progress_now(start_time::Real, last_log_time::Real)
 end
 
 
+# Branchwise smooth, so AD yields correct derivatives even at a == b, unlike
+# max/abs-based formulations:
 function _logaddexp(a::Real, b::Real)
-    m = max(a, b)
-    isfinite(m) || return m
-    return m + log1p(exp(-abs(a - b)))
+    if a > b
+        isfinite(a) || return a
+        return a + log1p(exp(b - a))
+    else
+        isfinite(b) || return b
+        return b + log1p(exp(a - b))
+    end
 end
