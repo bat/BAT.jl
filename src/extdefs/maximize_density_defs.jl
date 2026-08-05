@@ -1,0 +1,19 @@
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
+
+# TODO (breaking): Disentangle MaxDensityAlgorithm from AbstractModeEstimator,
+# create a mode estimator algorithm that pairs a MaxDensityAlgorithm with a
+# pretransform:
+const MaxDensityAlgorithm = Union{OptimAlg, OptimizationAlg}
+
+
+function bat_findmode_impl(target::MeasureLike, algorithm::MaxDensityAlgorithm, context::BATContext)
+    # Maximize the density of the original target, searching in the
+    # reparametrized space without applying its LADJ:
+    transformed_density, f_pretransform = transform_and_unshape(algorithm.pretransform, target, context)
+    initalg = apply_trafo_to_init(f_pretransform, algorithm.init)
+    x_init = collect(bat_initval(transformed_density, initalg, context).result)
+    f = fchain(inverse(f_pretransform), checked_logdensityof(unevaluated(target)))
+    r = maximize_density(f, x_init, algorithm, context)
+    return _optimum_result(r, f_pretransform)
+end

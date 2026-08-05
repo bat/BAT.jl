@@ -91,6 +91,7 @@ BAT.is_log_zero
 BAT.issymmetric_around_origin
 BAT.log_zero_density
 BAT.logvalof
+BAT.maximize_density
 BAT.repetition_to_weights
 BAT.smallest_credible_intervals
 BAT.sum_first_dim

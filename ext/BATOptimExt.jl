@@ -7,11 +7,9 @@ using Optim: Optim, OnceDifferentiable
 using BAT
 BAT.pkgext(::Val{:Optim}) = BAT.PackageExtension{:Optim}()
 
-using BAT: MeasureLike, BATMeasure, unevaluated
-using BAT: get_context, get_valid_adselector
-using BAT: bat_initval, transform_and_unshape, apply_trafo_to_init
+using BAT: get_valid_adselector
 
-using DensityInterface, InverseFunctions, FunctionChains
+using FunctionChains
 using StructArrays, ArraysOfArrays
 using AutoDiffOperators: reverse_adtype
 
@@ -34,27 +32,19 @@ function convert_options(algorithm::OptimAlg)
     return Optim.Options(; algopts...)
 end 
 
-function BAT.bat_findmode_impl(target::MeasureLike, algorithm::OptimAlg, context::BATContext)
-    transformed_density, f_pretransform = transform_and_unshape(algorithm.pretransform, target, context)
-    target_uneval = unevaluated(target)
-    inv_trafo = inverse(f_pretransform)
-
-    initalg = apply_trafo_to_init(f_pretransform, algorithm.init)
-    x_init = collect(bat_initval(transformed_density, initalg, context).result)
-
-    # Maximize density of original target, but run in transformed space, don't apply LADJ:
-    f = fchain(inv_trafo, logdensityof(target_uneval), -)
+function BAT.maximize_density(f_logdensity, x_init::AbstractVector{<:Real}, algorithm::OptimAlg, context::BATContext)
+    f = fchain(f_logdensity, -)
     opts = convert_options(algorithm)
     optim_result = _optim_minimize(f, x_init, algorithm.optalg, opts, context)
     r_optim = Optim.MaximizationWrapper(optim_result)
-    transformed_mode = Optim.minimizer(r_optim.res)
-    result_mode = inv_trafo(transformed_mode)
 
     # ToDo: Re-enable trace, make it type stable:
     #dummy_f_x = f(x_init) # ToDo: Avoid recomputation
     #trace_trafo = StructArray(;_neg_opt_trace(optim_result, x_init, dummy_f_x) ...)
 
-    ret_a = (result = result_mode, result_trafo = transformed_mode, f_pretransform = f_pretransform #=trace_trafo = trace_trafo=#)
+    ret_a = (result = Optim.minimizer(r_optim.res),)
+    # Abstractly typed info field keeps the return type inferrable despite
+    # the type-unstable Optim result:
     ret_b = @NamedTuple{info::Optim.MaximizationWrapper}((r_optim,))
     return merge(ret_a, ret_b)
 end
