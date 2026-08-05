@@ -29,6 +29,7 @@ Order = [:macro, :function]
 
 ```@docs
 
+bat_bgml
 bat_convergence
 bat_default
 bat_eff_sample_size

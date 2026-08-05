@@ -17,3 +17,15 @@ function bat_findmode_impl(target::MeasureLike, algorithm::MaxDensityAlgorithm, 
     r = maximize_density(f, x_init, algorithm, context)
     return _optimum_result(r, f_pretransform)
 end
+
+function bat_bgml_impl(likelihood, prior, algorithm::MaxDensityAlgorithm, context::BATContext)
+    # Maximize the likelihood only:
+    pr = batmeasure(prior)
+    li = _convert_likelihood(likelihood, DensityKind(likelihood))
+    transformed_pr, f_pretransform = transform_and_unshape(algorithm.pretransform, pr, context)
+    initalg = apply_trafo_to_init(f_pretransform, algorithm.init)
+    x_init = collect(bat_initval(transformed_pr, initalg, context).result)
+    f = fchain(inverse(f_pretransform), checked_logdensityof(li))
+    r = maximize_density(f, x_init, algorithm, context)
+    return _optimum_result(r, f_pretransform)
+end

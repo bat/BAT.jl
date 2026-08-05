@@ -63,6 +63,53 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
     end
 
 
+    @testset "bat_bgml" begin
+        context = BATContext(ad = ForwardDiff)
+        algorithm = OptimAlg(optalg = LBFGS(), init = ExplicitInit([(mu = 0.2,)]))
+        likelihood = logfuncdensity(p -> logpdf(Normal(p.mu, 0.5), 1.2))
+        flat_prior = distprod(mu = Uniform(-2, 4))
+        informative_prior = distprod(mu = Normal(-1.0, 0.03))
+
+        # Only the likelihood is maximized, so the prior must not shift the result:
+        for pr in (flat_prior, informative_prior)
+            r = bat_bgml(likelihood, pr, algorithm, context)
+            @test r.result.mu ≈ 1.2 atol = 1e-3
+            # The result is a likelihood maximizer, it must not be recorded
+            # as a mode of an evaluated posterior measure:
+            @test !haskey(r, :evaluated)
+        end
+
+        # The mode of the posterior does follow an informative prior:
+        r_map = bat_findmode(PosteriorMeasure(likelihood, informative_prior), algorithm, context)
+        @test r_map.result.mu ≈ -0.99 atol = 0.01
+
+        # With a pretransform that maps the search space onto the support of
+        # the prior, the result stays within that support even if the
+        # likelihood peaks outside of it:
+        bounded_prior = distprod(mu = Uniform(-1, 1))
+        outside_lik = logfuncdensity(p -> logpdf(Normal(3, 1), p.mu))
+        for alg in (
+            OptimAlg(optalg = LBFGS(), init = ExplicitInit([(mu = 0.2,)])),
+            OptimizationAlg(optalg = OptimizationOptimJL.NelderMead(), init = ExplicitInit([(mu = 0.2,)])),
+        )
+            r_b = bat_bgml(outside_lik, bounded_prior, alg, context)
+            @test -1 <= r_b.result.mu <= 1
+            @test r_b.result.mu ≈ 1 atol = 0.05
+        end
+
+        # Without a space transformation only the likelihood shapes the
+        # result, the prior does not constrain it:
+        alg_notrafo = OptimAlg(optalg = Optim.NelderMead(), pretransform = DoNotTransform(), init = ExplicitInit([(mu = 0.2,)]))
+        r_u = bat_bgml(outside_lik, bounded_prior, alg_notrafo, context)
+        @test r_u.result.mu ≈ 3 atol = 0.05
+
+        # bat_bgml shares the default mode estimator of bat_findmode:
+        @test BAT.bat_default(bat_bgml, Val(:algorithm), likelihood, flat_prior) isa OptimAlg
+        r_default = bat_bgml(likelihood, flat_prior, context)
+        @test r_default.result.mu ≈ 1.2 atol = 0.01
+    end
+
+
     @testset "MaxDensitySearch" begin
         context = BATContext()
         @test @inferred(bat_findmode(samples, MaxDensitySearch(), context)).result isa NamedTuple
