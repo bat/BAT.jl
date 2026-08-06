@@ -16,14 +16,14 @@ abstract type AbstractModeEstimator end
         target::BAT.AnySampleable,
         [algorithm::BAT.AbstractModeEstimator],
         [context::BATContext]
-    )::DensitySampleVector
+    )
 
 Estimate the global mode of `target`.
 
 Returns a NamedTuple of the shape
 
 ```julia
-(result = X::DensitySampleVector, evaluated::EvaluatedMeasure, ...)
+(result = v, evaluated::EvaluatedMeasure, ...)
 ```
 
 (The field `evaluated` is only present if `target` is a measure.)
@@ -130,7 +130,7 @@ end
         target::DensitySampleVector,
         algorithm::AbstractModeEstimator,
         [context::BATContext]
-    )::DensitySampleVector
+    )
 
 *Experimental feature, not part of stable public API.*
 
