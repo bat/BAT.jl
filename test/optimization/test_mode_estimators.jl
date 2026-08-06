@@ -2,7 +2,7 @@ using BAT
 using Test
 
 using AutoDiffOperators
-using LinearAlgebra, Distributions, StatsBase, ValueShapes, Random123, DensityInterface
+using LinearAlgebra, Distributions, StatsBase, ValueShapes, Random, Random123, DensityInterface
 using UnPack, InverseFunctions
 import ForwardDiff
 using Optim, OptimizationOptimJL, OptimizationLBFGSB
@@ -156,6 +156,9 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
     end
 
     @testset "OptimizationBase.jl with custom options" begin # checks that options are correctly passed to OptimizationBase.jl
+        # ParticleSwarm draws from the global RNG, not from the context RNG,
+        # so seed it for deterministic results:
+        Random.seed!(0x424154)
         context = BATContext(rng = Philox4x((0, 0)))
         optimizer = OptimizationAlg(optalg = OptimizationOptimJL.ParticleSwarm(n_particles=10), maxiters=200, kwargs=(f_calls_limit=500,), pretransform=DoNotTransform())
 
