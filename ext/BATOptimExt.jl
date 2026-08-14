@@ -36,16 +36,17 @@ function BAT.maximize_density(f_logdensity, x_init::AbstractVector{<:Real}, algo
     f = fchain(f_logdensity, -)
     opts = convert_options(algorithm)
     optim_result = _optim_minimize(f, x_init, algorithm.optalg, opts, context)
-    r_optim = Optim.MaximizationWrapper(optim_result)
 
     # ToDo: Re-enable trace, make it type stable:
     #dummy_f_x = f(x_init) # ToDo: Avoid recomputation
     #trace_trafo = StructArray(;_neg_opt_trace(optim_result, x_init, dummy_f_x) ...)
 
-    ret_a = (result = Optim.minimizer(r_optim.res),)
+    ret_a = (result = Optim.minimizer(optim_result),)
     # Abstractly typed info field keeps the return type inferrable despite
-    # the type-unstable Optim result:
-    ret_b = @NamedTuple{info::Optim.MaximizationWrapper}((r_optim,))
+    # the type-unstable Optim result. Stored unwrapped: displaying an
+    # Optim.MaximizationWrapper is broken in Optim v1 (missing accessor
+    # forwarding in its show method):
+    ret_b = @NamedTuple{info::Optim.OptimizationResults}((optim_result,))
     return merge(ret_a, ret_b)
 end
 
