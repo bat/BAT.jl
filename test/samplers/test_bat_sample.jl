@@ -59,6 +59,9 @@ using StaticArrays: SVector
         empty_samples = DensitySampleVector(Vector{Vector{Float64}}(), Float64[])
         @test isempty(bat_sample(empty_samples, RandResampling(nsamples = 0), context).result)
 
+        zero_weight_samples = DensitySampleVector([[1.0], [2.0]], zeros(2), weight = zeros(2))
+        @test isempty(bat_sample(zero_weight_samples, RandResampling(nsamples = 0), context).result)
+
         n = 10^4
         logweights = -1000.0 .- (0:49)
         weighted_samples = DensitySampleVector(

@@ -102,17 +102,25 @@ end
 function bat_sample_impl(smpls::DensitySampleVector, algorithm::RandResampling, context::BATContext)
     n = algorithm.nsamples
     orig_idxs = eachindex(smpls)
-    isempty(smpls) && iszero(n) && return (result = smpls[Int[]],)
-    logweights = log.(smpls.weight)
-    scaled_weights = exp.(logweights .- maximum(logweights))
-    weights = FrequencyWeights(scaled_weights)
+    iszero(n) && return (result = smpls[Int[]],)
     # Always generate resampled_idxs on CPU for now:
     rng = get_rng(context)
-    resampled_idxs = sample(rng, orig_idxs, weights, n, replace=true, ordered=false)
+    resampled_idxs = _rand_resampling_indices(rng, orig_idxs, smpls.weight, n)
 
     samples = smpls[resampled_idxs]
     samples.weight .= 1
     (result = samples,)
+end
+
+function _rand_resampling_indices(rng, indices, weights::AbstractVector{<:Real}, n::Integer)
+    sample(rng, indices, FrequencyWeights(float(weights)), n, replace=true, ordered=false)
+end
+
+function _rand_resampling_indices(rng, indices, weights::AbstractVector{<:ULogarithmic}, n::Integer)
+    log_cumweights = accumulate(_logaddexp, log.(weights))
+    log_total = last(log_cumweights)
+    isfinite(log_total) || throw(ArgumentError("Weights must sum to a finite positive value"))
+    [indices[searchsortedfirst(log_cumweights, log(rand(rng)) + log_total)] for _ in 1:n]
 end
 
 
