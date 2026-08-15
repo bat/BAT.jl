@@ -235,6 +235,8 @@ end
 
 Rank-normalized split R-hat convergence test.
 
+Walker trajectories do not replace the required independent sampler chains.
+
 For each parameter, splits each MCMC trajectory into two halves and computes
 
 ```math
