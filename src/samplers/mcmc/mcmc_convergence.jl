@@ -161,7 +161,121 @@ end
 
 
 
-function bat_convergence_impl(samples::DensitySampleVector, algorithm::Union{GelmanRubinConvergence, BrooksGelmanConvergence}, context::BATContext)
+function _rank_normalized_draws(samples::AbstractVector{<:DensitySampleVector})
+    length(samples) >= 2 || throw(ArgumentError("Rank-normalized R-hat requires at least two chains."))
+    samples = mapreduce(vcat, samples) do chain
+        if !isempty(chain) && eltype(chain.info) <: MCMCSampleID
+            return [
+                unshaped.(chain[[info.walkerid == walkerid for info in chain.info]])
+                for walkerid in unique(getfield.(chain.info, :walkerid))
+            ]
+        end
+        [unshaped.(chain)]
+    end
+
+    draws = map(samples) do chain
+        all(w -> w >= 0 && isinteger(w), chain.weight) ||
+            throw(ArgumentError("Rank-normalized R-hat requires nonnegative integer-valued weights."))
+        [sample.v for sample in chain for _ in 1:Int(sample.weight)]
+    end
+
+    draw_count = length(first(draws))
+    all(length(chain) == draw_count for chain in draws) ||
+        throw(ArgumentError("Rank-normalized R-hat requires equal draw counts per chain."))
+    draw_count >= 4 ||
+        throw(ArgumentError("Rank-normalized R-hat requires at least four draws per chain."))
+
+    draws
+end
+
+function _rank_normalize(values::AbstractVector{<:Real})
+    ranks = tiedrank(values)
+    quantiles = (ranks .- 3 / 8) ./ (length(ranks) + 1 / 4)
+    quantile.(Normal(), quantiles)
+end
+
+function _split_rhat(values::AbstractVector{<:AbstractVector{<:Real}})
+    draw_count = length(first(values))
+    within = mean(var.(values))
+    between = draw_count * var(mean.(values))
+    sqrt(((draw_count - 1) / draw_count * within + between / draw_count) / within)
+end
+
+function _split_chains(values::AbstractVector{<:Real}, draw_count::Integer, nchains::Integer)
+    half_count = draw_count ÷ 2
+    chains = reshape(values, draw_count, nchains)
+    vcat(
+        [view(chains, 1:half_count, i) for i in 1:nchains],
+        [view(chains, draw_count - half_count + 1:draw_count, i) for i in 1:nchains],
+    )
+end
+
+function _rank_normalized_rhat(draws::AbstractVector{<:AbstractVector})
+    draw_count = length(first(draws))
+    nchains = length(draws)
+    nparams = length(first(first(draws)))
+
+    maximum(1:nparams) do parameter
+        values = reduce(vcat, (getindex.(chain, parameter) for chain in draws))
+        normalized = _rank_normalize(values)
+        folded = _rank_normalize(abs.(values .- median(values)))
+        max(
+            _split_rhat(_split_chains(normalized, draw_count, nchains)),
+            _split_rhat(_split_chains(folded, draw_count, nchains)),
+        )
+    end
+end
+
+
+"""
+    struct RankNormalizedRhatConvergence <: ConvergenceTest
+
+Rank-normalized split R-hat convergence test.
+
+For each parameter, splits each MCMC trajectory into two halves and computes
+
+```math
+\\widehat{R} = \\max\\left(
+    \\widehat{R}_{\\mathrm{split}}(\\operatorname{ranknorm}(x)),
+    \\widehat{R}_{\\mathrm{split}}(\\operatorname{ranknorm}(|x - \\operatorname{median}(x)|))
+\\right).
+```
+
+The default convergence threshold is `1.01`. Sample weights must be
+nonnegative integers; a sample with weight `w` is treated as `w` repeated
+draws.
+
+This is the rank-normalized and folded split R-hat diagnostic of
+[Vehtari et al. (2021)](https://doi.org/10.1214/20-BA1221).
+
+Constructors:
+
+* ```$(FUNCTIONNAME)(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
+"""
+@with_kw struct RankNormalizedRhatConvergence <: ConvergenceTest
+    threshold::Float64 = 1.01
+end
+
+export RankNormalizedRhatConvergence
+
+function bat_convergence_impl(samples::AbstractVector{<:DensitySampleVector}, algorithm::RankNormalizedRhatConvergence, ::BATContext)
+    max_rhat = _rank_normalized_rhat(_rank_normalized_draws(samples))
+    vt = ValueAndThreshold{max_rhat}(max_rhat, <=, algorithm.threshold)
+    converged = convert(Bool, vt)
+    @debug begin
+        success_str = converged ? "have" : "have *not*"
+        "Chains $success_str converged, max(rank-normalized R-hat) = $(vt.value), threshold = $(vt.threshold)"
+    end
+    (result = vt,)
+end
+
+
+
+function bat_convergence_impl(samples::DensitySampleVector, algorithm::Union{GelmanRubinConvergence, BrooksGelmanConvergence, RankNormalizedRhatConvergence}, context::BATContext)
     # create a vector of chains
     chains_ind = unique([i.chainid for i in samples.info])
     vector_chains = DensitySampleVector[]

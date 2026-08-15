@@ -40,6 +40,7 @@ using DensityInterface
         Normal(),
         TransformedMCMC(
             nchains = 1,
+            convergence = RankNormalizedRhatConvergence(),
             init = MCMCChainPoolInit(nsteps_init = 1),
             burnin = MCMCMultiCycleBurnin(max_ncycles = 0)
         )
