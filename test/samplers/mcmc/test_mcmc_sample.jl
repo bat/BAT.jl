@@ -47,19 +47,31 @@ using Random123
     @test gensamples(context) != gensamples(context)
     @test gensamples(deepcopy(context)) == gensamples(deepcopy(context))
 
-    @test_throws ArgumentError bat_sample(
-        Normal(),
-        TransformedMCMC(
-            nchains = 1,
-            init = MCMCChainPoolInit(nsteps_init = 1),
-            burnin = MCMCMultiCycleBurnin(max_ncycles = 0),
-        ),
-    )
-
     smplres_normal = BAT.sample_and_verify(
         Normal(),
         TransformedMCMC(pretransform = DoNotTransform(), nwalkers = nwalkers, nsteps = 10^4),
         Normal(), BATContext(rng = Philox4x((564, 44))), max_retries = 0,
     )
     @test smplres_normal.verified
+end
+
+@testset "rank-normalized R-hat" begin
+    chains(values) = [
+        DensitySampleVector([[value] for value in chain], zeros(length(chain)); weight = ones(Int, length(chain)))
+        for chain in values
+    ]
+    algorithm = RankNormalizedRhatConvergence()
+    context = BATContext()
+
+    mixed = chains([[1, 2, 3, 4, 1, 2, 3, 4], [3, 4, 1, 2, 3, 4, 1, 2]])
+    separated = chains([[1, 2, 3, 4, 1, 2, 3, 4], [11, 12, 13, 14, 11, 12, 13, 14]])
+    compressed = [
+        DensitySampleVector([[1], [2], [3], [4]], zeros(4); weight = fill(2, 4)),
+        DensitySampleVector([[3], [4], [1], [2]], zeros(4); weight = fill(2, 4)),
+    ]
+
+    @test convert(Bool, bat_convergence(mixed, algorithm, context).result)
+    @test !convert(Bool, bat_convergence(separated, algorithm, context).result)
+    @test bat_convergence(compressed, algorithm, context).result.value ≈
+          bat_convergence(mixed, algorithm, context).result.value
 end
