@@ -142,8 +142,9 @@ function convert_for(::typeof(evalmeasure), target)
     end
 end
 
-function evalmeasure(target, algorithm, context::BATContext)
+function evalmeasure(target, algorithm0, context::BATContext)
     orig_m = convert_for(evalmeasure, target)::BATMeasure
+    algorithm = batalgorithm(algorithm0)
     orig_context = deepcopy(context)
     eval_return = evalmeasure_impl(orig_m, algorithm, context)
     new_em = evalmeasure_postproc(orig_m, eval_return, algorithm, orig_context)

@@ -41,8 +41,9 @@ function bat_findmode end
 export bat_findmode
 
 
-function bat_findmode(target::MeasureLike, algorithm, context::BATContext)
+function bat_findmode(target::MeasureLike, algorithm0, context::BATContext)
     orig_context = deepcopy(context)
+    algorithm = batalgorithm(algorithm0)
 
     em = evalmeasure(target, algorithm, context)
     r = (;result = mode(em), evaluated = em, _evalresult_nt(em)...)
@@ -103,8 +104,9 @@ export bat_bgml
 
 function bat_bgml_impl end
 
-function bat_bgml(likelihood, prior, algorithm, context::BATContext)
+function bat_bgml(likelihood, prior, algorithm0, context::BATContext)
     orig_context = deepcopy(context)
+    algorithm = batalgorithm(algorithm0)
     r = bat_bgml_impl(likelihood, prior, algorithm, context)
     # The result is a likelihood maximizer, not a mode of the posterior
     # measure, so it must not be registered as one (no Val(:mode) here):
