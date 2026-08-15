@@ -6,6 +6,7 @@ using Test
 using Random, Distributions, StatsBase
 using LogarithmicNumbers: ULogarithmic
 using StableRNGs: StableRNG
+using StaticArrays: SVector
 
 
 @testset "bat_sample" begin
@@ -47,6 +48,16 @@ using StableRNGs: StableRNG
         @test sort(unique(samples_rdm.v)) == sort(result.v)#check it only samples from the 2-sample space
         # Means should agree up to the resampling noise, which scales with the spread of the base samples:
         @test isapprox(mean(samples_rdm), mean(result), atol = 0.01 * abs(result.v[1] - result.v[2]))
+
+        immutable_weighted_samples = DensitySampleVector(
+            [[1.0], [2.0]],
+            zeros(2),
+            weight = SVector(2.0, 2.0),
+        )
+        @test length(bat_sample(immutable_weighted_samples, RandResampling(nsamples = 1), context).result) == 1
+
+        empty_samples = DensitySampleVector(Vector{Vector{Float64}}(), Float64[])
+        @test isempty(bat_sample(empty_samples, RandResampling(nsamples = 0), context).result)
 
         n = 10^4
         logweights = -1000.0 .- (0:49)
