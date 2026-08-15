@@ -13,13 +13,64 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct MCMCMultiProposal{
+struct MCMCMultiProposal{
     P<:Vector{<:MCMCProposal},
     R<:Union{Vector{<:Integer}, Categorical}
 }<:MCMCProposal
-    # TODO: MD, should we put a default tuple of proposals, if so, what should it be?
-    proposals::P = (RandomWalk(), HamiltonianMC())
-    picking_rule::R = Categorical(1/length(proposals) .* ones(length(proposals)))
+    proposals::P
+    picking_rule::R
+
+    function MCMCMultiProposal{P, R}(
+        proposals::P,
+        picking_rule::R
+    ) where {
+        P<:Vector{<:MCMCProposal},
+        R<:Union{Vector{<:Integer}, Categorical}
+    }
+        isempty(proposals) && throw(ArgumentError("proposals must not be empty"))
+
+        picking_rule isa Vector && any(<=(0), picking_rule) && throw(ArgumentError(
+            "sequential picking_rule entries must be positive"
+        ))
+
+        length_picking_rule = picking_rule isa Categorical ? length(picking_rule.p) : length(picking_rule)
+        length_picking_rule == length(proposals) || throw(DimensionMismatch(
+            "picking_rule must have one entry per proposal"
+        ))
+
+        return new{P, R}(proposals, picking_rule)
+    end
+end
+
+function MCMCMultiProposal(
+    proposals::Vector{<:MCMCProposal},
+    picking_rule::Union{Vector{<:Integer}, Categorical}
+)
+    return MCMCMultiProposal{typeof(proposals), typeof(picking_rule)}(proposals, picking_rule)
+end
+
+function MCMCMultiProposal(
+    proposals::Tuple{Vararg{<:MCMCProposal}},
+    picking_rule::Union{Vector{<:Integer}, Categorical}
+)
+    return MCMCMultiProposal(collect(proposals), picking_rule)
+end
+
+function MCMCMultiProposal(
+    ; proposals::Union{Tuple{Vararg{<:MCMCProposal}}, Vector{<:MCMCProposal}} = [RandomWalk()],
+    picking_rule::Union{Nothing, Vector{<:Integer}, Categorical} = nothing
+)
+    isempty(proposals) && throw(ArgumentError("proposals must not be empty"))
+    picking_rule === nothing && (picking_rule = Categorical(fill(1 / length(proposals), length(proposals))))
+    return MCMCMultiProposal(proposals, picking_rule)
+end
+
+function MCMCMultiProposal(
+    proposal::MCMCMultiProposal;
+    proposals = proposal.proposals,
+    picking_rule = proposal.picking_rule
+)
+    return MCMCMultiProposal(proposals, picking_rule)
 end
 
 export MCMCMultiProposal
