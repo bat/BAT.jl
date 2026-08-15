@@ -23,6 +23,11 @@ end
 export MCMCChainPoolInit
 
 
+function _check_cluster_convergence(converged::Bool)
+    converged || error("k-means clustering of MCMC chain states did not converge")
+end
+
+
 function apply_trafo_to_init(f_transform::Function, initalg::MCMCChainPoolInit)
     MCMCChainPoolInit(
     initalg.init_tries_per_chain,
@@ -131,7 +136,7 @@ function mcmc_init!(
 
     if 2 <= m < size(modes, 2)
         clusters = kmeans(modes, m, init = KmCentralityAlg())
-        clusters.converged || error("k-means clustering of MCMC chain states did not converge")
+        _check_cluster_convergence(clusters.converged)
 
         mincosts = fill(Inf, m)
         mcmc_states_sel_idxs = fill(0, m)
@@ -144,7 +149,7 @@ function mcmc_init!(
             end
         end
 
-        @assert all(j -> j in tidxs, mcmc_states_sel_idxs)
+        all(j -> j in tidxs, mcmc_states_sel_idxs) || error("Failed to select one MCMC chain state per cluster")
 
         for i in sort(mcmc_states_sel_idxs)
             push!(final_mcmc_states, mcmc_states[i])
@@ -155,12 +160,12 @@ function mcmc_init!(
         push!(final_mcmc_states, mcmc_states[i])
         push!(final_outputs, outputs[i])
     else
-        @assert length(mcmc_states) == n_mc_states
-        resize!(final_mcmc_states, n_mc_states)
+        length(mcmc_states) == m || error("Expected $m viable MCMC chain states, got $(length(mcmc_states))")
+        resize!(final_mcmc_states, m)
         copyto!(final_mcmc_states, mcmc_states)
 
-        @assert length(outputs) == n_mc_states
-        resize!(final_outputs, n_mc_states)
+        length(outputs) == m || error("Expected $m MCMC chain outputs, got $(length(outputs))")
+        resize!(final_outputs, m)
         copyto!(final_outputs, outputs)
     end
 

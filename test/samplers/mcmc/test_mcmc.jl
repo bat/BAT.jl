@@ -4,6 +4,7 @@ using Test
 
 Test.@testset "mcmc" begin
     include("test_proposaldist.jl")
+    include("test_chain_pool_init.jl")
     include("test_mcmc_sample.jl")
     include("test_mh.jl")
     include("test_ram_tuner.jl")
