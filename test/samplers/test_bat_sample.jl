@@ -4,9 +4,9 @@ using BAT
 using Test
 
 using Random, Distributions, StatsBase
+using FillArrays: Fill
 using LogarithmicNumbers: ULogarithmic
 using StableRNGs: StableRNG
-using StaticArrays: SVector
 
 
 @testset "bat_sample" begin
@@ -52,7 +52,7 @@ using StaticArrays: SVector
         immutable_weighted_samples = DensitySampleVector(
             [[1.0], [2.0]],
             zeros(2),
-            weight = SVector(2.0, 2.0),
+            weight = Fill(2.0, 2),
         )
         @test length(bat_sample(immutable_weighted_samples, RandResampling(nsamples = 1), context).result) == 1
 

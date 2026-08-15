@@ -108,7 +108,13 @@ function bat_sample_impl(smpls::DensitySampleVector, algorithm::RandResampling, 
     resampled_idxs = _rand_resampling_indices(rng, orig_idxs, smpls.weight, n)
 
     samples = smpls[resampled_idxs]
-    samples.weight .= 1
+    samples = DensitySampleVector((
+        samples.v,
+        samples.logd,
+        ones(eltype(samples.weight), length(samples)),
+        samples.info,
+        samples.aux,
+    ))
     (result = samples,)
 end
 
