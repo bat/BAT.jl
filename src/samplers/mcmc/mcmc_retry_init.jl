@@ -40,6 +40,55 @@ function apply_trafo_to_init(f_transform::Function, initalg::MCMCRetryInit)
 end
 
 
+function _reset_mcmc_walkers!!(
+    state::MCMCState,
+    walker_idxs::AbstractVector{<:Integer},
+    x_init::AbstractVector
+)
+    chain_state = state.chain_state
+    n_walkers = length(walker_idxs)
+    @assert length(x_init) == n_walkers
+
+    logd_x_init = logdensityof.(chain_state.target, x_init)
+    sample_weights = zeros(eltype(chain_state.current.x.weight), n_walkers)
+    sample_info = [
+        MCMCSampleID(
+            chain_state.info.id,
+            Int32(walkerid),
+            chain_state.info.cycle,
+            zero(Int64),
+            get_active_proposal_idx(chain_state.proposal),
+            true
+        ) for walkerid in walker_idxs
+    ]
+    reset_samples = DensitySampleVector(
+        x_init,
+        logd_x_init;
+        weight = sample_weights,
+        info = sample_info,
+        aux = fill(nothing, n_walkers)
+    )
+    proposed_samples = deepcopy(reset_samples)
+    proposed_samples.info .= [
+        MCMCSampleID(
+            info.chainid,
+            info.walkerid,
+            info.chaincycle,
+            info.stepno,
+            info.proposalid,
+            false
+        ) for info in sample_info
+    ]
+
+    chain_state.current.x[walker_idxs] = reset_samples
+    chain_state.proposed.x[walker_idxs] = proposed_samples
+    chain_state.output[walker_idxs] = reset_samples
+    chain_state.accepted[walker_idxs] .= false
+
+    return mcmc_update_z_position!!(state)
+end
+
+
 function mcmc_init!(
     samplingalg::TransformedMCMC,
     target::BATMeasure,
@@ -79,15 +128,15 @@ function mcmc_init!(
 
         n_unviable_chains = 0
         for i in 1:nchains
-            unviable_walkers = findall(isempty.(outputs[i]) .&& (sum.(getfield.(outputs[i], :weight)) .< 1))
+            unviable_walkers = findall(isempty.(outputs[i]) .&& (sum.(getproperty.(outputs[i], :weight)) .< 1))
 
             if !isempty(unviable_walkers)
-                @debug "Rerolling starting positions for $(sum(unviable_walkers)) walkers in chain $i."
+                @debug "Rerolling starting positions for $(length(unviable_walkers)) walkers in chain $i."
                 n_unviable_chains += 1
 
                 new_context = set_rng(context, AbstractRNG(rngpart, i))
                 new_v_init = bat_ensemble_initvals(target, initval_alg, length(unviable_walkers), new_context)
-                mcmc_states[i].current.x.v[unviable_walkers] .= new_v_init
+                mcmc_states[i] = _reset_mcmc_walkers!!(mcmc_states[i], unviable_walkers, new_v_init)
             end
         end
 
