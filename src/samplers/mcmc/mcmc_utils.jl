@@ -16,11 +16,6 @@ function _cov_with_fallback(d::UnivariateDistribution, n::Integer)
     return C
 end
 
-function _cov_with_fallback(d::TDist, n::Integer)
-    Σ = PDMat(Matrix(I(n) * one(Float64)))
-end
-
-
 function _cov_with_fallback(d::MultivariateDistribution, n::Integer)
     rng = _bat_determ_rng()
     T = float(eltype(rand(rng, d)))
@@ -60,11 +55,6 @@ function _mean_with_fallback(d::UnivariateDistribution, n::Integer)
     end
     return m
 end
-
-function _mean_with_fallback(d::TDist, n::Integer) # include arg for desired type of output?
-    return ones(Float64, n) # technially only for degrees of freedom > 1
-end
-
 
 function _mean_with_fallback(d::MultivariateDistribution, n::Integer)
     rng = _bat_determ_rng()
