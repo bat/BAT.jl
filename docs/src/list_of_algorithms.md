@@ -152,32 +152,38 @@ BAT function: [`bat_findmode`](@ref)
 
 ### Optim.jl Optimization Algorithms
 
-BAT mode finding algorithm type: [`OptimAlg`](@ref).
+BAT mode finding algorithm type: [`TransformedMaxDensity`](@ref) with an
+[`OptimAlg`](@ref) backend.
 
 ```julia
 using Optim
-bat_findmode(target, OptimAlg(optalg = Optim.NelderMead()))
+bat_findmode(target, TransformedMaxDensity(optalg = OptimAlg(optalg = Optim.NelderMead())))
 
 import ForwardDiff
 set_batcontext(ad = ForwardDiff)
-bat_findmode(target, OptimAlg(optalg = Optim.LBFGS()))
+bat_findmode(target, TransformedMaxDensity(optalg = OptimAlg(optalg = Optim.LBFGS())))
 ```
+
+Bare backend configurations and raw Optim.jl optimizers are auto-wrapped in
+a `TransformedMaxDensity` with default settings, so
+`bat_findmode(target, Optim.NelderMead())` works as well.
 
 Requires the [Optim](https://github.com/JuliaNLSolvers/Optim.jl) Julia package to be loaded explicitly.
 
 
 ### OptimizationBase.jl Optimization Algorithms
 
-BAT mode finding algorithm type: [`OptimizationAlg`](@ref).
+BAT mode finding algorithm type: [`TransformedMaxDensity`](@ref) with an
+[`OptimizationAlg`](@ref) backend.
 
 ```julia
 using OptimizationOptimJL
 
-alg = OptimizationAlg(; 
-    optalg = OptimizationOptimJL.ParticleSwarm(n_particles=10), 
-    maxiters=200, 
+alg = TransformedMaxDensity(optalg = OptimizationAlg(;
+    optalg = OptimizationOptimJL.ParticleSwarm(n_particles=10),
+    maxiters=200,
     kwargs=(f_calls_limit=50,)
-)
+))
 bat_findmode(target, alg)
 ```
 Requires the desired package that implements the [OptimizationBase.jl](https://github.com/SciML/OptimizationBase.jl) interface to be loaded (e.g. via `import OptimizationOptimJL`).

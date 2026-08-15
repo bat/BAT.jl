@@ -64,7 +64,7 @@ using Optim
                 tX_finite = tX[findall(isfinite, fix_nni.(logdensityof(m).(tX)))]
                 @test isapprox(@inferred(broadcast(ForwardDiff.derivative, logdensityof(m), tX_finite)), broadcast(ForwardDiff.derivative, x -> logpdf(target_dist, x), tX_finite), atol = 10^-7)
 
-                @test minimum(target_dist) <= bat_findmode(m, OptimAlg(optalg = LBFGS(), pretransform = DoNotTransform()), context).result <= maximum(target_dist)
+                @test minimum(target_dist) <= bat_findmode(m, TransformedMaxDensity(optalg = OptimAlg(optalg = LBFGS()), pretransform = DoNotTransform()), context).result <= maximum(target_dist)
 
                 if f_transform.target_dist isa Union{BAT.StandardUvUniform,BAT.StandardMvUniform}
                     @test isapprox(bat_integrate(m, VEGASIntegration(pretransform = DoNotTransform()), context).result, 1, rtol = 10^-7)

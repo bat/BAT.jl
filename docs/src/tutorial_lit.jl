@@ -344,7 +344,7 @@ using Optim
 
 findmode_result = bat_findmode(
     posterior,
-    OptimAlg(optalg = Optim.NelderMead(), init = ExplicitInit([samples_mode]))
+    TransformedMaxDensity(optalg = OptimAlg(optalg = Optim.NelderMead()), init = ExplicitInit([samples_mode]))
 )
 
 fit_par_values = findmode_result.result

@@ -10,6 +10,7 @@ versions, but may still evolve in a API-breaking fashion during that process.
 
 ```@docs
 ARPWeighting
+BAT.batalgorithm
 bat_compare
 bat_integrated_autocorr_len
 bat_marginalmode

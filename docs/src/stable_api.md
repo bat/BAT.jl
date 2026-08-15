@@ -126,6 +126,7 @@ SturgesBinning
 SuaveIntegration
 ToRealVector
 TransformAlgorithm
+TransformedMaxDensity
 TransformedMCMC
 VEGASIntegration
 

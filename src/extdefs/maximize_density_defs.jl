@@ -1,20 +1,52 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-# TODO (breaking): Disentangle MaxDensityAlgorithm from AbstractModeEstimator,
-# create a mode estimator algorithm that pairs a MaxDensityAlgorithm with a
-# pretransform:
 const MaxDensityAlgorithm = Union{OptimAlg, OptimizationAlg}
 
 
-function evalmeasure_impl(measure::BATMeasure, algorithm::MaxDensityAlgorithm, context::BATContext)
+"""
+    struct TransformedMaxDensity <: AbstractModeEstimator
+
+Estimates the mode of a measure by maximizing its density numerically,
+searching in a transformed space.
+
+The search runs in the space induced by `pretransform` without applying
+the transformation's volume correction, so the result is a mode of the
+original density, not of the transformed one.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
+"""
+@with_kw struct TransformedMaxDensity{
+    A<:MaxDensityAlgorithm,
+    TR<:AbstractTransformTarget,
+    IA<:InitvalAlgorithm
+} <: AbstractModeEstimator
+    "Density maximization backend."
+    optalg::A = OptimAlg()
+    "Target space transformation to search in."
+    pretransform::TR = PriorToNormal()
+    "Initial point selection, applied in the transformed space."
+    init::IA = InitFromTarget()
+end
+export TransformedMaxDensity
+
+batalgorithm(optalg::MaxDensityAlgorithm) = TransformedMaxDensity(optalg = optalg)
+
+
+function evalmeasure_impl(measure::BATMeasure, algorithm::TransformedMaxDensity, context::BATContext)
     # Maximize the density of the original measure, searching in the
     # reparametrized space without applying its LADJ:
     transformed_density, f_pretransform = transform_and_unshape(algorithm.pretransform, measure, context)
     initalg = apply_trafo_to_init(f_pretransform, algorithm.init)
     x_init = collect(bat_initval(transformed_density, initalg, context).result)
     f = fchain(inverse(f_pretransform), checked_logdensityof(unevaluated(measure)))
-    r = maximize_density(f, x_init, algorithm, context)
+    r = maximize_density(f, x_init, algorithm.optalg, context)
     o = _optimum_result(r, f_pretransform)
     return EvalMeasureImplReturn(;
         modes = [o.result],
@@ -22,7 +54,7 @@ function evalmeasure_impl(measure::BATMeasure, algorithm::MaxDensityAlgorithm, c
     )
 end
 
-function bat_bgml_impl(likelihood, prior, algorithm::MaxDensityAlgorithm, context::BATContext)
+function bat_bgml_impl(likelihood, prior, algorithm::TransformedMaxDensity, context::BATContext)
     # Maximize the likelihood only:
     pr = batmeasure(prior)
     li = _convert_likelihood(likelihood, DensityKind(likelihood))
@@ -30,6 +62,6 @@ function bat_bgml_impl(likelihood, prior, algorithm::MaxDensityAlgorithm, contex
     initalg = apply_trafo_to_init(f_pretransform, algorithm.init)
     x_init = collect(bat_initval(transformed_pr, initalg, context).result)
     f = fchain(inverse(f_pretransform), checked_logdensityof(li))
-    r = maximize_density(f, x_init, algorithm, context)
+    r = maximize_density(f, x_init, algorithm.optalg, context)
     return _optimum_result(r, f_pretransform)
 end
