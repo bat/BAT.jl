@@ -4,6 +4,8 @@ using BAT
 using Test
 
 using Random, Distributions, StatsBase
+using LogarithmicNumbers: ULogarithmic
+using StableRNGs: StableRNG
 
 
 @testset "bat_sample" begin
@@ -45,6 +47,23 @@ using Random, Distributions, StatsBase
         @test sort(unique(samples_rdm.v)) == sort(result.v)#check it only samples from the 2-sample space
         # Means should agree up to the resampling noise, which scales with the spread of the base samples:
         @test isapprox(mean(samples_rdm), mean(result), atol = 0.01 * abs(result.v[1] - result.v[2]))
+
+        n = 10^4
+        logweights = -1000.0 .- (0:49)
+        weighted_samples = DensitySampleVector(
+            [[Float64(i)] for i in eachindex(logweights)],
+            zeros(length(logweights)),
+            weight = exp.(ULogarithmic, logweights),
+        )
+        resamples = bat_sample(
+            weighted_samples,
+            RandResampling(nsamples = n),
+            BATContext(rng = StableRNG(892374)),
+        ).result
+        expected_fraction = inv(sum(exp.(-(0:49))))
+
+        @test count(==(1.0), only.(resamples.v)) / n ≈ expected_fraction atol = 0.02
+        @test all(isone, resamples.weight)
     end
 
     @testset "OrderedResampling" begin #Creates new testset for OrderedResampling

@@ -102,7 +102,9 @@ end
 function bat_sample_impl(smpls::DensitySampleVector, algorithm::RandResampling, context::BATContext)
     n = algorithm.nsamples
     orig_idxs = eachindex(smpls)
-    weights = FrequencyWeights(float(smpls.weight))
+    scaled_weights = log.(smpls.weight)
+    scaled_weights .= exp.(scaled_weights .- maximum(scaled_weights))
+    weights = FrequencyWeights(scaled_weights)
     # Always generate resampled_idxs on CPU for now:
     rng = get_rng(context)
     resampled_idxs = sample(rng, orig_idxs, weights, n, replace=true, ordered=false)
