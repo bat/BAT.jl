@@ -18,6 +18,19 @@ using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
     nchains = 4
     nwalkers = 1
 
+    @testset "Two-walker iteration keeps outputs separate" begin
+        two_walker_samplingalg = TransformedMCMC(nchains = 1, nwalkers = 2)
+        v_inits = BAT.bat_ensemble_initvals(target, InitFromTarget(), 2, context)
+        mcmc_state = BAT.MCMCState(two_walker_samplingalg, target, 1, unshaped.(v_inits), deepcopy(context))
+        chain_output = BAT._empty_chain_outputs(mcmc_state)
+
+        BAT.mcmc_iterate!!(chain_output, mcmc_state; max_nsteps = 1, nonzero_weights = false)
+
+        @test chain_output[1] !== chain_output[2]
+        @test all(chain_output[1].info.walkerid .== Int32(1))
+        @test all(chain_output[2].info.walkerid .== Int32(2))
+    end
+
     samplingalg = TransformedMCMC(nchains = nchains, nwalkers = nwalkers)
  
     @testset "MCMC iteration" begin
