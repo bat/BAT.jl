@@ -113,6 +113,7 @@ PriorToNormal
 PriorToUniform
 RAMTuning
 RandomWalk
+RankNormalizedRhatConvergence
 RandResampling
 RepetitionWeighting
 RiceBinning

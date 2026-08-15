@@ -3,6 +3,7 @@
 using Test
 
 Test.@testset "mcmc" begin
+    include("test_mcmc_convergence.jl")
     include("test_proposaldist.jl")
     include("test_mcmc_sample.jl")
     include("test_mh.jl")
