@@ -29,6 +29,17 @@ using LinearAlgebra: Diagonal, ones
             @test sample_integral.err < err_max
         end
     end
+
+    @testset "non-integer weights" begin
+        dist = MvNormal(zeros(2), ones(2))
+        samples = bat_sample(dist, IIDSampling(nsamples=20), context).result
+        samples = DensitySampleVector(samples.v, samples.logd, weight=fill(0.75, length(samples)))
+        evaluated = EvaluatedMeasure(dist, samples=samples)
+
+        result = bat_integrate(evaluated, BridgeSampling(pretransform=DoNotTransform()), context).result
+        @test isfinite(result.val)
+    end
+
     test_integration(BridgeSampling(pretransform=DoNotTransform()), "funnel distribution", FunnelDistribution(), val_rtol = 15)
     #! ToDo: Fix this test, cause trouble on x86-32
     #test_integration(BridgeSampling(pretransform=DoNotTransform()), "multimodal student-t distribution", MultimodalStudentT(), val_rtol = 50)

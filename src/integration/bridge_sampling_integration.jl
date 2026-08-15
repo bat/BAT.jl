@@ -137,7 +137,7 @@ function bridge_sampling_integral(
     post_cov_pd = PDMat(cholesky(Positive, post_cov))
 
     proposal_measure = batmeasure(MvNormal(post_mean,post_cov_pd))
-    proposal_samples = bat_sample_impl(proposal_measure, IIDSampling(nsamples=Int(sum(second_batch.weight))), context).result
+    proposal_samples = bat_sample_impl(proposal_measure, IIDSampling(nsamples=round(Int, sum(second_batch.weight))), context).result
     proposal_measure = batmeasure(proposal_measure)
 
     bridge_sampling_integral(target_measure,second_batch,proposal_measure,proposal_samples,strict,ess_alg,context)
