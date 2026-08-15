@@ -118,6 +118,10 @@ bat_default(
 ) = MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
 function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::BATContext)
+    if samplingalg.nchains == 1 && samplingalg.convergence isa Union{GelmanRubinConvergence, BrooksGelmanConvergence}
+        throw(ArgumentError("$(nameof(typeof(samplingalg.convergence))) requires at least two chains. Use convergence = AssumeConvergence() to sample with one chain."))
+    end
+
     transformed_m, f_pretransform = transform_and_unshape(samplingalg.pretransform, m, context)
 
     mcmc_states, chain_outputs = mcmc_init!(

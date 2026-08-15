@@ -35,6 +35,15 @@ using DensityInterface
     context = BATContext()
     @test gensamples(context) != gensamples(context)
     @test gensamples(deepcopy(context)) == gensamples(deepcopy(context))
+
+    @test_throws ArgumentError bat_sample(
+        Normal(),
+        TransformedMCMC(
+            nchains = 1,
+            init = MCMCChainPoolInit(nsteps_init = 1),
+            burnin = MCMCMultiCycleBurnin(max_ncycles = 0)
+        )
+    )
     
     @test BAT.sample_and_verify(Normal(), TransformedMCMC(pretransform = DoNotTransform(), nwalkers = nwalkers, nsteps = 10^4)).verified
 end
