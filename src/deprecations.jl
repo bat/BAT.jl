@@ -3,6 +3,11 @@
 
 @deprecate bat_report(obj...) lazyreport(obj...)
 
+@noinline function bat_report(smplv::DensitySampleVector; kwargs...)
+    Base.depwarn("`bat_report` is deprecated, use `lazyreport` instead.", :bat_report)
+    lazyreport(smplv; kwargs...)
+end
+
 
 @noinline function MaxDensityNelderMead(; kwargs...)
     Base.depwarn("`MaxDensityNelderMead(;kwargs...)` is deprecated, use `OptimAlg(;optalg = Optim.NelderMead, kwargs...)` instead.", :MaxDensityNelderMead)

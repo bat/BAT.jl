@@ -2,6 +2,7 @@
 
 using BAT, BATTestCases
 using Distributions
+using LazyReports
 using StatsBase
 using Test
 
@@ -137,4 +138,57 @@ _SampleAux() = _SampleInfo(0)
 
         @test @inferred(isapprox(@inferred(cor(X, w, 2)), @inferred(cor(dsv_merged)), rtol=rtol))
     end
+end
+
+
+@testset "Credible interval probability" begin
+    values = collect(range(0.0, 1.0, length = 10_001)).^2
+
+    for (nsigma, credibility) in ((1, 28//41), (2, 42//44), (3, 369//370), (quantile(Normal(), 0.95), 90//100))
+        interval = only(BAT.smallest_credible_intervals(values; nsigma_equivalent = nsigma))
+        @test minimum(interval) == 0
+        @test maximum(interval) ≈ credibility^2
+    end
+
+    narrow_interval = only(BAT.smallest_credible_intervals(values; credibility = 0.0001))
+    @test minimum(narrow_interval) == 0
+    @test maximum(narrow_interval) ≈ 0.0001^2
+
+    wide_interval = only(BAT.smallest_credible_intervals(values; credibility = 0.9999))
+    @test minimum(wide_interval) == 0
+    @test maximum(wide_interval) ≈ 0.9999^2
+
+    narrowest_interval = only(BAT.smallest_credible_intervals(values; credibility = 0.00001))
+    @test maximum(narrowest_interval) - minimum(narrowest_interval) ≈ 1e-9
+
+    widest_interval = only(BAT.smallest_credible_intervals(values; credibility = 0.99999))
+    @test minimum(widest_interval) == 0
+    @test maximum(widest_interval) ≈ 0.99999^2
+end
+
+
+@testset "DensitySampleVector reports" begin
+    values = collect(-20.0:20.0)
+    samples = DensitySampleVector([[x] for x in values], -abs2.(values))
+
+    report_text = sprint(show, MIME("text/plain"), lazyreport(samples))
+
+    @test occursin("68.30% cred. interval", report_text)
+    @test occursin("95.50% cred. interval", report_text)
+    @test occursin("99.70% cred. interval", report_text)
+
+    custom_report = lazyreport(samples; intervals = [0.5, 0.9])
+    @test custom_report isa LazyReports.LazyReport
+    custom_report_text = sprint(show, MIME("text/plain"), custom_report)
+    @test occursin("50.00% cred. interval", custom_report_text)
+    @test occursin("90.00% cred. interval", custom_report_text)
+    @test !occursin("68.30% cred. interval", custom_report_text)
+
+    for invalid_intervals in ([0.0], [1.0], [-0.1], [NaN], [Inf], [-Inf])
+        @test_throws ArgumentError lazyreport(samples; intervals = invalid_intervals)
+    end
+
+    deprecated_report = @test_deprecated BAT.bat_report(samples; intervals = [0.9])
+    deprecated_report_text = sprint(show, MIME("text/plain"), deprecated_report)
+    @test occursin("90.00% cred. interval", deprecated_report_text)
 end
