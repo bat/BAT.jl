@@ -13,13 +13,27 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct MCMCMultiProposal{
+struct MCMCMultiProposal{
     P<:Vector{<:MCMCProposal},
     R<:Union{Vector{<:Integer}, Categorical}
 }<:MCMCProposal
-    # TODO: MD, should we put a default tuple of proposals, if so, what should it be?
-    proposals::P = MCMCProposal[RandomWalk(), HamiltonianMC()]
-    picking_rule::R = Categorical(1/length(proposals) .* ones(length(proposals)))
+    proposals::P
+    picking_rule::R
+end
+
+function MCMCMultiProposal(
+    proposals::Tuple{Vararg{<:MCMCProposal}},
+    picking_rule::Union{Vector{<:Integer}, Categorical}
+)
+    return MCMCMultiProposal(MCMCProposal[proposals...], picking_rule)
+end
+
+function MCMCMultiProposal(
+    ; proposals::Union{Tuple{Vararg{<:MCMCProposal}}, Vector{<:MCMCProposal}} = MCMCProposal[RandomWalk()],
+    picking_rule::Union{Nothing, Vector{<:Integer}, Categorical} = nothing
+)
+    picking_rule === nothing && (picking_rule = Categorical(fill(inv(length(proposals)), length(proposals))))
+    return MCMCMultiProposal(proposals, picking_rule)
 end
 
 export MCMCMultiProposal
