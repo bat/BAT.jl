@@ -118,7 +118,7 @@ bat_default(
 ) = MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
 function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::BATContext)
-    if samplingalg.nchains == 1 && !(samplingalg.convergence isa AssumeConvergence)
+    if samplingalg.nchains == 1 && samplingalg.convergence isa MultiChainConvergenceTest
         throw(ArgumentError("$(nameof(typeof(samplingalg.convergence))) requires at least two chains. Use convergence = AssumeConvergence() to sample with one chain."))
     end
 

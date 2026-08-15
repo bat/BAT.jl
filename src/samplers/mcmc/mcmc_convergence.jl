@@ -1,6 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+abstract type MultiChainConvergenceTest <: ConvergenceTest end
+
+
 function check_convergence!(
     chains::AbstractVector{<:MCMCIterator},
     samples::AbstractVector{<:DensitySampleVector},
@@ -61,7 +64,7 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct GelmanRubinConvergence <: ConvergenceTest
+@with_kw struct GelmanRubinConvergence <: MultiChainConvergenceTest
     threshold::Float64 = 1.1
 end
 
@@ -141,7 +144,7 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct BrooksGelmanConvergence <: ConvergenceTest
+@with_kw struct BrooksGelmanConvergence <: MultiChainConvergenceTest
     threshold::Float64 = 1.1
     corrected::Bool = false
 end
@@ -256,7 +259,7 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct RankNormalizedRhatConvergence <: ConvergenceTest
+@with_kw struct RankNormalizedRhatConvergence <: MultiChainConvergenceTest
     threshold::Float64 = 1.01
 end
 
@@ -275,7 +278,7 @@ end
 
 
 
-function bat_convergence_impl(samples::DensitySampleVector, algorithm::Union{GelmanRubinConvergence, BrooksGelmanConvergence, RankNormalizedRhatConvergence}, context::BATContext)
+function bat_convergence_impl(samples::DensitySampleVector, algorithm::MultiChainConvergenceTest, context::BATContext)
     # create a vector of chains
     chains_ind = unique([i.chainid for i in samples.info])
     vector_chains = DensitySampleVector[]
