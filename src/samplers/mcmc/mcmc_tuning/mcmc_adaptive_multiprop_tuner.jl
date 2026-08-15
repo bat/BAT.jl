@@ -117,7 +117,7 @@ function mcmc_proposal_tuning_finalize!!(
         else
             N = sum(picking_rule)
             p_unnorm = picking_rule .* component_tuning_successes
-            picking_rule_new = round.(Integer, p_unnorm .* (N / sum(p_unnorm)))
+            picking_rule_new = _integer_picking_rule(p_unnorm, N)
         end
     else
         picking_rule_new = picking_rule
@@ -142,7 +142,7 @@ function mcmc_tune_proposal_post_step!!(
     acc_new = accept_prob[active_idx] * (1-alpha) + mean(p_accept) * alpha
     accept_prob[active_idx] = acc_new
 
-    picking_rule_tuned = _tune_picking_rule(picking_rule, acc_new, curr_idx, picking_socket, N)
+    picking_rule_tuned = _tune_picking_rule(picking_rule, acc_new, active_idx, picking_socket, N)
 
     multi_proposal_tuned = @set multi_proposal.picking_rule = picking_rule_tuned
 
@@ -156,76 +156,92 @@ function _tune_picking_rule(
     picking_socket::Float64,
     N::Integer
 )
-    p_tuned = picking_rule.p
+    p_tuned = copy(picking_rule.p)
     p_tuned[curr_idx] = acc_new
     p_tuned .*= (1 - picking_socket) / sum(p_tuned)
-    p_tuned .+= picking_socket / N  
+    p_tuned .+= picking_socket / N
     return Categorical(p_tuned)
 end
 
 function _tune_picking_rule(
-    picking_rule::Tuple,
+    picking_rule::AbstractVector{<:Integer},
     acc_new::Float64,
     curr_idx::Integer,
     picking_socket::Float64,
     N::Integer
 )
-    norm = sum(picking_rule)
-    picking_rule_tuned = picking_rule ./ norm
+    total_weight = sum(picking_rule)
+    picking_rule_tuned = picking_rule ./ total_weight
     picking_rule_tuned[curr_idx] = acc_new
-    picking_rule_tuned .*=  (1 - picking_socket) / sum(picking_rule_tuned)
+    picking_rule_tuned .*= (1 - picking_socket) / sum(picking_rule_tuned)
     picking_rule_tuned .+= picking_socket / N
 
-    return round.(Integer, picking_rule_tuned * norm)
+    return _integer_picking_rule(picking_rule_tuned, total_weight)
+end
+
+function _integer_picking_rule(
+    picking_probabilities::AbstractVector{<:Real},
+    total_weight::Integer
+)
+    scaled_weights = picking_probabilities .* (total_weight / sum(picking_probabilities))
+    picking_rule = floor.(Int, scaled_weights)
+    remainder = total_weight - sum(picking_rule)
+
+    if remainder > 0
+        fractional_parts = scaled_weights .- picking_rule
+        largest_fractional_parts = sortperm(fractional_parts; rev = true)
+        picking_rule[largest_fractional_parts[1:remainder]] .+= 1
+    end
+
+    return picking_rule
 end
 
 function _qualify_picking_rule(
     picking_rule::Categorical,
-    tuning_qualities::Tuple,
+    tuning_qualities::AbstractVector{<:Real},
     picking_socket::Float64,
     N_props::Integer
 )
     valid_proposals = picking_rule.p .> 0.0
-    @assert any(valid_proposals) throw Error("All proposals have picking probability 0!")
+    @assert any(valid_proposals) "All proposals have picking probability 0!"
 
-    p_tuned = picking_rule.p
+    p_tuned = copy(picking_rule.p)
     p_tuned .*= tuning_qualities
 
     if any(p_tuned .> 0)
         p_tuned ./= sum(p_tuned)
 
-        p_tuned .*= (1 - picking_socket) / sum(p_tuned)
+        p_tuned .*= 1 - picking_socket
         p_tuned .+= picking_socket / N_props
     else
-        p_tuned[valid_proposals] .= 1/sum(valid_proposals)
-        @warn "No proposal was tuned to its target acceptance interval."        
+        fill!(p_tuned, 0)
+        p_tuned[valid_proposals] .= 1 / sum(valid_proposals)
+        @warn "No proposal was tuned to its target acceptance interval."
     end
 
     return Categorical(p_tuned)
 end
 
 function _qualify_picking_rule(
-    picking_rule::Tuple,
-    tuning_qualities::Tuple,
+    picking_rule::AbstractVector{<:Integer},
+    tuning_qualities::AbstractVector{<:Real},
     picking_socket::Float64,
     N_props::Integer
 )
-    N = sum(picking_rule)
-    valid_proposals = picking_rule .> 0 
-    @assert any(valid_proposals) throw Error("All proposals have picking probability 0!")
+    total_weight = sum(picking_rule)
+    valid_proposals = picking_rule .> 0
+    @assert any(valid_proposals) "All proposals have picking probability 0!"
 
-    picking_rule_tuned = picking_rule ./ N
+    picking_rule_tuned = picking_rule ./ total_weight
     picking_rule_tuned .*= tuning_qualities
 
     if any(picking_rule_tuned .> 0)
-        picking_rule_tuned .*= (1 - picking_socket) / sum(p_tuned)
+        picking_rule_tuned .*= (1 - picking_socket) / sum(picking_rule_tuned)
         picking_rule_tuned .+= picking_socket / N_props
-       
-        picking_rule_tuned = round.(Integer, picking_rule_tuned .* N)
     else
-        picking_rule_tuned[valid_proposals] = sum(valid_proposals) / N
-        picking_rule_tuned = round.(Integer, picking_rule_tuned .* N)
+        fill!(picking_rule_tuned, 0)
+        picking_rule_tuned[valid_proposals] .= 1 / sum(valid_proposals)
     end
 
-    return picking_rule_tuned 
+    return _integer_picking_rule(picking_rule_tuned, total_weight)
 end
