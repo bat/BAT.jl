@@ -6,6 +6,7 @@ using Distributions
 using ValueShapes
 using IntervalSets
 using LinearAlgebra: Diagonal, ones
+using Random: Xoshiro
 
 
 @testset "bridge_sampling_integration" begin
@@ -30,14 +31,56 @@ using LinearAlgebra: Diagonal, ones
         end
     end
 
-    @testset "non-integer weights" begin
-        dist = MvNormal(zeros(2), ones(2))
-        samples = bat_sample(dist, IIDSampling(nsamples=20), context).result
-        samples = DensitySampleVector(samples.v, samples.logd, weight=fill(0.75, length(samples)))
-        evaluated = EvaluatedMeasure(dist, samples=samples)
+    @testset "weight scale invariance" begin
+        function integrate_with_weights(weights)
+            context = BATContext(rng=Xoshiro(165))
+            dist = MvNormal(zeros(1), ones(1))
+            samples = bat_sample(dist, IIDSampling(nsamples=length(weights)), context).result
+            samples = DensitySampleVector(samples.v, samples.logd, weight=weights)
+            evaluated = EvaluatedMeasure(dist, samples=samples)
+            bat_integrate(evaluated, BridgeSampling(), context).result
+        end
 
-        result = bat_integrate(evaluated, BridgeSampling(pretransform=DoNotTransform()), context).result
-        @test isfinite(result.val)
+        uniform_results = integrate_with_weights.((
+            ones(3),
+            fill(0.75, 3),
+            fill(1 / 3, 3),
+        ))
+        unequal_weights = [1.0, 2.0, 3.0]
+        unequal_results = integrate_with_weights.((
+            unequal_weights,
+            unequal_weights / sum(unequal_weights),
+        ))
+        long_unequal_weights = collect(1.0:16.0)
+        long_unequal_results = integrate_with_weights.((
+            long_unequal_weights,
+            long_unequal_weights / sum(long_unequal_weights),
+        ))
+
+        for result in (uniform_results..., unequal_results..., long_unequal_results...)
+            @test isfinite(result.val)
+            @test isfinite(result.err)
+        end
+        for result in uniform_results[2:end]
+            @test result.val ≈ uniform_results[1].val rtol=1e-12
+            @test result.err ≈ uniform_results[1].err rtol=1e-12
+        end
+        @test unequal_results[2].val ≈ unequal_results[1].val rtol=1e-12
+        @test unequal_results[2].err ≈ unequal_results[1].err rtol=1e-12
+        @test long_unequal_results[2].val ≈ long_unequal_results[1].val rtol=1e-12
+        @test long_unequal_results[2].err ≈ long_unequal_results[1].err rtol=1e-12
+    end
+
+    @testset "finite ESS for short weighted samples" begin
+        samples = DensitySampleVector(
+            [[0.0], [1.0]],
+            zeros(2),
+            weight=fill(0.75, 2),
+        )
+        ess = only(bat_eff_sample_size(samples, EffSampleSizeFromAC(), context).result)
+
+        @test isfinite(ess)
+        @test ess > 0
     end
 
     test_integration(BridgeSampling(pretransform=DoNotTransform()), "funnel distribution", FunnelDistribution(), val_rtol = 15)

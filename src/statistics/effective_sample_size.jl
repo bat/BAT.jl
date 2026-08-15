@@ -128,11 +128,15 @@ end
 export EffSampleSizeFromAC
 
 
+_ess_from_autocorr_len(n::Integer, tau_int::Real) =
+    isfinite(tau_int) && tau_int > 0 ? min(n, n / tau_int) : float(n)
+
+
 
 function bat_eff_sample_size_impl(v::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}}, algorithm::EffSampleSizeFromAC, context::BATContext)
     tau_int = bat_integrated_autocorr_len_impl(v, algorithm.acalg, context).result
     n = length(eachindex(v))
-    ess = min.(n, n./ tau_int)
+    ess = _ess_from_autocorr_len.(n, tau_int)
     (result = ess,)
 end
 
@@ -142,7 +146,7 @@ function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::EffSamp
     unshaped_smpls = unshaped.(smpls)
     n = length(eachindex(unshaped_smpls))
 
-    W = unshaped_smpls.weight
+    W = unshaped_smpls.weight ./ sum(unshaped_smpls.weight)
     w0 = first(W)
 
     unshaped_ess = if all(w -> w ≈ w0, W)
@@ -156,11 +160,18 @@ function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::EffSamp
 
         n_resample = round(Int, n * resampling_factor)
 
-        # RNG seed for resampling should be the same for the same samples:
-        rng_seed = trunc(UInt64, mean(W) * n)
+        # Use the same RNG stream for equivalent relative weights:
+        rng_seed = UInt64(n)
         context = BATContext(rng = Philox4x((0x0, rng_seed))::Philox4x{UInt64,10})
 
-        unweighted_smpls = bat_sample_impl(unshaped_smpls, OrderedResampling(nsamples = n_resample), context).result
+        normalized_smpls = DensitySampleVector((
+            unshaped_smpls.v,
+            unshaped_smpls.logd,
+            W,
+            unshaped_smpls.info,
+            unshaped_smpls.aux,
+        ))
+        unweighted_smpls = bat_sample_impl(normalized_smpls, OrderedResampling(nsamples = n_resample), context).result
         resampled_ess = bat_eff_sample_size_impl(unweighted_smpls.v, algorithm, context).result
         min.(n, resampled_ess)
     end
