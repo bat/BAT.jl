@@ -169,7 +169,7 @@ import ForwardDiff, Zygote
         posterior = PosteriorMeasure(likelihood, inner_posterior)
         trafo_samplingalg = TransformedMCMC(proposal = HamiltonianMC(), 
                                             transform_tuning = BAT.StanLikeTuning(), 
-                                            pretransform = PriorToNormal(),
+                                            pretransform = NormalBased(),
                                             nwalkers = nwalkers
                                            )
         @test BAT.sample_and_verify(posterior, trafo_samplingalg, prior.dist, context).verified

@@ -99,7 +99,7 @@ using Optim
         prior = HierarchicalDistribution(f_secondary, primary_dist)
         likelihood = logfuncdensity(logdensityof(varshape(prior)(MvNormal(Diagonal(fill(1.0, totalndof(varshape(prior))))))))
         m = PosteriorMeasure(likelihood, prior)
-        hmc_samples = bat_sample(m, TransformedMCMC(proposal = HamiltonianMC(), pretransform = PriorToNormal(), nsteps = 10^4), context).result
+        hmc_samples = bat_sample(m, TransformedMCMC(proposal = HamiltonianMC(), pretransform = NormalBased(), nsteps = 10^4), context).result
         is_samples = bat_sample(m, PriorImportanceSampler(nsamples = 10^4), context).result
         # Compare the means on the scale of the distribution itself: most of
         # these variates have a mean close to zero, where a relative tolerance

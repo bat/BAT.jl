@@ -13,8 +13,8 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct SobolSampler{TR<:AbstractTransformTarget} <: AbstractSamplingAlgorithm
-    pretransform::TR = PriorToUniform()
+@with_kw struct SobolSampler{TR<:TransformIntent} <: AbstractSamplingAlgorithm
+    pretransform::TR = UniformBased()
     nsamples::Int = 10^5
 end
 export SobolSampler
@@ -36,8 +36,8 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct GridSampler{TR<:AbstractTransformTarget} <: AbstractSamplingAlgorithm
-    pretransform::TR = PriorToUniform()
+@with_kw struct GridSampler{TR<:TransformIntent} <: AbstractSamplingAlgorithm
+    pretransform::TR = UniformBased()
     ppa::Int = 100
 end
 export GridSampler

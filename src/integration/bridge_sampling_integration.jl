@@ -16,8 +16,8 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct BridgeSampling{TR<:AbstractTransformTarget,ESS<:EffSampleSizeAlgorithm} <: IntegrationAlgorithm
-    pretransform::TR = PriorToNormal()    
+@with_kw struct BridgeSampling{TR<:TransformIntent,ESS<:EffSampleSizeAlgorithm} <: IntegrationAlgorithm
+    pretransform::TR = NormalBased()    
     essalg::ESS = EffSampleSizeFromAC()
     strict::Bool = true
     # ToDo: add argument for proposal density generator

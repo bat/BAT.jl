@@ -30,8 +30,8 @@ $(TYPEDFIELDS)
     [UltraNest](https://github.com/bat/UltraNest.jl) package is loaded (e.g. via
     `import UltraNest`).
 """
-@with_kw struct ReactiveNestedSampling{TR<:AbstractTransformTarget,VC<:Union{Function,Nothing},Ex} <: AbstractSamplingAlgorithm
-    pretransform::TR = (pkgext(Val(:UltraNest)); PriorToUniform())
+@with_kw struct ReactiveNestedSampling{TR<:TransformIntent,VC<:Union{Function,Nothing},Ex} <: AbstractSamplingAlgorithm
+    pretransform::TR = (pkgext(Val(:UltraNest)); UniformBased())
 
     # "Indicating whether this parameter wraps around (circular parameter)"
     # wrapped_params::Array{Bool}

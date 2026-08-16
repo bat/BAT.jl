@@ -55,7 +55,7 @@ lbqintegral
 
 AbstractMCMCWeightingScheme
 AbstractPosteriorMeasure
-AbstractTransformTarget
+TransformIntent
 AdaptiveAffineTuning
 AdaptiveMultiPropTuning
 AssumeConvergence
@@ -111,8 +111,8 @@ OptimizationAlg
 OrderedResampling
 PosteriorMeasure
 PriorSubstitution
-PriorToNormal
-PriorToUniform
+NormalBased
+UniformBased
 RAMTuning
 RandomWalk
 RandResampling

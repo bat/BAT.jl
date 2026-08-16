@@ -145,8 +145,8 @@ $(TYPEDFIELDS)
     is loaded (e.g. via
     `import`).
 """
-@with_kw struct EllipsoidalNestedSampling{TR<:AbstractTransformTarget} <: AbstractSamplingAlgorithm
-    pretransform::TR = (pkgext(Val(:NestedSamplers)); PriorToUniform())
+@with_kw struct EllipsoidalNestedSampling{TR<:TransformIntent} <: AbstractSamplingAlgorithm
+    pretransform::TR = (pkgext(Val(:NestedSamplers)); UniformBased())
 
     "Number of live-points."
     num_live_points::Int = 1000

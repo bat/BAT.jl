@@ -17,7 +17,7 @@ $(TYPEDFIELDS)
 @with_kw struct TransformedMCMC{
     PR<:MCMCProposal,
     PRT<:MCMCProposalTuning,
-    TR<:AbstractTransformTarget,
+    TR<:TransformIntent,
     AT<:AbstractAdaptiveTransform,
     ATT<:MCMCTransformTuning,
     TE<:MCMCTempering,
@@ -74,13 +74,13 @@ bat_default(
     ::Type{TransformedMCMC}, 
     ::Val{:pretransform},
     ::MCMCProposal
-) = PriorToNormal()
+) = NormalBased()
 
 bat_default(
     ::Type{TransformedMCMC}, 
     ::Val{:nwalkers}, 
     ::MCMCProposal, 
-    ::AbstractTransformTarget, 
+    ::TransformIntent, 
     ::MCMCTransformTuning, 
     nchains::Integer
 ) = 1
@@ -89,7 +89,7 @@ bat_default(
     ::Type{TransformedMCMC}, 
     ::Val{:nsteps}, 
     ::MCMCProposal, 
-    ::AbstractTransformTarget, 
+    ::TransformIntent, 
     ::MCMCTransformTuning, 
     nchains::Integer, 
     nwalkers::Integer
@@ -99,7 +99,7 @@ bat_default(
     ::Type{TransformedMCMC}, 
     ::Val{:init}, 
     ::MCMCProposal, 
-    ::AbstractTransformTarget, 
+    ::TransformIntent, 
     ::MCMCTransformTuning, 
     nchains::Integer, 
     nwalkers::Integer, 
@@ -110,7 +110,7 @@ bat_default(
     ::Type{TransformedMCMC}, 
     ::Val{:burnin}, 
     ::MCMCProposal, 
-    ::AbstractTransformTarget, 
+    ::TransformIntent, 
     ::MCMCTransformTuning, 
     nchains::Integer, 
     nwalkers::Integer, 

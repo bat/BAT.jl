@@ -24,13 +24,13 @@ $(TYPEDFIELDS)
 """
 @with_kw struct TransformedMaxDensity{
     A<:MaxDensityAlgorithm,
-    TR<:AbstractTransformTarget,
+    TR<:TransformIntent,
     IA<:InitvalAlgorithm
 } <: AbstractModeEstimator
     "Density maximization backend."
     optalg::A = OptimAlg()
     "Target space transformation to search in."
-    pretransform::TR = PriorToNormal()
+    pretransform::TR = NormalBased()
     "Initial point selection, applied in the transformed space."
     init::IA = InitFromTarget()
 end

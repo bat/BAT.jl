@@ -19,8 +19,8 @@ $(TYPEDFIELDS)
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """
-@with_kw struct VEGASIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
-    pretransform::TR = PriorToUniform()
+@with_kw struct VEGASIntegration{TR<:TransformIntent} <: IntegrationAlgorithm
+    pretransform::TR = UniformBased()
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))
@@ -54,8 +54,8 @@ $(TYPEDFIELDS)
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """
-@with_kw struct SuaveIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
-    pretransform::TR = PriorToUniform()
+@with_kw struct SuaveIntegration{TR<:TransformIntent} <: IntegrationAlgorithm
+    pretransform::TR = UniformBased()
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))
@@ -89,8 +89,8 @@ $(TYPEDFIELDS)
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """
-@with_kw struct DivonneIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
-    pretransform::TR = PriorToUniform()
+@with_kw struct DivonneIntegration{TR<:TransformIntent} <: IntegrationAlgorithm
+    pretransform::TR = UniformBased()
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))
@@ -130,8 +130,8 @@ $(TYPEDFIELDS)
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """
-@with_kw struct CuhreIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
-    pretransform::TR = PriorToUniform()
+@with_kw struct CuhreIntegration{TR<:TransformIntent} <: IntegrationAlgorithm
+    pretransform::TR = UniformBased()
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))

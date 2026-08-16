@@ -2,15 +2,20 @@
 
 
 """
-    abstract type AbstractTransformTarget
+    abstract type TransformIntent
 
-Abstract type for probability density transformation targets.
+Abstract type for variate space transformation intents.
+
+A `TransformIntent`, together with an object to be transformed, implies a
+concrete transformation function; the same intent and object always yield
+the same transformation. Implementations must derive the transformation
+from the intent and the object alone.
 """
-abstract type AbstractTransformTarget end
-export AbstractTransformTarget
+abstract type TransformIntent end
+export TransformIntent
 
-AbstractTransformTarget(::Type{Vector}) = ToRealVector()
-Base.convert(::Type{AbstractTransformTarget}, x) = AbstractTransformTarget(x)
+TransformIntent(::Type{Vector}) = ToRealVector()
+Base.convert(::Type{TransformIntent}, x) = TransformIntent(x)
 
 
 """
@@ -24,7 +29,7 @@ export TransformAlgorithm
 
 """
     bat_transform(
-        how::AbstractTransformTarget,
+        how::TransformIntent,
         object,
         [algorithm::TransformAlgorithm]
     )
@@ -35,8 +40,9 @@ export TransformAlgorithm
         [algorithm::TransformAlgorithm]
     )
 
-Transform `object` to another variate space defined/implied by `target`,
-res. using the transformation function `f`.
+Transform `object` to another variate space: either as implied by the
+[`TransformIntent`](@ref) `how` together with `object`, or using a given
+invertible transformation function `f` directly.
 
 Returns a NamedTuple of the shape
 
@@ -64,7 +70,7 @@ export bat_transform
 
 
 _convert_trafo_how(trafo_how) = trafo_how
-_convert_trafo_how(::Type{<:Vector}) = AbstractTransformTarget(Vector)
+_convert_trafo_how(::Type{<:Vector}) = TransformIntent(Vector)
 
 _convert_trafor_from(trafo_from) = trafo_from
 _convert_trafor_from(d::Distribution) = batmeasure(d)
@@ -99,7 +105,7 @@ end
 
 
 """
-    struct DoNotTransform <: AbstractTransformTarget
+    struct DoNotTransform <: TransformIntent
 
 The identity density transformation target, specifies that densities
 should not be transformed.
@@ -108,7 +114,7 @@ Constructors:
 
 * ```$(FUNCTIONNAME)()```
 """
-struct DoNotTransform <: AbstractTransformTarget end
+struct DoNotTransform <: TransformIntent end
 export DoNotTransform
 
 
@@ -132,7 +138,7 @@ end
 
 
 """
-    struct ToRealVector <: AbstractTransformTarget
+    struct ToRealVector <: TransformIntent
 
 Specifies that the input should be transformed into a measure over the space
 of real-valued flat vectors.
@@ -141,49 +147,52 @@ Constructors:
 
 * ```$(FUNCTIONNAME)()```
 """
-struct ToRealVector <: AbstractTransformTarget end
+struct ToRealVector <: TransformIntent end
 export ToRealVector
 
 
-# ToDo: Merge PriorToUniform and PriorToNormal into PriorTo{Uniform|Normal}.
-
 """
-    struct PriorToUniform <: AbstractTransformTarget
+    struct UniformBased <: TransformIntent
 
-Specifies that posterior densities should be transformed in a way that makes
-their pior equivalent to a uniform distribution over the unit hypercube.
+Specifies that the target measure of an operation should be transformed
+so that it is based on a uniform distribution over the unit hypercube:
+the prior — descending through nested posteriors to the innermost prior —
+becomes standard uniform. Applies to any measure with such a
+transformable base, not just posteriors.
 
 Constructors:
 
 * ```$(FUNCTIONNAME)()```
 """
-struct PriorToUniform <: AbstractTransformTarget end
-export PriorToUniform
+struct UniformBased <: TransformIntent end
+export UniformBased
 
-_distmeasure_trafo(target::PriorToUniform, density::BATDistMeasure) = DistributionTransform(Uniform, Distribution(density))
+_distmeasure_trafo(intent::UniformBased, density::BATDistMeasure) = DistributionTransform(Uniform, Distribution(density))
 
-function bat_transform_impl(target::PriorToUniform, density::BATDistMeasure{<:StandardUniformDist}, algorithm::IdentityTransformAlgorithm, context::BATContext)
+function bat_transform_impl(intent::UniformBased, density::BATDistMeasure{<:StandardUniformDist}, algorithm::IdentityTransformAlgorithm, context::BATContext)
     (result = density, f_transform = identity)
 end
 
 
 """
-    struct PriorToNormal <: AbstractTransformTarget
+    struct NormalBased <: TransformIntent
 
-Specifies that posterior densities should be transformed in a way that makes
-their pior equivalent to a standard multivariate normal distribution with an
-identity covariance matrix.
+Specifies that the target measure of an operation should be transformed
+so that it is based on a standard multivariate normal distribution:
+the prior — descending through nested posteriors to the innermost prior —
+becomes standard normal. Applies to any measure with such a
+transformable base, not just posteriors.
 
 Constructors:
 
 * ```$(FUNCTIONNAME)()```
 """
-struct PriorToNormal <: AbstractTransformTarget end
-export PriorToNormal
+struct NormalBased <: TransformIntent end
+export NormalBased
 
-_distmeasure_trafo(target::PriorToNormal, density::BATDistMeasure) = DistributionTransform(Normal, Distribution(density))
+_distmeasure_trafo(intent::NormalBased, density::BATDistMeasure) = DistributionTransform(Normal, Distribution(density))
 
-function bat_transform_impl(target::PriorToNormal, density::BATDistMeasure{<:StandardNormalDist}, algorithm::IdentityTransformAlgorithm, context::BATContext)
+function bat_transform_impl(intent::NormalBased, density::BATDistMeasure{<:StandardNormalDist}, algorithm::IdentityTransformAlgorithm, context::BATContext)
     (result = density, f_transform = identity)
 end
 
@@ -209,15 +218,15 @@ _get_deep_prior_for_trafo(m::AbstractPosteriorMeasure) = _get_deep_prior_for_tra
 _get_deep_prior_for_trafo(em::EvaluatedMeasure) = _get_deep_prior_for_trafo(unevaluated(em))
 
 
-function bat_transform_impl(target::Union{PriorToUniform,PriorToNormal}, m::AbstractPosteriorMeasure, algorithm::FullMeasureTransform, context::BATContext)
+function bat_transform_impl(intent::Union{UniformBased,NormalBased}, m::AbstractPosteriorMeasure, algorithm::FullMeasureTransform, context::BATContext)
     orig_prior = _get_deep_prior_for_trafo(m)
-    f_transform = _distmeasure_trafo(target, orig_prior)
+    f_transform = _distmeasure_trafo(intent, orig_prior)
     (result = BATPushFwdMeasure(f_transform, m, KeepRootMeasure()), f_transform = f_transform)
 end
 
 
-function bat_transform_impl(target::Union{PriorToUniform,PriorToNormal}, m::BATDistMeasure, algorithm::FullMeasureTransform, context::BATContext)
-    f_transform = _distmeasure_trafo(target, m)
+function bat_transform_impl(intent::Union{UniformBased,NormalBased}, m::BATDistMeasure, algorithm::FullMeasureTransform, context::BATContext)
+    f_transform = _distmeasure_trafo(intent, m)
     (result = BATPushFwdMeasure(f_transform, m, KeepRootMeasure()), f_transform = f_transform)
 end
 
@@ -239,31 +248,31 @@ struct PriorSubstitution <: TransformAlgorithm end
 export PriorSubstitution
 
 
-function bat_transform_impl(target::Union{PriorToUniform,PriorToNormal}, density::BATDistMeasure, algorithm::PriorSubstitution, context::BATContext)
-    f_transform = _distmeasure_trafo(target, density)
+function bat_transform_impl(intent::Union{UniformBased,NormalBased}, density::BATDistMeasure, algorithm::PriorSubstitution, context::BATContext)
+    f_transform = _distmeasure_trafo(intent, density)
     transformed_density = BATDistMeasure(f_transform.target_dist)
     (result = transformed_density, f_transform = f_transform)
 end
 
 
-function bat_transform_impl(target::AbstractTransformTarget, m::BATPushFwdMeasure, algorithm::PriorSubstitution, context::BATContext)
-    new_measure, f_transform_orig = bat_transform_impl(target, m.origin, algorithm, context)
+function bat_transform_impl(intent::TransformIntent, m::BATPushFwdMeasure, algorithm::PriorSubstitution, context::BATContext)
+    new_measure, f_transform_orig = bat_transform_impl(intent, m.origin, algorithm, context)
     f_transform = ffcomp(f_transform_orig, m.finv)
     (result = new_measure, f_transform = f_transform)
 end
 
 
-function bat_transform_impl(target::Union{PriorToUniform,PriorToNormal}, density::AbstractPosteriorMeasure, algorithm::PriorSubstitution, context::BATContext)
+function bat_transform_impl(intent::Union{UniformBased,NormalBased}, density::AbstractPosteriorMeasure, algorithm::PriorSubstitution, context::BATContext)
     orig_prior = getprior(density)
     orig_likelihood = getlikelihood(density)
-    new_prior, f_transform = bat_transform_impl(target, orig_prior, algorithm, context)
+    new_prior, f_transform = bat_transform_impl(intent, orig_prior, algorithm, context)
     new_likelihood = _precompose_density(orig_likelihood, inverse(f_transform))
     (result = PosteriorMeasure(new_likelihood, new_prior), f_transform = f_transform)
 end
 
 
-function bat_transform_impl(target::AbstractTransformTarget, em::EvaluatedMeasure, algorithm::PriorSubstitution, context::BATContext)
-    new_measure, f_transform = bat_transform_impl(target, em.unevaluated, algorithm, context)
+function bat_transform_impl(intent::TransformIntent, em::EvaluatedMeasure, algorithm::PriorSubstitution, context::BATContext)
+    new_measure, f_transform = bat_transform_impl(intent, em.unevaluated, algorithm, context)
     empirical = empiricalof(em)
     new_empirical = if isnothing(empirical)
         nothing
@@ -283,10 +292,10 @@ end
 
 
 # ToDo: Remove transform_and_unshape and use `ToRealVector` instead of `DoNotTransform` in algorithms?
-function transform_and_unshape(trafotarget::AbstractTransformTarget, object::Any, context::BATContext)
+function transform_and_unshape(intent::TransformIntent, object::Any, context::BATContext)
     orig_measure = batmeasure(object)
-    trafoalg = bat_default(bat_transform, Val(:algorithm), trafotarget, orig_measure)
-    transformed_measure, initial_trafo = bat_transform(trafotarget, orig_measure, trafoalg, context)
+    trafoalg = bat_default(bat_transform, Val(:algorithm), intent, orig_measure)
+    transformed_measure, initial_trafo = bat_transform(intent, orig_measure, trafoalg, context)
     result_measure, unshaping_trafo = bat_transform(ToRealVector(), transformed_measure, UnshapeTransformation(), context)
     result_trafo = ffcomp(unshaping_trafo, initial_trafo)
     return result_measure, result_trafo

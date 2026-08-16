@@ -60,7 +60,7 @@ Base.@deprecate MetropolisHastings() RandomWalk()
 
 Base.@deprecate MCMCSampling(;
     mcalg::MCMCProposal = RandomWalk(),
-    trafo::AbstractTransformTarget = bat_default(TransformedMCMC, Val(:pretransform), mcalg),
+    trafo::TransformIntent = bat_default(TransformedMCMC, Val(:pretransform), mcalg),
     nchains::Int = 4,
     nsteps::Int = bat_default(TransformedMCMC, Val(:nsteps), mcalg, trafo, nchains),
     init::MCMCInitAlgorithm = bat_default(TransformedMCMC, Val(:init), mcalg, trafo, nchains, nsteps),
@@ -86,7 +86,11 @@ Base.@deprecate MCMCSampling(;
 export MCMCSampling
 
 
-@deprecate PriorToGaussian() PriorToNormal()
+@deprecate PriorToGaussian() NormalBased()
+
+Base.@deprecate_binding AbstractTransformTarget TransformIntent
+Base.@deprecate_binding PriorToNormal NormalBased
+Base.@deprecate_binding PriorToUniform UniformBased
 
 
 @deprecate DensitySampleVector(

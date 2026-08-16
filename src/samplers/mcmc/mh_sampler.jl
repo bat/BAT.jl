@@ -40,7 +40,7 @@ struct RandomWalkProposalState{
     proposaldist::Q
 end
 
-bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::RandomWalk) = PriorToNormal()
+bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::RandomWalk) = NormalBased()
 
 bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, proposal::RandomWalk) = NoMCMCProposalTuning()
 
@@ -50,12 +50,12 @@ bat_default(::Type{TransformedMCMC}, ::Val{:adaptive_transform}, proposal::Rando
 
 bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, proposal::RandomWalk) = NoMCMCTempering()
 
-bat_default(::Type{TransformedMCMC}, ::Val{:nsteps}, proposal::RandomWalk, pretransform::AbstractTransformTarget, nchains::Integer) = 10^5
+bat_default(::Type{TransformedMCMC}, ::Val{:nsteps}, proposal::RandomWalk, pretransform::TransformIntent, nchains::Integer) = 10^5
 
-bat_default(::Type{TransformedMCMC}, ::Val{:init}, proposal::RandomWalk, pretransform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{TransformedMCMC}, ::Val{:init}, proposal::RandomWalk, pretransform::TransformIntent, nchains::Integer, nsteps::Integer) =
     MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
 
-bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::RandomWalk, pretransform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::RandomWalk, pretransform::TransformIntent, nchains::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
 
