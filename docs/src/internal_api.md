@@ -104,6 +104,7 @@ BAT.repetition_to_weights
 BAT.smallest_credible_intervals
 BAT.sum_first_dim
 BAT.supports_rand
+BAT.transform_function
 BAT.trunc_logpdf_ratio
 BAT.truncate_dist_hard
 ```

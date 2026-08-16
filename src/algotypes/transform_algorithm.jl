@@ -218,15 +218,41 @@ _get_deep_prior_for_trafo(m::AbstractPosteriorMeasure) = _get_deep_prior_for_tra
 _get_deep_prior_for_trafo(em::EvaluatedMeasure) = _get_deep_prior_for_trafo(unevaluated(em))
 
 
+"""
+    BAT.transform_function(intent::TransformIntent, object)
+
+*BAT-internal, not part of stable public API.*
+
+Return the transformation function that `intent` implies for `object`.
+
+A [`TransformIntent`](@ref), together with an object to be transformed,
+implies a concrete transformation function; the same intent and object
+always yield the same transformation. Methods of `transform_function` must
+derive the transformation from the intent and the object alone.
+"""
+function transform_function end
+
+transform_function(::DoNotTransform, ::Any) = identity
+
+transform_function(::ToRealVector, obj::Union{BATMeasure,DensitySampleVector}) = Base.Fix2(unshaped, varshape(obj))
+
+function transform_function(intent::Union{UniformBased,NormalBased}, m::BATMeasure)
+    _distmeasure_trafo(intent, _get_deep_prior_for_trafo(m))
+end
+
+function transform_function(intent::Union{UniformBased,NormalBased}, m::BATPushFwdMeasure)
+    ffcomp(transform_function(intent, m.origin), m.finv)
+end
+
+
 function bat_transform_impl(intent::Union{UniformBased,NormalBased}, m::AbstractPosteriorMeasure, algorithm::FullMeasureTransform, context::BATContext)
-    orig_prior = _get_deep_prior_for_trafo(m)
-    f_transform = _distmeasure_trafo(intent, orig_prior)
+    f_transform = transform_function(intent, m)
     (result = BATPushFwdMeasure(f_transform, m, KeepRootMeasure()), f_transform = f_transform)
 end
 
 
 function bat_transform_impl(intent::Union{UniformBased,NormalBased}, m::BATDistMeasure, algorithm::FullMeasureTransform, context::BATContext)
-    f_transform = _distmeasure_trafo(intent, m)
+    f_transform = transform_function(intent, m)
     (result = BATPushFwdMeasure(f_transform, m, KeepRootMeasure()), f_transform = f_transform)
 end
 
@@ -249,7 +275,7 @@ export PriorSubstitution
 
 
 function bat_transform_impl(intent::Union{UniformBased,NormalBased}, density::BATDistMeasure, algorithm::PriorSubstitution, context::BATContext)
-    f_transform = _distmeasure_trafo(intent, density)
+    f_transform = transform_function(intent, density)
     transformed_density = BATDistMeasure(f_transform.target_dist)
     (result = transformed_density, f_transform = f_transform)
 end
