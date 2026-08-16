@@ -19,7 +19,59 @@ using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
     nwalkers = 1
 
     samplingalg = TransformedMCMC(nchains = nchains, nwalkers = nwalkers)
- 
+
+    @testset "multivariate proposals" begin
+        let
+            rw_target = MvNormal(zeros(2), [1.0 0.8; 0.8 1.0])
+            rw_proposal_dist = MvNormal(zeros(2), [0.2 0.15; 0.15 0.2])
+            rw_proposal = RandomWalk(proposaldist = rw_proposal_dist)
+            rw_algorithm = TransformedMCMC(
+                proposal = rw_proposal,
+                pretransform = DoNotTransform(),
+                nchains = 1,
+                nsteps = 10,
+                convergence = AssumeConvergence()
+            )
+
+            rw_samples = bat_sample(rw_target, rw_algorithm, context).result
+            @test !isempty(rw_samples)
+            @test cov(BAT._random_walk_proposal(rw_proposal_dist, 2)) == cov(rw_proposal_dist)
+
+            mismatched_proposal = RandomWalk(proposaldist = MvNormal(zeros(3), I))
+            mismatch_algorithm = TransformedMCMC(
+                proposal = mismatched_proposal,
+                pretransform = DoNotTransform(),
+                nchains = 1,
+                nsteps = 10,
+                convergence = AssumeConvergence()
+            )
+            err = try
+                bat_sample(rw_target, mismatch_algorithm, context)
+                nothing
+            catch err
+                err
+            end
+            @test err isa ArgumentError
+            @test occursin("length(d) == n_dims", sprint(showerror, err))
+        end
+    end
+
+    @testset "MALA multivariate proposal rejection" begin
+        let
+            mala_context = BATContext()
+            mala_target = batmeasure(MvNormal(zeros(2), [1.0 0.8; 0.8 1.0]))
+            mala_proposal = MALAProposal(proposaldist = MvNormal(zeros(2), [0.2 0.15; 0.15 0.2]))
+            @test_throws AssertionError BAT._create_proposal_state(
+                mala_proposal,
+                mala_target,
+                mala_context,
+                [zeros(2)],
+                identity,
+                BAT.get_rng(mala_context)
+            )
+        end
+    end
+
     @testset "MCMC iteration" begin
         nsteps = 10^5
         nsteps_adapt = div(nsteps, 10)

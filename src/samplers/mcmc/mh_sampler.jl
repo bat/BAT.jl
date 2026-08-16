@@ -69,12 +69,23 @@ function _create_proposal_state(
     rng::AbstractRNG
 ) where {P<:Real, PV<:AbstractVector{P}}
     n_dims = totalndof(varshape(target))
-    mv_pdist = batmeasure(_full_random_walk_proposal(proposal.proposaldist, n_dims))
+    mv_pdist = batmeasure(_random_walk_proposal(proposal.proposaldist, n_dims))
     return RandomWalkProposalState(
         proposal.target_acceptance,
         proposal.target_acceptance_int,
         mv_pdist
     )
+end
+
+
+function _random_walk_proposal(d, n_dims::Integer)
+    return _full_random_walk_proposal(d, n_dims)
+end
+
+
+function _random_walk_proposal(d::Distribution{Multivariate,Continuous}, n_dims::Integer)
+    @argcheck length(d) == n_dims
+    return d
 end
 
 
