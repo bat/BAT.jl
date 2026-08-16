@@ -112,10 +112,13 @@ function mcmc_propose_transition(
     gradient_res_prop = target_gradient.(proposed_z)
     grads_prop = last.(gradient_res_prop)
 
-    p_prop_to_curr = norm.(-transition .- τ .* grads_prop).^2
-    p_curr_to_prop = norm.(transition .- τ .* grads_curr).^2
+    noise_prop_to_curr = (-transition .- τ/2 .* grads_prop) ./ sqrt(τ)
+    noise_curr_to_prop = (transition .- τ/2 .* grads_curr) ./ sqrt(τ)
 
-    hastings_correction = (p_curr_to_prop - p_prop_to_curr) ./ (4τ)
+    p_prop_to_curr = checked_logdensityof.(proposal_measure, noise_prop_to_curr)
+    p_curr_to_prop = checked_logdensityof.(proposal_measure, noise_curr_to_prop)
+
+    hastings_correction = p_prop_to_curr .- p_curr_to_prop
 
     return proposed_z, hastings_correction
 end
