@@ -105,6 +105,8 @@ using MeasureBase
 
                 @test f(zero(T)) == quantile(trg_d, eps(T))
                 @test f(one(T)) == quantile(trg_d, one(T) - eps(T))
+                @test_throws DomainError f(-eps(T))
+                @test_throws DomainError f(one(T) + eps(T))
                 @test isfinite(f(zero(T)))
                 @test isfinite(f(one(T)))
                 @test f(eps(T)) == quantile(trg_d, eps(T))
