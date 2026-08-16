@@ -102,6 +102,8 @@ function init_adaptive_transform(adaptive_transform::TriangularAffineTransform, 
 
     M = _approx_cov(target, n)
     b = _approx_mean(target, n)
+    all(isfinite, M) || throw(DomainError(M, "TriangularAffineTransform requires finite covariance"))
+    all(isfinite, b) || throw(DomainError(b, "TriangularAffineTransform requires finite mean"))
     s = cholesky(Positive, M).L
     g = MulAdd(s, b)
 
