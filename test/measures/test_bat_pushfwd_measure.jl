@@ -80,6 +80,12 @@ using Optim
         test_uv_transformed(Normal, Normal(2, 4))
         test_uv_transformed(Normal, Uniform(-2, 3))
 
+        @testset "AD boundary NaN propagation" begin
+            f_transform = BAT.DistributionTransform(Normal, Weibull())
+            m = pushfwd(f_transform, batmeasure(Weibull()))
+            @test isnan(ForwardDiff.derivative(logdensityof(m), Inf))
+        end
+
 
         src_d = NamedTupleDist(a = Exponential(), b = [4.2, 3.3], c = Weibull(), d = [Normal(1, 3), Normal(3, 2)], e = Uniform(-2, 3), f = MvNormal([0.3, -2.9], [1.7 0.5; 0.5 2.3]))
         f_transform = @inferred(BAT.DistributionTransform(Normal, src_d))
