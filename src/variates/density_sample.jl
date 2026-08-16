@@ -413,11 +413,6 @@ function repetition_to_weights(v::AbstractVector)
 end
 
 
-"""
-    lazyreport(smplv::DensitySampleVector; intervals = BAT.default_credibilities)
-
-Generate a sample report with smallest credible intervals for the requested probability masses.
-"""
 function LazyReports.lazyreport(smplv::DensitySampleVector; intervals = default_credibilities)
     rpt = lazyreport()
     _push_density_sample_report!(rpt, smplv; intervals)
