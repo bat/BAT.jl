@@ -516,10 +516,10 @@ end
 
 
 function _push_density_sample_report!(rpt::LazyReport, smplv::DensitySampleVector; intervals)
-    if !(intervals isa AbstractVector{<:Real})
+    if !(intervals isa AbstractVector)
         throw(ArgumentError("intervals must be a vector of real numbers"))
     end
-    if !all(p -> isfinite(p) && 0 < p < 1, intervals)
+    if !all(p -> p isa Real && isfinite(p) && 0 < p < 1, intervals)
         throw(ArgumentError("intervals must contain finite values between zero and one"))
     end
 
@@ -539,14 +539,29 @@ function _push_density_sample_report!(rpt::LazyReport, smplv::DensitySampleVecto
     * Effective sample size: between $(minimum(ess)) and $(maximum(ess))
     """)
 
-    only_one_ci(viv::AbstractVector{<:AbstractInterval}) = length(viv) == 1 ? only(viv) : :multiple
+    only_one_ci(viv::AbstractVector{<:AbstractInterval}) = length(viv) == 1 ? only(viv) : viv
 
-    ci_names = [Symbol("credible_intervals_", i) for i in eachindex(intervals)]
-    marg_tbl = _marginal_table(smplv; intervals)
+    ci_names = _report_interval_names(intervals)
+    marg_tbl = _marginal_table(smplv)
     marg_columns = Tables.columns(marg_tbl)
+    report_columns = (;
+        (
+            name => map(
+                histogram -> _histogram_credible_intervals(histogram, credibility),
+                marg_tbl.marginal_histogram,
+            )
+            for (name, credibility) in zip(ci_names, intervals)
+        )...
+    )
+    base_columns = (;
+        (
+            name => getproperty(marg_columns, name)
+            for name in propertynames(marg_columns) if name != :credible_intervals
+        )...
+    )
     mod_marg_tbl = merge(
-        marg_columns,
-        (; (name => map(only_one_ci, getproperty(marg_columns, name)) for name in ci_names)...)
+        base_columns,
+        (; (name => map(only_one_ci, getproperty(report_columns, name)) for name in ci_names)...),
     )
     marg_headermap = Dict(
         :parameter => "Parameter",
@@ -579,30 +594,37 @@ function _push_density_sample_report!(rpt::LazyReport, smplv::DensitySampleVecto
 end
 
 
-function _marginal_table(smplv::DensitySampleVector; intervals = default_credibilities)
+function _report_interval_names(intervals::AbstractVector)
+    [Symbol("credible_intervals_", i) for i in eachindex(intervals)]
+end
+
+
+function _histogram_credible_intervals(histogram::StatsBase.Histogram, credibility::Real)
+    interval_histogram = only(first(get_smallest_intervals(histogram, Float64[credibility])))
+    lower, upper = get_interval_edges(interval_histogram)
+    ClosedInterval.(lower, upper)
+end
+
+
+function _marginal_table(smplv::DensitySampleVector)
     parnames = map(string, all_active_names(elshape(smplv.v)))
 
     usmplv = unshaped.(smplv)
 
-    credible_interval_columns = (;
-        (
-            Symbol("credible_intervals_", i) => smallest_credible_intervals(usmplv; credibility = interval)
-            for (i, interval) in pairs(intervals)
-        )...
-    )
+    credible_intervals = smallest_credible_intervals(usmplv)
 
     mhists = _marginal_histograms(usmplv)
 
     mm_alg = bat_default(bat_marginalmode, Val(:algorithm), usmplv)
     marginal_mode = bat_marginalmode_impl(usmplv, mm_alg, _g_dummy_context).result
 
-    TypedTables.Table(;
+    TypedTables.Table(
         parameter = parnames,
         mean = mean(usmplv),
         std = std(usmplv),
         global_mode = mode(usmplv),
         marginal_mode = marginal_mode,
-        credible_interval_columns...,
+        credible_intervals = credible_intervals,
         marginal_histogram = mhists,
     )
 end
