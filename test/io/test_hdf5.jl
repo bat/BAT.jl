@@ -18,6 +18,7 @@ if Int == Int64
         end
 
         @testset "legacy MCMC sample IDs" begin
+            h5_track_order_available = :track_order in HDF5.class_propertynames(HDF5.FileCreateProperties)
             chainid = Int32[2, 3]
             walkerid = Int32[4, 5]
             chaincycle = Int32[6, 7]
@@ -29,25 +30,36 @@ if Int == Int64
                     "without proposal ID",
                     (;chainid, walkerid, chaincycle, stepno, sampletype),
                     walkerid,
+                    true,
                 ),
                 (
                     "without walker and proposal IDs",
                     (;chainid, chaincycle, stepno, sampletype),
                     fill(Int32(1), 2),
+                    true,
                 ),
                 (
                     "without tracked field order",
                     (;chaincycle, chainid, sampletype, stepno),
                     fill(Int32(1), 2),
+                    false,
                 ),
             )
 
-            for (name, schema, expected_walkerid) in legacy_schemas
+            for (name, schema, expected_walkerid, requires_tracked_order) in legacy_schemas
+                if requires_tracked_order && !h5_track_order_available
+                    @testset "$name" begin
+                        @test_skip false
+                    end
+                    continue
+                end
+
+                h5_options = requires_tracked_order ? (track_order = true,) : NamedTuple()
                 @testset "$name" begin
                     mktempdir() do tmp_datadir
                         filename = joinpath(tmp_datadir, "legacy-mcmc-id.h5")
-                        HDF5.h5open(filename, "w"; track_order = true) do file
-                            group = HDF5.create_group(file, "info"; track_order = true)
+                        HDF5.h5open(filename, "w"; h5_options...) do file
+                            group = HDF5.create_group(file, "info"; h5_options...)
                             for field in propertynames(schema)
                                 group[string(field)] = getproperty(schema, field)
                             end
