@@ -74,8 +74,8 @@ function BAT.mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalSt
 
     for i in 1:n_walkers
         @static if pkgversion(AdvancedHMC) >= v"0.07"
-            foo = [1, 1] # For some reason AdvancedHMC.rand_momentum wants an AbstractVecOrMat in the last argument, but its unused...?
-            momentum = AdvancedHMC.rand_momentum(rng, hamiltonian.metric, hamiltonian.kinetic, foo)
+            position_placeholder = [1, 1] # For some reason AdvancedHMC.rand_momentum wants an AbstractVecOrMat in the last argument, but its unused...?
+            momentum = AdvancedHMC.rand_momentum(rng, hamiltonian.metric, hamiltonian.kinetic, position_placeholder)
         else
             momentum = rand(rng, hamiltonian.metric, hamiltonian.kinetic)
         end
