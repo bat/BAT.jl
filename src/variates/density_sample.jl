@@ -451,7 +451,7 @@ function _push_density_sample_report!(rpt::LazyReport, smplv::DensitySampleVecto
 
     only_one_ci(viv::AbstractVector{<:AbstractInterval}) = length(viv) == 1 ? only(viv) : viv
 
-    ci_names = _report_interval_names(intervals)
+    ci_names = [Symbol("credible_intervals_", i) for i in eachindex(intervals)]
     marg_tbl = _marginal_table(smplv)
     marg_columns = Tables.columns(marg_tbl)
     report_histograms = map(eachindex(marg_tbl.marginal_histogram)) do idx
@@ -506,12 +506,6 @@ function _push_density_sample_report!(rpt::LazyReport, smplv::DensitySampleVecto
 
     return nothing
 end
-
-
-function _report_interval_names(intervals::AbstractVector)
-    [Symbol("credible_intervals_", i) for i in eachindex(intervals)]
-end
-
 
 function _histogram_credible_intervals(histogram::StatsBase.Histogram, credibility::Real)
     interval_histogram = only(first(get_smallest_intervals(histogram, Float64[credibility])))
