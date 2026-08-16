@@ -6,4 +6,5 @@ Test.@testset "utils" begin
     include("test_error_log.jl")
     include("test_array_utils.jl")
     include("test_convolutions.jl")
+    include("test_executors.jl")
 end
