@@ -85,6 +85,17 @@ _SampleAux() = _SampleInfo(0)
         @test BAT.drop_low_weight_samples(low_weight_dsv, 0.05, threshold=10^-6) == low_weight_dsv
         @test BAT.drop_low_weight_samples(low_weight_dsv, 10^-6, threshold=0.1) == low_weight_dsv
 
+        empty_v = Vector{Vector{Float64}}()
+        empty_logd = Float64[]
+        @test BAT.repetition_to_weights(empty_v) == (Int[], Int[])
+        @test length(DensitySampleVector(empty_v, empty_logd, weight=:multiplicity)) == 0
+
+        empty_dsv = DensitySampleVector(empty_v, empty_logd)
+        @test BAT.drop_low_weight_samples(empty_dsv) == empty_dsv
+
+        zero_weight_dsv = DensitySampleVector([[1.0], [2.0]], zeros(2), weight=zeros(2))
+        @test BAT.drop_low_weight_samples(zero_weight_dsv) == zero_weight_dsv
+
         dsv_similar = @inferred(similar(dsv_merged))
         for v in dsv_similar.v
             @test isassigned(v) == false

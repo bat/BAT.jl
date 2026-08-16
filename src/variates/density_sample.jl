@@ -370,7 +370,9 @@ samples with the lowest weight.
 """
 function drop_low_weight_samples(samples::DensitySampleVector, fraction::Real = 10^-5; threshold::Real=10^-2)
     W = float(samples.weight)
-    if minimum(W) / maximum(W) > threshold
+    if isempty(W) || all(iszero, W)
+        samples
+    elseif minimum(W) / maximum(W) > threshold
         samples
     else
         W_s = sort(W)
@@ -399,6 +401,7 @@ Drop (subsequently) repeated samples by adding weights.
 function repetition_to_weights(v::AbstractVector)
     idxs = Vector{Int}()
     counts = Vector{Int}()
+    isempty(v) && return (idxs, counts)
     push!(idxs, 1)
     push!(counts, 1)
     for i in 2:length(v)
