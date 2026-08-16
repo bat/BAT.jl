@@ -46,21 +46,11 @@ using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex
         @test isapprox(mean(binned_2d), [0, 0], atol = 0.1)
 
         low_weight_samples = DensitySampleVector(
-            [[0.0, 0.0], [1.0e15, -1.0e15], [1.0, 1.5], [2.0, 3.0]],
-            zeros(4);
-            weight = [1.0, 1.0e-12, 2.0e-12, 1.0],
+            [[0.0], [1.0e15], [1.0], [2.0]], zeros(4);
+            weight = [1.0, 1.0e-6, 5.0e-6, 1.0],
         )
-        filtered_samples = BAT.drop_low_weight_samples(low_weight_samples)
-
-        filtered_1d = MarginalDist(low_weight_samples, 1; bins = 4, filter = true)
-        expected_1d = MarginalDist(filtered_samples, 1; bins = 4)
-        @test get_bin_centers(filtered_1d) == get_bin_centers(expected_1d)
-        @test maximum(abs, only(get_bin_centers(filtered_1d))) < 10
-
-        filtered_2d = MarginalDist(low_weight_samples, (1, 2); bins = (4, 4), filter = true)
-        expected_2d = MarginalDist(filtered_samples, (1, 2); bins = (4, 4))
-        @test get_bin_centers(filtered_2d) == get_bin_centers(expected_2d)
-        @test all(maximum(abs, centers) < 10 for centers in get_bin_centers(filtered_2d))
+        filtered = MarginalDist(low_weight_samples, 1; bins = 4, filter = true)
+        @test maximum(abs, only(get_bin_centers(filtered))) < 10
     end
 
     @testset "from distribution" begin

@@ -28,7 +28,7 @@ function MarginalDist(
     filter::Bool = false
 )
 
-    if filter
+    if filter && !isempty(samples) && !all(iszero, samples.weight)
         samples = BAT.drop_low_weight_samples(samples)
     end
 
