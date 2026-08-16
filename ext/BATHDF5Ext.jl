@@ -203,15 +203,15 @@ _h5io_read_postprocess(nt::NamedTuple{(:chainid, :walkerid, :chaincycle, :stepno
 
 # This method is needed for older hdf5 files where `proposalid` was not yet used
 _h5io_read_postprocess(nt::NamedTuple{(:chainid, :walkerid, :chaincycle, :stepno, :sampletype)}) =
-    MCMCSampleIDVector((nt.chainid, nt.walkerid, nt.chaincycle, nt.stepno, nt.sampletype))
+    MCMCSampleIDVector((nt.chainid, nt.walkerid, nt.chaincycle, nt.stepno, fill(Int32(1), length(nt.chainid)), nt.sampletype))
 
 # This method is needed for older hdf5 files where `walkerid` was not yet used
 _h5io_read_postprocess(nt::NamedTuple{(:chainid, :chaincycle, :stepno, :sampletype)}) =
-    MCMCSampleIDVector((nt.chainid, nt.chaincycle, nt.stepno, nt.sampletype))
+    MCMCSampleIDVector((nt.chainid, fill(Int32(1), length(nt.chainid)), nt.chaincycle, nt.stepno, fill(Int32(1), length(nt.chainid)), nt.sampletype))
 
 # This method is needed for older hdf5 files where `track_order` was not yet used
 _h5io_read_postprocess(nt::NamedTuple{(:chaincycle, :chainid, :sampletype, :stepno)}) =
-    MCMCSampleIDVector((nt.chainid, nt.chaincycle, nt.stepno, nt.sampletype))
+    MCMCSampleIDVector((nt.chainid, fill(Int32(1), length(nt.chainid)), nt.chaincycle, nt.stepno, fill(Int32(1), length(nt.chainid)), nt.sampletype))
 
 function _const_col_value(col::AbstractVector)
     r = first(col)
