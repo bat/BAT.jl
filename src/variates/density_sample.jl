@@ -413,7 +413,26 @@ function repetition_to_weights(v::AbstractVector)
 end
 
 
+function LazyReports.lazyreport(smplv::DensitySampleVector; intervals = default_credibilities)
+    rpt = lazyreport()
+    _push_density_sample_report!(rpt, smplv; intervals)
+    return rpt
+end
+
+
 function LazyReports.pushcontent!(rpt::LazyReport, smplv::DensitySampleVector)
+    _push_density_sample_report!(rpt, smplv; intervals = default_credibilities)
+end
+
+
+function _push_density_sample_report!(rpt::LazyReport, smplv::DensitySampleVector; intervals)
+    if !(intervals isa AbstractVector)
+        throw(ArgumentError("intervals must be a vector of real numbers"))
+    end
+    if !all(p -> p isa Real && isfinite(p) && 0 < p < 1, intervals)
+        throw(ArgumentError("intervals must contain finite values between zero and one"))
+    end
+
     # ToDo: Forward context somehow instead of creating a new one here?
     context = BATContext()
 
@@ -430,11 +449,45 @@ function LazyReports.pushcontent!(rpt::LazyReport, smplv::DensitySampleVector)
     * Effective sample size: between $(minimum(ess)) and $(maximum(ess))
     """)
 
-    only_one_ci(viv::AbstractVector{<:AbstractInterval}) = length(viv) == 1 ? only(viv) : :multiple
+    only_one_ci(viv::AbstractVector{<:AbstractInterval}) = length(viv) == 1 ? only(viv) : viv
 
+    ci_names = [Symbol("credible_intervals_", i) for i in eachindex(intervals)]
     marg_tbl = _marginal_table(smplv)
-    mod_marg_tbl = merge(Tables.columns(marg_tbl), (credible_intervals = map(only_one_ci, marg_tbl.credible_intervals),))
-    marg_headermap = Dict(:parameter => "Parameter", :mean => "Mean", :std => "Std. dev.", :global_mode => "Gobal mode", :marginal_mode => "Marg. mode", :credible_intervals => "Cred. interval", :marginal_histogram => "Histogram")
+    marg_columns = Tables.columns(marg_tbl)
+    report_histograms = map(eachindex(marg_tbl.marginal_histogram)) do idx
+        marginal = MarginalDist(smplv, idx)
+        convert(Histogram, marginal.dist isa ReshapedDist ? marginal.dist.dist : marginal.dist)
+    end
+    report_columns = (;
+        (
+            name => map(
+                histogram -> _histogram_credible_intervals(histogram, credibility),
+                report_histograms,
+            )
+            for (name, credibility) in zip(ci_names, intervals)
+        )...
+    )
+    base_columns = (;
+        (
+            name => getproperty(marg_columns, name)
+            for name in propertynames(marg_columns) if name != :credible_intervals
+        )...
+    )
+    mod_marg_tbl = merge(
+        base_columns,
+        (; (name => map(only_one_ci, getproperty(report_columns, name)) for name in ci_names)...),
+    )
+    marg_headermap = Dict(
+        :parameter => "Parameter",
+        :mean => "Mean",
+        :std => "Std. dev.",
+        :global_mode => "Gobal mode",
+        :marginal_mode => "Marg. mode",
+        :marginal_histogram => "Histogram",
+    )
+    for (name, interval) in zip(ci_names, intervals)
+        marg_headermap[name] = @sprintf("%.2f%% cred. interval", 100 * interval)
+    end
     lazyreport!(
         rpt,
         "#### Marginals",
@@ -452,6 +505,12 @@ function LazyReports.pushcontent!(rpt::LazyReport, smplv::DensitySampleVector)
     end
 
     return nothing
+end
+
+function _histogram_credible_intervals(histogram::StatsBase.Histogram, credibility::Real)
+    interval_histogram = only(first(get_smallest_intervals(histogram, Float64[credibility])))
+    lower, upper = get_interval_edges(interval_histogram)
+    ClosedInterval.(lower, upper)
 end
 
 
