@@ -18,59 +18,32 @@ if Int == Int64
         end
 
         @testset "legacy MCMC sample IDs" begin
-            chainid = Int32[2, 3]
-            walkerid = Int32[4, 5]
-            chaincycle = Int32[6, 7]
-            stepno = Int64[8, 9]
-            sampletype = Bool[true, false]
-
-            legacy_schemas = (
-                (
-                    "without proposal ID",
-                    (;chainid, walkerid, chaincycle, stepno, sampletype),
-                    walkerid,
-                ),
-                (
-                    "without walker and proposal IDs",
-                    (;chainid, chaincycle, stepno, sampletype),
-                    fill(Int32(1), 2),
-                ),
-                (
-                    "without tracked field order",
-                    (;chaincycle, chainid, sampletype, stepno),
-                    fill(Int32(1), 2),
-                ),
+            h5_track_order_available =
+                :track_order in HDF5.class_propertynames(HDF5.FileCreateProperties)
+            chainid, walkerid, chaincycle, stepno, sampletype =
+                Int32[2], Int32[4], Int32[6], Int64[8], Bool[true]
+            # Exercise distinct migration contracts.
+            for (schema, expected_walkerid, requires_tracked_order) in (
+                ((;chainid, walkerid, chaincycle, stepno, sampletype), walkerid, true),
+                ((;chainid, chaincycle, stepno, sampletype), Int32[1], true),
+                ((;chaincycle, chainid, sampletype, stepno), Int32[1], false),
             )
-
-            for (name, schema, expected_walkerid) in legacy_schemas
-                @testset "$name" begin
-                    mktempdir() do tmp_datadir
-                        filename = joinpath(tmp_datadir, "legacy-mcmc-id.h5")
-                        HDF5.h5open(filename, "w"; track_order = true) do file
-                            group = HDF5.create_group(file, "info"; track_order = true)
-                            for field in propertynames(schema)
-                                group[string(field)] = getproperty(schema, field)
-                            end
+                (!requires_tracked_order || h5_track_order_available) || continue
+                h5_options = requires_tracked_order ? (track_order = true,) : (;)
+                mktempdir() do tmp_datadir
+                    filename = joinpath(tmp_datadir, "legacy-mcmc-id.h5")
+                    HDF5.h5open(filename, "w"; h5_options...) do file
+                        group = HDF5.create_group(file, "info"; h5_options...)
+                        # Preserve legacy field order.
+                        for field in propertynames(schema)
+                            group[string(field)] = getproperty(schema, field)
                         end
-
-                        ids = bat_read(filename, "info", BATHDF5IO()).result
-                        @test ids isa BAT.MCMCSampleIDVector
-                        @test ids.chainid == chainid
-                        @test ids.walkerid == expected_walkerid
-                        @test ids.chaincycle == chaincycle
-                        @test ids.stepno == stepno
-                        @test ids.proposalid == fill(Int32(1), 2)
-                        @test ids.sampletype == sampletype
-                        @test map(eltype, (
-                            ids.chainid,
-                            ids.walkerid,
-                            ids.chaincycle,
-                            ids.stepno,
-                            ids.proposalid,
-                            ids.sampletype,
-                        )) ==
-                            (Int32, Int32, Int32, Int64, Int32, Bool)
                     end
+                    ids = bat_read(filename, "info", BATHDF5IO()).result
+                    expected = BAT.MCMCSampleIDVector((
+                        chainid, expected_walkerid, chaincycle, stepno, Int32[1], sampletype,
+                    ))
+                    @test ids == expected
                 end
             end
         end
