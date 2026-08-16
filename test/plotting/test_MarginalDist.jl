@@ -61,6 +61,24 @@ using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex
         expected_2d = MarginalDist(filtered_samples, (1, 2); bins = (4, 4))
         @test get_bin_centers(filtered_2d) == get_bin_centers(expected_2d)
         @test all(maximum(abs, centers) < 10 for centers in get_bin_centers(filtered_2d))
+
+        zero_weight_samples = DensitySampleVector(
+            [[0.0], [1.0], [2.0]],
+            zeros(3);
+            weight = zeros(3),
+        )
+        unfiltered_zero_error = try
+            MarginalDist(zero_weight_samples, 1; bins = 4)
+        catch err
+            err
+        end
+        filtered_zero_error = try
+            MarginalDist(zero_weight_samples, 1; bins = 4, filter = true)
+        catch err
+            err
+        end
+        @test filtered_zero_error isa AssertionError
+        @test sprint(showerror, filtered_zero_error) == sprint(showerror, unfiltered_zero_error)
     end
 
     @testset "from distribution" begin
