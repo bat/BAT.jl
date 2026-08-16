@@ -33,7 +33,7 @@ function smallest_credible_intervals(
 
     qs = quantile(X, W, range(0, 1, length = n + 1))
     ivs = ClosedInterval.(qs[begin:end-1], qs[begin+1:end])
-
+    
     sel_idxs = sort(sortperm(ivs, by = width)[begin:begin+m-1])
 
     r_idxs = eachindex(sel_idxs)
