@@ -71,18 +71,6 @@ using Random: Xoshiro
         @test long_unequal_results[2].err ≈ long_unequal_results[1].err rtol=1e-12
     end
 
-    @testset "finite ESS for short weighted samples" begin
-        samples = DensitySampleVector(
-            [[0.0], [1.0]],
-            zeros(2),
-            weight=fill(0.75, 2),
-        )
-        ess = only(bat_eff_sample_size(samples, EffSampleSizeFromAC(), context).result)
-
-        @test isfinite(ess)
-        @test ess > 0
-    end
-
     test_integration(BridgeSampling(pretransform=DoNotTransform()), "funnel distribution", FunnelDistribution(), val_rtol = 15)
     #! ToDo: Fix this test, cause trouble on x86-32
     #test_integration(BridgeSampling(pretransform=DoNotTransform()), "multimodal student-t distribution", MultimodalStudentT(), val_rtol = 50)

@@ -128,15 +128,10 @@ end
 export EffSampleSizeFromAC
 
 
-_ess_from_autocorr_len(n::Integer, tau_int::Real) =
-    isfinite(tau_int) && tau_int > 0 ? min(n, n / tau_int) : float(n)
-
-
-
 function bat_eff_sample_size_impl(v::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}}, algorithm::EffSampleSizeFromAC, context::BATContext)
     tau_int = bat_integrated_autocorr_len_impl(v, algorithm.acalg, context).result
     n = length(eachindex(v))
-    ess = _ess_from_autocorr_len.(n, tau_int)
+    ess = min.(n, n./ tau_int)
     (result = ess,)
 end
 
