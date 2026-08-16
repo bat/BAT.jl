@@ -119,7 +119,6 @@ function mcmc_init!(
 
     m = nchains
     tidxs = LinearIndices(mcmc_states)
-    n = length(tidxs)
 
     # Retrieve the outputs of the single walker of each chain
     outputs_per_chain = map(first, outputs)
@@ -144,7 +143,7 @@ function mcmc_init!(
             end
         end
 
-        @assert all(j -> j in tidxs, mcmc_states_sel_idxs)
+        all(j -> j in tidxs, mcmc_states_sel_idxs) || error("Failed to select one MCMC chain state per cluster")
 
         for i in sort(mcmc_states_sel_idxs)
             push!(final_mcmc_states, mcmc_states[i])
@@ -155,12 +154,12 @@ function mcmc_init!(
         push!(final_mcmc_states, mcmc_states[i])
         push!(final_outputs, outputs[i])
     else
-        @assert length(mcmc_states) == n_mc_states
-        resize!(final_mcmc_states, n_mc_states)
+        length(mcmc_states) == m || error("Expected $m viable MCMC chain states, got $(length(mcmc_states))")
+        resize!(final_mcmc_states, m)
         copyto!(final_mcmc_states, mcmc_states)
 
-        @assert length(outputs) == n_mc_states
-        resize!(final_outputs, n_mc_states)
+        length(outputs) == m || error("Expected $m MCMC chain outputs, got $(length(outputs))")
+        resize!(final_outputs, m)
         copyto!(final_outputs, outputs)
     end
 
