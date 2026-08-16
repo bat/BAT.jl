@@ -7,5 +7,6 @@ Test.@testset "mcmc" begin
     include("test_mcmc_sample.jl")
     include("test_mh.jl")
     include("test_ram_tuner.jl")
+    include("test_hmc_momentum.jl")
     include("test_hmc.jl")
 end

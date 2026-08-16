@@ -70,16 +70,16 @@ function BAT.mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalSt
 
     hamiltonian = proposal.hamiltonian
 
-    @static if pkgversion(AdvancedHMC) >= v"0.07"
-	    foo = [1, 1] # For some reason AdvancedHMC.rand_momentum wants an AbstractVecOrMat in the last argument, but its unused...?
-        momentum = AdvancedHMC.rand_momentum(rng, hamiltonian.metric, hamiltonian.kinetic, foo)
-    else
-        momentum = rand(rng, hamiltonian.metric, hamiltonian.kinetic)
-    end
-
     p_accept = Vector{Float64}(undef, n_walkers)
 
     for i in 1:n_walkers
+        @static if pkgversion(AdvancedHMC) >= v"0.07"
+            foo = [1, 1] # For some reason AdvancedHMC.rand_momentum wants an AbstractVecOrMat in the last argument, but its unused...?
+            momentum = AdvancedHMC.rand_momentum(rng, hamiltonian.metric, hamiltonian.kinetic, foo)
+        else
+            momentum = rand(rng, hamiltonian.metric, hamiltonian.kinetic)
+        end
+
         z_phase = AdvancedHMC.phasepoint(hamiltonian, current.z.v[i][:], momentum)
 
         # TODO: MD, Make properly in !! style. Still overwrites the proposal
