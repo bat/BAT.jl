@@ -93,9 +93,8 @@ end
 # symmetry guarantee (the random-walk acceptance assumes a symmetric
 # proposal), which can't be checked generically:
 function _full_random_walk_proposal(d::Distribution{Multivariate,Continuous}, n_dims::Integer)
-    throw(ArgumentError(
-        "RandomWalk doesn't support full multivariate proposal distributions yet, use a univariate distribution (like Normal or TDist) that sets the shape of the per-dimension innovations"
-    ))
+    @argcheck length(d) == n_dims
+    return d
 end
 
 function _full_random_walk_proposal(d::Normal, n_dims::Integer)
