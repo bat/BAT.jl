@@ -12,26 +12,31 @@ Constructor:
 
 ```julia
 EvalMeasureImplReturn(;
-    empirical::Union{DensitySampleMeasure,Nothing} = nothing,
-    approx::Union{BATMeasure,Nothing} = nothing,
-    dof::Union{IntegerLike,Nothing} = nothing,
-    mass::Union{Real,MeasureBase.AbstractUnknownMass} = MeasureBase.UnknownMass(),
-    modes::Union{AbstractVector,Nothing} = nothing,
-    samplegen::Union{AbstractSampleGenerator,Nothing} = nothing,
+    empirical::Union{DensitySampleMeasure,Nothing,Unchanged} = unchanged,
+    approx::Union{BATMeasure,Nothing,Unchanged} = unchanged,
+    dof::Union{IntegerLike,Nothing,Unchanged} = unchanged,
+    mass::Union{Real,MeasureBase.AbstractUnknownMass,Unchanged} = unchanged,
+    modes::Union{AbstractVector,Nothing,Unchanged} = unchanged,
+    samplegen::Union{AbstractSampleGenerator,Nothing,Unchanged} = unchanged,
     evalresult::NamedTuple = (;),
 )
 ```
+
+Algorithms report the knowledge they produced in the corresponding fields.
+`unchanged` (the default) leaves the current content of the evaluated
+measure untouched, `nothing` (resp. `MeasureBase.UnknownMass()` for `mass`)
+explicitly invalidates it.
 
 The contents of EvalMeasureImplReturn is not part of the stable public API
 and subject to change without notice.
 """
 struct EvalMeasureImplReturn{
-    S<:Union{DensitySampleMeasure,Nothing},
-    A<:Union{BATMeasure,Nothing},
-    N<:Union{IntegerLike,Nothing},
-    U<:Union{Real,MeasureBase.AbstractUnknownMass},
-    P<:Union{AbstractVector,Nothing},
-    G<:Union{AbstractSampleGenerator,Nothing},
+    S<:Union{DensitySampleMeasure,Nothing,Unchanged},
+    A<:Union{BATMeasure,Nothing,Unchanged},
+    N<:Union{IntegerLike,Nothing,Unchanged},
+    U<:Union{Real,MeasureBase.AbstractUnknownMass,Unchanged},
+    P<:Union{AbstractVector,Nothing,Unchanged},
+    G<:Union{AbstractSampleGenerator,Nothing,Unchanged},
     R<:NamedTuple,
 }
     _empirical::S
@@ -44,12 +49,12 @@ struct EvalMeasureImplReturn{
 end
 
 function EvalMeasureImplReturn(;
-    empirical::Union{DensitySampleMeasure,Nothing} = nothing,
-    approx::Union{BATMeasure,Nothing} = nothing,
-    dof::Union{IntegerLike,Nothing} = nothing,
-    mass::Union{Real,MeasureBase.AbstractUnknownMass} = MeasureBase.UnknownMass(),
-    modes::Union{AbstractVector,Nothing} = nothing,
-    samplegen::Union{AbstractSampleGenerator,Nothing} = nothing,
+    empirical::Union{DensitySampleMeasure,Nothing,Unchanged} = unchanged,
+    approx::Union{BATMeasure,Nothing,Unchanged} = unchanged,
+    dof::Union{IntegerLike,Nothing,Unchanged} = unchanged,
+    mass::Union{Real,MeasureBase.AbstractUnknownMass,Unchanged} = unchanged,
+    modes::Union{AbstractVector,Nothing,Unchanged} = unchanged,
+    samplegen::Union{AbstractSampleGenerator,Nothing,Unchanged} = unchanged,
     evalresult::NamedTuple = (;),
 )
     return EvalMeasureImplReturn(empirical, approx, dof, mass, modes, samplegen, evalresult)

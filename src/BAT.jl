@@ -44,6 +44,7 @@ using Parameters
 using PDMats
 using PositiveFactorizations
 using RecipesBase
+using ScopedSettings: ScopedSettings, Unchanged, unchanged
 using StaticArrays
 using StatsBase
 using StructArrays

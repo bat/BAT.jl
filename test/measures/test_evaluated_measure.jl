@@ -7,6 +7,8 @@ using Random
 using DensityInterface, MeasureBase, ValueShapes
 using Distributions, StatsBase, IntervalSets
 using LazyReports: LazyReport, lazyreport
+using Accessors: @set
+using ScopedSettings: unchanged
 
 @testset "evaluated_measure" begin
     dist = distprod(
@@ -65,6 +67,44 @@ using LazyReports: LazyReport, lazyreport
     @testset "approximate max logd" begin
         @test BAT._approx_max_logd(em) == BAT._approx_max_logd(empirical_m)
         @test BAT._approx_max_logd(em_plain) === BAT._approx_max_logd(m)
+    end
+
+    @testset "knowledge update semantics" begin
+        approx_a = batmeasure(distprod(
+            a = truncated(Normal(0.1, 0.9), -2, 2),
+            b = Exponential(2.0),
+            c = [1 2; 3 4],
+            d = [-3..3, -4..4]
+        ))
+        em_a = EvaluatedMeasure(m, empirical = empirical_m, mass = 1)
+
+        # Identity if all entries stay unchanged:
+        @test EvaluatedMeasure(em_a) === em_a
+        @test EvaluatedMeasure(em_a, approx = unchanged) === em_a
+
+        # Given values replace, everything else is kept:
+        em_b = EvaluatedMeasure(em_a, approx = approx_a)
+        @test em_b.approx === approx_a
+        @test em_b.empirical === em_a.empirical
+        @test massof(em_b) == massof(em_a)
+
+        # nothing clears, everything else is kept:
+        em_c = EvaluatedMeasure(em_b, approx = nothing)
+        @test isnothing(em_c.approx)
+        @test em_c.empirical === em_b.empirical
+        em_d = EvaluatedMeasure(em_b, empirical = nothing)
+        @test isnothing(em_d.empirical)
+        @test em_d.approx === approx_a
+
+        # An explicit unknown mass resets the mass:
+        @test massof(EvaluatedMeasure(em_a, mass = MeasureBase.UnknownMass())) isa MeasureBase.UnknownMass
+
+        # Accessors provide direct field surgery:
+        em_e = @set em_a.mass = 0.5
+        @test massof(em_e) == 0.5
+        em_f = @set em_a.empirical = nothing
+        @test isnothing(em_f.empirical)
+        @test BAT.unevaluated(em_f) === BAT.unevaluated(em_a)
     end
 
     @testset "unshaped transports knowledge" begin

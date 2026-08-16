@@ -61,6 +61,14 @@ BAT.unevaluated(em) === measure
 
 [`unevaluated(em)`](@ref) returns the original `measure`.
 
+If `measure` is itself an `EvaluatedMeasure`, the keyword arguments update
+its content: given values replace the corresponding entries,
+`ScopedSettings.unchanged` (the default) keeps them, and `nothing` (resp.
+`MeasureBase.UnknownMass()` for `mass`) clears them. This also provides
+directional merging of two evaluated measures, e.g.
+`EvaluatedMeasure(em1, approx = em2.approx)`. Use `Accessors.@set` for
+direct field surgery that bypasses the update logic.
+
 Properties:
 
 * `unevaluated`: The original measure.
@@ -119,49 +127,51 @@ end
 
 function EvaluatedMeasure(
     measurelike::MeasureLike;
-    empirical::Union{DensitySampleMeasure,DensitySampleVector,Nothing} = nothing,
-    approx::Union{BATMeasure,Nothing} = nothing,
-    dof::Union{IntegerLike,MeasureBase.NoDOF,Nothing} = nothing,
-    mass::Union{RealLike,MeasureBase.AbstractUnknownMass} = MeasureBase.UnknownMass(),
-    modes::Union{AbstractVector,Nothing} = nothing,
-    samplegen::Union{AbstractSampleGenerator,Nothing} = nothing,
-    evalinfo::Union{MeasureEvalInfo,Nothing} = nothing
+    empirical::Union{DensitySampleMeasure,DensitySampleVector,Nothing,Unchanged} = unchanged,
+    approx::Union{BATMeasure,Nothing,Unchanged} = unchanged,
+    dof::Union{IntegerLike,MeasureBase.NoDOF,Nothing,Unchanged} = unchanged,
+    mass::Union{RealLike,MeasureBase.AbstractUnknownMass,Unchanged} = unchanged,
+    modes::Union{AbstractVector,Nothing,Unchanged} = unchanged,
+    samplegen::Union{AbstractSampleGenerator,Nothing,Unchanged} = unchanged,
+    evalinfo::Union{MeasureEvalInfo,Nothing,Unchanged} = unchanged
 )
     em = convert(EvaluatedMeasure, measurelike)
-    empirical = isnothing(empirical) ? nothing : convert(DensitySampleMeasure, empirical)
 
-    # If nothing has changed, return em directly:
     if (
-        isnothing(empirical) && isnothing(approx) && isnothing(dof) &&
-        (mass isa MeasureBase.UnknownMass) && isnothing(modes) &&
-        isnothing(samplegen) && isnothing(evalinfo)
+        empirical isa Unchanged && approx isa Unchanged && dof isa Unchanged &&
+        mass isa Unchanged && modes isa Unchanged &&
+        samplegen isa Unchanged && evalinfo isa Unchanged
     )
         return em
     end
 
-    new_dof = choose_something(
-        _dofval_or_nothing(dof),
-        _getdof_or_nothing(em),
-        _getdof_or_nothing(empirical),
-        _getdof_or_nothing(approx),
-    )
+    new_empirical = empirical isa Unchanged ? em.empirical :
+        isnothing(empirical) ? nothing : convert(DensitySampleMeasure, empirical)
+    new_approx = approx isa Unchanged ? em.approx : approx
 
-    new_mass = choose_something(
-        mass,
-        _getmass_or_unkown(em),
-    )
+    new_dof = if dof isa Unchanged
+        choose_something(
+            _getdof_or_nothing(em),
+            _getdof_or_nothing(new_empirical),
+            _getdof_or_nothing(new_approx),
+        )
+    else
+        _dofval_or_nothing(dof)
+    end
+
+    new_mass = mass isa Unchanged ? _getmass_or_unkown(em) : mass
 
     # ToDo: Set DOF in empirical if not there yet and inferrable from em.unevaluated?
 
     return EvaluatedMeasure(
         em.unevaluated,
-        choose_something(empirical, em.empirical),
-        choose_something(approx, em.approx),
+        new_empirical,
+        new_approx,
         new_dof,
         new_mass,
-        choose_something(modes, em.modes),
-        choose_something(samplegen, em.samplegen),
-        evalinfo # never keep old evalinfo if anything has changed
+        modes isa Unchanged ? em.modes : modes,
+        samplegen isa Unchanged ? em.samplegen : samplegen,
+        evalinfo isa Unchanged ? em.evalinfo : evalinfo
     )
 end
 
