@@ -35,6 +35,8 @@ function PolarShellDistribution(
     base_dist::Distributions.Distribution{Multivariate,Continuous} = MvNormal(Diagonal([1,1])),
     radial_dist::Distributions.Distribution{Univariate,Continuous} = Rayleigh()
 )
+    length(base_dist) == 2 || throw(ArgumentError("PolarShellDistribution requires a two-dimensional base distribution"))
+
     base_measure = batmeasure(base_dist)
     r_transform = BAT.DistributionTransform(radial_dist, truncated(Normal(), 0, Inf))
     shell_transform = ShellRTransform(r_transform)
