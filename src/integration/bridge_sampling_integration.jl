@@ -24,6 +24,34 @@ $(TYPEDFIELDS)
 end
 export BridgeSampling
 
+
+function _bridge_weights(weights::AbstractVector{<:Real})
+    AnalyticWeights(weights ./ sum(weights))
+end
+
+
+function _bridge_weight_ess(weights::AbstractVector{<:Real})
+    inv(sum(abs2, _bridge_weights(weights)))
+end
+
+
+function _bridge_weighted_mean_and_var(values::AbstractVector{<:Real}, weights::AbstractVector{<:Real})
+    weight_ess = _bridge_weight_ess(weights)
+    StatsBase.mean_and_var(values, _bridge_weights(weights); corrected = weight_ess > 1)
+end
+
+
+function _bridge_target_ess(
+    samples::DensitySampleVector,
+    ess_alg::EffSampleSizeAlgorithm,
+    context::BATContext,
+)
+    weight_ess = _bridge_weight_ess(samples.weight)
+    autocorr_ess = bat_eff_sample_size_impl(samples, ess_alg, context).result[1]
+    isfinite(autocorr_ess) && autocorr_ess > 0 ? min(weight_ess, autocorr_ess) : weight_ess
+end
+
+
 function bat_integrate_impl(m::BATMeasure, algorithm::BridgeSampling, context::BATContext)
     @argcheck m isa EvaluatedMeasure
     @argcheck !ismissing(maybe_samplesof(m))
@@ -50,8 +78,8 @@ function bridge_sampling_integral(
     context::BATContext
     )
 
-    N1 = round(Int, sum(target_samples.weight))
-    N2 = round(Int, sum(proposal_samples.weight))
+    N1 = _bridge_weight_ess(target_samples.weight)
+    N2 = _bridge_weight_ess(proposal_samples.weight)
 
     #####################
     # Evaluate integral #
@@ -68,17 +96,8 @@ function bridge_sampling_integral(
     current_int = 0.1
     while abs(current_int-prev_int)/current_int > 10^(-15)
         prev_int = current_int
-        numerator = 0
-        for (i, w) in enumerate(proposal_samples.weight)
-            numerator += w*(l2[i]/(s1*l2[i]+s2*prev_int))
-        end
-        numerator = numerator/N2
-
-        denominator = 0
-        for (i, w) in enumerate(target_samples.weight)
-            denominator += w/(s1*l1[i]+s2*prev_int)
-        end
-        denominator = denominator/N1
+        numerator = mean(l2 ./ (s1 .* l2 .+ s2 .* prev_int), _bridge_weights(proposal_samples.weight))
+        denominator = mean(1 ./ (s1 .* l1 .+ s2 .* prev_int), _bridge_weights(target_samples.weight))
 
         current_int = numerator/denominator
         if counter == 500
@@ -101,10 +120,10 @@ function bridge_sampling_integral(
     f2 = [[exp(logdensityof(proposal_density,x))/(s1*exp(target_samples.logd[i])/current_int+s2*exp(logdensityof(proposal_density,x)))] for (i,x) in enumerate(target_samples.v)]
     f2_density_vector = DensitySampleVector(f2,target_samples.logd,weight=target_samples.weight)
 
-    mean1, var1 = StatsBase.mean_and_var(f1, FrequencyWeights(proposal_samples.weight), corrected = true)
-    mean2, var2 = mean(f2_density_vector)[1],cov(f2_density_vector)[1]
+    mean1, var1 = _bridge_weighted_mean_and_var(f1, proposal_samples.weight)
+    mean2, var2 = _bridge_weighted_mean_and_var(only.(f2), target_samples.weight)
 
-    N1_eff = bat_eff_sample_size_impl(f2_density_vector,ess_alg,context).result[1] 
+    N1_eff = _bridge_target_ess(f2_density_vector, ess_alg, context)
     # calculate  Root mean squared error
     r_MSE = sqrt(var1/(mean1^2*N2)+(var2/mean2^2)/N1_eff)*current_int 
 
@@ -133,11 +152,16 @@ function bridge_sampling_integral(
     
     #Determine proposal function
     post_mean = vec(mean(first_batch))
-    post_cov = Array(cov(first_batch)) #TODO: other covariance approximations
+    post_cov = Array(_cov(
+        first_batch.v,
+        _bridge_weights(first_batch.weight);
+        corrected = _bridge_weight_ess(first_batch.weight) > 1,
+    )) #TODO: other covariance approximations
     post_cov_pd = PDMat(cholesky(Positive, post_cov))
 
     proposal_measure = batmeasure(MvNormal(post_mean,post_cov_pd))
-    proposal_samples = bat_sample_impl(proposal_measure, IIDSampling(nsamples=round(Int, sum(second_batch.weight))), context).result
+    n_proposal = round(Int, _bridge_weight_ess(second_batch.weight))
+    proposal_samples = bat_sample_impl(proposal_measure, IIDSampling(nsamples=n_proposal), context).result
     proposal_measure = batmeasure(proposal_measure)
 
     bridge_sampling_integral(target_measure,second_batch,proposal_measure,proposal_samples,strict,ess_alg,context)
