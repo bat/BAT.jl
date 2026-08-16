@@ -29,7 +29,11 @@ function BAT.mcmc_weight_values(::ZeroMCMCWeighting, p_accept, accepted)
     return (zeros(Int, length(p_accept)), zeros(Int, length(p_accept)))
 end
 
-function retry_init_result(initial_values, rerolled_values)
+function retry_init_result(
+    initial_values,
+    rerolled_values;
+    expected_log = r"Rerolling starting positions for \d+ walkers",
+)
     target = unshaped(batmeasure(Normal()))
     initval_alg = RetryInitSequence([initial_values; rerolled_values])
     samplingalg = TransformedMCMC(
@@ -47,7 +51,7 @@ function retry_init_result(initial_values, rerolled_values)
     )
 
     result = nothing
-    @test_logs min_level=Logging.Debug match_mode=:any (:debug, r"Rerolling starting positions for \d+ walkers") begin
+    @test_logs min_level=Logging.Debug match_mode=:any (:debug, expected_log) begin
         result = BAT.mcmc_init!(samplingalg, target, init_alg, (_...) -> nothing, BATContext())
     end
 
@@ -108,26 +112,11 @@ end
     @testset "empty output rerolls and counts multiple walkers" begin
         initial_values = [-8.0, 8.0]
         rerolled_values = [-0.5, 0.5]
-        target = unshaped(batmeasure(Normal()))
-        initval_alg = RetryInitSequence([initial_values; rerolled_values])
-        samplingalg = TransformedMCMC(
-            adaptive_transform = BAT.NoAdaptiveTransform(),
-            nchains = 1,
-            nwalkers = 2,
-            nonzero_weights = true,
-            sample_weighting = ZeroMCMCWeighting(),
+        result = retry_init_result(
+            initial_values,
+            rerolled_values;
+            expected_log = "Rerolling starting positions for 2 walkers in chain 1.",
         )
-        init_alg = MCMCRetryInit(
-            max_init_tries = 1,
-            nsteps_init = 1,
-            initval_alg = initval_alg,
-            strict = false,
-        )
-
-        result = nothing
-        @test_logs min_level=Logging.Debug match_mode=:any (:debug, "Rerolling starting positions for 2 walkers in chain 1.") begin
-            result = BAT.mcmc_init!(samplingalg, target, init_alg, (_...) -> nothing, BATContext())
-        end
 
         @test all(isempty, only(result.outputs))
         for walkerid in eachindex(rerolled_values)
