@@ -28,14 +28,14 @@ function MarginalDist(
     filter::Bool = false
 )
 
+    if filter && (isempty(samples) || !all(iszero, samples.weight))
+        samples = BAT.drop_low_weight_samples(samples)
+    end
+
     marg_samples = bat_marginalize(samples, vsel).result
     vs = varshape(marg_samples)
     vs isa NamedTupleShape ? shapes = [getproperty(acc, :shape) for acc in vs._accessors] : shapes = [0,0]
     UV = (vs isa ArrayShape && vsel isa Integer) || (length(shapes) == 1 && (shapes[1] isa Union{ScalarShape, ConstValueShape} || getproperty(shapes[1], :dims) == (1,)))
-
-    if filter
-        marg_samples = BAT.drop_low_weight_samples(marg_samples)
-    end
 
     marg_samples = flatview(unshaped.(marg_samples).v)
     cols = Tuple(Vector.(eachrow(marg_samples)))

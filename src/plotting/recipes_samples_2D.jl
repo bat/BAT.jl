@@ -51,8 +51,7 @@
         reshaped_samples,
         vsel,
         bins = bins,
-        closed = closed,
-        filter = filter
+        closed = closed
     )
 
     if seriestype == :scatter
