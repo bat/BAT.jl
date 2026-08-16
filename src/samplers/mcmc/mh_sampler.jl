@@ -90,7 +90,6 @@ function _full_random_walk_proposal(m::BATDistMeasure, n_dims::Integer)
 end
 
 function _full_random_walk_proposal(d::Distribution{Multivariate,Continuous}, n_dims::Integer)
-    @assert false
     @argcheck length(d) == n_dims
     return d
 end

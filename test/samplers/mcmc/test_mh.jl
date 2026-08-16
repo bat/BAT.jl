@@ -19,7 +19,41 @@ using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
     nwalkers = 1
 
     samplingalg = TransformedMCMC(nchains = nchains, nwalkers = nwalkers)
- 
+
+    @testset "multivariate proposals" begin
+        target = MvNormal(zeros(2), [1.0 0.8; 0.8 1.0])
+        proposal_dist = MvNormal(zeros(2), [0.2 0.15; 0.15 0.2])
+        proposal = RandomWalk(proposaldist = proposal_dist)
+        algorithm = TransformedMCMC(
+            proposal = proposal,
+            pretransform = DoNotTransform(),
+            nchains = 1,
+            nsteps = 10,
+            convergence = AssumeConvergence()
+        )
+
+        samples = bat_sample(target, algorithm, context).result
+        @test !isempty(samples)
+        @test cov(BAT._full_random_walk_proposal(proposal_dist, 2)) == cov(proposal_dist)
+
+        mismatched_proposal = RandomWalk(proposaldist = MvNormal(zeros(3), I))
+        mismatch_algorithm = TransformedMCMC(
+            proposal = mismatched_proposal,
+            pretransform = DoNotTransform(),
+            nchains = 1,
+            nsteps = 10,
+            convergence = AssumeConvergence()
+        )
+        err = try
+            bat_sample(target, mismatch_algorithm, context)
+            nothing
+        catch err
+            err
+        end
+        @test err isa ArgumentError
+        @test occursin("length(d) == n_dims", sprint(showerror, err))
+    end
+
     @testset "MCMC iteration" begin
         nsteps = 10^5
         nsteps_adapt = div(nsteps, 10)
