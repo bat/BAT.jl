@@ -17,6 +17,10 @@ using Test
     @test vector_proposal.proposals == [RandomWalk(), RandomWalk()]
     @test vector_proposal.picking_rule == Categorical([1 / 3, 2 / 3])
 
+    copied_proposal = MCMCMultiProposal(vector_proposal)
+    @test copied_proposal.proposals == vector_proposal.proposals
+    @test copied_proposal.picking_rule == vector_proposal.picking_rule
+
     @test_throws ArgumentError MCMCMultiProposal(BAT.MCMCProposal[], Int[])
     @test_throws ArgumentError MCMCMultiProposal(proposals = BAT.MCMCProposal[])
     @test_throws ArgumentError MCMCMultiProposal((RandomWalk(),), [0])
