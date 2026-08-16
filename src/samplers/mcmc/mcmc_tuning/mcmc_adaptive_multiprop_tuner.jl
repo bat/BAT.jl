@@ -158,8 +158,12 @@ function _tune_picking_rule(
 )
     p_tuned = copy(picking_rule.p)
     p_tuned[curr_idx] = acc_new
-    p_tuned .*= (1 - picking_socket) / sum(p_tuned)
-    p_tuned .+= picking_socket / N
+    if iszero(sum(p_tuned))
+        fill!(p_tuned, 1 / N)
+    else
+        p_tuned .*= (1 - picking_socket) / sum(p_tuned)
+        p_tuned .+= picking_socket / N
+    end
     return Categorical(p_tuned)
 end
 
@@ -173,8 +177,12 @@ function _tune_picking_rule(
     total_weight = sum(picking_rule)
     picking_rule_tuned = picking_rule ./ total_weight
     picking_rule_tuned[curr_idx] = acc_new
-    picking_rule_tuned .*= (1 - picking_socket) / sum(picking_rule_tuned)
-    picking_rule_tuned .+= picking_socket / N
+    if iszero(sum(picking_rule_tuned))
+        fill!(picking_rule_tuned, 1 / N)
+    else
+        picking_rule_tuned .*= (1 - picking_socket) / sum(picking_rule_tuned)
+        picking_rule_tuned .+= picking_socket / N
+    end
 
     return _integer_picking_rule(picking_rule_tuned, total_weight)
 end
@@ -191,6 +199,14 @@ function _integer_picking_rule(
         fractional_parts = scaled_weights .- picking_rule
         largest_fractional_parts = sortperm(fractional_parts; rev = true)
         picking_rule[largest_fractional_parts[1:remainder]] .+= 1
+    end
+
+    for idx in eachindex(picking_rule)
+        if picking_probabilities[idx] > 0 && iszero(picking_rule[idx])
+            donor_idx = argmax(picking_rule)
+            picking_rule[donor_idx] -= 1
+            picking_rule[idx] = 1
+        end
     end
 
     return picking_rule

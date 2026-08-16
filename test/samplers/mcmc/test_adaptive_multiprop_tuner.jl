@@ -62,6 +62,27 @@ _picking_probabilities(picking_rule::Categorical) = picking_rule.p
         end
     end
 
+    @testset "zero post-step scores preserve single-proposal rules" begin
+        @test BAT._tune_picking_rule([1], 0.0, 1, 0.8, 1) == [1]
+        @test BAT._tune_picking_rule(
+            Categorical([1.0]),
+            0.0,
+            1,
+            0.8,
+            1,
+        ).p == [1.0]
+    end
+
+    @testset "integer socket re-enables every proposal" begin
+        reenabled_rule = BAT._qualify_picking_rule(
+            fill(1, 6),
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            0.8,
+            6,
+        )
+        @test reenabled_rule == [1, 1, 1, 1, 1, 1]
+    end
+
     @testset "integer-vector rules preserve their total weight" begin
         picking_rule = [2, 1]
 
