@@ -459,11 +459,15 @@ function _push_density_sample_report!(rpt::LazyReport, smplv::DensitySampleVecto
     ci_names = _report_interval_names(intervals)
     marg_tbl = _marginal_table(smplv)
     marg_columns = Tables.columns(marg_tbl)
+    report_histograms = map(eachindex(marg_tbl.marginal_histogram)) do idx
+        marginal = MarginalDist(smplv, idx)
+        convert(Histogram, marginal.dist isa ReshapedDist ? marginal.dist.dist : marginal.dist)
+    end
     report_columns = (;
         (
             name => map(
                 histogram -> _histogram_credible_intervals(histogram, credibility),
-                marg_tbl.marginal_histogram,
+                report_histograms,
             )
             for (name, credibility) in zip(ci_names, intervals)
         )...
