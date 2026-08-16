@@ -6,6 +6,11 @@
 
 If `obj` is an evaluated object, like a [`EvaluatedMeasure`](@ref),
 return the original (unevaluated) object. Otherwise, return `obj`.
+
+This is the explicit way to strip attached measure knowledge, e.g. to
+obtain a bare measure for performance-critical density evaluation.
+Reparametrizations like `unshaped` transport attached knowledge instead
+of dropping it.
 """
 function unevaluated end
 export unevaluated

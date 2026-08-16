@@ -47,7 +47,7 @@ function MCMCChainState(
 
     f = init_adaptive_transform(samplingalg.adaptive_transform, target, x_init, context)
     f_inv = inverse(f)
-    proposal = _create_proposal_state(samplingalg.proposal, target, context, x_init, f, rng)
+    proposal = _create_proposal_state(samplingalg.proposal, target_unevaluated, context, x_init, f, rng)
 
     logd_x_init = logdensityof.(target_unevaluated, x_init)
     z_init = f_inv.(x_init) 
@@ -99,8 +99,12 @@ function MCMCChainState(
     n_proposals = proposal isa MultiProposalState ? length(proposal.proposal_states) : 1
     nsamples::Vector{Int64} = zeros(n_proposals)
 
+    # The stored target is evaluated in the sampling hot loop, so it must be
+    # a bare measure. Knowledge attached to the given target (samples, approximations,
+    # see EvaluatedMeasure) is consumed above, by the initial-value generation
+    # upstream and the adaptive transform initialization:
     state = MCMCChainState(
-        target,
+        target_unevaluated,
         proposal,
         f,
         samplingalg.sample_weighting,

@@ -271,13 +271,17 @@ DensityInterface.logdensityof(em::EvaluatedMeasure) = logdensityof(unevaluated(e
 
 ValueShapes.varshape(em::EvaluatedMeasure) = varshape(em.unevaluated)
 
+# `unshaped` is a pure reparametrization, so all measure knowledge is
+# transported to the unshaped space. Use `unevaluated` to strip the knowledge
+# and obtain a bare measure for performance-critical density evaluation:
 function ValueShapes.unshaped(em::EvaluatedMeasure, vs::AbstractValueShape)
     new_measure = unshaped(em.unevaluated, vs)
     new_empirical = isnothing(em.empirical) ? nothing : unshaped(em.empirical, vs)
-    # ToDo: Unshape modes and approx as well instead of dropping them:
+    new_approx = isnothing(em.approx) ? nothing : unshaped(em.approx, vs)
+    new_modes = isnothing(em.modes) ? nothing : unshaped.(em.modes, Ref(vs))
     return EvaluatedMeasure(
-        new_measure, new_empirical, nothing, em.dof, em.mass,
-        nothing, em.samplegen, em.evalinfo
+        new_measure, new_empirical, new_approx, em.dof, em.mass,
+        new_modes, em.samplegen, em.evalinfo
     )
 end
 

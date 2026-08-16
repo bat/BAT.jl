@@ -67,6 +67,25 @@ using LazyReports: LazyReport, lazyreport
         @test BAT._approx_max_logd(em_plain) === BAT._approx_max_logd(m)
     end
 
+    @testset "unshaped transports knowledge" begin
+        approx_m = batmeasure(distprod(
+            a = truncated(Normal(0.1, 0.9), -2, 2),
+            b = Exponential(2.0),
+            c = [1 2; 3 4],
+            d = [-3..3, -4..4]
+        ))
+        em_k = EvaluatedMeasure(m, empirical = empirical_m, approx = approx_m, modes = [x], mass = 1)
+        vs = varshape(em_k)
+        uem = unshaped(em_k, vs)
+        @test BAT.unevaluated(uem) == unshaped(m, vs)
+        @test BAT.empiricalof(uem) == unshaped(empirical_m, vs)
+        @test BAT.approxof(uem) == unshaped(approx_m, vs)
+        @test uem.modes == [unshaped(x, vs)]
+        @test massof(uem) == massof(em_k)
+        # unevaluated is the explicit knowledge strip:
+        @test !(BAT.unevaluated(uem) isa EvaluatedMeasure)
+    end
+
     @testset "report generation" begin
         @test lazyreport(em) isa LazyReport
         @test lazyreport(em_plain) isa LazyReport
