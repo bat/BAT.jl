@@ -92,6 +92,36 @@ using MeasureBase
     test_back_and_forth(stdmvuni2, stdmvnorm2)
     test_back_and_forth(stdmvnorm2, stdmvuni2)
 
+    @testset "standard uniform endpoint clipping" begin
+        for T in (Float32, Float64)
+            @testset "$T" begin
+                src_d = BAT.StandardUvUniform{T}()
+                trg_d = Exponential()
+                f = BAT.DistributionTransform(trg_d, src_d)
+                f_inv = inverse(f)
+
+                lo = nextfloat(zero(T))
+                hi = prevfloat(one(T))
+
+                @test f(zero(T)) == quantile(trg_d, eps(T))
+                @test f(one(T)) == quantile(trg_d, one(T) - eps(T))
+                @test isfinite(f(zero(T)))
+                @test isfinite(f(one(T)))
+                @test f(eps(T)) == quantile(trg_d, eps(T))
+                @test f(one(T) - eps(T)) == quantile(trg_d, one(T) - eps(T))
+                @test f(lo) == quantile(trg_d, lo)
+                @test f(hi) == quantile(trg_d, hi)
+                @test isfinite(ForwardDiff.value(f(ForwardDiff.Dual(one(T), one(T)))))
+                @test f(lo) < f(nextfloat(lo))
+                @test f(prevfloat(hi)) < f(hi)
+                @test f_inv(f(hi)) ≈ hi rtol = eps(T)
+
+                _, ladj = with_logabsdet_jacobian(f, hi)
+                @test ladj == log(ForwardDiff.derivative(f, hi))
+            end
+        end
+    end
+
     test_back_and_forth(beta, stduvnorm)
     test_back_and_forth(gamma, stduvnorm)
 
