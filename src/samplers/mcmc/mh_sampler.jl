@@ -89,9 +89,6 @@ function _full_random_walk_proposal(m::BATDistMeasure, n_dims::Integer)
     return batmeasure(_full_random_walk_proposal(d, n_dims))
 end
 
-# A user-supplied full multivariate innovation distribution would need a
-# symmetry guarantee (the random-walk acceptance assumes a symmetric
-# proposal), which can't be checked generically:
 function _full_random_walk_proposal(d::Distribution{Multivariate,Continuous}, n_dims::Integer)
     @argcheck length(d) == n_dims
     return d
