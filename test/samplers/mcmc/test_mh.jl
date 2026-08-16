@@ -35,7 +35,7 @@ using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
 
             rw_samples = bat_sample(rw_target, rw_algorithm, context).result
             @test !isempty(rw_samples)
-            @test cov(BAT._full_random_walk_proposal(rw_proposal_dist, 2)) == cov(rw_proposal_dist)
+            @test cov(BAT._random_walk_proposal(rw_proposal_dist, 2)) == cov(rw_proposal_dist)
 
             mismatched_proposal = RandomWalk(proposaldist = MvNormal(zeros(3), I))
             mismatch_algorithm = TransformedMCMC(
@@ -53,6 +53,22 @@ using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
             end
             @test err isa ArgumentError
             @test occursin("length(d) == n_dims", sprint(showerror, err))
+        end
+    end
+
+    @testset "MALA multivariate proposal rejection" begin
+        let
+            mala_context = BATContext()
+            mala_target = batmeasure(MvNormal(zeros(2), [1.0 0.8; 0.8 1.0]))
+            mala_proposal = MALAProposal(proposaldist = MvNormal(zeros(2), [0.2 0.15; 0.15 0.2]))
+            @test_throws AssertionError BAT._create_proposal_state(
+                mala_proposal,
+                mala_target,
+                mala_context,
+                [zeros(2)],
+                identity,
+                BAT.get_rng(mala_context)
+            )
         end
     end
 
