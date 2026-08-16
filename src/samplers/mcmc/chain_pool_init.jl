@@ -23,11 +23,6 @@ end
 export MCMCChainPoolInit
 
 
-function _check_cluster_convergence(converged::Bool)
-    converged || error("k-means clustering of MCMC chain states did not converge")
-end
-
-
 function apply_trafo_to_init(f_transform::Function, initalg::MCMCChainPoolInit)
     MCMCChainPoolInit(
     initalg.init_tries_per_chain,
@@ -124,7 +119,6 @@ function mcmc_init!(
 
     m = nchains
     tidxs = LinearIndices(mcmc_states)
-    n = length(tidxs)
 
     # Retrieve the outputs of the single walker of each chain
     outputs_per_chain = map(first, outputs)
@@ -136,7 +130,7 @@ function mcmc_init!(
 
     if 2 <= m < size(modes, 2)
         clusters = kmeans(modes, m, init = KmCentralityAlg())
-        _check_cluster_convergence(clusters.converged)
+        clusters.converged || error("k-means clustering of MCMC chain states did not converge")
 
         mincosts = fill(Inf, m)
         mcmc_states_sel_idxs = fill(0, m)

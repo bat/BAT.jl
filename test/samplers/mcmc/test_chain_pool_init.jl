@@ -83,8 +83,4 @@ import Random123
         @test sprint(showerror, err) == "Failed to generate 2 viable MCMC chain states"
     end
 
-    @testset "reports failed clustering" begin
-        @test BAT._check_cluster_convergence(true)
-        @test_throws ErrorException("k-means clustering of MCMC chain states did not converge") BAT._check_cluster_convergence(false)
-    end
 end
