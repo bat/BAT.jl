@@ -6,7 +6,7 @@ using Test
 using Distributions, StatsBase, ValueShapes
 using EmpiricalDistributions: UvBinnedDist, MvBinnedDist
 
-using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex
+using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex, get_interval_edges
 
 @testset "MarginalDist" begin
     prior = NamedTupleDist(
@@ -67,5 +67,13 @@ using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex
 
         @test get_bin_centers(marg_2d) == [collect(1.5:1:10.5), collect(15:10:105)]
         @test find_marginalmodes(marg_2d) == [[5.5, 55.0], [9.5, 95.0]]
+    end
+
+    @testset "interval edges at the final bin" begin
+        final_bin = fit(Histogram, [2.5], 0:1:3, closed = :left)
+        @test get_interval_edges(final_bin) == ([2], [3])
+
+        spanning_final_bin = fit(Histogram, [1.5, 2.5], 0:1:3, closed = :left)
+        @test get_interval_edges(spanning_final_bin) == ([1], [3])
     end
 end

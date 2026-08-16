@@ -211,7 +211,7 @@ end
         weight = [5.0, 45.0, 45.0, 5.0],
     )
     multimodal_report = sprint(show, MIME("text/plain"), lazyreport(multimodal_samples; intervals = [0.9]))
-    @test occursin("[2.0 .. 3.0, 38.0 .. 39.0]", multimodal_report)
+    @test occursin("[2.0 .. 2.2, 38.0 .. 38.2]", multimodal_report)
     @test !occursin("multiple", multimodal_report)
 
     edge_samples = DensitySampleVector(
@@ -219,6 +219,6 @@ end
         weight = [2.0, 49.0, 49.0],
     )
     edge_report = sprint(show, MIME("text/plain"), lazyreport(edge_samples; intervals = [0.5]))
-    @test occursin("1.0 .. 1.05", edge_report)
-    @test !occursin("1.0 .. 2.0", edge_report)
+    @test occursin("1.0 .. 1.01", edge_report)
+    @test !occursin("1.0 .. 1.05", edge_report)
 end
