@@ -468,8 +468,11 @@ std_dist_to(trg_d::Distribution{Univariate,Continuous}) = StandardUvUniform()
 
 function dist_trafo_impl(trg_d::Distribution{Univariate,Continuous}, ::StandardUvUniform, src_v::Real)
     TV = float(typeof(src_v))
-    # Avoid src_v ≈ 0 and src_v ≈ 1 to avoid infinite variate values for target distributions with infinite support:
-    mod_src_v = ifelse(src_v ≈ 0, zero(TV) + eps(TV), ifelse(src_v ≈ 1, one(TV) - eps(TV), convert(TV, src_v)))
+    # Replace exact endpoints with values one epsilon inside the unit interval to keep infinite-support quantiles finite.
+    src_value = ForwardDiff.value(src_v)
+    isnan(src_value) || zero(src_value) <= src_value <= one(src_value) ||
+        throw(DomainError(src_value, "source value must be in [0, 1]"))
+    mod_src_v = ifelse(src_value == zero(src_value), zero(TV) + eps(TV), ifelse(src_value == one(src_value), one(TV) - eps(TV), convert(TV, src_v)))
     _eval_dist_trafo_func(_trafo_quantile, trg_d, mod_src_v)
 end
 
