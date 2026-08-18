@@ -131,7 +131,7 @@ function mcmc_tune_proposal_post_step!!(
     multi_proposal::MultiProposalState,
     multi_tuner::MultiProposalTunerState,
     chain_state::MCMCChainState,
-    p_accept::AbstractVector{<:Real}
+    step_info::MCMCStepInfo
 )
     active_idx = multi_proposal.active_idx
     
@@ -142,7 +142,7 @@ function mcmc_tune_proposal_post_step!!(
         active_proposal, 
         active_tuner, 
         chain_state, 
-        p_accept
+        step_info
     )
 
     multi_proposal = @set multi_proposal.proposal_states[active_idx] = active_proposal_tuned

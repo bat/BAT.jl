@@ -32,6 +32,10 @@ end
 
 mutable struct RAMProposalTunerState <: MCMCTransformTunerState end
 
+# RAM drifts the transformation in small per-step updates, step-size
+# adaptation tracks it instead of restarting:
+transform_change_restarts_stepsize(::RAMTrafoTunerState) = false
+
 
 create_trafo_tuner_state(
     tuning::RAMTuning,
@@ -140,8 +144,9 @@ function mcmc_tune_trafo_post_step!!(
     proposal::MCMCProposalState,
     current::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
     proposed::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
-    p_accept::AbstractVector{<:Real}
+    step_info::MCMCStepInfo
 )
+    p_accept = step_info.p_accept
 
     if any(current.x.v .== proposed.x.v)
         return f_transform, tuner_state, chain_state

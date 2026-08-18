@@ -55,6 +55,19 @@ end
 export HamiltonianMC
 
 
+# Whole-run trajectory diagnostics of one chain, mutated in place so the
+# counts survive the functional (immutable) proposal-state updates during
+# tuning (all copies share this object by reference):
+mutable struct HMCChainDiagnostics
+    n_transitions::Int
+    n_divergent::Int
+    n_maxdepth::Int
+    n_leapfrog::Int
+    sum_p_accept::Float64
+end
+
+HMCChainDiagnostics() = HMCChainDiagnostics(0, 0, 0, 0, 0.0)
+
 struct HMCProposalState{
     TA<:Real,
     TAI<:Tuple{Vararg{Real}},
@@ -68,6 +81,7 @@ struct HMCProposalState{
     step_jitter::T
     max_depth::Int
     max_delta_energy::T
+    diagnostics::HMCChainDiagnostics
 end
 
 
@@ -75,18 +89,16 @@ bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::Hamiltonian
 
 bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, proposal::HamiltonianMC) = StepSizeAdaptor()
 
-bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, proposal::HamiltonianMC) = RAMTuning()
-
 bat_default(::Type{TransformedMCMC}, ::Val{:adaptive_transform}, proposal::HamiltonianMC) = TriangularAffineTransform()
 
 bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, proposal::HamiltonianMC) = NoMCMCTempering()
 
-bat_default(::Type{TransformedMCMC}, ::Val{:nsteps}, proposal::HamiltonianMC, pretransform::TransformIntent, nchains::Integer) = 10^4
+bat_default(::Type{TransformedMCMC}, ::Val{:nsteps}, ::HamiltonianMC, ::TransformIntent, ::MCMCTransformTuning, nchains::Integer, nwalkers::Integer) = 10^4
 
-bat_default(::Type{TransformedMCMC}, ::Val{:init}, proposal::HamiltonianMC, pretransform::TransformIntent, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{TransformedMCMC}, ::Val{:init}, ::HamiltonianMC, ::TransformIntent, ::MCMCTransformTuning, nchains::Integer, nwalkers::Integer, nsteps::Integer) =
     MCMCChainPoolInit(nsteps_init = 25)
 
-bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::HamiltonianMC, pretransform::TransformIntent, nchains::Integer, nsteps::Integer) =
+bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, ::HamiltonianMC, ::TransformIntent, ::MCMCTransformTuning, nchains::Integer, nwalkers::Integer, nsteps::Integer) =
     MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 250), max_ncycles = 4)
 
 
@@ -104,6 +116,15 @@ function _create_proposal_state(
     f_transform::Function,
     rng::AbstractRNG
 ) where {P<:Real, PV<:AbstractVector{P}}
+    @argcheck 0 < proposal.target_acceptance < 1
+    let (lo, hi) = proposal.target_acceptance_int
+        @argcheck 0 <= lo < hi <= 1
+    end
+    @argcheck isnan(proposal.step_size) || proposal.step_size > 0
+    @argcheck 0 <= proposal.step_jitter < 1
+    @argcheck proposal.max_depth >= 1
+    @argcheck proposal.max_delta_energy > 0
+
     fg = _hmc_target_logdgrad_func(target, f_transform, context, proposal)
 
     T = float(P)
@@ -121,7 +142,8 @@ function _create_proposal_state(
         step_size,
         T(proposal.step_jitter),
         Int(proposal.max_depth),
-        T(proposal.max_delta_energy)
+        T(proposal.max_delta_energy),
+        HMCChainDiagnostics()
     )
 end
 
@@ -134,6 +156,10 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalState)
     T = typeof(step_size)
 
     p_accept = Vector{T}(undef, n_walkers)
+    z_grads = Vector{Vector{T}}(undef, n_walkers)
+    divergent = Vector{Bool}(undef, n_walkers)
+    tree_depth = Vector{Int}(undef, n_walkers)
+    n_leapfrog = Vector{Int}(undef, n_walkers)
 
     for i in 1:n_walkers
         q = convert(Vector{T}, current.z.v[i])
@@ -145,7 +171,18 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalState)
         proposed.z.v[i] = transition.z.q
         proposed.z.logd[i] = transition.z.logd
         p_accept[i] = transition.p_accept
+        z_grads[i] = transition.z.grad
+        divergent[i] = transition.divergent
+        tree_depth[i] = transition.depth
+        n_leapfrog[i] = transition.n_leapfrog
     end
+
+    diag = proposal.diagnostics
+    diag.n_transitions += n_walkers
+    diag.n_divergent += count(divergent)
+    diag.n_maxdepth += count(>=(max_depth), tree_depth)
+    diag.n_leapfrog += sum(n_leapfrog)
+    diag.sum_p_accept += sum(p_accept)
 
     chain_state.accepted .= proposed.z.v .!= current.z.v
 
@@ -156,10 +193,23 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalState)
     ladj = getsecond.(x_ladj_proposed)
     proposed.x.logd .= proposed.z.logd .- ladj
 
-    return chain_state, proposal, p_accept
+    return chain_state, proposal, MCMCStepInfo(p_accept, z_grads, divergent, tree_depth, n_leapfrog)
 end
+
+mcmc_step_provides_grads(::HMCProposalState) = true
 
 function set_proposal_transform!!(proposal::HMCProposalState, chain_state::MCMCChainState)
     fg = _hmc_target_logdgrad_func(chain_state.target, chain_state.f_transform, chain_state.context, proposal)
     return @set proposal.target_logdgrad = fg
+end
+
+function _proposal_diagnostics(p::HMCProposalState)
+    d = p.diagnostics
+    return (
+        n_transitions = d.n_transitions,
+        n_divergent = d.n_divergent,
+        n_maxdepth = d.n_maxdepth,
+        n_leapfrog = d.n_leapfrog,
+        mean_p_accept = d.n_transitions > 0 ? d.sum_p_accept / d.n_transitions : NaN,
+    )
 end

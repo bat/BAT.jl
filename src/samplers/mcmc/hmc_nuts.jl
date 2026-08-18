@@ -198,36 +198,47 @@ function hmc_find_good_stepsize(
     rng::AbstractRNG, f_logdgrad::Function, q0::AbstractVector{<:Real};
     init_stepsize::Real = 0.1, max_niters::Integer = 100
 )
+    @argcheck init_stepsize > 0
+    @argcheck max_niters >= 1
     T = float(eltype(q0))
-    z0 = _hmc_phasepoint(f_logdgrad, q0, randn(rng, T, length(q0)))
+    z0 = _hmc_phasepoint(f_logdgrad, convert(Vector{T}, q0), randn(rng, T, length(q0)))
+    isfinite(z0.H) || throw(ArgumentError("Can't search for an HMC step size: non-finite log-density or gradient at the given position"))
     log_accept_ratio(stepsize) = z0.H - _leapfrog_step(f_logdgrad, z0, stepsize).H
     log_a_min, log_a_cross, log_a_max = 2 * log(T(1//2)), log(T(1//2)), log(T(3//4))
+    # A NaN energy error (divergent probe step) must count as
+    # acceptance-too-low, never as acceptance-too-high:
+    _ratio_high(la, thresh) = !isnan(la) && la > thresh
+    stepsize_min, stepsize_max = sqrt(floatmin(T)), sqrt(floatmax(T))
 
     # Double/halve until the acceptance ratio crosses 1/2:
     stepsize = T(init_stepsize)
-    ratio_too_high = log_accept_ratio(stepsize) > log_a_cross
+    ratio_too_high = _ratio_high(log_accept_ratio(stepsize), log_a_cross)
     stepsize_lo = stepsize_hi = stepsize
+    bracketed = false
     for _ in 1:max_niters
         stepsize_new = ratio_too_high ? 2 * stepsize : stepsize / 2
-        if xor(ratio_too_high, log_accept_ratio(stepsize_new) > log_a_cross)
+        stepsize_min <= stepsize_new <= stepsize_max || throw(ErrorException("HMC step size search left the numerically sane range, the target density geometry may be degenerate"))
+        if xor(ratio_too_high, _ratio_high(log_accept_ratio(stepsize_new), log_a_cross))
             stepsize_lo, stepsize_hi = minmax(stepsize, stepsize_new)
+            bracketed = true
             break
         end
         stepsize = stepsize_new
         stepsize_lo = stepsize_hi = stepsize
     end
+    bracketed || throw(ErrorException("HMC step size search did not bracket a reasonable step size within $max_niters doublings/halvings"))
 
     # Bisect until the acceptance ratio lies in [1/4, 3/4]:
     for _ in 1:max_niters
         stepsize_mid = (stepsize_lo + stepsize_hi) / 2
         la = log_accept_ratio(stepsize_mid)
-        if la > log_a_max
+        if _ratio_high(la, log_a_max)
             stepsize_lo = stepsize_mid
-        elseif la < log_a_min
+        elseif isnan(la) || la < log_a_min
             stepsize_hi = stepsize_mid
         else
             return stepsize_mid
         end
     end
-    return stepsize_lo
+    throw(ErrorException("HMC step size bisection did not converge within $max_niters iterations"))
 end

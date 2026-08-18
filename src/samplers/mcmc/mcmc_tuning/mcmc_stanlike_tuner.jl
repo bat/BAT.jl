@@ -89,7 +89,7 @@ function mcmc_tune_trafo_post_step!!(
     proposal::MCMCProposalState,
     current::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
     proposed::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
-    p_accept::AbstractVector{<:Real}
+    ::MCMCStepInfo
 )
     tuner.i += 1
 

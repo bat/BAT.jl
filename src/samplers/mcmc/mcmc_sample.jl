@@ -31,7 +31,7 @@ $(TYPEDFIELDS)
     proposal_tuning::PRT = bat_default(TransformedMCMC, Val(:proposal_tuning), proposal)
     pretransform::TR = bat_default(TransformedMCMC, Val(:pretransform), proposal)
     adaptive_transform::AT = bat_default(TransformedMCMC, Val(:adaptive_transform), proposal)
-    transform_tuning::ATT = bat_default(TransformedMCMC, Val(:transform_tuning), adaptive_transform)
+    transform_tuning::ATT = bat_default(TransformedMCMC, Val(:transform_tuning), proposal, adaptive_transform)
     tempering::TE = bat_default(TransformedMCMC, Val(:tempering), proposal)
     nchains::Int = 4
     nwalkers::Int = bat_default(TransformedMCMC, Val(:nwalkers), proposal, pretransform, transform_tuning, nchains)
@@ -49,12 +49,16 @@ end
 export TransformedMCMC
 
 
-bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::CustomTransform) = NoMCMCTransformTuning()
-bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::NoAdaptiveTransform) = NoMCMCTransformTuning()
-bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::TriangularAffineTransform) = RAMTuning()
+# The transform-tuning default depends on the proposal as well: the tuning
+# rule must match the statistics the proposal generates (see e.g.
+# FisherTransformTuning for gradient-based proposals vs. RAMTuning for
+# random-walk proposals):
+bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::MCMCProposal, ::CustomTransform) = NoMCMCTransformTuning()
+bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::MCMCProposal, ::NoAdaptiveTransform) = NoMCMCTransformTuning()
+bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::MCMCProposal, ::TriangularAffineTransform) = RAMTuning()
 
-function bat_default(TM::Type{TransformedMCMC}, tt::Val{:transform_tuning}, f_transform::AdaptiveTransformChain)
-    tunings = bat_default.(TM, tt, f_transform.f)
+function bat_default(TM::Type{TransformedMCMC}, tt::Val{:transform_tuning}, proposal::MCMCProposal, f_transform::AdaptiveTransformChain)
+    tunings = bat_default.(TM, tt, Ref(proposal), f_transform.f)
     return MultiTrafoTuning(Tuple(tunings))
 end
 
@@ -160,7 +164,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, samplingalg::TransformedMCMC, co
 
     samplegen = MCMCSampleGenerator(mcmc_states)
 
-    ess = minimum(bat_eff_sample_size_impl(samples_transformed, EffSampleSizeFromAC(), context).result)
+    ess = _summed_walker_ess(chain_outputs, context)
     dsm = DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 
     # The samples and the bare target measure in the transformed space are
@@ -175,8 +179,34 @@ function evalmeasure_impl(em::EvaluatedMeasure, samplingalg::TransformedMCMC, co
         dof = n_dof,
         samplegen = samplegen,
         transformed = _viewrep_measure(transformed_m, samplingalg.pretransform),
-        evalinfo = MeasureEvalInfo(samplingalg, (;))
+        evalinfo = MeasureEvalInfo(samplingalg, _mcmc_diagnostics_summary(mcmc_states))
     )
+end
+
+# Per-chain trajectory diagnostics (whole run, including warmup), for
+# proposals that record them:
+_proposal_diagnostics(::MCMCProposalState) = nothing
+
+function _mcmc_diagnostics_summary(mcmc_states::AbstractVector{<:MCMCState})
+    diags = [_proposal_diagnostics(get_active_proposal(s.chain_state.proposal)) for s in mcmc_states]
+    return all(isnothing, diags) ? (;) : (chain_diagnostics = diags,)
+end
+
+# Autocorrelation ESS is a property of the ordered stochastic process, not
+# of its empirical measure: it must be computed on each walker's ordered
+# output sequence separately, before chains and walkers are merged.
+# Independent chains and walkers then contribute additively:
+function _summed_walker_ess(
+    chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
+    context::BATContext
+)
+    ess_sum = nothing
+    for walker_outputs in chain_outputs, walker_output in walker_outputs
+        isempty(walker_output) && continue
+        ess_w = bat_eff_sample_size_impl(walker_output, EffSampleSizeFromAC(), context).result
+        ess_sum = isnothing(ess_sum) ? ess_w : ess_sum .+ ess_w
+    end
+    return isnothing(ess_sum) ? nothing : minimum(ess_sum)
 end
 
 function _merge_chain_outputs(mcmc_state::MCMCState, chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}})

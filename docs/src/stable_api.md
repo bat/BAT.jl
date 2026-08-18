@@ -75,12 +75,16 @@ BrooksGelmanConvergence
 CuhreIntegration
 DensitySample
 DensitySampleVector
+DenseFisherEstimator
+DiagonalFisherEstimator
 DivonneIntegration
 DoNotTransform
+DriftCommitSchedule
 EffSampleSizeAlgorithm
 EffSampleSizeFromAC
 EvaluatedMeasure
 ExplicitInit
+FisherTransformTuning
 FixedMGVISchedule
 FixedNBins
 FreedmanDiaconisBinning

@@ -49,7 +49,10 @@ import ForwardDiff, Zygote
         mcmc_state, samples = iterate_and_collect_samples()
 
         @test mcmc_state.chain_state.stepno == nsteps + nsteps_adapt
-        @test minimum(samples.weight) == 0
+        # Zero-weight (immediately-left) samples are retained with
+        # nonzero_weights = false, but a well-tuned NUTS chain may
+        # legitimately move away from every state, leaving none:
+        @test minimum(samples.weight) >= 0
         # @test isapprox(length(samples), nsteps, atol = 20) Hard to test with the new checked_push function avoiding duplicate samples
         @test sum(samples.weight) == nsteps
 

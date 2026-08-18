@@ -131,8 +131,9 @@ function mcmc_tune_proposal_post_step!!(
     multi_proposal::MultiProposalState,
     tuner_state::AdaptiveMultiPropTunerState,
     chain_state::MCMCChainState,
-    p_accept::AbstractVector{<:Real}
+    step_info::MCMCStepInfo
 )
+    p_accept = step_info.p_accept
     (;alpha, picking_socket, accept_prob) = tuner_state
     active_idx = multi_proposal.active_idx
     picking_rule = multi_proposal.picking_rule
@@ -141,7 +142,7 @@ function mcmc_tune_proposal_post_step!!(
     acc_new = accept_prob[active_idx] * (1-alpha) + mean(p_accept) * alpha
     accept_prob[active_idx] = acc_new
 
-    picking_rule_tuned = _tune_picking_rule(picking_rule, acc_new, curr_idx, picking_socket, N)
+    picking_rule_tuned = _tune_picking_rule(picking_rule, acc_new, active_idx, picking_socket, N)
 
     multi_proposal_tuned = @set multi_proposal.picking_rule = picking_rule_tuned
 
