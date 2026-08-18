@@ -12,6 +12,7 @@
 
 using BAT
 using LinearAlgebra, Random, Statistics, StatsBase, Printf
+using ArraysOfArrays: flatview
 using Distributions, ValueShapes, DensityInterface
 import ForwardDiff
 
@@ -81,8 +82,9 @@ function run_cell(target, tuner_cfg; nsteps = 10^4)
     moment_err = if !isnothing(target.ref)
         us = unshaped.(smpls)
         w = Weights(us.weight)
-        m_est = mean(us.v, w)
-        s_est = std(us.v, w, corrected = false)
+        X = Matrix(flatview(us.v))
+        m_est = vec(mean(X, w, dims = 2))
+        s_est = vec(std(X, w, 2, corrected = false))
         m_ref, s_ref = mean(target.ref), sqrt.(var(target.ref))
         max(maximum(abs.(m_est .- m_ref) ./ s_ref), maximum(abs.(s_est .- s_ref) ./ s_ref))
     else
