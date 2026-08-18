@@ -15,11 +15,11 @@ struct ModeAsDefined <: AbstractModeEstimator end
 export ModeAsDefined
 
 
-function evalmeasure_impl(measure::BATMeasure, ::ModeAsDefined, ::BATContext)
-    m_uneval = unevaluated(measure)
+function evalmeasure_impl(em::EvaluatedMeasure, algorithm::ModeAsDefined, ::BATContext)
+    m_uneval = unevaluated(em)
     # ToDo: Is this what we want in all cases?
     m_mode = StatsBase.mode(m_uneval)
-    return EvalMeasureImplReturn(modes = [m_mode])
+    return EvaluatedMeasure(em; modes = [m_mode], evalinfo = MeasureEvalInfo(algorithm, (;)))
 end
 
 
@@ -37,13 +37,13 @@ struct MaxDensitySearch <: AbstractModeEstimator end
 export MaxDensitySearch
 
 
-function evalmeasure_impl(measure::BATMeasure, ::MaxDensitySearch, ::BATContext)
-    smpls = samplesof(measure)
+function evalmeasure_impl(em::EvaluatedMeasure, algorithm::MaxDensitySearch, ::BATContext)
+    smpls = samplesof(em)
     isnothing(smpls) && throw(ArgumentError("No samples available for MaxDensitySearch."))
     v_mode, mode_idx = _get_mode(smpls)
 
-    return EvalMeasureImplReturn(;
+    return EvaluatedMeasure(em;
         modes = [v_mode],
-        evalresult = (;mode_idx = mode_idx),
-    )    
+        evalinfo = MeasureEvalInfo(algorithm, (;mode_idx = mode_idx))
+    )
 end

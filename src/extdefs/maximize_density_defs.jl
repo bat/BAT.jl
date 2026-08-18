@@ -39,18 +39,18 @@ export TransformedMaxDensity
 batalgorithm(optalg::MaxDensityAlgorithm) = TransformedMaxDensity(optalg = optalg)
 
 
-function evalmeasure_impl(measure::BATMeasure, algorithm::TransformedMaxDensity, context::BATContext)
+function evalmeasure_impl(em::EvaluatedMeasure, algorithm::TransformedMaxDensity, context::BATContext)
     # Maximize the density of the original measure, searching in the
     # reparametrized space without applying its LADJ:
-    transformed_density, f_pretransform = transform_and_unshape(algorithm.pretransform, measure, context)
+    transformed_density, f_pretransform = transform_and_unshape(algorithm.pretransform, em, context)
     initalg = apply_trafo_to_init(f_pretransform, algorithm.init)
     x_init = collect(bat_initval(transformed_density, initalg, context).result)
-    f = fchain(inverse(f_pretransform), checked_logdensityof(unevaluated(measure)))
+    f = fchain(inverse(f_pretransform), checked_logdensityof(unevaluated(em)))
     r = maximize_density(f, x_init, algorithm.optalg, context)
     o = _optimum_result(r, f_pretransform)
-    return EvalMeasureImplReturn(;
+    return EvaluatedMeasure(em;
         modes = [o.result],
-        evalresult = Base.structdiff(o, NamedTuple{(:result,)})
+        evalinfo = MeasureEvalInfo(algorithm, Base.structdiff(o, NamedTuple{(:result,)}))
     )
 end
 

@@ -530,7 +530,9 @@ isviablestate(mcmc_state::MCMCState) = isvalidstate(mcmc_state.chain_state)
 
 *BAT-internal, not part of stable public API.*
 
-MCMC sample generator.
+MCMC sample generator, holds the (mutable) states of the MCMC chains.
+Consumers must not mutate the chain states, continuing sample generation
+requires a deep copy.
 
 Constructors:
 

@@ -18,12 +18,12 @@ using DensityInterface, InverseFunctions, ValueShapes
 import Measurements
 
 
-function BAT.evalmeasure_impl(measure::BATMeasure, algorithm::ReactiveNestedSampling, context::BATContext)
-    m = unevaluated(measure)
-    transformed_m, f_pretransform = transform_and_unshape(algorithm.pretransform, m, context)
+function BAT.evalmeasure_impl(em::BAT.EvaluatedMeasure, algorithm::ReactiveNestedSampling, context::BATContext)
+    transformed_m, f_pretransform = transform_and_unshape(algorithm.pretransform, em, context)
+    transformed_m_uneval = unevaluated(transformed_m)
     n_dof = BAT.some_dof(transformed_m)
 
-    if !BAT.has_uhc_support(transformed_m)
+    if !BAT.has_uhc_support(transformed_m_uneval)
         throw(ArgumentError("$algorithm doesn't support measures that are not limited to the unit hypercube"))
     end
 
@@ -35,10 +35,10 @@ function BAT.evalmeasure_impl(measure::BATMeasure, algorithm::ReactiveNestedSamp
         V = convert(Matrix{eltype(V_rowwise)}, V_rowwise')
         logd = similar(V, LogDType, size(V, 2))
         V_nested = nestedview(V)
-        numpy.asarray(exec_map!(logdensityof(transformed_m), algorithm.executor, logd, V_nested))
+        numpy.asarray(exec_map!(logdensityof(transformed_m_uneval), algorithm.executor, logd, V_nested))
     end
 
-    paramnames = all_active_names(varshape(m))
+    paramnames = all_active_names(varshape(em))
 
     ch = Channel()
     function run_sampler()
@@ -91,7 +91,7 @@ function BAT.evalmeasure_impl(measure::BATMeasure, algorithm::ReactiveNestedSamp
     smpls = inverse(f_pretransform).(transformed_smpls)
 
     uwv_trafo_us = nestedview(convert(Matrix{Float64}, pyconvert(Matrix{Float64}, unest_result["samples"])'))
-    uwlogvals_trafo = map(logdensityof(transformed_m), uwv_trafo_us)
+    uwlogvals_trafo = map(logdensityof(transformed_m_uneval), uwv_trafo_us)
     uwtransformed_smpls = DensitySampleVector(uwv_trafo_us, uwlogvals_trafo)
     uwsmpls = inverse(f_pretransform).(uwtransformed_smpls)
 
@@ -102,20 +102,22 @@ function BAT.evalmeasure_impl(measure::BATMeasure, algorithm::ReactiveNestedSamp
     ess = pyconvert(Float64, unest_result["ess"])
 
     evalresult = (
-        result_trafo = transformed_smpls, f_pretransform = f_pretransform,
         uwresult = uwsmpls, uwresult_trafo = uwtransformed_smpls,
         ultranest_result = pyconvert(Dict{String,Any}, unest_result)
     )
 
     dsm = BAT.DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 
-    return BAT.EvalMeasureImplReturn(;
-        empirical = dsm,
+    return BAT.EvaluatedMeasure(em;
+        transform_intent = algorithm.pretransform,
+        f_transform = BAT._viewrep_f(f_pretransform, algorithm.pretransform),
+        empirical = BAT._viewrep_empirical(dsm, transformed_smpls, f_pretransform, algorithm.pretransform, n_dof, ess),
         dof = n_dof,
         mass = mass,
         # ToDo:
         # modes = ...,
-        evalresult = evalresult
+        transformed = BAT._viewrep_measure(transformed_m, algorithm.pretransform),
+        evalinfo = BAT.MeasureEvalInfo(algorithm, evalresult)
     )
 end
 

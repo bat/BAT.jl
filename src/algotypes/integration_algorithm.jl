@@ -22,11 +22,15 @@ Calculate the integral (evidence) of `target`.
 Returns a NamedTuple of the shape
 
 ```julia
-(result = X::Measurements.Measurement, evaluated::EvaluatedMeasure, ...)
+(result = X,)
 ```
 
-Result properties not listed here are algorithm-specific and are not part
-of the stable public API.
+where `X` is the mass estimate, typically a `Measurements.Measurement` or
+a logarithmic number type wrapping one (e.g. for nested-sampling evidence
+estimates).
+
+Use [`evalmeasure`](@ref) instead to obtain an [`EvaluatedMeasure`](@ref)
+that carries the mass estimate together with all other evaluation results.
 
 # Implementation
 
@@ -40,7 +44,9 @@ export bat_integrate
 function bat_integrate(target::MeasureLike, algorithm::IntegrationAlgorithm, context::BATContext)
     orig_context = deepcopy(context)
     em = evalmeasure(target, algorithm, context)
-    r = (;result = massof(em), evaluated = em, _evalresult_nt(em)...)
+    mass = massof(em)
+    mass isa MeasureBase.AbstractUnknownMass && throw(ErrorException("Integration algorithm $(nameof(typeof(algorithm))) did not produce a mass estimate"))
+    r = (;result = mass)
     result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 

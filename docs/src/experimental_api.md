@@ -22,7 +22,6 @@ BAT.enable_error_log
 BAT.error_log
 BAT.EvalException
 BAT.evalmeasure_impl
-BAT.evalmeasure_postproc
 BAT.ext_default
 BAT.get_adselector
 BAT.get_valid_adselector
@@ -40,7 +39,7 @@ SobolSampler
 truncate_batmeasure
 ValueAndThreshold
 
-BAT.EvalMeasureImplReturn
+BAT.validate_evalmeasure
 BAT.MCMCChainState
 BAT.MCMCChainStateInfo
 BAT.MCMCIterator

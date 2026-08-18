@@ -44,6 +44,13 @@ bat_transform
 
 evalmeasure
 
+empiricalof
+samplesof
+approxof
+samplegenof
+getess
+evalinfo
+
 get_batcontext
 set_batcontext
 log_batdebug

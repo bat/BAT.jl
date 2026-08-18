@@ -19,14 +19,15 @@ import MGVI, ForwardDiff
         schedule = FixedMGVISchedule(range(12, 100, length = nsteps)),
         store_unconverged = true,
     )
-    r = bat_sample(pstr, algorithm, context)
-    @test r.result isa DensitySampleVector
-    @test r.evaluated isa EvaluatedMeasure
-    @test first(r.result.info.converged) == false
-    @test last(r.result.info.converged) == true
-    @test unique(r.result.info.stepno) == 1:nsteps+1
-    @test BAT.getess(BAT.empiricalof(r.evaluated)) == nsmpls
-    @test r.mnlp isa Real
+    em = evalmeasure(pstr, algorithm, context)
+    smpls = BAT.samplesof(em)
+    @test em isa EvaluatedMeasure
+    @test smpls isa DensitySampleVector
+    @test first(smpls.info.converged) == false
+    @test last(smpls.info.converged) == true
+    @test unique(smpls.info.stepno) == 1:nsteps+1
+    @test BAT.getess(BAT.empiricalof(em)) == nsmpls
+    @test BAT.evalinfo(em).result.mnlp isa Real
 
     # ToDo: Test quality of samples
 end

@@ -44,11 +44,11 @@ export GridSampler
 
 
 function evalmeasure_impl(
-    m::BATMeasure,
+    em::EvaluatedMeasure,
     algorithm::Union{SobolSampler, GridSampler},
     context::BATContext
 )
-    transformed_m, f_pretransform = transform_and_unshape(algorithm.pretransform, m, context)
+    transformed_m, f_pretransform = transform_and_unshape(algorithm.pretransform, em, context)
     transformed_m_uneval = unevaluated(transformed_m)
     n_dof = some_dof(transformed_m_uneval)
 
@@ -74,13 +74,14 @@ function evalmeasure_impl(
 
     dsm = DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 
-    evalresult = (result_trafo = transformed_smpls, f_pretransform = f_pretransform)
-
-    return EvalMeasureImplReturn(;
-        empirical = dsm,
+    return EvaluatedMeasure(em;
+        transform_intent = algorithm.pretransform,
+        f_transform = _viewrep_f(f_pretransform, algorithm.pretransform),
+        empirical = _viewrep_empirical(dsm, transformed_smpls, f_pretransform, algorithm.pretransform, n_dof, ess),
         dof = n_dof,
         mass = est_integral,
-        evalresult = evalresult
+        transformed = _viewrep_measure(transformed_m, algorithm.pretransform),
+        evalinfo = MeasureEvalInfo(algorithm, (;))
     )
 end
 
@@ -131,11 +132,11 @@ end
 export PriorImportanceSampler
 
 function evalmeasure_impl(
-    measure::BATMeasure,
+    em::EvaluatedMeasure,
     algorithm::PriorImportanceSampler,
     context::BATContext
 )
-    m = unevaluated(measure)
+    m = unevaluated(em)
     shape = varshape(m)
 
     prior = convert_for(bat_sample, getprior(m))
@@ -157,12 +158,10 @@ function evalmeasure_impl(
     n_dof = some_dof(m)
     dsm = DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 
-    evalresult = (;prior_samples = prior_samples)
-
-    return EvalMeasureImplReturn(;
+    return EvaluatedMeasure(em;
         empirical = dsm,
         dof = n_dof,
         mass = est_integral,
-        evalresult = evalresult
+        evalinfo = MeasureEvalInfo(algorithm, (;prior_samples = prior_samples))
     )
 end

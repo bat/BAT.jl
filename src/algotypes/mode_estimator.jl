@@ -23,14 +23,13 @@ Estimate the global mode of `target`.
 Returns a NamedTuple of the shape
 
 ```julia
-(result = v, evaluated::EvaluatedMeasure, ...)
+(result = v,)
 ```
 
 with `v` the estimated mode variate.
 
-
-Result properties not listed here are algorithm-specific and are not part
-of the stable public API.
+Use [`evalmeasure`](@ref) instead to obtain an [`EvaluatedMeasure`](@ref)
+that carries the mode together with all other evaluation results.
 
 # Implementation
 
@@ -46,7 +45,7 @@ function bat_findmode(target::MeasureLike, algorithm0, context::BATContext)
     algorithm = batalgorithm(algorithm0)
 
     em = evalmeasure(target, algorithm, context)
-    r = (;result = mode(em), evaluated = em, _evalresult_nt(em)...)
+    r = (;result = mode(em))
 
     result_with_args(r, (algorithm = algorithm, context = orig_context))
 end

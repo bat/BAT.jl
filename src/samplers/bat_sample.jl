@@ -6,16 +6,16 @@ function sample_and_verify(
     max_retries::Integer = 1, essalg = nothing
 )
     measure = convert_for(bat_sample, target)
-    initial_smplres = bat_sample(measure, samplingalg, context)
-    smplres::typeof(initial_smplres) = initial_smplres
-    verified::Bool = test_dist_samples(ref_dist, smplres.result, context; essalg = essalg)
+    initial_em = evalmeasure(measure, samplingalg, context)
+    em::typeof(initial_em) = initial_em
+    verified::Bool = test_dist_samples(ref_dist, samplesof(em), context; essalg = essalg)
     n_retries::Int = 0
     while !(verified) && n_retries < max_retries
         n_retries += 1
-        smplres = bat_sample(measure, samplingalg, context)
-        verified = test_dist_samples(ref_dist, smplres.result, context; essalg = essalg)
+        em = evalmeasure(measure, samplingalg, context)
+        verified = test_dist_samples(ref_dist, samplesof(em), context; essalg = essalg)
     end
-    merge(smplres, (verified = verified, n_retries = n_retries))
+    (result = samplesof(em), evaluated = em, verified = verified, n_retries = n_retries)
 end
 
 
@@ -38,8 +38,8 @@ end
 export IIDSampling
 
 
-function evalmeasure_impl(measure::BATMeasure, algorithm::IIDSampling, context::BATContext)
-    m = unevaluated(measure)
+function evalmeasure_impl(em::EvaluatedMeasure, algorithm::IIDSampling, context::BATContext)
+    m = unevaluated(em)
     cunit = get_compute_unit(context)
     rng = get_rng(context)
     n = algorithm.nsamples
@@ -54,7 +54,10 @@ function evalmeasure_impl(measure::BATMeasure, algorithm::IIDSampling, context::
 
     smpls = DensitySampleVector((v, logd, weight, info, aux))
     dsm = DensitySampleMeasure(smpls, dof = _dofval_or_nothing(getdof(m)), ess = length(smpls))
-    return EvalMeasureImplReturn(empirical = dsm)
+    # A stored sample generation scheme did not produce the new empirical
+    # content, so it is cleared conservatively (see the EvaluatedMeasure
+    # docs on samplegen):
+    return EvaluatedMeasure(em; empirical = dsm, samplegen = nothing, evalinfo = MeasureEvalInfo(algorithm, (;)))
 end
 
 
@@ -76,10 +79,10 @@ $(TYPEDFIELDS)
 end
 export RandResampling
 
-function evalmeasure_impl(dsm::DensitySampleMeasure, algorithm::RandResampling, context::BATContext)
+function _resampled_empirical(p::BispacedMeasure, algorithm::RandResampling, context::BATContext)
     gen = get_gencontext(context)
-    resampled_idxs = _rand_subsample_idxs(gen, dsm, algorithm.nsamples)
-    return _unweighted_resampling_byidxs(dsm, resampled_idxs)
+    resampled_idxs = _rand_subsample_idxs(gen, p.main, algorithm.nsamples)
+    return _unweighted_resampling_byidxs(p, resampled_idxs)
 end
 
 
@@ -105,19 +108,23 @@ $(TYPEDFIELDS)
 end
 export OrderedResampling
 
-function evalmeasure_impl(m::BATMeasure, algorithm::Union{RandResampling,OrderedResampling}, context::BATContext)
-    dsm = empiricalof(m)
-    if isnothing(dsm)
+function evalmeasure_impl(em::EvaluatedMeasure, algorithm::Union{RandResampling,OrderedResampling}, context::BATContext)
+    emp = _empirical_rep(em)
+    if isnothing(emp)
         throw(ArgumentError("No samples available for $(nameof(typeof(algorithm)))."))
     else
-        new_dsm = evalmeasure_impl(dsm, algorithm, context)
-        return EvalMeasureImplReturn(empirical = new_dsm)
+        # The resampled pair stays in the current transformed-space view. A
+        # stored sample generation scheme did not produce the new empirical
+        # content, so it is cleared conservatively (see the EvaluatedMeasure
+        # docs on samplegen):
+        new_emp = _resampled_empirical(emp, algorithm, context)
+        return EvaluatedMeasure(em; empirical = new_emp, samplegen = nothing, evalinfo = MeasureEvalInfo(algorithm, (;)))
     end
 end
 
-function evalmeasure_impl(dsm::DensitySampleMeasure, algorithm::OrderedResampling, context::BATContext)
-    resampled_idxs = _ordered_resampling_idxs(samplesof(dsm), algorithm.nsamples, context)
-    return _unweighted_resampling_byidxs(dsm, resampled_idxs)
+function _resampled_empirical(p::BispacedMeasure, algorithm::OrderedResampling, context::BATContext)
+    resampled_idxs = _ordered_resampling_idxs(samplesof(p.main), algorithm.nsamples, context)
+    return _unweighted_resampling_byidxs(p, resampled_idxs)
 end
 
 function _ordered_resampling_idxs(smpls::DensitySampleVector, n::Integer, context::BATContext)

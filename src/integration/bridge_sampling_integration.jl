@@ -24,10 +24,12 @@ $(TYPEDFIELDS)
 end
 export BridgeSampling
 
-function evalmeasure_impl(measure::BATMeasure, algorithm::BridgeSampling, context::BATContext)
-    @argcheck measure isa EvaluatedMeasure
-    @argcheck !isnothing(empiricalof(measure))
-    transformed_m, _ = transform_and_unshape(algorithm.pretransform, measure, context)
+function evalmeasure_impl(em::EvaluatedMeasure, algorithm::BridgeSampling, context::BATContext)
+    @argcheck !isnothing(empiricalof(em))
+    if unevaluated(em) isa DensitySampleMeasure
+        throw(ArgumentError("BridgeSampling requires a target with an evaluable density, a purely sample-based measure is not sufficient"))
+    end
+    transformed_m, _ = transform_and_unshape(algorithm.pretransform, em, context)
     renomalized_m, logweight = auto_renormalize(transformed_m)
     renomalized_m_uneval, renormalized_smpled = unevaluated(renomalized_m), empiricalof(renomalized_m)
 
@@ -36,9 +38,9 @@ function evalmeasure_impl(measure::BATMeasure, algorithm::BridgeSampling, contex
     rescaled_value, rescaled_error = exp(BigFloat(log(value) - logweight)), exp(BigFloat(log(error) - logweight))
     mass = Measurements.measurement(rescaled_value, rescaled_error)
 
-    return EvalMeasureImplReturn(;
+    return EvaluatedMeasure(em;
         mass = mass,
-        evalresult = (;logweight = logweight)
+        evalinfo = MeasureEvalInfo(algorithm, (;logweight = logweight))
     )
 end
 
@@ -117,7 +119,7 @@ function bridge_sampling_integral(
 end
 
 
-#!!!!!! Use EvaluatedMeasure
+# ToDo: Rework to operate on an EvaluatedMeasure directly:
 function bridge_sampling_integral(
     target_measure::BATMeasure,
     target_samples::DensitySampleVector,

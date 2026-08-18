@@ -119,8 +119,8 @@ function _integrate_impl_cuba(integrand::CubaIntegrand, algorithm::CuhreIntegrat
     )
 end
 
-function  BAT.evalmeasure_impl(measure::BATMeasure, algorithm::CubaIntegration, context::BATContext)
-    transformed_measure, _ = transform_and_unshape(algorithm.pretransform, measure, context)
+function  BAT.evalmeasure_impl(em::BAT.EvaluatedMeasure, algorithm::CubaIntegration, context::BATContext)
+    transformed_measure, f_pretransform = transform_and_unshape(algorithm.pretransform, em, context)
 
     if !BAT.has_uhc_support(transformed_measure)
         throw(ArgumentError("CUBA integration requires measures that are supported only on the unit hypercube"))
@@ -150,10 +150,24 @@ function  BAT.evalmeasure_impl(measure::BATMeasure, algorithm::CubaIntegration, 
     rescaled_value, rescaled_error = exp(BigFloat(log(value) - logweight)), exp(BigFloat(log(error) - logweight))
     mass = Measurements.measurement(rescaled_value, rescaled_error)
 
-    return BAT.EvalMeasureImplReturn(;
-        mass = mass,
-        evalresult = (logweight = logweight, cuba_result = r_cuba)
-    )
+    new_evalinfo = BAT.MeasureEvalInfo(algorithm, (logweight = logweight, cuba_result = r_cuba))
+
+    # An integral result contributes no content that lives in the
+    # algorithm's working space, so an existing transformed-space view of
+    # `em` is never evicted for one; the view and its caches are only
+    # filled in when they are absent or already match:
+    if em.transform_intent isa DoNotTransform || BAT._intents_match(em.transform_intent, algorithm.pretransform)
+        return BAT.EvaluatedMeasure(em;
+            transform_intent = algorithm.pretransform,
+            f_transform = BAT._viewrep_f(f_pretransform, algorithm.pretransform),
+            dof = dof,
+            mass = mass,
+            transformed = BAT._viewrep_measure(transformed_measure, algorithm.pretransform),
+            evalinfo = new_evalinfo
+        )
+    else
+        return BAT.EvaluatedMeasure(em; dof = dof, mass = mass, evalinfo = new_evalinfo)
+    end
 end
 
 

@@ -24,11 +24,11 @@ Depending on sampling algorithm, the samples may be independent or correlated
 Returns a NamedTuple of the shape
 
 ```julia
-(result = X::DensitySampleVector, evaluated::EvaluatedMeasure, ...)
+(result = X::DensitySampleVector,)
 ```
 
-Result properties not listed here are algorithm-specific and are not part
-of the stable public API.
+Use [`evalmeasure`](@ref) instead to obtain an [`EvaluatedMeasure`](@ref)
+that carries the samples together with all other evaluation results.
 
 # Implementation
 
@@ -42,8 +42,8 @@ export bat_sample
 function convert_for(::typeof(bat_sample), target)
     try
         batmeasure(target)
-    catch
-        throw(ArgumentError("Can't convert target of type $(nameof(typeof(target))) to a BAT-compatible measure for `bat_sample`."))
+    catch err
+        throw(ArgumentError("Can't convert target of type $(nameof(typeof(target))) to a BAT-compatible measure for `bat_sample`: $(sprint(showerror, err))"))
     end
 end
 
@@ -52,7 +52,9 @@ function bat_sample(target, algorithm::AbstractSamplingAlgorithm, context::BATCo
     orig_context = deepcopy(context)
 
     em = evalmeasure(target, algorithm, context)
-    r = (;result = samplesof(em), evaluated = em, _evalresult_nt(em)...)
+    smpls = samplesof(em)
+    isnothing(smpls) && throw(ErrorException("Sampling algorithm $(nameof(typeof(algorithm))) did not produce samples"))
+    r = (;result = smpls)
 
     result_with_args(r, (algorithm = algorithm, context = orig_context))
 end

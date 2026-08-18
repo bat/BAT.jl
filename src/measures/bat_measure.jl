@@ -18,12 +18,81 @@ export unevaluated
 unevaluated(obj) = obj
 
 
-# ToDo: Document these function and make them public:
+"""
+    empiricalof(m)::Union{DensitySampleMeasure,Nothing}
+
+Get the empirical measure, based on samples drawn from measure-like object
+`m`, associated with `m`, or `nothing` if no empirical representation is
+available. Also see [`EvaluatedMeasure`](@ref).
+"""
+function empiricalof end
+export empiricalof
+
 empiricalof(::AbstractMeasure) = nothing
+
+# Like `empiricalof`, but returns a BispacedMeasure pair:
+_empirical_rep(m::AbstractMeasure) = _as_bispaced(empiricalof(m))
+
+"""
+    samplesof(m)::Union{DensitySampleVector,Nothing}
+
+Get the samples associated with measure-like object `m`, or `nothing` if
+no samples are available.
+
+The returned object is live internal data of `m`, it must not be modified.
+Use `DensitySampleVector(em)` to obtain an independent copy from an
+[`EvaluatedMeasure`](@ref).
+"""
+function samplesof end
+export samplesof
+
 samplesof(::AbstractMeasure) = nothing
+
+"""
+    approxof(m)::Union{AbstractMeasure,Nothing}
+
+Get an approximation of measure-like object `m`, or `nothing` if no
+approximation is available.
+"""
+function approxof end
+export approxof
+
 approxof(::AbstractMeasure) = nothing
-# samplegenof(::AbstractMeasure) = nothing
+
+"""
+    samplegenof(m)::Union{BAT.AbstractSampleGenerator,Nothing}
+
+Get the sample generation scheme associated with measure-like object `m`,
+or `nothing` if none has been computed. The contents of sample generators
+is algorithm-specific and not part of the stable API.
+"""
+function samplegenof end
+export samplegenof
+
+samplegenof(::AbstractMeasure) = nothing
+
+"""
+    getess(m)::Union{Real,AbstractVector{<:Real},Nothing}
+
+Get the effective sample size associated with measure-like object `m`, or
+`nothing` if unknown.
+"""
+function getess end
+export getess
+
 getess(::AbstractMeasure) = nothing
+
+"""
+    evalinfo(m)::Union{BAT.MeasureEvalInfo,Nothing}
+
+Get information on the (last) evaluation step that generated or updated
+measure-like object `m`, or `nothing` if no such information is available.
+The contents of evaluation information is algorithm-specific and not part
+of the stable API.
+"""
+function evalinfo end
+export evalinfo
+
 evalinfo(::AbstractMeasure) = nothing
 
 maybe_modes(::AbstractMeasure) = nothing

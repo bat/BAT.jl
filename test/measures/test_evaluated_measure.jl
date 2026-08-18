@@ -31,6 +31,11 @@ using ScopedSettings: unchanged
 
     em = EvaluatedMeasure(m, empirical = empirical_m, mass = 1)
     @test @inferred(BAT.unevaluated(em)) === m
+    # The dual-space entries are stored as BispacedMeasure pairs:
+    @test em.unevaluated === BAT.BispacedMeasure(m)
+    @test em.empirical === BAT.BispacedMeasure(empirical_m)
+    @test em.transform_intent === DoNotTransform()
+    @test em.f_transform === identity
     @test @inferred(BAT.empiricalof(em)) === empirical_m
     @test @inferred(BAT.samplesof(em)) === BAT.samplesof(empirical_m)
     @test @inferred(getdof(em)) == getdof(m)
@@ -84,7 +89,8 @@ using ScopedSettings: unchanged
 
         # Given values replace, everything else is kept:
         em_b = EvaluatedMeasure(em_a, approx = approx_a)
-        @test em_b.approx === approx_a
+        @test em_b.approx === BAT.BispacedMeasure(approx_a)
+        @test BAT.approxof(em_b) === approx_a
         @test em_b.empirical === em_a.empirical
         @test massof(em_b) == massof(em_a)
 
@@ -94,7 +100,7 @@ using ScopedSettings: unchanged
         @test em_c.empirical === em_b.empirical
         em_d = EvaluatedMeasure(em_b, empirical = nothing)
         @test isnothing(em_d.empirical)
-        @test em_d.approx === approx_a
+        @test em_d.approx === em_b.approx
 
         # An explicit unknown mass resets the mass:
         @test massof(EvaluatedMeasure(em_a, mass = MeasureBase.UnknownMass())) isa MeasureBase.UnknownMass

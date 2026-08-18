@@ -94,3 +94,42 @@ using StableRNGs: StableRNG
         @test result == resamples
     end
 end
+
+
+import Measurements
+using MeasureBase: massof
+using DensityInterface: logfuncdensity
+using Distributions: Normal, logpdf
+
+@testset "transformed space preservation" begin
+    context = BATContext()
+    post = PosteriorMeasure(logfuncdensity(v -> logpdf(Normal(1.0, 0.5), v.a)), distprod(a = Normal(0, 3)))
+    em = evalmeasure(post, TransformedMCMC(nchains = 2, nsteps = 400), context)
+
+    @test em.empirical isa BAT.BispacedMeasure
+    @test em.transform_intent === NormalBased()
+    @test !isnothing(em.empirical.transformed)
+    @test !isnothing(em.unevaluated.transformed)
+
+    @test BAT.empiricalof(em) === em.empirical.main
+
+    # Re-entering the same space preserves measure and transform-function
+    # identity and needs no sample transport:
+    m_z, f_z = BAT.transform_and_unshape(NormalBased(), em, context)
+    @test BAT.unevaluated(m_z) === em.unevaluated.transformed
+    @test f_z === em.f_transform
+    @test BAT.empiricalof(m_z) === em.empirical.transformed
+
+    # A different intent falls back to the regular path:
+    m_u, _ = BAT.transform_and_unshape(UniformBased(), em, context)
+    @test BAT.unevaluated(m_u) !== em.unevaluated.transformed
+
+    # The full transformed-space-view contract holds:
+    @test BAT.validate_evalmeasure(em, context = context) === em
+
+    # Follow-up evaluations work on the enriched measure:
+    em2 = evalmeasure(em, BridgeSampling(), context)
+    @test isfinite(Measurements.value(massof(em2)))
+    @test em2.empirical === em.empirical
+    @test em2.unevaluated === em.unevaluated
+end

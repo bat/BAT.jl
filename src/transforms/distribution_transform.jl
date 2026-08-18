@@ -112,6 +112,12 @@ struct DistributionTransform{
         new{DT,DF}(target_dist, source_dist)
 end
 
+# Value-based hashing makes the transformation-hash witness of
+# transformed-space content recognize independently derived but equal
+# transformations (dist fields fall back to object-based hashing where
+# Distributions defines no content hash, which errs conservative):
+Base.hash(f::DistributionTransform, h::UInt) = hash(f.source_dist, hash(f.target_dist, hash(:DistributionTransform, h)))
+
 
 function _distrafo_ctor_impl(target_dist::DT, source_dist::DF) where {DT<:ContinuousDistribution,DF<:ContinuousDistribution}
     @argcheck eff_totalndof(target_dist) == eff_totalndof(source_dist)

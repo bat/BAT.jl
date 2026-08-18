@@ -117,10 +117,10 @@ bat_default(
     nsteps::Integer
 ) = MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
-function evalmeasure_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::BATContext)
-    # ToDo: Use information in EvaluatedMeasure if available.
+function evalmeasure_impl(em::EvaluatedMeasure, samplingalg::TransformedMCMC, context::BATContext)
+    # ToDo: Warm-restart from em.samplegen if available and compatible.
 
-    transformed_m, f_pretransform = transform_and_unshape(samplingalg.pretransform, m, context)
+    transformed_m, f_pretransform = transform_and_unshape(samplingalg.pretransform, em, context)
     n_dof = some_dof(transformed_m)
 
     mcmc_states, chain_outputs = mcmc_init!(
@@ -159,18 +159,23 @@ function evalmeasure_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::
     smpls = transform_samples(inverse(f_pretransform), samples_transformed)
 
     samplegen = MCMCSampleGenerator(mcmc_states)
-    evalresult = (result_trafo = samples_transformed, f_pretransform = f_pretransform)
 
     ess = minimum(bat_eff_sample_size_impl(samples_transformed, EffSampleSizeFromAC(), context).result)
     dsm = DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 
-    return EvalMeasureImplReturn(;
-        empirical = dsm,
+    # The samples and the bare target measure in the transformed space are
+    # preserved so that follow-up evaluations with the same transform intent
+    # need neither sample transport nor measure reconstruction:
+    return EvaluatedMeasure(em;
+        transform_intent = samplingalg.pretransform,
+        f_transform = _viewrep_f(f_pretransform, samplingalg.pretransform),
+        empirical = _viewrep_empirical(dsm, samples_transformed, f_pretransform, samplingalg.pretransform, n_dof, ess),
         # ToDo:
         # approx = ...,
         dof = n_dof,
         samplegen = samplegen,
-        evalresult = evalresult
+        transformed = _viewrep_measure(transformed_m, samplingalg.pretransform),
+        evalinfo = MeasureEvalInfo(samplingalg, (;))
     )
 end
 

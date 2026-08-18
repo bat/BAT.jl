@@ -21,7 +21,7 @@ function _rand_v_for_target(::BATMeasure, src::DensitySampleMeasure, n::Integer,
 end
 
 function _rand_v_for_target(::BATMeasure, src::DensitySampleVector, n::Integer, context::BATContext)
-    return samplesof(evalmeasure(src, RandResampling(nsamples = n), context)).v#!!!!!!!!!!!!!!!
+    return samplesof(evalmeasure(src, RandResampling(nsamples = n), context)).v
 end
 
 
@@ -55,7 +55,11 @@ get_initsrc_from_target(target::AbstractMeasure) = target
 get_initsrc_from_target(target::WeightedMeasure) = get_initsrc_from_target(basemeasure(target))
 
 get_initsrc_from_target(target::AbstractPosteriorMeasure) = get_initsrc_from_target(getprior(target))
-get_initsrc_from_target(target::EvaluatedMeasure) = _empirical_or_unevaluated(target)
+
+function get_initsrc_from_target(target::EvaluatedMeasure)
+    empirical = empiricalof(target)
+    isnothing(empirical) ? get_initsrc_from_target(unevaluated(target)) : empirical
+end
 
 
 

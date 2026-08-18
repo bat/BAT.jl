@@ -113,9 +113,12 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
     @testset "MaxDensitySearch" begin
         context = BATContext()
         @test @inferred(bat_findmode(samples, MaxDensitySearch(), context)).result isa NamedTuple
-        m = bat_findmode(samples, MaxDensitySearch(), context)
-        @test samples[m.mode_idx].v == m.result
-        @test isapprox(unshaped(m.result, elshape(samples.v)), true_mode_flat, rtol = 0.05)
+        # Algorithm-specific extras like the mode index live in the
+        # evaluation info of the evaluated measure:
+        em = evalmeasure(samples, MaxDensitySearch(), context)
+        mode_idx = BAT.evalinfo(em).result.mode_idx
+        @test samples[mode_idx].v == mode(em)
+        @test isapprox(unshaped(mode(em), elshape(samples.v)), true_mode_flat, rtol = 0.05)
     end
 
 
@@ -127,13 +130,15 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
     @testset "Optim.jl with custom options" begin # checks that options are correctly passed to Optim.jl
         context = BATContext(rng = Philox4x((0, 0)))
         optimizer = TransformedMaxDensity(optalg = OptimAlg(optalg = NelderMead(), maxiters=20, maxtime=30, reltol=0.2, kwargs=(f_calls_limit=25,)), pretransform = DoNotTransform())
-        
-        result = bat_findmode(posterior, optimizer, context)
-        @test result.info.iterations <= 20
-        @test result.info.time_limit == 30
-        @test result.info.f_reltol == 0.2
-        @test result.info.f_calls <= 26
 
+        # Backend-specific optimizer information lives in the evaluation
+        # info of the evaluated measure:
+        em = evalmeasure(posterior, optimizer, context)
+        nfo = BAT.evalinfo(em).result.info
+        @test nfo.iterations <= 20
+        @test nfo.time_limit == 30
+        @test nfo.f_reltol == 0.2
+        @test nfo.f_calls <= 26
     end
 
     @testset "algorithm auto-wrapping" begin
@@ -177,12 +182,15 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
         optimizer = TransformedMaxDensity(optalg = OptimizationAlg(optalg = OptimizationOptimJL.ParticleSwarm(n_particles=10),
             maxiters=200, maxtime=30, reltol=0.2, kwargs=(f_calls_limit=500,)), pretransform = DoNotTransform())
 
-        result = bat_findmode(posterior, optimizer, context)
-        @test result.info.cache.solver_args.maxiters == 200
-        @test result.info.cache.solver_args.f_calls_limit == 500
-        @test result.info.cache.solver_args.reltol == 0.2
-        @test result.info.cache.solver_args.maxtime == 30
-        @test result.info.original.method.n_particles == 10
+        # Backend-specific optimizer information lives in the evaluation
+        # info of the evaluated measure:
+        em = evalmeasure(posterior, optimizer, context)
+        nfo = BAT.evalinfo(em).result.info
+        @test nfo.cache.solver_args.maxiters == 200
+        @test nfo.cache.solver_args.f_calls_limit == 500
+        @test nfo.cache.solver_args.reltol == 0.2
+        @test nfo.cache.solver_args.maxtime == 30
+        @test nfo.original.method.n_particles == 10
     end
 
 end

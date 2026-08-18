@@ -61,7 +61,11 @@ using BAT: DensitySampleMeasure, samplesof, empiricalof, getess
 
     @testset "weightedmeasure" begin
         wdsm = weightedmeasure(1.3, dsm)
-        @test samplesof(wdsm) === samplesof(dsm)
+        # Reweighting shifts the sample log-densities, variates and weights
+        # are shared:
+        @test samplesof(wdsm).v === samplesof(dsm).v
+        @test samplesof(wdsm).weight === samplesof(dsm).weight
+        @test samplesof(wdsm).logd ≈ samplesof(dsm).logd .+ 1.3
         @test massof(wdsm) ≈ exp(1.3)
         @test getess(wdsm) == getess(dsm)
     end

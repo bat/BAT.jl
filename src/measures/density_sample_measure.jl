@@ -114,10 +114,11 @@ end
 @inline samplesof(dsm::DensitySampleMeasure) = dsm._smpls
 
 
-function MeasureBase.weightedmeasure(logweight::Real, dsm::DensitySampleMeasure)
-    new_mass = _reweighted_mass(logweight, dsm._mass)
-    return DensitySampleMeasure(dsm._smpls, dsm._max_weight, dsm._cumulative_weight, dsm._dof, dsm._ess, new_mass)
-end
+# Reweighting shifts the recorded density values of the samples along with
+# the mass, so that the sample logd stays consistent with the density of
+# the reweighted measure (sample logd is allowed to be NaN, e.g. after
+# transformations with unknown LADJ):
+MeasureBase.weightedmeasure(logweight::Real, dsm::DensitySampleMeasure) = _renormalize_empirical_logd(logweight, dsm)
 
 
 function Base.show(io::IO, ::MIME"text/plain", dsm::DensitySampleMeasure)
@@ -139,8 +140,10 @@ function _rand_subsample_idx(gen::GenContext, dsm::DensitySampleMeasure)
     # TODO: Use PSIS.
 
     CW = dsm._cumulative_weight
-    r = rand(get_rng(gen)) * CW[end]
-    idx = searchsortedfirst(dsm._cumulative_weight, r)
+    W_total = CW[end]
+    isfinite(W_total) && W_total > 0 || throw(ArgumentError("Sample weights must sum to a finite positive value"))
+    r = rand(get_rng(gen)) * W_total
+    idx = searchsortedfirst(CW, r)
     return idx
 end
 
@@ -201,6 +204,17 @@ function _renormalize_empirical_logd(logrenorm::Real, dsm::DensitySampleMeasure)
     return DensitySampleMeasure(new_smpls, dsm._max_weight, dsm._cumulative_weight, dsm._dof, dsm._ess, new_mass)
 end
 
+
+# Index-based resampling applies the same indices to both representations
+# of a BispacedMeasure empirical, so the pair stays coherent without any
+# transform work:
+function _unweighted_resampling_byidxs(p::BispacedMeasure, resampled_idxs::AbstractVector{<:Integer})
+    BispacedMeasure(
+        _unweighted_resampling_byidxs(p.main, resampled_idxs),
+        isnothing(p.transformed) ? nothing : _unweighted_resampling_byidxs(p.transformed, resampled_idxs),
+        p.f_hash
+    )
+end
 
 function _unweighted_resampling_byidxs(dsm::DensitySampleMeasure, resampled_idxs::AbstractVector{<:Integer})
     smpls = samplesof(dsm)

@@ -31,9 +31,13 @@ import NestedSamplers
     smpls = r.result
     @test logdensityof(posterior).(smpls.v) ≈ smpls.logd
 
+    em = r.evaluated
+    @test em isa EvaluatedMeasure
+    @test BAT.validate_evalmeasure(em) === em
+
     logz_expected = -log(prod(maximum.(prior.a.v) .- minimum.(prior.a.v)))
-    logintegral = log(massof(r.evaluated))
+    logintegral = log(massof(em))
     @test isapprox(logintegral.val, logz_expected, atol = 100 * logintegral.err)
 
-    @test BAT.getess(BAT.empiricalof(r.evaluated)) > 50
+    @test BAT.getess(BAT.empiricalof(em)) > 50
 end

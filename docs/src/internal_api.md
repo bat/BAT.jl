@@ -99,6 +99,7 @@ BAT.issymmetric_around_origin
 BAT.log_zero_density
 BAT.logvalof
 BAT.maximize_density
+BAT.BispacedMeasure
 BAT.pathfinder_gaussian_fit
 BAT.repetition_to_weights
 BAT.smallest_credible_intervals

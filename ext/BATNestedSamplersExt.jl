@@ -59,11 +59,11 @@ end
 
 
 
-function BAT.evalmeasure_impl(m::BATMeasure, algorithm::EllipsoidalNestedSampling, context::BATContext)
+function BAT.evalmeasure_impl(em::BAT.EvaluatedMeasure, algorithm::EllipsoidalNestedSampling, context::BATContext)
     # ToDo: Forward RNG from context!
     rng = get_rng(context)
 
-    transformed_m, f_pretransform = BAT.transform_and_unshape(algorithm.pretransform, m, context)   
+    transformed_m, f_pretransform = BAT.transform_and_unshape(algorithm.pretransform, em, context)   
     transformed_m_uneval = unevaluated(transformed_m)
     n_dof = BAT.some_dof(transformed_m)
 
@@ -95,20 +95,18 @@ function BAT.evalmeasure_impl(m::BATMeasure, algorithm::EllipsoidalNestedSamplin
     mass = exp(BAT.ULogarithmic, Measurements.measurement(state.logz, state.logzerr))
     ess = bat_eff_sample_size(smpls, KishESS(), context).result
 
-    evalresult = (
-        result_trafo = transformed_smpls, f_pretransform = f_pretransform, 
-        state = state
-    )
-
     dsm = DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 
-    return BAT.EvalMeasureImplReturn(;
-        empirical = dsm,
+    return BAT.EvaluatedMeasure(em;
+        transform_intent = algorithm.pretransform,
+        f_transform = BAT._viewrep_f(f_pretransform, algorithm.pretransform),
+        empirical = BAT._viewrep_empirical(dsm, transformed_smpls, f_pretransform, algorithm.pretransform, n_dof, ess),
         dof = n_dof,
         mass = mass,
         # ToDo:
         # modes = ...,
-        evalresult = evalresult
+        transformed = BAT._viewrep_measure(transformed_m, algorithm.pretransform),
+        evalinfo = BAT.MeasureEvalInfo(algorithm, (state = state,))
     )
 end
 

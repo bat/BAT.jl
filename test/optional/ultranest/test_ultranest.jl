@@ -42,16 +42,22 @@ import UltraNest
     smpls = r.result
     @test logdensityof(posterior).(smpls.v) ≈ smpls.logd
 
-    uwsmpls = r.uwresult
+    em = r.evaluated
+    @test em isa EvaluatedMeasure
+    @test BAT.validate_evalmeasure(em, context = context) === em
+
+    # The equal-weight sample variant is algorithm-specific and lives in
+    # the evaluation info:
+    uwsmpls = BAT.evalinfo(em).result.uwresult
     @test logdensityof(posterior).(uwsmpls.v) ≈ uwsmpls.logd
     @test all(isequal(1), uwsmpls.weight)
 
     logz_expected = -log(prod(maximum.(prior.v) .- minimum.(prior.v)))
-    logmass = log(massof(r.evaluated))
+    logmass = log(massof(em))
     @test isapprox(logmass.val, logz_expected, atol = 10 * logmass.err)
 
     # Ultranest uses Kish's ESS estimator:
-    ess = BAT.getess(BAT.empiricalof(r.evaluated))
+    ess = BAT.getess(BAT.empiricalof(em))
     @test ess ≈ bat_eff_sample_size(r.result, KishESS(), context).result
 
     @test ess > 50
