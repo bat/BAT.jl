@@ -62,9 +62,11 @@ Base.@deprecate MCMCSampling(;
     mcalg::MCMCProposal = RandomWalk(),
     trafo::TransformIntent = bat_default(TransformedMCMC, Val(:pretransform), mcalg),
     nchains::Int = 4,
-    nsteps::Int = bat_default(TransformedMCMC, Val(:nsteps), mcalg, trafo, nchains),
-    init::MCMCInitAlgorithm = bat_default(TransformedMCMC, Val(:init), mcalg, trafo, nchains, nsteps),
-    burnin::MCMCBurninAlgorithm = bat_default(TransformedMCMC, Val(:burnin), mcalg, trafo, nchains, nsteps),
+    # Defaults are taken from the actual TransformedMCMC constructor, so they
+    # can never drift from it:
+    nsteps::Int = TransformedMCMC(proposal = mcalg, pretransform = trafo, nchains = nchains).nsteps,
+    init::MCMCInitAlgorithm = TransformedMCMC(proposal = mcalg, pretransform = trafo, nchains = nchains, nsteps = nsteps).init,
+    burnin::MCMCBurninAlgorithm = TransformedMCMC(proposal = mcalg, pretransform = trafo, nchains = nchains, nsteps = nsteps).burnin,
     convergence::ConvergenceTest = BrooksGelmanConvergence(),
     strict::Bool = true,
     store_burnin::Bool = false,

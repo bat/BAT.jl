@@ -51,19 +51,9 @@ bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::MALAProposa
 
 bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, proposal::MALAProposal) = NoMCMCProposalTuning()
 
-bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, proposal::MALAProposal) = RAMTuning()
-
 bat_default(::Type{TransformedMCMC}, ::Val{:adaptive_transform}, proposal::MALAProposal) = TriangularAffineTransform()
 
 bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, proposal::MALAProposal) = NoMCMCTempering()
-
-bat_default(::Type{TransformedMCMC}, ::Val{:nsteps}, proposal::MALAProposal, pretransform::TransformIntent, nchains::Integer) = 10^5
-
-bat_default(::Type{TransformedMCMC}, ::Val{:init}, proposal::MALAProposal, pretransform::TransformIntent, nchains::Integer, nsteps::Integer) =
-    MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
-
-bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::MALAProposal, pretransform::TransformIntent, nchains::Integer, nsteps::Integer) =
-    MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
 
 function _create_proposal_state(

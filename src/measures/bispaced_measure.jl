@@ -29,7 +29,9 @@ are adopted into or consumed from an [`EvaluatedMeasure`](@ref): a
 non-matching hash results in an error, never in silently wrong content
 (`hash` may be specialized for transformation function types to make the
 witness value-based instead of object-based, widening which pairs are
-recognized as compatible). `UInt(0)` means that no claim is made (no
+recognized as compatible). The witness is a strong practical guard, not a
+logical proof of identity: a hash collision, or an over-coarse user `hash`
+specialization, could in principle let incompatible content pass. `UInt(0)` means that no claim is made (no
 transformed side, or the claim was invalidated). The witness only covers
 the pair-internal connection between the two sides; that the main side
 itself belongs where it is supplied is the responsibility of the supplier,

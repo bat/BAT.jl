@@ -31,7 +31,8 @@ end
 
 # Maximizes the log-density given by `f_logdgrad(x) == (logd, grad)` via
 # L-BFGS with backtracking line search. Returns the trace of iterates and
-# their log-density gradients.
+# their log-density gradients, or `nothing` if the starting point is
+# unusable (a path-local failure, other start points may still succeed).
 function _lbfgs_trace(
     f_logdgrad::Function, x0::AbstractVector{<:Real};
     maxiters::Integer, history_length::Integer,
@@ -42,7 +43,8 @@ function _lbfgs_trace(
     logd, grad_0 = f_logdgrad(x)
     grad = convert(Vector{T}, grad_0)
     if !(isfinite(logd) && all(isfinite, grad))
-        throw(ArgumentError("Pathfinder requires a finite log-density and gradient at the starting point"))
+        @warn "Pathfinder can't start from a point with non-finite log-density or gradient, skipping this start point"
+        return nothing
     end
 
     xs = [x]
@@ -212,7 +214,19 @@ function pathfinder_gaussian_fit(
     rng::AbstractRNG, f_logd::Function, f_logdgrad::Function, x0::AbstractVector{<:Real};
     maxiters::Integer = 1000, history_length::Integer = 6, ndraws_elbo::Integer = 5
 )
-    xs, grads = _lbfgs_trace(f_logdgrad, x0, maxiters = maxiters, history_length = history_length)
+    @argcheck maxiters >= 1
+    @argcheck history_length >= 1
+    @argcheck ndraws_elbo >= 1
+
+    trace = _lbfgs_trace(f_logdgrad, x0, maxiters = maxiters, history_length = history_length)
+    isnothing(trace) && return nothing
+    xs, grads = trace
+
+    # A path with no accepted L-BFGS step carries no curvature information;
+    # its only candidate would be the arbitrary initial inverse-Hessian
+    # estimate (see below), so the path fails instead:
+    length(xs) > 1 || return nothing
+
     Hs = _lbfgs_inverse_hessians(xs, grads, history_length = history_length)
 
     T = eltype(first(xs))
@@ -220,7 +234,10 @@ function pathfinder_gaussian_fit(
     best_elbo = T(-Inf)
     best = nothing
 
-    for l in eachindex(Hs)
+    # The first entry of Hs is the initial estimate H₀ = I, which contains
+    # no curvature information from the path and must never win the ELBO
+    # competition (reference Pathfinder excludes it as well):
+    for l in Iterators.drop(eachindex(Hs), 1)
         (; α, B, D) = Hs[l]
         # The inverse-Hessian estimate as a Woodbury-structured operator
         # (D is symmetric by construction, up to rounding); its stable

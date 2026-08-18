@@ -51,7 +51,8 @@ using MatrixShapedOperators: woodbury_operator, rowgram_factor
     end
 
     @testset "gaussian fit" begin
-        fit = pathfinder_gaussian_fit(rng, f_logd, f_logdgrad, fill(4.0, d), history_length = 20)
+        # Enough ELBO draws to make the candidate selection reliable:
+        fit = pathfinder_gaussian_fit(rng, f_logd, f_logdgrad, fill(4.0, d), history_length = 20, ndraws_elbo = 30)
         @test !isnothing(fit)
         @test isapprox(fit.μ, m_true, atol = 0.05)
         @test opnorm(fit.Σ - C) / opnorm(C) < 0.05
@@ -62,6 +63,30 @@ using MatrixShapedOperators: woodbury_operator, rowgram_factor
         fit_default = pathfinder_gaussian_fit(rng, f_logd, f_logdgrad, fill(4.0, d))
         @test isapprox(fit_default.μ, m_true, atol = 0.1)
         @test opnorm(fit_default.Σ - C) / opnorm(C) < 0.7
+    end
+
+    @testset "candidate discipline" begin
+        # A path with zero accepted L-BFGS steps carries no curvature
+        # information; the initial identity estimate must never be returned
+        # as a successful fit. Starting at the exact mode of a non-unit
+        # Gaussian takes zero steps:
+        @test isnothing(pathfinder_gaussian_fit(rng, f_logd, f_logdgrad, copy(m_true)))
+
+        # A first line search that can never accept has the same problem:
+        x0 = fill(2.0, d)
+        barrier_logd = x -> x == x0 ? 0.0 : -Inf
+        barrier_logdgrad = x -> x == x0 ? (0.0, fill(1.0, d)) : (-Inf, zero(x))
+        @test isnothing(pathfinder_gaussian_fit(rng, barrier_logd, barrier_logdgrad, x0))
+
+        # A non-finite starting point is a path-local failure, not an error:
+        nan_logdgrad = x -> (NaN, fill(NaN, d))
+        fit_nan = @test_logs (:warn,) match_mode=:any pathfinder_gaussian_fit(rng, f_logd, nan_logdgrad, x0)
+        @test isnothing(fit_nan)
+
+        # Invalid configurations fail at the API boundary:
+        @test_throws ArgumentError pathfinder_gaussian_fit(rng, f_logd, f_logdgrad, x0, history_length = 0)
+        @test_throws ArgumentError pathfinder_gaussian_fit(rng, f_logd, f_logdgrad, x0, ndraws_elbo = 0)
+        @test_throws ArgumentError pathfinder_gaussian_fit(rng, f_logd, f_logdgrad, x0, maxiters = 0)
     end
 
     @testset "transform initialization" begin

@@ -75,9 +75,11 @@ that hash against the (possibly updated) `f_transform` of the view, so
 pairs — including pairs taken from another `EvaluatedMeasure` of the same
 measure, like `EvaluatedMeasure(em1, empirical = em2.empirical)` — are
 adopted exactly when their transformed-space content is compatible with
-the view, and rejected with an error otherwise (never silently
-mislabeled). `transformed` and `samplegen` carry no such witness and must
-be accompanied by an explicit `transform_intent` in the same update.
+the view, and rejected with an error otherwise (never silently mislabeled,
+up to hash collisions, which honest value-based hash specializations make
+negligibly improbable). `transformed` and `samplegen` carry no such
+witness and must be accompanied by an explicit `transform_intent` in the
+same update.
 
 The hash witnesses only that the sides of a pair are connected by the
 view's transformation; that the main-side content itself belongs to the
