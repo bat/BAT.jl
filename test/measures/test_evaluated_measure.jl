@@ -1,0 +1,74 @@
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
+using BAT
+using Test
+
+using Random
+using DensityInterface, MeasureBase, ValueShapes
+using Distributions, StatsBase, IntervalSets
+using LazyReports: LazyReport, lazyreport
+
+@testset "evaluated_measure" begin
+    dist = distprod(
+        a = truncated(Normal(), -2, 2),
+        b = Exponential(),
+        c = [1 2; 3 4],
+        d = [-3..3, -4..4]
+    )
+
+    m = batmeasure(dist)
+
+    @test @inferred(BAT.unevaluated(EvaluatedMeasure(m))) === m
+    @test @inferred(BAT.unevaluated(EvaluatedMeasure(dist))).dist === dist
+
+    n = 100
+    xs = rand(Random.default_rng(), m^n)
+    xs_logd = logdensityof(m).(xs)
+    smpls = DensitySampleVector(v = xs, logd = xs_logd)
+    empirical_m = DensitySampleMeasure(smpls, dof = getdof(m))
+
+    em = EvaluatedMeasure(m, empirical = empirical_m, mass = 1)
+    @test @inferred(BAT.unevaluated(em)) === m
+    @test @inferred(BAT.empiricalof(em)) === empirical_m
+    @test @inferred(BAT.samplesof(em)) === BAT.samplesof(empirical_m)
+    @test @inferred(getdof(em)) == getdof(m)
+    @test massof(em) ≈ 1
+    @test @inferred(varshape(em)) == varshape(m)
+    x = first(xs)
+    @test @inferred(logdensityof(em, x)) == logdensityof(m, x)
+    @test DensitySampleVector(em) == smpls
+
+    em_dsm = EvaluatedMeasure(batmeasure(smpls))
+    @test BAT.empiricalof(em_dsm) === BAT.unevaluated(em_dsm)
+
+    em_plain = EvaluatedMeasure(m)
+    @test BAT.empiricalof(em_plain) === nothing
+
+    # The approximate statistics operate on unshaped measures:
+    mf = batmeasure(MvNormal([0.4, 0.6], [2.0 1.2; 1.2 3.0]))
+    xs_f = rand(Random.default_rng(), mf^n)
+    smpls_f = DensitySampleVector(v = xs_f, logd = logdensityof(mf).(xs_f))
+    empirical_f = DensitySampleMeasure(smpls_f, dof = getdof(mf))
+    em_f = EvaluatedMeasure(mf, empirical = empirical_f)
+    em_f_plain = EvaluatedMeasure(mf)
+    nf = totalndof(varshape(mf))
+
+    @testset "approximate mean and cov" begin
+        @test BAT._approx_mean(em_f, nf) == mean(smpls_f)
+        @test BAT._approx_cov(em_f, nf) == cov(smpls_f)
+
+        # Without empirical content both must fall back to the underlying measure:
+        @test BAT._approx_mean(em_f_plain, nf) == BAT._approx_mean(mf, nf)
+        @test BAT._approx_cov(em_f_plain, nf) == BAT._approx_cov(mf, nf)
+    end
+
+    @testset "approximate max logd" begin
+        @test BAT._approx_max_logd(em) == BAT._approx_max_logd(empirical_m)
+        @test BAT._approx_max_logd(em_plain) === BAT._approx_max_logd(m)
+    end
+
+    @testset "report generation" begin
+        @test lazyreport(em) isa LazyReport
+        @test lazyreport(em_plain) isa LazyReport
+    end
+end

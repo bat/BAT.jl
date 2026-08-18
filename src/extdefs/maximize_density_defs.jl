@@ -7,15 +7,19 @@
 const MaxDensityAlgorithm = Union{OptimAlg, OptimizationAlg}
 
 
-function bat_findmode_impl(target::MeasureLike, algorithm::MaxDensityAlgorithm, context::BATContext)
-    # Maximize the density of the original target, searching in the
+function evalmeasure_impl(measure::BATMeasure, algorithm::MaxDensityAlgorithm, context::BATContext)
+    # Maximize the density of the original measure, searching in the
     # reparametrized space without applying its LADJ:
-    transformed_density, f_pretransform = transform_and_unshape(algorithm.pretransform, target, context)
+    transformed_density, f_pretransform = transform_and_unshape(algorithm.pretransform, measure, context)
     initalg = apply_trafo_to_init(f_pretransform, algorithm.init)
     x_init = collect(bat_initval(transformed_density, initalg, context).result)
-    f = fchain(inverse(f_pretransform), checked_logdensityof(unevaluated(target)))
+    f = fchain(inverse(f_pretransform), checked_logdensityof(unevaluated(measure)))
     r = maximize_density(f, x_init, algorithm, context)
-    return _optimum_result(r, f_pretransform)
+    o = _optimum_result(r, f_pretransform)
+    return EvalMeasureImplReturn(;
+        modes = [o.result],
+        evalresult = Base.structdiff(o, NamedTuple{(:result,)})
+    )
 end
 
 function bat_bgml_impl(likelihood, prior, algorithm::MaxDensityAlgorithm, context::BATContext)

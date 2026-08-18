@@ -14,12 +14,14 @@ bat_compare
 bat_integrated_autocorr_len
 bat_marginalmode
 BAT.auto_renormalize
-BAT.batsampleable
 BAT.BinnedModeEstimator
+BAT.convert_for
 BAT.DistributionTransform
 BAT.enable_error_log
 BAT.error_log
 BAT.EvalException
+BAT.evalmeasure_impl
+BAT.evalmeasure_postproc
 BAT.ext_default
 BAT.get_adselector
 BAT.get_valid_adselector
@@ -37,6 +39,7 @@ SobolSampler
 truncate_batmeasure
 ValueAndThreshold
 
+BAT.EvalMeasureImplReturn
 BAT.MCMCChainState
 BAT.MCMCChainStateInfo
 BAT.MCMCIterator
@@ -46,6 +49,7 @@ BAT.MCMCProposalTunerState
 BAT.MCMCState
 BAT.MCMCTempering
 BAT.MCMCTransformTunerState
+BAT.MeasureEvalInfo
 BAT.PolarShellDistribution
 BAT.SimpleMCMCProposalState
 BAT.TemperingState

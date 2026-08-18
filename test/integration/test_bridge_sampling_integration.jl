@@ -22,7 +22,7 @@ using LinearAlgebra: Diagonal, ones
             )
             samples = bat_sample(dist, samplingalg).result
 
-            sd = EvaluatedMeasure(dist, samples = samples)
+            sd = EvaluatedMeasure(dist, empirical = samples)
             sample_integral = bat_integrate(sd, algorithm, context).result
 
             @test isapprox(sample_integral.val, val_expected, atol=val_rtol*sample_integral.err)
@@ -34,7 +34,7 @@ using LinearAlgebra: Diagonal, ones
         dist = MvNormal(zeros(2), ones(2))
         samples = bat_sample(dist, IIDSampling(nsamples=20), context).result
         samples = DensitySampleVector(samples.v, samples.logd, weight=fill(0.75, length(samples)))
-        evaluated = EvaluatedMeasure(dist, samples=samples)
+        evaluated = EvaluatedMeasure(dist, empirical = samples)
 
         result = bat_integrate(evaluated, BridgeSampling(pretransform=DoNotTransform()), context).result
         @test isfinite(result.val)

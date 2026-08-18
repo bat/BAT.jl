@@ -18,11 +18,13 @@ using DensityInterface, InverseFunctions, ValueShapes
 import Measurements
 
 
-function BAT.bat_sample_impl(m::BATMeasure, algorithm::ReactiveNestedSampling, context::BATContext)
+function BAT.evalmeasure_impl(measure::BATMeasure, algorithm::ReactiveNestedSampling, context::BATContext)
+    m = unevaluated(measure)
     transformed_m, f_pretransform = transform_and_unshape(algorithm.pretransform, m, context)
+    n_dof = BAT.some_dof(transformed_m)
 
     if !BAT.has_uhc_support(transformed_m)
-        throw(ArgumentError("$algorithm doesn't measures that are not limited to the unit hypercube"))
+        throw(ArgumentError("$algorithm doesn't support measures that are not limited to the unit hypercube"))
     end
 
     LogDType = Float64
@@ -93,18 +95,27 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::ReactiveNestedSampling, c
     uwtransformed_smpls = DensitySampleVector(uwv_trafo_us, uwlogvals_trafo)
     uwsmpls = inverse(f_pretransform).(uwtransformed_smpls)
 
-    # Python floats carry Float64 precision, but keep the BigFloat result type:
-    logz = convert(BigFloat, pyconvert(Float64, unest_result["logz"]))
-    logzerr = convert(BigFloat, pyconvert(Float64, unest_result["logzerr"]))
-    logintegral = Measurements.measurement(logz, logzerr)
+    logz = pyconvert(Float64, unest_result["logz"])
+    logzerr = pyconvert(Float64, unest_result["logzerr"])
+    mass = exp(BAT.ULogarithmic, Measurements.measurement(logz, logzerr))
 
     ess = pyconvert(Float64, unest_result["ess"])
 
-    return (
-        result = smpls, result_trafo = transformed_smpls, f_pretransform = f_pretransform,
+    evalresult = (
+        result_trafo = transformed_smpls, f_pretransform = f_pretransform,
         uwresult = uwsmpls, uwresult_trafo = uwtransformed_smpls,
-        logintegral = logintegral, ess = ess,
-        info = pyconvert(Dict{String,Any}, unest_result)
+        ultranest_result = pyconvert(Dict{String,Any}, unest_result)
+    )
+
+    dsm = BAT.DensitySampleMeasure(smpls, dof = n_dof, ess = ess, mass = mass)
+
+    return BAT.EvalMeasureImplReturn(;
+        empirical = dsm,
+        dof = n_dof,
+        mass = mass,
+        # ToDo:
+        # modes = ...,
+        evalresult = evalresult
     )
 end
 

@@ -4,6 +4,7 @@ using BAT
 using Test
 
 using Random, StatsBase, Distributions, DensityInterface, ValueShapes
+using MeasureBase: massof
 using HypothesisTests
 
 import NestedSamplers
@@ -31,7 +32,8 @@ import NestedSamplers
     @test logdensityof(posterior).(smpls.v) ≈ smpls.logd
 
     logz_expected = -log(prod(maximum.(prior.a.v) .- minimum.(prior.a.v)))
-    @test isapprox(r.logintegral.val, logz_expected, atol = 100 * r.logintegral.err)
+    logintegral = log(massof(r.evaluated))
+    @test isapprox(logintegral.val, logz_expected, atol = 100 * logintegral.err)
 
-    @test r.ess > 50
+    @test BAT.getess(BAT.empiricalof(r.evaluated)) > 50
 end
