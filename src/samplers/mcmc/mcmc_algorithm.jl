@@ -282,6 +282,21 @@ MCMCStepInfo(p_accept::AbstractVector{<:Real}) = MCMCStepInfo(p_accept, nothing,
 mcmc_step_provides_grads(::MCMCProposalState) = false
 
 
+# Transform-tuner state creation may take the declared adaptive transform
+# into account (e.g. to match the estimation structure to the transform
+# structure); by default it is ignored:
+function create_trafo_tuner_state end
+
+function create_trafo_tuner_state(
+    tuning::MCMCTransformTuning,
+    chain_state::CS,
+    n_steps_hint::Integer,
+    ::AbstractAdaptiveTransform
+) where CS<:MCMCIterator
+    return create_trafo_tuner_state(tuning, chain_state, n_steps_hint)
+end
+
+
 # Whether a transform change installed by this transform tuner should
 # restart step-size adaptation (with a fresh reasonable-step-size search).
 # True for tuners that commit discrete geometry changes (windowed or
@@ -575,7 +590,10 @@ function mcmc_iterate!!(
     end
 
     outs = isnothing(outputs) ? fill(nothing, size(mcmc_states)...) : outputs
-    mcmc_states_new = similar(mcmc_states)
+    # Tuning may change type parameters of the states (e.g. the structural
+    # type of an adaptive transform on its first commit), so the result
+    # container must not be bound to the input element type:
+    mcmc_states_new = similar(mcmc_states, MCMCState)
 
     @sync for i in eachindex(outs, mcmc_states)
         Base.Threads.@spawn mcmc_states_new[i] = mcmc_iterate!!(outs[i], mcmc_states[i]; kwargs...)

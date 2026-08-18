@@ -1,26 +1,29 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-"""
-    struct DenseFisherEstimator
+# The geometry-estimation structure follows the declared adaptive
+# transform (see _fisher_estimator), users select it by choosing a
+# TriangularAffineTransform, DiagonalAffineTransform or
+# LowRankAffineTransform:
 
-Estimates a dense affine sampling-space geometry from positions and
-log-density gradients by minimizing the empirical Fisher divergence of the
-transformed measure to a standard normal (see
-[`FisherTransformTuning`](@ref)).
-"""
 struct DenseFisherEstimator end
-export DenseFisherEstimator
 
-
-"""
-    struct DiagonalFisherEstimator
-
-Like [`DenseFisherEstimator`](@ref), but restricted to a diagonal (per
-dimension) geometry, with cost linear in the number of dimensions.
-"""
 struct DiagonalFisherEstimator end
-export DiagonalFisherEstimator
+
+struct LowRankFisherEstimator
+    cutoff::Float64
+    max_rank::Int
+end
+
+_fisher_estimator(::TriangularAffineTransform) = DenseFisherEstimator()
+_fisher_estimator(::DiagonalAffineTransform) = DiagonalFisherEstimator()
+_fisher_estimator(at::LowRankAffineTransform) = LowRankFisherEstimator(at.cutoff, at.max_rank)
+
+# Fallback when the transform declaration is not available (direct
+# low-level use): infer the structure from the installed transform:
+_fisher_estimator_from_A(::LowerTriangular) = DenseFisherEstimator()
+_fisher_estimator_from_A(::Diagonal) = DiagonalFisherEstimator()
+_fisher_estimator_from_A(::Any) = DenseFisherEstimator()
 
 
 """
@@ -94,10 +97,7 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct FisherTransformTuning{E,S} <: MCMCTransformTuning
-    "Geometry estimator."
-    estimator::E = DenseFisherEstimator()
-
+@with_kw struct FisherTransformTuning{S} <: MCMCTransformTuning
     "Transform-installation policy."
     schedule::S = DriftCommitSchedule()
 
@@ -123,6 +123,8 @@ _new_moments(::DenseFisherEstimator, n_dims::Integer) =
 _new_moments(::DiagonalFisherEstimator, n_dims::Integer) =
     _XGMoments(0, zeros(n_dims), zeros(n_dims), zeros(n_dims), zeros(n_dims))
 
+_new_moments(::LowRankFisherEstimator, n_dims::Integer) = _new_moments(DenseFisherEstimator(), n_dims)
+
 _m2_update!(M2::Matrix{Float64}, d_pre, d_post) = (M2 .+= d_pre .* d_post')
 _m2_update!(M2::Vector{Float64}, d_pre, d_post) = (M2 .+= d_pre .* d_post)
 
@@ -138,8 +140,9 @@ function _moments_update!(acc::_XGMoments, x::AbstractVector{<:Real}, g::Abstrac
 end
 
 
-mutable struct FisherTrafoTunerState{TU<:FisherTransformTuning,MO<:_XGMoments} <: MCMCTransformTunerState
+mutable struct FisherTrafoTunerState{TU<:FisherTransformTuning,E,MO<:_XGMoments} <: MCMCTransformTunerState
     tuning::TU
+    estimator::E
     n_dims::Int
     memory_length::Int
     min_observations::Int
@@ -159,11 +162,24 @@ end
 function create_trafo_tuner_state(
     tuning::FisherTransformTuning,
     chain_state::MCMCChainState,
+    n_steps_hint::Integer,
+    adaptive_transform::AbstractAdaptiveTransform
+)
+    _create_fisher_tuner_state(tuning, chain_state, _fisher_estimator(adaptive_transform))
+end
+
+function create_trafo_tuner_state(
+    tuning::FisherTransformTuning,
+    chain_state::MCMCChainState,
     n_steps_hint::Integer
 )
+    _create_fisher_tuner_state(tuning, chain_state, _fisher_estimator_from_A(chain_state.f_transform.A))
+end
+
+function _create_fisher_tuner_state(tuning::FisherTransformTuning, chain_state::MCMCChainState, estimator)
     proposal = get_active_proposal(chain_state.proposal)
     mcmc_step_provides_grads(proposal) || throw(ArgumentError(
-        "FisherTransformTuning requires an MCMC proposal that provides log-density gradients (like HamiltonianMC), got $(nameof(typeof(proposal)))"
+        "FisherTransformTuning requires an MCMC proposal that provides log-density gradients (like HamiltonianMC or MALAProposal), got $(nameof(typeof(proposal)))"
     ))
     chain_state.f_transform isa MulAdd || throw(ArgumentError(
         "FisherTransformTuning requires an affine adaptive space transformation (like TriangularAffineTransform)"
@@ -173,8 +189,8 @@ function create_trafo_tuner_state(
     memory_length = sched.memory_length > 0 ? sched.memory_length : max(100, 4 * n_dims)
     min_observations = sched.min_observations > 0 ? sched.min_observations : max(20, 2 * n_dims)
     FisherTrafoTunerState(
-        tuning, n_dims, memory_length, min_observations, 0,
-        _new_moments(tuning.estimator, n_dims), _new_moments(tuning.estimator, n_dims)
+        tuning, estimator, n_dims, memory_length, min_observations, 0,
+        _new_moments(estimator, n_dims), _new_moments(estimator, n_dims)
     )
 end
 
@@ -228,15 +244,55 @@ function _spd_riccati_solve(C_x::Symmetric, C_g::Symmetric)
     return Symmetric(S_isqrt * M_sqrt * S_isqrt)
 end
 
+# The low-rank geometry: a diagonal base plus an eigenvalue-thresholded
+# correction along the directions where the diagonal alone is
+# insufficient. Fitting only these few directions regularizes the
+# estimate compared to a full dense geometry:
+function _fisher_geometry(est::LowRankFisherEstimator, acc::_XGMoments, γ::Real)
+    n = acc.n
+    C_x = Symmetric(acc.M2_x ./ (n - 1) + γ * I)
+    C_g = Symmetric(acc.M2_g ./ (n - 1) + γ * I)
+
+    # Diagonal base fit and standardization (scores transform inversely
+    # to positions under x̃ = D^{-1/2} x):
+    dvec = sqrt.(diag(C_x) ./ diag(C_g))
+    dsq = sqrt.(dvec)
+    Ct_x = Symmetric(C_x ./ (dsq .* dsq'))
+    Ct_g = Symmetric(C_g .* (dsq .* dsq'))
+
+    Gt = _spd_riccati_solve(Ct_x, Ct_g)
+    E = eigen(Symmetric(Matrix(Gt)))
+    λ, V = E.values, E.vectors
+    keep = findall(l -> l > est.cutoff || l < inv(est.cutoff), λ)
+    if est.max_rank > 0 && length(keep) > est.max_rank
+        keep = keep[sortperm(abs.(log.(λ[keep])), rev = true)[1:est.max_rank]]
+    end
+
+    # G = D^{1/2} (I + V_S (Λ_S - I) V_Sᵀ) D^{1/2} = D + W S Wᵀ:
+    W = (dsq .* V[:, keep]) .* sqrt.(abs.(λ[keep] .- 1))'
+    S = Symmetric(Matrix(Diagonal(sign.(λ[keep] .- 1))))
+    G = woodbury_operator(Diagonal(dvec), W, S)
+    μ = acc.mean_x .+ G * acc.mean_g
+    return G, μ
+end
+
 _dense_spd(G::Symmetric) = G
 _dense_spd(G::Diagonal) = Symmetric(Matrix(G))
+_dense_spd(G) = Symmetric(Matrix(G))
+
+# The matrix part of the transform to commit, in the structure the
+# estimator maintains:
+_fisher_A(::DenseFisherEstimator, G) = cholesky(Positive, Matrix(_dense_spd(G))).L
+_fisher_A(::DiagonalFisherEstimator, G::Diagonal) = Diagonal(sqrt.(G.diag))
+_fisher_A(::LowRankFisherEstimator, G) = rowgram_factor(G)
 
 # Affine-invariant SPD distance between the installed geometry
 # G_inst = A Aᵀ and the estimated geometry G. The spectrum of A⁻¹ G A⁻ᵀ
-# equals the spectrum of G_inst⁻¹ G, so
-# d = ‖log(G_inst^{-1/2} G G_inst^{-1/2})‖_F = sqrt(Σᵢ log(λᵢ)²):
-function _transform_drift(A::AbstractMatrix{<:Real}, G::Union{Symmetric,Diagonal})
-    B = Symmetric(Matrix(A \ _dense_spd(G) / A'))
+# equals the spectrum of G_inst⁻¹ G, and A⁻¹ G A⁻ᵀ = A \ ((A \ G)ᵀ)
+# for symmetric G, so only (adjoint-free) left solves are needed:
+function _transform_drift(A, G)
+    Gd = Matrix(_dense_spd(G))
+    B = Symmetric(Matrix(A \ Matrix((A \ Gd)')))
     λ = eigvals(B)
     tiny = floatmin(float(eltype(λ)))
     return sqrt(sum(x -> abs2(log(max(x, tiny))), λ))
@@ -276,16 +332,16 @@ function mcmc_tune_trafo_post_step!!(
     tuner_state.nsteps += 1
     if tuner_state.nsteps % tuner_state.memory_length == 0
         tuner_state.acc_a = tuner_state.acc_b
-        tuner_state.acc_b = _new_moments(tuner_state.tuning.estimator, tuner_state.n_dims)
+        tuner_state.acc_b = _new_moments(tuner_state.estimator, tuner_state.n_dims)
     end
 
     sched = tuner_state.tuning.schedule
     acc = tuner_state.acc_a
     if tuner_state.nsteps % sched.check_interval == 0 && acc.n >= tuner_state.min_observations
-        G, μ = _fisher_geometry(tuner_state.tuning.estimator, acc, tuner_state.tuning.regularization)
+        G, μ = _fisher_geometry(tuner_state.estimator, acc, tuner_state.tuning.regularization)
         drift = _transform_drift(A, G)
         if drift > _effective_commit_threshold(sched, tuner_state.n_dims, acc.n)
-            A_new = oftype(A, cholesky(Positive, Matrix(_dense_spd(G))).L)
+            A_new = _fisher_A(tuner_state.estimator, G)
             b_new = oftype(f_transform.b, μ)
             return MulAdd(A_new, b_new), tuner_state, chain_state
         end
@@ -295,6 +351,11 @@ function mcmc_tune_trafo_post_step!!(
 end
 
 
-# Hamiltonian proposals provide gradients, so their affine transform
-# tuning defaults to the Fisher-divergence tuner:
-bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::HamiltonianMC, ::TriangularAffineTransform) = FisherTransformTuning()
+# Gradient-based proposals default to Fisher-divergence transform tuning
+# for all affine transform structures:
+bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::Union{HamiltonianMC,MALAProposal}, ::TriangularAffineTransform) = FisherTransformTuning()
+bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::Union{HamiltonianMC,MALAProposal}, ::Union{DiagonalAffineTransform,LowRankAffineTransform}) = FisherTransformTuning()
+
+function bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, proposal::MCMCProposal, ::Union{DiagonalAffineTransform,LowRankAffineTransform})
+    throw(ArgumentError("Diagonal and low-rank affine transform tuning currently requires a gradient-based MCMC proposal (like HamiltonianMC or MALAProposal), not $(nameof(typeof(proposal)))"))
+end

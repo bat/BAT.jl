@@ -4,13 +4,14 @@ using BAT
 using Test
 
 using LinearAlgebra, Random, Statistics
-using Distributions, ValueShapes
+using Distributions, ValueShapes, DensityInterface, InverseFunctions
 using StableRNGs
 import ForwardDiff
 
-using BAT: DenseFisherEstimator, DiagonalFisherEstimator, DriftCommitSchedule,
-    FisherTransformTuning, _new_moments, _moments_update!, _fisher_geometry,
-    _spd_riccati_solve, _transform_drift
+using BAT: DenseFisherEstimator, DiagonalFisherEstimator, LowRankFisherEstimator,
+    DriftCommitSchedule, FisherTransformTuning, DiagonalAffineTransform,
+    LowRankAffineTransform, _new_moments, _moments_update!, _fisher_geometry,
+    _spd_riccati_solve, _transform_drift, _fisher_A
 
 @testset "fisher_tuner" begin
     rng = StableRNG(438621057)
@@ -60,6 +61,40 @@ using BAT: DenseFisherEstimator, DiagonalFisherEstimator, DriftCommitSchedule,
         @test _transform_drift(A, Symmetric(c2 * Matrix(G))) ≈ log(c2) * sqrt(d)
     end
 
+    @testset "low-rank geometry recovery" begin
+        # A diagonal base geometry with a strong rank-1 correction: the
+        # low-rank estimator must identify the correction direction and
+        # reproduce the full geometry as G = D + W S Wᵀ:
+        d = 6
+        u = normalize(randn(rng, d))
+        base = Diagonal(collect(range(0.5, 4.0, length = d)))
+        Σ = Matrix(Symmetric(base + 12.0 * u * u'))
+        Σinv = inv(Σ)
+        μ_true = randn(rng, d)
+
+        est = LowRankFisherEstimator(1.5, 0)
+        acc = _new_moments(est, d)
+        L = cholesky(Symmetric(Σ)).L
+        for _ in 1:10^4
+            x = μ_true .+ L * randn(rng, d)
+            α = -Σinv * (x .- μ_true)
+            _moments_update!(acc, x, α)
+        end
+
+        G, μ = _fisher_geometry(est, acc, 1e-5)
+        @test opnorm(Matrix(G) - Σ) / opnorm(Σ) < 0.15
+        @test isapprox(μ, μ_true, atol = 0.4)
+
+        # The committed matrix part is a Gram factor of G:
+        A = _fisher_A(est, G)
+        @test Matrix(A) * Matrix(A)' ≈ Matrix(G)
+
+        # A hard rank cap is respected:
+        est_capped = LowRankFisherEstimator(1.5, 1)
+        G1, _ = _fisher_geometry(est_capped, acc, 1e-5)
+        @test size(G1.B, 2) <= 1  # W has at most max_rank columns in the Woodbury representation
+    end
+
     @testset "guards" begin
         context = BATContext(ad = ForwardDiff)
         target = unshaped(batmeasure(NamedTupleDist(a = Normal(), b = Normal())))
@@ -103,5 +138,80 @@ using BAT: DenseFisherEstimator, DiagonalFisherEstimator, DriftCommitSchedule,
         @test all(d -> d.n_transitions > 0, diags)
         @test all(d -> 0 < d.mean_p_accept <= 1, diags)
         @test all(d -> d.n_leapfrog > 0, diags)
+    end
+
+    @testset "structure selection end-to-end" begin
+        context = BATContext(ad = ForwardDiff)
+
+        # Independent scales: the diagonal structure suffices:
+        objective_diag = MvNormal([0.5, -1.0, 2.0], Diagonal([0.04, 4.0, 25.0]))
+        alg_diag = TransformedMCMC(
+            proposal = HamiltonianMC(),
+            adaptive_transform = DiagonalAffineTransform(),
+            pretransform = DoNotTransform(),
+            nchains = 2,
+            nsteps = 6000
+        )
+        em_diag = evalmeasure(batmeasure(objective_diag), alg_diag, context)
+        @test BAT.test_dist_samples(objective_diag, BAT.samplesof(em_diag), context)
+        f_diag = BAT.samplegenof(em_diag).chain_states[1].f_transform
+        @test f_diag.A isa Diagonal
+        @test isapprox(diag(f_diag.A * f_diag.A'), [0.04, 4.0, 25.0], rtol = 0.6)
+
+        # Diagonal base plus one strong correlation direction: low-rank
+        # picks it up while keeping the correction small:
+        u = normalize(fill(1.0, 4))
+        Σ_lr = Matrix(Symmetric(Diagonal([1.0, 2.0, 0.5, 1.5]) + 8.0 * u * u'))
+        objective_lr = MvNormal(zeros(4), Σ_lr)
+        alg_lr = TransformedMCMC(
+            proposal = HamiltonianMC(),
+            adaptive_transform = LowRankAffineTransform(),
+            pretransform = DoNotTransform(),
+            nchains = 2,
+            nsteps = 6000
+        )
+        em_lr = evalmeasure(batmeasure(objective_lr), alg_lr, context)
+        @test BAT.test_dist_samples(objective_lr, BAT.samplesof(em_lr), context)
+        f_lr = BAT.samplegenof(em_lr).chain_states[1].f_transform
+        G_lr = Matrix(f_lr.A * Matrix(f_lr.A)')
+        @test opnorm(G_lr - Σ_lr) / opnorm(Σ_lr) < 0.5
+    end
+
+    @testset "forced geometry commit" begin
+        context = BATContext(ad = ForwardDiff)
+        # The prior-based initial geometry is badly mismatched to this
+        # sharp posterior, forcing geometry commits; the commit protocol
+        # must leave positions consistent and the step size readapted:
+        prior = distprod(a = Normal(0.0, 10.0), b = Normal(0.0, 10.0))
+        loglik = logfuncdensity(p -> logpdf(Normal(3.0, 0.5), p.a) + logpdf(Normal(-2.0, 0.5), p.b))
+        target = unshaped(PosteriorMeasure(loglik, prior))
+        alg = TransformedMCMC(
+            proposal = HamiltonianMC(),
+            adaptive_transform = DiagonalAffineTransform(),
+            pretransform = DoNotTransform(),
+            nchains = 1, nwalkers = 1, nsteps = 1000
+        )
+        v_init = [randn(rng, 2)]
+        mcmc_state = BAT.MCMCState(alg, target, 1, v_init, deepcopy(context))
+        f_initial = mcmc_state.chain_state.f_transform
+        @test f_initial.A isa Diagonal
+        # The initial geometry comes from the prior (scale 10), far from
+        # the posterior scale 0.5:
+        @test all(diag(f_initial.A) .> 5)
+        BAT.mcmc_tuning_init!!(mcmc_state, 500)
+        BAT.mcmc_tuning_reinit!!(mcmc_state, 500)
+        mcmc_state = BAT.mcmc_iterate!!(nothing, mcmc_state; max_nsteps = 500, nonzero_weights = false)
+
+        cs = mcmc_state.chain_state
+        # A commit happened (the transform is a new object) and the learned
+        # geometry contracted towards the posterior scale:
+        @test cs.f_transform !== f_initial
+        @test all(diag(cs.f_transform.A * cs.f_transform.A') .< 4)
+        # The step size was re-searched and adapted in the new geometry:
+        prop = BAT.get_active_proposal(cs.proposal)
+        @test isfinite(prop.step_size) && prop.step_size > 0
+        # Walker positions stayed consistent across the geometry changes:
+        @test cs.current.z.v[1] ≈ inverse(cs.f_transform)(cs.current.x.v[1])
+        @test isapprox(cs.current.x.logd[1], logdensityof(target, cs.current.x.v[1]), rtol = 1e-6, atol = 1e-6)
     end
 end

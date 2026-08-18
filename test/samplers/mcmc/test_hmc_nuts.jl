@@ -102,4 +102,71 @@ using BAT: HMCPhasePoint, _hmc_phasepoint, _leapfrog_step, _logaddexp,
         # No complete window fits:
         @test _stan_adaptation_windows(75, 50, 25, 100) == (76, 50, Int[])
     end
+    @testset "leapfrog reversibility" begin
+        # Leapfrog is time-reversible: integrating forward, flipping the
+        # momentum, integrating the same number of steps and flipping again
+        # returns to the initial phase point up to floating-point error:
+        q0, p0 = randn(rng, 5), randn(rng, 5)
+        z = _hmc_phasepoint(f_logdgrad, q0, p0)
+        ε = 0.3
+        n = 25
+        for _ in 1:n
+            z = _leapfrog_step(f_logdgrad, z, ε)
+        end
+        z = _hmc_phasepoint(f_logdgrad, z.q, -z.p)
+        for _ in 1:n
+            z = _leapfrog_step(f_logdgrad, z, ε)
+        end
+        @test isapprox(z.q, q0, atol = 1e-10)
+        @test isapprox(-z.p, p0, atol = 1e-10)
+    end
+
+    @testset "leapfrog energy-error scaling" begin
+        # For fixed integration time the global energy error of leapfrog
+        # scales like ε², so halving the step size (doubling the step
+        # count) must shrink it by roughly a factor of four:
+        q0, p0 = randn(rng, 5), randn(rng, 5)
+        T_total = 2.0
+        function energy_error(nsteps)
+            z = _hmc_phasepoint(f_logdgrad, copy(q0), copy(p0))
+            ε = T_total / nsteps
+            H0 = z.H
+            for _ in 1:nsteps
+                z = _leapfrog_step(f_logdgrad, z, ε)
+            end
+            return abs(z.H - H0)
+        end
+        e1, e2, e3 = energy_error(50), energy_error(100), energy_error(200)
+        @test e2 < e1 / 2
+        @test e3 < e2 / 2
+    end
+
+    @testset "affine equivalence" begin
+        # Identity-metric NUTS on the pullback of N(0, Σ) through
+        # A = chol(Σ) is the exact same Markov process as NUTS on N(0, I):
+        # given the same RNG stream, the transitions must be identical:
+        d = 4
+        R = randn(rng, d, d)
+        Σ = Matrix(Symmetric(R * R' + 0.5 * I))
+        A = cholesky(Σ).L
+        Σinv = inv(Σ)
+        # Pullback of N(0, Σ) through x = A z (constant LADJ omitted, it
+        # does not affect transitions):
+        fg_pullback(z) = begin
+            x = A * z
+            g_x = -(Σinv * x)
+            (-dot(x, Σinv, x) / 2, A' * g_x)
+        end
+        z0 = randn(rng, d)
+        for eps in (0.2, 0.7)
+            rng1, rng2 = StableRNG(20260821), StableRNG(20260821)
+            t1 = hmc_nuts_transition(rng1, fg_pullback, _hmc_phasepoint(fg_pullback, copy(z0), randn(StableRNG(11), d)), eps, 10, 1000.0)
+            t2 = hmc_nuts_transition(rng2, f_logdgrad, _hmc_phasepoint(f_logdgrad, copy(z0), randn(StableRNG(11), d)), eps, 10, 1000.0)
+            @test t1.z.q ≈ t2.z.q
+            @test t1.p_accept ≈ t2.p_accept
+            @test t1.depth == t2.depth
+            @test t1.n_leapfrog == t2.n_leapfrog
+        end
+    end
+
 end

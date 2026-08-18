@@ -75,8 +75,6 @@ BrooksGelmanConvergence
 CuhreIntegration
 DensitySample
 DensitySampleVector
-DenseFisherEstimator
-DiagonalFisherEstimator
 DivonneIntegration
 DoNotTransform
 DriftCommitSchedule

@@ -50,8 +50,11 @@ function MCMCChainState(
     proposal = _create_proposal_state(samplingalg.proposal, target_unevaluated, context, x_init, f, rng)
 
     logd_x_init = logdensityof.(target_unevaluated, x_init)
-    z_init = f_inv.(x_init) 
-    logd_z_init = logdensityof.(MeasureBase.pullback(f, target_unevaluated), z_init)
+    z_init = f_inv.(x_init)
+    ladj_c = _transform_ladj(f)
+    logd_z_init = isnothing(ladj_c) ?
+        logdensityof.(MeasureBase.pullback(f, target_unevaluated), z_init) :
+        logd_x_init .+ ladj_c
 
     W = mcmc_weight_type(samplingalg.sample_weighting)
 
@@ -251,6 +254,25 @@ function mcmc_step!!(mcmc_state::MCMCState)
     return mcmc_state_final
 end
 
+# Log-abs-det Jacobian of a space transformation, if it is constant
+# (nothing otherwise):
+_transform_ladj(::Function) = nothing
+_transform_ladj(::typeof(identity)) = 0.0
+_transform_ladj(f::MulAdd) = first(logabsdet(f.A))
+
+# Batched transform application together with per-element LADJs, with a
+# single logabsdet evaluation for transforms with constant Jacobian:
+function _transform_with_ladj(f, zs::AbstractVector)
+    c = _transform_ladj(f)
+    if isnothing(c)
+        ys_ladjs = with_logabsdet_jacobian.(f, zs)
+        return first.(ys_ladjs), getsecond.(ys_ladjs)
+    else
+        return f.(zs), fill(c, length(eachindex(zs)))
+    end
+end
+
+
 function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP) where {SMP<:SimpleMCMCProposalState}
     (; target, f_transform, current, context) = chain_state
 
@@ -265,9 +287,7 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP) where {SMP<:
     # TODO: MD; Make this function ! because it alters genctx?
     z_proposed, hastings_correction = mcmc_propose_transition(current_z, proposal, n_walkers, genctx)
 
-    x_ladj_proposed = with_logabsdet_jacobian.(f_transform, z_proposed)
-    x_proposed = first.(x_ladj_proposed)
-    ladj = getsecond.(x_ladj_proposed)
+    x_proposed, ladj = _transform_with_ladj(f_transform, z_proposed)
 
     logd_x_proposed = BAT.checked_logdensityof.(target, x_proposed)
     logd_z_proposed::typeof(logd_x_proposed) = logd_x_proposed .+ ladj
@@ -284,8 +304,13 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP) where {SMP<:
 
     chain_state.accepted .= accepted
 
-    return chain_state, proposal, MCMCStepInfo(p_accept)
+    step_info = MCMCStepInfo(p_accept, _selected_z_grads(proposal, accepted), nothing, nothing, nothing)
+    return chain_state, proposal, step_info
 end
+
+# Proposals that compute z-space log-density gradients report the
+# gradients at the selected (post-accept/reject) states, others nothing:
+_selected_z_grads(::MCMCProposalState, ::AbstractVector{Bool}) = nothing
 
 function reset_rng_counters!(chain_state::MCMCChainState)
     rng = get_rng(get_context(chain_state))

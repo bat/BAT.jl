@@ -32,6 +32,17 @@ end
 
 export MALAProposal
 
+# Per-walker z-space gradients of the last transition, at the current and
+# the proposed states, mutated in place (all functional proposal-state
+# copies share this object by reference). They provide the selected-state
+# gradients for MCMCStepInfo, at no extra gradient evaluations:
+mutable struct _MALAGradCache
+    grads_curr::Vector{Vector{Float64}}
+    grads_prop::Vector{Vector{Float64}}
+end
+
+_MALAGradCache() = _MALAGradCache(Vector{Vector{Float64}}(), Vector{Vector{Float64}}())
+
 struct MALAProposalState{
     TA<:Real,
     TAI<:Tuple{Vararg{Real}},
@@ -44,6 +55,15 @@ struct MALAProposalState{
     proposaldist::Q
     target_gradient::G
     τ::R
+    grad_cache::_MALAGradCache
+end
+
+mcmc_step_provides_grads(::MALAProposalState) = true
+
+function _selected_z_grads(proposal::MALAProposalState, accepted::AbstractVector{Bool})
+    c = proposal.grad_cache
+    length(c.grads_curr) == length(accepted) || return nothing
+    return [accepted[i] ? c.grads_prop[i] : c.grads_curr[i] for i in eachindex(accepted)]
 end
 
 
@@ -76,7 +96,8 @@ function _create_proposal_state(
         proposal.target_acceptance_int,
         mv_pdist,
         target_gradient,
-        n_dims^(-1/3) * proposal.τ_base
+        n_dims^(-1/3) * proposal.τ_base,
+        _MALAGradCache()
     )
 end
 
@@ -100,6 +121,9 @@ function mcmc_propose_transition(
 
     gradient_res_prop = target_gradient.(proposed_z)
     grads_prop = last.(gradient_res_prop)
+
+    proposal.grad_cache.grads_curr = convert(Vector{Vector{Float64}}, grads_curr)
+    proposal.grad_cache.grads_prop = convert(Vector{Vector{Float64}}, grads_prop)
 
     p_prop_to_curr = norm.(-transition .- τ .* grads_prop).^2
     p_curr_to_prop = norm.(transition .- τ .* grads_curr).^2

@@ -276,7 +276,7 @@ function pathfinder_gaussian_fit(
 end
 
 
-function _init_affine_transform(tinit::PathfinderTransformInit, target::AbstractMeasure, v_init::AbstractVector, context::BATContext)
+function _affine_init_moments(tinit::PathfinderTransformInit, target::AbstractMeasure, v_init::AbstractVector, context::BATContext)
     adsel = get_valid_adselector(context, tinit)
     f_logd = checked_logdensityof(target)
     f_logdgrad = valgrad_func(f_logd, adsel)
@@ -293,7 +293,7 @@ function _init_affine_transform(tinit::PathfinderTransformInit, target::Abstract
 
     if isempty(fits)
         @warn "Pathfinder-based space transformation initialization failed, falling back to prior-based initialization"
-        return _init_affine_transform(PriorApproxTransformInit(), target, v_init, context)
+        return _affine_init_moments(PriorApproxTransformInit(), target, v_init, context)
     end
 
     μ = mean(fit.μ for fit in fits)
@@ -303,6 +303,5 @@ function _init_affine_transform(tinit::PathfinderTransformInit, target::Abstract
         Σ = Σ + cov(stack(fit.μ for fit in fits), dims = 2, corrected = false)
     end
 
-    A = cholesky(Positive, Σ).L
-    return MulAdd(A, μ)
+    return Σ, μ
 end

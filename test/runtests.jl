@@ -48,6 +48,7 @@ const test_groups = [
     "hmc" => [
         "samplers/mcmc/test_hmc_nuts.jl",
         "samplers/mcmc/test_hmc.jl",
+        "samplers/mcmc/test_hmc_hard_targets.jl",
     ],
 ]
 

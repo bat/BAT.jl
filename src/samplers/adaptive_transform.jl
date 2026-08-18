@@ -159,36 +159,97 @@ $(TYPEDFIELDS)
     init::I = PriorApproxTransformInit()
 end
 
+"""
+    struct BAT.DiagonalAffineTransform <: BAT.AbstractAdaptiveTransform
+
+Adaptive affine space transformation `x = A * z + b` with a diagonal
+matrix `A`, initialized via an [`BAT.AbstractTransformInit`](@ref)
+algorithm. Cheap to apply and to tune, but blind to correlations.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
+"""
+@with_kw struct DiagonalAffineTransform{I<:AbstractTransformInit} <: AbstractAdaptiveTransform
+    "Transform initialization algorithm."
+    init::I = PriorApproxTransformInit()
+end
+
+
+"""
+    struct BAT.LowRankAffineTransform <: BAT.AbstractAdaptiveTransform
+
+Adaptive affine space transformation `x = A * z + b` with `A` a
+diagonal-plus-low-rank Gram factor (`A * A' == D + W * S * W'`,
+represented as a MatrixShapedOperators Woodbury operator factor): a
+diagonal base geometry plus a correction along the directions where a
+diagonal geometry is insufficient. Tuning selects those directions by an
+eigenvalue cutoff (see [`FisherTransformTuning`](@ref)), which
+regularizes the geometry estimate compared to a full triangular matrix.
+
+Constructors:
+
+* ```$(FUNCTIONNAME)(; fields...)```
+
+Fields:
+
+$(TYPEDFIELDS)
+"""
+@with_kw struct LowRankAffineTransform{I<:AbstractTransformInit} <: AbstractAdaptiveTransform
+    "Transform initialization algorithm."
+    init::I = PriorApproxTransformInit()
+
+    "Maximum rank of the non-diagonal correction, `0` means unlimited."
+    max_rank::Int = 0
+
+    "Relative eigenvalue cutoff: only directions in which the estimated
+    geometry deviates from the diagonal base by a factor above `cutoff`
+    (or below its inverse) enter the low-rank correction."
+    cutoff::Float64 = 1.5
+end
+
+const AffineStructureTransform = Union{TriangularAffineTransform,DiagonalAffineTransform,LowRankAffineTransform}
+
 # Adaptive transform initialization may take the initial walker positions
 # into account:
 function init_adaptive_transform(adaptive_transform::AbstractAdaptiveTransform, target::AbstractMeasure, ::Union{AbstractVector,Nothing}, context::BATContext)
     return init_adaptive_transform(adaptive_transform, target, context)
 end
 
-function init_adaptive_transform(adaptive_transform::TriangularAffineTransform, target::AbstractMeasure, v_init::Union{AbstractVector,Nothing}, context::BATContext)
-    return _init_affine_transform(adaptive_transform.init, target, v_init, context)
+function init_adaptive_transform(adaptive_transform::AffineStructureTransform, target::AbstractMeasure, v_init::Union{AbstractVector,Nothing}, context::BATContext)
+    M, b = _affine_init_moments(adaptive_transform.init, target, v_init, context)
+    return MulAdd(_affine_init_A(adaptive_transform, M), b)
 end
 
-function init_adaptive_transform(adaptive_transform::TriangularAffineTransform, target::AbstractMeasure, context::BATContext)
-    return _init_affine_transform(adaptive_transform.init, target, nothing, context)
+function init_adaptive_transform(adaptive_transform::AffineStructureTransform, target::AbstractMeasure, context::BATContext)
+    return init_adaptive_transform(adaptive_transform, target, nothing, context)
 end
 
+# The matrix part of the initial transform in the structure the adaptive
+# transform declares, from an (approximate) covariance estimate. Tuners
+# keep that structure across transform updates:
+_affine_init_A(::TriangularAffineTransform, M::AbstractMatrix) = cholesky(Positive, M).L
+
+_affine_init_A(::DiagonalAffineTransform, M::AbstractMatrix) = Diagonal(sqrt.(diag(M)))
+
+# The initial low-rank correction is empty, tuning fills it in:
+_affine_init_A(::LowRankAffineTransform, M::AbstractMatrix) =
+    _lowrank_gram_factor(diag(M), zeros(eltype(M), size(M, 1), 0), Symmetric(zeros(eltype(M), 0, 0)))
+
+_lowrank_gram_factor(dvec::AbstractVector, W::AbstractMatrix, S::Symmetric) =
+    rowgram_factor(woodbury_operator(Diagonal(dvec), W, S))
+
+# Approximate covariance and mean the affine initialization is based on.
 # TODO: MD, make typestable
-function _init_affine_transform(::PriorApproxTransformInit, target::AbstractMeasure, ::Union{AbstractVector,Nothing}, ::BATContext)
+function _affine_init_moments(::PriorApproxTransformInit, target::AbstractMeasure, ::Union{AbstractVector,Nothing}, ::BATContext)
     n = totalndof(varshape(target))
-
-    M = _approx_cov(target, n)
-    b = _approx_mean(target, n)
-    s = cholesky(Positive, M).L
-    g = MulAdd(s, b)
-
-    return g
+    return _approx_cov(target, n), _approx_mean(target, n)
 end
 
-function _init_affine_transform(::PathfinderTransformInit, ::AbstractMeasure, ::Nothing, ::BATContext)
+function _affine_init_moments(::PathfinderTransformInit, ::AbstractMeasure, ::Nothing, ::BATContext)
     throw(ArgumentError("PathfinderTransformInit requires initial positions"))
 end
-
-
-# TODO: Implement DiagonalAffineTransform
-struct DiagonalAffineTransform <: AbstractAdaptiveTransform end

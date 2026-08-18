@@ -66,7 +66,7 @@ end
 function MCMCState(samplingalg::TransformedMCMC, target::BATMeasure, id::Integer, v_init::AbstractVector, context::BATContext)
     target_unevaluated = unevaluated(target)
     chain_state = MCMCChainState(samplingalg, target_unevaluated, Int32(id), v_init, context)
-    trafo_tuner_state = create_trafo_tuner_state(samplingalg.transform_tuning, chain_state, 0)
+    trafo_tuner_state = create_trafo_tuner_state(samplingalg.transform_tuning, chain_state, 0, samplingalg.adaptive_transform)
     proposal_tuner_state = create_proposal_tuner_state(samplingalg.proposal_tuning, chain_state, chain_state.proposal, 0)
     temperer_state = create_temperering_state(samplingalg.tempering, target)
     

@@ -74,6 +74,8 @@ BAT.StandardUvNormal
 BAT.StandardUvUniform
 BAT.StatisticalWhitening
 BAT.StepSizeAdaptor
+BAT.DiagonalAffineTransform
+BAT.LowRankAffineTransform
 BAT.TriangularAffineTransform
 BAT.UnshapeTransformation
 BAT.WhiteningAlgorithm

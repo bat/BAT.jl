@@ -37,11 +37,17 @@ mutable struct RAMProposalTunerState <: MCMCTransformTunerState end
 transform_change_restarts_stepsize(::RAMTrafoTunerState) = false
 
 
-create_trafo_tuner_state(
+function create_trafo_tuner_state(
     tuning::RAMTuning,
     chain_state::MCMCChainState,
     n_steps_hint::Integer
-) = RAMTrafoTunerState(tuning, 0)
+)
+    f = chain_state.f_transform
+    (f isa MulAdd && f.A isa LowerTriangular) || throw(ArgumentError(
+        "RAMTuning requires a TriangularAffineTransform adaptive space transformation"
+    ))
+    RAMTrafoTunerState(tuning, 0)
+end
 
 function mcmc_trafo_tuning_init!!(
     tuner_state::RAMTrafoTunerState,
