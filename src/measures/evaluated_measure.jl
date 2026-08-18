@@ -288,6 +288,7 @@ has_uhc_support(em::EvaluatedMeasure) = has_uhc_support(em.unevaluated)
 # ToDo: truncate_batmeasure(em::EvaluatedMeasure, bounds::AbstractArray{<:Interval})
 
 function MeasureBase.weightedmeasure(logweight::Real, em::EvaluatedMeasure)
+    # ToDo: Should approx be reweighted here instead of being kept as-is?
     new_measure = weightedmeasure(logweight, em.unevaluated)
     new_empirical = _renormalize_empirical_logd(logweight, empiricalof(em))
     new_mass = _reweighted_mass(logweight, em.mass)

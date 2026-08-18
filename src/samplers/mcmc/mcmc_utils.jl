@@ -1,5 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+# ToDo: Replace try/catch-on-MethodError in the fallbacks below with a
+# trait-based mechanism?
 function _cov_with_fallback(d::UnivariateDistribution, n::Integer)
     rng = _bat_determ_rng()
     T = float(eltype(rand(rng, d)))
