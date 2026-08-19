@@ -62,9 +62,14 @@ function DensitySampleMeasure(
     # ToDo: Ensure smpls are deduplicated.
     # ToDo: Enable logdensity calculation by storing a binary searchable vector
     # over tuples `(point_hash, sample_idx)`?
-    max_weight = maximum(smpls.weight, init = zero(eltype(smpls.weight)))
+    # The cumulative weights are cached, so the stored samples get their own
+    # copy of the weight vector - callers may hold on to the given sample
+    # vector (e.g. as a user-facing sampling result) and mutate its weights:
+    weight = copy(smpls.weight)
+    smpls_priv = DensitySampleVector((smpls.v, smpls.logd, weight, smpls.info, smpls.aux))
+    max_weight = maximum(weight, init = zero(eltype(weight)))
     DensitySampleMeasure(
-        smpls, max_weight, cumsum(smpls.weight),
+        smpls_priv, max_weight, cumsum(weight),
         dof, ess, _canonical_mass(mass)
     )
 end
