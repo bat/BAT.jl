@@ -92,7 +92,7 @@ function BAT.evalmeasure_impl(em::BAT.EvaluatedMeasure, algorithm::ReactiveNeste
 
     uwv_trafo_us = nestedview(convert(Matrix{Float64}, pyconvert(Matrix{Float64}, unest_result["samples"])'))
     uwlogvals_trafo = map(logdensityof(transformed_m_uneval), uwv_trafo_us)
-    uwtransformed_smpls = DensitySampleVector(uwv_trafo_us, uwlogvals_trafo)
+    uwtransformed_smpls = DensitySampleVector(v = uwv_trafo_us, logd = uwlogvals_trafo)
     uwsmpls = inverse(f_pretransform).(uwtransformed_smpls)
 
     logz = pyconvert(Float64, unest_result["logz"])

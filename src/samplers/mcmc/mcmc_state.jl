@@ -69,16 +69,16 @@ function MCMCChainState(
     sample_aux_curr = fill(nothing, n_walkers)
 
     current_x_init = DensitySampleVector(
-        x_init, 
-        logd_x_init;
-        weight = sample_weights_curr, 
+        v = x_init,
+        logd = logd_x_init,
+        weight = sample_weights_curr,
         info = sample_info_curr,
         aux = sample_aux_curr
     )
     current_z_init = DensitySampleVector(
-        z_init, 
-        logd_z_init;
-        weight = deepcopy(sample_weights_curr), 
+        v = z_init,
+        logd = logd_z_init,
+        weight = deepcopy(sample_weights_curr),
         info = deepcopy(sample_info_curr),
         aux = deepcopy(sample_aux_curr)
     )
@@ -90,11 +90,11 @@ function MCMCChainState(
     sample_aux_prop = fill(nothing, n_walkers)
 
     proposed_init = DensitySampleVector(
-        prop_locs_init,
-        prop_logds_init;
+        v = prop_locs_init,
+        logd = prop_logds_init,
         weight = sample_weights_prop,
         info = sample_info_prop,
-        aux = sample_aux_prop 
+        aux = sample_aux_prop
     )
 
     current = (x = current_x_init, z = current_z_init)
