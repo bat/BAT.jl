@@ -87,7 +87,7 @@ function _create_proposal_state(
     n_dims = totalndof(varshape(target))
     mv_pdist = batmeasure(_mala_innovation_dist(proposal.proposaldist, n_dims))
 
-    adsel = get_adselector(context)
+    adsel = get_valid_adselector(context, proposal)
     target_checked = checked_logdensityof(MeasureBase.pullback(f_transform, target))
     target_gradient = valgrad_func(target_checked, adsel)
 

@@ -137,6 +137,9 @@ function evalmeasure_impl(
     context::BATContext
 )
     m = unevaluated(em)
+    m isa AbstractPosteriorMeasure || throw(ArgumentError(
+        "PriorImportanceSampler requires a posterior measure, got $(nameof(typeof(m)))"
+    ))
     shape = varshape(m)
 
     prior = convert_for(bat_sample, getprior(m))

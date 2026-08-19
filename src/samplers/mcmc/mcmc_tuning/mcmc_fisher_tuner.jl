@@ -15,6 +15,9 @@ struct LowRankFisherEstimator
     max_rank::Int
 end
 
+_fisher_estimator(at::AbstractAdaptiveTransform) = throw(ArgumentError(
+    "FisherTransformTuning requires an affine structure adaptive transform (like TriangularAffineTransform, DiagonalAffineTransform or LowRankAffineTransform), got $(nameof(typeof(at)))"
+))
 _fisher_estimator(::TriangularAffineTransform) = DenseFisherEstimator()
 _fisher_estimator(::DiagonalAffineTransform) = DiagonalFisherEstimator()
 function _fisher_estimator(at::LowRankAffineTransform)
@@ -105,7 +108,8 @@ $(TYPEDFIELDS)
     "Transform-installation policy."
     schedule::S = DriftCommitSchedule()
 
-    "Regularization added to the diagonal of both covariance estimates."
+    "Regularization added to the diagonal of both covariance estimates,
+    relative to their mean variance scale."
     regularization::Float64 = 1e-5
 end
 export FisherTransformTuning

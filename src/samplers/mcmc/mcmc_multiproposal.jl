@@ -18,7 +18,7 @@ $(TYPEDFIELDS)
     R<:Union{Vector{<:Integer}, Categorical}
 }<:MCMCProposal
     # TODO: MD, should we put a default tuple of proposals, if so, what should it be?
-    proposals::P = (RandomWalk(), HamiltonianMC())
+    proposals::P = MCMCProposal[RandomWalk(), HamiltonianMC()]
     picking_rule::R = Categorical(1/length(proposals) .* ones(length(proposals)))
 end
 
