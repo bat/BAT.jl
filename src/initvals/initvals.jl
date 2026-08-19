@@ -1,6 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+# Variate types without a dedicated method (e.g. ShapedAsNT) pass through
+# unchanged, like they did before the recursive-copy specializations:
+_maycopy_val(x) = x
 _maycopy_val(x::Number) = x
 _maycopy_val(A::AbstractArray) = map(_maycopy_val, A)
 _maycopy_val(tpl::Tuple) = map(_maycopy_val, tpl)
