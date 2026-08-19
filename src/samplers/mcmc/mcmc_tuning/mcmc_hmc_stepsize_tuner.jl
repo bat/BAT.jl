@@ -208,5 +208,8 @@ function mcmc_proposal_tuning_finalize!!(
     else
         proposal
     end
+    # Everything from here on counts as retained sampling in the
+    # trajectory diagnostics:
+    _mark_warmup_end!(proposal_new.diagnostics)
     return proposal_new, tuner, chain_state
 end

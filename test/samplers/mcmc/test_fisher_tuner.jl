@@ -132,12 +132,17 @@ using BAT: DenseFisherEstimator, DiagonalFisherEstimator, LowRankFisherEstimator
         @test opnorm(G_learned - Σ) / opnorm(Σ) < 0.35
         @test isapprox(f.b, mean(objective), atol = 0.5)
 
-        # Trajectory diagnostics are recorded in the evaluation info:
+        # Trajectory diagnostics are recorded in the evaluation info,
+        # split into warmup and retained sampling:
         diags = BAT.evalinfo(em).result.chain_diagnostics
         @test length(diags) == 2
         @test all(d -> d.n_transitions > 0, diags)
         @test all(d -> 0 < d.mean_p_accept <= 1, diags)
         @test all(d -> d.n_leapfrog > 0, diags)
+        @test all(d -> d.warmup.n_transitions > 0, diags)
+        @test all(d -> d.sampling.n_transitions >= alg.nsteps, diags)
+        @test all(d -> d.warmup.n_transitions + d.sampling.n_transitions == d.n_transitions, diags)
+        @test all(d -> 0 < d.sampling.mean_p_accept <= 1, diags)
     end
 
     @testset "structure selection end-to-end" begin

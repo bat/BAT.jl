@@ -10,7 +10,9 @@ determine trajectory lengths dynamically.
 
 The Hamiltonian uses an identity mass matrix. Instead of adapting a mass
 matrix, BAT tunes the MCMC space transformation (see the `transform_tuning`
-option of [`TransformedMCMC`](@ref)), which is mathematically equivalent.
+option of [`TransformedMCMC`](@ref)); for affine transformations this is
+mathematically equivalent to adapting a constant metric, and the
+transformation view extends to nonlinear transports.
 Trajectory tuning is limited to the leapfrog step size (see
 [`BAT.StepSizeAdaptor`](@ref)).
 
@@ -64,9 +66,25 @@ mutable struct HMCChainDiagnostics
     n_maxdepth::Int
     n_leapfrog::Int
     sum_p_accept::Float64
+    # Snapshot of the counts up to the end of tuning, so warmup and
+    # retained-sampling diagnostics can be reported separately:
+    warmup_n_transitions::Int
+    warmup_n_divergent::Int
+    warmup_n_maxdepth::Int
+    warmup_n_leapfrog::Int
+    warmup_sum_p_accept::Float64
 end
 
-HMCChainDiagnostics() = HMCChainDiagnostics(0, 0, 0, 0, 0.0)
+HMCChainDiagnostics() = HMCChainDiagnostics(0, 0, 0, 0, 0.0, 0, 0, 0, 0, 0.0)
+
+function _mark_warmup_end!(d::HMCChainDiagnostics)
+    d.warmup_n_transitions = d.n_transitions
+    d.warmup_n_divergent = d.n_divergent
+    d.warmup_n_maxdepth = d.n_maxdepth
+    d.warmup_n_leapfrog = d.n_leapfrog
+    d.warmup_sum_p_accept = d.sum_p_accept
+    return nothing
+end
 
 struct HMCProposalState{
     TA<:Real,
@@ -242,11 +260,25 @@ end
 
 function _proposal_diagnostics(p::HMCProposalState)
     d = p.diagnostics
+    n_smpl = d.n_transitions - d.warmup_n_transitions
     return (
         n_transitions = d.n_transitions,
         n_divergent = d.n_divergent,
         n_maxdepth = d.n_maxdepth,
         n_leapfrog = d.n_leapfrog,
         mean_p_accept = d.n_transitions > 0 ? d.sum_p_accept / d.n_transitions : NaN,
+        warmup = (
+            n_transitions = d.warmup_n_transitions,
+            n_divergent = d.warmup_n_divergent,
+            n_maxdepth = d.warmup_n_maxdepth,
+            n_leapfrog = d.warmup_n_leapfrog,
+        ),
+        sampling = (
+            n_transitions = n_smpl,
+            n_divergent = d.n_divergent - d.warmup_n_divergent,
+            n_maxdepth = d.n_maxdepth - d.warmup_n_maxdepth,
+            n_leapfrog = d.n_leapfrog - d.warmup_n_leapfrog,
+            mean_p_accept = n_smpl > 0 ? (d.sum_p_accept - d.warmup_sum_p_accept) / n_smpl : NaN,
+        ),
     )
 end
