@@ -178,6 +178,10 @@ function ValueShapes.unshaped(measure::BATMeasure, vs::AbstractValueShape)
     unshaped(measure)
 end
 
+# Disambiguates against unshaped(x, ::ConstValueShape) of ValueShapes:
+ValueShapes.unshaped(measure::BATMeasure, vs::ConstValueShape) =
+    invoke(unshaped, Tuple{BATMeasure,AbstractValueShape}, measure, vs)
+
 ValueShapes.unshaped(m::BATMeasure) = _unshaped_measure_impl(m, Core.Compiler.return_type(testvalue, Tuple{typeof(m)}))
 
 _unshaped_measure_impl(m::BATMeasure, ::Type) = throw(ArgumentError("Don't know how to unshape measure of type $(nameof(typeof(m)))"))

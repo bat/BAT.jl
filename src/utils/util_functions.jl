@@ -41,6 +41,8 @@ end
 combine_callbacks(::typeof(nop_func), f::Function) = f
 combine_callbacks(f::Function, ::typeof(nop_func)) = f
 combine_callbacks(::typeof(nop_func), ::typeof(nop_func)) = nop_func
+combine_callbacks(::typeof(nop_func), g::CombinedCallback) = g
+combine_callbacks(f::CombinedCallback, ::typeof(nop_func)) = f
 
 combine_callbacks(f::Function, g::Function) = CombinedCallback((f, g))
 combine_callbacks(f::CombinedCallback, g::Function) = CombinedCallback((f.fs..., g))

@@ -288,6 +288,7 @@ end
 @inline _select_intermediate_dist(a::D, ::D) where D<:Union{StandardUvUniform,StandardMvUniform} = a
 @inline _select_intermediate_dist(a::Union{StandardUvUniform,StandardMvUniform}, ::Union{StdUvDist,StdMvDist}) = a
 @inline _select_intermediate_dist(::Union{StdUvDist,StdMvDist}, b::Union{StandardUvUniform,StandardMvUniform}) = b
+@inline _select_intermediate_dist(a::Union{StandardUvUniform,StandardMvUniform}, ::Union{StandardUvUniform,StandardMvUniform}) = a
 
 _check_conv_eff_totalndof(trg_d::Uniform, src_d::Uniform) = nothing
 

@@ -99,3 +99,7 @@ _approx_max_logd(p::BispacedMeasure) = _approx_max_logd(p.main)
 # pair (EvaluatedMeasure re-stamps its pairs with the hash of the
 # correspondingly composed transformation instead):
 ValueShapes.unshaped(p::BispacedMeasure, vs::AbstractValueShape) = BispacedMeasure(unshaped(p.main, vs), p.transformed, UInt(0))
+
+# Disambiguates against unshaped(x, ::ConstValueShape) of ValueShapes:
+ValueShapes.unshaped(p::BispacedMeasure, vs::ConstValueShape) =
+    invoke(unshaped, Tuple{BispacedMeasure,AbstractValueShape}, p, vs)

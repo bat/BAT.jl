@@ -124,6 +124,10 @@ function ValueShapes.unshaped(dsm::DensitySampleMeasure, vs::AbstractValueShape)
     return DensitySampleMeasure(new_smpls, dsm._max_weight, dsm._cumulative_weight, dsm._dof, dsm._ess, dsm._mass)
 end
 
+# Disambiguates against unshaped(x, ::ConstValueShape) of ValueShapes:
+ValueShapes.unshaped(dsm::DensitySampleMeasure, vs::ConstValueShape) =
+    invoke(unshaped, Tuple{DensitySampleMeasure,AbstractValueShape}, dsm, vs)
+
 @inline samplesof(dsm::DensitySampleMeasure) = dsm._smpls
 
 

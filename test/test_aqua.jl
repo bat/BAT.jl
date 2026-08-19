@@ -4,12 +4,9 @@ import Test
 import Aqua
 import BAT
 
-# ToDo: Fix ambiguities and enable ambiguity testing:
-#=
 Test.@testset "Package ambiguities" begin
     Test.@test isempty(Test.detect_ambiguities(BAT))
 end # testset
-=#
 
 Test.@testset "Aqua tests" begin
     Aqua.test_all(

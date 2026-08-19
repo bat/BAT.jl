@@ -518,6 +518,10 @@ function ValueShapes.unshaped(em::EvaluatedMeasure, vs::AbstractValueShape)
     )
 end
 
+# Disambiguates against unshaped(x, ::ConstValueShape) of ValueShapes:
+ValueShapes.unshaped(em::EvaluatedMeasure, vs::ConstValueShape) =
+    invoke(unshaped, Tuple{EvaluatedMeasure,AbstractValueShape}, em, vs)
+
 _unshaped_pair(::Nothing, ::AbstractValueShape, ::UInt, ::UInt) = nothing
 
 function _unshaped_pair(p::BispacedMeasure, vs::AbstractValueShape, old_f_hash::UInt, new_f_hash::UInt)

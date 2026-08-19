@@ -17,7 +17,7 @@ abstract type TransformIntent end
 export TransformIntent
 
 TransformIntent(::Type{Vector}) = ToRealVector()
-Base.convert(::Type{TransformIntent}, x) = TransformIntent(x)
+Base.convert(::Type{TransformIntent}, x::Type) = TransformIntent(x)
 
 
 # Intents of different types never match, intents of equal type compare by
