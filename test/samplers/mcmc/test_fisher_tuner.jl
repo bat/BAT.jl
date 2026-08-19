@@ -177,6 +177,40 @@ using BAT: DenseFisherEstimator, DiagonalFisherEstimator, LowRankFisherEstimator
         @test opnorm(G_lr - Σ_lr) / opnorm(Σ_lr) < 0.5
     end
 
+    @testset "tuning freeze" begin
+        context = BATContext(ad = ForwardDiff)
+        # After mcmc_tuning_finalize!! the transition kernel must be fixed:
+        # no transform commits, no step-size adaptation, no Fisher moment
+        # accumulation during post-tuning stabilization or retained
+        # sampling:
+        prior = distprod(a = Normal(0.0, 10.0), b = Normal(0.0, 10.0))
+        loglik = logfuncdensity(p -> logpdf(Normal(3.0, 0.5), p.a) + logpdf(Normal(-2.0, 0.5), p.b))
+        target = unshaped(PosteriorMeasure(loglik, prior))
+        alg = TransformedMCMC(
+            proposal = HamiltonianMC(),
+            adaptive_transform = DiagonalAffineTransform(),
+            pretransform = DoNotTransform(),
+            nchains = 1, nwalkers = 1, nsteps = 1000
+        )
+        mcmc_state = BAT.MCMCState(alg, target, 1, [randn(rng, 2)], deepcopy(context))
+        BAT.mcmc_tuning_init!!(mcmc_state, 400)
+        BAT.mcmc_tuning_reinit!!(mcmc_state, 400)
+        mcmc_state = BAT.mcmc_iterate!!(nothing, mcmc_state; max_nsteps = 400, nonzero_weights = false)
+        mcmc_state = BAT.mcmc_tuning_finalize!!(mcmc_state)
+
+        @test mcmc_state.trafo_tuner_state isa BAT.FrozenMCMCTransformTunerState
+        @test mcmc_state.proposal_tuner_state isa BAT.FrozenMCMCProposalTunerState
+
+        f_frozen = mcmc_state.chain_state.f_transform
+        step_frozen = BAT.get_active_proposal(mcmc_state.chain_state.proposal).step_size
+
+        mcmc_state = BAT.mcmc_iterate!!(nothing, mcmc_state; max_nsteps = 600, nonzero_weights = false)
+        cs = mcmc_state.chain_state
+        @test cs.f_transform === f_frozen
+        @test BAT.get_active_proposal(cs.proposal).step_size == step_frozen
+        @test mcmc_state.trafo_tuner_state isa BAT.FrozenMCMCTransformTunerState
+    end
+
     @testset "forced geometry commit" begin
         context = BATContext(ad = ForwardDiff)
         # The prior-based initial geometry is badly mismatched to this

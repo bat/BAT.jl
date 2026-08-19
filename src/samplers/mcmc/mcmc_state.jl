@@ -568,8 +568,11 @@ function mcmc_tuning_finalize!!(mcmc_state::MCMCState)
 
     @reset chain_state_final.proposal = proposal_new
 
-    @reset mcmc_state.trafo_tuner_state = trafo_tuner_state_new
-    @reset mcmc_state.proposal_tuner_state = proposal_tuner_state_new
+    # Tuning ends here for good: freezing the tuner states makes
+    # post-tuning stabilization and retained sampling run a fixed kernel,
+    # the transform and proposal parameters no longer adapt:
+    @reset mcmc_state.trafo_tuner_state = FrozenMCMCTransformTunerState()
+    @reset mcmc_state.proposal_tuner_state = FrozenMCMCProposalTunerState()
     @reset mcmc_state.chain_state = chain_state_final
 
     return mcmc_state
