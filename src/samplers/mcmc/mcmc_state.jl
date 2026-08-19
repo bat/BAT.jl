@@ -42,6 +42,12 @@ function MCMCChainState(
     n_walkers = length(x_init)
     target_unevaluated = unevaluated(target)
 
+    if samplingalg.proposal isa HamiltonianMC && samplingalg.sample_weighting isa ARPWeighting
+        throw(ArgumentError(
+            "ARPWeighting is not valid for HamiltonianMC: the NUTS acceptance statistic is a trajectory average, not the selection probability of the returned state"
+        ))
+    end
+
     rngpart_cycle = RNGPartition(get_rng(context), 0:(typemax(Int16) - 2))
     rng = get_rng(context)
 

@@ -127,6 +127,17 @@ import ForwardDiff, Zygote
         @test BAT.test_dist_samples(unshaped(objective), samples)
     end
     
+    @testset "invalid configurations" begin
+        # ARPWeighting is statistically invalid for NUTS: the acceptance
+        # statistic is a trajectory average, not a selection probability.
+        alg_arp = TransformedMCMC(
+            proposal = HamiltonianMC(),
+            sample_weighting = ARPWeighting(),
+            pretransform = DoNotTransform()
+        )
+        @test_throws ArgumentError BAT.MCMCState(alg_arp, target, 1, [randn(3)], deepcopy(context))
+    end
+
     @testset "bat_sample" begin
         samples = bat_sample(
             shaped_target,
