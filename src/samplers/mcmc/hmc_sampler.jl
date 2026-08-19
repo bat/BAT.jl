@@ -182,7 +182,7 @@ function _create_proposal_state(
     T = float(P)
     step_size = if isnan(proposal.step_size)
         zs_init = inverse(f_transform).(v_init)
-        T(hmc_find_good_stepsize(rng, fg, zs_init))
+        T(_hmc_init_stepsize(rng, fg, zs_init, 0.1))
     else
         T(proposal.step_size)
     end
@@ -197,6 +197,34 @@ function _create_proposal_state(
         T(proposal.max_delta_energy),
         HMCChainDiagnostics()
     )
+end
+
+# Initial positions may lie outside the target's support or in degenerate
+# regions - MCMC initialization deliberately constructs candidate states
+# first and filters invalid ones afterwards, so a failing step-size search
+# must not abort state construction. Walkers are probed individually, a
+# fallback step size stands in if no probe succeeds (such a state is then
+# discarded by the candidate filtering, or the step size is readapted):
+function _hmc_init_stepsize(
+    rng::AbstractRNG, fg::Function, zs::AbstractVector{<:AbstractVector{<:Real}}, fallback::Real
+)
+    stepsize_min = oftype(float(fallback), Inf)
+    n_probe = min(length(zs), _MAX_STEPSIZE_SEARCH_PROBES)
+    for i in first(eachindex(zs), n_probe)
+        stepsize = try
+            hmc_find_good_stepsize(rng, fg, zs[i])
+        catch err
+            err isa Union{ArgumentError,ErrorException} || rethrow()
+            continue
+        end
+        stepsize_min = min(stepsize_min, stepsize)
+    end
+    if isfinite(stepsize_min)
+        return stepsize_min
+    else
+        @debug "HMC step size search failed at all probed initial positions, using fallback step size $fallback"
+        return fallback
+    end
 end
 
 function mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalState)

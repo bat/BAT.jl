@@ -74,6 +74,17 @@ using BAT: HMCPhasePoint, _hmc_phasepoint, _leapfrog_step, _logaddexp,
         # Large walker ensembles are handled (probing is capped):
         eps_many = hmc_find_good_stepsize(rng, f_logdgrad, [randn(rng, 3) for _ in 1:30])
         @test 0.05 < eps_many < 5
+
+        # Chain construction must survive initial positions outside the
+        # target's support (init filters invalid candidate states only
+        # after construction), so the init search falls back instead of
+        # throwing:
+        fg_bad(q) = (-Inf, fill(NaN, length(q)))
+        @test BAT._hmc_init_stepsize(rng, fg_bad, [randn(rng, 3)], 0.1) == 0.1
+        # A finite walker still wins over the fallback:
+        fg_partial(q) = all(q .> 0) ? f_logdgrad(q) : (-Inf, fill(NaN, length(q)))
+        eps_partial = BAT._hmc_init_stepsize(rng, fg_partial, [fill(-1.0, 3), fill(1.0, 3)], 0.1)
+        @test 0.05 < eps_partial < 5
     end
 
     @testset "nuts_transition" begin
