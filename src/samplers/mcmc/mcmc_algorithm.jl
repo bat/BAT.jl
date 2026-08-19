@@ -436,11 +436,17 @@ end
 
 function mcmc_proposal_tuning_finalize!!(
     proposal_state::MCMCProposalState,
-    proposal_tuner_state::MCMCProposalTunerState, 
+    proposal_tuner_state::MCMCProposalTunerState,
     chain_state::CS
 ) where CS<:MCMCIterator
     return proposal_state, proposal_tuner_state, chain_state
 end
+
+# Marks the warmup/retained-sampling boundary in per-chain diagnostics,
+# called after all of warmup (tuning and post-tuning stabilization), not
+# at tuning finalization. Mutates shared diagnostics objects in place, so
+# functional proposal-state updates are unaffected:
+mcmc_mark_warmup_end!(::MCMCProposalState) = nothing
 
 function mcmc_tune_proposal_post_step!!(
     proposal::MCMCProposalState,

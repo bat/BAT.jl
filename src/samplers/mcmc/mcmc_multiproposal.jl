@@ -93,6 +93,11 @@ function get_active_proposal(
     return current_proposal
 end
 
+function mcmc_mark_warmup_end!(multi_proposal_state::MultiProposalState)
+    foreach(mcmc_mark_warmup_end!, multi_proposal_state.proposal_states)
+    return nothing
+end
+
 function update_active_proposal!!(
     multi_proposal_state::MultiProposalState,
     active_proposal_new::MCMCProposalState

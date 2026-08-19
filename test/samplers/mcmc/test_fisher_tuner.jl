@@ -222,11 +222,28 @@ BAT.mcmc_trafo_tuning_finalize!!(f_transform::Function, tuner::_TypeChangingTraf
         f_frozen = mcmc_state.chain_state.f_transform
         step_frozen = BAT.get_active_proposal(mcmc_state.chain_state.proposal).step_size
 
+        # Tuning finalization does not yet mark the warmup end in the
+        # diagnostics, that only happens after post-tuning stabilization:
+        d_fin = BAT._proposal_diagnostics(BAT.get_active_proposal(mcmc_state.chain_state.proposal))
+        @test d_fin.n_transitions > 0
+        @test d_fin.warmup.n_transitions == 0
+
+        mcmc_state = BAT.mcmc_iterate!!(nothing, mcmc_state; max_nsteps = 100, nonzero_weights = false)
+        BAT.mcmc_mark_warmup_end!(mcmc_state.chain_state.proposal)
+        d_marked = BAT._proposal_diagnostics(BAT.get_active_proposal(mcmc_state.chain_state.proposal))
+        @test d_marked.warmup.n_transitions == d_marked.n_transitions
+        @test d_marked.sampling.n_transitions == 0
+
         mcmc_state = BAT.mcmc_iterate!!(nothing, mcmc_state; max_nsteps = 600, nonzero_weights = false)
         cs = mcmc_state.chain_state
         @test cs.f_transform === f_frozen
         @test BAT.get_active_proposal(cs.proposal).step_size == step_frozen
         @test mcmc_state.trafo_tuner_state isa BAT.FrozenMCMCTransformTunerState
+
+        # Everything after the warmup mark counts as retained sampling:
+        d_end = BAT._proposal_diagnostics(BAT.get_active_proposal(cs.proposal))
+        @test d_end.sampling.n_transitions == d_end.n_transitions - d_marked.warmup.n_transitions
+        @test d_end.sampling.n_transitions >= 600
     end
 
     @testset "forced geometry commit" begin

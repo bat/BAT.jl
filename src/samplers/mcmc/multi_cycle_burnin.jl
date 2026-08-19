@@ -107,7 +107,11 @@ function mcmc_burnin!(
         )
     end
 
-    #TODO: MD, Discuss: Where/When Tempering? 
+    # The stabilization steps above still count as warmup, only what
+    # follows is retained sampling:
+    foreach(s -> mcmc_mark_warmup_end!(s.chain_state.proposal), mcmc_states)
+
+    #TODO: MD, Discuss: Where/When Tempering?
 
     return mcmc_states
 end

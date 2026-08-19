@@ -66,8 +66,9 @@ mutable struct HMCChainDiagnostics
     n_maxdepth::Int
     n_leapfrog::Int
     sum_p_accept::Float64
-    # Snapshot of the counts up to the end of tuning, so warmup and
-    # retained-sampling diagnostics can be reported separately:
+    # Snapshot of the counts up to the end of warmup (tuning plus
+    # post-tuning stabilization), so warmup and retained-sampling
+    # diagnostics can be reported separately:
     warmup_n_transitions::Int
     warmup_n_divergent::Int
     warmup_n_maxdepth::Int
@@ -101,6 +102,8 @@ struct HMCProposalState{
     max_delta_energy::T
     diagnostics::HMCChainDiagnostics
 end
+
+mcmc_mark_warmup_end!(proposal::HMCProposalState) = _mark_warmup_end!(proposal.diagnostics)
 
 
 bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::HamiltonianMC) = NormalBased()
