@@ -614,7 +614,7 @@ isviablestate(chain_state::MCMCIterator) = nsamples(chain_state) >= 2
 
 isvalidstate(mcmc_state::MCMCState) = isvalidstate(mcmc_state.chain_state)
 
-isviablestate(mcmc_state::MCMCState) = isvalidstate(mcmc_state.chain_state)
+isviablestate(mcmc_state::MCMCState) = isviablestate(mcmc_state.chain_state)
 
 
 """

@@ -158,12 +158,11 @@ function mcmc_init!(
         push!(final_mcmc_states, mcmc_states[i])
         push!(final_outputs, outputs[i])
     else
-        @assert length(mcmc_states) == n_mc_states
-        resize!(final_mcmc_states, n_mc_states)
+        resize!(final_mcmc_states, n)
         copyto!(final_mcmc_states, mcmc_states)
 
-        @assert length(outputs) == n_mc_states
-        resize!(final_outputs, n_mc_states)
+        @assert length(outputs) == n
+        resize!(final_outputs, n)
         copyto!(final_outputs, outputs)
     end
 

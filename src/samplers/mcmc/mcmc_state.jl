@@ -109,9 +109,10 @@ function MCMCChainState(
     nsamples::Vector{Int64} = zeros(n_proposals)
 
     # The stored target is evaluated in the sampling hot loop, so it must be
-    # a bare measure. Knowledge attached to the given target (samples, approximations,
-    # see EvaluatedMeasure) is consumed above, by the initial-value generation
-    # upstream and the adaptive transform initialization:
+    # a bare measure. Knowledge attached to the given target (samples,
+    # approximations, see EvaluatedMeasure) is consumed upstream by the
+    # initial-value generation; the adaptive transform initialization
+    # currently sees only the initial positions:
     state = MCMCChainState(
         target_unevaluated,
         proposal,
@@ -177,7 +178,8 @@ end
 _empty_chain_outputs(state::MCMCState) = _empty_chain_outputs(state.chain_state)
 
 function _empty_chain_outputs(chain_state::MCMCChainState)
-    return fill(_empty_DensitySampleVector(chain_state), nwalkers(chain_state))
+    # One independent output vector per walker - fill would alias a single object:
+    return [_empty_DensitySampleVector(chain_state) for _ in 1:nwalkers(chain_state)]
 end
 
 function eff_acceptance_ratio(chain_state::MCMCChainState)
@@ -405,7 +407,9 @@ function flush_samples!!(chain_state::MCMCChainState)
     (;current, output) = chain_state
 
     output[:] = @view current.x[:]
+    # x- and z-side weights must stay in sync:
     current.x.weight .= 0
+    current.z.weight .= 0
 
     return chain_state
 end
