@@ -90,6 +90,8 @@ getess(p::BispacedMeasure) = getess(p.main)
 
 has_uhc_support(p::BispacedMeasure) = has_uhc_support(p.main)
 supports_rand(p::BispacedMeasure) = supports_rand(p.main)
+
+Base.rand(gen::GenContext, p::BispacedMeasure) = rand(gen, p.main)
 _approx_max_logd(p::BispacedMeasure) = _approx_max_logd(p.main)
 
 # The transformed-space representation is already unshaped. Reparametrizing

@@ -141,8 +141,10 @@ function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::EffSamp
     vs = varshape(smpls)
     unshaped_smpls = unshaped.(smpls)
     n = length(eachindex(unshaped_smpls))
+    n > 0 || throw(ArgumentError("Can't compute the effective sample size of an empty sample vector"))
 
     W = unshaped_smpls.weight
+    all(w -> w >= 0, W) && sum(W) > 0 || throw(ArgumentError("Effective sample size requires non-negative sample weights with a positive sum"))
     w0 = first(W)
 
     unshaped_ess = if all(w -> w ≈ w0, W)

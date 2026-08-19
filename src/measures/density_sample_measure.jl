@@ -106,7 +106,7 @@ ValueShapes.varshape(dsm::DensitySampleMeasure) = varshape(samplesof(dsm))
 
 function ValueShapes.unshaped(dsm::DensitySampleMeasure, vs::AbstractValueShape)
     smpls = samplesof(dsm)
-    @assert varshape(smpls) <= vs
+    varshape(smpls) <= vs || throw(ArgumentError("Sample shape $(varshape(smpls)) is not compatible with given shape $vs"))
     new_smpls = unshaped.(smpls)
     return DensitySampleMeasure(new_smpls, dsm._max_weight, dsm._cumulative_weight, dsm._dof, dsm._ess, dsm._mass)
 end
@@ -140,6 +140,7 @@ function _rand_subsample_idx(gen::GenContext, dsm::DensitySampleMeasure)
     # TODO: Use PSIS.
 
     CW = dsm._cumulative_weight
+    isempty(CW) && throw(ArgumentError("Can't draw from an empty DensitySampleMeasure"))
     W_total = CW[end]
     isfinite(W_total) && W_total > 0 || throw(ArgumentError("Sample weights must sum to a finite positive value"))
     r = rand(get_rng(gen)) * W_total
@@ -152,6 +153,7 @@ function _rand_subsample_idxs(gen::GenContext, dsm::DensitySampleMeasure, n::Int
 
     iszero(n) && return Int[]
     CW = dsm._cumulative_weight
+    isempty(CW) && throw(ArgumentError("Can't draw from an empty DensitySampleMeasure"))
     W_total = CW[end]
     isfinite(W_total) && W_total > 0 || throw(ArgumentError("Sample weights must sum to a finite positive value"))
     # Always generate R on CPU for now:
@@ -164,10 +166,12 @@ end
 
 
 function MeasureBase.testvalue(::Type{T}, m::DensitySampleMeasure) where {T}
+    isempty(m._smpls) && throw(ArgumentError("An empty DensitySampleMeasure has no test value"))
     convert_numtype(T, first(m._smpls.v))
 end
 
 function MeasureBase.testvalue(m::DensitySampleMeasure)
+    isempty(m._smpls) && throw(ArgumentError("An empty DensitySampleMeasure has no test value"))
     first(m._smpls.v)
 end
 
@@ -227,6 +231,11 @@ function _unweighted_resampling_byidxs(dsm::DensitySampleMeasure, resampled_idxs
         picked.info, picked.aux,
     ))
     old_ess = getess(dsm)
-    new_ess = isnothing(old_ess) ? nothing : min(old_ess, old_ess * (length(new_samples) / length(smpls)))
+    # Resampling n_new draws with replacement from a population carrying
+    # old_ess effective draws yields about old_ess * n_new / (n_new + old_ess)
+    # effective draws (bounded by both old_ess and n_new); the stored entry
+    # counts themselves say nothing about effective information:
+    n_new = length(new_samples)
+    new_ess = isnothing(old_ess) ? nothing : old_ess * n_new / (n_new + old_ess)
     return DensitySampleMeasure(new_samples, dof = dsm._dof, ess = new_ess, mass = massof(dsm))
 end
