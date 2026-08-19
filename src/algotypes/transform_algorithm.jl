@@ -235,11 +235,11 @@ function bat_transform_impl(intent::TransformIntent, em::EvaluatedMeasure, algor
     new_measure, f_transform = bat_transform_impl(intent, unevaluated(em), algorithm, context)
     annexes_match = _intents_match(em.transform_intent, intent)
     em_f_hash = hash(em.f_transform)
-    new_empirical = _transformed_empirical(annexes_match, em_f_hash, _empirical_rep(em), f_transform, context)
+    new_empirical = _transformed_empirical(annexes_match, em_f_hash, _empirical_rep(em), new_measure, f_transform, context)
     # Modes refer to the untransformed space (the log-abs-det-Jacobian shifts
     # maximizers), so they can't be carried over. The approximation and the
     # sample generator carry over exactly when their space matches the intent:
-    new_approx = _transformed_approx(annexes_match, em_f_hash, em.approx)
+    new_approx = _transformed_approx(annexes_match, em_f_hash, em.approx, new_measure)
     new_samplegen = _transformed_samplegen(annexes_match, em.samplegen)
     new_em = EvaluatedMeasure(
         BispacedMeasure(new_measure), DoNotTransform(), identity, new_empirical, new_approx,
@@ -248,12 +248,15 @@ function bat_transform_impl(intent::TransformIntent, em::EvaluatedMeasure, algor
     (result = new_em, f_transform = f_transform)
 end
 
-_transformed_empirical(::Bool, ::UInt, ::Nothing, f_transform, ::BATContext) = nothing
+_transformed_empirical(::Bool, ::UInt, ::Nothing, new_measure, f_transform, ::BATContext) = nothing
 
 # A matching pre-transformed representation makes the sample transport free.
-# Its transformation-hash witness is verified before it is served:
-function _transformed_empirical(annexes_match::Bool, em_f_hash::UInt, p::BispacedMeasure, f_transform, context::BATContext)
-    if annexes_match && !isnothing(p.transformed)
+# Its transformation-hash witness is verified before it is served. The
+# stored transformed side lives in the fully unshaped space, while the
+# intent-transformed measure need not be unshaped (e.g. scalar variates),
+# so the shortcut additionally requires the variate shapes to coincide:
+function _transformed_empirical(annexes_match::Bool, em_f_hash::UInt, p::BispacedMeasure, new_measure, f_transform, context::BATContext)
+    if annexes_match && !isnothing(p.transformed) && varshape(p.transformed) == varshape(new_measure)
         p.f_hash == em_f_hash || _throw_pair_hash_mismatch("Empirical pair")
         BispacedMeasure(p.transformed)
     else
@@ -266,10 +269,10 @@ end
 # is directly the approximation of the transformed measure. On a miss there
 # is no safe way to recover it (stripping a pushforward would require
 # comparing transform functions by value), so it is dropped:
-_transformed_approx(::Bool, ::UInt, ::Nothing) = nothing
+_transformed_approx(::Bool, ::UInt, ::Nothing, new_measure) = nothing
 
-function _transformed_approx(annexes_match::Bool, em_f_hash::UInt, p::BispacedMeasure)
-    if annexes_match && !isnothing(p.transformed)
+function _transformed_approx(annexes_match::Bool, em_f_hash::UInt, p::BispacedMeasure, new_measure)
+    if annexes_match && !isnothing(p.transformed) && varshape(p.transformed) == varshape(new_measure)
         p.f_hash == em_f_hash || _throw_pair_hash_mismatch("Approximation pair")
         BispacedMeasure(p.transformed)
     else
@@ -315,7 +318,7 @@ function _transform_and_unshape_cached(em::EvaluatedMeasure, intent::TransformIn
             (isnothing(em.empirical) || (_has_pair_annex(em.empirical) && !_pair_claims_mismatch(em.empirical, em_f_hash)))
         new_em = EvaluatedMeasure(
             BispacedMeasure(em.unevaluated.transformed), DoNotTransform(), identity,
-            _flip_empirical_annex(em.empirical), _transformed_approx(true, em_f_hash, em.approx),
+            _flip_empirical_annex(em.empirical), _transformed_approx(true, em_f_hash, em.approx, em.unevaluated.transformed),
             em.dof, em.mass, nothing, _transformed_samplegen(true, em.samplegen), nothing
         )
         return (new_em, em.f_transform)

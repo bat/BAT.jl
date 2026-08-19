@@ -18,6 +18,7 @@ bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::NormalBased, ::Evaluat
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::NormalBased, ::BATWeightedMeasure) = PriorSubstitution()
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::NormalBased, ::BATDistMeasure{<:StandardNormalDist}) = IdentityTransformAlgorithm()
 
+bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::Function, ::BATMeasure) = FullMeasureTransform()
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::Function, ::DensitySampleVector) = SampleTransformation()
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::Function, ::DensitySampleMeasure) = SampleTransformation()
 bat_default(::typeof(bat_transform), ::Val{:algorithm}, ::AbstractValueShape, ::DensitySampleVector) = SampleTransformation()
