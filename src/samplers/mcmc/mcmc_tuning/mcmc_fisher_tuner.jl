@@ -217,13 +217,23 @@ end
 # seamlessly across burn-in cycles (the generic fallback is a no-op).
 
 
+# The regularization strength is relative to the mean variance scale of
+# each moment matrix, keeping the learned geometry equivariant under
+# affine rescaling of the target: positions and scores scale inversely,
+# so an absolute floor would swamp whichever side has the smaller scale
+# (e.g. the score covariance of a very wide target):
+_rel_regularization(γ::Real, C::AbstractMatrix) = γ * max(tr(C) / size(C, 1), floatmin(float(eltype(C))))
+_rel_regularization(γ::Real, var_vec::AbstractVector) = γ * max(sum(var_vec) / length(var_vec), floatmin(float(eltype(var_vec))))
+
 # Fisher-optimal affine geometry from the accumulated moments. Returns
 # (G, μ) with G the linear geometry (G = A Aᵀ of the optimal transform)
 # and μ the Fisher-optimal translation.
 function _fisher_geometry(::DenseFisherEstimator, acc::_XGMoments, γ::Real)
     n = acc.n
-    C_x = Symmetric(acc.M2_x ./ (n - 1) + γ * I)
-    C_g = Symmetric(acc.M2_g ./ (n - 1) + γ * I)
+    C_x_raw = Symmetric(acc.M2_x ./ (n - 1))
+    C_g_raw = Symmetric(acc.M2_g ./ (n - 1))
+    C_x = Symmetric(C_x_raw + _rel_regularization(γ, C_x_raw) * I)
+    C_g = Symmetric(C_g_raw + _rel_regularization(γ, C_g_raw) * I)
     G = _spd_riccati_solve(C_x, C_g)
     # The Fisher-optimal translation is the score-corrected mean
     # μ = x̄ + G ᾱ (it reduces to x̄ at stationarity, where E[α] = 0).
@@ -236,8 +246,10 @@ end
 
 function _fisher_geometry(::DiagonalFisherEstimator, acc::_XGMoments, γ::Real)
     n = acc.n
-    var_x = acc.M2_x ./ (n - 1) .+ γ
-    var_g = acc.M2_g ./ (n - 1) .+ γ
+    var_x_raw = acc.M2_x ./ (n - 1)
+    var_g_raw = acc.M2_g ./ (n - 1)
+    var_x = var_x_raw .+ _rel_regularization(γ, var_x_raw)
+    var_g = var_g_raw .+ _rel_regularization(γ, var_g_raw)
     g = sqrt.(var_x ./ var_g)
     μ = acc.mean_x .+ g .* acc.mean_g
     return Diagonal(g), μ
@@ -260,8 +272,10 @@ end
 # estimate compared to a full dense geometry:
 function _fisher_geometry(est::LowRankFisherEstimator, acc::_XGMoments, γ::Real)
     n = acc.n
-    C_x = Symmetric(acc.M2_x ./ (n - 1) + γ * I)
-    C_g = Symmetric(acc.M2_g ./ (n - 1) + γ * I)
+    C_x_raw = Symmetric(acc.M2_x ./ (n - 1))
+    C_g_raw = Symmetric(acc.M2_g ./ (n - 1))
+    C_x = Symmetric(C_x_raw + _rel_regularization(γ, C_x_raw) * I)
+    C_g = Symmetric(C_g_raw + _rel_regularization(γ, C_g_raw) * I)
 
     # Diagonal base fit and standardization (scores transform inversely
     # to positions under x̃ = D^{-1/2} x):

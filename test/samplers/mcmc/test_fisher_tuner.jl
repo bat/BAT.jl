@@ -45,11 +45,37 @@ BAT.mcmc_trafo_tuning_finalize!!(f_transform::Function, tuner::_TypeChangingTraf
         @test opnorm(Matrix(G) - Σ) / opnorm(Σ) < 0.1
         @test isapprox(μ, μ_true, atol = 0.2)
 
-        # The diagonal variant recovers sqrt(Var(x) / Var(α)) per dimension:
+        # The diagonal variant recovers sqrt(Var(x) / Var(α)) per dimension,
+        # with the regularization relative to the mean variance scales:
         G_diag, _ = _fisher_geometry(DiagonalFisherEstimator(), acc_diag, 1e-5)
         var_x = acc_diag.M2_x ./ (acc_diag.n - 1)
         var_g = acc_diag.M2_g ./ (acc_diag.n - 1)
-        @test diag(G_diag) ≈ sqrt.((var_x .+ 1e-5) ./ (var_g .+ 1e-5))
+        γ_x = 1e-5 * sum(var_x) / d
+        γ_g = 1e-5 * sum(var_g) / d
+        @test diag(G_diag) ≈ sqrt.((var_x .+ γ_x) ./ (var_g .+ γ_g))
+
+        # Affine equivariance of the regularized geometry: rescaling the
+        # target by c scales positions by c and scores by 1/c, so the
+        # learned geometry must scale by c² even for extreme scales where
+        # an absolute regularization floor would swamp the score covariance:
+        c = 1e6
+        acc_scaled = _new_moments(DenseFisherEstimator(), d)
+        rng_eq = StableRNG(438621057)
+        for _ in 1:10^3
+            x = μ_true .+ cholesky(Σ).L * randn(rng_eq, d)
+            α = -Σinv * (x .- μ_true)
+            _moments_update!(acc_scaled, c .* x, α ./ c)
+        end
+        acc_unit = _new_moments(DenseFisherEstimator(), d)
+        rng_eq = StableRNG(438621057)
+        for _ in 1:10^3
+            x = μ_true .+ cholesky(Σ).L * randn(rng_eq, d)
+            α = -Σinv * (x .- μ_true)
+            _moments_update!(acc_unit, x, α)
+        end
+        G_scaled, _ = _fisher_geometry(DenseFisherEstimator(), acc_scaled, 1e-5)
+        G_unit, _ = _fisher_geometry(DenseFisherEstimator(), acc_unit, 1e-5)
+        @test Matrix(G_scaled) ≈ c^2 .* Matrix(G_unit) rtol = 1e-6
     end
 
     @testset "Riccati solve and drift metric" begin
