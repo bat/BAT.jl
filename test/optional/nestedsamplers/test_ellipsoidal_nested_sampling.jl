@@ -25,7 +25,9 @@ import NestedSamplers
 
     posterior = PosteriorMeasure(likelihood, prior)
     algorithm = EllipsoidalNestedSampling(max_ncalls = 10^5)
-    r = BAT.sample_and_verify(posterior, algorithm, dist)
+    # Nested-sampling output is importance-weighted, so the sample
+    # comparison must use Kish's ESS, not the autocorrelation-based one:
+    r = BAT.sample_and_verify(posterior, algorithm, dist, essalg = KishESS())
     @test r.verified
 
     smpls = r.result
