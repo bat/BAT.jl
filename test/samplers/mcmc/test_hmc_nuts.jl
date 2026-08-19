@@ -57,6 +57,23 @@ using BAT: HMCPhasePoint, _hmc_phasepoint, _leapfrog_step, _logaddexp,
         z0 = _hmc_phasepoint(f_logdgrad, randn(rng, 3), randn(rng, 3))
         # For a standard normal, reasonable step sizes are O(1):
         @test 0.05 < stepsize < 5
+
+        # Multi-position search: a funnel-like target whose local scale in
+        # the second coordinate is exp(a) at a = q[1]:
+        f_funnel(q) = (
+            - q[1]^2 / 18 - exp(-2 * q[1]) * q[2]^2 / 2,
+            [- q[1] / 9 + exp(-2 * q[1]) * q[2]^2, - exp(-2 * q[1]) * q[2]]
+        )
+        q_wide, q_narrow = [3.0, 5.0], [-3.0, 0.01]
+        eps_wide = hmc_find_good_stepsize(StableRNG(12345), f_funnel, q_wide)
+        # Probing walkers in regions of different stiffness must yield a
+        # step size no larger than needed for the stiffest probed one:
+        eps_multi = hmc_find_good_stepsize(StableRNG(12345), f_funnel, [q_wide, q_narrow])
+        @test 0 < eps_multi < eps_wide
+
+        # Large walker ensembles are handled (probing is capped):
+        eps_many = hmc_find_good_stepsize(rng, f_logdgrad, [randn(rng, 3) for _ in 1:30])
+        @test 0.05 < eps_many < 5
     end
 
     @testset "nuts_transition" begin

@@ -181,8 +181,8 @@ function _create_proposal_state(
 
     T = float(P)
     step_size = if isnan(proposal.step_size)
-        z_init = inverse(f_transform)(v_init[1])
-        T(hmc_find_good_stepsize(rng, fg, z_init))
+        zs_init = inverse(f_transform).(v_init)
+        T(hmc_find_good_stepsize(rng, fg, zs_init))
     else
         T(proposal.step_size)
     end

@@ -140,8 +140,8 @@ function mcmc_proposal_transform_committed!!(
     chain_state::MCMCChainState
 )
     rng = get_rng(chain_state.context)
-    z = chain_state.current.z.v[1]
-    stepsize_new = oftype(proposal.step_size, hmc_find_good_stepsize(rng, proposal.target_logdgrad, z))
+    zs = chain_state.current.z.v
+    stepsize_new = oftype(proposal.step_size, hmc_find_good_stepsize(rng, proposal.target_logdgrad, zs))
     proposal_new = @set proposal.step_size = stepsize_new
     _restart_dual_averaging!(tuner, stepsize_new)
     _reset_run_stats!(tuner)

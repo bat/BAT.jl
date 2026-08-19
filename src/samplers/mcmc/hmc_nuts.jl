@@ -193,7 +193,30 @@ end
 Heuristically search a leapfrog step size at position `q0` for which the
 single-step Metropolis acceptance ratio lies between 1/4 and 3/4 (see
 Hoffman & Gelman (2014), algorithm 4).
+
+Given a vector of positions instead of a single position, probes several
+of them and returns the smallest step size found.
 """
+function hmc_find_good_stepsize end
+
+# The transform and the step size are shared across all walkers, but
+# walkers may sit in regions of different local stiffness, so the search
+# probes several walker positions and takes the smallest result: right
+# after a geometry change stability matters more than initial efficiency,
+# and dual averaging quickly recovers from a too-conservative initial
+# value. The probe count is capped to bound the gradient cost for large
+# walker ensembles:
+const _MAX_STEPSIZE_SEARCH_PROBES = 8
+
+function hmc_find_good_stepsize(
+    rng::AbstractRNG, f_logdgrad::Function, qs::AbstractVector{<:AbstractVector{<:Real}};
+    kwargs...
+)
+    @argcheck !isempty(qs)
+    probe_idxs = first(eachindex(qs), min(length(qs), _MAX_STEPSIZE_SEARCH_PROBES))
+    return minimum(hmc_find_good_stepsize(rng, f_logdgrad, qs[i]; kwargs...) for i in probe_idxs)
+end
+
 function hmc_find_good_stepsize(
     rng::AbstractRNG, f_logdgrad::Function, q0::AbstractVector{<:Real};
     init_stepsize::Real = 0.1, max_niters::Integer = 100
