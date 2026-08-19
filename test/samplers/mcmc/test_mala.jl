@@ -8,7 +8,7 @@ using Distributions, ValueShapes, DensityInterface
 using StableRNGs
 import ForwardDiff
 
-using BAT: MALAProposal, _mala_innovation_dist, _mala_log_proposal_ratio, batmeasure
+using BAT: MALAProposal, StepSizeAdaptor, _mala_innovation_dist, _mala_log_proposal_ratio, batmeasure
 
 @testset "mala" begin
     rng = StableRNG(902114857)
@@ -60,9 +60,15 @@ using BAT: MALAProposal, _mala_innovation_dist, _mala_log_proposal_ratio, batmea
 
         # The Fisher tuner sees coherent position/score pairs also under
         # MALA rejections, so the learned geometry matches the target:
-        f = BAT.samplegenof(smplres.evaluated).chain_states[1].f_transform
+        cs = BAT.samplegenof(smplres.evaluated).chain_states[1]
+        f = cs.f_transform
         G_learned = Matrix(f.A * f.A')
         @test opnorm(G_learned - Σ) / opnorm(Σ) < 0.5
+
+        # The step-scale adaptor steers the acceptance rate into the
+        # target region (for MALA the state-movement rate is the
+        # acceptance rate):
+        @test 0.4 < BAT.eff_acceptance_ratio(cs) < 0.75
 
         # A heavy-tailed innovation is a valid generalized Langevin-MH
         # proposal now that the exact proposal densities are used:
@@ -73,5 +79,23 @@ using BAT: MALAProposal, _mala_innovation_dist, _mala_log_proposal_ratio, batmea
             context
         )
         @test smplres_t.verified
+    end
+
+    @testset "step scale adaptation" begin
+        # Dual averaging moves τ against a persistent acceptance
+        # imbalance:
+        tuner_lo = BAT.MALAStepSizeTunerState(StepSizeAdaptor(), 0, log(10 * 0.5), 0.0, 0.0)
+        τ = 0.5
+        for _ in 1:200
+            τ = BAT._dual_averaging_step!(tuner_lo, 0.574, 0.1)
+        end
+        @test τ < 0.5
+
+        tuner_hi = BAT.MALAStepSizeTunerState(StepSizeAdaptor(), 0, log(10 * 0.5), 0.0, 0.0)
+        τ = 0.5
+        for _ in 1:200
+            τ = BAT._dual_averaging_step!(tuner_hi, 0.574, 0.95)
+        end
+        @test τ > 0.5
     end
 end

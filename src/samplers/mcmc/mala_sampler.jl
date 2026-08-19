@@ -69,7 +69,7 @@ end
 
 bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::MALAProposal) = NormalBased()
 
-bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, proposal::MALAProposal) = NoMCMCProposalTuning()
+bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, proposal::MALAProposal) = StepSizeAdaptor()
 
 bat_default(::Type{TransformedMCMC}, ::Val{:adaptive_transform}, proposal::MALAProposal) = TriangularAffineTransform()
 

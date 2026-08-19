@@ -6,8 +6,10 @@ abstract type HMCTuning <: MCMCProposalTuning end
 """
     struct StepSizeAdaptor <: BAT.HMCTuning
 
-Tunes the leapfrog step size of [`HamiltonianMC`](@ref) via Nesterov dual
-averaging, targeting the proposal's target acceptance rate.
+Tunes the scalar proposal scale of gradient-based MCMC proposals via
+Nesterov dual averaging, targeting the proposal's target acceptance rate:
+the leapfrog step size of [`HamiltonianMC`](@ref) and the Langevin step
+scale of [`MALAProposal`](@ref).
 
 See Hoffman & Gelman (2014), "The No-U-Turn Sampler: Adaptively Setting Path
 Lengths in Hamiltonian Monte Carlo", section 3.2.
@@ -32,7 +34,11 @@ $(TYPEDFIELDS)
 end
 
 
-mutable struct HMCStepSizeTunerState{T<:AbstractFloat} <: MCMCProposalTunerState
+# Common supertype for Nesterov-dual-averaging scalar proposal-scale tuner
+# states, sharing the fields tuning, m, log_mu, log_stepsize_bar and H_bar:
+abstract type DualAveragingTunerState <: MCMCProposalTunerState end
+
+mutable struct HMCStepSizeTunerState{T<:AbstractFloat} <: DualAveragingTunerState
     tuning::StepSizeAdaptor
     m::Int
     log_mu::T
@@ -69,7 +75,7 @@ function create_proposal_tuner_state(
     )
 end
 
-function _restart_dual_averaging!(tuner::HMCStepSizeTunerState, stepsize::Real)
+function _restart_dual_averaging!(tuner::DualAveragingTunerState, stepsize::Real)
     tuner.log_mu = log(10 * stepsize)
     tuner.m = 0
     tuner.log_stepsize_bar = 0
@@ -115,7 +121,7 @@ function mcmc_proposal_tuning_reinit!!(tuner::HMCStepSizeTunerState, chain_state
 end
 
 # Nesterov dual averaging update, returns the new step size:
-function _dual_averaging_step!(tuner::HMCStepSizeTunerState, target_acceptance::Real, alpha::Real)
+function _dual_averaging_step!(tuner::DualAveragingTunerState, target_acceptance::Real, alpha::Real)
     (; gamma, t0, kappa) = tuner.tuning
     T = typeof(tuner.H_bar)
 

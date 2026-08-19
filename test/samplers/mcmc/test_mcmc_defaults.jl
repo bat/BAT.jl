@@ -44,7 +44,7 @@ using BAT: NoMCMCProposalTuning, NoMCMCTransformTuning, NoAdaptiveTransform,
     @testset "MALAProposal" begin
         alg = TransformedMCMC(proposal = BAT.MALAProposal())
         @test alg.pretransform isa NormalBased
-        @test alg.proposal_tuning isa NoMCMCProposalTuning
+        @test alg.proposal_tuning isa StepSizeAdaptor
         @test alg.adaptive_transform isa TriangularAffineTransform
         @test alg.transform_tuning isa FisherTransformTuning
         @test alg.nsteps == 10^5
