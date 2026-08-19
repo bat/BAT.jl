@@ -87,12 +87,22 @@ function bridge_sampling_integral(
         denominator = denominator/N1
 
         current_int = numerator/denominator
+        if !isfinite(current_int)
+            msg = "The bridge sampling iteration became non-finite"
+            if strict
+                throw(ErrorException(msg))
+            else
+                @warn(msg)
+                break
+            end
+        end
         if counter == 500
             msg = "The iterative scheme is not converging!!"
             if strict
                 throw(ErrorException(msg))
             else
                 @warn(msg)
+                break
             end
         end
         counter=counter+1
