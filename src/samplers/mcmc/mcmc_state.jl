@@ -261,10 +261,17 @@ function mcmc_step!!(mcmc_state::MCMCState)
 end
 
 # Log-abs-det Jacobian of a space transformation, if it is constant
-# (nothing otherwise):
-_transform_ladj(::Function) = nothing
-_transform_ladj(::typeof(identity)) = 0.0
-_transform_ladj(f::MulAdd) = first(logabsdet(f.A))
+# (nothing otherwise). `false` is the type-neutral additive zero:
+_transform_ladj(::Any) = nothing
+_transform_ladj(::typeof(identity)) = false
+_transform_ladj(f::MulAdd) = _mul_factor_ladj(f.A)
+
+# Only for matrix-shaped factors is logabsdet the per-variate ladj; scalar
+# factors act on every dimension, their ladj depends on the variate length,
+# so they take the generic with_logabsdet_jacobian path:
+_mul_factor_ladj(A) = ndims(A) == 2 ? first(logabsdet(A)) : nothing
+_mul_factor_ladj(::Real) = nothing
+_mul_factor_ladj(::UniformScaling) = nothing
 
 # Batched transform application together with per-element LADJs, with a
 # single logabsdet evaluation for transforms with constant Jacobian:
