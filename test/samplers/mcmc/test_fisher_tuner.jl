@@ -8,10 +8,17 @@ using Distributions, ValueShapes, DensityInterface, InverseFunctions
 using StableRNGs
 import ForwardDiff
 
+using Accessors: @set
+
 using BAT: DenseFisherEstimator, DiagonalFisherEstimator, LowRankFisherEstimator,
     DriftCommitSchedule, FisherTransformTuning, DiagonalAffineTransform,
     LowRankAffineTransform, _new_moments, _moments_update!, _fisher_geometry,
     _spd_riccati_solve, _transform_drift, _fisher_A
+
+# A pathological transform-tuner finalizer that changes the transform
+# type, used to test the finalization contract:
+struct _TypeChangingTrafoFinalizer <: BAT.MCMCTransformTunerState end
+BAT.mcmc_trafo_tuning_finalize!!(f_transform::Function, tuner::_TypeChangingTrafoFinalizer, chain_state::BAT.MCMCIterator) = (identity, tuner, chain_state)
 
 @testset "fisher_tuner" begin
     rng = StableRNG(438621057)
@@ -201,6 +208,12 @@ using BAT: DenseFisherEstimator, DiagonalFisherEstimator, LowRankFisherEstimator
         BAT.mcmc_tuning_init!!(mcmc_state, 400)
         BAT.mcmc_tuning_reinit!!(mcmc_state, 400)
         mcmc_state = BAT.mcmc_iterate!!(nothing, mcmc_state; max_nsteps = 400, nonzero_weights = false)
+
+        # A finalizer must not change the transform type (geometry changes
+        # are only valid through the transform-commit path):
+        mcmc_state_bad = @set mcmc_state.trafo_tuner_state = _TypeChangingTrafoFinalizer()
+        @test_throws ErrorException BAT.mcmc_tuning_finalize!!(mcmc_state_bad)
+
         mcmc_state = BAT.mcmc_tuning_finalize!!(mcmc_state)
 
         @test mcmc_state.trafo_tuner_state isa BAT.FrozenMCMCTransformTunerState

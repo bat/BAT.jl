@@ -553,11 +553,20 @@ function mcmc_tune_post_step!!(state::MCMCState, proposal::MCMCProposalState, st
 end
 
 function mcmc_tuning_finalize!!(mcmc_state::MCMCState)
+    f_old = mcmc_state.chain_state.f_transform
     f_new, trafo_tuner_state_new, chain_state_new = mcmc_trafo_tuning_finalize!!(
-        mcmc_state.chain_state.f_transform,
+        f_old,
         mcmc_state.trafo_tuner_state,
         mcmc_state.chain_state
     )
+    # A finalizer may rebuild the transform object, but it must represent
+    # the same map of the same type: finalization runs none of the
+    # transform-commit synchronization (no z-remap, no proposal-target
+    # rebind, no step-size restart), so geometry changes are only valid
+    # through the commit path during tuning:
+    typeof(f_new) === typeof(f_old) || throw(ErrorException(
+        "Transform tuner finalization must not change the transform type ($(typeof(f_old)) -> $(typeof(f_new))), geometry changes must go through the transform-commit path during tuning"
+    ))
     @reset chain_state_new.f_transform = f_new
 
     proposal_new, proposal_tuner_state_new, chain_state_final = mcmc_proposal_tuning_finalize!!(
