@@ -17,7 +17,11 @@ end
 
 _fisher_estimator(::TriangularAffineTransform) = DenseFisherEstimator()
 _fisher_estimator(::DiagonalAffineTransform) = DiagonalFisherEstimator()
-_fisher_estimator(at::LowRankAffineTransform) = LowRankFisherEstimator(at.cutoff, at.max_rank)
+function _fisher_estimator(at::LowRankAffineTransform)
+    @argcheck at.cutoff > 1
+    @argcheck at.max_rank >= 0
+    LowRankFisherEstimator(at.cutoff, at.max_rank)
+end
 
 # Fallback when the transform declaration is not available (direct
 # low-level use): infer the structure from the installed transform:
@@ -177,6 +181,13 @@ function create_trafo_tuner_state(
 end
 
 function _create_fisher_tuner_state(tuning::FisherTransformTuning, chain_state::MCMCChainState, estimator)
+    sched = tuning.schedule
+    @argcheck sched.check_interval >= 1
+    @argcheck sched.commit_threshold >= 0
+    @argcheck sched.memory_length >= 0
+    @argcheck sched.min_observations >= 0
+    @argcheck tuning.regularization > 0
+
     proposal = get_active_proposal(chain_state.proposal)
     mcmc_step_provides_grads(proposal) || throw(ArgumentError(
         "FisherTransformTuning requires an MCMC proposal that provides log-density gradients (like HamiltonianMC or MALAProposal), got $(nameof(typeof(proposal)))"
@@ -185,7 +196,6 @@ function _create_fisher_tuner_state(tuning::FisherTransformTuning, chain_state::
         "FisherTransformTuning requires an affine adaptive space transformation (like TriangularAffineTransform)"
     ))
     n_dims = length(first(chain_state.current.x.v))
-    sched = tuning.schedule
     memory_length = sched.memory_length > 0 ? sched.memory_length : max(100, 4 * n_dims)
     min_observations = sched.min_observations > 0 ? sched.min_observations : max(20, 2 * n_dims)
     FisherTrafoTunerState(
@@ -318,15 +328,20 @@ function mcmc_tune_trafo_post_step!!(
     isnothing(z_grads) && return f_transform, tuner_state, chain_state
 
     A = f_transform.A
-    xs = proposed.x.v
-    for i in eachindex(xs, z_grads)
+    xs_prop = proposed.x.v
+    xs_curr = current.x.v
+    accepted = chain_state.accepted
+    for i in eachindex(xs_prop, z_grads)
         # Score transport into the fixed pre-adaptive space: for x = A z + μ
         # the pulled-back gradient is β = Aᵀ α, so α = A⁻ᵀ β:
         α = A' \ z_grads[i]
-        # The selected state is the next chain state (a repeated state is a
-        # valid draw as well), accumulate it in both memory blocks:
-        _moments_update!(tuner_state.acc_a, xs[i], α)
-        _moments_update!(tuner_state.acc_b, xs[i], α)
+        # The gradients refer to the selected (post-accept/reject) states,
+        # so the positions must too - on rejection the selected state is
+        # the current one, not the rejected proposal. A repeated state is
+        # a valid draw as well; accumulate in both memory blocks:
+        x_i = accepted[i] ? xs_prop[i] : xs_curr[i]
+        _moments_update!(tuner_state.acc_a, x_i, α)
+        _moments_update!(tuner_state.acc_b, x_i, α)
     end
 
     tuner_state.nsteps += 1
