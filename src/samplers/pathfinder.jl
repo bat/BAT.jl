@@ -300,6 +300,13 @@ function _affine_init_moments(tinit::PathfinderTransformInit, target::AbstractMe
         return _affine_init_moments(PriorApproxTransformInit(), target, v_init, context)
     end
 
+    # A path that converged to a clearly inferior mode or shoulder would
+    # contaminate the equal-weight moment-matched mixture, so fits with an
+    # ELBO far below the best are dropped (10 nats corresponds to a
+    # relative mixture weight below 5e-5):
+    elbo_best = maximum(fit.elbo for fit in fits)
+    fits = [fit for fit in fits if fit.elbo >= elbo_best - 10]
+
     μ = mean(fit.μ for fit in fits)
     Σ = mean(fit.Σ for fit in fits)
     if length(fits) > 1
