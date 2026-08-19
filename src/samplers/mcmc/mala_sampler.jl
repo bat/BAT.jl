@@ -26,7 +26,7 @@ $(TYPEDFIELDS)
     # TODO: MD, review these values
     target_acceptance::TA = 0.574
     target_acceptance_int::TAI = (0.5, 0.65)
-    proposaldist::Q = TDist(1.0)
+    proposaldist::Q = Normal()
     τ_base::R = 1.65^2
 end
 
@@ -85,7 +85,7 @@ function _create_proposal_state(
     rng::AbstractRNG
 ) where {P<:Real, PV<:AbstractVector{P}}
     n_dims = totalndof(varshape(target))
-    mv_pdist = batmeasure(_full_random_walk_proposal(proposal.proposaldist, n_dims))
+    mv_pdist = batmeasure(_mala_innovation_dist(proposal.proposaldist, n_dims))
 
     adsel = get_adselector(context)
     target_checked = checked_logdensityof(MeasureBase.pullback(f_transform, target))
@@ -99,6 +99,31 @@ function _create_proposal_state(
         n_dims^(-1/3) * proposal.τ_base,
         _MALAGradCache()
     )
+end
+
+# The Langevin innovation acts at unit scale per dimension, the step
+# scale lives in τ (unlike random-walk proposals, whose distribution
+# carries the dimension-dependent optimal scale itself):
+function _mala_innovation_dist(d::UnivariateDistribution, n_dims::Integer)
+    return product_distribution(fill(d, n_dims))
+end
+
+function _mala_innovation_dist(m, n_dims::Integer)
+    x = testvalue(batmeasure(m))
+    @argcheck x isa AbstractVector{<:Real} && length(x) == n_dims
+    return m
+end
+
+# Exact log proposal ratio log q(x|y) - log q(y|x) of the Langevin
+# proposal y = x + (τ/2) ∇log π(x) + √τ ξ, for any innovation
+# distribution: the forward and reverse innovations are recovered from
+# the transition and the respective drifts, and the common √τ scale
+# Jacobians cancel:
+function _mala_log_proposal_ratio(proposal_measure::BATMeasure, τ::Real, transition, grads_curr, grads_prop)
+    logd = logdensityof(proposal_measure)
+    ξ_fwd = (transition .- τ/2 .* grads_curr) ./ sqrt(τ)
+    ξ_rev = (.-transition .- τ/2 .* grads_prop) ./ sqrt(τ)
+    return logd.(ξ_rev) .- logd.(ξ_fwd)
 end
 
 function mcmc_propose_transition(
@@ -125,10 +150,7 @@ function mcmc_propose_transition(
     proposal.grad_cache.grads_curr = convert(Vector{Vector{Float64}}, grads_curr)
     proposal.grad_cache.grads_prop = convert(Vector{Vector{Float64}}, grads_prop)
 
-    p_prop_to_curr = norm.(-transition .- τ .* grads_prop).^2
-    p_curr_to_prop = norm.(transition .- τ .* grads_curr).^2
-
-    hastings_correction = (p_curr_to_prop - p_prop_to_curr) ./ (4τ)
+    hastings_correction = _mala_log_proposal_ratio(proposal_measure, τ, transition, grads_curr, grads_prop)
 
     return proposed_z, hastings_correction
 end
