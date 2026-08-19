@@ -315,10 +315,15 @@ _cor(X::AbstractVectorOfSimilarVectors, w::AbstractWeights) =
     cor(flatview(X), w, 2)
 
 
+# Sample weights may be integer repetition counts (MCMC) or arbitrary
+# positive importance weights (nested sampling, importance samplers), so
+# weighted statistics use probability-weight semantics: the frequency-
+# weight bias correction 1/(sum(w) - 1) is only valid for integer counts
+# and degenerates (Inf/negative) for normalized importance weights:
 function _get_statw(f::Function, samples::DensitySampleVector, resultshape::AbstractValueShape)
     shape = varshape(samples)
     X = unshaped.(samples.v)
-    w = FrequencyWeights(samples.weight)
+    w = ProbabilityWeights(samples.weight)
     r_unshaped = f(X, w)
     resultshape(r_unshaped)
 end
@@ -336,7 +341,7 @@ function Statistics.quantile(samples::DensitySampleVector, p::Real)
     median_params = Vector{Float64}()
 
     for param in Base.OneTo(n_params)
-        median_param = quantile(flat_samples[param,:], FrequencyWeights(samples.weight), p)
+        median_param = quantile(flat_samples[param,:], ProbabilityWeights(samples.weight), p)
         push!(median_params, median_param)
     end
     shape(median_params)
@@ -352,8 +357,8 @@ end
 Base.minimum(samples::DensitySampleVector) = _get_stat(minimum, samples)
 Base.maximum(samples::DensitySampleVector) = _get_stat(maximum, samples)
 
-Statistics.cov(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = _cov(samples.v, FrequencyWeights(samples.weight))
-Statistics.cor(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = _cor(samples.v, FrequencyWeights(samples.weight))
+Statistics.cov(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = _cov(samples.v, ProbabilityWeights(samples.weight))
+Statistics.cor(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = _cor(samples.v, ProbabilityWeights(samples.weight))
 
 function Base.isapprox(a::DensitySampleVector, b::DensitySampleVector; kwargs...)
     axes(a) == axes(b) || return false

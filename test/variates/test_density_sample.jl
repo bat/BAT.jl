@@ -109,7 +109,7 @@ _SampleAux() = _SampleInfo(0)
 
         rtol = eps(typeof(float(1)))
         X = @inferred(flatview(dsv_merged.v))
-        w = @inferred(FrequencyWeights(dsv_merged.weight))
+        w = @inferred(ProbabilityWeights(dsv_merged.weight))
         rows = eachrow(X)
 
         dsv_mean = @inferred(mean(dsv_merged))
