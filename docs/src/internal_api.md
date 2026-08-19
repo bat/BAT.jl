@@ -77,6 +77,7 @@ BAT.StepSizeAdaptor
 BAT.DiagonalAffineTransform
 BAT.LowRankAffineTransform
 BAT.TriangularAffineTransform
+BAT.UnitTransformInit
 BAT.UnshapeTransformation
 BAT.WhiteningAlgorithm
 

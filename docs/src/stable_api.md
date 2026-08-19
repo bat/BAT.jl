@@ -65,6 +65,7 @@ AbstractPosteriorMeasure
 TransformIntent
 AdaptiveAffineTuning
 AdaptiveMultiPropTuning
+AdaptiveTransformChain
 AssumeConvergence
 AutocorLenAlgorithm
 BATContext

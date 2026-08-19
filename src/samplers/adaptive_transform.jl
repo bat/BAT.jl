@@ -17,23 +17,62 @@ struct NoAdaptiveTransform <: AbstractAdaptiveTransform end
 
 init_adaptive_transform(::NoAdaptiveTransform, ::AbstractMeasure, ::BATContext) = identity
 
-struct AdaptiveTransformChain{AT<:AbstractAdaptiveTransform} <: AbstractAdaptiveTransform
-    f::Tuple{Vararg{AT}}
+"""
+    struct AdaptiveTransformChain <: AbstractAdaptiveTransform
+
+A chain of adaptive space transformations, applied innermost first:
+`x = f[end](...f[1](z)...)`. Tuned via [`MultiTrafoTuning`](@ref), with
+one transform tuning per component.
+
+Note: target-moment-based initializations (like
+`PriorApproxTransformInit`) are only exact for the outermost component;
+inner components should typically use `BAT.UnitTransformInit`.
+
+Constructors:
+
+* ```AdaptiveTransformChain(f::Tuple{Vararg{AbstractAdaptiveTransform}})```
+"""
+struct AdaptiveTransformChain{FT<:Tuple{Vararg{AbstractAdaptiveTransform}}} <: AbstractAdaptiveTransform
+    f::FT
+end
+
+export AdaptiveTransformChain
+
+function init_adaptive_transform(
+    adaptive_transform::AdaptiveTransformChain,
+    target::AbstractMeasure,
+    v_init::Union{AbstractVector,Nothing},
+    context::BATContext
+)
+    fs = adaptive_transform.f
+    n = length(fs)
+    initialized_trafos = Vector{Function}(undef, n)
+
+    # Components are initialized outermost first: the outermost component
+    # sees the target-space positions, inner components see the positions
+    # pulled back through the already-initialized outer components. The
+    # target itself is not pulled back, so target-moment-based
+    # initializations are only exact for the outermost component:
+    vs = v_init
+    for j in n:-1:1
+        f_j = init_adaptive_transform(fs[j], target, vs, context)
+        initialized_trafos[j] = f_j
+        if !isnothing(vs) && j > 1
+            vs = inverse(f_j).(vs)
+        end
+    end
+
+    # A tuple-based chain keeps the composed transform type-stable in the
+    # sampling hot loop:
+    return fchain((initialized_trafos...,))
 end
 
 function init_adaptive_transform(
-    adaptive_transform::AdaptiveTransformChain, 
-    target::AbstractMeasure, 
+    adaptive_transform::AdaptiveTransformChain,
+    target::AbstractMeasure,
     context::BATContext
 )
-    initialized_trafos = Vector{Function}()
-
-    for trafo in adaptive_transform.f
-        trafo_init = init_adaptive_transform(trafo, target, context)
-        push!(initialized_trafos, trafo_init)
-    end
-
-    return fchain(initialized_trafos)
+    return init_adaptive_transform(adaptive_transform, target, nothing, context)
 end
 
 
@@ -100,6 +139,21 @@ Abstract type for algorithms that initialize adaptive MCMC space
 transformations.
 """
 abstract type AbstractTransformInit end
+
+
+"""
+    struct BAT.UnitTransformInit <: BAT.AbstractTransformInit
+
+Initializes affine space transformations to the identity map. The natural
+initialization for inner components of an [`AdaptiveTransformChain`](@ref),
+where the outer components already carry the target geometry.
+"""
+struct UnitTransformInit <: AbstractTransformInit end
+
+function _affine_init_moments(::UnitTransformInit, target::AbstractMeasure, ::Union{AbstractVector,Nothing}, ::BATContext)
+    n = totalndof(varshape(target))
+    return Matrix{Float64}(I, n, n), zeros(n)
+end
 
 
 """
