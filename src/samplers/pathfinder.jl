@@ -278,7 +278,11 @@ end
 
 function _affine_init_moments(tinit::PathfinderTransformInit, target::AbstractMeasure, v_init::AbstractVector, context::BATContext)
     adsel = get_valid_adselector(context, tinit)
-    f_logd = checked_logdensityof(target)
+    # Deliberately not checked_logdensityof: the optimizer's line search
+    # probes far-out points where the target may return NaN, and the
+    # L-BFGS trace handles non-finite values as per-path failures instead
+    # of aborting the whole initialization:
+    f_logd = logdensityof(target)
     f_logdgrad = valgrad_func(f_logd, adsel)
     rng = get_rng(context)
 

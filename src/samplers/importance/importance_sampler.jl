@@ -74,6 +74,9 @@ function evalmeasure_impl(
 
     dsm = DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 
+    # A stored sample generation scheme did not produce the new empirical
+    # content, so it is cleared conservatively (see the EvaluatedMeasure
+    # docs on samplegen):
     return EvaluatedMeasure(em;
         transform_intent = algorithm.pretransform,
         f_transform = _viewrep_f(f_pretransform, algorithm.pretransform),
@@ -81,6 +84,7 @@ function evalmeasure_impl(
         dof = n_dof,
         mass = est_integral,
         transformed = _viewrep_measure(transformed_m, algorithm.pretransform),
+        samplegen = nothing,
         evalinfo = MeasureEvalInfo(algorithm, (;))
     )
 end
@@ -161,10 +165,14 @@ function evalmeasure_impl(
     n_dof = some_dof(m)
     dsm = DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 
+    # A stored sample generation scheme did not produce the new empirical
+    # content, so it is cleared conservatively (see the EvaluatedMeasure
+    # docs on samplegen):
     return EvaluatedMeasure(em;
         empirical = dsm,
         dof = n_dof,
         mass = est_integral,
+        samplegen = nothing,
         evalinfo = MeasureEvalInfo(algorithm, (;prior_samples = prior_samples))
     )
 end

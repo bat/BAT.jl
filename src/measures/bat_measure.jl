@@ -72,10 +72,10 @@ export samplegenof
 samplegenof(::AbstractMeasure) = nothing
 
 """
-    getess(m)::Union{Real,AbstractVector{<:Real},Nothing}
+    getess(m)::Union{Real,Nothing}
 
-Get the effective sample size associated with measure-like object `m`, or
-`nothing` if unknown.
+Get the (scalar) effective sample size associated with measure-like object
+`m`, or `nothing` if unknown.
 """
 function getess end
 export getess
