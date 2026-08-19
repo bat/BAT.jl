@@ -129,7 +129,9 @@ using Distributions: Normal, logpdf
 
     # Follow-up evaluations work on the enriched measure:
     em2 = evalmeasure(em, BridgeSampling(), context)
-    @test isfinite(Measurements.value(massof(em2)))
+    # Masses are stored on the canonical logarithmic scale:
+    @test massof(em2) isa BAT.ULogarithmic
+    @test isfinite(Measurements.value(log(massof(em2))))
     @test em2.empirical === em.empirical
     @test em2.unevaluated === em.unevaluated
 end

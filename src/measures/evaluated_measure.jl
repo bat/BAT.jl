@@ -207,7 +207,7 @@ function Base.convert(::Type{EvaluatedMeasure}, measurelike::MeasureLike)
         _as_bispaced(empiricalof(m)),
         _as_bispaced(approxof(m)),
         _dofval_or_nothing(getdof(m)),
-        massof(m),
+        _canonical_mass(massof(m)),
         maybe_modes(m),
         nothing, # ToDo: samplegenof(m)?
         nothing
@@ -356,7 +356,7 @@ function _update_evalmeasure(
         em.dof
     end
 
-    new_mass = mass isa Unchanged ? _getmass_or_unknown(em) : mass
+    new_mass = mass isa Unchanged ? _getmass_or_unknown(em) : _canonical_mass(mass)
 
     # ToDo: Set DOF in empirical if not there yet and inferrable from em.unevaluated?
 

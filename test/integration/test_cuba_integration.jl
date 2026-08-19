@@ -2,6 +2,7 @@ using BAT
 using Test
 
 import Cuba
+import Measurements
 
 using Base.Threads
 using Distributions, ValueShapes
@@ -9,10 +10,10 @@ using Distributions, ValueShapes
 
 @testset "cuba_integration" begin
     function test_integration(target, algorithm::BAT.CubaIntegration)
+        # Masses/integrals are reported on the canonical logarithmic scale:
         r = bat_integrate(target, algorithm).result
         val_expected = 1
-        @test isapprox(r.val, val_expected, rtol = 20 * algorithm.rtol)
-        # @test r.err < 100 * abs(r.val - val_expected)
+        @test isapprox(Measurements.value(log(r)), log(val_expected), atol = 20 * algorithm.rtol)
     end
 
     uvprior = truncated(Normal(), -1, 3)

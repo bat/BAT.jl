@@ -74,9 +74,17 @@ function DensitySampleMeasure(
     )
 end
 
-# ToDo: logarithmic numbers in Measurements?
-_canonical_mass(mass::Measurements.Measurement) = mass
-_canonical_mass(mass::Real) = exp(ULogarithmic, _lfloat(log(mass)))
+# Masses are stored on a canonical logarithmic Float64 scale, uniformly
+# across all integration and sampling backends: the log scale keeps very
+# small and very large masses representable without extended-range number
+# types. Uncertainties are transported to the log scale to first order:
+_canonical_mass(mass::ULogarithmic) = mass
+_canonical_mass(mass::Real) = exp(ULogarithmic, Float64(log(mass)))
+function _canonical_mass(mass::Measurements.Measurement)
+    val = Measurements.value(mass)
+    unc = Measurements.uncertainty(mass)
+    return exp(ULogarithmic, Measurements.measurement(Float64(log(val)), Float64(unc / val)))
+end
 _canonical_mass(mass::MeasureBase.AbstractUnknownMass) = mass
 
 Base.convert(::Type{DensitySampleMeasure}, smpls::DensitySampleVector) = DensitySampleMeasure(smpls)
