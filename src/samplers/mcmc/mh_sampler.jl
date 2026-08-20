@@ -6,6 +6,11 @@
 
 Metropolis-Hastings MCMC sampling algorithm.
 
+The default target acceptance rate and proposal scaling follow
+[G. O. Roberts, A. Gelman and W. R. Gilks, "Weak convergence and
+optimal scaling of random walk Metropolis algorithms"
+(1997)](https://doi.org/10.1214/aoap/1034625254).
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```
@@ -22,7 +27,8 @@ $(TYPEDFIELDS)
         Distribution{<:Union{Univariate,Multivariate},Continuous}
     }
 } <: MCMCProposal
-    # TODO: MD, is this correct?
+    # 0.234 is the asymptotically optimal random-walk acceptance rate of
+    # Roberts, Gelman & Gilks (1997), see the docstring above:
     target_acceptance::TA = 0.234
     target_acceptance_int::TAI = (0.15, 0.35)
     proposaldist::Q = TDist(1.0)
@@ -39,25 +45,14 @@ struct RandomWalkProposalState{
     target_acceptance_int::TAI
     proposaldist::Q
 end
-export RandomWalkProposalState
 
-bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::RandomWalk) = PriorToNormal()
+bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::RandomWalk) = NormalBased()
 
 bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, proposal::RandomWalk) = NoMCMCProposalTuning()
-
-bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, proposal::RandomWalk) = RAMTuning()
 
 bat_default(::Type{TransformedMCMC}, ::Val{:adaptive_transform}, proposal::RandomWalk) = TriangularAffineTransform()
 
 bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, proposal::RandomWalk) = NoMCMCTempering()
-
-bat_default(::Type{TransformedMCMC}, ::Val{:nsteps}, proposal::RandomWalk, pretransform::AbstractTransformTarget, nchains::Integer) = 10^5
-
-bat_default(::Type{TransformedMCMC}, ::Val{:init}, proposal::RandomWalk, pretransform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
-    MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
-
-bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::RandomWalk, pretransform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
-    MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
 
 function _create_proposal_state(
@@ -89,15 +84,18 @@ function _full_random_walk_proposal(m::BATDistMeasure, n_dims::Integer)
     return batmeasure(_full_random_walk_proposal(d, n_dims))
 end
 
+# A user-supplied full multivariate innovation distribution would need a
+# symmetry guarantee (the random-walk acceptance assumes a symmetric
+# proposal), which can't be checked generically:
 function _full_random_walk_proposal(d::Distribution{Multivariate,Continuous}, n_dims::Integer)
-    @assert false
-    @argcheck length(d) == n_dims
-    return d
+    throw(ArgumentError(
+        "RandomWalk doesn't support full multivariate proposal distributions yet, use a univariate distribution (like Normal or TDist) that sets the shape of the per-dimension innovations"
+    ))
 end
 
 function _full_random_walk_proposal(d::Normal, n_dims::Integer)
     # Theoretical optimally proposal scale for random walk with gaussian proposal, according to
-    # [Gelman et al., Ann. Appl. Probab. 7 (1) 110 - 120, 1997](https://doi.org/10.1214/aoap/1034625254):
+    # [Roberts, Gelman & Gilks, Ann. Appl. Probab. 7 (1) 110 - 120, 1997](https://doi.org/10.1214/aoap/1034625254):
     proposal_scale = 2.38 / sqrt(n_dims)
 
     @argcheck mean(d) ≈ 0 
