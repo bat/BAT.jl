@@ -122,6 +122,36 @@ BAT.mcmc_trafo_tuning_finalize!!(f_transform::Function, tuner::_TypeChangingTraf
         drift_exact = _transform_drift(A_o, dense_of(d_n, [5.0], reshape(v_dir2, dd, 1)))
         @test isapprox(drift_approx, drift_exact, rtol = 0.25)
 
+        # Window translation invariance: the low-rank correction is a
+        # covariance property, so a window whose mean drifted away from
+        # the longer history must not produce a spurious correction
+        # direction (it would with history-mean centering):
+        d_tr = 4
+        est_tr = LowRankFisherEstimator(1.5, 0)
+        acc_tr = _new_moments(est_tr, d_tr)
+        Σ_tr = Diagonal([1.0, 2.0, 0.5, 1.5])
+        for k in 1:500
+            μ_k = k <= 460 ? zeros(d_tr) : fill(1.0, d_tr)
+            x = μ_k .+ sqrt.(diag(Σ_tr)) .* randn(rng, d_tr)
+            α = -Σ_tr \ (x .- μ_k)
+            _moments_update!(acc_tr, x, α)
+        end
+        G_tr, _ = _fisher_geometry(est_tr, acc_tr, 1e-5)
+        @test size(G_tr.B, 2) == 0
+
+        # Rank-deficient windows (repeated draws) must not create
+        # spurious correction directions:
+        acc_rd = _new_moments(est_tr, d_tr)
+        xs_rd = [sqrt.(diag(Σ_tr)) .* randn(rng, d_tr) for _ in 1:8]
+        for k in 1:200
+            x = xs_rd[mod1(k, 8)]
+            α = -Σ_tr \ x
+            _moments_update!(acc_rd, x, α)
+        end
+        G_rd, μ_rd = _fisher_geometry(est_tr, acc_rd, 1e-5)
+        @test all(isfinite, μ_rd)
+        @test size(G_rd.B, 2) == 0
+
         # AR(1)-corrected effective observation count:
         acc_ar = _new_moments(DiagonalFisherEstimator(), 2)
         acc_iid = _new_moments(DiagonalFisherEstimator(), 2)

@@ -398,8 +398,15 @@ function _fisher_geometry_lr(est::LowRankFisherEstimator, acc::_XGWindowMoments,
 
     m = acc.win_count
     λ, V = if m >= 8
-        Xc = (view(acc.X_win, :, 1:m) .- acc.mean_x) ./ dsq
-        Gc = (view(acc.G_win, :, 1:m) .- acc.mean_g) .* dsq
+        # The window is centered by its own means: centering by the
+        # longer-history means would add a mean-shift outer product to
+        # what must be a covariance estimate, turning warmup mean drift
+        # into a spurious correction direction. The longer-history means
+        # still serve the diagonal base and the translation:
+        X_w = view(acc.X_win, :, 1:m)
+        G_w = view(acc.G_win, :, 1:m)
+        Xc = (X_w .- (sum(X_w, dims = 2) ./ m)) ./ dsq
+        Gc = (G_w .- (sum(G_w, dims = 2) ./ m)) .* dsq
         Q = Matrix(qr(hcat(Xc, Gc)).Q)
         Px = Q' * Xc
         Pg = Q' * Gc
@@ -538,11 +545,15 @@ function mcmc_tune_trafo_post_step!!(
         lr_pieces = nothing
         if est isa LowRankFisherEstimator
             G, μ, lr_pieces = _fisher_geometry_lr(est, acc, tuner_state.tuning.regularization)
-            # Before the first commit the installed geometry's pieces are
-            # unknown, so the drift is measured densely once per check;
-            # afterwards the structured metric avoids dense matrices:
-            drift = isnothing(tuner_state.committed_lr) ?
-                _transform_drift(A, G) :
+            # The installed initial geometry's pieces are unknown (the
+            # transform factor is an opaque operator), and a dense drift
+            # comparison against it would defeat the estimator's
+            # high-dimensional scaling. So the first statistically
+            # eligible estimate always commits, becoming the baseline;
+            # from then on the structured drift metric decides, and
+            # nothing on the low-rank path ever materializes a dense
+            # geometry:
+            drift = isnothing(tuner_state.committed_lr) ? oftype(sched.commit_threshold, Inf) :
                 _lowrank_drift(tuner_state.committed_lr..., lr_pieces...)
         else
             G, μ = _fisher_geometry(est, acc, tuner_state.tuning.regularization)

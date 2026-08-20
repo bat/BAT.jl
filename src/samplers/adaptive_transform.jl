@@ -269,7 +269,9 @@ $(TYPEDFIELDS)
     "Transform initialization algorithm."
     init::I = PriorApproxTransformInit()
 
-    "Maximum rank of the non-diagonal correction, `0` means unlimited."
+    "Maximum rank of the non-diagonal correction, `0` means no explicit
+    cap. Note that the estimable rank is always bounded by the size of
+    the estimation window of recent draws (see `FisherTransformTuning`)."
     max_rank::Int = 0
 
     "Relative eigenvalue cutoff: only directions in which the estimated
