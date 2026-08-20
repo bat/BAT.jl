@@ -7,8 +7,6 @@ using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
 using IntervalSets
 import ForwardDiff, Zygote
 
-import AdvancedHMC
-
 @testset "HamiltonianMC" begin
     context = BATContext(ad = ForwardDiff)
     objective = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
@@ -51,7 +49,10 @@ import AdvancedHMC
         mcmc_state, samples = iterate_and_collect_samples()
 
         @test mcmc_state.chain_state.stepno == nsteps + nsteps_adapt
-        @test minimum(samples.weight) == 0
+        # Zero-weight (immediately-left) samples are retained with
+        # nonzero_weights = false, but a well-tuned NUTS chain may
+        # legitimately move away from every state, leaving none:
+        @test minimum(samples.weight) >= 0
         # @test isapprox(length(samples), nsteps, atol = 20) Hard to test with the new checked_push function avoiding duplicate samples
         @test sum(samples.weight) == nsteps
 
@@ -126,6 +127,39 @@ import AdvancedHMC
         @test BAT.test_dist_samples(unshaped(objective), samples)
     end
     
+    @testset "affine pullback valgrad" begin
+        # The analytic affine pullback wrapper must agree with generic AD
+        # through the full pullback measure (a FunctionChain takes the
+        # generic path even for an affine map):
+        import AffineMaps: MulAdd
+        import FunctionChains: fchain
+        A_pb = LinearAlgebra.LowerTriangular([1.4 0.0 0.0; 0.3 0.9 0.0; -0.2 0.1 1.7])
+        b_pb = [0.5, -1.0, 0.2]
+        f_affine = MulAdd(A_pb, b_pb)
+        x_dummy = randn(3)
+        fg_wrapper = BAT._target_logdgrad_func(target, f_affine, deepcopy(context), HamiltonianMC(), x_dummy)
+        fg_generic = BAT._target_logdgrad_func(target, fchain((f_affine,)), deepcopy(context), HamiltonianMC(), x_dummy)
+        @test fg_wrapper isa BAT._AffinePullbackValGrad
+        for _ in 1:5
+            z = randn(3)
+            logd_w, grad_w = fg_wrapper(z)
+            logd_g, grad_g = fg_generic(z)
+            @test logd_w ≈ logd_g
+            @test grad_w ≈ grad_g
+        end
+    end
+
+    @testset "invalid configurations" begin
+        # ARPWeighting is statistically invalid for NUTS: the acceptance
+        # statistic is a trajectory average, not a selection probability.
+        alg_arp = TransformedMCMC(
+            proposal = HamiltonianMC(),
+            sample_weighting = ARPWeighting(),
+            pretransform = DoNotTransform()
+        )
+        @test_throws ArgumentError BAT.MCMCState(alg_arp, target, 1, [randn(3)], deepcopy(context))
+    end
+
     @testset "bat_sample" begin
         samples = bat_sample(
             shaped_target,
@@ -171,7 +205,7 @@ import AdvancedHMC
         posterior = PosteriorMeasure(likelihood, inner_posterior)
         trafo_samplingalg = TransformedMCMC(proposal = HamiltonianMC(), 
                                             transform_tuning = BAT.StanLikeTuning(), 
-                                            pretransform = PriorToNormal(),
+                                            pretransform = NormalBased(),
                                             nwalkers = nwalkers
                                            )
         @test BAT.sample_and_verify(posterior, trafo_samplingalg, prior.dist, context).verified
