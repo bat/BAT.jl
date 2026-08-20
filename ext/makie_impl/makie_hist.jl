@@ -473,6 +473,10 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
+    # A live cell can still have zero samples, and its placeholder view is
+    # 0x0 (not 2x0) -- row indexing below would throw a BoundsError. Same
+    # guard the KDE recipes (and now Scatter2D/ChainScatter2D) use.
+    isempty(weights) && return _EMPTY_HEXBIN2D_PRIMITIVES
     (; threshold) = config
     x = marg_coords[1, :]
     y = marg_coords[2, :]

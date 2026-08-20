@@ -84,9 +84,28 @@ end
 # directly and is strictly more accurate than a prior-based estimate --
 # no need to guess. Not "the full domain plus margin" -- see the small
 # proportional margin added when this feeds into axis_limits_i.
+#
+# Non-finite values are filtered per dimension, mirroring _recompute_domain!
+# below (and for the same reason documented there at length): a completed run
+# containing a single Inf/NaN sample value would otherwise poison this
+# domain via raw minimum/maximum -- NaN propagates outright, and an Inf span
+# silently defeats the eps-based degenerate-edges guard downstream
+# (eps(Inf) is NaN) -- re-creating on the static path exactly the failure
+# class the live path was hardened against. A dimension with NO finite
+# values degrades to the same (0, 1) placeholder axis_limits_i already uses
+# before any domain exists.
 function _domain_from_samples(data::AbstractMatrix, n_dof::Integer)
-    lo = [minimum(view(data, d, :)) for d in 1:n_dof]
-    hi = [maximum(view(data, d, :)) for d in 1:n_dof]
+    lo = Vector{Float64}(undef, n_dof)
+    hi = Vector{Float64}(undef, n_dof)
+    for d in 1:n_dof
+        row = view(data, d, :)
+        finite_row = Iterators.filter(isfinite, row)
+        if isempty(finite_row)
+            lo[d], hi[d] = 0.0, 1.0
+        else
+            lo[d], hi[d] = extrema(finite_row)
+        end
+    end
     return lo, hi
 end
 

@@ -103,13 +103,23 @@ function BAT.init_visualizer!(
     # buffered regardless of threshold, used once for the final drain below so
     # the last partial batch isn't silently dropped when is_live[] flips false.
     function flush_buffer!(; force::Bool=false)
-        lock(buffer_lock)
-        update_graph = force ? n_buffer_samples[] > 0 : n_buffer_samples[] >= effective_batch_size[]
-        if update_graph
+        # lock(...) do -- exception-safe by construction (try/finally inside),
+        # replacing a bare lock/unlock pair: anything throwing in this
+        # critical section previously left buffer_lock held FOREVER. The
+        # listener's own per-tick catch swallows the exception but cannot
+        # release a lock acquired deeper in the call stack, so every sampling
+        # thread (and the listener's own next tick) would then deadlock on
+        # lock(buffer_lock) -- the same silent-freeze-then-OOM failure mode
+        # already documented and try/finally-hardened in
+        # update_visualizer_impl! below, just via this other code path.
+        # Returns the drained buffer contents, or nothing if no flush was due.
+        extracted_output_buffer = lock(buffer_lock) do
+            update_graph = force ? n_buffer_samples[] > 0 : n_buffer_samples[] >= effective_batch_size[]
+            update_graph || return nothing
             # Shallow copy: output_buffer's slots get replaced (not mutated)
             # below, so the extracted inner vectors are never touched again --
             # no need to deep-copy the actual sample data out of them.
-            extracted_output_buffer = copy(output_buffer)
+            extracted = copy(output_buffer)
             output_buffer .= _empty_chain_outputs.(mcmc_states)
             n_buffer_samples[] = 0
             # Geometric growth (not on the forced final drain -- there's no
@@ -124,35 +134,35 @@ function BAT.init_visualizer!(
             # update_visualizer_impl! -- notify while still holding buffer_lock,
             # matching Threads.Condition's contract.
             notify(buffer_cond, all=true)
+            return extracted
         end
-        unlock(buffer_lock)
 
-        if update_graph
-            fresh_batch_trafo = _transform_chain_outputs(f_pretransform, extracted_output_buffer)
+        isnothing(extracted_output_buffer) && return nothing
 
-            samples = graph[:samples][]
-            samples_new = _append_chain_outputs(mcmc_states[1], samples, fresh_batch_trafo)
+        fresh_batch_trafo = _transform_chain_outputs(f_pretransform, extracted_output_buffer)
 
-            update!(graph, samples=samples_new)
+        samples = graph[:samples][]
+        samples_new = _append_chain_outputs(mcmc_states[1], samples, fresh_batch_trafo)
 
-            # Derived from the actual merged length (not the raw batch length):
-            # checked_push! inside _append_chain_outputs can collapse a sample at
-            # the batch boundary into a weight increment instead of a new row.
-            current_idxs_new = [length.(chain_samples) for chain_samples in samples_new]
-            update!(graph, current_idxs=current_idxs_new)
+        update!(graph, samples=samples_new)
 
-            # Deliberately flattens samples_new (the full accumulated dataset)
-            # rather than just fresh_batch_trafo (this batch alone) -- see
-            # _recompute_domain!'s docs for why a full recompute every flush
-            # was chosen over a cheaper incremental version.
-            all_flat_views = Any[]
-            for chain_all in samples_new
-                for walker_all in chain_all
-                    push!(all_flat_views, walker_all)
-                end
+        # Derived from the actual merged length (not the raw batch length):
+        # checked_push! inside _append_chain_outputs can collapse a sample at
+        # the batch boundary into a weight increment instead of a new row.
+        current_idxs_new = [length.(chain_samples) for chain_samples in samples_new]
+        update!(graph, current_idxs=current_idxs_new)
+
+        # Deliberately flattens samples_new (the full accumulated dataset)
+        # rather than just fresh_batch_trafo (this batch alone) -- see
+        # _recompute_domain!'s docs for why a full recompute every flush
+        # was chosen over a cheaper incremental version.
+        all_flat_views = Any[]
+        for chain_all in samples_new
+            for walker_all in chain_all
+                push!(all_flat_views, walker_all)
             end
-            _recompute_domain!(graph, vcat(all_flat_views...), domain_lo, domain_hi)
         end
+        _recompute_domain!(graph, vcat(all_flat_views...), domain_lo, domain_hi)
         return nothing
     end
 
