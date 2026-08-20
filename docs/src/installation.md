@@ -43,7 +43,7 @@ julia> pkg"add BAT ArraysOfArrays Distributions ElasticArrays IntervalSets Param
 In addition, these packages will need to be installed and loaded (`using PackageName` or `import PackageName`) to enable some optional BAT algorithms/functionalities:
 
 ```
-julia> pkg"add AutoDiffOperators AdvancedHMC Cuba Folds HDF5 NestedSamplers Optim"
+julia> pkg"add AutoDiffOperators Cuba Folds HDF5 NestedSamplers Optim"
 ```
 
 To install the latest development version of BAT (main branch) instead of the latest stable release, use
