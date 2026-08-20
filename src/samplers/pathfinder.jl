@@ -205,8 +205,27 @@ function _lbfgs_inverse_hessian(α::AbstractVector, S0::AbstractMatrix, Y0::Abst
     return (α = copy(α), B = B, D = D)
 end
 
+# One curvature-pair update of the L-BFGS ring buffers and the diagonal
+# estimate, returns the updated (α, history_ind, history_length_effective):
+function _lbfgs_curvature_update!(
+    S::AbstractMatrix, Y::AbstractMatrix, α::AbstractVector,
+    history_ind::Integer, history_length_effective::Integer,
+    s::AbstractVector, y::AbstractVector, history_length::Integer, ϵ::Real
+)
+    if dot(y, s) > ϵ * sum(abs2, y)  # positive curvature, safe to update
+        history_ind = mod1(history_ind + 1, history_length)
+        history_length_effective = max(history_ind, history_length_effective)
+        S[:, history_ind] .= s
+        Y[:, history_ind] .= y
+        α = _gilbert_init(α, s, y)
+    end
+    return α, history_ind, history_length_effective
+end
+
 # Inverse-Hessian estimates along an L-BFGS trajectory of positions θs with
-# log-density gradients ∇logpθs:
+# log-density gradients ∇logpθs. Materializes all estimates at once - the
+# streaming fit below walks the trajectory with a single live estimate
+# instead:
 function _lbfgs_inverse_hessians(
     θs::AbstractVector{<:AbstractVector}, ∇logpθs::AbstractVector{<:AbstractVector};
     history_length::Integer = 6, ϵ::Real = 1e-12
@@ -229,13 +248,8 @@ function _lbfgs_inverse_hessians(
         θlp1, ∇logpθlp1 = θs[l + 1], ∇logpθs[l + 1]
         s .= θlp1 .- θ
         y .= ∇logpθ .- ∇logpθlp1
-        if dot(y, s) > ϵ * sum(abs2, y)  # positive curvature, safe to update
-            history_ind = mod1(history_ind + 1, history_length)
-            history_length_effective = max(history_ind, history_length_effective)
-            S[1:n, history_ind] .= s
-            Y[1:n, history_ind] .= y
-            α = _gilbert_init(α, s, y)
-        end
+        α, history_ind, history_length_effective =
+            _lbfgs_curvature_update!(S, Y, α, history_ind, history_length_effective, s, y, history_length, ϵ)
         θ, ∇logpθ = θlp1, ∇logpθlp1
         push!(Hs, _lbfgs_inverse_hessian(α, S, Y, history_ind, history_length_effective))
     end
@@ -276,33 +290,49 @@ function pathfinder_gaussian_fit(
 
     # A path with no accepted L-BFGS step carries no curvature information;
     # its only candidate would be the arbitrary initial inverse-Hessian
-    # estimate (see below), so the path fails instead:
+    # estimate, so the path fails instead:
     length(xs) > 1 || return nothing
-
-    Hs = _lbfgs_inverse_hessians(xs, grads, history_length = history_length)
 
     T = eltype(first(xs))
     n = length(first(xs))
+    L = length(xs) - 1
+
+    # The inverse-Hessian candidates are streamed along the trajectory:
+    # only the current candidate and the running best are live
+    # (materializing all L candidates at once would need O(L n history)
+    # memory). The initial estimate H₀ = I carries no curvature
+    # information from the path and never enters the ELBO competition
+    # (reference Pathfinder excludes it as well):
+    history_ind = 0
+    history_length_effective = 0
+    s = similar(xs[1])
+    y = similar(xs[1])
+    S = similar(s, n, min(history_length, L))
+    Y = similar(y, n, min(history_length, L))
+    α = fill!(similar(xs[1]), true)
+
     best_elbo = T(-Inf)
     best = nothing
 
-    # The first entry of Hs is the initial estimate H₀ = I, which contains
-    # no curvature information from the path and must never win the ELBO
-    # competition (reference Pathfinder excludes it as well):
-    for l in Iterators.drop(eachindex(Hs), 1)
-        (; α, B, D) = Hs[l]
+    for l in 1:L
+        s .= xs[l + 1] .- xs[l]
+        y .= grads[l] .- grads[l + 1]
+        α, history_ind, history_length_effective =
+            _lbfgs_curvature_update!(S, Y, α, history_ind, history_length_effective, s, y, history_length, 1e-12)
+        Hl = _lbfgs_inverse_hessian(α, S, Y, history_ind, history_length_effective)
+
         # The inverse-Hessian estimate as a Woodbury-structured operator
         # (D is symmetric by construction, up to rounding); its stable
         # "square root" factorization (Zhang et al. 2022, appendix A)
         # comes with a structural log-determinant:
-        H = woodbury_operator(Diagonal(α), B, Symmetric(D))
+        H = woodbury_operator(Diagonal(Hl.α), Hl.B, Symmetric(Hl.D))
         F = try
             rowgram_factor(H)
         catch err
             err isa PosDefException || rethrow()
             continue
         end
-        μ = xs[l] .+ H * grads[l]
+        μ = xs[l + 1] .+ H * grads[l + 1]
         all(isfinite, μ) || continue
 
         Z = randn(rng, T, n, ndraws_elbo)
@@ -318,7 +348,7 @@ function pathfinder_gaussian_fit(
 
         if elbo > best_elbo
             best_elbo = elbo
-            best = (μ = μ, α = α, B = B, D = D)
+            best = (μ = μ, α = Hl.α, B = Hl.B, D = Hl.D)
         end
     end
 
