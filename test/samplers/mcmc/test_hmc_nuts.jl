@@ -71,6 +71,12 @@ using BAT: HMCPhasePoint, _hmc_phasepoint, _leapfrog_step, _logaddexp,
         eps_multi = hmc_find_good_stepsize(StableRNG(12345), f_funnel, [q_wide, q_narrow])
         @test 0 < eps_multi < eps_wide
 
+        # The capped probes are spread across the whole walker collection,
+        # so a stiff walker placed last among many is still seen:
+        qs_late_stiff = vcat([q_wide .+ 0.1 .* randn(StableRNG(7), 2) for _ in 1:15], [q_narrow])
+        eps_late = hmc_find_good_stepsize(StableRNG(12345), f_funnel, qs_late_stiff)
+        @test 0 < eps_late < eps_wide
+
         # Large walker ensembles are handled (probing is capped):
         eps_many = hmc_find_good_stepsize(rng, f_logdgrad, [randn(rng, 3) for _ in 1:30])
         @test 0.05 < eps_many < 5
