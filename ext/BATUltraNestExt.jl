@@ -18,11 +18,13 @@ using DensityInterface, InverseFunctions, ValueShapes
 import Measurements
 
 
-function BAT.bat_sample_impl(m::BATMeasure, algorithm::ReactiveNestedSampling, context::BATContext)
-    transformed_m, f_pretransform = transform_and_unshape(algorithm.pretransform, m, context)
+function BAT.evalmeasure_impl(em::BAT.EvaluatedMeasure, algorithm::ReactiveNestedSampling, context::BATContext)
+    transformed_m, f_pretransform = transform_and_unshape(algorithm.pretransform, em, context)
+    transformed_m_uneval = unevaluated(transformed_m)
+    n_dof = BAT.some_dof(transformed_m)
 
-    if !BAT.has_uhc_support(transformed_m)
-        throw(ArgumentError("$algorithm doesn't measures that are not limited to the unit hypercube"))
+    if !BAT.has_uhc_support(transformed_m_uneval)
+        throw(ArgumentError("$algorithm doesn't support measures that are not limited to the unit hypercube"))
     end
 
     LogDType = Float64
@@ -33,10 +35,10 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::ReactiveNestedSampling, c
         V = convert(Matrix{eltype(V_rowwise)}, V_rowwise')
         logd = similar(V, LogDType, size(V, 2))
         V_nested = nestedview(V)
-        numpy.asarray(exec_map!(logdensityof(transformed_m), algorithm.executor, logd, V_nested))
+        numpy.asarray(exec_map!(logdensityof(transformed_m_uneval), algorithm.executor, logd, V_nested))
     end
 
-    paramnames = all_active_names(varshape(m))
+    paramnames = all_active_names(varshape(em))
 
     ch = Channel()
     function run_sampler()
@@ -85,26 +87,37 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::ReactiveNestedSampling, c
     v_trafo_us = nestedview(convert(Matrix{Float64}, pyconvert(Matrix{Float64}, unest_wsamples["points"])'))
     logvals_trafo = pyconvert(Vector{Float64}, unest_wsamples["logl"])
     weight = pyconvert(Vector{Float64}, unest_wsamples["weights"])
-    transformed_smpls = DensitySampleVector(v_trafo_us, logvals_trafo, weight = weight)
+    transformed_smpls = DensitySampleVector(v = v_trafo_us, logd = logvals_trafo, weight = weight)
     smpls = inverse(f_pretransform).(transformed_smpls)
 
     uwv_trafo_us = nestedview(convert(Matrix{Float64}, pyconvert(Matrix{Float64}, unest_result["samples"])'))
-    uwlogvals_trafo = map(logdensityof(transformed_m), uwv_trafo_us)
-    uwtransformed_smpls = DensitySampleVector(uwv_trafo_us, uwlogvals_trafo)
+    uwlogvals_trafo = map(logdensityof(transformed_m_uneval), uwv_trafo_us)
+    uwtransformed_smpls = DensitySampleVector(v = uwv_trafo_us, logd = uwlogvals_trafo)
     uwsmpls = inverse(f_pretransform).(uwtransformed_smpls)
 
-    # Python floats carry Float64 precision, but keep the BigFloat result type:
-    logz = convert(BigFloat, pyconvert(Float64, unest_result["logz"]))
-    logzerr = convert(BigFloat, pyconvert(Float64, unest_result["logzerr"]))
-    logintegral = Measurements.measurement(logz, logzerr)
+    logz = pyconvert(Float64, unest_result["logz"])
+    logzerr = pyconvert(Float64, unest_result["logzerr"])
+    mass = exp(BAT.ULogarithmic, Measurements.measurement(logz, logzerr))
 
     ess = pyconvert(Float64, unest_result["ess"])
 
-    return (
-        result = smpls, result_trafo = transformed_smpls, f_pretransform = f_pretransform,
+    evalresult = (
         uwresult = uwsmpls, uwresult_trafo = uwtransformed_smpls,
-        logintegral = logintegral, ess = ess,
-        info = pyconvert(Dict{String,Any}, unest_result)
+        ultranest_result = pyconvert(Dict{String,Any}, unest_result)
+    )
+
+    dsm = BAT.DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
+
+    return BAT.EvaluatedMeasure(em;
+        transform_intent = algorithm.pretransform,
+        f_transform = BAT._viewrep_f(f_pretransform, algorithm.pretransform),
+        empirical = BAT._viewrep_empirical(dsm, transformed_smpls, f_pretransform, algorithm.pretransform, n_dof, ess),
+        dof = n_dof,
+        mass = mass,
+        # ToDo:
+        # modes = ...,
+        transformed = BAT._viewrep_measure(transformed_m, algorithm.pretransform),
+        evalinfo = BAT.MeasureEvalInfo(algorithm, evalresult)
     )
 end
 

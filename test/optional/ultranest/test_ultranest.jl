@@ -5,6 +5,7 @@ using Test
 
 using Random, StatsBase, Distributions
 using DensityInterface
+using MeasureBase: massof
 
 import UltraNest
 
@@ -41,15 +42,23 @@ import UltraNest
     smpls = r.result
     @test logdensityof(posterior).(smpls.v) ≈ smpls.logd
 
-    uwsmpls = r.uwresult
+    em = r.evaluated
+    @test em isa EvaluatedMeasure
+    @test BAT.validate_evalmeasure(em, context = context) === em
+
+    # The equal-weight sample variant is algorithm-specific and lives in
+    # the evaluation info:
+    uwsmpls = BAT.evalinfo(em).result.uwresult
     @test logdensityof(posterior).(uwsmpls.v) ≈ uwsmpls.logd
     @test all(isequal(1), uwsmpls.weight)
 
     logz_expected = -log(prod(maximum.(prior.v) .- minimum.(prior.v)))
-    @test isapprox(r.logintegral.val, logz_expected, atol = 10 * r.logintegral.err)
+    logmass = log(massof(em))
+    @test isapprox(logmass.val, logz_expected, atol = 10 * logmass.err)
 
     # Ultranest uses Kish's ESS estimator:
-    @test r.ess ≈ bat_eff_sample_size(r.result, KishESS(), context).result
+    ess = BAT.getess(BAT.empiricalof(em))
+    @test ess ≈ bat_eff_sample_size(r.result, KishESS(), context).result
 
-    @test r.ess > 50
+    @test ess > 50
 end

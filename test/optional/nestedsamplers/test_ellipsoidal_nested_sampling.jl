@@ -4,6 +4,7 @@ using BAT
 using Test
 
 using Random, StatsBase, Distributions, DensityInterface, ValueShapes
+using MeasureBase: massof
 using HypothesisTests
 
 import NestedSamplers
@@ -24,14 +25,21 @@ import NestedSamplers
 
     posterior = PosteriorMeasure(likelihood, prior)
     algorithm = EllipsoidalNestedSampling(max_ncalls = 10^5)
-    r = BAT.sample_and_verify(posterior, algorithm, dist)
+    # Nested-sampling output is importance-weighted, so the sample
+    # comparison must use Kish's ESS, not the autocorrelation-based one:
+    r = BAT.sample_and_verify(posterior, algorithm, dist, essalg = KishESS())
     @test r.verified
 
     smpls = r.result
     @test logdensityof(posterior).(smpls.v) ≈ smpls.logd
 
-    logz_expected = -log(prod(maximum.(prior.a.v) .- minimum.(prior.a.v)))
-    @test isapprox(r.logintegral.val, logz_expected, atol = 100 * r.logintegral.err)
+    em = r.evaluated
+    @test em isa EvaluatedMeasure
+    @test BAT.validate_evalmeasure(em) === em
 
-    @test r.ess > 50
+    logz_expected = -log(prod(maximum.(prior.a.v) .- minimum.(prior.a.v)))
+    logintegral = log(massof(em))
+    @test isapprox(logintegral.val, logz_expected, atol = 100 * logintegral.err)
+
+    @test BAT.getess(BAT.empiricalof(em)) > 50
 end
