@@ -92,6 +92,47 @@ BAT.mcmc_trafo_tuning_finalize!!(f_transform::Function, tuner::_TypeChangingTraf
         # A pure rescaling G -> c² G has drift |log(c²)| √d:
         c2 = 4.0
         @test _transform_drift(A, Symmetric(c2 * Matrix(G))) ≈ log(c2) * sqrt(d)
+
+        # Structured drift between diagonal-plus-low-rank geometries:
+        dd = 6
+        d_o = collect(range(0.5, 2.0, length = dd))
+        v_dir = normalize(randn(rng, dd))
+        λ_o, V_o = [4.0], reshape(v_dir, dd, 1)
+        dense_of(dv, λ, V) = begin
+            dsq = sqrt.(dv)
+            Symmetric(Diagonal(dv) + (dsq .* V) * Diagonal(λ .- 1) * (dsq .* V)')
+        end
+        G_o = dense_of(d_o, λ_o, V_o)
+        A_o = LowerTriangular(Matrix(cholesky(G_o).L))
+
+        # Unchanged geometry has zero drift:
+        @test BAT._lowrank_drift(d_o, λ_o, V_o, d_o, λ_o, V_o) < 1e-8
+        # Pure correction change (same diagonal) is exact:
+        λ_n1 = [7.0]
+        @test BAT._lowrank_drift(d_o, λ_o, V_o, d_o, λ_n1, V_o) ≈
+            _transform_drift(A_o, dense_of(d_o, λ_n1, V_o)) atol = 1e-8
+        # Pure diagonal change without corrections is exact:
+        d_n = d_o .* range(1.5, 3.0, length = dd)
+        e0 = zeros(dd, 0)
+        @test BAT._lowrank_drift(d_o, Float64[], e0, d_n, Float64[], e0) ≈
+            _transform_drift(LowerTriangular(Matrix(cholesky(Symmetric(Matrix(Diagonal(d_o)))).L)), Symmetric(Matrix(Diagonal(d_n)))) atol = 1e-8
+        # Mixed changes are approximate but close to the dense metric:
+        v_dir2 = normalize(randn(rng, dd))
+        drift_approx = BAT._lowrank_drift(d_o, λ_o, V_o, d_n, [5.0], reshape(v_dir2, dd, 1))
+        drift_exact = _transform_drift(A_o, dense_of(d_n, [5.0], reshape(v_dir2, dd, 1)))
+        @test isapprox(drift_approx, drift_exact, rtol = 0.25)
+
+        # AR(1)-corrected effective observation count:
+        acc_ar = _new_moments(DiagonalFisherEstimator(), 2)
+        acc_iid = _new_moments(DiagonalFisherEstimator(), 2)
+        x_ar = zeros(2)
+        for _ in 1:5000
+            x_ar = 0.9 .* x_ar .+ randn(rng, 2)
+            _moments_update!(acc_ar, x_ar, randn(rng, 2))
+            _moments_update!(acc_iid, randn(rng, 2), randn(rng, 2))
+        end
+        @test BAT._effective_nobs(acc_ar) < 0.15 * acc_ar.n
+        @test BAT._effective_nobs(acc_iid) > 0.8 * acc_iid.n
     end
 
     @testset "low-rank geometry recovery" begin

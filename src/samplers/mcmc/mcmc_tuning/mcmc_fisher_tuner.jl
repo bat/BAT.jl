@@ -13,7 +13,17 @@ struct DiagonalFisherEstimator end
 struct LowRankFisherEstimator
     cutoff::Float64
     max_rank::Int
+    window::Int
 end
+
+# Window of recent draws the low-rank correction is estimated from (the
+# diagonal base uses the full foreground-background history). The window
+# bounds the estimation memory and fitting cost to O(n_dims * window) and
+# the estimable correction rank to 2 * window:
+_lowrank_window(max_rank::Integer) = clamp(4 * max(max_rank, 8), 32, 128)
+
+LowRankFisherEstimator(cutoff::Real, max_rank::Integer) =
+    LowRankFisherEstimator(cutoff, max_rank, _lowrank_window(max_rank))
 
 _fisher_estimator(at::AbstractAdaptiveTransform) = throw(ArgumentError(
     "FisherTransformTuning requires an affine structure adaptive transform (like TriangularAffineTransform, DiagonalAffineTransform or LowRankAffineTransform), got $(nameof(typeof(at)))"
@@ -115,23 +125,76 @@ end
 export FisherTransformTuning
 
 
+abstract type _AbstractXGMoments end
+
+# Streaming lag-1 autocovariance of the position observations (diagonal
+# only). Interleaved walker observations are handled by striding, so
+# lag-1 refers to consecutive draws of the same walker. Provides the
+# effective observation count for the drift noise floor:
+mutable struct _Lag1Stats
+    stride::Int
+    n1::Int
+    filled::Int
+    ptr::Int
+    prev::Matrix{Float64}
+    cross1::Vector{Float64}
+end
+
+_Lag1Stats(n_dims::Integer, stride::Integer) =
+    _Lag1Stats(max(stride, 1), 0, 0, 0, zeros(n_dims, max(stride, 1)), zeros(n_dims))
+
+function _lag1_update!(l1::_Lag1Stats, x::AbstractVector{<:Real})
+    ptr = mod1(l1.ptr + 1, l1.stride)
+    l1.ptr = ptr
+    if l1.filled >= l1.stride
+        l1.cross1 .+= x .* view(l1.prev, :, ptr)
+        l1.n1 += 1
+    else
+        l1.filled += 1
+    end
+    l1.prev[:, ptr] .= x
+    return l1
+end
+
 # Welford accumulator for the means and (co)variances of positions x and
 # scores α, dense (M2 matrices) or diagonal (M2 vectors):
-mutable struct _XGMoments{M<:Union{Vector{Float64},Matrix{Float64}}}
+mutable struct _XGMoments{M<:Union{Vector{Float64},Matrix{Float64}}} <: _AbstractXGMoments
     n::Int
     mean_x::Vector{Float64}
     mean_g::Vector{Float64}
     M2_x::M
     M2_g::M
+    lag1::_Lag1Stats
 end
 
-_new_moments(::DenseFisherEstimator, n_dims::Integer) =
-    _XGMoments(0, zeros(n_dims), zeros(n_dims), zeros(n_dims, n_dims), zeros(n_dims, n_dims))
+_new_moments(::DenseFisherEstimator, n_dims::Integer, stride::Integer = 1) =
+    _XGMoments(0, zeros(n_dims), zeros(n_dims), zeros(n_dims, n_dims), zeros(n_dims, n_dims), _Lag1Stats(n_dims, stride))
 
-_new_moments(::DiagonalFisherEstimator, n_dims::Integer) =
-    _XGMoments(0, zeros(n_dims), zeros(n_dims), zeros(n_dims), zeros(n_dims))
+_new_moments(::DiagonalFisherEstimator, n_dims::Integer, stride::Integer = 1) =
+    _XGMoments(0, zeros(n_dims), zeros(n_dims), zeros(n_dims), zeros(n_dims), _Lag1Stats(n_dims, stride))
 
-_new_moments(::LowRankFisherEstimator, n_dims::Integer) = _new_moments(DenseFisherEstimator(), n_dims)
+# Diagonal Welford moments plus a bounded ring window of recent raw draws
+# that the low-rank correction is estimated from - O(n_dims * window)
+# memory, no dense moment matrices:
+mutable struct _XGWindowMoments <: _AbstractXGMoments
+    n::Int
+    mean_x::Vector{Float64}
+    mean_g::Vector{Float64}
+    var_x::Vector{Float64}
+    var_g::Vector{Float64}
+    X_win::Matrix{Float64}
+    G_win::Matrix{Float64}
+    win_ptr::Int
+    win_count::Int
+    lag1::_Lag1Stats
+end
+
+_new_moments(est::LowRankFisherEstimator, n_dims::Integer, stride::Integer = 1) =
+    _XGWindowMoments(
+        0, zeros(n_dims), zeros(n_dims), zeros(n_dims), zeros(n_dims),
+        zeros(n_dims, est.window), zeros(n_dims, est.window), 0, 0,
+        _Lag1Stats(n_dims, stride)
+    )
 
 _m2_update!(M2::Matrix{Float64}, d_pre, d_post) = (M2 .+= d_pre .* d_post')
 _m2_update!(M2::Vector{Float64}, d_pre, d_post) = (M2 .+= d_pre .* d_post)
@@ -144,11 +207,46 @@ function _moments_update!(acc::_XGMoments, x::AbstractVector{<:Real}, g::Abstrac
     dg_pre = g .- acc.mean_g
     acc.mean_g .+= dg_pre ./ n
     _m2_update!(acc.M2_g, dg_pre, g .- acc.mean_g)
+    _lag1_update!(acc.lag1, x)
     return acc
 end
 
+function _moments_update!(acc::_XGWindowMoments, x::AbstractVector{<:Real}, g::AbstractVector{<:Real})
+    n = (acc.n += 1)
+    dx_pre = x .- acc.mean_x
+    acc.mean_x .+= dx_pre ./ n
+    _m2_update!(acc.var_x, dx_pre, x .- acc.mean_x)
+    dg_pre = g .- acc.mean_g
+    acc.mean_g .+= dg_pre ./ n
+    _m2_update!(acc.var_g, dg_pre, g .- acc.mean_g)
+    ptr = mod1(acc.win_ptr + 1, size(acc.X_win, 2))
+    acc.win_ptr = ptr
+    acc.win_count = min(acc.win_count + 1, size(acc.X_win, 2))
+    acc.X_win[:, ptr] .= x
+    acc.G_win[:, ptr] .= g
+    _lag1_update!(acc.lag1, x)
+    return acc
+end
 
-mutable struct FisherTrafoTunerState{TU<:FisherTransformTuning,E,MO<:_XGMoments} <: MCMCTransformTunerState
+_diag_var_raw(acc::_XGMoments{Vector{Float64}}) = acc.M2_x ./ max(acc.n - 1, 1)
+_diag_var_raw(acc::_XGMoments{Matrix{Float64}}) = diag(acc.M2_x) ./ max(acc.n - 1, 1)
+_diag_var_raw(acc::_XGWindowMoments) = acc.var_x ./ max(acc.n - 1, 1)
+
+# First-order (AR(1)) effective observation count: raw counts overstate
+# the information in autocorrelated warmup draws, which would shrink the
+# drift noise floor too fast and trigger spurious geometry commits:
+function _effective_nobs(acc::_AbstractXGMoments)
+    l1 = acc.lag1
+    l1.n1 >= 10 || return float(acc.n)
+    var_raw = _diag_var_raw(acc)
+    c1 = l1.cross1 ./ l1.n1 .- acc.mean_x .^ 2
+    ρs = c1 ./ max.(var_raw, floatmin(Float64))
+    ρ = clamp(sum(ρs) / length(ρs), 0.0, 0.99)
+    return acc.n * (1 - ρ) / (1 + ρ)
+end
+
+
+mutable struct FisherTrafoTunerState{TU<:FisherTransformTuning,E,MO<:_AbstractXGMoments} <: MCMCTransformTunerState
     tuning::TU
     estimator::E
     n_dims::Int
@@ -163,6 +261,10 @@ mutable struct FisherTrafoTunerState{TU<:FisherTransformTuning,E,MO<:_XGMoments}
     # contaminated early draws:
     acc_a::MO
     acc_b::MO
+    # Pieces (dvec, λ, V) of the last committed low-rank geometry, for the
+    # structured drift metric (nothing before the first commit, and for
+    # the dense and diagonal estimators):
+    committed_lr::Union{Nothing,Tuple{Vector{Float64},Vector{Float64},Matrix{Float64}}}
 end
 
 # Whether a proposal provides z-space log-density gradients in its
@@ -200,11 +302,13 @@ function _create_fisher_tuner_state(tuning::FisherTransformTuning, chain_state::
         "FisherTransformTuning requires an affine adaptive space transformation (like TriangularAffineTransform)"
     ))
     n_dims = length(first(chain_state.current.x.v))
+    n_walkers = nwalkers(chain_state)
     memory_length = sched.memory_length > 0 ? sched.memory_length : max(100, 4 * n_dims)
     min_observations = sched.min_observations > 0 ? sched.min_observations : max(20, 2 * n_dims)
     FisherTrafoTunerState(
         tuning, estimator, n_dims, memory_length, min_observations, 0,
-        _new_moments(estimator, n_dims), _new_moments(estimator, n_dims)
+        _new_moments(estimator, n_dims, n_walkers), _new_moments(estimator, n_dims, n_walkers),
+        nothing
     )
 end
 
@@ -270,37 +374,55 @@ function _spd_riccati_solve(C_x::Symmetric, C_g::Symmetric)
     return Symmetric(S_isqrt * M_sqrt * S_isqrt)
 end
 
-# The low-rank geometry: a diagonal base plus an eigenvalue-thresholded
-# correction along the directions where the diagonal alone is
-# insufficient. Fitting only these few directions regularizes the
-# estimate compared to a full dense geometry:
-function _fisher_geometry(est::LowRankFisherEstimator, acc::_XGMoments, γ::Real)
+# The projected low-rank geometry: a diagonal base from the full moment
+# history plus an eigenvalue-thresholded correction fitted in the joint
+# thin subspace spanned by the recent standardized position and score
+# window (Seyboldt et al. 2026). The window samples span the subspace
+# exactly, so the Fisher problem restricted to it is exact for the window
+# and the identity geometry is kept outside it - no dense moments and no
+# dense solves, everything is O(n_dims * window) plus small-matrix work.
+# Returns the geometry, the Fisher-optimal translation and the pieces
+# (dvec, λ, V) of the committed representation (for the structured drift):
+function _fisher_geometry_lr(est::LowRankFisherEstimator, acc::_XGWindowMoments, γ::Real)
     n = acc.n
-    C_x_raw = Symmetric(acc.M2_x ./ (n - 1))
-    C_g_raw = Symmetric(acc.M2_g ./ (n - 1))
-    C_x = Symmetric(C_x_raw + _rel_regularization(γ, C_x_raw) * I)
-    C_g = Symmetric(C_g_raw + _rel_regularization(γ, C_g_raw) * I)
+    var_x_raw = acc.var_x ./ (n - 1)
+    var_g_raw = acc.var_g ./ (n - 1)
+    var_x = var_x_raw .+ _rel_regularization(γ, var_x_raw)
+    var_g = var_g_raw .+ _rel_regularization(γ, var_g_raw)
 
     # Diagonal base fit and standardization (scores transform inversely
     # to positions under x̃ = D^{-1/2} x):
-    dvec = sqrt.(diag(C_x) ./ diag(C_g))
+    dvec = sqrt.(var_x ./ var_g)
     dsq = sqrt.(dvec)
-    Ct_x = Symmetric(C_x ./ (dsq .* dsq'))
-    Ct_g = Symmetric(C_g .* (dsq .* dsq'))
 
-    Gt = _spd_riccati_solve(Ct_x, Ct_g)
-    E = eigen(Symmetric(Matrix(Gt)))
-    λ, V = E.values, E.vectors
-    keep = findall(l -> l > est.cutoff || l < inv(est.cutoff), λ)
-    if est.max_rank > 0 && length(keep) > est.max_rank
-        keep = keep[sortperm(abs.(log.(λ[keep])), rev = true)[1:est.max_rank]]
+    m = acc.win_count
+    λ, V = if m >= 8
+        Xc = (view(acc.X_win, :, 1:m) .- acc.mean_x) ./ dsq
+        Gc = (view(acc.G_win, :, 1:m) .- acc.mean_g) .* dsq
+        Q = Matrix(qr(hcat(Xc, Gc)).Q)
+        Px = Q' * Xc
+        Pg = Q' * Gc
+        Cx_q_raw = Symmetric(Px * Px' ./ (m - 1))
+        Cg_q_raw = Symmetric(Pg * Pg' ./ (m - 1))
+        Cx_q = Symmetric(Cx_q_raw + _rel_regularization(γ, Cx_q_raw) * I)
+        Cg_q = Symmetric(Cg_q_raw + _rel_regularization(γ, Cg_q_raw) * I)
+        Mq = _spd_riccati_solve(Cx_q, Cg_q)
+        E = eigen(Symmetric(Matrix(Mq)))
+        E.values, Q * E.vectors
+    else
+        # Not enough window data for a meaningful correction yet:
+        Float64[], zeros(length(dvec), 0)
     end
 
     # G = D^{1/2} (I + V_S (Λ_S - I) V_Sᵀ) D^{1/2} = D + W S Wᵀ:
-    W = (dsq .* V[:, keep]) .* sqrt.(abs.(λ[keep] .- 1))'
-    S = Symmetric(Matrix(Diagonal(sign.(λ[keep] .- 1))))
+    W, S, λ_kept, V_kept = _lowrank_correction(dsq, λ, V, est.cutoff, est.max_rank)
     G = woodbury_operator(Diagonal(dvec), W, S)
     μ = acc.mean_x .+ G * acc.mean_g
+    return G, μ, (dvec, λ_kept, V_kept)
+end
+
+function _fisher_geometry(est::LowRankFisherEstimator, acc::_XGWindowMoments, γ::Real)
+    G, μ, _ = _fisher_geometry_lr(est, acc, γ)
     return G, μ
 end
 
@@ -326,10 +448,49 @@ function _transform_drift(A, G)
     return sqrt(sum(x -> abs2(log(max(x, tiny))), λ))
 end
 
+# Approximate affine-invariant drift between two diagonal-plus-low-rank
+# geometries G = D^{1/2} (I + V (Λ - I) Vᵀ) D^{1/2}, without materializing
+# dense matrices: the geometry pencil is evaluated exactly within the
+# joint correction span (both corrections live there), and by the pure
+# diagonal ratios on its complement (both geometries act diagonally
+# there); the in-span diagonal-only contribution is subtracted to avoid
+# double counting. Exact for pure diagonal changes and for pure
+# correction changes; approximate when both interact:
+function _lowrank_drift(
+    d_o::AbstractVector, λ_o::AbstractVector, V_o::AbstractMatrix,
+    d_n::AbstractVector, λ_n::AbstractVector, V_n::AbstractMatrix
+)
+    tiny = floatmin(Float64)
+    r = d_n ./ d_o
+    drift2 = sum(x -> abs2(log(max(x, tiny))), r)
+    isempty(λ_o) && isempty(λ_n) && return sqrt(drift2)
+
+    # Everything in the D_o-standardized frame, where the new correction
+    # directions transport as v -> R v with R = Diagonal(sqrt.(d_n ./ d_o)):
+    Rd = sqrt.(r)
+    U = Matrix(qr(hcat(Rd .* V_n, V_o)).Q)
+    q = size(U, 2)
+
+    UtVo = U' * V_o
+    B = Symmetric(Matrix(1.0 * I, q, q) + UtVo * Diagonal(λ_o .- 1) * UtVo')
+    RU = Rd .* U
+    RUtVn = RU' * V_n
+    C = Symmetric(RU' * RU + RUtVn * Diagonal(λ_n .- 1) * RUtVn')
+    σ = eigvals(C, B)
+    drift2 += sum(x -> abs2(log(max(x, tiny))), σ)
+
+    # In-span diagonal-only contribution, already counted in the ratio term:
+    τ = eigvals(Symmetric(Matrix(RU' * RU)))
+    drift2 -= sum(x -> abs2(log(max(x, tiny))), τ)
+
+    return sqrt(max(drift2, 0.0))
+end
+
 # The drift measurement itself is noisy; its statistical floor scales like
-# sqrt(2 n_dims / n_observations), so the effective commit threshold stays
+# sqrt(2 n_dims / n_observations), with the effective (autocorrelation-
+# corrected) observation count, so the effective commit threshold stays
 # above it:
-function _effective_commit_threshold(sched::DriftCommitSchedule, n_dims::Integer, n_obs::Integer)
+function _effective_commit_threshold(sched::DriftCommitSchedule, n_dims::Integer, n_obs::Real)
     return sched.commit_threshold + 3 * sqrt(2 * n_dims / max(n_obs, 1))
 end
 
@@ -365,16 +526,30 @@ function mcmc_tune_trafo_post_step!!(
     tuner_state.nsteps += 1
     if tuner_state.nsteps % tuner_state.memory_length == 0
         tuner_state.acc_a = tuner_state.acc_b
-        tuner_state.acc_b = _new_moments(tuner_state.estimator, tuner_state.n_dims)
+        tuner_state.acc_b = _new_moments(tuner_state.estimator, tuner_state.n_dims, tuner_state.acc_b.lag1.stride)
     end
 
     sched = tuner_state.tuning.schedule
     acc = tuner_state.acc_a
     if tuner_state.nsteps % sched.check_interval == 0 && acc.n >= tuner_state.min_observations
-        G, μ = _fisher_geometry(tuner_state.estimator, acc, tuner_state.tuning.regularization)
-        drift = _transform_drift(A, G)
-        if drift > _effective_commit_threshold(sched, tuner_state.n_dims, acc.n)
-            A_new = _fisher_A(tuner_state.estimator, G)
+        est = tuner_state.estimator
+        local G, μ, drift
+        lr_pieces = nothing
+        if est isa LowRankFisherEstimator
+            G, μ, lr_pieces = _fisher_geometry_lr(est, acc, tuner_state.tuning.regularization)
+            # Before the first commit the installed geometry's pieces are
+            # unknown, so the drift is measured densely once per check;
+            # afterwards the structured metric avoids dense matrices:
+            drift = isnothing(tuner_state.committed_lr) ?
+                _transform_drift(A, G) :
+                _lowrank_drift(tuner_state.committed_lr..., lr_pieces...)
+        else
+            G, μ = _fisher_geometry(est, acc, tuner_state.tuning.regularization)
+            drift = _transform_drift(A, G)
+        end
+        if drift > _effective_commit_threshold(sched, tuner_state.n_dims, _effective_nobs(acc))
+            tuner_state.committed_lr = lr_pieces
+            A_new = _fisher_A(est, G)
             b_new = oftype(f_transform.b, μ)
             return MulAdd(A_new, b_new), tuner_state, chain_state
         end

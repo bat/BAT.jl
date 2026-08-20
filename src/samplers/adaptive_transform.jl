@@ -245,10 +245,13 @@ diagonal geometry is insufficient. Tuning selects those directions by an
 eigenvalue cutoff (see [`FisherTransformTuning`](@ref)), which
 regularizes the geometry estimate compared to a full triangular matrix.
 
-Note: applying the transformation costs O(rank * n_dims), but the current
-geometry fitting still accumulates dense moments (O(n_dims^2) memory), so
-the low-rank structure buys regularization and application cost, not yet
-fitting cost - a fully projected low-rank estimator is planned.
+Applying the transformation costs O(rank * n_dims), and the geometry
+fitting is projected: it accumulates diagonal moments plus a bounded
+window of recent draws and solves the Fisher problem in the joint thin
+subspace of the window, so estimation memory and fitting cost are
+O(n_dims * window) plus small-matrix work - no dense moments or solves
+(the transform initialization from an approximate covariance is the one
+remaining dense step).
 
 Constructors:
 
