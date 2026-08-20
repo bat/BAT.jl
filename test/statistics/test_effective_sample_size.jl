@@ -28,4 +28,25 @@ using StableRNGs
         @test @inferred(bat_integrated_autocorr_len(v1, SokalAutocorLen(), context)).result ≈ 44.243392655975356
         @test @inferred(bat_integrated_autocorr_len(v, SokalAutocorLen(), context)).result ≈ [44.243392655975356, 16.794891919657566, 31.94870020972804]
     end
+
+    @testset "repetition-weight-exact ESS" begin
+        context = BATContext()
+        # Integer weights are run-length repetition counts: the ESS of the
+        # weight-compressed samples must be exactly the ESS of the
+        # run-length-decoded ordered chain:
+        rng2 = stblrng()
+        n_runs = 500
+        vals = nestedview(ElasticArray{Float64, 2}(undef, 2, 0))
+        push!(vals, [0.0, 0.0])
+        for _ in 1:(n_runs - 1)
+            push!(vals, last(vals) .+ randn(rng2, 2))
+        end
+        weights = rand(rng2, 1:5, n_runs)
+        smpls_rle = DensitySampleVector(v = vals, logd = zeros(n_runs), weight = weights)
+
+        expanded = nestedview(flatview(vals)[:, inverse_rle(1:n_runs, weights)])
+        ess_rle = bat_eff_sample_size(smpls_rle, EffSampleSizeFromAC(), context).result
+        ess_expanded = bat_eff_sample_size(expanded, EffSampleSizeFromAC(), context).result
+        @test ess_rle ≈ ess_expanded
+    end
 end

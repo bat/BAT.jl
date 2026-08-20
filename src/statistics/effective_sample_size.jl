@@ -147,11 +147,24 @@ function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::EffSamp
     all(w -> w >= 0, W) && sum(W) > 0 || throw(ArgumentError("Effective sample size requires non-negative sample weights with a positive sum"))
     w0 = first(W)
 
+    N_expanded = sum(W)
+    n_dof = length(first(unshaped_smpls.v))
+
     unshaped_ess = if all(w -> w ≈ w0, W)
         bat_eff_sample_size_impl(unshaped_smpls.v, algorithm, context).result
+    elseif eltype(W) <: Integer && N_expanded * n_dof <= 5 * 10^7
+        # Integer weights are repetition counts that encode the exact run
+        # lengths of the underlying ordered Markov chain, so the chain is
+        # reconstructed exactly by run-length decoding (its size is the
+        # number of chain steps, so this is affordable) instead of being
+        # approximated by stochastic resampling:
+        idxs = inverse_rle(eachindex(W), W)
+        expanded_v = nestedview(flatview(unshaped_smpls.v)[:, idxs])
+        bat_eff_sample_size_impl(expanded_v, algorithm, context).result
     else
-        # If weights not uniform, resample to get unweighted samples. Kish's
-        # approximation of ESS for weighted samples is often not good enough.
+        # For non-integer (importance) weights, resample to get unweighted
+        # samples. Kish's approximation of ESS for weighted samples is
+        # often not good enough.
 
         # Empirical resampling factor:
         resampling_factor = min(mean(W .^ 2) / mean(W)^2, 10)
