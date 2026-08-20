@@ -248,7 +248,7 @@ function run_ND_benchmark(;
                 mcmc_sample = bat_sample(
                     dis,
                     TransformedMCMC(
-                        mcalg = algorithm,
+                        proposal = algorithm,
                         pretransform = DoNotTransform(),
                         nchains = nchains,
                         nsteps = nsteps,
@@ -262,7 +262,7 @@ function run_ND_benchmark(;
             elseif isa(algorithm,BAT.HamiltonianMC)
                 mcmc_sample = bat_sample(
                     dis,
-                    TransformedMCMC(mcalg = algorithm, pretransform = DoNotTransform(), nchains = nchains, nsteps = nsteps)
+                    TransformedMCMC(proposal = algorithm, pretransform = DoNotTransform(), nchains = nchains, nsteps = nsteps)
                 ).result
             end
             taf = time()
@@ -275,7 +275,7 @@ function run_ND_benchmark(;
                         bat_sample(
                             dis,
                             TransformedMCMC(
-                                mcalg = algorithm,
+                                proposal = algorithm,
                                 pretransform = DoNotTransform(),
                                 nchains = nchains,
                                 nsteps = nsteps,
@@ -289,7 +289,7 @@ function run_ND_benchmark(;
                     elseif isa(algorithm,BAT.HamiltonianMC)
                         bat_sample(
                             dis,
-                            TransformedMCMC(mcalg = algorithm, pretransform = DoNotTransform(), nchains = nchains, nsteps = nsteps)
+                            TransformedMCMC(proposal = algorithm, pretransform = DoNotTransform(), nchains = nchains, nsteps = nsteps)
                         ).result
                     end
                     taf = time()

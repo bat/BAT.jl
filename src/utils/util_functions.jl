@@ -3,11 +3,6 @@
 
 @inline nop_func(x...) = nothing
 
-fcomp(f, g) = fchain(g, f)
-fcomp(::typeof(identity), g) = g
-fcomp(f, ::typeof(identity)) = f
-fcomp(::typeof(identity), ::typeof(identity)) = identity
-
 
 struct CombinedCallback{N,Fs<:NTuple{N,Function}} <: Function
     fs::Fs
@@ -72,4 +67,15 @@ function should_log_progress_now(start_time::Real, last_log_time::Real)
     logging_interval = 5 * round(log2(elapsed_time/60 + 1) + 1)
     should_log = current_time - last_log_time > logging_interval
     return (should_log, should_log ? current_time : last_log_time, elapsed_time)
+end
+
+
+# Branch-free for SIMD/GPU compatibility. Unlike max/abs-based formulations
+# the selected expressions are smooth, so AD yields correct derivatives even
+# at x == y:
+function _logaddexp(a::Real, b::Real)
+    x, y = promote(a, b)
+    m = ifelse(x > y, x, y)
+    d = ifelse(x > y, y - x, x - y)
+    return ifelse(isfinite(m), m + log1p(exp(d)), m)
 end

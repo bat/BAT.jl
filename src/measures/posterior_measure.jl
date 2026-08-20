@@ -14,14 +14,14 @@ MeasureBase.getdof(m::AbstractPosteriorMeasure) = MeasureBase.getdof(getprior(m)
 
 function _bat_weightedmeasure(logweight::Real, m::AbstractPosteriorMeasure)
     likelihood, prior = getlikelihood(m), getprior(m)
-    new_likelihood = logfuncdensity(fcomp(Base.Fix2(+, logweight), logdensityof(likelihood)))
+    new_likelihood = logfuncdensity(ffcomp(Base.Fix2(+, logweight), logdensityof(likelihood)))
     lbqintegral(new_likelihood, prior)
 end
 
 
 
 """
-    getlikelihood(posterior::AbstractPosteriorMeasure)::BATDenstiy
+    getlikelihood(posterior::AbstractPosteriorMeasure)::BATDensity
 
 *BAT-internal, not part of stable public API.*
 
@@ -110,13 +110,47 @@ $(TYPEDFIELDS)
 struct PosteriorMeasure{L,P<:AbstractMeasure} <: AbstractPosteriorMeasure
     likelihood::L
     prior::P
+
+    PosteriorMeasure{L,P}(likelihood, prior) where {L,P<:AbstractMeasure} = new{L,P}(likelihood, prior)
 end
 
 export PosteriorMeasure
 
 _convert_likelihood(likelihood, ::IsDensity) = likelihood
 _convert_likelihood(::Any, ::HasDensity) = throw(ArgumentError("Likelihood must be a density, not like a measure that has a density."))
-_convert_likelihood(f_likelihood, ::NoDensity) = logfuncdensity(fcomp(logvalof, f_likelihood))
+
+# A composed function or function chain that ends in a density is a
+# transformed likelihood, the transform gets precomposed to keep evaluation
+# in log space:
+function _convert_likelihood(f_likelihood, ::NoDensity)
+    r = _split_density_transform(f_likelihood)
+    isnothing(r) ? logfuncdensity(ffcomp(logvalof, f_likelihood)) : _precompose_density(r[1], r[2])
+end
+
+# Returns (density, transform) or nothing:
+_split_density_transform(::Any) = nothing
+
+function _split_density_transform(fg::ComposedFunction)
+    maybe_ℒ = fg.outer
+    if DensityKind(maybe_ℒ) isa IsDensity
+        (maybe_ℒ, fg.inner)
+    else
+        r = _split_density_transform(maybe_ℒ)
+        isnothing(r) ? nothing : (r[1], ffcomp(r[2], fg.inner))
+    end
+end
+
+function _split_density_transform(fc::FunctionChain{<:Tuple})
+    fs = fchainfs(fc)
+    maybe_ℒ = last(fs)
+    g = ffchain(Base.front(fs)...)
+    if DensityKind(maybe_ℒ) isa IsDensity
+        (maybe_ℒ, g)
+    else
+        r = _split_density_transform(maybe_ℒ)
+        isnothing(r) ? nothing : (r[1], ffcomp(r[2], g))
+    end
+end
 
 function PosteriorMeasure(
     likelihood::Any, prior::Union{AbstractMeasure,Distribution}
@@ -136,7 +170,7 @@ getlikelihood(posterior::PosteriorMeasure) = posterior.likelihood
 
 getprior(posterior::PosteriorMeasure) = posterior.prior
 
-measure_support(posterior::PosteriorMeasure) = measure_support(getprior(posterior))
+has_uhc_support(posterior::PosteriorMeasure) = has_uhc_support(getprior(posterior))
 
 ValueShapes.varshape(posterior::PosteriorMeasure) = varshape(getprior(posterior))
 

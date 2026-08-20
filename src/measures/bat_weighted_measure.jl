@@ -25,6 +25,7 @@ _bat_weightedmeasure(logweight::Real, m::BATWeightedMeasure) = weightedmeasure(m
 
 MeasureBase.basemeasure(m::BATWeightedMeasure) = m.base
 
+MeasureBase.massof(m::BATWeightedMeasure) = exp(ULogarithmic, m.logweight) * massof(m.base)
 
 function Base.show(io::IO, d::BATWeightedMeasure)
     print(io, Base.typename(typeof(d)).name, "(")
@@ -57,7 +58,7 @@ function Base.rand(gen::GenContext, m::BATPwrMeasure{<:BATWeightedMeasure})
     return X_origin
 end
 
-supports_rand(m::BATWeightedMeasure) = supports_rand(m.origin)
+supports_rand(m::BATWeightedMeasure) = supports_rand(m.base)
 
 
 Statistics.mean(m::BATWeightedMeasure) = mean(m.base)
@@ -65,7 +66,7 @@ Statistics.var(m::BATWeightedMeasure) = var(m.base)
 Statistics.cov(m::BATWeightedMeasure) = cov(m.base)
 
 
-measure_support(m::BATWeightedMeasure) = measure_support(m.base)
+has_uhc_support(m::BATWeightedMeasure) = has_uhc_support(m.base)
 
 
 ValueShapes.varshape(m::BATWeightedMeasure) = varshape(m.base)
@@ -85,7 +86,7 @@ ValueShapes.unshaped(m::BATWeightedMeasure) = weightedmeasure(m.logweight, unsha
 
 Returns `(result = new_measure, logweight = logweight)`.
 
-Tries to automatically renormalize `measure` if a maxium log-m value
+Tries to automatically renormalize `measure` if a maximum log-density value
 is available, returns `measure` unchanged otherwise.
 """
 function auto_renormalize(measure::AbstractMeasure)

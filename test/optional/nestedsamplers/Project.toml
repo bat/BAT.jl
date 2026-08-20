@@ -1,0 +1,17 @@
+[deps]
+BAT = "c0cd4b16-88b7-57fa-983b-ab80aecada7e"
+DensityInterface = "b429d917-457f-4dbc-8f4c-0cc954292b1d"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+HypothesisTests = "09f84164-cd44-5f33-b23f-e6b0d136a0d5"
+MeasureBase = "fa1605e6-acd5-459c-a1e6-7e635759db14"
+NestedSamplers = "41ceaf6f-1696-4a54-9b49-2e7a9ec3782e"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
+
+[compat]
+NestedSamplers = "0.9"
+
+[sources]
+BAT = {path = "../../.."}

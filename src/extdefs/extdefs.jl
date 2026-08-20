@@ -8,3 +8,6 @@ include("optim_defs.jl")
 include("optimization_defs.jl")
 include("ultranest_defs.jl")
 include("makie_defs.jl")
+
+# Definitions that require multiple of the algorithm types above:
+include("maximize_density_defs.jl")

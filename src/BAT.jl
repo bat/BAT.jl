@@ -50,16 +50,13 @@ using Tables
 using ValueShapes
 
 import ChainRulesCore
-import DiffResults
 import DistributionsAD
 import EmpiricalDistributions
 import HypothesisTests
 import Measurements
-import NamedArrays
 import Random123
 import Sobol
 import StableRNGs
-import StatsFuns
 import TypedTables
 import ZygoteRules
 
@@ -70,6 +67,9 @@ import HeterogeneousComputing
 using HeterogeneousComputing: AbstractComputeUnit, CPUnit
 using HeterogeneousComputing: GenContext, get_rng, get_precision, get_compute_unit, get_gencontext, allocate_array
 
+import StaticThings
+using StaticThings: IntegerLike, RealLike
+
 import MeasureBase
 using MeasureBase: AbstractMeasure, DensityMeasure, Likelihood
 using MeasureBase: basemeasure, getdof, likelihoodof, testvalue
@@ -78,6 +78,7 @@ using MeasureBase: transport_to, transport_origin, from_origin, to_origin
 using MeasureBase: StdMeasure, StdUniform, StdNormal
 using MeasureBase: PowerMeasure, powermeasure, marginals
 using MeasureBase: WeightedMeasure, weightedmeasure
+using MeasureBase: SuperpositionMeasure, superpose
 using MeasureBase: massof
 
 using MeasureBase: PushforwardMeasure, gettransform
@@ -96,15 +97,14 @@ end
 
 using IntervalSets: Domain
 
-import DomainSets
-using DomainSets: UnitInterval, UnitCube, Rectangle, FullSpace, RealNumbers
-
 import LazyReports
 using LazyReports: LazyReport, lazyreport, lazyreport!, lazytable
 
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, AbstractThunk, unthunk
 
 using Functors: fmap
+
+using LogarithmicNumbers: ULogarithmic
 
 # For Dual specializations:
 import ForwardDiff

@@ -1,20 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-"""
-    measure_support(measure::AbstractMeasure)
-
-*BAT-internal, not part of stable public API.*
-
-Get the parameter bounds of `measure`. May return a `IntervalsSets.Domain` or `BAT.UnknownDomain`
-"""
-function measure_support end
-
-measure_support(m::AbstractMeasure) = UnknownDomain()
-
-struct UnknownDomain end
-
-
 # ToDo: Document and make public:
 maybe_samplesof(::AbstractMeasure) = missing
 maybe_modesof(::AbstractMeasure) = missing
@@ -70,7 +56,6 @@ MeasureBase.basemeasure(m::BATMeasure) = throw(ArgumentError("basemeasure not im
 MeasureBase.rootmeasure(m::BATMeasure) = throw(ArgumentError("rootmeasure not implemented for $(typeof(m))"))
 MeasureBase.massof(::BATMeasure) = MeasureBase.UnknownMass()
 
-# ToDo: Use `x in measure_support(m)` later on, when MeasureBase calls `insupport` less often:
 @static if isdefined(MeasureBase, :NoFastInsupport)
     MeasureBase.insupport(m::BATMeasure, ::Any) = MeasureBase.NoFastInsupport{typeof(m)}()
 else
@@ -103,6 +88,12 @@ function ValueShapes.unshaped(measure::BATMeasure, vs::AbstractValueShape)
     varshape(measure) <= vs || throw(ArgumentError("Shape of measure not compatible with given shape"))
     unshaped(measure)
 end
+
+ValueShapes.unshaped(m::BATMeasure) = _unshaped_measure_impl(m, Core.Compiler.return_type(testvalue, Tuple{typeof(m)}))
+
+_unshaped_measure_impl(m::BATMeasure, ::Type) = throw(ArgumentError("Don't know how to unshape measure of type $(nameof(typeof(m)))"))
+_unshaped_measure_impl(m::BATMeasure, ::Type{T}) where {T<:Real} = pushfwd(inverse(ScalarShape{T}()), m)
+
 
 
 show_value_shape(io::IO, vs::AbstractValueShape) = show(io, vs)
@@ -162,7 +153,7 @@ end
 
 *BAT-internal, not part of stable public API.*
 
-Convert a measure-like object `m` supports `rand`.
+Check whether a measure-like object `m` supports `rand`.
 """
 @inline supports_rand(::AbstractMeasure) = false
 @inline supports_rand(::StdMeasure) = true
@@ -170,23 +161,15 @@ Convert a measure-like object `m` supports `rand`.
 @inline supports_rand(m::PushforwardMeasure) = !(gettransform(m) isa NoInverse) && supports_rand(transport_origin(m))
 
 
-
 """
-    measure_support(
-        measure::BATMeasure
-    )::Union{AbstractVarBounds,Missing}
+    has_uhc_support(m)::Bool
 
 *BAT-internal, not part of stable public API.*
 
-Get the parameter bounds of `measure`. See [`BATMeasure`](@ref) for the
-implications and handling of bounds.
+Is the support of measure `m` limited to the unit hypercube?
 """
-measure_support(::BATMeasure) = missing
-
-_is_uhc(::UnitCube) = true
-_is_uhc(d::Rectangle) = isapproxzero(d.a) && isapproxone(d.b)
-
-has_uhc_support(m::BATMeasure) = _is_uhc(measure_support(m))
+has_uhc_support(m::BATMeasure) = false
+has_uhc_support(::MeasureBase.StdUniform) = true
 
 is_std_mvnormal(::AbstractMeasure) = false
 is_std_mvnormal(::MeasureBase.PowerMeasure{MeasureBase.StdNormal}) = true
@@ -202,26 +185,26 @@ function _bat_transport_to(mu, nu)
     target_dist, target_pushfwd = _dist_with_pushfwd(mu)
     source_dist, source_pullback = _dist_with_pullback(nu)
     f_transform = DistributionTransform(target_dist, source_dist)
-    return fcomp(target_pushfwd, fcomp(f_transform, source_pullback))
+    return ffcomp(target_pushfwd, ffcomp(f_transform, source_pullback))
 end
 
 _dist_with_pushfwd(m::BATMeasure) = Distribution(m), identity
 
 function _dist_with_pushfwd_impl(origin, f)
     d, g = _dist_with_pushfwd(origin)
-    d, fcomp(f, g)
+    d, ffcomp(f, g)
 end
 
 function _combine_dwp_with_f(dwp, f)
     d, g = dwp
-    return d, fcomp(f, g)
+    return d, ffcomp(f, g)
 end
 
 _dist_with_pullback(m::BATMeasure) = Distribution(m), identity
 
 function _dist_with_pullback_impl(origin, finv)
     d, ginv = _dist_with_pullback(origin)
-    return d, fcomp(ginv, finv)
+    return d, ffcomp(ginv, finv)
 end
 
 

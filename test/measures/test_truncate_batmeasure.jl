@@ -3,7 +3,7 @@
 using BAT
 using Test
 
-using DensityInterface, ValueShapes
+using DensityInterface, MeasureBase, ValueShapes
 using ArraysOfArrays, Distributions, StatsBase, IntervalSets
 
 @testset "truncate_batmeasure" begin
@@ -13,7 +13,7 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets
         c = [1 2; 3 4],
         d = [-3..3, -4..4]
     ))
-    prior = convert(AbstractMeasureOrDensity, prior_dist)
+    prior = batmeasure(prior_dist)
 
     likelihood = v -> (logval = 0,)
 
@@ -50,23 +50,23 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets
         @test logpdf(unshaped(trunc_dist), [1, 2, 0, 3]) + logweight ≈ logpdf(unshaped(prior_dist), [1, 2, 0, 3])
     end
 
-    @test @inferred(truncate_density(prior, bounds)) isa BAT.BATWeightedMeasure
+    @test @inferred(truncate_batmeasure(prior, bounds)) isa BAT.BATWeightedMeasure
 
 
-    @test BAT.checked_logdensityof(unshaped(truncate_density(prior, bounds)), [1, 2, 0, 3]) ≈ BAT.checked_logdensityof(unshaped(prior), [1, 2, 0, 3])
-    @test BAT.checked_logdensityof(truncate_density(prior, bounds), varshape(prior)([1, 2, 0, 3])) ≈ BAT.checked_logdensityof(prior, varshape(prior)([1, 2, 0, 3]))
-    @test varshape(truncate_density(prior, bounds)) == varshape(prior)
+    @test BAT.checked_logdensityof(unshaped(truncate_batmeasure(prior, bounds)), [1, 2, 0, 3]) ≈ BAT.checked_logdensityof(unshaped(prior), [1, 2, 0, 3])
+    @test BAT.checked_logdensityof(truncate_batmeasure(prior, bounds), varshape(prior)([1, 2, 0, 3])) ≈ BAT.checked_logdensityof(prior, varshape(prior)([1, 2, 0, 3]))
+    @test varshape(truncate_batmeasure(prior, bounds)) == varshape(prior)
 
-    @test @inferred(truncate_density(posterior, bounds)) isa PosteriorMeasure
+    @test @inferred(truncate_batmeasure(posterior, bounds)) isa PosteriorMeasure
 
-    trunc_pstr = truncate_density(posterior, bounds)
+    trunc_pstr = truncate_batmeasure(posterior, bounds)
     @test @inferred(BAT.checked_logdensityof(unshaped(trunc_pstr), [1, 2, 0, 3])) ≈ BAT.checked_logdensityof(unshaped(posterior), [1, 2, 0, 3])
     @test @inferred(BAT.checked_logdensityof(unshaped(trunc_pstr), [-1, -1, -1, -1])) ≈ -Inf
     @test varshape(trunc_pstr) == varshape(posterior)
 
     let
-        trunc_prior_dist = parent(BAT.getprior(trunc_pstr)).dist
-        s = bat_sample(trunc_pstr, TransformedMCMC(mcalg = RandomWalk(), pretransform = DoNotTransform(), nsteps = 10^5)).result
+        trunc_prior_dist = basemeasure(BAT.getprior(trunc_pstr)).dist
+        s = bat_sample(trunc_pstr, TransformedMCMC(proposal = RandomWalk(), pretransform = DoNotTransform(), nsteps = 10^5)).result
         s_flat = flatview(unshaped.(s))
         @test all(minimum.(bounds) .< minimum(s_flat))
         @test all(maximum.(bounds) .> maximum(s_flat))

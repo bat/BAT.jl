@@ -245,6 +245,13 @@ function bat_transform_impl(target::Union{PriorToUniform,PriorToNormal}, density
 end
 
 
+function bat_transform_impl(target::AbstractTransformTarget, m::BATPushFwdMeasure, algorithm::PriorSubstitution, context::BATContext)
+    new_measure, f_transform_orig = bat_transform_impl(target, m.origin, algorithm, context)
+    f_transform = ffcomp(f_transform_orig, m.finv)
+    (result = new_measure, f_transform = f_transform)
+end
+
+
 function bat_transform_impl(target::Union{PriorToUniform,PriorToNormal}, density::AbstractPosteriorMeasure, algorithm::PriorSubstitution, context::BATContext)
     orig_prior = getprior(density)
     orig_likelihood = getlikelihood(density)
@@ -263,7 +270,7 @@ function transform_and_unshape(trafotarget::AbstractTransformTarget, object::Any
     trafoalg = bat_default(bat_transform, Val(:algorithm), trafotarget, orig_measure)
     transformed_measure, initial_trafo = bat_transform(trafotarget, orig_measure, trafoalg, context)
     result_measure, unshaping_trafo = bat_transform(ToRealVector(), transformed_measure, UnshapeTransformation(), context)
-    result_trafo = fcomp(unshaping_trafo, initial_trafo)
+    result_trafo = ffcomp(unshaping_trafo, initial_trafo)
     return result_measure, result_trafo
 end
 

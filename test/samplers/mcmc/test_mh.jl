@@ -21,22 +21,29 @@ using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
     samplingalg = TransformedMCMC(nchains = nchains, nwalkers = nwalkers)
  
     @testset "MCMC iteration" begin
+        nsteps = 10^5
+        nsteps_adapt = div(nsteps, 10)
+
         v_inits = BAT.bat_ensemble_initvals(target, InitFromTarget(), nwalkers, context)
         # TODO: MD, Reactivate type inference tests
-        # chain = @inferred(BAT.MCMCChainState(samplingalg, target, 1, unshaped.(v_inits), deepcopy(context))) 
+        # chain = @inferred(BAT.MCMCChainState(samplingalg, target, 1, unshaped.(v_inits), deepcopy(context)))
         mcmc_state = BAT.MCMCState(samplingalg, target, 1, unshaped.(v_inits), deepcopy(context))
+
+        # Adaptation phase, discard samples:
+        mcmc_state = BAT.mcmc_iterate!!(nothing, mcmc_state; max_nsteps = nsteps_adapt, nonzero_weights = false)
+
         chain_output = BAT._empty_chain_outputs(mcmc_state)
-        mcmc_state = BAT.mcmc_iterate!!(chain_output, mcmc_state; max_nsteps = 10^5, nonzero_weights = false)
-        
+        mcmc_state = BAT.mcmc_iterate!!(chain_output, mcmc_state; max_nsteps = nsteps, nonzero_weights = false)
+
         samples = BAT._empty_DensitySampleVector(mcmc_state)
         for walker_output in chain_output
             append!(samples, walker_output)
         end
 
-        @test mcmc_state.chain_state.stepno == 10^5
+        @test mcmc_state.chain_state.stepno == nsteps + nsteps_adapt
         @test minimum(samples.weight) == 0
-        @test isapprox(length(samples), 10^5, atol = 20)
-        @test sum(samples.weight) == mcmc_state.chain_state.stepno
+        @test isapprox(length(samples), nsteps, atol = 20)
+        @test sum(samples.weight) == nsteps
         @test isapprox(mean(samples), [1, -1, 2], atol = 0.2)
         @test isapprox(cov(samples), cov(unshaped(objective)), atol = 0.3)
 

@@ -23,6 +23,9 @@ BATContext(;
 )
 ```
 
+The default `rng` is seeded from `Random.default_rng()`, so results become
+reproducible via `Random.seed!`.
+
 See [`get_batcontext`](@ref) and [`set_batcontext`](@ref).
 """
 struct BATContext{T<:AbstractFloat,RNG<:AbstractRNG,CU<:AbstractComputeUnit,AD<:ADSelector}
@@ -41,12 +44,12 @@ function BATContext{T}(
 end
 
 function BATContext(;
-    precision::Type{T}=Float64,
-    rng::AbstractRNG=Philox4x()::Philox4x{UInt64,10},
-    cunit::AbstractComputeUnit=CPUnit(),
-    ad::Union{ADSelector,Module,Symbol,Val}=NoAutoDiff(),
-    visualizer::BATVisualizer=BATVisualizer()
-) where {T}
+    precision::Type{T} = Float64,
+    rng::AbstractRNG = Philox4x((rand(UInt64), rand(UInt64)))::Philox4x{UInt64,10},
+    cunit::AbstractComputeUnit = CPUnit(),
+    ad::Union{ADSelector, Module, Symbol, Val} = NoAutoDiff(),
+    visualizer::BATVisualizer = BATVisualizer()
+) where T
     adsel = _to_adsel(ad)
     BATContext{T}(rng, cunit, adsel, visualizer)
 end

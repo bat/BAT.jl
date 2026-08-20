@@ -4,12 +4,6 @@ using Test
 
 @info "Running tests with $(Base.Threads.nthreads()) Julia threads active."
 
-import Pkg
-if "PyCall" in keys(Pkg.project().dependencies)
-    import PyCall
-    @info "Python configuration:" get(ENV, "PYTHON", "not set") PyCall.PYTHONHOME PyCall.python PyCall.conda
-end
-
 import Logging
 import TerminalLoggers
 Logging.global_logger(TerminalLoggers.TerminalLogger(stderr, Logging.Error))
@@ -25,6 +19,7 @@ Test.@testset "Package BAT" begin
     include("variates/test_variates.jl")
     include("transforms/test_transforms.jl")
     include("densities/test_densities.jl")
+    include("measures/test_measures.jl")
     include("initvals/test_initvals.jl")
     include("statistics/test_statistics.jl")
     include("optimization/test_optimization.jl")

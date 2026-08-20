@@ -1,0 +1,16 @@
+[deps]
+BAT = "c0cd4b16-88b7-57fa-983b-ab80aecada7e"
+DensityInterface = "b429d917-457f-4dbc-8f4c-0cc954292b1d"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+MeasureBase = "fa1605e6-acd5-459c-a1e6-7e635759db14"
+PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+UltraNest = "6822f173-b0be-4018-9ee2-28bf56348d09"
+
+[compat]
+UltraNest = "0.2"
+
+[sources]
+BAT = {path = "../../.."}
