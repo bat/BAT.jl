@@ -113,7 +113,7 @@ Constructors:
 
 Fields:
 
-* `pretransform::AbstractTransformTarget`: Pre-transformation to apply to the target measure before sampling.
+* `pretransform::TransformIntent`: Pre-transformation to apply to the target measure before sampling.
 
 * `nsamples::Int`: Number is independent samples to draw. MGVI will generate symmetical samples, so it will generate
   `2*nsamples`` samples in total, but only `nsamples` independent samples.
@@ -128,10 +128,10 @@ Fields:
     `import MGVI`).
 """
 @with_kw struct MGVISampling{
-    TR<:AbstractTransformTarget, IA<:InitvalAlgorithm,
+    TR<:TransformIntent, IA<:InitvalAlgorithm,
     CFG, SD<:MGVISchedule
 } <: AbstractSamplingAlgorithm
-    pretransform::TR = (pkgext(Val(:MGVI)); PriorToNormal())
+    pretransform::TR = (pkgext(Val(:MGVI)); NormalBased())
     init::IA = InitFromTarget()
     nsamples::Int = 10^4
     schedule::SD = FixedMGVISchedule(range(12, nsamples, length = 10))
