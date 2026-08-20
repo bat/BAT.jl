@@ -65,7 +65,7 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
 
     @testset "bat_bgml" begin
         context = BATContext(ad = ForwardDiff)
-        algorithm = OptimAlg(optalg = LBFGS(), init = ExplicitInit([(mu = 0.2,)]))
+        algorithm = TransformedMaxDensity(optalg = OptimAlg(optalg = LBFGS()), init = ExplicitInit([(mu = 0.2,)]))
         likelihood = logfuncdensity(p -> logpdf(Normal(p.mu, 0.5), 1.2))
         flat_prior = distprod(mu = Uniform(-2, 4))
         informative_prior = distprod(mu = Normal(-1.0, 0.03))
@@ -89,8 +89,8 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
         bounded_prior = distprod(mu = Uniform(-1, 1))
         outside_lik = logfuncdensity(p -> logpdf(Normal(3, 1), p.mu))
         for alg in (
-            OptimAlg(optalg = LBFGS(), init = ExplicitInit([(mu = 0.2,)])),
-            OptimizationAlg(optalg = OptimizationOptimJL.NelderMead(), init = ExplicitInit([(mu = 0.2,)])),
+            TransformedMaxDensity(optalg = OptimAlg(optalg = LBFGS()), init = ExplicitInit([(mu = 0.2,)])),
+            TransformedMaxDensity(optalg = OptimizationAlg(optalg = OptimizationOptimJL.NelderMead()), init = ExplicitInit([(mu = 0.2,)])),
         )
             r_b = bat_bgml(outside_lik, bounded_prior, alg, context)
             @test -1 <= r_b.result.mu <= 1
@@ -99,12 +99,12 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
 
         # Without a space transformation only the likelihood shapes the
         # result, the prior does not constrain it:
-        alg_notrafo = OptimAlg(optalg = Optim.NelderMead(), pretransform = DoNotTransform(), init = ExplicitInit([(mu = 0.2,)]))
+        alg_notrafo = TransformedMaxDensity(optalg = OptimAlg(optalg = Optim.NelderMead()), pretransform = DoNotTransform(), init = ExplicitInit([(mu = 0.2,)]))
         r_u = bat_bgml(outside_lik, bounded_prior, alg_notrafo, context)
         @test r_u.result.mu ≈ 3 atol = 0.05
 
         # bat_bgml shares the default mode estimator of bat_findmode:
-        @test BAT.bat_default(bat_bgml, Val(:algorithm), likelihood, flat_prior) isa OptimAlg
+        @test BAT.bat_default(bat_bgml, Val(:algorithm), likelihood, flat_prior) isa TransformedMaxDensity
         r_default = bat_bgml(likelihood, flat_prior, context)
         @test r_default.result.mu ≈ 1.2 atol = 0.01
     end
@@ -113,46 +113,60 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
     @testset "MaxDensitySearch" begin
         context = BATContext()
         @test @inferred(bat_findmode(samples, MaxDensitySearch(), context)).result isa NamedTuple
-        m = bat_findmode(samples, MaxDensitySearch(), context)
-        @test samples[m.mode_idx].v == m.result
-        @test isapprox(unshaped(m.result, elshape(samples.v)), true_mode_flat, rtol = 0.05)
+        # Algorithm-specific extras like the mode index live in the
+        # evaluation info of the evaluated measure:
+        em = evalmeasure(samples, MaxDensitySearch(), context)
+        mode_idx = BAT.evalinfo(em).result.mode_idx
+        @test samples[mode_idx].v == mode(em)
+        @test isapprox(unshaped(mode(em), elshape(samples.v)), true_mode_flat, rtol = 0.05)
     end
 
 
     @testset "Optim.jl - NelderMead" begin
         context = BATContext(rng = Philox4x((0, 0)))
-        test_findmode(posterior, OptimAlg(optalg = NelderMead(), pretransform = DoNotTransform()), 0.01, context)
+        test_findmode(posterior, TransformedMaxDensity(optalg = OptimAlg(optalg = NelderMead()), pretransform = DoNotTransform()), 0.01, context)
     end
 
     @testset "Optim.jl with custom options" begin # checks that options are correctly passed to Optim.jl
         context = BATContext(rng = Philox4x((0, 0)))
-        optimizer = OptimAlg(optalg = NelderMead(), pretransform = DoNotTransform(), maxiters=20, maxtime=30, reltol=0.2, kwargs=(f_calls_limit=25,))
-        
-        result = bat_findmode(posterior, optimizer, context)
-        @test result.info.iterations <= 20
-        @test result.info.time_limit == 30
-        @test result.info.f_reltol == 0.2
-        @test result.info.f_calls <= 26
+        optimizer = TransformedMaxDensity(optalg = OptimAlg(optalg = NelderMead(), maxiters=20, maxtime=30, reltol=0.2, kwargs=(f_calls_limit=25,)), pretransform = DoNotTransform())
 
+        # Backend-specific optimizer information lives in the evaluation
+        # info of the evaluated measure:
+        em = evalmeasure(posterior, optimizer, context)
+        nfo = BAT.evalinfo(em).result.info
+        @test nfo.iterations <= 20
+        @test nfo.time_limit == 30
+        @test nfo.f_reltol == 0.2
+        @test nfo.f_calls <= 26
+    end
+
+    @testset "algorithm auto-wrapping" begin
+        context = BATContext(rng = Philox4x((0, 0)))
+        @test @inferred(BAT.batalgorithm(OptimAlg(optalg = NelderMead()))) isa TransformedMaxDensity
+        @test @inferred(BAT.batalgorithm(Optim.NelderMead())) isa TransformedMaxDensity
+        # Bare backends and raw Optim optimizers work as mode estimators:
+        test_findmode_ctx(posterior, OptimAlg(optalg = NelderMead()), 0.01, context)
+        test_findmode_ctx(posterior, Optim.NelderMead(), 0.01, context)
     end
 
     @testset "Optim.jl - LBFGS" begin
         context = BATContext(rng = Philox4x((0, 0)), ad = ForwardDiff)
         # Result Optim.maximize with LBFGS is not type-stable:
-        test_findmode(posterior, OptimAlg(optalg = LBFGS(), pretransform = DoNotTransform()), 0.01, inferred = false, context)
+        test_findmode(posterior, TransformedMaxDensity(optalg = OptimAlg(optalg = LBFGS()), pretransform = DoNotTransform()), 0.01, inferred = false, context)
 
-        test_findmode_ctx(posterior, OptimAlg(optalg = LBFGS(), pretransform = DoNotTransform()), 0.01, context)
+        test_findmode_ctx(posterior, TransformedMaxDensity(optalg = OptimAlg(optalg = LBFGS()), pretransform = DoNotTransform()), 0.01, context)
     end
 
 
     @testset "OptimizationBase.jl" begin
         context = BATContext(rng = Philox4x((0, 0)))
         # result is not type-stable:
-        test_findmode(posterior, OptimizationAlg(optalg = OptimizationOptimJL.NelderMead(), pretransform = DoNotTransform()), 0.01, context, inferred = false) 
+        test_findmode(posterior, TransformedMaxDensity(optalg = OptimizationAlg(optalg = OptimizationOptimJL.NelderMead()), pretransform = DoNotTransform()), 0.01, context, inferred = false) 
 
         context = BATContext(rng = Philox4x((0, 0)), ad = ADSelector(ForwardDiff))
         # result is not type-stable:
-        test_findmode(posterior, OptimizationAlg(optalg = OptimizationLBFGSB.LBFGSB(), pretransform = DoNotTransform()), 0.01, context, inferred = false) 
+        test_findmode(posterior, TransformedMaxDensity(optalg = OptimizationAlg(optalg = OptimizationLBFGSB.LBFGSB()), pretransform = DoNotTransform()), 0.01, context, inferred = false) 
     end
 
     @testset "OptimizationBase.jl with custom options" begin # checks that options are correctly passed to OptimizationBase.jl
@@ -160,20 +174,23 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
         # so seed it for deterministic results:
         Random.seed!(0x424154)
         context = BATContext(rng = Philox4x((0, 0)))
-        optimizer = OptimizationAlg(optalg = OptimizationOptimJL.ParticleSwarm(n_particles=10), maxiters=200, kwargs=(f_calls_limit=500,), pretransform=DoNotTransform())
+        optimizer = TransformedMaxDensity(optalg = OptimizationAlg(optalg = OptimizationOptimJL.ParticleSwarm(n_particles=10), maxiters=200, kwargs=(f_calls_limit=500,)), pretransform = DoNotTransform())
 
         # result is not type-stable:
         test_findmode(posterior, optimizer, 0.01, context, inferred = false) 
 
-        optimizer = OptimizationAlg(optalg = OptimizationOptimJL.ParticleSwarm(n_particles=10), 
-        maxiters=200, maxtime=30, reltol=0.2, kwargs=(f_calls_limit=500,), pretransform=DoNotTransform())
+        optimizer = TransformedMaxDensity(optalg = OptimizationAlg(optalg = OptimizationOptimJL.ParticleSwarm(n_particles=10),
+            maxiters=200, maxtime=30, reltol=0.2, kwargs=(f_calls_limit=500,)), pretransform = DoNotTransform())
 
-        result = bat_findmode(posterior, optimizer, context)
-        @test result.info.cache.solver_args.maxiters == 200
-        @test result.info.cache.solver_args.f_calls_limit == 500
-        @test result.info.cache.solver_args.reltol == 0.2
-        @test result.info.cache.solver_args.maxtime == 30
-        @test result.info.original.method.n_particles == 10
+        # Backend-specific optimizer information lives in the evaluation
+        # info of the evaluated measure:
+        em = evalmeasure(posterior, optimizer, context)
+        nfo = BAT.evalinfo(em).result.info
+        @test nfo.cache.solver_args.maxiters == 200
+        @test nfo.cache.solver_args.f_calls_limit == 500
+        @test nfo.cache.solver_args.reltol == 0.2
+        @test nfo.cache.solver_args.maxtime == 30
+        @test nfo.original.method.n_particles == 10
     end
 
 end
