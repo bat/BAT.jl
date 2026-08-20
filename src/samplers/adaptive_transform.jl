@@ -309,6 +309,10 @@ _affine_init_A(::DiagonalAffineTransform, M::AbstractMatrix) = Diagonal(sqrt.(di
 # (approximate) covariance - e.g. the diag-plus-low-rank structure of a
 # Pathfinder fit survives instead of being flattened to its diagonal:
 function _affine_init_A(at::LowRankAffineTransform, M::AbstractMatrix)
+    # The parameter invariants belong to the transform, not to any one
+    # tuner that happens to consume it:
+    @argcheck at.cutoff > 1
+    @argcheck at.max_rank >= 0
     dvec, W, S = _lowrank_decomposition(M, at.cutoff, at.max_rank)
     return _lowrank_gram_factor(dvec, W, S)
 end
