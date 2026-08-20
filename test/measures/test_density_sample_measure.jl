@@ -83,14 +83,41 @@ using BAT: DensitySampleMeasure, samplesof, empiricalof, getess
     end
 
     @testset "weight invariants" begin
-        # Empirical-measure weights must be finite and non-negative, a
-        # violation would silently break categorical sampling (the cached
-        # cumulative weights would no longer be monotone):
-        for bad_w in ([1.0, -1.0, 2.0], [1.0, NaN, 2.0], [1.0, Inf, 2.0])
+        # Empirical-measure weights must be finite and non-negative (a
+        # violation would make the subsampling CDF non-monotone) and not
+        # all zero (nothing to draw):
+        for bad_w in ([1.0, -1.0, 2.0], [1.0, NaN, 2.0], [1.0, Inf, 2.0], [0.0, 0.0, 0.0])
             bad_smpls = DensitySampleVector(
                 v = [randn(2) for _ in 1:3], logd = zeros(3), weight = bad_w
             )
             @test_throws ArgumentError DensitySampleMeasure(bad_smpls)
+        end
+    end
+
+    @testset "live weights" begin
+        # The sample vector is shared, not copied: draw probabilities and
+        # statistics must stay coherent with the weights as the caller
+        # sees (and possibly mutates) them:
+        lw_smpls = DensitySampleVector(
+            v = [randn(2) for _ in 1:4], logd = zeros(4), weight = [1.0, 1.0, 1.0, 1.0]
+        )
+        lw_dsm = DensitySampleMeasure(lw_smpls)
+        @test samplesof(lw_dsm) === lw_smpls
+        samplesof(lw_dsm).weight .= [0.0, 0.0, 5.0, 0.0]
+        rng = Random.default_rng()
+        @test all(x -> x == lw_smpls.v[3], [rand(rng, lw_dsm) for _ in 1:20])
+        @test mean(lw_dsm) ≈ lw_smpls.v[3]
+        # Invalid mutated weights are caught at draw time:
+        samplesof(lw_dsm).weight .= [0.0, 0.0, 0.0, 0.0]
+        @test_throws ArgumentError rand(rng, lw_dsm)
+
+        # Extreme weight scales are safe - the subsampling CDF is built
+        # from canonical relative weights:
+        for w_extreme in ([typemax(Int), typemax(Int), 4], [1e300, 2e300, 0.5e300])
+            xdsm = DensitySampleMeasure(DensitySampleVector(
+                v = [randn(2) for _ in 1:3], logd = zeros(3), weight = w_extreme
+            ))
+            @test rand(rng, xdsm) in samplesof(xdsm).v
         end
     end
 

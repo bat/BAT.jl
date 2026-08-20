@@ -14,6 +14,10 @@ the result of MCMC and other sampling methods.
 
 A `DensitySampleMeasure` can be converted to a `DensitySampleVector`.
 
+The measure keeps a reference to `smpls` (accessible via `samplesof`) and
+always reflects its live weight values: random generation and statistics
+are consistent with the current state of the sample vector.
+
 Note: `DensitySampleMeasure` currently does not support `logdensityof`, as it
 would require an inefficient linear search over all sample points.
 
@@ -38,14 +42,11 @@ struct DensitySampleMeasure{
     T<:Real,
     W<:Real,
     SV<:DensitySampleVector{P,T,W},
-    WV<:AbstractVector{W},
     N<:Union{IntegerLike,Nothing},
     E<:Union{Real,Nothing},
     U<:Union{Real,MeasureBase.AbstractUnknownMass}
 } <: BATMeasure
     _smpls::SV
-    _max_weight::W
-    _cumulative_weight::WV
     _dof::N
     _ess::E
     _mass::U
@@ -62,22 +63,20 @@ function DensitySampleMeasure(
     # ToDo: Ensure smpls are deduplicated.
     # ToDo: Enable logdensity calculation by storing a binary searchable vector
     # over tuples `(point_hash, sample_idx)`?
-    # Empirical-measure weights must keep the cached cumulative weights
-    # monotone - a negative or non-finite weight would make categorical
-    # sampling silently select wrong points:
-    all(w -> isfinite(w) && w >= 0, smpls.weight) || throw(ArgumentError(
+    # Empirical-measure weights must support categorical sampling: a
+    # negative or non-finite weight would make the subsampling CDF
+    # non-monotone, an all-zero weight vector would leave nothing to draw
+    # (the sample vector is shared, not copied, so draw-time code
+    # revalidates against later weight mutation - but constructing an
+    # invalid empirical measure should fail loudly right away):
+    W = smpls.weight
+    all(w -> isfinite(w) && w >= 0, W) || throw(ArgumentError(
         "Weights of an empirical measure must be finite and non-negative"
     ))
-    # The cumulative weights are cached, so the stored samples get their own
-    # copy of the weight vector - callers may hold on to the given sample
-    # vector (e.g. as a user-facing sampling result) and mutate its weights:
-    weight = copy(smpls.weight)
-    smpls_priv = DensitySampleVector((smpls.v, smpls.logd, weight, smpls.info, smpls.aux))
-    max_weight = maximum(weight, init = zero(eltype(weight)))
-    DensitySampleMeasure(
-        smpls_priv, max_weight, cumsum(weight),
-        dof, ess, _canonical_mass(mass)
-    )
+    isempty(W) || maximum(W) > 0 || throw(ArgumentError(
+        "Weights of an empirical measure must contain at least one strictly positive entry"
+    ))
+    DensitySampleMeasure(smpls, dof, ess, _canonical_mass(mass))
 end
 
 # Masses are stored on a canonical logarithmic Float64 scale, uniformly
@@ -127,7 +126,7 @@ function ValueShapes.unshaped(dsm::DensitySampleMeasure, vs::AbstractValueShape)
     smpls = samplesof(dsm)
     varshape(smpls) <= vs || throw(ArgumentError("Sample shape $(varshape(smpls)) is not compatible with given shape $vs"))
     new_smpls = unshaped.(smpls)
-    return DensitySampleMeasure(new_smpls, dsm._max_weight, dsm._cumulative_weight, dsm._dof, dsm._ess, dsm._mass)
+    return DensitySampleMeasure(new_smpls, dsm._dof, dsm._ess, dsm._mass)
 end
 
 # Disambiguates against unshaped(x, ::ConstValueShape) of ValueShapes:
@@ -159,14 +158,23 @@ function Base.rand(gen::GenContext, dsm::DensitySampleMeasure)
     return gen_adapt(gen, dsm._smpls.v[idx])
 end
 
+# The subsampling CDF is computed fresh from the live sample weights on
+# each draw call: the sample vector is shared with the caller (it is
+# user-facing via `samplesof`), so a cached CDF could silently
+# desynchronize from mutated weights. Canonical relative weights make
+# the CDF monotone, finite and rescaling-invariant, and revalidate the
+# weights against invalid mutation:
+function _live_weight_cdf(dsm::DensitySampleMeasure)
+    W = samplesof(dsm).weight
+    isempty(W) && throw(ArgumentError("Can't draw from an empty DensitySampleMeasure"))
+    return cumsum(_canonical_rel_weights(W))
+end
+
 function _rand_subsample_idx(gen::GenContext, dsm::DensitySampleMeasure)
     # TODO: Use PSIS.
 
-    CW = dsm._cumulative_weight
-    isempty(CW) && throw(ArgumentError("Can't draw from an empty DensitySampleMeasure"))
-    W_total = CW[end]
-    isfinite(W_total) && W_total > 0 || throw(ArgumentError("Sample weights must sum to a finite positive value"))
-    r = rand(get_rng(gen)) * W_total
+    CW = _live_weight_cdf(dsm)
+    r = rand(get_rng(gen)) * CW[end]
     idx = searchsortedfirst(CW, r)
     return idx
 end
@@ -175,12 +183,9 @@ function _rand_subsample_idxs(gen::GenContext, dsm::DensitySampleMeasure, n::Int
     # TODO: Use PSIS.
 
     iszero(n) && return Int[]
-    CW = dsm._cumulative_weight
-    isempty(CW) && throw(ArgumentError("Can't draw from an empty DensitySampleMeasure"))
-    W_total = CW[end]
-    isfinite(W_total) && W_total > 0 || throw(ArgumentError("Sample weights must sum to a finite positive value"))
+    CW = _live_weight_cdf(dsm)
     # Always generate R on CPU for now:
-    R = rand(get_rng(gen), n) .* W_total
+    R = rand(get_rng(gen), n) .* CW[end]
     idxs = searchsortedfirst.(Ref(CW), R)
     return idxs
 end
@@ -228,7 +233,7 @@ function _renormalize_empirical_logd(logrenorm::Real, dsm::DensitySampleMeasure)
     smpls = samplesof(dsm)
     new_mass = _reweighted_mass(logrenorm, dsm._mass)
     new_smpls = DensitySampleVector((smpls.v, smpls.logd .+ logrenorm, smpls.weight, smpls.info, smpls.aux))
-    return DensitySampleMeasure(new_smpls, dsm._max_weight, dsm._cumulative_weight, dsm._dof, dsm._ess, new_mass)
+    return DensitySampleMeasure(new_smpls, dsm._dof, dsm._ess, new_mass)
 end
 
 
@@ -238,7 +243,7 @@ end
 function _without_sampleids(dsm::DensitySampleMeasure)
     s = samplesof(dsm)
     new_s = DensitySampleVector((s.v, s.logd, s.weight, fill(nothing, length(eachindex(s))), s.aux))
-    return DensitySampleMeasure(new_s, dsm._max_weight, dsm._cumulative_weight, dsm._dof, dsm._ess, dsm._mass)
+    return DensitySampleMeasure(new_s, dsm._dof, dsm._ess, dsm._mass)
 end
 
 _without_sampleids(::Nothing) = nothing
