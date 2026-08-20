@@ -32,6 +32,9 @@ function convert_options(algorithm::OptimAlg)
     return Optim.Options(; algopts...)
 end 
 
+BAT.batalgorithm(optalg::Optim.AbstractOptimizer) = TransformedMaxDensity(optalg = OptimAlg(optalg = optalg))
+
+
 function BAT.maximize_density(f_logdensity, x_init::AbstractVector{<:Real}, algorithm::OptimAlg, context::BATContext)
     f = fchain(f_logdensity, -)
     opts = convert_options(algorithm)
