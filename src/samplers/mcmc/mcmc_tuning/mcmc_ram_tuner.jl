@@ -3,8 +3,9 @@
 """
     struct RAMTuning <: MCMCTransformTuning
 
-Tunes MCMC spaces transformations based on the
-[Robust adaptive Metropolis algorithm](https://doi.org/10.1007/s11222-011-9269-5).
+Tunes MCMC spaces transformations based on
+[M. Vihola, "Robust adaptive Metropolis algorithm with coerced
+acceptance rate" (2012)](https://doi.org/10.1007/s11222-011-9269-5).
 
 In constrast to the original RAM algorithm, `RAMTuning` does not use the
 covariance estimate to change a proposal distribution, but instead
@@ -32,12 +33,22 @@ end
 
 mutable struct RAMProposalTunerState <: MCMCTransformTunerState end
 
+# RAM drifts the transformation in small per-step updates, step-size
+# adaptation tracks it instead of restarting:
+transform_change_restarts_stepsize(::RAMTrafoTunerState) = false
 
-create_trafo_tuner_state(
+
+function create_trafo_tuner_state(
     tuning::RAMTuning,
     chain_state::MCMCChainState,
     n_steps_hint::Integer
-) = RAMTrafoTunerState(tuning, 0)
+)
+    f = chain_state.f_transform
+    (f isa MulAdd && f.A isa LowerTriangular) || throw(ArgumentError(
+        "RAMTuning requires a TriangularAffineTransform adaptive space transformation"
+    ))
+    RAMTrafoTunerState(tuning, 0)
+end
 
 function mcmc_trafo_tuning_init!!(
     tuner_state::RAMTrafoTunerState,
@@ -140,8 +151,9 @@ function mcmc_tune_trafo_post_step!!(
     proposal::MCMCProposalState,
     current::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
     proposed::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
-    p_accept::AbstractVector{<:Real}
+    step_info::MCMCStepInfo
 )
+    p_accept = step_info.p_accept
 
     if any(current.x.v .== proposed.x.v)
         return f_transform, tuner_state, chain_state

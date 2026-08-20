@@ -18,7 +18,7 @@ $(TYPEDFIELDS)
     R<:Union{Vector{<:Integer}, Categorical}
 }<:MCMCProposal
     # TODO: MD, should we put a default tuple of proposals, if so, what should it be?
-    proposals::P = (RandomWalk(), HamiltonianMC())
+    proposals::P = MCMCProposal[RandomWalk(), HamiltonianMC()]
     picking_rule::R = Categorical(1/length(proposals) .* ones(length(proposals)))
 end
 
@@ -34,7 +34,6 @@ struct MultiProposalState{
     active_idx::I
 end
 
-export MultiProposalState
 
 function bat_default(
     TM::Type{TransformedMCMC}, 
@@ -92,6 +91,11 @@ function get_active_proposal(
 )
     current_proposal = multi_proposal_state.proposal_states[multi_proposal_state.active_idx]
     return current_proposal
+end
+
+function mcmc_mark_warmup_end!(multi_proposal_state::MultiProposalState)
+    foreach(mcmc_mark_warmup_end!, multi_proposal_state.proposal_states)
+    return nothing
 end
 
 function update_active_proposal!!(
