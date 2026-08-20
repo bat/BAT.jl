@@ -12,48 +12,51 @@ export IntegrationAlgorithm
 
 """
     bat_integrate(
-        target::AnySampleable,
+        target::MeasureLike,
         [algorithm::IntegrationAlgorithm],
         [context::BATContext]
-    )::DensitySampleVector
+    )
 
 Calculate the integral (evidence) of `target`.
 
 Returns a NamedTuple of the shape
 
 ```julia
-(result = X::Measurements.Measurement, evaluated::EvaluatedMeasure, ...)
+(result = X,)
 ```
 
-(The field `evaluated` is only present if `target` is a measure.)
+where `X` is the mass estimate, typically a `Measurements.Measurement` or
+a logarithmic number type wrapping one (e.g. for nested-sampling evidence
+estimates).
 
-Result properties not listed here are algorithm-specific and are not part
-of the stable public API.
+Use [`evalmeasure`](@ref) instead to obtain an [`EvaluatedMeasure`](@ref)
+that carries the mass estimate together with all other evaluation results.
 
-!!! note
+# Implementation
 
-    Do not add add methods to `bat_integrate`, add methods to
-    `bat_integrate_impl` instead.
+`bat_integrate` uses [`evalmeasure`](@ref) internally. Do not specialize
+`bat_integrate`.
 """
 function bat_integrate end
 export bat_integrate
 
-function bat_integrate_impl end
 
-
-function bat_integrate(target::AnySampleable, algorithm::IntegrationAlgorithm, context::BATContext)
+function bat_integrate(target::MeasureLike, algorithm::IntegrationAlgorithm, context::BATContext)
     orig_context = deepcopy(context)
-    r = bat_integrate_impl(target, algorithm, context)
-    result_with_args(Val(:mass), target, r, (algorithm = algorithm, context = orig_context))
+    em = evalmeasure(target, algorithm, context)
+    mass = massof(em)
+    mass isa MeasureBase.AbstractUnknownMass && throw(ErrorException("Integration algorithm $(nameof(typeof(algorithm))) did not produce a mass estimate"))
+    r = (;result = mass)
+    result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
-bat_integrate(target::AnySampleable) = bat_integrate(target, get_batcontext())
+bat_integrate(target::MeasureLike) = bat_integrate(target, get_batcontext())
 
-function bat_integrate(target::AnySampleable, algorithm::IntegrationAlgorithm)
+function bat_integrate(target::MeasureLike, algorithm::IntegrationAlgorithm)
     bat_integrate(target, algorithm, get_batcontext())
 end
 
-function bat_integrate(target::AnySampleable, context::BATContext)
+function bat_integrate(target::MeasureLike, context::BATContext)
     algorithm::IntegrationAlgorithm = bat_default_withinfo(bat_integrate, Val(:algorithm), target)
     bat_integrate(target, algorithm, context)
 end

@@ -6,6 +6,7 @@ using Distributions
 using ValueShapes
 using IntervalSets
 using LinearAlgebra: Diagonal, ones
+import Measurements
 
 
 @testset "bridge_sampling_integration" begin
@@ -22,22 +23,23 @@ using LinearAlgebra: Diagonal, ones
             )
             samples = bat_sample(dist, samplingalg).result
 
-            sd = EvaluatedMeasure(dist, samples = samples)
-            sample_integral = bat_integrate(sd, algorithm, context).result
+            sd = EvaluatedMeasure(dist, empirical = samples)
+            # Masses/integrals are reported on the canonical logarithmic scale:
+            logint = log(bat_integrate(sd, algorithm, context).result)
 
-            @test isapprox(sample_integral.val, val_expected, atol=val_rtol*sample_integral.err)
-            @test sample_integral.err < err_max
+            @test isapprox(Measurements.value(logint), log(val_expected), atol = val_rtol * Measurements.uncertainty(logint))
+            @test Measurements.uncertainty(logint) < err_max
         end
     end
 
     @testset "non-integer weights" begin
         dist = MvNormal(zeros(2), ones(2))
         samples = bat_sample(dist, IIDSampling(nsamples=20), context).result
-        samples = DensitySampleVector(samples.v, samples.logd, weight=fill(0.75, length(samples)))
-        evaluated = EvaluatedMeasure(dist, samples=samples)
+        samples = DensitySampleVector(v = samples.v, logd = samples.logd, weight = fill(0.75, length(samples)))
+        evaluated = EvaluatedMeasure(dist, empirical = samples)
 
         result = bat_integrate(evaluated, BridgeSampling(pretransform=DoNotTransform()), context).result
-        @test isfinite(result.val)
+        @test isfinite(Measurements.value(log(result)))
     end
 
     test_integration(BridgeSampling(pretransform=DoNotTransform()), "funnel distribution", FunnelDistribution(), val_rtol = 15)
