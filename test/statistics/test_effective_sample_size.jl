@@ -100,4 +100,24 @@ using StableRNGs
         uniformw = DensitySampleVector(v = merged.v, logd = merged.logd)
         @test bat_default(bat_eff_sample_size, Val(:algorithm), uniformw) isa EffSampleSizeFromAC
     end
+
+    @testset "weight-scale robustness" begin
+        context = BATContext()
+        mk_smpls(w) = DensitySampleVector(v = [rand(stblrng(), 2) for _ in eachindex(w)], logd = zeros(length(w)), weight = w)
+
+        # Kish ESS must not overflow or lose scale invariance at extreme
+        # weight scales:
+        w = 1.0 .+ (1:100) ./ 100
+        kish = bat_eff_sample_size(mk_smpls(w), KishESS(), context).result
+        @test bat_eff_sample_size(mk_smpls(w .* 1e300), KishESS(), context).result ≈ kish
+        @test bat_eff_sample_size(mk_smpls(w .* 1e-300), KishESS(), context).result ≈ kish
+        @test bat_eff_sample_size(mk_smpls([fill(typemax(Int), 99); 4]), KishESS(), context).result ≈ 99 rtol = 0.01
+
+        # The canonical relative weights reject invalid input:
+        @test BAT._canonical_rel_weights([2, 4, 8]) ≈ [0.25, 0.5, 1.0]
+        @test isempty(BAT._canonical_rel_weights(Float64[]))
+        @test_throws ArgumentError BAT._canonical_rel_weights([0.0, 0.0])
+        @test_throws ArgumentError BAT._canonical_rel_weights([1.0, -1.0])
+        @test_throws ArgumentError BAT._canonical_rel_weights([1.0, Inf])
+    end
 end

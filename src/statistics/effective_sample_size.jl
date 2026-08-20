@@ -225,17 +225,19 @@ end
 # nonuniform weights of unknown provenance cannot guarantee - it is a
 # heuristic, not an exact process ESS:
 function _resample_ac_ess(unshaped_smpls::DensitySampleVector, algorithm::EffSampleSizeFromAC, context::BATContext)
-    W = unshaped_smpls.weight
-    n = length(eachindex(W))
+    # Canonical relative weights make everything below invariant under a
+    # global rescaling and safe from overflow at extreme weight scales:
+    u = _canonical_rel_weights(unshaped_smpls.weight)
+    n = length(eachindex(u))
 
     # Empirical resampling factor:
-    resampling_factor = min(mean(W .^ 2) / mean(W)^2, 10)
+    resampling_factor = min(mean(u .^ 2) / mean(u)^2, 10)
     n_resample = round(Int, n * resampling_factor)
 
     # The resampling RNG seed must be the same for the same samples,
     # and invariant under a global rescaling of the weights (which
     # leaves the represented weighted measure unchanged):
-    rng_seed = hash(W ./ sum(W))
+    rng_seed = hash(u)
     resample_context = BATContext(rng = Philox4x((0x0, rng_seed))::Philox4x{UInt64,10})
 
     unweighted_smpls = samplesof(evalmeasure(unshaped_smpls, SystematicResampling(nsamples = n_resample), resample_context))
@@ -255,7 +257,10 @@ function _repetition_exact_ess(smpls::DensitySampleVector, algorithm::EffSampleS
     unshaped_smpls = unshaped.(smpls)
     W = unshaped_smpls.weight
     @argcheck all(w -> w >= 0 && isinteger(w), W)
-    N_expanded = Int(sum(W))
+    # Float accumulation can't wrap around like an integer sum would for
+    # huge repetition counts - the result is only compared against the
+    # decoding size guard, which needs no exactness:
+    N_expanded = sum(float, W, init = 0.0)
     N_expanded > 0 || throw(ArgumentError("Can't compute the effective sample size of an empty chain"))
     n_dof = length(first(unshaped_smpls.v))
 
@@ -295,7 +300,10 @@ export KishESS
 
 
 function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::KishESS, context::BATContext)
-    W = smpls.weight
-    ess = sum(W)^2 / sum(x -> x^2, W)
+    isempty(smpls) && throw(ArgumentError("Can't compute the effective sample size of an empty sample vector"))
+    # Canonical relative weights keep the ratio finite for integer weights
+    # near typemax and for extreme floating-point weight scales:
+    u = _canonical_rel_weights(smpls.weight)
+    ess = sum(u)^2 / sum(x -> x^2, u)
     (result = ess,)
 end
