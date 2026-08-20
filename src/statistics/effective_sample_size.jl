@@ -109,9 +109,17 @@ end
 
 """
     struct EffSampleSizeFromAC <: EffSampleSizeAlgorithm
-    
+
 Effective sample size estimation based on the integrated autocorrelation
-length of the samples.
+length of the samples - a property of the ordered sampling process.
+
+For uniformly weighted samples the stored order is taken as the process
+order. Samples carrying MCMC sample ids are decomposed into their exact
+per-walker ordered sequences (repetition weights are expanded exactly),
+whose independent ESS contributions add. For nonuniformly weighted
+samples without process provenance, a resample-then-autocorrelate
+heuristic is used - [`KishESS`](@ref) is the provenance-free
+alternative (and the default in that case).
 
 Constructors:
 
@@ -147,37 +155,92 @@ function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::EffSamp
     all(w -> w >= 0, W) && sum(W) > 0 || throw(ArgumentError("Effective sample size requires non-negative sample weights with a positive sum"))
     w0 = first(W)
 
-    # Weight provenance is deliberately erased at this level (weights may
-    # be repetition counts, importance weights, etc.), so no run-length
-    # semantics are inferred here - the MCMC layer, where the weighting
-    # scheme is still known, uses _repetition_exact_ess instead:
+    # Autocorrelation ESS is a property of an ordered sampling process.
+    # For uniform weights, the stored order is the process order; MCMC
+    # sample-id provenance reconstructs the per-walker ordered sequences
+    # exactly, even after merging; nonuniformly weighted samples without
+    # process provenance only support a resampling heuristic (KishESS is
+    # the provenance-free alternative, see the algorithm defaults):
     unshaped_ess = if all(w -> w ≈ w0, W)
         bat_eff_sample_size_impl(unshaped_smpls.v, algorithm, context).result
+    elseif _has_process_provenance(unshaped_smpls)
+        _mcmc_process_ess(unshaped_smpls, algorithm, context)
     else
-        # For nonuniform weights of unknown provenance, resample to get
-        # unweighted samples. Kish's approximation of ESS for weighted
-        # samples is often not good enough.
-
-        # Empirical resampling factor:
-        resampling_factor = min(mean(W .^ 2) / mean(W)^2, 10)
-
-        n_resample = round(Int, n * resampling_factor)
-
-        # The resampling RNG seed must be the same for the same samples,
-        # and invariant under a global rescaling of the weights (which
-        # leaves the represented weighted measure unchanged):
-        rng_seed = hash(W ./ sum(W))
-        context = BATContext(rng = Philox4x((0x0, rng_seed))::Philox4x{UInt64,10})
-
-        unweighted_smpls = samplesof(evalmeasure(unshaped_smpls, SystematicResampling(nsamples = n_resample), context))
-        resampled_ess = bat_eff_sample_size_impl(unweighted_smpls.v, algorithm, context).result
-        min.(n, resampled_ess)
+        _resample_ac_ess(unshaped_smpls, algorithm, context)
     end
 
     result_vs = replace_const_shapes(s::ConstValueShape -> ConstValueShape(Fill(n, size(s.value)...)), vs)
     ess = result_vs(unshaped_ess)
 
     (result = ess,)
+end
+
+
+# Per-sample MCMC ids identify the ordered sampling process (unique ids
+# only - multinomially resampled samples must not masquerade as ordered
+# chains, order-preserving systematic resampling keeps its ids):
+function _has_process_provenance(unshaped_smpls::DensitySampleVector)
+    info = unshaped_smpls.info
+    eltype(info) <: MCMCSampleID || return false
+    return allunique((id.chainid, id.walkerid, id.chaincycle, id.stepno) for id in info)
+end
+
+# Exact process ESS from MCMC sample-id provenance: reconstruct each
+# walker's ordered sequence (chains and walkers may be merged and
+# permuted), compute its autocorrelation ESS exactly for repetition
+# weights, and sum - independent chains and walkers contribute
+# additively:
+function _mcmc_process_ess(unshaped_smpls::DensitySampleVector, algorithm::EffSampleSizeFromAC, context::BATContext)
+    info = unshaped_smpls.info
+    keys = [(id.chainid, id.walkerid) for id in info]
+    ess_sum = nothing
+    for k in unique(keys)
+        idxs = findall(==(k), keys)
+        ord = sortperm(view(info, idxs), by = id -> (id.chaincycle, id.stepno))
+        walker_smpls = unshaped_smpls[idxs[ord]]
+        ess_w = _walker_ordered_ess(walker_smpls, algorithm, context)
+        ess_sum = isnothing(ess_sum) ? ess_w : ess_sum .+ ess_w
+    end
+    return ess_sum
+end
+
+# ESS of one ordered walker sequence. Within MCMC provenance, integer
+# weights are repetition counts (the only integer-weight MCMC weighting
+# scheme), non-integer weights (e.g. from ARP weighting) use the
+# resampling heuristic on the ordered sequence:
+function _walker_ordered_ess(walker_smpls::DensitySampleVector, algorithm::EffSampleSizeFromAC, context::BATContext)
+    W = walker_smpls.weight
+    if eltype(W) <: Integer
+        return _repetition_exact_ess(walker_smpls, algorithm, context)
+    elseif all(w -> w ≈ first(W), W)
+        return bat_eff_sample_size_impl(walker_smpls.v, algorithm, context).result
+    else
+        return _resample_ac_ess(walker_smpls, algorithm, context)
+    end
+end
+
+# Heuristic ESS for nonuniformly weighted ordered samples: deterministic
+# order-preserving resampling to unit weights, then autocorrelation ESS
+# on the resampled sequence. This imputes a serial structure that
+# nonuniform weights of unknown provenance cannot guarantee - it is a
+# heuristic, not an exact process ESS:
+function _resample_ac_ess(unshaped_smpls::DensitySampleVector, algorithm::EffSampleSizeFromAC, context::BATContext)
+    W = unshaped_smpls.weight
+    n = length(eachindex(W))
+
+    # Empirical resampling factor:
+    resampling_factor = min(mean(W .^ 2) / mean(W)^2, 10)
+    n_resample = round(Int, n * resampling_factor)
+
+    # The resampling RNG seed must be the same for the same samples,
+    # and invariant under a global rescaling of the weights (which
+    # leaves the represented weighted measure unchanged):
+    rng_seed = hash(W ./ sum(W))
+    resample_context = BATContext(rng = Philox4x((0x0, rng_seed))::Philox4x{UInt64,10})
+
+    unweighted_smpls = samplesof(evalmeasure(unshaped_smpls, SystematicResampling(nsamples = n_resample), resample_context))
+    resampled_ess = bat_eff_sample_size_impl(unweighted_smpls.v, algorithm, context).result
+    return min.(n, resampled_ess)
 end
 
 
@@ -203,9 +266,9 @@ function _repetition_exact_ess(smpls::DensitySampleVector, algorithm::EffSampleS
         expanded_v = nestedview(flatview(unshaped_smpls.v)[:, idxs])
         return bat_eff_sample_size_impl(expanded_v, algorithm, context).result
     else
-        # Chain too large to decode, fall back to the generic weighted
-        # estimate:
-        return bat_eff_sample_size_impl(unshaped_smpls, algorithm, context).result
+        # Chain too large to decode, fall back to the resampling
+        # heuristic on the ordered sequence:
+        return _resample_ac_ess(unshaped_smpls, algorithm, context)
     end
 end
 

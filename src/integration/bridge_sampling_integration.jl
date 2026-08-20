@@ -133,7 +133,9 @@ function bridge_sampling_integral(
     # ToDo: Make this type-stable:
     f1 = [exp(logdensityof(target_density,x))/current_int/(s1*exp(logdensityof(target_density,x))/current_int+s2*exp(proposal_samples.logd[i])) for (i,x) in enumerate(proposal_samples.v)]
     f2 = [[exp(logdensityof(proposal_density,x))/(s1*exp(target_samples.logd[i])/current_int+s2*exp(logdensityof(proposal_density,x)))] for (i,x) in enumerate(target_samples.v)]
-    f2_density_vector = DensitySampleVector(v = f2, logd = target_samples.logd, weight=target_samples.weight)
+    # The info fields carry the sampling-process provenance, so the ESS
+    # of the derived quantities can be computed properly:
+    f2_density_vector = DensitySampleVector(v = f2, logd = target_samples.logd, weight = target_samples.weight, info = target_samples.info)
 
     # Probability-weight semantics: sample weights carry no provenance, and
     # the frequency-weight Bessel correction degenerates for non-integer
