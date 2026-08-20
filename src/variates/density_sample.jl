@@ -106,25 +106,25 @@ change without deprecation.
 Constructors:
 
 ```julia
-    DensitySampleVector(
-        (
-            v::AbstractVector{<:AbstractVector{<:Real}},
-            logd::AbstractVector{<:Real},
-            weight::AbstractVector{<:Real},
-            info::AbstractVector{<:Any},
-            aux::AbstractVector{<:Any}
-        )
-    )
+function DensitySampleVector(;
+    v::AbstractVector,
+    logd::AbstractVector{<:Real},
+    weight::Union{AbstractVector{<:Real}, Symbol},
+    info::AbstractVector,
+    aux::AbstractVector
+)
 ```
 
 ```julia
-    DensitySampleVector(
-            v::AbstractVector,
-            logval::AbstractVector{<:Real};
-            weight::Union{AbstractVector{<:Real}, Symbol} = fill(1, length(eachindex(v))),
-            info::AbstractVector = fill(nothing, length(eachindex(v))),
-            aux::AbstractVector = fill(nothing, length(eachindex(v)))
-        )
+DensitySampleVector(
+    (
+        v::AbstractVector{<:AbstractVector{<:Real}},
+        logd::AbstractVector{<:Real},
+        weight::AbstractVector{<:Real},
+        info::AbstractVector{<:Any},
+        aux::AbstractVector{<:Any}
+    )
+)
 ```
 
 With `weight = :multiplicity` repeated samples will be replaced by a
@@ -173,18 +173,28 @@ DensitySampleVector(::Type{S}, varlen::Integer) where {P<:AbstractVector{<:Real}
     DensitySampleVector{P,T,W,R,Q}(undef, 0, varlen)
 
 
-function DensitySampleVector(
+_canonical_variates(xs::VectorOfSimilarArrays) = xs
+_canonical_variates(xs::AbstractSlices) = VectorOfSimilarArrays(xs)
+_canonical_variates(xs::AbstractVector{<:AbstractArray}) = VectorOfSimilarArrays(xs)
+_canonical_variates(xs::AbstractVector{<:Real}) = xs
+_canonical_variates(xs::AbstractVector{<:NamedTuple}) = StructVector(xs)
+_canonical_variates(xs::StructVector) = xs
+_canonical_variates(xs::ShapedAsNTArray) = xs
+
+
+# ToDo: Use Fill instead of fill? Will likely require an `as_appendable` function.
+function DensitySampleVector(;
     v::AbstractVector,
-    logval::AbstractVector{<:Real};
+    logd::AbstractVector{<:Real} = fill(NaN, length(v)),
     weight::Union{AbstractVector{<:Real}, Symbol} = fill(1, length(eachindex(v))),
     info::AbstractVector = fill(nothing, length(eachindex(v))),
     aux::AbstractVector = fill(nothing, length(eachindex(v)))
 )
     if weight == :multiplicity
         idxs, weight = repetition_to_weights(v)
-        return DensitySampleVector((ArrayOfSimilarArrays(v[idxs]), logval[idxs], weight, info[idxs], aux[idxs]))
+        return DensitySampleVector((_canonical_variates(v[idxs]), logd[idxs], weight, info[idxs], aux[idxs]))
     else
-        return DensitySampleVector((ArrayOfSimilarArrays(v), logval, weight, info, aux))
+        return DensitySampleVector((_canonical_variates(v), logd, weight, info, aux))
     end
 end
 
@@ -305,17 +315,23 @@ _cor(X::AbstractVectorOfSimilarVectors, w::AbstractWeights) =
     cor(flatview(X), w, 2)
 
 
+# Weight provenance is deliberately erased at this level (weights may be
+# repetition counts, importance weights, etc.), so the statistics are the
+# plain moments of the represented weighted empirical measure - without a
+# finite-sample bias correction, which would require knowing how the
+# samples were generated. These moments are invariant under global weight
+# rescaling and under repetition compression/expansion:
 function _get_statw(f::Function, samples::DensitySampleVector, resultshape::AbstractValueShape)
     shape = varshape(samples)
     X = unshaped.(samples.v)
-    w = FrequencyWeights(samples.weight)
+    w = ProbabilityWeights(samples.weight)
     r_unshaped = f(X, w)
     resultshape(r_unshaped)
 end
 
 Statistics.mean(samples::DensitySampleVector) = _get_statw(_mean, samples, varshape(samples))
-Statistics.var(samples::DensitySampleVector) = _get_statw(_var, samples, replace_const_shapes(ValueShapes.const_zero_shape, varshape(samples)))
-Statistics.std(samples::DensitySampleVector) = _get_statw(_std, samples, replace_const_shapes(ValueShapes.const_zero_shape, varshape(samples)))
+Statistics.var(samples::DensitySampleVector) = _get_statw((X, w) -> _var(X, w, corrected = false), samples, replace_const_shapes(ValueShapes.const_zero_shape, varshape(samples)))
+Statistics.std(samples::DensitySampleVector) = _get_statw((X, w) -> _std(X, w, corrected = false), samples, replace_const_shapes(ValueShapes.const_zero_shape, varshape(samples)))
 
 Statistics.median(samples::DensitySampleVector) = quantile(samples, 0.5)
 
@@ -326,7 +342,7 @@ function Statistics.quantile(samples::DensitySampleVector, p::Real)
     median_params = Vector{Float64}()
 
     for param in Base.OneTo(n_params)
-        median_param = quantile(flat_samples[param,:], FrequencyWeights(samples.weight), p)
+        median_param = quantile(flat_samples[param,:], ProbabilityWeights(samples.weight), p)
         push!(median_params, median_param)
     end
     shape(median_params)
@@ -342,8 +358,15 @@ end
 Base.minimum(samples::DensitySampleVector) = _get_stat(minimum, samples)
 Base.maximum(samples::DensitySampleVector) = _get_stat(maximum, samples)
 
-Statistics.cov(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = _cov(samples.v, FrequencyWeights(samples.weight))
-Statistics.cor(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = _cor(samples.v, FrequencyWeights(samples.weight))
+Statistics.cov(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = _cov(samples.v, ProbabilityWeights(samples.weight), corrected = false)
+Statistics.cor(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = _cor(samples.v, ProbabilityWeights(samples.weight))
+
+function Base.isapprox(a::DensitySampleVector, b::DensitySampleVector; kwargs...)
+    axes(a) == axes(b) || return false
+    return isapprox(flatview(unshaped.(a.v)), flatview(unshaped.(b.v)); kwargs...) &&
+        isapprox(a.logd, b.logd; kwargs...) &&
+        isapprox(a.weight, b.weight; kwargs...)
+end
 
 function _get_mode(samples::DensitySampleVector)
     shape = varshape(samples)
@@ -494,3 +517,5 @@ function _marginal_histograms(smpl::DensitySampleVector{<:AbstractVector{<:Real}
     W = Weights(trimmed_smpl.weight)
     [fit(Histogram, V[i,:], W, range(minimum(V[i,:]), maximum(V[i,:]), length = 41)) for i in axes(V,1)]
 end
+
+

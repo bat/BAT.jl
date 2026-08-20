@@ -79,9 +79,21 @@ Base.@deprecate rand(rng::AbstractRNG, m::BATDistMeasure, dim::Integer, dims::In
 
 @inline supports_rand(::BATDistMeasure) = true
 
-Statistics.mean(m::BATDistMeasure{<:MultivariateDistribution}) = mean(m.dist)
-Statistics.var(m::BATDistMeasure{<:MultivariateDistribution}) = var(m.dist)
+Statistics.mean(m::BATDistMeasure{<:Distribution}) = mean(m.dist)
+Statistics.median(m::BATDistMeasure{<:UnivariateDistribution}) = median(m.dist)
+Statistics.var(m::BATDistMeasure{<:Distribution}) = var(m.dist)
 Statistics.cov(m::BATDistMeasure{<:MultivariateDistribution}) = cov(m.dist)
+StatsBase.mode(m::BATDistMeasure{<:Distribution}) = mode(m.dist)
+
+# Not every distribution has a well-defined mode, failures across
+# Distributions.jl surface as varied error types:
+function maybe_modes(m::BATDistMeasure{<:Distribution})
+    try
+        [mode(m.dist)]
+    catch
+        nothing
+    end
+end
 
 
 has_uhc_support(m::BATDistMeasure) = has_uhc_support(m.dist)

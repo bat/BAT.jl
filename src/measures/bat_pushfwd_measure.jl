@@ -74,7 +74,9 @@ function (f::DistributionTransform)(m::AbstractMeasure; volcorr::Val{vc} = Val(t
 end
 
 
-#!!!!!!!!! Use return type of f with testvalue, if no shape change return varshape(m.origin) directly
+# ToDo: Support varshape for generic BATPushFwdMeasure, e.g. via the return
+# type of f applied to a testvalue (if f does not change the shape, return
+# varshape(m.origin) directly):
 #ValueShapes.varshape(m::BATPushFwdMeasure) = f(varshape(m.origin))
 
 ValueShapes.varshape(m::BATPushFwdMeasure{<:DistributionTransform}) = varshape(m.f.target_dist)
@@ -123,7 +125,7 @@ function _combine_logd_with_ladj(logd_orig::Real, ladj::Real)
         # Maybe  also for isneginf(logd_orig) && isfinite(ladj) ?
         # Return constant -Inf to prevent problems with ForwardDiff:
         #R(-Inf)
-        near_neg_inf(R) # Avoids AdvancedHMC warnings
+        near_neg_inf(R) # Avoids sampler warnings about non-finite log-density values
     else
         logd_result
     end

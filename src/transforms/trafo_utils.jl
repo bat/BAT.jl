@@ -244,7 +244,9 @@ end
 
 _trafo_ladj_available_impl(::Any, ::AbstractVector, ::Type{<:Tuple{<:Any,<:Any}}) = Val(true)
 _trafo_ladj_available_impl(::Any, ::AbstractVector, ::Type{<:NoLogAbsDetJacobian}) = Val(false)
-_trafo_ladj_available_impl(f, xs::AbstractVector, ::Any) = Val(f(first(xs)) isa Tuple{<:Any,<:Any})
+# Inference-opaque case, probe at runtime (with_logabsdet_jacobian itself,
+# not the bare transform, which never returns a tuple):
+_trafo_ladj_available_impl(f, xs::AbstractVector, ::Any) = Val(with_logabsdet_jacobian(f, first(xs)) isa Tuple{<:Any,<:Any})
 
 
 function _trafo_output_numtype(f, xs::AbstractVector)

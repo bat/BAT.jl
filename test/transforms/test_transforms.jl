@@ -4,5 +4,6 @@ using Test
 
 Test.@testset "transforms" begin
     include("test_distribution_transform.jl")
+    include("test_transform_function.jl")
     include("test_trafo_utils.jl")
 end
