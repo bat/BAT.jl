@@ -94,12 +94,13 @@ Hamiltonian Monte Carlo by minimizing Fisher Divergence"
 For an affine transformation `x = A z + μ` with `G = A Aᵀ`, the optimum
 satisfies `G Cov(α) G = Cov(x)`, where `α = ∇x log(target)` is the target
 score - the affine-invariant geometric mean of the position covariance and
-the inverse score covariance. Both statistics coincide with the target
-covariance for Gaussian targets; elsewhere the score side contributes the
-average local curvature (`Cov(α) = E[-∇²log(target)]`). The scores come
-for free: the z-space gradients that Hamiltonian proposals compute anyway
-are mapped back through the current transformation, no additional density
-or gradient evaluations are required.
+the inverse score covariance. For sufficiently regular targets (vanishing
+boundary terms) the score has zero mean and `Cov(α) = E[-∇²log(target)]`,
+the average local curvature. For a Gaussian target `Cov(x) = Σ` while
+`Cov(α) = Σ⁻¹`, so the optimum is `G = Σ`. The scores come for free: the
+z-space gradients that Hamiltonian proposals compute anyway are mapped
+back through the current transformation, no additional density or
+gradient evaluations are required.
 
 Positions and scores are accumulated in the fixed pre-adaptive space with
 foreground-background memory (early, transient-contaminated draws are
@@ -327,10 +328,13 @@ end
 
 
 # The regularization strength is relative to the mean variance scale of
-# each moment matrix, keeping the learned geometry equivariant under
-# affine rescaling of the target: positions and scores scale inversely,
+# each moment matrix, keeping the learned geometry equivariant under a
+# global rescaling of the target: positions and scores scale inversely,
 # so an absolute floor would swamp whichever side has the smaller scale
-# (e.g. the score covariance of a very wide target):
+# (e.g. the score covariance of a very wide target). Note that the exact
+# affine equivariance of the unregularized Fisher equation is only
+# preserved under orthogonal and scalar transformations by this scalar
+# ridge, not under arbitrary affine maps:
 _rel_regularization(γ::Real, C::AbstractMatrix) = γ * max(tr(C) / size(C, 1), floatmin(float(eltype(C))))
 _rel_regularization(γ::Real, var_vec::AbstractVector) = γ * max(sum(var_vec) / length(var_vec), floatmin(float(eltype(var_vec))))
 
