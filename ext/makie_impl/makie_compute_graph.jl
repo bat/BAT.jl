@@ -85,7 +85,7 @@ end
 # no need to guess. Not "the full domain plus margin" -- see the small
 # proportional margin added when this feeds into axis_limits_i.
 #
-# Non-finite values are filtered per dimension, mirroring _recompute_domain!
+# Non-finite values are filtered per dimension, mirroring _domain_including
 # below (and for the same reason documented there at length): a completed run
 # containing a single Inf/NaN sample value would otherwise poison this
 # domain via raw minimum/maximum -- NaN propagates outright, and an Inf span
@@ -138,8 +138,17 @@ end
 # explicit, accepted trade for removing the incremental state entirely.
 # Sample counts in this live-plotting context are small enough (typically
 # thousands, not millions) for this to be unmeasurable in practice.
-function _recompute_domain!(graph::ComputeGraph, all_samples, prior_lo::Vector{Float64}, prior_hi::Vector{Float64})
-    isempty(all_samples) && return nothing
+# PURE function (no graph access) so the caller can fold the recomputed
+# domain into the same single batched update! as samples/current_idxs -- an
+# earlier version updated the graph itself as a separate update! call, which
+# (because ComputePipeline eagerly resolves observable-attached nodes like
+# :gridlayout inside every update!, under the graph lock) made every flush
+# pay a third full-grid resolve just for the domain. No "did it change" check
+# is needed here either: ComputePipeline's input-side is_same uses isequal
+# for distinct arrays, so handing update! a freshly-allocated but
+# value-identical domain vector is dropped by the framework as a complete
+# no-op for that input.
+function _domain_including(all_samples, prior_lo::Vector{Float64}, prior_hi::Vector{Float64})
     data = all_samples.v.data
     new_lo = similar(prior_lo)
     new_hi = similar(prior_hi)
@@ -155,12 +164,7 @@ function _recompute_domain!(graph::ComputeGraph, all_samples, prior_lo::Vector{F
             new_hi[d] = max(hi, prior_hi[d])
         end
     end
-
-    domain_lo = graph[:domain_lo][]
-    domain_hi = graph[:domain_hi][]
-    (new_lo == domain_lo && new_hi == domain_hi) && return nothing
-    update!(graph, domain_lo=new_lo, domain_hi=new_hi)
-    return nothing
+    return new_lo, new_hi
 end
 
 
@@ -364,15 +368,40 @@ function _init_compute_graph(
     # current length in live multi-chain runs (no slider is shown there at
     # all) -- so the reveal fraction computed from these nodes is always 1.0
     # exactly when it would otherwise matter.
+    # The trace toggles are declared HERE, not with the other show_* control
+    # inputs further down, because :flat_samples_full's registration directly
+    # below lists them as inputs and register_computation! requires its
+    # inputs to already exist. (Trace2D has no diagonal counterpart -- it's
+    # an inherently 2D concept, a path through a 2D marginal -- so there's
+    # no show_trace_diag.)
+    add_input!(graph, :show_trace_upper, false)
+    add_input!(graph, :show_trace_lower, false)
+
+    # Gated on the trace toggles: this whole _full node family (this node,
+    # the four per-sample map!s below, and the per-pair marg_full views)
+    # exists ONLY for Trace2D, yet -- because ComputePipeline resolves a
+    # node's inputs before its callback can early-return -- it used to pay a
+    # full O(total samples) dataset copy plus several O(n) per-sample
+    # comprehensions on every flush even with both trace toggles off (the
+    # default). With the toggles as declared inputs, the off state produces
+    # 1:0 views instead: same view/vcat types as the on state (so the
+    # TypedEdge-locked output type is identical across off->on), just empty
+    # -- and every downstream _full node is O(input length), so empty-in/
+    # empty-out with no changes needed there. Consecutive off-state empties
+    # are isequal, so ComputePipeline stops even running the downstream
+    # callbacks after the first off-resolve. Flipping a toggle on dirties
+    # this node -> full recompute -> the trace renders exactly as before.
     register_computation!(graph,
-        [:samples],
+        [:samples, :show_trace_upper, :show_trace_lower],
         [:flat_samples_full],
     ) do inputs, changed, cached
         samples = inputs.samples
+        trace_on = inputs.show_trace_upper || inputs.show_trace_lower
         walker_views = Any[]
         for i in eachindex(samples)
             for j in eachindex(samples[i])
-                push!(walker_views, view(samples[i][j], 1:length(samples[i][j])))
+                rng = trace_on ? (1:length(samples[i][j])) : (1:0)
+                push!(walker_views, view(samples[i][j], rng))
             end
         end
         return (vcat(walker_views...),)
@@ -486,10 +515,8 @@ function _init_compute_graph(
     add_input!(graph, :show_stats_diag, false)
     add_input!(graph, :show_stats_lower, false)
 
-    # Trace2D has no diagonal counterpart -- it's an inherently 2D concept
-    # (a path through a 2D marginal), so there's no show_trace_diag.
-    add_input!(graph, :show_trace_upper, false)
-    add_input!(graph, :show_trace_lower, false)
+    # (:show_trace_upper/:show_trace_lower are declared earlier, above
+    # :flat_samples_full's registration, which needs them as inputs.)
 
     add_input!(graph, :triagonal_config, triagonal_config)
     add_input!(graph, :diagonal_config, diagonal_config)
@@ -743,7 +770,7 @@ function _init_compute_graph(
             ) do inputs, changed, cached
                 coords, weights, chainids, walkerids, stepnos, current_idx, live_recipe_upper, live_recipe_lower, live_map, config, show_trace_upper, show_trace_lower = inputs
                 if !(show_trace_upper || show_trace_lower)
-                    return (_EMPTY_TRACE2D_PRIMITIVES,)
+                    return (_empty_trace2d_primitives(),)
                 end
                 cell_status = live_map[i, j] ? LiveCell() : DeadCell()
                 recipe_status = determine_recipe_status(Trace2D(), live_recipe_upper(), live_recipe_lower())

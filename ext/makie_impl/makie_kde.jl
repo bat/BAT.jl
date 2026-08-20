@@ -1,13 +1,12 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# Dead-cell results are always identical and read-only (isempty-checked, then
-# discarded), so these are shared const sentinels instead of fresh allocations
-# on every recompute (which happens on every new sample batch for every
-# non-selected recipe).
-const _EMPTY_KDE1D_PRIMITIVES = (x=Vector{Float64}(), density=Vector{Float64}(), poly_points=Vector{Point{2,Float32}}())
-const _EMPTY_KDE2D_PRIMITIVES = (x=Vector{Float64}(), y=Vector{Float64}(), density=Matrix{Float64}(undef, 0, 0))
-const _EMPTY_QUANTILEKDE1D_PRIMITIVES = (polys=Vector{Vector{Point{2,Float32}}}(), fill_colors=Vector{RGBA}(), full_line=Vector{Point{2,Float32}}())
-const _EMPTY_QUANTILEKDE2D_PRIMITIVES = (x=Vector{Float64}(), y=Vector{Float64}(), color_grid=Matrix{RGBA{Float32}}(undef, 0, 0))
+# Fresh values per call, deliberately not shared consts -- see the
+# change-tracking rationale above _empty_scatter2d_primitives
+# (makie_scatter.jl).
+_empty_kde1d_primitives() = (x=Vector{Float64}(), density=Vector{Float64}(), poly_points=Vector{Point{2,Float32}}())
+_empty_kde2d_primitives() = (x=Vector{Float64}(), y=Vector{Float64}(), density=Matrix{Float64}(undef, 0, 0))
+_empty_quantilekde1d_primitives() = (polys=Vector{Vector{Point{2,Float32}}}(), fill_colors=Vector{RGBA}(), full_line=Vector{Point{2,Float32}}())
+_empty_quantilekde2d_primitives() = (x=Vector{Float64}(), y=Vector{Float64}(), color_grid=Matrix{RGBA{Float32}}(undef, 0, 0))
 
 # KDE2D masks effectively-zero density cells to NaN (rendered transparent,
 # matching Hist2D's zero-bin convention) -- as a fraction of the PEAK density,
@@ -20,6 +19,69 @@ const _EMPTY_QUANTILEKDE2D_PRIMITIVES = (x=Vector{Float64}(), y=Vector{Float64}(
 # every parameter scale by construction.
 const _KDE2D_DENSITY_FLOOR_FRAC = 1e-3
 
+# Weighted counterpart of KernelDensity.default_bandwidth, needed because
+# KernelDensity's own bandwidth selection ignores `weights` entirely -- its
+# default_bandwidth(data) has no weights-aware method, so both the spread
+# estimate and the n^(-1/5) factor come from the raw stored rows. For
+# weighted (e.g. Metropolis repeat-count) samples that's systematically
+# wrong: confirmed via direct repro that data whose *weighted* distribution
+# is a point mass still renders with the full unweighted-spread bandwidth.
+#
+# Mirrors KernelDensity's robust Silverman rule exactly (same alpha=0.9,
+# same min(std, IQR/1.34), same zero-width fallbacks -- see default_bandwidth
+# in its univariate.jl) with two substitutions: WEIGHTED std/IQR (uncorrected
+# `Weights`, matching this extension's convention everywhere else), and
+# n = Kish effective sample size (sum(w)^2 / sum(w^2)) -- which reduces to
+# the plain row count for uniform weights, and whose exact choice is
+# insensitive anyway under the n^(-1/5) exponent. Returns `nothing` for
+# degenerate inputs (zero/non-finite weight sums, n_eff <= 1, non-finite
+# width) -- callers then simply fall back to KernelDensity's own default.
+function _weighted_kde_bandwidth(values::AbstractVector{<:Real}, weights::AbstractVector{<:Real}, alpha::Float64=0.9)
+        sum_w = sum(weights)
+        sum_w2 = sum(abs2, weights)
+        (isfinite(sum_w) && isfinite(sum_w2) && sum_w > 0 && sum_w2 > 0) || return nothing
+        n_eff = sum_w^2 / sum_w2
+        n_eff <= 1 && return nothing
+
+        w = Weights(weights)
+        var_width = std(values, w)
+        q25, q75 = quantile(values, w, [0.25, 0.75])
+        quantile_width = (q75 - q25) / 1.34
+
+        width = min(var_width, quantile_width)
+        if width == 0.0
+                width = var_width == 0.0 ? 1.0 : var_width
+        end
+        isfinite(width) || return nothing
+        return alpha * width * n_eff^(-0.2)
+end
+
+# The two kde() entry points all four KDE recipes go through. Uniform
+# weights take the fast path with NO explicit bandwidth -- KernelDensity's
+# own default is exactly right there (Kish n_eff == row count, and its
+# unweighted std/IQR equal the weighted ones), so the common IID/unit-weight
+# case stays bit-for-bit identical to calling kde() directly. Only genuinely
+# non-uniform weights get the weighted bandwidth; a `nothing` from the
+# helper (degenerate data) also falls back to the default.
+function _weighted_kde1d(values::AbstractVector, weights::AbstractVector)
+        h = allequal(weights) ? nothing : _weighted_kde_bandwidth(values, weights)
+        return isnothing(h) ? kde(values; weights=weights) : kde(values; weights=weights, bandwidth=h)
+end
+
+# Per-dimension bandwidths, mirroring KernelDensity's own bivariate
+# default_bandwidth (which applies the univariate rule per coordinate).
+# Falls back entirely (not per-axis) if either dimension is degenerate.
+function _weighted_kde2d(x::AbstractVector, y::AbstractVector, weights::AbstractVector)
+        hx = hy = nothing
+        if !allequal(weights)
+                hx = _weighted_kde_bandwidth(x, weights)
+                hy = _weighted_kde_bandwidth(y, weights)
+        end
+        return (isnothing(hx) || isnothing(hy)) ?
+                kde((x, y); weights=weights) :
+                kde((x, y); weights=weights, bandwidth=(hx, hy))
+end
+
 function compute_plotting_primitives(
         ::SubArray,
         ::SubArray,
@@ -28,7 +90,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return _EMPTY_KDE1D_PRIMITIVES
+        return _empty_kde1d_primitives()
 end
 
 function compute_plotting_primitives(
@@ -42,10 +104,10 @@ function compute_plotting_primitives(
         # kde() errors on empty input -- a live cell can still have zero samples
         # (e.g. right after vsel activates, before the first batch flushes, or if
         # buffered samples get cleared later), so degrade like a dead cell instead.
-        isempty(weights) && return _EMPTY_KDE1D_PRIMITIVES
-        kde_result = kde(vec(marg_coords), weights=weights)
+        isempty(weights) && return _empty_kde1d_primitives()
+        kde_result = _weighted_kde1d(vec(marg_coords), weights)
         # collect(...): kde_result.x is a StepRangeLen, not a Vector{Float64} --
-        # matching _EMPTY_KDE1D_PRIMITIVES's declared type here (rather than the
+        # matching _empty_kde1d_primitives()'s declared type here (rather than the
         # other way around) avoids the same live/dead ComputePipeline TypedEdge
         # type-lock crash documented for ChainScatter2D/Scatter2D/Hexbin2D
         # (a live cell resolving first locks in StepRangeLen; a later live->dead
@@ -90,7 +152,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return _EMPTY_KDE2D_PRIMITIVES
+        return _empty_kde2d_primitives()
 end
 
 function compute_plotting_primitives(
@@ -101,8 +163,8 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
-        isempty(weights) && return _EMPTY_KDE2D_PRIMITIVES
-        kde_result = kde(marg_coords', weights=weights)
+        isempty(weights) && return _empty_kde2d_primitives()
+        kde_result = _weighted_kde2d(view(marg_coords, 1, :), view(marg_coords, 2, :), weights)
         density = kde_result.density
         # Relative-to-peak cutoff (see _KDE2D_DENSITY_FLOOR_FRAC's comment);
         # single pass instead of the previous fill + mask + masked-assign.
@@ -110,7 +172,7 @@ function compute_plotting_primitives(
         nonzero_density = map(d -> d > floor_val ? d : NaN, density)
 
         # collect(...): see KDE1D's matching comment above -- kde_result.x/.y
-        # are StepRangeLen, not Vector{Float64} like _EMPTY_KDE2D_PRIMITIVES.
+        # are StepRangeLen, not Vector{Float64} like _empty_kde2d_primitives().
         return (x=collect(kde_result.x), y=collect(kde_result.y), density=nonzero_density)
 end
 
@@ -168,7 +230,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return _EMPTY_QUANTILEKDE1D_PRIMITIVES
+        return _empty_quantilekde1d_primitives()
 end
 
 function compute_plotting_primitives(
@@ -179,9 +241,9 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
-        isempty(weights) && return _EMPTY_QUANTILEKDE1D_PRIMITIVES
+        isempty(weights) && return _empty_quantilekde1d_primitives()
         (; levels) = config
-        kde_result = kde(vec(marg_coords), weights=weights)
+        kde_result = _weighted_kde1d(vec(marg_coords), weights)
         x = kde_result.x
         density = kde_result.density
 
@@ -273,7 +335,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return _EMPTY_QUANTILEKDE2D_PRIMITIVES
+        return _empty_quantilekde2d_primitives()
 end
 
 function compute_plotting_primitives(
@@ -284,9 +346,9 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
-        isempty(weights) && return _EMPTY_QUANTILEKDE2D_PRIMITIVES
+        isempty(weights) && return _empty_quantilekde2d_primitives()
         (; levels) = config
-        kde_result = kde((marg_coords[1, :], marg_coords[2, :]), weights=weights)
+        kde_result = _weighted_kde2d(marg_coords[1, :], marg_coords[2, :], weights)
 
         density = kde_result.density
         density_flat = vec(density)
@@ -339,7 +401,7 @@ function compute_plotting_primitives(
         end
 
         # collect(...): see KDE1D's matching comment above -- kde_result.x/.y
-        # are StepRangeLen, not Vector{Float64} like _EMPTY_QUANTILEKDE2D_PRIMITIVES.
+        # are StepRangeLen, not Vector{Float64} like _empty_quantilekde2d_primitives().
         return (x=collect(kde_result.x), y=collect(kde_result.y), color_grid=color_grid)
 end
 

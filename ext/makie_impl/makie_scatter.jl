@@ -1,6 +1,21 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-const _EMPTY_SCATTER2D_PRIMITIVES = (x=Float64[], y=Float64[], weights=Float64[])
+# Dead/empty primitive results are built FRESH on every call -- plain
+# functions, deliberately NOT shared `const` sentinels (the previous design,
+# reversed on purpose): ComputePipeline's is_same treats a callback returning
+# the *identical mutable object* again as CHANGED (it cannot rule out
+# in-place mutation), but a fresh, isequal-equal value as UNCHANGED -- which
+# stops dirty-propagation right at the recipe's own output node, so
+# downstream callbacks don't even run. Confirmed via a direct
+# ComputePipeline-level experiment: a node returning a shared const re-ran
+# its downstream on every update, the fresh-tuple variant zero times. Shared
+# consts therefore made every dead/non-selected recipe re-dirty its
+# downstream on every sample batch, defeating exactly the change-tracking a
+# future per-cell grid rebuild would rely on. The cost of rebuilding these
+# tiny empty NamedTuples per call is a few negligible allocations. The same
+# convention applies to every _empty_*_primitives() in makie_stats.jl /
+# makie_kde.jl / makie_hist.jl / makie_trace.jl.
+_empty_scatter2d_primitives() = (x=Float64[], y=Float64[], weights=Float64[])
 
 function compute_plotting_primitives(
         ::SubArray,
@@ -10,7 +25,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return _EMPTY_SCATTER2D_PRIMITIVES
+        return _empty_scatter2d_primitives()
 end
 
 function compute_plotting_primitives(
@@ -25,14 +40,14 @@ function compute_plotting_primitives(
         # before the first batch flushes) -- and its placeholder view is 0x0
         # (not 2x0), so marg_coords[1, :] below would throw a BoundsError.
         # Degrade to the empty sentinel like the KDE recipes already do.
-        isempty(weights) && return _EMPTY_SCATTER2D_PRIMITIVES
+        isempty(weights) && return _empty_scatter2d_primitives()
         x = marg_coords[1, :]
         y = marg_coords[2, :]
 
         # Materialized to Vector{Float64} rather than passed through as the raw
         # SubArray{<:Any} from :flat_weights -- ComputePipeline's TypedEdge fixes
         # this node's output type from its first resolution, and the dead-cell
-        # fallback (_EMPTY_SCATTER2D_PRIMITIVES) hardcodes weights=Float64[]; a
+        # fallback (_empty_scatter2d_primitives()) hardcodes weights=Float64[]; a
         # live SubArray{Int64,...} (or any non-Float64 concrete type) here would
         # make a later live->dead transition (e.g. via vsel reduction) fail to
         # convert.
@@ -78,7 +93,7 @@ end
 # subtype, with no changes needed here.
 _samples_have_chain_ids(samples) = hasfield(eltype(samples.info), :chainid)
 
-const _EMPTY_CHAINSCATTER2D_PRIMITIVES = (x=Float64[], y=Float64[], weights=Float64[], chainids=Int32[])
+_empty_chainscatter2d_primitives() = (x=Float64[], y=Float64[], weights=Float64[], chainids=Int32[])
 
 # Qualitative, wrap-around palette for distinguishing chains -- deliberately a
 # small fixed set rather than a continuous colormap (per explicit request):
@@ -98,7 +113,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return _EMPTY_CHAINSCATTER2D_PRIMITIVES
+        return _empty_chainscatter2d_primitives()
 end
 
 function compute_plotting_primitives(
@@ -112,7 +127,7 @@ function compute_plotting_primitives(
 )
         # See Scatter2D's matching comment above -- the zero-sample live
         # cell's placeholder view is 0x0, so row indexing would throw.
-        isempty(weights) && return _EMPTY_CHAINSCATTER2D_PRIMITIVES
+        isempty(weights) && return _empty_chainscatter2d_primitives()
         x = marg_coords[1, :]
         y = marg_coords[2, :]
 
