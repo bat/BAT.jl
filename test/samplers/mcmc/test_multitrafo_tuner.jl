@@ -50,15 +50,22 @@ using BAT: batmeasure, TriangularAffineTransform, NoMCMCTransformTuning
     G_learned = Matrix(A_eff * A_eff')
     @test opnorm(G_learned - Σ) / opnorm(Σ) < 0.5
 
-    # Score-based tunings are not supported inside transform chains yet
-    # and must be rejected clearly (the default for HMC components is
-    # Fisher tuning):
-    alg_hmc = TransformedMCMC(
+    # Score-based tunings are not supported inside transform chains yet:
+    # the default configuration for gradient-based proposals must already
+    # fail at construction time (not later during state creation) ...
+    @test_throws ArgumentError TransformedMCMC(
         proposal = HamiltonianMC(),
         adaptive_transform = at,
         pretransform = DoNotTransform()
     )
-    @test alg_hmc.transform_tuning isa MultiTrafoTuning
+    # ... and explicitly configured Fisher components are rejected at
+    # tuner creation:
+    alg_hmc = TransformedMCMC(
+        proposal = HamiltonianMC(),
+        adaptive_transform = at,
+        transform_tuning = MultiTrafoTuning((FisherTransformTuning(), FisherTransformTuning())),
+        pretransform = DoNotTransform()
+    )
     @test_throws ArgumentError BAT.MCMCState(alg_hmc, target, 1, [randn(rng, 2)], deepcopy(context))
 
     # Component count and tuning count must match:

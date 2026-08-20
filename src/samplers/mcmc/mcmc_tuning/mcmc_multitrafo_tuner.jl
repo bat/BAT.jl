@@ -135,6 +135,7 @@ function mcmc_tune_trafo_post_cycle!!(
     n = length(components_new)
 
     changed = false
+    restart = false
     for j in eachindex(components_new)
         samples_j = inv_intermediate_results[n + 1 - j]
         f_j_new, trafo_tuners[j], chain_state = mcmc_tune_trafo_post_cycle!!(
@@ -147,8 +148,12 @@ function mcmc_tune_trafo_post_cycle!!(
         if f_j_new !== components_new[j]
             components_new[j] = f_j_new
             changed = true
+            restart |= transform_change_restarts_stepsize(trafo_tuners[j])
         end
     end
+    # The restart policy must reflect this change, not a previous
+    # post-step one:
+    multi_tuner_state.last_change_restarts = changed && restart
 
     f_transform_new = changed ? fchain((components_new...,)) : f_transform
     return f_transform_new, multi_tuner_state, chain_state

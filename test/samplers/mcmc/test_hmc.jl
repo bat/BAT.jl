@@ -127,6 +127,28 @@ import ForwardDiff, Zygote
         @test BAT.test_dist_samples(unshaped(objective), samples)
     end
     
+    @testset "affine pullback valgrad" begin
+        # The analytic affine pullback wrapper must agree with generic AD
+        # through the full pullback measure (a FunctionChain takes the
+        # generic path even for an affine map):
+        import AffineMaps: MulAdd
+        import FunctionChains: fchain
+        A_pb = LinearAlgebra.LowerTriangular([1.4 0.0 0.0; 0.3 0.9 0.0; -0.2 0.1 1.7])
+        b_pb = [0.5, -1.0, 0.2]
+        f_affine = MulAdd(A_pb, b_pb)
+        x_dummy = randn(3)
+        fg_wrapper = BAT._target_logdgrad_func(target, f_affine, deepcopy(context), HamiltonianMC(), x_dummy)
+        fg_generic = BAT._target_logdgrad_func(target, fchain((f_affine,)), deepcopy(context), HamiltonianMC(), x_dummy)
+        @test fg_wrapper isa BAT._AffinePullbackValGrad
+        for _ in 1:5
+            z = randn(3)
+            logd_w, grad_w = fg_wrapper(z)
+            logd_g, grad_g = fg_generic(z)
+            @test logd_w ≈ logd_g
+            @test grad_w ≈ grad_g
+        end
+    end
+
     @testset "invalid configurations" begin
         # ARPWeighting is statistically invalid for NUTS: the acceptance
         # statistic is a trajectory average, not a selection probability.

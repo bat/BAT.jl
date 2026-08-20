@@ -8,6 +8,7 @@ using Distributions, ValueShapes, DensityInterface
 using StableRNGs
 import ForwardDiff
 
+using BAT: _wolfe_linesearch
 using BAT: _lbfgs_trace, _lbfgs_inverse_hessians, pathfinder_gaussian_fit,
     init_adaptive_transform, TriangularAffineTransform, PathfinderTransformInit,
     PriorApproxTransformInit
@@ -22,6 +23,37 @@ using MatrixShapedOperators: woodbury_operator, rowgram_factor
     m_true = randn(rng, d)
     f_logd = x -> -dot(x - m_true, Cinv, x - m_true) / 2
     f_logdgrad = x -> (f_logd(x), -(Cinv * (x - m_true)))
+
+    @testset "wolfe line search" begin
+        f_q(x) = (-sum(abs2, x) / 2, -x)
+        x0 = [4.0, 0.0]
+        logd0, grad0 = f_q(x0)
+        dq = [-1.0, 0.0]
+        phi0 = -logd0
+        dphi0 = -dot(grad0, dq)
+        @test dphi0 < 0
+
+        # On a quadratic, the accepted step satisfies both strong-Wolfe
+        # conditions (verifiable analytically):
+        res = _wolfe_linesearch(f_q, x0, phi0, dphi0, dq, 1.0)
+        @test !isnothing(res)
+        x_n, phi_n, grad_n = res
+        t_acc = (x0[1] - x_n[1]) / -dq[1]
+        @test t_acc > 0
+        @test phi_n <= phi0 + 1e-4 * t_acc * dphi0
+        @test abs(-dot(grad_n, dq)) <= 0.9 * abs(dphi0)
+
+        # Non-finite regions count as "too far" and are bracketed away:
+        f_b(x) = sum(abs2, x) > 25 ? (NaN, fill(NaN, 2)) : f_q(x)
+        res_b = _wolfe_linesearch(f_b, x0, phi0, dphi0, dq, 64.0)
+        @test !isnothing(res_b)
+        x_b, phi_b, grad_b = res_b
+        @test isfinite(phi_b) && phi_b < phi0
+
+        # A completely unusable direction fails cleanly:
+        f_nan(x) = (NaN, fill(NaN, 2))
+        @test isnothing(_wolfe_linesearch(f_nan, x0, phi0, dphi0, dq, 1.0))
+    end
 
     @testset "L-BFGS trace" begin
         xs, grads = _lbfgs_trace(f_logdgrad, fill(4.0, d), maxiters = 200, history_length = 6)
