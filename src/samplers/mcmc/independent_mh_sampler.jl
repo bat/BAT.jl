@@ -4,9 +4,12 @@
     struct MCMCGlobalProposal <: MCMCProposal
 
 MCMC proposal algorithm for drawing samples from a global proposal
-distribution - independent from the current position of the MCMC walker.
+distribution - independent from the current position of the MCMC
+walker. This is an independence Metropolis-Hastings sampler, see
+[L. Tierney, "Markov Chains for Exploring Posterior Distributions"
+(1994)](https://doi.org/10.1214/aos/1176325750).
 
-If no distribution is passed by the user, the target is checked for the 
+If no distribution is passed by the user, the target is checked for the
 best known approximation for the posterior, e.g. the prior.
 
 Constructors:
@@ -43,25 +46,14 @@ struct MCMCGlobalProposalProposalState{
     global_proposal::Q
 end
 
-export MCMCGlobalProposalProposalState
 
-bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::MCMCGlobalProposal) = PriorToNormal()
+bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::MCMCGlobalProposal) = NormalBased()
 
 bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, proposal::MCMCGlobalProposal) = NoMCMCProposalTuning()
-
-bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, proposal::MCMCGlobalProposal) = RAMTuning()
 
 bat_default(::Type{TransformedMCMC}, ::Val{:adaptive_transform}, proposal::MCMCGlobalProposal) = TriangularAffineTransform()
 
 bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, proposal::MCMCGlobalProposal) = NoMCMCTempering()
-
-bat_default(::Type{TransformedMCMC}, ::Val{:nsteps}, proposal::MCMCGlobalProposal, pretransform::AbstractTransformTarget, nchains::Integer) = 10^5
-
-bat_default(::Type{TransformedMCMC}, ::Val{:init}, proposal::MCMCGlobalProposal, pretransform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
-    MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
-
-bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, proposal::MCMCGlobalProposal, pretransform::AbstractTransformTarget, nchains::Integer, nsteps::Integer) =
-    MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
 
 
 function _create_proposal_state(
