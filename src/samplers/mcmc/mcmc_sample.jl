@@ -59,6 +59,14 @@ bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::MCMCProposal, :
 
 function bat_default(TM::Type{TransformedMCMC}, tt::Val{:transform_tuning}, proposal::MCMCProposal, f_transform::AdaptiveTransformChain)
     tunings = bat_default.(TM, tt, Ref(proposal), f_transform.f)
+    # Fail at configuration time, not later during state creation: the
+    # per-component defaults for gradient-based proposals are score-based
+    # (Fisher), which transform chains don't support yet:
+    if any(t -> t isa FisherTransformTuning, tunings)
+        throw(ArgumentError(
+            "The default transform tuning for $(nameof(typeof(proposal))) components is score-based (FisherTransformTuning), which is not supported inside an AdaptiveTransformChain yet - please specify a supported transform_tuning (e.g. MultiTrafoTuning of RAMTuning components) explicitly"
+        ))
+    end
     return MultiTrafoTuning(Tuple(tunings))
 end
 
@@ -164,7 +172,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, samplingalg::TransformedMCMC, co
 
     samplegen = MCMCSampleGenerator(mcmc_states)
 
-    ess = _summed_walker_ess(chain_outputs, context)
+    ess = _summed_walker_ess(chain_outputs, samplingalg.sample_weighting, context)
     dsm = DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 
     # The samples and the bare target measure in the transformed space are
@@ -195,15 +203,23 @@ end
 # Autocorrelation ESS is a property of the ordered stochastic process, not
 # of its empirical measure: it must be computed on each walker's ordered
 # output sequence separately, before chains and walkers are merged.
-# Independent chains and walkers then contribute additively:
+# Independent chains and walkers then contribute additively. Weight
+# provenance is still known here (unlike at the generic sample-vector
+# level, which deliberately erases it), so repetition weights are
+# reconstructed into the exact ordered chain:
 function _summed_walker_ess(
     chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
+    weighting::AbstractMCMCWeightingScheme,
     context::BATContext
 )
     ess_sum = nothing
     for walker_outputs in chain_outputs, walker_output in walker_outputs
         isempty(walker_output) && continue
-        ess_w = bat_eff_sample_size_impl(walker_output, EffSampleSizeFromAC(), context).result
+        ess_w = if weighting isa RepetitionWeighting
+            _repetition_exact_ess(walker_output, EffSampleSizeFromAC(), context)
+        else
+            bat_eff_sample_size_impl(walker_output, EffSampleSizeFromAC(), context).result
+        end
         ess_sum = isnothing(ess_sum) ? ess_w : ess_sum .+ ess_w
     end
     return isnothing(ess_sum) ? nothing : minimum(ess_sum)

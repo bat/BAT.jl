@@ -31,8 +31,10 @@ using StableRNGs
 
     @testset "repetition-weight-exact ESS" begin
         context = BATContext()
-        # Integer weights are run-length repetition counts: the ESS of the
-        # weight-compressed samples must be exactly the ESS of the
+        # When the caller knows the weights are run-length repetition
+        # counts (only the MCMC layer knows - the generic sample-vector
+        # level deliberately erases weight provenance), the ESS of the
+        # weight-compressed samples is exactly the ESS of the
         # run-length-decoded ordered chain:
         rng2 = stblrng()
         n_runs = 500
@@ -45,8 +47,20 @@ using StableRNGs
         smpls_rle = DensitySampleVector(v = vals, logd = zeros(n_runs), weight = weights)
 
         expanded = nestedview(flatview(vals)[:, inverse_rle(1:n_runs, weights)])
-        ess_rle = bat_eff_sample_size(smpls_rle, EffSampleSizeFromAC(), context).result
+        ess_rle = BAT._repetition_exact_ess(smpls_rle, EffSampleSizeFromAC(), context)
         ess_expanded = bat_eff_sample_size(expanded, EffSampleSizeFromAC(), context).result
         @test ess_rle ≈ ess_expanded
+
+        # Uniform repetition counts greater than one also decode:
+        smpls_unif = DensitySampleVector(v = vals, logd = zeros(n_runs), weight = fill(2, n_runs))
+        expanded_unif = nestedview(flatview(vals)[:, inverse_rle(1:n_runs, fill(2, n_runs))])
+        @test BAT._repetition_exact_ess(smpls_unif, EffSampleSizeFromAC(), context) ≈
+            bat_eff_sample_size(expanded_unif, EffSampleSizeFromAC(), context).result
+
+        # The generic path stays provenance-neutral and scale-invariant:
+        smpls_w = DensitySampleVector(v = vals, logd = zeros(n_runs), weight = float.(weights))
+        smpls_w100 = DensitySampleVector(v = vals, logd = zeros(n_runs), weight = 100 .* float.(weights))
+        @test bat_eff_sample_size(smpls_w, EffSampleSizeFromAC(), context).result ≈
+            bat_eff_sample_size(smpls_w100, EffSampleSizeFromAC(), context).result
     end
 end

@@ -147,43 +147,66 @@ function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::EffSamp
     all(w -> w >= 0, W) && sum(W) > 0 || throw(ArgumentError("Effective sample size requires non-negative sample weights with a positive sum"))
     w0 = first(W)
 
-    N_expanded = sum(W)
-    n_dof = length(first(unshaped_smpls.v))
-
+    # Weight provenance is deliberately erased at this level (weights may
+    # be repetition counts, importance weights, etc.), so no run-length
+    # semantics are inferred here - the MCMC layer, where the weighting
+    # scheme is still known, uses _repetition_exact_ess instead:
     unshaped_ess = if all(w -> w ≈ w0, W)
         bat_eff_sample_size_impl(unshaped_smpls.v, algorithm, context).result
-    elseif eltype(W) <: Integer && N_expanded * n_dof <= 5 * 10^7
-        # Integer weights are repetition counts that encode the exact run
-        # lengths of the underlying ordered Markov chain, so the chain is
-        # reconstructed exactly by run-length decoding (its size is the
-        # number of chain steps, so this is affordable) instead of being
-        # approximated by stochastic resampling:
-        idxs = inverse_rle(eachindex(W), W)
-        expanded_v = nestedview(flatview(unshaped_smpls.v)[:, idxs])
-        bat_eff_sample_size_impl(expanded_v, algorithm, context).result
     else
-        # For non-integer (importance) weights, resample to get unweighted
-        # samples. Kish's approximation of ESS for weighted samples is
-        # often not good enough.
+        # For nonuniform weights of unknown provenance, resample to get
+        # unweighted samples. Kish's approximation of ESS for weighted
+        # samples is often not good enough.
 
         # Empirical resampling factor:
         resampling_factor = min(mean(W .^ 2) / mean(W)^2, 10)
 
         n_resample = round(Int, n * resampling_factor)
 
-        # RNG seed for resampling should be the same for the same samples:
-        rng_seed = trunc(UInt64, mean(W) * n)
+        # The resampling RNG seed must be the same for the same samples,
+        # and invariant under a global rescaling of the weights (which
+        # leaves the represented weighted measure unchanged):
+        rng_seed = hash(W ./ sum(W))
         context = BATContext(rng = Philox4x((0x0, rng_seed))::Philox4x{UInt64,10})
 
-        unweighted_smpls = samplesof(evalmeasure(unshaped_smpls, OrderedResampling(nsamples = n_resample), context))
+        unweighted_smpls = samplesof(evalmeasure(unshaped_smpls, SystematicResampling(nsamples = n_resample), context))
         resampled_ess = bat_eff_sample_size_impl(unweighted_smpls.v, algorithm, context).result
         min.(n, resampled_ess)
     end
 
     result_vs = replace_const_shapes(s::ConstValueShape -> ConstValueShape(Fill(n, size(s.value)...)), vs)
-    ess = result_vs(unshaped_ess)    
+    ess = result_vs(unshaped_ess)
 
     (result = ess,)
+end
+
+
+# Exact autocorrelation ESS for samples whose weights are known (by the
+# caller) to be Markov-chain repetition counts: run-length decoding
+# reconstructs the exact ordered chain (its size is the number of chain
+# steps, so this is affordable up to a size guard) and the standard
+# autocorrelation machinery runs on it. Only the caller can assert the
+# repetition semantics - generic sample vectors deliberately erase weight
+# provenance:
+function _repetition_exact_ess(smpls::DensitySampleVector, algorithm::EffSampleSizeFromAC, context::BATContext)
+    unshaped_smpls = unshaped.(smpls)
+    W = unshaped_smpls.weight
+    @argcheck all(w -> w >= 0 && isinteger(w), W)
+    N_expanded = Int(sum(W))
+    N_expanded > 0 || throw(ArgumentError("Can't compute the effective sample size of an empty chain"))
+    n_dof = length(first(unshaped_smpls.v))
+
+    if all(isone, W)
+        return bat_eff_sample_size_impl(unshaped_smpls.v, algorithm, context).result
+    elseif N_expanded * n_dof <= 5 * 10^7
+        idxs = inverse_rle(eachindex(W), Int.(W))
+        expanded_v = nestedview(flatview(unshaped_smpls.v)[:, idxs])
+        return bat_eff_sample_size_impl(expanded_v, algorithm, context).result
+    else
+        # Chain too large to decode, fall back to the generic weighted
+        # estimate:
+        return bat_eff_sample_size_impl(unshaped_smpls, algorithm, context).result
+    end
 end
 
 
@@ -192,6 +215,10 @@ end
     struct KishESS <: EffSampleSizeAlgorithm
     
 Kish's effective sample size estimator, uses only the sample weights.
+
+See L. Kish, "Survey Sampling", John Wiley & Sons (1965), and
+[effective sample size of weighted
+samples](https://en.wikipedia.org/wiki/Effective_sample_size#Weighted_samples).
 
 Constructors:
 
