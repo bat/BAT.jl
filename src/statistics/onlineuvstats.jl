@@ -8,7 +8,8 @@ using Base: @propagate_inbounds
 
 *BAT-internal, not part of stable public API.*
 
-Univariate mean implemented via Kahan-Babuška-Neumaier summation.
+Univariate mean implemented via Kahan-Babuška-Neumaier summation
+([A. Neumaier (1974)](https://doi.org/10.1002/zamm.19740540106)).
 """
 mutable struct OnlineUvMean{T<:AbstractFloat}
     sum_v::DoubleFloat{T}
@@ -71,7 +72,9 @@ end
 
 *BAT-internal, not part of stable public API.*
 
-Implementation based on variance calculation Algorithms of Welford and West.
+Implementation based on the variance calculation algorithms of
+[B. P. Welford (1962)](https://doi.org/10.1080/00401706.1962.10490022)
+and [D. H. D. West (1979)](https://doi.org/10.1145/359146.359153).
 
 `W` must either be `Weights` (no bias correction) or one of `AnalyticWeights`,
 `FrequencyWeights` or `ProbabilityWeights` to specify the desired bias
