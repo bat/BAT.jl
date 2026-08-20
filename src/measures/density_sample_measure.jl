@@ -62,6 +62,12 @@ function DensitySampleMeasure(
     # ToDo: Ensure smpls are deduplicated.
     # ToDo: Enable logdensity calculation by storing a binary searchable vector
     # over tuples `(point_hash, sample_idx)`?
+    # Empirical-measure weights must keep the cached cumulative weights
+    # monotone - a negative or non-finite weight would make categorical
+    # sampling silently select wrong points:
+    all(w -> isfinite(w) && w >= 0, smpls.weight) || throw(ArgumentError(
+        "Weights of an empirical measure must be finite and non-negative"
+    ))
     # The cumulative weights are cached, so the stored samples get their own
     # copy of the weight vector - callers may hold on to the given sample
     # vector (e.g. as a user-facing sampling result) and mutate its weights:

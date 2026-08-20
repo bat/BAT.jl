@@ -82,6 +82,18 @@ using BAT: DensitySampleMeasure, samplesof, empiricalof, getess
         @test length(samplesof(empty_dsm)) == 0
     end
 
+    @testset "weight invariants" begin
+        # Empirical-measure weights must be finite and non-negative, a
+        # violation would silently break categorical sampling (the cached
+        # cumulative weights would no longer be monotone):
+        for bad_w in ([1.0, -1.0, 2.0], [1.0, NaN, 2.0], [1.0, Inf, 2.0])
+            bad_smpls = DensitySampleVector(
+                v = [randn(2) for _ in 1:3], logd = zeros(3), weight = bad_w
+            )
+            @test_throws ArgumentError DensitySampleMeasure(bad_smpls)
+        end
+    end
+
     @testset "resampling" begin
         em_rand = evalmeasure(dsm, RandResampling(nsamples = 500), context)
         rsmpls = samplesof(em_rand)
