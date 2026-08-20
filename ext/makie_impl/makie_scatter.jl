@@ -21,6 +21,11 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
+        # A live cell can still have zero samples (right after vsel activates,
+        # before the first batch flushes) -- and its placeholder view is 0x0
+        # (not 2x0), so marg_coords[1, :] below would throw a BoundsError.
+        # Degrade to the empty sentinel like the KDE recipes already do.
+        isempty(weights) && return _EMPTY_SCATTER2D_PRIMITIVES
         x = marg_coords[1, :]
         y = marg_coords[2, :]
 
@@ -105,6 +110,9 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
+        # See Scatter2D's matching comment above -- the zero-sample live
+        # cell's placeholder view is 0x0, so row indexing would throw.
+        isempty(weights) && return _EMPTY_CHAINSCATTER2D_PRIMITIVES
         x = marg_coords[1, :]
         y = marg_coords[2, :]
 

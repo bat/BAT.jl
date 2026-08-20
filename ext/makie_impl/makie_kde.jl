@@ -9,6 +9,17 @@ const _EMPTY_KDE2D_PRIMITIVES = (x=Vector{Float64}(), y=Vector{Float64}(), densi
 const _EMPTY_QUANTILEKDE1D_PRIMITIVES = (polys=Vector{Vector{Point{2,Float32}}}(), fill_colors=Vector{RGBA}(), full_line=Vector{Point{2,Float32}}())
 const _EMPTY_QUANTILEKDE2D_PRIMITIVES = (x=Vector{Float64}(), y=Vector{Float64}(), color_grid=Matrix{RGBA{Float32}}(undef, 0, 0))
 
+# KDE2D masks effectively-zero density cells to NaN (rendered transparent,
+# matching Hist2D's zero-bin convention) -- as a fraction of the PEAK density,
+# not an absolute value: density units are inverse data units, so any absolute
+# cutoff is scale-dependent. The previous absolute `> 0.005` blanked the
+# entire panel for any parameter whose scale pushes the peak density below it
+# (confirmed: sigma ~ 1e4 gives peak ~ 1.6e-9 -- every cell NaN, nothing
+# rendered at all, silently), while at unit scale it masked a large chunk of
+# genuinely nonzero structure. A relative threshold behaves identically at
+# every parameter scale by construction.
+const _KDE2D_DENSITY_FLOOR_FRAC = 1e-3
+
 function compute_plotting_primitives(
         ::SubArray,
         ::SubArray,
@@ -93,9 +104,10 @@ function compute_plotting_primitives(
         isempty(weights) && return _EMPTY_KDE2D_PRIMITIVES
         kde_result = kde(marg_coords', weights=weights)
         density = kde_result.density
-        nonzero_density = fill(NaN, size(density))
-        nonzero_idxs = density .> 0.005
-        nonzero_density[nonzero_idxs] .= density[nonzero_idxs]
+        # Relative-to-peak cutoff (see _KDE2D_DENSITY_FLOOR_FRAC's comment);
+        # single pass instead of the previous fill + mask + masked-assign.
+        floor_val = _KDE2D_DENSITY_FLOOR_FRAC * maximum(density)
+        nonzero_density = map(d -> d > floor_val ? d : NaN, density)
 
         # collect(...): see KDE1D's matching comment above -- kde_result.x/.y
         # are StepRangeLen, not Vector{Float64} like _EMPTY_KDE2D_PRIMITIVES.
@@ -124,6 +136,29 @@ function compose_plotspecs(
         return [heat]
 end
 
+
+# Contiguous true-runs of `mask`, as index ranges into it. Used by
+# QuantileKDE1D below: an HPD region of a multimodal marginal is a union of
+# disjoint intervals, and each needs its own filled polygon -- a single
+# polygon over the whole mask (the previous implementation) draws its top
+# edge straight across every below-threshold valley between modes, filling
+# regions that are explicitly NOT part of the credible region (confirmed via
+# direct repro on a bimodal marginal: every band spanned the full range,
+# valley included).
+function _mask_runs(mask::AbstractVector{Bool})
+        runs = UnitRange{Int}[]
+        start = 0
+        for k in eachindex(mask)
+                if mask[k]
+                        start == 0 && (start = k)
+                elseif start != 0
+                        push!(runs, start:(k-1))
+                        start = 0
+                end
+        end
+        start != 0 && push!(runs, start:lastindex(mask))
+        return runs
+end
 
 function compute_plotting_primitives(
         ::SubArray,
@@ -175,21 +210,24 @@ function compute_plotting_primitives(
                 safe_idx = clamp(idx, 1, length(sorted_p))
                 threshold = sorted_p[safe_idx]
 
+                # One polygon PER CONTIGUOUS RUN of the mask, not one over the
+                # whole mask -- see _mask_runs' comment above. The level's
+                # color is pushed once per run so polys/fill_colors stay
+                # index-paired (compose passes them together via
+                # S.Poly(polys; color=fill_colors)). Unimodal marginals have
+                # exactly one run per level, reproducing the old output
+                # bit-for-bit there.
                 mask = prob_mass .>= threshold
-                x_fill = kde_result.x[mask]
-                y_fill = density[mask]
-
-                if isempty(x_fill)
-                        continue
+                for run in _mask_runs(mask)
+                        x_run = kde_result.x[run]
+                        y_run = density[run]
+                        pts = Point2f.(
+                                vcat(x_run, reverse(x_run)),
+                                vcat(y_run, zeros(length(run)))
+                        )
+                        push!(polys, pts)
+                        push!(fill_colors, _quantile_level_color(i))
                 end
-
-                pts = Point2f.(
-                        vcat(x_fill, reverse(x_fill)),
-                        vcat(y_fill, zeros(length(x_fill)))
-                )
-                push!(polys, pts)
-
-                push!(fill_colors, _quantile_level_color(i))
         end
 
 

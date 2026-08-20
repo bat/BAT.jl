@@ -59,12 +59,16 @@ function compose_plotspecs end
 # most N_max entries (the fixed grid size), warning if that changes anything --
 # avoids indexing a variable that doesn't exist, or a grid cell that doesn't.
 function _clamp_vsel(vsel::AbstractVector{<:Integer}, n_dof::Integer, N_max::Integer)
-        vsel_clamped = filter(<=(n_dof), vsel)
+        # Both bounds, not just the upper one: 0/negative indices previously
+        # passed straight through and produced an uncontextualized BoundsError
+        # deep inside a compute-graph closure (the marg-view/domain lookups)
+        # instead of this function's own clear warning.
+        vsel_clamped = filter(i -> 1 <= i <= n_dof, vsel)
         if length(vsel_clamped) > N_max
                 vsel_clamped = vsel_clamped[1:N_max]
         end
         if vsel_clamped != vsel
-                @warn "Requested vsel indices $vsel are invalid (must reference one of $n_dof free parameters, at most N_max=$N_max at a time); using $vsel_clamped instead."
+                @warn "Requested vsel indices $vsel are invalid (each must be in 1:$n_dof, at most N_max=$N_max at a time); using $vsel_clamped instead."
         end
         return vsel_clamped
 end
