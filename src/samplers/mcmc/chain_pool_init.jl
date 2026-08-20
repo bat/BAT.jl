@@ -61,7 +61,10 @@ function mcmc_init!(
 
     dummy_mcmc_state = MCMCState(samplingalg, target, one(Int32), dummy_initval, dummy_context)
 
-    mcmc_states = similar([dummy_mcmc_state], 0)
+    # Tuning during initialization may change type parameters of the
+    # states (e.g. the structural type of an adaptive transform on its
+    # first commit), so the pool must not be bound to the initial type:
+    mcmc_states = Vector{MCMCState}()
     outputs = similar([_empty_chain_outputs(dummy_mcmc_state)], 0)
 
     cycle::Int32 = 1
@@ -155,12 +158,11 @@ function mcmc_init!(
         push!(final_mcmc_states, mcmc_states[i])
         push!(final_outputs, outputs[i])
     else
-        @assert length(mcmc_states) == n_mc_states
-        resize!(final_mcmc_states, n_mc_states)
+        resize!(final_mcmc_states, n)
         copyto!(final_mcmc_states, mcmc_states)
 
-        @assert length(outputs) == n_mc_states
-        resize!(final_outputs, n_mc_states)
+        @assert length(outputs) == n
+        resize!(final_outputs, n)
         copyto!(final_outputs, outputs)
     end
 
