@@ -212,12 +212,20 @@ function hmc_find_good_stepsize end
 # walker ensembles:
 const _MAX_STEPSIZE_SEARCH_PROBES = 8
 
+# Capped probes are spread evenly across the whole walker collection - a
+# probe of only the leading walkers would be blind to stiff regions that
+# a structured walker ordering places later in the vector:
+function _stepsize_probe_indices(idxs::AbstractVector{<:Integer}, n_probe::Integer)
+    n_probe >= length(idxs) && return idxs
+    return unique(round.(Int, range(first(idxs), last(idxs), length = n_probe)))
+end
+
 function hmc_find_good_stepsize(
     rng::AbstractRNG, f_logdgrad::Function, qs::AbstractVector{<:AbstractVector{<:Real}};
     kwargs...
 )
     @argcheck !isempty(qs)
-    probe_idxs = first(eachindex(qs), min(length(qs), _MAX_STEPSIZE_SEARCH_PROBES))
+    probe_idxs = _stepsize_probe_indices(eachindex(qs), _MAX_STEPSIZE_SEARCH_PROBES)
     return minimum(hmc_find_good_stepsize(rng, f_logdgrad, qs[i]; kwargs...) for i in probe_idxs)
 end
 

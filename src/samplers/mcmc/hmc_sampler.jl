@@ -179,8 +179,7 @@ function _hmc_init_stepsize(
     rng::AbstractRNG, fg::Function, zs::AbstractVector{<:AbstractVector{<:Real}}, fallback::Real
 )
     stepsize_min = oftype(float(fallback), Inf)
-    n_probe = min(length(zs), _MAX_STEPSIZE_SEARCH_PROBES)
-    for i in first(eachindex(zs), n_probe)
+    for i in _stepsize_probe_indices(eachindex(zs), _MAX_STEPSIZE_SEARCH_PROBES)
         stepsize = try
             hmc_find_good_stepsize(rng, fg, zs[i])
         catch err
