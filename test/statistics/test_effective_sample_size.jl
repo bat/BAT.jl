@@ -98,6 +98,32 @@ using StableRNGs
         ess_tagged = bat_eff_sample_size(shuffled, EffSampleSizeFromAC(), context).result
         @test ess_tagged ≈ ess_direct
 
+        # Provenance takes priority over the uniform-weight fast path:
+        # merged unit-weight chains must not be treated as one series
+        # across chain boundaries, so the result is permutation-invariant
+        # and matches the pooled per-chain ESS:
+        u1 = DensitySampleVector(v = w1.v, logd = w1.logd, info = w1.info)
+        u2 = DensitySampleVector(v = w2.v, logd = w2.logd, info = w2.info)
+        umerged = vcat(u1, u2)
+        ushuffled = umerged[perm]
+        ess_upooled = BAT._pooled_ess(
+            [
+                bat_eff_sample_size(u1.v, EffSampleSizeFromAC(), context).result,
+                bat_eff_sample_size(u2.v, EffSampleSizeFromAC(), context).result
+            ],
+            [sum(u1.weight), sum(u2.weight)]
+        )
+        @test bat_eff_sample_size(umerged, EffSampleSizeFromAC(), context).result ≈ ess_upooled
+        @test bat_eff_sample_size(ushuffled, EffSampleSizeFromAC(), context).result ≈ ess_upooled
+
+        # A uniform repetition weight > 1 on a tagged chain decodes to
+        # the expanded ordered chain:
+        n_u = length(eachindex(u1))
+        t2 = DensitySampleVector(v = u1.v, logd = u1.logd, weight = fill(2, n_u), info = u1.info)
+        expanded_t2 = nestedview(flatview(u1.v)[:, inverse_rle(1:n_u, fill(2, n_u))])
+        @test bat_eff_sample_size(t2, EffSampleSizeFromAC(), context).result ≈
+            bat_eff_sample_size(expanded_t2, EffSampleSizeFromAC(), context).result
+
         # Provenance-driven algorithm defaults: process ESS for tagged or
         # uniformly weighted samples, Kish ESS for nonuniformly weighted
         # samples without process provenance:
@@ -106,6 +132,11 @@ using StableRNGs
         @test bat_default(bat_eff_sample_size, Val(:algorithm), untagged) isa KishESS
         uniformw = DensitySampleVector(v = merged.v, logd = merged.logd)
         @test bat_default(bat_eff_sample_size, Val(:algorithm), uniformw) isa EffSampleSizeFromAC
+        # Degenerate (non-unique) sample ids are unusable provenance, so
+        # nonuniform weights fall back to Kish:
+        dup_ids = fill(BAT.MCMCSampleID(Int32(1), Int32(1), Int32(1), Int64(1), Int32(1), true), length(eachindex(merged)))
+        degenerate = DensitySampleVector(v = merged.v, logd = merged.logd, weight = float.(merged.weight), info = dup_ids)
+        @test bat_default(bat_eff_sample_size, Val(:algorithm), degenerate) isa KishESS
     end
 
     @testset "pooled ESS" begin
