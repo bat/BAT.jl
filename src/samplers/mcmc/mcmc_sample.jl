@@ -172,7 +172,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, samplingalg::TransformedMCMC, co
 
     samplegen = MCMCSampleGenerator(mcmc_states)
 
-    ess = _summed_walker_ess(chain_outputs, samplingalg.sample_weighting, context)
+    ess = _pooled_walker_ess(chain_outputs, samplingalg.sample_weighting, context)
     dsm = DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 
     # The samples and the bare target measure in the transformed space are
@@ -202,27 +202,35 @@ end
 
 # Autocorrelation ESS is a property of the ordered stochastic process, not
 # of its empirical measure: it must be computed on each walker's ordered
-# output sequence separately, before chains and walkers are merged.
-# Independent chains and walkers then contribute additively. Weight
-# provenance is still known here (unlike at the generic sample-vector
-# level, which deliberately erases it), so repetition weights are
-# reconstructed into the exact ordered chain:
-function _summed_walker_ess(
+# output sequence separately, before chains and walkers are merged. The
+# independent per-walker contributions are then pooled with the walkers'
+# empirical mass fractions (see `_pooled_ess`) - a plain sum would
+# overstate the merged estimator's effective size whenever mixing
+# efficiency differs between walkers. Weight provenance is still known
+# here (unlike at the generic sample-vector level, which deliberately
+# erases it), so repetition weights are reconstructed into the exact
+# ordered chain:
+function _pooled_walker_ess(
     chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
     weighting::AbstractMCMCWeightingScheme,
     context::BATContext
 )
-    ess_sum = nothing
+    ess_parts = Vector{Any}()
+    masses = Float64[]
     for walker_outputs in chain_outputs, walker_output in walker_outputs
         isempty(walker_output) && continue
+        wsum = sum(float, walker_output.weight)
+        wsum > 0 || continue
         ess_w = if weighting isa RepetitionWeighting
             _repetition_exact_ess(walker_output, EffSampleSizeFromAC(), context)
         else
             bat_eff_sample_size_impl(walker_output, EffSampleSizeFromAC(), context).result
         end
-        ess_sum = isnothing(ess_sum) ? ess_w : ess_sum .+ ess_w
+        push!(ess_parts, ess_w)
+        push!(masses, wsum)
     end
-    return isnothing(ess_sum) ? nothing : minimum(ess_sum)
+    ess_pooled = _pooled_ess(ess_parts, masses)
+    return isnothing(ess_pooled) ? nothing : minimum(ess_pooled)
 end
 
 function _merge_chain_outputs(mcmc_state::MCMCState, chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}})

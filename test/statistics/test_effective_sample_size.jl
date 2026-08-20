@@ -86,8 +86,15 @@ using StableRNGs
         perm = sortperm(rand(stblrng(), length(eachindex(merged))))
         shuffled = merged[perm]
 
-        ess_direct = BAT._repetition_exact_ess(w1, EffSampleSizeFromAC(), context) .+
-            BAT._repetition_exact_ess(w2, EffSampleSizeFromAC(), context)
+        # Independent series pool with their empirical mass fractions,
+        # E_pool = 1 / Σ_j (α_j² / E_j):
+        ess_direct = BAT._pooled_ess(
+            [
+                BAT._repetition_exact_ess(w1, EffSampleSizeFromAC(), context),
+                BAT._repetition_exact_ess(w2, EffSampleSizeFromAC(), context)
+            ],
+            [sum(w1.weight), sum(w2.weight)]
+        )
         ess_tagged = bat_eff_sample_size(shuffled, EffSampleSizeFromAC(), context).result
         @test ess_tagged ≈ ess_direct
 
@@ -99,6 +106,17 @@ using StableRNGs
         @test bat_default(bat_eff_sample_size, Val(:algorithm), untagged) isa KishESS
         uniformw = DensitySampleVector(v = merged.v, logd = merged.logd)
         @test bat_default(bat_eff_sample_size, Val(:algorithm), uniformw) isa EffSampleSizeFromAC
+    end
+
+    @testset "pooled ESS" begin
+        # Mass-fraction pooling of independent series,
+        # E_pool = 1 / Σ_j (α_j² / E_j): with equal masses, one series of
+        # ESS 1000 and one of ESS 10 pool to about 39.6 - far below the
+        # plain sum, which would hide the badly mixing series:
+        @test BAT._pooled_ess([[1000.0], [10.0]], [1.0, 1.0]) ≈ [1 / (0.25 / 1000 + 0.25 / 10)]
+        # Uniform efficiency reduces exactly to the sum:
+        @test BAT._pooled_ess([[600.0, 60.0], [400.0, 40.0]], [600.0, 400.0]) ≈ [1000.0, 100.0]
+        @test isnothing(BAT._pooled_ess(Any[], Float64[]))
     end
 
     @testset "weight-scale robustness" begin
