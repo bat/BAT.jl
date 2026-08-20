@@ -295,12 +295,45 @@ _affine_init_A(::TriangularAffineTransform, M::AbstractMatrix) = cholesky(Positi
 
 _affine_init_A(::DiagonalAffineTransform, M::AbstractMatrix) = Diagonal(sqrt.(diag(M)))
 
-# The initial low-rank correction is empty, tuning fills it in:
-_affine_init_A(::LowRankAffineTransform, M::AbstractMatrix) =
-    _lowrank_gram_factor(diag(M), zeros(eltype(M), size(M, 1), 0), Symmetric(zeros(eltype(M), 0, 0)))
+# The initial geometry keeps the structure the transform declares: a
+# diagonal base plus the eigenvalue-thresholded correction of the given
+# (approximate) covariance - e.g. the diag-plus-low-rank structure of a
+# Pathfinder fit survives instead of being flattened to its diagonal:
+function _affine_init_A(at::LowRankAffineTransform, M::AbstractMatrix)
+    dvec, W, S = _lowrank_decomposition(M, at.cutoff, at.max_rank)
+    return _lowrank_gram_factor(dvec, W, S)
+end
 
 _lowrank_gram_factor(dvec::AbstractVector, W::AbstractMatrix, S::Symmetric) =
     rowgram_factor(woodbury_operator(Diagonal(dvec), W, S))
+
+# Eigenvalue-thresholded low-rank correction on top of a diagonal base:
+# in diagonally standardized coordinates, only directions in which the
+# geometry deviates from the base by a factor beyond `cutoff` (or its
+# inverse) enter the correction. Returns (W, S, λ_kept, V_kept) of the
+# representation G = D + W S Wᵀ with dsq = sqrt.(diag(D)) and (λ, V) the
+# eigen pairs of the standardized geometry:
+function _lowrank_correction(dsq::AbstractVector, λ::AbstractVector, V::AbstractMatrix, cutoff::Real, max_rank::Integer)
+    keep = findall(l -> l > cutoff || l < inv(cutoff), λ)
+    if max_rank > 0 && length(keep) > max_rank
+        logsize = abs.(log.(max.(λ[keep], floatmin(float(eltype(λ))))))
+        keep = keep[sortperm(logsize, rev = true)[1:max_rank]]
+    end
+    λ_kept = λ[keep]
+    V_kept = V[:, keep]
+    W = (dsq .* V_kept) .* sqrt.(abs.(λ_kept .- 1))'
+    S = Symmetric(Matrix(Diagonal(sign.(λ_kept .- 1))))
+    return W, S, λ_kept, V_kept
+end
+
+# Diagonal-plus-low-rank representation of a dense SPD geometry estimate:
+function _lowrank_decomposition(G_dense::AbstractMatrix, cutoff::Real, max_rank::Integer)
+    dvec = diag(G_dense)
+    dsq = sqrt.(dvec)
+    E = eigen(Symmetric(Matrix(G_dense ./ (dsq .* dsq'))))
+    W, S, _, _ = _lowrank_correction(dsq, E.values, E.vectors, cutoff, max_rank)
+    return dvec, W, S
+end
 
 # Approximate covariance and mean the affine initialization is based on.
 # TODO: MD, make typestable
