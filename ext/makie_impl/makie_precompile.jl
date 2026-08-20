@@ -92,7 +92,8 @@ function _makie_precompile_workload()
     # has_chain_info=true: real MCMC samples from bat_sample above always
     # carry chain identity, matching what the real static/live callers pass
     # for genuine MCMC data (see _samples_have_chain_ids).
-    fig = _build_fig(graph, gridlayout, picker_info; has_chain_info=true) # already wires plot(fig[1,1], gridlayout)
+    built = _build_fig(graph, gridlayout, picker_info; has_chain_info=true, has_trace_info=true) # already wires plot(fig[1,1], gridlayout)
+    fig = built.fig
 
     for recipe_1d in BAT_MAKIE_RECIPES_1D
         update!(graph, diagonal_recipe=typeof(recipe_1d))
@@ -118,6 +119,26 @@ function _makie_precompile_workload()
     # not a selectable main recipe -- see its own determine_recipe_status
     # override) -- exercise its toggle the same way show_stats_* is above.
     update!(graph, show_trace_upper=true, show_trace_lower=true)
+    gridlayout[]
+
+    # Boundary-corrected KDE path: non-empty support bounds both change the
+    # recipes' config NamedTuple type (the merge adds a :support field --
+    # a different compiled specialization per recipe method) and take the
+    # reflection branch in _weighted_kde1d/_weighted_kde2d -- both cold
+    # without this. The bounds needn't match the objective's actual
+    # (unbounded) prior; this only warms code, not visuals. Reset to the
+    # empty = no-correction default afterwards so the widget-warming below
+    # runs under the common uncorrected config type again.
+    update!(graph, support_lo=fill(-2.0, n_dof), support_hi=fill(2.0, n_dof))
+    for recipe_1d in (KDE1D, QuantileKDE1D)
+        update!(graph, diagonal_recipe=recipe_1d)
+        gridlayout[]
+    end
+    for recipe_2d in (KDE2D, QuantileKDE2D)
+        update!(graph, upper_recipe=recipe_2d)
+        gridlayout[]
+    end
+    update!(graph, support_lo=Float64[], support_hi=Float64[])
     gridlayout[]
 
     # ---- Widget-callback warming --------------------------------------
@@ -193,14 +214,24 @@ function _makie_precompile_workload()
     # controls rows don't need) against a genuine geometry change.
     resize!(fig, 500, 650)
 
-    # Index-range slider only exists when show_slider is true (a single
-    # (chain, walker) entry -- true here, since current_idxs was synthesized
-    # above as one entry). Real live/static callers can also hit this path
-    # for a genuine single-chain run. IntervalSlider (not Slider) since the
-    # slider now selects a (start, end) window rather than a single cutoff.
+    # Step-range slider (exists whenever samples are registered, which they
+    # are here) -- drive it through a genuine window change to warm the
+    # per-walker step-window path.
     sliders = filter(x -> x isa IntervalSlider, fig.content)
     if !isempty(sliders)
-        sliders[1].interval[] = (max(1, length(samples) ÷ 4), max(1, length(samples) ÷ 2))
+        ms = graph[:max_step][]
+        sliders[1].interval[] = (max(1, ms ÷ 4), max(1, ms ÷ 2))
+    end
+
+    # One cheap pass under the dark theme: both real entry points wrap
+    # construction in with_theme(dark ? bat_theme_dark() : bat_theme()), but
+    # everything above ran under the ambient (light) theme only -- a user's
+    # first dark session previously paid the dark-specific attribute
+    # application compilation live, on top of the unthemed-checkbox issue
+    # this workload could never have caught.
+    with_theme(bat_theme_dark()) do
+        _build_fig(graph, gridlayout, picker_info; has_chain_info=true, has_trace_info=true)
+        gridlayout[]
     end
 
     return nothing

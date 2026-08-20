@@ -197,8 +197,11 @@ function _init_gridlayout(
                 # tying them to visibility of the labels.
                 xticklabelsvisible=cell_active, xticksvisible=false,
                 yticklabelsvisible=cell_active, yticksvisible=false,
+                # No fixed ytickformat: a hardcoded "{:.1f}" rendered every
+                # density axis whose values sit below ~0.05 (any parameter
+                # with a wide natural scale) as an all-"0.0" axis; Makie's
+                # default adaptive formatter handles all scales.
                 yticklabelrotation=pi / 2,
-                ytickformat="{:.1f}",
                 xgridvisible=cell_active,
                 ygridvisible=cell_active,
                 leftspinevisible=cell_active, rightspinevisible=cell_active,

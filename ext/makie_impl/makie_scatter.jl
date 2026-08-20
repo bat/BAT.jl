@@ -62,6 +62,10 @@ function compose_plotspecs(
 )
         (; x, y, weights) = primitives
         (; markersize) = config
+        # Empty early-return, matching every sibling recipe's convention (an
+        # empty Scatter spec happens to render fine, but skipping the
+        # markersize work below is both cheaper and consistent).
+        isempty(x) && return PlotSpec[]
         # Lower-triangle cells swap x/y at compose time so both mirrored cells
         # can share one computed primitive while still following the standard
         # pair-plot orientation (cell (row, col): x = col's variable) -- see

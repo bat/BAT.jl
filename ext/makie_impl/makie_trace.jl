@@ -18,7 +18,15 @@
 # Each group's own "now" is its own most recent step, not a global max
 # across all chains, so a slower chain's trace isn't falsely aged by a
 # faster one running alongside it.
-_empty_trace2d_primitives() = (x=Float64[], y=Float64[], chainids=Int32[], walkerids=Int32[], recency=Float64[], group_ranges=Tuple{Int32,Int32,UnitRange{Int}}[])
+_empty_trace2d_primitives() = (x=Float64[], y=Float64[], chainids=Int32[], walkerids=Int32[], recency=Float64[], group_ranges=Tuple{Int32,Int32,UnitRange{Int}}[], all_chainids=Int32[])
+
+# Whether `samples` can support the Trace2D overlay at all: it needs chain
+# identity AND step numbers (MCMCSampleID has both; AHMCSampleID has chainid
+# but no stepno; non-MCMC sources have neither). Distinct from
+# _samples_have_chain_ids (makie_scatter.jl), which gates ChainScatter2D on
+# chainid alone.
+_samples_have_trace_info(samples) =
+        hasfield(eltype(samples.info), :chainid) && hasfield(eltype(samples.info), :stepno)
 
 function compute_plotting_primitives(
         ::SubArray,
@@ -26,7 +34,6 @@ function compute_plotting_primitives(
         ::AbstractVector,
         ::AbstractVector,
         ::AbstractVector,
-        ::Integer,
         ::Trace2D,
         ::RS,
         ::CS,
@@ -35,31 +42,28 @@ function compute_plotting_primitives(
         return _empty_trace2d_primitives()
 end
 
-# marg_coords/weights/chainids/walkerids/stepnos here are the *full*,
-# untruncated completed-dataset versions (marg_full_symbol/:flat_*_full --
-# see their own comments in makie_compute_graph.jl), not the shared
-# current_idx-truncated ones every other 2D recipe receives. current_idx is
-# threaded through separately so each chain's own reveal fraction --
-# current_idx / (that chain's own total row count) -- can be computed and
-# applied per group below, rather than truncating the flattened array at one
-# shared row position (which would reveal one chain's entire
-# chain-block-concatenated run before any of the next chain's -- see
-# :flat_samples_full's comment for the full diagnosis of why that's wrong
-# specifically for a completed, static multi-chain result).
+# marg_coords/weights/chainids/walkerids/stepnos are the ordinary windowed
+# per-sample inputs every other 2D recipe receives: with samples registered
+# per (chain, walker) and the step window applied per walker
+# (:window_steps/_step_window_rows in makie_compute_graph.jl), each group's
+# rows here are already its own chronological, time-aligned slice, and its
+# "now" is the window's end. (An older design needed untruncated _full input
+# copies plus a per-group proportional reveal fraction to work around the
+# merged static dataset being one chain-block-concatenated pseudo-walker;
+# both are gone.)
 function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
         chainids::AbstractVector,
         walkerids::AbstractVector,
         stepnos::AbstractVector,
-        current_idx::Integer,
         recipe::Trace2D,
         ::LiveRecipe,
         ::LiveCell,
         config::NamedTuple
 )
         total_n = length(chainids)
-        if total_n == 0 || isempty(stepnos) || current_idx <= 0
+        if total_n == 0 || isempty(stepnos)
                 return _empty_trace2d_primitives()
         end
         (; trace_nsteps) = config
@@ -74,12 +78,6 @@ function compute_plotting_primitives(
         # general reason as the fix in makie_scatter.jl/makie_hist.jl:
         # samples.weight's own concrete eltype isn't guaranteed Float64).
         last_steps = stepnos .+ Float64.(weights) .- 1
-
-        # Overall reveal fraction (how far current_idx is into the *full*
-        # dataset) -- applied identically to every chain's own full-length
-        # group below, so all chains advance in lockstep regardless of which
-        # chain-block they occupy in the underlying storage.
-        reveal_frac = clamp(current_idx / total_n, 0.0, 1.0)
 
         # Indices grouped by (chainid, walkerid) -- built via one forward
         # scan, so each group's own index vector comes out in the same
@@ -114,20 +112,17 @@ function compute_plotting_primitives(
         for key in sort!(collect(keys(groups)))
                 idxs = groups[key]
                 chain_id, walker_id = key
-                n_revealed = clamp(round(Int, reveal_frac * length(idxs)), 0, length(idxs))
-                n_revealed == 0 && continue
-                revealed = @view idxs[1:n_revealed]
 
-                current_step = last_steps[revealed[end]]
+                current_step = last_steps[idxs[end]]
                 min_step = current_step - trace_nsteps + 1
-                # Walk backward from the group's most recently *revealed* row,
-                # keeping rows whose last-occupied step still falls within
-                # the window; stop at the first row entirely before it
-                # (revealed is chronological, so nothing earlier can still be
-                # in-window either).
+                # Walk backward from the group's most recent row, keeping
+                # rows whose last-occupied step still falls within the trace
+                # window; stop at the first row entirely before it (idxs is
+                # chronological, so nothing earlier can still be in-window
+                # either).
                 keep = Int[]
-                for k in length(revealed):-1:1
-                        idx = revealed[k]
+                for k in length(idxs):-1:1
+                        idx = idxs[k]
                         last_steps[idx] < min_step && break
                         push!(keep, idx)
                 end
@@ -138,13 +133,27 @@ function compute_plotting_primitives(
                         push!(out_y, y[idx])
                         push!(out_chainids, chain_id)
                         push!(out_walkerids, walker_id)
-                        r = trace_nsteps <= 0 ? 1.0 : clamp((last_steps[idx] - min_step) / trace_nsteps, 0.0, 1.0)
+                        # Normalized by trace_nsteps - 1, not trace_nsteps:
+                        # the window spans trace_nsteps distinct step values,
+                        # so last_steps - min_step ranges over
+                        # 0:(trace_nsteps - 1) -- the old denominator capped
+                        # recency at (n-1)/n and the newest point was never
+                        # fully opaque. trace_nsteps == 1 (single-point
+                        # window) is 1.0 outright; <= 0 is rejected at config
+                        # construction (_default_makie_triagonal_config).
+                        r = trace_nsteps == 1 ? 1.0 : clamp((last_steps[idx] - min_step) / (trace_nsteps - 1), 0.0, 1.0)
                         push!(out_recency, r)
                 end
                 push!(group_ranges, (chain_id, walker_id, range_start:length(out_x)))
         end
 
-        return (x=out_x, y=out_y, chainids=out_chainids, walkerids=out_walkerids, recency=out_recency, group_ranges=group_ranges)
+        # all_chainids: the sorted unique chain ids of the FULL (unwindowed)
+        # input, threaded through for compose's color ranking -- ranking over
+        # the windowed survivors instead (the previous implementation) shifted
+        # every chain's color whenever some chain had no points in the trace
+        # window (realistic early in a run or with uneven acceptance rates),
+        # mismatching ChainScatter2D's colors for the same chains.
+        return (x=out_x, y=out_y, chainids=out_chainids, walkerids=out_walkerids, recency=out_recency, group_ranges=group_ranges, all_chainids=sort(unique(chainids)))
 end
 
 function compose_plotspecs(
@@ -153,7 +162,7 @@ function compose_plotspecs(
         config::NamedTuple;
         transposed::Bool=false
 )
-        (; x, y, chainids, recency, group_ranges) = primitives
+        (; x, y, recency, group_ranges, all_chainids) = primitives
         # Lower-triangle cells swap x/y at compose time -- see
         # _init_gridlayout's invariant comment. Swapped once up front so the
         # per-group Point2f construction below stays untouched.
@@ -164,18 +173,12 @@ function compose_plotspecs(
         end
 
         (; markersize) = config
-        # Rank-based palette indexing, consistent with ChainScatter2D (see
-        # its own comment) -- ranked among *all* chain ids present in this
-        # cell's primitives (not just ones with points surviving into the
-        # trace window), so a chain's color matches ChainScatter2D's if both
-        # happen to be visible in the same figure. This is a fresh, cheap
-        # O(window size) scan over just the surviving points -- unlike the
-        # (chainid, walkerid) grouping itself, which no longer needs to be
-        # rebuilt here at all (group_ranges, computed once in
-        # compute_plotting_primitives, replaces the Dict this function used
-        # to reconstruct from scratch on every single call).
-        unique_chains = sort(unique(chainids))
-        rank_of = Dict(id => r for (r, id) in enumerate(unique_chains))
+        # Rank-based palette indexing over the FULL dataset's chain-id set
+        # (all_chainids, threaded through from compute_plotting_primitives --
+        # see its comment), consistent with ChainScatter2D: a chain's color
+        # stays fixed no matter which chains happen to have points surviving
+        # into the current trace window.
+        rank_of = Dict(id => r for (r, id) in enumerate(all_chainids))
 
         specs = PlotSpec[]
         for (chain_id, _, range) in group_ranges

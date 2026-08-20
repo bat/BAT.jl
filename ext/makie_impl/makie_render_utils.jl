@@ -51,7 +51,20 @@ function _quantile_level_color(i::Integer)
     return _QUANTILE_LEVEL_COLORS[i]
 end
 
+# Latched once per session: warmup used to run unconditionally on every
+# call, so Makie.convert_arguments paid a full offscreen render plus an info
+# log per plot() embed -- and CRASHED outright when no raster backend was
+# loaded yet (colorbuffer requires one; confirmed via the plot(fig[1,1],
+# samples) path). Now the first successful warmup latches the flag, later
+# calls are no-ops, and a missing backend skips gracefully (construction
+# proceeds; rendering pays the first-use shader cost later, and the next
+# warmup call after a backend loads still performs the real thing since the
+# flag only latches on success).
+const _SHADERS_WARMED = Ref(false)
+
 function warmup_makie_shaders()
+    _SHADERS_WARMED[] && return nothing
+    ismissing(Makie.current_backend()) && return nothing
     @info "Warming up Makie shaders"
     fig = Figure()
     ax = Axis(fig[1, 1])
@@ -72,5 +85,6 @@ function warmup_makie_shaders()
     poly!(ax, Point2f[(0, 0), (1, 0), (0, 1)])
 
     Makie.colorbuffer(fig)
+    _SHADERS_WARMED[] = true
     return nothing
 end

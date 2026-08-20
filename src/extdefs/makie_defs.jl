@@ -65,6 +65,15 @@ export BATMakieVisualization
 # cdf.(Chi(1), 0:3) for the 1D diagonals: the n-sigma mass equivalents in
 # the respective dimension, i.e. the standard corner-plot convention.
 function _default_makie_triagonal_config(; trace_nsteps::Integer=20)
+        # Validated here because this is the single choke point every default
+        # config flows through (the BATMakieVisualization constructor and both
+        # static entry points). trace_nsteps <= 0 used to construct fine and
+        # then silently render an empty Trace2D overlay forever: the
+        # window-selection loop dropped even the current point, contradicting
+        # the recency formula's own (now removed) anticipation of <= 0.
+        if trace_nsteps < 1
+                throw(ArgumentError("trace_nsteps must be >= 1 (got $trace_nsteps); it is how many real MCMC steps back the Trace2D overlay shows"))
+        end
         return (
                 weights=nothing,
                 nsigma=1.0,

@@ -41,12 +41,66 @@ function marg_symbol(vsel::Tuple{Int64,Int64})
     return Symbol("marg_$(vsel[1])_$(vsel[2])")
 end
 
-# Untruncated counterpart of marg_symbol -- see Trace2D's own registration
-# and :flat_samples_full's comment below for why it needs the *full*
-# completed dataset rather than the shared current_idx-truncated view every
-# other recipe uses.
-function marg_full_symbol(vsel::Tuple{Int64,Int64})
-    return Symbol("marg_full_$(vsel[1])_$(vsel[2])")
+# CLOSURE-CAPTURE HAZARD, learned the hard way (a once-real, reproducible
+# bug): every closure registered inside _init_compute_graph below shares that
+# function's top-level scope, including its `n` (grid size) parameter. An
+# assignment like `n = length(...)` inside any of those lambdas does NOT
+# create an independent local -- it reassigns the shared captured variable
+# every other closure reads (confirmed via a minimal repro; the historical
+# symptom was vsel_map's grid-size check reading back the sample count).
+# When adding closures there, never assign to a bare name that exists in the
+# enclosing scope -- use a distinct local name.
+
+# Rows of `walker` (restricted to 1:wend, the rows the live path has already
+# revealed) whose DWELL intersects the real-MCMC-step window [wlo, whi]. A
+# stored row with step number s and weight w occupies steps s : s+w-1, so it
+# belongs to the window iff s <= whi and s+w-1 >= wlo -- including rows whose
+# dwell merely straddles a window edge, with their FULL weight (the mass
+# error is at most one dwell per walker per edge, an accepted trade against
+# rebuilding the weight arrays on every slider drag). Both s and s+w-1 are
+# monotone within one walker (each MCMC step either appends a row or
+# increments the last row's weight; nonzero-weight row dropping only creates
+# gaps, never reordering), so the window is a single contiguous row range,
+# found by two binary searches. Samples without a stepno field (IID/Sobol --
+# and AHMC, which has chain ids but no step numbers) fall back to "row index
+# == step", reproducing the previous row-window semantics for those sources
+# exactly. info elements are accessed one-by-one (info[k].stepno) since the
+# live path's per-walker outputs store info as a plain Vector{MCMCSampleID},
+# not a field-array StructVector.
+function _step_window_rows(walker, wend::Integer, wlo::Integer, whi::Integer)
+    wend <= 0 && return 1:0
+    # Fast path for the untouched default window ("show everything") -- the
+    # common case, hit on every live flush while the slider is untouched.
+    (wlo <= 1 && whi == typemax(Int)) && return 1:wend
+
+    info = walker.info
+    if !isempty(info) && hasfield(eltype(info), :stepno)
+        wt = walker.weight
+        # First row whose dwell end (stepno + weight - 1) reaches wlo:
+        lo, h = 1, wend + 1
+        while lo < h
+            m = (lo + h) >> 1
+            if Int(info[m].stepno) + Int(wt[m]) - 1 < wlo
+                lo = m + 1
+            else
+                h = m
+            end
+        end
+        # Last row whose stepno is still within the window:
+        l2, h2, hi = 1, wend, 0
+        while l2 <= h2
+            m = (l2 + h2) >> 1
+            if Int(info[m].stepno) <= whi
+                hi = m
+                l2 = m + 1
+            else
+                h2 = m - 1
+            end
+        end
+        return lo:hi
+    else
+        return clamp(wlo, 1, wend + 1):min(whi, wend)
+    end
 end
 
 # Estimates a fixed, reasonable initial axis-limit/histogram-bin-edge domain
@@ -59,8 +113,17 @@ end
 # hard bound either way -- see the domain recompute in flush_buffer! below
 # (init_visualizer!), which callers must rely on rather than treating this
 # as guaranteed.
-function _estimate_prior_domain(mcmc_states::Vector{<:MCMCState}, n_dof::Integer; n_prior_samples::Integer=2000, tail_prob::Real=0.0015)
-    target = mcmc_target(mcmc_states[1])
+#
+# `target` must be the ORIGINAL, untransformed measure (bat_sample's own `m`,
+# threaded through init_visualizer!'s `target` kwarg) -- NOT
+# mcmc_target(mcmc_states[1]), which an earlier version used: mcmc states
+# carry the PRETRANSFORMED measure (default pretransform for RandomWalk/MALA
+# is PriorToNormal), while the displayed samples go through
+# inverse(f_pretransform) into original space, so a prior domain estimated
+# from the transformed target's initsrc was standard-normal-scaled regardless
+# of the real prior's scale -- e.g. a prior at 100 +- 5 got a domain floor
+# near -3, silently inflating every axis until real samples widened past it.
+function _estimate_prior_domain(target, n_dof::Integer; n_prior_samples::Integer=2000, tail_prob::Real=0.0015)
     initsrc = BAT.get_initsrc_from_target(target)
     shape = varshape(initsrc)
     draws = [ValueShapes.unshaped(rand(initsrc), shape) for _ in 1:n_prior_samples]
@@ -69,6 +132,100 @@ function _estimate_prior_domain(mcmc_states::Vector{<:MCMCState}, n_dof::Integer
     hi = [quantile(view(M, d, :), 1 - tail_prob) for d in 1:n_dof]
     return lo, hi
 end
+
+# Per-dimension HARD support bounds of a measure's prior, in the unshaped
+# original-space coordinates the visualizer displays -- (+-Inf for anything
+# unbounded or undeterminable). Used to drive KDE boundary reflection (see
+# _weighted_kde1d/_weighted_kde2d in makie_kde.jl): without it, a KDE of a
+# bounded parameter (e.g. a Uniform prior) leaks half its kernel mass past
+# each hard bound, rendering the density at the boundary at roughly half its
+# true value. Every fallback here is CONSERVATIVE (+-Inf = "unknown" = no
+# correction, exactly the pre-existing behavior), so an exotic prior this
+# walk doesn't understand degrades to today's uncorrected rendering, never
+# to a wrong correction.
+function _support_bounds(target, n_dof::Integer)
+    d = _support_root_dist(target)
+    isnothing(d) && return (fill(-Inf, n_dof), fill(Inf, n_dof))
+    lo, hi = _component_support(d)
+    # A shape mismatch means the walk didn't line up with the displayed
+    # unshaped dims -- don't guess, disable correction outright.
+    length(lo) == n_dof || return (fill(-Inf, n_dof), fill(Inf, n_dof))
+    return lo, hi
+end
+
+# Unwraps a measure down to the underlying prior Distribution the support can
+# be read from. Mirrors get_initsrc_from_target's unwrap chain (posterior ->
+# prior), but lands on the raw Distribution instead of a measure, since
+# per-component bounds need Distributions.minimum/maximum on the components.
+_support_root_dist(m::AbstractPosteriorMeasure) = _support_root_dist(getprior(m))
+_support_root_dist(m::BATDistMeasure) = m.dist
+_support_root_dist(m::BATWeightedMeasure) = _support_root_dist(m.base)
+_support_root_dist(d::Distribution) = d
+_support_root_dist(@nospecialize(m)) = nothing
+
+# Per-component (lo, hi) vectors covering that component's unshaped dims.
+# The NamedTupleDist walk (components x accessors x view_idxs) follows
+# truncate_dist_hard's own walk over the same structure
+# (src/measures/truncate_batmeasure.jl) -- the accessors' view_idxs ARE the
+# unshaped-dim layout, so bounds land at exactly the dims the displayed
+# flat samples use.
+_component_support(d::UnivariateDistribution) =
+    (Float64[minimum(d)], Float64[maximum(d)])
+_component_support(d::Distributions.Product) =
+    (Float64[minimum(c) for c in d.v], Float64[maximum(c) for c in d.v])
+_component_support(d::ValueShapes.UnshapedNTD) = _component_support(d.shaped)
+# ConstValueDist occupies zero unshaped dims -- contributes nothing.
+_component_support(::ConstValueDist) = (Float64[], Float64[])
+# Conservative fallback for anything without a per-dim support notion
+# (correlated multivariates, matrix-variates, ...): unbounded everywhere.
+_component_support(d::Distribution) = (fill(-Inf, length(d)), fill(Inf, length(d)))
+
+function _component_support(d::NamedTupleDist)
+    n = totalndof(varshape(d))
+    lo = fill(-Inf, n)
+    hi = fill(Inf, n)
+    dists = values(d)
+    accessors = values(varshape(d))
+    for (dd, acc) in zip(dists, accessors)
+        # view_idxs returns a bare Int for scalar accessors (a range only
+        # for array-shaped ones) -- normalize so the assignment below is
+        # uniformly vector-shaped.
+        raw_idxs = ValueShapes.view_idxs(1:n, acc)
+        idxs = raw_idxs isa Integer ? (raw_idxs:raw_idxs) : raw_idxs
+        clo, chi = _component_support(dd)
+        # A component whose own walk came back mismatched (a nested exotic
+        # dist) keeps its dims at the +-Inf default instead of corrupting
+        # neighboring components' slots.
+        length(clo) == length(idxs) || continue
+        lo[idxs] .= clo
+        hi[idxs] .= chi
+    end
+    return (lo, hi)
+end
+
+# Normalizes the static path's user-facing `support` kwarg (bat_makie_plot/
+# Makie.plot) into the graph's (support_lo, support_hi) vectors: `nothing`
+# (the default) -> empty = unknown = no correction; a vector of per-dim
+# (lo, hi) pairs (tuples or intervals) -> validated directly; anything else
+# (a posterior/prior measure or a Distribution) -> derived via
+# _support_bounds. Explicit pairs are validated loudly -- unlike the
+# measure-derived path, a hand-written bounds list that doesn't fit the
+# model is a caller mistake, not an exotic prior to degrade gracefully on.
+_support_vectors(::Nothing, n_dof::Integer) = (Float64[], Float64[])
+
+function _support_vectors(support::AbstractVector, n_dof::Integer)
+    length(support) == n_dof || throw(ArgumentError(
+        "`support` has $(length(support)) entries but the model has $n_dof dimensions"))
+    lo = Float64[first(s) for s in support]
+    hi = Float64[last(s) for s in support]
+    for d in 1:n_dof
+        lo[d] <= hi[d] || throw(ArgumentError(
+            "`support` entry $d has lo > hi ($(lo[d]) > $(hi[d]))"))
+    end
+    return lo, hi
+end
+
+_support_vectors(support, n_dof::Integer) = _support_bounds(support, n_dof)
 
 # Same purpose as _estimate_prior_domain, but for the static bat_makie_plot
 # path: all samples already exist there, so the true min/max is available
@@ -218,38 +375,63 @@ function _init_compute_graph(
     curr_idxs = Vector{Vector{Int}}()
     add_input!(graph, :current_idxs, curr_idxs)
 
-    # Window start (per-walker end position is current_idxs above, already
-    # existing) -- the "Current Index" slider used to always reveal samples
-    # from position 1 up to its single value; it's now an IntervalSlider, so
-    # this is the low end of that interval. Defaults to 1 ("from the
-    # beginning", i.e. exactly the old behavior) and is never touched at all
-    # outside of that slider's own callback -- every other caller (live
-    # multi-chain runs with no slider shown, precompilation, etc.) sees
-    # identical behavior to before this was added.
-    add_input!(graph, :window_start, 1)
+    # The display window in REAL MCMC STEPS (the "Step Range" slider's
+    # interval), applied per walker via _step_window_rows: step numbers are
+    # the one clock all walkers of a chain share (they step in lock-step but
+    # store different row counts, so any row-based window would misalign
+    # them in time). Written ONLY by the slider; the default sentinel means
+    # "everything" and hits _step_window_rows' fast path, so live flushes
+    # pay no search cost while the slider is untouched. :current_idxs above
+    # stays the "rows that exist per walker" bookkeeping, written only by
+    # registration/flush -- the slider and the flush no longer fight over a
+    # shared input as they did when the slider wrote current_idxs directly.
+    add_input!(graph, :window_steps, (1, typemax(Int)))
 
     register_computation!(graph,
-        [:samples, :current_idxs, :window_start],
+        [:samples, :current_idxs, :window_steps],
         [:flat_samples],
     ) do inputs, changed, cached
         samples = inputs.samples
         current_idxs = inputs.current_idxs
-        window_start = inputs.window_start
+        wlo, whi = inputs.window_steps
 
         walker_views = Any[] #Vector{DensitySampleVector}()
         for i in eachindex(samples)
             for j in eachindex(samples[i])
-                wend = current_idxs[i][j]
-                # clamp: a shorter walker (e.g. early in a live run, before
-                # every walker has produced equally many samples) must never
-                # see a start position past its own end -- 1:0-style empty
-                # ranges are fine (a valid empty UnitRange), a start > end
-                # the other way (e.g. 5:3) is not.
-                wstart = clamp(window_start, 1, max(wend, 1))
-                push!(walker_views, view(samples[i][j], wstart:wend))
+                walker = samples[i][j]
+                # min(...): the graph's row bookkeeping can lag the walker's
+                # true length mid-flush; never view past the real end.
+                wend = min(current_idxs[i][j], length(walker))
+                push!(walker_views, view(walker, _step_window_rows(walker, wend, wlo, whi)))
             end
         end
         return (vcat(walker_views...),)
+    end
+
+    # Highest real MCMC step any walker has reached so far (its last row's
+    # stepno + weight - 1; the row count for sources without step numbers)
+    # -- the "Step Range" slider's range end.
+    register_computation!(graph,
+        [:samples, :current_idxs],
+        [:max_step],
+    ) do inputs, changed, cached
+        samples = inputs.samples
+        current_idxs = inputs.current_idxs
+        max_step = 0
+        for i in eachindex(samples)
+            for j in eachindex(samples[i])
+                walker = samples[i][j]
+                wend = min(current_idxs[i][j], length(walker))
+                wend <= 0 && continue
+                info = walker.info
+                if !isempty(info) && hasfield(eltype(info), :stepno)
+                    max_step = max(max_step, Int(info[wend].stepno) + Int(walker.weight[wend]) - 1)
+                else
+                    max_step = max(max_step, wend)
+                end
+            end
+        end
+        return (max_step,)
     end
 
     map!(smpls -> length(smpls),
@@ -324,133 +506,6 @@ function _init_compute_graph(
         :flat_walkerids
     )
 
-    # Untruncated (full-completed-dataset) counterparts of :flat_samples/
-    # :flat_weights/:flat_chainids/:flat_stepnos/:flat_walkerids above, used
-    # only by Trace2D (see its own registration below) so it can reveal every
-    # chain *proportionally* as :current_idx pans back and forth, instead of
-    # via one shared row-position cutoff into the flattened array.
-    #
-    # This matters specifically for the static bat_makie_plot/Makie.plot path
-    # reviewing a *completed* multi-chain run: BAT's merged multi-chain
-    # DensitySampleVector is chain-block-concatenated (all of chain A's rows,
-    # then all of chain B's, ...), not time-interleaved across chains --
-    # confirmed empirically (only 3 chainid transitions across 515 row-pairs
-    # for a 4-chain run). A single shared :current_idx cutoff into that
-    # array therefore reveals one chain's *entire* block before any of the
-    # next chain's, so panning the "Current Index" slider makes
-    # already-fully-revealed chains appear to freeze while only the
-    # currently-being-revealed chain's trace visibly moves -- a real,
-    # reported symptom, but not a bug in Trace2D's own compute/caching
-    # (verified directly: a frozen chain's own row count is mathematically
-    # identical at every :current_idx past its block's end, and the
-    # currently-active chain's own row count *does* change over the same
-    # span, ruling out a stale-recompute bug). Reinterpreting :current_idx as
-    # a *fraction* of the full dataset (current_idx / length(full)) and
-    # applying that same fraction to each chain's own full-length group
-    # (computed here) fixes this: every chain now reveals its own history in
-    # lockstep, proportionally, regardless of which block it occupies.
-    #
-    # A no-op for the live path: current_idx there is always exactly
-    # length(:flat_samples) (see the current_idx map! above) -- either
-    # because show_slider is only ever enabled for a single (chain, walker)
-    # (live single-chain or the static path, where "proportional" and "raw"
-    # reveal are identical for the one existing group), or because
-    # current_idxs is never manually rewound below each walker's own true
-    # current length in live multi-chain runs (no slider is shown there at
-    # all) -- so the reveal fraction computed from these nodes is always 1.0
-    # exactly when it would otherwise matter.
-    # The trace toggles are declared HERE, not with the other show_* control
-    # inputs further down, because :flat_samples_full's registration directly
-    # below lists them as inputs and register_computation! requires its
-    # inputs to already exist. (Trace2D has no diagonal counterpart -- it's
-    # an inherently 2D concept, a path through a 2D marginal -- so there's
-    # no show_trace_diag.)
-    add_input!(graph, :show_trace_upper, false)
-    add_input!(graph, :show_trace_lower, false)
-
-    # Gated on the trace toggles: this whole _full node family (this node,
-    # the four per-sample map!s below, and the per-pair marg_full views)
-    # exists ONLY for Trace2D, yet -- because ComputePipeline resolves a
-    # node's inputs before its callback can early-return -- it used to pay a
-    # full O(total samples) dataset copy plus several O(n) per-sample
-    # comprehensions on every flush even with both trace toggles off (the
-    # default). With the toggles as declared inputs, the off state produces
-    # 1:0 views instead: same view/vcat types as the on state (so the
-    # TypedEdge-locked output type is identical across off->on), just empty
-    # -- and every downstream _full node is O(input length), so empty-in/
-    # empty-out with no changes needed there. Consecutive off-state empties
-    # are isequal, so ComputePipeline stops even running the downstream
-    # callbacks after the first off-resolve. Flipping a toggle on dirties
-    # this node -> full recompute -> the trace renders exactly as before.
-    register_computation!(graph,
-        [:samples, :show_trace_upper, :show_trace_lower],
-        [:flat_samples_full],
-    ) do inputs, changed, cached
-        samples = inputs.samples
-        trace_on = inputs.show_trace_upper || inputs.show_trace_lower
-        walker_views = Any[]
-        for i in eachindex(samples)
-            for j in eachindex(samples[i])
-                rng = trace_on ? (1:length(samples[i][j])) : (1:0)
-                push!(walker_views, view(samples[i][j], rng))
-            end
-        end
-        return (vcat(walker_views...),)
-    end
-    map!(
-        smpls -> view(smpls.weight, 1:length(smpls)),
-        graph,
-        :flat_samples_full,
-        :flat_weights_full
-    )
-    map!(
-        smpls -> hasfield(eltype(smpls.info), :chainid) ? Int32[s.chainid for s in view(smpls.info, 1:length(smpls))] : Int32[],
-        graph,
-        :flat_samples_full,
-        :flat_chainids_full
-    )
-    map!(
-        smpls -> hasfield(eltype(smpls.info), :stepno) ? Int64[s.stepno for s in view(smpls.info, 1:length(smpls))] : Int64[],
-        graph,
-        :flat_samples_full,
-        :flat_stepnos_full
-    )
-    map!(
-        smpls -> begin
-            T = eltype(smpls.info)
-            # Named n_smpls, deliberately NOT n: this closure lives in the same
-            # top-level scope as _init_compute_graph's own `n` (the grid size)
-            # parameter, which is captured by many other closures registered
-            # in this function (vsel_map, live_map, ...). An anonymous
-            # function's own local assignment to a name doesn't get its own
-            # independent binding here -- Julia treats `n = ...` inside this
-            # lambda as *assigning to the same captured variable* every other
-            # closure in this scope shares (confirmed directly: a minimal
-            # reproduction of exactly this shape showed every other closure's
-            # `n` change to match this lambda's last-assigned value after a
-            # single call). That's exactly the mechanism behind this session's
-            # real, reproducible bug: every time this computation re-ran (on
-            # every new sample batch), it silently overwrote the shared grid
-            # size with the current sample count, so soon after the first live
-            # sample batch, every other computation's "n" (E.g. vsel_map's
-            # `idxs has $(length(idxs)) entries, exceeding the grid size
-            # N_max=$n` assertion) started reading a stale, wrong value
-            # instead of the true, constant grid size.
-            n_smpls = length(smpls)
-            if !hasfield(T, :chainid) || !hasfield(T, :stepno)
-                Int32[]
-            elseif hasfield(T, :walkerid)
-                Int32[s.walkerid for s in view(smpls.info, 1:n_smpls)]
-            elseif hasfield(T, :walker)
-                Int32[s.walker for s in view(smpls.info, 1:n_smpls)]
-            else
-                zeros(Int32, n_smpls)
-            end
-        end,
-        graph,
-        :flat_samples_full,
-        :flat_walkerids_full
-    )
 
     add_input!(graph, :idxs, Int[])
 
@@ -512,8 +567,10 @@ function _init_compute_graph(
     add_input!(graph, :show_stats_diag, false)
     add_input!(graph, :show_stats_lower, false)
 
-    # (:show_trace_upper/:show_trace_lower are declared earlier, above
-    # :flat_samples_full's registration, which needs them as inputs.)
+    # Trace2D has no diagonal counterpart -- it's an inherently 2D concept
+    # (a path through a 2D marginal), so there's no show_trace_diag.
+    add_input!(graph, :show_trace_upper, false)
+    add_input!(graph, :show_trace_lower, false)
 
     add_input!(graph, :triagonal_config, triagonal_config)
     add_input!(graph, :diagonal_config, diagonal_config)
@@ -526,6 +583,16 @@ function _init_compute_graph(
     # guards against reading it before then.
     add_input!(graph, :domain_lo, Float64[])
     add_input!(graph, :domain_hi, Float64[])
+
+    # Per-real-dimension HARD prior-support bounds (+-Inf where unbounded/
+    # unknown -- see _support_bounds), set once by the same callers that set
+    # the domain. Distinct from domain_lo/domain_hi: the domain is a soft
+    # display range (data extrema / prior quantiles) that grows over a live
+    # run, while these are the fixed truncation boundaries of the measure
+    # itself, used for KDE boundary reflection. Empty = not provided = no
+    # correction anywhere.
+    add_input!(graph, :support_lo, Float64[])
+    add_input!(graph, :support_hi, Float64[])
 
     for recipe in vcat(BAT_MAKIE_RECIPES_1D, BAT_MAKIE_RECIPES_2D)
         add_input!(graph, Symbol("$(typeof(recipe))"), recipe)
@@ -609,7 +676,7 @@ function _init_compute_graph(
         for k in eachindex(primitive_symbols_1D)
             recipe = BAT_MAKIE_RECIPES_1D[k]
             register_computation!(graph,
-                [marg_sym, :flat_weights, :diagonal_recipe, :live_map, :diagonal_config, :vsel_map, :domain_lo, :domain_hi],
+                [marg_sym, :flat_weights, :diagonal_recipe, :live_map, :diagonal_config, :vsel_map, :domain_lo, :domain_hi, :support_lo, :support_hi],
                 [primitive_symbols_1D[k]]
             ) do inputs, changed, cached
                 # Field access by name, not positional destructuring -- a
@@ -619,7 +686,7 @@ function _init_compute_graph(
                 coords = getproperty(inputs, marg_sym)
                 weights = inputs.flat_weights
                 config = inputs.diagonal_config
-                (; live_map, vsel_map, domain_lo, domain_hi) = inputs
+                (; live_map, vsel_map, domain_lo, domain_hi, support_lo, support_hi) = inputs
                 cell_status = live_map[i, i] ? LiveCell() : DeadCell()
                 recipe_status = determine_recipe_status(recipe, inputs.diagonal_recipe())
                 # The cell's fixed per-variable domain rides along inside the
@@ -631,6 +698,11 @@ function _init_compute_graph(
                 v = vsel_map[i, i][1]
                 cfg = (v == 0 || isempty(domain_lo)) ? config :
                     (; config..., domain=(domain_lo[v], domain_hi[v]))
+                # The variable's hard support bounds ride along the same way
+                # -- only the KDE-family recipes read these, for boundary
+                # reflection (see _weighted_kde1d).
+                cfg = (v == 0 || isempty(support_lo)) ? cfg :
+                    (; cfg..., support=(support_lo[v], support_hi[v]))
                 return (compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, cfg),)
             end
         end
@@ -645,16 +717,6 @@ function _init_compute_graph(
                 [:flat_samples, :vsel_map, :current_idx, :live_map],
                 marg_sym_2D
             )
-            # Untruncated counterpart, for Trace2D only -- see
-            # :flat_samples_full's comment above.
-            marg_sym_2D_full = marg_full_symbol((j, i))
-            map!(
-                (smpls, vsel_map, live_map) -> live_map[j, i] ? view(smpls.v.data, [vsel_map[j, i]...], 1:length(smpls)) : view(smpls.v.data, Int[], 1:0),
-                graph,
-                [:flat_samples_full, :vsel_map, :live_map],
-                marg_sym_2D_full
-            )
-
             primitive_symbols_2D = [primitive_symbol(recipe, (j, i)) for recipe in BAT_MAKIE_RECIPES_2D]
 
             for k in eachindex(primitive_symbols_2D)
@@ -662,22 +724,26 @@ function _init_compute_graph(
                 # Full recompute per invocation, no persistent accumulator --
                 # see the 1D loop's comment above for the rationale.
                 register_computation!(graph,
-                    [marg_sym_2D, :flat_weights, :upper_recipe, :lower_recipe, :live_map, :triagonal_config, :vsel_map, :domain_lo, :domain_hi],
+                    [marg_sym_2D, :flat_weights, :upper_recipe, :lower_recipe, :live_map, :triagonal_config, :vsel_map, :domain_lo, :domain_hi, :support_lo, :support_hi],
                     [primitive_symbols_2D[k]]
                 ) do inputs, changed, cached
                     # By-name access -- see the 1D loop's matching comment.
                     coords = getproperty(inputs, marg_sym_2D)
                     weights = inputs.flat_weights
                     config = inputs.triagonal_config
-                    (; upper_recipe, lower_recipe, live_map, vsel_map, domain_lo, domain_hi) = inputs
+                    (; upper_recipe, lower_recipe, live_map, vsel_map, domain_lo, domain_hi, support_lo, support_hi) = inputs
                     cell_status = live_map[j, i] ? LiveCell() : DeadCell()
                     recipe_status = determine_recipe_status(recipe, upper_recipe(), lower_recipe())
                     # See the 1D loop above -- the pair's fixed domain rides
                     # along inside the config for the histogram recipes' bin
-                    # edges.
+                    # edges, and the pair's hard support bounds for the KDE
+                    # recipes' boundary reflection. Tuple order matches the
+                    # marginal view's row order (vsel[1] = x, vsel[2] = y).
                     vsel = vsel_map[j, i]
                     cfg = (vsel[1] == 0 || isempty(domain_lo)) ? config :
                         (; config..., domain=((domain_lo[vsel[1]], domain_hi[vsel[1]]), (domain_lo[vsel[2]], domain_hi[vsel[2]])))
+                    cfg = (vsel[1] == 0 || isempty(support_lo)) ? cfg :
+                        (; cfg..., support=((support_lo[vsel[1]], support_hi[vsel[1]]), (support_lo[vsel[2]], support_hi[vsel[2]])))
                     return (compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, cfg),)
                 end
             end
@@ -715,29 +781,23 @@ function _init_compute_graph(
             # determine_recipe_status override in makie_trace.jl, exactly
             # like Mean2D/Std2D/Cov2D. Whether it's actually *drawn* is a
             # separate, purely presentation-layer decision made in
-            # _init_gridlayout's lift below (show_trace_upper/lower),
-            # matching how the stats overlay toggle works.
+            # _init_gridlayout (show_trace_upper/lower), matching how the
+            # stats overlay toggle works -- but since Trace2D's own compute
+            # (grouping + windowing) is real, non-incremental work, the
+            # toggles are ALSO threaded in here so the sentinel early-return
+            # below skips that cost entirely while the overlay is off.
             #
-            # BUT unlike Mean2D/Std2D/Cov2D (whose computation is cheap
-            # running-statistics accumulation, negligible whether the toggle
-            # is on or not), Trace2D's own compute (grouping + windowing over
-            # the *entire* accumulated dataset -- see its own file's header
-            # comment) is real, non-incremental work. Explicitly threading
-            # :show_trace_upper/:show_trace_lower in and early-returning the
-            # empty sentinel when both are off (below) means this cost is
-            # only ever paid while the overlay is actually visible, rather
-            # than on every single sample batch for every active variable
-            # pair regardless of whether any user ever touches this toggle.
-            #
-            # Uses the *_full inputs (untruncated) plus :current_idx directly
-            # (rather than the shared current_idx-truncated marg_sym_2D/
-            # flat_weights/flat_chainids/etc every other 2D recipe depends on)
-            # so it can reveal each chain proportionally as current_idx pans
-            # -- see :flat_samples_full's comment above for why a raw shared
-            # truncation makes already-revealed chains appear to freeze.
+            # Uses the ordinary windowed per-sample inputs: with samples
+            # registered per (chain, walker) and the step window applied per
+            # walker (see :window_steps/_step_window_rows), every group's
+            # rows here are its own chronological, time-aligned slice -- an
+            # older design needed untruncated _full input copies plus a
+            # proportional reveal fraction to work around the merged static
+            # dataset being one chain-block-concatenated pseudo-walker; both
+            # are gone.
             trace_primitive_sym = primitive_symbol(Trace2D(), (j, i))
             register_computation!(graph,
-                [marg_sym_2D_full, :flat_weights_full, :flat_chainids_full, :flat_walkerids_full, :flat_stepnos_full, :current_idx, :upper_recipe, :lower_recipe, :live_map, :triagonal_config, :show_trace_upper, :show_trace_lower],
+                [marg_sym_2D, :flat_weights, :flat_chainids, :flat_walkerids, :flat_stepnos, :upper_recipe, :lower_recipe, :live_map, :triagonal_config, :show_trace_upper, :show_trace_lower],
                 [trace_primitive_sym]
             ) do inputs, changed, cached
                 # By-name access -- see the 1D loop's matching comment.
@@ -745,11 +805,11 @@ function _init_compute_graph(
                 if !(show_trace_upper || show_trace_lower)
                     return (_empty_trace2d_primitives(),)
                 end
-                coords = getproperty(inputs, marg_sym_2D_full)
-                (; flat_weights_full, flat_chainids_full, flat_walkerids_full, flat_stepnos_full, current_idx, upper_recipe, lower_recipe, live_map, triagonal_config) = inputs
+                coords = getproperty(inputs, marg_sym_2D)
+                (; flat_weights, flat_chainids, flat_walkerids, flat_stepnos, upper_recipe, lower_recipe, live_map, triagonal_config) = inputs
                 cell_status = live_map[j, i] ? LiveCell() : DeadCell()
                 recipe_status = determine_recipe_status(Trace2D(), upper_recipe(), lower_recipe())
-                primitives = compute_plotting_primitives(coords, flat_weights_full, flat_chainids_full, flat_walkerids_full, flat_stepnos_full, current_idx, Trace2D(), recipe_status, cell_status, triagonal_config)
+                primitives = compute_plotting_primitives(coords, flat_weights, flat_chainids, flat_walkerids, flat_stepnos, Trace2D(), recipe_status, cell_status, triagonal_config)
                 return (primitives,)
             end
         end

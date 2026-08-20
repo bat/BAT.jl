@@ -437,6 +437,9 @@ function compute_plotting_primitives(
         return _empty_errorbars1d_primitives()
 end
 
+# See Cov2D's matching comment above (Errorbars1D/2D are selectable main
+# recipes via the picker, brought up to the same _stats_inputs/isfinite
+# standard as the always-live overlays).
 function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
@@ -445,11 +448,14 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
-        isempty(weights) && return _empty_errorbars1d_primitives()
+        si = _stats_inputs(marg_coords, weights, config)
+        isnothing(si) && return _empty_errorbars1d_primitives()
+        coords, w_prob = si
         (; nsigma) = config
-        w_prob = ProbabilityWeights(weights)
-        μ = mean(marg_coords, w_prob)
-        σ = std(marg_coords, w_prob)
+        vals = vec(coords)
+        μ = mean(vals, w_prob)
+        σ = std(vals, w_prob)
+        (isfinite(μ) && isfinite(σ)) || return _empty_errorbars1d_primitives()
         return (μ=[μ], err=[σ * nsigma])
 end
 
@@ -487,6 +493,7 @@ function compute_plotting_primitives(
         return _empty_errorbars2d_primitives()
 end
 
+# See Errorbars1D's matching comment above.
 function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
@@ -495,16 +502,14 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
-        isempty(weights) && return _empty_errorbars2d_primitives()
+        si = _stats_inputs(marg_coords, weights, config)
+        isnothing(si) && return _empty_errorbars2d_primitives()
+        coords, w_prob = si
         (; nsigma) = config
-        w_prob = ProbabilityWeights(weights)
-        x = marg_coords[1, :]
-        y = marg_coords[2, :]
-        μ_x = mean(x, w_prob)
-        μ_y = mean(y, w_prob)
-        σ_x = std(x, w_prob)
-        σ_y = std(y, w_prob)
-
+        x, y = view(coords, 1, :), view(coords, 2, :)
+        μ_x, μ_y = mean(x, w_prob), mean(y, w_prob)
+        σ_x, σ_y = std(x, w_prob), std(y, w_prob)
+        all(isfinite, (μ_x, μ_y, σ_x, σ_y)) || return _empty_errorbars2d_primitives()
         return (μ_x=[μ_x], μ_y=[μ_y], err_x=[σ_x * nsigma], err_y=[σ_y * nsigma])
 end
 
@@ -562,18 +567,18 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
-        isempty(weights) && return _empty_pdf1d_primitives()
+        si = _stats_inputs(marg_coords, weights, config)
+        isnothing(si) && return _empty_pdf1d_primitives()
+        coords, w_prob = si
         (; npoints_pdf) = config
 
-        w_prob = ProbabilityWeights(weights)
-        μ = mean(vec(marg_coords), w_prob)
-        σ = std(vec(marg_coords), w_prob)
-        # isempty(weights) above only guards zero *count* -- a nonempty but
-        # all-zero-weight vector passes it, and std() with an all-zero
+        vals = vec(coords)
+        μ = mean(vals, w_prob)
+        σ = std(vals, w_prob)
+        # The emptiness guards only cover zero *count* -- a nonempty but
+        # all-zero-weight vector passes them, and std() with an all-zero
         # ProbabilityWeights returns NaN (0/0), which Normal(μ, NaN) rejects
-        # with a DomainError. Unlike Errorbars1D/2D (confirmed dormant, no
-        # picker entry), PDF1D is live in the recipe picker, so this is
-        # reachable in normal use, not just latent.
+        # with a DomainError.
         (isfinite(μ) && isfinite(σ)) || return _empty_pdf1d_primitives()
         dist = Normal(μ, σ)
 
