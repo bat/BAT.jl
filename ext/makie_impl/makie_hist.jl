@@ -9,91 +9,25 @@ _empty_quantilehist1d_primitives() = (xy_data=Vector{Point{2,Float32}}(), widths
 _empty_quantilehist2d_primitives() = (centers_x=Vector{Float64}(), centers_y=Vector{Float64}(), color_grid=Matrix{RGBA{Float32}}(undef, 0, 0))
 _empty_hexbin2d_primitives() = (x=Float64[], y=Float64[], weights=Float64[], thresh=0.0)
 
-# Hist1D/Hist2D/QuantileHist1D/QuantileHist2D are updated incrementally from a
-# running Histogram with fixed (pre-estimated) bin edges instead of being
-# refit from the full accumulated sample set on every batch -- see
-# _IncrementalHist1DState/2DState below. Not compatible with filter=true: the
-# low-weight cutoff depends on the *global* weight distribution recomputed
-# retroactively on every call, which doesn't fit an incremental model --
-# callers must check `!config.filter` themselves alongside this trait (kept
-# separate since is_incremental itself only reflects the recipe, not a
-# per-call config choice).
-is_incremental(::Union{Hist1D,Hist2D,QuantileHist1D,QuantileHist2D}) = true
-
-# Running (fixed-edge) histogram state for the incremental recipes above.
-# Reset (full rebuild, not merge) if the real variable(s) this grid cell
-# represents changes (a vsel change), the fixed domain the edges were built
-# from widens (see makie_visualizer.jl's overflow handling), the sample count
-# goes backwards (e.g. buffered samples get cleared), or the window's start
-# position moves (the index-range slider's low handle -- see wstart's comment
-# on _update_hist! below).
-mutable struct _IncrementalHist1DState
-    hist::Union{Histogram,Nothing}
-    n::Int
-    vsel::Int       # real variable index this state currently tracks (0 = none yet)
-    domain::Tuple{Float64,Float64}
-    wstart::Int     # window_start this state was last built/updated against
+# Bin edges for a marginal histogram. When a fixed per-dimension `domain` is
+# available (the compute graph merges one into the config -- see the
+# primitive registrations in makie_compute_graph.jl), the edges derive from
+# THAT, not from the data's own range: fixed domain-derived edges are what
+# keep live bins stable as samples accumulate, instead of every bin shifting
+# on each flush. Without a domain (direct calls outside the graph, or a cell
+# whose domain isn't known yet), fall back to data-derived edges.
+function _hist_edges(::Nothing, cols, bins::Integer, closed::Symbol)
+    return _get_edges(cols, (bins,), closed)
 end
-_IncrementalHist1DState() = _IncrementalHist1DState(nothing, 0, 0, (0.0, 0.0), 1)
-
-mutable struct _IncrementalHist2DState
-    hist::Union{Histogram,Nothing}
-    n::Int
-    vsel::Tuple{Int,Int}
-    domain::Tuple{Tuple{Float64,Float64},Tuple{Float64,Float64}}
-    wstart::Int
+function _hist_edges(::Nothing, cols, bins::Tuple, closed::Symbol)
+    return Tuple(_get_edges(cols[i], bins[i], closed) for i in 1:length(bins))
 end
-_IncrementalHist2DState() = _IncrementalHist2DState(nothing, 0, (0, 0), ((0.0, 0.0), (0.0, 0.0)), 1)
-
-# Folds only the newly-arrived samples (coords[state.n+1:end]) into the
-# running histogram (fit over just the new slice, then merge!'d into the
-# existing one -- both share the same fixed edges), rebuilding from scratch
-# over the full current view instead if vsel/domain changed or data shrank.
-#
-# `wstart` (the index-range slider's low end, see :window_start in
-# makie_compute_graph.jl) must also force a rebuild, not just a shrink in
-# `n`: this state's only signal for "how much of `coords` is genuinely new"
-# is length, which silently breaks once `coords` can be a *panned* window
-# instead of always growing from a fixed start -- shifting the whole
-# interval (both slider handles at once) keeps the window's width, and
-# therefore `n`, exactly constant while every sample in it changes. Without
-# this check that shift is invisible to the `n_now > state.n` branch below,
-# so the plot would silently keep showing the stale pre-shift histogram
-# forever (confirmed via direct repro: shifting a fixed-width window left/
-# right produced bit-identical `weights` output despite `coords` itself
-# genuinely differing).
-function _update_hist!(state::_IncrementalHist1DState, coords::AbstractVector, weights::AbstractVector, vsel::Int, domain::Tuple{Float64,Float64}, nbins::Integer, closed::Symbol, wstart::Integer)
-    n_now = length(coords)
-    if isnothing(state.hist) || state.vsel != vsel || state.domain != domain || state.wstart != wstart || state.n > n_now
-        edges = _get_edges(([domain[1], domain[2]],), (nbins,), closed)
-        state.hist = fit(Histogram, (coords,), FrequencyWeights(weights), edges, closed=closed)
-        state.n, state.vsel, state.domain, state.wstart = n_now, vsel, domain, wstart
-    elseif n_now > state.n
-        rng = (state.n+1):n_now
-        new_hist = fit(Histogram, (view(coords, rng),), FrequencyWeights(view(weights, rng)), state.hist.edges, closed=closed)
-        merge!(state.hist, new_hist)
-        state.n = n_now
-    end
-    return state.hist
+function _hist_edges(domain::Tuple{Float64,Float64}, cols, bins::Integer, closed::Symbol)
+    return _get_edges(([domain[1], domain[2]],), (bins,), closed)
 end
-
-# coords/x/y here are full 2xN (or separate x,y) views over the *entire*
-# current sample range, matching the 1D case's convention above. See the 1D
-# method's comment for why `wstart` must also force a rebuild.
-function _update_hist!(state::_IncrementalHist2DState, x::AbstractVector, y::AbstractVector, weights::AbstractVector, vsel::Tuple{Int,Int}, domain::Tuple{Tuple{Float64,Float64},Tuple{Float64,Float64}}, nbins::Tuple{Int,Int}, closed::Symbol, wstart::Integer)
-    n_now = length(weights)
-    if isnothing(state.hist) || state.vsel != vsel || state.domain != domain || state.wstart != wstart || state.n > n_now
-        (dlo1, dhi1), (dlo2, dhi2) = domain
-        edges = _get_edges(([dlo1, dhi1], [dlo2, dhi2]), nbins, closed)
-        state.hist = fit(Histogram, (x, y), FrequencyWeights(weights), edges, closed=closed)
-        state.n, state.vsel, state.domain, state.wstart = n_now, vsel, domain, wstart
-    elseif n_now > state.n
-        rng = (state.n+1):n_now
-        new_hist = fit(Histogram, (view(x, rng), view(y, rng)), FrequencyWeights(view(weights, rng)), state.hist.edges, closed=closed)
-        merge!(state.hist, new_hist)
-        state.n = n_now
-    end
-    return state.hist
+function _hist_edges(domain::Tuple{Tuple{Float64,Float64},Tuple{Float64,Float64}}, cols, bins::Tuple, closed::Symbol)
+    (dlo1, dhi1), (dlo2, dhi2) = domain
+    return _get_edges(([dlo1, dhi1], [dlo2, dhi2]), bins, closed)
 end
 
 function _marginal_view_dist(
@@ -102,7 +36,8 @@ function _marginal_view_dist(
     filter::Bool,
     bins::Union{Tuple{Vararg{Int64}},Int64},
     closed::Symbol,
-    normalization::Symbol
+    normalization::Symbol,
+    domain=nothing,
 )
     if filter
         mask = _low_weight_mask(weights)
@@ -111,13 +46,7 @@ function _marginal_view_dist(
     end
 
     cols = Tuple(eachrow(locations))
-    edges = if isa(bins, Integer)
-        _get_edges(cols, (bins,), closed)
-    elseif bins isa Tuple
-        Tuple(_get_edges(cols[i], bins[i], closed) for i in 1:length(bins))
-    else
-        (_get_edges(cols, bins, closed),)
-    end
+    edges = _hist_edges(domain, cols, bins, closed)
 
     hist = fit(Histogram, cols, FrequencyWeights(weights), edges, closed=closed)
     h_norm = normalization == :none ? hist : StatsBase.normalize(hist, mode=normalization)
@@ -182,10 +111,10 @@ end
 function _hist2d_output(hist::Histogram, normalization::Symbol)
     h_norm = _safe_normalize(hist, normalization)
     centers_x, centers_y = _get_bin_centers(h_norm)
-    hist_weights = h_norm.weights
-    weights = fill(NaN, size(hist_weights))
-    nonzero_idxs = hist_weights .> 0
-    weights[nonzero_idxs] .= hist_weights[nonzero_idxs]
+    # Zero-count bins as NaN (rendered transparent) -- single pass, with
+    # Float64 forced explicitly since the all-zero-weight case skips
+    # normalization and keeps the samples' own integer weight eltype.
+    weights = map(w -> w > 0 ? Float64(w) : NaN, h_norm.weights)
     return (centers_x=centers_x, centers_y=centers_y, weights=weights)
 end
 
@@ -206,7 +135,7 @@ function _quantilehist1d_output(hist::Histogram, config::NamedTuple)
 
     centers = _get_bin_centers(h_norm)[1]
     xy_data = Point2f.(centers, h_norm.weights)
-    edges = collect(h_norm.edges)[1]
+    edges = h_norm.edges[1]
     widths = diff(edges)
     stairs_y = vcat(h_norm.weights, h_norm.weights[end])
     stairs_data = Point2f.(edges, stairs_y)
@@ -234,26 +163,6 @@ function _quantilehist2d_output(hist::Histogram, config::NamedTuple)
     return (centers_x=centers_x, centers_y=centers_y, color_grid=color_grid)
 end
 
-function compute_hist_primitives(::Hist1D, state::_IncrementalHist1DState, config::NamedTuple)
-    isnothing(state.hist) && return _empty_hist1d_primitives()
-    return _hist1d_output(state.hist, config.normalization)
-end
-
-function compute_hist_primitives(::Hist2D, state::_IncrementalHist2DState, config::NamedTuple)
-    isnothing(state.hist) && return _empty_hist2d_primitives()
-    return _hist2d_output(state.hist, config.normalization)
-end
-
-function compute_hist_primitives(::QuantileHist1D, state::_IncrementalHist1DState, config::NamedTuple)
-    isnothing(state.hist) && return _empty_quantilehist1d_primitives()
-    return _quantilehist1d_output(state.hist, config)
-end
-
-function compute_hist_primitives(::QuantileHist2D, state::_IncrementalHist2DState, config::NamedTuple)
-    isnothing(state.hist) && return _empty_quantilehist2d_primitives()
-    return _quantilehist2d_output(state.hist, config)
-end
-
 function compute_plotting_primitives(
     ::SubArray,
     ::SubArray,
@@ -278,7 +187,10 @@ function compute_plotting_primitives(
     # -- degrade to the same empty result as a dead cell rather than crashing.
     isempty(weights) && return _empty_hist1d_primitives()
     (; normalization, nbins, closed, filter) = config
-    hist = _marginal_view_dist(marg_coords, weights, filter, nbins + 1, closed, :none)
+    # nbins + 1, unlike every other hist recipe's plain nbins -- a historical
+    # asymmetry, deliberately kept since changing it would silently alter
+    # Hist1D's default binning.
+    hist = _marginal_view_dist(marg_coords, weights, filter, nbins + 1, closed, :none, get(config, :domain, nothing))
     return _hist1d_output(hist, normalization)
 end
 
@@ -332,7 +244,7 @@ function compute_plotting_primitives(
 )
     isempty(weights) && return _empty_hist2d_primitives()
     (; normalization, nbins, closed, filter) = config
-    hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, :none)
+    hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, :none, get(config, :domain, nothing))
     return _hist2d_output(hist, normalization)
 end
 
@@ -382,7 +294,7 @@ function compute_plotting_primitives(
 )
     isempty(weights) && return _empty_quantilehist1d_primitives()
     (; nbins, closed, filter) = config
-    hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, :none)
+    hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, :none, get(config, :domain, nothing))
     return _quantilehist1d_output(hist, config)
 end
 
@@ -431,7 +343,7 @@ function compute_plotting_primitives(
 )
     isempty(weights) && return _empty_quantilehist2d_primitives()
     (; nbins, closed, filter) = config
-    hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, :none)
+    hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, :none, get(config, :domain, nothing))
     return _quantilehist2d_output(hist, config)
 end
 

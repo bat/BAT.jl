@@ -5,7 +5,7 @@
 # (makie_scatter.jl).
 _empty_kde1d_primitives() = (x=Vector{Float64}(), density=Vector{Float64}(), poly_points=Vector{Point{2,Float32}}())
 _empty_kde2d_primitives() = (x=Vector{Float64}(), y=Vector{Float64}(), density=Matrix{Float64}(undef, 0, 0))
-_empty_quantilekde1d_primitives() = (polys=Vector{Vector{Point{2,Float32}}}(), fill_colors=Vector{RGBA}(), full_line=Vector{Point{2,Float32}}())
+_empty_quantilekde1d_primitives() = (polys=Vector{Vector{Point{2,Float32}}}(), fill_colors=Vector{RGBAf}(), full_line=Vector{Point{2,Float32}}())
 _empty_quantilekde2d_primitives() = (x=Vector{Float64}(), y=Vector{Float64}(), color_grid=Matrix{RGBA{Float32}}(undef, 0, 0))
 
 # KDE2D masks effectively-zero density cells to NaN (rendered transparent,
@@ -256,10 +256,14 @@ function compute_plotting_primitives(
 
         cum_p ./= total_p
 
-        active_levels = sort(filter(x -> 0 < x < 1, levels))
+        # `p ->` (not `x ->`): the lambda variable would otherwise shadow the
+        # KDE grid `x` above.
+        active_levels = sort(filter(p -> 0 < p < 1, levels))
 
         polys = Vector{Point2f}[]
-        fill_colors = RGBA[]
+        # RGBAf (concrete), not the bare RGBA UnionAll, which boxes every
+        # element; matches _empty_quantilekde1d_primitives' field type.
+        fill_colors = RGBAf[]
 
         # enumerate(reverse(active_levels)): i=1 is the *largest* level value
         # (e.g. 0.9973), which needs the lowest density threshold to reach --
@@ -358,7 +362,7 @@ function compute_plotting_primitives(
         total_p = cum_p[end]
         cum_p ./= total_p
 
-        valid_levels = sort(filter(x -> 0 < x < 1, levels))
+        valid_levels = sort(filter(p -> 0 < p < 1, levels))
 
         # Explicit per-cell color grid + Heatmap, instead of Contourf(levels=,
         # colormap=...) -- mirrors QuantileHist2D's own color_grid+Heatmap

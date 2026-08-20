@@ -130,7 +130,7 @@ function _init_gridlayout(
         # GridLayoutBase then naturally redistributes the same total area
         # across only the n_active non-collapsed cells.
         n_active = length(_idxs)
-        @assert n_active <= n "idxs has $(n_active) entries, exceeding the grid size N_max=$n"
+        n_active <= n || throw(ArgumentError("idxs has $(n_active) entries, exceeding the grid size N_max=$n"))
         # Explicitly typed as Union{Auto,Fixed} (not left to infer as
         # Vector{Any}) -- GridLayoutBase.convert_contentsizes requires
         # Vector{<:ContentSize} and rejects a plain Vector{Any}, which is
@@ -160,7 +160,7 @@ function _init_gridlayout(
         for i in 1:n
             diagonal_primitives = getproperty(inputs, primitive_symbol(diagonal_recipe, (i, i)))
             diagonal_plotspecs = compose_plotspecs(diagonal_primitives, diagonal_recipe(), diagonal_config)
-            stats_specs_1D = stats_diag ? get_stats_plotspecs(inputs, (i, i), Makie1DStats(), diagonal_config) : []
+            stats_specs_1D = stats_diag ? get_stats_plotspecs(inputs, (i, i), Makie1DStats(), diagonal_config) : PlotSpec[]
             append!(diagonal_plotspecs, stats_specs_1D)
 
             xlims = getproperty(inputs, Symbol("axis_limits_$i"))

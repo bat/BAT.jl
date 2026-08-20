@@ -33,10 +33,12 @@ end
 # Only supports up to length(_QUANTILE_LEVEL_COLORS) distinct levels -- the
 # default config (3 levels after filtering) fits exactly; an explicit, clear
 # error rather than a BoundsError if a caller ever configures more.
+# RGBAf (concrete, what every consumer stores -- bin_colors/color_grid are
+# RGBA{Float32} containers), not RGB{Float64} needing a conversion per use.
 const _QUANTILE_LEVEL_COLORS = [
-    RGB(1.0, 0.0, 0.0),
-    RGB(1.0, 1.0, 0.0),
-    RGB(0.462, 0.933, 0.0),
+    RGBAf(1.0, 0.0, 0.0, 1.0),
+    RGBAf(1.0, 1.0, 0.0, 1.0),
+    RGBAf(0.462, 0.933, 0.0, 1.0),
 ]
 
 function _quantile_level_color(i::Integer)

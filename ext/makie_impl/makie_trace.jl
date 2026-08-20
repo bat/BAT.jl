@@ -6,7 +6,7 @@
 # position opaque, fading toward transparent further back in time. Recency
 # is measured in real elapsed MCMC steps (stepno + weight - 1, since a
 # stored row's weight is how many consecutive steps the chain spent at that
-# position -- see :flat_stepnos' comment in makie_visualizer.jl), not
+# position -- see :flat_stepnos' comment in makie_compute_graph.jl), not
 # stored-row count, so a position the chain dwelled at for a long run of
 # rejections ages out of the trace at the correct rate instead of counting
 # as a single recent point.
@@ -37,7 +37,7 @@ end
 
 # marg_coords/weights/chainids/walkerids/stepnos here are the *full*,
 # untruncated completed-dataset versions (marg_full_symbol/:flat_*_full --
-# see their own comments in makie_visualizer.jl), not the shared
+# see their own comments in makie_compute_graph.jl), not the shared
 # current_idx-truncated ones every other 2D recipe receives. current_idx is
 # threaded through separately so each chain's own reveal fraction --
 # current_idx / (that chain's own total row count) -- can be computed and
@@ -63,8 +63,11 @@ function compute_plotting_primitives(
                 return _empty_trace2d_primitives()
         end
         (; trace_nsteps) = config
-        x = marg_coords[1, :]
-        y = marg_coords[2, :]
+        # Views, not copies -- only the <= trace_nsteps-sized windows per
+        # group are ever read from these below, so materializing the full
+        # untruncated dataset here was pure waste.
+        x = view(marg_coords, 1, :)
+        y = view(marg_coords, 2, :)
         # Last step actually spent at each row's position -- see this file's
         # header comment. weights are converted rather than passed through
         # (not that they're returned raw here anyway, but for the same
@@ -104,7 +107,12 @@ function compute_plotting_primitives(
         # O(window size) cost paid every time the overlay is drawn).
         group_ranges = Tuple{Int32,Int32,UnitRange{Int}}[]
 
-        for (key, idxs) in groups
+        # Sorted key order, not raw Dict order: Dict iteration is
+        # hash-order-dependent, which made the emitted spec order (and thus
+        # draw/z-order and SpecApi reconciliation matching) reshuffle
+        # whenever the chain/walker set changed mid-run.
+        for key in sort!(collect(keys(groups)))
+                idxs = groups[key]
                 chain_id, walker_id = key
                 n_revealed = clamp(round(Int, reveal_frac * length(idxs)), 0, length(idxs))
                 n_revealed == 0 && continue
