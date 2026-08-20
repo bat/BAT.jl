@@ -68,7 +68,7 @@ function compose_plotspecs(
         # the invariant comment in _init_gridlayout.
         transposed && ((x, y) = (y, x))
 
-        real_markersize = if isempty(weights) || (all(x -> x ≈ weights[1], weights)) || (mean(weights) <= 0)
+        real_markersize = if isempty(weights) || (all(w -> w ≈ weights[1], weights)) || (mean(weights) <= 0)
                 markersize
         else
                 sqrt.(weights ./ mean(weights)) .* markersize
@@ -171,12 +171,21 @@ function compose_plotspecs(
         # grid), and stable over a live-sampling session too in the common
         # case (the chain *set* is fixed once real sampling starts; BAT only
         # ever replaces/renumbers chains during the earlier tuning phase).
+        # Single-pass grouping into per-chain index vectors, instead of a
+        # fresh full-length `chainids .== id` mask (plus three masked copies)
+        # per chain -- with 100+ concurrent chains being a normal BAT run,
+        # the masked version was O(nchains * nsamples) per render.
+        groups = Dict{eltype(chainids),Vector{Int}}()
+        for (idx, id) in pairs(chainids)
+                push!(get!(() -> Int[], groups, id), idx)
+        end
+
         specs = PlotSpec[]
-        for (rank, id) in enumerate(sort(unique(chainids)))
-                mask = chainids .== id
-                ms = real_markersize isa AbstractVector ? real_markersize[mask] : real_markersize
+        for (rank, id) in enumerate(sort!(collect(keys(groups))))
+                idxs = groups[id]
+                ms = real_markersize isa AbstractVector ? real_markersize[idxs] : real_markersize
                 color = _CHAIN_COLOR_PALETTE[mod1(rank, length(_CHAIN_COLOR_PALETTE))]
-                push!(specs, S.Scatter(x[mask], y[mask]; markersize=ms, color=color))
+                push!(specs, S.Scatter(x[idxs], y[idxs]; markersize=ms, color=color))
         end
 
         return specs

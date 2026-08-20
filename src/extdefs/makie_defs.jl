@@ -2,9 +2,13 @@
 
 struct BATMakieVisualization <: BATVisBackend
         recipes::NamedTuple
-        vsel::Vector{Integer}
-        N_max::Integer
-        n_batch::Integer
+        # Concrete field types (Int/Float64, not the previous abstract
+        # Integer/Real): abstract-typed fields box every access and turn the
+        # per-flush batch-growth arithmetic and per-tick reads into dynamic
+        # dispatch; `new` converts whatever the constructor is given.
+        vsel::Vector{Int}
+        N_max::Int
+        n_batch::Int
         # Backpressure watermark: once this many samples are buffered and not yet
         # flushed, sampling threads block (in update_visualizer_impl!) until the
         # listener catches up. Bounds how far the display can lag behind the true
@@ -12,7 +16,7 @@ struct BATMakieVisualization <: BATVisBackend
         # runs in free bursts up to this many samples ahead. When adaptive_batching
         # is on, this (like n_batch) is only the *starting* value -- both grow
         # together at runtime, in the same ratio to one another as configured here.
-        max_buffered::Integer
+        max_buffered::Int
         # When true (the default), the effective flush threshold grows by
         # batch_growth_rate after every flush (geometric growth, the same
         # amortized-doubling trick as dynamic array growth), so the expensive
@@ -23,8 +27,8 @@ struct BATMakieVisualization <: BATVisBackend
         # more frequent, uniformly-sized updates, at the cost of more total
         # recompute work, for users who want maximum live-update resolution.
         adaptive_batching::Bool
-        batch_growth_rate::Real
-        poll_interval::Real
+        batch_growth_rate::Float64
+        poll_interval::Float64
         dark::Bool
         triagonal_config::NamedTuple
         diagonal_config::NamedTuple
@@ -49,14 +53,19 @@ struct BATMakieVisualization <: BATVisBackend
 end
 export BATMakieVisualization
 
-function BATMakieVisualization(; dark::Bool=false, max_buffered::Integer=4 * 50, adaptive_batching::Bool=true, batch_growth_rate::Real=1.2, trace_nsteps::Integer=20)
-        recipes = (upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D)
-        vsel = [1, 2, 3] # Default vsel; clamped (with a warning) on its one-time initial application if the posterior has fewer free parameters.
-        N_max = 3 # Grid size; cells beyond the (possibly truncated) vsel are simply left dead/empty.
-        n_batch = 50 # Flush the buffered samples into the plot once this many have accumulated.
-        poll_interval = 0.1 # Seconds between checks of whether a new batch is ready to flush.
-
-        triagonal_config = (
+# The one canonical definition of the default recipe configs -- every
+# consumer (the BATMakieVisualization constructor below, the Makie
+# extension's static entry points, and its precompile workload, which
+# overrides a few fields via merge) derives from these two functions instead
+# of keeping its own literal copy: the extension relies on the exact field
+# sets at runtime, so drifting copies would fail (or silently diverge) far
+# from the edit that caused it.
+#
+# Credible levels are cdf.(Chi(2), 0:3) for the 2D (triagonal) cells and
+# cdf.(Chi(1), 0:3) for the 1D diagonals: the n-sigma mass equivalents in
+# the respective dimension, i.e. the standard corner-plot convention.
+function _default_makie_triagonal_config(; trace_nsteps::Integer=20)
+        return (
                 weights=nothing,
                 nsigma=1.0,
                 nbins=(100, 100),
@@ -74,10 +83,12 @@ function BATMakieVisualization(; dark::Bool=false, max_buffered::Integer=4 * 50,
                 # steps (stepno + weight - 1), not stored-row count -- a long
                 # dwell at one position ages out of the trace at the correct
                 # rate instead of counting as a single recent point.
-                trace_nsteps=trace_nsteps
+                trace_nsteps=trace_nsteps,
         )
+end
 
-        diagonal_config = (
+function _default_makie_diagonal_config()
+        return (
                 weights=nothing,
                 nsigma=1.0,
                 nbins=100,
@@ -90,8 +101,19 @@ function BATMakieVisualization(; dark::Bool=false, max_buffered::Integer=4 * 50,
                 y_ebars=0.0,
                 filled_pdf=true,
                 npoints_pdf=300,
-                rev=false
+                rev=false,
         )
+end
+
+function BATMakieVisualization(; dark::Bool=false, max_buffered::Integer=4 * 50, adaptive_batching::Bool=true, batch_growth_rate::Real=1.2, trace_nsteps::Integer=20)
+        recipes = (upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D)
+        vsel = [1, 2, 3] # Default vsel; clamped (with a warning) on its one-time initial application if the posterior has fewer free parameters.
+        N_max = 3 # Grid size; cells beyond the (possibly truncated) vsel are simply left dead/empty.
+        n_batch = 50 # Flush the buffered samples into the plot once this many have accumulated.
+        poll_interval = 0.1 # Seconds between checks of whether a new batch is ready to flush.
+
+        triagonal_config = _default_makie_triagonal_config(trace_nsteps=trace_nsteps)
+        diagonal_config = _default_makie_diagonal_config()
 
         vis_config = BATMakieVisualization(
                 recipes,

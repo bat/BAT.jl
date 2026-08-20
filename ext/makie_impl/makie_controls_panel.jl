@@ -385,7 +385,9 @@ function _build_fig(
     ]
 
     colsize!(ui_layout, 1, Auto())
-    colsize!(ui_layout, 2, 200)
+    # The same constant _controls_panel_width's estimate uses -- a bare
+    # literal here could silently drift from the width formula.
+    colsize!(ui_layout, 2, _UI_COL2_MENU_WIDTH)
     colsize!(ui_layout, 3, Auto())
     colsize!(ui_layout, 4, Auto())
 
@@ -650,7 +652,7 @@ function _build_vsel_picker!(
     N_max::Integer,
     initial_vsel::AbstractVector{<:Integer},
     apply_vsel!::Function,
-    picker_col::Integer=4
+    picker_col::Integer,
 )
     lbl_marginals = Label(fig, "Displayed Marginals")
     ui_layout[1, picker_col] = lbl_marginals

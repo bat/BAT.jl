@@ -259,7 +259,12 @@ function BAT.update_visualizer_impl!(
     nonzero_weights::Bool
 )
     (; buffer_lock, buffer_cond, output_buffer, chain_ids, n_buffer_samples, effective_batch_size, buffer_ratio) = vis.content
-    output_id = findfirst(x -> x == chain_state.info.id, chain_ids)
+    output_id = findfirst(==(chain_state.info.id), chain_ids)
+    # A clear error instead of the opaque "invalid index: nothing" that
+    # output_buffer[nothing] would otherwise raise below.
+    isnothing(output_id) && throw(ArgumentError(
+        "MCMC chain id $(chain_state.info.id) was never registered with the visualizer " *
+        "(register_state_for_vis!) -- known chain ids: $(chain_ids)"))
 
     # get_samples! mutates output_buffer[output_id] (a DensitySampleVector/
     # StructArray) field-by-field, non-atomically (StructArrays.push! pushes
@@ -295,9 +300,12 @@ function BAT.update_visualizer_impl!(
     # deadlock instead of a recoverable error.
     lock(buffer_lock)
     try
-        n_smpls_start = sum(length.(output_buffer[output_id]))
+        # sum(length, ...), not sum(length.(...)): no intermediate lengths
+        # array -- this runs on every chain thread's every step, inside the
+        # critical section.
+        n_smpls_start = sum(length, output_buffer[output_id])
         get_samples!(output_buffer[output_id], chain_state, nonzero_weights)
-        n_smpls_end = sum(length.(output_buffer[output_id]))
+        n_smpls_end = sum(length, output_buffer[output_id])
         n_new = n_smpls_end - n_smpls_start
         n_buffer_samples[] += n_new
         # Backpressure: block this chain's sampling task once the buffer has

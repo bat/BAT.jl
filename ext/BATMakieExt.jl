@@ -42,7 +42,7 @@ using BAT: Cov2D, Std1D, Std2D, Mean1D, Mean2D, Errorbars1D, Errorbars2D, PDF1D
 using BAT: Trace2D
 
 using BAT: BATVisualizer, BATMakieVisualization
-using BAT: BasicUvStatistics, BasicMvStatistics
+using BAT: _default_makie_triagonal_config, _default_makie_diagonal_config
 
 import BAT: BATVisualizer
 import BAT: init_visualizer!, register_state_for_vis!, update_visualizer_impl!

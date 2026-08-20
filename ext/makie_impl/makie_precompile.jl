@@ -64,33 +64,16 @@ function _makie_precompile_workload()
     samples = res.result
 
     recipes = (upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D)
-    triagonal_config = (
-        weights=nothing, nsigma=1.0, nbins=(20, 20), closed=:left, normalization=:pdf,
-        levels=[0.3934693402873665, 0.8646647167633873], filter=false, colormap=:inferno,
-        alpha=1.0, rev=false, threshold=nothing, markersize=2.0, trace_nsteps=20
-    )
-    diagonal_config = (
-        weights=nothing, nsigma=1.0, nbins=20, closed=:left, normalization=:pdf,
-        levels=[0.3934693402873665, 0.8646647167633873], filter=false, colormap=:inferno,
-        alpha=1.0, y_ebars=0.0, filled_pdf=true, npoints_pdf=30, rev=false
-    )
+    # The real default configs, shrunk for precompile speed (fewer bins,
+    # fewer levels, fewer PDF curve points) via merge -- the magic level
+    # values this used to hardcode were just cdf.(Chi(2), 1:2).
+    triagonal_config = merge(_default_makie_triagonal_config(),
+        (nbins=(20, 20), levels=cdf.(Chi(2), 1:2)))
+    diagonal_config = merge(_default_makie_diagonal_config(),
+        (nbins=20, levels=cdf.(Chi(2), 1:2), npoints_pdf=30))
     N_max = 3 # matches BATMakieVisualization()'s own real default -- see comment above
 
-    graph = _init_compute_graph(recipes, triagonal_config, diagonal_config, N_max)
-
-    unshaped_samples = unshaped.(samples)
-    samples_graph = graph[:samples][]
-    push!(samples_graph, [unshaped_samples])
-    update!(graph, samples=samples_graph)
-
-    current_idxs_graph = graph[:current_idxs][]
-    push!(current_idxs_graph, [length(samples)])
-    update!(graph, current_idxs=current_idxs_graph)
-
-    n_dof = totalndof(varshape(samples))
-    domain_lo, domain_hi = _domain_from_samples(unshaped_samples.v.data, n_dof)
-    update!(graph, domain_lo=domain_lo, domain_hi=domain_hi)
-    update!(graph, idxs=_clamp_vsel([1, 2, 3], n_dof, N_max))
+    graph, n_dof = _setup_static_graph(samples, recipes, [1, 2, 3], N_max, triagonal_config, diagonal_config)
 
     gridlayout = _init_gridlayout(graph, N_max)
 

@@ -19,106 +19,37 @@ _empty_pdf1d_primitives() = (poly_points=Vector{Point2f}(), x=Float64[], y=Float
 # under GLMakie's per-frame render loop for a live-updating plot).
 const _MEAN1D_DASH = Makie.Linestyle(Makie.line_pattern(:dash, :normal))
 
-# Mean1D/Std1D/Mean2D/Cov2D/Std2D are updated incrementally from running
-# (weighted) sufficient statistics instead of being refit from the full
-# accumulated sample set on every batch. Reuses BAT's own online-statistics
-# library (BAT.OnlineUvMean/OnlineUvVar/OnlineMvMean/OnlineMvCov, bundled here
-# via BasicUvStatistics/BasicMvStatistics -- the same types BAT's own MCMC
-# chain-statistics tracking uses in src/samplers/mcmc/mcmc_stats.jl) rather
-# than a hand-rolled Welford implementation. Errorbars1D/Errorbars2D are
-# excluded: nothing in this extension currently calls compose_plotspecs on
-# them (dormant), so making them incremental too would just be unused code.
-is_incremental(::BATMakieRecipe) = false
-is_incremental(::Union{Mean1D,Std1D,Mean2D,Cov2D,Std2D}) = true
-
-# `Weights` (StatsBase's no-bias-correction tag) makes BasicUvStatistics/
-# BasicMvStatistics's variance/covariance divide by the plain weight sum with
-# no correction term -- matching the direct computation this replaces, which
-# relied on StatsBase's std/cov defaulting to corrected=false for
-# ProbabilityWeights.
-#
-# The wrapper only adds what BAT's online-stats types don't track themselves:
-# which real variable(s) (`vsel`) this grid cell's accumulator currently
-# represents, how many samples (`n`) have been folded in so far, and the
-# index-range slider's low end (`wstart`) -- needed to detect "the picker
-# changed which variable this cell shows", "the buffered data shrank", or
-# "the window panned to a different (same-width) range" and trigger a reset
-# (via `empty!`) rather than an incorrect incremental merge. See
-# _update_stats!'s comment below for why `wstart` specifically is needed
-# (same underlying issue as _IncrementalHist1DState/2DState in makie_hist.jl).
-mutable struct _IncrementalUvState
-        stats::BasicUvStatistics{Float64,Weights}
-        n::Int
-        vsel::Int       # real variable index this state currently tracks (0 = none yet)
-        wstart::Int     # window_start this state was last updated against
-end
-_IncrementalUvState() = _IncrementalUvState(BasicUvStatistics{Float64,Weights}(), 0, 0, 1)
-
-mutable struct _IncrementalMvState
-        stats::BasicMvStatistics{Float64,Weights}
-        n::Int
-        vsel::Tuple{Int,Int}
-        wstart::Int
-end
-_IncrementalMvState() = _IncrementalMvState(BasicMvStatistics{Float64,Weights}(2), 0, (0, 0), 1)
-
-# Folds only the newly-arrived samples (coords[state.n+1:end]) into `state`,
-# resetting and reprocessing everything from scratch instead if `vsel` (the
-# real variable this cell tracks) changed, the data shrank relative to what
-# this state was last updated against, or `wstart` (the index-range slider's
-# low handle) moved: this state's only signal for "how much of `coords` is
-# genuinely new" is length, which silently breaks once `coords` can be a
-# *panned* window instead of always growing from a fixed start -- shifting
-# the whole interval (both slider handles at once) keeps the window's width,
-# and therefore `n`, exactly constant while every sample in it changes.
-# Without this check that shift is invisible to the `n_now > state.n` guard
-# below (it's neither a genuine shrink nor a genuine growth in length), so
-# the stats overlay would silently keep showing pre-shift values forever --
-# the same bug confirmed via direct repro for the histogram recipes' own
-# incremental state.
-function _update_stats!(state::_IncrementalUvState, coords::AbstractVector, weights::AbstractVector, vsel::Int, wstart::Integer)
-        n_now = length(coords)
-        if state.vsel != vsel || state.wstart != wstart || state.n > n_now
-                empty!(state.stats)
-                state.n = 0
-                state.vsel = vsel
-                state.wstart = wstart
+# Shared prologue of the live stats-recipe methods below: optionally apply
+# the low-weight cutoff (config.filter), returning the (possibly masked)
+# coords and ProbabilityWeights ready for the weighted-statistics calls --
+# or `nothing` when no samples survive, in which case callers degrade to
+# their empty sentinel. StatsBase's std/var/cov default to corrected=false
+# for ProbabilityWeights, i.e. plain division by the weight sum -- the same
+# uncorrected convention this extension uses everywhere.
+function _stats_inputs(marg_coords::SubArray, weights::SubArray, config::NamedTuple)
+        isempty(weights) && return nothing
+        if config.filter
+                mask = _low_weight_mask(weights)
+                w = view(weights, mask)
+                isempty(w) && return nothing
+                return view(marg_coords, :, mask), ProbabilityWeights(w)
         end
-        for k in (state.n+1):n_now
-                push!(state.stats, coords[k], weights[k])
-        end
-        state.n = n_now
-        return state
+        return marg_coords, ProbabilityWeights(weights)
 end
 
-# `coords` is the 2xN marg_coords view (not pre-split into x/y): each column
-# is one sample, matching BasicMvStatistics.push!'s expected per-sample vector.
-# See the Uv method's comment above for why `wstart` must also force a reset.
-function _update_stats!(state::_IncrementalMvState, coords::AbstractMatrix, weights::AbstractVector, vsel::Tuple{Int,Int}, wstart::Integer)
-        n_now = length(weights)
-        if state.vsel != vsel || state.wstart != wstart || state.n > n_now
-                empty!(state.stats)
-                state.n = 0
-                state.vsel = vsel
-                state.wstart = wstart
-        end
-        for k in (state.n+1):n_now
-                push!(state.stats, view(coords, :, k), weights[k])
-        end
-        state.n = n_now
-        return state
+# Unit circle sampled once (not rebuilt per call -- _cov_ellipse_primitives
+# runs per pair cell per flush while the stats overlay is available).
+const _COV_ELLIPSE_CIRCLE = let θ = range(0, 2π, length=200)
+        [cos.(θ)'; sin.(θ)']
 end
 
-# Shared with the (non-incremental) Cov2D dead-cell fallback above so the
+# Shared with the Cov2D dead-cell fallback so the
 # ellipse-construction math isn't duplicated between the two code paths.
 function _cov_ellipse_primitives(μ::AbstractVector, Σ::AbstractMatrix, nsigma::Real)
         vals, vecs = eigen(Σ)
         stds = sqrt.(clamp.(vals, 0, Inf))
 
-        θ = range(0, 2π, length=200)
-        circle = [cos.(θ)'; sin.(θ)']
-
-        ellipse_mat = vecs * nsigma * Diagonal(stds) * circle .+ μ
+        ellipse_mat = vecs * nsigma * Diagonal(stds) * _COV_ELLIPSE_CIRCLE .+ μ
         ellipse_points = Point2f.(ellipse_mat[1, :], ellipse_mat[2, :])
 
         axes_segments = Point2f[]
@@ -129,67 +60,6 @@ function _cov_ellipse_primitives(μ::AbstractVector, Σ::AbstractMatrix, nsigma:
                 push!(axes_segments, p1, p2)
         end
         return (ellipse_points=ellipse_points, axes_segments=axes_segments)
-end
-
-function compute_stats_primitives(::Mean1D, state::_IncrementalUvState, config::NamedTuple)
-        state.n == 0 && return _empty_mean1d_primitives()
-        μ = state.stats.mean[]
-        # All-zero-weight samples can still be folded in (state.n > 0) while
-        # contributing nothing to the weight sum -- BAT's OnlineUvMean/
-        # OnlineUvVar/OnlineMvMean/OnlineMvCov all divide by that sum and
-        # return NaN rather than erroring when it's zero. Degrading to the
-        # empty sentinel (rather than rendering a NaN line, confirmed to
-        # silently draw nothing) keeps this consistent with Cov2D below,
-        # where the same NaN state is fatal (eigen() on a non-finite matrix
-        # throws) rather than silently swallowed.
-        isfinite(μ) || return _empty_mean1d_primitives()
-        return (x=[μ],)
-end
-
-function compute_stats_primitives(::Std1D, state::_IncrementalUvState, config::NamedTuple)
-        state.n == 0 && return _empty_std1d_primitives()
-        (; nsigma) = config
-        μ = state.stats.mean[]
-        σ = sqrt(state.stats.var[])
-        # See Mean1D's matching comment above -- sqrt(NaN) is NaN, not an
-        # error, so this check safely runs after computing σ.
-        (isfinite(μ) && isfinite(σ)) || return _empty_std1d_primitives()
-        return (positions=[μ - nsigma * σ, μ + nsigma * σ],)
-end
-
-function compute_stats_primitives(::Mean2D, state::_IncrementalMvState, config::NamedTuple)
-        state.n == 0 && return _empty_mean2d_primitives()
-        μ_x, μ_y = state.stats.mean[1], state.stats.mean[2]
-        (isfinite(μ_x) && isfinite(μ_y)) || return _empty_mean2d_primitives()
-        return (μ_x=[μ_x], μ_y=[μ_y])
-end
-
-function compute_stats_primitives(::Std2D, state::_IncrementalMvState, config::NamedTuple)
-        state.n == 0 && return _empty_std2d_primitives()
-        (; nsigma) = config
-        μ_x, μ_y = state.stats.mean[1], state.stats.mean[2]
-        σ_x = sqrt(state.stats.cov[1, 1])
-        σ_y = sqrt(state.stats.cov[2, 2])
-        all(isfinite, (μ_x, μ_y, σ_x, σ_y)) || return _empty_std2d_primitives()
-        return (
-                x_lines=[μ_x - nsigma * σ_x, μ_x + nsigma * σ_x],
-                y_lines=[μ_y - nsigma * σ_y, μ_y + nsigma * σ_y]
-        )
-end
-
-function compute_stats_primitives(::Cov2D, state::_IncrementalMvState, config::NamedTuple)
-        state.n == 0 && return _empty_cov2d_primitives()
-        (; nsigma) = config
-        μ = [state.stats.mean[1], state.stats.mean[2]]
-        Σ = [state.stats.cov[1, 1] state.stats.cov[1, 2]; state.stats.cov[2, 1] state.stats.cov[2, 2]]
-        # All-zero-weight samples make Σ all-NaN (see Mean1D's comment
-        # above) -- eigen() on a non-finite matrix throws
-        # ArgumentError("matrix contains Infs or NaNs"), confirmed directly.
-        # Without this guard, a zero-weight dataset crashes the whole
-        # visualizer regardless of which recipe is actually selected, since
-        # Cov2D is always computed in the background.
-        (all(isfinite, μ) && all(isfinite, Σ)) || return _empty_cov2d_primitives()
-        return _cov_ellipse_primitives(μ, Σ, nsigma)
 end
 
 function determine_recipe_status(subject::Mean1D, live_recipe::R1) where {R1<:BATMakieRecipe}
@@ -222,7 +92,7 @@ function get_stats_plotspecs(
         config::NamedTuple
 )
         i = vsel[1]
-        plotspecs = []
+        plotspecs = PlotSpec[]
 
         mean_primitives = getproperty(inputs, primitive_symbol(Mean1D(), (i, i)))
         append!(plotspecs, compose_plotspecs(mean_primitives, Mean1D(), config))
@@ -246,14 +116,13 @@ function get_stats_plotspecs(
         transposed::Bool=false
 )
         i, j = vsel
-        plotspecs = []
+        plotspecs = PlotSpec[]
 
         # Mean2D (a crosshair -- vlines/hlines exactly at the mean) is
         # deliberately not drawn here, per explicit request -- unlike
         # Makie1DStats above, which keeps its own Mean1D line. Mean2D's own
-        # recipe machinery (compute_plotting_primitives/compute_stats_primitives)
-        # is untouched and still runs in the background (it's is_incremental,
-        # always computed regardless of what's actually drawn, and still
+        # recipe machinery is untouched and still computes for live cells
+        # (its determine_recipe_status is always-live, and it stays
         # registered via BAT_MAKIE_RECIPES_2D in _init_compute_graph) -- this
         # only stops it from being rendered as part of the 2D stats overlay.
 
@@ -279,19 +148,13 @@ function compute_plotting_primitives(
         return _empty_cov2d_primitives()
 end
 
-# Cov2D is_incremental (see is_incremental's definition above), so
-# _init_compute_graph only reaches this method -- rather than the
-# incremental running-state accumulator (compute_stats_primitives above) --
-# when config.filter==true: the incremental accumulator can't apply the
-# low-weight cutoff after the fact (it depends on the *global*,
-# retroactively-recomputed weight distribution, not something folded in
-# incrementally), so this is a full recompute over the filtered sample set
-# every time, mirroring how Hist1D/Hist2D/QuantileHist1D/QuantileHist2D
-# already handle their own filter=true case via _marginal_view_dist/
-# _low_weight_mask. Before this was added, Cov2D (and Mean1D/Std1D/Mean2D/
-# Std2D below) had no live+filtered method at all, so Julia's dispatch fell
-# through silently to the empty dead-cell sentinel -- filter=true was a
-# silent no-op for every stats overlay. Confirmed via direct dispatch test.
+# The stats overlays are full recomputes of cheap weighted moments over the
+# current sample view (see the no-accumulators rationale in
+# makie_compute_graph.jl's primitive registrations), with the low-weight
+# cutoff applied when config.filter is set -- via _stats_inputs above. The
+# isfinite guards matter: an (effectively) all-zero-weight sample set yields
+# NaN moments, which is harmlessly invisible for the line overlays but
+# fatal for Cov2D, whose eigen() on a non-finite matrix throws.
 function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
@@ -300,22 +163,14 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
-        isempty(weights) && return _empty_cov2d_primitives()
+        si = _stats_inputs(marg_coords, weights, config)
+        isnothing(si) && return _empty_cov2d_primitives()
+        coords, w_prob = si
         (; nsigma) = config
-        mask = _low_weight_mask(weights)
-        w = view(weights, mask)
-        isempty(w) && return _empty_cov2d_primitives()
-        w_prob = ProbabilityWeights(w)
-        # Plain indexing (not view): StatsBase.cov(::DenseMatrix, ...) doesn't
-        # accept a SubArray -- confirmed directly (MethodError). The masked
-        # subset is already small, so materializing it here is cheap.
-        coords_m = marg_coords[:, mask]
-        μ = [mean(view(coords_m, 1, :), w_prob), mean(view(coords_m, 2, :), w_prob)]
-        Σ = StatsBase.cov(coords_m, w_prob, 2)
-        # See Cov2D's compute_stats_primitives comment for why this guard is
-        # needed even after masking -- a low-weight-filtered set can still be
-        # entirely zero-weight if every remaining sample happens to carry
-        # zero weight.
+        μ = [mean(view(coords, 1, :), w_prob), mean(view(coords, 2, :), w_prob)]
+        # Matrix(...): StatsBase.cov(::DenseMatrix, ...) doesn't accept a
+        # SubArray -- confirmed directly (MethodError).
+        Σ = StatsBase.cov(Matrix(coords), w_prob, 2)
         (all(isfinite, μ) && all(isfinite, Σ)) || return _empty_cov2d_primitives()
         return _cov_ellipse_primitives(μ, Σ, nsigma)
 end
@@ -363,7 +218,7 @@ function compute_plotting_primitives(
         return _empty_std1d_primitives()
 end
 
-# See Cov2D's matching comment above -- reached only when config.filter==true.
+# See Cov2D's matching comment above.
 function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
@@ -372,15 +227,13 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
-        isempty(weights) && return _empty_std1d_primitives()
+        si = _stats_inputs(marg_coords, weights, config)
+        isnothing(si) && return _empty_std1d_primitives()
+        coords, w_prob = si
         (; nsigma) = config
-        mask = _low_weight_mask(weights)
-        w = view(weights, mask)
-        isempty(w) && return _empty_std1d_primitives()
-        coords_m = view(vec(marg_coords), mask)
-        w_prob = ProbabilityWeights(w)
-        μ = mean(coords_m, w_prob)
-        σ = std(coords_m, w_prob)
+        vals = vec(coords)
+        μ = mean(vals, w_prob)
+        σ = std(vals, w_prob)
         (isfinite(μ) && isfinite(σ)) || return _empty_std1d_primitives()
         return (positions=[μ - nsigma * σ, μ + nsigma * σ],)
 end
@@ -414,7 +267,7 @@ function compute_plotting_primitives(
         return _empty_std2d_primitives()
 end
 
-# See Cov2D's matching comment above -- reached only when config.filter==true.
+# See Cov2D's matching comment above.
 function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
@@ -423,14 +276,11 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
-        isempty(weights) && return _empty_std2d_primitives()
+        si = _stats_inputs(marg_coords, weights, config)
+        isnothing(si) && return _empty_std2d_primitives()
+        coords, w_prob = si
         (; nsigma) = config
-        mask = _low_weight_mask(weights)
-        w = view(weights, mask)
-        isempty(w) && return _empty_std2d_primitives()
-        w_prob = ProbabilityWeights(w)
-        coords_m = view(marg_coords, :, mask)
-        x, y = view(coords_m, 1, :), view(coords_m, 2, :)
+        x, y = view(coords, 1, :), view(coords, 2, :)
         μ_x, μ_y = mean(x, w_prob), mean(y, w_prob)
         σ_x, σ_y = std(x, w_prob), std(y, w_prob)
         all(isfinite, (μ_x, μ_y, σ_x, σ_y)) || return _empty_std2d_primitives()
@@ -475,7 +325,7 @@ function compute_plotting_primitives(
         return _empty_mean1d_primitives()
 end
 
-# See Cov2D's matching comment above -- reached only when config.filter==true.
+# See Cov2D's matching comment above.
 function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
@@ -484,11 +334,10 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
-        isempty(weights) && return _empty_mean1d_primitives()
-        mask = _low_weight_mask(weights)
-        w = view(weights, mask)
-        isempty(w) && return _empty_mean1d_primitives()
-        μ = mean(view(vec(marg_coords), mask), ProbabilityWeights(w))
+        si = _stats_inputs(marg_coords, weights, config)
+        isnothing(si) && return _empty_mean1d_primitives()
+        coords, w_prob = si
+        μ = mean(vec(coords), w_prob)
         isfinite(μ) || return _empty_mean1d_primitives()
         return (x=[μ],)
 end
@@ -535,7 +384,7 @@ function compute_plotting_primitives(
         return _empty_mean2d_primitives()
 end
 
-# See Cov2D's matching comment above -- reached only when config.filter==true.
+# See Cov2D's matching comment above.
 function compute_plotting_primitives(
         marg_coords::SubArray,
         weights::SubArray,
@@ -544,14 +393,11 @@ function compute_plotting_primitives(
         ::LiveCell,
         config::NamedTuple
 )
-        isempty(weights) && return _empty_mean2d_primitives()
-        mask = _low_weight_mask(weights)
-        w = view(weights, mask)
-        isempty(w) && return _empty_mean2d_primitives()
-        w_prob = ProbabilityWeights(w)
-        coords_m = view(marg_coords, :, mask)
-        μ_x = mean(view(coords_m, 1, :), w_prob)
-        μ_y = mean(view(coords_m, 2, :), w_prob)
+        si = _stats_inputs(marg_coords, weights, config)
+        isnothing(si) && return _empty_mean2d_primitives()
+        coords, w_prob = si
+        μ_x = mean(view(coords, 1, :), w_prob)
+        μ_y = mean(view(coords, 2, :), w_prob)
         (isfinite(μ_x) && isfinite(μ_y)) || return _empty_mean2d_primitives()
         return (μ_x=[μ_x], μ_y=[μ_y])
 end

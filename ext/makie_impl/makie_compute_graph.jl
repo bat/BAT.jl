@@ -24,20 +24,21 @@ const BAT_MAKIE_RECIPES_2D = [
     Errorbars2D()
 ]
 
-function recipe_symbol(recipe::R) where {R<:BATMakieRecipe}
-    return Symbol(string(typeof(recipe)))
-end
-
+# The two grid indices are separated by an underscore ("_prim_12_3", not
+# "_prim_123"): concatenating bare digits makes distinct index pairs
+# ambiguous once indices reach two digits -- no colliding pair is actually
+# generated under the current (bigger, smaller)/diagonal conventions, but
+# that safety was accidental, not structural.
 function primitive_symbol(recipe, vsel::Tuple{Int64,Int64})
-    return Symbol(string(recipe) * "_prim" * "_" * "$(vsel[1])" * "$(vsel[2])")
+    return Symbol(string(recipe), "_prim_", vsel[1], "_", vsel[2])
 end
 
 function primitive_symbol(recipe::R, vsel::Tuple{Int64,Int64}) where {R<:BATMakieRecipe}
-    return Symbol(string(typeof(recipe)) * "_prim" * "_" * "$(vsel[1])" * "$(vsel[2])")
+    return Symbol(string(typeof(recipe)), "_prim_", vsel[1], "_", vsel[2])
 end
 
 function marg_symbol(vsel::Tuple{Int64,Int64})
-    return Symbol("marg_$(vsel[1])$(vsel[2])")
+    return Symbol("marg_$(vsel[1])_$(vsel[2])")
 end
 
 # Untruncated counterpart of marg_symbol -- see Trace2D's own registration
@@ -45,18 +46,8 @@ end
 # completed dataset rather than the shared current_idx-truncated view every
 # other recipe uses.
 function marg_full_symbol(vsel::Tuple{Int64,Int64})
-    return Symbol("marg_full_$(vsel[1])$(vsel[2])")
+    return Symbol("marg_full_$(vsel[1])_$(vsel[2])")
 end
-
-# Dispatches each incremental recipe to the right kind of persistent per-cell
-# state (Mean1D/Std1D/Mean2D/Cov2D/Std2D need running sufficient statistics;
-# Hist1D/Hist2D/QuantileHist1D/QuantileHist2D need a running fixed-edge
-# Histogram) -- see makie_stats.jl / makie_hist.jl for the state types
-# themselves and is_incremental's definition.
-_make_running_state_1d(::Union{Mean1D,Std1D}) = _IncrementalUvState()
-_make_running_state_1d(::Union{Hist1D,QuantileHist1D}) = _IncrementalHist1DState()
-_make_running_state_2d(::Union{Mean2D,Cov2D,Std2D}) = _IncrementalMvState()
-_make_running_state_2d(::Union{Hist2D,QuantileHist2D}) = _IncrementalHist2DState()
 
 # Estimates a fixed, reasonable initial axis-limit/histogram-bin-edge domain
 # per real model dimension, from the PRIOR alone (before any real samples
@@ -189,7 +180,7 @@ function BATVisualizer(vis::BATMakieVisualization)
         # (in update_visualizer_impl!) and the listener's flush-and-notify both
         # synchronize through the same lock, per Threads.Condition's contract.
         buffer_cond=Threads.Condition(buffer_lock),
-        chain_ids=Vector{Integer}(),
+        chain_ids=Vector{Int32}(),  # MCMCChainStateInfo ids are Int32
         output_buffer=Vector{Vector{DensitySampleVector}}(),
         n_buffer_samples=Ref(0),
         # Current flush-trigger threshold. Starts at vis.n_batch; when
@@ -224,7 +215,7 @@ function _init_compute_graph(
 
     add_input!(graph, :samples, smpls)
 
-    curr_idxs = Vector{Vector{Integer}}()
+    curr_idxs = Vector{Vector{Int}}()
     add_input!(graph, :current_idxs, curr_idxs)
 
     # Window start (per-walker end position is current_idxs above, already
@@ -461,7 +452,7 @@ function _init_compute_graph(
         :flat_walkerids_full
     )
 
-    add_input!(graph, :idxs, Integer[])
+    add_input!(graph, :idxs, Int[])
 
     register_computation!(graph,
         [:idxs],
@@ -473,7 +464,9 @@ function _init_compute_graph(
         # not a cache mutated in place -- rather than relying on any invariant
         # about how idxs evolves. Cheap regardless: n<=N_max is small and idxs
         # changes are rare (user-driven), not a per-sample-batch occurrence.
-        @assert length(idxs) <= n "idxs has $(length(idxs)) entries, exceeding the grid size N_max=$n"
+        # A real throw, not @assert: this guards user-influencable state and
+        # asserts may be compiled out.
+        length(idxs) <= n || throw(ArgumentError("idxs has $(length(idxs)) entries, exceeding the grid size N_max=$n"))
 
         n_active = length(idxs)
         vsel_map = Matrix{Tuple{Int,Int}}(undef, n, n)
@@ -493,8 +486,12 @@ function _init_compute_graph(
         [:live_map],
     ) do inputs, changed, cached
         idxs = inputs.idxs
-        @assert length(idxs) <= n "idxs has $(length(idxs)) entries, exceeding the grid size N_max=$n"
+        length(idxs) <= n || throw(ArgumentError("idxs has $(length(idxs)) entries, exceeding the grid size N_max=$n"))
 
+        # Symmetric square block by construction -- consumers uniformly index
+        # it as live_map[j, i], matching the (bigger, smaller) pair convention
+        # of vsel_map/the marginal views. If this construction ever becomes
+        # non-symmetric, every consumer's indexing must be revisited.
         live_map = fill(false, n, n)
 
         n_active = length(idxs)
@@ -595,54 +592,46 @@ function _init_compute_graph(
 
         primitive_symbols_1D = [primitive_symbol(recipe, (i, i)) for recipe in BAT_MAKIE_RECIPES_1D]
 
+        # Every recipe is a FULL recompute over the current sample view on
+        # every invocation -- the per-cell incremental accumulators
+        # (_IncrementalHist*/Uv/MvState and their n/vsel/domain/wstart
+        # staleness protocol) were deliberately removed: the flush already
+        # pays O(total samples) data assembly regardless, so the accumulators
+        # only saved the (cheap) fold while forcing every incremental recipe
+        # to compute even when not selected, duplicating identical
+        # histogram/moment folds across sibling recipes, and repeatedly
+        # producing staleness bugs (the zero-weight crashes and the
+        # interval-slider pan silently showing stale data were both
+        # accumulator-state bugs). Now only recipes that actually resolve to
+        # LiveRecipe do real work -- switching recipes costs one O(n)
+        # recompute of the newly selected recipe, milliseconds at this
+        # extension's scales -- and there is no persistent state to go stale.
         for k in eachindex(primitive_symbols_1D)
             recipe = BAT_MAKIE_RECIPES_1D[k]
-            # Persistent per-cell accumulator for incremental recipes --
-            # captured by the closure below, one independent instance per
-            # (cell, recipe), so it survives across ticks instead of being
-            # rebuilt from scratch on every recompute. Stats recipes
-            # (Mean1D/Std1D) and histogram recipes (Hist1D/QuantileHist1D)
-            # need different underlying state -- see _make_running_state_1d.
-            running_state = is_incremental(recipe) ? _make_running_state_1d(recipe) : nothing
-
             register_computation!(graph,
-                [marg_sym, :flat_weights, :diagonal_recipe, :live_map, :diagonal_config, :vsel_map, :domain_lo, :domain_hi, :window_start],
+                [marg_sym, :flat_weights, :diagonal_recipe, :live_map, :diagonal_config, :vsel_map, :domain_lo, :domain_hi],
                 [primitive_symbols_1D[k]]
             ) do inputs, changed, cached
-                coords, weights, live_recipe, live_map, config, vsel_map, domain_lo, domain_hi, window_start = inputs
+                # Field access by name, not positional destructuring -- a
+                # positional unpack silently mis-binds if the input-symbol
+                # list above is ever reordered. The marginal view's key is
+                # per-cell, so it's read via getproperty.
+                coords = getproperty(inputs, marg_sym)
+                weights = inputs.flat_weights
+                config = inputs.diagonal_config
+                (; live_map, vsel_map, domain_lo, domain_hi) = inputs
                 cell_status = live_map[i, i] ? LiveCell() : DeadCell()
-                recipe_status = determine_recipe_status(recipe, live_recipe())
-                # filter=true isn't compatible with incremental accumulation
-                # (see is_incremental's docs in makie_hist.jl) -- falls back to
-                # a full recompute for that case even if the recipe otherwise
-                # supports it.
-                primitives = if cell_status isa LiveCell && is_incremental(recipe) && !config.filter
-                    vsel = vsel_map[i, i][1]
-                    if running_state isa _IncrementalHist1DState
-                        # A live cell can still have zero samples (right after
-                        # vsel activates, before the first batch flushes) -- the
-                        # dead-shaped placeholder view isn't just empty but
-                        # actually 0-row, so skip straight to the state's
-                        # current (possibly still-empty) result rather than
-                        # feeding it into _update_hist!.
-                        if isempty(weights)
-                            compute_hist_primitives(recipe, running_state, config)
-                        else
-                            (; nbins, closed) = config
-                            eff_nbins = recipe isa Hist1D ? nbins + 1 : nbins
-                            domain = (domain_lo[vsel], domain_hi[vsel])
-                            _update_hist!(running_state, vec(coords), weights, vsel, domain, eff_nbins, closed, window_start)
-                            compute_hist_primitives(recipe, running_state, config)
-                        end
-                    else
-                        _update_stats!(running_state, vec(coords), weights, vsel, window_start)
-                        compute_stats_primitives(recipe, running_state, config)
-                    end
-                else
-                    compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, config)
-                end
-
-                return (primitives,)
+                recipe_status = determine_recipe_status(recipe, inputs.diagonal_recipe())
+                # The cell's fixed per-variable domain rides along inside the
+                # config -- only the histogram-family recipes read it, for
+                # STABLE domain-derived bin edges (see _marginal_view_dist's
+                # domain parameter). Skipped when the domain isn't known yet
+                # or the cell has no active variable; those recipes then fall
+                # back to data-derived edges.
+                v = vsel_map[i, i][1]
+                cfg = (v == 0 || isempty(domain_lo)) ? config :
+                    (; config..., domain=(domain_lo[v], domain_hi[v]))
+                return (compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, cfg),)
             end
         end
 
@@ -670,43 +659,26 @@ function _init_compute_graph(
 
             for k in eachindex(primitive_symbols_2D)
                 recipe = BAT_MAKIE_RECIPES_2D[k]
-                # Per-(cell, recipe) persistent accumulator for the incremental
-                # 2D recipes -- see _make_running_state_2d and the 1D case above.
-                running_state = is_incremental(recipe) ? _make_running_state_2d(recipe) : nothing
-
+                # Full recompute per invocation, no persistent accumulator --
+                # see the 1D loop's comment above for the rationale.
                 register_computation!(graph,
-                    [marg_sym_2D, :flat_weights, :upper_recipe, :lower_recipe, :live_map, :triagonal_config, :vsel_map, :domain_lo, :domain_hi, :window_start],
+                    [marg_sym_2D, :flat_weights, :upper_recipe, :lower_recipe, :live_map, :triagonal_config, :vsel_map, :domain_lo, :domain_hi],
                     [primitive_symbols_2D[k]]
                 ) do inputs, changed, cached
-                    coords, weights, live_recipe_upper, live_recipe_lower, live_map, config, vsel_map, domain_lo, domain_hi, window_start = inputs
-                    cell_status = live_map[i, j] ? LiveCell() : DeadCell()
-                    recipe_status = determine_recipe_status(recipe, live_recipe_upper(), live_recipe_lower())
-                    primitives = if cell_status isa LiveCell && is_incremental(recipe) && !config.filter
-                        vsel = vsel_map[j, i]
-                        if running_state isa _IncrementalHist2DState
-                            # See the 1D case above: a live cell can still have
-                            # zero samples, and the dead-shaped placeholder view
-                            # is 0-row (not just 0-column), so indexing row 1/2
-                            # of it directly would throw -- skip straight to the
-                            # state's current result instead.
-                            if isempty(weights)
-                                compute_hist_primitives(recipe, running_state, config)
-                            else
-                                (; nbins, closed) = config
-                                domain = ((domain_lo[vsel[1]], domain_hi[vsel[1]]), (domain_lo[vsel[2]], domain_hi[vsel[2]]))
-                                x = view(coords, 1, :)
-                                y = view(coords, 2, :)
-                                _update_hist!(running_state, x, y, weights, vsel, domain, nbins, closed, window_start)
-                                compute_hist_primitives(recipe, running_state, config)
-                            end
-                        else
-                            _update_stats!(running_state, coords, weights, vsel, window_start)
-                            compute_stats_primitives(recipe, running_state, config)
-                        end
-                    else
-                        compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, config)
-                    end
-                    return (primitives,)
+                    # By-name access -- see the 1D loop's matching comment.
+                    coords = getproperty(inputs, marg_sym_2D)
+                    weights = inputs.flat_weights
+                    config = inputs.triagonal_config
+                    (; upper_recipe, lower_recipe, live_map, vsel_map, domain_lo, domain_hi) = inputs
+                    cell_status = live_map[j, i] ? LiveCell() : DeadCell()
+                    recipe_status = determine_recipe_status(recipe, upper_recipe(), lower_recipe())
+                    # See the 1D loop above -- the pair's fixed domain rides
+                    # along inside the config for the histogram recipes' bin
+                    # edges.
+                    vsel = vsel_map[j, i]
+                    cfg = (vsel[1] == 0 || isempty(domain_lo)) ? config :
+                        (; config..., domain=((domain_lo[vsel[1]], domain_hi[vsel[1]]), (domain_lo[vsel[2]], domain_hi[vsel[2]])))
+                    return (compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, cfg),)
                 end
             end
 
@@ -719,18 +691,18 @@ function _init_compute_graph(
             # primitive_symbol(recipe, (j,i)) naming as the shared loop, so
             # _init_gridlayout's graph[primitive_symbol(upper_recipe, (j,i))][]
             # lookup finds it transparently whenever a user actually selects
-            # ChainScatter2D as the upper/lower recipe. Not an is_incremental
-            # recipe (like plain Scatter2D, it just needs the raw point cloud
-            # each time), so no running-state accumulator branch is needed.
+            # ChainScatter2D as the upper/lower recipe.
             chainscatter_primitive_sym = primitive_symbol(ChainScatter2D(), (j, i))
             register_computation!(graph,
                 [marg_sym_2D, :flat_weights, :flat_chainids, :upper_recipe, :lower_recipe, :live_map, :triagonal_config],
                 [chainscatter_primitive_sym]
             ) do inputs, changed, cached
-                coords, weights, chainids, live_recipe_upper, live_recipe_lower, live_map, config = inputs
-                cell_status = live_map[i, j] ? LiveCell() : DeadCell()
-                recipe_status = determine_recipe_status(ChainScatter2D(), live_recipe_upper(), live_recipe_lower())
-                primitives = compute_plotting_primitives(coords, weights, chainids, ChainScatter2D(), recipe_status, cell_status, config)
+                # By-name access -- see the 1D loop's matching comment.
+                coords = getproperty(inputs, marg_sym_2D)
+                (; flat_weights, flat_chainids, upper_recipe, lower_recipe, live_map, triagonal_config) = inputs
+                cell_status = live_map[j, i] ? LiveCell() : DeadCell()
+                recipe_status = determine_recipe_status(ChainScatter2D(), upper_recipe(), lower_recipe())
+                primitives = compute_plotting_primitives(coords, flat_weights, flat_chainids, ChainScatter2D(), recipe_status, cell_status, triagonal_config)
                 return (primitives,)
             end
 
@@ -768,13 +740,16 @@ function _init_compute_graph(
                 [marg_sym_2D_full, :flat_weights_full, :flat_chainids_full, :flat_walkerids_full, :flat_stepnos_full, :current_idx, :upper_recipe, :lower_recipe, :live_map, :triagonal_config, :show_trace_upper, :show_trace_lower],
                 [trace_primitive_sym]
             ) do inputs, changed, cached
-                coords, weights, chainids, walkerids, stepnos, current_idx, live_recipe_upper, live_recipe_lower, live_map, config, show_trace_upper, show_trace_lower = inputs
+                # By-name access -- see the 1D loop's matching comment.
+                (; show_trace_upper, show_trace_lower) = inputs
                 if !(show_trace_upper || show_trace_lower)
                     return (_empty_trace2d_primitives(),)
                 end
-                cell_status = live_map[i, j] ? LiveCell() : DeadCell()
-                recipe_status = determine_recipe_status(Trace2D(), live_recipe_upper(), live_recipe_lower())
-                primitives = compute_plotting_primitives(coords, weights, chainids, walkerids, stepnos, current_idx, Trace2D(), recipe_status, cell_status, config)
+                coords = getproperty(inputs, marg_sym_2D_full)
+                (; flat_weights_full, flat_chainids_full, flat_walkerids_full, flat_stepnos_full, current_idx, upper_recipe, lower_recipe, live_map, triagonal_config) = inputs
+                cell_status = live_map[j, i] ? LiveCell() : DeadCell()
+                recipe_status = determine_recipe_status(Trace2D(), upper_recipe(), lower_recipe())
+                primitives = compute_plotting_primitives(coords, flat_weights_full, flat_chainids_full, flat_walkerids_full, flat_stepnos_full, current_idx, Trace2D(), recipe_status, cell_status, triagonal_config)
                 return (primitives,)
             end
         end
