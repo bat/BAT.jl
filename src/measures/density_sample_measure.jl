@@ -232,6 +232,20 @@ function _renormalize_empirical_logd(logrenorm::Real, dsm::DensitySampleMeasure)
 end
 
 
+# Multinomial resampling destroys the process order, so per-sample
+# process provenance (MCMC sample ids) must not survive it - unlike
+# order-preserving systematic resampling, which keeps its ids:
+function _without_sampleids(dsm::DensitySampleMeasure)
+    s = samplesof(dsm)
+    new_s = DensitySampleVector((s.v, s.logd, s.weight, fill(nothing, length(eachindex(s))), s.aux))
+    return DensitySampleMeasure(new_s, dsm._max_weight, dsm._cumulative_weight, dsm._dof, dsm._ess, dsm._mass)
+end
+
+_without_sampleids(::Nothing) = nothing
+
+_without_sampleids(p::BispacedMeasure) =
+    BispacedMeasure(_without_sampleids(p.main), _without_sampleids(p.transformed), p.f_hash)
+
 # Index-based resampling applies the same indices to both representations
 # of a BispacedMeasure empirical, so the pair stays coherent without any
 # transform work:
