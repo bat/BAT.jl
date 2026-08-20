@@ -91,8 +91,10 @@ end
 
 Systematic resampling from a given series of samples, keeping the order
 of the samples: a single stratified uniform yields exactly `nsamples`
-draws in one order-preserving pass, with the lowest variance among the
-standard resampling schemes.
+draws in one order-preserving pass. It typically gives lower variance
+than multinomial resampling, though its conditional variance is
+ordering-dependent and does not uniformly dominate the other standard
+resampling schemes.
 
 See [G. Kitagawa, "Monte Carlo Filter and Smoother for Non-Gaussian
 Nonlinear State Space Models", J. Comput. Graph. Stat. 5(1)
@@ -147,8 +149,8 @@ function _systematic_resampling_idxs(smpls::DensitySampleVector, n::Integer, con
     W_total > 0 || throw(ArgumentError("Sample weights must sum to a positive value"))
 
     # Systematic resampling (Kitagawa 1996): a single stratified uniform
-    # yields exactly n draws in one order-preserving pass, with the lowest
-    # variance among the standard resampling schemes:
+    # yields exactly n draws in one order-preserving pass, typically with
+    # lower variance than multinomial resampling:
     u = rand(rng)
     resampled_idxs = Vector{Int}(undef, n)
     j = 0
