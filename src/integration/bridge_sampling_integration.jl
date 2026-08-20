@@ -8,6 +8,10 @@
 
 BridgeSampling integration algorithm.
 
+See [X.-L. Meng and W. H. Wong, "Simulating ratios of normalizing
+constants via a simple identity: a theoretical exploration"
+(1996)](https://www3.stat.sinica.edu.tw/statistica/j6n4/j6n43/j6n43.htm).
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```
@@ -16,26 +20,32 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct BridgeSampling{TR<:AbstractTransformTarget,ESS<:EffSampleSizeAlgorithm} <: IntegrationAlgorithm
-    pretransform::TR = PriorToNormal()    
+@with_kw struct BridgeSampling{TR<:TransformIntent,ESS<:EffSampleSizeAlgorithm} <: IntegrationAlgorithm
+    pretransform::TR = NormalBased()    
     essalg::ESS = EffSampleSizeFromAC()
     strict::Bool = true
     # ToDo: add argument for proposal density generator
 end
 export BridgeSampling
 
-function bat_integrate_impl(m::BATMeasure, algorithm::BridgeSampling, context::BATContext)
-    @argcheck m isa EvaluatedMeasure
-    @argcheck !ismissing(maybe_samplesof(m))
-    transformed_m, _ = transform_and_unshape(algorithm.pretransform, m, context)
+function evalmeasure_impl(em::EvaluatedMeasure, algorithm::BridgeSampling, context::BATContext)
+    @argcheck !isnothing(empiricalof(em))
+    if unevaluated(em) isa DensitySampleMeasure
+        throw(ArgumentError("BridgeSampling requires a target with an evaluable density, a purely sample-based measure is not sufficient"))
+    end
+    transformed_m, _ = transform_and_unshape(algorithm.pretransform, em, context)
     renomalized_m, logweight = auto_renormalize(transformed_m)
-    renomalized_m_uneval, renormalized_smpls = unevaluated(renomalized_m), maybe_samplesof(renomalized_m)
-    @assert !ismissing(renormalized_smpls)
+    renomalized_m_uneval, renormalized_smpled = unevaluated(renomalized_m), empiricalof(renomalized_m)
 
+    renormalized_smpls = samplesof(renormalized_smpled)
     (value, error) = bridge_sampling_integral(renomalized_m_uneval, renormalized_smpls, algorithm.strict, algorithm.essalg, context)
     rescaled_value, rescaled_error = exp(BigFloat(log(value) - logweight)), exp(BigFloat(log(error) - logweight))
-    result = Measurements.measurement(rescaled_value, rescaled_error)
-    return (result = result, logweight = logweight)
+    mass = Measurements.measurement(rescaled_value, rescaled_error)
+
+    return EvaluatedMeasure(em;
+        mass = mass,
+        evalinfo = MeasureEvalInfo(algorithm, (;logweight = logweight))
+    )
 end
 
 
@@ -50,8 +60,17 @@ function bridge_sampling_integral(
     context::BATContext
     )
 
-    N1 = round(Int, sum(target_samples.weight))
-    N2 = round(Int, sum(proposal_samples.weight))
+    # Total weights normalize the weighted means below; the sample counts
+    # entering the bridge mixture fractions and the error estimate are
+    # effective (Kish) counts instead: sample weights carry no provenance,
+    # so raw weight sums are not meaningful observation counts (they
+    # change under rescaling that leaves the represented measure
+    # unchanged), while Kish's effective count is scale-invariant and
+    # reduces to the actual count for unit weights:
+    W1_total = sum(target_samples.weight)
+    W2_total = sum(proposal_samples.weight)
+    N1 = W1_total^2 / sum(abs2, target_samples.weight)
+    N2 = W2_total^2 / sum(abs2, proposal_samples.weight)
 
     #####################
     # Evaluate integral #
@@ -72,21 +91,34 @@ function bridge_sampling_integral(
         for (i, w) in enumerate(proposal_samples.weight)
             numerator += w*(l2[i]/(s1*l2[i]+s2*prev_int))
         end
-        numerator = numerator/N2
+        numerator = numerator/W2_total
 
         denominator = 0
         for (i, w) in enumerate(target_samples.weight)
             denominator += w/(s1*l1[i]+s2*prev_int)
         end
-        denominator = denominator/N1
+        denominator = denominator/W1_total
 
         current_int = numerator/denominator
+        if !isfinite(current_int)
+            msg = "The bridge sampling iteration became non-finite"
+            if strict
+                throw(ErrorException(msg))
+            else
+                @warn(msg)
+                # Fall back to the last finite iterate instead of
+                # propagating a non-finite mass estimate:
+                current_int = prev_int
+                break
+            end
+        end
         if counter == 500
             msg = "The iterative scheme is not converging!!"
             if strict
                 throw(ErrorException(msg))
             else
                 @warn(msg)
+                break
             end
         end
         counter=counter+1
@@ -95,13 +127,18 @@ function bridge_sampling_integral(
     #################
     #Evaluate error #
     #################
+    # RMSE estimate following Q. F. Gronau et al., "A tutorial on bridge
+    # sampling" (2017), https://doi.org/10.1016/j.jmp.2017.09.005
     #pre calculate objects for error estimate
     # ToDo: Make this type-stable:
     f1 = [exp(logdensityof(target_density,x))/current_int/(s1*exp(logdensityof(target_density,x))/current_int+s2*exp(proposal_samples.logd[i])) for (i,x) in enumerate(proposal_samples.v)]
     f2 = [[exp(logdensityof(proposal_density,x))/(s1*exp(target_samples.logd[i])/current_int+s2*exp(logdensityof(proposal_density,x)))] for (i,x) in enumerate(target_samples.v)]
-    f2_density_vector = DensitySampleVector(f2,target_samples.logd,weight=target_samples.weight)
+    f2_density_vector = DensitySampleVector(v = f2, logd = target_samples.logd, weight=target_samples.weight)
 
-    mean1, var1 = StatsBase.mean_and_var(f1, FrequencyWeights(proposal_samples.weight), corrected = true)
+    # Probability-weight semantics: sample weights carry no provenance, and
+    # the frequency-weight Bessel correction degenerates for non-integer
+    # weights:
+    mean1, var1 = StatsBase.mean_and_var(f1, ProbabilityWeights(proposal_samples.weight), corrected = true)
     mean2, var2 = mean(f2_density_vector)[1],cov(f2_density_vector)[1]
 
     N1_eff = bat_eff_sample_size_impl(f2_density_vector,ess_alg,context).result[1] 
@@ -113,7 +150,7 @@ function bridge_sampling_integral(
 end
 
 
-#!!!!!! Use EvaluatedMeasure
+# ToDo: Rework to operate on an EvaluatedMeasure directly:
 function bridge_sampling_integral(
     target_measure::BATMeasure,
     target_samples::DensitySampleVector,
@@ -137,7 +174,7 @@ function bridge_sampling_integral(
     post_cov_pd = PDMat(cholesky(Positive, post_cov))
 
     proposal_measure = batmeasure(MvNormal(post_mean,post_cov_pd))
-    proposal_samples = bat_sample_impl(proposal_measure, IIDSampling(nsamples=round(Int, sum(second_batch.weight))), context).result
+    proposal_samples = samplesof(evalmeasure(proposal_measure, IIDSampling(nsamples=round(Int, sum(second_batch.weight))), context))
     proposal_measure = batmeasure(proposal_measure)
 
     bridge_sampling_integral(target_measure,second_batch,proposal_measure,proposal_samples,strict,ess_alg,context)

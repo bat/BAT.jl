@@ -5,6 +5,9 @@
 
 VEGASIntegration integration algorithm.
 
+See [T. Hahn, "Cuba - a library for multidimensional numerical
+integration" (2005)](https://doi.org/10.1016/j.cpc.2005.01.010).
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```
@@ -19,8 +22,8 @@ $(TYPEDFIELDS)
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """
-@with_kw struct VEGASIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
-    pretransform::TR = PriorToUniform()
+@with_kw struct VEGASIntegration{TR<:TransformIntent} <: IntegrationAlgorithm
+    pretransform::TR = UniformBased()
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))
@@ -40,6 +43,9 @@ export VEGASIntegration
 
 SuaveIntegration integration algorithm.
 
+See [T. Hahn, "Cuba - a library for multidimensional numerical
+integration" (2005)](https://doi.org/10.1016/j.cpc.2005.01.010).
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```
@@ -54,8 +60,8 @@ $(TYPEDFIELDS)
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """
-@with_kw struct SuaveIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
-    pretransform::TR = PriorToUniform()
+@with_kw struct SuaveIntegration{TR<:TransformIntent} <: IntegrationAlgorithm
+    pretransform::TR = UniformBased()
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))
@@ -75,6 +81,9 @@ export SuaveIntegration
 
 DivonneIntegration integration algorithm.
 
+See [T. Hahn, "Cuba - a library for multidimensional numerical
+integration" (2005)](https://doi.org/10.1016/j.cpc.2005.01.010).
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```
@@ -89,8 +98,8 @@ $(TYPEDFIELDS)
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """
-@with_kw struct DivonneIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
-    pretransform::TR = PriorToUniform()
+@with_kw struct DivonneIntegration{TR<:TransformIntent} <: IntegrationAlgorithm
+    pretransform::TR = UniformBased()
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))
@@ -116,6 +125,9 @@ export DivonneIntegration
 
 CuhreIntegration integration algorithm.
 
+See [T. Hahn, "Cuba - a library for multidimensional numerical
+integration" (2005)](https://doi.org/10.1016/j.cpc.2005.01.010).
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```
@@ -130,8 +142,8 @@ $(TYPEDFIELDS)
     [Cuba](https://github.com/giordano/Cuba.jl) package is loaded (e.g. via
     `import CUBA`).
 """
-@with_kw struct CuhreIntegration{TR<:AbstractTransformTarget} <: IntegrationAlgorithm
-    pretransform::TR = PriorToUniform()
+@with_kw struct CuhreIntegration{TR<:TransformIntent} <: IntegrationAlgorithm
+    pretransform::TR = UniformBased()
     rtol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:RTOL))
     atol::Float64 = ext_default(pkgext(Val(:Cuba)), Val(:ATOL))
     minevals::Int = ext_default(pkgext(Val(:Cuba)), Val(:MINEVALS))
