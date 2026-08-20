@@ -34,6 +34,9 @@ struct NoWhitening <: WhiteningAlgorithm end
 Whitening transformation based on a Cholesky transformation of the empirical
 sample covariance matrix.
 
+See [A. Kessy, A. Lewin and K. Strimmer, "Optimal Whitening and
+Decorrelation" (2018)](https://doi.org/10.1080/00031305.2016.1277159).
+
 Constructors:
 
 * ```$(FUNCTIONNAME)()```
@@ -67,7 +70,9 @@ struct CholeskyPartialWhitening <: WhiteningAlgorithm end
 *BAT-internal, not part of stable public API.*
 
 Whitening transformation based statistical whitening.
-CholeskyPartialWhitening
+
+See [A. Kessy, A. Lewin and K. Strimmer, "Optimal Whitening and
+Decorrelation" (2018)](https://doi.org/10.1080/00031305.2016.1277159).
 
 Constructors:
 

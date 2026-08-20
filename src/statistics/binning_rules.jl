@@ -72,6 +72,9 @@ end
 Selects automatic binning based on
 [Sturges' formula](https://en.wikipedia.org/wiki/Histogram#Sturges'_formula).
 
+See [H. A. Sturges, "The Choice of a Class Interval"
+(1926)](https://doi.org/10.1080/01621459.1926.10502161).
+
 Constructor: `SturgesBinning()`
 """
 struct SturgesBinning <: BinningAlgorithm end
@@ -104,6 +107,9 @@ end
 Selects automatic binning based on
 [Scott's normal reference rule](https://en.wikipedia.org/wiki/Histogram#Scott's_normal_reference_rule).
 
+See [D. W. Scott, "On optimal and data-based histograms"
+(1979)](https://doi.org/10.1093/biomet/66.3.605).
+
 Constructor: `ScottBinning()`
 """
 struct ScottBinning <: BinningAlgorithm end
@@ -119,6 +125,9 @@ end
 
 Selects automatic binning based on the
 [Freedman–Diaconis](https://en.wikipedia.org/wiki/Freedman%E2%80%93Diaconis_rule) rule.
+
+See [D. Freedman and P. Diaconis, "On the histogram as a density
+estimator: L2 theory" (1981)](https://doi.org/10.1007/BF01025868).
 
 Constructor: `FreedmanDiaconisBinning()`
 """
