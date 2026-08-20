@@ -24,8 +24,10 @@ BAT.mcmc_trafo_tuning_finalize!!(f_transform::Function, tuner::_TypeChangingTraf
     rng = StableRNG(438621057)
 
     @testset "Fisher geometry recovery" begin
-        # For a Gaussian N(μ, Σ) the score is α = -Σ⁻¹(x - μ), and the
-        # Fisher-optimal affine geometry is exactly G = Σ, μ* = μ:
+        # For a Gaussian N(μ, Σ) the score is α = -Σ⁻¹(x - μ), so
+        # Cov(x) = Σ but Cov(α) = Σ⁻¹ (inverses, not equal!), and the
+        # Fisher-optimal affine geometry G Cov(α) G = Cov(x) is exactly
+        # G = Σ, μ* = μ:
         d = 4
         A_true = LowerTriangular(Matrix(I(d)) + 0.4 * randn(rng, d, d))
         Σ = Matrix(Symmetric(A_true * A_true' + 0.1 * I))
@@ -54,10 +56,12 @@ BAT.mcmc_trafo_tuning_finalize!!(f_transform::Function, tuner::_TypeChangingTraf
         γ_g = 1e-5 * sum(var_g) / d
         @test diag(G_diag) ≈ sqrt.((var_x .+ γ_x) ./ (var_g .+ γ_g))
 
-        # Affine equivariance of the regularized geometry: rescaling the
-        # target by c scales positions by c and scores by 1/c, so the
-        # learned geometry must scale by c² even for extreme scales where
-        # an absolute regularization floor would swamp the score covariance:
+        # Global scale equivariance of the regularized geometry (the
+        # scalar ridge preserves only scalar and orthogonal, not
+        # arbitrary affine, equivariance): rescaling the target by c
+        # scales positions by c and scores by 1/c, so the learned
+        # geometry must scale by c² even for extreme scales where an
+        # absolute regularization floor would swamp the score covariance:
         c = 1e6
         acc_scaled = _new_moments(DenseFisherEstimator(), d)
         rng_eq = StableRNG(438621057)
@@ -76,6 +80,22 @@ BAT.mcmc_trafo_tuning_finalize!!(f_transform::Function, tuner::_TypeChangingTraf
         G_scaled, _ = _fisher_geometry(DenseFisherEstimator(), acc_scaled, 1e-5)
         G_unit, _ = _fisher_geometry(DenseFisherEstimator(), acc_unit, 1e-5)
         @test Matrix(G_scaled) ≈ c^2 .* Matrix(G_unit) rtol = 1e-6
+
+        # The (essentially) unregularized Fisher geometry is fully affine
+        # equivariant: for x -> B x the scores transform as α -> B⁻ᵀ α
+        # and the learned geometry as G -> B G Bᵀ:
+        B = [1.2 0.4 0.0 0.1; -0.3 0.9 0.2 0.0; 0.0 0.5 1.5 -0.2; 0.1 0.0 -0.4 0.8]
+        Binv_t = inv(B)'
+        acc_B = _new_moments(DenseFisherEstimator(), d)
+        rng_eq = StableRNG(438621057)
+        for _ in 1:10^3
+            x = μ_true .+ cholesky(Σ).L * randn(rng_eq, d)
+            α = -Σinv * (x .- μ_true)
+            _moments_update!(acc_B, B * x, Binv_t * α)
+        end
+        G_B, _ = _fisher_geometry(DenseFisherEstimator(), acc_B, 1e-12)
+        G_ref, _ = _fisher_geometry(DenseFisherEstimator(), acc_unit, 1e-12)
+        @test Matrix(G_B) ≈ B * Matrix(G_ref) * B' rtol = 1e-5
     end
 
     @testset "Riccati solve and drift metric" begin
@@ -200,6 +220,12 @@ BAT.mcmc_trafo_tuning_finalize!!(f_transform::Function, tuner::_TypeChangingTraf
     end
 
     @testset "guards" begin
+        # The low-rank transform owns its parameter invariants:
+        M_id = Matrix(1.0 * I, 3, 3)
+        @test_throws ArgumentError BAT._affine_init_A(LowRankAffineTransform(cutoff = 1.0), M_id)
+        @test_throws ArgumentError BAT._affine_init_A(LowRankAffineTransform(cutoff = 0.5), M_id)
+        @test_throws ArgumentError BAT._affine_init_A(LowRankAffineTransform(max_rank = -1), M_id)
+
         context = BATContext(ad = ForwardDiff)
         target = unshaped(batmeasure(NamedTupleDist(a = Normal(), b = Normal())))
         # Fisher tuning requires a gradient-based proposal:
