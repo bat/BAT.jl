@@ -132,6 +132,10 @@ bat_default(
 function evalmeasure_impl(em::EvaluatedMeasure, samplingalg::TransformedMCMC, context::BATContext)
     # ToDo: Warm-restart from em.samplegen if available and compatible.
 
+    if samplingalg.nchains == 1 && samplingalg.convergence isa Union{GelmanRubinConvergence,BrooksGelmanConvergence}
+        throw(ArgumentError("$(nameof(typeof(samplingalg.convergence))) requires at least two chains. Use convergence = AssumeConvergence() to sample with one chain."))
+    end
+
     transformed_m, f_pretransform = transform_and_unshape(samplingalg.pretransform, em, context)
     n_dof = some_dof(transformed_m)
 

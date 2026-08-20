@@ -228,10 +228,11 @@ BAT.mcmc_trafo_tuning_finalize!!(f_transform::Function, tuner::_TypeChangingTraf
 
         context = BATContext(ad = ForwardDiff)
         target = unshaped(batmeasure(NamedTupleDist(a = Normal(), b = Normal())))
-        # Fisher tuning requires a gradient-based proposal:
+        # Fisher tuning requires a gradient-based proposal (nchains = 2 so
+        # the single-chain convergence guard can't fire first):
         alg_rw = TransformedMCMC(
             proposal = RandomWalk(), transform_tuning = FisherTransformTuning(),
-            nchains = 1, nsteps = 100
+            nchains = 2, nsteps = 100
         )
         @test_throws ArgumentError bat_sample(target, alg_rw, context)
     end
