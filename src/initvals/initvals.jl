@@ -1,14 +1,18 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+# Variate types without a dedicated method (e.g. ShapedAsNT) pass through
+# unchanged, like they did before the recursive-copy specializations:
 _maycopy_val(x) = x
-_maycopy_val(A::AbstractArray) = copy(A)
+_maycopy_val(x::Number) = x
+_maycopy_val(A::AbstractArray) = map(_maycopy_val, A)
+_maycopy_val(tpl::Tuple) = map(_maycopy_val, tpl)
 _maycopy_val(nt::NamedTuple) = map(_maycopy_val, nt)
 
 
 function _rand_v_for_target(target::BATMeasure, src::AbstractMeasure, n::Integer, context::BATContext)
     conv_src = batmeasure(src)
-    xs = bat_sample_impl(conv_src, IIDSampling(nsamples = n), context).result.v
+    xs = samplesof(evalmeasure(conv_src, IIDSampling(nsamples = n), context)).v
     vs_target = varshape(batmeasure(target))
     vs_src = varshape(conv_src)
     reshape_variates(vs_target, vs_src, xs)
@@ -20,7 +24,7 @@ function _rand_v_for_target(::BATMeasure, src::DensitySampleMeasure, n::Integer,
 end
 
 function _rand_v_for_target(::BATMeasure, src::DensitySampleVector, n::Integer, context::BATContext)
-    bat_sample_impl(src, RandResampling(nsamples = n), context).result.v
+    return samplesof(evalmeasure(src, RandResampling(nsamples = n), context)).v
 end
 
 
@@ -54,6 +58,11 @@ get_initsrc_from_target(target::AbstractMeasure) = target
 get_initsrc_from_target(target::WeightedMeasure) = get_initsrc_from_target(basemeasure(target))
 
 get_initsrc_from_target(target::AbstractPosteriorMeasure) = get_initsrc_from_target(getprior(target))
+
+function get_initsrc_from_target(target::EvaluatedMeasure)
+    empirical = empiricalof(target)
+    isnothing(empirical) ? get_initsrc_from_target(unevaluated(target)) : empirical
+end
 
 
 
@@ -105,6 +114,15 @@ function bat_initval_impl(m::BATPushFwdMeasure, n::Integer, algorithm::InitFromT
     vs_orig = bat_initval_impl(m_orig, n, algorithm, context).result
     vs = BAT.transform_samples(f, vs_orig)
     (result = vs,)
+end
+
+
+function bat_initval_impl(target::DensitySampleMeasure, ::InitFromTarget, context::BATContext)
+    (result = _maycopy_val(rand(get_gencontext(context), target)),)
+end
+
+function bat_initval_impl(target::DensitySampleMeasure, n::Integer, ::InitFromTarget, context::BATContext)
+    (result = _maycopy_val(rand(get_gencontext(context), target^n)),)
 end
 
 
@@ -180,13 +198,11 @@ end
 export ExplicitInit
 
 
-function bat_initval_impl(target::MeasureLike, algorithm::ExplicitInit, context::BATContext)
-    rng = get_rng(context)
+function bat_initval_impl(::MeasureLike, algorithm::ExplicitInit, context::BATContext)
     (result = _maycopy_val(first(algorithm.xs)),)
 end
 
-function bat_initval_impl(target::MeasureLike, n::Integer, algorithm::ExplicitInit, context::BATContext)
-    rng = get_rng(context)
+function bat_initval_impl(::MeasureLike, n::Integer, algorithm::ExplicitInit, context::BATContext)
     xs = algorithm.xs
     idxs = eachindex(xs)
     (result = _maycopy_val(xs[idxs[1:n]]),)

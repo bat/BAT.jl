@@ -25,7 +25,7 @@ _bat_weightedmeasure(logweight::Real, m::BATWeightedMeasure) = weightedmeasure(m
 
 MeasureBase.basemeasure(m::BATWeightedMeasure) = m.base
 
-MeasureBase.massof(m::BATWeightedMeasure) = exp(ULogarithmic, m.logweight) * massof(m.base)
+MeasureBase.massof(m::BATWeightedMeasure) = _reweighted_mass(m.logweight, massof(m.base))
 
 function Base.show(io::IO, d::BATWeightedMeasure)
     print(io, Base.typename(typeof(d)).name, "(")
@@ -90,14 +90,14 @@ Tries to automatically renormalize `measure` if a maximum log-density value
 is available, returns `measure` unchanged otherwise.
 """
 function auto_renormalize(measure::AbstractMeasure)
-    _generic_auto_renormalize_impl(_estimated_max_logd(measure), batmeasure(measure))
+    _generic_auto_renormalize_impl(_approx_max_logd(measure), batmeasure(measure))
 end
 
 
-_estimated_max_logd(::AbstractMeasure) = missing
-_estimated_max_logd(::Nothing) = missing
+_approx_max_logd(::AbstractMeasure) = missing
+_approx_max_logd(::Nothing) = missing
 
-function _estimated_max_logd(samples::DensitySampleVector)
+function _approx_max_logd(samples::DensitySampleVector)
     logweight = maximum(samples.logd)
     isnan(logweight) || isinf(logweight) ? zero(logweight) : logweight
 end

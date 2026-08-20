@@ -38,11 +38,13 @@ using InverseFunctions
 using KernelDensity
 using LaTeXStrings
 using MacroTools
+using MatrixShapedOperators: woodbury_operator, rowgram_factor
 using ParallelProcessingTools
 using Parameters
 using PDMats
 using PositiveFactorizations
 using RecipesBase
+using ScopedSettings: ScopedSettings, Unchanged, unchanged
 using StaticArrays
 using StatsBase
 using StructArrays

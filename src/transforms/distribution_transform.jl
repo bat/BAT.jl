@@ -112,6 +112,12 @@ struct DistributionTransform{
         new{DT,DF}(target_dist, source_dist)
 end
 
+# Value-based hashing makes the transformation-hash witness of
+# transformed-space content recognize independently derived but equal
+# transformations (dist fields fall back to object-based hashing where
+# Distributions defines no content hash, which errs conservative):
+Base.hash(f::DistributionTransform, h::UInt) = hash(f.source_dist, hash(f.target_dist, hash(:DistributionTransform, h)))
+
 
 function _distrafo_ctor_impl(target_dist::DT, source_dist::DF) where {DT<:ContinuousDistribution,DF<:ContinuousDistribution}
     @argcheck eff_totalndof(target_dist) == eff_totalndof(source_dist)
@@ -282,6 +288,7 @@ end
 @inline _select_intermediate_dist(a::D, ::D) where D<:Union{StandardUvUniform,StandardMvUniform} = a
 @inline _select_intermediate_dist(a::Union{StandardUvUniform,StandardMvUniform}, ::Union{StdUvDist,StdMvDist}) = a
 @inline _select_intermediate_dist(::Union{StdUvDist,StdMvDist}, b::Union{StandardUvUniform,StandardMvUniform}) = b
+@inline _select_intermediate_dist(a::Union{StandardUvUniform,StandardMvUniform}, ::Union{StandardUvUniform,StandardMvUniform}) = a
 
 _check_conv_eff_totalndof(trg_d::Uniform, src_d::Uniform) = nothing
 
@@ -740,6 +747,12 @@ function dist_trafo_impl(trg_d::AnyReshapedDist, src_d::AnyReshapedDist, src_v::
     v = trg_vs(r)
 end
 
+
+# Transforming hierarchical distributions sequentially, conditioning
+# each secondary transform on the already-transformed primary variables,
+# is a Rosenblatt transformation: M. Rosenblatt, "Remarks on a
+# Multivariate Transformation" (1952),
+# https://doi.org/10.1214/aoms/1177729394
 
 function dist_trafo_impl(trg_d::StdMvDist, src_d::UnshapedHDist, src_v::AbstractVector{<:Real})
     src_v_primary, src_v_secondary = _hd_split(src_d, src_v)

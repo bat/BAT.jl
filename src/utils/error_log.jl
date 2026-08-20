@@ -86,7 +86,6 @@ end
 
 const _bat_modules = Set([
     "BAT",
-    "BATAdvancedHMCExt",
     "BATCubaExt",
     "BATFoldsExt",
     "BATHDF5Ext",

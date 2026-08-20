@@ -41,6 +41,8 @@ end
 combine_callbacks(::typeof(nop_func), f::Function) = f
 combine_callbacks(f::Function, ::typeof(nop_func)) = f
 combine_callbacks(::typeof(nop_func), ::typeof(nop_func)) = nop_func
+combine_callbacks(::typeof(nop_func), g::CombinedCallback) = g
+combine_callbacks(f::CombinedCallback, ::typeof(nop_func)) = f
 
 combine_callbacks(f::Function, g::Function) = CombinedCallback((f, g))
 combine_callbacks(f::CombinedCallback, g::Function) = CombinedCallback((f.fs..., g))
@@ -59,6 +61,28 @@ isapproxzero(A::AbstractArray) = all(isapproxzero, A)
 
 isapproxone(x::T) where T<:Real = x ≈ one(T)
 isapproxone(A::AbstractArray) = all(isapproxone, A)
+
+
+@inline function _lfloat(x::T) where T
+    U = _lfloat(T)
+    return convert(U, x)::U
+end
+
+_lfloat(::Type{T}) where T = float(T)
+_lfloat(::Type{<:Integer}) = Float32
+
+
+@inline choose_something(a, b, c, xs...) = choose_something(choose_something(a, b), c, xs...)
+@inline choose_something(a, ::Any) = a
+@inline choose_something(::Nothing, b) = b
+@inline choose_something(::Missing, b) = b
+@inline choose_something(::Nothing, ::Nothing) = nothing
+@inline choose_something(::Missing, ::Missing) = missing
+@inline choose_something(::Missing, ::Nothing) = throw(ArgumentError("Can't choose between missing and nothing."))
+@inline choose_something(::Nothing, ::Missing) = throw(ArgumentError("Can't choose between nothing and missing."))
+@inline choose_something(::MeasureBase.NoDOF, b) = b
+@inline choose_something(::MeasureBase.AbstractUnknownMass, b) = b
+@inline choose_something(a::MeasureBase.UnknownFiniteMass, ::MeasureBase.UnknownMass) = a
 
 
 function should_log_progress_now(start_time::Real, last_log_time::Real)
