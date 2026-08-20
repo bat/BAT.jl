@@ -69,14 +69,13 @@ function _append_mgvi_samples!(smpls::DensitySampleVector, m::BATMeasure, flat_s
     append!(smpls.info, new_info); append!(smpls.aux, new_aux)
 end
 
-
-function BAT.bat_sample_impl(m::BATMeasure, algorithm::MGVISampling, context::BATContext)
+function BAT.evalmeasure_impl(em::BAT.EvaluatedMeasure, algorithm::MGVISampling, context::BATContext)
     start_time = time()
     log_time = start_time
     (; pretransform, init, nsamples, schedule, config, store_unconverged) = algorithm
     mgvi_context = MGVIContext(get_gencontext(context), get_valid_adselector(context, algorithm))
 
-    transformed_m, f_pretransform = transform_and_unshape(pretransform, m, context)
+    transformed_m, f_pretransform = transform_and_unshape(pretransform, em, context)
     transformed_m_uneval = unevaluated(transformed_m)
 
     likelihood, prior = getlikelihood(transformed_m_uneval), getprior(transformed_m_uneval)
@@ -160,9 +159,16 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::MGVISampling, context::BA
     elapsed_time = time() - start_time
     @debug "Completed MGVI sampling after $nsteps, produced $n_samples_indep independent samples after $(@sprintf "%.1f s" elapsed_time)."
 
-    return (
-        result = smpls, result_pretransform = transformed_smpls, f_pretransform = f_pretransform, 
-        ess = n_samples_indep, info = (;mnlp = smpls_mnlp)
+    n_dof = BAT.some_dof(transformed_m)
+    dsm = BAT.DensitySampleMeasure(smpls, dof = n_dof, ess = n_samples_indep)
+
+    return BAT.EvaluatedMeasure(em;
+        transform_intent = pretransform,
+        f_transform = BAT._viewrep_f(f_pretransform, pretransform),
+        empirical = BAT._viewrep_empirical(dsm, transformed_smpls, f_pretransform, pretransform, n_dof, n_samples_indep),
+        dof = n_dof,
+        transformed = BAT._viewrep_measure(transformed_m, pretransform),
+        evalinfo = BAT.MeasureEvalInfo(algorithm, (mnlp = smpls_mnlp,))
     )
 end
 

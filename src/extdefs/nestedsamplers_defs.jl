@@ -24,6 +24,10 @@ struct ENSNoBounds <: ENSBound end
 *Experimental feature, not part of stable public API.*
 
 Ellipsoid bound means that a n-dimensional ellipsoid limits the sampling volume.
+
+See [P. Mukherjee, D. Parkinson and A. R. Liddle, "A Nested Sampling
+Algorithm for Cosmological Model Selection"
+(2006)](https://doi.org/10.1086/501068).
 """
 struct ENSEllipsoidBound <: ENSBound end
 
@@ -33,6 +37,10 @@ struct ENSEllipsoidBound <: ENSBound end
 *Experimental feature, not part of stable public API.*
 
 Multi ellipsoid bound means that there are multiple elliposid in an optimal clustering are used to limit the sampling volume.
+
+See [F. Feroz, M. P. Hobson and M. Bridges, "MultiNest: an efficient
+and robust Bayesian inference tool for cosmology and particle physics"
+(2009)](https://doi.org/10.1111/j.1365-2966.2009.14548.x).
 """
 struct ENSMultiEllipsoidBound <: ENSBound end
 
@@ -102,6 +110,9 @@ end
 
 New live point is proposed by a serie of random slices from an existing live-point.
 
+See [R. M. Neal, "Slice sampling"
+(2003)](https://doi.org/10.1214/aos/1056562461).
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```
@@ -129,6 +140,9 @@ end
 Uses the julia package
 [NestedSamplers.jl](https://github.com/TuringLang/NestedSamplers.jl) to use nested sampling algorithm.
 
+See [J. Skilling, "Nested sampling for general Bayesian computation"
+(2006)](https://doi.org/10.1214/06-BA127).
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```
@@ -145,8 +159,8 @@ $(TYPEDFIELDS)
     is loaded (e.g. via
     `import`).
 """
-@with_kw struct EllipsoidalNestedSampling{TR<:AbstractTransformTarget} <: AbstractSamplingAlgorithm
-    pretransform::TR = (pkgext(Val(:NestedSamplers)); PriorToUniform())
+@with_kw struct EllipsoidalNestedSampling{TR<:TransformIntent} <: AbstractSamplingAlgorithm
+    pretransform::TR = (pkgext(Val(:NestedSamplers)); UniformBased())
 
     "Number of live-points."
     num_live_points::Int = 1000
