@@ -57,10 +57,47 @@ using StableRNGs
         @test BAT._repetition_exact_ess(smpls_unif, EffSampleSizeFromAC(), context) ≈
             bat_eff_sample_size(expanded_unif, EffSampleSizeFromAC(), context).result
 
-        # The generic path stays provenance-neutral and scale-invariant:
+        # The provenance-free heuristic path stays scale-invariant:
         smpls_w = DensitySampleVector(v = vals, logd = zeros(n_runs), weight = float.(weights))
         smpls_w100 = DensitySampleVector(v = vals, logd = zeros(n_runs), weight = 100 .* float.(weights))
         @test bat_eff_sample_size(smpls_w, EffSampleSizeFromAC(), context).result ≈
             bat_eff_sample_size(smpls_w100, EffSampleSizeFromAC(), context).result
+    end
+
+    @testset "process provenance ESS" begin
+        context = BATContext()
+        rng3 = stblrng()
+        # Two independent walker chains with repetition weights and MCMC
+        # sample ids, merged and shuffled - the per-sample provenance
+        # reconstructs the exact ordered sequences:
+        function mk_walker(rng, chainid, n)
+            vals_w = nestedview(ElasticArray{Float64, 2}(undef, 2, 0))
+            push!(vals_w, [0.0, 0.0])
+            for _ in 1:(n - 1)
+                push!(vals_w, last(vals_w) .+ randn(rng, 2))
+            end
+            w = rand(rng, 1:4, n)
+            ids = [BAT.MCMCSampleID(Int32(chainid), Int32(1), Int32(1), Int64(i), Int32(1), true) for i in 1:n]
+            DensitySampleVector(v = vals_w, logd = zeros(n), weight = w, info = ids)
+        end
+        w1 = mk_walker(rng3, 1, 300)
+        w2 = mk_walker(rng3, 2, 300)
+        merged = vcat(w1, w2)
+        perm = sortperm(rand(stblrng(), length(eachindex(merged))))
+        shuffled = merged[perm]
+
+        ess_direct = BAT._repetition_exact_ess(w1, EffSampleSizeFromAC(), context) .+
+            BAT._repetition_exact_ess(w2, EffSampleSizeFromAC(), context)
+        ess_tagged = bat_eff_sample_size(shuffled, EffSampleSizeFromAC(), context).result
+        @test ess_tagged ≈ ess_direct
+
+        # Provenance-driven algorithm defaults: process ESS for tagged or
+        # uniformly weighted samples, Kish ESS for nonuniformly weighted
+        # samples without process provenance:
+        @test bat_default(bat_eff_sample_size, Val(:algorithm), shuffled) isa EffSampleSizeFromAC
+        untagged = DensitySampleVector(v = merged.v, logd = merged.logd, weight = float.(merged.weight))
+        @test bat_default(bat_eff_sample_size, Val(:algorithm), untagged) isa KishESS
+        uniformw = DensitySampleVector(v = merged.v, logd = merged.logd)
+        @test bat_default(bat_eff_sample_size, Val(:algorithm), uniformw) isa EffSampleSizeFromAC
     end
 end
