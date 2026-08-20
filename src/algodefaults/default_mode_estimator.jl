@@ -5,7 +5,7 @@ bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::DensitySampleVector) = 
 
 function bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::MeasureLike)
     optalg = BAT.ext_default(pkgext(Val(:Optim)), Val(:NELDERMEAD_ALG))
-    OptimAlg(optalg = optalg)
+    TransformedMaxDensity(optalg = OptimAlg(optalg = optalg))
 end
 
 bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::Distribution) = ModeAsDefined()

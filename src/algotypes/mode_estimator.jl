@@ -13,7 +13,7 @@ abstract type AbstractModeEstimator end
 
 """
     bat_findmode(
-        target::BAT.AnySampleable,
+        target::BAT.MeasureLike,
         [algorithm::BAT.AbstractModeEstimator],
         [context::BATContext]
     )
@@ -23,37 +23,38 @@ Estimate the global mode of `target`.
 Returns a NamedTuple of the shape
 
 ```julia
-(result = v, evaluated::EvaluatedMeasure, ...)
+(result = v,)
 ```
 
-(The field `evaluated` is only present if `target` is a measure.)
+with `v` the estimated mode variate.
 
+Use [`evalmeasure`](@ref) instead to obtain an [`EvaluatedMeasure`](@ref)
+that carries the mode together with all other evaluation results.
 
-Result properties not listed here are algorithm-specific and are not part
-of the stable public API.
+# Implementation
 
-!!! note
-
-    Do not add add methods to `bat_findmode`, add methods to
-    `bat_findmode_impl` instead.
+`bat_findmode` uses [`evalmeasure`](@ref) internally. Do not specialize
+`bat_findmode`.
 """
 function bat_findmode end
 export bat_findmode
 
-function bat_findmode_impl end
 
-
-function bat_findmode(target::AnySampleable, algorithm, context::BATContext)
+function bat_findmode(target::MeasureLike, algorithm0, context::BATContext)
     orig_context = deepcopy(context)
-    r = bat_findmode_impl(target, algorithm, context)
-    result_with_args(Val(:mode), target, r, (algorithm = algorithm, context = orig_context))
+    algorithm = batalgorithm(algorithm0)
+
+    em = evalmeasure(target, algorithm, context)
+    r = (;result = mode(em))
+
+    result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
-bat_findmode(target::AnySampleable) = bat_findmode(target, get_batcontext())
+bat_findmode(target::MeasureLike) = bat_findmode(target, get_batcontext())
 
-bat_findmode(target::AnySampleable, algorithm) = bat_findmode(target, algorithm, get_batcontext())
+bat_findmode(target::MeasureLike, algorithm) = bat_findmode(target, algorithm, get_batcontext())
 
-function bat_findmode(target::AnySampleable, context::BATContext)
+function bat_findmode(target::MeasureLike, context::BATContext)
     algorithm = bat_default_withdebug(bat_findmode, Val(:algorithm), target);
     bat_findmode(target, algorithm, context)
 end
@@ -102,8 +103,9 @@ export bat_bgml
 
 function bat_bgml_impl end
 
-function bat_bgml(likelihood, prior, algorithm, context::BATContext)
+function bat_bgml(likelihood, prior, algorithm0, context::BATContext)
     orig_context = deepcopy(context)
+    algorithm = batalgorithm(algorithm0)
     r = bat_bgml_impl(likelihood, prior, algorithm, context)
     # The result is a likelihood maximizer, not a mode of the posterior
     # measure, so it must not be registered as one (no Val(:mode) here):
@@ -153,17 +155,17 @@ export bat_marginalmode
 function bat_marginalmode_impl end
 
 
-function bat_marginalmode(measure::AnySampleable, algorithm, context::BATContext)
+function bat_marginalmode(measure::MeasureLike, algorithm, context::BATContext)
     orig_context = deepcopy(context)
     r = bat_marginalmode_impl(measure, algorithm, context)
     result_with_args(r, (algorithm = algorithm, context = orig_context))
 end
 
-bat_marginalmode(measure::AnySampleable) = bat_marginalmode(measure, get_batcontext())
+bat_marginalmode(measure::MeasureLike) = bat_marginalmode(measure, get_batcontext())
 
-bat_marginalmode(measure::AnySampleable, algorithm) = bat_marginalmode(measure, algorithm, get_batcontext())
+bat_marginalmode(measure::MeasureLike, algorithm) = bat_marginalmode(measure, algorithm, get_batcontext())
 
-function bat_marginalmode(measure::AnySampleable, context::BATContext)
+function bat_marginalmode(measure::MeasureLike, context::BATContext)
     algorithm = bat_default_withdebug(bat_marginalmode, Val(:algorithm), measure);
     bat_marginalmode(measure, algorithm, context)
 end
