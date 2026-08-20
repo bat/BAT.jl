@@ -20,7 +20,7 @@ end
 # as the offset grows relative to the span, i.e. as fewer ULPs remain to
 # resolve it. Real BAT.jl models can plausibly hit this (a parameter with a
 # large natural scale, or a live domain estimate that picked up a non-finite
-# sample value -- see _recompute_domain! in the Makie extension), so this
+# sample value -- see _domain_including in the Makie extension), so this
 # guards every call rather than being a narrow one-off fix.
 function _edges_would_be_degenerate(data, nbins::Integer)
     lo, hi = extrema(data)

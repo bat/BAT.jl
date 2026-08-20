@@ -12,12 +12,14 @@ function register_state_for_vis!(
 
     samples_graph = graph[:samples][]
     push!(samples_graph, samples_new)
-    update!(graph, samples=samples_graph)
 
     current_idxs = length.(samples)
     current_idxs_graph = graph[:current_idxs][]
     push!(current_idxs_graph, current_idxs)
-    update!(graph, current_idxs=current_idxs_graph)
+
+    # One batched update! -- see flush_buffer!'s matching comment (each
+    # update! call is a full invalidate/notify cycle of its own).
+    update!(graph; samples=samples_graph, current_idxs=current_idxs_graph)
 
     push!(chain_ids, mcmc_state.chain_state.info.id)
     empty_chain_output = _empty_chain_outputs(mcmc_state)
@@ -144,17 +146,14 @@ function BAT.init_visualizer!(
         samples = graph[:samples][]
         samples_new = _append_chain_outputs(mcmc_states[1], samples, fresh_batch_trafo)
 
-        update!(graph, samples=samples_new)
-
         # Derived from the actual merged length (not the raw batch length):
         # checked_push! inside _append_chain_outputs can collapse a sample at
         # the batch boundary into a weight increment instead of a new row.
         current_idxs_new = [length.(chain_samples) for chain_samples in samples_new]
-        update!(graph, current_idxs=current_idxs_new)
 
         # Deliberately flattens samples_new (the full accumulated dataset)
         # rather than just fresh_batch_trafo (this batch alone) -- see
-        # _recompute_domain!'s docs for why a full recompute every flush
+        # _domain_including's docs for why a full recompute every flush
         # was chosen over a cheaper incremental version.
         all_flat_views = Any[]
         for chain_all in samples_new
@@ -162,7 +161,27 @@ function BAT.init_visualizer!(
                 push!(all_flat_views, walker_all)
             end
         end
-        _recompute_domain!(graph, vcat(all_flat_views...), domain_lo, domain_hi)
+        all_flat_samples = vcat(all_flat_views...)
+        new_lo, new_hi = isempty(all_flat_samples) ?
+            (copy(graph[:domain_lo][]), copy(graph[:domain_hi][])) :
+            _domain_including(all_flat_samples, domain_lo, domain_hi)
+
+        # ONE batched update! for the whole flush, not one per input: every
+        # update! call eagerly resolves the observable-attached :gridlayout
+        # (and notifies SpecApi) before returning, so the previous
+        # three-call sequence (samples, then current_idxs, then domain) paid
+        # three full-grid resolves per flush -- the first of them with the
+        # new samples but STALE current_idxs, i.e. pure waste. A single call
+        # invalidates everything together and resolves/notifies exactly once,
+        # with all inputs mutually consistent. Unchanged inputs (usually the
+        # domain -- the fresh-but-equal vectors above) are dropped by
+        # ComputePipeline's own input-side isequal check.
+        update!(graph;
+            samples=samples_new,
+            current_idxs=current_idxs_new,
+            domain_lo=new_lo,
+            domain_hi=new_hi,
+        )
         return nothing
     end
 

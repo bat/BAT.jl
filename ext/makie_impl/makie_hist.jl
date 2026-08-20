@@ -1,14 +1,13 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# Dead-cell results are always identical and read-only (isempty-checked, then
-# discarded), so these are shared const sentinels instead of fresh allocations
-# on every recompute (which happens on every new sample batch for every
-# non-selected recipe).
-const _EMPTY_HIST1D_PRIMITIVES = (centers=Vector{Float64}(), weights=Vector{Float64}(), widths=Vector{Float64}())
-const _EMPTY_HIST2D_PRIMITIVES = (centers_x=Vector{Float64}(), centers_y=Vector{Float64}(), weights=Matrix{Float64}(undef, 0, 0))
-const _EMPTY_QUANTILEHIST1D_PRIMITIVES = (xy_data=Vector{Point{2,Float32}}(), widths=Vector{Float64}(), stairs_data=Vector{Point{2,Float32}}(), bin_colors=Vector{RGBA{Float32}}())
-const _EMPTY_QUANTILEHIST2D_PRIMITIVES = (centers_x=Vector{Float64}(), centers_y=Vector{Float64}(), color_grid=Matrix{RGBA{Float32}}(undef, 0, 0))
-const _EMPTY_HEXBIN2D_PRIMITIVES = (x=Float64[], y=Float64[], weights=Float64[], thresh=0.0)
+# Fresh values per call, deliberately not shared consts -- see the
+# change-tracking rationale above _empty_scatter2d_primitives
+# (makie_scatter.jl).
+_empty_hist1d_primitives() = (centers=Vector{Float64}(), weights=Vector{Float64}(), widths=Vector{Float64}())
+_empty_hist2d_primitives() = (centers_x=Vector{Float64}(), centers_y=Vector{Float64}(), weights=Matrix{Float64}(undef, 0, 0))
+_empty_quantilehist1d_primitives() = (xy_data=Vector{Point{2,Float32}}(), widths=Vector{Float64}(), stairs_data=Vector{Point{2,Float32}}(), bin_colors=Vector{RGBA{Float32}}())
+_empty_quantilehist2d_primitives() = (centers_x=Vector{Float64}(), centers_y=Vector{Float64}(), color_grid=Matrix{RGBA{Float32}}(undef, 0, 0))
+_empty_hexbin2d_primitives() = (x=Float64[], y=Float64[], weights=Float64[], thresh=0.0)
 
 # Hist1D/Hist2D/QuantileHist1D/QuantileHist2D are updated incrementally from a
 # running Histogram with fixed (pre-estimated) bin edges instead of being
@@ -175,7 +174,7 @@ function _hist1d_output(hist::Histogram, normalization::Symbol)
     # StatsBase.normalize when normalization != :none -- with :none (currently
     # unreachable, normalization is hardcoded to :pdf everywhere in this
     # codebase) it would keep the input samples' own weight eltype (Int64 by
-    # default), mismatching _EMPTY_HIST1D_PRIMITIVES's declared Vector{Float64}
+    # default), mismatching _empty_hist1d_primitives()'s declared Vector{Float64}
     # the same way KDE1D/KDE2D/QuantileKDE2D's StepRangeLen mismatch did.
     return (centers=centers[1], weights=Float64.(h_norm.weights), widths=collect(h_norm.edges[1]))
 end
@@ -236,22 +235,22 @@ function _quantilehist2d_output(hist::Histogram, config::NamedTuple)
 end
 
 function compute_hist_primitives(::Hist1D, state::_IncrementalHist1DState, config::NamedTuple)
-    isnothing(state.hist) && return _EMPTY_HIST1D_PRIMITIVES
+    isnothing(state.hist) && return _empty_hist1d_primitives()
     return _hist1d_output(state.hist, config.normalization)
 end
 
 function compute_hist_primitives(::Hist2D, state::_IncrementalHist2DState, config::NamedTuple)
-    isnothing(state.hist) && return _EMPTY_HIST2D_PRIMITIVES
+    isnothing(state.hist) && return _empty_hist2d_primitives()
     return _hist2d_output(state.hist, config.normalization)
 end
 
 function compute_hist_primitives(::QuantileHist1D, state::_IncrementalHist1DState, config::NamedTuple)
-    isnothing(state.hist) && return _EMPTY_QUANTILEHIST1D_PRIMITIVES
+    isnothing(state.hist) && return _empty_quantilehist1d_primitives()
     return _quantilehist1d_output(state.hist, config)
 end
 
 function compute_hist_primitives(::QuantileHist2D, state::_IncrementalHist2DState, config::NamedTuple)
-    isnothing(state.hist) && return _EMPTY_QUANTILEHIST2D_PRIMITIVES
+    isnothing(state.hist) && return _empty_quantilehist2d_primitives()
     return _quantilehist2d_output(state.hist, config)
 end
 
@@ -263,7 +262,7 @@ function compute_plotting_primitives(
     ::CS,
     ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-    return _EMPTY_HIST1D_PRIMITIVES
+    return _empty_hist1d_primitives()
 end
 
 function compute_plotting_primitives(
@@ -277,7 +276,7 @@ function compute_plotting_primitives(
     # A live cell can still have zero samples (e.g. right after vsel activates,
     # before the first batch flushes, or if buffered samples get cleared later)
     # -- degrade to the same empty result as a dead cell rather than crashing.
-    isempty(weights) && return _EMPTY_HIST1D_PRIMITIVES
+    isempty(weights) && return _empty_hist1d_primitives()
     (; normalization, nbins, closed, filter) = config
     hist = _marginal_view_dist(marg_coords, weights, filter, nbins + 1, closed, :none)
     return _hist1d_output(hist, normalization)
@@ -320,7 +319,7 @@ function compute_plotting_primitives(
     ::CS,
     ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-    return _EMPTY_HIST2D_PRIMITIVES
+    return _empty_hist2d_primitives()
 end
 
 function compute_plotting_primitives(
@@ -331,7 +330,7 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
-    isempty(weights) && return _EMPTY_HIST2D_PRIMITIVES
+    isempty(weights) && return _empty_hist2d_primitives()
     (; normalization, nbins, closed, filter) = config
     hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, :none)
     return _hist2d_output(hist, normalization)
@@ -370,7 +369,7 @@ function compute_plotting_primitives(
     ::CS,
     ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-    return _EMPTY_QUANTILEHIST1D_PRIMITIVES
+    return _empty_quantilehist1d_primitives()
 end
 
 function compute_plotting_primitives(
@@ -381,7 +380,7 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
-    isempty(weights) && return _EMPTY_QUANTILEHIST1D_PRIMITIVES
+    isempty(weights) && return _empty_quantilehist1d_primitives()
     (; nbins, closed, filter) = config
     hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, :none)
     return _quantilehist1d_output(hist, config)
@@ -419,7 +418,7 @@ function compute_plotting_primitives(
     ::CS,
     ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-    return _EMPTY_QUANTILEHIST2D_PRIMITIVES
+    return _empty_quantilehist2d_primitives()
 end
 
 function compute_plotting_primitives(
@@ -430,7 +429,7 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
-    isempty(weights) && return _EMPTY_QUANTILEHIST2D_PRIMITIVES
+    isempty(weights) && return _empty_quantilehist2d_primitives()
     (; nbins, closed, filter) = config
     hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, :none)
     return _quantilehist2d_output(hist, config)
@@ -462,7 +461,7 @@ function compute_plotting_primitives(
     ::CS,
     ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-    return _EMPTY_HEXBIN2D_PRIMITIVES
+    return _empty_hexbin2d_primitives()
 end
 
 function compute_plotting_primitives(
@@ -476,14 +475,14 @@ function compute_plotting_primitives(
     # A live cell can still have zero samples, and its placeholder view is
     # 0x0 (not 2x0) -- row indexing below would throw a BoundsError. Same
     # guard the KDE recipes (and now Scatter2D/ChainScatter2D) use.
-    isempty(weights) && return _EMPTY_HEXBIN2D_PRIMITIVES
+    isempty(weights) && return _empty_hexbin2d_primitives()
     (; threshold) = config
     x = marg_coords[1, :]
     y = marg_coords[2, :]
 
     # Float64(...): minimum(pos_w) otherwise inherits the samples' own weight
     # eltype (Int64 by default) rather than matching
-    # _EMPTY_HEXBIN2D_PRIMITIVES's declared thresh::Float64 -- harmless today
+    # _empty_hexbin2d_primitives()'s declared thresh::Float64 -- harmless today
     # (scalar Int64->Float64 always converts, unlike the Vector/Range
     # mismatches this same pattern guards against elsewhere in this file) but
     # kept consistent defensively.
@@ -497,7 +496,7 @@ function compute_plotting_primitives(
     # Materialized to Vector{Float64} rather than passed through as the raw
     # SubArray{<:Any} from :flat_weights -- ComputePipeline's TypedEdge fixes
     # this node's output type from its first resolution, and the dead-cell
-    # fallback (_EMPTY_HEXBIN2D_PRIMITIVES) hardcodes weights=Float64[]; a
+    # fallback (_empty_hexbin2d_primitives()) hardcodes weights=Float64[]; a
     # live SubArray{Int64,...} (or any non-Float64 concrete type) here would
     # make a later live->dead transition (e.g. via vsel reduction) fail to
     # convert.

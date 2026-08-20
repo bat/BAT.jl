@@ -18,7 +18,7 @@
 # Each group's own "now" is its own most recent step, not a global max
 # across all chains, so a slower chain's trace isn't falsely aged by a
 # faster one running alongside it.
-const _EMPTY_TRACE2D_PRIMITIVES = (x=Float64[], y=Float64[], chainids=Int32[], walkerids=Int32[], recency=Float64[], group_ranges=Tuple{Int32,Int32,UnitRange{Int}}[])
+_empty_trace2d_primitives() = (x=Float64[], y=Float64[], chainids=Int32[], walkerids=Int32[], recency=Float64[], group_ranges=Tuple{Int32,Int32,UnitRange{Int}}[])
 
 function compute_plotting_primitives(
         ::SubArray,
@@ -32,7 +32,7 @@ function compute_plotting_primitives(
         ::CS,
         ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
-        return _EMPTY_TRACE2D_PRIMITIVES
+        return _empty_trace2d_primitives()
 end
 
 # marg_coords/weights/chainids/walkerids/stepnos here are the *full*,
@@ -60,7 +60,7 @@ function compute_plotting_primitives(
 )
         total_n = length(chainids)
         if total_n == 0 || isempty(stepnos) || current_idx <= 0
-                return _EMPTY_TRACE2D_PRIMITIVES
+                return _empty_trace2d_primitives()
         end
         (; trace_nsteps) = config
         x = marg_coords[1, :]
