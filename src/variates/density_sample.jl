@@ -412,6 +412,23 @@ function drop_low_weight_samples(samples::DensitySampleVector, fraction::Real = 
 end
 
 
+# Canonical relative weights for probability-weight arithmetic:
+# validated (finite and non-negative, with at least one strictly positive
+# entry if nonempty) and divided by the maximum weight - in the original
+# weight arithmetic, so that log-scale weight types normalize before
+# conversion to plain floats. The result is a plain-float vector with
+# maximum one, so cumulative sums, weight-sum ratios and effective counts
+# computed from it can neither overflow nor wrap around, and are
+# invariant under a global positive rescaling of the input:
+function _canonical_rel_weights(W::AbstractVector{<:Real})
+    all(w -> isfinite(w) && w >= zero(w), W) || throw(ArgumentError("Sample weights must be finite and non-negative"))
+    isempty(W) && return float.(W ./ oneunit(eltype(W)))
+    max_w = maximum(W)
+    max_w > zero(max_w) || throw(ArgumentError("Sample weights must contain at least one strictly positive entry"))
+    return float.(W ./ max_w)
+end
+
+
 """
     repetition_to_weights(v::AbstractVector)
 

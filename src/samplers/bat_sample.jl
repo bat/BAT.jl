@@ -140,13 +140,12 @@ function _systematic_resampling_idxs(smpls::DensitySampleVector, n::Integer, con
 
     rng = get_rng(context)
     @assert axes(smpls) == axes(smpls.weight)
-    W = smpls.weight
-    # A finite positive total is not enough: a single negative weight
-    # would make the cumulative weights non-monotone and invalidate the
-    # systematic-resampling semantics:
-    all(w -> isfinite(w) && w >= 0, W) || throw(ArgumentError("Sample weights must be finite and non-negative"))
+    # Canonical relative weights: validated (any negative weight would
+    # make the cumulative weights non-monotone and invalidate the
+    # systematic-resampling semantics) and normalized so that the
+    # cumulative sum can neither overflow nor wrap around:
+    W = _canonical_rel_weights(smpls.weight)
     W_total = sum(W)
-    W_total > 0 || throw(ArgumentError("Sample weights must sum to a positive value"))
 
     # Systematic resampling (Kitagawa 1996): a single stratified uniform
     # yields exactly n draws in one order-preserving pass, typically with
