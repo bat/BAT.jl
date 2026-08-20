@@ -32,6 +32,10 @@ end
 *BAT-internal, not part of stable public API.*
 
 Gelman-Rubin ``\$R^2\$`` for all DOF.
+
+See [A. Gelman and D. B. Rubin, "Inference from Iterative Simulation
+Using Multiple Sequences"
+(1992)](https://doi.org/10.1214/ss/1177011136).
 """
 function gr_Rsqr end
 
@@ -52,6 +56,10 @@ end
     struct GelmanRubinConvergence <: ConvergenceTest
 
 Gelman-Rubin maximum R^2 convergence test.
+
+See [A. Gelman and D. B. Rubin, "Inference from Iterative Simulation
+Using Multiple Sequences"
+(1992)](https://doi.org/10.1214/ss/1177011136).
 
 Constructors:
 
@@ -88,6 +96,11 @@ end
 
 Brooks-Gelman R_2^2 for all DOF.
 If normality is assumed, 'corrected' should be set to true to account for the sampling variability.
+
+See [S. P. Brooks and A. Gelman, "General Methods for Monitoring
+Convergence of Iterative Simulations"
+(1998)](https://doi.org/10.1080/10618600.1998.10474787); the
+`corrected` option implements the paper's df-corrected variant.
 """
 function bg_R_2sqr(stats::AbstractVector{<:MCMCBasicStats}; corrected::Bool = false)
     p = _stats_dof(first(stats))
@@ -132,6 +145,10 @@ end
     struct BrooksGelmanConvergence <: ConvergenceTest
 
 Brooks-Gelman maximum R^2 convergence test.
+
+See [S. P. Brooks and A. Gelman, "General Methods for Monitoring
+Convergence of Iterative Simulations"
+(1998)](https://doi.org/10.1080/10618600.1998.10474787).
 
 Constructors:
 

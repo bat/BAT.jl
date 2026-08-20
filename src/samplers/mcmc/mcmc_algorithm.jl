@@ -249,6 +249,75 @@ function mcmc_tuning_reinit!! end
 function mcmc_tune_post_step!! end
 
 
+"""
+    struct BAT.MCMCStepInfo
+
+*BAT-internal, not part of stable public API.*
+
+Per-walker information about one MCMC transition, produced by
+`mcmc_propose!!` and consumed by the tuning machinery and sample
+weighting. `p_accept` is always present; gradient-based proposals
+additionally provide the z-space log-density gradients at the selected
+states (`z_grads`) and trajectory diagnostics (`divergent`, `tree_depth`,
+`n_leapfrog`), which are `nothing` for proposals that don't compute them.
+"""
+struct MCMCStepInfo{
+    PA<:AbstractVector{<:Real},
+    GS<:Union{Nothing,AbstractVector{<:AbstractVector{<:Real}}},
+    DV<:Union{Nothing,AbstractVector{Bool}},
+    IV<:Union{Nothing,AbstractVector{<:Integer}}
+}
+    p_accept::PA
+    z_grads::GS
+    divergent::DV
+    tree_depth::IV
+    n_leapfrog::IV
+end
+
+MCMCStepInfo(p_accept::AbstractVector{<:Real}) = MCMCStepInfo(p_accept, nothing, nothing, nothing, nothing)
+
+
+# Whether a proposal state provides z-space log-density gradients in its
+# MCMCStepInfo (required by gradient-based transform tuners):
+mcmc_step_provides_grads(::MCMCProposalState) = false
+
+
+# Transform-tuner state creation may take the declared adaptive transform
+# into account (e.g. to match the estimation structure to the transform
+# structure); by default it is ignored:
+function create_trafo_tuner_state end
+
+function create_trafo_tuner_state(
+    tuning::MCMCTransformTuning,
+    chain_state::CS,
+    n_steps_hint::Integer,
+    ::AbstractAdaptiveTransform
+) where CS<:MCMCIterator
+    return create_trafo_tuner_state(tuning, chain_state, n_steps_hint)
+end
+
+
+# Whether a transform change installed by this transform tuner should
+# restart step-size adaptation (with a fresh reasonable-step-size search).
+# True for tuners that commit discrete geometry changes (windowed or
+# drift-committed schedules); tuners that drift the transform continuously
+# in small per-step updates (like RAM) return false, step-size adaptation
+# simply tracks them:
+transform_change_restarts_stepsize(::MCMCTransformTunerState) = true
+
+# Called by the tuning orchestration instead of mcmc_tune_proposal_post_step!!
+# when a transform tuner has installed a new transformation and its policy
+# requests step-size readaptation. The step statistic that crossed the
+# geometry change is discarded (not passed on):
+function mcmc_proposal_transform_committed!!(
+    proposal::MCMCProposalState,
+    tuner::MCMCProposalTunerState,
+    chain_state::CS
+) where CS<:MCMCIterator
+    return proposal, tuner, chain_state
+end
+
+
 function mcmc_trafo_tuning_init!! end
 
 function mcmc_trafo_tuning_postinit!! end
@@ -326,7 +395,7 @@ function mcmc_tune_trafo_post_step!!(
     ::MCMCProposalState,
     ::NamedTuple,
     ::NamedTuple,
-    ::AbstractVector{<:Real}
+    ::MCMCStepInfo
 ) where CS<:MCMCIterator
     return f_transform, tuner, chain_state
 end
@@ -367,17 +436,23 @@ end
 
 function mcmc_proposal_tuning_finalize!!(
     proposal_state::MCMCProposalState,
-    proposal_tuner_state::MCMCProposalTunerState, 
+    proposal_tuner_state::MCMCProposalTunerState,
     chain_state::CS
 ) where CS<:MCMCIterator
     return proposal_state, proposal_tuner_state, chain_state
 end
 
+# Marks the warmup/retained-sampling boundary in per-chain diagnostics,
+# called after all of warmup (tuning and post-tuning stabilization), not
+# at tuning finalization. Mutates shared diagnostics objects in place, so
+# functional proposal-state updates are unaffected:
+mcmc_mark_warmup_end!(::MCMCProposalState) = nothing
+
 function mcmc_tune_proposal_post_step!!(
-    proposal::MCMCProposalState, 
-    tuner::MCMCProposalTunerState, 
-    chain_state::CS, 
-    ::AbstractVector{<:Real}
+    proposal::MCMCProposalState,
+    tuner::MCMCProposalTunerState,
+    chain_state::CS,
+    ::MCMCStepInfo
 ) where CS<:MCMCIterator
     return proposal, tuner, chain_state
 end
@@ -433,6 +508,20 @@ function get_tuning_success(
     α_min, α_max = get_target_acceptance_int(proposal)
     tuning_success = α_min <= α <= α_max
     return tuning_success
+end
+
+# Proposal tuners that track statistics of the current tuning cycle can
+# specialize the three-argument form and judge tuning success on those
+# (see e.g. the HMC step-size adaptor); by default the tuner state is
+# ignored. Note that eff_acceptance_ratio is a state-movement rate, which
+# coincides with the mean acceptance probability only for accept/reject
+# proposals like random walk Metropolis:
+function get_tuning_success(
+    chain_state::CS,
+    proposal::MCMCProposalState,
+    ::MCMCProposalTunerState
+) where CS<:MCMCIterator
+    return get_tuning_success(chain_state, proposal)
 end
 
 get_active_proposal_idx(proposal_state::MCMCProposalState) = 1
@@ -507,7 +596,10 @@ function mcmc_iterate!!(
     end
 
     outs = isnothing(outputs) ? fill(nothing, size(mcmc_states)...) : outputs
-    mcmc_states_new = similar(mcmc_states)
+    # Tuning may change type parameters of the states (e.g. the structural
+    # type of an adaptive transform on its first commit), so the result
+    # container must not be bound to the input element type:
+    mcmc_states_new = similar(mcmc_states, MCMCState)
 
     @sync for i in eachindex(outs, mcmc_states)
         Base.Threads.@spawn mcmc_states_new[i] = mcmc_iterate!!(outs[i], mcmc_states[i]; kwargs...)
@@ -522,7 +614,7 @@ isviablestate(chain_state::MCMCIterator) = nsamples(chain_state) >= 2
 
 isvalidstate(mcmc_state::MCMCState) = isvalidstate(mcmc_state.chain_state)
 
-isviablestate(mcmc_state::MCMCState) = isvalidstate(mcmc_state.chain_state)
+isviablestate(mcmc_state::MCMCState) = isviablestate(mcmc_state.chain_state)
 
 
 """
@@ -530,7 +622,9 @@ isviablestate(mcmc_state::MCMCState) = isvalidstate(mcmc_state.chain_state)
 
 *BAT-internal, not part of stable public API.*
 
-MCMC sample generator.
+MCMC sample generator, holds the (mutable) states of the MCMC chains.
+Consumers must not mutate the chain states, continuing sample generation
+requires a deep copy.
 
 Constructors:
 
