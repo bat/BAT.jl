@@ -33,7 +33,6 @@ Order = [:macro, :function]
 
 ```@docs
 BAT.AbstractSampleGenerator
-BAT.AnySampleable
 BAT.BasicMvStatistics
 BAT.BATMeasure
 BAT.BATPushFwdMeasure
@@ -55,6 +54,7 @@ BAT.ENSUniformly
 BAT.FullMeasureTransform
 BAT.JointLikelihood
 BAT.LFDensity
+BAT.AbstractTransformInit
 BAT.LFDensityWithGrad
 BAT.LogDVal
 BAT.MCMCSampleGenerator
@@ -64,12 +64,20 @@ BAT.OnlineMvCov
 BAT.OnlineMvMean
 BAT.OnlineUvMean
 BAT.OnlineUvVar
+BAT.PathfinderTransformInit
+BAT.PriorApproxTransformInit
 BAT.SampleTransformation
+BAT.StanLikeTuning
 BAT.StandardMvNormal
 BAT.StandardMvUniform
 BAT.StandardUvNormal
 BAT.StandardUvUniform
 BAT.StatisticalWhitening
+BAT.StepSizeAdaptor
+BAT.DiagonalAffineTransform
+BAT.LowRankAffineTransform
+BAT.TriangularAffineTransform
+BAT.UnitTransformInit
 BAT.UnshapeTransformation
 BAT.WhiteningAlgorithm
 
@@ -87,15 +95,20 @@ BAT.getlikelihood
 BAT.getprior
 BAT.gr_Rsqr
 BAT.has_uhc_support
+BAT.hmc_find_good_stepsize
+BAT.hmc_nuts_transition
 BAT.is_log_zero
 BAT.issymmetric_around_origin
 BAT.log_zero_density
 BAT.logvalof
 BAT.maximize_density
+BAT.BispacedMeasure
+BAT.pathfinder_gaussian_fit
 BAT.repetition_to_weights
 BAT.smallest_credible_intervals
 BAT.sum_first_dim
 BAT.supports_rand
+BAT.transform_function
 BAT.trunc_logpdf_ratio
 BAT.truncate_dist_hard
 ```

@@ -42,6 +42,15 @@ bat_sample
 bat_write
 bat_transform
 
+evalmeasure
+
+empiricalof
+samplesof
+approxof
+samplegenof
+getess
+evalinfo
+
 get_batcontext
 set_batcontext
 log_batdebug
@@ -53,9 +62,10 @@ lbqintegral
 
 AbstractMCMCWeightingScheme
 AbstractPosteriorMeasure
-AbstractTransformTarget
+TransformIntent
 AdaptiveAffineTuning
 AdaptiveMultiPropTuning
+AdaptiveTransformChain
 AssumeConvergence
 AutocorLenAlgorithm
 BATContext
@@ -68,10 +78,12 @@ DensitySample
 DensitySampleVector
 DivonneIntegration
 DoNotTransform
+DriftCommitSchedule
 EffSampleSizeAlgorithm
 EffSampleSizeFromAC
 EvaluatedMeasure
 ExplicitInit
+FisherTransformTuning
 FixedMGVISchedule
 FixedNBins
 FreedmanDiaconisBinning
@@ -106,11 +118,10 @@ NoMCMCProposalTuning
 NoMCMCTransformTuning
 OptimAlg
 OptimizationAlg
-OrderedResampling
 PosteriorMeasure
 PriorSubstitution
-PriorToNormal
-PriorToUniform
+NormalBased
+UniformBased
 RAMTuning
 RandomWalk
 RandResampling
@@ -122,8 +133,10 @@ SokalAutocorLen
 SquareRootBinning
 SturgesBinning
 SuaveIntegration
+SystematicResampling
 ToRealVector
 TransformAlgorithm
+TransformedMaxDensity
 TransformedMCMC
 VEGASIntegration
 
