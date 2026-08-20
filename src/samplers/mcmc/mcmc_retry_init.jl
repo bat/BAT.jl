@@ -82,12 +82,18 @@ function mcmc_init!(
             unviable_walkers = findall(isempty.(outputs[i]) .&& (sum.(getfield.(outputs[i], :weight)) .< 1))
 
             if !isempty(unviable_walkers)
-                @debug "Rerolling starting positions for $(sum(unviable_walkers)) walkers in chain $i."
+                @debug "Rerolling starting positions for $(length(unviable_walkers)) walkers in chain $i."
                 n_unviable_chains += 1
 
                 new_context = set_rng(context, AbstractRNG(rngpart, i))
                 new_v_init = bat_ensemble_initvals(target, initval_alg, length(unviable_walkers), new_context)
-                mcmc_states[i].current.x.v[unviable_walkers] .= new_v_init
+                cs = mcmc_states[i].chain_state
+                cs.current.x.v[unviable_walkers] .= new_v_init
+                cs.current.x.logd[unviable_walkers] .= logdensityof.(mcmc_target(cs), new_v_init)
+                cs.current.x.weight[unviable_walkers] .= 0
+                # Bring the z-side representation back in sync with the
+                # rerolled x positions:
+                mcmc_states[i] = mcmc_update_z_position!!(mcmc_states[i])
             end
         end
 

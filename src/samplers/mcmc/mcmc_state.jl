@@ -42,16 +42,25 @@ function MCMCChainState(
     n_walkers = length(x_init)
     target_unevaluated = unevaluated(target)
 
+    if samplingalg.proposal isa HamiltonianMC && samplingalg.sample_weighting isa ARPWeighting
+        throw(ArgumentError(
+            "ARPWeighting is not valid for HamiltonianMC: the NUTS acceptance statistic is a trajectory average, not the selection probability of the returned state"
+        ))
+    end
+
     rngpart_cycle = RNGPartition(get_rng(context), 0:(typemax(Int16) - 2))
     rng = get_rng(context)
 
-    f = init_adaptive_transform(samplingalg.adaptive_transform, target, context)
+    f = init_adaptive_transform(samplingalg.adaptive_transform, target, x_init, context)
     f_inv = inverse(f)
-    proposal = _create_proposal_state(samplingalg.proposal, target, context, x_init, f, rng)
+    proposal = _create_proposal_state(samplingalg.proposal, target_unevaluated, context, x_init, f, rng)
 
     logd_x_init = logdensityof.(target_unevaluated, x_init)
-    z_init = f_inv.(x_init) 
-    logd_z_init = logdensityof.(MeasureBase.pullback(f, target_unevaluated), z_init)
+    z_init = f_inv.(x_init)
+    ladj_c = _transform_ladj(f)
+    logd_z_init = isnothing(ladj_c) ?
+        logdensityof.(MeasureBase.pullback(f, target_unevaluated), z_init) :
+        logd_x_init .+ ladj_c
 
     W = mcmc_weight_type(samplingalg.sample_weighting)
 
@@ -60,16 +69,16 @@ function MCMCChainState(
     sample_aux_curr = fill(nothing, n_walkers)
 
     current_x_init = DensitySampleVector(
-        x_init, 
-        logd_x_init;
-        weight = sample_weights_curr, 
+        v = x_init,
+        logd = logd_x_init,
+        weight = sample_weights_curr,
         info = sample_info_curr,
         aux = sample_aux_curr
     )
     current_z_init = DensitySampleVector(
-        z_init, 
-        logd_z_init;
-        weight = deepcopy(sample_weights_curr), 
+        v = z_init,
+        logd = logd_z_init,
+        weight = deepcopy(sample_weights_curr),
         info = deepcopy(sample_info_curr),
         aux = deepcopy(sample_aux_curr)
     )
@@ -81,11 +90,11 @@ function MCMCChainState(
     sample_aux_prop = fill(nothing, n_walkers)
 
     proposed_init = DensitySampleVector(
-        prop_locs_init,
-        prop_logds_init;
+        v = prop_locs_init,
+        logd = prop_logds_init,
         weight = sample_weights_prop,
         info = sample_info_prop,
-        aux = sample_aux_prop 
+        aux = sample_aux_prop
     )
 
     current = (x = current_x_init, z = current_z_init)
@@ -99,8 +108,13 @@ function MCMCChainState(
     n_proposals = proposal isa MultiProposalState ? length(proposal.proposal_states) : 1
     nsamples::Vector{Int64} = zeros(n_proposals)
 
+    # The stored target is evaluated in the sampling hot loop, so it must be
+    # a bare measure. Knowledge attached to the given target (samples,
+    # approximations, see EvaluatedMeasure) is consumed upstream by the
+    # initial-value generation; the adaptive transform initialization
+    # currently sees only the initial positions:
     state = MCMCChainState(
-        target,
+        target_unevaluated,
         proposal,
         f,
         samplingalg.sample_weighting,
@@ -164,7 +178,8 @@ end
 _empty_chain_outputs(state::MCMCState) = _empty_chain_outputs(state.chain_state)
 
 function _empty_chain_outputs(chain_state::MCMCChainState)
-    return fill(_empty_DensitySampleVector(chain_state), nwalkers(chain_state))
+    # One independent output vector per walker - fill would alias a single object:
+    return [_empty_DensitySampleVector(chain_state) for _ in 1:nwalkers(chain_state)]
 end
 
 function eff_acceptance_ratio(chain_state::MCMCChainState)
@@ -190,11 +205,11 @@ function mcmc_step!!(mcmc_state::MCMCState)
     
     chain_state.proposal, active_proposal = next_proposal!!(rng, proposal, stepno)
 
-    chain_state, active_proposal_new, p_accept = mcmc_propose!!(chain_state, active_proposal)
+    chain_state, active_proposal_new, step_info = mcmc_propose!!(chain_state, active_proposal)
 
     chain_state.proposal = update_active_proposal!!(chain_state.proposal, active_proposal_new)
 
-    mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, active_proposal, p_accept)
+    mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, active_proposal, step_info)
 
     chain_state = mcmc_state_new.chain_state
 
@@ -204,7 +219,7 @@ function mcmc_step!!(mcmc_state::MCMCState)
     chain_state.nsamples[active_prop_idx] += sum(accepted)
 
     # Set weights according to acceptance
-    delta_w_current, w_proposed = mcmc_weight_values(chain_state.weighting, p_accept, accepted)
+    delta_w_current, w_proposed = mcmc_weight_values(chain_state.weighting, step_info.p_accept, accepted)
 
     current.x.weight .+= delta_w_current
     current.z.weight .+= delta_w_current
@@ -247,6 +262,32 @@ function mcmc_step!!(mcmc_state::MCMCState)
     return mcmc_state_final
 end
 
+# Log-abs-det Jacobian of a space transformation, if it is constant
+# (nothing otherwise). `false` is the type-neutral additive zero:
+_transform_ladj(::Any) = nothing
+_transform_ladj(::typeof(identity)) = false
+_transform_ladj(f::MulAdd) = _mul_factor_ladj(f.A)
+
+# Only for matrix-shaped factors is logabsdet the per-variate ladj; scalar
+# factors act on every dimension, their ladj depends on the variate length,
+# so they take the generic with_logabsdet_jacobian path:
+_mul_factor_ladj(A) = ndims(A) == 2 ? first(logabsdet(A)) : nothing
+_mul_factor_ladj(::Real) = nothing
+_mul_factor_ladj(::UniformScaling) = nothing
+
+# Batched transform application together with per-element LADJs, with a
+# single logabsdet evaluation for transforms with constant Jacobian:
+function _transform_with_ladj(f, zs::AbstractVector)
+    c = _transform_ladj(f)
+    if isnothing(c)
+        ys_ladjs = with_logabsdet_jacobian.(f, zs)
+        return first.(ys_ladjs), getsecond.(ys_ladjs)
+    else
+        return f.(zs), fill(c, length(eachindex(zs)))
+    end
+end
+
+
 function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP) where {SMP<:SimpleMCMCProposalState}
     (; target, f_transform, current, context) = chain_state
 
@@ -261,9 +302,7 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP) where {SMP<:
     # TODO: MD; Make this function ! because it alters genctx?
     z_proposed, hastings_correction = mcmc_propose_transition(current_z, proposal, n_walkers, genctx)
 
-    x_ladj_proposed = with_logabsdet_jacobian.(f_transform, z_proposed)
-    x_proposed = first.(x_ladj_proposed)
-    ladj = getsecond.(x_ladj_proposed)
+    x_proposed, ladj = _transform_with_ladj(f_transform, z_proposed)
 
     logd_x_proposed = BAT.checked_logdensityof.(target, x_proposed)
     logd_z_proposed::typeof(logd_x_proposed) = logd_x_proposed .+ ladj
@@ -280,8 +319,13 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP) where {SMP<:
 
     chain_state.accepted .= accepted
 
-    return chain_state, proposal, p_accept
+    step_info = MCMCStepInfo(p_accept, _selected_z_grads(proposal, accepted), nothing, nothing, nothing)
+    return chain_state, proposal, step_info
 end
+
+# Proposals that compute z-space log-density gradients report the
+# gradients at the selected (post-accept/reject) states, others nothing:
+_selected_z_grads(::MCMCProposalState, ::AbstractVector{Bool}) = nothing
 
 function reset_rng_counters!(chain_state::MCMCChainState)
     rng = get_rng(get_context(chain_state))
@@ -363,7 +407,9 @@ function flush_samples!!(chain_state::MCMCChainState)
     (;current, output) = chain_state
 
     output[:] = @view current.x[:]
+    # x- and z-side weights must stay in sync:
     current.x.weight .= 0
+    current.z.weight .= 0
 
     return chain_state
 end
@@ -424,10 +470,22 @@ function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:Dens
         samples
     )
 
-    chain_state_trafo_tuned = @set chain_state_trafo_tuned.f_transform = f_transform_tuned
-    proposal = chain_state_trafo_tuned.proposal
-    proposal = set_proposal_transform!!(proposal, chain_state_trafo_tuned)
-    chain_state_trafo_tuned = mcmc_update_z_position!!(chain_state_trafo_tuned)
+    # Only an actual transform change requires the (comparatively expensive)
+    # proposal-target rebuild and z-position remap; transform tuners signal
+    # "no change" by returning the identical transform object:
+    if f_transform_tuned !== chain_state_trafo_tuned.f_transform
+        chain_state_trafo_tuned = @set chain_state_trafo_tuned.f_transform = f_transform_tuned
+        proposal = chain_state_trafo_tuned.proposal
+        proposal = set_proposal_transform!!(proposal, chain_state_trafo_tuned)
+        chain_state_trafo_tuned = mcmc_update_z_position!!(chain_state_trafo_tuned)
+        if transform_change_restarts_stepsize(trafo_tuner_state_new)
+            proposal, _, chain_state_trafo_tuned = mcmc_proposal_transform_committed!!(
+                proposal, state.proposal_tuner_state, chain_state_trafo_tuned
+            )
+        end
+    else
+        proposal = chain_state_trafo_tuned.proposal
+    end
 
     proposal_state_new, proposal_tuner_state_new, chain_state_new = mcmc_tune_proposal_post_cycle!!(
         proposal,
@@ -441,7 +499,7 @@ function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:Dens
     logds = [walker_smpls.logd for walker_smpls in samples]
     max_log_posterior = maximum(maximum(logds))
 
-    tuning_success = get_tuning_success(chain_state_new, proposal_state_new)
+    tuning_success = get_tuning_success(chain_state_new, proposal_state_new, proposal_tuner_state_new)
 
     if tuning_success
         chain_state_new.info = MCMCChainStateInfo(chain_state_new.info, tuned = true)
@@ -460,7 +518,7 @@ function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:Dens
     return mcmc_state_pt
 end
 
-function mcmc_tune_post_step!!(state::MCMCState, proposal::MCMCProposalState, p_accept::AbstractVector{<:Real})
+function mcmc_tune_post_step!!(state::MCMCState, proposal::MCMCProposalState, step_info::MCMCStepInfo)
     f_transform_tuned, trafo_tuner_state_new, chain_state_trafo_tuned = mcmc_tune_trafo_post_step!!(
         state.chain_state.f_transform,
         state.trafo_tuner_state,
@@ -468,20 +526,38 @@ function mcmc_tune_post_step!!(state::MCMCState, proposal::MCMCProposalState, p_
         proposal,
         state.chain_state.current,
         state.chain_state.proposed,
-        p_accept
+        step_info
     )
 
-    chain_state_trafo_tuned = @set chain_state_trafo_tuned.f_transform = f_transform_tuned
-    proposal = chain_state_trafo_tuned.proposal
-    proposal = set_proposal_transform!!(proposal, chain_state_trafo_tuned)
-    chain_state_trafo_tuned = mcmc_update_z_position!!(chain_state_trafo_tuned)
+    # Only an actual transform change requires the (comparatively expensive)
+    # proposal-target rebuild and z-position remap; transform tuners signal
+    # "no change" by returning the identical transform object:
+    stepsize_restart = false
+    if f_transform_tuned !== chain_state_trafo_tuned.f_transform
+        chain_state_trafo_tuned = @set chain_state_trafo_tuned.f_transform = f_transform_tuned
+        proposal = chain_state_trafo_tuned.proposal
+        proposal = set_proposal_transform!!(proposal, chain_state_trafo_tuned)
+        chain_state_trafo_tuned = mcmc_update_z_position!!(chain_state_trafo_tuned)
+        stepsize_restart = transform_change_restarts_stepsize(trafo_tuner_state_new)
+    else
+        proposal = chain_state_trafo_tuned.proposal
+    end
 
-    proposal_state_new, proposal_tuner_state_new, chain_state_new = mcmc_tune_proposal_post_step!!(
-        proposal,
-        state.proposal_tuner_state,
-        chain_state_trafo_tuned,
-        p_accept
-    )
+    proposal_state_new, proposal_tuner_state_new, chain_state_new = if stepsize_restart
+        # The step statistic was generated under the old geometry, discard it:
+        mcmc_proposal_transform_committed!!(
+            proposal,
+            state.proposal_tuner_state,
+            chain_state_trafo_tuned
+        )
+    else
+        mcmc_tune_proposal_post_step!!(
+            proposal,
+            state.proposal_tuner_state,
+            chain_state_trafo_tuned,
+            step_info
+        )
+    end
 
     chain_state_final = @set chain_state_new.proposal = proposal_state_new
 
@@ -494,11 +570,20 @@ function mcmc_tune_post_step!!(state::MCMCState, proposal::MCMCProposalState, p_
 end
 
 function mcmc_tuning_finalize!!(mcmc_state::MCMCState)
+    f_old = mcmc_state.chain_state.f_transform
     f_new, trafo_tuner_state_new, chain_state_new = mcmc_trafo_tuning_finalize!!(
-        mcmc_state.chain_state.f_transform,
+        f_old,
         mcmc_state.trafo_tuner_state,
         mcmc_state.chain_state
     )
+    # A finalizer may rebuild the transform object, but it must represent
+    # the same map of the same type: finalization runs none of the
+    # transform-commit synchronization (no z-remap, no proposal-target
+    # rebind, no step-size restart), so geometry changes are only valid
+    # through the commit path during tuning:
+    typeof(f_new) === typeof(f_old) || throw(ErrorException(
+        "Transform tuner finalization must not change the transform type ($(typeof(f_old)) -> $(typeof(f_new))), geometry changes must go through the transform-commit path during tuning"
+    ))
     @reset chain_state_new.f_transform = f_new
 
     proposal_new, proposal_tuner_state_new, chain_state_final = mcmc_proposal_tuning_finalize!!(
@@ -509,8 +594,11 @@ function mcmc_tuning_finalize!!(mcmc_state::MCMCState)
 
     @reset chain_state_final.proposal = proposal_new
 
-    @reset mcmc_state.trafo_tuner_state = trafo_tuner_state_new
-    @reset mcmc_state.proposal_tuner_state = proposal_tuner_state_new
+    # Tuning ends here for good: freezing the tuner states makes
+    # post-tuning stabilization and retained sampling run a fixed kernel,
+    # the transform and proposal parameters no longer adapt:
+    @reset mcmc_state.trafo_tuner_state = FrozenMCMCTransformTunerState()
+    @reset mcmc_state.proposal_tuner_state = FrozenMCMCProposalTunerState()
     @reset mcmc_state.chain_state = chain_state_final
 
     return mcmc_state
