@@ -8,6 +8,9 @@ The [Hamiltonian Monte Carlo](https://en.wikipedia.org/wiki/Hamiltonian_Monte_Ca
 (HMC) sampling algorithm, using the multinomial no-U-turn sampler (NUTS) to
 determine trajectory lengths dynamically.
 
+See [M. Betancourt, "A Conceptual Introduction to Hamiltonian Monte
+Carlo" (2017)](https://arxiv.org/abs/1701.02434).
+
 The Hamiltonian uses an identity mass matrix. Instead of adapting a mass
 matrix, BAT tunes the MCMC space transformation (see the `transform_tuning`
 option of [`TransformedMCMC`](@ref)); for affine transformations this is

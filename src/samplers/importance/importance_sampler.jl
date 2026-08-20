@@ -5,6 +5,10 @@
 
 Sample from Sobol sequence. Also see [Sobol.jl](https://github.com/stevengj/Sobol.jl).
 
+See [I. M. Sobol', "On the distribution of points in a cube and the
+approximate evaluation of integrals"
+(1967)](https://doi.org/10.1016/0041-5553(67)90144-9).
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```

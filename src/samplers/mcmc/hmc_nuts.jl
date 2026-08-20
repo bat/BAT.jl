@@ -7,9 +7,11 @@
 # References:
 #
 # * Hoffman & Gelman (2014), "The No-U-Turn Sampler: Adaptively Setting Path
-#   Lengths in Hamiltonian Monte Carlo"
+#   Lengths in Hamiltonian Monte Carlo",
+#   https://jmlr.org/papers/v15/hoffman14a.html
 # * Betancourt (2017), "A Conceptual Introduction to Hamiltonian Monte Carlo"
-#   (multinomial sampling and the generalized no-U-turn criterion, sec. A.4)
+#   (multinomial sampling and the generalized no-U-turn criterion, sec. A.4),
+#   https://arxiv.org/abs/1701.02434
 # * Stan reference implementation (biased progressive sampling and the
 #   additional U-turn checks between merged subtrees,
 #   https://github.com/stan-dev/stan/pull/2800)
@@ -192,7 +194,9 @@ end
 
 Heuristically search a leapfrog step size at position `q0` for which the
 single-step Metropolis acceptance ratio lies between 1/4 and 3/4 (see
-Hoffman & Gelman (2014), algorithm 4).
+[M. D. Hoffman and A. Gelman, "The No-U-Turn Sampler: Adaptively
+Setting Path Lengths in Hamiltonian Monte Carlo"
+(2014)](https://jmlr.org/papers/v15/hoffman14a.html), algorithm 4).
 
 Given a vector of positions instead of a single position, probes several
 of them and returns the smallest step size found.

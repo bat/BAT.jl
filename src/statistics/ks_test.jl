@@ -25,6 +25,9 @@ end
 
 Compares two `DensitySampleVector`s given by `samples_1` and `samples_2` applying the Kolmogorov-Smirnov test for all marginals.
 
+See [N. Smirnov, "Table for Estimating the Goodness of Fit of Empirical
+Distributions" (1948)](https://doi.org/10.1214/aoms/1177730256).
+
 `nsamples` specifies how to define a number of samples in the Kolmogorov-Smirnov
 distribution. The default value is `nsamples=:effective`, which uses the
 effective number of samples estimated by `bat_eff_sample_size`. The optimal keywords:

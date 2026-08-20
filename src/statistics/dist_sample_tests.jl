@@ -81,6 +81,8 @@ function dist_sample_qualities(
     uv = unshaped.(samples_v)
     ref_uv = unshaped.(ref_samples)
 
+    # Gelman-Rubin-style statistic (Gelman & Rubin 1992,
+    # https://doi.org/10.1214/ss/1177011136):
     W = mean(hcat(var(uv), var(ref_uv)), dims = 2)
     B = var(hcat(mean(uv), mean(ref_uv)), dims = 2)
     max_Rsq = maximum((W .+ B) ./ W)

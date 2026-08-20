@@ -87,8 +87,9 @@ export DriftCommitSchedule
 Tunes MCMC space transformations for gradient-based proposals (currently
 [`HamiltonianMC`](@ref)) by minimizing the empirical Fisher divergence of
 the transformed target to a standard normal distribution (following
-Seyboldt, Carlson & Carpenter, "Preconditioning Hamiltonian Monte Carlo by
-minimizing Fisher Divergence", 2026).
+[A. Seyboldt, E. L. Carlson and B. Carpenter, "Preconditioning
+Hamiltonian Monte Carlo by minimizing Fisher Divergence"
+(2026)](https://arxiv.org/abs/2603.18845)).
 
 For an affine transformation `x = A z + μ` with `G = A Aᵀ`, the optimum
 satisfies `G Cov(α) G = Cov(x)`, where `α = ∇x log(target)` is the target

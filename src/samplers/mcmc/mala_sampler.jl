@@ -6,6 +6,16 @@
 
 Metropolis adjusted Langevin sampling algorithm.
 
+See [G. O. Roberts and R. L. Tweedie, "Exponential convergence of
+Langevin distributions and their discrete approximations"
+(1996)](https://doi.org/10.2307/3318418). The default target
+acceptance rate and the dimension-dependent step scaling follow
+[G. O. Roberts and J. S. Rosenthal, "Optimal scaling of discrete
+approximations to Langevin diffusions"
+(1998)](https://doi.org/10.1111/1467-9868.00123); that optimality
+theory assumes Gaussian innovations, so with a non-Gaussian
+`proposaldist` consider setting `target_acceptance` explicitly.
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```
@@ -23,7 +33,8 @@ $(TYPEDFIELDS)
     },
     R<:Real
 } <: MCMCProposal
-    # TODO: MD, review these values
+    # 0.574 and the n^(-1/3) step scaling are the asymptotically optimal
+    # values of Roberts & Rosenthal (1998), see the docstring above:
     target_acceptance::TA = 0.574
     target_acceptance_int::TAI = (0.5, 0.65)
     proposaldist::Q = Normal()
@@ -104,7 +115,9 @@ end
 
 # The Langevin innovation acts at unit scale per dimension, the step
 # scale lives in τ (unlike random-walk proposals, whose distribution
-# carries the dimension-dependent optimal scale itself):
+# carries the dimension-dependent optimal scale itself). The
+# n_dims^(-1/3) scaling of τ is the Roberts & Rosenthal (1998)
+# optimal-scaling rate for Langevin diffusion approximations:
 function _mala_innovation_dist(d::UnivariateDistribution, n_dims::Integer)
     return product_distribution(fill(d, n_dims))
 end
@@ -133,7 +146,7 @@ function mcmc_propose_transition(
     n_walkers::Integer,
     genctx
 )
-    # https://en.wikipedia.org/wiki/Metropolis-adjusted_Langevin_algorithm
+    # MALA proposal (Roberts & Tweedie 1996), see the MALAProposal docstring.
 
     proposal_measure = batmeasure(proposal.proposaldist)
     (; target_gradient, τ) = proposal

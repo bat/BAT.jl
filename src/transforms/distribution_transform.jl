@@ -748,6 +748,12 @@ function dist_trafo_impl(trg_d::AnyReshapedDist, src_d::AnyReshapedDist, src_v::
 end
 
 
+# Transforming hierarchical distributions sequentially, conditioning
+# each secondary transform on the already-transformed primary variables,
+# is a Rosenblatt transformation: M. Rosenblatt, "Remarks on a
+# Multivariate Transformation" (1952),
+# https://doi.org/10.1214/aoms/1177729394
+
 function dist_trafo_impl(trg_d::StdMvDist, src_d::UnshapedHDist, src_v::AbstractVector{<:Real})
     src_v_primary, src_v_secondary = _hd_split(src_d, src_v)
     trg_d_primary = typeof(trg_d)(length(eachindex(src_v_primary)))

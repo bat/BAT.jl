@@ -11,8 +11,9 @@ Nesterov dual averaging, targeting the proposal's target acceptance rate:
 the leapfrog step size of [`HamiltonianMC`](@ref) and the Langevin step
 scale of [`MALAProposal`](@ref).
 
-See Hoffman & Gelman (2014), "The No-U-Turn Sampler: Adaptively Setting Path
-Lengths in Hamiltonian Monte Carlo", section 3.2.
+See [M. D. Hoffman and A. Gelman, "The No-U-Turn Sampler: Adaptively
+Setting Path Lengths in Hamiltonian Monte Carlo"
+(2014)](https://jmlr.org/papers/v15/hoffman14a.html), section 3.2.
 
 Constructors:
 
@@ -120,7 +121,9 @@ function mcmc_proposal_tuning_reinit!!(tuner::HMCStepSizeTunerState, chain_state
     _reset_stepsize_tuner!(tuner, chain_state, max_nsteps)
 end
 
-# Nesterov dual averaging update, returns the new step size:
+# Nesterov dual averaging update, returns the new step size
+# (Y. Nesterov, "Primal-dual subgradient methods for convex problems"
+# (2009), https://doi.org/10.1007/s10107-007-0149-x):
 function _dual_averaging_step!(tuner::DualAveragingTunerState, target_acceptance::Real, alpha::Real)
     (; gamma, t0, kappa) = tuner.tuning
     T = typeof(tuner.H_bar)

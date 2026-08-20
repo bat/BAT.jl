@@ -1,6 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# ToDo: Add literature references to AdaptiveAffineTuning docstring.
 """
     struct AdaptiveAffineTuning <: MCMCTransformTuning
 
@@ -8,6 +7,11 @@ Adaptive cycle-based MCMC tuning strategy.
 
 Adapts an affine space transformation based on the acceptance ratio and
 covariance of the previous samples.
+
+The cycle-based scale and acceptance-window scheme follows the BAT
+heritage implementation, see [O. Schulz et al., "BAT.jl: A Julia-Based
+Tool for Bayesian Inference"
+(2021)](https://doi.org/10.1007/s42979-021-00626-4).
 
 Constructors:
 

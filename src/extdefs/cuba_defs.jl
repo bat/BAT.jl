@@ -5,6 +5,9 @@
 
 VEGASIntegration integration algorithm.
 
+See [T. Hahn, "Cuba - a library for multidimensional numerical
+integration" (2005)](https://doi.org/10.1016/j.cpc.2005.01.010).
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```
@@ -40,6 +43,9 @@ export VEGASIntegration
 
 SuaveIntegration integration algorithm.
 
+See [T. Hahn, "Cuba - a library for multidimensional numerical
+integration" (2005)](https://doi.org/10.1016/j.cpc.2005.01.010).
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```
@@ -74,6 +80,9 @@ export SuaveIntegration
     struct DivonneIntegration <: IntegrationAlgorithm
 
 DivonneIntegration integration algorithm.
+
+See [T. Hahn, "Cuba - a library for multidimensional numerical
+integration" (2005)](https://doi.org/10.1016/j.cpc.2005.01.010).
 
 Constructors:
 
@@ -115,6 +124,9 @@ export DivonneIntegration
     struct CuhreIntegration <: IntegrationAlgorithm
 
 CuhreIntegration integration algorithm.
+
+See [T. Hahn, "Cuba - a library for multidimensional numerical
+integration" (2005)](https://doi.org/10.1016/j.cpc.2005.01.010).
 
 Constructors:
 

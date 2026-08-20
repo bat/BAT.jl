@@ -15,6 +15,9 @@ sampling algorithm with.
 Uses the UltraNest Python package, via
 [UltraNest.jl](https://github.com/bat/UltraNest.jl) (and PythonCall).
 
+See [J. Buchner, "UltraNest - a robust, general purpose Bayesian
+inference engine" (2021)](https://doi.org/10.21105/joss.03001).
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```
@@ -42,7 +45,9 @@ $(TYPEDFIELDS)
     "If efficiency goes down, dynamically draw more points from the region between ndraw_min and ndraw_max. If set to False, few points are sampled at once."
     draw_multiple::Bool = true
 
-    "Number of logZ estimators and MLFriends region bootstrap rounds."
+    "Number of logZ estimators and MLFriends region bootstrap rounds
+    (see [J. Buchner, \"A statistical test for Nested Sampling
+    algorithms\" (2016)](https://doi.org/10.1007/s11222-014-9512-y))."
     num_bootstraps::Int = 30
 
     "Minimum number of points to simultaneously propose. Increase this if your likelihood makes vectorization very cheap."

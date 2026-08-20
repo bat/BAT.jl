@@ -6,6 +6,11 @@
 
 Metropolis-Hastings MCMC sampling algorithm.
 
+The default target acceptance rate and proposal scaling follow
+[G. O. Roberts, A. Gelman and W. R. Gilks, "Weak convergence and
+optimal scaling of random walk Metropolis algorithms"
+(1997)](https://doi.org/10.1214/aoap/1034625254).
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```
@@ -22,7 +27,8 @@ $(TYPEDFIELDS)
         Distribution{<:Union{Univariate,Multivariate},Continuous}
     }
 } <: MCMCProposal
-    # TODO: MD, is this correct?
+    # 0.234 is the asymptotically optimal random-walk acceptance rate of
+    # Roberts, Gelman & Gilks (1997), see the docstring above:
     target_acceptance::TA = 0.234
     target_acceptance_int::TAI = (0.15, 0.35)
     proposaldist::Q = TDist(1.0)
@@ -89,7 +95,7 @@ end
 
 function _full_random_walk_proposal(d::Normal, n_dims::Integer)
     # Theoretical optimally proposal scale for random walk with gaussian proposal, according to
-    # [Gelman et al., Ann. Appl. Probab. 7 (1) 110 - 120, 1997](https://doi.org/10.1214/aoap/1034625254):
+    # [Roberts, Gelman & Gilks, Ann. Appl. Probab. 7 (1) 110 - 120, 1997](https://doi.org/10.1214/aoap/1034625254):
     proposal_scale = 2.38 / sqrt(n_dims)
 
     @argcheck mean(d) ≈ 0 

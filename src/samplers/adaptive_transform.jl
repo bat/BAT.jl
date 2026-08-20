@@ -173,6 +173,10 @@ approximations obtained by running the Pathfinder algorithm (see
 [`BAT.pathfinder_gaussian_fit`](@ref)) from each initial walker position.
 Requires the [`BATContext`](@ref) to include an `ADSelector`.
 
+See [L. Zhang, B. Carpenter, A. Gelman and A. Vehtari, "Pathfinder:
+Parallel quasi-Newton variational inference", JMLR 23(306)
+(2022)](https://jmlr.org/papers/v23/21-0889.html).
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```

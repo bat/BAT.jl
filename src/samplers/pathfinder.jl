@@ -2,14 +2,17 @@
 
 # Native single-path implementation of the Pathfinder algorithm (L. Zhang,
 # B. Carpenter, A. Gelman, A. Vehtari, "Pathfinder: Parallel quasi-Newton
-# variational inference", JMLR 23(306), 2022), reduced to what is needed to
+# variational inference", JMLR 23(306), 2022,
+# https://jmlr.org/papers/v23/21-0889.html), reduced to what is needed to
 # seed MCMC space transformations: the mean and covariance of the best local
 # Gaussian approximation along an L-BFGS trajectory. The inverse-Hessian
 # reconstruction and factorization follow the reference implementation
 # Pathfinder.jl (MIT License, Copyright (c) 2021 Seth Axen and contributors).
 
 
-# L-BFGS two-loop recursion, S/Y/invrho in minimization convention:
+# L-BFGS two-loop recursion, S/Y/invrho in minimization convention, see
+# J. Nocedal, "Updating quasi-Newton matrices with limited storage"
+# (1980), https://doi.org/10.1090/S0025-5718-1980-0572855-7:
 function _lbfgs_direction(g::AbstractVector{T}, S::AbstractVector, Y::AbstractVector, invrho::AbstractVector) where {T<:Real}
     q = copy(g)
     m = length(S)
@@ -29,8 +32,10 @@ function _lbfgs_direction(g::AbstractVector{T}, S::AbstractVector, Y::AbstractVe
     return q
 end
 
-# Strong-Wolfe line search (bracket and zoom, Nocedal & Wright alg.
-# 3.5/3.6) for minimizing phi(t) = -logd(x + t d), with phi(0) = phi0 and
+# Strong-Wolfe line search (bracket and zoom, J. Nocedal and
+# S. J. Wright, "Numerical Optimization", 2nd ed., Springer 2006,
+# algs. 3.5/3.6, https://doi.org/10.1007/978-0-387-40065-5)
+# for minimizing phi(t) = -logd(x + t d), with phi(0) = phi0 and
 # phi'(0) = dphi0 < 0. Returns (x_new, phi_new, grad_new) with grad in
 # maximization convention (the log-density gradient), or `nothing` on
 # failure. Non-finite values count as "too far". The curvature condition
@@ -158,7 +163,7 @@ end
 
 # Diagonal inverse-Hessian estimate, eq. 4.9 of Gilbert & Lemaréchal,
 # "Some numerical experiments with variable-storage quasi-Newton algorithms",
-# Mathematical Programming 45 (1989):
+# Mathematical Programming 45 (1989), https://doi.org/10.1007/BF01589113:
 function _gilbert_init(α, s, y)
     a = dot(y, Diagonal(α), y)
     b = dot(y, s)
@@ -169,7 +174,7 @@ end
 # Compact representation H = Diagonal(α) + B * D * Bᵀ of the L-BFGS inverse
 # Hessian estimate (theorem 2.2 of Byrd, Nocedal & Schnabel, "Representations
 # of quasi-Newton matrices and their use in limited memory methods",
-# Mathematical Programming 63, 1994):
+# Mathematical Programming 63, 1994, https://doi.org/10.1007/BF01582063):
 function _lbfgs_inverse_hessian(α::AbstractVector, S0::AbstractMatrix, Y0::AbstractMatrix, history_ind::Integer, history_length::Integer)
     J = history_length
     B = similar(α, size(α, 1), 2J)
@@ -268,7 +273,8 @@ end
 
 *BAT-internal, not part of stable public API.*
 
-Runs single-path Pathfinder (Zhang et al. 2022) from `x0` and returns the
+Runs single-path Pathfinder ([Zhang et al.
+(2022)](https://jmlr.org/papers/v23/21-0889.html)) from `x0` and returns the
 mean `μ`, dense covariance `Σ` and `elbo` of the maximum-ELBO local Gaussian
 approximation of the target along the L-BFGS trajectory, as a `NamedTuple`,
 or `nothing` if no approximation with a finite ELBO is found.

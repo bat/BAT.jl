@@ -4,9 +4,12 @@
     struct MCMCGlobalProposal <: MCMCProposal
 
 MCMC proposal algorithm for drawing samples from a global proposal
-distribution - independent from the current position of the MCMC walker.
+distribution - independent from the current position of the MCMC
+walker. This is an independence Metropolis-Hastings sampler, see
+[L. Tierney, "Markov Chains for Exploring Posterior Distributions"
+(1994)](https://doi.org/10.1214/aos/1176325750).
 
-If no distribution is passed by the user, the target is checked for the 
+If no distribution is passed by the user, the target is checked for the
 best known approximation for the posterior, e.g. the prior.
 
 Constructors:
