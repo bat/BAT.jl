@@ -93,6 +93,7 @@ export MCMCSampling
 Base.@deprecate_binding AbstractTransformTarget TransformIntent
 Base.@deprecate_binding PriorToNormal NormalBased
 Base.@deprecate_binding PriorToUniform UniformBased
+Base.@deprecate_binding OrderedResampling SystematicResampling
 
 
 @deprecate DensitySampleVector(

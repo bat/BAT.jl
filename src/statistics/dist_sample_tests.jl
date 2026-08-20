@@ -67,7 +67,7 @@ function dist_sample_qualities(
     nsamples::Integer = floor(Int, _default_min_ess(smpls, context, essalg)),
     ess::Integer = floor(Int, _default_min_ess(smpls, context, essalg) / 2)
 )
-    samples_v = samplesof(evalmeasure(smpls, OrderedResampling(nsamples = ess), context)).v
+    samples_v = samplesof(evalmeasure(smpls, SystematicResampling(nsamples = ess), context)).v
     samples_dist_logpdfs = logpdf.(Ref(dist), samples_v)
     ref_samples = samplesof(evalmeasure(batmeasure(dist), IIDSampling(nsamples = nsamples), context))
     ref_dist_logpdfs = ref_samples.logd

@@ -16,7 +16,7 @@ For example:
 
 ```julia
 bat_default(bat_sample, :algorithm, density::PosteriorMeasure) == RandomWalk()
-bat_default(bat_sample, Val(:algorithm), samples::DensitySampleVector) == OrderedResampling()
+bat_default(bat_sample, Val(:algorithm), samples::DensitySampleVector) == SystematicResampling()
 ```
 """
 function bat_default end

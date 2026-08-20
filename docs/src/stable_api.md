@@ -118,7 +118,6 @@ NoMCMCProposalTuning
 NoMCMCTransformTuning
 OptimAlg
 OptimizationAlg
-OrderedResampling
 PosteriorMeasure
 PriorSubstitution
 NormalBased
@@ -134,6 +133,7 @@ SokalAutocorLen
 SquareRootBinning
 SturgesBinning
 SuaveIntegration
+SystematicResampling
 ToRealVector
 TransformAlgorithm
 TransformedMaxDensity

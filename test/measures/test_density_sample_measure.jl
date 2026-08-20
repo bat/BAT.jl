@@ -90,7 +90,7 @@ using BAT: DensitySampleMeasure, samplesof, empiricalof, getess
         @test all(in(smpls.v), rsmpls.v)
         @test getess(empiricalof(em_rand)) <= getess(dsm)
 
-        em_ord = evalmeasure(dsm, OrderedResampling(nsamples = 500), context)
+        em_ord = evalmeasure(dsm, SystematicResampling(nsamples = 500), context)
         osmpls = samplesof(em_ord)
         @test all(==(1), osmpls.weight)
         @test all(in(smpls.v), osmpls.v)

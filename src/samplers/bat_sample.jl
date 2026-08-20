@@ -87,10 +87,16 @@ end
 
 
 """
-    struct OrderedResampling <: AbstractSamplingAlgorithm
+    struct SystematicResampling <: AbstractSamplingAlgorithm
 
-Efficiently resamples from a given series of samples, keeping the order of
-samples.
+Systematic resampling from a given series of samples, keeping the order
+of the samples: a single stratified uniform yields exactly `nsamples`
+draws in one order-preserving pass, with the lowest variance among the
+standard resampling schemes.
+
+See [G. Kitagawa, "Monte Carlo Filter and Smoother for Non-Gaussian
+Nonlinear State Space Models", J. Comput. Graph. Stat. 5(1)
+(1996)](https://doi.org/10.1080/10618600.1996.10474692).
 
 Can be used to efficiently convert weighted samples into samples with unity
 weights.
@@ -103,12 +109,12 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct OrderedResampling <: AbstractSamplingAlgorithm
+@with_kw struct SystematicResampling <: AbstractSamplingAlgorithm
     nsamples::Int = 10^5
 end
-export OrderedResampling
+export SystematicResampling
 
-function evalmeasure_impl(em::EvaluatedMeasure, algorithm::Union{RandResampling,OrderedResampling}, context::BATContext)
+function evalmeasure_impl(em::EvaluatedMeasure, algorithm::Union{RandResampling,SystematicResampling}, context::BATContext)
     emp = _empirical_rep(em)
     if isnothing(emp)
         throw(ArgumentError("No samples available for $(nameof(typeof(algorithm)))."))
@@ -122,19 +128,23 @@ function evalmeasure_impl(em::EvaluatedMeasure, algorithm::Union{RandResampling,
     end
 end
 
-function _resampled_empirical(p::BispacedMeasure, algorithm::OrderedResampling, context::BATContext)
-    resampled_idxs = _ordered_resampling_idxs(samplesof(p.main), algorithm.nsamples, context)
+function _resampled_empirical(p::BispacedMeasure, algorithm::SystematicResampling, context::BATContext)
+    resampled_idxs = _systematic_resampling_idxs(samplesof(p.main), algorithm.nsamples, context)
     return _unweighted_resampling_byidxs(p, resampled_idxs)
 end
 
-function _ordered_resampling_idxs(smpls::DensitySampleVector, n::Integer, context::BATContext)
+function _systematic_resampling_idxs(smpls::DensitySampleVector, n::Integer, context::BATContext)
     # ToDo: Use PSIS
 
     rng = get_rng(context)
     @assert axes(smpls) == axes(smpls.weight)
     W = smpls.weight
+    # A finite positive total is not enough: a single negative weight
+    # would make the cumulative weights non-monotone and invalidate the
+    # systematic-resampling semantics:
+    all(w -> isfinite(w) && w >= 0, W) || throw(ArgumentError("Sample weights must be finite and non-negative"))
     W_total = sum(W)
-    isfinite(W_total) && W_total > 0 || throw(ArgumentError("Sample weights must sum to a finite positive value"))
+    W_total > 0 || throw(ArgumentError("Sample weights must sum to a positive value"))
 
     # Systematic resampling (Kitagawa 1996): a single stratified uniform
     # yields exactly n draws in one order-preserving pass, with the lowest

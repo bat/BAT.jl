@@ -80,18 +80,22 @@ using StableRNGs: StableRNG
         @test all(isone, resamples.weight)
     end
 
-    @testset "OrderedResampling" begin #Creates new testset for OrderedResampling
+    @testset "SystematicResampling" begin
         dist = MvNormal([0.4, 0.6], [2.0 1.2; 1.2 3.0])
         result = @inferred(bat_sample(dist, IIDSampling(nsamples = 10^5), context)).result
 
-        @test isapprox(mean([length(@inferred(bat_sample(result, OrderedResampling(nsamples = 10), context)).result.v) for i in 1:10^3]), 10, rtol = 10^-1)
+        # Systematic resampling yields exactly the requested number of samples:
+        @test length(@inferred(bat_sample(result, SystematicResampling(nsamples = 10), context)).result.v) == 10
 
         @test @inferred(bat_sample(result, context)).result isa DensitySampleVector#Check that types are consistent
-        @test @inferred(bat_sample(result, BAT.OrderedResampling(), context)).result isa DensitySampleVector
-        @test bat_sample(result, BAT.OrderedResampling()).result isa DensitySampleVector
+        @test @inferred(bat_sample(result, BAT.SystematicResampling(), context)).result isa DensitySampleVector
+        @test bat_sample(result, BAT.SystematicResampling()).result isa DensitySampleVector
 
-        resamples = @inferred(bat_sample(result, OrderedResampling(nsamples = length(result)), context)).result
+        resamples = @inferred(bat_sample(result, SystematicResampling(nsamples = length(result)), context)).result
         @test result == resamples
+
+        # The old name remains as a deprecated alias:
+        @test BAT.OrderedResampling === SystematicResampling
     end
 end
 
