@@ -29,6 +29,7 @@ using BAT: _empty_chain_outputs, _append_chain_outputs, _append_walker_outputs
 using BAT: _transform_chain_outputs, _transform_walker_outputs, get_samples!
 using BAT: MCMCState, MCMCChainState
 using BAT: mcmc_target
+using BAT: BATDistMeasure, BATWeightedMeasure, getprior
 using BAT: _get_edges
 using BAT: transform_samples
 

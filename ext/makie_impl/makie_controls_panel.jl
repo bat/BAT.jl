@@ -30,14 +30,15 @@ const _UI_LAYOUT_COL_GAP = 16.0
 # contributes *nothing* toward an ancestor's own Auto() size determination,
 # and a single `nothing` anywhere in a multi-level chain makes the whole
 # chain's determination fail -- fragile in a way a direct formula isn't.
-function _controls_panel_width(picker_info::Union{NamedTuple,Nothing}, ui_box_pad::Real)
-    fixed_cols = _LBL_ROW_WIDTH + _UI_COL2_MENU_WIDTH + _LBL_STATS_WIDTH + _LBL_TRACE_WIDTH
+function _controls_panel_width(picker_info::Union{NamedTuple,Nothing}, ui_box_pad::Real; has_trace_col::Bool=true)
+    fixed_cols = _LBL_ROW_WIDTH + _UI_COL2_MENU_WIDTH + _LBL_STATS_WIDTH +
+                 (has_trace_col ? _LBL_TRACE_WIDTH : 0.0)
     picker_col_width = if isnothing(picker_info)
         0.0
     else
         max(_LBL_MARGINALS_WIDTH, _PICKER_LABEL_WIDTH + picker_info.N * _PICKER_CELL_WIDTH)
     end
-    n_cols = isnothing(picker_info) ? 4 : 5
+    n_cols = (isnothing(picker_info) ? 3 : 4) + (has_trace_col ? 1 : 0)
     return 2 * ui_box_pad + fixed_cols + picker_col_width + (n_cols - 1) * _UI_LAYOUT_COL_GAP
 end
 
@@ -71,7 +72,8 @@ function _build_fig(
     graph::ComputeGraph,
     gridlayout::Any,
     picker_info::Union{NamedTuple,Nothing}=nothing;
-    has_chain_info::Bool=false
+    has_chain_info::Bool=false,
+    has_trace_info::Bool=false,
 )
     # fig.layout's column 1 holds the grid (row 1), toggle_row (row 2), and
     # controls_layout (row 3), but only the *grid's own* width is driven by
@@ -79,9 +81,17 @@ function _build_fig(
     # controls_layout each get their own explicit, constant Fixed width
     # instead (_fix_panel_size! above), so the grid stays free to be as
     # large as the available viewport allows (particularly while the panel
-    # is collapsed) without being capped by the panel's own width need. Just
-    # a reasonable starting Figure size below, not load-bearing.
-    fig = Figure(size=(665, 850))
+    # is collapsed) without being capped by the panel's own width need.
+    #
+    # The starting size scales with the grid size (anchored to reproduce the
+    # long-standing (665, 850) default exactly at N_max=3): a fixed size
+    # left large grids (e.g. N_max=15) opening illegibly cramped, with axis
+    # labels overlapping into unreadable clutter until a manual resize!.
+    # Capped so very large grids don't request an absurd window -- resizing
+    # beyond the cap is still up to the user/window manager.
+    n_grid = size(graph[:live_map][], 1)
+    grid_growth = 170 * max(n_grid - 3, 0)
+    fig = Figure(size=(min(665 + grid_growth, 1600), min(850 + grid_growth, 1785)))
 
     plot(fig[1, 1], gridlayout)
 
@@ -139,7 +149,7 @@ function _build_fig(
     # this *is* what makes the anchor bar and the controls panel genuinely
     # constant-width, by construction. See _controls_panel_width's own
     # comment for why it's a direct formula rather than measured bottom-up.
-    panel_width = _controls_panel_width(picker_info, ui_box_pad)
+    panel_width = _controls_panel_width(picker_info, ui_box_pad; has_trace_col=has_trace_info)
     toggle_row = fig[2, 1] = GridLayout(3, 3)
     rowgap!(toggle_row, 0)
     colgap!(toggle_row, 0)
@@ -223,6 +233,7 @@ function _build_fig(
         ("Hexbin", Hexbin2D),
         ("QuantileKDE", QuantileKDE2D),
         ("KDE", KDE2D),
+        ("Errorbars", Errorbars2D),
     ]
     # Only offered when the plotted samples actually carry chain identity
     # (see _samples_have_chain_ids in makie_scatter.jl) -- meaningless (and
@@ -234,7 +245,11 @@ function _build_fig(
         ("Hist", Hist1D),
         ("KDE", KDE1D),
         ("QuantileKDE", QuantileKDE1D),
-        ("PDF", PDF1D),
+        # "Normal fit", not "PDF": the recipe overlays a Gaussian fitted by
+        # weighted mean/std -- calling that "PDF" implied it was the actual
+        # posterior density.
+        ("Normal fit", PDF1D),
+        ("Errorbars", Errorbars1D),
     ]
 
     # graph[:upper_recipe][]/etc. might not actually be present in `options`
@@ -266,20 +281,49 @@ function _build_fig(
         default=default_lower
     )
 
-    curr_idxs = graph[:current_idxs][]
-    # curr_idxs[1] being non-empty only means the (single) chain has at least
-    # one walker -- it says nothing about whether any samples have actually
-    # been produced yet. Without also checking current_idx > 0, this builds a
-    # Slider with an empty 1:0 range (crashes) whenever _build_fig runs before
-    # any samples exist, which for the live path is always (it's called
-    # synchronously at figure construction, before the first async flush).
-    show_slider = length(curr_idxs) == 1 && !isempty(curr_idxs[1]) && graph[:current_idx][] > 0
-    # The index slider lives in toggle_row (always visible, right of the
-    # collapse button) rather than inside ui_layout/controls_layout, per
-    # explicit request -- unlike the rest of the recipe/stats controls, it
-    # should never disappear when those are collapsed.
-    if show_slider
-        # "Current Index" sits in its own row directly above the slider
+    # Samples must already exist for the slider to make sense (an empty 1:0
+    # slider range crashes) -- true at build time for the static path, never
+    # for the live path, whose figure is built before the first flush (the
+    # listener's teardown retrofits the slider once sampling is done). No
+    # chain/walker-count restriction: the window is defined in real MCMC
+    # steps and applied per walker (:window_steps/_step_window_rows in
+    # makie_compute_graph.jl), well-defined for any number of chains and
+    # walkers.
+    show_slider = graph[:max_step][] > 0
+
+    # Collapse toggle for the whole controls block. Created here (before the
+    # slider machinery below) since the slider spans the button's rows and
+    # repositions it. Placed assuming no slider first: the button's column
+    # claims the row's full width so its halign=:left is flush against the
+    # true left edge instead of a shrink-wrapped, auto-centered one --
+    # add_index_slider! (below) undoes both when/if the slider appears.
+    collapse_button = Button(fig, label="☰", halign=:left, valign=:top)
+    toggle_row_content[1, 1] = collapse_button
+    colsize!(toggle_row_content, 1, Relative(1))
+
+    # Builds the "Step Range" IntervalSlider row into toggle_row (always
+    # visible, right of the collapse button, never hidden by the controls
+    # collapse -- per explicit request). Invoked immediately for the static
+    # path (samples already exist), or retroactively at the end of a live
+    # run via the returned hook: the live figure is built before any samples
+    # exist, so it can never qualify at build time -- previously that meant
+    # a finished live run simply had no way to review its history in place.
+    slider_added = Ref(false)
+    function add_index_slider!()
+        slider_added[] && return nothing
+        slider_added[] = true
+
+        # Undo the no-slider layout for the button (see its comment above):
+        # column 1 shrinks back to the button's own width, and the button
+        # spans both slider rows so its top/bottom edges land exactly on the
+        # label's top and the slider's bottom. `height=Relative(1)` (not the
+        # Auto() default) makes it *fill* that combined span exactly rather
+        # than centering its own natural height within it.
+        colsize!(toggle_row_content, 1, Auto())
+        collapse_button.height[] = Relative(1)
+        toggle_row_content[1:2, 1] = collapse_button
+
+        # "Step Range" sits in its own row directly above the slider
         # (row 1), the slider itself in row 2. The label spans *both*
         # column 2 (the slider) and column 3 (the value display) rather than
         # just column 2 -- deliberately, so its centered position (halign
@@ -291,13 +335,17 @@ function _build_fig(
         # "500" vs "50000"), since that changes how the fixed remaining
         # width splits between columns 2 and 3 even though their *union*
         # doesn't move -- confirmed empirically.
-        lbl_idx_title = Label(toggle_row_content[1, 2:3], "Index Range")
-        # IntervalSlider (not Slider): shows only the samples between a
-        # start and an end index, rather than always from sample 1 up to a
-        # single cutoff, per explicit request. startvalues=(1, current_idx)
-        # matches the old Slider's own initial state exactly (everything
-        # revealed, from the very beginning).
-        slider_curr_idx = IntervalSlider(toggle_row_content[2, 2], range=1:graph[:current_idx][], startvalues=(1, graph[:current_idx][]))
+        lbl_idx_title = Label(toggle_row_content[1, 2:3], "Step Range")
+        # IntervalSlider over REAL MCMC STEPS (1:max_step, not stored-row
+        # indices -- for repetition-weighted samples the step count exceeds
+        # the row count): shows only the samples whose dwell intersects the
+        # selected step window, time-aligned across all walkers and chains.
+        # startvalues = the full range (everything shown). 0-based: MCMC
+        # step numbering starts at 0 (the initial position), so a window
+        # starting at step 1 would correctly-but-surprisingly exclude each
+        # walker's initial sample. Range read at call time, so the post-run
+        # retrofit sees the final step count.
+        slider_curr_idx = IntervalSlider(toggle_row_content[2, 2], range=0:graph[:max_step][], startvalues=(0, graph[:max_step][]))
         # No gap between the label/slider rows -- and each pinned to the
         # outer edge of its own row (valign=:top / :bottom) rather than the
         # default :center, which would otherwise leave slack split above the
@@ -305,7 +353,7 @@ function _build_fig(
         # default :center, the slider's bottom sat ~5px short of the button's
         # bottom, even with the row gap zeroed). Pinning outward is what
         # makes the label's top and the slider's bottom land exactly on the
-        # button's own top/bottom edges below.
+        # button's own top/bottom edges.
         rowgap!(toggle_row_content, 1, 0)
         lbl_idx_title.valign[] = :top
         slider_curr_idx.valign[] = :bottom
@@ -338,13 +386,17 @@ function _build_fig(
         # Column 1 (button) and 3 (value label) are left at their Auto()
         # default, so they size to their own content and column 2 (the only
         # one reporting no natural width) absorbs whatever's left over.
-    else
-        # No slider to fill the remaining width in this case -- the button's
-        # own column then needs to explicitly claim the row's full width for
-        # its halign=:left to be flush against the true left edge instead of
-        # a shrink-wrapped, auto-centered one (same reasoning as above).
-        colsize!(toggle_row_content, 1, Relative(1))
+
+        # One tuple input in real MCMC steps, applied per walker inside
+        # :flat_samples (see _step_window_rows). The slider no longer writes
+        # :current_idxs -- that stays pure "rows that exist" bookkeeping
+        # owned by registration/flush.
+        on(slider_curr_idx.interval) do (start_step, end_step)
+            update!(graph, window_steps=(Int(start_step), Int(end_step)))
+        end
+        return nothing
     end
+    show_slider && add_index_slider!()
 
     lbl_upper = Label(fig, "Upper")
     ui_layout[2, 1] = lbl_upper
@@ -365,15 +417,6 @@ function _build_fig(
     toggle_diag = Toggle(ui_layout[3, 3], active=false)
     toggle_lower = Toggle(ui_layout[4, 3], active=false)
 
-    # Trace2D has no diagonal counterpart (see show_trace_upper/lower's own
-    # comment in _init_compute_graph) -- row 3 (Diagonal) of this column is
-    # deliberately left unassigned rather than given a toggle that would do
-    # nothing.
-    lbl_trace = Label(fig, "Trace overlay")
-    ui_layout[1, 4] = lbl_trace
-    toggle_trace_upper = Toggle(ui_layout[2, 4], active=false)
-    toggle_trace_lower = Toggle(ui_layout[4, 4], active=false)
-
     # Collected here (rather than only living as local variables) so the
     # whole-controls collapse toggle below can show/hide every one of them
     # together -- one mechanism, not one per widget.
@@ -381,26 +424,41 @@ function _build_fig(
         lbl_upper, lbl_diag, lbl_lower, lbl_recipe,
         menu_upper, menu_diagonal, menu_lower,
         lbl_stats, toggle_upper, toggle_diag, toggle_lower,
-        lbl_trace, toggle_trace_upper, toggle_trace_lower,
     ]
+
+    # Trace-overlay column only for sample sources that can actually drive
+    # Trace2D (chainid AND stepno -- see _samples_have_trace_info in
+    # makie_trace.jl): for anything else the toggles rendered but silently
+    # did nothing. Row 3 (Diagonal) stays unassigned even when present -- a
+    # trace is an inherently 2D concept. Without this column, the vsel
+    # picker moves up to column 4 and the panel-width estimate drops the
+    # trace column's share (_controls_panel_width's has_trace_col).
+    if has_trace_info
+        lbl_trace = Label(fig, "Trace overlay")
+        ui_layout[1, 4] = lbl_trace
+        toggle_trace_upper = Toggle(ui_layout[2, 4], active=false)
+        toggle_trace_lower = Toggle(ui_layout[4, 4], active=false)
+        append!(ui_blocks, Any[lbl_trace, toggle_trace_upper, toggle_trace_lower])
+        on(toggle_trace_upper.active) do is_live
+            update!(graph, show_trace_upper=is_live)
+        end
+        on(toggle_trace_lower.active) do is_live
+            update!(graph, show_trace_lower=is_live)
+        end
+    end
 
     colsize!(ui_layout, 1, Auto())
     # The same constant _controls_panel_width's estimate uses -- a bare
     # literal here could silently drift from the width formula.
     colsize!(ui_layout, 2, _UI_COL2_MENU_WIDTH)
     colsize!(ui_layout, 3, Auto())
-    colsize!(ui_layout, 4, Auto())
+    # Only when the trace widgets above actually created column 4: the vsel
+    # picker (which otherwise occupies it) is built further below, so the
+    # column doesn't exist yet here -- and its size is left at the Auto()
+    # default anyway, exactly as the picker's column always was.
+    has_trace_info && colsize!(ui_layout, 4, Auto())
 
     rowsize!(controls_layout, 2, Auto())
-
-    if show_slider
-        # show_slider guarantees a single chain, but that chain may still have
-        # multiple walkers; pan all of them to the same (start, end) window.
-        on(slider_curr_idx.interval) do (start_idx, end_idx)
-            n_walkers_here = length(graph[:current_idxs][][1])
-            update!(graph, current_idxs=[fill(end_idx, n_walkers_here)], window_start=start_idx)
-        end
-    end
 
     on(menu_upper.selection) do selected_recipe
         update!(graph, upper_recipe=selected_recipe)
@@ -424,44 +482,17 @@ function _build_fig(
         update!(graph, show_stats_lower=is_live)
     end
 
-    on(toggle_trace_upper.active) do is_live
-        update!(graph, show_trace_upper=is_live)
-    end
-
-    on(toggle_trace_lower.active) do is_live
-        update!(graph, show_trace_lower=is_live)
-    end
-
     rescale_picker! = nothing
     lbl_marginals = nothing
     if !isnothing(picker_info)
         (; N, N_max, initial_vsel, apply_vsel!) = picker_info
         picker_blocks, rescale_picker!, lbl_marginals = _build_vsel_picker!(
-            fig, ui_layout, graph, N, N_max, initial_vsel, apply_vsel!, 5
+            fig, ui_layout, graph, N, N_max, initial_vsel, apply_vsel!,
+            has_trace_info ? 5 : 4,
         )
         append!(ui_blocks, picker_blocks)
     end
 
-    # Single toggle that collapses/expands the *entire* controls block
-    # (recipe/stats menus and the always-visible vsel picker matrix) down to
-    # zero height, so the main grid can use the full window when the UI
-    # isn't needed.
-    collapse_button = Button(fig, label="☰", halign=:left, valign=:top)
-    if show_slider
-        # Spans both of the "Current Index" label/slider rows so its own top
-        # and bottom edges land exactly on theirs. `height=Relative(1)` (not
-        # the Auto() default) is what makes it *fill* that combined span
-        # exactly rather than centering its own natural height within it --
-        # Relative sizing uses the assigned bbox height directly as-is, so
-        # there's no leftover space left to offset the alignment. Only safe
-        # here because rows 1/2 have other content (the label/slider) to
-        # derive a real height from; with no slider, the button is the only
-        # content in row 1 and needs its own natural (Auto) height instead.
-        collapse_button.height[] = Relative(1)
-        toggle_row_content[1:2, 1] = collapse_button
-    else
-        toggle_row_content[1, 1] = collapse_button
-    end
     # Starts collapsed (false) per explicit request -- update=true is what
     # makes the handler actually apply that at construction time, since `on`
     # only fires on *future* notifications by default and every ui_block
@@ -510,7 +541,12 @@ function _build_fig(
         controls_visible[] = !controls_visible[]
     end
 
-    return fig
+    # add_index_slider! is exposed so the live path can retrofit the index
+    # slider once sampling finishes -- see its definition above. Idempotent
+    # (latches on first call), and a single lexical closure site, so the
+    # static path's build-time call warms the same compiled specialization
+    # the live teardown call uses.
+    return (fig=fig, add_index_slider! = add_index_slider!)
 end
 
 # Pure decision logic, kept separate from the widget wiring below so it can be
@@ -694,7 +730,11 @@ function _build_vsel_picker!(
                 checkboxes[(i, j)] = cb
                 push!(all_blocks, cb)
             else
-                bx = Box(fig, color=:gray70, width=20, height=20)
+                # Widget-shade from the figure's ACTUAL background (two ladder
+                # steps, like the themed widgets) instead of a hardcoded
+                # :gray70, which sat far outside the dark theme's shade ladder
+                # and rendered as bright out-of-place squares there.
+                bx = Box(fig, color=_panel_bg_color(_panel_bg_color(fig.scene.backgroundcolor[])), width=20, height=20)
                 picker_layout[i+1, j+1] = bx
                 push!(all_blocks, bx)
             end

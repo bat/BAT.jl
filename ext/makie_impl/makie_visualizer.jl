@@ -56,8 +56,33 @@ function BAT.init_visualizer!(
     vis::BATVisualizer{BATMakieVisualization};
     mcmc_states::Vector{<:MCMCState},
     outputs,#::Vector{Vector{DensitySampleVector}},
-    f_pretransform::Function
+    f_pretransform::Function,
+    # The ORIGINAL, untransformed measure (bat_sample's own `m`), the space
+    # the displayed samples live in -- see the call site in mcmc_sample.jl.
+    # nothing (a caller predating this kwarg) falls back to the transformed
+    # mcmc target for the domain estimate and disables support-derived KDE
+    # boundary correction.
+    target=nothing
 )
+    # A BATVisualizer instance is single-use: its content (compute graph,
+    # sample buffer, listener task, the displayed figure) IS the live state
+    # of one specific run. Reusing it would append a second run's chains
+    # onto the first run's graph, and -- since teardown latches is_live to
+    # false -- leave the new run's buffer permanently undrained, deadlocking
+    # the sampling threads on backpressure. Fail loudly up front instead
+    # (previously reuse surfaced as an obscure "deepcopy of Modules not
+    # supported" crash in bat_sample's provenance deepcopy of the context).
+    # content === nothing means a deepcopied (stripped) visualizer -- e.g. a
+    # context recovered from a result's own provenance info.
+    if isnothing(vis.content) || !vis.content.is_live[] || !isempty(vis.content.chain_ids)
+        throw(ArgumentError(
+            "This BATVisualizer has already been used by a previous bat_sample run " *
+            "(or is a stripped copy from a deepcopied BATContext, e.g. out of a " *
+            "result's provenance info) -- create a fresh " *
+            "BATVisualizer(BATMakieVisualization(...)) and a fresh BATContext " *
+            "carrying it for each run."))
+    end
+
     warmup_makie_shaders()
 
     vis.content.n_dof[] = totalndof(varshape(mcmc_target(mcmc_states[1])))
@@ -65,9 +90,22 @@ function BAT.init_visualizer!(
     # Fixed axis-limit/histogram-bin-edge domain, estimated from the prior
     # before any real samples exist (see _estimate_prior_domain) -- set here,
     # before the figure is first built, so the very first render already uses
-    # it rather than some other placeholder.
-    domain_lo, domain_hi = _estimate_prior_domain(mcmc_states, vis.content.n_dof[])
-    update!(vis.content.graph, domain_lo=domain_lo, domain_hi=domain_hi)
+    # it rather than some other placeholder. Estimated from the original
+    # measure when available (see the `target` kwarg above -- the transformed
+    # fallback lives in a DIFFERENT space than the displayed samples under
+    # the default PriorToNormal pretransform, so its domain is only a
+    # placeholder until real samples widen past it). The prior's hard support
+    # bounds (KDE boundary reflection, see _support_bounds) are only
+    # derivable from the original measure; without it they stay at the
+    # empty = unknown = no-correction default.
+    n_dof = vis.content.n_dof[]
+    domain_lo, domain_hi = _estimate_prior_domain(
+        isnothing(target) ? mcmc_target(mcmc_states[1]) : target, n_dof)
+    support_lo, support_hi = isnothing(target) ?
+        (Float64[], Float64[]) : _support_bounds(target, n_dof)
+    update!(vis.content.graph,
+        domain_lo=domain_lo, domain_hi=domain_hi,
+        support_lo=support_lo, support_hi=support_hi)
 
     for (i, state) in enumerate(mcmc_states)
         register_state_for_vis!(vis, state, _transform_walker_outputs(f_pretransform, outputs[i]))
@@ -93,11 +131,18 @@ function BAT.init_visualizer!(
     # untransformed first chain/walker's output is equivalent to checking
     # what's actually registered.
     has_chain_info = _samples_have_chain_ids(outputs[1][1])
+    has_trace_info = _samples_have_trace_info(outputs[1][1])
+
+    # Captured for the post-run index-slider retrofit in the listener's
+    # teardown below (a Ref since the figure is built inside the with_theme
+    # block but the hook is needed on the listener task later).
+    add_index_slider! = Ref{Any}(nothing)
 
     with_theme(vis.backend.dark ? bat_theme_dark() : bat_theme()) do
         gridlayout = _init_gridlayout(graph, vis.backend.N_max)
-        fig = _build_fig(graph, gridlayout, picker_info; has_chain_info=has_chain_info)
-        display(fig)
+        built = _build_fig(graph, gridlayout, picker_info; has_chain_info=has_chain_info, has_trace_info=has_trace_info)
+        display(built.fig)
+        add_index_slider![] = built.add_index_slider!
     end
 
     # force=false: only flush once effective_batch_size[] samples are buffered
@@ -246,6 +291,21 @@ function BAT.init_visualizer!(
             # that gap before the task returns.
             try
                 flush_buffer!(force=true)
+
+                # Post-run step-slider retrofit: the live figure is built
+                # before any samples exist, so it can never qualify for the
+                # slider at build time (show_slider needs max_step > 0).
+                # Once sampling has finished the figure is effectively
+                # static -- the step window is defined per walker in real
+                # MCMC steps, so every completed run qualifies, any number
+                # of chains and walkers. with_theme: widgets created now
+                # would otherwise pick up the ambient (light) global theme
+                # regardless of this run's dark setting.
+                if graph[:max_step][] > 0
+                    with_theme(vis.backend.dark ? bat_theme_dark() : bat_theme()) do
+                        add_index_slider![]()
+                    end
+                end
             catch e
                 @error "Error on final live Makie visualization flush" exception = (e, catch_backtrace())
             end

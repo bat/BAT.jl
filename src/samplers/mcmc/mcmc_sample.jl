@@ -139,7 +139,12 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
     # Activated before burn-in so chain initialization/tuning is visible live too;
     # note that seeing real burn-in samples (rather than an empty grid until the
     # main run starts) requires samplingalg.store_burnin = true.
-    init_visualizer!(context.visualizer; mcmc_states=mcmc_states, outputs=chain_outputs, f_pretransform=f_pretransform)
+    # `target` is the ORIGINAL measure `m`, not transformed_m: displayed
+    # samples are mapped back through inverse(f_pretransform) into original
+    # space, so anything the visualizer derives from the measure itself
+    # (prior-based domain estimate, hard support bounds) must come from the
+    # untransformed measure to live in the same space as the displayed data.
+    init_visualizer!(context.visualizer; mcmc_states=mcmc_states, outputs=chain_outputs, f_pretransform=f_pretransform, target=m)
 
     mcmc_states = mcmc_burnin!(
         samplingalg.store_burnin ? chain_outputs : nothing,

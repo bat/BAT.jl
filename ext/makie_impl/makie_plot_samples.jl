@@ -16,25 +16,68 @@ function _setup_static_graph(
         vsel::AbstractVector{<:Integer},
         N_max::Integer,
         triagonal_config::NamedTuple,
-        diagonal_config::NamedTuple,
+        diagonal_config::NamedTuple;
+        # Hard prior-support bounds for KDE boundary reflection -- a completed
+        # DensitySampleVector doesn't carry its measure, so the static path
+        # can only know them if the caller says (a measure/prior/Distribution,
+        # or explicit per-dim (lo, hi) pairs -- see _support_vectors). The
+        # default means no correction, exactly the pre-existing rendering.
+        support=nothing,
 )
         graph = _init_compute_graph(recipes, triagonal_config, diagonal_config, N_max)
 
         unshaped_samples = unshaped.(samples)
-        samples_graph = graph[:samples][]
-        push!(samples_graph, [unshaped_samples])
 
+        # Registered per (chainid, walkerid) -- the same chains-of-walkers
+        # structure the live path uses -- rather than as one merged
+        # pseudo-walker: BAT's merged multi-chain result is chain-block-
+        # concatenated (all of chain A's rows, then chain B's, ...), so a
+        # single shared row window used to reveal one chain's entire block
+        # before the next chain's -- the root cause of Trace2D's historical
+        # "frozen chains" bug (once worked around with a whole family of
+        # untruncated _full graph nodes, since removed) and of the old
+        # single-chain-only slider gate. With per-walker registration, the
+        # step window (:window_steps) applies to each walker's own
+        # chronologically-ordered rows, which is well-defined for any number
+        # of chains and walkers. Groups are MATERIALIZED (getindex, one-time
+        # O(n) at plot construction) rather than index-vector views, so each
+        # registered walker has exactly the same concrete structure
+        # (.v.data-backed DensitySampleVector) as a live walker. Samples
+        # without chain identity register as one chain/one walker, with row
+        # index standing in for the step number downstream.
+        samples_graph = graph[:samples][]
         current_idxs_graph = graph[:current_idxs][]
-        push!(current_idxs_graph, [length(samples)])
+        info_T = eltype(unshaped_samples.info)
+        if hasfield(info_T, :chainid)
+            wid_field = hasfield(info_T, :walkerid) ? :walkerid :
+                        (hasfield(info_T, :walker) ? :walker : nothing)
+            groups = Dict{Tuple{Int32,Int32},Vector{Int}}()
+            for (k, inf) in pairs(unshaped_samples.info)
+                key = (Int32(inf.chainid), isnothing(wid_field) ? Int32(0) : Int32(getfield(inf, wid_field)))
+                push!(get!(() -> Int[], groups, key), k)
+            end
+            for cid in sort!(unique(map(first, collect(keys(groups)))))
+                wids = sort!([w for (c, w) in keys(groups) if c == cid])
+                walkers = [unshaped_samples[groups[(cid, w)]] for w in wids]
+                push!(samples_graph, walkers)
+                push!(current_idxs_graph, [length(w) for w in walkers])
+            end
+        else
+            push!(samples_graph, [unshaped_samples])
+            push!(current_idxs_graph, [length(samples)])
+        end
 
         n_dof = totalndof(varshape(samples))
         domain_lo, domain_hi = _domain_from_samples(unshaped_samples.v.data, n_dof)
+        support_lo, support_hi = _support_vectors(support, n_dof)
 
         update!(graph;
                 samples=samples_graph,
                 current_idxs=current_idxs_graph,
                 domain_lo=domain_lo,
                 domain_hi=domain_hi,
+                support_lo=support_lo,
+                support_hi=support_hi,
                 idxs=_clamp_vsel(vsel, n_dof, N_max),
         )
         return graph, n_dof
@@ -47,6 +90,7 @@ function Makie.convert_arguments(
         vsel::Vector{<:Integer}=[1, 2, 3],
         N_max::Integer=3,
         trace_nsteps::Integer=20,
+        support=nothing,
 )
         # Warms up backend-specific (CairoMakie/GLMakie) rendering of the raw
         # plot primitive types -- previously only called from the live path,
@@ -61,7 +105,8 @@ function Makie.convert_arguments(
         graph, _ = _setup_static_graph(
                 samples, recipes, vsel, N_max,
                 _default_makie_triagonal_config(trace_nsteps=trace_nsteps),
-                _default_makie_diagonal_config(),
+                _default_makie_diagonal_config();
+                support=support,
         )
 
         gridlayout = _init_gridlayout(graph, N_max)
@@ -77,6 +122,10 @@ function BAT.bat_makie_plot(
         N_max::Integer=3;
         dark::Bool=false,
         trace_nsteps::Integer=20,
+        # Hard prior-support bounds for KDE boundary reflection: a measure/
+        # prior/Distribution, or a vector of per-dim (lo, hi) pairs -- see
+        # _support_vectors. Default: unknown, no correction.
+        support=nothing,
 )
         # TODO: MD, Discuss config handling and passing of user attribute overwrites
 
@@ -88,7 +137,8 @@ function BAT.bat_makie_plot(
         graph, n_dof = _setup_static_graph(
                 samples, recipes, vsel, N_max,
                 _default_makie_triagonal_config(trace_nsteps=trace_nsteps),
-                _default_makie_diagonal_config(),
+                _default_makie_diagonal_config();
+                support=support,
         )
 
         picker_info = (
@@ -100,8 +150,10 @@ function BAT.bat_makie_plot(
 
         with_theme(dark ? bat_theme_dark() : bat_theme()) do
                 gridlayout = _init_gridlayout(graph, N_max)
-                fig = _build_fig(graph, gridlayout, picker_info; has_chain_info=_samples_have_chain_ids(samples))
-                display(fig)
+                built = _build_fig(graph, gridlayout, picker_info;
+                        has_chain_info=_samples_have_chain_ids(samples),
+                        has_trace_info=_samples_have_trace_info(samples))
+                display(built.fig)
         end
         return nothing
 end
@@ -251,6 +303,13 @@ function BAT.bat_theme()
                 Toggle=(
                         framecolor_inactive=widget_color,
                 ),
+                # Checkbox previously had no theme block in either variant,
+                # leaving Makie's defaults regardless of theme; the unchecked
+                # box now follows the same widget shade ladder as every other
+                # panel widget.
+                Checkbox=(
+                        checkboxcolor_unchecked=widget_color,
+                ),
                 # Hist1D (and any other recipe drawing a Stairs outline atop
                 # its own fill, e.g. QuantileHist1D's stairs_data) doesn't
                 # show this outline by default in the light theme -- purely
@@ -320,6 +379,17 @@ function BAT.bat_theme_dark()
                         buttoncolor=color_hover,
                         framecolor_active=color_active,
                         framecolor_inactive=color_inactive
+                ),
+                # Previously unthemed: every unchecked cell of the vsel
+                # picker rendered as Makie's default white square against the
+                # near-black panel. Colors from the same ladder/accents as
+                # the other dark widgets.
+                Checkbox=(
+                        checkboxcolor_unchecked=color_inactive,
+                        checkboxcolor_checked=color_active,
+                        checkboxstrokecolor_unchecked=color_active,
+                        checkboxstrokecolor_checked=color_active,
+                        checkmarkcolor_checked=text_color,
                 ),
                 Stairs=(
                         visible=true,

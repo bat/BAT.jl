@@ -3,7 +3,7 @@
 # Fresh values per call, deliberately not shared consts -- see the
 # change-tracking rationale above _empty_scatter2d_primitives
 # (makie_scatter.jl).
-_empty_hist1d_primitives() = (centers=Vector{Float64}(), weights=Vector{Float64}(), widths=Vector{Float64}())
+_empty_hist1d_primitives() = (centers=Vector{Float64}(), weights=Vector{Float64}(), edges=Vector{Float64}())
 _empty_hist2d_primitives() = (centers_x=Vector{Float64}(), centers_y=Vector{Float64}(), weights=Matrix{Float64}(undef, 0, 0))
 _empty_quantilehist1d_primitives() = (xy_data=Vector{Point{2,Float32}}(), widths=Vector{Float64}(), stairs_data=Vector{Point{2,Float32}}(), bin_colors=Vector{RGBA{Float32}}())
 _empty_quantilehist2d_primitives() = (centers_x=Vector{Float64}(), centers_y=Vector{Float64}(), color_grid=Matrix{RGBA{Float32}}(undef, 0, 0))
@@ -74,7 +74,14 @@ function _get_bin_centers(hist::Histogram)
     edges = hist.edges
     dims = ndims(hist.weights)
 
-    centers = [[edges[d][i] + 0.5 * (edges[d][i+1] - edges[d][i]) for i in 1:length(edges[d])-1] for d in 1:dims]
+    # Explicitly typed comprehensions: an untyped comprehension over <= 1
+    # edges infers Vector{Any}, which would violate the graph's TypedEdge
+    # contract (live/dead primitive types must match exactly) the moment a
+    # degenerate edge vector ever reaches a live cell.
+    centers = Vector{Float64}[
+        Float64[edges[d][i] + 0.5 * (edges[d][i+1] - edges[d][i]) for i in 1:length(edges[d])-1]
+        for d in 1:dims
+    ]
 
     return centers
 end
@@ -105,7 +112,9 @@ function _hist1d_output(hist::Histogram, normalization::Symbol)
     # codebase) it would keep the input samples' own weight eltype (Int64 by
     # default), mismatching _empty_hist1d_primitives()'s declared Vector{Float64}
     # the same way KDE1D/KDE2D/QuantileKDE2D's StepRangeLen mismatch did.
-    return (centers=centers[1], weights=Float64.(h_norm.weights), widths=collect(h_norm.edges[1]))
+    # `edges` (length nbins+1), previously misleadingly named `widths` --
+    # QuantileHist1D's sibling field of that name holds genuine bin widths.
+    return (centers=centers[1], weights=Float64.(h_norm.weights), edges=collect(h_norm.edges[1]))
 end
 
 function _hist2d_output(hist::Histogram, normalization::Symbol)
@@ -200,14 +209,14 @@ function compose_plotspecs(
     recipe::Hist1D,
     config::NamedTuple
 )
-    (; centers, weights, widths) = primitives
+    (; centers, weights, edges) = primitives
 
     if isempty(weights)
         return PlotSpec[]
     end
 
     bars = S.BarPlot(centers, weights)
-    stairs = S.Stairs(widths, vcat(weights, weights[end]))
+    stairs = S.Stairs(edges, vcat(weights, weights[end]))
 
     return [bars, stairs]
 end
