@@ -107,6 +107,10 @@ _SampleAux() = _SampleInfo(0)
         
         @test @inferred(length(DensitySampleVector(v = dsv_merged.v, logd = dsv_merged.logd, weight = :multiplicity))) == @inferred(length(dsv_merged))-1
 
+        # An empty sample vector stays empty under multiplicity weighting:
+        dsv_empty = DensitySampleVector(v = dsv_merged.v[1:0], logd = dsv_merged.logd[1:0], weight = :multiplicity)
+        @test isempty(dsv_empty) && isempty(dsv_empty.v) && isempty(dsv_empty.weight)
+
         rtol = eps(typeof(float(1)))
         X = @inferred(flatview(dsv_merged.v))
         w = @inferred(ProbabilityWeights(dsv_merged.weight))

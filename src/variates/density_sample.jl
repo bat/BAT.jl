@@ -422,6 +422,7 @@ Drop (subsequently) repeated samples by adding weights.
 function repetition_to_weights(v::AbstractVector)
     idxs = Vector{Int}()
     counts = Vector{Int}()
+    isempty(v) && return (idxs, counts)
     push!(idxs, 1)
     push!(counts, 1)
     for i in 2:length(v)
