@@ -80,17 +80,62 @@ using StableRNGs: StableRNG
         @test all(isone, resamples.weight)
     end
 
-    @testset "OrderedResampling" begin #Creates new testset for OrderedResampling
+    @testset "SystematicResampling" begin
         dist = MvNormal([0.4, 0.6], [2.0 1.2; 1.2 3.0])
         result = @inferred(bat_sample(dist, IIDSampling(nsamples = 10^5), context)).result
 
-        @test isapprox(mean([length(@inferred(bat_sample(result, OrderedResampling(nsamples = 10), context)).result.v) for i in 1:10^3]), 10, rtol = 10^-1)
+        # Systematic resampling yields exactly the requested number of samples:
+        @test length(@inferred(bat_sample(result, SystematicResampling(nsamples = 10), context)).result.v) == 10
 
         @test @inferred(bat_sample(result, context)).result isa DensitySampleVector#Check that types are consistent
-        @test @inferred(bat_sample(result, BAT.OrderedResampling(), context)).result isa DensitySampleVector
-        @test bat_sample(result, BAT.OrderedResampling()).result isa DensitySampleVector
+        @test @inferred(bat_sample(result, BAT.SystematicResampling(), context)).result isa DensitySampleVector
+        @test bat_sample(result, BAT.SystematicResampling()).result isa DensitySampleVector
 
-        resamples = @inferred(bat_sample(result, OrderedResampling(nsamples = length(result)), context)).result
+        resamples = @inferred(bat_sample(result, SystematicResampling(nsamples = length(result)), context)).result
         @test result == resamples
+
+        # The old name remains as a deprecated alias:
+        @test BAT.OrderedResampling === SystematicResampling
     end
+end
+
+
+import Measurements
+using MeasureBase: massof
+using DensityInterface: logfuncdensity
+using Distributions: Normal, logpdf
+
+@testset "transformed space preservation" begin
+    context = BATContext()
+    post = PosteriorMeasure(logfuncdensity(v -> logpdf(Normal(1.0, 0.5), v.a)), distprod(a = Normal(0, 3)))
+    em = evalmeasure(post, TransformedMCMC(nchains = 2, nsteps = 400), context)
+
+    @test em.empirical isa BAT.BispacedMeasure
+    @test em.transform_intent === NormalBased()
+    @test !isnothing(em.empirical.transformed)
+    @test !isnothing(em.unevaluated.transformed)
+
+    @test BAT.empiricalof(em) === em.empirical.main
+
+    # Re-entering the same space preserves measure and transform-function
+    # identity and needs no sample transport:
+    m_z, f_z = BAT.transform_and_unshape(NormalBased(), em, context)
+    @test BAT.unevaluated(m_z) === em.unevaluated.transformed
+    @test f_z === em.f_transform
+    @test BAT.empiricalof(m_z) === em.empirical.transformed
+
+    # A different intent falls back to the regular path:
+    m_u, _ = BAT.transform_and_unshape(UniformBased(), em, context)
+    @test BAT.unevaluated(m_u) !== em.unevaluated.transformed
+
+    # The full transformed-space-view contract holds:
+    @test BAT.validate_evalmeasure(em, context = context) === em
+
+    # Follow-up evaluations work on the enriched measure:
+    em2 = evalmeasure(em, BridgeSampling(), context)
+    # Masses are stored on the canonical logarithmic scale:
+    @test massof(em2) isa BAT.ULogarithmic
+    @test isfinite(Measurements.value(log(massof(em2))))
+    @test em2.empirical === em.empirical
+    @test em2.unevaluated === em.unevaluated
 end
