@@ -315,11 +315,12 @@ _cor(X::AbstractVectorOfSimilarVectors, w::AbstractWeights) =
     cor(flatview(X), w, 2)
 
 
-# Sample weights may be integer repetition counts (MCMC) or arbitrary
-# positive importance weights (nested sampling, importance samplers), so
-# weighted statistics use probability-weight semantics: the frequency-
-# weight bias correction 1/(sum(w) - 1) is only valid for integer counts
-# and degenerates (Inf/negative) for normalized importance weights:
+# Weight provenance is deliberately erased at this level (weights may be
+# repetition counts, importance weights, etc.), so the statistics are the
+# plain moments of the represented weighted empirical measure - without a
+# finite-sample bias correction, which would require knowing how the
+# samples were generated. These moments are invariant under global weight
+# rescaling and under repetition compression/expansion:
 function _get_statw(f::Function, samples::DensitySampleVector, resultshape::AbstractValueShape)
     shape = varshape(samples)
     X = unshaped.(samples.v)
@@ -329,8 +330,8 @@ function _get_statw(f::Function, samples::DensitySampleVector, resultshape::Abst
 end
 
 Statistics.mean(samples::DensitySampleVector) = _get_statw(_mean, samples, varshape(samples))
-Statistics.var(samples::DensitySampleVector) = _get_statw(_var, samples, replace_const_shapes(ValueShapes.const_zero_shape, varshape(samples)))
-Statistics.std(samples::DensitySampleVector) = _get_statw(_std, samples, replace_const_shapes(ValueShapes.const_zero_shape, varshape(samples)))
+Statistics.var(samples::DensitySampleVector) = _get_statw((X, w) -> _var(X, w, corrected = false), samples, replace_const_shapes(ValueShapes.const_zero_shape, varshape(samples)))
+Statistics.std(samples::DensitySampleVector) = _get_statw((X, w) -> _std(X, w, corrected = false), samples, replace_const_shapes(ValueShapes.const_zero_shape, varshape(samples)))
 
 Statistics.median(samples::DensitySampleVector) = quantile(samples, 0.5)
 
@@ -357,7 +358,7 @@ end
 Base.minimum(samples::DensitySampleVector) = _get_stat(minimum, samples)
 Base.maximum(samples::DensitySampleVector) = _get_stat(maximum, samples)
 
-Statistics.cov(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = _cov(samples.v, ProbabilityWeights(samples.weight))
+Statistics.cov(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = _cov(samples.v, ProbabilityWeights(samples.weight), corrected = false)
 Statistics.cor(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = _cor(samples.v, ProbabilityWeights(samples.weight))
 
 function Base.isapprox(a::DensitySampleVector, b::DensitySampleVector; kwargs...)

@@ -121,7 +121,9 @@ _SampleAux() = _SampleInfo(0)
         dsv_std = @inferred(std(dsv_merged))
         @test @inferred(length(rows)) == @inferred(length(dsv_std))
         for i in eachindex(dsv_std)
-            @test isapprox(@inferred(std(collect(rows)[i], w, corrected=true)), dsv_std[i], rtol=rtol)
+            # Uncorrected empirical-measure moments (weight provenance is
+            # deliberately erased at the sample-vector level):
+            @test isapprox(@inferred(std(collect(rows)[i], w, corrected=false)), dsv_std[i], rtol=rtol)
         end
 
         dsv_med = @inferred(median(dsv_merged))
