@@ -116,10 +116,11 @@ length of the samples - a property of the ordered sampling process.
 For uniformly weighted samples the stored order is taken as the process
 order. Samples carrying MCMC sample ids are decomposed into their exact
 per-walker ordered sequences (repetition weights are expanded exactly),
-whose independent ESS contributions add. For nonuniformly weighted
-samples without process provenance, a resample-then-autocorrelate
-heuristic is used - [`KishESS`](@ref) is the provenance-free
-alternative (and the default in that case).
+whose independent ESS contributions are pooled by their weight-mass
+fractions. For nonuniformly weighted samples without process
+provenance, a resample-then-autocorrelate heuristic is used -
+[`KishESS`](@ref) is the provenance-free alternative (and the default
+in that case).
 
 Constructors:
 
@@ -188,20 +189,38 @@ end
 # Exact process ESS from MCMC sample-id provenance: reconstruct each
 # walker's ordered sequence (chains and walkers may be merged and
 # permuted), compute its autocorrelation ESS exactly for repetition
-# weights, and sum - independent chains and walkers contribute
-# additively:
+# weights, and pool the independent contributions:
 function _mcmc_process_ess(unshaped_smpls::DensitySampleVector, algorithm::EffSampleSizeFromAC, context::BATContext)
     info = unshaped_smpls.info
     keys = [(id.chainid, id.walkerid) for id in info]
-    ess_sum = nothing
-    for k in unique(keys)
+    ukeys = unique(keys)
+    ess_parts = Vector{Any}()
+    masses = Float64[]
+    for k in ukeys
         idxs = findall(==(k), keys)
+        wsum = sum(float, view(unshaped_smpls.weight, idxs))
+        wsum > 0 || continue
         ord = sortperm(view(info, idxs), by = id -> (id.chaincycle, id.stepno))
         walker_smpls = unshaped_smpls[idxs[ord]]
-        ess_w = _walker_ordered_ess(walker_smpls, algorithm, context)
-        ess_sum = isnothing(ess_sum) ? ess_w : ess_sum .+ ess_w
+        push!(ess_parts, _walker_ordered_ess(walker_smpls, algorithm, context))
+        push!(masses, wsum)
     end
-    return ess_sum
+    return _pooled_ess(ess_parts, masses)
+end
+
+# Pooled ESS of independent series combined with empirical mass
+# fractions: the merged weighted measure represents the estimator
+# f̂ = Σ_j α_j f̂_j, whose variance for independent series is
+# proportional to Σ_j α_j² / E_j, so the variance-equivalent effective
+# size is E_pool = 1 / Σ_j (α_j² / E_j). This reduces to Σ_j E_j exactly
+# when efficiency is uniform across the series (E_j proportional to α_j)
+# and is smaller when it is not - a badly mixing series drags the pooled
+# estimator down, which a plain sum would hide:
+function _pooled_ess(ess_parts::AbstractVector, masses::AbstractVector{<:Real})
+    isempty(ess_parts) && return nothing
+    α = masses ./ sum(masses)
+    inv_pool = sum(α[j]^2 ./ ess_parts[j] for j in eachindex(ess_parts))
+    return inv.(inv_pool)
 end
 
 # ESS of one ordered walker sequence. Within MCMC provenance, integer
