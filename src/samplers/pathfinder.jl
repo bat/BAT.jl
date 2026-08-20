@@ -389,9 +389,10 @@ function _affine_init_moments(tinit::PathfinderTransformInit, target::AbstractMe
     end
 
     # A path that converged to a clearly inferior mode or shoulder would
-    # contaminate the equal-weight moment-matched mixture, so fits with an
-    # ELBO far below the best are dropped (10 nats corresponds to a
-    # relative mixture weight below 5e-5):
+    # contaminate the equal-weight moment-matched mixture, so fits whose
+    # estimated ELBO is more than ten nats below the best are dropped - a
+    # heuristic fit-quality threshold (ELBO differences are variational
+    # fit scores, not mixture weights):
     elbo_best = maximum(fit.elbo for fit in fits)
     fits = [fit for fit in fits if fit.elbo >= elbo_best - 10]
 
