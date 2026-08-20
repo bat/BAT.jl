@@ -29,14 +29,80 @@ function _lbfgs_direction(g::AbstractVector{T}, S::AbstractVector, Y::AbstractVe
     return q
 end
 
+# Strong-Wolfe line search (bracket and zoom, Nocedal & Wright alg.
+# 3.5/3.6) for minimizing phi(t) = -logd(x + t d), with phi(0) = phi0 and
+# phi'(0) = dphi0 < 0. Returns (x_new, phi_new, grad_new) with grad in
+# maximization convention (the log-density gradient), or `nothing` on
+# failure. Non-finite values count as "too far". The curvature condition
+# guarantees positive-curvature pairs s'y > 0, which matters here because
+# the quasi-Newton pairs are part of the inferential approximation, not
+# just of the optimization:
+function _wolfe_linesearch(
+    f_logdgrad::Function, x::AbstractVector{T}, phi0::T, dphi0::T,
+    d::AbstractVector{T}, t1::T;
+    c1::Real = 1e-4, c2::Real = 0.9, max_expand::Integer = 12, max_zoom::Integer = 30
+) where {T<:Real}
+    function evalphi(t::T)
+        x_t = x .+ t .* d
+        logd_t, grad_t0 = f_logdgrad(x_t)
+        phi_t = -T(logd_t)
+        ok = isfinite(phi_t) && all(isfinite, grad_t0)
+        grad_t = ok ? convert(Vector{T}, grad_t0) : d
+        dphi_t = ok ? -dot(grad_t, d) : T(NaN)
+        return x_t, phi_t, dphi_t, grad_t, ok
+    end
+
+    wolfe1(t::T, phi_t::T) = phi_t <= phi0 + T(c1) * t * dphi0
+    wolfe2(dphi_t::T) = abs(dphi_t) <= -T(c2) * dphi0
+
+    # Bisection zoom; lo always satisfies the sufficient-decrease
+    # condition, so its state is the fallback if the curvature condition
+    # can't be met within the budget:
+    function zoom(t_lo::T, phi_lo::T, lo_state, t_hi::T)
+        for _ in 1:max_zoom
+            t = (t_lo + t_hi) / 2
+            x_t, phi_t, dphi_t, grad_t, ok = evalphi(t)
+            if !ok || !wolfe1(t, phi_t) || phi_t >= phi_lo
+                t_hi = t
+            else
+                wolfe2(dphi_t) && return (x_t, phi_t, grad_t)
+                if dphi_t * (t_hi - t_lo) >= 0
+                    t_hi = t_lo
+                end
+                t_lo, phi_lo, lo_state = t, phi_t, (x_t, phi_t, grad_t)
+            end
+        end
+        return lo_state
+    end
+
+    t_prev, phi_prev = zero(T), phi0
+    lo_state = nothing
+    t = t1
+    for i in 1:max_expand
+        x_t, phi_t, dphi_t, grad_t, ok = evalphi(t)
+        if !ok || !wolfe1(t, phi_t) || (phi_t >= phi_prev && i > 1)
+            return zoom(t_prev, phi_prev, lo_state, t)
+        end
+        wolfe2(dphi_t) && return (x_t, phi_t, grad_t)
+        if dphi_t >= 0
+            return zoom(t, phi_t, (x_t, phi_t, grad_t), t_prev)
+        end
+        t_prev, phi_prev, lo_state = t, phi_t, (x_t, phi_t, grad_t)
+        t *= 2
+    end
+    # Expansion exhausted while still descending with sufficient decrease,
+    # accept the last point:
+    return lo_state
+end
+
 # Maximizes the log-density given by `f_logdgrad(x) == (logd, grad)` via
-# L-BFGS with backtracking line search. Returns the trace of iterates and
+# L-BFGS with strong-Wolfe line search. Returns the trace of iterates and
 # their log-density gradients, or `nothing` if the starting point is
 # unusable (a path-local failure, other start points may still succeed).
 function _lbfgs_trace(
     f_logdgrad::Function, x0::AbstractVector{<:Real};
     maxiters::Integer, history_length::Integer,
-    grad_tol::Real = 1e-8, max_backtracks::Integer = 40
+    grad_tol::Real = 1e-8
 )
     T = float(eltype(x0))
     x = convert(Vector{T}, x0)
@@ -67,24 +133,10 @@ function _lbfgs_trace(
             dg = -sum(abs2, g)
         end
 
-        # Backtracking line search with Armijo condition:
-        t = iter == 1 ? min(one(T), inv(norm(d))) : one(T)
-        x_new = similar(x)
-        f_new::T = NaN
-        grad_new = grad
-        accepted = false
-        for _ in 1:max_backtracks
-            @. x_new = x + t * d
-            logd_new, grad_new_0 = f_logdgrad(x_new)
-            f_new = -logd_new
-            if isfinite(f_new) && all(isfinite, grad_new_0) && f_new <= f + T(1//10^4) * t * dg
-                grad_new = convert(Vector{T}, grad_new_0)
-                accepted = true
-                break
-            end
-            t /= 2
-        end
-        accepted || break
+        t1 = iter == 1 ? min(one(T), inv(norm(d))) : one(T)
+        ls = _wolfe_linesearch(f_logdgrad, x, f, dg, d, t1)
+        isnothing(ls) && break
+        x_new, f_new, grad_new = ls
 
         s = x_new .- x
         y = grad .- grad_new
