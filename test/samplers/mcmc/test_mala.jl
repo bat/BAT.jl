@@ -8,7 +8,8 @@ using Distributions, ValueShapes, DensityInterface
 using StableRNGs
 import ForwardDiff
 
-using BAT: MALAProposal, StepSizeAdaptor, _mala_innovation_dist, _mala_log_proposal_ratio, batmeasure
+using BAT: MALAProposal, StepSizeAdaptor, LowRankAffineTransform,
+    _mala_innovation_dist, _mala_log_proposal_ratio, batmeasure
 
 @testset "mala" begin
     rng = StableRNG(902114857)
@@ -79,6 +80,24 @@ using BAT: MALAProposal, StepSizeAdaptor, _mala_innovation_dist, _mala_log_propo
             context
         )
         @test smplres_t.verified
+
+        # Operator-valued low-rank transforms work with MALA: the gradient
+        # uses the analytic affine pullback, so AD never sees the operator:
+        u = normalize(fill(1.0, 3))
+        Σ_lr = Matrix(Symmetric(Diagonal([1.0, 2.0, 0.5]) + 6.0 * u * u'))
+        objective_lr = MvNormal(zeros(3), Σ_lr)
+        smplres_lr = BAT.sample_and_verify(
+            batmeasure(objective_lr),
+            TransformedMCMC(
+                proposal = MALAProposal(),
+                adaptive_transform = LowRankAffineTransform(),
+                pretransform = DoNotTransform(),
+                nsteps = 3 * 10^4
+            ),
+            objective_lr,
+            context
+        )
+        @test smplres_lr.verified
     end
 
     @testset "step scale adaptation" begin

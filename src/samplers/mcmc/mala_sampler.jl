@@ -87,9 +87,10 @@ function _create_proposal_state(
     n_dims = totalndof(varshape(target))
     mv_pdist = batmeasure(_mala_innovation_dist(proposal.proposaldist, n_dims))
 
-    adsel = get_valid_adselector(context, proposal)
-    target_checked = checked_logdensityof(MeasureBase.pullback(f_transform, target))
-    target_gradient = valgrad_func(target_checked, adsel)
+    # The analytic affine pullback keeps AD in the fixed x-space, so the
+    # AD preparation survives geometry changes and operator-valued affine
+    # transforms never enter the AD graph:
+    target_gradient = _target_logdgrad_func(target, f_transform, context, proposal, convert(Vector{float(P)}, first(v_init)))
 
     return MALAProposalState(
         proposal.target_acceptance,
@@ -156,12 +157,9 @@ function mcmc_propose_transition(
 end
 
 function set_proposal_transform!!(proposal::MALAProposalState, chain_state::MCMCChainState)
-    f_transform_new = chain_state.f_transform
-    adsel = get_adselector(chain_state.context)
-    f = checked_logdensityof(MeasureBase.pullback(f_transform_new, chain_state.target))
-    fg = valgrad_func(f, adsel)
-
-    proposal_new = @set proposal.target_gradient = fg
-
-    return proposal_new
+    fg_new = _updated_logdgrad_func(
+        proposal.target_gradient, chain_state.target, chain_state.f_transform,
+        chain_state.context, proposal, Vector(first(chain_state.current.x.v))
+    )
+    return @set proposal.target_gradient = fg_new
 end
