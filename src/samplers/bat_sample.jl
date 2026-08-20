@@ -1,32 +1,21 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# when constructing a without generator infos like `EvaluatedMeasure(density, samples)`:
-struct UnknownSampleGenerator<: AbstractSampleGenerator end
-getproposal(sg::UnknownSampleGenerator) = nothing
-
-# for samplers without specific infos, e.g. current ImportanceSamplers:
-struct GenericSampleGenerator{A <: AbstractSamplingAlgorithm} <: AbstractSampleGenerator
-    algorithm::A
-end
-getproposal(sg::GenericSampleGenerator) = sg.algorithm
-
-
 function sample_and_verify(
-    target::AnySampleable, samplingalg::AbstractSamplingAlgorithm,
+    target::MeasureLike, samplingalg::AbstractSamplingAlgorithm,
     ref_dist::Distribution = target, context::BATContext = get_batcontext();
     max_retries::Integer = 1, essalg = nothing
 )
-    measure = batsampleable(target)
-    initial_smplres = bat_sample_impl(measure, samplingalg, context)
-    smplres::typeof(initial_smplres) = initial_smplres
-    verified::Bool = test_dist_samples(ref_dist, smplres.result, context; essalg = essalg)
+    measure = convert_for(bat_sample, target)
+    initial_em = evalmeasure(measure, samplingalg, context)
+    em::typeof(initial_em) = initial_em
+    verified::Bool = test_dist_samples(ref_dist, samplesof(em), context; essalg = essalg)
     n_retries::Int = 0
     while !(verified) && n_retries < max_retries
         n_retries += 1
-        smplres = bat_sample_impl(measure, samplingalg, context)
-        verified = test_dist_samples(ref_dist, smplres.result, context; essalg = essalg)
+        em = evalmeasure(measure, samplingalg, context)
+        verified = test_dist_samples(ref_dist, samplesof(em), context; essalg = essalg)
     end
-    merge(smplres, (verified = verified, n_retries = n_retries))
+    (result = samplesof(em), evaluated = em, verified = verified, n_retries = n_retries)
 end
 
 
@@ -49,8 +38,8 @@ end
 export IIDSampling
 
 
-function bat_sample_impl(m::BATMeasure, algorithm::IIDSampling, context::BATContext)
-    #@assert false
+function evalmeasure_impl(em::EvaluatedMeasure, algorithm::IIDSampling, context::BATContext)
+    m = unevaluated(em)
     cunit = get_compute_unit(context)
     rng = get_rng(context)
     n = algorithm.nsamples
@@ -64,7 +53,11 @@ function bat_sample_impl(m::BATMeasure, algorithm::IIDSampling, context::BATCont
     aux = adapt(cunit, fill(nothing, length(eachindex(logd))))
 
     smpls = DensitySampleVector((v, logd, weight, info, aux))
-    return (result = smpls,)
+    dsm = DensitySampleMeasure(smpls, dof = _dofval_or_nothing(getdof(m)), ess = length(smpls))
+    # A stored sample generation scheme did not produce the new empirical
+    # content, so it is cleared conservatively (see the EvaluatedMeasure
+    # docs on samplegen):
+    return EvaluatedMeasure(em; empirical = dsm, samplegen = nothing, evalinfo = MeasureEvalInfo(algorithm, (;)))
 end
 
 
@@ -86,56 +79,24 @@ $(TYPEDFIELDS)
 end
 export RandResampling
 
-
-function bat_sample_impl(m::DensitySampleMeasure, algorithm::RandResampling, context::BATContext)
-    n = algorithm.nsamples
-    # Always generate R on CPU for now:
-    R = rand(get_rng(context), n)
-    resampled_idxs = searchsortedfirst.(Ref(m._cw), R)
-    smpls = DensitySampleVector(m)
-
-    samples = smpls[resampled_idxs]
-    samples.weight .= 1
-    (result = samples,)
+function _resampled_empirical(p::BispacedMeasure, algorithm::RandResampling, context::BATContext)
+    gen = get_gencontext(context)
+    resampled_idxs = _rand_subsample_idxs(gen, p.main, algorithm.nsamples)
+    return _unweighted_resampling_byidxs(p, resampled_idxs)
 end
-
-function bat_sample_impl(smpls::DensitySampleVector, algorithm::RandResampling, context::BATContext)
-    n = algorithm.nsamples
-    orig_idxs = eachindex(smpls)
-    iszero(n) && return (result = smpls[Int[]],)
-    # Always generate resampled_idxs on CPU for now:
-    rng = get_rng(context)
-    resampled_idxs = _rand_resampling_indices(rng, orig_idxs, smpls.weight, n)
-
-    samples = smpls[resampled_idxs]
-    samples = DensitySampleVector((
-        samples.v,
-        samples.logd,
-        ones(eltype(samples.weight), length(samples)),
-        samples.info,
-        samples.aux,
-    ))
-    (result = samples,)
-end
-
-function _rand_resampling_indices(rng, indices, weights::AbstractVector{<:Real}, n::Integer)
-    sample(rng, indices, FrequencyWeights(float(weights)), n, replace=true, ordered=false)
-end
-
-function _rand_resampling_indices(rng, indices, weights::AbstractVector{<:ULogarithmic}, n::Integer)
-    log_cumweights = accumulate(_logaddexp, log.(weights))
-    log_total = last(log_cumweights)
-    isfinite(log_total) || throw(ArgumentError("Weights must sum to a finite positive value"))
-    [indices[searchsortedfirst(log_cumweights, log(rand(rng)) + log_total)] for _ in 1:n]
-end
-
 
 
 """
-    struct OrderedResampling <: AbstractSamplingAlgorithm
+    struct SystematicResampling <: AbstractSamplingAlgorithm
 
-Efficiently resamples from a given series of samples, keeping the order of
-samples.
+Systematic resampling from a given series of samples, keeping the order
+of the samples: a single stratified uniform yields exactly `nsamples`
+draws in one order-preserving pass, with the lowest variance among the
+standard resampling schemes.
+
+See [G. Kitagawa, "Monte Carlo Filter and Smoother for Non-Gaussian
+Nonlinear State Space Models", J. Comput. Graph. Stat. 5(1)
+(1996)](https://doi.org/10.1080/10618600.1996.10474692).
 
 Can be used to efficiently convert weighted samples into samples with unity
 weights.
@@ -148,40 +109,63 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct OrderedResampling <: AbstractSamplingAlgorithm
+@with_kw struct SystematicResampling <: AbstractSamplingAlgorithm
     nsamples::Int = 10^5
 end
-export OrderedResampling
+export SystematicResampling
 
-
-function bat_sample_impl(m::DensitySampleMeasure, algorithm::OrderedResampling, context::BATContext)
-    # ToDo: Utilize m._cw to speed up sampling:
-    bat_sample_impl(DensitySampleVector(m), algorithm, context)
+function evalmeasure_impl(em::EvaluatedMeasure, algorithm::Union{RandResampling,SystematicResampling}, context::BATContext)
+    emp = _empirical_rep(em)
+    if isnothing(emp)
+        throw(ArgumentError("No samples available for $(nameof(typeof(algorithm)))."))
+    else
+        # The resampled pair stays in the current transformed-space view. A
+        # stored sample generation scheme did not produce the new empirical
+        # content, so it is cleared conservatively (see the EvaluatedMeasure
+        # docs on samplegen):
+        new_emp = _resampled_empirical(emp, algorithm, context)
+        return EvaluatedMeasure(em; empirical = new_emp, samplegen = nothing, evalinfo = MeasureEvalInfo(algorithm, (;)))
+    end
 end
 
-function bat_sample_impl(smpls::DensitySampleVector, algorithm::OrderedResampling, context::BATContext)
+function _resampled_empirical(p::BispacedMeasure, algorithm::SystematicResampling, context::BATContext)
+    resampled_idxs = _systematic_resampling_idxs(samplesof(p.main), algorithm.nsamples, context)
+    return _unweighted_resampling_byidxs(p, resampled_idxs)
+end
+
+function _systematic_resampling_idxs(smpls::DensitySampleVector, n::Integer, context::BATContext)
+    # ToDo: Use PSIS
+
     rng = get_rng(context)
     @assert axes(smpls) == axes(smpls.weight)
     W = smpls.weight
-    idxs = eachindex(smpls)
+    # A finite positive total is not enough: a single negative weight
+    # would make the cumulative weights non-monotone and invalidate the
+    # systematic-resampling semantics:
+    all(w -> isfinite(w) && w >= 0, W) || throw(ArgumentError("Sample weights must be finite and non-negative"))
+    W_total = sum(W)
+    W_total > 0 || throw(ArgumentError("Sample weights must sum to a positive value"))
 
-    n = algorithm.nsamples
-    resampled_idxs = Vector{Int}()
-    sizehint!(resampled_idxs, n)
-
-    p_factor = n / sum(W)
-
+    # Systematic resampling (Kitagawa 1996): a single stratified uniform
+    # yields exactly n draws in one order-preserving pass, with the lowest
+    # variance among the standard resampling schemes:
+    u = rand(rng)
+    resampled_idxs = Vector{Int}(undef, n)
+    j = 0
+    cw = zero(float(eltype(W)))
     for i in eachindex(W)
-        w_eff_0 = p_factor * W[i]
-        w_eff::typeof(w_eff_0) = w_eff_0
-        while w_eff > 0
-            rand(rng) < w_eff && push!(resampled_idxs, i)
-            w_eff = w_eff - 1
+        cw += W[i]
+        thresh = cw * n / W_total
+        while j < n && u + j < thresh
+            j += 1
+            resampled_idxs[j] = i
         end
     end
+    # Guard against floating-point shortfall at the very end:
+    while j < n
+        j += 1
+        resampled_idxs[j] = lastindex(W)
+    end
 
-    new_samples = smpls[resampled_idxs]
-    new_samples.weight .= 1
-
-    (result = new_samples,)
+    return resampled_idxs
 end

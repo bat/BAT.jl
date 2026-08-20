@@ -10,10 +10,12 @@ function bat_default(::typeof(bat_sample), ::Val{:algorithm}, target::Any)
     end
 end
 
-bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::DensitySampleVector) = OrderedResampling()
-bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::DensitySampleMeasure) = OrderedResampling()
+bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::DensitySampleVector) = SystematicResampling()
+bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::DensitySampleMeasure) = SystematicResampling()
 bat_default(::typeof(bat_sample), ::Val{:algorithm}, ::PosteriorMeasure) = TransformedMCMC()
 
 function bat_default(::typeof(bat_sample), ::Val{:algorithm}, m::EvaluatedMeasure)
     bat_default(bat_sample, Val(:algorithm), unevaluated(m))
 end
+
+bat_default(::typeof(evalmeasure), v::Val{:algorithm}, target::Any) = bat_default(bat_sample, v, target)
