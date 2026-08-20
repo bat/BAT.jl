@@ -157,15 +157,18 @@ function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::EffSamp
     w0 = first(W)
 
     # Autocorrelation ESS is a property of an ordered sampling process.
-    # For uniform weights, the stored order is the process order; MCMC
-    # sample-id provenance reconstructs the per-walker ordered sequences
-    # exactly, even after merging; nonuniformly weighted samples without
-    # process provenance only support a resampling heuristic (KishESS is
-    # the provenance-free alternative, see the algorithm defaults):
-    unshaped_ess = if all(w -> w ≈ w0, W)
-        bat_eff_sample_size_impl(unshaped_smpls.v, algorithm, context).result
-    elseif _has_process_provenance(unshaped_smpls)
+    # MCMC sample-id provenance reconstructs the per-walker ordered
+    # sequences exactly, even after merging - it takes priority over any
+    # weight pattern (uniform weights on merged chains would otherwise be
+    # treated as one series across chain boundaries, in storage order).
+    # Without provenance, uniform weights make the stored order the
+    # process order; nonuniformly weighted samples without provenance
+    # only support a resampling heuristic (KishESS is the provenance-free
+    # alternative, see the algorithm defaults):
+    unshaped_ess = if _has_process_provenance(unshaped_smpls)
         _mcmc_process_ess(unshaped_smpls, algorithm, context)
+    elseif all(w -> w ≈ w0, W)
+        bat_eff_sample_size_impl(unshaped_smpls.v, algorithm, context).result
     else
         _resample_ac_ess(unshaped_smpls, algorithm, context)
     end
