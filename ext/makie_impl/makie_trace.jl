@@ -142,9 +142,14 @@ end
 function compose_plotspecs(
         primitives::NamedTuple,
         recipe::Trace2D,
-        config::NamedTuple
+        config::NamedTuple;
+        transposed::Bool=false
 )
         (; x, y, chainids, recency, group_ranges) = primitives
+        # Lower-triangle cells swap x/y at compose time -- see
+        # _init_gridlayout's invariant comment. Swapped once up front so the
+        # per-group Point2f construction below stays untouched.
+        transposed && ((x, y) = (y, x))
 
         if isempty(x)
                 return PlotSpec[]
@@ -188,8 +193,11 @@ function get_trace_plotspecs(
         inputs::NamedTuple,
         vsel::Tuple{Integer,Integer},
         recipe::Trace2D,
-        config::NamedTuple
+        config::NamedTuple;
+        # Forwarded so the trace overlay follows the same orientation as the
+        # cell's main recipe -- see _init_gridlayout's invariant comment.
+        transposed::Bool=false
 )
         trace_primitives = getproperty(inputs, primitive_symbol(Trace2D(), vsel))
-        return compose_plotspecs(trace_primitives, Trace2D(), config)
+        return compose_plotspecs(trace_primitives, Trace2D(), config; transposed=transposed)
 end

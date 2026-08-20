@@ -30,9 +30,12 @@ struct BATMakieVisualization <: BATVisBackend
         diagonal_config::NamedTuple
 
         # N_max fixes the grid size for the life of the visualizer; vsel selects
-        # which N_max (or fewer) variables are shown and may later be changed at
-        # runtime (via a not-yet-implemented UI widget), but can never select more
-        # variables than there are grid slots for.
+        # which N_max (or fewer) variables are shown *initially*. At runtime the
+        # vsel picker widget changes the selection by updating the compute graph
+        # directly (via the extension's _apply_vsel!) -- this field is applied
+        # exactly once at listener startup and never re-read after that, so it
+        # does NOT track the current selection. Either way, no more variables
+        # than there are grid slots can ever be selected.
         function BATMakieVisualization(recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching, batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config)
                 if length(vsel) > N_max
                         @warn "BATMakieVisualization: vsel $vsel has more entries than N_max=$N_max; truncating to $(vsel[1:N_max])."
@@ -48,7 +51,7 @@ export BATMakieVisualization
 
 function BATMakieVisualization(; dark::Bool=false, max_buffered::Integer=4 * 50, adaptive_batching::Bool=true, batch_growth_rate::Real=1.2, trace_nsteps::Integer=20)
         recipes = (upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D)
-        vsel = [1, 2, 3] # Default vsel; truncated in `init_visualizer!` if the posterior has fewer free parameters.
+        vsel = [1, 2, 3] # Default vsel; clamped (with a warning) on its one-time initial application if the posterior has fewer free parameters.
         N_max = 3 # Grid size; cells beyond the (possibly truncated) vsel are simply left dead/empty.
         n_batch = 50 # Flush the buffered samples into the plot once this many have accumulated.
         poll_interval = 0.1 # Seconds between checks of whether a new batch is ready to flush.
@@ -122,6 +125,21 @@ export Hist1D
 struct Hist2D <: BATMakieRecipe end
 export Hist2D
 
+# NAMING, flagged for future reconsideration (applies to all four Quantile*
+# recipe types -- QuantileHist1D/QuantileHist2D here and QuantileKDE1D/
+# QuantileKDE2D below): despite the name, these draw *smallest-interval /
+# highest-posterior-density (HPD)* credible regions -- greedy
+# highest-density-bins-first via BAT.get_smallest_intervals for the Hist
+# variants, density thresholding for the KDE variants -- NOT quantile-based
+# regions. In standard statistics terminology, "quantile" denotes *central*
+# credible intervals built from distribution quantiles (equal tail mass on
+# both sides), which for a skewed or multimodal marginal is a genuinely
+# different region than the HPD one these produce. Deliberately keeping the
+# established names for now; when this is revisited, the options are (a) a
+# rename (e.g. HPDHist1D / SmallestIntervalHist1D), and/or (b) offering
+# central intervals as an alternative mode -- BAT already has the machinery
+# for those in src/plotting/MarginalDist_utils.jl (split_central, alongside
+# get_smallest_intervals).
 struct QuantileHist1D <: BATMakieRecipe end
 export QuantileHist1D
 

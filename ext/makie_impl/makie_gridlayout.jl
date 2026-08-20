@@ -219,18 +219,17 @@ function _init_gridlayout(
             )
 
             for j in i+1:n
-                # NOTE: upper/lower cells at mirrored grid positions reuse the same
-                # computed primitive (row1=larger-index var, row2=smaller-index var),
-                # to avoid computing each variable pair twice. Upper cells' axis
-                # limits (below) follow that layout, but the lower-triangle cells
-                # (see the `for j in 1:i-1` loop) assign x/y limits the other way
-                # around, so a lower cell's x-axis doesn't align with its column's
-                # diagonal cell -- inconsistent with the standard corner-plot
-                # convention (every cell in column c shares column c's x-range).
-                # Fixing this properly needs a transpose flag threaded through
-                # every 2D recipe's compose_plotspecs (Hist2D, KDE2D, QuantileHist2D,
-                # QuantileKDE2D, Hexbin2D, Scatter2D, Cov2D, Std2D, Mean2D,
-                # Errorbars2D), not a local change here -- deferred as its own pass.
+                # Orientation invariant (standard full-matrix pair-plot
+                # convention): every off-diagonal cell at (row r, col c) shows
+                # x = variable of column c, y = variable of row r, so all
+                # cells in a column share that column's x-range with its
+                # diagonal. Both mirrored cells reuse the SAME computed
+                # primitive (keyed (bigger, smaller); row 1 = larger-index
+                # var, row 2 = smaller-index var) to avoid computing each
+                # variable pair twice -- the primitive's natural orientation
+                # matches the upper cell as-is, while the lower cell (the
+                # `for j in 1:i-1` loop below) renders it with
+                # `transposed=true`, swapping x/y purely at compose time.
                 upper_primitives = getproperty(inputs, primitive_symbol(upper_recipe, (j, i)))
                 upper_plotspecs = compose_plotspecs(upper_primitives, upper_recipe(), triagonal_config)
                 stats_specs_2D = stats_upper ? get_stats_plotspecs(inputs, (j, i), Makie2DStats(), triagonal_config) : PlotSpec[]
@@ -238,14 +237,17 @@ function _init_gridlayout(
                 trace_specs_upper = trace_upper ? get_trace_plotspecs(inputs, (j, i), Trace2D(), triagonal_config) : PlotSpec[]
                 append!(upper_plotspecs, trace_specs_upper)
 
-                ylims = getproperty(inputs, Symbol("axis_limits_$j"))
+                # This cell's x-axis is its column's variable (idxs[j]); its
+                # y-axis is the row's (idxs[i], `xlims` from the outer scope,
+                # named for its role on the diagonal).
+                col_lims = getproperty(inputs, Symbol("axis_limits_$j"))
                 # i < j always in this loop, so j <= n_active already implies
                 # i <= n_active -- checking j alone is sufficient here.
                 cell_active_upper = j <= n_active
                 matrix[i, j] = S.Axis(
                     plots=upper_plotspecs,
                     aspect=1,
-                    limits=(ylims, xlims),
+                    limits=(col_lims, xlims),
                     # Every cell shows its own bottom/left ticks+labels now --
                     # see the diagonal cell's matching comment above. No
                     # xaxisposition/yaxisposition override either (was :top/
@@ -266,21 +268,29 @@ function _init_gridlayout(
                 )
             end
             for j in 1:i-1
+                # transposed=true: the shared (bigger, smaller)-keyed primitive
+                # is naturally oriented for the upper cell; this mirrored cell
+                # swaps x/y at compose time so its x-axis is its *column's*
+                # variable -- see the orientation-invariant comment in the
+                # upper loop above. The stats/trace overlays get the same flag
+                # so they can't end up crossed against the main recipe.
                 lower_primitives = getproperty(inputs, primitive_symbol(lower_recipe, (i, j)))
-                lower_plotspecs = compose_plotspecs(lower_primitives, lower_recipe(), triagonal_config)
-                stats_specs_2D = stats_lower ? get_stats_plotspecs(inputs, (i, j), Makie2DStats(), triagonal_config) : PlotSpec[]
+                lower_plotspecs = compose_plotspecs(lower_primitives, lower_recipe(), triagonal_config; transposed=true)
+                stats_specs_2D = stats_lower ? get_stats_plotspecs(inputs, (i, j), Makie2DStats(), triagonal_config; transposed=true) : PlotSpec[]
                 append!(lower_plotspecs, stats_specs_2D)
-                trace_specs_lower = trace_lower ? get_trace_plotspecs(inputs, (i, j), Trace2D(), triagonal_config) : PlotSpec[]
+                trace_specs_lower = trace_lower ? get_trace_plotspecs(inputs, (i, j), Trace2D(), triagonal_config; transposed=true) : PlotSpec[]
                 append!(lower_plotspecs, trace_specs_lower)
 
-                ylims = getproperty(inputs, Symbol("axis_limits_$j"))
+                # Same roles as the upper loop: x = column variable (idxs[j]),
+                # y = row variable (idxs[i], `xlims` from the outer scope).
+                col_lims = getproperty(inputs, Symbol("axis_limits_$j"))
                 # j < i always in this loop, so i <= n_active already implies
                 # j <= n_active -- checking i alone is sufficient here.
                 cell_active_lower = i <= n_active
                 matrix[i, j] = S.Axis(
                     plots=lower_plotspecs,
                     aspect=1,
-                    limits=(xlims, ylims),
+                    limits=(col_lims, xlims),
                     # Every cell shows its own bottom/left ticks+labels now --
                     # see the diagonal cell's matching comment above (this
                     # cell already defaulted to bottom/left, unlike upper).
@@ -292,8 +302,11 @@ function _init_gridlayout(
                     leftspinevisible=cell_active_lower, rightspinevisible=cell_active_lower,
                     topspinevisible=cell_active_lower, bottomspinevisible=cell_active_lower,
                     # See the diagonal cell's comment above re: plain "" vs L"".
-                    xlabel=cell_active_lower ? L"v_%$(_idxs[i])" : "",
-                    ylabel=cell_active_lower ? L"v_%$(_idxs[j])" : "",
+                    # x names the column's variable, matching the transposed
+                    # data/limits above -- identical index roles to the upper
+                    # loop's labels now, by design.
+                    xlabel=cell_active_lower ? L"v_%$(_idxs[j])" : "",
+                    ylabel=cell_active_lower ? L"v_%$(_idxs[i])" : "",
                     xlabelvisible=cell_active_lower,
                     ylabelvisible=cell_active_lower,
                 )

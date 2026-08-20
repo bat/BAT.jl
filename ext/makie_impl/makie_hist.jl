@@ -340,7 +340,8 @@ end
 function compose_plotspecs(
     primitives::NamedTuple,
     recipe::Hist2D,
-    config::NamedTuple
+    config::NamedTuple;
+    transposed::Bool=false
 )
     (; centers_x, centers_y, weights) = primitives
 
@@ -348,7 +349,15 @@ function compose_plotspecs(
         return PlotSpec[]
     end
 
-    heat = S.Heatmap(centers_x, centers_y, weights)
+    # Lower-triangle cells swap axes at compose time (see _init_gridlayout's
+    # invariant comment). permutedims, not lazy transpose: Makie's heatmap
+    # expects size(z) == (length(x), length(y)), and LinearAlgebra's transpose
+    # is recursive (no method for the RGBA cells QuantileHist2D/QuantileKDE2D
+    # feed through this same pattern) -- an eager copy of a <=~256^2 matrix is
+    # negligible next to the full-grid rebuild this runs inside.
+    heat = transposed ?
+        S.Heatmap(centers_y, centers_x, permutedims(weights)) :
+        S.Heatmap(centers_x, centers_y, weights)
     return [heat]
 end
 
@@ -430,13 +439,17 @@ end
 function compose_plotspecs(
     primitives::NamedTuple,
     recipe::QuantileHist2D,
-    config::NamedTuple
+    config::NamedTuple;
+    transposed::Bool=false
 )
     (; centers_x, centers_y, color_grid) = primitives
     if isempty(centers_x)
         return PlotSpec[]
     end
-    heat = S.Heatmap(centers_x, centers_y, color_grid)
+    # permutedims (not transpose) -- see Hist2D's matching comment above.
+    heat = transposed ?
+        S.Heatmap(centers_y, centers_x, permutedims(color_grid)) :
+        S.Heatmap(centers_x, centers_y, color_grid)
     return [heat]
 end
 
@@ -490,7 +503,8 @@ end
 function compose_plotspecs(
     primitives::NamedTuple,
     recipe::Hexbin2D,
-    config::NamedTuple
+    config::NamedTuple;
+    transposed::Bool=false
 )
     (; x, y, weights, thresh) = primitives
     (; colormap, rev, nbins) = config
@@ -498,6 +512,14 @@ function compose_plotspecs(
         return PlotSpec[]
     end
     final_cmap = rev ? Reverse(colormap) : colormap
+
+    # See Scatter2D's matching comment (makie_scatter.jl). The per-axis bin
+    # counts swap along with the axes -- a no-op for the shipped symmetric
+    # (100,100)/(20,20) configs, but correct if nbins is ever asymmetric.
+    if transposed
+        x, y = y, x
+        nbins isa Tuple && (nbins = reverse(nbins))
+    end
 
     hex = S.Hexbin(x, y;
         weights=weights,

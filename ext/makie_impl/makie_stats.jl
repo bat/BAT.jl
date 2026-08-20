@@ -240,7 +240,11 @@ function get_stats_plotspecs(
         inputs::NamedTuple,
         vsel::Tuple{Integer,Integer},
         recipe::Makie2DStats,
-        config::NamedTuple
+        config::NamedTuple;
+        # Forwarded to the per-recipe compose_plotspecs calls below -- the 2D
+        # stats overlay must follow the same orientation as the cell's main
+        # recipe (see _init_gridlayout's invariant comment).
+        transposed::Bool=false
 )
         i, j = vsel
         plotspecs = []
@@ -255,10 +259,10 @@ function get_stats_plotspecs(
         # only stops it from being rendered as part of the 2D stats overlay.
 
         cov_primitives = getproperty(inputs, primitive_symbol(Cov2D(), (i, j)))
-        append!(plotspecs, compose_plotspecs(cov_primitives, Cov2D(), config))
+        append!(plotspecs, compose_plotspecs(cov_primitives, Cov2D(), config; transposed=transposed))
 
         std_primitives = getproperty(inputs, primitive_symbol(Std2D(), (i, j)))
-        append!(plotspecs, compose_plotspecs(std_primitives, Std2D(), config))
+        append!(plotspecs, compose_plotspecs(std_primitives, Std2D(), config; transposed=transposed))
 
         return plotspecs
 end
@@ -320,12 +324,21 @@ end
 function compose_plotspecs(
         primitives::NamedTuple,
         recipe::Cov2D,
-        config::NamedTuple
+        config::NamedTuple;
+        transposed::Bool=false
 )
         (; ellipse_points, axes_segments) = primitives
 
         if isempty(ellipse_points)
                 return PlotSpec[]
+        end
+
+        # Lower-triangle cells swap x/y at compose time (see _init_gridlayout's
+        # invariant comment) -- for point-based primitives that means swapping
+        # each point's own coordinates.
+        if transposed
+                ellipse_points = Point2f[Point2f(p[2], p[1]) for p in ellipse_points]
+                axes_segments = Point2f[Point2f(p[2], p[1]) for p in axes_segments]
         end
 
         # color=:black set explicitly here (not via the shared Lines/
@@ -431,13 +444,18 @@ end
 function compose_plotspecs(
         primitives::NamedTuple,
         recipe::Std2D,
-        config::NamedTuple
+        config::NamedTuple;
+        transposed::Bool=false
 )
         (; x_lines, y_lines) = primitives
 
         if isempty(x_lines)
                 return PlotSpec[]
         end
+
+        # Transposed cells swap which positions are vertical vs horizontal
+        # lines -- see Cov2D's matching comment above.
+        transposed && ((x_lines, y_lines) = (y_lines, x_lines))
 
         # color=:black set explicitly -- see Cov2D's matching comment above.
         vlines = S.VLines(x_lines; color=:black)
@@ -542,13 +560,17 @@ end
 function compose_plotspecs(
         primitives::NamedTuple,
         recipe::Mean2D,
-        config::NamedTuple
+        config::NamedTuple;
+        transposed::Bool=false
 )
         (; μ_x, μ_y) = primitives
 
         if isempty(μ_x)
                 return PlotSpec[]
         end
+
+        # See Std2D's matching comment above.
+        transposed && ((μ_x, μ_y) = (μ_y, μ_x))
 
         # color=:black set explicitly -- see Cov2D's matching comment above.
         # (Mean2D itself is no longer invoked by the 2D stats overlay --
@@ -645,12 +667,21 @@ end
 function compose_plotspecs(
         primitives::NamedTuple,
         recipe::Errorbars2D,
-        config::NamedTuple
+        config::NamedTuple;
+        transposed::Bool=false
 )
         (; μ_x, μ_y, err_x, err_y) = primitives
 
         if isempty(μ_x)
                 return PlotSpec[]
+        end
+
+        # See Std2D's matching comment above. The error extents must swap
+        # together with their means: the direction=:x bars below must carry
+        # the transposed x-axis' error, not the original one.
+        if transposed
+                μ_x, μ_y = μ_y, μ_x
+                err_x, err_y = err_y, err_x
         end
 
         ebars_x = S.Errorbars(μ_x, μ_y, err_x,
