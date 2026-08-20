@@ -29,5 +29,11 @@ using Distributions, PDMats, StatsBase, ValueShapes, ArraysOfArrays
         @test all(x -> x > -Inf, logdensityof.(Ref(ds), bat_initval(ds, 10, context).result))
         v_s = BAT.bat_sample(ds, BAT.IIDSampling(nsamples=1)).result
         @test BAT.bat_initval(ds, BAT.InitFromSamples(v_s), context).result == first(v_s.v)
+
+        # Variate types without a dedicated _maycopy_val method (like
+        # ShapedAsNT) must pass through instead of raising a MethodError:
+        vs_nt = NamedTupleShape(ShapedAsNT, a = ScalarShape{Real}(), b = ArrayShape{Real}(2))
+        x_nt = vs_nt(rand(3))
+        @test BAT._maycopy_val(x_nt) === x_nt
     end
 end

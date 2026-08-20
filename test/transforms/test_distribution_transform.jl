@@ -209,7 +209,7 @@ using MeasureBase
         prior = NamedTupleDist(a = Normal(), b = Gamma())
         posterior_density = PosteriorMeasure(likelihood, prior)
 
-        posterior_density_trafod = @inferred(bat_transform(PriorToUniform(), posterior_density, BAT.FullMeasureTransform(), context))
+        posterior_density_trafod = @inferred(bat_transform(UniformBased(), posterior_density, BAT.FullMeasureTransform(), context))
 
         @test posterior_density_trafod.result.origin.likelihood._log_f == likelihood._log_f
         @test posterior_density_trafod.result.origin.prior.dist == prior
@@ -248,16 +248,16 @@ end
     posterior_uniform_prior = @inferred(PosteriorMeasure(logfuncdensity(logdensityof(mvn)), uniform_prior))
     posterior_gaussian_prior = @inferred(PosteriorMeasure(logfuncdensity(logdensityof(mvn)), mvn))
 
-    @test @inferred(bat_transform(PriorToNormal(), posterior_uniform_prior, context)).result.prior.dist == @inferred(BAT.StandardMvNormal(3))
-    @test @inferred(bat_transform(PriorToUniform(), posterior_gaussian_prior, context)).result.prior.dist == @inferred(BAT.StandardMvUniform(3))
+    @test @inferred(bat_transform(NormalBased(), posterior_uniform_prior, context)).result.prior.dist == @inferred(BAT.StandardMvNormal(3))
+    @test @inferred(bat_transform(UniformBased(), posterior_gaussian_prior, context)).result.prior.dist == @inferred(BAT.StandardMvUniform(3))
     @test @inferred(bat_transform(DoNotTransform(), posterior_uniform_prior, context)).result.prior.dist == uniform_prior
     pd = @inferred(product_distribution([Uniform() for i in 1:3]))
     density = @inferred(BAT.BATDistMeasure(pd))
     @test @inferred(bat_transform(DoNotTransform(), density, context)).result.dist == density.dist
 
     # ToDo: Improve comparison for bounds so `.dist` is not required here:
-    @inferred(bat_transform(PriorToUniform(), batmeasure(BAT.StandardUvUniform()), context)).result.dist == batmeasure(BAT.StandardUvUniform()).dist
-    @inferred(bat_transform(PriorToUniform(), batmeasure(BAT.StandardMvUniform(4)), context)).result.dist == batmeasure(BAT.StandardMvUniform(4)).dist
-    @inferred(bat_transform(PriorToNormal(), batmeasure(BAT.StandardUvNormal()), context)).result.dist == batmeasure(BAT.StandardUvNormal()).dist
-    @inferred(bat_transform(PriorToNormal(), batmeasure(BAT.StandardMvNormal(4)), context)).result.dist == batmeasure(BAT.StandardMvNormal(4)).dist
+    @inferred(bat_transform(UniformBased(), batmeasure(BAT.StandardUvUniform()), context)).result.dist == batmeasure(BAT.StandardUvUniform()).dist
+    @inferred(bat_transform(UniformBased(), batmeasure(BAT.StandardMvUniform(4)), context)).result.dist == batmeasure(BAT.StandardMvUniform(4)).dist
+    @inferred(bat_transform(NormalBased(), batmeasure(BAT.StandardUvNormal()), context)).result.dist == batmeasure(BAT.StandardUvNormal()).dist
+    @inferred(bat_transform(NormalBased(), batmeasure(BAT.StandardMvNormal(4)), context)).result.dist == batmeasure(BAT.StandardMvNormal(4)).dist
 end

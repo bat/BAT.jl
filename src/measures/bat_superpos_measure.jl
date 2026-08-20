@@ -91,6 +91,13 @@ function _rand_superpos_component(gen::GenContext, cs::Tuple, w::Tuple, u::Real)
 end
 
 
+function MeasureBase.getdof(m::BATSuperpositionMeasure)
+    dof = getdof(first(m.components))
+    @argcheck all(c -> getdof(c) == dof, m.components)
+    return dof
+end
+
+
 function ValueShapes.varshape(m::BATSuperpositionMeasure)
     vs = varshape(first(m.components))
     @argcheck all(c -> varshape(c) == vs, m.components)

@@ -43,11 +43,11 @@ Base.@deprecate PosteriorDensity(args...) PosteriorMeasure(args...)
 export PosteriorDensity
 
 #=
-@deprecate bat_sample(rng::AbstractRNG, target::AnySampleable, algorithm::AbstractSamplingAlgorithm) bat_sample(target, algorithm, BAT.set_rng(BAT.get_batcontext(), rng))
-@deprecate bat_sample(rng::AbstractRNG, target::AnySampleable) bat_sample(target, BAT.set_rng(BAT.get_batcontext(), rng))
+@deprecate bat_sample(rng::AbstractRNG, target::MeasureLike, algorithm::AbstractSamplingAlgorithm) bat_sample(target, algorithm, BAT.set_rng(BAT.get_batcontext(), rng))
+@deprecate bat_sample(rng::AbstractRNG, target::MeasureLike) bat_sample(target, BAT.set_rng(BAT.get_batcontext(), rng))
 
-@deprecate bat_findmode(rng::AbstractRNG, target::AnySampleable, algorithm) bat_findmode(target, algorithm, BAT.set_rng(BAT.get_batcontext(), rng))
-@deprecate bat_findmode(rng::AbstractRNG, target::AnySampleable) bat_findmode(target, BAT.set_rng(BAT.get_batcontext(), rng))
+@deprecate bat_findmode(rng::AbstractRNG, target::MeasureLike, algorithm) bat_findmode(target, algorithm, BAT.set_rng(BAT.get_batcontext(), rng))
+@deprecate bat_findmode(rng::AbstractRNG, target::MeasureLike) bat_findmode(target, BAT.set_rng(BAT.get_batcontext(), rng))
 
 @deprecate bat_initval(rng::AbstractRNG, target::MeasureLike, algorithm::InitvalAlgorithm) = bat_initval(target, algorithm, BAT.set_rng(BAT.get_batcontext(), rng))
 @deprecate bat_initval(rng::AbstractRNG, target::MeasureLike) = bat_initval(target, BAT.set_rng(BAT.get_batcontext(), rng))
@@ -60,11 +60,13 @@ Base.@deprecate MetropolisHastings() RandomWalk()
 
 Base.@deprecate MCMCSampling(;
     mcalg::MCMCProposal = RandomWalk(),
-    trafo::AbstractTransformTarget = bat_default(TransformedMCMC, Val(:pretransform), mcalg),
+    trafo::TransformIntent = bat_default(TransformedMCMC, Val(:pretransform), mcalg),
     nchains::Int = 4,
-    nsteps::Int = bat_default(TransformedMCMC, Val(:nsteps), mcalg, trafo, nchains),
-    init::MCMCInitAlgorithm = bat_default(TransformedMCMC, Val(:init), mcalg, trafo, nchains, nsteps),
-    burnin::MCMCBurninAlgorithm = bat_default(TransformedMCMC, Val(:burnin), mcalg, trafo, nchains, nsteps),
+    # Defaults are taken from the actual TransformedMCMC constructor, so they
+    # can never drift from it:
+    nsteps::Int = TransformedMCMC(proposal = mcalg, pretransform = trafo, nchains = nchains).nsteps,
+    init::MCMCInitAlgorithm = TransformedMCMC(proposal = mcalg, pretransform = trafo, nchains = nchains, nsteps = nsteps).init,
+    burnin::MCMCBurninAlgorithm = TransformedMCMC(proposal = mcalg, pretransform = trafo, nchains = nchains, nsteps = nsteps).burnin,
     convergence::ConvergenceTest = BrooksGelmanConvergence(),
     strict::Bool = true,
     store_burnin::Bool = false,
@@ -86,4 +88,18 @@ Base.@deprecate MCMCSampling(;
 export MCMCSampling
 
 
-@deprecate PriorToGaussian() PriorToNormal()
+@deprecate PriorToGaussian() NormalBased()
+
+Base.@deprecate_binding AbstractTransformTarget TransformIntent
+Base.@deprecate_binding PriorToNormal NormalBased
+Base.@deprecate_binding PriorToUniform UniformBased
+Base.@deprecate_binding OrderedResampling SystematicResampling
+
+
+@deprecate DensitySampleVector(
+    v::AbstractVector,
+    logd::AbstractVector{<:Real};
+    weight::Union{AbstractVector{<:Real}, Symbol} = fill(1, length(eachindex(v))),
+    info::AbstractVector = fill(nothing, length(eachindex(v))),
+    aux::AbstractVector = fill(nothing, length(eachindex(v)))
+) DensitySampleVector(v = v, logd = logd, weight = weight, info = info, aux = aux)

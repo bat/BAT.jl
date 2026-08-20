@@ -7,7 +7,6 @@ using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
 import ForwardDiff
 using InverseFunctions
 
-import AdvancedHMC
 
 
 @testset "hierarchial_distribution" begin

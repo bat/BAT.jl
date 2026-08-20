@@ -224,13 +224,18 @@ function Distributions.logpdf(ud::UnshapedHDist, x::AbstractVector{<:Real})
 end
 
 
-Distributions.pdf(d::HierarchicalDistribution, x::Any) = exp(logpdf(d, x))
+# No pdf(::HierarchicalDistribution, ...) catch-all: the generic pdf
+# fallbacks of Distributions and ValueShapes already route through logpdf
+# per variate type, and an untyped catch-all is ambiguous against them.
 
 Distributions.pdf(ud::UnshapedHDist, x::AbstractVector{<:Real}) = exp(logpdf(ud, x))
 
 
 Random.rand(rng::AbstractRNG, d::HierarchicalDistribution) = varshape(d)(rand(rng, unshaped(d)))
  
+
+# Disambiguates against the empty-dims rand method of ValueShapes:
+Random.rand(rng::AbstractRNG, d::HierarchicalDistribution, ::Tuple{}) = fill(rand(rng, d))
 
 function Random.rand(rng::AbstractRNG, d::HierarchicalDistribution, dims::Dims)
     ud = unshaped(d)

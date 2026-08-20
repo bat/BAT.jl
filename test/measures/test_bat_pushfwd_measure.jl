@@ -8,7 +8,7 @@ using ValueShapes, ArraysOfArrays, Distributions, MeasureBase
 using DensityInterface, InverseFunctions, ChangesOfVariables
 import ForwardDiff
 
-import Cuba, AdvancedHMC
+import Cuba
 using Optim
 
 
@@ -64,7 +64,7 @@ using Optim
                 tX_finite = tX[findall(isfinite, fix_nni.(logdensityof(m).(tX)))]
                 @test isapprox(@inferred(broadcast(ForwardDiff.derivative, logdensityof(m), tX_finite)), broadcast(ForwardDiff.derivative, x -> logpdf(target_dist, x), tX_finite), atol = 10^-7)
 
-                @test minimum(target_dist) <= bat_findmode(m, OptimAlg(optalg = LBFGS(), pretransform = DoNotTransform()), context).result <= maximum(target_dist)
+                @test minimum(target_dist) <= bat_findmode(m, TransformedMaxDensity(optalg = OptimAlg(optalg = LBFGS()), pretransform = DoNotTransform()), context).result <= maximum(target_dist)
 
                 if f_transform.target_dist isa Union{BAT.StandardUvUniform,BAT.StandardMvUniform}
                     @test isapprox(bat_integrate(m, VEGASIntegration(pretransform = DoNotTransform()), context).result, 1, rtol = 10^-7)
@@ -99,7 +99,7 @@ using Optim
         prior = HierarchicalDistribution(f_secondary, primary_dist)
         likelihood = logfuncdensity(logdensityof(varshape(prior)(MvNormal(Diagonal(fill(1.0, totalndof(varshape(prior))))))))
         m = PosteriorMeasure(likelihood, prior)
-        hmc_samples = bat_sample(m, TransformedMCMC(proposal = HamiltonianMC(), pretransform = PriorToNormal(), nsteps = 10^4), context).result
+        hmc_samples = bat_sample(m, TransformedMCMC(proposal = HamiltonianMC(), pretransform = NormalBased(), nsteps = 10^4), context).result
         is_samples = bat_sample(m, PriorImportanceSampler(nsamples = 10^4), context).result
         # Compare the means on the scale of the distribution itself: most of
         # these variates have a mean close to zero, where a relative tolerance
