@@ -105,7 +105,8 @@ end
 function compose_plotspecs(
         primitives::NamedTuple,
         recipe::KDE2D,
-        config::NamedTuple
+        config::NamedTuple;
+        transposed::Bool=false
 )
         (; x, y, density) = primitives
 
@@ -115,9 +116,11 @@ function compose_plotspecs(
 
         (; rev, colormap) = config
         cmap_final = rev ? Reverse(colormap) : colormap
-        heat = S.Heatmap(x, y, density;
-                colormap=cmap_final
-        )
+        # permutedims (not transpose) -- see Hist2D's matching comment
+        # (makie_hist.jl) for why, shared with all four heatmap-based recipes.
+        heat = transposed ?
+                S.Heatmap(y, x, permutedims(density); colormap=cmap_final) :
+                S.Heatmap(x, y, density; colormap=cmap_final)
         return [heat]
 end
 
@@ -305,7 +308,8 @@ end
 function compose_plotspecs(
         primitives::NamedTuple,
         recipe::QuantileKDE2D,
-        config::NamedTuple
+        config::NamedTuple;
+        transposed::Bool=false
 )
         (; x, y, color_grid) = primitives
 
@@ -313,7 +317,11 @@ function compose_plotspecs(
                 return PlotSpec[]
         end
 
-        heat = S.Heatmap(x, y, color_grid)
+        # permutedims (not transpose) -- see Hist2D's matching comment
+        # (makie_hist.jl); transpose would recurse into the RGBA cells here.
+        heat = transposed ?
+                S.Heatmap(y, x, permutedims(color_grid)) :
+                S.Heatmap(x, y, color_grid)
         return [heat]
 end
 

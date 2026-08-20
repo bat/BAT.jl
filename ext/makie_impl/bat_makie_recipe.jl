@@ -45,6 +45,13 @@ end
 
 function compute_plotting_primitives end
 
+# Every 2D recipe's compose_plotspecs method must accept a
+# `transposed::Bool=false` keyword (swap x/y when true) -- lower-triangle
+# cells render the shared per-pair primitive transposed to follow the
+# standard pair-plot orientation (see _init_gridlayout). Keywords don't
+# participate in dispatch, so forgetting it on a new 2D recipe fails loudly
+# (MethodError on the first lower-cell render, already at precompile time for
+# recipes in BAT_MAKIE_RECIPES_2D) rather than silently mis-orienting.
 function compose_plotspecs end
 
 

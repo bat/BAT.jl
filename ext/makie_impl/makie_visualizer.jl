@@ -156,6 +156,13 @@ function BAT.init_visualizer!(
         return nothing
     end
 
+    # One-time initial vsel activation flag (see the listener body below):
+    # graph[:idxs] starts empty, so the grid only becomes active once the
+    # configured vsel is applied for the first time. Latches only on success
+    # -- if the apply throws (caught by the tick's try/catch), the next tick
+    # retries, preserving the pre-existing retry-on-error behavior exactly.
+    vsel_initialized = Ref(false)
+
     # Started only after the figure above has fully resolved its initial state --
     # the listener's first tick can mutate :idxs/:samples via _apply_vsel!, which
     # would otherwise race the still-in-progress initial construction (observed
@@ -178,11 +185,23 @@ function BAT.init_visualizer!(
                 # elsewhere. Catching here bounds any future bug in this loop
                 # to a single skipped tick instead.
                 try
-                    # Decoupled from the sample-batch flush below so a vsel
-                    # change (vis.backend.vsel mutated by a future UI widget)
-                    # is picked up promptly instead of waiting for the next
-                    # full batch.
-                    _apply_vsel!(vis, vis.backend.vsel)
+                    # Applied ONCE (not per tick): this is purely the initial
+                    # activation of the configured vsel -- the vsel picker's
+                    # own checkbox callbacks (picker_info.apply_vsel! above)
+                    # are the sole runtime writer of graph[:idxs] after that.
+                    # This used to run unconditionally every tick, on the
+                    # assumption that a UI widget would communicate changes by
+                    # mutating vis.backend.vsel -- but the picker widget that
+                    # actually got built writes the graph directly instead, so
+                    # the per-tick re-apply of the (immutable, never-updated)
+                    # configured vsel silently REVERTED every live picker
+                    # change within one poll interval (confirmed via direct
+                    # repro), and re-fired _clamp_vsel's @warn ~10x/s for
+                    # models with fewer free parameters than the default vsel.
+                    if !vsel_initialized[]
+                        _apply_vsel!(vis, vis.backend.vsel)
+                        vsel_initialized[] = true
+                    end
 
                     flush_buffer!()
                 catch e

@@ -37,10 +37,16 @@ end
 function compose_plotspecs(
         primitives::NamedTuple,
         recipe::Scatter2D,
-        config::NamedTuple
+        config::NamedTuple;
+        transposed::Bool=false
 )
         (; x, y, weights) = primitives
         (; markersize) = config
+        # Lower-triangle cells swap x/y at compose time so both mirrored cells
+        # can share one computed primitive while still following the standard
+        # pair-plot orientation (cell (row, col): x = col's variable) -- see
+        # the invariant comment in _init_gridlayout.
+        transposed && ((x, y) = (y, x))
 
         real_markersize = if isempty(weights) || (all(x -> x ≈ weights[1], weights)) || (mean(weights) <= 0)
                 markersize
@@ -110,7 +116,8 @@ end
 function compose_plotspecs(
         primitives::NamedTuple,
         recipe::ChainScatter2D,
-        config::NamedTuple
+        config::NamedTuple;
+        transposed::Bool=false
 )
         (; x, y, weights, chainids) = primitives
         (; markersize) = config
@@ -118,6 +125,8 @@ function compose_plotspecs(
         if isempty(x)
                 return PlotSpec[]
         end
+        # See Scatter2D's matching comment above.
+        transposed && ((x, y) = (y, x))
 
         real_markersize = if isempty(weights) || (all(w -> w ≈ weights[1], weights)) || (mean(weights) <= 0)
                 markersize
