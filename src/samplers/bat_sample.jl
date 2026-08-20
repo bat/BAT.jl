@@ -133,19 +133,28 @@ function _ordered_resampling_idxs(smpls::DensitySampleVector, n::Integer, contex
     rng = get_rng(context)
     @assert axes(smpls) == axes(smpls.weight)
     W = smpls.weight
+    W_total = sum(W)
+    isfinite(W_total) && W_total > 0 || throw(ArgumentError("Sample weights must sum to a finite positive value"))
 
-    resampled_idxs = Vector{Int}()
-    sizehint!(resampled_idxs, n)
-
-    p_factor = n / sum(W)
-
+    # Systematic resampling (Kitagawa 1996): a single stratified uniform
+    # yields exactly n draws in one order-preserving pass, with the lowest
+    # variance among the standard resampling schemes:
+    u = rand(rng)
+    resampled_idxs = Vector{Int}(undef, n)
+    j = 0
+    cw = zero(float(eltype(W)))
     for i in eachindex(W)
-        w_eff_0 = p_factor * W[i]
-        w_eff::typeof(w_eff_0) = w_eff_0
-        while w_eff > 0
-            rand(rng) < w_eff && push!(resampled_idxs, i)
-            w_eff = w_eff - 1
+        cw += W[i]
+        thresh = cw * n / W_total
+        while j < n && u + j < thresh
+            j += 1
+            resampled_idxs[j] = i
         end
+    end
+    # Guard against floating-point shortfall at the very end:
+    while j < n
+        j += 1
+        resampled_idxs[j] = lastindex(W)
     end
 
     return resampled_idxs
