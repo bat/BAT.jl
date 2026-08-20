@@ -102,6 +102,17 @@ using BAT: DensitySampleMeasure, samplesof, empiricalof, getess
         @test all(in(smpls.v), rsmpls.v)
         @test getess(empiricalof(em_rand)) <= getess(dsm)
 
+        # Order-preserving systematic resampling keeps MCMC sample-id
+        # provenance, multinomial resampling destroys the process order
+        # and clears it:
+        ids = [BAT.MCMCSampleID(Int32(1), Int32(1), Int32(1), Int64(i), Int32(1), true) for i in eachindex(smpls)]
+        smpls_tagged = DensitySampleVector(v = smpls.v, logd = smpls.logd, weight = smpls.weight, info = ids)
+        dsm_tagged = DensitySampleMeasure(smpls_tagged)
+        r_sys = samplesof(evalmeasure(dsm_tagged, SystematicResampling(nsamples = 100), context))
+        @test eltype(r_sys.info) <: BAT.MCMCSampleID
+        r_rand = samplesof(evalmeasure(dsm_tagged, RandResampling(nsamples = 100), context))
+        @test eltype(r_rand.info) === Nothing
+
         em_ord = evalmeasure(dsm, SystematicResampling(nsamples = 500), context)
         osmpls = samplesof(em_ord)
         @test all(==(1), osmpls.weight)

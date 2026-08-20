@@ -82,7 +82,7 @@ export RandResampling
 function _resampled_empirical(p::BispacedMeasure, algorithm::RandResampling, context::BATContext)
     gen = get_gencontext(context)
     resampled_idxs = _rand_subsample_idxs(gen, p.main, algorithm.nsamples)
-    return _unweighted_resampling_byidxs(p, resampled_idxs)
+    return _without_sampleids(_unweighted_resampling_byidxs(p, resampled_idxs))
 end
 
 
