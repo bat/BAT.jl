@@ -1,4 +1,4 @@
-function plot_ks_values_ahmc_vs_mh(ks_res_ahmc::Array{Any},ks_res_mh::Array{Any},n_dim;name="results/ks_test_values_ahmc_mh")
+function plot_ks_values_hmc_vs_mh(ks_res_hmc::Array{Any},ks_res_mh::Array{Any},n_dim;name="results/ks_test_values_hmc_mh")
 
 	n_diff_dims = length(n_dim)
 	n_functions = length(create_testfunction_for_dim(2,hmc_safe=true))*2
@@ -11,7 +11,7 @@ function plot_ks_values_ahmc_vs_mh(ks_res_ahmc::Array{Any},ks_res_mh::Array{Any}
 	xy_func_annot=Array{Array{Float64}}(undef,n_functions)
 	func_annot = ["HMC","MH"]
 
-	res_ks = [ks_res_ahmc,ks_res_mh]
+	res_ks = [ks_res_hmc,ks_res_mh]
 
 	for i_function in 1:n_functions
 		results = res_ks[i_function]
@@ -357,8 +357,8 @@ function run_ND_benchmark(;
     return [ks_test,ahmi,times]
 end
 
-function run_ks_ahmc_vs_mh(;n_dim=20:5:35,nsteps=2*10^5, nchains=4)
-    ks_res_ahmc = run_ND_benchmark(n_dim=n_dim,algorithm=HamiltonianMC(), nsteps=nsteps, nchains=nchains, time_benchmark=false,ahmi_benchmark=false,hmc_benchmark=true)[1]
+function run_ks_hmc_vs_mh(;n_dim=20:5:35,nsteps=2*10^5, nchains=4)
+    ks_res_hmc = run_ND_benchmark(n_dim=n_dim,algorithm=HamiltonianMC(), nsteps=nsteps, nchains=nchains, time_benchmark=false,ahmi_benchmark=false,hmc_benchmark=true)[1]
     ks_res_mh = run_ND_benchmark(n_dim=n_dim,algorithm=RandomWalk(), nsteps=nsteps, nchains=nchains, time_benchmark=false,ahmi_benchmark=false,hmc_benchmark=true)[1]
-    plot_ks_values_ahmc_vs_mh(ks_res_ahmc,ks_res_mh,n_dim)
+    plot_ks_values_hmc_vs_mh(ks_res_hmc,ks_res_mh,n_dim)
 end
