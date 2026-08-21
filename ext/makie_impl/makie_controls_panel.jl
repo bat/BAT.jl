@@ -6,12 +6,26 @@ const _LBL_ROW_WIDTH = 80.0        # max("Upper", "Diagonal", "Lower")
 const _LBL_STATS_WIDTH = 116.0     # "Stats overlay"
 const _LBL_TRACE_WIDTH = 122.0     # "Trace overlay"
 const _LBL_MARGINALS_WIDTH = 182.0 # "Displayed Marginals"
+const _LBL_MARGINALS_CAPPED_WIDTH = 292.0 # "Displayed Marginals (1-10 of NN)"
 const _UI_COL2_MENU_WIDTH = 200.0  # fixed recipe-menu column width (colsize! below)
-# Picker cell width padded above the checkbox default for rescale_picker!'s height-driven cell growth; label column fits 2-digit indices.
-const _PICKER_LABEL_WIDTH = 14.0
-const _PICKER_CELL_WIDTH = 22.0
-# GridLayoutBase's default inter-column gap, applied between ui_layout's columns.
+# The vsel picker shows at most this many variables (matrix cells scale down
+# with N, but past 10 the matrix stops being usable UI; further dims stay
+# selectable via the vsel argument).
+const _PICKER_MAX_N = 10
+# Deterministic picker geometry, purely N-derived (no reactive rescaling):
+# cells shrink and pack tighter as N grows so the matrix fits the panel for
+# every N up to _PICKER_MAX_N.
+_picker_cell_size(N::Integer) = clamp(176.0 / (N + 1), 14.0, 24.0)
+_picker_gap(N::Integer) = N <= 5 ? 5.0 : 3.0
+_picker_fontsize(N::Integer) = clamp(0.55 * _picker_cell_size(N), 7.0, 12.0)
+# Matrix width incl. the index-label column and the N inter-column gaps.
+_picker_matrix_width(N::Integer) = (N + 1) * _picker_cell_size(N) + N * _picker_gap(N)
+# GridLayoutBase's default inter-column/row gaps, applied between ui_layout's tracks.
 const _UI_LAYOUT_COL_GAP = 16.0
+const _UI_LAYOUT_ROW_GAP = 16.0
+# Natural height of a menu/toggle control row (measured; re-measure if the
+# theme fontsize or Menu styling changes).
+const _UI_CONTROL_ROW_HEIGHT = 36.0
 
 # Panel width computed by plain arithmetic, NOT GridLayoutBase bottom-up sizing: a nothing-deferring GridLayout anywhere in the chain breaks determinability.
 function _controls_panel_width(picker_info::Union{PickerInfo,Nothing}, ui_box_pad::Real; has_trace_col::Bool = true)
@@ -20,7 +34,9 @@ function _controls_panel_width(picker_info::Union{PickerInfo,Nothing}, ui_box_pa
     picker_col_width = if isnothing(picker_info)
         0.0
     else
-        max(_LBL_MARGINALS_WIDTH, _PICKER_LABEL_WIDTH + picker_info.N * _PICKER_CELL_WIDTH)
+        # The capped "(1-10 of N)" title variant is wider than the matrix.
+        title_w = picker_info.N > _PICKER_MAX_N ? _LBL_MARGINALS_CAPPED_WIDTH : _LBL_MARGINALS_WIDTH
+        max(title_w, _picker_matrix_width(min(picker_info.N, _PICKER_MAX_N)))
     end
     n_cols = (isnothing(picker_info) ? 3 : 4) + (has_trace_col ? 1 : 0)
     return 2 * ui_box_pad + fixed_cols + picker_col_width + (n_cols - 1) * _UI_LAYOUT_COL_GAP
@@ -50,7 +66,12 @@ function _build_fig(
     # Panel rows get their own Fixed widths (_fix_panel_size!) so the grid's Aspect/Auto column is never capped by the panel's width need.
     n_grid = size(graph[:live_map][], 1)
     grid_growth = 170 * max(n_grid - 3, 0)
-    fig = Figure(size=(min(665 + grid_growth, 1600), min(850 + grid_growth, 1785)))
+    ui_box_pad = to_value(Makie.theme(:fontsize)) / 3
+    panel_width = _controls_panel_width(picker_info, ui_box_pad; has_trace_col=has_trace_info)
+    # The figure must be at least as wide as the fixed-width panel (plus a
+    # small margin), or a wide picker matrix gets clipped at the figure edge.
+    fig_w = max(min(665 + grid_growth, 1600), ceil(Int, panel_width) + 24)
+    fig = Figure(size=(fig_w, min(850 + grid_growth, 1785)))
 
     plot(fig[1, 1], gridlayout)
 
@@ -59,8 +80,6 @@ function _build_fig(
     rowsize!(fig.layout, 1, Auto())
 
     # toggle_row: a 3x3 wrapper of Fixed(ui_box_pad) margins around one content cell, with a Box at fig[2,1] as a rounded background; explicit dims are required for rowsize!/colsize! on row/col 3.
-    ui_box_pad = fig.scene.theme[:fontsize][] / 3
-    panel_width = _controls_panel_width(picker_info, ui_box_pad; has_trace_col=has_trace_info)
     toggle_row = fig[2, 1] = GridLayout(3, 3)
     rowgap!(toggle_row, 0)
     colgap!(toggle_row, 0)
@@ -254,11 +273,9 @@ function _build_fig(
         update!(graph, show_stats_lower=is_live)
     end
 
-    rescale_picker! = nothing
-    lbl_marginals = nothing
     if !isnothing(picker_info)
         (; N, N_max, initial_vsel, apply_vsel!) = picker_info
-        picker_blocks, rescale_picker!, lbl_marginals = _build_vsel_picker!(
+        picker_blocks = _build_vsel_picker!(
             fig, ui_layout, graph, N, N_max, initial_vsel, apply_vsel!,
             has_trace_info ? 5 : 4,
         )
@@ -274,8 +291,6 @@ function _build_fig(
         for b in ui_blocks
             _set_block_visible!(b, vis)
         end
-        # The restore loop resizes picker cells while the matrix's height is still transient; force one final pass after everything settles.
-        vis && !isnothing(rescale_picker!) && rescale_picker!()
     end
     on(collapse_button.clicks) do _
         controls_visible[] = !controls_visible[]
@@ -325,7 +340,12 @@ function _set_block_visible!(b::Checkbox, v::Bool)
     return nothing
 end
 
-# Builds the "Displayed Marginals" title + N x N picker matrix; only the lower triangle incl. diagonal (i >= j) is interactive, since (i,j)/(j,i) are the same marginal. Caller must invoke rescale_picker! once after fully re-expanding the controls (mid-restore the matrix height is transient).
+# Builds the "Displayed Marginals" title + picker matrix over the first
+# min(N, _PICKER_MAX_N) variables; only the lower triangle incl. diagonal
+# (i >= j) is interactive, since (i,j)/(j,i) are the same marginal. All cell/
+# gap/font sizes are fixed, N-derived values (_picker_cell_size and friends)
+# set once at construction -- deterministic square geometry at every N, and
+# exactly what _controls_panel_width budgets for.
 function _build_vsel_picker!(
     fig::Figure,
     ui_layout::GridLayout,
@@ -336,13 +356,18 @@ function _build_vsel_picker!(
     apply_vsel!::Function,
     picker_col::Integer,
 )
-    lbl_marginals = Label(fig, "Displayed Marginals")
+    N_shown = min(N, _PICKER_MAX_N)
+    cell = _picker_cell_size(N_shown)
+    gap = _picker_gap(N_shown)
+    lbl_fontsize = _picker_fontsize(N_shown)
+    cb_size = round(0.72 * cell)
+
+    title = N > _PICKER_MAX_N ?
+        "Displayed Marginals (1-$(_PICKER_MAX_N) of $N)" : "Displayed Marginals"
+    lbl_marginals = Label(fig, title)
     ui_layout[1, picker_col] = lbl_marginals
 
     picker_layout = ui_layout[2:4, picker_col] = GridLayout()
-    # nothing = fill the assigned span; the default Auto() would center the matrix's small natural size in it instead.
-    picker_layout.width[] = nothing
-    picker_layout.height[] = nothing
 
     # Color derived from the actual background (see _status_text_color) -- a hardcoded :red is illegible on the dark theme.
     status_label = Label(fig, "", fontsize=12, color=_status_text_color(fig.scene.backgroundcolor[]))
@@ -352,60 +377,56 @@ function _build_vsel_picker!(
     all_blocks = Union{Checkbox,Label,Box}[status_label, lbl_marginals]
     updating_programmatically = Ref(false)
 
-    for j in 1:N
-        lbl = Label(fig, string(j), fontsize=12)
+    for j in 1:N_shown
+        lbl = Label(fig, string(j), fontsize=lbl_fontsize)
         picker_layout[1, j+1] = lbl
         push!(all_blocks, lbl)
     end
-    for i in 1:N
-        lbl = Label(fig, string(i), fontsize=12)
+    for i in 1:N_shown
+        lbl = Label(fig, string(i), fontsize=lbl_fontsize)
         picker_layout[i+1, 1] = lbl
         push!(all_blocks, lbl)
-        for j in 1:N
+        for j in 1:N_shown
             if i >= j
                 cb = Checkbox(
                     picker_layout[i+1, j+1],
                     checked=(i in initial_vsel_set && j in initial_vsel_set),
-                    roundness=0
+                    roundness=0,
+                    size=cb_size
                 )
                 checkboxes[(i, j)] = cb
                 push!(all_blocks, cb)
             else
                 # Widget shade from the actual background (two ladder steps), not a hardcoded gray that clashes with the dark theme.
-                bx = Box(fig, color=_panel_bg_color(_panel_bg_color(fig.scene.backgroundcolor[])), width=20, height=20)
+                bx = Box(fig, color=_panel_bg_color(_panel_bg_color(fig.scene.backgroundcolor[])), width=cb_size, height=cb_size)
                 picker_layout[i+1, j+1] = bx
                 push!(all_blocks, bx)
             end
         end
     end
-    picker_layout[N+2, 1:(N+1)] = status_label
+    picker_layout[N_shown+2, 1:(N_shown+1)] = status_label
 
-    # Scales cell sizes/fontsizes to picker_layout's resolved height; unconditional (no dedup) so the caller's post-expand call always applies.
-    function rescale_picker!()
-        h = picker_layout.layoutobservables.computedbbox[].widths[2]
-        h < 10 && return
-        cell = h / (N + 2) # matrix rows (N+1) plus the status-label row
-        cb_size = max(4.0, 0.75 * cell)
-        lbl_fontsize = clamp(0.45 * cell, 6.0, 16.0)
-        for b in all_blocks
-            if b isa Checkbox
-                b.size[] = cb_size
-            elseif b isa Box
-                _silent_set!(b.width, cb_size)
-                b.height[] = cb_size # final, notifying write
-            elseif b !== lbl_marginals && b !== status_label
-                b.fontsize[] = lbl_fontsize
-            end
-        end
-        return nothing
+    # Fixed square tracks and tight gaps, set only now that the content has
+    # created the tracks (gap/size calls on a still-empty GridLayout don't
+    # extend to tracks added later): cells stay square no matter how the
+    # surrounding rows/columns stretch.
+    rowgap!(picker_layout, gap)
+    colgap!(picker_layout, gap)
+    for k in 1:N_shown+1
+        colsize!(picker_layout, k, Fixed(cell))
+        rowsize!(picker_layout, k, Fixed(cell))
     end
-    # last_h guards re-entrant firing: cell resizes renotify computedbbox even on equal values, an infinite loop without the dedup.
-    last_h = Ref(-1.0)
-    on(picker_layout.layoutobservables.computedbbox) do bbox
-        h = bbox.widths[2]
-        (h < 10 || h == last_h[]) && return
-        last_h[] = h
-        rescale_picker!()
+
+    # ui_layout's rows 2:4 do NOT auto-grow for the row-spanning matrix
+    # (GridLayoutBase sizes Auto tracks from single-span content only, so an
+    # oversized span silently overflows into the neighboring rows) -- give
+    # all three rows explicit equal heights whenever the matrix needs more
+    # than the natural control-row height.
+    status_h = 16.0
+    matrix_h = (N_shown + 1) * cell + (N_shown + 1) * gap + status_h
+    row_h = max(_UI_CONTROL_ROW_HEIGHT, (matrix_h - 2 * _UI_LAYOUT_ROW_GAP) / 3)
+    for r in 2:4
+        rowsize!(ui_layout, r, Fixed(row_h))
     end
 
     active_vars = Ref(initial_vsel_set)
@@ -438,5 +459,5 @@ function _build_vsel_picker!(
         end
     end
 
-    return all_blocks, rescale_picker!, lbl_marginals
+    return all_blocks
 end
