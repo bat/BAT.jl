@@ -1,21 +1,15 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# Fresh values per call, deliberately not shared consts -- see the
-# change-tracking rationale above _empty_scatter2d_primitives
-# (makie_scatter.jl).
+# Fresh sentinels per call, not shared consts -- see _empty_scatter2d_primitives (makie_scatter.jl).
 _empty_hist1d_primitives() = (centers=Vector{Float64}(), weights=Vector{Float64}(), edges=Vector{Float64}())
 _empty_hist2d_primitives() = (centers_x=Vector{Float64}(), centers_y=Vector{Float64}(), weights=Matrix{Float64}(undef, 0, 0))
 _empty_quantilehist1d_primitives() = (xy_data=Vector{Point{2,Float32}}(), widths=Vector{Float64}(), stairs_data=Vector{Point{2,Float32}}(), bin_colors=Vector{RGBA{Float32}}())
 _empty_quantilehist2d_primitives() = (centers_x=Vector{Float64}(), centers_y=Vector{Float64}(), color_grid=Matrix{RGBA{Float32}}(undef, 0, 0))
 _empty_hexbin2d_primitives() = (x=Float64[], y=Float64[], weights=Float64[], thresh=0.0)
 
-# Bin edges for a marginal histogram. When a fixed per-dimension `domain` is
-# available (the compute graph merges one into the config -- see the
-# primitive registrations in makie_compute_graph.jl), the edges derive from
-# THAT, not from the data's own range: fixed domain-derived edges are what
-# keep live bins stable as samples accumulate, instead of every bin shifting
-# on each flush. Without a domain (direct calls outside the graph, or a cell
-# whose domain isn't known yet), fall back to data-derived edges.
+# Bin edges for a marginal histogram: derived from the fixed per-dimension
+# `domain` when available (keeps live bins stable as samples accumulate),
+# data-derived otherwise.
 function _hist_edges(::Nothing, cols, bins::Integer, closed::Symbol)
     return _get_edges(cols, (bins,), closed)
 end
@@ -37,7 +31,7 @@ function _marginal_view_dist(
     bins::Union{Tuple{Vararg{Int64}},Int64},
     closed::Symbol,
     normalization::Symbol,
-    domain=nothing,
+    domain = nothing,
 )
     if filter
         mask = _low_weight_mask(weights)
@@ -53,10 +47,8 @@ function _marginal_view_dist(
     return h_norm
 end
 
-# Mirrors BAT.drop_low_weight_samples, but returns a mask over a bare weight
-# vector instead of indexing a DensitySampleVector (locations/weights are
-# already split apart into separate views by the time they get here).
-function _low_weight_mask(weights::AbstractVector, fraction::Real=10^-5, threshold::Real=10^-2)
+# Mirrors BAT.drop_low_weight_samples, but returns a mask over a bare weight vector.
+function _low_weight_mask(weights::AbstractVector, fraction::Real = 10^-5, threshold::Real = 10^-2)
     W = float(weights)
     if minimum(W) / maximum(W) > threshold
         return trues(length(W))
@@ -74,10 +66,8 @@ function _get_bin_centers(hist::Histogram)
     edges = hist.edges
     dims = ndims(hist.weights)
 
-    # Explicitly typed comprehensions: an untyped comprehension over <= 1
-    # edges infers Vector{Any}, which would violate the graph's TypedEdge
-    # contract (live/dead primitive types must match exactly) the moment a
-    # degenerate edge vector ever reaches a live cell.
+    # Explicitly typed comprehensions: an untyped comprehension over <= 1 edges
+    # infers Vector{Any}, violating the graph's TypedEdge live/dead type contract.
     centers = Vector{Float64}[
         Float64[edges[d][i] + 0.5 * (edges[d][i+1] - edges[d][i]) for i in 1:length(edges[d])-1]
         for d in 1:dims
@@ -86,43 +76,24 @@ function _get_bin_centers(hist::Histogram)
     return centers
 end
 
-# Shared postprocessing (normalize + derive plot primitives) between the
-# incremental path above and the full-recompute path below, so the two only
-# differ in *how* the raw Histogram gets built, not in what happens to it
-# afterwards.
-# StatsBase.normalize(hist, mode=:pdf) divides every bin by the total
-# weight -- 0/0 = NaN when that total is exactly zero (either genuinely
-# all-zero-weight samples, or -- before _safe_edges_fallback's own fix --
-# a degenerate domain whose zero-width bin silently dropped every sample).
-# That NaN then propagates into _diag_y_extent/diag_y_max (makie_gridlayout.jl),
-# silently corrupting the shared diagonal y-axis limit for every diagonal
-# cell, not just this one. Skipping normalization when the total is zero
-# leaves a real, all-zero (not NaN) histogram instead -- renders as empty/
-# flat bars, matching what an actually-empty dataset looks like elsewhere in
-# this codebase, rather than corrupting shared state.
+# Normalizing an all-zero-weight histogram gives 0/0 = NaN bins, which would
+# corrupt the shared diagonal y-axis limit -- skip normalization instead.
 _safe_normalize(hist::Histogram, normalization::Symbol) =
     (normalization == :none || iszero(sum(hist.weights))) ? hist : StatsBase.normalize(hist, mode=normalization)
 
 function _hist1d_output(hist::Histogram, normalization::Symbol)
     h_norm = _safe_normalize(hist, normalization)
     centers = _get_bin_centers(h_norm)
-    # Float64.(...): h_norm.weights only gets promoted to Float64 by
-    # StatsBase.normalize when normalization != :none -- with :none (currently
-    # unreachable, normalization is hardcoded to :pdf everywhere in this
-    # codebase) it would keep the input samples' own weight eltype (Int64 by
-    # default), mismatching _empty_hist1d_primitives()'s declared Vector{Float64}
-    # the same way KDE1D/KDE2D/QuantileKDE2D's StepRangeLen mismatch did.
-    # `edges` (length nbins+1), previously misleadingly named `widths` --
-    # QuantileHist1D's sibling field of that name holds genuine bin widths.
+    # Float64.(...): with :none normalization the weights keep the samples' own
+    # eltype, mismatching the empty sentinel's Vector{Float64} (TypedEdge).
     return (centers=centers[1], weights=Float64.(h_norm.weights), edges=collect(h_norm.edges[1]))
 end
 
 function _hist2d_output(hist::Histogram, normalization::Symbol)
     h_norm = _safe_normalize(hist, normalization)
     centers_x, centers_y = _get_bin_centers(h_norm)
-    # Zero-count bins as NaN (rendered transparent) -- single pass, with
-    # Float64 forced explicitly since the all-zero-weight case skips
-    # normalization and keeps the samples' own integer weight eltype.
+    # Zero-count bins as NaN (rendered transparent); Float64 forced since the
+    # all-zero-weight case skips normalization and keeps the integer eltype.
     weights = map(w -> w > 0 ? Float64(w) : NaN, h_norm.weights)
     return (centers_x=centers_x, centers_y=centers_y, weights=weights)
 end
@@ -191,14 +162,10 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
-    # A live cell can still have zero samples (e.g. right after vsel activates,
-    # before the first batch flushes, or if buffered samples get cleared later)
-    # -- degrade to the same empty result as a dead cell rather than crashing.
+    # A live cell can still have zero samples -- degrade like a dead cell.
     isempty(weights) && return _empty_hist1d_primitives()
     (; normalization, nbins, closed, filter) = config
-    # nbins + 1, unlike every other hist recipe's plain nbins -- a historical
-    # asymmetry, deliberately kept since changing it would silently alter
-    # Hist1D's default binning.
+    # nbins + 1, unlike every other hist recipe's plain nbins -- deliberate asymmetry.
     hist = _marginal_view_dist(marg_coords, weights, filter, nbins + 1, closed, :none, get(config, :domain, nothing))
     return _hist1d_output(hist, normalization)
 end
@@ -221,14 +188,8 @@ function compose_plotspecs(
     return [bars, stairs]
 end
 
-# Peak y-value of this diagonal recipe's own primitives (density/bar height),
-# used by _init_gridlayout to link all diagonal cells' y-axis limits to a
-# shared (0, 1.1*max) range instead of each auto-scaling independently.
-# Specific methods below cover the recipes selectable as the diagonal recipe
-# (see options1D in _build_fig); this generic fallback covers the rest
-# (Std1D/Mean1D/Errorbars1D -- stats-overlay-only recipes that can still reach
-# here as `diagonal_recipe`, e.g. via the precompile workload) with 0.0, since
-# they're VLines/errorbars with no "peak density" of their own.
+# Peak y-value of a diagonal recipe's primitives -- _init_gridlayout links all
+# diagonal cells to a shared y range; the generic fallback covers stats-only recipes.
 _diag_y_extent(::NamedTuple, ::BATMakieRecipe) = 0.0
 _diag_y_extent(primitives::NamedTuple, ::Hist1D) = isempty(primitives.weights) ? 0.0 : maximum(primitives.weights)
 
@@ -261,7 +222,7 @@ function compose_plotspecs(
     primitives::NamedTuple,
     recipe::Hist2D,
     config::NamedTuple;
-    transposed::Bool=false
+    transposed::Bool = false
 )
     (; centers_x, centers_y, weights) = primitives
 
@@ -270,11 +231,8 @@ function compose_plotspecs(
     end
 
     # Lower-triangle cells swap axes at compose time (see _init_gridlayout's
-    # invariant comment). permutedims, not lazy transpose: Makie's heatmap
-    # expects size(z) == (length(x), length(y)), and LinearAlgebra's transpose
-    # is recursive (no method for the RGBA cells QuantileHist2D/QuantileKDE2D
-    # feed through this same pattern) -- an eager copy of a <=~256^2 matrix is
-    # negligible next to the full-grid rebuild this runs inside.
+    # invariant comment). permutedims, not lazy transpose: recursive transpose has
+    # no method for the RGBA cells QuantileHist2D/QuantileKDE2D feed through here.
     heat = transposed ?
         S.Heatmap(centers_y, centers_x, permutedims(weights)) :
         S.Heatmap(centers_x, centers_y, weights)
@@ -360,7 +318,7 @@ function compose_plotspecs(
     primitives::NamedTuple,
     recipe::QuantileHist2D,
     config::NamedTuple;
-    transposed::Bool=false
+    transposed::Bool = false
 )
     (; centers_x, centers_y, color_grid) = primitives
     if isempty(centers_x)
@@ -393,20 +351,13 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
-    # A live cell can still have zero samples, and its placeholder view is
-    # 0x0 (not 2x0) -- row indexing below would throw a BoundsError. Same
-    # guard the KDE recipes (and now Scatter2D/ChainScatter2D) use.
+    # Zero-sample live cell: the placeholder view is 0x0, so row indexing would throw.
     isempty(weights) && return _empty_hexbin2d_primitives()
     (; threshold) = config
     x = marg_coords[1, :]
     y = marg_coords[2, :]
 
-    # Float64(...): minimum(pos_w) otherwise inherits the samples' own weight
-    # eltype (Int64 by default) rather than matching
-    # _empty_hexbin2d_primitives()'s declared thresh::Float64 -- harmless today
-    # (scalar Int64->Float64 always converts, unlike the Vector/Range
-    # mismatches this same pattern guards against elsewhere in this file) but
-    # kept consistent defensively.
+    # Float64(...): match _empty_hexbin2d_primitives()'s thresh::Float64.
     final_thresh = if isnothing(threshold)
         pos_w = weights[weights.>0]
         isempty(pos_w) ? 0.0 : Float64(minimum(pos_w))
@@ -414,13 +365,8 @@ function compute_plotting_primitives(
         threshold
     end
 
-    # Materialized to Vector{Float64} rather than passed through as the raw
-    # SubArray{<:Any} from :flat_weights -- ComputePipeline's TypedEdge fixes
-    # this node's output type from its first resolution, and the dead-cell
-    # fallback (_empty_hexbin2d_primitives()) hardcodes weights=Float64[]; a
-    # live SubArray{Int64,...} (or any non-Float64 concrete type) here would
-    # make a later live->dead transition (e.g. via vsel reduction) fail to
-    # convert.
+    # weights materialized to Vector{Float64} -- see Scatter2D's matching comment
+    # (makie_scatter.jl) on the live/dead TypedEdge type-lock.
     return (x=x, y=y, weights=Float64.(weights), thresh=final_thresh)
 end
 
@@ -428,7 +374,7 @@ function compose_plotspecs(
     primitives::NamedTuple,
     recipe::Hexbin2D,
     config::NamedTuple;
-    transposed::Bool=false
+    transposed::Bool = false
 )
     (; x, y, weights, thresh) = primitives
     (; colormap, rev, nbins) = config
@@ -437,9 +383,8 @@ function compose_plotspecs(
     end
     final_cmap = rev ? Reverse(colormap) : colormap
 
-    # See Scatter2D's matching comment (makie_scatter.jl). The per-axis bin
-    # counts swap along with the axes -- a no-op for the shipped symmetric
-    # (100,100)/(20,20) configs, but correct if nbins is ever asymmetric.
+    # See Scatter2D's matching comment (makie_scatter.jl); per-axis bin counts
+    # swap along with the axes.
     if transposed
         x, y = y, x
         nbins isa Tuple && (nbins = reverse(nbins))

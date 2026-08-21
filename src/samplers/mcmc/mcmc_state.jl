@@ -164,14 +164,9 @@ end
 _empty_chain_outputs(state::MCMCState) = _empty_chain_outputs(state.chain_state)
 
 function _empty_chain_outputs(chain_state::MCMCChainState)
-    # One INDEPENDENT vector per walker -- `fill` would put the same mutable
-    # DensitySampleVector into every slot, so with nwalkers > 1 all walkers'
-    # samples landed interleaved in one shared vector through the aliases.
-    # That defeated checked_push!'s dedup-by-last-position (alternating
-    # walkers meant the last sample was almost never the same walker's), so
-    # every dwell step appended a full new row, and each visualizer flush
-    # re-merged the ballooning aliased buffers -- confirmed to blow up to
-    # OOM-kill within seconds on a live-visualized multi-walker run.
+    # One independent vector per walker: `fill` would alias one mutable vector
+    # into every slot, and interleaved pushes through the aliases corrupted
+    # every multi-walker run.
     return [_empty_DensitySampleVector(chain_state) for _ in 1:nwalkers(chain_state)]
 end
 
