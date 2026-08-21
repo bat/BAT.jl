@@ -4,49 +4,10 @@ function _init_gridlayout(
     graph::ComputeGraph,
     n::Int64
 )
-    # This used to be a plain Observables.lift(...) over just the 10 "control"
-    # observables below, with everything else (every cell's own primitive,
-    # the stats/trace overlay primitives, the per-dimension axis limits) read
-    # reentrantly via graph[symbol][] *inside* the lift body. That reentrant
-    # read pattern is what caused a real, reproducible bug: a real mouse
-    # click's callback chain runs synchronously nested inside
-    # ComputePipeline's own locked _update!/resolve! call (Observables'
-    # notify() is synchronous, and ComputePipeline's graph.lock is a
-    # ReentrantLock, so the nested graph[symbol][] read doesn't deadlock --
-    # it just silently corrupts ComputePipeline's internal edge-resolution
-    # bookkeeping instead). Confirmed directly and reproducibly: a
-    # closure-captured, otherwise-immutable Integer parameter (this very `n`)
-    # was observed reading back as 100 (matching a config's nbins) in one
-    # capture and 93568 (matching the sample count) in another, immediately
-    # after a real click -- two different *other* integers from the same
-    # closure's environment, not random memory corruption, exactly what
-    # stale/reentrant-corrupted edge state would produce. Never reproducible
-    # by driving the identical Observable change programmatically (no active
-    # GLFW event-poll context involved there) -- only by a real mouse click,
-    # which is what let this hide for as long as it did.
-    #
-    # Fixed by making this a genuine ComputePipeline computation instead,
-    # matching the pattern every *other* node in this graph already uses:
-    # register_computation! requires a static input list (fixed at
-    # registration time, since it can't vary by whichever recipe happens to
-    # be selected right now), so this lists *every* symbol this cell matrix
-    # could ever need -- every recipe, not just the currently-selected one --
-    # rather than just the 10 control signals. ComputePipeline resolves all
-    # of them (cheaply -- resolving an edge that isn't dirty is a checked
-    # no-op) before invoking this callback, so the callback body itself does
-    # zero graph reads, only NamedTuple field lookups on the already-resolved
-    # `inputs`. No new work this adds: :diagonal_recipe/:upper_recipe/
-    # :lower_recipe are already declared inputs to every per-recipe primitive
-    # computation today, so switching recipes already wakes every recipe's
-    # (cheap, dead-sentinel) computation regardless of this change.
-    # Mean1D/Std1D are already part of BAT_MAKIE_RECIPES_1D (and
-    # Mean2D/Cov2D/Std2D already part of BAT_MAKIE_RECIPES_2D) -- only
-    # ChainScatter2D and Trace2D need adding, since those two are
-    # deliberately excluded from BAT_MAKIE_RECIPES_2D itself (see their own
-    # registration comments in makie_compute_graph.jl for why). Re-adding an
-    # already-listed recipe here would register the same primitive_symbol
-    # twice in register_computation!'s input list below, one of several
-    # ways to a duplicate-field NamedTuple error.
+    # A real ComputePipeline computation, not an Observables.lift with reentrant
+    # graph[sym][] reads inside the body (those corrupt edge-resolution state).
+    # register_computation!'s input list is static, so it names every recipe's
+    # primitives exactly once (a duplicate would make a duplicate-field NamedTuple).
     diag_recipes = BAT_MAKIE_RECIPES_1D
     pair_recipes = vcat(BAT_MAKIE_RECIPES_2D, [ChainScatter2D(), Trace2D()])
 
@@ -56,9 +17,7 @@ function _init_gridlayout(
             push!(primitive_inputs, primitive_symbol(recipe, (i, i)))
         end
     end
-    # (j, i) with j > i, matching the (bigger, smaller) convention every 2D
-    # primitive is actually registered under in _init_compute_graph (shared
-    # between the upper and lower cell at the same unordered pair).
+    # (j, i) with j > i: the (bigger, smaller) key convention of _init_compute_graph.
     for i in 1:n, j in i+1:n
         for recipe in pair_recipes
             push!(primitive_inputs, primitive_symbol(recipe, (j, i)))
@@ -68,9 +27,7 @@ function _init_gridlayout(
 
     control_inputs = [
         :current_idx,
-        :idxs, # re-render on vsel changes too, not just new sample batches --
-        # otherwise toggling the picker only appears to work during live
-        # sampling, as an accidental side effect of :current_idx also changing.
+        :idxs, # re-render on vsel changes too, not just new sample batches
         :upper_recipe,
         :diagonal_recipe,
         :lower_recipe,
@@ -81,12 +38,8 @@ function _init_gridlayout(
         :show_trace_lower,
     ]
 
-    # :triagonal_config/:diagonal_config are never updated after construction
-    # (no code anywhere calls update!(graph, triagonal_config=...) or
-    # diagonal_config=...), so a single plain read here -- at setup time,
-    # before this computation is ever registered/invoked, not reentrant -- is
-    # exactly equivalent to re-reading them on every invocation, and avoids
-    # needing them as declared inputs at all.
+    # Never updated after construction, so a setup-time read (not a declared
+    # input) is sufficient.
     triagonal_config = graph[:triagonal_config][]
     diagonal_config = graph[:diagonal_config][]
 
@@ -95,6 +48,7 @@ function _init_gridlayout(
         vcat(control_inputs, primitive_inputs, axis_limit_inputs),
         [:gridlayout],
     ) do inputs, changed, cached
+        @nospecialize(changed, cached)
         idx = inputs.current_idx
         _idxs = inputs.idxs
         upper_recipe = inputs.upper_recipe
@@ -108,54 +62,14 @@ function _init_gridlayout(
 
         matrix = Matrix{Any}(undef, n, n)
 
-        # Deselecting a variable should visually remove its row/column and
-        # let the remaining ones grow into the freed space. The naive way to
-        # do that -- building an n_active x n_active S.GridLayout matrix
-        # instead of always n x n -- hits a genuine Makie SpecApi
-        # reconciliation bug: shrinking the matrix then growing it back to a
-        # size it held *before* tries to reuse a previously-disconnected
-        # block at that position instead of creating a fresh one, and it
-        # never reappears (confirmed empirically via direct instrumentation
-        # of both the compute graph and this very closure -- both correctly
-        # recomputed n_active back to its original value, yet the rendered
-        # scene stayed frozen at the smaller size).
-        #
-        # So the matrix itself always stays n x n (sidestepping that
-        # reconciliation path entirely, since the *set of positions* never
-        # changes) and inactive rows/columns are instead collapsed to
-        # Fixed(0) via GridLayoutSpec's own rowsizes/colsizes -- the same
-        # mechanism (and the same Fixed(0)-collapses-a-cell trick used
-        # elsewhere in this file for the collapsible controls row) just
-        # applied here to grid rows/columns instead of Figure rows.
-        # GridLayoutBase then naturally redistributes the same total area
-        # across only the n_active non-collapsed cells.
+        # The matrix always stays n x n, with inactive rows/columns collapsed to
+        # Fixed(0) instead: shrinking and re-growing the matrix hits a Makie
+        # SpecApi reconciliation bug where re-grown blocks never reappear.
         n_active = length(_idxs)
         n_active <= n || throw(ArgumentError("idxs has $(n_active) entries, exceeding the grid size N_max=$n"))
-        # Explicitly typed as Union{Auto,Fixed} (not left to infer as
-        # Vector{Any}) -- GridLayoutBase.convert_contentsizes requires
-        # Vector{<:ContentSize} and rejects a plain Vector{Any}, which is
-        # what an untyped comprehension over two different concrete types
-        # produces.
+        # Explicit Union{Auto,Fixed} eltype: GridLayoutBase.convert_contentsizes
+        # rejects a plain Vector{Any}.
         cellsizes = Union{Auto,Fixed}[i <= n_active ? Auto() : Fixed(0) for i in 1:n]
-
-        # Shared y-axis limit across all diagonal cells (0 to 1.1x the peak
-        # value of any active diagonal's own recipe primitives -- see
-        # _diag_y_extent's per-recipe methods), rather than each diagonal
-        # auto-scaling to its own peak independently. nothing (Makie's usual
-        # autolimits) until real data exists in at least one active diagonal
-        # cell, matching the graceful-degradation-before-data pattern used
-        # elsewhere in this function (e.g. axis_limits_i falling back to
-        # (0,1)).
-        # Filters out non-finite extents (e.g. a NaN from a zero-weight
-        # diagonal cell -- see makie_hist.jl's _safe_normalize) before
-        # taking the max: maximum()'s NaN-poisoning would otherwise let one
-        # degenerate/zero-weight cell silently corrupt the shared y-axis
-        # limit for every *other*, perfectly valid diagonal cell too.
-        diag_y_max = maximum(
-            Iterators.filter(isfinite, (_diag_y_extent(getproperty(inputs, primitive_symbol(diagonal_recipe, (i, i))), diagonal_recipe()) for i in 1:n_active));
-            init=0.0
-        )
-        diag_ylims = diag_y_max > 0 ? (0.0, 1.1 * diag_y_max) : nothing
 
         for i in 1:n
             diagonal_primitives = getproperty(inputs, primitive_symbol(diagonal_recipe, (i, i)))
@@ -164,57 +78,28 @@ function _init_gridlayout(
             append!(diagonal_plotspecs, stats_specs_1D)
 
             xlims = getproperty(inputs, Symbol("axis_limits_$i"))
-            # A Fixed(0) row/column (cellsizes above) collapses the cell's
-            # own plotting area to zero, but ticks/tick-labels/gridlines are
-            # protrusion content drawn *outside* that area -- they don't
-            # automatically disappear just because the cell they're attached
-            # to has shrunk to nothing (confirmed empirically: leftover tick
-            # marks/labels from deselected variables were still visible).
-            # Explicitly forcing every decoration off for an inactive cell,
-            # not just relying on it having zero size, is what actually
-            # removes them. This grid's own alignmode=Outside(...) (see the
-            # S.GridLayout call below) means its reported protrusion to its
-            # parent (fig.layout, in _build_fig) is always a fixed margin,
-            # regardless of which/how many rows are actually active, so
-            # there's no size-jump risk from an inactive cell's decorations
-            # being on/off the way there once was under the GridLayoutBase
-            # default Inside() alignmode.
+            # Per-cell y-limit, not shared across diagonals: densities have
+            # per-variable units, so different scales aren't comparable on one axis.
+            diag_y_ext = _diag_y_extent(diagonal_primitives, diagonal_recipe())
+            diag_ylims = (isfinite(diag_y_ext) && diag_y_ext > 0) ? (0.0, 1.1 * diag_y_ext) : nothing
+            # Decorations are protrusion content drawn outside the cell area --
+            # they don't vanish with Fixed(0), so hide them explicitly when inactive.
             cell_active = i <= n_active
             matrix[i, i] = S.Axis(
                 plots=diagonal_plotspecs,
-                # Matches the upper/lower 2D cells' aspect=1 below -- without
-                # it, a diagonal cell has no fixed visual aspect ratio at all
-                # (unlike a 2D cell, whose data-derived x/y limits happen to
-                # somewhat constrain its shape) and stretches to fill whatever
-                # rectangle the GridLayout/decorations leave it, typically
-                # taller than wide for a 1D density/histogram.
+                # Matches the 2D cells' aspect=1; otherwise a diagonal cell stretches.
                 aspect=1,
                 limits=(xlims, diag_ylims),
-                # Every cell shows its own bottom/left tick labels + axis
-                # labels now (per explicit request), with the tick *marks*
-                # themselves removed everywhere to keep the added clutter in
-                # check -- xticksvisible/yticksvisible=false rather than
-                # tying them to visibility of the labels.
                 xticklabelsvisible=cell_active, xticksvisible=false,
                 yticklabelsvisible=cell_active, yticksvisible=false,
-                # No fixed ytickformat: a hardcoded "{:.1f}" rendered every
-                # density axis whose values sit below ~0.05 (any parameter
-                # with a wide natural scale) as an all-"0.0" axis; Makie's
-                # default adaptive formatter handles all scales.
+                # No fixed ytickformat: Makie's adaptive default handles all scales.
                 yticklabelrotation=pi / 2,
                 xgridvisible=cell_active,
                 ygridvisible=cell_active,
                 leftspinevisible=cell_active, rightspinevisible=cell_active,
                 topspinevisible=cell_active, bottomspinevisible=cell_active,
-                # v_i on x, p_i on y -- every diagonal cell shows both,
-                # unconditionally (same "every cell always" rule as ticks
-                # above): each diagonal is the unique anchor identifying
-                # which variable its row/column represents.
-                # Plain "" (not L"") for the inactive/hidden case -- an empty
-                # LaTeXString crashes Makie's glyph-collection computation
-                # even when xlabelvisible=false (confirmed empirically: the
-                # visibility flag doesn't skip glyph layout for the
-                # underlying text, only its own rendering).
+                # Plain "" (not L"") when inactive: an empty LaTeXString crashes
+                # Makie's glyph-collection even with the label invisible.
                 xlabel=cell_active ? L"v_%$(_idxs[i])" : "",
                 ylabel=cell_active ? L"p_%$(_idxs[i])" : "",
                 xlabelvisible=cell_active,
@@ -222,17 +107,9 @@ function _init_gridlayout(
             )
 
             for j in i+1:n
-                # Orientation invariant (standard full-matrix pair-plot
-                # convention): every off-diagonal cell at (row r, col c) shows
-                # x = variable of column c, y = variable of row r, so all
-                # cells in a column share that column's x-range with its
-                # diagonal. Both mirrored cells reuse the SAME computed
-                # primitive (keyed (bigger, smaller); row 1 = larger-index
-                # var, row 2 = smaller-index var) to avoid computing each
-                # variable pair twice -- the primitive's natural orientation
-                # matches the upper cell as-is, while the lower cell (the
-                # `for j in 1:i-1` loop below) renders it with
-                # `transposed=true`, swapping x/y purely at compose time.
+                # Orientation invariant: every off-diagonal cell shows x = column
+                # variable, y = row variable. Both mirrored cells share the
+                # (bigger, smaller)-keyed primitive, oriented for the upper cell.
                 upper_primitives = getproperty(inputs, primitive_symbol(upper_recipe, (j, i)))
                 upper_plotspecs = compose_plotspecs(upper_primitives, upper_recipe(), triagonal_config)
                 stats_specs_2D = stats_upper ? get_stats_plotspecs(inputs, (j, i), Makie2DStats(), triagonal_config) : PlotSpec[]
@@ -240,22 +117,13 @@ function _init_gridlayout(
                 trace_specs_upper = trace_upper ? get_trace_plotspecs(inputs, (j, i), Trace2D(), triagonal_config) : PlotSpec[]
                 append!(upper_plotspecs, trace_specs_upper)
 
-                # This cell's x-axis is its column's variable (idxs[j]); its
-                # y-axis is the row's (idxs[i], `xlims` from the outer scope,
-                # named for its role on the diagonal).
+                # xlims (the row variable's limits) serves as this cell's y-limits.
                 col_lims = getproperty(inputs, Symbol("axis_limits_$j"))
-                # i < j always in this loop, so j <= n_active already implies
-                # i <= n_active -- checking j alone is sufficient here.
                 cell_active_upper = j <= n_active
                 matrix[i, j] = S.Axis(
                     plots=upper_plotspecs,
                     aspect=1,
                     limits=(col_lims, xlims),
-                    # Every cell shows its own bottom/left ticks+labels now --
-                    # see the diagonal cell's matching comment above. No
-                    # xaxisposition/yaxisposition override either (was :top/
-                    # :right), so this defaults to the same bottom/left as
-                    # every other cell.
                     xticklabelsvisible=cell_active_upper, xticksvisible=false,
                     yticklabelsvisible=cell_active_upper, yticksvisible=false,
                     yticklabelrotation=pi / 2,
@@ -271,12 +139,8 @@ function _init_gridlayout(
                 )
             end
             for j in 1:i-1
-                # transposed=true: the shared (bigger, smaller)-keyed primitive
-                # is naturally oriented for the upper cell; this mirrored cell
-                # swaps x/y at compose time so its x-axis is its *column's*
-                # variable -- see the orientation-invariant comment in the
-                # upper loop above. The stats/trace overlays get the same flag
-                # so they can't end up crossed against the main recipe.
+                # transposed=true swaps x/y at compose time so this mirrored cell's
+                # x-axis is its column's variable; overlays get the same flag.
                 lower_primitives = getproperty(inputs, primitive_symbol(lower_recipe, (i, j)))
                 lower_plotspecs = compose_plotspecs(lower_primitives, lower_recipe(), triagonal_config; transposed=true)
                 stats_specs_2D = stats_lower ? get_stats_plotspecs(inputs, (i, j), Makie2DStats(), triagonal_config; transposed=true) : PlotSpec[]
@@ -284,19 +148,12 @@ function _init_gridlayout(
                 trace_specs_lower = trace_lower ? get_trace_plotspecs(inputs, (i, j), Trace2D(), triagonal_config; transposed=true) : PlotSpec[]
                 append!(lower_plotspecs, trace_specs_lower)
 
-                # Same roles as the upper loop: x = column variable (idxs[j]),
-                # y = row variable (idxs[i], `xlims` from the outer scope).
                 col_lims = getproperty(inputs, Symbol("axis_limits_$j"))
-                # j < i always in this loop, so i <= n_active already implies
-                # j <= n_active -- checking i alone is sufficient here.
                 cell_active_lower = i <= n_active
                 matrix[i, j] = S.Axis(
                     plots=lower_plotspecs,
                     aspect=1,
                     limits=(col_lims, xlims),
-                    # Every cell shows its own bottom/left ticks+labels now --
-                    # see the diagonal cell's matching comment above (this
-                    # cell already defaulted to bottom/left, unlike upper).
                     xticklabelsvisible=cell_active_lower, xticksvisible=false,
                     yticklabelsvisible=cell_active_lower, yticksvisible=false,
                     yticklabelrotation=pi / 2,
@@ -305,9 +162,6 @@ function _init_gridlayout(
                     leftspinevisible=cell_active_lower, rightspinevisible=cell_active_lower,
                     topspinevisible=cell_active_lower, bottomspinevisible=cell_active_lower,
                     # See the diagonal cell's comment above re: plain "" vs L"".
-                    # x names the column's variable, matching the transposed
-                    # data/limits above -- identical index roles to the upper
-                    # loop's labels now, by design.
                     xlabel=cell_active_lower ? L"v_%$(_idxs[j])" : "",
                     ylabel=cell_active_lower ? L"v_%$(_idxs[i])" : "",
                     xlabelvisible=cell_active_lower,
@@ -316,23 +170,9 @@ function _init_gridlayout(
             end
         end
 
-        # alignmode=Outside(...) (rather than the GridLayoutBase default
-        # Inside()) makes this grid absorb its own tick/axis-label protrusion
-        # margin internally instead of reporting it upward to its parent --
-        # see the cell_active comment above for why that's what actually
-        # stops _build_fig's row 1 from resizing whenever the vsel selection
-        # changes. Values match what the parent (fig.layout in _build_fig)
-        # used to reserve for this grid's protrusion before that
-        # responsibility moved here: 44px left/right comfortably covers
-        # 2-digit variable indices' v_i/p_i labels (confirmed empirically
-        # across N_max=3/5/15 and both full and partial vsel selections), 40px
-        # top covers the diagonal's own p_i label sitting above its tick
-        # labels, 16px bottom is Makie's own default margin (nothing is
-        # positioned further out than that on this side). Passed as a
-        # constructor kwarg, not set post-hoc (gl.alignmode[] = ...): this
-        # grid is rebuilt fresh via S.GridLayout(...) on every reactive
-        # update, and an alignmode assigned after construction gets silently
-        # reset to Inside() on the next rebuild.
+        # alignmode=Outside absorbs tick/label protrusions internally so the
+        # parent layout never resizes on vsel changes; must be a constructor
+        # kwarg -- an alignmode set post-hoc is reset to Inside() on rebuild.
         return (S.GridLayout(matrix; rowsizes=cellsizes, colsizes=cellsizes, alignmode=Outside(44, 44, 16, 40)),)
     end
 

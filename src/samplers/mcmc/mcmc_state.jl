@@ -200,7 +200,9 @@ end
 _empty_chain_outputs(state::MCMCState) = _empty_chain_outputs(state.chain_state)
 
 function _empty_chain_outputs(chain_state::MCMCChainState)
-    # One independent output vector per walker - fill would alias a single object:
+    # One independent vector per walker: `fill` would alias one mutable vector
+    # into every slot, and interleaved pushes through the aliases corrupted
+    # every multi-walker run.
     return [_empty_DensitySampleVector(chain_state) for _ in 1:nwalkers(chain_state)]
 end
 

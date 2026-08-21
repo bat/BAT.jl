@@ -1,40 +1,21 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# A color that visually separates from `bg` in whichever direction actually
-# increases contrast, without hardcoding one shade per theme: darkening a
-# fixed amount reads fine starting from a light color but is imperceptible
-# starting from an already-near-black one (0.10 darkened by 0.08 is still
-# 0.02, visually identical) -- so this shifts *away* from whichever extreme
-# `bg` is already closer to (darker if bg is light, lighter if bg is dark).
-# Used twice in a row (see bat_theme()/bat_theme_dark()) to build a 3-step
-# ladder -- page background, then the UI panel a step further, then the
-# widgets on top of the panel a further step still -- each step using the
-# *previous* step's own color as its `bg`, so the two gaps (bg-to-panel,
-# panel-to-widget) are always identical regardless of amount.
-function _panel_bg_color(bg, amount::Real=0.08)
+_rel_luminance(rgb::Colors.RGB) = 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b
+
+# Shifts `bg` away from whichever extreme it is already closer to (darker if light, lighter if dark); used twice to build the background -> panel -> widget ladder.
+function _panel_bg_color(bg, amount::Real = 0.08)
     rgb = Colors.RGB(Makie.to_color(bg))
-    luminance = 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b
-    delta = luminance > 0.5 ? -amount : amount
+    delta = _rel_luminance(rgb) > 0.5 ? -amount : amount
     return Colors.RGB(clamp(rgb.r + delta, 0, 1), clamp(rgb.g + delta, 0, 1), clamp(rgb.b + delta, 0, 1))
 end
 
-# Fixed, hand-picked colors for all four quantile-level recipes' credible-
-# region bands (QuantileHist1D/2D in makie_hist.jl, QuantileKDE1D/2D in
-# makie_kde.jl) -- replaces a previous cgrad(config.colormap)-sampled
-# continuous gradient, per explicit user request. Shared here (rather than
-# defined once per file) because all four recipes' own "i" loop-index
-# convention already agrees on what index 1 vs index 3 means (confirmed
-# directly, not assumed): ascending index -> loosest/widest credible region
-# first, narrowest/tightest last, for every one of the four -- so plugging
-# this same lookup into all four preserves a single consistent visual
-# convention across the whole quantile-recipe family without needing to
-# special-case or reverse the order anywhere.
-#
-# Only supports up to length(_QUANTILE_LEVEL_COLORS) distinct levels -- the
-# default config (3 levels after filtering) fits exactly; an explicit, clear
-# error rather than a BoundsError if a caller ever configures more.
-# RGBAf (concrete, what every consumer stores -- bin_colors/color_grid are
-# RGBA{Float32} containers), not RGB{Float64} needing a conversion per use.
+# Warning/error status text color: deep red on light backgrounds, a lighter warm red on dark.
+function _status_text_color(bg)
+    rgb = Colors.RGB(Makie.to_color(bg))
+    return _rel_luminance(rgb) > 0.5 ? Colors.RGB(0.72, 0.05, 0.05) : Colors.RGB(1.0, 0.45, 0.35)
+end
+
+# Fixed colors for all four Quantile* recipes' credible-region bands (widest region first, tightest last); supports up to length(_QUANTILE_LEVEL_COLORS) levels.
 const _QUANTILE_LEVEL_COLORS = [
     RGBAf(1.0, 0.0, 0.0, 1.0),
     RGBAf(1.0, 1.0, 0.0, 1.0),
@@ -51,15 +32,30 @@ function _quantile_level_color(i::Integer)
     return _QUANTILE_LEVEL_COLORS[i]
 end
 
-# Latched once per session: warmup used to run unconditionally on every
-# call, so Makie.convert_arguments paid a full offscreen render plus an info
-# log per plot() embed -- and CRASHED outright when no raster backend was
-# loaded yet (colorbuffer requires one; confirmed via the plot(fig[1,1],
-# samples) path). Now the first successful warmup latches the flag, later
-# calls are no-ops, and a missing backend skips gracefully (construction
-# proceeds; rendering pays the first-use shader cost later, and the next
-# warmup call after a backend loads still performs the real thing since the
-# flag only latches on success).
+# Carrier for the vsel picker's construction inputs. apply_vsel! is a deliberately type-erased Function, not a NamedTuple field: a NamedTuple would embed
+# each call site's closure type (per-site MethodInstances); one concrete type shares one compiled chain, at one dynamic dispatch per click.
+struct PickerInfo
+    N::Int
+    N_max::Int
+    initial_vsel::Vector{Int}
+    apply_vsel!::Function
+end
+
+# Display gate: the precompile workload runs the entry points headless through
+# this, stashing the figure to drive its widgets; the workload resets both refs.
+const _SUPPRESS_DISPLAY = Ref(false)
+const _SUPPRESSED_FIG = Ref{Any}(nothing)
+
+function _maybe_display(fig)
+    if _SUPPRESS_DISPLAY[]
+        _SUPPRESSED_FIG[] = fig
+    else
+        display(fig)
+    end
+    return nothing
+end
+
+# Latches once per session on the first successful warmup; a missing backend skips gracefully without latching, so a later call after loading still warms.
 const _SHADERS_WARMED = Ref(false)
 
 function warmup_makie_shaders()
