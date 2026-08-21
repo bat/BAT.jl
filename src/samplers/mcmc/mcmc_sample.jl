@@ -27,7 +27,7 @@ $(TYPEDFIELDS)
     WS<:AbstractMCMCWeightingScheme,
     CB<:Function
 } <: AbstractSamplingAlgorithm
-    proposal::PR = RandomWalk(proposaldist = TDist(1.0))
+    proposal::PR = RandomWalk(proposaldist=TDist(1.0))
     proposal_tuning::PRT = bat_default(TransformedMCMC, Val(:proposal_tuning), proposal)
     pretransform::TR = bat_default(TransformedMCMC, Val(:pretransform), proposal)
     adaptive_transform::AT = bat_default(TransformedMCMC, Val(:adaptive_transform), proposal)
@@ -65,57 +65,57 @@ function MCMCState(samplingalg::TransformedMCMC, target::BATMeasure, id::Integer
     trafo_tuner_state = create_trafo_tuner_state(samplingalg.transform_tuning, chain_state, 0)
     proposal_tuner_state = create_proposal_tuner_state(samplingalg.proposal_tuning, chain_state, chain_state.proposal, 0)
     temperer_state = create_temperering_state(samplingalg.tempering, target)
-    
+
     MCMCState(chain_state, proposal_tuner_state, trafo_tuner_state, temperer_state)
 end
 
 
 bat_default(
-    ::Type{TransformedMCMC}, 
+    ::Type{TransformedMCMC},
     ::Val{:pretransform},
     ::MCMCProposal
 ) = PriorToNormal()
 
 bat_default(
-    ::Type{TransformedMCMC}, 
-    ::Val{:nwalkers}, 
-    ::MCMCProposal, 
-    ::AbstractTransformTarget, 
-    ::MCMCTransformTuning, 
+    ::Type{TransformedMCMC},
+    ::Val{:nwalkers},
+    ::MCMCProposal,
+    ::AbstractTransformTarget,
+    ::MCMCTransformTuning,
     nchains::Integer
 ) = 1
 
 bat_default(
-    ::Type{TransformedMCMC}, 
-    ::Val{:nsteps}, 
-    ::MCMCProposal, 
-    ::AbstractTransformTarget, 
-    ::MCMCTransformTuning, 
-    nchains::Integer, 
+    ::Type{TransformedMCMC},
+    ::Val{:nsteps},
+    ::MCMCProposal,
+    ::AbstractTransformTarget,
+    ::MCMCTransformTuning,
+    nchains::Integer,
     nwalkers::Integer
 ) = 10^5
 
 bat_default(
-    ::Type{TransformedMCMC}, 
-    ::Val{:init}, 
-    ::MCMCProposal, 
-    ::AbstractTransformTarget, 
-    ::MCMCTransformTuning, 
-    nchains::Integer, 
-    nwalkers::Integer, 
+    ::Type{TransformedMCMC},
+    ::Val{:init},
+    ::MCMCProposal,
+    ::AbstractTransformTarget,
+    ::MCMCTransformTuning,
+    nchains::Integer,
+    nwalkers::Integer,
     nsteps::Integer
-) = MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
+) = MCMCChainPoolInit(nsteps_init=max(div(nsteps, 100), 250))
 
 bat_default(
-    ::Type{TransformedMCMC}, 
-    ::Val{:burnin}, 
-    ::MCMCProposal, 
-    ::AbstractTransformTarget, 
-    ::MCMCTransformTuning, 
-    nchains::Integer, 
-    nwalkers::Integer, 
+    ::Type{TransformedMCMC},
+    ::Val{:burnin},
+    ::MCMCProposal,
+    ::AbstractTransformTarget,
+    ::MCMCTransformTuning,
+    nchains::Integer,
+    nwalkers::Integer,
     nsteps::Integer
-) = MCMCMultiCycleBurnin(nsteps_per_cycle = max(div(nsteps, 10), 2500))
+) = MCMCMultiCycleBurnin(nsteps_per_cycle=max(div(nsteps, 10), 2500))
 
 function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::BATContext)
     if samplingalg.nchains == 1 && samplingalg.convergence isa Union{GelmanRubinConvergence, BrooksGelmanConvergence}
@@ -135,7 +135,17 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
     if !samplingalg.store_burnin
         chain_outputs = _empty_chain_outputs.(mcmc_states)
     end
-    
+
+    # Activated before burn-in so chain initialization/tuning is visible live too;
+    # note that seeing real burn-in samples (rather than an empty grid until the
+    # main run starts) requires samplingalg.store_burnin = true.
+    # `target` is the ORIGINAL measure `m`, not transformed_m: displayed
+    # samples are mapped back through inverse(f_pretransform) into original
+    # space, so anything the visualizer derives from the measure itself
+    # (prior-based domain estimate, hard support bounds) must come from the
+    # untransformed measure to live in the same space as the displayed data.
+    init_visualizer!(context.visualizer; mcmc_states=mcmc_states, outputs=chain_outputs, f_pretransform=f_pretransform, target=m)
+
     mcmc_states = mcmc_burnin!(
         samplingalg.store_burnin ? chain_outputs : nothing,
         mcmc_states,
@@ -149,17 +159,30 @@ function bat_sample_impl(m::BATMeasure, samplingalg::TransformedMCMC, context::B
     mcmc_states = mcmc_iterate!!(
         chain_outputs,
         mcmc_states;
-        max_nsteps = samplingalg.nsteps,
-        nonzero_weights = samplingalg.nonzero_weights
+        max_nsteps=samplingalg.nsteps,
+        nonzero_weights=samplingalg.nonzero_weights,
+        update_visualizer=true
     )
 
     @debug "Merge samples of chains and transform to original space."
+
+    if !isnothing(context.visualizer.content)
+        context.visualizer.content.is_live[] = false
+        listener_task = context.visualizer.content.listener_task[]
+        # Wait for the listener to actually stop before returning; errormonitor
+        # already reports task failures, so swallow them here instead of
+        # propagating a plotting error into the sampling result.
+        isnothing(listener_task) || try
+            wait(listener_task)
+        catch
+        end
+    end
 
     samples_transformed = _merge_chain_outputs(first(mcmc_states), chain_outputs)
 
     smpls = transform_samples(inverse(f_pretransform), samples_transformed)
 
-    (result = smpls, result_trafo = samples_transformed, f_pretransform = f_pretransform, generator = MCMCSampleGenerator(mcmc_states))
+    (result=smpls, result_trafo=samples_transformed, f_pretransform=f_pretransform, generator=MCMCSampleGenerator(mcmc_states))
 end
 
 function _merge_chain_outputs(mcmc_state::MCMCState, chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}})
@@ -175,3 +198,90 @@ function _merge_chain_outputs(mcmc_state::MCMCState, chain_outputs::AbstractVect
 
     return merged_output
 end
+
+
+function _append_chain_outputs(
+    mcmc_state::MCMCState,
+    outputs_A, #::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
+    outputs_B  #::AbstractVector{<:AbstractVector{<:DensitySampleVector}}
+)
+    merged_outputs = [_empty_chain_outputs(mcmc_state) for chain_outputs in outputs_A]
+
+    for i in eachindex(outputs_A)
+        for j in eachindex(outputs_A[i])
+            if !isempty(outputs_A[i][j])
+                for sample in outputs_A[i][j]
+                    checked_push!(merged_outputs[i][j], sample)
+                end
+            end
+        end
+    end
+
+    for i in eachindex(outputs_B)
+        for j in eachindex(outputs_B[i])
+            if !isempty(outputs_B[i][j])
+                for sample in outputs_B[i][j]
+                    checked_push!(merged_outputs[i][j], sample)
+                end
+            end
+        end
+    end
+
+    return merged_outputs
+end
+export _append_chain_outputs
+
+
+
+function _append_walker_outputs(
+    mcmc_state::MCMCState,
+    outputs_A, #::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
+    outputs_B  #::AbstractVector{<:AbstractVector{<:DensitySampleVector}}
+)
+    merged_outputs = _empty_chain_outputs(mcmc_state)
+
+    for i in eachindex(outputs_A)
+        if !isempty(outputs_A[i])
+            for sample in outputs_A[i]
+                checked_push!(merged_outputs[i], sample)
+            end
+        end
+    end
+
+    for i in eachindex(outputs_B)
+        if !isempty(outputs_B[i])
+            for sample in outputs_B[i]
+                checked_push!(merged_outputs[i], sample)
+            end
+        end
+    end
+
+    return merged_outputs
+end
+
+
+
+
+
+function _transform_chain_outputs(
+    f_pretransform::Function,
+    outputs   #::AbstractVector{<:AbstractVector{<:DensitySampleVector}}
+)
+    return [_transform_walker_outputs(f_pretransform, chain_output) for chain_output in outputs]
+end
+
+function _transform_walker_outputs(
+    f_pretransform::Function,
+    chain_output   #::AbstractVector{<:DensitySampleVector}
+)
+    return [_transform_walker_output(f_pretransform, walker_output) for walker_output in chain_output]
+end
+
+# `transform_samples` infers the transformed shape from the first sample, which
+# fails on an empty `DensitySampleVector` (e.g. before any samples have been
+# produced yet, or when a chain hasn't filled its buffer slot this batch).
+function _transform_walker_output(f_pretransform::Function, walker_output::DensitySampleVector)
+    isempty(walker_output) && return unshaped.(walker_output)
+    return unshaped.(transform_samples(inverse(f_pretransform), walker_output))
+end
+

@@ -24,7 +24,7 @@ export MCMCMultiCycleBurnin
 
 
 function mcmc_burnin!(
-    outputs::Union{AbstractVector{<:AbstractVector{<:DensitySampleVector}}, Nothing},
+    outputs::Union{AbstractVector{<:AbstractVector{<:DensitySampleVector}},Nothing},
     mcmc_states::AbstractVector{<:MCMCState},
     samplingalg::TransformedMCMC,
     callback::Function
@@ -49,8 +49,10 @@ function mcmc_burnin!(
 
         mcmc_states = mcmc_iterate!!(
             new_outputs, mcmc_states;
-            max_nsteps = burnin.nsteps_per_cycle,
-            nonzero_weights = nonzero_weights
+            max_nsteps=burnin.nsteps_per_cycle,
+            nonzero_weights=nonzero_weights,
+            callback=callback,
+            update_visualizer=true
         )
 
         mcmc_states = mcmc_tune_post_cycle!!.(mcmc_states, new_outputs)
@@ -100,10 +102,16 @@ function mcmc_burnin!(
 
         next_cycle!.(mcmc_states)
 
+        # mcmc_iterate!! only streams to the visualizer when given a non-nothing
+        # output, so use a scratch buffer here when store_burnin is false.
+        final_outputs = isnothing(outputs) ? _empty_chain_outputs.(mcmc_states) : outputs
+
         mcmc_states = mcmc_iterate!!(
-            outputs, mcmc_states;
-            max_nsteps = burnin.nsteps_final,
-            nonzero_weights = nonzero_weights
+            final_outputs, mcmc_states;
+            max_nsteps=burnin.nsteps_final,
+            nonzero_weights=nonzero_weights,
+            callback=callback,
+            update_visualizer=true
         )
     end
 

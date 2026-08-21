@@ -2,7 +2,7 @@ function isshaped(samples::BAT.DensitySampleVector)
     isa(varshape(samples), NamedTupleShape) ? (return true) : (return false)
 end
 
-function asindex(samples::BAT.DensitySampleVector, name::Union{Expr, Symbol})
+function asindex(samples::BAT.DensitySampleVector, name::Union{Expr,Symbol})
     if isshaped(samples)
         return asindex(varshape(samples), name)
     else
@@ -12,14 +12,14 @@ end
 
 
 function asindex(
-    x::Union{DensitySampleVector, NamedTupleDist, MarginalDist},
+    x::Union{DensitySampleVector,NamedTupleDist,MarginalDist},
     key::Integer
 )
     return key
 end
 
 #for MarginalDist
-function asindex(marg::MarginalDist, name::Union{Expr, Symbol})
+function asindex(marg::MarginalDist, name::Union{Expr,Symbol})
     idx = asindex(marg.origvalshape, name)
     if idx in marg.dims
         return idx
@@ -35,7 +35,7 @@ function getstring(samples::BAT.DensitySampleVector, idx::Integer)
         names = all_active_names(vs)
         return names[idx]
     else
-        throw(ArgumentError("Samples are unshaped. Key :$name cannot be matched. Use index instead."))
+        throw(ArgumentError("Samples are unshaped. Key :$names cannot be matched. Use index instead."))
     end
 end
 
