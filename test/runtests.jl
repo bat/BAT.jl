@@ -18,6 +18,7 @@ const test_groups = [
     "core" => [
         "test_aqua.jl",
         "utils/test_utils.jl",
+        "algotypes/test_algotypes.jl",
         "rngs/test_rngs.jl",
         "distributions/test_distributions.jl",
         "variates/test_variates.jl",
