@@ -53,6 +53,7 @@ evalinfo
 
 get_batcontext
 set_batcontext
+default_batcontext
 log_batdebug
 
 distbind
