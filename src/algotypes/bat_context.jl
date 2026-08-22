@@ -1,8 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-const _tls_batcontext_key = :_BAT_default_context_
-
-
 """
     struct BATContext{T}
 
@@ -26,7 +23,8 @@ BATContext(;
 The default `rng` is seeded from `Random.default_rng()`, so results become
 reproducible via `Random.seed!`.
 
-See [`get_batcontext`](@ref) and [`set_batcontext`](@ref).
+See [`get_batcontext`](@ref), [`set_batcontext`](@ref) and
+[`BAT.default_batcontext`](@ref).
 """
 struct BATContext{T<:AbstractFloat,RNG<:AbstractRNG,CU<:AbstractComputeUnit,AD<:ADSelector}
     rng::RNG
@@ -129,12 +127,44 @@ end
 
 
 """
+    BAT.default_batcontext::ScopedSettings.ScopedSetting{BATContext}
+
+*Experimental feature, not yet part of stable public API.*
+
+The setting that holds the default computational context for BAT.
+
+Unless overridden, each access yields a freshly constructed
+[`BATContext`](@ref) whose random number generator is seeded from
+`Random.default_rng()` (so `Random.seed!` makes BAT results
+reproducible).
+
+[`set_batcontext`](@ref) installs a process-wide override, and
+`ScopedSettings.default_value` removes it again:
+
+```julia
+BAT.default_batcontext[] = default_value
+```
+
+A context can also be bound for a dynamic scope only, which is
+inherited by tasks started within that scope:
+
+```julia
+using ScopedSettings: with
+
+with(BAT.default_batcontext => BATContext(ad = ForwardDiff)) do
+    bat_sample(target, MCMCSampling())
+end
+```
+
+See [`get_batcontext`](@ref) and [`set_batcontext`](@ref).
+"""
+const default_batcontext = ScopedSetting{BATContext}(BATContext)
+
+
+"""
     get_batcontext()::BATContext
-    get_batcontext(obj)::BATContext
 
-Gets resp. sets the default computational context for BAT.
-
-Will create and set a new default context if none exists.
+Gets the default computational context for BAT.
 
 Note: `get_batcontext()` does not have a stable return type. Code that
 needs type stability should pass a context to algorithms explicitly.
@@ -142,20 +172,13 @@ BAT algorithms that call other algorithms must forward their context
 automatically, so context is always type stable within nested
 BAT algorithms.
 
-See [`BATContext`](@ref) and [`set_batcontext`](@ref).
+See [`BATContext`](@ref), [`set_batcontext`](@ref) and
+[`BAT.default_batcontext`](@ref).
 """
 function get_batcontext end
 export get_batcontext
 
-function get_batcontext()
-    context = if haskey(task_local_storage(), _tls_batcontext_key)
-        task_local_storage(_tls_batcontext_key)
-    else
-        context = BATContext()
-        @info "Setting new default BAT context $context"
-        task_local_storage(_tls_batcontext_key, context)
-    end
-end
+get_batcontext() = default_batcontext[]
 
 
 """
@@ -164,10 +187,17 @@ end
     set_batcontext(;
         precision = ...,
         rng = ...,
+        cunit = ...,
         ad = ...
     )
 
 Sets the default computational context for BAT.
+
+The new context becomes the process-wide default, visible to all tasks.
+To override the default for a dynamic scope only, bind
+[`BAT.default_batcontext`](@ref) via `ScopedSettings.with` instead -
+`set_batcontext` throws when called inside such a scope, as the
+scoped binding would shadow the assignment anyway.
 
 See [`BATContext`](@ref) and [`get_batcontext`](@ref).
 """
@@ -175,19 +205,18 @@ function set_batcontext end
 export set_batcontext
 
 function set_batcontext(context::BATContext)
-    task_local_storage(_tls_batcontext_key, context)
+    default_batcontext[] = context
     return get_batcontext()
 end
 
 function set_batcontext(;kwargs...)
     c = get_batcontext()
     s = merge(
-        (cuinit = get_compute_unit(c),precision=get_precision(c), rng=get_rng(c), ad=get_adselector(c)),
+        (precision = get_precision(c), rng = get_rng(c), cunit = get_compute_unit(c), ad = get_adselector(c)),
         (;kwargs...)
     )
-    @info s
     adsel = _to_adsel(s.ad)
-    set_batcontext(BATContext{s.precision}(s.rng, s.cuinit, adsel))
+    set_batcontext(BATContext{s.precision}(s.rng, s.cunit, adsel))
 end
 
 

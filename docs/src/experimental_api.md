@@ -17,6 +17,7 @@ bat_marginalmode
 BAT.auto_renormalize
 BAT.BinnedModeEstimator
 BAT.convert_for
+BAT.default_batcontext
 BAT.DistributionTransform
 BAT.enable_error_log
 BAT.error_log
