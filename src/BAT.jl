@@ -24,6 +24,7 @@ using AutoDiffOperators
 using ChangesOfVariables
 using Clustering
 using Colors
+using Compat: @compat
 using DensityInterface
 using Distributions
 using DocStringExtensions
@@ -132,6 +133,22 @@ include("algodefaults/algodefaults.jl")
 include("plotting/plotting.jl")
 include("extdefs/extdefs.jl")
 include("deprecations.jl")
+
+# Non-exported names that are part of the stable public API
+# (see docs/src/stable_api.md):
+@compat public AbstractMedianEstimator, AbstractModeEstimator, AbstractSamplingAlgorithm
+@compat public ConvergenceTest, MGVISchedule
+
+# Non-exported names that are part of the experimental API
+# (see docs/src/experimental_api.md):
+@compat public auto_renormalize, convert_for, evalmeasure_impl, validate_evalmeasure
+@compat public enable_error_log, error_log, EvalException
+@compat public ext_default, pkgext, PackageExtension
+@compat public get_adselector, get_valid_adselector, set_rng
+@compat public BinnedModeEstimator, DistributionTransform, PolarShellDistribution
+@compat public MCMCChainStateInfo, MCMCProposal, MCMCProposalState
+@compat public MCMCProposalTunerState, MCMCTransformTunerState
+@compat public MeasureEvalInfo, SimpleMCMCProposalState
 
 # include("precompile.jl")
 
