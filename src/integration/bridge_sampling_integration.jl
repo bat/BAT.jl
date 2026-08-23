@@ -66,11 +66,16 @@ function bridge_sampling_integral(
     # so raw weight sums are not meaningful observation counts (they
     # change under rescaling that leaves the represented measure
     # unchanged), while Kish's effective count is scale-invariant and
-    # reduces to the actual count for unit weights:
-    W1_total = sum(target_samples.weight)
-    W2_total = sum(proposal_samples.weight)
-    N1 = W1_total^2 / sum(abs2, target_samples.weight)
-    N2 = W2_total^2 / sum(abs2, proposal_samples.weight)
+    # reduces to the actual count for unit weights. Both are computed from
+    # canonical relative weights, in which neither the sums nor their
+    # squares can overflow: squaring the sum of raw integer repetition
+    # weights wraps around where `Int` is 32 bits wide.
+    u1 = _canonical_rel_weights(target_samples.weight)
+    u2 = _canonical_rel_weights(proposal_samples.weight)
+    W1_total = sum(u1)
+    W2_total = sum(u2)
+    N1 = W1_total^2 / sum(abs2, u1)
+    N2 = W2_total^2 / sum(abs2, u2)
 
     #####################
     # Evaluate integral #
@@ -88,13 +93,13 @@ function bridge_sampling_integral(
     while abs(current_int-prev_int)/current_int > 10^(-15)
         prev_int = current_int
         numerator = 0
-        for (i, w) in enumerate(proposal_samples.weight)
+        for (i, w) in enumerate(u2)
             numerator += w*(l2[i]/(s1*l2[i]+s2*prev_int))
         end
         numerator = numerator/W2_total
 
         denominator = 0
-        for (i, w) in enumerate(target_samples.weight)
+        for (i, w) in enumerate(u1)
             denominator += w/(s1*l1[i]+s2*prev_int)
         end
         denominator = denominator/W1_total
