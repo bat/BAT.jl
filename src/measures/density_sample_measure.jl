@@ -18,8 +18,10 @@ The measure keeps a reference to `smpls` (accessible via `samplesof`) and
 always reflects its live weight values: random generation and statistics
 are consistent with the current state of the sample vector.
 
-Note: `DensitySampleMeasure` currently does not support `logdensityof`, as it
-would require an inefficient linear search over all sample points.
+Note: `DensitySampleMeasure` does not support `logdensityof`. An empirical
+measure has no density in the usual sense, the log-density values of the
+original measure at the sample points are available via
+`samplesof(dsm).logd`.
 
 Constructors:
 
@@ -60,9 +62,6 @@ function DensitySampleMeasure(
     ess::Union{RealLike,Nothing} = nothing,
     mass::Union{RealLike,MeasureBase.AbstractUnknownMass} = 1,
 )
-    # ToDo: Ensure smpls are deduplicated.
-    # ToDo: Enable logdensity calculation by storing a binary searchable vector
-    # over tuples `(point_hash, sample_idx)`?
     # Empirical-measure weights must support categorical sampling: a
     # negative or non-finite weight would make the subsampling CDF
     # non-monotone, an all-zero weight vector would leave nothing to draw
@@ -107,7 +106,10 @@ function Base.isapprox(a::DensitySampleMeasure, b::DensitySampleMeasure; kwargs.
     return isapprox(a._smpls, b._smpls; kwargs...) && a._dof == b._dof && a._mass == b._mass
 end
 
-# ToDo: Support efficient logdensity lookup. 
+# An empirical measure has no density with respect to Lebesgue. What a
+# point lookup could return is the recorded log-density of the measure the
+# samples were drawn from, which is directly available as
+# `samplesof(dsm).logd`:
 function DensityInterface.logdensityof(::DensitySampleMeasure, ::Any)
     throw(ArgumentError("logdensityof is not supported for DensitySampleMeasure."))
 end
