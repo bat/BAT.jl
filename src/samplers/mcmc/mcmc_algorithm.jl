@@ -44,6 +44,8 @@ export MCMCProposalTuning
 """
     abstract type MCMCProposalTunerState
 
+*Experimental feature, not part of stable public API.*
+
 Abstract type for MCMC tuning algorithm states.
 """
 abstract type MCMCProposalTunerState end
@@ -60,6 +62,8 @@ export MCMCTransformTuning
 """
     abstract type MCMCTransformTunerState
 
+*Experimental feature, not part of stable public API.*
+
 Abstract type for MCMC tuning algorithm states.
 """
 abstract type MCMCTransformTunerState end
@@ -68,6 +72,8 @@ abstract type MCMCTransformTunerState end
 """
     abstract type MCMCTempering
 
+*Experimental feature, not part of stable public API.*
+
 Abstract type for MCMC tempering algorithms.
 """
 abstract type MCMCTempering end
@@ -75,6 +81,8 @@ export MCMCTempering
 
 """
     abstract type TemperingState
+
+*Experimental feature, not part of stable public API.*
 
 Abstract type for MCMC tempering algorithm states.
 """
@@ -86,7 +94,7 @@ export TemperingState
 """
     abstract type MCMCIterator end
 
-*BAT-internal, not part of stable public API.*
+*Experimental feature, not part of stable public API.*
 
 Represents the current state of an MCMC chain.
 
@@ -147,6 +155,8 @@ export MCMCIterator
 """
     abstract type MCMCProposal
 
+*Experimental feature, not part of stable public API.*
+
 Abstract type for MCMC proposal algorithms.
 """
 abstract type MCMCProposal end
@@ -154,12 +164,16 @@ abstract type MCMCProposal end
 """
     abstract type MCMCProposalState
 
+*Experimental feature, not part of stable public API.*
+
 Abstract type for MCMC proposal algorithm states.
 """
 abstract type MCMCProposalState end
 
 """
     abstract type SimpleMCMCProposalState
+
+*Experimental feature, not part of stable public API.*
 
 Abstract type for the states of simple MCMC proposal
 algorithms, that are implemented in BAT.jl.
@@ -180,6 +194,8 @@ export MCMCBurninAlgorithm
 """
     MCMCState
 
+*Experimental feature, not part of stable public API.*
+
 Carrier type for the states of an MCMC chain, and the states 
 of the tuning and tempering algorithms used for sampling.
 """
@@ -198,6 +214,8 @@ export MCMCState
 
 """
     MCMCChainStateInfo
+
+*Experimental feature, not part of stable public API.*
 
 Information about the state of an MCMC chain.
 """

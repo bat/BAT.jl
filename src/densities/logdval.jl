@@ -37,6 +37,8 @@ end
 """
     struct LogDVal{T<:Real}
 
+*BAT-internal, not part of stable public API.*
+
 *LogDVal is deprecated and will be removed in future major or even minor BAT versions.*
 """
 struct LogDVal{T<:Real}

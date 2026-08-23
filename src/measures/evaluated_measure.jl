@@ -4,7 +4,7 @@
 """
     struct BAT.MeasureEvalInfo
 
-*Experimental feature, not part of stable public API yet.*
+*Experimental feature, not part of stable public API.*
 
 Properties:
 

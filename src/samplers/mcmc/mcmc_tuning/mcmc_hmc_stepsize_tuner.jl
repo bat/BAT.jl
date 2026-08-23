@@ -6,6 +6,8 @@ abstract type HMCTuning <: MCMCProposalTuning end
 """
     struct StepSizeAdaptor <: BAT.HMCTuning
 
+*BAT-internal, not part of stable public API.*
+
 Tunes the scalar proposal scale of gradient-based MCMC proposals via
 Nesterov dual averaging, targeting the proposal's target acceptance rate:
 the leapfrog step size of [`HamiltonianMC`](@ref) and the Langevin step

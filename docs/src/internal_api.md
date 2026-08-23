@@ -41,7 +41,6 @@ BAT.BATSuperpositionMeasure
 BAT.BATWeightedMeasure
 BAT.CholeskyPartialWhitening
 BAT.CholeskyWhitening
-BAT.DensitySampleMeasure
 BAT.ENSAutoProposal
 BAT.ENSBound
 BAT.ENSEllipsoidBound
@@ -64,7 +63,6 @@ BAT.OnlineMvCov
 BAT.OnlineMvMean
 BAT.OnlineUvMean
 BAT.OnlineUvVar
-BAT.PathfinderTransformInit
 BAT.PriorApproxTransformInit
 BAT.SampleTransformation
 BAT.StanLikeTuning
@@ -75,7 +73,6 @@ BAT.StandardUvUniform
 BAT.StatisticalWhitening
 BAT.StepSizeAdaptor
 BAT.DiagonalAffineTransform
-BAT.LowRankAffineTransform
 BAT.TriangularAffineTransform
 BAT.UnitTransformInit
 BAT.UnshapeTransformation

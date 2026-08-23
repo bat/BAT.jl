@@ -4,6 +4,8 @@
 """
     struct StanLikeTuning <: MCMCTransformTuning
 
+*BAT-internal, not part of stable public API.*
+
 Tunes MCMC space transformations from sample covariance estimates,
 accumulated over Stan-like adaptation windows of doubling size (see the
 [Stan HMC parameters documentation](https://mc-stan.org/docs/reference-manual/mcmc.html#hmc-algorithm-parameters)).

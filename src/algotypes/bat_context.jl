@@ -66,6 +66,8 @@ end
 """
     BAT.get_adselector(context::BATContext)
 
+*Experimental feature, not part of stable public API.*
+
 *Experimental feature, not yet part of stable public API.*
 
 Returns the automatic differentiation selector specified in `context`.
@@ -78,6 +80,8 @@ get_adselector(context::BATContext) = context.ad
 
 """
     BAT.get_valid_adselector(context::BATContext, algorithm)
+
+*Experimental feature, not part of stable public API.*
 
 *Experimental feature, not yet part of stable public API.*
 
@@ -104,6 +108,8 @@ end
 
 """
     BAT.set_rng(context::BATContext, rng::AbstractRNG)::BATContext
+
+*Experimental feature, not part of stable public API.*
 
 *Experimental feature, not yet part of stable public API.*
 

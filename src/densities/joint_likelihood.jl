@@ -4,6 +4,8 @@
 """
     struct BAT.JointLikelihood <: MeasureBase.AbstractLikelihood
 
+*BAT-internal, not part of stable public API.*
+
 Combines several likelihoods that share a common parameter space.
 
 User code should not instantiate `JointLikelihood` directly, but use

@@ -18,6 +18,8 @@ BAT.auto_renormalize
 BAT.BinnedModeEstimator
 BAT.convert_for
 BAT.DistributionTransform
+BAT.LowRankAffineTransform
+BAT.PathfinderTransformInit
 BAT.enable_error_log
 BAT.error_log
 BAT.EvalException

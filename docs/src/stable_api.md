@@ -76,6 +76,7 @@ BinningAlgorithm
 BrooksGelmanConvergence
 CuhreIntegration
 DensitySample
+DensitySampleMeasure
 DensitySampleVector
 DivonneIntegration
 DoNotTransform

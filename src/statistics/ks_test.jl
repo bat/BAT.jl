@@ -23,6 +23,8 @@ end
         nsamples::Symbol=:effective
     )
 
+*Experimental feature, not part of stable public API.*
+
 Compares two `DensitySampleVector`s given by `samples_1` and `samples_2` applying the Kolmogorov-Smirnov test for all marginals.
 
 See [N. Smirnov, "Table for Estimating the Goodness of Fit of Empirical
