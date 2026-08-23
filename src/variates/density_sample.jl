@@ -152,6 +152,11 @@ function DensitySampleVector(contents::Tuple{PV,TV,WV,RV,QV}) where {
 end
 
 
+# Supertype of the per-sample provenance stored in the `info` field of a
+# DensitySample, e.g. BAT.MCMCSampleID:
+abstract type SampleID end
+
+
 _create_undef_vector(::Type{T}, len::Integer) where T = Vector{T}(undef, len)
 
 
