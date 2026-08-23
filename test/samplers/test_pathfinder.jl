@@ -9,7 +9,10 @@ using StableRNGs
 import ForwardDiff
 import Optim
 
-using BAT: _lbfgs_inverse_hessians, pathfinder_gaussian_fit,
+using JLArrays, GPUArrays
+
+using BAT: _lbfgs_inverse_hessians, _lbfgs_inverse_hessian, _lbfgs_curvature_update!,
+    _woodbury_matrix, pathfinder_gaussian_fit,
     init_adaptive_transform, TriangularAffineTransform, PathfinderTransformInit,
     PriorApproxTransformInit
 using MatrixShapedOperators: woodbury_operator, rowgram_factor
@@ -94,6 +97,47 @@ using MatrixShapedOperators: woodbury_operator, rowgram_factor
         # Invalid configurations fail at the API boundary:
         @test_throws ArgumentError pathfinder_gaussian_fit(f_logd, x0, lbfgs_alg(), context, history_length = 0)
         @test_throws ArgumentError pathfinder_gaussian_fit(f_logd, x0, lbfgs_alg(), context, ndraws_elbo = 0)
+    end
+
+    @testset "device array compatibility" begin
+        # JLArray is a CPU-backed reference GPU array: with scalar
+        # indexing disabled it fails on exactly the operations that would
+        # fall back to a host implementation on a real device. It has no
+        # LAPACK-level factorizations, so the ELBO scoring (which
+        # factorizes) is out of reach here and only the trajectory
+        # reconstruction is covered.
+        nd, Jd, hind = 6, 4, 2   # hind < Jd exercises the wrapped ring buffer
+        S_c, Y_c = randn(rng, nd, Jd), randn(rng, nd, Jd)
+        α_c = rand(rng, nd) .+ 0.5
+        s_c, y_c = randn(rng, nd), randn(rng, nd)
+
+        H_c = _lbfgs_inverse_hessian(α_c, S_c, Y_c, hind, Jd)
+        Σ_c = _woodbury_matrix(H_c.α, H_c.B, H_c.D)
+        Su_c, Yu_c = copy(S_c), copy(Y_c)
+        upd_c = _lbfgs_curvature_update!(Su_c, Yu_c, α_c, hind, Jd, s_c, y_c, Jd, 1e-12)
+
+        GPUArrays.allowscalar(false)
+        try
+            α_d, S_d, Y_d = JLArray(α_c), JLArray(S_c), JLArray(Y_c)
+            H_d = _lbfgs_inverse_hessian(α_d, S_d, Y_d, hind, Jd)
+            @test H_d.B isa JLArray && H_d.D isa JLArray
+            @test Array(H_d.α) ≈ H_c.α
+            @test Array(H_d.B) ≈ H_c.B
+            @test Array(H_d.D) ≈ H_c.D
+
+            Σ_d = _woodbury_matrix(H_d.α, H_d.B, H_d.D)
+            @test Σ_d isa JLArray
+            @test Array(Σ_d) ≈ Σ_c
+
+            Su_d, Yu_d = JLArray(copy(S_c)), JLArray(copy(Y_c))
+            upd_d = _lbfgs_curvature_update!(Su_d, Yu_d, α_d, hind, Jd, JLArray(s_c), JLArray(y_c), Jd, 1e-12)
+            @test Array(upd_d[1]) ≈ upd_c[1]
+            @test upd_d[2:3] == upd_c[2:3]
+            @test Array(Su_d) ≈ Su_c
+            @test Array(Yu_d) ≈ Yu_c
+        finally
+            GPUArrays.allowscalar(true)
+        end
     end
 
     @testset "transform initialization" begin

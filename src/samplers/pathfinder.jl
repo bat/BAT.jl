@@ -12,13 +12,45 @@
 # and contributors).
 
 
+# All array operations here are expressed as broadcasts, reductions and
+# matrix products over whole arrays, never as elementwise indexing, so
+# that the estimates follow the storage of the trajectory instead of
+# being tied to the CPU.
+
+
+# Copies the columns of a ring buffer into chronological order. Two
+# contiguous column ranges instead of a gather with an index vector,
+# which would force the subsequent matrix products onto an elementwise
+# fallback:
+function _ordered_history!(dest::AbstractMatrix, src::AbstractMatrix, history_ind::Integer, J::Integer)
+    ntail = J - history_ind
+    copyto!(view(dest, :, 1:ntail), view(src, :, (history_ind + 1):J))
+    copyto!(view(dest, :, (ntail + 1):J), view(src, :, 1:history_ind))
+    return dest
+end
+
+# In-place triangular masks and symmetrization. The `LinearAlgebra`
+# equivalents (`triu!`, `tril!`, `copytri!`) walk the matrix elementwise,
+# these are single fused broadcasts. The matrix passed to `_symmetrize!`
+# is symmetric up to rounding already, so averaging with the transpose is
+# equivalent to copying one triangle onto the other:
+_triu!(M::AbstractMatrix) = (M .= ifelse.(axes(M, 1) .<= axes(M, 2)', M, zero(eltype(M))); M)
+_tril!(M::AbstractMatrix) = (M .= ifelse.(axes(M, 1) .>= axes(M, 2)', M, zero(eltype(M))); M)
+
+function _symmetrize!(M::AbstractMatrix)
+    Mᵀ = copy(transpose(M))
+    M .= (M .+ Mᵀ) ./ 2
+    return M
+end
+
+
 # Diagonal inverse-Hessian estimate, eq. 4.9 of Gilbert & Lemaréchal,
 # "Some numerical experiments with variable-storage quasi-Newton algorithms",
 # Mathematical Programming 45 (1989), https://doi.org/10.1007/BF01589113:
 function _gilbert_init(α, s, y)
-    a = dot(y, Diagonal(α), y)
+    a = sum(α .* y .* y)   # yᵀ Diagonal(α) y
     b = dot(y, s)
-    c = dot(s, inv(Diagonal(α)), s)
+    c = sum(s .* s ./ α)   # sᵀ Diagonal(α)⁻¹ s
     return @. b / (a / α + y^2 - (a / c) * (s / α)^2)
 end
 
@@ -28,35 +60,48 @@ end
 # Mathematical Programming 63, 1994, https://doi.org/10.1007/BF01582063):
 function _lbfgs_inverse_hessian(α::AbstractVector, S0::AbstractMatrix, Y0::AbstractMatrix, history_ind::Integer, history_length::Integer)
     J = history_length
-    B = similar(α, size(α, 1), 2J)
+    n = size(α, 1)
+    B = similar(α, n, 2J)
     D = fill!(similar(α, 2J, 2J), false)
     iszero(J) && return (α = copy(α), B = B, D = D)
 
-    hist_inds = [(history_ind + 1):history_length; 1:history_ind]
+    S = _ordered_history!(similar(α, n, J), S0, history_ind, J)
+    Y = _ordered_history!(similar(α, n, J), Y0, history_ind, J)
+    ΛY = α .* Y   # Diagonal(α) * Y
+
     @views begin
-        S = S0[:, hist_inds]
-        Y = Y0[:, hist_inds]
-        B₁ = B[:, 1:J]
-        B₂ = B[:, (J + 1):(2J)]
-        D₁₂ = D[1:J, (J + 1):(2J)]
-        D₂₁ = D[(J + 1):(2J), 1:J]
-        D₂₂ = D[(J + 1):(2J), (J + 1):(2J)]
+        B[:, 1:J] .= ΛY
+        B[:, (J + 1):(2J)] .= S
     end
 
-    mul!(B₁, Diagonal(α), Y)
-    copyto!(B₂, S)
-    mul!(D₂₂, S', Y)
-    triu!(D₂₂)
-    R = UpperTriangular(D₂₂)
-    nRinv = UpperTriangular(D₁₂)
-    copyto!(nRinv, -I)
-    ldiv!(R, nRinv)
-    nRinv′ = LowerTriangular(copyto!(D₂₁, nRinv'))
-    tril!(D₂₂) # eliminate all but the diagonal
-    mul!(D₂₂, Y', B₁, true, true)
-    LinearAlgebra.copytri!(D₂₂, 'U', false, false)
-    rmul!(D₂₂, nRinv)
-    lmul!(nRinv′, D₂₂)
+    # The blocks are built as standalone arrays and only copied into `D`
+    # at the end. Backends specialize their matrix kernels on their own
+    # array type, but not necessarily on views into it, so running the
+    # triangular solve and products on slices of `D` would risk a fallback
+    # to a host implementation:
+    SᵀY = S' * Y
+    d = diag(SᵀY)
+    R = UpperTriangular(_triu!(SᵀY))
+
+    nR⁻¹ = fill!(similar(α, J, J), zero(eltype(α)))
+    nR⁻¹[diagind(nR⁻¹)] .= -one(eltype(α))
+    ldiv!(R, nR⁻¹)
+    nR⁻ᵀ = copy(transpose(nR⁻¹))
+
+    # Diagonal(diag(SᵀY)) + Yᵀ Diagonal(α) Y, congruence-transformed by
+    # -R⁻¹ (symmetric by construction, up to rounding). The products are
+    # out-of-place: in-place `rmul!`/`lmul!` alias input and output, which
+    # a parallel backend cannot honor:
+    E0 = Y' * ΛY
+    E0[diagind(E0)] .+= d
+    _symmetrize!(E0)
+    E = LowerTriangular(nR⁻ᵀ) * E0 * UpperTriangular(nR⁻¹)
+
+    @views begin
+        D[1:J, (J + 1):(2J)] .= nR⁻¹
+        D[(J + 1):(2J), 1:J] .= nR⁻ᵀ
+        D[(J + 1):(2J), (J + 1):(2J)] .= E
+    end
 
     return (α = copy(α), B = B, D = D)
 end
@@ -165,7 +210,9 @@ function pathfinder_gaussian_fit(
     end
 
     xs, grads = r.trace.v, r.trace.grad_logd
-    rng = get_rng(context)
+    gen = get_gencontext(context)
+    rng = get_rng(gen)
+    cunit = get_compute_unit(gen)
 
     # A path with no accepted L-BFGS step carries no curvature information;
     # its only candidate would be the arbitrary initial inverse-Hessian
@@ -201,30 +248,14 @@ function pathfinder_gaussian_fit(
         Hl = _lbfgs_inverse_hessian(α, S, Y, history_ind, history_length_effective)
 
         # The inverse-Hessian estimate as a Woodbury-structured operator
-        # (D is symmetric by construction, up to rounding); its stable
-        # "square root" factorization (Zhang et al. 2022, appendix A)
-        # comes with a structural log-determinant:
+        # (D is symmetric by construction, up to rounding):
         H = woodbury_operator(Diagonal(Hl.α), Hl.B, Symmetric(Hl.D))
-        F = try
-            rowgram_factor(H)
-        catch err
-            err isa PosDefException || rethrow()
-            continue
-        end
-        μ = xs[l + 1] .+ H * grads[l + 1]
-        all(isfinite, μ) || continue
 
-        Z = randn(rng, T, n, ndraws_elbo)
-        znormsq = vec(sum(abs2, Z, dims = 1))
-        X = F * Z .+ μ
-        logabsdet_L = first(logabsdet(F))
+        # Draws are generated on the CPU and adapted to the compute unit,
+        # as elsewhere in BAT (the context RNG is CPU-side):
+        Z = adapt(cunit, randn(rng, T, n, ndraws_elbo))
 
-        elbo = zero(T)
-        for j in 1:ndraws_elbo
-            logq_j = -(n * T(log2π) + znormsq[j]) / 2 - logabsdet_L
-            elbo += (T(f_logd(view(X, :, j))) - logq_j) / ndraws_elbo
-        end
-
+        elbo, μ = _pathfinder_elbo(f_logd, H, xs[l + 1], grads[l + 1], Z, T)
         if elbo > best_elbo
             best_elbo = elbo
             best = (μ = μ, α = Hl.α, B = Hl.B, D = Hl.D)
@@ -232,8 +263,51 @@ function pathfinder_gaussian_fit(
     end
 
     isnothing(best) && return nothing
-    Σ = Matrix(woodbury_operator(Diagonal(best.α), best.B, Symmetric(best.D)))
-    return (μ = best.μ, Σ = Σ, elbo = best_elbo)
+    return (μ = best.μ, Σ = _woodbury_matrix(best.α, best.B, best.D), elbo = best_elbo)
+end
+
+
+# ELBO of the local Gaussian approximation induced by an inverse-Hessian
+# estimate `H` at the trajectory point `x`, together with that
+# approximation's mean. Unusable candidates score `-Inf` rather than
+# raising or being skipped, so that candidate selection is a reduction
+# over scores instead of data-dependent control flow:
+function _pathfinder_elbo(f_logd, H, x::AbstractVector, grad::AbstractVector, Z::AbstractMatrix, ::Type{T}) where {T<:Real}
+    n = size(Z, 1)
+    μ = x .+ H * grad
+    all(isfinite, μ) || return T(-Inf), μ
+
+    # The stable "square root" factorization of Zhang et al. (2022),
+    # appendix A, which comes with a structural log-determinant. It
+    # rejects indefinite estimates by raising, so this is the one spot
+    # that still needs a value-dependent branch.
+    # ToDo: Use a non-raising factorization entry point once
+    # MatrixShapedOperators offers one.
+    F = try
+        rowgram_factor(H)
+    catch err
+        err isa PosDefException || rethrow()
+        return T(-Inf), μ
+    end
+
+    X = F * Z .+ μ
+    znormsq = vec(sum(abs2, Z, dims = 1))
+    logabsdet_L = first(logabsdet(F))
+    logq = @. -(n * T(log2π) + znormsq) / 2 - logabsdet_L
+    # ToDo: Evaluate the target on all draws at once once BAT supports
+    # batched density evaluation.
+    logd_mean = mean(T(f_logd(view(X, :, j))) for j in axes(X, 2))
+    return logd_mean - T(mean(logq)), μ
+end
+
+# Dense covariance from the compact inverse-Hessian representation,
+# materialized in the storage of its factors. Going through
+# `AbstractMatrix(::MatrixShapedOperator)` instead would apply the
+# operator to a CPU identity matrix:
+function _woodbury_matrix(α::AbstractVector, B::AbstractMatrix, D::AbstractMatrix)
+    Σ = B * (Symmetric(D) * transpose(B))
+    Σ[diagind(Σ)] .+= α
+    return Σ
 end
 
 
