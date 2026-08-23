@@ -1,164 +1,15 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# Native single-path implementation of the Pathfinder algorithm (L. Zhang,
+# Single-path implementation of the Pathfinder algorithm (L. Zhang,
 # B. Carpenter, A. Gelman, A. Vehtari, "Pathfinder: Parallel quasi-Newton
 # variational inference", JMLR 23(306), 2022,
 # https://jmlr.org/papers/v23/21-0889.html), reduced to what is needed to
 # seed MCMC space transformations: the mean and covariance of the best local
-# Gaussian approximation along an L-BFGS trajectory. The inverse-Hessian
-# reconstruction and factorization follow the reference implementation
-# Pathfinder.jl (MIT License, Copyright (c) 2021 Seth Axen and contributors).
-
-
-# L-BFGS two-loop recursion, S/Y/invrho in minimization convention, see
-# J. Nocedal, "Updating quasi-Newton matrices with limited storage"
-# (1980), https://doi.org/10.1090/S0025-5718-1980-0572855-7:
-function _lbfgs_direction(g::AbstractVector{T}, S::AbstractVector, Y::AbstractVector, invrho::AbstractVector) where {T<:Real}
-    q = copy(g)
-    m = length(S)
-    if m > 0
-        a = Vector{T}(undef, m)
-        for i in m:-1:1
-            a[i] = dot(S[i], q) / invrho[i]
-            q .-= a[i] .* Y[i]
-        end
-        q .*= invrho[m] / sum(abs2, Y[m])
-        for i in 1:m
-            b = dot(Y[i], q) / invrho[i]
-            q .+= (a[i] - b) .* S[i]
-        end
-    end
-    q .*= -1
-    return q
-end
-
-# Strong-Wolfe line search (bracket and zoom, J. Nocedal and
-# S. J. Wright, "Numerical Optimization", 2nd ed., Springer 2006,
-# algs. 3.5/3.6, https://doi.org/10.1007/978-0-387-40065-5)
-# for minimizing phi(t) = -logd(x + t d), with phi(0) = phi0 and
-# phi'(0) = dphi0 < 0. Returns (x_new, phi_new, grad_new) with grad in
-# maximization convention (the log-density gradient), or `nothing` on
-# failure. Non-finite values count as "too far". The curvature condition
-# guarantees positive-curvature pairs s'y > 0, which matters here because
-# the quasi-Newton pairs are part of the inferential approximation, not
-# just of the optimization:
-function _wolfe_linesearch(
-    f_logdgrad::Function, x::AbstractVector{T}, phi0::T, dphi0::T,
-    d::AbstractVector{T}, t1::T;
-    c1::Real = 1e-4, c2::Real = 0.9, max_expand::Integer = 12, max_zoom::Integer = 30
-) where {T<:Real}
-    function evalphi(t::T)
-        x_t = x .+ t .* d
-        logd_t, grad_t0 = f_logdgrad(x_t)
-        phi_t = -T(logd_t)
-        ok = isfinite(phi_t) && all(isfinite, grad_t0)
-        grad_t = ok ? convert(Vector{T}, grad_t0) : d
-        dphi_t = ok ? -dot(grad_t, d) : T(NaN)
-        return x_t, phi_t, dphi_t, grad_t, ok
-    end
-
-    wolfe1(t::T, phi_t::T) = phi_t <= phi0 + T(c1) * t * dphi0
-    wolfe2(dphi_t::T) = abs(dphi_t) <= -T(c2) * dphi0
-
-    # Bisection zoom; lo always satisfies the sufficient-decrease
-    # condition, so its state is the fallback if the curvature condition
-    # can't be met within the budget:
-    function zoom(t_lo::T, phi_lo::T, lo_state, t_hi::T)
-        for _ in 1:max_zoom
-            t = (t_lo + t_hi) / 2
-            x_t, phi_t, dphi_t, grad_t, ok = evalphi(t)
-            if !ok || !wolfe1(t, phi_t) || phi_t >= phi_lo
-                t_hi = t
-            else
-                wolfe2(dphi_t) && return (x_t, phi_t, grad_t)
-                if dphi_t * (t_hi - t_lo) >= 0
-                    t_hi = t_lo
-                end
-                t_lo, phi_lo, lo_state = t, phi_t, (x_t, phi_t, grad_t)
-            end
-        end
-        return lo_state
-    end
-
-    t_prev, phi_prev = zero(T), phi0
-    lo_state = nothing
-    t = t1
-    for i in 1:max_expand
-        x_t, phi_t, dphi_t, grad_t, ok = evalphi(t)
-        if !ok || !wolfe1(t, phi_t) || (phi_t >= phi_prev && i > 1)
-            return zoom(t_prev, phi_prev, lo_state, t)
-        end
-        wolfe2(dphi_t) && return (x_t, phi_t, grad_t)
-        if dphi_t >= 0
-            return zoom(t, phi_t, (x_t, phi_t, grad_t), t_prev)
-        end
-        t_prev, phi_prev, lo_state = t, phi_t, (x_t, phi_t, grad_t)
-        t *= 2
-    end
-    # Expansion exhausted while still descending with sufficient decrease,
-    # accept the last point:
-    return lo_state
-end
-
-# Maximizes the log-density given by `f_logdgrad(x) == (logd, grad)` via
-# L-BFGS with strong-Wolfe line search. Returns the trace of iterates and
-# their log-density gradients, or `nothing` if the starting point is
-# unusable (a path-local failure, other start points may still succeed).
-function _lbfgs_trace(
-    f_logdgrad::Function, x0::AbstractVector{<:Real};
-    maxiters::Integer, history_length::Integer,
-    grad_tol::Real = 1e-8
-)
-    T = float(eltype(x0))
-    x = convert(Vector{T}, x0)
-    logd, grad_0 = f_logdgrad(x)
-    grad = convert(Vector{T}, grad_0)
-    if !(isfinite(logd) && all(isfinite, grad))
-        @warn "Pathfinder can't start from a point with non-finite log-density or gradient, skipping this start point"
-        return nothing
-    end
-
-    xs = [x]
-    grads = [grad]
-    S = Vector{Vector{T}}()
-    Y = Vector{Vector{T}}()
-    invrho = Vector{T}()
-
-    f::T = -logd
-    for iter in 1:maxiters
-        maximum(abs, grad) > grad_tol || break
-
-        g = -grad
-        d = _lbfgs_direction(g, S, Y, invrho)
-        dg = dot(d, g)
-        if !(dg < 0)
-            # Not a descent direction, reset to steepest descent:
-            empty!(S); empty!(Y); empty!(invrho)
-            d = -g
-            dg = -sum(abs2, g)
-        end
-
-        t1 = iter == 1 ? min(one(T), inv(norm(d))) : one(T)
-        ls = _wolfe_linesearch(f_logdgrad, x, f, dg, d, t1)
-        isnothing(ls) && break
-        x_new, f_new, grad_new = ls
-
-        s = x_new .- x
-        y = grad .- grad_new
-        if dot(y, s) > eps(T) * sum(abs2, y)
-            push!(S, s); push!(Y, y); push!(invrho, dot(y, s))
-            if length(S) > history_length
-                popfirst!(S); popfirst!(Y); popfirst!(invrho)
-            end
-        end
-
-        x, f, grad = x_new, f_new, grad_new
-        push!(xs, x)
-        push!(grads, grad)
-    end
-
-    return xs, grads
-end
+# Gaussian approximation along an L-BFGS trajectory. The trajectory comes
+# from a `maximize_density` backend with trace recording, the
+# inverse-Hessian reconstruction and factorization follow the reference
+# implementation Pathfinder.jl (MIT License, Copyright (c) 2021 Seth Axen
+# and contributors).
 
 
 # Diagonal inverse-Hessian estimate, eq. 4.9 of Gilbert & Lemaréchal,
@@ -265,10 +116,9 @@ end
 
 """
     BAT.pathfinder_gaussian_fit(
-        rng::AbstractRNG, f_logd::Function, f_logdgrad::Function,
-        x0::AbstractVector{<:Real};
-        maxiters::Integer = 1000, history_length::Integer = 6,
-        ndraws_elbo::Integer = 5
+        f_logd::Function, x0::AbstractVector{<:Real},
+        optalg, context::BATContext;
+        history_length::Integer = 6, ndraws_elbo::Integer = 5
     )
 
 *BAT-internal, not part of stable public API.*
@@ -276,23 +126,46 @@ end
 Runs single-path Pathfinder ([Zhang et al.
 (2022)](https://jmlr.org/papers/v23/21-0889.html)) from `x0` and returns the
 mean `μ`, dense covariance `Σ` and `elbo` of the maximum-ELBO local Gaussian
-approximation of the target along the L-BFGS trajectory, as a `NamedTuple`,
+approximation of the target along an L-BFGS trajectory, as a `NamedTuple`,
 or `nothing` if no approximation with a finite ELBO is found.
 
-`f_logdgrad(x)` must return the tuple `(logd, grad)` of the target
-log-density and its gradient, `f_logd(x)` just the log-density.
+The trajectory is generated by maximizing the log-density function `f_logd`
+via [`maximize_density`](@ref) with `optalg`, which must be a gradient-based
+backend that records iterates and gradients (e.g. an [`OptimAlg`](@ref)
+with `Optim.LBFGS`). Optimizer failures count as path-local failures.
 """
 function pathfinder_gaussian_fit(
-    rng::AbstractRNG, f_logd::Function, f_logdgrad::Function, x0::AbstractVector{<:Real};
-    maxiters::Integer = 1000, history_length::Integer = 6, ndraws_elbo::Integer = 5
+    f_logd::Function, x0::AbstractVector{<:Real}, optalg, context::BATContext;
+    history_length::Integer = 6, ndraws_elbo::Integer = 5
 )
-    @argcheck maxiters >= 1
     @argcheck history_length >= 1
     @argcheck ndraws_elbo >= 1
 
-    trace = _lbfgs_trace(f_logdgrad, x0, maxiters = maxiters, history_length = history_length)
-    isnothing(trace) && return nothing
-    xs, grads = trace
+    traced_optalg = @set optalg.store_trace = true
+    r = try
+        maximize_density(f_logd, x0, traced_optalg, context)
+    catch err
+        err isa InterruptException && rethrow()
+        @warn "Pathfinder path failed, skipping this start point" exception = err
+        return nothing
+    end
+
+    if isnothing(r.trace) || !haskey(r.trace, :grad_logd)
+        throw(ArgumentError(
+            "Pathfinder requires an optimization backend that records iterates and gradients, like OptimAlg with a first-order Optim optimizer"
+        ))
+    end
+
+    # A non-finite start leaves the optimizer nowhere to go; this usually
+    # indicates bad initial values, so it warrants a warning even though
+    # it is only a path-local failure:
+    if isempty(r.trace.logd) || !isfinite(first(r.trace.logd))
+        @warn "Pathfinder can't start from a point with non-finite log-density, skipping this start point"
+        return nothing
+    end
+
+    xs, grads = r.trace.v, r.trace.grad_logd
+    rng = get_rng(context)
 
     # A path with no accepted L-BFGS step carries no curvature information;
     # its only candidate would be the arbitrary initial inverse-Hessian
@@ -365,19 +238,20 @@ end
 
 
 function _affine_init_moments(tinit::PathfinderTransformInit, target::AbstractMeasure, v_init::AbstractVector, context::BATContext)
-    adsel = get_valid_adselector(context, tinit)
+    # Pathfinder is gradient-based by definition, so a missing AD backend
+    # is a configuration error, caught here before any path runs (the
+    # per-path failure handling would otherwise swallow it):
+    _ = get_valid_adselector(context, tinit)
+
     # Deliberately not checked_logdensityof: the optimizer's line search
-    # probes far-out points where the target may return NaN, and the
-    # L-BFGS trace handles non-finite values as per-path failures instead
-    # of aborting the whole initialization:
+    # probes far-out points where the target may return NaN, which counts
+    # as a per-path failure instead of aborting the whole initialization:
     f_logd = logdensityof(target)
-    f_logdgrad = valgrad_func(f_logd, adsel)
-    rng = get_rng(context)
 
     fits = filter(!isnothing, [
         pathfinder_gaussian_fit(
-            rng, logdensityof(target), f_logdgrad, x0,
-            maxiters = tinit.maxiters, history_length = tinit.history_length,
+            f_logd, x0, tinit.optalg, context,
+            history_length = tinit.history_length,
             ndraws_elbo = tinit.ndraws_elbo
         )
         for x0 in v_init

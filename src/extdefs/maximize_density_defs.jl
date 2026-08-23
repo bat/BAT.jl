@@ -4,6 +4,22 @@
 const MaxDensityAlgorithm = Union{OptimAlg, OptimizationAlg}
 
 
+# Pathfinder needs a gradient-based optimizer whose maximize_density
+# implementation records a gradient trace. Kept as a function so that
+# PathfinderTransformInit construction gives a clear error when no
+# suitable backend is available:
+function _default_pathfinder_optalg()
+    try
+        return OptimAlg(optalg = ext_default(pkgext(Val(:Optim)), Val(:LBFGS_ALG)))
+    catch err
+        err isa ErrorException || rethrow()
+        throw(ErrorException(
+            "The default PathfinderTransformInit backend requires the Optim package to be loaded. Load Optim, or set the optalg field explicitly to a gradient-based backend that supports trace recording (e.g. an OptimizationAlg with an L-BFGS solver)."
+        ))
+    end
+end
+
+
 """
     struct TransformedMaxDensity <: AbstractModeEstimator
 

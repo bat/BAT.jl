@@ -7,14 +7,15 @@ using LinearAlgebra, Random, Statistics
 using Distributions, ValueShapes, DensityInterface
 using StableRNGs
 import ForwardDiff
+import Optim
 
-using BAT: _wolfe_linesearch
-using BAT: _lbfgs_trace, _lbfgs_inverse_hessians, pathfinder_gaussian_fit,
+using BAT: _lbfgs_inverse_hessians, pathfinder_gaussian_fit,
     init_adaptive_transform, TriangularAffineTransform, PathfinderTransformInit,
     PriorApproxTransformInit
 using MatrixShapedOperators: woodbury_operator, rowgram_factor
 
 @testset "pathfinder" begin
+    context = BATContext(rng = StableRNG(996770566), ad = ForwardDiff)
     rng = StableRNG(996770566)
 
     d = 8
@@ -22,50 +23,27 @@ using MatrixShapedOperators: woodbury_operator, rowgram_factor
     Cinv = inv(C)
     m_true = randn(rng, d)
     f_logd = x -> -dot(x - m_true, Cinv, x - m_true) / 2
-    f_logdgrad = x -> (f_logd(x), -(Cinv * (x - m_true)))
 
-    @testset "wolfe line search" begin
-        f_q(x) = (-sum(abs2, x) / 2, -x)
-        x0 = [4.0, 0.0]
-        logd0, grad0 = f_q(x0)
-        dq = [-1.0, 0.0]
-        phi0 = -logd0
-        dphi0 = -dot(grad0, dq)
-        @test dphi0 < 0
+    lbfgs_alg(; kwargs...) = OptimAlg(optalg = Optim.LBFGS(); kwargs...)
 
-        # On a quadratic, the accepted step satisfies both strong-Wolfe
-        # conditions (verifiable analytically):
-        res = _wolfe_linesearch(f_q, x0, phi0, dphi0, dq, 1.0)
-        @test !isnothing(res)
-        x_n, phi_n, grad_n = res
-        t_acc = (x0[1] - x_n[1]) / -dq[1]
-        @test t_acc > 0
-        @test phi_n <= phi0 + 1e-4 * t_acc * dphi0
-        @test abs(-dot(grad_n, dq)) <= 0.9 * abs(dphi0)
-
-        # Non-finite regions count as "too far" and are bracketed away:
-        f_b(x) = sum(abs2, x) > 25 ? (NaN, fill(NaN, 2)) : f_q(x)
-        res_b = _wolfe_linesearch(f_b, x0, phi0, dphi0, dq, 64.0)
-        @test !isnothing(res_b)
-        x_b, phi_b, grad_b = res_b
-        @test isfinite(phi_b) && phi_b < phi0
-
-        # A completely unusable direction fails cleanly:
-        f_nan(x) = (NaN, fill(NaN, 2))
-        @test isnothing(_wolfe_linesearch(f_nan, x0, phi0, dphi0, dq, 1.0))
-    end
-
-    @testset "L-BFGS trace" begin
-        xs, grads = _lbfgs_trace(f_logdgrad, fill(4.0, d), maxiters = 200, history_length = 6)
-        @test length(xs) == length(grads)
+    @testset "gradient trace recording" begin
+        r = BAT.maximize_density(f_logd, fill(4.0, d), lbfgs_alg(store_trace = true), context)
+        @test isapprox(r.result, m_true, atol = 1e-6)
+        xs, grads = r.trace.v, r.trace.grad_logd
+        @test length(xs) == length(grads) == length(r.trace.logd)
+        @test r.trace.logd ≈ f_logd.(xs)
+        @test grads[end] ≈ -(Cinv * (xs[end] - m_true)) atol = 1e-6
         @test issorted(f_logd.(xs))
-        @test isapprox(last(xs), m_true, atol = 1e-6)
+
+        # Without store_trace no trace is recorded:
+        @test isnothing(BAT.maximize_density(f_logd, fill(4.0, d), lbfgs_alg(), context).trace)
     end
 
     @testset "inverse Hessians and factorization" begin
         # The accuracy of the inverse-Hessian estimates is limited by the
         # history length, so use a history that covers the full space:
-        xs, grads = _lbfgs_trace(f_logdgrad, fill(4.0, d), maxiters = 200, history_length = 20)
+        r = BAT.maximize_density(f_logd, fill(4.0, d), lbfgs_alg(store_trace = true), context)
+        xs, grads = r.trace.v, r.trace.grad_logd
         Hs = _lbfgs_inverse_hessians(xs, grads, history_length = 20)
         @test length(Hs) == length(xs)
 
@@ -84,7 +62,7 @@ using MatrixShapedOperators: woodbury_operator, rowgram_factor
 
     @testset "gaussian fit" begin
         # Enough ELBO draws to make the candidate selection reliable:
-        fit = pathfinder_gaussian_fit(rng, f_logd, f_logdgrad, fill(4.0, d), history_length = 20, ndraws_elbo = 30)
+        fit = pathfinder_gaussian_fit(f_logd, fill(4.0, d), lbfgs_alg(), context, history_length = 20, ndraws_elbo = 30)
         @test !isnothing(fit)
         @test isapprox(fit.μ, m_true, atol = 0.05)
         @test opnorm(fit.Σ - C) / opnorm(C) < 0.05
@@ -92,7 +70,7 @@ using MatrixShapedOperators: woodbury_operator, rowgram_factor
 
         # With the (rank-limiting) default history length the fit is coarser
         # but must still be usable:
-        fit_default = pathfinder_gaussian_fit(rng, f_logd, f_logdgrad, fill(4.0, d))
+        fit_default = pathfinder_gaussian_fit(f_logd, fill(4.0, d), lbfgs_alg(), context)
         @test isapprox(fit_default.μ, m_true, atol = 0.1)
         @test opnorm(fit_default.Σ - C) / opnorm(C) < 0.7
     end
@@ -102,26 +80,25 @@ using MatrixShapedOperators: woodbury_operator, rowgram_factor
         # information; the initial identity estimate must never be returned
         # as a successful fit. Starting at the exact mode of a non-unit
         # Gaussian takes zero steps:
-        @test isnothing(pathfinder_gaussian_fit(rng, f_logd, f_logdgrad, copy(m_true)))
-
-        # A first line search that can never accept has the same problem:
-        x0 = fill(2.0, d)
-        barrier_logd = x -> x == x0 ? 0.0 : -Inf
-        barrier_logdgrad = x -> x == x0 ? (0.0, fill(1.0, d)) : (-Inf, zero(x))
-        @test isnothing(pathfinder_gaussian_fit(rng, barrier_logd, barrier_logdgrad, x0))
+        @test isnothing(pathfinder_gaussian_fit(f_logd, copy(m_true), lbfgs_alg(), context))
 
         # A non-finite starting point is a path-local failure, not an error:
-        nan_logdgrad = x -> (NaN, fill(NaN, d))
-        fit_nan = @test_logs (:warn,) match_mode=:any pathfinder_gaussian_fit(rng, f_logd, nan_logdgrad, x0)
+        x0 = fill(2.0, d)
+        f_nan = x -> convert(eltype(x), NaN)
+        fit_nan = @test_logs (:warn,) match_mode=:any pathfinder_gaussian_fit(f_nan, x0, lbfgs_alg(), context)
         @test isnothing(fit_nan)
 
+        # Backends without a gradient trace fail at the API boundary:
+        @test_throws ArgumentError pathfinder_gaussian_fit(f_logd, x0, OptimAlg(optalg = Optim.NelderMead()), context)
+
         # Invalid configurations fail at the API boundary:
-        @test_throws ArgumentError pathfinder_gaussian_fit(rng, f_logd, f_logdgrad, x0, history_length = 0)
-        @test_throws ArgumentError pathfinder_gaussian_fit(rng, f_logd, f_logdgrad, x0, ndraws_elbo = 0)
-        @test_throws ArgumentError pathfinder_gaussian_fit(rng, f_logd, f_logdgrad, x0, maxiters = 0)
+        @test_throws ArgumentError pathfinder_gaussian_fit(f_logd, x0, lbfgs_alg(), context, history_length = 0)
+        @test_throws ArgumentError pathfinder_gaussian_fit(f_logd, x0, lbfgs_alg(), context, ndraws_elbo = 0)
     end
 
     @testset "transform initialization" begin
+        # MCMC chain init partitions the context RNG, which requires a
+        # counter-based RNG (unlike the StableRNG fit-test context):
         context = BATContext(ad = ForwardDiff)
         objective = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
         target = unshaped(batmeasure(objective))
