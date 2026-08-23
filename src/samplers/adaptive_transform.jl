@@ -372,7 +372,3 @@ function _affine_init_moments(::PriorApproxTransformInit, target::AbstractMeasur
     n = totalndof(varshape(target))
     return _approx_cov(target, n), _approx_mean(target, n)
 end
-
-function _affine_init_moments(::PathfinderTransformInit, ::AbstractMeasure, ::Nothing, ::BATContext)
-    throw(ArgumentError("PathfinderTransformInit requires initial positions"))
-end

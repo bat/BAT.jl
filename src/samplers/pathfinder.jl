@@ -311,6 +311,9 @@ function _woodbury_matrix(α::AbstractVector, B::AbstractMatrix, D::AbstractMatr
 end
 
 
+_affine_init_moments(::PathfinderTransformInit, ::AbstractMeasure, ::Nothing, ::BATContext) =
+    throw(ArgumentError("PathfinderTransformInit requires initial positions"))
+
 function _affine_init_moments(tinit::PathfinderTransformInit, target::AbstractMeasure, v_init::AbstractVector, context::BATContext)
     # Pathfinder is gradient-based by definition, so a missing AD backend
     # is a configuration error, caught here before any path runs (the
