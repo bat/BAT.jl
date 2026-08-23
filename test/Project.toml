@@ -18,6 +18,7 @@ EmpiricalDistributions = "0bbb1fad-0f24-45fe-94a4-415852c5cc3b"
 FillArrays = "1a297f60-69ca-5386-bcde-b61e274b549b"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 FunctionChains = "8e6b2b91-af83-483e-ba35-d00930e4cf9b"
+GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 HeterogeneousComputing = "2182be2a-124f-4a91-8389-f06db5907a21"
 HypothesisTests = "09f84164-cd44-5f33-b23f-e6b0d136a0d5"
@@ -56,4 +57,5 @@ Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
 BATTestCases = "0.2"
+GPUArraysCore = "0.1, 0.2"
 JLArrays = "0.2, 0.3"

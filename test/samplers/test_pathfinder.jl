@@ -9,7 +9,7 @@ using StableRNGs
 import ForwardDiff
 import Optim
 
-using JLArrays, GPUArrays
+using JLArrays, GPUArraysCore
 
 using BAT: _lbfgs_inverse_hessians, _lbfgs_inverse_hessian, _lbfgs_curvature_update!,
     _woodbury_matrix, pathfinder_gaussian_fit,
@@ -116,7 +116,7 @@ using MatrixShapedOperators: woodbury_operator, rowgram_factor
         Su_c, Yu_c = copy(S_c), copy(Y_c)
         upd_c = _lbfgs_curvature_update!(Su_c, Yu_c, α_c, hind, Jd, s_c, y_c, Jd, 1e-12)
 
-        GPUArrays.allowscalar(false)
+        GPUArraysCore.allowscalar(false)
         try
             α_d, S_d, Y_d = JLArray(α_c), JLArray(S_c), JLArray(Y_c)
             H_d = _lbfgs_inverse_hessian(α_d, S_d, Y_d, hind, Jd)
@@ -136,7 +136,7 @@ using MatrixShapedOperators: woodbury_operator, rowgram_factor
             @test Array(Su_d) ≈ Su_c
             @test Array(Yu_d) ≈ Yu_c
         finally
-            GPUArrays.allowscalar(true)
+            GPUArraysCore.allowscalar()
         end
     end
 

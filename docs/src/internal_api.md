@@ -58,6 +58,7 @@ BAT.AbstractTransformInit
 BAT.LFDensityWithGrad
 BAT.LogDVal
 BAT.MCMCSampleGenerator
+BAT.MCMCStepInfo
 BAT.MeasureLike
 BAT.NoWhitening
 BAT.OnlineMvCov
