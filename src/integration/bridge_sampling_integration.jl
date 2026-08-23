@@ -144,8 +144,11 @@ function bridge_sampling_integral(
 
     # Probability-weight semantics: sample weights carry no provenance, and
     # the frequency-weight Bessel correction degenerates for non-integer
-    # weights:
-    mean1, var1 = StatsBase.mean_and_var(f1, ProbabilityWeights(proposal_samples.weight), corrected = true)
+    # weights. Canonical relative weights again, because the bias
+    # correction of a probability weighting multiplies the weight sum by
+    # the number of samples, which overflows for integer weights where
+    # `Int` is 32 bits wide:
+    mean1, var1 = StatsBase.mean_and_var(f1, ProbabilityWeights(u2), corrected = true)
     mean2, var2 = mean(f2_density_vector)[1],cov(f2_density_vector)[1]
 
     N1_eff = bat_eff_sample_size_impl(f2_density_vector,ess_alg,context).result[1] 
