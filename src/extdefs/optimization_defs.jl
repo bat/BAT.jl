@@ -32,6 +32,7 @@ $(TYPEDFIELDS)
     maxtime::Float64 = NaN
     abstol::Float64 = NaN
     reltol::Float64 = 0.0
+    store_trace::Bool = false
     kwargs::NamedTuple = (;)
 end
 export OptimizationAlg

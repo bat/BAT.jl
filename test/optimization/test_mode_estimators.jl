@@ -31,16 +31,6 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
             end
             @test keys(res.result) == keys(true_mode)
             @test isapprox(unshaped(res.result, varshape(posterior)), true_mode_flat, rtol = rtol)
-            
-            # # ToDo: Re-enable trace tests once tracing has been re-enabled:
-            #if hasproperty(res.trace_trafo, :grad_logd)
-            #    @unpack v, logd, grad_logd = res.trace_trafo
-            #    f_logd = logdensityof(posterior) ∘ inverse(res.f_pretransform)
-            #    @test all(f_logd.(v) .≈ logd)
-            #    @test all(grad_logd .≈ ForwardDiff.gradient.(Ref(f_logd), v))
-            #else
-            #    @test hasproperty(res.trace_trafo, :v)
-            #end
         end
     end
 
@@ -50,6 +40,41 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
         @test isapprox(unshaped(res.result, varshape(posterior)), true_mode_flat, rtol = rtol)
     end
 
+
+    @testset "optimization trace recording" begin
+        context = BATContext(ad = ForwardDiff)
+        f_logd = x -> -sum(abs2, x .- [1.0, 2.0]) / 2
+        x_init = [4.0, -3.0]
+        for (traced_alg, plain_alg) in [
+            (OptimAlg(optalg = Optim.LBFGS(), store_trace = true), OptimAlg(optalg = Optim.LBFGS())),
+            (
+                OptimizationAlg(optalg = OptimizationOptimJL.LBFGS(), store_trace = true),
+                OptimizationAlg(optalg = OptimizationOptimJL.LBFGS())
+            ),
+        ]
+            r = BAT.maximize_density(f_logd, x_init, traced_alg, context)
+            @test isapprox(r.result, [1.0, 2.0], atol = 1e-6)
+            trc = r.trace
+            @test trc isa NamedTuple
+            @test length(trc.v) == length(trc.logd) >= 2
+            @test trc.logd ≈ f_logd.(trc.v)
+            @test haskey(trc, :grad_logd) && length(trc.grad_logd) == length(trc.v)
+            @test all(trc.grad_logd .≈ ForwardDiff.gradient.(Ref(f_logd), trc.v))
+
+            # No trace unless requested:
+            @test isnothing(BAT.maximize_density(f_logd, x_init, plain_alg, context).trace)
+        end
+
+        # The trace passes through mode estimation, in the transformed
+        # search space:
+        res = bat_bgml(
+            logfuncdensity(v -> f_logd(v.x)), NamedTupleDist(x = product_distribution(fill(Normal(0.0, 10.0), 2))),
+            TransformedMaxDensity(optalg = OptimAlg(optalg = Optim.LBFGS(), store_trace = true)),
+            context
+        )
+        @test res.trace_trafo isa NamedTuple
+        @test haskey(res.trace_trafo, :grad_logd)
+    end
 
     @testset "ModeAsDefined" begin
         context = BATContext()
