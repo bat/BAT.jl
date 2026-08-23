@@ -27,10 +27,14 @@ function convert_options(algorithm::OptimAlg)
 
     algopts = (; iterations = algorithm.maxiters, time_limit = algorithm.maxtime, f_reltol = algorithm.reltol,)
     algopts = (; algopts..., kwargs...)
-    algopts = (; algopts..., store_trace = true, extended_trace=true) 
+    if algorithm.store_trace
+        # extended_trace puts the iterates (and gradients, where available)
+        # into the trace metadata:
+        algopts = (; algopts..., store_trace = true, extended_trace = true)
+    end
 
     return Optim.Options(; algopts...)
-end 
+end
 
 BAT.batalgorithm(optalg::Optim.AbstractOptimizer) = TransformedMaxDensity(optalg = OptimAlg(optalg = optalg))
 
@@ -40,16 +44,15 @@ function BAT.maximize_density(f_logdensity, x_init::AbstractVector{<:Real}, algo
     opts = convert_options(algorithm)
     optim_result = _optim_minimize(f, x_init, algorithm.optalg, opts, context)
 
-    # ToDo: Re-enable trace, make it type stable:
-    #dummy_f_x = f(x_init) # ToDo: Avoid recomputation
-    #trace_trafo = StructArray(;_neg_opt_trace(optim_result, x_init, dummy_f_x) ...)
+    trace = algorithm.store_trace ?
+        _neg_opt_trace(optim_result, x_init, -Optim.minimum(optim_result)) : nothing
 
     ret_a = (result = Optim.minimizer(optim_result),)
-    # Abstractly typed info field keeps the return type inferrable despite
-    # the type-unstable Optim result. Stored unwrapped: displaying an
-    # Optim.MaximizationWrapper is broken in Optim v1 (missing accessor
-    # forwarding in its show method):
-    ret_b = @NamedTuple{info::Optim.OptimizationResults}((optim_result,))
+    # Abstractly typed trace and info fields keep the return type
+    # inferrable despite the type-unstable Optim result. The result is
+    # stored unwrapped: displaying an Optim.MaximizationWrapper is broken
+    # in Optim v1 (missing accessor forwarding in its show method):
+    ret_b = @NamedTuple{trace::Union{Nothing,NamedTuple}, info::Optim.OptimizationResults}((trace, optim_result))
     return merge(ret_a, ret_b)
 end
 
