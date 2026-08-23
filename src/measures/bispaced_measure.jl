@@ -12,33 +12,34 @@ of it in a transformed space.
 Constructors:
 
 ```julia
-BispacedMeasure(main::BATMeasure)  # canonical form without a transformed representation
+BispacedMeasure(main::BATMeasure)  # no transformed representation
 BispacedMeasure(f_transform, main)  # transformed side generated via f_transform
 BispacedMeasure(main::BATMeasure, transformed::Union{BATMeasure,Nothing}, f_hash::UInt)
 ```
 
-As a measure, a `BispacedMeasure` behaves like its `main` side (common
-measure operations delegate to it). The pair itself does not identify the
-transformed space: that meaning comes from the transform intent of the
-[`EvaluatedMeasure`](@ref) the pair is part of (see its `transform_intent`
-property), relative to that measure's own content.
+As a measure, a `BispacedMeasure` behaves like its `main` side. The pair
+itself does not identify the transformed space, that meaning comes from
+the `transform_intent` of the [`EvaluatedMeasure`](@ref) the pair is
+part of.
 
-`f_hash` is the hash of the transformation function the `transformed` side
-was produced under and serves as a cheap compatibility witness when pairs
+# Implementation
+
+`f_hash` is the hash of the transformation function that produced the
+`transformed` side. It acts as a cheap compatibility witness when pairs
 are adopted into or consumed from an [`EvaluatedMeasure`](@ref): a
-non-matching hash results in an error, never in silently wrong content
-(`hash` may be specialized for transformation function types to make the
-witness value-based instead of object-based, widening which pairs are
-recognized as compatible). The witness is a strong practical guard, not a
-logical proof of identity: a hash collision, or an over-coarse user `hash`
-specialization, could in principle let incompatible content pass. `UInt(0)` means that no claim is made (no
-transformed side, or the claim was invalidated). The witness only covers
-the pair-internal connection between the two sides; that the main side
-itself belongs where it is supplied is the responsibility of the supplier,
-just as with raw samples. Function types without a value-based `hash`
-specialization fall back to `objectid`, so their stamps do not survive
-serialization or a new session; this errs on the safe side (an error, upon
-which the transformed content can simply be re-derived).
+non-matching hash results in an error, never in silently wrong content.
+`UInt(0)` means that no claim is made, either because there is no
+transformed side or because the claim was invalidated. The witness only
+covers the connection between the two sides, supplying a fitting main
+side is the responsibility of the supplier.
+
+`hash` may be specialized for transformation function types to make the
+witness value-based instead of object-based. Without such a
+specialization the fallback is `objectid`, so stamps do not survive
+serialization or a new session. This errs on the safe side, since on a
+mismatch the transformed content can simply be re-derived. The witness
+is a strong practical guard, not a proof of identity: a hash collision
+could in principle let incompatible content pass.
 """
 struct BispacedMeasure{M<:BATMeasure,T<:Union{BATMeasure,Nothing}} <: BATMeasure
     main::M
