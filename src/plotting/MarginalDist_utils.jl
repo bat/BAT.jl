@@ -39,7 +39,6 @@ function get_bin_centers(marg::MarginalDist)
 end
 
 
-
 function islower(weights, idx)
     if idx==1 && weights[idx]>0
         return true
@@ -121,7 +120,6 @@ function get_smallest_intervals(
 end
 
 
-
 # for 1d histograms
 function split_central(
     histogram::StatsBase.Histogram,
@@ -170,7 +168,6 @@ function split_central(
 end
 
 
-
 # calculate probability percentage enclosed inside the intervals of hists
 function get_probability_content(
     hist::StatsBase.Histogram,
@@ -179,7 +176,6 @@ function get_probability_content(
     totalweight = sum(hist.weights)
     return [sum(hists[i].weights)/totalweight for i in 1:length(hists)]
 end
-
 
 
 function calculate_levels(
@@ -206,48 +202,4 @@ function calculate_levels(
 
     levels[end] = 1.1*sum_of_weights
     return sort(levels)
-end
-
-function _all_active_exprs(vs::NamedTupleShape)
-    accs = vs._accessors
-    syms = keys(accs)
-    lengths = length.(values(accs))
-    exprs = Union{Expr, Symbol, Union{Expr, Symbol}}[]
-
-    for (i,sym) in enumerate(syms)
-        exprs_tmp = Any[]
-
-        if lengths[i] == 1 
-            push!(exprs_tmp, Meta.parse("$sym"))
-        else
-            for id in 1:lengths[i]
-                push!(exprs_tmp, Meta.parse("$sym[$id]"))
-            end
-        end
-        push!(exprs, exprs_tmp...)
-    end
-
-    return exprs
-end
-
-function _all_exprs_as_strings(vs::NamedTupleShape)
-    accs = vs._accessors
-    syms = keys(accs)
-    lengths = length.(values(accs))
-    expr_strings = String[]
-
-    for (i,sym) in enumerate(syms)
-        expr_strings_tmp = Any[]
-
-        if lengths[i] == 1 
-            push!(expr_strings_tmp, "$sym")
-        else
-            for id in 1:lengths[i]
-                push!(expr_strings_tmp, "$sym[$id]")
-            end
-        end
-        push!(expr_strings, expr_strings_tmp...)
-    end
-
-    return expr_strings
 end

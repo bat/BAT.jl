@@ -42,3 +42,8 @@ create_proposal_tuner_state(
 struct FrozenMCMCTransformTunerState <: MCMCTransformTunerState end
 
 struct FrozenMCMCProposalTunerState <: MCMCProposalTunerState end
+
+
+# No transform to tune, resp. a transform BAT does not control:
+bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::MCMCProposal, ::CustomTransform) = NoMCMCTransformTuning()
+bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::MCMCProposal, ::NoAdaptiveTransform) = NoMCMCTransformTuning()
