@@ -46,13 +46,16 @@ _fisher_estimator_from_A(::Any) = DenseFisherEstimator()
 """
     struct DriftCommitSchedule
 
-Transform-installation policy of [`FisherTransformTuning`](@ref): geometry
-statistics accumulate continuously, but a new transformation is only
-committed when the estimated geometry has drifted away from the installed
-one by more than a threshold in the affine-invariant SPD metric (plus a
-statistical noise floor). Early in warmup, noisy estimates drift fast and
-commits are frequent; as the estimate converges, commits cease on their
-own - there are no scheduled adaptation windows.
+Transform-installation policy of [`FisherTransformTuning`](@ref).
+
+Geometry statistics accumulate continuously, but a new transformation is
+committed only when the estimated geometry has drifted far enough from the
+installed one: their distance in the affine-invariant SPD metric must
+exceed `commit_threshold` plus a statistical noise floor.
+
+Early in warmup, noisy estimates drift fast and commits are frequent; as
+the estimate converges, commits cease on their own - there are no
+scheduled adaptation windows.
 
 Constructors:
 
