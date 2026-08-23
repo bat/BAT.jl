@@ -23,6 +23,8 @@ end
 """
     struct EvalException <: Exception
 
+*Experimental feature, not part of stable public API.*
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(func::Function, measure::AbstractMeasure, v::Any, ret::Any)```
@@ -130,6 +132,8 @@ value_for_msg(v::NamedTuple) = map(value_for_msg, v)
 
 """
     BAT.log_zero_density(T::Type{<:Real})
+
+*BAT-internal, not part of stable public API.*
 
 log-density value to assume for regions of implicit zero density, e.g.
 outside of variate/parameter bounds/support.

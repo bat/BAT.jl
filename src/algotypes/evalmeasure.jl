@@ -8,7 +8,7 @@
         context::BATContext
     )::EvaluatedMeasure
 
-*Experimental feature, not part of stable public API yet.*
+*Experimental feature, not part of stable public API.*
 
 Used internally by [`evalmeasure`](@ref). Specialize `BAT.evalmeasure_impl`
 to implement new measure/distribution evaluation algorithms.

@@ -135,6 +135,8 @@ end
 """
     abstract type BAT.AbstractTransformInit
 
+*BAT-internal, not part of stable public API.*
+
 Abstract type for algorithms that initialize adaptive MCMC space
 transformations.
 """
@@ -143,6 +145,8 @@ abstract type AbstractTransformInit end
 
 """
     struct BAT.UnitTransformInit <: BAT.AbstractTransformInit
+
+*BAT-internal, not part of stable public API.*
 
 Initializes affine space transformations to the identity map. The natural
 initialization for inner components of an [`AdaptiveTransformChain`](@ref),
@@ -159,6 +163,8 @@ end
 """
     struct BAT.PriorApproxTransformInit <: BAT.AbstractTransformInit
 
+*BAT-internal, not part of stable public API.*
+
 Initializes affine space transformations from the approximate covariance
 and mean of the prior.
 """
@@ -167,6 +173,8 @@ struct PriorApproxTransformInit <: AbstractTransformInit end
 
 """
     struct BAT.PathfinderTransformInit <: BAT.AbstractTransformInit
+
+*Experimental feature, not part of stable public API.*
 
 Initializes affine space transformations from local Gaussian target
 approximations obtained by running the Pathfinder algorithm (see
@@ -200,6 +208,8 @@ end
 """
     struct BAT.TriangularAffineTransform <: BAT.AbstractAdaptiveTransform
 
+*BAT-internal, not part of stable public API.*
+
 Adaptive affine space transformation `x = A * z + b` with a
 lower-triangular matrix `A`, initialized via an
 [`BAT.AbstractTransformInit`](@ref) algorithm.
@@ -219,6 +229,8 @@ end
 
 """
     struct BAT.DiagonalAffineTransform <: BAT.AbstractAdaptiveTransform
+
+*BAT-internal, not part of stable public API.*
 
 Adaptive affine space transformation `x = A * z + b` with a diagonal
 matrix `A`, initialized via an [`BAT.AbstractTransformInit`](@ref)
@@ -240,6 +252,8 @@ end
 
 """
     struct BAT.LowRankAffineTransform <: BAT.AbstractAdaptiveTransform
+
+*Experimental feature, not part of stable public API.*
 
 Adaptive affine space transformation `x = A * z + b` with `A` a
 diagonal-plus-low-rank Gram factor (`A * A' == D + W * S * W'`,

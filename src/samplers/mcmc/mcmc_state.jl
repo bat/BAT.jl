@@ -4,6 +4,8 @@
 """
     MCMCChainState
 
+*Experimental feature, not part of stable public API.*
+
 State of a MCMC chain.
 """
 mutable struct MCMCChainState{

@@ -9,7 +9,7 @@
 
 *BAT-internal, not part of stable public API.*
 
-Find smalles credible intervals with `nsigma_equivalent` of 1, 2 or 3
+Find smallest credible intervals with `nsigma_equivalent` of 1, 2 or 3
 (containing 68.27%, 90.00%, 95.45% or 99.73% of the total probability mass).
 """
 function smallest_credible_intervals(
@@ -64,6 +64,8 @@ end
 
 """
     smallest_credible_intervals(smpl::DensitySampleVector{<:AbstractVector{<:Real}}; kwargs...)
+
+*BAT-internal, not part of stable public API.*
 """
 function smallest_credible_intervals(smpl::DensitySampleVector{<:AbstractVector{<:Real}}; kwargs...)
     V = flatview(smpl.v)

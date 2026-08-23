@@ -4,6 +4,8 @@
 """
     BAT.PolarShellDistribution{T<:Real} <: Distributions.Distribution{Multivariate,Continuous}
 
+*Experimental feature, not part of stable public API.*
+
 *Experimental feature, not yet part of stable public API.*
 
 A doughnut-like distribution in two dimensions, in `[r, phi]` polar

@@ -18,6 +18,8 @@ export AutocorLenAlgorithm
         [context::BATContext]
     )
 
+*Experimental feature, not part of stable public API.*
+
 *Experimental feature, not yet part of stable public API.*
 
 Estimate the integrated autocorrelation length of variate series `v`,

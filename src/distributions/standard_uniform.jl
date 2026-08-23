@@ -9,6 +9,8 @@
 """
     StandardUvUniform{T<:Real} <: Distributions.Distribution{Univariate,Continuous}
 
+*BAT-internal, not part of stable public API.*
+
 A standard uniform distribution between zero and one.
 
 Constructor:
@@ -101,6 +103,8 @@ end
 
 """
     StandardMvUniform{T<:Real} <: Distributions.Distribution{Multivariate,Continuous}
+
+*BAT-internal, not part of stable public API.*
 
 A standard `n`-dimensional multivariate uniform distribution, from zero
 to one in each dimension.

@@ -9,6 +9,8 @@
 """
     StandardUvNormal{T<:Real} <: Distributions.Distribution{Univariate,Continuous}
 
+*BAT-internal, not part of stable public API.*
+
 A standard normal distribution with a mean of zero and a variance of one.
 
 Constructor:
@@ -76,6 +78,8 @@ end
 
 """
     StandardMvNormal{T<:Real} <: Distributions.AbstractMvNormal
+
+*BAT-internal, not part of stable public API.*
 
 A standard `n`-dimensional multivariate normal distribution with it's mean at
 the origin and an identity covariance matrix.
