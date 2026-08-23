@@ -28,13 +28,6 @@ function asindex(ntd::NamedTupleDist, name::Union{Expr, Symbol})
     return asindex(varshape(ntd), name)
 end
 
-# Return the name corresponding to the index as Symbol (for univariate)
-# or Expr for (multivariate) distributions
-function getname(vs::NamedTupleShape, idx::Integer)
-    names = all_active_names(vs)(vs)
-    return Meta.parse(names[idx])
-end
-
 # Return the name corresponding to the index as String
 function getstring(vs::NamedTupleShape, idx::Integer)
     names = all_active_names(vs)
@@ -92,4 +85,51 @@ function get_fixed_names(vs::NamedTupleShape)
     active_names = all_active_names(vs)
     all_names = allnames(vs)
     fixed_names = [n for n in all_names if !in(n, active_names)]
+end
+
+
+# Like all_active_names, but keeping fixed parameters and expanding them
+# into their dimensions, as Expr resp. String per dimension:
+function _all_active_exprs(vs::NamedTupleShape)
+    accs = vs._accessors
+    syms = keys(accs)
+    lengths = length.(values(accs))
+    exprs = Union{Expr, Symbol, Union{Expr, Symbol}}[]
+
+    for (i,sym) in enumerate(syms)
+        exprs_tmp = Any[]
+
+        if lengths[i] == 1 
+            push!(exprs_tmp, Meta.parse("$sym"))
+        else
+            for id in 1:lengths[i]
+                push!(exprs_tmp, Meta.parse("$sym[$id]"))
+            end
+        end
+        push!(exprs, exprs_tmp...)
+    end
+
+    return exprs
+end
+
+function _all_exprs_as_strings(vs::NamedTupleShape)
+    accs = vs._accessors
+    syms = keys(accs)
+    lengths = length.(values(accs))
+    expr_strings = String[]
+
+    for (i,sym) in enumerate(syms)
+        expr_strings_tmp = Any[]
+
+        if lengths[i] == 1 
+            push!(expr_strings_tmp, "$sym")
+        else
+            for id in 1:lengths[i]
+                push!(expr_strings_tmp, "$sym[$id]")
+            end
+        end
+        push!(expr_strings, expr_strings_tmp...)
+    end
+
+    return expr_strings
 end

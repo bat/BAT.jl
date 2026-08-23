@@ -49,27 +49,6 @@ end
 export TransformedMCMC
 
 
-# The transform-tuning default depends on the proposal as well: the tuning
-# rule must match the statistics the proposal generates (see e.g.
-# FisherTransformTuning for gradient-based proposals vs. RAMTuning for
-# random-walk proposals):
-bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::MCMCProposal, ::CustomTransform) = NoMCMCTransformTuning()
-bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::MCMCProposal, ::NoAdaptiveTransform) = NoMCMCTransformTuning()
-bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::MCMCProposal, ::TriangularAffineTransform) = RAMTuning()
-
-function bat_default(TM::Type{TransformedMCMC}, tt::Val{:transform_tuning}, proposal::MCMCProposal, f_transform::AdaptiveTransformChain)
-    tunings = bat_default.(TM, tt, Ref(proposal), f_transform.f)
-    # Fail at configuration time, not later during state creation: the
-    # per-component defaults for gradient-based proposals are score-based
-    # (Fisher), which transform chains don't support yet:
-    if any(t -> t isa FisherTransformTuning, tunings)
-        throw(ArgumentError(
-            "The default transform tuning for $(nameof(typeof(proposal))) components is score-based (FisherTransformTuning), which is not supported inside an AdaptiveTransformChain yet - please specify a supported transform_tuning (e.g. MultiTrafoTuning of RAMTuning components) explicitly"
-        ))
-    end
-    return MultiTrafoTuning(Tuple(tunings))
-end
-
 
 function MCMCState(samplingalg::TransformedMCMC, target::BATMeasure, id::Integer, v_init::AbstractVector, context::BATContext)
     target_unevaluated = unevaluated(target)

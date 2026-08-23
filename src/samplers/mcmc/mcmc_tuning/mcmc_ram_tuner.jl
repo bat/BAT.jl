@@ -184,3 +184,11 @@ function mcmc_tune_trafo_post_step!!(
 
     return f_transform_new, tuner_state_new, chain_state
 end
+
+
+# The transform-tuning default depends on the proposal as well: the tuning
+# rule must match the statistics the proposal generates. RAM drifts a
+# dense triangular geometry from the accepted/rejected steps alone, so it
+# is the default for proposals that provide no gradients (see
+# FisherTransformTuning for those that do):
+bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::MCMCProposal, ::TriangularAffineTransform) = RAMTuning()
