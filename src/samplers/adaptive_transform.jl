@@ -12,7 +12,6 @@ CustomTransform() = CustomTransform(identity)
 init_adaptive_transform(at::CustomTransform, ::AbstractMeasure, ::BATContext) = at.f
 
 
-
 struct NoAdaptiveTransform <: AbstractAdaptiveTransform end
 
 init_adaptive_transform(::NoAdaptiveTransform, ::AbstractMeasure, ::BATContext) = identity
@@ -105,7 +104,6 @@ function trafo_samples_with_interm_results(fc::FunctionChain, current, proposed)
 end
 
 
-
 function _iterate_trafo_with_interm((f_1, itr_state), fs, samples::AbstractVector{<:DensitySampleVector})
     intermediate_results = FunctionChains._similar_empty(fs, typeof(samples))
     FunctionChains._sizehint!(intermediate_results, Base.IteratorSize(fs), fs)
@@ -170,43 +168,6 @@ and mean of the prior.
 """
 struct PriorApproxTransformInit <: AbstractTransformInit end
 
-
-"""
-    struct BAT.PathfinderTransformInit <: BAT.AbstractTransformInit
-
-*Experimental feature, not part of stable public API.*
-
-Initializes affine space transformations from local Gaussian target
-approximations obtained by running the Pathfinder algorithm (see
-[`BAT.pathfinder_gaussian_fit`](@ref)) from each initial walker position.
-
-Requires the [`BATContext`](@ref) to include an `ADSelector` and a
-gradient-based optimization backend: by default the Optim package must be
-loaded, alternatively set `optalg` explicitly.
-
-See [L. Zhang, B. Carpenter, A. Gelman and A. Vehtari, "Pathfinder:
-Parallel quasi-Newton variational inference", JMLR 23(306)
-(2022)](https://jmlr.org/papers/v23/21-0889.html).
-
-Constructors:
-
-* ```$(FUNCTIONNAME)(; fields...)```
-
-Fields:
-
-$(TYPEDFIELDS)
-"""
-@with_kw struct PathfinderTransformInit{A} <: AbstractTransformInit
-    "Density maximization backend that generates the L-BFGS trajectory,
-    must record iterates and gradients (see [`maximize_density`](@ref))."
-    optalg::A = _default_pathfinder_optalg()
-
-    "L-BFGS history length of the inverse-Hessian estimates."
-    history_length::Int = 6
-
-    "Number of Monte Carlo draws used to estimate the ELBO."
-    ndraws_elbo::Int = 5
-end
 
 
 """

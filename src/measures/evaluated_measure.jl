@@ -730,3 +730,18 @@ function _approx_max_logd(em::EvaluatedMeasure)
     @assert ismissing(max_logd) || !isnan(max_logd)
     return max_logd
 end
+
+# Producers that work in a transformed space report their view content via
+# these helpers, stamped with the transformation used. With DoNotTransform
+# both spaces coincide, so nothing extra is stored:
+_viewrep_empirical(dsm::DensitySampleMeasure, ::DensitySampleVector, ::Any, ::DoNotTransform, n_dof, ess) = dsm
+
+function _viewrep_empirical(dsm::DensitySampleMeasure, smpls_z::DensitySampleVector, f_pretransform::Any, ::TransformIntent, n_dof, ess)
+    BispacedMeasure(dsm, DensitySampleMeasure(smpls_z, dof = n_dof, ess = ess), hash(f_pretransform))
+end
+
+_viewrep_measure(::BATMeasure, ::DoNotTransform) = unchanged
+_viewrep_measure(transformed_m::BATMeasure, ::TransformIntent) = unevaluated(transformed_m)
+
+_viewrep_f(::Any, ::DoNotTransform) = unchanged
+_viewrep_f(f_pretransform::Any, ::TransformIntent) = f_pretransform

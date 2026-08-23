@@ -331,21 +331,6 @@ _flip_empirical_annex(::Nothing) = nothing
 _flip_empirical_annex(p::BispacedMeasure) = BispacedMeasure(p.transformed)
 
 
-# Producers that work in a transformed space report their view content via
-# these helpers, stamped with the transformation used. With DoNotTransform
-# both spaces coincide, so nothing extra is stored:
-_viewrep_empirical(dsm::DensitySampleMeasure, ::DensitySampleVector, ::Any, ::DoNotTransform, n_dof, ess) = dsm
-
-function _viewrep_empirical(dsm::DensitySampleMeasure, smpls_z::DensitySampleVector, f_pretransform::Any, ::TransformIntent, n_dof, ess)
-    BispacedMeasure(dsm, DensitySampleMeasure(smpls_z, dof = n_dof, ess = ess), hash(f_pretransform))
-end
-
-_viewrep_measure(::BATMeasure, ::DoNotTransform) = unchanged
-_viewrep_measure(transformed_m::BATMeasure, ::TransformIntent) = unevaluated(transformed_m)
-
-_viewrep_f(::Any, ::DoNotTransform) = unchanged
-_viewrep_f(f_pretransform::Any, ::TransformIntent) = f_pretransform
-
 # A cached bare measure in the transformed space replaces the freshly
 # constructed, structurally equal one, so that repeated evaluations with the
 # same intent see the identical object (which keeps compiled artifacts like
