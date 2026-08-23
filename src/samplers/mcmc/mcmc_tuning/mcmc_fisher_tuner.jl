@@ -3,8 +3,7 @@
 
 # The geometry-estimation structure follows the declared adaptive
 # transform (see _fisher_estimator), users select it by choosing a
-# TriangularAffineTransform, DiagonalAffineTransform or
-# LowRankAffineTransform:
+# subtype of BAT.AbstractAffineTransform:
 
 struct DenseFisherEstimator end
 
@@ -26,7 +25,10 @@ LowRankFisherEstimator(cutoff::Real, max_rank::Integer) =
     LowRankFisherEstimator(cutoff, max_rank, _lowrank_window(max_rank))
 
 _fisher_estimator(at::AbstractAdaptiveTransform) = throw(ArgumentError(
-    "FisherTransformTuning requires an affine structure adaptive transform (like TriangularAffineTransform, DiagonalAffineTransform or LowRankAffineTransform), got $(nameof(typeof(at)))"
+    "FisherTransformTuning requires an affine adaptive space transformation (a subtype of BAT.AbstractAffineTransform, like TriangularAffineTransform), got $(nameof(typeof(at)))"
+))
+_fisher_estimator(at::AbstractAffineTransform) = throw(ArgumentError(
+    "$(nameof(typeof(at))) does not implement BAT._fisher_estimator, so FisherTransformTuning can't determine its geometry-estimation structure"
 ))
 _fisher_estimator(::TriangularAffineTransform) = DenseFisherEstimator()
 _fisher_estimator(::DiagonalAffineTransform) = DiagonalFisherEstimator()
@@ -579,10 +581,12 @@ end
 
 
 # Gradient-based proposals default to Fisher-divergence transform tuning
-# for all affine transform structures:
+# for all affine transform structures. The TriangularAffineTransform
+# method only resolves the ambiguity against the RAMTuning default, which
+# covers that structure for gradient-free proposals:
 bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::Union{HamiltonianMC,MALAProposal}, ::TriangularAffineTransform) = FisherTransformTuning()
-bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::Union{HamiltonianMC,MALAProposal}, ::Union{DiagonalAffineTransform,LowRankAffineTransform}) = FisherTransformTuning()
+bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::Union{HamiltonianMC,MALAProposal}, ::AbstractAffineTransform) = FisherTransformTuning()
 
-function bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, proposal::MCMCProposal, ::Union{DiagonalAffineTransform,LowRankAffineTransform})
-    throw(ArgumentError("Diagonal and low-rank affine transform tuning currently requires a gradient-based MCMC proposal (like HamiltonianMC or MALAProposal), not $(nameof(typeof(proposal)))"))
+function bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, proposal::MCMCProposal, at::AbstractAffineTransform)
+    throw(ArgumentError("Tuning a $(nameof(typeof(at))) currently requires a gradient-based MCMC proposal (like HamiltonianMC or MALAProposal), not $(nameof(typeof(proposal)))"))
 end

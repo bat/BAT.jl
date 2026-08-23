@@ -32,6 +32,7 @@ Order = [:macro, :function]
 # Documentation
 
 ```@docs
+BAT.AbstractAffineTransform
 BAT.AbstractSampleGenerator
 BAT.BasicMvStatistics
 BAT.BATMeasure

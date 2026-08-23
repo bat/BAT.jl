@@ -210,7 +210,27 @@ end
 
 
 """
-    struct BAT.TriangularAffineTransform <: BAT.AbstractAdaptiveTransform
+    abstract type BAT.AbstractAffineTransform <: BAT.AbstractAdaptiveTransform
+
+*BAT-internal, not part of stable public API.*
+
+Supertype for adaptive affine space transformations `x = A * z + b`,
+which differ in the structure they impose on `A`.
+
+# Implementation
+
+Subtypes must have a field `init` holding a
+[`BAT.AbstractTransformInit`](@ref) algorithm, and must specialize
+`BAT._affine_init_A` to build `A` in their structure from an approximate
+covariance. Transform tunings maintain that structure across updates and
+specialize on the concrete type in turn (see `BAT._fisher_estimator` for
+[`FisherTransformTuning`](@ref)).
+"""
+abstract type AbstractAffineTransform <: AbstractAdaptiveTransform end
+
+
+"""
+    struct BAT.TriangularAffineTransform <: BAT.AbstractAffineTransform
 
 *BAT-internal, not part of stable public API.*
 
@@ -226,13 +246,13 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct TriangularAffineTransform{I<:AbstractTransformInit} <: AbstractAdaptiveTransform
+@with_kw struct TriangularAffineTransform{I<:AbstractTransformInit} <: AbstractAffineTransform
     "Transform initialization algorithm."
     init::I = PriorApproxTransformInit()
 end
 
 """
-    struct BAT.DiagonalAffineTransform <: BAT.AbstractAdaptiveTransform
+    struct BAT.DiagonalAffineTransform <: BAT.AbstractAffineTransform
 
 *BAT-internal, not part of stable public API.*
 
@@ -248,14 +268,14 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct DiagonalAffineTransform{I<:AbstractTransformInit} <: AbstractAdaptiveTransform
+@with_kw struct DiagonalAffineTransform{I<:AbstractTransformInit} <: AbstractAffineTransform
     "Transform initialization algorithm."
     init::I = PriorApproxTransformInit()
 end
 
 
 """
-    struct BAT.LowRankAffineTransform <: BAT.AbstractAdaptiveTransform
+    struct BAT.LowRankAffineTransform <: BAT.AbstractAffineTransform
 
 *Experimental feature, not part of stable public API.*
 
@@ -283,7 +303,7 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct LowRankAffineTransform{I<:AbstractTransformInit} <: AbstractAdaptiveTransform
+@with_kw struct LowRankAffineTransform{I<:AbstractTransformInit} <: AbstractAffineTransform
     "Transform initialization algorithm."
     init::I = PriorApproxTransformInit()
 
@@ -298,20 +318,18 @@ $(TYPEDFIELDS)
     cutoff::Float64 = 1.5
 end
 
-const AffineStructureTransform = Union{TriangularAffineTransform,DiagonalAffineTransform,LowRankAffineTransform}
-
 # Adaptive transform initialization may take the initial walker positions
 # into account:
 function init_adaptive_transform(adaptive_transform::AbstractAdaptiveTransform, target::AbstractMeasure, ::Union{AbstractVector,Nothing}, context::BATContext)
     return init_adaptive_transform(adaptive_transform, target, context)
 end
 
-function init_adaptive_transform(adaptive_transform::AffineStructureTransform, target::AbstractMeasure, v_init::Union{AbstractVector,Nothing}, context::BATContext)
+function init_adaptive_transform(adaptive_transform::AbstractAffineTransform, target::AbstractMeasure, v_init::Union{AbstractVector,Nothing}, context::BATContext)
     M, b = _affine_init_moments(adaptive_transform.init, target, v_init, context)
     return MulAdd(_affine_init_A(adaptive_transform, M), b)
 end
 
-function init_adaptive_transform(adaptive_transform::AffineStructureTransform, target::AbstractMeasure, context::BATContext)
+function init_adaptive_transform(adaptive_transform::AbstractAffineTransform, target::AbstractMeasure, context::BATContext)
     return init_adaptive_transform(adaptive_transform, target, nothing, context)
 end
 

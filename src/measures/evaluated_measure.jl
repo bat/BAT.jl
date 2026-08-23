@@ -69,47 +69,14 @@ its content: given values replace the corresponding entries,
 `ScopedSettings.unchanged` (the default) keeps them, and `nothing` (resp.
 `MeasureBase.UnknownMass()` for `mass`) clears them.
 
-The transformed side of a [`BAT.BispacedMeasure`](@ref) pair carries the
-hash of the transformation it was produced under; the constructor checks
-that hash against the (possibly updated) `f_transform` of the view, so
-pairs — including pairs taken from another `EvaluatedMeasure` of the same
-measure, like `EvaluatedMeasure(em1, empirical = em2.empirical)` — are
-adopted exactly when their transformed-space content is compatible with
-the view, and rejected with an error otherwise (never silently mislabeled,
-up to hash collisions, which honest value-based hash specializations make
-negligibly improbable). `transformed` and `samplegen` carry no such
-witness and must be accompanied by an explicit `transform_intent` in the
-same update.
-
-The hash witnesses only that the sides of a pair are connected by the
-view's transformation; that the main-side content itself belongs to the
-measure is the responsibility of whoever supplies it, exactly as when
-supplying raw samples. Hashes of transformation types without a
-value-based `hash` specialization are session-bound, so their pairs are
-rejected after deserialization; strip the stale view via
-`transform_intent = DoNotTransform()` and re-evaluate to recover. Use
-[`BAT.validate_evalmeasure`](@ref) to verify the full
-transformed-space-view contract of an `EvaluatedMeasure` explicitly.
-
 An `EvaluatedMeasure` maintains at most one transformed-space view of its
-content, defined by the contract
-
-```julia
-unevaluated.transformed, f_transform == transform_and_unshape(transform_intent, unevaluated.main)
-empirical.main == bat_transform(inverse(f_transform), empirical.transformed).result
-```
-
-(equal by value — up to floating-point inverse-roundtrip in the second
-line, whose sample rows are aligned with identical weights; the stored
-entries preserve the object identity of one evaluation of the pure
-right-hand sides, whose values do not depend on the evaluation context;
-the approximation pair satisfies the corresponding pushforward relation,
-and the equations are understood relative to the implied transformation
-when `f_transform` is not cached). Every `transformed` side of the
-[`BAT.BispacedMeasure`](@ref) entries is the representation in this flat
+content, identified by `transform_intent`. Every `transformed` side of its
+[`BAT.BispacedMeasure`](@ref) entries is the representation in that flat
 transformed space. `transform_intent === DoNotTransform()` means that no
-transformed-space view exists (`f_transform` is `identity` then, by
-convention).
+view exists, `f_transform` is `identity` then by convention. The
+constructor checks that supplied transformed-space content is compatible
+with the view and rejects it with an error otherwise (see the extended
+help for details).
 
 Properties:
 
@@ -124,12 +91,9 @@ Properties:
 * `transform_intent`: The [`TransformIntent`](@ref) that identifies the
   transformed space of this measure's content.
 * `f_transform`: The concrete transformation function of the view, mapping
-  variates of the measure to the flat transformed space (see the contract
-  above). Cached to preserve object identity across repeated evaluations
-  (keeping compiled artifacts like AD preparations and generated code for
-  sample transport valid); derived deterministically from `transform_intent`
-  and the measure, so any copy is equally valid. `identity` if no view
-  exists, `nothing` if not cached.
+  variates of the measure to the flat transformed space. Cached with the
+  same identity-preservation rationale as the `unevaluated` cache.
+  `identity` if no view exists, `nothing` if not cached.
 * `empirical`: A [`BAT.BispacedMeasure`](@ref) that holds a
   [`DensitySampleMeasure`](@ref) based on samples drawn from the measure,
   possibly together with a row-aligned representation of the same samples in
@@ -137,39 +101,75 @@ Properties:
 * `approx`: A [`BAT.BispacedMeasure`](@ref) that holds an approximation
   of the measure, possibly together with a representation of the same
   approximation in the transformed space, or `nothing` if no approximation
-  is available. An approximation captures the shape of the measure, its own
-  total mass may differ from the mass of the measure (approximations will
-  typically be probability measures, like a normal distribution under a
-  normalizing flow or a normalized mixture, while the measure itself is
-  often non-normalized). Total-mass knowledge about the measure itself
-  lives in `mass`.
+  is available. An approximation captures the shape of the measure, not
+  its total mass: approximations are typically probability measures, like
+  a normal distribution under a normalizing flow or a normalized mixture,
+  while the measure itself is often non-normalized. Total-mass knowledge
+  about the measure lives in `mass`.
 * `dof`: The degrees of freedom of the measure, or `nothing` if unknown.
 * `mass`: The mass of the measure, or a `MeasureBase.AbstractUnknownMass` if
   unknown.
 * `modes`: The modes of the measure, or `nothing` if unknown.
-* `samplegen`: An object that carries the necessary information to generate
-  samples, the contents is algorithm-specific and not part of the stable API.
-  Operates in the transformed-space view of the measure (in its flat,
-  unshaped realization), like all other transformed-space content; if no
-  view exists (`DoNotTransform`), it operates in the unshaped space of the
-  measure itself. Consumers must not mutate its content, continuing sample
-  generation requires a deep copy. May be `nothing` if no sample generation
-  scheme has been computed. In principle independent of `empirical` (it
-  provides a way to generate samples of the measure, `evalinfo` records
-  what produced the current empirical content); for now, algorithms that
-  replace the empirical content without using the stored scheme (like
-  resampling and i.i.d. sampling) clear it conservatively.
+* `samplegen`: An object that carries the information needed to generate
+  further samples, or `nothing` if no sample generation scheme has been
+  computed. Its contents are algorithm-specific and not part of the stable
+  API. Like all transformed-space content it operates in the flat, unshaped
+  transformed space, or in the unshaped space of the measure itself if no
+  view exists. Consumers must not mutate it, continuing sample generation
+  requires a deep copy. It is in principle independent of `empirical`
+  (`evalinfo` records what produced the current empirical content), but
+  for now, algorithms that replace the empirical content without using the
+  stored scheme (like resampling and i.i.d. sampling) clear it
+  conservatively.
 * `evalinfo`: Information on the (last) evaluation step that
   generated/updated this measure, or `nothing` if no evaluation has been
   performed or information on it is not available.
 
 The `transform_intent` keyword switches the transformed-space view:
 `ScopedSettings.unchanged` means that any given transformed-space content
-refers to the current view; a differing intent adopts the given content and
+refers to the current view. A differing intent adopts the given content and
 strips the transformed-space sides off all entries that are kept, including
 the cached transformation function unless a new `f_transform` is given with
 it. The `transformed` keyword updates the transformed-space cache of
 `unevaluated` with a bare measure, `nothing` drops the cache.
+
+# Extended help
+
+The transformed-space view is defined by the contract
+
+```julia
+unevaluated.transformed, f_transform == transform_and_unshape(transform_intent, unevaluated.main)
+empirical.main == bat_transform(inverse(f_transform), empirical.transformed).result
+```
+
+Equality here is by value, up to floating-point roundtrip through the
+inverse in the second line. The sample rows of the two empirical sides are
+aligned and have identical weights, the approximation pair satisfies the
+corresponding pushforward relation, and when `f_transform` is not cached
+the equations are understood relative to the implied transformation. The
+stored entries preserve the object identity of one evaluation of the pure
+right-hand sides, whose values do not depend on the evaluation context.
+
+The transformed side of a [`BAT.BispacedMeasure`](@ref) pair carries the
+hash of the transformation it was produced under, and the constructor
+checks that hash against the (possibly updated) `f_transform` of the view.
+Pairs are adopted exactly when their transformed-space content is
+compatible with the view and rejected with an error otherwise, never
+silently mislabeled (up to hash collisions). This includes pairs taken
+from another `EvaluatedMeasure` of the same measure, like
+`EvaluatedMeasure(em1, empirical = em2.empirical)`. The `transformed` and
+`samplegen` entries carry no such witness and must be accompanied by an
+explicit `transform_intent` in the same update.
+
+The hash witnesses only that the sides of a pair are connected by the
+view's transformation. That the main-side content itself belongs to the
+measure is the responsibility of whoever supplies it, exactly as when
+supplying raw samples. Hashes of transformation types without a
+value-based `hash` specialization are session-bound, so their pairs are
+rejected after deserialization. Strip the stale view via
+`transform_intent = DoNotTransform()` and re-evaluate to recover. Use
+[`BAT.validate_evalmeasure`](@ref) to verify the full
+transformed-space-view contract explicitly.
 """
 struct EvaluatedMeasure{
     M<:BispacedMeasure,
