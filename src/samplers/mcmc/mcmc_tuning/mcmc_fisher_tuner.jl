@@ -12,17 +12,122 @@ struct DiagonalFisherEstimator end
 struct LowRankFisherEstimator
     cutoff::Float64
     max_rank::Int
-    window::Int
 end
 
-# Window of recent draws the low-rank correction is estimated from (the
-# diagonal base uses the full foreground-background history). The window
-# bounds the estimation memory and fitting cost to O(n_dims * window) and
-# the estimable correction rank to 2 * window:
-_lowrank_window(max_rank::Integer) = clamp(4 * max(max_rank, 8), 32, 128)
-
 LowRankFisherEstimator(cutoff::Real, max_rank::Integer) =
-    LowRankFisherEstimator(cutoff, max_rank, _lowrank_window(max_rank))
+    LowRankFisherEstimator(Float64(cutoff), Int(max_rank))
+
+const _LR_DYNAMIC_MAX_DIMS = 32
+
+@enum _LowRankPhase::UInt8 _LRWaiting _LRFit _LRGuard _LRValidate _LRFrozen
+
+mutable struct _XGFitBlock
+    X::Matrix{Float64}
+    G::Matrix{Float64}
+    nsteps::Int
+end
+
+struct _LowRankCandidate
+    lambda::Vector{Float64}
+    vectors::Matrix{Float64}
+    W::Matrix{Float64}
+    S::Symmetric{Float64,Matrix{Float64}}
+end
+
+mutable struct _LowRankCampaign
+    phase::_LowRankPhase
+    attempted::Bool
+    admitted::Bool
+    cycle_step::Int
+    fit_start::Int
+    fit_steps::Int
+    guard_steps::Int
+    validation_steps::Int
+    final_steps::Int
+    fit::_XGFitBlock
+    validation_loss::Matrix{Float64}
+    validation_offdiag_loss::Matrix{Float64}
+    baseline_dvec::Union{Nothing,Vector{Float64}}
+    baseline_mu::Union{Nothing,Vector{Float64}}
+    candidate::Union{Nothing,_LowRankCandidate}
+end
+
+function _LowRankCampaign(
+    n_dims::Integer,
+    max_nsteps::Integer,
+    n_walkers::Integer,
+    is_mala::Bool = false,
+)
+    n_dims <= _LR_DYNAMIC_MAX_DIMS || return nothing
+    n_dims > 0 || return nothing
+    n_walkers > 0 || return nothing
+
+    fit_steps = n_dims >= 16 ? max(2 * n_dims, 64) : 2 * n_dims
+    guard_steps = is_mala ? max(n_dims, 64) : n_dims
+    validation_steps = is_mala ? max(16 * n_dims, 512) : max(8 * n_dims, 256)
+    final_steps = max(100, ceil(Int, 0.15 * max_nsteps))
+    fit_start = floor(Int, (is_mala ? 0.20 : 0.30) * max_nsteps) + 1
+    decision_end = fit_start + fit_steps + guard_steps + validation_steps - 1
+    deadline = floor(Int, 0.85 * max_nsteps)
+
+    decision_end <= deadline || return nothing
+    max_nsteps - decision_end >= final_steps || return nothing
+
+    return _LowRankCampaign(
+        _LRWaiting, false, false, 0, fit_start, fit_steps, guard_steps,
+        validation_steps, final_steps,
+        _XGFitBlock(
+            zeros(n_dims, fit_steps * n_walkers),
+            zeros(n_dims, fit_steps * n_walkers),
+            0,
+        ),
+        zeros(n_walkers, validation_steps),
+        zeros(n_walkers, validation_steps),
+        nothing,
+        nothing,
+        nothing,
+    )
+end
+
+function _diagonal_lowrank_campaign(
+    n_dims::Integer,
+    max_nsteps::Integer,
+    n_walkers::Integer,
+)
+    freeze_step = floor(Int, 0.85 * max_nsteps)
+    return _LowRankCampaign(
+        _LRWaiting, false, false, 0, freeze_step + 1, 0, 0, 0,
+        max_nsteps - freeze_step,
+        _XGFitBlock(zeros(n_dims, 0), zeros(n_dims, 0), 0),
+        zeros(n_walkers, 0),
+        zeros(n_walkers, 0),
+        nothing,
+        nothing,
+        nothing,
+    )
+end
+
+function _advance_lowrank_campaign!(campaign::_LowRankCampaign, cycle_step::Integer)
+    campaign.attempted && return campaign
+    campaign.cycle_step = cycle_step
+    fit_end = campaign.fit_start + campaign.fit_steps - 1
+    guard_end = fit_end + campaign.guard_steps
+    validation_end = guard_end + campaign.validation_steps
+
+    if cycle_step < campaign.fit_start
+        campaign.phase = _LRWaiting
+    elseif cycle_step <= fit_end
+        campaign.phase = _LRFit
+    elseif cycle_step <= guard_end
+        campaign.phase = _LRGuard
+    elseif cycle_step <= validation_end
+        campaign.phase = _LRValidate
+    else
+        campaign.phase = _LRFrozen
+        campaign.attempted = true
+    end
+    return campaign
+end
 
 _fisher_estimator(at::AbstractAdaptiveTransform) = throw(ArgumentError(
     "FisherTransformTuning requires an affine adaptive space transformation (a subtype of BAT.AbstractAffineTransform, like TriangularAffineTransform), got $(nameof(typeof(at)))"
@@ -113,6 +218,10 @@ periodically forgotten). Transform updates follow the `schedule`; each
 committed transform triggers a fresh step-size search and a dual-averaging
 restart in the step-size adaptor (see [`BAT.StepSizeAdaptor`](@ref)).
 
+Fisher moment, fit, and validation state uses `Float64`. Inputs with other
+scalar types are promoted for this tuning path; it is not type-preserving
+arithmetic.
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```
@@ -180,28 +289,8 @@ _new_moments(::DenseFisherEstimator, n_dims::Integer, stride::Integer = 1) =
 _new_moments(::DiagonalFisherEstimator, n_dims::Integer, stride::Integer = 1) =
     _XGMoments(0, zeros(n_dims), zeros(n_dims), zeros(n_dims), zeros(n_dims), _Lag1Stats(n_dims, stride))
 
-# Diagonal Welford moments plus a bounded ring window of recent raw draws
-# that the low-rank correction is estimated from - O(n_dims * window)
-# memory, no dense moment matrices:
-mutable struct _XGWindowMoments <: _AbstractXGMoments
-    n::Int
-    mean_x::Vector{Float64}
-    mean_g::Vector{Float64}
-    var_x::Vector{Float64}
-    var_g::Vector{Float64}
-    X_win::Matrix{Float64}
-    G_win::Matrix{Float64}
-    win_ptr::Int
-    win_count::Int
-    lag1::_Lag1Stats
-end
-
 _new_moments(est::LowRankFisherEstimator, n_dims::Integer, stride::Integer = 1) =
-    _XGWindowMoments(
-        0, zeros(n_dims), zeros(n_dims), zeros(n_dims), zeros(n_dims),
-        zeros(n_dims, est.window), zeros(n_dims, est.window), 0, 0,
-        _Lag1Stats(n_dims, stride)
-    )
+    _new_moments(DiagonalFisherEstimator(), n_dims, stride)
 
 _m2_update!(M2::Matrix{Float64}, d_pre, d_post) = (M2 .+= d_pre .* d_post')
 _m2_update!(M2::Vector{Float64}, d_pre, d_post) = (M2 .+= d_pre .* d_post)
@@ -218,26 +307,8 @@ function _moments_update!(acc::_XGMoments, x::AbstractVector{<:Real}, g::Abstrac
     return acc
 end
 
-function _moments_update!(acc::_XGWindowMoments, x::AbstractVector{<:Real}, g::AbstractVector{<:Real})
-    n = (acc.n += 1)
-    dx_pre = x .- acc.mean_x
-    acc.mean_x .+= dx_pre ./ n
-    _m2_update!(acc.var_x, dx_pre, x .- acc.mean_x)
-    dg_pre = g .- acc.mean_g
-    acc.mean_g .+= dg_pre ./ n
-    _m2_update!(acc.var_g, dg_pre, g .- acc.mean_g)
-    ptr = mod1(acc.win_ptr + 1, size(acc.X_win, 2))
-    acc.win_ptr = ptr
-    acc.win_count = min(acc.win_count + 1, size(acc.X_win, 2))
-    acc.X_win[:, ptr] .= x
-    acc.G_win[:, ptr] .= g
-    _lag1_update!(acc.lag1, x)
-    return acc
-end
-
 _diag_var_raw(acc::_XGMoments{Vector{Float64}}) = acc.M2_x ./ max(acc.n - 1, 1)
 _diag_var_raw(acc::_XGMoments{Matrix{Float64}}) = diag(acc.M2_x) ./ max(acc.n - 1, 1)
-_diag_var_raw(acc::_XGWindowMoments) = acc.var_x ./ max(acc.n - 1, 1)
 
 # First-order (AR(1)) effective observation count: raw counts overstate
 # the information in autocorrelated warmup draws, which would shrink the
@@ -253,7 +324,7 @@ function _effective_nobs(acc::_AbstractXGMoments)
 end
 
 
-mutable struct FisherTrafoTunerState{TU<:FisherTransformTuning,E,MO<:_AbstractXGMoments} <: MCMCTransformTunerState
+mutable struct FisherTrafoTunerState{TU<:FisherTransformTuning,E,MO<:_AbstractXGMoments,CS} <: MCMCTransformTunerState
     tuning::TU
     estimator::E
     n_dims::Int
@@ -268,10 +339,29 @@ mutable struct FisherTrafoTunerState{TU<:FisherTransformTuning,E,MO<:_AbstractXG
     # contaminated early draws:
     acc_a::MO
     acc_b::MO
-    # Pieces (dvec, λ, V) of the last committed low-rank geometry, for the
-    # structured drift metric (nothing before the first commit, and for
-    # the dense and diagonal estimators):
-    committed_lr::Union{Nothing,Tuple{Vector{Float64},Vector{Float64},Matrix{Float64}}}
+    # Last committed diagonal base for the low-rank path. The correction
+    # campaign has one decision and therefore needs no rolling baseline.
+    committed_diag::Union{Nothing,Vector{Float64}}
+    campaign::CS
+end
+
+function transform_tuning_pauses_proposal(tuner::FisherTrafoTunerState)
+    campaign = tuner.campaign
+    return !isnothing(campaign) && campaign.phase == _LRValidate
+end
+
+function mcmc_proposal_transform_committed!!(
+    proposal::MALAProposalState,
+    tuner::MALAStepSizeTunerState,
+    chain_state::MCMCChainState,
+    trafo_tuner::FisherTrafoTunerState,
+)
+    _reset_mala_stepsize_tuner!(tuner, chain_state)
+    campaign = trafo_tuner.campaign
+    if !isnothing(campaign) && campaign.phase in (_LRFit, _LRFrozen)
+        tuner.min_run_nobs = min(40, campaign.final_steps) * nwalkers(chain_state)
+    end
+    return proposal, tuner, chain_state
 end
 
 # Whether a proposal provides z-space log-density gradients in its
@@ -312,10 +402,13 @@ function _create_fisher_tuner_state(tuning::FisherTransformTuning, chain_state::
     n_walkers = nwalkers(chain_state)
     memory_length = sched.memory_length > 0 ? sched.memory_length : max(100, 4 * n_dims)
     min_observations = sched.min_observations > 0 ? sched.min_observations : max(20, 2 * n_dims)
-    FisherTrafoTunerState(
+    acc_a = _new_moments(estimator, n_dims, n_walkers)
+    acc_b = _new_moments(estimator, n_dims, n_walkers)
+    campaign_type = estimator isa LowRankFisherEstimator ?
+        Union{Nothing,_LowRankCampaign} : Nothing
+    FisherTrafoTunerState{typeof(tuning),typeof(estimator),typeof(acc_a),campaign_type}(
         tuning, estimator, n_dims, memory_length, min_observations, 0,
-        _new_moments(estimator, n_dims, n_walkers), _new_moments(estimator, n_dims, n_walkers),
-        nothing
+        acc_a, acc_b, nothing, nothing
     )
 end
 
@@ -328,9 +421,44 @@ function mcmc_trafo_tuning_init!!(
     return nothing
 end
 
-# No mcmc_trafo_tuning_reinit!! specialization: estimation continues
-# seamlessly across burn-in cycles (the generic fallback is a no-op).
+function mcmc_trafo_tuning_reinit!!(
+    tuner_state::FisherTrafoTunerState,
+    chain_state::MCMCChainState,
+    max_nsteps::Integer,
+)
+    est = tuner_state.estimator
+    if est isa LowRankFisherEstimator
+        dynamic_eligible =
+            est.cutoff >= 1.5 && tuner_state.n_dims <= _LR_DYNAMIC_MAX_DIMS
+        campaign = tuner_state.campaign
+        retryable = isnothing(campaign) ||
+            (dynamic_eligible && campaign.fit_steps == 0)
+        retryable || return nothing
 
+        n_walkers = nwalkers(chain_state)
+        campaign = if !dynamic_eligible
+            _diagonal_lowrank_campaign(tuner_state.n_dims, max_nsteps, n_walkers)
+        else
+            candidate = _LowRankCampaign(
+                tuner_state.n_dims,
+                max_nsteps,
+                n_walkers,
+                get_active_proposal(chain_state.proposal) isa MALAProposalState,
+            )
+            isnothing(candidate) && !isnothing(campaign) && return nothing
+            something(
+                candidate,
+                _diagonal_lowrank_campaign(
+                    tuner_state.n_dims,
+                    max_nsteps,
+                    n_walkers,
+                ),
+            )
+        end
+        tuner_state.campaign = campaign
+    end
+    return nothing
+end
 
 # The regularization strength is relative to the mean variance scale of
 # each moment matrix, keeping the learned geometry equivariant under a
@@ -362,7 +490,7 @@ function _fisher_geometry(::DenseFisherEstimator, acc::_XGMoments, γ::Real)
     return G, μ
 end
 
-function _fisher_geometry(::DiagonalFisherEstimator, acc::_XGMoments, γ::Real)
+function _fisher_diagonal_geometry(acc::_XGMoments, γ::Real)
     n = acc.n
     var_x_raw = acc.M2_x ./ (n - 1)
     var_g_raw = acc.M2_g ./ (n - 1)
@@ -372,6 +500,12 @@ function _fisher_geometry(::DiagonalFisherEstimator, acc::_XGMoments, γ::Real)
     μ = acc.mean_x .+ g .* acc.mean_g
     return Diagonal(g), μ
 end
+
+_fisher_geometry(::DiagonalFisherEstimator, acc::_XGMoments, γ::Real) =
+    _fisher_diagonal_geometry(acc, γ)
+
+_fisher_geometry(::LowRankFisherEstimator, acc::_XGMoments, γ::Real) =
+    _fisher_diagonal_geometry(acc, γ)
 
 # Unique SPD solution G of the Riccati equation G C_g G = C_x, i.e. the
 # affine-invariant geometric mean of C_x and C_g⁻¹:
@@ -384,63 +518,230 @@ function _spd_riccati_solve(C_x::Symmetric, C_g::Symmetric)
     return Symmetric(S_isqrt * M_sqrt * S_isqrt)
 end
 
-# The projected low-rank geometry: a diagonal base from the full moment
-# history plus an eigenvalue-thresholded correction fitted in the joint
-# thin subspace spanned by the recent standardized position and score
-# window (Seyboldt et al. 2026). The window samples span the subspace
-# exactly, so the Fisher problem restricted to it is exact for the window
-# and the identity geometry is kept outside it - no dense moments and no
-# dense solves, everything is O(n_dims * window) plus small-matrix work.
-# Returns the geometry, the Fisher-optimal translation and the pieces
-# (dvec, λ, V) of the committed representation (for the structured drift):
-function _fisher_geometry_lr(est::LowRankFisherEstimator, acc::_XGWindowMoments, γ::Real)
-    n = acc.n
-    var_x_raw = acc.var_x ./ (n - 1)
-    var_g_raw = acc.var_g ./ (n - 1)
-    var_x = var_x_raw .+ _rel_regularization(γ, var_x_raw)
-    var_g = var_g_raw .+ _rel_regularization(γ, var_g_raw)
-
-    # Diagonal base fit and standardization (scores transform inversely
-    # to positions under x̃ = D^{-1/2} x):
-    dvec = sqrt.(var_x ./ var_g)
+# Fit one projected low-rank correction from an immutable block. The
+# diagonal base comes from the separate streaming estimator.
+function _fit_lowrank_candidate(
+    est::LowRankFisherEstimator,
+    dvec::AbstractVector,
+    Xfit::AbstractMatrix,
+    Gfit::AbstractMatrix,
+    γ::Real,
+)
+    m = size(Xfit, 2)
+    empty = _LowRankCandidate(
+        Float64[],
+        zeros(length(dvec), 0),
+        zeros(length(dvec), 0),
+        Symmetric(zeros(0, 0)),
+    )
+    size(Gfit) == size(Xfit) || throw(DimensionMismatch(
+        "position and score fit blocks must have the same shape",
+    ))
+    length(dvec) == size(Xfit, 1) || throw(DimensionMismatch(
+        "the diagonal base and fit block dimensions must match",
+    ))
+    m >= 8 || return empty
+    all(x -> isfinite(x) && x > 0, dvec) || return empty
+    all(isfinite, Xfit) && all(isfinite, Gfit) || return empty
     dsq = sqrt.(dvec)
 
-    m = acc.win_count
-    λ, V = if m >= 8
-        # The window is centered by its own means: centering by the
-        # longer-history means would add a mean-shift outer product to
-        # what must be a covariance estimate, turning warmup mean drift
-        # into a spurious correction direction. The longer-history means
-        # still serve the diagonal base and the translation:
-        X_w = view(acc.X_win, :, 1:m)
-        G_w = view(acc.G_win, :, 1:m)
-        Xc = (X_w .- (sum(X_w, dims = 2) ./ m)) ./ dsq
-        Gc = (G_w .- (sum(G_w, dims = 2) ./ m)) .* dsq
-        Q = Matrix(qr(hcat(Xc, Gc)).Q)
-        Px = Q' * Xc
-        Pg = Q' * Gc
-        Cx_q_raw = Symmetric(Px * Px' ./ (m - 1))
-        Cg_q_raw = Symmetric(Pg * Pg' ./ (m - 1))
-        Cx_q = Symmetric(Cx_q_raw + _rel_regularization(γ, Cx_q_raw) * I)
-        Cg_q = Symmetric(Cg_q_raw + _rel_regularization(γ, Cg_q_raw) * I)
-        Mq = _spd_riccati_solve(Cx_q, Cg_q)
-        E = eigen(Symmetric(Matrix(Mq)))
-        E.values, Q * E.vectors
-    else
-        # Not enough window data for a meaningful correction yet:
-        Float64[], zeros(length(dvec), 0)
-    end
-
-    # G = D^{1/2} (I + V_S (Λ_S - I) V_Sᵀ) D^{1/2} = D + W S Wᵀ:
-    W, S, λ_kept, V_kept = _lowrank_correction(dsq, λ, V, est.cutoff, est.max_rank)
-    G = woodbury_operator(Diagonal(dvec), W, S)
-    μ = acc.mean_x .+ G * acc.mean_g
-    return G, μ, (dvec, λ_kept, V_kept)
+    Xc = (Xfit .- (sum(Xfit, dims = 2) ./ m)) ./ dsq
+    Gc = (Gfit .- (sum(Gfit, dims = 2) ./ m)) .* dsq
+    all(isfinite, Xc) && all(isfinite, Gc) || return empty
+    Q = Matrix(qr(hcat(Xc, Gc)).Q)
+    Px = Q' * Xc
+    Pg = Q' * Gc
+    Cx_q_raw = Symmetric(Px * Px' ./ (m - 1))
+    Cg_q_raw = Symmetric(Pg * Pg' ./ (m - 1))
+    all(isfinite, Cx_q_raw) && all(isfinite, Cg_q_raw) || return empty
+    Cx_q = Symmetric(Cx_q_raw + _rel_regularization(γ, Cx_q_raw) * I)
+    Cg_q = Symmetric(Cg_q_raw + _rel_regularization(γ, Cg_q_raw) * I)
+    Mq = _spd_riccati_solve(Cx_q, Cg_q)
+    all(isfinite, Mq) || return empty
+    E = eigen(Symmetric(Matrix(Mq)))
+    λ, V = E.values, Q * E.vectors
+    W, S, λ_kept, V_kept =
+        _lowrank_correction(dsq, λ, V, est.cutoff, est.max_rank)
+    all(isfinite, λ_kept) && all(isfinite, V_kept) &&
+        all(isfinite, W) && all(isfinite, S) || return empty
+    return _LowRankCandidate(λ_kept, V_kept, W, S)
 end
 
-function _fisher_geometry(est::LowRankFisherEstimator, acc::_XGWindowMoments, γ::Real)
-    G, μ, _ = _fisher_geometry_lr(est, acc, γ)
-    return G, μ
+_valid_lowrank_baseline(dvec, mu) =
+    all(x -> isfinite(x) && x > 0, dvec) && all(isfinite, mu)
+
+_valid_lowrank_spectrum(candidate::_LowRankCandidate) =
+    length(candidate.lambda) == 1 &&
+    all(x -> isfinite(x) && 0.1 <= x <= 20, candidate.lambda)
+
+function _valid_lowrank_candidate(
+    candidate::_LowRankCandidate,
+    dvec,
+    mu,
+)
+    _valid_lowrank_baseline(dvec, mu) || return false
+    _valid_lowrank_spectrum(candidate) || return false
+    all(isfinite, candidate.vectors) || return false
+    all(isfinite, candidate.W) && all(isfinite, candidate.S) || return false
+    G = _lowrank_geometry(dvec, candidate)
+    G_dense = Symmetric(Matrix(G))
+    return all(isfinite, G_dense) && isposdef(G_dense)
+end
+
+_lowrank_geometry(dvec::AbstractVector, candidate::_LowRankCandidate) =
+    woodbury_operator(Diagonal(dvec), candidate.W, candidate.S)
+
+_lowrank_geometry_diagonal(dvec::AbstractVector, candidate::_LowRankCandidate) =
+    dvec .+ vec(sum((candidate.W * candidate.S) .* candidate.W, dims = 2))
+
+function _fisher_loss(A, mu, x, alpha)
+    fisher_residual = A' * alpha + A \ (x - mu)
+    return sum(abs2, fisher_residual)
+end
+
+function _invalid_lowrank_validation_stats()
+    return (
+        mean = NaN,
+        se = NaN,
+        se_within = NaN,
+        se_between = NaN,
+        n_eff = 0.0,
+        valid = false,
+    )
+end
+
+function _lowrank_validation_stats(delta::AbstractMatrix)
+    n_walkers, n_steps = size(delta)
+    n_walkers > 0 && n_steps > 1 || return _invalid_lowrank_validation_stats()
+    all(isfinite, delta) || return _invalid_lowrank_validation_stats()
+
+    walker_means = vec(mean(delta, dims = 2))
+    gamma0 = zeros(n_walkers)
+    sigma2_lr = zeros(n_walkers)
+    for walker in axes(delta, 1)
+        trace = view(delta, walker, :)
+        centered = trace .- walker_means[walker]
+        gamma0[walker] = sum(abs2, centered) / n_steps
+        gamma0[walker] > 0 || return _invalid_lowrank_validation_stats()
+        tau = tau_int_from_atc(fft_autocor(trace), GeyerAutocorLen())
+        isfinite(tau) || return _invalid_lowrank_validation_stats()
+        sigma2_lr[walker] = gamma0[walker] * max(tau, 1)
+    end
+
+    se_within2 = sum(sigma2_lr) / (n_walkers^2 * n_steps)
+    se_between2 = n_walkers >= 2 ? var(walker_means) / n_walkers : 0.0
+    se2 = max(se_within2, se_between2)
+    se2 > 0 && isfinite(se2) || return _invalid_lowrank_validation_stats()
+    n_eff = min(n_walkers * n_steps, mean(gamma0) / se2)
+    isfinite(n_eff) || return _invalid_lowrank_validation_stats()
+
+    return (
+        mean = mean(walker_means),
+        se = sqrt(se2),
+        se_within = sqrt(se_within2),
+        se_between = sqrt(se_between2),
+        n_eff,
+        valid = true,
+    )
+end
+
+function _lowrank_loss_improves(
+    delta::AbstractMatrix;
+    alpha::Real = 0.01,
+    min_n_eff::Real = 20,
+)
+    stats = _lowrank_validation_stats(delta)
+    stats.valid || return false
+    stats.n_eff >= min_n_eff || return false
+    z = quantile(Normal(), 1 - alpha)
+    return stats.mean - z * stats.se > 0
+end
+
+function _lowrank_validation_accepts(
+    candidate::_LowRankCandidate,
+    delta_baseline::AbstractMatrix,
+    delta_offdiag::AbstractMatrix;
+    kwargs...,
+)
+    _valid_lowrank_spectrum(candidate) || return false
+    return _lowrank_loss_improves(delta_baseline; kwargs...) &&
+        _lowrank_loss_improves(delta_offdiag; kwargs...)
+end
+
+function _lowrank_validation_factors(est, campaign::_LowRankCampaign)
+    G1 = _lowrank_geometry(campaign.baseline_dvec, campaign.candidate)
+    return (
+        _fisher_A(est, Diagonal(campaign.baseline_dvec)),
+        _fisher_A(est, G1),
+        _fisher_A(
+            est,
+            Diagonal(_lowrank_geometry_diagonal(
+                campaign.baseline_dvec,
+                campaign.candidate,
+            )),
+        ),
+    )
+end
+
+function _fit_lowrank_campaign!(
+    campaign::_LowRankCampaign,
+    est::LowRankFisherEstimator,
+    regularization::Real,
+    is_mala::Bool,
+    f_transform,
+)
+    candidate = _fit_lowrank_candidate(
+        LowRankFisherEstimator(est.cutoff, 1),
+        campaign.baseline_dvec,
+        campaign.fit.X,
+        campaign.fit.G,
+        regularization,
+    )
+    campaign.candidate = _valid_lowrank_candidate(
+        candidate,
+        campaign.baseline_dvec,
+        campaign.baseline_mu,
+    ) ? candidate : nothing
+    if is_mala && !isnothing(campaign.candidate)
+        G = _lowrank_geometry(campaign.baseline_dvec, campaign.candidate)
+        return MulAdd(
+            _fisher_A(est, G),
+            oftype(f_transform.b, campaign.baseline_mu),
+        )
+    end
+    return nothing
+end
+
+function _decide_lowrank_campaign(
+    campaign::_LowRankCampaign,
+    est::LowRankFisherEstimator,
+    is_mala::Bool,
+    f_transform,
+)
+    candidate = campaign.candidate
+    campaign.attempted = true
+    campaign.phase = _LRFrozen
+    admitted = !isnothing(candidate) && _lowrank_validation_accepts(
+        candidate,
+        campaign.validation_loss,
+        campaign.validation_offdiag_loss,
+    )
+    if admitted
+        campaign.admitted = true
+        if !is_mala
+            G = _lowrank_geometry(campaign.baseline_dvec, candidate)
+            return MulAdd(
+                _fisher_A(est, G),
+                oftype(f_transform.b, campaign.baseline_mu),
+            )
+        end
+    elseif is_mala && !isnothing(candidate)
+        return MulAdd(
+            _fisher_A(est, Diagonal(campaign.baseline_dvec)),
+            oftype(f_transform.b, campaign.baseline_mu),
+        )
+    end
+    return f_transform
 end
 
 _dense_spd(G::Symmetric) = G
@@ -451,6 +752,14 @@ _dense_spd(G) = Symmetric(Matrix(G))
 # estimator maintains:
 _fisher_A(::DenseFisherEstimator, G) = cholesky(Positive, Matrix(_dense_spd(G))).L
 _fisher_A(::DiagonalFisherEstimator, G::Diagonal) = Diagonal(sqrt.(G.diag))
+function _fisher_A(::LowRankFisherEstimator, G::Diagonal)
+    n_dims = length(G.diag)
+    return _lowrank_gram_factor(
+        G.diag,
+        zeros(n_dims, 0),
+        Symmetric(zeros(0, 0)),
+    )
+end
 _fisher_A(::LowRankFisherEstimator, G) = rowgram_factor(G)
 
 # Affine-invariant SPD distance between the installed geometry
@@ -465,50 +774,17 @@ function _transform_drift(A, G)
     return sqrt(sum(x -> abs2(log(max(x, tiny))), λ))
 end
 
-# Approximate affine-invariant drift between two diagonal-plus-low-rank
-# geometries G = D^{1/2} (I + V (Λ - I) Vᵀ) D^{1/2}, without materializing
-# dense matrices: the geometry pencil is evaluated exactly within the
-# joint correction span (both corrections live there), and by the pure
-# diagonal ratios on its complement (both geometries act diagonally
-# there); the in-span diagonal-only contribution is subtracted to avoid
-# double counting. Exact for pure diagonal changes and for pure
-# correction changes; approximate when both interact:
-function _lowrank_drift(
-    d_o::AbstractVector, λ_o::AbstractVector, V_o::AbstractMatrix,
-    d_n::AbstractVector, λ_n::AbstractVector, V_n::AbstractMatrix
-)
-    tiny = floatmin(Float64)
-    r = d_n ./ d_o
-    drift2 = sum(x -> abs2(log(max(x, tiny))), r)
-    isempty(λ_o) && isempty(λ_n) && return sqrt(drift2)
-
-    # Everything in the D_o-standardized frame, where the new correction
-    # directions transport as v -> R v with R = Diagonal(sqrt.(d_n ./ d_o)):
-    Rd = sqrt.(r)
-    U = Matrix(qr(hcat(Rd .* V_n, V_o)).Q)
-    q = size(U, 2)
-
-    UtVo = U' * V_o
-    B = Symmetric(Matrix(1.0 * I, q, q) + UtVo * Diagonal(λ_o .- 1) * UtVo')
-    RU = Rd .* U
-    RUtVn = RU' * V_n
-    C = Symmetric(RU' * RU + RUtVn * Diagonal(λ_n .- 1) * RUtVn')
-    σ = eigvals(C, B)
-    drift2 += sum(x -> abs2(log(max(x, tiny))), σ)
-
-    # In-span diagonal-only contribution, already counted in the ratio term:
-    τ = eigvals(Symmetric(Matrix(RU' * RU)))
-    drift2 -= sum(x -> abs2(log(max(x, tiny))), τ)
-
-    return sqrt(max(drift2, 0.0))
-end
-
 # The drift measurement itself is noisy; its statistical floor scales like
 # sqrt(2 n_dims / n_observations), with the effective (autocorrelation-
 # corrected) observation count, so the effective commit threshold stays
 # above it:
 function _effective_commit_threshold(sched::DriftCommitSchedule, n_dims::Integer, n_obs::Real)
     return sched.commit_threshold + 3 * sqrt(2 * n_dims / max(n_obs, 1))
+end
+
+function _diagonal_drift(old::AbstractVector, new::AbstractVector)
+    tiny = floatmin(Float64)
+    return sqrt(sum(x -> abs2(log(max(x, tiny))), new ./ old))
 end
 
 function mcmc_tune_trafo_post_step!!(
@@ -523,53 +799,136 @@ function mcmc_tune_trafo_post_step!!(
     z_grads = step_info.z_grads
     isnothing(z_grads) && return f_transform, tuner_state, chain_state
 
+    est = tuner_state.estimator
+    campaign = tuner_state.campaign
+    phase = nothing
+    if est isa LowRankFisherEstimator && !isnothing(campaign)
+        _advance_lowrank_campaign!(campaign, campaign.cycle_step + 1)
+        phase = campaign.phase
+    end
+
     A = f_transform.A
     xs_prop = proposed.x.v
     xs_curr = current.x.v
     accepted = chain_state.accepted
+    is_mala = proposal isa MALAProposalState
+    validation_idx = if phase == _LRValidate
+        validation_start = campaign.fit_start + campaign.fit_steps + campaign.guard_steps
+        campaign.cycle_step - validation_start + 1
+    else
+        0
+    end
+
+    validating = phase == _LRValidate && !isnothing(campaign.candidate)
+    validation_factors = validating ?
+        _lowrank_validation_factors(est, campaign) : (nothing, nothing, nothing)
+    baseline_A, candidate_A, candidate_diag_A = validation_factors
+
     for i in eachindex(xs_prop, z_grads)
         # Score transport into the fixed pre-adaptive space: for x = A z + μ
         # the pulled-back gradient is β = Aᵀ α, so α = A⁻ᵀ β:
         α = A' \ z_grads[i]
-        # The gradients refer to the selected (post-accept/reject) states,
-        # so the positions must too - on rejection the selected state is
-        # the current one, not the rejected proposal. A repeated state is
-        # a valid draw as well; accumulate in both memory blocks:
         x_i = accepted[i] ? xs_prop[i] : xs_curr[i]
-        _moments_update!(tuner_state.acc_a, x_i, α)
-        _moments_update!(tuner_state.acc_b, x_i, α)
+
+        if phase == _LRFit
+            column = campaign.fit.nsteps * length(xs_prop) + i
+            campaign.fit.X[:, column] .= x_i
+            campaign.fit.G[:, column] .= α
+        elseif validating
+            loss0 = _fisher_loss(baseline_A, campaign.baseline_mu, x_i, α)
+            loss1 = _fisher_loss(candidate_A, campaign.baseline_mu, x_i, α)
+            campaign.validation_loss[i, validation_idx] = loss0 - loss1
+            loss_diag = _fisher_loss(
+                candidate_diag_A,
+                campaign.baseline_mu,
+                x_i,
+                α,
+            )
+            campaign.validation_offdiag_loss[i, validation_idx] =
+                loss_diag - loss1
+        elseif isnothing(campaign) || phase == _LRWaiting
+            # The gradients refer to the selected states, so the positions
+            # must too. Repeated states remain valid observations.
+            _moments_update!(tuner_state.acc_a, x_i, α)
+            _moments_update!(tuner_state.acc_b, x_i, α)
+        end
+    end
+
+    provisional_transform = nothing
+    if phase == _LRFit
+        campaign.fit.nsteps += 1
+        if campaign.fit.nsteps == campaign.fit_steps
+            provisional_transform = _fit_lowrank_campaign!(
+                campaign,
+                est,
+                tuner_state.tuning.regularization,
+                is_mala,
+                f_transform,
+            )
+        end
     end
 
     tuner_state.nsteps += 1
-    if tuner_state.nsteps % tuner_state.memory_length == 0
+    accumulating = isnothing(campaign) || phase == _LRWaiting
+    if accumulating && tuner_state.nsteps % tuner_state.memory_length == 0
         tuner_state.acc_a = tuner_state.acc_b
         tuner_state.acc_b = _new_moments(tuner_state.estimator, tuner_state.n_dims, tuner_state.acc_b.lag1.stride)
+    end
+
+    if !isnothing(campaign) && phase == _LRWaiting &&
+            campaign.cycle_step == campaign.fit_start - 1
+        G, μ = _fisher_diagonal_geometry(
+            tuner_state.acc_a,
+            tuner_state.tuning.regularization,
+        )
+        if !_valid_lowrank_baseline(diag(G), μ)
+            campaign.phase = _LRFrozen
+            campaign.attempted = true
+            return f_transform, tuner_state, chain_state
+        end
+        campaign.baseline_dvec = copy(diag(G))
+        campaign.baseline_mu = copy(μ)
+        tuner_state.committed_diag = copy(diag(G))
+        A_new = _fisher_A(est, G)
+        return MulAdd(A_new, oftype(f_transform.b, μ)), tuner_state, chain_state
+    end
+
+    if !isnothing(provisional_transform)
+        return provisional_transform, tuner_state, chain_state
+    end
+
+    if phase == _LRValidate && validation_idx == campaign.validation_steps
+        f_transform_new = _decide_lowrank_campaign(
+            campaign,
+            est,
+            is_mala,
+            f_transform,
+        )
+        return f_transform_new, tuner_state, chain_state
+    end
+
+    if !isnothing(campaign) && phase != _LRWaiting
+        return f_transform, tuner_state, chain_state
     end
 
     sched = tuner_state.tuning.schedule
     acc = tuner_state.acc_a
     if tuner_state.nsteps % sched.check_interval == 0 && acc.n >= tuner_state.min_observations
-        est = tuner_state.estimator
         local G, μ, drift
-        lr_pieces = nothing
         if est isa LowRankFisherEstimator
-            G, μ, lr_pieces = _fisher_geometry_lr(est, acc, tuner_state.tuning.regularization)
-            # The installed initial geometry's pieces are unknown (the
-            # transform factor is an opaque operator), and a dense drift
-            # comparison against it would defeat the estimator's
-            # high-dimensional scaling. So the first statistically
-            # eligible estimate always commits, becoming the baseline;
-            # from then on the structured drift metric decides, and
-            # nothing on the low-rank path ever materializes a dense
-            # geometry:
-            drift = isnothing(tuner_state.committed_lr) ? oftype(sched.commit_threshold, Inf) :
-                _lowrank_drift(tuner_state.committed_lr..., lr_pieces...)
+            G, μ = _fisher_diagonal_geometry(acc, tuner_state.tuning.regularization)
+            dvec = diag(G)
+            drift = isnothing(tuner_state.committed_diag) ?
+                oftype(sched.commit_threshold, Inf) :
+                _diagonal_drift(tuner_state.committed_diag, dvec)
         else
             G, μ = _fisher_geometry(est, acc, tuner_state.tuning.regularization)
             drift = _transform_drift(A, G)
         end
         if drift > _effective_commit_threshold(sched, tuner_state.n_dims, _effective_nobs(acc))
-            tuner_state.committed_lr = lr_pieces
+            if est isa LowRankFisherEstimator
+                tuner_state.committed_diag = copy(diag(G))
+            end
             A_new = _fisher_A(est, G)
             b_new = oftype(f_transform.b, μ)
             return MulAdd(A_new, b_new), tuner_state, chain_state

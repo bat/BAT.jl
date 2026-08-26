@@ -525,6 +525,8 @@ function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:Dens
 end
 
 function mcmc_tune_post_step!!(state::MCMCState, proposal::MCMCProposalState, step_info::MCMCStepInfo)
+    proposal_tuning_was_paused =
+        transform_tuning_pauses_proposal(state.trafo_tuner_state)
     f_transform_tuned, trafo_tuner_state_new, chain_state_trafo_tuned = mcmc_tune_trafo_post_step!!(
         state.chain_state.f_transform,
         state.trafo_tuner_state,
@@ -554,8 +556,12 @@ function mcmc_tune_post_step!!(state::MCMCState, proposal::MCMCProposalState, st
         mcmc_proposal_transform_committed!!(
             proposal,
             state.proposal_tuner_state,
-            chain_state_trafo_tuned
+            chain_state_trafo_tuned,
+            trafo_tuner_state_new,
         )
+    elseif proposal_tuning_was_paused ||
+            transform_tuning_pauses_proposal(trafo_tuner_state_new)
+        proposal, state.proposal_tuner_state, chain_state_trafo_tuned
     else
         mcmc_tune_proposal_post_step!!(
             proposal,

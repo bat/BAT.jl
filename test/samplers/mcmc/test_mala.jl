@@ -6,6 +6,7 @@ using Test
 using LinearAlgebra, Random, Statistics
 using Distributions, ValueShapes, DensityInterface
 using StableRNGs
+using Random123
 import ForwardDiff
 
 using BAT: MALAProposal, StepSizeAdaptor, LowRankAffineTransform,
@@ -103,18 +104,142 @@ using BAT: MALAProposal, StepSizeAdaptor, LowRankAffineTransform,
     @testset "step scale adaptation" begin
         # Dual averaging moves τ against a persistent acceptance
         # imbalance:
-        tuner_lo = BAT.MALAStepSizeTunerState(StepSizeAdaptor(), 0, log(10 * 0.5), 0.0, 0.0)
+        tuner_lo = BAT.MALAStepSizeTunerState(StepSizeAdaptor(), 0, log(10 * 0.5), 0.0, 0.0, 0, 0.0, 50)
         τ = 0.5
         for _ in 1:200
             τ = BAT._dual_averaging_step!(tuner_lo, 0.574, 0.1)
         end
         @test τ < 0.5
 
-        tuner_hi = BAT.MALAStepSizeTunerState(StepSizeAdaptor(), 0, log(10 * 0.5), 0.0, 0.0)
+        tuner_hi = BAT.MALAStepSizeTunerState(StepSizeAdaptor(), 0, log(10 * 0.5), 0.0, 0.0, 0, 0.0, 50)
         τ = 0.5
         for _ in 1:200
             τ = BAT._dual_averaging_step!(tuner_hi, 0.574, 0.95)
         end
         @test τ > 0.5
+    end
+
+    @testset "provisional low-rank validation" begin
+        d = 16
+        u = normalize(ones(d))
+        objective = MvNormal(
+            zeros(d),
+            Symmetric(Matrix{Float64}(I, d, d) + 16.0 * u * u'),
+        )
+        alg = TransformedMCMC(
+            proposal = MALAProposal(),
+            adaptive_transform = LowRankAffineTransform(
+                init = BAT.UnitTransformInit(),
+                cutoff = 1.5,
+                max_rank = 1,
+            ),
+            pretransform = DoNotTransform(),
+            nchains = 1,
+            nwalkers = 1,
+            convergence = AssumeConvergence(),
+            nonzero_weights = false,
+        )
+
+        function run_decision(loss_sign, offdiag_sign, seed)
+            initial = [rand(StableRNG(seed), objective)]
+            state = BAT.MCMCState(
+                alg,
+                batmeasure(objective),
+                1,
+                initial,
+                BATContext(
+                    rng = Philox4x((seed + 1, seed + 2)),
+                    ad = ForwardDiff,
+                ),
+            )
+            BAT.mcmc_tuning_init!!(state, 1000)
+            BAT.next_cycle!(state)
+            BAT.mcmc_tuning_reinit!!(state, 1000)
+            campaign = state.trafo_tuner_state.campaign
+            @test campaign.fit_start == 201
+            @test campaign.guard_steps == 64
+            @test campaign.validation_steps == 512
+
+            fit_end = campaign.fit_start + campaign.fit_steps - 1
+            decision = fit_end + campaign.guard_steps + campaign.validation_steps
+            provisional_f = nothing
+            for step in 1:(decision - 1)
+                f_before = state.chain_state.f_transform
+                state = BAT.mcmc_step!!(state)
+                if step == fit_end
+                    @test !isnothing(campaign.candidate)
+                    @test state.chain_state.f_transform !== f_before
+                    provisional_f = state.chain_state.f_transform
+                end
+            end
+            campaign.validation_loss .= loss_sign .* reshape(
+                1e6 .+ 0.1 .* (-1.0) .^ (1:campaign.validation_steps),
+                1,
+                :,
+            )
+            if hasproperty(campaign, :validation_offdiag_loss)
+                campaign.validation_offdiag_loss .= offdiag_sign .* reshape(
+                    1e6 .+ 0.1 .* (-1.0) .^ (1:campaign.validation_steps),
+                    1,
+                    :,
+                )
+            end
+            state = BAT.mcmc_step!!(state)
+            return state, provisional_f
+        end
+
+        kept, provisional_f = run_decision(1.0, 1.0, 826_494_001)
+        @test kept.trafo_tuner_state.campaign.admitted
+        @test kept.chain_state.f_transform === provisional_f
+        @test kept.proposal_tuner_state.min_run_nobs == 40
+
+        rolled_back, provisional_f = run_decision(-1.0, 1.0, 826_494_002)
+        @test !rolled_back.trafo_tuner_state.campaign.admitted
+        @test rolled_back.chain_state.f_transform !== provisional_f
+        G_rollback = Matrix(
+            rolled_back.chain_state.f_transform.A *
+            rolled_back.chain_state.f_transform.A',
+        )
+        @test G_rollback ≈ Diagonal(diag(G_rollback))
+        @test rolled_back.proposal_tuner_state.min_run_nobs == 40
+
+        offdiag_rejected, _ = run_decision(1.0, -1.0, 826_494_003)
+        @test !offdiag_rejected.trafo_tuner_state.campaign.admitted
+    end
+
+    @testset "low-rank campaign lifecycle" begin
+        objective = product_distribution(fill(TDist(3), 16))
+        alg = TransformedMCMC(
+            proposal = MALAProposal(),
+            adaptive_transform = LowRankAffineTransform(),
+            pretransform = DoNotTransform(),
+            nchains = 1,
+            nwalkers = 1,
+            nsteps = 20,
+            init = MCMCChainPoolInit(nsteps_init = 10),
+            burnin = MCMCMultiCycleBurnin(
+                nsteps_per_cycle = 1000,
+                max_ncycles = 1,
+                nsteps_final = 0,
+            ),
+            convergence = AssumeConvergence(),
+        )
+        state = BAT.MCMCState(
+            alg,
+            batmeasure(objective),
+            1,
+            [zeros(16)],
+            BATContext(rng = Philox4x((42, 43)), ad = ForwardDiff),
+        )
+        BAT.mcmc_tuning_init!!(state, 1000)
+        BAT.next_cycle!(state)
+        BAT.mcmc_tuning_reinit!!(state, 1000)
+        for _ in 1:1000
+            state = BAT.mcmc_step!!(state)
+        end
+        campaign = state.trafo_tuner_state.campaign
+        @test campaign.phase == BAT._LRFrozen
+        @test campaign.attempted
+        @test !BAT.transform_tuning_pauses_proposal(state.trafo_tuner_state)
     end
 end

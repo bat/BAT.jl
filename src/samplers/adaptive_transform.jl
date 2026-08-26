@@ -248,13 +248,26 @@ diagonal geometry is insufficient. Tuning selects those directions by an
 eigenvalue cutoff (see [`FisherTransformTuning`](@ref)), which
 regularizes the geometry estimate compared to a full triangular matrix.
 
-Applying the transformation costs O(rank * n_dims), and the geometry
-fitting is projected: it accumulates diagonal moments plus a bounded
-window of recent draws and solves the Fisher problem in the joint thin
-subspace of the window, so estimation memory and fitting cost are
-O(n_dims * window) plus small-matrix work - no dense moments or solves
-(the transform initialization from an approximate covariance is the one
-remaining dense step).
+Applying the transformation costs O(rank * n_dims). Initialization from
+an approximate covariance honors `cutoff` and `max_rank` and may use a
+dense decomposition.
+
+Dynamic Fisher tuning currently makes one rank-one correction attempt
+for at most 32 dimensions when `cutoff >= 1.5`. It fits from a fixed
+window and uses a guard followed by held-out validation. HMC keeps the
+diagonal kernel during both. MALA installs the candidate provisionally
+during its guard so it can retune and mix, then keeps it after acceptance
+or restores the diagonal transform after rejection. The correction must beat
+both the frozen diagonal base and its own diagonal projection. Each paired
+Fisher-loss comparison needs a positive one-sided 99% normal lower bound with
+at least 20 effective observations. This rejects purely diagonal updates
+without restricting the shape of a correlation direction. Other settings tune
+only the diagonal base.
+
+This is a conservative held-out heuristic, not a finite-sample error-rate
+guarantee. Its asymptotic interpretation assumes stationary, mixing validation
+chains, finite long-run paired-loss variance, and independent walkers.
+Heavy-tailed cases outside those assumptions have only empirical evidence.
 
 Constructors:
 
@@ -268,14 +281,14 @@ $(TYPEDFIELDS)
     "Transform initialization algorithm."
     init::I = PriorApproxTransformInit()
 
-    "Maximum rank of the non-diagonal correction, `0` means no explicit
-    cap. Note that the estimable rank is always bounded by the size of
-    the estimation window of recent draws (see `FisherTransformTuning`)."
+    "Maximum rank of the non-diagonal correction during initialization,
+    `0` means no explicit cap. Dynamic Fisher tuning currently attempts
+    one rank-one correction."
     max_rank::Int = 0
 
-    "Relative eigenvalue cutoff: only directions in which the estimated
-    geometry deviates from the diagonal base by a factor above `cutoff`
-    (or below its inverse) enter the low-rank correction."
+    "Relative eigenvalue cutoff used during initialization. Dynamic
+    Fisher tuning requires `cutoff >= 1.5` and uses its fixed validated
+    rank-one policy."
     cutoff::Float64 = 1.5
 end
 

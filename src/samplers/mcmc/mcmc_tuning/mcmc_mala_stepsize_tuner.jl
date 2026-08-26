@@ -14,6 +14,9 @@ mutable struct MALAStepSizeTunerState{T<:AbstractFloat} <: DualAveragingTunerSta
     log_mu::T
     log_stepsize_bar::T
     H_bar::T
+    run_nobs::Int
+    run_accept_sum::Float64
+    min_run_nobs::Int
 end
 
 function create_proposal_tuner_state(
@@ -25,11 +28,14 @@ function create_proposal_tuner_state(
     log_tau = log(proposal.τ)
     MALAStepSizeTunerState(
         tuning, 0, log_tau + log(oftype(log_tau, 10)),
-        zero(log_tau), zero(log_tau)
+        zero(log_tau), zero(log_tau), 0, 0.0, 50
     )
 end
 
-function _reset_mala_stepsize_tuner!(tuner::MALAStepSizeTunerState, chain_state::MCMCChainState)
+function _reset_mala_stepsize_tuner!(
+    tuner::MALAStepSizeTunerState,
+    chain_state::MCMCChainState,
+)
     proposal = get_active_proposal(chain_state.proposal)
     if proposal isa MALAProposalState
         _restart_dual_averaging!(tuner, proposal.τ)
@@ -38,6 +44,9 @@ function _reset_mala_stepsize_tuner!(tuner::MALAStepSizeTunerState, chain_state:
         tuner.log_stepsize_bar = 0
         tuner.H_bar = 0
     end
+    tuner.run_nobs = 0
+    tuner.run_accept_sum = zero(tuner.run_accept_sum)
+    tuner.min_run_nobs = 0
     return nothing
 end
 
@@ -58,7 +67,7 @@ function mcmc_proposal_transform_committed!!(
     tuner::MALAStepSizeTunerState,
     chain_state::MCMCChainState
 )
-    _restart_dual_averaging!(tuner, proposal.τ)
+    _reset_mala_stepsize_tuner!(tuner, chain_state)
     return proposal, tuner, chain_state
 end
 
@@ -68,13 +77,31 @@ function mcmc_tune_proposal_post_step!!(
     chain_state::MCMCChainState,
     step_info::MCMCStepInfo
 )
-    tau_new = _dual_averaging_step!(tuner, get_target_acceptance_ratio(proposal), mean(step_info.p_accept))
+    p_accept = step_info.p_accept
+    mean_accept = mean(p_accept)
+    tuner.run_nobs += length(p_accept)
+    tuner.run_accept_sum += length(p_accept) * mean_accept
+    tau_new = _dual_averaging_step!(
+        tuner, get_target_acceptance_ratio(proposal), mean_accept,
+    )
     proposal_new = if isfinite(tau_new)
         @set proposal.τ = oftype(proposal.τ, tau_new)
     else
         proposal
     end
     return proposal_new, tuner, chain_state
+end
+
+function get_tuning_success(
+    chain_state::MCMCChainState,
+    proposal::MALAProposalState,
+    tuner::MALAStepSizeTunerState,
+)
+    tuner.min_run_nobs == 0 && return get_tuning_success(chain_state, proposal)
+    tuner.run_nobs >= tuner.min_run_nobs || return false
+    acceptance = tuner.run_accept_sum / tuner.run_nobs
+    lower, upper = get_target_acceptance_int(proposal)
+    return lower <= acceptance <= upper
 end
 
 function mcmc_proposal_tuning_finalize!!(

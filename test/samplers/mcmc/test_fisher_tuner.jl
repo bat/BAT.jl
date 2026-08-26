@@ -6,6 +6,7 @@ using Test
 using LinearAlgebra, Random, Statistics
 using Distributions, ValueShapes, DensityInterface, InverseFunctions
 using StableRNGs
+using Random123
 import ForwardDiff
 
 using Accessors: @set
@@ -19,6 +20,77 @@ using BAT: DenseFisherEstimator, DiagonalFisherEstimator, LowRankFisherEstimator
 # type, used to test the finalization contract:
 struct _TypeChangingTrafoFinalizer <: BAT.MCMCTransformTunerState end
 BAT.mcmc_trafo_tuning_finalize!!(f_transform::Function, tuner::_TypeChangingTrafoFinalizer, chain_state::BAT.MCMCIterator) = (identity, tuner, chain_state)
+
+function _fixed_lowrank_campaign(draw_score, d::Int, seed::Int)
+    rng = StableRNG(seed)
+    estimator = LowRankFisherEstimator(1.5, 1)
+    campaign = BAT._LowRankCampaign(d, 1000, 1)
+    acc = _new_moments(estimator, d, 1)
+    for _ in 1:(campaign.fit_start - 1)
+        x, score = draw_score(rng)
+        _moments_update!(acc, x, score)
+    end
+
+    G0, mu0 = BAT._fisher_diagonal_geometry(acc, 1e-5)
+    for k in axes(campaign.fit.X, 2)
+        x, score = draw_score(rng)
+        campaign.fit.X[:, k] .= x
+        campaign.fit.G[:, k] .= score
+    end
+    candidate = BAT._fit_lowrank_candidate(
+        estimator, diag(G0), campaign.fit.X, campaign.fit.G, 1e-5,
+    )
+    G1 = BAT._lowrank_geometry(diag(G0), candidate)
+    A0 = _fisher_A(estimator, G0)
+    A1 = _fisher_A(estimator, G1)
+    A1_diag = _fisher_A(
+        estimator,
+        Diagonal(BAT._lowrank_geometry_diagonal(diag(G0), candidate)),
+    )
+
+    for _ in 1:campaign.guard_steps
+        draw_score(rng)
+    end
+    delta_baseline = zeros(1, campaign.validation_steps)
+    delta_offdiag = zeros(1, campaign.validation_steps)
+    for k in axes(delta_baseline, 2)
+        x, score = draw_score(rng)
+        loss1 = BAT._fisher_loss(A1, mu0, x, score)
+        delta_baseline[k] = BAT._fisher_loss(A0, mu0, x, score) - loss1
+        delta_offdiag[k] = BAT._fisher_loss(A1_diag, mu0, x, score) - loss1
+    end
+    return (
+        accepted = BAT._lowrank_validation_accepts(
+            candidate,
+            delta_baseline,
+            delta_offdiag,
+        ),
+        G0,
+        G1,
+    )
+end
+
+function _lowrank_fisher_state(; cutoff = 1.5, max_nsteps = 1000, reinit = true)
+    d = 16
+    alg = TransformedMCMC(
+        proposal = HamiltonianMC(),
+        adaptive_transform = LowRankAffineTransform(cutoff = cutoff),
+        pretransform = DoNotTransform(),
+        nchains = 1,
+        nwalkers = 1,
+        nsteps = 100,
+    )
+    state = BAT.MCMCState(
+        alg,
+        batmeasure(product_distribution(fill(Normal(), d))),
+        1,
+        [zeros(d)],
+        BATContext(ad = ForwardDiff),
+    )
+    BAT.mcmc_tuning_init!!(state, max_nsteps)
+    reinit && BAT.mcmc_tuning_reinit!!(state, max_nsteps)
+    return state
+end
 
 @testset "fisher_tuner" begin
     rng = StableRNG(438621057)
@@ -113,35 +185,6 @@ BAT.mcmc_trafo_tuning_finalize!!(f_transform::Function, tuner::_TypeChangingTraf
         c2 = 4.0
         @test _transform_drift(A, Symmetric(c2 * Matrix(G))) ≈ log(c2) * sqrt(d)
 
-        # Structured drift between diagonal-plus-low-rank geometries:
-        dd = 6
-        d_o = collect(range(0.5, 2.0, length = dd))
-        v_dir = normalize(randn(rng, dd))
-        λ_o, V_o = [4.0], reshape(v_dir, dd, 1)
-        dense_of(dv, λ, V) = begin
-            dsq = sqrt.(dv)
-            Symmetric(Diagonal(dv) + (dsq .* V) * Diagonal(λ .- 1) * (dsq .* V)')
-        end
-        G_o = dense_of(d_o, λ_o, V_o)
-        A_o = LowerTriangular(Matrix(cholesky(G_o).L))
-
-        # Unchanged geometry has zero drift:
-        @test BAT._lowrank_drift(d_o, λ_o, V_o, d_o, λ_o, V_o) < 1e-8
-        # Pure correction change (same diagonal) is exact:
-        λ_n1 = [7.0]
-        @test BAT._lowrank_drift(d_o, λ_o, V_o, d_o, λ_n1, V_o) ≈
-            _transform_drift(A_o, dense_of(d_o, λ_n1, V_o)) atol = 1e-8
-        # Pure diagonal change without corrections is exact:
-        d_n = d_o .* range(1.5, 3.0, length = dd)
-        e0 = zeros(dd, 0)
-        @test BAT._lowrank_drift(d_o, Float64[], e0, d_n, Float64[], e0) ≈
-            _transform_drift(LowerTriangular(Matrix(cholesky(Symmetric(Matrix(Diagonal(d_o)))).L)), Symmetric(Matrix(Diagonal(d_n)))) atol = 1e-8
-        # Mixed changes are approximate but close to the dense metric:
-        v_dir2 = normalize(randn(rng, dd))
-        drift_approx = BAT._lowrank_drift(d_o, λ_o, V_o, d_n, [5.0], reshape(v_dir2, dd, 1))
-        drift_exact = _transform_drift(A_o, dense_of(d_n, [5.0], reshape(v_dir2, dd, 1)))
-        @test isapprox(drift_approx, drift_exact, rtol = 0.25)
-
         # Window translation invariance: the low-rank correction is a
         # covariance property, so a window whose mean drifted away from
         # the longer history must not produce a spurious correction
@@ -150,27 +193,53 @@ BAT.mcmc_trafo_tuning_finalize!!(f_transform::Function, tuner::_TypeChangingTraf
         est_tr = LowRankFisherEstimator(1.5, 0)
         acc_tr = _new_moments(est_tr, d_tr)
         Σ_tr = Diagonal([1.0, 2.0, 0.5, 1.5])
+        X_tr = zeros(d_tr, 32)
+        G_tr = zeros(d_tr, 32)
         for k in 1:500
             μ_k = k <= 460 ? zeros(d_tr) : fill(1.0, d_tr)
             x = μ_k .+ sqrt.(diag(Σ_tr)) .* randn(rng, d_tr)
             α = -Σ_tr \ (x .- μ_k)
             _moments_update!(acc_tr, x, α)
+            if k > 468
+                X_tr[:, k - 468] .= x
+                G_tr[:, k - 468] .= α
+            end
         end
-        G_tr, _ = _fisher_geometry(est_tr, acc_tr, 1e-5)
-        @test size(G_tr.B, 2) == 0
+        G_diag_tr, _ = BAT._fisher_diagonal_geometry(acc_tr, 1e-5)
+        candidate_tr = BAT._fit_lowrank_candidate(
+            est_tr,
+            diag(G_diag_tr),
+            X_tr,
+            G_tr,
+            1e-5,
+        )
+        @test isempty(candidate_tr.lambda)
 
         # Rank-deficient windows (repeated draws) must not create
         # spurious correction directions:
         acc_rd = _new_moments(est_tr, d_tr)
         xs_rd = [sqrt.(diag(Σ_tr)) .* randn(rng, d_tr) for _ in 1:8]
+        X_rd = zeros(d_tr, 32)
+        G_rd = zeros(d_tr, 32)
         for k in 1:200
             x = xs_rd[mod1(k, 8)]
             α = -Σ_tr \ x
             _moments_update!(acc_rd, x, α)
+            if k > 168
+                X_rd[:, k - 168] .= x
+                G_rd[:, k - 168] .= α
+            end
         end
-        G_rd, μ_rd = _fisher_geometry(est_tr, acc_rd, 1e-5)
+        G_diag_rd, μ_rd = BAT._fisher_diagonal_geometry(acc_rd, 1e-5)
+        candidate_rd = BAT._fit_lowrank_candidate(
+            est_tr,
+            diag(G_diag_rd),
+            X_rd,
+            G_rd,
+            1e-5,
+        )
         @test all(isfinite, μ_rd)
-        @test size(G_rd.B, 2) == 0
+        @test isempty(candidate_rd.lambda)
 
         # AR(1)-corrected effective observation count:
         acc_ar = _new_moments(DiagonalFisherEstimator(), 2)
@@ -199,13 +268,27 @@ BAT.mcmc_trafo_tuning_finalize!!(f_transform::Function, tuner::_TypeChangingTraf
         est = LowRankFisherEstimator(1.5, 0)
         acc = _new_moments(est, d)
         L = cholesky(Symmetric(Σ)).L
-        for _ in 1:10^4
+        Xfit = zeros(d, 2d)
+        Gfit = zeros(d, 2d)
+        for k in 1:10^4
             x = μ_true .+ L * randn(rng, d)
             α = -Σinv * (x .- μ_true)
             _moments_update!(acc, x, α)
+            if k <= 2d
+                Xfit[:, k] .= x
+                Gfit[:, k] .= α
+            end
         end
 
-        G, μ = _fisher_geometry(est, acc, 1e-5)
+        G_diag, μ = BAT._fisher_diagonal_geometry(acc, 1e-5)
+        candidate = BAT._fit_lowrank_candidate(
+            est,
+            diag(G_diag),
+            Xfit,
+            Gfit,
+            1e-5,
+        )
+        G = BAT._lowrank_geometry(diag(G_diag), candidate)
         @test opnorm(Matrix(G) - Σ) / opnorm(Σ) < 0.15
         @test isapprox(μ, μ_true, atol = 0.4)
 
@@ -215,8 +298,420 @@ BAT.mcmc_trafo_tuning_finalize!!(f_transform::Function, tuner::_TypeChangingTraf
 
         # A hard rank cap is respected:
         est_capped = LowRankFisherEstimator(1.5, 1)
-        G1, _ = _fisher_geometry(est_capped, acc, 1e-5)
-        @test size(G1.B, 2) <= 1  # W has at most max_rank columns in the Woodbury representation
+        candidate_capped = BAT._fit_lowrank_candidate(
+            est_capped,
+            diag(G_diag),
+            Xfit,
+            Gfit,
+            1e-5,
+        )
+        @test length(candidate_capped.lambda) <= 1
+    end
+
+    @testset "low-rank correction campaign schedule" begin
+        campaign = BAT._LowRankCampaign(16, 1000, 1)
+        @test campaign.phase == BAT._LRWaiting
+
+        BAT._advance_lowrank_campaign!(campaign, campaign.fit_start - 1)
+        @test campaign.phase == BAT._LRWaiting
+
+        BAT._advance_lowrank_campaign!(campaign, campaign.fit_start)
+        @test campaign.phase == BAT._LRFit
+        @test campaign.fit_steps == 64
+        @test campaign.guard_steps == 16
+        @test campaign.validation_steps == 256
+        @test campaign.final_steps >= 150
+
+        @test isnothing(BAT._LowRankCampaign(33, 1000, 1))
+        @test isnothing(BAT._LowRankCampaign(16, 150, 1))
+    end
+
+    @testset "low-rank correction campaign lifecycle" begin
+        state = _lowrank_fisher_state(reinit = false)
+        @test isnothing(state.trafo_tuner_state.campaign)
+
+        BAT.mcmc_tuning_reinit!!(state, 1000)
+        campaign = state.trafo_tuner_state.campaign
+        @test !isnothing(campaign)
+
+        BAT.mcmc_tuning_reinit!!(state, 2000)
+        @test state.trafo_tuner_state.campaign === campaign
+
+        state_low_cutoff = _lowrank_fisher_state(cutoff = 1.2)
+        diagonal_campaign = state_low_cutoff.trafo_tuner_state.campaign
+        @test !isnothing(diagonal_campaign)
+        @test diagonal_campaign.fit_steps == 0
+        BAT._advance_lowrank_campaign!(diagonal_campaign, 850)
+        @test diagonal_campaign.phase == BAT._LRWaiting
+        BAT._advance_lowrank_campaign!(diagonal_campaign, 851)
+        @test diagonal_campaign.phase == BAT._LRFrozen
+
+        short_state = _lowrank_fisher_state(max_nsteps = 150)
+        short_campaign = short_state.trafo_tuner_state.campaign
+        @test !isnothing(short_campaign)
+        @test short_campaign.fit_steps == 0
+        BAT._advance_lowrank_campaign!(short_campaign, 128)
+        @test short_campaign.phase == BAT._LRFrozen
+
+        BAT.mcmc_tuning_reinit!!(short_state, 150)
+        @test short_state.trafo_tuner_state.campaign === short_campaign
+
+        BAT.mcmc_tuning_reinit!!(short_state, 1000)
+        retry_campaign = short_state.trafo_tuner_state.campaign
+        @test retry_campaign !== short_campaign
+        @test retry_campaign.fit_steps == 64
+        @test retry_campaign.phase == BAT._LRWaiting
+    end
+
+    @testset "failed low-rank baseline stays frozen" begin
+        state = _lowrank_fisher_state()
+        tuner = state.trafo_tuner_state
+        campaign = tuner.campaign
+        tuner.acc_a.n = 2
+        fill!(tuner.acc_a.M2_x, NaN)
+        fill!(tuner.acc_a.M2_g, 1.0)
+        BAT._advance_lowrank_campaign!(campaign, campaign.fit_start - 2)
+
+        state = BAT.mcmc_step!!(state)
+        @test campaign.phase == BAT._LRFrozen
+        @test campaign.attempted
+        @test isnothing(campaign.baseline_dvec)
+
+        state = BAT.mcmc_step!!(state)
+        @test campaign.phase == BAT._LRFrozen
+        @test campaign.attempted
+        @test isnothing(campaign.baseline_dvec)
+    end
+
+    @testset "low-rank campaign pauses step-size tuning" begin
+        base = _lowrank_fisher_state()
+        campaign = base.trafo_tuner_state.campaign
+        fit_end = campaign.fit_start + campaign.fit_steps - 1
+        guard_end = fit_end + campaign.guard_steps
+        validation_end = guard_end + campaign.validation_steps
+
+        tuner_snapshot(state) = begin
+            tuner = state.proposal_tuner_state
+            proposal = BAT.get_active_proposal(state.chain_state.proposal)
+            (tuner.m, tuner.log_mu, tuner.log_stepsize_bar, tuner.H_bar,
+                tuner.run_nobs, tuner.run_accept_sum, tuner.run_accept_sqsum,
+                tuner.run_ndivergent, tuner.run_skip, proposal.step_size)
+        end
+
+        observed_pauses = Bool[]
+        expected_pauses = Bool[]
+        for (cycle_step, paused) in (
+            (0, false),
+            (campaign.fit_start - 1, false),
+            (fit_end, false),
+            (guard_end, true),
+            (validation_end - 1, true),
+        )
+            state = deepcopy(base)
+            BAT._advance_lowrank_campaign!(
+                state.trafo_tuner_state.campaign,
+                cycle_step,
+            )
+            before = tuner_snapshot(state)
+            state = BAT.mcmc_step!!(state)
+            after = tuner_snapshot(state)
+            push!(observed_pauses, after == before)
+            push!(expected_pauses, paused)
+        end
+        @test observed_pauses == expected_pauses
+
+        BAT._advance_lowrank_campaign!(campaign, validation_end + 1)
+        @test !BAT.transform_tuning_pauses_proposal(
+            base.trafo_tuner_state,
+        )
+    end
+
+    @testset "low-rank correction fit separation" begin
+        d = 16
+        gamma = 1e-5
+        est = LowRankFisherEstimator(1.5, 1)
+        acc_diag = _new_moments(DiagonalFisherEstimator(), d)
+        acc_lr = _new_moments(est, d)
+        rng_fit = StableRNG(91042)
+
+        for _ in 1:200
+            x = randn(rng_fit, d)
+            g = -x
+            _moments_update!(acc_diag, x, g)
+            _moments_update!(acc_lr, x, g)
+        end
+
+        G_diag, mu_diag = BAT._fisher_diagonal_geometry(acc_diag, gamma)
+        G_lr, mu_lr = BAT._fisher_diagonal_geometry(acc_lr, gamma)
+        @test diag(G_lr) ≈ diag(G_diag)
+        @test mu_lr ≈ mu_diag
+
+        u = normalize(ones(d))
+        Sigma = Symmetric(Matrix(I, d, d) + 16.0 * u * u')
+        Sigma_inv = inv(Sigma)
+        L = cholesky(Sigma).L
+        Xfit = reduce(hcat, (L * randn(rng_fit, d) for _ in 1:(2d)))
+        Gfit = reduce(hcat, (-Sigma_inv * x for x in eachcol(Xfit)))
+        dvec = fill(sqrt(17 / 8), d)
+
+        candidate = BAT._fit_lowrank_candidate(est, dvec, Xfit, Gfit, gamma)
+        @test length(candidate.lambda) == 1
+        G_candidate = BAT._lowrank_geometry(dvec, candidate)
+        @test opnorm(Matrix(G_candidate) - Sigma) / opnorm(Sigma) < 0.1
+        @test BAT._lowrank_geometry_diagonal(dvec, candidate) ≈
+            diag(Matrix(G_candidate))
+
+        axis_candidate = BAT._LowRankCandidate(
+            [2.0],
+            reshape([1.0; zeros(d - 1)], d, 1),
+            reshape([1.0; zeros(d - 1)], d, 1),
+            Symmetric(ones(1, 1)),
+        )
+        @test BAT._valid_lowrank_candidate(axis_candidate, ones(d), zeros(d))
+
+        hub_direction = normalize([0.8, 0.6, zeros(d - 2)...])
+        W_hub, S_hub, lambda_hub, vectors_hub = BAT._lowrank_correction(
+            ones(d),
+            [3.0],
+            reshape(hub_direction, d, 1),
+            1.5,
+            1,
+        )
+        hub_candidate = BAT._LowRankCandidate(
+            lambda_hub,
+            vectors_hub,
+            W_hub,
+            S_hub,
+        )
+        @test BAT._valid_lowrank_candidate(hub_candidate, ones(d), zeros(d))
+        @test BAT._valid_lowrank_candidate(candidate, dvec, zeros(d))
+
+        candidate_nonfinite = BAT._fit_lowrank_candidate(
+            est,
+            dvec,
+            fill(NaN, size(Xfit)),
+            Gfit,
+            gamma,
+        )
+        @test isempty(candidate_nonfinite.lambda)
+        candidate_bad_base = BAT._fit_lowrank_candidate(
+            est,
+            zeros(d),
+            Xfit,
+            Gfit,
+            gamma,
+        )
+        @test isempty(candidate_bad_base.lambda)
+    end
+
+    @testset "low-rank held-out admission" begin
+        d = 4
+        mu = collect(range(-0.4, 0.5, length = d))
+        x = [0.2, -1.1, 0.7, 1.4]
+        alpha = [-0.3, 0.8, -0.2, 0.5]
+        dvec = [0.7, 1.2, 2.0, 0.9]
+        A_diag = Diagonal(sqrt.(dvec))
+
+        loss_diag = BAT._fisher_loss(A_diag, mu, x, alpha)
+        residual = x - mu
+        loss_diag_dense = sum(abs2, A_diag' * alpha + A_diag \ residual)
+        @test loss_diag ≈ loss_diag_dense
+
+        direction = normalize([1.0, -2.0, 0.5, 1.5])
+        lambda = [3.0]
+        W, S, lambda_kept, vectors_kept = BAT._lowrank_correction(
+            sqrt.(dvec),
+            lambda,
+            reshape(direction, d, 1),
+            1.5,
+            1,
+        )
+        candidate = BAT._LowRankCandidate(
+            lambda_kept,
+            vectors_kept,
+            W,
+            S,
+        )
+        G_lr = BAT._lowrank_geometry(dvec, candidate)
+        A_lr = _fisher_A(LowRankFisherEstimator(1.5, 1), G_lr)
+        loss_lr = BAT._fisher_loss(A_lr, mu, x, alpha)
+        A_lr_dense = Matrix(A_lr)
+        loss_lr_dense = sum(abs2, A_lr_dense' * alpha +
+            A_lr_dense \ residual)
+        @test loss_lr ≈ loss_lr_dense
+
+        candidate0 = BAT._LowRankCandidate(
+            Float64[],
+            zeros(d, 0),
+            zeros(d, 0),
+            Symmetric(zeros(0, 0)),
+        )
+        @test BAT._fisher_loss(
+            _fisher_A(
+                LowRankFisherEstimator(1.5, 1),
+                BAT._lowrank_geometry(dvec, candidate0),
+            ),
+            mu,
+            x,
+            alpha,
+        ) ≈ loss_diag
+
+        t = collect(1:256)
+        positive = reshape(1 .+ 0.1 .* sin.(t), 1, :)
+        negative = -positive
+        nonfinite = copy(positive)
+        nonfinite[1, 20] = NaN
+        short = reshape(1 .+ 0.1 .* sin.(1:40), 1, :)
+        moderate = reshape(1 .+ 0.1 .* (-1.0).^(1:40), 1, :)
+
+        @test BAT._lowrank_validation_accepts(candidate, positive, positive)
+        candidate_15 = BAT._LowRankCandidate(
+            [15.0], candidate.vectors, candidate.W, candidate.S,
+        )
+        candidate_21 = BAT._LowRankCandidate(
+            [21.0], candidate.vectors, candidate.W, candidate.S,
+        )
+        @test BAT._lowrank_validation_accepts(candidate_15, positive, positive)
+        @test !BAT._lowrank_validation_accepts(candidate_21, positive, positive)
+        @test !BAT._lowrank_validation_accepts(candidate, negative, positive)
+        @test !BAT._lowrank_validation_accepts(candidate, positive, negative)
+        @test !BAT._lowrank_validation_accepts(candidate, nonfinite, positive)
+        @test !BAT._lowrank_validation_accepts(candidate, positive, nonfinite)
+        @test !BAT._lowrank_validation_accepts(
+            candidate,
+            ones(1, 256),
+            positive,
+        )
+        @test !BAT._lowrank_validation_accepts(candidate, short, positive)
+        @test BAT._lowrank_validation_accepts(candidate, moderate, moderate)
+        @test !BAT._lowrank_validation_accepts(candidate0, positive, positive)
+        @test !BAT._lowrank_validation_accepts(
+            candidate,
+            positive,
+            zeros(size(positive)),
+        )
+
+        sparse_direction = normalize([0.8, 0.6, zeros(d - 2)...])
+        W_sparse, S_sparse, lambda_sparse, vectors_sparse =
+            BAT._lowrank_correction(
+                ones(d),
+                [3.0],
+                reshape(sparse_direction, d, 1),
+                1.5,
+                1,
+            )
+        sparse_candidate = BAT._LowRankCandidate(
+            lambda_sparse,
+            vectors_sparse,
+            W_sparse,
+            S_sparse,
+        )
+        G_sparse = BAT._lowrank_geometry(ones(d), sparse_candidate)
+        A_sparse = _fisher_A(LowRankFisherEstimator(1.5, 1), G_sparse)
+        A_sparse_diag = _fisher_A(
+            LowRankFisherEstimator(1.5, 1),
+            Diagonal(BAT._lowrank_geometry_diagonal(ones(d), sparse_candidate)),
+        )
+        sparse_target = MvNormal(zeros(d), Symmetric(Matrix(G_sparse)))
+        sparse_baseline_delta = zeros(1, 256)
+        sparse_offdiag_delta = similar(sparse_baseline_delta)
+        sparse_rng = StableRNG(826_564_004)
+        for k in axes(sparse_baseline_delta, 2)
+            x_sparse = rand(sparse_rng, sparse_target)
+            score_sparse = -(G_sparse \ x_sparse)
+            loss_sparse = BAT._fisher_loss(
+                A_sparse, zeros(d), x_sparse, score_sparse,
+            )
+            sparse_baseline_delta[k] = BAT._fisher_loss(
+                Diagonal(ones(d)), zeros(d), x_sparse, score_sparse,
+            ) - loss_sparse
+            sparse_offdiag_delta[k] = BAT._fisher_loss(
+                A_sparse_diag, zeros(d), x_sparse, score_sparse,
+            ) - loss_sparse
+        end
+        @test BAT._lowrank_validation_accepts(
+            sparse_candidate,
+            sparse_baseline_delta,
+            sparse_offdiag_delta,
+        )
+
+        disagreeing = vcat(
+            reshape(0.1 .* sin.(t), 1, :),
+            reshape(2 .+ 0.1 .* sin.(t), 1, :),
+        )
+        stats = BAT._lowrank_validation_stats(disagreeing)
+        @test stats.se == max(stats.se_within, stats.se_between)
+        @test stats.se_between > stats.se_within
+    end
+
+    @testset "low-rank null and power controls" begin
+        independent_draw_score(dist, d) = begin
+            nu = dist isa TDist ? first(Distributions.params(dist)) : NaN
+            score = dist isa TDist ?
+                (x -> -(nu + 1) * x / (nu + x^2)) :
+                dist isa Logistic ? (x -> -tanh(x / 2)) :
+                (x -> -sign(x))
+            rng -> begin
+                x = rand(rng, dist, d)
+                x, score.(x)
+            end
+        end
+
+        for dist in (TDist(5), TDist(10), Logistic(), Laplace()), d in (16, 32)
+            result = _fixed_lowrank_campaign(
+                independent_draw_score(dist, d), d, 101,
+            )
+            @test !result.accepted
+        end
+
+        d = 32
+        nu = 5.0
+        scale = sqrt((nu - 2) / nu)
+        u = normalize(ones(d))
+        Sigma = Symmetric(Matrix(I, d, d) + 16.0 * u * u')
+        L = cholesky(Sigma).L
+        draw_score = rng -> begin
+            y = scale .* rand(rng, TDist(nu), d)
+            score_y = @. -(nu + 1) * y / (nu * scale^2 + y^2)
+            L * y, L' \ score_y
+        end
+        result = _fixed_lowrank_campaign(draw_score, d, 101)
+        fisher_scale = inv(sqrt(nu * (nu + 1) / ((nu - 2) * (nu + 3))))
+        G_oracle = fisher_scale .* Sigma
+        baseline_error = BAT._transform_drift(
+            Diagonal(sqrt.(diag(result.G0))), G_oracle,
+        )
+        candidate_error = BAT._transform_drift(
+            BAT._fisher_A(LowRankFisherEstimator(1.5, 1), result.G1),
+            G_oracle,
+        )
+        @test result.accepted
+        @test candidate_error < 0.8 * baseline_error
+    end
+
+    @testset "low-rank product-t HMC lifecycle" begin
+        objective = product_distribution(fill(TDist(3), 32))
+        alg = TransformedMCMC(
+            proposal = HamiltonianMC(max_depth = 4),
+            adaptive_transform = LowRankAffineTransform(),
+            pretransform = DoNotTransform(),
+            nchains = 1,
+            nwalkers = 1,
+            nsteps = 20,
+            init = MCMCChainPoolInit(nsteps_init = 10),
+            burnin = MCMCMultiCycleBurnin(
+                nsteps_per_cycle = 1000,
+                max_ncycles = 1,
+                nsteps_final = 0,
+            ),
+            convergence = AssumeConvergence(),
+        )
+        result = evalmeasure(
+            batmeasure(objective),
+            alg,
+            BATContext(rng = Philox4x((42, 43)), ad = ForwardDiff),
+        )
+        @test only(BAT.samplegenof(result).chain_states).info.tuned
     end
 
     @testset "guards" begin
