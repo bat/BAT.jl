@@ -108,8 +108,12 @@ function mcmc_trafo_tuning_postinit!!(
     chain_state::MCMCChainState,
     samples::AbstractVector{<:DensitySampleVector}
 )
-    for tuner in multi_tuner_state.trafo_tuners
-        mcmc_trafo_tuning_postinit!!(tuner, chain_state, samples)
+    inv_intermediate_results = trafo_samples_with_interm_results(inverse(chain_state.f_transform), samples)
+    trafo_tuners = multi_tuner_state.trafo_tuners
+    n = length(trafo_tuners)
+    for j in eachindex(trafo_tuners)
+        samples_j = inv_intermediate_results[n + 1 - j]
+        mcmc_trafo_tuning_postinit!!(trafo_tuners[j], chain_state, samples_j)
     end
 end
 

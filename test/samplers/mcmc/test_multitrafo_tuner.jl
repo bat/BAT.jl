@@ -76,4 +76,29 @@ using BAT: batmeasure, TriangularAffineTransform, NoMCMCTransformTuning
         pretransform = DoNotTransform()
     )
     @test_throws ArgumentError BAT.MCMCState(alg_mismatch, target, 1, [randn(rng, 2)], deepcopy(context))
+
+    @testset "post-initialization uses component coordinates" begin
+        coord_alg = TransformedMCMC(
+            proposal = RandomWalk(),
+            adaptive_transform = at,
+            transform_tuning = MultiTrafoTuning((AdaptiveAffineTuning(), AdaptiveAffineTuning())),
+            pretransform = DoNotTransform(),
+            nwalkers = 1
+        )
+        state = BAT.MCMCState(coord_alg, target, 1, [zeros(2)], deepcopy(context))
+        inner, _ = FunctionChains.fchainfs(state.chain_state.f_transform)
+        outer = MulAdd(LowerTriangular(10.0 * Matrix(I, 2, 2)), zeros(2))
+        state.chain_state.f_transform = FunctionChains.fchain((inner, outer))
+
+        values = [
+            [10.0, 0.0], [-10.0, 0.0], [0.0, 20.0],
+            [0.0, -20.0], [10.0, 20.0], [-10.0, -20.0]
+        ]
+        samples = [DensitySampleVector(v = values, logd = zeros(6), weight = ones(6))]
+        BAT.mcmc_trafo_tuning_postinit!!(state.trafo_tuner_state, state.chain_state, samples)
+
+        inner_tuner, outer_tuner = state.trafo_tuner_state.trafo_tuners
+        @test Matrix(inner_tuner.stats.param_stats.cov) ≈ [0.8 0.8; 0.8 3.2]
+        @test Matrix(outer_tuner.stats.param_stats.cov) ≈ [80.0 80.0; 80.0 320.0]
+    end
 end
