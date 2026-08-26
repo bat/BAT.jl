@@ -310,7 +310,7 @@ function pathfinder_gaussian_fit(
         Z = adapt(cunit, randn(rng, T, n, ndraws_elbo))
 
         elbo, μ = _pathfinder_elbo(f_logd, H, xs[l + 1], grads[l + 1], Z, T)
-        if elbo > best_elbo
+        if isfinite(elbo) && elbo > best_elbo
             best_elbo = elbo
             best = (μ = μ, α = Hl.α, B = Hl.B, D = Hl.D)
         end

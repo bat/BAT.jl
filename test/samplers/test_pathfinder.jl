@@ -91,6 +91,18 @@ using MatrixShapedOperators: woodbury_operator, rowgram_factor
         fit_nan = @test_logs (:warn,) match_mode=:any pathfinder_gaussian_fit(f_nan, x0, lbfgs_alg(), context)
         @test isnothing(fit_nan)
 
+        # Non-finite ELBO candidates are unusable even when optimization
+        # starts from a finite point:
+        for bad_logd in (Inf, -Inf, NaN)
+            bad_context = BATContext(rng = StableRNG(880401), ad = ForwardDiff)
+            f_bad = x -> x[1] > 1.5 ? bad_logd : -x[1]^2 / 2
+            fit_bad = pathfinder_gaussian_fit(
+                f_bad, [1.0], lbfgs_alg(), bad_context,
+                history_length = 1, ndraws_elbo = 512
+            )
+            @test isnothing(fit_bad)
+        end
+
         # Backends without a gradient trace fail at the API boundary:
         @test_throws ArgumentError pathfinder_gaussian_fit(f_logd, x0, OptimAlg(optalg = Optim.NelderMead()), context)
 
