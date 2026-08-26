@@ -323,6 +323,8 @@ end
 # simply tracks them:
 transform_change_restarts_stepsize(::MCMCTransformTunerState) = true
 
+transform_tuning_pauses_proposal(::MCMCTransformTunerState) = false
+
 # Called by the tuning orchestration instead of mcmc_tune_proposal_post_step!!
 # when a transform tuner has installed a new transformation and its policy
 # requests step-size readaptation. The step statistic that crossed the
@@ -334,6 +336,14 @@ function mcmc_proposal_transform_committed!!(
 ) where CS<:MCMCIterator
     return proposal, tuner, chain_state
 end
+
+mcmc_proposal_transform_committed!!(
+    proposal::MCMCProposalState,
+    tuner::MCMCProposalTunerState,
+    chain_state::CS,
+    ::MCMCTransformTunerState,
+) where {CS<:MCMCIterator} =
+    mcmc_proposal_transform_committed!!(proposal, tuner, chain_state)
 
 
 function mcmc_trafo_tuning_init!! end
