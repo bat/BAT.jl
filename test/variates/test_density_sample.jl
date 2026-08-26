@@ -132,8 +132,88 @@ _SampleAux() = _SampleInfo(0)
 
         dsv_med = @inferred(median(dsv_merged))
         @test @inferred(length(rows)) == @inferred(length(dsv_med))
-        for i in eachindex(dsv_med)
-            @test isapprox(@inferred(median(collect(rows)[i], w)), dsv_med[i], rtol=rtol)
+        @test dsv_med == [1.0, 1.0, 1.0]
+
+        @testset "weighted quantiles use empirical mass" begin
+            values = [-3.0, -1.0, 2.0, 8.0]
+            sample_weights = [0, 1, 2, 5]
+            probabilities = [0.0, 0.25, 0.5, 0.75, 1.0]
+            expected = [-1.0, 2.0, 8.0, 8.0, 8.0]
+
+            compressed = DensitySampleVector(v = values, logd = zeros(4), weight = sample_weights)
+            expanded = DensitySampleVector(
+                v = [-1.0, 2.0, 2.0, 8.0, 8.0, 8.0, 8.0, 8.0],
+                logd = zeros(8),
+            )
+
+            @test quantile.(Ref(compressed), probabilities) == expected
+            @test quantile.(Ref(expanded), probabilities) == expected
+
+            permutations = (
+                collect(p) for p in Iterators.product(ntuple(_ -> eachindex(values), length(values))...)
+                if allunique(p)
+            )
+            for permutation in permutations
+                permuted = DensitySampleVector(
+                    v = values[permutation],
+                    logd = zeros(4),
+                    weight = sample_weights[permutation],
+                )
+                @test quantile.(Ref(permuted), probabilities) == expected
+            end
+
+            for scale in (nextfloat(0.0), 0.5, 2.0, floatmax(Float64) / 8)
+                scaled = DensitySampleVector(
+                    v = values,
+                    logd = zeros(4),
+                    weight = scale .* sample_weights,
+                )
+                @test quantile.(Ref(scaled), probabilities) == expected
+            end
+
+            tied = DensitySampleVector(v = [0.0, 0.0, 1.0], logd = zeros(3), weight = [1, 2, 1])
+            @test quantile.(Ref(tied), probabilities) == [0.0, 0.0, 0.0, 0.0, 1.0]
+
+            endpoint_weights = [typemax(Int), typemax(Int) - 1, 1, 2]
+            endpoints = DensitySampleVector(v = values, logd = zeros(4), weight = endpoint_weights)
+            @test quantile(endpoints, 0.0) == -3.0
+            @test quantile(endpoints, 1.0) == 8.0
+
+            samples32 = DensitySampleVector(
+                v = Float32[-1, 1],
+                logd = zeros(Float32, 2),
+                weight = Float32[1, 2],
+            )
+            samplesbig = DensitySampleVector(
+                v = BigFloat[-1, 1],
+                logd = zeros(BigFloat, 2),
+                weight = BigFloat[1, 2],
+            )
+            @test @inferred(quantile(samples32, 0.5f0)) === 1.0f0
+            quantile_big = @inferred quantile(samplesbig, big"0.5")
+            @test quantile_big == big"1.0"
+            @test quantile_big isa BigFloat
+
+            vector_values = ArrayOfSimilarArrays([Float32[-1, 0], Float32[1, 2]])
+            vector_samples = DensitySampleVector(
+                v = vector_values,
+                logd = zeros(Float32, 2),
+                weight = Float32[1, 2],
+            )
+            vector_median = @inferred quantile(vector_samples, 0.5f0)
+            @test vector_median == Float32[1, 2]
+            @test eltype(vector_median) === Float32
+
+            nan_samples = DensitySampleVector(v = [0.0, NaN], logd = zeros(2), weight = [1, 1])
+            empty_samples = DensitySampleVector(v = Float64[], logd = Float64[], weight = Float64[])
+            zero_weight_samples = DensitySampleVector(v = [0.0, 1.0], logd = zeros(2), weight = [0, 0])
+            negative_weight_samples = DensitySampleVector(v = [0.0, 1.0], logd = zeros(2), weight = [1, -1])
+            @test isnan(quantile(nan_samples, 0.5))
+            @test_throws ArgumentError quantile(empty_samples, 0.5)
+            @test_throws ArgumentError quantile(zero_weight_samples, 0.5)
+            @test_throws ArgumentError quantile(negative_weight_samples, 0.5)
+            @test_throws ArgumentError quantile(compressed, -0.1)
+            @test_throws ArgumentError quantile(compressed, 1.1)
         end
 
         dsv_mode = @inferred(mode(dsv_merged))
@@ -150,7 +230,7 @@ _SampleAux() = _SampleInfo(0)
                 @test mean(samples) ≈ [1.0, 2.0]
                 @test var(samples) ≈ [1.0, 4.0]
                 @test std(samples) ≈ [1.0, 2.0]
-                @test quantile(samples, 0.5) ≈ [1.0, 2.0]
+                @test quantile(samples, 0.5) ≈ [0.0, 0.0]
                 @test cov(samples) ≈ [1.0 2.0; 2.0 4.0]
                 @test cor(samples) ≈ ones(2, 2)
             end
