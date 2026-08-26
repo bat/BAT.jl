@@ -340,18 +340,37 @@ Statistics.std(samples::DensitySampleVector) = _get_statw((X, w) -> _std(X, w, c
 
 Statistics.median(samples::DensitySampleVector) = quantile(samples, 0.5)
 
+function _weighted_empirical_quantile(v::AbstractVector, w::AbstractVector, p::Real)
+    isempty(v) && throw(ArgumentError("quantile of an empty array is undefined"))
+    0 <= p <= 1 || throw(ArgumentError("input probability out of [0,1] range"))
+
+    nan_idx = findfirst(isnan, v)
+    isnothing(nan_idx) || return v[nan_idx]
+
+    order = sortperm(v)
+    first_idx = first(i for i in order if !iszero(w[i]))
+    last_idx = first(i for i in Iterators.reverse(order) if !iszero(w[i]))
+    iszero(p) && return v[first_idx]
+    isone(p) && return v[last_idx]
+
+    target_weight = p * sum(w)
+    cumulative_weight = zero(eltype(w))
+    for i in order
+        cumulative_weight += w[i]
+        cumulative_weight >= target_weight && return v[i]
+    end
+    return v[last_idx]
+end
+
 function Statistics.quantile(samples::DensitySampleVector, p::Real)
     shape = varshape(samples)
     flat_samples = flatview(unshaped.(samples.v))
     n_params = size(flat_samples)[1]
-    median_params = Vector{Float64}()
-    w = ProbabilityWeights(_canonical_rel_weights(samples.weight))
-
-    for param in Base.OneTo(n_params)
-        median_param = quantile(flat_samples[param,:], w, p)
-        push!(median_params, median_param)
+    w = _canonical_rel_weights(samples.weight)
+    quantile_params = map(Base.OneTo(n_params)) do param
+        _weighted_empirical_quantile(view(flat_samples, param, :), w, p)
     end
-    shape(median_params)
+    shape(quantile_params)
 end
 
 function _get_stat(f::Function, samples::DensitySampleVector)
