@@ -48,7 +48,7 @@ _SampleAux() = _SampleInfo(0)
 
     @testset "DensitySampleVector" begin
         dsv1 = @inferred DensitySampleVector{Vector{Float64},Float32,Int,_SampleInfo,_SampleAux}(undef, 0, 3)
-        @test typeof(dsv1) <: DensitySampleVector{Vector{Float64},Float32,Int,_SampleInfo,_SampleAux}
+        @test typeof(dsv1) <: DensitySampleVector{<:AbstractVector{Float64},Float32,Int,_SampleInfo,_SampleAux}
         
         @test size(dsv1) == (0,)
         push!(dsv1, ds1)

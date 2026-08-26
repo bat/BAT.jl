@@ -222,6 +222,17 @@ end
 @inline Base.getindex(A::StructArray{<:DensitySample}, I::Union{Int,AbstractArray,Colon}...) =
     DensitySampleVector((A.v[I...], A.logd[I...], A.weight[I...], A.info[I...], A.aux[I...]))
 
+# Specialize push! likewise, StructArrays would convert the sample to the
+# element type of A first:
+function Base.push!(A::DensitySampleVector, s::DensitySample)
+    push!(A.v, s.v)
+    push!(A.logd, s.logd)
+    push!(A.weight, s.weight)
+    push!(A.info, s.info)
+    push!(A.aux, s.aux)
+    A
+end
+
 # Specialize IndexStyle, current default for StructArray seems to be IndexCartesian()
 Base.IndexStyle(::StructArray{<:DensitySample, 1}) = IndexLinear()
 
