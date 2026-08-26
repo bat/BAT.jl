@@ -142,5 +142,18 @@ _SampleAux() = _SampleInfo(0)
         end
 
         @test @inferred(isapprox(@inferred(cor(X, w, 2)), @inferred(cor(dsv_merged)), rtol=rtol))
+
+        @testset "weighted statistics ignore global weight scale" begin
+            values = ArrayOfSimilarArrays([[0.0, 0.0], [2.0, 4.0]])
+            for weights in ([typemax(Int), typemax(Int)], [1e308, 1e308], [1e-320, 1e-320])
+                samples = DensitySampleVector(v = values, logd = zeros(2), weight = weights)
+                @test mean(samples) ≈ [1.0, 2.0]
+                @test var(samples) ≈ [1.0, 4.0]
+                @test std(samples) ≈ [1.0, 2.0]
+                @test quantile(samples, 0.5) ≈ [1.0, 2.0]
+                @test cov(samples) ≈ [1.0 2.0; 2.0 4.0]
+                @test cor(samples) ≈ ones(2, 2)
+            end
+        end
     end
 end

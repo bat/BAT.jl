@@ -340,7 +340,7 @@ _cor(X::AbstractVectorOfSimilarVectors, w::AbstractWeights) =
 function _get_statw(f::Function, samples::DensitySampleVector, resultshape::AbstractValueShape)
     shape = varshape(samples)
     X = unshaped.(samples.v)
-    w = ProbabilityWeights(samples.weight)
+    w = ProbabilityWeights(_canonical_rel_weights(samples.weight))
     r_unshaped = f(X, w)
     resultshape(r_unshaped)
 end
@@ -356,9 +356,10 @@ function Statistics.quantile(samples::DensitySampleVector, p::Real)
     flat_samples = flatview(unshaped.(samples.v))
     n_params = size(flat_samples)[1]
     median_params = Vector{Float64}()
+    w = ProbabilityWeights(_canonical_rel_weights(samples.weight))
 
     for param in Base.OneTo(n_params)
-        median_param = quantile(flat_samples[param,:], ProbabilityWeights(samples.weight), p)
+        median_param = quantile(flat_samples[param,:], w, p)
         push!(median_params, median_param)
     end
     shape(median_params)
@@ -374,8 +375,8 @@ end
 Base.minimum(samples::DensitySampleVector) = _get_stat(minimum, samples)
 Base.maximum(samples::DensitySampleVector) = _get_stat(maximum, samples)
 
-Statistics.cov(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = _cov(samples.v, ProbabilityWeights(samples.weight), corrected = false)
-Statistics.cor(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = _cor(samples.v, ProbabilityWeights(samples.weight))
+Statistics.cov(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = _cov(samples.v, ProbabilityWeights(_canonical_rel_weights(samples.weight)), corrected = false)
+Statistics.cor(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = _cor(samples.v, ProbabilityWeights(_canonical_rel_weights(samples.weight)))
 
 function Base.isapprox(a::DensitySampleVector, b::DensitySampleVector; kwargs...)
     axes(a) == axes(b) || return false
@@ -551,5 +552,4 @@ function _marginal_histograms(smpl::DensitySampleVector{<:AbstractVector{<:Real}
     W = Weights(trimmed_smpl.weight)
     [fit(Histogram, V[i,:], W, range(minimum(V[i,:]), maximum(V[i,:]), length = 41)) for i in axes(V,1)]
 end
-
 
