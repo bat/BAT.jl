@@ -32,7 +32,7 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::ReactiveNestedSampling, c
     function vec_ultranest_logpstr(V_rowwise::AbstractMatrix{<:Real})
         V = convert(Matrix{eltype(V_rowwise)}, V_rowwise')
         logd = similar(V, LogDType, size(V, 2))
-        V_nested = nestedview(V)
+        V_nested = VectorOfSimilarVectors(V)
         numpy.asarray(exec_map!(logdensityof(transformed_m), algorithm.executor, logd, V_nested))
     end
 
@@ -82,13 +82,13 @@ function BAT.bat_sample_impl(m::BATMeasure, algorithm::ReactiveNestedSampling, c
     unest_result = take!(ch)
 
     unest_wsamples = unest_result["weighted_samples"]
-    v_trafo_us = nestedview(convert(Matrix{Float64}, pyconvert(Matrix{Float64}, unest_wsamples["points"])'))
+    v_trafo_us = VectorOfSimilarVectors(convert(Matrix{Float64}, pyconvert(Matrix{Float64}, unest_wsamples["points"])'))
     logvals_trafo = pyconvert(Vector{Float64}, unest_wsamples["logl"])
     weight = pyconvert(Vector{Float64}, unest_wsamples["weights"])
     transformed_smpls = DensitySampleVector(v_trafo_us, logvals_trafo, weight = weight)
     smpls = inverse(f_pretransform).(transformed_smpls)
 
-    uwv_trafo_us = nestedview(convert(Matrix{Float64}, pyconvert(Matrix{Float64}, unest_result["samples"])'))
+    uwv_trafo_us = VectorOfSimilarVectors(convert(Matrix{Float64}, pyconvert(Matrix{Float64}, unest_result["samples"])'))
     uwlogvals_trafo = map(logdensityof(transformed_m), uwv_trafo_us)
     uwtransformed_smpls = DensitySampleVector(uwv_trafo_us, uwlogvals_trafo)
     uwsmpls = inverse(f_pretransform).(uwtransformed_smpls)

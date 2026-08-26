@@ -12,7 +12,7 @@ using StableRNGs
 
     # Primitive MCMC of flat distribution between [0, 0, 0] and [10, 5, 8]:
     rng = stblrng()
-    v = nestedview(ElasticArray{Float64, 2}(undef, 3, 0))
+    v = VectorOfSimilarVectors(ElasticArray{Float64, 2}(undef, 3, 0))
     push!(v, [0, 0, 0])
     for i in 1:(10^4 - 1)
         push!(v, clamp.(last(v) .+ randn(rng, 3), [0, 0, 0], [10, 5, 8]))

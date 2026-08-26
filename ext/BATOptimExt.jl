@@ -74,7 +74,7 @@ function _neg_opt_trace(
     tr_len = length(eachindex(trc))
     nd = length(eachindex(dummy_x))
 
-    v = nestedview(similar(dummy_x, nd, tr_len))
+    v = VectorOfSimilarVectors(similar(dummy_x, nd, tr_len))
     foreach((a,b) -> a[:] = b, v, Optim.x_trace(optim_result))
 
     logd = similar(dummy_x, typeof(dummy_f_x), tr_len)
@@ -83,7 +83,7 @@ function _neg_opt_trace(
     if optim_result isa Optim.MultivariateOptimizationResults{<:Optim.ZerothOrderOptimizer}
         (v = v, logd = logd)
     else
-        grad_logd = nestedview(similar(dummy_x, nd, tr_len))
+        grad_logd = VectorOfSimilarVectors(similar(dummy_x, nd, tr_len))
         foreach((a,b) -> a[:] = -b.metadata["g(x)"], grad_logd, trc)
         (v = v, logd = logd, grad_logd = grad_logd)
     end
@@ -97,7 +97,7 @@ function _neg_opt_trace(
     tr_len = length(eachindex(trc))
     nd = length(eachindex(dummy_x))
 
-    v = nestedview(similar(dummy_x, nd, tr_len))
+    v = VectorOfSimilarVectors(similar(dummy_x, nd, tr_len))
     foreach((a,b) -> a[:] = b, v, Optim.centroid_trace(optim_result))
 
     (;v = v)

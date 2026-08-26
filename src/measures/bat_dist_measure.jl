@@ -69,8 +69,8 @@ function Random.rand(gen::GenContext, m::BATDistMeasure)
 end
 
 _reshape_rand_n_output(x::Any) = x
-_reshape_rand_n_output(x::AbstractMatrix) = nestedview(x)
-_reshape_rand_n_output(x::AbstractArray{<:AbstractArray}) = ArrayOfSimilarArrays(x)
+_reshape_rand_n_output(x::AbstractMatrix) = VectorOfSimilarVectors(x)
+_reshape_rand_n_output(x::AbstractArray{<:AbstractArray}) = convert(ArrayOfSimilarArrays, x)
 _reshape_rand_n_output(x::ArrayOfSimilarArrays) = x
 
 import Random.rand

@@ -261,10 +261,10 @@ function Statistics.mean(d::HierarchicalDistribution)
 end
 
 function Statistics.mean(ud::UnshapedHDist)
-    mean(nestedview(rand(_bat_determ_rng(), ud, 10^5)))
+    mean(VectorOfSimilarVectors(rand(_bat_determ_rng(), ud, 10^5)))
 end
 
 
 function Statistics.cov(ud::UnshapedHDist)
-    cov(nestedview(rand(_bat_determ_rng(), ud, 10^5)))
+    cov(VectorOfSimilarVectors(rand(_bat_determ_rng(), ud, 10^5)))
 end

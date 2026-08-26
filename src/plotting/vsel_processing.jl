@@ -312,12 +312,12 @@ function bat_marginalize(samples::DensitySampleVector,
     #     new_accs = values(new_shape)
     #     n_params = sum(length.(new_accs))
     #     flat_orig_data = zeros(n_params, size(samples.v, 1))
-    #     marg_data = ndims(flat_orig_data) > 1 ? nestedview(flat_orig_data) : flat_orig_data
+    #     marg_data = ndims(flat_orig_data) > 1 ? VectorOfSimilarVectors(flat_orig_data) : flat_orig_data
     # else
 
     flat_orig_data = ValueShapes.flatview(unshaped.(samples).v)
     marg_data = flat_orig_data[flat_idxs, :]
-    marg_data = ndims(marg_data) > 1 ? nestedview(marg_data) : marg_data
+    marg_data = ndims(marg_data) > 1 ? VectorOfSimilarVectors(marg_data) : marg_data
    
     marg_samples = shaped ? new_shape.(DensitySampleVector(marg_data, logd, info = info, aux = aux)) : DensitySampleVector(marg_data, logd, info = info, aux = aux)
     return (result = marg_samples,)

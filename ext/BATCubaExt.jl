@@ -66,7 +66,7 @@ function (integrand::CubaIntegrand)(X::AbstractMatrix{<:Real}, f::AbstractMatrix
     @assert length(idxs1) == 1
     idxs2 = axes(f, 2)
     @assert idxs2 == axes(X, 2)
-    xs = nestedview(X)
+    xs = VectorOfSimilarVectors(X)
     @threads for i in idxs2
         logd = integrand.f_logdensity(xs[i])
         @assert _cuba_valid_value(logd)

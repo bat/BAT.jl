@@ -30,7 +30,7 @@ using MeasureBase
     end
 
     function get_trgxs(trg_d, src_d, X)
-        return (x -> BAT.apply_dist_trafo(trg_d, src_d, x)).(nestedview(X))
+        return (x -> BAT.apply_dist_trafo(trg_d, src_d, x)).(VectorOfSimilarVectors(X))
     end
 
     function get_trgxs(trg_d, src_d::Distribution{Univariate}, X)

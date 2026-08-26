@@ -63,7 +63,7 @@ function fft_autocov(v::AbstractVectorOfSimilarVectors{<:Real})
 
     acf .*= inv(n)
 
-    nestedview(acf)
+    VectorOfSimilarVectors(acf)
 end
 
 
@@ -89,5 +89,5 @@ end
 function fft_autocor(v::AbstractVectorOfSimilarVectors{<:Real})
     acf = flatview(fft_autocov(v))
     acf ./= acf[:, first(axes(acf, 2))]
-    nestedview(acf)
+    VectorOfSimilarVectors(acf)
 end

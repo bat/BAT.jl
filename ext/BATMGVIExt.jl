@@ -51,7 +51,7 @@ end
 
 
 function _append_mgvi_samples!(smpls::DensitySampleVector, m::BATMeasure, flat_samples::AbstractMatrix{<:Real}, info::MGVISampleInfo)
-    new_smpls_v = nestedview(flat_samples)
+    new_smpls_v = VectorOfSimilarVectors(flat_samples)
     n = length(new_smpls_v)
     new_logd = similar(smpls.logd, n)
     exec_map!(checked_logdensityof(m), BAT.default_executor(), new_logd, new_smpls_v)

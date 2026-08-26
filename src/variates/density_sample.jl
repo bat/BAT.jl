@@ -182,9 +182,9 @@ function DensitySampleVector(
 )
     if weight == :multiplicity
         idxs, weight = repetition_to_weights(v)
-        return DensitySampleVector((ArrayOfSimilarArrays(v[idxs]), logval[idxs], weight, info[idxs], aux[idxs]))
+        return DensitySampleVector((convert(ArrayOfSimilarArrays, v[idxs]), logval[idxs], weight, info[idxs], aux[idxs]))
     else
-        return DensitySampleVector((ArrayOfSimilarArrays(v), logval, weight, info, aux))
+        return DensitySampleVector((convert(ArrayOfSimilarArrays, v), logval, weight, info, aux))
     end
 end
 

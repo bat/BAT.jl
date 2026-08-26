@@ -8,7 +8,7 @@ function _cov_with_fallback(d::UnivariateDistribution, n::Integer)
         C[:] = Diagonal(fill(var(d),n))
     catch err
         if err isa MethodError
-            C[:] = Diagonal(fill(var(nestedview(rand(rng, d, 10^5))),n))
+            C[:] = Diagonal(fill(var(VectorOfSimilarVectors(rand(rng, d, 10^5))),n))
         else
             throw(err)
         end
@@ -29,7 +29,7 @@ function _cov_with_fallback(d::MultivariateDistribution, n::Integer)
         C[:] = cov(d)
     catch err
         if err isa MethodError
-            C[:] = cov(nestedview(rand(rng, d, 10^5)))
+            C[:] = cov(VectorOfSimilarVectors(rand(rng, d, 10^5)))
         else
             throw(err)
         end
@@ -53,7 +53,7 @@ function _mean_with_fallback(d::UnivariateDistribution, n::Integer)
         m[:] = fill(mean(d),n)
     catch err
         if err isa MethodError
-            m[:] = fill(mean(nestedview(rand(rng, d, 10^5))), n)
+            m[:] = fill(mean(VectorOfSimilarVectors(rand(rng, d, 10^5))), n)
         else
             throw(err)
         end
@@ -74,7 +74,7 @@ function _mean_with_fallback(d::MultivariateDistribution, n::Integer)
         m[:] = mean(d)
     catch err
         if err isa MethodError
-            m[:] = mean(nestedview(rand(rng, d, 10^5)))
+            m[:] = mean(VectorOfSimilarVectors(rand(rng, d, 10^5)))
         else
             throw(err)
         end

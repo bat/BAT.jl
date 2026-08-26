@@ -13,7 +13,7 @@ using StableRNGs
 
     # Primitive MCMC of flat distribution between [0, 0, 0] and [10, 5, 8]:
     rng = stblrng()
-    v = nestedview(ElasticArray{Float64, 2}(undef, 3, 0))
+    v = VectorOfSimilarVectors(ElasticArray{Float64, 2}(undef, 3, 0))
     push!(v, [0, 0, 0])
     for i in 1:(10^4 - 1)
         push!(v, clamp.(last(v) .+ randn(rng, 3), [0, 0, 0], [10, 5, 8]))
@@ -30,7 +30,7 @@ using StableRNGs
 
     @testset "bat_integrated_autocorr_len" begin
         dist = product_distribution([Normal() for i in 1:3])
-        data = @inferred(nestedview(rand(dist, 10^4)))
+        data = @inferred(VectorOfSimilarVectors(rand(dist, 10^4)))
         @test isapprox(@inferred(bat_integrated_autocorr_len(data, BATContext())).result, ones(length(dist)), rtol=0.2)
     end
 

@@ -269,7 +269,7 @@ function _trafo_create_unshaped_ys(f, xs, y_shape::AbstractValueShape)
     cpunit = get_compute_unit(xs)
     m = totalndof(y_shape)
     n = length(eachindex(xs))
-    return nestedview(allocate_array(cpunit, R, (m, n)))
+    return VectorOfSimilarVectors(allocate_array(cpunit, R, (m, n)))
 end
 
 

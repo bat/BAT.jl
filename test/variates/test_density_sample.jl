@@ -93,7 +93,7 @@ _SampleAux() = _SampleInfo(0)
         gs = GaussianShell(n=5)
         x1 = rand(5)
         x2 = rand(5)
-        v_gs = ArrayOfSimilarArrays([x1, x2])
+        v_gs = convert(ArrayOfSimilarArrays, [x1, x2])
         logd_gs = [logpdf(gs, x1), logpdf(gs, x2)]
 
         dsv_gs1 = DensitySampleVector(v_gs, logd_gs, weight=[1,1])

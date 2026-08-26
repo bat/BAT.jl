@@ -79,7 +79,7 @@ end
 
 _to_flat_array(A::AbstractArray{<:Real}) = convert(Array, A)
 _to_flat_array(A::ArrayOfSimilarArrays) = _to_flat_array(flatview(A))
-_to_flat_array(A::AbstractArray{<:AbstractArray{<:Real}}) = _to_flat_array(ArrayOfSimilarArrays(A))
+_to_flat_array(A::AbstractArray{<:AbstractArray{<:Real}}) = _to_flat_array(convert(ArrayOfSimilarArrays, A))
 
 const _AnyRealArrayOrArrays = Union{AbstractArray{<:Real},AbstractArray{<:AbstractArray{<:Real}}}
 
@@ -239,7 +239,7 @@ _h5io_read_postprocess_samples(v::AbstractVector) = v
 
 function _h5io_read_postprocess_samples(v::TypedTables.Table)
     shp = _infer_vs_from_table(v)
-    unshaped_v = VectorOfSimilarVectors(unshaped.(v, Ref(shp)))
+    unshaped_v = convert(VectorOfSimilarVectors, unshaped.(v, Ref(shp)))
     shp.(unshaped_v)
 end
 
