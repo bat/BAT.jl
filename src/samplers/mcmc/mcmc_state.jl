@@ -34,6 +34,10 @@ mutable struct MCMCChainState{
 end
 export MCMCChainState
 
+_contains_hamiltonian_mc(proposal::MCMCProposal) =
+    proposal isa HamiltonianMC ||
+    (proposal isa MCMCMultiProposal && any(_contains_hamiltonian_mc, proposal.proposals))
+
 function MCMCChainState(
     samplingalg::TransformedMCMC,
     target::BATMeasure,
@@ -44,7 +48,7 @@ function MCMCChainState(
     n_walkers = length(x_init)
     target_unevaluated = unevaluated(target)
 
-    if samplingalg.proposal isa HamiltonianMC && samplingalg.sample_weighting isa ARPWeighting
+    if _contains_hamiltonian_mc(samplingalg.proposal) && samplingalg.sample_weighting isa ARPWeighting
         throw(ArgumentError(
             "ARPWeighting is not valid for HamiltonianMC: the NUTS acceptance statistic is a trajectory average, not the selection probability of the returned state"
         ))

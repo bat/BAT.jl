@@ -152,12 +152,28 @@ import ForwardDiff, Zygote
     @testset "invalid configurations" begin
         # ARPWeighting is statistically invalid for NUTS: the acceptance
         # statistic is a trajectory average, not a selection probability.
-        alg_arp = TransformedMCMC(
-            proposal = HamiltonianMC(),
-            sample_weighting = ARPWeighting(),
-            pretransform = DoNotTransform()
+        arp_alg(proposal) = TransformedMCMC(
+            proposal = proposal, sample_weighting = ARPWeighting(), pretransform = DoNotTransform()
         )
-        @test_throws ArgumentError BAT.MCMCState(alg_arp, target, 1, [randn(3)], deepcopy(context))
+        multi(a, b) = MCMCMultiProposal(
+            proposals = BAT.MCMCProposal[a, b], picking_rule = [1, 1]
+        )
+        hmc_multi = multi(RandomWalk(), HamiltonianMC())
+        proposals_with_hmc = (
+            HamiltonianMC(),
+            multi(HamiltonianMC(), RandomWalk()),
+            hmc_multi,
+            multi(RandomWalk(), hmc_multi)
+        )
+        for proposal in proposals_with_hmc
+            test_context = deepcopy(context)
+            reference_context = deepcopy(test_context)
+            @test_throws ArgumentError BAT.MCMCState(arp_alg(proposal), target, 1, [zeros(3)], test_context)
+            @test rand(test_context.rng) == rand(reference_context.rng)
+        end
+
+        mh_multi = multi(RandomWalk(), MALAProposal())
+        @test BAT.MCMCState(arp_alg(mh_multi), target, 1, [zeros(3)], deepcopy(context)) isa BAT.MCMCState
     end
 
     @testset "bat_sample" begin
