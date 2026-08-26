@@ -105,7 +105,11 @@ ZygoteRules.@adjoint checked_logdensityof(target, v) = begin
         @rethrow_logged EvalException(logdensityof, target, v, err)
     end
     _check_density_logval(target, v, logval)
-    eval_logval_pullback(logval::Real) = (nothing, first(back(logval)))
+    function eval_logval_pullback(logval::Real)
+        tangents = back(logval)
+        tangent = isnothing(tangents) ? nothing : first(tangents)
+        (nothing, isnothing(tangent) && v isa AbstractArray{<:Real} ? zero(v) : tangent)
+    end
     (logval, eval_logval_pullback)
 end
 
