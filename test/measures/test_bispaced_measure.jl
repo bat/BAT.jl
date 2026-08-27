@@ -127,6 +127,64 @@ BAT.getproposal(::_BSTestSampleGen) = nothing
         @test em9.f_transform === f
     end
 
+    @testset "cached views keep live empirical weights" begin
+        for intent in (NormalBased(), UniformBased()), seed in (7, 4711, 892374)
+            m_z, f_view = BAT.transform_and_unshape(intent, m, context)
+            view_xs = rand(Xoshiro(seed), m^2)
+            view_smpls = DensitySampleVector(
+                v = view_xs,
+                logd = logdensityof(m).(view_xs),
+                weight = [1.0, 1.0],
+            )
+            view_dsm = DensitySampleMeasure(view_smpls, dof = getdof(m))
+            view_smpls_z = BAT.transform_samples(f_view, view_smpls)
+            @test view_smpls_z.weight !== view_smpls.weight
+
+            shared_pair = BAT._viewrep_empirical(
+                view_dsm, view_smpls_z, f_view, intent, getdof(m), nothing,
+            )
+            @test BAT.samplesof(shared_pair.main).weight === BAT.samplesof(shared_pair.transformed).weight
+            shared_em = EvaluatedMeasure(
+                m,
+                transform_intent = intent,
+                f_transform = f_view,
+                empirical = shared_pair,
+                transformed = m_z,
+            )
+            BAT.samplesof(shared_em).weight .= [0.0, 2.0]
+            shared_z, _ = BAT.transform_and_unshape(intent, shared_em, context)
+            @test BAT.samplesof(shared_z).weight == [0.0, 2.0]
+            @test empiricalof(shared_z) === shared_pair.transformed
+            @test BAT.validate_evalmeasure(shared_em, context = context) === shared_em
+            shared_direct = bat_transform(intent, shared_em, PriorSubstitution(), context)
+            @test BAT.samplesof(shared_direct.result).weight == [0.0, 2.0]
+
+            external_smpls = DensitySampleVector(view_dsm)
+            external_smpls.weight .= [1.0, 1.0]
+            external_dsm = DensitySampleMeasure(external_smpls, dof = getdof(m))
+            external_smpls_z = BAT.transform_samples(f_view, external_smpls)
+            external_pair = BispacedMeasure(
+                external_dsm,
+                DensitySampleMeasure(external_smpls_z, dof = getdof(m)),
+                hash(f_view),
+            )
+            external_em = EvaluatedMeasure(
+                m,
+                transform_intent = intent,
+                f_transform = f_view,
+                empirical = external_pair,
+                transformed = m_z,
+            )
+            BAT.samplesof(external_em).weight .= [0.0, 2.0]
+            external_z, _ = BAT.transform_and_unshape(intent, external_em, context)
+            @test BAT.samplesof(external_z).weight == [0.0, 2.0]
+            @test empiricalof(external_z) !== external_pair.transformed
+            external_direct = bat_transform(intent, external_em, PriorSubstitution(), context)
+            @test BAT.samplesof(external_direct.result).weight == [0.0, 2.0]
+            @test empiricalof(external_direct.result) !== external_pair.transformed
+        end
+    end
+
     @testset "unshaped transports the pairs" begin
         em = EvaluatedMeasure(m, transform_intent = NormalBased(), f_transform = f, empirical = p)
         uem = unshaped(em, vs)
@@ -137,6 +195,11 @@ BAT.getproposal(::_BSTestSampleGen) = nothing
         # re-stamped for the correspondingly composed transformation:
         @test uem.empirical.transformed === dsm_z
         @test uem.empirical.f_hash == hash(uem.f_transform)
+
+        shared_p = BAT._viewrep_empirical(dsm, smpls_z, f, NormalBased(), getdof(m), nothing)
+        shared_em = EvaluatedMeasure(m, transform_intent = NormalBased(), f_transform = f, empirical = shared_p)
+        shared_uem = unshaped(shared_em, vs)
+        @test BAT.samplesof(shared_uem.empirical.main).weight === BAT.samplesof(shared_uem.empirical.transformed).weight
     end
 
     @testset "resampling keeps the pair coherent" begin
@@ -147,6 +210,7 @@ BAT.getproposal(::_BSTestSampleGen) = nothing
         @test em_r.transform_intent === NormalBased()
         @test length(BAT.samplesof(pr.main)) == 50
         @test length(BAT.samplesof(pr.transformed)) == 50
+        @test BAT.samplesof(pr.main).weight === BAT.samplesof(pr.transformed).weight
         # Shared indices: the transformed samples are the transforms of the
         # main samples, in the same order:
         @test f.(BAT.samplesof(pr.main).v) == BAT.samplesof(pr.transformed).v

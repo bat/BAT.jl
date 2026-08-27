@@ -525,8 +525,13 @@ ValueShapes.unshaped(em::EvaluatedMeasure, vs::ConstValueShape) =
 _unshaped_pair(::Nothing, ::AbstractValueShape, ::UInt, ::UInt) = nothing
 
 function _unshaped_pair(p::BispacedMeasure, vs::AbstractValueShape, old_f_hash::UInt, new_f_hash::UInt)
+    main = unshaped(p.main, vs)
+    if _has_pair_annex(p) && p.main isa DensitySampleMeasure &&
+            p.transformed isa DensitySampleMeasure && _empirical_weights_shared(p)
+        main = _with_sample_weights(main, samplesof(p.transformed).weight)
+    end
     BispacedMeasure(
-        unshaped(p.main, vs), p.transformed,
+        main, p.transformed,
         _has_pair_annex(p) && p.f_hash == old_f_hash ? new_f_hash : UInt(0)
     )
 end
@@ -737,7 +742,11 @@ end
 _viewrep_empirical(dsm::DensitySampleMeasure, ::DensitySampleVector, ::Any, ::DoNotTransform, n_dof, ess) = dsm
 
 function _viewrep_empirical(dsm::DensitySampleMeasure, smpls_z::DensitySampleVector, f_pretransform::Any, ::TransformIntent, n_dof, ess)
-    BispacedMeasure(dsm, DensitySampleMeasure(smpls_z, dof = n_dof, ess = ess), hash(f_pretransform))
+    dsm_z = _with_sample_weights(
+        DensitySampleMeasure(smpls_z, dof = n_dof, ess = ess),
+        samplesof(dsm).weight,
+    )
+    BispacedMeasure(dsm, dsm_z, hash(f_pretransform))
 end
 
 _viewrep_measure(::BATMeasure, ::DoNotTransform) = unchanged

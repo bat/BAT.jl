@@ -138,6 +138,18 @@ ValueShapes.unshaped(dsm::DensitySampleMeasure, vs::ConstValueShape) =
 @inline samplesof(dsm::DensitySampleMeasure) = dsm._smpls
 
 
+# Empirical representations of one pushforward share probability masses.
+function _with_sample_weights(dsm::DensitySampleMeasure, weights::AbstractVector{<:Real})
+    smpls = samplesof(dsm)
+    smpls.weight === weights && return dsm
+    new_smpls = DensitySampleVector((smpls.v, smpls.logd, weights, smpls.info, smpls.aux))
+    return DensitySampleMeasure(new_smpls, dsm._dof, dsm._ess, dsm._mass)
+end
+
+_empirical_weights_shared(p::BispacedMeasure{<:DensitySampleMeasure,<:DensitySampleMeasure}) =
+    samplesof(p.main).weight === samplesof(p.transformed).weight
+
+
 # Reweighting shifts the recorded density values of the samples along with
 # the mass, so that the sample logd stays consistent with the density of
 # the reweighted measure (sample logd is allowed to be NaN, e.g. after
@@ -257,11 +269,13 @@ _without_sampleids(p::BispacedMeasure) =
 # of a BispacedMeasure empirical, so the pair stays coherent without any
 # transform work:
 function _unweighted_resampling_byidxs(p::BispacedMeasure, resampled_idxs::AbstractVector{<:Integer})
-    BispacedMeasure(
-        _unweighted_resampling_byidxs(p.main, resampled_idxs),
-        isnothing(p.transformed) ? nothing : _unweighted_resampling_byidxs(p.transformed, resampled_idxs),
-        p.f_hash
-    )
+    main = _unweighted_resampling_byidxs(p.main, resampled_idxs)
+    transformed = isnothing(p.transformed) ? nothing :
+        _with_sample_weights(
+            _unweighted_resampling_byidxs(p.transformed, resampled_idxs),
+            samplesof(main).weight,
+        )
+    BispacedMeasure(main, transformed, p.f_hash)
 end
 
 function _unweighted_resampling_byidxs(dsm::DensitySampleMeasure, resampled_idxs::AbstractVector{<:Integer})

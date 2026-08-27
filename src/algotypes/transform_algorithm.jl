@@ -256,7 +256,8 @@ _transformed_empirical(::Bool, ::UInt, ::Nothing, new_measure, f_transform, ::BA
 # intent-transformed measure need not be unshaped (e.g. scalar variates),
 # so the shortcut additionally requires the variate shapes to coincide:
 function _transformed_empirical(annexes_match::Bool, em_f_hash::UInt, p::BispacedMeasure, new_measure, f_transform, context::BATContext)
-    if annexes_match && !isnothing(p.transformed) && varshape(p.transformed) == varshape(new_measure)
+    if annexes_match && !isnothing(p.transformed) &&
+            _empirical_weights_shared(p) && varshape(p.transformed) == varshape(new_measure)
         p.f_hash == em_f_hash || _throw_pair_hash_mismatch("Empirical pair")
         BispacedMeasure(p.transformed)
     else
@@ -315,7 +316,10 @@ function _transform_and_unshape_cached(em::EvaluatedMeasure, intent::TransformIn
             !isnothing(em.unevaluated.transformed) && !isnothing(em.f_transform) &&
             !_pair_claims_mismatch(em.unevaluated, em_f_hash) &&
             !_pair_claims_mismatch(em.approx, em_f_hash) &&
-            (isnothing(em.empirical) || (_has_pair_annex(em.empirical) && !_pair_claims_mismatch(em.empirical, em_f_hash)))
+            (isnothing(em.empirical) || (
+                _has_pair_annex(em.empirical) && _empirical_weights_shared(em.empirical) &&
+                !_pair_claims_mismatch(em.empirical, em_f_hash)
+            ))
         new_em = EvaluatedMeasure(
             BispacedMeasure(em.unevaluated.transformed), DoNotTransform(), identity,
             _flip_empirical_annex(em.empirical), _transformed_approx(true, em_f_hash, em.approx, em.unevaluated.transformed),
