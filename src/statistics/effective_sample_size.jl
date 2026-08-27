@@ -153,7 +153,8 @@ function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::EffSamp
     n > 0 || throw(ArgumentError("Can't compute the effective sample size of an empty sample vector"))
 
     W = unshaped_smpls.weight
-    all(w -> w >= 0, W) && sum(W) > 0 || throw(ArgumentError("Effective sample size requires non-negative sample weights with a positive sum"))
+    valid_weights = all(w -> isfinite(w) && w >= zero(w), W) && any(w -> w > zero(w), W)
+    valid_weights || throw(ArgumentError("Effective sample size requires finite non-negative sample weights with positive mass"))
     w0 = first(W)
 
     # Autocorrelation ESS is a property of an ordered sampling process.

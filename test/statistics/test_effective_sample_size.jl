@@ -124,6 +124,9 @@ using StableRNGs
         @test bat_eff_sample_size(t2, EffSampleSizeFromAC(), context).result ≈
             bat_eff_sample_size(expanded_t2, EffSampleSizeFromAC(), context).result
 
+        tagged_inf = DensitySampleVector(v = u1.v, logd = u1.logd, weight = fill(Inf, n_u), info = u1.info)
+        @test_throws ArgumentError bat_eff_sample_size(tagged_inf, EffSampleSizeFromAC(), context)
+
         # Exact repeats created by systematic resampling retain process
         # provenance, independent of the input storage order:
         function repeated_walker(chainid, offset)
@@ -182,6 +185,10 @@ using StableRNGs
         @test bat_eff_sample_size(mk_smpls(w .* 1e300), KishESS(), context).result ≈ kish
         @test bat_eff_sample_size(mk_smpls(w .* 1e-300), KishESS(), context).result ≈ kish
         @test bat_eff_sample_size(mk_smpls([fill(typemax(Int), 99); 4]), KishESS(), context).result ≈ 99 rtol = 0.01
+
+        ac = bat_eff_sample_size(mk_smpls(ones(Int, 100)), EffSampleSizeFromAC(), context).result
+        @test bat_eff_sample_size(mk_smpls(fill(typemax(Int), 100)), EffSampleSizeFromAC(), context).result ≈ ac
+        @test_throws ArgumentError bat_eff_sample_size(mk_smpls(fill(Inf, 100)), EffSampleSizeFromAC(), context)
 
         # The canonical relative weights reject invalid input:
         @test BAT._canonical_rel_weights([2, 4, 8]) ≈ [0.25, 0.5, 1.0]
