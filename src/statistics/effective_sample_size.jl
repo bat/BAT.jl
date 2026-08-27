@@ -180,13 +180,22 @@ function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::EffSamp
 end
 
 
-# Per-sample MCMC ids identify the ordered sampling process (unique ids
-# only - multinomially resampled samples must not masquerade as ordered
-# chains, order-preserving systematic resampling keeps its ids):
+# Per-sample MCMC ids identify the ordered sampling process. Identical
+# repeats remain valid after order-preserving systematic resampling;
+# conflicting values for one process id do not:
 function _has_process_provenance(unshaped_smpls::DensitySampleVector)
     info = unshaped_smpls.info
     eltype(info) <: MCMCSampleID || return false
-    return allunique((id.chainid, id.walkerid, id.chaincycle, id.stepno) for id in info)
+    allunique((id.chainid, id.walkerid, id.chaincycle, id.stepno) for id in info) && return true
+
+    seen = Dict{Tuple{Int32,Int32,Int32,Int64},Int}()
+    for i in eachindex(info)
+        id = info[i]
+        key = (id.chainid, id.walkerid, id.chaincycle, id.stepno)
+        j = get!(seen, key, i)
+        isequal(unshaped_smpls.v[j], unshaped_smpls.v[i]) || return false
+    end
+    return true
 end
 
 # Exact process ESS from MCMC sample-id provenance: reconstruct each

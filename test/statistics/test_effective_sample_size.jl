@@ -124,6 +124,26 @@ using StableRNGs
         @test bat_eff_sample_size(t2, EffSampleSizeFromAC(), context).result ≈
             bat_eff_sample_size(expanded_t2, EffSampleSizeFromAC(), context).result
 
+        # Exact repeats created by systematic resampling retain process
+        # provenance, independent of the input storage order:
+        function repeated_walker(chainid, offset)
+            n = 200
+            vals = [[sin(i / 8) + offset] for i in 1:n]
+            ids = [BAT.MCMCSampleID(Int32(chainid), Int32(1), Int32(1), Int64(i), Int32(1), true) for i in 1:n]
+            DensitySampleVector(v = vals, logd = zeros(n), weight = fill(2, n), info = ids)
+        end
+        repeated = vcat(repeated_walker(1, 0.0), repeated_walker(2, 0.15))
+        repeated_perm = sortperm(rand(StableRNG(33), length(repeated)))
+        resampling = SystematicResampling(nsamples = 800)
+        resampled_ordered = samplesof(evalmeasure(repeated, resampling, BATContext(rng = StableRNG(44))))
+        resampled_shuffled = samplesof(evalmeasure(repeated[repeated_perm], resampling, BATContext(rng = StableRNG(44))))
+        for resampled in (resampled_ordered, resampled_shuffled)
+            @test length(resampled) == 800
+            @test all(isone, resampled.weight)
+            @test BAT._has_process_provenance(resampled)
+            @test only(bat_eff_sample_size(resampled, EffSampleSizeFromAC(), context).result) ≈ 24.588625082911854
+        end
+
         # Provenance-driven algorithm defaults: process ESS for tagged or
         # uniformly weighted samples, Kish ESS for nonuniformly weighted
         # samples without process provenance:
@@ -136,6 +156,7 @@ using StableRNGs
         # nonuniform weights fall back to Kish:
         dup_ids = fill(BAT.MCMCSampleID(Int32(1), Int32(1), Int32(1), Int64(1), Int32(1), true), length(eachindex(merged)))
         degenerate = DensitySampleVector(v = merged.v, logd = merged.logd, weight = float.(merged.weight), info = dup_ids)
+        @test !BAT._has_process_provenance(degenerate)
         @test bat_default(bat_eff_sample_size, Val(:algorithm), degenerate) isa KishESS
     end
 
