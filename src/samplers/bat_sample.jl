@@ -131,8 +131,9 @@ function evalmeasure_impl(em::EvaluatedMeasure, algorithm::Union{RandResampling,
 end
 
 function _resampled_empirical(p::BispacedMeasure, algorithm::SystematicResampling, context::BATContext)
-    resampled_idxs = _systematic_resampling_idxs(samplesof(p.main), algorithm.nsamples, context)
-    return _unweighted_resampling_byidxs(p, resampled_idxs)
+    resampled_idxs, is_identity =
+        _systematic_resampling_idxs(samplesof(p.main), algorithm.nsamples, context)
+    return _unweighted_resampling_byidxs(p, resampled_idxs; preserve_ess = is_identity)
 end
 
 function _systematic_resampling_idxs(smpls::DensitySampleVector, n::Integer, context::BATContext)
@@ -154,7 +155,11 @@ function _systematic_resampling_idxs(smpls::DensitySampleVector, n::Integer, con
     resampled_idxs = Vector{Int}(undef, n)
     j = 0
     cw = zero(float(eltype(W)))
+    # Equal weights at the same size select each row once, so systematic
+    # resampling adds no conditional variance:
+    is_identity = n == length(W) && !isempty(W)
     for i in eachindex(W)
+        is_identity &= isone(W[i])
         cw += W[i]
         thresh = cw * n / W_total
         while j < n && u + j < thresh
@@ -168,5 +173,5 @@ function _systematic_resampling_idxs(smpls::DensitySampleVector, n::Integer, con
         resampled_idxs[j] = lastindex(W)
     end
 
-    return resampled_idxs
+    return resampled_idxs, is_identity
 end

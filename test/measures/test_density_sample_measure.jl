@@ -4,6 +4,7 @@ using BAT
 using Test
 
 using Random
+using StableRNGs: StableRNG
 using DensityInterface, MeasureBase, ValueShapes
 using Distributions, Statistics, StatsBase, IntervalSets
 using MeasureBase: weightedmeasure
@@ -127,7 +128,35 @@ using BAT: DensitySampleMeasure, samplesof, empiricalof, getess
         @test length(rsmpls) == 500
         @test all(==(1), rsmpls.weight)
         @test all(in(smpls.v), rsmpls.v)
-        @test getess(empiricalof(em_rand)) <= getess(dsm)
+        @test getess(empiricalof(em_rand)) == n * 500 / (n + 500)
+
+        identity_smpls = DensitySampleVector(
+            v = [1.0, 2.0, 3.0], logd = [-1.0, -2.0, -3.0], weight = fill(2.0, 3)
+        )
+        identity_dsm = DensitySampleMeasure(identity_smpls, ess = 2.5, mass = 3.0)
+        identity_out = empiricalof(evalmeasure(
+            identity_dsm,
+            SystematicResampling(nsamples = 3),
+            BATContext(rng = StableRNG(1)),
+        ))
+        @test samplesof(identity_out).v == identity_smpls.v
+        @test samplesof(identity_out).logd == identity_smpls.logd
+        @test all(isone, samplesof(identity_out).weight)
+        @test massof(identity_out) == massof(identity_dsm)
+        @test getess(identity_out) == getess(identity_dsm)
+
+        # Matching indices alone do not remove the resampling variance:
+        nonuniform_smpls = DensitySampleVector(
+            v = [1.0, 2.0], logd = [-1.0, -2.0], weight = [0.6, 0.4]
+        )
+        nonuniform_dsm = DensitySampleMeasure(nonuniform_smpls, ess = 2.0)
+        nonuniform_out = empiricalof(evalmeasure(
+            nonuniform_dsm,
+            SystematicResampling(nsamples = 2),
+            BATContext(rng = StableRNG(1)),
+        ))
+        @test samplesof(nonuniform_out).v == nonuniform_smpls.v
+        @test getess(nonuniform_out) == 1.0
 
         # Order-preserving systematic resampling keeps MCMC sample-id
         # provenance, multinomial resampling destroys the process order

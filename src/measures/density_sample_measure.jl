@@ -268,17 +268,25 @@ _without_sampleids(p::BispacedMeasure) =
 # Index-based resampling applies the same indices to both representations
 # of a BispacedMeasure empirical, so the pair stays coherent without any
 # transform work:
-function _unweighted_resampling_byidxs(p::BispacedMeasure, resampled_idxs::AbstractVector{<:Integer})
-    main = _unweighted_resampling_byidxs(p.main, resampled_idxs)
+function _unweighted_resampling_byidxs(
+    p::BispacedMeasure,
+    resampled_idxs::AbstractVector{<:Integer};
+    preserve_ess::Bool = false,
+)
+    main = _unweighted_resampling_byidxs(p.main, resampled_idxs; preserve_ess)
     transformed = isnothing(p.transformed) ? nothing :
         _with_sample_weights(
-            _unweighted_resampling_byidxs(p.transformed, resampled_idxs),
+            _unweighted_resampling_byidxs(p.transformed, resampled_idxs; preserve_ess),
             samplesof(main).weight,
         )
     BispacedMeasure(main, transformed, p.f_hash)
 end
 
-function _unweighted_resampling_byidxs(dsm::DensitySampleMeasure, resampled_idxs::AbstractVector{<:Integer})
+function _unweighted_resampling_byidxs(
+    dsm::DensitySampleMeasure,
+    resampled_idxs::AbstractVector{<:Integer};
+    preserve_ess::Bool = false,
+)
     smpls = samplesof(dsm)
     picked = smpls[resampled_idxs]
     # Rebuild instead of overwriting the weights, the weight vector may be
@@ -289,11 +297,10 @@ function _unweighted_resampling_byidxs(dsm::DensitySampleMeasure, resampled_idxs
         picked.info, picked.aux,
     ))
     old_ess = getess(dsm)
-    # Resampling n_new draws with replacement from a population carrying
-    # old_ess effective draws yields about old_ess * n_new / (n_new + old_ess)
-    # effective draws (bounded by both old_ess and n_new); the stored entry
-    # counts themselves say nothing about effective information:
+    # Random resampling adds conditional Monte Carlo variance, giving the
+    # approximate effective count below. Identity systematic resampling
+    # adds none:
     n_new = length(new_samples)
-    new_ess = isnothing(old_ess) ? nothing : old_ess * n_new / (n_new + old_ess)
+    new_ess = preserve_ess || isnothing(old_ess) ? old_ess : old_ess * n_new / (n_new + old_ess)
     return DensitySampleMeasure(new_samples, dof = dsm._dof, ess = new_ess, mass = massof(dsm))
 end
