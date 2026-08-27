@@ -300,7 +300,7 @@ function _repetition_exact_ess(smpls::DensitySampleVector, algorithm::EffSampleS
         return bat_eff_sample_size_impl(unshaped_smpls.v, algorithm, context).result
     elseif N_expanded * n_dof <= 5 * 10^7
         idxs = inverse_rle(eachindex(W), Int.(W))
-        expanded_v = nestedview(flatview(unshaped_smpls.v)[:, idxs])
+        expanded_v = VectorOfSimilarVectors(flatview(unshaped_smpls.v)[:, idxs])
         return bat_eff_sample_size_impl(expanded_v, algorithm, context).result
     else
         # Chain too large to decode, fall back to the resampling

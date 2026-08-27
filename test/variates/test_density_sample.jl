@@ -194,7 +194,7 @@ _SampleAux() = _SampleInfo(0)
             @test quantile_big == big"1.0"
             @test quantile_big isa BigFloat
 
-            vector_values = ArrayOfSimilarArrays([Float32[-1, 0], Float32[1, 2]])
+            vector_values = convert(ArrayOfSimilarArrays, [Float32[-1, 0], Float32[1, 2]])
             vector_samples = DensitySampleVector(
                 v = vector_values,
                 logd = zeros(Float32, 2),
@@ -224,7 +224,7 @@ _SampleAux() = _SampleInfo(0)
         @test @inferred(isapprox(@inferred(cor(X, w, 2)), @inferred(cor(dsv_merged)), rtol=rtol))
 
         @testset "weighted statistics ignore global weight scale" begin
-            values = ArrayOfSimilarArrays([[0.0, 0.0], [2.0, 4.0]])
+            values = convert(ArrayOfSimilarArrays, [[0.0, 0.0], [2.0, 4.0]])
             for weights in ([typemax(Int), typemax(Int)], [1e308, 1e308], [1e-320, 1e-320])
                 samples = DensitySampleVector(v = values, logd = zeros(2), weight = weights)
                 @test mean(samples) ≈ [1.0, 2.0]

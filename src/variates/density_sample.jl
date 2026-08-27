@@ -179,8 +179,8 @@ DensitySampleVector(::Type{S}, varlen::Integer) where {P<:AbstractVector{<:Real}
 
 
 _canonical_variates(xs::VectorOfSimilarArrays) = xs
-_canonical_variates(xs::AbstractSlices) = VectorOfSimilarArrays(xs)
-_canonical_variates(xs::AbstractVector{<:AbstractArray}) = VectorOfSimilarArrays(xs)
+_canonical_variates(xs::AbstractSlices) = convert(VectorOfSimilarArrays, xs)
+_canonical_variates(xs::AbstractVector{<:AbstractArray}) = convert(VectorOfSimilarArrays, xs)
 _canonical_variates(xs::AbstractVector{<:Real}) = xs
 _canonical_variates(xs::AbstractVector{<:NamedTuple}) = StructVector(xs)
 _canonical_variates(xs::StructVector) = xs

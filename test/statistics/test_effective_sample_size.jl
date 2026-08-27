@@ -38,7 +38,7 @@ using StableRNGs
         # run-length-decoded ordered chain:
         rng2 = stblrng()
         n_runs = 500
-        vals = nestedview(ElasticArray{Float64, 2}(undef, 2, 0))
+        vals = VectorOfSimilarVectors(ElasticArray{Float64, 2}(undef, 2, 0))
         push!(vals, [0.0, 0.0])
         for _ in 1:(n_runs - 1)
             push!(vals, last(vals) .+ randn(rng2, 2))
@@ -46,14 +46,14 @@ using StableRNGs
         weights = rand(rng2, 1:5, n_runs)
         smpls_rle = DensitySampleVector(v = vals, logd = zeros(n_runs), weight = weights)
 
-        expanded = nestedview(flatview(vals)[:, inverse_rle(1:n_runs, weights)])
+        expanded = VectorOfSimilarVectors(flatview(vals)[:, inverse_rle(1:n_runs, weights)])
         ess_rle = BAT._repetition_exact_ess(smpls_rle, EffSampleSizeFromAC(), context)
         ess_expanded = bat_eff_sample_size(expanded, EffSampleSizeFromAC(), context).result
         @test ess_rle ≈ ess_expanded
 
         # Uniform repetition counts greater than one also decode:
         smpls_unif = DensitySampleVector(v = vals, logd = zeros(n_runs), weight = fill(2, n_runs))
-        expanded_unif = nestedview(flatview(vals)[:, inverse_rle(1:n_runs, fill(2, n_runs))])
+        expanded_unif = VectorOfSimilarVectors(flatview(vals)[:, inverse_rle(1:n_runs, fill(2, n_runs))])
         @test BAT._repetition_exact_ess(smpls_unif, EffSampleSizeFromAC(), context) ≈
             bat_eff_sample_size(expanded_unif, EffSampleSizeFromAC(), context).result
 
@@ -71,7 +71,7 @@ using StableRNGs
         # sample ids, merged and shuffled - the per-sample provenance
         # reconstructs the exact ordered sequences:
         function mk_walker(rng, chainid, n)
-            vals_w = nestedview(ElasticArray{Float64, 2}(undef, 2, 0))
+            vals_w = VectorOfSimilarVectors(ElasticArray{Float64, 2}(undef, 2, 0))
             push!(vals_w, [0.0, 0.0])
             for _ in 1:(n - 1)
                 push!(vals_w, last(vals_w) .+ randn(rng, 2))
@@ -120,7 +120,7 @@ using StableRNGs
         # the expanded ordered chain:
         n_u = length(eachindex(u1))
         t2 = DensitySampleVector(v = u1.v, logd = u1.logd, weight = fill(2, n_u), info = u1.info)
-        expanded_t2 = nestedview(flatview(u1.v)[:, inverse_rle(1:n_u, fill(2, n_u))])
+        expanded_t2 = VectorOfSimilarVectors(flatview(u1.v)[:, inverse_rle(1:n_u, fill(2, n_u))])
         @test bat_eff_sample_size(t2, EffSampleSizeFromAC(), context).result ≈
             bat_eff_sample_size(expanded_t2, EffSampleSizeFromAC(), context).result
 
