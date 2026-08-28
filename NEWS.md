@@ -1,6 +1,48 @@
 BAT.jl Release Notes
 ====================
 
+BAT.jl v5.0.0
+-------------
+
+### Migration from v4
+
+Evaluation now uses `evalmeasure_impl` as the common extension and result path.
+Replace `bat_sample_impl`, `bat_integrate_impl`, and `bat_findmode_impl`
+extensions with `BAT.evalmeasure_impl(em::BAT.EvaluatedMeasure, algorithm,
+context::BATContext)`. Return an updated `EvaluatedMeasure` for the same
+underlying measure, with backend data in `evalinfo`:
+
+```julia
+return BAT.EvaluatedMeasure(em; evalinfo = BAT.MeasureEvalInfo(algorithm, backend_data))
+```
+
+The `bat_sample`, `bat_integrate`, and `bat_findmode` wrappers still return
+standard `optargs`; `.result` remains the primary output. Use `evalmeasure` and
+accessors for the evaluated measure, samples, mass, modes, and backend data:
+
+```julia
+em = evalmeasure(target, algorithm)
+samples = samplesof(em); integral = massof(em)
+one_mode, all_modes = mode(em), modes(em)
+backend_data = evalinfo(em).result
+```
+
+For mode finding, `OptimAlg` and `OptimizationAlg` now select only the
+optimization backend. Move `pretransform` and `init` to `TransformedMaxDensity`:
+
+```julia
+TransformedMaxDensity(
+    optalg = OptimAlg(optalg = optalg), pretransform = pretransform, init = init
+)
+```
+
+The AdvancedHMC extension has been removed. Use BAT's native `HamiltonianMC`
+proposal with `TransformedMCMC` and revisit AdvancedHMC-specific configuration.
+
+Prefer stable accessors over direct `EvaluatedMeasure` fields:
+`samplesof`, `empiricalof`, `approxof`, `samplegenof`, `getess`, `massof`,
+`getdof`, `mode`, `modes`, `evalinfo`, and `unevaluated`.
+
 BAT.jl v4.0.0
 -------------
 
