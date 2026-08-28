@@ -140,16 +140,20 @@ function _get_proposal_picking_probabilities(picking_rule::Vector)
     return picking_rule ./ sum(picking_rule) 
 end
 
-function get_tuning_success(
+get_tuning_success(
     chain_state::MCMCChainState,
-    multi_proposal::MultiProposalState
-)
-    component_eff_acc= detailed_eff_acceptance_ratio(chain_state)
-    component_acc_ints = get_target_acceptance_int.(multi_proposal.proposal_states)
+    multi_proposal::MultiProposalState,
+) = all(_component_acceptance_successes(chain_state, multi_proposal))
 
-    component_tuning_successes = [int[1] <= component_eff_acc[i] <= int[2] for (i, int) in enumerate(component_acc_ints)]
- 
-    return any(component_tuning_successes)
+function _component_acceptance_successes(
+    chain_state::MCMCChainState,
+    multi_proposal::MultiProposalState,
+)
+    component_acceptance_rates = detailed_eff_acceptance_ratio(chain_state)
+    component_target_intervals = get_target_acceptance_int.(multi_proposal.proposal_states)
+    return map(component_acceptance_rates, component_target_intervals) do acceptance, interval
+        first(interval) <= acceptance <= last(interval)
+    end
 end
 
 function _create_proposal_state(

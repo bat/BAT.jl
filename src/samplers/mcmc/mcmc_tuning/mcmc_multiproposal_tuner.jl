@@ -87,7 +87,6 @@ function mcmc_proposal_tuning_postinit!!(
 end
 
 
-# Make properly !!. In the for loop the proposals/tuners are overwritten
 function mcmc_tune_proposal_post_cycle!!(
     multi_proposal::MultiProposalState,
     multi_tuner::MultiProposalTunerState,
@@ -95,13 +94,11 @@ function mcmc_tune_proposal_post_cycle!!(
     samples::AbstractVector{<:DensitySampleVector}
 )
     proposals = multi_proposal.proposal_states
+    tuners = multi_tuner.proposal_tuners
     for i in eachindex(proposals)
-        proposal = proposals[i]
-        tuner = multi_tuner.proposal_tuners[i] 
-        
-        proposal, tuner, chain_state = mcmc_tune_proposal_post_cycle!!(
-            proposal,
-            tuner,
+        proposals[i], tuners[i], chain_state = mcmc_tune_proposal_post_cycle!!(
+            proposals[i],
+            tuners[i],
             chain_state,
             samples
         )
@@ -116,12 +113,12 @@ function mcmc_proposal_tuning_finalize!!(
     multi_tuner::MultiProposalTunerState, 
     chain_state::MCMCChainState
 )
-   proposals = multi_proposal.proposal_states
+    proposals = multi_proposal.proposal_states
+    tuners = multi_tuner.proposal_tuners
     for i in eachindex(proposals)
-        proposal = proposals[i]
-        tuner = multi_tuner.proposal_tuners[i] 
-
-        mcmc_proposal_tuning_finalize!!(proposal, tuner, chain_state) 
+        proposals[i], tuners[i], chain_state = mcmc_proposal_tuning_finalize!!(
+            proposals[i], tuners[i], chain_state,
+        )
     end
 
     return multi_proposal, multi_tuner, chain_state
@@ -145,7 +142,34 @@ function mcmc_tune_proposal_post_step!!(
         step_info
     )
 
-    multi_proposal = @set multi_proposal.proposal_states[active_idx] = active_proposal_tuned
+    multi_proposal = update_active_proposal!!(multi_proposal, active_proposal_tuned)
+    multi_tuner.proposal_tuners[active_idx] = active_tuner
 
     return multi_proposal, multi_tuner, chain_state
+end
+
+function get_tuning_success(
+    chain_state::MCMCChainState,
+    multi_proposal::MultiProposalState,
+    multi_tuner::MultiProposalTunerState,
+)
+    proposals = multi_proposal.proposal_states
+    tuners = multi_tuner.proposal_tuners
+    acceptance_rates = detailed_eff_acceptance_ratio(chain_state)
+    return all(eachindex(proposals)) do i
+        _component_tuning_success(chain_state, proposals[i], tuners[i], acceptance_rates[i])
+    end
+end
+
+_component_tuning_success(chain_state, proposal, tuner, acceptance) =
+    get_tuning_success(chain_state, proposal, tuner)
+
+function _component_tuning_success(
+    chain_state,
+    proposal,
+    ::NoMCMCProposalTunerState,
+    acceptance,
+)
+    lower, upper = get_target_acceptance_int(proposal)
+    return lower <= acceptance <= upper
 end

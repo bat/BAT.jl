@@ -101,10 +101,7 @@ function mcmc_proposal_tuning_finalize!!(
     tuner_state::AdaptiveMultiPropTunerState,
     chain_state::MCMCChainState
 )
-    component_eff_acc= detailed_eff_acceptance_ratio(chain_state)
-    component_acc_ints = get_target_acceptance_int.(multi_proposal.proposal_states)
-
-    component_tuning_successes = [int[1] <= component_eff_acc[i] <= int[2] for (i, int) in enumerate(component_acc_ints)]
+    component_tuning_successes = _component_acceptance_successes(chain_state, multi_proposal)
 
     picking_rule = multi_proposal.picking_rule
 
@@ -126,6 +123,12 @@ function mcmc_proposal_tuning_finalize!!(
 
     return multi_proposal, tuner_state, chain_state
 end
+
+get_tuning_success(
+    chain_state::MCMCChainState,
+    multi_proposal::MultiProposalState,
+    ::AdaptiveMultiPropTunerState,
+) = any(_component_acceptance_successes(chain_state, multi_proposal))
 
 function mcmc_tune_proposal_post_step!!(
     multi_proposal::MultiProposalState,

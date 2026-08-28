@@ -28,6 +28,7 @@ mutable struct MCMCChainState{
     accepted::Vector{Bool}
     info::MCMCChainStateInfo
     rngpart_cycle::PR
+    nattempts::Vector{Int64}
     nsamples::Vector{Int64}
     stepno::Int64
     context::CTX
@@ -112,6 +113,7 @@ function MCMCChainState(
     cycle::Int32 = 0
 
     n_proposals = proposal isa MultiProposalState ? length(proposal.proposal_states) : 1
+    nattempts = zeros(Int64, n_proposals)
     nsamples::Vector{Int64} = zeros(n_proposals)
 
     # The stored target is evaluated in the sampling hot loop, so it must be
@@ -130,6 +132,7 @@ function MCMCChainState(
         accepted,
         MCMCChainStateInfo(chainid, cycle, false, false),
         rngpart_cycle,
+        nattempts,
         nsamples,
         stepno,
         context
@@ -193,10 +196,7 @@ function eff_acceptance_ratio(chain_state::MCMCChainState)
     return nsamples(chain_state) / (nsteps(chain_state) * nwalkers(chain_state))
 end
 
-function detailed_eff_acceptance_ratio(chain_state::MCMCChainState)
-    active_proposal = get_active_proposal(chain_state.proposal)
-    return detailed_nsamples(chain_state) ./ (nsteps(chain_state) * nwalkers(chain_state))
-end
+detailed_eff_acceptance_ratio(state::MCMCChainState) = state.nsamples ./ state.nattempts
 
 
 function mcmc_step!!(mcmc_state::MCMCState)
@@ -222,6 +222,7 @@ function mcmc_step!!(mcmc_state::MCMCState)
     (;proposal, current, proposed, accepted, output) = chain_state
 
     active_prop_idx = get_active_proposal_idx(proposal)
+    chain_state.nattempts[active_prop_idx] += length(accepted)
     chain_state.nsamples[active_prop_idx] += sum(accepted)
 
     # Set weights according to acceptance
@@ -353,6 +354,7 @@ function next_cycle!(chain_state::MCMCChainState)
                                           chain_state.info.tuned,
                                           chain_state.info.converged
                                           )
+    chain_state.nattempts .= 0
     chain_state.nsamples .= 0
     chain_state.stepno = 0
 
