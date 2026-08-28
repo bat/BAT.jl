@@ -1,0 +1,12 @@
+[deps]
+BAT = "c0cd4b16-88b7-57fa-983b-ab80aecada7e"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+MGVI = "fdae7790-d271-4276-880d-f72bbddf129c"
+StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+MGVI = "0.6"
+
+[sources]
+BAT = {path = "../../.."}
