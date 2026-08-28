@@ -25,6 +25,7 @@ import ForwardDiff, Zygote
     samplingalg = TransformedMCMC(proposal = proposal, transform_tuning = transform_tuning, nchains = nchains, nwalkers = nwalkers)
 
     @testset "MCMC iteration" begin
+        context = BATContext(rng = Philox4x((564, 47)), ad = ForwardDiff)
         nsteps = 10^4
         nsteps_adapt = div(nsteps, 10)
 
@@ -72,6 +73,7 @@ import ForwardDiff, Zygote
     end
 
     @testset "MCMC tuning and burn-in" begin
+        context = BATContext(rng = Philox4x((564, 48)), ad = ForwardDiff)
         max_nsteps = 10^5
         transform_tuning = BAT.StanLikeTuning()
         pretransform = DoNotTransform()
@@ -177,6 +179,7 @@ import ForwardDiff, Zygote
     end
 
     @testset "bat_sample" begin
+        context = BATContext(rng = Philox4x((564, 49)), ad = ForwardDiff)
         samples = bat_sample(
             shaped_target,
             TransformedMCMC(
@@ -205,12 +208,14 @@ import ForwardDiff, Zygote
                 store_burnin = false
             ),
             objective,
-            context
+            BATContext(rng = Philox4x((564, 36)), ad = ForwardDiff),
+            max_retries = 0,
         )
         samples = smplres.result
         @test first(samples).info.chaincycle >= 2
         @test samples.v isa ShapedAsNTArray
         @test smplres.verified
+        @test smplres.n_retries == 0
     end
 
     @testset "MCMC sampling in transformed space" begin
@@ -224,7 +229,13 @@ import ForwardDiff, Zygote
                                             pretransform = NormalBased(),
                                             nwalkers = nwalkers
                                            )
-        @test BAT.sample_and_verify(posterior, trafo_samplingalg, prior.dist, context).verified
+        smplres = BAT.sample_and_verify(
+            posterior, trafo_samplingalg, prior.dist,
+            BATContext(rng = Philox4x((564, 37)), ad = ForwardDiff),
+            max_retries = 0,
+        )
+        @test smplres.verified
+        @test smplres.n_retries == 0
     end
 
     @testset "HMC autodiff" begin

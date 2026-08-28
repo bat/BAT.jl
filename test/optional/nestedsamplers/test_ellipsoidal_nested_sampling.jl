@@ -28,8 +28,9 @@ import NestedSamplers
     context = BATContext(rng = Xoshiro(564083))
     # Nested-sampling output is importance-weighted, so the sample
     # comparison must use Kish's ESS, not the autocorrelation-based one:
-    r = BAT.sample_and_verify(posterior, algorithm, dist, context, essalg = KishESS())
+    r = BAT.sample_and_verify(posterior, algorithm, dist, context, essalg = KishESS(), max_retries = 0)
     @test r.verified
+    @test r.n_retries == 0
 
     smpls = r.result
     @test logdensityof(posterior).(smpls.v) ≈ smpls.logd

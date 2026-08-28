@@ -3,20 +3,22 @@
 using BAT
 using Test
 
-using LinearAlgebra
+using LinearAlgebra, Random
 using ValueShapes, ArraysOfArrays, Distributions, MeasureBase
 using DensityInterface, InverseFunctions, ChangesOfVariables
 import ForwardDiff
+using Random123
 
 import Cuba
 using Optim
 
 
 @testset "bat_pushfwd_measure" begin
-    context = BATContext(ad = ForwardDiff)
+    context = BATContext(rng = Philox4x((564, 18)), ad = ForwardDiff)
 
     @testset "distribution transforms" begin
         function test_uv_transformed(target_type::Type{<:Distribution}, source_dist::Distribution)
+            context = BATContext(rng = Philox4x((564, 19)), ad = ForwardDiff)
             f_transform = BAT.DistributionTransform(target_type, source_dist)
             @testset "$(typeof(f_transform.source_dist))) to $(typeof(f_transform.target_dist))" begin
                 if target_type == Uniform
@@ -32,7 +34,7 @@ using Optim
                 @test @inferred(f_transform(source_x)) isa Real
                 target_x = f_transform(source_x)
 
-                source_X = rand(source_dist, 10^5)
+                source_X = rand(Xoshiro(564020), source_dist, 10^5)
                 target_X = @inferred broadcast(f_transform, source_X)
                 @test isapprox(@inferred(broadcast(inverse(f_transform), (target_X))), source_X, atol = 10^-8)
                 @test isapprox(mean(target_X), mean(target_dist), atol = 0.05)
@@ -87,20 +89,20 @@ using Optim
         @test isfinite(@inferred logdensityof(m)(@inferred(bat_initval(m, context)).result))
         @test isapprox(cov(@inferred(bat_initval(m, 10^4, context)).result), I(totalndof(varshape(m))), rtol = 0.1)
 
-        samples_is = bat_sample(m, TransformedMCMC(proposal = HamiltonianMC(), pretransform = DoNotTransform(), nsteps = 10^4), context).result
+        samples_is = bat_sample(m, TransformedMCMC(proposal = HamiltonianMC(), pretransform = DoNotTransform(), nsteps = 10^4), BATContext(rng = Philox4x((564, 21)), ad = ForwardDiff)).result
         @test isapprox(cov(samples_is), I(totalndof(varshape(m))), rtol = 0.1)
         samples_os = inverse(f_transform).(samples_is)
         @test all(isfinite, logpdf.(Ref(src_d), samples_os.v))
         @test isapprox(cov(unshaped.(samples_os)), cov(unshaped(src_d)), rtol = 0.1)
-        @test isapprox(mean(unshaped.(samples_os)), mean(rand(unshaped(src_d), 10^5), dims = 2), rtol = 0.1)
+        @test isapprox(mean(unshaped.(samples_os)), mean(rand(Xoshiro(564022), unshaped(src_d), 10^5), dims = 2), rtol = 0.1)
 
         primary_dist = NamedTupleDist(a = Normal(), b = Weibull(), c = 5)
         f_secondary = x -> NamedTupleDist(y = Normal(x.a, x.b), z = MvNormal([1.3 0.5; 0.5 2.2]))
         prior = HierarchicalDistribution(f_secondary, primary_dist)
         likelihood = logfuncdensity(logdensityof(varshape(prior)(MvNormal(Diagonal(fill(1.0, totalndof(varshape(prior))))))))
         m = PosteriorMeasure(likelihood, prior)
-        hmc_samples = bat_sample(m, TransformedMCMC(proposal = HamiltonianMC(), pretransform = NormalBased(), nsteps = 10^4), context).result
-        is_samples = bat_sample(m, PriorImportanceSampler(nsamples = 10^4), context).result
+        hmc_samples = bat_sample(m, TransformedMCMC(proposal = HamiltonianMC(), pretransform = NormalBased(), nsteps = 10^4), BATContext(rng = Philox4x((564, 23)), ad = ForwardDiff)).result
+        is_samples = bat_sample(m, PriorImportanceSampler(nsamples = 10^4), BATContext(rng = Philox4x((564, 24)), ad = ForwardDiff)).result
         # Compare the means on the scale of the distribution itself: most of
         # these variates have a mean close to zero, where a relative tolerance
         # demands far more precision than the Monte Carlo error allows.

@@ -4,9 +4,10 @@ using Test
 
 using LinearAlgebra
 using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
+using Random123
 
 @testset "RandomWalk" begin
-    context = BATContext()
+    context = BATContext(rng = Philox4x((564, 38)))
     objective = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
 
     shaped_target = @inferred(batmeasure(objective))
@@ -21,6 +22,7 @@ using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
     samplingalg = TransformedMCMC(nchains = nchains, nwalkers = nwalkers)
  
     @testset "MCMC iteration" begin
+        context = BATContext(rng = Philox4x((564, 50)))
         nsteps = 10^5
         nsteps_adapt = div(nsteps, 10)
 
@@ -59,6 +61,7 @@ using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
     end
  
     @testset "MCMC tuning and burn-in" begin
+        context = BATContext(rng = Philox4x((564, 51)))
         init_alg = MCMCChainPoolInit()
         tuning_alg = AdaptiveAffineTuning()
         burnin_alg = MCMCMultiCycleBurnin()
@@ -118,6 +121,7 @@ using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
     end
 
     @testset "bat_sample" begin
+        context = BATContext(rng = Philox4x((564, 52)))
         samples = bat_sample(
             shaped_target,
             TransformedMCMC(
@@ -136,12 +140,15 @@ using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
                 proposal = proposal,
                 pretransform = DoNotTransform()
             ),
-            objective
+            objective,
+            BATContext(rng = Philox4x((564, 39))),
+            max_retries = 0,
         )
         samples = smplres.result
         @test first(samples).info.chaincycle >= 2
         @test samples.v isa ShapedAsNTArray
         @test smplres.verified
+        @test smplres.n_retries == 0
     end
 
     @testset "MCMC sampling in transformed space" begin
@@ -150,6 +157,14 @@ using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
         inner_posterior = PosteriorMeasure(likelihood, prior)
         # Test with nested posteriors:
         posterior = PosteriorMeasure(likelihood, inner_posterior)
-        @test BAT.sample_and_verify(posterior, TransformedMCMC(proposal = RandomWalk(), pretransform = NormalBased()), prior.dist).verified
+        smplres = BAT.sample_and_verify(
+            posterior,
+            TransformedMCMC(proposal = RandomWalk(), pretransform = NormalBased()),
+            prior.dist,
+            BATContext(rng = Philox4x((564, 40))),
+            max_retries = 0,
+        )
+        @test smplres.verified
+        @test smplres.n_retries == 0
     end
 end

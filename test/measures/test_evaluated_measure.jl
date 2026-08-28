@@ -24,7 +24,7 @@ using ScopedSettings: unchanged
     @test @inferred(BAT.unevaluated(EvaluatedMeasure(dist))).dist === dist
 
     n = 100
-    xs = rand(Random.default_rng(), m^n)
+    xs = rand(Xoshiro(564003), m^n)
     xs_logd = logdensityof(m).(xs)
     smpls = DensitySampleVector(v = xs, logd = xs_logd)
     empirical_m = DensitySampleMeasure(smpls, dof = getdof(m))
@@ -53,7 +53,7 @@ using ScopedSettings: unchanged
 
     # The approximate statistics operate on unshaped measures:
     mf = batmeasure(MvNormal([0.4, 0.6], [2.0 1.2; 1.2 3.0]))
-    xs_f = rand(Random.default_rng(), mf^n)
+    xs_f = rand(Xoshiro(564004), mf^n)
     smpls_f = DensitySampleVector(v = xs_f, logd = logdensityof(mf).(xs_f))
     empirical_f = DensitySampleMeasure(smpls_f, dof = getdof(mf))
     em_f = EvaluatedMeasure(mf, empirical = empirical_f)

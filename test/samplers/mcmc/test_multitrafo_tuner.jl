@@ -36,8 +36,9 @@ using BAT: batmeasure, TriangularAffineTransform, NoMCMCTransformTuning
         nsteps = 5 * 10^4
     )
 
-    smplres = BAT.sample_and_verify(target, alg, objective, context)
+    smplres = BAT.sample_and_verify(target, alg, objective, context, max_retries = 0)
     @test smplres.verified
+    @test smplres.n_retries == 0
 
     # The tuned transform is a rebuilt chain (component updates are
     # functional, so the tuning orchestration resynchronized the chain

@@ -77,7 +77,6 @@ using BAT: MALAProposal, StepSizeAdaptor, LowRankAffineTransform,
     end
 
     @testset "sampling correctness" begin
-        context = BATContext(rng = Philox4x((564, 7)), ad = ForwardDiff)
         Σ = [1.0 0.6; 0.6 2.0]
         objective = MvNormal([1.0, -1.0], Σ)
 
@@ -86,9 +85,11 @@ using BAT: MALAProposal, StepSizeAdaptor, LowRankAffineTransform,
             batmeasure(objective),
             TransformedMCMC(proposal = MALAProposal(), pretransform = DoNotTransform(), nsteps = 3 * 10^4),
             objective,
-            context
+            BATContext(rng = Philox4x((564, 33)), ad = ForwardDiff),
+            max_retries = 0,
         )
         @test smplres.verified
+        @test smplres.n_retries == 0
 
         # The Fisher tuner sees coherent position/score pairs also under
         # MALA rejections, so the learned geometry matches the target:
@@ -108,9 +109,11 @@ using BAT: MALAProposal, StepSizeAdaptor, LowRankAffineTransform,
             batmeasure(objective),
             TransformedMCMC(proposal = MALAProposal(proposaldist = TDist(4.0)), pretransform = DoNotTransform(), nsteps = 3 * 10^4),
             objective,
-            context
+            BATContext(rng = Philox4x((564, 34)), ad = ForwardDiff),
+            max_retries = 0,
         )
         @test smplres_t.verified
+        @test smplres_t.n_retries == 0
 
         # Operator-valued low-rank transforms work with MALA: the gradient
         # uses the analytic affine pullback, so AD never sees the operator:
@@ -126,9 +129,11 @@ using BAT: MALAProposal, StepSizeAdaptor, LowRankAffineTransform,
                 nsteps = 3 * 10^4
             ),
             objective_lr,
-            context
+            BATContext(rng = Philox4x((564, 35)), ad = ForwardDiff),
+            max_retries = 0,
         )
         @test smplres_lr.verified
+        @test smplres_lr.n_retries == 0
     end
 
     @testset "step scale adaptation" begin

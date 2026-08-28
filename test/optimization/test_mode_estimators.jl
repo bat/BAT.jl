@@ -19,7 +19,7 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
     true_mode_flat = [2.0, 1.5, 0.5, 2.5]
     true_mode = varshape(prior)(true_mode_flat)
 
-    samples = @inferred(bat_sample(prior, IIDSampling(nsamples = 10^5), BATContext())).result
+    samples = @inferred(bat_sample(prior, IIDSampling(nsamples = 10^5), BATContext(rng = Philox4x((564, 25))))).result
 
 
     function test_findmode(posterior, algorithm, rtol, context::BATContext; inferred::Bool = true)
@@ -42,7 +42,7 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
 
 
     @testset "optimization trace recording" begin
-        context = BATContext(ad = ForwardDiff)
+        context = BATContext(rng = Philox4x((564, 53)), ad = ForwardDiff)
         f_logd = x -> -sum(abs2, x .- [1.0, 2.0]) / 2
         x_init = [4.0, -3.0]
         for (traced_alg, plain_alg) in [
@@ -77,7 +77,7 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
     end
 
     @testset "ModeAsDefined" begin
-        context = BATContext()
+        context = BATContext(rng = Philox4x((564, 26)))
         @test @inferred(bat_findmode(prior, ModeAsDefined(), context)).result == true_mode
         @test @inferred(bat_findmode(batmeasure(prior), ModeAsDefined(), context)).result == true_mode
         let post_modes = @inferred(bat_findmode(posterior, context)).result
@@ -89,7 +89,7 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
 
 
     @testset "bat_bgml" begin
-        context = BATContext(ad = ForwardDiff)
+        context = BATContext(rng = Philox4x((564, 27)), ad = ForwardDiff)
         algorithm = TransformedMaxDensity(optalg = OptimAlg(optalg = LBFGS()), init = ExplicitInit([(mu = 0.2,)]))
         likelihood = logfuncdensity(p -> logpdf(Normal(p.mu, 0.5), 1.2))
         flat_prior = distprod(mu = Uniform(-2, 4))
@@ -136,7 +136,7 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
 
 
     @testset "MaxDensitySearch" begin
-        context = BATContext()
+        context = BATContext(rng = Philox4x((564, 28)))
         @test @inferred(bat_findmode(samples, MaxDensitySearch(), context)).result isa NamedTuple
         # Algorithm-specific extras like the mode index live in the
         # evaluation info of the evaluated measure:
@@ -195,21 +195,30 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
     end
 
     @testset "OptimizationBase.jl with custom options" begin # checks that options are correctly passed to OptimizationBase.jl
-        # ParticleSwarm draws from the global RNG, not from the context RNG,
-        # so seed it for deterministic results:
-        Random.seed!(0x424154)
-        context = BATContext(rng = Philox4x((0, 0)))
-        optimizer = TransformedMaxDensity(optalg = OptimizationAlg(optalg = OptimizationOptimJL.ParticleSwarm(n_particles=10), maxiters=200, kwargs=(f_calls_limit=500,)), pretransform = DoNotTransform())
+        run_particleswarm = function (f, task_seed, context_seed)
+            task = Task() do
+                Random.seed!(task_seed)
+                f(BATContext(rng = Philox4x(context_seed)))
+            end
+            schedule(task)
+            fetch(task)
+        end
 
-        # result is not type-stable:
-        test_findmode(posterior, optimizer, 0.01, context, inferred = false) 
+        result = run_particleswarm(0x424154, (564, 54)) do context
+            optimizer = TransformedMaxDensity(optalg = OptimizationAlg(optalg = OptimizationOptimJL.ParticleSwarm(n_particles=10), maxiters=200, kwargs=(f_calls_limit=500,)), pretransform = DoNotTransform())
+            bat_findmode(posterior, optimizer, context)
+        end
 
-        optimizer = TransformedMaxDensity(optalg = OptimizationAlg(optalg = OptimizationOptimJL.ParticleSwarm(n_particles=10),
-            maxiters=200, maxtime=30, reltol=0.2, kwargs=(f_calls_limit=500,)), pretransform = DoNotTransform())
+        em = run_particleswarm(0x424155, (564, 55)) do context
+            optimizer = TransformedMaxDensity(optalg = OptimizationAlg(optalg = OptimizationOptimJL.ParticleSwarm(n_particles=10),
+                maxiters=200, maxtime=30, reltol=0.2, kwargs=(f_calls_limit=500,)), pretransform = DoNotTransform())
+            evalmeasure(posterior, optimizer, context)
+        end
+        @test keys(result.result) == keys(true_mode)
+        @test isapprox(unshaped(result.result, varshape(posterior)), true_mode_flat, rtol = 0.01)
 
         # Backend-specific optimizer information lives in the evaluation
         # info of the evaluated measure:
-        em = evalmeasure(posterior, optimizer, context)
         nfo = BAT.evalinfo(em).result.info
         @test nfo.cache.solver_args.maxiters == 200
         @test nfo.cache.solver_args.f_calls_limit == 500

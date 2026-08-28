@@ -12,13 +12,13 @@ struct _BSTestSampleGen <: BAT.AbstractSampleGenerator end
 BAT.getproposal(::_BSTestSampleGen) = nothing
 
 @testset "bispaced_measure" begin
-    context = BATContext()
+    context = BATContext(rng = Xoshiro(564001))
     prior = distprod(a = Normal(2.0, 1.0), b = Exponential(0.7))
     m = batmeasure(prior)
     vs = varshape(m)
 
     n = 100
-    xs = rand(Random.default_rng(), m^n)
+    xs = rand(Xoshiro(564002), m^n)
     smpls = DensitySampleVector(v = xs, logd = logdensityof(m).(xs))
     dsm = DensitySampleMeasure(smpls, dof = getdof(m))
 

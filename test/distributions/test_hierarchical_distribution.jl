@@ -3,15 +3,14 @@
 using BAT
 using Test
 
-using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays
+using Distributions, StatsBase, IntervalSets, ValueShapes, ArraysOfArrays, Random
+using Random123
 import ForwardDiff
 using InverseFunctions
 
 
 
 @testset "hierarchial_distribution" begin
-    context = BATContext(ad = ForwardDiff)
-
     let
         primary_dist = NamedTupleDist(
             foo = LogNormal(1, 0.3),
@@ -33,9 +32,9 @@ using InverseFunctions
         @test @inferred(unshaped(hd)) isa BAT.UnshapedHDist
         ud = unshaped(hd)
 
-        @test @inferred(rand(hd)) isa NamedTuple
-        @test @inferred(rand(snt_hd)) isa ShapedAsNT
-        @test @inferred(rand(ud)) isa AbstractVector{<:Real}
+        @test @inferred(rand(Xoshiro(564013), hd)) isa NamedTuple
+        @test @inferred(rand(Xoshiro(564014), snt_hd)) isa ShapedAsNT
+        @test @inferred(rand(Xoshiro(564015), ud)) isa AbstractVector{<:Real}
         @test @inferred(varshape(hd)) == NamedTupleShape(foo = ScalarShape{Real}(), bar = ScalarShape{Real}(), baz = ArrayShape{Real}(3))
         @test @inferred(varshape(ud)) == ArrayShape{Real}(5)
 
@@ -44,7 +43,7 @@ using InverseFunctions
         @test @inferred(logpdf(hd, varshape(hd)(ux))) == logpdf(ud, ux)
         @test @inferred(logpdf(hd, varshape(hd)(ux))) == logpdf(ud, ux)
 
-        samples = bat_sample(hd, TransformedMCMC(proposal = HamiltonianMC(), pretransform = DoNotTransform(), nsteps = 10^4), context).result
+        samples = bat_sample(hd, TransformedMCMC(proposal = HamiltonianMC(), pretransform = DoNotTransform(), nsteps = 10^4), BATContext(rng = Philox4x((564, 16)), ad = ForwardDiff)).result
         @test isapprox(cov(unshaped.(samples)), cov(ud), rtol = 0.25)
     end
 
@@ -57,7 +56,7 @@ using InverseFunctions
         cov_expected = [1.9^2 1.9^2; 1.9^2 1.9^2 + 1.2^2]
 
         @test isapprox(cov(unshaped(hd)), cov_expected, rtol = 0.05)
-        @test isapprox(mean(unshaped.(rand(sampler(hd), 10^5))), [2.3, 2.3], rtol = 0.05)
+        @test isapprox(mean(unshaped.(rand(Xoshiro(564017), sampler(hd), 10^5))), [2.3, 2.3], rtol = 0.05)
         @test isapprox(inverse(varshape(hd))(mean(hd)), mean(unshaped(hd)), rtol = 0.05)
     end
 end

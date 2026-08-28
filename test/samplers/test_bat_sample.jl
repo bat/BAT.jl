@@ -7,18 +7,18 @@ using Random, Distributions, StatsBase
 using FillArrays: Fill
 using LogarithmicNumbers: ULogarithmic
 using StableRNGs: StableRNG
+using Random123
 
 
 @testset "bat_sample" begin
-    context = BATContext()
-
     @testset "IIDSampling" begin
+        context = BATContext(rng = Philox4x((564, 29)))
         dist = MvNormal([0.4, 0.6], [2.0 1.2; 1.2 3.0])
 
         @test length(@inferred(bat_sample(dist, IIDSampling(nsamples = 10^3), context)).result) == 10^3
 
         @test @inferred(bat_sample(dist, context)).result isa DensitySampleVector
-        @test bat_sample(dist, BAT.IIDSampling()).result isa DensitySampleVector
+        @test bat_sample(dist, BAT.IIDSampling(), context).result isa DensitySampleVector
         @test @inferred(bat_sample(dist, BAT.IIDSampling(), context)).result isa DensitySampleVector
 
         samples = @inferred(bat_sample(dist, IIDSampling(nsamples = 10^5), context)).result
@@ -36,11 +36,12 @@ using StableRNGs: StableRNG
     end
 
     @testset "RandResampling" begin
+        context = BATContext(rng = Philox4x((564, 30)))
         dist = Normal()
         result = @inferred(bat_sample(dist, IIDSampling(nsamples = 2), context)).result #Draw to samples from Normal dist
 
         @test @inferred(bat_sample(result, context)).result isa DensitySampleVector#Check data types 
-        @test bat_sample(result, RandResampling(nsamples = 100)).result isa DensitySampleVector
+        @test bat_sample(result, RandResampling(nsamples = 100), context).result isa DensitySampleVector
         @test @inferred(bat_sample(result, BAT.RandResampling(), context)).result isa DensitySampleVector
 
         samples_rdm = @inferred(bat_sample(result, RandResampling(nsamples = 10^5), context)).result #Sample 100 times from the 2-sample space
@@ -83,6 +84,7 @@ using StableRNGs: StableRNG
     end
 
     @testset "SystematicResampling" begin
+        context = BATContext(rng = Philox4x((564, 31)))
         dist = MvNormal([0.4, 0.6], [2.0 1.2; 1.2 3.0])
         result = @inferred(bat_sample(dist, IIDSampling(nsamples = 10^5), context)).result
 
@@ -91,7 +93,7 @@ using StableRNGs: StableRNG
 
         @test @inferred(bat_sample(result, context)).result isa DensitySampleVector#Check that types are consistent
         @test @inferred(bat_sample(result, BAT.SystematicResampling(), context)).result isa DensitySampleVector
-        @test bat_sample(result, BAT.SystematicResampling()).result isa DensitySampleVector
+        @test bat_sample(result, BAT.SystematicResampling(), context).result isa DensitySampleVector
 
         resamples = @inferred(bat_sample(result, SystematicResampling(nsamples = length(result)), context)).result
         @test result == resamples
@@ -120,7 +122,7 @@ using DensityInterface: logfuncdensity
 using Distributions: Normal, logpdf
 
 @testset "transformed space preservation" begin
-    context = BATContext()
+    context = BATContext(rng = Philox4x((564, 32)))
     post = PosteriorMeasure(logfuncdensity(v -> logpdf(Normal(1.0, 0.5), v.a)), distprod(a = Normal(0, 3)))
     em = evalmeasure(post, TransformedMCMC(nchains = 2, nsteps = 400), context)
 

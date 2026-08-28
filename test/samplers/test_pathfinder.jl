@@ -155,7 +155,7 @@ using MatrixShapedOperators: woodbury_operator, rowgram_factor
     @testset "transform initialization" begin
         # MCMC chain init partitions the context RNG, which requires a
         # counter-based RNG (unlike the StableRNG fit-test context):
-        context = BATContext(ad = ForwardDiff)
+        context = BATContext(rng = Philox4x((564, 45)), ad = ForwardDiff)
         objective = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
         target = unshaped(batmeasure(objective))
         Σ_true = cov(unshaped(objective))
@@ -183,8 +183,10 @@ using MatrixShapedOperators: woodbury_operator, rowgram_factor
                 nsteps = 10^4
             ),
             objective,
-            context
+            BATContext(rng = Philox4x((564, 46)), ad = ForwardDiff),
+            max_retries = 0,
         )
         @test smplres.verified
+        @test smplres.n_retries == 0
     end
 end
