@@ -5,6 +5,7 @@ using Test
 
 using Statistics
 using ArraysOfArrays, ElasticArrays, StatsBase
+using LogarithmicNumbers: ULogarithmic
 using StableRNGs
 
 @testset "effective_sample_size" begin
@@ -185,6 +186,7 @@ using StableRNGs
         @test bat_eff_sample_size(mk_smpls(w .* 1e300), KishESS(), context).result ≈ kish
         @test bat_eff_sample_size(mk_smpls(w .* 1e-300), KishESS(), context).result ≈ kish
         @test bat_eff_sample_size(mk_smpls([fill(typemax(Int), 99); 4]), KishESS(), context).result ≈ 99 rtol = 0.01
+        @test bat_eff_sample_size(mk_smpls(fill(Float16(1), 300)), KishESS(), context).result ≈ 300
 
         ac = bat_eff_sample_size(mk_smpls(ones(Int, 100)), EffSampleSizeFromAC(), context).result
         @test bat_eff_sample_size(mk_smpls(fill(typemax(Int), 100)), EffSampleSizeFromAC(), context).result ≈ ac
@@ -192,6 +194,10 @@ using StableRNGs
 
         # The canonical relative weights reject invalid input:
         @test BAT._canonical_rel_weights([2, 4, 8]) ≈ [0.25, 0.5, 1.0]
+        @test BAT._canonical_rel_weights(Float16[1, 3]) == Float32[1 / 3, 1]
+        @test first(BAT._canonical_rel_weights(Real[nextfloat(Float16(0)), floatmax(Float16)])) > 0
+        @test first(BAT._canonical_rel_weights(exp.(ULogarithmic, Float16[-20, 0]))) == exp(Float32(-20))
+        @test eltype(BAT._canonical_rel_weights(BigFloat[1, 2])) === BigFloat
         @test isempty(BAT._canonical_rel_weights(Float64[]))
         @test_throws ArgumentError BAT._canonical_rel_weights([0.0, 0.0])
         @test_throws ArgumentError BAT._canonical_rel_weights([1.0, -1.0])

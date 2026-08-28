@@ -146,7 +146,8 @@ function _systematic_resampling_idxs(smpls::DensitySampleVector, n::Integer, con
     # systematic-resampling semantics) and normalized so that the
     # cumulative sum can neither overflow nor wrap around:
     W = _canonical_rel_weights(smpls.weight)
-    W_total = sum(W)
+    T = _weight_accum_type(W)
+    W_total = sum(T, W)
 
     # Systematic resampling (Kitagawa 1996): a single stratified uniform
     # yields exactly n draws in one order-preserving pass, typically with
@@ -154,7 +155,7 @@ function _systematic_resampling_idxs(smpls::DensitySampleVector, n::Integer, con
     u = rand(rng)
     resampled_idxs = Vector{Int}(undef, n)
     j = 0
-    cw = zero(float(eltype(W)))
+    cw = zero(T)
     # Equal weights at the same size select each row once, so systematic
     # resampling adds no conditional variance:
     is_identity = n == length(W) && !isempty(W)

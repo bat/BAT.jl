@@ -364,8 +364,9 @@ function _weighted_empirical_quantile(v::AbstractVector, w::AbstractVector, p::R
     iszero(p) && return v[first_idx]
     isone(p) && return v[last_idx]
 
-    target_weight = p * sum(w)
-    cumulative_weight = zero(eltype(w))
+    T = _weight_accum_type(w)
+    target_weight = p * sum(T, w)
+    cumulative_weight = zero(T)
     for i in order
         cumulative_weight += w[i]
         cumulative_weight >= target_weight && return v[i]
@@ -450,19 +451,28 @@ end
 
 # Canonical relative weights for probability-weight arithmetic:
 # validated (finite and non-negative, with at least one strictly positive
-# entry if nonempty) and divided by the maximum weight - in the original
-# weight arithmetic, so that log-scale weight types normalize before
-# conversion to plain floats. The result is a plain-float vector with
+# entry if nonempty) and divided by the maximum weight. Log-scale weight
+# types normalize in their original arithmetic before conversion to
+# plain floats. The result is a plain-float vector with
 # maximum one, so cumulative sums, weight-sum ratios and effective counts
 # computed from it can neither overflow nor wrap around, and are
 # invariant under a global positive rescaling of the input:
 function _canonical_rel_weights(W::AbstractVector{<:Real})
     all(w -> isfinite(w) && w >= zero(w), W) || throw(ArgumentError("Sample weights must be finite and non-negative"))
-    isempty(W) && return float.(W ./ oneunit(eltype(W)))
+    T = promote_type(Float32, float(eltype(W)))
+    isempty(W) && return T.(W)
     max_w = maximum(W)
     max_w > zero(max_w) || throw(ArgumentError("Sample weights must contain at least one strictly positive entry"))
-    return float.(W ./ max_w)
+    if max_w isa AbstractFloat
+        return T.(W) ./ T(max_w)
+    elseif max_w isa ULogarithmic
+        return exp.(T.(log.(W ./ max_w)))
+    else
+        return T.(W ./ max_w)
+    end
 end
+
+_weight_accum_type(W::AbstractVector{<:Real}) = promote_type(Float64, eltype(W))
 
 
 """
@@ -571,4 +581,3 @@ function _marginal_histograms(smpl::DensitySampleVector{<:AbstractVector{<:Real}
     W = Weights(trimmed_smpl.weight)
     [fit(Histogram, V[i,:], W, range(minimum(V[i,:]), maximum(V[i,:]), length = 41)) for i in axes(V,1)]
 end
-

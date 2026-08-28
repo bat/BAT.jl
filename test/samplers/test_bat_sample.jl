@@ -96,6 +96,18 @@ using StableRNGs: StableRNG
         resamples = @inferred(bat_sample(result, SystematicResampling(nsamples = length(result)), context)).result
         @test result == resamples
 
+        # Wide accumulation preserves a tail below Float32 spacing:
+        tail_weight = eps(Float32) / 2
+        tail_samples = DensitySampleVector(
+            v = [1, 2], logd = zeros(2), weight = Float32[1, tail_weight]
+        )
+        tail_resamples = bat_sample(
+            tail_samples,
+            SystematicResampling(nsamples = 10_000),
+            BATContext(rng = StableRNG(1499)),
+        ).result
+        @test count(==(2), tail_resamples.v) == 1
+
         # The old name remains as a deprecated alias:
         @test BAT.OrderedResampling === SystematicResampling
     end

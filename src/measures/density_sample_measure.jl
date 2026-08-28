@@ -181,7 +181,10 @@ end
 function _live_weight_cdf(dsm::DensitySampleMeasure)
     W = samplesof(dsm).weight
     isempty(W) && throw(ArgumentError("Can't draw from an empty DensitySampleMeasure"))
-    return cumsum(_canonical_rel_weights(W))
+    rel_weights = _canonical_rel_weights(W)
+    cdf = similar(rel_weights, _weight_accum_type(rel_weights))
+    copyto!(cdf, rel_weights)
+    return cumsum!(cdf, cdf)
 end
 
 function _rand_subsample_idx(gen::GenContext, dsm::DensitySampleMeasure)

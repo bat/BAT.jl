@@ -121,6 +121,13 @@ using BAT: DensitySampleMeasure, samplesof, empiricalof, getess
             ))
             @test rand(rng, xdsm) in samplesof(xdsm).v
         end
+
+        # A tail below Float32 spacing remains visible in the CDF:
+        tail_weight = eps(Float32) / 2
+        tail_dsm = DensitySampleMeasure(DensitySampleVector(
+            v = [1.0, 2.0], logd = zeros(2), weight = Float32[1, tail_weight]
+        ))
+        @test BAT._live_weight_cdf(tail_dsm) == [1.0, 1 + Float64(tail_weight)]
     end
 
     @testset "resampling" begin

@@ -194,6 +194,27 @@ _SampleAux() = _SampleInfo(0)
             @test quantile_big == big"1.0"
             @test quantile_big isa BigFloat
 
+            samples16 = DensitySampleVector(
+                v = collect(1.0:2049.0),
+                logd = zeros(2049),
+                weight = fill(Float16(1), 2049),
+            )
+            @test quantile(samples16, 0.75) == 1537.0
+
+            # Preserve tiny tail mass and higher-precision probabilities:
+            small_weight = eps(Float32) / 2
+            samples32_tail = DensitySampleVector(
+                v = [1.0, 2.0],
+                logd = zeros(2),
+                weight = Float32[1, small_weight],
+            )
+            @test quantile(samples32_tail, 1 - Float64(small_weight) / 2) == 2.0
+
+            samples32_midpoint = DensitySampleVector(
+                v = [1.0, 2.0], logd = zeros(2), weight = ones(Float32, 2)
+            )
+            @test quantile(samples32_midpoint, big"0.5" + eps(BigFloat)) == 2.0
+
             vector_values = convert(ArrayOfSimilarArrays, [Float32[-1, 0], Float32[1, 2]])
             vector_samples = DensitySampleVector(
                 v = vector_values,
