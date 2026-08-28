@@ -304,6 +304,8 @@ end
 
 function init_adaptive_transform(adaptive_transform::AbstractAffineTransform, target::AbstractMeasure, v_init::Union{AbstractVector,Nothing}, context::BATContext)
     M, b = _affine_init_moments(adaptive_transform.init, target, v_init, context)
+    all(isfinite, b) || throw(DomainError(b, "affine transform requires finite mean"))
+    all(isfinite, M) || throw(DomainError(M, "affine transform requires finite covariance"))
     return MulAdd(_affine_init_A(adaptive_transform, M), b)
 end
 
@@ -364,7 +366,11 @@ end
 
 # Approximate covariance and mean the affine initialization is based on.
 # TODO: MD, make typestable
-function _affine_init_moments(::PriorApproxTransformInit, target::AbstractMeasure, ::Union{AbstractVector,Nothing}, ::BATContext)
+function _affine_init_moments(::PriorApproxTransformInit, target::AbstractMeasure, v_init::Union{AbstractVector,Nothing}, context::BATContext)
     n = totalndof(varshape(target))
-    return _approx_cov(target, n), _approx_mean(target, n)
+    M, b = _approx_cov(target, n), _approx_mean(target, n)
+    isnothing(v_init) && return M, b
+    # Preserve analytic precision until MCMC storage requires v_init's scalar type.
+    T = _unit_transform_eltype(v_init, context)
+    return Matrix{T}(M), Vector{T}(b)
 end
