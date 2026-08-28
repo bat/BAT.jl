@@ -208,10 +208,12 @@ function _mcmc_process_ess(unshaped_smpls::DensitySampleVector, algorithm::EffSa
     keys = [(id.chainid, id.walkerid) for id in info]
     ukeys = unique(keys)
     ess_parts = Vector{Any}()
-    masses = Float64[]
+    rel_weights = _canonical_rel_weights(unshaped_smpls.weight)
+    T = _weight_accum_type(rel_weights)
+    masses = T[]
     for k in ukeys
         idxs = findall(==(k), keys)
-        wsum = sum(float, view(unshaped_smpls.weight, idxs))
+        wsum = sum(T, view(rel_weights, idxs))
         wsum > 0 || continue
         ord = sortperm(view(info, idxs), by = id -> (id.chaincycle, id.stepno))
         walker_smpls = unshaped_smpls[idxs[ord]]
@@ -231,8 +233,9 @@ end
 # estimator down, which a plain sum would hide:
 function _pooled_ess(ess_parts::AbstractVector, masses::AbstractVector{<:Real})
     isempty(ess_parts) && return nothing
-    α = masses ./ sum(masses)
-    inv_pool = sum(α[j]^2 ./ ess_parts[j] for j in eachindex(ess_parts))
+    rel_masses = _canonical_rel_weights(masses)
+    α = rel_masses ./ sum(_weight_accum_type(rel_masses), rel_masses)
+    inv_pool = sum(α[j]^2 ./ ess_parts[j] for j in eachindex(ess_parts) if !iszero(α[j]))
     return inv.(inv_pool)
 end
 

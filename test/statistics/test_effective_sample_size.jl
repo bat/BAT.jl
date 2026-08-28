@@ -116,6 +116,31 @@ using StableRNGs
         )
         @test bat_eff_sample_size(umerged, EffSampleSizeFromAC(), context).result ≈ ess_upooled
         @test bat_eff_sample_size(ushuffled, EffSampleSizeFromAC(), context).result ≈ ess_upooled
+        for scale in (floatmax(Float64), big"1e10000")
+            scaled = DensitySampleVector(
+                v = umerged.v,
+                logd = umerged.logd,
+                weight = fill(scale, length(umerged)),
+                info = umerged.info,
+            )
+            @test bat_eff_sample_size(scaled, EffSampleSizeFromAC(), context).result ≈ ess_upooled
+        end
+
+        walker_outputs = [u1, u2]
+        walker_ess = BAT._pooled_walker_ess([walker_outputs], umerged, ARPWeighting(), context)
+        for scale in (floatmax(Float64), big"1e10000")
+            scaled_outputs = [[
+                DensitySampleVector(
+                    v = output.v,
+                    logd = output.logd,
+                    weight = fill(scale, length(output)),
+                    info = output.info,
+                )
+                for output in walker_outputs
+            ]]
+            scaled_merged = reduce(vcat, only(scaled_outputs))
+            @test BAT._pooled_walker_ess(scaled_outputs, scaled_merged, ARPWeighting(), context) ≈ walker_ess
+        end
 
         # A uniform repetition weight > 1 on a tagged chain decodes to
         # the expanded ordered chain:
@@ -172,6 +197,19 @@ using StableRNGs
         @test BAT._pooled_ess([[1000.0], [10.0]], [1.0, 1.0]) ≈ [1 / (0.25 / 1000 + 0.25 / 10)]
         # Uniform efficiency reduces exactly to the sum:
         @test BAT._pooled_ess([[600.0, 60.0], [400.0, 40.0]], [600.0, 400.0]) ≈ [1000.0, 100.0]
+
+        ess_parts = [[3.0], [5.0]]
+        k = typemax(Int) ÷ 5
+        for masses in (
+            [3.0, 5.0],
+            (floatmax(Float64) / 5) .* [3, 5],
+            k .* [3, 5],
+        )
+            @test BAT._pooled_ess(ess_parts, masses) ≈ [8.0]
+        end
+        @test BAT._pooled_ess(reverse(ess_parts), [5.0, 3.0]) ≈ [8.0]
+        @test BAT._pooled_ess([[0.0], [5.0]], [0.0, 5.0]) ≈ [5.0]
+        @test BAT._pooled_ess([[0.0], [5.0]], [1.0, 1.0]) == [0.0]
         @test isnothing(BAT._pooled_ess(Any[], Float64[]))
     end
 

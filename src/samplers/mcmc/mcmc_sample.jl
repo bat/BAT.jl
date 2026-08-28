@@ -155,7 +155,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, samplingalg::TransformedMCMC, co
 
     samplegen = MCMCSampleGenerator(mcmc_states)
 
-    ess = _pooled_walker_ess(chain_outputs, samplingalg.sample_weighting, context)
+    ess = _pooled_walker_ess(chain_outputs, samples_transformed, samplingalg.sample_weighting, context)
     dsm = DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 
     # The samples and the bare target measure in the transformed space are
@@ -195,14 +195,22 @@ end
 # ordered chain:
 function _pooled_walker_ess(
     chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
+    merged_output::DensitySampleVector,
     weighting::AbstractMCMCWeightingScheme,
     context::BATContext
 )
+    isempty(merged_output) && return nothing
+    rel_weights = _canonical_rel_weights(merged_output.weight)
+    T = _weight_accum_type(rel_weights)
     ess_parts = Vector{Any}()
-    masses = Float64[]
+    masses = T[]
+    offset = 0
+    # `_merge_chain_outputs` preserves this traversal order:
     for walker_outputs in chain_outputs, walker_output in walker_outputs
         isempty(walker_output) && continue
-        wsum = sum(float, walker_output.weight)
+        next_offset = offset + length(walker_output)
+        wsum = sum(T, view(rel_weights, (offset + 1):next_offset))
+        offset = next_offset
         wsum > 0 || continue
         ess_w = if weighting isa RepetitionWeighting
             _repetition_exact_ess(walker_output, EffSampleSizeFromAC(), context)
