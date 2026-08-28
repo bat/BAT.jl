@@ -12,7 +12,8 @@ using MeasureBase: weightedmeasure
 using BAT: DensitySampleMeasure, samplesof, empiricalof, getess
 
 @testset "density_sample_measure" begin
-    context = BATContext()
+    context = BATContext(rng = StableRNG(564001))
+    fixture_rng = StableRNG(564002)
     dist = NamedTupleDist(a = Normal(2, 1), b = Weibull())
     m = batmeasure(dist)
 
@@ -45,7 +46,7 @@ using BAT: DensitySampleMeasure, samplesof, empiricalof, getess
     end
 
     @testset "rand" begin
-        rng = Random.default_rng()
+        rng = StableRNG(564003)
         x = rand(rng, dsm)
         @test x in smpls.v
         X = rand(rng, dsm^100)
@@ -89,7 +90,7 @@ using BAT: DensitySampleMeasure, samplesof, empiricalof, getess
         # all zero (nothing to draw):
         for bad_w in ([1.0, -1.0, 2.0], [1.0, NaN, 2.0], [1.0, Inf, 2.0], [0.0, 0.0, 0.0])
             bad_smpls = DensitySampleVector(
-                v = [randn(2) for _ in 1:3], logd = zeros(3), weight = bad_w
+                v = [randn(fixture_rng, 2) for _ in 1:3], logd = zeros(3), weight = bad_w
             )
             @test_throws ArgumentError DensitySampleMeasure(bad_smpls)
         end
@@ -100,12 +101,12 @@ using BAT: DensitySampleMeasure, samplesof, empiricalof, getess
         # statistics must stay coherent with the weights as the caller
         # sees (and possibly mutates) them:
         lw_smpls = DensitySampleVector(
-            v = [randn(2) for _ in 1:4], logd = zeros(4), weight = [1.0, 1.0, 1.0, 1.0]
+            v = [randn(fixture_rng, 2) for _ in 1:4], logd = zeros(4), weight = [1.0, 1.0, 1.0, 1.0]
         )
         lw_dsm = DensitySampleMeasure(lw_smpls)
         @test samplesof(lw_dsm) === lw_smpls
         samplesof(lw_dsm).weight .= [0.0, 0.0, 5.0, 0.0]
-        rng = Random.default_rng()
+        rng = StableRNG(564004)
         @test all(x -> x == lw_smpls.v[3], [rand(rng, lw_dsm) for _ in 1:20])
         @test mean(lw_dsm) ≈ lw_smpls.v[3]
         # Invalid mutated weights are caught at draw time:
@@ -116,7 +117,7 @@ using BAT: DensitySampleMeasure, samplesof, empiricalof, getess
         # from canonical relative weights:
         for w_extreme in ([typemax(Int), typemax(Int), 4], [1e300, 2e300, 0.5e300])
             xdsm = DensitySampleMeasure(DensitySampleVector(
-                v = [randn(2) for _ in 1:3], logd = zeros(3), weight = w_extreme
+                v = [randn(fixture_rng, 2) for _ in 1:3], logd = zeros(3), weight = w_extreme
             ))
             @test rand(rng, xdsm) in samplesof(xdsm).v
         end

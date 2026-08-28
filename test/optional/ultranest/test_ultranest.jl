@@ -6,12 +6,14 @@ using Test
 using Random, StatsBase, Distributions
 using DensityInterface
 using MeasureBase: massof
+using PythonCall: pyimport
 
 import UltraNest
 
 
 @testset "test_ultranest" begin
-    context = BATContext()
+    pyimport("numpy").random.seed(564)
+    context = BATContext(rng = Xoshiro(564084))
 
     dist = product_distribution([
         MixtureModel([truncated(Normal(-1, 0.1), -2, 0), truncated(Normal(1, 0.1), 0, 2)], [0.5, 0.5]),

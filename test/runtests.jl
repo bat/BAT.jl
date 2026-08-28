@@ -1,6 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 using Test
+import Random
+
+Random.seed!(0x424154)
 
 @info "Running tests with $(Base.Threads.nthreads()) Julia threads active."
 

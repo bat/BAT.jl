@@ -2,11 +2,12 @@
 
 using BAT
 using Test
+using StableRNGs: StableRNG
 
 import MGVI, ForwardDiff
 
 @testset "MGVI" begin
-    context = BATContext(ad = ForwardDiff)
+    context = BATContext(rng = StableRNG(564008), ad = ForwardDiff)
 
     pstr = BAT.example_posterior()
 

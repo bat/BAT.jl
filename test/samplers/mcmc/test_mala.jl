@@ -77,7 +77,7 @@ using BAT: MALAProposal, StepSizeAdaptor, LowRankAffineTransform,
     end
 
     @testset "sampling correctness" begin
-        context = BATContext(ad = ForwardDiff)
+        context = BATContext(rng = Philox4x((564, 7)), ad = ForwardDiff)
         Σ = [1.0 0.6; 0.6 2.0]
         objective = MvNormal([1.0, -1.0], Σ)
 

@@ -5,10 +5,12 @@ using Test
 using LinearAlgebra
 using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
 using IntervalSets
+using Random123
 import ForwardDiff, Zygote
 
 @testset "HamiltonianMC" begin
-    context = BATContext(ad = ForwardDiff)
+    rng = Philox4x((564, 84))
+    context = BATContext(rng = Philox4x((564, 8)), ad = ForwardDiff)
     objective = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
 
     shaped_target = @inferred(batmeasure(objective))
@@ -56,9 +58,7 @@ import ForwardDiff, Zygote
         # @test isapprox(length(samples), nsteps, atol = 20) Hard to test with the new checked_push function avoiding duplicate samples
         @test sum(samples.weight) == nsteps
 
-        samples_verified(smpls) = BAT.test_dist_samples(unshaped(objective), smpls, context)
-        # Retry with an independent run to suppress rare statistical false positives:
-        @test samples_verified(samples) || samples_verified(last(iterate_and_collect_samples()))
+        @test BAT.test_dist_samples(unshaped(objective), samples, context)
 
         walker_outputs = BAT._empty_chain_outputs(mcmc_state)
         mcmc_state = BAT.mcmc_iterate!!(walker_outputs, mcmc_state; max_nsteps = 10^3, nonzero_weights = true)
@@ -136,12 +136,12 @@ import ForwardDiff, Zygote
         A_pb = LinearAlgebra.LowerTriangular([1.4 0.0 0.0; 0.3 0.9 0.0; -0.2 0.1 1.7])
         b_pb = [0.5, -1.0, 0.2]
         f_affine = MulAdd(A_pb, b_pb)
-        x_dummy = randn(3)
+        x_dummy = randn(rng, 3)
         fg_wrapper = BAT._target_logdgrad_func(target, f_affine, deepcopy(context), HamiltonianMC(), x_dummy)
         fg_generic = BAT._target_logdgrad_func(target, fchain((f_affine,)), deepcopy(context), HamiltonianMC(), x_dummy)
         @test fg_wrapper isa BAT._AffinePullbackValGrad
         for _ in 1:5
-            z = randn(3)
+            z = randn(rng, 3)
             logd_w, grad_w = fg_wrapper(z)
             logd_g, grad_g = fg_generic(z)
             @test logd_w ≈ logd_g
@@ -232,7 +232,7 @@ import ForwardDiff, Zygote
 
         for admodule in [ForwardDiff, Zygote]
             @testset "$admodule" begin
-                context = BATContext(ad = admodule)
+                context = BATContext(rng = Philox4x((564, 80)), ad = admodule)
 
                 hmc_samplingalg = TransformedMCMC(
                     proposal = HamiltonianMC(),

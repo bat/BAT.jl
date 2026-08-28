@@ -5,12 +5,13 @@ using Test
 
 using LinearAlgebra, Random, Statistics, StatsBase
 using Distributions, ValueShapes, DensityInterface
+using Random123
 import ForwardDiff
 
 # Statistical behavior of the native HMC stack on difficult target
 # geometries (a fast subset of benchmark/hmc_geometry_benchmark.jl):
 @testset "hmc_hard_targets" begin
-    context = BATContext(ad = ForwardDiff)
+    context = BATContext(rng = Philox4x((564, 81)), ad = ForwardDiff)
 
     function divergence_fraction(em)
         diags = BAT.evalinfo(em).result.chain_diagnostics

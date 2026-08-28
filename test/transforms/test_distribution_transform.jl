@@ -9,11 +9,15 @@ using ForwardDiff, Zygote, DistributionsAD
 using InverseFunctions, ChangesOfVariables, DensityInterface
 using IntervalSets
 using MeasureBase
+using StableRNGs: StableRNG
 
 @testset "test_distribution_transform" begin
+    rng = StableRNG(564005)
+    context = BATContext(rng = StableRNG(564006))
+
     function test_back_and_forth(trg_d, src_d)
         @testset "transform $(typeof(trg_d).name) <-> $(typeof(src_d).name)" begin
-            src_v = rand(src_d)
+            src_v = rand(rng, src_d)
             trg_v = BAT.apply_dist_trafo(trg_d, src_d, src_v)
             src_v_reco = BAT.apply_dist_trafo(src_d, trg_d, trg_v)
 
@@ -39,7 +43,7 @@ using MeasureBase
 
     function test_dist_trafo_moments(trg_d, src_d)
         @testset "check moments of transform $(typeof(trg_d).name) <- $(typeof(src_d).name)" begin
-            X = flatview(rand(src_d, 10^5))
+            X = flatview(rand(rng, src_d, 10^5))
             trgxs = get_trgxs(trg_d, src_d, X)
             unshaped_trgxs = broadcast(unshaped, trgxs, Ref(varshape(trg_d)))
             @test isapprox(mean(unshaped_trgxs), mean(unshaped(trg_d)), atol = 0.1)
@@ -133,12 +137,12 @@ using MeasureBase
     let
         mvuni = product_distribution([Uniform(), Uniform()])
 
-        x = rand()
+        x = rand(rng)
         @test_throws ArgumentError BAT.apply_dist_trafo(stduvnorm, mvnorm, x)
         @test_throws ArgumentError BAT.apply_dist_trafo(stduvnorm, stdmvnorm1, x)
         @test_throws ArgumentError BAT.apply_dist_trafo(stduvnorm, stdmvnorm2, x)
 
-        x = rand(2)
+        x = rand(rng, 2)
         @test_throws ArgumentError BAT.apply_dist_trafo(mvuni, mvnorm, x)
         @test_throws ArgumentError BAT.apply_dist_trafo(mvnorm, mvuni, x)
         @test_throws ArgumentError BAT.apply_dist_trafo(stduvnorm, mvnorm, x)
@@ -168,14 +172,14 @@ using MeasureBase
     for VT in (NamedTuple, ShapedAsNT)
         src_dist = unshaped(NamedTupleDist(VT, a = Weibull(), b = MvNormal([1.3 0.6; 0.6 2.4])))
         f = BAT.DistributionTransform(Normal, src_dist)
-        x = rand(src_dist)
+        x = rand(rng, src_dist)
         InverseFunctions.test_inverse(f, x)
         ChangesOfVariables.test_with_logabsdet_jacobian(f, x, ForwardDiff.jacobian)
     end
 
     @testset "transfom broadcasting" begin
         dist = NamedTupleDist(a = Weibull(), b = Exponential())
-        smpls = bat_sample(dist, IIDSampling(nsamples = 100)).result
+        smpls = bat_sample(dist, IIDSampling(nsamples = 100), context).result
         f_transform = BAT.DistributionTransform(Normal, dist)
         @inferred(broadcast(f_transform, smpls)) isa DensitySampleVector
         smpls_tr = f_transform.(smpls)
@@ -203,8 +207,6 @@ using MeasureBase
     # end
 
     @testset "full density transform" begin
-        context = BATContext()
-
         likelihood = logfuncdensity(logdensityof(NamedTupleDist(a = Normal(), b = Exponential())))
         prior = NamedTupleDist(a = Normal(), b = Gamma())
         posterior_density = PosteriorMeasure(likelihood, prior)
@@ -220,7 +222,7 @@ using MeasureBase
     @testset "transform autodiff pullbacks" begin
         # ToDo: Test for type stability and fix where necessary.
 
-        xs = rand(5)
+        xs = rand(rng, 5)
         @test Zygote.jacobian(BAT._pushfront, xs, 42)[1] ≈ ForwardDiff.jacobian(xs -> BAT._pushfront(xs, 1), xs)
         @test Zygote.jacobian(BAT._pushfront, xs, 42)[2] ≈ vec(ForwardDiff.jacobian(x -> BAT._pushfront(xs, x[1]), [42]))
         @test Zygote.jacobian(BAT._pushback, xs, 42)[1] ≈ ForwardDiff.jacobian(xs -> BAT._pushback(xs, 1), xs)
@@ -240,7 +242,7 @@ end
 
 
 @testset "bat_transform_defaults" begin
-    context = BATContext()
+    context = BATContext(rng = StableRNG(564007))
 
     mvn = @inferred(product_distribution([Normal(-1), Normal(), Normal(1)]))
     uniform_prior = @inferred(product_distribution([Uniform(-3, 1), Uniform(-2, 2), Uniform(-1, 3)]))

@@ -85,7 +85,7 @@ function _lowrank_fisher_state(; cutoff = 1.5, max_nsteps = 1000, reinit = true)
         batmeasure(product_distribution(fill(Normal(), d))),
         1,
         [zeros(d)],
-        BATContext(ad = ForwardDiff),
+        BATContext(rng = Philox4x((564, 1)), ad = ForwardDiff),
     )
     BAT.mcmc_tuning_init!!(state, max_nsteps)
     reinit && BAT.mcmc_tuning_reinit!!(state, max_nsteps)
@@ -802,7 +802,7 @@ end
         @test_throws ArgumentError BAT._affine_init_A(LowRankAffineTransform(cutoff = 0.5), M_id)
         @test_throws ArgumentError BAT._affine_init_A(LowRankAffineTransform(max_rank = -1), M_id)
 
-        context = BATContext(ad = ForwardDiff)
+        context = BATContext(rng = Philox4x((564, 3)), ad = ForwardDiff)
         target = unshaped(batmeasure(NamedTupleDist(a = Normal(), b = Normal())))
         # Fisher tuning requires a gradient-based proposal (nchains = 2 so
         # the single-chain convergence guard can't fire first):
@@ -814,7 +814,7 @@ end
     end
 
     @testset "end-to-end geometry learning" begin
-        context = BATContext(ad = ForwardDiff)
+        context = BATContext(rng = Philox4x((564, 4)), ad = ForwardDiff)
         Σ = [4.0 1.2 0.0; 1.2 2.0 -0.5; 0.0 -0.5 1.0]
         objective = MvNormal([1.0, -2.0, 0.5], Σ)
         target = batmeasure(objective)
@@ -853,7 +853,7 @@ end
     end
 
     @testset "structure selection end-to-end" begin
-        context = BATContext(ad = ForwardDiff)
+        context = BATContext(rng = Philox4x((1, 0)), ad = ForwardDiff)
 
         # Independent scales: the diagonal structure suffices:
         objective_diag = MvNormal([0.5, -1.0, 2.0], Diagonal([0.04, 4.0, 25.0]))
@@ -890,7 +890,7 @@ end
     end
 
     @testset "tuning freeze" begin
-        context = BATContext(ad = ForwardDiff)
+        context = BATContext(rng = Philox4x((564, 5)), ad = ForwardDiff)
         # After mcmc_tuning_finalize!! the transition kernel must be fixed:
         # no transform commits, no step-size adaptation, no Fisher moment
         # accumulation during post-tuning stabilization or retained
@@ -947,7 +947,7 @@ end
     end
 
     @testset "forced geometry commit" begin
-        context = BATContext(ad = ForwardDiff)
+        context = BATContext(rng = Philox4x((564, 6)), ad = ForwardDiff)
         # The prior-based initial geometry is badly mismatched to this
         # sharp posterior, forcing geometry commits; the commit protocol
         # must leave positions consistent and the step size readapted:

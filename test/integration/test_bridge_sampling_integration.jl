@@ -5,12 +5,13 @@ using BATTestCases
 using Distributions
 using ValueShapes
 using IntervalSets
+using Random123
 using LinearAlgebra: Diagonal, ones
 import Measurements
 
 
 @testset "bridge_sampling_integration" begin
-    context = BATContext()
+    context = BATContext(rng = Philox4x((564, 82)))
 
     function test_integration(algorithm::IntegrationAlgorithm, title::String,
                               dist::Distribution; val_expected::Real=1.0,
@@ -21,7 +22,7 @@ import Measurements
                 nsteps = 2*10^5,
                 burnin = MCMCMultiCycleBurnin(nsteps_per_cycle = 10^5, max_ncycles = 60)
             )
-            samples = bat_sample(dist, samplingalg).result
+            samples = bat_sample(dist, samplingalg, context).result
 
             sd = EvaluatedMeasure(dist, empirical = samples)
             # Masses/integrals are reported on the canonical logarithmic scale:

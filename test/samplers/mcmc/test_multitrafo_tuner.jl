@@ -6,6 +6,7 @@ using Test
 using LinearAlgebra, Random, Statistics
 using Distributions, ValueShapes
 using StableRNGs
+using Random123
 import ForwardDiff
 import FunctionChains
 using AffineMaps: MulAdd
@@ -14,7 +15,7 @@ using BAT: batmeasure, TriangularAffineTransform, NoMCMCTransformTuning
 
 @testset "multitrafo_tuner" begin
     rng = StableRNG(559102837)
-    context = BATContext(ad = ForwardDiff)
+    context = BATContext(rng = Philox4x((564, 85)), ad = ForwardDiff)
 
     objective = MvNormal([1.0, -1.0], [2.0 1.2; 1.2 1.5])
     target = batmeasure(objective)
