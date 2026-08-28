@@ -21,20 +21,20 @@ const _LR_DYNAMIC_MAX_DIMS = 32
 
 @enum _LowRankPhase::UInt8 _LRWaiting _LRFit _LRGuard _LRValidate _LRFrozen
 
-mutable struct _XGFitBlock
-    X::Matrix{Float64}
-    G::Matrix{Float64}
+mutable struct _XGFitBlock{T<:AbstractFloat}
+    X::Matrix{T}
+    G::Matrix{T}
     nsteps::Int
 end
 
-struct _LowRankCandidate
-    lambda::Vector{Float64}
-    vectors::Matrix{Float64}
-    W::Matrix{Float64}
-    S::Symmetric{Float64,Matrix{Float64}}
+struct _LowRankCandidate{T<:AbstractFloat}
+    lambda::Vector{T}
+    vectors::Matrix{T}
+    W::Matrix{T}
+    S::Symmetric{T,Matrix{T}}
 end
 
-mutable struct _LowRankCampaign
+mutable struct _LowRankCampaign{T<:AbstractFloat}
     phase::_LowRankPhase
     attempted::Bool
     admitted::Bool
@@ -44,20 +44,21 @@ mutable struct _LowRankCampaign
     guard_steps::Int
     validation_steps::Int
     final_steps::Int
-    fit::_XGFitBlock
-    validation_loss::Matrix{Float64}
-    validation_offdiag_loss::Matrix{Float64}
-    baseline_dvec::Union{Nothing,Vector{Float64}}
-    baseline_mu::Union{Nothing,Vector{Float64}}
-    candidate::Union{Nothing,_LowRankCandidate}
+    fit::_XGFitBlock{T}
+    validation_loss::Matrix{T}
+    validation_offdiag_loss::Matrix{T}
+    baseline_dvec::Union{Nothing,Vector{T}}
+    baseline_mu::Union{Nothing,Vector{T}}
+    candidate::Union{Nothing,_LowRankCandidate{T}}
 end
 
 function _LowRankCampaign(
+    ::Type{T},
     n_dims::Integer,
     max_nsteps::Integer,
     n_walkers::Integer,
     is_mala::Bool = false,
-)
+) where {T<:AbstractFloat}
     n_dims <= _LR_DYNAMIC_MAX_DIMS || return nothing
     n_dims > 0 || return nothing
     n_walkers > 0 || return nothing
@@ -73,37 +74,41 @@ function _LowRankCampaign(
     decision_end <= deadline || return nothing
     max_nsteps - decision_end >= final_steps || return nothing
 
-    return _LowRankCampaign(
+    return _LowRankCampaign{T}(
         _LRWaiting, false, false, 0, fit_start, fit_steps, guard_steps,
         validation_steps, final_steps,
         _XGFitBlock(
-            zeros(n_dims, fit_steps * n_walkers),
-            zeros(n_dims, fit_steps * n_walkers),
-            0,
+            zeros(T, n_dims, fit_steps * n_walkers),
+            zeros(T, n_dims, fit_steps * n_walkers),
+            0
         ),
-        zeros(n_walkers, validation_steps),
-        zeros(n_walkers, validation_steps),
-        nothing,
-        nothing,
-        nothing,
+        zeros(T, n_walkers, validation_steps),
+        zeros(T, n_walkers, validation_steps),
+        nothing, nothing, nothing
     )
 end
 
-function _diagonal_lowrank_campaign(
+_LowRankCampaign(
     n_dims::Integer,
     max_nsteps::Integer,
     n_walkers::Integer,
-)
+    is_mala::Bool = false,
+) = _LowRankCampaign(Float64, n_dims, max_nsteps, n_walkers, is_mala)
+
+function _diagonal_lowrank_campaign(
+    ::Type{T},
+    n_dims::Integer,
+    max_nsteps::Integer,
+    n_walkers::Integer,
+) where {T<:AbstractFloat}
     freeze_step = floor(Int, 0.85 * max_nsteps)
-    return _LowRankCampaign(
+    return _LowRankCampaign{T}(
         _LRWaiting, false, false, 0, freeze_step + 1, 0, 0, 0,
         max_nsteps - freeze_step,
-        _XGFitBlock(zeros(n_dims, 0), zeros(n_dims, 0), 0),
-        zeros(n_walkers, 0),
-        zeros(n_walkers, 0),
-        nothing,
-        nothing,
-        nothing,
+        _XGFitBlock(zeros(T, n_dims, 0), zeros(T, n_dims, 0), 0),
+        zeros(T, n_walkers, 0),
+        zeros(T, n_walkers, 0),
+        nothing, nothing, nothing
     )
 end
 
@@ -218,9 +223,8 @@ periodically forgotten). Transform updates follow the `schedule`; each
 committed transform triggers a fresh step-size search and a dual-averaging
 restart in the step-size adaptor (see [`BAT.StepSizeAdaptor`](@ref)).
 
-Fisher moment, fit, and validation state uses `Float64`. Inputs with other
-scalar types are promoted for this tuning path; it is not type-preserving
-arithmetic.
+Fisher moment, fit, and validation state uses the chain's floating-point
+type.
 
 Constructors:
 
@@ -247,17 +251,21 @@ abstract type _AbstractXGMoments end
 # only). Interleaved walker observations are handled by striding, so
 # lag-1 refers to consecutive draws of the same walker. Provides the
 # effective observation count for the drift noise floor:
-mutable struct _Lag1Stats
+mutable struct _Lag1Stats{T<:AbstractFloat}
     stride::Int
     n1::Int
     filled::Int
     ptr::Int
-    prev::Matrix{Float64}
-    cross1::Vector{Float64}
+    prev::Matrix{T}
+    cross1::Vector{T}
 end
 
-_Lag1Stats(n_dims::Integer, stride::Integer) =
-    _Lag1Stats(max(stride, 1), 0, 0, 0, zeros(n_dims, max(stride, 1)), zeros(n_dims))
+function _Lag1Stats(::Type{T}, n_dims::Integer, stride::Integer) where {T<:AbstractFloat}
+    stride = max(stride, 1)
+    _Lag1Stats(stride, 0, 0, 0, zeros(T, n_dims, stride), zeros(T, n_dims))
+end
+
+_Lag1Stats(n_dims::Integer, stride::Integer) = _Lag1Stats(Float64, n_dims, stride)
 
 function _lag1_update!(l1::_Lag1Stats, x::AbstractVector{<:Real})
     ptr = mod1(l1.ptr + 1, l1.stride)
@@ -274,26 +282,46 @@ end
 
 # Welford accumulator for the means and (co)variances of positions x and
 # scores α, dense (M2 matrices) or diagonal (M2 vectors):
-mutable struct _XGMoments{M<:Union{Vector{Float64},Matrix{Float64}}} <: _AbstractXGMoments
+mutable struct _XGMoments{T<:AbstractFloat,M<:Union{Vector{T},Matrix{T}}} <: _AbstractXGMoments
     n::Int
-    mean_x::Vector{Float64}
-    mean_g::Vector{Float64}
+    mean_x::Vector{T}
+    mean_g::Vector{T}
     M2_x::M
     M2_g::M
-    lag1::_Lag1Stats
+    lag1::_Lag1Stats{T}
 end
 
-_new_moments(::DenseFisherEstimator, n_dims::Integer, stride::Integer = 1) =
-    _XGMoments(0, zeros(n_dims), zeros(n_dims), zeros(n_dims, n_dims), zeros(n_dims, n_dims), _Lag1Stats(n_dims, stride))
+_new_moments(
+    ::DenseFisherEstimator,
+    ::Type{T},
+    n_dims::Integer,
+    stride::Integer = 1,
+) where {T<:AbstractFloat} = _XGMoments(0, zeros(T, n_dims), zeros(T, n_dims),
+    zeros(T, n_dims, n_dims), zeros(T, n_dims, n_dims), _Lag1Stats(T, n_dims, stride))
 
-_new_moments(::DiagonalFisherEstimator, n_dims::Integer, stride::Integer = 1) =
-    _XGMoments(0, zeros(n_dims), zeros(n_dims), zeros(n_dims), zeros(n_dims), _Lag1Stats(n_dims, stride))
+_new_moments(
+    ::DiagonalFisherEstimator,
+    ::Type{T},
+    n_dims::Integer,
+    stride::Integer = 1,
+) where {T<:AbstractFloat} = _XGMoments(0, zeros(T, n_dims), zeros(T, n_dims),
+    zeros(T, n_dims), zeros(T, n_dims), _Lag1Stats(T, n_dims, stride))
 
-_new_moments(est::LowRankFisherEstimator, n_dims::Integer, stride::Integer = 1) =
-    _new_moments(DiagonalFisherEstimator(), n_dims, stride)
+_new_moments(
+    est::LowRankFisherEstimator,
+    T::Type{<:AbstractFloat},
+    n_dims::Integer,
+    stride::Integer = 1,
+) = _new_moments(DiagonalFisherEstimator(), T, n_dims, stride)
 
-_m2_update!(M2::Matrix{Float64}, d_pre, d_post) = (M2 .+= d_pre .* d_post')
-_m2_update!(M2::Vector{Float64}, d_pre, d_post) = (M2 .+= d_pre .* d_post)
+_new_moments(est, prototype::AbstractVector{P}, stride::Integer = 1) where {P<:Real} =
+    _new_moments(est, float(P), length(prototype), stride)
+
+_new_moments(est, n_dims::Integer, stride::Integer = 1) =
+    _new_moments(est, Float64, n_dims, stride)
+
+_m2_update!(M2::AbstractMatrix, d_pre, d_post) = (M2 .+= d_pre .* d_post')
+_m2_update!(M2::AbstractVector, d_pre, d_post) = (M2 .+= d_pre .* d_post)
 
 function _moments_update!(acc::_XGMoments, x::AbstractVector{<:Real}, g::AbstractVector{<:Real})
     n = (acc.n += 1)
@@ -307,24 +335,25 @@ function _moments_update!(acc::_XGMoments, x::AbstractVector{<:Real}, g::Abstrac
     return acc
 end
 
-_diag_var_raw(acc::_XGMoments{Vector{Float64}}) = acc.M2_x ./ max(acc.n - 1, 1)
-_diag_var_raw(acc::_XGMoments{Matrix{Float64}}) = diag(acc.M2_x) ./ max(acc.n - 1, 1)
+_diag_var_raw(acc::_XGMoments{T,M}) where {T,M<:AbstractVector} = acc.M2_x ./ max(acc.n - 1, 1)
+_diag_var_raw(acc::_XGMoments{T,M}) where {T,M<:AbstractMatrix} = diag(acc.M2_x) ./ max(acc.n - 1, 1)
 
 # First-order (AR(1)) effective observation count: raw counts overstate
 # the information in autocorrelated warmup draws, which would shrink the
 # drift noise floor too fast and trigger spurious geometry commits:
 function _effective_nobs(acc::_AbstractXGMoments)
     l1 = acc.lag1
-    l1.n1 >= 10 || return float(acc.n)
+    T = eltype(acc.mean_x)
+    l1.n1 >= 10 || return T(acc.n)
     var_raw = _diag_var_raw(acc)
     c1 = l1.cross1 ./ l1.n1 .- acc.mean_x .^ 2
-    ρs = c1 ./ max.(var_raw, floatmin(Float64))
-    ρ = clamp(sum(ρs) / length(ρs), 0.0, 0.99)
+    ρs = c1 ./ max.(var_raw, floatmin(T))
+    ρ = clamp(sum(ρs) / length(ρs), zero(T), T(99) / 100)
     return acc.n * (1 - ρ) / (1 + ρ)
 end
 
 
-mutable struct FisherTrafoTunerState{TU<:FisherTransformTuning,E,MO<:_AbstractXGMoments,CS} <: MCMCTransformTunerState
+mutable struct FisherTrafoTunerState{TU<:FisherTransformTuning,E,MO<:_AbstractXGMoments,T<:AbstractFloat,CS} <: MCMCTransformTunerState
     tuning::TU
     estimator::E
     n_dims::Int
@@ -341,7 +370,7 @@ mutable struct FisherTrafoTunerState{TU<:FisherTransformTuning,E,MO<:_AbstractXG
     acc_b::MO
     # Last committed diagonal base for the low-rank path. The correction
     # campaign has one decision and therefore needs no rolling baseline.
-    committed_diag::Union{Nothing,Vector{Float64}}
+    committed_diag::Union{Nothing,Vector{T}}
     campaign::CS
 end
 
@@ -398,15 +427,17 @@ function _create_fisher_tuner_state(tuning::FisherTransformTuning, chain_state::
     chain_state.f_transform isa MulAdd || throw(ArgumentError(
         "FisherTransformTuning requires an affine adaptive space transformation (like TriangularAffineTransform)"
     ))
-    n_dims = length(first(chain_state.current.x.v))
+    prototype = first(chain_state.current.x.v)
+    n_dims = length(prototype)
     n_walkers = nwalkers(chain_state)
     memory_length = sched.memory_length > 0 ? sched.memory_length : max(100, 4 * n_dims)
     min_observations = sched.min_observations > 0 ? sched.min_observations : max(20, 2 * n_dims)
-    acc_a = _new_moments(estimator, n_dims, n_walkers)
-    acc_b = _new_moments(estimator, n_dims, n_walkers)
+    acc_a = _new_moments(estimator, prototype, n_walkers)
+    acc_b = _new_moments(estimator, prototype, n_walkers)
+    T = eltype(acc_a.mean_x)
     campaign_type = estimator isa LowRankFisherEstimator ?
-        Union{Nothing,_LowRankCampaign} : Nothing
-    FisherTrafoTunerState{typeof(tuning),typeof(estimator),typeof(acc_a),campaign_type}(
+        Union{Nothing,_LowRankCampaign{T}} : Nothing
+    FisherTrafoTunerState{typeof(tuning),typeof(estimator),typeof(acc_a),T,campaign_type}(
         tuning, estimator, n_dims, memory_length, min_observations, 0,
         acc_a, acc_b, nothing, nothing
     )
@@ -436,10 +467,12 @@ function mcmc_trafo_tuning_reinit!!(
         retryable || return nothing
 
         n_walkers = nwalkers(chain_state)
+        T = eltype(tuner_state.acc_a.mean_x)
         campaign = if !dynamic_eligible
-            _diagonal_lowrank_campaign(tuner_state.n_dims, max_nsteps, n_walkers)
+            _diagonal_lowrank_campaign(T, tuner_state.n_dims, max_nsteps, n_walkers)
         else
             candidate = _LowRankCampaign(
+                T,
                 tuner_state.n_dims,
                 max_nsteps,
                 n_walkers,
@@ -449,9 +482,7 @@ function mcmc_trafo_tuning_reinit!!(
             something(
                 candidate,
                 _diagonal_lowrank_campaign(
-                    tuner_state.n_dims,
-                    max_nsteps,
-                    n_walkers,
+                    T, tuner_state.n_dims, max_nsteps, n_walkers,
                 ),
             )
         end
@@ -468,8 +499,10 @@ end
 # affine equivariance of the unregularized Fisher equation is only
 # preserved under orthogonal and scalar transformations by this scalar
 # ridge, not under arbitrary affine maps:
-_rel_regularization(γ::Real, C::AbstractMatrix) = γ * max(tr(C) / size(C, 1), floatmin(float(eltype(C))))
-_rel_regularization(γ::Real, var_vec::AbstractVector) = γ * max(sum(var_vec) / length(var_vec), floatmin(float(eltype(var_vec))))
+_rel_regularization(γ::Real, C::AbstractMatrix{T}) where {T<:AbstractFloat} =
+    T(γ) * max(tr(C) / size(C, 1), floatmin(T))
+_rel_regularization(γ::Real, var_vec::AbstractVector{T}) where {T<:AbstractFloat} =
+    T(γ) * max(sum(var_vec) / length(var_vec), floatmin(T))
 
 # Fisher-optimal affine geometry from the accumulated moments. Returns
 # (G, μ) with G the linear geometry (G = A Aᵀ of the optimal transform)
@@ -528,11 +561,12 @@ function _fit_lowrank_candidate(
     γ::Real,
 )
     m = size(Xfit, 2)
+    T = float(promote_type(eltype(dvec), eltype(Xfit), eltype(Gfit)))
     empty = _LowRankCandidate(
-        Float64[],
-        zeros(length(dvec), 0),
-        zeros(length(dvec), 0),
-        Symmetric(zeros(0, 0)),
+        T[],
+        zeros(T, length(dvec), 0),
+        zeros(T, length(dvec), 0),
+        Symmetric(zeros(T, 0, 0)),
     )
     size(Gfit) == size(Xfit) || throw(DimensionMismatch(
         "position and score fit blocks must have the same shape",
@@ -599,41 +633,42 @@ function _fisher_loss(A, mu, x, alpha)
     return sum(abs2, fisher_residual)
 end
 
-function _invalid_lowrank_validation_stats()
+function _invalid_lowrank_validation_stats(::Type{T} = Float64) where {T<:AbstractFloat}
     return (
-        mean = NaN,
-        se = NaN,
-        se_within = NaN,
-        se_between = NaN,
-        n_eff = 0.0,
+        mean = T(NaN),
+        se = T(NaN),
+        se_within = T(NaN),
+        se_between = T(NaN),
+        n_eff = zero(T),
         valid = false,
     )
 end
 
 function _lowrank_validation_stats(delta::AbstractMatrix)
+    T = float(eltype(delta))
     n_walkers, n_steps = size(delta)
-    n_walkers > 0 && n_steps > 1 || return _invalid_lowrank_validation_stats()
-    all(isfinite, delta) || return _invalid_lowrank_validation_stats()
+    n_walkers > 0 && n_steps > 1 || return _invalid_lowrank_validation_stats(T)
+    all(isfinite, delta) || return _invalid_lowrank_validation_stats(T)
 
     walker_means = vec(mean(delta, dims = 2))
-    gamma0 = zeros(n_walkers)
-    sigma2_lr = zeros(n_walkers)
+    gamma0 = zeros(T, n_walkers)
+    sigma2_lr = zeros(T, n_walkers)
     for walker in axes(delta, 1)
         trace = view(delta, walker, :)
         centered = trace .- walker_means[walker]
         gamma0[walker] = sum(abs2, centered) / n_steps
-        gamma0[walker] > 0 || return _invalid_lowrank_validation_stats()
+        gamma0[walker] > 0 || return _invalid_lowrank_validation_stats(T)
         tau = tau_int_from_atc(fft_autocor(trace), GeyerAutocorLen())
-        isfinite(tau) || return _invalid_lowrank_validation_stats()
-        sigma2_lr[walker] = gamma0[walker] * max(tau, 1)
+        isfinite(tau) || return _invalid_lowrank_validation_stats(T)
+        sigma2_lr[walker] = gamma0[walker] * max(tau, one(tau))
     end
 
     se_within2 = sum(sigma2_lr) / (n_walkers^2 * n_steps)
-    se_between2 = n_walkers >= 2 ? var(walker_means) / n_walkers : 0.0
+    se_between2 = n_walkers >= 2 ? var(walker_means) / n_walkers : zero(T)
     se2 = max(se_within2, se_between2)
-    se2 > 0 && isfinite(se2) || return _invalid_lowrank_validation_stats()
-    n_eff = min(n_walkers * n_steps, mean(gamma0) / se2)
-    isfinite(n_eff) || return _invalid_lowrank_validation_stats()
+    se2 > 0 && isfinite(se2) || return _invalid_lowrank_validation_stats(T)
+    n_eff = min(T(n_walkers * n_steps), mean(gamma0) / se2)
+    isfinite(n_eff) || return _invalid_lowrank_validation_stats(T)
 
     return (
         mean = mean(walker_means),
@@ -754,11 +789,8 @@ _fisher_A(::DenseFisherEstimator, G) = cholesky(Positive, Matrix(_dense_spd(G)))
 _fisher_A(::DiagonalFisherEstimator, G::Diagonal) = Diagonal(sqrt.(G.diag))
 function _fisher_A(::LowRankFisherEstimator, G::Diagonal)
     n_dims = length(G.diag)
-    return _lowrank_gram_factor(
-        G.diag,
-        zeros(n_dims, 0),
-        Symmetric(zeros(0, 0)),
-    )
+    T = eltype(G.diag)
+    return _lowrank_gram_factor(G.diag, zeros(T, n_dims, 0), Symmetric(zeros(T, 0, 0)))
 end
 _fisher_A(::LowRankFisherEstimator, G) = rowgram_factor(G)
 
@@ -783,7 +815,7 @@ function _effective_commit_threshold(sched::DriftCommitSchedule, n_dims::Integer
 end
 
 function _diagonal_drift(old::AbstractVector, new::AbstractVector)
-    tiny = floatmin(Float64)
+    tiny = floatmin(float(promote_type(eltype(old), eltype(new))))
     return sqrt(sum(x -> abs2(log(max(x, tiny))), new ./ old))
 end
 
@@ -872,7 +904,11 @@ function mcmc_tune_trafo_post_step!!(
     accumulating = isnothing(campaign) || phase == _LRWaiting
     if accumulating && tuner_state.nsteps % tuner_state.memory_length == 0
         tuner_state.acc_a = tuner_state.acc_b
-        tuner_state.acc_b = _new_moments(tuner_state.estimator, tuner_state.n_dims, tuner_state.acc_b.lag1.stride)
+        tuner_state.acc_b = _new_moments(
+            tuner_state.estimator,
+            tuner_state.acc_b.mean_x,
+            tuner_state.acc_b.lag1.stride,
+        )
     end
 
     if !isnothing(campaign) && phase == _LRWaiting &&

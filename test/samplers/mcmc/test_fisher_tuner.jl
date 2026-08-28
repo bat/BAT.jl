@@ -92,8 +92,89 @@ function _lowrank_fisher_state(; cutoff = 1.5, max_nsteps = 1000, reinit = true)
     return state
 end
 
+function _typed_fisher_commit(::Type{T}) where {T<:AbstractFloat}
+    schedule = DriftCommitSchedule(
+        commit_threshold = 0,
+        check_interval = 1,
+        memory_length = 100,
+        min_observations = 8,
+    )
+    algorithm = TransformedMCMC(
+        proposal = MALAProposal(),
+        adaptive_transform = DiagonalAffineTransform(init = BAT.UnitTransformInit()),
+        transform_tuning = FisherTransformTuning(schedule = schedule),
+        pretransform = DoNotTransform(),
+        nchains = 1,
+        nwalkers = 1,
+    )
+    target = batmeasure(MvNormal(zeros(T, 2), Diagonal(ones(T, 2))))
+    state = BAT.MCMCState(
+        algorithm,
+        target,
+        1,
+        [zeros(T, 2)],
+        BATContext(precision = T, rng = Philox4x((564, 2)), ad = ForwardDiff),
+    )
+    chain_state = state.chain_state
+    tuner = state.trafo_tuner_state
+    proposal = BAT.get_active_proposal(chain_state.proposal)
+    f_transform = chain_state.f_transform
+    grad_storage = zeros(T, 4)
+    committed = false
+
+    for step = 1:8
+        signs = (isodd(step) ? one(T) : -one(T), step % 4 < 2 ? one(T) : -one(T))
+        x = T[10 * signs[1], 5 * signs[2]]
+        score = T[-0.1 * signs[1], -0.2 * signs[2]]
+        chain_state.current.x.v[1] .= x
+        z_grad = view(grad_storage, 2:3)
+        z_grad .= f_transform.A' * score
+        f_new, tuner, _ = BAT.mcmc_tune_trafo_post_step!!(
+            f_transform,
+            tuner,
+            chain_state,
+            proposal,
+            chain_state.current,
+            chain_state.proposed,
+            BAT.MCMCStepInfo(T[one(T)], [z_grad], nothing, nothing, nothing),
+        )
+        committed |= f_new !== f_transform
+        f_transform = f_new
+        chain_state.f_transform = f_transform
+    end
+
+    return (; committed, f_transform, tuner)
+end
+
 @testset "fisher_tuner" begin
     rng = StableRNG(438621057)
+
+    @testset "numeric type preservation" begin
+        for T in (Float32, BigFloat)
+            result = _typed_fisher_commit(T)
+            @test result.committed
+            @test eltype(result.f_transform.A) === T
+            @test eltype(result.f_transform.b) === T
+            @test eltype(result.tuner.acc_a.mean_x) === T
+            @test eltype(result.tuner.acc_a.mean_g) === T
+            @test eltype(result.tuner.acc_a.lag1.prev) === T
+
+            campaign = BAT._LowRankCampaign(T, 2, 1000, 1)
+            @test eltype(campaign.fit.X) === T
+            @test eltype(campaign.validation_loss) === T
+        end
+
+        x = BigFloat[big"0.5" + big"1e-30"]
+        g = BigFloat[big"-1.0" + big"1e-30"]
+        acc = _new_moments(DenseFisherEstimator(), x)
+        _moments_update!(acc, view(x, :), view(g, :))
+        @test only(acc.mean_x) == only(x)
+        @test only(acc.mean_g) == only(g)
+
+        validation_stats = BAT._lowrank_validation_stats(reshape(BigFloat.(1:64), 2, :))
+        @test validation_stats.valid
+        @test validation_stats.mean isa BigFloat
+    end
 
     @testset "Fisher geometry recovery" begin
         # For a Gaussian N(μ, Σ) the score is α = -Σ⁻¹(x - μ), so

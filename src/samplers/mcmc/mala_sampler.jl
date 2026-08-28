@@ -47,26 +47,29 @@ export MALAProposal
 # the proposed states, mutated in place (all functional proposal-state
 # copies share this object by reference). They provide the selected-state
 # gradients for MCMCStepInfo, at no extra gradient evaluations:
-mutable struct _MALAGradCache
-    grads_curr::Vector{Vector{Float64}}
-    grads_prop::Vector{Vector{Float64}}
+mutable struct _MALAGradCache{T<:AbstractFloat}
+    grads_curr::Vector{Vector{T}}
+    grads_prop::Vector{Vector{T}}
 end
 
-_MALAGradCache() = _MALAGradCache(Vector{Vector{Float64}}(), Vector{Vector{Float64}}())
+_MALAGradCache() = _MALAGradCache(Vector{Float64}[], Vector{Float64}[])
+_MALAGradCache(::AbstractVector{<:AbstractVector{P}}) where {P<:Real} =
+    _MALAGradCache(Vector{float(P)}[], Vector{float(P)}[])
 
 struct MALAProposalState{
     TA<:Real,
     TAI<:Tuple{Vararg{Real}},
     Q<:BATMeasure,
     G<:Function,
-    R<:Real
+    R<:Real,
+    C<:_MALAGradCache,
 } <: SimpleMCMCProposalState
     target_acceptance::TA
     target_acceptance_int::TAI
     proposaldist::Q
     target_gradient::G
     τ::R
-    grad_cache::_MALAGradCache
+    grad_cache::C
 end
 
 mcmc_step_provides_grads(::MALAProposalState) = true
@@ -109,7 +112,7 @@ function _create_proposal_state(
         mv_pdist,
         target_gradient,
         n_dims^(-1/3) * proposal.τ_base,
-        _MALAGradCache()
+        _MALAGradCache(v_init),
     )
 end
 
@@ -161,8 +164,8 @@ function mcmc_propose_transition(
     gradient_res_prop = target_gradient.(proposed_z)
     grads_prop = last.(gradient_res_prop)
 
-    proposal.grad_cache.grads_curr = convert(Vector{Vector{Float64}}, grads_curr)
-    proposal.grad_cache.grads_prop = convert(Vector{Vector{Float64}}, grads_prop)
+    proposal.grad_cache.grads_curr = grads_curr
+    proposal.grad_cache.grads_prop = grads_prop
 
     hastings_correction = _mala_log_proposal_ratio(proposal_measure, τ, transition, grads_curr, grads_prop)
 

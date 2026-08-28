@@ -46,6 +46,36 @@ using BAT: MALAProposal, StepSizeAdaptor, LowRankAffineTransform,
         @test h_t ≈ logdensityof(pm_t, ξ_rev) - logdensityof(pm_t, ξ_fwd)
     end
 
+    @testset "gradient cache scalar type" begin
+        T = Float32
+        target = batmeasure(MvNormal(zeros(T, 2), Diagonal(ones(T, 2))))
+        algorithm = TransformedMCMC(
+            proposal = MALAProposal(),
+            adaptive_transform = BAT.DiagonalAffineTransform(),
+            pretransform = DoNotTransform(),
+            nchains = 1,
+            nwalkers = 1,
+        )
+        state = BAT.MCMCState(
+            algorithm,
+            target,
+            1,
+            [T[0.25, -0.5]],
+            BATContext(precision = T, rng = Philox4x((564, 9)), ad = ForwardDiff),
+        )
+        BAT.mcmc_tuning_init!!(state, 100)
+        BAT.mcmc_tuning_reinit!!(state, 100)
+        state = BAT.mcmc_iterate!!(nothing, state; max_nsteps = 1, nonzero_weights = false)
+        cache = BAT.get_active_proposal(state.chain_state.proposal).grad_cache
+        @test eltype(only(cache.grads_curr)) === T
+        @test eltype(only(cache.grads_prop)) === T
+
+        source = BigFloat[big"-1.0" + big"1e-30", 0]
+        cache_big = BAT._MALAGradCache([zeros(BigFloat, 1)])
+        cache_big.grads_curr = [view(source, 1:1)]
+        @test only(only(cache_big.grads_curr)) == first(source)
+    end
+
     @testset "sampling correctness" begin
         context = BATContext(ad = ForwardDiff)
         Σ = [1.0 0.6; 0.6 2.0]

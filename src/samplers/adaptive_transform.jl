@@ -152,9 +152,13 @@ where the outer components already carry the target geometry.
 """
 struct UnitTransformInit <: AbstractTransformInit end
 
-function _affine_init_moments(::UnitTransformInit, target::AbstractMeasure, ::Union{AbstractVector,Nothing}, ::BATContext)
+_unit_transform_eltype(::AbstractVector{<:AbstractVector{P}}, ::BATContext) where {P<:Real} = float(P)
+_unit_transform_eltype(::Nothing, context::BATContext) = get_precision(context)
+
+function _affine_init_moments(::UnitTransformInit, target::AbstractMeasure, v_init::Union{AbstractVector,Nothing}, context::BATContext)
     n = totalndof(varshape(target))
-    return Matrix{Float64}(I, n, n), zeros(n)
+    T = _unit_transform_eltype(v_init, context)
+    return Matrix{T}(I, n, n), zeros(T, n)
 end
 
 
