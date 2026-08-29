@@ -166,6 +166,31 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
         @test nfo.f_calls <= 26
     end
 
+    @testset "deprecated optimizer configuration" begin
+        init = ExplicitInit([true_mode])
+        for (constructor, backend, warning) in (
+            (MaxDensityNelderMead, NelderMead, r"Optim\.NelderMead\(\)"),
+            (MaxDensityLBFGS, LBFGS, r"Optim\.LBFGS\(\)"),
+            (NelderMeadOpt, NelderMead, r"Optim\.NelderMead\(\)"),
+            (LBFGSOpt, LBFGS, r"Optim\.LBFGS\(\)"),
+        )
+            algorithm = @test_deprecated warning constructor(
+                pretransform = DoNotTransform(),
+                init = init,
+                maxiters = 20,
+                kwargs = (f_calls_limit = 25,)
+            )
+
+            @test algorithm isa TransformedMaxDensity
+            @test algorithm.pretransform isa DoNotTransform
+            @test algorithm.init === init
+            @test algorithm.optalg isa OptimAlg
+            @test algorithm.optalg.optalg isa backend
+            @test algorithm.optalg.maxiters == 20
+            @test algorithm.optalg.kwargs == (f_calls_limit = 25,)
+        end
+    end
+
     @testset "algorithm auto-wrapping" begin
         context = BATContext(rng = Philox4x((0, 0)))
         @test @inferred(BAT.batalgorithm(OptimAlg(optalg = NelderMead()))) isa TransformedMaxDensity

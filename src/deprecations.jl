@@ -4,31 +4,46 @@
 @deprecate bat_report(obj...) lazyreport(obj...)
 
 
+function _deprecated_optim_alg(
+    name::Symbol,
+    optalg,
+    optalg_name::Symbol;
+    pretransform = NormalBased(),
+    init = InitFromTarget(),
+    kwargs...
+)
+    Base.depwarn(
+        "`$name(; kwargs...)` is deprecated. Use `TransformedMaxDensity(optalg = OptimAlg(optalg = Optim.$optalg_name()))`; pass `pretransform` and `init` to `TransformedMaxDensity`, and optimizer options to `OptimAlg`.",
+        name
+    )
+    TransformedMaxDensity(
+        optalg = OptimAlg(; optalg, kwargs...),
+        pretransform = pretransform,
+        init = init
+    )
+end
+
 @noinline function MaxDensityNelderMead(; kwargs...)
-    Base.depwarn("`MaxDensityNelderMead(;kwargs...)` is deprecated, use `OptimAlg(;optalg = Optim.NelderMead, kwargs...)` instead.", :MaxDensityNelderMead)
     optalg = BAT.ext_default(pkgext(Val(:Optim)), Val(:NELDERMEAD_ALG))
-    OptimAlg(; optalg=optalg, kwargs...)
+    _deprecated_optim_alg(:MaxDensityNelderMead, optalg, :NelderMead; kwargs...)
 end
 export MaxDensityNelderMead
 
 @noinline function MaxDensityLBFGS(; kwargs...)
-    Base.depwarn("`MaxDensityLBFGS(;kwargs...)` is deprecated, use `OptimAlg(;optalg = Optim.LBFGS, kwargs...)` instead.", :MaxDensityLBFGS)
     optalg = BAT.ext_default(pkgext(Val(:Optim)), Val(:LBFGS_ALG))
-    OptimAlg(; optalg=optalg, kwargs...)
+    _deprecated_optim_alg(:MaxDensityLBFGS, optalg, :LBFGS; kwargs...)
 end
 export MaxDensityLBFGS
 
 @noinline function NelderMeadOpt(; kwargs...)
-    Base.depwarn("`NelderMeadOpt(;kwargs...)` is deprecated, use `OptimAlg(;optalg = Optim.NelderMead, kwargs...)` instead.", :NelderMeadOpt)
     optalg = BAT.ext_default(pkgext(Val(:Optim)), Val(:NELDERMEAD_ALG))
-    OptimAlg(; optalg=optalg, kwargs...)
+    _deprecated_optim_alg(:NelderMeadOpt, optalg, :NelderMead; kwargs...)
 end
 export NelderMeadOpt
 
 @noinline function LBFGSOpt(; kwargs...)
-    Base.depwarn("`LBFGSOpt(;kwargs...)` is deprecated, use `OptimAlg(;optalg = Optim.LBFGS, kwargs...)` instead.", :LBFGSOpt)
     optalg = BAT.ext_default(pkgext(Val(:Optim)), Val(:LBFGS_ALG))
-    OptimAlg(; optalg=optalg, kwargs...)
+    _deprecated_optim_alg(:LBFGSOpt, optalg, :LBFGS; kwargs...)
 end
 export LBFGSOpt
 
