@@ -29,6 +29,7 @@ _credible_dyadic(::Real) = nothing
 
 function _credible_uint_coefficients(W)
     min_exponent = typemax(Int)
+    # Validate exact dyadic weights.
     for w in W
         dyadic = _credible_dyadic(w)
         isnothing(dyadic) && return nothing
@@ -37,6 +38,7 @@ function _credible_uint_coefficients(W)
     end
     coefficients = Vector{UInt128}(undef, length(W))
     total = zero(UInt128)
+    # Accumulate exact integer mass.
     for i in eachindex(W)
         coefficient, exponent = _credible_dyadic(W[i])
         shift = iszero(coefficient) ? 0 : exponent - min_exponent
@@ -46,8 +48,7 @@ function _credible_uint_coefficients(W)
         overflow && return nothing
         coefficients[i] = coefficient
     end
-    _, overflow = Base.Checked.mul_with_overflow(total, UInt128(370))
-    overflow ? nothing : coefficients
+    total <= typemax(UInt128) ÷ UInt128(370) ? coefficients : nothing
 end
 
 function _credible_exact_value(x::AbstractFloat)
@@ -57,26 +58,33 @@ function _credible_exact_value(x::AbstractFloat)
 end
 _credible_exact_value(x::Real) = Rational{BigInt}(x)
 
-function _credible_big_coefficients(W)
-    weights = _credible_exact_value.(W)
-    common_denominator = foldl(lcm, denominator.(weights); init = big(1))
-    [numerator(w) * div(common_denominator, denominator(w)) for w in weights]
-end
-
 function _credible_coefficients(W)
     any(w -> w isa ULogarithmic, W) && throw(ArgumentError(
         "logarithmic weights must use homogeneous storage"
     ))
+    T = eltype(W)
+    if isbitstype(T) && T <: Integer && sizeof(T) <= sizeof(UInt)
+        total = sum(UInt128, W)
+        total <= typemax(UInt) ÷ UInt(370) && return UInt.(W)
+    end
     coefficients = _credible_uint_coefficients(W)
-    isnothing(coefficients) ? _credible_big_coefficients(W) : coefficients
+    !isnothing(coefficients) && return coefficients
+    weights = _credible_exact_value.(W)
+    common_denominator = foldl(lcm, denominator.(weights); init = big(1))
+    [numerator(w) * div(common_denominator, denominator(w)) for w in weights]
+end
+function _credible_coefficients(W::UnitWeights)
+    T = length(W) <= typemax(UInt) ÷ UInt(370) ? UInt : UInt128
+    UnitWeights{T}(length(W))
 end
 _credible_coefficients(W::AbstractVector{<:ULogarithmic}) =
     _credible_coefficients(_canonical_rel_weights(W))
 function _credible_atoms(X, coefficients)
     atoms = sort!(collect(zip(X, coefficients)); by = first)
-    filter!(atom -> !iszero(last(atom)), atoms)
+    coefficients isa UnitWeights || filter!(atom -> !iszero(last(atom)), atoms)
     isempty(atoms) && return atoms
     write_idx = 1
+    # Merge adjacent equal atoms.
     for read_idx in firstindex(atoms)+1:lastindex(atoms)
         if first(atoms[read_idx]) == first(atoms[write_idx])
             atoms[write_idx] = (
@@ -88,7 +96,9 @@ function _credible_atoms(X, coefficients)
         end
     end
     resize!(atoms, write_idx)
+    coefficients isa UnitWeights && return atoms
     divisor = last(first(atoms))
+    # Compute a shared mass scale.
     for atom in @view atoms[2:end]
         divisor = gcd(divisor, last(atom))
         isone(divisor) && break
@@ -130,6 +140,7 @@ function _credible_grid(atoms, n)
     total = sum(last, atoms)
     cumulative = zero(total)
     atom_idx = firstindex(atoms) - 1
+    # Advance the inverse ECDF.
     for j in 1:n
         while n * cumulative < j * total
             atom_idx += 1
@@ -145,6 +156,7 @@ function _credible_connected(atoms, threshold)
     mass = zero(threshold)
     best = (first(first(atoms)), first(last(atoms)))
     best_width = _credible_width_state(best...)
+    # Slide the mass window.
     for right in eachindex(atoms)
         mass += last(atoms[right])
         while left < right && mass - last(atoms[left]) >= threshold
@@ -170,6 +182,7 @@ function _credible_count_interval(X, m, n)
     window = cld(m * length(values), n)
     best = (first(values), values[window])
     best_width = _credible_width_state(best...)
+    # Compare each fixed-count window.
     @inbounds for left in 2:length(values)-window+1
         candidate = (values[left], values[left + window - 1])
         width = _credible_width_state(candidate...)
@@ -191,9 +204,11 @@ function _credible_disjoint(atoms, m, n, threshold)
     selected = falses(n)
     covered = falses(length(atoms))
     mass = zero(threshold)
+    # Track overlapping selected bins.
     for r in eachindex(ranking)
         bin = ranking[r]
         selected[bin] = true
+        # Count each atom once.
         for atom_idx in boundaries[bin]:boundaries[bin + 1]
             if !covered[atom_idx]
                 covered[atom_idx] = true
@@ -207,6 +222,7 @@ function _credible_disjoint(atoms, m, n, threshold)
         first(atoms[boundaries[i]]), first(atoms[boundaries[i + 1]])
     ) for i in findall(selected)]
     merged = eltype(intervals)[]
+    # Merge adjacent selected intervals.
     for interval in intervals
         if isempty(merged) || minimum(interval) > maximum(last(merged))
             push!(merged, interval)
@@ -243,7 +259,7 @@ function smallest_credible_intervals(
     elseif nsigma_equivalent ≈ oftype(nsigma_equivalent, 3)
         369, 370
     elseif isapprox(nsigma_equivalent, nsigma_90percent, atol = 0.01)
-        9, 10
+        90, 100
     else
         throw(ArgumentError("nsigma_equivalent must be 1, 2, 3 or 1.64 (for 90% credibility interval)"))
     end
