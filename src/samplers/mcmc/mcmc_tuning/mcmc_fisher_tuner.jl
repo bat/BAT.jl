@@ -200,8 +200,9 @@ export DriftCommitSchedule
     struct FisherTransformTuning <: MCMCTransformTuning
 
 Tunes MCMC space transformations for gradient-based proposals (currently
-[`HamiltonianMC`](@ref)) by minimizing the empirical Fisher divergence of
-the transformed target to a standard normal distribution (following
+[`HamiltonianMC`](@ref) and [`MALAProposal`](@ref)) by minimizing the
+empirical Fisher divergence of the transformed target to a standard normal
+distribution (following
 [A. Seyboldt, E. L. Carlson and B. Carpenter, "Preconditioning
 Hamiltonian Monte Carlo by minimizing Fisher Divergence"
 (2026)](https://arxiv.org/abs/2603.18845)).
@@ -212,16 +213,16 @@ score - the affine-invariant geometric mean of the position covariance and
 the inverse score covariance. For sufficiently regular targets (vanishing
 boundary terms) the score has zero mean and `Cov(α) = E[-∇²log(target)]`,
 the average local curvature. For a Gaussian target `Cov(x) = Σ` while
-`Cov(α) = Σ⁻¹`, so the optimum is `G = Σ`. The scores come for free: the
-z-space gradients that Hamiltonian proposals compute anyway are mapped
-back through the current transformation, no additional density or
-gradient evaluations are required.
+`Cov(α) = Σ⁻¹`, so the optimum is `G = Σ`. The z-space gradients that these
+proposals compute are mapped back through the current transformation, so no
+additional density or gradient evaluations are required.
 
 Positions and scores are accumulated in the fixed pre-adaptive space with
 foreground-background memory (early, transient-contaminated draws are
 periodically forgotten). Transform updates follow the `schedule`; each
-committed transform triggers a fresh step-size search and a dual-averaging
-restart in the step-size adaptor (see [`BAT.StepSizeAdaptor`](@ref)).
+committed transform restarts dual averaging in the step-size adaptor (see
+[`BAT.StepSizeAdaptor`](@ref)). HMC first searches for a reasonable step
+size in the new geometry, whereas MALA restarts around its current `τ`.
 
 Fisher moment, fit, and validation state uses the chain's floating-point
 type.

@@ -40,8 +40,9 @@ Get the samples associated with measure-like object `m`, or `nothing` if
 no samples are available.
 
 The returned object is live internal data of `m`, it must not be modified.
-Use `DensitySampleVector(em)` to obtain an independent copy from an
-[`EvaluatedMeasure`](@ref).
+Use `DensitySampleVector(m)` or `convert(DensitySampleVector, m)` to obtain
+an independent copy from a `DensitySampleMeasure` or an `EvaluatedMeasure`
+with empirical samples.
 """
 function samplesof end
 export samplesof

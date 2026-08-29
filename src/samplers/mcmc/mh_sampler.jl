@@ -6,10 +6,15 @@
 
 Metropolis-Hastings MCMC sampling algorithm.
 
-The default target acceptance rate and proposal scaling follow
+For Gaussian random-walk Metropolis in the high-dimensional symmetric
+product-target regime, the asymptotic target acceptance rate and proposal
+scaling are
 [G. O. Roberts, A. Gelman and W. R. Gilks, "Weak convergence and
 optimal scaling of random walk Metropolis algorithms"
 (1997)](https://doi.org/10.1214/aoap/1034625254).
+
+BAT applies the same scale heuristically to its default Cauchy (`TDist(1)`)
+innovation.
 
 Constructors:
 
@@ -27,7 +32,7 @@ $(TYPEDFIELDS)
         Distribution{<:Union{Univariate,Multivariate},Continuous}
     }
 } <: MCMCProposal
-    # 0.234 is the asymptotically optimal random-walk acceptance rate of
+    # 0.234 is the asymptotic Gaussian-RWM acceptance rate in the regime of
     # Roberts, Gelman & Gilks (1997), see the docstring above:
     target_acceptance::TA = 0.234
     target_acceptance_int::TAI = (0.15, 0.35)
@@ -94,7 +99,7 @@ function _full_random_walk_proposal(d::Distribution{Multivariate,Continuous}, n_
 end
 
 function _full_random_walk_proposal(d::Normal, n_dims::Integer)
-    # Theoretical optimally proposal scale for random walk with gaussian proposal, according to
+    # Asymptotic Gaussian-RWM proposal scale in the regime of
     # [Roberts, Gelman & Gilks, Ann. Appl. Probab. 7 (1) 110 - 120, 1997](https://doi.org/10.1214/aoap/1034625254):
     proposal_scale = 2.38 / sqrt(n_dims)
 
@@ -105,8 +110,7 @@ function _full_random_walk_proposal(d::Normal, n_dims::Integer)
 end
 
 function _full_random_walk_proposal(d::TDist, n_dims::Integer)
-    # Theoretically optimal proposal scale for gaussian seems to work quite well for
-    # t-distribution proposals with any degrees of freedom as well:
+    # BAT applies the Gaussian-RWM scale heuristically to t innovations:
     proposal_scale = 2.38 / sqrt(n_dims)
 
     ν = dof(d)

@@ -36,13 +36,22 @@ TransformedMaxDensity(
 )
 ```
 
-The AdvancedHMC extension has been removed. Use BAT's native `HamiltonianMC`
+The AdvancedHMC backend and extension have been removed. `StanLikeTuning`
+remains available as a BAT-internal tuner. Use BAT's native `HamiltonianMC`
 proposal with `TransformedMCMC` and revisit AdvancedHMC-specific configuration.
 
 Custom experimental `SimpleMCMCProposalState` extensions must update
 `mcmc_propose_transition(current_z, state, nwalkers, genctx)` methods to
 `mcmc_propose_transition(current_z, state, genctxs::AbstractVector)`. Each
 entry is the generation context for the corresponding logical walker.
+
+`DensitySampleMeasure` snapshots sampling weights at construction; reconstruct
+it after changing weights. Convert a `DensitySampleMeasure` or
+`EvaluatedMeasure` to `DensitySampleVector` for an independent mutable copy.
+
+For empirical measures, `getess` records sampling-process provenance rather
+than empirical-measure content. AC-ESS uses retained process order and may use
+a resampling heuristic depending on the weight representation.
 
 Prefer stable accessors over direct `EvaluatedMeasure` fields:
 `samplesof`, `empiricalof`, `approxof`, `samplegenof`, `getess`, `massof`,

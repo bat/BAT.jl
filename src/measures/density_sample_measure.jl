@@ -12,7 +12,8 @@ measure at the sample points stored as well.
 The sample need not have been drawn in a true IID fashion, but may also be
 the result of MCMC and other sampling methods.
 
-A `DensitySampleMeasure` can be converted to a `DensitySampleVector`.
+A `DensitySampleMeasure` can be converted to an independent
+`DensitySampleVector` copy.
 
 The measure snapshots the sampling weights at construction and builds a
 private cumulative distribution. Its values, log densities, `info`, and `aux`

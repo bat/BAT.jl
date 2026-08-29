@@ -252,21 +252,24 @@ diagonal geometry is insufficient. Tuning selects those directions by an
 eigenvalue cutoff (see [`FisherTransformTuning`](@ref)), which
 regularizes the geometry estimate compared to a full triangular matrix.
 
-Applying the transformation costs O(rank * n_dims). Initialization from
-an approximate covariance honors `cutoff` and `max_rank` and may use a
-dense decomposition.
+Applying the transformation costs O(rank * n_dims). For a dynamic Fisher fit
+block with `m` position/score observations, the joint basis has at most `2m`
+columns (and rank at most `min(n_dims, 2m)`). Fitting costs
+`O(n_dims * m^2)` for thin-QR and projected products plus `O(m^3)` for
+small-matrix work. Initialization from an approximate covariance is a
+separate dense decomposition governed by `max_rank`.
 
-Dynamic Fisher tuning currently makes one rank-one correction attempt
-for at most 32 dimensions when `cutoff >= 1.5`. It fits from a fixed
-window and uses a guard followed by held-out validation. HMC keeps the
-diagonal kernel during both. MALA installs the candidate provisionally
-during its guard so it can retune and mix, then keeps it after acceptance
-or restores the diagonal transform after rejection. The correction must beat
-both the frozen diagonal base and its own diagonal projection. Each paired
-Fisher-loss comparison needs a positive one-sided 99% normal lower bound with
-at least 20 effective observations. This rejects purely diagonal updates
-without restricting the shape of a correlation direction. Other settings tune
-only the diagonal base.
+Dynamic Fisher tuning can make at most one rank-one correction attempt when
+`cutoff >= 1.5`, the dimension is at most 32, and a tuning cycle has enough
+steps; otherwise it tunes only the diagonal base. It fits from a fixed window
+and uses a guard followed by held-out validation. HMC keeps the diagonal kernel
+during both. MALA installs the candidate provisionally during its guard so it
+can retune and mix, then keeps it after acceptance or restores the diagonal
+transform after rejection. The correction must beat both the frozen diagonal
+base and its own diagonal projection. Each paired Fisher-loss comparison needs
+a positive one-sided 99% normal lower bound with at least 20 effective
+observations. This rejects purely diagonal updates without restricting the
+shape of a correlation direction.
 
 This is a conservative held-out heuristic, not a finite-sample error-rate
 guarantee. Its asymptotic interpretation assumes stationary, mixing validation
@@ -285,9 +288,9 @@ $(TYPEDFIELDS)
     "Transform initialization algorithm."
     init::I = PriorApproxTransformInit()
 
-    "Maximum rank of the non-diagonal correction during initialization,
-    `0` means no explicit cap. Dynamic Fisher tuning currently attempts
-    one rank-one correction."
+    "Maximum rank of the non-diagonal correction during initialization. `0`
+    means no explicit cap. Dynamic Fisher tuning currently attempts one
+    rank-one correction."
     max_rank::Int = 0
 
     "Relative eigenvalue cutoff used during initialization. Dynamic
