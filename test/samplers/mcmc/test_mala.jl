@@ -76,6 +76,179 @@ using BAT: MALAProposal, StepSizeAdaptor, LowRankAffineTransform,
         @test only(only(cache_big.grads_curr)) == first(source)
     end
 
+    @testset "startup domain validation" begin
+        target = batmeasure(MvNormal(zeros(2), I))
+        context = BATContext(rng = Philox4x((564, 10)), ad = ForwardDiff)
+
+        function make_state(
+            proposal, tuning = StepSizeAdaptor(); target_measure = target,
+        )
+            algorithm = TransformedMCMC(
+                proposal = proposal,
+                proposal_tuning = tuning,
+                pretransform = DoNotTransform(),
+                nchains = 1,
+                nwalkers = 1,
+            )
+            return BAT.MCMCState(
+                algorithm, target_measure, 1, [zeros(2)], deepcopy(context),
+            )
+        end
+
+        for τ_base in (0.0, -1.0, Inf, NaN)
+            @test_throws ArgumentError make_state(MALAProposal(τ_base = τ_base))
+        end
+        for target_acceptance in (-0.1, 0.0, 1.0, 1.1, Inf, NaN)
+            @test_throws ArgumentError make_state(
+                MALAProposal(target_acceptance = target_acceptance),
+            )
+        end
+        for target_acceptance_int in (
+            (-0.1, 0.5), (0.5, 1.1), (0.5, 0.5), (0.7, 0.6),
+            (NaN, 0.5), (0.5, NaN),
+        )
+            for proposal in (
+                MALAProposal(target_acceptance_int = target_acceptance_int),
+                HamiltonianMC(
+                    target_acceptance_int = target_acceptance_int,
+                    step_size = 0.1,
+                ),
+            )
+                @test_throws ArgumentError make_state(proposal)
+            end
+        end
+
+        startup_sentinel = ErrorException("startup validation reached target preparation")
+        startup_calls = Ref(0)
+        sentinel_target = batmeasure(PosteriorMeasure(
+            logfuncdensity() do _
+                startup_calls[] += 1
+                throw(startup_sentinel)
+            end,
+            MvNormal(zeros(2), I),
+        ))
+        for target_acceptance_int in ((), (0.5,), (0.4, 0.6, 0.8))
+            for proposal in (
+                MALAProposal(target_acceptance_int = target_acceptance_int),
+                HamiltonianMC(
+                    target_acceptance_int = target_acceptance_int,
+                    step_size = 0.1,
+                ),
+            )
+                @test_throws ArgumentError make_state(
+                    proposal; target_measure = sentinel_target,
+                )
+                @test iszero(startup_calls[])
+            end
+        end
+        for proposal in (MALAProposal(), HamiltonianMC(step_size = 0.1))
+            calls_before = startup_calls[]
+            err = try
+                make_state(proposal; target_measure = sentinel_target)
+                nothing
+            catch err
+                err
+            end
+            @test !isnothing(err)
+            @test startup_calls[] == calls_before + 1
+        end
+
+        invalid_tunings = (
+            StepSizeAdaptor(gamma = 0.0),
+            StepSizeAdaptor(gamma = -1.0),
+            StepSizeAdaptor(gamma = Inf),
+            StepSizeAdaptor(gamma = NaN),
+            StepSizeAdaptor(t0 = -1.0),
+            StepSizeAdaptor(t0 = Inf),
+            StepSizeAdaptor(t0 = NaN),
+            StepSizeAdaptor(kappa = 0.5),
+            StepSizeAdaptor(kappa = 0.0),
+            StepSizeAdaptor(kappa = 1.1),
+            StepSizeAdaptor(kappa = Inf),
+            StepSizeAdaptor(kappa = NaN),
+        )
+        for tuning in invalid_tunings
+            @test_throws ArgumentError make_state(MALAProposal(), tuning)
+            @test_throws ArgumentError make_state(
+                HamiltonianMC(step_size = 0.1), tuning,
+            )
+        end
+
+        valid_proposals = (
+            MALAProposal(τ_base = floatmin(Float64)),
+            MALAProposal(τ_base = floatmax(Float64)),
+            MALAProposal(target_acceptance = nextfloat(0.0)),
+            MALAProposal(target_acceptance = prevfloat(1.0)),
+            MALAProposal(target_acceptance_int = (0.0, nextfloat(0.0))),
+            MALAProposal(target_acceptance_int = (prevfloat(1.0), 1.0)),
+        )
+        for proposal in valid_proposals
+            @test make_state(proposal) isa BAT.MCMCState
+        end
+
+        valid_tunings = (
+            StepSizeAdaptor(gamma = floatmin(Float64)),
+            StepSizeAdaptor(t0 = 0.0),
+            StepSizeAdaptor(kappa = nextfloat(0.5)),
+            StepSizeAdaptor(kappa = 1.0),
+        )
+        for tuning in valid_tunings
+            @test make_state(MALAProposal(), tuning) isa BAT.MCMCState
+            @test make_state(HamiltonianMC(step_size = 0.1), tuning) isa BAT.MCMCState
+        end
+
+        boundary_tuning = StepSizeAdaptor(gamma = floatmin(Float64), t0 = 0.0, kappa = 1.0)
+        for initial_proposal in (MALAProposal(), HamiltonianMC(step_size = 0.1))
+            for acceptance in (0.1, initial_proposal.target_acceptance, 0.95)
+                state = make_state(initial_proposal, boundary_tuning)
+                proposal = BAT.get_active_proposal(state.chain_state.proposal)
+                tuner = state.proposal_tuner_state
+                tuner_before = deepcopy(tuner)
+                scale_before = proposal isa BAT.MALAProposalState ?
+                    proposal.τ : proposal.step_size
+                step_info = BAT.MCMCStepInfo([acceptance])
+
+                if acceptance == initial_proposal.target_acceptance
+                    proposal, tuner, chain_state = BAT.mcmc_tune_proposal_post_step!!(
+                        proposal, tuner, state.chain_state, step_info,
+                    )
+                    scale = proposal isa BAT.MALAProposalState ? proposal.τ : proposal.step_size
+                    @test isfinite(scale) && scale > 0
+                    proposal, _, _ = BAT.mcmc_proposal_tuning_finalize!!(
+                        proposal, tuner, chain_state,
+                    )
+                    scale = proposal isa BAT.MALAProposalState ? proposal.τ : proposal.step_size
+                    @test isfinite(scale) && scale > 0
+                else
+                    @test_throws ArgumentError BAT.mcmc_tune_proposal_post_step!!(
+                        proposal, tuner, state.chain_state, step_info,
+                    )
+                    @test all(fieldnames(typeof(tuner))) do name
+                        getproperty(tuner, name) == getproperty(tuner_before, name)
+                    end
+                    scale = proposal isa BAT.MALAProposalState ? proposal.τ : proposal.step_size
+                    @test scale == scale_before
+                    proposal, _, _ = BAT.mcmc_proposal_tuning_finalize!!(
+                        proposal, tuner, state.chain_state,
+                    )
+                    scale = proposal isa BAT.MALAProposalState ? proposal.τ : proposal.step_size
+                    @test isfinite(scale) && scale > 0
+                end
+            end
+
+            for invalid_log_scale in (-Inf, Inf)
+                state = make_state(initial_proposal)
+                proposal = BAT.get_active_proposal(state.chain_state.proposal)
+                tuner = state.proposal_tuner_state
+                tuner.m = 1
+                tuner.log_stepsize_bar = invalid_log_scale
+                @test_throws ArgumentError BAT.mcmc_proposal_tuning_finalize!!(
+                    proposal, tuner, state.chain_state,
+                )
+            end
+        end
+    end
+
     @testset "sampling correctness" begin
         Σ = [1.0 0.6; 0.6 2.0]
         objective = MvNormal([1.0, -1.0], Σ)

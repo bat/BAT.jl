@@ -16,6 +16,9 @@ approximations to Langevin diffusions"
 theory assumes Gaussian innovations, so with a non-Gaussian
 `proposaldist` consider setting `target_acceptance` explicitly.
 
+Invalid acceptance controls or a non-finite/non-positive `τ_base` are
+rejected with `ArgumentError` when the MCMC state is constructed.
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```
@@ -35,9 +38,15 @@ $(TYPEDFIELDS)
 } <: MCMCProposal
     # 0.574 and the n^(-1/3) step scaling are the asymptotically optimal
     # values of Roberts & Rosenthal (1998), see the docstring above:
+    "Target acceptance probability, strictly between zero and one."
     target_acceptance::TA = 0.574
+
+    "Two-element ordered acceptable tuning interval within `[0, 1]`."
     target_acceptance_int::TAI = (0.5, 0.65)
+
     proposaldist::Q = Normal()
+
+    "Positive finite base Langevin step scale."
     τ_base::R = 1.65^2
 end
 
@@ -98,6 +107,13 @@ function _create_proposal_state(
     f_transform::Function,
     rng::AbstractRNG
 ) where {P<:Real, PV<:AbstractVector{P}}
+    @argcheck 0 < proposal.target_acceptance < 1
+    @argcheck length(proposal.target_acceptance_int) == 2
+    let (lo, hi) = proposal.target_acceptance_int
+        @argcheck 0 <= lo < hi <= 1
+    end
+    @argcheck isfinite(proposal.τ_base) && proposal.τ_base > 0
+
     n_dims = totalndof(varshape(target))
     mv_pdist = batmeasure(_mala_innovation_dist(proposal.proposaldist, n_dims))
 

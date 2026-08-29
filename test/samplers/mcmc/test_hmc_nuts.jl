@@ -71,13 +71,13 @@ using BAT: HMCPhasePoint, _hmc_phasepoint, _leapfrog_step, _logaddexp,
         eps_multi = hmc_find_good_stepsize(StableRNG(12345), f_funnel, [q_wide, q_narrow])
         @test 0 < eps_multi < eps_wide
 
-        # The capped probes are spread across the whole walker collection,
-        # so a stiff walker placed last among many is still seen:
-        qs_late_stiff = vcat([q_wide .+ 0.1 .* randn(StableRNG(7), 2) for _ in 1:15], [q_narrow])
-        eps_late = hmc_find_good_stepsize(StableRNG(12345), f_funnel, qs_late_stiff)
-        @test 0 < eps_late < eps_wide
+        qs_hidden_stiff = fill(q_wide, 16)
+        qs_hidden_stiff[2] = q_narrow
+        eps_hidden = hmc_find_good_stepsize(StableRNG(12345), f_funnel, qs_hidden_stiff)
+        eps_stiff = hmc_find_good_stepsize(StableRNG(12345), f_funnel, q_narrow)
+        @test 0 < eps_hidden <= eps_stiff
 
-        # Large walker ensembles are handled (probing is capped):
+        # Large walker ensembles are handled:
         eps_many = hmc_find_good_stepsize(rng, f_logdgrad, [randn(rng, 3) for _ in 1:30])
         @test 0.05 < eps_many < 5
 
@@ -87,10 +87,15 @@ using BAT: HMCPhasePoint, _hmc_phasepoint, _leapfrog_step, _logaddexp,
         # throwing:
         fg_bad(q) = (-Inf, fill(NaN, length(q)))
         @test BAT._hmc_init_stepsize(rng, fg_bad, [randn(rng, 3)], 0.1) == 0.1
-        # A finite walker still wins over the fallback:
-        fg_partial(q) = all(q .> 0) ? f_logdgrad(q) : (-Inf, fill(NaN, length(q)))
-        eps_partial = BAT._hmc_init_stepsize(rng, fg_partial, [fill(-1.0, 3), fill(1.0, 3)], 0.1)
-        @test 0.05 < eps_partial < 5
+        fg_hidden_valid(q) = first(q) < -100 ?
+            (-Inf, fill(NaN, length(q))) : f_logdgrad(q)
+        zs_hidden_valid = fill(fill(-1000.0, 3), 16)
+        zs_hidden_valid[2] = zeros(3)
+        eps_hidden_valid = BAT._hmc_init_stepsize(
+            StableRNG(8123), fg_hidden_valid, zs_hidden_valid, 0.1,
+        )
+        @test 0.05 < eps_hidden_valid < 5
+        @test eps_hidden_valid != 0.1
     end
 
     @testset "nuts_transition" begin

@@ -25,6 +25,7 @@ function create_proposal_tuner_state(
     proposal::MALAProposalState,
     iteration::Integer
 )
+    _validate_dual_averaging_domain(tuning)
     log_tau = log(proposal.τ)
     MALAStepSizeTunerState(
         tuning, 0, log_tau + log(oftype(log_tau, 10)),
@@ -80,16 +81,12 @@ function mcmc_tune_proposal_post_step!!(
     p_accept = step_info.p_accept
     accept_sum = _ordered_walker_sum(p_accept, step_info.walker_order)
     mean_accept = accept_sum / length(p_accept)
-    tuner.run_nobs += length(p_accept)
-    tuner.run_accept_sum += accept_sum
     tau_new = _dual_averaging_step!(
         tuner, get_target_acceptance_ratio(proposal), mean_accept,
     )
-    proposal_new = if isfinite(tau_new)
-        @set proposal.τ = oftype(proposal.τ, tau_new)
-    else
-        proposal
-    end
+    tuner.run_nobs += length(p_accept)
+    tuner.run_accept_sum += accept_sum
+    proposal_new = @set proposal.τ = oftype(proposal.τ, tau_new)
     return proposal_new, tuner, chain_state
 end
 
@@ -111,7 +108,7 @@ function mcmc_proposal_tuning_finalize!!(
     chain_state::MCMCChainState
 )
     proposal_new = if tuner.m > 0
-        @set proposal.τ = oftype(proposal.τ, exp(tuner.log_stepsize_bar))
+        @set proposal.τ = oftype(proposal.τ, _dual_averaging_final_scale(tuner))
     else
         proposal
     end

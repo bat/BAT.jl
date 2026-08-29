@@ -198,35 +198,17 @@ single-step Metropolis acceptance ratio lies between 1/4 and 3/4 (see
 Setting Path Lengths in Hamiltonian Monte Carlo"
 (2014)](https://jmlr.org/papers/v15/hoffman14a.html), algorithm 4).
 
-Given a vector of positions instead of a single position, probes several
-of them and returns the smallest step size found.
+Given a vector of positions instead of a single position, probes every
+position and returns the smallest step size found.
 """
 function hmc_find_good_stepsize end
-
-# The transform and the step size are shared across all walkers, but
-# walkers may sit in regions of different local stiffness, so the search
-# probes several walker positions and takes the smallest result: right
-# after a geometry change stability matters more than initial efficiency,
-# and dual averaging quickly recovers from a too-conservative initial
-# value. The probe count is capped to bound the gradient cost for large
-# walker ensembles:
-const _MAX_STEPSIZE_SEARCH_PROBES = 8
-
-# Capped probes are spread evenly across the whole walker collection - a
-# probe of only the leading walkers would be blind to stiff regions that
-# a structured walker ordering places later in the vector:
-function _stepsize_probe_indices(idxs::AbstractVector{<:Integer}, n_probe::Integer)
-    n_probe >= length(idxs) && return idxs
-    return unique(round.(Int, range(first(idxs), last(idxs), length = n_probe)))
-end
 
 function hmc_find_good_stepsize(
     rng::AbstractRNG, f_logdgrad::Function, qs::AbstractVector{<:AbstractVector{<:Real}};
     kwargs...
 )
     @argcheck !isempty(qs)
-    probe_idxs = _stepsize_probe_indices(eachindex(qs), _MAX_STEPSIZE_SEARCH_PROBES)
-    return minimum(hmc_find_good_stepsize(rng, f_logdgrad, qs[i]; kwargs...) for i in probe_idxs)
+    return minimum(hmc_find_good_stepsize(rng, f_logdgrad, q; kwargs...) for q in qs)
 end
 
 function hmc_find_good_stepsize(

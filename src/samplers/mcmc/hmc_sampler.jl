@@ -139,6 +139,7 @@ function _create_proposal_state(
     rng::AbstractRNG
 ) where {P<:Real, PV<:AbstractVector{P}}
     @argcheck 0 < proposal.target_acceptance < 1
+    @argcheck length(proposal.target_acceptance_int) == 2
     let (lo, hi) = proposal.target_acceptance_int
         @argcheck 0 <= lo < hi <= 1
     end
@@ -179,7 +180,7 @@ function _hmc_init_stepsize(
     rng::AbstractRNG, fg::Function, zs::AbstractVector{<:AbstractVector{<:Real}}, fallback::Real
 )
     stepsize_min = oftype(float(fallback), Inf)
-    for i in _stepsize_probe_indices(eachindex(zs), _MAX_STEPSIZE_SEARCH_PROBES)
+    for i in eachindex(zs)
         stepsize = try
             hmc_find_good_stepsize(rng, fg, zs[i])
         catch err

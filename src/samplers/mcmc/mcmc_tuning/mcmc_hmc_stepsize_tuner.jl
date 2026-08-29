@@ -17,6 +17,11 @@ See [M. D. Hoffman and A. Gelman, "The No-U-Turn Sampler: Adaptively
 Setting Path Lengths in Hamiltonian Monte Carlo"
 (2014)](https://jmlr.org/papers/v15/hoffman14a.html), section 3.2.
 
+Invalid adaptation controls are rejected with `ArgumentError` when the
+proposal tuner state is constructed, before sampling begins.
+An update or finalization that cannot represent a finite positive scale
+raises `ArgumentError` without installing an invalid scale.
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```
@@ -26,13 +31,13 @@ Fields:
 $(TYPEDFIELDS)
 """
 @with_kw struct StepSizeAdaptor{T<:Real} <: HMCTuning
-    "Adaptation regularization scale."
+    "Positive finite adaptation regularization scale."
     gamma::T = 0.05
 
-    "Adaptation iteration offset."
+    "Finite non-negative adaptation iteration offset."
     t0::T = 10.0
 
-    "Adaptation relaxation exponent."
+    "Finite adaptation relaxation exponent in `(0.5, 1]`."
     kappa::T = 0.75
 end
 
@@ -40,6 +45,13 @@ end
 # Common supertype for Nesterov-dual-averaging scalar proposal-scale tuner
 # states, sharing the fields tuning, m, log_mu, log_stepsize_bar and H_bar:
 abstract type DualAveragingTunerState <: MCMCProposalTunerState end
+
+function _validate_dual_averaging_domain(tuning::StepSizeAdaptor)
+    @argcheck isfinite(tuning.gamma) && tuning.gamma > 0
+    @argcheck isfinite(tuning.t0) && tuning.t0 >= 0
+    @argcheck isfinite(tuning.kappa) && 0.5 < tuning.kappa <= 1
+    return nothing
+end
 
 mutable struct HMCStepSizeTunerState{T<:AbstractFloat} <: DualAveragingTunerState
     tuning::StepSizeAdaptor
@@ -70,6 +82,7 @@ function create_proposal_tuner_state(
     proposal::HMCProposalState,
     iteration::Integer
 )
+    _validate_dual_averaging_domain(tuning)
     log_stepsize = log(proposal.step_size)
     HMCStepSizeTunerState(
         tuning, 0, log_stepsize + log(oftype(log_stepsize, 10)),
@@ -130,14 +143,31 @@ function _dual_averaging_step!(tuner::DualAveragingTunerState, target_acceptance
     (; gamma, t0, kappa) = tuner.tuning
     T = typeof(tuner.H_bar)
 
-    m = tuner.m += 1
+    m = tuner.m + 1
     eta_H = 1 / (m + T(t0))
-    tuner.H_bar = (1 - eta_H) * tuner.H_bar + eta_H * (T(target_acceptance) - min(one(T), T(alpha)))
-    log_stepsize = tuner.log_mu - tuner.H_bar * sqrt(T(m)) / T(gamma)
+    H_bar = (1 - eta_H) * tuner.H_bar + eta_H * (T(target_acceptance) - min(one(T), T(alpha)))
+    log_stepsize = tuner.log_mu - H_bar * sqrt(T(m)) / T(gamma)
     eta_x = T(m)^(-T(kappa))
-    tuner.log_stepsize_bar = (1 - eta_x) * tuner.log_stepsize_bar + eta_x * log_stepsize
+    log_stepsize_bar = (1 - eta_x) * tuner.log_stepsize_bar + eta_x * log_stepsize
+    stepsize = exp(log_stepsize)
+    stepsize_bar = exp(log_stepsize_bar)
 
-    return exp(log_stepsize)
+    isfinite(stepsize) && stepsize > 0 ||
+        throw(ArgumentError("dual averaging produced an invalid proposal scale"))
+    isfinite(stepsize_bar) && stepsize_bar > 0 ||
+        throw(ArgumentError("dual averaging produced an invalid smoothed proposal scale"))
+
+    tuner.m = m
+    tuner.H_bar = H_bar
+    tuner.log_stepsize_bar = log_stepsize_bar
+    return stepsize
+end
+
+function _dual_averaging_final_scale(tuner::DualAveragingTunerState)
+    scale = exp(tuner.log_stepsize_bar)
+    isfinite(scale) && scale > 0 ||
+        throw(ArgumentError("dual averaging produced an invalid final proposal scale"))
+    return scale
 end
 
 # The transform tuner committed a new geometry: find a fresh reasonable
@@ -169,6 +199,11 @@ function mcmc_tune_proposal_post_step!!(
     accept_sum, accept_sqsum = _ordered_walker_sum_and_sqsum(
         p_accept, step_info.walker_order,
     )
+    mean_accept = accept_sum / length(p_accept)
+    stepsize_new = _dual_averaging_step!(
+        tuner, get_target_acceptance_ratio(proposal), mean_accept,
+    )
+
     if tuner.run_skip > 0
         tuner.run_skip -= 1
     else
@@ -180,13 +215,7 @@ function mcmc_tune_proposal_post_step!!(
         end
     end
 
-    mean_accept = accept_sum / length(p_accept)
-    stepsize_new = _dual_averaging_step!(tuner, get_target_acceptance_ratio(proposal), mean_accept)
-    proposal_new = if isfinite(stepsize_new)
-        @set proposal.step_size = oftype(proposal.step_size, stepsize_new)
-    else
-        proposal
-    end
+    proposal_new = @set proposal.step_size = oftype(proposal.step_size, stepsize_new)
 
     return proposal_new, tuner, chain_state
 end
@@ -219,7 +248,9 @@ function mcmc_proposal_tuning_finalize!!(
     chain_state::MCMCChainState
 )
     proposal_new = if tuner.m > 0
-        @set proposal.step_size = oftype(proposal.step_size, exp(tuner.log_stepsize_bar))
+        @set proposal.step_size = oftype(
+            proposal.step_size, _dual_averaging_final_scale(tuner),
+        )
     else
         proposal
     end
