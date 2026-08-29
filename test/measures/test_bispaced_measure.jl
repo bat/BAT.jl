@@ -127,7 +127,7 @@ BAT.getproposal(::_BSTestSampleGen) = nothing
         @test em9.f_transform === f
     end
 
-    @testset "cached views keep live empirical weights" begin
+    @testset "cached views share owned empirical weights" begin
         for intent in (NormalBased(), UniformBased()), seed in (7, 4711, 892374)
             m_z, f_view = BAT.transform_and_unshape(intent, m, context)
             view_xs = rand(Xoshiro(seed), m^2)
@@ -144,6 +144,8 @@ BAT.getproposal(::_BSTestSampleGen) = nothing
                 view_dsm, view_smpls_z, f_view, intent, getdof(m), nothing,
             )
             @test BAT.samplesof(shared_pair.main).weight === BAT.samplesof(shared_pair.transformed).weight
+            @test shared_pair.main._cumulative_weight === shared_pair.transformed._cumulative_weight
+            @test BAT.samplesof(shared_pair.main).weight !== view_smpls.weight
             shared_em = EvaluatedMeasure(
                 m,
                 transform_intent = intent,
@@ -151,13 +153,14 @@ BAT.getproposal(::_BSTestSampleGen) = nothing
                 empirical = shared_pair,
                 transformed = m_z,
             )
-            BAT.samplesof(shared_em).weight .= [0.0, 2.0]
+            view_smpls.weight .= [0.0, 2.0]
+            @test BAT.samplesof(shared_em).weight == [1.0, 1.0]
             shared_z, _ = BAT.transform_and_unshape(intent, shared_em, context)
-            @test BAT.samplesof(shared_z).weight == [0.0, 2.0]
+            @test BAT.samplesof(shared_z).weight == [1.0, 1.0]
             @test empiricalof(shared_z) === shared_pair.transformed
             @test BAT.validate_evalmeasure(shared_em, context = context) === shared_em
             shared_direct = bat_transform(intent, shared_em, PriorSubstitution(), context)
-            @test BAT.samplesof(shared_direct.result).weight == [0.0, 2.0]
+            @test BAT.samplesof(shared_direct.result).weight == [1.0, 1.0]
 
             external_smpls = DensitySampleVector(view_dsm)
             external_smpls.weight .= [1.0, 1.0]
@@ -175,12 +178,13 @@ BAT.getproposal(::_BSTestSampleGen) = nothing
                 empirical = external_pair,
                 transformed = m_z,
             )
-            BAT.samplesof(external_em).weight .= [0.0, 2.0]
+            external_smpls.weight .= [0.0, 2.0]
+            @test BAT.samplesof(external_em).weight == [1.0, 1.0]
             external_z, _ = BAT.transform_and_unshape(intent, external_em, context)
-            @test BAT.samplesof(external_z).weight == [0.0, 2.0]
+            @test BAT.samplesof(external_z).weight == [1.0, 1.0]
             @test empiricalof(external_z) !== external_pair.transformed
             external_direct = bat_transform(intent, external_em, PriorSubstitution(), context)
-            @test BAT.samplesof(external_direct.result).weight == [0.0, 2.0]
+            @test BAT.samplesof(external_direct.result).weight == [1.0, 1.0]
             @test empiricalof(external_direct.result) !== external_pair.transformed
         end
     end
@@ -200,6 +204,7 @@ BAT.getproposal(::_BSTestSampleGen) = nothing
         shared_em = EvaluatedMeasure(m, transform_intent = NormalBased(), f_transform = f, empirical = shared_p)
         shared_uem = unshaped(shared_em, vs)
         @test BAT.samplesof(shared_uem.empirical.main).weight === BAT.samplesof(shared_uem.empirical.transformed).weight
+        @test shared_uem.empirical.main._cumulative_weight === shared_uem.empirical.transformed._cumulative_weight
     end
 
     @testset "resampling keeps the pair coherent" begin
@@ -211,6 +216,7 @@ BAT.getproposal(::_BSTestSampleGen) = nothing
         @test length(BAT.samplesof(pr.main)) == 50
         @test length(BAT.samplesof(pr.transformed)) == 50
         @test BAT.samplesof(pr.main).weight === BAT.samplesof(pr.transformed).weight
+        @test pr.main._cumulative_weight === pr.transformed._cumulative_weight
         # Shared indices: the transformed samples are the transforms of the
         # main samples, in the same order:
         @test f.(BAT.samplesof(pr.main).v) == BAT.samplesof(pr.transformed).v

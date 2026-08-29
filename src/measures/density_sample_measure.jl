@@ -14,9 +14,12 @@ the result of MCMC and other sampling methods.
 
 A `DensitySampleMeasure` can be converted to a `DensitySampleVector`.
 
-The measure keeps a reference to `smpls` (accessible via `samplesof`) and
-always reflects its live weight values: random generation and statistics
-are consistent with the current state of the sample vector.
+The measure snapshots the sampling weights at construction and builds a
+private cumulative distribution. Its values, log densities, `info`, and `aux`
+columns remain shared with `smpls`, but its sampling weights do not. Later
+weight changes require constructing a replacement `DensitySampleMeasure`.
+In particular, the live data returned by `samplesof` must not be modified:
+mutating its owned weights would desynchronize its cached sampling CDF.
 
 Note: `DensitySampleMeasure` does not support `logdensityof`. An empirical
 measure has no density in the usual sense, the log-density values of the
@@ -44,11 +47,13 @@ struct DensitySampleMeasure{
     T<:Real,
     W<:Real,
     SV<:DensitySampleVector{P,T,W},
+    CW<:AbstractVector{<:Real},
     N<:Union{IntegerLike,Nothing},
     E<:Union{Real,Nothing},
     U<:Union{Real,MeasureBase.AbstractUnknownMass}
 } <: BATMeasure
     _smpls::SV
+    _cumulative_weight::CW
     _dof::N
     _ess::E
     _mass::U
@@ -62,12 +67,11 @@ function DensitySampleMeasure(
     ess::Union{RealLike,Nothing} = nothing,
     mass::Union{RealLike,MeasureBase.AbstractUnknownMass} = 1,
 )
-    # Empirical-measure weights must support categorical sampling: a
-    # negative or non-finite weight would make the subsampling CDF
-    # non-monotone, an all-zero weight vector would leave nothing to draw
-    # (the sample vector is shared, not copied, so draw-time code
-    # revalidates against later weight mutation - but constructing an
-    # invalid empirical measure should fail loudly right away):
+    # Empirical-measure weights must support categorical sampling: a negative
+    # or non-finite weight would make the subsampling CDF non-monotone, and
+    # an all-zero vector would leave nothing to draw. Copy only this column:
+    # the owned weights and CDF make repeated scalar draws independent of the
+    # caller's mutable weight storage while retaining the sample payload.
     W = smpls.weight
     all(w -> isfinite(w) && w >= 0, W) || throw(ArgumentError(
         "Weights of an empirical measure must be finite and non-negative"
@@ -75,7 +79,9 @@ function DensitySampleMeasure(
     isempty(W) || maximum(W) > 0 || throw(ArgumentError(
         "Weights of an empirical measure must contain at least one strictly positive entry"
     ))
-    DensitySampleMeasure(smpls, dof, ess, _canonical_mass(mass))
+    owned_weights = copy(W)
+    owned_smpls = DensitySampleVector((smpls.v, smpls.logd, owned_weights, smpls.info, smpls.aux))
+    DensitySampleMeasure(owned_smpls, _weight_cdf(owned_weights), dof, ess, _canonical_mass(mass))
 end
 
 # Masses are stored on a canonical logarithmic Float64 scale, uniformly
@@ -128,7 +134,7 @@ function ValueShapes.unshaped(dsm::DensitySampleMeasure, vs::AbstractValueShape)
     smpls = samplesof(dsm)
     varshape(smpls) <= vs || throw(ArgumentError("Sample shape $(varshape(smpls)) is not compatible with given shape $vs"))
     new_smpls = unshaped.(smpls)
-    return DensitySampleMeasure(new_smpls, dsm._dof, dsm._ess, dsm._mass)
+    return DensitySampleMeasure(new_smpls, dof = dsm._dof, ess = dsm._ess, mass = dsm._mass)
 end
 
 # Disambiguates against unshaped(x, ::ConstValueShape) of ValueShapes:
@@ -138,12 +144,25 @@ ValueShapes.unshaped(dsm::DensitySampleMeasure, vs::ConstValueShape) =
 @inline samplesof(dsm::DensitySampleMeasure) = dsm._smpls
 
 
-# Empirical representations of one pushforward share probability masses.
-function _with_sample_weights(dsm::DensitySampleMeasure, weights::AbstractVector{<:Real})
+function _with_owner_sampling_law(
+    smpls::DensitySampleVector,
+    owner::DensitySampleMeasure;
+    dof = owner._dof,
+    ess = owner._ess,
+    mass = owner._mass,
+)
+    owner_smpls = samplesof(owner)
+    owned_smpls = smpls.weight === owner_smpls.weight ? smpls :
+        DensitySampleVector((smpls.v, smpls.logd, owner_smpls.weight, smpls.info, smpls.aux))
+    return DensitySampleMeasure(owned_smpls, owner._cumulative_weight, dof, ess, mass)
+end
+
+# Empirical representations of one pushforward share one owned sampling law.
+function _with_sample_weights(dsm::DensitySampleMeasure, owner::DensitySampleMeasure)
     smpls = samplesof(dsm)
-    smpls.weight === weights && return dsm
-    new_smpls = DensitySampleVector((smpls.v, smpls.logd, weights, smpls.info, smpls.aux))
-    return DensitySampleMeasure(new_smpls, dsm._dof, dsm._ess, dsm._mass)
+    owner_smpls = samplesof(owner)
+    smpls.weight === owner_smpls.weight && dsm._cumulative_weight === owner._cumulative_weight && return dsm
+    return _with_owner_sampling_law(smpls, owner; dof = dsm._dof, ess = dsm._ess, mass = dsm._mass)
 end
 
 _empirical_weights_shared(p::BispacedMeasure{<:DensitySampleMeasure,<:DensitySampleMeasure}) =
@@ -172,15 +191,8 @@ function Base.rand(gen::GenContext, dsm::DensitySampleMeasure)
     return gen_adapt(gen, dsm._smpls.v[idx])
 end
 
-# The subsampling CDF is computed fresh from the live sample weights on
-# each draw call: the sample vector is shared with the caller (it is
-# user-facing via `samplesof`), so a cached CDF could silently
-# desynchronize from mutated weights. Canonical relative weights make
-# the CDF monotone, finite and rescaling-invariant, and revalidate the
-# weights against invalid mutation:
-function _live_weight_cdf(dsm::DensitySampleMeasure)
-    W = samplesof(dsm).weight
-    isempty(W) && throw(ArgumentError("Can't draw from an empty DensitySampleMeasure"))
+function _weight_cdf(W::AbstractVector{<:Real})
+    isempty(W) && return similar(W, _weight_accum_type(W))
     rel_weights = _canonical_rel_weights(W)
     cdf = similar(rel_weights, _weight_accum_type(rel_weights))
     copyto!(cdf, rel_weights)
@@ -190,20 +202,27 @@ end
 function _rand_subsample_idx(gen::GenContext, dsm::DensitySampleMeasure)
     # TODO: Use PSIS.
 
-    CW = _live_weight_cdf(dsm)
+    CW = dsm._cumulative_weight
+    isempty(CW) && throw(ArgumentError("Can't draw from an empty DensitySampleMeasure"))
     r = rand(get_rng(gen)) * CW[end]
-    idx = searchsortedfirst(CW, r)
+    idx = _weight_cdf_idx(CW, r)
     return idx
+end
+
+@inline function _weight_cdf_idx(CW::AbstractVector, r::Real)
+    idx = searchsortedlast(CW, r) + 1
+    return idx <= lastindex(CW) ? idx : searchsortedfirst(CW, r)
 end
 
 function _rand_subsample_idxs(gen::GenContext, dsm::DensitySampleMeasure, n::Integer)
     # TODO: Use PSIS.
 
     iszero(n) && return Int[]
-    CW = _live_weight_cdf(dsm)
+    CW = dsm._cumulative_weight
+    isempty(CW) && throw(ArgumentError("Can't draw from an empty DensitySampleMeasure"))
     # Always generate R on CPU for now:
     R = rand(get_rng(gen), n) .* CW[end]
-    idxs = searchsortedfirst.(Ref(CW), R)
+    idxs = _weight_cdf_idx.(Ref(CW), R)
     return idxs
 end
 
@@ -250,7 +269,7 @@ function _renormalize_empirical_logd(logrenorm::Real, dsm::DensitySampleMeasure)
     smpls = samplesof(dsm)
     new_mass = _reweighted_mass(logrenorm, dsm._mass)
     new_smpls = DensitySampleVector((smpls.v, smpls.logd .+ logrenorm, smpls.weight, smpls.info, smpls.aux))
-    return DensitySampleMeasure(new_smpls, dsm._dof, dsm._ess, new_mass)
+    return DensitySampleMeasure(new_smpls, dsm._cumulative_weight, dsm._dof, dsm._ess, new_mass)
 end
 
 
@@ -260,7 +279,7 @@ end
 function _without_sampleids(dsm::DensitySampleMeasure)
     s = samplesof(dsm)
     new_s = DensitySampleVector((s.v, s.logd, s.weight, fill(nothing, length(eachindex(s))), s.aux))
-    return DensitySampleMeasure(new_s, dsm._dof, dsm._ess, dsm._mass)
+    return DensitySampleMeasure(new_s, dsm._cumulative_weight, dsm._dof, dsm._ess, dsm._mass)
 end
 
 _without_sampleids(::Nothing) = nothing
@@ -278,10 +297,7 @@ function _unweighted_resampling_byidxs(
 )
     main = _unweighted_resampling_byidxs(p.main, resampled_idxs; preserve_ess)
     transformed = isnothing(p.transformed) ? nothing :
-        _with_sample_weights(
-            _unweighted_resampling_byidxs(p.transformed, resampled_idxs; preserve_ess),
-            samplesof(main).weight,
-        )
+        _unweighted_resampling_byidxs(p.transformed, resampled_idxs; preserve_ess, owner = main)
     BispacedMeasure(main, transformed, p.f_hash)
 end
 
@@ -289,15 +305,18 @@ function _unweighted_resampling_byidxs(
     dsm::DensitySampleMeasure,
     resampled_idxs::AbstractVector{<:Integer};
     preserve_ess::Bool = false,
+    owner::Union{Nothing,DensitySampleMeasure} = nothing,
 )
     smpls = samplesof(dsm)
-    picked = smpls[resampled_idxs]
-    # Rebuild instead of overwriting the weights, the weight vector may be
-    # immutable (e.g. a Fill):
+    # Resampling replaces the sampling law, so only index payload columns.
+    # The main side creates its one owned uniform law; a paired transformed
+    # side adopts that exact law without materializing a source-weight column.
+    weights = isnothing(owner) ?
+        ones(eltype(smpls.weight), length(resampled_idxs)) :
+        samplesof(owner).weight
     new_samples = DensitySampleVector((
-        picked.v, picked.logd,
-        ones(eltype(picked.weight), length(picked)),
-        picked.info, picked.aux,
+        smpls.v[resampled_idxs], smpls.logd[resampled_idxs], weights,
+        smpls.info[resampled_idxs], smpls.aux[resampled_idxs],
     ))
     old_ess = getess(dsm)
     # Random resampling adds conditional Monte Carlo variance, giving the
@@ -305,5 +324,7 @@ function _unweighted_resampling_byidxs(
     # adds none:
     n_new = length(new_samples)
     new_ess = preserve_ess || isnothing(old_ess) ? old_ess : old_ess * n_new / (n_new + old_ess)
-    return DensitySampleMeasure(new_samples, dof = dsm._dof, ess = new_ess, mass = massof(dsm))
+    return isnothing(owner) ?
+        DensitySampleMeasure(new_samples, _weight_cdf(weights), dsm._dof, new_ess, massof(dsm)) :
+        _with_owner_sampling_law(new_samples, owner; dof = dsm._dof, ess = new_ess, mass = massof(dsm))
 end

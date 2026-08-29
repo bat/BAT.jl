@@ -5,11 +5,18 @@ using Test
 
 using Random
 using StableRNGs: StableRNG
+using LogarithmicNumbers: ULogarithmic
 using DensityInterface, MeasureBase, ValueShapes
 using Distributions, Statistics, StatsBase, IntervalSets
 using MeasureBase: weightedmeasure
 
 using BAT: DensitySampleMeasure, samplesof, empiricalof, getess
+
+struct _ZeroFloatRNG <: AbstractRNG end
+struct _ThirdFloatRNG <: AbstractRNG end
+
+Random.rand(::_ZeroFloatRNG, ::Random.SamplerTrivial{Random.CloseOpen01{Float64},Float64}) = 0.0
+Random.rand(::_ThirdFloatRNG, ::Random.SamplerTrivial{Random.CloseOpen01{Float64},Float64}) = 1 / 3
 
 @testset "density_sample_measure" begin
     context = BATContext(rng = StableRNG(564001))
@@ -52,6 +59,43 @@ using BAT: DensitySampleMeasure, samplesof, empiricalof, getess
         X = rand(rng, dsm^100)
         @test length(X) == 100
         @test all(in(smpls.v), X)
+
+        @testset "zero-mass intervals" begin
+            for weights in (Int[0, 1], Float32[0, 0, 1], BigFloat[1, 0])
+                values = collect(eachindex(weights))
+                point_mass = DensitySampleMeasure(DensitySampleVector(
+                    v = values,
+                    logd = zeros(length(weights)),
+                    weight = weights,
+                ))
+                positive_idx = only(findall(>(0), weights))
+
+                @test rand(_ZeroFloatRNG(), point_mass) == values[positive_idx]
+
+                resampled = samplesof(evalmeasure(
+                    point_mass,
+                    RandResampling(nsamples = 4),
+                    BATContext(rng = _ZeroFloatRNG()),
+                ))
+                @test resampled.v == fill(values[positive_idx], 4)
+            end
+
+            interior_boundary = DensitySampleMeasure(DensitySampleVector(
+                v = [1, 2, 3],
+                logd = zeros(3),
+                weight = [1, 0, 2],
+            ))
+            @test rand(_ThirdFloatRNG(), interior_boundary) == 3
+            resampled = samplesof(evalmeasure(
+                interior_boundary,
+                RandResampling(nsamples = 4),
+                BATContext(rng = _ThirdFloatRNG()),
+            ))
+            @test resampled.v == fill(3, 4)
+
+            # Defensive fallback if floating multiplication reaches total mass:
+            @test BAT._weight_cdf_idx([1.0, 1.0], 1.0) == 1
+        end
     end
 
     @testset "statistics" begin
@@ -96,38 +140,86 @@ using BAT: DensitySampleMeasure, samplesof, empiricalof, getess
         end
     end
 
-    @testset "live weights" begin
-        # The sample vector is shared, not copied: draw probabilities and
-        # statistics must stay coherent with the weights as the caller
-        # sees (and possibly mutates) them:
-        lw_smpls = DensitySampleVector(
-            v = [randn(fixture_rng, 2) for _ in 1:4], logd = zeros(4), weight = [1.0, 1.0, 1.0, 1.0]
+    @testset "owned sampling weights" begin
+        owned_info = [Dict(:origin => :input), Dict(:origin => :input)]
+        owned_aux = [Dict(:source => 1), Dict(:source => 2)]
+        owned_smpls = DensitySampleVector(
+            v = [1.0, 2.0], logd = [-1.0, -2.0], weight = [1.0, 2.0],
+            info = owned_info, aux = owned_aux,
         )
-        lw_dsm = DensitySampleMeasure(lw_smpls)
-        @test samplesof(lw_dsm) === lw_smpls
-        samplesof(lw_dsm).weight .= [0.0, 0.0, 5.0, 0.0]
-        rng = StableRNG(564004)
-        @test all(x -> x == lw_smpls.v[3], [rand(rng, lw_dsm) for _ in 1:20])
-        @test mean(lw_dsm) ≈ lw_smpls.v[3]
-        # Invalid mutated weights are caught at draw time:
-        samplesof(lw_dsm).weight .= [0.0, 0.0, 0.0, 0.0]
-        @test_throws ArgumentError rand(rng, lw_dsm)
+        owned_dsm = DensitySampleMeasure(owned_smpls)
+        @test samplesof(owned_dsm) !== owned_smpls
+        @test samplesof(owned_dsm).weight !== owned_smpls.weight
+        @test samplesof(owned_dsm).v === owned_smpls.v
+        @test samplesof(owned_dsm).logd === owned_smpls.logd
+        @test samplesof(owned_dsm).info === owned_smpls.info
+        @test samplesof(owned_dsm).aux === owned_smpls.aux
 
-        # Extreme weight scales are safe - the subsampling CDF is built
-        # from canonical relative weights:
+        # Sampling weights are a construction-time snapshot. Reconstruct
+        # instead of mutating an already-constructed measure's owned weights:
+        owned_smpls.weight .= [0.0, 5.0]
+        @test samplesof(owned_dsm).weight == [1.0, 2.0]
+        @test mean(owned_dsm) ≈ 5 / 3
+        @test any(==(1.0), rand(StableRNG(564010), owned_dsm^20))
+
+        reconstructed_dsm = DensitySampleMeasure(owned_smpls)
+        @test samplesof(reconstructed_dsm).weight == [0.0, 5.0]
+        @test all(==(2.0), rand(StableRNG(564004), reconstructed_dsm^20))
+
+        # Canonical construction retains the existing numeric sampling law:
         for w_extreme in ([typemax(Int), typemax(Int), 4], [1e300, 2e300, 0.5e300])
             xdsm = DensitySampleMeasure(DensitySampleVector(
                 v = [randn(fixture_rng, 2) for _ in 1:3], logd = zeros(3), weight = w_extreme
             ))
-            @test rand(rng, xdsm) in samplesof(xdsm).v
+            @test rand(StableRNG(564005), xdsm) in samplesof(xdsm).v
         end
 
-        # A tail below Float32 spacing remains visible in the CDF:
+        # A tail below Float32 spacing remains visible in the owned CDF:
         tail_weight = eps(Float32) / 2
         tail_dsm = DensitySampleMeasure(DensitySampleVector(
             v = [1.0, 2.0], logd = zeros(2), weight = Float32[1, tail_weight]
         ))
-        @test BAT._live_weight_cdf(tail_dsm) == [1.0, 1 + Float64(tail_weight)]
+        @test tail_dsm._cumulative_weight == [1.0, 1 + Float64(tail_weight)]
+
+        scaled_dsm = DensitySampleMeasure(DensitySampleVector(
+            v = [10.0, 20.0, 30.0], logd = zeros(3), weight = [2.0, 4.0, 0.0]
+        ))
+        rescaled_dsm = DensitySampleMeasure(DensitySampleVector(
+            v = [10.0, 20.0, 30.0], logd = zeros(3), weight = [20.0, 40.0, 0.0]
+        ))
+        @test scaled_dsm._cumulative_weight == rescaled_dsm._cumulative_weight
+        @test rand(StableRNG(564011), scaled_dsm^32) == rand(StableRNG(564011), rescaled_dsm^32)
+
+        log_dsm = DensitySampleMeasure(DensitySampleVector(
+            v = [1.0, 2.0], logd = zeros(2),
+            weight = exp.(ULogarithmic, [0.0, log(2.0)]),
+        ))
+        @test log_dsm._cumulative_weight == [0.5, 1.5]
+
+        source_weights = [2.0, 4.0, 0.0]
+        source_view = view(source_weights, :)
+        view_dsm = DensitySampleMeasure(DensitySampleVector(
+            v = [1.0, 2.0, 3.0], logd = zeros(3), weight = source_view,
+        ))
+        @test samplesof(view_dsm).weight !== source_view
+        @test view_dsm._cumulative_weight == [0.5, 1.5, 1.5]
+        source_weights .= [0.0, 0.0, 5.0]
+        @test rand(_ZeroFloatRNG(), view_dsm) == 1.0
+
+        owner = DensitySampleMeasure(DensitySampleVector(
+            v = [1.0, 2.0], logd = zeros(2), weight = [1.0, 2.0],
+        ))
+        divergent = DensitySampleMeasure(
+            DensitySampleVector((
+                samplesof(owner).v, samplesof(owner).logd, samplesof(owner).weight,
+                samplesof(owner).info, samplesof(owner).aux,
+            )),
+            copy(owner._cumulative_weight), nothing, nothing, massof(owner),
+        )
+        repaired = BAT._with_sample_weights(divergent, owner)
+        @test repaired !== divergent
+        @test samplesof(repaired).weight === samplesof(owner).weight
+        @test repaired._cumulative_weight === owner._cumulative_weight
     end
 
     @testset "resampling" begin

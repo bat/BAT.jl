@@ -525,10 +525,16 @@ ValueShapes.unshaped(em::EvaluatedMeasure, vs::ConstValueShape) =
 _unshaped_pair(::Nothing, ::AbstractValueShape, ::UInt, ::UInt) = nothing
 
 function _unshaped_pair(p::BispacedMeasure, vs::AbstractValueShape, old_f_hash::UInt, new_f_hash::UInt)
-    main = unshaped(p.main, vs)
     if _has_pair_annex(p) && p.main isa DensitySampleMeasure &&
             p.transformed isa DensitySampleMeasure && _empirical_weights_shared(p)
-        main = _with_sample_weights(main, samplesof(p.transformed).weight)
+        main_smpls = samplesof(p.main)
+        varshape(main_smpls) <= vs || throw(ArgumentError("Sample shape $(varshape(main_smpls)) is not compatible with given shape $vs"))
+        main = _with_owner_sampling_law(
+            unshaped.(main_smpls), p.transformed;
+            dof = p.main._dof, ess = p.main._ess, mass = p.main._mass,
+        )
+    else
+        main = unshaped(p.main, vs)
     end
     BispacedMeasure(
         main, p.transformed,
@@ -742,10 +748,7 @@ end
 _viewrep_empirical(dsm::DensitySampleMeasure, ::DensitySampleVector, ::Any, ::DoNotTransform, n_dof, ess) = dsm
 
 function _viewrep_empirical(dsm::DensitySampleMeasure, smpls_z::DensitySampleVector, f_pretransform::Any, ::TransformIntent, n_dof, ess)
-    dsm_z = _with_sample_weights(
-        DensitySampleMeasure(smpls_z, dof = n_dof, ess = ess),
-        samplesof(dsm).weight,
-    )
+    dsm_z = _with_owner_sampling_law(smpls_z, dsm; dof = n_dof, ess = ess)
     BispacedMeasure(dsm, dsm_z, hash(f_pretransform))
 end
 
