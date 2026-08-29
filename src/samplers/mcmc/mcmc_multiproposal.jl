@@ -95,6 +95,23 @@ bat_default(
 
 get_active_proposal_idx(proposal_state::MultiProposalState) = proposal_state.active_idx
 
+_invalidate_mala_cache!!(::MCMCProposalState) = nothing
+
+function _invalidate_mala_cache!!(proposal_state::MultiProposalState)
+    foreach(_invalidate_mala_cache!!, proposal_state.proposal_states)
+    return nothing
+end
+
+function _activate_proposal!!(proposal_state::MultiProposalState, idx::Integer)
+    # A re-entered MALA may have missed moves by the previously active
+    # component; consecutive use retains its promoted gradient.
+    if idx != proposal_state.active_idx
+        _invalidate_mala_cache!!(proposal_state.proposal_states[idx])
+    end
+    proposal_state_new = @set proposal_state.active_idx = idx
+    return proposal_state_new, get_active_proposal(proposal_state_new)
+end
+
 function next_proposal!!(
     rng::AbstractRNG,
     proposal_state::MultiProposalState{<:Any, <:Vector}, 
@@ -103,11 +120,7 @@ function next_proposal!!(
     picking_rule_cum = cumsum(proposal_state.picking_rule)
     m = mod1(stepno, last(picking_rule_cum))
     idx = findfirst(y -> m <= y, picking_rule_cum)
-    proposal_state_new = @set proposal_state.active_idx = idx
-
-    active_proposal = get_active_proposal(proposal_state_new)
-
-    return proposal_state_new, active_proposal
+    return _activate_proposal!!(proposal_state, idx)
 end
 
 function next_proposal!!(
@@ -116,10 +129,7 @@ function next_proposal!!(
     stepno::Integer
 )
     idx = rand(rng, proposal_state.picking_rule)
-    proposal_state_new = @set proposal_state.active_idx = idx
-    active_proposal = get_active_proposal(proposal_state_new)
-
-    return proposal_state_new, active_proposal
+    return _activate_proposal!!(proposal_state, idx)
 end
 
 function get_active_proposal(

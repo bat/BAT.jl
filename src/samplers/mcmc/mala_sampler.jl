@@ -52,16 +52,15 @@ end
 
 export MALAProposal
 
-# Per-walker z-space gradients of the last transition, at the current and
-# the proposed states, mutated in place (all functional proposal-state
-# copies share this object by reference). They provide the selected-state
-# gradients for MCMCStepInfo, at no extra gradient evaluations:
+# Per-walker z-space gradients, populated lazily and mutated in
+# place (all functional proposal-state copies share this object by reference).
+# Current gradients describe the selected Markov state; proposed gradients are
+# transition-local:
 mutable struct _MALAGradCache{T<:AbstractFloat}
     grads_curr::Vector{Vector{T}}
     grads_prop::Vector{Vector{T}}
 end
 
-_MALAGradCache() = _MALAGradCache(Vector{Float64}[], Vector{Float64}[])
 _MALAGradCache(::AbstractVector{<:AbstractVector{P}}) where {P<:Real} =
     _MALAGradCache(Vector{float(P)}[], Vector{float(P)}[])
 
@@ -85,8 +84,18 @@ mcmc_step_provides_grads(::MALAProposalState) = true
 
 function _selected_z_grads(proposal::MALAProposalState, accepted::AbstractVector{Bool})
     c = proposal.grad_cache
-    length(c.grads_curr) == length(accepted) || return nothing
-    return [accepted[i] ? c.grads_prop[i] : c.grads_curr[i] for i in eachindex(accepted)]
+    length(c.grads_curr) == length(accepted) == length(c.grads_prop) || return nothing
+    for i in eachindex(accepted)
+        accepted[i] && (c.grads_curr[i] = c.grads_prop[i])
+    end
+    empty!(c.grads_prop)
+    return c.grads_curr
+end
+
+function _invalidate_mala_cache!!(proposal::MALAProposalState)
+    empty!(proposal.grad_cache.grads_curr)
+    empty!(proposal.grad_cache.grads_prop)
+    return nothing
 end
 
 
@@ -169,19 +178,19 @@ function mcmc_propose_transition(
     proposal_measure = batmeasure(proposal.proposaldist)
     (; target_gradient, τ) = proposal
 
-    gradient_res_curr = target_gradient.(current_z)
-    grads_curr = last.(gradient_res_curr)
+    cache = proposal.grad_cache
+    grads_curr = length(cache.grads_curr) == length(genctxs) ?
+        cache.grads_curr : last.(target_gradient.(current_z))
 
     innovations = map(genctx -> rand(genctx, proposal_measure), genctxs)
     transition = τ/2 .* grads_curr .+ sqrt(τ) .* innovations
 
     proposed_z = current_z .+ transition
 
-    gradient_res_prop = target_gradient.(proposed_z)
-    grads_prop = last.(gradient_res_prop)
+    grads_prop = last.(target_gradient.(proposed_z))
 
-    proposal.grad_cache.grads_curr = grads_curr
-    proposal.grad_cache.grads_prop = grads_prop
+    cache.grads_curr = grads_curr
+    cache.grads_prop = grads_prop
 
     hastings_correction = _mala_log_proposal_ratio(proposal_measure, τ, transition, grads_curr, grads_prop)
 
@@ -193,5 +202,6 @@ function set_proposal_transform!!(proposal::MALAProposalState, chain_state::MCMC
         proposal.target_gradient, chain_state.target, chain_state.f_transform,
         chain_state.context, proposal, Vector(first(chain_state.current.x.v))
     )
+    _invalidate_mala_cache!!(proposal)
     return @set proposal.target_gradient = fg_new
 end
