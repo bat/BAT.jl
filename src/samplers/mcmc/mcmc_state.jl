@@ -16,6 +16,7 @@ mutable struct MCMCChainState{
     WS<:AbstractMCMCWeightingScheme,
     SVX<:DensitySampleVector,
     SVZ<:DensitySampleVector,
+    GC<:AbstractVector{<:GenContext},
     CTX<:BATContext
 } <: MCMCIterator
     target::M
@@ -26,6 +27,8 @@ mutable struct MCMCChainState{
     proposed::@NamedTuple{x::SVX, z::SVZ}
     output::SVX
     accepted::Vector{Bool}
+    walker_order::Vector{Int}
+    walker_genctxs::GC
     info::MCMCChainStateInfo
     rngpart_cycle::PR
     nattempts::Vector{Int64}
@@ -110,6 +113,12 @@ function MCMCChainState(
     proposed = (x = deepcopy(proposed_init), z = deepcopy(proposed_init))
     output = deepcopy(current_x_init)
     accepted = fill(false, n_walkers)
+    walker_order = sortperm(
+        eachindex(sample_info_curr); by = i -> sample_info_curr[i].walkerid,
+    )
+    walker_genctxs = map(1:n_walkers) do _
+        get_gencontext(set_rng(context, rngpart_createrng(typeof(rng))))
+    end
 
     stepno::Int64 = 0
     cycle::Int32 = 0
@@ -132,6 +141,8 @@ function MCMCChainState(
         proposed, 
         output, 
         accepted,
+        walker_order,
+        walker_genctxs,
         MCMCChainStateInfo(chainid, cycle, false, false),
         rngpart_cycle,
         nattempts,
@@ -210,10 +221,19 @@ function mcmc_step!!(mcmc_state::MCMCState)
     (;proposal, stepno, context) = chain_state
 
     rng = get_rng(context)
-    
-    chain_state.proposal, active_proposal = next_proposal!!(rng, proposal, stepno)
+    n_rng_streams = _MCMC_N_RNG_PURPOSES * _MCMC_PROPOSALS_PER_PURPOSE
+    step_rngpart = RNGPartition(rng, Base.OneTo(n_rng_streams))
+    selection_idx = _mcmc_rng_stream_idx(_MCMC_PROPOSAL_SELECTION_PURPOSE, 1)
+    proposal_selection_rng = AbstractRNG(step_rngpart, selection_idx)
 
-    chain_state, active_proposal_new, step_info = mcmc_propose!!(chain_state, active_proposal)
+    chain_state.proposal, active_proposal = next_proposal!!(
+        proposal_selection_rng, proposal, stepno,
+    )
+
+    proposal_idx = get_active_proposal_idx(chain_state.proposal)
+    walker_order = _logical_walker_order(chain_state)
+    chain_state, active_proposal_new, step_info = mcmc_propose!!(
+        chain_state, active_proposal, step_rngpart, proposal_idx, walker_order)
 
     chain_state.proposal = update_active_proposal!!(chain_state.proposal, active_proposal_new)
 
@@ -241,12 +261,12 @@ function mcmc_step!!(mcmc_state::MCMCState)
 
     # For each walker, mark proposed samples as accepted or rejected
     for i in eachindex(proposed.x)
-        old_info = proposed.x.info[i]
+        old_info = current.x.info[i]
 
         sample_type = accepted[i]
         new_info = MCMCSampleID(
             old_info.chainid, 
-            Int32(i), 
+            old_info.walkerid,
             old_info.chaincycle, 
             chain_state.stepno, 
             get_active_proposal_idx(proposal), 
@@ -297,19 +317,24 @@ function _transform_with_ladj(f, zs::AbstractVector)
 end
 
 
-function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP) where {SMP<:SimpleMCMCProposalState}
-    (; target, f_transform, current, context) = chain_state
+function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP,
+    step_rngpart::RNGPartition, proposal_idx::Integer,
+    walker_order::AbstractVector{<:Integer}) where {SMP<:SimpleMCMCProposalState}
+    (; target, f_transform, current) = chain_state
 
     current_z = current.z.v
     logd_z_current = current.z.logd
 
-    n_walkers = nwalkers(chain_state)
-
-    genctx = get_gencontext(context)
-    rng = get_rng(genctx)
+    walker_info = current.x.info
+    proposal_rngpart = _mcmc_walker_rngpart(
+        step_rngpart, _MCMC_PROPOSAL_TRANSITION_PURPOSE, proposal_idx)
+    genctxs = chain_state.walker_genctxs
+    for i in eachindex(genctxs, walker_info)
+        set_rng!(get_rng(genctxs[i]), proposal_rngpart, walker_info[i].walkerid)
+    end
 
     # TODO: MD; Make this function ! because it alters genctx?
-    z_proposed, hastings_correction = mcmc_propose_transition(current_z, proposal, n_walkers, genctx)
+    z_proposed, hastings_correction = mcmc_propose_transition(current_z, proposal, genctxs)
 
     x_proposed, ladj = _transform_with_ladj(f_transform, z_proposed)
 
@@ -324,12 +349,63 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP) where {SMP<:
 
     log_accept_ratio = logd_z_proposed - logd_z_current + hastings_correction
     p_accept = @. ifelse(isnan(log_accept_ratio), zero(log_accept_ratio), clamp(exp(log_accept_ratio), 0, 1))
-    accepted = rand(rng, length(p_accept)) .< p_accept
+    acceptance_rngpart = _mcmc_walker_rngpart(
+        step_rngpart, _MCMC_ACCEPTANCE_PURPOSE, proposal_idx)
+    accepted = map(eachindex(p_accept)) do i
+        rng = get_rng(genctxs[i])
+        set_rng!(rng, acceptance_rngpart, walker_info[i].walkerid)
+        rand(rng) < p_accept[i]
+    end
 
     chain_state.accepted .= accepted
 
-    step_info = MCMCStepInfo(p_accept, _selected_z_grads(proposal, accepted), nothing, nothing, nothing)
+    step_info = MCMCStepInfo(
+        p_accept, _selected_z_grads(proposal, accepted), nothing, nothing, nothing, walker_order,
+    )
     return chain_state, proposal, step_info
+end
+
+const _MCMC_PROPOSAL_SELECTION_PURPOSE = 1
+const _MCMC_PROPOSAL_TRANSITION_PURPOSE = 2
+const _MCMC_ACCEPTANCE_PURPOSE = 3
+const _MCMC_N_RNG_PURPOSES = 3
+# Purpose blocks are fixed-width so their stream indices cannot overlap;
+# multi-proposal construction and the index helper both enforce this limit.
+const _MCMC_PROPOSALS_PER_PURPOSE = typemax(Int16) - 2
+
+@inline function _mcmc_rng_stream_idx(purpose::Integer, proposal_idx::Integer)
+    1 <= purpose <= _MCMC_N_RNG_PURPOSES || throw(ArgumentError(
+        "MCMC RNG purpose must be between 1 and $_MCMC_N_RNG_PURPOSES, got $purpose"))
+    1 <= proposal_idx <= _MCMC_PROPOSALS_PER_PURPOSE || throw(ArgumentError(
+        "MCMC proposal index must be between 1 and $_MCMC_PROPOSALS_PER_PURPOSE, got $proposal_idx"))
+    return (purpose - 1) * _MCMC_PROPOSALS_PER_PURPOSE + proposal_idx
+end
+
+function _mcmc_walker_rngpart(
+    step_rngpart::RNGPartition, purpose::Integer, proposal_idx::Integer)
+    stream_rng = AbstractRNG(step_rngpart, _mcmc_rng_stream_idx(purpose, proposal_idx))
+    return RNGPartition(stream_rng, Base.OneTo(typemax(Int32) - 2))
+end
+
+_logical_walker_order(chain_state::MCMCChainState) = chain_state.walker_order
+
+function _ordered_walker_sum(values, walker_order)
+    result = zero(eltype(values))
+    @inbounds for i in walker_order
+        result += values[i]
+    end
+    return result
+end
+
+function _ordered_walker_sum_and_sqsum(values, walker_order)
+    value_sum = zero(eltype(values))
+    value_sqsum = zero(eltype(values))
+    @inbounds for i in walker_order
+        value = values[i]
+        value_sum += value
+        value_sqsum += abs2(value)
+    end
+    return value_sum, value_sqsum
 end
 
 # Proposals that compute z-space log-density gradients report the
@@ -350,6 +426,7 @@ end
 
 function next_cycle!(chain_state::MCMCChainState)
     n_walkers = nwalkers(chain_state)
+    walker_info = chain_state.current.x.info
 
     chain_state.info = MCMCChainStateInfo(chain_state.info.id,
                                           chain_state.info.cycle + 1,
@@ -365,7 +442,7 @@ function next_cycle!(chain_state::MCMCChainState)
 
     new_current_info_vec = [MCMCSampleID(
         info.id,
-        Int32(i),
+        walker_info[i].walkerid,
         info.cycle,
         zero(Int64),
         get_active_proposal_idx(proposal),
@@ -376,7 +453,7 @@ function next_cycle!(chain_state::MCMCChainState)
 
     new_proposed_info_vec = [MCMCSampleID(
         info.id,
-        Int32(i),
+        walker_info[i].walkerid,
         info.cycle,
         zero(Int64),
         get_active_proposal_idx(proposal),

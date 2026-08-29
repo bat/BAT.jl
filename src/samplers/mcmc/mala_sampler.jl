@@ -146,8 +146,7 @@ end
 function mcmc_propose_transition(
     current_z::ArrayOfSimilarArrays,
     proposal::MALAProposalState,
-    n_walkers::Integer,
-    genctx
+    genctxs::AbstractVector,
 )
     # MALA proposal (Roberts & Tweedie 1996), see the MALAProposal docstring.
 
@@ -157,7 +156,8 @@ function mcmc_propose_transition(
     gradient_res_curr = target_gradient.(current_z)
     grads_curr = last.(gradient_res_curr)
 
-    transition = τ/2 .* grads_curr .+ sqrt(τ) .* rand(genctx, proposal_measure^n_walkers)
+    innovations = map(genctx -> rand(genctx, proposal_measure), genctxs)
+    transition = τ/2 .* grads_curr .+ sqrt(τ) .* innovations
 
     proposed_z = current_z .+ transition
 

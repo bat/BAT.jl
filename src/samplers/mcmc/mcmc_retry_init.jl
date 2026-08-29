@@ -87,7 +87,7 @@ function mcmc_init!(
             cs = mcmc_states[i].chain_state
             unviable_walkers = findall(
                 .!isfinite.(cs.current.x.logd) .|
-                (isempty.(outputs[i]) .&& (sum.(getfield.(outputs[i], :weight)) .< 1))
+                (isempty.(outputs[i]) .&& (sum.(getproperty.(outputs[i], :weight)) .< 1))
             )
 
             if !isempty(unviable_walkers)

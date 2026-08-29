@@ -118,12 +118,11 @@ end
 function mcmc_propose_transition(
     current_z::ArrayOfSimilarArrays,
     proposal::MCMCProposalState,
-    n_walkers::Integer,
-    genctx
+    genctxs::AbstractVector,
 )
     proposal_measure = batmeasure(proposal.proposaldist)
 
-    transition = rand(genctx, proposal_measure^n_walkers)
+    transition = map(genctx -> rand(genctx, proposal_measure), genctxs)
     proposed_z = current_z .+ transition
 
     p_prop_to_curr = checked_logdensityof.(proposal_measure, -transition)

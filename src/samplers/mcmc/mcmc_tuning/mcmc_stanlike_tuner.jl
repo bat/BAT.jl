@@ -95,7 +95,7 @@ function mcmc_tune_trafo_post_step!!(
     proposal::MCMCProposalState,
     current::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
     proposed::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
-    ::MCMCStepInfo
+    step_info::MCMCStepInfo
 )
     tuner.i += 1
 
@@ -106,7 +106,7 @@ function mcmc_tune_trafo_post_step!!(
         # when tuning runs, and Stan-style covariance estimation weights
         # every kept state equally:
         accepted = chain_state.accepted
-        for j in eachindex(accepted)
+        for j in step_info.walker_order
             v = accepted[j] ? proposed.x.v[j] : current.x.v[j]
             logd = accepted[j] ? proposed.x.logd[j] : current.x.logd[j]
             push!(tuner.stats, DensitySample(v, logd, 1, nothing, nothing))

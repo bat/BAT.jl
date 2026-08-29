@@ -78,7 +78,7 @@ function mcmc_trafo_tuning_postinit!!(
 )
     # The very first samples of a chain can be very valuable to init tuner
     # stats, especially if the chain gets stuck early after:
-    for i in 1:nwalkers(chain_state)
+    for i in _logical_walker_order(chain_state)
         append!(tuner.stats, samples[i])
     end
 end
@@ -95,7 +95,7 @@ function mcmc_tune_trafo_post_cycle!!(
     stats_reweight_factor = tuning.r
     reweight_relative!(stats, stats_reweight_factor)
 
-    for i in 1:nwalkers(chain_state)
+    for i in _logical_walker_order(chain_state)
         append!(stats, samples[i])
     end
 

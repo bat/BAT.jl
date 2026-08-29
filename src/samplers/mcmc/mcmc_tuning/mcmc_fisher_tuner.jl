@@ -856,27 +856,27 @@ function mcmc_tune_trafo_post_step!!(
         _lowrank_validation_factors(est, campaign) : (nothing, nothing, nothing)
     baseline_A, candidate_A, candidate_diag_A = validation_factors
 
-    for i in eachindex(xs_prop, z_grads)
+    for (walker_pos, i) in enumerate(step_info.walker_order)
         # Score transport into the fixed pre-adaptive space: for x = A z + μ
         # the pulled-back gradient is β = Aᵀ α, so α = A⁻ᵀ β:
         α = A' \ z_grads[i]
         x_i = accepted[i] ? xs_prop[i] : xs_curr[i]
 
         if phase == _LRFit
-            column = campaign.fit.nsteps * length(xs_prop) + i
+            column = campaign.fit.nsteps * length(xs_prop) + walker_pos
             campaign.fit.X[:, column] .= x_i
             campaign.fit.G[:, column] .= α
         elseif validating
             loss0 = _fisher_loss(baseline_A, campaign.baseline_mu, x_i, α)
             loss1 = _fisher_loss(candidate_A, campaign.baseline_mu, x_i, α)
-            campaign.validation_loss[i, validation_idx] = loss0 - loss1
+            campaign.validation_loss[walker_pos, validation_idx] = loss0 - loss1
             loss_diag = _fisher_loss(
                 candidate_diag_A,
                 campaign.baseline_mu,
                 x_i,
                 α,
             )
-            campaign.validation_offdiag_loss[i, validation_idx] =
+            campaign.validation_offdiag_loss[walker_pos, validation_idx] =
                 loss_diag - loss1
         elseif isnothing(campaign) || phase == _LRWaiting
             # The gradients refer to the selected states, so the positions

@@ -153,11 +153,12 @@ function mcmc_tune_trafo_post_step!!(
     proposed::NamedTuple{<:Any, <:Tuple{Vararg{DensitySampleVector}}},
     step_info::MCMCStepInfo
 )
-    p_accept = step_info.p_accept
-
     if any(current.x.v .== proposed.x.v)
         return f_transform, tuner_state, chain_state
     end
+
+    walker_order = step_info.walker_order
+    p_accept = step_info.p_accept[walker_order]
 
     gamma = tuner_state.tuning.gamma
     target_acceptance = get_target_acceptance_ratio(proposal)
@@ -170,14 +171,14 @@ function mcmc_tune_trafo_post_step!!(
 
     Σ_L = f_transform.A
 
-    u = proposed.z.v .- current.z.v
+    u = proposed.z.v[walker_order] .- current.z.v[walker_order]
     weights = (p_accept .- target_acceptance) ./ norm.(u).^2
     Σ_L_new = oftype(Σ_L, _rank_k_cholesky_update(Σ_L, u, η .* weights))
 
     mean_update_rate = η / 10 # heuristic
     α = mean_update_rate .* p_accept
 
-    update = α .* (proposed.x.v .- [b])
+    update = α .* (proposed.x.v[walker_order] .- [b])
     new_b = 1 / nwalkers(chain_state) * oftype.(b, sum(update .+ [b])) # = (1 - α) * b + α * proposed.x.v
 
     f_transform_new = MulAdd(Σ_L_new, new_b)

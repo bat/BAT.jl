@@ -203,6 +203,11 @@ function _create_proposal_state(
     rng::AbstractRNG
 ) where {P<:Real, PV<:AbstractVector{P}}
 
+    nproposals = length(multi_proposal.proposals)
+    1 <= nproposals <= _MCMC_PROPOSALS_PER_PURPOSE || throw(ArgumentError(
+        "MCMCMultiProposal supports between 1 and $_MCMC_PROPOSALS_PER_PURPOSE proposals, got $nproposals",
+    ))
+
     proposal_states_init = Vector{MCMCProposalState}()
 
     for proposal in multi_proposal.proposals

@@ -39,6 +39,11 @@ TransformedMaxDensity(
 The AdvancedHMC extension has been removed. Use BAT's native `HamiltonianMC`
 proposal with `TransformedMCMC` and revisit AdvancedHMC-specific configuration.
 
+Custom experimental `SimpleMCMCProposalState` extensions must update
+`mcmc_propose_transition(current_z, state, nwalkers, genctx)` methods to
+`mcmc_propose_transition(current_z, state, genctxs::AbstractVector)`. Each
+entry is the generation context for the corresponding logical walker.
+
 Prefer stable accessors over direct `EvaluatedMeasure` fields:
 `samplesof`, `empiricalof`, `approxof`, `samplegenof`, `getess`, `massof`,
 `getdof`, `mode`, `modes`, `evalinfo`, and `unevaluated`.

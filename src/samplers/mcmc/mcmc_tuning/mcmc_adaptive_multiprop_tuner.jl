@@ -233,7 +233,9 @@ function mcmc_tune_proposal_post_step!!(
     picking_rule = multi_proposal.picking_rule
     N = length(multi_proposal.proposal_states)
  
-    acc_new = accept_prob[active_idx] * (1-alpha) + mean(p_accept) * alpha
+    accept_sum = _ordered_walker_sum(p_accept, step_info.walker_order)
+    mean_accept = accept_sum / length(p_accept)
+    acc_new = accept_prob[active_idx] * (1-alpha) + mean_accept * alpha
     accept_prob[active_idx] = acc_new
 
     picking_rule_tuned = _tune_picking_rule(picking_rule, acc_new, active_idx, picking_socket, N)

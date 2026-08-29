@@ -297,21 +297,28 @@ weighting. `p_accept` is always present; gradient-based proposals
 additionally provide the z-space log-density gradients at the selected
 states (`z_grads`) and trajectory diagnostics (`divergent`, `tree_depth`,
 `n_leapfrog`), which are `nothing` for proposals that don't compute them.
+`walker_order` indexes these vectors in logical-walker order.
 """
 struct MCMCStepInfo{
     PA<:AbstractVector{<:Real},
     GS<:Union{Nothing,AbstractVector{<:AbstractVector{<:Real}}},
     DV<:Union{Nothing,AbstractVector{Bool}},
-    IV<:Union{Nothing,AbstractVector{<:Integer}}
+    IV<:Union{Nothing,AbstractVector{<:Integer}},
+    WO<:AbstractVector{<:Integer}
 }
     p_accept::PA
     z_grads::GS
     divergent::DV
     tree_depth::IV
     n_leapfrog::IV
+    walker_order::WO
 end
 
-MCMCStepInfo(p_accept::AbstractVector{<:Real}) = MCMCStepInfo(p_accept, nothing, nothing, nothing, nothing)
+MCMCStepInfo(p_accept::AbstractVector{<:Real}, z_grads, divergent, tree_depth, n_leapfrog) =
+    MCMCStepInfo(p_accept, z_grads, divergent, tree_depth, n_leapfrog, eachindex(p_accept))
+
+MCMCStepInfo(p_accept::AbstractVector{<:Real}) =
+    MCMCStepInfo(p_accept, nothing, nothing, nothing, nothing)
 
 
 # Whether a proposal state provides z-space log-density gradients in its
@@ -608,7 +615,8 @@ function mcmc_iterate!!(
     mcmc_state::MCMCState;
     max_nsteps::Integer = 1,
     max_time::Real = Inf,
-    nonzero_weights::Bool = true
+    nonzero_weights::Bool = true,
+    _cancelled::Union{Nothing,Base.Threads.Atomic{Bool}} = nothing,
 )
     @debug "Starting iteration over MCMC chain $(mcmc_state.chain_state.info.id) with $max_nsteps steps in max. $(@sprintf "%.1f s" max_time)"
 
@@ -619,6 +627,11 @@ function mcmc_iterate!!(
     perform_step = true
 
     while (perform_step && (time() - start_time) < max_time)
+        if !isnothing(_cancelled) && _cancelled[]
+            mcmc_state = flush_samples!!(mcmc_state)
+            isnothing(output) || get_samples!(output, mcmc_state, nonzero_weights)
+            break
+        end
         perform_step = nsteps(mcmc_state) - start_nsteps < max_nsteps
         mcmc_state = perform_step ? mcmc_step!!(mcmc_state) : flush_samples!!(mcmc_state)
         if !isnothing(output)
@@ -654,9 +667,16 @@ function mcmc_iterate!!(
     # type of an adaptive transform on its first commit), so the result
     # container must not be bound to the input element type:
     mcmc_states_new = similar(mcmc_states, MCMCState)
+    cancelled = Base.Threads.Atomic{Bool}(false)
 
     @sync for i in eachindex(outs, mcmc_states)
-        Base.Threads.@spawn mcmc_states_new[i] = mcmc_iterate!!(outs[i], mcmc_states[i]; kwargs...)
+        Base.Threads.@spawn try
+            mcmc_states_new[i] = mcmc_iterate!!(outs[i], mcmc_states[i];
+                kwargs..., _cancelled = cancelled)
+        catch
+            cancelled[] = true
+            rethrow()
+        end
     end
 
     return mcmc_states_new

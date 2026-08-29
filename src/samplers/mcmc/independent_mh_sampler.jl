@@ -82,11 +82,10 @@ end
 function mcmc_propose_transition(
     current_z::ArrayOfSimilarArrays,
     proposal::MCMCGlobalProposalProposalState,
-    n_walkers::Integer,
-    genctx
+    genctxs::AbstractVector,
 )
     proposal_measure = batmeasure(proposal.global_proposal)
-    proposed_z = rand(genctx, proposal_measure^n_walkers)
+    proposed_z = map(genctx -> rand(genctx, proposal_measure), genctxs)
 
     hastings_correction = checked_logdensityof.(proposal_measure, current_z) .- checked_logdensityof.(proposal_measure, proposed_z)
     return proposed_z, hastings_correction

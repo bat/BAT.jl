@@ -78,9 +78,10 @@ function mcmc_tune_proposal_post_step!!(
     step_info::MCMCStepInfo
 )
     p_accept = step_info.p_accept
-    mean_accept = mean(p_accept)
+    accept_sum = _ordered_walker_sum(p_accept, step_info.walker_order)
+    mean_accept = accept_sum / length(p_accept)
     tuner.run_nobs += length(p_accept)
-    tuner.run_accept_sum += length(p_accept) * mean_accept
+    tuner.run_accept_sum += accept_sum
     tau_new = _dual_averaging_step!(
         tuner, get_target_acceptance_ratio(proposal), mean_accept,
     )

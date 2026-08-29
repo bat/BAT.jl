@@ -196,10 +196,11 @@ function _hmc_init_stepsize(
     end
 end
 
-function mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalState)
-    (; f_transform, current, proposed, context) = chain_state
+function mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalState,
+    step_rngpart::RNGPartition, proposal_idx::Integer,
+    walker_order::AbstractVector{<:Integer})
+    (; f_transform, current, proposed) = chain_state
     n_walkers = nwalkers(chain_state)
-    rng = get_rng(context)
     fg = proposal.target_logdgrad
     (; step_size, step_jitter, max_depth, max_delta_energy) = proposal
     T = typeof(step_size)
@@ -209,8 +210,13 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalState)
     divergent = Vector{Bool}(undef, n_walkers)
     tree_depth = Vector{Int}(undef, n_walkers)
     n_leapfrog = Vector{Int}(undef, n_walkers)
+    walker_rngpart = _mcmc_walker_rngpart(
+        step_rngpart, _MCMC_PROPOSAL_TRANSITION_PURPOSE, proposal_idx,
+    )
 
     for i in 1:n_walkers
+        rng = get_rng(chain_state.walker_genctxs[i])
+        set_rng!(rng, walker_rngpart, current.x.info[i].walkerid)
         q = convert(Vector{T}, current.z.v[i])
         z_current = _hmc_phasepoint(fg, q, randn(rng, T, length(q)))
         jittered_step_size = step_size * (1 + step_jitter * (2 * rand(rng, T) - 1))
@@ -231,7 +237,7 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalState)
     diag.n_divergent += count(divergent)
     diag.n_maxdepth += count(>=(max_depth), tree_depth)
     diag.n_leapfrog += sum(n_leapfrog)
-    diag.sum_p_accept += sum(p_accept)
+    diag.sum_p_accept += _ordered_walker_sum(p_accept, walker_order)
 
     chain_state.accepted .= proposed.z.v .!= current.z.v
 
@@ -241,7 +247,9 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalState)
     proposed.x.v .= xs_proposed
     proposed.x.logd .= proposed.z.logd .- ladj
 
-    return chain_state, proposal, MCMCStepInfo(p_accept, z_grads, divergent, tree_depth, n_leapfrog)
+    return chain_state, proposal, MCMCStepInfo(
+        p_accept, z_grads, divergent, tree_depth, n_leapfrog, walker_order,
+    )
 end
 
 mcmc_step_provides_grads(::HMCProposalState) = true

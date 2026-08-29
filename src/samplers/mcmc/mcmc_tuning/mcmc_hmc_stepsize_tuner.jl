@@ -166,18 +166,22 @@ function mcmc_tune_proposal_post_step!!(
     step_info::MCMCStepInfo
 )
     p_accept = step_info.p_accept
+    accept_sum, accept_sqsum = _ordered_walker_sum_and_sqsum(
+        p_accept, step_info.walker_order,
+    )
     if tuner.run_skip > 0
         tuner.run_skip -= 1
     else
         tuner.run_nobs += length(p_accept)
-        tuner.run_accept_sum += sum(p_accept)
-        tuner.run_accept_sqsum += sum(abs2, p_accept)
+        tuner.run_accept_sum += accept_sum
+        tuner.run_accept_sqsum += accept_sqsum
         if !isnothing(step_info.divergent)
             tuner.run_ndivergent += count(step_info.divergent)
         end
     end
 
-    stepsize_new = _dual_averaging_step!(tuner, get_target_acceptance_ratio(proposal), mean(p_accept))
+    mean_accept = accept_sum / length(p_accept)
+    stepsize_new = _dual_averaging_step!(tuner, get_target_acceptance_ratio(proposal), mean_accept)
     proposal_new = if isfinite(stepsize_new)
         @set proposal.step_size = oftype(proposal.step_size, stepsize_new)
     else
