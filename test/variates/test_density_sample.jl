@@ -7,6 +7,7 @@ using Test
 
 using ArraysOfArrays, ElasticArrays, ValueShapes
 import TypedTables
+import StructArrays
 
 
 struct _SampleInfo
@@ -16,6 +17,9 @@ end
 struct _SampleAux
     x::Float32
 end
+
+struct _RawNamedTupleEqualityTrap end
+Base.:(==)(::_RawNamedTupleEqualityTrap, ::_RawNamedTupleEqualityTrap) = error("raw NamedTuple variates must reject before equality")
 
 _SampleInfo() = _SampleInfo(0)
 _SampleAux() = _SampleInfo(0)
@@ -65,6 +69,43 @@ _SampleAux() = _SampleInfo(0)
         @test dsv1[2] == ds2
 
         shape = NamedTupleShape(x = ScalarShape{Real}(), y = ArrayShape{Real}(2)) 
+
+        @testset "NamedTuple variates require an explicit shape" begin
+            raw_variates = [
+                (x = Float32(1), y = Float32[2, 3]),
+                (x = Float32(4), y = Float32[5, 6]),
+            ]
+            raw_scalar_variates = [(x = Float32(1),), (x = Float32(2),)]
+            raw_equality_traps = [(x = _RawNamedTupleEqualityTrap(),), (x = _RawNamedTupleEqualityTrap(),)]
+            for (raw, weight) in (
+                (raw_variates, ones(Float32, length(raw_variates))),
+                (raw_scalar_variates, ones(Float32, length(raw_scalar_variates))),
+                (raw_scalar_variates[1:1], :multiplicity),
+                (NamedTuple{(:x,),Tuple{Float32}}[], :multiplicity),
+                (StructArrays.StructVector(raw_scalar_variates), ones(Float32, length(raw_scalar_variates))),
+                (raw_equality_traps, :multiplicity),
+                (StructArrays.StructVector(raw_equality_traps), :multiplicity),
+            )
+                err = try
+                    DensitySampleVector(v = raw, logd = zeros(Float32, length(raw)), weight = weight)
+                    nothing
+                catch err
+                    err
+                end
+                @test err isa ArgumentError
+                @test occursin("ShapedAsNTArray", sprint(showerror, err))
+            end
+
+            shaped_samples = broadcast(shape, dsv1)
+            shaped_multiplicity = DensitySampleVector(
+                v = shaped_samples.v, logd = shaped_samples.logd, weight = :multiplicity
+            )
+            shaped_empty = DensitySampleVector(
+                v = shaped_samples.v[1:0], logd = shaped_samples.logd[1:0], weight = :multiplicity
+            )
+            @test varshape(shaped_multiplicity) == shape
+            @test isempty(shaped_empty) && varshape(shaped_empty) == shape
+        end
 
         @test @inferred(broadcast(shape, dsv1)) isa DensitySampleVector
         @test broadcast(shape, dsv1).v isa ShapedAsNTArray

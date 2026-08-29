@@ -182,7 +182,15 @@ _canonical_variates(xs::VectorOfSimilarArrays) = xs
 _canonical_variates(xs::AbstractSlices) = convert(VectorOfSimilarArrays, xs)
 _canonical_variates(xs::AbstractVector{<:AbstractArray}) = convert(VectorOfSimilarArrays, xs)
 _canonical_variates(xs::AbstractVector{<:Real}) = xs
-_canonical_variates(xs::AbstractVector{<:NamedTuple}) = StructVector(xs)
+function _raw_namedtuple_variates_error()
+    throw(ArgumentError("Raw NamedTuple variates require an explicit shape; construct a ShapedAsNTArray with a NamedTupleShape before passing them to DensitySampleVector."))
+end
+_preflight_variates(::AbstractVector) = nothing
+_preflight_variates(::AbstractVector{<:NamedTuple}) = _raw_namedtuple_variates_error()
+_preflight_variates(::StructVector{<:NamedTuple}) = _raw_namedtuple_variates_error()
+_preflight_variates(::ShapedAsNTArray) = nothing
+_canonical_variates(::AbstractVector{<:NamedTuple}) = _raw_namedtuple_variates_error()
+_canonical_variates(::StructVector{<:NamedTuple}) = _raw_namedtuple_variates_error()
 _canonical_variates(xs::StructVector) = xs
 _canonical_variates(xs::ShapedAsNTArray) = xs
 
@@ -196,6 +204,7 @@ function DensitySampleVector(;
     aux::AbstractVector = fill(nothing, length(eachindex(v)))
 )
     if weight == :multiplicity
+        _preflight_variates(v)
         idxs, weight = repetition_to_weights(v)
         return DensitySampleVector((_canonical_variates(v[idxs]), logd[idxs], weight, info[idxs], aux[idxs]))
     else
