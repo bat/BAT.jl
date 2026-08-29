@@ -374,14 +374,22 @@ end
 # autocorrelation machinery runs on it. Only the caller can assert the
 # repetition semantics - generic sample vectors deliberately erase weight
 # provenance:
-function _repetition_exact_ess(smpls::DensitySampleVector, algorithm::EffSampleSizeFromAC, context::BATContext)
-    unshaped_smpls = unshaped.(smpls)
-    W = unshaped_smpls.weight
+function _validated_repetition_length(W::AbstractVector{<:Real})
     @argcheck all(w -> w >= 0 && isinteger(w), W)
     # Float accumulation can't wrap around like an integer sum would for
-    # huge repetition counts - the result is only compared against the
-    # decoding size guard, which needs no exactness:
-    N_expanded = sum(float, W, init = 0.0)
+    # huge repetition counts - only size guards consume this value.
+    return sum(Float64, W, init = 0.0)
+end
+
+function _repetition_exact_ess(
+    smpls::DensitySampleVector,
+    algorithm::EffSampleSizeFromAC,
+    context::BATContext,
+    N_expanded::Union{Nothing,Float64} = nothing,
+)
+    unshaped_smpls = unshaped.(smpls)
+    W = unshaped_smpls.weight
+    N_expanded = isnothing(N_expanded) ? _validated_repetition_length(W) : N_expanded
     N_expanded > 0 || throw(ArgumentError("Can't compute the effective sample size of an empty chain"))
     n_dof = length(first(unshaped_smpls.v))
 

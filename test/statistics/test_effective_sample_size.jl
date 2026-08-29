@@ -3,9 +3,12 @@
 using BAT
 using Test
 
+using Logging: NullLogger, with_logger
 using Statistics
 using ArraysOfArrays, ElasticArrays, StatsBase
+using Distributions: Normal
 using LogarithmicNumbers: ULogarithmic
+using Random123: Philox4x
 using StableRNGs
 
 @testset "effective_sample_size" begin
@@ -284,6 +287,128 @@ using StableRNGs
         degenerate = DensitySampleVector(v = merged.v, logd = merged.logd, weight = float.(merged.weight), info = dup_ids)
         @test !BAT._has_process_provenance(degenerate)
         @test bat_default(bat_eff_sample_size, Val(:algorithm), degenerate) isa KishESS
+    end
+
+    @testset "MCMC return process ESS memory budget" begin
+        context = BATContext()
+
+        function walker_output(n, d, weight; seed)
+            rng = StableRNG(seed)
+            DensitySampleVector(
+                v = VectorOfSimilarVectors(randn(rng, d, n)),
+                logd = zeros(n),
+                weight = fill(weight, n),
+            )
+        end
+
+        # Small ordered outputs retain the exact pooled process ESS.
+        small_unit = walker_output(500, 2, 1; seed = 91)
+        small_repeat = walker_output(500, 2, 2; seed = 92)
+        @test BAT._pooled_walker_ess([[small_unit]], small_unit, RepetitionWeighting(), context) ≈
+            minimum(bat_eff_sample_size(small_unit.v, EffSampleSizeFromAC(), context).result)
+        @test BAT._pooled_walker_ess([[small_repeat]], small_repeat, RepetitionWeighting(), context) ≈
+            minimum(BAT._repetition_exact_ess(small_repeat, EffSampleSizeFromAC(), context))
+        @test BAT._pooled_walker_ess([[small_unit]], small_unit, ARPWeighting(), context) ≈
+            minimum(bat_eff_sample_size(small_unit.v, EffSampleSizeFromAC(), context).result)
+
+        # Scalar walkers have one degree of freedom and use the same budget
+        # branch as vector-valued ARP walkers.
+        scalar_unit = DensitySampleVector(v = rand(StableRNG(93), 500), logd = zeros(500))
+        @test BAT._pooled_walker_ess([[scalar_unit]], scalar_unit, ARPWeighting(), context) ≈
+            bat_eff_sample_size(scalar_unit.v, EffSampleSizeFromAC(), context).result
+
+        for values in (Real[rand(StableRNG(94), 500)...], BigFloat[1, 2])
+            unknown_unit = DensitySampleVector(v = values, logd = zeros(length(values)))
+            @test isinf(BAT._mcmc_process_ess_memory_estimate(unknown_unit, length(unknown_unit)))
+            @test isnothing(BAT._pooled_walker_ess([[unknown_unit]], unknown_unit, ARPWeighting(), context))
+        end
+
+        # The estimate follows the stored floating-point precision.
+        float32_unit = DensitySampleVector(v = rand(StableRNG(95), Float32, 500), logd = zeros(Float32, 500))
+        @test BAT._pooled_walker_ess([[float32_unit]], float32_unit, RepetitionWeighting(), context) ≈
+            bat_eff_sample_size(float32_unit.v, EffSampleSizeFromAC(), context).result
+        @test BAT._mcmc_process_ess_memory_estimate(float32_unit, length(float32_unit)) ==
+            16 * sizeof(Float32) * length(float32_unit)
+        @test 16 * sizeof(Float32) * 600_000 < BAT._MCMC_PROCESS_ESS_MEMORY_BUDGET <
+            16 * sizeof(Float64) * 600_000
+
+        # Default MCMC returns must not materialize FFT or repetition-expansion
+        # buffers once their estimated memory cost exceeds the private budget.
+        oversized_unit = walker_output(40_000, 32, 1; seed = 93)
+        oversized_repeat = walker_output(20_000, 32, 2; seed = 94)
+        for oversized in (oversized_unit, oversized_repeat)
+            outputs = [[oversized]]
+            BAT._pooled_walker_ess(outputs, oversized, RepetitionWeighting(), context)
+            @test isnothing(BAT._pooled_walker_ess(outputs, oversized, RepetitionWeighting(), context))
+            @test @allocated(BAT._pooled_walker_ess(outputs, oversized, RepetitionWeighting(), context)) < 1_000_000
+        end
+        invalid_weight = DensitySampleVector(v = oversized_unit.v, logd = oversized_unit.logd, weight = fill(Inf, length(oversized_unit)))
+        @test_throws ArgumentError BAT._pooled_walker_ess(
+            [[invalid_weight]], invalid_weight, RepetitionWeighting(), context,
+        )
+        negative_weight = DensitySampleVector(v = oversized_unit.v, logd = oversized_unit.logd, weight = fill(-1, length(oversized_unit)))
+        @test_throws ArgumentError BAT._pooled_walker_ess(
+            [[negative_weight]], negative_weight, RepetitionWeighting(), context,
+        )
+
+        for (n, d) in ((500, 2), (40_000, 32))
+            noninteger_weight = walker_output(n, d, 0.5; seed = 96)
+            @test_throws ArgumentError BAT._pooled_walker_ess(
+                [[noninteger_weight]], noninteger_weight, RepetitionWeighting(), context,
+            )
+        end
+        valid_over_budget = walker_output(40_000, 32, 1.0; seed = 93)
+        invalid_after_budget = walker_output(10, 32, 0.5; seed = 99)
+        invalid_after_budget_merged = vcat(valid_over_budget, invalid_after_budget)
+        @test_throws ArgumentError BAT._pooled_walker_ess(
+            [[valid_over_budget, invalid_after_budget]],
+            invalid_after_budget_merged,
+            RepetitionWeighting(),
+            context,
+        )
+
+        live_walker = walker_output(500, 32, 1; seed = 97)
+        zero_mass_walker = walker_output(40_000, 32, 0; seed = 98)
+        zero_mass_merged = vcat(live_walker, zero_mass_walker)
+        for weighting in (ARPWeighting(), RepetitionWeighting())
+            live_ess = BAT._pooled_walker_ess([[live_walker]], live_walker, weighting, context)
+            @test BAT._pooled_walker_ess(
+                [[live_walker, zero_mass_walker]], zero_mass_merged, weighting, context,
+            ) ≈ live_ess
+        end
+
+        # The budget covers the complete MCMC return, not only one walker.
+        aggregate_outputs = [walker_output(8_000, 32, 1; seed = 94 + i) for i in 1:4]
+        aggregate_merged = reduce(vcat, aggregate_outputs)
+        @test isnothing(BAT._pooled_walker_ess([aggregate_outputs], aggregate_merged, RepetitionWeighting(), context))
+        @test @allocated(BAT._pooled_walker_ess([aggregate_outputs], aggregate_merged, RepetitionWeighting(), context)) < 1_000_000
+    end
+
+    @testset "small MCMC return" begin
+        samplingalg = TransformedMCMC(
+            proposal = RandomWalk(),
+            pretransform = DoNotTransform(),
+            nchains = 1,
+            nwalkers = 1,
+            nsteps = 20,
+            init = MCMCChainPoolInit(nsteps_init = 2),
+            burnin = MCMCMultiCycleBurnin(max_ncycles = 0, nsteps_final = 0),
+            convergence = AssumeConvergence(),
+            strict = false,
+        )
+        result = with_logger(NullLogger()) do
+            evalmeasure(
+                batmeasure(Normal()),
+                samplingalg,
+                BATContext(rng = Philox4x((564, 96))),
+            )
+        end
+        samples = samplesof(result)
+        @test !isempty(samples)
+        @test length(samples.weight) == length(samples.info) == length(samples)
+        @test all(id -> id isa BAT.MCMCSampleID, samples.info)
+        @test result.samplegen isa BAT.MCMCSampleGenerator
+        @test !isnothing(BAT.getess(result.empirical.main))
     end
 
     @testset "pooled ESS" begin

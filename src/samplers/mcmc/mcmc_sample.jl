@@ -193,6 +193,24 @@ end
 # here (unlike at the generic sample-vector level, which deliberately
 # erases it), so repetition weights are reconstructed into the exact
 # ordered chain:
+const _MCMC_PROCESS_ESS_MEMORY_BUDGET = 64 * 1024^2
+
+function _mcmc_process_ess_memory_estimate(
+    walker_output::DensitySampleVector,
+    n_process_samples::Real,
+)
+    storage_type = eltype(flatview(walker_output.v))
+    value_type = float(storage_type)
+    concrete_bits_type = isconcretetype(storage_type) && isbitstype(storage_type) &&
+        isconcretetype(value_type) && isbitstype(value_type)
+    # Boxed or abstract values can allocate outside their array storage.
+    concrete_bits_type || return Inf
+    # `_resample_ac_ess` caps non-repetition resampling at ten times the stored sample count.
+    # FFT autocorrelation uses several full process-value work buffers; for
+    # repetition weighting this also covers run-length decoding buffers.
+    return 16.0 * sizeof(value_type) * n_process_samples * totalndof(varshape(walker_output))
+end
+
 function _pooled_walker_ess(
     chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
     merged_output::DensitySampleVector,
@@ -202,24 +220,46 @@ function _pooled_walker_ess(
     isempty(merged_output) && return nothing
     rel_weights = _canonical_rel_weights(merged_output.weight)
     T = _weight_accum_type(rel_weights)
-    ess_parts = Vector{Any}()
+    is_repetition = weighting isa RepetitionWeighting
+    estimated_bytes = 0.0
     masses = T[]
+    process_lengths = Float64[]
     offset = 0
-    # `_merge_chain_outputs` preserves this traversal order:
     for walker_outputs in chain_outputs, walker_output in walker_outputs
         isempty(walker_output) && continue
         next_offset = offset + length(walker_output)
         wsum = sum(T, view(rel_weights, (offset + 1):next_offset))
         offset = next_offset
+        n_process_samples = is_repetition ?
+            _validated_repetition_length(walker_output.weight) :
+            10.0 * length(walker_output)
+        push!(masses, wsum)
+        push!(process_lengths, n_process_samples)
         wsum > 0 || continue
-        ess_w = if weighting isa RepetitionWeighting
-            _repetition_exact_ess(walker_output, EffSampleSizeFromAC(), context)
+        estimated_bytes += _mcmc_process_ess_memory_estimate(walker_output, n_process_samples)
+    end
+    estimated_bytes <= _MCMC_PROCESS_ESS_MEMORY_BUDGET || return nothing
+
+    ess_parts = Vector{Any}()
+    walker_idx = 0
+    # `_merge_chain_outputs` preserves this traversal order:
+    for walker_outputs in chain_outputs, walker_output in walker_outputs
+        isempty(walker_output) && continue
+        walker_idx += 1
+        iszero(masses[walker_idx]) && continue
+        ess_w = if is_repetition
+            _repetition_exact_ess(
+                walker_output,
+                EffSampleSizeFromAC(),
+                context,
+                process_lengths[walker_idx],
+            )
         else
             bat_eff_sample_size_impl(walker_output, EffSampleSizeFromAC(), context).result
         end
         push!(ess_parts, ess_w)
-        push!(masses, wsum)
     end
+    filter!(x -> !iszero(x), masses)
     ess_pooled = _pooled_ess(ess_parts, masses)
     return isnothing(ess_pooled) ? nothing : minimum(ess_pooled)
 end
