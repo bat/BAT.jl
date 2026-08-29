@@ -50,6 +50,7 @@ function tau_int_from_atc(atc::AbstractVector{<:Real}, algorithm::GeyerAutocorLe
     i = firstindex(atc)
     while i < lastindex(atc) - 1
         Γ = min(atc[i] + atc[i+1], Γ_min)
+        isfinite(Γ) || return Γ
         if Γ >= 0
             s = s + Γ
             Γ_min = Γ
@@ -122,6 +123,14 @@ provenance, a resample-then-autocorrelate heuristic is used -
 [`KishESS`](@ref) is the provenance-free alternative (and the default
 in that case).
 
+A singleton series has ESS one; an empty series raises `ArgumentError`.
+ESS is bounded by the stored draw count: a constant series, a nonpositive
+finite estimated autocorrelation length, and an antithetic length below one
+map to that upper bound. Non-finite observations and unexplained non-finite
+autocorrelation estimates raise `ArgumentError`.
+Integer series are centered in a widened integer type and copied to floating
+point before the FFT.
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```
@@ -137,11 +146,88 @@ end
 export EffSampleSizeFromAC
 
 
+_ac_ess_singleton(::AbstractVector{Float16}) = one(Float32)
+_ac_ess_singleton(v::AbstractVector{<:Real}) = one(float(eltype(v)))
+
+function _ac_ess_singleton(v::AbstractVectorOfSimilarVectors{Float16})
+    fill(one(Float32), size(flatview(v), 1))
+end
+
+function _ac_ess_singleton(v::AbstractVectorOfSimilarVectors{<:Real})
+    flat_v = flatview(v)
+    fill(one(float(eltype(flat_v))), size(flat_v, 1))
+end
+
+
+_has_invalid_ac_tau(tau_int::Real) = !isfinite(tau_int) || tau_int <= zero(tau_int)
+_has_invalid_ac_tau(tau_int::AbstractArray{<:Real}) = any(_has_invalid_ac_tau, tau_int)
+
+
+_has_unexplained_nonfinite_ac_tau(v::AbstractVector{<:Real}, tau_int::Real) =
+    !isfinite(tau_int) && !all(==(first(v)), v)
+
+function _has_unexplained_nonfinite_ac_tau(v::AbstractVectorOfSimilarVectors{<:Real}, tau_int::AbstractVector{<:Real})
+    X = flatview(v)
+    any(eachindex(tau_int)) do i
+        row = view(X, i, :)
+        !isfinite(tau_int[i]) && !all(==(first(row)), row)
+    end
+end
+
+
+_ess_shape_input(ess::Real) = [ess]
+_ess_shape_input(ess) = ess
+
+
+function _float_ac_ess_series(v::AbstractVector{T}) where {T<:Integer}
+    W = widen(T)
+    F = float(W)
+    result = similar(v, F)
+    result .= F.(W.(v) .- W(minimum(v)))
+    result
+end
+
+function _float_ac_ess_series(v::AbstractVectorOfSimilarVectors{T}) where {T<:Integer}
+    X = flatview(v)
+    W = widen(T)
+    F = float(W)
+    result = similar(X, F)
+    for i in axes(X, 1)
+        row = view(X, i, :)
+        result_row = view(result, i, :)
+        result_row .= F.(W.(row) .- W(minimum(row)))
+    end
+    VectorOfSimilarVectors(result)
+end
+
+
+function _bounded_ac_ess(n::Integer, tau_int::Real)
+    T = float(typeof(tau_int)) === Float16 ? Float32 : float(typeof(tau_int))
+    n_float = T(n)
+    isfinite(tau_int) && tau_int > zero(tau_int) ?
+        clamp(n_float / T(tau_int), one(T), n_float) : n_float
+end
+
+
+function bat_eff_sample_size_impl(v::Union{AbstractVector{<:Integer},AbstractVectorOfSimilarVectors{<:Integer}}, algorithm::EffSampleSizeFromAC, context::BATContext)
+    isempty(v) && throw(ArgumentError("Can't compute the effective sample size of an empty chain"))
+    bat_eff_sample_size_impl(_float_ac_ess_series(v), algorithm, context)
+end
+
 
 function bat_eff_sample_size_impl(v::Union{AbstractVector{<:Real},AbstractVectorOfSimilarVectors{<:Real}}, algorithm::EffSampleSizeFromAC, context::BATContext)
-    tau_int = bat_integrated_autocorr_len_impl(v, algorithm.acalg, context).result
     n = length(eachindex(v))
-    ess = min.(n, n./ tau_int)
+    n > 0 || throw(ArgumentError("Can't compute the effective sample size of an empty chain"))
+    n == 1 && !all(isfinite, flatview(v)) && throw(ArgumentError("Effective sample size requires finite observations"))
+    n == 1 && return (result = _ac_ess_singleton(v),)
+
+    tau_int = bat_integrated_autocorr_len_impl(v, algorithm.acalg, context).result
+    if _has_invalid_ac_tau(tau_int)
+        all(isfinite, flatview(v)) || throw(ArgumentError("Effective sample size requires finite observations"))
+        _has_unexplained_nonfinite_ac_tau(v, tau_int) &&
+            throw(ArgumentError("Effective sample size requires a finite autocorrelation estimate"))
+    end
+    ess = _bounded_ac_ess.(n, tau_int)
     (result = ess,)
 end
 
@@ -175,7 +261,7 @@ function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::EffSamp
     end
 
     result_vs = replace_const_shapes(s::ConstValueShape -> ConstValueShape(Fill(n, size(s.value)...)), vs)
-    ess = result_vs(unshaped_ess)
+    ess = result_vs(_ess_shape_input(unshaped_ess))
 
     (result = ess,)
 end

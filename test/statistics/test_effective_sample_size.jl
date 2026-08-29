@@ -30,6 +30,103 @@ using StableRNGs
         @test @inferred(bat_integrated_autocorr_len(v, SokalAutocorLen(), context)).result ≈ [44.243392655975356, 16.794891919657566, 31.94870020972804]
     end
 
+    @testset "degenerate autocorrelation ESS" begin
+        context = BATContext()
+        algorithm = EffSampleSizeFromAC()
+
+        # Antithetic and nonpositive autocorrelation lengths map to the
+        # declared upper bound instead of producing an invalid count.
+        for (values, expected) in [
+            (Float64[1], 1.0), (fill(1.0, 8), 8.0),
+            ([-1.0, 0, -1, 0, -1, -1, -1, -1], 8.0),
+            (repeat([-1.0, 1.0], 8), 16.0),
+        ]
+            @test bat_eff_sample_size(values, algorithm, context).result == expected
+        end
+
+        values = VectorOfSimilarVectors([
+            [1.0, -1.0], [1, 0], [1, -1], [1, 0],
+            [1, -1], [1, -1], [1, -1], [1, -1],
+        ])
+        @test bat_eff_sample_size(values, algorithm, context).result == [8.0, 8.0]
+
+        v_singleton = VectorOfSimilarVectors([[1.0, 2.0]])
+        @test bat_eff_sample_size(v_singleton, algorithm, context).result == [1.0, 1.0]
+        @test bat_eff_sample_size(Float16[1], algorithm, context).result === Float32(1)
+        for (values, expected) in [
+            ([1.0], 1.0), (fill(1.0, 8), 8.0), (collect(1.0:8.0), 2.9217391304347826),
+        ]
+            smpls = DensitySampleVector(v = values, logd = zeros(length(values)))
+            @test bat_eff_sample_size(smpls, context).result == expected
+        end
+        smpls = DensitySampleVector(v = [[1.0, 2.0]], logd = [0.0])
+        @test bat_eff_sample_size(smpls, context).result == [1.0, 1.0]
+
+        for x in (NaN, Inf, -Inf)
+            @test_throws ArgumentError bat_eff_sample_size([1.0, x, 2.0], algorithm, context)
+            values = VectorOfSimilarVectors([[1.0, 1.0], [x, 2.0], [2.0, 3.0]])
+            @test_throws ArgumentError bat_eff_sample_size(values, algorithm, context)
+            @test_throws ArgumentError bat_eff_sample_size([x], algorithm, context)
+            @test_throws ArgumentError bat_eff_sample_size(VectorOfSimilarVectors([[x, 2.0]]), algorithm, context)
+            smpls = DensitySampleVector(v = [x], logd = [0.0])
+            @test_throws ArgumentError bat_eff_sample_size(smpls, context)
+        end
+
+        # Finite nonconstant observations can still overflow the FFT
+        # autocorrelation; that numerical failure must not look like a
+        # degenerate chain with maximal ESS.
+        extreme = [1e200, -1e200, 1e200, -1e200]
+        for acalg in (GeyerAutocorLen(), SokalAutocorLen())
+            extreme_algorithm = EffSampleSizeFromAC(acalg = acalg)
+            @test_throws ArgumentError bat_eff_sample_size(extreme, extreme_algorithm, context)
+            @test bat_eff_sample_size(fill(1.0, 4), extreme_algorithm, context).result == 4.0
+        end
+        values = VectorOfSimilarVectors([[1.0, 1e200], [1.0, -1e200], [1.0, 1e200], [1.0, -1e200]])
+        @test_throws ArgumentError bat_eff_sample_size(values, algorithm, context)
+        @test BAT._bounded_ac_ess(8, 16.0) == 1.0
+
+        integer_values = collect(1:8)
+        integer_expected = bat_eff_sample_size(Float64.(integer_values), algorithm, context).result
+        @test (@inferred bat_eff_sample_size(integer_values, algorithm, context)).result ≈ integer_expected
+        @test bat_eff_sample_size(Int[1], algorithm, context).result === 1.0
+        @test bat_eff_sample_size(fill(1, 8), algorithm, context).result === 8.0
+
+        large_integers = collect((typemax(Int) - 7):typemax(Int))
+        @test bat_eff_sample_size(large_integers, algorithm, context).result ≈ integer_expected
+        @test_throws ArgumentError bat_eff_sample_size(Int[], algorithm, context)
+
+        integer_vectors = VectorOfSimilarVectors([[typemax(Int) - i, i] for i in 7:-1:0])
+        centered_vectors = VectorOfSimilarVectors([[Float64(7 - i), Float64(i)] for i in 7:-1:0])
+        @test bat_eff_sample_size(integer_vectors, algorithm, context).result ≈
+            bat_eff_sample_size(centered_vectors, algorithm, context).result
+
+        ess = bat_eff_sample_size(fill(Float16(1), 70_000), algorithm, context).result
+        @test ess == Float32(70_000) && isfinite(ess)
+
+        function geyer_ess_oracle(values)
+            n = length(values)
+            centered = values .- mean(values)
+            rho = [sum(@view(centered[1:(n - lag)]) .* @view(centered[(1 + lag):n])) / sum(abs2, centered) for lag in 0:(n - 1)]
+            s, gamma_min, i = 0.0, Inf, 1
+            while i < n - 1
+                gamma = min(rho[i] + rho[i + 1], gamma_min)
+                gamma >= 0 || break
+                s += gamma
+                gamma_min = gamma
+                i += 2
+            end
+            min(n, n / (-1 + 2s))
+        end
+
+        rng = stblrng()
+        ar1(n) = accumulate((x, e) -> 0.6x + e, randn(rng, n); init = 0.0)[2:end]
+        for values in (randn(rng, 6), randn(rng, 7), ar1(6), ar1(7))
+            @test bat_eff_sample_size(values, algorithm, context).result ≈ geyer_ess_oracle(values)
+        end
+
+        @test_throws ArgumentError bat_eff_sample_size(Float64[], algorithm, context)
+    end
+
     @testset "repetition-weight-exact ESS" begin
         context = BATContext()
         # When the caller knows the weights are run-length repetition
