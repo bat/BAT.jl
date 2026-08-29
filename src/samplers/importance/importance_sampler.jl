@@ -139,6 +139,11 @@ $(TYPEDFIELDS)
 end
 export PriorImportanceSampler
 
+_prior_importance_mass(estimate::Real, prior_mass::Real) =
+    _canonical_mass(estimate) * _canonical_mass(prior_mass)
+
+_prior_importance_mass(::Real, prior_mass::MeasureBase.AbstractUnknownMass) = prior_mass
+
 function evalmeasure_impl(
     em::EvaluatedMeasure,
     algorithm::PriorImportanceSampler,
@@ -159,7 +164,7 @@ function evalmeasure_impl(
     posterior_logd = map(logdensityof(unshaped(m)), v)
     weight = exp.(posterior_logd - unshaped_prior_samples.logd) .* prior_weight
 
-    est_integral = mean(weight)
+    est_integral = _prior_importance_mass(mean(weight), massof(prior))
     # ToDo: Add integral error estimate
 
     smpls = shape.(DensitySampleVector(v = v, logd = posterior_logd, weight = weight))
