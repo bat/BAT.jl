@@ -25,6 +25,11 @@ $(TYPEDFIELDS)
     nsteps_init::Int64 = 250
     initval_alg::InitvalAlgorithm = InitFromTarget()
     strict::Bool = true
+
+    function MCMCRetryInit(max_init_tries, nsteps_init, initval_alg, strict)
+        @argcheck max_init_tries > 0
+        new(max_init_tries, nsteps_init, initval_alg, strict)
+    end
 end
 
 export MCMCRetryInit
@@ -79,17 +84,31 @@ function mcmc_init!(
 
         n_unviable_chains = 0
         for i in 1:nchains
-            unviable_walkers = findall(isempty.(outputs[i]) .&& (sum.(getfield.(outputs[i], :weight)) .< 1))
+            cs = mcmc_states[i].chain_state
+            unviable_walkers = findall(
+                .!isfinite.(cs.current.x.logd) .|
+                (isempty.(outputs[i]) .&& (sum.(getfield.(outputs[i], :weight)) .< 1))
+            )
 
             if !isempty(unviable_walkers)
-                @debug "Rerolling starting positions for $(length(unviable_walkers)) walkers in chain $i."
                 n_unviable_chains += 1
+                cycle >= init_alg.max_init_tries && continue
 
-                new_context = set_rng(context, AbstractRNG(rngpart, i))
-                new_v_init = bat_ensemble_initvals(target, initval_alg, length(unviable_walkers), new_context)
-                cs = mcmc_states[i].chain_state
+                @debug "Rerolling starting positions for $(length(unviable_walkers)) walkers in chain $i."
+                retry_rngpart = RNGPartition(
+                    AbstractRNG(rngpart, i), Base.OneTo(init_alg.max_init_tries)
+                )
+                walker_rngpart = RNGPartition(
+                    AbstractRNG(retry_rngpart, cycle), Base.OneTo(samplingalg.nwalkers)
+                )
+                new_v_init = map(unviable_walkers) do walker
+                    new_context = set_rng(context, AbstractRNG(walker_rngpart, walker))
+                    bat_initval(target, initval_alg, new_context).result
+                end
+                new_logd = BAT.checked_logdensityof.(mcmc_target(cs), new_v_init)
+                foreach(empty!, view(outputs[i], unviable_walkers))
                 cs.current.x.v[unviable_walkers] .= new_v_init
-                cs.current.x.logd[unviable_walkers] .= logdensityof.(mcmc_target(cs), new_v_init)
+                cs.current.x.logd[unviable_walkers] .= new_logd
                 cs.current.x.weight[unviable_walkers] .= 0
                 # Bring the z-side representation back in sync with the
                 # rerolled x positions:

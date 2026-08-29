@@ -62,7 +62,7 @@ function MCMCChainState(
     f_inv = inverse(f)
     proposal = _create_proposal_state(samplingalg.proposal, target_unevaluated, context, x_init, f, rng)
 
-    logd_x_init = logdensityof.(target_unevaluated, x_init)
+    logd_x_init = BAT.checked_logdensityof.(target_unevaluated, x_init)
     z_init = f_inv.(x_init)
     ladj_c = _transform_ladj(f)
     logd_z_init = isnothing(ladj_c) ?
@@ -320,9 +320,9 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP) where {SMP<:
     chain_state.proposed.x.logd .= logd_x_proposed
     chain_state.proposed.z.logd .= logd_z_proposed
 
-    p_accept = clamp.(exp.(logd_z_proposed - logd_z_current + hastings_correction), 0, 1)
-    @assert all(p_accept .>= 0)
-    accepted = rand(rng, length(p_accept)) .<= p_accept
+    log_accept_ratio = logd_z_proposed - logd_z_current + hastings_correction
+    p_accept = @. ifelse(isnan(log_accept_ratio), zero(log_accept_ratio), clamp(exp(log_accept_ratio), 0, 1))
+    accepted = rand(rng, length(p_accept)) .< p_accept
 
     chain_state.accepted .= accepted
 
