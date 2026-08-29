@@ -21,6 +21,10 @@ weight changes require constructing a replacement `DensitySampleMeasure`.
 In particular, the live data returned by `samplesof` must not be modified:
 mutating its owned weights would desynchronize its cached sampling CDF.
 
+The stored effective sample size (`ess`) records sampling-process
+provenance, not empirical-measure content. It is available through
+[`getess`](@ref), but does not participate in equality or hashing.
+
 Note: `DensitySampleMeasure` does not support `logdensityof`. An empirical
 measure has no density in the usual sense, the log-density values of the
 original measure at the sample points are available via
@@ -106,6 +110,25 @@ Base.convert(::Type{DensitySampleVector}, m::DensitySampleMeasure) = DensitySamp
 
 function Base.:(==)(a::DensitySampleMeasure, b::DensitySampleMeasure)
     return a._smpls == b._smpls && a._dof == b._dof && a._mass == b._mass
+end
+
+function Base.isequal(a::DensitySampleMeasure, b::DensitySampleMeasure)
+    a_smpls, b_smpls = a._smpls, b._smpls
+    return isequal(a_smpls.v, b_smpls.v) && isequal(a_smpls.logd, b_smpls.logd) &&
+        isequal(a_smpls.weight, b_smpls.weight) && isequal(a_smpls.info, b_smpls.info) &&
+        isequal(a_smpls.aux, b_smpls.aux) && isequal(a._dof, b._dof) && isequal(a._mass, b._mass)
+end
+
+function Base.hash(dsm::DensitySampleMeasure, h::UInt)
+    smpls = dsm._smpls
+    h = hash(:DensitySampleMeasure, h)
+    h = hash(smpls.v, h)
+    h = hash(smpls.logd, h)
+    h = hash(smpls.weight, h)
+    h = hash(smpls.info, h)
+    h = hash(smpls.aux, h)
+    h = hash(dsm._dof, h)
+    return hash(dsm._mass, h)
 end
 
 function Base.isapprox(a::DensitySampleMeasure, b::DensitySampleMeasure; kwargs...)

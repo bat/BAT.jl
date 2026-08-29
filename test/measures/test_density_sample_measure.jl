@@ -38,6 +38,62 @@ Random.rand(::_ThirdFloatRNG, ::Random.SamplerTrivial{Random.CloseOpen01{Float64
         @test convert(DensitySampleVector, dsm) == smpls
     end
 
+    @testset "equality and hashing" begin
+        # ESS is sampling-process provenance, not empirical-measure content.
+        dsm_copy = DensitySampleMeasure(
+            DensitySampleVector(dsm), dof = dsm._dof, ess = dsm._ess + 1, mass = massof(dsm)
+        )
+        @test dsm == dsm_copy
+        @test isequal(dsm, dsm_copy)
+        @test hash(dsm) == hash(dsm_copy)
+        @test length(Set([dsm, dsm_copy])) == 1
+        content_smpls = DensitySampleVector(v = [1.0, 2.0], logd = [-1.0, -2.0], weight = [1.0, 2.0])
+        content_dsm = DensitySampleMeasure(content_smpls, dof = 1, ess = 1)
+        for (values, logd, weights) in (
+            ([2.0, 2.0], content_smpls.logd, content_smpls.weight),
+            (content_smpls.v, [0.0, -2.0], content_smpls.weight),
+            (content_smpls.v, content_smpls.logd, [2.0, 2.0]),
+        )
+            unequal = DensitySampleMeasure(
+                DensitySampleVector(v = values, logd = logd, weight = weights),
+                dof = content_dsm._dof, ess = content_dsm._ess, mass = massof(content_dsm),
+            )
+            @test content_dsm != unequal
+        end
+        dict = Dict(dsm => :first, dsm_copy => :second)
+        @test length(dict) == 1
+        @test dict[dsm] == :second
+    end
+
+    @testset "signed zero equality and hashing" begin
+        positive_zero = DensitySampleMeasure(
+            DensitySampleVector(v = [0.0], logd = [0.0], weight = [1.0]), ess = 1
+        )
+        negative_zero = DensitySampleMeasure(
+            DensitySampleVector(v = [-0.0], logd = [0.0], weight = [1.0]), ess = 2
+        )
+        @test positive_zero == negative_zero
+        @test !isequal(positive_zero, negative_zero)
+        @test hash(positive_zero) != hash(negative_zero)
+        @test length(Set([positive_zero, negative_zero])) == 2
+        signed_zero_dict = Dict(positive_zero => :positive, negative_zero => :negative)
+        @test length(signed_zero_dict) == 2
+        @test signed_zero_dict[positive_zero] == :positive
+        @test signed_zero_dict[negative_zero] == :negative
+
+        nan_a = DensitySampleMeasure(
+            DensitySampleVector(v = [NaN], logd = [0.0], weight = [1.0]), ess = 1
+        )
+        nan_b = DensitySampleMeasure(
+            DensitySampleVector(v = [NaN], logd = [0.0], weight = [1.0]), ess = 2
+        )
+        @test nan_a != nan_b
+        @test isequal(nan_a, nan_b)
+        @test hash(nan_a) == hash(nan_b)
+        @test length(Set([nan_a, nan_b])) == 1
+        @test length(Dict(nan_a => :first, nan_b => :second)) == 1
+    end
+
     @testset "properties" begin
         @test @inferred(samplesof(dsm)) === dsm._smpls
         @test @inferred(empiricalof(dsm)) === dsm
