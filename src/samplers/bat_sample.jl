@@ -40,6 +40,9 @@ export IIDSampling
 
 function evalmeasure_impl(em::EvaluatedMeasure, algorithm::IIDSampling, context::BATContext)
     m = unevaluated(em)
+    m isa DensitySampleMeasure && throw(ArgumentError(
+        "IIDSampling is not supported for DensitySampleMeasure; use RandResampling or SystematicResampling instead.",
+    ))
     cunit = get_compute_unit(context)
     rng = get_rng(context)
     n = algorithm.nsamples

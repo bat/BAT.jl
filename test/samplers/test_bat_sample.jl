@@ -35,6 +35,28 @@ using Random123
         @test isapprox(var(bat_sample(Normal(), BAT.IIDSampling(nsamples = 10^3), context).result), 1, rtol = 0.25)
     end
 
+    @testset "empirical IID rejection" begin
+        empirical = DensitySampleMeasure(DensitySampleVector(
+            v = [1.0, 2.0], logd = zeros(2), weight = [1.0, 1.0],
+        ))
+
+        for sample in (evalmeasure, bat_sample), nsamples in (0, 1)
+            rng = StableRNG(564033)
+            context = BATContext(rng = rng)
+            err = try
+                sample(empirical, IIDSampling(nsamples = nsamples), context)
+                nothing
+            catch err
+                err
+            end
+
+            @test err isa ArgumentError
+            @test occursin("RandResampling", sprint(showerror, err))
+            @test occursin("SystematicResampling", sprint(showerror, err))
+            @test rand(rng) == rand(StableRNG(564033))
+        end
+    end
+
     @testset "RandResampling" begin
         context = BATContext(rng = Philox4x((564, 30)))
         dist = Normal()
