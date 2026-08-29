@@ -21,6 +21,42 @@ end
 
 export MultiProposalTuning
 
+function _validate_mcmc_proposal_tuning_configuration(
+    multi_proposal::MCMCMultiProposal,
+    tuning::NoMCMCProposalTuning,
+)
+    for proposal in multi_proposal.proposals
+        proposal isa HamiltonianMC &&
+            _unsupported_mcmc_component_tuning(proposal, tuning)
+    end
+    return nothing
+end
+
+_validate_mcmc_proposal_tuning_configuration(
+    multi_proposal::MCMCMultiProposal,
+    tuning::HMCTuning,
+) = _unsupported_mcmc_component_tuning(multi_proposal, tuning)
+
+function _validate_mcmc_proposal_tuning_configuration(
+    multi_proposal::MCMCMultiProposal,
+    tuning::MultiProposalTuning,
+)
+    n_proposals = length(multi_proposal.proposals)
+    n_tunings = length(tuning.proposal_tunings)
+    n_tunings == n_proposals || throw(ArgumentError(
+        "MultiProposalTuning has $n_tunings component tunings but MCMCMultiProposal has $n_proposals component proposals",
+    ))
+    for (proposal, component_tuning) in zip(
+        multi_proposal.proposals, tuning.proposal_tunings,
+    )
+        if proposal isa HamiltonianMC && component_tuning isa NoMCMCProposalTuning
+            _unsupported_mcmc_component_tuning(proposal, component_tuning)
+        end
+        _validate_mcmc_proposal_configuration(proposal, component_tuning)
+    end
+    return nothing
+end
+
 struct MultiProposalTunerState{
     PTS<:Vector{<:MCMCProposalTunerState},
 }<:MCMCProposalTunerState
@@ -164,12 +200,12 @@ end
 _component_tuning_success(chain_state, proposal, tuner, acceptance) =
     get_tuning_success(chain_state, proposal, tuner)
 
-function _component_tuning_success(
-    chain_state,
-    proposal,
-    ::NoMCMCProposalTunerState,
-    acceptance,
-)
-    lower, upper = get_target_acceptance_int(proposal)
-    return lower <= acceptance <= upper
-end
+_component_tuning_success(
+    chain_state, proposal, ::NoMCMCProposalTunerState, acceptance,
+) = _acceptance_in_target(proposal, acceptance)
+
+_component_tuning_success(
+    chain_state, proposal::MALAProposalState, tuner::MALAStepSizeTunerState, acceptance,
+) = tuner.min_run_nobs == 0 ?
+    _acceptance_in_target(proposal, acceptance) :
+    get_tuning_success(chain_state, proposal, tuner)

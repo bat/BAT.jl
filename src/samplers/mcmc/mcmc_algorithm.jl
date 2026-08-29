@@ -170,6 +170,25 @@ Abstract type for MCMC proposal algorithm states.
 """
 abstract type MCMCProposalState end
 
+_validate_mcmc_proposal_configuration(
+    ::MCMCProposal,
+    ::MCMCProposalTuning,
+) = nothing
+
+_validate_mcmc_proposal_tuning_configuration(
+    ::MCMCProposal,
+    ::MCMCProposalTuning,
+) = nothing
+
+_unsupported_mcmc_component_tuning(proposal, tuning) = throw(ArgumentError(
+    "Unsupported MCMC component tuning pair: $(nameof(typeof(proposal))) with $(nameof(typeof(tuning)))",
+))
+
+function _acceptance_in_target(proposal, acceptance)
+    lower, upper = get_target_acceptance_int(proposal)
+    return lower <= acceptance <= upper
+end
+
 """
     abstract type SimpleMCMCProposalState
 
@@ -501,13 +520,20 @@ function get_proposal_tuning_quality end
 
 # TODO: MD, Think about the exponent in the quality calculation. Should it be user-definable? Where should it be stored?
 # Perhaps in the AdaptiveMultiProposalTunerState?
-function get_proposal_tuning_quality(
+get_proposal_tuning_quality(
     proposal::MCMCProposalState,
     chain_state::CS,
     beta::Float64
-) where CS<:MCMCIterator
+) where CS<:MCMCIterator = get_proposal_tuning_quality(
+    proposal, eff_acceptance_ratio(chain_state), beta,
+)
+
+function get_proposal_tuning_quality(
+    proposal::MCMCProposalState,
+    eff_acceptance::Real,
+    beta::Float64,
+)
     lower, upper = proposal.target_acceptance_int
-    eff_acceptance = eff_acceptance_ratio(chain_state)
     target_acceptance = get_target_acceptance_ratio(proposal)
 
     in_target_interval =  lower < eff_acceptance < upper

@@ -23,6 +23,26 @@ end
 
 export AdaptiveMultiPropTuning
 
+_validate_mcmc_proposal_configuration(
+    proposal::Union{RandomWalk,MCMCGlobalProposal,MALAProposal,HamiltonianMC},
+    tuning::Union{MultiProposalTuning,AdaptiveMultiPropTuning},
+) = _unsupported_mcmc_component_tuning(proposal, tuning)
+
+_validate_mcmc_proposal_configuration(
+    proposal::Union{RandomWalk,MCMCGlobalProposal},
+    tuning::HMCTuning,
+) = _unsupported_mcmc_component_tuning(proposal, tuning)
+
+function _validate_mcmc_proposal_tuning_configuration(
+    multi_proposal::MCMCMultiProposal,
+    ::AdaptiveMultiPropTuning,
+)
+    multi_proposal.picking_rule isa Categorical || throw(ArgumentError(
+        "AdaptiveMultiPropTuning supports only categorical MCMCMultiProposal picking rules",
+    ))
+    return nothing
+end
+
 struct AdaptiveMultiPropTunerState <:MCMCProposalTunerState 
     alpha::Float64
     beta::Float64
@@ -75,12 +95,10 @@ function mcmc_tune_proposal_post_cycle!!(
     samples::AbstractVector{<:DensitySampleVector}
 )
     (; proposal_states, picking_rule) = multi_proposal
-    (; beta, picking_socket) = tuner_state
-    
-    tuning_qualities = get_proposal_tuning_quality.(
-        proposal_states,
-        Ref(chain_state),
-        beta
+    (; picking_socket) = tuner_state
+
+    tuning_qualities = _adaptive_component_tuning_qualities(
+        proposal_states, tuner_state, chain_state,
     )
 
     picking_rule_tuned = _qualify_picking_rule(
@@ -101,22 +119,17 @@ function mcmc_proposal_tuning_finalize!!(
     tuner_state::AdaptiveMultiPropTunerState,
     chain_state::MCMCChainState
 )
-    component_tuning_successes = _component_acceptance_successes(chain_state, multi_proposal)
+    component_tuning_successes = _adaptive_component_tuning_successes(
+        multi_proposal.proposal_states, tuner_state, chain_state,
+    )
 
     picking_rule = multi_proposal.picking_rule
 
-    if any(component_tuning_successes)
-        if picking_rule isa Distribution
-            p_unnorm = picking_rule.p .* component_tuning_successes
-            picking_probs_new = p_unnorm ./ sum(p_unnorm)
-            picking_rule_new = Categorical(picking_probs_new)
-        else
-            N = sum(picking_rule)
-            p_unnorm = picking_rule .* component_tuning_successes
-            picking_rule_new = round.(Integer, p_unnorm .* (N / sum(p_unnorm)))
-        end
+    picking_rule_new = if any(component_tuning_successes)
+        p_unnorm = picking_rule.p .* component_tuning_successes
+        Categorical(p_unnorm ./ sum(p_unnorm))
     else
-        picking_rule_new = picking_rule
+        picking_rule
     end
 
     @reset multi_proposal.picking_rule = picking_rule_new
@@ -127,8 +140,86 @@ end
 get_tuning_success(
     chain_state::MCMCChainState,
     multi_proposal::MultiProposalState,
+    tuner_state::AdaptiveMultiPropTunerState,
+) = any(_adaptive_component_tuning_successes(
+    multi_proposal.proposal_states, tuner_state, chain_state,
+))
+
+function _adaptive_component_tuning_qualities(
+    proposal_states,
+    tuner_state::AdaptiveMultiPropTunerState,
+    chain_state::MCMCChainState,
+)
+    return map(eachindex(proposal_states)) do i
+        chain_state.nattempts[i] > 0 || return 0.0
+        _adaptive_component_tuning_quality(
+            proposal_states[i], tuner_state, chain_state, i,
+        )
+    end
+end
+
+function _adaptive_component_tuning_successes(
+    proposal_states,
+    tuner_state::AdaptiveMultiPropTunerState,
+    chain_state::MCMCChainState,
+)
+    return map(eachindex(proposal_states)) do i
+        chain_state.nattempts[i] > 0 || return false
+        _adaptive_component_tuning_success(
+            proposal_states[i], tuner_state, chain_state, i,
+        )
+    end
+end
+
+_adaptive_component_tuning_success(
+    proposal::MCMCProposalState,
+    tuner_state::AdaptiveMultiPropTunerState,
+    chain_state::MCMCChainState,
+    i::Integer,
+) = _adaptive_component_tuning_quality(
+    proposal, tuner_state, chain_state, i,
+) > 0
+
+_adaptive_component_tuning_success(
+    proposal::HMCProposalState,
+    tuner_state::AdaptiveMultiPropTunerState,
+    ::MCMCChainState,
+    i::Integer,
+) = _acceptance_in_target(proposal, tuner_state.accept_prob[i])
+
+_adaptive_component_tuning_success(
+    proposal::SimpleMCMCProposalState,
     ::AdaptiveMultiPropTunerState,
-) = any(_component_acceptance_successes(chain_state, multi_proposal))
+    chain_state::MCMCChainState,
+    i::Integer,
+) = _acceptance_in_target(
+    proposal, chain_state.nsamples[i] / chain_state.nattempts[i],
+)
+
+_adaptive_component_tuning_quality(
+    proposal::MCMCProposalState,
+    tuner_state::AdaptiveMultiPropTunerState,
+    chain_state::MCMCChainState,
+    ::Integer,
+) = get_proposal_tuning_quality(proposal, chain_state, tuner_state.beta)
+
+_adaptive_component_tuning_quality(
+    proposal::HMCProposalState,
+    tuner_state::AdaptiveMultiPropTunerState,
+    ::MCMCChainState,
+    i::Integer,
+) = get_proposal_tuning_quality(
+    proposal, tuner_state.accept_prob[i], tuner_state.beta,
+)
+
+_adaptive_component_tuning_quality(
+    proposal::SimpleMCMCProposalState,
+    tuner_state::AdaptiveMultiPropTunerState,
+    chain_state::MCMCChainState,
+    i::Integer,
+) = get_proposal_tuning_quality(
+    proposal, chain_state.nsamples[i] / chain_state.nattempts[i], tuner_state.beta,
+)
 
 function mcmc_tune_proposal_post_step!!(
     multi_proposal::MultiProposalState,
@@ -159,44 +250,26 @@ function _tune_picking_rule(
     picking_socket::Float64,
     N::Integer
 )
-    p_tuned = picking_rule.p
+    p_tuned = copy(picking_rule.p)
     p_tuned[curr_idx] = acc_new
     p_tuned .*= (1 - picking_socket) / sum(p_tuned)
     p_tuned .+= picking_socket / N  
     return Categorical(p_tuned)
 end
 
-function _tune_picking_rule(
-    picking_rule::Tuple,
-    acc_new::Float64,
-    curr_idx::Integer,
-    picking_socket::Float64,
-    N::Integer
-)
-    norm = sum(picking_rule)
-    picking_rule_tuned = picking_rule ./ norm
-    picking_rule_tuned[curr_idx] = acc_new
-    picking_rule_tuned .*=  (1 - picking_socket) / sum(picking_rule_tuned)
-    picking_rule_tuned .+= picking_socket / N
-
-    return round.(Integer, picking_rule_tuned * norm)
-end
-
 function _qualify_picking_rule(
     picking_rule::Categorical,
-    tuning_qualities::Tuple,
+    tuning_qualities::AbstractVector{<:Real},
     picking_socket::Float64,
     N_props::Integer
 )
     valid_proposals = picking_rule.p .> 0.0
     @assert any(valid_proposals) throw Error("All proposals have picking probability 0!")
 
-    p_tuned = picking_rule.p
+    p_tuned = copy(picking_rule.p)
     p_tuned .*= tuning_qualities
 
     if any(p_tuned .> 0)
-        p_tuned ./= sum(p_tuned)
-
         p_tuned .*= (1 - picking_socket) / sum(p_tuned)
         p_tuned .+= picking_socket / N_props
     else
@@ -205,30 +278,4 @@ function _qualify_picking_rule(
     end
 
     return Categorical(p_tuned)
-end
-
-function _qualify_picking_rule(
-    picking_rule::Tuple,
-    tuning_qualities::Tuple,
-    picking_socket::Float64,
-    N_props::Integer
-)
-    N = sum(picking_rule)
-    valid_proposals = picking_rule .> 0 
-    @assert any(valid_proposals) throw Error("All proposals have picking probability 0!")
-
-    picking_rule_tuned = picking_rule ./ N
-    picking_rule_tuned .*= tuning_qualities
-
-    if any(picking_rule_tuned .> 0)
-        picking_rule_tuned .*= (1 - picking_socket) / sum(p_tuned)
-        picking_rule_tuned .+= picking_socket / N_props
-       
-        picking_rule_tuned = round.(Integer, picking_rule_tuned .* N)
-    else
-        picking_rule_tuned[valid_proposals] = sum(valid_proposals) / N
-        picking_rule_tuned = round.(Integer, picking_rule_tuned .* N)
-    end
-
-    return picking_rule_tuned 
 end

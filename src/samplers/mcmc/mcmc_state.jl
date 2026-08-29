@@ -46,6 +46,8 @@ function MCMCChainState(
     x_init::AbstractVector{PV},
     context::BATContext
 ) where {P<:Real, PV<:AbstractVector{P}}
+    _validate_mcmc_proposal_configuration(samplingalg.proposal, samplingalg.proposal_tuning)
+
     n_walkers = length(x_init)
     target_unevaluated = unevaluated(target)
 

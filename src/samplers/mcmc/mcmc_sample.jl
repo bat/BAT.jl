@@ -177,9 +177,11 @@ end
 # Per-chain trajectory diagnostics (whole run, including warmup), for
 # proposals that record them:
 _proposal_diagnostics(::MCMCProposalState) = nothing
+_proposal_diagnostics(proposal::MCMCProposalState, chain_state) =
+    _proposal_diagnostics(proposal)
 
 function _mcmc_diagnostics_summary(mcmc_states::AbstractVector{<:MCMCState})
-    diags = [_proposal_diagnostics(get_active_proposal(s.chain_state.proposal)) for s in mcmc_states]
+    diags = [_proposal_diagnostics(s.chain_state.proposal, s.chain_state) for s in mcmc_states]
     return all(isnothing, diags) ? (;) : (chain_diagnostics = diags,)
 end
 

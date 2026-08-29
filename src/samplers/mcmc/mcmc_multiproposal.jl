@@ -24,6 +24,43 @@ end
 
 export MCMCMultiProposal
 
+function _validate_mcmc_proposal_configuration(
+    multi_proposal::MCMCMultiProposal,
+    tuning::MCMCProposalTuning,
+)
+    proposals = multi_proposal.proposals
+    picking_rule = multi_proposal.picking_rule
+    n_proposals = length(proposals)
+
+    n_proposals > 0 || throw(ArgumentError(
+        "MCMCMultiProposal requires at least one component proposal",
+    ))
+    any(proposal -> proposal isa MCMCMultiProposal, proposals) && throw(ArgumentError(
+        "Nested MCMCMultiProposal components are not supported",
+    ))
+
+    n_rule_components = picking_rule isa Categorical ?
+        length(picking_rule.p) : length(picking_rule)
+    n_rule_components == n_proposals || throw(ArgumentError(
+        "MCMCMultiProposal has $n_proposals component proposals but its picking rule has $n_rule_components components",
+    ))
+
+    if picking_rule isa AbstractVector
+        all(weight -> weight >= 0, picking_rule) || throw(ArgumentError(
+            "MCMCMultiProposal integer picking-rule weights must be nonnegative",
+        ))
+        any(weight -> weight > 0, picking_rule) || throw(ArgumentError(
+            "MCMCMultiProposal integer picking-rule weights must have positive mass",
+        ))
+        issorted(cumsum(picking_rule)) || throw(ArgumentError(
+            "MCMCMultiProposal integer picking-rule cumulative mass overflows",
+        ))
+    end
+
+    _validate_mcmc_proposal_tuning_configuration(multi_proposal, tuning)
+    return nothing
+end
+
 struct MultiProposalState{
     PS<:Vector{<:MCMCProposalState},
     R<:Union{Vector{<:Integer}, Categorical},
@@ -64,9 +101,8 @@ function next_proposal!!(
     stepno::Integer
 )
     picking_rule_cum = cumsum(proposal_state.picking_rule)
-    m = stepno % last(picking_rule_cum)
-
-    idx = m > 0 ? findfirst(y -> m <= y, picking_rule_cum) : lastindex(picking_rule_cum)
+    m = mod1(stepno, last(picking_rule_cum))
+    idx = findfirst(y -> m <= y, picking_rule_cum)
     proposal_state_new = @set proposal_state.active_idx = idx
 
     active_proposal = get_active_proposal(proposal_state_new)
@@ -150,9 +186,11 @@ function _component_acceptance_successes(
     multi_proposal::MultiProposalState,
 )
     component_acceptance_rates = detailed_eff_acceptance_ratio(chain_state)
-    component_target_intervals = get_target_acceptance_int.(multi_proposal.proposal_states)
-    return map(component_acceptance_rates, component_target_intervals) do acceptance, interval
-        first(interval) <= acceptance <= last(interval)
+    return map(eachindex(component_acceptance_rates)) do i
+        chain_state.nattempts[i] > 0 || return false
+        return _acceptance_in_target(
+            multi_proposal.proposal_states[i], component_acceptance_rates[i],
+        )
     end
 end
 
@@ -179,12 +217,15 @@ function _create_proposal_state(
         push!(proposal_states_init, proposal_state_tmp)
     end
 
-    picking_rule = multi_proposal.picking_rule
+    picking_rule = _copy_picking_rule(multi_proposal.picking_rule)
 
     idx = _init_active_idx(rng, picking_rule)
 
     return MultiProposalState(proposal_states_init, picking_rule, idx)
 end
+
+_copy_picking_rule(picking_rule::AbstractVector) = copy(picking_rule)
+_copy_picking_rule(picking_rule::Categorical) = Categorical(copy(picking_rule.p))
 
 function _init_active_idx(rng::AbstractRNG, picking_rule::Distribution)
     return rand(rng, picking_rule)
@@ -204,4 +245,25 @@ function set_proposal_transform!!(
     end
 
     return multi_proposal
+end
+
+function _proposal_diagnostics(
+    multi_proposal::MultiProposalState,
+    chain_state::MCMCChainState,
+)
+    # Chain counters reset at each cycle; nested proposal diagnostics may span
+    # the whole run, so keep the counter scope explicit in the field names.
+    component_rates = detailed_eff_acceptance_ratio(chain_state)
+    components = map(eachindex(multi_proposal.proposal_states)) do i
+        proposal = multi_proposal.proposal_states[i]
+        return (
+            index = i,
+            proposal_type = nameof(typeof(proposal)),
+            cycle_n_attempts = chain_state.nattempts[i],
+            cycle_n_accepted = chain_state.nsamples[i],
+            cycle_acceptance_rate = component_rates[i],
+            diagnostics = _proposal_diagnostics(proposal),
+        )
+    end
+    return (; components)
 end
