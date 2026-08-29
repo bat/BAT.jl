@@ -10,6 +10,23 @@ using LazyReports: LazyReport, lazyreport
 using Accessors: @set
 using ScopedSettings: unchanged
 
+struct EvalmeasureDensityError <: BAT.BATMeasure end
+
+DensityInterface.logdensityof(::EvalmeasureDensityError, ::Any) = error("evalmeasure density failure")
+ValueShapes.varshape(::EvalmeasureDensityError) = ScalarShape{Float64}()
+MeasureBase.getdof(::EvalmeasureDensityError) = 1
+
+struct EvalmeasureDensityMethodError <: BAT.BATMeasure end
+
+evalmeasure_density_methoderror(::Nothing) = nothing
+DensityInterface.logdensityof(::EvalmeasureDensityMethodError, ::Any) = evalmeasure_density_methoderror(0.0)
+ValueShapes.varshape(::EvalmeasureDensityMethodError) = ScalarShape{Float64}()
+MeasureBase.getdof(::EvalmeasureDensityMethodError) = 1
+
+struct EvalmeasureInterruptTarget <: MeasureBase.AbstractMeasure end
+
+BAT.batmeasure(::EvalmeasureInterruptTarget) = throw(InterruptException())
+
 @testset "evaluated_measure" begin
     dist = distprod(
         a = truncated(Normal(), -2, 2),
@@ -135,5 +152,42 @@ using ScopedSettings: unchanged
     @testset "report generation" begin
         @test lazyreport(em) isa LazyReport
         @test lazyreport(em_plain) isa LazyReport
+    end
+
+    @testset "validation error boundaries" begin
+        error_em = EvaluatedMeasure(
+            EvalmeasureDensityError(),
+            empirical = DensitySampleVector(v = [0.0], logd = [0.0])
+        )
+        @test_throws ErrorException BAT.validate_evalmeasure(error_em)
+
+        methoderror_em = EvaluatedMeasure(
+            EvalmeasureDensityMethodError(),
+            empirical = DensitySampleVector(v = [0.0], logd = [0.0])
+        )
+        err = try
+            BAT.validate_evalmeasure(methoderror_em)
+            nothing
+        catch err
+            err
+        end
+        @test err isa MethodError
+        @test err.f === evalmeasure_density_methoderror
+
+        validation_context = BATContext()
+        _, f_validation = BAT.transform_and_unshape(ToRealVector(), m, validation_context)
+        unsupported_approx = DensitySampleMeasure(
+            DensitySampleVector(v = [f_validation(first(xs))], logd = [0.0])
+        )
+        unsupported_em = EvaluatedMeasure(
+            m,
+            transform_intent = ToRealVector(),
+            f_transform = f_validation,
+            empirical = empirical_m,
+            approx = BAT.BispacedMeasure(m, unsupported_approx, hash(f_validation)),
+        )
+        @test BAT.validate_evalmeasure(unsupported_em, context = validation_context) === unsupported_em
+
+        @test_throws InterruptException evalmeasure(EvalmeasureInterruptTarget())
     end
 end

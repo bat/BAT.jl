@@ -55,6 +55,7 @@ function convert_for(::typeof(evalmeasure), target)
     try
         convert(EvaluatedMeasure, batmeasure(target))
     catch err
+        err isa InterruptException && rethrow()
         throw(ArgumentError("Can't convert target of type $(nameof(typeof(target))) to a BAT-compatible measure for `evalmeasure`: $(sprint(showerror, err))"))
     end
 end

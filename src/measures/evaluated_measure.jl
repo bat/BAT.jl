@@ -692,7 +692,8 @@ end
 
 _em_spotcheck_idxs(smpls::DensitySampleVector) = firstindex(smpls.v):min(lastindex(smpls.v), firstindex(smpls.v) + 2)
 
-_try_logdensityof(m, v) = try logdensityof(m, v) catch; missing end
+_try_logdensityof(::DensitySampleMeasure, _) = missing
+_try_logdensityof(m, v) = logdensityof(m, v)
 
 # A few variate values of the measure, to compare transformations by
 # application:
