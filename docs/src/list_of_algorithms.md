@@ -60,6 +60,19 @@ bat_sample(target, EllipsoidalNestedSampling())
 Requires the [NestedSamplers](https://github.com/TuringLang/NestedSamplers.jl) Julia package to be loaded explicitly.
 
 
+### Elliptical slice sampling (experimental)
+
+BAT sampling algorithm type: [`EllipticalSliceMCMCSampling`](@ref)
+
+```julia
+import EllipticalSliceSampling
+bat_sample(posterior, EllipticalSliceMCMCSampling(nsamples = 10^4))
+```
+
+BAT maps the posterior prior to a standard Gaussian before sampling. Requires the
+[EllipticalSliceSampling](https://github.com/TuringLang/EllipticalSliceSampling.jl) Julia package to be loaded explicitly.
+
+
 ### Sobol Sampler
 BAT sampling algorithm type: [`SobolSampler`](@ref)
 
