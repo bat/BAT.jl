@@ -30,6 +30,19 @@ end
 
 _mcmc_n_rng_purposes(::StretchMoveProposalState) = _MCMC_N_RNG_PURPOSES
 
+function _mcmc_ess(
+    chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
+    merged_output::DensitySampleVector,
+    proposal::StretchMove,
+    weighting::AbstractMCMCWeightingScheme,
+    store_burnin::Bool,
+    context::BATContext,
+)
+    _validate_mcmc_weighting_configuration(proposal, weighting)
+    store_burnin && return nothing
+    return _pooled_ensemble_ess(chain_outputs, merged_output, context)
+end
+
 
 bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, ::StretchMove) =
     NoMCMCProposalTuning()

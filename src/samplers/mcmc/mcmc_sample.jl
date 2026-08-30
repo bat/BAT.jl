@@ -155,7 +155,14 @@ function evalmeasure_impl(em::EvaluatedMeasure, samplingalg::TransformedMCMC, co
 
     samplegen = MCMCSampleGenerator(mcmc_states)
 
-    ess = _pooled_walker_ess(chain_outputs, samples_transformed, samplingalg.sample_weighting, context)
+    ess = _mcmc_ess(
+        chain_outputs,
+        samples_transformed,
+        samplingalg.proposal,
+        samplingalg.sample_weighting,
+        samplingalg.store_burnin,
+        context,
+    )
     dsm = DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 
     # The samples and the bare target measure in the transformed space are
@@ -185,16 +192,10 @@ function _mcmc_diagnostics_summary(mcmc_states::AbstractVector{<:MCMCState})
     return all(isnothing, diags) ? (;) : (chain_diagnostics = diags,)
 end
 
-# Autocorrelation ESS is a property of the ordered stochastic process, not
-# of its empirical measure: it must be computed on each walker's ordered
-# output sequence separately, before chains and walkers are merged. The
-# independent per-walker contributions are then pooled with the walkers'
-# empirical mass fractions (see `_pooled_ess`) - a plain sum would
-# overstate the merged estimator's effective size whenever mixing
-# efficiency differs between walkers. Weight provenance is still known
-# here (unlike at the generic sample-vector level, which deliberately
-# erases it), so repetition weights are reconstructed into the exact
-# ordered chain:
+# The default MCMC process ESS is computed separately for proposals whose
+# walker processes are independent. Coupled proposals specialize `_mcmc_ess`.
+# Weight provenance is still known here (unlike at the generic sample-vector
+# level), so repetition weights can reconstruct each exact ordered process:
 const _MCMC_PROCESS_ESS_MEMORY_BUDGET = 64 * 1024^2
 
 function _mcmc_process_ess_memory_estimate(
@@ -262,6 +263,148 @@ function _pooled_walker_ess(
         push!(ess_parts, ess_w)
     end
     filter!(x -> !iszero(x), masses)
+    ess_pooled = _pooled_ess(ess_parts, masses)
+    return isnothing(ess_pooled) ? nothing : minimum(ess_pooled)
+end
+
+function _mcmc_ess(
+    chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
+    merged_output::DensitySampleVector,
+    ::MCMCProposal,
+    weighting::AbstractMCMCWeightingScheme,
+    ::Bool,
+    context::BATContext,
+)
+    return _pooled_walker_ess(chain_outputs, merged_output, weighting, context)
+end
+
+function _ensemble_mean_process(
+    walker_outputs::AbstractVector{<:DensitySampleVector},
+    n_process_samples::Float64,
+)
+    first_values = _repetition_exact_values(first(walker_outputs), n_process_samples)
+    first_matrix = flatview(first_values)
+    T = float(eltype(first_matrix))
+    ensemble_mean = Matrix{T}(undef, size(first_matrix))
+    copyto!(ensemble_mean, first_matrix)
+
+    for i in 2:length(walker_outputs)
+        values = _repetition_exact_values(walker_outputs[i], n_process_samples)
+        values_matrix = flatview(values)
+        count = T(i)
+        inv_count = inv(count)
+        previous_fraction = one(T) - inv_count
+        for j in eachindex(ensemble_mean, values_matrix)
+            previous_mean = ensemble_mean[j]
+            value = T(values_matrix[j])
+            # Same-sign subtraction is bounded; opposite signs require
+            # bounded weighted terms instead of a potentially infinite delta.
+            ensemble_mean[j] = if signbit(previous_mean) == signbit(value)
+                previous_mean + (value - previous_mean) / count
+            else
+                previous_mean * previous_fraction + value * inv_count
+            end
+        end
+    end
+    return VectorOfSimilarVectors(ensemble_mean)
+end
+
+function _repetition_sweep_provenance(walker_output::DensitySampleVector)
+    chainid = zero(Int32)
+    walkerid = zero(Int32)
+    chaincycle = zero(Int32)
+    first_step = zero(Int64)
+    next_step = zero(Int64)
+    found_run = false
+
+    for i in eachindex(walker_output.weight)
+        weight = walker_output.weight[i]
+        iszero(weight) && continue
+        id = walker_output.info[i]
+        id isa MCMCSampleID || return nothing
+        id.chainid > 0 && id.walkerid > 0 && id.chaincycle > 0 || return nothing
+        id.stepno >= 0 || return nothing
+        weight < typemax(Int64) || return nothing
+        count = Int64(weight)
+
+        if !found_run
+            chainid = id.chainid
+            walkerid = id.walkerid
+            chaincycle = id.chaincycle
+            # The cycle's initial state is tagged as step zero; a positive
+            # repetition count represents its post-transition sweeps from one.
+            first_step = iszero(id.stepno) ? one(Int64) : id.stepno
+            next_step = first_step
+            found_run = true
+        else
+            id.chainid == chainid && id.walkerid == walkerid &&
+                id.chaincycle == chaincycle && id.stepno == next_step || return nothing
+        end
+        count <= typemax(Int64) - next_step || return nothing
+        next_step += count
+    end
+
+    found_run || return nothing
+    return (;chainid, walkerid, chaincycle, first_step, next_step)
+end
+
+function _pooled_ensemble_ess(
+    chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
+    merged_output::DensitySampleVector,
+    context::BATContext,
+)
+    isempty(merged_output) && return nothing
+    isempty(chain_outputs) && return nothing
+
+    process_lengths = Float64[]
+    masses = Float64[]
+    chainids = Int32[]
+    estimated_bytes = 0.0
+    for walker_outputs in chain_outputs
+        isempty(walker_outputs) && return nothing
+        walkerids = Vector{Int32}(undef, length(walker_outputs))
+        ensemble_provenance = nothing
+        n_process_samples = 0.0
+        for (i, output) in pairs(walker_outputs)
+            process_length = _validated_repetition_length(output.weight)
+            process_length > 0 || return nothing
+            provenance = _repetition_sweep_provenance(output)
+            isnothing(provenance) && return nothing
+
+            if isnothing(ensemble_provenance)
+                ensemble_provenance = provenance
+                n_process_samples = process_length
+            else
+                process_length == n_process_samples || return nothing
+                provenance.chainid == ensemble_provenance.chainid &&
+                    provenance.chaincycle == ensemble_provenance.chaincycle &&
+                    provenance.first_step == ensemble_provenance.first_step &&
+                    provenance.next_step == ensemble_provenance.next_step || return nothing
+            end
+            provenance.walkerid in @view(walkerids[1:(i - 1)]) && return nothing
+            walkerids[i] = provenance.walkerid
+        end
+        ensemble_provenance.chainid in chainids && return nothing
+        push!(chainids, ensemble_provenance.chainid)
+
+        push!(process_lengths, n_process_samples)
+        push!(masses, length(walker_outputs) * n_process_samples)
+        estimated_bytes += maximum(
+            _mcmc_process_ess_memory_estimate(output, n_process_samples)
+            for output in walker_outputs
+        )
+    end
+    estimated_bytes <= _MCMC_PROCESS_ESS_MEMORY_BUDGET || return nothing
+
+    algorithm = EffSampleSizeFromAC()
+    ess_parts = Vector{Any}(undef, length(chain_outputs))
+    for i in eachindex(chain_outputs)
+        walker_outputs = chain_outputs[i]
+        ensemble_mean = _ensemble_mean_process(walker_outputs, process_lengths[i])
+        mean_ess = bat_eff_sample_size_impl(ensemble_mean, algorithm, context).result
+        ess_parts[i] = length(walker_outputs) .* mean_ess
+    end
+
     ess_pooled = _pooled_ess(ess_parts, masses)
     return isnothing(ess_pooled) ? nothing : minimum(ess_pooled)
 end
