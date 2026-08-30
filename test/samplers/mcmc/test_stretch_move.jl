@@ -416,4 +416,36 @@ end
             RepetitionWeighting(), true, BATContext(),
         ))
     end
+
+
+    @testset "burn-in without proposal tuning" begin
+        initial = [[-3.0], [-1.0], [1.0], [4.0]]
+        algorithm = TransformedMCMC(
+            proposal = StretchMove(),
+            pretransform = DoNotTransform(),
+            adaptive_transform = NoAdaptiveTransform(),
+            convergence = AssumeConvergence(),
+            nwalkers = length(initial),
+            proposal_tuning = NoMCMCProposalTuning(),
+            transform_tuning = NoMCMCTransformTuning(),
+            burnin = MCMCMultiCycleBurnin(
+                nsteps_per_cycle = 8,
+                max_ncycles = 1,
+                nsteps_final = 0,
+            ),
+        )
+        target = batmeasure(MvNormal(zeros(1), ones(1, 1)))
+        state = BAT.MCMCState(
+            algorithm,
+            target,
+            1,
+            initial,
+            BATContext(rng = Philox4x((564, 83))),
+        )
+
+        states = BAT.mcmc_burnin!(nothing, [state], algorithm, (args...) -> nothing)
+
+        @test only(states).chain_state.info.tuned
+        @test only(states).chain_state.info.converged
+    end
 end
