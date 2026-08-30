@@ -28,6 +28,8 @@ struct StretchMoveProposalState{S<:Real} <: MCMCProposalState
     scale::S
 end
 
+_mcmc_n_rng_purposes(::StretchMoveProposalState) = _MCMC_N_RNG_PURPOSES
+
 
 bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, ::StretchMove) =
     NoMCMCProposalTuning()
@@ -160,4 +162,136 @@ function _create_proposal_state(
     ))
 
     return StretchMoveProposalState(scale)
+end
+
+
+_stretch_scale(scale::Real, u::Real) =
+    ((scale - one(scale)) * u + one(scale))^2 / scale
+
+_stretch_candidate(current, companion, scale::Real) =
+    companion + scale * (current - companion)
+
+_stretch_log_acceptance(
+    n_dims::Integer, scale::Real, proposed_logd::Real, current_logd::Real,
+) = (n_dims - 1) * log(scale) + proposed_logd - current_logd
+
+
+function _stretch_move_groups(
+    step_rngpart::RNGPartition,
+    proposal_idx::Integer,
+    walker_order::AbstractVector{<:Integer},
+)
+    split_rng = AbstractRNG(
+        step_rngpart,
+        _mcmc_rng_stream_idx(_MCMC_ENSEMBLE_SPLIT_PURPOSE, proposal_idx),
+    )
+    permutation = randperm(split_rng, length(walker_order))
+    split_at = fld(length(walker_order), 2)
+    left = walker_order[permutation[begin:split_at]]
+    right = walker_order[permutation[(split_at + 1):end]]
+    return rand(split_rng, Bool) ? (left, right) : (right, left)
+end
+
+
+function _propose_stretch_subset!!(
+    chain_state::MCMCChainState,
+    proposal::StretchMoveProposalState,
+    step_rngpart::RNGPartition,
+    proposal_idx::Integer,
+    walker_idxs::AbstractVector{<:Integer},
+    companion_idxs::AbstractVector{<:Integer},
+    p_accept::AbstractVector{<:Real},
+)
+    (;target, f_transform, current, proposed) = chain_state
+    companion_rngpart = _mcmc_walker_rngpart(
+        step_rngpart, _MCMC_COMPANION_SELECTION_PURPOSE, proposal_idx,
+    )
+    stretch_rngpart = _mcmc_walker_rngpart(
+        step_rngpart, _MCMC_STRETCH_DRAW_PURPOSE, proposal_idx,
+    )
+    acceptance_rngpart = _mcmc_walker_rngpart(
+        step_rngpart, _MCMC_ACCEPTANCE_PURPOSE, proposal_idx,
+    )
+    constant_ladj = _transform_ladj(f_transform)
+
+    for i in walker_idxs
+        walkerid = current.x.info[i].walkerid
+        rng = get_rng(chain_state.walker_genctxs[i])
+
+        set_rng!(rng, companion_rngpart, walkerid)
+        companion_idx = rand(rng, companion_idxs)
+
+        set_rng!(rng, stretch_rngpart, walkerid)
+        T = float(eltype(current.z.v[i]))
+        stretch = _stretch_scale(proposal.scale, rand(rng, T))
+        z_proposed = _stretch_candidate(
+            current.z.v[i], current.z.v[companion_idx], stretch,
+        )
+
+        x_proposed, ladj = if isnothing(constant_ladj)
+            with_logabsdet_jacobian(f_transform, z_proposed)
+        else
+            f_transform(z_proposed), constant_ladj
+        end
+        logd_x_proposed = BAT.checked_logdensityof(target, x_proposed)
+        logd_z_proposed = logd_x_proposed + ladj
+
+        proposed.x.v[i] .= x_proposed
+        proposed.z.v[i] .= z_proposed
+        proposed.x.logd[i] = logd_x_proposed
+        proposed.z.logd[i] = logd_z_proposed
+
+        log_acceptance = _stretch_log_acceptance(
+            length(z_proposed), stretch, logd_z_proposed, current.z.logd[i],
+        )
+        p_accept[i] = _mcmc_acceptance_probability(convert(T, log_acceptance))
+        set_rng!(rng, acceptance_rngpart, walkerid)
+        chain_state.accepted[i] = rand(rng, T) < p_accept[i]
+    end
+
+    return chain_state
+end
+
+
+function _mcmc_step_transition!!(
+    mcmc_state::MCMCState,
+    active_proposal::StretchMoveProposalState,
+    step_rngpart::RNGPartition,
+    proposal_idx::Integer,
+    walker_order::AbstractVector{<:Integer},
+)
+    chain_state = mcmc_state.chain_state
+    first_group, second_group = _stretch_move_groups(
+        step_rngpart, proposal_idx, walker_order,
+    )
+    T = float(eltype(first(chain_state.current.z.v)))
+    p_accept = Vector{T}(undef, length(walker_order))
+    step_info = MCMCStepInfo(
+        p_accept, nothing, nothing, nothing, nothing, walker_order,
+    )
+
+    _propose_stretch_subset!!(
+        chain_state, active_proposal, step_rngpart, proposal_idx,
+        first_group, second_group, p_accept,
+    )
+    _apply_mcmc_subset!!(chain_state, step_info, first_group)
+
+    _propose_stretch_subset!!(
+        chain_state, active_proposal, step_rngpart, proposal_idx,
+        second_group, first_group, p_accept,
+    )
+    _apply_mcmc_subset!!(chain_state, step_info, second_group)
+
+    chain_state.proposal = update_active_proposal!!(
+        chain_state.proposal, active_proposal,
+    )
+    mcmc_state_new = mcmc_tune_post_step!!(
+        mcmc_state, active_proposal, step_info,
+    )
+    chain_state = mcmc_state_new.chain_state
+    active_prop_idx = get_active_proposal_idx(chain_state.proposal)
+    chain_state.nattempts[active_prop_idx] += length(chain_state.accepted)
+    chain_state.nsamples[active_prop_idx] += sum(chain_state.accepted)
+
+    return @set mcmc_state_new.chain_state = chain_state
 end

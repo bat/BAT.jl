@@ -227,7 +227,7 @@ function mcmc_step!!(mcmc_state::MCMCState)
     (;proposal, stepno, context) = chain_state
 
     rng = get_rng(context)
-    n_rng_streams = _MCMC_N_RNG_PURPOSES * _MCMC_PROPOSALS_PER_PURPOSE
+    n_rng_streams = _mcmc_n_rng_purposes(proposal) * _MCMC_PROPOSALS_PER_PURPOSE
     step_rngpart = RNGPartition(rng, Base.OneTo(n_rng_streams))
     selection_idx = _mcmc_rng_stream_idx(_MCMC_PROPOSAL_SELECTION_PURPOSE, 1)
     proposal_selection_rng = AbstractRNG(step_rngpart, selection_idx)
@@ -238,6 +238,19 @@ function mcmc_step!!(mcmc_state::MCMCState)
 
     proposal_idx = get_active_proposal_idx(chain_state.proposal)
     walker_order = _logical_walker_order(chain_state)
+    return _mcmc_step_transition!!(
+        mcmc_state, active_proposal, step_rngpart, proposal_idx, walker_order,
+    )
+end
+
+function _mcmc_step_transition!!(
+    mcmc_state::MCMCState,
+    active_proposal::MCMCProposalState,
+    step_rngpart::RNGPartition,
+    proposal_idx::Integer,
+    walker_order::AbstractVector{<:Integer},
+)
+    chain_state = mcmc_state.chain_state
     chain_state, active_proposal_new, step_info = mcmc_propose!!(
         chain_state, active_proposal, step_rngpart, proposal_idx, walker_order)
 
@@ -253,20 +266,39 @@ function mcmc_step!!(mcmc_state::MCMCState)
     chain_state.nattempts[active_prop_idx] += length(accepted)
     chain_state.nsamples[active_prop_idx] += sum(accepted)
 
+    _apply_mcmc_subset!!(chain_state, step_info, eachindex(accepted))
+
+    chain_state = mcmc_state_new.chain_state
+    mcmc_state_final = @set mcmc_state_new.chain_state = chain_state
+
+    return mcmc_state_final
+end
+
+
+function _apply_mcmc_subset!!(
+    chain_state::MCMCChainState,
+    step_info::MCMCStepInfo,
+    walker_idxs::AbstractVector{<:Integer},
+)
+    (;proposal, current, proposed, accepted, output) = chain_state
+    accepted_subset = @view accepted[walker_idxs]
+
     # Set weights according to acceptance
-    delta_w_current, w_proposed = mcmc_weight_values(chain_state.weighting, step_info.p_accept, accepted)
+    delta_w_current, w_proposed = mcmc_weight_values(
+        chain_state.weighting, @view(step_info.p_accept[walker_idxs]), accepted_subset,
+    )
 
-    current.x.weight .+= delta_w_current
-    current.z.weight .+= delta_w_current
+    current.x.weight[walker_idxs] .+= delta_w_current
+    current.z.weight[walker_idxs] .+= delta_w_current
 
-    proposed.x.weight .= w_proposed
-    proposed.z.weight .= w_proposed
+    proposed.x.weight[walker_idxs] .= w_proposed
+    proposed.z.weight[walker_idxs] .= w_proposed
 
-    idxs_acc = findall(accepted)
-    idxs_rej = findall(!, accepted)
+    idxs_acc = walker_idxs[findall(accepted_subset)]
+    idxs_rej = walker_idxs[findall(!, accepted_subset)]
 
     # For each walker, mark proposed samples as accepted or rejected
-    for i in eachindex(proposed.x)
+    for i in walker_idxs
         old_info = current.x.info[i]
 
         sample_type = accepted[i]
@@ -291,10 +323,7 @@ function mcmc_step!!(mcmc_state::MCMCState)
     current.x[idxs_acc] = @view proposed.x[idxs_acc]
     current.z[idxs_acc] = @view proposed.z[idxs_acc]
 
-    chain_state = mcmc_state_new.chain_state
-    mcmc_state_final = @set mcmc_state_new.chain_state = chain_state
-
-    return mcmc_state_final
+    return chain_state
 end
 
 # Log-abs-det Jacobian of a space transformation, if it is constant
@@ -321,6 +350,11 @@ function _transform_with_ladj(f, zs::AbstractVector)
         return f.(zs), fill(c, length(eachindex(zs)))
     end
 end
+
+
+_mcmc_acceptance_probability(log_acceptance::T) where {T<:Real} = ifelse(
+    isnan(log_acceptance), zero(T), clamp(exp(log_acceptance), zero(T), one(T)),
+)
 
 
 function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP,
@@ -354,7 +388,7 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP,
     chain_state.proposed.z.logd .= logd_z_proposed
 
     log_accept_ratio = logd_z_proposed - logd_z_current + hastings_correction
-    p_accept = @. ifelse(isnan(log_accept_ratio), zero(log_accept_ratio), clamp(exp(log_accept_ratio), 0, 1))
+    p_accept = _mcmc_acceptance_probability.(log_accept_ratio)
     acceptance_rngpart = _mcmc_walker_rngpart(
         step_rngpart, _MCMC_ACCEPTANCE_PURPOSE, proposal_idx)
     accepted = map(eachindex(p_accept)) do i
@@ -374,10 +408,15 @@ end
 const _MCMC_PROPOSAL_SELECTION_PURPOSE = 1
 const _MCMC_PROPOSAL_TRANSITION_PURPOSE = 2
 const _MCMC_ACCEPTANCE_PURPOSE = 3
-const _MCMC_N_RNG_PURPOSES = 3
+const _MCMC_ENSEMBLE_SPLIT_PURPOSE = 4
+const _MCMC_COMPANION_SELECTION_PURPOSE = 5
+const _MCMC_STRETCH_DRAW_PURPOSE = 6
+const _MCMC_N_RNG_PURPOSES = 6
 # Purpose blocks are fixed-width so their stream indices cannot overlap;
 # multi-proposal construction and the index helper both enforce this limit.
 const _MCMC_PROPOSALS_PER_PURPOSE = typemax(Int16) - 2
+
+_mcmc_n_rng_purposes(::MCMCProposalState) = _MCMC_ACCEPTANCE_PURPOSE
 
 @inline function _mcmc_rng_stream_idx(purpose::Integer, proposal_idx::Integer)
     1 <= purpose <= _MCMC_N_RNG_PURPOSES || throw(ArgumentError(
