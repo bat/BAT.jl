@@ -33,21 +33,21 @@ function BAT.evalmeasure_impl(
     target = BAT.unevaluated(transformed_m)
     n_dof = Int(BAT.some_dof(target))
     initalg = BAT.apply_trafo_to_init(f_pretransform, algorithm.init)
-    initial_params = collect(BAT.bat_initval(target, initalg, context).result)
+    init_params = collect(BAT.bat_initval(target, initalg, context).result)
 
     chain = SliceSampling.sample(
         get_rng(context),
         BATSliceTarget(target),
         algorithm.sampler,
         algorithm.nsamples;
-        initial_params,
+        initial_params = init_params,
         discard_initial = algorithm.n_burnin,
         progress = false,
     )
     transformed_smpls = BAT.DensitySampleVector(
-        v = map(t -> t.params, chain),
-        logd = map(t -> t.lp, chain),
-        info = map(t -> t.info, chain),
+        v = getproperty.(chain, :params),
+        logd = getproperty.(chain, :lp),
+        info = getproperty.(chain, :info),
     )
     smpls = BAT.transform_samples(inverse(f_pretransform), transformed_smpls)
     ess = minimum(
