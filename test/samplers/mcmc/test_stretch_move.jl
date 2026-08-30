@@ -4,7 +4,7 @@ using BAT
 using Test
 
 using BAT: NoAdaptiveTransform, NoMCMCTempering
-using DensityInterface, Distributions, LinearAlgebra, Random, Random123, ValueShapes
+using DensityInterface, Distributions, LinearAlgebra, Random, Random123, Statistics, ValueShapes
 
 
 struct _CountingStretchTarget{M,F} <: BAT.BATMeasure
@@ -13,9 +13,41 @@ struct _CountingStretchTarget{M,F} <: BAT.BATMeasure
     calls::Base.RefValue{Int}
 end
 
+struct _BananaStretchTarget{M,T} <: BAT.BATMeasure
+    base::M
+    bend::T
+end
+
+struct _StretchConvergenceRecorder <: BAT.ConvergenceTest
+    calls::Vector{Any}
+end
+
 DensityInterface.logdensityof(target::_CountingStretchTarget, x) =
     (target.calls[] += 1; target.logdensity(x))
 ValueShapes.varshape(target::_CountingStretchTarget) = ValueShapes.varshape(target.base)
+
+function DensityInterface.logdensityof(target::_BananaStretchTarget, x)
+    latent_y = x[2] - target.bend * (x[1]^2 - one(x[1]))
+    return logpdf(Normal(), x[1]) + logpdf(Normal(), latent_y)
+end
+ValueShapes.varshape(target::_BananaStretchTarget) = ValueShapes.varshape(target.base)
+
+function BAT.bat_convergence_impl(
+    samples::AbstractVector{<:DensitySampleVector},
+    algorithm::_StretchConvergenceRecorder,
+    ::BATContext,
+)
+    groups = map(samples) do group
+        info = group.info
+        return (
+            chainids = sort(unique(getproperty.(info, :chainid))),
+            walkerids = sort(unique(getproperty.(info, :walkerid))),
+            mass = sum(group.weight),
+        )
+    end
+    push!(algorithm.calls, groups)
+    return (result = true,)
+end
 
 
 function _stretch_move_state(
@@ -31,6 +63,7 @@ function _stretch_move_state(
     sample_weighting = RepetitionWeighting(),
     proposal_tuning = NoMCMCProposalTuning(),
     transform_tuning = NoMCMCTransformTuning(),
+    rng_seed = (564, 80),
 )
     algorithm = TransformedMCMC(
         proposal = StretchMove(scale = scale),
@@ -42,8 +75,50 @@ function _stretch_move_state(
         proposal_tuning = proposal_tuning,
         transform_tuning = transform_tuning,
     )
-    return BAT.MCMCState(algorithm, target, 1, v_init, BATContext(rng = Philox4x((564, 80))))
+    return BAT.MCMCState(
+        algorithm, target, 1, v_init, BATContext(rng = Philox4x(rng_seed)),
+    )
 end
+
+function _run_stretch_move(
+    target,
+    v_init;
+    seed::Integer,
+    nwarmup::Integer,
+    nsweeps::Integer,
+)
+    state = _stretch_move_state(v_init; target, rng_seed = (564, seed))
+    state = BAT.mcmc_iterate!!(nothing, state; max_nsteps = nwarmup)
+    outputs = BAT._empty_chain_outputs(state)
+    state = BAT.mcmc_iterate!!(outputs, state; max_nsteps = nsweeps)
+    samples = BAT._merge_chain_outputs(state, [outputs])
+    return (; state, outputs, samples)
+end
+
+function _trace_stretch_move(target, v_init; seed::Integer, nsweeps::Integer)
+    state = _stretch_move_state(v_init; target, rng_seed = (564, seed))
+    outputs = BAT._empty_chain_outputs(state)
+    accepted = BitMatrix(undef, length(v_init), nsweeps)
+    for step in 1:nsweeps
+        state = BAT.mcmc_iterate!!(outputs, state; max_nsteps = 1)
+        accepted[:, step] = state.chain_state.accepted
+    end
+    samples = BAT._merge_chain_outputs(state, [outputs])
+    return (; state, outputs, samples, accepted)
+end
+
+function _elliptic_initial_ensemble(mean, covariance, nwalkers::Integer)
+    scale = cholesky(Symmetric(covariance)).L
+    return [
+        mean + scale * [
+            1.5 * cospi(2 * k / nwalkers),
+            1.5 * sinpi(2 * k / nwalkers),
+        ]
+        for k in 0:(nwalkers - 1)
+    ]
+end
+
+_banana_point(z, bend) = [z[1], z[2] + bend * (z[1]^2 - one(z[1]))]
 
 function _capture_error(f)
     try
@@ -447,5 +522,142 @@ end
 
         @test only(states).chain_state.info.tuned
         @test only(states).chain_state.info.converged
+    end
+
+
+    @testset "correlated Gaussian moments" begin
+        target_mean = [0.7, -1.2]
+        target_cov = [1.4 0.8; 0.8 2.0]
+        nwalkers = 16
+        initial = _elliptic_initial_ensemble(target_mean, target_cov, nwalkers)
+        target = batmeasure(MvNormal(target_mean, target_cov))
+
+        result = _run_stretch_move(
+            target,
+            initial;
+            seed = 4101,
+            nwarmup = 500,
+            nsweeps = 1500,
+        )
+        sample_mean = mean(result.samples)
+        sample_cov = cov(result.samples)
+
+        @test sum(result.samples.weight) == nwalkers * 1500
+        @test maximum(abs, sample_mean - target_mean) < 0.13
+        @test maximum(abs, sample_cov - target_cov) < 0.16
+        @test abs(sample_cov[1, 2] - target_cov[1, 2]) < 0.11
+    end
+
+
+    @testset "paired affine equivariance" begin
+        target_mean = [0.7, -1.2]
+        target_cov = [1.4 0.8; 0.8 2.0]
+        affine_matrix = [1.3 0.4; -0.2 0.8]
+        affine_shift = [-0.6, 1.1]
+        nwalkers = 16
+        initial = _elliptic_initial_ensemble(target_mean, target_cov, nwalkers)
+        transformed_initial = [affine_matrix * x + affine_shift for x in initial]
+        target = batmeasure(MvNormal(target_mean, target_cov))
+        transformed_target = batmeasure(MvNormal(
+            affine_matrix * target_mean + affine_shift,
+            Symmetric(affine_matrix * target_cov * affine_matrix'),
+        ))
+
+        reference = _trace_stretch_move(target, initial; seed = 4313, nsweeps = 64)
+        transformed = _trace_stretch_move(
+            transformed_target,
+            transformed_initial;
+            seed = 4313,
+            nsweeps = 64,
+        )
+        mapped_back = [
+            affine_matrix \ (y - affine_shift) for y in transformed.samples.v
+        ]
+
+        @test length(reference.samples) == length(transformed.samples)
+        @test all(
+            isapprox(x, y; atol = 1e-10, rtol = 0)
+            for (x, y) in zip(reference.samples.v, mapped_back)
+        )
+        @test reference.samples.weight == transformed.samples.weight
+        @test reference.accepted == transformed.accepted
+        @test reference.state.chain_state.nsamples == transformed.state.chain_state.nsamples
+        @test reference.state.chain_state.nattempts == transformed.state.chain_state.nattempts
+    end
+
+
+    @testset "analytic banana moments" begin
+        bend = 0.35
+        target_mean = zeros(2)
+        target_cov = [1.0 0.0; 0.0 1 + 2 * bend^2]
+        target_mixed_moment = 2 * bend
+        nwalkers = 16
+        latent_initial = _elliptic_initial_ensemble(zeros(2), Matrix{Float64}(I, 2, 2), nwalkers)
+        initial = [_banana_point(z, bend) for z in latent_initial]
+        target = _BananaStretchTarget(
+            batmeasure(MvNormal(zeros(2), Matrix{Float64}(I, 2, 2))), bend,
+        )
+
+        result = _run_stretch_move(
+            target,
+            initial;
+            seed = 4222,
+            nwarmup = 500,
+            nsweeps = 1500,
+        )
+        sample_mean = mean(result.samples)
+        sample_cov = cov(result.samples)
+        sample_mixed_moment = sum(
+            result.samples.weight .* [x[1]^2 * x[2] for x in result.samples.v],
+        ) / sum(result.samples.weight)
+
+        @test maximum(abs, sample_mean - target_mean) < 0.12
+        @test maximum(abs, sample_cov - target_cov) < 0.13
+        @test abs(sample_mixed_moment - target_mixed_moment) < 0.27
+    end
+
+
+    @testset "convergence groups independent ensembles" begin
+        target_mean = [0.7, -1.2]
+        target_cov = [1.4 0.8; 0.8 2.0]
+        target = batmeasure(MvNormal(target_mean, target_cov))
+        nwalkers = 8
+        nsteps = 8
+        initial = _elliptic_initial_ensemble(target_mean, target_cov, nwalkers)
+        recorder = _StretchConvergenceRecorder(Any[])
+        algorithm = TransformedMCMC(
+            proposal = StretchMove(),
+            pretransform = DoNotTransform(),
+            adaptive_transform = NoAdaptiveTransform(),
+            convergence = recorder,
+            nwalkers = nwalkers,
+            proposal_tuning = NoMCMCProposalTuning(),
+            transform_tuning = NoMCMCTransformTuning(),
+            burnin = MCMCMultiCycleBurnin(
+                nsteps_per_cycle = nsteps,
+                max_ncycles = 1,
+                nsteps_final = 0,
+            ),
+        )
+        states = [
+            BAT.MCMCState(
+                algorithm,
+                target,
+                chainid,
+                initial,
+                BATContext(rng = Philox4x((564, 4400 + chainid))),
+            )
+            for chainid in 1:2
+        ]
+
+        states = BAT.mcmc_burnin!(nothing, states, algorithm, (args...) -> nothing)
+        groups = only(recorder.calls)
+
+        @test length(groups) == 2
+        @test only.(getproperty.(groups, :chainids)) == Int32[1, 2]
+        @test all(group -> group.walkerids == Int32.(1:nwalkers), groups)
+        @test all(group -> group.mass == nwalkers * nsteps, groups)
+        @test all(state -> state.chain_state.info.tuned, states)
+        @test all(state -> state.chain_state.info.converged, states)
     end
 end
