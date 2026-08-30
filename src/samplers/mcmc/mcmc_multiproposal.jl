@@ -38,6 +38,9 @@ function _validate_mcmc_proposal_configuration(
     any(proposal -> proposal isa MCMCMultiProposal, proposals) && throw(ArgumentError(
         "Nested MCMCMultiProposal components are not supported",
     ))
+    any(proposal -> proposal isa StretchMove, proposals) && throw(ArgumentError(
+        "StretchMove cannot be used as an MCMCMultiProposal component",
+    ))
 
     n_rule_components = picking_rule isa Categorical ?
         length(picking_rule.p) : length(picking_rule)

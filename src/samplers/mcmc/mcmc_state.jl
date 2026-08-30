@@ -50,6 +50,12 @@ function MCMCChainState(
     context::BATContext
 ) where {P<:Real, PV<:AbstractVector{P}}
     _validate_mcmc_proposal_configuration(samplingalg.proposal, samplingalg.proposal_tuning)
+    _validate_mcmc_weighting_configuration(samplingalg.proposal, samplingalg.sample_weighting)
+    _validate_mcmc_adaptive_transform_configuration(
+        samplingalg.proposal, samplingalg.adaptive_transform,
+    )
+    samplingalg.proposal isa StretchMove &&
+        _validate_stretch_move_transform_tuning(samplingalg.proposal, samplingalg.transform_tuning)
 
     n_walkers = length(x_init)
     target_unevaluated = unevaluated(target)

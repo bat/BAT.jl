@@ -175,6 +175,16 @@ _validate_mcmc_proposal_configuration(
     ::MCMCProposalTuning,
 ) = nothing
 
+_validate_mcmc_weighting_configuration(
+    ::MCMCProposal,
+    ::AbstractMCMCWeightingScheme,
+) = nothing
+
+_validate_mcmc_adaptive_transform_configuration(
+    ::MCMCProposal,
+    ::AbstractAdaptiveTransform,
+) = nothing
+
 _validate_mcmc_proposal_tuning_configuration(
     ::MCMCProposal,
     ::MCMCProposalTuning,
