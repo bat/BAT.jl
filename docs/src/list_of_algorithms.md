@@ -60,6 +60,19 @@ bat_sample(target, EllipsoidalNestedSampling())
 Requires the [NestedSamplers](https://github.com/TuringLang/NestedSamplers.jl) Julia package to be loaded explicitly.
 
 
+### Slice sampling (experimental)
+
+BAT sampling algorithm type: [`SliceMCMCSampling`](@ref)
+
+```julia
+import SliceSampling
+bat_sample(target, SliceMCMCSampling(nsamples = 10^4))
+```
+
+Pass any SliceSampling.jl sampler through the `sampler` field. Requires the
+[SliceSampling](https://github.com/TuringLang/SliceSampling.jl) Julia package to be loaded explicitly.
+
+
 ### Sobol Sampler
 BAT sampling algorithm type: [`SobolSampler`](@ref)
 

@@ -37,6 +37,7 @@ GridSampler
 HierarchicalDistribution
 PriorImportanceSampler
 ReactiveNestedSampling
+SliceMCMCSampling
 SobolSampler
 truncate_batmeasure
 ValueAndThreshold
