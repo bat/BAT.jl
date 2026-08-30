@@ -35,6 +35,7 @@ BridgeSampling
 EllipsoidalNestedSampling
 GridSampler
 HierarchicalDistribution
+PigeonsSampling
 PriorImportanceSampler
 ReactiveNestedSampling
 SobolSampler

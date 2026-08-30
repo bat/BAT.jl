@@ -120,6 +120,27 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
+  test-pigeons:
+    name: Pigeons - Julia ${{ matrix.version }} - ${{ github.event_name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - '1.10'
+          - '1'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: ${{ matrix.version }}
+          arch: x64
+      - uses: julia-actions/cache@v3
+      - name: Run tests
+        run: >-
+          julia --project=test/optional/pigeons -e '
+          using Pkg; Pkg.instantiate();
+          include(joinpath("test", "optional", "pigeons", "runtests.jl"))'
   docs:
     name: Documentation
     runs-on: ubuntu-latest

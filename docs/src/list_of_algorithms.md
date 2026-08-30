@@ -60,6 +60,18 @@ bat_sample(target, EllipsoidalNestedSampling())
 Requires the [NestedSamplers](https://github.com/TuringLang/NestedSamplers.jl) Julia package to be loaded explicitly.
 
 
+### Parallel tempering with Pigeons (experimental)
+
+BAT sampling algorithm type: [`PigeonsSampling`](@ref)
+
+```julia
+import Pigeons
+bat_sample(target, PigeonsSampling(n_rounds = 10, n_chains = 10))
+```
+
+Requires the [Pigeons](https://github.com/Julia-Tempering/Pigeons.jl) Julia package to be loaded explicitly.
+
+
 ### Sobol Sampler
 BAT sampling algorithm type: [`SobolSampler`](@ref)
 
