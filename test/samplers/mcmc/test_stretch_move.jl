@@ -396,4 +396,24 @@ end
         @test chain_state.proposed.x.weight == chain_state.proposed.z.weight ==
             fill(0, length(initial))
     end
+
+
+    @testset "proposal-aware ensemble ESS" begin
+        initial = [[-3.0], [-1.0], [1.0], [4.0]]
+        state = _stretch_move_state(initial)
+        outputs = BAT._empty_chain_outputs(state)
+        state = BAT.mcmc_iterate!!(outputs, state; max_nsteps = 32)
+        merged = BAT._merge_chain_outputs(state, [outputs])
+
+        ess = BAT._mcmc_ess(
+            [outputs], merged, StretchMove(),
+            RepetitionWeighting(), false, BATContext(),
+        )
+        @test ess isa Real
+        @test 0 < ess <= sum(merged.weight)
+        @test isnothing(BAT._mcmc_ess(
+            [outputs], merged, StretchMove(),
+            RepetitionWeighting(), true, BATContext(),
+        ))
+    end
 end
