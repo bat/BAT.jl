@@ -56,6 +56,12 @@ bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::StretchMove, ::
 bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, ::StretchMove) =
     NoMCMCTempering()
 
+get_tuning_success(
+    ::MCMCChainState,
+    ::StretchMoveProposalState,
+    ::NoMCMCProposalTunerState,
+) = true
+
 function bat_default(
     ::Type{TransformedMCMC},
     ::Val{:nwalkers},
