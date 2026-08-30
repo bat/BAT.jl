@@ -69,7 +69,7 @@ import EllipticalSliceSampling
 bat_sample(posterior, EllipticalSliceMCMCSampling(nsamples = 10^4))
 ```
 
-BAT maps the posterior prior to a standard Gaussian before sampling. Requires the
+BAT maps the prior to a standard Gaussian before sampling. Requires the
 [EllipticalSliceSampling](https://github.com/TuringLang/EllipticalSliceSampling.jl) Julia package to be loaded explicitly.
 
 

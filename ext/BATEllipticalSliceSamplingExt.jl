@@ -17,8 +17,7 @@ function BAT.evalmeasure_impl(
     algorithm::BAT.EllipticalSliceMCMCSampling,
     context::BAT.BATContext,
 )
-    measure = BAT.unevaluated(em)
-    measure isa BAT.AbstractPosteriorMeasure ||
+    BAT.unevaluated(em) isa BAT.AbstractPosteriorMeasure ||
         throw(ArgumentError("EllipticalSliceMCMCSampling requires a posterior measure"))
 
     intent = BAT.NormalBased()
@@ -44,7 +43,7 @@ function BAT.evalmeasure_impl(
     T = typeof(model.loglikelihood(initial_params) + logpdf(prior, initial_params))
     logd = T[]
     callback =
-        (_, _, _, sample, state, _; kwargs...) ->
+        (_rng, _model, _sampler, sample, state, _iteration; kwargs...) ->
             push!(logd, state.loglikelihood + logpdf(prior, sample))
 
     samples = EllipticalSliceSampling.sample(
@@ -69,7 +68,7 @@ function BAT.evalmeasure_impl(
     )
     dsm = BAT.DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 
-    return BAT.EvaluatedMeasure(
+    BAT.EvaluatedMeasure(
         em;
         transform_intent = intent,
         f_transform = BAT._viewrep_f(f_pretransform, intent),
