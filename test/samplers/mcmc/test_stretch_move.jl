@@ -120,20 +120,37 @@ function _stretch_move_state(
     )
 end
 
-function _run_stretch_move(
+function _run_ensemble_move(
+    proposal,
     target,
     v_init;
     seed::Integer,
     nwarmup::Integer,
     nsweeps::Integer,
 )
-    state = _stretch_move_state(v_init; target, rng_seed = (564, seed))
+    algorithm = TransformedMCMC(
+        proposal = proposal,
+        pretransform = DoNotTransform(),
+        adaptive_transform = NoAdaptiveTransform(),
+        convergence = AssumeConvergence(),
+        nwalkers = length(v_init),
+        sample_weighting = RepetitionWeighting(),
+        proposal_tuning = NoMCMCProposalTuning(),
+        transform_tuning = NoMCMCTransformTuning(),
+    )
+    state = BAT.MCMCState(
+        algorithm, target, 1, v_init,
+        BATContext(rng = Philox4x((564, seed))),
+    )
     state = BAT.mcmc_iterate!!(nothing, state; max_nsteps = nwarmup)
     outputs = BAT._empty_chain_outputs(state)
     state = BAT.mcmc_iterate!!(outputs, state; max_nsteps = nsweeps)
     samples = BAT._merge_chain_outputs(state, [outputs])
     return (; state, outputs, samples)
 end
+
+_run_stretch_move(target, v_init; kwargs...) =
+    _run_ensemble_move(StretchMove(), target, v_init; kwargs...)
 
 function _trace_stretch_move(target, v_init; seed::Integer, nsweeps::Integer)
     state = _stretch_move_state(v_init; target, rng_seed = (564, seed))
@@ -147,18 +164,70 @@ function _trace_stretch_move(target, v_init; seed::Integer, nsweeps::Integer)
     return (; state, outputs, samples, accepted)
 end
 
-function _two_dimensional_elliptic_initial_ensemble(mean, covariance, nwalkers::Integer)
+function _two_dimensional_elliptic_initial_ensemble(
+    mean,
+    covariance,
+    nwalkers::Integer;
+    radius = 1.5,
+)
     scale = cholesky(Symmetric(covariance)).L
     return [
         mean + scale * [
-            1.5 * cospi(2 * k / nwalkers),
-            1.5 * sinpi(2 * k / nwalkers),
+            radius * cospi(2 * k / nwalkers),
+            radius * sinpi(2 * k / nwalkers),
         ]
         for k in 0:(nwalkers - 1)
     ]
 end
 
 _banana_point(z, bend) = [z[1], z[2] + bend * (z[1]^2 - one(z[1]))]
+
+function _check_ensemble_gaussian_moments(
+    proposal;
+    seeds,
+    tolerances,
+)
+    cases = (
+        (
+            name = "standard Gaussian",
+            mean = [0.0, 0.0],
+            covariance = [1.0 0.0; 0.0 1.0],
+            seed = seeds.standard,
+            mean_tolerance = tolerances.standard_mean,
+            covariance_tolerance = tolerances.standard_covariance,
+        ),
+        (
+            name = "affine Gaussian",
+            mean = [0.7, -1.2],
+            covariance = [1.4 0.8; 0.8 2.0],
+            seed = seeds.affine,
+            mean_tolerance = tolerances.affine_mean,
+            covariance_tolerance = tolerances.affine_covariance,
+        ),
+    )
+
+    for case in cases
+        @testset "$(nameof(typeof(proposal))) $(case.name)" begin
+            nwalkers = 16
+            initial = _two_dimensional_elliptic_initial_ensemble(
+                case.mean, case.covariance, nwalkers; radius = 0.5,
+            )
+            target = batmeasure(MvNormal(case.mean, case.covariance))
+            result = _run_ensemble_move(
+                proposal, target, initial;
+                seed = case.seed,
+                nwarmup = 500,
+                nsweeps = 1500,
+            )
+
+            @test sum(result.samples.weight) == nwalkers * 1500
+            @test maximum(abs, mean(result.samples) - case.mean) <
+                case.mean_tolerance
+            @test maximum(abs, cov(result.samples) - case.covariance) <
+                case.covariance_tolerance
+        end
+    end
+end
 
 function _capture_error(f)
     try
@@ -922,27 +991,20 @@ end
     end
 
 
-    @testset "correlated Gaussian moments" begin
-        target_mean = [0.7, -1.2]
-        target_cov = [1.4 0.8; 0.8 2.0]
-        nwalkers = 16
-        initial = _two_dimensional_elliptic_initial_ensemble(target_mean, target_cov, nwalkers)
-        target = batmeasure(MvNormal(target_mean, target_cov))
-
-        result = _run_stretch_move(
-            target,
-            initial;
-            seed = 4101,
-            nwarmup = 500,
-            nsweeps = 1500,
+    @testset "Gaussian stationary moments" begin
+        # Each limit is a rounded 1.5 times the largest error from 64
+        # calibration seeds. None of 128 independent validation seeds failed
+        # either joint mean/covariance check (95% one-sided upper bound 2.31%).
+        _check_ensemble_gaussian_moments(
+            StretchMove();
+            seeds = (standard = 25101, affine = 25201),
+            tolerances = (
+                standard_mean = 0.16,
+                standard_covariance = 0.15,
+                affine_mean = 0.18,
+                affine_covariance = 0.22,
+            ),
         )
-        sample_mean = mean(result.samples)
-        sample_cov = cov(result.samples)
-
-        @test sum(result.samples.weight) == nwalkers * 1500
-        @test maximum(abs, sample_mean - target_mean) < 0.13
-        @test maximum(abs, sample_cov - target_cov) < 0.16
-        @test abs(sample_cov[1, 2] - target_cov[1, 2]) < 0.11
     end
 
 
@@ -1011,6 +1073,49 @@ end
         @test maximum(abs, sample_mean - target_mean) < 0.12
         @test maximum(abs, sample_cov - target_cov) < 0.13
         @test abs(sample_mixed_moment - target_mixed_moment) < 0.27
+    end
+
+
+    @testset "weighted-mixture analytic banana moments" begin
+        bend = 0.35
+        target_mean = zeros(2)
+        target_cov = [1.0 0.0; 0.0 1 + 2 * bend^2]
+        target_mixed_moment = 2 * bend
+        nwalkers = 16
+        latent_initial = _two_dimensional_elliptic_initial_ensemble(
+            zeros(2), Matrix{Float64}(I, 2, 2), nwalkers; radius = 0.5,
+        )
+        initial = [_banana_point(z, bend) for z in latent_initial]
+        target = _BananaStretchTarget(
+            batmeasure(MvNormal(zeros(2), Matrix{Float64}(I, 2, 2))), bend,
+        )
+        proposal = MCMCMultiProposal(
+            proposals = BAT.MCMCProposal[
+                StretchMove(), DEMove(), DESnookerMove(),
+            ],
+            picking_rule = [4, 2, 1],
+        )
+
+        result = _run_ensemble_move(
+            proposal, target, initial;
+            seed = 28101,
+            nwarmup = 750,
+            nsweeps = 2000,
+        )
+        sample_mean = mean(result.samples)
+        sample_cov = cov(result.samples)
+        sample_mixed_moment = sum(
+            result.samples.weight .* [x[1]^2 * x[2] for x in result.samples.v],
+        ) / sum(result.samples.weight)
+
+        @test sum(result.samples.weight) == nwalkers * 2000
+        @test all(>(0), result.state.chain_state.nattempts)
+        # The three limits use the same 64-seed calibration and independent
+        # 128-seed validation rule as the Gaussian checks (0 joint failures;
+        # 95% one-sided upper bound 2.31%).
+        @test maximum(abs, sample_mean - target_mean) < 0.11
+        @test maximum(abs, sample_cov - target_cov) < 0.11
+        @test abs(sample_mixed_moment - target_mixed_moment) < 0.25
     end
 
 

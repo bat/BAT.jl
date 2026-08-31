@@ -4,7 +4,7 @@ using BAT
 using Test
 
 using BAT: NoAdaptiveTransform, NoMCMCTempering
-using DensityInterface, Distributions, LinearAlgebra, Random, Random123, ValueShapes
+using DensityInterface, Distributions, LinearAlgebra, Random, Random123, Statistics, ValueShapes
 
 
 struct _CountingDESnookerTarget{M,F,C} <: BAT.BATMeasure
@@ -327,5 +327,22 @@ end
         @test sequential.accepted == threaded.accepted
         @test sequential.nattempts == threaded.nattempts
         @test sequential.nsamples == threaded.nsamples
+    end
+
+
+    @testset "Gaussian stationary moments" begin
+        # Limits are rounded 1.5 times 64-seed calibration maxima; 128
+        # independent validation seeds had no joint failures per target
+        # (95% one-sided upper bound 2.31%).
+        _check_ensemble_gaussian_moments(
+            DESnookerMove();
+            seeds = (standard = 27101, affine = 27201),
+            tolerances = (
+                standard_mean = 0.09,
+                standard_covariance = 0.12,
+                affine_mean = 0.13,
+                affine_covariance = 0.16,
+            ),
+        )
     end
 end

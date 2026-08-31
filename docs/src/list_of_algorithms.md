@@ -29,7 +29,7 @@ bat_sample(target, TransformedMCMC(proposal = RandomWalk(), nsteps = 10^5, nchai
 ### Affine-invariant ensemble MCMC (experimental)
 
 BAT sampling algorithm type: [`TransformedMCMC`](@ref), MCMC proposal subtype:
-[`StretchMove`](@ref)
+[`StretchMove`](@ref), [`DEMove`](@ref), or [`DESnookerMove`](@ref)
 
 ```julia
 bat_sample(target, TransformedMCMC(proposal = StretchMove(), nwalkers = 32))

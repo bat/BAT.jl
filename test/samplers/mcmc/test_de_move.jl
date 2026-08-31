@@ -4,7 +4,7 @@ using BAT
 using Test
 
 using BAT: NoAdaptiveTransform, NoMCMCTempering
-using DensityInterface, Distributions, LinearAlgebra, Random, Random123, ValueShapes
+using DensityInterface, Distributions, LinearAlgebra, Random, Random123, Statistics, ValueShapes
 
 
 struct _CountingDETarget{M,F,C} <: BAT.BATMeasure
@@ -210,5 +210,21 @@ end
         @test selected[2] == 400 - selected[1]
         @test state.chain_state.nattempts == length(initial) .* selected
         @test calls[] == 400 * length(initial)
+    end
+
+    @testset "Gaussian stationary moments" begin
+        # Limits are rounded 1.5 times 64-seed calibration maxima; 128
+        # independent validation seeds had no joint failures per target
+        # (95% one-sided upper bound 2.31%).
+        _check_ensemble_gaussian_moments(
+            DEMove();
+            seeds = (standard = 26101, affine = 26201),
+            tolerances = (
+                standard_mean = 0.09,
+                standard_covariance = 0.09,
+                affine_mean = 0.09,
+                affine_covariance = 0.18,
+            ),
+        )
     end
 end
