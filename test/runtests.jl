@@ -39,6 +39,7 @@ const test_groups = [
         "samplers/test_pathfinder.jl",
         "samplers/mcmc/test_proposaldist.jl",
         "samplers/mcmc/test_stretch_move.jl",
+        "samplers/mcmc/test_de_move.jl",
         "samplers/mcmc/test_walker_isolation.jl",
         "samplers/mcmc/test_mcmc_sample.jl",
         "samplers/mcmc/test_retry_init.jl",
