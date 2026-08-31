@@ -71,10 +71,12 @@ function MCMCChainState(
 
     f = init_adaptive_transform(samplingalg.adaptive_transform, target, x_init, context)
     f_inv = inverse(f)
-    proposal = _create_proposal_state(samplingalg.proposal, target_unevaluated, context, x_init, f, rng)
-
-    logd_x_init = BAT.checked_logdensityof.(target_unevaluated, x_init)
     z_init = f_inv.(x_init)
+    proposal = _create_proposal_state(
+        samplingalg.proposal, target_unevaluated, context, x_init, z_init, f, rng,
+    )
+    _validate_mcmc_ensemble_invariants(proposal, target_unevaluated, z_init)
+    logd_x_init = BAT.checked_logdensityof.(target_unevaluated, x_init)
     ladj_c = _transform_ladj(f)
     logd_z_init = isnothing(ladj_c) ?
         logdensityof.(MeasureBase.pullback(f, target_unevaluated), z_init) :

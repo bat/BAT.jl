@@ -22,6 +22,10 @@ struct _StretchConvergenceRecorder <: BAT.ConvergenceTest
     calls::Vector{Any}
 end
 
+mutable struct _StretchRetryInit <: InitvalAlgorithm
+    values::Vector{Vector{Float64}}
+end
+
 DensityInterface.logdensityof(target::_CountingStretchTarget, x) =
     (target.calls[] += 1; target.logdensity(x))
 ValueShapes.varshape(target::_CountingStretchTarget) = ValueShapes.varshape(target.base)
@@ -47,6 +51,10 @@ function BAT.bat_convergence_impl(
     end
     push!(algorithm.calls, groups)
     return (result = true,)
+end
+
+function BAT.bat_initval_impl(::BAT.MeasureLike, algorithm::_StretchRetryInit, ::BATContext)
+    return (result = popfirst!(algorithm.values),)
 end
 
 
@@ -260,11 +268,65 @@ end
         @test state32 isa BAT.MCMCState
         @test state32.chain_state.proposal.scale === 2f0
 
+        target = batmeasure(MvNormal(zeros(2), Matrix{Float64}(I, 2, 2)))
+        context = BATContext(rng = Philox4x((564, 86)))
+        converted_scale = try
+            BAT._create_proposal_state(
+                StretchMove(scale = 2.0),
+                target,
+                context,
+                full_rank,
+                map(v -> Float32.(v), full_rank),
+                identity,
+                BAT.get_rng(context),
+            ).scale
+        catch
+            nothing
+        end
+        @test converted_scale === 2f0
+
         err = _capture_error(() -> _stretch_move_state(
             map(v -> Float32.(v), full_rank); scale = nextfloat(1.0),
         ))
         @test err isa ArgumentError
         @test occursin("after conversion", sprint(showerror, err))
+    end
+
+    @testset "retry initialization preserves affine rank" begin
+        initial = [[0.1, 0.0], [0.2, 0.0], [0.3, 0.0], [0.4, 1.0]]
+        initval_alg = _StretchRetryInit([initial; [[0.4, 0.0]]])
+        init_alg = MCMCRetryInit(
+            max_init_tries = 2,
+            nsteps_init = 1,
+            initval_alg = initval_alg,
+        )
+        algorithm = TransformedMCMC(
+            proposal = StretchMove(),
+            pretransform = DoNotTransform(),
+            adaptive_transform = NoAdaptiveTransform(),
+            transform_tuning = NoMCMCTransformTuning(),
+            init = init_alg,
+            convergence = AssumeConvergence(),
+            nchains = 1,
+            nwalkers = length(initial),
+        )
+        target = batmeasure(product_distribution([
+            Uniform(0, 1), Uniform(-1e-12, 1e-12),
+        ]))
+
+        err = _capture_error(() -> BAT.mcmc_init!(
+            algorithm,
+            target,
+            init_alg,
+            (args...) -> nothing,
+            BATContext(rng = Philox4x((564, 85))),
+        ))
+
+        @test err isa ArgumentError
+        message = sprint(showerror, err)
+        @test occursin("4 walkers", message)
+        @test occursin("dimension 2", message)
+        @test occursin("rank 1", message)
     end
 
     @testset "rejects unsupported configurations" begin
@@ -306,6 +368,16 @@ end
     @testset "proposal equation and acceptance ratio" begin
         scale = BAT._stretch_scale(2.0, 0.5)
         @test scale == 1.125
+        @test BAT._stretch_scale(2.0, 0.0) == 0.5
+        @test BAT._stretch_scale(2.0, 1.0) == 2.0
+        @test BAT._stretch_scale(2f0, 0.5f0) === 1.125f0
+        for T in (Float32, Float64)
+            large_scale = floatmax(T)
+            stretch_factors = BAT._stretch_scale.(large_scale, T[0, 0.5, 1])
+            @test all(isfinite, stretch_factors)
+            @test stretch_factors[begin] == inv(large_scale)
+            @test stretch_factors[end] == large_scale
+        end
         candidate = fill(NaN, 2)
         @test BAT._stretch_candidate!!(
             candidate, [2.0, 4.0], [-2.0, 0.0], 1.25,
@@ -341,6 +413,25 @@ end
         ]
         @test chain_state.proposed.x.info == expected_info
         @test chain_state.proposed.x.info == chain_state.proposed.z.info
+    end
+
+    @testset "large finite scale keeps sweep candidates finite" begin
+        initial = [[-3.0], [-1.0], [1.0], [4.0]]
+        base = batmeasure(MvNormal(zeros(1), ones(1, 1)))
+        calls = Ref(0)
+        initial_values = Set(only.(initial))
+        target = _CountingStretchTarget(
+            base, x -> only(x) in initial_values ? 0.0 : -Inf, calls,
+        )
+        state = _stretch_move_state(initial; target, scale = 1e200)
+
+        calls[] = 0
+        state = BAT.mcmc_step!!(state)
+
+        @test calls[] == length(initial)
+        @test all(v -> all(isfinite, v), state.chain_state.proposed.z.v)
+        @test all(v -> all(isfinite, v), state.chain_state.current.z.v)
+        @test !any(state.chain_state.accepted)
     end
 
 
@@ -494,6 +585,57 @@ end
             [outputs], merged, StretchMove(),
             RepetitionWeighting(), true, BATContext(),
         ))
+    end
+
+
+    @testset "reports per-ensemble acceptance diagnostics" begin
+        nwalkers = 4
+        nsteps = 16
+        algorithm = TransformedMCMC(
+            proposal = StretchMove(),
+            pretransform = DoNotTransform(),
+            adaptive_transform = NoAdaptiveTransform(),
+            transform_tuning = NoMCMCTransformTuning(),
+            init = MCMCRetryInit(max_init_tries = 2, nsteps_init = 1),
+            burnin = MCMCMultiCycleBurnin(
+                nsteps_per_cycle = 1,
+                max_ncycles = 1,
+                nsteps_final = 0,
+            ),
+            convergence = AssumeConvergence(),
+            nchains = 2,
+            nwalkers = nwalkers,
+            nsteps = nsteps,
+        )
+        evaluated = evalmeasure(
+            batmeasure(Normal()),
+            algorithm,
+            BATContext(rng = Philox4x((564, 87))),
+        )
+        diagnostics = get(BAT.evalinfo(evaluated).result, :chain_diagnostics, nothing)
+
+        @test diagnostics isa AbstractVector
+        if diagnostics isa AbstractVector
+            @test length(diagnostics) == algorithm.nchains
+            @test all(d -> d.cycle_n_attempts == nwalkers * nsteps, diagnostics)
+            @test all(d -> 0 <= d.cycle_n_accepted <= d.cycle_n_attempts, diagnostics)
+            @test all(
+                d -> d.cycle_acceptance_rate ==
+                    d.cycle_n_accepted / d.cycle_n_attempts,
+                diagnostics,
+            )
+        end
+
+        zero_state = _stretch_move_state([[-3.0], [-1.0], [1.0], [4.0]])
+        zero_summary = BAT._mcmc_diagnostics_summary([zero_state])
+        zero_diagnostics = get(zero_summary, :chain_diagnostics, nothing)
+        @test zero_diagnostics isa AbstractVector
+        if zero_diagnostics isa AbstractVector
+            zero_diag = only(zero_diagnostics)
+            @test zero_diag.cycle_n_attempts == 0
+            @test zero_diag.cycle_n_accepted == 0
+            @test isnan(zero_diag.cycle_acceptance_rate)
+        end
     end
 
 

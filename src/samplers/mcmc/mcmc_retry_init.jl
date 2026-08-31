@@ -114,6 +114,9 @@ function mcmc_init!(
                 # rerolled x positions:
                 mcmc_states[i] = mcmc_update_z_position!!(mcmc_states[i])
                 cs = mcmc_states[i].chain_state
+                _validate_mcmc_ensemble_invariants(
+                    cs.proposal, mcmc_target(cs), cs.current.z.v,
+                )
                 _invalidate_mala_cache!!(cs.proposal)
             end
         end
