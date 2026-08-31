@@ -169,4 +169,46 @@ end
         @test sequential.nattempts == threaded.nattempts
         @test sequential.nsamples == threaded.nsamples
     end
+
+    @testset "categorical mixed-proposal sweeps" begin
+        initial = [[-3.0], [-1.0], [1.0], [4.0]]
+        calls = Ref(0)
+        base = batmeasure(MvNormal(zeros(1), ones(1, 1)))
+        target = _CountingDETarget(base, x -> -only(x)^2 / 2, calls)
+        proposal = MCMCMultiProposal(
+            proposals = BAT.MCMCProposal[
+                DEMove(gamma0 = 0.5, sigma = 0),
+                RandomWalk(),
+            ],
+            picking_rule = Categorical([0.75, 0.25]),
+        )
+        algorithm = TransformedMCMC(
+            proposal = proposal,
+            pretransform = DoNotTransform(),
+            adaptive_transform = NoAdaptiveTransform(),
+            transform_tuning = NoMCMCTransformTuning(),
+            convergence = AssumeConvergence(),
+            nwalkers = length(initial),
+            sample_weighting = RepetitionWeighting(),
+        )
+        state = BAT.MCMCState(
+            algorithm, target, 1, initial,
+            BATContext(rng = Philox4x((572, 30))),
+        )
+
+        calls[] = 0
+        selected = zeros(Int, 2)
+        for _ in 1:400
+            state = BAT.mcmc_step!!(state)
+            active_idx = state.chain_state.proposal.active_idx
+            selected[active_idx] += 1
+            @test getproperty.(state.chain_state.proposed.x.info, :proposalid) ==
+                fill(Int32(active_idx), length(initial))
+        end
+
+        @test 270 <= selected[1] <= 330
+        @test selected[2] == 400 - selected[1]
+        @test state.chain_state.nattempts == length(initial) .* selected
+        @test calls[] == 400 * length(initial)
+    end
 end

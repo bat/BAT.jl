@@ -386,20 +386,94 @@ end
         @test err isa ArgumentError
         @test occursin("NoMCMCTransformTuning", sprint(showerror, err))
 
-        multi = MCMCMultiProposal(proposals = BAT.MCMCProposal[StretchMove(), RandomWalk()])
+    end
+
+    @testset "weighted ensemble mixtures" begin
+        full_rank = [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]
+        target = batmeasure(MvNormal(zeros(2), Matrix{Float64}(I, 2, 2)))
+        proposal = MCMCMultiProposal(
+            proposals = BAT.MCMCProposal[StretchMove(), DEMove(gamma0 = 0.5, sigma = 0)],
+            picking_rule = [2, 1],
+        )
         algorithm = TransformedMCMC(
-            proposal = multi,
+            proposal = proposal,
             pretransform = DoNotTransform(),
-            adaptive_transform = NoAdaptiveTransform(),
             convergence = AssumeConvergence(),
             nwalkers = 4,
         )
-        target = batmeasure(MvNormal(zeros(2), Matrix{Float64}(I, 2, 2)))
+
+        @test algorithm.adaptive_transform isa NoAdaptiveTransform
+        @test algorithm.transform_tuning isa NoMCMCTransformTuning
+        @test algorithm.sample_weighting isa RepetitionWeighting
+
+        state = BAT.MCMCState(
+            algorithm, target, 1, full_rank,
+            BATContext(rng = Philox4x((564, 91))),
+        )
+        selected = Int[]
+        proposal_ids = Vector{Vector{Int32}}()
+        for _ in 1:6
+            state = BAT.mcmc_step!!(state)
+            push!(selected, state.chain_state.proposal.active_idx)
+            push!(proposal_ids, getproperty.(state.chain_state.proposed.x.info, :proposalid))
+        end
+        @test selected == [1, 1, 2, 1, 1, 2]
+        @test proposal_ids == [fill(Int32(i), 4) for i in [1, 1, 2, 1, 1, 2]]
+        @test state.chain_state.nattempts == [16, 8]
+
+        invalid_weighting = TransformedMCMC(
+            proposal = proposal,
+            pretransform = DoNotTransform(),
+            adaptive_transform = NoAdaptiveTransform(),
+            transform_tuning = NoMCMCTransformTuning(),
+            convergence = AssumeConvergence(),
+            nwalkers = 4,
+            sample_weighting = ARPWeighting(),
+        )
         err = _capture_error(() -> BAT.MCMCState(
-            algorithm, target, 1, full_rank, BATContext(rng = Philox4x((564, 81))),
+            invalid_weighting, target, 1, full_rank,
+            BATContext(rng = Philox4x((564, 92))),
         ))
         @test err isa ArgumentError
-        @test occursin("StretchMove", sprint(showerror, err))
+        @test occursin("RepetitionWeighting", sprint(showerror, err))
+
+        invalid_adaptive_transform = TransformedMCMC(
+            proposal = proposal,
+            pretransform = DoNotTransform(),
+            adaptive_transform = BAT.TriangularAffineTransform(),
+            transform_tuning = NoMCMCTransformTuning(),
+            convergence = AssumeConvergence(),
+            nwalkers = 4,
+        )
+        err = _capture_error(() -> BAT.MCMCState(
+            invalid_adaptive_transform, target, 1, full_rank,
+            BATContext(rng = Philox4x((564, 93))),
+        ))
+        @test err isa ArgumentError
+        @test occursin("NoAdaptiveTransform", sprint(showerror, err))
+
+        invalid_transform_tuning = TransformedMCMC(
+            proposal = proposal,
+            pretransform = DoNotTransform(),
+            adaptive_transform = NoAdaptiveTransform(),
+            transform_tuning = BAT.StanLikeTuning(),
+            convergence = AssumeConvergence(),
+            nwalkers = 4,
+        )
+        err = _capture_error(() -> BAT.MCMCState(
+            invalid_transform_tuning, target, 1, full_rank,
+            BATContext(rng = Philox4x((564, 94))),
+        ))
+        @test err isa ArgumentError
+        @test occursin("NoMCMCTransformTuning", sprint(showerror, err))
+
+        rank_deficient = [[0.0, 0.0], [1.0, 1.0], [2.0, 2.0], [3.0, 3.0]]
+        err = _capture_error(() -> BAT.MCMCState(
+            algorithm, target, 1, rank_deficient,
+            BATContext(rng = Philox4x((564, 95))),
+        ))
+        @test err isa ArgumentError
+        @test occursin("affine rank 1", sprint(showerror, err))
     end
 
     @testset "keeps generic transform tuning compatible" begin
@@ -750,6 +824,14 @@ end
         )
         @test ess isa Real
         @test 0 < ess <= sum(merged.weight)
+        mixture = MCMCMultiProposal(
+            proposals = BAT.MCMCProposal[StretchMove(), RandomWalk()],
+            picking_rule = [1, 1],
+        )
+        @test BAT._mcmc_ess(
+            [outputs], merged, mixture,
+            RepetitionWeighting(), false, BATContext(),
+        ) == ess
         @test isnothing(BAT._mcmc_ess(
             [outputs], merged, StretchMove(),
             RepetitionWeighting(), true, BATContext(),

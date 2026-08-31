@@ -3,6 +3,8 @@
 
 abstract type AbstractEnsembleMove <: MCMCProposalState end
 
+_contains_ensemble_move(::AbstractEnsembleMove) = true
+
 
 _validate_ensemble_executor(::Union{SequentialExec,MultiThreadedExec}) = nothing
 

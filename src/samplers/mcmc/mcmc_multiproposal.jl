@@ -24,6 +24,14 @@ end
 
 export MCMCMultiProposal
 
+_contains_ensemble_move(proposal::MCMCProposal) =
+    proposal isa Union{StretchMove,DEMove,DESnookerMove}
+
+_contains_ensemble_move(::MCMCProposalState) = false
+
+_contains_ensemble_move(proposal::MCMCMultiProposal) =
+    any(_contains_ensemble_move, proposal.proposals)
+
 function _validate_mcmc_proposal_configuration(
     multi_proposal::MCMCMultiProposal,
     tuning::MCMCProposalTuning,
@@ -37,9 +45,6 @@ function _validate_mcmc_proposal_configuration(
     ))
     any(proposal -> proposal isa MCMCMultiProposal, proposals) && throw(ArgumentError(
         "Nested MCMCMultiProposal components are not supported",
-    ))
-    any(proposal -> proposal isa StretchMove, proposals) && throw(ArgumentError(
-        "StretchMove cannot be used as an MCMCMultiProposal component",
     ))
 
     n_rule_components = picking_rule isa Categorical ?
@@ -64,6 +69,39 @@ function _validate_mcmc_proposal_configuration(
     return nothing
 end
 
+function _validate_mcmc_weighting_configuration(
+    proposal::MCMCMultiProposal,
+    weighting::AbstractMCMCWeightingScheme,
+)
+    _contains_ensemble_move(proposal) || return nothing
+    weighting isa RepetitionWeighting || throw(ArgumentError(
+        "MCMCMultiProposal with an ensemble move requires RepetitionWeighting, got $(nameof(typeof(weighting)))",
+    ))
+    return nothing
+end
+
+function _validate_mcmc_adaptive_transform_configuration(
+    proposal::MCMCMultiProposal,
+    adaptive_transform::AbstractAdaptiveTransform,
+)
+    _contains_ensemble_move(proposal) || return nothing
+    adaptive_transform isa NoAdaptiveTransform || throw(ArgumentError(
+        "MCMCMultiProposal with an ensemble move requires NoAdaptiveTransform, got $(nameof(typeof(adaptive_transform)))",
+    ))
+    return nothing
+end
+
+function _validate_mcmc_transform_tuning_configuration(
+    proposal::MCMCMultiProposal,
+    tuning::MCMCTransformTuning,
+)
+    _contains_ensemble_move(proposal) || return nothing
+    tuning isa NoMCMCTransformTuning || throw(ArgumentError(
+        "MCMCMultiProposal with an ensemble move requires NoMCMCTransformTuning, got $(nameof(typeof(tuning)))",
+    ))
+    return nothing
+end
+
 struct MultiProposalState{
     PS<:Vector{<:MCMCProposalState},
     R<:Union{Vector{<:Integer}, Categorical},
@@ -73,6 +111,12 @@ struct MultiProposalState{
     picking_rule::R
     active_idx::I
 end
+
+_contains_ensemble_move(proposal::MultiProposalState) =
+    any(_contains_ensemble_move, proposal.proposal_states)
+
+_mcmc_n_rng_purposes(proposal::MultiProposalState) =
+    _contains_ensemble_move(proposal) ? _MCMC_N_RNG_PURPOSES : _MCMC_ACCEPTANCE_PURPOSE
 
 
 function bat_default(
@@ -88,13 +132,29 @@ bat_default(
     ::Type{TransformedMCMC}, 
     ::Val{:adaptive_transform}, 
     proposal::MCMCMultiProposal
-) = TriangularAffineTransform()
+) = _contains_ensemble_move(proposal) ? NoAdaptiveTransform() : TriangularAffineTransform()
 
 bat_default(
     ::Type{TransformedMCMC}, 
     ::Val{:tempering}, 
     proposal::MCMCMultiProposal
 ) = NoMCMCTempering()
+
+function _mcmc_ess(
+    chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
+    merged_output::DensitySampleVector,
+    proposal::MCMCMultiProposal,
+    weighting::AbstractMCMCWeightingScheme,
+    store_burnin::Bool,
+    context::BATContext,
+)
+    _contains_ensemble_move(proposal) || return _pooled_walker_ess(
+        chain_outputs, merged_output, weighting, context,
+    )
+    _validate_mcmc_weighting_configuration(proposal, weighting)
+    store_burnin && return nothing
+    return _pooled_ensemble_ess(chain_outputs, merged_output, context)
+end
 
 get_active_proposal_idx(proposal_state::MultiProposalState) = proposal_state.active_idx
 
