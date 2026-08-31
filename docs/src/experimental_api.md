@@ -8,6 +8,25 @@ Instead, compatibility is only guaranteed across changes in patch version, but
 The features listed here are likely to transition to the stable API in future
 versions, but may still evolve in a API-breaking fashion during that process.
 
+## Affine-invariant ensemble sampling
+
+`StretchMove` provides an experimental affine-invariant ensemble proposal:
+
+```julia
+algorithm = TransformedMCMC(proposal = StretchMove(), nwalkers = 32)
+```
+
+`nwalkers` is required explicitly and must be at least twice the transformed
+dimension. The transformed initial ensemble must also have full affine rank.
+One BAT chain is one coupled ensemble, and one sampler step is one complete
+red-blue sweep over all walkers. Convergence diagnostics and effective sample
+size pool only independent BAT ensembles, never walkers within an ensemble.
+
+Only `RepetitionWeighting` is supported. Storing burn-in disables ensemble ESS
+because compressed histories may no longer align by sweep. Affine invariance
+does not solve multimodality, and acceptance rate alone does not demonstrate
+convergence.
+
 ```@docs
 ARPWeighting
 BAT.batalgorithm
@@ -38,6 +57,7 @@ HierarchicalDistribution
 PriorImportanceSampler
 ReactiveNestedSampling
 SobolSampler
+StretchMove
 truncate_batmeasure
 ValueAndThreshold
 

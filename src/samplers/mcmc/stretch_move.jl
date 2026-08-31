@@ -187,8 +187,10 @@ end
 _stretch_scale(scale::Real, u::Real) =
     ((scale - one(scale)) * u + one(scale))^2 / scale
 
-_stretch_candidate(current, companion, scale::Real) =
-    companion + scale * (current - companion)
+function _stretch_candidate!!(candidate, current, companion, scale::Real)
+    @. candidate = companion + scale * (current - companion)
+    return candidate
+end
 
 _stretch_log_acceptance(
     n_dims::Integer, scale::Real, proposed_logd::Real, current_logd::Real,
@@ -243,8 +245,8 @@ function _propose_stretch_subset!!(
         set_rng!(rng, stretch_rngpart, walkerid)
         T = float(eltype(current.z.v[i]))
         stretch = _stretch_scale(proposal.scale, rand(rng, T))
-        z_proposed = _stretch_candidate(
-            current.z.v[i], current.z.v[companion_idx], stretch,
+        z_proposed = _stretch_candidate!!(
+            proposed.z.v[i], current.z.v[i], current.z.v[companion_idx], stretch,
         )
 
         x_proposed, ladj = if isnothing(constant_ladj)
@@ -256,7 +258,6 @@ function _propose_stretch_subset!!(
         logd_z_proposed = logd_x_proposed + ladj
 
         proposed.x.v[i] .= x_proposed
-        proposed.z.v[i] .= z_proposed
         proposed.x.logd[i] = logd_x_proposed
         proposed.z.logd[i] = logd_z_proposed
 

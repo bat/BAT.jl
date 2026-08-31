@@ -306,7 +306,11 @@ end
     @testset "proposal equation and acceptance ratio" begin
         scale = BAT._stretch_scale(2.0, 0.5)
         @test scale == 1.125
-        @test BAT._stretch_candidate([2.0, 4.0], [-2.0, 0.0], 1.25) == [3.0, 5.0]
+        candidate = fill(NaN, 2)
+        @test BAT._stretch_candidate!!(
+            candidate, [2.0, 4.0], [-2.0, 0.0], 1.25,
+        ) === candidate
+        @test candidate == [3.0, 5.0]
         @test BAT._stretch_log_acceptance(3, 2.0, -5.0, -7.0) ==
             3.386294361119891
     end
