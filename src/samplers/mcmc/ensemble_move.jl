@@ -72,6 +72,9 @@ _ensemble_complement_groups(groups::AbstractVector, active_idx::Integer) =
     groups[eachindex(groups) .!= active_idx]
 
 
+_ensemble_proposal_is_valid(::AbstractEnsembleMove, proposal_aux) = true
+
+
 function _evaluate_ensemble_walker!!(
     chain_state::MCMCChainState,
     proposal::AbstractEnsembleMove,
@@ -90,6 +93,14 @@ function _evaluate_ensemble_walker!!(
         proposed.z.v[walker_idx], proposal, current.z.v, walker_idx,
         complement_groups, rng, step_rngpart, proposal_idx, walkerid,
     )
+
+    if !_ensemble_proposal_is_valid(proposal, proposal_aux)
+        proposed.x[walker_idx] = current.x[walker_idx]
+        proposed.z[walker_idx] = current.z[walker_idx]
+        p_accept[walker_idx] = zero(eltype(p_accept))
+        chain_state.accepted[walker_idx] = false
+        return nothing
+    end
 
     x_proposed, ladj = if isnothing(constant_ladj)
         with_logabsdet_jacobian(f_transform, proposed.z.v[walker_idx])
