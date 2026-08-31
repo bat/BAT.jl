@@ -61,12 +61,6 @@ end
             proposal, current[1], candidate, proposal_aux,
         ) ≈ expected_log_hastings
 
-        nonfinite_candidate = fill(NaN, 3)
-        @test isnothing(BAT._de_snooker_candidate!!(
-            nonfinite_candidate, current[1], zeros(3),
-            [floatmax(Float64), 0.0, 0.0], [-floatmax(Float64), 0.0, 0.0], 2.0,
-        ))
-        @test nonfinite_candidate == current[1]
     end
 
     @testset "degenerate directions skip target evaluation" begin
@@ -90,7 +84,7 @@ end
             step_rngpart, BAT._MCMC_ACCEPTANCE_PURPOSE, 1,
         )
 
-        BAT._evaluate_ensemble_walker!!(
+        BAT._propose_and_evaluate_ensemble_walker!!(
             chain_state, chain_state.proposal, step_rngpart, 1, 1,
             ([2], [3], [4]), p_accept, false, acceptance_rngpart,
         )

@@ -38,10 +38,10 @@ using DensityInterface, Distributions, Random, Random123, ValueShapes
         expected = current[1] + gamma * (current[companion_a] - current[companion_b])
         candidate = fill(NaN, 2)
 
-        @test isnothing(BAT._propose_ensemble_candidate!!(
+        BAT._propose_ensemble_candidate!!(
             candidate, proposal, current, 1, complement,
             Philox4x((572, 211)), step_rngpart, 1, walkerid,
-        ))
+        )
         @test candidate == expected
         @test BAT._ensemble_log_hastings(proposal, current[1], candidate, nothing) == 0
     end

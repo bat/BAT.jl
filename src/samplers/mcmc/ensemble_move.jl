@@ -77,24 +77,20 @@ _ensemble_complement_groups(groups::AbstractVector, active_idx::Integer) =
 _ensemble_proposal_is_valid(::AbstractEnsembleMove, proposal_aux) = true
 
 
-function _evaluate_ensemble_walker!!(
+@inline function _evaluate_ensemble_walker!!(
     chain_state::MCMCChainState,
     proposal::AbstractEnsembleMove,
-    step_rngpart::RNGPartition,
-    proposal_idx::Integer,
     walker_idx::Integer,
-    complement_groups,
+    current_z,
+    proposed_z,
+    proposal_aux,
     p_accept::AbstractVector{<:Real},
     constant_ladj,
     acceptance_rngpart::RNGPartition,
+    rng::AbstractRNG,
+    walkerid::Integer,
 )
     (;target, f_transform, current, proposed) = chain_state
-    walkerid = current.x.info[walker_idx].walkerid
-    rng = get_rng(chain_state.walker_genctxs[walker_idx])
-    proposal_aux = _propose_ensemble_candidate!!(
-        proposed.z.v[walker_idx], proposal, current.z.v, walker_idx,
-        complement_groups, rng, step_rngpart, proposal_idx, walkerid,
-    )
 
     if !_ensemble_proposal_is_valid(proposal, proposal_aux)
         proposed.x[walker_idx] = current.x[walker_idx]
@@ -105,9 +101,9 @@ function _evaluate_ensemble_walker!!(
     end
 
     x_proposed, ladj = if isnothing(constant_ladj)
-        with_logabsdet_jacobian(f_transform, proposed.z.v[walker_idx])
+        with_logabsdet_jacobian(f_transform, proposed_z)
     else
-        f_transform(proposed.z.v[walker_idx]), constant_ladj
+        f_transform(proposed_z), constant_ladj
     end
     logd_x_proposed = BAT.checked_logdensityof(target, x_proposed)
     logd_z_proposed = logd_x_proposed + ladj
@@ -116,9 +112,9 @@ function _evaluate_ensemble_walker!!(
     proposed.x.logd[walker_idx] = logd_x_proposed
     proposed.z.logd[walker_idx] = logd_z_proposed
 
-    T = float(eltype(proposed.z.v[walker_idx]))
+    T = float(eltype(proposed_z))
     log_hastings = _ensemble_log_hastings(
-        proposal, current.z.v[walker_idx], proposed.z.v[walker_idx], proposal_aux,
+        proposal, current_z, proposed_z, proposal_aux,
     )
     log_acceptance = log_hastings + logd_z_proposed - current.z.logd[walker_idx]
     p_accept[walker_idx] = _mcmc_acceptance_probability(convert(T, log_acceptance))
@@ -126,6 +122,34 @@ function _evaluate_ensemble_walker!!(
     set_rng!(rng, acceptance_rngpart, walkerid)
     chain_state.accepted[walker_idx] = rand(rng, T) < p_accept[walker_idx]
     return nothing
+end
+
+
+function _propose_and_evaluate_ensemble_walker!!(
+    chain_state::MCMCChainState,
+    proposal::AbstractEnsembleMove,
+    step_rngpart::RNGPartition,
+    proposal_idx::Integer,
+    walker_idx::Integer,
+    complement_groups,
+    p_accept::AbstractVector{<:Real},
+    constant_ladj,
+    acceptance_rngpart::RNGPartition,
+)
+    (;current, proposed) = chain_state
+    walkerid = current.x.info[walker_idx].walkerid
+    rng = get_rng(chain_state.walker_genctxs[walker_idx])
+    current_z = current.z.v[walker_idx]
+    proposed_z = proposed.z.v[walker_idx]
+    proposal_aux = _propose_ensemble_candidate!!(
+        proposed_z, proposal, current.z.v, walker_idx,
+        complement_groups, rng, step_rngpart, proposal_idx, walkerid,
+    )
+
+    return _evaluate_ensemble_walker!!(
+        chain_state, proposal, walker_idx, current_z, proposed_z, proposal_aux, p_accept,
+        constant_ladj, acceptance_rngpart, rng, walkerid,
+    )
 end
 
 
@@ -142,7 +166,7 @@ function _propose_ensemble_group!!(
 )
     results = Vector{Nothing}(undef, length(active_group))
     exec_map!(proposal.executor, results, active_group) do walker_idx
-        _evaluate_ensemble_walker!!(
+        _propose_and_evaluate_ensemble_walker!!(
             chain_state, proposal, step_rngpart, proposal_idx, walker_idx,
             complement_groups, p_accept, constant_ladj, acceptance_rngpart,
         )

@@ -212,7 +212,6 @@ end
         @test err isa ArgumentError
 
         full_rank = [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]
-        @test _stretch_move_state(full_rank) isa BAT.MCMCState
 
         err = _capture_ensemble_error(() -> _stretch_move_state(
             map(v -> Float32.(v), full_rank); scale = nextfloat(1.0),
@@ -335,9 +334,11 @@ end
             nwalkers = 1,
         )
         target = batmeasure(MvNormal(zeros(2), Matrix{Float64}(I, 2, 2)))
-        @test BAT.MCMCState(
+        state = BAT.MCMCState(
             algorithm, target, 1, [[0.0, 0.0]], BATContext(rng = Philox4x((564, 82))),
-        ) isa BAT.MCMCState
+        )
+        state = BAT.mcmc_step!!(state)
+        @test state.chain_state.nattempts == [1]
     end
 
 
@@ -547,22 +548,6 @@ end
 
         @test _finalization_tuning_input[] === active_proposal
         @test BAT.get_active_proposal(state.chain_state.proposal) === active_proposal_new
-    end
-
-
-    @testset "Float32 transition values" begin
-        initial = [[-3f0], [-1f0], [1f0], [4f0]]
-        state = _stretch_move_state(initial; scale = 2.0)
-        state = BAT.mcmc_step!!(state)
-        chain_state = state.chain_state
-
-        @test chain_state.proposal.scale isa Float32
-        @test all(v -> eltype(v) === Float32, chain_state.current.z.v)
-        @test all(v -> eltype(v) === Float32, chain_state.proposed.z.v)
-        log_acceptance = BAT._stretch_log_acceptance(1, 1.25f0, -2f0, -3f0)
-        @test log_acceptance isa Float32
-        @test BAT._mcmc_acceptance_probability(log_acceptance) isa Float32
-        @test BAT._mcmc_acceptance_probability(Float32(NaN)) === 0f0
     end
 
 

@@ -246,7 +246,7 @@ _stretch_log_acceptance(
 ) = (n_dims - 1) * log(scale) + proposed_logd - current_logd
 
 
-function _propose_ensemble_candidate!!(
+@inline function _propose_ensemble_candidate!!(
     candidate,
     proposal::StretchMoveProposalState,
     current,
@@ -264,6 +264,23 @@ function _propose_ensemble_candidate!!(
     stretch_rngpart = _mcmc_walker_rngpart(
         step_rngpart, _MCMC_STRETCH_DRAW_PURPOSE, proposal_idx,
     )
+    return _propose_ensemble_candidate!!(
+        candidate, proposal, current, walker_idx, companion_idxs, rng,
+        companion_rngpart, stretch_rngpart, walkerid,
+    )
+end
+
+@inline function _propose_ensemble_candidate!!(
+    candidate,
+    proposal::StretchMoveProposalState,
+    current,
+    walker_idx::Integer,
+    companion_idxs::AbstractVector{<:Integer},
+    rng::AbstractRNG,
+    companion_rngpart::RNGPartition,
+    stretch_rngpart::RNGPartition,
+    walkerid::Integer,
+)
     set_rng!(rng, companion_rngpart, walkerid)
     companion_idx = rand(rng, companion_idxs)
 
@@ -287,7 +304,7 @@ function _propose_ensemble_group!!(
     constant_ladj,
     acceptance_rngpart::RNGPartition,
 )
-    (;target, f_transform, current, proposed) = chain_state
+    current = chain_state.current
     companion_idxs = only(complement_groups)
     companion_rngpart = _mcmc_walker_rngpart(
         step_rngpart, _MCMC_COMPANION_SELECTION_PURPOSE, proposal_idx,
@@ -299,39 +316,17 @@ function _propose_ensemble_group!!(
     for walker_idx in active_group
         walkerid = current.x.info[walker_idx].walkerid
         rng = get_rng(chain_state.walker_genctxs[walker_idx])
-
-        set_rng!(rng, companion_rngpart, walkerid)
-        companion_idx = rand(rng, companion_idxs)
-
-        set_rng!(rng, stretch_rngpart, walkerid)
-        T = float(eltype(current.z.v[walker_idx]))
-        stretch = _stretch_scale(proposal.scale, rand(rng, T))
-        z_proposed = _stretch_candidate!!(
-            proposed.z.v[walker_idx], current.z.v[walker_idx],
-            current.z.v[companion_idx], stretch,
+        current_z = current.z.v[walker_idx]
+        proposed_z = chain_state.proposed.z.v[walker_idx]
+        proposal_aux = _propose_ensemble_candidate!!(
+            proposed_z, proposal, current.z.v,
+            walker_idx, companion_idxs, rng,
+            companion_rngpart, stretch_rngpart, walkerid,
         )
-
-        x_proposed, ladj = if isnothing(constant_ladj)
-            with_logabsdet_jacobian(f_transform, z_proposed)
-        else
-            f_transform(z_proposed), constant_ladj
-        end
-        logd_x_proposed = BAT.checked_logdensityof(target, x_proposed)
-        logd_z_proposed = logd_x_proposed + ladj
-
-        proposed.x.v[walker_idx] .= x_proposed
-        proposed.x.logd[walker_idx] = logd_x_proposed
-        proposed.z.logd[walker_idx] = logd_z_proposed
-
-        log_acceptance = _stretch_log_acceptance(
-            length(z_proposed), stretch, logd_z_proposed,
-            current.z.logd[walker_idx],
+        _evaluate_ensemble_walker!!(
+            chain_state, proposal, walker_idx, current_z, proposed_z, proposal_aux, p_accept,
+            constant_ladj, acceptance_rngpart, rng, walkerid,
         )
-        p_accept[walker_idx] = _mcmc_acceptance_probability(
-            convert(T, log_acceptance),
-        )
-        set_rng!(rng, acceptance_rngpart, walkerid)
-        chain_state.accepted[walker_idx] = rand(rng, T) < p_accept[walker_idx]
     end
 
     return chain_state
