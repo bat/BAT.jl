@@ -54,8 +54,9 @@ function MCMCChainState(
     _validate_mcmc_adaptive_transform_configuration(
         samplingalg.proposal, samplingalg.adaptive_transform,
     )
-    samplingalg.proposal isa StretchMove &&
-        _validate_stretch_move_transform_tuning(samplingalg.proposal, samplingalg.transform_tuning)
+    _validate_mcmc_transform_tuning_configuration(
+        samplingalg.proposal, samplingalg.transform_tuning,
+    )
 
     n_walkers = length(x_init)
     target_unevaluated = unevaluated(target)
@@ -256,24 +257,36 @@ function _mcmc_step_transition!!(
     chain_state, active_proposal_new, step_info = mcmc_propose!!(
         chain_state, active_proposal, step_rngpart, proposal_idx)
 
+    return _finalize_mcmc_step!!(
+        mcmc_state, active_proposal, active_proposal_new, step_info,
+        eachindex(chain_state.accepted),
+    )
+end
+
+function _finalize_mcmc_step!!(
+    mcmc_state::MCMCState,
+    active_proposal::MCMCProposalState,
+    active_proposal_new::MCMCProposalState,
+    step_info::MCMCStepInfo,
+    walker_idxs::Union{Nothing,AbstractVector{<:Integer}} = nothing,
+)
+    chain_state = mcmc_state.chain_state
     chain_state.proposal = update_active_proposal!!(chain_state.proposal, active_proposal_new)
 
+    # The step information belongs to the proposal state that generated it.
     mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, active_proposal, step_info)
-
     chain_state = mcmc_state_new.chain_state
-
-    (;proposal, current, proposed, accepted, output) = chain_state
+    (;proposal, accepted) = chain_state
 
     active_prop_idx = get_active_proposal_idx(proposal)
     chain_state.nattempts[active_prop_idx] += length(accepted)
     chain_state.nsamples[active_prop_idx] += sum(accepted)
 
-    _apply_mcmc_subset!!(chain_state, step_info, eachindex(accepted))
+    if !isnothing(walker_idxs)
+        _apply_mcmc_subset!!(chain_state, step_info, walker_idxs)
+    end
 
-    chain_state = mcmc_state_new.chain_state
-    mcmc_state_final = @set mcmc_state_new.chain_state = chain_state
-
-    return mcmc_state_final
+    return @set mcmc_state_new.chain_state = chain_state
 end
 
 

@@ -205,6 +205,11 @@ _validate_mcmc_adaptive_transform_configuration(
     ::AbstractAdaptiveTransform,
 ) = nothing
 
+_validate_mcmc_transform_tuning_configuration(
+    ::MCMCProposal,
+    ::MCMCTransformTuning,
+) = nothing
+
 _validate_mcmc_proposal_tuning_configuration(
     ::MCMCProposal,
     ::MCMCProposalTuning,
