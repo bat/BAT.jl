@@ -8,27 +8,34 @@ stretch move. `nwalkers` must be set explicitly on `TransformedMCMC`.
 
 Constructors:
 
-* ```$(FUNCTIONNAME)(; scale = 2)```
+* ```$(FUNCTIONNAME)(; scale = 2, executor = BAT.SequentialExec())```
 """
-struct StretchMove{S<:Real} <: MCMCProposal
+struct StretchMove{S<:Real,E<:BATExecutor} <: MCMCProposal
     scale::S
+    executor::E
 
-    function StretchMove(scale::S) where {S<:Real}
+    function StretchMove(scale::S, executor::E) where {S<:Real,E<:BATExecutor}
         isfinite(scale) && scale > one(scale) || throw(ArgumentError(
             "StretchMove scale must be finite and greater than 1",
         ))
-        new{S}(scale)
+        _validate_ensemble_executor(executor)
+        new{S,E}(scale, executor)
     end
 end
-StretchMove(; scale::Real = 2) = StretchMove(scale)
+StretchMove(scale::Real) = StretchMove(scale, SequentialExec())
+StretchMove(; scale::Real = 2, executor::BATExecutor = SequentialExec()) =
+    StretchMove(scale, executor)
 export StretchMove
 
 
-struct StretchMoveProposalState{S<:Real} <: MCMCProposalState
+struct StretchMoveProposalState{S<:Real,E<:BATExecutor} <: AbstractEnsembleMove
     scale::S
+    executor::E
 end
 
 _mcmc_n_rng_purposes(::StretchMoveProposalState) = _MCMC_N_RNG_PURPOSES
+_ensemble_group_count(::StretchMoveProposalState) = 2
+_ensemble_minimum_walkers(::StretchMoveProposalState, n_dims::Integer) = 2 * n_dims
 
 function _proposal_diagnostics(
     ::StretchMoveProposalState,
@@ -175,7 +182,7 @@ function _create_proposal_state(
         "StretchMove scale must remain finite and greater than 1 after conversion to $(scale_type)",
     ))
 
-    return StretchMoveProposalState(scale)
+    return StretchMoveProposalState(scale, proposal.executor)
 end
 
 
@@ -197,13 +204,13 @@ end
 
 
 function _validate_mcmc_ensemble_invariants(
-    ::StretchMoveProposalState,
+    proposal::StretchMoveProposalState,
     target::BATMeasure,
     z_init::AbstractVector,
 )
     n_walkers = length(z_init)
     n_dims = totalndof(varshape(target))
-    n_walkers >= 2 * n_dims || throw(ArgumentError(
+    n_walkers >= _ensemble_minimum_walkers(proposal, n_dims) || throw(ArgumentError(
         "StretchMove requires at least 2 * d walkers; got $n_walkers walkers for dimension $n_dims",
     ))
     all(z -> all(isfinite, z), z_init) || throw(ArgumentError(
@@ -239,112 +246,41 @@ _stretch_log_acceptance(
 ) = (n_dims - 1) * log(scale) + proposed_logd - current_logd
 
 
-function _stretch_move_groups(
-    step_rngpart::RNGPartition,
-    proposal_idx::Integer,
-    walker_order::AbstractVector{<:Integer},
-)
-    split_rng = AbstractRNG(
-        step_rngpart,
-        _mcmc_rng_stream_idx(_MCMC_ENSEMBLE_SPLIT_PURPOSE, proposal_idx),
-    )
-    permutation = randperm(split_rng, length(walker_order))
-    split_at = fld(length(walker_order), 2)
-    left = walker_order[permutation[begin:split_at]]
-    right = walker_order[permutation[(split_at + 1):end]]
-    return rand(split_rng, Bool) ? (left, right) : (right, left)
-end
-
-
-function _propose_stretch_subset!!(
-    chain_state::MCMCChainState,
+function _propose_ensemble_candidate!!(
+    candidate,
     proposal::StretchMoveProposalState,
+    current,
+    walker_idx::Integer,
+    complement_groups,
+    rng::AbstractRNG,
     step_rngpart::RNGPartition,
     proposal_idx::Integer,
-    walker_idxs::AbstractVector{<:Integer},
-    companion_idxs::AbstractVector{<:Integer},
-    p_accept::AbstractVector{<:Real},
+    walkerid::Integer,
 )
-    (;target, f_transform, current, proposed) = chain_state
+    companion_idxs = only(complement_groups)
     companion_rngpart = _mcmc_walker_rngpart(
         step_rngpart, _MCMC_COMPANION_SELECTION_PURPOSE, proposal_idx,
     )
     stretch_rngpart = _mcmc_walker_rngpart(
         step_rngpart, _MCMC_STRETCH_DRAW_PURPOSE, proposal_idx,
     )
-    acceptance_rngpart = _mcmc_walker_rngpart(
-        step_rngpart, _MCMC_ACCEPTANCE_PURPOSE, proposal_idx,
+    set_rng!(rng, companion_rngpart, walkerid)
+    companion_idx = rand(rng, companion_idxs)
+
+    set_rng!(rng, stretch_rngpart, walkerid)
+    T = float(eltype(current[walker_idx]))
+    stretch = _stretch_scale(proposal.scale, rand(rng, T))
+    _stretch_candidate!!(
+        candidate, current[walker_idx], current[companion_idx], stretch,
     )
-    constant_ladj = _transform_ladj(f_transform)
-
-    for i in walker_idxs
-        walkerid = current.x.info[i].walkerid
-        rng = get_rng(chain_state.walker_genctxs[i])
-
-        set_rng!(rng, companion_rngpart, walkerid)
-        companion_idx = rand(rng, companion_idxs)
-
-        set_rng!(rng, stretch_rngpart, walkerid)
-        T = float(eltype(current.z.v[i]))
-        stretch = _stretch_scale(proposal.scale, rand(rng, T))
-        z_proposed = _stretch_candidate!!(
-            proposed.z.v[i], current.z.v[i], current.z.v[companion_idx], stretch,
-        )
-
-        x_proposed, ladj = if isnothing(constant_ladj)
-            with_logabsdet_jacobian(f_transform, z_proposed)
-        else
-            f_transform(z_proposed), constant_ladj
-        end
-        logd_x_proposed = BAT.checked_logdensityof(target, x_proposed)
-        logd_z_proposed = logd_x_proposed + ladj
-
-        proposed.x.v[i] .= x_proposed
-        proposed.x.logd[i] = logd_x_proposed
-        proposed.z.logd[i] = logd_z_proposed
-
-        log_acceptance = _stretch_log_acceptance(
-            length(z_proposed), stretch, logd_z_proposed, current.z.logd[i],
-        )
-        p_accept[i] = _mcmc_acceptance_probability(convert(T, log_acceptance))
-        set_rng!(rng, acceptance_rngpart, walkerid)
-        chain_state.accepted[i] = rand(rng, T) < p_accept[i]
-    end
-
-    return chain_state
+    return stretch
 end
 
-
-function _mcmc_step_transition!!(
-    mcmc_state::MCMCState,
-    active_proposal::StretchMoveProposalState,
-    step_rngpart::RNGPartition,
-    proposal_idx::Integer,
-    walker_order::AbstractVector{<:Integer},
+function _ensemble_log_hastings(
+    ::StretchMoveProposalState,
+    current,
+    proposed,
+    stretch::Real,
 )
-    chain_state = mcmc_state.chain_state
-    first_group, second_group = _stretch_move_groups(
-        step_rngpart, proposal_idx, walker_order,
-    )
-    T = float(eltype(first(chain_state.current.z.v)))
-    p_accept = Vector{T}(undef, length(walker_order))
-    step_info = MCMCStepInfo(
-        p_accept, nothing, nothing, nothing, nothing, walker_order,
-    )
-
-    _propose_stretch_subset!!(
-        chain_state, active_proposal, step_rngpart, proposal_idx,
-        first_group, second_group, p_accept,
-    )
-    _apply_mcmc_subset!!(chain_state, step_info, first_group)
-
-    _propose_stretch_subset!!(
-        chain_state, active_proposal, step_rngpart, proposal_idx,
-        second_group, first_group, p_accept,
-    )
-    _apply_mcmc_subset!!(chain_state, step_info, second_group)
-
-    return _finalize_mcmc_step!!(
-        mcmc_state, active_proposal, active_proposal, step_info,
-    )
+    return _stretch_log_acceptance(length(proposed), stretch, false, false)
 end

@@ -7,10 +7,17 @@ using BAT: NoAdaptiveTransform, NoMCMCTempering
 using DensityInterface, Distributions, LinearAlgebra, Random, Random123, Statistics, ValueShapes
 
 
-struct _CountingStretchTarget{M,F} <: BAT.BATMeasure
+struct _CountingStretchTarget{M,F,C} <: BAT.BATMeasure
+    base::M
+    logdensity::F
+    calls::C
+end
+
+struct _FailingStretchTarget{M,F} <: BAT.BATMeasure
     base::M
     logdensity::F
     calls::Base.RefValue{Int}
+    fail_at::Base.RefValue{Int}
 end
 
 struct _BananaStretchTarget{M,T} <: BAT.BATMeasure
@@ -40,9 +47,19 @@ function BAT.mcmc_tune_post_step!!(
     return state
 end
 
+_increment_stretch_calls!(calls::Base.RefValue{Int}) = (calls[] += 1)
+_increment_stretch_calls!(calls::Threads.Atomic{Int}) = Threads.atomic_add!(calls, 1)
+
 DensityInterface.logdensityof(target::_CountingStretchTarget, x) =
-    (target.calls[] += 1; target.logdensity(x))
+    (_increment_stretch_calls!(target.calls); target.logdensity(x))
 ValueShapes.varshape(target::_CountingStretchTarget) = ValueShapes.varshape(target.base)
+
+function DensityInterface.logdensityof(target::_FailingStretchTarget, x)
+    target.calls[] += 1
+    target.calls[] == target.fail_at[] && error("controlled target failure")
+    return target.logdensity(x)
+end
+ValueShapes.varshape(target::_FailingStretchTarget) = ValueShapes.varshape(target.base)
 
 function DensityInterface.logdensityof(target::_BananaStretchTarget, x)
     latent_y = x[2] - target.bend * (x[1]^2 - one(x[1]))
@@ -85,10 +102,11 @@ function _stretch_move_state(
     sample_weighting = RepetitionWeighting(),
     proposal_tuning = NoMCMCProposalTuning(),
     transform_tuning = NoMCMCTransformTuning(),
+    executor = BAT.SequentialExec(),
     rng_seed = (564, 80),
 )
     algorithm = TransformedMCMC(
-        proposal = StretchMove(scale = scale),
+        proposal = StretchMove(scale = scale, executor = executor),
         pretransform = DoNotTransform(),
         adaptive_transform = adaptive_transform,
         convergence = AssumeConvergence(),
@@ -227,13 +245,18 @@ end
     @testset "constructor and defaults" begin
         proposal = StretchMove()
         @test proposal.scale == 2
+        @test proposal.executor isa BAT.SequentialExec
         @test StretchMove(scale = 3f0).scale === 3f0
+        @test StretchMove(executor = BAT.MultiThreadedExec()).executor isa BAT.MultiThreadedExec
 
         for scale in (1, 0, -1, Inf, NaN)
             err = _capture_error(() -> StretchMove(scale = scale))
             @test err isa ArgumentError
             @test occursin("scale", sprint(showerror, err))
         end
+        err = _capture_error(() -> StretchMove(executor = BAT.DistributedExec()))
+        @test err isa ArgumentError
+        @test occursin("executor", lowercase(sprint(showerror, err)))
 
         algorithm = TransformedMCMC(proposal = proposal, nwalkers = 4)
         @test algorithm.proposal_tuning isa NoMCMCProposalTuning
@@ -443,6 +466,94 @@ end
         ]
         @test chain_state.proposed.x.info == expected_info
         @test chain_state.proposed.x.info == chain_state.proposed.z.info
+    end
+
+
+    @testset "exact sequential sweep regression" begin
+        state = _stretch_move_state(
+            [[-3.0], [-1.0], [1.0], [4.0]];
+            executor = BAT.SequentialExec(),
+        )
+
+        state = BAT.mcmc_step!!(state)
+        chain_state = state.chain_state
+
+        @test chain_state.current.z.v == [[-3.0], [-1.0], [1.0], [2.049883476974204]]
+        @test chain_state.current.x.v == chain_state.current.z.v
+        @test chain_state.current.x.logd == [
+            -5.418938533204673,
+            -1.4189385332046727,
+            -1.4189385332046727,
+            -3.019949667790599,
+        ]
+        @test chain_state.proposed.z.v == [
+            [-5.533480715431719],
+            [-2.470533404283069],
+            [2.720217374950521],
+            [2.049883476974204],
+        ]
+        @test chain_state.proposed.x.logd == [
+            -16.22864294723204,
+            -3.9707061840439173,
+            -4.618729816696025,
+            -3.019949667790599,
+        ]
+        @test chain_state.accepted == [false, false, false, true]
+        @test chain_state.current.x.weight == [1, 1, 1, 1]
+        @test chain_state.proposed.x.weight == [0, 0, 0, 1]
+        @test chain_state.proposed.x.info == [
+            BAT.MCMCSampleID(1, i, 1, 1, 1, i == 4) for i in Int32(1):Int32(4)
+        ]
+        @test chain_state.nattempts == [4]
+        @test chain_state.nsamples == [1]
+        @test chain_state.stepno == 1
+    end
+
+
+    @testset "executor equality and target call count" begin
+        initial = [[-3.0], [-1.0], [1.0], [4.0]]
+        states = map((BAT.SequentialExec(), BAT.MultiThreadedExec())) do executor
+            base = batmeasure(MvNormal(zeros(1), ones(1, 1)))
+            calls = Threads.Atomic{Int}(0)
+            target = _CountingStretchTarget(base, x -> -only(x)^2 / 2, calls)
+            state = _stretch_move_state(initial; target, executor)
+            calls[] = 0
+            state = BAT.mcmc_step!!(state)
+            @test calls[] == length(initial)
+            return state
+        end
+
+        sequential = first(states).chain_state
+        threaded = last(states).chain_state
+        @test sequential.current == threaded.current
+        @test sequential.proposed == threaded.proposed
+        @test sequential.output == threaded.output
+        @test sequential.accepted == threaded.accepted
+        @test sequential.nattempts == threaded.nattempts
+        @test sequential.nsamples == threaded.nsamples
+    end
+
+
+    @testset "target failure does not commit an active group" begin
+        initial = [[-3.0], [-1.0], [1.0], [4.0]]
+        base = batmeasure(MvNormal(zeros(1), ones(1, 1)))
+        calls = Ref(0)
+        fail_at = Ref(typemax(Int))
+        target = _FailingStretchTarget(base, _ -> 0.0, calls, fail_at)
+        state = _stretch_move_state(initial; target, executor = BAT.SequentialExec())
+        current_before = deepcopy(state.chain_state.current)
+        output_before = deepcopy(state.chain_state.output)
+        calls[] = 0
+        fail_at[] = 2
+
+        err = _capture_error(() -> BAT.mcmc_step!!(state))
+
+        @test err isa BAT.EvalException
+        @test occursin("controlled target failure", sprint(showerror, err))
+        @test state.chain_state.current == current_before
+        @test state.chain_state.output == output_before
+        @test state.chain_state.nattempts == [0]
+        @test state.chain_state.nsamples == [0]
     end
 
     @testset "large finite scale keeps sweep candidates finite" begin
