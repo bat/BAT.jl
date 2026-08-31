@@ -10,7 +10,7 @@ Constructors:
 
 * ```$(FUNCTIONNAME)(; scale = 2, executor = BAT.SequentialExec())```
 """
-struct StretchMove{S<:Real,E<:BATExecutor} <: MCMCProposal
+struct StretchMove{S<:Real,E<:BATExecutor} <: AbstractEnsembleProposal
     scale::S
     executor::E
 
@@ -33,139 +33,8 @@ struct StretchMoveProposalState{S<:Real,E<:BATExecutor} <: AbstractEnsembleMove
     executor::E
 end
 
-_mcmc_n_rng_purposes(::StretchMoveProposalState) = _MCMC_N_RNG_PURPOSES
 _ensemble_group_count(::StretchMoveProposalState) = 2
 _ensemble_minimum_walkers(::StretchMoveProposalState, n_dims::Integer) = 2 * n_dims
-
-function _proposal_diagnostics(
-    ::StretchMoveProposalState,
-    chain_state::MCMCChainState,
-)
-    n_attempts = only(chain_state.nattempts)
-    n_accepted = only(chain_state.nsamples)
-    acceptance_rate = iszero(n_attempts) ? NaN : n_accepted / n_attempts
-    return (
-        cycle_n_attempts = n_attempts,
-        cycle_n_accepted = n_accepted,
-        cycle_acceptance_rate = acceptance_rate,
-    )
-end
-
-function _mcmc_ess(
-    chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
-    merged_output::DensitySampleVector,
-    proposal::StretchMove,
-    weighting::AbstractMCMCWeightingScheme,
-    store_burnin::Bool,
-    context::BATContext,
-)
-    _validate_mcmc_weighting_configuration(proposal, weighting)
-    store_burnin && return nothing
-    return _pooled_ensemble_ess(chain_outputs, merged_output, context)
-end
-
-
-bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, ::StretchMove) =
-    NoMCMCProposalTuning()
-
-bat_default(::Type{TransformedMCMC}, ::Val{:adaptive_transform}, ::StretchMove) =
-    NoAdaptiveTransform()
-
-bat_default(::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::StretchMove, ::NoAdaptiveTransform) =
-    NoMCMCTransformTuning()
-
-bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, ::StretchMove) =
-    NoMCMCTempering()
-
-get_tuning_success(
-    ::MCMCChainState,
-    ::StretchMoveProposalState,
-    ::NoMCMCProposalTunerState,
-) = true
-
-function bat_default(
-    ::Type{TransformedMCMC},
-    ::Val{:nwalkers},
-    ::StretchMove,
-    ::TransformIntent,
-    ::MCMCTransformTuning,
-    ::Integer,
-)
-    throw(ArgumentError("StretchMove requires an explicit nwalkers setting on TransformedMCMC"))
-end
-
-bat_default(
-    ::Type{TransformedMCMC},
-    ::Val{:init},
-    ::StretchMove,
-    ::TransformIntent,
-    ::MCMCTransformTuning,
-    ::Integer,
-    ::Integer,
-    ::Integer,
-) = MCMCRetryInit()
-
-
-_validate_mcmc_proposal_configuration(
-    ::StretchMove,
-    ::NoMCMCProposalTuning,
-) = nothing
-
-function _validate_mcmc_proposal_configuration(
-    ::StretchMove,
-    tuning::MCMCProposalTuning,
-)
-    throw(ArgumentError(
-        "StretchMove requires NoMCMCProposalTuning, got $(nameof(typeof(tuning)))",
-    ))
-end
-
-_validate_mcmc_transform_tuning_configuration(
-    ::StretchMove,
-    ::NoMCMCTransformTuning,
-) = nothing
-
-function _validate_mcmc_transform_tuning_configuration(
-    ::StretchMove,
-    tuning::MCMCTransformTuning,
-)
-    throw(ArgumentError(
-        "StretchMove requires NoMCMCTransformTuning, got $(nameof(typeof(tuning)))",
-    ))
-end
-
-
-_validate_mcmc_adaptive_transform_configuration(
-    ::StretchMove,
-    ::NoAdaptiveTransform,
-) = nothing
-
-function _validate_mcmc_adaptive_transform_configuration(
-    ::StretchMove,
-    adaptive_transform::AbstractAdaptiveTransform,
-)
-    throw(ArgumentError(
-        "StretchMove requires NoAdaptiveTransform, got $(nameof(typeof(adaptive_transform)))",
-    ))
-end
-
-
-function _validate_mcmc_weighting_configuration(
-    ::StretchMove,
-    ::RepetitionWeighting,
-)
-    return nothing
-end
-
-function _validate_mcmc_weighting_configuration(
-    ::StretchMove,
-    weighting::AbstractMCMCWeightingScheme,
-)
-    throw(ArgumentError(
-        "StretchMove supports RepetitionWeighting only, got $(nameof(typeof(weighting)))",
-    ))
-end
-
 
 function _create_proposal_state(
     proposal::StretchMove,
@@ -183,23 +52,6 @@ function _create_proposal_state(
     ))
 
     return StretchMoveProposalState(scale, proposal.executor)
-end
-
-
-function _create_proposal_state(
-    proposal::StretchMove,
-    target::BATMeasure,
-    context::BATContext,
-    v_init::AbstractVector,
-    f_transform::Function,
-    rng::AbstractRNG,
-)
-    z_init = inverse(f_transform).(v_init)
-    proposal_state = _create_proposal_state(
-        proposal, target, context, v_init, z_init, f_transform, rng,
-    )
-    _validate_mcmc_ensemble_invariants(proposal_state, target, z_init)
-    return proposal_state
 end
 
 

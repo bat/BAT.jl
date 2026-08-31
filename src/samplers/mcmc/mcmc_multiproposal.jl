@@ -24,8 +24,7 @@ end
 
 export MCMCMultiProposal
 
-_contains_ensemble_move(proposal::MCMCProposal) =
-    proposal isa Union{StretchMove,DEMove,DESnookerMove}
+_contains_ensemble_move(::MCMCProposal) = false
 
 _contains_ensemble_move(::MCMCProposalState) = false
 
@@ -115,6 +114,17 @@ end
 _contains_ensemble_move(proposal::MultiProposalState) =
     any(_contains_ensemble_move, proposal.proposal_states)
 
+function _validate_mcmc_ensemble_invariants(
+    proposal::MultiProposalState,
+    target::BATMeasure,
+    z_init::AbstractVector,
+)
+    foreach(proposal.proposal_states) do proposal_state
+        _validate_mcmc_ensemble_invariants(proposal_state, target, z_init)
+    end
+    return nothing
+end
+
 _mcmc_n_rng_purposes(proposal::MultiProposalState) =
     _contains_ensemble_move(proposal) ? _MCMC_N_RNG_PURPOSES : _MCMC_ACCEPTANCE_PURPOSE
 
@@ -140,6 +150,18 @@ bat_default(
     proposal::MCMCMultiProposal
 ) = NoMCMCTempering()
 
+bat_default(
+    ::Type{TransformedMCMC},
+    ::Val{:init},
+    proposal::MCMCMultiProposal,
+    ::TransformIntent,
+    ::MCMCTransformTuning,
+    ::Integer,
+    ::Integer,
+    nsteps::Integer,
+) = _contains_ensemble_move(proposal) ?
+    MCMCRetryInit() : MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
+
 function _mcmc_ess(
     chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
     merged_output::DensitySampleVector,
@@ -151,7 +173,6 @@ function _mcmc_ess(
     _contains_ensemble_move(proposal) || return _pooled_walker_ess(
         chain_outputs, merged_output, weighting, context,
     )
-    _validate_mcmc_weighting_configuration(proposal, weighting)
     store_burnin && return nothing
     return _pooled_ensemble_ess(chain_outputs, merged_output, context)
 end

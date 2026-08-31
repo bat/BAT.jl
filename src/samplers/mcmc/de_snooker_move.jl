@@ -10,7 +10,7 @@ Constructors:
 
 * ```$(FUNCTIONNAME)(; scale = 1.7, executor = BAT.SequentialExec())```
 """
-struct DESnookerMove{S<:Real,E<:BATExecutor} <: MCMCProposal
+struct DESnookerMove{S<:Real,E<:BATExecutor} <: AbstractEnsembleProposal
     scale::S
     executor::E
 
@@ -35,140 +35,8 @@ struct DESnookerMoveProposalState{S<:Real,E<:BATExecutor} <: AbstractEnsembleMov
     executor::E
 end
 
-_mcmc_n_rng_purposes(::DESnookerMoveProposalState) = _MCMC_N_RNG_PURPOSES
 _ensemble_group_count(::DESnookerMoveProposalState) = 4
 _ensemble_minimum_walkers(::DESnookerMoveProposalState, n_dims::Integer) = max(2 * n_dims, 4)
-
-function _proposal_diagnostics(
-    ::DESnookerMoveProposalState,
-    chain_state::MCMCChainState,
-)
-    n_attempts = only(chain_state.nattempts)
-    n_accepted = only(chain_state.nsamples)
-    acceptance_rate = iszero(n_attempts) ? NaN : n_accepted / n_attempts
-    return (
-        cycle_n_attempts = n_attempts,
-        cycle_n_accepted = n_accepted,
-        cycle_acceptance_rate = acceptance_rate,
-    )
-end
-
-function _mcmc_ess(
-    chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
-    merged_output::DensitySampleVector,
-    proposal::DESnookerMove,
-    weighting::AbstractMCMCWeightingScheme,
-    store_burnin::Bool,
-    context::BATContext,
-)
-    _validate_mcmc_weighting_configuration(proposal, weighting)
-    store_burnin && return nothing
-    return _pooled_ensemble_ess(chain_outputs, merged_output, context)
-end
-
-
-bat_default(::Type{TransformedMCMC}, ::Val{:proposal_tuning}, ::DESnookerMove) =
-    NoMCMCProposalTuning()
-
-bat_default(::Type{TransformedMCMC}, ::Val{:adaptive_transform}, ::DESnookerMove) =
-    NoAdaptiveTransform()
-
-bat_default(
-    ::Type{TransformedMCMC}, ::Val{:transform_tuning}, ::DESnookerMove, ::NoAdaptiveTransform,
-) = NoMCMCTransformTuning()
-
-bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, ::DESnookerMove) =
-    NoMCMCTempering()
-
-get_tuning_success(
-    ::MCMCChainState,
-    ::DESnookerMoveProposalState,
-    ::NoMCMCProposalTunerState,
-) = true
-
-function bat_default(
-    ::Type{TransformedMCMC},
-    ::Val{:nwalkers},
-    ::DESnookerMove,
-    ::TransformIntent,
-    ::MCMCTransformTuning,
-    ::Integer,
-)
-    throw(ArgumentError(
-        "DESnookerMove requires an explicit nwalkers setting on TransformedMCMC",
-    ))
-end
-
-bat_default(
-    ::Type{TransformedMCMC},
-    ::Val{:init},
-    ::DESnookerMove,
-    ::TransformIntent,
-    ::MCMCTransformTuning,
-    ::Integer,
-    ::Integer,
-    ::Integer,
-) = MCMCRetryInit()
-
-
-_validate_mcmc_proposal_configuration(
-    ::DESnookerMove,
-    ::NoMCMCProposalTuning,
-) = nothing
-
-function _validate_mcmc_proposal_configuration(
-    ::DESnookerMove,
-    tuning::MCMCProposalTuning,
-)
-    throw(ArgumentError(
-        "DESnookerMove requires NoMCMCProposalTuning, got $(nameof(typeof(tuning)))",
-    ))
-end
-
-_validate_mcmc_transform_tuning_configuration(
-    ::DESnookerMove,
-    ::NoMCMCTransformTuning,
-) = nothing
-
-function _validate_mcmc_transform_tuning_configuration(
-    ::DESnookerMove,
-    tuning::MCMCTransformTuning,
-)
-    throw(ArgumentError(
-        "DESnookerMove requires NoMCMCTransformTuning, got $(nameof(typeof(tuning)))",
-    ))
-end
-
-_validate_mcmc_adaptive_transform_configuration(
-    ::DESnookerMove,
-    ::NoAdaptiveTransform,
-) = nothing
-
-function _validate_mcmc_adaptive_transform_configuration(
-    ::DESnookerMove,
-    adaptive_transform::AbstractAdaptiveTransform,
-)
-    throw(ArgumentError(
-        "DESnookerMove requires NoAdaptiveTransform, got $(nameof(typeof(adaptive_transform)))",
-    ))
-end
-
-function _validate_mcmc_weighting_configuration(
-    ::DESnookerMove,
-    ::RepetitionWeighting,
-)
-    return nothing
-end
-
-function _validate_mcmc_weighting_configuration(
-    ::DESnookerMove,
-    weighting::AbstractMCMCWeightingScheme,
-)
-    throw(ArgumentError(
-        "DESnookerMove supports RepetitionWeighting only, got $(nameof(typeof(weighting)))",
-    ))
-end
-
 
 function _create_proposal_state(
     proposal::DESnookerMove,
@@ -186,23 +54,6 @@ function _create_proposal_state(
     ))
     return DESnookerMoveProposalState(scale, proposal.executor)
 end
-
-function _create_proposal_state(
-    proposal::DESnookerMove,
-    target::BATMeasure,
-    context::BATContext,
-    v_init::AbstractVector,
-    f_transform::Function,
-    rng::AbstractRNG,
-)
-    z_init = inverse(f_transform).(v_init)
-    proposal_state = _create_proposal_state(
-        proposal, target, context, v_init, z_init, f_transform, rng,
-    )
-    _validate_mcmc_ensemble_invariants(proposal_state, target, z_init)
-    return proposal_state
-end
-
 
 function _validate_mcmc_ensemble_invariants(
     proposal::DESnookerMoveProposalState,

@@ -1,8 +1,11 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+abstract type AbstractEnsembleProposal <: MCMCProposal end
+
 abstract type AbstractEnsembleMove <: MCMCProposalState end
 
+_contains_ensemble_move(::AbstractEnsembleProposal) = true
 _contains_ensemble_move(::AbstractEnsembleMove) = true
 
 
@@ -13,6 +16,166 @@ function _validate_ensemble_executor(executor::BATExecutor)
         "Ensemble move executor must be SequentialExec or MultiThreadedExec, got $(nameof(typeof(executor)))",
     ))
 end
+
+
+bat_default(
+    ::Type{TransformedMCMC},
+    ::Val{:proposal_tuning},
+    ::AbstractEnsembleProposal,
+) = NoMCMCProposalTuning()
+
+bat_default(
+    ::Type{TransformedMCMC},
+    ::Val{:adaptive_transform},
+    ::AbstractEnsembleProposal,
+) = NoAdaptiveTransform()
+
+bat_default(
+    ::Type{TransformedMCMC},
+    ::Val{:transform_tuning},
+    ::AbstractEnsembleProposal,
+    ::NoAdaptiveTransform,
+) = NoMCMCTransformTuning()
+
+bat_default(
+    ::Type{TransformedMCMC},
+    ::Val{:tempering},
+    ::AbstractEnsembleProposal,
+) = NoMCMCTempering()
+
+function bat_default(
+    ::Type{TransformedMCMC},
+    ::Val{:nwalkers},
+    proposal::AbstractEnsembleProposal,
+    ::TransformIntent,
+    ::MCMCTransformTuning,
+    ::Integer,
+)
+    throw(ArgumentError(
+        "$(nameof(typeof(proposal))) requires an explicit nwalkers setting on TransformedMCMC",
+    ))
+end
+
+bat_default(
+    ::Type{TransformedMCMC},
+    ::Val{:init},
+    ::AbstractEnsembleProposal,
+    ::TransformIntent,
+    ::MCMCTransformTuning,
+    ::Integer,
+    ::Integer,
+    ::Integer,
+) = MCMCRetryInit()
+
+
+_validate_mcmc_proposal_configuration(
+    ::AbstractEnsembleProposal,
+    ::NoMCMCProposalTuning,
+) = nothing
+
+function _validate_mcmc_proposal_configuration(
+    proposal::AbstractEnsembleProposal,
+    tuning::MCMCProposalTuning,
+)
+    throw(ArgumentError(
+        "$(nameof(typeof(proposal))) requires NoMCMCProposalTuning, got $(nameof(typeof(tuning)))",
+    ))
+end
+
+_validate_mcmc_transform_tuning_configuration(
+    ::AbstractEnsembleProposal,
+    ::NoMCMCTransformTuning,
+) = nothing
+
+function _validate_mcmc_transform_tuning_configuration(
+    proposal::AbstractEnsembleProposal,
+    tuning::MCMCTransformTuning,
+)
+    throw(ArgumentError(
+        "$(nameof(typeof(proposal))) requires NoMCMCTransformTuning, got $(nameof(typeof(tuning)))",
+    ))
+end
+
+_validate_mcmc_adaptive_transform_configuration(
+    ::AbstractEnsembleProposal,
+    ::NoAdaptiveTransform,
+) = nothing
+
+function _validate_mcmc_adaptive_transform_configuration(
+    proposal::AbstractEnsembleProposal,
+    adaptive_transform::AbstractAdaptiveTransform,
+)
+    throw(ArgumentError(
+        "$(nameof(typeof(proposal))) requires NoAdaptiveTransform, got $(nameof(typeof(adaptive_transform)))",
+    ))
+end
+
+_validate_mcmc_weighting_configuration(
+    ::AbstractEnsembleProposal,
+    ::RepetitionWeighting,
+) = nothing
+
+function _validate_mcmc_weighting_configuration(
+    proposal::AbstractEnsembleProposal,
+    weighting::AbstractMCMCWeightingScheme,
+)
+    throw(ArgumentError(
+        "$(nameof(typeof(proposal))) supports RepetitionWeighting only, got $(nameof(typeof(weighting)))",
+    ))
+end
+
+
+function _mcmc_ess(
+    chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
+    merged_output::DensitySampleVector,
+    ::AbstractEnsembleProposal,
+    ::AbstractMCMCWeightingScheme,
+    store_burnin::Bool,
+    context::BATContext,
+)
+    store_burnin && return nothing
+    return _pooled_ensemble_ess(chain_outputs, merged_output, context)
+end
+
+
+function _create_proposal_state(
+    proposal::AbstractEnsembleProposal,
+    target::BATMeasure,
+    context::BATContext,
+    v_init::AbstractVector,
+    f_transform::Function,
+    rng::AbstractRNG,
+)
+    z_init = inverse(f_transform).(v_init)
+    proposal_state = _create_proposal_state(
+        proposal, target, context, v_init, z_init, f_transform, rng,
+    )
+    _validate_mcmc_ensemble_invariants(proposal_state, target, z_init)
+    return proposal_state
+end
+
+
+_mcmc_n_rng_purposes(::AbstractEnsembleMove) = _MCMC_N_RNG_PURPOSES
+
+function _proposal_diagnostics(
+    ::AbstractEnsembleMove,
+    chain_state::MCMCChainState,
+)
+    n_attempts = only(chain_state.nattempts)
+    n_accepted = only(chain_state.nsamples)
+    acceptance_rate = iszero(n_attempts) ? NaN : n_accepted / n_attempts
+    return (
+        cycle_n_attempts = n_attempts,
+        cycle_n_accepted = n_accepted,
+        cycle_acceptance_rate = acceptance_rate,
+    )
+end
+
+get_tuning_success(
+    ::MCMCChainState,
+    ::AbstractEnsembleMove,
+    ::NoMCMCProposalTunerState,
+) = true
 
 
 function _ensemble_move_groups(
