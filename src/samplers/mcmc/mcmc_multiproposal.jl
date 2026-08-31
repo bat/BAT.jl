@@ -260,9 +260,11 @@ function _component_acceptance_successes(
 )
     component_acceptance_rates = detailed_eff_acceptance_ratio(chain_state)
     return map(eachindex(component_acceptance_rates)) do i
+        proposal = multi_proposal.proposal_states[i]
+        _contains_ensemble_move(proposal) && return true
         chain_state.nattempts[i] > 0 || return false
         return _acceptance_in_target(
-            multi_proposal.proposal_states[i], component_acceptance_rates[i],
+            proposal, component_acceptance_rates[i],
         )
     end
 end
