@@ -30,6 +30,20 @@ end
 
 _mcmc_n_rng_purposes(::StretchMoveProposalState) = _MCMC_N_RNG_PURPOSES
 
+function _proposal_diagnostics(
+    ::StretchMoveProposalState,
+    chain_state::MCMCChainState,
+)
+    n_attempts = only(chain_state.nattempts)
+    n_accepted = only(chain_state.nsamples)
+    acceptance_rate = iszero(n_attempts) ? NaN : n_accepted / n_attempts
+    return (
+        cycle_n_attempts = n_attempts,
+        cycle_n_accepted = n_accepted,
+        cycle_acceptance_rate = acceptance_rate,
+    )
+end
+
 function _mcmc_ess(
     chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
     merged_output::DensitySampleVector,
@@ -148,23 +162,49 @@ end
 
 function _create_proposal_state(
     proposal::StretchMove,
-    target::BATMeasure,
-    context::BATContext,
-    v_init::AbstractVector{PV},
-    f_transform::Function,
-    rng::AbstractRNG,
+    ::BATMeasure,
+    ::BATContext,
+    ::AbstractVector,
+    z_init::AbstractVector{PV},
+    ::Function,
+    ::AbstractRNG,
 ) where {P<:Real, PV<:AbstractVector{P}}
-    n_walkers = length(v_init)
-    n_dims = totalndof(varshape(target))
-    n_walkers >= 2 * n_dims || throw(ArgumentError(
-        "StretchMove requires at least 2 * d walkers; got $n_walkers walkers for dimension $n_dims",
-    ))
-
-    z_init = inverse(f_transform).(v_init)
     scale_type = float(eltype(first(z_init)))
     scale = convert(scale_type, proposal.scale)
     isfinite(scale) && scale > one(scale) || throw(ArgumentError(
         "StretchMove scale must remain finite and greater than 1 after conversion to $(scale_type)",
+    ))
+
+    return StretchMoveProposalState(scale)
+end
+
+
+function _create_proposal_state(
+    proposal::StretchMove,
+    target::BATMeasure,
+    context::BATContext,
+    v_init::AbstractVector,
+    f_transform::Function,
+    rng::AbstractRNG,
+)
+    z_init = inverse(f_transform).(v_init)
+    proposal_state = _create_proposal_state(
+        proposal, target, context, v_init, z_init, f_transform, rng,
+    )
+    _validate_mcmc_ensemble_invariants(proposal_state, target, z_init)
+    return proposal_state
+end
+
+
+function _validate_mcmc_ensemble_invariants(
+    ::StretchMoveProposalState,
+    target::BATMeasure,
+    z_init::AbstractVector,
+)
+    n_walkers = length(z_init)
+    n_dims = totalndof(varshape(target))
+    n_walkers >= 2 * n_dims || throw(ArgumentError(
+        "StretchMove requires at least 2 * d walkers; got $n_walkers walkers for dimension $n_dims",
     ))
     all(z -> all(isfinite, z), z_init) || throw(ArgumentError(
         "StretchMove requires finite transformed coordinates during initialization",
@@ -180,12 +220,14 @@ function _create_proposal_state(
         "StretchMove initialization has $n_walkers walkers in dimension $n_dims with affine rank $observed_rank; expected affine rank $n_dims",
     ))
 
-    return StretchMoveProposalState(scale)
+    return nothing
 end
 
 
-_stretch_scale(scale::Real, u::Real) =
-    ((scale - one(scale)) * u + one(scale))^2 / scale
+function _stretch_scale(scale::Real, u::Real)
+    b = (scale - one(scale)) * u + one(scale)
+    return b * (b / scale)
+end
 
 function _stretch_candidate!!(candidate, current, companion, scale::Real)
     @. candidate = companion + scale * (current - companion)
