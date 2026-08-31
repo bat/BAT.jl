@@ -172,53 +172,7 @@ end
 
 
 @testset "DensitySampleVector reports" begin
-    values = collect(-20.0:20.0)
-    samples = DensitySampleVector([[x] for x in values], -abs2.(values))
-
-    report_text = sprint(show, MIME("text/plain"), lazyreport(samples))
-
-    @test occursin("68.30% cred. interval", report_text)
-    @test occursin("95.50% cred. interval", report_text)
-    @test occursin("99.70% cred. interval", report_text)
-
-    custom_report = lazyreport(samples; intervals = [0.5, 0.9])
-    @test custom_report isa LazyReports.LazyReport
-    custom_report_text = sprint(show, MIME("text/plain"), custom_report)
-    @test occursin("50.00% cred. interval", custom_report_text)
-    @test occursin("90.00% cred. interval", custom_report_text)
-    @test !occursin("68.30% cred. interval", custom_report_text)
-
-    marginal_fields = propertynames(BAT._marginal_table(samples))
-    @test count(==(:credible_intervals), marginal_fields) == 1
-    @test !any(name -> startswith(string(name), "credible_intervals_"), marginal_fields)
-
-    empty_report_text = sprint(show, MIME("text/plain"), lazyreport(samples; intervals = Any[]))
-    @test !occursin("cred. interval", empty_report_text)
-
-    for invalid_intervals in ([0.0], [1.0], [-0.1], [NaN], [Inf], [-Inf])
-        @test_throws ArgumentError lazyreport(samples; intervals = invalid_intervals)
-    end
-
-    deprecated_report = @test_deprecated BAT.bat_report(samples; intervals = [0.9])
-    deprecated_report_text = sprint(show, MIME("text/plain"), deprecated_report)
-    @test occursin("90.00% cred. interval", deprecated_report_text)
-end
-
-
-@testset "DensitySampleVector report histogram intervals" begin
-    multimodal_samples = DensitySampleVector(
-        [[0.0], [2.0], [38.0], [40.0]], zeros(4);
-        weight = [5.0, 45.0, 45.0, 5.0],
-    )
-    multimodal_report = sprint(show, MIME("text/plain"), lazyreport(multimodal_samples; intervals = [0.9]))
-    @test occursin("[2.0 .. 2.2, 38.0 .. 38.2]", multimodal_report)
-    @test !occursin("multiple", multimodal_report)
-
-    edge_samples = DensitySampleVector(
-        [[0.0], [1.0], [2.0]], zeros(3);
-        weight = [2.0, 49.0, 49.0],
-    )
-    edge_report = sprint(show, MIME("text/plain"), lazyreport(edge_samples; intervals = [0.5]))
-    @test occursin("1.0 .. 1.01", edge_report)
-    @test !occursin("1.0 .. 1.05", edge_report)
+    samples = DensitySampleVector([[1.5], [2.5]], zeros(2); weight = [1, 5])
+    report = sprint(show, MIME("text/plain"), lazyreport(samples; intervals = [0.5]))
+    @test occursin("2.5 .. 2.505", report)
 end

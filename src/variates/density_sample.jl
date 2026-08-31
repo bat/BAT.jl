@@ -536,7 +536,7 @@ function _push_density_sample_report!(rpt::LazyReport, smplv::DensitySampleVecto
 
     only_one_ci(viv::AbstractVector{<:AbstractInterval}) = length(viv) == 1 ? only(viv) : viv
 
-    ci_names = [Symbol("credible_intervals_", i) for i in eachindex(intervals)]
+    ci_names = Symbol.("credible_intervals_", eachindex(intervals))
     marg_tbl = _marginal_table(smplv)
     marg_columns = Tables.columns(marg_tbl)
     report_histograms = map(eachindex(marg_tbl.marginal_histogram)) do idx
@@ -570,6 +570,7 @@ function _push_density_sample_report!(rpt::LazyReport, smplv::DensitySampleVecto
         :marginal_mode => "Marg. mode",
         :marginal_histogram => "Histogram",
     )
+    # Dict updates require serial mutation.
     for (name, interval) in zip(ci_names, intervals)
         marg_headermap[name] = @sprintf("%.2f%% cred. interval", 100 * interval)
     end
