@@ -8,7 +8,7 @@ Instead, compatibility is only guaranteed across changes in patch version, but
 The features listed here are likely to transition to the stable API in future
 versions, but may still evolve in a API-breaking fashion during that process.
 
-## Affine-invariant ensemble sampling
+## Ensemble MCMC proposals
 
 BAT provides three experimental proposals that update a coupled walker
 ensemble in transformed coordinates:
@@ -17,12 +17,14 @@ ensemble in transformed coordinates:
 algorithm = TransformedMCMC(proposal = StretchMove(), nwalkers = 32)
 ```
 
+Only `StretchMove` and `DEMove` are affine-equivariant.
+
 For an active walker ``x`` and walkers drawn from its frozen complement, the
 proposal laws are:
 
-- `StretchMove(scale = 2)` draws ``z`` on ``[1/a, a]`` with density
-  proportional to ``z^{-1/2}``, proposes ``x' = y + z(x-y)``, and uses the
-  Hastings factor ``z^{d-1}``.
+- `StretchMove(scale = 2)` sets ``a = scale`` and draws ``z`` on ``[1/a, a]``
+  with density proportional to ``z^{-1/2}``, proposes ``x' = y + z(x-y)``,
+  and uses the Hastings factor ``z^{d-1}``.
 - `DEMove(gamma0 = nothing, sigma = 1e-5)` proposes
   ``x' = x + gamma (y_1-y_2)`` from two distinct complement walkers, where
   ``gamma = gamma0 (1 + sigma epsilon)`` and ``epsilon`` is standard normal.
