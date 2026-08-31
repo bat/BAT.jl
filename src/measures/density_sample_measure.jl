@@ -73,16 +73,13 @@ function DensitySampleMeasure(
     mass::Union{RealLike,MeasureBase.AbstractUnknownMass} = 1,
 )
     # Empirical-measure weights must support categorical sampling: a negative
-    # or non-finite weight would make the subsampling CDF non-monotone, and
-    # an all-zero vector would leave nothing to draw. Copy only this column:
+    # or non-finite weight would make the subsampling CDF non-monotone. Copy
+    # only this column:
     # the owned weights and CDF make repeated scalar draws independent of the
     # caller's mutable weight storage while retaining the sample payload.
     W = smpls.weight
     all(w -> isfinite(w) && w >= 0, W) || throw(ArgumentError(
         "Weights of an empirical measure must be finite and non-negative"
-    ))
-    isempty(W) || maximum(W) > 0 || throw(ArgumentError(
-        "Weights of an empirical measure must contain at least one strictly positive entry"
     ))
     owned_weights = copy(W)
     owned_smpls = DensitySampleVector((smpls.v, smpls.logd, owned_weights, smpls.info, smpls.aux))
@@ -181,14 +178,6 @@ function _with_owner_sampling_law(
     return DensitySampleMeasure(owned_smpls, owner._cumulative_weight, dof, ess, mass)
 end
 
-# Empirical representations of one pushforward share one owned sampling law.
-function _with_sample_weights(dsm::DensitySampleMeasure, owner::DensitySampleMeasure)
-    smpls = samplesof(dsm)
-    owner_smpls = samplesof(owner)
-    smpls.weight === owner_smpls.weight && dsm._cumulative_weight === owner._cumulative_weight && return dsm
-    return _with_owner_sampling_law(smpls, owner; dof = dsm._dof, ess = dsm._ess, mass = dsm._mass)
-end
-
 _empirical_weights_shared(p::BispacedMeasure{<:DensitySampleMeasure,<:DensitySampleMeasure}) =
     samplesof(p.main).weight === samplesof(p.transformed).weight
 
@@ -217,8 +206,9 @@ end
 
 function _weight_cdf(W::AbstractVector{<:Real})
     isempty(W) && return similar(W, _weight_accum_type(W))
+    cdf = similar(W, _weight_accum_type(W))
+    all(iszero, W) && return fill!(cdf, zero(eltype(cdf)))
     rel_weights = _canonical_rel_weights(W)
-    cdf = similar(rel_weights, _weight_accum_type(rel_weights))
     copyto!(cdf, rel_weights)
     return cumsum!(cdf, cdf)
 end
@@ -228,6 +218,9 @@ function _rand_subsample_idx(gen::GenContext, dsm::DensitySampleMeasure)
 
     CW = dsm._cumulative_weight
     isempty(CW) && throw(ArgumentError("Can't draw from an empty DensitySampleMeasure"))
+    iszero(CW[end]) && throw(ArgumentError(
+        "Can't draw from a zero-weight DensitySampleMeasure"
+    ))
     r = rand(get_rng(gen)) * CW[end]
     idx = _weight_cdf_idx(CW, r)
     return idx
@@ -244,6 +237,9 @@ function _rand_subsample_idxs(gen::GenContext, dsm::DensitySampleMeasure, n::Int
     iszero(n) && return Int[]
     CW = dsm._cumulative_weight
     isempty(CW) && throw(ArgumentError("Can't draw from an empty DensitySampleMeasure"))
+    iszero(CW[end]) && throw(ArgumentError(
+        "Can't draw from a zero-weight DensitySampleMeasure"
+    ))
     # Always generate R on CPU for now:
     R = rand(get_rng(gen), n) .* CW[end]
     idxs = _weight_cdf_idx.(Ref(CW), R)
@@ -302,7 +298,7 @@ end
 # order-preserving systematic resampling, which keeps its ids:
 function _without_sampleids(dsm::DensitySampleMeasure)
     s = samplesof(dsm)
-    new_s = DensitySampleVector((s.v, s.logd, s.weight, fill(nothing, length(eachindex(s))), s.aux))
+    new_s = DensitySampleVector((s.v, s.logd, s.weight, fill(nothing, length(s)), s.aux))
     return DensitySampleMeasure(new_s, dsm._cumulative_weight, dsm._dof, dsm._ess, dsm._mass)
 end
 

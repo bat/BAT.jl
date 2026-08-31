@@ -188,24 +188,6 @@ using StableRNGs: StableRNG
         @test @inferred(resultshape(f_transform, elshape(smpls.v))) == varshape(f_transform.target_dist)
     end
 
-    # @testset "transform composition" begin
-    #     dist1 = @inferred(NamedTupleDist(a = Normal(), b = Uniform(), c = Cauchy()))
-    #     dist2 = @inferred(NamedTupleDist(a = Exponential(), b = Weibull(), c = Beta()))
-    #     normal1 = Normal()
-    #     normal2 = Normal(2)
-    # 
-    #     f_transform = @inferred(BAT.DistributionTransform(dist1, dist2))
-    #     inv_trafo = @inferred(inverse(f_transform))
-    # 
-    #     composed_trafo = @inferred(∘(f_transform, inv_trafo))
-    #     @test composed_trafo.source_dist == composed_trafo.target_dist == dist1
-    #     @test composed_trafo ∘ f_transform == f_transform
-    #     @test_throws ArgumentError  f_transform ∘ composed_trafo
-    # 
-    #     f_transform = @inferred(BAT.DistributionTransform(normal1, normal2))
-    #     @test_throws ArgumentError f_transform ∘ f_transform
-    # end
-
     @testset "full density transform" begin
         likelihood = logfuncdensity(logdensityof(NamedTupleDist(a = Normal(), b = Exponential())))
         prior = NamedTupleDist(a = Normal(), b = Gamma())

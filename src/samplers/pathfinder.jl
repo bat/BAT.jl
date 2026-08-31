@@ -145,6 +145,7 @@ function _lbfgs_inverse_hessians(
     α = fill!(similar(θ), true)
     Hs = [_lbfgs_inverse_hessian(α, S, Y, history_ind, history_length_effective)]
 
+    # Each Hessian depends on prior history.
     for l in 1:L
         θlp1, ∇logpθlp1 = θs[l + 1], ∇logpθs[l + 1]
         s .= θlp1 .- θ
@@ -294,6 +295,7 @@ function pathfinder_gaussian_fit(
     best_elbo = T(-Inf)
     best = nothing
 
+    # Each Hessian depends on prior history.
     for l in 1:L
         s .= xs[l + 1] .- xs[l]
         y .= grads[l] .- grads[l + 1]

@@ -53,6 +53,7 @@ function init_adaptive_transform(
     # target itself is not pulled back, so target-moment-based
     # initializations are only exact for the outermost component:
     vs = v_init
+    # Each transform depends on the prior result.
     for j in n:-1:1
         f_j = init_adaptive_transform(fs[j], target, vs, context)
         initialized_trafos[j] = f_j
@@ -252,12 +253,8 @@ diagonal geometry is insufficient. Tuning selects those directions by an
 eigenvalue cutoff (see [`FisherTransformTuning`](@ref)), which
 regularizes the geometry estimate compared to a full triangular matrix.
 
-Applying the transformation costs O(rank * n_dims). For a dynamic Fisher fit
-block with `m` position/score observations, the joint basis has at most `2m`
-columns (and rank at most `min(n_dims, 2m)`). Fitting costs
-`O(n_dims * m^2)` for thin-QR and projected products plus `O(m^3)` for
-small-matrix work. Initialization from an approximate covariance is a
-separate dense decomposition governed by `max_rank`.
+Applying the transformation costs `O(rank * n_dims)`. Dynamic fitting uses a
+thin basis. Initialization may use a dense decomposition governed by `max_rank`.
 
 Dynamic Fisher tuning can make at most one rank-one correction attempt when
 `cutoff >= 1.5`, the dimension is at most 32, and a tuning cycle has enough

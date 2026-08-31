@@ -85,9 +85,7 @@ mcmc_step_provides_grads(::MALAProposalState) = true
 function _selected_z_grads(proposal::MALAProposalState, accepted::AbstractVector{Bool})
     c = proposal.grad_cache
     length(c.grads_curr) == length(accepted) == length(c.grads_prop) || return nothing
-    for i in eachindex(accepted)
-        accepted[i] && (c.grads_curr[i] = c.grads_prop[i])
-    end
+    c.grads_curr .= ifelse.(accepted, c.grads_prop, c.grads_curr)
     empty!(c.grads_prop)
     return c.grads_curr
 end

@@ -113,8 +113,7 @@ function mcmc_init!(
                 # Bring the z-side representation back in sync with the
                 # rerolled x positions:
                 mcmc_states[i] = mcmc_update_z_position!!(mcmc_states[i])
-                cs = mcmc_states[i].chain_state
-                _invalidate_mala_cache!!(cs.proposal)
+                _invalidate_mala_cache!!(mcmc_states[i].chain_state.proposal)
             end
         end
 

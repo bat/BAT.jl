@@ -214,8 +214,8 @@ function _create_proposal_state(
 ) where {P<:Real, PV<:AbstractVector{P}}
 
     nproposals = length(multi_proposal.proposals)
-    1 <= nproposals <= _MCMC_PROPOSALS_PER_PURPOSE || throw(ArgumentError(
-        "MCMCMultiProposal supports between 1 and $_MCMC_PROPOSALS_PER_PURPOSE proposals, got $nproposals",
+    nproposals <= _MCMC_PROPOSALS_PER_PURPOSE || throw(ArgumentError(
+        "MCMCMultiProposal supports at most $_MCMC_PROPOSALS_PER_PURPOSE proposals, got $nproposals",
     ))
 
     proposal_states_init = Vector{MCMCProposalState}()
@@ -240,7 +240,7 @@ function _create_proposal_state(
 end
 
 _copy_picking_rule(picking_rule::AbstractVector) = copy(picking_rule)
-_copy_picking_rule(picking_rule::Categorical) = Categorical(picking_rule.p)
+_copy_picking_rule(picking_rule::Categorical) = Categorical(copy(picking_rule.p))
 
 function _init_active_idx(rng::AbstractRNG, picking_rule::Distribution)
     return rand(rng, picking_rule)

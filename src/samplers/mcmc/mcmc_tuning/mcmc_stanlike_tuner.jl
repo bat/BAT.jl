@@ -106,11 +106,13 @@ function mcmc_tune_trafo_post_step!!(
         # when tuning runs, and Stan-style covariance estimation weights
         # every kept state equally:
         accepted = chain_state.accepted
-        for j in step_info.walker_order
-            v = accepted[j] ? proposed.x.v[j] : current.x.v[j]
-            logd = accepted[j] ? proposed.x.logd[j] : current.x.logd[j]
-            push!(tuner.stats, DensitySample(v, logd, 1, nothing, nothing))
-        end
+        idxs = step_info.walker_order
+        v = ifelse.(accepted[idxs], proposed.x.v[idxs], current.x.v[idxs])
+        logd = ifelse.(accepted[idxs], proposed.x.logd[idxs], current.x.logd[idxs])
+        foreach(
+            sample -> push!(tuner.stats, sample),
+            DensitySample.(v, logd, 1, nothing, nothing),
+        )
     end
 
     f_transform_new = f_transform

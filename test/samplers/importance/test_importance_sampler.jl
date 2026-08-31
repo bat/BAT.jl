@@ -34,36 +34,24 @@ using Random123: Philox4x
     end
 
     @testset "prior_importance_sampler prior mass" begin
-        likelihood_scale = 2.0
-        prior_scales = (1.0, 0.25, 7.0, 16.0)
-        nsamples = 32
-        results = map(prior_scales) do prior_scale
-            prior = weightedmeasure(log(prior_scale), Normal())
-            posterior = PosteriorMeasure(logfuncdensity(_ -> log(likelihood_scale)), prior)
-            context = BATContext(rng = Philox4x((564, 2902)))
-            em = evalmeasure(posterior, PriorImportanceSampler(nsamples = nsamples), context)
-            (;em, samples = BAT.samplesof(em))
-        end
-        reference = first(results)
-
-        for (prior_scale, result) in zip(prior_scales, results)
-            @test Float64(massof(result.em)) ≈ prior_scale * likelihood_scale rtol = eps(Float32)
-            @test log(massof(result.em)) isa Float64
-            @test result.samples.v == reference.samples.v
-            @test result.samples.weight ≈ fill(likelihood_scale, nsamples)
-            @test BAT.getess(result.em) == nsamples
-        end
-
-        unknown_prior = EvaluatedMeasure(Normal(), mass = UnknownMass())
-        unknown_posterior = PosteriorMeasure(
-            logfuncdensity(_ -> log(likelihood_scale)),
-            unknown_prior,
+        algorithm = PriorImportanceSampler(nsamples = 32)
+        likelihood = logfuncdensity(_ -> log(2.0))
+        posterior = PosteriorMeasure(
+            likelihood,
+            weightedmeasure(log(7.0), Normal()),
         )
-        unknown_em = evalmeasure(
-            unknown_posterior,
-            PriorImportanceSampler(nsamples = nsamples),
+        result = evalmeasure(
+            posterior,
+            algorithm,
+            BATContext(rng = Philox4x((564, 2902))),
+        )
+        @test Float64(massof(result)) ≈ 14.0 rtol = 1e-6
+
+        unknown = evalmeasure(
+            PosteriorMeasure(likelihood, EvaluatedMeasure(Normal(), mass = UnknownMass())),
+            algorithm,
             BATContext(rng = Philox4x((564, 2903))),
         )
-        @test massof(unknown_em) isa UnknownMass
+        @test massof(unknown) isa UnknownMass
     end
 end

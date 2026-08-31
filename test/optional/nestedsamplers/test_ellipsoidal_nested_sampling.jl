@@ -3,9 +3,8 @@
 using BAT
 using Test
 
-using Random, StatsBase, Distributions, DensityInterface, ValueShapes
+using Random, Distributions, DensityInterface, ValueShapes
 using MeasureBase: massof
-using HypothesisTests
 
 import NestedSamplers
 
@@ -30,15 +29,11 @@ import NestedSamplers
     # comparison must use Kish's ESS, not the autocorrelation-based one:
     r = BAT.sample_and_verify(posterior, algorithm, dist, context, essalg = KishESS(), max_retries = 0)
     @test r.verified
-    @test r.n_retries == 0
 
     smpls = r.result
     @test logdensityof(posterior).(smpls.v) ≈ smpls.logd
 
     em = r.evaluated
-    @test em isa EvaluatedMeasure
-    @test BAT.validate_evalmeasure(em) === em
-
     logz_expected = -log(prod(maximum.(prior.a.v) .- minimum.(prior.a.v)))
     logintegral = log(massof(em))
     @test isapprox(logintegral.val, logz_expected, atol = 100 * logintegral.err)

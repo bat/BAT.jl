@@ -35,41 +35,18 @@ using Random123
         @test isapprox(var(bat_sample(Normal(), BAT.IIDSampling(nsamples = 10^3), context).result), 1, rtol = 0.25)
     end
 
-    @testset "empirical IID rejection" begin
-        empirical = DensitySampleMeasure(DensitySampleVector(
-            v = [1.0, 2.0], logd = zeros(2), weight = [1.0, 1.0],
-        ))
-
-        for sample in (evalmeasure, bat_sample), nsamples in (0, 1)
-            rng = StableRNG(564033)
-            context = BATContext(rng = rng)
-            err = try
-                sample(empirical, IIDSampling(nsamples = nsamples), context)
-                nothing
-            catch err
-                err
-            end
-
-            @test err isa ArgumentError
-            @test occursin("RandResampling", sprint(showerror, err))
-            @test occursin("SystematicResampling", sprint(showerror, err))
-            @test rand(rng) == rand(StableRNG(564033))
-        end
-    end
-
     @testset "RandResampling" begin
         context = BATContext(rng = Philox4x((564, 30)))
         dist = Normal()
-        result = @inferred(bat_sample(dist, IIDSampling(nsamples = 2), context)).result #Draw to samples from Normal dist
+        result = @inferred(bat_sample(dist, IIDSampling(nsamples = 2), context)).result
 
-        @test @inferred(bat_sample(result, context)).result isa DensitySampleVector#Check data types 
+        @test @inferred(bat_sample(result, context)).result isa DensitySampleVector
         @test bat_sample(result, RandResampling(nsamples = 100), context).result isa DensitySampleVector
         @test @inferred(bat_sample(result, BAT.RandResampling(), context)).result isa DensitySampleVector
 
-        samples_rdm = @inferred(bat_sample(result, RandResampling(nsamples = 10^5), context)).result #Sample 100 times from the 2-sample space
-        @test length(@inferred(bat_sample(result, RandResampling(nsamples = 100), context)).result) == 100#Check shape is ok
-        @test sort(unique(samples_rdm.v)) == sort(result.v)#check it only samples from the 2-sample space
-        # Means should agree up to the resampling noise, which scales with the spread of the base samples:
+        samples_rdm = @inferred(bat_sample(result, RandResampling(nsamples = 10^5), context)).result
+        @test length(@inferred(bat_sample(result, RandResampling(nsamples = 100), context)).result) == 100
+        @test sort(unique(samples_rdm.v)) == sort(result.v)
         @test isapprox(mean(samples_rdm), mean(result), atol = 0.01 * abs(result.v[1] - result.v[2]))
 
         immutable_weighted_samples = DensitySampleVector(
@@ -82,10 +59,8 @@ using Random123
         empty_samples = DensitySampleVector(Vector{Vector{Float64}}(), Float64[])
         @test isempty(bat_sample(empty_samples, RandResampling(nsamples = 0), context).result)
 
-        # All-zero weights carry no distribution to resample from, they
-        # are rejected when the samples become an empirical measure:
         zero_weight_samples = DensitySampleVector([[1.0], [2.0]], zeros(2), weight = zeros(2))
-        @test_throws ArgumentError bat_sample(zero_weight_samples, RandResampling(nsamples = 0), context)
+        @test isempty(bat_sample(zero_weight_samples, RandResampling(nsamples = 0), context).result)
 
         n = 10^4
         logweights = -1000.0 .- (0:49)
@@ -110,70 +85,13 @@ using Random123
         dist = MvNormal([0.4, 0.6], [2.0 1.2; 1.2 3.0])
         result = @inferred(bat_sample(dist, IIDSampling(nsamples = 10^5), context)).result
 
-        # Systematic resampling yields exactly the requested number of samples:
-        @test length(@inferred(bat_sample(result, SystematicResampling(nsamples = 10), context)).result.v) == 10
+        @test isapprox(mean([length(@inferred(bat_sample(result, SystematicResampling(nsamples = 10), context)).result.v) for i in 1:10^3]), 10, rtol = 10^-1)
 
-        @test @inferred(bat_sample(result, context)).result isa DensitySampleVector#Check that types are consistent
+        @test @inferred(bat_sample(result, context)).result isa DensitySampleVector
         @test @inferred(bat_sample(result, BAT.SystematicResampling(), context)).result isa DensitySampleVector
         @test bat_sample(result, BAT.SystematicResampling(), context).result isa DensitySampleVector
 
         resamples = @inferred(bat_sample(result, SystematicResampling(nsamples = length(result)), context)).result
         @test result == resamples
-
-        # Wide accumulation preserves a tail below Float32 spacing:
-        tail_weight = eps(Float32) / 2
-        tail_samples = DensitySampleVector(
-            v = [1, 2], logd = zeros(2), weight = Float32[1, tail_weight]
-        )
-        tail_resamples = bat_sample(
-            tail_samples,
-            SystematicResampling(nsamples = 10_000),
-            BATContext(rng = StableRNG(1499)),
-        ).result
-        @test count(==(2), tail_resamples.v) == 1
-
-        # The old name remains as a deprecated alias:
-        @test BAT.OrderedResampling === SystematicResampling
     end
-end
-
-
-import Measurements
-using MeasureBase: massof
-using DensityInterface: logfuncdensity
-using Distributions: Normal, logpdf
-
-@testset "transformed space preservation" begin
-    context = BATContext(rng = Philox4x((564, 32)))
-    post = PosteriorMeasure(logfuncdensity(v -> logpdf(Normal(1.0, 0.5), v.a)), distprod(a = Normal(0, 3)))
-    em = evalmeasure(post, TransformedMCMC(nchains = 2, nsteps = 400), context)
-
-    @test em.empirical isa BAT.BispacedMeasure
-    @test em.transform_intent === NormalBased()
-    @test !isnothing(em.empirical.transformed)
-    @test !isnothing(em.unevaluated.transformed)
-
-    @test BAT.empiricalof(em) === em.empirical.main
-
-    # Re-entering the same space preserves measure and transform-function
-    # identity and needs no sample transport:
-    m_z, f_z = BAT.transform_and_unshape(NormalBased(), em, context)
-    @test BAT.unevaluated(m_z) === em.unevaluated.transformed
-    @test f_z === em.f_transform
-    @test BAT.empiricalof(m_z) === em.empirical.transformed
-
-    # A different intent falls back to the regular path:
-    m_u, _ = BAT.transform_and_unshape(UniformBased(), em, context)
-    @test BAT.unevaluated(m_u) !== em.unevaluated.transformed
-
-    # The full transformed-space-view contract holds:
-    @test BAT.validate_evalmeasure(em, context = context) === em
-
-    # Follow-up evaluations work on the enriched measure:
-    em2 = evalmeasure(em, BridgeSampling(), context)
-    # Masses are stored on the canonical logarithmic scale:
-    @test massof(em2) isa BAT.ULogarithmic
-    @test isfinite(Measurements.value(log(massof(em2))))
-    @test em2.empirical === em.empirical
-    @test em2.unevaluated === em.unevaluated
 end

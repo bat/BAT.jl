@@ -654,6 +654,7 @@ function _lowrank_validation_stats(delta::AbstractMatrix)
     walker_means = vec(mean(delta, dims = 2))
     gamma0 = zeros(T, n_walkers)
     sigma2_lr = zeros(T, n_walkers)
+    # Each FFT needs one row view.
     for walker in axes(delta, 1)
         trace = view(delta, walker, :)
         centered = trace .- walker_means[walker]
@@ -857,6 +858,7 @@ function mcmc_tune_trafo_post_step!!(
         _lowrank_validation_factors(est, campaign) : (nothing, nothing, nothing)
     baseline_A, candidate_A, candidate_diag_A = validation_factors
 
+    # Estimator updates require walker order.
     for (walker_pos, i) in enumerate(step_info.walker_order)
         # Score transport into the fixed pre-adaptive space: for x = A z + μ
         # the pulled-back gradient is β = Aᵀ α, so α = A⁻ᵀ β:

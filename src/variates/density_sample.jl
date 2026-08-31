@@ -185,10 +185,6 @@ _canonical_variates(xs::AbstractVector{<:Real}) = xs
 function _raw_namedtuple_variates_error()
     throw(ArgumentError("Raw NamedTuple variates require an explicit shape; construct a ShapedAsNTArray with a NamedTupleShape before passing them to DensitySampleVector."))
 end
-_preflight_variates(::AbstractVector) = nothing
-_preflight_variates(::AbstractVector{<:NamedTuple}) = _raw_namedtuple_variates_error()
-_preflight_variates(::StructVector{<:NamedTuple}) = _raw_namedtuple_variates_error()
-_preflight_variates(::ShapedAsNTArray) = nothing
 _canonical_variates(::AbstractVector{<:NamedTuple}) = _raw_namedtuple_variates_error()
 _canonical_variates(::StructVector{<:NamedTuple}) = _raw_namedtuple_variates_error()
 _canonical_variates(xs::StructVector) = xs
@@ -204,9 +200,9 @@ function DensitySampleVector(;
     aux::AbstractVector = fill(nothing, length(eachindex(v)))
 )
     if weight == :multiplicity
-        _preflight_variates(v)
+        v = _canonical_variates(v)
         idxs, weight = repetition_to_weights(v)
-        return DensitySampleVector((_canonical_variates(v[idxs]), logd[idxs], weight, info[idxs], aux[idxs]))
+        return DensitySampleVector((v[idxs], logd[idxs], weight, info[idxs], aux[idxs]))
     else
         return DensitySampleVector((_canonical_variates(v), logd, weight, info, aux))
     end
@@ -376,6 +372,7 @@ function _weighted_empirical_quantile(v::AbstractVector, w::AbstractVector, p::R
     T = _weight_accum_type(w)
     target_weight = p * sum(T, w)
     cumulative_weight = zero(T)
+    # Stop when cumulative weight reaches target.
     for i in order
         cumulative_weight += w[i]
         cumulative_weight >= target_weight && return v[i]
@@ -458,28 +455,20 @@ function drop_low_weight_samples(samples::DensitySampleVector, fraction::Real = 
 end
 
 
-# Canonical relative weights for probability-weight arithmetic:
-# validated (finite and non-negative, with at least one strictly positive
-# entry if nonempty) and divided by the maximum weight. Log-scale weight
-# types normalize in their original arithmetic before conversion to
-# plain floats. The result is a plain-float vector with
-# maximum one, so cumulative sums, weight-sum ratios and effective counts
-# computed from it can neither overflow nor wrap around, and are
-# invariant under a global positive rescaling of the input:
+# Return validated weights scaled by their maximum. Log weights normalize
+# before conversion. The result is finite and invariant to positive scaling.
 function _canonical_rel_weights(W::AbstractVector{<:Real})
     all(w -> isfinite(w) && w >= zero(w), W) || throw(ArgumentError("Sample weights must be finite and non-negative"))
     T = promote_type(Float32, float(eltype(W)))
     isempty(W) && return T.(W)
     max_w = maximum(W)
     max_w > zero(max_w) || throw(ArgumentError("Sample weights must contain at least one strictly positive entry"))
-    if max_w isa AbstractFloat
-        return T.(W) ./ T(max_w)
-    elseif max_w isa ULogarithmic
-        return exp.(T.(log.(W ./ max_w)))
-    else
-        return T.(W ./ max_w)
-    end
+    return _normalize_rel_weights(W, max_w, T)
 end
+
+_normalize_rel_weights(W, max_w::AbstractFloat, ::Type{T}) where {T} = T.(W) ./ T(max_w)
+_normalize_rel_weights(W, max_w::ULogarithmic, ::Type{T}) where {T} = exp.(T.(log.(W ./ max_w)))
+_normalize_rel_weights(W, max_w, ::Type{T}) where {T} = T.(W ./ max_w)
 
 _weight_accum_type(W::AbstractVector{<:Real}) = promote_type(Float64, eltype(W))
 

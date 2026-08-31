@@ -618,6 +618,7 @@ function validate_evalmeasure(em::EvaluatedMeasure; context = get_batcontext())
     p_emp = _empirical_rep(em)
     if !isnothing(p_emp) && !(unevaluated(em) isa DensitySampleMeasure)
         smpls = samplesof(p_emp.main)
+        # Stop at the first invalid sample.
         for i in _em_spotcheck_idxs(smpls)
             logd_ref = _try_logdensityof(unevaluated(em), smpls.v[i])
             if !ismissing(logd_ref) && !isnan(smpls.logd[i])
@@ -641,6 +642,7 @@ function validate_evalmeasure(em::EvaluatedMeasure; context = get_batcontext())
         # application, function objects can't be compared reliably:
         f = em.f_transform
         if !isnothing(f)
+            # Stop at the first invalid point.
             for v in test_vs
                 isapprox(f(v), f_fresh(v), rtol = rtol, atol = atol) || throw(ArgumentError("Cached f_transform of EvaluatedMeasure disagrees with the transformation re-derived from its transform intent and measure"))
             end
@@ -649,6 +651,7 @@ function validate_evalmeasure(em::EvaluatedMeasure; context = get_batcontext())
         cached_m_z = em.unevaluated.transformed
         if !isnothing(cached_m_z)
             getdof(cached_m_z) == getdof(m_z_fresh_uneval) || throw(ArgumentError("Transformed-space measure cache of EvaluatedMeasure has wrong degrees of freedom"))
+            # Stop at the first invalid point.
             for v in test_vs
                 z = f_fresh(v)
                 isapprox(logdensityof(cached_m_z, z), logdensityof(m_z_fresh_uneval, z), rtol = rtol, atol = atol) || throw(ArgumentError("Transformed-space measure cache of EvaluatedMeasure disagrees with the measure re-derived from its transform intent and measure"))
@@ -658,12 +661,14 @@ function validate_evalmeasure(em::EvaluatedMeasure; context = get_batcontext())
         p = em.empirical
         if _has_pair_annex(p)
             smpls_main, smpls_z = samplesof(p.main), samplesof(p.transformed)
+            # Stop at the first invalid sample.
             for i in eachindex(smpls_main.v, smpls_z.v)
                 isapprox(f_fresh(smpls_main.v[i]), smpls_z.v[i], rtol = rtol, atol = atol) || throw(ArgumentError("The sides of the empirical pair of an EvaluatedMeasure are not related by the transformation of its view (sample $i)"))
             end
             smpls_main.weight == smpls_z.weight || throw(ArgumentError("The sides of the empirical pair of an EvaluatedMeasure differ in sample weights"))
             # The transformed-side sample log-densities must be the
             # log-densities of the transformed measure:
+            # Stop at the first invalid sample.
             for i in _em_spotcheck_idxs(smpls_z)
                 logd_ref = _try_logdensityof(m_z_fresh_uneval, smpls_z.v[i])
                 if !ismissing(logd_ref) && !isnan(smpls_z.logd[i])
@@ -677,6 +682,7 @@ function validate_evalmeasure(em::EvaluatedMeasure; context = get_batcontext())
             # The transformed side of the approximation pair must be the
             # pushforward of its main side under the view's transformation:
             approx_z_fresh = unevaluated(bat_transform(f_fresh, batmeasure(pa.main), context).result)
+            # Stop at the first invalid point.
             for v in test_vs
                 z = f_fresh(v)
                 logd_pair = _try_logdensityof(pa.transformed, z)

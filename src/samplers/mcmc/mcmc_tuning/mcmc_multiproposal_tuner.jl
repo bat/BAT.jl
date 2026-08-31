@@ -25,6 +25,7 @@ function _validate_mcmc_proposal_tuning_configuration(
     multi_proposal::MCMCMultiProposal,
     tuning::NoMCMCProposalTuning,
 )
+    # Stop at the first invalid proposal.
     for proposal in multi_proposal.proposals
         proposal isa HamiltonianMC &&
             _unsupported_mcmc_component_tuning(proposal, tuning)
@@ -46,6 +47,7 @@ function _validate_mcmc_proposal_tuning_configuration(
     n_tunings == n_proposals || throw(ArgumentError(
         "MultiProposalTuning has $n_tunings component tunings but MCMCMultiProposal has $n_proposals component proposals",
     ))
+    # Stop at the first invalid pair.
     for (proposal, component_tuning) in zip(
         multi_proposal.proposals, tuning.proposal_tunings,
     )

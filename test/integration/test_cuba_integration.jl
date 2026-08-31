@@ -10,7 +10,6 @@ using Distributions, ValueShapes
 
 @testset "cuba_integration" begin
     function test_integration(target, algorithm::BAT.CubaIntegration)
-        # Masses/integrals are reported on the canonical logarithmic scale:
         r = bat_integrate(target, algorithm).result
         val_expected = 1
         @test isapprox(Measurements.value(log(r)), log(val_expected), atol = 20 * algorithm.rtol)
@@ -30,17 +29,12 @@ using Distributions, ValueShapes
         b = truncated(Normal(), 1, 3),
     )
 
-    # ToDo: Use more compex test targets:
-
+    # ToDo: Use more complex test targets:
     test_integration(mvprior, VEGASIntegration(nthreads=2))
     test_integration(mvprior, VEGASIntegration())
-
     test_integration(mvprior, SuaveIntegration(rtol = 1e-3))
-
     test_integration(mvprior_simple, DivonneIntegration(rtol = 1e-3))
-
     test_integration(mvprior, CuhreIntegration(rtol = 1e-3))
-    
-    @test_throws ErrorException test_integration(mvprior, CuhreIntegration(maxevals=4))
     test_integration(mvprior, CuhreIntegration(maxevals=4, strict=false))
+    @test_throws ErrorException test_integration(mvprior, CuhreIntegration(maxevals=4))
 end

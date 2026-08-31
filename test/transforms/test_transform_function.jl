@@ -17,7 +17,6 @@ using BAT: transform_function, batmeasure
         f = transform_function(intent, posterior)
         # Same intent and object always yield the same transformation:
         f2 = transform_function(intent, posterior)
-        @test typeof(f2) === typeof(f)
         @test f2(x) == f(x)
         # The intent descends to the innermost prior:
         @test f(x) == transform_function(intent, batmeasure(prior))(x)

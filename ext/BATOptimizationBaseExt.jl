@@ -92,7 +92,7 @@ end
 function _recorded_trace(recorder::_TraceRecorder)
     base = (v = recorder.v, logd = -recorder.negld)
     if !isempty(recorder.neggrad) && all(!isnothing, recorder.neggrad)
-        return (; base..., grad_logd = [-g for g in recorder.neggrad])
+        return (; base..., grad_logd = .-recorder.neggrad)
     else
         return base
     end

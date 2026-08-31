@@ -180,6 +180,7 @@ function _hmc_init_stepsize(
     rng::AbstractRNG, fg::Function, zs::AbstractVector{<:AbstractVector{<:Real}}, fallback::Real
 )
     stepsize_min = oftype(float(fallback), Inf)
+    # RNG and fallback require ordered probes.
     for i in eachindex(zs)
         stepsize = try
             hmc_find_good_stepsize(rng, fg, zs[i])
@@ -198,8 +199,7 @@ function _hmc_init_stepsize(
 end
 
 function mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalState,
-    step_rngpart::RNGPartition, proposal_idx::Integer,
-    walker_order::AbstractVector{<:Integer})
+    step_rngpart::RNGPartition, proposal_idx::Integer)
     (; f_transform, current, proposed) = chain_state
     n_walkers = nwalkers(chain_state)
     fg = proposal.target_logdgrad
@@ -215,6 +215,7 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalState,
         step_rngpart, _MCMC_PROPOSAL_TRANSITION_PURPOSE, proposal_idx,
     )
 
+    # Each walker advances its own RNG.
     for i in 1:n_walkers
         rng = get_rng(chain_state.walker_genctxs[i])
         set_rng!(rng, walker_rngpart, current.x.info[i].walkerid)
@@ -238,7 +239,7 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalState,
     diag.n_divergent += count(divergent)
     diag.n_maxdepth += count(>=(max_depth), tree_depth)
     diag.n_leapfrog += sum(n_leapfrog)
-    diag.sum_p_accept += _ordered_walker_sum(p_accept, walker_order)
+    diag.sum_p_accept += _ordered_walker_sum(p_accept, chain_state.walker_order)
 
     chain_state.accepted .= proposed.z.v .!= current.z.v
 
@@ -249,7 +250,7 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalState,
     proposed.x.logd .= proposed.z.logd .- ladj
 
     return chain_state, proposal, MCMCStepInfo(
-        p_accept, z_grads, divergent, tree_depth, n_leapfrog, walker_order,
+        p_accept, z_grads, divergent, tree_depth, n_leapfrog, chain_state.walker_order,
     )
 end
 

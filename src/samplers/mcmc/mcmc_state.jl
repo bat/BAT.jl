@@ -231,9 +231,8 @@ function mcmc_step!!(mcmc_state::MCMCState)
     )
 
     proposal_idx = get_active_proposal_idx(chain_state.proposal)
-    walker_order = _logical_walker_order(chain_state)
     chain_state, active_proposal_new, step_info = mcmc_propose!!(
-        chain_state, active_proposal, step_rngpart, proposal_idx, walker_order)
+        chain_state, active_proposal, step_rngpart, proposal_idx)
 
     chain_state.proposal = update_active_proposal!!(chain_state.proposal, active_proposal_new)
 
@@ -318,8 +317,7 @@ end
 
 
 function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP,
-    step_rngpart::RNGPartition, proposal_idx::Integer,
-    walker_order::AbstractVector{<:Integer}) where {SMP<:SimpleMCMCProposalState}
+    step_rngpart::RNGPartition, proposal_idx::Integer) where {SMP<:SimpleMCMCProposalState}
     (; target, f_transform, current) = chain_state
 
     current_z = current.z.v
@@ -329,8 +327,8 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP,
     proposal_rngpart = _mcmc_walker_rngpart(
         step_rngpart, _MCMC_PROPOSAL_TRANSITION_PURPOSE, proposal_idx)
     genctxs = chain_state.walker_genctxs
-    for i in eachindex(genctxs, walker_info)
-        set_rng!(get_rng(genctxs[i]), proposal_rngpart, walker_info[i].walkerid)
+    foreach(genctxs, walker_info) do genctx, info
+        set_rng!(get_rng(genctx), proposal_rngpart, info.walkerid)
     end
 
     # TODO: MD; Make this function ! because it alters genctx?
@@ -360,7 +358,8 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP,
     chain_state.accepted .= accepted
 
     step_info = MCMCStepInfo(
-        p_accept, _selected_z_grads(proposal, accepted), nothing, nothing, nothing, walker_order,
+        p_accept, _selected_z_grads(proposal, accepted), nothing, nothing, nothing,
+        chain_state.walker_order,
     )
     return chain_state, proposal, step_info
 end
@@ -391,6 +390,7 @@ _logical_walker_order(chain_state::MCMCChainState) = chain_state.walker_order
 
 function _ordered_walker_sum(values, walker_order)
     result = zero(eltype(values))
+    # Fixed order preserves reproducible sums.
     @inbounds for i in walker_order
         result += values[i]
     end
@@ -400,6 +400,7 @@ end
 function _ordered_walker_sum_and_sqsum(values, walker_order)
     value_sum = zero(eltype(values))
     value_sqsum = zero(eltype(values))
+    # Fixed order preserves reproducible sums.
     @inbounds for i in walker_order
         value = values[i]
         value_sum += value

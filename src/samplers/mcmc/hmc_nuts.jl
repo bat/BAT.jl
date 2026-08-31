@@ -232,6 +232,7 @@ function hmc_find_good_stepsize(
     ratio_too_high = _ratio_high(log_accept_ratio(stepsize), log_a_cross)
     stepsize_lo = stepsize_hi = stepsize
     bracketed = false
+    # Each probe updates the search bracket.
     for _ in 1:max_niters
         stepsize_new = ratio_too_high ? 2 * stepsize : stepsize / 2
         stepsize_min <= stepsize_new <= stepsize_max || throw(ErrorException("HMC step size search left the numerically sane range, the target density geometry may be degenerate"))
@@ -246,6 +247,7 @@ function hmc_find_good_stepsize(
     bracketed || throw(ErrorException("HMC step size search did not bracket a reasonable step size within $max_niters doublings/halvings"))
 
     # Bisect until the acceptance ratio lies in [1/4, 3/4]:
+    # Each probe updates the search bracket.
     for _ in 1:max_niters
         stepsize_mid = (stepsize_lo + stepsize_hi) / 2
         la = log_accept_ratio(stepsize_mid)

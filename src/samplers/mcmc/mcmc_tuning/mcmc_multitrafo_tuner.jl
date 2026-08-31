@@ -61,14 +61,13 @@ function create_trafo_tuner_state(
         "FisherTransformTuning is not supported inside transform chains yet"
     ))
 
-    trafo_tuners = Vector{MCMCTransformTunerState}()
-    for i in eachindex(trafo_tunings)
+    trafo_tuners = map(eachindex(trafo_tunings)) do i
         # Component tuners are created against their own component
         # transform, not the whole chain:
         chain_state_i = @set chain_state.f_transform = components[i]
-        push!(trafo_tuners, create_trafo_tuner_state(
+        create_trafo_tuner_state(
             trafo_tunings[i], chain_state_i, n_steps_hint, adaptive_transform.f[i]
-        ))
+        )
     end
 
     return MultiTrafoTunerState(trafo_tuners, false)
@@ -111,6 +110,7 @@ function mcmc_trafo_tuning_postinit!!(
     inv_intermediate_results = trafo_samples_with_interm_results(inverse(chain_state.f_transform), samples)
     trafo_tuners = multi_tuner_state.trafo_tuners
     n = length(trafo_tuners)
+    # Components use distinct intermediate samples.
     for j in eachindex(trafo_tuners)
         samples_j = inv_intermediate_results[n + 1 - j]
         mcmc_trafo_tuning_postinit!!(trafo_tuners[j], chain_state, samples_j)
@@ -140,6 +140,7 @@ function mcmc_tune_trafo_post_cycle!!(
 
     changed = false
     restart = false
+    # Each update threads chain state.
     for j in eachindex(components_new)
         samples_j = inv_intermediate_results[n + 1 - j]
         f_j_new, trafo_tuners[j], chain_state = mcmc_tune_trafo_post_cycle!!(
@@ -172,6 +173,7 @@ function mcmc_trafo_tuning_finalize!!(
     trafo_tuners = multi_tuner_state.trafo_tuners
 
     changed = false
+    # Each update threads chain state.
     for j in eachindex(components_new)
         f_j_new, trafo_tuners[j], chain_state = mcmc_trafo_tuning_finalize!!(
             components_new[j], trafo_tuners[j], chain_state
@@ -204,6 +206,7 @@ function mcmc_tune_trafo_post_step!!(
 
     changed = false
     restart = false
+    # Each update threads chain state.
     for j in eachindex(components_new)
         current_j, proposed_j = intermediate_results[j]
         f_j_new, trafo_tuners[j], chain_state = mcmc_tune_trafo_post_step!!(

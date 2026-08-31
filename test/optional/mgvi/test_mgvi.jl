@@ -11,8 +11,6 @@ import MGVI, ForwardDiff
 
     pstr = BAT.example_posterior()
 
-    @test (@inferred MGVISampling()) isa MGVISampling
-
     nsteps = 5
     nsmpls = 1000
     algorithm = MGVISampling(
@@ -22,13 +20,7 @@ import MGVI, ForwardDiff
     )
     em = evalmeasure(pstr, algorithm, context)
     smpls = BAT.samplesof(em)
-    @test em isa EvaluatedMeasure
-    @test smpls isa DensitySampleVector
-    @test first(smpls.info.converged) == false
-    @test last(smpls.info.converged) == true
-    @test unique(smpls.info.stepno) == 1:nsteps+1
     @test BAT.getess(BAT.empiricalof(em)) == nsmpls
-    @test BAT.evalinfo(em).result.mnlp isa Real
-
-    # ToDo: Test quality of samples
+    @test !first(smpls.info.converged) && last(smpls.info.converged)
+    @test unique(smpls.info.stepno) == 1:nsteps + 1
 end

@@ -92,17 +92,8 @@ function bridge_sampling_integral(
     current_int = 0.1
     while abs(current_int-prev_int)/current_int > 10^(-15)
         prev_int = current_int
-        numerator = 0
-        for (i, w) in enumerate(u2)
-            numerator += w*(l2[i]/(s1*l2[i]+s2*prev_int))
-        end
-        numerator = numerator/W2_total
-
-        denominator = 0
-        for (i, w) in enumerate(u1)
-            denominator += w/(s1*l1[i]+s2*prev_int)
-        end
-        denominator = denominator/W1_total
+        numerator = sum(@. u2 * l2 / (s1 * l2 + s2 * prev_int)) / W2_total
+        denominator = sum(@. u1 / (s1 * l1 + s2 * prev_int)) / W1_total
 
         current_int = numerator/denominator
         if !isfinite(current_int)
@@ -184,9 +175,11 @@ function bridge_sampling_integral(
     post_cov_pd = PDMat(cholesky(Positive, post_cov))
 
     proposal_measure = batmeasure(MvNormal(post_mean,post_cov_pd))
-    held_out_ess = bat_eff_sample_size_impl(second_batch,KishESS(),context).result
-    n_proposal = clamp(round(Int, held_out_ess),1,length(second_batch))
-    proposal_samples = samplesof(evalmeasure(proposal_measure,IIDSampling(nsamples=n_proposal),context))
+    held_out_ess = bat_eff_sample_size_impl(second_batch, KishESS(), context).result
+    n_proposal = clamp(round(Int, held_out_ess), 1, length(second_batch))
+    proposal_samples = samplesof(evalmeasure(
+        proposal_measure, IIDSampling(nsamples = n_proposal), context,
+    ))
     proposal_measure = batmeasure(proposal_measure)
 
     bridge_sampling_integral(target_measure,second_batch,proposal_measure,proposal_samples,strict,ess_alg,context)
