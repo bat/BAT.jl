@@ -277,7 +277,12 @@ function _de_snooker_candidate!!(
     @. candidate = (current - reference) / direction_norm
     displacement = scale * (dot(candidate, companion_a) - dot(candidate, companion_b))
     @. candidate = current + candidate * displacement
-    return (; reference, direction_norm)
+    proposed_direction_norm = _de_snooker_direction_norm(candidate, reference)
+    if iszero(proposed_direction_norm) || !isfinite(proposed_direction_norm)
+        copyto!(candidate, current)
+        return nothing
+    end
+    return (; reference, direction_norm, proposed_direction_norm)
 end
 
 function _propose_ensemble_candidate!!(
@@ -316,8 +321,7 @@ function _ensemble_log_hastings(
     proposed,
     proposal_aux,
 )
-    proposed_direction_norm = _de_snooker_direction_norm(proposed, proposal_aux.reference)
     return (length(current) - 1) * (
-        log(proposed_direction_norm) - log(proposal_aux.direction_norm)
+        log(proposal_aux.proposed_direction_norm) - log(proposal_aux.direction_norm)
     )
 end

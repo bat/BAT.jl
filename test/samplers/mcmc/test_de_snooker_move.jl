@@ -68,6 +68,48 @@ function _de_snooker_step_rngpart(state)
 end
 
 
+function _evaluate_de_snooker_direction(
+    state,
+    reference_value,
+    companion_a_value,
+    companion_b_value,
+)
+    chain_state = state.chain_state
+    step_rngpart = _de_snooker_step_rngpart(state)
+    complement_groups = ([2], [3], [4])
+    walker_idx = 1
+    walkerid = chain_state.current.x.info[walker_idx].walkerid
+    companion_rngpart = BAT._mcmc_walker_rngpart(
+        step_rngpart, BAT._MCMC_COMPANION_SELECTION_PURPOSE, 1,
+    )
+    rng = BAT.get_rng(chain_state.walker_genctxs[walker_idx])
+    BAT.set_rng!(rng, companion_rngpart, walkerid)
+    reference_idx, companion_a_idx, companion_b_idx =
+        BAT._de_snooker_companion_indices(rng, complement_groups)
+
+    chain_state.current.x.v[walker_idx] .= 1.0
+    chain_state.current.z.v[walker_idx] .= 1.0
+    for (idx, value) in zip(
+        (reference_idx, companion_a_idx, companion_b_idx),
+        (reference_value, companion_a_value, companion_b_value),
+    )
+        chain_state.current.x.v[idx] .= value
+        chain_state.current.z.v[idx] .= value
+    end
+
+    current_before = deepcopy(chain_state.current)
+    p_accept = fill(NaN, 4)
+    acceptance_rngpart = BAT._mcmc_walker_rngpart(
+        step_rngpart, BAT._MCMC_ACCEPTANCE_PURPOSE, 1,
+    )
+    BAT._evaluate_ensemble_walker!!(
+        chain_state, chain_state.proposal, step_rngpart, 1, walker_idx,
+        complement_groups, p_accept, false, acceptance_rngpart,
+    )
+    return (; p_accept, current_before)
+end
+
+
 @testset "DESnookerMove" begin
     @testset "constructor and defaults" begin
         proposal = DESnookerMove()
@@ -185,6 +227,46 @@ end
             @test !chain_state.accepted[1]
             @test chain_state.current == current_before
         end
+    end
+
+    @testset "zero proposed direction skips target evaluation" begin
+        base = batmeasure(MvNormal(zeros(1), ones(1, 1)))
+        calls = Ref(0)
+        target = _CountingDESnookerTarget(base, _ -> 0.0, calls)
+        state = _de_snooker_move_state(
+            [[0.0], [1.0], [2.0], [3.0]];
+            scale = 2.0, target, rng_seed = (572, 34),
+        )
+        calls[] = 0
+        result = _evaluate_de_snooker_direction(state, 0.0, 0.0, 0.5)
+
+        @test calls[] == 0
+        @test result.p_accept[1] == 0.0
+        @test !state.chain_state.accepted[1]
+        @test state.chain_state.current == result.current_before
+        @test state.chain_state.proposed.x[1] == state.chain_state.current.x[1]
+        @test state.chain_state.proposed.z[1] == state.chain_state.current.z[1]
+    end
+
+    @testset "nonfinite proposed direction skips target evaluation" begin
+        base = batmeasure(MvNormal(zeros(1), ones(1, 1)))
+        calls = Ref(0)
+        target = _CountingDESnookerTarget(base, _ -> 0.0, calls)
+        state = _de_snooker_move_state(
+            [[0.0], [1.0], [2.0], [3.0]];
+            scale = 2.0, target, rng_seed = (572, 35),
+        )
+        calls[] = 0
+        result = _evaluate_de_snooker_direction(
+            state, 0.0, floatmax(Float64), -floatmax(Float64),
+        )
+
+        @test calls[] == 0
+        @test result.p_accept[1] == 0.0
+        @test !state.chain_state.accepted[1]
+        @test state.chain_state.current == result.current_before
+        @test state.chain_state.proposed.x[1] == state.chain_state.current.x[1]
+        @test state.chain_state.proposed.z[1] == state.chain_state.current.z[1]
     end
 
     @testset "validates initialized ensemble" begin
