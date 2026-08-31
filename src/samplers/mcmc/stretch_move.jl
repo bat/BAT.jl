@@ -113,12 +113,12 @@ function _validate_mcmc_proposal_configuration(
     ))
 end
 
-_validate_stretch_move_transform_tuning(
+_validate_mcmc_transform_tuning_configuration(
     ::StretchMove,
     ::NoMCMCTransformTuning,
 ) = nothing
 
-function _validate_stretch_move_transform_tuning(
+function _validate_mcmc_transform_tuning_configuration(
     ::StretchMove,
     tuning::MCMCTransformTuning,
 )
@@ -344,16 +344,7 @@ function _mcmc_step_transition!!(
     )
     _apply_mcmc_subset!!(chain_state, step_info, second_group)
 
-    chain_state.proposal = update_active_proposal!!(
-        chain_state.proposal, active_proposal,
+    return _finalize_mcmc_step!!(
+        mcmc_state, active_proposal, active_proposal, step_info,
     )
-    mcmc_state_new = mcmc_tune_post_step!!(
-        mcmc_state, active_proposal, step_info,
-    )
-    chain_state = mcmc_state_new.chain_state
-    active_prop_idx = get_active_proposal_idx(chain_state.proposal)
-    chain_state.nattempts[active_prop_idx] += length(chain_state.accepted)
-    chain_state.nsamples[active_prop_idx] += sum(chain_state.accepted)
-
-    return @set mcmc_state_new.chain_state = chain_state
 end

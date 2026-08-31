@@ -26,6 +26,20 @@ mutable struct _StretchRetryInit <: InitvalAlgorithm
     values::Vector{Vector{Float64}}
 end
 
+struct _FinalizationOldProposalState <: BAT.MCMCProposalState end
+struct _FinalizationNewProposalState <: BAT.MCMCProposalState end
+
+const _finalization_tuning_input = Ref{Any}(nothing)
+
+function BAT.mcmc_tune_post_step!!(
+    state::BAT.MCMCState,
+    proposal::_FinalizationOldProposalState,
+    ::BAT.MCMCStepInfo,
+)
+    _finalization_tuning_input[] = proposal
+    return state
+end
+
 DensityInterface.logdensityof(target::_CountingStretchTarget, x) =
     (target.calls[] += 1; target.logdensity(x))
 ValueShapes.varshape(target::_CountingStretchTarget) = ValueShapes.varshape(target.base)
@@ -115,7 +129,7 @@ function _trace_stretch_move(target, v_init; seed::Integer, nsweeps::Integer)
     return (; state, outputs, samples, accepted)
 end
 
-function _elliptic_initial_ensemble(mean, covariance, nwalkers::Integer)
+function _two_dimensional_elliptic_initial_ensemble(mean, covariance, nwalkers::Integer)
     scale = cholesky(Symmetric(covariance)).L
     return [
         mean + scale * [
@@ -144,6 +158,7 @@ function _stretch_move_oracle(state)
     BAT.reset_rng_counters!(chain_state)
 
     rng = BAT.get_rng(chain_state.context)
+    # Keep the stream numbering independent to catch production-layout changes.
     purpose_width = typemax(Int16) - 2
     step_rngpart = BAT.RNGPartition(rng, Base.OneTo(6 * purpose_width))
     proposal_idx = 1
@@ -364,6 +379,21 @@ end
         @test occursin("StretchMove", sprint(showerror, err))
     end
 
+    @testset "keeps generic transform tuning compatible" begin
+        algorithm = TransformedMCMC(
+            proposal = RandomWalk(),
+            pretransform = DoNotTransform(),
+            adaptive_transform = BAT.TriangularAffineTransform(),
+            transform_tuning = BAT.RAMTuning(),
+            convergence = AssumeConvergence(),
+            nwalkers = 1,
+        )
+        target = batmeasure(MvNormal(zeros(2), Matrix{Float64}(I, 2, 2)))
+        @test BAT.MCMCState(
+            algorithm, target, 1, [[0.0, 0.0]], BATContext(rng = Philox4x((564, 82))),
+        ) isa BAT.MCMCState
+    end
+
 
     @testset "proposal equation and acceptance ratio" begin
         scale = BAT._stretch_scale(2.0, 0.5)
@@ -521,6 +551,34 @@ end
         @test actual_next == expected_next
     end
 
+    @testset "finalization retains the pre-update tuning state" begin
+        algorithm = TransformedMCMC(
+            proposal = MCMCMultiProposal(
+                proposals = BAT.MCMCProposal[RandomWalk(), RandomWalk()],
+                picking_rule = [1, 0],
+            ),
+            pretransform = DoNotTransform(),
+            adaptive_transform = NoAdaptiveTransform(),
+            transform_tuning = NoMCMCTransformTuning(),
+            convergence = AssumeConvergence(),
+            nwalkers = 1,
+        )
+        target = batmeasure(MvNormal(zeros(1), ones(1, 1)))
+        state = BAT.MCMCState(
+            algorithm, target, 1, [[0.25]], BATContext(rng = Philox4x((564, 83))),
+        )
+        active_proposal = _FinalizationOldProposalState()
+        active_proposal_new = _FinalizationNewProposalState()
+        _finalization_tuning_input[] = nothing
+
+        state = BAT._finalize_mcmc_step!!(
+            state, active_proposal, active_proposal_new, BAT.MCMCStepInfo([1.0]),
+        )
+
+        @test _finalization_tuning_input[] === active_proposal
+        @test BAT.get_active_proposal(state.chain_state.proposal) === active_proposal_new
+    end
+
 
     @testset "Float32 transition values" begin
         initial = [[-3f0], [-1f0], [1f0], [4f0]]
@@ -675,7 +733,7 @@ end
         target_mean = [0.7, -1.2]
         target_cov = [1.4 0.8; 0.8 2.0]
         nwalkers = 16
-        initial = _elliptic_initial_ensemble(target_mean, target_cov, nwalkers)
+        initial = _two_dimensional_elliptic_initial_ensemble(target_mean, target_cov, nwalkers)
         target = batmeasure(MvNormal(target_mean, target_cov))
 
         result = _run_stretch_move(
@@ -701,7 +759,7 @@ end
         affine_matrix = [1.3 0.4; -0.2 0.8]
         affine_shift = [-0.6, 1.1]
         nwalkers = 16
-        initial = _elliptic_initial_ensemble(target_mean, target_cov, nwalkers)
+        initial = _two_dimensional_elliptic_initial_ensemble(target_mean, target_cov, nwalkers)
         transformed_initial = [affine_matrix * x + affine_shift for x in initial]
         target = batmeasure(MvNormal(target_mean, target_cov))
         transformed_target = batmeasure(MvNormal(
@@ -738,7 +796,7 @@ end
         target_cov = [1.0 0.0; 0.0 1 + 2 * bend^2]
         target_mixed_moment = 2 * bend
         nwalkers = 16
-        latent_initial = _elliptic_initial_ensemble(zeros(2), Matrix{Float64}(I, 2, 2), nwalkers)
+        latent_initial = _two_dimensional_elliptic_initial_ensemble(zeros(2), Matrix{Float64}(I, 2, 2), nwalkers)
         initial = [_banana_point(z, bend) for z in latent_initial]
         target = _BananaStretchTarget(
             batmeasure(MvNormal(zeros(2), Matrix{Float64}(I, 2, 2))), bend,
@@ -769,7 +827,7 @@ end
         target = batmeasure(MvNormal(target_mean, target_cov))
         nwalkers = 8
         nsteps = 8
-        initial = _elliptic_initial_ensemble(target_mean, target_cov, nwalkers)
+        initial = _two_dimensional_elliptic_initial_ensemble(target_mean, target_cov, nwalkers)
         recorder = _StretchConvergenceRecorder(Any[])
         algorithm = TransformedMCMC(
             proposal = StretchMove(),
