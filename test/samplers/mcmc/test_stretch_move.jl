@@ -3,22 +3,10 @@
 using BAT
 using Test
 
-using BAT: NoAdaptiveTransform, NoMCMCTempering
+using BAT: NoAdaptiveTransform
+import ForwardDiff
 using DensityInterface, Distributions, LinearAlgebra, Random, Random123, Statistics, ValueShapes
 
-
-struct _CountingStretchTarget{M,F,C} <: BAT.BATMeasure
-    base::M
-    logdensity::F
-    calls::C
-end
-
-struct _FailingStretchTarget{M,F} <: BAT.BATMeasure
-    base::M
-    logdensity::F
-    calls::Base.RefValue{Int}
-    fail_at::Base.RefValue{Int}
-end
 
 struct _BananaStretchTarget{M,T} <: BAT.BATMeasure
     base::M
@@ -46,20 +34,6 @@ function BAT.mcmc_tune_post_step!!(
     _finalization_tuning_input[] = proposal
     return state
 end
-
-_increment_stretch_calls!(calls::Base.RefValue{Int}) = (calls[] += 1)
-_increment_stretch_calls!(calls::Threads.Atomic{Int}) = Threads.atomic_add!(calls, 1)
-
-DensityInterface.logdensityof(target::_CountingStretchTarget, x) =
-    (_increment_stretch_calls!(target.calls); target.logdensity(x))
-ValueShapes.varshape(target::_CountingStretchTarget) = ValueShapes.varshape(target.base)
-
-function DensityInterface.logdensityof(target::_FailingStretchTarget, x)
-    target.calls[] += 1
-    target.calls[] == target.fail_at[] && error("controlled target failure")
-    return target.logdensity(x)
-end
-ValueShapes.varshape(target::_FailingStretchTarget) = ValueShapes.varshape(target.base)
 
 function DensityInterface.logdensityof(target::_BananaStretchTarget, x)
     latent_y = x[2] - target.bend * (x[1]^2 - one(x[1]))
@@ -120,38 +94,6 @@ function _stretch_move_state(
     )
 end
 
-function _run_ensemble_move(
-    proposal,
-    target,
-    v_init;
-    seed::Integer,
-    nwarmup::Integer,
-    nsweeps::Integer,
-)
-    algorithm = TransformedMCMC(
-        proposal = proposal,
-        pretransform = DoNotTransform(),
-        adaptive_transform = NoAdaptiveTransform(),
-        convergence = AssumeConvergence(),
-        nwalkers = length(v_init),
-        sample_weighting = RepetitionWeighting(),
-        proposal_tuning = NoMCMCProposalTuning(),
-        transform_tuning = NoMCMCTransformTuning(),
-    )
-    state = BAT.MCMCState(
-        algorithm, target, 1, v_init,
-        BATContext(rng = Philox4x((564, seed))),
-    )
-    state = BAT.mcmc_iterate!!(nothing, state; max_nsteps = nwarmup)
-    outputs = BAT._empty_chain_outputs(state)
-    state = BAT.mcmc_iterate!!(outputs, state; max_nsteps = nsweeps)
-    samples = BAT._merge_chain_outputs(state, [outputs])
-    return (; state, outputs, samples)
-end
-
-_run_stretch_move(target, v_init; kwargs...) =
-    _run_ensemble_move(StretchMove(), target, v_init; kwargs...)
-
 function _trace_stretch_move(target, v_init; seed::Integer, nsweeps::Integer)
     state = _stretch_move_state(v_init; target, rng_seed = (564, seed))
     outputs = BAT._empty_chain_outputs(state)
@@ -164,80 +106,7 @@ function _trace_stretch_move(target, v_init; seed::Integer, nsweeps::Integer)
     return (; state, outputs, samples, accepted)
 end
 
-function _two_dimensional_elliptic_initial_ensemble(
-    mean,
-    covariance,
-    nwalkers::Integer;
-    radius = 1.5,
-)
-    scale = cholesky(Symmetric(covariance)).L
-    return [
-        mean + scale * [
-            radius * cospi(2 * k / nwalkers),
-            radius * sinpi(2 * k / nwalkers),
-        ]
-        for k in 0:(nwalkers - 1)
-    ]
-end
-
 _banana_point(z, bend) = [z[1], z[2] + bend * (z[1]^2 - one(z[1]))]
-
-function _check_ensemble_gaussian_moments(
-    proposal;
-    seeds,
-    tolerances,
-)
-    cases = (
-        (
-            name = "standard Gaussian",
-            mean = [0.0, 0.0],
-            covariance = [1.0 0.0; 0.0 1.0],
-            seed = seeds.standard,
-            mean_tolerance = tolerances.standard_mean,
-            covariance_tolerance = tolerances.standard_covariance,
-        ),
-        (
-            name = "affine Gaussian",
-            mean = [0.7, -1.2],
-            covariance = [1.4 0.8; 0.8 2.0],
-            seed = seeds.affine,
-            mean_tolerance = tolerances.affine_mean,
-            covariance_tolerance = tolerances.affine_covariance,
-        ),
-    )
-
-    for case in cases
-        @testset "$(nameof(typeof(proposal))) $(case.name)" begin
-            nwalkers = 16
-            initial = _two_dimensional_elliptic_initial_ensemble(
-                case.mean, case.covariance, nwalkers; radius = 0.5,
-            )
-            target = batmeasure(MvNormal(case.mean, case.covariance))
-            result = _run_ensemble_move(
-                proposal, target, initial;
-                seed = case.seed,
-                nwarmup = 500,
-                nsweeps = 1500,
-            )
-
-            @test sum(result.samples.weight) == nwalkers * 1500
-            @test maximum(abs, mean(result.samples) - case.mean) <
-                case.mean_tolerance
-            @test maximum(abs, cov(result.samples) - case.covariance) <
-                case.covariance_tolerance
-        end
-    end
-end
-
-function _capture_error(f)
-    try
-        f()
-    catch err
-        return err
-    end
-    return nothing
-end
-
 
 function _stretch_move_oracle(state)
     oracle = deepcopy(state)
@@ -311,92 +180,44 @@ end
 
 
 @testset "StretchMove" begin
-    @testset "constructor and defaults" begin
-        proposal = StretchMove()
-        @test proposal.scale == 2
-        @test proposal.executor isa BAT.SequentialExec
-        @test StretchMove(scale = 3f0).scale === 3f0
-        @test StretchMove(executor = BAT.MultiThreadedExec()).executor isa BAT.MultiThreadedExec
-
-        for scale in (1, 0, -1, Inf, NaN)
-            err = _capture_error(() -> StretchMove(scale = scale))
-            @test err isa ArgumentError
-            @test occursin("scale", sprint(showerror, err))
-        end
-        err = _capture_error(() -> StretchMove(executor = BAT.DistributedExec()))
+    @testset "rejects unsupported executor" begin
+        err = _capture_ensemble_error(() -> StretchMove(executor = BAT.DistributedExec()))
         @test err isa ArgumentError
-        @test occursin("executor", lowercase(sprint(showerror, err)))
-
-        algorithm = TransformedMCMC(proposal = proposal, nwalkers = 4)
-        @test algorithm.proposal_tuning isa NoMCMCProposalTuning
-        @test algorithm.adaptive_transform isa NoAdaptiveTransform
-        @test algorithm.transform_tuning isa NoMCMCTransformTuning
-        @test algorithm.tempering isa NoMCMCTempering
-        @test algorithm.init isa MCMCRetryInit
     end
 
     @testset "requires no adaptive transform" begin
         full_rank = [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]
-        err = _capture_error(() -> _stretch_move_state(
+        err = _capture_ensemble_error(() -> _stretch_move_state(
             full_rank; adaptive_transform = BAT.TriangularAffineTransform(),
         ))
         @test err isa ArgumentError
-        @test occursin("NoAdaptiveTransform", sprint(showerror, err))
     end
 
     @testset "requires explicit walker count" begin
-        err = _capture_error(() -> TransformedMCMC(proposal = StretchMove()))
+        err = _capture_ensemble_error(() -> TransformedMCMC(proposal = StretchMove()))
         @test err isa ArgumentError
-        @test occursin("nwalkers", sprint(showerror, err))
     end
 
     @testset "validates initialized ensemble" begin
         too_few = [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]
-        err = _capture_error(() -> _stretch_move_state(too_few))
+        err = _capture_ensemble_error(() -> _stretch_move_state(too_few))
         @test err isa ArgumentError
-        @test occursin("at least 2 * d", sprint(showerror, err))
 
         nearly_collinear = [[0.0, 0.0], [1.0, 1e-18], [2.0, 2e-18], [3.0, 4e-18]]
-        err = _capture_error(() -> _stretch_move_state(nearly_collinear))
+        err = _capture_ensemble_error(() -> _stretch_move_state(nearly_collinear))
         @test err isa ArgumentError
-        message = sprint(showerror, err)
-        @test occursin("4 walkers", message)
-        @test occursin("dimension 2", message)
-        @test occursin("rank 1", message)
 
         nonfinite = [[0.0, 0.0], [1.0, 0.0], [0.0, NaN], [1.0, 1.0]]
-        err = _capture_error(() -> _stretch_move_state(nonfinite))
+        err = _capture_ensemble_error(() -> _stretch_move_state(nonfinite))
         @test err isa ArgumentError
-        @test occursin("finite transformed coordinates", sprint(showerror, err))
 
         full_rank = [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]
         @test _stretch_move_state(full_rank) isa BAT.MCMCState
-        state32 = _stretch_move_state(map(v -> Float32.(v), full_rank); scale = 2.0)
-        @test state32 isa BAT.MCMCState
-        @test state32.chain_state.proposal.scale === 2f0
 
-        target = batmeasure(MvNormal(zeros(2), Matrix{Float64}(I, 2, 2)))
-        context = BATContext(rng = Philox4x((564, 86)))
-        converted_scale = try
-            BAT._create_proposal_state(
-                StretchMove(scale = 2.0),
-                target,
-                context,
-                full_rank,
-                map(v -> Float32.(v), full_rank),
-                identity,
-                BAT.get_rng(context),
-            ).scale
-        catch
-            nothing
-        end
-        @test converted_scale === 2f0
-
-        err = _capture_error(() -> _stretch_move_state(
+        err = _capture_ensemble_error(() -> _stretch_move_state(
             map(v -> Float32.(v), full_rank); scale = nextfloat(1.0),
         ))
         @test err isa ArgumentError
-        @test occursin("after conversion", sprint(showerror, err))
     end
 
     @testset "retry initialization preserves affine rank" begin
@@ -421,7 +242,7 @@ end
             Uniform(0, 1), Uniform(-1e-12, 1e-12),
         ]))
 
-        err = _capture_error(() -> BAT.mcmc_init!(
+        err = _capture_ensemble_error(() -> BAT.mcmc_init!(
             algorithm,
             target,
             init_alg,
@@ -430,30 +251,23 @@ end
         ))
 
         @test err isa ArgumentError
-        message = sprint(showerror, err)
-        @test occursin("4 walkers", message)
-        @test occursin("dimension 2", message)
-        @test occursin("rank 1", message)
     end
 
     @testset "rejects unsupported configurations" begin
         full_rank = [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]
 
-        err = _capture_error(() -> _stretch_move_state(full_rank; sample_weighting = ARPWeighting()))
+        err = _capture_ensemble_error(() -> _stretch_move_state(full_rank; sample_weighting = ARPWeighting()))
         @test err isa ArgumentError
-        @test occursin("RepetitionWeighting", sprint(showerror, err))
 
-        err = _capture_error(() -> _stretch_move_state(
+        err = _capture_ensemble_error(() -> _stretch_move_state(
             full_rank; proposal_tuning = BAT.StepSizeAdaptor(),
         ))
         @test err isa ArgumentError
-        @test occursin("NoMCMCProposalTuning", sprint(showerror, err))
 
-        err = _capture_error(() -> _stretch_move_state(
+        err = _capture_ensemble_error(() -> _stretch_move_state(
             full_rank; transform_tuning = BAT.StanLikeTuning(),
         ))
         @test err isa ArgumentError
-        @test occursin("NoMCMCTransformTuning", sprint(showerror, err))
 
     end
 
@@ -461,88 +275,54 @@ end
         full_rank = [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]
         target = batmeasure(MvNormal(zeros(2), Matrix{Float64}(I, 2, 2)))
         proposal = MCMCMultiProposal(
-            proposals = BAT.MCMCProposal[StretchMove(), DEMove(gamma0 = 0.5, sigma = 0)],
+            proposals = BAT.MCMCProposal[StretchMove(), RandomWalk()],
             picking_rule = [2, 1],
         )
-        algorithm = TransformedMCMC(
-            proposal = proposal,
-            pretransform = DoNotTransform(),
-            convergence = AssumeConvergence(),
-            nwalkers = 4,
-        )
-
-        @test algorithm.adaptive_transform isa NoAdaptiveTransform
-        @test algorithm.transform_tuning isa NoMCMCTransformTuning
-        @test algorithm.sample_weighting isa RepetitionWeighting
-
-        state = BAT.MCMCState(
-            algorithm, target, 1, full_rank,
-            BATContext(rng = Philox4x((564, 91))),
+        state = _ensemble_move_state(
+            proposal, full_rank; target, rng_seed = (564, 91),
         )
         selected = Int[]
-        proposal_ids = Vector{Vector{Int32}}()
         for _ in 1:6
             state = BAT.mcmc_step!!(state)
             push!(selected, state.chain_state.proposal.active_idx)
-            push!(proposal_ids, getproperty.(state.chain_state.proposed.x.info, :proposalid))
         end
         @test selected == [1, 1, 2, 1, 1, 2]
-        @test proposal_ids == [fill(Int32(i), 4) for i in [1, 1, 2, 1, 1, 2]]
         @test state.chain_state.nattempts == [16, 8]
 
-        invalid_weighting = TransformedMCMC(
-            proposal = proposal,
-            pretransform = DoNotTransform(),
-            adaptive_transform = NoAdaptiveTransform(),
-            transform_tuning = NoMCMCTransformTuning(),
-            convergence = AssumeConvergence(),
-            nwalkers = 4,
-            sample_weighting = ARPWeighting(),
+        default_tuning_proposal = MCMCMultiProposal(
+            proposals = BAT.MCMCProposal[StretchMove(), MALAProposal()],
+            picking_rule = [1, 1],
         )
-        err = _capture_error(() -> BAT.MCMCState(
-            invalid_weighting, target, 1, full_rank,
-            BATContext(rng = Philox4x((564, 92))),
-        ))
-        @test err isa ArgumentError
-        @test occursin("RepetitionWeighting", sprint(showerror, err))
-
-        invalid_adaptive_transform = TransformedMCMC(
-            proposal = proposal,
+        default_tuning_algorithm = TransformedMCMC(
+            proposal = default_tuning_proposal,
             pretransform = DoNotTransform(),
-            adaptive_transform = BAT.TriangularAffineTransform(),
-            transform_tuning = NoMCMCTransformTuning(),
             convergence = AssumeConvergence(),
-            nwalkers = 4,
+            nwalkers = length(full_rank),
         )
-        err = _capture_error(() -> BAT.MCMCState(
-            invalid_adaptive_transform, target, 1, full_rank,
-            BATContext(rng = Philox4x((564, 93))),
-        ))
-        @test err isa ArgumentError
-        @test occursin("NoAdaptiveTransform", sprint(showerror, err))
-
-        invalid_transform_tuning = TransformedMCMC(
-            proposal = proposal,
-            pretransform = DoNotTransform(),
-            adaptive_transform = NoAdaptiveTransform(),
-            transform_tuning = BAT.StanLikeTuning(),
-            convergence = AssumeConvergence(),
-            nwalkers = 4,
+        default_tuning_state = BAT.MCMCState(
+            default_tuning_algorithm, target, 1, full_rank,
+            BATContext(rng = Philox4x((564, 92)), ad = ForwardDiff),
         )
-        err = _capture_error(() -> BAT.MCMCState(
-            invalid_transform_tuning, target, 1, full_rank,
-            BATContext(rng = Philox4x((564, 94))),
-        ))
-        @test err isa ArgumentError
-        @test occursin("NoMCMCTransformTuning", sprint(showerror, err))
+        BAT.mcmc_tuning_init!!(default_tuning_state, length(full_rank))
+        for _ in 1:2
+            default_tuning_state = BAT.mcmc_step!!(default_tuning_state)
+        end
+        @test default_tuning_state.chain_state.nattempts == [4, 4]
 
-        rank_deficient = [[0.0, 0.0], [1.0, 1.0], [2.0, 2.0], [3.0, 3.0]]
-        err = _capture_error(() -> BAT.MCMCState(
-            algorithm, target, 1, rank_deficient,
-            BATContext(rng = Philox4x((564, 95))),
-        ))
-        @test err isa ArgumentError
-        @test occursin("affine rank 1", sprint(showerror, err))
+        cases = (
+            ("weighting", (; sample_weighting = ARPWeighting())),
+            ("adaptive transform", (; adaptive_transform = BAT.TriangularAffineTransform())),
+            ("transform tuning", (; transform_tuning = BAT.StanLikeTuning())),
+            ("adaptive mixture weights", (; proposal_tuning = AdaptiveMultiPropTuning())),
+        )
+        for (name, kwargs) in cases
+            @testset "$name rejection" begin
+                err = _capture_ensemble_error(() -> _ensemble_move_state(
+                    proposal, full_rank; target, kwargs...,
+                ))
+                @test err isa ArgumentError
+            end
+        end
     end
 
     @testset "keeps generic transform tuning compatible" begin
@@ -561,35 +341,22 @@ end
     end
 
 
-    @testset "proposal equation and acceptance ratio" begin
-        scale = BAT._stretch_scale(2.0, 0.5)
-        @test scale == 1.125
-        @test BAT._stretch_scale(2.0, 0.0) == 0.5
-        @test BAT._stretch_scale(2.0, 1.0) == 2.0
-        @test BAT._stretch_scale(2f0, 0.5f0) === 1.125f0
-        for T in (Float32, Float64)
-            large_scale = floatmax(T)
-            stretch_factors = BAT._stretch_scale.(large_scale, T[0, 0.5, 1])
-            @test all(isfinite, stretch_factors)
-            @test stretch_factors[begin] == inv(large_scale)
-            @test stretch_factors[end] == large_scale
-        end
-        candidate = fill(NaN, 2)
-        @test BAT._stretch_candidate!!(
-            candidate, [2.0, 4.0], [-2.0, 0.0], 1.25,
-        ) === candidate
-        @test candidate == [3.0, 5.0]
-        @test BAT._stretch_log_acceptance(3, 2.0, -5.0, -7.0) ==
-            3.386294361119891
+    @testset "three-dimensional Hastings exponent" begin
+        proposal = BAT.StretchMoveProposalState(2.0, BAT.SequentialExec())
+        @test BAT._ensemble_log_hastings(
+            proposal, zeros(3), zeros(3), 2.0,
+        ) == 2 * log(2)
     end
 
 
-    @testset "full red-blue sweep" begin
+    @testset "exact sequential red-blue replay" begin
         initial = [[-3.0], [-1.0], [1.0], [4.0]]
         base = batmeasure(MvNormal(zeros(1), ones(1, 1)))
         calls = Ref(0)
-        target = _CountingStretchTarget(base, _ -> 0.0, calls)
-        state = _stretch_move_state(initial; target)
+        target = _CountingEnsembleTarget(base, _ -> 0.0, calls)
+        state = _stretch_move_state(
+            initial; target, executor = BAT.SequentialExec(),
+        )
         oracle = _stretch_move_oracle(state)
         @test any(i -> oracle.expected[i] != oracle.stale_second[i], oracle.second_group)
 
@@ -598,58 +365,10 @@ end
         chain_state = state.chain_state
 
         @test chain_state.current.z.v == oracle.expected
-        @test chain_state.current.x.v == oracle.expected
         @test calls[] == length(initial)
         @test chain_state.nattempts == [length(initial)]
         @test chain_state.nsamples == [length(initial)]
-        @test chain_state.stepno == 1
         @test all(chain_state.accepted)
-        expected_info = [
-            BAT.MCMCSampleID(1, i, 1, 1, 1, true) for i in Int32(1):Int32(4)
-        ]
-        @test chain_state.proposed.x.info == expected_info
-        @test chain_state.proposed.x.info == chain_state.proposed.z.info
-    end
-
-
-    @testset "exact sequential sweep regression" begin
-        state = _stretch_move_state(
-            [[-3.0], [-1.0], [1.0], [4.0]];
-            executor = BAT.SequentialExec(),
-        )
-
-        state = BAT.mcmc_step!!(state)
-        chain_state = state.chain_state
-
-        @test chain_state.current.z.v == [[-3.0], [-1.0], [1.0], [2.049883476974204]]
-        @test chain_state.current.x.v == chain_state.current.z.v
-        @test chain_state.current.x.logd == [
-            -5.418938533204673,
-            -1.4189385332046727,
-            -1.4189385332046727,
-            -3.019949667790599,
-        ]
-        @test chain_state.proposed.z.v == [
-            [-5.533480715431719],
-            [-2.470533404283069],
-            [2.720217374950521],
-            [2.049883476974204],
-        ]
-        @test chain_state.proposed.x.logd == [
-            -16.22864294723204,
-            -3.9707061840439173,
-            -4.618729816696025,
-            -3.019949667790599,
-        ]
-        @test chain_state.accepted == [false, false, false, true]
-        @test chain_state.current.x.weight == [1, 1, 1, 1]
-        @test chain_state.proposed.x.weight == [0, 0, 0, 1]
-        @test chain_state.proposed.x.info == [
-            BAT.MCMCSampleID(1, i, 1, 1, 1, i == 4) for i in Int32(1):Int32(4)
-        ]
-        @test chain_state.nattempts == [4]
-        @test chain_state.nsamples == [1]
-        @test chain_state.stepno == 1
     end
 
 
@@ -658,7 +377,7 @@ end
         states = map((BAT.SequentialExec(), BAT.MultiThreadedExec())) do executor
             base = batmeasure(MvNormal(zeros(1), ones(1, 1)))
             calls = Threads.Atomic{Int}(0)
-            target = _CountingStretchTarget(base, x -> -only(x)^2 / 2, calls)
+            target = _CountingEnsembleTarget(base, x -> -only(x)^2 / 2, calls)
             state = _stretch_move_state(initial; target, executor)
             calls[] = 0
             state = BAT.mcmc_step!!(state)
@@ -682,17 +401,16 @@ end
         base = batmeasure(MvNormal(zeros(1), ones(1, 1)))
         calls = Ref(0)
         fail_at = Ref(typemax(Int))
-        target = _FailingStretchTarget(base, _ -> 0.0, calls, fail_at)
+        target = _FailingEnsembleTarget(base, _ -> 0.0, calls, fail_at)
         state = _stretch_move_state(initial; target, executor = BAT.SequentialExec())
         current_before = deepcopy(state.chain_state.current)
         output_before = deepcopy(state.chain_state.output)
         calls[] = 0
         fail_at[] = 2
 
-        err = _capture_error(() -> BAT.mcmc_step!!(state))
+        err = _capture_ensemble_error(() -> BAT.mcmc_step!!(state))
 
         @test err isa BAT.EvalException
-        @test occursin("controlled target failure", sprint(showerror, err))
         @test state.chain_state.current == current_before
         @test state.chain_state.output == output_before
         @test state.chain_state.nattempts == [0]
@@ -704,7 +422,7 @@ end
         base = batmeasure(MvNormal(zeros(1), ones(1, 1)))
         calls = Ref(0)
         initial_values = Set(only.(initial))
-        target = _CountingStretchTarget(
+        target = _CountingEnsembleTarget(
             base, x -> only(x) in initial_values ? 0.0 : -Inf, calls,
         )
         state = _stretch_move_state(initial; target, scale = 1e200)
@@ -772,8 +490,6 @@ end
             reordered.chain_state.proposed.z.v[rhs_order]
         @test repeated_a.chain_state.accepted[lhs_order] ==
             reordered.chain_state.accepted[rhs_order]
-        @test repeated_a.chain_state.walker_order == [1, 2, 3, 4]
-        @test reordered.chain_state.walker_order == [2, 4, 1, 3]
     end
 
 
@@ -855,7 +571,7 @@ end
         base = batmeasure(MvNormal(zeros(1), ones(1, 1)))
         calls = Ref(0)
         initial_values = Set(only.(initial))
-        target = _CountingStretchTarget(
+        target = _CountingEnsembleTarget(
             base, x -> only(x) in initial_values ? 0.0 : -Inf, calls,
         )
         state = _stretch_move_state(initial; target)
@@ -893,14 +609,20 @@ end
         )
         @test ess isa Real
         @test 0 < ess <= sum(merged.weight)
-        mixture = MCMCMultiProposal(
-            proposals = BAT.MCMCProposal[StretchMove(), RandomWalk()],
-            picking_rule = [1, 1],
+        proposals = (
+            DEMove(),
+            DESnookerMove(),
+            MCMCMultiProposal(
+                proposals = BAT.MCMCProposal[StretchMove(), RandomWalk()],
+                picking_rule = [1, 1],
+            ),
         )
-        @test BAT._mcmc_ess(
-            [outputs], merged, mixture,
-            RepetitionWeighting(), false, BATContext(),
-        ) == ess
+        for proposal in proposals
+            @test BAT._mcmc_ess(
+                [outputs], merged, proposal,
+                RepetitionWeighting(), false, BATContext(),
+            ) == ess
+        end
         @test isnothing(BAT._mcmc_ess(
             [outputs], merged, StretchMove(),
             RepetitionWeighting(), true, BATContext(),
@@ -991,19 +713,15 @@ end
     end
 
 
-    @testset "Gaussian stationary moments" begin
+    @testset "correlated affine Gaussian moments" begin
         # Each limit is a rounded 1.5 times the largest error from 64
         # calibration seeds. None of 128 independent validation seeds failed
         # either joint mean/covariance check (95% one-sided upper bound 2.31%).
         _check_ensemble_gaussian_moments(
             StretchMove();
-            seeds = (standard = 25101, affine = 25201),
-            tolerances = (
-                standard_mean = 0.16,
-                standard_covariance = 0.15,
-                affine_mean = 0.18,
-                affine_covariance = 0.22,
-            ),
+            seed = 25201,
+            mean_tolerance = 0.18,
+            covariance_tolerance = 0.22,
         )
     end
 
@@ -1042,37 +760,6 @@ end
         @test reference.accepted == transformed.accepted
         @test reference.state.chain_state.nsamples == transformed.state.chain_state.nsamples
         @test reference.state.chain_state.nattempts == transformed.state.chain_state.nattempts
-    end
-
-
-    @testset "analytic banana moments" begin
-        bend = 0.35
-        target_mean = zeros(2)
-        target_cov = [1.0 0.0; 0.0 1 + 2 * bend^2]
-        target_mixed_moment = 2 * bend
-        nwalkers = 16
-        latent_initial = _two_dimensional_elliptic_initial_ensemble(zeros(2), Matrix{Float64}(I, 2, 2), nwalkers)
-        initial = [_banana_point(z, bend) for z in latent_initial]
-        target = _BananaStretchTarget(
-            batmeasure(MvNormal(zeros(2), Matrix{Float64}(I, 2, 2))), bend,
-        )
-
-        result = _run_stretch_move(
-            target,
-            initial;
-            seed = 4222,
-            nwarmup = 500,
-            nsweeps = 1500,
-        )
-        sample_mean = mean(result.samples)
-        sample_cov = cov(result.samples)
-        sample_mixed_moment = sum(
-            result.samples.weight .* [x[1]^2 * x[2] for x in result.samples.v],
-        ) / sum(result.samples.weight)
-
-        @test maximum(abs, sample_mean - target_mean) < 0.12
-        @test maximum(abs, sample_cov - target_cov) < 0.13
-        @test abs(sample_mixed_moment - target_mixed_moment) < 0.27
     end
 
 

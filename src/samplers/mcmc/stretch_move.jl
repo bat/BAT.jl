@@ -276,6 +276,67 @@ function _propose_ensemble_candidate!!(
     return stretch
 end
 
+function _propose_ensemble_group!!(
+    chain_state::MCMCChainState,
+    proposal::StretchMoveProposalState{<:Any,<:SequentialExec},
+    step_rngpart::RNGPartition,
+    proposal_idx::Integer,
+    active_group::AbstractVector{<:Integer},
+    complement_groups,
+    p_accept::AbstractVector{<:Real},
+    constant_ladj,
+    acceptance_rngpart::RNGPartition,
+)
+    (;target, f_transform, current, proposed) = chain_state
+    companion_idxs = only(complement_groups)
+    companion_rngpart = _mcmc_walker_rngpart(
+        step_rngpart, _MCMC_COMPANION_SELECTION_PURPOSE, proposal_idx,
+    )
+    stretch_rngpart = _mcmc_walker_rngpart(
+        step_rngpart, _MCMC_STRETCH_DRAW_PURPOSE, proposal_idx,
+    )
+
+    for walker_idx in active_group
+        walkerid = current.x.info[walker_idx].walkerid
+        rng = get_rng(chain_state.walker_genctxs[walker_idx])
+
+        set_rng!(rng, companion_rngpart, walkerid)
+        companion_idx = rand(rng, companion_idxs)
+
+        set_rng!(rng, stretch_rngpart, walkerid)
+        T = float(eltype(current.z.v[walker_idx]))
+        stretch = _stretch_scale(proposal.scale, rand(rng, T))
+        z_proposed = _stretch_candidate!!(
+            proposed.z.v[walker_idx], current.z.v[walker_idx],
+            current.z.v[companion_idx], stretch,
+        )
+
+        x_proposed, ladj = if isnothing(constant_ladj)
+            with_logabsdet_jacobian(f_transform, z_proposed)
+        else
+            f_transform(z_proposed), constant_ladj
+        end
+        logd_x_proposed = BAT.checked_logdensityof(target, x_proposed)
+        logd_z_proposed = logd_x_proposed + ladj
+
+        proposed.x.v[walker_idx] .= x_proposed
+        proposed.x.logd[walker_idx] = logd_x_proposed
+        proposed.z.logd[walker_idx] = logd_z_proposed
+
+        log_acceptance = _stretch_log_acceptance(
+            length(z_proposed), stretch, logd_z_proposed,
+            current.z.logd[walker_idx],
+        )
+        p_accept[walker_idx] = _mcmc_acceptance_probability(
+            convert(T, log_acceptance),
+        )
+        set_rng!(rng, acceptance_rngpart, walkerid)
+        chain_state.accepted[walker_idx] = rand(rng, T) < p_accept[walker_idx]
+    end
+
+    return chain_state
+end
+
 function _ensemble_log_hastings(
     ::StretchMoveProposalState,
     current,
