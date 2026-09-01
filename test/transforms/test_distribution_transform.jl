@@ -96,6 +96,10 @@ using StableRNGs: StableRNG
     test_back_and_forth(stdmvuni2, stdmvnorm2)
     test_back_and_forth(stdmvnorm2, stdmvuni2)
 
+    p = Float32[0, eps(Float32) / 2, eps(Float32), 0.9999, 1]
+    f = BAT.DistributionTransform(Exponential(), BAT.StandardUvUniform{Float32}())
+    @test f.(p) == quantile.(Exponential(), clamp.(p, eps(Float32), 1 - eps(Float32)))
+
     test_back_and_forth(beta, stduvnorm)
     test_back_and_forth(gamma, stduvnorm)
 
