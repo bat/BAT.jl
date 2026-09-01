@@ -55,34 +55,6 @@ function _create_proposal_state(
 end
 
 
-function _validate_mcmc_ensemble_invariants(
-    proposal::StretchMoveProposalState,
-    target::BATMeasure,
-    z_init::AbstractVector,
-)
-    n_walkers = length(z_init)
-    n_dims = totalndof(varshape(target))
-    n_walkers >= _ensemble_minimum_walkers(proposal, n_dims) || throw(ArgumentError(
-        "StretchMove requires at least 2 * d walkers; got $n_walkers walkers for dimension $n_dims",
-    ))
-    all(z -> all(isfinite, z), z_init) || throw(ArgumentError(
-        "StretchMove requires finite transformed coordinates during initialization",
-    ))
-
-    centered_z = reduce(hcat, map(z -> z .- first(z_init), z_init))
-    # `rank` compares singular values with `rtol * σ₁`; scaling rtol by the
-    # matrix dimensions and scalar precision therefore preserves the affine
-    # rank decision under a common coordinate rescaling.
-    rank_rtol = max(size(centered_z)...)*eps(float(real(eltype(centered_z))))
-    observed_rank = rank(centered_z; rtol = rank_rtol)
-    observed_rank == n_dims || throw(ArgumentError(
-        "StretchMove initialization has $n_walkers walkers in dimension $n_dims with affine rank $observed_rank; expected affine rank $n_dims",
-    ))
-
-    return nothing
-end
-
-
 function _stretch_scale(scale::Real, u::Real)
     b = (scale - one(scale)) * u + one(scale)
     return b * (b / scale)

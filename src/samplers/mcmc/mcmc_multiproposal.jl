@@ -291,12 +291,13 @@ function _component_acceptance_successes(
 end
 
 function _create_proposal_state(
-    multi_proposal::MCMCMultiProposal, 
-    target::BATMeasure, 
-    context::BATContext, 
+    multi_proposal::MCMCMultiProposal,
+    target::BATMeasure,
+    context::BATContext,
     v_init::AbstractVector{PV},
+    z_init::AbstractVector,
     f_transform::Function,
-    rng::AbstractRNG
+    rng::AbstractRNG,
 ) where {P<:Real, PV<:AbstractVector{P}}
 
     nproposals = length(multi_proposal.proposals)
@@ -304,25 +305,40 @@ function _create_proposal_state(
         "MCMCMultiProposal supports at most $_MCMC_PROPOSALS_PER_PURPOSE proposals, got $nproposals",
     ))
 
-    proposal_states_init = Vector{MCMCProposalState}()
-
-    for proposal in multi_proposal.proposals
-        proposal_state_tmp = _create_proposal_state(
+    proposal_states_init = MCMCProposalState[
+        _create_proposal_state(
             proposal,
             target,
             context,
             v_init,
+            z_init,
             f_transform,
-            rng
+            rng,
         )
-        push!(proposal_states_init, proposal_state_tmp)
-    end
+        for proposal in multi_proposal.proposals
+    ]
 
     picking_rule = _copy_picking_rule(multi_proposal.picking_rule)
 
     idx = _init_active_idx(rng, picking_rule)
 
     return MultiProposalState(proposal_states_init, picking_rule, idx)
+end
+
+function _create_proposal_state(
+    multi_proposal::MCMCMultiProposal,
+    target::BATMeasure,
+    context::BATContext,
+    v_init::AbstractVector,
+    f_transform::Function,
+    rng::AbstractRNG,
+)
+    z_init = inverse(f_transform).(v_init)
+    proposal_state = _create_proposal_state(
+        multi_proposal, target, context, v_init, z_init, f_transform, rng,
+    )
+    _validate_mcmc_ensemble_invariants(proposal_state, target, z_init)
+    return proposal_state
 end
 
 _copy_picking_rule(picking_rule::AbstractVector) = copy(picking_rule)

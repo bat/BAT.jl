@@ -55,31 +55,6 @@ function _create_proposal_state(
     return DESnookerMoveProposalState(scale, proposal.executor)
 end
 
-function _validate_mcmc_ensemble_invariants(
-    proposal::DESnookerMoveProposalState,
-    target::BATMeasure,
-    z_init::AbstractVector,
-)
-    n_walkers = length(z_init)
-    n_dims = totalndof(varshape(target))
-    minimum_walkers = _ensemble_minimum_walkers(proposal, n_dims)
-    n_walkers >= minimum_walkers || throw(ArgumentError(
-        "DESnookerMove requires at least max(2 * d, 4) walkers; got $n_walkers walkers for dimension $n_dims (minimum $minimum_walkers)",
-    ))
-    all(z -> all(isfinite, z), z_init) || throw(ArgumentError(
-        "DESnookerMove requires finite transformed coordinates during initialization",
-    ))
-
-    centered_z = reduce(hcat, map(z -> z .- first(z_init), z_init))
-    rank_rtol = max(size(centered_z)...)*eps(float(real(eltype(centered_z))))
-    observed_rank = rank(centered_z; rtol = rank_rtol)
-    observed_rank == n_dims || throw(ArgumentError(
-        "DESnookerMove initialization has $n_walkers walkers in dimension $n_dims with affine rank $observed_rank; expected affine rank $n_dims",
-    ))
-    return nothing
-end
-
-
 const _DE_SNOOKER_GROUP_ORDERS = (
     (1, 2, 3), (1, 3, 2), (2, 1, 3), (2, 3, 1), (3, 1, 2), (3, 2, 1),
 )

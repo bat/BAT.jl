@@ -78,32 +78,6 @@ function _create_proposal_state(
     return DEMoveProposalState(gamma0, sigma, proposal.executor)
 end
 
-function _validate_mcmc_ensemble_invariants(
-    proposal::DEMoveProposalState,
-    target::BATMeasure,
-    z_init::AbstractVector,
-)
-    n_walkers = length(z_init)
-    n_dims = totalndof(varshape(target))
-    minimum_walkers = _ensemble_minimum_walkers(proposal, n_dims)
-    n_walkers >= minimum_walkers || throw(ArgumentError(
-        "DEMove requires at least max(2 * d, 4) walkers; got $n_walkers walkers for dimension $n_dims (minimum $minimum_walkers)",
-    ))
-    all(z -> all(isfinite, z), z_init) || throw(ArgumentError(
-        "DEMove requires finite transformed coordinates during initialization",
-    ))
-
-    centered_z = reduce(hcat, map(z -> z .- first(z_init), z_init))
-    rank_rtol = max(size(centered_z)...)*eps(float(real(eltype(centered_z))))
-    observed_rank = rank(centered_z; rtol = rank_rtol)
-    observed_rank == n_dims || throw(ArgumentError(
-        "DEMove initialization has $n_walkers walkers in dimension $n_dims with affine rank $observed_rank; expected affine rank $n_dims",
-    ))
-
-    return nothing
-end
-
-
 function _de_companion_indices(
     rng::AbstractRNG,
     companion_idxs::AbstractVector{<:Integer},

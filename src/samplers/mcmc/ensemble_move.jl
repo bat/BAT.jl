@@ -154,6 +154,34 @@ function _create_proposal_state(
     return proposal_state
 end
 
+function _validate_mcmc_ensemble_invariants(
+    proposal::AbstractEnsembleMove,
+    target::BATMeasure,
+    z_init::AbstractVector,
+)
+    proposal_name = replace(string(nameof(typeof(proposal))), "ProposalState" => "")
+    n_walkers = length(z_init)
+    n_dims = totalndof(varshape(target))
+    minimum_walkers = _ensemble_minimum_walkers(proposal, n_dims)
+    n_walkers >= minimum_walkers || throw(ArgumentError(
+        "$proposal_name requires at least $minimum_walkers walkers for dimension $n_dims; got $n_walkers",
+    ))
+    all(z -> all(isfinite, z), z_init) || throw(ArgumentError(
+        "$proposal_name requires finite transformed coordinates during initialization",
+    ))
+
+    centered_z = reduce(hcat, map(z -> z .- first(z_init), z_init))
+    # `rank` compares singular values with `rtol * σ₁`; scaling rtol by the
+    # matrix dimensions and scalar precision therefore preserves the affine
+    # rank decision under a common coordinate rescaling.
+    rank_rtol = max(size(centered_z)...) * eps(float(real(eltype(centered_z))))
+    observed_rank = rank(centered_z; rtol = rank_rtol)
+    observed_rank == n_dims || throw(ArgumentError(
+        "$proposal_name initialization has $n_walkers walkers in dimension $n_dims with affine rank $observed_rank; expected affine rank $n_dims",
+    ))
+    return nothing
+end
+
 
 _mcmc_n_rng_purposes(::AbstractEnsembleMove) = _MCMC_N_RNG_PURPOSES
 
