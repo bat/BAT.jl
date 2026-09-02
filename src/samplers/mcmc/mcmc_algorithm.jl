@@ -170,9 +170,44 @@ Abstract type for MCMC proposal algorithm states.
 """
 abstract type MCMCProposalState end
 
+function _create_proposal_state(
+    proposal::MCMCProposal,
+    target::BATMeasure,
+    context::BATContext,
+    x_init::AbstractVector,
+    ::AbstractVector,
+    f_transform::Function,
+    rng::AbstractRNG,
+)
+    return _create_proposal_state(
+        proposal, target, context, x_init, f_transform, rng,
+    )
+end
+
+_validate_mcmc_ensemble_invariants(
+    ::MCMCProposalState,
+    ::BATMeasure,
+    ::AbstractVector,
+) = nothing
+
 _validate_mcmc_proposal_configuration(
     ::MCMCProposal,
     ::MCMCProposalTuning,
+) = nothing
+
+_validate_mcmc_weighting_configuration(
+    ::MCMCProposal,
+    ::AbstractMCMCWeightingScheme,
+) = nothing
+
+_validate_mcmc_adaptive_transform_configuration(
+    ::MCMCProposal,
+    ::AbstractAdaptiveTransform,
+) = nothing
+
+_validate_mcmc_transform_tuning_configuration(
+    ::MCMCProposal,
+    ::MCMCTransformTuning,
 ) = nothing
 
 _validate_mcmc_proposal_tuning_configuration(

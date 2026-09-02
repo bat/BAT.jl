@@ -7,6 +7,16 @@ using Statistics
 using ArraysOfArrays, ElasticArrays, StatsBase
 using StableRNGs
 
+function ensemble_walker_output(path, walkerid)
+    info = [
+        BAT.MCMCSampleID(Int32(1), Int32(walkerid), Int32(1), Int64(step), Int32(1), true)
+        for step in axes(path, 2)
+    ]
+    return DensitySampleVector(
+        v = VectorOfSimilarVectors(path), logd = zeros(eltype(path), size(path, 2)), info = info,
+    )
+end
+
 @testset "effective_sample_size" begin
     stblrng() = StableRNG(789990641)
 
@@ -65,5 +75,35 @@ using StableRNGs
         masses = [3.0, 5.0]
         @test BAT._pooled_ess([[3.0], [5.0]], masses) ≈
             BAT._pooled_ess([[3.0], [5.0]], 1e300 .* masses)
+    end
+
+    @testset "coupled ensemble ESS" begin
+        paths = [
+            reshape([1.0, -1, 1, 1, -1, -1, 1, -1], 1, :),
+            reshape([0.0, 1, -1, 1, 1, -1, -1, 1], 1, :),
+        ]
+        outputs = [[ensemble_walker_output(path, walkerid)
+                    for (walkerid, path) in pairs(paths)]]
+        expected = 2 * only(bat_eff_sample_size(
+            VectorOfSimilarVectors((paths[1] + paths[2]) / 2),
+            EffSampleSizeFromAC(),
+            BATContext(),
+        ).result)
+
+        @test BAT._mcmc_ess(
+            outputs, reduce(vcat, only(outputs)), StretchMove(),
+            RepetitionWeighting(), false, BATContext(),
+        ) ≈ expected
+    end
+
+    @testset "coupled ensemble ESS avoids Float32 overflow" begin
+        paths = [fill(2.0f38, 1, 8), fill(2.5f38, 1, 8)]
+        outputs = [[ensemble_walker_output(path, walkerid)
+                    for (walkerid, path) in pairs(paths)]]
+
+        @test BAT._mcmc_ess(
+            outputs, reduce(vcat, only(outputs)), StretchMove(),
+            RepetitionWeighting(), false, BATContext(),
+        ) == 16
     end
 end

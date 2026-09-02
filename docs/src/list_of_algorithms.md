@@ -26,6 +26,20 @@ bat_sample(target, TransformedMCMC(proposal = RandomWalk(), nsteps = 10^5, nchai
 ```
 
 
+### Ensemble MCMC (experimental)
+
+BAT sampling algorithm type: [`TransformedMCMC`](@ref), MCMC proposal subtype:
+[`StretchMove`](@ref), [`DEMove`](@ref), or [`DESnookerMove`](@ref)
+
+```julia
+bat_sample(target, TransformedMCMC(proposal = StretchMove(), nwalkers = 32))
+```
+
+Each BAT chain is one coupled walker ensemble. See the
+[experimental API](@ref "Experimental features") for its initialization and
+diagnostic constraints.
+
+
 ### Hamiltonian MC
 
 BAT sampling algorithm type: [`TransformedMCMC`](@ref), MCMC algorithm subtype: [`HamiltonianMC`](@ref)

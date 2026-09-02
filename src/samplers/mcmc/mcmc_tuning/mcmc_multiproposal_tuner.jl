@@ -202,9 +202,16 @@ end
 _component_tuning_success(chain_state, proposal, tuner, acceptance) =
     get_tuning_success(chain_state, proposal, tuner)
 
-_component_tuning_success(
-    chain_state, proposal, ::NoMCMCProposalTunerState, acceptance,
-) = _acceptance_in_target(proposal, acceptance)
+function _component_tuning_success(
+    chain_state,
+    proposal,
+    tuner::NoMCMCProposalTunerState,
+    acceptance,
+)
+    return _contains_ensemble_move(proposal) ?
+        get_tuning_success(chain_state, proposal, tuner) :
+        _acceptance_in_target(proposal, acceptance)
+end
 
 _component_tuning_success(
     chain_state, proposal::MALAProposalState, tuner::MALAStepSizeTunerState, acceptance,
