@@ -77,6 +77,7 @@ OptimizationBase = "bca83a33-5cc9-4baa-983d-23429ab6bcbb"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PropertyFunctions = "09e99361-2bb8-48a2-a80f-de58f0739eb4"
 PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
+SliceSampling = "43f4d3e8-9711-4a8c-bd1b-03ac73a255cf"
 Transducers = "28d57a85-8fef-5791-bfe6-a80928e7c999"
 UltraNest = "6822f173-b0be-4018-9ee2-28bf56348d09"
 
@@ -90,6 +91,7 @@ BATOptimExt = "Optim"
 BATOptimizationBaseExt = ["OptimizationBase"]
 BATPlotsExt = "Plots"
 BATPropertyFunctionsExt = "PropertyFunctions"
+BATSliceSamplingExt = "SliceSampling"
 BATUltraNestExt = ["UltraNest", "PythonCall"]
 
 [compat]
@@ -156,6 +158,7 @@ RecipesBase = "0.7, 0.8, 1"
 Sobol = "1.4"
 StableRNGs = "1"
 ScopedSettings = "0.2"
+SliceSampling = "0.7.12"
 StaticArrays = "0.12.5, 1"
 StaticThings = "0.2"
 Statistics = "1"

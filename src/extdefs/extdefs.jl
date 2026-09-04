@@ -5,6 +5,7 @@ include("mgvi_defs.jl")
 include("nestedsamplers_defs.jl")
 include("optim_defs.jl")
 include("optimization_defs.jl")
+include("slicesampling_defs.jl")
 include("ultranest_defs.jl")
 
 # Definitions that require multiple of the algorithm types above:

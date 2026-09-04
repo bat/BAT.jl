@@ -120,6 +120,27 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
+  test-slicesampling:
+    name: SliceSampling - ${{ github.event_name }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1'
+          arch: x64
+      - uses: julia-actions/cache@v3
+      - name: Run tests
+        run: >-
+          julia --project=test/optional/slicesampling --code-coverage=user -e '
+          using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate();
+          include(joinpath("test", "optional", "slicesampling", "runtests.jl"))'
+      - uses: julia-actions/julia-processcoverage@v1
+      - uses: codecov/codecov-action@v7
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
   docs:
     name: Documentation
     runs-on: ubuntu-latest
