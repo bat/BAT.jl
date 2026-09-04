@@ -120,6 +120,33 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
+  test-elliptical-slice-sampling:
+    name: EllipticalSliceSampling - Julia ${{ matrix.version }} - ${{ github.event_name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - '1.10'
+          - '1'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: ${{ matrix.version }}
+          arch: x64
+      - uses: julia-actions/cache@v3
+      - name: Run tests
+        run: >-
+          julia --project=test/optional/ellipticalslicesampling --code-coverage=user -e '
+          using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate();
+          include(joinpath("test", "optional", "ellipticalslicesampling", "runtests.jl"))'
+      - uses: julia-actions/julia-processcoverage@v1
+      - uses: codecov/codecov-action@v7
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
   docs:
     name: Documentation
     runs-on: ubuntu-latest
