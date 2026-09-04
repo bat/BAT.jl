@@ -2,6 +2,7 @@
 
 using BAT, BATTestCases
 using Distributions
+using LazyReports
 using StatsBase
 using Test
 
@@ -167,4 +168,11 @@ _SampleAux() = _SampleInfo(0)
             @test mean(scaled) ≈ mean(unit)
         end
     end
+end
+
+
+@testset "DensitySampleVector reports" begin
+    samples = DensitySampleVector([[1.5], [2.5]], zeros(2); weight = [1, 5])
+    report = sprint(show, MIME("text/plain"), lazyreport(samples; intervals = [0.5]))
+    @test occursin("2.5 .. 2.505", report)
 end
