@@ -63,3 +63,20 @@ using Random123
     )
     @test smplres_normal.verified
 end
+
+@testset "rank-normalized R-hat" begin
+    chains(values; weight = ones(Int, length(first(values)))) = [
+        DensitySampleVector([[value] for value in chain], zeros(length(chain)); weight)
+        for chain in values
+    ]
+    rhat(chains) = bat_convergence(chains, RankNormalizedRhatConvergence(), BATContext()).result
+
+    mixed = chains([[1, 2, 3, 1, 2, 3], [3, 1, 2, 3, 1, 2]])
+    separated = chains([[1, 2, 3, 1, 2, 3], [11, 12, 13, 11, 12, 13]])
+    @test Bool(rhat(mixed))
+    @test !Bool(rhat(separated))
+
+    weighted = chains([[1, 2, 3], [3, 1, 2]]; weight = [1, 2, 3])
+    repeated = chains([[1, 2, 2, 3, 3, 3], [3, 1, 1, 2, 2, 2]])
+    @test rhat(weighted).value ≈ rhat(repeated).value
+end
