@@ -42,6 +42,20 @@ import Measurements
         @test isfinite(Measurements.value(log(result)))
     end
 
+    @testset "concentrated held-out weights" begin
+        dist = MvNormal(zeros(1), ones(1))
+        values = [[x] for x in repeat(range(-1, 1, length = 10), 2)]
+        samples = DensitySampleVector(
+            v = values, logd = logpdf.(Ref(dist), values),
+            weight = [ones(10); 1000; ones(9)],
+        )
+        result = bat_integrate(
+            EvaluatedMeasure(dist, empirical = samples),
+            BridgeSampling(pretransform = DoNotTransform()), context,
+        ).result
+        @test isfinite(Measurements.uncertainty(log(result)))
+    end
+
     test_integration(BridgeSampling(pretransform=DoNotTransform()), "funnel distribution", FunnelDistribution(), val_rtol = 15)
     #! ToDo: Fix this test, cause trouble on x86-32
     #test_integration(BridgeSampling(pretransform=DoNotTransform()), "multimodal student-t distribution", MultimodalStudentT(), val_rtol = 50)
