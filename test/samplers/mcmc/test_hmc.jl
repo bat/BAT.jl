@@ -42,6 +42,12 @@ import ForwardDiff, Zygote
             centers = [t.log_mu for t in state.proposal_tuner_state.proposal_tuners]
             @test centers ≈ [0.0, log(10.0)]
         end
+        initial_transform = state.chain_state.f_transform
+        for _ in 1:25
+            state = BAT.mcmc_step!!(state)
+        end
+        @test state.chain_state.f_transform !== initial_transform
+        @test all(t -> t.m == 0 && t.run_nobs == 0, state.proposal_tuner_state.proposal_tuners)
     end
 
     @testset "MCMC iteration" begin

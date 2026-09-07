@@ -116,6 +116,24 @@ function mcmc_proposal_tuning_reinit!!(
 end
 
 
+function mcmc_proposal_transform_committed!!(
+    multi_proposal::MultiProposalState,
+    multi_tuner::MultiProposalTunerState,
+    chain_state::MCMCChainState,
+    trafo_tuners::Vararg{MCMCTransformTunerState},
+)
+    proposals, tuners = multi_proposal.proposal_states, multi_tuner.proposal_tuners
+    for i in eachindex(proposals)
+        component_chain = @set chain_state.proposal = proposals[i]
+        proposals[i], tuners[i], component_chain = mcmc_proposal_transform_committed!!(
+            proposals[i], tuners[i], component_chain, trafo_tuners...,
+        )
+        chain_state = @set component_chain.proposal = multi_proposal
+    end
+    return multi_proposal, multi_tuner, chain_state
+end
+
+
 function mcmc_proposal_tuning_postinit!!(
     multi_tuner::MultiProposalTunerState, 
     chain_state::MCMCChainState, 
