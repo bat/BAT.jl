@@ -360,7 +360,7 @@ function _weighted_empirical_quantile(v::AbstractVector, w::AbstractVector, p::R
     isempty(v) && throw(ArgumentError("quantile of an empty array is undefined"))
     0 <= p <= 1 || throw(ArgumentError("input probability out of [0,1] range"))
 
-    nan_idx = findfirst(isnan, v)
+    nan_idx = findfirst(i -> !iszero(w[i]) && isnan(v[i]), eachindex(v, w))
     isnothing(nan_idx) || return v[nan_idx]
 
     order = sortperm(v)
