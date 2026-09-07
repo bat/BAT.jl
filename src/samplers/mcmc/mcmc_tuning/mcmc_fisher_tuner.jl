@@ -553,12 +553,15 @@ _fisher_geometry(::LowRankFisherEstimator, acc::_XGMoments, γ::Real) =
 # Unique SPD solution G of the Riccati equation G C_g G = C_x, i.e. the
 # affine-invariant geometric mean of C_x and C_g⁻¹:
 function _spd_riccati_solve(C_x::Symmetric, C_g::Symmetric)
-    E = eigen(C_g)
+    # Normalize before multiplying, so tiny or large covariance scales do
+    # not underflow or overflow in the intermediate matrix product.
+    scale_x, scale_g = maximum(abs, C_x), maximum(abs, C_g)
+    E = eigen(C_g / scale_g)
     S_sqrt = E.vectors * Diagonal(sqrt.(E.values)) * E.vectors'
     S_isqrt = E.vectors * Diagonal(inv.(sqrt.(E.values))) * E.vectors'
-    F = eigen(Symmetric(S_sqrt * C_x * S_sqrt))
+    F = eigen(Symmetric(S_sqrt * (C_x / scale_x) * S_sqrt))
     M_sqrt = F.vectors * Diagonal(sqrt.(max.(F.values, 0))) * F.vectors'
-    return Symmetric(S_isqrt * M_sqrt * S_isqrt)
+    return Symmetric((sqrt(scale_x) / sqrt(scale_g)) * (S_isqrt * M_sqrt * S_isqrt))
 end
 
 # Fit one projected low-rank correction from an immutable block. The

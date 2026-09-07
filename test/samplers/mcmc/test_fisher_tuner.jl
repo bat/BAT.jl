@@ -27,6 +27,16 @@ using BAT: DenseFisherEstimator, LowRankFisherEstimator,
         end
     end
 
+    @testset "equal tiny covariance scales" begin
+        moments = _new_moments(DenseFisherEstimator(), 2)
+        for _ in 1:20
+            _moments_update!(moments, [1.0, 2.0], [-1.0, -2.0])
+        end
+        geometry, location = _fisher_geometry(DenseFisherEstimator(), moments, 1e-5)
+        @test geometry ≈ I
+        @test location ≈ zeros(2) atol = 1e-14
+    end
+
     @testset "Gaussian geometry recovery" begin
         d = 4
         A = LowerTriangular(Matrix(I(d)) + 0.4 * randn(rng, d, d))
