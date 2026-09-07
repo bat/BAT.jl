@@ -23,6 +23,26 @@ import ForwardDiff, Zygote
     nwalkers = 1
     samplingalg = TransformedMCMC(proposal = proposal, transform_tuning = transform_tuning, nchains = nchains, nwalkers = nwalkers)
 
+    @testset "composite step-size adaptation" begin
+        alg = TransformedMCMC(
+            proposal = MCMCMultiProposal(
+                proposals = BAT.MCMCProposal[HamiltonianMC(step_size = 0.1), HamiltonianMC(step_size = 1.0)],
+                picking_rule = [1, 1],
+            ),
+            pretransform = DoNotTransform(),
+            adaptive_transform = BAT.TriangularAffineTransform(init = BAT.UnitTransformInit()),
+            transform_tuning = BAT.StanLikeTuning(init_buffer = 0, term_buffer = 10, window_size = 25),
+            nchains = 1, convergence = AssumeConvergence(),
+        )
+        dist = batmeasure(MvNormal(zeros(2), [1.0 0.5; 0.5 3.0]))
+        state = BAT.MCMCState(alg, dist, 1, [[0.2, -0.2]], deepcopy(context))
+        for initialize in (BAT.mcmc_tuning_init!!, BAT.mcmc_tuning_reinit!!)
+            initialize(state, 100)
+            centers = [t.log_mu for t in state.proposal_tuner_state.proposal_tuners]
+            @test centers ≈ [0.0, log(10.0)]
+        end
+    end
+
     @testset "MCMC iteration" begin
         context = BATContext(rng = Philox4x((564, 47)), ad = ForwardDiff)
         nsteps = 10^4
