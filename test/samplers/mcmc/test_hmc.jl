@@ -36,6 +36,7 @@ import ForwardDiff, Zygote
         )
         dist = batmeasure(MvNormal(zeros(2), [1.0 0.5; 0.5 3.0]))
         state = BAT.MCMCState(alg, dist, 1, [[0.2, -0.2]], deepcopy(context))
+        @test_throws ArgumentError BAT.create_trafo_tuner_state(BAT.StanLikeTuning(window_size = 0), state.chain_state, 100)
         for initialize in (BAT.mcmc_tuning_init!!, BAT.mcmc_tuning_reinit!!)
             initialize(state, 100)
             centers = [t.log_mu for t in state.proposal_tuner_state.proposal_tuners]
