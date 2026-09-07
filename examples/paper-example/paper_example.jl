@@ -107,8 +107,8 @@ true_λ = 50.0
 
 ΔE = E_max - E_min
 
-summary_dataset_table = CSV.read("summary_dataset_table.csv", Table)
-sample_table = CSV.read("sample_table.csv", Table)
+summary_dataset_table = CSV.read(string(@__DIR__, "/summary_dataset_table.csv"), Table)
+sample_table = CSV.read(string(@__DIR__, "/sample_table.csv"), Table)
 
 function make_child_prior(N)
     v -> begin
@@ -144,15 +144,17 @@ nsteps = 10^5
 
 algorithm = TransformedMCMC(proposal = HamiltonianMC(), nchains = nchains, nsteps = nsteps)
 
-samples_bkg, eval_bkg = bat_sample(posterior_bkg, algorithm)
+samples_bkg = bat_sample(posterior_bkg, algorithm).result
+evaluated_bkg = EvaluatedMeasure(posterior_bkg, empirical = samples_bkg)
 
-@show evidence_bkg_bridge = bat_integrate(eval_bkg, BridgeSampling()).result
-@show evidence_bkg_cuba = bat_integrate(eval_bkg, VEGASIntegration(maxevals = 10^6, rtol = 0.005)).result
+@show evidence_bkg_bridge = bat_integrate(evaluated_bkg, BridgeSampling()).result
+@show evidence_bkg_cuba = bat_integrate(posterior_bkg, VEGASIntegration(maxevals = 10^6, rtol = 0.005)).result
 
-samples_bkg_signal, eval_bkg_signal = bat_sample(posterior_bkg_signal, algorithm)
+samples_bkg_signal = bat_sample(posterior_bkg_signal, algorithm).result
+evaluated_bkg_signal = EvaluatedMeasure(posterior_bkg_signal, empirical = samples_bkg_signal)
 
-@show evidence_bkg_signal_bridge = bat_integrate(eval_bkg_signal, BridgeSampling()).result
-@show evidence_bkg_signal_cuba = bat_integrate(eval_bkg_signal, VEGASIntegration(maxevals = 10^6, rtol = 0.005)).result
+@show evidence_bkg_signal_bridge = bat_integrate(evaluated_bkg_signal, BridgeSampling()).result
+@show evidence_bkg_signal_cuba = bat_integrate(posterior_bkg_signal, VEGASIntegration(maxevals = 10^6, rtol = 0.005)).result
 
 #@show BF_exponential_bridge = evidence_bkg_signal_bridge / evidence_bkg_bridge
 @show BF_exponential_cuba = evidence_bkg_signal_cuba / evidence_bkg_cuba
@@ -171,8 +173,8 @@ p_1 = plot!(samples_bkg_signal, (:S, :λ), subplot=2, st = :histogram, legend=fa
 #lower left
 p_1 = plot!(samples_bkg_signal, (:S,:λ), subplot=3, legend=true)
 
-savefig(p_1, "prior_posterior.pdf")
-savefig(p_1, "prior_posterior.png")
+savefig(p_1, string(@__DIR__, "/prior_posterior.pdf"))
+savefig(p_1, string(@__DIR__, "/prior_posterior.png"))
 
 
 
@@ -188,19 +190,19 @@ p_2 = plot!(samples_bkg_signal, (:m_B, :σ_B), subplot=2, st = :histogram, legen
 #lower left
 p_2 = plot!(samples_bkg_signal, (:m_B,:σ_B), subplot=3, legend=true)
 
-savefig(p_2, "prior_posterior_hierarchical.pdf")
-savefig(p_2, "prior_posterior_hierarchical.png")
+savefig(p_2, string(@__DIR__, "/prior_posterior_hierarchical.pdf"))
+savefig(p_2, string(@__DIR__, "/prior_posterior_hierarchical.png"))
 
 
 p_hist = plot(size=(800,500), layout=(1,1), labelfontsize=12, tickfontsize=10, legendfontsize=7)
 p_hist = histogram!(sample_table.E, bins = range(0.0, stop=maximum(sample_table.E)+20., length=100), title = "", xlabel = "Energy [keV]", ylabel = "Counts", label = "", box = :on, grid = :off)
 
-savefig(p_hist, "total_hist.pdf")
-savefig(p_hist, "total_hist.png")
+savefig(p_hist, string(@__DIR__, "/total_hist.pdf"))
+savefig(p_hist, string(@__DIR__, "/total_hist.png"))
 
 p_fit_sum = plot(size=(800,500), layout=(1,1), labelfontsize=12, tickfontsize=10, legendfontsize=7)
 p_fit_sum = plot!(range(0.0, (maximum(sample_table.E)+20), length=500), fit_function_sum_all, samples_bkg_signal, box = :on, grid = :off, xlabel = "Energy [keV]", ylabel = "Background distribution", legend = :topright)
 p_fit_sum = histogram!(twinx(), xticks=([], []), sample_table.E, bins = range(0.0, stop=maximum(sample_table.E)+20., length=100), ylabel = "Counts", label = "Binned data", box = :on, grid = :off, fillalpha = 0.4, linealpha = 0.4, legend = :topleft)
 
-savefig(p_fit_sum, "detector_sum.pdf")
-savefig(p_fit_sum, "detector_sum.png")
+savefig(p_fit_sum, string(@__DIR__, "/detector_sum.pdf"))
+savefig(p_fit_sum, string(@__DIR__, "/detector_sum.png"))
