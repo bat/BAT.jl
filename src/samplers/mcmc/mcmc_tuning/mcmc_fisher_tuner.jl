@@ -259,11 +259,14 @@ mutable struct _Lag1Stats{T<:AbstractFloat}
     ptr::Int
     prev::Matrix{T}
     cross1::Vector{T}
+    mean_x::Vector{T}
+    mean_prev::Vector{T}
 end
 
 function _Lag1Stats(::Type{T}, n_dims::Integer, stride::Integer) where {T<:AbstractFloat}
     stride = max(stride, 1)
-    _Lag1Stats(stride, 0, 0, 0, zeros(T, n_dims, stride), zeros(T, n_dims))
+    _Lag1Stats(stride, 0, 0, 0, zeros(T, n_dims, stride),
+        zeros(T, n_dims), zeros(T, n_dims), zeros(T, n_dims))
 end
 
 _Lag1Stats(n_dims::Integer, stride::Integer) = _Lag1Stats(Float64, n_dims, stride)
@@ -272,8 +275,14 @@ function _lag1_update!(l1::_Lag1Stats, x::AbstractVector{<:Real})
     ptr = mod1(l1.ptr + 1, l1.stride)
     l1.ptr = ptr
     if l1.filled >= l1.stride
-        l1.cross1 .+= x .* view(l1.prev, :, ptr)
         l1.n1 += 1
+        # Each endpoint has its own mean over the observed lag pairs.
+        for i in eachindex(x)
+            dx = x[i] - l1.mean_x[i]
+            l1.mean_x[i] += dx / l1.n1
+            l1.mean_prev[i] += (l1.prev[i, ptr] - l1.mean_prev[i]) / l1.n1
+            l1.cross1[i] += dx * (l1.prev[i, ptr] - l1.mean_prev[i])
+        end
     else
         l1.filled += 1
     end
@@ -347,7 +356,7 @@ function _effective_nobs(acc::_AbstractXGMoments)
     T = eltype(acc.mean_x)
     l1.n1 >= 10 || return T(acc.n)
     var_raw = _diag_var_raw(acc)
-    c1 = l1.cross1 ./ l1.n1 .- acc.mean_x .^ 2
+    c1 = l1.cross1 ./ l1.n1
     ρs = c1 ./ max.(var_raw, floatmin(T))
     ρ = clamp(sum(ρs) / length(ρs), zero(T), T(99) / 100)
     return acc.n * (1 - ρ) / (1 + ρ)

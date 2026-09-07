@@ -4,6 +4,7 @@ using BAT
 using Test
 
 using LinearAlgebra, Random
+using Statistics
 using StableRNGs
 
 using BAT: DenseFisherEstimator, LowRankFisherEstimator,
@@ -11,6 +12,20 @@ using BAT: DenseFisherEstimator, LowRankFisherEstimator,
 
 @testset "fisher_tuner" begin
     rng = StableRNG(438621057)
+
+    @testset "lag estimate preserves translation and walker pairing" begin
+        values = [0, 0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -5]
+        earlier, later = values[1:end-2], values[3:end]
+        rho = mean((earlier .- mean(earlier)) .* (later .- mean(later))) / var(values)
+        expected = length(values) * (1 - rho) / (1 + rho)
+        for shift in (0.0, 100.0)
+            moments = _new_moments(DenseFisherEstimator(), 1, 2)
+            for x in values
+                _moments_update!(moments, [x + shift], [-Float64(x)])
+            end
+            @test BAT._effective_nobs(moments) ≈ expected
+        end
+    end
 
     @testset "Gaussian geometry recovery" begin
         d = 4
