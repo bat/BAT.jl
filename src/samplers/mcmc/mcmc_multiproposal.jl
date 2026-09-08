@@ -24,6 +24,13 @@ end
 
 export MCMCMultiProposal
 
+_contains_ensemble_move(::MCMCProposal) = false
+
+_contains_ensemble_move(::MCMCProposalState) = false
+
+_contains_ensemble_move(proposal::MCMCMultiProposal) =
+    any(_contains_ensemble_move, proposal.proposals)
+
 function _validate_mcmc_proposal_configuration(
     multi_proposal::MCMCMultiProposal,
     tuning::MCMCProposalTuning,
@@ -61,6 +68,39 @@ function _validate_mcmc_proposal_configuration(
     return nothing
 end
 
+function _validate_mcmc_weighting_configuration(
+    proposal::MCMCMultiProposal,
+    weighting::AbstractMCMCWeightingScheme,
+)
+    _contains_ensemble_move(proposal) || return nothing
+    weighting isa RepetitionWeighting || throw(ArgumentError(
+        "MCMCMultiProposal with an ensemble move requires RepetitionWeighting, got $(nameof(typeof(weighting)))",
+    ))
+    return nothing
+end
+
+function _validate_mcmc_adaptive_transform_configuration(
+    proposal::MCMCMultiProposal,
+    adaptive_transform::AbstractAdaptiveTransform,
+)
+    _contains_ensemble_move(proposal) || return nothing
+    adaptive_transform isa NoAdaptiveTransform || throw(ArgumentError(
+        "MCMCMultiProposal with an ensemble move requires NoAdaptiveTransform, got $(nameof(typeof(adaptive_transform)))",
+    ))
+    return nothing
+end
+
+function _validate_mcmc_transform_tuning_configuration(
+    proposal::MCMCMultiProposal,
+    tuning::MCMCTransformTuning,
+)
+    _contains_ensemble_move(proposal) || return nothing
+    tuning isa NoMCMCTransformTuning || throw(ArgumentError(
+        "MCMCMultiProposal with an ensemble move requires NoMCMCTransformTuning, got $(nameof(typeof(tuning)))",
+    ))
+    return nothing
+end
+
 struct MultiProposalState{
     PS<:Vector{<:MCMCProposalState},
     R<:Union{Vector{<:Integer}, Categorical},
@@ -70,6 +110,23 @@ struct MultiProposalState{
     picking_rule::R
     active_idx::I
 end
+
+_contains_ensemble_move(proposal::MultiProposalState) =
+    any(_contains_ensemble_move, proposal.proposal_states)
+
+function _validate_mcmc_ensemble_invariants(
+    proposal::MultiProposalState,
+    target::BATMeasure,
+    z_init::AbstractVector,
+)
+    foreach(proposal.proposal_states) do proposal_state
+        _validate_mcmc_ensemble_invariants(proposal_state, target, z_init)
+    end
+    return nothing
+end
+
+_mcmc_n_rng_purposes(proposal::MultiProposalState) =
+    _contains_ensemble_move(proposal) ? _MCMC_N_RNG_PURPOSES : _MCMC_ACCEPTANCE_PURPOSE
 
 
 function bat_default(
@@ -85,13 +142,40 @@ bat_default(
     ::Type{TransformedMCMC}, 
     ::Val{:adaptive_transform}, 
     proposal::MCMCMultiProposal
-) = TriangularAffineTransform()
+) = _contains_ensemble_move(proposal) ? NoAdaptiveTransform() : TriangularAffineTransform()
 
 bat_default(
     ::Type{TransformedMCMC}, 
     ::Val{:tempering}, 
     proposal::MCMCMultiProposal
 ) = NoMCMCTempering()
+
+bat_default(
+    ::Type{TransformedMCMC},
+    ::Val{:init},
+    proposal::MCMCMultiProposal,
+    ::TransformIntent,
+    ::MCMCTransformTuning,
+    ::Integer,
+    ::Integer,
+    nsteps::Integer,
+) = _contains_ensemble_move(proposal) ?
+    MCMCRetryInit() : MCMCChainPoolInit(nsteps_init = max(div(nsteps, 100), 250))
+
+function _mcmc_ess(
+    chain_outputs::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
+    merged_output::DensitySampleVector,
+    proposal::MCMCMultiProposal,
+    weighting::AbstractMCMCWeightingScheme,
+    store_burnin::Bool,
+    context::BATContext,
+)
+    _contains_ensemble_move(proposal) || return _pooled_walker_ess(
+        chain_outputs, merged_output, weighting, context,
+    )
+    store_burnin && return nothing
+    return _pooled_ensemble_ess(chain_outputs, merged_output, context)
+end
 
 get_active_proposal_idx(proposal_state::MultiProposalState) = proposal_state.active_idx
 
@@ -197,20 +281,23 @@ function _component_acceptance_successes(
 )
     component_acceptance_rates = detailed_eff_acceptance_ratio(chain_state)
     return map(eachindex(component_acceptance_rates)) do i
+        proposal = multi_proposal.proposal_states[i]
+        _contains_ensemble_move(proposal) && return true
         chain_state.nattempts[i] > 0 || return false
         return _acceptance_in_target(
-            multi_proposal.proposal_states[i], component_acceptance_rates[i],
+            proposal, component_acceptance_rates[i],
         )
     end
 end
 
 function _create_proposal_state(
-    multi_proposal::MCMCMultiProposal, 
-    target::BATMeasure, 
-    context::BATContext, 
+    multi_proposal::MCMCMultiProposal,
+    target::BATMeasure,
+    context::BATContext,
     v_init::AbstractVector{PV},
+    z_init::AbstractVector,
     f_transform::Function,
-    rng::AbstractRNG
+    rng::AbstractRNG,
 ) where {P<:Real, PV<:AbstractVector{P}}
 
     nproposals = length(multi_proposal.proposals)
@@ -218,25 +305,40 @@ function _create_proposal_state(
         "MCMCMultiProposal supports at most $_MCMC_PROPOSALS_PER_PURPOSE proposals, got $nproposals",
     ))
 
-    proposal_states_init = Vector{MCMCProposalState}()
-
-    for proposal in multi_proposal.proposals
-        proposal_state_tmp = _create_proposal_state(
+    proposal_states_init = MCMCProposalState[
+        _create_proposal_state(
             proposal,
             target,
             context,
             v_init,
+            z_init,
             f_transform,
-            rng
+            rng,
         )
-        push!(proposal_states_init, proposal_state_tmp)
-    end
+        for proposal in multi_proposal.proposals
+    ]
 
     picking_rule = _copy_picking_rule(multi_proposal.picking_rule)
 
     idx = _init_active_idx(rng, picking_rule)
 
     return MultiProposalState(proposal_states_init, picking_rule, idx)
+end
+
+function _create_proposal_state(
+    multi_proposal::MCMCMultiProposal,
+    target::BATMeasure,
+    context::BATContext,
+    v_init::AbstractVector,
+    f_transform::Function,
+    rng::AbstractRNG,
+)
+    z_init = inverse(f_transform).(v_init)
+    proposal_state = _create_proposal_state(
+        multi_proposal, target, context, v_init, z_init, f_transform, rng,
+    )
+    _validate_mcmc_ensemble_invariants(proposal_state, target, z_init)
+    return proposal_state
 end
 
 _copy_picking_rule(picking_rule::AbstractVector) = copy(picking_rule)
