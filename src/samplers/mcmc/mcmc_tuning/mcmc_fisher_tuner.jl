@@ -276,13 +276,11 @@ function _lag1_update!(l1::_Lag1Stats, x::AbstractVector{<:Real})
     l1.ptr = ptr
     if l1.filled >= l1.stride
         l1.n1 += 1
-        # Each endpoint has its own mean over the observed lag pairs.
-        for i in eachindex(x)
-            dx = x[i] - l1.mean_x[i]
-            l1.mean_x[i] += dx / l1.n1
-            l1.mean_prev[i] += (l1.prev[i, ptr] - l1.mean_prev[i]) / l1.n1
-            l1.cross1[i] += dx * (l1.prev[i, ptr] - l1.mean_prev[i])
-        end
+        prev = view(l1.prev, :, ptr)
+        # The covariance uses the old x mean and the updated previous mean.
+        l1.mean_prev .+= (prev .- l1.mean_prev) ./ l1.n1
+        l1.cross1 .+= (x .- l1.mean_x) .* (prev .- l1.mean_prev)
+        l1.mean_x .+= (x .- l1.mean_x) ./ l1.n1
     else
         l1.filled += 1
     end
