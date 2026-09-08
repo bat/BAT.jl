@@ -40,6 +40,9 @@ mutable struct StanLikeTunerState{S<:MCMCBasicStats} <: MCMCTransformTunerState
 end
 
 function create_trafo_tuner_state(tuning::StanLikeTuning, chain_state::MCMCChainState, n_steps_hint::Integer)
+    @argcheck tuning.init_buffer >= 0
+    @argcheck tuning.term_buffer >= 0
+    @argcheck tuning.window_size > 0
     chain_state.f_transform isa MulAdd || throw(ArgumentError(
         "StanLikeTuning requires an affine adaptive space transformation (like TriangularAffineTransform)"
     ))

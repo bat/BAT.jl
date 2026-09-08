@@ -6,9 +6,10 @@
 #     julia --project=<env-with-BAT> benchmark/hmc_geometry_benchmark.jl
 #
 # Metrics per (target, tuner) cell: moment errors of the samples, total
-# divergent trajectories, total leapfrog steps (gradient evaluations),
-# effective sample size per 1000 gradient evaluations, final step sizes
-# and wall time.
+# divergent trajectories, total leapfrog steps, effective sample size per
+# 1000 leapfrog steps, and cold wall time. Leapfrog counts exclude initial
+# gradients and step-size searches. Cold timings include compilation and
+# are not suitable for comparing tuner speed.
 
 using BAT
 using LinearAlgebra, Random, Statistics, StatsBase, Printf
@@ -71,7 +72,7 @@ function run_cell(target, tuner_cfg; nsteps = 10^4)
         TransformedMCMC(proposal = HamiltonianMC(), pretransform = DoNotTransform(), adaptive_transform = at, transform_tuning = tt, nsteps = nsteps, strict = false)
     t0 = time()
     em = evalmeasure(target.measure, alg, deepcopy(context))
-    walltime = time() - t0
+    cold_walltime = time() - t0
 
     smpls = BAT.samplesof(em)
     diags = BAT.evalinfo(em).result.chain_diagnostics
@@ -94,9 +95,9 @@ function run_cell(target, tuner_cfg; nsteps = 10^4)
     (
         moment_err = moment_err,
         n_divergent = n_div,
-        ess_per_kgrad = 1000 * ess / n_leapfrog,
+        ess_per_kleapfrog = 1000 * ess / n_leapfrog,
         n_leapfrog = n_leapfrog,
-        walltime = walltime,
+        cold_walltime = cold_walltime,
     )
 end
 
@@ -112,8 +113,8 @@ for (tname, target) in targets, (aname, cfg) in tuners
     results[(tname, aname)] = r
     if !isnothing(r)
         @printf(
-            "%-22s %-15s momerr %-8.3f div %-6d ess/kgrad %-8.1f leapfrog %-10d t %6.1fs\n",
-            tname, aname, r.moment_err, r.n_divergent, r.ess_per_kgrad, r.n_leapfrog, r.walltime
+            "%-22s %-15s momerr %-8.3f div %-6d ess/kleapfrog %-8.1f leapfrog %-10d cold %6.1fs\n",
+            tname, aname, r.moment_err, r.n_divergent, r.ess_per_kleapfrog, r.n_leapfrog, r.cold_walltime
         )
     end
 end
