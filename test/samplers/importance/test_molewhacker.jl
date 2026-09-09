@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-using BAT, Test, Distributions, Statistics, StableRNGs
+using BAT, Test, Distributions, LinearAlgebra, Statistics, StableRNGs
 using DensityInterface: logdensityof
 using MeasureBase: Likelihood, weightedmeasure
 using ValueShapes: NamedTupleDist
@@ -63,6 +63,23 @@ import ForwardDiff, Optim
         @test merged.evalinfo.result.ncomponents == 3
         @test merged.evalinfo.result.ngeometries == 2
         @test repeated == saved
+    end
+
+    @testset "Optional center refinement in eight dimensions" begin
+        p = PosteriorMeasure(Likelihood(z -> MvNormal(z, Matrix(0.25I, 8, 8)), fill(0.7, 8)),
+            MvNormal(zeros(8), Matrix(1.0I, 8, 8)))
+        alg = MolewhackerSampling(nsamples = 4000, batchsize = 250, maxiter = 4,
+            maxevals = 6200, refine_centers = true)
+        em = evalmeasure(p, alg, context())
+        s = BAT.samplesof(em)
+        @test maximum(abs, mean(s) .- 0.56) < 0.06
+        @test maximum(abs, var(s) .- 0.2) < 0.04
+        @test em.evalinfo.result.efficiency > 0.7
+        @test em.evalinfo.result.nevals <= alg.maxevals
+        @test length(s) == alg.nsamples
+        q = Distribution(em.approx.transformed)
+        z = BAT.samplesof(em.empirical.transformed)
+        @test z.weight ≈ exp.(z.logd .- logpdf.(Ref(q), z.v) .- em.evalinfo.result.logweight_scale)
     end
 
     @testset "Separated nonlinear modes" begin

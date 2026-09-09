@@ -86,8 +86,7 @@ end
 function _mw_local_precision(f, x, ad)
     try
         P = _mw_precision(f, x, ad)
-        cholesky(Symmetric(P))
-        return P
+        return PDMat(P, cholesky(Symmetric(P)))
     catch err
         if err isa Union{MolewhackerGeometryError,PosDefException,SingularException}
             return nothing

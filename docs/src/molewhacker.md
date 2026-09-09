@@ -62,7 +62,7 @@ Self-normalized estimates retain their usual finite-sample bias.
 - `maxiter`, `maxcomponents`, and `maxevals` bound adaptation. `maxiter = 0`
   draws from the initial proposal without training.
 - `nsamples` reserves the production budget. `maxevals` also counts training,
-  validation, sizing, and mode-search target calls. Fisher model/Jacobian calls
+  validation, sizing, center-refinement, and mode-search target calls. Fisher model/Jacobian calls
   are separate and counted as geometry attempts in `ngeometries`.
 - A finite `target_ess` enables a fresh sizing pilot. The pilot chooses a count
   between one and `nsamples` before production starts. It cannot guarantee the
@@ -74,6 +74,15 @@ Self-normalized estimates retain their usual finite-sample bias.
 - `mode = OptimAlg(...)` optionally refines initial and discovered centers.
   Load the chosen optimizer backend. The search maximizes the transformed
   target density and shares the target-call budget.
+- `refine_centers = true` also fits one Fisher-gradient step from each discovered
+  center when `mode` is `nothing`. The original center remains a candidate.
+  This requires gradients of the transformed target through the context's AD
+  selector. It uses the original center's precision and caps the step at
+  `sqrt(d)` in that metric. It does not move explicit initial seeds.
+  The extra target calls and candidate fits can help poorly centered proposals,
+  especially in higher dimensions. They can also reduce the number of fitting
+  rounds under a tight budget. The default is `false` because observable errors
+  and total cost can worsen even when production ESS improves.
 - `ncandidates` limits candidate attempts independently of the executor.
   Discovery excludes centers inside a previous candidate's unit Fisher
   ellipsoid, so narrow nearby features can remain distinct.
@@ -97,6 +106,11 @@ Product models share one parameter Jacobian across their factors. This avoids
 repeated differentiation of the complete model, but stores all factor-parameter
 rows together. Its Jacobian storage scales with observation-parameter count
 times target dimension.
+
+Proposal densities use the distribution library's batched in-place API, with
+scalar fallbacks for mixed-precision buffers and indeterminate tail values.
+Local Gaussians retain the validated precision factor at unit covariance scale.
+Other scales refactor the scaled matrix, preserving its numerical validity check.
 
 Include fitting and geometry cost when comparing samplers. Higher production ESS
 need not reduce total cost or error for a specific observable.
