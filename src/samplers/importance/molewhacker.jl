@@ -177,15 +177,13 @@ function _mw_fit_mass(loga, logq, logg)
     end
     # d can round to ±1. Use the original log objective at endpoints.
     choices = (0.0, (lo + hi) / 2, 1.0)
-    values = map(objective, choices)
-    i = argmin(values)
-    return choices[i], values[i]
+    value, i = findmin(map(objective, choices))
+    return choices[i], value
 end
 
 struct MolewhackerBudgetReached <: Exception end
 
-function _mw_center_alternative(center::AbstractVector{T}, precision, logtarget, remaining, ad) where T
-    remaining > 0 || return nothing, 0, false
+function _mw_with_budget(f, logtarget, remaining)
     ncalls = Ref(0)
     counted = x -> begin
         ChainRulesCore.ignore_derivatives() do
@@ -194,45 +192,65 @@ function _mw_center_alternative(center::AbstractVector{T}, precision, logtarget,
         end
         logtarget(x)
     end
-    value, gradient = try
-        with_gradient(counted, center, ad)
+    try
+        return f(counted), ncalls[], false
     catch err
         err isa MolewhackerBudgetReached || rethrow()
         return nothing, ncalls[], true
     end
-    isfinite(value) && all(isfinite, gradient) || return nothing, ncalls[], false
+end
+
+function _mw_center_alternative(center::AbstractVector{T}, precision, logtarget, remaining, ad) where T
+    remaining > 0 || return nothing, 0, false
+    result, ncalls, exhausted = _mw_with_budget(logtarget, remaining) do counted
+        with_gradient(counted, center, ad)
+    end
+    exhausted && return nothing, ncalls, true
+    value, gradient = result
+    isfinite(value) && all(isfinite, gradient) || return nothing, ncalls, false
     C = cholesky(precision)
     u = C.L \ gradient
     ρ = norm(u)
-    isfinite(ρ) && ρ > 0 || return nothing, ncalls[], false
+    isfinite(ρ) && ρ > 0 || return nothing, ncalls, false
     # Limit the displacement to sqrt(d) in the local Fisher metric.
     u .*= min(one(T), sqrt(T(length(center))) / ρ)
     candidate = T.(center .+ C.U \ u)
-    all(isfinite, candidate) && candidate != center || return nothing, ncalls[], false
-    return candidate, ncalls[], false
+    all(isfinite, candidate) && candidate != center || return nothing, ncalls, false
+    return candidate, ncalls, false
 end
 
 function _mw_mode(center, logtarget, mode, remaining, context)
     isnothing(mode) && return center, 0, false
-    ncalls = Ref(0)
-    f = x -> begin
-        ncalls[] < remaining || throw(MolewhackerBudgetReached())
-        ncalls[] += 1
-        logtarget(x)
+    result, ncalls, exhausted = _mw_with_budget(logtarget, remaining) do counted
+        collect(maximize_density(counted, center, mode, context).result)
     end
-    try
-        r = maximize_density(f, center, mode, context)
-        return collect(r.result), ncalls[], false
-    catch err
-        err isa MolewhackerBudgetReached || rethrow()
-        return center, ncalls[], true
+    return exhausted ? center : result, ncalls, exhausted
+end
+
+function _mw_nearby(center, centers)
+    return any(centers) do (c, P)
+        delta = center .- c
+        dot(delta, P * delta) < one(eltype(center))
     end
+end
+
+function _mw_validation_gain(q, candidate, logtarget, alg, context)
+    no_gain = zero(get_precision(context))
+    candidate === q && return no_gain, 0
+    # Candidates are frozen. This fresh comparison has its own denominator.
+    r = MixtureModel(vcat(q.components, candidate.components), vcat(probs(q) ./ 2, probs(candidate) ./ 2))
+    validation = _mw_draw(r, logtarget, alg.batchsize, alg.executor, context)
+    loga = _mw_loga(validation)
+    isnothing(loga) && return no_gain, alg.batchsize
+    x = flatview(validation.v)
+    old_obj = _mw_logobjective(loga, _mw_batched_logpdf(q, x))
+    new_obj = _mw_logobjective(loga, _mw_batched_logpdf(candidate, x))
+    return -expm1(new_obj - old_obj), alg.batchsize
 end
 
 function _mw_efficiency(logw)
     c = maximum(logw)
     isfinite(c) || throw(ArgumentError("MolewhackerSampling drew no finite positive target mass."))
-    all(x -> isfinite(x) || x == -Inf, logw) || throw(ArgumentError("MolewhackerSampling encountered invalid importance ratios."))
     w = exp.(logw .- c)
     ess = sum(w)^2 / sum(abs2, w)
     return (; weight = w, ess, efficiency = ess / length(w), logweight_scale = c)
@@ -310,7 +328,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
 
     training = nothing
     for iteration in 1:alg.maxiter
-        if fit_budget - nevals < alg.batchsize || fit_budget - nevals - alg.batchsize < alg.batchsize
+        if (fit_budget - nevals) ÷ 2 < alg.batchsize
             stop_reason = :maxevals
             break
         elseif length(q.components) >= alg.maxcomponents
@@ -320,49 +338,43 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
         niterations = iteration
         batch = _mw_draw(q, logtarget, alg.batchsize, alg.executor, context)
         nevals += alg.batchsize
+        # Keep discovery coordinates in context precision and generating densities unchanged.
         if isnothing(training)
-            training = (v = Vector{Vector{T}}(batch.v), logp = copy(batch.logp), logr = copy(batch.logr))
+            training = (v = VectorOfSimilarVectors(convert(Matrix{T}, flatview(batch.v))), logp = batch.logp, logr = batch.logr)
         else
-            append!(training.v, batch.v)
-            append!(training.logp, batch.logp)
-            append!(training.logr, batch.logr)
+            training = (v = VectorOfSimilarVectors(T[flatview(training.v) flatview(batch.v)]),
+                logp = append!(training.logp, batch.logp), logr = append!(training.logr, batch.logr))
         end
         loga = _mw_loga(training)
-        if isnothing(loga)
-            push!(history, (; iteration, accepted = false, gain = zero(T), ncomponents = length(q.components)))
-            stalled += 1
-            if stalled >= alg.patience
-                stop_reason = :no_improvement
-                break
-            end
-            continue
-        end
-        training_x = reduce(hcat, training.v)
-        logq = _mw_batched_logpdf(q, training_x)
-        scores = training.logp .- logq
-        order = sortperm(scores, rev = true)
-        centers = Tuple{Vector{T},Matrix{T}}[]
-        attempts = 0
-        best, best_obj = q, _mw_logobjective(loga, logq)
-        logprior = _mw_batched_logpdf(gprior, training_x)
-        for idx in order
-            attempts >= alg.ncandidates && break
-            isfinite(scores[idx]) || continue
-            center = training.v[idx]
-            any(cp -> dot(center .- cp[1], cp[2] * (center .- cp[1])) < one(T), centers) && continue
-            attempts += 1
-            center, n, exhausted = _mw_mode(copy(center), logtarget, alg.mode, fit_budget - nevals - alg.batchsize, context)
-            nevals += n
-            if exhausted
-                stop_reason = :maxevals
-                break
-            end
-            any(cp -> dot(center .- cp[1], cp[2] * (center .- cp[1])) < one(T), centers) && continue
-            P = _mw_local_precision(model, center, ad)
-            ngeometries += 1
-            if isnothing(P)
-                nfailed += 1
-            else
+        best = q
+        if !isnothing(loga)
+            training_x = flatview(training.v)
+            logq = _mw_batched_logpdf(q, training_x)
+            scores = training.logp .- logq
+            order = sortperm(scores, rev = true)
+            centers = Tuple{Vector{T},Matrix{T}}[]
+            attempts = 0
+            best_obj = _mw_logobjective(loga, logq)
+            logprior = _mw_batched_logpdf(gprior, training_x)
+            for idx in order
+                attempts >= alg.ncandidates && break
+                isfinite(scores[idx]) || continue
+                center = training.v[idx]
+                _mw_nearby(center, centers) && continue
+                attempts += 1
+                center, n, exhausted = _mw_mode(copy(center), logtarget, alg.mode, fit_budget - nevals - alg.batchsize, context)
+                nevals += n
+                if exhausted
+                    stop_reason = :maxevals
+                    break
+                end
+                _mw_nearby(center, centers) && continue
+                P = _mw_local_precision(model, center, ad)
+                ngeometries += 1
+                if isnothing(P)
+                    nfailed += 1
+                    continue
+                end
                 # Exclude later centers inside this candidate's Fisher ellipsoid.
                 push!(centers, (center, P.mat))
                 fit_centers = (center,)
@@ -384,25 +396,14 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
                         best, best_obj = _mw_mix(q, g, β, ε), obj
                     end
                 end
+                stop_reason == :maxevals && break
             end
-            stop_reason == :maxevals && break
         end
 
-        accepted, gain = false, zero(T)
-        if best !== q
-            # Candidates are now frozen. The comparison draw has its own denominator.
-            r = MixtureModel(vcat(q.components, best.components), vcat(probs(q) ./ 2, probs(best) ./ 2))
-            validation = _mw_draw(r, logtarget, alg.batchsize, alg.executor, context)
-            nevals += alg.batchsize
-            vala = _mw_loga(validation)
-            if !isnothing(vala)
-                old_obj = _mw_logobjective(vala, _mw_batched_logpdf(q, flatview(validation.v)))
-                new_obj = _mw_logobjective(vala, _mw_batched_logpdf(best, flatview(validation.v)))
-                gain = -expm1(new_obj - old_obj)
-                accepted = gain > alg.min_improvement
-                accepted && (q = best)
-            end
-        end
+        gain, n = _mw_validation_gain(q, best, logtarget, alg, context)
+        nevals += n
+        accepted = gain > alg.min_improvement
+        accepted && (q = best)
         push!(history, (; iteration, accepted, gain, ncomponents = length(q.components)))
         stop_reason == :maxevals && break
         stalled = accepted ? 0 : stalled + 1
@@ -424,7 +425,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
     nevals += nproduction
     logw = production.logp .- production.logr
     weights = _mw_efficiency(logw)
-    diagnostic = isnothing(alg.weight_diagnostic) ? nothing : alg.weight_diagnostic(copy(logw))
+    diagnostic = isnothing(alg.weight_diagnostic) ? nothing : alg.weight_diagnostic(logw)
     smpls_z = DensitySampleVector(v = production.v, logd = production.logp, weight = weights.weight)
     smpls = inverse(f).(smpls_z)
     dsm = DensitySampleMeasure(smpls, dof = dim, ess = weights.ess)

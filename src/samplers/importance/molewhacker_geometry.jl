@@ -10,8 +10,7 @@ function _mw_regular_positive(x)
     return x
 end
 
-_mw_parameters(d::Normal) = collect(params(d))
-_mw_parameters(d::Union{Poisson,Exponential}) = [mean(d)]
+_mw_parameters(d::Union{Normal,Poisson,Exponential}) = collect(params(d))
 _mw_parameters(d::MvNormal) = vcat(mean(d), vec(Matrix(cov(d))))
 
 _mw_factors(d::Distributions.Product) = d.v
@@ -36,7 +35,8 @@ end
 function _mw_pullback(d::Normal, J)
     σ = _mw_regular_positive(std(d))
     A = J ./ σ
-    return A[1:1, :]' * A[1:1, :] + 2 .* (A[2:2, :]' * A[2:2, :])
+    Jμ, Jσ = view(A, 1:1, :), view(A, 2:2, :)
+    return Jμ' * Jμ + 2 .* (Jσ' * Jσ)
 end
 
 function _mw_pullback(d::Union{Poisson,Exponential}, J)
@@ -70,22 +70,15 @@ function _mw_pullback(d::Union{Distributions.Product,Distributions.ProductDistri
     end
 end
 
-function _mw_fisher(f, x, ad, d)
-    # Share the full model's AD pass across product leaves. Their Fisher terms add.
-    _, J = with_jacobian(_mw_parameters ∘ f, x, AbstractMatrix, ad)
-    return _mw_pullback(d, J)
-end
-
-function _mw_precision(f, x::AbstractVector{T}, ad) where T
-    all(isfinite, x) || throw(MolewhackerGeometryError())
-    G = Matrix{T}(_mw_fisher(f, x, ad, f(x)))
-    all(isfinite, G) || throw(MolewhackerGeometryError())
-    return Matrix(Symmetric(G)) + I
-end
-
-function _mw_local_precision(f, x, ad)
+function _mw_local_precision(f, x::AbstractVector{T}, ad) where T
     try
-        P = _mw_precision(f, x, ad)
+        all(isfinite, x) || throw(MolewhackerGeometryError())
+        d = f(x)
+        # Share one model Jacobian across product leaves, then add the prior.
+        _, J = with_jacobian(_mw_parameters ∘ f, x, AbstractMatrix, ad)
+        G = Matrix{T}(_mw_pullback(d, J))
+        all(isfinite, G) || throw(MolewhackerGeometryError())
+        P = Matrix(Symmetric(G)) + I
         return PDMat(P, cholesky(Symmetric(P)))
     catch err
         if err isa Union{MolewhackerGeometryError,PosDefException,SingularException}
