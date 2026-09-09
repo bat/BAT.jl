@@ -86,6 +86,22 @@ bat_sample(target, PriorImportanceSampler(nsamples=10^5))
 ```
 
 
+## Molewhacker importance sampler (experimental)
+
+BAT sampling algorithm type: [`MolewhackerSampling`](@ref)
+
+```julia
+import ForwardDiff
+context = BATContext(ad = ForwardDiff)
+bat_sample(target, MolewhackerSampling(nsamples = 10^4), context)
+```
+
+Fits a defensive Gaussian mixture with local Fisher geometry. Returns fresh
+importance samples from the fitted proposal. No MGVI dependency is required.
+See [Molewhacker importance sampling](molewhacker.md) for supported models,
+the sampling law, tuning, and diagnostics.
+
+
 ## Integration algorithms
 
 BAT function: [`bat_integrate`](@ref)

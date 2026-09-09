@@ -42,6 +42,7 @@ makedocs(
         "Home" => "index.md",
         "Installation" => "installation.md",
         "List of algorithms" => "list_of_algorithms.md",
+        "Molewhacker importance sampling" => "molewhacker.md",
         "Tutorial" => "tutorial.md",
         "API Documentation" => "stable_api.md",
         "Plotting" => "plotting.md",

@@ -47,6 +47,7 @@ const test_groups = [
         "samplers/mcmc/test_fisher_tuner.jl",
         "samplers/mcmc/test_multitrafo_tuner.jl",
         "samplers/importance/test_importance_sampler.jl",
+        "samplers/importance/test_molewhacker.jl",
     ],
     "hmc" => [
         "samplers/mcmc/test_hmc_nuts.jl",
