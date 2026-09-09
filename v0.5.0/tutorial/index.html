@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Tutorial · BAT</title><link rel="canonical" href="https://bat.github.io/BAT.jl/stable/tutorial/index.html"/><link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.2.0/normalize.min.css" rel="stylesheet" type="text/css"/><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.2.0/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link href="../assets/documenter.css" rel="stylesheet" type="text/css"/></head><body><nav class="toc"><h1>BAT</h1><select id="version-selector" onChange="window.location.href=this.value" style="visibility: hidden"></select><form class="search" id="search-form" action="../search/"><input id="search-query" name="q" type="text" placeholder="Search docs"/></form><ul><li><a class="toctext" href="../">Home</a></li><li><a class="toctext" href="../installation/">Installation</a></li><li class="current"><a class="toctext" href>Tutorial</a><ul class="internal"><li><a class="toctext" href="#Input-Data-Generation-1">Input Data Generation</a></li><li><a class="toctext" href="#Bayesian-Fit-1">Bayesian Fit</a></li><li><a class="toctext" href="#Comparison-of-Truth-and-Best-Fit-1">Comparison of Truth and Best Fit</a></li><li><a class="toctext" href="#Fine-grained-control-1">Fine-grained control</a></li></ul></li><li><a class="toctext" href="../api/">API</a></li><li><a class="toctext" href="../developing/">Developer instructions</a></li><li><a class="toctext" href="../license/">License</a></li></ul></nav><article id="docs"><header><nav><ul><li><a href>Tutorial</a></li></ul><a class="edit-page" href="https://github.com/bat/BAT.jl/blob/master/docs/src/tutorial_lit.jl"><span class="fa"></span> Edit on GitHub</a></nav><hr/><div id="topbar"><span>Tutorial</span><a class="fa fa-bars" href="#"></a></div></header><h1><a class="nav-anchor" id="Tutorial-1" href="#Tutorial-1">Tutorial</a></h1><p>This tutorial demonstrates a simple application of BAT.jl: A Bayesian fit of a histogram with two Gaussian peaks.</p><p>You can also download this tutorial as a <a href="../bat_tutorial.ipynb">Jupyter notebook</a> and a plain <a href="../bat_tutorial.jl">Julia source file</a>.</p><p>Table of contents:</p><ul><li><a href="#Tutorial-1">Tutorial</a></li><ul><li><a href="#Input-Data-Generation-1">Input Data Generation</a></li><li><a href="#Bayesian-Fit-1">Bayesian Fit</a></li><ul><li><a href="#Likelihood-Definition-1">Likelihood Definition</a></li><li><a href="#Prior-Definition-1">Prior Definition</a></li><li><a href="#Bayesian-Model-Definition-1">Bayesian Model Definition</a></li><li><a href="#Parameter-Space-Exploration-via-MCMC-1">Parameter Space Exploration via MCMC</a></li><li><a href="#Visualization-of-Results-1">Visualization of Results</a></li><li><a href="#Integration-with-Tables.jl-1">Integration with Tables.jl</a></li></ul><li><a href="#Comparison-of-Truth-and-Best-Fit-1">Comparison of Truth and Best Fit</a></li><li><a href="#Fine-grained-control-1">Fine-grained control</a></li></ul></ul><p>Note: This tutorial is somewhat verbose, as it aims to be easy to follow for users who are new to Julia. For the same reason, we deliberately avoid making use of Julia features like <a href="https://docs.julialang.org/en/v1/devdocs/functions/#Closures-1">closures</a>, <a href="https://docs.julialang.org/en/v1/manual/functions/index.html#man-anonymous-functions-1">anonymous functions</a>, <a href="https://docs.julialang.org/en/v1/manual/arrays/index.html#Broadcasting-1">broadcasting syntax</a>, <a href="https://docs.julialang.org/en/v1/manual/performance-tips/#man-performance-annotations-1">performance annotations</a>, etc.</p><h2><a class="nav-anchor" id="Input-Data-Generation-1" href="#Input-Data-Generation-1">Input Data Generation</a></h2><p>First, let&#39;s generate some synthetic data to fit. We&#39;ll need the Julia standard-library packages <a href="https://docs.julialang.org/en/v1/stdlib/Random/">&quot;Random&quot;</a>, <a href="https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/">&quot;LinearAlgebra&quot;</a> and <a href="https://docs.julialang.org/en/v1/stdlib/Statistics/">&quot;Statistics&quot;</a>, as well as the packages <a href="https://juliastats.github.io/Distributions.jl/stable/">&quot;Distributions&quot;</a> and <a href="http://juliastats.github.io/StatsBase.jl/stable/">&quot;StatsBase&quot;</a>:</p><pre><code class="language-julia">using Random, LinearAlgebra, Statistics, Distributions, StatsBase</code></pre><p>As the underlying truth of our input data/histogram, let us choose an non-normalized probability density composed of two Gaussian peaks with a peak area of 500 and 1000, a mean of -1.0 and 2.0 and a standard error of 0.5</p><pre><code class="language-julia">data = vcat(
+    rand(Normal(-1.0, 0.5), 500),
+    rand(Normal( 2.0, 0.5), 1000)
+)</code></pre><pre><code class="language-none">1500-element Array{Float64,1}:
+ -0.46056970245069173
+ -0.5958650754967965 
+ -0.7186688781530575 
+ -1.4504563721948052 
+ -1.6904346277572728 
+ -0.5343979370098046 
+ -1.2217217054579002 
+ -1.6596199520940016 
+ -0.8902624590332157 
+ -1.2877531740731774 
+  ⋮                  
+  2.254000031603743  
+  1.4174163334536476 
+  2.204862213088025  
+  2.1436589376712707 
+  1.6648261085393028 
+  1.3645255502695242 
+  2.1253267960320956 
+  1.1353904947629063 
+  2.0050978067287537 </code></pre><p>resulting in a vector of floating-point numbers:</p><pre><code class="language-julia">typeof(data) == Vector{Float64}</code></pre><pre><code class="language-none">true</code></pre><p>Next, we&#39;ll create a histogram of that data, this histogram will serve as the input for the Bayesian fit:</p><pre><code class="language-julia">hist = append!(Histogram(-2:0.1:4), data)</code></pre><pre><code class="language-none">StatsBase.Histogram{Int64,1,Tuple{StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwicePrecision{Float64}}}}
+edges:
+  -2.0:0.1:4.0
+weights: [7, 6, 9, 16, 25, 32, 25, 39, 47, 46  …  9, 4, 2, 0, 4, 1, 0, 0, 0, 0]
+closed: left
+isdensity: false</code></pre><p>Using the Julia <a href="http://docs.juliaplots.org/latest/">&quot;Plots&quot;</a> package</p><pre><code class="language-julia">using Plots</code></pre><p>we can plot the histogram:</p><pre><code class="language-julia">plot(
+    normalize(hist, mode=:density),
+    st = :steps, label = &quot;Data&quot;,
+    title = &quot;Data&quot;
+)
+savefig(&quot;tutorial-data.pdf&quot;)</code></pre><p><a href="../tutorial-data.pdf"><img src="../tutorial-data.svg" alt="Data"/></a></p><p>Let&#39;s define our fit function - the function that we expect to describe the data histogram, at each x-Axis position <code>x</code>, depending on a given set <code>p</code> of model parameters:</p><pre><code class="language-julia">function fit_function(p::NamedTuple{(:a, :mu, :sigma)}, x::Real)
+    p.a[1] * pdf(Normal(p.mu[1], p.sigma), x) +
+    p.a[2] * pdf(Normal(p.mu[2], p.sigma), x)
+end</code></pre><p>The fit parameters (model parameters) <code>a</code> (peak areas) and <code>mu</code> (peak means) are vectors, parameter <code>sigma</code> (peak width) is a scalar, we assume it&#39;s the same for both Gaussian peaks.</p><p>The true values for the model/fit parameters are the values we used to generate the data:</p><pre><code class="language-julia">true_par_values = (a = [500, 1000], mu = (-1.0, 2.0), sigma = 0.5)</code></pre><p>Let&#39;s visually compare the histogram and the fit function, using these true parameter values, to make sure everything is set up correctly:</p><pre><code class="language-julia">plot(
+    normalize(hist, mode=:density),
+    st = :steps, label = &quot;Data&quot;,
+    title = &quot;Data and True Statistical Model&quot;
+)
+plot!(
+    -4:0.01:4, x -&gt; fit_function(true_par_values, x),
+    label = &quot;Truth&quot;
+)
+savefig(&quot;tutorial-data-and-truth.pdf&quot;)</code></pre><p><a href="../tutorial-data-and-truth.pdf"><img src="../tutorial-data-and-truth.svg" alt="Data and True Statistical Model"/></a></p><h2><a class="nav-anchor" id="Bayesian-Fit-1" href="#Bayesian-Fit-1">Bayesian Fit</a></h2><p>Now we&#39;ll perform a Bayesian fit of the generated histogram, using BAT, to infer the model parameters from the data histogram.</p><p>In addition to the Julia packages loaded above, we need BAT itself, as well as <a href="https://github.com/JuliaMath/IntervalSets.jl">IntervalSets</a>:</p><pre><code class="language-julia">using BAT, IntervalSets</code></pre><h3><a class="nav-anchor" id="Likelihood-Definition-1" href="#Likelihood-Definition-1">Likelihood Definition</a></h3><p>First, we need to define the likelihood (function) for our problem.</p><p>BAT represents densities like likelihoods and priors as subtypes of <code>BAT.AbstractDensity</code>. Custom likelihood can be defined by creating a new subtype of <code>AbstractDensity</code> and by implementing (at minimum) <code>BAT.density_logval</code> for that type - in complex uses cases, this may become necessary. Typically, however, it is sufficient to define a custom likelihood as a simple function that returns the log-likelihood value for a given set of parameters. BAT will automatically convert such a log-likelihood function into a subtype of <code>AbstractDensity</code>.</p><p>For performance reasons, functions should <a href="https://docs.julialang.org/en/v1/manual/performance-tips/index.html#Avoid-global-variables-1">not access global variables directly</a>. So we&#39;ll use an <a href="https://docs.julialang.org/en/v1/manual/functions/#man-anonymous-functions-1">anonymous function</a> inside of a <a href="https://docs.julialang.org/en/v1/base/base/#let">let-statement</a> to capture the value of the global variable <code>hist</code> in a local variable <code>h</code> (and to shorten function name <code>fit_function</code> to <code>f</code>, purely for convenience):</p><pre><code class="language-julia">log_likelihood = let h = hist, f = fit_function
+    params -&gt; begin
+        # Histogram counts for each bin as an array:
+        counts = h.weights
+
+        # Histogram binning, has length (length(counts) + 1):
+        binning = h.edges[1]
+
+        # sum log-likelihood value over bins:
+        ll_value::Float64 = 0.0
+        for i in eachindex(counts)
+            # Get information about current bin:
+            bin_left, bin_right = binning[i], binning[i+1]
+            bin_width = bin_right - bin_left
+            bin_center = (bin_right + bin_left) / 2
+
+            observed_counts = counts[i]
+
+            # Simple mid-point rule integration of fit function `f` over bin:
+            expected_counts = bin_width * f(params, bin_center)
+
+            # Add log of Poisson probability for bin:
+            ll_value += logpdf(Poisson(expected_counts), observed_counts)
+        end
+
+        return ll_value
+    end
+end</code></pre><pre><code class="language-none">#3 (generic function with 1 method)</code></pre><p>BAT makes use of Julia&#39;s parallel programming facilities if possible, e.g. to run multiple Markov chains in parallel. Therefore, log-likelihood (and other) code must be thread-safe. Mark non-thread-safe code with <code>@critical</code> (provided by Julia package <code>ParallelProcessingTools</code>).</p><p>BAT requires Julia v1.3 or newer to use multi-threading. Support for automatic parallelization across multiple (local and remote) Julia processes is planned, but not implemented yet.</p><p>Note that Julia currently starts only a single thread by default. Set the the environment variable <a href="https://docs.julialang.org/en/v1/manual/environment-variables/#JULIA_NUM_THREADS-1"><code>JULIA_NUM_THREADS</code></a> to specify the desired number of Julia threads.</p><p>We can evaluate <code>log_likelihood</code>, e.g. for the true parameter values:</p><pre><code class="language-julia">log_likelihood(true_par_values)</code></pre><pre><code class="language-none">-154.48558665757216</code></pre><h3><a class="nav-anchor" id="Prior-Definition-1" href="#Prior-Definition-1">Prior Definition</a></h3><p>Next, we need to choose a sensible prior for the fit:</p><pre><code class="language-julia">prior = NamedTupleDist(
+    a = [0.0..10.0^4, 0.0..10.0^4],
+    mu = [-2.0..0.0, 1.0..3.0],
+    sigma = Truncated(Normal(0.4, 2), 0.3, 0.7)
+)</code></pre><p>In general, BAT allows instances of any subtype of <code>AbstractDensity</code> to be uses as a prior, as long as a sampler is defined for it. This way, users may implement complex application-specific priors. You can also use <code>convert(AbstractDensity, distribution)</code> to convert any continuous multivariate <code>Distributions.Distribution</code> to a <code>BAT.AbstractDensity</code> that can be used as a prior (or likelihood).</p><p>The prior also implies the shapes of the parameters:</p><pre><code class="language-julia">using ValueShapes
+
+parshapes = valshape(prior)</code></pre><pre><code class="language-none">ValueShapes.NamedTupleShape{(:a, :mu, :sigma),Tuple{ValueShapes.ValueAccessor{ValueShapes.ArrayShape{Real,1}},ValueShapes.ValueAccessor{ValueShapes.ArrayShape{Real,1}},ValueShapes.ValueAccessor{ValueShapes.ScalarShape{Real}}}}((a = ValueShapes.ValueAccessor{ValueShapes.ArrayShape{Real,1}}(ValueShapes.ArrayShape{Real,1}((2,)), 0, 2), mu = ValueShapes.ValueAccessor{ValueShapes.ArrayShape{Real,1}}(ValueShapes.ArrayShape{Real,1}((2,)), 2, 2), sigma = ValueShapes.ValueAccessor{ValueShapes.ScalarShape{Real}}(ValueShapes.ScalarShape{Real}(), 4, 1)), 5)</code></pre><p>These will come in handy later on, e.g. to access (the posterior distribution of) individual parameter values.</p><h3><a class="nav-anchor" id="Bayesian-Model-Definition-1" href="#Bayesian-Model-Definition-1">Bayesian Model Definition</a></h3><p>Given the likelihood and prior definition, a <code>BAT.PosteriorDensity</code> is simply defined via</p><pre><code class="language-julia">posterior = PosteriorDensity(log_likelihood, prior)</code></pre><h3><a class="nav-anchor" id="Parameter-Space-Exploration-via-MCMC-1" href="#Parameter-Space-Exploration-via-MCMC-1">Parameter Space Exploration via MCMC</a></h3><p>We can now use Markov chain Monte Carlo (MCMC) to explore the space of possible parameter values for the histogram fit.</p><p>To increase the verbosity level of BAT logging output, you may want to set the Julia logging level for BAT to debug via <code>ENV[&quot;JULIA_DEBUG&quot;] = &quot;BAT&quot;</code>.</p><p>Let&#39;s use 4 MCMC chains and require 10^5 unique samples from each chain (after tuning/burn-in):</p><pre><code class="language-julia">nsamples = 10^4
+nchains = 4</code></pre><p>Now we can generate a set of MCMC samples via <a href="../api/#BAT.bat_sample"><code>bat_sample</code></a>:</p><pre><code class="language-julia">samples = bat_sample(posterior, (nsamples, nchains), MetropolisHastings())</code></pre><pre><code class="language-none">[ Info: Trying to generate 4 viable MCMC chain(s).
+[ Info: Selected 4 MCMC chain(s).
+[ Info: Begin tuning of 4 MCMC chain(s).
+[ Info: MCMC Tuning cycle 1 finished, 4 chains, 0 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 2 finished, 4 chains, 0 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 3 finished, 4 chains, 1 tuned, 4 converged.
+[ Info: MCMC Tuning cycle 4 finished, 4 chains, 3 tuned, 4 converged.
+[ Info: MCMC Tuning cycle 5 finished, 4 chains, 3 tuned, 4 converged.
+[ Info: MCMC Tuning cycle 6 finished, 4 chains, 3 tuned, 4 converged.
+[ Info: MCMC Tuning cycle 7 finished, 4 chains, 3 tuned, 4 converged.
+[ Info: MCMC Tuning cycle 8 finished, 4 chains, 3 tuned, 4 converged.
+[ Info: MCMC Tuning cycle 9 finished, 4 chains, 4 tuned, 4 converged.
+[ Info: MCMC tuning of 4 chains successful after 9 cycle(s).</code></pre><p>Let&#39;s calculate some posterior statistics using the function <a href="../api/#BAT.bat_stats-Tuple{StructArrays.StructArray{PosteriorSample{P,T,W,R,PA},1,NamedTuple{(:params, :log_posterior, :log_prior, :weight, :info),Tuple{PAV,TV,TV,WV,RV}},I} where I where RV&lt;:AbstractArray{R,1} where WV&lt;:AbstractArray{W,1} where TV&lt;:AbstractArray{T,1} where PAV&lt;:(AbstractArray{#s29,1} where #s29&lt;:AbstractArray{P,1}) where PA&lt;:AbstractArray{P,1} where R where W&lt;:Real where T&lt;:AbstractFloat where P&lt;:Real}"><code>bat_stats</code></a> and print the results:</p><pre><code class="language-julia">stats = bat_stats(samples)
+
+println(&quot;Truth: $true_par_values&quot;)
+println(&quot;Mode: $(stats.mode)&quot;)
+println(&quot;Mean: $(stats.mean)&quot;)
+println(&quot;Covariance: $(stats.cov)&quot;)</code></pre><pre><code class="language-none">Truth: (a = [500, 1000], mu = (-1.0, 2.0), sigma = 0.5)
+Mode: [487.82940127859376, 997.908895441993, -1.0178221048570053, 2.001220363345453, 0.4807535123050577]
+Mean: [493.7494450641844, 1000.2530430105522, -1.0163913170857264, 1.999972932066098, 0.4813795799607284]
+Covariance: [515.5497942957271 15.063058411421755 -0.02511504595240103 -0.012324044333701862 0.010864010249055134; 15.063058411421755 1024.7343801398347 -0.03703155561585533 -0.0020744321131913814 0.006458350242294042; -0.02511504595240103 -0.03703155561585533 0.0005730935183093091 1.2116758595740326e-5 -3.1085794826435074e-5; -0.012324044333701862 -0.0020744321131913814 1.2116758595740326e-5 0.0002389193207328188 -2.674720387564128e-6; 0.010864010249055134 0.006458350242294042 -3.1085794826435074e-5 -2.674720387564128e-6 8.915026819287763e-5]</code></pre><p>We can also, e.g., get the Pearson auto-correlation of the parameters:</p><pre><code class="language-julia">cor(samples.params, FrequencyWeights(samples.weight))</code></pre><pre><code class="language-none">5×5 Array{Float64,2}:
+  1.0         0.0207239   -0.0462047  -0.035115     0.050675 
+  0.0207239   1.0         -0.048323   -0.00419245   0.0213675
+ -0.0462047  -0.048323     1.0         0.0327452   -0.137527 
+ -0.035115   -0.00419245   0.0327452   1.0         -0.018327 
+  0.050675    0.0213675   -0.137527   -0.018327     1.0      </code></pre><h3><a class="nav-anchor" id="Visualization-of-Results-1" href="#Visualization-of-Results-1">Visualization of Results</a></h3><p>BAT.jl comes with an extensive set of plotting recipes for <a href="http://docs.juliaplots.org/latest/">&quot;Plots.jl&quot;</a>. We can plot the marginalized distribution for a single parameter (e.g. parameter 3, i.e. μ₁):</p><pre><code class="language-julia">par_names = [&quot;a_1&quot;, &quot;a_2&quot;, &quot;mu_1&quot;, &quot;mu_2&quot;, &quot;sigma&quot;]
+plot(
+    samples, 3,
+    mean = true, std_dev = true, globalmode = true, localmode = true,
+    nbins = 50, xlabel = par_names[3], ylabel = &quot;P($(par_names[3]))&quot;,
+    title = &quot;Marginalized Distribution for mu_1&quot;
+)
+savefig(&quot;tutorial-single-par.pdf&quot;)</code></pre><p><a href="../tutorial-single-par.pdf"><img src="../tutorial-single-par.svg" alt="Marginalized Distribution for mu_1"/></a></p><p>or plot the marginalized distribution for a pair of parameters (e.g. parameters 3 and 5, i.e. μ₁ and σ), including information from the parameter stats:</p><pre><code class="language-julia">plot(
+    samples, (3, 5),
+    mean = true, std_dev = true, globalmode = true, localmode = true,
+    nbins = 50, xlabel = par_names[3], ylabel = par_names[5],
+    title = &quot;Marginalized Distribution for mu_1 and sigma&quot;
+)
+plot!(MCMCBasicStats(samples), (3, 5))
+savefig(&quot;tutorial-param-pair.pdf&quot;)</code></pre><p><a href="../tutorial-param-pair.pdf"><img src="../tutorial-param-pair.svg" alt="Marginalized Distribution for mu_1 and sigma"/></a></p><p>We can also create an overview plot of the marginalized distribution for all pairs of parameters:</p><pre><code class="language-julia">plot(
+    samples,
+    mean = false, std_dev = false, globalmode = true, localmode = false,
+    nbins = 50
+)
+savefig(&quot;tutorial-all-params.pdf&quot;)</code></pre><p><a href="../tutorial-all-params.pdf"><img src="../tutorial-all-params.svg" alt="Pairwise Correlation between Parameters"/></a></p><h3><a class="nav-anchor" id="Integration-with-Tables.jl-1" href="#Integration-with-Tables.jl-1">Integration with Tables.jl</a></h3><p>BAT.jl supports the <a href="https://github.com/JuliaData/Tables.jl">Tables.jl</a> interface. So we can also convert the vector of MCMC samples vecto a table, e.g. using TypedTables.jl](http://blog.roames.com/TypedTables.jl/stable/):</p><pre><code class="language-julia">using TypedTables
+
+tbl = Table(samples)</code></pre><pre><code class="language-none">Table with 5 columns and 40000 rows:
+      params                log_posterior  log_prior  weight  ⋯
+    ┌──────────────────────────────────────────────────────────
+ 1  │ [503.15, 965.664, -…  -173.267       -18.889    7       ⋯
+ 2  │ [504.131, 975.715, …  -172.355       -18.8888   1       ⋯
+ 3  │ [503.907, 983.686, …  -171.884       -18.8888   3       ⋯
+ 4  │ [497.314, 975.186, …  -171.622       -18.8886   4       ⋯
+ 5  │ [496.226, 970.491, …  -171.85        -18.8887   8       ⋯
+ 6  │ [500.929, 973.667, …  -173.3         -18.889    1       ⋯
+ 7  │ [492.188, 969.554, …  -172.95        -18.8889   2       ⋯
+ 8  │ [502.741, 974.799, …  -171.894       -18.8886   2       ⋯
+ 9  │ [503.295, 978.726, …  -172.005       -18.8886   1       ⋯
+ 10 │ [503.699, 974.499, …  -173.027       -18.8889   5       ⋯
+ 11 │ [511.218, 970.376, …  -173.846       -18.8883   2       ⋯
+ 12 │ [510.314, 968.715, …  -172.403       -18.8887   3       ⋯
+ 13 │ [507.997, 980.348, …  -174.693       -18.8892   6       ⋯
+ 14 │ [517.768, 983.883, …  -172.433       -18.8887   2       ⋯
+ 15 │ [527.036, 985.7, -1…  -172.698       -18.8887   2       ⋯
+ 16 │ [521.812, 967.206, …  -172.966       -18.8884   4       ⋯
+ 17 │ [523.89, 968.366, -…  -173.641       -18.8883   1       ⋯
+ ⋮  │          ⋮                  ⋮            ⋮        ⋮     ⋱</code></pre><p>Using the parameter shapes, we can generate a table with named parameters, instead of flat real-valued parameter vectors:</p><pre><code class="language-julia">tbl_named = parshapes.(samples)</code></pre><pre><code class="language-none">Table with 5 columns and 40000 rows:
+      params                log_posterior  log_prior  weight  ⋯
+    ┌──────────────────────────────────────────────────────────
+ 1  │ (a = [503.15, 965.6…  -173.267       -18.889    7       ⋯
+ 2  │ (a = [504.131, 975.…  -172.355       -18.8888   1       ⋯
+ 3  │ (a = [503.907, 983.…  -171.884       -18.8888   3       ⋯
+ 4  │ (a = [497.314, 975.…  -171.622       -18.8886   4       ⋯
+ 5  │ (a = [496.226, 970.…  -171.85        -18.8887   8       ⋯
+ 6  │ (a = [500.929, 973.…  -173.3         -18.889    1       ⋯
+ 7  │ (a = [492.188, 969.…  -172.95        -18.8889   2       ⋯
+ 8  │ (a = [502.741, 974.…  -171.894       -18.8886   2       ⋯
+ 9  │ (a = [503.295, 978.…  -172.005       -18.8886   1       ⋯
+ 10 │ (a = [503.699, 974.…  -173.027       -18.8889   5       ⋯
+ 11 │ (a = [511.218, 970.…  -173.846       -18.8883   2       ⋯
+ 12 │ (a = [510.314, 968.…  -172.403       -18.8887   3       ⋯
+ 13 │ (a = [507.997, 980.…  -174.693       -18.8892   6       ⋯
+ 14 │ (a = [517.768, 983.…  -172.433       -18.8887   2       ⋯
+ 15 │ (a = [527.036, 985.…  -172.698       -18.8887   2       ⋯
+ 16 │ (a = [521.812, 967.…  -172.966       -18.8884   4       ⋯
+ 17 │ (a = [523.89, 968.3…  -173.641       -18.8883   1       ⋯
+ ⋮  │          ⋮                  ⋮            ⋮        ⋮     ⋱</code></pre><p>We can now, e.g., find the sample with the maximum posterior value (i.e. the mode):</p><pre><code class="language-julia">mode_log_posterior, mode_idx = findmax(tbl_named.log_posterior)</code></pre><pre><code class="language-none">(-170.90473784249085, 17564)</code></pre><p>And get row <code>mode_idx</code> of the table, with all information about the sample at the mode:</p><h2><a class="nav-anchor" id="Comparison-of-Truth-and-Best-Fit-1" href="#Comparison-of-Truth-and-Best-Fit-1">Comparison of Truth and Best Fit</a></h2><p>As a final step, we retrieve the parameter values at the mode, representing the best-fit parameters</p><pre><code class="language-julia">fit_par_values = tbl_named[mode_idx].params</code></pre><pre><code class="language-none">(a = [487.82940127859376, 997.908895441993], mu = [-1.0178221048570053, 2.001220363345453], sigma = 0.4807535123050577)</code></pre><p>And plot the truth, data, and best fit:</p><pre><code class="language-julia">plot(
+    normalize(hist, mode=:density),
+    st = :steps, label = &quot;Data&quot;,
+    title = &quot;Data, True Model and Best Fit&quot;
+)
+plot!(-4:0.01:4, x -&gt; fit_function(true_par_values, x), label = &quot;Truth&quot;)
+plot!(-4:0.01:4, x -&gt; fit_function(fit_par_values, x), label = &quot;Best fit&quot;)
+savefig(&quot;tutorial-data-truth-bestfit.pdf&quot;)</code></pre><p><a href="../tutorial-data-truth-bestfit.pdf"><img src="../tutorial-data-truth-bestfit.svg" alt="Data, True Model and Best Fit"/></a></p><h2><a class="nav-anchor" id="Fine-grained-control-1" href="#Fine-grained-control-1">Fine-grained control</a></h2><p>BAT provides fine-grained control over the MCMC algorithm options, the MCMC chain initialization, tuning/burn-in strategy and convergence testing. All option value used in the following are the default values, any or all may be omitted.</p><p>We&#39;ll sample using the The Metropolis-Hastings MCMC algorithm. By default, BAT uses a multivariate t-distribution (ν = 1) as the proposal function:</p><pre><code class="language-julia">algorithm = MetropolisHastings(MvTDistProposal(1.0))</code></pre><p>BAT requires a counter-based random number generator (RNG), since it partitions the RNG space over the MCMC chains. This way, a single RNG seed is sufficient for all chains and results are reproducible even under parallel execution. By default, BAT uses a Philox4x RNG initialized with a random seed drawn from the <a href="https://docs.julialang.org/en/v1/stdlib/Random/index.html#Random.RandomDevice">system entropy pool</a>:</p><pre><code class="language-julia">using Random123
+rng = Philox4x()</code></pre><p>Other default parameters are:</p><pre><code class="language-julia">tuning = AdaptiveMetropolisTuning(
+    λ = 0.5,
+    α = 0.15..0.35,
+    β = 1.5,
+    c = 1e-4..1e2
+)
+
+convergence = BrooksGelmanConvergence(
+    threshold = 1.1,
+    corrected = false
+)
+
+init = MCMCInitStrategy(
+    ninit_tries_per_chain = 8..128,
+    max_nsamples_pretune = 25,
+    max_nsteps_pretune = 250,
+    max_time_pretune = Inf
+)
+
+burnin = MCMCBurninStrategy(
+    max_nsamples_per_cycle = 1000,
+    max_nsteps_per_cycle = 10000,
+    max_time_per_cycle = Inf,
+    max_ncycles = 30
+)</code></pre><p>To generate MCMC samples with explicit control over all options, use</p><pre><code class="language-julia">samples = bat_sample(
+    rng, posterior, (nsamples, nchains), algorithm,
+    max_nsteps = 10 * nsamples,
+    max_time = Inf,
+    tuning = tuning,
+    init = init,
+    burnin = burnin,
+    convergence = convergence,
+    strict = false,
+    filter = true
+)</code></pre><pre><code class="language-none">[ Info: Trying to generate 4 viable MCMC chain(s).
+[ Info: Selected 4 MCMC chain(s).
+[ Info: Begin tuning of 4 MCMC chain(s).
+[ Info: MCMC Tuning cycle 1 finished, 4 chains, 0 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 2 finished, 4 chains, 0 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 3 finished, 4 chains, 0 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 4 finished, 4 chains, 1 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 5 finished, 4 chains, 1 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 6 finished, 4 chains, 1 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 7 finished, 4 chains, 1 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 8 finished, 4 chains, 2 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 9 finished, 4 chains, 3 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 10 finished, 4 chains, 3 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 11 finished, 4 chains, 3 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 12 finished, 4 chains, 4 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 13 finished, 4 chains, 3 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 14 finished, 4 chains, 2 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 15 finished, 4 chains, 2 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 16 finished, 4 chains, 4 tuned, 0 converged.
+[ Info: MCMC Tuning cycle 17 finished, 4 chains, 1 tuned, 4 converged.
+[ Info: MCMC Tuning cycle 18 finished, 4 chains, 4 tuned, 4 converged.
+[ Info: MCMC tuning of 4 chains successful after 18 cycle(s).</code></pre><p>However, in many use cases, simply using the default options via</p><pre><code class="language-julia">samples = bat_sample(posterior, (nsamples, nchains), MetropolisHastings())</code></pre><p>will often be sufficient.</p><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p><footer><hr/><a class="previous" href="../installation/"><span class="direction">Previous</span><span class="title">Installation</span></a><a class="next" href="../api/"><span class="direction">Next</span><span class="title">API</span></a></footer></article></body></html>
