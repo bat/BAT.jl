@@ -36,6 +36,7 @@ EllipsoidalNestedSampling
 GridSampler
 HierarchicalDistribution
 PriorImportanceSampler
+MolewhackerSampling
 ReactiveNestedSampling
 SobolSampler
 truncate_batmeasure
