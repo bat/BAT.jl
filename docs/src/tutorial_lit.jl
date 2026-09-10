@@ -261,6 +261,10 @@ println("Covariance: $par_cov")
 using LazyReports
 lazyreport(samples)
 
+# Specify probability masses for the smallest intervals shown in the report;
+# these use the same histogram selection and edges as the marginal plots:
+lazyreport(samples; intervals = [0.683, 0.955, 0.997])
+
 
 # ### Visualization of Results
 
