@@ -10,8 +10,8 @@ default_executor() = MultiThreadedExec()
 struct SequentialExec <: BATExecutor end
 
 function exec_map!(f::Base.Callable, executor::SequentialExec, Y::AbstractVector, X::AbstractVector)
-    @argcheck length(eachindex(X)) == length(eachindex(X))
-    for i in 0:(length(eachindex(Y)) - 1)
+    @argcheck length(X) == length(Y) throw(ArgumentError("Input and output arrays must have equal lengths."))
+    for i in 0:(length(Y) - 1)
         Y[firstindex(Y) + i] = f(X[firstindex(X) + i])
     end
     return Y
@@ -21,8 +21,8 @@ end
 struct MultiThreadedExec <: BATExecutor end
 
 function exec_map!(f::Base.Callable, executor::MultiThreadedExec, Y::AbstractVector, X::AbstractVector)
-    @argcheck length(eachindex(X)) == length(eachindex(X))
-    @threads for i in 0:(length(eachindex(Y)) - 1)
+    @argcheck length(X) == length(Y) throw(ArgumentError("Input and output arrays must have equal lengths."))
+    @threads for i in 0:(length(Y) - 1)
         Y[firstindex(Y) + i] = f(X[firstindex(X) + i])
     end
     return Y
