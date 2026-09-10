@@ -4,4 +4,5 @@ using Test
 
 Test.@testset "optimization" begin
     include("test_mode_estimators.jl")
+    include("test_binned_mode_estimator.jl")
 end
