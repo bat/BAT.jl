@@ -111,7 +111,7 @@ bat_default(
 function evalmeasure_impl(em::EvaluatedMeasure, samplingalg::TransformedMCMC, context::BATContext)
     # ToDo: Warm-restart from em.samplegen if available and compatible.
 
-    if samplingalg.nchains == 1 && samplingalg.convergence isa Union{GelmanRubinConvergence,BrooksGelmanConvergence}
+    if samplingalg.nchains == 1 && samplingalg.convergence isa MultiChainConvergenceTest
         throw(ArgumentError("$(nameof(typeof(samplingalg.convergence))) requires at least two chains. Use convergence = AssumeConvergence() to sample with one chain."))
     end
 

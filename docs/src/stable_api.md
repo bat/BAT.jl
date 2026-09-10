@@ -126,6 +126,7 @@ NormalBased
 UniformBased
 RAMTuning
 RandomWalk
+RankNormalizedRhatConvergence
 RandResampling
 RepetitionWeighting
 RiceBinning
