@@ -8,6 +8,9 @@
 Sample a transformed target with SliceSampling.jl. The default sampler applies
 stepping-out slice updates in random coordinate order.
 
+The initial value must have finite target log-density. For restricted likelihood
+support, supply a suitable value through `ExplicitInit`.
+
 This functionality requires SliceSampling.jl to be loaded.
 
 Constructors:

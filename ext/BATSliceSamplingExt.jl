@@ -34,6 +34,9 @@ function BAT.evalmeasure_impl(
     n_dof = Int(BAT.some_dof(target))
     initalg = BAT.apply_trafo_to_init(f_pretransform, algorithm.init)
     init_params = collect(BAT.bat_initval(target, initalg, context).result)
+    isfinite(BAT.checked_logdensityof(target, init_params)) || throw(ArgumentError(
+        "SliceMCMCSampling requires an initial value with finite target log-density. Choose a suitable init algorithm.",
+    ))
 
     chain = SliceSampling.sample(
         get_rng(context),

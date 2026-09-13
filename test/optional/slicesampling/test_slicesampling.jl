@@ -22,6 +22,12 @@ posterior_mean = posterior_var * (mean(prior) / var(prior) + observation / obser
 
 @test mean(smpls) ≈ posterior_mean atol = 0.12
 
+full_chain = samplesof(evalmeasure(
+    posterior, SliceMCMCSampling(nsamples = 160, n_burnin = 0),
+    BATContext(rng = Xoshiro(0x534c494345)),
+))
+@test smpls.v == full_chain.v[33:end]
+
 prior = NamedTupleDist(a = Normal(1.5, 0.75), b = Normal(-2.0, 0.5))
 posterior = PosteriorMeasure(logfuncdensity(_ -> 0.0), prior)
 sampler = SliceSampling.RandPermGibbs(SliceSampling.SliceDoublingOut(1.0))
@@ -29,3 +35,11 @@ algorithm = SliceMCMCSampling(sampler = sampler, nsamples = 64, n_burnin = 16)
 smpls = samplesof(evalmeasure(posterior, algorithm, BATContext(rng = Xoshiro(0x5348415045))))
 
 @test mean(getproperty.(smpls.v, :b)) ≈ mean(prior.b) atol = 0.15
+@test smpls.logd ≈ logdensityof.(Ref(posterior), smpls.v)
+
+posterior = PosteriorMeasure(logfuncdensity(x -> x > 0 ? 0.0 : -Inf), Normal())
+@test_throws ArgumentError evalmeasure(
+    posterior,
+    SliceMCMCSampling(init = ExplicitInit([0.0]), nsamples = 4, n_burnin = 0),
+    BATContext(rng = Xoshiro(42)),
+)
