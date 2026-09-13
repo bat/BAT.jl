@@ -251,25 +251,11 @@ end
 """
     struct RankNormalizedRhatConvergence <: ConvergenceTest
 
-Rank-normalized split R-hat convergence test.
-
-Walker trajectories do not replace the required independent sampler chains.
-
-For each parameter, splits each MCMC trajectory into two halves and computes
-
-```math
-\\widehat{R} = \\max\\left(
-    \\widehat{R}_{\\mathrm{split}}(\\operatorname{ranknorm}(x)),
-    \\widehat{R}_{\\mathrm{split}}(\\operatorname{ranknorm}(|x - \\operatorname{median}(x)|))
-\\right).
-```
-
-The default convergence threshold is `1.01`. Sample weights must be
-nonnegative integers; a sample with weight `w` is treated as `w` repeated
-draws.
-
-This is the rank-normalized and folded split R-hat diagnostic of
+Rank-normalized and folded split R-hat convergence test from
 [Vehtari et al. (2021)](https://doi.org/10.1214/20-BA1221).
+
+Compare independent sampler chains, treating integer weights as repeated draws.
+The default convergence threshold is `1.01`.
 
 Constructors:
 
