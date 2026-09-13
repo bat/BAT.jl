@@ -40,6 +40,9 @@ mutable struct StanLikeTunerState{S<:MCMCBasicStats} <: MCMCTransformTunerState
 end
 
 function create_trafo_tuner_state(tuning::StanLikeTuning, chain_state::MCMCChainState, n_steps_hint::Integer)
+    @argcheck tuning.init_buffer >= 0
+    @argcheck tuning.term_buffer >= 0
+    @argcheck tuning.window_size > 0
     chain_state.f_transform isa MulAdd || throw(ArgumentError(
         "StanLikeTuning requires an affine adaptive space transformation (like TriangularAffineTransform)"
     ))
@@ -106,11 +109,13 @@ function mcmc_tune_trafo_post_step!!(
         # when tuning runs, and Stan-style covariance estimation weights
         # every kept state equally:
         accepted = chain_state.accepted
-        for j in step_info.walker_order
-            v = accepted[j] ? proposed.x.v[j] : current.x.v[j]
-            logd = accepted[j] ? proposed.x.logd[j] : current.x.logd[j]
-            push!(tuner.stats, DensitySample(v, logd, 1, nothing, nothing))
-        end
+        idxs = step_info.walker_order
+        v = ifelse.(accepted[idxs], proposed.x.v[idxs], current.x.v[idxs])
+        logd = ifelse.(accepted[idxs], proposed.x.logd[idxs], current.x.logd[idxs])
+        foreach(
+            sample -> push!(tuner.stats, sample),
+            DensitySample.(v, logd, 1, nothing, nothing),
+        )
     end
 
     f_transform_new = f_transform

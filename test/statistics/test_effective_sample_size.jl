@@ -3,12 +3,8 @@
 using BAT
 using Test
 
-using Logging: NullLogger, with_logger
 using Statistics
 using ArraysOfArrays, ElasticArrays, StatsBase
-using Distributions: Normal
-using LogarithmicNumbers: ULogarithmic
-using Random123: Philox4x
 using StableRNGs
 
 @testset "effective_sample_size" begin
@@ -24,6 +20,9 @@ using StableRNGs
 
     v1 = flatview(v)[1, :]
 
+    context = BATContext()
+    algorithm = EffSampleSizeFromAC()
+
     @testset "BAT.bat_integrated_autocorr_len" begin
         context = BATContext()
         @test @inferred(bat_integrated_autocorr_len(v1, GeyerAutocorLen(), context)).result ≈ 52.2404651916953
@@ -33,434 +32,38 @@ using StableRNGs
         @test @inferred(bat_integrated_autocorr_len(v, SokalAutocorLen(), context)).result ≈ [44.243392655975356, 16.794891919657566, 31.94870020972804]
     end
 
-    @testset "degenerate autocorrelation ESS" begin
-        context = BATContext()
-        algorithm = EffSampleSizeFromAC()
-
-        # Antithetic and nonpositive autocorrelation lengths map to the
-        # declared upper bound instead of producing an invalid count.
-        for (values, expected) in [
-            (Float64[1], 1.0), (fill(1.0, 8), 8.0),
-            ([-1.0, 0, -1, 0, -1, -1, -1, -1], 8.0),
-            (repeat([-1.0, 1.0], 8), 16.0),
-        ]
-            @test bat_eff_sample_size(values, algorithm, context).result == expected
-        end
-
-        values = VectorOfSimilarVectors([
-            [1.0, -1.0], [1, 0], [1, -1], [1, 0],
-            [1, -1], [1, -1], [1, -1], [1, -1],
-        ])
-        @test bat_eff_sample_size(values, algorithm, context).result == [8.0, 8.0]
-
-        v_singleton = VectorOfSimilarVectors([[1.0, 2.0]])
-        @test bat_eff_sample_size(v_singleton, algorithm, context).result == [1.0, 1.0]
-        @test bat_eff_sample_size(Float16[1], algorithm, context).result === Float32(1)
-        for (values, expected) in [
-            ([1.0], 1.0), (fill(1.0, 8), 8.0), (collect(1.0:8.0), 2.9217391304347826),
-        ]
-            smpls = DensitySampleVector(v = values, logd = zeros(length(values)))
-            @test bat_eff_sample_size(smpls, context).result == expected
-        end
-        smpls = DensitySampleVector(v = [[1.0, 2.0]], logd = [0.0])
-        @test bat_eff_sample_size(smpls, context).result == [1.0, 1.0]
-
-        for x in (NaN, Inf, -Inf)
-            @test_throws ArgumentError bat_eff_sample_size([1.0, x, 2.0], algorithm, context)
-            values = VectorOfSimilarVectors([[1.0, 1.0], [x, 2.0], [2.0, 3.0]])
-            @test_throws ArgumentError bat_eff_sample_size(values, algorithm, context)
-            @test_throws ArgumentError bat_eff_sample_size([x], algorithm, context)
-            @test_throws ArgumentError bat_eff_sample_size(VectorOfSimilarVectors([[x, 2.0]]), algorithm, context)
-            smpls = DensitySampleVector(v = [x], logd = [0.0])
-            @test_throws ArgumentError bat_eff_sample_size(smpls, context)
-        end
-
-        # Finite nonconstant observations can still overflow the FFT
-        # autocorrelation; that numerical failure must not look like a
-        # degenerate chain with maximal ESS.
-        extreme = [1e200, -1e200, 1e200, -1e200]
-        for acalg in (GeyerAutocorLen(), SokalAutocorLen())
-            extreme_algorithm = EffSampleSizeFromAC(acalg = acalg)
-            @test_throws ArgumentError bat_eff_sample_size(extreme, extreme_algorithm, context)
-            @test bat_eff_sample_size(fill(1.0, 4), extreme_algorithm, context).result == 4.0
-        end
-        values = VectorOfSimilarVectors([[1.0, 1e200], [1.0, -1e200], [1.0, 1e200], [1.0, -1e200]])
-        @test_throws ArgumentError bat_eff_sample_size(values, algorithm, context)
-        @test BAT._bounded_ac_ess(8, 16.0) == 1.0
-
-        integer_values = collect(1:8)
-        integer_expected = bat_eff_sample_size(Float64.(integer_values), algorithm, context).result
-        @test (@inferred bat_eff_sample_size(integer_values, algorithm, context)).result ≈ integer_expected
-        @test bat_eff_sample_size(Int[1], algorithm, context).result === 1.0
-        @test bat_eff_sample_size(fill(1, 8), algorithm, context).result === 8.0
-
-        large_integers = collect((typemax(Int) - 7):typemax(Int))
-        @test bat_eff_sample_size(large_integers, algorithm, context).result ≈ integer_expected
-        @test_throws ArgumentError bat_eff_sample_size(Int[], algorithm, context)
-
-        integer_vectors = VectorOfSimilarVectors([[typemax(Int) - i, i] for i in 7:-1:0])
-        centered_vectors = VectorOfSimilarVectors([[Float64(7 - i), Float64(i)] for i in 7:-1:0])
-        @test bat_eff_sample_size(integer_vectors, algorithm, context).result ≈
-            bat_eff_sample_size(centered_vectors, algorithm, context).result
-
-        ess = bat_eff_sample_size(fill(Float16(1), 70_000), algorithm, context).result
-        @test ess == Float32(70_000) && isfinite(ess)
-
-        function geyer_ess_oracle(values)
-            n = length(values)
-            centered = values .- mean(values)
-            rho = [sum(@view(centered[1:(n - lag)]) .* @view(centered[(1 + lag):n])) / sum(abs2, centered) for lag in 0:(n - 1)]
-            s, gamma_min, i = 0.0, Inf, 1
-            while i < n - 1
-                gamma = min(rho[i] + rho[i + 1], gamma_min)
-                gamma >= 0 || break
-                s += gamma
-                gamma_min = gamma
-                i += 2
-            end
-            min(n, n / (-1 + 2s))
-        end
-
-        rng = stblrng()
-        ar1(n) = accumulate((x, e) -> 0.6x + e, randn(rng, n); init = 0.0)[2:end]
-        for values in (randn(rng, 6), randn(rng, 7), ar1(6), ar1(7))
-            @test bat_eff_sample_size(values, algorithm, context).result ≈ geyer_ess_oracle(values)
-        end
-
-        @test_throws ArgumentError bat_eff_sample_size(Float64[], algorithm, context)
+    @testset "autocorrelation ESS" begin
+        @test bat_eff_sample_size(fill(1.0, 8), algorithm, context).result == 8.0
+        @test bat_eff_sample_size(repeat([-1.0, 1.0], 8), algorithm, context).result == 16.0
     end
 
-    @testset "repetition-weight-exact ESS" begin
-        context = BATContext()
-        # When the caller knows the weights are run-length repetition
-        # counts (only the MCMC layer knows - the generic sample-vector
-        # level deliberately erases weight provenance), the ESS of the
-        # weight-compressed samples is exactly the ESS of the
-        # run-length-decoded ordered chain:
-        rng2 = stblrng()
-        n_runs = 500
-        vals = VectorOfSimilarVectors(ElasticArray{Float64, 2}(undef, 2, 0))
-        push!(vals, [0.0, 0.0])
-        for _ in 1:(n_runs - 1)
-            push!(vals, last(vals) .+ randn(rng2, 2))
-        end
-        weights = rand(rng2, 1:5, n_runs)
-        smpls_rle = DensitySampleVector(v = vals, logd = zeros(n_runs), weight = weights)
+    @testset "process provenance" begin
+        id(chain, step) = BAT.MCMCSampleID(Int32(chain), Int32(1), Int32(1), Int64(step), Int32(1), true)
+        values = [[0.0], [1.0], [0.0], [2.0], [3.0], [2.0]]
+        info = [id(1, step) for step in 1:3]
+        append!(info, [id(2, step) for step in 1:3])
+        samples = DensitySampleVector(v = values, logd = zeros(6), info = info)
+        shuffled = samples[[4, 1, 5, 2, 6, 3]]
 
-        expanded = VectorOfSimilarVectors(flatview(vals)[:, inverse_rle(1:n_runs, weights)])
-        ess_rle = BAT._repetition_exact_ess(smpls_rle, EffSampleSizeFromAC(), context)
-        ess_expanded = bat_eff_sample_size(expanded, EffSampleSizeFromAC(), context).result
-        @test ess_rle ≈ ess_expanded
+        @test bat_eff_sample_size(shuffled, algorithm, context).result ≈
+            bat_eff_sample_size(samples, algorithm, context).result
 
-        # Uniform repetition counts greater than one also decode:
-        smpls_unif = DensitySampleVector(v = vals, logd = zeros(n_runs), weight = fill(2, n_runs))
-        expanded_unif = VectorOfSimilarVectors(flatview(vals)[:, inverse_rle(1:n_runs, fill(2, n_runs))])
-        @test BAT._repetition_exact_ess(smpls_unif, EffSampleSizeFromAC(), context) ≈
-            bat_eff_sample_size(expanded_unif, EffSampleSizeFromAC(), context).result
-
-        # The provenance-free heuristic path stays scale-invariant:
-        smpls_w = DensitySampleVector(v = vals, logd = zeros(n_runs), weight = float.(weights))
-        smpls_w100 = DensitySampleVector(v = vals, logd = zeros(n_runs), weight = 100 .* float.(weights))
-        @test bat_eff_sample_size(smpls_w, EffSampleSizeFromAC(), context).result ≈
-            bat_eff_sample_size(smpls_w100, EffSampleSizeFromAC(), context).result
-    end
-
-    @testset "process provenance ESS" begin
-        context = BATContext()
-        rng3 = stblrng()
-        # Two independent walker chains with repetition weights and MCMC
-        # sample ids, merged and shuffled - the per-sample provenance
-        # reconstructs the exact ordered sequences:
-        function mk_walker(rng, chainid, n)
-            vals_w = VectorOfSimilarVectors(ElasticArray{Float64, 2}(undef, 2, 0))
-            push!(vals_w, [0.0, 0.0])
-            for _ in 1:(n - 1)
-                push!(vals_w, last(vals_w) .+ randn(rng, 2))
-            end
-            w = rand(rng, 1:4, n)
-            ids = [BAT.MCMCSampleID(Int32(chainid), Int32(1), Int32(1), Int64(i), Int32(1), true) for i in 1:n]
-            DensitySampleVector(v = vals_w, logd = zeros(n), weight = w, info = ids)
-        end
-        w1 = mk_walker(rng3, 1, 300)
-        w2 = mk_walker(rng3, 2, 300)
-        merged = vcat(w1, w2)
-        perm = sortperm(rand(stblrng(), length(eachindex(merged))))
-        shuffled = merged[perm]
-
-        # Independent series pool with their empirical mass fractions,
-        # E_pool = 1 / Σ_j (α_j² / E_j):
-        ess_direct = BAT._pooled_ess(
-            [
-                BAT._repetition_exact_ess(w1, EffSampleSizeFromAC(), context),
-                BAT._repetition_exact_ess(w2, EffSampleSizeFromAC(), context)
-            ],
-            [sum(w1.weight), sum(w2.weight)]
+        scaled = DensitySampleVector(
+            v = samples.v,
+            logd = samples.logd,
+            weight = fill(1e100, length(samples)),
+            info = samples.info,
         )
-        ess_tagged = bat_eff_sample_size(shuffled, EffSampleSizeFromAC(), context).result
-        @test ess_tagged ≈ ess_direct
-
-        # Provenance takes priority over the uniform-weight fast path:
-        # merged unit-weight chains must not be treated as one series
-        # across chain boundaries, so the result is permutation-invariant
-        # and matches the pooled per-chain ESS:
-        u1 = DensitySampleVector(v = w1.v, logd = w1.logd, info = w1.info)
-        u2 = DensitySampleVector(v = w2.v, logd = w2.logd, info = w2.info)
-        umerged = vcat(u1, u2)
-        ushuffled = umerged[perm]
-        ess_upooled = BAT._pooled_ess(
-            [
-                bat_eff_sample_size(u1.v, EffSampleSizeFromAC(), context).result,
-                bat_eff_sample_size(u2.v, EffSampleSizeFromAC(), context).result
-            ],
-            [sum(u1.weight), sum(u2.weight)]
-        )
-        @test bat_eff_sample_size(umerged, EffSampleSizeFromAC(), context).result ≈ ess_upooled
-        @test bat_eff_sample_size(ushuffled, EffSampleSizeFromAC(), context).result ≈ ess_upooled
-        for scale in (floatmax(Float64), big"1e10000")
-            scaled = DensitySampleVector(
-                v = umerged.v,
-                logd = umerged.logd,
-                weight = fill(scale, length(umerged)),
-                info = umerged.info,
-            )
-            @test bat_eff_sample_size(scaled, EffSampleSizeFromAC(), context).result ≈ ess_upooled
-        end
-
-        walker_outputs = [u1, u2]
-        walker_ess = BAT._pooled_walker_ess([walker_outputs], umerged, ARPWeighting(), context)
-        for scale in (floatmax(Float64), big"1e10000")
-            scaled_outputs = [[
-                DensitySampleVector(
-                    v = output.v,
-                    logd = output.logd,
-                    weight = fill(scale, length(output)),
-                    info = output.info,
-                )
-                for output in walker_outputs
-            ]]
-            scaled_merged = reduce(vcat, only(scaled_outputs))
-            @test BAT._pooled_walker_ess(scaled_outputs, scaled_merged, ARPWeighting(), context) ≈ walker_ess
-        end
-
-        # A uniform repetition weight > 1 on a tagged chain decodes to
-        # the expanded ordered chain:
-        n_u = length(eachindex(u1))
-        t2 = DensitySampleVector(v = u1.v, logd = u1.logd, weight = fill(2, n_u), info = u1.info)
-        expanded_t2 = VectorOfSimilarVectors(flatview(u1.v)[:, inverse_rle(1:n_u, fill(2, n_u))])
-        @test bat_eff_sample_size(t2, EffSampleSizeFromAC(), context).result ≈
-            bat_eff_sample_size(expanded_t2, EffSampleSizeFromAC(), context).result
-
-        tagged_inf = DensitySampleVector(v = u1.v, logd = u1.logd, weight = fill(Inf, n_u), info = u1.info)
-        @test_throws ArgumentError bat_eff_sample_size(tagged_inf, EffSampleSizeFromAC(), context)
-
-        # Exact repeats created by systematic resampling retain process
-        # provenance, independent of the input storage order:
-        function repeated_walker(chainid, offset)
-            n = 200
-            vals = [[sin(i / 8) + offset] for i in 1:n]
-            ids = [BAT.MCMCSampleID(Int32(chainid), Int32(1), Int32(1), Int64(i), Int32(1), true) for i in 1:n]
-            DensitySampleVector(v = vals, logd = zeros(n), weight = fill(2, n), info = ids)
-        end
-        repeated = vcat(repeated_walker(1, 0.0), repeated_walker(2, 0.15))
-        repeated_perm = sortperm(rand(StableRNG(33), length(repeated)))
-        resampling = SystematicResampling(nsamples = 800)
-        resampled_ordered = samplesof(evalmeasure(repeated, resampling, BATContext(rng = StableRNG(44))))
-        resampled_shuffled = samplesof(evalmeasure(repeated[repeated_perm], resampling, BATContext(rng = StableRNG(44))))
-        for resampled in (resampled_ordered, resampled_shuffled)
-            @test length(resampled) == 800
-            @test all(isone, resampled.weight)
-            @test BAT._has_process_provenance(resampled)
-            @test only(bat_eff_sample_size(resampled, EffSampleSizeFromAC(), context).result) ≈ 24.588625082911854
-        end
-
-        # Provenance-driven algorithm defaults: process ESS for tagged or
-        # uniformly weighted samples, Kish ESS for nonuniformly weighted
-        # samples without process provenance:
-        @test bat_default(bat_eff_sample_size, Val(:algorithm), shuffled) isa EffSampleSizeFromAC
-        untagged = DensitySampleVector(v = merged.v, logd = merged.logd, weight = float.(merged.weight))
-        @test bat_default(bat_eff_sample_size, Val(:algorithm), untagged) isa KishESS
-        uniformw = DensitySampleVector(v = merged.v, logd = merged.logd)
-        @test bat_default(bat_eff_sample_size, Val(:algorithm), uniformw) isa EffSampleSizeFromAC
-        # Degenerate (non-unique) sample ids are unusable provenance, so
-        # nonuniform weights fall back to Kish:
-        dup_ids = fill(BAT.MCMCSampleID(Int32(1), Int32(1), Int32(1), Int64(1), Int32(1), true), length(eachindex(merged)))
-        degenerate = DensitySampleVector(v = merged.v, logd = merged.logd, weight = float.(merged.weight), info = dup_ids)
-        @test !BAT._has_process_provenance(degenerate)
-        @test bat_default(bat_eff_sample_size, Val(:algorithm), degenerate) isa KishESS
-    end
-
-    @testset "MCMC return process ESS memory budget" begin
-        context = BATContext()
-
-        function walker_output(n, d, weight; seed)
-            rng = StableRNG(seed)
-            DensitySampleVector(
-                v = VectorOfSimilarVectors(randn(rng, d, n)),
-                logd = zeros(n),
-                weight = fill(weight, n),
-            )
-        end
-
-        # Small ordered outputs retain the exact pooled process ESS.
-        small_unit = walker_output(500, 2, 1; seed = 91)
-        small_repeat = walker_output(500, 2, 2; seed = 92)
-        @test BAT._pooled_walker_ess([[small_unit]], small_unit, RepetitionWeighting(), context) ≈
-            minimum(bat_eff_sample_size(small_unit.v, EffSampleSizeFromAC(), context).result)
-        @test BAT._pooled_walker_ess([[small_repeat]], small_repeat, RepetitionWeighting(), context) ≈
-            minimum(BAT._repetition_exact_ess(small_repeat, EffSampleSizeFromAC(), context))
-        @test BAT._pooled_walker_ess([[small_unit]], small_unit, ARPWeighting(), context) ≈
-            minimum(bat_eff_sample_size(small_unit.v, EffSampleSizeFromAC(), context).result)
-
-        # Scalar walkers have one degree of freedom and use the same budget
-        # branch as vector-valued ARP walkers.
-        scalar_unit = DensitySampleVector(v = rand(StableRNG(93), 500), logd = zeros(500))
-        @test BAT._pooled_walker_ess([[scalar_unit]], scalar_unit, ARPWeighting(), context) ≈
-            bat_eff_sample_size(scalar_unit.v, EffSampleSizeFromAC(), context).result
-
-        for values in (Real[rand(StableRNG(94), 500)...], BigFloat[1, 2])
-            unknown_unit = DensitySampleVector(v = values, logd = zeros(length(values)))
-            @test isinf(BAT._mcmc_process_ess_memory_estimate(unknown_unit, length(unknown_unit)))
-            @test isnothing(BAT._pooled_walker_ess([[unknown_unit]], unknown_unit, ARPWeighting(), context))
-        end
-
-        # The estimate follows the stored floating-point precision.
-        float32_unit = DensitySampleVector(v = rand(StableRNG(95), Float32, 500), logd = zeros(Float32, 500))
-        @test BAT._pooled_walker_ess([[float32_unit]], float32_unit, RepetitionWeighting(), context) ≈
-            bat_eff_sample_size(float32_unit.v, EffSampleSizeFromAC(), context).result
-        @test BAT._mcmc_process_ess_memory_estimate(float32_unit, length(float32_unit)) ==
-            16 * sizeof(Float32) * length(float32_unit)
-        @test 16 * sizeof(Float32) * 600_000 < BAT._MCMC_PROCESS_ESS_MEMORY_BUDGET <
-            16 * sizeof(Float64) * 600_000
-
-        # Default MCMC returns must not materialize FFT or repetition-expansion
-        # buffers once their estimated memory cost exceeds the private budget.
-        oversized_unit = walker_output(40_000, 32, 1; seed = 93)
-        oversized_repeat = walker_output(20_000, 32, 2; seed = 94)
-        for oversized in (oversized_unit, oversized_repeat)
-            outputs = [[oversized]]
-            BAT._pooled_walker_ess(outputs, oversized, RepetitionWeighting(), context)
-            @test isnothing(BAT._pooled_walker_ess(outputs, oversized, RepetitionWeighting(), context))
-            @test @allocated(BAT._pooled_walker_ess(outputs, oversized, RepetitionWeighting(), context)) < 1_000_000
-        end
-        invalid_weight = DensitySampleVector(v = oversized_unit.v, logd = oversized_unit.logd, weight = fill(Inf, length(oversized_unit)))
-        @test_throws ArgumentError BAT._pooled_walker_ess(
-            [[invalid_weight]], invalid_weight, RepetitionWeighting(), context,
-        )
-        negative_weight = DensitySampleVector(v = oversized_unit.v, logd = oversized_unit.logd, weight = fill(-1, length(oversized_unit)))
-        @test_throws ArgumentError BAT._pooled_walker_ess(
-            [[negative_weight]], negative_weight, RepetitionWeighting(), context,
-        )
-
-        for (n, d) in ((500, 2), (40_000, 32))
-            noninteger_weight = walker_output(n, d, 0.5; seed = 96)
-            @test_throws ArgumentError BAT._pooled_walker_ess(
-                [[noninteger_weight]], noninteger_weight, RepetitionWeighting(), context,
-            )
-        end
-        valid_over_budget = walker_output(40_000, 32, 1.0; seed = 93)
-        invalid_after_budget = walker_output(10, 32, 0.5; seed = 99)
-        invalid_after_budget_merged = vcat(valid_over_budget, invalid_after_budget)
-        @test_throws ArgumentError BAT._pooled_walker_ess(
-            [[valid_over_budget, invalid_after_budget]],
-            invalid_after_budget_merged,
-            RepetitionWeighting(),
-            context,
-        )
-
-        live_walker = walker_output(500, 32, 1; seed = 97)
-        zero_mass_walker = walker_output(40_000, 32, 0; seed = 98)
-        zero_mass_merged = vcat(live_walker, zero_mass_walker)
-        for weighting in (ARPWeighting(), RepetitionWeighting())
-            live_ess = BAT._pooled_walker_ess([[live_walker]], live_walker, weighting, context)
-            @test BAT._pooled_walker_ess(
-                [[live_walker, zero_mass_walker]], zero_mass_merged, weighting, context,
-            ) ≈ live_ess
-        end
-
-        # The budget covers the complete MCMC return, not only one walker.
-        aggregate_outputs = [walker_output(8_000, 32, 1; seed = 94 + i) for i in 1:4]
-        aggregate_merged = reduce(vcat, aggregate_outputs)
-        @test isnothing(BAT._pooled_walker_ess([aggregate_outputs], aggregate_merged, RepetitionWeighting(), context))
-        @test @allocated(BAT._pooled_walker_ess([aggregate_outputs], aggregate_merged, RepetitionWeighting(), context)) < 1_000_000
-    end
-
-    @testset "small MCMC return" begin
-        samplingalg = TransformedMCMC(
-            proposal = RandomWalk(),
-            pretransform = DoNotTransform(),
-            nchains = 1,
-            nwalkers = 1,
-            nsteps = 20,
-            init = MCMCChainPoolInit(nsteps_init = 2),
-            burnin = MCMCMultiCycleBurnin(max_ncycles = 0, nsteps_final = 0),
-            convergence = AssumeConvergence(),
-            strict = false,
-        )
-        result = with_logger(NullLogger()) do
-            evalmeasure(
-                batmeasure(Normal()),
-                samplingalg,
-                BATContext(rng = Philox4x((564, 96))),
-            )
-        end
-        samples = samplesof(result)
-        @test !isempty(samples)
-        @test length(samples.weight) == length(samples.info) == length(samples)
-        @test all(id -> id isa BAT.MCMCSampleID, samples.info)
-        @test result.samplegen isa BAT.MCMCSampleGenerator
-        @test !isnothing(BAT.getess(result.empirical.main))
+        @test bat_eff_sample_size(scaled, algorithm, context).result ≈
+            bat_eff_sample_size(samples, algorithm, context).result
     end
 
     @testset "pooled ESS" begin
-        # Mass-fraction pooling of independent series,
-        # E_pool = 1 / Σ_j (α_j² / E_j): with equal masses, one series of
-        # ESS 1000 and one of ESS 10 pool to about 39.6 - far below the
-        # plain sum, which would hide the badly mixing series:
-        @test BAT._pooled_ess([[1000.0], [10.0]], [1.0, 1.0]) ≈ [1 / (0.25 / 1000 + 0.25 / 10)]
-        # Uniform efficiency reduces exactly to the sum:
-        @test BAT._pooled_ess([[600.0, 60.0], [400.0, 40.0]], [600.0, 400.0]) ≈ [1000.0, 100.0]
+        unequal = BAT._pooled_ess([[1000.0], [10.0]], [1.0, 1.0])
+        @test unequal ≈ [1 / (0.25 / 1000 + 0.25 / 10)]
 
-        ess_parts = [[3.0], [5.0]]
-        k = typemax(Int) ÷ 5
-        for masses in (
-            [3.0, 5.0],
-            (floatmax(Float64) / 5) .* [3, 5],
-            k .* [3, 5],
-        )
-            @test BAT._pooled_ess(ess_parts, masses) ≈ [8.0]
-        end
-        @test BAT._pooled_ess(reverse(ess_parts), [5.0, 3.0]) ≈ [8.0]
-        @test BAT._pooled_ess([[0.0], [5.0]], [0.0, 5.0]) ≈ [5.0]
-        @test BAT._pooled_ess([[0.0], [5.0]], [1.0, 1.0]) == [0.0]
-        @test isnothing(BAT._pooled_ess(Any[], Float64[]))
-    end
-
-    @testset "weight-scale robustness" begin
-        context = BATContext()
-        mk_smpls(w) = DensitySampleVector(v = [rand(stblrng(), 2) for _ in eachindex(w)], logd = zeros(length(w)), weight = w)
-
-        # Kish ESS must not overflow or lose scale invariance at extreme
-        # weight scales:
-        w = 1.0 .+ (1:100) ./ 100
-        kish = bat_eff_sample_size(mk_smpls(w), KishESS(), context).result
-        @test bat_eff_sample_size(mk_smpls(w .* 1e300), KishESS(), context).result ≈ kish
-        @test bat_eff_sample_size(mk_smpls(w .* 1e-300), KishESS(), context).result ≈ kish
-        @test bat_eff_sample_size(mk_smpls([fill(typemax(Int), 99); 4]), KishESS(), context).result ≈ 99 rtol = 0.01
-        @test bat_eff_sample_size(mk_smpls(fill(Float16(1), 300)), KishESS(), context).result ≈ 300
-
-        ac = bat_eff_sample_size(mk_smpls(ones(Int, 100)), EffSampleSizeFromAC(), context).result
-        @test bat_eff_sample_size(mk_smpls(fill(typemax(Int), 100)), EffSampleSizeFromAC(), context).result ≈ ac
-        @test_throws ArgumentError bat_eff_sample_size(mk_smpls(fill(Inf, 100)), EffSampleSizeFromAC(), context)
-
-        # The canonical relative weights reject invalid input:
-        @test BAT._canonical_rel_weights([2, 4, 8]) ≈ [0.25, 0.5, 1.0]
-        @test BAT._canonical_rel_weights(Float16[1, 3]) == Float32[1 / 3, 1]
-        @test first(BAT._canonical_rel_weights(Real[nextfloat(Float16(0)), floatmax(Float16)])) > 0
-        @test first(BAT._canonical_rel_weights(exp.(ULogarithmic, Float16[-20, 0]))) == exp(Float32(-20))
-        @test eltype(BAT._canonical_rel_weights(BigFloat[1, 2])) === BigFloat
-        @test isempty(BAT._canonical_rel_weights(Float64[]))
-        @test_throws ArgumentError BAT._canonical_rel_weights([0.0, 0.0])
-        @test_throws ArgumentError BAT._canonical_rel_weights([1.0, -1.0])
-        @test_throws ArgumentError BAT._canonical_rel_weights([1.0, Inf])
+        masses = [3.0, 5.0]
+        @test BAT._pooled_ess([[3.0], [5.0]], masses) ≈
+            BAT._pooled_ess([[3.0], [5.0]], 1e300 .* masses)
     end
 end

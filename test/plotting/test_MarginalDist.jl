@@ -44,6 +44,13 @@ using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex
         binned_2d = marg_2d.dist isa BAT.ReshapedDist ? marg_2d.dist.dist : marg_2d.dist
         @test binned_2d isa MvBinnedDist
         @test isapprox(mean(binned_2d), [0, 0], atol = 0.1)
+
+        low_weight_samples = DensitySampleVector(
+            [[0.0], [1.0e15], [1.0], [2.0]], zeros(4);
+            weight = [1.0, 1.0e-6, 5.0e-6, 1.0],
+        )
+        filtered = MarginalDist(low_weight_samples, 1; bins = 4, filter = true)
+        @test maximum(abs, only(get_bin_centers(filtered))) < 10
     end
 
     @testset "from distribution" begin

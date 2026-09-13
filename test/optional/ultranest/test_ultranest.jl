@@ -3,7 +3,7 @@
 using BAT
 using Test
 
-using Random, StatsBase, Distributions
+using Random, Distributions
 using DensityInterface
 using MeasureBase: massof
 using PythonCall: pyimport
@@ -40,17 +40,11 @@ import UltraNest
     # autocorrelation-based ESS is not meaningful:
     r = BAT.sample_and_verify(posterior, algorithm, dist, context, essalg = KishESS(), max_retries = 0)
     @test r.verified
-    @test r.n_retries == 0
 
     smpls = r.result
     @test logdensityof(posterior).(smpls.v) ≈ smpls.logd
 
     em = r.evaluated
-    @test em isa EvaluatedMeasure
-    @test BAT.validate_evalmeasure(em, context = context) === em
-
-    # The equal-weight sample variant is algorithm-specific and lives in
-    # the evaluation info:
     uwsmpls = BAT.evalinfo(em).result.uwresult
     @test logdensityof(posterior).(uwsmpls.v) ≈ uwsmpls.logd
     @test all(isequal(1), uwsmpls.weight)

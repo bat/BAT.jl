@@ -4,58 +4,67 @@ BAT.jl Release Notes
 BAT.jl v5.0.0
 -------------
 
-### Migration from v4
+### Breaking changes
 
-Evaluation now uses `evalmeasure_impl` as the common extension and result path.
-Replace `bat_sample_impl`, `bat_integrate_impl`, and `bat_findmode_impl`
-extensions with `BAT.evalmeasure_impl(em::BAT.EvaluatedMeasure, algorithm,
-context::BATContext)`. Return an updated `EvaluatedMeasure` for the same
-underlying measure, with backend data in `evalinfo`:
+* `bat_sample`, `bat_integrate`, and `bat_findmode` still return their primary
+  result in `.result`, but no longer add `.evaluated` or duplicate samples,
+  masses, and modes to their result tuples. Use `evalmeasure` and the
+  `samplesof`, `massof`, `mode`, `modes`, and `evalinfo` accessors when those
+  results are needed together.
 
-```julia
-return BAT.EvaluatedMeasure(em; evalinfo = BAT.MeasureEvalInfo(algorithm, backend_data))
-```
+* `EvaluatedMeasure` now accepts samples through the `empirical` keyword
+  instead of `samples`. Use the same accessors instead of its old result
+  fields.
 
-The `bat_sample`, `bat_integrate`, and `bat_findmode` wrappers still return
-standard `optargs`; `.result` remains the primary output. Use `evalmeasure` and
-accessors for the evaluated measure, samples, mass, modes, and backend data:
+* For mode finding, `OptimAlg` and `OptimizationAlg` now select only the
+  optimization backend. `pretransform` and `init` have moved to
+  `TransformedMaxDensity`.
 
-```julia
-em = evalmeasure(target, algorithm)
-samples = samplesof(em); integral = massof(em)
-one_mode, all_modes = mode(em), modes(em)
-backend_data = evalinfo(em).result
-```
+* `AbstractTransformTarget` has become `TransformIntent`. `PriorToNormal` and
+  `PriorToUniform` have become `NormalBased` and `UniformBased`; deprecated
+  aliases keep existing calls working for now.
 
-For mode finding, `OptimAlg` and `OptimizationAlg` now select only the
-optimization backend. Move `pretransform` and `init` to `TransformedMaxDensity`:
+* `OrderedResampling` has become `SystematicResampling`. A deprecated alias
+  keeps existing calls working for now.
 
-```julia
-TransformedMaxDensity(
-    optalg = OptimAlg(optalg = optalg), pretransform = pretransform, init = init
-)
-```
+* The AdvancedHMC backend and dependency have been removed. `HamiltonianMC`
+  now uses BAT's native multinomial NUTS implementation, so AdvancedHMC metric,
+  integrator, termination, and tuning options no longer apply.
 
-The AdvancedHMC backend and extension have been removed. `StanLikeTuning`
-remains available as a BAT-internal tuner. Use BAT's native `HamiltonianMC`
-proposal with `TransformedMCMC` and revisit AdvancedHMC-specific configuration.
+* `MALAProposal` now defaults to normal innovations instead of `TDist(1.0)`,
+  uses the exact proposal-density correction, and tunes its step size.
+  Gradient proposals now default to `FisherTransformTuning` instead of
+  `RAMTuning`.
 
-Custom experimental `SimpleMCMCProposalState` extensions must update
-`mcmc_propose_transition(current_z, state, nwalkers, genctx)` methods to
-`mcmc_propose_transition(current_z, state, genctxs::AbstractVector)`. Each
-entry is the generation context for the corresponding logical walker.
+* Weighted `DensitySampleVector` statistics now treat weights as probability
+  masses instead of repetition counts. Weighted quantiles use the inverse
+  empirical CDF, and autocorrelation ESS uses recorded MCMC process order when
+  available.
 
-`DensitySampleMeasure` snapshots sampling weights at construction; reconstruct
-it after changing weights. Convert a `DensitySampleMeasure` or
-`EvaluatedMeasure` to `DensitySampleVector` for an independent mutable copy.
+* `set_batcontext` now changes the process-wide default instead of task-local
+  storage. Use `ScopedSettings.with(default_batcontext => context)` for a
+  temporary context inherited by child tasks.
 
-For empirical measures, `getess` records sampling-process provenance rather
-than empirical-measure content. AC-ESS uses retained process order and may use
-a resampling heuristic depending on the weight representation.
+### New features
 
-Prefer stable accessors over direct `EvaluatedMeasure` fields:
-`samplesof`, `empiricalof`, `approxof`, `samplegenof`, `getess`, `massof`,
-`getdof`, `mode`, `modes`, `evalinfo`, and `unevaluated`.
+* The new `evalmeasure` interface returns an `EvaluatedMeasure` containing all
+  available results from an algorithm. The existing `bat_sample`,
+  `bat_integrate`, and `bat_findmode` APIs still work and keep `.result`.
+
+* `EvaluatedMeasure` and `DensitySampleMeasure` provide first-class measures
+  for algorithm results and empirical samples, with access through
+  `samplesof`, `massof`, `mode`, `modes`, `getess`, and `evalinfo`.
+
+* `HamiltonianMC` provides native multinomial NUTS. `MALAProposal` provides an
+  exact Hastings correction and automatic step-size tuning.
+
+* Gradient-based MCMC now defaults to affine transform tuning with
+  `FisherTransformTuning` and its `DriftCommitSchedule`.
+
+* `AdaptiveTransformChain` can tune composed transformations.
+
+* `default_batcontext` supports scoped context overrides inherited by child
+  tasks.
 
 BAT.jl v4.0.0
 -------------

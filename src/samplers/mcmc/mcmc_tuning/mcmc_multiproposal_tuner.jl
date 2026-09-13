@@ -25,6 +25,7 @@ function _validate_mcmc_proposal_tuning_configuration(
     multi_proposal::MCMCMultiProposal,
     tuning::NoMCMCProposalTuning,
 )
+    # Stop at the first invalid proposal.
     for proposal in multi_proposal.proposals
         proposal isa HamiltonianMC &&
             _unsupported_mcmc_component_tuning(proposal, tuning)
@@ -46,6 +47,7 @@ function _validate_mcmc_proposal_tuning_configuration(
     n_tunings == n_proposals || throw(ArgumentError(
         "MultiProposalTuning has $n_tunings component tunings but MCMCMultiProposal has $n_proposals component proposals",
     ))
+    # Stop at the first invalid pair.
     for (proposal, component_tuning) in zip(
         multi_proposal.proposals, tuning.proposal_tunings,
     )
@@ -96,8 +98,9 @@ function mcmc_proposal_tuning_init!!(
     chain_state::MCMCChainState, 
     max_nsteps::Integer
 )
-    for tuner in multi_tuner_state.proposal_tuners
-        mcmc_proposal_tuning_init!!(tuner, chain_state, max_nsteps)
+    for i in eachindex(multi_tuner_state.proposal_tuners)
+        component_chain = @set chain_state.proposal = chain_state.proposal.proposal_states[i]
+        mcmc_proposal_tuning_init!!(multi_tuner_state.proposal_tuners[i], component_chain, max_nsteps)
     end
 end
 
@@ -106,9 +109,47 @@ function mcmc_proposal_tuning_reinit!!(
     chain_state::MCMCChainState,
     max_nsteps::Integer
 )
-    for tuner in multi_tuner_state.proposal_tuners
-        mcmc_proposal_tuning_reinit!!(tuner, chain_state, max_nsteps)
+    for i in eachindex(multi_tuner_state.proposal_tuners)
+        component_chain = @set chain_state.proposal = chain_state.proposal.proposal_states[i]
+        mcmc_proposal_tuning_reinit!!(multi_tuner_state.proposal_tuners[i], component_chain, max_nsteps)
     end
+end
+
+
+function mcmc_proposal_transform_committed!!(
+    multi_proposal::MultiProposalState,
+    multi_tuner::MultiProposalTunerState,
+    chain_state::MCMCChainState,
+    trafo_tuners::Vararg{MCMCTransformTunerState},
+)
+    proposals, tuners = multi_proposal.proposal_states, multi_tuner.proposal_tuners
+    for i in eachindex(proposals)
+        chain_state = _component_transform_committed!!(
+            proposals[i], tuners[i], multi_proposal, multi_tuner, chain_state, i, trafo_tuners...,
+        )
+    end
+    return multi_proposal, multi_tuner, chain_state
+end
+
+
+# Specialize the chain reconstruction and callback after dispatching on the
+# concrete component types stored in the heterogeneous proposal/tuner vectors.
+function _component_transform_committed!!(
+    proposal::MCMCProposalState,
+    tuner::MCMCProposalTunerState,
+    multi_proposal::MultiProposalState,
+    multi_tuner::MultiProposalTunerState,
+    chain_state::MCMCChainState,
+    i::Integer,
+    trafo_tuners::Vararg{MCMCTransformTunerState,N},
+) where {N}
+    component_chain = @set chain_state.proposal = proposal
+    proposal, tuner, component_chain = mcmc_proposal_transform_committed!!(
+        proposal, tuner, component_chain, trafo_tuners...,
+    )
+    multi_proposal.proposal_states[i] = proposal
+    multi_tuner.proposal_tuners[i] = tuner
+    return @set component_chain.proposal = multi_proposal
 end
 
 

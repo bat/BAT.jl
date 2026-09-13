@@ -203,10 +203,10 @@ function _mcmc_process_ess_memory_estimate(
 )
     storage_type = eltype(flatview(walker_output.v))
     value_type = float(storage_type)
-    concrete_bits_type = isconcretetype(storage_type) && isbitstype(storage_type) &&
+    is_concrete_bits = isconcretetype(storage_type) && isbitstype(storage_type) &&
         isconcretetype(value_type) && isbitstype(value_type)
     # Boxed or abstract values can allocate outside their array storage.
-    concrete_bits_type || return Inf
+    is_concrete_bits || return Inf
     # `_resample_ac_ess` caps non-repetition resampling at ten times the stored sample count.
     # FFT autocorrelation uses several full process-value work buffers; for
     # repetition weighting this also covers run-length decoding buffers.
@@ -227,6 +227,7 @@ function _pooled_walker_ess(
     masses = T[]
     process_lengths = Float64[]
     offset = 0
+    # Offsets require traversal order.
     for walker_outputs in chain_outputs, walker_output in walker_outputs
         isempty(walker_output) && continue
         next_offset = offset + length(walker_output)
@@ -245,6 +246,7 @@ function _pooled_walker_ess(
     ess_parts = Vector{Any}()
     walker_idx = 0
     # `_merge_chain_outputs` preserves this traversal order:
+    # Mass indices follow traversal order.
     for walker_outputs in chain_outputs, walker_output in walker_outputs
         isempty(walker_output) && continue
         walker_idx += 1

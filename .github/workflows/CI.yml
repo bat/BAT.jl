@@ -138,8 +138,8 @@ jobs:
       - uses: julia-actions/cache@v3
       - name: Run tests
         run: >-
-          julia --project=test/optional/pigeons -e '
-          using Pkg; Pkg.instantiate();
+          julia --threads=2 --project=test/optional/pigeons -e '
+          using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate();
           include(joinpath("test", "optional", "pigeons", "runtests.jl"))'
   docs:
     name: Documentation

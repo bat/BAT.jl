@@ -92,44 +92,16 @@ end
 # into their dimensions, as Expr resp. String per dimension:
 function _all_active_exprs(vs::NamedTupleShape)
     accs = vs._accessors
-    syms = keys(accs)
-    lengths = length.(values(accs))
-    exprs = Union{Expr, Symbol, Union{Expr, Symbol}}[]
-
-    for (i,sym) in enumerate(syms)
-        exprs_tmp = Any[]
-
-        if lengths[i] == 1 
-            push!(exprs_tmp, Meta.parse("$sym"))
-        else
-            for id in 1:lengths[i]
-                push!(exprs_tmp, Meta.parse("$sym[$id]"))
-            end
-        end
-        push!(exprs, exprs_tmp...)
+    mapreduce(
+        vcat, zip(keys(accs), length.(values(accs))); init = Union{Expr, Symbol}[],
+    ) do (sym, n)
+        n == 1 ? Union{Expr, Symbol}[sym] : Meta.parse.("$sym[" .* string.(1:n) .* "]")
     end
-
-    return exprs
 end
 
 function _all_exprs_as_strings(vs::NamedTupleShape)
     accs = vs._accessors
-    syms = keys(accs)
-    lengths = length.(values(accs))
-    expr_strings = String[]
-
-    for (i,sym) in enumerate(syms)
-        expr_strings_tmp = Any[]
-
-        if lengths[i] == 1 
-            push!(expr_strings_tmp, "$sym")
-        else
-            for id in 1:lengths[i]
-                push!(expr_strings_tmp, "$sym[$id]")
-            end
-        end
-        push!(expr_strings, expr_strings_tmp...)
+    mapreduce(vcat, zip(keys(accs), length.(values(accs))); init = String[]) do (sym, n)
+        n == 1 ? ["$sym"] : "$sym[" .* string.(1:n) .* "]"
     end
-
-    return expr_strings
 end

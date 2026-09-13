@@ -43,7 +43,6 @@ Pigeons.LogDensityProblems.dimension(reference::BATPigeonsReference) =
 
 function _density_samples(pt, n_dof::Int)
     trace = Pigeons.get_sample(pt)
-    isempty(trace) && throw(ArgumentError("Pigeons returned no target samples"))
 
     first_sample = first(trace)
     values = Matrix{eltype(first_sample)}(undef, n_dof, length(trace))
@@ -63,6 +62,9 @@ function BAT.evalmeasure_impl(
     algorithm::BAT.PigeonsSampling,
     context::BAT.BATContext,
 )
+    algorithm.n_chains >= 2 || throw(ArgumentError("PigeonsSampling requires n_chains >= 2"))
+    algorithm.n_rounds >= 1 || throw(ArgumentError("PigeonsSampling requires n_rounds >= 1"))
+
     measure = BAT.unevaluated(em)
     measure isa BAT.AbstractPosteriorMeasure ||
         throw(ArgumentError("PigeonsSampling requires a posterior measure"))

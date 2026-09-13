@@ -57,7 +57,7 @@ using Optim
                 else
                     @assert false
                 end
-    
+
                 @test isapprox(fix_nni.(logdensityof(m).(tX)), logpdf.(target_dist, tX), atol = 1e-10)
                 @test @inferred(logdensityof(m)(target_x)) isa Real
                 @test @inferred(logdensityof(unshaped(m))(unshaped(target_x))) ≈ logdensityof(m)(target_x)

@@ -123,13 +123,9 @@ provenance, a resample-then-autocorrelate heuristic is used -
 [`KishESS`](@ref) is the provenance-free alternative (and the default
 in that case).
 
-A singleton series has ESS one; an empty series raises `ArgumentError`.
-ESS is bounded by the stored draw count: a constant series, a nonpositive
-finite estimated autocorrelation length, and an antithetic length below one
-map to that upper bound. Non-finite observations and unexplained non-finite
-autocorrelation estimates raise `ArgumentError`.
-Integer series are centered in a widened integer type and copied to floating
-point before the FFT.
+A singleton has ESS one. ESS stays between one and the stored draw count.
+Constant, nonpositive, and antithetic autocorrelation lengths reach the upper bound.
+Non-finite data or estimates raise `ArgumentError`. Integer data uses widened centering before the FFT.
 
 Constructors:
 
@@ -146,16 +142,15 @@ end
 export EffSampleSizeFromAC
 
 
-_ac_ess_singleton(::AbstractVector{Float16}) = one(Float32)
-_ac_ess_singleton(v::AbstractVector{<:Real}) = one(float(eltype(v)))
+# Float16 ESS must represent larger sample counts.
+_ac_ess_float_type(::Type{Float16}) = Float32
+_ac_ess_float_type(::Type{T}) where {T<:Real} = float(T)
 
-function _ac_ess_singleton(v::AbstractVectorOfSimilarVectors{Float16})
-    fill(one(Float32), size(flatview(v), 1))
-end
+_ac_ess_singleton(v::AbstractVector{<:Real}) = one(_ac_ess_float_type(eltype(v)))
 
 function _ac_ess_singleton(v::AbstractVectorOfSimilarVectors{<:Real})
     flat_v = flatview(v)
-    fill(one(float(eltype(flat_v))), size(flat_v, 1))
+    fill(one(_ac_ess_float_type(eltype(flat_v))), size(flat_v, 1))
 end
 
 
@@ -192,17 +187,13 @@ function _float_ac_ess_series(v::AbstractVectorOfSimilarVectors{T}) where {T<:In
     W = widen(T)
     F = float(W)
     result = similar(X, F)
-    for i in axes(X, 1)
-        row = view(X, i, :)
-        result_row = view(result, i, :)
-        result_row .= F.(W.(row) .- W(minimum(row)))
-    end
+    result .= F.(W.(X) .- W.(minimum(X, dims = 2)))
     VectorOfSimilarVectors(result)
 end
 
 
 function _bounded_ac_ess(n::Integer, tau_int::Real)
-    T = float(typeof(tau_int)) === Float16 ? Float32 : float(typeof(tau_int))
+    T = _ac_ess_float_type(typeof(tau_int))
     n_float = T(n)
     isfinite(tau_int) && tau_int > zero(tau_int) ?
         clamp(n_float / T(tau_int), one(T), n_float) : n_float
@@ -276,6 +267,7 @@ function _has_process_provenance(unshaped_smpls::DensitySampleVector)
     allunique((id.chainid, id.walkerid, id.chaincycle, id.stepno) for id in info) && return true
 
     seen = Dict{Tuple{Int32,Int32,Int32,Int64},Int}()
+    # Stop at the first conflicting repeat.
     for i in eachindex(info)
         id = info[i]
         key = (id.chainid, id.walkerid, id.chaincycle, id.stepno)
@@ -297,6 +289,7 @@ function _mcmc_process_ess(unshaped_smpls::DensitySampleVector, algorithm::EffSa
     rel_weights = _canonical_rel_weights(unshaped_smpls.weight)
     T = _weight_accum_type(rel_weights)
     masses = T[]
+    # Each walker requires ordered reconstruction.
     for k in ukeys
         idxs = findall(==(k), keys)
         wsum = sum(T, view(rel_weights, idxs))

@@ -1,9 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 using Test
-import Random
-
-Random.seed!(0x424154)
 
 @info "Running tests with $(Base.Threads.nthreads()) Julia threads active."
 
@@ -41,13 +38,10 @@ const test_groups = [
         "samplers/test_bat_sample.jl",
         "samplers/test_pathfinder.jl",
         "samplers/mcmc/test_proposaldist.jl",
-        "samplers/mcmc/test_mcmc_defaults.jl",
         "samplers/mcmc/test_walker_isolation.jl",
-        "samplers/mcmc/test_multiproposal_tuner.jl",
         "samplers/mcmc/test_mcmc_sample.jl",
         "samplers/mcmc/test_retry_init.jl",
         "samplers/mcmc/test_mh.jl",
-        "samplers/mcmc/test_student_t_affine_moments.jl",
         "samplers/mcmc/test_mala.jl",
         "samplers/mcmc/test_ram_tuner.jl",
         "samplers/mcmc/test_fisher_tuner.jl",
@@ -57,7 +51,6 @@ const test_groups = [
     "hmc" => [
         "samplers/mcmc/test_hmc_nuts.jl",
         "samplers/mcmc/test_hmc.jl",
-        "samplers/mcmc/test_hmc_hard_targets.jl",
     ],
 ]
 

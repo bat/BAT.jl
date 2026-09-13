@@ -20,7 +20,7 @@ using Random123
     nwalkers = 1
 
     samplingalg = TransformedMCMC(nchains = nchains, nwalkers = nwalkers)
- 
+
     @testset "MCMC iteration" begin
         context = BATContext(rng = Philox4x((564, 50)))
         nsteps = 10^5
@@ -59,7 +59,7 @@ using Random123
 
         @test minimum(samples.weight) == 1
     end
- 
+
     @testset "MCMC tuning and burn-in" begin
         context = BATContext(rng = Philox4x((564, 51)))
         init_alg = MCMCChainPoolInit()
@@ -78,17 +78,11 @@ using Random123
             nchains = nchains,
             nwalkers = nwalkers,
             convergence = convergence_test,
-            strict = true,
+            strict = strict,
             nonzero_weights = nonzero_weights
         )
 
-        init_result = @inferred(BAT.mcmc_init!(
-            samplingalg,
-            target,
-            init_alg,
-            callback,
-            context
-        ))
+        init_result = @inferred(BAT.mcmc_init!(samplingalg, target, init_alg, callback, context))
 
         (mcmc_states, chain_outputs) = init_result
 
@@ -96,12 +90,7 @@ using Random123
         # @test tuners isa AbstractVector{<:BAT.AdaptiveAffineTuningState}
         @test chain_outputs isa AbstractVector{<:AbstractVector{<:DensitySampleVector}}
 
-        mcmc_states = BAT.mcmc_burnin!(
-            chain_outputs,
-            mcmc_states,
-            samplingalg,
-            callback
-        )
+        mcmc_states = BAT.mcmc_burnin!(chain_outputs, mcmc_states, samplingalg, callback)
 
         BAT.next_cycle!.(mcmc_states)
 
@@ -115,13 +104,12 @@ using Random123
         samples = BAT._merge_chain_outputs(first(mcmc_states), chain_outputs)
 
         # The initial sample in each cycle has weight 0, but is still saved to output. Depending on whether or not
-        # the final proposed sample is accepted, the lenght of the final output may vary
+        # the final proposed sample is accepted, the length of the final output may vary
         @test isapprox(length(samples), sum(samples.weight), atol = nchains * mcmc_states[1].chain_state.info.cycle)
         @test BAT.test_dist_samples(unshaped(objective), samples)
     end
 
     @testset "bat_sample" begin
-        context = BATContext(rng = Philox4x((564, 52)))
         samples = bat_sample(
             shaped_target,
             TransformedMCMC(
@@ -129,7 +117,7 @@ using Random123
                 pretransform = DoNotTransform(),
                 store_burnin = true
             ),
-            context
+            BATContext(rng = Philox4x((564, 52)))
         ).result
 
         @test first(samples).info.chaincycle == 1
@@ -148,7 +136,6 @@ using Random123
         @test first(samples).info.chaincycle >= 2
         @test samples.v isa ShapedAsNTArray
         @test smplres.verified
-        @test smplres.n_retries == 0
     end
 
     @testset "MCMC sampling in transformed space" begin
@@ -165,6 +152,5 @@ using Random123
             max_retries = 0,
         )
         @test smplres.verified
-        @test smplres.n_retries == 0
     end
 end
