@@ -241,9 +241,9 @@ end
 
 *BAT-internal, not part of stable public API.*
 
-Construct a ranked exact atom-quantile-grid region containing the requested
-empirical mass. Use `mode = :connected` for the shortest connected atom-aligned
-interval. Atomic mass is indivisible, so either result may exceed the target.
+Return intervals containing at least the requested empirical mass. The default
+`:disjoint` mode combines narrow quantile intervals. Use `:connected` for the
+shortest single interval.
 """
 function smallest_credible_intervals(
     X::AbstractVector{<:Real},
