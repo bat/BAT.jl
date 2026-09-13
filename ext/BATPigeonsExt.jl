@@ -13,15 +13,18 @@ import Pigeons
 
 BAT.pkgext(::Val{:Pigeons}) = BAT.PackageExtension{:Pigeons}()
 
-struct BATPigeonsTarget{M,P}
+struct BATPigeonsTarget{M,I}
     measure::M
-    prior::P
+    initvals::I
 end
 
 (target::BATPigeonsTarget)(x) = BAT.checked_logdensityof(target.measure, x)
 
-Pigeons.initialization(target::BATPigeonsTarget, rng::AbstractRNG, ::Int) =
-    rand(rng, target.prior)
+Pigeons.initialization(target::BATPigeonsTarget{<:Any,Nothing}, rng::AbstractRNG, ::Int) =
+    rand(rng, BAT.getprior(target.measure))
+
+Pigeons.initialization(target::BATPigeonsTarget, ::AbstractRNG, replica_index::Int) =
+    collect(target.initvals[replica_index])
 
 struct BATPigeonsReference{M}
     measure::M
@@ -58,6 +61,29 @@ function _density_samples(pt, n_dof::Int)
     return BAT.DensitySampleVector(v = VectorOfSimilarVectors(values), logd = logd)
 end
 
+function _leg_diagnostics(pt, tempering, edges)
+    return (
+        adapted_betas = copy(tempering.schedule.grids),
+        swap_acceptance_pr = [
+            Pigeons.value(pt.reduced_recorders.swap_acceptance_pr[(i, i + 1)])
+            for i in edges
+        ],
+        global_barrier = Pigeons.global_barrier(tempering),
+    )
+end
+
+_tempering_diagnostics(pt, tempering::Pigeons.NonReversiblePT) =
+    _leg_diagnostics(pt, tempering, 1:(length(tempering.schedule.grids) - 1))
+
+function _tempering_diagnostics(pt, tempering::Pigeons.StabilizedPT)
+    n_var = length(tempering.variational_leg.schedule.grids)
+    n_total = n_var + length(tempering.fixed_leg.schedule.grids)
+    return (;
+        _leg_diagnostics(pt, tempering.fixed_leg, (n_total - 1):-1:(n_var + 1))...,
+        variational = _leg_diagnostics(pt, tempering.variational_leg, 1:(n_var - 1)),
+    )
+end
+
 function BAT.evalmeasure_impl(
     em::BAT.EvaluatedMeasure,
     algorithm::BAT.PigeonsSampling,
@@ -65,6 +91,10 @@ function BAT.evalmeasure_impl(
 )
     algorithm.n_chains >= 2 || throw(ArgumentError("PigeonsSampling requires n_chains >= 2"))
     algorithm.n_rounds >= 1 || throw(ArgumentError("PigeonsSampling requires n_rounds >= 1"))
+
+    n_var = algorithm.n_chains_variational
+    n_var == 0 || (n_var >= 2 && algorithm.variational !== nothing) ||
+        throw(ArgumentError("n_chains_variational requires a variational reference and at least two temperatures"))
 
     measure = BAT.unevaluated(em)
     measure isa BAT.AbstractPosteriorMeasure ||
@@ -78,16 +108,40 @@ function BAT.evalmeasure_impl(
     prior = BAT.getprior(target)
     n_dof = Int(BAT.some_dof(target))
 
-    pt = Pigeons.pigeons(
-        target = BATPigeonsTarget(target, prior),
-        reference = BATPigeonsReference(prior),
+    # Preserve Pigeons' replica RNG streams for prior initialization.
+    initvals = if algorithm.init isa BAT.InitFromTarget && isnothing(BAT.empiricalof(em))
+        nothing
+    else
+        original = BAT.bat_initval(em, algorithm.n_chains + n_var, algorithm.init, context).result
+        BAT.transform_samples(f_pretransform, original)
+    end
+
+    variational = deepcopy(algorithm.variational)
+    reference_prior = if isnothing(variational)
+        prior
+    else
+        prior_mass = massof(prior)
+        prior_mass isa Real && isfinite(log(prior_mass)) ||
+            throw(ArgumentError("Variational PigeonsSampling requires a finite positive prior mass"))
+        BAT.weightedmeasure(-log(prior_mass), prior)
+    end
+    # Pigeons' round-trip recorder assumes equal stabilized leg lengths.
+    record_round_trip = n_var == 0 || n_var == algorithm.n_chains
+    record = [Pigeons.traces; Pigeons.record_default()]
+    record_round_trip && insert!(record, 2, Pigeons.round_trip)
+
+    pt = Pigeons.pigeons(;
+        target = BATPigeonsTarget(target, initvals),
+        reference = BATPigeonsReference(reference_prior),
         seed = rand(get_rng(context), 0:typemax(Int)),
         n_rounds = algorithm.n_rounds,
         n_chains = algorithm.n_chains,
+        n_chains_variational = n_var,
+        variational,
         explorer = algorithm.explorer,
         multithreaded = algorithm.multithreaded,
         show_report = algorithm.show_report,
-        record = [Pigeons.traces; Pigeons.round_trip; Pigeons.record_default()],
+        record,
     )
 
     transformed_smpls = _density_samples(pt, n_dof)
@@ -101,12 +155,14 @@ function BAT.evalmeasure_impl(
     )
     lognormalizer_pair = Pigeons.stepping_stone_pair(pt)
     lognormalizer = Pigeons.stepping_stone(pt)
-    mass = BAT._prior_importance_mass(exp(BAT.ULogarithmic, lognormalizer), massof(prior))
-    diagnostics = (
+    reference_mass = isnothing(variational) ? massof(prior) : 1
+    mass = BAT._prior_importance_mass(exp(BAT.ULogarithmic, lognormalizer), reference_mass)
+    diagnostics = (;
         lognormalizer,
         lognormalizer_pair,
-        n_tempered_restarts = Pigeons.n_tempered_restarts(pt),
-        n_round_trips = Pigeons.n_round_trips(pt),
+        _tempering_diagnostics(pt, pt.shared.tempering)...,
+        n_tempered_restarts = record_round_trip ? Pigeons.n_tempered_restarts(pt) : missing,
+        n_round_trips = record_round_trip ? Pigeons.n_round_trips(pt) : missing,
     )
     dsm = BAT.DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 

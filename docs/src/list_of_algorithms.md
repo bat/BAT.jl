@@ -73,6 +73,24 @@ samples = samplesof(evaluated)
 evidence = massof(evaluated)
 ```
 
+Use `init = ExplicitInit(starts)` to supply one initial value per replica in the original parameter space.
+
+Enable a fitted reference with `variational`. Add a second leg for stabilized parallel tempering:
+
+```julia
+algorithm = PigeonsSampling(
+    variational = Pigeons.GaussianReference(),
+    n_chains = 10,
+    n_chains_variational = 10,
+)
+evaluated = evalmeasure(target, algorithm)
+diagnostics = BAT.evalinfo(evaluated).result
+```
+
+Omit `n_chains_variational` for basic variational parallel tempering. Both modes return one target-temperature trace.
+
+`diagnostics` contains `adapted_betas`, `swap_acceptance_pr`, and `global_barrier`. The adapted ladder applies to a following round. Swap probabilities and the barrier describe the final round. Stabilized runs return these for the fixed leg and include the second leg under `diagnostics.variational`. Round-trip counts are unavailable when the leg lengths differ.
+
 Requires the [Pigeons](https://github.com/Julia-Tempering/Pigeons.jl) Julia package to be loaded explicitly.
 
 
