@@ -150,7 +150,13 @@ function _mw_logobjective(loga, logq)
     return mapreduce(-, _logaddexp, loga, logq)
 end
 
-function _mw_fit_mass(loga, logq, logg)
+# At a coefficient endpoint only one density contributes. Keep the Float64
+# coefficient's promotion and the interior objective's reduction order.
+function _mw_logendpoint(loga, logd)
+    return mapreduce(i -> loga[i] - (0.0 + logd[i]), _logaddexp, eachindex(loga, logd))
+end
+
+function _mw_fit_mass(loga, logq, logg, initial_obj)
     function objective(β)
         lq, lg = log1p(-β), log(β)
         return mapreduce(_logaddexp, eachindex(loga, logq, logg)) do i
@@ -177,7 +183,7 @@ function _mw_fit_mass(loga, logq, logg)
     end
     # d can round to ±1. Use the original log objective at endpoints.
     choices = (0.0, (lo + hi) / 2, 1.0)
-    value, i = findmin(map(objective, choices))
+    value, i = findmin((initial_obj, objective(choices[2]), _mw_logendpoint(loga, logg)))
     return choices[i], value
 end
 
@@ -355,6 +361,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
             centers = Tuple{Vector{T},Matrix{T}}[]
             attempts = 0
             best_obj = _mw_logobjective(loga, logq)
+            initial_obj = nothing
             logprior = _mw_batched_logpdf(gprior, training_x)
             for idx in order
                 attempts >= alg.ncandidates && break
@@ -391,7 +398,8 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
                         continue
                     end
                     logg = _logaddexp.(log(ε) .+ logprior, log1p(-ε) .+ _mw_batched_logpdf(g, training_x))
-                    β, obj = _mw_fit_mass(loga, logq, logg)
+                    isnothing(initial_obj) && (initial_obj = _mw_logendpoint(loga, logq))
+                    β, obj = _mw_fit_mass(loga, logq, logg, initial_obj)
                     if β > 0 && obj < best_obj
                         best, best_obj = _mw_mix(q, g, β, ε), obj
                     end
