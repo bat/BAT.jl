@@ -10,9 +10,6 @@ standard Gaussian and evaluates the likelihood separately, as required by the me
 The prior must support direct transformation to a Gaussian distribution. Nested
 posterior priors are not supported.
 
-The initial value must have finite target log-density. For restricted likelihood
-support, supply a suitable value through `ExplicitInit`.
-
 This functionality requires EllipticalSliceSampling.jl to be loaded.
 
 Constructors:
