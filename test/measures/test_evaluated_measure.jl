@@ -6,6 +6,7 @@ using Test
 using Random
 using DensityInterface, MeasureBase, ValueShapes
 using Distributions
+using Statistics
 
 @testset "evaluated_measure" begin
     dist = distprod(a = truncated(Normal(), -2, 2), b = Exponential())
@@ -31,4 +32,5 @@ using Distributions
 
     em_plain = EvaluatedMeasure(m)
     @test BAT.empiricalof(em_plain) === nothing
+    @test std(EvaluatedMeasure(Normal(0, 2))) == 2
 end

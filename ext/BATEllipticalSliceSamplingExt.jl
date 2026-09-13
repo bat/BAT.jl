@@ -40,8 +40,11 @@ function BAT.evalmeasure_impl(
     )
     initalg = BAT.apply_trafo_to_init(f_pretransform, algorithm.init)
     initial_params = collect(BAT.bat_initval(target, initalg, context).result)
-    T = typeof(model.loglikelihood(initial_params) + logpdf(prior, initial_params))
-    logd = T[]
+    initial_logd = BAT.checked_logdensityof(target, initial_params)
+    isfinite(initial_logd) || throw(ArgumentError(
+        "EllipticalSliceMCMCSampling requires an initial value with finite target log-density. Choose a suitable init algorithm.",
+    ))
+    logd = typeof(initial_logd)[]
     callback =
         (_rng, _model, _sampler, sample, state, _iteration; kwargs...) ->
             push!(logd, state.loglikelihood + logpdf(prior, sample))
