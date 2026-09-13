@@ -66,7 +66,11 @@ BAT sampling algorithm type: [`PigeonsSampling`](@ref)
 
 ```julia
 import Pigeons
-bat_sample(target, PigeonsSampling(n_rounds = 10, n_chains = 10))
+using MeasureBase: massof
+
+evaluated = evalmeasure(target, PigeonsSampling(n_rounds = 10, n_chains = 10))
+samples = samplesof(evaluated)
+evidence = massof(evaluated)
 ```
 
 Requires the [Pigeons](https://github.com/Julia-Tempering/Pigeons.jl) Julia package to be loaded explicitly.

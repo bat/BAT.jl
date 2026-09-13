@@ -43,12 +43,13 @@ Pigeons.LogDensityProblems.dimension(reference::BATPigeonsReference) =
 
 function _density_samples(pt, n_dof::Int)
     trace = Pigeons.get_sample(pt)
+    n_samples = length(trace)
 
     first_sample = first(trace)
-    values = Matrix{eltype(first_sample)}(undef, n_dof, length(trace))
-    logd = similar(first_sample, length(trace))
+    values = Matrix{eltype(first_sample)}(undef, n_dof, n_samples)
+    logd = similar(first_sample, n_samples)
 
-    for i in eachindex(trace)
+    for i in 1:n_samples
         sample = trace[i]
         copyto!(view(values, :, i), 1, sample, 1, n_dof)
         logd[i] = sample[end]
