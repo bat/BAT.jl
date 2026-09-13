@@ -9,13 +9,11 @@ and draws fresh IID production samples. Requires a differentiable forward-model
 likelihood and a standard-normal prior after `pretransform`.
 
 Supports Normal, MvNormal, Poisson, Exponential, and product observation models.
-Uses dense CPU geometry. Does not require MGVI. Optional `mode` accepts an
-existing BAT optimization backend and maximizes the transformed target density.
+Uses dense CPU geometry.
 
 Only production draws enter the returned empirical measure. Their weights are
 `exp(logtarget - logproposal - logweight_scale)`, with the common scale retained
 in `evalinfo.result`. The normalized proposal is stored in `approx`.
-ESS measures weight concentration and does not establish mode coverage.
 
 Fields:
 
@@ -23,11 +21,11 @@ $(TYPEDFIELDS)
 """
 @with_kw struct MolewhackerSampling{TR<:TransformIntent,IA<:InitvalAlgorithm,M,S,E<:BATExecutor,D} <: AbstractSamplingAlgorithm
     pretransform::TR = NormalBased()
-    "Seed source in original coordinates. Used only when `nseeds > 0`."
+    "Seed source in original coordinates."
     init::IA = InitFromTarget()
-    "Number of initial seeds. Exact duplicate centers share a local Gaussian."
+    "Number of initial seeds."
     nseeds::Int = 0
-    "Optional density maximization backend for seeds and discovered centers."
+    "Optional optimizer of the transformed target for seeds and candidate centers."
     mode::M = nothing
     "Also fit one bounded Fisher-gradient center step during discovery when `mode` is `nothing`."
     refine_centers::Bool = false
@@ -40,11 +38,11 @@ $(TYPEDFIELDS)
     maxiter::Int = 20
     "Maximum mixture size, including the prior."
     maxcomponents::Int = 32
-    "Maximum target log-density calls, including center refinement, mode searches, and production. Geometry calls are separate."
+    "Maximum target log-density calls, excluding geometry evaluations."
     maxevals::Int = 10^5
-    "Maximum separated candidate centers per training batch, independent of thread count."
+    "Maximum candidate centers per training batch."
     ncandidates::Int = 2
-    "Minimum prior mixture mass, retained through all updates."
+    "Minimum prior mass in the proposal."
     exploration_mass::Float64 = 0.1
     "Variance multipliers assessed for each local Fisher Gaussian."
     covariance_scales::S = (1.0, 2.0, 4.0)
