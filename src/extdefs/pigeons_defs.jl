@@ -5,13 +5,9 @@
 
 *Experimental feature, not part of stable public API.*
 
-Sample a posterior with local parallel tempering from Pigeons.jl. The transformed prior
-provides the reference distribution and exact reference draws.
-
-Return the final round's `2^n_rounds` samples from the target temperature in scan order.
-The other temperatures aid exploration and evidence estimation. They are not independent
-posterior chains. The empirical ESS uses target-trace autocorrelations. Round-trip
-diagnostics are reported separately.
+Sample a posterior with Pigeons.jl parallel tempering, using the transformed prior
+as the reference distribution. Return the final round's `2^n_rounds` samples from
+the target temperature.
 
 This functionality requires Pigeons.jl to be loaded.
 
@@ -27,10 +23,10 @@ $(TYPEDFIELDS)
     "Transform the posterior and prior into an unconstrained vector space."
     pretransform::TR = (pkgext(Val(:Pigeons)); NormalBased())
 
-    "Number of parallel-tempering rounds, at least 1."
+    "Number of parallel-tempering rounds."
     n_rounds::Int = 10
 
-    "Number of temperatures, including the reference and target, at least 2."
+    "Number of temperatures, including the reference and target."
     n_chains::Int = 10
 
     "Pigeons explorer, or `nothing` for its default explorer."
