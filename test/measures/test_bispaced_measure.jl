@@ -17,6 +17,10 @@ using BAT: BispacedMeasure, batmeasure, empiricalof, samplesof
     dsm = DensitySampleMeasure(smpls, dof = getdof(m))
 
     f = BAT.transform_function(NormalBased(), m)
+    measure_pair = BispacedMeasure(f, m, context)
+    x = (a = 2.0, b = 0.7)
+    @test logdensityof(measure_pair.transformed, f(x)) ≈ logpdf(Normal(), 0.0) + logpdf(Normal(), quantile(Normal(), 1 - exp(-1)))
+
     p = BispacedMeasure(f, dsm, context)
     @test samplesof(p) == smpls
     @test empiricalof(p) === dsm

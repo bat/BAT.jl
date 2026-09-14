@@ -176,7 +176,8 @@ function bridge_sampling_integral(
 
     proposal_measure = batmeasure(MvNormal(post_mean,post_cov_pd))
     held_out_ess = bat_eff_sample_size_impl(second_batch, KishESS(), context).result
-    n_proposal = clamp(round(Int, held_out_ess), 1, length(second_batch))
+    # The corrected proposal variance needs at least two independent draws.
+    n_proposal = max(2, min(round(Int, held_out_ess), length(second_batch)))
     proposal_samples = samplesof(evalmeasure(
         proposal_measure, IIDSampling(nsamples = n_proposal), context,
     ))

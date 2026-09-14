@@ -148,6 +148,9 @@ _SampleAux() = _SampleInfo(0)
             )
             @test quantile(samples16, 0.25) == 1.0
 
+            zero_mass_nan = DensitySampleVector(v = [1.0, NaN], logd = zeros(2), weight = [1, 0])
+            @test quantile.(Ref(zero_mass_nan), probabilities) == ones(5)
+
             @test quantile.(Ref(compressed), probabilities) == quantile.(Ref(expanded), probabilities) == expected
         end
 

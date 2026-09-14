@@ -360,7 +360,7 @@ function _weighted_empirical_quantile(v::AbstractVector, w::AbstractVector, p::R
     isempty(v) && throw(ArgumentError("quantile of an empty array is undefined"))
     0 <= p <= 1 || throw(ArgumentError("input probability out of [0,1] range"))
 
-    nan_idx = findfirst(isnan, v)
+    nan_idx = findfirst(i -> !iszero(w[i]) && isnan(v[i]), eachindex(v, w))
     isnothing(nan_idx) || return v[nan_idx]
 
     order = sortperm(v)
@@ -436,7 +436,9 @@ samples with the lowest weight.
 """
 function drop_low_weight_samples(samples::DensitySampleVector, fraction::Real = 10^-5; threshold::Real=10^-2)
     W = float(samples.weight)
-    if minimum(W) / maximum(W) > threshold
+    if isempty(W) || all(iszero, W)
+        samples
+    elseif minimum(W) / maximum(W) > threshold
         samples
     else
         W_s = sort(W)

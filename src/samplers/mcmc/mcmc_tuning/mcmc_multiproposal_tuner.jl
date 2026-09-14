@@ -87,8 +87,9 @@ function mcmc_proposal_tuning_init!!(
     chain_state::MCMCChainState, 
     max_nsteps::Integer
 )
-    for tuner in multi_tuner_state.proposal_tuners
-        mcmc_proposal_tuning_init!!(tuner, chain_state, max_nsteps)
+    for i in eachindex(multi_tuner_state.proposal_tuners)
+        component_chain = @set chain_state.proposal = chain_state.proposal.proposal_states[i]
+        mcmc_proposal_tuning_init!!(multi_tuner_state.proposal_tuners[i], component_chain, max_nsteps)
     end
 end
 
@@ -97,8 +98,22 @@ function mcmc_proposal_tuning_reinit!!(
     chain_state::MCMCChainState,
     max_nsteps::Integer
 )
-    for tuner in multi_tuner_state.proposal_tuners
-        mcmc_proposal_tuning_reinit!!(tuner, chain_state, max_nsteps)
+    for i in eachindex(multi_tuner_state.proposal_tuners)
+        component_chain = @set chain_state.proposal = chain_state.proposal.proposal_states[i]
+        mcmc_proposal_tuning_reinit!!(multi_tuner_state.proposal_tuners[i], component_chain, max_nsteps)
+    end
+end
+
+
+function mcmc_proposal_transform_committed!!(
+    multi_proposal::MultiProposalState,
+    multi_tuner::MultiProposalTunerState,
+    chain_state::MCMCChainState,
+    trafo_tuners::Vararg{MCMCTransformTunerState},
+)
+    _tune_proposal_components(multi_proposal, multi_tuner, chain_state) do proposal, tuner, chain
+        component_chain = @set chain.proposal = proposal
+        mcmc_proposal_transform_committed!!(proposal, tuner, component_chain, trafo_tuners...)
     end
 end
 

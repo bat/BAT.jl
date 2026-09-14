@@ -554,6 +554,7 @@ end
 
 # TODO: MD, when should the z-position be updated? Before or after the proposal tuning?
 function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:DensitySampleVector})
+    proposal_tuner_state = state.proposal_tuner_state
     f_transform_tuned, trafo_tuner_state_new, chain_state_trafo_tuned = mcmc_tune_trafo_post_cycle!!(
         state.chain_state.f_transform,
         state.trafo_tuner_state,
@@ -572,8 +573,8 @@ function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:Dens
         chain_state_trafo_tuned = @set chain_state_trafo_tuned.proposal = proposal
         chain_state_trafo_tuned = mcmc_update_z_position!!(chain_state_trafo_tuned)
         if transform_change_restarts_stepsize(trafo_tuner_state_new)
-            proposal, _, chain_state_trafo_tuned = mcmc_proposal_transform_committed!!(
-                proposal, state.proposal_tuner_state, chain_state_trafo_tuned
+            proposal, proposal_tuner_state, chain_state_trafo_tuned = mcmc_proposal_transform_committed!!(
+                proposal, proposal_tuner_state, chain_state_trafo_tuned
             )
         end
     else
@@ -582,7 +583,7 @@ function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:Dens
 
     proposal_state_new, proposal_tuner_state_new, chain_state_new = mcmc_tune_proposal_post_cycle!!(
         proposal,
-        state.proposal_tuner_state,
+        proposal_tuner_state,
         chain_state_trafo_tuned,
         samples
     )
