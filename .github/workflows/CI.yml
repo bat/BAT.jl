@@ -148,13 +148,17 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
   test-slicesampling:
-    name: SliceSampling - ${{ github.event_name }}
+    name: SliceSampling - Julia ${{ matrix.version }} - ${{ github.event_name }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['1.10', '1']
     steps:
       - uses: actions/checkout@v7
       - uses: julia-actions/setup-julia@v3
         with:
-          version: '1'
+          version: ${{ matrix.version }}
           arch: x64
       - uses: julia-actions/cache@v3
       - name: Run tests
