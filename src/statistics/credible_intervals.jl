@@ -1,6 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+const _credible_nbins = 100
+
+
 function _credible_dyadic(w::Integer)
     w <= typemax(UInt128) || return nothing
     coefficient = UInt128(w)
@@ -26,6 +29,7 @@ function _credible_dyadic(w::Rational)
     coefficient, exponent - trailing_zeros(denominator(w))
 end
 _credible_dyadic(::Real) = nothing
+_credible_dyadic(w::DoubleFloat) = _credible_dyadic(_credible_exact_value(w))
 
 function _credible_uint_coefficients(W)
     min_exponent = typemax(Int)
@@ -48,7 +52,7 @@ function _credible_uint_coefficients(W)
         overflow && return nothing
         coefficients[i] = coefficient
     end
-    total <= typemax(UInt128) ÷ UInt128(370) ? coefficients : nothing
+    total <= typemax(UInt128) ÷ UInt128(_credible_nbins) ? coefficients : nothing
 end
 
 function _credible_exact_value(x::AbstractFloat)
@@ -57,6 +61,7 @@ function _credible_exact_value(x::AbstractFloat)
     exponent < 0 ? numerator // (big(1) << -exponent) : (numerator << exponent) // big(1)
 end
 _credible_exact_value(x::Real) = Rational{BigInt}(x)
+_credible_exact_value(x::DoubleFloat) = _credible_exact_value(x.hi) + _credible_exact_value(x.lo)
 
 function _credible_coefficients(W)
     any(w -> w isa ULogarithmic, W) && throw(ArgumentError(
@@ -65,7 +70,7 @@ function _credible_coefficients(W)
     T = eltype(W)
     if isbitstype(T) && T <: Integer && sizeof(T) <= sizeof(UInt)
         total = sum(UInt128, W)
-        total <= typemax(UInt) ÷ UInt(370) && return UInt.(W)
+        total <= typemax(UInt) ÷ UInt(_credible_nbins) && return UInt.(W)
     end
     coefficients = _credible_uint_coefficients(W)
     !isnothing(coefficients) && return coefficients
@@ -74,11 +79,19 @@ function _credible_coefficients(W)
     [numerator(w) * div(common_denominator, denominator(w)) for w in weights]
 end
 function _credible_coefficients(W::UnitWeights)
-    T = length(W) <= typemax(UInt) ÷ UInt(370) ? UInt : UInt128
+    T = length(W) <= typemax(UInt) ÷ UInt(_credible_nbins) ? UInt : UInt128
     UnitWeights{T}(length(W))
 end
-_credible_coefficients(W::AbstractVector{<:ULogarithmic}) =
-    _credible_coefficients(_canonical_rel_weights(W))
+function _credible_coefficients(W::AbstractVector{<:ULogarithmic})
+    weights = _canonical_rel_weights(W)
+    if any(iszero.(weights) .& .!iszero.(W))
+        logweights = BigFloat.(log.(W))
+        weights = exp.(logweights .- maximum(logweights))
+        any(iszero.(weights) .& .!iszero.(W)) &&
+            throw(ArgumentError("logarithmic weights exceed the BigFloat exponent range"))
+    end
+    _credible_coefficients(weights)
+end
 function _credible_atoms(X, coefficients)
     atoms = sort!(collect(zip(X, coefficients)); by = first)
     coefficients isa UnitWeights || filter!(atom -> !iszero(last(atom)), atoms)
@@ -175,11 +188,10 @@ function _credible_connected(atoms, threshold)
     [ClosedInterval(best...)]
 end
 
-function _credible_count_interval(X, m, n)
+function _credible_count_interval(X, window)
     values = sort!(collect(X))
     isfinite(first(values)) && isfinite(last(values)) ||
         throw(ArgumentError("sample values must be finite"))
-    window = cld(m * length(values), n)
     best = (first(values), values[window])
     best_width = _credible_width_state(best...)
     # Compare each fixed-count window.
@@ -194,7 +206,8 @@ function _credible_count_interval(X, m, n)
     [ClosedInterval(best...)]
 end
 
-function _credible_disjoint(atoms, m, n, threshold)
+function _credible_disjoint(atoms, threshold)
+    n = _credible_nbins
     boundaries = _credible_grid(atoms, n)
     bin_endpoints(i) = (first(atoms[boundaries[i]]), first(atoms[boundaries[i + 1]]))
     ranking = sortperm(1:n; lt = (i, j) -> begin
@@ -215,7 +228,7 @@ function _credible_disjoint(atoms, m, n, threshold)
                 mass += last(atoms[atom_idx])
             end
         end
-        r >= m && mass >= threshold && break
+        mass >= threshold && break
     end
 
     intervals = [ClosedInterval(
@@ -236,47 +249,45 @@ end
 """
     smallest_credible_intervals(
         X::AbstractVector{<:Real}, W::AbstractWeights = UnitWeights(...);
-        nsigma_equivalent::Real = 1, mode::Symbol = :disjoint
+        p = nothing, nsigma_equivalent = nothing, mode::Symbol = :disjoint
     )
 
 *BAT-internal, not part of stable public API.*
 
-Return intervals containing at least the requested empirical mass. The default
-`:disjoint` mode combines narrow quantile intervals. Use `:connected` for the
-shortest single interval.
+Return empirical credible intervals. The default `:disjoint` mode combines
+narrow quantile intervals. Use `:connected` for the shortest single interval.
+
+Set the probability with `p` in `(0, 1]` or with `nsigma_equivalent`. The default
+is the one-sigma probability. The two keywords are mutually exclusive.
 """
 function smallest_credible_intervals(
     X::AbstractVector{<:Real},
     W::AbstractWeights = UnitWeights{eltype(X)}(length(eachindex(X)));
-    nsigma_equivalent::Real = 1,
+    p::Union{Real,Nothing} = nothing,
+    nsigma_equivalent::Union{Real,Nothing} = nothing,
     mode::Symbol = :disjoint,
 )
-    nsigma_90percent = quantile(Normal(), 0.5 + 0.9/2)
-    m, n = if nsigma_equivalent ≈ oftype(nsigma_equivalent, 1)
-        28, 41
-    elseif nsigma_equivalent ≈ oftype(nsigma_equivalent, 2)
-        42, 44
-    elseif nsigma_equivalent ≈ oftype(nsigma_equivalent, 3)
-        369, 370
-    elseif isapprox(nsigma_equivalent, nsigma_90percent, atol = 0.01)
-        90, 100
-    else
-        throw(ArgumentError("nsigma_equivalent must be 1, 2, 3 or 1.64 (for 90% credibility interval)"))
-    end
+    isnothing(p) || isnothing(nsigma_equivalent) ||
+        throw(ArgumentError("p and nsigma_equivalent are mutually exclusive"))
+    p = isnothing(p) ? erf(something(nsigma_equivalent, 1) / sqrt(2)) : p
+    0 < p <= 1 || throw(ArgumentError("p must be in (0, 1]"))
+    probability = _credible_exact_value(p)
     mode in (:disjoint, :connected) ||
         throw(ArgumentError("mode must be :disjoint or :connected"))
     length(X) == length(W) ||
         throw(ArgumentError("data and weight vectors must have the same size"))
     isempty(X) && throw(ArgumentError("credible intervals of an empty array are undefined"))
-    mode === :connected && W isa UnitWeights && return _credible_count_interval(X, m, n)
+    mode === :connected && W isa UnitWeights &&
+        return _credible_count_interval(X, ceil(Int, probability * length(X)))
     all(isfinite, X) || throw(ArgumentError("sample values must be finite"))
     (W isa UnitWeights || all(w -> isfinite(w) && w >= zero(w), W)) ||
         throw(ArgumentError("sample weights must be finite and non-negative"))
     atoms = _credible_atoms(X, _credible_coefficients(W))
     isempty(atoms) && throw(ArgumentError("sample weights must contain positive mass"))
-    threshold = cld(m * sum(last, atoms), n)
+    total = sum(last, atoms)
+    threshold = ceil(typeof(total), probability * total)
     mode == :connected ? _credible_connected(atoms, threshold) :
-        _credible_disjoint(atoms, m, n, threshold)
+        _credible_disjoint(atoms, threshold)
 end
 
 
