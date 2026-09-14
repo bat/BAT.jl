@@ -5,8 +5,14 @@
 
 *Experimental feature, not part of stable public API.*
 
-Sample a transformed target with SliceSampling.jl. The default sampler applies
-stepping-out slice updates in random coordinate order.
+Sample a transformed target with SliceSampling.jl.
+The default sampler visits coordinates in random order.
+Each update draws a threshold uniformly below the current density.
+It expands a coordinate interval and draws proposals uniformly within it.
+It shrinks the interval after rejections until a proposal's density exceeds the threshold.
+
+See [R. M. Neal, "Slice sampling"
+(2003)](https://doi.org/10.1214/aos/1056562461).
 
 This functionality requires SliceSampling.jl to be loaded.
 
