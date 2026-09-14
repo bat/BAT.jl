@@ -265,10 +265,6 @@ Rank-normalized and folded split R-hat convergence test from
 Compare independent chains, treating integer weights as repetition counts.
 For multiple walkers, compare matching walker IDs across chains. Return the
 largest R-hat across parameters and walkers.
-
-Chains must have matching parameters and equal draw counts. MCMC sample
-IDs define draw order. Fewer than four draws or nonfinite draws return `NaN`,
-which does not establish convergence.
 """
 @with_kw struct RankNormalizedRhatConvergence <: MultiChainConvergenceTest
     threshold::Float64 = 1.01
