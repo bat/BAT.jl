@@ -320,7 +320,7 @@ function _mcmc_propose_and_tune!!(state, proposal, rngpart, i::Val{I}) where {I}
     return mcmc_tune_post_step!!(state_new, active, step_info), step_info
 end
 
-function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP,
+@inline function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP,
     step_rngpart::RNGPartition, proposal_idx::Integer) where {SMP<:SimpleMCMCProposalState}
     (; target, f_transform, current) = chain_state
 
