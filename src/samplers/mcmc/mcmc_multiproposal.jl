@@ -14,7 +14,7 @@ Fields:
 $(TYPEDFIELDS)
 """
 struct MCMCMultiProposal{
-    P<:Vector{<:MCMCProposal},
+    P<:Tuple{Vararg{MCMCProposal}},
     R<:Union{Vector{<:Integer}, Categorical}
 }<:MCMCProposal
     proposals::P
@@ -22,14 +22,14 @@ struct MCMCMultiProposal{
 end
 
 function MCMCMultiProposal(
-    proposals::Tuple{Vararg{<:MCMCProposal}},
+    proposals::Vector{<:MCMCProposal},
     picking_rule::Union{Vector{<:Integer}, Categorical}
 )
-    return MCMCMultiProposal(MCMCProposal[proposals...], picking_rule)
+    return MCMCMultiProposal(Tuple(proposals), picking_rule)
 end
 
 function MCMCMultiProposal(
-    ; proposals::Union{Tuple{Vararg{<:MCMCProposal}}, Vector{<:MCMCProposal}} = MCMCProposal[RandomWalk()],
+    ; proposals::Union{Tuple{Vararg{<:MCMCProposal}}, Vector{<:MCMCProposal}} = (RandomWalk(),),
     picking_rule::Union{Nothing, Vector{<:Integer}, Categorical} = nothing
 )
     picking_rule === nothing && (picking_rule = Categorical(fill(inv(length(proposals)), length(proposals))))
@@ -76,7 +76,7 @@ function _validate_mcmc_proposal_configuration(
 end
 
 struct MultiProposalState{
-    PS<:Vector{<:MCMCProposalState},
+    PS<:Tuple{Vararg{MCMCProposalState}},
     R<:Union{Vector{<:Integer}, Categorical},
     I<:Integer
 }<:MCMCProposalState
@@ -153,6 +153,13 @@ function get_active_proposal(
     return current_proposal
 end
 
+get_active_proposal(proposal::MCMCProposalState, ::Val) = proposal
+get_active_proposal(proposal::MultiProposalState, ::Val{I}) where {I} = proposal.proposal_states[I]
+
+update_active_proposal!!(proposal::MCMCProposalState, active::MCMCProposalState, ::Val) = active
+update_active_proposal!!(proposal::MultiProposalState, active::MCMCProposalState, ::Val{I}) where {I} =
+    @set proposal.proposal_states[I] = active
+
 function mcmc_mark_warmup_end!(multi_proposal_state::MultiProposalState)
     foreach(mcmc_mark_warmup_end!, multi_proposal_state.proposal_states)
     return nothing
@@ -166,7 +173,7 @@ function update_active_proposal!!(
     active_proposal = multi_proposal_state.proposal_states[active_idx]
 
     if active_proposal !== active_proposal_new
-        multi_proposal_state.proposal_states[active_idx] = active_proposal_new
+        multi_proposal_state = @set multi_proposal_state.proposal_states[active_idx] = active_proposal_new
     end
     return multi_proposal_state
 end
@@ -232,10 +239,8 @@ function _create_proposal_state(
         "MCMCMultiProposal supports at most $_MCMC_PROPOSALS_PER_PURPOSE proposals, got $nproposals",
     ))
 
-    proposal_states_init = Vector{MCMCProposalState}()
-
-    for proposal in multi_proposal.proposals
-        proposal_state_tmp = _create_proposal_state(
+    proposal_states_init = map(multi_proposal.proposals) do proposal
+        _create_proposal_state(
             proposal,
             target,
             context,
@@ -243,7 +248,6 @@ function _create_proposal_state(
             f_transform,
             rng
         )
-        push!(proposal_states_init, proposal_state_tmp)
     end
 
     picking_rule = _copy_picking_rule(multi_proposal.picking_rule)
@@ -269,11 +273,23 @@ function set_proposal_transform!!(
     chain_state::MCMCChainState 
 )
 
-    for i in 1:length(multi_proposal.proposal_states)
-	    multi_proposal.proposal_states[i] = set_proposal_transform!!(multi_proposal.proposal_states[i], chain_state)
-    end
+    proposals = set_proposal_transform!!.(multi_proposal.proposal_states, Ref(chain_state))
+    return @set multi_proposal.proposal_states = proposals
+end
 
-    return multi_proposal
+# Keep the selected tuple slot static without specializing on the random index.
+_with_proposal_index(f, proposals::Tuple, idx::Integer) =
+    _with_proposal_index(f, ntuple(Val, Val(length(proposals))), idx)
+@inline function _with_proposal_index(f::F, indices::Tuple{Vararg{Val}}, idx::Integer) where {F}
+    idx == 1 && return f(first(indices))
+    _with_proposal_index(f, Base.tail(indices), idx - 1)
+end
+_with_proposal_index(f, ::Tuple{}, idx::Integer) = throw(BoundsError())
+
+function _mcmc_propose_and_tune!!(state, proposal::MultiProposalState, rngpart)
+    _with_proposal_index(proposal.proposal_states, proposal.active_idx) do i
+        _mcmc_propose_and_tune!!(state, proposal, rngpart, i)
+    end
 end
 
 function _proposal_diagnostics(
