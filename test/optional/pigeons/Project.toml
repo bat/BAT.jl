@@ -1,0 +1,15 @@
+[deps]
+BAT = "c0cd4b16-88b7-57fa-983b-ab80aecada7e"
+DensityInterface = "b429d917-457f-4dbc-8f4c-0cc954292b1d"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+MeasureBase = "fa1605e6-acd5-459c-a1e6-7e635759db14"
+Pigeons = "0eb8d820-af6a-4919-95ae-11206f830c31"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
+
+[sources]
+BAT = {path = "../../.."}
+
+[compat]
+Pigeons = "0.4.10"
