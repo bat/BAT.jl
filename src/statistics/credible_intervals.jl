@@ -1,241 +1,67 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-const _credible_nbins = 100
-
-
-function _credible_dyadic(w::Integer)
-    w <= typemax(UInt128) || return nothing
-    coefficient = UInt128(w)
-    iszero(coefficient) && return (coefficient, 0)
-    shift = trailing_zeros(coefficient)
-    coefficient >>> shift, shift
+_credible_exact(x::Real) = Rational{BigInt}(x)
+_credible_exact(x::DoubleFloat) = _credible_exact(x.hi) + _credible_exact(x.lo)
+function _credible_exact(x::BigFloat)
+    n, e, d = Base.decompose(x)
+    (n // d) * (big(2) // 1)^e
 end
 
-function _credible_dyadic(w::AbstractFloat)
-    significand, exponent, sign = Base.decompose(w)
-    significand <= typemax(UInt128) || return nothing
-    coefficient = UInt128(sign * significand)
-    iszero(coefficient) && return (coefficient, 0)
-    shift = trailing_zeros(coefficient)
-    coefficient >>> shift, exponent + shift
+function _credible_masses(w)
+    r = _credible_exact.(w)
+    scale = foldl(lcm, denominator.(r); init = big(1))
+    masses = numerator.(r) .* (scale .÷ denominator.(r))
+    sum(masses) <= typemax(Int128) ? Int128.(masses) : masses
 end
-
-function _credible_dyadic(w::Rational)
-    ispow2(denominator(w)) || return nothing
-    dyadic = _credible_dyadic(numerator(w))
-    isnothing(dyadic) && return nothing
-    coefficient, exponent = dyadic
-    coefficient, exponent - trailing_zeros(denominator(w))
-end
-_credible_dyadic(::Real) = nothing
-_credible_dyadic(w::DoubleFloat) = _credible_dyadic(_credible_exact_value(w))
-
-function _credible_uint_coefficients(W)
-    min_exponent = typemax(Int)
-    # Validate exact dyadic weights.
-    for w in W
-        dyadic = _credible_dyadic(w)
-        isnothing(dyadic) && return nothing
-        coefficient, exponent = dyadic
-        !iszero(coefficient) && (min_exponent = min(min_exponent, exponent))
+_credible_masses(w::UnitWeights) = ones(Int, length(w))
+_credible_masses(w::AbstractVector{T}) where {T<:Integer} =
+    isbitstype(T) && sizeof(T) <= sizeof(Int) ? Int128.(w) : big.(w)
+function _credible_masses(w::AbstractVector{<:ULogarithmic})
+    r = _canonical_rel_weights(w)
+    if any(iszero.(r) .& .!iszero.(w))
+        logs = BigFloat.(log.(w))
+        r = exp.(logs .- maximum(logs))
+        any(iszero.(r) .& .!iszero.(w)) && throw(ArgumentError("logarithmic weight range is too large"))
     end
-    coefficients = Vector{UInt128}(undef, length(W))
-    total = zero(UInt128)
-    # Accumulate exact integer mass.
-    for i in eachindex(W)
-        coefficient, exponent = _credible_dyadic(W[i])
-        shift = iszero(coefficient) ? 0 : exponent - min_exponent
-        shift < 128 && coefficient <= typemax(UInt128) >>> shift || return nothing
-        coefficient <<= shift
-        total, overflow = Base.Checked.add_with_overflow(total, coefficient)
-        overflow && return nothing
-        coefficients[i] = coefficient
-    end
-    total <= typemax(UInt128) ÷ UInt128(_credible_nbins) ? coefficients : nothing
+    _credible_masses(r)
 end
 
-function _credible_exact_value(x::AbstractFloat)
-    significand, exponent, sign = Base.decompose(x)
-    numerator = BigInt(sign) * significand
-    exponent < 0 ? numerator // (big(1) << -exponent) : (numerator << exponent) // big(1)
-end
-_credible_exact_value(x::Real) = Rational{BigInt}(x)
-_credible_exact_value(x::DoubleFloat) = _credible_exact_value(x.hi) + _credible_exact_value(x.lo)
-
-function _credible_coefficients(W)
-    any(w -> w isa ULogarithmic, W) && throw(ArgumentError(
-        "logarithmic weights must use homogeneous storage"
-    ))
-    T = eltype(W)
-    if isbitstype(T) && T <: Integer && sizeof(T) <= sizeof(UInt)
-        total = sum(UInt128, W)
-        total <= typemax(UInt) ÷ UInt(_credible_nbins) && return UInt.(W)
-    end
-    coefficients = _credible_uint_coefficients(W)
-    !isnothing(coefficients) && return coefficients
-    weights = _credible_exact_value.(W)
-    common_denominator = foldl(lcm, denominator.(weights); init = big(1))
-    [numerator(w) * div(common_denominator, denominator(w)) for w in weights]
-end
-function _credible_coefficients(W::UnitWeights)
-    T = length(W) <= typemax(UInt) ÷ UInt(_credible_nbins) ? UInt : UInt128
-    UnitWeights{T}(length(W))
-end
-function _credible_coefficients(W::AbstractVector{<:ULogarithmic})
-    weights = _canonical_rel_weights(W)
-    if any(iszero.(weights) .& .!iszero.(W))
-        logweights = BigFloat.(log.(W))
-        weights = exp.(logweights .- maximum(logweights))
-        any(iszero.(weights) .& .!iszero.(W)) &&
-            throw(ArgumentError("logarithmic weights exceed the BigFloat exponent range"))
-    end
-    _credible_coefficients(weights)
-end
-function _credible_atoms(X, coefficients)
-    atoms = sort!(collect(zip(X, coefficients)); by = first)
-    coefficients isa UnitWeights || filter!(atom -> !iszero(last(atom)), atoms)
-    isempty(atoms) && return atoms
-    write_idx = 1
-    # Merge adjacent equal atoms.
-    for read_idx in firstindex(atoms)+1:lastindex(atoms)
-        if first(atoms[read_idx]) == first(atoms[write_idx])
-            atoms[write_idx] = (
-                first(atoms[write_idx]), last(atoms[write_idx]) + last(atoms[read_idx])
-            )
-        else
-            write_idx += 1
-            atoms[write_idx] = atoms[read_idx]
-        end
-    end
-    resize!(atoms, write_idx)
-    coefficients isa UnitWeights && return atoms
-    divisor = last(first(atoms))
-    # Compute a shared mass scale.
-    for atom in @view atoms[2:end]
-        divisor = gcd(divisor, last(atom))
-        isone(divisor) && break
-    end
-    divisor == one(divisor) || map!(atom -> (first(atom), div(last(atom), divisor)), atoms, atoms)
-    atoms
+_credible_width(a) = _credible_exact(a[2]) - _credible_exact(a[1])
+_credible_shorter(a, b) = _credible_width(a) < _credible_width(b)
+function _credible_shorter(a::Tuple{T,T}, b::Tuple{T,T}) where {T<:Union{Float16,Float32,Float64}}
+    wa, wb = a[2] - a[1], b[2] - b[1]
+    isfinite(wa) && isfinite(wb) && wa != wb ? wa < wb :
+        _credible_width(a) < _credible_width(b)
 end
 
-function _credible_width_key(lo, hi)
-    standard = lo isa Union{Integer,Rational,AbstractFloat} &&
-        hi isa Union{Integer,Rational,AbstractFloat}
-    standard ? _credible_exact_value(hi) - _credible_exact_value(lo) : hi - lo
-end
-
-_credible_cmp(a, b) = a < b ? -1 : b < a ? 1 : 0
-_credible_width_cmp(lo, hi, other_lo, other_hi) = _credible_cmp(
-    _credible_width_key(lo, hi), _credible_width_key(other_lo, other_hi)
-)
-function _credible_width_cmp(lo::T, hi::T, other_lo::T, other_hi::T) where {T<:Union{Float16,Float32,Float64}}
-    width = Base.TwicePrecision(hi) - Base.TwicePrecision(lo)
-    other_width = Base.TwicePrecision(other_hi) - Base.TwicePrecision(other_lo)
-    _credible_width_cmp(lo, hi, other_lo, other_hi, width, other_width)
-end
-_credible_width_state(lo, hi) = nothing
-_credible_width_state(lo::T, hi::T) where {T<:Union{Float16,Float32,Float64}} =
-    Base.TwicePrecision(hi) - Base.TwicePrecision(lo)
-_credible_width_cmp(lo, hi, other_lo, other_hi, ::Nothing, ::Nothing) =
-    _credible_width_cmp(lo, hi, other_lo, other_hi)
-@inline function _credible_width_cmp(lo, hi, other_lo, other_hi,
-        width::Base.TwicePrecision, other_width::Base.TwicePrecision)
-    isfinite(width.hi) && isfinite(other_width.hi) ? _credible_cmp(width, other_width) :
-        _credible_cmp(_credible_exact_value(hi) - _credible_exact_value(lo),
-            _credible_exact_value(other_hi) - _credible_exact_value(other_lo))
-end
-
-function _credible_grid(atoms, n)
-    boundaries = Vector{Int}(undef, n + 1)
-    boundaries[1] = firstindex(atoms)
-    total = sum(last, atoms)
-    cumulative = zero(total)
-    atom_idx = firstindex(atoms) - 1
-    # Advance the inverse ECDF.
-    for j in 1:n
-        while n * cumulative < j * total
-            atom_idx += 1
-            cumulative += last(atoms[atom_idx])
-        end
-        boundaries[j + 1] = atom_idx
-    end
-    boundaries
-end
-
-function _credible_connected(atoms, threshold)
-    left = firstindex(atoms)
-    mass = zero(threshold)
-    best = (first(first(atoms)), first(last(atoms)))
-    best_width = _credible_width_state(best...)
-    # Slide the mass window.
-    for right in eachindex(atoms)
-        mass += last(atoms[right])
-        while left < right && mass - last(atoms[left]) >= threshold
-            mass -= last(atoms[left])
+function _credible_connected(x, c, target)
+    left, best = 1, (first(x), last(x))
+    for right in eachindex(x)
+        while left < right && c[right + 1] - c[left + 1] >= target
             left += 1
         end
-        if mass >= threshold
-            lo, hi = first(atoms[left]), first(atoms[right])
-            width = _credible_width_state(lo, hi)
-            order = _credible_width_cmp(lo, hi, best..., width, best_width)
-            if order < 0 || order == 0 && isless((lo, hi), best)
-                best, best_width = (lo, hi), width
-            end
-        end
+        candidate = (x[left], x[right])
+        c[right + 1] - c[left] >= target && _credible_shorter(candidate, best) && (best = candidate)
     end
     [ClosedInterval(best...)]
 end
 
-function _credible_count_interval(X, window)
-    values = sort!(collect(X))
-    isfinite(first(values)) && isfinite(last(values)) ||
-        throw(ArgumentError("sample values must be finite"))
-    best = (first(values), values[window])
-    best_width = _credible_width_state(best...)
-    # Compare each fixed-count window.
-    @inbounds for left in 2:length(values)-window+1
-        candidate = (values[left], values[left + window - 1])
-        width = _credible_width_state(candidate...)
-        order = _credible_width_cmp(candidate..., best..., width, best_width)
-        if order < 0 || order == 0 && isless(candidate, best)
-            best, best_width = candidate, width
+function _credible_disjoint(x, c, target)
+    edges = max.(1, searchsortedfirst.(Ref(c[2:end]), last(c) .* (big(0):100) .// 100))
+    endpoints(i) = (x[edges[i]], x[edges[i + 1]])
+    ranking = sortperm(1:100; lt = (i, j) -> _credible_shorter(endpoints(i), endpoints(j)))
+    covered, selected, mass = falses(length(x)), Int[], zero(last(c))
+    for i in ranking
+        push!(selected, i)
+        for k in edges[i]:edges[i + 1]
+            covered[k] || (mass += c[k + 1] - c[k])
+            covered[k] = true
         end
+        mass >= target && break
     end
-    [ClosedInterval(best...)]
-end
-
-function _credible_disjoint(atoms, threshold)
-    n = _credible_nbins
-    boundaries = _credible_grid(atoms, n)
-    bin_endpoints(i) = (first(atoms[boundaries[i]]), first(atoms[boundaries[i + 1]]))
-    ranking = sortperm(1:n; lt = (i, j) -> begin
-        order = _credible_width_cmp(bin_endpoints(i)..., bin_endpoints(j)...)
-        order < 0 || order == 0 && i < j
-    end)
-    selected = falses(n)
-    covered = falses(length(atoms))
-    mass = zero(threshold)
-    # Track overlapping selected bins.
-    for r in eachindex(ranking)
-        bin = ranking[r]
-        selected[bin] = true
-        # Count each atom once.
-        for atom_idx in boundaries[bin]:boundaries[bin + 1]
-            if !covered[atom_idx]
-                covered[atom_idx] = true
-                mass += last(atoms[atom_idx])
-            end
-        end
-        mass >= threshold && break
-    end
-
-    intervals = [ClosedInterval(
-        first(atoms[boundaries[i]]), first(atoms[boundaries[i + 1]])
-    ) for i in findall(selected)]
+    intervals = [ClosedInterval(endpoints(i)...) for i in sort!(selected)]
     merged = eltype(intervals)[]
-    # Merge adjacent selected intervals.
     for interval in intervals
         if isempty(merged) || minimum(interval) > maximum(last(merged))
             push!(merged, interval)
@@ -247,47 +73,39 @@ function _credible_disjoint(atoms, threshold)
 end
 
 """
-    smallest_credible_intervals(
-        X::AbstractVector{<:Real}, W::AbstractWeights = UnitWeights(...);
-        p = nothing, nsigma_equivalent = nothing, mode::Symbol = :disjoint
-    )
+    smallest_credible_intervals(X, W = UnitWeights(...); p = nothing,
+        nsigma_equivalent = nothing, mode = :disjoint)
 
 *BAT-internal, not part of stable public API.*
 
-Return empirical credible intervals. The default `:disjoint` mode combines
-narrow quantile intervals. Use `:connected` for the shortest single interval.
-
-Set the probability with `p` in `(0, 1]` or with `nsigma_equivalent`. The default
-is the one-sigma probability. The two keywords are mutually exclusive.
+Return empirical credible intervals. Use `:connected` for the shortest single
+interval. Set `p` in `(0, 1]` or `nsigma_equivalent`; the default is one sigma.
 """
-function smallest_credible_intervals(
-    X::AbstractVector{<:Real},
-    W::AbstractWeights = UnitWeights{eltype(X)}(length(eachindex(X)));
-    p::Union{Real,Nothing} = nothing,
-    nsigma_equivalent::Union{Real,Nothing} = nothing,
-    mode::Symbol = :disjoint,
-)
-    isnothing(p) || isnothing(nsigma_equivalent) ||
-        throw(ArgumentError("p and nsigma_equivalent are mutually exclusive"))
+function smallest_credible_intervals(X::AbstractVector{<:Real},
+        W::AbstractWeights = UnitWeights{eltype(X)}(length(X));
+        p::Union{Real,Nothing} = nothing, nsigma_equivalent::Union{Real,Nothing} = nothing,
+        mode::Symbol = :disjoint)
+    isnothing(p) || isnothing(nsigma_equivalent) || throw(ArgumentError("p and nsigma_equivalent are mutually exclusive"))
     p = isnothing(p) ? erf(something(nsigma_equivalent, 1) / sqrt(2)) : p
     0 < p <= 1 || throw(ArgumentError("p must be in (0, 1]"))
-    probability = _credible_exact_value(p)
-    mode in (:disjoint, :connected) ||
-        throw(ArgumentError("mode must be :disjoint or :connected"))
-    length(X) == length(W) ||
-        throw(ArgumentError("data and weight vectors must have the same size"))
-    isempty(X) && throw(ArgumentError("credible intervals of an empty array are undefined"))
-    mode === :connected && W isa UnitWeights &&
-        return _credible_count_interval(X, ceil(Int, probability * length(X)))
-    all(isfinite, X) || throw(ArgumentError("sample values must be finite"))
-    (W isa UnitWeights || all(w -> isfinite(w) && w >= zero(w), W)) ||
-        throw(ArgumentError("sample weights must be finite and non-negative"))
-    atoms = _credible_atoms(X, _credible_coefficients(W))
-    isempty(atoms) && throw(ArgumentError("sample weights must contain positive mass"))
-    total = sum(last, atoms)
-    threshold = ceil(typeof(total), probability * total)
-    mode == :connected ? _credible_connected(atoms, threshold) :
-        _credible_disjoint(atoms, threshold)
+    mode in (:connected, :disjoint) || throw(ArgumentError("mode must be :connected or :disjoint"))
+    length(X) == length(W) || throw(DimensionMismatch("sample values and weights must have equal lengths"))
+    all(isfinite, X) && all(w -> isfinite(w) && w >= 0, W) || throw(ArgumentError("samples and weights must be finite, with nonnegative weights"))
+    isempty(X) && throw(ArgumentError("samples must contain positive mass"))
+    x = collect(X)
+    if W isa UnitWeights && mode == :connected
+        sort!(x)
+        c = 0:length(x)
+    else
+        w = collect(_credible_masses(W))
+        order = filter(i -> !iszero(w[i]), sortperm(x))
+        isempty(order) && throw(ArgumentError("samples must contain positive mass"))
+        x, c = x[order], cumsum(w[order])
+        ends = [findall(x[1:end-1] .!= x[2:end]); length(x)]
+        x, c = x[ends], [zero(eltype(c)); c[ends]]
+    end
+    target = ceil(typeof(last(c)), _credible_exact(p) * last(c))
+    mode == :connected ? _credible_connected(x, c, target) : _credible_disjoint(x, c, target)
 end
 
 
