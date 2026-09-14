@@ -406,9 +406,8 @@ burnin = MCMCMultiCycleBurnin()
 
 convergence = BrooksGelmanConvergence()
 
-# BAT also provides a rank-normalized and folded split R-hat convergence test:
-
-rank_normalized_convergence = RankNormalizedRhatConvergence()
+# Use `RankNormalizedRhatConvergence()` instead for rank-normalized and folded
+# split R-hat with a default threshold of 1.01.
 
 # To generate MCMC samples with explicit control over all options, use
 # something like

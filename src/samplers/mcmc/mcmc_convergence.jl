@@ -181,68 +181,94 @@ end
 
 
 
-function _rank_normalized_draws(samples::AbstractVector{<:DensitySampleVector})
-    length(samples) >= 2 || throw(ArgumentError("Rank-normalized R-hat requires at least two chains."))
-    samples = mapreduce(vcat, samples) do chain
-        if !isempty(chain) && eltype(chain.info) <: MCMCSampleID
-            return [
-                unshaped.(chain[getfield.(chain.info, :walkerid) .== walkerid])
-                for walkerid in unique(getfield.(chain.info, :walkerid))
-            ]
-        end
-        [unshaped.(chain)]
-    end
+function _rhat_walker_indices(chain::DensitySampleVector)
+    idxs = findall(>(0), chain.weight)
+    eltype(chain.info) <: MCMCSampleID || return [1 => idxs]
+    ids = sort!(unique(id.walkerid for id in view(chain.info, idxs)))
+    [id => sort!([i for i in idxs if chain.info[i].walkerid == id];
+        by = i -> (chain.info[i].chaincycle, chain.info[i].stepno)) for id in ids]
+end
 
-    draws = map(samples) do chain
-        all(w -> w >= 0 && isinteger(w), chain.weight) ||
-            throw(ArgumentError("Rank-normalized R-hat requires nonnegative integer-valued weights."))
-        # Each sample's integer weight determines its variable repetition count.
-        [sample.v for sample in chain for _ in 1:Int(sample.weight)]
+function _rhat_split_runs(chains)
+    counts = map(chains) do chain
+        accumulate(Base.Checked.checked_add, Int.(chain.weight))
     end
-
-    draw_count = length(first(draws))
-    all(length.(draws) .== draw_count) ||
+    n = isempty(first(counts)) ? 0 : last(first(counts))
+    all(c -> (isempty(c) ? 0 : last(c)) == n, counts) ||
         throw(ArgumentError("Rank-normalized R-hat requires equal draw counts per chain."))
-    draw_count >= 4 ||
-        throw(ArgumentError("Rank-normalized R-hat requires at least four draws per chain."))
-
-    draws
+    n >= 4 || return nothing
+    half = n ÷ 2
+    # Clip repetition runs at the split boundaries, omitting an odd middle draw.
+    map([(i, offset) for i in eachindex(chains) for offset in (0, n - half)]) do (i, offset)
+        ends = counts[i]
+        starts = [0; ends[1:end-1]]
+        weight = max.(0, min.(ends, offset + half) .- max.(starts, offset))
+        idxs = findall(>(0), weight)
+        (; v = view(chains[i].v, idxs), weight = weight[idxs])
+    end
 end
 
-function _rank_normalize(values::AbstractVector{<:Real})
-    ranks = tiedrank(values)
-    quantiles = (ranks .- 3 / 8) ./ (length(ranks) + 1 / 4)
-    quantile.(Normal(), quantiles)
+function _rank_normalize(values::AbstractVector{<:Real}, weights::AbstractVector{<:Integer}, order = sortperm(values))
+    total = sum(weights)
+    scores = Vector{Float64}(undef, length(values))
+    before = 0
+    i = 1
+    while i <= length(order)
+        j = i
+        mass = 0
+        while j <= length(order) && values[order[j]] == values[order[i]]
+            mass += weights[order[j]]
+            j += 1
+        end
+        after = total - before - mass
+        # Use the nearer tail so large repetition counts cannot round a quantile to one.
+        p = (min(before, after) + mass / 2 + 1 / 8) / (total + 1 / 4)
+        score = quantile(Normal(), p) * (before <= after ? 1 : -1)
+        scores[view(order, i:j-1)] .= score
+        before += mass
+        i = j
+    end
+    scores
 end
 
-function _split_rhat(values::AbstractVector{<:AbstractVector{<:Real}})
-    draw_count = length(first(values))
-    within = mean(var.(values))
-    between = draw_count * var(mean.(values))
-    sqrt(((draw_count - 1) / draw_count * within + between / draw_count) / within)
+function _rhat_weighted_median(values, weights, order)
+    half = sum(weights) ÷ 2
+    i = 1
+    cumulative = weights[first(order)]
+    while cumulative < half
+        i += 1
+        cumulative += weights[order[i]]
+    end
+    lo = float(values[order[i]])
+    cumulative > half ? lo : lo / 2 + values[order[i + 1]] / 2
 end
 
-function _split_chains(values::AbstractVector{<:Real}, draw_count::Integer, nchains::Integer)
-    half_count = draw_count ÷ 2
-    chains = reshape(values, draw_count, nchains)
-    vcat(
-        [view(chains, 1:half_count, i) for i in 1:nchains],
-        [view(chains, draw_count - half_count + 1:draw_count, i) for i in 1:nchains],
-    )
+
+function _split_rhat(values, weights, ranges, n)
+    means = [sum(weights[i] * values[i] for i in r) / n for r in ranges]
+    within = mean(sum(weights[i] * abs2(values[i] - m) for i in r) / (n - 1)
+        for (r, m) in zip(ranges, means))
+    sqrt((n - 1) / n + var(means) / within)
 end
 
-function _rank_normalized_rhat(draws::AbstractVector{<:AbstractVector})
-    draw_count = length(first(draws))
-    nchains = length(draws)
-    nparams = length(first(first(draws)))
-
-    maximum(1:nparams) do parameter
-        values = reduce(vcat, (getindex.(chain, parameter) for chain in draws))
-        normalized = _rank_normalize(values)
-        folded = _rank_normalize(abs.(values .- median(values)))
+function _rank_normalized_rhat(chains::AbstractVector{<:DensitySampleVector})
+    all(chain -> all(v -> all(isfinite, v), chain.v), chains) || return NaN
+    splits = _rhat_split_runs(chains)
+    isnothing(splits) && return NaN
+    weights = reduce(vcat, getproperty.(splits, :weight))
+    foldl(Base.Checked.checked_add, weights; init = 0)
+    ends = cumsum(length.(getproperty.(splits, :weight)))
+    ranges = [lo:hi for (lo, hi) in zip([1; ends[1:end-1] .+ 1], ends)]
+    n = sum(first(splits).weight)
+    maximum(1:totalndof(varshape(first(chains)))) do parameter
+        values = reduce(vcat, [getindex.(part.v, parameter) for part in splits])
+        order = sortperm(values)
+        midpoint = _rhat_weighted_median(values, weights, order)
+        folded = abs.(values .- midpoint)
+        all(isfinite, folded) || (folded = abs.(values ./ 2 .- midpoint / 2))
         max(
-            _split_rhat(_split_chains(normalized, draw_count, nchains)),
-            _split_rhat(_split_chains(folded, draw_count, nchains)),
+            _split_rhat(_rank_normalize(values, weights, order), weights, ranges, n),
+            _split_rhat(_rank_normalize(folded, weights), weights, ranges, n),
         )
     end
 end
@@ -254,8 +280,13 @@ end
 Rank-normalized and folded split R-hat convergence test from
 [Vehtari et al. (2021)](https://doi.org/10.1214/20-BA1221).
 
-Compare independent sampler chains, treating integer weights as repeated draws.
-The default convergence threshold is `1.01`.
+Compare independent chains, treating integer weights as repetition counts.
+For multiple walkers, compare matching walker IDs across chains. Return the
+largest R-hat across parameters and walkers. The default threshold is `1.01`.
+
+Chains must have matching parameters and equal draw counts. MCMC sample
+IDs define draw order. Fewer than four draws or nonfinite draws return `NaN`,
+which does not establish convergence.
 
 Constructors:
 
@@ -272,8 +303,22 @@ end
 export RankNormalizedRhatConvergence
 
 function bat_convergence_impl(samples::AbstractVector{<:DensitySampleVector}, algorithm::RankNormalizedRhatConvergence, ::BATContext)
-    max_rhat = _rank_normalized_rhat(_rank_normalized_draws(samples))
-    vt = ValueAndThreshold{max_rhat}(max_rhat, <=, algorithm.threshold)
+    length(samples) >= 2 || throw(ArgumentError("Rank-normalized R-hat requires at least two chains."))
+    parameters = all_active_names(varshape(first(samples)))
+    all(chain -> all_active_names(varshape(chain)) == parameters, samples) ||
+        throw(ArgumentError("Rank-normalized R-hat requires matching parameters."))
+    all(chain -> all(w -> w >= 0 && isinteger(w), chain.weight), samples) ||
+        throw(ArgumentError("Rank-normalized R-hat requires nonnegative integer-valued weights."))
+    walkers = _rhat_walker_indices.(samples)
+    ids = first.(first(walkers))
+    all(w -> first.(w) == ids, walkers) ||
+        throw(ArgumentError("Rank-normalized R-hat requires matching walker IDs."))
+    # Each comparison uses one walker from each independent sampler chain.
+    max_rhat = isempty(ids) ? NaN : maximum(eachindex(ids)) do i
+        chains = [unshaped.(chain[last(w[i])]) for (chain, w) in zip(samples, walkers)]
+        _rank_normalized_rhat(chains)
+    end
+    vt = ValueAndThreshold{:max_rhat}(max_rhat, <=, algorithm.threshold)
     converged = convert(Bool, vt)
     @debug begin
         success_str = converged ? "have" : "have *not*"
