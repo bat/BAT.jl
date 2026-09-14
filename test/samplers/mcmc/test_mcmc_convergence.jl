@@ -3,10 +3,11 @@
 using BAT, Distributions, Random123, Test, ValueShapes
 
 @testset "rank-normalized R-hat" begin
+    convergence = RankNormalizedRhatConvergence()
     chains(values; weight = ones(Int, length(first(values)))) = [
         DensitySampleVector([[x] for x in v], zeros(length(v)); weight) for v in values
     ]
-    rhat(samples) = bat_convergence(samples, RankNormalizedRhatConvergence()).result
+    rhat(samples) = bat_convergence(samples, convergence).result
 
     mixed = chains([[1, 2, 3, 1, 2, 3], [3, 1, 2, 3, 1, 2]])
     separated = chains([[1, 2, 3, 1, 2, 3], [11, 12, 13, 11, 12, 13]])
@@ -31,11 +32,8 @@ using BAT, Distributions, Random123, Test, ValueShapes
         rhat(chains([Float64.(extreme), Float64.(reverse(extreme))])).value
     scaled = [[-1, -0.5, 0, 0.5, 1, 0.8, 0.9, 0.7], [1, 0.5, 0, -0.5, -1, 0.7, 0.8, 0.9]]
     @test rhat(chains([floatmax(Float64) .* v for v in scaled])).value ≈ rhat(chains(scaled)).value
-end
 
-@testset "R-hat in short burn-in" begin
     target = NamedTupleDist(a = Normal(), b = Normal(1, 2))
-    convergence = RankNormalizedRhatConvergence()
     algorithm = TransformedMCMC(;
         nchains = 2, nwalkers = 2, nsteps = 32, init = MCMCRetryInit(nsteps_init = 3),
         convergence, strict = false,
@@ -43,23 +41,19 @@ end
     )
     samples = samplesof(evalmeasure(target, algorithm, BATContext(rng = Philox4x((530, 530)))))
     @test sum(samples.weight) == 128
-    @test bat_convergence(samples, convergence).result.value ≈
-        bat_convergence(unshaped.(samples), convergence).result.value
-end
+    @test rhat(samples).value ≈ rhat(unshaped.(samples)).value
 
-@testset "R-hat process order and walkers" begin
     path = [-4, -3, -2, -1, 1, 2, 3, 4]
     function walker(chainid, walkerid, values)
         info = [BAT.MCMCSampleID(chainid, walkerid, 1, i, 1, true) for i in eachindex(values)]
         DensitySampleVector([[x] for x in values], zeros(length(values)); info)
     end
-    rhat(samples) = bat_convergence(samples, RankNormalizedRhatConvergence()).result.value
     first_walker = [walker(c, 1, path) for c in 1:2]
     second_walker = [walker(c, 2, [1, 2, 3, 4, 4, 3, 2, 1]) for c in 1:2]
     ensembles = vcat.(first_walker, second_walker)
-    expected = max(rhat(first_walker), rhat(second_walker))
-    @test rhat(ensembles) ≈ expected
+    expected = max(rhat(first_walker).value, rhat(second_walker).value)
+    @test rhat(ensembles).value ≈ expected
     merged = vcat(ensembles...)
     permutation = [5, 3, 7, 1, 4, 6, 2, 8, 13, 11, 15, 9, 12, 14, 10, 16]
-    @test rhat(merged[vcat(permutation, permutation .+ 16)]) ≈ expected
+    @test rhat(merged[vcat(permutation, permutation .+ 16)]).value ≈ expected
 end
