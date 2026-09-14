@@ -50,6 +50,13 @@ function MCMCChainState(
     context::BATContext
 ) where {P<:Real, PV<:AbstractVector{P}}
     _validate_mcmc_proposal_configuration(samplingalg.proposal, samplingalg.proposal_tuning)
+    _validate_mcmc_weighting_configuration(samplingalg.proposal, samplingalg.sample_weighting)
+    _validate_mcmc_adaptive_transform_configuration(
+        samplingalg.proposal, samplingalg.adaptive_transform,
+    )
+    _validate_mcmc_transform_tuning_configuration(
+        samplingalg.proposal, samplingalg.transform_tuning,
+    )
 
     n_walkers = length(x_init)
     target_unevaluated = unevaluated(target)
@@ -65,14 +72,16 @@ function MCMCChainState(
 
     f = init_adaptive_transform(samplingalg.adaptive_transform, target, x_init, context)
     f_inv = inverse(f)
-    proposal = _create_proposal_state(samplingalg.proposal, target_unevaluated, context, x_init, f, rng)
-
-    logd_x_init = BAT.checked_logdensityof.(target_unevaluated, x_init)
     z_init = f_inv.(x_init)
+    logd_x_init = BAT.checked_logdensityof.(target_unevaluated, x_init)
     ladj_c = _transform_ladj(f)
     logd_z_init = isnothing(ladj_c) ?
         logdensityof.(MeasureBase.pullback(f, target_unevaluated), z_init) :
         logd_x_init .+ ladj_c
+    proposal = _create_proposal_state(
+        samplingalg.proposal, target_unevaluated, context, x_init, z_init, logd_z_init, f, rng,
+    )
+    _validate_mcmc_ensemble_invariants(proposal, target_unevaluated, z_init)
 
     W = mcmc_weight_type(samplingalg.sample_weighting)
 
@@ -221,7 +230,7 @@ function mcmc_step!!(mcmc_state::MCMCState)
     (;proposal, stepno, context) = chain_state
 
     rng = get_rng(context)
-    n_rng_streams = _MCMC_N_RNG_PURPOSES * _MCMC_PROPOSALS_PER_PURPOSE
+    n_rng_streams = _mcmc_n_rng_purposes(proposal) * _MCMC_PROPOSALS_PER_PURPOSE
     step_rngpart = RNGPartition(rng, Base.OneTo(n_rng_streams))
     selection_idx = _mcmc_rng_stream_idx(_MCMC_PROPOSAL_SELECTION_PURPOSE, 1)
     proposal_selection_rng = AbstractRNG(step_rngpart, selection_idx)
@@ -371,10 +380,12 @@ end
 const _MCMC_PROPOSAL_SELECTION_PURPOSE = 1
 const _MCMC_PROPOSAL_TRANSITION_PURPOSE = 2
 const _MCMC_ACCEPTANCE_PURPOSE = 3
-const _MCMC_N_RNG_PURPOSES = 3
+const _MCMC_N_RNG_PURPOSES = 6
 # Purpose blocks are fixed-width so their stream indices cannot overlap;
 # multi-proposal construction and the index helper both enforce this limit.
 const _MCMC_PROPOSALS_PER_PURPOSE = typemax(Int16) - 2
+
+_mcmc_n_rng_purposes(::MCMCProposalState) = _MCMC_ACCEPTANCE_PURPOSE
 
 @inline function _mcmc_rng_stream_idx(purpose::Integer, proposal_idx::Integer)
     1 <= purpose <= _MCMC_N_RNG_PURPOSES || throw(ArgumentError(
@@ -528,6 +539,7 @@ function mcmc_update_z_position!!(mc_state::MCMCChainState)
     mc_state_new::typeof(mc_state) = @set mc_state.current.z = current_z_new
     mc_state_new = @set mc_state_new.proposed.z = proposed_z_new
 
+    _invalidate_position_cache!!(mc_state_new.proposal)
     return mc_state_new
 end
 
