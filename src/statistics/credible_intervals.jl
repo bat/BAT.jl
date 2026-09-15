@@ -1,6 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+# Preserve tiny weights, DoubleFloat low parts, and stored BigFloat precision.
 _credible_exact(x::Real) = Rational{BigInt}(x)
 _credible_exact(x::DoubleFloat) = _credible_exact(x.hi) + _credible_exact(x.lo)
 function _credible_exact(x::BigFloat)
@@ -8,6 +9,7 @@ function _credible_exact(x::BigFloat)
     (n // d) * (big(2) // 1)^e
 end
 
+# Integer masses retain tiny contributions without repeated rational sums.
 function _credible_masses(w)
     r = _credible_exact.(w)
     scale = foldl(lcm, denominator.(r); init = big(1))
@@ -16,6 +18,7 @@ function _credible_masses(w)
     masses, sum(masses)
 end
 _credible_masses(w::UnitWeights) = (ones(Int, length(w)), length(w))
+# Widen integer counts so their sum cannot wrap.
 function _credible_masses(w::AbstractVector{T}) where {T<:Integer}
     masses = isbitstype(T) && sizeof(T) <= sizeof(Int) ? Int128.(w) : big.(w)
     masses, sum(masses)
@@ -24,14 +27,15 @@ function _credible_masses(w::AbstractVector{<:ULogarithmic})
     logs = log.(w)
     any(isfinite, logs) || throw(ArgumentError("samples must contain positive mass"))
     delta = float.(logs .- maximum(logs))
+    # Outward bounds prevent rounded log weights from understating the target mass.
     lowerlog, upperlog = prevfloat.(delta), nextfloat.(delta)
     function bounds(lowerlog, upperlog)
         lower = prevfloat.(exp.(lowerlog))
         upper = nextfloat.(exp.(upperlog))
         ifelse.(iszero.(w), zero(eltype(lower)), lower), ifelse.(iszero.(w), zero(eltype(upper)), upper)
     end
-    # Bound selected mass below and total mass above. Widen only on underflow.
     lower, upper = bounds(lowerlog, upperlog)
+    # Recover underflowed positive weights without losing small gaps between huge logs.
     if any((lower .<= 0) .& .!iszero.(w))
         shift = _credible_exact(maximum(logs))
         delta = [isfinite(l) ? shift - _credible_exact(l) : Inf for l in logs]
@@ -45,6 +49,7 @@ end
 
 _credible_width(a) = _credible_exact(a[2]) - _credible_exact(a[1])
 _credible_shorter(a, b) = _credible_width(a) < _credible_width(b)
+# Compare exactly when subtraction overflows or rounds unequal widths to a tie.
 function _credible_shorter(a::Tuple{T,T}, b::Tuple{T,T}) where {T<:Union{Float16,Float32,Float64}}
     wa, wb = a[2] - a[1], b[2] - b[1]
     isfinite(wa) && isfinite(wb) && wa != wb ? wa < wb :
@@ -115,8 +120,7 @@ function smallest_credible_intervals(X::AbstractVector{<:Real},
         total = length(x)
         c = 0:total
     else
-        masses, total = _credible_masses(W)
-        w = collect(masses)
+        w, total = _credible_masses(W)
         order = filter(i -> !iszero(w[i]), sortperm(x))
         isempty(order) && throw(ArgumentError("samples must contain positive mass"))
         x, c = x[order], cumsum(w[order])
