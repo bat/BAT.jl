@@ -500,7 +500,25 @@ function repetition_to_weights(v::AbstractVector)
 end
 
 
-function LazyReports.pushcontent!(rpt::LazyReport, smplv::DensitySampleVector)
+function LazyReports.lazyreport(smplv::DensitySampleVector;
+    intervals = default_credibilities, mode::Symbol = :disjoint
+)
+    rpt = lazyreport()
+    LazyReports.pushcontent!(rpt, smplv; intervals, mode)
+    return rpt
+end
+
+
+function LazyReports.pushcontent!(rpt::LazyReport, smplv::DensitySampleVector;
+    intervals = default_credibilities, mode::Symbol = :disjoint
+)
+    if !(intervals isa AbstractVector)
+        throw(ArgumentError("intervals must be a vector of real numbers"))
+    end
+    if !all(p -> p isa Real && 0 < p <= 1, intervals)
+        throw(ArgumentError("intervals must contain values in (0, 1]"))
+    end
+
     # ToDo: Forward context somehow instead of creating a new one here?
     context = BATContext()
 
@@ -517,11 +535,26 @@ function LazyReports.pushcontent!(rpt::LazyReport, smplv::DensitySampleVector)
     * Effective sample size: between $(minimum(ess)) and $(maximum(ess))
     """)
 
-    only_one_ci(viv::AbstractVector{<:AbstractInterval}) = length(viv) == 1 ? only(viv) : :multiple
+    only_one_ci(viv::AbstractVector{<:AbstractInterval}) = length(viv) == 1 ? only(viv) : viv
 
+    ci_names = Symbol.("credible_intervals_", eachindex(intervals))
     marg_tbl = _marginal_table(smplv)
-    mod_marg_tbl = merge(Tables.columns(marg_tbl), (credible_intervals = map(only_one_ci, marg_tbl.credible_intervals),))
-    marg_headermap = Dict(:parameter => "Parameter", :mean => "Mean", :std => "Std. dev.", :global_mode => "Gobal mode", :marginal_mode => "Marg. mode", :credible_intervals => "Cred. interval", :marginal_histogram => "Histogram")
+    report_columns = (;
+        (name => map(only_one_ci, smallest_credible_intervals(usmplv; p, mode))
+        for (name, p) in zip(ci_names, intervals))...
+    )
+    mod_marg_tbl = merge(Tables.columns(marg_tbl), report_columns)
+    marg_headermap = Dict(
+        :parameter => "Parameter",
+        :mean => "Mean",
+        :std => "Std. dev.",
+        :global_mode => "Gobal mode",
+        :marginal_mode => "Marg. mode",
+        :marginal_histogram => "Histogram",
+    )
+    for (name, interval) in zip(ci_names, intervals)
+        marg_headermap[name] = @sprintf("%.2f%% cred. interval", 100 * interval)
+    end
     lazyreport!(
         rpt,
         "#### Marginals",
@@ -547,8 +580,6 @@ function _marginal_table(smplv::DensitySampleVector)
 
     usmplv = unshaped.(smplv)
 
-    credible_intervals = smallest_credible_intervals(usmplv)
-
     mhists = _marginal_histograms(usmplv)
 
     mm_alg = bat_default(bat_marginalmode, Val(:algorithm), usmplv)
@@ -560,7 +591,6 @@ function _marginal_table(smplv::DensitySampleVector)
         std = std(usmplv),
         global_mode = mode(usmplv),
         marginal_mode = marginal_mode,
-        credible_intervals = credible_intervals,
         marginal_histogram = mhists,
     )
 end
