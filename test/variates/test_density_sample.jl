@@ -149,6 +149,9 @@ _SampleAux() = _SampleInfo(0)
             )
             @test quantile(samples16, 0.25) == 1.0
 
+            zero_mass_nan = DensitySampleVector(v = [1.0, NaN], logd = zeros(2), weight = [1, 0])
+            @test quantile.(Ref(zero_mass_nan), probabilities) == ones(5)
+
             @test quantile.(Ref(compressed), probabilities) == quantile.(Ref(expanded), probabilities) == expected
         end
 
@@ -173,6 +176,17 @@ end
 
 @testset "DensitySampleVector reports" begin
     samples = DensitySampleVector([[1.5], [2.5]], zeros(2); weight = [1, 5])
-    report = sprint(show, MIME("text/plain"), lazyreport(samples; intervals = [0.5]))
-    @test occursin("2.5 .. 2.505", report)
+    render(report) = sprint(show, MIME("text/plain"), report)
+
+    report = render(lazyreport(samples; intervals = [0.5]))
+    @test occursin("[1.5 .. 1.5, 2.5 .. 2.5]", report)
+
+    connected = render(lazyreport(samples; intervals = [0.5, 1.0], mode = :connected))
+    @test occursin(r"50\.00% cred\. interval\s+100\.00% cred\. interval", connected)
+    @test occursin(r"2\.5 \.\. 2\.5\s+1\.5 \.\. 2\.5\s*\n", connected)
+
+    defaults = render(lazyreport(samples))
+    @test all(p -> occursin(p * "% cred. interval", defaults), ["68.30", "95.50", "99.70"])
+    @test render(lazyreport!(lazyreport(), samples)) == defaults
+    @test render(BAT.bat_report(samples; intervals = [0.5, 1.0], mode = :connected)) == connected
 end

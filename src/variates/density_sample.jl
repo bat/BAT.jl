@@ -360,7 +360,7 @@ function _weighted_empirical_quantile(v::AbstractVector, w::AbstractVector, p::R
     isempty(v) && throw(ArgumentError("quantile of an empty array is undefined"))
     0 <= p <= 1 || throw(ArgumentError("input probability out of [0,1] range"))
 
-    nan_idx = findfirst(isnan, v)
+    nan_idx = findfirst(i -> !iszero(w[i]) && isnan(v[i]), eachindex(v, w))
     isnothing(nan_idx) || return v[nan_idx]
 
     order = sortperm(v)
@@ -436,7 +436,9 @@ samples with the lowest weight.
 """
 function drop_low_weight_samples(samples::DensitySampleVector, fraction::Real = 10^-5; threshold::Real=10^-2)
     W = float(samples.weight)
-    if minimum(W) / maximum(W) > threshold
+    if isempty(W) || all(iszero, W)
+        samples
+    elseif minimum(W) / maximum(W) > threshold
         samples
     else
         W_s = sort(W)
@@ -498,24 +500,23 @@ function repetition_to_weights(v::AbstractVector)
 end
 
 
-function LazyReports.lazyreport(smplv::DensitySampleVector; intervals = default_credibilities)
+function LazyReports.lazyreport(smplv::DensitySampleVector;
+    intervals = default_credibilities, mode::Symbol = :disjoint
+)
     rpt = lazyreport()
-    _push_density_sample_report!(rpt, smplv; intervals)
+    LazyReports.pushcontent!(rpt, smplv; intervals, mode)
     return rpt
 end
 
 
-function LazyReports.pushcontent!(rpt::LazyReport, smplv::DensitySampleVector)
-    _push_density_sample_report!(rpt, smplv; intervals = default_credibilities)
-end
-
-
-function _push_density_sample_report!(rpt::LazyReport, smplv::DensitySampleVector; intervals)
+function LazyReports.pushcontent!(rpt::LazyReport, smplv::DensitySampleVector;
+    intervals = default_credibilities, mode::Symbol = :disjoint
+)
     if !(intervals isa AbstractVector)
         throw(ArgumentError("intervals must be a vector of real numbers"))
     end
-    if !all(p -> p isa Real && isfinite(p) && 0 < p < 1, intervals)
-        throw(ArgumentError("intervals must contain finite values between zero and one"))
+    if !all(p -> p isa Real && 0 < p <= 1, intervals)
+        throw(ArgumentError("intervals must contain values in (0, 1]"))
     end
 
     # ToDo: Forward context somehow instead of creating a new one here?
@@ -538,30 +539,11 @@ function _push_density_sample_report!(rpt::LazyReport, smplv::DensitySampleVecto
 
     ci_names = Symbol.("credible_intervals_", eachindex(intervals))
     marg_tbl = _marginal_table(smplv)
-    marg_columns = Tables.columns(marg_tbl)
-    report_histograms = map(eachindex(marg_tbl.marginal_histogram)) do idx
-        marginal = MarginalDist(smplv, idx)
-        convert(Histogram, marginal.dist isa ReshapedDist ? marginal.dist.dist : marginal.dist)
-    end
     report_columns = (;
-        (
-            name => map(
-                histogram -> _histogram_credible_intervals(histogram, credibility),
-                report_histograms,
-            )
-            for (name, credibility) in zip(ci_names, intervals)
-        )...
+        (name => map(only_one_ci, smallest_credible_intervals(usmplv; p, mode))
+        for (name, p) in zip(ci_names, intervals))...
     )
-    base_columns = (;
-        (
-            name => getproperty(marg_columns, name)
-            for name in propertynames(marg_columns) if name != :credible_intervals
-        )...
-    )
-    mod_marg_tbl = merge(
-        base_columns,
-        (; (name => map(only_one_ci, getproperty(report_columns, name)) for name in ci_names)...),
-    )
+    mod_marg_tbl = merge(Tables.columns(marg_tbl), report_columns)
     marg_headermap = Dict(
         :parameter => "Parameter",
         :mean => "Mean",
@@ -570,7 +552,6 @@ function _push_density_sample_report!(rpt::LazyReport, smplv::DensitySampleVecto
         :marginal_mode => "Marg. mode",
         :marginal_histogram => "Histogram",
     )
-    # Dict updates require serial mutation.
     for (name, interval) in zip(ci_names, intervals)
         marg_headermap[name] = @sprintf("%.2f%% cred. interval", 100 * interval)
     end
@@ -593,19 +574,11 @@ function _push_density_sample_report!(rpt::LazyReport, smplv::DensitySampleVecto
     return nothing
 end
 
-function _histogram_credible_intervals(histogram::StatsBase.Histogram, credibility::Real)
-    interval_histogram = only(first(get_smallest_intervals(histogram, Float64[credibility])))
-    lower, upper = get_interval_edges(interval_histogram)
-    ClosedInterval.(lower, upper)
-end
-
 
 function _marginal_table(smplv::DensitySampleVector)
     parnames = map(string, all_active_names(elshape(smplv.v)))
 
     usmplv = unshaped.(smplv)
-
-    credible_intervals = smallest_credible_intervals(usmplv)
 
     mhists = _marginal_histograms(usmplv)
 
@@ -618,7 +591,6 @@ function _marginal_table(smplv::DensitySampleVector)
         std = std(usmplv),
         global_mode = mode(usmplv),
         marginal_mode = marginal_mode,
-        credible_intervals = credible_intervals,
         marginal_histogram = mhists,
     )
 end

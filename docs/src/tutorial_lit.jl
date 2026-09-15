@@ -261,9 +261,13 @@ println("Covariance: $par_cov")
 using LazyReports
 lazyreport(samples)
 
-# Specify probability masses for the smallest intervals shown in the report;
-# these use the same histogram selection and edges as the marginal plots:
+# Set probability masses for the empirical credible intervals in the report:
 lazyreport(samples; intervals = [0.683, 0.955, 0.997])
+
+# Report endpoints come from sample values. Marginal plots use histogram edges.
+# The default `mode = :disjoint` can return several intervals for each mass.
+# Use `mode = :connected` for the shortest single empirical interval:
+lazyreport(samples; intervals = [0.90], mode = :connected)
 
 
 # ### Visualization of Results

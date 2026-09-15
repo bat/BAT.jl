@@ -38,21 +38,36 @@ function get_bin_centers(marg::MarginalDist)
     return centers
 end
 
+
+function islower(weights, idx)
+    if idx==1 && weights[idx]>0
+        return true
+    elseif weights[idx]>0 && weights[idx-1]==0 && idx < length(weights)
+        return true
+    else
+        return false
+    end
+end
+
+function isupper(weights, idx)
+    if idx==length(weights) && weights[idx-1]>0
+        return true
+    elseif weights[idx]==0 && weights[idx-1]>0
+        return true
+    else
+        return false
+    end
+end
+
+
 # return the lower and upper edges for clusters in which the bincontent is non-zero for all dimensions of a StatsBase.Histogram
 # clusters that are seperated <= atol are combined
 function get_interval_edges(h::StatsBase.Histogram; atol::Real = 0)
-    weights = vec(h.weights)
-    lower = eltype(h.edges[1])[]
-    upper = eltype(h.edges[1])[]
+    weights = h.weights
+    len = length(weights)
 
-    for idx in eachindex(weights)
-        if weights[idx] > 0 && (idx == firstindex(weights) || weights[idx - 1] == 0)
-            push!(lower, h.edges[1][idx])
-        end
-        if weights[idx] > 0 && (idx == lastindex(weights) || weights[idx + 1] == 0)
-            push!(upper, h.edges[1][idx + 1])
-        end
-    end
+    lower = [h.edges[1][i] for i in 1:len if islower(weights, i)]
+    upper = [h.edges[1][i] for i in 2:len if isupper(weights, i)]
 
     if atol != 0
         idxs = [i for i in 1:length(upper)-1 if lower[i+1]-upper[i] <= atol]

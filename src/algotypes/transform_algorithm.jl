@@ -134,6 +134,10 @@ Constructors:
 """
 struct FullMeasureTransform <: TransformAlgorithm end
 
+function bat_transform_impl(f::Function, m::BATMeasure, ::FullMeasureTransform, ::BATContext)
+    (result = pushfwd(f, m, KeepRootMeasure()), f_transform = f)
+end
+
 
 _get_deep_prior_for_trafo(m::BATDistMeasure) = m
 _get_deep_prior_for_trafo(m::AbstractPosteriorMeasure) = _get_deep_prior_for_trafo(getprior(m))
