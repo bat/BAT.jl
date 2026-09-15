@@ -1,7 +1,28 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-abstract type MultiChainConvergenceTest <: ConvergenceTest end
+"""
+    abstract type MCMCConvergenceTest <: ConvergenceTest
+
+Abstract supertype for convergence tests of Markov chain Monte Carlo output.
+"""
+abstract type MCMCConvergenceTest <: ConvergenceTest end
+
+
+"""
+    abstract type SingleChainMCMCConvergenceTest <: MCMCConvergenceTest
+
+Abstract supertype for MCMC convergence tests that assess one chain.
+"""
+abstract type SingleChainMCMCConvergenceTest <: MCMCConvergenceTest end
+
+
+"""
+    abstract type MultiChainMCMCConvergenceTest <: MCMCConvergenceTest
+
+Abstract supertype for MCMC convergence tests that compare multiple independent chains.
+"""
+abstract type MultiChainMCMCConvergenceTest <: MCMCConvergenceTest end
 
 
 function check_convergence!(
@@ -56,7 +77,7 @@ end
 
 
 """
-    struct GelmanRubinConvergence <: ConvergenceTest
+    struct GelmanRubinConvergence <: MultiChainMCMCConvergenceTest
 
 Gelman-Rubin maximum R^2 convergence test.
 
@@ -72,7 +93,7 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct GelmanRubinConvergence <: MultiChainConvergenceTest
+@with_kw struct GelmanRubinConvergence <: MultiChainMCMCConvergenceTest
     threshold::Float64 = 1.1
 end
 
@@ -145,7 +166,7 @@ end
 
 
 """
-    struct BrooksGelmanConvergence <: ConvergenceTest
+    struct BrooksGelmanConvergence <: MultiChainMCMCConvergenceTest
 
 Brooks-Gelman maximum R^2 convergence test.
 
@@ -161,7 +182,7 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct BrooksGelmanConvergence <: MultiChainConvergenceTest
+@with_kw struct BrooksGelmanConvergence <: MultiChainMCMCConvergenceTest
     threshold::Float64 = 1.1
     corrected::Bool = false
 end
@@ -266,7 +287,7 @@ Compare independent chains, treating integer weights as repetition counts.
 For multiple walkers, compare matching walker IDs across chains. Return the
 largest R-hat across parameters and walkers.
 """
-@with_kw struct RankNormalizedRhatConvergence <: MultiChainConvergenceTest
+@with_kw struct RankNormalizedRhatConvergence <: MultiChainMCMCConvergenceTest
     threshold::Float64 = 1.01
 end
 
@@ -295,7 +316,7 @@ end
 
 
 
-function bat_convergence_impl(samples::DensitySampleVector, algorithm::MultiChainConvergenceTest, context::BATContext)
+function bat_convergence_impl(samples::DensitySampleVector, algorithm::MultiChainMCMCConvergenceTest, context::BATContext)
     # create a vector of chains
     chains_ind = unique([i.chainid for i in samples.info])
     vector_chains = DensitySampleVector[]

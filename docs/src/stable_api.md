@@ -149,5 +149,8 @@ BAT.AbstractMedianEstimator
 BAT.AbstractModeEstimator
 BAT.AbstractSamplingAlgorithm
 BAT.ConvergenceTest
+BAT.MCMCConvergenceTest
+BAT.SingleChainMCMCConvergenceTest
+BAT.MultiChainMCMCConvergenceTest
 BAT.MGVISchedule
 ```
