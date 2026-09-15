@@ -110,7 +110,7 @@ function MCMCChainState(
     )
 
     current = (x = current_x_init, z = current_z_init)
-    proposed = (x = deepcopy(proposed_init), z = deepcopy(current_z_init))
+    proposed = (x = proposed_init, z = deepcopy(current_z_init))
     output = deepcopy(current_x_init)
     accepted = fill(false, n_walkers)
     walker_order = sortperm(
