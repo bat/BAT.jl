@@ -37,4 +37,22 @@ using Test
     values = [BAT.Double64(0), BAT.Double64(1.0, 2.0^-1000), BAT.Double64(3), BAT.Double64(4)]
     @test only(BAT.smallest_credible_intervals(values; mode = :connected)) ==
         ClosedInterval(values[2], values[4])
+
+    for mode in (:connected, :disjoint)
+        values = Real[2051, Float16(2052)]
+        intervals = BAT.smallest_credible_intervals(values, Weights([1, 1000]); p = 1, mode = mode)
+        @test all(x -> any(iv -> x in iv, intervals), values)
+
+        logweights = exp.(BAT.ULogarithmic, [0.0, 1e-20])
+        intervals = BAT.smallest_credible_intervals([0, 1], Weights(logweights); p = 1//2, mode = mode)
+        @test any(iv -> 1 in iv, intervals)
+    end
+    logweights = exp.(BAT.ULogarithmic, [-744.0, 0.0])
+    intervals = BAT.smallest_credible_intervals([0, 1], Weights(logweights);
+        p = 9//big(10)^324, mode = :connected)
+    @test any(iv -> 1 in iv, intervals)
+
+    logweights = exp.(BAT.ULogarithmic, [BAT.Double64(1e100), BAT.Double64(1e100, 1000.0)])
+    intervals = BAT.smallest_credible_intervals([0, 1], Weights(logweights); p = 2//5, mode = :connected)
+    @test any(iv -> 1 in iv, intervals)
 end

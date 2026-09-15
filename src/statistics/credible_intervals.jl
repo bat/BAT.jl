@@ -12,19 +12,35 @@ function _credible_masses(w)
     r = _credible_exact.(w)
     scale = foldl(lcm, denominator.(r); init = big(1))
     masses = numerator.(r) .* (scale .÷ denominator.(r))
-    sum(masses) <= typemax(Int128) ? Int128.(masses) : masses
+    masses = sum(masses) <= typemax(Int128) ? Int128.(masses) : masses
+    masses, sum(masses)
 end
-_credible_masses(w::UnitWeights) = ones(Int, length(w))
-_credible_masses(w::AbstractVector{T}) where {T<:Integer} =
-    isbitstype(T) && sizeof(T) <= sizeof(Int) ? Int128.(w) : big.(w)
+_credible_masses(w::UnitWeights) = (ones(Int, length(w)), length(w))
+function _credible_masses(w::AbstractVector{T}) where {T<:Integer}
+    masses = isbitstype(T) && sizeof(T) <= sizeof(Int) ? Int128.(w) : big.(w)
+    masses, sum(masses)
+end
 function _credible_masses(w::AbstractVector{<:ULogarithmic})
-    r = _canonical_rel_weights(w)
-    if any(iszero.(r) .& .!iszero.(w))
-        logs = BigFloat.(log.(w))
-        r = exp.(logs .- maximum(logs))
-        any(iszero.(r) .& .!iszero.(w)) && throw(ArgumentError("logarithmic weight range is too large"))
+    logs = log.(w)
+    any(isfinite, logs) || throw(ArgumentError("samples must contain positive mass"))
+    delta = float.(logs .- maximum(logs))
+    lowerlog, upperlog = prevfloat.(delta), nextfloat.(delta)
+    function bounds(lowerlog, upperlog)
+        lower = prevfloat.(exp.(lowerlog))
+        upper = nextfloat.(exp.(upperlog))
+        ifelse.(iszero.(w), zero(eltype(lower)), lower), ifelse.(iszero.(w), zero(eltype(upper)), upper)
     end
-    _credible_masses(r)
+    # Bound selected mass below and total mass above. Widen only on underflow.
+    lower, upper = bounds(lowerlog, upperlog)
+    if any((lower .<= 0) .& .!iszero.(w))
+        shift = _credible_exact(maximum(logs))
+        delta = [isfinite(l) ? shift - _credible_exact(l) : Inf for l in logs]
+        lower, upper = bounds(-BigFloat.(delta, RoundUp), -BigFloat.(delta, RoundDown))
+    end
+    any((lower .<= 0) .& .!iszero.(w)) && throw(ArgumentError("logarithmic weight range is too large"))
+    masses, _ = _credible_masses([lower; upper])
+    n = length(w)
+    masses[1:n], sum(masses[n+1:end])
 end
 
 _credible_width(a) = _credible_exact(a[2]) - _credible_exact(a[1])
@@ -44,7 +60,7 @@ function _credible_connected(x, c, target)
         candidate = (x[left], x[right])
         c[right + 1] - c[left] >= target && _credible_shorter(candidate, best) && (best = candidate)
     end
-    [ClosedInterval(best...)]
+    [ClosedInterval{eltype(x)}(best...)]
 end
 
 function _credible_disjoint(x, c, target)
@@ -60,13 +76,13 @@ function _credible_disjoint(x, c, target)
         end
         mass >= target && break
     end
-    intervals = [ClosedInterval(endpoints(i)...) for i in sort!(selected)]
+    intervals = [ClosedInterval{eltype(x)}(endpoints(i)...) for i in sort!(selected)]
     merged = eltype(intervals)[]
     for interval in intervals
         if isempty(merged) || minimum(interval) > maximum(last(merged))
             push!(merged, interval)
         else
-            merged[end] = ClosedInterval(minimum(last(merged)), maximum(interval))
+            merged[end] = ClosedInterval{eltype(x)}(minimum(last(merged)), maximum(interval))
         end
     end
     merged
@@ -80,6 +96,7 @@ end
 
 Return empirical credible intervals. Use `:connected` for the shortest single
 interval. Set `p` in `(0, 1]` or `nsigma_equivalent`; the default is one sigma.
+Log-weight rounding may conservatively widen intervals.
 """
 function smallest_credible_intervals(X::AbstractVector{<:Real},
         W::AbstractWeights = UnitWeights{eltype(X)}(length(X));
@@ -95,16 +112,18 @@ function smallest_credible_intervals(X::AbstractVector{<:Real},
     x = collect(X)
     if W isa UnitWeights && mode == :connected
         sort!(x)
-        c = 0:length(x)
+        total = length(x)
+        c = 0:total
     else
-        w = collect(_credible_masses(W))
+        masses, total = _credible_masses(W)
+        w = collect(masses)
         order = filter(i -> !iszero(w[i]), sortperm(x))
         isempty(order) && throw(ArgumentError("samples must contain positive mass"))
         x, c = x[order], cumsum(w[order])
         ends = [findall(x[1:end-1] .!= x[2:end]); length(x)]
         x, c = x[ends], [zero(eltype(c)); c[ends]]
     end
-    target = ceil(typeof(last(c)), _credible_exact(p) * last(c))
+    target = ceil(typeof(last(c)), _credible_exact(p) * total)
     mode == :connected ? _credible_connected(x, c, target) : _credible_disjoint(x, c, target)
 end
 
