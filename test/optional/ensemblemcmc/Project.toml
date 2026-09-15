@@ -1,0 +1,16 @@
+[deps]
+ArraysOfArrays = "65a8f2f4-9b39-5baf-92e2-a9cc46fdf018"
+BAT = "c0cd4b16-88b7-57fa-983b-ab80aecada7e"
+DensityInterface = "b429d917-457f-4dbc-8f4c-0cc954292b1d"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+EnsembleMCMC = "ee15a35a-54c9-4a12-9721-3f3d8c2797c8"
+Random123 = "74087812-796a-5b5d-8853-05524746bad3"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
+
+[sources]
+BAT = {path = "../../.."}
+EnsembleMCMC = {url = "https://github.com/JuliaBayes/EnsembleMCMC.jl.git", rev = "a2df294b204eae4dd27e62a38dbbdd304499a1d0"}
+
+[compat]
+EnsembleMCMC = "0.0.2"
