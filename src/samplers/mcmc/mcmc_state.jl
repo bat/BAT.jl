@@ -226,17 +226,10 @@ function mcmc_step!!(mcmc_state::MCMCState)
     selection_idx = _mcmc_rng_stream_idx(_MCMC_PROPOSAL_SELECTION_PURPOSE, 1)
     proposal_selection_rng = AbstractRNG(step_rngpart, selection_idx)
 
-    chain_state.proposal, active_proposal = next_proposal!!(
+    chain_state.proposal, _ = next_proposal!!(
         proposal_selection_rng, proposal, stepno,
     )
-
-    proposal_idx = get_active_proposal_idx(chain_state.proposal)
-    chain_state, active_proposal_new, step_info = mcmc_propose!!(
-        chain_state, active_proposal, step_rngpart, proposal_idx)
-
-    chain_state.proposal = update_active_proposal!!(chain_state.proposal, active_proposal_new)
-
-    mcmc_state_new = mcmc_tune_post_step!!(mcmc_state, active_proposal, step_info)
+    mcmc_state_new, step_info = _mcmc_propose_and_tune!!(mcmc_state, chain_state.proposal, step_rngpart)
 
     chain_state = mcmc_state_new.chain_state
 
@@ -316,7 +309,18 @@ function _transform_with_ladj(f, zs::AbstractVector)
 end
 
 
-function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP,
+_mcmc_propose_and_tune!!(state, proposal::MCMCProposalState, rngpart) =
+    _mcmc_propose_and_tune!!(state, proposal, rngpart, Val(1))
+
+function _mcmc_propose_and_tune!!(state, proposal, rngpart, i::Val{I}) where {I}
+    active = get_active_proposal(proposal, i)
+    chain, active_new, step_info = mcmc_propose!!(state.chain_state, active, rngpart, I)
+    chain = @set chain.proposal = update_active_proposal!!(proposal, active_new, i)
+    state_new = @set state.chain_state = chain
+    return mcmc_tune_post_step!!(state_new, active, step_info), step_info
+end
+
+@inline function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP,
     step_rngpart::RNGPartition, proposal_idx::Integer) where {SMP<:SimpleMCMCProposalState}
     (; target, f_transform, current) = chain_state
 
@@ -550,6 +554,7 @@ end
 
 # TODO: MD, when should the z-position be updated? Before or after the proposal tuning?
 function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:DensitySampleVector})
+    proposal_tuner_state = state.proposal_tuner_state
     f_transform_tuned, trafo_tuner_state_new, chain_state_trafo_tuned = mcmc_tune_trafo_post_cycle!!(
         state.chain_state.f_transform,
         state.trafo_tuner_state,
@@ -565,10 +570,11 @@ function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:Dens
         chain_state_trafo_tuned = @set chain_state_trafo_tuned.f_transform = f_transform_tuned
         proposal = chain_state_trafo_tuned.proposal
         proposal = set_proposal_transform!!(proposal, chain_state_trafo_tuned)
+        chain_state_trafo_tuned = @set chain_state_trafo_tuned.proposal = proposal
         chain_state_trafo_tuned = mcmc_update_z_position!!(chain_state_trafo_tuned)
         if transform_change_restarts_stepsize(trafo_tuner_state_new)
-            proposal, _, chain_state_trafo_tuned = mcmc_proposal_transform_committed!!(
-                proposal, state.proposal_tuner_state, chain_state_trafo_tuned
+            proposal, proposal_tuner_state, chain_state_trafo_tuned = mcmc_proposal_transform_committed!!(
+                proposal, proposal_tuner_state, chain_state_trafo_tuned
             )
         end
     else
@@ -577,7 +583,7 @@ function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:Dens
 
     proposal_state_new, proposal_tuner_state_new, chain_state_new = mcmc_tune_proposal_post_cycle!!(
         proposal,
-        state.proposal_tuner_state,
+        proposal_tuner_state,
         chain_state_trafo_tuned,
         samples
     )
@@ -627,6 +633,7 @@ function mcmc_tune_post_step!!(state::MCMCState, proposal::MCMCProposalState, st
         chain_state_trafo_tuned = @set chain_state_trafo_tuned.f_transform = f_transform_tuned
         proposal = chain_state_trafo_tuned.proposal
         proposal = set_proposal_transform!!(proposal, chain_state_trafo_tuned)
+        chain_state_trafo_tuned = @set chain_state_trafo_tuned.proposal = proposal
         chain_state_trafo_tuned = mcmc_update_z_position!!(chain_state_trafo_tuned)
         stepsize_restart = transform_change_restarts_stepsize(trafo_tuner_state_new)
     else
