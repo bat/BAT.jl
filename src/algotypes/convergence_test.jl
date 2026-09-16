@@ -4,7 +4,7 @@
 """
     abstract type ConvergenceTest
 
-Abstract type for integrated autocorrelation length estimation algorithms.
+Abstract supertype for algorithm convergence tests.
 """
 abstract type ConvergenceTest end
 
