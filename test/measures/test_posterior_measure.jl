@@ -3,9 +3,9 @@
 using BAT
 using Test
 
-using DensityInterface, Distributions, FunctionChains, ValueShapes
+using ArraysOfArrays, DensityInterface, Distributions, FunctionChains, ValueShapes
 using PropertyFunctions: PropertyFunction, @pf
-using MeasureBase: WeightedMeasure, weightedmeasure
+using MeasureBase: WeightedMeasure, weightedmeasure, logdensities, insupport
 import ForwardDiff, Zygote
 
 @testset "posterior_measure" begin
@@ -72,6 +72,21 @@ import ForwardDiff, Zygote
         @test bwm isa PosteriorMeasure
         @test BAT.getprior(bwm) === BAT.getprior(posterior)
         @test logdensityof(bwm, q) ≈ logdensityof(posterior, q) + logw
+    end
+
+    @testset "batched evaluation" begin
+        mv_prior = batmeasure(product_distribution([Uniform(-2, 2), Uniform(0.1, 2)]))
+        ℒ_v = logfuncdensity(p -> logpdf(Normal(p[1] + 1, p[2]), 1.2))
+        # The last variate lies outside of the prior's support:
+        X = nestedview([0.0 1.0 -3.0; 0.5 1.5 0.5])
+
+        posterior = PosteriorMeasure(ℒ_v, mv_prior)
+        logd_ref = [logdensityof(mv_prior, x) + logdensityof(ℒ_v, x) for x in X]
+        @test logdensities(posterior, X) ≈ [logd_ref[1:2]; -Inf]
+
+        # The likelihood must not be evaluated where the prior vanishes:
+        ℒ_strict = logfuncdensity(p -> insupport(mv_prior, p) ? logdensityof(ℒ_v, p) : error("outside of the prior's support"))
+        @test logdensities(PosteriorMeasure(ℒ_strict, mv_prior), X) ≈ [logd_ref[1:2]; -Inf]
     end
 
     @testset "AD through measure construction" begin
