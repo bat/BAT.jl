@@ -280,7 +280,7 @@ function _em_sanity_checks(em::EvaluatedMeasure)
         if has_trcontent && isnothing(em.f_transform)
             throw(ArgumentError("An EvaluatedMeasure with transformed-space content must carry its f_transform"))
         end
-        f_hash = hash(em.f_transform)
+        f_hash = transform_witness(em.f_transform)
         if _pair_claims_mismatch(em.empirical, f_hash) || _pair_claims_mismatch(em.approx, f_hash) || _pair_claims_mismatch(em.unevaluated, f_hash)
             _throw_pair_hash_mismatch("Transformed-space content")
         end
@@ -337,7 +337,7 @@ function _update_evalmeasure(
     # evaluation knowledge is stripped off a given cache value:
     new_unevaluated = transformed isa Unchanged ? cur_unevaluated :
         isnothing(transformed) ? _strip_annex(cur_unevaluated) :
-        BispacedMeasure(cur_unevaluated.main, unevaluated(transformed), hash(new_f_transform))
+        BispacedMeasure(cur_unevaluated.main, unevaluated(transformed), transform_witness(new_f_transform))
     new_empirical = empirical isa Unchanged ? cur_empirical : _as_empirical_pair(empirical)
     new_approx = approx isa Unchanged ? cur_approx : _as_bispaced(approx)
 
@@ -506,8 +506,8 @@ function ValueShapes.unshaped(em::EvaluatedMeasure, vs::AbstractValueShape)
     # hash of the correspondingly composed transformation, their transformed
     # sides stay valid under it. Any foreign claim is invalidated instead of
     # being relabeled:
-    old_f_hash = hash(em.f_transform)
-    new_f_hash = hash(new_f_transform)
+    old_f_hash = transform_witness(em.f_transform)
+    new_f_hash = transform_witness(new_f_transform)
     new_unevaluated = _unshaped_pair(em.unevaluated, vs, old_f_hash, new_f_hash)
     new_empirical = _unshaped_pair(em.empirical, vs, old_f_hash, new_f_hash)
     new_approx = _unshaped_pair(em.approx, vs, old_f_hash, new_f_hash)
@@ -756,7 +756,7 @@ _viewrep_empirical(dsm::DensitySampleMeasure, ::DensitySampleVector, ::Any, ::Do
 
 function _viewrep_empirical(dsm::DensitySampleMeasure, smpls_z::DensitySampleVector, f_pretransform::Any, ::TransformIntent, n_dof, ess)
     dsm_z = _with_owner_sampling_law(smpls_z, dsm; dof = n_dof, ess = ess)
-    BispacedMeasure(dsm, dsm_z, hash(f_pretransform))
+    BispacedMeasure(dsm, dsm_z, transform_witness(f_pretransform))
 end
 
 _viewrep_measure(::AbstractMeasure, ::DoNotTransform) = unchanged

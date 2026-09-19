@@ -250,7 +250,7 @@ end
 function bat_transform_impl(intent::Union{UniformBased,NormalBased}, em::EvaluatedMeasure, algorithm::PriorSubstitution, context::BATContext)
     new_measure, f_transform = bat_transform_impl(intent, unevaluated(em), algorithm, context)
     annexes_match = _intents_match(em.transform_intent, intent)
-    em_f_hash = hash(em.f_transform)
+    em_f_hash = transform_witness(em.f_transform)
     new_empirical = _transformed_empirical(annexes_match, em_f_hash, _empirical_rep(em), new_measure, f_transform, context)
     # Modes refer to the untransformed space (the log-abs-det-Jacobian shifts
     # maximizers), so they can't be carried over. The approximation and the
@@ -327,7 +327,7 @@ _transform_and_unshape_cached(::AbstractMeasure, ::DoNotTransform) = nothing
 _transform_and_unshape_cached(::EvaluatedMeasure, ::DoNotTransform) = nothing
 
 function _transform_and_unshape_cached(em::EvaluatedMeasure, intent::TransformIntent)
-    em_f_hash = hash(em.f_transform)
+    em_f_hash = transform_witness(em.f_transform)
     if _intents_match(em.transform_intent, intent) &&
             !isnothing(em.unevaluated.transformed) && !isnothing(em.f_transform) &&
             !_pair_claims_mismatch(em.unevaluated, em_f_hash) &&
@@ -360,7 +360,7 @@ _keep_transformed_identity(::AbstractMeasure, result_measure, ::TransformIntent)
 function _keep_transformed_identity(orig_em::EvaluatedMeasure, result_measure, intent::TransformIntent)
     p = orig_em.unevaluated
     cache_usable = _intents_match(orig_em.transform_intent, intent) &&
-        !_pair_claims_mismatch(p, hash(orig_em.f_transform))
+        !_pair_claims_mismatch(p, transform_witness(orig_em.f_transform))
     cached = cache_usable ? p.transformed : nothing
     isnothing(cached) ? result_measure : _replace_unevaluated(result_measure, cached)
 end
