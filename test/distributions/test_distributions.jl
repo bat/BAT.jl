@@ -4,8 +4,5 @@ using Test
 
 Test.@testset "distributions" begin
     include("test_distribution_functions.jl")
-    include("test_standard_uniform.jl")
-    include("test_standard_normal.jl")
-    include("test_hierarchical_distribution.jl")
     include("test_polar_shell_distribution.jl")
 end

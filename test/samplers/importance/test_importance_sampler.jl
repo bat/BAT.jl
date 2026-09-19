@@ -38,7 +38,7 @@ using Random123: Philox4x
         likelihood = logfuncdensity(_ -> log(2.0))
         posterior = PosteriorMeasure(
             likelihood,
-            weightedmeasure(log(7.0), Normal()),
+            weightedmeasure(log(7.0), batmeasure(Normal())),
         )
         result = evalmeasure(
             posterior,

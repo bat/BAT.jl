@@ -50,7 +50,7 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets
         @test logpdf(unshaped(trunc_dist), [1, 2, 0, 3]) + logweight ≈ logpdf(unshaped(prior_dist), [1, 2, 0, 3])
     end
 
-    @test @inferred(truncate_batmeasure(prior, bounds)) isa BAT.BATWeightedMeasure
+    @test @inferred(truncate_batmeasure(prior, bounds)) isa MeasureBase.WeightedMeasure
 
 
     @test BAT.checked_logdensityof(unshaped(truncate_batmeasure(prior, bounds)), [1, 2, 0, 3]) ≈ BAT.checked_logdensityof(unshaped(prior), [1, 2, 0, 3])
@@ -65,7 +65,7 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets
     @test varshape(trunc_pstr) == varshape(posterior)
 
     let
-        trunc_prior_dist = basemeasure(BAT.getprior(trunc_pstr)).dist
+        trunc_prior_dist = basemeasure(BAT.getprior(trunc_pstr)).obj
         s = bat_sample(trunc_pstr, TransformedMCMC(proposal = RandomWalk(), pretransform = DoNotTransform(), nsteps = 10^5)).result
         s_flat = flatview(unshaped.(s))
         @test all(minimum.(bounds) .< minimum(s_flat))

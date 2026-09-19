@@ -5,8 +5,9 @@ using Test
 
 using MeasureBase
 using ValueShapes, Distributions, ArraysOfArrays
-using ForwardDiff, Zygote, DistributionsAD
+using ForwardDiff, Zygote
 using InverseFunctions, ChangesOfVariables
+using MeasureBase: StdNormal, TransportFunction, transport_to
 
 using BAT: transform_samples
 
@@ -32,13 +33,13 @@ using BAT: _unshaped_trafo, _get_point_shape, _trafo_input_output_shape, _trafo_
     InverseFunctions.inverse(f::typeof(myidentity)) = f
     ChangesOfVariables.with_logabsdet_jacobian(::typeof(myidentity), x) = x, Bool(false)
 
-    f_dt = BAT.DistributionTransform(Normal, dist)
+    f_dt = transport_to(StdNormal()^BAT.some_dof(mu), mu)
     f_hasladj = myidentity ∘ f_dt
     f_plain(x) = (d = sum(x.a) * x.c, e = x.b * x.a) 
     f_complex(x) = (d = sum(x.a) * x.c, e = (f = x.b * x.a,))
 
     f = f_dt
-    @test @inferred(_unshaped_trafo(f)) isa BAT.DistributionTransform
+    @test @inferred(_unshaped_trafo(f)) isa TransportFunction
     @test @inferred(_trafo_input_output_shape(f, xs)) isa Tuple{<:NamedTupleShape,<:ArrayShape}
     x_shape, y_shape = _trafo_input_output_shape(f, xs)
     @test @inferred(_trafo_ladj_available(f, xs)) isa Val{true}

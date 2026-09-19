@@ -3,7 +3,7 @@
 using BAT
 using Test
 
-using Random, Distributions, DensityInterface
+using Random, Distributions, DensityInterface, ValueShapes
 using MeasureBase: getdof, massof
 using BAT: BispacedMeasure, batmeasure, empiricalof, samplesof
 
@@ -17,6 +17,11 @@ using BAT: BispacedMeasure, batmeasure, empiricalof, samplesof
     dsm = DensitySampleMeasure(smpls, dof = getdof(m))
 
     f = BAT.transform_function(NormalBased(), m)
+    # The compatibility witness is value-based, an equal transformation of an
+    # equal measure gives an equal witness:
+    @test BAT.transform_witness(f) == BAT.transform_witness(BAT.transform_function(NormalBased(), batmeasure(distprod(a = Normal(2.0, 1.0), b = Exponential(0.7)))))
+    @test BAT.transform_witness(f) != BAT.transform_witness(BAT.transform_function(UniformBased(), m))
+
     measure_pair = BispacedMeasure(f, m, context)
     x = (a = 2.0, b = 0.7)
     @test logdensityof(measure_pair.transformed, f(x)) ≈ logpdf(Normal(), 0.0) + logpdf(Normal(), quantile(Normal(), 1 - exp(-1)))
