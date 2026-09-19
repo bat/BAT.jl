@@ -103,14 +103,14 @@ end
 
 
 function bat_initval_impl(m::BATPushFwdMeasure, algorithm::InitFromTarget, context::BATContext)
-    f, m_orig = gettransform(m), transport_origin(m)
+    f, m_orig = gettransform(m), m.origin
     v_orig = bat_initval_impl(m_orig, algorithm, context).result
     v = f(v_orig)
     (result = v,)
 end
 
 function bat_initval_impl(m::BATPushFwdMeasure, n::Integer, algorithm::InitFromTarget, context::BATContext)
-    f, m_orig = gettransform(m), transport_origin(m)
+    f, m_orig = gettransform(m), m.origin
     vs_orig = bat_initval_impl(m_orig, n, algorithm, context).result
     vs = BAT.transform_samples(f, vs_orig)
     (result = vs,)

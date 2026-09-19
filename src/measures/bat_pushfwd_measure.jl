@@ -36,16 +36,12 @@ end
 
 MeasureBase.gettransform(m::BATPushFwdMeasure) = m.f
 
-MeasureBase.transport_origin(m::BATPushFwdMeasure) = m.origin
-MeasureBase.from_origin(m::BATPushFwdMeasure, x) = m.f(x)
-MeasureBase.to_origin(m::BATPushFwdMeasure, y) = m.finv(y)
-
 MeasureBase.getdof(m::BATPushFwdMeasure) = getdof(m.origin)
 MeasureBase.getdof(m::_NonBijectiveBATPusfwdMeasure) = MeasureBase.NoDOF{typeof(m)}()
 
-MeasureBase.insupport(m::BATPushFwdMeasure, x) = insupport(transport_origin(m), to_origin(m, x))
+MeasureBase.insupport(m::BATPushFwdMeasure, x) = insupport(m.origin, m.finv(x))
 
-MeasureBase.massof(m::BATPushFwdMeasure) = massof(transport_origin(m))
+MeasureBase.massof(m::BATPushFwdMeasure) = massof(m.origin)
 
 MeasureBase.rootmeasure(m::BATPushFwdMeasure{F,I,M,ChangeRootMeasure}) where {F,I,M} = pushfwd(m.f, rootmeasure(m.origin))
 MeasureBase.rootmeasure(m::BATPushFwdMeasure{F,I,M,KeepRootMeasure}) where {F,I,M} = rootmeasure(m.origin)
