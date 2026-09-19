@@ -35,11 +35,6 @@ Order = [:macro, :function]
 BAT.AbstractAffineTransform
 BAT.AbstractSampleGenerator
 BAT.BasicMvStatistics
-BAT.BATMeasure
-BAT.BATPushFwdMeasure
-BAT.BATPwrMeasure
-BAT.BATSuperpositionMeasure
-BAT.BATWeightedMeasure
 BAT.CholeskyPartialWhitening
 BAT.CholeskyWhitening
 BAT.ENSAutoProposal
@@ -68,12 +63,9 @@ BAT.OnlineUvVar
 BAT.PriorApproxTransformInit
 BAT.SampleTransformation
 BAT.StanLikeTuning
-BAT.StandardMvNormal
-BAT.StandardMvUniform
-BAT.StandardUvNormal
-BAT.StandardUvUniform
 BAT.StatisticalWhitening
 BAT.StepSizeAdaptor
+BAT.SupportedDensity
 BAT.DiagonalAffineTransform
 BAT.TriangularAffineTransform
 BAT.UnitTransformInit
@@ -108,6 +100,7 @@ BAT.smallest_credible_intervals
 BAT.sum_first_dim
 BAT.supports_rand
 BAT.transform_function
+BAT.transform_witness
 BAT.trunc_logpdf_ratio
 BAT.truncate_dist_hard
 ```

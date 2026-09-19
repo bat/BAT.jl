@@ -4,6 +4,7 @@ using Test
 
 using LinearAlgebra
 using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
+using MeasureBase
 using IntervalSets
 using Random123
 import ForwardDiff, Zygote
@@ -13,9 +14,9 @@ import ForwardDiff, Zygote
     objective = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
 
     shaped_target = @inferred(batmeasure(objective))
-    @test shaped_target isa BAT.BATDistMeasure
+    @test shaped_target isa MeasureBase.AbstractProductMeasure
     target = unshaped(shaped_target)
-    @test target isa BAT.BATDistMeasure
+    @test target isa MeasureBase.PushforwardMeasure
 
     proposal = HamiltonianMC()
     transform_tuning = BAT.StanLikeTuning()
@@ -178,6 +179,7 @@ import ForwardDiff, Zygote
 
     @testset "MCMC sampling in transformed space" begin
         prior = BAT.example_posterior().prior
+        ref_dist = BAT.example_prior()
         likelihood = logfuncdensity(v -> 0)
         inner_posterior = PosteriorMeasure(likelihood, prior)
         # Test with nested posteriors:
@@ -191,7 +193,7 @@ import ForwardDiff, Zygote
         smplres = BAT.sample_and_verify(
             posterior,
             trafo_samplingalg,
-            prior.dist,
+            ref_dist,
             BATContext(rng = Philox4x((564, 37)), ad = ForwardDiff),
             max_retries = 0,
         )
