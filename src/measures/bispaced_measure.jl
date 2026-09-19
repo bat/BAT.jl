@@ -61,9 +61,9 @@ end
 Value-based hash of a transformation function, the compatibility witness
 of [`BAT.BispacedMeasure`](@ref).
 
-Measures and transports compare by value, but `hash` falls back to
-`objectid` for structs that hold mutable data (like the parameter arrays
-of a distribution), so their structure is hashed explicitly.
+MeasureBase's measures and transports hash by value, but BAT's own
+measures and function wrappers holding mutable data (like parameter
+arrays) would hash by `objectid`, so their structure is hashed explicitly.
 """
 function transform_witness end
 

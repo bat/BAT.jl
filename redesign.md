@@ -34,12 +34,14 @@ MeasureBase. Later, BAT's samplers keep arrays on accelerators, using the
 ## Variate shapes and ValueShapes
 
 `NamedTupleDist` is replaced by MeasureBase products over named tuples.
-Shapes are derived from measures (a MeasureBase extension of ValueShapes
-is planned for `varshape`, `unshaped` and the `NamedTupleDist`
-conversion; until then the methods live in one BAT file). Sample storage
-keeps flat vectors plus shapes for now; moving `DensitySampleVector` to
-struct-of-arrays storage is a later step that would remove most of the
-remaining ValueShapes use.
+Shapes are derived from measures by ValueShapes' MeasureBase extension
+(branch `measurebase` of ValueShapes: `varshape`, `unshaped`, shapes
+applied to measures, `resultshape` of transports, and `asmeasure` for
+`NamedTupleDist`, `ConstValueDist` and `ReshapedDist`). Sample storage
+keeps flat vectors plus shapes for now. Decided: `DensitySampleVector`
+moves to struct-of-arrays storage, the layout MeasureBase's `rand`
+produces (flat arrays only for flat variate spaces), as a separate step,
+which removes most of the remaining ValueShapes use.
 
 ## Conventions
 
@@ -63,4 +65,5 @@ design needs a decision before this work starts.
 - `truncate_batmeasure`: keep its renormalizing semantics or re-express
   it on `restrict` (which only masks).
 - The RNG design for batched device sampling.
-- When to move sample storage to struct arrays.
+- Moments and modes of measures (`mean`, `var`, `cov`, `mode`) are
+  defined by BAT for MeasureBase types; they belong in MeasureBase.
