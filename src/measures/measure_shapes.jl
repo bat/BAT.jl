@@ -17,6 +17,7 @@ _product_varshape(mars) = _varshape_of_value(testvalue(productmeasure(mars)))
 
 _varshape_of_value(::Real) = ScalarShape{Real}()
 _varshape_of_value(x::AbstractArray{<:Real}) = ArrayShape{Real}(size(x)...)
+_varshape_of_value(x::NamedTuple) = NamedTupleShape(map(_varshape_of_value, x))
 _varshape_of_value(x) = valshape(x)
 
 
@@ -55,3 +56,9 @@ batmeasure(d::NamedTupleDist) = productmeasure(map(batmeasure, NamedTuple{keys(d
 # doesn't have to be inferred from a result value (which would lose
 # constant components):
 ValueShapes.resultshape(f::TransportFunction, @nospecialize(vs::AbstractValueShape)) = varshape(f.ν)
+
+
+# Shaping and unshaping change only the shape of the variates, not their
+# values, so they don't decide where a pushforward lives:
+_maps_to_uhc(::Base.Fix2{typeof(unshaped)}) = missing
+_maps_to_uhc(::AbstractValueShape) = missing

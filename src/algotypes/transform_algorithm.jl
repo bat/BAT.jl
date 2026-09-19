@@ -112,10 +112,15 @@ _intent_stdmeasure(::UniformBased, n::Integer) = StdUniform()^n
 _intent_stdmeasure(::NormalBased, n::Integer) = StdNormal()^n
 
 # Measures with value-dependent variate sizes (e.g. `mbind`) declare no
-# degrees of freedom, their variate shape supplies the size:
+# degrees of freedom, a test transport to a standard measure shows how many
+# they consume:
 _std_transform_dof(m::AbstractMeasure) = _std_transform_dof(m, getdof(m))
 _std_transform_dof(::AbstractMeasure, n::IntegerLike) = Int(n)
-_std_transform_dof(m::AbstractMeasure, ::MeasureBase.NoDOF) = totalndof(varshape(m))
+
+function _std_transform_dof(m::AbstractMeasure, ::MeasureBase.NoDOF)
+    z = MeasureBase.transport_to_std(StdNormal, m, testvalue(m))
+    return length(eachindex(z))
+end
 
 const _StdUniformMeasure = Union{StdUniform,PowerMeasure{StdUniform}}
 const _StdNormalMeasure = Union{StdNormal,PowerMeasure{StdNormal}}

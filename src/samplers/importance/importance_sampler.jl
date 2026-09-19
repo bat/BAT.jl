@@ -174,7 +174,7 @@ function evalmeasure_impl(
 
     ess = bat_eff_sample_size_impl(smpls, KishESS(), context).result
 
-    n_dof = some_dof(m)
+    n_dof = _dofval_or_nothing(getdof(m))
     dsm = DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 
     # A stored sample generation scheme did not produce the new empirical

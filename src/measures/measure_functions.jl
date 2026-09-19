@@ -15,9 +15,13 @@ export distprod
 
 @inline distprod(ds::NamedTuple) = productmeasure(map(_marginal_measure, ds))
 @inline distprod(;kwargs...) = distprod(values(kwargs))
-@inline distprod(Ds::AbstractArray) = productmeasure(map(batmeasure, Ds))
+@inline distprod(Ds::AbstractArray) = productmeasure(map(_marginal_measure, Ds))
 
+# Marginals are specified like the marginals of a `ValueShapes.NamedTupleDist`:
 @inline _marginal_measure(m::Union{AbstractMeasure,Distribution,NamedTuple}) = batmeasure(m)
+@inline _marginal_measure(s::IntervalSets.AbstractInterval) = batmeasure(Uniform(minimum(s), maximum(s)))
+@inline _marginal_measure(ms::AbstractArray{<:Union{AbstractMeasure,Distribution,IntervalSets.AbstractInterval}}) = productmeasure(map(_marginal_measure, ms))
+@inline _marginal_measure(x::ConstValueShape) = MeasureBase.Dirac(x.value)
 @inline _marginal_measure(x) = MeasureBase.Dirac(x)
 
 

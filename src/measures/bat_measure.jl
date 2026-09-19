@@ -168,6 +168,23 @@ has_uhc_support(m::WeightedMeasure) = has_uhc_support(m.base)
 has_uhc_support(m::MeasureBase.AbstractProductMeasure) = all(has_uhc_support, marginals(m))
 has_uhc_support(m::AsMeasure) = has_uhc_support(m.obj)
 
+# A pushforward lives where its transformation maps to. Transformations
+# that only change the variate shape pass the question on (`missing`), so
+# that the last step that determines the variate values decides:
+has_uhc_support(m::PushforwardMeasure) = _uhc_support_from(_maps_to_uhc(gettransform(m)), m)
+_uhc_support_from(known::Bool, ::PushforwardMeasure) = known
+_uhc_support_from(::Missing, m::PushforwardMeasure) = has_uhc_support(m.origin)
+
+_maps_to_uhc(::Any) = false
+_maps_to_uhc(f::TransportFunction) = has_uhc_support(f.ν)
+_maps_to_uhc(f::FunctionChain) = _chain_maps_to_uhc(fchainfs(f))
+_maps_to_uhc(f::ComposedFunction) = _chain_maps_to_uhc((f.inner, f.outer))
+
+function _chain_maps_to_uhc(fs::Tuple)
+    r = _maps_to_uhc(last(fs))
+    return ismissing(r) && length(fs) > 1 ? _chain_maps_to_uhc(Base.front(fs)) : r
+end
+
 has_uhc_support(::Distribution) = false
 has_uhc_support(d::Distribution{Univariate,Continuous}) = minimum(d) ≈ false && maximum(d) ≈ true
 has_uhc_support(d::ReshapedDist) = has_uhc_support(unshaped(d))
@@ -217,7 +234,7 @@ Statistics.var(m::MeasureBase.AbstractProductMeasure) = map(var, marginals(m))
 StatsBase.mode(m::MeasureBase.AbstractProductMeasure) = map(mode, marginals(m))
 
 Statistics.mean(m::MeasureBase.Dirac) = m.x
-Statistics.var(m::MeasureBase.Dirac) = map(zero, m.x)
+Statistics.var(m::MeasureBase.Dirac) = zero.(m.x)
 StatsBase.mode(m::MeasureBase.Dirac) = m.x
 
 Statistics.mean(m::WeightedMeasure) = mean(m.base)
