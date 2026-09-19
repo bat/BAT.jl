@@ -24,22 +24,16 @@ part of.
 
 # Implementation
 
-`f_hash` is the hash of the transformation function that produced the
-`transformed` side. It acts as a cheap compatibility witness when pairs
-are adopted into or consumed from an [`EvaluatedMeasure`](@ref): a
-non-matching hash results in an error, never in silently wrong content.
-`UInt(0)` means that no claim is made, either because there is no
-transformed side or because the claim was invalidated. The witness only
-covers the connection between the two sides, supplying a fitting main
-side is the responsibility of the supplier.
-
-`hash` may be specialized for transformation function types to make the
-witness value-based instead of object-based. Without such a
-specialization the fallback is `objectid`, so stamps do not survive
-serialization or a new session. This errs on the safe side, since on a
-mismatch the transformed content can simply be re-derived. The witness
-is a strong practical guard, not a proof of identity: a hash collision
-could in principle let incompatible content pass.
+`f_hash` is the [`BAT.transform_witness`](@ref) of the transformation
+function that produced the `transformed` side. It acts as a cheap
+compatibility witness when pairs are adopted into or consumed from an
+[`EvaluatedMeasure`](@ref): a non-matching witness results in an error,
+never in silently wrong content. `UInt(0)` means that no claim is made,
+either because there is no transformed side or because the claim was
+invalidated. The witness only covers the connection between the two
+sides, supplying a fitting main side is the responsibility of the
+supplier. It is a strong practical guard, not a proof of identity: a
+hash collision could in principle let incompatible content pass.
 """
 struct BispacedMeasure{M<:AbstractMeasure,T<:Union{AbstractMeasure,Nothing}} <: AbstractMeasure
     main::M
@@ -55,7 +49,43 @@ function BispacedMeasure(f_transform, main, context = get_batcontext())
     f_transform isa AbstractMeasure && throw(ArgumentError("The first argument of BispacedMeasure(f_transform, main) must be a transformation function, not a measure. To adopt an existing transformed representation, use BispacedMeasure(main, transformed, f_hash)."))
     m_main = batmeasure(main)
     m_transformed = bat_transform(f_transform, m_main, context).result
-    return BispacedMeasure(m_main, m_transformed, hash(f_transform))
+    return BispacedMeasure(m_main, m_transformed, transform_witness(f_transform))
+end
+
+
+"""
+    BAT.transform_witness(f)::UInt
+
+*BAT-internal, not part of stable public API.*
+
+Value-based hash of a transformation function, the compatibility witness
+of [`BAT.BispacedMeasure`](@ref).
+
+Measures and transports compare by value, but `hash` falls back to
+`objectid` for structs that hold mutable data (like the parameter arrays
+of a distribution), so their structure is hashed explicitly.
+"""
+function transform_witness end
+
+transform_witness(f) = _structural_hash(f, hash(:bat_transform_witness))
+
+const _StructurallyHashed = Union{
+    AbstractMeasure, TransportFunction, FunctionChain, ComposedFunction, Base.Fix1, Base.Fix2
+}
+
+_structural_hash(x, h::UInt) = hash(x, h)
+_structural_hash(x::_StructurallyHashed, h::UInt) = _fieldwise_hash(x, h)
+_structural_hash(xs::Tuple, h::UInt) = foldl((h_i, x) -> _structural_hash(x, h_i), xs, init = h)
+_structural_hash(xs::NamedTuple, h::UInt) = _structural_hash(values(xs), hash(keys(xs), h))
+_structural_hash(xs::AbstractArray{<:_StructurallyHashed}, h::UInt) =
+    foldl((h_i, x) -> _structural_hash(x, h_i), xs, init = hash(size(xs), h))
+
+function _fieldwise_hash(x::T, h::UInt) where T
+    h_x = hash(nameof(T), h)
+    for i in 1:fieldcount(T)
+        h_x = _structural_hash(getfield(x, i), h_x)
+    end
+    return h_x
 end
 
 
