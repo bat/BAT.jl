@@ -241,8 +241,7 @@ function bat_transform_impl(intent::Union{UniformBased,NormalBased}, density::Ab
     orig_likelihood = getlikelihood(density)
     new_prior, f_transform = bat_transform_impl(intent, orig_prior, algorithm, context)
     # The substituted prior has full support, the original one has not:
-    supported_likelihood = SupportedDensity(orig_likelihood, orig_prior)
-    new_likelihood = _precompose_density(supported_likelihood, inverse(f_transform))
+    new_likelihood = SupportedDensity(orig_likelihood, orig_prior, inverse(f_transform))
     (result = PosteriorMeasure(new_likelihood, new_prior), f_transform = f_transform)
 end
 
