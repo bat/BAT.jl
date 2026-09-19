@@ -29,11 +29,18 @@ Returns an object that represents the Lebesgue integral over a function
 in respect to s reference measure. It is also the non-normalized
 posterior measure that results from integrating the likelihood of
 a given observation in respect to a prior measure.
+
+!!! warning
+    Deprecated, use `MeasureBase.mintegrate` resp.
+    `MeasureBase.mintegrate_exp` instead.
 """
 function lbqintegral end
 export lbqintegral
 
-@inline lbqintegral(integrand, measure) = PosteriorMeasure(integrand, batmeasure(measure))
+@noinline function lbqintegral(integrand, measure)
+    Base.depwarn("`lbqintegral(integrand, measure)` is deprecated, use `mintegrate(integrand, batmeasure(measure))` (resp. `mintegrate_exp` for a log-density function) instead.", :lbqintegral)
+    PosteriorMeasure(integrand, batmeasure(measure))
+end
 
 
 """
@@ -42,19 +49,21 @@ export lbqintegral
 Performs a generalized monadic bind, in the functional programming sense,
 with a transition kernel `f_k`, a distribution `dist`, using `merge` to
 control the type of "flattening".
+
+!!! warning
+    Deprecated, use `MeasureBase.mbind` instead.
 """
 function distbind end
 export distbind
 
-function distbind(f_k, dist::Distribution, ::typeof(merge))
-    @argcheck dist isa NamedTupleDist
-    HierarchicalDistribution(f_k, dist)
+@noinline function distbind(f_k, dist::Distribution, f_c::Union{typeof(merge),typeof(vcat)})
+    Base.depwarn("`distbind(f_k, dist, f_c)` is deprecated, use `mbind(f_k, batmeasure(dist), f_c)` instead.", :distbind)
+    _check_distbind_args(dist, f_c)
+    mbind(ffcomp(batmeasure, f_k), batmeasure(dist), f_c)
 end
 
-function distbind(f_k, dist::Distribution, ::typeof(vcat))
-    @argcheck dist isa Union{UnivariateDistribution, MultivariateDistribution}
-    HierarchicalDistribution(f_k, dist)
-end
+_check_distbind_args(dist::Distribution, ::typeof(merge)) = @argcheck dist isa NamedTupleDist
+_check_distbind_args(dist::Distribution, ::typeof(vcat)) = @argcheck dist isa Union{UnivariateDistribution, MultivariateDistribution}
 
 
 # ToDo: Replace try/catch-on-MethodError in the fallbacks below with a
