@@ -56,6 +56,32 @@ gone, BAT builds on MeasureBase 0.15 instead.
 
 * `DistributionsAD` and `ForwardDiffPullbacks` are no longer dependencies.
 
+### Further behavior changes
+
+* `MeasureBase.basemeasure` of a posterior measure is its prior and
+  `MeasureBase.logdensity_def` is the log-density of its likelihood, so a
+  posterior behaves like the `mintegrate_exp(likelihood, prior)` it
+  represents.
+
+* `MeasureBase.weightedmeasure` no longer special-cases posterior measures,
+  it yields a `WeightedMeasure` for them like for any other measure. BAT's
+  own renormalization (e.g. `bat_sample` on an auto-renormalized target)
+  still rescales the likelihood and keeps the posterior structure.
+
+* `ValueShapes.varshape` and `ValueShapes.unshaped` are defined for
+  MeasureBase measures and derived from the measure structure.
+
+* `DensitySampleVector` accepts raw `NamedTuple` variates and shapes them,
+  instead of requiring variates with an explicit shape.
+
+* `EllipticalSliceMCMCSampling` requires a posterior measure whose prior
+  transforms to a standard multivariate normal, and says so instead of
+  failing later.
+
+* Algorithms that record the degrees of freedom of a measure (e.g. the
+  importance samplers) record `nothing` for measures that declare none,
+  instead of throwing.
+
 BAT.jl v5.0.0
 -------------
 

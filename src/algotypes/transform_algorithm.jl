@@ -111,9 +111,12 @@ end
 _intent_stdmeasure(::UniformBased, n::Integer) = StdUniform()^n
 _intent_stdmeasure(::NormalBased, n::Integer) = StdNormal()^n
 
-# Measures with value-dependent variate sizes (e.g. `mbind`) declare no
-# degrees of freedom, a test transport to a standard measure shows how many
-# they consume:
+# Measures without declared degrees of freedom (e.g. `mbind`) get theirs from
+# a test transport to a standard measure. That single test point decides the
+# size of the standard target, so measures whose variate size really does
+# depend on the value are not supported. MeasureBase declares `NoDOF` for all
+# binds alike, so there is no cheap way to tell the two apart and reject the
+# latter (see questions.md, Q7):
 _std_transform_dof(m::AbstractMeasure) = _std_transform_dof(m, getdof(m))
 _std_transform_dof(::AbstractMeasure, n::IntegerLike) = Int(n)
 

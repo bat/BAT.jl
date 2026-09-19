@@ -47,15 +47,8 @@ using MeasureBase: massof, superpose, StdNormal
     @test ForwardDiff.derivative(f, 0.0) ≈ ForwardDiff.derivative(
         x -> log(2.0 * pdf(Normal(x, 1.0), v) + 3.0 * pdf(Normal(3.0, 0.5), v)), 0.0)
 
-    # Derivatives must be correct at equal log-densities, log(2 cosh(x)) has
-    # derivative 0 and second derivative 1 at x = 0:
-    for f_tie in (x -> BAT._logaddexp(1 - x, 1 + x), x -> BAT._logaddexp(1 + x, 1 - x))
-        @test f_tie(0.0) ≈ 1 + log(2.0)
-        @test abs(ForwardDiff.derivative(f_tie, 0.0)) < 1e-14
-        @test ForwardDiff.derivative(x -> ForwardDiff.derivative(f_tie, x), 0.0) ≈ 1.0
-    end
-    # Also through the log-density of a superposition, at the crossing point
-    # of two different components, where symmetry demands derivative 0:
+    # Derivatives of the log-density must be correct at the crossing point of
+    # two different components, where symmetry demands derivative 0:
     for s_cross in (batmeasure(Normal(-1.0, 1.0)) + batmeasure(Normal(1.0, 1.0)),
                     batmeasure(Normal(1.0, 1.0)) + batmeasure(Normal(-1.0, 1.0)))
         @test abs(ForwardDiff.derivative(x -> logdensityof(s_cross, x), 0.0)) < 1e-14

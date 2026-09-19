@@ -7,7 +7,7 @@ using MeasureBase
 using ValueShapes, Distributions, ArraysOfArrays
 using ForwardDiff, Zygote
 using InverseFunctions, ChangesOfVariables
-using MeasureBase: StdNormal, TransportFunction, transport_to
+using MeasureBase: StdNormal, StdUniform, TransportFunction, transport_to
 
 using BAT: transform_samples
 
@@ -100,4 +100,11 @@ using BAT: _unshaped_trafo, _get_point_shape, _trafo_input_output_shape, _trafo_
 
     xs_complex = f_complex.(xs)
     _trafo_input_output_shape(identity, xs_complex)
+
+    # A transport into a measure of higher precision promotes the number type
+    # of the variates:
+    xs32 = VectorOfSimilarVectors(rand(Float32, 2, 20))
+    f32 = transport_to(batmeasure(MvNormal([0.4, 0.6], [2.0 1.2; 1.2 3.0])), StdUniform()^2)
+    @test @inferred(_trafo_output_numtype(f32, xs32)) == Float64
+    @test transform_samples(f32, xs32) isa VectorOfSimilarVectors{Float64}
 end

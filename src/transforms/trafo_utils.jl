@@ -294,9 +294,11 @@ _trafo_input_output_shape(f::TransportFunction, @nospecialize(xs::AbstractVector
 
 _unshaped_trafo(f::TransportFunction) = transport_to(unshaped(f.ν), unshaped(f.μ))
 
-# Type inference through a transport of a product measure with many
-# marginals fails, but transports don't change the precision:
-_trafo_output_numtype(f::TransportFunction, xs::AbstractVector) = realnumtype(eltype(xs))
+# Type inference through a transport of a product measure with many marginals
+# fails. A transport may change the precision, so the output number type is
+# the input number type promoted with that of the target measure's variates:
+_trafo_output_numtype(f::TransportFunction, xs::AbstractVector) =
+    promote_type(realnumtype(eltype(xs)), realnumtype(typeof(testvalue(f.ν))))
 
 
 # Transporting a sample transports its log-density value along:
