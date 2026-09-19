@@ -75,10 +75,12 @@ using StaticThings: IntegerLike, RealLike
 
 import MeasureBase
 using MeasureBase: AbstractMeasure, DensityMeasure, Likelihood
-using MeasureBase: basemeasure, getdof, likelihoodof, testvalue
+using MeasureBase: basemeasure, rootmeasure, getdof, likelihoodof, testvalue
 using MeasureBase: pushfwd
-using MeasureBase: transport_to, transport_origin, from_origin, to_origin
-using MeasureBase: StdMeasure, StdUniform, StdNormal
+using MeasureBase: transport_to, TransportFunction
+using MeasureBase: StdMeasure, StdUniform, StdNormal, StdExponential, StdLogistic, Half
+using MeasureBase: asmeasure, AsMeasure, Dirac, mbind, mintegrate, mintegrate_exp
+using MeasureBase: productmeasure, restrict, logdensities, insupport
 using MeasureBase: PowerMeasure, powermeasure, marginals
 using MeasureBase: WeightedMeasure, weightedmeasure
 using MeasureBase: SuperpositionMeasure, superpose
@@ -87,15 +89,9 @@ using MeasureBase: massof
 using MeasureBase: PushforwardMeasure, gettransform
 using MeasureBase: TransformVolCorr as PushFwdStyle, NoVolCorr as ChangeRootMeasure, WithVolCorr as KeepRootMeasure
 
-@static if isdefined(MeasureBase, :pwr_base)
-    import MeasureBase.pwr_base as _pwr_base
-    import MeasureBase.pwr_axes as _pwr_axes
-    import MeasureBase.pwr_size as _pwr_size
-else
-    _pwr_base(m::PowerMeasure) = m.parent
-    _pwr_axes(m::PowerMeasure) = m.axes
-    _pwr_size(m::PowerMeasure) = map(length, m.axes)
-end
+import MeasureBase.pwr_base as _pwr_base
+import MeasureBase.pwr_axes as _pwr_axes
+import MeasureBase.pwr_size as _pwr_size
 
 
 using IntervalSets: Domain

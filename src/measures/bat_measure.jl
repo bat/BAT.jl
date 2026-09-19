@@ -146,16 +146,9 @@ MeasureBase.basemeasure(m::BATMeasure) = throw(ArgumentError("basemeasure not im
 MeasureBase.rootmeasure(m::BATMeasure) = throw(ArgumentError("rootmeasure not implemented for $(typeof(m))"))
 MeasureBase.massof(::BATMeasure) = MeasureBase.UnknownMass()
 
-@static if isdefined(MeasureBase, :NoFastInsupport)
-    MeasureBase.insupport(m::BATMeasure, ::Any) = MeasureBase.NoFastInsupport{typeof(m)}()
-else
-    # Workaround:
-    MeasureBase.insupport(m::BATMeasure, ::Any) = true
-end
+MeasureBase.insupport(m::BATMeasure, ::Any) = MeasureBase.NoFastInsupport{typeof(m)}()
 
-@static if isdefined(MeasureBase, :localmeasure)
-    MeasureBase.localmeasure(m::BATMeasure, ::Any) = m
-end
+MeasureBase.localmeasure(m::BATMeasure, ::Any) = m
 
 
 # ToDo: Specialize for (e.g.) DensitySampleMeasure:
@@ -233,7 +226,7 @@ Check whether a measure-like object `m` supports `rand`.
 @inline supports_rand(::AbstractMeasure) = false
 @inline supports_rand(::StdMeasure) = true
 @inline supports_rand(m::WeightedMeasure) = supports_rand(m.base)
-@inline supports_rand(m::PushforwardMeasure) = !(gettransform(m) isa NoInverse) && supports_rand(transport_origin(m))
+@inline supports_rand(m::PushforwardMeasure) = !(gettransform(m) isa NoInverse) && supports_rand(m.origin)
 
 
 """
