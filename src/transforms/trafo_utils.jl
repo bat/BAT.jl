@@ -287,3 +287,24 @@ function _transform_dsv!!(f, dsv_y::DensitySampleVector, dsv_x::DensitySampleVec
 
     return dsv_y
 end
+
+
+_trafo_input_output_shape(f::TransportFunction, @nospecialize(xs::AbstractVector)) =
+    (varshape(f.μ), varshape(f.ν))
+
+_unshaped_trafo(f::TransportFunction) = transport_to(unshaped(f.ν), unshaped(f.μ))
+
+# Type inference through a transport of a product measure with many
+# marginals fails, but transports don't change the precision:
+_trafo_output_numtype(f::TransportFunction, xs::AbstractVector) = realnumtype(eltype(xs))
+
+
+# Transporting a sample transports its log-density value along:
+
+function (f::TransportFunction)(s::DensitySample)
+    v, ladj = with_logabsdet_jacobian(f, s.v)
+    DensitySample(v, s.logd - ladj, s.weight, s.info, s.aux)
+end
+
+Base.Broadcast.broadcasted(f::TransportFunction, smpls::DensitySampleVector) = transform_samples(f, smpls)
+Base.Broadcast.broadcasted(f::TransportFunction, xs::ShapedAsNTArray) = transform_samples(f, xs)

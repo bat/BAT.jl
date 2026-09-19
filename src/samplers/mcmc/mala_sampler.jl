@@ -67,7 +67,7 @@ _MALAGradCache(::AbstractVector{<:AbstractVector{P}}) where {P<:Real} =
 struct MALAProposalState{
     TA<:Real,
     TAI<:Tuple{Vararg{Real}},
-    Q<:BATMeasure,
+    Q<:AbstractMeasure,
     G<:Function,
     R<:Real,
     C<:_MALAGradCache,
@@ -108,7 +108,7 @@ bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, proposal::MALAProposal) 
 
 function _create_proposal_state(
     proposal::MALAProposal,
-    target::BATMeasure,
+    target::AbstractMeasure,
     context::BATContext,
     v_init::AbstractVector{PV},
     f_transform::Function,
@@ -159,7 +159,7 @@ end
 # distribution: the forward and reverse innovations are recovered from
 # the transition and the respective drifts, and the common √τ scale
 # Jacobians cancel:
-function _mala_log_proposal_ratio(proposal_measure::BATMeasure, τ::Real, transition, grads_curr, grads_prop)
+function _mala_log_proposal_ratio(proposal_measure::AbstractMeasure, τ::Real, transition, grads_curr, grads_prop)
     logd = logdensityof(proposal_measure)
     ξ_fwd = (transition .- τ/2 .* grads_curr) ./ sqrt(τ)
     ξ_rev = (.-transition .- τ/2 .* grads_prop) ./ sqrt(τ)

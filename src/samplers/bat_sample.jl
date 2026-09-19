@@ -54,7 +54,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, algorithm::IIDSampling, context:
     rng = get_rng(context)
     n = algorithm.nsamples
 
-    v = rand(rng, m^n)
+    v = _canonical_variates(rand(rng, m^n), varshape(m))
     # ToDo: Parallelize:
     logd = map(logdensityof(m), v)
 
@@ -62,7 +62,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, algorithm::IIDSampling, context:
     info = adapt(cunit, fill(nothing, length(eachindex(logd))))
     aux = adapt(cunit, fill(nothing, length(eachindex(logd))))
 
-    smpls = DensitySampleVector((v, logd, weight, info, aux))
+    smpls = DensitySampleVector(v = v, logd = logd, weight = weight, info = info, aux = aux)
     dsm = DensitySampleMeasure(smpls, dof = _dofval_or_nothing(getdof(m)), ess = length(smpls))
     # A stored sample generation scheme did not produce the new empirical
     # content, so it is cleared conservatively (see the EvaluatedMeasure

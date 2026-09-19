@@ -9,7 +9,8 @@ using HeterogeneousComputing
 
 BAT.pkgext(::Val{:NestedSamplers}) = BAT.PackageExtension{:NestedSamplers}()
 
-using BAT: MeasureLike, BATMeasure, unevaluated
+using BAT: MeasureLike, unevaluated
+using MeasureBase: AbstractMeasure
 using BAT: ENSBound, ENSNoBounds, ENSEllipsoidBound, ENSMultiEllipsoidBound
 using BAT: ENSProposal, ENSUniformly, ENSAutoProposal, ENSRandomWalk, ENSSlice 
 

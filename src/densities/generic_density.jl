@@ -71,3 +71,43 @@ function Base.show(io::IO, density::LFDensityWithGrad)
     show(io, density.logf)
     print(io, ")")
 end
+
+
+"""
+    BAT.SupportedDensity(density, support::MeasureBase.AbstractMeasure, f_to_support)
+
+*BAT-internal, not part of stable public API.*
+
+A density that is zero wherever `f_to_support(v)` lies outside the support
+of the measure `support`.
+
+Substituting the prior of a posterior measure (see [`PriorSubstitution`](@ref))
+drops the support of the original prior: transports map the boundary of that
+support to infinite variates, at which a likelihood need not be defined.
+Carrying the original support along with the likelihood keeps the posterior
+density zero there instead of undefined.
+"""
+struct SupportedDensity{D,M<:AbstractMeasure,G} <: BATDensity
+    density::D
+    support::M
+    f_to_support::G
+end
+
+SupportedDensity(density, support::AbstractMeasure) = SupportedDensity(density, support, identity)
+
+function DensityInterface.logdensityof(d::SupportedDensity, v)
+    logd = logdensityof(d.density, v)
+    R = float(typeof(logd))
+    # TODO(new-mb): Avoid evaluating `f_to_support` in addition to the
+    # precomposed density function (see questions.md, Q1).
+    # `insupport` may be undecidable (`NoFastInsupport`), only a definite
+    # `false` masks the density out:
+    return ifelse(insupport(d.support, d.f_to_support(v)) == false, R(-Inf), R(logd))
+end
+
+# The support stays in its own space, the precomposition is tracked separately:
+_precompose_density(d::SupportedDensity, g) =
+    SupportedDensity(_precompose_density(d.density, g), d.support, ffcomp(d.f_to_support, g))
+
+_get_model(d::SupportedDensity) = _get_model(d.density)
+_get_observation(d::SupportedDensity) = _get_observation(d.density)

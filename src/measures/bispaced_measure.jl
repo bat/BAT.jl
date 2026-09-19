@@ -2,7 +2,7 @@
 
 
 """
-    struct BispacedMeasure <: BATMeasure
+    struct BispacedMeasure <: AbstractMeasure
 
 *BAT-internal, not part of stable public API.*
 
@@ -12,9 +12,9 @@ of it in a transformed space.
 Constructors:
 
 ```julia
-BispacedMeasure(main::BATMeasure)  # no transformed representation
+BispacedMeasure(main::AbstractMeasure)  # no transformed representation
 BispacedMeasure(f_transform, main)  # transformed side generated via f_transform
-BispacedMeasure(main::BATMeasure, transformed::Union{BATMeasure,Nothing}, f_hash::UInt)
+BispacedMeasure(main::AbstractMeasure, transformed::Union{AbstractMeasure,Nothing}, f_hash::UInt)
 ```
 
 As a measure, a `BispacedMeasure` behaves like its `main` side. The pair
@@ -41,18 +41,18 @@ mismatch the transformed content can simply be re-derived. The witness
 is a strong practical guard, not a proof of identity: a hash collision
 could in principle let incompatible content pass.
 """
-struct BispacedMeasure{M<:BATMeasure,T<:Union{BATMeasure,Nothing}} <: BATMeasure
+struct BispacedMeasure{M<:AbstractMeasure,T<:Union{AbstractMeasure,Nothing}} <: AbstractMeasure
     main::M
     transformed::T
     f_hash::UInt
 end
 
-BispacedMeasure(main::BATMeasure) = BispacedMeasure(main, nothing, UInt(0))
+BispacedMeasure(main::AbstractMeasure) = BispacedMeasure(main, nothing, UInt(0))
 
 # Self-building form: the transformed side is the transform result by
 # construction, stamped with the hash of the very transformation used:
 function BispacedMeasure(f_transform, main, context = get_batcontext())
-    f_transform isa BATMeasure && throw(ArgumentError("The first argument of BispacedMeasure(f_transform, main) must be a transformation function, not a measure. To adopt an existing transformed representation, use BispacedMeasure(main, transformed, f_hash)."))
+    f_transform isa AbstractMeasure && throw(ArgumentError("The first argument of BispacedMeasure(f_transform, main) must be a transformation function, not a measure. To adopt an existing transformed representation, use BispacedMeasure(main, transformed, f_hash)."))
     m_main = batmeasure(main)
     m_transformed = bat_transform(f_transform, m_main, context).result
     return BispacedMeasure(m_main, m_transformed, hash(f_transform))
@@ -61,7 +61,7 @@ end
 
 _as_bispaced(::Nothing) = nothing
 _as_bispaced(p::BispacedMeasure) = p
-_as_bispaced(m::BATMeasure) = BispacedMeasure(m)
+_as_bispaced(m::AbstractMeasure) = BispacedMeasure(m)
 
 _strip_annex(::Nothing) = nothing
 _strip_annex(p::BispacedMeasure) = isnothing(p.transformed) ? p : BispacedMeasure(p.main)
@@ -92,7 +92,7 @@ getess(p::BispacedMeasure) = getess(p.main)
 has_uhc_support(p::BispacedMeasure) = has_uhc_support(p.main)
 supports_rand(p::BispacedMeasure) = supports_rand(p.main)
 
-Base.rand(gen::GenContext, p::BispacedMeasure) = rand(gen, p.main)
+MeasureBase.rand_impl(gen::GenContext, p::BispacedMeasure) = rand(gen, p.main)
 _approx_max_logd(p::BispacedMeasure) = _approx_max_logd(p.main)
 
 # The transformed-space representation is already unshaped. Reparametrizing

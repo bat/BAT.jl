@@ -27,13 +27,13 @@ end
 
 Constructors:
 
-* ```$(FUNCTIONNAME)(func::Function, measure::AbstractMeasure, v::Any, ret::Any)```
+* ```$(FUNCTIONNAME)(func::Function, measure, v::Any, ret::Any)```
 
 Fields:
 
 $(TYPEDFIELDS)
 """
-struct EvalException{F<:Function,D<:AbstractMeasure,V,C} <: Exception
+struct EvalException{F<:Function,D,V,C} <: Exception
     "Density evaluation function that failed."
     func::F
 
@@ -90,21 +90,17 @@ function checked_logdensityof(target, v)
         @rethrow_logged EvalException(logdensityof, target, v, err)
     end
 
-    _check_density_logval(target, v, logval)
-
-    #R = density_valtype(measure, v_shaped)
-    #return convert(R, logval)::R
-    return logval
+    return _check_density_logval(target, v, logval)
 end
 
 ZygoteRules.@adjoint checked_logdensityof(target, v) = begin
     check_variate(varshape(target), v)
-    logval, back = try
+    raw_logval, back = try
         ZygoteRules.pullback(logdensityof(target), v)
     catch err
         @rethrow_logged EvalException(logdensityof, target, v, err)
     end
-    _check_density_logval(target, v, logval)
+    logval = _check_density_logval(target, v, raw_logval)
     function eval_logval_pullback(logval::Real)
         tangents = back(logval)
         tangent = isnothing(tangents) ? nothing : first(tangents)
@@ -114,16 +110,26 @@ ZygoteRules.@adjoint checked_logdensityof(target, v) = begin
 end
 
 function _check_density_logval(target, v, logval::Real)
-    if isnan(logval) || !(logval < float(typeof(logval))(+Inf))
+    R = float(typeof(logval))
+    if isnan(logval) || !(logval < R(+Inf))
+        # Algorithms explore the variate space, a non-finite variate is not
+        # a model error, it simply carries no probability mass:
+        _nonfinite_variate(v) && return log_zero_density(R)
         @throw_logged(EvalException(logdensityof, target, v, logval))
     end
-    nothing
+    return logval
 end
+
+_nonfinite_variate(x::Real) = !isfinite(x)
+_nonfinite_variate(x::AbstractArray{<:Real}) = !all(isfinite, x)
+_nonfinite_variate(x::Union{Tuple,NamedTuple}) = any(_nonfinite_variate, values(x))
+_nonfinite_variate(x::ShapedAsNT) = _nonfinite_variate(unshaped(x))
+_nonfinite_variate(::Any) = false
 
 function ChainRulesCore.rrule(::typeof(_check_density_logval), target, v::Any, logval::Real)
     return _check_density_logval(target, v, logval), _check_density_logval_pullback
 end
-_check_density_logval_pullback(::Any) = (NoTangent(), NoTangent(), ZeroTangent(), ZeroTangent())
+_check_density_logval_pullback(Δ::Any) = (NoTangent(), NoTangent(), ZeroTangent(), Δ)
 
 
 

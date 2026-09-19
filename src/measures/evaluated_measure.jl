@@ -45,7 +45,7 @@ end
 
 
 """
-    struct EvaluatedMeasure <: BATMeasure
+    struct EvaluatedMeasure <: AbstractMeasure
 
 Combines a measure with samples and other information on it.
 
@@ -181,7 +181,7 @@ struct EvaluatedMeasure{
     U<:Union{Real,MeasureBase.AbstractUnknownMass},
     P<:Union{AbstractVector,Nothing},
     G<:Union{AbstractSampleGenerator,Nothing},
-} <: BATMeasure
+} <: AbstractMeasure
     unevaluated::M
     transform_intent::TI
     f_transform::TF
@@ -224,12 +224,12 @@ function EvaluatedMeasure(
     transform_intent::Union{TransformIntent,Unchanged} = unchanged,
     f_transform = unchanged,
     empirical::Union{DensitySampleMeasure,DensitySampleVector,BispacedMeasure,Nothing,Unchanged} = unchanged,
-    approx::Union{BATMeasure,Nothing,Unchanged} = unchanged,
+    approx::Union{AbstractMeasure,Nothing,Unchanged} = unchanged,
     dof::Union{IntegerLike,MeasureBase.NoDOF,Nothing,Unchanged} = unchanged,
     mass::Union{RealLike,MeasureBase.AbstractUnknownMass,Unchanged} = unchanged,
     modes::Union{AbstractVector,Nothing,Unchanged} = unchanged,
     samplegen::Union{AbstractSampleGenerator,Nothing,Unchanged} = unchanged,
-    transformed::Union{BATMeasure,Nothing,Unchanged} = unchanged,
+    transformed::Union{AbstractMeasure,Nothing,Unchanged} = unchanged,
     evalinfo::Union{MeasureEvalInfo,Nothing,Unchanged} = unchanged
 )
     em = convert(EvaluatedMeasure, measurelike)
@@ -383,7 +383,7 @@ _as_empirical_pair(p::BispacedMeasure) = p
 _as_empirical_pair(x::Union{DensitySampleMeasure,DensitySampleVector}) = BispacedMeasure(convert(DensitySampleMeasure, x))
 
 _getdof_or_nothing(::Nothing) = nothing
-_getdof_or_nothing(measure::BATMeasure) = _dofval_or_nothing(getdof(measure))
+_getdof_or_nothing(measure::AbstractMeasure) = _dofval_or_nothing(getdof(measure))
 
 _dofval_or_nothing(::Nothing) = nothing
 _dofval_or_nothing(dof::IntegerLike) = dof
@@ -391,7 +391,7 @@ _dofval_or_nothing(::MeasureBase.NoDOF) = nothing
 _dofval_or_nothing(dof) = throw(ArgumentError("Degrees of freedom must be an integer or MeasureBase.NoDOF, not $(nameof(typeof(dof)))."))
 
 _getmass_or_unknown(::Nothing) = MeasureBase.UnknownMass()
-_getmass_or_unknown(measure::BATMeasure) = massof(measure)
+_getmass_or_unknown(measure::AbstractMeasure) = massof(measure)
 
 
 @inline unevaluated(em::EvaluatedMeasure) = em.unevaluated.main
@@ -491,7 +491,7 @@ DensityInterface.logdensityof(em::EvaluatedMeasure) = logdensityof(unevaluated(e
 
 # Random generation uses the underlying measure, never the empirical
 # content (`rand` promises truly IID samples):
-Base.rand(gen::GenContext, em::EvaluatedMeasure) = rand(gen, unevaluated(em))
+MeasureBase.rand_impl(gen::GenContext, em::EvaluatedMeasure) = rand(gen, unevaluated(em))
 supports_rand(em::EvaluatedMeasure) = supports_rand(unevaluated(em))
 
 
@@ -759,8 +759,8 @@ function _viewrep_empirical(dsm::DensitySampleMeasure, smpls_z::DensitySampleVec
     BispacedMeasure(dsm, dsm_z, hash(f_pretransform))
 end
 
-_viewrep_measure(::BATMeasure, ::DoNotTransform) = unchanged
-_viewrep_measure(transformed_m::BATMeasure, ::TransformIntent) = unevaluated(transformed_m)
+_viewrep_measure(::AbstractMeasure, ::DoNotTransform) = unchanged
+_viewrep_measure(transformed_m::AbstractMeasure, ::TransformIntent) = unevaluated(transformed_m)
 
 _viewrep_f(::Any, ::DoNotTransform) = unchanged
 _viewrep_f(f_pretransform::Any, ::TransformIntent) = f_pretransform

@@ -5,15 +5,20 @@
     distprod(();a = some_dist, b = some_other_dist, ...))
     distprod([dist1, dist2, dist2, ...])
 
-Generate a product of distributions, returning either a distribution
-that has NamedTuples as variates, or arrays as variates.
+Generate a product measure, with either NamedTuples or arrays as variates.
+
+Marginals that are not measure-like are taken to be constants, they become
+`MeasureBase.Dirac` marginals.
 """
 function distprod end
 export distprod
 
-@inline distprod(ds::NamedTuple) = ValueShapes.NamedTupleDist(ds)
-@inline distprod(;kwargs...) = ValueShapes.NamedTupleDist(;kwargs...)
-@inline distprod(Ds::AbstractArray) = Distributions.product_distribution(Ds)
+@inline distprod(ds::NamedTuple) = productmeasure(map(_marginal_measure, ds))
+@inline distprod(;kwargs...) = distprod(values(kwargs))
+@inline distprod(Ds::AbstractArray) = productmeasure(map(batmeasure, Ds))
+
+@inline _marginal_measure(m::Union{AbstractMeasure,Distribution,NamedTuple}) = batmeasure(m)
+@inline _marginal_measure(x) = MeasureBase.Dirac(x)
 
 
 """
@@ -87,10 +92,10 @@ function _cov_with_fallback(d::MultivariateDistribution, n::Integer)
 end
 
 _approx_cov(target::Distribution, n) = _cov_with_fallback(target, n)
-_approx_cov(target::BATDistMeasure, n) = _cov_with_fallback(Distribution(target), n)
+_approx_cov(target::AsMeasure{<:Distribution}, n) = _cov_with_fallback(target.obj, n)
 _approx_cov(target::AbstractPosteriorMeasure, n) = _approx_cov(getprior(target), n)
-_approx_cov(target::BATWeightedMeasure, n) = _approx_cov(basemeasure(target), n)
-_approx_cov(target::BATMeasure, n) = cov(rand(_bat_determ_rng(), target^10^5))
+_approx_cov(target::WeightedMeasure, n) = _approx_cov(basemeasure(target), n)
+_approx_cov(target::AbstractMeasure, n) = cov(rand(_bat_determ_rng(), target^10^5))
 
 
 
@@ -127,7 +132,7 @@ function _mean_with_fallback(d::MultivariateDistribution, n::Integer)
 end
 
 _approx_mean(target::Distribution, n) = _mean_with_fallback(target, n)
-_approx_mean(target::BATDistMeasure, n) = _mean_with_fallback(Distribution(target), n)
+_approx_mean(target::AsMeasure{<:Distribution}, n) = _mean_with_fallback(target.obj, n)
 _approx_mean(target::AbstractPosteriorMeasure, n) = _approx_mean(getprior(target), n)
-_approx_mean(target::BATWeightedMeasure, n) = _approx_mean(basemeasure(target), n)
-_approx_mean(target::BATMeasure, n) = mean(rand(_bat_determ_rng(), target^10^5))
+_approx_mean(target::WeightedMeasure, n) = _approx_mean(basemeasure(target), n)
+_approx_mean(target::AbstractMeasure, n) = mean(rand(_bat_determ_rng(), target^10^5))

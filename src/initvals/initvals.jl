@@ -10,7 +10,7 @@ _maycopy_val(tpl::Tuple) = map(_maycopy_val, tpl)
 _maycopy_val(nt::NamedTuple) = map(_maycopy_val, nt)
 
 
-function _rand_v_for_target(target::BATMeasure, src::AbstractMeasure, n::Integer, context::BATContext)
+function _rand_v_for_target(target::AbstractMeasure, src::AbstractMeasure, n::Integer, context::BATContext)
     conv_src = batmeasure(src)
     xs = samplesof(evalmeasure(conv_src, IIDSampling(nsamples = n), context)).v
     vs_target = varshape(batmeasure(target))
@@ -19,11 +19,11 @@ function _rand_v_for_target(target::BATMeasure, src::AbstractMeasure, n::Integer
 end
 
 
-function _rand_v_for_target(::BATMeasure, src::DensitySampleMeasure, n::Integer, context::BATContext)
+function _rand_v_for_target(::AbstractMeasure, src::DensitySampleMeasure, n::Integer, context::BATContext)
     rand(get_gencontext(context), src^n)
 end
 
-function _rand_v_for_target(::BATMeasure, src::DensitySampleVector, n::Integer, context::BATContext)
+function _rand_v_for_target(::AbstractMeasure, src::DensitySampleVector, n::Integer, context::BATContext)
     return samplesof(evalmeasure(src, RandResampling(nsamples = n), context)).v
 end
 
@@ -102,14 +102,14 @@ function bat_initval_impl(target::MeasureLike, n::Integer, ::InitFromTarget, con
 end
 
 
-function bat_initval_impl(m::BATPushFwdMeasure, algorithm::InitFromTarget, context::BATContext)
+function bat_initval_impl(m::PushforwardMeasure, algorithm::InitFromTarget, context::BATContext)
     f, m_orig = gettransform(m), m.origin
     v_orig = bat_initval_impl(m_orig, algorithm, context).result
     v = f(v_orig)
     (result = v,)
 end
 
-function bat_initval_impl(m::BATPushFwdMeasure, n::Integer, algorithm::InitFromTarget, context::BATContext)
+function bat_initval_impl(m::PushforwardMeasure, n::Integer, algorithm::InitFromTarget, context::BATContext)
     f, m_orig = gettransform(m), m.origin
     vs_orig = bat_initval_impl(m_orig, n, algorithm, context).result
     vs = BAT.transform_samples(f, vs_orig)
