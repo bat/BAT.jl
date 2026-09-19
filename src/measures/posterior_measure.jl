@@ -20,9 +20,18 @@ MeasureBase.testvalue(::Type{T}, m::AbstractPosteriorMeasure) where {T} = testva
 
 supports_rand(::AbstractPosteriorMeasure) = false
 
-# Reweighting a posterior rescales its likelihood, so that the result is a
-# posterior measure again:
-function MeasureBase.weightedmeasure(logweight::Real, m::AbstractPosteriorMeasure)
+"""
+    BAT._bat_weightedmeasure(logweight::Real, m::AbstractMeasure)
+
+*BAT-internal, not part of stable public API.*
+
+Reweight `m` by `exp(logweight)`, like `MeasureBase.weightedmeasure`, but
+preserving BAT's measure structures: reweighting a posterior rescales its
+likelihood, so that the result is a posterior measure again.
+"""
+_bat_weightedmeasure(logweight::Real, m::AbstractMeasure) = weightedmeasure(logweight, m)
+
+function _bat_weightedmeasure(logweight::Real, m::AbstractPosteriorMeasure)
     likelihood, prior = getlikelihood(m), getprior(m)
     new_likelihood = logfuncdensity(ffcomp(Base.Fix2(+, logweight), logdensityof(likelihood)))
     PosteriorMeasure(new_likelihood, prior)

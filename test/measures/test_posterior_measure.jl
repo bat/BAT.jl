@@ -5,6 +5,7 @@ using Test
 
 using DensityInterface, Distributions, FunctionChains, ValueShapes
 using PropertyFunctions: PropertyFunction, @pf
+using MeasureBase: WeightedMeasure, weightedmeasure
 import ForwardDiff, Zygote
 
 @testset "posterior_measure" begin
@@ -55,6 +56,22 @@ import ForwardDiff, Zygote
         @test g(q) == pf(q)
 
         @test logdensityof(BAT.getlikelihood(PosteriorMeasure(f_likelihood, prior)), q) ≈ logdensityof(ℒ, pf(q))
+    end
+
+    @testset "reweighting" begin
+        posterior = PosteriorMeasure(ℒ ∘ reparam, prior)
+        logw = 1.7
+
+        # `weightedmeasure` keeps MeasureBase's generic semantics:
+        wm = weightedmeasure(logw, posterior)
+        @test wm isa WeightedMeasure
+        @test logdensityof(wm, q) ≈ logdensityof(posterior, q) + logw
+
+        # BAT's own reweighting rescales the likelihood instead:
+        bwm = BAT._bat_weightedmeasure(logw, posterior)
+        @test bwm isa PosteriorMeasure
+        @test BAT.getprior(bwm) === BAT.getprior(posterior)
+        @test logdensityof(bwm, q) ≈ logdensityof(posterior, q) + logw
     end
 
     @testset "AD through measure construction" begin
