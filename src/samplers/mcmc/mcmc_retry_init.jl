@@ -47,7 +47,7 @@ end
 
 function mcmc_init!(
     samplingalg::TransformedMCMC,
-    target::BATMeasure,
+    target::AbstractMeasure,
     init_alg::MCMCRetryInit,
     callback::Function,
     context::BATContext

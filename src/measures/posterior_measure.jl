@@ -2,20 +2,29 @@
 
 
 """
-    abstract type AbstractPosteriorMeasure <: BATMeasure end
+    abstract type AbstractPosteriorMeasure <: AbstractMeasure end
 
 Abstract type for posterior probability densities.
 """
-abstract type AbstractPosteriorMeasure <: BATMeasure end
+abstract type AbstractPosteriorMeasure <: AbstractMeasure end
 export AbstractPosteriorMeasure
 
-MeasureBase.basemeasure(m::AbstractPosteriorMeasure) = MeasureBase.basemeasure(getprior(m))
+# Structurally a posterior is the prior weighted by the likelihood, like
+# `mintegrate_exp(likelihood, prior)`:
+MeasureBase.basemeasure(m::AbstractPosteriorMeasure) = getprior(m)
+MeasureBase.logdensity_def(m::AbstractPosteriorMeasure, v) = logdensityof(getlikelihood(m), v)
+MeasureBase.insupport(m::AbstractPosteriorMeasure, v) = insupport(getprior(m), v)
 MeasureBase.getdof(m::AbstractPosteriorMeasure) = MeasureBase.getdof(getprior(m))
+MeasureBase.testvalue(::Type{T}, m::AbstractPosteriorMeasure) where {T} = testvalue(T, getprior(m))
 
-function _bat_weightedmeasure(logweight::Real, m::AbstractPosteriorMeasure)
+supports_rand(::AbstractPosteriorMeasure) = false
+
+# Reweighting a posterior rescales its likelihood, so that the result is a
+# posterior measure again:
+function MeasureBase.weightedmeasure(logweight::Real, m::AbstractPosteriorMeasure)
     likelihood, prior = getlikelihood(m), getprior(m)
     new_likelihood = logfuncdensity(ffcomp(Base.Fix2(+, logweight), logdensityof(likelihood)))
-    lbqintegral(new_likelihood, prior)
+    PosteriorMeasure(new_likelihood, prior)
 end
 
 
@@ -32,7 +41,7 @@ function getlikelihood end
 
 
 """
-    getprior(posterior::AbstractPosteriorMeasure)::BATMeasure
+    getprior(posterior::AbstractPosteriorMeasure)::AbstractMeasure
 
 *BAT-internal, not part of stable public API.*
 
@@ -153,7 +162,7 @@ function _split_density_transform(fc::FunctionChain{<:Tuple})
 end
 
 function PosteriorMeasure(
-    likelihood::Any, prior::Union{AbstractMeasure,Distribution}
+    likelihood::Any, prior::Union{AbstractMeasure,Distribution,NamedTuple}
 )
     li = _convert_likelihood(likelihood, DensityKind(likelihood))
     pr = batmeasure(prior)
@@ -163,7 +172,6 @@ end
 
 
 PosteriorMeasure(μ::DensityMeasure) = PosteriorMeasure(μ.f, μ.base)
-Base.convert(::Type{BATMeasure}, μ::DensityMeasure) = PosteriorMeasure(μ)
 
 
 getlikelihood(posterior::PosteriorMeasure) = posterior.likelihood
@@ -181,7 +189,7 @@ _unshaped_with(posterior::PosteriorMeasure, ::ArrayShape{<:Real,1}) = posterior
 
 function _unshaped_with(posterior::PosteriorMeasure, shp::AbstractValueShape)
     li, pr = getlikelihood(posterior), getprior(posterior)
-    lbqintegral(_precompose_density(li, shp), unshaped(pr, shp))
+    PosteriorMeasure(_precompose_density(li, shp), unshaped(pr, shp))
 end
 
 

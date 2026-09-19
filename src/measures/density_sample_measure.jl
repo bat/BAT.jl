@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 """
-    struct DensitySampleMeasure{P,T<:Real,W<:Real,...} <: BATMeasure
+    struct DensitySampleMeasure{P,T<:Real,W<:Real,...} <: AbstractMeasure
 
 Represents an
 [Empirical Measure](https://en.wikipedia.org/wiki/Empirical_measure)
@@ -56,7 +56,7 @@ struct DensitySampleMeasure{
     N<:Union{IntegerLike,Nothing},
     E<:Union{Real,Nothing},
     U<:Union{Real,MeasureBase.AbstractUnknownMass}
-} <: BATMeasure
+} <: AbstractMeasure
     _smpls::SV
     _cumulative_weight::CW
     _dof::N
@@ -91,7 +91,7 @@ end
 # small and very large masses representable without extended-range number
 # types. Uncertainties are transported to the log scale to first order:
 _canonical_mass(mass::ULogarithmic) = mass
-_canonical_mass(mass::Real) = exp(ULogarithmic, Float64(log(mass)))
+_canonical_mass(mass::Real) = exp(ULogarithmic, Float64(log(asnonstatic(mass))))
 function _canonical_mass(mass::Measurements.Measurement)
     val = Measurements.value(mass)
     unc = Measurements.uncertainty(mass)
@@ -100,7 +100,7 @@ end
 _canonical_mass(mass::MeasureBase.AbstractUnknownMass) = mass
 
 Base.convert(::Type{DensitySampleMeasure}, smpls::DensitySampleVector) = DensitySampleMeasure(smpls)
-Base.convert(::Type{BATMeasure}, smpls::DensitySampleVector) = DensitySampleMeasure(smpls)
+Base.convert(::Type{AbstractMeasure}, smpls::DensitySampleVector) = DensitySampleMeasure(smpls)
 
 DensitySampleVector(m::DensitySampleMeasure) = deepcopy(samplesof(m))
 Base.convert(::Type{DensitySampleVector}, m::DensitySampleMeasure) = DensitySampleVector(m)
@@ -199,7 +199,7 @@ function Base.show(io::IO, ::MIME"text/plain", dsm::DensitySampleMeasure)
  end
 
 
-function Base.rand(gen::GenContext, dsm::DensitySampleMeasure)
+function MeasureBase.rand_impl(gen::GenContext, dsm::DensitySampleMeasure)
     idx = _rand_subsample_idx(gen, dsm)
     return gen_adapt(gen, dsm._smpls.v[idx])
 end

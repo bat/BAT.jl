@@ -32,7 +32,6 @@ using DoubleFloats
 using ElasticArrays
 using FFTW
 using FillArrays
-using ForwardDiffPullbacks
 using FunctionChains
 using IntervalSets
 using InverseFunctions
@@ -53,7 +52,6 @@ using Tables
 using ValueShapes
 
 import ChainRulesCore
-import DistributionsAD
 import EmpiricalDistributions
 import HypothesisTests
 import Measurements
@@ -71,7 +69,7 @@ using HeterogeneousComputing: AbstractComputeUnit, CPUnit
 using HeterogeneousComputing: GenContext, get_rng, get_precision, get_compute_unit, get_gencontext, allocate_array
 
 import StaticThings
-using StaticThings: IntegerLike, RealLike
+using StaticThings: IntegerLike, RealLike, asnonstatic
 
 import MeasureBase
 using MeasureBase: AbstractMeasure, DensityMeasure, Likelihood
@@ -108,8 +106,7 @@ using LogarithmicNumbers: ULogarithmic
 # For Dual specializations:
 import ForwardDiff
 
-# For StandardMvNormal:
-using IrrationalConstants: log2π, invsqrt2π
+using IrrationalConstants: log2π
 
 
 include("utils/utils.jl")
@@ -141,7 +138,7 @@ include("deprecations.jl")
 @compat public enable_error_log, error_log, EvalException
 @compat public ext_default, pkgext, PackageExtension
 @compat public get_adselector, get_valid_adselector, set_rng
-@compat public BinnedModeEstimator, DistributionTransform, PolarShellDistribution
+@compat public BinnedModeEstimator, PolarShellDistribution
 @compat public MCMCChainStateInfo, MCMCProposal, MCMCProposalState
 @compat public MCMCProposalTunerState, MCMCTransformTunerState
 @compat public MeasureEvalInfo, SimpleMCMCProposalState
