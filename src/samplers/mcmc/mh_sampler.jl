@@ -125,11 +125,13 @@ function mcmc_propose_transition(
 )
     proposal_measure = batmeasure(proposal.proposaldist)
 
-    transition = map(genctx -> rand(genctx, proposal_measure), genctxs)
-    proposed_z = current_z .+ transition
+    # Flat batches of walker positions, so that the proposal measure can
+    # evaluate the Hastings terms for all walkers at once:
+    transition = VectorOfSimilarVectors(map(genctx -> rand(genctx, proposal_measure), genctxs))
+    proposed_z = nestedview(flatview(current_z) .+ flatview(transition))
 
-    p_prop_to_curr = checked_logdensityof.(proposal_measure, -transition)
-    p_curr_to_prop = checked_logdensityof.(proposal_measure, transition) 
+    p_prop_to_curr = checked_logdensities(proposal_measure, nestedview(-flatview(transition)))
+    p_curr_to_prop = checked_logdensities(proposal_measure, transition)
 
     hastings_correction = p_prop_to_curr .- p_curr_to_prop
 

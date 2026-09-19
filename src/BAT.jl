@@ -79,6 +79,7 @@ using MeasureBase: transport_to, TransportFunction
 using MeasureBase: StdUniform, StdNormal, Half
 using MeasureBase: asmeasure, AsMeasure, Dirac, mbind, mintegrate, mintegrate_exp
 using MeasureBase: productmeasure, insupport
+using MeasureBase: logdensities
 using MeasureBase: PowerMeasure, marginals
 using MeasureBase: WeightedMeasure, weightedmeasure
 using MeasureBase: massof

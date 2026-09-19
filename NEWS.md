@@ -82,6 +82,12 @@ gone, BAT builds on MeasureBase 0.15 instead.
   importance samplers) record `nothing` for measures that declare none,
   instead of throwing.
 
+* The MCMC samplers evaluate the target density for all walkers of a step in
+  one batched call (`MeasureBase.logdensities`) instead of walker by walker.
+  Measures with fused batched kernels may return results that differ from the
+  per-walker ones in the last ulp, so MCMC runs with a fixed RNG seed can take
+  a different path than before.
+
 BAT.jl v5.0.0
 -------------
 

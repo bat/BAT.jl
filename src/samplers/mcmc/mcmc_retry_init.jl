@@ -101,11 +101,11 @@ function mcmc_init!(
                 walker_rngpart = RNGPartition(
                     AbstractRNG(retry_rngpart, cycle), Base.OneTo(samplingalg.nwalkers)
                 )
-                new_v_init = map(unviable_walkers) do walker
+                new_v_init = VectorOfSimilarVectors(map(unviable_walkers) do walker
                     new_context = set_rng(context, AbstractRNG(walker_rngpart, walker))
                     bat_initval(target, initval_alg, new_context).result
-                end
-                new_logd = BAT.checked_logdensityof.(mcmc_target(cs), new_v_init)
+                end)
+                new_logd = BAT.checked_logdensities(mcmc_target(cs), new_v_init)
                 foreach(empty!, view(outputs[i], unviable_walkers))
                 cs.current.x.v[unviable_walkers] .= new_v_init
                 cs.current.x.logd[unviable_walkers] .= new_logd
