@@ -9,9 +9,9 @@ Test.@testset "Package ambiguities" begin
     Test.@test isempty(Test.detect_ambiguities(BAT))
 end # testset
 
-# BAT connects MeasureBase's measures to ValueShapes and to the statistics
-# functions, which is type piracy until that support moves into a
-# ValueShapes extension of MeasureBase (see src/measures/measure_shapes.jl):
+# BAT defines moments and modes of MeasureBase measures and transports of
+# shaped sample arrays, which is type piracy until MeasureBase provides
+# the former and the sample storage is reworked for the latter:
 const mb_types_treated_as_own = [
     MeasureBase.AbstractMeasure,
     MeasureBase.AbstractProductMeasure,

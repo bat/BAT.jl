@@ -308,3 +308,8 @@ const MeasureLike = Union{
     Distributions.Distribution,
     BAT.DensitySampleVector
 }
+
+# Shaping and unshaping change only the shape of the variates, not their
+# values, so they don't decide where a pushforward lives:
+_maps_to_uhc(::Base.Fix2{typeof(unshaped)}) = missing
+_maps_to_uhc(::AbstractValueShape) = missing
