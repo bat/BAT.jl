@@ -15,6 +15,7 @@ MeasureBase.basemeasure(m::AbstractPosteriorMeasure) = getprior(m)
 MeasureBase.logdensity_def(m::AbstractPosteriorMeasure, v) = logdensityof(getlikelihood(m), v)
 MeasureBase.insupport(m::AbstractPosteriorMeasure, v) = insupport(getprior(m), v)
 MeasureBase.getdof(m::AbstractPosteriorMeasure) = MeasureBase.getdof(getprior(m))
+MeasureBase.mspace_flatsize(m::AbstractPosteriorMeasure) = MeasureBase.mspace_flatsize(getprior(m))
 MeasureBase.testvalue(::Type{T}, m::AbstractPosteriorMeasure) where {T} = testvalue(T, getprior(m))
 
 supports_rand(::AbstractPosteriorMeasure) = false
@@ -50,7 +51,11 @@ The prior density of `posterior`. The prior may or may not be normalized.
 function getprior end
 
 
-function DensityInterface.logdensityof(density::AbstractPosteriorMeasure, v::Any)
+# Don't evaluate the likelihood where the prior density is zero: algorithms
+# explore the variate space beyond the domain of definition of the likelihood
+# (as long as the prior is chosen correctly). This is the point kernel behind
+# `logdensityof`, the batched path maps it over the batch.
+function MeasureBase.logdensityof_impl(density::AbstractPosteriorMeasure, v)
     likelihood, prior = getlikelihood(density), getprior(density)
 
     raw_prior_logval = logdensityof(prior, v)
@@ -61,11 +66,8 @@ function DensityInterface.logdensityof(density::AbstractPosteriorMeasure, v::Any
 
     prior_logval = convert_density_value(R, raw_prior_logval)
 
-    # Don't evaluate likelihood if prior probability is zero. Prevents
-    # failures when algorithms try to explore parameter space outside of
-    # definition of likelihood (as long as prior is chosen correctly).
     if !is_log_zero(prior_logval, R)
-        likelihood_logval = logdensityof(getlikelihood(density), v)
+        likelihood_logval = logdensityof(likelihood, v)
         convert_density_value(R, likelihood_logval + prior_logval)
     else
         convert_density_value(R, log_zero_density(T))
