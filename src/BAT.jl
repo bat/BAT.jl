@@ -73,15 +73,14 @@ using StaticThings: IntegerLike, RealLike, asnonstatic
 
 import MeasureBase
 using MeasureBase: AbstractMeasure, DensityMeasure, Likelihood
-using MeasureBase: basemeasure, rootmeasure, getdof, likelihoodof, testvalue
+using MeasureBase: basemeasure, getdof, likelihoodof, testvalue
 using MeasureBase: pushfwd
 using MeasureBase: transport_to, TransportFunction
-using MeasureBase: StdMeasure, StdUniform, StdNormal, StdExponential, StdLogistic, Half
+using MeasureBase: StdUniform, StdNormal, Half
 using MeasureBase: asmeasure, AsMeasure, Dirac, mbind, mintegrate, mintegrate_exp
-using MeasureBase: productmeasure, restrict, logdensities, insupport
-using MeasureBase: PowerMeasure, powermeasure, marginals
+using MeasureBase: productmeasure, insupport
+using MeasureBase: PowerMeasure, marginals
 using MeasureBase: WeightedMeasure, weightedmeasure
-using MeasureBase: SuperpositionMeasure, superpose
 using MeasureBase: massof
 
 using MeasureBase: PushforwardMeasure, gettransform

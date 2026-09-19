@@ -112,9 +112,11 @@ end
 function _check_density_logval(target, v, logval::Real)
     R = float(typeof(logval))
     if isnan(logval) || !(logval < R(+Inf))
-        # Algorithms explore the variate space, a non-finite variate is not
-        # a model error, it simply carries no probability mass:
-        _nonfinite_variate(v) && return log_zero_density(R)
+        # Algorithms explore the variate space, and MeasureBase's densities
+        # are NaN at non-finite variates rather than undefined. That is not a
+        # model error, such a variate simply carries no probability mass. A
+        # density of +Inf remains one, wherever it occurs:
+        isnan(logval) && _nonfinite_variate(v) && return log_zero_density(R)
         @throw_logged(EvalException(logdensityof, target, v, logval))
     end
     return logval

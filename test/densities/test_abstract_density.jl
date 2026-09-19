@@ -18,4 +18,16 @@ import Zygote
         uniform_valgrad = valgrad_func(BAT.checked_logdensityof(uniform), adsel, [0.2])
         @test uniform_valgrad([0.2]) == (-log(2), [0.0])
     end
+
+    @testset "checked_logdensityof" begin
+        d_nan = logfuncdensity(x -> NaN)
+        d_inf = logfuncdensity(x -> +Inf)
+
+        # A NaN density at a non-finite variate means no probability mass
+        # there, everything else is a model error:
+        @test BAT.checked_logdensityof(d_nan, [Inf, 1.0]) == -Inf
+        @test_throws BAT.EvalException BAT.checked_logdensityof(d_nan, [0.5, 1.0])
+        @test_throws BAT.EvalException BAT.checked_logdensityof(d_inf, [Inf, 1.0])
+        @test_throws BAT.EvalException BAT.checked_logdensityof(d_inf, [0.5, 1.0])
+    end
 end
