@@ -570,7 +570,7 @@ function MeasureBase.weightedmeasure(logweight::Real, em::EvaluatedMeasure)
     # content stay: the implied transform function does not change under
     # reweighting. samplegen survives on purpose as well, sample generation
     # only sees the normalized measure, which reweighting does not change:
-    new_unevaluated = BispacedMeasure(weightedmeasure(logweight, unevaluated(em)))
+    new_unevaluated = BispacedMeasure(_bat_weightedmeasure(logweight, unevaluated(em)))
     new_empirical = _renormalize_empirical(logweight, _empirical_rep(em))
     new_mass = _reweighted_mass(logweight, em.mass)
     return EvaluatedMeasure(

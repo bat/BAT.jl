@@ -287,7 +287,7 @@ end
 
 function _generic_auto_renormalize_impl(max_logd::Real, measure::AbstractMeasure)
     logweight = - max_logd
-    result = weightedmeasure(logweight, measure)
+    result = _bat_weightedmeasure(logweight, measure)
     (result = result, logweight = logweight)
 end
 

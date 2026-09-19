@@ -232,7 +232,7 @@ end
 # must be preserved by prior substitution:
 function bat_transform_impl(intent::Union{UniformBased,NormalBased}, m::WeightedMeasure, algorithm::PriorSubstitution, context::BATContext)
     tr = bat_transform_impl(intent, m.base, algorithm, context)
-    (result = weightedmeasure(m.logweight, tr.result), f_transform = tr.f_transform)
+    (result = _bat_weightedmeasure(m.logweight, tr.result), f_transform = tr.f_transform)
 end
 
 
