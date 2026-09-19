@@ -62,13 +62,28 @@ function getprior end
 
 # Don't evaluate the likelihood where the prior density is zero: algorithms
 # explore the variate space beyond the domain of definition of the likelihood
-# (as long as the prior is chosen correctly). This is the point kernel behind
-# `logdensityof`, the batched path maps it over the batch.
+# (as long as the prior is chosen correctly).
 function MeasureBase.logdensityof_impl(density::AbstractPosteriorMeasure, v)
-    likelihood, prior = getlikelihood(density), getprior(density)
+    _posterior_logval(getlikelihood(density), logdensityof(getprior(density), v), v)
+end
 
-    raw_prior_logval = logdensityof(prior, v)
+# The prior is evaluated for the whole batch at once, the likelihood variate
+# by variate (it has no batched form) and only where the prior is nonzero:
+function MeasureBase.batched_logdensityof_impl(density::AbstractPosteriorMeasure, X::AbstractArray{<:Number})
+    _posterior_logvals(getlikelihood(density), logdensities(getprior(density), X), X)
+end
 
+_posterior_logvals(likelihood, prior_logval::Real, x) = _posterior_logval(likelihood, prior_logval, x)
+
+function _posterior_logvals(likelihood, prior_logvals::AbstractArray{<:Real}, X::AbstractArray{<:Number})
+    vs = _variate_slices(X, Val(ndims(X) - ndims(prior_logvals)))
+    map((v, prior_logval) -> _posterior_logval(likelihood, prior_logval, v), vs, prior_logvals)
+end
+
+_variate_slices(X::AbstractArray, ::Val{0}) = X
+_variate_slices(X::AbstractArray, n::Val) = sliced(X, n)
+
+function _posterior_logval(likelihood, raw_prior_logval::Real, v)
     T = typeof(raw_prior_logval)
     U = density_valtype(likelihood, v)
     R = promote_type(T, U)
