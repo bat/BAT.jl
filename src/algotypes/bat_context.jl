@@ -8,18 +8,24 @@ Set the default computational context for BAT.
 Constructors:
 
 ```julia
-BATContext{T}(rng::AbstractRNG, cunit::AbstractComputeUnit, ADSelector::AD)
+BATContext{T}(rng::AbstractRNG, cunit::AbstractComputeUnit, ad::ADSelector)
+
+BATContext{T}(rng::AbstractRNG, cunit::AbstractComputeUnit, ad::ADSelector, visualizer::BATVisualizer)
 
 BATContext(;
     precision::Type{<:AbstractFloat} = ...,
     rng::AbstractRNG = ...,
     cunit::HeterogeneousComputing.AbstractComputeUnit = ...,
     ad::Union{AutoDiffOperators.ADSelector, Module, Symbol, Val} = ...,
+    visualizer::BATVisualizer = ...,
 )
 ```
 
 The default `rng` is seeded from `Random.default_rng()`, so results become
 reproducible via `Random.seed!`.
+
+Constructors that omit `visualizer` produce a context without sampling
+visualization, see [`BATVisualizer`](@ref).
 
 See [`get_batcontext`](@ref), [`set_batcontext`](@ref) and
 [`default_batcontext`](@ref).
@@ -33,8 +39,10 @@ end
 
 export BATContext
 
+# `visualizer` defaults so the documented three-argument form keeps working; it
+# was the only positional constructor before the field was added.
 function BATContext{T}(
-    rng::RNG, cunit::CU, ad::AD, visualizer::BATVisualizer
+    rng::RNG, cunit::CU, ad::AD, visualizer::BATVisualizer = BATVisualizer()
 ) where {T<:AbstractFloat,RNG<:AbstractRNG,CU<:AbstractComputeUnit,AD<:ADSelector}
     BATContext{T,RNG,CU,AD}(rng, cunit, ad, visualizer)
 end
