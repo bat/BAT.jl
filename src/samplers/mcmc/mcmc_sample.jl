@@ -335,7 +335,6 @@ function _append_chain_outputs(
 
     return merged_outputs
 end
-export _append_chain_outputs
 
 
 
