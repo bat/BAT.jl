@@ -105,17 +105,35 @@ function bat_transform_impl(::DoNotTransform, measure::MeasureLike, ::IdentityTr
 end
 
 
-_distmeasure_trafo(intent::UniformBased, density::BATDistMeasure) = DistributionTransform(Uniform, Distribution(density))
+# The standard measure that an intent transforms to, for `n` degrees of
+# freedom. The power is always built explicitly: MeasureBase can't infer the
+# size of a standard target for measures with value-dependent variate sizes.
+_intent_stdmeasure(::UniformBased, n::Integer) = StdUniform()^n
+_intent_stdmeasure(::NormalBased, n::Integer) = StdNormal()^n
 
-function bat_transform_impl(intent::UniformBased, density::BATDistMeasure{<:StandardUniformDist}, algorithm::IdentityTransformAlgorithm, context::BATContext)
-    (result = density, f_transform = identity)
+# Measures without declared degrees of freedom (e.g. `mbind`) get theirs from
+# a test transport to a standard measure. That single test point decides the
+# size of the standard target, so measures whose variate size really does
+# depend on the value are not supported. MeasureBase declares `NoDOF` for all
+# binds alike, so there is no cheap way to tell the two apart and reject the
+# latter (see questions.md, Q7):
+_std_transform_dof(m::AbstractMeasure) = _std_transform_dof(m, getdof(m))
+_std_transform_dof(::AbstractMeasure, n::IntegerLike) = Int(n)
+
+function _std_transform_dof(m::AbstractMeasure, ::MeasureBase.NoDOF)
+    z = MeasureBase.transport_to_std(StdNormal, m, testvalue(m))
+    return length(eachindex(z))
 end
 
+const _StdUniformMeasure = Union{StdUniform,PowerMeasure{StdUniform}}
+const _StdNormalMeasure = Union{StdNormal,PowerMeasure{StdNormal}}
 
-_distmeasure_trafo(intent::NormalBased, density::BATDistMeasure) = DistributionTransform(Normal, Distribution(density))
+function bat_transform_impl(intent::UniformBased, m::_StdUniformMeasure, algorithm::IdentityTransformAlgorithm, context::BATContext)
+    (result = m, f_transform = identity)
+end
 
-function bat_transform_impl(intent::NormalBased, density::BATDistMeasure{<:StandardNormalDist}, algorithm::IdentityTransformAlgorithm, context::BATContext)
-    (result = density, f_transform = identity)
+function bat_transform_impl(intent::NormalBased, m::_StdNormalMeasure, algorithm::IdentityTransformAlgorithm, context::BATContext)
+    (result = m, f_transform = identity)
 end
 
 
@@ -134,16 +152,17 @@ Constructors:
 """
 struct FullMeasureTransform <: TransformAlgorithm end
 
-function bat_transform_impl(f::Function, m::BATMeasure, ::FullMeasureTransform, ::BATContext)
+function bat_transform_impl(f::Function, m::AbstractMeasure, ::FullMeasureTransform, ::BATContext)
     (result = pushfwd(f, m, KeepRootMeasure()), f_transform = f)
 end
 
 
-_get_deep_prior_for_trafo(m::BATDistMeasure) = m
+_get_deep_prior_for_trafo(m::AbstractMeasure) = m
 _get_deep_prior_for_trafo(m::AbstractPosteriorMeasure) = _get_deep_prior_for_trafo(getprior(m))
 _get_deep_prior_for_trafo(em::EvaluatedMeasure) = _get_deep_prior_for_trafo(unevaluated(em))
+_get_deep_prior_for_trafo(p::BispacedMeasure) = _get_deep_prior_for_trafo(p.main)
 # The implied transformation is invariant under reweighting:
-_get_deep_prior_for_trafo(m::BATWeightedMeasure) = _get_deep_prior_for_trafo(m.base)
+_get_deep_prior_for_trafo(m::WeightedMeasure) = _get_deep_prior_for_trafo(m.base)
 
 
 """
@@ -162,28 +181,23 @@ function transform_function end
 
 transform_function(::DoNotTransform, ::Any) = identity
 
-transform_function(::ToRealVector, obj::Union{BATMeasure,DensitySampleVector}) = Base.Fix2(unshaped, varshape(obj))
+transform_function(::ToRealVector, obj::Union{AbstractMeasure,DensitySampleVector}) = Base.Fix2(unshaped, varshape(obj))
 
-function transform_function(intent::Union{UniformBased,NormalBased}, m::BATMeasure)
-    _distmeasure_trafo(intent, _get_deep_prior_for_trafo(m))
+function transform_function(intent::Union{UniformBased,NormalBased}, m::AbstractMeasure)
+    m_prior = _get_deep_prior_for_trafo(m)
+    transport_to(_intent_stdmeasure(intent, _std_transform_dof(m_prior)), m_prior)
 end
 
-function transform_function(intent::Union{UniformBased,NormalBased}, m::BATPushFwdMeasure)
-    ffcomp(transform_function(intent, m.origin), m.finv)
+function transform_function(intent::Union{UniformBased,NormalBased}, m::PushforwardMeasure)
+    ffcomp(transform_function(intent, m.origin), inverse(gettransform(m)))
 end
 
-transform_function(intent::Union{UniformBased,NormalBased}, m::BATWeightedMeasure) = transform_function(intent, m.base)
+transform_function(intent::Union{UniformBased,NormalBased}, m::WeightedMeasure) = transform_function(intent, m.base)
 
 
-function bat_transform_impl(intent::Union{UniformBased,NormalBased}, m::AbstractPosteriorMeasure, algorithm::FullMeasureTransform, context::BATContext)
+function bat_transform_impl(intent::Union{UniformBased,NormalBased}, m::AbstractMeasure, algorithm::FullMeasureTransform, context::BATContext)
     f_transform = transform_function(intent, m)
-    (result = BATPushFwdMeasure(f_transform, m, KeepRootMeasure()), f_transform = f_transform)
-end
-
-
-function bat_transform_impl(intent::Union{UniformBased,NormalBased}, m::BATDistMeasure, algorithm::FullMeasureTransform, context::BATContext)
-    f_transform = transform_function(intent, m)
-    (result = BATPushFwdMeasure(f_transform, m, KeepRootMeasure()), f_transform = f_transform)
+    (result = pushfwd(f_transform, m, KeepRootMeasure()), f_transform = f_transform)
 end
 
 
@@ -204,25 +218,24 @@ struct PriorSubstitution <: TransformAlgorithm end
 export PriorSubstitution
 
 
-function bat_transform_impl(intent::Union{UniformBased,NormalBased}, density::BATDistMeasure, algorithm::PriorSubstitution, context::BATContext)
-    f_transform = transform_function(intent, density)
-    transformed_density = BATDistMeasure(f_transform.target_dist)
-    (result = transformed_density, f_transform = f_transform)
+function bat_transform_impl(intent::Union{UniformBased,NormalBased}, m::AbstractMeasure, algorithm::PriorSubstitution, context::BATContext)
+    f_transform = transform_function(intent, m)
+    (result = _intent_stdmeasure(intent, _std_transform_dof(m)), f_transform = f_transform)
 end
 
 
-function bat_transform_impl(intent::TransformIntent, m::BATPushFwdMeasure, algorithm::PriorSubstitution, context::BATContext)
+function bat_transform_impl(intent::Union{UniformBased,NormalBased}, m::PushforwardMeasure, algorithm::PriorSubstitution, context::BATContext)
     new_measure, f_transform_orig = bat_transform_impl(intent, m.origin, algorithm, context)
-    f_transform = ffcomp(f_transform_orig, m.finv)
+    f_transform = ffcomp(f_transform_orig, inverse(gettransform(m)))
     (result = new_measure, f_transform = f_transform)
 end
 
 
 # The implied transformation is invariant under reweighting, and the weight
 # must be preserved by prior substitution:
-function bat_transform_impl(intent::Union{UniformBased,NormalBased}, m::BATWeightedMeasure, algorithm::PriorSubstitution, context::BATContext)
+function bat_transform_impl(intent::Union{UniformBased,NormalBased}, m::WeightedMeasure, algorithm::PriorSubstitution, context::BATContext)
     tr = bat_transform_impl(intent, m.base, algorithm, context)
-    (result = weightedmeasure(m.logweight, tr.result), f_transform = tr.f_transform)
+    (result = _bat_weightedmeasure(m.logweight, tr.result), f_transform = tr.f_transform)
 end
 
 
@@ -230,15 +243,17 @@ function bat_transform_impl(intent::Union{UniformBased,NormalBased}, density::Ab
     orig_prior = getprior(density)
     orig_likelihood = getlikelihood(density)
     new_prior, f_transform = bat_transform_impl(intent, orig_prior, algorithm, context)
-    new_likelihood = _precompose_density(orig_likelihood, inverse(f_transform))
+    # Transports saturate at infinite variates in their extreme tails, where
+    # the likelihood need not be defined:
+    new_likelihood = FiniteVariateDensity(orig_likelihood, inverse(f_transform))
     (result = PosteriorMeasure(new_likelihood, new_prior), f_transform = f_transform)
 end
 
 
-function bat_transform_impl(intent::TransformIntent, em::EvaluatedMeasure, algorithm::PriorSubstitution, context::BATContext)
+function bat_transform_impl(intent::Union{UniformBased,NormalBased}, em::EvaluatedMeasure, algorithm::PriorSubstitution, context::BATContext)
     new_measure, f_transform = bat_transform_impl(intent, unevaluated(em), algorithm, context)
     annexes_match = _intents_match(em.transform_intent, intent)
-    em_f_hash = hash(em.f_transform)
+    em_f_hash = transform_witness(em.f_transform)
     new_empirical = _transformed_empirical(annexes_match, em_f_hash, _empirical_rep(em), new_measure, f_transform, context)
     # Modes refer to the untransformed space (the log-abs-det-Jacobian shifts
     # maximizers), so they can't be carried over. The approximation and the
@@ -247,7 +262,7 @@ function bat_transform_impl(intent::TransformIntent, em::EvaluatedMeasure, algor
     new_samplegen = _transformed_samplegen(annexes_match, em.samplegen)
     new_em = EvaluatedMeasure(
         BispacedMeasure(new_measure), DoNotTransform(), identity, new_empirical, new_approx,
-        em.dof, em.mass, nothing, new_samplegen, nothing
+        _getdof_or_nothing(new_measure), em.mass, nothing, new_samplegen, nothing
     )
     (result = new_em, f_transform = f_transform)
 end
@@ -310,12 +325,12 @@ end
 
 # With a matching view and complete caches the transformed representation
 # can be assembled directly, without re-deriving the transformation:
-_transform_and_unshape_cached(::BATMeasure, ::TransformIntent) = nothing
-_transform_and_unshape_cached(::BATMeasure, ::DoNotTransform) = nothing
+_transform_and_unshape_cached(::AbstractMeasure, ::TransformIntent) = nothing
+_transform_and_unshape_cached(::AbstractMeasure, ::DoNotTransform) = nothing
 _transform_and_unshape_cached(::EvaluatedMeasure, ::DoNotTransform) = nothing
 
 function _transform_and_unshape_cached(em::EvaluatedMeasure, intent::TransformIntent)
-    em_f_hash = hash(em.f_transform)
+    em_f_hash = transform_witness(em.f_transform)
     if _intents_match(em.transform_intent, intent) &&
             !isnothing(em.unevaluated.transformed) && !isnothing(em.f_transform) &&
             !_pair_claims_mismatch(em.unevaluated, em_f_hash) &&
@@ -343,12 +358,12 @@ _flip_empirical_annex(p::BispacedMeasure) = BispacedMeasure(p.transformed)
 # constructed, structurally equal one, so that repeated evaluations with the
 # same intent see the identical object (which keeps compiled artifacts like
 # AD preparations valid):
-_keep_transformed_identity(::BATMeasure, result_measure, ::TransformIntent) = result_measure
+_keep_transformed_identity(::AbstractMeasure, result_measure, ::TransformIntent) = result_measure
 
 function _keep_transformed_identity(orig_em::EvaluatedMeasure, result_measure, intent::TransformIntent)
     p = orig_em.unevaluated
     cache_usable = _intents_match(orig_em.transform_intent, intent) &&
-        !_pair_claims_mismatch(p, hash(orig_em.f_transform))
+        !_pair_claims_mismatch(p, transform_witness(orig_em.f_transform))
     cached = cache_usable ? p.transformed : nothing
     isnothing(cached) ? result_measure : _replace_unevaluated(result_measure, cached)
 end
@@ -357,9 +372,9 @@ end
 # may be honored, even on a contract-violating EvaluatedMeasure):
 _keep_transformed_identity(::EvaluatedMeasure, result_measure, ::DoNotTransform) = result_measure
 
-_replace_unevaluated(::BATMeasure, cached::BATMeasure) = cached
+_replace_unevaluated(::AbstractMeasure, cached::AbstractMeasure) = cached
 
-function _replace_unevaluated(result_em::EvaluatedMeasure, cached::BATMeasure)
+function _replace_unevaluated(result_em::EvaluatedMeasure, cached::AbstractMeasure)
     p = result_em.unevaluated
     EvaluatedMeasure(
         BispacedMeasure(cached, p.transformed, p.f_hash), result_em.transform_intent, result_em.f_transform,
@@ -372,7 +387,7 @@ end
 # value-equal one. DoNotTransform is the no-view sentinel (its cached
 # function is `identity` by convention), there the freshly resolved
 # unshaping function is the correct result:
-_keep_f_identity(::BATMeasure, result_trafo, ::TransformIntent) = result_trafo
+_keep_f_identity(::AbstractMeasure, result_trafo, ::TransformIntent) = result_trafo
 
 function _keep_f_identity(orig_em::EvaluatedMeasure, result_trafo, intent::TransformIntent)
     f = _intents_match(orig_em.transform_intent, intent) ? orig_em.f_transform : nothing
@@ -413,17 +428,17 @@ end
 """
 struct UnshapeTransformation <: TransformAlgorithm end
 
-function bat_transform_impl(::ToRealVector, obj::Union{BATMeasure,DensitySampleVector}, ::UnshapeTransformation, context::BATContext)
+function bat_transform_impl(::ToRealVector, obj::Union{AbstractMeasure,DensitySampleVector}, ::UnshapeTransformation, context::BATContext)
     f_transform = Base.Fix2(unshaped, varshape(obj))
     trafoalg = bat_default(bat_transform, Val(:algorithm), f_transform, obj)
     bat_transform_impl(f_transform, obj, trafoalg, context)
 end
 
-function bat_transform_impl(::Base.Fix2{typeof(unshaped),<:ArrayShape{<:Real,1}}, m::BATMeasure, ::FullMeasureTransform, context::BATContext)
+function bat_transform_impl(::Base.Fix2{typeof(unshaped),<:ArrayShape{<:Real,1}}, m::AbstractMeasure, ::FullMeasureTransform, context::BATContext)
     (result = m, f_transform = identity)
 end
 
-function bat_transform_impl(f::Base.Fix2{typeof(unshaped)}, m::BATMeasure, ::FullMeasureTransform, context::BATContext)
+function bat_transform_impl(f::Base.Fix2{typeof(unshaped)}, m::AbstractMeasure, ::FullMeasureTransform, context::BATContext)
     shp = f.x
     (result = unshaped(m, shp), f_transform = f)
 end

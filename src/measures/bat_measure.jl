@@ -108,28 +108,6 @@ function some_dof(m::AbstractMeasure)
 end
 
 
-"""
-    abstract type BATMeasure <:AbstractMeasure
-
-*BAT-internal, not part of stable public API.*
-
-Subtypes must implement `DensityInterface.logdensityof` and
-`ValueShapes.varshape`.
-"""
-abstract type BATMeasure <: AbstractMeasure end
-
-Base.convert(::Type{BATMeasure}, m::BATMeasure) = m
-Base.convert(::Type{BATMeasure}, m::AbstractMeasure) = BATMeasure(m)
-Base.convert(::Type{BATMeasure}, d::Distribution) = BATMeasure(d)
-
-@inline BATMeasure(m::BATMeasure) = m
-
-BATMeasure(::StdUniform) = BATMeasure(StandardUvUniform())
-BATMeasure(::StdNormal) = BATMeasure(StandardUvNormal())
-
-
-
-
 function _rv_dof(m::AbstractMeasure)
     tv = testvalue(m)
     if !(tv isa AbstractVector{<:Real})
@@ -139,88 +117,29 @@ function _rv_dof(m::AbstractMeasure)
 end
 
 
-DensityInterface.logdensityof(@nospecialize(m::BATMeasure), ::Any) = throw(ArgumentError("logdensityof not implemented for $(typeof(m))"))
-
-MeasureBase.logdensity_def(m::BATMeasure, ::Any) = throw(ArgumentError("logdensity_def not implemented for $(typeof(m))"))
-MeasureBase.basemeasure(m::BATMeasure) = throw(ArgumentError("basemeasure not implemented for $(typeof(m))"))
-MeasureBase.rootmeasure(m::BATMeasure) = throw(ArgumentError("rootmeasure not implemented for $(typeof(m))"))
-MeasureBase.massof(::BATMeasure) = MeasureBase.UnknownMass()
-
-@static if isdefined(MeasureBase, :NoFastInsupport)
-    MeasureBase.insupport(m::BATMeasure, ::Any) = MeasureBase.NoFastInsupport{typeof(m)}()
-else
-    # Workaround:
-    MeasureBase.insupport(m::BATMeasure, ::Any) = true
-end
-
-@static if isdefined(MeasureBase, :localmeasure)
-    MeasureBase.localmeasure(m::BATMeasure, ::Any) = m
-end
-
-
-# ToDo: Specialize for (e.g.) DensitySampleMeasure:
-_default_measure_precision(::BATMeasure) = Float64
-
-# ToDo: Specialize for certain measures?
-_default_cunit(::BATMeasure) = CPUnit()
-
-function Base.rand(rng::AbstractRNG, ::Type{T}, m::BATMeasure) where {T<:Real}
-    cunit = _default_cunit(m)
-    rand(GenContext{T}(cunit, rng), m)
-end
-
-function Base.rand(rng::AbstractRNG, m::BATMeasure)
-    rand(rng, _default_measure_precision(m), m)
-end
-
-
-function ValueShapes.unshaped(measure::BATMeasure, vs::AbstractValueShape)
-    varshape(measure) <= vs || throw(ArgumentError("Shape of measure not compatible with given shape"))
-    unshaped(measure)
-end
-
-# Disambiguates against unshaped(x, ::ConstValueShape) of ValueShapes:
-ValueShapes.unshaped(measure::BATMeasure, vs::ConstValueShape) =
-    invoke(unshaped, Tuple{BATMeasure,AbstractValueShape}, measure, vs)
-
-ValueShapes.unshaped(m::BATMeasure) = _unshaped_measure_impl(m, Core.Compiler.return_type(testvalue, Tuple{typeof(m)}))
-
-_unshaped_measure_impl(m::BATMeasure, ::Type) = throw(ArgumentError("Don't know how to unshape measure of type $(nameof(typeof(m)))"))
-_unshaped_measure_impl(m::BATMeasure, ::Type{T}) where {T<:Real} = pushfwd(inverse(ScalarShape{T}()), m)
-
-
-
-show_value_shape(io::IO, vs::AbstractValueShape) = show(io, vs)
-function show_value_shape(io::IO, vs::NamedTupleShape)
-    print(io, Base.typename(typeof(vs)).name, "(")
-    show(io, propertynames(vs))
-    print(io, "}(…)")
-end
-
-function Base.show(io::IO, d::BATMeasure)
-    print(io, Base.typename(typeof(d)).name, "(objectid = ")
-    show(io, objectid(d))
-    vs = varshape(d)
-    if !ismissing(vs)
-        print(io, ", varshape = ")
-        show_value_shape(io, vs)
-    end
-    print(io, ")")
-end
-
-
 """
     batmeasure(obj)
 
 *Experimental feature, not part of stable public API.*
 
 Convert a measure-like `obj` to a measure that is compatible with BAT.
+
+`batmeasure` is BAT's canonicalization. It is idempotent, turns
+distributions into measures via `MeasureBase.asmeasure`, named tuples of
+distributions into product measures, and the density measures of
+MeasureBase (e.g. `mintegrate_exp(likelihood, prior)`) into
+[`PosteriorMeasure`](@ref)s.
 """
 function batmeasure end
 export batmeasure
 
-batmeasure(obj) = convert(BATMeasure, obj)
+batmeasure(obj) = asmeasure(obj)
 batmeasure(::Missing) = missing
+
+batmeasure(ds::NamedTuple) = productmeasure(map(_marginal_measure, ds))
+
+# A density measure over a prior is a (possibly nested) posterior measure:
+batmeasure(m::DensityMeasure) = PosteriorMeasure(m)
 
 
 """
@@ -230,10 +149,9 @@ batmeasure(::Missing) = missing
 
 Check whether a measure-like object `m` supports `rand`.
 """
-@inline supports_rand(::AbstractMeasure) = false
-@inline supports_rand(::StdMeasure) = true
+@inline supports_rand(::AbstractMeasure) = true
 @inline supports_rand(m::WeightedMeasure) = supports_rand(m.base)
-@inline supports_rand(m::PushforwardMeasure) = !(gettransform(m) isa NoInverse) && supports_rand(transport_origin(m))
+@inline supports_rand(m::PushforwardMeasure) = !(gettransform(m) isa NoInverse) && supports_rand(m.origin)
 
 
 """
@@ -243,54 +161,139 @@ Check whether a measure-like object `m` supports `rand`.
 
 Is the support of measure `m` limited to the unit hypercube?
 """
-has_uhc_support(m::BATMeasure) = false
-has_uhc_support(::MeasureBase.StdUniform) = true
+has_uhc_support(::AbstractMeasure) = false
+has_uhc_support(::StdUniform) = true
+has_uhc_support(m::PowerMeasure) = has_uhc_support(_pwr_base(m))
+has_uhc_support(m::WeightedMeasure) = has_uhc_support(m.base)
+has_uhc_support(m::MeasureBase.AbstractProductMeasure) = all(has_uhc_support, marginals(m))
+has_uhc_support(m::AsMeasure) = has_uhc_support(m.obj)
 
+# A pushforward lives where its transformation maps to. Transformations
+# that only change the variate shape pass the question on (`missing`), so
+# that the last step that determines the variate values decides:
+has_uhc_support(m::PushforwardMeasure) = _uhc_support_from(_maps_to_uhc(gettransform(m)), m)
+_uhc_support_from(known::Bool, ::PushforwardMeasure) = known
+_uhc_support_from(::Missing, m::PushforwardMeasure) = has_uhc_support(m.origin)
+
+_maps_to_uhc(::Any) = false
+_maps_to_uhc(f::TransportFunction) = has_uhc_support(f.ν)
+_maps_to_uhc(f::FunctionChain) = _chain_maps_to_uhc(fchainfs(f))
+_maps_to_uhc(f::ComposedFunction) = _chain_maps_to_uhc((f.inner, f.outer))
+
+function _chain_maps_to_uhc(fs::Tuple)
+    r = _maps_to_uhc(last(fs))
+    return ismissing(r) && length(fs) > 1 ? _chain_maps_to_uhc(Base.front(fs)) : r
+end
+
+has_uhc_support(::Distribution) = false
+has_uhc_support(d::Distribution{Univariate,Continuous}) = minimum(d) ≈ false && maximum(d) ≈ true
+has_uhc_support(d::ReshapedDist) = has_uhc_support(unshaped(d))
+
+"""
+    BAT.is_std_mvnormal(m)::Bool
+
+*BAT-internal, not part of stable public API.*
+
+Is `m` a standard multivariate normal measure?
+"""
 is_std_mvnormal(::AbstractMeasure) = false
-is_std_mvnormal(::MeasureBase.PowerMeasure{MeasureBase.StdNormal}) = true
+is_std_mvnormal(m::PowerMeasure) = _pwr_base(m) isa StdNormal && length(_pwr_size(m)) == 1
+is_std_mvnormal(m::AsMeasure) = is_std_mvnormal(m.obj)
 
-ValueShapes.varshape(::BATMeasure) = missing
+is_std_mvnormal(::Distribution) = false
+is_std_mvnormal(d::MvNormal) = mean(d) ≈ Zeros(length(d)) && cov(d) ≈ I(length(d))
 
 
-MeasureBase.transport_to(mu::Union{Distribution,AbstractMeasure}, nu::BATMeasure) = _bat_transport_to(batmeasure(mu), nu)
-MeasureBase.transport_to(mu::BATMeasure, nu::Union{Distribution,AbstractMeasure}) = _bat_transport_to(mu, batmeasure(nu))
-MeasureBase.transport_to(mu::BATMeasure, nu::BATMeasure) = _bat_transport_to(mu, nu)
 
-function _bat_transport_to(mu, nu)
-    target_dist, target_pushfwd = _dist_with_pushfwd(mu)
-    source_dist, source_pullback = _dist_with_pullback(nu)
-    f_transform = DistributionTransform(target_dist, source_dist)
-    return ffcomp(target_pushfwd, ffcomp(f_transform, source_pullback))
+# Moments and modes of wrapped distributions are known analytically:
+
+const _DistMeasure = AsMeasure{<:Distribution}
+
+Statistics.mean(m::_DistMeasure) = mean(m.obj)
+Statistics.median(m::AsMeasure{<:UnivariateDistribution}) = median(m.obj)
+Statistics.var(m::_DistMeasure) = var(m.obj)
+Statistics.std(m::_DistMeasure) = std(m.obj)
+Statistics.cov(m::AsMeasure{<:MultivariateDistribution}) = cov(m.obj)
+StatsBase.mode(m::_DistMeasure) = mode(m.obj)
+
+# Not every distribution has a well-defined mode, failures across
+# Distributions.jl surface as varied error types:
+function maybe_modes(m::_DistMeasure)
+    try
+        [mode(m.obj)]
+    catch
+        nothing
+    end
 end
 
-_dist_with_pushfwd(m::BATMeasure) = Distribution(m), identity
 
-function _dist_with_pushfwd_impl(origin, f)
-    d, g = _dist_with_pushfwd(origin)
-    d, ffcomp(f, g)
-end
+# Moments and modes of structural measures follow their structure:
 
-function _combine_dwp_with_f(dwp, f)
-    d, g = dwp
-    return d, ffcomp(f, g)
-end
+Statistics.mean(m::MeasureBase.AbstractProductMeasure) = map(mean, marginals(m))
+Statistics.var(m::MeasureBase.AbstractProductMeasure) = map(var, marginals(m))
+StatsBase.mode(m::MeasureBase.AbstractProductMeasure) = map(mode, marginals(m))
 
-_dist_with_pullback(m::BATMeasure) = Distribution(m), identity
+Statistics.mean(m::MeasureBase.Dirac) = m.x
+Statistics.var(m::MeasureBase.Dirac) = zero.(m.x)
+StatsBase.mode(m::MeasureBase.Dirac) = m.x
 
-function _dist_with_pullback_impl(origin, finv)
-    d, ginv = _dist_with_pullback(origin)
-    return d, ffcomp(ginv, finv)
+Statistics.mean(m::WeightedMeasure) = mean(m.base)
+Statistics.var(m::WeightedMeasure) = var(m.base)
+Statistics.cov(m::WeightedMeasure) = cov(m.base)
+StatsBase.mode(m::WeightedMeasure) = mode(m.base)
+
+
+show_value_shape(io::IO, vs::AbstractValueShape) = show(io, vs)
+function show_value_shape(io::IO, vs::NamedTupleShape)
+    print(io, Base.typename(typeof(vs)).name, "(")
+    show(io, propertynames(vs))
+    print(io, "}(…)")
 end
 
 
 function _reweighted_mass(logweight::Real, current_mass::Real)
-    current_logmass = _lfloat(log(current_mass))
+    current_logmass = _lfloat(log(asnonstatic(current_mass)))
     new_logmass = oftype(current_logmass, logweight) + current_logmass
     return exp(ULogarithmic, new_logmass)
 end
 
 _reweighted_mass(::Real, current_mass::MeasureBase.AbstractUnknownMass) = current_mass
 
+
+# ToDo: This should just be a method of a proper `bat_renormalize` API function
+# when using an `AutoRenormalize` (or similar name) algorithm:
+"""
+    BAT.auto_renormalize(measure::MeasureBase.AbstractMeasure)
+
+*Experimental feature, not part of stable public API.*
+
+Returns `(result = new_measure, logweight = logweight)`.
+
+Tries to automatically renormalize `measure` if a maximum log-density value
+is available, returns `measure` unchanged otherwise.
+"""
+function auto_renormalize(measure::AbstractMeasure)
+    _generic_auto_renormalize_impl(_approx_max_logd(measure), batmeasure(measure))
+end
+
+
+_approx_max_logd(::AbstractMeasure) = missing
+_approx_max_logd(::Nothing) = missing
+
+function _approx_max_logd(samples::DensitySampleVector)
+    logweight = maximum(samples.logd)
+    isnan(logweight) || isinf(logweight) ? zero(logweight) : logweight
+end
+
+function _generic_auto_renormalize_impl(max_logd::Real, measure::AbstractMeasure)
+    logweight = - max_logd
+    result = _bat_weightedmeasure(logweight, measure)
+    (result = result, logweight = logweight)
+end
+
+function _generic_auto_renormalize_impl(::Missing, measure::AbstractMeasure)
+    (result = measure, logweight = false)
+end
 
 
 """
@@ -305,3 +308,8 @@ const MeasureLike = Union{
     Distributions.Distribution,
     BAT.DensitySampleVector
 }
+
+# Shaping and unshaping change only the shape of the variates, not their
+# values, so they don't decide where a pushforward lives:
+_maps_to_uhc(::Base.Fix2{typeof(unshaped)}) = missing
+_maps_to_uhc(::AbstractValueShape) = missing

@@ -5,8 +5,9 @@ using Test
 
 using MeasureBase
 using ValueShapes, Distributions, ArraysOfArrays
-using ForwardDiff, Zygote, DistributionsAD
+using ForwardDiff, Zygote
 using InverseFunctions, ChangesOfVariables
+using MeasureBase: StdNormal, StdUniform, TransportFunction, transport_to
 
 using BAT: transform_samples
 
@@ -32,13 +33,13 @@ using BAT: _unshaped_trafo, _get_point_shape, _trafo_input_output_shape, _trafo_
     InverseFunctions.inverse(f::typeof(myidentity)) = f
     ChangesOfVariables.with_logabsdet_jacobian(::typeof(myidentity), x) = x, Bool(false)
 
-    f_dt = BAT.DistributionTransform(Normal, dist)
+    f_dt = transport_to(StdNormal()^BAT.some_dof(mu), mu)
     f_hasladj = myidentity ∘ f_dt
     f_plain(x) = (d = sum(x.a) * x.c, e = x.b * x.a) 
     f_complex(x) = (d = sum(x.a) * x.c, e = (f = x.b * x.a,))
 
     f = f_dt
-    @test @inferred(_unshaped_trafo(f)) isa BAT.DistributionTransform
+    @test @inferred(_unshaped_trafo(f)) isa TransportFunction
     @test @inferred(_trafo_input_output_shape(f, xs)) isa Tuple{<:NamedTupleShape,<:ArrayShape}
     x_shape, y_shape = _trafo_input_output_shape(f, xs)
     @test @inferred(_trafo_ladj_available(f, xs)) isa Val{true}
@@ -99,4 +100,11 @@ using BAT: _unshaped_trafo, _get_point_shape, _trafo_input_output_shape, _trafo_
 
     xs_complex = f_complex.(xs)
     _trafo_input_output_shape(identity, xs_complex)
+
+    # A transport into a measure of higher precision promotes the number type
+    # of the variates:
+    xs32 = VectorOfSimilarVectors(rand(Float32, 2, 20))
+    f32 = transport_to(batmeasure(MvNormal([0.4, 0.6], [2.0 1.2; 1.2 3.0])), StdUniform()^2)
+    @test @inferred(_trafo_output_numtype(f32, xs32)) == Float64
+    @test transform_samples(f32, xs32) isa VectorOfSimilarVectors{Float64}
 end

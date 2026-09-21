@@ -1,6 +1,93 @@
 BAT.jl Release Notes
 ====================
 
+BAT.jl v6.0.0
+-------------
+
+### Breaking changes
+
+BAT's measures are now MeasureBase measures. BAT used to carry its own
+measure layer (`BATMeasure` and friends), which duplicated what MeasureBase
+now provides, and its own distribution-transform implementation. Both are
+gone, BAT builds on MeasureBase 0.15 instead.
+
+* `BAT.BATMeasure` is gone, BAT's measure types subtype
+  `MeasureBase.AbstractMeasure` directly.
+
+* The wrapper types `BAT.BATDistMeasure`, `BAT.BATPwrMeasure`,
+  `BAT.BATPushFwdMeasure`, `BAT.BATWeightedMeasure` and
+  `BAT.BATSuperpositionMeasure` are gone. Use `MeasureBase.asmeasure`,
+  `powermeasure` (`^`), `pushfwd`, `weightedmeasure` and `superpose`.
+
+* `BAT.StandardUvUniform`, `BAT.StandardMvUniform`, `BAT.StandardUvNormal`
+  and `BAT.StandardMvNormal` are gone. Use `MeasureBase.StdUniform()`,
+  `MeasureBase.StdNormal()` and their powers, or the `StandardUniform{N}`
+  and `StandardNormal{N}` distributions of MeasureBase's Distributions
+  extension where a `Distribution` is required.
+
+* `BAT.DistributionTransform` is gone. Use `MeasureBase.transport_to`.
+  `bat_transform` and the transform intents (`NormalBased`, `UniformBased`,
+  `ToRealVector`, `DoNotTransform`) are unchanged, but the transformation
+  functions they return are `MeasureBase.TransportFunction`s and transformed
+  measures are `MeasureBase.PushforwardMeasure`s.
+
+* `HierarchicalDistribution` is gone. Use `MeasureBase.mbind`.
+
+* `distprod` now returns a `MeasureBase.ProductMeasure` instead of a
+  `ValueShapes.NamedTupleDist` resp. a `Distributions.Product`. Marginals
+  are specified as before (distributions, intervals, arrays of those, or
+  constant values), constant marginals become `MeasureBase.Dirac`.
+
+* `lbqintegral` and `distbind` are deprecated in favour of
+  `MeasureBase.mintegrate`/`mintegrate_exp` and `MeasureBase.mbind`.
+
+* `batmeasure` is BAT's canonicalization: it turns distributions into
+  measures, named tuples of distributions and `NamedTupleDist`s into product
+  measures, and MeasureBase density measures into `PosteriorMeasure`s.
+
+* Densities of measures are `-Inf` outside their support instead of
+  throwing, and transports are `NaN` there; the boundary of the support can
+  transport to infinite variates. Accordingly,
+  `BAT.checked_logdensityof` no longer throws for a `NaN` density at a
+  non-finite variate, it returns a zero density there.
+
+* `GridSampler` places its grid points at the cell midpoints of the unit
+  hypercube instead of including its boundary.
+
+* `DistributionsAD` and `ForwardDiffPullbacks` are no longer dependencies.
+
+### Further behavior changes
+
+* `MeasureBase.basemeasure` of a posterior measure is its prior and
+  `MeasureBase.logdensity_def` is the log-density of its likelihood, so a
+  posterior behaves like the `mintegrate_exp(likelihood, prior)` it
+  represents.
+
+* `MeasureBase.weightedmeasure` no longer special-cases posterior measures,
+  it yields a `WeightedMeasure` for them like for any other measure. BAT's
+  own renormalization (e.g. `bat_sample` on an auto-renormalized target)
+  still rescales the likelihood and keeps the posterior structure.
+
+* `ValueShapes.varshape` and `ValueShapes.unshaped` are defined for
+  MeasureBase measures and derived from the measure structure.
+
+* `DensitySampleVector` accepts raw `NamedTuple` variates and shapes them,
+  instead of requiring variates with an explicit shape.
+
+* `EllipticalSliceMCMCSampling` requires a posterior measure whose prior
+  transforms to a standard multivariate normal, and says so instead of
+  failing later.
+
+* Algorithms that record the degrees of freedom of a measure (e.g. the
+  importance samplers) record `nothing` for measures that declare none,
+  instead of throwing.
+
+* The MCMC samplers evaluate the target density for all walkers of a step in
+  one batched call (`MeasureBase.logdensities`) instead of walker by walker.
+  Measures with fused batched kernels may return results that differ from the
+  per-walker ones in the last ulp, so MCMC runs with a fixed RNG seed can take
+  a different path than before.
+
 BAT.jl v5.0.0
 -------------
 

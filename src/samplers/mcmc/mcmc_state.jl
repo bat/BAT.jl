@@ -9,7 +9,7 @@
 State of a MCMC chain.
 """
 mutable struct MCMCChainState{
-    M<:BATMeasure,
+    M<:AbstractMeasure,
     PR<:RNGPartition,
     FT<:Function,
     P<:MCMCProposalState,
@@ -44,7 +44,7 @@ _contains_hamiltonian_mc(proposal::MCMCProposal) =
 
 function MCMCChainState(
     samplingalg::TransformedMCMC,
-    target::BATMeasure,
+    target::AbstractMeasure,
     chainid::Integer,
     x_init::AbstractVector{PV},
     context::BATContext
@@ -67,11 +67,11 @@ function MCMCChainState(
     f_inv = inverse(f)
     proposal = _create_proposal_state(samplingalg.proposal, target_unevaluated, context, x_init, f, rng)
 
-    logd_x_init = BAT.checked_logdensityof.(target_unevaluated, x_init)
-    z_init = f_inv.(x_init)
+    logd_x_init = BAT.checked_logdensities(target_unevaluated, x_init)
+    z_init = VectorOfSimilarVectors(f_inv.(x_init))
     ladj_c = _transform_ladj(f)
     logd_z_init = isnothing(ladj_c) ?
-        logdensityof.(MeasureBase.pullback(f, target_unevaluated), z_init) :
+        logdensities(MeasureBase.pullback(f, target_unevaluated), z_init) :
         logd_x_init .+ ladj_c
 
     W = mcmc_weight_type(samplingalg.sample_weighting)
@@ -340,11 +340,13 @@ end
 
     x_proposed, ladj = _transform_with_ladj(f_transform, z_proposed)
 
-    logd_x_proposed = BAT.checked_logdensityof.(target, x_proposed)
-    logd_z_proposed::typeof(logd_x_proposed) = logd_x_proposed .+ ladj
-
     chain_state.proposed.x.v .= x_proposed
     chain_state.proposed.z.v .= z_proposed
+
+    # The walker positions are evaluated from the chain state's buffer, whose
+    # flat storage lets the target evaluate the whole batch at once:
+    logd_x_proposed = BAT.checked_logdensities(target, chain_state.proposed.x.v)
+    logd_z_proposed::typeof(logd_x_proposed) = logd_x_proposed .+ ladj
 
     chain_state.proposed.x.logd .= logd_x_proposed
     chain_state.proposed.z.logd .= logd_z_proposed
@@ -708,7 +710,7 @@ end
 
 function _construct_mcmc_state(
     samplingalg::TransformedMCMC,
-    target::BATMeasure,
+    target::AbstractMeasure,
     rngpart::RNGPartition,
     id::Integer,
     initval_alg::InitvalAlgorithm,
@@ -721,7 +723,7 @@ end
 
 _gen_mcmc_states(
     samplingalg::TransformedMCMC,
-    target::BATMeasure,
+    target::AbstractMeasure,
     rngpart::RNGPartition,
     ids::AbstractRange{<:Integer},
     initval_alg::InitvalAlgorithm,

@@ -32,7 +32,6 @@ using DoubleFloats
 using ElasticArrays
 using FFTW
 using FillArrays
-using ForwardDiffPullbacks
 using FunctionChains
 using IntervalSets
 using InverseFunctions
@@ -53,7 +52,6 @@ using Tables
 using ValueShapes
 
 import ChainRulesCore
-import DistributionsAD
 import EmpiricalDistributions
 import HypothesisTests
 import Measurements
@@ -71,31 +69,27 @@ using HeterogeneousComputing: AbstractComputeUnit, CPUnit
 using HeterogeneousComputing: GenContext, get_rng, get_precision, get_compute_unit, get_gencontext, allocate_array
 
 import StaticThings
-using StaticThings: IntegerLike, RealLike
+using StaticThings: IntegerLike, RealLike, asnonstatic
 
 import MeasureBase
 using MeasureBase: AbstractMeasure, DensityMeasure, Likelihood
 using MeasureBase: basemeasure, getdof, likelihoodof, testvalue
 using MeasureBase: pushfwd
-using MeasureBase: transport_to, transport_origin, from_origin, to_origin
-using MeasureBase: StdMeasure, StdUniform, StdNormal
-using MeasureBase: PowerMeasure, powermeasure, marginals
+using MeasureBase: transport_to, TransportFunction
+using MeasureBase: StdUniform, StdNormal, Half
+using MeasureBase: asmeasure, AsMeasure, Dirac, mbind, mintegrate, mintegrate_exp
+using MeasureBase: productmeasure, insupport
+using MeasureBase: logdensities
+using MeasureBase: PowerMeasure, marginals
 using MeasureBase: WeightedMeasure, weightedmeasure
-using MeasureBase: SuperpositionMeasure, superpose
 using MeasureBase: massof
 
 using MeasureBase: PushforwardMeasure, gettransform
 using MeasureBase: TransformVolCorr as PushFwdStyle, NoVolCorr as ChangeRootMeasure, WithVolCorr as KeepRootMeasure
 
-@static if isdefined(MeasureBase, :pwr_base)
-    import MeasureBase.pwr_base as _pwr_base
-    import MeasureBase.pwr_axes as _pwr_axes
-    import MeasureBase.pwr_size as _pwr_size
-else
-    _pwr_base(m::PowerMeasure) = m.parent
-    _pwr_axes(m::PowerMeasure) = m.axes
-    _pwr_size(m::PowerMeasure) = map(length, m.axes)
-end
+import MeasureBase.pwr_base as _pwr_base
+import MeasureBase.pwr_axes as _pwr_axes
+import MeasureBase.pwr_size as _pwr_size
 
 
 using IntervalSets: Domain
@@ -112,8 +106,7 @@ using LogarithmicNumbers: ULogarithmic
 # For Dual specializations:
 import ForwardDiff
 
-# For StandardMvNormal:
-using IrrationalConstants: log2π, invsqrt2π
+using IrrationalConstants: log2π
 
 
 include("utils/utils.jl")
@@ -145,7 +138,7 @@ include("deprecations.jl")
 @compat public enable_error_log, error_log, EvalException
 @compat public ext_default, pkgext, PackageExtension
 @compat public get_adselector, get_valid_adselector, set_rng
-@compat public BinnedModeEstimator, DistributionTransform, PolarShellDistribution
+@compat public BinnedModeEstimator, PolarShellDistribution
 @compat public MCMCChainStateInfo, MCMCProposal, MCMCProposalState
 @compat public MCMCProposalTunerState, MCMCTransformTunerState
 @compat public MeasureEvalInfo, SimpleMCMCProposalState

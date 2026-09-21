@@ -5,6 +5,7 @@ using Test
 
 using LinearAlgebra, Random
 using Distributions, PDMats, StatsBase, ValueShapes, ArraysOfArrays
+using DensityInterface
 
 
 @testset "initvals" begin

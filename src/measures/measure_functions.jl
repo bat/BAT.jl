@@ -5,15 +5,24 @@
     distprod(();a = some_dist, b = some_other_dist, ...))
     distprod([dist1, dist2, dist2, ...])
 
-Generate a product of distributions, returning either a distribution
-that has NamedTuples as variates, or arrays as variates.
+Generate a product measure, with either NamedTuples or arrays as variates.
+
+Marginals that are not measure-like are taken to be constants, they become
+`MeasureBase.Dirac` marginals.
 """
 function distprod end
 export distprod
 
-@inline distprod(ds::NamedTuple) = ValueShapes.NamedTupleDist(ds)
-@inline distprod(;kwargs...) = ValueShapes.NamedTupleDist(;kwargs...)
-@inline distprod(Ds::AbstractArray) = Distributions.product_distribution(Ds)
+@inline distprod(ds::NamedTuple) = productmeasure(map(_marginal_measure, ds))
+@inline distprod(;kwargs...) = distprod(values(kwargs))
+@inline distprod(Ds::AbstractArray) = productmeasure(map(_marginal_measure, Ds))
+
+# Marginals are specified like the marginals of a `ValueShapes.NamedTupleDist`:
+@inline _marginal_measure(m::Union{AbstractMeasure,Distribution,NamedTuple}) = batmeasure(m)
+@inline _marginal_measure(s::IntervalSets.AbstractInterval) = batmeasure(Uniform(minimum(s), maximum(s)))
+@inline _marginal_measure(ms::AbstractArray{<:Union{AbstractMeasure,Distribution,IntervalSets.AbstractInterval}}) = productmeasure(map(_marginal_measure, ms))
+@inline _marginal_measure(x::ConstValueShape) = MeasureBase.Dirac(x.value)
+@inline _marginal_measure(x) = MeasureBase.Dirac(x)
 
 
 """
@@ -24,11 +33,18 @@ Returns an object that represents the Lebesgue integral over a function
 in respect to s reference measure. It is also the non-normalized
 posterior measure that results from integrating the likelihood of
 a given observation in respect to a prior measure.
+
+!!! warning
+    Deprecated, use `MeasureBase.mintegrate` resp.
+    `MeasureBase.mintegrate_exp` instead.
 """
 function lbqintegral end
 export lbqintegral
 
-@inline lbqintegral(integrand, measure) = PosteriorMeasure(integrand, batmeasure(measure))
+@noinline function lbqintegral(integrand, measure)
+    Base.depwarn("`lbqintegral(integrand, measure)` is deprecated, use `mintegrate(integrand, batmeasure(measure))` (resp. `mintegrate_exp` for a log-density function) instead.", :lbqintegral)
+    PosteriorMeasure(integrand, batmeasure(measure))
+end
 
 
 """
@@ -37,19 +53,21 @@ export lbqintegral
 Performs a generalized monadic bind, in the functional programming sense,
 with a transition kernel `f_k`, a distribution `dist`, using `merge` to
 control the type of "flattening".
+
+!!! warning
+    Deprecated, use `MeasureBase.mbind` instead.
 """
 function distbind end
 export distbind
 
-function distbind(f_k, dist::Distribution, ::typeof(merge))
-    @argcheck dist isa NamedTupleDist
-    HierarchicalDistribution(f_k, dist)
+@noinline function distbind(f_k, dist::Distribution, f_c::Union{typeof(merge),typeof(vcat)})
+    Base.depwarn("`distbind(f_k, dist, f_c)` is deprecated, use `mbind(f_k, batmeasure(dist), f_c)` instead.", :distbind)
+    _check_distbind_args(dist, f_c)
+    mbind(ffcomp(batmeasure, f_k), batmeasure(dist), f_c)
 end
 
-function distbind(f_k, dist::Distribution, ::typeof(vcat))
-    @argcheck dist isa Union{UnivariateDistribution, MultivariateDistribution}
-    HierarchicalDistribution(f_k, dist)
-end
+_check_distbind_args(dist::Distribution, ::typeof(merge)) = @argcheck dist isa NamedTupleDist
+_check_distbind_args(dist::Distribution, ::typeof(vcat)) = @argcheck dist isa Union{UnivariateDistribution, MultivariateDistribution}
 
 
 # ToDo: Replace try/catch-on-MethodError in the fallbacks below with a
@@ -87,10 +105,10 @@ function _cov_with_fallback(d::MultivariateDistribution, n::Integer)
 end
 
 _approx_cov(target::Distribution, n) = _cov_with_fallback(target, n)
-_approx_cov(target::BATDistMeasure, n) = _cov_with_fallback(Distribution(target), n)
+_approx_cov(target::AsMeasure{<:Distribution}, n) = _cov_with_fallback(target.obj, n)
 _approx_cov(target::AbstractPosteriorMeasure, n) = _approx_cov(getprior(target), n)
-_approx_cov(target::BATWeightedMeasure, n) = _approx_cov(basemeasure(target), n)
-_approx_cov(target::BATMeasure, n) = cov(rand(_bat_determ_rng(), target^10^5))
+_approx_cov(target::WeightedMeasure, n) = _approx_cov(basemeasure(target), n)
+_approx_cov(target::AbstractMeasure, n) = cov(rand(_bat_determ_rng(), target^10^5))
 
 
 
@@ -127,7 +145,7 @@ function _mean_with_fallback(d::MultivariateDistribution, n::Integer)
 end
 
 _approx_mean(target::Distribution, n) = _mean_with_fallback(target, n)
-_approx_mean(target::BATDistMeasure, n) = _mean_with_fallback(Distribution(target), n)
+_approx_mean(target::AsMeasure{<:Distribution}, n) = _mean_with_fallback(target.obj, n)
 _approx_mean(target::AbstractPosteriorMeasure, n) = _approx_mean(getprior(target), n)
-_approx_mean(target::BATWeightedMeasure, n) = _approx_mean(basemeasure(target), n)
-_approx_mean(target::BATMeasure, n) = mean(rand(_bat_determ_rng(), target^10^5))
+_approx_mean(target::WeightedMeasure, n) = _approx_mean(basemeasure(target), n)
+_approx_mean(target::AbstractMeasure, n) = mean(rand(_bat_determ_rng(), target^10^5))
