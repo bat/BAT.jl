@@ -34,7 +34,9 @@ const _COV_ELLIPSE_CIRCLE = let θ = range(0, 2π, length=200)
     [cos.(θ)'; sin.(θ)']
 end
 
-# Shared with the Cov2D dead-cell fallback.
+# Ellipse samples and principal-axis endpoints for one covariance, both at the
+# SAME nsigma radius: `direction` is a half-length applied in either direction,
+# so each segment spans its full axis and its endpoints land on the ellipse.
 function _cov_ellipse_primitives(μ::AbstractVector, Σ::AbstractMatrix, nsigma::Real)
     vals, vecs = eigen(Σ)
     stds = sqrt.(clamp.(vals, 0, Inf))
@@ -44,7 +46,7 @@ function _cov_ellipse_primitives(μ::AbstractVector, Σ::AbstractMatrix, nsigma:
 
     axes_segments = Point2f[]
     for i in 1:2
-        direction = vecs[:, i] * stds[i] * 2 * nsigma
+        direction = vecs[:, i] * stds[i] * nsigma
         p1 = Point2f(μ .- direction)
         p2 = Point2f(μ .+ direction)
         push!(axes_segments, p1, p2)
