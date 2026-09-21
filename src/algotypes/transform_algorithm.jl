@@ -243,8 +243,9 @@ function bat_transform_impl(intent::Union{UniformBased,NormalBased}, density::Ab
     orig_prior = getprior(density)
     orig_likelihood = getlikelihood(density)
     new_prior, f_transform = bat_transform_impl(intent, orig_prior, algorithm, context)
-    # The substituted prior has full support, the original one has not:
-    new_likelihood = SupportedDensity(orig_likelihood, orig_prior, inverse(f_transform))
+    # Transports saturate at infinite variates in their extreme tails, where
+    # the likelihood need not be defined:
+    new_likelihood = FiniteVariateDensity(orig_likelihood, inverse(f_transform))
     (result = PosteriorMeasure(new_likelihood, new_prior), f_transform = f_transform)
 end
 
