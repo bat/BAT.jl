@@ -3,110 +3,71 @@
 """
     MolewhackerSampling(; kwargs...)
 
-Adaptive defensive Gaussian-mixture importance sampling. Fits local Fisher
-Gaussians, validates proposal changes on fresh draws, then freezes the proposal
-and draws fresh IID production samples. Requires a differentiable forward-model
-likelihood and a standard-normal prior after `pretransform`.
+Adaptive Gaussian-mixture importance sampling with local Fisher geometry.
+Finds initial modes, adds Gaussians at high target-to-proposal ratios, and
+updates all component masses from center ratios. Requires a differentiable
+forward-model likelihood and a standard-normal prior after `pretransform`.
 
-Supports Normal, MvNormal, Poisson, Exponential, and product observation models.
-Uses dense CPU geometry.
-
-Only production draws enter the returned empirical measure. Their weights are
-`exp(logtarget - logproposal - logweight_scale)`, with the common scale retained
-in `evalinfo.result`. The normalized proposal is stored in `approx`.
+The adaptive pool guides proposal construction only. Final samples are fresh
+IID draws from the frozen mixture, with optional prior mixing.
+Weights are `exp(logtarget - logproposal - logweight_scale)`; the common
+scale is retained in `evalinfo.result`.
 
 Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct MolewhackerSampling{TR<:TransformIntent,IA<:InitvalAlgorithm,M,S,E<:BATExecutor,D} <: AbstractSamplingAlgorithm
+@with_kw struct MolewhackerSampling{TR<:TransformIntent,IA,IM,E<:BATExecutor,D} <: AbstractSamplingAlgorithm
     pretransform::TR = NormalBased()
-    "Seed source in original coordinates."
-    init::IA = InitFromTarget()
-    "Number of initial seeds."
-    nseeds::Int = 0
-    "Optional optimizer of the transformed target for seeds and candidate centers."
-    mode::M = nothing
-    "Also fit one bounded Fisher-gradient center step during discovery when `mode` is `nothing`."
-    refine_centers::Bool = false
-    "Production count, or its cap when `target_ess` is finite."
-    nsamples::Int = 10^4
-    "Optional production ESS goal. A fresh pilot chooses the count before production."
+    "Seed source in original coordinates, or `nothing` for Sobol starts in normal coordinates."
+    init::IA = nothing
+    "Number of initial seeds. Zero skips mode initialization."
+    nseeds::Int = 10
+    "Seed optimizer. The default L-BFGS-B backend requires `import OptimizationLBFGSB`."
+    init_mode::IM = nseeds == 0 ? nothing : OptimizationAlg(optalg = ext_default(pkgext(Val(:OptimizationLBFGSB)), Val(:LBFGSB_ALG)))
+    "Production count, or its cap with finite `target_ess`. Nothing follows the pool size or ESS goal."
+    nsamples::Union{Nothing,Int} = nothing
+    "Optional ESS goal. Adaptive-pool ESS is a heuristic; a fresh pilot sizes production."
     target_ess::Float64 = Inf
-    "Draw count for each training, validation, and sizing batch."
-    batchsize::Int = 1024
-    maxiter::Int = 20
-    "Maximum mixture size, including the prior."
-    maxcomponents::Int = 32
-    "Maximum target log-density calls, excluding geometry evaluations."
-    maxevals::Int = 10^5
-    "Maximum candidate centers per training batch."
-    ncandidates::Int = 2
-    "Minimum prior mass in the proposal."
-    exploration_mass::Float64 = 0.1
-    "Variance multipliers assessed for each local Fisher Gaussian."
-    covariance_scales::S = (1.0, 2.0, 4.0)
-    "Minimum relative second-moment improvement on fresh validation draws."
-    min_improvement::Float64 = 0.01
-    "Stop after this many consecutive unaccepted training rounds."
-    patience::Int = 3
+    "Initial discovery pool and production-sizing pilot count."
+    batchsize::Int = 1000
+    maxiter::Int = 100
+    "Maximum final mixture size, including any added prior component."
+    maxcomponents::Int = typemax(Int)
+    "Maximum target calls, excluding geometry. No additional call limit by default."
+    maxevals::Int = typemax(Int)
+    "Number of candidate centers added per round."
+    ncandidates::Int = Threads.nthreads()
+    "Optional prior coefficient added after fitting. Zero leaves the fitted proposal unchanged."
+    exploration_mass::Float64 = 0.0
     executor::E = default_executor()
-    "Optional function of final log importance ratios, for example `MGVI.pareto_diagnostic`."
+    "Optional function of final log importance ratios."
     weight_diagnostic::D = nothing
 end
 export MolewhackerSampling
 
 function _mw_check(alg, context)
-    @argcheck alg.nsamples > 0 && alg.batchsize > 0
-    @argcheck alg.maxiter >= 0 && alg.nseeds >= 0
-    @argcheck alg.maxcomponents > alg.nseeds
-    @argcheck alg.ncandidates > 0 && alg.patience > 0
-    @argcheck 0 < alg.exploration_mass < 1
-    @argcheck 0 <= alg.min_improvement < 1
-    @argcheck alg.target_ess > 0
-    @argcheck !isempty(alg.covariance_scales) && all(s -> isfinite(s) && s > 0, alg.covariance_scales)
+    @argcheck (isnothing(alg.nsamples) || alg.nsamples > 0) && alg.batchsize > 0
+    @argcheck alg.maxiter >= 0 && alg.nseeds >= 0 && alg.ncandidates > 0
+    @argcheck alg.maxcomponents >= max(1, alg.nseeds + Int(alg.exploration_mass > 0))
+    @argcheck alg.target_ess > 0 && 0 <= alg.exploration_mass < 1
     pilot_count = isfinite(alg.target_ess) ? alg.batchsize : 0
-    @argcheck alg.maxevals >= alg.nsamples && alg.maxevals - alg.nsamples >= pilot_count
-    reserve = alg.nsamples + pilot_count
+    production_count = something(alg.nsamples, alg.batchsize)
+    @argcheck alg.maxevals >= production_count && alg.maxevals - production_count >= pilot_count
+    reserve = production_count + pilot_count
+    discovery_count = alg.maxiter > 0 ? alg.batchsize : 0
+    center_count = alg.nseeds > 0 ? alg.nseeds : Int(alg.maxiter > 0)
+    @argcheck alg.maxevals - reserve >= discovery_count + center_count "Leave target calls for initial centers and discovery, or disable initialization and adaptation."
+    @argcheck isnothing(alg.init_mode) || alg.maxevals - reserve - discovery_count - center_count >= alg.nseeds "Leave target calls for mode searches, or disable the seed optimizer."
     @argcheck get_compute_unit(context) isa CPUnit
-    T = get_precision(context)
-    @argcheck 0 < T(alg.exploration_mass) < 1
-    @argcheck all(s -> isfinite(T(s)) && T(s) > 0, alg.covariance_scales)
+    @argcheck iszero(alg.exploration_mass) || 0 < get_precision(context)(alg.exploration_mass) < 1
     return reserve
-end
-
-function _mw_scaled_gaussian(center::AbstractVector{T}, precision::PDMat, scale) where T
-    s = T(scale)
-    s == one(T) && return _mw_gaussian(center, precision)
-    P = precision.mat ./ s
-    all(isfinite, P) || return nothing
-    try
-        return _mw_gaussian(center, P)
-    catch err
-        err isa Union{PosDefException,SingularException} || rethrow()
-        return nothing
-    end
 end
 
 function _mw_gaussian(center::AbstractVector{T}, precision) where T
     P = PDMat{T}(precision)
     c = copy(center)
     return MvNormalCanon(c, P * c, P)
-end
-
-# All mixtures use the same concrete Gaussian type. Keep the prior first.
-function _mw_mix(q, g, β, ε)
-    T = eltype(first(q.components))
-    β, ε = T(β), T(ε)
-    w = (1 - β) .* probs(q)
-    w[1] += β * ε
-    push!(w, β * (1 - ε))
-    components = vcat(q.components, [g])
-    keep = findall(>(zero(T)), w)
-    w, components = w[keep], components[keep]
-    w[1] = max(w[1], ε)
-    w[2:end] .*= (1 - w[1]) / sum(view(w, 2:length(w)))
-    return MixtureModel(components, w)
 end
 
 function _mw_draw(q, logtarget, n, executor, context)
@@ -138,53 +99,6 @@ function _mw_batched_logpdf(d, x::AbstractMatrix)
     return r
 end
 
-function _mw_loga(data)
-    c = maximum(data.logp)
-    isfinite(c) || return nothing
-    return 2 .* (data.logp .- c) .- data.logr
-end
-
-function _mw_logobjective(loga, logq)
-    return mapreduce(-, _logaddexp, loga, logq)
-end
-
-# At a coefficient endpoint only one density contributes. Keep the Float64
-# coefficient's promotion and the interior objective's reduction order.
-function _mw_logendpoint(loga, logd)
-    return mapreduce(i -> loga[i] - (0.0 + logd[i]), _logaddexp, eachindex(loga, logd))
-end
-
-function _mw_fit_mass(loga, logq, logg, initial_obj)
-    function objective(β)
-        lq, lg = log1p(-β), log(β)
-        return mapreduce(_logaddexp, eachindex(loga, logq, logg)) do i
-            loga[i] - _logaddexp(lq + logq[i], lg + logg[i])
-        end
-    end
-    # qβ = (q + g)/2 * (1 + (2β - 1)d), with d = (g - q)/(g + q).
-    # Precompute scaled coefficients. The derivative then needs only arithmetic.
-    T = promote_type(eltype(loga), eltype(logq), eltype(logg), Float64)
-    a = map((v, q, g) -> T(v) - _logaddexp(T(q), T(g)), loga, logq, logg)
-    a .= exp.(a .- maximum(a))
-    d = map((q, g) -> tanh((T(g) - T(q)) / 2), logq, logg)
-    lo, hi = 0.0, 1.0
-    for _ in 1:32
-        β = (lo + hi) / 2
-        slope = sum(eachindex(a, d)) do i
-            a[i] * d[i] / (1 + (2β - 1) * d[i])^2
-        end
-        if slope > 0
-            lo = β
-        else
-            hi = β
-        end
-    end
-    # d can round to ±1. Use the original log objective at endpoints.
-    choices = (0.0, (lo + hi) / 2, 1.0)
-    value, i = findmin((initial_obj, objective(choices[2]), _mw_logendpoint(loga, logg)))
-    return choices[i], value
-end
-
 struct MolewhackerBudgetReached <: Exception end
 
 function _mw_with_budget(f, logtarget, remaining)
@@ -204,52 +118,12 @@ function _mw_with_budget(f, logtarget, remaining)
     end
 end
 
-function _mw_center_alternative(center::AbstractVector{T}, precision, logtarget, remaining, ad) where T
-    remaining > 0 || return nothing, 0, false
-    result, ncalls, exhausted = _mw_with_budget(logtarget, remaining) do counted
-        with_gradient(counted, center, ad)
-    end
-    exhausted && return nothing, ncalls, true
-    value, gradient = result
-    isfinite(value) && all(isfinite, gradient) || return nothing, ncalls, false
-    C = cholesky(precision)
-    u = C.L \ gradient
-    ρ = norm(u)
-    isfinite(ρ) && ρ > 0 || return nothing, ncalls, false
-    # Limit the displacement to sqrt(d) in the local Fisher metric.
-    u .*= min(one(T), sqrt(T(length(center))) / ρ)
-    candidate = T.(center .+ C.U \ u)
-    all(isfinite, candidate) && candidate != center || return nothing, ncalls, false
-    return candidate, ncalls, false
-end
-
 function _mw_mode(center, logtarget, mode, remaining, context)
     isnothing(mode) && return center, 0, false
     result, ncalls, exhausted = _mw_with_budget(logtarget, remaining) do counted
         collect(maximize_density(counted, center, mode, context).result)
     end
     return exhausted ? center : result, ncalls, exhausted
-end
-
-function _mw_nearby(center, centers)
-    return any(centers) do (c, P)
-        delta = center .- c
-        dot(delta, P * delta) < one(eltype(center))
-    end
-end
-
-function _mw_validation_gain(q, candidate, logtarget, alg, context)
-    no_gain = zero(get_precision(context))
-    candidate === q && return no_gain, 0
-    # Candidates are frozen. This fresh comparison has its own denominator.
-    r = MixtureModel(vcat(q.components, candidate.components), vcat(probs(q) ./ 2, probs(candidate) ./ 2))
-    validation = _mw_draw(r, logtarget, alg.batchsize, alg.executor, context)
-    loga = _mw_loga(validation)
-    isnothing(loga) && return no_gain, alg.batchsize
-    x = flatview(validation.v)
-    old_obj = _mw_logobjective(loga, _mw_batched_logpdf(q, x))
-    new_obj = _mw_logobjective(loga, _mw_batched_logpdf(candidate, x))
-    return -expm1(new_obj - old_obj), alg.batchsize
 end
 
 function _mw_efficiency(logw)
@@ -275,176 +149,192 @@ function _mw_logmodel(f::FunctionChain)
 end
 _mw_logmodel(f) = throw(ArgumentError("MolewhackerSampling requires a supported forward-model likelihood."))
 
+
+function _mw_center_mixture(components, center_logp)
+    T = eltype(first(components))
+    uniform = MixtureModel(components, fill(inv(T(length(components))), length(components)))
+    logw = center_logp .- logpdf.(Ref(uniform), mean.(components))
+    offset = maximum(logw)
+    isfinite(offset) || return nothing
+    weights = T.(exp.(logw .- offset))
+    return MixtureModel(components, weights ./ sum(weights))
+end
+
+function _mw_initial_proposal(transformed_m, f, model, logtarget, gprior, alg, fit_budget, ad, context)
+    T = get_precision(context)
+    components = typeof(gprior)[]
+    nevals, ngeometries, nfailed, nexhausted = 0, 0, 0, 0
+    if alg.nseeds > 0
+        seeds = if isnothing(alg.init)
+            bat_sample(StandardMvNormal{T}(length(gprior)), SobolSampler(nsamples = alg.nseeds), context).result.v
+        else
+            bat_initval(transformed_m, alg.nseeds, apply_trafo_to_init(f, alg.init), context).result
+        end
+        centers = [T.(collect(seed)) for seed in seeds]
+        results = Vector{Tuple{Vector{T},Int,Bool}}(undef, alg.nseeds)
+        if isnothing(alg.init_mode)
+            results .= [(c, 0, false) for c in centers]
+        else
+            # Preserve center-density and discovery calls after the parallel searches.
+            mode_budget = fit_budget - alg.nseeds - (alg.maxiter > 0 ? alg.batchsize : 0)
+            share, extra = divrem(mode_budget, alg.nseeds)
+            contexts = [set_rng(context, Philox4x((rand(get_rng(context), UInt64), UInt64(i)))) for i in 1:alg.nseeds]
+            search = i -> _mw_mode(centers[i], logtarget, deepcopy(alg.init_mode), share + (i <= extra), contexts[i])
+            exec_map!(search, alg.executor, results, collect(1:alg.nseeds))
+        end
+        nevals = sum(r -> r[2], results)
+        nexhausted = count(r -> r[3], results)
+        centers = [r[1] for r in results if !r[3]]
+        precisions = Vector{Union{Nothing,typeof(gprior.J)}}(undef, length(centers))
+        exec_map!(c -> _mw_local_precision(model, c, ad), alg.executor, precisions, centers)
+        ngeometries = length(centers)
+        keep = findall(!isnothing, precisions)
+        nfailed = ngeometries - length(keep)
+        components = typeof(gprior)[_mw_gaussian(centers[i], precisions[i]) for i in keep]
+    end
+    center_logp = logtarget.(mean.(components))
+    nevals += length(components)
+    q = isempty(components) ? nothing : _mw_center_mixture(components, center_logp)
+    if isnothing(q)
+        q = MixtureModel([gprior], [one(T)])
+        center_logp = alg.maxiter > 0 ? [logtarget(mean(gprior))] : Float64[]
+        nevals += length(center_logp)
+    end
+    return q, center_logp, nevals, ngeometries, nfailed, nexhausted
+end
+
 function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, context::BATContext)
     reserve = _mw_check(alg, context)
     transformed_m, f = transform_and_unshape(alg.pretransform, em, context)
     m = unevaluated(transformed_m)
-    prior = getprior(m)
-    is_std_mvnormal(prior) || throw(ArgumentError("MolewhackerSampling requires a standard-normal prior after pretransform."))
+    is_std_mvnormal(getprior(m)) || throw(ArgumentError("MolewhackerSampling requires a standard-normal prior after pretransform."))
     model = ffcomp(_mw_model(getlikelihood(unevaluated(em))), inverse(f))
     logtarget = checked_logdensityof(m)
     T = get_precision(context)
     dim = some_dof(transformed_m)
     gprior = _mw_gaussian(zeros(T, dim), Matrix{T}(I, dim, dim))
-    q = MixtureModel([gprior], [one(T)])
-    ε = T(alg.exploration_mass)
     ad = alg.maxiter > 0 || alg.nseeds > 0 ? get_valid_adselector(context, alg) : get_adselector(context)
     fit_budget = alg.maxevals - reserve
-    nevals, ngeometries, nfailed, niterations, stalled = 0, 0, 0, 0, 0
-    stop_reason = :maxiter
+    q, center_logp, nevals, ngeometries, nfailed, nseed_exhausted =
+        _mw_initial_proposal(transformed_m, f, model, logtarget, gprior, alg, fit_budget, ad, context)
+    nseed_evals = nevals
+    has_prior = first(q.components) === gprior
+    component_limit = alg.maxcomponents - Int(!has_prior && alg.exploration_mass > 0)
+    # Automatic output reserves one fresh draw for each discovery point.
+    draw_cost = isnothing(alg.nsamples) ? 2 : 1
+    niterations, npilot = 0, 0
+    stop_reason = nseed_exhausted > 0 && nseed_exhausted == alg.nseeds ? :maxevals : :maxiter
     history = NamedTuple[]
+    pilot_ess = nothing
 
-    if alg.nseeds > 0
-        initalg = apply_trafo_to_init(f, alg.init)
-        seeds = bat_initval(transformed_m, alg.nseeds, initalg, context).result
-        seed_components = typeof(gprior)[]
-        seed_counts = Int[]
-        failed_centers = Vector{Vector{T}}()
-        for seed in seeds
-            center, n, exhausted = _mw_mode(T.(collect(seed)), logtarget, alg.mode, fit_budget - nevals, context)
-            nevals += n
-            if exhausted
-                stop_reason = :maxevals
-                break
-            end
-            i = findfirst(g -> isequal(mean(g), center), seed_components)
-            if !isnothing(i)
-                seed_counts[i] += 1
-                continue
-            end
-            any(c -> isequal(c, center), failed_centers) && continue
-            P = _mw_local_precision(model, center, ad)
-            ngeometries += 1
-            if isnothing(P)
-                nfailed += 1
-                push!(failed_centers, copy(center))
-                continue
-            end
-            push!(seed_components, _mw_gaussian(center, P))
-            push!(seed_counts, 1)
-        end
-        if !isempty(seed_components)
-            # Merge exact duplicate centers while preserving equal per-seed mass.
-            weights = (one(T) - ε) .* T.(seed_counts) ./ T(sum(seed_counts))
-            q = MixtureModel(vcat([gprior], seed_components), vcat(ε, weights))
-        end
-    end
-
-    training = nothing
-    for iteration in 1:alg.maxiter
-        if (fit_budget - nevals) ÷ 2 < alg.batchsize
-            stop_reason = :maxevals
-            break
-        elseif length(q.components) >= alg.maxcomponents
-            stop_reason = :maxcomponents
-            break
-        end
-        niterations = iteration
+    if alg.maxiter > 0 && fit_budget - nevals >= alg.batchsize
         batch = _mw_draw(q, logtarget, alg.batchsize, alg.executor, context)
         nevals += alg.batchsize
-        # Keep discovery coordinates in context precision and generating densities unchanged.
-        if isnothing(training)
-            training = (v = VectorOfSimilarVectors(convert(Matrix{T}, flatview(batch.v))), logp = batch.logp, logr = batch.logr)
-        else
-            training = (v = VectorOfSimilarVectors(T[flatview(training.v) flatview(batch.v)]),
-                logp = append!(training.logp, batch.logp), logr = append!(training.logr, batch.logr))
-        end
-        loga = _mw_loga(training)
-        best = q
-        if !isnothing(loga)
-            training_x = flatview(training.v)
-            logq = _mw_batched_logpdf(q, training_x)
-            scores = training.logp .- logq
-            order = sortperm(scores, rev = true)
-            centers = Tuple{Vector{T},Matrix{T}}[]
-            attempts = 0
-            best_obj = _mw_logobjective(loga, logq)
-            initial_obj = nothing
-            logprior = _mw_batched_logpdf(gprior, training_x)
-            for idx in order
-                attempts >= alg.ncandidates && break
-                isfinite(scores[idx]) || continue
-                center = training.v[idx]
-                _mw_nearby(center, centers) && continue
-                attempts += 1
-                center, n, exhausted = _mw_mode(copy(center), logtarget, alg.mode, fit_budget - nevals - alg.batchsize, context)
-                nevals += n
-                if exhausted
-                    stop_reason = :maxevals
-                    break
-                end
-                _mw_nearby(center, centers) && continue
-                P = _mw_local_precision(model, center, ad)
-                ngeometries += 1
-                if isnothing(P)
-                    nfailed += 1
-                    continue
-                end
-                # Exclude later centers inside this candidate's Fisher ellipsoid.
-                push!(centers, (center, P.mat))
-                fit_centers = (center,)
-                if alg.refine_centers && isnothing(alg.mode)
-                    alternative, n, exhausted = _mw_center_alternative(center, P, logtarget, fit_budget - nevals - alg.batchsize, ad)
-                    nevals += n
-                    exhausted && (stop_reason = :maxevals)
-                    !isnothing(alternative) && (fit_centers = (center, alternative))
-                end
-                for fit_center in fit_centers, scale in alg.covariance_scales
-                    g = _mw_scaled_gaussian(fit_center, P, scale)
-                    if isnothing(g)
-                        nfailed += 1
-                        continue
-                    end
-                    logg = _logaddexp.(log(ε) .+ logprior, log1p(-ε) .+ _mw_batched_logpdf(g, training_x))
-                    isnothing(initial_obj) && (initial_obj = _mw_logendpoint(loga, logq))
-                    β, obj = _mw_fit_mass(loga, logq, logg, initial_obj)
-                    if β > 0 && obj < best_obj
-                        best, best_obj = _mw_mix(q, g, β, ε), obj
-                    end
-                end
-                stop_reason == :maxevals && break
+        points, logp = Matrix{T}(flatview(batch.v)), batch.logp
+        npilot = length(logp)
+        geometry_cache = fill!(Vector{Union{Missing,Nothing,typeof(gprior.J)}}(undef, npilot), missing)
+        for iteration in 1:alg.maxiter
+            scores = logp .- _mw_batched_logpdf(q, points)
+            if !isfinite(maximum(scores))
+                stop_reason = :no_finite_candidate
+                break
             end
+            # Recycled scores guide fitting only; they never become output weights.
+            pilot_ess = _mw_efficiency(scores).ess
+            if pilot_ess > alg.target_ess
+                stop_reason = :pilot_ess
+                break
+            elseif fit_budget - nevals < draw_cost
+                stop_reason = :maxevals
+                break
+            elseif length(q.components) >= component_limit
+                stop_reason = :maxcomponents
+                break
+            end
+            niterations = iteration
+            nselected = min(alg.ncandidates, npilot, component_limit - length(q.components))
+            indices = partialsortperm(scores, 1:nselected, rev = true)
+            centers = [collect(view(points, :, i)) for i in indices]
+            precisions = Vector{Union{Nothing,typeof(gprior.J)}}(undef, nselected)
+            # Pool indices are stable. Reuse exact-center geometry without
+            # changing component multiplicities or the source mass update.
+            uncached = ismissing.(geometry_cache[indices])
+            geometry = i -> uncached[i] ? _mw_local_precision(model, centers[i], ad) : geometry_cache[indices[i]]
+            exec_map!(geometry, alg.executor, precisions, collect(1:nselected))
+            ngeometries += count(uncached)
+            nfailed += count(i -> uncached[i] && isnothing(precisions[i]), eachindex(precisions))
+            geometry_cache[indices] = precisions
+            keep = findall(!isnothing, precisions)
+            if isempty(keep)
+                stop_reason = :geometry_failure
+                break
+            end
+            added = typeof(gprior)[_mw_gaussian(centers[i], precisions[i]) for i in keep]
+            # These centers are existing pilot draws, so their target values are known.
+            append!(center_logp, logp[indices[keep]])
+            q = _mw_center_mixture(vcat(q.components, added), center_logp)
+            requested = floor.(Int, last(probs(q), length(added)) .* npilot)
+            drawn = 0
+            for (component, count) in zip(added, requested)
+                n = min(count, (fit_budget - nevals) ÷ draw_cost)
+                n == 0 && continue
+                batch = _mw_draw(component, logtarget, n, alg.executor, context)
+                nevals += n
+                fit_budget -= (draw_cost - 1) * n
+                drawn += n
+                points = hcat(points, Matrix{T}(flatview(batch.v)))
+                append!(logp, batch.logp)
+                append!(geometry_cache, fill(missing, n))
+            end
+            npilot = length(logp)
+            push!(history, (; iteration, npilot, drawn, ncomponents = length(q.components)))
         end
-
-        gain, n = _mw_validation_gain(q, best, logtarget, alg, context)
-        nevals += n
-        accepted = gain > alg.min_improvement
-        accepted && (q = best)
-        push!(history, (; iteration, accepted, gain, ncomponents = length(q.components)))
-        stop_reason == :maxevals && break
-        stalled = accepted ? 0 : stalled + 1
-        if stalled >= alg.patience
-            stop_reason = :no_improvement
-            break
-        end
+        scores = logp .- _mw_batched_logpdf(q, points)
+        pilot_ess = isfinite(maximum(scores)) ? _mw_efficiency(scores).ess : zero(T)
+    elseif alg.maxiter > 0
+        stop_reason = :maxevals
     end
 
-    nproduction = alg.nsamples
+    # Optional prior mixing does not affect the source discovery strategy.
+    epsilon = T(alg.exploration_mass)
+    if epsilon > 0
+        weights = (one(T) - epsilon) .* probs(q)
+        q = if has_prior
+            weights[1] += epsilon
+            MixtureModel(q.components, weights)
+        else
+            MixtureModel(vcat([gprior], q.components), vcat(epsilon, weights))
+        end
+    end
+    nproduction = something(alg.nsamples, max(alg.batchsize, npilot))
     pilot_efficiency = nothing
     if isfinite(alg.target_ess)
         pilot = _mw_draw(q, logtarget, alg.batchsize, alg.executor, context)
         nevals += alg.batchsize
         pilot_efficiency = _mw_efficiency(pilot.logp .- pilot.logr).efficiency
-        nproduction = ceil(Int, min(alg.nsamples, alg.target_ess / pilot_efficiency))
+        limit = something(alg.nsamples, alg.maxevals - nevals)
+        requested = alg.target_ess / pilot_efficiency
+        nproduction = requested >= limit ? limit : ceil(Int, requested)
     end
     production = _mw_draw(q, logtarget, nproduction, alg.executor, context)
     nevals += nproduction
     logw = production.logp .- production.logr
-    weights = _mw_efficiency(logw)
+    output = _mw_efficiency(logw)
     diagnostic = isnothing(alg.weight_diagnostic) ? nothing : alg.weight_diagnostic(logw)
-    smpls_z = DensitySampleVector(v = production.v, logd = production.logp, weight = weights.weight)
+    smpls_z = DensitySampleVector(v = production.v, logd = production.logp, weight = output.weight)
     smpls = inverse(f).(smpls_z)
-    dsm = DensitySampleMeasure(smpls, dof = dim, ess = weights.ess)
+    dsm = DensitySampleMeasure(smpls, dof = dim, ess = output.ess)
     q_z = batmeasure(q)
     q_original = pushfwd(inverse(f), q_z)
     approx = alg.pretransform isa DoNotTransform ? BispacedMeasure(q_original) : BispacedMeasure(q_original, q_z, hash(f))
     result = (; stop_reason, niterations, nevals, ngeometries, nfailed, nproduction,
-        ncomponents = length(q.components), ess = weights.ess, efficiency = weights.efficiency,
-        logweight_scale = weights.logweight_scale, pilot_efficiency, diagnostic, history)
+        nseed_evals, nseed_exhausted, npilot, pilot_ess, ncomponents = length(q.components),
+        ess = output.ess, efficiency = output.efficiency, logweight_scale = output.logweight_scale,
+        pilot_efficiency, diagnostic, history)
     return EvaluatedMeasure(em;
         transform_intent = alg.pretransform,
         f_transform = _viewrep_f(f, alg.pretransform),
-        empirical = _viewrep_empirical(dsm, smpls_z, f, alg.pretransform, dim, weights.ess),
+        empirical = _viewrep_empirical(dsm, smpls_z, f, alg.pretransform, dim, output.ess),
         approx, samplegen = nothing, dof = dim,
         transformed = _viewrep_measure(transformed_m, alg.pretransform),
         evalinfo = MeasureEvalInfo(alg, result)

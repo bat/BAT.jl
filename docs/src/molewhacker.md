@@ -1,13 +1,13 @@
 # Molewhacker importance sampling
 
-[`MolewhackerSampling`](@ref) fits a defensive Gaussian mixture and draws fresh
-importance samples. It is a standalone BAT sampler. It does not require MGVI.
-The API is experimental.
+[`MolewhackerSampling`](@ref) builds a Gaussian mixture with local Fisher geometry
+and draws fresh importance samples. The sampler is standalone within BAT.
+Its API is experimental.
 
 ```julia
 using BAT, Distributions, StableRNGs
 using MeasureBase: Likelihood
-import ForwardDiff
+import ForwardDiff, OptimizationLBFGSB
 
 posterior = PosteriorMeasure(
     Likelihood(z -> Normal(z[1], 0.5), 2.0),
@@ -23,111 +23,125 @@ diagnostics = result.evalinfo.result
 This posterior has mean `1.6` and variance `0.2`. `bat_sample` also accepts the
 algorithm. Use `evalmeasure` to retain the fitted proposal and diagnostics.
 
-## Sampling law
+## Proposal construction
 
-BAT first transforms the prior to standard-normal coordinates. At each candidate
-center, the sampler forms the precision `I + J' F J`, using the forward model's
-Jacobian and the observation distribution's Fisher information. The Gaussian
-uses that center as its mean. It need not be a mode.
+The proposal follows the [Newtrinos Molewhacker algorithm](https://github.com/Newtrinos-org/Newtrinos.jl/blob/bat-v5-migration/src/analysis/molewhacker.jl):
 
-Each training draw retains its actual generating log density. The sampler ranks
-candidate centers by the current target-to-proposal ratio. It fits each new
-component's mass and variance scale against an estimate of
-`J(q) = integral(target(z)^2 / q(z))`.
+1. Transform the prior to standard-normal coordinates. By default, run parallel
+   L-BFGS-B searches from ten Sobol starts to find initial centers.
+2. At each center, form a Gaussian with precision `I + J' F J`. Here `J` is the
+   forward model's parameter Jacobian, and `F` is its observation distribution's
+   Fisher information. The identity adds prior information once.
+3. Let `q_uniform` be the equally weighted mixture of all local Gaussians.
+   Assign component masses proportional to `target(center) / q_uniform(center)`.
+4. Draw an initial discovery pool. Rank its points by their current
+   `logtarget - logproposal` values. Add a Fisher Gaussian at each selected point.
+   These added centers need not be modes.
+5. Recompute all component masses using the center-ratio rule. From each new
+   component, draw `floor(component_mass * previous_pool_size)` discovery points.
+   Repeat until an iteration, component, evaluation, or pilot-ESS limit applies.
 
-For a new Gaussian `g`, the candidate proposal is
-`(1 - beta) * q + beta * (epsilon * prior + (1 - epsilon) * g)`.
-A bounded scalar search fits `beta`. `covariance_scales` supplies the finite set
-of variance multipliers. A fresh draw from the equal mixture of the old and
-candidate proposals validates the best fitted change. Validation uses its own
-generating density in the second-moment estimate.
+The adaptive pool guides proposal construction only. Its points have different
+sampling laws, so reweighting the pool by the latest proposal does not produce
+valid final importance weights. Its reported `pilot_ess` is a fitting heuristic.
 
-After adaptation, the sampler freezes the proposal and production count.
-Conditional on all earlier work, the final draws are IID from that proposal.
-Only those draws enter the returned empirical measure. Their log importance
-ratios equal `logtarget - logproposal`.
+## Final sampling law
+
+By default, the final proposal is the fitted mixture. An explicit positive
+`exploration_mass` adds a prior component after fitting:
+`q_final = exploration_mass * prior + (1 - exploration_mass) * q_fitted`.
+With bounded likelihood and positive prior mass, this bounds importance ratios. It does not guarantee
+mode discovery. The prior component enters after fitting, preserving the source
+algorithm's discovery proposals.
+
+Freeze both the proposal and production count before drawing the final samples.
+Conditional on all earlier work, these samples are IID from `q_final`.
+Only these fresh samples enter the returned empirical measure. Their log
+importance ratios are `logtarget - logproposal`.
 
 Weights use one common exponential scale for numerical stability.
-`diagnostics.logweight_scale` retains this scale. The sampler leaves the target
-mass unchanged. The fitted proposal is normalized and stored in `result.approx`.
-Self-normalized estimates retain their usual finite-sample bias.
+`diagnostics.logweight_scale` retains this scale. The target mass stays unchanged.
+The normalized proposal appears in `result.approx`. Self-normalized estimates
+retain their usual finite-sample bias.
 
-## Tuning and limits
+## Controls and limits
 
-- `exploration_mass` keeps a positive prior coefficient through every update.
-  With bounded likelihood, this bounds the importance ratios. It does not prove
-  that the sampler discovers every mode.
-- `batchsize` controls training, validation, and sizing batches. The sampler
-  reuses training target values and records their generating densities.
-- `maxiter`, `maxcomponents`, and `maxevals` bound adaptation. `maxiter = 0`
-  draws from the initial proposal without training.
-- `nsamples` reserves the production budget. `maxevals` also counts training,
-  validation, sizing, center-refinement, and mode-search target calls. Fisher model/Jacobian calls
-  are separate and counted as geometry attempts in `ngeometries`.
-- A finite `target_ess` enables a fresh sizing pilot. The pilot chooses a count
-  between one and `nsamples` before production starts. It cannot guarantee the
-  achieved ESS. Production never stops based on its current weights.
-- `nseeds` and `init = ExplicitInit(...)` supply initial centers in user
-  coordinates. The sampler copies and transforms them. Each valid seed starts
-  with equal mass within the non-prior part of the proposal. Exact duplicate
-  centers share one Gaussian and retain their combined seed mass.
-- `mode = OptimAlg(...)` optionally refines initial and discovered centers.
-  Load the chosen optimizer backend. The search maximizes the transformed
-  target density and shares the target-call budget.
-- `refine_centers = true` also fits one Fisher-gradient step from each discovered
-  center when `mode` is `nothing`. The original center remains a candidate.
-  This requires gradients of the transformed target through the context's AD
-  selector. It uses the original center's precision and caps the step at
-  `sqrt(d)` in that metric. It does not move explicit initial seeds.
-  The extra target calls and candidate fits can help poorly centered proposals,
-  especially in higher dimensions. They can also reduce the number of fitting
-  rounds under a tight budget. The default is `false` because observable errors
-  and total cost can worsen even when production ESS improves.
-- `ncandidates` limits candidate attempts independently of the executor.
-  Discovery excludes centers inside a previous candidate's unit Fisher
-  ellipsoid, so narrow nearby features can remain distinct.
-  Target draws follow the context RNG's serial order before parallel density
-  evaluation. The model must support the supplied AD selector.
-- `patience` counts consecutive unaccepted rounds, including training rounds
-  with no positive target mass. Every completed round appears in history.
+- `nseeds` sets the number of initial centers. The default `init = nothing` uses
+  Sobol starts in normal coordinates. `init = ExplicitInit(...)` supplies centers
+  in original coordinates, which BAT copies and transforms.
+- `init_mode` sets the initial optimizer. The default requires
+  `import OptimizationLBFGSB`. Set `init_mode = nothing` to keep supplied centers,
+  or `nseeds = 0` to skip initialization. Prior-only discovery can fail badly on
+  concentrated targets in higher dimensions.
+- Mode searches receive equal shares of the available fitting-call budget, with
+  remainder calls assigned in seed order. Each search owns its optimizer copy
+  and RNG. A search that exhausts its share supplies no Gaussian. Unused calls
+  remain available for adaptation.
+- `ncandidates` sets the number of centers selected per round. It defaults to
+  the Julia thread count. Geometry calculations use the selected `executor`.
+  Set `ncandidates` explicitly when comparing different thread counts.
+- `batchsize` sets the initial discovery-pool size and the independent sizing-pilot
+  size. Later discovery batches follow component masses, so they can be empty.
+  Target values at existing pool points are reused.
+  Geometry is cached by pool index, preserving every component and mass update.
+- `maxiter` is a strict round limit. `maxiter = 0` skips discovery and adaptation.
+  `maxcomponents` limits the final mixture size, including any added prior component.
+- `exploration_mass` defaults to zero. A positive value mixes the prior into the
+  final proposal. This option leaves discovery unchanged.
+- `maxevals` caps target calls, including mode searches, initial centers,
+  discovery, sizing, and production. Geometry calls are separate and counted
+  in `ngeometries`. The default adds no call limit beyond the other stopping
+  rules. Explicit caps reserve production and any sizing pilot, and must leave
+  room for enabled initialization and discovery. With automatic output, each new
+  discovery draw also reserves one fresh output draw.
+- `nsamples = nothing` is the default. Without an ESS goal, the output count
+  matches the final discovery pool, or `batchsize` when adaptation is disabled.
+  An explicit integer fixes the output count.
+- A finite `target_ess` also stops adaptation when the recycled-pool heuristic
+  exceeds that goal. An independent fresh pilot then estimates the output count.
+  An explicit `nsamples` caps that count. With `nsamples = nothing`, only the
+  remaining `maxevals` budget caps it. The achieved ESS is not guaranteed.
+  Production never stops based on its current weights.
 
-The initial implementation supports dense CPU geometry for Normal, MvNormal,
-Poisson, Exponential, and product observation models. Singular local geometry
-rejects that candidate and preserves the last valid proposal. Unsupported models
-and unrelated errors propagate. Arbitrary log-density closures do not provide
-the required forward model.
+Target draws follow the context RNG's serial order before parallel evaluation.
+For deterministic optimizers without wall-time limits, changing the executor
+preserves that order. The model must support the context's AD selector.
 
-The defaults are bounded heuristics. Large observation covariance derivatives
-and growing training archives can be expensive. Dense parameter geometry costs
-quadratic storage and cubic factorization work. No setting establishes global
-coverage or a general convergence guarantee.
+The sampler supports dense CPU geometry for Normal, MvNormal, Poisson,
+Exponential, and product observation models. Singular local geometry rejects
+that candidate. If initialization supplies no usable proposal, sampling uses
+the prior. Unsupported models and unrelated errors propagate. An arbitrary
+log-density closure does not expose the required forward model.
 
-Product models share one parameter Jacobian across their factors. This avoids
-repeated differentiation of the complete model, but stores all factor-parameter
-rows together. Its Jacobian storage scales with observation-parameter count
-times target dimension.
+Product models share one parameter Jacobian. Diagonal and isotropic Normal
+covariances use compact parameter charts. Whitened Jacobian rows form one Fisher
+pullback. The default ForwardDiff path avoids a redundant primal model call.
+Local Gaussians retain their precision factor, avoiding explicit inversion.
 
-Proposal densities use the distribution library's batched in-place API, with
-scalar fallbacks for mixed-precision buffers and indeterminate tail values.
-Local Gaussians retain the validated precision factor at unit covariance scale.
-Other scales refactor the scaled matrix, preserving its numerical validity check.
-
-Include fitting and geometry cost when comparing samplers. Higher production ESS
-need not reduce total cost or error for a specific observable.
+Dense parameter geometry needs quadratic storage and cubic factorization work.
+Mixture evaluations grow with component count. Include initialization, geometry,
+adaptation, and production when comparing total cost. These heuristics do not
+establish global coverage or a general convergence guarantee.
 
 ## Diagnostics
 
-`evalinfo.result` records `stop_reason`, iteration and evaluation counts,
-component and failed-geometry counts, final ESS and efficiency, sizing-pilot
-efficiency, and validation history. Stop reasons distinguish iteration,
-component, and evaluation limits from `:no_improvement`.
+`evalinfo.result` records iteration, target-call, geometry, component, and output
+counts. Geometry counts exclude cache hits. `nseed_evals` counts initialization
+target calls. `nseed_exhausted` counts mode searches that reach their assigned
+budget. `history` records pool growth
+and component counts after each update.
 
-ESS measures weight concentration. Inspect estimates of relevant observables
-and repeat runs when missed modes matter. Individual zero-target draws receive
-zero weight. A production batch with no finite positive target mass fails.
+`stop_reason` distinguishes `:maxiter`, `:maxcomponents`, `:maxevals`,
+`:pilot_ess`, `:no_finite_candidate`, and `:geometry_failure`.
+`pilot_ess` describes the recycled discovery pool. `pilot_efficiency` comes from
+the independent sizing pilot, when enabled. `ess` and `efficiency` describe the
+fresh production weights.
 
-`weight_diagnostic` accepts an optional function of the final log importance
-ratios. For example, callers already using MGVI can pass
-`weight_diagnostic = MGVI.pareto_diagnostic`. The returned value appears in
-`diagnostics.diagnostic`. Diagnostic functions receive a copy and cannot replace
-the sampler's raw weights. Their own sample-size requirements still apply.
+ESS measures weight concentration. Check relevant observables and repeat runs
+when missed modes matter. Zero-target draws receive zero weight. A production
+batch with no finite positive target mass fails.
+
+`weight_diagnostic` accepts an optional function of final log importance ratios.
+For example, callers using MGVI can pass `MGVI.pareto_diagnostic`. Its return
+value appears in `diagnostics.diagnostic`. It cannot replace the sampler's raw
+weights. Its own sample-size requirements still apply.

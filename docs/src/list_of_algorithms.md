@@ -91,7 +91,7 @@ bat_sample(target, PriorImportanceSampler(nsamples=10^5))
 BAT sampling algorithm type: [`MolewhackerSampling`](@ref)
 
 ```julia
-import ForwardDiff
+import ForwardDiff, OptimizationLBFGSB
 context = BATContext(ad = ForwardDiff)
 bat_sample(target, MolewhackerSampling(nsamples = 10^4), context)
 ```
