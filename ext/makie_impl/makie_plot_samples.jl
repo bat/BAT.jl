@@ -62,8 +62,20 @@ function _setup_static_graph(
     return graph, n_dof
 end
 
+# Makie resolves an argument it has no recipe for to Scatter. Without this
+# declaration the conversion below had to claim ::Type{<:AbstractPlot} just to
+# be reached, which collided with Makie's own conversions for several plot
+# types and left `used_attributes` no signature that both fires and stays
+# unambiguous. Naming what this actually produces -- a grid layout -- fixes both.
+Makie.plottype(::DensitySampleVector) = Makie.Plot{Makie.plot}
+
+# Makie forwards conversion keywords only where they are declared here;
+# accepting them in the signature below is not enough to ever receive them.
+Makie.used_attributes(::Type{<:Makie.Plot{Makie.plot}}, ::DensitySampleVector) =
+    (:recipes, :vsel, :N_max, :trace_nsteps, :support, :dark)
+
 function Makie.convert_arguments(
-    ::Type{<:AbstractPlot},
+    ::Type{<:Makie.Plot{Makie.plot}},
     samples::DensitySampleVector;
     recipes::NamedTuple = (upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D),
     vsel::Vector{<:Integer} = [1, 2, 3],
