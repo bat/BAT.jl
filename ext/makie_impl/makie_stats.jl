@@ -537,11 +537,18 @@ function compute_plotting_primitives(
     σ = std(vals, w_prob)
     # A nonempty all-zero-weight vector passes the emptiness guards; std()
     # then returns NaN, which Normal(μ, NaN) rejects with a DomainError.
-    (isfinite(μ) && isfinite(σ)) || return _empty_pdf1d_primitives()
+    # sigma == 0 (a constant marginal) makes Normal(μ, 0) a point mass: Inf at μ
+    # and zero elsewhere, so the overlay came out either as a flat zero line
+    # (when the grid misses μ, as the default 300 points do) or as a non-finite
+    # spike (when an odd npoints_pdf hits it). Neither is a Gaussian fit, so
+    # degrade like every other unusable input here. A positive sigma needs no
+    # further check: std is sqrt(var), and var underflows to exactly zero below
+    # a spread of ~1e-161, so any sigma > 0 is >= ~5e-161 and the peak
+    # 1/(sigma*sqrt(2pi)) stays finite.
+    (isfinite(μ) && isfinite(σ) && σ > 0) || return _empty_pdf1d_primitives()
     dist = Normal(μ, σ)
 
-    x_min, x_max = σ == 0 ? (μ - 1, μ + 1) : (μ - 4σ, μ + 4σ)
-    x = collect(LinRange(x_min, x_max, npoints_pdf))
+    x = collect(LinRange(μ - 4σ, μ + 4σ, npoints_pdf))
     y = pdf.(dist, x)
 
     poly_points = vcat(
