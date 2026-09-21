@@ -190,12 +190,17 @@ get_batcontext() = default_batcontext[]
         precision = ...,
         rng = ...,
         cunit = ...,
-        ad = ...
+        ad = ...,
+        visualizer = ...
     )
 
 Sets the default computational context for BAT.
 
 The new context becomes the process-wide default, visible to all tasks.
+Options that are not given are taken from the current context, and
+unsupported keywords are rejected rather than silently ignored. Note that a
+[`BATVisualizer`](@ref) that has already been used by a sampling run cannot
+be reused, so a process-wide default visualizer serves a single run.
 To override the default for a dynamic scope only, bind
 [`default_batcontext`](@ref) via `ScopedSettings.with` instead -
 `set_batcontext` throws when called inside such a scope, as the
@@ -211,15 +216,25 @@ function set_batcontext(context::BATContext)
     return get_batcontext()
 end
 
-# TODO: MD, add infrastructure for BATVisualizer
+const _SET_BATCONTEXT_KEYS = (:precision, :rng, :cunit, :ad, :visualizer)
+
 function set_batcontext(; kwargs...)
     c = get_batcontext()
+    # Rejected explicitly: an unmatched keyword would otherwise land in `s` and be
+    # dropped without a trace, which is how `visualizer` went unnoticed.
+    unknown = filter(k -> !(k in _SET_BATCONTEXT_KEYS), collect(keys(kwargs)))
+    isempty(unknown) || throw(ArgumentError(
+        "set_batcontext does not support the keyword(s) " * join(unknown, ", ") *
+        "; supported keywords are " * join(_SET_BATCONTEXT_KEYS, ", ")))
+    # Every settable field is a member of the merged defaults, and construction
+    # reads all of them from `s` -- taking one from `c` instead is what ignored
+    # an explicitly requested visualizer.
     s = merge(
-        (cunit=get_compute_unit(c), precision=get_precision(c), rng=get_rng(c), ad=get_adselector(c)),
+        (cunit=get_compute_unit(c), precision=get_precision(c), rng=get_rng(c), ad=get_adselector(c), visualizer=c.visualizer),
         (; kwargs...)
     )
     adsel = _to_adsel(s.ad)
-    set_batcontext(BATContext{s.precision}(s.rng, s.cunit, adsel, c.visualizer)) # Temporary, to fix
+    set_batcontext(BATContext{s.precision}(s.rng, s.cunit, adsel, s.visualizer))
 end
 
 
