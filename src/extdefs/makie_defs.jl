@@ -348,6 +348,10 @@ export PDF1D
 *Experimental feature, not yet part of stable public API.*
 
 The BAT light Makie theme used by the corner-plot figure.
+
+`bat_makie_plot` and the live visualizer apply it to their own figures only,
+via a scoped `with_theme`. To use it for every Makie plot in a session, apply
+it yourself with `Makie.set_theme!(bat_theme())`.
 """
 function bat_theme end
 export bat_theme
@@ -357,7 +361,9 @@ export bat_theme
 
 *Experimental feature, not yet part of stable public API.*
 
-The BAT dark Makie theme used by the corner-plot figure.
+The BAT dark Makie theme used by the corner-plot figure. Scoped to BAT's own
+figures like [`bat_theme`](@ref); apply it with `Makie.set_theme!` for a
+session-wide dark theme.
 """
 function bat_theme_dark end
 export bat_theme_dark

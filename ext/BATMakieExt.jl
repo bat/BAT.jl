@@ -51,8 +51,6 @@ import BAT: bat_makie_plot, bat_theme, bat_theme_dark
 
 include("./makie_impl/makie_plotting.jl")
 
-Makie.set_theme!(bat_theme())
-
 # See makie_impl/makie_precompile.jl for what this covers and why (in short:
 # every recipe's real compute/compose/SpecApi-reconciliation code path, so
 # switching to it interactively for the first time doesn't pay that
