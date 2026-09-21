@@ -49,7 +49,10 @@ using BAT: FullMeasureTransform, PriorSubstitution, getprior
     @test logdensities(exp_posterior, [-1.0, 1.0]) == [-Inf, logdensityof(exp_posterior, 1.0)]
 
     tr_exp = bat_transform(NormalBased(), exp_posterior, context)
-    @test logdensityof(tr_exp.result, [40.0]) == -Inf
+    # Finite inputs give finite variates, the likelihood is evaluated:
+    @test isfinite(logdensityof(tr_exp.result, [40.0]))
+    # Infinite variates never reach the likelihood:
+    @test logdensityof(tr_exp.result, [Inf]) == -Inf
     x_exp, ladj_exp = with_logabsdet_jacobian(inverse(tr_exp.f_transform), [0.5])
     @test logdensityof(tr_exp.result, [0.5]) ≈ logdensityof(exp_posterior, x_exp) + ladj_exp
 end

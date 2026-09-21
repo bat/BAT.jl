@@ -65,7 +65,7 @@ BAT.SampleTransformation
 BAT.StanLikeTuning
 BAT.StatisticalWhitening
 BAT.StepSizeAdaptor
-BAT.SupportedDensity
+BAT.FiniteVariateDensity
 BAT.DiagonalAffineTransform
 BAT.TriangularAffineTransform
 BAT.UnitTransformInit

@@ -74,44 +74,40 @@ end
 
 
 """
-    BAT.SupportedDensity(likelihood, support::MeasureBase.AbstractMeasure, f_to_support)
+    BAT.FiniteVariateDensity(likelihood, f_to_variate)
 
 *BAT-internal, not part of stable public API.*
 
-A density that evaluates `likelihood` at `f_to_support(v)`, and is zero
-wherever that point lies outside of the support of the measure `support`.
+A density that evaluates `likelihood` at `f_to_variate(v)`, and is zero
+wherever that point has non-finite components.
 
 Substituting the prior of a posterior measure (see [`PriorSubstitution`](@ref))
-drops the support of the original prior: transports map the boundary of that
-support to infinite variates, at which a likelihood need not be defined.
-Carrying the original support along with the likelihood keeps the posterior
-density zero there instead of undefined.
+drops the support of the original prior. Transports keep finite inputs
+finite, but in the extreme tails they saturate at infinite variates, at
+which a likelihood need not be defined. Such points carry no probability
+mass, so the density is zero there instead of undefined.
 """
-struct SupportedDensity{D,M<:AbstractMeasure,G} <: BATDensity
+struct FiniteVariateDensity{D,G} <: BATDensity
     likelihood::D
-    support::M
-    f_to_support::G
+    f_to_variate::G
 end
 
-SupportedDensity(likelihood, support::AbstractMeasure) = SupportedDensity(likelihood, support, identity)
-
-function DensityInterface.logdensityof(d::SupportedDensity, v)
-    x = d.f_to_support(v)
-    # `insupport` may be undecidable (`NoFastInsupport`), only a definite
-    # `false` masks the likelihood out. The likelihood must not be evaluated
-    # in that case, so this is a branch and not an `ifelse`:
-    if insupport(d.support, x) == false
+function DensityInterface.logdensityof(d::FiniteVariateDensity, v)
+    x = d.f_to_variate(v)
+    # The likelihood must not be evaluated at non-finite variates, so this
+    # is a branch and not an `ifelse`:
+    if _nonfinite_variate(x)
         return log_zero_density(realnumtype(typeof(x)))
     else
         return logdensityof(d.likelihood, x)
     end
 end
 
-# The likelihood stays in the space of the support, only the map into that
-# space is composed:
-_precompose_density(d::SupportedDensity, g) = SupportedDensity(d.likelihood, d.support, ffcomp(d.f_to_support, g))
+# The likelihood stays in the variate space, only the map into that space
+# is composed:
+_precompose_density(d::FiniteVariateDensity, g) = FiniteVariateDensity(d.likelihood, ffcomp(d.f_to_variate, g))
 
-# The forward model of the likelihood includes the map into the support's
-# space (it is not masked by the support, as the density is):
-_get_model(d::SupportedDensity) = ffcomp(_get_model(d.likelihood), d.f_to_support)
-_get_observation(d::SupportedDensity) = _get_observation(d.likelihood)
+# The forward model of the likelihood includes the map into the variate
+# space (it is not masked, as the density is):
+_get_model(d::FiniteVariateDensity) = ffcomp(_get_model(d.likelihood), d.f_to_variate)
+_get_observation(d::FiniteVariateDensity) = _get_observation(d.likelihood)
