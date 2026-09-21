@@ -230,12 +230,19 @@ function compose_plotspecs(
         return PlotSpec[]
     end
 
+    # Forwarded as KDE2D and Hexbin2D already do. QuantileHist2D/QuantileKDE2D
+    # deliberately do not: their heatmap cells are explicit RGBA colors, not
+    # values a colormap could map.
+    (; colormap, rev) = config
+    cmap_final = rev ? Reverse(colormap) : colormap
+
     # Lower-triangle cells swap axes at compose time (see _init_gridlayout's
-    # invariant comment). permutedims, not lazy transpose: recursive transpose has
-    # no method for the RGBA cells QuantileHist2D/QuantileKDE2D feed through here.
+    # invariant comment). permutedims, not lazy transpose: the sibling methods
+    # reuse this reasoning on RGBA grids, which recursive transpose has no
+    # method for.
     heat = transposed ?
-        S.Heatmap(centers_y, centers_x, permutedims(weights)) :
-        S.Heatmap(centers_x, centers_y, weights)
+        S.Heatmap(centers_y, centers_x, permutedims(weights); colormap=cmap_final) :
+        S.Heatmap(centers_x, centers_y, weights; colormap=cmap_final)
     return [heat]
 end
 
