@@ -533,6 +533,15 @@ function compute_plotting_primitives(
     (; npoints_pdf) = config
 
     vals = vec(coords)
+    # An exact point mass can have a small positive computed variance because
+    # the weighted mean rounds. Detect it before fitting, ignoring zero-weight
+    # observations, which do not contribute to the marginal distribution.
+    first_positive = findfirst(>(0), w_prob)
+    if !isnothing(first_positive) && all(
+        i -> iszero(w_prob[i]) || vals[i] == vals[first_positive], eachindex(vals, w_prob)
+    )
+        return _empty_pdf1d_primitives()
+    end
     μ = mean(vals, w_prob)
     σ = std(vals, w_prob)
     # A nonempty all-zero-weight vector passes the emptiness guards; std()
@@ -541,10 +550,7 @@ function compute_plotting_primitives(
     # and zero elsewhere, so the overlay came out either as a flat zero line
     # (when the grid misses μ, as the default 300 points do) or as a non-finite
     # spike (when an odd npoints_pdf hits it). Neither is a Gaussian fit, so
-    # degrade like every other unusable input here. A positive sigma needs no
-    # further check: std is sqrt(var), and var underflows to exactly zero below
-    # a spread of ~1e-161, so any sigma > 0 is >= ~5e-161 and the peak
-    # 1/(sigma*sqrt(2pi)) stays finite.
+    # degrade like every other unusable input here.
     (isfinite(μ) && isfinite(σ) && σ > 0) || return _empty_pdf1d_primitives()
     dist = Normal(μ, σ)
 
@@ -580,4 +586,3 @@ end
 
 # See makie_hist.jl's _diag_y_extent for Hist1D for what this is for.
 _diag_y_extent(primitives::NamedTuple, ::PDF1D) = isempty(primitives.y) ? 0.0 : maximum(primitives.y)
-

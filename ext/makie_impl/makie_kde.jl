@@ -62,6 +62,15 @@ function _kde_bandwidth(values::AbstractVector, weights::AbstractVector)
     return isnothing(h) ? KernelDensity.default_bandwidth(values) : h
 end
 
+# Tabulation and boundary reflection need relative weights too: stabilizing
+# bandwidth alone still lets tiny reciprocal sums or large reflected sums overflow.
+# Leave invalid/empty inputs on their existing validation paths.
+function _rescale_kde_weights(weights::AbstractVector)
+    isempty(weights) && return weights
+    w_max = maximum(weights)
+    return isfinite(w_max) && w_max > 0 ? weights ./ w_max : weights
+end
+
 # kde() entry point for all KDE recipes; returns a plain (x, density) NamedTuple.
 # Uniform weights without support bounds stay bit-identical to plain kde().
 # Boundary reflection at finite bounds: clamp float-error leakage, bandwidth from
@@ -69,6 +78,7 @@ end
 # (the grid must COVER the mirrors -- tabulate() silently drops out-of-grid
 # mass), then truncate to the support and renormalize.
 function _weighted_kde1d(values::AbstractVector, weights::AbstractVector, support = nothing)
+    weights = _rescale_kde_weights(weights)
     lo, hi = isnothing(support) ? (-Inf, Inf) : (Float64(support[1]), Float64(support[2]))
     if !_support_is_binding(lo, hi)
         h = allequal(weights) ? nothing : _weighted_kde_bandwidth(values, weights)
@@ -113,6 +123,7 @@ end
 # Boundary reflection as in the 1D case above, per dimension, plus corner
 # mirrors for points near two finite bounds at once.
 function _weighted_kde2d(x::AbstractVector, y::AbstractVector, weights::AbstractVector, support = nothing)
+    weights = _rescale_kde_weights(weights)
     (xlo, xhi), (ylo, yhi) = isnothing(support) ? ((-Inf, Inf), (-Inf, Inf)) :
         ((Float64(support[1][1]), Float64(support[1][2])), (Float64(support[2][1]), Float64(support[2][2])))
     if !(_support_is_binding(xlo, xhi) || _support_is_binding(ylo, yhi))
@@ -463,4 +474,3 @@ function compose_plotspecs(
         S.Heatmap(x, y, color_grid)
     return [heat]
 end
-
