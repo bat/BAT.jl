@@ -35,7 +35,7 @@ function getstring(samples::BAT.DensitySampleVector, idx::Integer)
         names = all_active_names(vs)
         return names[idx]
     else
-        throw(ArgumentError("Samples are unshaped. Key :$names cannot be matched. Use index instead."))
+        throw(ArgumentError("Samples are unshaped, so index $idx has no parameter name. Use the index instead."))
     end
 end
 
