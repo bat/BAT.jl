@@ -14,14 +14,26 @@ const _KDE2D_DENSITY_FLOOR_FRAC = 1e-3
 # ignores `weights` entirely: the same robust Silverman rule with WEIGHTED std/IQR
 # (uncorrected Weights, the extension-wide convention) and n = Kish effective
 # sample size. Returns `nothing` for degenerate inputs (callers fall back to the default).
+# Weights are divided by their largest entry first. Every quantity below is
+# mathematically invariant under a common positive factor, but the raw sums are
+# not: sum(abs2, 1e200 .* w) overflows and sum(abs2, 1e-200 .* w) underflows to
+# zero, and either one fails the finiteness guard and silently diverts the caller
+# to the UNWEIGHTED default rule. Scaling by the maximum keeps every entry in
+# [0, 1], so the sums stay in range for any finite input scale.
 function _weighted_kde_bandwidth(values::AbstractVector{<:Real}, weights::AbstractVector{<:Real}, alpha::Float64 = 0.9)
-    sum_w = sum(weights)
-    sum_w2 = sum(abs2, weights)
+    # `maximum` throws on an empty collection, where the sum-based guard below
+    # merely returned nothing.
+    isempty(weights) && return nothing
+    w_max = maximum(weights)
+    (isfinite(w_max) && w_max > 0) || return nothing
+    w_rel = weights ./ w_max
+    sum_w = sum(w_rel)
+    sum_w2 = sum(abs2, w_rel)
     (isfinite(sum_w) && isfinite(sum_w2) && sum_w > 0 && sum_w2 > 0) || return nothing
     n_eff = sum_w^2 / sum_w2
     n_eff <= 1 && return nothing
 
-    w = Weights(weights)
+    w = Weights(w_rel)
     var_width = std(values, w)
     q25, q75 = quantile(values, w, [0.25, 0.75])
     quantile_width = (q75 - q25) / 1.34
