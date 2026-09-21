@@ -36,6 +36,22 @@ function BATVisualizer()
     return BATVisualizer(BATNoVisBackend(), nothing)
 end
 
+# Package whose extension a backend needs, or `nothing` for backends that work
+# in core alone. Extended by each extension-backed backend's own definition.
+_vis_required_pkg(::BATVisBackend) = nothing
+
+# The generic backend constructor promised by the docstring above. A backend
+# whose implementation lives in a package extension is rejected here instead of
+# yielding a visualizer that can never draw: without the extension loaded its
+# `init_visualizer!` is the no-op fallback, so sampling would silently run with
+# no visualization at all. Extensions define a more specific method that builds
+# their live content, which takes precedence over this one.
+function BATVisualizer(backend::BATVisBackend)
+    pkg = _vis_required_pkg(backend)
+    isnothing(pkg) || pkgext(Val(pkg))
+    return BATVisualizer(backend, nothing)
+end
+
 # Copies the backend config but drops the live `content`: provenance deepcopies
 # of a used visualizer would otherwise hit "deepcopy of Modules not supported"
 # via Makie observable listeners. The copy keeps the concrete type (Base's

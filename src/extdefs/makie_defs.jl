@@ -50,6 +50,10 @@ struct BATMakieVisualization <: BATVisBackend
 end
 export BATMakieVisualization
 
+# BATVisualizer(::BATMakieVisualization) needs the Makie extension to build its
+# live content; see BAT._vis_required_pkg.
+_vis_required_pkg(::BATMakieVisualization) = :Makie
+
 # Stats-overlay line color; set per-PlotSpec since the overlay plot types'
 # automatic color-cycling overrides theme-level colors.
 _stats_overlay_color(dark::Bool) = dark ? :white : :black
