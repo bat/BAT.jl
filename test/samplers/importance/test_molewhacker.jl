@@ -21,7 +21,11 @@ import ForwardDiff, Optim, OptimizationLBFGSB
         @test mean(smpls)[1] ≈ 1.6 atol = 0.035
         @test var(smpls)[1] ≈ 0.2 atol = 0.025
         @test info.efficiency > 0.7
-        @test probs(q)[1] >= alg.exploration_mass
+        uniform = MixtureModel(q.components)
+        masses = [pdf(Normal(1.6, sqrt(0.2)), mean(c)[1]) / pdf(uniform, mean(c)) for c in q.components]
+        masses .*= (1 - alg.exploration_mass) / sum(masses)
+        masses[1] += alg.exploration_mass
+        @test probs(q) ≈ masses
         ratios = z.logd .- logpdf.(Ref(q), z.v)
         @test z.weight ≈ exp.(ratios .- info.logweight_scale)
         mass_estimate = mean(z.weight) * exp(info.logweight_scale)
@@ -117,8 +121,17 @@ import ForwardDiff, Optim, OptimizationLBFGSB
             batchsize = 64, maxiter = 0, maxevals = 20_064, nseeds = 0), context())
         @test 12_000 <= length(BAT.samplesof(sized)) <= 12_001
         @test sized.evalinfo.result.nevals == 64 + length(BAT.samplesof(sized))
-        larger = evalmeasure(flat, MolewhackerSampling(nsamples = 100_000, maxiter = 1, nseeds = 0), context())
-        @test larger.evalinfo.result.niterations == 1
+        budgets = evalmeasure(flat, MolewhackerSampling(nsamples = 256, target_ess = 32,
+            batchsize = 64, maxiter = 1, nseeds = 0), context())
+        @test budgets.evalinfo.result.niterations == 1
+        for (rule, reason) in (((; target_pool_ess = 32), :pilot_ess),
+                ((; target_efficiency = 128 / 256), :pool_efficiency))
+            stopped = evalmeasure(flat, MolewhackerSampling(; nsamples = 256, target_ess = 128,
+                batchsize = 64, maxiter = 10, nseeds = 0, rule...), context())
+            info = stopped.evalinfo.result
+            @test (info.niterations, info.ncomponents, info.stop_reason) == (0, 1, reason)
+            @test info.ess ≈ 128
+        end
 
         concentrated = PosteriorMeasure(Likelihood(z -> MvNormal(z, 0.25I(18)), fill(2.0, 18)),
             MvNormal(zeros(18), I(18)))

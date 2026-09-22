@@ -27,8 +27,12 @@ $(TYPEDFIELDS)
     init_mode::IM = nseeds == 0 ? nothing : OptimizationAlg(optalg = ext_default(pkgext(Val(:OptimizationLBFGSB)), Val(:LBFGSB_ALG)))
     "Production count, or its cap with finite `target_ess`. Nothing follows the pool size or ESS goal."
     nsamples::Union{Nothing,Int} = nothing
-    "Optional ESS goal. Adaptive-pool ESS is a heuristic; a fresh pilot sizes production."
+    "Optional production ESS goal. A fresh pilot sizes production; achieved ESS is not guaranteed."
     target_ess::Float64 = Inf
+    "Stop adaptation when recycled-pool ESS exceeds this heuristic threshold."
+    target_pool_ess::Float64 = Inf
+    "Stop adaptation when recycled-pool ESS per point exceeds this heuristic threshold."
+    target_efficiency::Float64 = Inf
     "Initial discovery pool and production-sizing pilot count."
     batchsize::Int = 1000
     maxiter::Int = 100
@@ -51,6 +55,8 @@ function _mw_check(alg, context)
     @argcheck alg.maxiter >= 0 && alg.nseeds >= 0 && alg.ncandidates > 0
     @argcheck alg.maxcomponents >= max(1, alg.nseeds + Int(alg.exploration_mass > 0))
     @argcheck alg.target_ess > 0 && 0 <= alg.exploration_mass < 1
+    @argcheck alg.target_pool_ess > 0 && alg.target_efficiency > 0
+    @argcheck alg.target_efficiency <= 1 || alg.target_efficiency == Inf
     pilot_count = isfinite(alg.target_ess) ? alg.batchsize : 0
     production_count = something(alg.nsamples, alg.batchsize)
     @argcheck alg.maxevals >= production_count && alg.maxevals - production_count >= pilot_count
@@ -77,12 +83,12 @@ function _mw_draw(q, logtarget, n, executor, context)
     logp[1] = first_logp
     exec_map!(logtarget, executor, view(logp, 2:n), view(v, 2:n))
     all(x -> isfinite(x) || x == -Inf, logp) || throw(ArgumentError("MolewhackerSampling encountered an invalid target log density."))
-    logr = _mw_batched_logpdf(q, flatview(v))
+    logr = _mw_batched_logpdf(q, flatview(v), executor)
     all(isfinite, logr) || throw(ArgumentError("MolewhackerSampling encountered a non-finite generating log density."))
     return (; v, logp, logr)
 end
 
-function _mw_batched_logpdf(d, x::AbstractMatrix)
+function _mw_batched_logpdf(d, x::AbstractMatrix, executor = default_executor())
     T = promote_type(Distributions.partype(d), eltype(x))
     # Mixture logpdf! stores component densities in the mixture-weight type.
     if d isa MixtureModel && T != eltype(probs(d))
@@ -97,6 +103,86 @@ function _mw_batched_logpdf(d, x::AbstractMatrix)
         end
     end
     return r
+end
+
+function _mw_batched_logpdf(d::MixtureModel{Multivariate,Continuous,<:MvNormalCanon}, x::AbstractMatrix,
+    executor = default_executor())
+    T = promote_type(eltype(mean(first(d.components))), eltype(x), eltype(probs(d)))
+    n = size(x, 2)
+    n == 0 && return T[]
+    nchunks = executor isa SequentialExec ? 1 :
+        min(Threads.nthreads(), n, max(1, n * length(d.components) ÷ 65536))
+    logweights = log.(probs(d))
+    constants = Distributions.mvnormal_c0.(d.components)
+    nchunks == 1 && return _mw_gaussian_logpdf(d, x, logweights, constants)
+    # Keep matrix batches wide when the pool is small relative to the worker count.
+    by_component = n < 256nchunks
+    count = by_component ? length(d.components) : n
+    width = cld(count, nchunks)
+    ranges = [i:min(i + width - 1, count) for i in 1:width:count]
+    blocks = Vector{Vector{T}}(undef, length(ranges))
+    score = r -> by_component ? _mw_component_logpdf(d, x, constants, r) :
+        _mw_gaussian_logpdf(d, view(x, :, r), logweights, constants)
+    exec_map!(score, executor, blocks, ranges)
+    if by_component
+        result = first(blocks)
+        for block in Iterators.drop(blocks, 1)
+            result .= _logaddexp.(result, block)
+        end
+        return result
+    end
+    return reduce(vcat, blocks)
+end
+
+function _mw_component_logpdf(d, x, constants, indices)
+    weights = probs(d)[indices]
+    mass = sum(weights)
+    T = promote_type(eltype(mean(first(d.components))), eltype(x), eltype(weights))
+    iszero(mass) && return fill(T(-Inf), size(x, 2))
+    part = MixtureModel(d.components[indices], weights ./ mass)
+    result = _mw_gaussian_logpdf(part, x, log.(probs(part)), constants[indices])
+    result .+= log(mass)
+    return result
+end
+
+function _mw_gaussian_logpdf(d, x, logweights, constants)
+    T = promote_type(eltype(mean(first(d.components))), eltype(x), eltype(probs(d)))
+    n, k = size(x, 2), length(d.components)
+    # Bound the density workspace to about 2 MiB per task in Float64, and reuse it.
+    width = min(n, 512, max(1, 262144 ÷ k))
+    terms = Matrix{T}(undef, width, k)
+    shifted = Matrix{T}(undef, size(x, 1), width)
+    maxima = Vector{T}(undef, width)
+    result = zeros(T, n)
+    for first in 1:width:n
+        indices = first:min(first + width - 1, n)
+        count = length(indices)
+        delta = view(shifted, :, 1:count)
+        fill!(maxima, T(-Inf))
+        for i in eachindex(d.components)
+            iszero(probs(d)[i]) && continue
+            component = d.components[i]
+            delta .= view(x, :, indices) .- mean(component)
+            lmul!(cholesky(component.J).U, delta)
+            for j in 1:count
+                value = constants[i] - sum(abs2, view(delta, :, j)) / 2 + logweights[i]
+                terms[j, i] = value
+                maxima[j] = max(maxima[j], value)
+            end
+        end
+        r = view(result, indices)
+        for i in eachindex(d.components)
+            iszero(probs(d)[i]) && continue
+            for j in 1:count
+                r[j] += exp(terms[j, i] - maxima[j])
+            end
+        end
+        for j in 1:count
+            r[j] = log(r[j]) + maxima[j]
+            isnan(r[j]) && (r[j] = logpdf(d, view(x, :, indices[j])))
+        end
+    end
+    return result
 end
 
 struct MolewhackerBudgetReached <: Exception end
@@ -150,14 +236,23 @@ end
 _mw_logmodel(f) = throw(ArgumentError("MolewhackerSampling requires a supported forward-model likelihood."))
 
 
-function _mw_center_mixture(components, center_logp)
+function _mw_center_mixture(components, center_logp, executor, previous = similar(center_logp, 0))
     T = eltype(first(components))
-    uniform = MixtureModel(components, fill(inv(T(length(components))), length(components)))
-    logw = center_logp .- logpdf.(Ref(uniform), mean.(components))
+    n, nold = length(components), length(previous)
+    uniform = MixtureModel(components, fill(inv(T(n)), n))
+    centers = reduce(hcat, mean.(components))
+    # Existing center/component pairs never change. Add only the new densities
+    # to their unnormalized sums, retaining every component's multiplicity.
+    added = components[nold+1:n]
+    new_uniform = MixtureModel(added, fill(inv(T(length(added))), length(added)))
+    old_terms = _mw_batched_logpdf(new_uniform, view(centers, :, 1:nold), executor) .+ log(T(length(added)))
+    new_terms = _mw_batched_logpdf(uniform, view(centers, :, nold+1:n), executor) .+ log(T(n))
+    center_logsum = vcat(_logaddexp.(previous, old_terms), new_terms)
+    logw = center_logp .- (center_logsum .- log(T(n)))
     offset = maximum(logw)
-    isfinite(offset) || return nothing
+    isfinite(offset) || return nothing, center_logsum
     weights = T.(exp.(logw .- offset))
-    return MixtureModel(components, weights ./ sum(weights))
+    return MixtureModel(components, weights ./ sum(weights)), center_logsum
 end
 
 function _mw_initial_proposal(transformed_m, f, model, logtarget, gprior, alg, fit_budget, ad, context)
@@ -194,13 +289,15 @@ function _mw_initial_proposal(transformed_m, f, model, logtarget, gprior, alg, f
     end
     center_logp = logtarget.(mean.(components))
     nevals += length(components)
-    q = isempty(components) ? nothing : _mw_center_mixture(components, center_logp)
+    q, center_logsum = isempty(components) ? (nothing, similar(center_logp, 0)) :
+        _mw_center_mixture(components, center_logp, alg.executor)
     if isnothing(q)
         q = MixtureModel([gprior], [one(T)])
         center_logp = alg.maxiter > 0 ? [logtarget(mean(gprior))] : Float64[]
+        center_logsum = alg.maxiter > 0 ? [logpdf(gprior, mean(gprior))] : Float64[]
         nevals += length(center_logp)
     end
-    return q, center_logp, nevals, ngeometries, nfailed, nexhausted
+    return q, center_logp, center_logsum, nevals, ngeometries, nfailed, nexhausted
 end
 
 function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, context::BATContext)
@@ -215,7 +312,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
     gprior = _mw_gaussian(zeros(T, dim), Matrix{T}(I, dim, dim))
     ad = alg.maxiter > 0 || alg.nseeds > 0 ? get_valid_adselector(context, alg) : get_adselector(context)
     fit_budget = alg.maxevals - reserve
-    q, center_logp, nevals, ngeometries, nfailed, nseed_exhausted =
+    q, center_logp, center_logsum, nevals, ngeometries, nfailed, nseed_exhausted =
         _mw_initial_proposal(transformed_m, f, model, logtarget, gprior, alg, fit_budget, ad, context)
     nseed_evals = nevals
     has_prior = first(q.components) === gprior
@@ -234,15 +331,18 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
         npilot = length(logp)
         geometry_cache = fill!(Vector{Union{Missing,Nothing,typeof(gprior.J)}}(undef, npilot), missing)
         for iteration in 1:alg.maxiter
-            scores = logp .- _mw_batched_logpdf(q, points)
+            scores = logp .- _mw_batched_logpdf(q, points, alg.executor)
             if !isfinite(maximum(scores))
                 stop_reason = :no_finite_candidate
                 break
             end
             # Recycled scores guide fitting only; they never become output weights.
             pilot_ess = _mw_efficiency(scores).ess
-            if pilot_ess > alg.target_ess
+            if pilot_ess > alg.target_pool_ess
                 stop_reason = :pilot_ess
+                break
+            elseif pilot_ess / npilot > alg.target_efficiency
+                stop_reason = :pool_efficiency
                 break
             elseif fit_budget - nevals < draw_cost
                 stop_reason = :maxevals
@@ -272,7 +372,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
             added = typeof(gprior)[_mw_gaussian(centers[i], precisions[i]) for i in keep]
             # These centers are existing pilot draws, so their target values are known.
             append!(center_logp, logp[indices[keep]])
-            q = _mw_center_mixture(vcat(q.components, added), center_logp)
+            q, center_logsum = _mw_center_mixture(vcat(q.components, added), center_logp, alg.executor, center_logsum)
             requested = floor.(Int, last(probs(q), length(added)) .* npilot)
             drawn = 0
             for (component, count) in zip(added, requested)
@@ -289,7 +389,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
             npilot = length(logp)
             push!(history, (; iteration, npilot, drawn, ncomponents = length(q.components)))
         end
-        scores = logp .- _mw_batched_logpdf(q, points)
+        scores = logp .- _mw_batched_logpdf(q, points, alg.executor)
         pilot_ess = isfinite(maximum(scores)) ? _mw_efficiency(scores).ess : zero(T)
     elseif alg.maxiter > 0
         stop_reason = :maxevals

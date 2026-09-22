@@ -39,7 +39,7 @@ The proposal follows the [Newtrinos Molewhacker algorithm](https://github.com/Ne
    These added centers need not be modes.
 5. Recompute all component masses using the center-ratio rule. From each new
    component, draw `floor(component_mass * previous_pool_size)` discovery points.
-   Repeat until an iteration, component, evaluation, or pilot-ESS limit applies.
+   Repeat until a hard budget or an explicit pool-ESS or efficiency threshold applies.
 
 The adaptive pool guides proposal construction only. Its points have different
 sampling laws, so reweighting the pool by the latest proposal does not produce
@@ -84,6 +84,8 @@ retain their usual finite-sample bias.
   size. Later discovery batches follow component masses, so they can be empty.
   Target values at existing pool points are reused.
   Geometry is cached by pool index, preserving every component and mass update.
+  Center density sums add only new component contributions each round.
+  Mixture scoring uses the selected executor and bounded, reusable workspaces.
 - `maxiter` is a strict round limit. `maxiter = 0` skips discovery and adaptation.
   `maxcomponents` limits the final mixture size, including any added prior component.
 - `exploration_mass` defaults to zero. A positive value mixes the prior into the
@@ -97,11 +99,29 @@ retain their usual finite-sample bias.
 - `nsamples = nothing` is the default. Without an ESS goal, the output count
   matches the final discovery pool, or `batchsize` when adaptation is disabled.
   An explicit integer fixes the output count.
-- A finite `target_ess` also stops adaptation when the recycled-pool heuristic
-  exceeds that goal. An independent fresh pilot then estimates the output count.
+- `target_pool_ess` stops adaptation when the recycled-pool ESS exceeds its value.
+  `target_efficiency` stops adaptation when that ESS divided by the pool size
+  exceeds its value. Both default to `Inf`, leaving adaptation to the hard budgets.
+  When both are set, either threshold can stop adaptation.
+- A finite `target_ess` sizes production only. An independent fresh pilot estimates the output count.
   An explicit `nsamples` caps that count. With `nsamples = nothing`, only the
   remaining `maxevals` budget caps it. The achieved ESS is not guaranteed.
   Production never stops based on its current weights.
+
+Choose adaptation thresholds separately from the production goal:
+
+| Adaptation rule | Setting |
+| --- | --- |
+| Hard budgets only (default) | Leave both thresholds at `Inf` |
+| Source pool-ESS heuristic | `target_pool_ess = 5000` |
+| Source efficiency heuristic | `target_efficiency = 0.2` |
+| Projected production ESS | `target_efficiency = target_ess / nsamples` |
+
+The projected rule requires an explicit output cap and a goal below that cap.
+It extrapolates from recycled-pool efficiency and can stop before finding tails or modes.
+These thresholds do not validate the proposal or guarantee the production ESS.
+Earlier versions coupled `target_ess` to pool-ESS stopping. Set
+`target_pool_ess = target_ess` explicitly to retain that behavior.
 
 Target draws follow the context RNG's serial order before parallel evaluation.
 For deterministic optimizers without wall-time limits, changing the executor
@@ -119,7 +139,10 @@ pullback. The default ForwardDiff path avoids a redundant primal model call.
 Local Gaussians retain their precision factor, avoiding explicit inversion.
 
 Dense parameter geometry needs quadratic storage and cubic factorization work.
-Mixture evaluations grow with component count. Include initialization, geometry,
+Each round can add `ncandidates` components, including repeated centers, as in the
+source algorithm. With ten seeds and 14 candidates, 1,000 rounds can produce
+14,010 components. Raising `nsamples` alone does not enlarge the discovery pool.
+Mixture evaluations still grow with component count. Include initialization, geometry,
 adaptation, and production when comparing total cost. These heuristics do not
 establish global coverage or a general convergence guarantee.
 
@@ -132,8 +155,9 @@ budget. `history` records pool growth
 and component counts after each update.
 
 `stop_reason` distinguishes `:maxiter`, `:maxcomponents`, `:maxevals`,
-`:pilot_ess`, `:no_finite_candidate`, and `:geometry_failure`.
-`pilot_ess` describes the recycled discovery pool. `pilot_efficiency` comes from
+`:pilot_ess`, `:pool_efficiency`, `:no_finite_candidate`, and `:geometry_failure`.
+`pilot_ess` describes the recycled discovery pool. Its efficiency is `pilot_ess / npilot`.
+`pilot_efficiency` comes from
 the independent sizing pilot, when enabled. `ess` and `efficiency` describe the
 fresh production weights.
 
