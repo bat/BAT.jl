@@ -1,5 +1,13 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+# For validated positive thresholds and finite factors >= 1. Saturate before
+# converting to Int, and prevent Float64 rounding from lowering the threshold.
+function _scaled_buffer_threshold(n::Int, factor::Float64)
+    value = n * factor
+    value >= typemax(Int) && return typemax(Int)
+    return max(n, ceil(Int, value))
+end
+
 function register_state_for_vis!(
     vis::BATVisualizer{BATMakieVisualization},
     mcmc_state::MCMCState,
@@ -114,14 +122,16 @@ function BAT.init_visualizer!(
         extracted_output_buffer = lock(buffer_lock) do
             update_graph = force ? n_buffer_samples[] > 0 : n_buffer_samples[] >= effective_batch_size[]
             update_graph || return nothing
+            # Compute growth before detaching data; a threshold calculation must
+            # not interrupt a drain between resetting the buffer and notification.
+            next_batch_size = !force && adaptive_batching ?
+                _scaled_buffer_threshold(effective_batch_size[], batch_growth_rate) : effective_batch_size[]
             # Shallow copy suffices: the slots below are replaced, not mutated.
             extracted = copy(output_buffer)
             output_buffer .= _empty_chain_outputs.(mcmc_states)
             n_buffer_samples[] = 0
             # Geometric growth: O(log N) full-dataset recomputes over a run instead of O(N). Skipped on the forced final drain.
-            if !force && adaptive_batching
-                effective_batch_size[] = ceil(Int, effective_batch_size[] * batch_growth_rate)
-            end
+            effective_batch_size[] = next_batch_size
             # notify while holding buffer_lock (Threads.Condition contract).
             notify(buffer_cond, all=true)
             return extracted
@@ -222,7 +232,7 @@ function BAT.update_visualizer_impl!(
         n_new = n_smpls_end - n_smpls_start
         n_buffer_samples[] += n_new
         # Backpressure: block sampling once the buffer runs too far ahead; the threshold derives from effective_batch_size[] so it stays >= the flush trigger.
-        while n_buffer_samples[] >= ceil(Int, effective_batch_size[] * buffer_ratio)
+        while n_buffer_samples[] >= _scaled_buffer_threshold(effective_batch_size[], buffer_ratio)
             wait(buffer_cond)
         end
     finally

@@ -13,6 +13,11 @@ loaded. A used visualizer is single-use -- create a fresh one per run.
 Prior-based plot bounds use a private copy of the sampling context's RNG;
 estimating them does not advance the sampling RNG or the default RNG.
 
+`max_buffered` must be at least the batch size (50 with the keyword constructor).
+It is an initial backpressure threshold, not a strict memory limit: a multi-walker
+update may cross it before waiting. With adaptive batching, both thresholds grow
+by the finite `batch_growth_rate > 1`, saturating at `typemax(Int)`.
+
 Constructors:
 
 * ```BATMakieVisualization(; dark = false, max_buffered = 200, adaptive_batching = true, batch_growth_rate = 1.2, trace_nsteps = 20)```
@@ -41,12 +46,18 @@ struct BATMakieVisualization <: BATVisBackend
     # N_max fixes the grid size for the visualizer's life; vsel is only the
     # initial selection, applied once at listener startup and never re-read.
     function BATMakieVisualization(recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching, batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config)
+        n_batch = Int(n_batch)
+        max_buffered = Int(max_buffered)
+        batch_growth_rate = Float64(batch_growth_rate)
+        if !(0 < n_batch <= max_buffered)
+            throw(ArgumentError("Require 0 < n_batch <= max_buffered (got n_batch=$n_batch, max_buffered=$max_buffered) so producers cannot block before a flush is possible"))
+        end
         if length(vsel) > N_max
             @warn "BATMakieVisualization: vsel $vsel has more entries than N_max=$N_max; truncating to $(vsel[1:N_max])."
             vsel = vsel[1:N_max]
         end
-        if batch_growth_rate <= 1
-            throw(ArgumentError("batch_growth_rate must be > 1 (got $batch_growth_rate); it multiplies the effective batch threshold after every flush"))
+        if !(isfinite(batch_growth_rate) && batch_growth_rate > 1)
+            throw(ArgumentError("batch_growth_rate must be finite and > 1 (got $batch_growth_rate); it multiplies the effective batch threshold after every flush"))
         end
         new(recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching, batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config)
     end

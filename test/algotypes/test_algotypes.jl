@@ -4,4 +4,5 @@ using Test
 
 Test.@testset "algotypes" begin
     include("test_bat_context.jl")
+    include("test_makie_visualization_config.jl")
 end
