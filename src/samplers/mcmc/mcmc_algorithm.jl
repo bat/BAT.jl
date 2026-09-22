@@ -643,7 +643,7 @@ function mcmc_iterate!!(
             get_samples!(output, mcmc_state, nonzero_weights)
 
             chain_state = mcmc_state.chain_state
-            update_visualizer && update_visualizer!(chain_state.context.visualizer; chain_state=chain_state, nonzero_weights=nonzero_weights)
+            update_visualizer && update_visualizer!(chain_state.context.visualizer; chain_state=chain_state, nonzero_weights=nonzero_weights, is_sampling_step=perform_step)
         end
 
         should_log, log_time, elapsed_time = should_log_progress_now(start_time, log_time)

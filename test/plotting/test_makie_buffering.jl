@@ -30,7 +30,7 @@ end
 
 function buffer_is_partial(vis)
     lock(vis.content.buffer_lock) do
-        vis.content.n_buffer_samples[] < vis.content.effective_batch_size[]
+        vis.content.n_buffer_steps[] < vis.content.effective_batch_size[]
     end
 end
 
@@ -80,6 +80,7 @@ end
                 state.chain_state.current.x.weight[walker] = 1
                 push!(outputs[id][walker], deepcopy(state.chain_state.current.x[walker]))
                 push!(expected[id][walker], zeros(2))
+                state.chain_state.current.x.weight[walker] = 0 # initial sample was already emitted
             end
             updates = Int[]
             observer = nothing
@@ -103,7 +104,7 @@ end
                                     push!(expected[id][walker], v)
                                 end
                                 chain.stepno = step
-                                BAT.update_visualizer_impl!(vis; chain_state = chain, nonzero_weights = true)
+                                BAT.update_visualizer_impl!(vis; chain_state = chain, nonzero_weights = true, is_sampling_step = true)
                             end
                         end
                     end
@@ -130,7 +131,7 @@ end
                 end
                 vis.content.is_live[] = false
                 @test timedwait(() -> istaskdone(vis.content.listener_task[]), 30.0) == :ok
-                @test vis.content.n_buffer_samples[] == 0
+                @test vis.content.n_buffer_steps[] == 0
                 @test vis.content.effective_batch_size[] == before_final # forced drain does not grow
                 @test sum(vis.content.graph[:flat_weights][]) == 4 * (nsteps + 1)
                 plotted = vis.content.graph[:samples][]

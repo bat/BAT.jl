@@ -221,7 +221,11 @@ function BATVisualizer(vis::BATMakieVisualization)
         buffer_cond=Threads.Condition(buffer_lock),
         chain_ids=Vector{Int32}(),  # MCMCChainStateInfo ids are Int32
         output_buffer=Vector{Vector{DensitySampleVector}}(),
-        n_buffer_samples=Ref(0),
+        # Latest owned current-state snapshot per chain/walker, including dwell
+        # not yet emitted by the sampler. Slots are replaced under buffer_lock.
+        pending_samples=Vector{Vector{DensitySampleVector}}(),
+        n_buffer_steps=Ref(0),
+        buffer_dirty=Ref(false),
         # Flush-trigger threshold (grows under adaptive_batching); the backpressure
         # ceiling derives from it, so the sampler never blocks on an unreachable trigger.
         effective_batch_size=Ref(vis.n_batch),

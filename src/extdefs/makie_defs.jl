@@ -13,6 +13,8 @@ loaded. A used visualizer is single-use -- create a fresh one per run.
 Prior-based plot bounds use a private copy of the sampling context's RNG;
 estimating them does not advance the sampling RNG or the default RNG.
 
+Batching and backpressure count completed walker-steps across all chains,
+including rejected steps. Terminal sampler flushes contribute no steps.
 `max_buffered` must be at least the batch size (50 with the keyword constructor).
 It is an initial backpressure threshold, not a strict memory limit: a multi-walker
 update may cross it before waiting. With adaptive batching, both thresholds grow
@@ -29,7 +31,7 @@ struct BATMakieVisualization <: BATVisBackend
     vsel::Vector{Int}
     N_max::Int
     n_batch::Int
-    # Backpressure watermark: once this many samples are buffered unflushed,
+    # Backpressure watermark: once this many walker-steps are buffered unflushed,
     # sampling blocks until the listener catches up. With adaptive_batching it
     # (like n_batch) is only the starting value; both grow together at runtime.
     max_buffered::Int
@@ -127,7 +129,7 @@ function BATMakieVisualization(; dark::Bool = false, max_buffered::Integer = 4 *
     recipes = (upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D)
     vsel = [1, 2, 3] # Default vsel; clamped (with a warning) on its one-time initial application if the posterior has fewer free parameters.
     N_max = 3 # Grid size; cells beyond the (possibly truncated) vsel are simply left dead/empty.
-    n_batch = 50 # Flush the buffered samples into the plot once this many have accumulated.
+    n_batch = 50 # Flush after this many completed walker-steps have accumulated.
     poll_interval = 0.1 # Seconds between checks of whether a new batch is ready to flush.
 
     triagonal_config = _default_makie_triagonal_config(trace_nsteps=trace_nsteps, dark=dark)

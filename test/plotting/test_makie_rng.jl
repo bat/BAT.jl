@@ -175,7 +175,7 @@ Base.copy(::UncopyableRNG) = error("Unexpected RNG copy")
                 end
                 @test !vis.content.is_live[]
                 @test istaskdone(vis.content.listener_task[])
-                @test vis.content.n_buffer_samples[] == 0
+                @test vis.content.n_buffer_steps[] == 0
                 @test rand(UInt64, 16) == rand(default_after_plain, UInt64, 16)
                 plain_samples, live_samples = BAT.samplesof(expected), BAT.samplesof(observed)
                 @test !isempty(live_samples)
