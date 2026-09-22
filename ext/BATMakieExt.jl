@@ -12,6 +12,7 @@ using ElasticArrays
 using KernelDensity
 using LaTeXStrings
 using LinearAlgebra
+using Random
 using Makie
 import Makie.SpecApi as S
 

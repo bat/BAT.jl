@@ -45,6 +45,7 @@ end
 
 function BAT.init_visualizer!(
     vis::BATVisualizer{BATMakieVisualization};
+    rng::AbstractRNG,
     mcmc_states::Vector{<:MCMCState},
     outputs,#::Vector{Vector{DensitySampleVector}},
     f_pretransform::Function,
@@ -62,6 +63,10 @@ function BAT.init_visualizer!(
             "carrying it for each run."))
     end
 
+    # Domain estimates must not advance the sampler's RNG or the default RNG.
+    # Copy the complete state, including any partially consumed random block.
+    domain_rng = copy(rng)
+
     warmup_makie_shaders()
 
     vis.content.n_dof[] = totalndof(varshape(mcmc_target(mcmc_states[1])))
@@ -69,7 +74,7 @@ function BAT.init_visualizer!(
     # Fixed axis/bin domain estimated from the prior (the original measure when available); hard support bounds are only derivable from `target`.
     n_dof = vis.content.n_dof[]
     domain_lo, domain_hi = _estimate_prior_domain(
-        isnothing(target) ? mcmc_target(mcmc_states[1]) : target, n_dof)
+        domain_rng, isnothing(target) ? mcmc_target(mcmc_states[1]) : target, n_dof)
     support_lo, support_hi = isnothing(target) ?
         (Float64[], Float64[]) : _support_bounds(target, n_dof)
     update!(vis.content.graph,

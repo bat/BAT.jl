@@ -82,10 +82,10 @@ end
 # bound. `target` must be the ORIGINAL untransformed measure (bat_sample's own
 # `m`), NOT mcmc_target(...): mcmc states carry the PRETRANSFORMED measure,
 # giving a standard-normal-scaled domain regardless of the real prior's scale.
-function _estimate_prior_domain(target, n_dof::Integer; n_prior_samples::Integer = 2000, tail_prob::Real = 0.0015)
+function _estimate_prior_domain(rng::AbstractRNG, target, n_dof::Integer; n_prior_samples::Integer = 2000, tail_prob::Real = 0.0015)
     initsrc = BAT.get_initsrc_from_target(target)
     shape = varshape(initsrc)
-    draws = [ValueShapes.unshaped(rand(initsrc), shape) for _ in 1:n_prior_samples]
+    draws = [ValueShapes.unshaped(rand(rng, initsrc), shape) for _ in 1:n_prior_samples]
     M = reduce(hcat, draws)
     lo = [quantile(view(M, d, :), tail_prob) for d in 1:n_dof]
     hi = [quantile(view(M, d, :), 1 - tail_prob) for d in 1:n_dof]

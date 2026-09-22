@@ -144,7 +144,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, samplingalg::TransformedMCMC, co
     # space, so anything the visualizer derives from the measure itself
     # (prior-based domain estimate, hard support bounds) must come from the
     # untransformed measure to live in the same space as the displayed data.
-    init_visualizer!(context.visualizer; mcmc_states=mcmc_states, outputs=chain_outputs, f_pretransform=f_pretransform, target=em)
+    init_visualizer!(context.visualizer; rng=get_rng(context), mcmc_states=mcmc_states, outputs=chain_outputs, f_pretransform=f_pretransform, target=em)
 
     mcmc_states = mcmc_burnin!(
         samplingalg.store_burnin ? chain_outputs : nothing,

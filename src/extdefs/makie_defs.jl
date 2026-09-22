@@ -10,6 +10,9 @@ via `BATContext(visualizer = BATVisualizer(BATMakieVisualization()))` to
 visualize MCMC sampling live; requires a Makie backend (e.g. GLMakie) to be
 loaded. A used visualizer is single-use -- create a fresh one per run.
 
+Prior-based plot bounds use a private copy of the sampling context's RNG;
+estimating them does not advance the sampling RNG or the default RNG.
+
 Constructors:
 
 * ```BATMakieVisualization(; dark = false, max_buffered = 200, adaptive_batching = true, batch_growth_rate = 1.2, trace_nsteps = 20)```
