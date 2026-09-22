@@ -51,7 +51,6 @@ function mcmc_burnin!(
             new_outputs, mcmc_states;
             max_nsteps=burnin.nsteps_per_cycle,
             nonzero_weights=nonzero_weights,
-            callback=callback,
             update_visualizer=true
         )
 
@@ -79,6 +78,8 @@ function mcmc_burnin!(
         nconverged = count(mcmc_state -> mcmc_state.chain_state.info.converged, mcmc_states)
         successful = (ntuned == nconverged == nchains)
 
+        # User callbacks run at cycle boundaries; per-step visualization uses
+        # the separate update_visualizer hook in mcmc_iterate!!.
         callback(Val(:mcmc_burnin), mcmc_states)
 
         @info "MCMC Tuning cycle $cycles finished, $nchains chains, $ntuned tuned, $nconverged converged."
@@ -110,7 +111,6 @@ function mcmc_burnin!(
             final_outputs, mcmc_states;
             max_nsteps=burnin.nsteps_final,
             nonzero_weights=nonzero_weights,
-            callback=callback,
             update_visualizer=true
         )
     end

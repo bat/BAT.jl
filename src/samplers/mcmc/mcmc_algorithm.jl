@@ -611,7 +611,6 @@ function update_active_proposal!!(
     return proposal
 end
 
-# TODO: MD, reincorporate user callback
 # TODO: MD, incorporate use of Tempering, so far temperer is not used 
 function mcmc_iterate!!(
     output::Union{<:AbstractVector{<:DensitySampleVector},Nothing},
@@ -621,7 +620,6 @@ function mcmc_iterate!!(
     nonzero_weights::Bool = true,
     _cancelled::Union{Nothing,Base.Threads.Atomic{Bool}} = nothing,
     update_visualizer::Bool = false,
-    callback::Function = nop_func,
 )
     @debug "Starting iteration over MCMC chain $(mcmc_state.chain_state.info.id) with $max_nsteps steps in max. $(@sprintf "%.1f s" max_time)"
 
@@ -652,8 +650,6 @@ function mcmc_iterate!!(
         if should_log
             @debug "Iterating over MCMC chain $(mcmc_state.chain_state.info.id), completed $(nsteps(mcmc_state.chain_state) - start_nsteps) (of $(max_nsteps)) steps and produced $(nsamples(mcmc_state.chain_state) - start_nsamples) samples in $(@sprintf "%.1f s" elapsed_time) so far."
         end
-
-        callback(Val(:mcmc_iterate), mcmc_state)
     end
 
     elapsed_time = time() - start_time

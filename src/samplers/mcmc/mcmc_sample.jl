@@ -44,6 +44,12 @@ $(TYPEDFIELDS)
     store_burnin::Bool = false
     nonzero_weights::Bool = true
     sample_weighting::WS = RepetitionWeighting()
+    """
+    With `MCMCMultiCycleBurnin` and `store_burnin = true`, called as
+    `callback(Val(:mcmc_burnin), mcmc_states)` after each tuning cycle, with
+    the vector of chain states. The return value is ignored. No user callback
+    is invoked during initialization, post-tuning stabilization or main sampling.
+    """
     callback::CB = nop_func
 end
 export TransformedMCMC
