@@ -96,7 +96,7 @@ import ForwardDiff, Optim, OptimizationLBFGSB
 
     @testset "RNG, precision, and target scale" begin
         alg = MolewhackerSampling(nsamples = 256, batchsize = 128, maxiter = 2, executor = BAT.SequentialExec())
-        threaded = MolewhackerSampling(nsamples = 256, batchsize = 128, maxiter = 2, executor = BAT.MultiThreadedExec())
+        threaded = MolewhackerSampling(nsamples = 256, batchsize = 128, maxiter = 2, executor = BAT.MultiThreadedExec(ntasks = 2))
         a = evalmeasure(target, alg, context(74, precision = Float32))
         b = evalmeasure(target, threaded, context(74, precision = Float32))
         @test BAT.samplesof(a) == BAT.samplesof(b)
@@ -108,6 +108,25 @@ import ForwardDiff, Optim, OptimizationLBFGSB
         @test BAT.samplesof(a).v ≈ BAT.samplesof(shifted).v rtol = 1e-6
         @test BAT.samplesof(a).weight ≈ BAT.samplesof(shifted).weight rtol = 1e-6
         @test BAT.samplesof(a).logd ≈ logdensityof.(Ref(BAT.unevaluated(a)), BAT.samplesof(a).v)
+    end
+
+    @testset "Bounded target concurrency" begin
+        workers, guard = Set{Task}(), ReentrantLock()
+        function model(z)
+            lock(guard) do
+                push!(workers, current_task())
+            end
+            return Normal(z[1], 0.5)
+        end
+        p = PosteriorMeasure(Likelihood(model, 2.0), prior)
+        for (ntasks, expected) in ((1, 1), (2, 3))
+            empty!(workers)
+            alg = MolewhackerSampling(nsamples = 17, maxiter = 0, nseeds = 0,
+                executor = BAT.MultiThreadedExec(ntasks = ntasks))
+            evalmeasure(p, alg, context())
+            # The first point uses the caller. A one-task limit keeps all work there.
+            @test length(workers) == expected
+        end
     end
 
     @testset "Budgets, pilot sizing, and mode initialization" begin

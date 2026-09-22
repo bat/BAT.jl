@@ -110,8 +110,9 @@ function _mw_batched_logpdf(d::MixtureModel{Multivariate,Continuous,<:MvNormalCa
     T = promote_type(eltype(mean(first(d.components))), eltype(x), eltype(probs(d)))
     n = size(x, 2)
     n == 0 && return T[]
+    ntasks = executor isa MultiThreadedExec ? executor.ntasks : Threads.nthreads()
     nchunks = executor isa SequentialExec ? 1 :
-        min(Threads.nthreads(), n, max(1, n * length(d.components) ÷ 65536))
+        min(ntasks, n, max(1, n * length(d.components) ÷ 65536))
     logweights = log.(probs(d))
     constants = Distributions.mvnormal_c0.(d.components)
     nchunks == 1 && return _mw_gaussian_logpdf(d, x, logweights, constants)

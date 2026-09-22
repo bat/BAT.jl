@@ -80,6 +80,11 @@ retain their usual finite-sample bias.
 - `ncandidates` sets the number of centers selected per round. It defaults to
   the Julia thread count. Geometry calculations use the selected `executor`.
   Set `ncandidates` explicitly when comparing different thread counts.
+- `executor = BAT.MultiThreadedExec(ntasks = 14)` limits concurrent BAT work to
+  fourteen tasks, including target evaluation, geometry, and mixture scoring.
+  The default `MultiThreadedExec()` uses `Threads.nthreads()` tasks. This setting
+  does not change `ncandidates`, the Julia thread pool, or BLAS threads.
+  Allocation-heavy likelihoods can run faster with fewer active tasks.
 - `batchsize` sets the initial discovery-pool size and the independent sizing-pilot
   size. Later discovery batches follow component masses, so they can be empty.
   Target values at existing pool points are reused.
