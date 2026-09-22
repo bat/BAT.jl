@@ -27,27 +27,32 @@ end
 function register_state_for_vis!(
     vis::BATVisualizer{BATMakieVisualization},
     mcmc_state::MCMCState,
-    samples#::Vector{DensitySampleVector}
+    samples,
+    timing = _empty_walker_spans(samples)
 )
     (; graph, chain_ids, output_buffer, pending_samples) = vis.content
 
     empty_walker_outputs = _empty_chain_outputs(mcmc_state)
-    samples_new = _append_walker_outputs(mcmc_state, empty_walker_outputs, samples)
+    samples_new, timing_new = _append_timed_walkers(mcmc_state, empty_walker_outputs, samples, _empty_walker_spans(samples), timing)
 
     samples_graph = graph[:samples][]
     push!(samples_graph, samples_new)
 
-    current_idxs = length.(samples)
+    current_idxs = length.(samples_new)
     current_idxs_graph = graph[:current_idxs][]
     push!(current_idxs_graph, current_idxs)
 
     # One batched update! -- see flush_buffer!'s matching comment (each update! call is a full invalidate/notify cycle of its own).
-    update!(graph; samples=samples_graph, current_idxs=current_idxs_graph)
+    graph_timing = vis.content.step_mode[] ?
+        vcat(isnothing(graph[:sample_timing][]) ? ChainStepSpans[] : graph[:sample_timing][], [timing_new]) : nothing
+    update!(graph; samples=samples_graph, current_idxs=current_idxs_graph, sample_timing=graph_timing)
 
     push!(chain_ids, mcmc_state.chain_state.info.id)
     empty_chain_output = _empty_chain_outputs(mcmc_state)
     push!(output_buffer, empty_chain_output)
     push!(pending_samples, _empty_chain_outputs(mcmc_state))
+    push!(vis.content.output_timing, _empty_walker_spans(samples))
+    push!(vis.content.pending_timing, _empty_walker_spans(samples))
 end
 
 # Core of the vsel choke point, usable without a live BATVisualizer (static bat_makie_plot path); clamps against n_dof/N_max and updates only on change.
@@ -106,8 +111,11 @@ function BAT.init_visualizer!(
         domain_lo=domain_lo, domain_hi=domain_hi,
         support_lo=support_lo, support_hi=support_hi)
 
+    initial_timing = [_initial_step_spans(vis, state, outputs[i]) for (i, state) in enumerate(mcmc_states)]
+    vis.content.step_mode[] = all(!isnothing, initial_timing)
     for (i, state) in enumerate(mcmc_states)
-        register_state_for_vis!(vis, state, _transform_walker_outputs(f_pretransform, outputs[i]))
+        register_state_for_vis!(vis, state, _transform_walker_outputs(f_pretransform, outputs[i]),
+            vis.content.step_mode[] ? initial_timing[i] : _empty_walker_spans(outputs[i]))
     end
 
     (; graph, buffer_lock, buffer_cond, output_buffer, pending_samples, n_buffer_steps, buffer_dirty, effective_batch_size, is_live, listener_task) = vis.content
@@ -122,7 +130,7 @@ function BAT.init_visualizer!(
 
     # Checked via the real sample data (same predicate as the static path); .info is unaffected by _transform_walker_outputs.
     has_chain_info = _samples_have_chain_ids(outputs[1][1])
-    has_trace_info = _samples_have_trace_info(outputs[1][1])
+    has_trace_info = vis.content.step_mode[]
 
     add_index_slider! = Ref{Any}(nothing)
 
@@ -136,6 +144,7 @@ function BAT.init_visualizer!(
     # The displayed history includes provisional tails; only emitted samples may
     # become permanent. Pending tails are replaced on every refresh, not appended.
     committed_samples = graph[:samples][]
+    committed_timing = vis.content.step_mode[] ? graph[:sample_timing][] : [_empty_walker_spans(c) for c in committed_samples]
 
     # A terminal flush changes data but contributes no steps. The dirty flag
     # ensures that the forced final drain also handles those zero-step packets.
@@ -149,8 +158,10 @@ function BAT.init_visualizer!(
             next_batch_size = !force && adaptive_batching ?
                 _scaled_buffer_threshold(effective_batch_size[], batch_growth_rate) : effective_batch_size[]
             # Shallow copy suffices: the slots below are replaced, not mutated.
-            extracted = (output = copy(output_buffer), pending = copy(pending_samples))
+            extracted = (output = copy(output_buffer), pending = copy(pending_samples),
+                output_time = copy(vis.content.output_timing), pending_time = copy(vis.content.pending_timing))
             output_buffer .= _empty_chain_outputs.(mcmc_states)
+            vis.content.output_timing .= _empty_walker_spans.(output_buffer)
             n_buffer_steps[] = 0
             buffer_dirty[] = false
             # Geometric growth: O(log N) full-dataset recomputes over a run instead of O(N). Skipped on the forced final drain.
@@ -166,10 +177,12 @@ function BAT.init_visualizer!(
         pending_trafo = _transform_chain_outputs(f_pretransform, extracted_buffers.pending)
 
         if any(chain -> any(walker -> !isempty(walker), chain), fresh_batch_trafo)
-            committed_samples = _append_chain_outputs(mcmc_states[1], committed_samples, fresh_batch_trafo)
+            committed_samples, committed_timing = _append_timed_chains(mcmc_states[1], committed_samples, fresh_batch_trafo,
+                committed_timing, extracted_buffers.output_time)
         end
-        samples_new = any(chain -> any(walker -> !isempty(walker), chain), pending_trafo) ?
-            _append_chain_outputs(mcmc_states[1], committed_samples, pending_trafo) : committed_samples
+        samples_new, timing_new = any(chain -> any(walker -> !isempty(walker), chain), pending_trafo) ?
+            _append_timed_chains(mcmc_states[1], committed_samples, pending_trafo, committed_timing, extracted_buffers.pending_time) :
+            (committed_samples, committed_timing)
 
         # Derived from the merged length: checked_push! can collapse a batch-boundary sample into a weight increment instead of a new row.
         current_idxs_new = [length.(chain_samples) for chain_samples in samples_new]
@@ -190,6 +203,7 @@ function BAT.init_visualizer!(
         # ONE batched update! per flush: every update! eagerly resolves the observable-attached :gridlayout before returning.
         update!(graph;
             samples=samples_new,
+            sample_timing=vis.content.step_mode[] ? timing_new : nothing,
             current_idxs=current_idxs_new,
             domain_lo=new_lo,
             domain_hi=new_hi,
@@ -257,7 +271,28 @@ function BAT.update_visualizer_impl!(
     # get_samples! mutates output_buffer[output_id] while flush_buffer! copies it on another task, so it must run under buffer_lock (try/finally so a throw can't leave the lock held forever).
     lock(buffer_lock)
     try
-        get_samples!(output_buffer[output_id], chain_state, nonzero_weights)
+        if vis.content.step_mode[]
+            pending_time = _empty_walker_spans(pending)
+            t = chain_state.stepno
+            cycle = chain_state.info.cycle
+            for j in eachindex(pending)
+                sample = chain_state.output[j]
+                if !nonzero_weights || sample.weight > 0
+                    BAT.checked_push!(output_buffer[output_id][j], sample)
+                    if sample.weight > 0
+                        endpoint = is_sampling_step ? t - 1 : t
+                        _push_step_span!(vis.content.output_timing[output_id][j],
+                            SampleStepSpan(length(output_buffer[output_id][j]), cycle, endpoint - sample.weight + 1, endpoint))
+                    end
+                end
+                if !isempty(pending[j]) && pending[j].weight[1] > 0
+                    push!(pending_time[j], SampleStepSpan(1, cycle, t - pending[j].weight[1] + 1, t))
+                end
+            end
+            vis.content.pending_timing[output_id] = pending_time
+        else
+            get_samples!(output_buffer[output_id], chain_state, nonzero_weights)
+        end
         pending_samples[output_id] = pending
         n_buffer_steps[] = _add_buffer_steps(n_buffer_steps[], is_sampling_step ? length(pending) : 0)
         buffer_dirty[] = true

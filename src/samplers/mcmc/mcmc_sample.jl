@@ -124,13 +124,19 @@ function evalmeasure_impl(em::EvaluatedMeasure, samplingalg::TransformedMCMC, co
     transformed_m, f_pretransform = transform_and_unshape(samplingalg.pretransform, em, context)
     n_dof = some_dof(transformed_m)
 
-    mcmc_states, chain_outputs = mcmc_init!(
-        samplingalg,
-        transformed_m,
-        apply_trafo_to_init(f_pretransform, samplingalg.init), # TODO: MD: at which point should the init_alg be transformed? Might be better to read, if it's transformed later during init of states
-        samplingalg.store_burnin ? samplingalg.callback : nop_func,
-        context
-    )
+    prepare_visualizer_init!(context.visualizer, samplingalg)
+    mcmc_states, chain_outputs = try
+        mcmc_init!(
+            samplingalg,
+            transformed_m,
+            apply_trafo_to_init(f_pretransform, samplingalg.init), # TODO: MD: at which point should the init_alg be transformed? Might be better to read, if it's transformed later during init of states
+            samplingalg.store_burnin ? samplingalg.callback : nop_func,
+            context
+        )
+    catch
+        clear_visualizer_init!(context.visualizer)
+        rethrow()
+    end
 
     if !samplingalg.store_burnin
         chain_outputs = _empty_chain_outputs.(mcmc_states)
@@ -144,7 +150,11 @@ function evalmeasure_impl(em::EvaluatedMeasure, samplingalg::TransformedMCMC, co
     # space, so anything the visualizer derives from the measure itself
     # (prior-based domain estimate, hard support bounds) must come from the
     # untransformed measure to live in the same space as the displayed data.
-    init_visualizer!(context.visualizer; rng=get_rng(context), mcmc_states=mcmc_states, outputs=chain_outputs, f_pretransform=f_pretransform, target=em)
+    try
+        init_visualizer!(context.visualizer; rng=get_rng(context), mcmc_states=mcmc_states, outputs=chain_outputs, f_pretransform=f_pretransform, target=em)
+    finally
+        clear_visualizer_init!(context.visualizer)
+    end
 
     mcmc_states = mcmc_burnin!(
         samplingalg.store_burnin ? chain_outputs : nothing,

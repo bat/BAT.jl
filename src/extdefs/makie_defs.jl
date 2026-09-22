@@ -15,6 +15,13 @@ estimating them does not advance the sampling RNG or the default RNG.
 
 Batching and backpressure count completed walker-steps across all chains,
 including rejected steps. Terminal sampler flushes contribute no steps.
+Repetition-weighted runs capture cycle/step timing without changing returned
+samples. Apply selects local steps in every cycle and clips displayed dwell
+weights; All follows the growing data. If timing is unavailable (including ARP
+weighting), the labelled sample range preserves each selected row's weight and
+elapsed-step traces are unavailable. Slider movement is a draft until Apply.
+For long runs the slider uses bounded ticks; edit `start:end` and press Enter
+to set exact integer endpoints, then Apply to update the plots.
 `max_buffered` must be at least the batch size (50 with the keyword constructor).
 It is an initial backpressure threshold, not a strict memory limit: a multi-walker
 update may cross it before waiting. With adaptive batching, both thresholds grow
@@ -161,14 +168,31 @@ end
         N_max::Integer = 3;
         dark::Bool = false,
         trace_nsteps::Integer = 20,
-        support = nothing
+        support = nothing,
+        step_intervals = nothing
     )
 
 *Experimental feature, not yet part of stable public API.*
 
 Displays an interactive Makie corner-plot figure for `samples`: per-cell
 recipe dropdowns, stats/trace overlays, a variable-selection picker and a
-step-range slider. Requires a Makie backend to be loaded.
+range selector with Apply and All controls. Requires a Makie backend to be loaded.
+
+Without timing, the range selects stored samples per walker, preserving their
+weights. To declare exact repetition timing, supply `step_intervals`: one vector
+per sample row, containing `(cycle, first, last)` named tuples with inclusive,
+positive step endpoints. A row may have intervals in several cycles. Durations
+must sum to that row's repetition weight, and intervals within a chain/walker/
+cycle must not overlap. For example, weights `[100, 1]` can be accompanied by
+`[[(cycle=1, first=1, last=100)], [(cycle=1, first=101, last=101)]]`.
+The selected local step range applies independently to every cycle and clips
+weights to the overlap. Bare sample metadata does not certify this timing.
+The same keyword is supported by ordinary Makie `plot(samples; ...)`.
+The slider uses bounded ticks for large ranges; enter exact `start:end` values
+in the range field and press Enter, then Apply, for precise selection.
+
+Elapsed-step traces require explicit timing. ARP and other statistical weights
+are not interpreted as dwell durations; use the stored-sample range instead.
 
 `support` (a measure/prior, or a vector of per-dimension `(lo, hi)` pairs)
 enables KDE boundary correction at hard support bounds.
@@ -326,9 +350,11 @@ export Mean2D
 """
     struct Trace2D <: BATMakieRecipe
 
-Recency-colored trace of each chain's last `trace_nsteps` real MCMC steps.
-An always-live overlay (`show_trace_upper`/`show_trace_lower`), never in the
-recipe dropdown; needs samples with chain and step identity (`MCMCSampleID`).
+Recency-colored trace of each walker's last `trace_nsteps` steps in the latest
+cycle contributing to the selected window. Paths are split at gaps and never
+connect different cycles or walkers. An always-live overlay
+(`show_trace_upper`/`show_trace_lower`), never in the recipe dropdown; requires
+captured repetition timing or explicit `step_intervals` for static plots.
 """
 struct Trace2D <: BATMakieRecipe end
 export Trace2D

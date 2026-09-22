@@ -72,3 +72,12 @@ function update_visualizer!(vis::BATVisualizer; kwargs...)
 end
 
 function update_visualizer_impl!(vis::BATVisualizer; kwargs...) end
+
+# Optional initialization timing, implemented by visualization extensions. These
+# hooks run only at iterator boundaries; they never emit public callback events.
+prepare_visualizer_init!(::BATVisualizer, algorithm) = nothing
+capture_visualizer_init(::BATVisualizer) = false
+clear_visualizer_init!(::BATVisualizer) = nothing
+reset_visualizer_init!(::BATVisualizer, chain, walkers) = nothing
+begin_visualizer_init_segment(::BATVisualizer, chain, output) = nothing
+end_visualizer_init_segment!(::BATVisualizer, before, chain, output) = nothing

@@ -149,6 +149,13 @@ end
                 states = fetch(producer)
                 stop(vis)
                 @test mass(vis) == 48
+                @test vis.content.step_mode[]
+                @test vis.content.graph[:max_step][] == 12
+                Makie.update!(vis.content.graph; window_steps=(11,12),show_trace_upper=true)
+                @test mass(vis) == 8 # Two steps, two chains, two walkers.
+                @test length(vis.content.graph[:trace_groups][]) == 4
+                Makie.update!(vis.content.graph; window_steps=nothing)
+                @test mass(vis) == 48
                 @test vis.content.n_buffer_steps[] == 0
                 @test !vis.content.buffer_dirty[]
                 for chain in 1:2
@@ -193,6 +200,10 @@ end
                 initialize(vis, states, outputs, target)
                 reject_steps!(vis, states, outputs, 1, 4; nonzero)
                 waitmass(vis, 8)
+                Makie.update!(vis.content.graph; window_steps=(3,4))
+                @test mass(vis) == 4 # Clips the still-provisional rejection tail.
+                Makie.update!(vis.content.graph; window_steps=nothing)
+                @test mass(vis) == 8
                 @test all(states[1].chain_state.current.x.weight .== 4)
                 @test all(states[1].chain_state.output.weight .== 0)
                 nonzero && @test all(isempty, outputs[1])
@@ -287,6 +298,13 @@ end
                 @test mass(vis) == 8
                 @test only(vis.content.graph[:samples][])[1].v == outputs[1][1].v
                 @test only(vis.content.graph[:samples][])[1].weight == outputs[1][1].weight
+                @test vis.content.graph[:max_step][] == 6
+                Makie.update!(vis.content.graph; window_steps=(2,2),show_trace_upper=true)
+                @test mass(vis) == 2 # Local step two from each cycle, even if rows merge.
+                @test length(vis.content.graph[:trace_groups][]) == 1
+                @test only(vis.content.graph[:trace_groups][]).recency == [1.0]
+                Makie.update!(vis.content.graph; window_steps=nothing)
+                @test mass(vis) == 8
             finally
                 cleanup(vis)
             end

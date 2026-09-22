@@ -14,10 +14,26 @@ function _setup_static_graph(
     # Hard prior-support bounds for KDE boundary reflection: a measure/prior/
     # Distribution or per-dim (lo, hi) pairs (see _support_vectors); default: none.
     support = nothing,
+    step_intervals = nothing,
 )
     graph = _init_compute_graph(recipes, triagonal_config, diagonal_config, N_max)
 
     unshaped_samples = unshaped.(samples)
+    flat_timing = _static_step_spans(samples, step_intervals)
+    by_row = [SampleStepSpan[] for _ in samples]
+    if !isnothing(flat_timing)
+        for span in flat_timing
+            push!(by_row[span.row], span)
+        end
+    end
+    timing_graph = SampleStepSpans()
+    function group_timing(rows)
+        result = SampleStepSpan[]
+        for (local_row, original_row) in enumerate(rows), span in by_row[original_row]
+            push!(result, SampleStepSpan(local_row, span.cycle, span.first, span.last))
+        end
+        return result
+    end
 
     # Registered per (chainid, walkerid): BAT's merged multi-chain result is
     # chain-block-concatenated, so a single shared row window would reveal one
@@ -39,19 +55,27 @@ function _setup_static_graph(
         wids = sort!([w for (c, w) in keys(groups) if c == cid])
         walkers = [unshaped_samples[groups[(cid, w)]] for w in wids]
         push!(samples_graph, walkers)
+        push!(timing_graph, [group_timing(groups[(cid, w)]) for w in wids])
         push!(current_idxs_graph, [length(w) for w in walkers])
       end
     else
       push!(samples_graph, [unshaped_samples])
+      push!(timing_graph, [group_timing(eachindex(samples))])
       push!(current_idxs_graph, [length(samples)])
     end
 
+    if isempty(samples_graph)
+        push!(samples_graph, [unshaped_samples])
+        push!(current_idxs_graph, [0])
+        push!(timing_graph, [SampleStepSpan[]])
+    end
     n_dof = totalndof(varshape(samples))
     domain_lo, domain_hi = _domain_from_samples(unshaped_samples.v.data, n_dof)
     support_lo, support_hi = _support_vectors(support, n_dof)
 
     update!(graph;
         samples=samples_graph,
+        sample_timing=isnothing(flat_timing) ? nothing : timing_graph,
         current_idxs=current_idxs_graph,
         domain_lo=domain_lo,
         domain_hi=domain_hi,
@@ -59,6 +83,7 @@ function _setup_static_graph(
         support_hi=support_hi,
         idxs=_clamp_vsel(vsel, n_dof, N_max),
     )
+    graph[:window_data][] # Validate declared timing before constructing a figure.
     return graph, n_dof
 end
 
@@ -72,7 +97,7 @@ Makie.plottype(::DensitySampleVector) = Makie.Plot{Makie.plot}
 # Makie forwards conversion keywords only where they are declared here;
 # accepting them in the signature below is not enough to ever receive them.
 Makie.used_attributes(::Type{<:Makie.Plot{Makie.plot}}, ::DensitySampleVector) =
-    (:recipes, :vsel, :N_max, :trace_nsteps, :support, :dark)
+    (:recipes, :vsel, :N_max, :trace_nsteps, :support, :step_intervals, :dark)
 
 function Makie.convert_arguments(
     ::Type{<:Makie.Plot{Makie.plot}},
@@ -82,6 +107,7 @@ function Makie.convert_arguments(
     N_max::Integer = 3,
     trace_nsteps::Integer = 20,
     support = nothing,
+    step_intervals = nothing,
     # This embed path draws under the caller's own theme; `dark` only informs the
     # few cycling-affected colors (config stats_color) that can't come from a theme.
     dark::Bool = false,
@@ -94,7 +120,7 @@ function Makie.convert_arguments(
         samples, recipes, vsel, N_max,
         _default_makie_triagonal_config(trace_nsteps=trace_nsteps, dark=dark),
         _default_makie_diagonal_config(dark=dark);
-        support=support,
+        support=support, step_intervals=step_intervals,
     )
 
     gridlayout = _init_gridlayout(graph, N_max)
@@ -112,6 +138,7 @@ function BAT.bat_makie_plot(
     trace_nsteps::Integer = 20,
     # Hard prior-support bounds for KDE boundary reflection -- see _support_vectors.
     support = nothing,
+    step_intervals = nothing,
 )
     # TODO: MD, Discuss config handling and passing of user attribute overwrites
 
@@ -122,7 +149,7 @@ function BAT.bat_makie_plot(
         samples, recipes, vsel, N_max,
         _default_makie_triagonal_config(trace_nsteps=trace_nsteps, dark=dark),
         _default_makie_diagonal_config(dark=dark);
-        support=support,
+        support=support, step_intervals=step_intervals,
     )
 
     # PickerInfo (concrete, type-erased callback) -- see makie_render_utils.jl.
@@ -137,7 +164,7 @@ function BAT.bat_makie_plot(
         gridlayout = _init_gridlayout(graph, N_max)
         built = _build_fig(graph, gridlayout, picker_info;
             has_chain_info=_samples_have_chain_ids(samples),
-            has_trace_info=_samples_have_trace_info(samples))
+            has_trace_info=graph[:has_step_timing][])
         _maybe_display(built.fig)
     end
     return nothing

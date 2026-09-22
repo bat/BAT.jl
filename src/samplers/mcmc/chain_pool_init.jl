@@ -89,7 +89,8 @@ function mcmc_init!(
         new_mcmc_states = mcmc_iterate!!(
             new_outputs, new_mcmc_states;
             max_nsteps=clamp(div(init_alg.nsteps_init, 5), 10, 50),
-            nonzero_weights=nonzero_weights
+            nonzero_weights=nonzero_weights,
+            record_visualizer_init=capture_visualizer_init(context.visualizer)
         )
 
         viable_idxs = findall(isviablestate.(new_mcmc_states))
@@ -104,7 +105,8 @@ function mcmc_init!(
             viable_mcmc_states = mcmc_iterate!!(
                 viable_outputs, viable_mcmc_states;
                 max_nsteps=init_alg.nsteps_init,
-                nonzero_weights=nonzero_weights
+                nonzero_weights=nonzero_weights,
+                record_visualizer_init=capture_visualizer_init(context.visualizer)
             )
 
             nsamples_thresh = floor(Int, 0.8 * median([nsamples(states) for states in viable_mcmc_states]))

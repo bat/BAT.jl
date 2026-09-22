@@ -620,6 +620,7 @@ function mcmc_iterate!!(
     nonzero_weights::Bool = true,
     _cancelled::Union{Nothing,Base.Threads.Atomic{Bool}} = nothing,
     update_visualizer::Bool = false,
+    record_visualizer_init::Bool = false,
 )
     @debug "Starting iteration over MCMC chain $(mcmc_state.chain_state.info.id) with $max_nsteps steps in max. $(@sprintf "%.1f s" max_time)"
 
@@ -628,6 +629,9 @@ function mcmc_iterate!!(
     start_nsteps = nsteps(mcmc_state)
     start_nsamples = nsamples(mcmc_state)
     perform_step = true
+    vis = mcmc_state.chain_state.context.visualizer
+    init_segment = record_visualizer_init && !isnothing(output) ?
+        begin_visualizer_init_segment(vis, mcmc_state.chain_state, output) : nothing
 
     while (perform_step && (time() - start_time) < max_time)
         if !isnothing(_cancelled) && _cancelled[]
@@ -655,6 +659,7 @@ function mcmc_iterate!!(
     elapsed_time = time() - start_time
     @debug "Finished iteration over MCMC chain $(mcmc_state.chain_state.info.id), completed $(nsteps(mcmc_state.chain_state) - start_nsteps) steps and produced $(nsamples(mcmc_state.chain_state) - start_nsamples) samples in $(@sprintf "%.1f s" elapsed_time)."
 
+    isnothing(init_segment) || end_visualizer_init_segment!(vis, init_segment, mcmc_state.chain_state, output)
     return mcmc_state
 end
 

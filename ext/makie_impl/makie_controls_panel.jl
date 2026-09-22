@@ -162,46 +162,92 @@ function _build_fig(
         direction=:up
     )
 
-    # Samples must already exist (an empty slider range crashes): true at build time for the static path, never for the live path, which retrofits post-run.
-    show_slider = graph[:max_step][] > 0
-
-    # Placed assuming no slider: the button's column claims the full row width so halign=:left is flush left -- add_index_slider! undoes both.
+    # Keep interaction cheap: pending range changes never invalidate recipes.
     collapse_button = Button(fig, label="☰", halign=:left, valign=:top)
     toggle_row_content[1, 1] = collapse_button
     colsize!(toggle_row_content, 1, Relative(1))
-
-    # Builds the "Step Range" slider row into toggle_row -- immediately on the static path, or retrofitted post-run on the live path. Idempotent.
-    slider_added = Ref(false)
+    range_controls = Ref{Any}(nothing)
+    limit_label = Label(toggle_row_content[1, 2], "All")
     function add_index_slider!()
-        slider_added[] && return nothing
-        slider_added[] = true
-
-        # Undo the no-slider button layout; height=Relative(1) makes the button fill its two-row span instead of centering its natural height in it.
-        colsize!(toggle_row_content, 1, Auto())
-        collapse_button.height[] = Relative(1)
-        toggle_row_content[1:2, 1] = collapse_button
-
-        # Spans cols 2:3 so its centered position doesn't shift with the value display's text width.
-        lbl_idx_title = Label(toggle_row_content[1, 2:3], "Step Range")
-        # Real MCMC steps, not stored rows (repetition weighting makes steps exceed rows); 0-based since step 0 is the initial position.
-        slider_curr_idx = IntervalSlider(toggle_row_content[2, 2], range=0:graph[:max_step][], startvalues=(0, graph[:max_step][]))
-        # Pinned outward (:top/:bottom) so the label's top and the slider's bottom land exactly on the button's edges.
-        rowgap!(toggle_row_content, 1, 0)
-        lbl_idx_title.valign[] = :top
-        slider_curr_idx.valign[] = :bottom
-        # width = nothing so the slider fills column 2 (Auto() would size the column to the slider's own natural width instead).
-        slider_curr_idx.width[] = nothing
-        # tellwidth=false, NOT width=nothing: Auto width would shrink column 2, while width=nothing would left-align instead of centering the text.
-        lbl_idx_title.tellwidth[] = false
-        lbl_idx_value = Label(toggle_row_content[2, 3], lift(iv -> "$(iv[1]):$(iv[2])", slider_curr_idx.interval))
-
-        # Applied per walker inside :flat_samples (_step_window_rows); the slider must not write :current_idxs, which registration/flush owns.
-        on(slider_curr_idx.interval) do (start_step, end_step)
-            update!(graph, window_steps=(Int(start_step), Int(end_step)))
+        limit = graph[:max_step][]
+        limit_label.text[] = limit == 0 ? "No samples" : limit == 1 ? "All (single step/sample)" : ""
+        limit > 1 || return nothing
+        if isnothing(range_controls[])
+            # A blank placeholder must not report zero as column 2's natural
+            # width: the slider needs that column's remaining panel space.
+            limit_label.tellwidth[] = false
+            colsize!(toggle_row_content, 1, Auto())
+            collapse_button.height[] = Relative(1)
+            toggle_row_content[1:3, 1] = collapse_button
+            title = Label(toggle_row_content[1, 2:3], graph[:has_step_timing][] ? "Step in cycle" : "Sample range (per walker)"; tellwidth=false)
+            slider = IntervalSlider(toggle_row_content[2, 2:3], range=SampleRangeGrid(limit), startvalues=(1, limit), width=nothing)
+            draft = Observable((Int64(1), limit))
+            syncing = Ref(false)
+            value_entry = Textbox(toggle_row_content[3, 2:4]; stored_string="1:$limit",
+                placeholder="start:end", width=nothing, tellwidth=false,
+                validator=text -> !isnothing(_parse_sample_window(text, graph[:max_step][])))
+            on(slider.interval) do interval
+                syncing[] || (draft[] = Int64.(interval))
+            end
+            on(value_entry.stored_string) do text
+                if !syncing[]
+                    interval = _parse_sample_window(text, graph[:max_step][])
+                    isnothing(interval) || (draft[] = interval)
+                end
+            end
+            on(draft) do interval
+                syncing[] = true
+                try
+                    set_close_to!(slider, interval...)
+                    Makie.set!(value_entry, "$(interval[1]):$(interval[2])")
+                finally
+                    syncing[] = false
+                end
+            end
+            apply = Button(toggle_row_content[1, 4], label="Apply")
+            all_button = Button(toggle_row_content[2, 4], label="All")
+            dirty = Observable(true)
+            onany(graph[:window_steps], draft) do applied, pending
+                dirty[] = applied != pending
+                apply.label[] = dirty[] ? "Apply" : "Applied"
+            end
+            on(apply.clicks) do _
+                dirty[] && _apply_sample_window!(graph, draft[])
+            end
+            on(all_button.clicks) do _
+                _apply_sample_window!(graph, nothing)
+            end
+            range_controls[] = (slider=slider, draft=draft, syncing=syncing, apply=apply,
+                all=all_button, dirty=dirty, title=title, value_entry=value_entry)
+            rowgap!(toggle_row_content, 1, 0)
+        end
+        # Growing data must not move the scale under a pressed pointer. Preserve
+        # draft values as well as the applied range; All remains a separate state.
+        if !(Mouse.left in events(fig.scene).mousebuttonstate)
+            slider = range_controls[].slider
+            if last(slider.range[]) != limit
+                controls = range_controls[]
+                controls.syncing[] = true
+                try
+                    slider.range[] = SampleRangeGrid(limit)
+                    set_close_to!(slider, controls.draft[]...)
+                finally
+                    controls.syncing[] = false
+                end
+            end
         end
         return nothing
     end
-    show_slider && add_index_slider!()
+    on(graph[:max_step]) do _
+        add_index_slider!()
+    end
+    # Observe release before widgets consume it (native mouse handlers use 1).
+    # Makie's button-state tracker has already removed the released button.
+    on(events(fig.scene).mousebutton; priority=2) do event
+        event.button == Mouse.left && event.action == Mouse.release && add_index_slider!()
+        return Consume(false)
+    end
+    add_index_slider!()
 
     lbl_upper = Label(fig, "Upper")
     ui_layout[2, 1] = lbl_upper
@@ -228,7 +274,7 @@ function _build_fig(
         lbl_stats, toggle_upper, toggle_diag, toggle_lower,
     ]
 
-    # Only for sources that can drive Trace2D (chainid AND stepno); Row 3 (Diagonal) stays unassigned -- a trace is inherently 2D.
+    # Only for sources with explicit step timing; Row 3 (Diagonal) stays unassigned -- a trace is inherently 2D.
     if has_trace_info
         lbl_trace = Label(fig, "Trace overlay")
         ui_layout[1, 4] = lbl_trace
@@ -297,7 +343,30 @@ function _build_fig(
     end
 
     # Exposed so the live path can retrofit the index slider post-run.
-    return (fig=fig, add_index_slider! = add_index_slider!)
+    return (fig=fig, add_index_slider! = add_index_slider!, range_controls=range_controls)
+end
+
+# Native IntervalSlider scans its range to locate values and uses floating-point
+# index arithmetic while dragging. Bound that work independently of elapsed
+# steps; exact integer endpoints remain editable in the accompanying textbox.
+struct SampleRangeGrid <: AbstractVector{Int64}
+    limit::Int64
+end
+Base.size(grid::SampleRangeGrid) = (Int(min(grid.limit, 10_001)),)
+Base.IndexStyle(::Type{SampleRangeGrid}) = IndexLinear()
+function Base.getindex(grid::SampleRangeGrid, i::Int)
+    @boundscheck checkbounds(grid, i)
+    n = length(grid)
+    return n == 1 ? Int64(1) : Int64(1 + div(Int128(i - 1) * (grid.limit - 1), n - 1))
+end
+
+function _parse_sample_window(text, limit)
+    text isa AbstractString || return nothing
+    endpoints = split(text, ':')
+    length(endpoints) == 2 || return nothing
+    lo, hi = tryparse.(Int64, strip.(endpoints))
+    (isnothing(lo) || isnothing(hi)) && return nothing
+    return 1 <= lo <= hi <= limit ? (lo, hi) : nothing
 end
 
 # Pure decision logic, kept separate from widget wiring for direct testing. The active set, not sibling checkbox states, is the source of truth.
@@ -460,4 +529,15 @@ function _build_vsel_picker!(
     end
 
     return all_blocks
+end
+
+# Programmatic and widget changes use the same single graph transaction.
+function _apply_sample_window!(graph, window)
+    if !isnothing(window)
+        lo, hi = window
+        1 <= lo <= hi || throw(ArgumentError("Require 1 <= window start <= window end"))
+    end
+    graph[:window_steps][] == window && return false
+    update!(graph; window_steps=window)
+    return true
 end

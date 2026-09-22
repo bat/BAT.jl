@@ -42,10 +42,10 @@ function cleanup(vis)
     isnothing(task) || wait(task)
 end
 
-function algorithm(; init = MCMCChainPoolInit(nsteps_init = 30), nwalkers = 1, store_burnin = false)
+function algorithm(; init = MCMCChainPoolInit(nsteps_init = 30), nwalkers = 1, store_burnin = false, sample_weighting = RepetitionWeighting(), nonzero_weights = true)
     TransformedMCMC(
         nchains = 2, nwalkers = nwalkers, nsteps = 120, strict = false,
-        store_burnin = store_burnin, init = init,
+        store_burnin = store_burnin, init = init, sample_weighting = sample_weighting, nonzero_weights = nonzero_weights,
         adaptive_transform = BAT.NoAdaptiveTransform(),
         transform_tuning = NoMCMCTransformTuning(),
         convergence = GelmanRubinConvergence(),
@@ -176,6 +176,16 @@ Base.copy(::UncopyableRNG) = error("Unexpected RNG copy")
                 @test !vis.content.is_live[]
                 @test istaskdone(vis.content.listener_task[])
                 @test vis.content.n_buffer_steps[] == 0
+                @test vis.content.step_mode[]
+                @test isempty(vis.content.init_segments)
+                @test isempty(vis.content.invalid_init)
+                data = vis.content.graph[:window_data][]
+                mass = zeros(Int, length(data.samples))
+                for group in data.groups, k in eachindex(group.rows)
+                    mass[group.rows[k]] += group.ends[k] - group.starts[k] + 1
+                end
+                @test mass == data.samples.weight
+                @test data.limit == 120
                 @test rand(UInt64, 16) == rand(default_after_plain, UInt64, 16)
                 plain_samples, live_samples = BAT.samplesof(expected), BAT.samplesof(observed)
                 @test !isempty(live_samples)
@@ -200,5 +210,35 @@ Base.copy(::UncopyableRNG) = error("Unexpected RNG copy")
             end
         end
     end
+    @testset "ARP live sampling retains mass and row semantics" begin
+        target = MvNormal(zeros(2), Matrix{Float64}(I,2,2))
+        for nonzero in (false, true)
+            alg = algorithm(sample_weighting=ARPWeighting(), nonzero_weights=nonzero, store_burnin=true)
+            vis = BATVisualizer(BATMakieVisualization(max_buffered=10^6,adaptive_batching=false))
+            plain_ctx = BATContext(rng=copy(first(RNGS)))
+            live_ctx = BATContext(rng=copy(first(RNGS)),visualizer=vis)
+            plain = BAT.evalmeasure(target,alg,plain_ctx)
+            try
+                live = with_capture() do
+                    BAT.evalmeasure(target,alg,live_ctx)
+                end
+                @test BAT.samplesof(live) == BAT.samplesof(plain)
+                @test BAT.get_rng(live_ctx) == BAT.get_rng(plain_ctx)
+                @test !vis.content.step_mode[]
+                @test isempty(vis.content.init_segments)
+                @test istaskdone(vis.content.listener_task[])
+                g = vis.content.graph
+                full = deepcopy(g[:flat_samples][])
+                Makie.update!(g; window_steps=(1,2),show_trace_upper=true)
+                @test isempty(g[:trace_groups][])
+                @test all(w -> w in full.weight,g[:flat_weights][])
+                Makie.update!(g; window_steps=nothing)
+                @test g[:flat_samples][] == full
+            finally
+                cleanup(vis)
+            end
+        end
+    end
+
 end
 end # module

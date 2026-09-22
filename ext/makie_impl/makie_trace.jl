@@ -1,93 +1,25 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# Trace2D: always-live overlay of each chain's recent path through a 2D marginal, recency-colored. Grouped by (chainid, walkerid): walkers in one
-# chain share stepno ranges. Recency is elapsed MCMC steps (stepno + weight - 1; a row's weight is the steps spent at that position), not stored-row count.
+# Trace2D uses the shared cycle-aware timing selection.
 _empty_trace2d_primitives() = (x=Float64[], y=Float64[], chainids=Int32[], walkerids=Int32[], recency=Float64[], group_ranges=Tuple{Int32,Int32,UnitRange{Int}}[], all_chainids=Int32[])
 
-# Whether `samples` has chain identity AND step numbers (MCMCSampleID does; AHMCSampleID lacks stepno) -- distinct from _samples_have_chain_ids.
-_samples_have_trace_info(samples) =
-    hasfield(eltype(samples.info), :chainid) && hasfield(eltype(samples.info), :stepno)
-
-function compute_plotting_primitives(
-    ::SubArray,
-    ::SubArray,
-    ::AbstractVector,
-    ::AbstractVector,
-    ::AbstractVector,
-    ::Trace2D,
-    ::RS,
-    ::CS,
-    ::NamedTuple
-) where {RS<:RecipeStatus,CS<:CellStatus}
-    return _empty_trace2d_primitives()
-end
-
-# Inputs are the ordinary windowed per-sample inputs: with the step window applied per walker, each group's rows are already its own chronological slice and its "now" is the window's end.
-function compute_plotting_primitives(
-    marg_coords::SubArray,
-    weights::SubArray,
-    chainids::AbstractVector,
-    walkerids::AbstractVector,
-    stepnos::AbstractVector,
-    recipe::Trace2D,
-    ::LiveRecipe,
-    ::LiveCell,
-    config::NamedTuple
-)
-    total_n = length(chainids)
-    if total_n == 0 || isempty(stepnos)
-        return _empty_trace2d_primitives()
+# Time filtering/grouping is computed once for the graph, not once per marginal.
+function _timed_trace_primitives(data, groups, vsel)
+    x, y, recency = Float64[], Float64[], Float64[]
+    chainids, walkerids = Int32[], Int32[]
+    ranges = Tuple{Int32,Int32,UnitRange{Int}}[]
+    values = data.samples.v.data
+    for g in groups
+        start = length(x) + 1
+        append!(x, view(values, vsel[1], g.rows))
+        append!(y, view(values, vsel[2], g.rows))
+        append!(recency, g.recency)
+        append!(chainids, fill(g.chain, length(g.rows)))
+        append!(walkerids, fill(g.walker, length(g.rows)))
+        push!(ranges, (g.chain, g.walker, start:length(x)))
     end
-    (; trace_nsteps) = config
-    x = view(marg_coords, 1, :)
-    y = view(marg_coords, 2, :)
-    last_steps = stepnos .+ Float64.(weights) .- 1
-
-    # Indices grouped by (chainid, walkerid) via one forward scan, so each group's index vector comes out in chronological order.
-    groups = Dict{Tuple{Int32,Int32},Vector{Int}}()
-    for idx in eachindex(chainids)
-        key = (chainids[idx], walkerids[idx])
-        push!(get!(() -> Int[], groups, key), idx)
-    end
-
-    out_x = Float64[]
-    out_y = Float64[]
-    out_chainids = Int32[]
-    out_walkerids = Int32[]
-    out_recency = Float64[]
-    # (chain_id, walker_id, range-into-the-flat-arrays) per surviving group, so compose_plotspecs doesn't rebuild the grouping.
-    group_ranges = Tuple{Int32,Int32,UnitRange{Int}}[]
-
-    # Sorted key order, not raw Dict order: hash-order iteration reshuffles the emitted spec order (draw/z-order, SpecApi reconciliation) mid-run.
-    for key in sort!(collect(keys(groups)))
-        idxs = groups[key]
-        chain_id, walker_id = key
-
-        current_step = last_steps[idxs[end]]
-        min_step = current_step - trace_nsteps + 1
-        # Walk backward from the group's most recent row, keeping rows still within the trace window; idxs is chronological, so stop at the first miss.
-        keep = Int[]
-        for k in length(idxs):-1:1
-            idx = idxs[k]
-            last_steps[idx] < min_step && break
-            push!(keep, idx)
-        end
-        isempty(keep) && continue
-        range_start = length(out_x) + 1
-        for idx in Iterators.reverse(keep) # restore chronological (oldest-of-window-first) order
-            push!(out_x, x[idx])
-            push!(out_y, y[idx])
-            push!(out_chainids, chain_id)
-            push!(out_walkerids, walker_id)
-            # Normalized by trace_nsteps - 1 so the newest point reaches exactly 1.0; trace_nsteps == 1 is 1.0 outright, <= 0 rejected at config construction.
-            r = trace_nsteps == 1 ? 1.0 : clamp((last_steps[idx] - min_step) / (trace_nsteps - 1), 0.0, 1.0)
-            push!(out_recency, r)
-        end
-        push!(group_ranges, (chain_id, walker_id, range_start:length(out_x)))
-    end
-
-    # all_chainids: sorted unique chain ids of the FULL (unwindowed) input, so compose's color ranking stays fixed and matches ChainScatter2D's colors.
-    return (x=out_x, y=out_y, chainids=out_chainids, walkerids=out_walkerids, recency=out_recency, group_ranges=group_ranges, all_chainids=sort(unique(chainids)))
+    return (x=x, y=y, chainids=chainids, walkerids=walkerids, recency=recency,
+        group_ranges=ranges, all_chainids=data.chainids)
 end
 
 function compose_plotspecs(

@@ -41,43 +41,6 @@ end
 # assigning to a bare enclosing-scope name in one reassigns the shared variable
 # for all -- always use distinct local names.
 
-# Rows of `walker` (within 1:wend) whose dwell [stepno, stepno+weight-1]
-# intersects the step window [wlo, whi]; edge-straddling rows keep full weight.
-# Dwell ends are monotone per walker, so the result is one contiguous range,
-# found by two binary searches. Without a stepno field, row index == step.
-function _step_window_rows(walker, wend::Integer, wlo::Integer, whi::Integer)
-    wend <= 0 && return 1:0
-    # Fast path for the untouched default "show everything" window.
-    (wlo <= 1 && whi == typemax(Int)) && return 1:wend
-
-    info = walker.info
-    if !isempty(info) && hasfield(eltype(info), :stepno)
-        wt = walker.weight
-        lo, h = 1, wend + 1
-        while lo < h
-            m = (lo + h) >> 1
-            if Int(info[m].stepno) + Int(wt[m]) - 1 < wlo
-                lo = m + 1
-            else
-                h = m
-            end
-        end
-        l2, h2, hi = 1, wend, 0
-        while l2 <= h2
-            m = (l2 + h2) >> 1
-            if Int(info[m].stepno) <= whi
-                hi = m
-                l2 = m + 1
-            else
-                h2 = m - 1
-            end
-        end
-        return lo:hi
-    else
-        return clamp(wlo, 1, wend + 1):min(whi, wend)
-    end
-end
-
 # Initial per-dim axis/bin domain from prior-sample tail quantiles; not a hard
 # bound. `target` must be the ORIGINAL untransformed measure (bat_sample's own
 # `m`), NOT mcmc_target(...): mcmc states carry the PRETRANSFORMED measure,
@@ -224,6 +187,12 @@ function BATVisualizer(vis::BATMakieVisualization)
         # Latest owned current-state snapshot per chain/walker, including dwell
         # not yet emitted by the sampler. Slots are replaced under buffer_lock.
         pending_samples=Vector{Vector{DensitySampleVector}}(),
+        output_timing=SampleStepSpans(),
+        pending_timing=SampleStepSpans(),
+        step_mode=Ref(false),
+        capture_init=Ref(false),
+        init_segments=Dict{Tuple{Int32,Int32},Vector{InitStepSegment}}(),
+        invalid_init=Set{Tuple{Int32,Int32}}(),
         n_buffer_steps=Ref(0),
         buffer_dirty=Ref(false),
         # Flush-trigger threshold (grows under adaptive_batching); the backpressure
@@ -255,60 +224,20 @@ function _init_compute_graph(
     curr_idxs = Vector{Vector{Int}}()
     add_input!(graph, :current_idxs, curr_idxs)
 
-    # Display window in REAL MCMC steps (the "Step Range" slider), applied per
-    # walker via _step_window_rows. Written only by the slider; the default
-    # sentinel means "everything" and hits the fast path.
-    add_input!(graph, :window_steps, (1, typemax(Int)))
-
-    # @nospecialize(changed, cached) -- here and in every register_computation!
-    # callback: `cached` is `nothing` on the first run but the previous output
-    # NamedTuple afterwards, whose type embeds the per-cell primitive symbol,
-    # so each callback would compile an extra MethodInstance per recipe per cell.
-    register_computation!(graph,
-        [:samples, :current_idxs, :window_steps],
-        [:flat_samples],
-    ) do inputs, changed, cached
+    # Nothing means All, independently of the current data extent. The same
+    # range selects local steps with timing, or stored rows without timing.
+    add_input!((key, value) -> Ref{Union{Nothing,Tuple{Int64,Int64}}}(value), graph, :window_steps, nothing)
+    add_input!((key, value) -> Ref{Union{Nothing,SampleStepSpans}}(value), graph, :sample_timing, nothing)
+    register_computation!(graph, [:samples, :current_idxs, :sample_timing], [:window_data]) do inputs, changed, cached
         @nospecialize(changed, cached)
-        samples = inputs.samples
-        current_idxs = inputs.current_idxs
-        wlo, whi = inputs.window_steps
-
-        walker_views = Any[]
-        for i in eachindex(samples)
-            for j in eachindex(samples[i])
-                walker = samples[i][j]
-                # Row bookkeeping can lag the walker mid-flush; never view past the real end.
-                wend = min(current_idxs[i][j], length(walker))
-                push!(walker_views, view(walker, _step_window_rows(walker, wend, wlo, whi)))
-            end
-        end
-        return (vcat(walker_views...),)
+        return (_sample_window_data(inputs.samples, inputs.current_idxs, inputs.sample_timing),)
     end
-
-    # Highest real MCMC step reached -- the "Step Range" slider's range end.
-    register_computation!(graph,
-        [:samples, :current_idxs],
-        [:max_step],
-    ) do inputs, changed, cached
+    register_computation!(graph, [:window_data, :window_steps], [:flat_samples, :window_segments]) do inputs, changed, cached
         @nospecialize(changed, cached)
-        samples = inputs.samples
-        current_idxs = inputs.current_idxs
-        max_step = 0
-        for i in eachindex(samples)
-            for j in eachindex(samples[i])
-                walker = samples[i][j]
-                wend = min(current_idxs[i][j], length(walker))
-                wend <= 0 && continue
-                info = walker.info
-                if !isempty(info) && hasfield(eltype(info), :stepno)
-                    max_step = max(max_step, Int(info[wend].stepno) + Int(walker.weight[wend]) - 1)
-                else
-                    max_step = max(max_step, wend)
-                end
-            end
-        end
-        return (max_step,)
+        return _window_selection(inputs.window_data, inputs.window_steps)
     end
+    map!(data -> data.limit, graph, :window_data, :max_step)
+    map!(data -> data.timed, graph, :window_data, :has_step_timing)
 
     map!(smpls -> length(smpls),
         graph,
@@ -330,36 +259,6 @@ function _init_compute_graph(
         [:flat_samples, :current_idx],
         :flat_chainids
     )
-    map!(
-        # Per-sample stepno for Trace2D: the step a row was FIRST reached;
-        # Trace2D derives the last occupied step as stepno + weight - 1.
-        (smpls, idx) -> hasfield(eltype(smpls.info), :stepno) ? Int64[s.stepno for s in view(smpls.info, 1:idx)] : Int64[],
-        graph,
-        [:flat_samples, :current_idx],
-        :flat_stepnos
-    )
-    map!(
-        # Per-sample walker id for Trace2D (chainid can't disentangle lock-stepped
-        # walkers); availability matches :flat_chainids/:flat_stepnos. MCMCSampleID
-        # uses `walkerid`, AHMCSampleID `walker`; all-zeros = one walker per chain.
-        (smpls, idx) -> begin
-            T = eltype(smpls.info)
-            if !hasfield(T, :chainid) || !hasfield(T, :stepno)
-                Int32[]
-            elseif hasfield(T, :walkerid)
-                Int32[s.walkerid for s in view(smpls.info, 1:idx)]
-            elseif hasfield(T, :walker)
-                Int32[s.walker for s in view(smpls.info, 1:idx)]
-            else
-                zeros(Int32, idx)
-            end
-        end,
-        graph,
-        [:flat_samples, :current_idx],
-        :flat_walkerids
-    )
-
-
     add_input!(graph, :idxs, Int[])
 
     register_computation!(graph,
@@ -433,6 +332,15 @@ function _init_compute_graph(
     add_input!(graph, Symbol("$(ChainScatter2D)"), ChainScatter2D())
     # Trace2D likewise -- always-live overlay, registered separately below.
     add_input!(graph, Symbol("$(Trace2D)"), Trace2D())
+    register_computation!(graph,
+        [:window_segments, :triagonal_config, :show_trace_upper, :show_trace_lower], [:trace_groups]
+    ) do inputs, changed, cached
+        @nospecialize(changed, cached)
+        return (_window_trace_groups(
+            inputs.show_trace_upper || inputs.show_trace_lower ? inputs.window_segments : WindowStepGroup[],
+            inputs.triagonal_config.trace_nsteps),)
+    end
+
 
     for i in 1:n
         marg_sym = marg_symbol((i, i))
@@ -531,7 +439,7 @@ function _init_compute_graph(
             # naming, so _init_gridlayout's lookup finds it transparently.
             chainscatter_primitive_sym = primitive_symbol(ChainScatter2D(), (j, i))
             register_computation!(graph,
-                [marg_sym_2D, :flat_weights, :flat_chainids, :upper_recipe, :lower_recipe, :live_map, :triagonal_config],
+                [marg_sym_2D, :flat_weights, :flat_chainids, :window_data, :upper_recipe, :lower_recipe, :live_map, :triagonal_config],
                 [chainscatter_primitive_sym]
             ) do inputs, changed, cached
                 @nospecialize(changed, cached)
@@ -541,30 +449,20 @@ function _init_compute_graph(
                 cell_status = live_map[j, i] ? LiveCell() : DeadCell()
                 recipe_status = determine_recipe_status(ChainScatter2D(), upper_recipe(), lower_recipe())
                 primitives = compute_plotting_primitives(coords, flat_weights, flat_chainids, ChainScatter2D(), recipe_status, cell_status, triagonal_config)
-                return (primitives,)
+                return ((; primitives..., all_chainids=inputs.window_data.chainids),)
             end
 
-            # Registered separately like ChainScatter2D. Availability is always-live
-            # (own determine_recipe_status override); show_trace_* is threaded in so
-            # the early return skips the grouping cost while the overlay is off.
             trace_primitive_sym = primitive_symbol(Trace2D(), (j, i))
             register_computation!(graph,
-                [marg_sym_2D, :flat_weights, :flat_chainids, :flat_walkerids, :flat_stepnos, :upper_recipe, :lower_recipe, :live_map, :triagonal_config, :show_trace_upper, :show_trace_lower],
-                [trace_primitive_sym]
+                [:window_data, :trace_groups, :vsel_map, :live_map], [trace_primitive_sym]
             ) do inputs, changed, cached
                 @nospecialize(changed, cached)
-                # By-name access -- see the 1D loop's matching comment.
-                (; show_trace_upper, show_trace_lower) = inputs
-                if !(show_trace_upper || show_trace_lower)
+                if !inputs.live_map[j, i] || isempty(inputs.trace_groups)
                     return (_empty_trace2d_primitives(),)
                 end
-                coords = getproperty(inputs, marg_sym_2D)
-                (; flat_weights, flat_chainids, flat_walkerids, flat_stepnos, upper_recipe, lower_recipe, live_map, triagonal_config) = inputs
-                cell_status = live_map[j, i] ? LiveCell() : DeadCell()
-                recipe_status = determine_recipe_status(Trace2D(), upper_recipe(), lower_recipe())
-                primitives = compute_plotting_primitives(coords, flat_weights, flat_chainids, flat_walkerids, flat_stepnos, Trace2D(), recipe_status, cell_status, triagonal_config)
-                return (primitives,)
+                return (_timed_trace_primitives(inputs.window_data, inputs.trace_groups, inputs.vsel_map[j, i]),)
             end
+
         end
     end
 

@@ -133,14 +133,18 @@ function compose_plotspecs(
         push!(get!(() -> Int[], groups, id), idx)
     end
 
+    # The graph supplies the full dataset's palette so windowing cannot recolor
+    # a surviving chain or disagree with its timing-based trace overlay.
+    ids = sort!(collect(keys(groups)))
+    palette_ids = hasproperty(primitives, :all_chainids) ? primitives.all_chainids : ids
+    ranks = Dict(id => rank for (rank, id) in enumerate(palette_ids))
     specs = PlotSpec[]
-    for (rank, id) in enumerate(sort!(collect(keys(groups))))
+    for id in ids
         idxs = groups[id]
         ms = real_markersize isa AbstractVector ? real_markersize[idxs] : real_markersize
-        color = _CHAIN_COLOR_PALETTE[mod1(rank, length(_CHAIN_COLOR_PALETTE))]
+        color = _CHAIN_COLOR_PALETTE[mod1(ranks[id], length(_CHAIN_COLOR_PALETTE))]
         push!(specs, S.Scatter(x[idxs], y[idxs]; markersize=ms, color=color))
     end
 
     return specs
 end
-
