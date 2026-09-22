@@ -36,7 +36,7 @@ $(TYPEDFIELDS)
     "Initial discovery pool and production-sizing pilot count."
     batchsize::Int = 1000
     maxiter::Int = 100
-    "Maximum final mixture size, including any added prior component."
+    "Maximum component proposals, including repeated selections and any added prior component."
     maxcomponents::Int = typemax(Int)
     "Maximum target calls, excluding geometry. No additional call limit by default."
     maxevals::Int = typemax(Int)
@@ -237,22 +237,22 @@ end
 _mw_logmodel(f) = throw(ArgumentError("MolewhackerSampling requires a supported forward-model likelihood."))
 
 
-function _mw_center_mixture(components, center_logp, executor, previous = similar(center_logp, 0))
+function _mw_center_mixture(components, center_logp, executor, previous = similar(center_logp, 0),
+    multiplicities = ones(Int, length(components)), added = length(previous)+1:length(components))
     T = eltype(first(components))
-    n, nold = length(components), length(previous)
-    uniform = MixtureModel(components, fill(inv(T(n)), n))
+    n, nold = sum(multiplicities), length(previous)
+    uniform = MixtureModel(components, T.(multiplicities) ./ T(n))
     centers = reduce(hcat, mean.(components))
     # Existing center/component pairs never change. Add only the new densities
     # to their unnormalized sums, retaining every component's multiplicity.
-    added = components[nold+1:n]
-    new_uniform = MixtureModel(added, fill(inv(T(length(added))), length(added)))
+    new_uniform = MixtureModel(components[added], fill(inv(T(length(added))), length(added)))
     old_terms = _mw_batched_logpdf(new_uniform, view(centers, :, 1:nold), executor) .+ log(T(length(added)))
-    new_terms = _mw_batched_logpdf(uniform, view(centers, :, nold+1:n), executor) .+ log(T(n))
+    new_terms = _mw_batched_logpdf(uniform, view(centers, :, nold+1:length(components)), executor) .+ log(T(n))
     center_logsum = vcat(_logaddexp.(previous, old_terms), new_terms)
     logw = center_logp .- (center_logsum .- log(T(n)))
     offset = maximum(logw)
     isfinite(offset) || return nothing, center_logsum
-    weights = T.(exp.(logw .- offset))
+    weights = T.(exp.(logw .- offset)) .* multiplicities
     return MixtureModel(components, weights ./ sum(weights)), center_logsum
 end
 
@@ -266,16 +266,16 @@ function _mw_initial_proposal(transformed_m, f, model, logtarget, gprior, alg, f
         else
             bat_initval(transformed_m, alg.nseeds, apply_trafo_to_init(f, alg.init), context).result
         end
-        centers = [T.(collect(seed)) for seed in seeds]
+        starts = [T.(collect(seed)) for seed in seeds]
         results = Vector{Tuple{Vector{T},Int,Bool}}(undef, alg.nseeds)
         if isnothing(alg.init_mode)
-            results .= [(c, 0, false) for c in centers]
+            results .= [(c, 0, false) for c in starts]
         else
             # Preserve center-density and discovery calls after the parallel searches.
             mode_budget = fit_budget - alg.nseeds - (alg.maxiter > 0 ? alg.batchsize : 0)
             share, extra = divrem(mode_budget, alg.nseeds)
             contexts = [set_rng(context, Philox4x((rand(get_rng(context), UInt64), UInt64(i)))) for i in 1:alg.nseeds]
-            search = i -> _mw_mode(centers[i], logtarget, deepcopy(alg.init_mode), share + (i <= extra), contexts[i])
+            search = i -> _mw_mode(starts[i], logtarget, deepcopy(alg.init_mode), share + (i <= extra), contexts[i])
             exec_map!(search, alg.executor, results, collect(1:alg.nseeds))
         end
         nevals = sum(r -> r[2], results)
@@ -316,6 +316,9 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
     q, center_logp, center_logsum, nevals, ngeometries, nfailed, nseed_exhausted =
         _mw_initial_proposal(transformed_m, f, model, logtarget, gprior, alg, fit_budget, ad, context)
     nseed_evals = nevals
+    components = copy(q.components)
+    multiplicities = ones(Int, length(components))
+    ncomponent_proposals = length(components)
     has_prior = first(q.components) === gprior
     component_limit = alg.maxcomponents - Int(!has_prior && alg.exploration_mass > 0)
     # Automatic output reserves one fresh draw for each discovery point.
@@ -330,7 +333,9 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
         nevals += alg.batchsize
         points, logp = Matrix{T}(flatview(batch.v)), batch.logp
         npilot = length(logp)
-        geometry_cache = fill!(Vector{Union{Missing,Nothing,typeof(gprior.J)}}(undef, npilot), missing)
+        # Zero marks unvisited points; -1 marks failed geometry. Positive entries
+        # identify stored Gaussians, so reselection needs no equality search.
+        component_index = zeros(Int, npilot)
         for iteration in 1:alg.maxiter
             scores = logp .- _mw_batched_logpdf(q, points, alg.executor)
             if !isfinite(maximum(scores))
@@ -348,47 +353,54 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
             elseif fit_budget - nevals < draw_cost
                 stop_reason = :maxevals
                 break
-            elseif length(q.components) >= component_limit
+            elseif ncomponent_proposals >= component_limit
                 stop_reason = :maxcomponents
                 break
             end
             niterations = iteration
-            nselected = min(alg.ncandidates, npilot, component_limit - length(q.components))
+            nselected = min(alg.ncandidates, npilot, component_limit - ncomponent_proposals)
             indices = partialsortperm(scores, 1:nselected, rev = true)
-            centers = [collect(view(points, :, i)) for i in indices]
-            precisions = Vector{Union{Nothing,typeof(gprior.J)}}(undef, nselected)
-            # Pool indices are stable. Reuse exact-center geometry without
-            # changing component multiplicities or the source mass update.
-            uncached = ismissing.(geometry_cache[indices])
-            geometry = i -> uncached[i] ? _mw_local_precision(model, centers[i], ad) : geometry_cache[indices[i]]
-            exec_map!(geometry, alg.executor, precisions, collect(1:nselected))
-            ngeometries += count(uncached)
-            nfailed += count(i -> uncached[i] && isnothing(precisions[i]), eachindex(precisions))
-            geometry_cache[indices] = precisions
-            keep = findall(!isnothing, precisions)
-            if isempty(keep)
+            uncached = filter(i -> iszero(component_index[i]), indices)
+            centers = collect.(eachcol(view(points, :, uncached)))
+            precisions = Vector{Union{Nothing,typeof(gprior.J)}}(undef, length(uncached))
+            exec_map!(c -> _mw_local_precision(model, c, ad), alg.executor, precisions, centers)
+            ngeometries += length(uncached)
+            nfailed += count(isnothing, precisions)
+            for (index, center, precision) in zip(uncached, centers, precisions)
+                if isnothing(precision)
+                    component_index[index] = -1
+                else
+                    push!(components, _mw_gaussian(center, precision))
+                    push!(multiplicities, 0)
+                    push!(center_logp, logp[index])
+                    component_index[index] = length(components)
+                end
+            end
+            added = filter(>(0), component_index[indices])
+            if isempty(added)
                 stop_reason = :geometry_failure
                 break
             end
-            added = typeof(gprior)[_mw_gaussian(centers[i], precisions[i]) for i in keep]
-            # These centers are existing pilot draws, so their target values are known.
-            append!(center_logp, logp[indices[keep]])
-            q, center_logsum = _mw_center_mixture(vcat(q.components, added), center_logp, alg.executor, center_logsum)
-            requested = floor.(Int, last(probs(q), length(added)) .* npilot)
+            multiplicities[added] .+= 1
+            ncomponent_proposals += length(added)
+            q, center_logsum = _mw_center_mixture(components, center_logp, alg.executor,
+                center_logsum, multiplicities, added)
+            # Preserve the request for each selected occurrence before flooring.
+            requested = floor.(Int, (probs(q)[added] ./ multiplicities[added]) .* npilot)
             drawn = 0
-            for (component, count) in zip(added, requested)
+            for (index, count) in zip(added, requested)
                 n = min(count, (fit_budget - nevals) ÷ draw_cost)
                 n == 0 && continue
-                batch = _mw_draw(component, logtarget, n, alg.executor, context)
+                batch = _mw_draw(components[index], logtarget, n, alg.executor, context)
                 nevals += n
                 fit_budget -= (draw_cost - 1) * n
                 drawn += n
                 points = hcat(points, Matrix{T}(flatview(batch.v)))
                 append!(logp, batch.logp)
-                append!(geometry_cache, fill(missing, n))
+                append!(component_index, zeros(Int, n))
             end
             npilot = length(logp)
-            push!(history, (; iteration, npilot, drawn, ncomponents = length(q.components)))
+            push!(history, (; iteration, npilot, drawn, ncomponents = length(q.components), ncomponent_proposals))
         end
         scores = logp .- _mw_batched_logpdf(q, points, alg.executor)
         pilot_ess = isfinite(maximum(scores)) ? _mw_efficiency(scores).ess : zero(T)
@@ -399,6 +411,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
     # Optional prior mixing does not affect the source discovery strategy.
     epsilon = T(alg.exploration_mass)
     if epsilon > 0
+        ncomponent_proposals += Int(!has_prior)
         weights = (one(T) - epsilon) .* probs(q)
         q = if has_prior
             weights[1] += epsilon
@@ -429,7 +442,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
     q_original = pushfwd(inverse(f), q_z)
     approx = alg.pretransform isa DoNotTransform ? BispacedMeasure(q_original) : BispacedMeasure(q_original, q_z, hash(f))
     result = (; stop_reason, niterations, nevals, ngeometries, nfailed, nproduction,
-        nseed_evals, nseed_exhausted, npilot, pilot_ess, ncomponents = length(q.components),
+        nseed_evals, nseed_exhausted, npilot, pilot_ess, ncomponents = length(q.components), ncomponent_proposals,
         ess = output.ess, efficiency = output.efficiency, logweight_scale = output.logweight_scale,
         pilot_efficiency, diagnostic, history)
     return EvaluatedMeasure(em;

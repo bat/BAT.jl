@@ -88,11 +88,12 @@ retain their usual finite-sample bias.
 - `batchsize` sets the initial discovery-pool size and the independent sizing-pilot
   size. Later discovery batches follow component masses, so they can be empty.
   Target values at existing pool points are reused.
-  Geometry is cached by pool index, preserving every component and mass update.
-  Center density sums add only new component contributions each round.
+  Gaussians are cached by pool index, preserving every selection's mass update.
+  Center density sums add only the selected occurrences each round.
   Mixture scoring uses the selected executor and bounded, reusable workspaces.
 - `maxiter` is a strict round limit. `maxiter = 0` skips discovery and adaptation.
-  `maxcomponents` limits the final mixture size, including any added prior component.
+  `maxcomponents` limits proposed occurrences, including repeated selections and
+  any added prior component.
 - `exploration_mass` defaults to zero. A positive value mixes the prior into the
   final proposal. This option leaves discovery unchanged.
 - `maxevals` caps target calls, including mode searches, initial centers,
@@ -152,9 +153,15 @@ pullback. The default ForwardDiff path avoids a redundant primal model call.
 Local Gaussians retain their precision factor, avoiding explicit inversion.
 
 Dense parameter geometry needs quadratic storage and cubic factorization work.
-Each round can add `ncandidates` components, including repeated centers, as in the
-source algorithm. With ten seeds and 14 candidates, 1,000 rounds can produce
-14,010 components. Raising `nsamples` alone does not enlarge the discovery pool.
+Each round can propose `ncandidates` components, as in the source algorithm.
+Reselecting a discovery point reuses its stored Gaussian. Its multiplicity remains
+in the fitting density, mixture masses, and per-occurrence draw allocation.
+Combining identical mixture categories can change draws for a fixed RNG seed
+while preserving the proposal distribution.
+With ten seeds and 14 candidates, 1,000 rounds can propose 14,010 components while
+storing fewer Gaussians. `maxcomponents` counts proposed occurrences, preserving
+the refinement budget even when components are reused.
+Raising `nsamples` alone does not enlarge the discovery pool.
 Mixture evaluations still grow with component count. Include initialization, geometry,
 adaptation, and production when comparing total cost. These heuristics do not
 establish global coverage or a general convergence guarantee.
@@ -162,10 +169,12 @@ establish global coverage or a general convergence guarantee.
 ## Diagnostics
 
 `evalinfo.result` records iteration, target-call, geometry, component, and output
-counts. Geometry counts exclude cache hits. `nseed_evals` counts initialization
+counts. `ncomponents` counts stored Gaussians. `ncomponent_proposals` includes
+repeated selections and any added prior component. Geometry counts exclude cache
+hits. `nseed_evals` counts initialization
 target calls. `nseed_exhausted` counts mode searches that reach their assigned
 budget. `history` records pool growth
-and component counts after each update.
+and both component counts after each update.
 
 `stop_reason` distinguishes `:maxiter`, `:maxcomponents`, `:maxevals`,
 `:pilot_ess`, `:pool_efficiency`, `:no_finite_candidate`, and `:geometry_failure`.

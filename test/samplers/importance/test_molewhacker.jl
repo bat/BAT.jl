@@ -21,15 +21,30 @@ import ForwardDiff, Optim, OptimizationLBFGSB
         @test mean(smpls)[1] ≈ 1.6 atol = 0.035
         @test var(smpls)[1] ≈ 0.2 atol = 0.025
         @test info.efficiency > 0.7
-        uniform = MixtureModel(q.components)
-        masses = [pdf(Normal(1.6, sqrt(0.2)), mean(c)[1]) / pdf(uniform, mean(c)) for c in q.components]
-        masses .*= (1 - alg.exploration_mass) / sum(masses)
-        masses[1] += alg.exploration_mass
-        @test probs(q) ≈ masses
         ratios = z.logd .- logpdf.(Ref(q), z.v)
         @test z.weight ≈ exp.(ratios .- info.logweight_scale)
         mass_estimate = mean(z.weight) * exp(info.logweight_scale)
         @test mass_estimate ≈ pdf(Normal(0, sqrt(1.25)), 2) rtol = 0.05
+    end
+
+    @testset "Reselection preserves fitting multiplicity and budgets" begin
+        alg = MolewhackerSampling(nsamples = 64, batchsize = 1, ncandidates = 1,
+            nseeds = 0, maxiter = 8, maxcomponents = 4)
+        em = evalmeasure(target, alg, context())
+        q, info = Distribution(em.approx.transformed), em.evalinfo.result
+        @test (info.niterations, info.ncomponents, info.ncomponent_proposals, info.stop_reason) ==
+            (3, 2, 4, :maxcomponents)
+        @test info.npilot == 1
+        # One pool point supplies three selected occurrences of the same Gaussian.
+        c = mean(last(q.components))[1]
+        a, b = Normal(), Normal(c, sqrt(0.2))
+        fitting(x) = (pdf(a, x) + 3pdf(b, x)) / 4
+        masses = [pdf(Normal(1.6, sqrt(0.2)), 0) / fitting(0),
+            3pdf(Normal(1.6, sqrt(0.2)), c) / fitting(c)]
+        masses ./= sum(masses)
+        points = [[-1.0], [0.0], [1.6], [3.0]]
+        expected = [masses[1] * pdf(a, x[1]) + masses[2] * pdf(b, x[1]) for x in points]
+        @test pdf.(Ref(q), points) ≈ expected
     end
 
     @testset "Fisher covariance and independent factors" begin
