@@ -10,7 +10,6 @@ ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
 
 [sources]
 BAT = {path = "../../.."}
-EnsembleMCMC = {url = "https://github.com/JuliaBayes/EnsembleMCMC.jl.git", rev = "a2df294b204eae4dd27e62a38dbbdd304499a1d0"}
 
 [compat]
 EnsembleMCMC = "0.0.2"

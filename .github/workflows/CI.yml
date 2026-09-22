@@ -136,9 +136,7 @@ jobs:
       - name: Run tests
         run: >-
           julia --project=test/optional/ensemblemcmc --code-coverage=user -e '
-          using Pkg, TOML;
-          ensemble_source = TOML.parsefile(Base.active_project())["sources"]["EnsembleMCMC"];
-          Pkg.add(; url=ensemble_source["url"], rev=ensemble_source["rev"]);
+          using Pkg;
           Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate();
           include(joinpath("test", "optional", "ensemblemcmc", "runtests.jl"))'
       - uses: julia-actions/julia-processcoverage@v1
