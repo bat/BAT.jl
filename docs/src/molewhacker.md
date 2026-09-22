@@ -113,9 +113,17 @@ Choose adaptation thresholds separately from the production goal:
 | Adaptation rule | Setting |
 | --- | --- |
 | Hard budgets only (default) | Leave both thresholds at `Inf` |
+| Smaller fixed refinement budget | `maxiter = 16, ncandidates = 14` |
 | Source pool-ESS heuristic | `target_pool_ess = 5000` |
 | Source efficiency heuristic | `target_efficiency = 0.2` |
 | Projected production ESS | `target_efficiency = target_ess / nsamples` |
+
+A smaller `maxiter` trades refinement for a smaller mixture, independently of
+the production sample count. With ten initial components, fourteen candidates,
+and sixteen completed rounds, the mixture has 234 components. Failed geometries
+or earlier stops can reduce that count. Optional prior mixing can add one component.
+This is a user-selected budget, not an automatic convergence test. Compare fresh
+weighted estimates of the observables you need before reducing the budget.
 
 The projected rule requires an explicit output cap and a goal below that cap.
 It extrapolates from recycled-pool efficiency and can stop before finding tails or modes.
