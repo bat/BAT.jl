@@ -3,6 +3,7 @@
 using Test
 
 Test.@testset "statistics" begin
+    include("test_credible_intervals.jl")
     include("test_onlineuvstats.jl")
     include("test_onlinemvstats.jl")
     include("test_autocor.jl")
