@@ -344,6 +344,13 @@ function _build_fig(
         controls_visible[] = !controls_visible[]
     end
 
+    if !isnothing(live_vis)
+        # Describe the observed population, including in retained/exported views.
+        # Keep this outside the collapsible controls and independent of the window.
+        Label(fig[4, 1], "Observed sampling history\nMay include initialization and burn-in";
+            tellwidth=false)
+    end
+
     # Exposed so the live path can retrofit the index slider post-run.
     guarded_slider! = isnothing(live_vis) ? add_index_slider! :
         () -> _with_live_view(add_index_slider!, live_vis)

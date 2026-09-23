@@ -182,6 +182,13 @@ burn-in; it is not a reconstructed plot of the returned posterior samples.
 Availability follows the current completion and view state; an older diagnostic
 alone does not prevent retrieval. Use `BAT.visualizer_status(vis)` to inspect it.
 
+Live figures identify this population with the caption “Observed sampling
+history” and the note “May include initialization and burn-in”. The caption remains
+visible when controls are collapsed and in exports of the complete Figure.
+Applying a range changes the displayed window within that history; it does not
+select a sampling phase. Static plots of supplied samples make no such provenance
+claim.
+
 After successful startup, a failure in observation or rendering disables further
 observation without changing fixed-work samples, computational RNG states, or
 public sampling callbacks. Configuration, reuse, and startup errors still throw;
