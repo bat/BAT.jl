@@ -73,6 +73,86 @@ end
 
 function update_visualizer_impl!(vis::BATVisualizer; kwargs...) end
 
+# Internal lifecycle hooks. Backends claim ownership in prepare_visualizer_init!
+# and roll back their own acquisition if preparation throws. A successful return
+# transfers cleanup responsibility to the sampling owner.
+request_visualizer_stop!(::BATVisualizer; reason = :disabled, exception = nothing) = nothing
+finish_visualizer!(::BATVisualizer; success::Bool = true) = nothing
+
+"""
+    BAT.dispose_visualizer!(vis::BATVisualizer)
+
+*Experimental, non-exported API.* Disable observation and dispose of resources
+owned by this visualization session. Repeated disposal is harmless. Disposal
+does not cancel sampling, and does not affect other figures. A backend may report
+pending cleanup while an already admitted view operation is still running.
+"""
+dispose_visualizer!(::BATVisualizer) = nothing
+
+"""
+    BAT.visualizer_status(vis::BATVisualizer)
+
+*Experimental, non-exported API.* Return a read-only lifecycle snapshot without
+accessing the renderer. `phase`, `outcome` and `reason` describe the run;
+`data_complete` and `last_publication` describe confirmed observation history.
+`quiesced` records actual run-resource completion, independently of
+`cleanup_pending`, `view_disposed` and `presentation_valid`. `error` records the
+first failure and its phase; `cleanup_error` is a secondary cleanup diagnostic.
+A no-op backend reports an inactive, quiesced session. Backends must not expose
+mutable internal storage through this snapshot.
+"""
+visualizer_status(::BATVisualizer) = (
+    phase = :inactive, outcome = :inactive, reason = :none,
+    data_complete = false, last_publication = 0, quiesced = true,
+    cleanup_pending = false, view_disposed = false, presentation_valid = false,
+    error = nothing, cleanup_error = nothing,
+)
+
+# These guards contain backend cleanup faults, including broken diagnostics.
+# They are deliberately outside computational operations and public callbacks.
+function _visualizer_cleanup_diagnostic(operation, exception)
+    try
+        @warn "Visualization cleanup failed" operation exception
+    catch
+        # A logger failure must not replace a computational/startup exception or
+        # prevent another backend in a producer group from being notified.
+    end
+    return nothing
+end
+
+function _safe_request_visualizer_stop!(vis::BATVisualizer; reason = :disabled, exception = nothing)
+    try
+        request_visualizer_stop!(vis; reason, exception)
+    catch err
+        _visualizer_cleanup_diagnostic(:request_stop, (err, catch_backtrace()))
+    end
+    return nothing
+end
+
+function _safe_finish_visualizer!(vis::BATVisualizer; success::Bool = true)
+    try
+        finish_visualizer!(vis; success)
+    catch err
+        # Intentional interruption of the owner is primary on a normal exit;
+        # when unwinding, preserve the already active computational exception.
+        err isa InterruptException && success && rethrow()
+        _safe_request_visualizer_stop!(vis;
+            reason=:cleanup_failed, exception=CapturedException(err, catch_backtrace()))
+        _visualizer_cleanup_diagnostic(:finish, (err, catch_backtrace()))
+    end
+    return nothing
+end
+
+function _safe_clear_visualizer_init!(vis::BATVisualizer; suppress_interrupt::Bool = false)
+    try
+        clear_visualizer_init!(vis)
+    catch err
+        err isa InterruptException && !suppress_interrupt && rethrow()
+        _visualizer_cleanup_diagnostic(:clear_initialization, (err, catch_backtrace()))
+    end
+    return nothing
+end
+
 # Optional initialization timing, implemented by visualization extensions. These
 # hooks run only at iterator boundaries; they never emit public callback events.
 prepare_visualizer_init!(::BATVisualizer, algorithm) = nothing

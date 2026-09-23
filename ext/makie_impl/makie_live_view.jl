@@ -1,0 +1,247 @@
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
+# Rendering has its own guard. Never acquire it while holding buffer_lock:
+# producers and the control timer must be able to stop an unavailable view.
+mutable struct _LiveView
+    lock::ReentrantLock
+    figure::Union{Nothing,Figure}
+    subscriptions::Vector{Any}
+    disposed::Threads.Atomic{Bool}
+    cleanup_pending::Threads.Atomic{Bool}
+    cleanup_running::Threads.Atomic{Bool}
+    presentation_valid::Threads.Atomic{Bool}
+    depth::Int
+    updating::Bool
+    pending::Dict{Symbol,Any}
+    seen_open::Threads.Atomic{Bool}
+end
+_LiveView() = _LiveView(ReentrantLock(), nothing, Any[],
+    Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(false),
+    Threads.Atomic{Bool}(true), 0, false, Dict{Symbol,Any}(), Threads.Atomic{Bool}(false))
+
+function _live_view(vis)
+    lock(vis.content.buffer_lock) do
+        life = vis.content.lifecycle
+        isnothing(life.view) && (life.view = _LiveView())
+        return life.view
+    end
+end
+
+function _live_view_admitted_locked(vis, view, publication)
+    (view.disposed[] || view.cleanup_pending[] || !view.presentation_valid[]) && return false
+    life = vis.content.lifecycle
+    life.phase === :starting && return true
+    return publication ? _live_can_publish_locked(vis) :
+        (_live_can_publish_locked(vis) || life.outcome === :complete)
+end
+
+# Bool reports admission and successful completion, not the callback's value.
+# Derived synchronous widget callbacks can reenter; graph updates below are
+# separately coalesced so they cannot recursively publish a new generation.
+function _with_live_view(f, vis; publication::Bool = false)
+    view = _live_view(vis)
+    starting = lock(vis.content.buffer_lock) do
+        vis.content.lifecycle.phase === :starting
+    end
+    try
+        Threads.threadid() == vis.content.lifecycle.owner_thread ||
+            throw(ArgumentError("Live Makie view operations must run on their owning thread"))
+        lock(view.lock)
+        try
+            admitted = lock(vis.content.buffer_lock) do
+                _live_view_admitted_locked(vis, view, publication)
+            end
+            admitted || return false
+            view.depth += 1
+            try
+                f()
+            finally
+                view.depth -= 1
+            end
+            return view.presentation_valid[] && !view.cleanup_pending[]
+        finally
+            unlock(view.lock)
+        end
+    catch err
+        view.presentation_valid[] = false
+        (starting || err isa InterruptException) && rethrow()
+        _fail_visualizer!(vis, err, catch_backtrace(), :view)
+        _request_view_disposal!(vis)
+        return false
+    finally
+        # Backend cleanup may wait for its render loop. Schedule it outside
+        # this callback; never join a rendering task from a BAT view callback.
+        view.cleanup_pending[] && _schedule_live_view_cleanup!(vis)
+    end
+end
+
+const _LIVE_MAX_PENDING_ATTRIBUTES = 32
+const _LIVE_MAX_DEFERRED_UPDATES = 32
+
+function _live_graph_update!(vis; publication::Bool = false, kwargs...)
+    return _with_live_view(vis; publication=publication) do
+        view = vis.content.lifecycle.view
+        if view.updating
+            publication && throw(ArgumentError("Recursive live data publication is unsupported"))
+            for (key, value) in kwargs
+                (!haskey(view.pending, key) && length(view.pending) >= _LIVE_MAX_PENDING_ATTRIBUTES) &&
+                    throw(ArgumentError("Too many deferred live view attributes"))
+                view.pending[key] = value
+            end
+            return nothing
+        end
+        view.updating = true
+        try
+            update!(vis.content.graph; kwargs...)
+            rounds = 0
+            while !isempty(view.pending)
+                allowed = lock(vis.content.buffer_lock) do
+                    _live_view_admitted_locked(vis, view, false)
+                end
+                allowed || break
+                rounds += 1
+                rounds <= _LIVE_MAX_DEFERRED_UPDATES ||
+                    throw(ArgumentError("Live view callbacks did not settle after deferred updates"))
+                attributes = copy(view.pending)
+                empty!(view.pending)
+                update!(vis.content.graph; attributes...)
+            end
+        finally
+            empty!(view.pending)
+            view.updating = false
+        end
+    end
+end
+
+function _track_live_subscription!(vis, handle)
+    view = _live_view(vis)
+    if handle isa AbstractVector
+        append!(view.subscriptions, handle)
+    else
+        push!(view.subscriptions, handle)
+    end
+    return handle
+end
+
+# Keep the static path's callback return values and registration semantics.
+# Register before the optional initial call so failed startup still owns the
+# handle. onany returns one handle for each input observable.
+function _view_on(f, vis, observable; update::Bool = false, kwargs...)
+    isnothing(vis) && return on(f, observable; update=update, kwargs...)
+    guarded = function(args...)
+        result = Ref{Any}(Consume(false))
+        _with_live_view(vis) do
+            result[] = f(args...)
+        end
+        return result[]
+    end
+    handle = _track_live_subscription!(vis, on(guarded, observable; kwargs...))
+    update && guarded(observable[])
+    return handle
+end
+
+function _view_onany(f, vis, observables...; update::Bool = false, kwargs...)
+    isnothing(vis) && return onany(f, observables...; update=update, kwargs...)
+    guarded = function(args...)
+        _with_live_view(vis) do
+            f(args...)
+        end
+        return nothing
+    end
+    handles = _track_live_subscription!(vis, onany(guarded, observables...; kwargs...))
+    update && guarded(map(to_value, observables)...)
+    return handles
+end
+
+function _attach_live_view!(vis, fig)
+    view = _live_view(vis)
+    view.figure = fig
+    window_open = events(fig.scene).window_open
+    view.seen_open[] = window_open[]
+    # This control-only callback intentionally bypasses the rendering guard:
+    # close must release producers even while another task is rendering.
+    handle = on(window_open) do opened
+        if opened
+            view.seen_open[] = true
+        elseif view.seen_open[]
+            BAT.request_visualizer_stop!(vis; reason=:closed)
+            _request_view_disposal!(vis)
+            BAT.dispose_visualizer!(vis)
+        end
+        return nothing
+    end
+    _track_live_subscription!(vis, handle)
+    return view
+end
+
+function _request_view_disposal!(vis)
+    view = vis.content.lifecycle.view
+    isnothing(view) && return nothing
+    view.cleanup_pending[] = !view.disposed[]
+    return nothing
+end
+
+# GLMakie exposes its currently displayed scene on the screen. A screen can be
+# reused to show another figure, so attachment in current_screens alone is not
+# proof of ownership. Other backends retain their own native-window policy.
+function _close_owned_live_screens!(fig)
+    for screen in copy(fig.scene.current_screens)
+        if nameof(parentmodule(typeof(screen))) === :GLMakie &&
+                hasproperty(screen, :scene) && screen.scene === fig.scene &&
+                applicable(close, screen)
+            close(screen)
+        end
+    end
+    return nothing
+end
+
+# Admission is nonwaiting. Backend cleanup itself may yield/block, so callers
+# use the owned cleanup task (or listener finalizer), never a rendering callback.
+function _cleanup_live_view!(vis)
+    view = vis.content.lifecycle.view
+    isnothing(view) && return true
+    view.disposed[] && return true
+    view.cleanup_pending[] || return true
+    Threads.threadid() == vis.content.lifecycle.owner_thread || return false
+    trylock(view.lock) || return false
+    try
+        (view.depth == 0 && !view.cleanup_running[]) || return false
+        view.cleanup_running[] = true
+    finally
+        unlock(view.lock)
+    end
+    # cleanup_pending stays latched, rejecting every new admission. Releasing
+    # the guard lets callbacks already waiting for it acquire/reject and lets
+    # the renderer finish; close(screen) must not wait while holding that guard.
+    try
+        failed_handles = Any[]
+        for handle in view.subscriptions
+            try
+                Makie.Observables.off(handle)
+            catch err
+                push!(failed_handles, handle)
+                _record_live_cleanup_error!(vis, err, catch_backtrace())
+            end
+        end
+        view.subscriptions = failed_handles
+        empty!(view.pending)
+        if !isnothing(view.figure)
+            _close_owned_live_screens!(view.figure)
+            empty!(view.figure)
+            view.figure = nothing
+        end
+        if isempty(failed_handles)
+            view.disposed[] = true
+            view.cleanup_pending[] = false
+            return true
+        end
+        view.presentation_valid[] = false
+        return false
+    catch err
+        view.presentation_valid[] = false
+        _record_live_cleanup_error!(vis, err, catch_backtrace())
+        return false
+    finally
+        view.cleanup_running[] = false
+    end
+end

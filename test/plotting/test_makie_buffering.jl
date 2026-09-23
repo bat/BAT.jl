@@ -109,17 +109,19 @@ end
                         end
                     end
                 end
-                outcome = timedwait(() -> istaskdone(producer), 30.0)
+                # Include first-use compilation in this test watchdog. The
+                # production observer allowance remains its ordinary 60 s.
+                outcome = timedwait(() -> istaskdone(producer), 120.0)
                 @test outcome == :ok
                 outcome == :ok || error("Producer did not finish within the test deadline")
                 fetch(producer)
-                @test timedwait(() -> sum(vis.content.graph[:flat_weights][]) >= 54, 30.0) == :ok
+                @test timedwait(() -> sum(vis.content.graph[:flat_weights][]) >= 54, 120.0) == :ok
                 @test !isempty(updates)
-                @test vis.content.is_live[]
-                @test !istaskdone(vis.content.listener_task[])
+                @test BAT.visualizer_status(vis).phase == :running
+                @test !BAT.visualizer_status(vis).quiesced
                 # Let any already-reachable ordinary flush finish before testing
                 # the forced drain. Producers have joined, so no new rows arrive.
-                @test timedwait(() -> buffer_is_partial(vis), 30.0) == :ok
+                @test timedwait(() -> buffer_is_partial(vis), 120.0) == :ok
                 before_final = vis.content.effective_batch_size[]
                 if rate == floatmax(Float64)
                     @test before_final == typemax(Int)
@@ -129,8 +131,10 @@ end
                 else
                     @test before_final == 50
                 end
-                vis.content.is_live[] = false
-                @test timedwait(() -> istaskdone(vis.content.listener_task[]), 30.0) == :ok
+                BAT.finish_visualizer!(vis; success = true)
+                @test BAT.visualizer_status(vis).quiesced
+                @test BAT.visualizer_status(vis).data_complete
+                @test BAT.visualizer_status(vis).outcome == :complete
                 @test vis.content.n_buffer_steps[] == 0
                 @test vis.content.effective_batch_size[] == before_final # forced drain does not grow
                 @test sum(vis.content.graph[:flat_weights][]) == 4 * (nsteps + 1)
@@ -141,14 +145,10 @@ end
                 end
             finally
                 isnothing(observer) || Makie.off(observer)
-                # Emergency cleanup only after assertions; R11 cancellation is a
-                # separate issue. The outer process deadline contains stuck tasks.
-                vis.content.is_live[] = false
-                lock(vis.content.buffer_lock) do
-                    notify(vis.content.buffer_cond, all = true)
-                end
-                task = vis.content.listener_task[]
-                isnothing(task) || timedwait(() -> istaskdone(task), 5.0)
+                # Assertions above precede cleanup: cleanup cannot manufacture success.
+                BAT.request_visualizer_stop!(vis; reason = :disabled)
+                BAT.finish_visualizer!(vis; success = false)
+                BAT.dispose_visualizer!(vis)
             end
         end
     end

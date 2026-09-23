@@ -124,69 +124,71 @@ function evalmeasure_impl(em::EvaluatedMeasure, samplingalg::TransformedMCMC, co
     transformed_m, f_pretransform = transform_and_unshape(samplingalg.pretransform, em, context)
     n_dof = some_dof(transformed_m)
 
-    prepare_visualizer_init!(context.visualizer, samplingalg)
+    visualizer_acquired = false
+    visualizer_finished = false
     mcmc_states, chain_outputs = try
-        mcmc_init!(
+        prepare_visualizer_init!(context.visualizer, samplingalg)
+        visualizer_acquired = true
+        mcmc_states, chain_outputs = mcmc_init!(
             samplingalg,
             transformed_m,
             apply_trafo_to_init(f_pretransform, samplingalg.init), # TODO: MD: at which point should the init_alg be transformed? Might be better to read, if it's transformed later during init of states
             samplingalg.store_burnin ? samplingalg.callback : nop_func,
             context
         )
-    catch
-        clear_visualizer_init!(context.visualizer)
-        rethrow()
-    end
 
-    if !samplingalg.store_burnin
-        chain_outputs = _empty_chain_outputs.(mcmc_states)
-    end
+        if !samplingalg.store_burnin
+            chain_outputs = _empty_chain_outputs.(mcmc_states)
+        end
 
-    # Activated before burn-in so chain initialization/tuning is visible live too;
-    # note that seeing real burn-in samples (rather than an empty grid until the
-    # main run starts) requires samplingalg.store_burnin = true.
-    # `target` is the original evaluated measure, not transformed_m: displayed
-    # samples are mapped back through inverse(f_pretransform) into original
-    # space, so anything the visualizer derives from the measure itself
-    # (prior-based domain estimate, hard support bounds) must come from the
-    # untransformed measure to live in the same space as the displayed data.
-    try
+        # Start before burn-in, including its observation-only scratch outputs
+        # when those samples are not retained in the returned result.
+        # Domain/support belong to the original measure because displayed samples
+        # are mapped back through inverse(f_pretransform).
         init_visualizer!(context.visualizer; rng=get_rng(context), mcmc_states=mcmc_states, outputs=chain_outputs, f_pretransform=f_pretransform, target=em)
+        _safe_clear_visualizer_init!(context.visualizer)
+
+        mcmc_states = mcmc_burnin!(
+            samplingalg.store_burnin ? chain_outputs : nothing,
+            mcmc_states,
+            samplingalg,
+            samplingalg.store_burnin ? samplingalg.callback : nop_func
+        )
+
+        next_cycle!.(mcmc_states)
+
+        @info "Generate main samples using $(length(mcmc_states)) MCMC chain(s)."
+        mcmc_states = mcmc_iterate!!(
+            chain_outputs,
+            mcmc_states;
+            max_nsteps = samplingalg.nsteps,
+            nonzero_weights=samplingalg.nonzero_weights,
+            update_visualizer=true
+        )
+
+        # Producers have joined. Observation completes before merging/ESS; a
+        # later result-construction error does not change observation history.
+        _safe_finish_visualizer!(context.visualizer; success=true)
+        visualizer_finished = true
+        (mcmc_states, chain_outputs)
+    catch err
+        if visualizer_acquired
+            _safe_request_visualizer_stop!(context.visualizer;
+                reason=:aborted, exception=CapturedException(err, catch_backtrace()))
+        end
+        rethrow()
     finally
-        clear_visualizer_init!(context.visualizer)
-    end
-
-    mcmc_states = mcmc_burnin!(
-        samplingalg.store_burnin ? chain_outputs : nothing,
-        mcmc_states,
-        samplingalg,
-        samplingalg.store_burnin ? samplingalg.callback : nop_func
-    )
-
-    next_cycle!.(mcmc_states)
-
-    @info "Generate main samples using $(length(mcmc_states)) MCMC chain(s)."
-    mcmc_states = mcmc_iterate!!(
-        chain_outputs,
-        mcmc_states;
-        max_nsteps = samplingalg.nsteps,
-        nonzero_weights=samplingalg.nonzero_weights,
-        update_visualizer=true
-    )
-
-    @debug "Merge samples of chains and transform to original space."
-
-    if !isnothing(context.visualizer.content)
-        context.visualizer.content.is_live[] = false
-        listener_task = context.visualizer.content.listener_task[]
-        # Wait for the listener to actually stop before returning; errormonitor
-        # already reports task failures, so swallow them here instead of
-        # propagating a plotting error into the sampling result.
-        isnothing(listener_task) || try
-            wait(listener_task)
-        catch
+        if visualizer_acquired
+            try
+                _safe_clear_visualizer_init!(context.visualizer;
+                    suppress_interrupt=!visualizer_finished)
+            finally
+                visualizer_finished || _safe_finish_visualizer!(context.visualizer; success=false)
+            end
         end
     end
+
+    @debug "Merge samples of chains and transform to original space."
 
     samples_transformed = _merge_chain_outputs(first(mcmc_states), chain_outputs)
 

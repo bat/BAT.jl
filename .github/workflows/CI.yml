@@ -120,6 +120,30 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
+  test-makie:
+    name: Makie lifecycle - Julia ${{ matrix.version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['1.10', '1']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: ${{ matrix.version }}
+          arch: x64
+      - uses: julia-actions/cache@v3
+      - name: Instantiate optional Makie tests against this checkout
+        run: >-
+          julia --project=test/optional/makie -e '
+          using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
+      - name: Run bounded CairoMakie lifecycle cases and regressions
+        env:
+          JULIA_NUM_THREADS: '2'
+          BAT_MAKIE_CASE_TIMEOUT: '600'
+        run: julia --project=test/optional/makie test/optional/makie/runtests.jl
   docs:
     name: Documentation
     runs-on: ubuntu-latest

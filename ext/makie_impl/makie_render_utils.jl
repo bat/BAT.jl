@@ -63,24 +63,34 @@ function warmup_makie_shaders()
     ismissing(Makie.current_backend()) && return nothing
     @info "Warming up Makie shaders"
     fig = Figure()
-    ax = Axis(fig[1, 1])
+    try
+        ax = Axis(fig[1, 1])
 
-    barplot!(ax, [0.0], [0.0])
-    stairs!(ax, [0.0, 1.0], [0.0, 0.0])
-    vlines!(ax, [0.0])
-    hlines!(ax, [0.0])
-    errorbars!(ax, [0.0], [0.0], [0.1])
+        barplot!(ax, [0.0], [0.0])
+        stairs!(ax, [0.0, 1.0], [0.0, 0.0])
+        vlines!(ax, [0.0])
+        hlines!(ax, [0.0])
+        errorbars!(ax, [0.0], [0.0], [0.1])
 
-    scatter!(ax, [0.0], [0.0])
-    lines!(ax, [0.0, 1.0], [0.0, 1.0])
-    linesegments!(ax, [0.0, 1.0], [0.0, 1.0])
+        scatter!(ax, [0.0], [0.0])
+        lines!(ax, [0.0, 1.0], [0.0, 1.0])
+        linesegments!(ax, [0.0, 1.0], [0.0, 1.0])
 
-    heatmap!(ax, [0.0, 1.0], [0.0, 1.0], [0.0 1.0; 1.0 0.0])
-    contourf!(ax, [0.0, 1.0], [0.0, 1.0], [0.0 1.0; 1.0 0.0])
-    hexbin!(ax, [0.0], [0.0]; bins=2)
-    poly!(ax, Point2f[(0, 0), (1, 0), (0, 1)])
+        heatmap!(ax, [0.0, 1.0], [0.0, 1.0], [0.0 1.0; 1.0 0.0])
+        contourf!(ax, [0.0, 1.0], [0.0, 1.0], [0.0 1.0; 1.0 0.0])
+        hexbin!(ax, [0.0], [0.0]; bins=2)
+        poly!(ax, Point2f[(0, 0), (1, 0), (0, 1)])
 
-    Makie.colorbuffer(fig)
-    _SHADERS_WARMED[] = true
+        Makie.colorbuffer(fig)
+        _SHADERS_WARMED[] = true
+    finally
+        # This temporary figure never becomes the live session's view.
+        try
+            _close_owned_live_screens!(fig)
+            empty!(fig)
+        catch err
+            BAT._visualizer_cleanup_diagnostic(:shader_warmup, (err, catch_backtrace()))
+        end
+    end
     return nothing
 end

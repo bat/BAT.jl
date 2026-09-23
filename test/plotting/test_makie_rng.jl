@@ -33,13 +33,10 @@ function with_capture(f)
 end
 
 function cleanup(vis)
-    # Assert normal shutdown before this fallback; failed tests must not leak tasks.
-    vis.content.is_live[] = false
-    lock(vis.content.buffer_lock) do
-        notify(vis.content.buffer_cond, all=true)
-    end
-    task = vis.content.listener_task[]
-    isnothing(task) || wait(task)
+    # Assert normal shutdown before this fallback; disposal is session-local.
+    BAT.request_visualizer_stop!(vis; reason = :disabled)
+    BAT.finish_visualizer!(vis; success = false)
+    BAT.dispose_visualizer!(vis)
 end
 
 function algorithm(; init = MCMCChainPoolInit(nsteps_init = 30), nwalkers = 1, store_burnin = false, sample_weighting = RepetitionWeighting(), nonzero_weights = true)
@@ -78,7 +75,7 @@ Base.copy(::UncopyableRNG) = error("Unexpected RNG copy")
         Random.seed!(771)
         before = copy(Random.default_rng())
         vis = BATVisualizer(BATMakieVisualization())
-        @test isnothing(vis.content.listener_task[])
+        @test BAT.visualizer_status(vis).phase == :fresh
         @test rand(UInt64, 16) == rand(before, UInt64, 16)
     end
 
@@ -136,7 +133,7 @@ Base.copy(::UncopyableRNG) = error("Unexpected RNG copy")
                     end
                     @test caught === DOMAIN_FAILURE
                     @test FAILED_DRAWS[] == old_count + 1
-                    @test isnothing(vis.content.listener_task[])
+                    @test BAT.visualizer_status(vis).quiesced
                     @test isempty(vis.content.chain_ids)
                 else
                     with_capture() do
@@ -144,7 +141,7 @@ Base.copy(::UncopyableRNG) = error("Unexpected RNG copy")
                             f_pretransform = identity, target = target)
                     end
                     @test (vis.content.graph[:domain_lo][], vis.content.graph[:domain_hi][]) == expected_domain
-                    @test !isnothing(vis.content.listener_task[])
+                    @test BAT.visualizer_status(vis).phase == :running
                 end
                 @test rng == before
                 @test rand(copy(rng), UInt64, 16) == rand(before, UInt64, 16)
@@ -173,8 +170,9 @@ Base.copy(::UncopyableRNG) = error("Unexpected RNG copy")
                 observed = with_capture() do
                     BAT.evalmeasure(target, alg, live_ctx)
                 end
-                @test !vis.content.is_live[]
-                @test istaskdone(vis.content.listener_task[])
+                @test BAT.visualizer_status(vis).outcome == :complete
+                @test BAT.visualizer_status(vis).data_complete
+                @test BAT.visualizer_status(vis).quiesced
                 @test vis.content.n_buffer_steps[] == 0
                 @test vis.content.step_mode[]
                 @test isempty(vis.content.init_segments)
@@ -226,7 +224,8 @@ Base.copy(::UncopyableRNG) = error("Unexpected RNG copy")
                 @test BAT.get_rng(live_ctx) == BAT.get_rng(plain_ctx)
                 @test !vis.content.step_mode[]
                 @test isempty(vis.content.init_segments)
-                @test istaskdone(vis.content.listener_task[])
+                @test BAT.visualizer_status(vis).quiesced
+                @test BAT.visualizer_status(vis).data_complete
                 g = vis.content.graph
                 full = deepcopy(g[:flat_samples][])
                 Makie.update!(g; window_steps=(1,2),show_trace_upper=true)

@@ -230,9 +230,15 @@ end
 _sample_cursor(samples) = isempty(samples) ? (0, Int64(0)) : (length(samples), Int64(last(samples.weight)))
 
 function BAT.prepare_visualizer_init!(vis::BATVisualizer{BATMakieVisualization}, algorithm)
-    (isnothing(vis.content) || !vis.content.is_live[] || !isempty(vis.content.chain_ids)) &&
-        throw(ArgumentError("Create a fresh BATVisualizer for sampling"))
-    vis.content.capture_init[] = algorithm.store_burnin && algorithm.sample_weighting isa BAT.RepetitionWeighting
+    _claim_live_visualizer!(vis)
+    try
+        vis.content.capture_init[] = algorithm.store_burnin && algorithm.sample_weighting isa BAT.RepetitionWeighting
+    catch err
+        _fail_visualizer!(vis, err, catch_backtrace(), :prepare)
+        BAT._safe_clear_visualizer_init!(vis; suppress_interrupt=true)
+        BAT._safe_finish_visualizer!(vis; success=false)
+        rethrow()
+    end
     return nothing
 end
 BAT.capture_visualizer_init(vis::BATVisualizer{BATMakieVisualization}) = !isnothing(vis.content) && vis.content.capture_init[]

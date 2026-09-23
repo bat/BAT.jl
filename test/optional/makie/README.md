@@ -1,0 +1,26 @@
+# Optional Makie checks
+
+From the repository root:
+
+```sh
+julia --project=test/optional/makie -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
+julia --threads=2 --project=test/optional/makie test/optional/makie/runtests.jl
+```
+
+Explicit `Pkg.develop` selects the checkout being tested, including on Julia
+1.10. Each case runs in a fresh process. Its parent enforces a 600-second deadline
+and preserves stdout/stderr in the printed log directory. An expired case fails
+the run; killing it does not count as successful lifecycle cleanup.
+`BAT_MAKIE_CASE_TIMEOUT` can change the process allowance for slow cold builds.
+Pass case names to run a subset, for example `lifecycle_timeout buffering`.
+
+These CairoMakie cases exercise live BAT entry points, real sample transport,
+fault boundaries, rendering, and existing numerical regressions. CI runs them on
+Julia 1.10 and the current stable Julia. The ordinary core suite separately tests
+backend-neutral ownership and pre-join stop signalling without loading Makie.
+
+`gl_smoke.jl` additionally tests a native GLMakie close and an unrelated screen.
+Run it with an external process deadline in a scratch environment containing
+this checkout and GLMakie, on a machine with a working display/OpenGL context.
+It creates two hidden native windows and closes only those owned by the test.
+This manual check is separate from the headless CairoMakie CI job.

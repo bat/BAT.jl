@@ -50,6 +50,7 @@ end
 
 function _makie_precompile_workload()
     _SUPPRESS_DISPLAY[] = true
+    vis = nothing
     try
         # 4 total dof against default N_max=3 keeps the cap-exceeded branch reachable (specializations are N_max-sensitive).
         objective = NamedTupleDist(a=Normal(0, 1), b=MvNormal([0.0, 0.0], [1.0 0.0; 0.0 1.0]), c=Normal(0, 1))
@@ -60,20 +61,19 @@ function _makie_precompile_workload()
         res = bat_sample(objective, TransformedMCMC(nsteps=200, nchains=2), BATContext(visualizer=vis))
         samples = res.result
         live_fig = _SUPPRESSED_FIG[]
-        live_graph = vis.content.graph
 
         # Widget sweep against the LIVE (ElasticMatrix-backed) data flavor.
         _drive_figure_widgets!(live_fig)
 
         # Non-empty support changes the recipes' config NamedTuple type and takes the KDE reflection branch.
-        update!(live_graph, support_lo=fill(-2.0, 4), support_hi=fill(2.0, 4))
+        _live_graph_update!(vis; support_lo=fill(-2.0, 4), support_hi=fill(2.0, 4))
         for recipe_1d in (KDE1D, QuantileKDE1D)
-            update!(live_graph, diagonal_recipe=recipe_1d)
+            _live_graph_update!(vis; diagonal_recipe=recipe_1d)
         end
         for recipe_2d in (KDE2D, QuantileKDE2D)
-            update!(live_graph, upper_recipe=recipe_2d)
+            _live_graph_update!(vis; upper_recipe=recipe_2d)
         end
-        update!(live_graph, support_lo=Float64[], support_hi=Float64[])
+        _live_graph_update!(vis; support_lo=Float64[], support_hi=Float64[])
 
         # ---- Static legs: the real entry points -------------------------
         bat_makie_plot(samples)
@@ -98,10 +98,22 @@ function _makie_precompile_workload()
         # The embed path -- returns a bare GridLayoutSpec, no figure to drive.
         Makie.convert_arguments(Makie.Plot{Makie.plot}, samples)
     finally
-        # Reset the display gate; a Figure left in the stash ref would be
-        # serialized into the package image.
-        _SUPPRESS_DISPLAY[] = false
-        _SUPPRESSED_FIG[] = nothing
+        try
+            if !isnothing(vis)
+                # No live task, timer or retained view may enter the package image.
+                BAT._safe_request_visualizer_stop!(vis)
+                try
+                    BAT.dispose_visualizer!(vis)
+                catch err
+                    _record_live_cleanup_error!(vis, err, catch_backtrace())
+                end
+                BAT._safe_finish_visualizer!(vis; success=false)
+            end
+        finally
+            # A Figure left in the stash would enter the package image.
+            _SUPPRESS_DISPLAY[] = false
+            _SUPPRESSED_FIG[] = nothing
+        end
     end
     return nothing
 end

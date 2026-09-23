@@ -27,9 +27,16 @@ It is an initial backpressure threshold, not a strict memory limit: a multi-walk
 update may cross it before waiting. With adaptive batching, both thresholds grow
 by the finite `batch_growth_rate > 1`, saturating at `typemax(Int)`.
 
+`observer_timeout` (default 60 seconds) bounds each continuous backpressure
+wait and, separately, finalization. Exceeding it disables observation while
+sampling continues. Both it and `poll_interval` must be finite and positive.
+Timeouts require scheduler progress; they cannot cancel a stuck native renderer.
+Inspect `BAT.visualizer_status(vis)` for incomplete observation or pending cleanup,
+and call `BAT.dispose_visualizer!(vis)` to release a retained completed view.
+
 Constructors:
 
-* ```BATMakieVisualization(; dark = false, max_buffered = 200, adaptive_batching = true, batch_growth_rate = 1.2, trace_nsteps = 20)```
+* ```BATMakieVisualization(; dark = false, max_buffered = 200, adaptive_batching = true, batch_growth_rate = 1.2, trace_nsteps = 20, observer_timeout = 60.0)```
 """
 struct BATMakieVisualization <: BATVisBackend
     recipes::NamedTuple
@@ -51,13 +58,20 @@ struct BATMakieVisualization <: BATVisBackend
     dark::Bool
     triagonal_config::NamedTuple
     diagonal_config::NamedTuple
+    observer_timeout::Float64
 
     # N_max fixes the grid size for the visualizer's life; vsel is only the
     # initial selection, applied once at listener startup and never re-read.
-    function BATMakieVisualization(recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching, batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config)
+    function BATMakieVisualization(recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching, batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config, observer_timeout)
         n_batch = Int(n_batch)
         max_buffered = Int(max_buffered)
         batch_growth_rate = Float64(batch_growth_rate)
+        poll_interval = Float64(poll_interval)
+        observer_timeout = Float64(observer_timeout)
+        isfinite(poll_interval) && poll_interval > 0 ||
+            throw(ArgumentError("poll_interval must be finite and positive (got $poll_interval)"))
+        isfinite(observer_timeout) && observer_timeout > 0 ||
+            throw(ArgumentError("observer_timeout must be finite and positive (got $observer_timeout)"))
         if !(0 < n_batch <= max_buffered)
             throw(ArgumentError("Require 0 < n_batch <= max_buffered (got n_batch=$n_batch, max_buffered=$max_buffered) so producers cannot block before a flush is possible"))
         end
@@ -68,10 +82,16 @@ struct BATMakieVisualization <: BATVisBackend
         if !(isfinite(batch_growth_rate) && batch_growth_rate > 1)
             throw(ArgumentError("batch_growth_rate must be finite and > 1 (got $batch_growth_rate); it multiplies the effective batch threshold after every flush"))
         end
-        new(recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching, batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config)
+        new(recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching, batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config, observer_timeout)
     end
 end
 export BATMakieVisualization
+
+# Preserve the original positional constructor, with a named timeout option.
+function BATMakieVisualization(recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching, batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config; observer_timeout::Real = 60.0)
+    BATMakieVisualization(recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching,
+        batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config, observer_timeout)
+end
 
 # BATVisualizer(::BATMakieVisualization) needs the Makie extension to build its
 # live content; see BAT._vis_required_pkg.
@@ -132,7 +152,7 @@ function _default_makie_diagonal_config(; dark::Bool = false)
     )
 end
 
-function BATMakieVisualization(; dark::Bool = false, max_buffered::Integer = 4 * 50, adaptive_batching::Bool = true, batch_growth_rate::Real = 1.2, trace_nsteps::Integer = 20)
+function BATMakieVisualization(; dark::Bool = false, max_buffered::Integer = 4 * 50, adaptive_batching::Bool = true, batch_growth_rate::Real = 1.2, trace_nsteps::Integer = 20, observer_timeout::Real = 60.0)
     recipes = (upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D)
     vsel = [1, 2, 3] # Default vsel; clamped (with a warning) on its one-time initial application if the posterior has fewer free parameters.
     N_max = 3 # Grid size; cells beyond the (possibly truncated) vsel are simply left dead/empty.
@@ -154,6 +174,7 @@ function BATMakieVisualization(; dark::Bool = false, max_buffered::Integer = 4 *
         dark,
         triagonal_config,
         diagonal_config,
+        observer_timeout,
     )
     return vis_config
 end

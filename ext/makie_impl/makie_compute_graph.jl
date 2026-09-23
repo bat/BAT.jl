@@ -199,8 +199,7 @@ function BATVisualizer(vis::BATMakieVisualization)
         # ceiling derives from it, so the sampler never blocks on an unreachable trigger.
         effective_batch_size=Ref(vis.n_batch),
         buffer_ratio=vis.max_buffered / vis.n_batch,
-        is_live=Threads.Atomic{Bool}(true),
-        listener_task=Ref{Union{Task,Nothing}}(nothing),
+        lifecycle=_MakieLiveControl(),
         # Set in init_visualizer!; read by _apply_vsel! to validate vsel changes.
         n_dof=Ref{Int}(0)
     )

@@ -44,24 +44,24 @@ function ingest(vis, state, step; nonzero = true)
         nonzero_weights = nonzero, is_sampling_step = step)
 end
 function stop(vis)
-    vis.content.is_live[] = false
-    task = vis.content.listener_task[]
-    if !isnothing(task)
-        @test timedwait(() -> istaskdone(task), 30.0) == :ok
-        @test !istaskfailed(task)
-    end
+    BAT.finish_visualizer!(vis; success = true)
+    status = BAT.visualizer_status(vis)
+    @test status.quiesced
+    @test status.outcome == :complete
+    @test status.data_complete
+    @test isnothing(status.error)
 end
 function cleanup(vis)
-    vis.content.is_live[] = false
-    lock(vis.content.buffer_lock) do
-        notify(vis.content.buffer_cond, all = true)
-    end
-    task = vis.content.listener_task[]
-    isnothing(task) || timedwait(() -> istaskdone(task), 5.0)
+    BAT.request_visualizer_stop!(vis; reason = :disabled)
+    BAT.finish_visualizer!(vis; success = false)
+    BAT.dispose_visualizer!(vis)
 end
+
 mass(vis) = sum(vis.content.graph[:flat_weights][])
+# These regression watchdogs include cold compilation. Short lifecycle deadline
+# behavior is checked separately in test_makie_lifecycle.jl.
 function waitmass(vis, expected)
-    @test timedwait(() -> mass(vis) == expected, 30.0) == :ok
+    @test timedwait(() -> mass(vis) == expected, 120.0) == :ok
     @test mass(vis) == expected
 end
 function reject_steps!(vis, states, outputs, chain, n; nonzero = true)
@@ -79,7 +79,7 @@ function reject_steps!(vis, states, outputs, chain, n; nonzero = true)
             @test BAT.get_rng(state.chain_state.context) == rng
         end
     end
-    @test timedwait(() -> istaskdone(producer), 30.0) == :ok
+    @test timedwait(() -> istaskdone(producer), 120.0) == :ok
     fetch(producer)
 end
 function terminal!(vis, states, outputs, chain; nonzero = true)
@@ -124,15 +124,23 @@ end
         push!(vis.content.chain_ids, Int32(1))
         push!(vis.content.output_buffer, BAT._empty_chain_outputs(state))
         push!(vis.content.pending_samples, BAT._empty_chain_outputs(state))
-        state.chain_state.output.weight .= [0.25, 0.0]
-        state.chain_state.current.x.weight .= [0.75, 0.0]
-        ingest(vis, state, true)
-        @test vis.content.n_buffer_steps[] == 2
-        @test length.(vis.content.pending_samples[1]) == [1, 0]
-        ingest(vis, state, false; nonzero = false)
-        @test vis.content.n_buffer_steps[] == 2
-        @test all(isempty, vis.content.pending_samples[1])
-        @test vis.content.buffer_dirty[]
+        # This transport-only fixture has no listener/figure, but ingestion
+        # still requires the same claimed and active session as real startup.
+        EXT._claim_live_visualizer!(vis)
+        EXT._activate_live_visualizer!(vis)
+        try
+            state.chain_state.output.weight .= [0.25, 0.0]
+            state.chain_state.current.x.weight .= [0.75, 0.0]
+            ingest(vis, state, true)
+            @test vis.content.n_buffer_steps[] == 2
+            @test length.(vis.content.pending_samples[1]) == [1, 0]
+            ingest(vis, state, false; nonzero = false)
+            @test vis.content.n_buffer_steps[] == 2
+            @test all(isempty, vis.content.pending_samples[1])
+            @test vis.content.buffer_dirty[]
+        finally
+            cleanup(vis)
+        end
     end
 
     @testset "Real iterator preserves rejected samples and every RNG stream" begin
@@ -145,7 +153,7 @@ end
                     max_nsteps = 12, nonzero_weights = nonzero)
                 producer = @async BAT.mcmc_iterate!!(outputs, states;
                     max_nsteps = 12, nonzero_weights = nonzero, update_visualizer = true)
-                @test timedwait(() -> istaskdone(producer), 30.0) == :ok
+                @test timedwait(() -> istaskdone(producer), 120.0) == :ok
                 states = fetch(producer)
                 stop(vis)
                 @test mass(vis) == 48
@@ -182,15 +190,21 @@ end
         push!(vis.content.chain_ids, Int32(1))
         push!(vis.content.output_buffer, BAT._empty_chain_outputs(state))
         push!(vis.content.pending_samples, BAT._empty_chain_outputs(state))
-        chain = state.chain_state
-        chain.output .= chain.current.x
-        chain.output.weight .= 1
-        ingest(vis, state, true)
-        ingest(vis, state, true)
-        @test length(only(vis.content.output_buffer[1])) == 1
-        @test sum(only(vis.content.output_buffer[1]).weight) == 2
-        @test vis.content.n_buffer_steps[] == 2
-        @test vis.content.buffer_dirty[]
+        EXT._claim_live_visualizer!(vis)
+        EXT._activate_live_visualizer!(vis)
+        try
+            chain = state.chain_state
+            chain.output .= chain.current.x
+            chain.output.weight .= 1
+            ingest(vis, state, true)
+            ingest(vis, state, true)
+            @test length(only(vis.content.output_buffer[1])) == 1
+            @test sum(only(vis.content.output_buffer[1]).weight) == 2
+            @test vis.content.n_buffer_steps[] == 2
+            @test vis.content.buffer_dirty[]
+        finally
+            cleanup(vis)
+        end
     end
 
     @testset "Real rejections, idle chain, replacement and final drain" begin
@@ -213,7 +227,7 @@ end
                 reject_steps!(vis, states, outputs, 1, 2; nonzero)
                 waitmass(vis, 20)
                 @test vis.content.n_buffer_steps[] == 0
-                @test vis.content.is_live[]
+                @test BAT.visualizer_status(vis).phase == :running
                 terminal!(vis, states, outputs, 1; nonzero)
                 terminal!(vis, states, outputs, 2; nonzero)
                 @test vis.content.n_buffer_steps[] == 0
@@ -243,7 +257,7 @@ end
                 previous_view = deepcopy(vis.content.graph[:samples][])
                 ingest(vis, states[1], true; nonzero)
                 ingest(vis, states[1], true; nonzero)
-                @test timedwait(() -> vis.content.n_buffer_steps[] == 0, 30.0) == :ok
+                @test timedwait(() -> vis.content.n_buffer_steps[] == 0, 120.0) == :ok
                 # Drain completion precedes publication. Joining the listener
                 # ensures composition finished, even if Makie elides equal data.
                 stop(vis)

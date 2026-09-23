@@ -666,6 +666,7 @@ end
 function mcmc_iterate!!(
     outputs::Union{AbstractVector{<:AbstractVector{<:DensitySampleVector}},Nothing},
     mcmc_states::AbstractVector{<:MCMCState};
+    update_visualizer::Bool = false,
     kwargs...
 )
     if isempty(mcmc_states)
@@ -681,13 +682,33 @@ function mcmc_iterate!!(
     # container must not be bound to the input element type:
     mcmc_states_new = similar(mcmc_states, MCMCState)
     cancelled = Base.Threads.Atomic{Bool}(false)
+    # Gather once, only for groups that can actually emit observations. Chains
+    # supplied by callers need not share a visualizer. Identity avoids invoking
+    # backend equality and ensures each participating session is signalled once.
+    visualizers = if update_visualizer && !isnothing(outputs)
+        distinct = BATVisualizer[]
+        for state in mcmc_states
+            vis = state.chain_state.context.visualizer
+            any(v -> v === vis, distinct) || push!(distinct, vis)
+        end
+        distinct
+    else
+        ()
+    end
 
     @sync for i in eachindex(outs, mcmc_states)
         Base.Threads.@spawn try
             mcmc_states_new[i] = mcmc_iterate!!(outs[i], mcmc_states[i];
-                kwargs..., _cancelled = cancelled)
-        catch
+                kwargs..., _cancelled = cancelled, update_visualizer = update_visualizer)
+        catch err
             cancelled[] = true
+            # Release observation-only waits before @sync joins siblings. Each
+            # hook is guarded separately: one broken backend cannot skip others
+            # or replace the computational exception/task aggregation.
+            for vis in visualizers
+                _safe_request_visualizer_stop!(vis;
+                    reason=:aborted, exception=CapturedException(err, catch_backtrace()))
+            end
             rethrow()
         end
     end

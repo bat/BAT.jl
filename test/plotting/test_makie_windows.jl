@@ -209,7 +209,7 @@ end
         @test isempty(vis.content.init_segments)
         @test isempty(vis.content.invalid_init)
         @test !BAT.capture_visualizer_init(vis)
-        @test isnothing(vis.content.listener_task[])
+        @test BAT.visualizer_status(vis).quiesced
         @test isempty(vis.content.chain_ids)
     end
     @testset "Bounded slider work and exact large integer entry" begin

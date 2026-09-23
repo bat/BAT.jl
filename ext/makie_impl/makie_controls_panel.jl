@@ -62,6 +62,7 @@ function _build_fig(
     picker_info::Union{PickerInfo,Nothing} = nothing;
     has_chain_info::Bool = false,
     has_trace_info::Bool = false,
+    live_vis = nothing,
 )
     # Panel rows get their own Fixed widths (_fix_panel_size!) so the grid's Aspect/Auto column is never capped by the panel's width need.
     n_grid = size(graph[:live_map][], 1)
@@ -72,6 +73,7 @@ function _build_fig(
     # small margin), or a wide picker matrix gets clipped at the figure edge.
     fig_w = max(min(665 + grid_growth, 1600), ceil(Int, panel_width) + 24)
     fig = Figure(size=(fig_w, min(850 + grid_growth, 1785)))
+    isnothing(live_vis) || _attach_live_view!(live_vis, fig)
 
     plot(fig[1, 1], gridlayout)
 
@@ -186,16 +188,16 @@ function _build_fig(
             value_entry = Textbox(toggle_row_content[3, 2:4]; stored_string="1:$limit",
                 placeholder="start:end", width=nothing, tellwidth=false,
                 validator=text -> !isnothing(_parse_sample_window(text, graph[:max_step][])))
-            on(slider.interval) do interval
+            _view_on(live_vis, slider.interval) do interval
                 syncing[] || (draft[] = Int64.(interval))
             end
-            on(value_entry.stored_string) do text
+            _view_on(live_vis, value_entry.stored_string) do text
                 if !syncing[]
                     interval = _parse_sample_window(text, graph[:max_step][])
                     isnothing(interval) || (draft[] = interval)
                 end
             end
-            on(draft) do interval
+            _view_on(live_vis, draft) do interval
                 syncing[] = true
                 try
                     set_close_to!(slider, interval...)
@@ -207,15 +209,15 @@ function _build_fig(
             apply = Button(toggle_row_content[1, 4], label="Apply")
             all_button = Button(toggle_row_content[2, 4], label="All")
             dirty = Observable(true)
-            onany(graph[:window_steps], draft) do applied, pending
+            _view_onany(live_vis, graph[:window_steps], draft) do applied, pending
                 dirty[] = applied != pending
                 apply.label[] = dirty[] ? "Apply" : "Applied"
             end
-            on(apply.clicks) do _
-                dirty[] && _apply_sample_window!(graph, draft[])
+            _view_on(live_vis, apply.clicks) do _
+                dirty[] && _apply_sample_window!(graph, draft[]; live_vis=live_vis)
             end
-            on(all_button.clicks) do _
-                _apply_sample_window!(graph, nothing)
+            _view_on(live_vis, all_button.clicks) do _
+                _apply_sample_window!(graph, nothing; live_vis=live_vis)
             end
             range_controls[] = (slider=slider, draft=draft, syncing=syncing, apply=apply,
                 all=all_button, dirty=dirty, title=title, value_entry=value_entry)
@@ -238,12 +240,12 @@ function _build_fig(
         end
         return nothing
     end
-    on(graph[:max_step]) do _
+    _view_on(live_vis, graph[:max_step]) do _
         add_index_slider!()
     end
     # Observe release before widgets consume it (native mouse handlers use 1).
     # Makie's button-state tracker has already removed the released button.
-    on(events(fig.scene).mousebutton; priority=2) do event
+    _view_on(live_vis, events(fig.scene).mousebutton; priority=2) do event
         event.button == Mouse.left && event.action == Mouse.release && add_index_slider!()
         return Consume(false)
     end
@@ -281,11 +283,11 @@ function _build_fig(
         toggle_trace_upper = Toggle(ui_layout[2, 4], active=false)
         toggle_trace_lower = Toggle(ui_layout[4, 4], active=false)
         append!(ui_blocks, Any[lbl_trace, toggle_trace_upper, toggle_trace_lower])
-        on(toggle_trace_upper.active) do is_live
-            update!(graph, show_trace_upper=is_live)
+        _view_on(live_vis, toggle_trace_upper.active) do is_live
+            _view_graph_update!(graph, live_vis; show_trace_upper=is_live)
         end
-        on(toggle_trace_lower.active) do is_live
-            update!(graph, show_trace_lower=is_live)
+        _view_on(live_vis, toggle_trace_lower.active) do is_live
+            _view_graph_update!(graph, live_vis; show_trace_lower=is_live)
         end
     end
 
@@ -297,40 +299,40 @@ function _build_fig(
 
     rowsize!(controls_layout, 2, Auto())
 
-    on(menu_upper.selection) do selected_recipe
-        update!(graph, upper_recipe=selected_recipe)
+    _view_on(live_vis, menu_upper.selection) do selected_recipe
+        _view_graph_update!(graph, live_vis; upper_recipe=selected_recipe)
     end
-    on(menu_diagonal.selection) do selected_recipe
-        update!(graph, diagonal_recipe=selected_recipe)
+    _view_on(live_vis, menu_diagonal.selection) do selected_recipe
+        _view_graph_update!(graph, live_vis; diagonal_recipe=selected_recipe)
     end
-    on(menu_lower.selection) do selected_recipe
-        update!(graph, lower_recipe=selected_recipe)
-    end
-
-    on(toggle_upper.active) do is_live
-        update!(graph, show_stats_upper=is_live)
+    _view_on(live_vis, menu_lower.selection) do selected_recipe
+        _view_graph_update!(graph, live_vis; lower_recipe=selected_recipe)
     end
 
-    on(toggle_diag.active) do is_live
-        update!(graph, show_stats_diag=is_live)
+    _view_on(live_vis, toggle_upper.active) do is_live
+        _view_graph_update!(graph, live_vis; show_stats_upper=is_live)
     end
 
-    on(toggle_lower.active) do is_live
-        update!(graph, show_stats_lower=is_live)
+    _view_on(live_vis, toggle_diag.active) do is_live
+        _view_graph_update!(graph, live_vis; show_stats_diag=is_live)
+    end
+
+    _view_on(live_vis, toggle_lower.active) do is_live
+        _view_graph_update!(graph, live_vis; show_stats_lower=is_live)
     end
 
     if !isnothing(picker_info)
         (; N, N_max, initial_vsel, apply_vsel!) = picker_info
         picker_blocks = _build_vsel_picker!(
             fig, ui_layout, graph, N, N_max, initial_vsel, apply_vsel!,
-            has_trace_info ? 5 : 4,
+            has_trace_info ? 5 : 4; live_vis=live_vis,
         )
         append!(ui_blocks, picker_blocks)
     end
 
     # Starts collapsed; update=true applies that at construction, since `on` only fires on future notifications.
     controls_visible = Observable(false)
-    on(controls_visible; update=true) do vis
+    _view_on(live_vis, controls_visible; update=true) do vis
         rowsize!(fig.layout, 3, vis ? Auto() : Fixed(0))
         # Not in ui_blocks, so hidden directly: row 3's Fixed(0) alone leaves a ~1px rounding sliver of the Box visible.
         controls_box.visible[] = vis
@@ -338,12 +340,14 @@ function _build_fig(
             _set_block_visible!(b, vis)
         end
     end
-    on(collapse_button.clicks) do _
+    _view_on(live_vis, collapse_button.clicks) do _
         controls_visible[] = !controls_visible[]
     end
 
     # Exposed so the live path can retrofit the index slider post-run.
-    return (fig=fig, add_index_slider! = add_index_slider!, range_controls=range_controls)
+    guarded_slider! = isnothing(live_vis) ? add_index_slider! :
+        () -> _with_live_view(add_index_slider!, live_vis)
+    return (fig=fig, add_index_slider! = guarded_slider!, range_controls=range_controls)
 end
 
 # Native IntervalSlider scans its range to locate values and uses floating-point
@@ -423,7 +427,8 @@ function _build_vsel_picker!(
     N_max::Integer,
     initial_vsel::AbstractVector{<:Integer},
     apply_vsel!::Function,
-    picker_col::Integer,
+    picker_col::Integer;
+    live_vis = nothing,
 )
     N_shown = min(N, _PICKER_MAX_N)
     cell = _picker_cell_size(N_shown)
@@ -502,7 +507,7 @@ function _build_vsel_picker!(
 
     for (i, j) in keys(checkboxes)
         cb = checkboxes[(i, j)]
-        on(cb.checked) do is_on
+        _view_on(live_vis, cb.checked) do is_on
             updating_programmatically[] && return
 
             new_vars = _vsel_after_toggle(active_vars[], i, j, is_on)
@@ -532,12 +537,18 @@ function _build_vsel_picker!(
 end
 
 # Programmatic and widget changes use the same single graph transaction.
-function _apply_sample_window!(graph, window)
+function _apply_sample_window!(graph, window; live_vis = nothing)
     if !isnothing(window)
         lo, hi = window
         1 <= lo <= hi || throw(ArgumentError("Require 1 <= window start <= window end"))
     end
-    graph[:window_steps][] == window && return false
-    update!(graph; window_steps=window)
+    # Live intents may replace an earlier deferred value even when this value
+    # equals the currently displayed one (Apply followed by All, for example).
+    isnothing(live_vis) && graph[:window_steps][] == window && return false
+    _view_graph_update!(graph, live_vis; window_steps=window)
     return true
 end
+
+# Static controls preserve direct graph updates; live controls use the view owner.
+_view_graph_update!(graph, ::Nothing; kwargs...) = update!(graph; kwargs...)
+_view_graph_update!(graph, vis; kwargs...) = _live_graph_update!(vis; kwargs...)
