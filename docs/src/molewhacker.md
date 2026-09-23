@@ -45,6 +45,8 @@ with Laplace seeds and fresh rounds added by default:
    Repeat until a hard budget or an explicit pool-ESS or efficiency threshold applies.
 6. Run three more rounds by default, each after adding fresh draws from the
    current proposal to the pool. This step is an addition to the source algorithm.
+7. Refit the proposal to those fresh draws by importance-weighted EM, keeping the
+   adaptive mixture as a defensive share. This step is also an addition.
 
 The adaptive pool guides proposal construction only. Its points have different
 sampling laws, so reweighting the pool by the latest proposal does not produce
@@ -111,10 +113,24 @@ retain their usual finite-sample bias.
   squared weight from 0.15–0.58 to 0.05–0.11 over four seeds. On well-fitted
   targets they cost calls and gain nothing. Set `fresh_rounds = 0` for the source
   algorithm's rounds only.
+- The fresh-round draws then refit the proposal, in the style of MitISEM
+  (Hoogerheide, Opschoor and van Dijk). Each draw is weighted by the proposal that
+  drew it, and importance-weighted EM fits one to six Gaussians to the target. The
+  number maximizes the weighted log-likelihood of held-out draws, the cross-entropy part
+  of KL(p || fit), and the refit on all draws starts from the held-out winner. The final
+  proposal gives these 80% of the mass and keeps the adaptive mixture at 20% for
+  defence. Center ratios see the target only at component centers, so they cannot
+  see proposal mass placed where the target is small. The fit needs no extra target
+  calls and is skipped when the fresh draws have too few effective samples. On six
+  12-dimensional test targets it raised production ESS by 20–229%, and on the public
+  DeepCore model by 19–36% over two seeds. Production draws come after the fit, from
+  the frozen result, so they stay IID from one proposal. Pass a `MolewhackerRefit` as
+  `refit` to tune the fit, or `nothing` to keep the adaptive mixture.
 - `exploration_mass` defaults to zero. A positive value mixes the prior into the
   final proposal. This option leaves discovery unchanged.
 - `laplace_seeds` defaults to `true`. It adds a second Gaussian at each seed, with
-  the observed information `-∇² logtarget` as precision, variance inflated by 1.2.
+  the observed information `-∇² logtarget` as precision, variance inflated by
+  `laplace_inflation` (default 1.2).
   Fisher information misses curvature where the forward model is stationary in a
   parameter, for example a mixing angle near maximal mixing. The Hessian comes
   from central differences of AD gradients, once per distinct seed. Where it is
@@ -222,7 +238,10 @@ generalized Pareto shape of the largest production weights, as in PSIS. Values
 above 0.7 mark unreliable estimates, and values below 0.5 are good. It is `NaN`
 for fewer than 21 finite weights, and `Inf` when the largest weights exceed the
 rest beyond the floating-point range. A small `pareto_k` does not rule out one
-dominant weight, so also check the largest normalized weight. Check relevant
+dominant weight, so also check `max_weight`, the largest normalized weight. Its
+inverse is the L∞ effective sample size of Martino, Elvira and Louzada (2017).
+Delta-method ESS values for single observables fail in the same case: a dominant
+draw sits at the weighted mean and hides its own variance. Check relevant
 observables and repeat runs when missed modes matter. Zero-target draws receive zero weight. A production
 batch with no finite positive target mass fails.
 

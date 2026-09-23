@@ -144,6 +144,19 @@ import ForwardDiff, Optim, OptimizationLBFGSB
         @test BAT.samplesof(a).logd ≈ logdensityof.(Ref(BAT.unevaluated(a)), BAT.samplesof(a).v)
     end
 
+    @testset "Mixture refit from fresh draws" begin
+        # From the prior, one fresh round and the weighted EM fit recover this Gaussian
+        # posterior: efficiency 0.95-0.98 over six seeds, against 0.63-0.86 without them.
+        refit(k; kw...) = evalmeasure(target, MolewhackerSampling(; nsamples = 2000, batchsize = 500, maxiter = 1,
+            nseeds = 0, fresh_rounds = k, kw...), context(72)).evalinfo.result
+        with, without = refit(1), refit(0)
+        @test with.efficiency > 0.93 > without.efficiency
+        # Fourteen fresh candidates and one to six fitted Gaussians.
+        @test with.ncomponents - without.ncomponents - 14 in 1:6
+        @test refit(1; refit = nothing).ncomponents - without.ncomponents == 14
+        @test refit(1; refit = MolewhackerRefit(maxcomponents = 1)).ncomponents - without.ncomponents == 15
+    end
+
     @testset "Cached pool scoring" begin
         # A second round adds points and components. The cache matches full scoring,
         # and a zero limit takes the uncached path.
@@ -191,6 +204,8 @@ import ForwardDiff, Optim, OptimizationLBFGSB
             batchsize = 64, maxiter = 0, maxevals = 20_064, nseeds = 0), context())
         @test 12_000 <= length(BAT.samplesof(sized)) <= 12_001
         @test sized.evalinfo.result.nevals == 64 + length(BAT.samplesof(sized))
+        # The prior proposal matches this flat target, so all weights are equal.
+        @test sized.evalinfo.result.max_weight ≈ 1 / length(BAT.samplesof(sized))
         budgets = evalmeasure(flat, MolewhackerSampling(nsamples = 256, target_ess = 32,
             batchsize = 64, maxiter = 1, nseeds = 0), context())
         @test budgets.evalinfo.result.niterations == 1

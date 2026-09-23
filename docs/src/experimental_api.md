@@ -37,6 +37,7 @@ EllipticalSliceMCMCSampling
 GridSampler
 HierarchicalDistribution
 PriorImportanceSampler
+MolewhackerRefit
 MolewhackerSampling
 ReactiveNestedSampling
 SliceMCMCSampling

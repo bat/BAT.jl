@@ -1,6 +1,35 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 """
+    MolewhackerRefit(; kwargs...)
+
+Importance-weighted EM refit of the [`MolewhackerSampling`](@ref) proposal to its
+fresh-round draws, in the style of MitISEM (Hoogerheide, Opschoor and van Dijk).
+The number of fitted Gaussians maximizes the weighted log-likelihood of held-out draws.
+
+Fields:
+
+$(TYPEDFIELDS)
+"""
+@with_kw struct MolewhackerRefit
+    "Largest number of fitted Gaussians."
+    maxcomponents::Int = 6
+    "Mass share that the adaptive mixture keeps for defence."
+    defence::Float64 = 0.2
+    "Covariance shrinkage toward the diagonal."
+    shrinkage::Float64 = 0.1
+    "Effective draws needed per dimension and fitted Gaussian."
+    min_ess_per_dim::Float64 = 2.0
+    "Fitted mass below which a Gaussian drops out."
+    min_mass::Float64 = 1e-3
+    "Maximum EM iterations per fit."
+    maxiter::Int = 200
+    "Stop EM when the weighted log-likelihood per draw rises by less than this."
+    tol::Float64 = 1e-6
+end
+export MolewhackerRefit
+
+"""
     MolewhackerSampling(; kwargs...)
 
 Adaptive Gaussian-mixture importance sampling with local Fisher geometry.
@@ -17,7 +46,7 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct MolewhackerSampling{TR<:TransformIntent,IA,IM,E<:BATExecutor,D} <: AbstractSamplingAlgorithm
+@with_kw struct MolewhackerSampling{TR<:TransformIntent,IA,IM,E<:BATExecutor,D,RF<:Union{Nothing,MolewhackerRefit}} <: AbstractSamplingAlgorithm
     pretransform::TR = NormalBased()
     "Seed source in original coordinates, or `nothing` for Sobol starts in normal coordinates."
     init::IA = nothing
@@ -25,6 +54,8 @@ $(TYPEDFIELDS)
     nseeds::Int = 10
     "Add a Laplace Gaussian (observed information) beside each seed's Fisher Gaussian, and Newton-polish the seed."
     laplace_seeds::Bool = true
+    "Laplace variance inflation. On the public DeepCore model, 1.2 beat both 1.0 and 1.5."
+    laplace_inflation::Float64 = 1.2
     "Seed optimizer. The default L-BFGS-B backend requires `import OptimizationLBFGSB`. It stops after 50 iterations with Laplace seeds, whose Newton step finishes the search."
     init_mode::IM = nseeds == 0 ? nothing : OptimizationAlg(optalg = ext_default(pkgext(Val(:OptimizationLBFGSB)), Val(:LBFGSB_ALG)), maxiters = laplace_seeds ? 50 : 1_000)
     "Production count, or its cap with finite `target_ess`. Nothing follows the pool size or ESS goal."
@@ -53,6 +84,8 @@ $(TYPEDFIELDS)
     smooth_weights::Bool = false
     "Rounds after adaptation stops that first add `batchsize` fresh proposal draws to the pool."
     fresh_rounds::Int = 3
+    "Refit of the proposal to the fresh-round draws, or `nothing` to keep the adaptive mixture."
+    refit::RF = MolewhackerRefit()
 end
 export MolewhackerSampling
 
@@ -74,6 +107,10 @@ function _mw_check(alg, context)
     @argcheck isnothing(alg.init_mode) || alg.maxevals - reserve - discovery_count - center_count >= alg.nseeds "Leave target calls for mode searches, or disable the seed optimizer."
     @argcheck get_compute_unit(context) isa CPUnit
     @argcheck iszero(alg.exploration_mass) || 0 < get_precision(context)(alg.exploration_mass) < 1
+    @argcheck alg.laplace_inflation > 0
+    refit = alg.refit
+    @argcheck isnothing(refit) || (refit.maxcomponents > 0 && 0 <= refit.defence < 1 && 0 <= refit.shrinkage <= 1 &&
+        refit.min_ess_per_dim > 0 && 0 <= refit.min_mass < 1 && refit.maxiter > 0 && refit.tol >= 0)
     return reserve
 end
 
@@ -287,6 +324,96 @@ function _mw_mode(center, logtarget, mode, remaining, context)
     return exhausted ? center : result, ncalls, exhausted
 end
 
+# Mixture refinement (MolewhackerRefit): fit Gaussians to the target by importance-weighted EM on
+# the fresh-round draws, each weighted by its own proposal, and keep the adaptive mixture as a
+# defensive share. Center ratios cannot see proposal mass placed where the target is small. These
+# draws can. The held-out weighted log-likelihood is the cross-entropy part of KL(p || fit).
+function _mw_weighted_moments(x, w, shrinkage)
+    mu = x * w ./ sum(w)
+    c = x .- mu
+    S = (c .* w') * c' ./ sum(w)
+    # Shrink toward the diagonal: a few effective draws must fit many covariances.
+    return mu, Symmetric((1 - shrinkage) .* S .+ shrinkage .* Diagonal(diag(S)))
+end
+
+# M step: weighted moments per component. Components with negligible mass drop out.
+function _mw_em_masses(x, w, R, refit)
+    T = eltype(x)
+    mass = vec(sum(w .* R, dims = 1))
+    keep = findall(>(T(refit.min_mass)), mass)
+    return [_mw_weighted_moments(x, w .* view(R, :, k), T(refit.shrinkage)) for k in keep], mass[keep] ./ sum(mass[keep])
+end
+
+# Gaussian log density from the Cholesky factor. MvNormal with a Symmetric covariance does not infer.
+function _mw_normal_logpdf(mu, S, x)
+    U = cholesky(S).U
+    z = U' \ (x .- mu)
+    return .-vec(sum(abs2, z, dims = 1)) ./ 2 .- (logdet(U) + size(x, 1) * log(2 * eltype(x)(pi)) / 2)
+end
+
+# E step: responsibilities of each component for each draw, and each draw's mixture log density.
+function _mw_em_estep(x, fits, pis)
+    L = reduce(hcat, [log(p) .+ _mw_normal_logpdf(mu, S, x) for ((mu, S), p) in zip(fits, pis)])
+    m = maximum(L, dims = 2)
+    R = exp.(L .- m)
+    s = sum(R, dims = 2)
+    return R ./ s, vec(m .+ log.(s))
+end
+
+# Weighted k-means++ starts, with hard assignment to the nearest start.
+function _mw_em_start(x, w, K, rng)
+    T = eltype(x)
+    centers = [x[:, argmax(w)]]
+    while length(centers) < K
+        d2 = [minimum(c -> sum(abs2, view(x, :, i) .- c), centers) for i in axes(x, 2)] .* w
+        push!(centers, x[:, something(findfirst(>=(rand(rng, T) * sum(d2)), cumsum(d2)), size(x, 2))])
+    end
+    R = zeros(T, size(x, 2), K)
+    for i in axes(x, 2)
+        R[i, argmin(k -> sum(abs2, view(x, :, i) .- centers[k]), 1:K)] = 1
+    end
+    return R
+end
+
+function _mw_em(x, w, R, refit)
+    T = eltype(x)
+    fits, pis = Tuple{Vector{T},Symmetric{T,Matrix{T}}}[], T[]
+    loglik = T(-Inf)
+    for _ in 1:refit.maxiter
+        fits, pis = _mw_em_masses(x, w, R, refit)
+        all(f -> isposdef(last(f)), fits) || return nothing
+        R, l = _mw_em_estep(x, fits, pis)
+        previous, loglik = loglik, dot(w, l)
+        loglik - previous < refit.tol && break
+    end
+    return fits, pis
+end
+
+function _mw_fit_mixture(q, x, logw, refit, context)
+    T = eltype(x)
+    w = exp.(logw .- maximum(logw))
+    fit, held = x[:, 1:2:end], x[:, 2:2:end]
+    wfit, wheld = w[1:2:end] ./ sum(w[1:2:end]), w[2:2:end] ./ sum(w[2:2:end])
+    best, score = nothing, T(-Inf)
+    for K in 1:refit.maxcomponents
+        1 / sum(abs2, wfit) > refit.min_ess_per_dim * K * size(x, 1) || break
+        em = _mw_em(fit, wfit, _mw_em_start(fit, wfit, K, get_rng(context)), refit)
+        isnothing(em) && continue
+        s = dot(wheld, last(_mw_em_estep(held, em...)))
+        s > score && ((best, score) = (em, s))
+    end
+    isnothing(best) && return q
+    # Refit on all draws from the held-out winner. A new start can fall into a worse optimum.
+    w ./= sum(w)
+    em = _mw_em(x, w, first(_mw_em_estep(x, best...)), refit)
+    isnothing(em) && return q
+    fits, pis = em
+    fitted = [_mw_gaussian(mu, Matrix(Symmetric(inv(cholesky(S))))) for (mu, S) in fits]
+    defence = T(refit.defence)
+    masses = vcat(defence .* probs(q), (1 - defence) .* pis)
+    return MixtureModel(vcat(q.components, fitted), masses ./ sum(masses))
+end
+
 function _mw_efficiency(logw)
     c = maximum(logw)
     isfinite(c) || throw(ArgumentError("MolewhackerSampling drew no finite positive target mass."))
@@ -411,7 +538,7 @@ function _mw_initial_proposal(transformed_m, f, model, logtarget, gprior, alg, f
         components = typeof(gprior)[_mw_gaussian(seeds[i], fisher[i]) for i in eachindex(seeds)]
         # A Laplace Gaussian shares its seed's center, so center-ratio fitting gives the pair equal mass.
         for i in eachindex(seeds)
-            isnothing(observed[i]) || push!(components, _mw_gaussian(seeds[i], observed[i] ./ T(_MW_LAPLACE_INFLATION)))
+            isnothing(observed[i]) || push!(components, _mw_gaussian(seeds[i], observed[i] ./ T(alg.laplace_inflation)))
         end
     end
     center_logp = logtarget.(mean.(components))
@@ -426,9 +553,6 @@ function _mw_initial_proposal(transformed_m, f, model, logtarget, gprior, alg, f
     end
     return q, center_logp, center_logsum, nevals, ngeometries, nfailed, nexhausted, nhessians
 end
-
-# Laplace variance inflation. On the public DeepCore model, ×1.2 beat both ×1.0 and ×1.5.
-const _MW_LAPLACE_INFLATION = 1.2
 
 # Laplace seeds: the observed information −∇²log p at each seed, from central differences of AD
 # gradients run on the executor. Fisher information misses curvature where the forward model is
@@ -500,13 +624,15 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
     draw_cost = isnothing(alg.nsamples) ? 2 : 1
     niterations, nfresh, npilot = 0, 0, 0
     stop_reason = nseed_exhausted > 0 && nseed_exhausted == alg.nseeds ? :maxevals : :maxiter
-    history = NamedTuple[]
+    history = StructArray((; iteration = Int[], fresh = Bool[], npilot = Int[], drawn = Int[], ncomponents = Int[], ncomponent_proposals = Int[]))
     pilot_ess = nothing
+    # Pool and fresh draws grow in place across rounds.
+    fresh_points, fresh_logw = ElasticArray{T}(undef, dim, 0), T[]
 
     if alg.maxiter > 0 && fit_budget - nevals >= alg.batchsize
         batch = _mw_draw(q, logtarget, alg.batchsize, alg.executor, context)
         nevals += alg.batchsize
-        points, logp = Matrix{T}(flatview(batch.v)), batch.logp
+        points, logp = ElasticArray{T}(flatview(batch.v)), batch.logp
         npilot = length(logp)
         # Zero marks unvisited points; -1 marks failed geometry. Positive entries
         # identify stored Gaussians, so reselection needs no equality search.
@@ -524,9 +650,11 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
                     ncomponent_proposals < component_limit || break
                 nfresh += 1
                 batch = _mw_draw(q, logtarget, alg.batchsize, alg.executor, context)
+                append!(fresh_points, flatview(batch.v))
+                append!(fresh_logw, batch.logp .- batch.logr)
                 nevals += alg.batchsize
                 fit_budget -= (draw_cost - 1) * alg.batchsize
-                points = hcat(points, Matrix{T}(flatview(batch.v)))
+                append!(points, flatview(batch.v))
                 append!(logp, batch.logp)
                 append!(component_index, zeros(Int, alg.batchsize))
                 npilot = length(logp)
@@ -592,7 +720,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
                 nevals += n
                 fit_budget -= (draw_cost - 1) * n
                 drawn += n
-                points = hcat(points, Matrix{T}(flatview(batch.v)))
+                append!(points, flatview(batch.v))
                 append!(logp, batch.logp)
                 append!(component_index, zeros(Int, n))
             end
@@ -604,6 +732,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
     elseif alg.maxiter > 0
         stop_reason = :maxevals
     end
+    q isa MixtureModel && !isnothing(alg.refit) && !isempty(fresh_logw) && (q = _mw_fit_mixture(q, fresh_points, fresh_logw, alg.refit, context))
 
     # Optional prior mixing does not affect the source discovery strategy.
     epsilon = T(alg.exploration_mass)
@@ -641,7 +770,8 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
     result = (; stop_reason, niterations, nfresh, nevals, ngeometries, nfailed, nproduction,
         nseed_evals, nseed_exhausted, nhessians, npilot, pilot_ess, ncomponents = length(q.components), ncomponent_proposals,
         ess = output.ess, efficiency = output.efficiency, logweight_scale = output.logweight_scale,
-        pareto_k = _mw_pareto_k(logw), pilot_efficiency, diagnostic, history)
+        pareto_k = _mw_pareto_k(logw), max_weight = maximum(output.weight) / sum(output.weight),
+        pilot_efficiency, diagnostic, history)
     return EvaluatedMeasure(em;
         transform_intent = alg.pretransform,
         f_transform = _viewrep_f(f, alg.pretransform),
