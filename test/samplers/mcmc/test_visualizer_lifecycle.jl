@@ -132,6 +132,7 @@ end
     @test BAT.request_visualizer_stop!(vis) === nothing
     @test BAT.finish_visualizer!(vis) === nothing
     @test BAT.dispose_visualizer!(vis) === nothing
+    @test BAT.visualizer_figure(vis) === nothing
     @test BAT.visualizer_status(vis) == (
         phase=:inactive, outcome=:inactive, reason=:none, data_complete=false,
         last_publication=0, quiesced=true, cleanup_pending=false,

@@ -140,6 +140,7 @@ function healthy()
             end
             try
                 @test !EXT._live_graph_update!(vis;show_stats_lower=true)
+                @test BAT.visualizer_figure(vis)===nothing
                 status=BAT.visualizer_status(vis)
                 @test status.outcome==:complete && status.data_complete
                 @test status.last_publication==published
@@ -147,6 +148,7 @@ function healthy()
                 @test !isnothing(status.error)
                 waitfor(() -> BAT.visualizer_status(vis).view_disposed &&
                     !BAT.visualizer_status(vis).cleanup_pending)
+                @test BAT.visualizer_figure(vis)===nothing
             finally
                 Makie.off(observer)
             end
@@ -532,12 +534,295 @@ function view_case()
     end
 end
 
+# A real different-thread call, without depending on @spawn's thread selection.
+# The optional runner supplies at least two default worker threads for this case.
+function figure_other_threads(f, owner_thread)
+    @test Threads.nthreads(:default) >= 2
+    answers=Channel{Any}(Threads.nthreads(:default))
+    # The owner can be in the interactive pool, making every default worker a
+    # different thread. Serialize probes so they do not contend with each other
+    # on the getter's control guard and legitimately return `nothing` instead.
+    probe_lock=ReentrantLock()
+    Threads.@threads :static for _ in 1:Threads.nthreads(:default)
+        thread=Threads.threadid()
+        if thread != owner_thread
+            value=try
+                lock(f,probe_lock)
+            catch err
+                err
+            end
+            put!(answers,(thread=thread,value=value))
+        end
+    end
+    close(answers)
+    results=collect(answers)
+    @test !isempty(results)
+    @test all(r -> r.thread != owner_thread, results)
+    return results
+end
+
+# Another task holds the guard until assertions finish. A broken blocking getter
+# is detected before releasing the holder; the finally still releases both tasks.
+function figure_contended_guard(vis, guard)
+    entered=Channel{Nothing}(1)
+    release=Channel{Nothing}(1)
+    holder=@async lock(guard) do
+        put!(entered,nothing)
+        take!(release)
+    end
+    probe=nothing
+    try
+        waitfor(() -> isready(entered))
+        probe=@async BAT.visualizer_figure(vis)
+        done=timedwait(() -> istaskdone(probe),5.0;pollint=0.01)==:ok
+        @test done
+        done && @test fetch(probe)===nothing
+        @test !istaskdone(holder)
+    finally
+        isready(release) || put!(release,nothing)
+        wait(holder)
+        isnothing(probe) || wait(probe)
+    end
+end
+
+function figure_case()
+    @test BAT.visualizer_figure(BATVisualizer())===nothing
+    fresh=BATVisualizer(config())
+    @test isnothing(fresh.content.lifecycle.view)
+    @test BAT.visualizer_figure(fresh)===nothing
+    @test fresh.content.lifecycle.phase===:fresh
+    @test isnothing(fresh.content.lifecycle.view)
+    @test isnothing(fresh.content.lifecycle.task)
+    @test isnothing(fresh.content.lifecycle.timer)
+    @test all(r -> r.value===nothing,
+        figure_other_threads(() -> BAT.visualizer_figure(fresh),Threads.threadid()))
+    stripped=deepcopy(fresh)
+    @test isnothing(stripped.content)
+    @test BAT.visualizer_figure(stripped)===nothing
+    @test isnothing(stripped.content)
+
+    # Real active and disabled sessions must not expose the retained view or
+    # change observation merely because availability was queried.
+    active,state,outputs,target=fixture()
+    try
+        active_fig=initialize(active,state,outputs,target)
+        @test BAT.visualizer_figure(active)===nothing
+        @test active.content.lifecycle.phase===:running
+        @test active.content.lifecycle.accepting[]
+        @test !isempty(active_fig.content)
+        BAT.request_visualizer_stop!(active;reason=:disabled)
+        @test BAT.visualizer_figure(active)===nothing
+        BAT.finish_visualizer!(active;success=false)
+        @test BAT.visualizer_status(active).outcome===:disabled
+        @test BAT.visualizer_figure(active)===nothing
+        BAT.dispose_visualizer!(active)
+        @test BAT.visualizer_figure(active)===nothing
+    finally
+        cleanup(active)
+    end
+
+    vis=BATVisualizer(config())
+    observer=nothing
+    try
+        capture() do c
+            context=BATContext(rng=BAT.Philox4x((12,34)),visualizer=vis)
+            result=BAT.bat_sample(MvNormal(zeros(2),ones(2)),algorithm(),context)
+            @test !isempty(result.result)
+            # The first access is not preceded by a test status/finish query.
+            fig=BAT.visualizer_figure(vis)
+            @test fig===only(c.figures)
+            @test fig===BAT.visualizer_figure(vis)
+            @test length(c.figures)==1
+            assert_complete(vis)
+            ctl=vis.content.lifecycle
+            view=ctl.view
+            graph=vis.content.graph
+            before=BAT.visualizer_status(vis)
+            @test BAT.visualizer_figure(vis)===fig
+            @test BAT.visualizer_status(vis)==before
+            @test BAT.visualizer_figure(deepcopy(vis))===nothing
+            @test context.visualizer===vis
+            @test result.optargs.context.visualizer !== vis
+            @test isnothing(result.optargs.context.visualizer.content)
+            @test BAT.visualizer_figure(result.optargs.context.visualizer)===nothing
+            mktempdir() do dir
+                path=joinpath(dir,"completed-live.png")
+                Makie.save(path,fig)
+                @test isfile(path) && filesize(path)>0
+            end
+
+            # Supplementary boundary states: each mutation is restored before
+            # continuing. They test availability predicates, not lifecycle flow.
+            for (phase,outcome) in ((:starting,:inactive),(:running,:running),
+                    (:draining,:running),(:quiesced,:failed),(:quiesced,:aborted),(:quiesced,:disabled))
+                saved=(ctl.phase,ctl.outcome,ctl.data_complete)
+                try
+                    ctl.phase=phase
+                    ctl.outcome=outcome
+                    ctl.data_complete=false
+                    @test BAT.visualizer_figure(vis)===nothing
+                finally
+                    ctl.phase,ctl.outcome,ctl.data_complete=saved
+                end
+            end
+            for (field,value) in ((:data_complete,false),(:initializing,true))
+                saved=getproperty(ctl,field)
+                try
+                    setproperty!(ctl,field,value)
+                    @test BAT.visualizer_figure(vis)===nothing
+                finally
+                    setproperty!(ctl,field,saved)
+                end
+            end
+            for field in (:task,:disposal_task)
+                saved=getproperty(ctl,field)
+                unfinished=@task nothing
+                try
+                    setproperty!(ctl,field,unfinished)
+                    @test BAT.visualizer_figure(vis)===nothing
+                    @test getproperty(ctl,field)===unfinished
+                finally
+                    setproperty!(ctl,field,saved)
+                end
+            end
+            timer=Timer(3600.0)
+            try
+                ctl.timer=timer
+                @test BAT.visualizer_figure(vis)===nothing
+                @test isopen(timer)
+            finally
+                close(timer)
+                ctl.timer=nothing
+            end
+            for flag in (view.disposed,view.cleanup_pending,view.cleanup_running)
+                saved=flag[]
+                try
+                    flag[]=true
+                    @test BAT.visualizer_figure(vis)===nothing
+                finally
+                    flag[]=saved
+                end
+            end
+            try
+                view.presentation_valid[]=false
+                @test BAT.visualizer_figure(vis)===nothing
+            finally
+                view.presentation_valid[]=true
+            end
+            try
+                view.figure=nothing
+                @test BAT.visualizer_figure(vis)===nothing
+                @test isnothing(view.figure)
+            finally
+                view.figure=fig
+            end
+            try
+                ctl.view=nothing
+                @test BAT.visualizer_figure(vis)===nothing
+                @test isnothing(ctl.view)
+            finally
+                ctl.view=view
+            end
+            saved_error,saved_phase=ctl.error,ctl.error_phase
+            try
+                ctl.error=CapturedException(FAILURE,Any[])
+                ctl.error_phase=:historical_test_diagnostic
+                @test BAT.visualizer_figure(vis)===fig
+                @test BAT.visualizer_status(vis).error.message==FAILURE.msg
+            finally
+                ctl.error,ctl.error_phase=saved_error,saved_phase
+            end
+
+            # Explicit completed-task boundary, with no intervening status query.
+            # Rejected access must not retire the handle before owner/idle checks.
+            done=@async nothing
+            wait(done)
+            ctl.task=done
+            ctl.phase=:draining
+            ctl.owner_task=current_task()
+            original_error=ctl.error
+            wrong_thread=figure_other_threads(() -> BAT.visualizer_figure(vis),ctl.owner_thread)
+            @test all(r -> r.value isa ArgumentError, wrong_thread)
+            @test ctl.task===done && ctl.phase===:draining
+            @test ctl.outcome===:complete && ctl.data_complete
+            @test ctl.error===original_error
+            @test view.presentation_valid[] && !view.cleanup_pending[]
+            lock(vis.content.buffer_lock) do
+                contended=figure_other_threads(() -> BAT.visualizer_figure(vis),ctl.owner_thread)
+                @test all(r -> r.value===nothing, contended)
+            end
+            for guard in (vis.content.buffer_lock,view.lock)
+                figure_contended_guard(vis,guard)
+                @test ctl.task===done && ctl.phase===:draining
+            end
+            for (field,value) in ((:depth,1),(:updating,true))
+                saved=getproperty(view,field)
+                try
+                    setproperty!(view,field,value)
+                    @test BAT.visualizer_figure(vis)===nothing
+                    @test ctl.task===done && ctl.phase===:draining
+                finally
+                    setproperty!(view,field,saved)
+                end
+            end
+            try
+                view.pending[:show_stats_upper]=true
+                @test BAT.visualizer_figure(vis)===nothing
+                @test ctl.task===done && ctl.phase===:draining
+            finally
+                empty!(view.pending)
+            end
+            @test EXT._with_live_view(vis) do
+                @test BAT.visualizer_figure(vis)===nothing
+                @test ctl.task===done && ctl.phase===:draining
+            end
+
+            # A real retained BAT toggle still updates its graph, while getter
+            # reentry from the synchronous graph callback is unavailable.
+            reentered=Any[]
+            observer=Makie.on(graph[:show_stats_upper]) do _
+                push!(reentered,BAT.visualizer_figure(vis))
+            end
+            old_stats=graph[:show_stats_upper][]
+            toggle=first(filter(x -> x isa Makie.Toggle,fig.content))
+            toggle.active[]=!toggle.active[]
+            @test graph[:show_stats_upper][] != old_stats
+            @test reentered==[nothing]
+            @test ctl.task===done && ctl.phase===:draining
+            Makie.off(observer);observer=nothing
+            @test BAT.visualizer_figure(vis)===fig
+            @test isnothing(ctl.task)
+            @test ctl.phase===:quiesced
+            @test isnothing(ctl.owner_task)
+            @test length(c.figures)==1
+
+            # A real disposal request immediately revokes availability, before
+            # the scheduled cleanup can run. Do not yield or query status here.
+            BAT.dispose_visualizer!(vis)
+            @test view.cleanup_pending[]
+            @test !isempty(fig.content)
+            @test BAT.visualizer_figure(vis)===nothing
+            @test ctl.outcome===:complete && ctl.data_complete
+            waitfor(() -> BAT.visualizer_status(vis).view_disposed &&
+                !BAT.visualizer_status(vis).cleanup_pending)
+            # Cleanup empties the borrowed object, rather than a separate copy.
+            @test isempty(fig.content)
+            @test BAT.visualizer_figure(vis)===nothing
+            BAT.dispose_visualizer!(vis)
+            @test BAT.visualizer_figure(vis)===nothing
+        end
+    finally
+        isnothing(observer) || Makie.off(observer)
+        cleanup(vis)
+    end
+end
+
 const CASES=Dict("healthy"=>healthy,"callback"=>(() -> computational_failure(:callback)),
     "convergence"=>(() -> computational_failure(:convergence)),"sampler"=>(() -> computational_failure(:sampler)),
     "producer"=>producer,"snapshot"=>(() -> producer(snapshot_failure=true)),
     "listener"=>listener,"timeout"=>timeout_case,
     "transform"=>transform_failure,"publication"=>publication,"stop_publication"=>stop_publication,
-    "startup"=>startup,"view"=>view_case)
+    "startup"=>startup,"view"=>view_case,"figure"=>figure_case)
 case=get(ENV,"BAT_MAKIE_LIFECYCLE_CASE","")
 haskey(CASES,case) || error("Run this file through test/optional/makie/runtests.jl")
 @testset "Makie lifecycle: $case" begin

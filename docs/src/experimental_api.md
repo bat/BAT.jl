@@ -63,6 +63,7 @@ BAT.BATVisBackend
 BATMakieRecipe
 BATMakieVisualization
 BATVisualizer
+BAT.visualizer_figure
 BAT.visualizer_status
 BAT.dispose_visualizer!
 ChainScatter2D
@@ -130,6 +131,36 @@ To release a retained figure, call `BAT.dispose_visualizer!(vis)` on the thread
 that created it. This operation requests disposal without joining active view
 callbacks; inspect `BAT.visualizer_status(vis).cleanup_pending` if needed.
 Live GLMakie initialization must run on Julia's main thread.
+
+Keep the original visualizer to retrieve its completed figure:
+
+```julia
+vis = BATVisualizer(BATMakieVisualization())
+context = BATContext(visualizer=vis)
+result = bat_sample(target, algorithm, context)
+fig = BAT.visualizer_figure(vis);
+if !isnothing(fig)
+    save("live-samples.png", fig)
+end
+```
+
+The getter returns the same retained `Makie.Figure` once observation has completed
+successfully and its tasks have settled. It returns `nothing` during sampling,
+inside view callbacks, while the view is busy, or when no usable completed figure
+remains. It does not wait, create a view, display or render. Obtain and use the
+figure on the thread that created the session; a wrong-thread query raises
+`ArgumentError` when the session can be inspected. Control-lock contention
+returns `nothing` without waiting.
+
+This is a borrowed reference. Coordinate saving or customization with view
+callbacks and disposal; a later close or `BAT.dispose_visualizer!(vis)` can empty
+the same figure. Retrieval does not transfer ownership or protect subsequent
+operations. A deep-copied visualizer, including the sampling result's provenance
+context, has no live resources and returns `nothing`. The figure retains the
+existing live observation population, which can include initialization and
+burn-in; it is not a reconstructed plot of the returned posterior samples.
+Availability follows the current completion and view state; an older diagnostic
+alone does not prevent retrieval. Use `BAT.visualizer_status(vis)` to inspect it.
 
 After successful startup, a failure in observation or rendering disables further
 observation without changing fixed-work samples, computational RNG states, or

@@ -27,6 +27,46 @@ function _live_view(vis)
     end
 end
 
+# A completed figure is borrowed, never detached from its session. This query
+# must not create a view or turn ordinary caller misuse into an observer failure.
+function BAT.visualizer_figure(vis::BATVisualizer{BATMakieVisualization})
+    isnothing(vis.content) && return nothing
+    control_lock = vis.content.buffer_lock
+    trylock(control_lock) || return nothing
+    view = try
+        life = vis.content.lifecycle
+        life.owner_thread in (0, Threads.threadid()) ||
+            throw(ArgumentError("Retrieve a live figure on its owning thread"))
+        life.view
+    finally
+        unlock(control_lock)
+    end
+    isnothing(view) && return nothing
+
+    # Never wait for a view while holding the transport guard. Revalidate state
+    # after acquiring both guards in the same order as normal view operations.
+    trylock(view.lock) || return nothing
+    try
+        trylock(control_lock) || return nothing
+        try
+            life = vis.content.lifecycle
+            life.view === view || return nothing
+            (life.outcome === :complete && life.data_complete) || return nothing
+            (view.disposed[] || view.cleanup_pending[] || view.cleanup_running[] ||
+                !view.presentation_valid[]) && return nothing
+            # Reentrant locks alone cannot exclude a query from a view callback.
+            (view.depth != 0 || view.updating || !isempty(view.pending)) && return nothing
+            _live_quiesced_locked!(vis) || return nothing
+            isnothing(life.disposal_task) || return nothing
+            return view.figure
+        finally
+            unlock(control_lock)
+        end
+    finally
+        unlock(view.lock)
+    end
+end
+
 function _live_view_admitted_locked(vis, view, publication)
     (view.disposed[] || view.cleanup_pending[] || !view.presentation_valid[]) && return false
     life = vis.content.lifecycle

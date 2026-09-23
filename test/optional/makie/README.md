@@ -37,3 +37,7 @@ The `domain` case checks live bounds against analytic and pre-change oracles,
 including native finite filtering and warmed allocation growth with fixed walker
 topology. `domain_publication` checks those bounds through real ingestion and
 flushes, including replacement of pending extremes and prior-generation ownership.
+
+The `lifecycle_figure` case checks completed live figure retrieval through public
+sampling, saving and controls, plus owning-thread checks, nonwaiting guards,
+callback reentrancy, actual disposal, and focused lifecycle boundary fixtures.

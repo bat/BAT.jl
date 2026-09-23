@@ -90,6 +90,30 @@ pending cleanup while an already admitted view operation is still running.
 dispose_visualizer!(::BATVisualizer) = nothing
 
 """
+    BAT.visualizer_figure(vis::BATVisualizer)
+
+*Experimental, non-exported API.* Return the retained figure of a successfully
+completed visualization, or `nothing` when unavailable. Backends without a
+retained figure, including the no-op backend, return `nothing`.
+
+For Makie, observation must be complete and its tasks settled, with a valid idle
+view and no pending disposal. Active, failed, disposed or busy sessions return
+`nothing`, as do calls reentered from view callbacks. This query neither waits
+for completion nor constructs, displays or renders a figure.
+
+Call on the thread that created the live view. A different thread raises
+`ArgumentError` when the session can be inspected; contention on its control
+guard takes precedence and returns `nothing` without waiting.
+
+The result is a borrowed mutable figure, not a copy or ownership transfer.
+Coordinate subsequent Makie operations with callbacks and disposal on the owning
+thread. Later closing or `dispose_visualizer!` can empty that same figure; the
+query does not protect its later use. Inspect [`visualizer_status`](@ref) for
+lifecycle state and diagnostics.
+"""
+visualizer_figure(::BATVisualizer) = nothing
+
+"""
     BAT.visualizer_status(vis::BATVisualizer)
 
 *Experimental, non-exported API.* Return a read-only lifecycle snapshot without
