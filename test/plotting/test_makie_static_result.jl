@@ -59,14 +59,13 @@ end
     inline_before = Makie.ALWAYS_INLINE_PLOTS[]
     backend_before = Makie.current_backend()
     suppression_before = EXT._SUPPRESS_DISPLAY[]
-    stash_before = EXT._SUPPRESSED_FIG[]
     ambient = Theme(fontsize=37, Axis=(xticklabelsize=31,))
     Makie.inline!(true)
     pushdisplay(capture)
     try
         # First call in this fresh subprocess: the false branch must not warm
-        # shaders, explicitly display, or use the live precompile capture slot.
-        @test !EXT._SHADERS_WARMED[]
+        # shaders, explicitly display, or change the display gate.
+        @test isempty(EXT._WARMED_BACKENDS)
         deferred = with_theme(ambient) do
             fig = bat_makie_plot(samples, RECIPES, [2], 1; dark=true, display=false)
             push!(owned, fig)
@@ -76,9 +75,8 @@ end
             fig
         end
         @test isempty(capture.figures)
-        @test !EXT._SHADERS_WARMED[]
+        @test isempty(EXT._WARMED_BACKENDS)
         @test EXT._SUPPRESS_DISPLAY[] === suppression_before
-        @test EXT._SUPPRESSED_FIG[] === stash_before
         @test Makie.current_backend() === backend_before
         @test Makie.ALWAYS_INLINE_PLOTS[]
         @test only(figure_axes(deferred)).xticklabelsize[] == 10
@@ -106,6 +104,7 @@ end
             @test Makie.theme(:Axis)[:xticklabelsize][] == 31
             fig
         end
+        @test backend_before in EXT._WARMED_BACKENDS
         @test displayed isa Figure
         @test length(capture.figures) == 1
         @test only(capture.figures) === displayed

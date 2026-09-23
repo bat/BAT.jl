@@ -10,7 +10,7 @@ const CASES = [
     "lifecycle_sampler", "lifecycle_producer", "lifecycle_snapshot", "lifecycle_listener",
     "lifecycle_timeout", "lifecycle_transform", "lifecycle_publication", "lifecycle_stop_publication", "lifecycle_startup",
     "lifecycle_view", "lifecycle_figure", "lifecycle_grid", "core", "buffering", "dwell", "rng", "windows",
-    "static_result", "precompile_workload", "precompile_failure",
+    "static_result", "precompile_workload", "precompile_failure", "warmup",
     "domain", "domain_publication", "view_state",
 ]
 const ROOT = normpath(joinpath(@__DIR__, "../../.."))

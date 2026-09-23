@@ -33,6 +33,12 @@ independent figures, and scoped themes. `precompile_workload` and
 success and injected failure. These cases also run in separate bounded processes.
 The precompile cases add narrow test-only methods at real workload boundaries;
 keep them isolated rather than including them in a shared test process.
+They verify real Apply/All graph updates and reject swallowed live-widget
+failures. `warmup` checks renderer bookkeeping, retries and temporary-Figure
+cleanup with Cairo rendering and a second synthetic renderer identity.
+`gl_warmup.jl` supplies the native Cairo → GL → Cairo check, including survival
+of an unrelated GL window. Like `gl_smoke.jl`, run it separately with an external
+deadline and a working display; it is not part of headless CI.
 
 The `domain` case checks live bounds against analytic and pre-change oracles,
 including native finite filtering and warmed allocation growth with fixed walker

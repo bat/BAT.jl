@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# Precompile workload: drives the real user entry points. Capture the live figure
-# through the display gate; static calls return their figures with display=false.
+# Precompile workload: drives the real user entry points. Obtain the completed
+# live Figure through its accessor; static calls return theirs with display=false.
 # The live leg warms the ElasticMatrix sample flavor (vs static Matrix-backed);
 # GLMakie's render-stack compilation needs GLMakie loaded and is not covered here.
 
@@ -40,15 +40,20 @@ function _drive_figure_widgets!(fig)
     # Warms the relayout solve against a genuine geometry change.
     resize!(fig, 500, 650)
 
-    # Warm the draft range control; applying a data window is a separate action.
-    for isl in filter(x -> x isa IntervalSlider, fig.content)
-        r = isl.range[]
-        isl.interval[] = (max(first(r), fld(last(r), 4)), max(first(r), fld(last(r), 2)))
-    end
+    # Draft changes alone do not exercise window computation. Require the
+    # expected controls and drive Apply/All on both live and static data.
+    slider = only(filter(x -> x isa IntervalSlider, fig.content))
+    r = slider.range[]
+    slider.interval[] = (max(first(r), fld(last(r), 4)), max(first(r), fld(last(r), 2)))
+    apply = only(filter(x -> x isa Button && x.label[] == "Apply", fig.content))
+    all_button = only(filter(x -> x isa Button && x.label[] == "All", fig.content))
+    notify(apply.clicks)
+    notify(all_button.clicks)
     return nothing
 end
 
 function _makie_precompile_workload()
+    suppress_display = _SUPPRESS_DISPLAY[]
     _SUPPRESS_DISPLAY[] = true
     vis = nothing
     static_fig = nothing
@@ -62,7 +67,8 @@ function _makie_precompile_workload()
         vis = BATVisualizer(BATMakieVisualization(max_buffered=10^6))
         res = bat_sample(objective, TransformedMCMC(nsteps=200, nchains=2), BATContext(visualizer=vis))
         samples = res.result
-        live_fig = _SUPPRESSED_FIG[]
+        live_fig = BAT.visualizer_figure(vis)
+        isnothing(live_fig) && error("Makie precompile workload: completed live Figure is unavailable")
 
         # Widget sweep against the LIVE (ElasticMatrix-backed) data flavor.
         _drive_figure_widgets!(live_fig)
@@ -76,6 +82,10 @@ function _makie_precompile_workload()
             _live_graph_update!(vis; upper_recipe=recipe_2d)
         end
         _live_graph_update!(vis; support_lo=Float64[], support_hi=Float64[])
+        # Live callbacks isolate presentation failures from sampling. Such a
+        # failure must not silently count as successful precompile coverage.
+        BAT.visualizer_figure(vis) === live_fig ||
+            error("Makie precompile workload: live Figure became unavailable during updates")
 
         # ---- Static legs: the real entry points -------------------------
         static_fig = bat_makie_plot(samples; display=false)
@@ -123,9 +133,7 @@ function _makie_precompile_workload()
                 BAT._safe_finish_visualizer!(vis; success=false)
             end
         finally
-            # A Figure left in the stash would enter the package image.
-            _SUPPRESS_DISPLAY[] = false
-            _SUPPRESSED_FIG[] = nothing
+            _SUPPRESS_DISPLAY[] = suppress_display
         end
     end
     return nothing

@@ -52,6 +52,12 @@ import BAT: bat_makie_plot, bat_theme, bat_theme_dark
 
 include("./makie_impl/makie_plotting.jl")
 
+function __init__()
+    # Compile-time rendering does not warm resources in the loading process.
+    empty!(_WARMED_BACKENDS)
+    return nothing
+end
+
 # See makie_impl/makie_precompile.jl for what this covers and why (in short:
 # every recipe's real compute/compose/SpecApi-reconciliation code path, so
 # switching to it interactively for the first time doesn't pay that

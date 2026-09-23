@@ -41,27 +41,23 @@ struct PickerInfo
     apply_vsel!::Function
 end
 
-# The precompile workload captures the live figure through this display gate.
-# Its static legs use returned figures with display=false; both refs are reset.
+# The precompile workload suppresses display without retaining any Figure here.
 const _SUPPRESS_DISPLAY = Ref(false)
-const _SUPPRESSED_FIG = Ref{Any}(nothing)
 
 function _maybe_display(fig)
-    if _SUPPRESS_DISPLAY[]
-        _SUPPRESSED_FIG[] = fig
-    else
-        display(fig)
-    end
+    _SUPPRESS_DISPLAY[] || display(fig)
     return nothing
 end
 
-# Latches once per session on the first successful warmup; a missing backend skips gracefully without latching, so a later call after loading still warms.
-const _SHADERS_WARMED = Ref(false)
+# Successful warmup per renderer module, reset at runtime by __init__. This is
+# not a cache of individual screens/GL contexts or their shader resources.
+const _WARMED_BACKENDS = Set{Module}()
 
 function warmup_makie_shaders()
-    _SHADERS_WARMED[] && return nothing
-    ismissing(Makie.current_backend()) && return nothing
-    @info "Warming up Makie shaders"
+    backend = Makie.current_backend()
+    ismissing(backend) && return nothing
+    backend in _WARMED_BACKENDS && return nothing
+    @info "Warming up Makie renderer" backend
     fig = Figure()
     try
         ax = Axis(fig[1, 1])
@@ -81,12 +77,16 @@ function warmup_makie_shaders()
         hexbin!(ax, [0.0], [0.0]; bins=2)
         poly!(ax, Point2f[(0, 0), (1, 0), (0, 1)])
 
-        Makie.colorbuffer(fig)
-        _SHADERS_WARMED[] = true
+        Makie.colorbuffer(fig; backend=backend)
+        push!(_WARMED_BACKENDS, backend)
     finally
         # This temporary figure never becomes the live session's view.
         try
             _close_owned_live_screens!(fig)
+        catch err
+            BAT._visualizer_cleanup_diagnostic(:shader_warmup, (err, catch_backtrace()))
+        end
+        try
             empty!(fig)
         catch err
             BAT._visualizer_cleanup_diagnostic(:shader_warmup, (err, catch_backtrace()))

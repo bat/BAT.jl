@@ -9,11 +9,26 @@ const LIVE = Ref{Any}(nothing)
 const DISPLAYED = Makie.Figure[]
 const RETURNED = Makie.Figure[]
 const DRIVEN = Makie.Figure[]
-const CAPTURE_AT_RETURN = Any[]
+const LIVE_AT_RETURN = Any[]
 const STATIC_OPTIONS = NamedTuple[]
 const CONTENT_AT_RETURN = Int[]
 const DARK_MENU_CHANGES = Ref(0)
 const CONVERSIONS = Ref(0)
+const WINDOW_REQUESTS = Any[]
+const WINDOW_CHANGES = Any[]
+const WINDOW_HANDLES = IdDict{Any,Any}()
+
+function EXT._apply_sample_window!(graph::EXT.ComputeGraph, window; live_vis=nothing)
+    live = !isnothing(live_vis)
+    if !haskey(WINDOW_HANDLES, graph)
+        @test isnothing(graph[:window_steps][])
+        WINDOW_HANDLES[graph] = Makie.on(graph[:window_steps]) do value
+            push!(WINDOW_CHANGES, (live, value))
+        end
+    end
+    push!(WINDOW_REQUESTS, (live, window))
+    return invoke(EXT._apply_sample_window!, Tuple{Any,Any}, graph, window; live_vis=live_vis)
+end
 
 function EXT._attach_live_view!(vis::BAT.BATVisualizer, fig::Makie.Figure)
     LIVE[] = vis
@@ -30,7 +45,7 @@ end
 function BAT.bat_makie_plot(samples::BAT.DensitySampleVector{<:NamedTuple}; kwargs...)
     fig = invoke(BAT.bat_makie_plot, Tuple{BAT.DensitySampleVector}, samples; kwargs...)
     push!(RETURNED, fig)
-    push!(CAPTURE_AT_RETURN, EXT._SUPPRESSED_FIG[])
+    push!(LIVE_AT_RETURN, BAT.visualizer_figure(LIVE[]))
     push!(STATIC_OPTIONS, (; kwargs...))
     push!(CONTENT_AT_RETURN, length(fig.content))
     if get(kwargs, :dark, false)
@@ -62,7 +77,15 @@ end
     @test all(fig -> fig !== only(DISPLAYED), RETURNED)
     @test DRIVEN[1] === only(DISPLAYED)
     @test DRIVEN[2] === RETURNED[1]
-    @test all(fig -> fig === only(DISPLAYED), CAPTURE_AT_RETURN)
+    @test all(fig -> fig === only(DISPLAYED), LIVE_AT_RETURN)
+    # Observe actual graph publications, including the deferred live updates.
+    @test length(WINDOW_REQUESTS) == 4
+    @test WINDOW_CHANGES == WINDOW_REQUESTS
+    @test first.(WINDOW_REQUESTS) == [true, true, false, false]
+    @test all(i -> WINDOW_REQUESTS[i][2] isa Tuple{Int64,Int64}, (1, 3))
+    @test all(i -> isnothing(WINDOW_REQUESTS[i][2]), (2, 4))
+    @test all(graph -> isnothing(graph[:window_steps][]), keys(WINDOW_HANDLES))
+    foreach(Makie.off, values(WINDOW_HANDLES))
     @test DARK_MENU_CHANGES[] > 0
     @test CONVERSIONS[] == 1
     @test all(fig -> isempty(fig.content), RETURNED)
@@ -73,6 +96,6 @@ end
     @test !status.cleanup_pending
     @test isempty(only(DISPLAYED).content)
     @test EXT._SUPPRESS_DISPLAY[] === false
-    @test EXT._SUPPRESSED_FIG[] === nothing
+    @test BAT.visualizer_figure(LIVE[]) === nothing
 end
 end

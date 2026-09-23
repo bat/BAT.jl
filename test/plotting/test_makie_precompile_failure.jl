@@ -6,11 +6,13 @@ module TestMakiePrecompileFailure
 using BAT, Makie, Test, Logging
 const EXT = Base.get_extension(BAT, :BATMakieExt)
 const OBS = Makie.Observables
+const LIVE_WIDGET_FAULT = Ref(false)
+const WIDGET_FAILURE = ErrorException("intentional live widget failure")
 const PRIMARY = ErrorException("intentional later precompile workload failure")
 const CLEANUP = ErrorException("intentional static observer cleanup failure")
 const LIVE = Ref{Any}(nothing)
 const RETURNED = Makie.Figure[]
-const CAPTURE_AT_RETURN = Any[]
+const LIVE_AT_RETURN = Any[]
 const INJECT_CLEANUP = Ref(false)
 const CLEANUP_ATTEMPTS = Ref(0)
 const CONVERSION_REACHED = Ref(false)
@@ -43,10 +45,19 @@ function EXT._attach_live_view!(vis::BAT.BATVisualizer, fig::Makie.Figure)
     LIVE[] = vis
     return invoke(EXT._attach_live_view!, Tuple{Any,Any}, vis, fig)
 end
+function EXT._drive_figure_widgets!(fig::Makie.Figure)
+    if LIVE_WIDGET_FAULT[]
+        slider = only(filter(x -> x isa Makie.IntervalSlider, fig.content))
+        EXT._view_on(LIVE[], slider.interval) do _
+            throw(WIDGET_FAILURE)
+        end
+    end
+    return invoke(EXT._drive_figure_widgets!, Tuple{Any}, fig)
+end
 function BAT.bat_makie_plot(samples::BAT.DensitySampleVector{<:NamedTuple}; kwargs...)
     fig = invoke(BAT.bat_makie_plot, Tuple{BAT.DensitySampleVector}, samples; kwargs...)
     push!(RETURNED, fig)
-    push!(CAPTURE_AT_RETURN, EXT._SUPPRESSED_FIG[])
+    push!(LIVE_AT_RETURN, BAT.visualizer_figure(LIVE[]))
     if INJECT_CLEANUP[] && length(RETURNED) == 1
         handle = Makie.on(CleanupFault(), Makie.Observable(0))
         push!(fig.scene.deregister_callbacks, handle)
@@ -63,9 +74,10 @@ end
     for cleanup_fault in (false, true)
         @testset "cleanup fault = $cleanup_fault" begin
             empty!(RETURNED)
-            empty!(CAPTURE_AT_RETURN)
+            empty!(LIVE_AT_RETURN)
             INJECT_CLEANUP[] = cleanup_fault
             CONVERSION_REACHED[] = false
+            EXT._SUPPRESS_DISPLAY[] = cleanup_fault
             caught = try
                 Logging.with_logger(BrokenCleanupLogger()) do
                     EXT._makie_precompile_workload()
@@ -78,8 +90,8 @@ end
             @test CONVERSION_REACHED[]
             @test length(RETURNED) == 2
             @test RETURNED[1] !== RETURNED[2]
-            @test CAPTURE_AT_RETURN[1] === CAPTURE_AT_RETURN[2]
-            @test all(fig -> fig !== CAPTURE_AT_RETURN[1], RETURNED)
+            @test LIVE_AT_RETURN[1] === LIVE_AT_RETURN[2]
+            @test all(fig -> fig !== LIVE_AT_RETURN[1], RETURNED)
             @test isempty(RETURNED[2].content)
             if cleanup_fault
                 @test CLEANUP_ATTEMPTS[] == 1
@@ -93,13 +105,36 @@ end
             @test status.view_disposed
             @test status.quiesced
             @test !status.cleanup_pending
-            @test isempty(CAPTURE_AT_RETURN[1].content)
-            @test EXT._SUPPRESS_DISPLAY[] === false
-            @test EXT._SUPPRESSED_FIG[] === nothing
+            @test isempty(LIVE_AT_RETURN[1].content)
+            @test EXT._SUPPRESS_DISPLAY[] === cleanup_fault
+            @test BAT.visualizer_figure(LIVE[]) === nothing
             # A cleanup attempt that throws does not promise full destruction.
             # Release anything the deliberately broken observer left behind.
             foreach(empty!, RETURNED)
+            EXT._SUPPRESS_DISPLAY[] = false
         end
     end
+end
+
+@testset "Guarded live widget failure cannot pass precompile coverage" begin
+    empty!(RETURNED)
+    CONVERSION_REACHED[] = false
+    LIVE_WIDGET_FAULT[] = true
+    caught = try
+        EXT._makie_precompile_workload()
+        nothing
+    catch err
+        err
+    end
+    @test caught isa ErrorException
+    @test occursin("live Figure became unavailable", sprint(showerror, caught))
+    @test isempty(RETURNED)
+    @test !CONVERSION_REACHED[]
+    status = BAT.visualizer_status(LIVE[])
+    @test status.view_disposed
+    @test status.quiesced
+    @test !status.cleanup_pending
+    @test isnothing(BAT.visualizer_figure(LIVE[]))
+    @test EXT._SUPPRESS_DISPLAY[] === false
 end
 end
