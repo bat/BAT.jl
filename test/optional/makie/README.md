@@ -32,3 +32,8 @@ independent figures, and scoped themes. `precompile_workload` and
 success and injected failure. These cases also run in separate bounded processes.
 The precompile cases add narrow test-only methods at real workload boundaries;
 keep them isolated rather than including them in a shared test process.
+
+The `domain` case checks live bounds against analytic and pre-change oracles,
+including native finite filtering and warmed allocation growth with fixed walker
+topology. `domain_publication` checks those bounds through real ingestion and
+flushes, including replacement of pending extremes and prior-generation ownership.

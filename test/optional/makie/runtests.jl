@@ -11,6 +11,7 @@ const CASES = [
     "lifecycle_timeout", "lifecycle_transform", "lifecycle_publication", "lifecycle_stop_publication", "lifecycle_startup",
     "lifecycle_view", "core", "buffering", "dwell", "rng", "windows",
     "static_result", "precompile_workload", "precompile_failure",
+    "domain", "domain_publication",
 ]
 const ROOT = normpath(joinpath(@__DIR__, "../../.."))
 

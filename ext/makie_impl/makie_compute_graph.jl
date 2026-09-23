@@ -140,26 +140,30 @@ function _domain_from_samples(data::AbstractMatrix, n_dof::Integer)
     return lo, hi
 end
 
-# Domain recomputed from scratch over all samples (non-finite filtered), unioned
-# with the fixed prior estimate so it only ever grows over a run. Deliberately
-# PURE (no graph access): the caller folds it into one batched update!.
-function _domain_including(all_samples, prior_lo::Vector{Float64}, prior_hi::Vector{Float64})
-    data = all_samples.v.data
-    new_lo = similar(prior_lo)
-    new_hi = similar(prior_hi)
-    for d in eachindex(prior_lo)
+# Scan each owned walker matrix without materializing the whole history. Start
+# from the fixed prior each time: replacing pending samples can remove extrema.
+# No graph access; the caller publishes these fresh bounds with the same samples.
+function _domain_including(walkers, prior_lo::Vector{Float64}, prior_hi::Vector{Float64})
+    lo, hi = copy(prior_lo), copy(prior_hi)
+    for samples in walkers
+        isempty(samples) && continue
+        _include_finite_domain!(lo, hi, samples.v.data)
+    end
+    return lo, hi
+end
+
+# Function barrier for the type-erased walker containers in live publication.
+function _include_finite_domain!(lo::Vector{Float64}, hi::Vector{Float64}, data::AbstractMatrix)
+    for d in eachindex(lo)
         row = view(data, d, :)
         finite_row = Iterators.filter(isfinite, row)
-        if isempty(finite_row)
-            new_lo[d] = prior_lo[d]
-            new_hi[d] = prior_hi[d]
-        else
-            lo, hi = extrema(finite_row)
-            new_lo[d] = min(lo, prior_lo[d])
-            new_hi[d] = max(hi, prior_hi[d])
+        if !isempty(finite_row)
+            sample_lo, sample_hi = extrema(finite_row)
+            lo[d] = min(sample_lo, lo[d])
+            hi[d] = max(sample_hi, hi[d])
         end
     end
-    return new_lo, new_hi
+    return nothing
 end
 
 

@@ -226,9 +226,7 @@ function _flush_live_buffer!(vis, mcmc_states, f_pretransform, history, domain_l
         _append_timed_chains(mcmc_states[1], committed.samples, pending, committed.timing, batch.pending_time) :
         (committed.samples, committed.timing)
     current_idxs = [length.(chain) for chain in samples]
-    all_samples = vcat((walker for chain in samples for walker in chain)...)
-    lo, hi = isempty(all_samples) ? (copy(domain_lo), copy(domain_hi)) :
-        _domain_including(all_samples, domain_lo, domain_hi)
+    lo, hi = _domain_including(Iterators.flatten(samples), domain_lo, domain_hi)
     _publish_live_frame!(vis, (samples=samples,
         sample_timing=vis.content.step_mode[] ? timing : nothing,
         current_idxs=current_idxs, domain_lo=lo, domain_hi=hi))
