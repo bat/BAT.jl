@@ -42,8 +42,8 @@ $(TYPEDFIELDS)
     maxcomponents::Int = typemax(Int)
     "Maximum target calls, excluding geometry. No additional call limit by default."
     maxevals::Int = typemax(Int)
-    "Number of candidate centers added per round."
-    ncandidates::Int = Threads.nthreads()
+    "Number of candidate centers added per round, independent of the thread count."
+    ncandidates::Int = 14
     "Optional prior coefficient added after fitting. Zero leaves the fitted proposal unchanged."
     exploration_mass::Float64 = 0.0
     executor::E = default_executor()
@@ -198,6 +198,67 @@ function _mw_gaussian_logpdf(d, x, logweights, constants)
     return result
 end
 
+# Pool entries of the per-component log-density cache. Above this, scoring recomputes
+# all component densities each round.
+const _MW_SCORE_CACHE_LIMIT = 2^24
+
+function _mw_logpdf_column(component, x)
+    delta = x .- mean(component)
+    lmul!(cholesky(component.J).U, delta)
+    return Distributions.mvnormal_c0(component) .- vec(sum(abs2, delta, dims = 1)) ./ 2
+end
+
+# Rounds change every mass but no existing component density, so only new pool
+# points and new components need whitening.
+function _mw_extend_scores(cache, components, points, executor)
+    n, k = size(cache)
+    N, K = size(points, 2), length(components)
+    grown = similar(cache, N, K)
+    grown[1:n, 1:k] = cache
+    columns = Vector{Vector{eltype(cache)}}(undef, K)
+    rows = view(points, :, n+1:N)
+    exec_map!(j -> _mw_logpdf_column(components[j], j <= k ? rows : points), executor, columns, collect(1:K))
+    for j in 1:K
+        j <= k ? (grown[n+1:N, j] = columns[j]) : (grown[:, j] = columns[j])
+    end
+    return grown
+end
+
+function _mw_cached_logpdf_rows(cache, logmass, r)
+    T = eltype(cache)
+    maxima = fill(T(-Inf), length(r))
+    @inbounds for k in eachindex(logmass)
+        lm, column = logmass[k], view(cache, r, k)
+        @simd for j in eachindex(maxima)
+            maxima[j] = max(maxima[j], column[j] + lm)
+        end
+    end
+    sums = zeros(T, length(r))
+    @inbounds for k in eachindex(logmass)
+        lm, column = logmass[k], view(cache, r, k)
+        isfinite(lm) || continue
+        @simd for j in eachindex(sums)
+            sums[j] += exp(column[j] + lm - maxima[j])
+        end
+    end
+    return log.(sums) .+ maxima
+end
+
+function _mw_pool_logpdf(q, components, points, cache, executor, limit = _MW_SCORE_CACHE_LIMIT)
+    if size(points, 2) * length(components) > limit
+        return _mw_batched_logpdf(q, points, executor), similar(cache, 0, 0)
+    end
+    cache = _mw_extend_scores(cache, components, points, executor)
+    n = size(cache, 1)
+    ntasks = executor isa MultiThreadedExec ? executor.ntasks : 1
+    width = cld(n, max(1, min(ntasks, n ÷ 256)))
+    ranges = [i:min(i + width - 1, n) for i in 1:width:n]
+    blocks = Vector{Vector{eltype(cache)}}(undef, length(ranges))
+    logmass = log.(probs(q))
+    exec_map!(r -> _mw_cached_logpdf_rows(cache, logmass, r), executor, blocks, ranges)
+    return reduce(vcat, blocks), cache
+end
+
 struct MolewhackerBudgetReached <: Exception end
 
 function _mw_with_budget(f, logtarget, remaining)
@@ -220,7 +281,8 @@ end
 function _mw_mode(center, logtarget, mode, remaining, context)
     isnothing(mode) && return center, 0, false
     result, ncalls, exhausted = _mw_with_budget(logtarget, remaining) do counted
-        collect(maximize_density(counted, center, mode, context).result)
+        # Optimizer results do not infer. The assertion keeps later seed work concrete.
+        convert(typeof(center), maximize_density(counted, center, mode, context).result)::typeof(center)
     end
     return exhausted ? center : result, ncalls, exhausted
 end
@@ -327,7 +389,7 @@ function _mw_initial_proposal(transformed_m, f, model, logtarget, gprior, alg, f
             # Preserve center-density and discovery calls after the parallel searches.
             mode_budget = fit_budget - alg.nseeds - (alg.maxiter > 0 ? alg.batchsize : 0)
             share, extra = divrem(mode_budget, alg.nseeds)
-            contexts = [set_rng(context, Philox4x((rand(get_rng(context), UInt64), UInt64(i)))) for i in 1:alg.nseeds]
+            contexts = [set_rng(context, Philox4x((rand(get_rng(context), UInt64), UInt64(i)))::Philox4x{UInt64,10}) for i in 1:alg.nseeds]
             search = i -> _mw_mode(starts[i], logtarget, deepcopy(alg.init_mode), share + (i <= extra), contexts[i])
             exec_map!(search, alg.executor, results, collect(1:alg.nseeds))
         end
@@ -449,6 +511,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
         # Zero marks unvisited points; -1 marks failed geometry. Positive entries
         # identify stored Gaussians, so reselection needs no equality search.
         component_index = zeros(Int, npilot)
+        score_cache = Matrix{T}(undef, 0, 0)
         iteration, adapting = 0, true
         while true
             iteration += 1
@@ -468,7 +531,8 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
                 append!(component_index, zeros(Int, alg.batchsize))
                 npilot = length(logp)
             end
-            scores = logp .- _mw_batched_logpdf(q, points, alg.executor)
+            logq, score_cache = _mw_pool_logpdf(q, components, points, score_cache, alg.executor)
+            scores = logp .- logq
             reason = if !isfinite(maximum(scores))
                 :no_finite_candidate
             elseif !adapting
@@ -535,7 +599,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
             npilot = length(logp)
             push!(history, (; iteration, fresh = !adapting, npilot, drawn, ncomponents = length(q.components), ncomponent_proposals))
         end
-        scores = logp .- _mw_batched_logpdf(q, points, alg.executor)
+        scores = logp .- first(_mw_pool_logpdf(q, components, points, score_cache, alg.executor))
         pilot_ess = isfinite(maximum(scores)) ? _mw_efficiency(scores).ess : zero(T)
     elseif alg.maxiter > 0
         stop_reason = :maxevals

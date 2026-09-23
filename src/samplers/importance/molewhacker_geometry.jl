@@ -146,7 +146,8 @@ function _mw_local_precision(f, x::AbstractVector{T}, ad, nblocks = 1) where T
         d = f(x)
         # Share one model Jacobian across product leaves, then add the prior.
         J = _mw_jacobian(_mw_parameters ∘ f, x, ad, nblocks)
-        G = Matrix{T}(_mw_pullback(d, J))
+        # The Jacobian type depends on the run-time chunk, so assert the Gram matrix type.
+        G = Matrix{T}(_mw_pullback(d, J))::Matrix{T}
         all(isfinite, G) || throw(MolewhackerGeometryError())
         P = Matrix(Symmetric(G)) + I
         return PDMat(P, cholesky(Symmetric(P)))

@@ -144,6 +144,23 @@ import ForwardDiff, Optim, OptimizationLBFGSB
         @test BAT.samplesof(a).logd ≈ logdensityof.(Ref(BAT.unevaluated(a)), BAT.samplesof(a).v)
     end
 
+    @testset "Cached pool scoring" begin
+        # A second round adds points and components. The cache matches full scoring,
+        # and a zero limit takes the uncached path.
+        rng = StableRNG(3)
+        comps = [BAT._mw_gaussian(randn(rng, 4), let A = randn(rng, 4, 4); A'A / 4 + I end) for _ in 1:12]
+        x1, x = randn(rng, 4, 50), randn(rng, 4, 80)
+        x[:, 1:50] = x1
+        w = rand(rng, 12)
+        w[3] = 0
+        q1, q2 = MixtureModel(comps[1:7], w[1:7] ./ sum(w[1:7])), MixtureModel(comps, w ./ sum(w))
+        ex = BAT.MultiThreadedExec(ntasks = 2)
+        l1, cache = BAT._mw_pool_logpdf(q1, comps[1:7], x1, zeros(0, 0), ex)
+        l2, cache = BAT._mw_pool_logpdf(q2, comps, x, cache, ex)
+        @test l1 ≈ BAT._mw_batched_logpdf(q1, x1) && l2 ≈ BAT._mw_batched_logpdf(q2, x) && size(cache) == (80, 12)
+        @test first(BAT._mw_pool_logpdf(q2, comps, x, cache, ex, 0)) ≈ l2
+    end
+
     @testset "Bounded target concurrency" begin
         workers, guard = Set{Task}(), ReentrantLock()
         function model(z)

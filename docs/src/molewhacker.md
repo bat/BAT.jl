@@ -83,9 +83,9 @@ retain their usual finite-sample bias.
   remainder calls assigned in seed order. Each search owns its optimizer copy
   and RNG. A search that exhausts its share supplies no Gaussian. Unused calls
   remain available for adaptation.
-- `ncandidates` sets the number of centers selected per round. It defaults to
-  the Julia thread count. Geometry calculations use the selected `executor`.
-  Set `ncandidates` explicitly when comparing different thread counts.
+- `ncandidates` sets the number of centers selected per round. It defaults to 14,
+  independent of the thread count, so results do not depend on the machine.
+  Geometry calculations use the selected `executor`.
 - `executor = BAT.MultiThreadedExec(ntasks = 14)` limits concurrent BAT work to
   fourteen tasks, including target evaluation, geometry, and mixture scoring.
   The default `MultiThreadedExec()` uses `Threads.nthreads()` tasks. This setting
