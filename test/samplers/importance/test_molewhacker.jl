@@ -52,7 +52,7 @@ import ForwardDiff, Optim, OptimizationLBFGSB
         model = z -> MvNormal([2z[1], 2z[1]], [4.0 2tanh(z[1]); 2tanh(z[1]) 1.0])
         p = PosteriorMeasure(Likelihood(model, [0.0, 0.0]), prior)
         seeds = [[c]]
-        alg = MolewhackerSampling(nsamples = 32, maxiter = 0, nseeds = 1, init_mode = nothing, init = ExplicitInit(seeds))
+        alg = MolewhackerSampling(nsamples = 32, maxiter = 0, nseeds = 1, init_mode = nothing, init = ExplicitInit(seeds), laplace_seeds = false)
         em = evalmeasure(p, alg, context())
         q = Distribution(em.approx.transformed)
         @test cov(last(q.components))[1, 1] ≈ 4 / 25
@@ -62,7 +62,7 @@ import ForwardDiff, Optim, OptimizationLBFGSB
                 (z -> MvNormal([2z[1], z[1]], exp(2z[1])I(2)), 1 / 10))
             p_compact = PosteriorMeasure(Likelihood(model, [0.0, 0.0]), prior)
             em_compact = evalmeasure(p_compact, MolewhackerSampling(nsamples = 32, maxiter = 0,
-                nseeds = 1, init_mode = nothing, init = ExplicitInit([[0.0]])), context())
+                nseeds = 1, init_mode = nothing, init = ExplicitInit([[0.0]]), laplace_seeds = false), context())
             @test cov(last(Distribution(em_compact.approx.transformed).components))[1, 1] ≈ variance
         end
 
@@ -70,14 +70,32 @@ import ForwardDiff, Optim, OptimizationLBFGSB
         product_model = z -> NamedTupleDist(a = Normal(z[1], 2.0), rest = NamedTupleDist(b = Poisson(2exp(z[1])), c = Exponential(3exp(2z[1]))))
         p_product = PosteriorMeasure(Likelihood(product_model, (a = 0.0, rest = (b = 2, c = 3.0))), prior)
         em_product = evalmeasure(p_product, MolewhackerSampling(nsamples = 32, maxiter = 0,
-            nseeds = 1, init_mode = nothing, init = ExplicitInit([[0.0]])), context())
+            nseeds = 1, init_mode = nothing, init = ExplicitInit([[0.0]]), laplace_seeds = false), context())
         @test cov(last(Distribution(em_product.approx.transformed).components))[1, 1] ≈ 4 / 29
+
+        # A stationary forward model: Fisher sees only the prior, the target has curvature 1 + 16.
+        p_stationary = PosteriorMeasure(Likelihood(z -> Normal(z[1]^2, 0.5), -2.0), prior)
+        em_laplace = evalmeasure(p_stationary, MolewhackerSampling(nsamples = 32, maxiter = 0, nseeds = 1,
+            init_mode = nothing, init = ExplicitInit([[0.0]]), laplace_seeds = true), context())
+        q_laplace = Distribution(em_laplace.approx.transformed)
+        @test sort([invcov(c)[1, 1] for c in q_laplace.components]) ≈ [1, 17 / 1.2] rtol = 1e-6
+        @test probs(q_laplace) ≈ [0.5, 0.5]
+        @test em_laplace.evalinfo.result.nhessians == 1
+        # The Newton polish lets the default mode search stop early.
+        @test (MolewhackerSampling().init_mode.maxiters, MolewhackerSampling(laplace_seeds = false).init_mode.maxiters) == (50, 1000)
+
+        # Idle tasks split the Jacobian columns. A nonsymmetric map exposes their order.
+        A = [1.0 2.0 0.0 -1.0 0.5 0.0; 0.0 1.0 3.0 0.0 -2.0 1.0]
+        p_linear = PosteriorMeasure(Likelihood(z -> MvNormal(A * z, Diagonal([0.5, 2.0])), zeros(2)), MvNormal(zeros(6), I(6)))
+        em_linear = evalmeasure(p_linear, MolewhackerSampling(nsamples = 32, maxiter = 0, nseeds = 1, init_mode = nothing,
+            init = ExplicitInit([zeros(6)]), executor = BAT.MultiThreadedExec(ntasks = 2), laplace_seeds = false), context())
+        @test invcov(last(Distribution(em_linear.approx.transformed).components)) ≈ I + A' * Diagonal([2.0, 0.5]) * A
 
         a, b = [-0.5], [1.5]
         repeated = [a, a, b]
         saved = deepcopy(repeated)
         repeated_result = evalmeasure(target, MolewhackerSampling(nsamples = 32, maxiter = 0,
-            nseeds = 3, init_mode = nothing, init = ExplicitInit(repeated)), context())
+            nseeds = 3, init_mode = nothing, init = ExplicitInit(repeated), laplace_seeds = false), context())
         q_repeated = Distribution(repeated_result.approx.transformed)
         points = [[-0.5], [0.0], [1.5], [3.0]]
         ga, gb = Normal(-0.5, sqrt(0.2)), Normal(1.5, sqrt(0.2))
@@ -103,7 +121,7 @@ import ForwardDiff, Optim, OptimizationLBFGSB
     @testset "Structured prior and coordinate law" begin
         p = PosteriorMeasure(Likelihood(x -> Normal(log(x.rate), 0.7), 0.4), NamedTupleDist(rate = LogNormal()))
         em = evalmeasure(p, MolewhackerSampling(nsamples = 16, maxiter = 0,
-            nseeds = 1, init_mode = nothing, init = ExplicitInit([(rate = 1.0,)])), context(73))
+            nseeds = 1, init_mode = nothing, init = ExplicitInit([(rate = 1.0,)]), laplace_seeds = false), context(73))
         @test cov(last(Distribution(em.approx.transformed).components))[1, 1] ≈ 0.49 / 1.49
         # Validate both proposal and empirical coordinate pairs, including the Jacobian.
         @test BAT.validate_evalmeasure(em; context = context(73)) === em
@@ -116,8 +134,9 @@ import ForwardDiff, Optim, OptimizationLBFGSB
         b = evalmeasure(target, threaded, context(74, precision = Float32))
         @test BAT.samplesof(a) == BAT.samplesof(b)
         # Test weight-scale invariance away from tied scores in the exact
-        # Gaussian proposal produced by mode initialization.
-        scale_alg = MolewhackerSampling(nsamples = 256, batchsize = 128, maxiter = 2, nseeds = 0)
+        # Gaussian proposal produced by mode initialization. Fresh rounds draw from
+        # the whole mixture, whose Float32 masses shift at rounding level with scale.
+        scale_alg = MolewhackerSampling(nsamples = 256, batchsize = 128, maxiter = 2, nseeds = 0, fresh_rounds = 0)
         a = evalmeasure(target, scale_alg, context(74, precision = Float32))
         shifted = evalmeasure(weightedmeasure(1e8, BAT.batmeasure(target)), scale_alg, context(74, precision = Float32))
         @test BAT.samplesof(a).v ≈ BAT.samplesof(shifted).v rtol = 1e-6
@@ -161,33 +180,57 @@ import ForwardDiff, Optim, OptimizationLBFGSB
         for (rule, reason) in (((; target_pool_ess = 32), :pilot_ess),
                 ((; target_efficiency = 128 / 256), :pool_efficiency))
             stopped = evalmeasure(flat, MolewhackerSampling(; nsamples = 256, target_ess = 128,
-                batchsize = 64, maxiter = 10, nseeds = 0, rule...), context())
+                batchsize = 64, maxiter = 10, nseeds = 0, fresh_rounds = 0, rule...), context())
             info = stopped.evalinfo.result
             @test (info.niterations, info.ncomponents, info.stop_reason) == (0, 1, reason)
             @test info.ess ≈ 128
+            # Fresh rounds still follow a threshold stop.
+            refreshed = evalmeasure(flat, MolewhackerSampling(; nsamples = 256, batchsize = 64, maxiter = 10,
+                nseeds = 0, fresh_rounds = 1, rule...), context()).evalinfo.result
+            @test (refreshed.niterations, refreshed.nfresh, refreshed.stop_reason) == (0, 1, reason)
         end
 
         concentrated = PosteriorMeasure(Likelihood(z -> MvNormal(z, 0.25I(18)), fill(2.0, 18)),
             MvNormal(zeros(18), I(18)))
-        seeded = evalmeasure(concentrated, MolewhackerSampling(nsamples = 1000, maxiter = 0, maxcomponents = 10), context())
+        seeded = evalmeasure(concentrated, MolewhackerSampling(nsamples = 1000, maxiter = 0, maxcomponents = 20), context())
         @test seeded.evalinfo.result.efficiency > 0.8
         @test maximum(abs, mean(BAT.samplesof(seeded)) .- 1.6) < 0.06
         limited = evalmeasure(target, MolewhackerSampling(nsamples = 64, maxiter = 0, nseeds = 1,
             init = ExplicitInit([[0.0]]), init_mode = OptimAlg(optalg = Optim.LBFGS()), maxevals = 66), context())
         @test limited.evalinfo.result.nevals <= 66
         @test limited.evalinfo.result.nseed_exhausted == 1
+        # A fresh round follows adaptation and adds a proposal batch before selection.
+        fresh = evalmeasure(target, MolewhackerSampling(nsamples = 32, batchsize = 64, maxiter = 1,
+            fresh_rounds = 1, nseeds = 0), context()).evalinfo.result
+        h = fresh.history
+        @test (fresh.niterations, fresh.nfresh, getproperty.(h, :fresh)) == (1, 1, [false, true])
+        @test (h[1].npilot - h[1].drawn, h[2].npilot - h[2].drawn) == (64, h[1].npilot + 64)
     end
 
     @testset "Defensive nonlinear tails" begin
         p = PosteriorMeasure(Likelihood(z -> Normal(2tanh(z[1]), 1.0), 0.0), prior)
         ε = 0.1
         em = evalmeasure(p, MolewhackerSampling(nsamples = 16, maxiter = 0,
-            nseeds = 1, init_mode = nothing, init = ExplicitInit([[0.0]]), exploration_mass = ε), context())
+            nseeds = 1, init_mode = nothing, init = ExplicitInit([[0.0]]), laplace_seeds = false, exploration_mass = ε), context())
         q = Distribution(em.approx.transformed)
         points = [[0.0], [-12.0], [12.0]]
         # Fisher variance at zero is 1/5. This local Gaussian alone has infinite IS variance.
         logw = logdensityof.(Ref(BAT.batmeasure(p)), points) .- logpdf.(Ref(q), points)
         @test all(logw .<= logpdf(Normal(), 0.0) - log(ε))
+
+        # The local Gaussian alone gives unbounded weights exp(2z²), a heavy Pareto tail.
+        # Prior mixing bounds them, so the fitted shape turns negative. PSIS changes
+        # only the largest raw ratios.
+        n = 2000
+        tails(; kw...) = evalmeasure(p, MolewhackerSampling(; nsamples = n, maxiter = 0, nseeds = 1,
+            init_mode = nothing, init = ExplicitInit([[0.0]]), laplace_seeds = false, kw...), context(75))
+        raw, mixed, smoothed = tails(), tails(exploration_mass = ε), tails(smooth_weights = true)
+        @test mixed.evalinfo.result.pareto_k < 0 < raw.evalinfo.result.pareto_k
+        logratio(em) = log.(BAT.samplesof(em).weight) .+ em.evalinfo.result.logweight_scale
+        r, s = logratio(raw), logratio(smoothed)
+        tail = partialsortperm(r, 1:ceil(Int, 3sqrt(n)), rev = true)
+        @test r[setdiff(eachindex(r), tail)] ≈ s[setdiff(eachindex(s), tail)]
+        @test maximum(s) <= maximum(r) && issorted(s[reverse(tail)])
     end
 
     @testset "Local failure and zero weights" begin
@@ -200,7 +243,7 @@ import ForwardDiff, Optim, OptimizationLBFGSB
         @test all(iszero, s.weight[first.(s.v) .<= 0])
         @test sum(s.weight) > 0
         recovered = evalmeasure(p, MolewhackerSampling(nsamples = 32, maxiter = 0,
-            nseeds = 3, init_mode = nothing, init = ExplicitInit([[-1.0], [-1.0], [1.0]])), context())
+            nseeds = 3, init_mode = nothing, init = ExplicitInit([[-1.0], [-1.0], [1.0]]), laplace_seeds = false), context())
         q_recovered = Distribution(recovered.approx.transformed)
         points = [[0.0], [1.0], [3.0]]
         expected = [pdf(Normal(1, sqrt(1 / (1 + exp(1)))), x[1]) for x in points]
@@ -209,7 +252,8 @@ import ForwardDiff, Optim, OptimizationLBFGSB
         no_mass_round = evalmeasure(half_target, MolewhackerSampling(nsamples = 128, batchsize = 1,
             maxiter = 5, nseeds = 0), BATContext(rng = BAT.Random.Xoshiro(6), ad = ForwardDiff))
         info = no_mass_round.evalinfo.result
-        @test info.nevals == 130
+        # One fresh draw follows the stop and finds no mass either.
+        @test (info.nevals, info.nfresh) == (131, 1)
         @test info.stop_reason == :no_finite_candidate
     end
 end

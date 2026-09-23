@@ -25,13 +25,16 @@ algorithm. Use `evalmeasure` to retain the fitted proposal and diagnostics.
 
 ## Proposal construction
 
-The proposal follows the [Newtrinos Molewhacker algorithm](https://github.com/Newtrinos-org/Newtrinos.jl/blob/bat-v5-migration/src/analysis/molewhacker.jl):
+The proposal follows the [Newtrinos Molewhacker algorithm](https://github.com/Newtrinos-org/Newtrinos.jl/blob/bat-v5-migration/src/analysis/molewhacker.jl),
+with Laplace seeds and fresh rounds added by default:
 
 1. Transform the prior to standard-normal coordinates. By default, run parallel
-   L-BFGS-B searches from ten Sobol starts to find initial centers.
+   L-BFGS-B searches from ten Sobol starts to find initial centers. With Laplace
+   seeds, each search stops after 50 iterations and a Newton step finishes it.
 2. At each center, form a Gaussian with precision `I + J' F J`. Here `J` is the
    forward model's parameter Jacobian, and `F` is its observation distribution's
-   Fisher information. The identity adds prior information once.
+   Fisher information. The identity adds prior information once. Laplace seeds
+   add a second Gaussian with the observed information as precision.
 3. Let `q_uniform` be the equally weighted mixture of all local Gaussians.
    Assign component masses proportional to `target(center) / q_uniform(center)`.
 4. Draw an initial discovery pool. Rank its points by their current
@@ -40,6 +43,8 @@ The proposal follows the [Newtrinos Molewhacker algorithm](https://github.com/Ne
 5. Recompute all component masses using the center-ratio rule. From each new
    component, draw `floor(component_mass * previous_pool_size)` discovery points.
    Repeat until a hard budget or an explicit pool-ESS or efficiency threshold applies.
+6. Run three more rounds by default, each after adding fresh draws from the
+   current proposal to the pool. This step is an addition to the source algorithm.
 
 The adaptive pool guides proposal construction only. Its points have different
 sampling laws, so reweighting the pool by the latest proposal does not produce
@@ -70,7 +75,8 @@ retain their usual finite-sample bias.
   Sobol starts in normal coordinates. `init = ExplicitInit(...)` supplies centers
   in original coordinates, which BAT copies and transforms.
 - `init_mode` sets the initial optimizer. The default requires
-  `import OptimizationLBFGSB`. Set `init_mode = nothing` to keep supplied centers,
+  `import OptimizationLBFGSB`. It stops after 50 iterations with Laplace seeds,
+  and after 1,000 without them. Set `init_mode = nothing` to keep supplied centers,
   or `nseeds = 0` to skip initialization. Prior-only discovery can fail badly on
   concentrated targets in higher dimensions.
 - Mode searches receive equal shares of the available fitting-call budget, with
@@ -91,11 +97,35 @@ retain their usual finite-sample bias.
   Gaussians are cached by pool index, preserving every selection's mass update.
   Center density sums add only the selected occurrences each round.
   Mixture scoring uses the selected executor and bounded, reusable workspaces.
-- `maxiter` is a strict round limit. `maxiter = 0` skips discovery and adaptation.
-  `maxcomponents` limits proposed occurrences, including repeated selections and
-  any added prior component.
+- `maxiter` is a strict limit on adaptation rounds. `maxiter = 0` skips discovery,
+  adaptation, and fresh rounds. `maxcomponents` limits proposed occurrences,
+  including repeated selections and any added prior component.
+- `fresh_rounds` defaults to three. After adaptation stops, for any reason, each
+  fresh round adds `batchsize` fresh draws from the current proposal to the pool,
+  then selects and adds candidates as before. Discovery batches come only from
+  new components, so the pool holds few draws from the current proposal. It then
+  misses the ratio spikes that production draws hit, and one weight can dominate
+  the output. Each fresh round costs `batchsize` target calls. Fresh rounds stop
+  early at `maxevals`, `maxcomponents`, or when no candidate has finite weight.
+  On the public DeepCore model, three fresh rounds cut the largest normalized
+  squared weight from 0.15–0.58 to 0.05–0.11 over four seeds. On well-fitted
+  targets they cost calls and gain nothing. Set `fresh_rounds = 0` for the source
+  algorithm's rounds only.
 - `exploration_mass` defaults to zero. A positive value mixes the prior into the
   final proposal. This option leaves discovery unchanged.
+- `laplace_seeds` defaults to `true`. It adds a second Gaussian at each seed, with
+  the observed information `-∇² logtarget` as precision, variance inflated by 1.2.
+  Fisher information misses curvature where the forward model is stationary in a
+  parameter, for example a mixing angle near maximal mixing. The Hessian comes
+  from central differences of AD gradients, once per distinct seed. Where it is
+  positive definite, one Newton step polishes the seed if the target increases.
+  This step lets the default mode search stop early. Elsewhere, such as at kinks,
+  the seed keeps its Fisher Gaussian alone. The two Gaussians share a center, so
+  center-ratio fitting gives them equal mass. The target must support AD
+  gradients, as for the default mode search. Laplace Gaussians count toward
+  `maxcomponents`, so it must allow twice `nseeds`. Gradient calls for these
+  Hessians do not count toward `maxevals`. Set `laplace_seeds = false` for the
+  source algorithm's Fisher-only seeds.
 - `maxevals` caps target calls, including mode searches, initial centers,
   discovery, sizing, and production. Geometry calls are separate and counted
   in `ngeometries`. The default adds no call limit beyond the other stopping
@@ -126,8 +156,10 @@ Choose adaptation thresholds separately from the production goal:
 
 A smaller `maxiter` trades refinement for a smaller mixture, independently of
 the production sample count. With ten initial components, fourteen candidates,
-and sixteen completed rounds, the mixture has 234 components. Failed geometries
-or earlier stops can reduce that count. Optional prior mixing can add one component.
+and sixteen completed rounds, the mixture has 234 proposed occurrences. Laplace
+seeds can add up to ten more, and the default fresh rounds up to 42. Reselection
+can store fewer Gaussians. Failed geometries or earlier stops can reduce both
+counts. Optional prior mixing can add one component.
 This is a user-selected budget, not an automatic convergence test. Compare fresh
 weighted estimates of the observables you need before reducing the budget.
 
@@ -173,8 +205,10 @@ counts. `ncomponents` counts stored Gaussians. `ncomponent_proposals` includes
 repeated selections and any added prior component. Geometry counts exclude cache
 hits. `nseed_evals` counts initialization
 target calls. `nseed_exhausted` counts mode searches that reach their assigned
-budget. `history` records pool growth
-and both component counts after each update.
+budget. `nhessians` counts seed Hessians computed for `laplace_seeds`.
+`niterations` counts adaptation rounds and `nfresh` counts fresh rounds. `history`
+records pool growth, both component counts, and whether the round was fresh.
+`stop_reason` describes adaptation, not the fresh rounds that follow.
 
 `stop_reason` distinguishes `:maxiter`, `:maxcomponents`, `:maxevals`,
 `:pilot_ess`, `:pool_efficiency`, `:no_finite_candidate`, and `:geometry_failure`.
@@ -183,9 +217,20 @@ and both component counts after each update.
 the independent sizing pilot, when enabled. `ess` and `efficiency` describe the
 fresh production weights.
 
-ESS measures weight concentration. Check relevant observables and repeat runs
-when missed modes matter. Zero-target draws receive zero weight. A production
+ESS averages weight dispersion and can hide one dominant weight. `pareto_k` is the
+generalized Pareto shape of the largest production weights, as in PSIS. Values
+above 0.7 mark unreliable estimates, and values below 0.5 are good. It is `NaN`
+for fewer than 21 finite weights, and `Inf` when the largest weights exceed the
+rest beyond the floating-point range. A small `pareto_k` does not rule out one
+dominant weight, so also check the largest normalized weight. Check relevant
+observables and repeat runs when missed modes matter. Zero-target draws receive zero weight. A production
 batch with no finite positive target mass fails.
+
+`smooth_weights = true` replaces the largest production weights by expected
+order statistics of that fit, capped at the largest raw weight (Pareto-smoothed
+importance sampling). This lowers estimator variance and adds a small bias,
+including for the target mass. `pareto_k` still describes the raw weights.
+Smoothing cannot repair `pareto_k` above 0.7.
 
 `weight_diagnostic` accepts an optional function of final log importance ratios.
 For example, callers using MGVI can pass `MGVI.pareto_diagnostic`. Its return

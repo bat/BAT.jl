@@ -23,8 +23,10 @@ $(TYPEDFIELDS)
     init::IA = nothing
     "Number of initial seeds. Zero skips mode initialization."
     nseeds::Int = 10
-    "Seed optimizer. The default L-BFGS-B backend requires `import OptimizationLBFGSB`."
-    init_mode::IM = nseeds == 0 ? nothing : OptimizationAlg(optalg = ext_default(pkgext(Val(:OptimizationLBFGSB)), Val(:LBFGSB_ALG)))
+    "Add a Laplace Gaussian (observed information) beside each seed's Fisher Gaussian, and Newton-polish the seed."
+    laplace_seeds::Bool = true
+    "Seed optimizer. The default L-BFGS-B backend requires `import OptimizationLBFGSB`. It stops after 50 iterations with Laplace seeds, whose Newton step finishes the search."
+    init_mode::IM = nseeds == 0 ? nothing : OptimizationAlg(optalg = ext_default(pkgext(Val(:OptimizationLBFGSB)), Val(:LBFGSB_ALG)), maxiters = laplace_seeds ? 50 : 1_000)
     "Production count, or its cap with finite `target_ess`. Nothing follows the pool size or ESS goal."
     nsamples::Union{Nothing,Int} = nothing
     "Optional production ESS goal. A fresh pilot sizes production; achieved ESS is not guaranteed."
@@ -47,13 +49,18 @@ $(TYPEDFIELDS)
     executor::E = default_executor()
     "Optional function of final log importance ratios."
     weight_diagnostic::D = nothing
+    "Pareto-smooth the largest production weights (PSIS). Lowers variance and adds a small bias."
+    smooth_weights::Bool = false
+    "Rounds after adaptation stops that first add `batchsize` fresh proposal draws to the pool."
+    fresh_rounds::Int = 3
 end
 export MolewhackerSampling
 
 function _mw_check(alg, context)
     @argcheck (isnothing(alg.nsamples) || alg.nsamples > 0) && alg.batchsize > 0
-    @argcheck alg.maxiter >= 0 && alg.nseeds >= 0 && alg.ncandidates > 0
-    @argcheck alg.maxcomponents >= max(1, alg.nseeds + Int(alg.exploration_mass > 0))
+    @argcheck alg.maxiter >= 0 && alg.nseeds >= 0 && alg.ncandidates > 0 && alg.fresh_rounds >= 0
+    # Laplace seeds can double the initial occurrences.
+    @argcheck alg.maxcomponents >= max(1, (1 + alg.laplace_seeds) * alg.nseeds + Int(alg.exploration_mass > 0))
     @argcheck alg.target_ess > 0 && 0 <= alg.exploration_mass < 1
     @argcheck alg.target_pool_ess > 0 && alg.target_efficiency > 0
     @argcheck alg.target_efficiency <= 1 || alg.target_efficiency == Inf
@@ -75,6 +82,11 @@ function _mw_gaussian(center::AbstractVector{T}, precision) where T
     c = copy(center)
     return MvNormalCanon(c, P * c, P)
 end
+
+# Idle tasks split Jacobian columns when fewer geometries than tasks are pending.
+# Blocks keep at least three columns: narrower blocks added allocation but no speed.
+_mw_jacobian_blocks(executor::MultiThreadedExec, n, dim) = clamp(fld(executor.ntasks, max(n, 1)), 1, cld(dim, 3))
+_mw_jacobian_blocks(::BATExecutor, n, dim) = 1
 
 function _mw_draw(q, logtarget, n, executor, context)
     v = VectorOfSimilarVectors(rand(get_rng(context), q, n))
@@ -221,6 +233,47 @@ function _mw_efficiency(logw)
     return (; weight = w, ess, efficiency = ess / length(w), logweight_scale = c)
 end
 
+# Generalized Pareto fit to the largest importance ratios, relative to the ratio at the tail
+# cutoff (Zhang & Stephens 2009). The shape gets the weakly informative adjustment of PSIS.
+function _mw_pareto_fit(logw)
+    finite = findall(isfinite, logw)
+    order = finite[sortperm(logw[finite])]
+    n = length(order)
+    ntail = min(ceil(Int, n / 5), ceil(Int, 3sqrt(n)))
+    n > ntail >= 5 || return nothing
+    tail = order[n-ntail+1:n]
+    # Shift by the largest log ratio so exceedances stay in [0, 1] for any weight spread.
+    logmax = float(logw[last(tail)])
+    base = exp(logw[order[n-ntail]] - logmax)
+    x = exp.(logw[tail] .- logmax) .- base
+    last(x) > 0 || return nothing
+    m = 30 + floor(Int, sqrt(ntail))
+    xstar = x[max(1, floor(Int, ntail / 4 + 1 / 2))]
+    # Tail spread beyond the Float64 range: the largest ratios dominate completely.
+    xstar > 0 || return (; k = oftype(logmax, Inf), sigma = oftype(logmax, NaN), tail, logmax, base)
+    θ = [1 / last(x) + (1 - sqrt(m / (j - 1 / 2))) / (3xstar) for j in 1:m]
+    ks = [mean(log1p.(-t .* x)) for t in θ]
+    loglik = ntail .* (log.(-θ ./ ks) .- ks .- 1)
+    weights = exp.(loglik .- maximum(loglik))
+    θhat = sum(θ .* weights) / sum(weights)
+    k = mean(log1p.(-θhat .* x))
+    return (; k = (ntail * k + 5) / (ntail + 10), sigma = -k / θhat, tail, logmax, base)
+end
+
+# ESS misses a single dominant weight; the tail shape does not.
+_mw_pareto_k(logw) = (fit = _mw_pareto_fit(logw); isnothing(fit) ? NaN : fit.k)
+
+# PSIS: replace the largest ratios by expected GPD order statistics, capped at the largest raw ratio.
+function _mw_smooth(logw)
+    fit = _mw_pareto_fit(logw)
+    (isnothing(fit) || !isfinite(fit.k)) && return logw
+    p =((1:length(fit.tail)) .- 1 / 2) ./ length(fit.tail)
+    q = abs(fit.k) < sqrt(eps()) ? -fit.sigma .* log1p.(-p) : fit.sigma .* expm1.(-fit.k .* log1p.(-p)) ./ fit.k
+    smoothed = copy(logw)
+    smoothed[fit.tail] .= fit.logmax .+ min.(log.(fit.base .+ q), 0)
+    return smoothed
+end
+
 # BAT's weightedmeasure represents a likelihood scale as a log-function chain.
 # Recover only these known constant shifts, never an arbitrary log-density model.
 _mw_model(likelihood::Union{Likelihood,_SimpleLikelihood}) = _get_model(likelihood)
@@ -259,7 +312,7 @@ end
 function _mw_initial_proposal(transformed_m, f, model, logtarget, gprior, alg, fit_budget, ad, context)
     T = get_precision(context)
     components = typeof(gprior)[]
-    nevals, ngeometries, nfailed, nexhausted = 0, 0, 0, 0
+    nevals, ngeometries, nfailed, nexhausted, nhessians = 0, 0, 0, 0, 0
     if alg.nseeds > 0
         seeds = if isnothing(alg.init)
             bat_sample(StandardMvNormal{T}(length(gprior)), SobolSampler(nsamples = alg.nseeds), context).result.v
@@ -282,11 +335,22 @@ function _mw_initial_proposal(transformed_m, f, model, logtarget, gprior, alg, f
         nexhausted = count(r -> r[3], results)
         centers = [r[1] for r in results if !r[3]]
         precisions = Vector{Union{Nothing,typeof(gprior.J)}}(undef, length(centers))
-        exec_map!(c -> _mw_local_precision(model, c, ad), alg.executor, precisions, centers)
+        nblocks = _mw_jacobian_blocks(alg.executor, length(centers), length(gprior))
+        exec_map!(c -> _mw_local_precision(model, c, ad, nblocks), alg.executor, precisions, centers)
         ngeometries = length(centers)
         keep = findall(!isnothing, precisions)
         nfailed = ngeometries - length(keep)
-        components = typeof(gprior)[_mw_gaussian(centers[i], precisions[i]) for i in keep]
+        seeds, fisher = centers[keep], precisions[keep]
+        observed = Vector{Union{Nothing,Matrix{T}}}(nothing, length(seeds))
+        if alg.laplace_seeds && !isempty(seeds)
+            seeds, observed, nhessians, ncalls = _mw_laplace_seeds(logtarget, seeds, fisher, ad, alg.executor)
+            nevals += ncalls
+        end
+        components = typeof(gprior)[_mw_gaussian(seeds[i], fisher[i]) for i in eachindex(seeds)]
+        # A Laplace Gaussian shares its seed's center, so center-ratio fitting gives the pair equal mass.
+        for i in eachindex(seeds)
+            isnothing(observed[i]) || push!(components, _mw_gaussian(seeds[i], observed[i] ./ T(_MW_LAPLACE_INFLATION)))
+        end
     end
     center_logp = logtarget.(mean.(components))
     nevals += length(components)
@@ -298,7 +362,56 @@ function _mw_initial_proposal(transformed_m, f, model, logtarget, gprior, alg, f
         center_logsum = alg.maxiter > 0 ? [logpdf(gprior, mean(gprior))] : Float64[]
         nevals += length(center_logp)
     end
-    return q, center_logp, center_logsum, nevals, ngeometries, nfailed, nexhausted
+    return q, center_logp, center_logsum, nevals, ngeometries, nfailed, nexhausted, nhessians
+end
+
+# Laplace variance inflation. On the public DeepCore model, ×1.2 beat both ×1.0 and ×1.5.
+const _MW_LAPLACE_INFLATION = 1.2
+
+# Laplace seeds: the observed information −∇²log p at each seed, from central differences of AD
+# gradients run on the executor. Fisher information misses curvature where the forward model is
+# stationary. Where the observed information is positive definite, one Newton step polishes the
+# center if it raises the log target. Seeds within squared Mahalanobis 1 of an earlier seed share
+# its Hessian: typical draws of a d-dimensional Gaussian lie near d, so this holds in any dimension.
+function _mw_laplace_seeds(logtarget, centers, fisher, ad, executor)
+    T = eltype(first(centers))
+    d = length(first(centers))
+    owner = collect(eachindex(centers))
+    for j in eachindex(centers)
+        i = findfirst(i -> owner[i] == i && dot(centers[j] - centers[i], fisher[i] * (centers[j] - centers[i])) < 1, 1:j-1)
+        isnothing(i) || (owner[j] = i)
+    end
+    distinct = findall(j -> owner[j] == j, eachindex(centers))
+    h = cbrt(eps(T))
+    valgrad = valgrad_func(logtarget, ad)
+    # Per distinct seed: the gradient at the center, then at ±h along each coordinate.
+    offsets = [(0, zero(T)); [(k, σ * h) for k in 1:d for σ in (1, -1)]]
+    jobs = [(s, k, δ) for s in distinct for (k, δ) in offsets]
+    evaluated = Vector{Tuple{T,Vector{T}}}(undef, length(jobs))
+    exec_map!(job -> _mw_shifted_valgrad(valgrad, centers[job[1]], job[2], job[3]), executor, evaluated, jobs)
+    observed = Vector{Union{Nothing,Matrix{T}}}(nothing, length(centers))
+    polished = copy(centers)
+    ncalls = 0
+    for (n, s) in enumerate(distinct)
+        block = evaluated[(n-1)*length(offsets)+1:n*length(offsets)]
+        H = reduce(hcat, [(last(block[2k]) .- last(block[2k+1])) ./ (2h) for k in 1:d])
+        P = -Matrix(Symmetric((H + H') ./ 2))
+        all(isfinite, P) && isposdef(Symmetric(P)) || continue
+        for j in findall(==(s), owner)
+            observed[j] = P
+        end
+        candidate = centers[s] .+ P \ last(first(block))
+        ncalls += 1
+        logtarget(candidate) > first(first(block)) && (polished[s] = candidate)
+    end
+    return polished, observed, length(distinct), ncalls
+end
+
+function _mw_shifted_valgrad(valgrad, center, k, δ)
+    x = copy(center)
+    k > 0 && (x[k] += δ)
+    value, gradient = valgrad(x)
+    return (value, collect(gradient))
 end
 
 function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, context::BATContext)
@@ -313,7 +426,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
     gprior = _mw_gaussian(zeros(T, dim), Matrix{T}(I, dim, dim))
     ad = alg.maxiter > 0 || alg.nseeds > 0 ? get_valid_adselector(context, alg) : get_adselector(context)
     fit_budget = alg.maxevals - reserve
-    q, center_logp, center_logsum, nevals, ngeometries, nfailed, nseed_exhausted =
+    q, center_logp, center_logsum, nevals, ngeometries, nfailed, nseed_exhausted, nhessians =
         _mw_initial_proposal(transformed_m, f, model, logtarget, gprior, alg, fit_budget, ad, context)
     nseed_evals = nevals
     components = copy(q.components)
@@ -323,7 +436,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
     component_limit = alg.maxcomponents - Int(!has_prior && alg.exploration_mass > 0)
     # Automatic output reserves one fresh draw for each discovery point.
     draw_cost = isnothing(alg.nsamples) ? 2 : 1
-    niterations, npilot = 0, 0
+    niterations, nfresh, npilot = 0, 0, 0
     stop_reason = nseed_exhausted > 0 && nseed_exhausted == alg.nseeds ? :maxevals : :maxiter
     history = NamedTuple[]
     pilot_ess = nothing
@@ -336,34 +449,53 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
         # Zero marks unvisited points; -1 marks failed geometry. Positive entries
         # identify stored Gaussians, so reselection needs no equality search.
         component_index = zeros(Int, npilot)
-        for iteration in 1:alg.maxiter
+        iteration, adapting = 0, true
+        while true
+            iteration += 1
+            adapting &= iteration <= alg.maxiter
+            if !adapting
+                # The pool holds few draws from the current proposal, so it misses the ratio
+                # spikes that production would hit. Fresh draws expose them to selection,
+                # whatever stopped adaptation.
+                nfresh < alg.fresh_rounds && fit_budget - nevals >= alg.batchsize * draw_cost &&
+                    ncomponent_proposals < component_limit || break
+                nfresh += 1
+                batch = _mw_draw(q, logtarget, alg.batchsize, alg.executor, context)
+                nevals += alg.batchsize
+                fit_budget -= (draw_cost - 1) * alg.batchsize
+                points = hcat(points, Matrix{T}(flatview(batch.v)))
+                append!(logp, batch.logp)
+                append!(component_index, zeros(Int, alg.batchsize))
+                npilot = length(logp)
+            end
             scores = logp .- _mw_batched_logpdf(q, points, alg.executor)
-            if !isfinite(maximum(scores))
-                stop_reason = :no_finite_candidate
-                break
-            end
+            reason = if !isfinite(maximum(scores))
+                :no_finite_candidate
+            elseif !adapting
+                nothing
             # Recycled scores guide fitting only; they never become output weights.
-            pilot_ess = _mw_efficiency(scores).ess
-            if pilot_ess > alg.target_pool_ess
-                stop_reason = :pilot_ess
-                break
+            elseif (pilot_ess = _mw_efficiency(scores).ess) > alg.target_pool_ess
+                :pilot_ess
             elseif pilot_ess / npilot > alg.target_efficiency
-                stop_reason = :pool_efficiency
-                break
+                :pool_efficiency
             elseif fit_budget - nevals < draw_cost
-                stop_reason = :maxevals
-                break
+                :maxevals
             elseif ncomponent_proposals >= component_limit
-                stop_reason = :maxcomponents
-                break
+                :maxcomponents
             end
-            niterations = iteration
+            if !isnothing(reason)
+                adapting || break
+                stop_reason, adapting = reason, false
+                continue
+            end
+            adapting && (niterations = iteration)
             nselected = min(alg.ncandidates, npilot, component_limit - ncomponent_proposals)
             indices = partialsortperm(scores, 1:nselected, rev = true)
             uncached = filter(i -> iszero(component_index[i]), indices)
             centers = collect.(eachcol(view(points, :, uncached)))
             precisions = Vector{Union{Nothing,typeof(gprior.J)}}(undef, length(uncached))
-            exec_map!(c -> _mw_local_precision(model, c, ad), alg.executor, precisions, centers)
+            nblocks = _mw_jacobian_blocks(alg.executor, length(uncached), dim)
+            exec_map!(c -> _mw_local_precision(model, c, ad, nblocks), alg.executor, precisions, centers)
             ngeometries += length(uncached)
             nfailed += count(isnothing, precisions)
             for (index, center, precision) in zip(uncached, centers, precisions)
@@ -378,8 +510,9 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
             end
             added = filter(>(0), component_index[indices])
             if isempty(added)
-                stop_reason = :geometry_failure
-                break
+                adapting || break
+                stop_reason, adapting = :geometry_failure, false
+                continue
             end
             multiplicities[added] .+= 1
             ncomponent_proposals += length(added)
@@ -400,7 +533,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
                 append!(component_index, zeros(Int, n))
             end
             npilot = length(logp)
-            push!(history, (; iteration, npilot, drawn, ncomponents = length(q.components), ncomponent_proposals))
+            push!(history, (; iteration, fresh = !adapting, npilot, drawn, ncomponents = length(q.components), ncomponent_proposals))
         end
         scores = logp .- _mw_batched_logpdf(q, points, alg.executor)
         pilot_ess = isfinite(maximum(scores)) ? _mw_efficiency(scores).ess : zero(T)
@@ -433,7 +566,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
     production = _mw_draw(q, logtarget, nproduction, alg.executor, context)
     nevals += nproduction
     logw = production.logp .- production.logr
-    output = _mw_efficiency(logw)
+    output = _mw_efficiency(alg.smooth_weights ? _mw_smooth(logw) : logw)
     diagnostic = isnothing(alg.weight_diagnostic) ? nothing : alg.weight_diagnostic(logw)
     smpls_z = DensitySampleVector(v = production.v, logd = production.logp, weight = output.weight)
     smpls = inverse(f).(smpls_z)
@@ -441,10 +574,10 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
     q_z = batmeasure(q)
     q_original = pushfwd(inverse(f), q_z)
     approx = alg.pretransform isa DoNotTransform ? BispacedMeasure(q_original) : BispacedMeasure(q_original, q_z, hash(f))
-    result = (; stop_reason, niterations, nevals, ngeometries, nfailed, nproduction,
-        nseed_evals, nseed_exhausted, npilot, pilot_ess, ncomponents = length(q.components), ncomponent_proposals,
+    result = (; stop_reason, niterations, nfresh, nevals, ngeometries, nfailed, nproduction,
+        nseed_evals, nseed_exhausted, nhessians, npilot, pilot_ess, ncomponents = length(q.components), ncomponent_proposals,
         ess = output.ess, efficiency = output.efficiency, logweight_scale = output.logweight_scale,
-        pilot_efficiency, diagnostic, history)
+        pareto_k = _mw_pareto_k(logw), pilot_efficiency, diagnostic, history)
     return EvaluatedMeasure(em;
         transform_intent = alg.pretransform,
         f_transform = _viewrep_f(f, alg.pretransform),

@@ -100,21 +100,52 @@ function _mw_pullback(d, J)
     return A' * A
 end
 
-function _mw_jacobian(f, x, ad)
+function _mw_jacobian(f, x, ad, nblocks = 1)
     # Avoid an unused primal evaluation for default ForwardDiff. Other selectors,
     # including configured chunk sizes or tags, retain their generic AD path.
     if forward_adtype(ad) == ADSelector(ForwardDiff)
-        return ForwardDiff.jacobian(f, x)
+        return nblocks > 1 ? _mw_blocked_jacobian(f, x, nblocks) : ForwardDiff.jacobian(f, x)
     end
     return last(with_jacobian(f, x, AbstractMatrix, ad))
 end
 
-function _mw_local_precision(f, x::AbstractVector{T}, ad) where T
+# Differentiate only the columns in `r`, holding the other coordinates fixed.
+function _mw_jacobian_columns(f, x, r)
+    return ForwardDiff.jacobian(t -> f(vcat(view(x, 1:first(r)-1), t, view(x, last(r)+1:length(x)))), x[r])
+end
+
+# Idle tasks share one Jacobian through contiguous column blocks.
+function _mw_blocked_jacobian(f, x, nblocks)
+    n = length(x)
+    ranges = [fld((b - 1) * n, nblocks)+1:fld(b * n, nblocks) for b in 1:nblocks]
+    tasks = [Threads.@spawn _mw_jacobian_columns(f, x, r) for r in ranges[2:end]]
+    first_block = try
+        _mw_jacobian_columns(f, x, first(ranges))
+    finally
+        # Join every block before returning or propagating an exception.
+        foreach(task -> try wait(task) catch end, tasks)
+    end
+    return _mw_assemble_columns(first_block, tasks, ranges, n)
+end
+
+# Function barrier: ForwardDiff picks its chunk at run time, so the block type is known only here.
+function _mw_assemble_columns(first_block, tasks, ranges, n)
+    J = similar(first_block, size(first_block, 1), n)
+    J[:, first(ranges)] = first_block
+    for (r, task) in zip(ranges[2:end], tasks)
+        # Rethrow the block's own exception so geometry failures stay classifiable.
+        istaskfailed(task) && throw(task.exception)
+        J[:, r] = fetch(task)::typeof(first_block)
+    end
+    return J
+end
+
+function _mw_local_precision(f, x::AbstractVector{T}, ad, nblocks = 1) where T
     try
         all(isfinite, x) || throw(MolewhackerGeometryError())
         d = f(x)
         # Share one model Jacobian across product leaves, then add the prior.
-        J = _mw_jacobian(_mw_parameters ∘ f, x, ad)
+        J = _mw_jacobian(_mw_parameters ∘ f, x, ad, nblocks)
         G = Matrix{T}(_mw_pullback(d, J))
         all(isfinite, G) || throw(MolewhackerGeometryError())
         P = Matrix(Symmetric(G)) + I
