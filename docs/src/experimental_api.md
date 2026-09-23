@@ -87,6 +87,40 @@ Std2D
 Trace2D
 ```
 
+## Interactive static Makie figures
+
+`bat_makie_plot` returns the `Makie.Figure` it constructs, including its controls.
+By default it also displays that same figure:
+
+```julia
+fig = bat_makie_plot(samples);
+```
+
+To defer display, for example when saving from a script, use:
+
+```julia
+fig = bat_makie_plot(samples; display=false);
+save("samples.png", fig)
+```
+
+`display=false` skips BAT's explicit display and optional shader warmup. It still
+constructs the Makie figure and evaluates the plotting graph; saving or displaying
+later requires a suitable backend. It does not suppress automatic display of the
+returned value by a REPL, notebook, or IDE. The semicolons above suppress that
+extra output. For automatic inline output, use a final expression such as
+`bat_makie_plot(samples; display=false)` without a semicolon.
+
+The return changed from `nothing` to `Makie.Figure`. Existing explicit display is
+preserved, but return-value checks, automatic frontend output, and collections
+of results can change behavior or retain figures. This is an experimental API
+change, subject to the compatibility policy at the top of this page.
+
+The result supports normal Makie figure operations. Its internal BAT graph and
+control callbacks are not public API, and individual axes need not retain their
+identity across recipe changes. Ordinary `Makie.plot` composition retains its
+existing interface; the `display` keyword above belongs to `bat_makie_plot`.
+Live sessions retain the separate lifetime operations described below.
+
 ## Live Makie session lifetime
 
 Create a fresh `BATVisualizer(BATMakieVisualization(...))` for each sampling run.

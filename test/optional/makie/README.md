@@ -24,3 +24,11 @@ Run it with an external process deadline in a scratch environment containing
 this checkout and GLMakie, on a machine with a working display/OpenGL context.
 It creates two hidden native windows and closes only those owned by the test.
 This manual check is separate from the headless CairoMakie CI job.
+
+The `static_result` case checks the public interactive figure return, explicit
+display and deferred rendering, weighted histogram contents, working controls,
+independent figures, and scoped themes. `precompile_workload` and
+`precompile_failure` exercise the real workload and its owned-figure cleanup on
+success and injected failure. These cases also run in separate bounded processes.
+The precompile cases add narrow test-only methods at real workload boundaries;
+keep them isolated rather than including them in a shared test process.

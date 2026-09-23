@@ -1,9 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# Precompile workload: drives the REAL user entry points through the
-# _maybe_display suppression gate, so coverage can't drift. The live leg warms
-# the ElasticMatrix sample flavor (vs static Matrix-backed); GLMakie's own
-# render-stack compilation cannot be covered here (needs GLMakie loaded).
+# Precompile workload: drives the real user entry points. Capture the live figure
+# through the display gate; static calls return their figures with display=false.
+# The live leg warms the ElasticMatrix sample flavor (vs static Matrix-backed);
+# GLMakie's render-stack compilation needs GLMakie loaded and is not covered here.
 
 # Drives every interactive widget the way real input would: menus, toggles, vsel checkboxes, collapse button, resize, step slider.
 function _drive_figure_widgets!(fig)
@@ -40,7 +40,7 @@ function _drive_figure_widgets!(fig)
     # Warms the relayout solve against a genuine geometry change.
     resize!(fig, 500, 650)
 
-    # A genuine window change warms the per-walker step-window path.
+    # Warm the draft range control; applying a data window is a separate action.
     for isl in filter(x -> x isa IntervalSlider, fig.content)
         r = isl.range[]
         isl.interval[] = (max(first(r), fld(last(r), 4)), max(first(r), fld(last(r), 2)))
@@ -51,6 +51,8 @@ end
 function _makie_precompile_workload()
     _SUPPRESS_DISPLAY[] = true
     vis = nothing
+    static_fig = nothing
+    dark_fig = nothing
     try
         # 4 total dof against default N_max=3 keeps the cap-exceeded branch reachable (specializations are N_max-sensitive).
         objective = NamedTupleDist(a=Normal(0, 1), b=MvNormal([0.0, 0.0], [1.0 0.0; 0.0 1.0]), c=Normal(0, 1))
@@ -76,14 +78,13 @@ function _makie_precompile_workload()
         _live_graph_update!(vis; support_lo=Float64[], support_hi=Float64[])
 
         # ---- Static legs: the real entry points -------------------------
-        bat_makie_plot(samples)
-        static_fig = _SUPPRESSED_FIG[]
+        static_fig = bat_makie_plot(samples; display=false)
         # Same widget sweep against the STATIC (Matrix-backed) flavor.
         _drive_figure_widgets!(static_fig)
 
         # Dark theme and the support kwarg in one build (dark changes attribute values, not compiled types); only KDE recipes are support-sensitive.
-        bat_makie_plot(samples; dark=true, support=[(-2.0, 2.0), (-2.0, 2.0), (-2.0, 2.0), (-2.0, 2.0)])
-        dark_fig = _SUPPRESSED_FIG[]
+        dark_fig = bat_makie_plot(samples; display=false, dark=true,
+            support=[(-2.0, 2.0), (-2.0, 2.0), (-2.0, 2.0), (-2.0, 2.0)])
         # Menus identified by their option lists, NOT by layout position: the
         # never-displayed figure has no meaningful computedbboxes to sort by.
         # Driving every menu that offers a given KDE recipe covers both the
@@ -99,6 +100,18 @@ function _makie_precompile_workload()
         Makie.convert_arguments(Makie.Plot{Makie.plot}, samples)
     finally
         try
+            # Each successfully returned static figure belongs to this workload.
+            # Cleanup/diagnostic failures must not skip the other figure or live
+            # disposal, nor replace the original workload exception.
+            for fig in (static_fig, dark_fig)
+                isnothing(fig) && continue
+                try
+                    empty!(fig)
+                catch err
+                    BAT._visualizer_cleanup_diagnostic(:precompile_static_figure,
+                        (err, catch_backtrace()))
+                end
+            end
             if !isnothing(vis)
                 # No live task, timer or retained view may enter the package image.
                 BAT._safe_request_visualizer_stop!(vis)

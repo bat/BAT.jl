@@ -135,6 +135,7 @@ function BAT.bat_makie_plot(
     vsel::Vector{<:Integer} = [1, 2, 3],
     N_max::Integer = 3;
     dark::Bool = false,
+    display::Bool = true,
     trace_nsteps::Integer = 20,
     # Hard prior-support bounds for KDE boundary reflection -- see _support_vectors.
     support = nothing,
@@ -142,8 +143,8 @@ function BAT.bat_makie_plot(
 )
     # TODO: MD, Discuss config handling and passing of user attribute overwrites
 
-    # See convert_arguments' matching warmup comment above.
-    warmup_makie_shaders()
+    # Deferred display must also defer this optional temporary-figure render.
+    display && warmup_makie_shaders()
 
     graph, n_dof = _setup_static_graph(
         samples, recipes, vsel, N_max,
@@ -160,14 +161,14 @@ function BAT.bat_makie_plot(
         new_vsel -> _apply_vsel_to_graph!(graph, n_dof, N_max, new_vsel),
     )
 
-    with_theme(dark ? bat_theme_dark() : bat_theme()) do
+    return with_theme(dark ? bat_theme_dark() : bat_theme()) do
         gridlayout = _init_gridlayout(graph, N_max)
         built = _build_fig(graph, gridlayout, picker_info;
             has_chain_info=_samples_have_chain_ids(samples),
             has_trace_info=graph[:has_step_timing][])
-        _maybe_display(built.fig)
+        display && _maybe_display(built.fig)
+        return built.fig
     end
-    return nothing
 end
 
 # Everything the light and dark themes share; bat_theme()/bat_theme_dark() build

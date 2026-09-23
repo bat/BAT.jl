@@ -41,8 +41,8 @@ struct PickerInfo
     apply_vsel!::Function
 end
 
-# Display gate: the precompile workload runs the entry points headless through
-# this, stashing the figure to drive its widgets; the workload resets both refs.
+# The precompile workload captures the live figure through this display gate.
+# Its static legs use returned figures with display=false; both refs are reset.
 const _SUPPRESS_DISPLAY = Ref(false)
 const _SUPPRESSED_FIG = Ref{Any}(nothing)
 

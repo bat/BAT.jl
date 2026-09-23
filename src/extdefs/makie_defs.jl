@@ -188,6 +188,7 @@ end
         vsel::Vector{<:Integer} = [1, 2, 3],
         N_max::Integer = 3;
         dark::Bool = false,
+        display::Bool = true,
         trace_nsteps::Integer = 20,
         support = nothing,
         step_intervals = nothing
@@ -195,9 +196,24 @@ end
 
 *Experimental feature, not yet part of stable public API.*
 
-Displays an interactive Makie corner-plot figure for `samples`: per-cell
+Return a `Makie.Figure` containing an interactive corner plot for `samples`: per-cell
 recipe dropdowns, stats/trace overlays, a variable-selection picker and a
-range selector with Apply and All controls. Requires a Makie backend to be loaded.
+range selector with Apply and All controls. By default, display the same figure
+before returning it. Displaying or saving requires a loaded Makie backend.
+
+Set `display=false` to defer BAT's explicit display and optional shader warmup.
+The figure and its controls are still constructed using Makie. The returned
+figure can be saved or displayed later with ordinary Makie operations:
+
+```julia
+fig = bat_makie_plot(samples; display=false);
+save("samples.png", fig)
+```
+
+The keyword does not suppress a REPL/notebook/IDE's automatic display of the
+returned value. Use a trailing semicolon to suppress that output; keeping the
+default explicit display can otherwise produce a second frontend display.
+This experimental interface now returns a figure instead of `nothing`.
 
 Without timing, the range selects stored samples per walker, preserving their
 weights. To declare exact repetition timing, supply `step_intervals`: one vector
