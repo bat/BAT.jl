@@ -18,6 +18,8 @@ $(TYPEDFIELDS)
     defence::Float64 = 0.2
     "Covariance shrinkage toward the diagonal."
     shrinkage::Float64 = 0.1
+    "Covariance inflation of the fitted Gaussians. Wider fits bound the weights where the target tails are Gaussian."
+    inflation::Float64 = 1.1
     "Effective draws needed per dimension and fitted Gaussian."
     min_ess_per_dim::Float64 = 2.0
     "Fitted mass below which a Gaussian drops out."
@@ -110,7 +112,7 @@ function _mw_check(alg, context)
     @argcheck alg.laplace_inflation > 0
     refit = alg.refit
     @argcheck isnothing(refit) || (refit.maxcomponents > 0 && 0 <= refit.defence < 1 && 0 <= refit.shrinkage <= 1 &&
-        refit.min_ess_per_dim > 0 && 0 <= refit.min_mass < 1 && refit.maxiter > 0 && refit.tol >= 0)
+        refit.inflation > 0 && refit.min_ess_per_dim > 0 && 0 <= refit.min_mass < 1 && refit.maxiter > 0 && refit.tol >= 0)
     return reserve
 end
 
@@ -408,7 +410,7 @@ function _mw_fit_mixture(q, x, logw, refit, context)
     em = _mw_em(x, w, first(_mw_em_estep(x, best...)), refit)
     isnothing(em) && return q
     fits, pis = em
-    fitted = [_mw_gaussian(mu, Matrix(Symmetric(inv(cholesky(S))))) for (mu, S) in fits]
+    fitted = [_mw_gaussian(mu, Matrix(Symmetric(inv(cholesky(S)))) ./ T(refit.inflation)) for (mu, S) in fits]
     defence = T(refit.defence)
     masses = vcat(defence .* probs(q), (1 - defence) .* pis)
     return MixtureModel(vcat(q.components, fitted), masses ./ sum(masses))

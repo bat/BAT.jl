@@ -117,13 +117,16 @@ retain their usual finite-sample bias.
   (Hoogerheide, Opschoor and van Dijk). Each draw is weighted by the proposal that
   drew it, and importance-weighted EM fits one to six Gaussians to the target. The
   number maximizes the weighted log-likelihood of held-out draws, the cross-entropy part
-  of KL(p || fit), and the refit on all draws starts from the held-out winner. The final
-  proposal gives these 80% of the mass and keeps the adaptive mixture at 20% for
-  defence. Center ratios see the target only at component centers, so they cannot
-  see proposal mass placed where the target is small. The fit needs no extra target
-  calls and is skipped when the fresh draws have too few effective samples. On six
-  12-dimensional test targets it raised production ESS by 20–229%, and on the public
-  DeepCore model by 19–36% over two seeds. Production draws come after the fit, from
+  of KL(p || fit), and the refit on all draws starts from the held-out winner. Each fitted
+  covariance is inflated by 1.1, which bounds the weights where the target tails are
+  Gaussian. On the test targets this cost about 6% ESS and cut the mean Pareto shape
+  from 0.15–0.32 to −0.02–0.25. The final proposal gives these 80% of the mass and
+  keeps the adaptive mixture at 20% for defence. Center ratios see the target only at
+  component centers, so they cannot see proposal mass placed where the target is
+  small. The fit needs no extra target calls and is skipped when the fresh draws have
+  too few effective samples. On six
+  12-dimensional test targets it raised production ESS by 13–210%, and on the public
+  DeepCore model by 13–36% over two seeds. Production draws come after the fit, from
   the frozen result, so they stay IID from one proposal. Pass a `MolewhackerRefit` as
   `refit` to tune the fit, or `nothing` to keep the adaptive mixture.
 - `exploration_mass` defaults to zero. A positive value mixes the prior into the
