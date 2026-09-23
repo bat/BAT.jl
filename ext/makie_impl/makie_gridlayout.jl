@@ -62,9 +62,9 @@ function _init_gridlayout(
 
         matrix = Matrix{Any}(undef, n, n)
 
-        # The matrix always stays n x n, with inactive rows/columns collapsed to
-        # Fixed(0) instead: shrinking and re-growing the matrix hits a Makie
-        # SpecApi reconciliation bug where re-grown blocks never reappear.
+        # Keep a fixed n x n grid, collapsing inactive tracks to Fixed(0). The
+        # interactive adapter owns one axis per slot; ordinary composition also
+        # receives this same stable layout shape.
         n_active = length(_idxs)
         n_active <= n || throw(ArgumentError("idxs has $(n_active) entries, exceeding the grid size N_max=$n"))
         # Explicit Union{Auto,Fixed} eltype: GridLayoutBase.convert_contentsizes
@@ -177,4 +177,105 @@ function _init_gridlayout(
     end
 
     return graph[:gridlayout]
+end
+
+
+# This adapter consumes only _init_gridlayout's fixed matrix of Axis specs.
+# Keep axes in their cells: Makie 0.24's whole-grid reconciler may disconnect a
+# block and later reuse it without restoring its Figure membership.
+function _bind_interactive_grid!(fig::Figure, gridlayout; live_vis = nothing)
+    # Match Makie's existing grid bridge: published plot geometry must not be
+    # deep-copied merely to subscribe to the computed layout.
+    source = Makie.ComputePipeline.get_observable!(gridlayout; use_deepcopy=false)
+    initial = source[]
+    grid_size, grid_offsets = initial.size, initial.offsets
+    positions = first.(initial.content)
+    function validate(spec)
+        (spec.size == grid_size && spec.offsets == grid_offsets &&
+            first.(spec.content) == positions &&
+            all(p -> last(p) isa Makie.BlockSpec && last(p).type === :Axis, spec.content)) ||
+            throw(ArgumentError("Interactive BAT grids require fixed Axis positions"))
+        return nothing
+    end
+    validate(initial)
+    layout = fig[1, 1] = GridLayout(initial.size...;
+        rowsizes=copy(initial.rowsizes), colsizes=copy(initial.colsizes),
+        addedrowgaps=copy(initial.rowgaps), addedcolgaps=copy(initial.colgaps),
+        alignmode=initial.alignmode, tellwidth=initial.tellwidth,
+        tellheight=initial.tellheight, halign=initial.halign, valign=initial.valign)
+    axes = [Axis(layout[position...]; spec.kwargs...) for (position, spec) in initial.content]
+    plots = [Observable(PlotSpec[]) for _ in axes]
+    # Use the same scene-owned updater as Makie's grid reconciler. The public
+    # PlotList wrapper in 0.24.15 fails automatic bounds queries when empty.
+    # Keep this compatibility dependency here; do not patch Makie globally.
+    foreach((axis, specs) -> Makie.update_plotspecs!(axis.scene, specs), axes, plots)
+    # Retain only the last generated axis attributes, not old plot generations.
+    previous = Union{Nothing,Dict{Symbol,Any}}[nothing for _ in axes]
+    track_sizes = Ref((initial.rowsizes, initial.colsizes))
+    update_grid! = function(spec)
+        validate(spec) # Reject a changed shape before touching any cell.
+        sizes = (spec.rowsizes, spec.colsizes)
+        if !isequal(track_sizes[], sizes)
+            Makie.GridLayoutBase.with_updates_suspended(layout) do
+                for (i, size) in enumerate(spec.rowsizes)
+                    rowsize!(layout, i, size)
+                end
+                for (i, size) in enumerate(spec.colsizes)
+                    colsize!(layout, i, size)
+                end
+            end
+            track_sizes[] = sizes
+        end
+        for i in eachindex(axes)
+            cell = last(spec.content[i])
+            _update_grid_axis!(axes[i], plots[i], cell, previous[i])
+            previous[i] = cell.kwargs
+        end
+        return nothing
+    end
+    # Register before initial execution, so startup rollback owns the handle.
+    if isnothing(live_vis)
+        on(update_grid!, fig.scene, source)
+    else
+        _view_on(update_grid!, live_vis, source)
+    end
+    update_grid!(initial)
+    return nothing
+end
+
+function _update_grid_axis!(axis::Axis, plots, spec::Makie.BlockSpec, previous)
+    attributes = spec.kwargs
+    # Generated v_i/p_i labels identify the ordered variables and diagonal role.
+    # Compare generated attributes, never labels a caller may have overwritten.
+    semantic_keys = (:xlabel, :ylabel, :xlabelvisible, :ylabelvisible)
+    reset = isnothing(previous) ||
+        any(key -> !isequal(attributes[key], previous[key]), semantic_keys) ||
+        !isequal(attributes[:limits], previous[:limits]) ||
+        any(isnothing, attributes[:limits])
+    # Makie's matcher can reuse plots across missing/present keyword attributes,
+    # even when the converted input type changes (e.g. scalar/vector markersize).
+    # Rebuild only on structural changes; ordinary data updates still reuse plots.
+    old_plots = plots[]
+    compatible = length(old_plots) == length(spec.plots) &&
+        all(_same_plot_structure(a, b) for (a, b) in zip(old_plots, spec.plots))
+    compatible || (plots[] = PlotSpec[])
+    plots[] = spec.plots
+    for (key, value) in attributes
+        key === :limits && continue
+        isequal(to_value(getproperty(axis, key)), value) || setproperty!(axis, key, value)
+    end
+    if reset
+        # Publish new plots before resolving automatic dimensions. Reinstall
+        # computed limits even when equal: the caller may have overridden them.
+        axis.limits = attributes[:limits]
+        Makie.reset_limits!(axis)
+    end
+    return nothing
+end
+
+function _same_plot_structure(a::PlotSpec, b::PlotSpec)
+    return a.type === b.type && length(a.args) == length(b.args) &&
+        all(typeof(x) === typeof(y) for (x, y) in zip(a.args, b.args)) &&
+        keys(a.kwargs) == keys(b.kwargs) &&
+        all(typeof(a.kwargs[key]) === typeof(b.kwargs[key]) for key in keys(a.kwargs))
 end

@@ -75,7 +75,7 @@ function _build_fig(
     fig = Figure(size=(fig_w, min(850 + grid_growth, 1785)))
     isnothing(live_vis) || _attach_live_view!(live_vis, fig)
 
-    plot(fig[1, 1], gridlayout)
+    _bind_interactive_grid!(fig, gridlayout; live_vis=live_vis)
 
     colsize!(fig.layout, 1, Aspect(1, 1))
     # Auto(), not Relative: the axis-only grid reports no natural size, so this row gets the remainder after rows 2/3 claim their content heights.

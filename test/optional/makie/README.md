@@ -19,10 +19,11 @@ fault boundaries, rendering, and existing numerical regressions. CI runs them on
 Julia 1.10 and the current stable Julia. The ordinary core suite separately tests
 backend-neutral ownership and pre-join stop signalling without loading Makie.
 
-`gl_smoke.jl` additionally tests a native GLMakie close and an unrelated screen.
+`gl_smoke.jl` additionally tests native GLMakie recipe/selection round trips,
+rendering, and live close isolation from an unrelated screen.
 Run it with an external process deadline in a scratch environment containing
 this checkout and GLMakie, on a machine with a working display/OpenGL context.
-It creates two hidden native windows and closes only those owned by the test.
+Each case creates two hidden native windows and closes only those it owns.
 This manual check is separate from the headless CairoMakie CI job.
 
 The `static_result` case checks the public interactive figure return, explicit
@@ -41,3 +42,9 @@ flushes, including replacement of pending extremes and prior-generation ownershi
 The `lifecycle_figure` case checks completed live figure retrieval through public
 sampling, saving and controls, plus owning-thread checks, nonwaiting guards,
 callback reentrancy, actual disposal, and focused lifecycle boundary fixtures.
+
+The `view_state` and `lifecycle_grid` cases check interactive grid membership,
+recipe/variable transitions, plot contents, controls, navigation reset rules and
+subscription cleanup, including empty/automatic-limit cells. The adapter uses
+Makie's scene-level plot-spec updater; the ordinary caller-owned SpecApi path
+has separate behavior.

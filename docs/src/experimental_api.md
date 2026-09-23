@@ -117,10 +117,30 @@ of results can change behavior or retain figures. This is an experimental API
 change, subject to the compatibility policy at the top of this page.
 
 The result supports normal Makie figure operations. Its internal BAT graph and
-control callbacks are not public API, and individual axes need not retain their
-identity across recipe changes. Ordinary `Makie.plot` composition retains its
+control callbacks are not public API. Interactive grid updates follow the state
+policy below. Ordinary `Makie.plot` composition retains its
 existing interface; the `display` keyword above belongs to `bat_makie_plot`.
 Live sessions retain the separate lifetime operations described below.
+
+## Interactive grid updates
+
+Interactive static and live figures keep their axes in fixed grid cells while
+recipes, samples and selected variables change. Inactive cells are collapsed;
+recipe round trips retain Figure membership and working controls. Plot object
+identity and the nesting of recipe internals are implementation details.
+
+BAT owns the grid's labels, decorations, aspect and computed bounds. Other axis
+styling, such as titles and background colors, stays with its grid position.
+Across BAT updates, navigation and explicit `limits!` overrides survive while
+that cell represents the same variables with unchanged finite computed bounds.
+A variable/activation change or changed bounds resets the whole cell, including
+both coordinates when a diagonal density height changes. Automatic dimensions
+are recomputed after updates. Removed variables have no saved navigation state.
+Makie's display and export operations can independently reset pan/zoom; this
+policy does not override those operations.
+
+These rules apply to BAT's interactive figures. Ordinary `Makie.plot` composition
+uses the caller's existing Makie layout and reconciliation behavior.
 
 ## Live Makie session lifetime
 

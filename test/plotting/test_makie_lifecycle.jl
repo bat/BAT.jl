@@ -459,6 +459,9 @@ function startup()
         waitfor(() -> BAT.visualizer_status(vis).view_disposed)
         @test BAT.visualizer_status(vis).view_disposed
         @test !BAT.visualizer_status(vis).data_complete
+        grid_source=Makie.ComputePipeline.get_observable!(vis.content.graph[:gridlayout];use_deepcopy=false)
+        @test isempty(Makie.Observables.listeners(grid_source))
+        @test isempty(vis.content.lifecycle.view.subscriptions)
         @test isempty(vis.content.init_segments)
         @test_throws ArgumentError BAT.prepare_visualizer_init!(vis,algorithm())
     finally
@@ -817,12 +820,105 @@ function figure_case()
     end
 end
 
+function grid_case()
+    # Feed controlled chain outputs through the real listener. It remains the
+    # only owner of history and final publication throughout this session.
+    vis,state,outputs,target=fixture(;backend=config(batch=1,limit=32))
+    fig=nothing
+    try
+        fig=initialize(vis,state,outputs,target)
+        graph=vis.content.graph
+        cell(i,j)=only(filter(x -> x isa Axis,contents(fig[1,1][i,j])))
+        axes=[cell(i,j) for i in 1:2,j in 1:2]
+        source=Makie.ComputePipeline.get_observable!(graph[:gridlayout];use_deepcopy=false)
+        view=vis.content.lifecycle.view
+        handles=filter(h -> h.observable===source,view.subscriptions)
+        @test length(handles)==1
+        @test any(pair -> last(pair)===only(handles).f,Makie.Observables.listeners(source))
+        prior_lo,prior_hi=copy(graph[:domain_lo][]),copy(graph[:domain_hi][])
+        upper=axes[1,2]
+        manual=nothing
+        finite_limits=nothing
+        midpoint=(prior_lo.+prior_hi)./2
+        points=[midpoint,midpoint.+0.01,prior_hi.+10.0]
+        for (step,point) in enumerate(points)
+            chain=state.chain_state
+            chain.stepno=step+1
+            chain.output.v[1].=point
+            chain.output.weight[1]=1
+            chain.output.logd[1]=-1
+            chain.output.info[1]=BAT.MCMCSampleID(Int32(1),Int32(1),Int32(1),Int64(step),Int32(1),true)
+            previous=BAT.visualizer_status(vis).last_publication
+            BAT.update_visualizer!(vis;chain_state=chain,nonzero_weights=true,is_sampling_step=true)
+            waitfor(() -> BAT.visualizer_status(vis).last_publication>previous; seconds=120.0)
+            @test length(graph[:samples][][1][1])==step
+            @test length(filter(x -> x isa Axis,fig.content))==4
+            @test all(cell(i,j)===axes[i,j] for i in 1:2,j in 1:2)
+            if step==1
+                # Initial live cells are inactive until listener selection and
+                # first publication. Pan only once finite bounds are installed.
+                finite_limits=deepcopy(upper.limits[])
+                @test !any(isnothing,finite_limits)
+                initial=upper.targetlimits[]
+                manual=typeof(initial)(initial.origin .+ 0.2 .* initial.widths,0.5 .* initial.widths)
+                upper.targetlimits[]=manual
+            elseif step==2
+                @test upper.targetlimits[]==manual
+                @test upper.limits[]==finite_limits
+                @test graph[:domain_lo][]==prior_lo && graph[:domain_hi][]==prior_hi
+            else
+                @test upper.targetlimits[] != manual
+                @test graph[:domain_hi][]==point
+                # Existing graph policy pads each nondegenerate domain by 5%.
+                margin=0.05 .* (point.-prior_lo)
+                @test upper.limits[]==((prior_lo[2]-margin[2],point[2]+margin[2]),
+                    (prior_lo[1]-margin[1],point[1]+margin[1]))
+            end
+        end
+        # Same-axis recipe and selection changes use the actual retained controls.
+        lower_menu,diag_menu,upper_menu=filter(x -> x isa Menu,fig.content)
+        for recipe in (KDE1D,Hist1D)
+            diag_menu.i_selected[]=findfirst(option -> option[2]===recipe,diag_menu.options[])
+            @test all(cell(i,j)===axes[i,j] for i in 1:2,j in 1:2)
+            @test length(filter(x -> x isa Axis,fig.content))==4
+        end
+        checks=filter(x -> x isa Checkbox,fig.content)
+        # Two-variable triangular picker: (1,1),(2,1),(2,2).
+        checks[3].checked[]=false
+        @test !axes[2,2].xlabelvisible[]
+        checks[3].checked[]=true
+        @test axes[2,2].xlabelvisible[]
+        @test all(cell(i,j)===axes[i,j] for i in 1:2,j in 1:2)
+        BAT.finish_visualizer!(vis;success=true)
+        @test BAT.visualizer_figure(vis)===fig
+        @test length(graph[:samples][][1][1])==length(points)
+        @test graph[:domain_hi][]==last(points)
+        @test all(axis -> axis in fig.content,axes)
+        @test !isempty(Makie.colorbuffer(fig))
+        BAT.dispose_visualizer!(vis)
+        waitfor(() -> BAT.visualizer_status(vis).view_disposed &&
+            !BAT.visualizer_status(vis).cleanup_pending)
+        @test isempty(fig.content)
+        @test isempty(view.subscriptions)
+        @test all(h -> all(pair -> last(pair)!==h.f,Makie.Observables.listeners(source)),handles)
+        @test isempty(Makie.Observables.listeners(source))
+        # Deliberately update the retained graph after disposal. Detached binding
+        # must not repopulate the deleted axes, even outside live admission.
+        Makie.update!(graph;diagonal_recipe=Errorbars1D)
+        @test all(axis -> isempty(axis.scene.plots),axes)
+        @test isempty(fig.content)
+        @test BAT.visualizer_figure(vis)===nothing
+    finally
+        cleanup(vis)
+    end
+end
+
 const CASES=Dict("healthy"=>healthy,"callback"=>(() -> computational_failure(:callback)),
     "convergence"=>(() -> computational_failure(:convergence)),"sampler"=>(() -> computational_failure(:sampler)),
     "producer"=>producer,"snapshot"=>(() -> producer(snapshot_failure=true)),
     "listener"=>listener,"timeout"=>timeout_case,
     "transform"=>transform_failure,"publication"=>publication,"stop_publication"=>stop_publication,
-    "startup"=>startup,"view"=>view_case,"figure"=>figure_case)
+    "startup"=>startup,"view"=>view_case,"figure"=>figure_case,"grid"=>grid_case)
 case=get(ENV,"BAT_MAKIE_LIFECYCLE_CASE","")
 haskey(CASES,case) || error("Run this file through test/optional/makie/runtests.jl")
 @testset "Makie lifecycle: $case" begin
