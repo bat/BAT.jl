@@ -34,6 +34,8 @@ The default executor is `EnsembleMCMC.SerialExecutor()`. Pass
 `executor=EnsembleMCMC.ThreadedExecutor()` to `EnsembleProposal` for concurrent
 walker evaluation within each group. The target must support concurrent calls.
 Groups remain ordered, and deterministic targets retain seeded replay across threads.
+Threading helps only when the target is costly. For a cheap target, the task
+overhead dominates, so use the serial default or `ThreadedExecutor(; min_chunk)`.
 
 For CPU batch evaluation, pass `batch_logdensity!`:
 

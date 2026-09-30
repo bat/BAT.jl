@@ -16,6 +16,21 @@ import EnsembleMCMC
     @test logdensityof(posterior).(samplesof(em).v) ≈ samplesof(em).logd
 end
 
+@testset "Snooker and Gaussian moves with chunked threads" begin
+    target = batmeasure(MvNormal([1.0, -2.0], [2.0 0.9; 0.9 1.0]))
+    for move in (EnsembleMCMC.DESnookerMove(), EnsembleMCMC.GaussianReplacementMove())
+        samples = map([EnsembleMCMC.SerialExecutor(), EnsembleMCMC.ThreadedExecutor(min_chunk=4)]) do executor
+            algorithm = TransformedMCMC(proposal=EnsembleProposal(move; executor), nwalkers=16,
+                nchains=2, nsteps=200, convergence=AssumeConvergence(),
+                init=MCMCRetryInit(nsteps_init=30), burnin=MCMCMultiCycleBurnin(nsteps_per_cycle=100, max_ncycles=1))
+            samplesof(evalmeasure(target, algorithm, BATContext(rng=Philox4x((573, 3)))))
+        end
+        @test first(samples) == last(samples)
+        @test first(samples).logd ≈ logdensityof(target).(first(samples).v)
+        @test isapprox(mean(first(samples)), [1.0, -2.0]; atol=0.5)
+    end
+end
+
 @testset "Mixture history and diagnostics" begin
     moves = EnsembleMCMC.MoveMixture((EnsembleMCMC.StretchMove(), EnsembleMCMC.DEMove()),
         [1, 1]; schedule=:cycle)

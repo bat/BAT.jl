@@ -12,4 +12,4 @@ ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
 BAT = {path = "../../.."}
 
 [compat]
-EnsembleMCMC = "0.0.2"
+EnsembleMCMC = "0.0.3"
