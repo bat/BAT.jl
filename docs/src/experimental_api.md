@@ -106,6 +106,7 @@ GridSampler
 HierarchicalDistribution
 PriorImportanceSampler
 ReactiveNestedSampling
+SliceMCMCSampling
 SobolSampler
 EnsembleProposal
 truncate_batmeasure
