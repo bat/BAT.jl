@@ -18,12 +18,30 @@ function exec_map!(f::Base.Callable, executor::SequentialExec, Y::AbstractVector
 end
 
 
-struct MultiThreadedExec <: BATExecutor end
+"""
+    MultiThreadedExec(; ntasks = Threads.nthreads())
 
-function exec_map!(f::Base.Callable, executor::MultiThreadedExec, Y::AbstractVector, X::AbstractVector)
+Execute work in at most `ntasks` Julia tasks. The default uses the number of
+Julia worker threads. Task count does not set the number of sampler candidates.
+"""
+struct MultiThreadedExec <: BATExecutor
+    ntasks::Int
+
+    function MultiThreadedExec(; ntasks::Integer = Threads.nthreads())
+        @argcheck ntasks > 0
+        return new(ntasks)
+    end
+end
+
+function exec_map!(f::F, executor::MultiThreadedExec, Y::AbstractVector, X::AbstractVector) where {F<:Base.Callable}
     @argcheck length(X) == length(Y) throw(ArgumentError("Input and output arrays must have equal lengths."))
-    @threads for i in 0:(length(Y) - 1)
-        Y[firstindex(Y) + i] = f(X[firstindex(X) + i])
+    n = length(Y)
+    ntasks = min(executor.ntasks, n)
+    ntasks <= 1 && return exec_map!(f, SequentialExec(), Y, X)
+    @sync for task in 1:ntasks
+        Threads.@spawn for i in fld((task - 1) * n, ntasks):(fld(task * n, ntasks) - 1)
+            Y[firstindex(Y) + i] = f(X[firstindex(X) + i])
+        end
     end
     return Y
 end
