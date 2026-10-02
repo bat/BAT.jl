@@ -374,6 +374,27 @@ function _validated_repetition_length(W::AbstractVector{<:Real})
     return sum(Float64, W, init = 0.0)
 end
 
+function _repetition_exact_values(
+    smpls::DensitySampleVector,
+    N_expanded::Union{Nothing,Float64} = nothing,
+)
+    unshaped_smpls = unshaped.(smpls)
+    return _repetition_exact_values(unshaped_smpls, unshaped_smpls.weight, N_expanded)
+end
+
+function _repetition_exact_values(
+    unshaped_smpls::DensitySampleVector,
+    W::AbstractVector{<:Real},
+    N_expanded::Union{Nothing,Float64} = nothing,
+)
+    N_expanded = isnothing(N_expanded) ? _validated_repetition_length(W) : N_expanded
+    N_expanded > 0 || throw(ArgumentError("Can't decode an empty repetition chain"))
+    all(isone, W) && return unshaped_smpls.v
+
+    idxs = inverse_rle(eachindex(W), Int.(W))
+    return VectorOfSimilarVectors(flatview(unshaped_smpls.v)[:, idxs])
+end
+
 function _repetition_exact_ess(
     smpls::DensitySampleVector,
     algorithm::EffSampleSizeFromAC,
@@ -389,8 +410,7 @@ function _repetition_exact_ess(
     if all(isone, W)
         return bat_eff_sample_size_impl(unshaped_smpls.v, algorithm, context).result
     elseif N_expanded * n_dof <= 5 * 10^7
-        idxs = inverse_rle(eachindex(W), Int.(W))
-        expanded_v = VectorOfSimilarVectors(flatview(unshaped_smpls.v)[:, idxs])
+        expanded_v = _repetition_exact_values(unshaped_smpls, W, N_expanded)
         return bat_eff_sample_size_impl(expanded_v, algorithm, context).result
     else
         # Chain too large to decode, fall back to the resampling

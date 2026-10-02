@@ -90,7 +90,7 @@ function _selected_z_grads(proposal::MALAProposalState, accepted::AbstractVector
     return c.grads_curr
 end
 
-function _invalidate_mala_cache!!(proposal::MALAProposalState)
+function _invalidate_position_cache!!(proposal::MALAProposalState)
     empty!(proposal.grad_cache.grads_curr)
     empty!(proposal.grad_cache.grads_prop)
     return nothing
@@ -200,6 +200,6 @@ function set_proposal_transform!!(proposal::MALAProposalState, chain_state::MCMC
         proposal.target_gradient, chain_state.target, chain_state.f_transform,
         chain_state.context, proposal, Vector(first(chain_state.current.x.v))
     )
-    _invalidate_mala_cache!!(proposal)
+    _invalidate_position_cache!!(proposal)
     return @set proposal.target_gradient = fg_new
 end
