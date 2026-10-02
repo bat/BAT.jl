@@ -18,7 +18,7 @@ $(TYPEDFIELDS)
     defence::Float64 = 0.2
     "Covariance shrinkage toward the diagonal."
     shrinkage::Float64 = 0.1
-    "Covariance inflation of the fitted Gaussians. Wider fits bound the weights where the target tails are Gaussian."
+    "Covariance inflation of the fitted Gaussians to reduce weight concentration."
     inflation::Float64 = 1.1
     "Effective draws needed per dimension and fitted Gaussian."
     min_ess_per_dim::Float64 = 2.0
@@ -71,7 +71,7 @@ $(TYPEDFIELDS)
     "Initial discovery pool and production-sizing pilot count."
     batchsize::Int = 1000
     maxiter::Int = 100
-    "Maximum component proposals, including repeated selections and any added prior component."
+    "Maximum component proposals, including repeated selections, refit Gaussians, and any added prior component."
     maxcomponents::Int = typemax(Int)
     "Maximum target calls, excluding geometry. No additional call limit by default."
     maxevals::Int = typemax(Int)
@@ -237,8 +237,7 @@ function _mw_gaussian_logpdf(d, x, logweights, constants)
     return result
 end
 
-# Pool entries of the per-component log-density cache. Above this, scoring recomputes
-# all component densities each round.
+# Bound the cache entries. Components beyond this budget are scored without caching.
 const _MW_SCORE_CACHE_LIMIT = 2^24
 
 function _mw_logpdf_column(component, x)
@@ -250,10 +249,11 @@ end
 # Rounds change every mass but no existing component density, so only new pool
 # points and new components need whitening.
 function _mw_extend_scores(cache, components, points, executor)
-    n, k = size(cache)
     N, K = size(points, 2), length(components)
+    size(cache) == (N, K) && return cache
+    n, k = min(size(cache, 1), N), min(size(cache, 2), K)
     grown = similar(cache, N, K)
-    grown[1:n, 1:k] = cache
+    grown[1:n, 1:k] = view(cache, 1:n, 1:k)
     columns = Vector{Vector{eltype(cache)}}(undef, K)
     rows = view(points, :, n+1:N)
     exec_map!(j -> _mw_logpdf_column(components[j], j <= k ? rows : points), executor, columns, collect(1:K))
@@ -277,25 +277,36 @@ function _mw_cached_logpdf_rows(cache, logmass, r)
         lm, column = logmass[k], view(cache, r, k)
         isfinite(lm) || continue
         @simd for j in eachindex(sums)
-            sums[j] += exp(column[j] + lm - maxima[j])
+            sums[j] += ifelse(maxima[j] == -Inf, zero(T), exp(column[j] + lm - maxima[j]))
         end
     end
     return log.(sums) .+ maxima
 end
 
 function _mw_pool_logpdf(q, components, points, cache, executor, limit = _MW_SCORE_CACHE_LIMIT)
-    if size(points, 2) * length(components) > limit
+    ncached = min(length(components), limit ÷ size(points, 2))
+    if ncached == 0
         return _mw_batched_logpdf(q, points, executor), similar(cache, 0, 0)
     end
-    cache = _mw_extend_scores(cache, components, points, executor)
+    cache = _mw_extend_scores(cache, view(components, 1:ncached), points, executor)
     n = size(cache, 1)
     ntasks = executor isa MultiThreadedExec ? executor.ntasks : 1
     width = cld(n, max(1, min(ntasks, n ÷ 256)))
     ranges = [i:min(i + width - 1, n) for i in 1:width:n]
     blocks = Vector{Vector{eltype(cache)}}(undef, length(ranges))
-    logmass = log.(probs(q))
+    logmass = log.(view(probs(q), 1:ncached))
     exec_map!(r -> _mw_cached_logpdf_rows(cache, logmass, r), executor, blocks, ranges)
-    return reduce(vcat, blocks), cache
+    result = reduce(vcat, blocks)
+    if ncached < length(components)
+        weights = probs(q)[ncached+1:end]
+        mass = sum(weights)
+        if mass > 0
+            remainder = MixtureModel(components[ncached+1:end], weights ./ mass)
+            terms = _mw_batched_logpdf(remainder, points, executor)
+            result .= _logaddexp.(result, terms .+ log(mass))
+        end
+    end
+    return result, cache
 end
 
 struct MolewhackerBudgetReached <: Exception end
@@ -391,13 +402,13 @@ function _mw_em(x, w, R, refit)
     return fits, pis
 end
 
-function _mw_fit_mixture(q, x, logw, refit, context)
+function _mw_fit_mixture(q, x, logw, refit, context, maxcomponents = refit.maxcomponents)
     T = eltype(x)
     w = exp.(logw .- maximum(logw))
     fit, held = x[:, 1:2:end], x[:, 2:2:end]
     wfit, wheld = w[1:2:end] ./ sum(w[1:2:end]), w[2:2:end] ./ sum(w[2:2:end])
     best, score = nothing, T(-Inf)
-    for K in 1:refit.maxcomponents
+    for K in 1:min(refit.maxcomponents, maxcomponents)
         1 / sum(abs2, wfit) > refit.min_ess_per_dim * K * size(x, 1) || break
         em = _mw_em(fit, wfit, _mw_em_start(fit, wfit, K, get_rng(context)), refit)
         isnothing(em) && continue
@@ -503,6 +514,7 @@ end
 function _mw_initial_proposal(transformed_m, f, model, logtarget, gprior, alg, fit_budget, ad, context)
     T = get_precision(context)
     components = typeof(gprior)[]
+    center_logp = T[]
     nevals, ngeometries, nfailed, nexhausted, nhessians = 0, 0, 0, 0, 0
     if alg.nseeds > 0
         seeds = if isnothing(alg.init)
@@ -534,17 +546,21 @@ function _mw_initial_proposal(transformed_m, f, model, logtarget, gprior, alg, f
         seeds, fisher = centers[keep], precisions[keep]
         observed = Vector{Union{Nothing,Matrix{T}}}(nothing, length(seeds))
         if alg.laplace_seeds && !isempty(seeds)
-            seeds, observed, nhessians, ncalls = _mw_laplace_seeds(logtarget, seeds, fisher, ad, alg.executor)
+            remaining = fit_budget - nevals - length(seeds) - (alg.maxiter > 0 ? alg.batchsize : 0)
+            seeds, observed, nhessians, ncalls = _mw_laplace_seeds(logtarget, seeds, fisher, ad, alg.executor, remaining)
             nevals += ncalls
         end
         components = typeof(gprior)[_mw_gaussian(seeds[i], fisher[i]) for i in eachindex(seeds)]
+        center_logp = logtarget.(seeds)
+        nevals += length(seeds)
         # A Laplace Gaussian shares its seed's center, so center-ratio fitting gives the pair equal mass.
         for i in eachindex(seeds)
-            isnothing(observed[i]) || push!(components, _mw_gaussian(seeds[i], observed[i] ./ T(alg.laplace_inflation)))
+            if !isnothing(observed[i])
+                push!(components, _mw_gaussian(seeds[i], observed[i] ./ T(alg.laplace_inflation)))
+                push!(center_logp, center_logp[i])
+            end
         end
     end
-    center_logp = logtarget.(mean.(components))
-    nevals += length(components)
     q, center_logsum = isempty(components) ? (nothing, similar(center_logp, 0)) :
         _mw_center_mixture(components, center_logp, alg.executor)
     if isnothing(q)
@@ -561,7 +577,7 @@ end
 # stationary. Where the observed information is positive definite, one Newton step polishes the
 # center if it raises the log target. Seeds within squared Mahalanobis 1 of an earlier seed share
 # its Hessian: typical draws of a d-dimensional Gaussian lie near d, so this holds in any dimension.
-function _mw_laplace_seeds(logtarget, centers, fisher, ad, executor)
+function _mw_laplace_seeds(logtarget, centers, fisher, ad, executor, maxevals = typemax(Int))
     T = eltype(first(centers))
     d = length(first(centers))
     owner = collect(eachindex(centers))
@@ -588,6 +604,7 @@ function _mw_laplace_seeds(logtarget, centers, fisher, ad, executor)
         for j in findall(==(s), owner)
             observed[j] = P
         end
+        ncalls < maxevals || continue
         candidate = centers[s] .+ P \ last(first(block))
         ncalls += 1
         logtarget(candidate) > first(first(block)) && (polished[s] = candidate)
@@ -734,7 +751,11 @@ function evalmeasure_impl(em::EvaluatedMeasure, alg::MolewhackerSampling, contex
     elseif alg.maxiter > 0
         stop_reason = :maxevals
     end
-    q isa MixtureModel && !isnothing(alg.refit) && !isempty(fresh_logw) && (q = _mw_fit_mixture(q, fresh_points, fresh_logw, alg.refit, context))
+    if !isnothing(alg.refit) && !isempty(fresh_logw) && ncomponent_proposals < component_limit
+        nprevious = length(q.components)
+        q = _mw_fit_mixture(q, fresh_points, fresh_logw, alg.refit, context, component_limit - ncomponent_proposals)
+        ncomponent_proposals += length(q.components) - nprevious
+    end
 
     # Optional prior mixing does not affect the source discovery strategy.
     epsilon = T(alg.exploration_mass)

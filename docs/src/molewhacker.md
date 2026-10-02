@@ -99,9 +99,11 @@ retain their usual finite-sample bias.
   Gaussians are cached by pool index, preserving every selection's mass update.
   Center density sums add only the selected occurrences each round.
   Mixture scoring uses the selected executor and bounded, reusable workspaces.
+  A bounded cache retains component densities across rounds. Components beyond
+  the cache budget are scored separately, preserving the cached work.
 - `maxiter` is a strict limit on adaptation rounds. `maxiter = 0` skips discovery,
   adaptation, and fresh rounds. `maxcomponents` limits proposed occurrences,
-  including repeated selections and any added prior component.
+  including repeated selections, refit Gaussians, and any added prior component.
 - `fresh_rounds` defaults to three. After adaptation stops, for any reason, each
   fresh round adds `batchsize` fresh draws from the current proposal to the pool,
   then selects and adds candidates as before. Discovery batches come only from
@@ -118,13 +120,15 @@ retain their usual finite-sample bias.
   drew it, and importance-weighted EM fits one to six Gaussians to the target. The
   number maximizes the weighted log-likelihood of held-out draws, the cross-entropy part
   of KL(p || fit), and the refit on all draws starts from the held-out winner. Each fitted
-  covariance is inflated by 1.1, which bounds the weights where the target tails are
-  Gaussian. On the test targets this cost about 6% ESS and cut the mean Pareto shape
+  covariance is inflated by 1.1 to reduce weight concentration. This does not
+  guarantee bounded weights: the fitted covariance can still underestimate target spread.
+  On the test targets this cost about 6% ESS and cut the mean Pareto shape
   from 0.15–0.32 to −0.02–0.25. The final proposal gives these 80% of the mass and
   keeps the adaptive mixture at 20% for defence. Center ratios see the target only at
   component centers, so they cannot see proposal mass placed where the target is
   small. The fit needs no extra target calls and is skipped when the fresh draws have
-  too few effective samples. On six
+  too few effective samples or no component budget remains. The fit uses at most
+  the remaining component budget. On six
   12-dimensional test targets it raised production ESS by 13–210%, and on the public
   DeepCore model by 13–36% over two seeds. Production draws come after the fit, from
   the frozen result, so they stay IID from one proposal. Pass a `MolewhackerRefit` as
@@ -137,7 +141,8 @@ retain their usual finite-sample bias.
   Fisher information misses curvature where the forward model is stationary in a
   parameter, for example a mixing angle near maximal mixing. The Hessian comes
   from central differences of AD gradients, once per distinct seed. Where it is
-  positive definite, one Newton step polishes the seed if the target increases.
+  positive definite, one Newton step polishes the seed if the target increases
+  and a target call remains after reserving center, discovery, and output calls.
   This step lets the default mode search stop early. Elsewhere, such as at kinks,
   the seed keeps its Fisher Gaussian alone. The two Gaussians share a center, so
   center-ratio fitting gives them equal mass. The target must support AD
@@ -178,7 +183,8 @@ the production sample count. With ten initial components, fourteen candidates,
 and sixteen completed rounds, the mixture has 234 proposed occurrences. Laplace
 seeds can add up to ten more, and the default fresh rounds up to 42. Reselection
 can store fewer Gaussians. Failed geometries or earlier stops can reduce both
-counts. Optional prior mixing can add one component.
+counts. The refit can add up to six Gaussians within `maxcomponents`.
+Optional prior mixing can add one component.
 This is a user-selected budget, not an automatic convergence test. Compare fresh
 weighted estimates of the observables you need before reducing the budget.
 

@@ -76,11 +76,12 @@ import ForwardDiff, Optim, OptimizationLBFGSB
         # A stationary forward model: Fisher sees only the prior, the target has curvature 1 + 16.
         p_stationary = PosteriorMeasure(Likelihood(z -> Normal(z[1]^2, 0.5), -2.0), prior)
         em_laplace = evalmeasure(p_stationary, MolewhackerSampling(nsamples = 32, maxiter = 0, nseeds = 1,
-            init_mode = nothing, init = ExplicitInit([[0.0]]), laplace_seeds = true), context())
+            init_mode = nothing, init = ExplicitInit([[0.0]]), laplace_seeds = true, maxevals = 33), context())
         q_laplace = Distribution(em_laplace.approx.transformed)
         @test sort([invcov(c)[1, 1] for c in q_laplace.components]) ≈ [1, 17 / 1.2] rtol = 1e-6
         @test probs(q_laplace) ≈ [0.5, 0.5]
         @test em_laplace.evalinfo.result.nhessians == 1
+        @test em_laplace.evalinfo.result.nevals == 33
         # The Newton polish lets the default mode search stop early.
         @test (MolewhackerSampling().init_mode.maxiters, MolewhackerSampling(laplace_seeds = false).init_mode.maxiters) == (50, 1000)
 
@@ -155,6 +156,10 @@ import ForwardDiff, Optim, OptimizationLBFGSB
         @test with.ncomponents - without.ncomponents - 14 in 1:6
         @test refit(1; refit = nothing).ncomponents - without.ncomponents == 14
         @test refit(1; refit = MolewhackerRefit(maxcomponents = 1)).ncomponents - without.ncomponents == 15
+        limited = refit(1; ncandidates = 1, maxcomponents = 3)
+        @test limited.ncomponents <= limited.ncomponent_proposals <= 3
+        fitted = refit(1; ncandidates = 1, maxcomponents = 4)
+        @test fitted.ncomponents == fitted.ncomponent_proposals == 4
     end
 
     @testset "Cached pool scoring" begin
@@ -171,7 +176,13 @@ import ForwardDiff, Optim, OptimizationLBFGSB
         l1, cache = BAT._mw_pool_logpdf(q1, comps[1:7], x1, zeros(0, 0), ex)
         l2, cache = BAT._mw_pool_logpdf(q2, comps, x, cache, ex)
         @test l1 ≈ BAT._mw_batched_logpdf(q1, x1) && l2 ≈ BAT._mw_batched_logpdf(q2, x) && size(cache) == (80, 12)
+        partial, cache = BAT._mw_pool_logpdf(q2, comps, x, cache, ex, 80 * 6)
+        @test partial ≈ l2 && length(cache) <= 80 * 6
         @test first(BAT._mw_pool_logpdf(q2, comps, x, cache, ex, 0)) ≈ l2
+        # The uncached part can have finite density where all cached terms underflow.
+        separated = [BAT._mw_gaussian([c], [1.0;;]) for c in (1e200, 0.0)]
+        q = MixtureModel(separated, [0.5, 0.5])
+        @test only(first(BAT._mw_pool_logpdf(q, separated, zeros(1, 1), zeros(0, 0), ex, 1))) ≈ logpdf(q, [0.0])
     end
 
     @testset "Bounded target concurrency" begin
