@@ -43,17 +43,18 @@ function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::Union{I, AbstractV
 end
 
 function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::Expr)
-    if isexpr(vsel, :vect) || isexpr(vsel, :call)
-        if @capture(vsel, [s_:e_]) || @capture(vsel, (s_:e_))
-            return _normalize_vsel_shaped(vs, s:e)
-
-        elseif @capture(vsel, [dims__]) && all(broadcast(x -> x isa Integer, dims))
-            return _normalize_vsel_shaped(vs, [dims...])
+    if @capture(vsel, [s_:e_]) || @capture(vsel, (s_:e_))
+        return _normalize_vsel_shaped(vs, s:e)
+    elseif isexpr(vsel, :vect)
+        if all(broadcast(x -> x isa Integer, vsel.args))
+            return _normalize_vsel_shaped(vs, [vsel.args...])
         else
             vsel_norm = [_normalize_vsel_shaped(vs, el isa QuoteNode ? el.value : el) for el in vsel.args]
             n_vsel = vcat(vsel_norm...) # for user convenience, does :([a[1,2], b, c]) -> [:(a[1,2]), :b, :c]
             return Union{typeof.(n_vsel)...}[n_vsel...]
         end
+    elseif isexpr(vsel, :call)
+        throw(ArgumentError("Invalid parameter selection $vsel, expected a name, an indexed name, a range or a vector of these."))
     end
     return Expr[vsel]
 end
@@ -69,146 +70,31 @@ function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::AbstractVector)
 end
 
 
-# Retrieve flat indexes of the selected dims of samples
-# If shaped, build new shape
+# Positions of the selected dims among the free parameters, one-based and
+# independent of the flat storage axes. For shaped samples also the shape of
+# the selection.
 
-function marg_idxs_unshaped(samples::DensitySampleVector, 
-                            vsel::AbstractVector            
-)
-    flat_v = ValueShapes.flatview(samples.v)
-    return (firstindex(flat_v) - 1) .+ vsel
+marg_idxs_unshaped(samples::DensitySampleVector, vsel::AbstractVector) = vsel
+
+function marg_idxs_shaped(samples::DensitySampleVector, vsel::AbstractVector{<:Union{Symbol,Expr}})
+    vs = varshape(samples)
+    selections = [_select_params(vs, el) for el in vsel]
+    sel_idxs = reduce(vcat, first.(selections); init = Int[])
+    new_shape = NamedTupleShape(NamedTuple(encode_name.(vsel) .=> last.(selections)))
+    return sel_idxs, new_shape
 end
 
-function marg_idxs_shaped(samples::DensitySampleVector,
-                          vsel::Union{AbstractVector{E}, AbstractVector{S}, AbstractVector{Union{S, E}}} where E <: Expr where S <: Symbol
-)
-    shapes = AbstractValueShape[]
-    sel_idxs = Int[]
+function marg_idxs_shaped(samples::DensitySampleVector, vsel::AbstractVector{<:AbstractUnitRange})
+    return marg_idxs_shaped(samples, collect(only(vsel)))
+end
 
-    vs = varshape(samples)
-    flat_v = ValueShapes.flatview(unshaped.(samples).v)
+function marg_idxs_shaped(samples::DensitySampleVector, vsel::AbstractVector{<:Integer})
+    names = all_active_names(varshape(samples))
+    checkbounds(Bool, names, vsel) || throw(ArgumentError("Flat parameter indices $vsel are out of bounds, the samples have $(length(names)) free parameters. Select free parameters by flat index or use Symbols or Expressions."))
+    new_shape = NamedTupleShape(NamedTuple(encode_name.(names[vsel]) .=> Ref(ScalarShape{Real}())))
+    return Int.(vsel), new_shape
+end
 
-    flat_idxs = axes(flat_v, 1)
-    shaped_idxs = vs(flat_idxs)
-
-    for el in vsel 
-        # :a
-        if el isa Symbol
-            shape_acc = getproperty(vs, el)
-            tmp_shape = shape_acc.shape
-            if !(shape isa ConstValueShape)
-                idx_acc = getproperty(shaped_idxs, el)
-                append!(sel_idxs, idx_acc isa Integer ? Int64[idx_acc] : vec(idx_acc))
-            end
-        # :(a[1]) or :(a[1:4]) or :(a[1,2,3]) or :(a[1,2,:])
-        elseif @capture(el, a_[args__])
-            shape_acc = getproperty(vs, a)
-            isa_const = shape_acc.shape isa ConstValueShape
-            if !isa_const
-                idx_acc = getproperty(shaped_idxs, a)
-            end
-
-            if @capture(el, a_[s_:e_])
-                if isa_const
-                    tmp_shape = ConstValueShape(shape_acc.shape.value[s:e])
-                else
-                    tmp_shape = ArrayShape{Real}(length(s:e))
-                    append!(sel_idxs, vec(idx_acc[s:e]))
-                end
-            elseif @capture(el, a_[dim_])
-                if isa_const
-                    tmp_shape = ConstValueShape(shape_acc.shape.value[dim])
-                else
-                    tmp_shape = ScalarShape{Real}()
-                    append!(sel_idxs, idx_acc[dim])
-                end
-            else
-                slice_dims = Int[]
-
-                for (i,arg) in enumerate(args) 
-                    if @capture(arg, (s_:e_))
-                        args[i] = s:e
-                        append!(slice_dims, length(s:e))
-                    else
-                        append!(slice_dims, 0)
-                    end
-                end
-                sliced_dims = slice_dims .> 0
-
-                whole_dims = args .== :(:)
-                args[whole_dims] .= Colon()
-
-                if isa_const
-                    tmp_shape = ConstValueShape(shape_acc.shape.value[args...])
-                else
-                    new_dims = shape_acc.shape.dims .* whole_dims .+ slice_dims
-                    new_axes = new_dims[whole_dims .| sliced_dims]
-            
-                    tmp_shape = length(new_axes) > 0 ? ArrayShape{Real}(new_axes...) : ScalarShape{Real}()
-
-                    idxs = idx_acc[args...]
-                    append!(sel_idxs, ndims(idxs) > 0 ? vec(idxs) : idxs)
-                end
-            end
-        end
-        push!(shapes, tmp_shape)
-    end
-    vsel = encode_name.(vsel)
-    new_shape = NamedTupleShape(NamedTuple(vsel .=> shapes))
-
-    return sel_idxs, new_shape
-end 
-
-function marg_idxs_shaped(samples::DensitySampleVector,
-                          vsel::AbstractVector{UR} where UR <: AbstractUnitRange
-)   
-    rng = vsel[1]
-    vs = varshape(samples)
-    all_accs = values(vs)
-    all_shapes = getproperty.(all_accs, :shape)
-    all_keys = keys(vs)
-    consts = [broadcast(x -> x isa ConstValueShape, all_shapes)...]
-    non_const_accs = all_accs[.!consts]
-    non_const_shapes = all_shapes[.!consts]
-    non_const_keys = all_keys[.!consts]
-    non_const_vs = NamedTupleShape(NamedTuple(non_const_keys .=> non_const_shapes))
-    @argcheck sum(length.(non_const_accs)) >= length(rng) throw(ArgumentError("The selected range of flat indexes is larger than the number of free parameters. Please only select free parameters by flat index or use Symbols or Expressions."))
-
-    strs = _all_exprs_as_strings(non_const_vs)[rng]
-    flat_v = ValueShapes.flatview(unshaped.(samples).v)
-
-    sel_idxs = (firstindex(flat_v) - 1) .+ rng
-    new_shapes = fill(ScalarShape{Real}(), length(rng))
-
-    encoded_keys = encode_name.(strs)
-    new_shape = NamedTupleShape(NamedTuple(encoded_keys .=> new_shapes))
-
-    return sel_idxs, new_shape
-end 
-
-function marg_idxs_shaped(samples::DensitySampleVector,
-    vsel::AbstractVector{I} where I <: Integer
-)   
-    vs = varshape(samples)
-    all_accs = values(vs)
-    all_shapes = getproperty.(all_accs, :shape)
-    all_keys = keys(vs)
-    consts = [broadcast(x -> x isa ConstValueShape, all_shapes)...]
-    non_const_accs = all_accs[.!consts]
-    non_const_shapes = all_shapes[.!consts]
-    non_const_keys = all_keys[.!consts]
-    non_const_vs = NamedTupleShape(NamedTuple(non_const_keys .=> non_const_shapes))
-    @argcheck all(broadcast(x -> x <= sum(length.(non_const_accs)), vsel)) throw(ArgumentError("One or more selected flat indexes is out of bounds of the free parameters. Please only select free parameters by flat index or use Symbols or Expressions."))
-    all_strs = _all_exprs_as_strings(non_const_vs)
-    strs = String[all_strs[idx] for idx in vsel]
-    flat_v = ValueShapes.flatview(unshaped.(samples).v)
-    sel_idxs = (firstindex(flat_v) - 1) .+ vsel
-    new_shapes = fill(ScalarShape{Real}(), length(vsel))
-    encoded_keys = encode_name.(strs)
-    new_shape = NamedTupleShape(NamedTuple(encoded_keys .=> new_shapes))
-
-    return sel_idxs, new_shape
-end 
 
 # Encode dim names to preserve indexing information 
 #
@@ -316,7 +202,7 @@ function bat_marginalize(samples::DensitySampleVector,
     # else
 
     flat_orig_data = ValueShapes.flatview(unshaped.(samples).v)
-    marg_data = flat_orig_data[flat_idxs, :]
+    marg_data = flat_orig_data[(first(axes(flat_orig_data, 1)) - 1) .+ flat_idxs, :]
     marg_data = ndims(marg_data) > 1 ? VectorOfSimilarVectors(marg_data) : marg_data
    
     marg_samples = shaped ? new_shape.(DensitySampleVector(v = marg_data, logd = logd, info = info, aux = aux)) : DensitySampleVector(v = marg_data, logd = logd, info = info, aux = aux)

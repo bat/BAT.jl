@@ -22,7 +22,7 @@ plot(
 ```
 Required inputs:
   * `samples::DensitySampleVector`: samples to be plotted
-  * `vsel::Union{Integer, Symbol, Expr}`: index or name of the parameter to be plotted
+  * `vsel::Union{Integer, Symbol, Expr}`: index or name of the parameter to be plotted. A name can also select an element of a multivariate parameter, `:(a[2])`, or a field of a nested named tuple, `:(x.b.c)`
 
 Keyword arguments:
   * `seriestype::Symbol = :smallest_intervals`: plot style        
