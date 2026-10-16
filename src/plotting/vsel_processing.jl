@@ -51,7 +51,7 @@ function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::Expr)
             return _normalize_vsel_shaped(vs, [dims...])
         else
             vsel_norm = [_normalize_vsel_shaped(vs, el isa QuoteNode ? el.value : el) for el in vsel.args]
-            vcat(vsel_norm...) # for user convenience, does :([a[1,2], b, c]) -> [:(a[1,2]), :b, :c]
+            n_vsel = vcat(vsel_norm...) # for user convenience, does :([a[1,2], b, c]) -> [:(a[1,2]), :b, :c]
             return Union{typeof.(n_vsel)...}[n_vsel...]
         end
     end
