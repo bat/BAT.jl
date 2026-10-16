@@ -79,6 +79,12 @@ function subname(name::String, indx::Integer)
 end
 
 
+# Whether a value shape contains a constant anywhere, nested shapes included:
+_has_const_shape(::AbstractValueShape) = false
+_has_const_shape(::ConstValueShape) = true
+_has_const_shape(vs::NamedTupleShape) = any(acc -> _has_const_shape(acc.shape), values(vs))
+
+
 get_fixed_names(vs::AbstractValueShape) = Vector{String}()
 
 function get_fixed_names(vs::NamedTupleShape)
