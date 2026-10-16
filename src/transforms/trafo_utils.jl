@@ -36,13 +36,11 @@ function _transform_xs_impl(
     return f.(xs)
 end
 
-function _transform_xs_impl(
-    f::Any,
-    ::Missing,
-    xs::AbstractVector,
-    ::AbstractValueShape,
-    y_shape::AbstractValueShape
-)
+# Shaped outputs from shaped or unshaped inputs:
+_transform_xs_impl(f::Any, ::Missing, xs::AbstractVector, ::AbstractValueShape, y_shape::AbstractValueShape) = _transform_xs_shaped(f, xs, y_shape)
+_transform_xs_impl(f::Any, ::Missing, xs::AbstractVector, ::Missing, y_shape::AbstractValueShape) = _transform_xs_shaped(f, xs, y_shape)
+
+function _transform_xs_shaped(f::Any, xs::AbstractVector, y_shape::AbstractValueShape)
     ys_unshaped = _trafo_create_unshaped_ys(f, xs, y_shape)
 
     @assert axes(ys_unshaped) == axes(xs)
@@ -96,14 +94,11 @@ function _transform_xs_impl_withlogd(
     return ys, logd_ys
 end
 
-function _transform_xs_impl_withlogd(
-    f::Any,
-    ::Missing,
-    xs::AbstractVector,
-    logd_xs::AbstractVector,
-    ::AbstractValueShape,
-    y_shape::AbstractValueShape
-)
+# Shaped outputs from shaped or unshaped inputs:
+_transform_xs_impl_withlogd(f::Any, ::Missing, xs::AbstractVector, logd_xs::AbstractVector, ::AbstractValueShape, y_shape::AbstractValueShape) = _transform_xs_shaped_withlogd(f, xs, logd_xs, y_shape)
+_transform_xs_impl_withlogd(f::Any, ::Missing, xs::AbstractVector, logd_xs::AbstractVector, ::Missing, y_shape::AbstractValueShape) = _transform_xs_shaped_withlogd(f, xs, logd_xs, y_shape)
+
+function _transform_xs_shaped_withlogd(f::Any, xs::AbstractVector, logd_xs::AbstractVector, y_shape::AbstractValueShape)
     ys_unshaped = _trafo_create_unshaped_ys(f, xs, y_shape)
     logd_ys = zero(logd_xs)
 
@@ -196,20 +191,27 @@ const _ESCompatible = Union{
     ShapedAsNTArray
 }
 
-const _VSCompatible = Union{
-    Real,
-    AbstractArray{<:Real},
-    NamedTuple{names, <:Tuple{Vararg{Union{Real,AbstractArray{<:Real}}}}} where names
-}
+# Whether a variate type has a value shape, nested named tuples included.
+# Resolved by dispatch so that the point shape stays inferrable:
+_has_valshape(::Type) = Val(false)
+_has_valshape(::Type{<:Union{Real,AbstractArray{<:Real}}}) = Val(true)
+_has_valshape(::Type{<:ShapedAsNT}) = Val(true)
+_has_valshape(::Type{<:NamedTuple{names,T}}) where {names,T<:Tuple} = _all_have_valshape(T)
+
+_all_have_valshape(::Type{Tuple{}}) = Val(true)
+_all_have_valshape(::Type{T}) where {T<:Tuple} = _all_have_valshape(_has_valshape(Base.tuple_type_head(T)), Base.tuple_type_tail(T))
+_all_have_valshape(::Val{true}, ::Type{T}) where {T<:Tuple} = _all_have_valshape(T)
+_all_have_valshape(::Val{false}, ::Type) = Val(false)
 
 _get_point_shape(xs::_ESCompatible) = elshape(xs)
 
-_get_point_shape(xs::AbstractVector) = _get_point_shape_impl(xs, eltype(xs))
-_get_point_shape_impl(xs::AbstractVector, ::Type{<:_VSCompatible}) = valshape(first(xs))
-_get_point_shape_impl(xs::AbstractVector, ::Type) = missing
+_get_point_shape(xs::AbstractVector) = _get_point_shape_impl(xs, _has_valshape(eltype(xs)))
+_get_point_shape_impl(xs::AbstractVector, ::Val{true}) = valshape(first(xs))
+_get_point_shape_impl(::AbstractVector, ::Val{false}) = missing
 
-_maybe_valshape(::Any) = missing
-_maybe_valshape(x::_VSCompatible) = valshape(x)
+_maybe_valshape(x) = _maybe_valshape(x, _has_valshape(typeof(x)))
+_maybe_valshape(x, ::Val{true}) = valshape(x)
+_maybe_valshape(::Any, ::Val{false}) = missing
 
 
 _trafo_unshape_inputs(xs::AbstractVector, x_shape::AbstractValueShape) = inverse(x_shape).(xs)

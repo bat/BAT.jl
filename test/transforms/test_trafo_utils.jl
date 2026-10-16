@@ -86,17 +86,50 @@ using BAT: _unshaped_trafo, _get_point_shape, _trafo_input_output_shape, _trafo_
 
     f = f_complex
     @test @inferred(_unshaped_trafo(f)) isa Missing
-    @test @inferred(_trafo_input_output_shape(f, xs)) isa Tuple{<:NamedTupleShape,Missing}
+    @test @inferred(_trafo_input_output_shape(f, xs)) isa Tuple{<:NamedTupleShape,<:NamedTupleShape}
     @test @inferred(_trafo_ladj_available(f, xs)) isa Val{false}
     @test @inferred(_trafo_output_numtype(f, xs)) <: Float64
     @test @inferred(_trafo_output_type(f, xs)) <: NamedTuple
     ys = @inferred(transform_samples(f, xs))
-    @test ys isa AbstractVector{<:NamedTuple}
-    @test @inferred(_get_point_shape(ys)) isa Missing
+    @test ys isa ShapedAsNTArray
+    @test @inferred(_get_point_shape(ys)) isa NamedTupleShape
     ysv = @inferred(transform_samples(f, xsv))
     @test ysv.v == ys
     @test all(isnan, ysv.logd)
 
     xs_complex = f_complex.(xs)
     _trafo_input_output_shape(identity, xs_complex)
+
+    @testset "nested named tuples" begin
+        nested_dist = distprod(x = (a = Uniform(0, 1), b = (c = Normal(), d = MvNormal([1.0 0.0; 0.0 1.0]))), e = Uniform(0, 1))
+        nested_vs = varshape(nested_dist)
+        nxs = [rand(nested_dist) for _ in 1:3]
+        @test @inferred(_get_point_shape(nxs)) isa NamedTupleShape
+        @test _get_point_shape(nxs) == valshape(first(nxs))
+        # Unshaping explicit values, as the DoNotTransform pretransform does:
+        nys = @inferred(transform_samples(Base.Fix2(unshaped, nested_vs), nxs))
+        @test nys isa VectorOfSimilarVectors
+        @test nys == unshaped.(nxs, Ref(nested_vs))
+
+        snt_dist = NamedTupleDist(ShapedAsNT, x = (a = Uniform(0, 1),), e = Uniform(0, 1))
+        sxs = [rand(snt_dist) for _ in 1:3]
+        @test sxs isa AbstractVector{<:ShapedAsNT}
+        @test @inferred(_get_point_shape(sxs)) isa NamedTupleShape
+        @test transform_samples(Base.Fix2(unshaped, varshape(snt_dist)), sxs) == unshaped.(sxs)
+
+        # Union-typed fields of scalars and arrays still carry a shape:
+        uxs = NamedTuple{(:a,),Tuple{Union{Float64,Vector{Float64}}}}[(a = 1.0,), (a = 2.0,)]
+        @test _get_point_shape(uxs) == NamedTupleShape(a = ScalarShape{Float64}())
+        @test transform_samples(x -> (a = x.a + 1,), uxs) == [(a = 2.0,), (a = 3.0,)]
+
+        # Shaped nested outputs from unshaped inputs:
+        sys = transform_samples(s -> (x = (n = length(s),),), ["ab", "c"])
+        @test sys isa ShapedAsNTArray
+        @test sys == [(x = (n = 2,),), (x = (n = 1,),)]
+
+        # Empty named tuples are shaped like any other named tuple:
+        exs = transform_samples(x -> (a = NamedTuple(), b = x), [1.0, 2.0])
+        @test exs isa ShapedAsNTArray
+        @test exs == [(a = NamedTuple(), b = 1.0), (a = NamedTuple(), b = 2.0)]
+    end
 end
