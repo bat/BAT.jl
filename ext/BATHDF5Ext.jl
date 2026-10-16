@@ -106,7 +106,7 @@ function _h5io_write(datastore::H5DataStore, path::AbstractString, data::NamedTu
     nothing
 end
 
-const AnyTable = Union{AbstractVector{<:NamedTuple},StructArray}
+const AnyTable = Union{AbstractVector{<:NamedTuple},StructArray,ShapedAsNTArray}
 
 function _h5io_write(datastore::H5DataStore, path::AbstractString, data::AnyTable)
     @nospecialize datastore, path, data
@@ -227,12 +227,15 @@ end
 _normalize_vs(shape::ScalarShape{<:Real}) = ScalarShape{Real}()
 _normalize_vs(shape::ArrayShape{<:Real}) = ArrayShape{Real}(size(shape)...)
 
-function _infer_vs_from_table(v::TypedTables.Table)
-    cols = Tables.columns(v)
-    raw_vs = map(valshape, map(first, cols))
-    const_v = map(_const_col_value, cols)
-    NamedTupleShape(map((c, shp) -> ismissing(c) ? _normalize_vs(shp) : ConstValueShape(copy(deepcopy(c))), const_v, (;raw_vs...)))
+# Nested named tuples are read back as nested tables:
+_infer_col_shape(col::TypedTables.Table) = _infer_vs_from_table(col)
+
+function _infer_col_shape(col::AbstractVector)
+    c = _const_col_value(col)
+    ismissing(c) ? _normalize_vs(valshape(first(col))) : ConstValueShape(copy(deepcopy(c)))
 end
+
+_infer_vs_from_table(v::TypedTables.Table) = NamedTupleShape(map(_infer_col_shape, Tables.columns(v)))
 
 
 _h5io_read_postprocess_samples(v::AbstractVector) = v
