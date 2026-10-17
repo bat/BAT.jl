@@ -138,6 +138,7 @@ include("deprecations.jl")
 # (see docs/src/stable_api.md):
 @compat public AbstractMedianEstimator, AbstractModeEstimator, AbstractSamplingAlgorithm
 @compat public ConvergenceTest, MGVISchedule
+@compat public MCMCConvergenceTest, SingleChainMCMCConvergenceTest, MultiChainMCMCConvergenceTest
 
 # Non-exported names that are part of the experimental API
 # (see docs/src/experimental_api.md):
