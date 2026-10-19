@@ -45,7 +45,7 @@ function compose_plotspecs(
         base_color = _CHAIN_COLOR_PALETTE[mod1(rank_of[chain_id], length(_CHAIN_COLOR_PALETTE))]
         # 0.15 alpha floor: a fully transparent oldest point would be invisible instead of merely faint.
         colors = [RGBA(base_color.r, base_color.g, base_color.b, 0.15 + 0.85 * recency[idx]) for idx in range]
-        pts = Point2f.(x[range], y[range])
+        pts = Point{2,Float64}.(x[range], y[range])
         length(pts) > 1 && push!(specs, S.Lines(pts; color=colors))
         push!(specs, S.Scatter(pts; color=colors, markersize=markersize * 3))
     end

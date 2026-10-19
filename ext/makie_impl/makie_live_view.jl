@@ -104,7 +104,16 @@ function _with_live_view(f, vis; publication::Bool = false)
         end
     catch err
         view.presentation_valid[] = false
-        (starting || err isa InterruptException) && rethrow()
+        starting && rethrow()
+        if err isa InterruptException
+            # Interactive callbacks can run outside both the sampling owner
+            # and the listener. Stop observation before propagating interruption
+            # so a refused final publication cannot be reported as complete.
+            BAT.request_visualizer_stop!(vis; reason=:aborted,
+                exception=CapturedException(err, catch_backtrace()))
+            _request_view_disposal!(vis)
+            rethrow()
+        end
         _fail_visualizer!(vis, err, catch_backtrace(), :view)
         _request_view_disposal!(vis)
         return false
@@ -162,6 +171,11 @@ function _track_live_subscription!(vis, handle)
     end
     return handle
 end
+
+# Static callbacks belong to the figure, so empty!(fig) releases control
+# subscriptions and the sample graph captured by root input callbacks.
+_view_on(f, owner::Scene, observable; kwargs...) = on(f, owner, observable; kwargs...)
+_view_onany(f, owner::Scene, observables...; kwargs...) = onany(f, owner, observables...; kwargs...)
 
 # Keep the static path's callback return values and registration semantics.
 # Register before the optional initial call so failed startup still owns the

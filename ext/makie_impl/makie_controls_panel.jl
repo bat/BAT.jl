@@ -73,6 +73,7 @@ function _build_fig(
     # small margin), or a wide picker matrix gets clipped at the figure edge.
     fig_w = max(min(665 + grid_growth, 1600), ceil(Int, panel_width) + 24)
     fig = Figure(size=(fig_w, min(850 + grid_growth, 1785)))
+    subscription_owner = isnothing(live_vis) ? fig.scene : live_vis
     isnothing(live_vis) || _attach_live_view!(live_vis, fig)
 
     _bind_interactive_grid!(fig, gridlayout; live_vis=live_vis)
@@ -188,16 +189,16 @@ function _build_fig(
             value_entry = Textbox(toggle_row_content[3, 2:4]; stored_string="1:$limit",
                 placeholder="start:end", width=nothing, tellwidth=false,
                 validator=text -> !isnothing(_parse_sample_window(text, graph[:max_step][])))
-            _view_on(live_vis, slider.interval) do interval
+            _view_on(subscription_owner, slider.interval) do interval
                 syncing[] || (draft[] = Int64.(interval))
             end
-            _view_on(live_vis, value_entry.stored_string) do text
+            _view_on(subscription_owner, value_entry.stored_string) do text
                 if !syncing[]
                     interval = _parse_sample_window(text, graph[:max_step][])
                     isnothing(interval) || (draft[] = interval)
                 end
             end
-            _view_on(live_vis, draft) do interval
+            _view_on(subscription_owner, draft) do interval
                 syncing[] = true
                 try
                     set_close_to!(slider, interval...)
@@ -209,14 +210,14 @@ function _build_fig(
             apply = Button(toggle_row_content[1, 4], label="Apply")
             all_button = Button(toggle_row_content[2, 4], label="All")
             dirty = Observable(true)
-            _view_onany(live_vis, graph[:window_steps], draft) do applied, pending
+            _view_onany(subscription_owner, graph[:window_steps], draft) do applied, pending
                 dirty[] = applied != pending
                 apply.label[] = dirty[] ? "Apply" : "Applied"
             end
-            _view_on(live_vis, apply.clicks) do _
+            _view_on(subscription_owner, apply.clicks) do _
                 dirty[] && _apply_sample_window!(graph, draft[]; live_vis=live_vis)
             end
-            _view_on(live_vis, all_button.clicks) do _
+            _view_on(subscription_owner, all_button.clicks) do _
                 _apply_sample_window!(graph, nothing; live_vis=live_vis)
             end
             range_controls[] = (slider=slider, draft=draft, syncing=syncing, apply=apply,
@@ -240,12 +241,12 @@ function _build_fig(
         end
         return nothing
     end
-    _view_on(live_vis, graph[:max_step]) do _
+    _view_on(subscription_owner, graph[:max_step]) do _
         add_index_slider!()
     end
     # Observe release before widgets consume it (native mouse handlers use 1).
     # Makie's button-state tracker has already removed the released button.
-    _view_on(live_vis, events(fig.scene).mousebutton; priority=2) do event
+    _view_on(subscription_owner, events(fig.scene).mousebutton; priority=2) do event
         event.button == Mouse.left && event.action == Mouse.release && add_index_slider!()
         return Consume(false)
     end
@@ -283,10 +284,10 @@ function _build_fig(
         toggle_trace_upper = Toggle(ui_layout[2, 4], active=false)
         toggle_trace_lower = Toggle(ui_layout[4, 4], active=false)
         append!(ui_blocks, Any[lbl_trace, toggle_trace_upper, toggle_trace_lower])
-        _view_on(live_vis, toggle_trace_upper.active) do is_live
+        _view_on(subscription_owner, toggle_trace_upper.active) do is_live
             _view_graph_update!(graph, live_vis; show_trace_upper=is_live)
         end
-        _view_on(live_vis, toggle_trace_lower.active) do is_live
+        _view_on(subscription_owner, toggle_trace_lower.active) do is_live
             _view_graph_update!(graph, live_vis; show_trace_lower=is_live)
         end
     end
@@ -299,25 +300,25 @@ function _build_fig(
 
     rowsize!(controls_layout, 2, Auto())
 
-    _view_on(live_vis, menu_upper.selection) do selected_recipe
+    _view_on(subscription_owner, menu_upper.selection) do selected_recipe
         _view_graph_update!(graph, live_vis; upper_recipe=selected_recipe)
     end
-    _view_on(live_vis, menu_diagonal.selection) do selected_recipe
+    _view_on(subscription_owner, menu_diagonal.selection) do selected_recipe
         _view_graph_update!(graph, live_vis; diagonal_recipe=selected_recipe)
     end
-    _view_on(live_vis, menu_lower.selection) do selected_recipe
+    _view_on(subscription_owner, menu_lower.selection) do selected_recipe
         _view_graph_update!(graph, live_vis; lower_recipe=selected_recipe)
     end
 
-    _view_on(live_vis, toggle_upper.active) do is_live
+    _view_on(subscription_owner, toggle_upper.active) do is_live
         _view_graph_update!(graph, live_vis; show_stats_upper=is_live)
     end
 
-    _view_on(live_vis, toggle_diag.active) do is_live
+    _view_on(subscription_owner, toggle_diag.active) do is_live
         _view_graph_update!(graph, live_vis; show_stats_diag=is_live)
     end
 
-    _view_on(live_vis, toggle_lower.active) do is_live
+    _view_on(subscription_owner, toggle_lower.active) do is_live
         _view_graph_update!(graph, live_vis; show_stats_lower=is_live)
     end
 
@@ -332,7 +333,7 @@ function _build_fig(
 
     # Starts collapsed; update=true applies that at construction, since `on` only fires on future notifications.
     controls_visible = Observable(false)
-    _view_on(live_vis, controls_visible; update=true) do vis
+    _view_on(subscription_owner, controls_visible; update=true) do vis
         rowsize!(fig.layout, 3, vis ? Auto() : Fixed(0))
         # Not in ui_blocks, so hidden directly: row 3's Fixed(0) alone leaves a ~1px rounding sliver of the Box visible.
         controls_box.visible[] = vis
@@ -340,7 +341,7 @@ function _build_fig(
             _set_block_visible!(b, vis)
         end
     end
-    _view_on(live_vis, collapse_button.clicks) do _
+    _view_on(subscription_owner, collapse_button.clicks) do _
         controls_visible[] = !controls_visible[]
     end
 
@@ -437,6 +438,7 @@ function _build_vsel_picker!(
     picker_col::Integer;
     live_vis = nothing,
 )
+    subscription_owner = isnothing(live_vis) ? fig.scene : live_vis
     N_shown = min(N, _PICKER_MAX_N)
     cell = _picker_cell_size(N_shown)
     gap = _picker_gap(N_shown)
@@ -453,7 +455,7 @@ function _build_vsel_picker!(
     # Color derived from the actual background (see _status_text_color) -- a hardcoded :red is illegible on the dark theme.
     status_label = Label(fig, "", fontsize=12, color=_status_text_color(fig.scene.backgroundcolor[]))
 
-    initial_vsel_set = Set(initial_vsel)
+    initial_vsel_set = Set(_clamp_vsel(initial_vsel, N, N_max))
     checkboxes = Dict{Tuple{Int,Int},Checkbox}()
     all_blocks = Union{Checkbox,Label,Box}[status_label, lbl_marginals]
     updating_programmatically = Ref(false)
@@ -514,7 +516,7 @@ function _build_vsel_picker!(
 
     for (i, j) in keys(checkboxes)
         cb = checkboxes[(i, j)]
-        _view_on(live_vis, cb.checked) do is_on
+        _view_on(subscription_owner, cb.checked) do is_on
             updating_programmatically[] && return
 
             new_vars = _vsel_after_toggle(active_vars[], i, j, is_on)

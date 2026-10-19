@@ -9,9 +9,9 @@ const CASES = [
     "lifecycle_healthy", "lifecycle_callback", "lifecycle_convergence",
     "lifecycle_sampler", "lifecycle_producer", "lifecycle_snapshot", "lifecycle_listener",
     "lifecycle_timeout", "lifecycle_transform", "lifecycle_publication", "lifecycle_stop_publication", "lifecycle_startup",
-    "lifecycle_view", "lifecycle_figure", "lifecycle_grid", "core", "buffering", "dwell", "rng", "windows",
+    "lifecycle_view", "lifecycle_interactive_interrupt", "lifecycle_figure", "lifecycle_grid", "core", "buffering", "dwell", "rng", "windows",
     "static_result", "precompile_workload", "precompile_failure", "warmup",
-    "domain", "domain_publication", "view_state",
+    "domain", "domain_publication", "view_state", "api_boundaries", "numerics", "bounded_kde", "kde_integration",
 ]
 const ROOT = normpath(joinpath(@__DIR__, "../../.."))
 

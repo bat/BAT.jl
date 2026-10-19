@@ -175,7 +175,11 @@ function _window_selection(data::SampleWindowData, window)
         isnothing(window) && return (data.samples, selected)
         rows = sort!(collect(keys(mass)))
         result = data.samples[rows]
-        result.weight .= [mass[row] for row in rows]
+        exact_weights = [mass[row] for row in rows]
+        clipped_weights = convert.(eltype(result.weight), exact_weights)
+        clipped_weights == exact_weights || throw(ArgumentError(
+            "Selected step counts cannot be represented exactly by the sample weight type; use integer repetition weights"))
+        result.weight .= clipped_weights
         return (result, selected)
     else
         isnothing(window) && return (data.samples, selected)

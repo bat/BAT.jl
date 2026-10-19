@@ -1,9 +1,11 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+# Keep numeric geometry in Float64 until Makie applies its coordinate transform.
+# Early Float32 conversion can erase unit-scale variation around large offsets.
 # Fresh sentinels per call, not shared consts -- see _empty_scatter2d_primitives (makie_scatter.jl).
 _empty_hist1d_primitives() = (centers=Vector{Float64}(), weights=Vector{Float64}(), edges=Vector{Float64}())
 _empty_hist2d_primitives() = (centers_x=Vector{Float64}(), centers_y=Vector{Float64}(), weights=Matrix{Float64}(undef, 0, 0))
-_empty_quantilehist1d_primitives() = (xy_data=Vector{Point{2,Float32}}(), widths=Vector{Float64}(), stairs_data=Vector{Point{2,Float32}}(), bin_colors=Vector{RGBA{Float32}}())
+_empty_quantilehist1d_primitives() = (xy_data=Vector{Point{2,Float64}}(), widths=Vector{Float64}(), stairs_data=Vector{Point{2,Float64}}(), bin_colors=Vector{RGBA{Float32}}())
 _empty_quantilehist2d_primitives() = (centers_x=Vector{Float64}(), centers_y=Vector{Float64}(), color_grid=Matrix{RGBA{Float32}}(undef, 0, 0))
 _empty_hexbin2d_primitives() = (x=Float64[], y=Float64[], weights=Float64[], thresh=0.0)
 
@@ -114,11 +116,11 @@ function _quantilehist1d_output(hist::Histogram, config::NamedTuple)
     end
 
     centers = _get_bin_centers(h_norm)[1]
-    xy_data = Point2f.(centers, h_norm.weights)
+    xy_data = Point{2,Float64}.(centers, h_norm.weights)
     edges = h_norm.edges[1]
     widths = diff(edges)
     stairs_y = vcat(h_norm.weights, h_norm.weights[end])
-    stairs_data = Point2f.(edges, stairs_y)
+    stairs_data = Point{2,Float64}.(edges, stairs_y)
 
     return (xy_data=xy_data, widths=widths, stairs_data=stairs_data, bin_colors=bin_colors)
 end

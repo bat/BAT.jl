@@ -60,6 +60,57 @@ using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex
         @test isapprox(mean(marg.dist), 1, atol = 0.05)
     end
 
+    @testset "Representable histogram edges" begin
+        for lo in (0.0, 1e-300, 1.0, 1e8, 1e16, 1e100, 1e300),
+                nsteps in (1, 2, 10), closed in (:left, :right)
+            hi = lo
+            for _ in 1:nsteps
+                hi = nextfloat(hi)
+            end
+            values = [lo, hi]
+            edges = BAT._get_edges(values, 100, closed)
+            hist = fit(Histogram, values, FrequencyWeights([2.0, 3.0]), edges; closed)
+            @test all(diff(collect(edges)) .> 0)
+            @test all(w -> isapprox(w, edges[2] - edges[1]; atol=0), diff(collect(edges)))
+            @test length(edges) <= 101
+            @test first(edges) < lo
+            @test last(edges) > hi
+            @test sum(hist.weights) == 5
+            # Subnormal widths need not have a representable PDF height.
+            if lo >= 1
+                density = StatsBase.normalize(hist; mode=:pdf)
+                @test all(isfinite, density.weights)
+                @test sum(density.weights .* diff(collect(edges))) ≈ 1
+            end
+        end
+        for first_constant in (true, false), closed in (:left, :right)
+            data = first_constant ? (fill(3.0, 3), [1.0, 2.0, 3.0]) :
+                ([1.0, 2.0, 3.0], fill(3.0, 3))
+            edges = BAT._get_edges(data, (100,), closed)
+            @test length(edges) == 2
+            hist = fit(Histogram, data, FrequencyWeights(ones(3)), edges; closed)
+            @test sum(hist.weights) == 3
+            samples = DensitySampleVector([collect(v) for v in zip(data...)], zeros(3))
+            @test MarginalDist(samples, (1, 2); bins=100, closed) isa MarginalDist
+        end
+        data = ([-3.0, -1.0, 0.0, 2.0, 3.0], [1.0, 2.0, 3.0, 4.0, 5.0])
+        for closed in (:left, :right), bins in ((30,), (30, 40))
+            @test BAT._get_edges(data, bins, closed) ==
+                StatsBase.histrange(data, StatsBase._nbins_tuple(data, bins), closed)
+        end
+        for scale in (1e-40, 1e-300)
+            @test length(BAT._get_edges(scale .* [-2, -1, 0, 1, 2], 100, :left)) == 101
+        end
+        values = [1e16, nextfloat(nextfloat(1e16))]
+        edges = BAT._get_edges(values, 100, :left)
+        hist = StatsBase.normalize(fit(Histogram, values,
+            FrequencyWeights([3.0, 2.0]), edges); mode=:pdf)
+        regions, reported = BAT.get_smallest_intervals(hist, [0.5])
+        actual = sum(only(regions).weights .* diff(edges))
+        @test actual >= 0.5
+        @test only(reported) ≈ actual
+    end
+
     @testset "bin centers and marginal modes" begin
         data1 = [1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 9, 10]
         hist_1d = fit(Histogram, data1, nbins = 10, closed = :left)

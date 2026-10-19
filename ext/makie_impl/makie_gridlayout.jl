@@ -2,8 +2,9 @@
 
 function _init_gridlayout(
     graph::ComputeGraph,
-    n::Int64
+    n::Integer
 )
+    n = Int(n)
     # A real ComputePipeline computation, not an Observables.lift with reentrant
     # graph[sym][] reads inside the body (those corrupt edge-resolution state).
     # register_computation!'s input list is static, so it names every recipe's

@@ -60,7 +60,8 @@ function _makie_precompile_workload()
     dark_fig = nothing
     try
         # 4 total dof against default N_max=3 keeps the cap-exceeded branch reachable (specializations are N_max-sensitive).
-        objective = NamedTupleDist(a=Normal(0, 1), b=MvNormal([0.0, 0.0], [1.0 0.0; 0.0 1.0]), c=Normal(0, 1))
+        objective = NamedTupleDist(a=Uniform(-2, 2),
+            b=product_distribution([Uniform(-2, 2), Uniform(-2, 2)]), c=Uniform(-2, 2))
 
         # ---- Live leg: a real visualizer-attached run -------------------
         # nchains=2 is the minimum passing Gelman-Rubin; max_buffered is far above the sample count so the worker never blocks on backpressure.
@@ -69,12 +70,17 @@ function _makie_precompile_workload()
         samples = res.result
         live_fig = BAT.visualizer_figure(vis)
         isnothing(live_fig) && error("Makie precompile workload: completed live Figure is unavailable")
+        # The actual original target must supply support through the live
+        # EvaluatedMeasure wrapper, including initialization and burn-in rows.
+        graph = vis.content.graph
+        graph[:support_lo][] == fill(-2.0, 4) && graph[:support_hi][] == fill(2.0, 4) ||
+            error("Makie precompile workload: original target support was not forwarded")
 
         # Widget sweep against the LIVE (ElasticMatrix-backed) data flavor.
         _drive_figure_widgets!(live_fig)
 
-        # Non-empty support changes the recipes' config NamedTuple type and takes the KDE reflection branch.
-        _live_graph_update!(vis; support_lo=fill(-2.0, 4), support_hi=fill(2.0, 4))
+        # Real bounded observations exercise the reflection branch. Explicit
+        # support may not clamp unbounded samples into an artificial interval.
         for recipe_1d in (KDE1D, QuantileKDE1D)
             _live_graph_update!(vis; diagonal_recipe=recipe_1d)
         end
@@ -82,6 +88,7 @@ function _makie_precompile_workload()
             _live_graph_update!(vis; upper_recipe=recipe_2d)
         end
         _live_graph_update!(vis; support_lo=Float64[], support_hi=Float64[])
+        _live_graph_update!(vis; support_lo=fill(-2.0, 4), support_hi=fill(2.0, 4))
         # Live callbacks isolate presentation failures from sampling. Such a
         # failure must not silently count as successful precompile coverage.
         BAT.visualizer_figure(vis) === live_fig ||

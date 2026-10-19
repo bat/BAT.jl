@@ -537,6 +537,60 @@ function view_case()
     end
 end
 
+function interactive_interrupt()
+    for completed in (false, true)
+        vis,state,outputs,target=fixture(;backend=config(batch=100,limit=200))
+        observer=nothing
+        plain_ctx=BATContext(rng=BAT.Philox4x((144,72)))
+        plain=BAT.MCMCState(algorithm(),target,Int32(1),[zeros(2)],plain_ctx)
+        plain_outputs=BAT._empty_chain_outputs(plain)
+        try
+            fig=initialize(vis,state,outputs,target)
+            yield() # Let the listener apply its initial selection before the control action.
+            if completed
+                state=BAT.mcmc_iterate!!(outputs,state;max_nsteps=8,update_visualizer=true)
+                BAT.finish_visualizer!(vis;success=true)
+                assert_complete(vis)
+            end
+            g=vis.content.graph
+            observer=Makie.on(g[:show_stats_upper]) do _
+                throw(InterruptException())
+            end
+            toggle=first(filter(x -> x isa Makie.Toggle,fig.content))
+            err=caught(() -> (toggle.active[]=!toggle.active[]))
+            @test err isa InterruptException
+            Makie.off(observer);observer=nothing
+            status=BAT.visualizer_status(vis)
+            @test status.outcome==(completed ? :complete : :aborted)
+            @test status.data_complete==completed
+            @test !status.presentation_valid
+            @test !isnothing(status.error)
+            @test !vis.content.lifecycle.accepting[]
+            @test BAT.visualizer_figure(vis)===nothing
+            if !completed
+                # Observation is disabled, but the actual numerical iterator
+                # must still produce the same result and RNG state.
+                state=BAT.mcmc_iterate!!(outputs,state;max_nsteps=8,update_visualizer=true)
+                plain=BAT.mcmc_iterate!!(plain_outputs,plain;max_nsteps=8)
+                @test outputs==plain_outputs
+                @test state.chain_state.current.x==plain.chain_state.current.x
+                @test BAT.get_rng(state.chain_state.context)==BAT.get_rng(plain.chain_state.context)
+            end
+            BAT.finish_visualizer!(vis;success=true)
+            waitfor(() -> BAT.visualizer_status(vis).view_disposed &&
+                !BAT.visualizer_status(vis).cleanup_pending)
+            status=BAT.visualizer_status(vis)
+            @test status.quiesced
+            @test status.outcome==(completed ? :complete : :aborted)
+            @test status.data_complete==completed
+            @test completed || status.last_publication==0
+        finally
+            isnothing(observer) || Makie.off(observer)
+            cleanup(vis)
+        end
+    end
+end
+
 # A real different-thread call, without depending on @spawn's thread selection.
 # The optional runner supplies at least two default worker threads for this case.
 function figure_other_threads(f, owner_thread)
@@ -918,7 +972,8 @@ const CASES=Dict("healthy"=>healthy,"callback"=>(() -> computational_failure(:ca
     "producer"=>producer,"snapshot"=>(() -> producer(snapshot_failure=true)),
     "listener"=>listener,"timeout"=>timeout_case,
     "transform"=>transform_failure,"publication"=>publication,"stop_publication"=>stop_publication,
-    "startup"=>startup,"view"=>view_case,"figure"=>figure_case,"grid"=>grid_case)
+    "startup"=>startup,"view"=>view_case,"interactive_interrupt"=>interactive_interrupt,
+    "figure"=>figure_case,"grid"=>grid_case)
 case=get(ENV,"BAT_MAKIE_LIFECYCLE_CASE","")
 haskey(CASES,case) || error("Run this file through test/optional/makie/runtests.jl")
 @testset "Makie lifecycle: $case" begin

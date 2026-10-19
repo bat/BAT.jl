@@ -6,6 +6,19 @@
 # recipe's output node. Same convention for every _empty_*_primitives().
 _empty_scatter2d_primitives() = (x=Float64[], y=Float64[], weights=Float64[])
 
+# Normalize relative marker areas without overflowing the weight sum.
+# Uniform and non-positive-total cases retain their existing marker convention.
+function _scatter_markersizes(weights::AbstractVector, markersize)
+    if isempty(weights) || all(w -> w ≈ weights[1], weights)
+        return markersize
+    end
+    scale = maximum(abs, weights)
+    relative = weights ./ scale
+    relative_mean = mean(relative)
+    relative_mean <= 0 && return markersize
+    return sqrt.(relative ./ relative_mean) .* markersize
+end
+
 function compute_plotting_primitives(
     ::SubArray,
     ::SubArray,
@@ -50,11 +63,7 @@ function compose_plotspecs(
     # one computed primitive -- see the invariant comment in _init_gridlayout.
     transposed && ((x, y) = (y, x))
 
-    real_markersize = if isempty(weights) || (all(w -> w ≈ weights[1], weights)) || (mean(weights) <= 0)
-        markersize
-    else
-        sqrt.(weights ./ mean(weights)) .* markersize
-    end
+    real_markersize = _scatter_markersizes(weights, markersize)
 
     scatter = S.Scatter(x, y;
         markersize=real_markersize
@@ -66,7 +75,7 @@ end
 
 # Whether `samples` carries chain identity (true for MCMC SampleID types);
 # gates whether ChainScatter2D is offered in the recipe dropdown.
-_samples_have_chain_ids(samples) = hasfield(eltype(samples.info), :chainid)
+_samples_have_chain_ids(samples) = isconcretetype(eltype(samples.info)) && hasfield(eltype(samples.info), :chainid)
 
 _empty_chainscatter2d_primitives() = (x=Float64[], y=Float64[], weights=Float64[], chainids=Int32[])
 
@@ -119,11 +128,7 @@ function compose_plotspecs(
     # See Scatter2D's matching comment above.
     transposed && ((x, y) = (y, x))
 
-    real_markersize = if isempty(weights) || (all(w -> w ≈ weights[1], weights)) || (mean(weights) <= 0)
-        markersize
-    else
-        sqrt.(weights ./ mean(weights)) .* markersize
-    end
+    real_markersize = _scatter_markersizes(weights, markersize)
 
     # Colors keyed by each chain's *rank* among the sorted unique ids present,
     # not the raw chainid: real ids are large/sparse and collide mod the

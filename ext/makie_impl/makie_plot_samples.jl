@@ -43,7 +43,7 @@ function _setup_static_graph(
     samples_graph = graph[:samples][]
     current_idxs_graph = graph[:current_idxs][]
     info_T = eltype(unshaped_samples.info)
-    if hasfield(info_T, :chainid)
+    if _samples_have_chain_ids(unshaped_samples)
       wid_field = hasfield(info_T, :walkerid) ? :walkerid :
             (hasfield(info_T, :walker) ? :walker : nothing)
       groups = Dict{Tuple{Int32,Int32},Vector{Int}}()

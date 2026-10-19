@@ -66,7 +66,9 @@ function _support_bounds(target, n_dof::Integer)
     return lo, hi
 end
 
-# Unwraps a measure to the prior Distribution (mirrors get_initsrc_from_target).
+# Use the original measure's prior, never an EvaluatedMeasure's empirical or
+# transformed approximation: support is expressed in displayed coordinates.
+_support_root_dist(m::BAT.EvaluatedMeasure) = _support_root_dist(BAT.unevaluated(m))
 _support_root_dist(m::AbstractPosteriorMeasure) = _support_root_dist(getprior(m))
 _support_root_dist(m::BATDistMeasure) = m.dist
 _support_root_dist(m::BATWeightedMeasure) = _support_root_dist(m.base)
@@ -75,10 +77,14 @@ _support_root_dist(@nospecialize(m)) = nothing
 
 # Per-component (lo, hi) covering its unshaped dims; the NamedTupleDist walk
 # mirrors truncate_dist_hard's, so bounds land at the displayed flat-sample dims.
-_component_support(d::UnivariateDistribution) =
-    (Float64[minimum(d)], Float64[maximum(d)])
-_component_support(d::Distributions.Product) =
-    (Float64[minimum(c) for c in d.v], Float64[maximum(c) for c in d.v])
+function _component_support(d::UnivariateDistribution)
+    lo, hi = _kde_support_bounds((minimum(d), maximum(d)))
+    return (Float64[lo], Float64[hi])
+end
+function _component_support(d::Distributions.Product)
+    bounds = [_kde_support_bounds((minimum(c), maximum(c))) for c in d.v]
+    return (Float64[first(s) for s in bounds], Float64[last(s) for s in bounds])
+end
 _component_support(d::ValueShapes.UnshapedNTD) = _component_support(d.shaped)
 # ConstValueDist occupies zero unshaped dims -- contributes nothing.
 _component_support(::ConstValueDist) = (Float64[], Float64[])
@@ -111,12 +117,11 @@ _support_vectors(::Nothing, n_dof::Integer) = (Float64[], Float64[])
 function _support_vectors(support::AbstractVector, n_dof::Integer)
     length(support) == n_dof || throw(ArgumentError(
         "`support` has $(length(support)) entries but the model has $n_dof dimensions"))
-    lo = Float64[first(s) for s in support]
-    hi = Float64[last(s) for s in support]
-    for d in 1:n_dof
-        lo[d] <= hi[d] || throw(ArgumentError(
-            "`support` entry $d has lo > hi ($(lo[d]) > $(hi[d]))"))
-    end
+    any(isnothing, support) && throw(ArgumentError(
+        "`support` entries must be (lo, hi) pairs; use (-Inf, Inf) for an unconstrained dimension"))
+    bounds = map(_kde_support_bounds, support)
+    lo = Float64[first(s) for s in bounds]
+    hi = Float64[last(s) for s in bounds]
     return lo, hi
 end
 
@@ -218,6 +223,8 @@ function _init_compute_graph(
     diagonal_config::NamedTuple,
     n::Integer,
 )
+    n = Int(n)
+    n > 0 || throw(ArgumentError("N_max must be positive (got $n)"))
     graph = ComputeGraph()
 
     smpls = Any[]
@@ -257,7 +264,7 @@ function _init_compute_graph(
     map!(
         # Per-sample chain id for ChainScatter2D; Int32[] when info has no chain
         # identity, so the graph can resolve before availability is checked.
-        (smpls, idx) -> hasfield(eltype(smpls.info), :chainid) ? Int32[s.chainid for s in view(smpls.info, 1:idx)] : Int32[],
+        (smpls, idx) -> _samples_have_chain_ids(smpls) ? Int32[s.chainid for s in view(smpls.info, 1:idx)] : Int32[],
         graph,
         [:flat_samples, :current_idx],
         :flat_chainids

@@ -54,3 +54,19 @@ recipe/variable transitions, plot contents, controls, navigation reset rules and
 subscription cleanup, including empty/automatic-limit cells. The adapter uses
 Makie's scene-level plot-spec updater; the ordinary caller-owned SpecApi path
 has separate behavior.
+
+The `api_boundaries` case covers initial picker clamping, positive integer grid
+sizes, heterogeneous sample metadata, exact timed-weight conversion, and static
+control subscription cleanup. `lifecycle_interactive_interrupt` injects an
+interrupt through a real control callback and checks observation status,
+disposal, and continued sampler/RNG equality.
+The `numerics` case checks Float64 geometry, zero-mass KDE behavior, stable
+relative scatter weights, and actual PDF/covariance rendering at extreme scales.
+
+`bounded_kde` compares supported KDEs with independent reflected Gaussian
+mixtures, checks concentrated and narrow-support densities, actual probability
+geometry, coordinate/weight scaling and explicit numerical/resource limits.
+`kde_integration` exercises all four KDE recipes through static, ordinary and
+live entry points, original-target support forwarding, explicit rendered edges,
+transposition and empty/window/support transitions. The precompile workload uses
+truthful bounded samples so strict support checks run during extension building.

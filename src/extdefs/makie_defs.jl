@@ -63,6 +63,8 @@ struct BATMakieVisualization <: BATVisBackend
     # N_max fixes the grid size for the visualizer's life; vsel is only the
     # initial selection, applied once at listener startup and never re-read.
     function BATMakieVisualization(recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching, batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config, observer_timeout)
+        N_max = Int(N_max)
+        N_max > 0 || throw(ArgumentError("N_max must be positive (got $N_max)"))
         n_batch = Int(n_batch)
         max_buffered = Int(max_buffered)
         batch_growth_rate = Float64(batch_growth_rate)
@@ -232,7 +234,17 @@ Elapsed-step traces require explicit timing. ARP and other statistical weights
 are not interpreted as dwell durations; use the stored-sample range instead.
 
 `support` (a measure/prior, or a vector of per-dimension `(lo, hi)` pairs)
-enables KDE boundary correction at hard support bounds.
+declares hard KDE support in the original sample coordinates; ordinary Makie
+`plot(samples; support=...)` accepts it too. Positive-weight observations must
+lie inside these strictly ordered bounds. Invalid support or observations raise
+an error rather than being clamped. Zero-weight rows do not affect KDE bandwidth
+or extent. Live plots obtain support from the original target/prior.
+
+Bounded KDE uses a finite Gaussian reflection approximation with nearby images,
+then normalizes the returned curve or cells within support. Numerical ranges
+that cannot be represented or resolved within the internal grid budget raise an
+error; use a histogram for such populations. See the experimental API's KDE
+support documentation for the represented probability and credible-region rules.
 """
 function bat_makie_plot end
 export bat_makie_plot
@@ -314,7 +326,9 @@ export ChainScatter2D
 """
     struct KDE1D <: BATMakieRecipe
 
-1D kernel density estimate (diagonal cells).
+1D kernel density estimate (diagonal cells), represented by a piecewise-linear
+curve. With declared hard support, the returned curve stays inside support and
+has unit trapezoid integral. Boundary correction uses finite Gaussian reflections.
 """
 struct KDE1D <: BATMakieRecipe end
 export KDE1D
@@ -322,7 +336,12 @@ export KDE1D
 """
     struct KDE2D <: BATMakieRecipe
 
-2D kernel density heatmap (off-diagonal cells).
+2D kernel density heatmap (off-diagonal cells), represented by constant-density
+cells with explicit edges. With declared hard support, complete cells stay inside
+support and their density times area sums to one before the visibility mask.
+Makie stores numeric heatmap colors as Float32; a visible density that would
+overflow or become zero raises an error. Change coordinate units or use
+`QuantileKDE2D`, whose colors represent credible regions directly.
 """
 struct KDE2D <: BATMakieRecipe end
 export KDE2D
@@ -330,7 +349,9 @@ export KDE2D
 """
     struct QuantileKDE1D <: BATMakieRecipe
 
-1D KDE with smallest-interval (HPD) credible bands.
+1D KDE with highest-density credible regions. Region contents integrate the
+piecewise-linear curve, including interpolated threshold crossings. Separated
+modes can produce disconnected regions; complete tied plateaus are included.
 """
 struct QuantileKDE1D <: BATMakieRecipe end
 export QuantileKDE1D
@@ -338,7 +359,9 @@ export QuantileKDE1D
 """
     struct QuantileKDE2D <: BATMakieRecipe
 
-2D KDE with smallest-interval (HPD) credible regions.
+2D KDE with highest-density credible regions. Cells are ranked by density and
+their probabilities use actual cell areas. Complete threshold ties are included,
+so achieved content may exceed the requested content, including for a single cell.
 """
 struct QuantileKDE2D <: BATMakieRecipe end
 export QuantileKDE2D

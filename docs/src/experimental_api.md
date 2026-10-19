@@ -122,6 +122,65 @@ policy below. Ordinary `Makie.plot` composition retains its
 existing interface; the `display` keyword above belongs to `bat_makie_plot`.
 Live sessions retain the separate lifetime operations described below.
 
+Calling `empty!(fig)` also disconnects BAT's static control subscriptions. A
+retained control no longer updates the old plotting graph after its figure is
+emptied.
+
+For plots with declared step timing, selected repetition counts must be exactly
+representable by the samples' weight type. A window that would round a count
+raises an error; use integer repetition weights for exact long step ranges.
+
+## KDE support and credible regions
+
+For `KDE1D`, `QuantileKDE1D`, `KDE2D` and `QuantileKDE2D`, the `support` keyword
+declares hard support in the original sample coordinates. Both
+`bat_makie_plot(samples; support=prior, display=false)` and ordinary
+`Makie.plot(samples; support=prior)` accept a measure/prior or a vector of
+per-dimension `(lo, hi)` pairs. Live plots obtain these bounds from the original
+target/prior, including when it is wrapped in an `EvaluatedMeasure`. Unknown
+distribution support is conservatively treated as unbounded. Axis limits and
+observed extrema do not declare hard support.
+
+Bounds must be strictly ordered, without NaN, incorrectly directed infinities,
+or finite endpoints outside Float64's representable range. Positive-weight
+observations must be finite and lie inside support; they are never silently
+clamped. Weights must be finite and nonnegative. Zero-weight observations are
+excluded before bandwidth and extent selection, so a zero-weight outlier cannot
+widen an estimate. Empty or all-zero populations have no density to display.
+
+Boundary correction uses one Gaussian mirror per nearby finite boundary,
+including corner images in 2D, selected within four bandwidths. This is a finite
+reflection approximation, not an infinite reflection series. The FFT interval
+follows the data and included images, with extra padding; a distant support
+endpoint does not stretch the numerical grid. The clipped result is normalized
+within its returned interval or cells. Unsupported numerical ranges or a grid
+exceeding the internal resolution/memory budget raise an error rather than
+returning an unrestricted or silently coarsened density. A histogram is an
+alternative for these populations. These limits apply per estimate, not to
+total figure memory or rendering latency.
+
+Makie stores numeric heatmap color values as Float32. `KDE2D` therefore rejects
+visible densities that would overflow or become zero during this conversion,
+even if the numerical estimate is valid in Float64. Change coordinate units or
+use `QuantileKDE2D`, which passes credible-region colors directly to Makie.
+Density values are never silently rescaled to hide this rendering limit.
+
+In 1D the displayed density is a piecewise-linear curve, with interpolated
+endpoints where it meets hard support. `QuantileKDE1D` integrates this curve to
+find highest-density regions, including interpolated threshold crossings;
+separated modes can produce disconnected filled regions. In 2D the displayed
+density consists of constant-density cells with explicit edges inside support.
+`QuantileKDE2D` ranks cells by density and accumulates density times actual cell
+area. Both region recipes include complete threshold ties, so achieved content
+can exceed the requested content. A single constant-density cell belongs to
+every nonzero requested region. The ordinary `KDE2D` visibility mask is applied
+after normalization and does not redefine probability mass.
+
+Ordinary all-positive unbounded density estimates retain their existing
+estimation path where valid. The improved integrated 1D region calculation can
+change their credible-region thresholds and polygons. Excluding zero weights
+from bandwidth selection is also an intentional correction.
+
 ## Interactive grid updates
 
 Interactive static and live figures keep their axes in fixed grid cells while

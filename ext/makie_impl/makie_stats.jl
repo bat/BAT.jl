@@ -1,18 +1,21 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 # Fresh sentinels per call, not shared consts -- see _empty_scatter2d_primitives (makie_scatter.jl).
-_empty_cov2d_primitives() = (ellipse_points=Vector{Point2f}(), axes_segments=Vector{Point2f}())
+_empty_cov2d_primitives() = (ellipse_points=Vector{Point{2,Float64}}(), axes_segments=Vector{Point{2,Float64}}())
 _empty_std1d_primitives() = (positions=Vector{Float64}(),)
 _empty_std2d_primitives() = (x_lines=Vector{Float64}(), y_lines=Vector{Float64}())
 _empty_mean1d_primitives() = (x=Vector{Float64}(),)
 _empty_mean2d_primitives() = (μ_x=Vector{Float64}(), μ_y=Vector{Float64}())
 _empty_errorbars1d_primitives() = (μ=Vector{Float64}(), err=Vector{Float64}())
 _empty_errorbars2d_primitives() = (μ_x=Vector{Float64}(), μ_y=Vector{Float64}(), err_x=Vector{Float64}(), err_y=Vector{Float64}())
-_empty_pdf1d_primitives() = (poly_points=Vector{Point2f}(), x=Float64[], y=Float64[])
+_empty_pdf1d_primitives() = (poly_points=Vector{Point{2,Float64}}(), x=Float64[], y=Float64[])
 
 # Wrapped in Makie.Linestyle: re-resolving a bare :dash's converted Vector
 # pattern (as GLMakie's render loop does) triggers a deprecation warning per frame.
-const _MEAN1D_DASH = Makie.Linestyle(Makie.line_pattern(:dash, :normal))
+const _MEAN1D_DASH = let pattern = Makie.line_pattern(:dash, :normal)
+    # Makie 0.24.16 already returns Linestyle; earlier releases return a vector.
+    pattern isa Makie.Linestyle ? pattern : Makie.Linestyle(pattern)
+end
 
 # Shared prologue of the live stats-recipe methods: optionally apply the
 # low-weight cutoff (config.filter); `nothing` when no samples survive.
@@ -42,13 +45,13 @@ function _cov_ellipse_primitives(μ::AbstractVector, Σ::AbstractMatrix, nsigma:
     stds = sqrt.(clamp.(vals, 0, Inf))
 
     ellipse_mat = vecs * nsigma * Diagonal(stds) * _COV_ELLIPSE_CIRCLE .+ μ
-    ellipse_points = Point2f.(ellipse_mat[1, :], ellipse_mat[2, :])
+    ellipse_points = Point{2,Float64}.(ellipse_mat[1, :], ellipse_mat[2, :])
 
-    axes_segments = Point2f[]
+    axes_segments = Point{2,Float64}[]
     for i in 1:2
         direction = vecs[:, i] * stds[i] * nsigma
-        p1 = Point2f(μ .- direction)
-        p2 = Point2f(μ .+ direction)
+        p1 = Point{2,Float64}(μ .- direction)
+        p2 = Point{2,Float64}(μ .+ direction)
         push!(axes_segments, p1, p2)
     end
     return (ellipse_points=ellipse_points, axes_segments=axes_segments)
@@ -171,8 +174,8 @@ function compose_plotspecs(
     # Lower-triangle cells swap x/y at compose time (see _init_gridlayout) --
     # point-based primitives swap each point's own coordinates.
     if transposed
-        ellipse_points = Point2f[Point2f(p[2], p[1]) for p in ellipse_points]
-        axes_segments = Point2f[Point2f(p[2], p[1]) for p in axes_segments]
+        ellipse_points = Point{2,Float64}[Point{2,Float64}(p[2], p[1]) for p in ellipse_points]
+        axes_segments = Point{2,Float64}[Point{2,Float64}(p[2], p[1]) for p in axes_segments]
     end
 
     # Color set explicitly per PlotSpec, not via the shared theme: Makie's
@@ -558,8 +561,8 @@ function compute_plotting_primitives(
     y = pdf.(dist, x)
 
     poly_points = vcat(
-        Point2f.(x, y),
-        Point2f.(reverse(x), 0.0)
+        Point{2,Float64}.(x, y),
+        Point{2,Float64}.(reverse(x), 0.0)
     )
 
     return (poly_points=poly_points, x=x, y=y)

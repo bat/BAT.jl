@@ -74,14 +74,31 @@ function _safe_edges_fallback(data, nbins::Integer)
     # is only reached when the true span is already degenerate/near-eps, so
     # this matters for every sample at the boundary, not just an edge case).
     margin = (hi - lo) * 1e-3
-    return range(lo - margin, hi + margin, length=nbins + 1)
+    lower = min(lo - margin, prevfloat(float(lo)))
+    upper = max(hi + margin, nextfloat(float(hi)))
+    n = nbins
+    edges = range(lower, upper, length=n + 1)
+    # A nonzero range step does not guarantee distinct indexed values near
+    # machine precision. Legacy credible-region calculations also assume
+    # uniform bin widths, so reduce resolution when rounded widths materially
+    # differ. Ordinary floating-point roundoff must not coarsen tiny-unit data.
+    while !all(i -> edges[i] < edges[i + 1] &&
+            isapprox(edges[i + 1] - edges[i], edges[2] - edges[1]; atol=0),
+            1:length(edges)-1)
+        n = max(1, n ÷ 2)
+        edges = range(lower, upper, length=n + 1)
+    end
+    # Actual rounded widths can differ from the range's abstract step. Use
+    # those same widths for histogram normalization and downstream rendering.
+    return collect(edges)
 end
 
 function _get_edges(data::Tuple, nbins::Tuple{Vararg{Integer}}, closed::Symbol)
-    if any(_edges_would_be_degenerate(d, n) for (d, n) in zip(data, nbins))
-        return Tuple(_safe_edges_fallback(d, n) for (d, n) in zip(data, nbins))
+    counts = StatsBase._nbins_tuple(data, nbins)
+    if any(_edges_would_be_degenerate(d, n) for (d, n) in zip(data, counts))
+        return Tuple(_safe_edges_fallback(d, n) for (d, n) in zip(data, counts))
     end
-    return StatsBase.histrange(data, StatsBase._nbins_tuple(data, nbins), closed)
+    return StatsBase.histrange(data, counts, closed)
 end
 
 function _get_edges(data::Any, nbins::Integer, closed::Symbol)
