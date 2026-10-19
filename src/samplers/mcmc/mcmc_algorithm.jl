@@ -663,6 +663,108 @@ function mcmc_iterate!!(
     return mcmc_state
 end
 
+# Owner bookkeeping below runs with SIGINT deferred. Only the short registry,
+# status and cancellation operations stay deferred; waits and backend hooks
+# explicitly reenable it. These helpers do not create tasks or consume RNGs.
+function _mcmc_scan_tasks(tasks::Vector{Task}, n::Int)
+    all_done = true
+    first_failed = nothing
+    for k in 1:n
+        task = tasks[k]
+        # Completion is monotone. Classify failure only AFTER observing a
+        # terminal task: a failed-first / done-second scan can miss a failure
+        # between the two reads and omit the observer stop notification.
+        if !istaskdone(task)
+            all_done = false
+        elseif isnothing(first_failed) && istaskfailed(task)
+            first_failed = task
+        end
+    end
+    return all_done, first_failed
+end
+
+function _mcmc_wait_tasks(tasks::Vector{Task}, n::Int; unwinding::Bool = false)
+    for k in 1:n
+        task = tasks[k]
+        while true
+            try
+                Base.reenable_sigint(() -> wait(task))
+                break
+            catch err
+                # Julia 1.10 has no wait(task; throw=false). Only consume the
+                # failure of this terminal task; collect all failures later.
+                err isa TaskFailedException && err.task === task && istaskfailed(task) && break
+                unwinding && err isa InterruptException && continue
+                rethrow()
+            end
+        end
+    end
+    return nothing
+end
+
+function _mcmc_stop_visualizers!(visualizers, exception; unwinding::Bool = false)
+    for vis in visualizers
+        while true
+            try
+                Base.reenable_sigint() do
+                    request_visualizer_stop!(vis; reason=:aborted, exception=exception)
+                end
+                break
+            catch err
+                if err isa InterruptException
+                    # An interrupted notification may not have woken anyone.
+                    # During normal failure handling it becomes the owner's
+                    # primary exception; while unwinding, retry the same hook.
+                    unwinding && continue
+                    rethrow()
+                end
+                bt = catch_backtrace()
+                try
+                    Base.reenable_sigint() do
+                        _visualizer_cleanup_diagnostic(:request_stop, (err, bt))
+                    end
+                catch
+                    # Diagnostics cannot skip another session's notification.
+                end
+                break
+            end
+        end
+    end
+    return nothing
+end
+
+function _mcmc_close_timer(timer::Union{Nothing,Timer}; unwinding::Bool = false)
+    isnothing(timer) && return nothing
+    while true
+        try
+            # close may wait for the event loop; it is not masked bookkeeping.
+            Base.reenable_sigint(() -> close(timer))
+            return nothing
+        catch err
+            unwinding && err isa InterruptException && continue
+            rethrow()
+        end
+    end
+end
+
+function _mcmc_failed_tasks(tasks::Vector{Task}, n::Int)
+    return [TaskFailedException(tasks[k]) for k in 1:n if istaskfailed(tasks[k])]
+end
+
+function _mcmc_report_secondary_failures(tasks::Vector{Task}, n::Int)
+    # Called only after all workers and the timer have settled. Keep concurrent
+    # child errors inspectable without replacing the owner's original exception.
+    try
+        Base.reenable_sigint() do
+            failures = _mcmc_failed_tasks(tasks, n)
+            isempty(failures) || @warn "MCMC workers failed while the sampling owner was unwinding" exception=CompositeException(failures)
+        end
+    catch
+        # Includes interruption or failure of a user logger.
+    end
+    return nothing
+end
+
 function mcmc_iterate!!(
     outputs::Union{AbstractVector{<:AbstractVector{<:DensitySampleVector}},Nothing},
     mcmc_states::AbstractVector{<:MCMCState};
@@ -696,21 +798,55 @@ function mcmc_iterate!!(
         ()
     end
 
-    @sync for i in eachindex(outs, mcmc_states)
-        Base.Threads.@spawn try
-            mcmc_states_new[i] = mcmc_iterate!!(outs[i], mcmc_states[i];
-                kwargs..., _cancelled = cancelled, update_visualizer = update_visualizer)
+    # Validate/materialize iteration before scheduling any child. The ledger
+    # uses dense ordinals independently of the input arrays' indexing scheme.
+    indices = collect(eachindex(outs, mcmc_states))
+    tasks = Vector{Task}(undef, length(indices))
+    enrolled = 0
+    timer = nothing
+    Base.disable_sigint() do
+        try
+            for (k, i) in enumerate(indices)
+                # @spawn queues the task before returning its handle. Keep that
+                # enqueue, handle store and count update in one deferred region.
+                tasks[k] = Base.Threads.@spawn mcmc_states_new[i] = mcmc_iterate!!(
+                    outs[i], mcmc_states[i]; kwargs..., _cancelled=cancelled, update_visualizer=update_visualizer)
+                enrolled = k
+                Base.reenable_sigint(yield)
+            end
+            while true
+                all_done, failed = _mcmc_scan_tasks(tasks, enrolled)
+                if !isnothing(failed)
+                    cancelled[] = true
+                    # A task can fail before its Julia closure starts. The
+                    # owner detects that failure without a child catch/finally.
+                    _mcmc_stop_visualizers!(visualizers, CapturedException(TaskFailedException(failed), Any[]))
+                    _mcmc_wait_tasks(tasks, enrolled)
+                    break
+                end
+                all_done && break
+                # A callback-free timer creates no task/RNG fork. Retain one
+                # timer for the group and close it on every supported exit.
+                isnothing(timer) && (timer = Timer(0.001; interval=0.001))
+                Base.reenable_sigint() do
+                    yield() # A coalesced timer tick need not yield on its own.
+                    wait(timer)
+                end
+            end
+            _mcmc_close_timer(timer)
         catch err
             cancelled[] = true
-            # Release observation-only waits before @sync joins siblings. Each
-            # hook is guarded separately: one broken backend cannot skip others
-            # or replace the computational exception/task aggregation.
-            for vis in visualizers
-                _safe_request_visualizer_stop!(vis;
-                    reason=:aborted, exception=CapturedException(err, catch_backtrace()))
-            end
+            exception = CapturedException(err, catch_backtrace())
+            # Wake observation waits before joining, including partially
+            # launched groups. Repeated interrupts cannot abandon these tasks.
+            _mcmc_stop_visualizers!(visualizers, exception; unwinding=true)
+            _mcmc_wait_tasks(tasks, enrolled; unwinding=true)
+            _mcmc_close_timer(timer; unwinding=true)
+            _mcmc_report_secondary_failures(tasks, enrolled)
             rethrow()
         end
+        failures = _mcmc_failed_tasks(tasks, enrolled)
+        isempty(failures) || throw(CompositeException(failures))
     end
 
     return mcmc_states_new

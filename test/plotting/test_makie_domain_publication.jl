@@ -21,7 +21,7 @@ function fixture()
     vis.content.n_dof[] = 2
     EXT.register_state_for_vis!(vis, state, outputs)
     @test EXT._activate_live_visualizer!(vis)
-    history = Ref((samples=vis.content.graph[:samples][],
+    history = Ref((samples=EXT._live_graph(vis)[:samples][],
         timing=[EXT._empty_walker_spans(outputs)]))
     return vis, state, history
 end
@@ -43,7 +43,7 @@ end
 
 @testset "Live domain publication scans the current candidate without mutating owners" begin
     vis, state, history = fixture()
-    graph = vis.content.graph
+    graph = EXT._live_graph(vis)
     prior_lo, prior_hi = [-10.0,-20.0], [10.0,20.0]
     prior_before = (copy(prior_lo), copy(prior_hi))
     initial_history = history[]

@@ -76,6 +76,9 @@ function update_visualizer_impl!(vis::BATVisualizer; kwargs...) end
 # Internal lifecycle hooks. Backends claim ownership in prepare_visualizer_init!
 # and roll back their own acquisition if preparation throws. A successful return
 # transfers cleanup responsibility to the sampling owner.
+# Stop hooks must be idempotent and release backend-owned producer waits without
+# depending on the sampling owner's return. An interrupted notification may be
+# retried by a cancelling MCMC group; do not enter renderer/user callback work.
 request_visualizer_stop!(::BATVisualizer; reason = :disabled, exception = nothing) = nothing
 finish_visualizer!(::BATVisualizer; success::Bool = true) = nothing
 
@@ -84,8 +87,17 @@ finish_visualizer!(::BATVisualizer; success::Bool = true) = nothing
 
 *Experimental, non-exported API.* Disable observation and dispose of resources
 owned by this visualization session. Repeated disposal is harmless. Disposal
-does not cancel sampling, and does not affect other figures. A backend may report
+does not cancel sampling after successful startup, and does not affect other figures. A backend may report
 pending cleanup while an already admitted view operation is still running.
+
+Makie disposal releases the session's observation history and graph caches once
+cleanup settles, without requiring status polling. Successful completion keeps
+the interactive figure/history until disposal. `visualizer_status` reports
+`history_released` separately from historical completeness. Caller-held data,
+controls, configuration and externally retained diagnostics remain independent
+owners. Cleanup failures can be retried by disposing again on the owning thread.
+Disposal during numerical initialization before Makie view startup currently
+causes the subsequent startup to reject the session.
 """
 dispose_visualizer!(::BATVisualizer) = nothing
 
@@ -120,15 +132,22 @@ visualizer_figure(::BATVisualizer) = nothing
 accessing the renderer. `phase`, `outcome` and `reason` describe the run;
 `data_complete` and `last_publication` describe confirmed observation history.
 `quiesced` records actual run-resource completion, independently of
-`cleanup_pending`, `view_disposed` and `presentation_valid`. `error` records the
+`cleanup_pending`, `view_disposed` and `presentation_valid`. `history_released`
+records settled release of observation history, not garbage collection of
+external aliases. `error` records the
 first failure and its phase; `cleanup_error` is a secondary cleanup diagnostic.
 A no-op backend reports an inactive, quiesced session. Backends must not expose
 mutable internal storage through this snapshot.
+
+Makie retains bounded inert error summaries. Built-in concrete string messages
+are copied with a size limit; other errors retain their type/phase and fallback
+text. The query does not invoke custom exception formatting or retain task stacks.
 """
 visualizer_status(::BATVisualizer) = (
     phase = :inactive, outcome = :inactive, reason = :none,
     data_complete = false, last_publication = 0, quiesced = true,
     cleanup_pending = false, view_disposed = false, presentation_valid = false,
+    history_released = true,
     error = nothing, cleanup_error = nothing,
 )
 

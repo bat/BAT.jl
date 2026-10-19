@@ -57,7 +57,7 @@ function cleanup(vis)
     BAT.dispose_visualizer!(vis)
 end
 
-mass(vis) = sum(vis.content.graph[:flat_weights][])
+mass(vis) = sum(EXT._live_graph(vis)[:flat_weights][])
 # These regression watchdogs include cold compilation. Short lifecycle deadline
 # behavior is checked separately in test_makie_lifecycle.jl.
 function waitmass(vis, expected)
@@ -158,11 +158,11 @@ end
                 stop(vis)
                 @test mass(vis) == 48
                 @test vis.content.step_mode[]
-                @test vis.content.graph[:max_step][] == 12
-                Makie.update!(vis.content.graph; window_steps=(11,12),show_trace_upper=true)
+                @test EXT._live_graph(vis)[:max_step][] == 12
+                Makie.update!(EXT._live_graph(vis); window_steps=(11,12),show_trace_upper=true)
                 @test mass(vis) == 8 # Two steps, two chains, two walkers.
-                @test length(vis.content.graph[:trace_groups][]) == 4
-                Makie.update!(vis.content.graph; window_steps=nothing)
+                @test length(EXT._live_graph(vis)[:trace_groups][]) == 4
+                Makie.update!(EXT._live_graph(vis); window_steps=nothing)
                 @test mass(vis) == 48
                 @test vis.content.n_buffer_steps[] == 0
                 @test !vis.content.buffer_dirty[]
@@ -175,7 +175,7 @@ end
                         (a, b) in zip(live.walker_genctxs, plain.walker_genctxs))
                     for walker in 1:2
                         @test outputs[chain][walker] == plain_outputs[chain][walker]
-                        @test vis.content.graph[:samples][][chain][walker] == outputs[chain][walker]
+                        @test EXT._live_graph(vis)[:samples][][chain][walker] == outputs[chain][walker]
                     end
                 end
             finally
@@ -214,9 +214,9 @@ end
                 initialize(vis, states, outputs, target)
                 reject_steps!(vis, states, outputs, 1, 4; nonzero)
                 waitmass(vis, 8)
-                Makie.update!(vis.content.graph; window_steps=(3,4))
+                Makie.update!(EXT._live_graph(vis); window_steps=(3,4))
                 @test mass(vis) == 4 # Clips the still-provisional rejection tail.
-                Makie.update!(vis.content.graph; window_steps=nothing)
+                Makie.update!(EXT._live_graph(vis); window_steps=nothing)
                 @test mass(vis) == 8
                 @test all(states[1].chain_state.current.x.weight .== 4)
                 @test all(states[1].chain_state.output.weight .== 0)
@@ -236,7 +236,7 @@ end
                 @test !vis.content.buffer_dirty[]
                 @test all(chain -> all(isempty, chain), vis.content.pending_samples)
                 @test mass(vis) == 20
-                plotted = vis.content.graph[:samples][]
+                plotted = EXT._live_graph(vis)[:samples][]
                 for chain in 1:2, walker in 1:2
                     @test plotted[chain][walker].v == outputs[chain][walker].v
                     @test plotted[chain][walker].weight == outputs[chain][walker].weight
@@ -254,7 +254,7 @@ end
                 initialize(vis, states, outputs, target)
                 reject_steps!(vis, states, outputs, 1, 4; nonzero)
                 waitmass(vis, 8)
-                previous_view = deepcopy(vis.content.graph[:samples][])
+                previous_view = deepcopy(EXT._live_graph(vis)[:samples][])
                 ingest(vis, states[1], true; nonzero)
                 ingest(vis, states[1], true; nonzero)
                 @test timedwait(() -> vis.content.n_buffer_steps[] == 0, 120.0) == :ok
@@ -262,7 +262,7 @@ end
                 # ensures composition finished, even if Makie elides equal data.
                 stop(vis)
                 @test mass(vis) == 8
-                @test vis.content.graph[:samples][] == previous_view
+                @test EXT._live_graph(vis)[:samples][] == previous_view
             finally
                 cleanup(vis)
             end
@@ -310,14 +310,14 @@ end
                 @test vis.content.n_buffer_steps[] == 0
                 stop(vis)
                 @test mass(vis) == 8
-                @test only(vis.content.graph[:samples][])[1].v == outputs[1][1].v
-                @test only(vis.content.graph[:samples][])[1].weight == outputs[1][1].weight
-                @test vis.content.graph[:max_step][] == 6
-                Makie.update!(vis.content.graph; window_steps=(2,2),show_trace_upper=true)
+                @test only(EXT._live_graph(vis)[:samples][])[1].v == outputs[1][1].v
+                @test only(EXT._live_graph(vis)[:samples][])[1].weight == outputs[1][1].weight
+                @test EXT._live_graph(vis)[:max_step][] == 6
+                Makie.update!(EXT._live_graph(vis); window_steps=(2,2),show_trace_upper=true)
                 @test mass(vis) == 2 # Local step two from each cycle, even if rows merge.
-                @test length(vis.content.graph[:trace_groups][]) == 1
-                @test only(vis.content.graph[:trace_groups][]).recency == [1.0]
-                Makie.update!(vis.content.graph; window_steps=nothing)
+                @test length(EXT._live_graph(vis)[:trace_groups][]) == 1
+                @test only(EXT._live_graph(vis)[:trace_groups][]).recency == [1.0]
+                Makie.update!(EXT._live_graph(vis); window_steps=nothing)
                 @test mass(vis) == 8
             finally
                 cleanup(vis)

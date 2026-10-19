@@ -128,14 +128,14 @@ function healthy()
             @test BAT.visualizer_status(vis).last_publication > 0
             @test !BAT.visualizer_status(vis).view_disposed
             @test EXT._live_graph_update!(vis;show_stats_upper=true)
-            @test vis.content.graph[:show_stats_upper][]
+            @test EXT._live_graph(vis)[:show_stats_upper][]
             @test !isempty(Makie.colorbuffer(only(c.figures)))
             BAT.finish_visualizer!(vis;success=true)
             assert_complete(vis)
             # A later control failure invalidates presentation, not historical
             # observation completeness or the final successful publication.
             published=BAT.visualizer_status(vis).last_publication
-            observer=Makie.on(vis.content.graph[:show_stats_lower]) do _
+            observer=Makie.on(EXT._live_graph(vis)[:show_stats_lower]) do _
                 throw(FAILURE)
             end
             try
@@ -166,16 +166,92 @@ end
 struct FailingConvergence <: BAT.ConvergenceTest end
 BAT.bat_convergence_impl(::AbstractVector{<:BAT.DensitySampleVector},::FailingConvergence,::BATContext)=throw(FAILURE)
 const SAMPLER_ARMED=Threads.Atomic{Bool}(false)
-if get(ENV,"BAT_MAKIE_LIFECYCLE_CASE","")=="sampler"
+const OWNER_WORKERS=Channel{Task}(64)
+const OWNER_CASE=get(ENV,"BAT_MAKIE_LIFECYCLE_CASE","")=="owner"
+if get(ENV,"BAT_MAKIE_LIFECYCLE_CASE","") in ("sampler", "owner")
     # This subprocess alone specializes the real proposal helper. Every step
     # before arming follows the original implementation; a later real sampler
     # step throws directly, preserving its usual nested task exception path.
     function BAT.mcmc_propose_transition(current_z::BAT.ArrayOfSimilarArrays,
         proposal::BAT.RandomWalkProposalState,genctxs::AbstractVector)
+        OWNER_CASE && put!(OWNER_WORKERS,current_task())
         SAMPLER_ARMED[] && throw(FAILURE)
         return invoke(BAT.mcmc_propose_transition,
             Tuple{BAT.ArrayOfSimilarArrays,BAT.MCMCProposalState,AbstractVector},
             current_z,proposal,genctxs)
+    end
+end
+
+struct OwnerInterruptBackend <: BAT.BATVisBackend end
+BAT.update_visualizer_impl!(vis::BATVisualizer{OwnerInterruptBackend}; kwargs...) = vis.content.update()
+BAT.request_visualizer_stop!(vis::BATVisualizer{OwnerInterruptBackend}; kwargs...) = vis.content.stop()
+
+function owner_interruption()
+    listener_entered=Channel{Nothing}(1)
+    listener_release=Channel{Nothing}(1)
+    vis,state,output,target=listener_fixture(
+        (args...)->(put!(listener_entered,nothing);take!(listener_release)),
+        (args...)->nothing;backend=config(batch=1,limit=1))
+    primary=InterruptException()
+    stop_calls=Ref(0)
+    trigger=BATVisualizer(OwnerInterruptBackend(), (
+        update=()->begin
+            waitfor(() -> lock(() -> vis.content.n_buffer_steps[] >= 1,vis.content.buffer_lock))
+            throw(FAILURE)
+        end,
+        stop=()->begin
+            stop_calls[]+=1
+            stop_calls[]==1 && throw(primary)
+            nothing
+        end))
+    trigger_state=BAT.MCMCState(algorithm(),target,Int32(2),[zeros(2)],
+        BATContext(rng=BAT.Philox4x((144,73)),visualizer=trigger))
+    owner=nothing
+    workers=Task[]
+    try
+        waitfor(() -> isready(listener_entered))
+        take!(listener_entered)
+        owner=@async caught(() -> BAT.mcmc_iterate!!(
+            [BAT._empty_chain_outputs(trigger_state),output],
+            [trigger_state,state];max_nsteps=8,update_visualizer=true))
+        waitfor(() -> istaskdone(owner))
+        @test fetch(owner) === primary
+        while isready(OWNER_WORKERS)
+            push!(workers,take!(OWNER_WORKERS))
+        end
+        unique!(workers)
+        @test length(workers)==2
+        @test all(istaskdone,workers)
+        # A failed barrier inside a child must not masquerade as the intended
+        # failure and be hidden by the owner's higher-priority interruption.
+        @test any(worker -> any(e -> e.exception === FAILURE,
+            Base.current_exceptions(worker)), workers)
+        @test stop_calls[]==2
+        @test !vis.content.lifecycle.accepting[]
+        @test BAT.visualizer_status(vis).outcome==:aborted
+        @test !BAT.visualizer_status(vis).data_complete
+        # Stop releases the numerical producer independently of this listener;
+        # joining the listener remains the separate visualization owner's job.
+        @test !istaskdone(vis.content.lifecycle.task)
+        before=deepcopy(output)
+        yield()
+        @test output==before
+        put!(listener_release,nothing)
+        BAT.finish_visualizer!(vis;success=false)
+        @test BAT.visualizer_status(vis).quiesced
+        @test !BAT.visualizer_status(vis).data_complete
+        BAT.request_visualizer_stop!(vis;reason=:disabled)
+        @test BAT.visualizer_status(vis).outcome==:aborted
+    finally
+        isready(listener_release) || put!(listener_release,nothing)
+        cleanup(vis)
+        isnothing(owner) || waitfor(() -> istaskdone(owner))
+        while isready(OWNER_WORKERS)
+            push!(workers,take!(OWNER_WORKERS))
+        end
+        for worker in unique(workers)
+            waitfor(() -> istaskdone(worker))
+        end
     end
 end
 function computational_failure(kind)
@@ -353,7 +429,7 @@ function transform_failure()
     tick! = (vis,state) -> EXT._flush_live_buffer!(vis,[state],FailingInverse(),
         history,fill(-1.0,2),fill(1.0,2))
     vis,state,outputs,_=listener_fixture(tick!,(args...)->nothing;backend=config(batch=1,limit=1))
-    history[]=(samples=vis.content.graph[:samples][],timing=[EXT._empty_walker_spans(outputs)])
+    history[]=(samples=EXT._live_graph(vis)[:samples][],timing=[EXT._empty_walker_spans(outputs)])
     original=history[]
     try
         producer_task=@async packet!(vis,state)
@@ -375,7 +451,7 @@ function publication()
     observer=nothing
     try
         initialize(vis,state,outputs,target)
-        g=vis.content.graph
+        g=EXT._live_graph(vis)
         history=Ref((samples=g[:samples][],timing=[EXT._empty_walker_spans(outputs)]))
         before=BAT.visualizer_status(vis).last_publication
         observer=Makie.on(g[:samples]) do _
@@ -402,7 +478,8 @@ function stop_publication()
         EXT._flush_live_buffer!(vis,[state],identity,history,fill(-1.0,2),fill(1.0,2))
     end
     vis,state,outputs,_=listener_fixture(tick!,(args...)->nothing;backend=config(batch=1,limit=1))
-    history[]=(samples=vis.content.graph[:samples][],timing=[EXT._empty_walker_spans(outputs)])
+    graph=EXT._live_graph(vis)
+    history[]=(samples=graph[:samples][],timing=[EXT._empty_walker_spans(outputs)])
     try
         waitfor(() -> ready[])
         producer_task=nothing
@@ -422,7 +499,7 @@ function stop_publication()
         @test !status.data_complete
         @test status.quiesced
         @test status.last_publication==0
-        @test isempty(vis.content.graph[:samples][][1][1])
+        @test isempty(graph[:samples][][1][1])
     finally
         cleanup(vis)
     end
@@ -449,6 +526,7 @@ function startup()
         cleanup(vis)
     end
     vis,state,outputs,target=fixture()
+    graph=EXT._live_graph(vis)
     try
         err=capture(;fail=true) do c
             caught(() -> BAT.init_visualizer!(vis;rng=BAT.get_rng(state.chain_state.context),
@@ -459,7 +537,7 @@ function startup()
         waitfor(() -> BAT.visualizer_status(vis).view_disposed)
         @test BAT.visualizer_status(vis).view_disposed
         @test !BAT.visualizer_status(vis).data_complete
-        grid_source=Makie.ComputePipeline.get_observable!(vis.content.graph[:gridlayout];use_deepcopy=false)
+        grid_source=Makie.ComputePipeline.get_observable!(graph[:gridlayout];use_deepcopy=false)
         @test isempty(Makie.Observables.listeners(grid_source))
         @test isempty(vis.content.lifecycle.view.subscriptions)
         @test isempty(vis.content.init_segments)
@@ -489,7 +567,7 @@ function view_case()
         fig=initialize(vis,state,outputs,target)
         # Captured/headless creation does not deliver a genuine close transition.
         @test BAT.visualizer_status(vis).phase==:running
-        g=vis.content.graph
+        g=EXT._live_graph(vis)
         depth=Ref(0);peak=Ref(0)
         observer=Makie.on(g[:show_stats_upper]) do _
             depth[]+=1;peak[]=max(peak[],depth[])
@@ -552,7 +630,7 @@ function interactive_interrupt()
                 BAT.finish_visualizer!(vis;success=true)
                 assert_complete(vis)
             end
-            g=vis.content.graph
+            g=EXT._live_graph(vis)
             observer=Makie.on(g[:show_stats_upper]) do _
                 throw(InterruptException())
             end
@@ -693,7 +771,7 @@ function figure_case()
             assert_complete(vis)
             ctl=vis.content.lifecycle
             view=ctl.view
-            graph=vis.content.graph
+            graph=EXT._live_graph(vis)
             before=BAT.visualizer_status(vis)
             @test BAT.visualizer_figure(vis)===fig
             @test BAT.visualizer_status(vis)==before
@@ -780,14 +858,13 @@ function figure_case()
             finally
                 ctl.view=view
             end
-            saved_error,saved_phase=ctl.error,ctl.error_phase
+            saved_error=ctl.error
             try
-                ctl.error=CapturedException(FAILURE,Any[])
-                ctl.error_phase=:historical_test_diagnostic
+                ctl.error=EXT._live_error_summary(FAILURE,:historical_test_diagnostic)
                 @test BAT.visualizer_figure(vis)===fig
                 @test BAT.visualizer_status(vis).error.message==FAILURE.msg
             finally
-                ctl.error,ctl.error_phase=saved_error,saved_phase
+                ctl.error=saved_error
             end
 
             # Explicit completed-task boundary, with no intervening status query.
@@ -881,7 +958,7 @@ function grid_case()
     fig=nothing
     try
         fig=initialize(vis,state,outputs,target)
-        graph=vis.content.graph
+        graph=EXT._live_graph(vis)
         cell(i,j)=only(filter(x -> x isa Axis,contents(fig[1,1][i,j])))
         axes=[cell(i,j) for i in 1:2,j in 1:2]
         source=Makie.ComputePipeline.get_observable!(graph[:gridlayout];use_deepcopy=false)
@@ -967,7 +1044,7 @@ function grid_case()
     end
 end
 
-const CASES=Dict("healthy"=>healthy,"callback"=>(() -> computational_failure(:callback)),
+const CASES=Dict("healthy"=>healthy,"owner"=>owner_interruption,"callback"=>(() -> computational_failure(:callback)),
     "convergence"=>(() -> computational_failure(:convergence)),"sampler"=>(() -> computational_failure(:sampler)),
     "producer"=>producer,"snapshot"=>(() -> producer(snapshot_failure=true)),
     "listener"=>listener,"timeout"=>timeout_case,

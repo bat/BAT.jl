@@ -98,7 +98,7 @@ function BAT.update_visualizer_impl!(vis::BATVisualizer{BlockingBackend}; kwargs
 end
 
 # Minimal numerical iterator: the real scalar/vector loops, storage boundary,
-# observation dispatch and child catch execute unchanged. Only the numerical
+# observation dispatch and group ownership execute unchanged. Only the numerical
 # step is replaced to place a deterministic error behind sibling wait barriers.
 mutable struct TestIterator <: BAT.MCMCIterator
     context::BATContext
@@ -136,7 +136,8 @@ end
     @test BAT.visualizer_status(vis) == (
         phase=:inactive, outcome=:inactive, reason=:none, data_complete=false,
         last_publication=0, quiesced=true, cleanup_pending=false,
-        view_disposed=false, presentation_valid=false, error=nothing, cleanup_error=nothing)
+        view_disposed=false, presentation_valid=false, history_released=true,
+        error=nothing, cleanup_error=nothing)
 
     @testset "Owned exits and rejected acquisition" begin
         observed = BATVisualizer(RecordingBackend(), LifecycleRecord())

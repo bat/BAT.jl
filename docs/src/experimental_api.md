@@ -206,9 +206,14 @@ uses the caller's existing Makie layout and reconciliation behavior.
 Create a fresh `BATVisualizer(BATMakieVisualization(...))` for each sampling run.
 Successful completion drains the final observations and retains an interactive
 figure. Closing the live figure disables observation while sampling continues.
-To release a retained figure, call `BAT.dispose_visualizer!(vis)` on the thread
-that created it. This operation requests disposal without joining active view
-callbacks; inspect `BAT.visualizer_status(vis).cleanup_pending` if needed.
+To release a retained figure and its observation history, call
+`BAT.dispose_visualizer!(vis)` on the thread that created it. This operation
+requests disposal without joining active view callbacks. Cleanup waits for
+admitted startup, listener and view work, then releases the session's graph and
+computed caches without requiring status polling. It also releases a fresh
+session that has never created a figure; disposed sessions remain single-use.
+Inspect `BAT.visualizer_status(vis).cleanup_pending` if needed. A cleanup fault
+keeps release pending; another owner-thread disposal call can retry it.
 Live GLMakie initialization must run on Julia's main thread.
 
 Keep the original visualizer to retrieve its completed figure:
@@ -257,6 +262,21 @@ the session and does not promise a final display flush on cancellation/time-limi
 exits.
 Failed or aborted live views are disposed; their outcome remains available
 through the status query and diagnostics independently of the renderer.
+Disposal during numerical initialization before view startup currently causes
+the subsequent startup to reject the session; the ordinary continuing-sampling
+guarantee applies after successful startup.
+
+Cancellation of an MCMC chain group is cooperative. If its sampling owner is
+interrupted or a chain fails, BAT requests cancellation and releases participating
+observation waits, then joins every launched chain worker before propagating the
+error. Initialization timing cleanup consequently follows the last chain writer.
+Repeated catchable interrupts during this cleanup do not abandon workers or
+replace the original owner exception. An already-entered numerical step or user
+hook must finish or throw before its worker can stop; there is no safe forced
+termination of arbitrary native model code. This ownership guarantee concerns
+BAT's MCMC chain groups, not arbitrary tasks started by user code or separate
+parallel sample transformations. It relies on a functioning Julia runtime and
+the application's signal policy; it cannot cover process termination.
 
 `observer_timeout=60.0` bounds each continuous capacity wait and, separately, the
 owner's shutdown wait. Nested or repeated cleanup shares the same allowance
@@ -271,5 +291,22 @@ run, `data_complete` describes confirmed observation history, and
 `last_publication` counts successfully returned data publications. Closing a
 completed figure preserves its historical completeness. A later view error may
 invalidate `presentation_valid` independently. `error` preserves the first
-failure; `cleanup_error` records a separate cleanup fault. Failed sessions do not
+failure; `cleanup_error` records a separate cleanup fault. Each diagnostic is an
+inert `(type, message, phase)` snapshot, with a bounded copied type name and
+message. Plain `ErrorException` and `ArgumentError` string messages are retained
+within the bound; other exceptions use a fallback message. Status and cleanup
+never call custom error formatters. Diagnostic snapshots do not retain raw
+exceptions, backtraces or failed tasks. Pending cleanup still owns the tasks it
+must join. Existing error logging can expose the original exception transiently.
+Failed sessions do not
 retry detached batches or resume as if observation had remained complete.
+
+`history_released` becomes true only after disposal has released all
+session-owned observation history and the cleanup task has terminated
+successfully. It remains false after successful sampling until disposal, and
+while a requested release is pending. A no-op or provenance-only visualizer has
+no such history and reports true. `quiesced` describes observer resources, not
+completion of numerical sampling. Retaining only the borrowed, emptied figure
+does not retain BAT's observation history. Independently retained graph nodes,
+controls, sampling results, user configuration or logger records can still own
+data; disposal does not invalidate those external references.

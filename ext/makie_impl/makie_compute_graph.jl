@@ -187,7 +187,7 @@ function BATVisualizer(vis::BATMakieVisualization)
 
     buffer_lock = ReentrantLock()
     content = (
-        graph=graph,
+        graph=Ref{Union{Nothing,ComputeGraph}}(graph),
         buffer_lock=buffer_lock,
         # Shares buffer_lock: waiters and notifiers must use one lock (Threads.Condition).
         buffer_cond=Threads.Condition(buffer_lock),

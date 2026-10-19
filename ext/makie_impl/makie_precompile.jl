@@ -72,7 +72,7 @@ function _makie_precompile_workload()
         isnothing(live_fig) && error("Makie precompile workload: completed live Figure is unavailable")
         # The actual original target must supply support through the live
         # EvaluatedMeasure wrapper, including initialization and burn-in rows.
-        graph = vis.content.graph
+        graph = _live_graph(vis)
         graph[:support_lo][] == fill(-2.0, 4) && graph[:support_hi][] == fill(2.0, 4) ||
             error("Makie precompile workload: original target support was not forwarded")
 

@@ -81,6 +81,8 @@ end
         @test status.quiesced
         @test !status.cleanup_pending
         @test status.view_disposed
+        @test status.history_released
+        @test isnothing(vis.content.graph[])
         @test isopen(screens[2])
         @test screens[2].scene === other.scene
         @test !isempty(other.content)

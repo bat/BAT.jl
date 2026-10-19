@@ -9,6 +9,7 @@ mutable struct _LiveView
     disposed::Threads.Atomic{Bool}
     cleanup_pending::Threads.Atomic{Bool}
     cleanup_running::Threads.Atomic{Bool}
+    cleanup_blocked::Threads.Atomic{Bool}
     presentation_valid::Threads.Atomic{Bool}
     depth::Int
     updating::Bool
@@ -17,11 +18,12 @@ mutable struct _LiveView
 end
 _LiveView() = _LiveView(ReentrantLock(), nothing, Any[],
     Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(false),
-    Threads.Atomic{Bool}(true), 0, false, Dict{Symbol,Any}(), Threads.Atomic{Bool}(false))
+    Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(true), 0, false, Dict{Symbol,Any}(), Threads.Atomic{Bool}(false))
 
 function _live_view(vis)
     lock(vis.content.buffer_lock) do
         life = vis.content.lifecycle
+        isnothing(life.view) && life.disposal_requested && return nothing
         isnothing(life.view) && (life.view = _LiveView())
         return life.view
     end
@@ -51,6 +53,7 @@ function BAT.visualizer_figure(vis::BATVisualizer{BATMakieVisualization})
         try
             life = vis.content.lifecycle
             life.view === view || return nothing
+            life.disposal_requested && return nothing
             (life.outcome === :complete && life.data_complete) || return nothing
             (view.disposed[] || view.cleanup_pending[] || view.cleanup_running[] ||
                 !view.presentation_valid[]) && return nothing
@@ -70,6 +73,7 @@ end
 function _live_view_admitted_locked(vis, view, publication)
     (view.disposed[] || view.cleanup_pending[] || !view.presentation_valid[]) && return false
     life = vis.content.lifecycle
+    life.disposal_requested && return false
     life.phase === :starting && return true
     return publication ? _live_can_publish_locked(vis) :
         (_live_can_publish_locked(vis) || life.outcome === :complete)
@@ -80,6 +84,9 @@ end
 # separately coalesced so they cannot recursively publish a new generation.
 function _with_live_view(f, vis; publication::Bool = false)
     view = _live_view(vis)
+    isnothing(view) && return false
+    exited = false
+    outermost_guard = false
     starting = lock(vis.content.buffer_lock) do
         vis.content.lifecycle.phase === :starting
     end
@@ -97,9 +104,11 @@ function _with_live_view(f, vis; publication::Bool = false)
                 f()
             finally
                 view.depth -= 1
+                exited = view.depth == 0
             end
             return view.presentation_valid[] && !view.cleanup_pending[]
         finally
+            outermost_guard = view.depth == 0
             unlock(view.lock)
         end
     catch err
@@ -120,7 +129,14 @@ function _with_live_view(f, vis; publication::Bool = false)
     finally
         # Backend cleanup may wait for its render loop. Schedule it outside
         # this callback; never join a rendering task from a BAT view callback.
-        view.cleanup_pending[] && _schedule_live_view_cleanup!(vis)
+        if view.cleanup_pending[]
+            # A pre-admission holder can block cleanup while waiting for the
+            # control guard, then reject. Its exit is readiness only if a real
+            # cleanup attempt was blocked; other rejected callbacks cannot
+            # manufacture retries, including callbacks emitted by cleanup.
+            blocked = outermost_guard && Threads.atomic_xchg!(view.cleanup_blocked, false)
+            (exited || blocked) ? _live_release_event!(vis) : _schedule_live_view_cleanup!(vis)
+        end
     end
 end
 
@@ -141,7 +157,7 @@ function _live_graph_update!(vis; publication::Bool = false, kwargs...)
         end
         view.updating = true
         try
-            update!(vis.content.graph; kwargs...)
+            update!(_live_graph(vis); kwargs...)
             rounds = 0
             while !isempty(view.pending)
                 allowed = lock(vis.content.buffer_lock) do
@@ -153,7 +169,7 @@ function _live_graph_update!(vis; publication::Bool = false, kwargs...)
                     throw(ArgumentError("Live view callbacks did not settle after deferred updates"))
                 attributes = copy(view.pending)
                 empty!(view.pending)
-                update!(vis.content.graph; attributes...)
+                update!(_live_graph(vis); attributes...)
             end
         finally
             empty!(view.pending)
@@ -220,7 +236,7 @@ function _attach_live_view!(vis, fig)
         elseif view.seen_open[]
             BAT.request_visualizer_stop!(vis; reason=:closed)
             _request_view_disposal!(vis)
-            BAT.dispose_visualizer!(vis)
+            _schedule_live_view_cleanup!(vis)
         end
         return nothing
     end
@@ -229,9 +245,19 @@ function _attach_live_view!(vis, fig)
 end
 
 function _request_view_disposal!(vis)
-    view = vis.content.lifecycle.view
-    isnothing(view) && return nothing
-    view.cleanup_pending[] = !view.disposed[]
+    lock(vis.content.buffer_lock) do
+        Base.disable_sigint() do
+            ctl = vis.content.lifecycle
+            if !ctl.disposal_requested
+                _stop_live_locked!(vis, :disposed)
+                ctl.disposal_requested = true
+                ctl.disposal_retry = true
+            end
+            view = ctl.view
+            isnothing(view) || (view.cleanup_pending[] = !view.disposed[])
+            notify(vis.content.buffer_cond; all=true)
+        end
+    end
     return nothing
 end
 
@@ -250,24 +276,32 @@ function _close_owned_live_screens!(fig)
 end
 
 # Admission is nonwaiting. Backend cleanup itself may yield/block, so callers
-# use the owned cleanup task (or listener finalizer), never a rendering callback.
+# use the owned cleanup task, never a rendering callback or listener finalizer.
 function _cleanup_live_view!(vis)
     view = vis.content.lifecycle.view
     isnothing(view) && return true
     view.disposed[] && return true
     view.cleanup_pending[] || return true
     Threads.threadid() == vis.content.lifecycle.owner_thread || return false
-    trylock(view.lock) || return false
+    admitted = false
+    # Install the reset before publishing cleanup_running, including the
+    # handoff out of the view guard. A failed attempt must not clear another
+    # executor's flag or leave its own flag permanently latched.
     try
-        (view.depth == 0 && !view.cleanup_running[]) || return false
-        view.cleanup_running[] = true
-    finally
-        unlock(view.lock)
-    end
-    # cleanup_pending stays latched, rejecting every new admission. Releasing
-    # the guard lets callbacks already waiting for it acquire/reject and lets
-    # the renderer finish; close(screen) must not wait while holding that guard.
-    try
+        # Arm before trying the guard: a holder exiting after a failed trylock
+        # must wake the coordinator even when its own admission was rejected.
+        view.cleanup_blocked[] = true
+        trylock(view.lock) || return false
+        try
+            (view.depth == 0 && !view.cleanup_running[]) || return false
+            admitted = true
+            view.cleanup_running[] = true
+            view.cleanup_blocked[] = false
+        finally
+            unlock(view.lock)
+        end
+        # cleanup_pending stays latched, rejecting every new admission. Release
+        # the guard before any backend operation which can wait for callbacks.
         failed_handles = Any[]
         for handle in view.subscriptions
             try
@@ -296,6 +330,6 @@ function _cleanup_live_view!(vis)
         _record_live_cleanup_error!(vis, err, catch_backtrace())
         return false
     finally
-        view.cleanup_running[] = false
+        admitted && (view.cleanup_running[] = false)
     end
 end

@@ -30,7 +30,8 @@ function register_state_for_vis!(
     samples,
     timing = _empty_walker_spans(samples)
 )
-    (; graph, chain_ids, output_buffer, pending_samples) = vis.content
+    (; chain_ids, output_buffer, pending_samples) = vis.content
+    graph = _live_graph(vis)
 
     empty_walker_outputs = _empty_chain_outputs(mcmc_state)
     samples_new, timing_new = _append_timed_walkers(mcmc_state, empty_walker_outputs, samples, _empty_walker_spans(samples), timing)
@@ -94,20 +95,22 @@ function BAT.init_visualizer!(
         end
         _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, target)
     catch err
-        lock(() -> ctl.initializing = false, vis.content.buffer_lock)
+        # The initializer has unwound; hand off before synchronous rollback
+        # waits for the release coordinator, which itself waits for startup.
+        _finish_live_initialization!(vis)
         _fail_visualizer!(vis, err, catch_backtrace(), :startup)
         BAT._safe_clear_visualizer_init!(vis; suppress_interrupt=true)
         BAT._safe_finish_visualizer!(vis; success=false)
         rethrow()
     finally
-        lock(() -> ctl.initializing = false, vis.content.buffer_lock)
+        _finish_live_initialization!(vis)
     end
     return nothing
 end
 
 function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, target)
     ctl = vis.content.lifecycle
-    graph = vis.content.graph
+    graph = _live_graph(vis)
     domain_rng = copy(rng)
     domain_lo, domain_hi = Float64[], Float64[]
     built = nothing

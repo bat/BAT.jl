@@ -6,12 +6,13 @@
 using Test
 
 const CASES = [
-    "lifecycle_healthy", "lifecycle_callback", "lifecycle_convergence",
+    "lifecycle_healthy", "lifecycle_callback", "lifecycle_convergence", "lifecycle_owner",
     "lifecycle_sampler", "lifecycle_producer", "lifecycle_snapshot", "lifecycle_listener",
     "lifecycle_timeout", "lifecycle_transform", "lifecycle_publication", "lifecycle_stop_publication", "lifecycle_startup",
     "lifecycle_view", "lifecycle_interactive_interrupt", "lifecycle_figure", "lifecycle_grid", "core", "buffering", "dwell", "rng", "windows",
     "static_result", "precompile_workload", "precompile_failure", "warmup",
     "domain", "domain_publication", "view_state", "api_boundaries", "numerics", "bounded_kde", "kde_integration",
+    "history_release", "history_diagnostics", "release_lifecycle",
 ]
 const ROOT = normpath(joinpath(@__DIR__, "../../.."))
 
@@ -30,6 +31,11 @@ if length(ARGS) == 2 && ARGS[1] == "--child"
     flush(stderr)
     if case == "core"
         include(joinpath(ROOT, "test/samplers/mcmc/test_visualizer_lifecycle.jl"))
+        include(joinpath(ROOT, "test/samplers/mcmc/test_mcmc_owner.jl"))
+        include(joinpath(ROOT, "test/samplers/mcmc/test_mcmc_owner_parity.jl"))
+    elseif case in ("history_release", "history_diagnostics")
+        ENV["BAT_MAKIE_HISTORY_CASE"] = case == "history_release" ? "release" : "diagnostics"
+        include(joinpath(ROOT, "test/plotting/test_makie_history_release.jl"))
     elseif startswith(case, "lifecycle_")
         ENV["BAT_MAKIE_LIFECYCLE_CASE"] = case[length("lifecycle_")+1:end]
         include(joinpath(ROOT, "test/plotting/test_makie_lifecycle.jl"))

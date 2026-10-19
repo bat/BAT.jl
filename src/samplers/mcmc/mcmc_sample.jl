@@ -6,6 +6,13 @@
 
 Samples a probability density using Markov chain Monte Carlo.
 
+Cancellation of MCMC chain groups is cooperative. On a sampling-owner exception,
+BAT requests cancellation, releases observation waits and joins all launched
+chain workers before propagating the exception. An already-entered numerical
+step or user hook must return before its worker can stop; arbitrary native code
+cannot be forcibly interrupted. Observation timeouts do not impose a numerical
+worker shutdown deadline.
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```

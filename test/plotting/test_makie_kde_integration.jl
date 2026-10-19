@@ -215,7 +215,7 @@ end
             @test !isempty(result.result)
             @test BAT.visualizer_status(vis).quiesced
             @test BAT.visualizer_status(vis).data_complete
-            graph = vis.content.graph
+            graph = EXT._live_graph(vis)
             @test graph[:support_lo][] == first.(SUPPORT)
             @test graph[:support_hi][] == last.(SUPPORT)
             fig = BAT.visualizer_figure(vis)

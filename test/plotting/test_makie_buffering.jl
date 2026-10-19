@@ -86,7 +86,7 @@ end
             observer = nothing
             try
                 initialize(vis, states, outputs, target, BAT.get_rng(states[1].chain_state.context))
-                observer = Makie.on(vis.content.graph[:current_idx]) do value
+                observer = Makie.on(EXT._live_graph(vis)[:current_idx]) do value
                     push!(updates, Int(value))
                 end
                 producer = @async begin
@@ -115,7 +115,7 @@ end
                 @test outcome == :ok
                 outcome == :ok || error("Producer did not finish within the test deadline")
                 fetch(producer)
-                @test timedwait(() -> sum(vis.content.graph[:flat_weights][]) >= 54, 120.0) == :ok
+                @test timedwait(() -> sum(EXT._live_graph(vis)[:flat_weights][]) >= 54, 120.0) == :ok
                 @test !isempty(updates)
                 @test BAT.visualizer_status(vis).phase == :running
                 @test !BAT.visualizer_status(vis).quiesced
@@ -125,7 +125,7 @@ end
                 before_final = vis.content.effective_batch_size[]
                 if rate == floatmax(Float64)
                     @test before_final == typemax(Int)
-                    @test sum(vis.content.graph[:flat_weights][]) >= 54 # initial four + first flush
+                    @test sum(EXT._live_graph(vis)[:flat_weights][]) >= 54 # initial four + first flush
                 elseif adaptive
                     @test before_final >= 87 # at least three ordinary growth cycles
                 else
@@ -137,8 +137,8 @@ end
                 @test BAT.visualizer_status(vis).outcome == :complete
                 @test vis.content.n_buffer_steps[] == 0
                 @test vis.content.effective_batch_size[] == before_final # forced drain does not grow
-                @test sum(vis.content.graph[:flat_weights][]) == 4 * (nsteps + 1)
-                plotted = vis.content.graph[:samples][]
+                @test sum(EXT._live_graph(vis)[:flat_weights][]) == 4 * (nsteps + 1)
+                plotted = EXT._live_graph(vis)[:samples][]
                 for id in 1:2, walker in 1:2
                     @test plotted[id][walker].v == expected[id][walker]
                     @test all(==(1), plotted[id][walker].weight)

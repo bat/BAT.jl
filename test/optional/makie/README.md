@@ -18,6 +18,12 @@ These CairoMakie cases exercise live BAT entry points, real sample transport,
 fault boundaries, rendering, and existing numerical regressions. CI runs them on
 Julia 1.10 and the current stable Julia. The ordinary core suite separately tests
 backend-neutral ownership and pre-join stop signalling without loading Makie.
+The `lifecycle_owner` case interrupts a real MCMC group while a producer is
+blocked in Makie transport, checks that both numerical workers finish before the
+owner propagates the original interruption, and keeps the listener blocked until
+after those assertions. The `core` case includes the backend-neutral owner and
+RNG/sample-preservation tests. Real process-SIGINT tests are separately bounded
+by [the optional MCMC owner runner](../mcmc_owner/README.md).
 
 `gl_smoke.jl` additionally tests native GLMakie recipe/selection round trips,
 rendering, and live close isolation from an unrelated screen.
@@ -48,6 +54,13 @@ flushes, including replacement of pending extremes and prior-generation ownershi
 The `lifecycle_figure` case checks completed live figure retrieval through public
 sampling, saving and controls, plus owning-thread checks, nonwaiting guards,
 callback reentrancy, actual disposal, and focused lifecycle boundary fixtures.
+
+The `history_release`, `history_diagnostics`, and `release_lifecycle` cases check
+whole-history disposal, including collection without status polling, retained
+borrowed figures and external graph/control aliases, bounded inert diagnostics,
+startup/listener/view barriers, failed cleanup retries and task ownership.
+Weak-reference checks cover mutable graph/cache arrays, with explicit external
+aliases as negative controls; they do not impose process RSS thresholds.
 
 The `view_state` and `lifecycle_grid` cases check interactive grid membership,
 recipe/variable transitions, plot contents, controls, navigation reset rules and

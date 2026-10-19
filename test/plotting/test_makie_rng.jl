@@ -140,7 +140,7 @@ Base.copy(::UncopyableRNG) = error("Unexpected RNG copy")
                         BAT.init_visualizer!(vis; rng = rng, mcmc_states = [state], outputs = [outputs],
                             f_pretransform = identity, target = target)
                     end
-                    @test (vis.content.graph[:domain_lo][], vis.content.graph[:domain_hi][]) == expected_domain
+                    @test (EXT._live_graph(vis)[:domain_lo][], EXT._live_graph(vis)[:domain_hi][]) == expected_domain
                     @test BAT.visualizer_status(vis).phase == :running
                 end
                 @test rng == before
@@ -177,7 +177,7 @@ Base.copy(::UncopyableRNG) = error("Unexpected RNG copy")
                 @test vis.content.step_mode[]
                 @test isempty(vis.content.init_segments)
                 @test isempty(vis.content.invalid_init)
-                data = vis.content.graph[:window_data][]
+                data = EXT._live_graph(vis)[:window_data][]
                 mass = zeros(Int, length(data.samples))
                 for group in data.groups, k in eachindex(group.rows)
                     mass[group.rows[k]] += group.ends[k] - group.starts[k] + 1
@@ -226,7 +226,7 @@ Base.copy(::UncopyableRNG) = error("Unexpected RNG copy")
                 @test isempty(vis.content.init_segments)
                 @test BAT.visualizer_status(vis).quiesced
                 @test BAT.visualizer_status(vis).data_complete
-                g = vis.content.graph
+                g = EXT._live_graph(vis)
                 full = deepcopy(g[:flat_samples][])
                 Makie.update!(g; window_steps=(1,2),show_trace_upper=true)
                 @test isempty(g[:trace_groups][])
