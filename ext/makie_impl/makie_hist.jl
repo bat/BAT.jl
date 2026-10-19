@@ -4,9 +4,9 @@
 # Early Float32 conversion can erase unit-scale variation around large offsets.
 # Fresh sentinels per call, not shared consts -- see _empty_scatter2d_primitives (makie_scatter.jl).
 _empty_hist1d_primitives() = (centers=Vector{Float64}(), weights=Vector{Float64}(), edges=Vector{Float64}())
-_empty_hist2d_primitives() = (centers_x=Vector{Float64}(), centers_y=Vector{Float64}(), weights=Matrix{Float64}(undef, 0, 0))
-_empty_quantilehist1d_primitives() = (xy_data=Vector{Point{2,Float64}}(), widths=Vector{Float64}(), stairs_data=Vector{Point{2,Float64}}(), bin_colors=Vector{RGBA{Float32}}())
-_empty_quantilehist2d_primitives() = (centers_x=Vector{Float64}(), centers_y=Vector{Float64}(), color_grid=Matrix{RGBA{Float32}}(undef, 0, 0))
+_empty_hist2d_primitives() = (xedges=Vector{Float64}(), yedges=Vector{Float64}(), weights=Matrix{Float64}(undef, 0, 0))
+_empty_quantilehist1d_primitives() = (polys=Vector{Point{2,Float64}}[], fill_colors=Vector{RGBA{Float32}}(), stairs_data=Vector{Point{2,Float64}}())
+_empty_quantilehist2d_primitives() = (xedges=Vector{Float64}(), yedges=Vector{Float64}(), color_grid=Matrix{RGBA{Float32}}(undef, 0, 0))
 _empty_hexbin2d_primitives() = (x=Float64[], y=Float64[], weights=Float64[], thresh=0.0)
 
 # Bin edges for a marginal histogram: derived from the fixed per-dimension
@@ -70,6 +70,32 @@ end
 _safe_normalize(hist::Histogram, normalization::Symbol) =
     BAT._plot_normalize_histogram(hist, normalization)
 
+# Heatmap cell boundaries and polygon corners must come from the original
+# edges. Midpoint reconstruction changes unequal bins, and even a one-bin
+# midpoint can be unrepresentable when both original endpoints are Float64.
+function _histogram_plot_edges(hist::Histogram)
+    return map(hist.edges) do original
+        edges = map(e -> BAT._plot_float64(e, "histogram edge"), collect(original))
+        all(w -> isfinite(w) && w > 0, diff(edges)) ||
+            BAT._plot_weight_error("histogram edges are not distinct with finite positive widths as Float64")
+        edges
+    end
+end
+
+# Zero is the default inactive sentinel; one requests the full positive-mass
+# region. Validate before empty/dead-cell returns as well as before selection.
+# Duplicates remain distinct requests and count toward the fixed palette size.
+function _histogram_region_levels(levels)
+    levels isa Union{AbstractVector,Tuple} || throw(ArgumentError(
+        "Histogram credible levels must be a vector or tuple of probabilities"))
+    all(p -> p isa Real && isfinite(p) && 0 <= p <= 1, levels) ||
+        throw(ArgumentError("Histogram credible levels must be finite probabilities in [0, 1]"))
+    active = Float64[BAT._plot_float64(p, "histogram credible level") for p in levels if p > 0]
+    length(active) <= length(_QUANTILE_LEVEL_COLORS) || throw(ArgumentError(
+        "Histogram credible regions support at most $(length(_QUANTILE_LEVEL_COLORS)) active levels"))
+    return sort!(active)
+end
+
 function _hist1d_output(hist::Histogram, normalization::Symbol)
     h_norm = _safe_normalize(hist, normalization)
     centers = _get_bin_centers(h_norm)
@@ -80,18 +106,17 @@ end
 
 function _hist2d_output(hist::Histogram, normalization::Symbol)
     h_norm = _safe_normalize(hist, normalization)
-    centers_x, centers_y = _get_bin_centers(h_norm)
+    xedges, yedges = _histogram_plot_edges(h_norm)
     # Zero-count bins as NaN (rendered transparent); Float64 forced since the
     # all-zero-weight case skips normalization and keeps the integer eltype.
     weights = map(w -> w > 0 ? BAT._plot_float64(w, "histogram height") : NaN, h_norm.weights)
-    return (centers_x=centers_x, centers_y=centers_y, weights=weights)
+    return (xedges=xedges, yedges=yedges, weights=weights)
 end
 
 function _quantilehist1d_output(hist::Histogram, config::NamedTuple)
     (; normalization, levels) = config
+    valid_intervals = _histogram_region_levels(levels)
     h_norm = _safe_normalize(hist, normalization)
-
-    valid_intervals = sort(filter(x -> 0 < x < 1, levels))
     sub_hists, _ = BAT.get_smallest_intervals(h_norm, valid_intervals)
 
     bin_colors = fill(RGBA{Float32}(0, 0, 0, 0), length(h_norm.weights))
@@ -102,23 +127,30 @@ function _quantilehist1d_output(hist::Histogram, config::NamedTuple)
         bin_colors[mask] .= c
     end
 
-    centers = _get_bin_centers(h_norm)[1]
     heights = map(w -> BAT._plot_float64(w, "histogram height"), h_norm.weights)
-    xy_data = Point{2,Float64}.(centers, heights)
-    edges = map(e -> BAT._plot_float64(e, "histogram edge"), collect(h_norm.edges[1]))
-    widths = diff(edges)
-    all(w -> isfinite(w) && w > 0, widths) || BAT._plot_weight_error("histogram widths are not representable as Float64")
+    edges = only(_histogram_plot_edges(h_norm))
+    isempty(heights) && return _empty_quantilehist1d_primitives()
+    polys = Vector{Point{2,Float64}}[]
+    fill_colors = RGBA{Float32}[]
+    for i in eachindex(heights)
+        # Do not send degenerate zero-height polygons or invisible cells to
+        # triangulation. The complete stairs still include their bin edges.
+        if heights[i] > 0 && bin_colors[i].alpha > 0
+            lo, hi, height = edges[i], edges[i+1], heights[i]
+            push!(polys, Point{2,Float64}[(lo, 0), (hi, 0), (hi, height), (lo, height)])
+            push!(fill_colors, bin_colors[i])
+        end
+    end
     stairs_y = vcat(heights, heights[end])
     stairs_data = Point{2,Float64}.(edges, stairs_y)
 
-    return (xy_data=xy_data, widths=widths, stairs_data=stairs_data, bin_colors=bin_colors)
+    return (polys=polys, fill_colors=fill_colors, stairs_data=stairs_data)
 end
 
 function _quantilehist2d_output(hist::Histogram, config::NamedTuple)
     (; normalization, levels) = config
+    valid_intervals = _histogram_region_levels(levels)
     h_norm = _safe_normalize(hist, normalization)
-
-    valid_intervals = sort(filter(x -> 0 < x < 1, levels))
     sub_hists, _ = BAT.get_smallest_intervals(h_norm, valid_intervals)
 
     dims = size(h_norm.weights)
@@ -130,8 +162,8 @@ function _quantilehist2d_output(hist::Histogram, config::NamedTuple)
         color_grid[mask] .= c
     end
 
-    centers_x, centers_y = _get_bin_centers(h_norm)
-    return (centers_x=centers_x, centers_y=centers_y, color_grid=color_grid)
+    xedges, yedges = _histogram_plot_edges(h_norm)
+    return (xedges=xedges, yedges=yedges, color_grid=color_grid)
 end
 
 function compute_plotting_primitives(
@@ -175,7 +207,7 @@ function compose_plotspecs(
     end
 
     bars = S.BarPlot(centers, weights)
-    stairs = S.Stairs(edges, vcat(weights, weights[end]))
+    stairs = S.Stairs(edges, vcat(weights, weights[end]); step=:post)
 
     return [bars, stairs]
 end
@@ -217,7 +249,7 @@ function compose_plotspecs(
     config::NamedTuple;
     transposed::Bool = false
 )
-    (; centers_x, centers_y, weights) = primitives
+    (; xedges, yedges, weights) = primitives
 
     if isempty(weights)
         return PlotSpec[]
@@ -236,8 +268,8 @@ function compose_plotspecs(
     all(w -> isnan(w) || 0 < Float32(w) < Inf, weights) || throw(ArgumentError(
         "Hist2D visible height is not representable as positive finite Float32 color values; change units/normalization or use QuantileHist2D"))
     heat = transposed ?
-        S.Heatmap(centers_y, centers_x, permutedims(weights); colormap=cmap_final) :
-        S.Heatmap(centers_x, centers_y, weights; colormap=cmap_final)
+        S.Heatmap(yedges, xedges, permutedims(weights); colormap=cmap_final) :
+        S.Heatmap(xedges, yedges, weights; colormap=cmap_final)
     return [heat]
 end
 
@@ -246,10 +278,11 @@ function compute_plotting_primitives(
     ::SubArray,
     ::SubArray,
     ::QuantileHist1D,
-    ::RS,
+    recipe_status::RS,
     ::CS,
-    ::NamedTuple
+    config::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
+    recipe_status isa LiveRecipe && _histogram_region_levels(config.levels)
     return _empty_quantilehist1d_primitives()
 end
 
@@ -262,6 +295,7 @@ function compute_plotting_primitives(
     config::NamedTuple
 )
     BAT._plot_histogram_mode(config.normalization)
+    _histogram_region_levels(config.levels)
     isempty(weights) && return _empty_quantilehist1d_primitives()
     (; nbins, closed, filter) = config
     hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, config.normalization, get(config, :domain, nothing))
@@ -273,33 +307,31 @@ function compose_plotspecs(
     recipe::QuantileHist1D,
     config::NamedTuple
 )
-    (; xy_data, widths, stairs_data, bin_colors) = primitives
+    (; polys, fill_colors, stairs_data) = primitives
 
-    if isempty(widths)
+    if isempty(stairs_data)
         return PlotSpec[]
     end
 
-    bars = S.BarPlot(xy_data;
-        color=bin_colors,
-        width=widths,
-    )
-
-    stairs = S.Stairs(stairs_data)
-
-    return [bars, stairs]
+    plotspecs = PlotSpec[]
+    isempty(polys) || push!(plotspecs, S.Poly(polys; color=fill_colors, strokewidth=0))
+    stairs = S.Stairs(stairs_data; step=:post)
+    push!(plotspecs, stairs)
+    return plotspecs
 end
 
-_diag_y_extent(primitives::NamedTuple, ::QuantileHist1D) = isempty(primitives.xy_data) ? 0.0 : maximum(p -> p[2], primitives.xy_data)
+_diag_y_extent(primitives::NamedTuple, ::QuantileHist1D) = isempty(primitives.stairs_data) ? 0.0 : maximum(p -> p[2], primitives.stairs_data)
 
 
 function compute_plotting_primitives(
     ::SubArray,
     ::SubArray,
     ::QuantileHist2D,
-    ::RS,
+    recipe_status::RS,
     ::CS,
-    ::NamedTuple
+    config::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
+    recipe_status isa LiveRecipe && _histogram_region_levels(config.levels)
     return _empty_quantilehist2d_primitives()
 end
 
@@ -312,6 +344,7 @@ function compute_plotting_primitives(
     config::NamedTuple
 )
     BAT._plot_histogram_mode(config.normalization)
+    _histogram_region_levels(config.levels)
     isempty(weights) && return _empty_quantilehist2d_primitives()
     (; nbins, closed, filter) = config
     hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, config.normalization, get(config, :domain, nothing))
@@ -324,14 +357,14 @@ function compose_plotspecs(
     config::NamedTuple;
     transposed::Bool = false
 )
-    (; centers_x, centers_y, color_grid) = primitives
-    if isempty(centers_x)
+    (; xedges, yedges, color_grid) = primitives
+    if isempty(color_grid)
         return PlotSpec[]
     end
     # permutedims (not transpose) -- see Hist2D's matching comment above.
     heat = transposed ?
-        S.Heatmap(centers_y, centers_x, permutedims(color_grid)) :
-        S.Heatmap(centers_x, centers_y, color_grid)
+        S.Heatmap(yedges, xedges, permutedims(color_grid)) :
+        S.Heatmap(xedges, yedges, color_grid)
     return [heat]
 end
 

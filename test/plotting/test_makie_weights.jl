@@ -225,10 +225,10 @@ end
                 merge(PAIR, (threshold=threshold,)))
         end
         for height in (1e50, 1e-50), transposed in (false, true)
-            p = (centers_x=[0.0, 1.0], centers_y=[0.0, 1.0], weights=[height NaN; NaN height])
+            p = (xedges=[-0.5, 0.5, 1.5], yedges=[-0.5, 0.5, 1.5], weights=[height NaN; NaN height])
             @test_throws ArgumentError EXT.compose_plotspecs(p, Hist2D(), PAIR; transposed)
         end
-        valid = (centers_x=[0.0, 1.0], centers_y=[0.0, 1.0], weights=[1.0 NaN; NaN 2.0])
+        valid = (xedges=[-0.5, 0.5, 1.5], yedges=[-0.5, 0.5, 1.5], weights=[1.0 NaN; NaN 2.0])
         @test length(EXT.compose_plotspecs(valid, Hist2D(), PAIR)) == 1
     end
 

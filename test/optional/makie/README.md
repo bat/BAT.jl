@@ -89,3 +89,7 @@ geometry, coordinate/weight scaling and explicit numerical/resource limits.
 live entry points, original-target support forwarding, explicit rendered edges,
 transposition and empty/window/support transitions. The precompile workload uses
 truthful bounded samples so strict support checks run during extension building.
+
+`histogram_regions` checks integrated cell probabilities, plateau colors,
+original-edge polygons and heatmaps, transpose/empty transitions, invalid levels,
+and actual Cairo output. These checks use independent unequal-cell fixtures.

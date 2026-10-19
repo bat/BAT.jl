@@ -11,8 +11,8 @@ cell(fig,i,j)=only(filter(x->x isa Axis,contents(fig[1,1][i,j])))
     @testset "Geometry retains scientific coordinates" begin
         d=[1e8-1 1e8 1e8+1;1e8-1 1e8+1 1e8]; w=ones(3)
         h=primitives(d[1:1,:],w,QuantileHist1D())
-        @test length(unique(first.(h.xy_data)))>3
-        @test all(p->p[1] isa Float64,h.xy_data)
+        @test length(unique(first.(h.stairs_data)))>3
+        @test all(p->p[1] isa Float64,h.stairs_data)
         @test all(p->p[1] isa Float64,h.stairs_data)
         k=primitives(d[1:1,:],w,KDE1D())
         @test first.(k.poly_points)==vcat(k.x,reverse(k.x))

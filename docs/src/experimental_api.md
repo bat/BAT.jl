@@ -161,9 +161,45 @@ count/threshold admission checks do not guarantee extreme-range color fidelity.
 
 `MarginalDist` checks its dependency's actual PDF and reconstructed bin masses.
 Its dependency's cached coordinate moments have separate extreme-range limits.
-Legacy credible regions still accumulate histogram heights, so their existing
-equal-width assumption remains relevant for unequal-width PDF bins. This weight
-hardening does not change their estimator or tie/whole-bin selection rules.
+Histogram regions rank cells by density and accumulate integrated cell mass.
+For count/probability histograms the stored heights are masses; for density/PDF
+histograms the mass is height times actual bin volume. Regions preserve the
+original displayed heights and include the entire cutoff-density plateau. This
+intentionally replaces first-bin tie breaking. They are whole-bin highest-density
+regions: achieved probability can exceed the request, sometimes substantially,
+and the result is not a globally minimum-volume selection of whole bins.
+
+The internal central-region helper uses actual left/right tail masses and retains
+a boundary bin when the removed tail would exactly equal its target. Zero requests
+are empty, full-mass requests retain every positive cell, and zero-mass histograms
+remain empty displays. Makie histogram levels use zero as an inactive sentinel
+and support up to three positive requests in `(0,1]`; invalid levels are errors.
+Legacy Plots region labels report achieved probability. Custom labels and colors
+stay associated with their requests when requests are reordered.
+
+Region arithmetic factors volumes and densities before common power-of-two mass
+scaling. Each positive cell must retain positive relative mass; otherwise it raises
+an error. Region helpers accept ordinary integer/floating-point histogram storage,
+with endpoints exactly representable in the promoted Float64 or BigFloat working
+type. Arithmetic must use round-to-nearest and preserve subnormals; BigFloat inputs
+at its minimum exponent boundary are rejected. These checks do not change the
+caller's arithmetic mode. Finite arithmetic can change a whole boundary plateau
+near a probability crossing or nearly tied
+computed density; it does not guarantee identical masks under every floating-point
+rescaling. Whole-bin regions use original edges, including horizontal fills and
+unequal 2D cells.
+
+Legacy Plots contours are approximate isolines of an interpolated density field,
+not exact boundaries whose enclosed probability equals the selected cell mass.
+Their cutoffs use the same relative-density field that is displayed. Smoothing
+uses bin-index units and zero padding/cropping, then recomputes cell probabilities
+within that displayed domain; it is not uniform physical-space smoothing on unequal
+bins. Contours require at least two cells on each axis and a representable positive
+relative-density field, with distinct Float64 centers inside their cells, even when
+exact cell regions are representable. Coincident
+cutoffs retain the tighter request's color. Numeric contour labels cannot be
+interpreted as original density units. The inherited smoothing kernel still has
+no general allocation/work budget for arbitrarily large finite smoothing values.
 
 ## KDE support and credible regions
 

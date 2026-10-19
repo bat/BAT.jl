@@ -12,7 +12,7 @@ const CASES = [
     "lifecycle_view", "lifecycle_interactive_interrupt", "lifecycle_figure", "lifecycle_grid", "core", "buffering", "dwell", "rng", "windows",
     "static_result", "precompile_workload", "precompile_failure", "warmup",
     "domain", "domain_publication", "view_state", "api_boundaries", "numerics", "bounded_kde", "kde_integration",
-    "history_release", "history_diagnostics", "release_lifecycle", "weights", "weight_failure",
+    "history_release", "history_diagnostics", "release_lifecycle", "weights", "weight_failure", "histogram_regions",
 ]
 const ROOT = normpath(joinpath(@__DIR__, "../../.."))
 

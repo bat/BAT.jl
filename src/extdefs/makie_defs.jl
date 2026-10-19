@@ -283,7 +283,12 @@ export Hist2D
 """
     struct QuantileHist1D <: BATMakieRecipe
 
-1D histogram with bins colored by smallest-interval (HPD) credible region.
+1D histogram with whole bins colored by highest-density credible region.
+Cells are ranked by density; coverage integrates their actual widths. Complete
+threshold plateaus are included, so achieved probability can exceed the request.
+This is a whole-bin approximation, not a minimum-width subset optimization.
+Zero is an inactive level sentinel; up to three positive levels in `(0, 1]`
+are supported, including full-mass regions at one.
 """
 struct QuantileHist1D <: BATMakieRecipe end
 export QuantileHist1D
@@ -291,7 +296,10 @@ export QuantileHist1D
 """
     struct QuantileHist2D <: BATMakieRecipe
 
-2D histogram with cells colored by smallest-interval (HPD) credible region.
+2D histogram with whole cells colored by highest-density credible region.
+Cells are ranked by density and accumulated by actual cell probability. Complete
+threshold plateaus are included. Original cell edges determine the colored area.
+See [`QuantileHist1D`](@ref) for level and whole-bin approximation conventions.
 """
 struct QuantileHist2D <: BATMakieRecipe end
 export QuantileHist2D

@@ -15,8 +15,7 @@ interval_bounds(ivs) = [(minimum(iv), maximum(iv)) for iv in ivs]
 
 @testset "Histogram region weight arithmetic" begin
     @testset "Independent height-mass and selection oracles" begin
-        # These are the historical height-based regions. The expected masks
-        # and probabilities follow directly from the integer masses 3, 2, 1.
+        # Unit-width bins retain the independent integer-mass oracle.
         for scale in (1.0, 5e307, 1e-300, nextfloat(0.0))
             hist = hist1d(scale .* [3, 2, 1])
             original = deepcopy(hist)
@@ -42,12 +41,11 @@ interval_bounds(ivs) = [(minimum(iv), maximum(iv)) for iv in ivs]
         ]
         @test BAT.get_probability_content(parent, selected) ≈ [2/7, 1/7]
 
-        # Preserve tie ordering and whole-bin overshoot rather than selecting
-        # all ties or introducing a different HDR estimator.
+        # H16 includes the complete density plateau at the boundary.
         ties = hist1d([2, 2, 1])
         regions, content = BAT.get_smallest_intervals(ties, [0.3])
-        @test only(regions).weights == [2, 0, 0]
-        @test only(content) ≈ 2/5
+        @test only(regions).weights == [2, 2, 0]
+        @test only(content) ≈ 4/5
     end
 
     @testset "Original typed heights, wider relative arithmetic" begin
@@ -55,14 +53,14 @@ interval_bounds(ivs) = [(minimum(iv), maximum(iv)) for iv in ivs]
         hist = hist1d([exact_height, exact_height, Int64(1)])
         regions, content = BAT.get_smallest_intervals(hist, [0.4])
         @test eltype(only(regions).weights) == Int64
-        @test only(regions).weights == [exact_height, 0, 0]
-        @test only(content) ≈ 0.5
+        @test only(regions).weights == [exact_height, exact_height, 0]
+        @test only(content) ≈ 1.0
 
         # No absolute integer sum is needed to select a relative region.
         extreme = hist1d([typemax(Int), typemax(Int), 1])
         regions, content = BAT.get_smallest_intervals(extreme, [0.4])
-        @test only(regions).weights == [typemax(Int), 0, 0]
-        @test only(content) ≈ 0.5
+        @test only(regions).weights == [typemax(Int), typemax(Int), 0]
+        @test only(content) ≈ 1.0
 
         for weights in (Float16[45000, 30000, 15000],
                 Float32[3e38, 2e38, 1e38],
@@ -87,25 +85,27 @@ interval_bounds(ivs) = [(minimum(iv), maximum(iv)) for iv in ivs]
         @test hist2d.weights == weights2d
     end
 
-    @testset "H16 remains a separate estimator issue" begin
-        # With unequal widths these PDF heights represent masses [0, .6, .4].
-        # The legacy estimator selects by summed heights and reports 4/7.
+    @testset "Unequal bins use integrated mass" begin
         hist = hist1d([0.0, 0.15, 0.2]; edges=[0.0, 2.0, 6.0, 8.0], density=true)
         regions, content = BAT.get_smallest_intervals(hist, [0.5])
-        @test only(regions).weights == [0.0, 0.0, 0.2]
-        @test only(content) ≈ 4/7
-        @test sum(only(regions).weights .* diff(only(hist.edges))) ≈ 0.4
+        @test only(regions).weights == [0.0, 0.15, 0.2]
+        @test only(content) == 1
+        @test sum(only(regions).weights .* diff(only(hist.edges))) ≈ 1
     end
 
-    @testset "Contour levels preserve defined values and initialize crossings" begin
-        @test BAT.calculate_levels(hist1d([6, 3, 1]), [0.2, 0.7]) == [3, 6, 11]
-        @test BAT.calculate_levels(hist1d([9, 1]), [0.1, 0.2, 0.8]) == [9, 9, 9, 11]
-        @test BAT.calculate_levels(hist1d([2, 2, 1]), [0.0, 0.4, 1.0]) == [1, 2, 2, 5.5]
-        @test BAT.calculate_levels(hist1d([6, 3, 1]), Float64[]) == [11]
-        @test_throws OverflowError BAT.calculate_levels(hist1d([typemax(Int), 1]), [0.5])
-        @test_throws OverflowError BAT.calculate_levels(hist1d([1e308, 1e308]), [0.5])
-        @test_throws ArgumentError BAT.calculate_levels(hist1d([1e308, 7e307]), [0.5])
-        @test_throws ArgumentError BAT.calculate_levels(hist1d([nextfloat(0.0)]), [0.5])
+    @testset "Contour cutoffs share the displayed field and initialize crossings" begin
+        h2(values) = Histogram(([0., 1., 2.], [0., 1., 2.]), reshape(values, 2, 2), :left, false)
+        result = BAT._histogram_contour_data(h2([9., 1., 0., 0.]), [0.1, 0.2, 0.8])
+        @test result.cutoffs == [1, 1, 1]
+        @test result.contents ≈ [0.9, 0.9, 0.9]
+        @test maximum(result.density) == 1
+        exact = BAT._histogram_contour_data(h2([6., 3., 1., 0.]), [0.6])
+        @test exact.cutoffs == [1]
+        @test isempty(BAT._histogram_contour_data(h2([6., 3., 1., 0.]), Float64[]).cutoffs)
+        # Contour density cutoffs need no absolute count sum or 1.1*sum cap.
+        for weights in ([typemax(Int), typemax(Int), 0, 0], [1e308, 1e308, 0, 0])
+            @test BAT._histogram_contour_data(h2(weights), [0.5]).contents == [1]
+        end
     end
 
     @testset "Zero mass, invalid input and positive-loss boundaries" begin
@@ -118,7 +118,7 @@ interval_bounds(ivs) = [(minimum(iv), maximum(iv)) for iv in ivs]
             @test isempty(regions)
             @test isempty(content)
         end
-        @test BAT.calculate_levels(hist, [0.5, 0.9]) == [0, 0, 0]
+        @test BAT._histogram_contour_data(Histogram(([0., 1., 2.], [0., 1., 2.]), zeros(2, 2), :left, false), [0.5, 0.9]).cutoffs == [nothing, nothing]
         @test BAT.get_probability_content(hist, StatsBase.Histogram[deepcopy(hist)]) == [0]
         @test_throws ArgumentError BAT.get_probability_content(hist,
             StatsBase.Histogram[hist1d([1.0, 0, 0])])
@@ -132,7 +132,7 @@ interval_bounds(ivs) = [(minimum(iv), maximum(iv)) for iv in ivs]
         for intervals in ([-0.1], [1.1], [NaN], [Inf])
             @test_throws ArgumentError BAT.get_smallest_intervals(hist, intervals)
             @test_throws ArgumentError BAT.split_central(hist, intervals)
-            @test_throws ArgumentError BAT.calculate_levels(hist, intervals)
+            @test_throws ArgumentError BAT._histogram_contour_data(Histogram(([0., 1., 2.], [0., 1., 2.]), zeros(2, 2), :left, false), intervals)
         end
     end
 end
