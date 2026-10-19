@@ -234,13 +234,16 @@ end
 _sample_cursor(samples) = isempty(samples) ? (0, Int64(0)) : (length(samples), Int64(last(samples.weight)))
 
 function BAT.prepare_visualizer_init!(vis::BATVisualizer{BATMakieVisualization}, algorithm)
-    _claim_live_visualizer!(vis)
+    claimed = Ref(false)
     try
+        _claim_live_visualizer!(vis, claimed)
         vis.content.capture_init[] = algorithm.store_burnin && algorithm.sample_weighting isa BAT.RepetitionWeighting
     catch err
-        _fail_visualizer!(vis, err, catch_backtrace(), :prepare)
-        BAT._safe_clear_visualizer_init!(vis; suppress_interrupt=true)
-        BAT._safe_finish_visualizer!(vis; success=false)
+        if claimed[]
+            _fail_visualizer!(vis, err, catch_backtrace(), :prepare)
+            BAT._safe_clear_visualizer_init!(vis; suppress_interrupt=true)
+            BAT._safe_finish_visualizer!(vis; success=false)
+        end
         rethrow()
     end
     return nothing
@@ -248,6 +251,11 @@ end
 BAT.capture_visualizer_init(vis::BATVisualizer{BATMakieVisualization}) = !isnothing(vis.content) && vis.content.capture_init[]
 function BAT.clear_visualizer_init!(vis::BATVisualizer{BATMakieVisualization})
     isnothing(vis.content) && return nothing
+    lock(vis.content.buffer_lock) do
+        vis.content.lifecycle.startup_owner = nothing
+    end
+    # Only the sampling owner clears metadata, after numerical writers join.
+    # Observation disposal can finish earlier and must not clear it there.
     empty!(vis.content.init_segments)
     empty!(vis.content.invalid_init)
     vis.content.capture_init[] = false

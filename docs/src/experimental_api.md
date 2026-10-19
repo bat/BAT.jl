@@ -333,9 +333,12 @@ the session and does not promise a final display flush on cancellation/time-limi
 exits.
 Failed or aborted live views are disposed; their outcome remains available
 through the status query and diagnostics independently of the renderer.
-Disposal during numerical initialization before view startup currently causes
-the subsequent startup to reject the session; the ordinary continuing-sampling
-guarantee applies after successful startup.
+Disposal after the sampling owner has acquired the session also permits that
+same acquisition to finish numerical initialization and continue sampling without
+starting a view. Observation history may already have been released at that point.
+This continuation is single-use and restricted to the acquiring task and thread;
+a disposed session cannot be acquired for a new run. Numerical failures and
+non-benign startup failures still propagate.
 
 Cancellation of an MCMC chain group is cooperative. If its sampling owner is
 interrupted or a chain fails, BAT requests cancellation and releases participating

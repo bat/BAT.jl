@@ -80,30 +80,49 @@ function BAT.init_visualizer!(
 )
     isnothing(vis.content) && throw(ArgumentError("Create a fresh BATVisualizer for sampling"))
     ctl = vis.content.lifecycle
-    # Direct internal callers can acquire here; the sampling owner normally
-    # acquired before initialization metadata was recorded.
-    ctl.phase === :fresh && _claim_live_visualizer!(vis)
-    lock(vis.content.buffer_lock) do
-        (ctl.phase === :starting && ctl.owner_task === current_task() && !ctl.initializing) ||
-            throw(ArgumentError("Create a fresh BATVisualizer for sampling"))
-        ctl.initializing = true
-    end
+    claimed = Ref(false)
+    admitted = false
     try
+        start_view = lock(vis.content.buffer_lock) do
+            # Direct callers can acquire here; sampling normally acquires before
+            # numerical initialization. Both paths use the same one-shot permit.
+            ctl.phase === :fresh && _claim_live_visualizer!(vis, claimed)
+            permit = ctl.startup_owner
+            (!isnothing(permit) && permit.value === current_task() &&
+                ctl.owner_thread == Threads.threadid() && !ctl.initializing) ||
+                throw(ArgumentError("Create a fresh BATVisualizer for sampling"))
+            disabled = ctl.outcome === :disabled &&
+                ctl.reason in (:closed, :disposed, :disabled) && isnothing(ctl.error)
+            (ctl.phase === :starting || disabled) ||
+                throw(ArgumentError("Create a fresh BATVisualizer for sampling"))
+            # Cleanup is already installed. Never leave a consumed permit and
+            # an unprotected initializer if SIGINT arrives at this boundary.
+            Base.disable_sigint() do
+                admitted = true
+                ctl.startup_owner = nothing
+                ctl.initializing = !disabled
+            end
+            return !disabled
+        end
+        # Disposal can already have released the graph and strong owner. This
+        # acquisition continues sampling without recreating an observer.
+        start_view || return nothing
         backend = Makie.current_backend()
         if backend isa Module && nameof(backend) === :GLMakie && Threads.threadid() != 1
             throw(ArgumentError("Initialize a live GLMakie visualization on Julia's main thread"))
         end
         _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, target)
     catch err
-        # The initializer has unwound; hand off before synchronous rollback
-        # waits for the release coordinator, which itself waits for startup.
-        _finish_live_initialization!(vis)
-        _fail_visualizer!(vis, err, catch_backtrace(), :startup)
-        BAT._safe_clear_visualizer_init!(vis; suppress_interrupt=true)
-        BAT._safe_finish_visualizer!(vis; success=false)
+        if claimed[] || admitted
+            # Hand off before rollback joins a coordinator waiting for startup.
+            _finish_live_initialization!(vis)
+            _fail_visualizer!(vis, err, catch_backtrace(), :startup)
+            BAT._safe_clear_visualizer_init!(vis; suppress_interrupt=true)
+            BAT._safe_finish_visualizer!(vis; success=false)
+        end
         rethrow()
     finally
-        _finish_live_initialization!(vis)
+        admitted && _finish_live_initialization!(vis)
     end
     return nothing
 end

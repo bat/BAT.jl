@@ -67,6 +67,9 @@ Base.@kwdef mutable struct _MakieLiveControl
     last_publication::Int = 0
     owner_thread::Int = 0
     owner_task::Union{Nothing,Task} = nothing
+    # One acquisition may continue without a view after early disposal. The
+    # permit must not retain a numerical task after observation is released.
+    startup_owner::Union{Nothing,WeakRef} = nothing
     initializing::Bool = false
     view::Union{Nothing,_LiveView} = nothing
 end
@@ -83,14 +86,22 @@ function _live_graph(vis)
     return graph
 end
 
-function _claim_live_visualizer!(vis)
+function _claim_live_visualizer!(vis, claimed::Base.RefValue{Bool}=Ref(false))
     isnothing(vis.content) && throw(ArgumentError("Create a fresh BATVisualizer for sampling"))
+    owner = current_task()
+    permit = WeakRef(owner)
     lock(vis.content.buffer_lock) do
         ctl = vis.content.lifecycle
         ctl.phase === :fresh || throw(ArgumentError("Create a fresh BATVisualizer for sampling"))
-        ctl.phase = :starting
-        ctl.owner_thread = Threads.threadid()
-        ctl.owner_task = current_task()
+        # The caller's cleanup scope already exists. A pending interrupt must
+        # see its acknowledgment even if delivered before this call returns.
+        Base.disable_sigint() do
+            ctl.phase = :starting
+            ctl.owner_thread = Threads.threadid()
+            ctl.owner_task = owner
+            ctl.startup_owner = permit
+            claimed[] = true
+        end
     end
     return nothing
 end
@@ -114,6 +125,11 @@ function _stop_live_locked!(vis, reason::Symbol, exception = nothing; phase::Sym
     Base.disable_sigint() do
         ctl = vis.content.lifecycle
         ctl.accepting[] = false
+        # Outcome records the first stop. A later failure must still revoke
+        # pending startup, even when that first outcome was benign disposal.
+        if !(reason in (:closed, :disposed, :disabled)) || !isnothing(exception)
+            ctl.startup_owner = nothing
+        end
         # Closing a completed view does not undo the completed observation history.
         if ctl.outcome !== :complete
             ctl.phase === :quiesced || (ctl.phase = :stopping)
@@ -365,6 +381,7 @@ function BAT.finish_visualizer!(vis::BATVisualizer{BATMakieVisualization}; succe
     ctl = vis.content.lifecycle
     start = lock(vis.content.buffer_lock) do
         ctl.phase === :fresh && return nothing
+        ctl.startup_owner = nothing
         # Nested rollback/owner cleanup shares one allowance while resources
         # remain pending. A later disposal of a settled view gets a new budget.
         isnothing(ctl.shutdown_started) && (ctl.shutdown_started = time_ns())

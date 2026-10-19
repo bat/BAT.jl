@@ -87,7 +87,7 @@ finish_visualizer!(::BATVisualizer; success::Bool = true) = nothing
 
 *Experimental, non-exported API.* Disable observation and dispose of resources
 owned by this visualization session. Repeated disposal is harmless. Disposal
-does not cancel sampling after successful startup, and does not affect other figures. A backend may report
+does not cancel sampling or affect other figures. A backend may report
 pending cleanup while an already admitted view operation is still running.
 
 Makie disposal releases the session's observation history and graph caches once
@@ -96,8 +96,11 @@ the interactive figure/history until disposal. `visualizer_status` reports
 `history_released` separately from historical completeness. Caller-held data,
 controls, configuration and externally retained diagnostics remain independent
 owners. Cleanup failures can be retried by disposing again on the owning thread.
-Disposal during numerical initialization before Makie view startup currently
-causes the subsequent startup to reject the session.
+If the sampling owner has acquired the Makie session, disposal during numerical
+initialization lets that same acquisition continue without starting a view.
+The session remains single-use: disposal before acquisition, reuse, and startup
+from another task or thread still reject. Numerical and startup failures still
+propagate.
 """
 dispose_visualizer!(::BATVisualizer) = nothing
 
