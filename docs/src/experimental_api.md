@@ -130,6 +130,41 @@ For plots with declared step timing, selected repetition counts must be exactly
 representable by the samples' weight type. A window that would round a count
 raises an error; use integer repetition weights for exact long step ranges.
 
+## Histogram weights and statistical overlays
+
+Histogram `:probability` and `:pdf` normalization and Makie population moments
+use temporary relative weights. Common finite weight scaling therefore preserves
+their results within the supported numerical range. Stored samples and declared
+step counts remain unchanged. Inputs must have finite nonnegative weights and
+finite coordinates wherever weight is positive. Positive mass that would be lost
+in the working precision raises an error. Empty or zero-mass Makie populations
+retain empty-display behavior; a `MarginalDist` requires positive in-bin mass.
+
+Histogram `:none` retains counts; `:density` divides counts by bin volume without
+turning them into probabilities. These modes, report counts and native hexbin
+weights require a representable absolute total. Overflow raises an error even
+if each bin could individually hold its count. Legacy Plots mean/spread overlays
+also retain absolute frequency-weight arithmetic and its correction; a corrected
+spread requires total weight greater than one. Only requested overlays and their
+selected coordinates are evaluated.
+
+Density division avoids intermediate products of widths and total mass. The
+result still must fit the numerical and rendering types actually used. Hist2D
+color heights must survive Makie's Float32 conversion; change normalization or
+units, or use QuantileHist2D when that limit is reached. ARP weights can reach
+this limit even with ordinary coordinate ranges. Statistical overlays
+reject nonfinite or collapsed positive spread and interval geometry. Constant
+data and singular covariance remain supported where the recipe defines them.
+Native hexbin retains a separate backend limitation: extreme finite Float64
+counts can overflow or lose distinctions in its Float32 color mapping. Its
+count/threshold admission checks do not guarantee extreme-range color fidelity.
+
+`MarginalDist` checks its dependency's actual PDF and reconstructed bin masses.
+Its dependency's cached coordinate moments have separate extreme-range limits.
+Legacy credible regions still accumulate histogram heights, so their existing
+equal-width assumption remains relevant for unequal-width PDF bins. This weight
+hardening does not change their estimator or tie/whole-bin selection rules.
+
 ## KDE support and credible regions
 
 For `KDE1D`, `QuantileKDE1D`, `KDE2D` and `QuantileKDE2D`, the `support` keyword

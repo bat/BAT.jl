@@ -75,6 +75,12 @@ interrupt through a real control callback and checks observation status,
 disposal, and continued sampler/RNG equality.
 The `numerics` case checks Float64 geometry, zero-mass KDE behavior, stable
 relative scatter weights, and actual PDF/covariance rendering at extreme scales.
+The `weights` case checks operation-specific histogram and population-moment
+arithmetic against independent wider-precision oracles, absolute count errors,
+renderer conversion limits, real graphs and both public static entry paths.
+`weight_failure` triggers a real numerical overlay error during public sampling,
+checks exact fixed-work samples, callback snapshots, chain state and RNG parity,
+and verifies observation failure and autonomous history release.
 
 `bounded_kde` compares supported KDEs with independent reflected Gaussian
 mixtures, checks concentrated and narrow-support densities, actual probability

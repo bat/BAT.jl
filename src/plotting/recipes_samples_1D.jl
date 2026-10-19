@@ -62,21 +62,21 @@
     end
 
     #------ stats ----------------------------
-    stats = MCMCBasicStats(maybe_shaped_samples)
-
-    line_height = maximum(convert(Histogram, marg.dist isa ReshapedDist ? marg.dist.dist : marg.dist).weights)*1.03
-
     mean_options = convert_to_options(mean)
     globalmode_options = convert_to_options(globalmode)
     marginalmode_options = convert_to_options(marginalmode)
     std_options = convert_to_options(std)
 
+    need_moments = mean_options != () || std_options != ()
+    stats = need_moments ? _legacy_plot_moments(maybe_shaped_samples, (idx,);
+        spread=std_options != ()) : nothing
+    need_height = need_moments || globalmode_options != () || marginalmode_options != ()
+    line_height = need_height ? _legacy_plot_line_height(marg) : 0.0
+
     # standard deviation
     if std_options != ()
-        Σ_all = stats.param_stats.cov
-        Σ = Σ_all[idx, idx]
-        dev = sqrt(Σ)
-        meanvalue = stats.param_stats.mean[idx]
+        dev = only(stats.std)
+        meanvalue = only(stats.mean)
         @series begin
             seriestype := :shape
             label := get(std_options, "label", "std. dev.")
@@ -90,7 +90,7 @@
 
     # mean
     if mean_options != ()
-        meanvalue = stats.param_stats.mean[idx]
+        meanvalue = only(stats.mean)
         @series begin
             seriestype := :line
             label := get(mean_options, "label", "mean")
@@ -105,7 +105,7 @@
 
     # global mode
     if globalmode_options != ()
-        globalmode_value = stats.mode[idx]
+        globalmode_value = only(_legacy_plot_mode(maybe_shaped_samples, (idx,)))
          @series begin
             seriestype := :line
             label := get(globalmode_options, "label", "global mode")
@@ -138,7 +138,7 @@
             linewidth := get(marginalmode_options, "linewidth", 1)
             linealpha := get(marginalmode_options, "alpha", 1)
 
-            line(l[1], line_height, swap=swap)
+            line(_plot_float64(l[1], "legacy marginal-mode coordinate"), line_height, swap=swap)
             end
         end
     end

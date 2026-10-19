@@ -212,7 +212,15 @@ Base.copy(::UncopyableRNG) = error("Unexpected RNG copy")
         target = MvNormal(zeros(2), Matrix{Float64}(I,2,2))
         for nonzero in (false, true)
             alg = algorithm(sample_weighting=ARPWeighting(), nonzero_weights=nonzero, store_burnin=true)
-            vis = BATVisualizer(BATMakieVisualization(max_buffered=10^6,adaptive_batching=false))
+            # ARP can produce positive bins below the numeric heatmap's Float32
+            # color range. Use RGBA regions to test healthy observation and row
+            # semantics; test_makie_weights checks numeric-height rejection.
+            c = BATMakieVisualization(max_buffered=10^6,adaptive_batching=false)
+            vis = BATVisualizer(BATMakieVisualization(
+                (upper=QuantileHist2D, diagonal=Hist1D, lower=QuantileHist2D),
+                c.vsel, c.N_max, c.n_batch, c.max_buffered, c.adaptive_batching,
+                c.batch_growth_rate, c.poll_interval, c.dark,
+                c.triagonal_config, c.diagonal_config, c.observer_timeout))
             plain_ctx = BATContext(rng=copy(first(RNGS)))
             live_ctx = BATContext(rng=copy(first(RNGS)),visualizer=vis)
             plain = BAT.evalmeasure(target,alg,plain_ctx)

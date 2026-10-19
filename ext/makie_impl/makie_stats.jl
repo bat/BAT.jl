@@ -17,20 +17,54 @@ const _MEAN1D_DASH = let pattern = Makie.line_pattern(:dash, :normal)
     pattern isa Makie.Linestyle ? pattern : Makie.Linestyle(pattern)
 end
 
-# Shared prologue of the live stats-recipe methods: optionally apply the
-# low-weight cutoff (config.filter); `nothing` when no samples survive.
-# StatsBase's std/var/cov with ProbabilityWeights default to corrected=false --
-# the uncorrected convention this extension uses everywhere.
+# Relative, owned weights for population moments. Validate original positive
+# coordinates before filtering; zero-mass rows never enter weighted products.
 function _stats_inputs(marg_coords::SubArray, weights::SubArray, config::NamedTuple)
+    BAT._plot_validate_weights(weights)
+    BAT._plot_validate_coordinates(Tuple(eachrow(marg_coords)), weights)
     isempty(weights) && return nothing
-    if config.filter
-        mask = _low_weight_mask(weights)
-        w = view(weights, mask)
-        isempty(w) && return nothing
-        return view(marg_coords, :, mask), ProbabilityWeights(w)
-    end
-    return marg_coords, ProbabilityWeights(weights)
+    keep = weights .> 0
+    config.filter && (keep .&= _low_weight_mask(weights))
+    any(keep) || return nothing
+    w = BAT._plot_relative_weights(view(weights, keep); unit_sum=true)
+    return view(marg_coords, :, keep), ProbabilityWeights(w)
 end
+
+function _stats_mean(values, weights)
+    μ = allequal(values) ? first(values) : mean(values, weights)
+    isfinite(μ) || BAT._plot_weight_error("weighted mean is outside the working numerical range")
+    return μ
+end
+
+function _stats_std(values, weights)
+    allequal(values) && return zero(float(first(values)))
+    σ = std(values, weights; mean=_stats_mean(values, weights), corrected=false)
+    isfinite(σ) && σ > 0 || BAT._plot_weight_error("nonconstant weighted spread is outside the working numerical range")
+    return σ
+end
+
+function _stats_validate_nsigma(nsigma)
+    isfinite(nsigma) && nsigma >= 0 || throw(ArgumentError("nsigma must be finite and nonnegative"))
+    return nothing
+end
+
+function _stats_extent(σ, nsigma)
+    _stats_validate_nsigma(nsigma)
+    extent = σ * nsigma
+    isfinite(extent) && (iszero(σ) || iszero(nsigma) || extent > 0) ||
+        BAT._plot_weight_error("statistical extent is outside the working numerical range")
+    return BAT._plot_float64(extent, "statistical extent")
+end
+
+function _stats_limits(μ, σ, nsigma)
+    extent = _stats_extent(σ, nsigma)
+    lo = BAT._plot_float64(μ - extent, "statistical lower endpoint")
+    hi = BAT._plot_float64(μ + extent, "statistical upper endpoint")
+    (iszero(extent) || lo < hi) || BAT._plot_weight_error("statistical endpoints are indistinguishable as Float64")
+    return [lo, hi]
+end
+
+_stats_position(μ) = BAT._plot_float64(μ, "statistical position")
 
 # Unit circle sampled once, not rebuilt per call.
 const _COV_ELLIPSE_CIRCLE = let θ = range(0, 2π, length=200)
@@ -41,17 +75,19 @@ end
 # SAME nsigma radius: `direction` is a half-length applied in either direction,
 # so each segment spans its full axis and its endpoints land on the ellipse.
 function _cov_ellipse_primitives(μ::AbstractVector, Σ::AbstractMatrix, nsigma::Real)
+    isfinite(nsigma) && nsigma >= 0 || throw(ArgumentError("nsigma must be finite and nonnegative"))
     vals, vecs = eigen(Σ)
     stds = sqrt.(clamp.(vals, 0, Inf))
 
     ellipse_mat = vecs * nsigma * Diagonal(stds) * _COV_ELLIPSE_CIRCLE .+ μ
-    ellipse_points = Point{2,Float64}.(ellipse_mat[1, :], ellipse_mat[2, :])
+    ellipse_points = Point{2,Float64}.(_stats_position.(ellipse_mat[1, :]), _stats_position.(ellipse_mat[2, :]))
 
     axes_segments = Point{2,Float64}[]
     for i in 1:2
-        direction = vecs[:, i] * stds[i] * nsigma
-        p1 = Point{2,Float64}(μ .- direction)
-        p2 = Point{2,Float64}(μ .+ direction)
+        direction = vecs[:, i] * _stats_extent(stds[i], nsigma)
+        p1 = Point{2,Float64}(_stats_position.(μ .- direction))
+        p2 = Point{2,Float64}(_stats_position.(μ .+ direction))
+        (iszero(stds[i]) || iszero(nsigma) || p1 != p2) || BAT._plot_weight_error("covariance axis is indistinguishable as Float64")
         push!(axes_segments, p1, p2)
     end
     return (ellipse_points=ellipse_points, axes_segments=axes_segments)
@@ -137,9 +173,8 @@ function compute_plotting_primitives(
     return _empty_cov2d_primitives()
 end
 
-# Full recompute of cheap weighted moments via _stats_inputs. The isfinite
-# guards matter: an all-zero-weight sample set yields NaN moments, and Cov2D's
-# eigen() on a non-finite matrix throws.
+# Full recompute of weighted population moments via _stats_inputs. Empty mass
+# has a separate sentinel; unsupported covariance arithmetic raises an error.
 function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
@@ -148,14 +183,19 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
+    _stats_validate_nsigma(config.nsigma)
     si = _stats_inputs(marg_coords, weights, config)
     isnothing(si) && return _empty_cov2d_primitives()
     coords, w_prob = si
     (; nsigma) = config
-    μ = [mean(view(coords, 1, :), w_prob), mean(view(coords, 2, :), w_prob)]
+    μ = [_stats_mean(view(coords, 1, :), w_prob), _stats_mean(view(coords, 2, :), w_prob)]
     # Matrix(...): StatsBase.cov(::DenseMatrix, ...) doesn't accept a SubArray.
-    Σ = StatsBase.cov(Matrix(coords), w_prob, 2)
-    (all(isfinite, μ) && all(isfinite, Σ)) || return _empty_cov2d_primitives()
+    Σ = StatsBase.cov(StatsBase.SimpleCovariance(corrected=false), Matrix(coords), w_prob; dims=2, mean=reshape(μ, :, 1))
+    all(isfinite, Σ) || BAT._plot_weight_error("weighted covariance is outside the working numerical range")
+    for i in axes(coords, 1)
+        (Σ[i, i] > 0 || (iszero(Σ[i, i]) && allequal(view(coords, i, :)))) ||
+            BAT._plot_weight_error("nonconstant covariance diagonal is outside the working numerical range")
+    end
     return _cov_ellipse_primitives(μ, Σ, nsigma)
 end
 
@@ -209,15 +249,15 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
+    _stats_validate_nsigma(config.nsigma)
     si = _stats_inputs(marg_coords, weights, config)
     isnothing(si) && return _empty_std1d_primitives()
     coords, w_prob = si
     (; nsigma) = config
     vals = vec(coords)
-    μ = mean(vals, w_prob)
-    σ = std(vals, w_prob)
-    (isfinite(μ) && isfinite(σ)) || return _empty_std1d_primitives()
-    return (positions=[μ - nsigma * σ, μ + nsigma * σ],)
+    μ = _stats_mean(vals, w_prob)
+    σ = _stats_std(vals, w_prob)
+    return (positions=_stats_limits(μ, σ, nsigma),)
 end
 
 function compose_plotspecs(
@@ -257,17 +297,17 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
+    _stats_validate_nsigma(config.nsigma)
     si = _stats_inputs(marg_coords, weights, config)
     isnothing(si) && return _empty_std2d_primitives()
     coords, w_prob = si
     (; nsigma) = config
     x, y = view(coords, 1, :), view(coords, 2, :)
-    μ_x, μ_y = mean(x, w_prob), mean(y, w_prob)
-    σ_x, σ_y = std(x, w_prob), std(y, w_prob)
-    all(isfinite, (μ_x, μ_y, σ_x, σ_y)) || return _empty_std2d_primitives()
+    μ_x, μ_y = _stats_mean(x, w_prob), _stats_mean(y, w_prob)
+    σ_x, σ_y = _stats_std(x, w_prob), _stats_std(y, w_prob)
     return (
-        x_lines=[μ_x - nsigma * σ_x, μ_x + nsigma * σ_x],
-        y_lines=[μ_y - nsigma * σ_y, μ_y + nsigma * σ_y]
+        x_lines=_stats_limits(μ_x, σ_x, nsigma),
+        y_lines=_stats_limits(μ_y, σ_y, nsigma)
     )
 end
 
@@ -317,9 +357,8 @@ function compute_plotting_primitives(
     si = _stats_inputs(marg_coords, weights, config)
     isnothing(si) && return _empty_mean1d_primitives()
     coords, w_prob = si
-    μ = mean(vec(coords), w_prob)
-    isfinite(μ) || return _empty_mean1d_primitives()
-    return (x=[μ],)
+    μ = _stats_mean(vec(coords), w_prob)
+    return (x=[_stats_position(μ)],)
 end
 
 function compose_plotspecs(
@@ -364,10 +403,9 @@ function compute_plotting_primitives(
     si = _stats_inputs(marg_coords, weights, config)
     isnothing(si) && return _empty_mean2d_primitives()
     coords, w_prob = si
-    μ_x = mean(view(coords, 1, :), w_prob)
-    μ_y = mean(view(coords, 2, :), w_prob)
-    (isfinite(μ_x) && isfinite(μ_y)) || return _empty_mean2d_primitives()
-    return (μ_x=[μ_x], μ_y=[μ_y])
+    μ_x = _stats_mean(view(coords, 1, :), w_prob)
+    μ_y = _stats_mean(view(coords, 2, :), w_prob)
+    return (μ_x=[_stats_position(μ_x)], μ_y=[_stats_position(μ_y)])
 end
 
 function compose_plotspecs(
@@ -412,15 +450,16 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
+    _stats_validate_nsigma(config.nsigma)
     si = _stats_inputs(marg_coords, weights, config)
     isnothing(si) && return _empty_errorbars1d_primitives()
     coords, w_prob = si
     (; nsigma) = config
     vals = vec(coords)
-    μ = mean(vals, w_prob)
-    σ = std(vals, w_prob)
-    (isfinite(μ) && isfinite(σ)) || return _empty_errorbars1d_primitives()
-    return (μ=[μ], err=[σ * nsigma])
+    μ = _stats_mean(vals, w_prob)
+    σ = _stats_std(vals, w_prob)
+    _stats_limits(μ, σ, nsigma)
+    return (μ=[_stats_position(μ)], err=[_stats_extent(σ, nsigma)])
 end
 
 
@@ -466,15 +505,17 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
+    _stats_validate_nsigma(config.nsigma)
     si = _stats_inputs(marg_coords, weights, config)
     isnothing(si) && return _empty_errorbars2d_primitives()
     coords, w_prob = si
     (; nsigma) = config
     x, y = view(coords, 1, :), view(coords, 2, :)
-    μ_x, μ_y = mean(x, w_prob), mean(y, w_prob)
-    σ_x, σ_y = std(x, w_prob), std(y, w_prob)
-    all(isfinite, (μ_x, μ_y, σ_x, σ_y)) || return _empty_errorbars2d_primitives()
-    return (μ_x=[μ_x], μ_y=[μ_y], err_x=[σ_x * nsigma], err_y=[σ_y * nsigma])
+    μ_x, μ_y = _stats_mean(x, w_prob), _stats_mean(y, w_prob)
+    σ_x, σ_y = _stats_std(x, w_prob), _stats_std(y, w_prob)
+    _stats_limits(μ_x, σ_x, nsigma)
+    _stats_limits(μ_y, σ_y, nsigma)
+    return (μ_x=[_stats_position(μ_x)], μ_y=[_stats_position(μ_y)], err_x=[_stats_extent(σ_x, nsigma)], err_y=[_stats_extent(σ_y, nsigma)])
 end
 
 
@@ -530,6 +571,8 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
+    config.npoints_pdf isa Integer && config.npoints_pdf >= 2 ||
+        throw(ArgumentError("npoints_pdf must be an integer greater than one"))
     si = _stats_inputs(marg_coords, weights, config)
     isnothing(si) && return _empty_pdf1d_primitives()
     coords, w_prob = si
@@ -545,20 +588,12 @@ function compute_plotting_primitives(
     )
         return _empty_pdf1d_primitives()
     end
-    μ = mean(vals, w_prob)
-    σ = std(vals, w_prob)
-    # A nonempty all-zero-weight vector passes the emptiness guards; std()
-    # then returns NaN, which Normal(μ, NaN) rejects with a DomainError.
-    # sigma == 0 (a constant marginal) makes Normal(μ, 0) a point mass: Inf at μ
-    # and zero elsewhere, so the overlay came out either as a flat zero line
-    # (when the grid misses μ, as the default 300 points do) or as a non-finite
-    # spike (when an odd npoints_pdf hits it). Neither is a Gaussian fit, so
-    # degrade like every other unusable input here.
-    (isfinite(μ) && isfinite(σ) && σ > 0) || return _empty_pdf1d_primitives()
+    μ = _stats_mean(vals, w_prob)
+    σ = _stats_std(vals, w_prob)
     dist = Normal(μ, σ)
-
-    x = collect(LinRange(μ - 4σ, μ + 4σ, npoints_pdf))
-    y = pdf.(dist, x)
+    lo, hi = _stats_limits(μ, σ, 4)
+    x = collect(LinRange(lo, hi, npoints_pdf))
+    y = map(v -> BAT._plot_float64(v, "Gaussian PDF height"), pdf.(dist, x))
 
     poly_points = vcat(
         Point{2,Float64}.(x, y),

@@ -31,8 +31,22 @@ function smallest_credible_intervals(
         throw(ArgumentError("nsigma_equivalent must be 1, 2, 3 or 1.64 (for 90% credibility interval)"))
     end
 
+    length(X) == length(W) ||
+        _plot_weight_error("credible-interval coordinates and weights must have matching lengths")
+    all(w -> isfinite(w) && w >= zero(w), W) ||
+        _plot_weight_error("credible-interval weights must be finite and non-negative")
+    any(>(0), W) || _plot_weight_error("credible intervals require positive weight")
+    all(i -> iszero(W[i]) || isfinite(X[i]), eachindex(X, W)) ||
+        _plot_weight_error("positive-weight credible-interval coordinates must be finite")
+
+    # Keep the caller's weight class: FrequencyWeights and plain Weights have
+    # different quantile interpolation contracts.
     qs = quantile(X, W, range(0, 1, length = n + 1))
+    all(isfinite, qs) ||
+        _plot_weight_error("credible-interval quantiles are outside the supported numerical range")
     ivs = ClosedInterval.(qs[begin:end-1], qs[begin+1:end])
+    all(iv -> isfinite(width(iv)), ivs) ||
+        _plot_weight_error("credible-interval widths are outside the supported numerical range")
     
     sel_idxs = sort(sortperm(ivs, by = width)[begin:begin+m-1])
 
@@ -58,7 +72,10 @@ function smallest_credible_intervals(
         end
     end
 
-    [ClosedInterval(minimum(ivs[first(r)]), maximum(ivs[last(r)])) for r in sel_ranges]
+    result = [ClosedInterval(minimum(ivs[first(r)]), maximum(ivs[last(r)])) for r in sel_ranges]
+    all(iv -> isfinite(width(iv)), result) ||
+        _plot_weight_error("credible-interval widths are outside the supported numerical range")
+    return result
 end
 
 
@@ -69,8 +86,13 @@ end
 """
 function smallest_credible_intervals(smpl::DensitySampleVector{<:AbstractVector{<:Real}}; kwargs...)
     V = flatview(smpl.v)
-    W = Weights(smpl.weight)
-    [smallest_credible_intervals(V[i,:], W; kwargs...) for i in axes(V,1)]
+    relative = _plot_relative_weights(smpl.weight)
+    keep = .!iszero.(smpl.weight)
+    any(keep) || _plot_weight_error("credible intervals require positive weight")
+    # A zero weight alone does not hide NaN coordinates from StatsBase.quantile.
+    # Exclude those rows physically, without changing the stored samples.
+    W = Weights(relative[keep])
+    [smallest_credible_intervals(V[i, keep], W; kwargs...) for i in axes(V,1)]
 end
 
 function smallest_credible_intervals(smpl::DensitySampleVector; kwargs...)

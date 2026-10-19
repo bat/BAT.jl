@@ -35,34 +35,21 @@ function _marginal_view_dist(
     normalization::Symbol,
     domain = nothing,
 )
+    BAT._plot_histogram_mode(normalization)
+    BAT._plot_validate_weights(weights)
+    BAT._plot_validate_coordinates(Tuple(eachrow(locations)), weights)
     if filter
         mask = _low_weight_mask(weights)
         locations = view(locations, :, mask)
         weights = view(weights, mask)
     end
-
     cols = Tuple(eachrow(locations))
     edges = _hist_edges(domain, cols, bins, closed)
-
-    hist = fit(Histogram, cols, FrequencyWeights(weights), edges, closed=closed)
-    h_norm = normalization == :none ? hist : StatsBase.normalize(hist, mode=normalization)
-    return h_norm
+    return BAT._plot_fit_histogram(cols, weights, edges, normalization; closed=closed)
 end
 
-# Mirrors BAT.drop_low_weight_samples, but returns a mask over a bare weight vector.
-function _low_weight_mask(weights::AbstractVector, fraction::Real = 10^-5, threshold::Real = 10^-2)
-    W = float(weights)
-    if minimum(W) / maximum(W) > threshold
-        return trues(length(W))
-    end
-    W_s = sort(W)
-    Q = cumsum(W_s)
-    Q ./= maximum(Q)
-    ind = searchsortedlast(Q, fraction)
-    ind == 0 && return trues(length(W))
-    thresh = W_s[ind]
-    return W .>= thresh
-end
+_low_weight_mask(weights::AbstractVector, fraction::Real=1e-5, threshold::Real=1e-2) =
+    BAT._plot_low_weight_mask(weights, fraction, threshold)
 
 function _get_bin_centers(hist::Histogram)
     edges = hist.edges
@@ -71,7 +58,7 @@ function _get_bin_centers(hist::Histogram)
     # Explicitly typed comprehensions: an untyped comprehension over <= 1 edges
     # infers Vector{Any}, violating the graph's TypedEdge live/dead type contract.
     centers = Vector{Float64}[
-        Float64[edges[d][i] + 0.5 * (edges[d][i+1] - edges[d][i]) for i in 1:length(edges[d])-1]
+        Float64[BAT._plot_float64(edges[d][i] + 0.5 * (edges[d][i+1] - edges[d][i]), "histogram center") for i in 1:length(edges[d])-1]
         for d in 1:dims
     ]
 
@@ -81,14 +68,14 @@ end
 # Normalizing an all-zero-weight histogram gives 0/0 = NaN bins, which would
 # corrupt the shared diagonal y-axis limit -- skip normalization instead.
 _safe_normalize(hist::Histogram, normalization::Symbol) =
-    (normalization == :none || iszero(sum(hist.weights))) ? hist : StatsBase.normalize(hist, mode=normalization)
+    BAT._plot_normalize_histogram(hist, normalization)
 
 function _hist1d_output(hist::Histogram, normalization::Symbol)
     h_norm = _safe_normalize(hist, normalization)
     centers = _get_bin_centers(h_norm)
     # Float64.(...): with :none normalization the weights keep the samples' own
     # eltype, mismatching the empty sentinel's Vector{Float64} (TypedEdge).
-    return (centers=centers[1], weights=Float64.(h_norm.weights), edges=collect(h_norm.edges[1]))
+    return (centers=centers[1], weights=map(w -> BAT._plot_float64(w, "histogram height"), h_norm.weights), edges=map(e -> BAT._plot_float64(e, "histogram edge"), collect(h_norm.edges[1])))
 end
 
 function _hist2d_output(hist::Histogram, normalization::Symbol)
@@ -96,7 +83,7 @@ function _hist2d_output(hist::Histogram, normalization::Symbol)
     centers_x, centers_y = _get_bin_centers(h_norm)
     # Zero-count bins as NaN (rendered transparent); Float64 forced since the
     # all-zero-weight case skips normalization and keeps the integer eltype.
-    weights = map(w -> w > 0 ? Float64(w) : NaN, h_norm.weights)
+    weights = map(w -> w > 0 ? BAT._plot_float64(w, "histogram height") : NaN, h_norm.weights)
     return (centers_x=centers_x, centers_y=centers_y, weights=weights)
 end
 
@@ -116,10 +103,12 @@ function _quantilehist1d_output(hist::Histogram, config::NamedTuple)
     end
 
     centers = _get_bin_centers(h_norm)[1]
-    xy_data = Point{2,Float64}.(centers, h_norm.weights)
-    edges = h_norm.edges[1]
+    heights = map(w -> BAT._plot_float64(w, "histogram height"), h_norm.weights)
+    xy_data = Point{2,Float64}.(centers, heights)
+    edges = map(e -> BAT._plot_float64(e, "histogram edge"), collect(h_norm.edges[1]))
     widths = diff(edges)
-    stairs_y = vcat(h_norm.weights, h_norm.weights[end])
+    all(w -> isfinite(w) && w > 0, widths) || BAT._plot_weight_error("histogram widths are not representable as Float64")
+    stairs_y = vcat(heights, heights[end])
     stairs_data = Point{2,Float64}.(edges, stairs_y)
 
     return (xy_data=xy_data, widths=widths, stairs_data=stairs_data, bin_colors=bin_colors)
@@ -165,11 +154,12 @@ function compute_plotting_primitives(
     config::NamedTuple
 )
     # A live cell can still have zero samples -- degrade like a dead cell.
+    BAT._plot_histogram_mode(config.normalization)
     isempty(weights) && return _empty_hist1d_primitives()
     (; normalization, nbins, closed, filter) = config
     # nbins + 1, unlike every other hist recipe's plain nbins -- deliberate asymmetry.
-    hist = _marginal_view_dist(marg_coords, weights, filter, nbins + 1, closed, :none, get(config, :domain, nothing))
-    return _hist1d_output(hist, normalization)
+    hist = _marginal_view_dist(marg_coords, weights, filter, nbins + 1, closed, config.normalization, get(config, :domain, nothing))
+    return _hist1d_output(hist, :none)
 end
 
 
@@ -214,10 +204,11 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
+    BAT._plot_histogram_mode(config.normalization)
     isempty(weights) && return _empty_hist2d_primitives()
     (; normalization, nbins, closed, filter) = config
-    hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, :none, get(config, :domain, nothing))
-    return _hist2d_output(hist, normalization)
+    hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, config.normalization, get(config, :domain, nothing))
+    return _hist2d_output(hist, :none)
 end
 
 function compose_plotspecs(
@@ -242,6 +233,8 @@ function compose_plotspecs(
     # invariant comment). permutedims, not lazy transpose: the sibling methods
     # reuse this reasoning on RGBA grids, which recursive transpose has no
     # method for.
+    all(w -> isnan(w) || 0 < Float32(w) < Inf, weights) || throw(ArgumentError(
+        "Hist2D visible height is not representable as positive finite Float32 color values; change units/normalization or use QuantileHist2D"))
     heat = transposed ?
         S.Heatmap(centers_y, centers_x, permutedims(weights); colormap=cmap_final) :
         S.Heatmap(centers_x, centers_y, weights; colormap=cmap_final)
@@ -268,10 +261,11 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
+    BAT._plot_histogram_mode(config.normalization)
     isempty(weights) && return _empty_quantilehist1d_primitives()
     (; nbins, closed, filter) = config
-    hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, :none, get(config, :domain, nothing))
-    return _quantilehist1d_output(hist, config)
+    hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, config.normalization, get(config, :domain, nothing))
+    return _quantilehist1d_output(hist, merge(config, (normalization=:none,)))
 end
 
 function compose_plotspecs(
@@ -317,10 +311,11 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
+    BAT._plot_histogram_mode(config.normalization)
     isempty(weights) && return _empty_quantilehist2d_primitives()
     (; nbins, closed, filter) = config
-    hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, :none, get(config, :domain, nothing))
-    return _quantilehist2d_output(hist, config)
+    hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, config.normalization, get(config, :domain, nothing))
+    return _quantilehist2d_output(hist, merge(config, (normalization=:none,)))
 end
 
 function compose_plotspecs(
@@ -360,23 +355,30 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
+    (; threshold) = config
+    if !isnothing(threshold)
+        threshold = BAT._plot_float64(threshold, "hexbin threshold")
+        threshold >= 0 || BAT._plot_weight_error("hexbin threshold must be nonnegative")
+    end
     # Zero-sample live cell: the placeholder view is 0x0, so row indexing would throw.
     isempty(weights) && return _empty_hexbin2d_primitives()
-    (; threshold) = config
-    x = marg_coords[1, :]
-    y = marg_coords[2, :]
-
-    # Float64(...): match _empty_hexbin2d_primitives()'s thresh::Float64.
+    BAT._plot_validate_weights(weights)
+    BAT._plot_validate_coordinates(Tuple(eachrow(marg_coords)), weights)
+    counts = map(w -> BAT._plot_float64(w, "hexbin count"), weights)
+    BAT._plot_checked_total(counts)
+    # Native hexbin uses every position to choose bounds and bin indices,
+    # including zero-weight rows. Preserve that domain policy and reject
+    # unusable positions before handing them to the backend.
+    x = map(v -> BAT._plot_float64(v, "hexbin x coordinate"), marg_coords[1, :])
+    y = map(v -> BAT._plot_float64(v, "hexbin y coordinate"), marg_coords[2, :])
     final_thresh = if isnothing(threshold)
-        pos_w = weights[weights.>0]
-        isempty(pos_w) ? 0.0 : Float64(minimum(pos_w))
+        pos_w = counts[counts .> 0]
+        isempty(pos_w) ? 0.0 : minimum(pos_w)
     else
-        threshold
+        BAT._plot_float64(threshold, "hexbin threshold")
     end
-
-    # weights materialized to Vector{Float64} -- see Scatter2D's matching comment
-    # (makie_scatter.jl) on the live/dead TypedEdge type-lock.
-    return (x=x, y=y, weights=Float64.(weights), thresh=final_thresh)
+    final_thresh >= 0 || BAT._plot_weight_error("hexbin threshold must be nonnegative")
+    return (x=x, y=y, weights=counts, thresh=final_thresh)
 end
 
 function compose_plotspecs(

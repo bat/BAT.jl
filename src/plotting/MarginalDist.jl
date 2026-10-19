@@ -119,10 +119,8 @@ function MarginalDist(
     filter::Bool = false
 )
 
-    if filter && !isempty(samples) && !all(iszero, samples.weight)
-        samples = BAT.drop_low_weight_samples(samples)
-    end
-
+    _plot_validate_weights(samples.weight)
+    any(>(0), samples.weight) || _plot_weight_error("a marginal distribution requires positive mass")
     marg_samples = bat_marginalize(samples, vsel).result
     vs = varshape(marg_samples)
     vs isa NamedTupleShape ? shapes = [getproperty(acc, :shape) for acc in vs._accessors] : shapes = [0,0]
@@ -130,6 +128,13 @@ function MarginalDist(
 
     marg_samples = flatview(unshaped.(marg_samples).v)
     cols = Tuple(Vector.(eachrow(marg_samples)))
+    weights = samples.weight
+    _plot_validate_coordinates(cols, weights)
+    if filter
+        mask = _plot_low_weight_mask(weights)
+        cols = map(v -> v[mask], cols)
+        weights = view(weights, mask)
+    end
 
     edges = if isa(bins, Integer)
         _get_edges(cols, (bins,), closed)
@@ -139,9 +144,9 @@ function MarginalDist(
         (_get_edges(cols, bins, closed),)
     end
 
-    hist = fit(Histogram, cols, FrequencyWeights(samples.weight), edges, closed = closed)
+    hist = _plot_fit_histogram(cols, weights, edges, :probability; closed=closed)
 
-    binned_dist = UV ? EmpiricalDistributions.UvBinnedDist(hist) : EmpiricalDistributions.MvBinnedDist(hist)
+    binned_dist = _plot_binned_dist(hist, UV)
     binned_dist = UV ? binned_dist : vs(binned_dist) isa ReshapedDist ? vs(binned_dist) : ReshapedDist(vs(binned_dist), vs)
 
     return MarginalDist(binned_dist)

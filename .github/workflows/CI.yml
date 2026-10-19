@@ -144,6 +144,27 @@ jobs:
           JULIA_NUM_THREADS: '2'
           BAT_MAKIE_CASE_TIMEOUT: '600'
         run: julia --project=test/optional/makie test/optional/makie/runtests.jl
+  test-plots:
+    name: Plots weight arithmetic - Julia ${{ matrix.version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['1.10', '1']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: ${{ matrix.version }}
+          arch: x64
+      - uses: julia-actions/cache@v3
+      - name: Instantiate optional Plots tests against this checkout
+        run: >-
+          julia --project=test/optional/plots -e '
+          using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
+      - name: Run legacy Plots weight regressions
+        run: julia --project=test/optional/plots test/optional/plots/runtests.jl
   docs:
     name: Documentation
     runs-on: ubuntu-latest
