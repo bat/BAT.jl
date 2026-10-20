@@ -44,8 +44,200 @@ end
 # The precompile workload suppresses display without retaining any Figure here.
 const _SUPPRESS_DISPLAY = Ref(false)
 
-function _maybe_display(fig)
-    _SUPPRESS_DISPLAY[] || display(fig)
+function _maybe_display(fig; on_failure=nothing)
+    _SUPPRESS_DISPLAY[] && return nothing
+    backend = Makie.current_backend()
+    if _is_gl_backend(backend)
+        _display_gl_figure(fig, backend; on_failure=on_failure)
+    else
+        display(fig)
+    end
+    return nothing
+end
+
+_is_gl_backend(backend) = backend isa Module && nameof(backend) === :GLMakie
+
+function _check_gl_thread()
+    Threads.threadid() == 1 ||
+        throw(ArgumentError("Display or warm up GLMakie figures on Julia's main thread"))
+    return nothing
+end
+
+# GLMakie.start_renderloop! yields before storing its task handle. Run only
+# that enrollment in a short, owned task, and join it even when our caller is
+# interrupted. In particular, do not move scene/display callbacks into it.
+function _enroll_gl_renderloop!(screen, backend)
+    # This scope contains only the upstream create/yield/store handoff.
+    Base.disable_sigint(() -> backend.start_renderloop!(screen))
+    return nothing
+end
+
+function _run_gl_startup(screen, backend)
+    task = nothing
+    enrolled = false
+    failure = Ref{Union{Nothing,CapturedException}}(nothing)
+    Base.disable_sigint() do
+        try
+            rng = Random.default_rng()
+            saved = copy(rng)
+            try
+                # Each one-shot startup has an explicit private origin. This
+                # is not a unique seed or a stream for numerical sampling.
+                copy!(rng, Random.Xoshiro(0x424154676c303031))
+                task = @task begin
+                    try
+                        _enroll_gl_renderloop!(screen, backend)
+                    catch err
+                        failure[] = CapturedException(err, catch_backtrace())
+                    end
+                end
+                schedule(task)
+                enrolled = true
+            finally
+                copy!(rng, saved)
+            end
+            Base.reenable_sigint(() -> wait(task))
+            isnothing(failure[]) || throw(failure[].ex)
+        finally
+            if enrolled
+                while !istaskdone(task)
+                    try
+                        Base.reenable_sigint(() -> wait(task))
+                    catch err
+                        (err isa InterruptException ||
+                            (err isa TaskFailedException && err.task === task && istaskdone(task))) ||
+                            rethrow()
+                    end
+                end
+            end
+        end
+    end
+    return nothing
+end
+
+function _start_gl_renderloop!(screen, backend)
+    isopen(screen) || return nothing
+    if backend.renderloop_running(screen)
+        # The running-screen path only resumes a paused loop; it creates no task.
+        backend.start_renderloop!(screen)
+    else
+        _run_gl_startup(screen, backend)
+    end
+    # GLMakie can return after a render task has already failed. Do not certify
+    # that as successful startup; retain the failed task and its original cause.
+    task = screen.rendertask
+    isnothing(task) || !istaskfailed(task) || fetch(task)
+    return nothing
+end
+
+# GLMakie's stop routine catches an interrupted wait and clears rendertask.
+# Retain our own handle until terminal, including repeated cleanup interrupts.
+# Call outside the live view guard: renderer callbacks may need that guard.
+function _close_gl_screen!(screen, backend)
+    task = screen.rendertask
+    Base.disable_sigint() do
+        try
+            while true
+                try
+                    Base.reenable_sigint(() ->
+                        backend.stop_renderloop!(screen; close_after_renderloop=false))
+                    break
+                catch err
+                    err isa InterruptException || rethrow()
+                end
+            end
+        finally
+            try
+                if !isnothing(task) && task !== current_task()
+                    while !istaskdone(task)
+                        try
+                            Base.reenable_sigint(() -> wait(task))
+                        catch err
+                            (err isa InterruptException ||
+                                (err isa TaskFailedException && err.task === task && istaskdone(task))) ||
+                                rethrow()
+                        end
+                    end
+                end
+            finally
+                while true
+                    try
+                        Base.reenable_sigint(() -> close(screen))
+                        break
+                    catch err
+                        err isa InterruptException || rethrow()
+                    end
+                end
+            end
+        end
+    end
+    return nothing
+end
+
+# Explicit screens avoid taking over an unrelated singleton window. Keep a
+# local owner through partial scene attachment, before screen.scene is set.
+# A constructor that throws before returning a handle is a backend boundary.
+function _with_gl_screen(f, fig, backend; temporary::Bool=false, on_failure=nothing)
+    _check_gl_thread()
+    screen = temporary ? nothing : Makie.getscreen(fig.scene, backend)
+    created = isnothing(screen) || !isopen(screen)
+    if created
+        screen = temporary ?
+            backend.Screen(; start_renderloop=false, visible=false) :
+            backend.Screen(; start_renderloop=false)
+    end
+    success = false
+    try
+        result = f(screen)
+        success = true
+        return result
+    catch err
+        # A live owner records startup failure before rollback emits a window
+        # close event. Otherwise that event could claim the first stop outcome.
+        isnothing(on_failure) || on_failure(err, catch_backtrace())
+        rethrow()
+    finally
+        if temporary || (created && !success)
+            try
+                _close_gl_screen!(screen, backend)
+            catch err
+                BAT._visualizer_cleanup_diagnostic(:renderer_startup, (err, catch_backtrace()))
+            end
+        end
+    end
+end
+
+function _display_gl_figure(fig, backend; on_failure=nothing)
+    inline = Makie.ALWAYS_INLINE_PLOTS[]
+    show_inline = (inline === true || inline === Makie.automatic) &&
+        Makie.can_show_inline(backend)
+    if inline === true && !show_inline
+        @warn "No inline Makie display is available; opening a GLMakie window"
+    end
+    _with_gl_screen(fig, backend; on_failure=on_failure) do screen
+        # As in Makie's inline path, the selected display owns the figure update.
+        # Scene attachment and custom synchronous callbacks stay on this task.
+        display(screen, fig; update=!show_inline)
+        _start_gl_renderloop!(screen, backend)
+        if show_inline
+            Core.invoke(display, Tuple{Any}, fig)
+            Makie.wait_for_display(Makie.getscreen(fig.scene))
+        end
+    end
+    return nothing
+end
+
+function _render_warmup_figure(fig, backend)
+    if _is_gl_backend(backend)
+        _with_gl_screen(fig, backend; temporary=true) do screen
+            display(screen, fig)
+            # colorbuffer(fig) can start a render loop when applying screen
+            # configuration. Rendering the explicit screen needs no such task.
+            Makie.colorbuffer(screen)
+        end
+    else
+        Makie.colorbuffer(fig; backend=backend)
+    end
     return nothing
 end
 
@@ -57,6 +249,7 @@ function warmup_makie_shaders()
     backend = Makie.current_backend()
     ismissing(backend) && return nothing
     backend in _WARMED_BACKENDS && return nothing
+    _is_gl_backend(backend) && _check_gl_thread()
     @info "Warming up Makie renderer" backend
     fig = Figure()
     try
@@ -77,7 +270,7 @@ function warmup_makie_shaders()
         hexbin!(ax, [0.0], [0.0]; bins=2)
         poly!(ax, Point2f[(0, 0), (1, 0), (0, 1)])
 
-        Makie.colorbuffer(fig; backend=backend)
+        _render_warmup_figure(fig, backend)
         push!(_WARMED_BACKENDS, backend)
     finally
         # This temporary figure never becomes the live session's view.

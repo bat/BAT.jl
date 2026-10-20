@@ -1,10 +1,12 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# Optional Cairo observation gate. Native GL display has a separate RNG
-# boundary (H31); capturing the display here does not test that boundary.
+# The headless runner uses Cairo and a display capture. The separate native
+# gl_hmc_rng.jl entry uses actual GL screens and runs cold/cached campaigns.
 module TestMakieHMCRNG
 
 using BAT, Test, Makie, Distributions, Random, Logging
+
+const NATIVE_GL = get(ENV, "BAT_MAKIE_HMC_NATIVE", "false") == "true"
 
 mutable struct FigureCapture <: AbstractDisplay
     count::Int
@@ -13,6 +15,7 @@ Base.displayable(::FigureCapture, ::MIME"image/png") = true
 Base.display(d::FigureCapture, ::Makie.Figure) = (d.count += 1; nothing)
 
 function with_capture(f)
+    NATIVE_GL && return f(nothing)
     capture = FigureCapture(0)
     previous = Makie.ALWAYS_INLINE_PLOTS[]
     Makie.inline!(true)
@@ -174,7 +177,7 @@ function campaign(; live=false)
                 Random.seed!(0x483330)
                 result = BAT.evalmeasure(target, alg, context)
                 streams = owner_streams()
-                @test capture.count == (live ? 1 : 0)
+                isnothing(capture) || @test capture.count == (live ? 1 : 0)
                 (result, streams)
             end
         end
@@ -197,7 +200,16 @@ function campaign(; live=false)
             status = BAT.visualizer_status(vis)
             @test status.outcome === :complete && status.data_complete && status.quiesced
             @test !status.history_released && !status.cleanup_pending
-            @test BAT.visualizer_figure(vis) isa Makie.Figure
+            fig = BAT.visualizer_figure(vis)
+            @test fig isa Makie.Figure
+            screen = NATIVE_GL ? Makie.getscreen(fig.scene) : nothing
+            render_task = isnothing(screen) ? nothing : screen.rendertask
+            if NATIVE_GL
+                @test nameof(parentmodule(typeof(screen))) === :GLMakie
+                @test isopen(screen)
+                @test Makie.current_backend().renderloop_running(screen)
+                @test !isempty(Makie.colorbuffer(screen))
+            end
             @test vis.content.n_buffer_steps[] == 0
             @test isempty(vis.content.init_segments) && isempty(vis.content.invalid_init)
 
@@ -217,6 +229,11 @@ function campaign(; live=false)
             @test isnothing(vis.content.graph[])
             @test isnothing(vis.content.lifecycle.task) && isnothing(vis.content.lifecycle.timer)
             @test isnothing(vis.content.lifecycle.disposal_task)
+            if NATIVE_GL
+                @test !isopen(screen)
+                @test render_task isa Task && istaskdone(render_task)
+                @test !istaskfailed(render_task)
+            end
 
             BAT.dispose_visualizer!(vis)
             @test Random.default_rng() == before_disposal
@@ -245,8 +262,10 @@ end
     plain = campaign()
     plain_repeat = campaign()
     observed = campaign(; live=true)
-    for (name, result) in (("plain/plain harness control", plain_repeat),
-                           ("observed/plain public sampling", observed))
+    comparisons = [("plain/plain harness control", plain_repeat),
+                   ("observed/plain public sampling", observed)]
+    NATIVE_GL && push!(comparisons, ("cached GL public sampling", campaign(; live=true)))
+    for (name, result) in comparisons
         @testset "$name" begin
             for field in (:samples, :chains, :events, :context_rng)
                 @test isequal(getproperty(result, field), getproperty(plain, field))

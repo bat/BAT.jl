@@ -104,7 +104,22 @@ blocking-wait scheduling condition before their seeds/checkpoints and keep
 plain/plain controls. Julia 1.13.2 can create a per-thread scheduler task during
 its first empty-queue wait even without BAT; these comparisons do not claim
 neutrality for that cold runtime initialization.
-These Cairo checks do not establish renderer-independent RNG neutrality:
-native GL warmup and first display still have a separately recorded effect.
+These Cairo checks do not establish native GL RNG neutrality.
+`gl_rng.jl` separately checks actual cold/cached warmup, native and inline
+display, screen reuse, callback draws/forks, startup failures and cleanup.
+`gl_hmc_rng.jl` runs the same maintained HMC/MultiTrafo campaign with actual
+native screens, both cold and cached, and checks renderer termination during
+disposal. Run each in its own externally bounded process with a project
+containing GLMakie and this checkout, on a working native display:
+
+```sh
+timeout 600 julia --startup-file=no --threads=2,1 --project=/path/to/gl-project test/optional/makie/gl_rng.jl
+timeout 600 julia --startup-file=no --threads=2,1 --project=/path/to/gl-project test/optional/makie/gl_hmc_rng.jl
+```
+
+The native tests state their ordinary-wait runtime condition explicitly, retain
+the plain/plain campaign control, and leave automatic Scene finalizers and
+caller-owned direct Makie display outside their claims. They are separate from
+headless CI and do not imply a platform or renderer-version compatibility matrix.
 The optional MCMC owner runner provides native SIGINT coverage separately;
 direct exception tests in `task_rng` are not native signal tests.

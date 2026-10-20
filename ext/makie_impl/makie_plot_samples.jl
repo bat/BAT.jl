@@ -161,14 +161,16 @@ function BAT.bat_makie_plot(
         new_vsel -> _apply_vsel_to_graph!(graph, n_dof, N_max, new_vsel),
     )
 
-    return with_theme(dark ? bat_theme_dark() : bat_theme()) do
+    built = with_theme(dark ? bat_theme_dark() : bat_theme()) do
         gridlayout = _init_gridlayout(graph, N_max)
-        built = _build_fig(graph, gridlayout, picker_info;
+        _build_fig(graph, gridlayout, picker_info;
             has_chain_info=_samples_have_chain_ids(samples),
             has_trace_info=graph[:has_step_timing][])
-        display && _maybe_display(built.fig)
-        return built.fig
     end
+    # Renderer startup/rollback may join callbacks which use Makie's theme
+    # lock. Keep the theme scoped to construction, before any such join.
+    display && _maybe_display(built.fig)
+    return built.fig
 end
 
 # Everything the light and dark themes share; bat_theme()/bat_theme_dark() build

@@ -34,9 +34,9 @@ function EXT._attach_live_view!(vis::BAT.BATVisualizer, fig::Makie.Figure)
     LIVE[] = vis
     return invoke(EXT._attach_live_view!, Tuple{Any,Any}, vis, fig)
 end
-function EXT._maybe_display(fig::Makie.Figure)
+function EXT._maybe_display(fig::Makie.Figure; kwargs...)
     push!(DISPLAYED, fig)
-    return invoke(EXT._maybe_display, Tuple{Any}, fig)
+    return invoke(EXT._maybe_display, Tuple{Any}, fig; kwargs...)
 end
 function EXT._drive_figure_widgets!(fig::Makie.Figure)
     push!(DRIVEN, fig)

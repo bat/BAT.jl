@@ -43,7 +43,7 @@ The cases use the actual production vector/scalar iterator and public
   and require cleanup to follow both joins, with no later metadata repopulation
   or callbacks. These groups intentionally have no participating stop hook.
 
-All cases assert the original exception object and raw backtrace survive the
+These core cases assert the original exception object and raw backtrace survive the
 real vector boundary. The test backend observes the active owner catch through
 its dispatched stop hook; it does not replace production owner methods or
 inject exceptions into running tasks. Tests assert child termination before
@@ -87,6 +87,35 @@ checkpoint. This case does not construct a renderer or certify native GL RNG
 neutrality. Its genuine SIGINT targets a stable wait; it does not claim delivery
 inside the short enrollment instruction interval or inspect Base's hidden
 Timer task. Existing constructor/SIGINT scopes are not enlarged for the test.
+
+The opt-in `gl_startup` case additionally requires GLMakie and a working native
+display. Use `--project=/path/to/gl-project gl_startup`. It holds the actual BAT
+renderer-startup task before GL enrollment while the public sampling owner
+waits. The driver sends one SIGINT and then releases the worker. The test logs
+whether the signal reached the suspended worker or its waiting owner. Both
+paths must join the worker, preserve the interruption type, close the screen
+and release observation history. If the owner was interrupted, the worker
+finishes real enrollment before rollback; that renderer acquires the live view
+and theme locks and must terminate before the failure returns. If the worker
+was interrupted, no renderer is started.
+Complete caller RNG state and future child streams are
+checked against the pre-enrollment checkpoint. The runtime wait condition is
+established before sampling. This is a stable-wait native interruption test,
+not a claim about arbitrary instruction boundaries or noncooperative renderers.
+Emergency driver termination never counts as a successful join.
+
+`gl_cleanup`, with the same native environment, interrupts rollback while its
+renderer is held after acknowledging the stop request. A narrow test-only
+`wait(::GLMakie.Screen{GLFW.Window})` method supplies a polling barrier so the
+first native signal reaches the owner. The real upstream stop routine catches
+that interruption and clears its own task handle. BAT must retain and join that
+task through the second interruption: the fixture performs a final real
+colorbuffer read before allowing resource closure. The original startup error,
+terminal tasks, stable write count and complete caller RNG state are checked
+before any test cleanup. Task waiting, task creation, the scheduler, rendering,
+and BAT's cleanup are unchanged. These tests distinguish the startup signal recipient from interruption in the
+cleanup owner; they do not assume that
+an arbitrary SIGINT always reaches the initiating task.
 
 On the review host, glibc 2.44 with Julia 1.12.7 fails even the minimal control.
 This matches [Julia issue #62683](https://github.com/JuliaLang/julia/issues/62683):

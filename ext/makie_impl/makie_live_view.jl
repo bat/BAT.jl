@@ -269,7 +269,7 @@ function _close_owned_live_screens!(fig)
         if nameof(parentmodule(typeof(screen))) === :GLMakie &&
                 hasproperty(screen, :scene) && screen.scene === fig.scene &&
                 applicable(close, screen)
-            close(screen)
+            _close_gl_screen!(screen, parentmodule(typeof(screen)))
         end
     end
     return nothing

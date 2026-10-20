@@ -10,15 +10,23 @@ const WARMUP_FIGURES = Figure[]
 const WARMUP_BACKENDS = Module[]
 const WARMUP_SCREENS = Any[]
 
-function Makie.colorbuffer(fig::Figure,
-        format::Makie.ImageStorageFormat=Makie.JuliaNative; backend, kwargs...)
+function EXT._render_warmup_figure(fig::Figure, backend::Module)
     push!(WARMUP_FIGURES, fig)
     push!(WARMUP_BACKENDS, backend)
-    result = invoke(Makie.colorbuffer, Tuple{Makie.FigureLike,Makie.ImageStorageFormat},
-        fig, format; backend=backend, kwargs...)
-    @test !isempty(result)
-    append!(WARMUP_SCREENS, filter(s -> s isa GLMakie.Screen, fig.scene.current_screens))
-    return result
+    return invoke(EXT._render_warmup_figure, Tuple{Any,Any}, fig, backend)
+end
+
+function EXT._with_gl_screen(f::Function, fig::Figure, backend::Module; temporary=false, on_failure=nothing)
+    wrapped = function(screen)
+        push!(WARMUP_SCREENS, screen)
+        result = f(screen)
+        @test temporary
+        @test !isempty(result)
+        @test screen.rendertask === nothing
+        return result
+    end
+    return invoke(EXT._with_gl_screen, Tuple{Any,Any,Any}, wrapped, fig, backend;
+        temporary=temporary, on_failure=on_failure)
 end
 
 @testset "Cairo/GL warmup round trip preserves unrelated screen" begin

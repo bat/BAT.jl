@@ -285,7 +285,12 @@ computed caches without requiring status polling. It also releases a fresh
 session that has never created a figure; disposed sessions remain single-use.
 Inspect `BAT.visualizer_status(vis).cleanup_pending` if needed. A cleanup fault
 keeps release pending; another owner-thread disposal call can retry it.
-Live GLMakie initialization must run on Julia's main thread.
+BAT's GLMakie display, renderer warmup and live initialization must run on
+Julia's main thread. BAT creates a separate native screen for each newly
+displayed figure, preserving unrelated windows, and reuses that figure's open
+screen on repeated display. BAT scopes its theme to figure construction, before
+renderer startup. Custom renderer callbacks must not wait on locks held by
+their caller, including an outer caller-owned `with_theme` scope.
 
 Keep the original visualizer to retrieve its completed figure:
 
@@ -332,11 +337,17 @@ remain sensitive to observation overhead. Direct scalar iteration does not own
 the session and does not promise a final display flush on cancellation/time-limit
 exits.
 BAT-created observation tasks use private RNG state, preserving the initiating
-task's ordinary draws and the streams of its future child tasks. This does not
-yet cover renderer-created tasks: native GLMakie cold warmup and first display
-can change future child-task RNG streams. Random draws and tasks explicitly
-created by user callbacks retain their normal effects; BAT does not rewind a
-whole callback or display call to hide those effects.
+task's ordinary draws and the streams of its future child tasks. BAT's GL shader
+warmup renders without a background loop. Its explicit GL display starts the
+renderer through a private startup task, joined before returning or cleaning up
+an interrupted startup. Synchronous scene and inline-display callbacks still
+execute on the caller, and retain their random draws and child tasks. Renderer
+callbacks execute in the renderer task. BAT does not rewind a whole callback or
+display call to hide its effects; private renderer seeds do not promise unique
+or statistically independent streams for custom rendering code.
+Direct caller-owned Makie/GLMakie display calls, including later displaying a
+figure returned with `display=false`, are outside this BAT startup guarantee.
+Automatic garbage-collection finalizers are also outside the tested boundary.
 Initial observation transforms run sequentially on the sampling owner to avoid
 launching additional row-processing tasks. Custom transforms, including shape
 and Jacobian probes, retain their own random draws and task creation; their

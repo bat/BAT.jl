@@ -158,10 +158,16 @@ function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, 
             built = _build_fig(graph, gridlayout, picker_info;
                 has_chain_info=_samples_have_chain_ids(outputs[1][1]),
                 has_trace_info=vis.content.step_mode[], live_vis=vis)
-            _maybe_display(built.fig)
         end
     end
     started || return nothing
+    # Native renderer startup can yield to callbacks which acquire the view
+    # guard. Do not join it while holding that guard. The initialization barrier
+    # still owns the figure/graph and postpones disposal until this call settles.
+    # The construction theme has also been restored: renderer callbacks must
+    # not be joined while this task holds Makie's global theme lock.
+    _maybe_display(built.fig;
+        on_failure=(err, bt) -> _fail_visualizer!(vis, err, bt, :startup))
     history = Ref((samples=graph[:samples][], timing=vis.content.step_mode[] ?
         graph[:sample_timing][] : [_empty_walker_spans(c) for c in graph[:samples][]]))
     tick! = () -> _flush_live_buffer!(vis, mcmc_states, f_pretransform, history, domain_lo, domain_hi)
