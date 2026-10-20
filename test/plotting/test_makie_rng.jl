@@ -68,6 +68,94 @@ end
 struct UncopyableRNG <: AbstractRNG end
 Base.copy(::UncopyableRNG) = error("Unexpected RNG copy")
 
+# Numerical snapshots omit the visualization/context ownership graph. These
+# fixtures use acyclic RandomWalk and StanLike state; keep all of their fields,
+# including reset NaNs, rather than comparing mutable wrapper identities.
+stanlike_fields(x) = (nameof(typeof(x)),
+    ntuple(i -> stanlike_value(getfield(x, i)), fieldcount(typeof(x))))
+
+function stanlike_value(x)
+    x isa Union{Number,Symbol,AbstractString,Nothing} && return x
+    x isa Type && return (:type, string(x))
+    x isa AbstractRange && return (:range, first(x), step(x), length(x))
+    x isa AbstractArray && return (:array, size(x), map(stanlike_value, collect(vec(x))))
+    x isa NamedTuple && return NamedTuple{keys(x)}(map(stanlike_value, values(x)))
+    x isa Tuple && return map(stanlike_value, x)
+    return stanlike_fields(x)
+end
+
+# Their array interfaces expose normalized estimates, not accumulator storage.
+stanlike_value(x::Union{BAT.OnlineMvMean,BAT.OnlineMvCov}) = stanlike_fields(x)
+
+stanlike_rng(rng) = (state=stanlike_value(rng), future=rand(copy(rng), UInt64, 16))
+stanlike_samples(samples) = NamedTuple{(:v, :weight, :logd, :info, :aux)}(
+    map(name -> stanlike_value(getproperty(samples, name)), (:v, :weight, :logd, :info, :aux)))
+
+function stanlike_chain(chain)
+    return (
+        info=stanlike_value(chain.info), stepno=chain.stepno,
+        nattempts=copy(chain.nattempts), nsamples=copy(chain.nsamples),
+        accepted=copy(chain.accepted), walker_order=copy(chain.walker_order),
+        current=map(stanlike_samples, chain.current),
+        proposed=map(stanlike_samples, chain.proposed),
+        output=stanlike_samples(chain.output),
+        transform=stanlike_value(chain.f_transform),
+        proposal=stanlike_value(chain.proposal),
+        cycle_rng=stanlike_value(chain.rngpart_cycle),
+        rng=stanlike_rng(BAT.get_rng(chain.context)),
+        walkers=[stanlike_rng(BAT.get_rng(ctx)) for ctx in chain.walker_genctxs],
+    )
+end
+
+function stanlike_default_streams()
+    parent = rand(copy(Random.default_rng()), UInt64, 16)
+    children = Vector{Vector{UInt64}}(undef, 3)
+    @sync for i in eachindex(children)
+        Threads.@spawn children[i] = rand(UInt64, 16)
+    end
+    return (; parent, children, parent_after=rand(UInt64, 16))
+end
+
+function stanlike_observed_run(case, context; live=false)
+    events = NamedTuple[]
+    owner = current_task()
+    function callback(::Val{:mcmc_burnin}, states)
+        push!(events, (
+            event=:mcmc_burnin, owner=current_task() === owner,
+            chains=stanlike_chain.(getfield.(states, :chain_state)),
+            tuners=[stanlike_value(s.trafo_tuner_state) for s in states],
+            proposal_tuners=[stanlike_value(s.proposal_tuner_state) for s in states],
+            windows=[(
+                i=s.trafo_tuner_state.i,
+                splits=copy(s.trafo_tuner_state.window_splits),
+                rows=BAT.nsamples(s.trafo_tuner_state.stats),
+            ) for s in states],
+        ))
+        return nothing
+    end
+    alg = TransformedMCMC(
+        nchains=2, nwalkers=case.nwalkers, nsteps=24,
+        proposal=RandomWalk(proposaldist=Normal(0, 0.25)),
+        pretransform=DoNotTransform(), adaptive_transform=BAT.TriangularAffineTransform(),
+        transform_tuning=case.tuning, strict=false, store_burnin=true,
+        init=case.init, convergence=AssumeConvergence(), callback=callback,
+        burnin=MCMCMultiCycleBurnin(
+            nsteps_per_cycle=case.burnin_steps, max_ncycles=1, nsteps_final=3),
+    )
+    target = MvNormal([0.5, -0.7], [1.3 0.2; 0.2 0.8])
+    Random.seed!(0x33ab)
+    result = live ? with_capture(() -> BAT.evalmeasure(target, alg, context)) :
+        BAT.evalmeasure(target, alg, context)
+    # Read default/child streams immediately after the public call, before
+    # cleanup or any test code can introduce additional tasks.
+    streams = stanlike_default_streams()
+    return (
+        samples=stanlike_samples(BAT.samplesof(result)),
+        chains=stanlike_chain.(BAT.samplegenof(result).chain_states),
+        context=stanlike_rng(BAT.get_rng(context)), events=events, streams=streams,
+    )
+end
+
 @testset "Makie RNG isolation" begin
     @test BAT.init_visualizer!(BATVisualizer(); rng = UncopyableRNG()) === nothing
 
@@ -244,6 +332,68 @@ Base.copy(::UncopyableRNG) = error("Unexpected RNG copy")
                 @test BAT.visualizer_status(vis).quiesced
             finally
                 cleanup(vis)
+            end
+        end
+    end
+
+    @testset "Fresh StanLike windows remain observational" begin
+        cases = (
+            # Initialization has no retained split; burn-in starts a fresh
+            # campaign with usable windows. Exercise the actual pool path.
+            (name="inactive pool initialization", nwalkers=1, rng=RNGS[1],
+                tuning=BAT.StanLikeTuning(init_buffer=0, term_buffer=1, window_size=12),
+                init=MCMCChainPoolInit(nsteps_init=8,
+                    init_tries_per_chain=BAT.ClosedInterval(1, 4)),
+                burnin_steps=40, burnin_splits=[12, 38]),
+            # Retry runs one 16-step chunk, before its first split at 25.
+            # Reinit must discard that incomplete multi-walker window.
+            (name="incomplete retry initialization", nwalkers=2, rng=RNGS[2],
+                tuning=BAT.StanLikeTuning(init_buffer=0, term_buffer=1, window_size=25),
+                init=MCMCRetryInit(nsteps_init=80, max_init_tries=1),
+                burnin_steps=64, burnin_splits=[62]),
+            # With one walker, the first width-one window must skip fitting.
+            # The terminal split at 15 is omitted; later steps collect no tail.
+            (name="singleton window and omitted tail", nwalkers=1, rng=RNGS[1],
+                tuning=BAT.StanLikeTuning(init_buffer=0, term_buffer=0, window_size=1),
+                init=MCMCRetryInit(nsteps_init=10, max_init_tries=1),
+                burnin_steps=16, burnin_splits=[1, 3, 7]),
+        )
+        for case in cases
+            @testset "$(case.name)" begin
+                vis = BATVisualizer(BATMakieVisualization(
+                    max_buffered=10^6, adaptive_batching=false))
+                plain_context = BATContext(rng=copy(case.rng))
+                live_context = BATContext(rng=copy(case.rng), visualizer=vis)
+                try
+                    plain = stanlike_observed_run(case, plain_context)
+                    live = stanlike_observed_run(case, live_context; live=true)
+                    @test isequal(live.samples, plain.samples)
+                    @test isequal(live.chains, plain.chains)
+                    @test isequal(live.context, plain.context)
+                    @test isequal(live.events, plain.events)
+                    @test live.streams.parent == plain.streams.parent
+                    @test live.streams.parent_after == plain.streams.parent_after
+                    # H30: observer task creation advances the owner's
+                    # task-splitting RNG state even when ordinary draws agree.
+                    # Keep this unfulfilled observation contract visible.
+                    @test_broken live.streams.children == plain.streams.children
+                    @test length(live.events) == 1
+                    event = only(live.events)
+                    @test event.event == :mcmc_burnin && event.owner
+                    @test length(event.chains) == length(event.windows) == 2
+                    @test all(c -> c.stepno == case.burnin_steps, event.chains)
+                    @test all(w -> w.splits == case.burnin_splits &&
+                        w.i == last(case.burnin_splits) && iszero(w.rows), event.windows)
+                    @test all(c -> c.stepno == 24 && length(c.walkers) == case.nwalkers,
+                        live.chains)
+                    status = BAT.visualizer_status(vis)
+                    @test status.outcome == :complete
+                    @test status.data_complete && status.quiesced
+                    @test vis.content.n_buffer_steps[] == 0
+                    @test isempty(vis.content.init_segments) && isempty(vis.content.invalid_init)
+                finally
+                    cleanup(vis)
+                end
             end
         end
     end
