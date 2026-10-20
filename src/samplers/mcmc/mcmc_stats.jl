@@ -106,9 +106,17 @@ Base.merge(a::MCMCBasicStats, bs::MCMCBasicStats...) = merge!(deepcopy(a), bs...
 
 
 function reweight_relative!(stats::MCMCBasicStats, reweighting_factor::Real)
-    reweight_relative!(stats.param_stats, reweighting_factor)
-    reweight_relative!(stats.logtf_stats, reweighting_factor)
+    _reweight_relative!(stats, reweighting_factor)
+end
 
+function _check_reweight(stats::MCMCBasicStats, factor)
+    _check_reweight(stats.param_stats, factor)
+    _check_reweight(stats.logtf_stats, factor)
+end
+
+function _apply_reweight!(stats::MCMCBasicStats, factor)
+    _apply_reweight!(stats.param_stats, factor)
+    _apply_reweight!(stats.logtf_stats, factor)
     stats
 end
 

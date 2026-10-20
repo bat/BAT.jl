@@ -39,7 +39,9 @@ $(TYPEDFIELDS)
 
     "Reweighting factor. Take accumulated sample statistics of previous
     tuning cycles into account with a relative weight of `r`. Set to
-    `0` to completely reset sample statistics between each tuning cycle."
+    `0` to completely reset sample statistics between each tuning cycle.
+    Must be finite and nonnegative; positive scaling must remain representable
+    in the statistics' floating-point precision."
     r::Real = 0.5
 end
 

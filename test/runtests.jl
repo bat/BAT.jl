@@ -51,6 +51,7 @@ const test_groups = [
         "samplers/mcmc/test_mala.jl",
         "samplers/mcmc/test_ram_tuner.jl",
         "samplers/mcmc/test_fisher_tuner.jl",
+        "samplers/mcmc/test_reweight_tuners.jl",
         "samplers/mcmc/test_multitrafo_tuner.jl",
         "samplers/importance/test_importance_sampler.jl",
     ],

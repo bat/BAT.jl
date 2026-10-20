@@ -208,6 +208,46 @@ Base.copy(::UncopyableRNG) = error("Unexpected RNG copy")
             end
         end
     end
+    @testset "Reweighted transform tuning remains observational" begin
+        target = MvNormal(zeros(2), Matrix{Float64}(I, 2, 2))
+        tunings = (AdaptiveAffineTuning(r=0), AdaptiveAffineTuning(r=0.5),
+            BAT.StanLikeTuning(init_buffer=2, term_buffer=2, window_size=4))
+        for tuning in tunings
+            alg = TransformedMCMC(nchains=2, nsteps=40, strict=false,
+                transform_tuning=tuning, store_burnin=true,
+                init=MCMCChainPoolInit(nsteps_init=20),
+                burnin=MCMCMultiCycleBurnin(nsteps_per_cycle=20, max_ncycles=1, nsteps_final=5))
+            vis = BATVisualizer(BATMakieVisualization(max_buffered=10^6, adaptive_batching=false))
+            plain_ctx = BATContext(rng=copy(first(RNGS)))
+            live_ctx = BATContext(rng=copy(first(RNGS)), visualizer=vis)
+            Random.seed!(882)
+            plain = BAT.evalmeasure(target, alg, plain_ctx)
+            default_after_plain = copy(Random.default_rng())
+            Random.seed!(882)
+            try
+                live = with_capture() do
+                    BAT.evalmeasure(target, alg, live_ctx)
+                end
+                @test BAT.samplesof(live) == BAT.samplesof(plain)
+                @test BAT.get_rng(live_ctx) == BAT.get_rng(plain_ctx)
+                @test rand(UInt64, 16) == rand(default_after_plain, UInt64, 16)
+                for (observed, expected) in zip(BAT.samplegenof(live).chain_states,
+                                              BAT.samplegenof(plain).chain_states)
+                    @test observed.current == expected.current
+                    @test observed.f_transform.A == expected.f_transform.A
+                    @test observed.f_transform.b == expected.f_transform.b
+                    @test BAT.get_rng(observed.context) == BAT.get_rng(expected.context)
+                    @test all(BAT.get_rng(a) == BAT.get_rng(b) for (a,b) in
+                        zip(observed.walker_genctxs, expected.walker_genctxs))
+                end
+                @test BAT.visualizer_status(vis).data_complete
+                @test BAT.visualizer_status(vis).quiesced
+            finally
+                cleanup(vis)
+            end
+        end
+    end
+
     @testset "ARP live sampling retains mass and row semantics" begin
         target = MvNormal(zeros(2), Matrix{Float64}(I,2,2))
         for nonzero in (false, true)

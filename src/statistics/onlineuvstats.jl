@@ -3,6 +3,33 @@
 using Base: @propagate_inbounds
 
 
+# Reweighting is a two-pass operation: all numeric conversions/range checks
+# finish before the first write, including for composite statistics. Callers
+# must own the statistics exclusively (this is not an interruption transaction).
+function _reweight_relative!(target, factor::Real)
+    get_zero_subnormals() && throw(ArgumentError("reweighting requires gradual underflow (subnormal flushing must be disabled)"))
+    isfinite(factor) && factor >= 0 || throw(ArgumentError("reweighting factor must be finite and nonnegative"))
+    iszero(factor) && return empty!(target)
+    isone(factor) && return target
+    _check_reweight(target, factor)
+    _apply_reweight!(target, factor)
+    target
+end
+
+function _reweight_factor(::Type{T}, factor::Real) where {T<:AbstractFloat}
+    f = T(factor)
+    isfinite(f) && f > 0 || throw(ArgumentError("positive reweighting factor is not representable in accumulator precision"))
+    f
+end
+
+function _check_reweighted_value(old, new)
+    isfinite(old) && isfinite(new) &&
+        (iszero(new) ? iszero(old) : abs(new) >= floatmin(typeof(new))) ||
+        throw(ArgumentError("reweighted statistic is outside the accumulator's normal-or-zero range"))
+    nothing
+end
+
+
 """
     OnlineUvMean{T<:AbstractFloat}
 
@@ -60,8 +87,35 @@ end
 end
 
 
+"""
+    reweight_relative!(stats, factor::Real)
+
+Scale historical weights in BAT's internal online statistics. Zero empties all
+statistics and metadata; one is an identity. Positive factors scale first
+moments and centered scatter by `factor`, and squared weights by `factor^2`,
+preserving the chosen weight class's bias correction.
+
+Requires a finite nonnegative factor and gradual underflow. Positive factors
+are converted to each accumulator's precision. Unrepresentable conversion or
+scaling throws before any component is changed. Nonzero scaled moments,
+weight sums and scatter must remain in the normal range; compensated low parts may
+round away provided the represented first moment does not vanish. Callers must
+have exclusive ownership of `stats`.
+"""
 function reweight_relative!(target::OnlineUvMean{T}, reweighting_factor::Real) where T
-    target.sum_w *= reweighting_factor
+    _reweight_relative!(target, reweighting_factor)
+end
+
+function _check_reweight(target::OnlineUvMean{T}, factor) where T
+    f = _reweight_factor(T, factor)
+    _check_reweighted_value(target.sum_w, target.sum_w * f)
+    _check_reweighted_value(target.sum_v, target.sum_v * f)
+end
+
+function _apply_reweight!(target::OnlineUvMean{T}, factor) where T
+    f = T(factor)
+    target.sum_w *= f
+    target.sum_v *= f
     target
 end
 
@@ -120,6 +174,7 @@ end
 
 
 function Base.empty!(target::OnlineUvVar{T,W}) where {T,W}
+    target.n = zero(Int64)
     target.sum_w = zero(DoubleFloat{T})
     target.sum_w2 = zero(DoubleFloat{T})
     target.mean_x = zero(T)
@@ -197,10 +252,23 @@ end
 
 
 function reweight_relative!(target::OnlineUvVar{T,W}, reweighting_factor::Real) where {T,W}
-    target.sum_w *= reweighting_factor
-    target.sum_w2 *= reweighting_factor
-    target.s *= reweighting_factor
+    _reweight_relative!(target, reweighting_factor)
+end
 
+function _check_reweight(target::OnlineUvVar{T}, factor) where T
+    f = _reweight_factor(T, factor)
+    _check_reweighted_value(target.sum_w, target.sum_w * f)
+    scaled_w2 = target.sum_w2 * f
+    _check_reweighted_value(target.sum_w2, scaled_w2)
+    _check_reweighted_value(scaled_w2, scaled_w2 * f)
+    _check_reweighted_value(target.s, target.s * f)
+end
+
+function _apply_reweight!(target::OnlineUvVar{T}, factor) where T
+    f = T(factor)
+    target.sum_w *= f
+    target.sum_w2 = (target.sum_w2 * f) * f
+    target.s *= f
     target
 end
 
@@ -267,9 +335,17 @@ end
 
 
 function reweight_relative!(stats::BasicUvStatistics{T,W}, reweighting_factor::Real) where {T,W}
-    reweight_relative!(stats.mean, reweighting_factor)
-    reweight_relative!(stats.var, reweighting_factor)
+    _reweight_relative!(stats, reweighting_factor)
+end
 
+function _check_reweight(stats::BasicUvStatistics, factor)
+    _check_reweight(stats.mean, factor)
+    _check_reweight(stats.var, factor)
+end
+
+function _apply_reweight!(stats::BasicUvStatistics, factor)
+    _apply_reweight!(stats.mean, factor)
+    _apply_reweight!(stats.var, factor)
     stats
 end
 

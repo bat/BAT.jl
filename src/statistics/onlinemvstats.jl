@@ -109,10 +109,26 @@ end
 
 
 function reweight_relative!(target::OnlineMvMean{T}, reweighting_factor::Real) where T
-    target.sum_w *= reweighting_factor
-    target.S .*= reweighting_factor
-    target.C .*= reweighting_factor
+    _reweight_relative!(target, reweighting_factor)
+end
 
+function _check_reweight(target::OnlineMvMean{T}, factor) where T
+    f = _reweight_factor(T, factor)
+    _check_reweighted_value(target.sum_w, target.sum_w * f)
+    for i in eachindex(target.S, target.C)
+        # Compensation may round away, but the represented first moment must
+        # remain finite and must not disappear altogether.
+        old = DoubleFloat{T}(target.S[i]) + DoubleFloat{T}(target.C[i])
+        new = DoubleFloat{T}(target.S[i] * f) + DoubleFloat{T}(target.C[i] * f)
+        _check_reweighted_value(old, new)
+    end
+end
+
+function _apply_reweight!(target::OnlineMvMean{T}, factor) where T
+    f = T(factor)
+    target.sum_w *= f
+    target.S .*= f
+    target.C .*= f
     target
 end
 
@@ -296,10 +312,25 @@ end
 
 
 function reweight_relative!(target::OnlineMvCov{T,W}, reweighting_factor::Real) where {T,W}
-    target.sum_w *= reweighting_factor
-    target.sum_w2 *= reweighting_factor
-    target.S .*= reweighting_factor
+    _reweight_relative!(target, reweighting_factor)
+end
 
+function _check_reweight(target::OnlineMvCov{T}, factor) where T
+    f = _reweight_factor(T, factor)
+    _check_reweighted_value(target.sum_w, target.sum_w * f)
+    scaled_w2 = target.sum_w2 * f
+    _check_reweighted_value(target.sum_w2, scaled_w2)
+    _check_reweighted_value(scaled_w2, scaled_w2 * f)
+    for s in target.S
+        _check_reweighted_value(s, s * f)
+    end
+end
+
+function _apply_reweight!(target::OnlineMvCov{T}, factor) where T
+    f = T(factor)
+    target.sum_w *= f
+    target.sum_w2 = (target.sum_w2 * f) * f
+    target.S .*= f
     target
 end
 
@@ -378,9 +409,17 @@ end
 
 
 function reweight_relative!(target::BasicMvStatistics{T}, reweighting_factor::Real) where T
-    reweight_relative!(target.mean, reweighting_factor)
-    reweight_relative!(target.cov, reweighting_factor)
+    _reweight_relative!(target, reweighting_factor)
+end
 
+function _check_reweight(target::BasicMvStatistics, factor)
+    _check_reweight(target.mean, factor)
+    _check_reweight(target.cov, factor)
+end
+
+function _apply_reweight!(target::BasicMvStatistics, factor)
+    _apply_reweight!(target.mean, factor)
+    _apply_reweight!(target.cov, factor)
     target
 end
 
