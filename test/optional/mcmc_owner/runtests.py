@@ -16,14 +16,18 @@ import tempfile
 import time
 
 HERE = Path(__file__).resolve().parent
-CASES = ("vector_owner", "vector_stop", "vector_drain", "public_owner",
-         "init_pool_first", "init_pool_second", "init_retry")
+CORE_CASES = ("vector_owner", "vector_stop", "vector_drain", "public_owner",
+              "init_pool_first", "init_pool_second", "init_retry")
+# Explicit opt-in: these require a project containing Makie as well as BAT.
+MAKIE_CASES = ("makie_rng",)
+CASES = CORE_CASES + MAKIE_CASES
 
 
 def run_case(args, name, logdir):
     gates = logdir / (name + "-gates")
     gates.mkdir()
-    script = HERE / ("control.jl" if name == "control" else "native_case.jl")
+    script = HERE / ("control.jl" if name == "control" else
+                     "makie_rng_case.jl" if name in MAKIE_CASES else "native_case.jl")
     command = [args.julia, "--startup-file=no", "--threads=" + args.threads,
                "--project=" + str(args.project)]
     if args.compiled_modules:
@@ -81,6 +85,16 @@ def run_case(args, name, logdir):
                 schedule(0.2, send_interrupt)
                 # No stop participant during initialization: retain the two
                 # blocked metadata writers while the owner enters its join.
+        elif line == "BAT_OWNER MAKIE_FINISH_WAIT":
+            if not sent and not scheduled:
+                schedule(0.2, send_interrupt)
+        elif line == "BAT_OWNER MAKIE_DISPOSING":
+            if len(sent) != 1:
+                protocol_errors.append("Makie disposal reached without exactly one owner SIGINT")
+                return
+            # Keep the listener held until the interrupted owner has enrolled
+            # and inspected the real disposal coordinator.
+            schedule(0.2, lambda: release_gate("release_listener"))
         elif line.startswith("BAT_OWNER STOP_WAIT "):
             if not sent:
                 protocol_errors.append("stop hook reached before the first owner SIGINT")
@@ -180,10 +194,11 @@ def main():
     args.project = args.project.resolve()
     logdir = args.log_dir or Path(tempfile.mkdtemp(prefix="bat-mcmc-owner-"))
     logdir.mkdir(parents=True, exist_ok=True)
-    selected = list(args.cases or CASES)
+    selected = list(args.cases or CORE_CASES)
     metadata = dict(platform=platform.platform(), python=sys.version,
                     scripts={p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-                             for p in (HERE / "control.jl", HERE / "native_case.jl", Path(__file__))})
+                             for p in (HERE / "control.jl", HERE / "native_case.jl",
+                                       HERE / "makie_rng_case.jl", Path(__file__))})
     print("Logs: " + str(logdir), flush=True)
     control = run_case(args, "control", logdir)
     if not control["passed"]:

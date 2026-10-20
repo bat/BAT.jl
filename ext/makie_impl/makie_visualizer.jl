@@ -146,7 +146,9 @@ function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, 
         initial_timing = [_initial_step_spans(vis, state, outputs[i]) for (i, state) in enumerate(mcmc_states)]
         vis.content.step_mode[] = all(!isnothing, initial_timing)
         for (i, state) in enumerate(mcmc_states)
-            register_state_for_vis!(vis, state, _transform_walker_outputs(f_pretransform, outputs[i]),
+            # Startup runs on the sampling owner. Observation-only row work
+            # must not split its task RNG through the default threaded executor.
+            register_state_for_vis!(vis, state, _transform_walker_outputs(f_pretransform, outputs[i], BAT.SequentialExec()),
                 vis.content.step_mode[] ? initial_timing[i] : _empty_walker_spans(outputs[i]))
         end
         picker_info = PickerInfo(n_dof, vis.backend.N_max, vis.backend.vsel,

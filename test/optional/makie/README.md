@@ -93,3 +93,18 @@ truthful bounded samples so strict support checks run during extension building.
 `histogram_regions` checks integrated cell probabilities, plateau colors,
 original-edge polygons and heatmaps, transpose/empty transitions, invalid levels,
 and actual Cairo output. These checks use independent unequal-cell fixtures.
+
+`rng`, `task_rng`, and `hmc_rng` compare complete default RNG state and actual
+future child streams, alongside explicit sampler RNGs and fixed-work results.
+They cover BAT-owned listener/Timer/disposal enrollment, legitimate callback
+randomness, failure/retry boundaries, and public HMC/MultiTrafo sampling.
+`preinit_dispose` also checks the separate disposal controller's RNG.
+The HMC and pre-initialization paired campaigns establish an ordinary Base
+blocking-wait scheduling condition before their seeds/checkpoints and keep
+plain/plain controls. Julia 1.13.2 can create a per-thread scheduler task during
+its first empty-queue wait even without BAT; these comparisons do not claim
+neutrality for that cold runtime initialization.
+These Cairo checks do not establish renderer-independent RNG neutrality:
+native GL warmup and first display still have a separately recorded effect.
+The optional MCMC owner runner provides native SIGINT coverage separately;
+direct exception tests in `task_rng` are not native signal tests.

@@ -331,6 +331,19 @@ sampling errors and intentional interruption remain errors. Time-limited runs
 remain sensitive to observation overhead. Direct scalar iteration does not own
 the session and does not promise a final display flush on cancellation/time-limit
 exits.
+BAT-created observation tasks use private RNG state, preserving the initiating
+task's ordinary draws and the streams of its future child tasks. This does not
+yet cover renderer-created tasks: native GLMakie cold warmup and first display
+can change future child-task RNG streams. Random draws and tasks explicitly
+created by user callbacks retain their normal effects; BAT does not rewind a
+whole callback or display call to hide those effects.
+Initial observation transforms run sequentially on the sampling owner to avoid
+launching additional row-processing tasks. Custom transforms, including shape
+and Jacobian probes, retain their own random draws and task creation; their
+effects are outside the observation neutrality guarantee.
+Runtime-owned lazy scheduler initialization is also outside this guarantee:
+on Julia 1.13.2, a thread's first blocking wait can itself change future child
+streams, even without BAT observation.
 Failed or aborted live views are disposed; their outcome remains available
 through the status query and diagnostics independently of the renderer.
 Disposal after the sampling owner has acquired the session also permits that

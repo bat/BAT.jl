@@ -55,6 +55,9 @@ Base.@kwdef mutable struct _MakieLiveControl
     timer::Union{Nothing,Timer} = nothing
     task::Union{Nothing,Task} = nothing
     disposal_task::Union{Nothing,Task} = nothing
+    # Private task-construction state, retained through cleanup and retries.
+    # Fresh visualizers deliberately repeat this origin; it is not a unique seed.
+    task_rng::Random.Xoshiro = Random.Xoshiro(0x4241547669733031)
     disposal_requested::Bool = false
     disposal_retry::Bool = false
     release_committed::Bool = false
@@ -72,6 +75,27 @@ Base.@kwdef mutable struct _MakieLiveControl
     startup_owner::Union{Nothing,WeakRef} = nothing
     initializing::Bool = false
     view::Union{Nothing,_LiveView} = nothing
+end
+
+# Caller holds buffer_lock and defers SIGINT. Only the trusted task/Timer
+# enrollment below belongs here: no user work, explicit waits or recursive
+# entry on this control. Preserve Base's existing constructor-internal locks.
+function _with_live_task_rng(f::F, ctl::_MakieLiveControl) where {F}
+    rng = Random.default_rng()
+    saved = copy(rng)
+    try
+        copy!(rng, ctl.task_rng)
+        try
+            return f()
+        finally
+            # A constructed task consumes its split even if scheduling fails.
+            copy!(ctl.task_rng, rng)
+        end
+    finally
+        # Restore the actual initiating task, including its child-splitting
+        # state; cleanup need not be initiated by the original sampling owner.
+        copy!(rng, saved)
+    end
 end
 
 _live_elapsed(start::UInt64) = (time_ns() - start) / 1.0e9
@@ -290,12 +314,14 @@ function _start_live_listener!(vis, tick!::F, finish!::G) where {F,G}
         lock(vis.content.buffer_lock) do
             Base.disable_sigint() do
                 _activate_live_visualizer!(vis) || return nothing
-                ctl.timer = Timer(_ -> _live_control_tick!(vis), period; interval=period)
-                task = @task _run_live_listener!(vis, tick!, finish!)
-                # Store before scheduling; a queued task must remain owned even
-                # when it has not yet started. No user work in this enrollment.
-                ctl.task = task
-                schedule(task)
+                _with_live_task_rng(ctl) do
+                    ctl.timer = Timer(_ -> _live_control_tick!(vis), period; interval=period)
+                    task = @task _run_live_listener!(vis, tick!, finish!)
+                    # Store before scheduling; a queued task must remain owned even
+                    # when it has not yet started. No user work in this enrollment.
+                    ctl.task = task
+                    schedule(task)
+                end
             end
         end
     catch err
@@ -544,11 +570,13 @@ function _schedule_live_view_cleanup!(vis; retry::Bool=false)
                     notify(vis.content.buffer_cond; all=true)
                 end
                 if isnothing(ctl.disposal_task) && ctl.disposal_retry
-                    task = @task _coordinate_live_disposal!(vis)
-                    ctl.disposal_task = task
-                    # A scheduling exception cannot justify dropping a task
-                    # which may already be queued but not yet started.
-                    schedule(task)
+                    _with_live_task_rng(ctl) do
+                        task = @task _coordinate_live_disposal!(vis)
+                        ctl.disposal_task = task
+                        # A scheduling exception cannot justify dropping a task
+                        # which may already be queued but not yet started.
+                        schedule(task)
+                    end
                 end
             end
         end

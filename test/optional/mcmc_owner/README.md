@@ -59,6 +59,35 @@ no independent native assertion about the group's timer object.
 The driver logs the external release times relative to actual SIGINT sends so
 the blocked-writer and repeated-drain interleavings remain auditable.
 
+The separately selected `makie_rng` case requires an instantiated Makie test
+environment; it is not part of the default core-only cases:
+
+```sh
+python3 test/optional/mcmc_owner/runtests.py makie_rng --project=test/optional/makie
+```
+
+This is explicitly a **scheduler-initialized** native gate. Before the
+enrollment checkpoint or child-stream measurements, it records full RNG state
+around a real callback-free Base wait, checks ordinary draws, and requires a
+second wait to preserve full state. It does not rewind state across either
+wait or require the first wait to be RNG-neutral. Julia 1.13 can lazily create a
+per-thread scheduler Task on an idle wait; the task first reaching that path
+pays its split. Consequently, cold whole-operation neutrality is not claimed.
+The recorded first-wait effect remains visible in the test log.
+
+It then starts BAT's real callback Timer and listener, interrupts the owner during
+the real `finish_visualizer!` wait on a fixture-owned listener barrier, and
+then creates the real disposal coordinator from that interrupted owner. The
+driver releases the listener only after the owner has inspected that
+coordinator. It checks complete caller RNG state, subsequent real child
+streams, persistent private launch-state progression, repeated-disposal
+no-ops, explicit task termination, timer closure and history release before
+fallback cleanup. The release-controller task is established before the RNG
+checkpoint. This case does not construct a renderer or certify native GL RNG
+neutrality. Its genuine SIGINT targets a stable wait; it does not claim delivery
+inside the short enrollment instruction interval or inspect Base's hidden
+Timer task. Existing constructor/SIGINT scopes are not enlarged for the test.
+
 On the review host, glibc 2.44 with Julia 1.12.7 fails even the minimal control.
 This matches [Julia issue #62683](https://github.com/JuliaLang/julia/issues/62683):
 older signal delivery decodes glibc jump buffers using an obsolete pointer-guard

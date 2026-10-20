@@ -108,12 +108,13 @@ function stanlike_chain(chain)
 end
 
 function stanlike_default_streams()
-    parent = rand(copy(Random.default_rng()), UInt64, 16)
+    full = copy(Random.default_rng())
+    parent = rand(copy(full), UInt64, 16)
     children = Vector{Vector{UInt64}}(undef, 3)
     @sync for i in eachindex(children)
         Threads.@spawn children[i] = rand(UInt64, 16)
     end
-    return (; parent, children, parent_after=rand(UInt64, 16))
+    return (; full, parent, children, parent_after=rand(UInt64, 16))
 end
 
 function stanlike_observed_run(case, context; live=false)
@@ -163,6 +164,7 @@ end
         Random.seed!(771)
         before = copy(Random.default_rng())
         vis = BATVisualizer(BATMakieVisualization())
+        @test Random.default_rng() == before
         @test BAT.visualizer_status(vis).phase == :fresh
         @test rand(UInt64, 16) == rand(before, UInt64, 16)
     end
@@ -233,6 +235,7 @@ end
                 end
                 @test rng == before
                 @test rand(copy(rng), UInt64, 16) == rand(before, UInt64, 16)
+                @test Random.default_rng() == default_before
                 @test rand(UInt64, 16) == rand(default_before, UInt64, 16)
             finally
                 cleanup(vis)
@@ -252,12 +255,16 @@ end
             live_ctx = BATContext(rng = copy(base), visualizer = vis)
             Random.seed!(882)
             expected = BAT.evalmeasure(target, alg, plain_ctx)
+            plain_streams = stanlike_default_streams()
             default_after_plain = copy(Random.default_rng())
             Random.seed!(882)
             try
                 observed = with_capture() do
                     BAT.evalmeasure(target, alg, live_ctx)
                 end
+                live_streams = stanlike_default_streams()
+                @test live_streams.full == plain_streams.full
+                @test live_streams.children == plain_streams.children
                 @test BAT.visualizer_status(vis).outcome == :complete
                 @test BAT.visualizer_status(vis).data_complete
                 @test BAT.visualizer_status(vis).quiesced
@@ -310,12 +317,16 @@ end
             live_ctx = BATContext(rng=copy(first(RNGS)), visualizer=vis)
             Random.seed!(882)
             plain = BAT.evalmeasure(target, alg, plain_ctx)
+            plain_streams = stanlike_default_streams()
             default_after_plain = copy(Random.default_rng())
             Random.seed!(882)
             try
                 live = with_capture() do
                     BAT.evalmeasure(target, alg, live_ctx)
                 end
+                live_streams = stanlike_default_streams()
+                @test live_streams.full == plain_streams.full
+                @test live_streams.children == plain_streams.children
                 @test BAT.samplesof(live) == BAT.samplesof(plain)
                 @test BAT.get_rng(live_ctx) == BAT.get_rng(plain_ctx)
                 @test rand(UInt64, 16) == rand(default_after_plain, UInt64, 16)
@@ -366,6 +377,10 @@ end
                 live_context = BATContext(rng=copy(case.rng), visualizer=vis)
                 try
                     plain = stanlike_observed_run(case, plain_context)
+                    # Matched plain/plain reseeding also checks that the test
+                    # harness itself has not shifted the child-task sequence.
+                    repeated = stanlike_observed_run(case, BATContext(rng=copy(case.rng)))
+                    @test isequal(repeated, plain)
                     live = stanlike_observed_run(case, live_context; live=true)
                     @test isequal(live.samples, plain.samples)
                     @test isequal(live.chains, plain.chains)
@@ -373,10 +388,8 @@ end
                     @test isequal(live.events, plain.events)
                     @test live.streams.parent == plain.streams.parent
                     @test live.streams.parent_after == plain.streams.parent_after
-                    # H30: observer task creation advances the owner's
-                    # task-splitting RNG state even when ordinary draws agree.
-                    # Keep this unfulfilled observation contract visible.
-                    @test_broken live.streams.children == plain.streams.children
+                    @test live.streams.full == plain.streams.full
+                    @test live.streams.children == plain.streams.children
                     @test length(live.events) == 1
                     event = only(live.events)
                     @test event.event == :mcmc_burnin && event.owner

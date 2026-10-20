@@ -402,15 +402,17 @@ end
 
 function _transform_walker_outputs(
     f_pretransform::Function,
-    chain_output   #::AbstractVector{<:DensitySampleVector}
+    chain_output,   #::AbstractVector{<:DensitySampleVector}
+    executor::Union{SequentialExec,MultiThreadedExec} = MultiThreadedExec()
 )
-    return [_transform_walker_output(f_pretransform, walker_output) for walker_output in chain_output]
+    return [_transform_walker_output(f_pretransform, walker_output, executor) for walker_output in chain_output]
 end
 
 # `transform_samples` infers the transformed shape from the first sample, which
 # fails on an empty `DensitySampleVector` (e.g. before any samples have been
 # produced yet, or when a chain hasn't filled its buffer slot this batch).
-function _transform_walker_output(f_pretransform::Function, walker_output::DensitySampleVector)
+function _transform_walker_output(f_pretransform::Function, walker_output::DensitySampleVector,
+    executor::Union{SequentialExec,MultiThreadedExec} = MultiThreadedExec())
     isempty(walker_output) && return unshaped.(walker_output)
-    return unshaped.(transform_samples(inverse(f_pretransform), walker_output))
+    return unshaped.(transform_samples(inverse(f_pretransform), walker_output, executor))
 end

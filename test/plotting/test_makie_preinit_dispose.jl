@@ -240,8 +240,16 @@ function public_run(; observed, init=:pool, store_burnin=true, mode=:owner,
                     @test entry.count >= first_count
                     @test !isempty(entry.cycles) && all(==(Int32(1)), entry.cycles)
                 end
+                # This controller, rather than the numerical owner, enrolls
+                # cleanup. Its complete RNG must be preserved as well.
+                controller_rng = copy(Random.default_rng())
                 BAT.dispose_visualizer!(vis)
+                @test Random.default_rng() == controller_rng
                 release_task[] = coordinator(vis)
+                private_after = copy(vis.content.lifecycle.task_rng)
+                BAT.dispose_visualizer!(vis)
+                @test Random.default_rng() == controller_rng
+                @test vis.content.lifecycle.task_rng == private_after
                 if release_first
                     join_release(vis, release_task[])
                     # These assertions precede the density's event release and
@@ -262,6 +270,8 @@ function public_run(; observed, init=:pool, store_burnin=true, mode=:owner,
     result = nothing
     exception = nothing
     default_next = UInt64[]
+    default_state = nothing
+    default_children = Vector{Vector{UInt64}}(undef, 3)
     try
         with_capture() do capture
             # Fixture controller construction is outside the default-RNG
@@ -274,7 +284,11 @@ function public_run(; observed, init=:pool, store_burnin=true, mode=:owner,
             finally
                 gate.finished[] = true
             end
-            default_next = rand(copy(Random.default_rng()), UInt64, 16)
+            default_state = copy(Random.default_rng())
+            default_next = rand(copy(default_state), UInt64, 16)
+            @sync for i in eachindex(default_children)
+                Threads.@spawn default_children[i] = rand(UInt64, 16)
+            end
             @test isempty(capture.figures)
         end
         if observed
@@ -303,6 +317,7 @@ function public_run(; observed, init=:pool, store_burnin=true, mode=:owner,
             return (samples=BAT.samplesof(result),
                 chains=chain_snapshot.(BAT.samplegenof(result).chain_states),
                 events=events, context_rng=copy(BAT.get_rng(context)), default_next=default_next,
+                default_state=default_state, default_children=default_children,
                 cycles=copy(gate.observed_cycles))
         end
         return nothing
@@ -613,18 +628,32 @@ Base.@noinline payload_alive(fixture) = !isnothing(fixture.root.value)
 collect_twice() = (GC.gc(true); GC.gc(true); nothing)
 
 @testset "Pre-view disposal preserves the same numerical acquisition" begin
+    # Establish the owner's blocking-wait scheduling condition before seeded
+    # campaigns or controller construction. A runtime may lazily create its
+    # per-thread scheduler Task on the first empty-queue wait. This ordinary
+    # callback-free Base wait is outside RNG measurements and does not warm a
+    # renderer, rewind user work, or assume a particular Julia version.
+    @test timedwait(() -> false, 0.02; pollint=0.001) === :timed_out
     for case in ((init=:pool, store_burnin=true, mode=:owner, release_first=true),
         (init=:retry, store_burnin=true, mode=:worker, release_first=true),
         (init=:pool, store_burnin=false, mode=:owner, release_first=false),
         (init=:pool, store_burnin=true, mode=:second_pass, release_first=true))
         @testset "$case" begin
             expected = public_run(; observed=false, case...)
+            repeated = public_run(; observed=false, case...)
             observed = public_run(; observed=true, case...)
-            @test observed.samples == expected.samples
-            @test observed.chains == expected.chains
-            @test observed.events == expected.events
-            @test observed.context_rng == expected.context_rng
-            @test observed.default_next == expected.default_next
+            for (name, result) in (("plain/plain harness control", repeated),
+                                   ("observed/plain public sampling", observed))
+                @testset "$name" begin
+                    @test result.samples == expected.samples
+                    @test result.chains == expected.chains
+                    @test result.events == expected.events
+                    @test result.context_rng == expected.context_rng
+                    @test result.default_next == expected.default_next
+                    @test result.default_state == expected.default_state
+                    @test result.default_children == expected.default_children
+                end
+            end
             if case.mode === :second_pass
                 @test Int32(1) in observed.cycles
             end
