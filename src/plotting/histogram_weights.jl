@@ -117,15 +117,17 @@ end
 
 # EmpiricalDistributions normalizes again and multiplies volumes in a different
 # order from StatsBase. Guard that actual dependency boundary, then verify the
-# returned PDF against the prepared bin probabilities. Cached coordinate moments
-# have a separate inherited range limitation (H22).
+# returned PDF against the prepared bin probabilities and its cached statistics
+# against checked coordinate arithmetic.
 function _plot_binned_dist(probabilities::Histogram, univariate::Bool)
+    probabilities = _plot_binned_histogram(probabilities)
     any(>(0), probabilities.weights) || _plot_weight_error("a probability distribution requires positive in-bin mass")
     widths = _plot_histogram_widths(probabilities)
-    for index in CartesianIndices(probabilities.weights)
+    volumes = map(CartesianIndices(probabilities.weights)) do index
         volume = prod(map((w, i) -> w[i], widths, Tuple(index)))
         isfinite(volume) && volume > 0 ||
             _plot_weight_error("bin volume is outside the binned distribution's numerical range")
+        volume
     end
     # Preflight the normalization which the public dependency constructor uses,
     # including zero bins; this prevents uninformative assertions/NaN PDFs.
@@ -134,18 +136,20 @@ function _plot_binned_dist(probabilities::Histogram, univariate::Bool)
     all(i -> iszero(probabilities.weights[i]) || normalized.weights[i] > 0, eachindex(probabilities.weights)) ||
         _plot_weight_error("binned distribution normalization loses positive mass")
     dependency_masses = map(CartesianIndices(normalized.weights)) do index
-        normalized.weights[index] * prod(map((w, i) -> w[i], widths, Tuple(index)))
+        normalized.weights[index] * volumes[index]
     end
     _plot_validate_weights(vec(dependency_masses))
     all(i -> iszero(probabilities.weights[i]) || dependency_masses[i] > 0, eachindex(dependency_masses)) ||
         _plot_weight_error("binned distribution volume arithmetic loses positive mass")
     sum(dependency_masses) ≈ 1 || _plot_weight_error("binned distribution volume arithmetic has no unit probability mass")
+    moments = _plot_binned_moments(normalized, volumes, univariate)
     dist = try
         univariate ? EmpiricalDistributions.UvBinnedDist(probabilities) : EmpiricalDistributions.MvBinnedDist(probabilities)
     catch err
         err isa AssertionError || rethrow()
         _plot_weight_error("binned distribution constructor cannot represent this histogram")
     end
+    _plot_check_binned_moments(dist, moments, univariate)
     actual = convert(Histogram, dist)
     _plot_validate_histogram(actual)
     masses = map(CartesianIndices(actual.weights)) do index

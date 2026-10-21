@@ -14,6 +14,7 @@ function _Plots_backend_is_pyplot end
 
 
 include("histogram_weights.jl")
+include("binned_moments.jl")
 include("MarginalDist.jl")
 include("recipes_MarginalDist_1D.jl")
 include("recipes_MarginalDist_2D.jl")

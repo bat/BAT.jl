@@ -1,6 +1,21 @@
 # Plot Recipes
 The plot recipes described below apply for plotting samples. Only the plotting of estimators (mean, standard deviation, global mode and local mode) is currently only supported for samples.
 
+`MarginalDist` constructed from samples checks both histogram probabilities and
+the binned distribution's cached coordinate statistics. These statistics use bin
+centers, so a single occupied bin has zero variance in exact arithmetic; no
+within-bin variance term is added. Construction throws `ArgumentError` if
+coordinate arithmetic overflows, loses a nonzero result, produces a subnormal
+intermediate/statistic, or disagrees with the checked dependency result. This
+conservative check can reject a histogram even when wider arithmetic could
+represent its moments. Ordinary floating-point rounding and cancellation still
+apply. Gradual underflow must be enabled, and BigFloat arithmetic requires
+round-to-nearest; construction does not change either setting. Existing
+distribution wrappers and direct EmpiricalDistributions constructors do not
+pass through this sample-construction check.
+Bin edges use the floating coordinate precision of the cached statistics;
+edges that collapse under conversion are rejected.
+
 Also see the plotting tutorial for examples and further information on the plotting options.
 
 ## 1D plots

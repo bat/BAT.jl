@@ -71,9 +71,18 @@ with_label(series, name) = only(filter(s -> get(s.plotattributes, :label, nothin
         filtered_bad = fixture([NaN 10.0 0.0 1.0; 0.0 1.0 2.0 3.0], [1e-8, 1e-6, 1.0, 1.0])
         @test_throws ArgumentError recipe(filtered_bad, (1, 2); filter=true)
         # An unused 1.03*peak overlay calculation must not invalidate the marginal.
+        # H22 now rejects subnormal cached coordinates, even without overlays.
         narrow = fixture(reshape([2.8e-309, 2.8e-309], 1, :), [1, 1])
-        @test !isempty(recipe(narrow, 1; bins=range(0.0, 5.6e-309; length=2)))
+        @test_throws ArgumentError recipe(narrow, 1; bins=range(0.0, 5.6e-309; length=2))
         @test_throws ArgumentError recipe(narrow, 1; bins=range(0.0, 5.6e-309; length=2), mean=true)
+        # Translate the same high-density case into the admitted coordinate
+        # range; its finite PDF still overflows only in the requested overlay.
+        width = ldexp(65.0, -1030)
+        center = 128width
+        translated = fixture(reshape([center, center], 1, :), [1, 1])
+        bins = range(center - width/2, center + width/2; length=2)
+        @test !isempty(recipe(translated, 1; bins))
+        @test_throws ArgumentError recipe(translated, 1; bins, mean=true)
     end
 
     @testset "Used coordinates, spread and final geometry" begin
