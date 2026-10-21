@@ -34,13 +34,14 @@ function moment_error(f)
     @test err isa ArgumentError && occursin("Binned coordinate moments:", sprint(showerror, err))
 end
 
-# Old allowed dependencies draw bin selection from the default RNG (H32).
-# Preserve both input streams and their consumption without blessing that defect.
+# Explicit sampling must preserve the default stream as well as agree with the
+# dependency's values and explicit RNG consumption.
 function draws(dist, seed)
-    Random.seed!(619)
+    default_before = copy(Random.default_rng())
     explicit = Xoshiro(seed)
     values = rand(explicit, dist, 16)
-    return values, explicit, copy(Random.default_rng())
+    @test copy(Random.default_rng()) == default_before
+    return values, explicit
 end
 
 @testset "Checked binned coordinate moments" begin

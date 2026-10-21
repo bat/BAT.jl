@@ -66,6 +66,12 @@ BAT.jl v5.0.0
 * `default_batcontext` supports scoped context overrides inherited by child
   tasks.
 
+### Bug fixes
+
+* Require EmpiricalDistributions 0.3.9 or later so binned sampling with an
+  explicit RNG uses only that RNG and preserves the default RNG state.
+  Previously affected seeded sampling sequences can change after upgrading.
+
 BAT.jl v4.0.0
 -------------
 
