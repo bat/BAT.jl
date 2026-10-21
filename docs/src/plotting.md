@@ -129,7 +129,7 @@ The plot style of the mean can be customized using a `Dict`.  For `mean = true`,
 * `marginalmode::Union{Dict, Bool} = true`: indicate the marginalmode(s), i.e. the center of the highest histogram bin(s) (currently only for samples). The style can be passed as a `Dict`. If `marginalmode = true`, the default style is:
 `Dict("linestyle" => :dot, "linewidth" => 1, "linecolor" => :black, "alpha" => 1, "label" => "marginal mode")`
 
-* `smoothing = 0`: When plotting contours, a Gaussian filtering can be applied for smoothing the contour lines. The keyword `smoothing` accepts  positive real number (or a tuple of two positive real numbers), specifying the standard deviation of the Gaussian kernel (for each dimension) of the filtering.
+* `smoothing = 0`: Gaussian smoothing for contours, specified by a finite, nonnegative real standard deviation in bin-index units. A scalar applies to both axes; a tuple such as `(0.5, 1.0)` specifies each axis separately. Zero disables smoothing on that axis, so `(0, 1)` smooths only the second axis. Each axis uses radius `2*ceil(sigma)`, with zero padding and cropping to the displayed grid. Requests exceeding the internal kernel, numeric-buffer or convolution-work budgets raise an `ArgumentError`; reduce smoothing or the number of bins, or use whole-bin regions. See the [contour contract](experimental_api.md#Histogram-weights-and-statistical-overlays) for resource limits and probability semantics.
 
 *  `diagonal = Dict()`: Used only for the seriestype `:marginal`. The dictionary can contain the seriestypes and plot options for 2D distributions explained above to modify the 2D plot of the marginal plot. Nested Dictionaries are possible to modify the styles of the estimators as described above
 

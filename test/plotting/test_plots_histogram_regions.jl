@@ -354,5 +354,61 @@ end
         @test right.plotattributes[:seriestype] == :smallest_intervals
         @test right.plotattributes[:intervals] == [0.5]
     end
+
+    @testset "Bounded tuple smoothing through samples and marginals" begin
+        bins = (0.:1.:3., 0.:2.:8.)
+        weights = [1. 4. 2. 3.; 5. 2. 9. 1.; 2. 6. 1. 7.]
+        centers = map(e -> (e[1:end-1] .+ e[2:end]) ./ 2, bins)
+        samples = DensitySampleVector(v=[[centers[1][i],centers[2][j]]
+            for j in 1:4 for i in 1:3], logd=zeros(12), weight=vec(copy(weights)))
+        before = deepcopy(samples)
+        m = marginal(map(collect,bins), weights)
+        figures = Plots.Plot[]
+        for style in (:smallest_intervals_contour, :smallest_intervals_contourf),
+            sigmas in ((0.5,1.), (0.,1.), (1.,0.), (0.,0.))
+            # Direct finite-support sum, including a zero axis and edge crop.
+            factor(d,s) = iszero(s) ? Float64(d == 0) : exp(-d^2/(2s^2))
+            smooth = [sum(weights[a,b]*factor(i-a,sigmas[1])*factor(j-b,sigmas[2])
+                for a in 1:3, b in 1:4 if abs(i-a) <= 2ceil(Int,sigmas[1]) &&
+                    abs(j-b) <= 2ceil(Int,sigmas[2])) for i in 1:3, j in 1:4]
+            smooth ./= maximum(smooth)
+            cutoff = first(t for t in sort(unique(vec(smooth)); rev=true)
+                if sum(smooth[smooth .>= t]) >= 0.6sum(smooth))
+            for input in (m, samples)
+                p = Plots.plot(input, (1,2); seriestype=style, bins=bins,
+                    smoothing=sigmas, intervals=[0.6], colors=[:blue],
+                    interval_labels=["selected"], marginalmode=false, mean=false, std=false)
+                s = only(series_of(p,:contour))
+                @test s[:z].surf ≈ permutedims(smooth) rtol=5e-14 atol=1e-15
+                @test first(s[:levels]) ≈ cutoff rtol=5e-14
+                @test s[:x] == centers[1]
+                @test s[:y] == centers[2]
+                @test s[:label] == "selected"
+                @test s[:linecolor] == Plots.plot_color(:blue)
+                @test (s[:fillrange] !== nothing) == (style == :smallest_intervals_contourf)
+                push!(figures,p)
+            end
+        end
+        for style in (:smallest_intervals_contour, :smallest_intervals_contourf)
+            for input in (m,samples), sigma in (1e6, ldexp(1.,62), (0.,1e6), (-1.,0.), (0.,Inf))
+                @test_throws ArgumentError Plots.plot(input, (1,2); seriestype=style,
+                    bins=bins, smoothing=sigma, marginalmode=false)
+            end
+            for intervals in (Float64[], [0.])
+                @test isempty(recipe(m, (1,2); seriestype=style,
+                    intervals=intervals, smoothing=(1e6,0.)))
+            end
+            zero = raw_marginal(Histogram(map(collect,bins), zeros(3,4), :left, true))
+            @test isempty(recipe(zero, (1,2); seriestype=style, smoothing=(0.,1e6)))
+        end
+        @test samples == before
+        mktempdir() do dir
+            for (i,p) in enumerate(figures)
+                path = joinpath(dir,"tuple-contour-$i.png")
+                Plots.savefig(p,path)
+                @test filesize(path) > 0
+            end
+        end
+    end
 end
 end

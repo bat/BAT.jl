@@ -258,11 +258,59 @@ function get_probability_content(hist::Histogram, selected::AbstractVector{<:His
     end
 end
 
+# Bound the additional dense smoothing payload and multiply-add count before
+# constructing a kernel or padded grid. These are per-contour resource limits.
+const _HISTOGRAM_SMOOTH_MAX_KERNEL_CELLS = 1 << 20
+const _HISTOGRAM_SMOOTH_MAX_BUFFER_CELLS = 1 << 23
+const _HISTOGRAM_SMOOTH_MAX_WORK = 1 << 26
+
+_histogram_smoothing_sigmas(smoothing::Real) = (smoothing, smoothing)
+_histogram_smoothing_sigmas(smoothing::Tuple{Real,Real}) = smoothing
+
+function _histogram_smoothing_plan(dims::Tuple{Int,Int}, sigmas::Tuple{Float64,Float64})
+    all(>(0), dims) || throw(ArgumentError("histogram smoothing dimensions must be positive"))
+    all(s -> isfinite(s) && s >= 0, sigmas) ||
+        throw(ArgumentError("histogram contour smoothing must be finite and nonnegative"))
+    kernel_limit = _HISTOGRAM_SMOOTH_MAX_KERNEL_CELLS
+    buffer_limit = _HISTOGRAM_SMOOTH_MAX_BUFFER_CELLS
+    work_limit = _HISTOGRAM_SMOOTH_MAX_WORK
+    fail(kind) = throw(ArgumentError("histogram contour smoothing exceeds the $kind budget; reduce smoothing or the number of bins, or use whole-bin regions"))
+
+    # Each side alone must fit the kernel cell budget. Compare before ceil(Int)
+    # or multiplication, including finite sigma outside the machine Int range.
+    all(s -> s <= (kernel_limit - 1) ÷ 4, sigmas) || fail("kernel")
+    sides = map(s -> 4 * ceil(Int, s) + 1, sigmas)
+    # gaussian_kernel squares native-integer offsets before floating division.
+    # Wide one-axis kernels can fit the resource budgets but overflow on Int32.
+    all(l -> l ÷ 2 <= isqrt(typemax(Int)), sides) ||
+        throw(ArgumentError("histogram contour smoothing support exceeds the working integer range; reduce smoothing"))
+    sides[1] <= kernel_limit ÷ sides[2] || fail("kernel")
+    kernel_cells = sides[1] * sides[2]
+    dims[1] <= buffer_limit ÷ dims[2] || fail("buffer")
+    cells = dims[1] * dims[2]
+    cells <= work_limit ÷ kernel_cells || fail("work")
+
+    all(d -> dims[d] <= buffer_limit - sides[d] + 1, 1:2) || fail("buffer")
+    padded = map((n, l) -> n + l - 1, dims, sides)
+    padded[1] <= buffer_limit ÷ padded[2] || fail("buffer")
+    padded_cells = padded[1] * padded[2]
+    # Kernel and its positive-value copy, positive field copy, convolution
+    # result, relative normalization, padded input and Gaussian vectors.
+    remaining = buffer_limit
+    for (multiplicity, count) in ((2, kernel_cells), (3, cells), (1, padded_cells), (2, sides[1]), (2, sides[2]))
+        count <= remaining ÷ multiplicity || fail("buffer")
+        remaining -= multiplicity * count
+    end
+    return (sides=sides, kernel_cells=kernel_cells, padded=padded,
+        buffer_cells=buffer_limit - remaining, work=cells * kernel_cells)
+end
+
 # Paired contour field and scientific metadata. Contour geometry is interpolated,
 # not an exact boundary of the selected histogram cells. No backend types here.
-function _histogram_contour_data(hist::Histogram, intervals::AbstractVector{<:Real}; smoothing::Real=0)
+function _histogram_contour_data(hist::Histogram, intervals::AbstractVector{<:Real}; smoothing::Union{Real,Tuple{Real,Real}}=0)
     ndims(hist.weights) == 2 || throw(ArgumentError("histogram contours require two dimensions"))
-    isfinite(smoothing) && smoothing >= 0 || throw(ArgumentError("histogram contour smoothing must be finite and nonnegative"))
+    sigmas = _histogram_smoothing_sigmas(smoothing)
+    all(s -> isfinite(s) && s >= 0, sigmas) || throw(ArgumentError("histogram contour smoothing must be finite and nonnegative"))
     requests, permutation = _histogram_region_requests(intervals)
     data = _histogram_region_data(hist)
     field = zeros(Float64, size(hist.weights))
@@ -281,9 +329,11 @@ function _histogram_contour_data(hist::Histogram, intervals::AbstractVector{<:Re
             field[i] > 0 || _plot_weight_error("positive relative contour density is outside the renderer range")
         end
     end
-    if !iszero(smoothing)
-        sigma = _plot_float64(smoothing, "histogram contour smoothing")
-        kernel = gaussian_kernel(sigma)
+    if any(s -> !iszero(s), sigmas)
+        converted = map(s -> _plot_float64(s, "histogram contour smoothing"), sigmas)
+        plan = _histogram_smoothing_plan(size(field), converted)
+        kernel = smoothing isa Real ? gaussian_kernel(converted[1]; l=plan.sides[1]) :
+            gaussian_kernel(converted; l=plan.sides)
         all(v -> isfinite(v) && v >= 0, kernel) && any(>(0), kernel) ||
             _plot_weight_error("histogram contour smoothing kernel is outside the working numerical range")
         minimum(filter(>(0), vec(field))) * minimum(filter(>(0), vec(kernel))) > 0 ||

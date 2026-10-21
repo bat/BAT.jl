@@ -198,8 +198,25 @@ bins. Contours require at least two cells on each axis and a representable posit
 relative-density field, with distinct Float64 centers inside their cells, even when
 exact cell regions are representable. Coincident
 cutoffs retain the tighter request's color. Numeric contour labels cannot be
-interpreted as original density units. The inherited smoothing kernel still has
-no general allocation/work budget for arbitrarily large finite smoothing values.
+interpreted as original density units.
+
+Contour `smoothing` accepts a finite, nonnegative real scalar or a two-tuple
+`(sigma_x, sigma_y)`. A scalar applies to both axes; zero disables smoothing on
+that axis. Each axis uses Gaussian support radius `2*ceil(sigma)` after conversion
+to the Float64 working type. Active smoothing is admitted before constructing its
+kernel or padded input, with per-contour limits of `2^20` kernel cells, `2^23`
+additional Float64 numeric-buffer slots (64 MiB payload), and `2^26` direct
+convolution contributions. Gaussian offset squares must also fit the native
+integer type; this further restricts wide one-axis kernels on 32-bit hosts.
+The buffer limit includes the kernel, padded input,
+coefficient vectors and numerical temporaries; it excludes existing histogram
+storage, preceding region preparation, object/runtime overhead and rendering.
+It is not a total allocation or process-memory bound. For example, a 200×200
+grid admits scalar sigma 9 but rejects sigma 10 on work cost. Excessive requests
+raise `ArgumentError` rather than changing the requested smoothing. Reduce sigma
+or the number of bins, or select whole-bin regions. Empty/all-zero probability
+requests and zero-mass histograms require no smoothing and accept any finite,
+nonnegative sigma; sign and finiteness are still validated.
 
 ## KDE support and credible regions
 
