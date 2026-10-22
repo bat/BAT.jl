@@ -414,6 +414,87 @@ function compute_plotting_primitives(
     return (x=x, y=y, weights=counts, thresh=final_thresh)
 end
 
+function _check_hexbin_count_colors(counts::AbstractArray{<:Real})
+    isempty(counts) && return counts
+    fail() = throw(ArgumentError("Hexbin2D displayed counts exceed Float32 color range or resolution; rescaling count units and threshold together may help magnitude limits; otherwise use a normalized histogram or whole-bin region recipe"))
+    for value in counts
+        isfinite(value) && value >= 0 || fail()
+        converted = Float32(value)
+        isfinite(converted) && (iszero(value) || converted >= floatmin(Float32)) || fail()
+    end
+    lo, hi = extrema(counts)
+    # Match native Hexbin's automatic range for uniform/zero counts.
+    lo == hi && (lo = zero(lo); iszero(hi) && (hi = one(hi)))
+    flo, fhi = Float32(lo), Float32(hi)
+    span = Float64(hi) - Float64(lo)
+    fspan = fhi - flo
+    isfinite(span) && span > 0 && isfinite(fspan) && fspan >= floatmin(Float32) || fail()
+    # Shaders may implement division by multiplying with a reciprocal. Keep
+    # that reciprocal normal, with headroom at the flush-to-zero boundary.
+    reciprocal_span = inv(fspan)
+    isfinite(reciprocal_span) && reciprocal_span >= 2floatmin(Float32) || fail()
+    # The scalar color coordinates must survive narrowing, including at a
+    # large common offset. The allowance is in normalized colormap coordinates.
+    tolerance = 4 * Float64(eps(Float32))
+    for value in counts
+        exact_position = (Float64(value) - Float64(lo)) / span
+        numerator = Float32(value) - flo
+        rendered_position = Float64(numerator / fspan)
+        reciprocal_position = Float64(numerator * reciprocal_span)
+        # GPU arithmetic may flush a subnormal subtraction to zero even when
+        # the count and range endpoints themselves are normal.
+        flushed_position = numerator < floatmin(Float32) ? 0.0 : rendered_position
+        cpu_position = (Float64(Float32(value)) - Float64(flo)) / (Float64(fhi) - Float64(flo))
+        max(abs(exact_position - rendered_position), abs(exact_position - cpu_position),
+            abs(exact_position - flushed_position),
+            abs(exact_position - reciprocal_position)) <= tolerance || fail()
+    end
+    return counts
+end
+
+# Internal adapter: native Hexbin owns aggregation, threshold and geometry.
+# Its hidden renderer uses a harmless fixed range. Only checked counts reach
+# the visible Scatter's Float32 color conversion.
+Makie.@recipe BATCheckedHexbin begin
+    Makie.documented_attributes(Makie.Hexbin)...
+end
+Makie.conversion_trait(::Type{<:BATCheckedHexbin}) = Makie.PointBased()
+# Preserve the native Hexbin theme namespace despite the private adapter type.
+# Explicit PlotSpec count range/scale and caller keywords retain precedence.
+Makie.add_theme!(::Type{<:BATCheckedHexbin}, kw, graph::Makie.ComputeGraph, scene::Makie.Scene) =
+    Makie.add_theme!(Makie.Hexbin, kw, graph, scene)
+
+function Makie.plot!(p::BATCheckedHexbin)
+    native = Makie.hexbin!(p, Makie.Attributes(p), p[1];
+        visible=false, inspectable=false, colorscale=identity, colorrange=(0.0, 1.0))
+    Makie.map!(p, [native.count_hex], [:checked_counts, :count_colorrange]) do counts
+        _check_hexbin_count_colors(counts)
+        # Native automatic Hexbin range, including empty/uniform cases.
+        range = if isempty(counts)
+            (0.0, 1.0)
+        else
+            lo, hi = extrema(counts)
+            lo == hi ? (0.0, iszero(hi) ? 1.0 : hi) : (lo, hi)
+        end
+        return counts, range
+    end
+    Makie.scatter!(p, Makie.Attributes(p), native.points;
+        color=p.checked_counts, colorrange=p.count_colorrange, colorscale=identity,
+        marker=only(native.plots).marker, markersize=native.markersize,
+        markerspace=:data, transformation=:inherit_model)
+    return p
+end
+# BAT-owned updates demand the check before handing control back to a renderer.
+# A normal native/public Makie consumer still resolves it on color demand.
+_validate_plot_display(::Makie.AbstractPlot) = nothing
+function _validate_plot_display(p::BATCheckedHexbin)
+    p.checked_counts[]
+    return nothing
+end
+Makie.extract_colormap(p::BATCheckedHexbin) = Makie.extract_colormap(p.plots[2])
+Makie.data_limits(p::BATCheckedHexbin) = Makie.data_limits(p.plots[1])
+Makie.boundingbox(p::BATCheckedHexbin, space::Symbol=:data) = Makie.boundingbox(p.plots[1], space)
+
 function compose_plotspecs(
     primitives::NamedTuple,
     recipe::Hexbin2D,
@@ -434,11 +515,13 @@ function compose_plotspecs(
         nbins isa Tuple && (nbins = reverse(nbins))
     end
 
-    hex = S.Hexbin(x, y;
+    hex = Makie.PlotSpec(BATCheckedHexbin, x, y;
         weights=weights,
         bins=nbins,
         colormap=final_cmap,
-        threshold=thresh
+        threshold=thresh,
+        colorrange=Makie.automatic,
+        colorscale=identity
     )
 
     return [hex]

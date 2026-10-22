@@ -123,3 +123,20 @@ caller-owned direct Makie display outside their claims. They are separate from
 headless CI and do not imply a platform or renderer-version compatibility matrix.
 The optional MCMC owner runner provides native SIGINT coverage separately;
 direct exception tests in `task_rng` are not native signal tests.
+
+`hexbin` checks absolute weighted-count color admission after native aggregation
+and threshold filtering. It covers independent BigFloat oracles, generated count
+families, native geometry and colorbar parity, actual public figures/Apply,
+SpecApi updates, fail-stop disposal and recreation, and bounded validation
+allocations. `hexbin_lifecycle` demands the actual rejection inside BAT's grid
+update and existing live view guard, checking failed/incomplete status, observer
+release and independent-figure survival. Its focused owner fixture does not
+claim sampler/RNG parity for an entire sampling run.
+
+`gl_hexbin.jl` checks the same count adapter on native GL with actual Colorbars,
+direct and SpecApi updates, rejected-figure disposal/recreation and survival of
+an independent screen. Run it separately with an external deadline, as above.
+It creates hidden stopped screens and closes only screens owned by the test.
+The GL hexbin check also compares actual rendered pixels across admitted count
+magnitudes, including the reciprocal-span boundary. This catches shader color
+collapse that a finite CPU color mapping and nonempty image alone would miss.

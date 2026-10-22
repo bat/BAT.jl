@@ -12,7 +12,7 @@ ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
 
 [compat]
 CairoMakie = "0.15"
-Makie = "0.24"
+Makie = "0.24.8"
 julia = "1.10"
 
 [sources]

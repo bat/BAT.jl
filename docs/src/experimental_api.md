@@ -155,9 +155,33 @@ units, or use QuantileHist2D when that limit is reached. ARP weights can reach
 this limit even with ordinary coordinate ranges. Statistical overlays
 reject nonfinite or collapsed positive spread and interval geometry. Constant
 data and singular covariance remain supported where the recipe defines them.
-Native hexbin retains a separate backend limitation: extreme finite Float64
-counts can overflow or lose distinctions in its Float32 color mapping. Its
-count/threshold admission checks do not guarantee extreme-range color fidelity.
+
+`Hexbin2D` colors show absolute weighted counts, with thresholds in the same
+units. The Makie extension requires Makie 0.24.8 or later in the 0.24 series,
+for native Hexbin count nodes and safe transient widget layouts.
+After native bin aggregation and threshold filtering, displayed counts
+must survive Float32 conversion without materially changing their normalized
+color positions. Unsupported magnitudes, collapsed ranges, or insufficient
+color resolution raise an `ArgumentError` (possibly wrapped by Makie's compute
+pipeline). Empty and uniform-count displays retain Makie's automatic range
+policy. Tiny individual weights are allowed when their displayed bin totals
+pass this check.
+
+Rescaling count units and thresholds together may resolve magnitude limits;
+it need not repair insufficient relative contrast. A normalized histogram or
+whole-bin region recipe is another option. Admission bounds scalar color
+positions within `8eps(Float32)` under CPU/Float32 arithmetic, including
+reciprocal-based normalization and subnormal subtraction flushed to zero. The
+reciprocal span must remain normal with headroom for shader arithmetic. This
+does not promise distinct pixels for every distinct count or identical palette
+interpolation across renderers. Colorbar endpoints retain absolute
+count units at Float32 precision.
+
+BAT-owned interactive updates demand this check before returning to a renderer.
+Ordinary caller-owned Makie plots may reject on update or later color evaluation.
+After a rejected update, dispose and recreate the caller-owned figure; in-place
+retry is not supported. Live BAT visualization follows its existing failure and
+disposal policy and marks the presentation incomplete.
 
 `MarginalDist` checks its dependency's actual PDF and reconstructed bin masses.
 Its dependency's cached coordinate moments have separate extreme-range limits.

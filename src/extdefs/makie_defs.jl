@@ -307,7 +307,11 @@ export QuantileHist2D
 """
     struct Hexbin2D <: BATMakieRecipe
 
-2D hexagonal-binning density (off-diagonal cells).
+2D hexagonal binning colored by absolute weighted counts (off-diagonal cells).
+Thresholds use the same count units. Displayed bins must retain their normalized
+color positions through Makie's Float32 conversion; unsupported magnitudes or
+insufficient color resolution raise an error. Dispose and recreate a caller-owned
+figure after a rejected update.
 """
 struct Hexbin2D <: BATMakieRecipe end
 export Hexbin2D
