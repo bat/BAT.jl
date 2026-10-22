@@ -27,23 +27,26 @@ end
 
 Constructors:
 
-* ```$(FUNCTIONNAME)(func::Function, measure::AbstractMeasure, v::Any, ret::Any)```
+* ```$(FUNCTIONNAME)(func::Function, measure::Any, v::Any, ret::Any)```
+
+The target `measure` may be a measure or a generic density. The fields retain
+the supplied objects without copying them.
 
 Fields:
 
 $(TYPEDFIELDS)
 """
-struct EvalException{F<:Function,D<:AbstractMeasure,V,C} <: Exception
+struct EvalException{F<:Function,D,V,C} <: Exception
     "Density evaluation function that failed."
     func::F
 
-    "Density being evaluated."
+    "Measure or density being evaluated; the field retains its historical name."
     measure::D
 
-    "Variate at which the evaluation of `measure` (applying `f` to `d` at `v`) failed."
+    "Variate at which `func(measure, v)` failed."
     v::V
 
-    "Cause of failure, either the invalid return value of `f` on `d` at `v`, or another expection (on rethrow)."
+    "Cause of failure: the invalid return value of `func(measure, v)`, or the caught exception."
     ret::C
 end
 
@@ -63,19 +66,25 @@ end
 
 
 """
-    checked_logdensityof(measure::AbstractMeasure, v::Any, T::Type{<:Real})
+    checked_logdensityof(target, v)
+    checked_logdensityof(target)
 
 *BAT-internal, not part of stable public API.*
 
-Evaluates the measure's log-density value via `DensityInterface.logdensityof`
-and performs additional checks.
+Evaluates a measure or density via `DensityInterface.logdensityof` and performs
+additional checks. The one-argument form returns a function of the variate.
 
-Throws a `BAT.EvalException` on any of these conditions:
+The generic method preserves valid `Real` results, including negative infinity,
+without conversion. It throws a `BAT.EvalException` on any of these conditions:
 
-* The variate shape of `measure` (if known) does not match the shape of `v`.
+* `DensityInterface.logdensityof` throws an exception.
 * The return value of `DensityInterface.logdensityof` is `NaN`.
 * The return value of `DensityInterface.logdensityof` is an equivalent of positive
   infinity.
+
+The Zygote rule checks variate shape before evaluation; errors from that check
+are not wrapped. Errors raised later by the reverse pullback are also not
+wrapped. Specialized measure methods may impose different checks.
 """
 function checked_logdensityof end
 
@@ -127,7 +136,7 @@ _check_density_logval_pullback(::Any) = (NoTangent(), NoTangent(), ZeroTangent()
 
 
 
-value_for_msg(v::Real) = v
+value_for_msg(v) = v
 # Strip dual numbers to make errors more readable:
 value_for_msg(v::ForwardDiff.Dual) = ForwardDiff.value(v)
 value_for_msg(v::AbstractArray) = value_for_msg.(v)

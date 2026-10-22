@@ -166,9 +166,9 @@ function gated_likelihood(vis, gate, x)
     return -sum(abs2, x) / 2
 end
 
-# A measure-owned numerical failure exercises BAT's existing EvalException
-# path. Generic likelihood error wrapping has a separate inherited defect
-# (H27); using a real measure here must not silently accept that MethodError.
+# Keep this measure-owned failure path alongside the generic likelihood
+# regression tests in test_abstract_density.jl. Both must retain the actual
+# cause through EvalException, including after visualizer disposal.
 struct GatedMeasure{M,V} <: BAT.BATMeasure
     base::M
     vis::V
