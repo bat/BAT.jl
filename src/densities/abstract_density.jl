@@ -82,9 +82,11 @@ without conversion. It throws a `BAT.EvalException` on any of these conditions:
 * The return value of `DensityInterface.logdensityof` is an equivalent of positive
   infinity.
 
-The Zygote rule checks variate shape before evaluation; errors from that check
-are not wrapped. Errors raised later by the reverse pullback are also not
-wrapped. Specialized measure methods may impose different checks.
+The Zygote rule checks variate shape before evaluation when `varshape` has a
+uniquely applicable method for the target. Absent or ambiguous shape metadata
+does not impose a shape preflight. Errors from an applicable metadata method
+or the shape check are not wrapped. Errors raised later by the reverse pullback
+are also not wrapped. Specialized measure methods may impose different checks.
 """
 function checked_logdensityof end
 
@@ -107,7 +109,9 @@ function checked_logdensityof(target, v)
 end
 
 ZygoteRules.@adjoint checked_logdensityof(target, v) = begin
-    check_variate(varshape(target), v)
+    if applicable(varshape, target)
+        check_variate(varshape(target), v)
+    end
     logval, back = try
         ZygoteRules.pullback(logdensityof(target), v)
     catch err

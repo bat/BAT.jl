@@ -21,9 +21,35 @@ struct TestDensity{F}
 end
 DensityInterface.DensityKind(::TestDensity) = IsDensity()
 DensityInterface.logdensityof(d::TestDensity, x) = d.f(x)
-# The existing Zygote rule requires this interface. Bare LogFuncDensity shape
-# discovery is a separate issue (H34); do not add a method on that foreign type.
+# Keep explicit missing metadata as a control for the original failure tests.
+# Separate fixtures below exercise optional metadata without modifying foreign types.
 ValueShapes.varshape(::TestDensity) = missing
+
+struct DensityWithoutShape{F}
+    f::F
+end
+
+struct DensityWithShape{F,S}
+    f::F
+    shape::S
+end
+ValueShapes.varshape(d::DensityWithShape) = d.shape
+
+struct DensityWithBrokenShape{F,E}
+    f::F
+    err::E
+end
+ValueShapes.varshape(d::DensityWithBrokenShape) = throw(d.err)
+
+DensityInterface.DensityKind(::Union{DensityWithoutShape,DensityWithShape,DensityWithBrokenShape}) = IsDensity()
+DensityInterface.logdensityof(d::Union{DensityWithoutShape,DensityWithShape,DensityWithBrokenShape}, x) = d.f(x)
+
+# Deliberately ambiguous optional metadata: neither method can be selected.
+struct DensityWithAmbiguousShape{A,B} end
+DensityInterface.DensityKind(::DensityWithAmbiguousShape) = IsDensity()
+DensityInterface.logdensityof(::DensityWithAmbiguousShape, x) = -sum(abs2, x)/2
+ValueShapes.varshape(::DensityWithAmbiguousShape{Int,B}) where B = ArrayShape{Real}(1)
+ValueShapes.varshape(::DensityWithAmbiguousShape{A,Int}) where A = ArrayShape{Real}(2)
 
 struct TestMeasure{F} <: BAT.BATMeasure
     f::F
@@ -137,6 +163,79 @@ end
                 @test value ≈ expected_value
                 @test gradient ≈ -factor*good
             end
+        end
+    end
+
+    @testset "Generic density AD without shape metadata" begin
+        adsel = BAT.get_adselector(BATContext(ad=Zygote))
+        v = [0.25, -0.5]
+        before = copy(v)
+        for wrap in (logfuncdensity, BAT.LFDensity, DensityWithoutShape,
+            f -> joint_likelihood(logfuncdensity(f), logfuncdensity(_ -> 0.0)))
+            target = wrap(x -> -sum(abs2, x)/2)
+            @test !applicable(varshape, target)
+            @test BAT.checked_logdensityof(target, v) == -5/32
+            @test only(Zygote.gradient(logdensityof(target), v)) == -v
+            @test ForwardDiff.gradient(BAT.checked_logdensityof(target), v) == -v
+            value, back = Zygote.pullback(BAT.checked_logdensityof(target), v)
+            @test value == -5/32
+            @test only(back(2.0)) == -2v
+            @test only(Zygote.gradient(x -> BAT.checked_logdensityof(target, x), v)) == -v
+            fg = valgrad_func(BAT.checked_logdensityof(target), adsel, v)
+            @test (@inferred fg(v)) == (-5/32, -v)
+
+            constant = wrap(_ -> -2.0)
+            @test only(Zygote.gradient(BAT.checked_logdensityof(constant), v)) == zeros(2)
+            @test valgrad_func(BAT.checked_logdensityof(constant), adsel, v)(v) == (-2.0, zeros(2))
+            scalar = wrap(x -> -x^2/2)
+            @test only(Zygote.gradient(BAT.checked_logdensityof(scalar), 0.25)) == -0.25
+            shaped = wrap(p -> -(p.a^2 + p.b^2)/2)
+            @test only(Zygote.gradient(BAT.checked_logdensityof(shaped), (a=0.25, b=-0.5))) == (a=-0.25, b=0.5)
+        end
+        @test v == before
+    end
+
+    @testset "Optional metadata dispatch and failures" begin
+        adsel = BAT.get_adselector(BATContext(ad=Zygote))
+        v = [0.25, -0.5]
+        for shape in (missing, ArrayShape{Real}(2))
+            target = DensityWithShape(x -> -sum(abs2, x)/2, shape)
+            @test only(Zygote.gradient(BAT.checked_logdensityof(target), v)) == -v
+            @test valgrad_func(BAT.checked_logdensityof(target), adsel, v)(v) == (-5/32, -v)
+        end
+        # The evaluator must not be reached for incompatible metadata.
+        for shape in (ArrayShape{Real}(3), :not_a_shape)
+            target = DensityWithShape(_ -> throw(failure), shape)
+            @test_throws ArgumentError Zygote.pullback(BAT.checked_logdensityof(target), v)
+        end
+        for cause in (failure, MethodError(varshape, (:broken_metadata,)))
+            target = DensityWithBrokenShape(_ -> throw(failure), cause)
+            @test caught(() -> Zygote.pullback(BAT.checked_logdensityof(target), v)) === cause
+        end
+        p = (a=0.25, b=-0.5)
+        target = DensityWithShape(p -> -(p.a^2 + p.b^2)/2, valshape(p))
+        @test only(Zygote.gradient(BAT.checked_logdensityof(target), p)) == (a=-0.25, b=0.5)
+        @test_throws ArgumentError Zygote.pullback(BAT.checked_logdensityof(target), (wrong=0.25, b=-0.5))
+
+        # Optional metadata requires unique applicable dispatch. This is not
+        # validation of third-party method tables; ambiguity supplies no check.
+        ambiguous = DensityWithAmbiguousShape{Int,Int}()
+        @test !applicable(varshape, ambiguous)
+        @test_throws MethodError varshape(ambiguous)
+        @test only(Zygote.gradient(BAT.checked_logdensityof(ambiguous), v)) == -v
+    end
+
+    @testset "Bare-density AD failure and recovery" begin
+        adsel = BAT.get_adselector(BATContext(ad=Zygote))
+        good, bad = [0.25, 0.5], [-0.25, 0.5]
+        for cause in (failure, NaN, Inf), wrap in (logfuncdensity, BAT.LFDensity, DensityWithoutShape)
+            f = x -> x[1] < 0 ? (cause isa Exception ? throw(cause) : cause) : -sum(abs2, x)/2
+            target = wrap(f)
+            fg = valgrad_func(BAT.checked_logdensityof(target), adsel, good)
+            @test fg(good) == (-5/32, -good)
+            test_evalexception(() -> Zygote.pullback(BAT.checked_logdensityof(target), bad), target, bad, cause)
+            test_evalexception(() -> fg(bad), target, bad, cause)
+            @test fg(good) == (-5/32, -good)
         end
     end
 
