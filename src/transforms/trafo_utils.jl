@@ -49,7 +49,7 @@ end
 
 # Reshaping has a zero log-abs-det Jacobian:
 _transform_samples(f::Union{AbstractValueShape,Base.Fix2{typeof(unshaped)}}, samples::DensitySampleVector) =
-    _with_new_variates(samples, _transform_batch(f, samples.v), samples.logd)
+    _with_new_variates(samples, _transform_batch(f, samples.v), copy(samples.logd))
 
 _transform_samples(f, samples::DensitySampleVector) = _transform_samples_impl(f, samples, _trafo_ladj_available(f, samples.v))
 
@@ -81,7 +81,11 @@ the log-density values corrected by the log-abs-det Jacobians of `f`.
 """
 function _transport_batch end
 
-_transport_batch(f::TransportFunction, X::AbstractVector) = _own_batch(transports(f, X), f.ν)
+# Transports between equal measures may return their input:
+function _transport_batch(f::TransportFunction, X::AbstractVector)
+    Y = _own_batch(transports(f, X), f.ν)
+    return _batch_mightalias(Y, X) ? _copy_batch(Y) : Y
+end
 
 # MeasureBase has no batched log-abs-det Jacobians of transports yet, so they
 # are computed variate by variate:

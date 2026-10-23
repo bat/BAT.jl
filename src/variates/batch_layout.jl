@@ -186,9 +186,9 @@ end
 
 The batch `X` of variates of `μ` in the layout of BAT's sample storage:
 constant components (point masses) of `μ` become `Fill` columns and lazy
-columns are materialized. Dense columns are taken as they are, `rand` and
-`transports` return fresh storage. Plain vectors of variates are converted
-to that layout.
+columns are materialized. Dense columns are taken as they are, they must
+not share storage with anything else. Plain vectors of variates are
+converted to that layout.
 """
 _own_batch(X::AbstractVector, μ::AbstractMeasure) = _own_batch_impl(_canonical_batch(X), varshape(μ))
 
@@ -204,6 +204,18 @@ function _own_batch_impl(X::AbstractVector, vs::AbstractValueShape)
     vs isa NamedTupleShape && throw(ArgumentError("Batch of type $(nameof(typeof(X))) doesn't match variate shape $vs"))
     return _dense_batch(X)
 end
+
+_copy_batch(X::StructVector{<:NamedTuple}) = StructArray(map(_copy_batch, StructArrays.components(X)))
+_copy_batch(X::AbstractVector) = _copy_leaf(_leafkind(X), X)
+_copy_leaf(::_ArrayLeaf, X::AbstractVector) = VectorOfSimilarArrays(copy(flatview(X)))
+_copy_leaf(::Any, X::AbstractVector) = copy(X)
+
+# Whether any column of `Y` may share storage with a column of `X`:
+_batch_mightalias(Y::AbstractVector, X::AbstractVector) =
+    any(L_Y -> any(L_X -> Base.mightalias(_leaf_storage(L_Y), _leaf_storage(L_X)), _leaves(X)), _leaves(Y))
+
+_leaf_storage(X::AbstractVectorOfSimilarArrays) = flatview(X)
+_leaf_storage(X::AbstractVector) = X
 
 _dense_batch(X::StructVector{<:NamedTuple}) = StructArray(map(_dense_batch, StructArrays.components(X)))
 _dense_batch(X::AbstractVector) = _dense_leaf(_leafkind(X), X)

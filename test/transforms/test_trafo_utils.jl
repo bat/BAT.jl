@@ -47,6 +47,11 @@ using BAT: transform_samples
         @test xsv2.v.c isa Fill
         @test isapprox(xsv2, xsv)
 
+        # Transports between equal measures don't share storage with their input:
+        Z = nestedview(randn(3, 4))
+        Z2 = transform_samples(transport_to(StdNormal()^3, StdNormal()^3), Z)
+        @test Z2 == Z && !Base.mightalias(flatview(Z2), flatview(Z))
+
         # A transport into a measure of higher precision promotes the
         # number type of the variates:
         xs32 = VectorOfSimilarVectors(rand(Float32, 2, 20))
