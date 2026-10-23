@@ -3,7 +3,7 @@ using BAT
 using Test
 
 using LinearAlgebra
-using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
+using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface, StructArrays
 using MeasureBase
 using IntervalSets
 using Random123
@@ -173,7 +173,7 @@ import ForwardDiff, Zygote
         )
         samples = smplres.result
         @test first(samples).info.chaincycle >= 2
-        @test samples.v isa ShapedAsNTArray
+        @test samples.v isa StructVector && varshape(samples) == varshape(objective)
         @test smplres.verified
     end
 
