@@ -7,6 +7,8 @@ const _KDE_FFT_PADDING = 8.0
 const _KDE_MAX_POINTS_1D = 65536
 const _KDE_MAX_AXIS_2D = 8192
 const _KDE_MAX_CELLS_2D = 4194304
+# Arithmetic admission, not an accuracy bound for the inherited FFT estimator.
+const _KDE_UNBOUNDED_RTOL = 2.0^-20
 
 _kde_numerical_error(message) = throw(ArgumentError("KDE: $message"))
 
@@ -25,8 +27,21 @@ end
 
 _support_is_binding(lo::Real, hi::Real) = isfinite(lo) || isfinite(hi)
 
-# Keep the legacy unbounded path's arithmetic for ordinary positive inputs.
-_rescale_kde_weights(weights::AbstractVector) = isempty(weights) ? weights : weights ./ maximum(weights)
+# Keep legacy arithmetic, but do not lose a positive row solely because division
+# took place in Float16/Float32 before the Float64 convolution population filter.
+function _rescale_kde_weights(weights::AbstractVector)
+    isempty(weights) && return weights
+    largest = maximum(weights)
+    relative = weights ./ largest
+    for (original, scaled) in zip(weights, relative)
+        if original > 0 && iszero(scaled) &&
+                (original isa Union{Float16,Float32} || largest isa Union{Float16,Float32}) &&
+                Float64(original) / Float64(largest) > 0
+            _kde_numerical_error("relative weight was lost in source precision; convert weights to Float64 before plotting")
+        end
+    end
+    return relative
+end
 
 function _kde_population(coords::Tuple, weights::AbstractVector, bounds::Tuple)
     all(v -> length(v) == length(weights), coords) ||
@@ -196,12 +211,121 @@ function _kde_cell_mass(density, xedges, yedges)
     return (; relative, probabilities=mass ./ total, total, sx, sy)
 end
 
+_kde_unbounded_error(message) = _kde_numerical_error(
+    "unbounded estimate $message; recenter coordinates or change units, or use a histogram")
+
+function _kde_positive_normal(value)
+    v = float(value)
+    return isfinite(v) && v >= floatmin(typeof(v))
+end
+
+function _kde_check_unbounded_bandwidth(values, weights, h, weighted)
+    isfinite(h) && h > 0 || _kde_unbounded_error("has an invalid bandwidth")
+    length(values) <= 1 && return nothing
+    sd = weighted ? std(values, Weights(weights ./ maximum(weights))) : std(values)
+    isfinite(sd) || _kde_unbounded_error("has nonfinite variance")
+    if allequal(values)
+        iszero(sd) || _kde_unbounded_error("cannot resolve constant-data variance")
+        return nothing
+    end
+    _kde_positive_normal(sd * sd) || _kde_unbounded_error("cannot resolve its variance")
+
+    # Witness only: preserve the original selected bandwidth and KDE call. A
+    # finite normal variance can still be wrong after low-precision mean rounding.
+    centered = collect(Float64, values)
+    centered .-= first(centered)
+    span = maximum(abs, centered)
+    isfinite(span) && span > 0 || _kde_unbounded_error("cannot resolve its centered span")
+    centered ./= span
+    reference = weighted ? _weighted_kde_bandwidth(centered, Float64.(weights)) :
+        KernelDensity.default_bandwidth(centered)
+    !isnothing(reference) && isfinite(reference) && reference > 0 &&
+        abs((h / span) / reference - 1) <= _KDE_UNBOUNDED_RTOL ||
+        _kde_unbounded_error("cannot resolve its bandwidth reliably")
+    return nothing
+end
+
+function _kde_check_unbounded_axis(values, grid, h)
+    # Range algorithms may inspect nominal spacing instead of rounded nodes.
+    physical = collect(Float64, grid)
+    s = step(grid)
+    length(physical) >= 2 && all(isfinite, physical) && _kde_positive_normal(s) ||
+        _kde_unbounded_error("has an invalid physical grid")
+    all(d -> isfinite(d) && d > 0 && abs(d/s - 1) <= _KDE_UNBOUNDED_RTOL, diff(physical)) ||
+        _kde_unbounded_error("cannot represent uniform physical grid spacing")
+
+    # KernelDensity uses Normal(0.0,h), whose CF separately squares sigma and t.
+    sigma = promote(0.0, h)[2]
+    frequency = -2pi / (s * length(grid))
+    last_frequency = (length(grid) ÷ 2) * frequency
+    all(_kde_positive_normal, (sigma*sigma/2, frequency*frequency, last_frequency*last_frequency)) ||
+        _kde_unbounded_error("exceeds Gaussian convolution arithmetic range")
+    for value in values
+        k = searchsortedfirst(grid, value)
+        j = k - 1
+        1 <= j < length(grid) || _kde_unbounded_error("cannot locate a positive-weight observation on its grid")
+        left, right = (grid[k]-value)/s, (value-grid[j])/s
+        isfinite(left) && isfinite(right) && left >= 0 && right >= 0 &&
+            abs(left + right - 1) <= _KDE_UNBOUNDED_RTOL ||
+            _kde_unbounded_error("cannot resolve its observation bins")
+    end
+    return s
+end
+
+function _kde_check_unbounded_tabulation(weights, steps::Tuple)
+    total = sum(weights)
+    _kde_positive_normal(total) || _kde_unbounded_error("has an invalid weight total")
+    area = prod(steps)
+    if length(steps) == 1
+        first_product = total * only(steps)
+        denominator = first_product * only(steps)
+        factors = (first_product, denominator)
+    else
+        squared_area = area * area
+        denominator = total * squared_area
+        factors = (area, squared_area, denominator)
+    end
+    all(_kde_positive_normal, factors) && _kde_positive_normal(1.0 / denominator) ||
+        _kde_unbounded_error("exceeds tabulation arithmetic range")
+    # Deposits and FFT buffers are Float64 even for BigFloat input arithmetic.
+    # A subnormal total can quantize relative masses while still summing to one.
+    fft_total = Float64(inv(area))
+    _kde_positive_normal(fft_total) && isfinite(16 * fft_total) ||
+        _kde_unbounded_error("exceeds the Float64 FFT buffer range")
+    return nothing
+end
+
+function _kde_check_unbounded_density(density, steps::Tuple)
+    relative, peak = _kde_relative_density(density)
+    # This is an invariant check, never a normalization of the returned density.
+    m, e = _kde_scale_product(peak, sum(relative), steps...)
+    mass = ldexp(m, e)
+    isfinite(mass) && abs(mass - 1) <= 8 * _KDE_UNBOUNDED_RTOL ||
+        _kde_unbounded_error("does not preserve probability mass")
+    return nothing
+end
+
+function _kde_check_unbounded_edges(edges, s)
+    physical = collect(Float64, edges)
+    all(isfinite, physical) && all(d -> isfinite(d) && d > 0 &&
+        abs(d/s - 1) <= 2 * _KDE_UNBOUNDED_RTOL, diff(physical)) ||
+        _kde_unbounded_error("cannot represent its physical cell edges")
+    return nothing
+end
+
 function _weighted_kde1d(values::AbstractVector, weights::AbstractVector, support=nothing)
     bounds = _kde_support_bounds(support)
     (values,), weights = _kde_population((values,), weights, (bounds,))
     if !_support_is_binding(bounds...)
-        h = allequal(weights) ? nothing : _weighted_kde_bandwidth(values, weights)
+        weighted = !allequal(weights)
+        h = weighted ? _weighted_kde_bandwidth(values, weights) : nothing
+        weighted && isnothing(h) && _kde_unbounded_error("cannot resolve its effective sample count or bandwidth")
+        selected_h = isnothing(h) ? KernelDensity.default_bandwidth(values) : h
+        _kde_check_unbounded_bandwidth(values, weights, selected_h, weighted)
         k = isnothing(h) ? kde(values; weights) : kde(values; weights, bandwidth=h)
+        steps = (_kde_check_unbounded_axis(values, k.x, selected_h),)
+        _kde_check_unbounded_tabulation(weights, steps)
+        _kde_check_unbounded_density(k.density, steps)
         return (x=k.x, density=k.density)
     end
     p = _kde_axis_plan(values, weights, bounds, 16, 2048, _KDE_MAX_POINTS_1D)
@@ -245,13 +369,25 @@ function _weighted_kde2d(x::AbstractVector, y::AbstractVector, weights::Abstract
     (x,y), weights = _kde_population((x,y), weights, bounds)
     if !any(b -> _support_is_binding(b...), bounds)
         hx = hy = nothing
-        if !allequal(weights)
+        weighted = !allequal(weights)
+        if weighted
             hx = _weighted_kde_bandwidth(x, weights)
             hy = _weighted_kde_bandwidth(y, weights)
         end
-        k = (isnothing(hx) || isnothing(hy)) ? kde((x,y); weights) :
+        use_default = isnothing(hx) || isnothing(hy)
+        weighted && use_default && _kde_unbounded_error("cannot resolve its effective sample count or bandwidth")
+        selected_hx, selected_hy = use_default ? KernelDensity.default_bandwidth((x,y)) : (hx,hy)
+        _kde_check_unbounded_bandwidth(x, weights, selected_hx, weighted)
+        _kde_check_unbounded_bandwidth(y, weights, selected_hy, weighted)
+        k = use_default ? kde((x,y); weights) :
             kde((x,y); weights, bandwidth=(hx,hy))
-        return (x=k.x, y=k.y, density=k.density, xedges=_kde_center_edges(k.x), yedges=_kde_center_edges(k.y))
+        steps = (_kde_check_unbounded_axis(x, k.x, selected_hx), _kde_check_unbounded_axis(y, k.y, selected_hy))
+        _kde_check_unbounded_tabulation(weights, steps)
+        _kde_check_unbounded_density(k.density, steps)
+        xedges, yedges = _kde_center_edges(k.x), _kde_center_edges(k.y)
+        _kde_check_unbounded_edges(xedges, steps[1])
+        _kde_check_unbounded_edges(yedges, steps[2])
+        return (x=k.x, y=k.y, density=k.density, xedges=xedges, yedges=yedges)
     end
     px = _kde_axis_plan(x, weights, bounds[1], 8, 256, _KDE_MAX_AXIS_2D)
     py = _kde_axis_plan(y, weights, bounds[2], 8, 256, _KDE_MAX_AXIS_2D)

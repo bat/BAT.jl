@@ -14,10 +14,17 @@ cell(fig,i,j)=only(filter(x->x isa Axis,contents(fig[1,1][i,j])))
         @test length(unique(first.(h.stairs_data)))>3
         @test all(p->p[1] isa Float64,h.stairs_data)
         @test all(p->p[1] isa Float64,h.stairs_data)
-        k=primitives(d[1:1,:],w,KDE1D())
+        # The narrower legacy fixture no longer meets unbounded KDE's physical
+        # lattice admission. Retain its rejection and test Float64 geometry on
+        # a resolvable lattice at the same large coordinate offset.
+        kde_data=reshape(1e8 .+ 16 .* [-1.,0.,1.],1,:)
+        @test_throws ArgumentError primitives(d[1:1,:],w,KDE1D())
+        @test_throws ArgumentError primitives(d[1:1,:],w,QuantileKDE1D())
+        k=primitives(kde_data,w,KDE1D())
         @test first.(k.poly_points)==vcat(k.x,reverse(k.x))
         @test length(unique(first.(k.poly_points)))>3
-        q=primitives(d[1:1,:],w,QuantileKDE1D())
+        @test length(unique(Float32.(k.x))) < length(unique(k.x))
+        q=primitives(kde_data,w,QuantileKDE1D())
         @test length(unique(first.(q.full_line)))>3
         @test all(poly->all(p->p[1] isa Float64,poly),q.polys)
         p=primitives(d[1:1,:],w,PDF1D())
@@ -42,7 +49,7 @@ cell(fig,i,j)=only(filter(x->x isa Axis,contents(fig[1,1][i,j])))
         end
         # Empty/live output geometry types remain stable for ComputeGraph.
         for r in (QuantileHist1D(),KDE1D(),QuantileKDE1D(),PDF1D())
-            @test typeof(primitives(zeros(1,0),Float64[],r))==typeof(primitives(d[1:1,:],w,r))
+            @test typeof(primitives(zeros(1,0),Float64[],r))==typeof(primitives(kde_data,w,r))
         end
         @test typeof(primitives(zeros(2,0),Float64[],Cov2D(),PAIR))==typeof(c)
     end

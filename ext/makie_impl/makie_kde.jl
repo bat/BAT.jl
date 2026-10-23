@@ -60,6 +60,26 @@ function compose_plotspecs(
     return [polys, lines]
 end
 
+function _kde_check_density_colors(density)
+    fail() = throw(ArgumentError(
+        "KDE2D visible density exceeds the arithmetic range of Float32 color values; change coordinate units or use QuantileKDE2D"))
+    lo, hi = Inf32, -Inf32
+    for value in density
+        isnan(value) && continue # intentional visibility mask, after raw admission
+        converted = Float32(value)
+        isfinite(converted) && converted >= floatmin(Float32) || fail()
+        lo, hi = min(lo, converted), max(hi, converted)
+    end
+    isfinite(lo) && isfinite(hi) || fail()
+    # Match Makie's automatic range after numeric colors narrow to Float32.
+    lo == hi && ((lo, hi) = (lo - 0.5f0, hi + 0.5f0))
+    span = hi - lo
+    reciprocal = inv(span)
+    isfinite(span) && span >= floatmin(Float32) && isfinite(reciprocal) &&
+        reciprocal >= 2floatmin(Float32) || fail()
+    return nothing
+end
+
 # See makie_hist.jl's _diag_y_extent for Hist1D for what this is for.
 _diag_y_extent(primitives::NamedTuple, ::KDE1D) = isempty(primitives.density) ? 0.0 : maximum(primitives.density)
 
@@ -110,8 +130,7 @@ function compose_plotspecs(
     # Makie's numeric heatmap conversion stores color values as Float32 before
     # applying its color scale. Keep physical density units; reject overflow or
     # lost visible mass instead of silently plotting Inf/zero color values.
-    all(d -> isnan(d) || 0 < Float32(d) < Inf, density) || throw(ArgumentError(
-        "KDE2D visible density is not representable as positive finite Float32 color values; change coordinate units or use QuantileKDE2D"))
+    _kde_check_density_colors(density)
 
     (; rev, colormap) = config
     cmap_final = rev ? Reverse(colormap) : colormap

@@ -97,7 +97,8 @@ end
         @test source == before
 
         # A single center must not become Makie's default unit-width cell.
-        tiny_support = [(-1e-7, 2e-7), (10.0 - 3e-7, 10.0 + 4e-7)]
+        # Small enough for one cell, with a valid native numeric color range.
+        tiny_support = [(-1e-3, 2e-3), (10.0 - 3e-3, 10.0 + 4e-3)]
         constant = samples([0.0 0.0; 10.0 10.0])
         for recipes in (RECIPES, QUANTILES)
             fig = bat_makie_plot(constant, recipes, [1, 2], 2;

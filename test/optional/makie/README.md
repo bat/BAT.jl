@@ -108,6 +108,15 @@ live entry points, original-target support forwarding, explicit rendered edges,
 transposition and empty/window/support transitions. The precompile workload uses
 truthful bounded samples so strict support checks run during extension building.
 
+`unbounded_kde` checks admitted legacy parity, independent bandwidth/mass and
+Gaussian-mixture oracles, source-precision weight loss, translated/scaled grids,
+and explicit numerical rejection. `unbounded_kde_integration` checks all four
+recipes through both public paths, native geometry, numeric-color admission and
+live failure ownership with sampler/RNG parity. `gl_unbounded_kde.jl` exercises
+actual native GL colors and geometry, including the direct-RGBA quantile control
+at units that cannot support numeric Float32 density colors. Run this GL case
+separately with an external deadline and working native display.
+
 `histogram_regions` checks integrated cell probabilities, plateau colors,
 original-edge polygons and heatmaps, transpose/empty transitions, invalid levels,
 and actual Cairo output. These checks use independent unequal-cell fixtures.

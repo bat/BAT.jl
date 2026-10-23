@@ -286,6 +286,21 @@ observations must be finite and lie inside support; they are never silently
 clamped. Weights must be finite and nonnegative. Zero-weight observations are
 excluded before bandwidth and extent selection, so a zero-weight outlier cannot
 widen an estimate. Empty or all-zero populations have no density to display.
+If Float16/Float32 division would discard a positive relative weight that is
+representable in Float64, KDE admission raises an error; convert the weights to
+Float64 first. Relative weights genuinely below Float64 representation remain
+excluded from the convolution population.
+
+Unbounded estimates retain the existing bandwidth rule and fixed FFT grid.
+Admission checks the selected bandwidth against a centered, scaled calculation,
+the actual Float64 grid and cell edges, convolution arithmetic, and raw density
+mass. The Float64 FFT buffer range is checked even when input arithmetic uses
+BigFloat. Numerically ambiguous effective sample counts or bandwidths, large offsets
+relative to grid spacing, and unsafe coordinate units raise an error before any
+visibility mask or credible-region calculation. Recenter coordinates, change
+units, or use a histogram. Accepted estimates are not rescaled or replaced by a
+different estimator. These checks bound arithmetic fidelity; they do not remove
+the inherited fixed-grid approximation or four-bandwidth periodic tails.
 
 Boundary correction uses one Gaussian mirror per nearby finite boundary,
 including corner images in 2D, selected within four bandwidths. This is a finite
@@ -299,8 +314,10 @@ alternative for these populations. These limits apply per estimate, not to
 total figure memory or rendering latency.
 
 Makie stores numeric heatmap color values as Float32. `KDE2D` therefore rejects
-visible densities that would overflow or become zero during this conversion,
-even if the numerical estimate is valid in Float64. Change coordinate units or
+visible densities that would overflow, become zero or subnormal, or leave an
+invalid native color span or reciprocal, even if the numerical estimate is valid
+in Float64. This includes uniform densities whose automatic range collapses
+after Float32 rounding. Change coordinate units or
 use `QuantileKDE2D`, which passes credible-region colors directly to Makie.
 Density values are never silently rescaled to hide this rendering limit.
 
