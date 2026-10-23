@@ -59,13 +59,25 @@ gone, BAT builds on MeasureBase 0.15 instead.
 
 * `unshaped.(samples)` and `bat_transform(Vector, samples)` return samples
   with the flat free components of the variates. `vcat` and `merge` of
-  samples allocate. `push!`, `append!` and `merge!` require growable
-  storage, like the flat storage of MCMC output, and throw an
-  `ArgumentError` otherwise.
+  samples allocate and promote the types of the weights and log-densities,
+  so samples with integer and real weights can be combined (`merge` used to
+  keep the types of its first argument). `push!`, `append!` and `merge!`
+  require growable storage, like the flat storage of MCMC output, and throw
+  an `ArgumentError` otherwise.
 
 * Broadcasting a value shape over samples, `vs.(samples)`, and
   `bat_transform` with a value shape on samples are deprecated. Use
   `DensitySampleVector(X, μ)` to get samples in the layout of a measure.
+
+* BAT no longer defines `mean`, `var`, `std` and `cov` of measures.
+  MeasureBase defines them for measures with exactly known moments and
+  throws an `ArgumentError` for others. BAT keeps its `median` and `mode`
+  methods.
+
+* MeasureBase renamed `insupport` and `params` to `insupportof` and
+  `paramsof`. BAT implements `insupportof` for its measures and
+  likelihoods, custom measures and likelihoods used with BAT must add
+  methods to the new names as well.
 
 * `batmeasure` is BAT's canonicalization: it turns distributions into
   measures, named tuples of distributions and `NamedTupleDist`s into product
@@ -98,7 +110,23 @@ gone, BAT builds on MeasureBase 0.15 instead.
   MeasureBase measures and derived from the measure structure.
 
 * `truncate_batmeasure` supports measures with scalar variates, via
-  MeasureBase's `truncate`. It still doesn't renormalize.
+  MeasureBase's `truncate`. Products of univariate distributions and
+  posterior measures (via their prior) are truncated as before. It still
+  doesn't renormalize.
+
+* `bat_write` marks the layout of each object in HDF5 files with an
+  attribute `bat_layout` (format version 6, see `BATHDF5IO`), so `bat_read`
+  restores nested named tuples, array-valued and constant parameters
+  exactly. Files of BAT 5.x are read as before, with the layout inferred
+  from the values, now including matrix-valued parameters.
+
+* Samples without parameter names, like flat samples, can be plotted.
+  They are selected by position (among the free parameters, in the order
+  of `unshaped.(samples)`) and labeled `v_1`, `v_2` and so on.
+  `BAT.bat_marginalize` keeps the sample weights.
+
+* Sample reports work for samples without free parameters, they list the
+  constant parameters only.
 
 * `EllipticalSliceMCMCSampling` requires a posterior measure whose prior
   transforms to a standard multivariate normal, and says so instead of
@@ -113,6 +141,12 @@ gone, BAT builds on MeasureBase 0.15 instead.
   Measures with fused batched kernels may return results that differ from the
   per-walker ones in the last ulp, so MCMC runs with a fixed RNG seed can take
   a different path than before.
+
+* Support for GPUs is provisional. Sample storage, its flat conversion and
+  concatenation work with device arrays. Batches of variates are drawn in
+  one call, `rand(rng, μ^n)`, so on a GPU they come from a single device
+  RNG instead of per-chain partitions of BAT's counter-based RNG. Reports,
+  plots and HDF5 output require samples on the host.
 
 BAT.jl v5.2.0
 -------------
