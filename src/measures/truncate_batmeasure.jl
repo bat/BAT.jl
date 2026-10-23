@@ -24,7 +24,10 @@ function truncate_batmeasure(density::AbstractPosteriorMeasure, bounds::Abstract
     PosteriorMeasure(getlikelihood(density), truncate_batmeasure(getprior(density), bounds))
 end
 
-truncate_batmeasure(m::AbstractMeasure, bounds::AbstractArray{<:Interval}) = truncate(m, only(bounds))
+function truncate_batmeasure(m::AbstractMeasure, bounds::AbstractArray{<:Interval})
+    length(eachindex(bounds)) == 1 || throw(ArgumentError("truncate_batmeasure supports measures with scalar variates and products of univariate distributions, but got a measure of type $(nameof(typeof(m))) and $(length(eachindex(bounds))) bounds"))
+    truncate(m, only(bounds))
+end
 
 
 function truncate_batmeasure(m::AsMeasure{<:MultivariateDistribution}, bounds::AbstractArray{<:Interval})
