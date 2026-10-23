@@ -5,7 +5,7 @@ using Test
 
 using ArraysOfArrays, DensityInterface, Distributions, FunctionChains, ValueShapes
 using PropertyFunctions: PropertyFunction, @pf
-using MeasureBase: WeightedMeasure, weightedmeasure, logdensities, insupport
+using MeasureBase: WeightedMeasure, weightedmeasure, logdensities, insupportof
 import ForwardDiff, Zygote
 
 @testset "posterior_measure" begin
@@ -85,7 +85,7 @@ import ForwardDiff, Zygote
         @test logdensities(posterior, X) ≈ [logd_ref[1:2]; -Inf]
 
         # The likelihood must not be evaluated where the prior vanishes:
-        ℒ_strict = logfuncdensity(p -> insupport(mv_prior, p) ? logdensityof(ℒ_v, p) : error("outside of the prior's support"))
+        ℒ_strict = logfuncdensity(p -> insupportof(mv_prior, p) ? logdensityof(ℒ_v, p) : error("outside of the prior's support"))
         @test logdensities(PosteriorMeasure(ℒ_strict, mv_prior), X) ≈ [logd_ref[1:2]; -Inf]
     end
 

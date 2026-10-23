@@ -13,7 +13,7 @@ export AbstractPosteriorMeasure
 # `mintegrate_exp(likelihood, prior)`:
 MeasureBase.basemeasure(m::AbstractPosteriorMeasure) = getprior(m)
 MeasureBase.logdensity_def(m::AbstractPosteriorMeasure, v) = logdensityof(getlikelihood(m), v)
-MeasureBase.insupport(m::AbstractPosteriorMeasure, v) = insupport(getprior(m), v)
+MeasureBase.insupportof(m::AbstractPosteriorMeasure, v) = insupportof(getprior(m), v)
 MeasureBase.getdof(m::AbstractPosteriorMeasure) = MeasureBase.getdof(getprior(m))
 MeasureBase.mspace_flatsize(m::AbstractPosteriorMeasure) = MeasureBase.mspace_flatsize(getprior(m))
 MeasureBase.testvalue(::Type{T}, m::AbstractPosteriorMeasure) where {T} = testvalue(T, getprior(m))
