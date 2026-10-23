@@ -31,6 +31,14 @@ using DensityInterface
         v_s = BAT.bat_sample(ds, BAT.IIDSampling(nsamples=1)).result
         @test BAT.bat_initval(ds, BAT.InitFromSamples(v_s), context).result == first(v_s.v)
 
+        # Initial values from IID sources are transformed along with the target:
+        src = batmeasure(NamedTupleDist(a = Exponential(5.0), b = [Exponential(5.0), Exponential(5.0)]))
+        f = BAT.transport_to(BAT.StdNormal()^3, src)
+        iid_alg = BAT.apply_trafo_to_init(f, InitFromIID(src))
+        xs = bat_initval(BAT.StdNormal()^3, 1000, iid_alg, context).result
+        @test xs isa VectorOfSimilarVectors
+        @test abs(mean(flatview(xs))) < 0.2 && abs(std(flatview(xs)) - 1) < 0.2
+
         # Variate types without a dedicated _maycopy_val method (like
         # ShapedAsNT) must pass through instead of raising a MethodError:
         vs_nt = NamedTupleShape(ShapedAsNT, a = ScalarShape{Real}(), b = ArrayShape{Real}(2))

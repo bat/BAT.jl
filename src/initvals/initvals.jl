@@ -214,6 +214,8 @@ function apply_trafo_to_init(f_transform::Function, initalg::ExplicitInit)
     ExplicitInit(xs_tr)
 end
 
+apply_trafo_to_init(f_transform::Function, initalg::InitFromIID) = InitFromIID(pushfwd(f_transform, initalg.src))
+
 function apply_trafo_to_init(f_transform::Function, initalg::InitFromSamples)
     # ToDo: Pass context to apply_trafo_to_init
     tmp_context = BATContext()
