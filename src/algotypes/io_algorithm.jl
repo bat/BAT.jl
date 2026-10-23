@@ -171,6 +171,31 @@ See [`bat_write`](@ref) and [`bat_read`](@ref).
 Constructors:
 
 * ```$(FUNCTIONNAME)()```
+
+# Extended help
+
+Each object that BAT writes carries an HDF5 attribute `bat_layout` that
+says how to read it:
+
+* `"samples"`: a group holding a [`DensitySampleVector`](@ref), with
+  members `v`, `logd`, `weight` and, unless they only hold `nothing`,
+  `info` and `aux`. The attribute `bat_format` holds the format version
+  (currently 6).
+* `"namedtuple"`: a group holding a batch of named tuples, one member per
+  field. The attribute `bat_fields` lists the field names in order. For
+  batches of sample provenance information, `bat_eltype` names the BAT
+  type of the elements (e.g. `"MCMCSampleID"`).
+* `"scalar"`: a dataset of size `(n,)` holding `n` numbers.
+* `"array"`: a dataset of size `(size..., n)` holding `n` arrays.
+* `"const"`: a dataset (or group, for named tuples) holding a single
+  value, repeated `bat_length` times, e.g. the value of a constant
+  parameter.
+* `"group"`: a group holding a named tuple of other objects.
+
+Files written by BAT 5.x carry no layout attributes, so their layout is
+inferred from the values. Parameters that have the same value in all
+samples are read as constants. In a file that holds a single sample, all
+parameters are read as constants.
 """
 struct BATHDF5IO <: BATIOAlgorithm
     function BATHDF5IO()
