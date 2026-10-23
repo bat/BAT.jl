@@ -126,6 +126,10 @@ Calling `empty!(fig)` also disconnects BAT's static control subscriptions. A
 retained control no longer updates the old plotting graph after its figure is
 emptied.
 
+If static construction or BAT's explicit display fails after allocating a
+figure, BAT attempts to release its content and owned display resources before
+rethrowing the original error.
+
 For plots with declared step timing, selected repetition counts must be exactly
 representable by the samples' weight type. A window that would round a count
 raises an error; use integer repetition weights for exact long step ranges.
@@ -139,6 +143,11 @@ step counts remain unchanged. Inputs must have finite nonnegative weights and
 finite coordinates wherever weight is positive. Positive mass that would be lost
 in the working precision raises an error. Empty or zero-mass Makie populations
 retain empty-display behavior; a `MarginalDist` requires positive in-bin mass.
+
+Scatter marker areas use relative sample weights, normalized before conversion
+to Float64. Finite BigFloat and logarithmic weights therefore retain their
+relative sizes when the ratios are representable. Unrepresentable positive
+ratios raise an error. `ChainScatter2D` requires chain identity for every sample.
 
 Histogram `:none` retains counts; `:density` divides counts by bin volume without
 turning them into probabilities. These modes, report counts and native hexbin
@@ -388,6 +397,13 @@ existing live observation population, which can include initialization and
 burn-in; it is not a reconstructed plot of the returned posterior samples.
 Availability follows the current completion and view state; an older diagnostic
 alone does not prevent retrieval. Use `BAT.visualizer_status(vis)` to inspect it.
+
+Live plots use the original model's flattened value shape, including when the
+sampler's transformation changes the number of coordinates. For example, a
+three-component Dirichlet displays all three components although sampling uses
+two unconstrained coordinates. Declared constant fields do not occupy plot
+dimensions. This also applies when no initialization samples are retained;
+initializing an empty display does not add observations or sample weight.
 
 Live figures identify this population with the caption “Observed sampling
 history” and the note “May include initialization and burn-in”. The caption remains

@@ -56,6 +56,16 @@ function _default_recipe_label(options::Vector, current_recipe)
     return options[idx][1]
 end
 
+# Preserve the original construction/display error if best-effort cleanup fails.
+function _empty_failed_static_figure!(fig)
+    try
+        empty!(fig)
+    catch err
+        BAT._visualizer_cleanup_diagnostic(:static_figure, (err, catch_backtrace()))
+    end
+    return nothing
+end
+
 function _build_fig(
     graph::ComputeGraph,
     gridlayout::Any,
@@ -73,6 +83,19 @@ function _build_fig(
     # small margin), or a wide picker matrix gets clipped at the figure edge.
     fig_w = max(min(665 + grid_growth, 1600), ceil(Int, panel_width) + 24)
     fig = Figure(size=(fig_w, min(850 + grid_growth, 1785)))
+    try
+        return _populate_fig!(fig, graph, gridlayout, picker_info, ui_box_pad, panel_width;
+            has_chain_info, has_trace_info, live_vis)
+    catch
+        # Live startup already has a lifecycle owner that disposes its view.
+        isnothing(live_vis) && _empty_failed_static_figure!(fig)
+        rethrow()
+    end
+end
+
+function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
+    picker_info::Union{PickerInfo,Nothing}, ui_box_pad, panel_width;
+    has_chain_info::Bool, has_trace_info::Bool, live_vis)
     subscription_owner = isnothing(live_vis) ? fig.scene : live_vis
     isnothing(live_vis) || _attach_live_view!(live_vis, fig)
 

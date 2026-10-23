@@ -51,6 +51,18 @@ including native finite filtering and warmed allocation growth with fixed walker
 topology. `domain_publication` checks those bounds through real ingestion and
 flushes, including replacement of pending extremes and prior-generation ownership.
 
+`display_schema`, `display_live`, and `display_failures` cover original-coordinate
+storage when transforms change dimensions, nested shapes and constants, empty
+startup and idle slots, Float32 storage, and transformed domain bounds. They
+check explicit timing/mass oracles, pending replacement, public fixed-work
+sample/callback/RNG parity, real variable selections, and owned cleanup after
+startup or later conversion failures. Core sampling and transformation behavior
+is compared with no-observer controls; these tests do not change it.
+`gl_display_schema.jl` renders the third Dirichlet component in native GL windows
+with both retained and empty startup, checks live selection round trips and
+sample/RNG parity, and disposes each session. Run it separately with the same
+native-display and external-deadline requirements as `gl_smoke.jl`.
+
 The `lifecycle_figure` case checks completed live figure retrieval through public
 sampling, saving and controls, plus owning-thread checks, nonwaiting guards,
 callback reentrancy, actual disposal, and focused lifecycle boundary fixtures.
@@ -81,6 +93,12 @@ renderer conversion limits, real graphs and both public static entry paths.
 `weight_failure` triggers a real numerical overlay error during public sampling,
 checks exact fixed-work samples, callback snapshots, chain state and RNG parity,
 and verifies observation failure and autonomous history release.
+
+`scatter_admission` checks relative marker areas with finite BigFloat, BigInt
+and logarithmic weights before renderer conversion, plus rejection of missing
+chain metadata. `failure_ownership` checks partial static construction and
+display rollback, unrelated-figure survival, and grid/bin dispatch with several
+integer widths. The dispatch checks do not replace a native 32-bit platform run.
 
 `bounded_kde` compares supported KDEs with independent reflected Gaussian
 mixtures, checks concentrated and narrow-support densities, actual probability

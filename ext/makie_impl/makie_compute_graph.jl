@@ -67,15 +67,15 @@ const BAT_MAKIE_RECIPES_2D = [
 ]
 
 # The underscore between the indices keeps multi-digit index pairs unambiguous.
-function primitive_symbol(recipe, vsel::Tuple{Int64,Int64})
+function primitive_symbol(recipe, vsel::Tuple{Integer,Integer})
     return Symbol(string(recipe), "_prim_", vsel[1], "_", vsel[2])
 end
 
-function primitive_symbol(recipe::R, vsel::Tuple{Int64,Int64}) where {R<:BATMakieRecipe}
+function primitive_symbol(recipe::R, vsel::Tuple{Integer,Integer}) where {R<:BATMakieRecipe}
     return Symbol(string(typeof(recipe)), "_prim_", vsel[1], "_", vsel[2])
 end
 
-function marg_symbol(vsel::Tuple{Int64,Int64})
+function marg_symbol(vsel::Tuple{Integer,Integer})
     return Symbol("marg_$(vsel[1])_$(vsel[2])")
 end
 
@@ -87,11 +87,21 @@ end
 # bound. `target` must be the ORIGINAL untransformed measure (bat_sample's own
 # `m`), NOT mcmc_target(...): mcmc states carry the PRETRANSFORMED measure,
 # giving a standard-normal-scaled domain regardless of the real prior's scale.
-function _estimate_prior_domain(rng::AbstractRNG, target, n_dof::Integer; n_prior_samples::Integer = 2000, tail_prob::Real = 0.0015)
+function _estimate_prior_domain(rng::AbstractRNG, target, n_dof::Integer;
+    n_prior_samples::Integer = 2000, tail_prob::Real = 0.0015,
+    display_shape=missing, f_display=identity)
     initsrc = BAT.get_initsrc_from_target(target)
-    shape = varshape(initsrc)
-    draws = [ValueShapes.unshaped(rand(rng, initsrc), shape) for _ in 1:n_prior_samples]
+    # A raw empirical NamedTuple source need not carry container shape metadata
+    # when the caller already supplied the original target's shape.
+    shape = ismissing(display_shape) || f_display !== identity ? varshape(initsrc) : display_shape
+    output_shape = ismissing(display_shape) ? shape : display_shape
+    draws = map(1:n_prior_samples) do _
+        value = rand(rng, initsrc)
+        displayed = f_display === identity ? value : f_display(unshaped(value, shape))
+        unshaped(displayed, output_shape)
+    end
     M = reduce(hcat, draws)
+    size(M, 1) == n_dof || throw(ArgumentError("Domain draws do not match the original display shape"))
     lo = [quantile(view(M, d, :), tail_prob) for d in 1:n_dof]
     hi = [quantile(view(M, d, :), 1 - tail_prob) for d in 1:n_dof]
     return lo, hi

@@ -26,18 +26,19 @@ end
 
 # Use BAT's merge rule, recording where each input row went. Never change the
 # sampler's merging or infer time identity from coordinate equality.
-function _append_timed_walkers(state, old, fresh, old_time, fresh_time)
-    if all(isempty, old_time) && all(isempty, fresh_time)
-        return _append_walker_outputs(state, old, fresh), _empty_walker_spans(old)
-    end
-    merged = _empty_chain_outputs(state)
+function _append_timed_walkers(old, fresh, old_time, fresh_time)
+    axes(old) == axes(fresh) == axes(old_time) == axes(fresh_time) ||
+        throw(ArgumentError("Mismatched display walker/timing topology"))
+    all(j -> totalndof(varshape(old[j])) == totalndof(varshape(fresh[j])), eachindex(old)) ||
+        throw(ArgumentError("Mismatched display coordinate dimensions"))
+    merged = _empty_display_samples.(old)
     timing = _empty_walker_spans(merged)
     for (source, times) in ((old, old_time), (fresh, fresh_time))
         for j in eachindex(source)
-            rowmap = Vector{Int}(undef, length(source[j]))
+            rowmap = isempty(times[j]) ? Int[] : Vector{Int}(undef, length(source[j]))
             for k in eachindex(source[j])
                 BAT.checked_push!(merged[j], source[j][k])
-                rowmap[k] = length(merged[j])
+                isempty(times[j]) || (rowmap[k] = length(merged[j]))
             end
             for s in times[j]
                 _push_step_span!(timing[j], SampleStepSpan(rowmap[s.row], s.cycle, s.first, s.last))
@@ -46,8 +47,10 @@ function _append_timed_walkers(state, old, fresh, old_time, fresh_time)
     end
     return merged, timing
 end
-function _append_timed_chains(state, old, fresh, old_time, fresh_time)
-    pairs = [_append_timed_walkers(state, old[i], fresh[i], old_time[i], fresh_time[i]) for i in eachindex(old)]
+function _append_timed_chains(old, fresh, old_time, fresh_time)
+    axes(old) == axes(fresh) == axes(old_time) == axes(fresh_time) ||
+        throw(ArgumentError("Mismatched display chain/timing topology"))
+    pairs = [_append_timed_walkers(old[i], fresh[i], old_time[i], fresh_time[i]) for i in eachindex(old)]
     return first.(pairs), last.(pairs)
 end
 

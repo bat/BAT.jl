@@ -169,7 +169,21 @@ function BAT.bat_makie_plot(
     end
     # Renderer startup/rollback may join callbacks which use Makie's theme
     # lock. Keep the theme scoped to construction, before any such join.
-    display && _maybe_display(built.fig)
+    if display
+        try
+            _maybe_display(built.fig)
+        catch
+            # Construction's theme scope has ended before any renderer join.
+            # A failed display never hands this figure's ownership to the caller.
+            try
+                _close_owned_live_screens!(built.fig)
+            catch err
+                BAT._visualizer_cleanup_diagnostic(:static_display, (err, catch_backtrace()))
+            end
+            _empty_failed_static_figure!(built.fig)
+            rethrow()
+        end
+    end
     return built.fig
 end
 

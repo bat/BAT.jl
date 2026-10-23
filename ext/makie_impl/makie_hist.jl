@@ -30,7 +30,7 @@ function _marginal_view_dist(
     locations::SubArray,
     weights::SubArray,
     filter::Bool,
-    bins::Union{Tuple{Vararg{Int64}},Int64},
+    bins::Union{Tuple{Vararg{Integer}},Integer},
     closed::Symbol,
     normalization::Symbol,
     domain = nothing,

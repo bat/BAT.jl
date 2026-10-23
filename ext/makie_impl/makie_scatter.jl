@@ -6,6 +6,13 @@
 # recipe's output node. Same convention for every _empty_*_primitives().
 _empty_scatter2d_primitives() = (x=Float64[], y=Float64[], weights=Float64[])
 
+# Marker areas depend on relative mass. Normalize before narrowing so finite
+# BigFloat/logarithmic weights cannot become uniform zeros or infinities.
+function _scatter_relative_weights(weights)
+    relative = BAT._plot_relative_weights(weights)
+    return [BAT._plot_float64(w, "relative scatter weight") for w in relative]
+end
+
 # Normalize relative marker areas without overflowing the weight sum.
 # Uniform and non-positive-total cases retain their existing marker convention.
 function _scatter_markersizes(weights::AbstractVector, markersize)
@@ -43,11 +50,8 @@ function compute_plotting_primitives(
     x = marg_coords[1, :]
     y = marg_coords[2, :]
 
-    # Materialized to Vector{Float64}: ComputePipeline's TypedEdge locks this
-    # node's output type at first resolution, and the dead-cell fallback
-    # hardcodes Float64[] -- a live non-Float64 type would break a later
-    # live->dead transition.
-    return (x=x, y=y, weights=Float64.(weights))
+    # Keep the graph's weight representation stable across empty/live states.
+    return (x=x, y=y, weights=_scatter_relative_weights(weights))
 end
 
 function compose_plotspecs(
@@ -106,11 +110,12 @@ function compute_plotting_primitives(
 )
     # Zero-sample live cell -- see Scatter2D's matching comment above.
     isempty(weights) && return _empty_chainscatter2d_primitives()
+    length(chainids) == length(weights) ||
+        throw(ArgumentError("ChainScatter2D requires one chain identity per sample"))
     x = marg_coords[1, :]
     y = marg_coords[2, :]
 
-    # weights materialized to Vector{Float64} -- see Scatter2D's live branch above.
-    return (x=x, y=y, weights=Float64.(weights), chainids=chainids)
+    return (x=x, y=y, weights=_scatter_relative_weights(weights), chainids=chainids)
 end
 
 function compose_plotspecs(

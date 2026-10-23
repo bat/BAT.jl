@@ -1,5 +1,109 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+# The original measure owns the display shape; an initialization source may
+# instead be an empirical approximation with different shape metadata.
+_display_target_shape(::Any) = missing
+_display_target_shape(target::Union{BAT.BATMeasure,Distribution}) = varshape(target)
+function _live_display_shape(target, f_pretransform, state)
+    shape = _display_target_shape(target)
+    if ismissing(shape)
+        backward = inverse(f_pretransform)
+        shape = backward isa AbstractValueShape ? backward :
+            ValueShapes.resultshape(backward, varshape(mcmc_target(state)))
+    end
+    return shape
+end
+
+# Shape-only transforms have zero Jacobian and already support BAT's sample
+# broadcast. Generic transform inference can erase their constant fields.
+function _inverse_display_samples(f_pretransform, samples, executor)
+    isempty(samples) && throw(ArgumentError("A display prototype requires a nonempty sample container"))
+    backward = inverse(f_pretransform)
+    return backward isa AbstractValueShape ? backward.(samples) :
+        transform_samples(backward, samples, executor)
+end
+
+_display_has_shape(values) = values isa Union{ArrayOfSimilarArrays,ShapedAsNTArray,AbstractVector{<:Real}}
+# Value-derived shapes describe coordinates, not storage precision. In
+# particular, Float32 observations can share a domain with Float64 prior draws.
+_display_inferred_shape(shape::AbstractValueShape) = shape
+_display_inferred_shape(shape::ArrayShape{<:Real}) = ArrayShape{Real}(size(shape))
+_display_inferred_shape(::ScalarShape{<:Real}) = ScalarShape{Real}()
+_display_inferred_shape(shape::NamedTupleShape{names,A,V}) where {names,A,V} =
+    NamedTupleShape(V, map(_display_inferred_shape, (; shape...)))
+_display_value_shape(samples) = _display_inferred_shape(
+    _display_has_shape(samples.v) ? varshape(samples) : valshape(first(samples.v)))
+
+function _canonical_display_samples(samples, shape::AbstractValueShape)
+    # Avoid querying elshape on raw nested NamedTuple vectors. Bulk unshaping
+    # also rejects an erased constant shape; row-wise unshaping repairs it.
+    result = if _display_has_shape(samples.v) && varshape(samples) <= shape
+        unshaped.(samples)
+    else
+        DensitySampleVector(v=map(v -> unshaped(v, shape), samples.v),
+            logd=samples.logd, weight=samples.weight, info=samples.info, aux=samples.aux)
+    end
+    totalndof(varshape(result)) == totalndof(shape) ||
+        throw(ArgumentError("Transformed samples do not match the original display shape"))
+    return result
+end
+
+# Unlike a slice/similar of transformed storage, this constructor guarantees
+# appendable coordinates and mutable columns (including missing-Jacobian logd).
+_empty_display_samples(template) = DensitySampleVector(eltype(template), totalndof(varshape(template)))
+
+function _initial_display_outputs(states, outputs, f_pretransform, shape)
+    axes(states) == axes(outputs) || throw(ArgumentError("Mismatched display chain topology"))
+    result = [Vector{DensitySampleVector}(undef, length(chain)) for chain in outputs]
+    # Finish all retained rows in their original order before any additional
+    # prototype evaluation, preserving caller effects and startup failures.
+    for i in eachindex(states)
+        length(outputs[i]) == BAT.nwalkers(states[i]) ||
+            throw(ArgumentError("Mismatched display walker topology"))
+        for j in eachindex(outputs[i])
+            isempty(outputs[i][j]) && continue
+            converted = _inverse_display_samples(f_pretransform, outputs[i][j], BAT.SequentialExec())
+            ismissing(shape) && (shape = _display_value_shape(converted))
+            result[i][j] = _canonical_display_samples(converted, shape)
+        end
+    end
+    for i in eachindex(states)
+        populated = findfirst(!isempty, outputs[i])
+        template = if isnothing(populated)
+            # Numerical initialization has joined. Current x is populated even
+            # when retained output/current weights are zero. No prototype row
+            # enters the history, and nonfinite logd does not preclude a shape.
+            owned = deepcopy(BAT.current_sample(states[i].chain_state))
+            converted = _inverse_display_samples(f_pretransform, owned, BAT.SequentialExec())
+            ismissing(shape) && (shape = _display_value_shape(converted))
+            _canonical_display_samples(converted, shape)
+        else
+            result[i][populated]
+        end
+        for j in eachindex(outputs[i])
+            isempty(outputs[i][j]) && (result[i][j] = _empty_display_samples(template))
+        end
+    end
+    return result, shape
+end
+
+function _transform_display_outputs(f_pretransform, outputs, templates, shape;
+    executor=BAT.MultiThreadedExec())
+    axes(outputs) == axes(templates) || throw(ArgumentError("Mismatched display chain topology"))
+    return map(outputs, templates) do chain, old
+        axes(chain) == axes(old) || throw(ArgumentError("Mismatched display walker topology"))
+        map(chain, old) do samples, template
+            if isempty(samples)
+                _empty_display_samples(template)
+            else
+                converted = _inverse_display_samples(f_pretransform, samples, executor)
+                _canonical_display_samples(converted,
+                    ismissing(shape) ? _display_value_shape(converted) : shape)
+            end
+        end
+    end
+end
+
 # For validated positive thresholds and finite factors >= 1. Saturate before
 # converting to Int, and prevent Float64 rounding from lowering the threshold.
 function _scaled_buffer_threshold(n::Int, factor::Float64)
@@ -33,8 +137,8 @@ function register_state_for_vis!(
     (; chain_ids, output_buffer, pending_samples) = vis.content
     graph = _live_graph(vis)
 
-    empty_walker_outputs = _empty_chain_outputs(mcmc_state)
-    samples_new, timing_new = _append_timed_walkers(mcmc_state, empty_walker_outputs, samples, _empty_walker_spans(samples), timing)
+    empty_walker_outputs = _empty_display_samples.(samples)
+    samples_new, timing_new = _append_timed_walkers(empty_walker_outputs, samples, _empty_walker_spans(samples), timing)
 
     samples_graph = graph[:samples][]
     push!(samples_graph, samples_new)
@@ -132,13 +236,27 @@ function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, 
     graph = _live_graph(vis)
     domain_rng = copy(rng)
     domain_lo, domain_hi = Float64[], Float64[]
+    display_shape = missing
     built = nothing
     started = _with_live_view(vis) do
         warmup_makie_shaders()
-        n_dof = totalndof(varshape(mcmc_target(mcmc_states[1])))
+        isempty(mcmc_states) && throw(ArgumentError("Live visualization requires at least one chain"))
+        display_shape = _live_display_shape(target, f_pretransform, first(mcmc_states))
+        domain_target = isnothing(target) ? mcmc_target(first(mcmc_states)) : target
+        domain_transform = isnothing(target) ? inverse(f_pretransform) : identity
+        domain_ready = !ismissing(display_shape)
+        if domain_ready
+            domain_lo, domain_hi = _estimate_prior_domain(domain_rng, domain_target,
+                totalndof(display_shape); display_shape, f_display=domain_transform)
+        end
+        display_outputs, display_shape = _initial_display_outputs(
+            mcmc_states, outputs, f_pretransform, display_shape)
+        n_dof = totalndof(display_shape)
         vis.content.n_dof[] = n_dof
-        domain_lo, domain_hi = _estimate_prior_domain(
-            domain_rng, isnothing(target) ? mcmc_target(mcmc_states[1]) : target, n_dof)
+        if !domain_ready
+            domain_lo, domain_hi = _estimate_prior_domain(domain_rng, domain_target,
+                n_dof; display_shape, f_display=domain_transform)
+        end
         support_lo, support_hi = isnothing(target) ?
             (Float64[], Float64[]) : _support_bounds(target, n_dof)
         update!(graph; domain_lo=domain_lo, domain_hi=domain_hi,
@@ -146,9 +264,7 @@ function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, 
         initial_timing = [_initial_step_spans(vis, state, outputs[i]) for (i, state) in enumerate(mcmc_states)]
         vis.content.step_mode[] = all(!isnothing, initial_timing)
         for (i, state) in enumerate(mcmc_states)
-            # Startup runs on the sampling owner. Observation-only row work
-            # must not split its task RNG through the default threaded executor.
-            register_state_for_vis!(vis, state, _transform_walker_outputs(f_pretransform, outputs[i], BAT.SequentialExec()),
+            register_state_for_vis!(vis, state, display_outputs[i],
                 vis.content.step_mode[] ? initial_timing[i] : _empty_walker_spans(outputs[i]))
         end
         picker_info = PickerInfo(n_dof, vis.backend.N_max, vis.backend.vsel,
@@ -170,9 +286,9 @@ function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, 
         on_failure=(err, bt) -> _fail_visualizer!(vis, err, bt, :startup))
     history = Ref((samples=graph[:samples][], timing=vis.content.step_mode[] ?
         graph[:sample_timing][] : [_empty_walker_spans(c) for c in graph[:samples][]]))
-    tick! = () -> _flush_live_buffer!(vis, mcmc_states, f_pretransform, history, domain_lo, domain_hi)
+    tick! = () -> _flush_live_buffer!(vis, mcmc_states, f_pretransform, history, domain_lo, domain_hi; display_shape)
     finish! = function()
-        _flush_live_buffer!(vis, mcmc_states, f_pretransform, history, domain_lo, domain_hi; force=true)
+        _flush_live_buffer!(vis, mcmc_states, f_pretransform, history, domain_lo, domain_hi; force=true, display_shape)
         lock(vis.content.buffer_lock) do
             _live_can_publish_locked(vis) && (ctl.data_complete = true)
         end
@@ -232,16 +348,17 @@ function _publish_live_frame!(vis, payload::NamedTuple)
     return published
 end
 
-function _flush_live_buffer!(vis, mcmc_states, f_pretransform, history, domain_lo, domain_hi; force::Bool=false)
+function _flush_live_buffer!(vis, mcmc_states, f_pretransform, history, domain_lo, domain_hi;
+    force::Bool=false, display_shape=missing)
     batch = _detach_live_batch!(vis, mcmc_states; force=force)
     isnothing(batch) && return nothing
     # The listener retains batch until it either commits or records failure.
     # There is deliberately no replay after a partial/uncertain publication.
-    fresh = _transform_chain_outputs(f_pretransform, batch.output)
-    pending = _transform_chain_outputs(f_pretransform, batch.pending)
     committed = history[]
+    fresh = _transform_display_outputs(f_pretransform, batch.output, committed.samples, display_shape)
+    pending = _transform_display_outputs(f_pretransform, batch.pending, committed.samples, display_shape)
     if any(chain -> any(!isempty, chain), fresh)
-        samples, timing = _append_timed_chains(mcmc_states[1], committed.samples, fresh,
+        samples, timing = _append_timed_chains(committed.samples, fresh,
             committed.timing, batch.output_time)
         candidate = (samples=samples, timing=timing)
         accepted = lock(vis.content.buffer_lock) do
@@ -253,7 +370,7 @@ function _flush_live_buffer!(vis, mcmc_states, f_pretransform, history, domain_l
         committed = candidate
     end
     samples, timing = any(chain -> any(!isempty, chain), pending) ?
-        _append_timed_chains(mcmc_states[1], committed.samples, pending, committed.timing, batch.pending_time) :
+        _append_timed_chains(committed.samples, pending, committed.timing, batch.pending_time) :
         (committed.samples, committed.timing)
     current_idxs = [length.(chain) for chain in samples]
     lo, hi = _domain_including(Iterators.flatten(samples), domain_lo, domain_hi)
