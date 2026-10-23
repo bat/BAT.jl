@@ -195,18 +195,106 @@ function compute_plotting_primitives(
 end
 
 
+# Bound endpoint displacement in units of the styled bin width, not the
+# absolute coordinate. This implies at most twice this relative width error.
+const _HIST1D_BAR_GEOMETRY_RTOL = 1 // (BigInt(1) << 18) # 32eps(Float32)
+_hist1d_bar_geometry_error() = throw(ArgumentError(
+    "Hist1D bin geometry is not representable accurately by native bars; use QuantileHist1D or recenter coordinates"))
+
+function _checked_hist1d_bar_layout(
+    edges::AbstractVector{Float64}, gap, dodge, n_dodge, dodge_gap, requested_width
+)
+    requested_width === Makie.automatic || throw(ArgumentError("Hist1D width is determined by bin edges"))
+    gap isa Real && dodge_gap isa Real && isfinite(gap) && isfinite(dodge_gap) || _hist1d_bar_geometry_error()
+    if dodge !== Makie.automatic
+        (dodge isa Integer || dodge isa AbstractVector{<:Integer}) ||
+            throw(ArgumentError("Hist1D dodge indices must be integers"))
+        dodge = dodge isa Integer ? Int(dodge) : Int.(dodge)
+        all(>(0), dodge) || throw(ArgumentError("Hist1D dodge indices must be positive"))
+    end
+    if n_dodge !== Makie.automatic
+        n_dodge isa Integer || throw(ArgumentError("Hist1D n_dodge must be an integer"))
+        n_dodge = Int(n_dodge)
+        n_dodge > 0 || throw(ArgumentError("Hist1D n_dodge must be positive"))
+    end
+
+    n = length(edges) - 1
+    n >= 1 && all(isfinite, edges) || _hist1d_bar_geometry_error()
+    widths = diff(edges)
+    all(w -> isfinite(w) && w > 0, widths) || _hist1d_bar_geometry_error()
+    centers = edges[1:end-1] .+ 0.5 .* widths
+    actual_x, actual_width = Makie.compute_x_and_width(centers, widths, gap, dodge, n_dodge, dodge_gap)
+
+    # Explicit widths alone cannot repair rounded midpoints at large offsets.
+    # Native layout arithmetic on exact edges supplies the reference without
+    # changing global BigFloat precision. Preserve native scalar style types
+    # above: coercing Float32 gaps to Float64 changes native subtraction.
+    exact_edges = Rational{BigInt}.(edges)
+    exact_widths = diff(exact_edges)
+    exact_centers = (exact_edges[1:end-1] .+ exact_edges[2:end]) ./ 2
+    exact_x, exact_width = Makie.compute_x_and_width(exact_centers, exact_widths,
+        Rational{BigInt}(gap), dodge, n_dodge, Rational{BigInt}(dodge_gap))
+    # Fail closed if a future native helper starts rounding the reference.
+    eltype(exact_x) <: Rational{BigInt} && eltype(exact_width) <: Rational{BigInt} ||
+        error("Hist1D native bar layout must preserve exact reference arithmetic")
+    for i in 1:n
+        rectangle = Makie.bar_rectangle(actual_x[i], 0.0, actual_width[i], 0.0, true)
+        lo = rectangle.origin[1]
+        hi = lo + rectangle.widths[1]
+        isfinite(lo) && isfinite(hi) || _hist1d_bar_geometry_error()
+        halfwidth = abs(exact_width[i]) / 2
+        exact_lo, exact_hi = exact_x[i] - halfwidth, exact_x[i] + halfwidth
+        # A gap may intentionally hide the bar by making its width zero.
+        scale = iszero(halfwidth) ? exact_widths[i] : 2halfwidth
+        displacement = max(abs(Rational{BigInt}(lo) - exact_lo), abs(Rational{BigInt}(hi) - exact_hi))
+        displacement <= _HIST1D_BAR_GEOMETRY_RTOL * scale || _hist1d_bar_geometry_error()
+    end
+    return centers, widths, gap, dodge, n_dodge, dodge_gap
+end
+
+# Keep native BarPlot's rendering, labels and theme namespace. Only its bin
+# geometry is BAT-owned, following the checked Hexbin adapter below.
+Makie.@recipe BATCheckedHistBars (bin_edges, bin_heights) begin
+    Makie.documented_attributes(Makie.BarPlot)...
+end
+Makie.add_theme!(::Type{<:BATCheckedHistBars}, kw, graph::Makie.ComputeGraph, scene::Makie.Scene) =
+    Makie.add_theme!(Makie.BarPlot, kw, graph, scene)
+
+function Makie.plot!(p::BATCheckedHistBars)
+    # Publish every geometry control through the same check. Heights alone
+    # neither invalidate the layout cache nor repeat exact arithmetic.
+    Makie.map!(p, [:bin_edges, :gap, :dodge, :n_dodge, :dodge_gap, :width],
+        [:checked_centers, :checked_widths, :checked_gap, :checked_dodge, :checked_n_dodge, :checked_dodge_gap]
+    ) do edges, gap, dodge, n_dodge, dodge_gap, width
+        _checked_hist1d_bar_layout(edges, gap, dodge, n_dodge, dodge_gap, width)
+    end
+    Makie.barplot!(p, Makie.Attributes(p), p.checked_centers, p.bin_heights;
+        width=p.checked_widths, gap=p.checked_gap, dodge=p.checked_dodge,
+        n_dodge=p.checked_n_dodge, dodge_gap=p.checked_dodge_gap)
+    return p
+end
+function _validate_plot_display(p::BATCheckedHistBars)
+    p.checked_centers[]
+    return nothing
+end
+Makie.extract_colormap(p::BATCheckedHistBars) = Makie.extract_colormap(only(p.plots))
+Makie.data_limits(p::BATCheckedHistBars) = Makie.data_limits(only(p.plots))
+Makie.boundingbox(p::BATCheckedHistBars, space::Symbol=:data) = Makie.boundingbox(only(p.plots), space)
+
+
 function compose_plotspecs(
     primitives::NamedTuple,
     recipe::Hist1D,
     config::NamedTuple
 )
-    (; centers, weights, edges) = primitives
+    (; weights, edges) = primitives
 
     if isempty(weights)
         return PlotSpec[]
     end
 
-    bars = S.BarPlot(centers, weights)
+    # Bin edges own width, including when a caller themes BarPlot.width.
+    bars = Makie.PlotSpec(BATCheckedHistBars, edges, weights; width=Makie.automatic)
     stairs = S.Stairs(edges, vcat(weights, weights[end]); step=:post)
 
     return [bars, stairs]

@@ -101,6 +101,15 @@ navigation. `gl_histogram_viewport.jl` checks actual native GL bounds and
 upper/lower geometry with stopped, explicitly closed screens; run it separately
 with an external deadline like the other native GL checks.
 
+`histogram_bars` checks actual native Hist1D rectangles against independent exact
+bin-edge arithmetic, single-bin areas, gap/dodge styles, theme width precedence,
+labels, closure/normalization modes, zero-height bins and changing bin counts.
+It also covers cached height/window updates, empty-window restoration, rejected
+geometry and existing live-owner disposal. `gl_histogram_bars.jl` checks native
+GL rectangle geometry and substantial filled pixel area for constant inputs;
+run it separately with an external deadline and a native display. Screens are
+stopped and explicitly closed. These checks do not assert pixel-exact areas.
+
 `rng`, `task_rng`, and `hmc_rng` compare complete default RNG state and actual
 future child streams, alongside explicit sampler RNGs and fixed-work results.
 They cover BAT-owned listener/Timer/disposal enrollment, legitimate callback

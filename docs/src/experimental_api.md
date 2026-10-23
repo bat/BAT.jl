@@ -156,6 +156,23 @@ this limit even with ordinary coordinate ranges. Statistical overlays
 reject nonfinite or collapsed positive spread and interval geometry. Constant
 data and singular covariance remain supported where the recipe defines them.
 
+`Hist1D` bar widths come from the original bin edges, including single-bin
+histograms. A `BarPlot.width` theme cannot override those widths. Native gap,
+dodge, color and label styling remains available. The extension checks the
+actual native bar endpoints against exact edge-based layout arithmetic. Each
+endpoint's displacement is limited to `32eps(Float32)` times the intended
+styled bin width;
+intentionally zero-width styling uses the original bin width as its scale.
+This bounds relative width error by `64eps(Float32)` for nonzero styled bars,
+before backend transforms and rasterization. Gap/dodge styling can intentionally
+change the displayed area; it does not change the histogram's stored heights.
+
+Very narrow bins at large coordinate offsets can fail this check even with
+finite, distinct edges. Such layouts raise an `ArgumentError`, possibly wrapped
+by Makie's compute pipeline, rather than silently shifting or collapsing bins.
+Recenter the coordinates or use the original-edge `QuantileHist1D` representation.
+Uniformly rescaling coordinates need not improve their offset-to-width ratio.
+
 `Hexbin2D` colors show absolute weighted counts, with thresholds in the same
 units. The Makie extension requires Makie 0.24.8 or later in the 0.24 series,
 for native Hexbin count nodes and safe transient widget layouts.
@@ -177,8 +194,9 @@ does not promise distinct pixels for every distinct count or identical palette
 interpolation across renderers. Colorbar endpoints retain absolute
 count units at Float32 precision.
 
-BAT-owned interactive updates demand this check before returning to a renderer.
-Ordinary caller-owned Makie plots may reject on update or later color evaluation.
+BAT-owned interactive updates demand these histogram/hexbin checks before
+returning to a renderer. Ordinary caller-owned Makie plots may reject on update
+or later geometry/color evaluation.
 After a rejected update, dispose and recreate the caller-owned figure; in-place
 retry is not supported. Live BAT visualization follows its existing failure and
 disposal policy and marks the presentation incomplete.

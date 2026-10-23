@@ -261,8 +261,8 @@ function _update_grid_axis!(axis::Axis, plots, spec::Makie.BlockSpec, previous)
         all(_same_plot_structure(a, b) for (a, b) in zip(old_plots, spec.plots))
     compatible || (plots[] = PlotSpec[])
     plots[] = spec.plots
-    # Demand checked colors inside the owned view boundary, before a renderer
-    # can resolve them asynchronously. A rejected update is fail-stop.
+    # Demand checked geometry and colors inside the owned view boundary, before
+    # a renderer can resolve them asynchronously. A rejected update is fail-stop.
     foreach(_validate_plot_display, axis.scene.plots)
     for (key, value) in attributes
         key === :limits && continue
