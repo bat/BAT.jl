@@ -32,10 +32,6 @@
     layout --> nparams^2
     size --> (1000, 600)
 
-    partition_tree = get(upper, "partition_tree", false)
-    min_samples = minimum(flatbatch(flat_samples.v), dims=2)[:,1]
-    max_samples = maximum(flatbatch(flat_samples.v), dims=2)[:,1]
-
     # get bin edges
     bins = if isa(bins, NamedTuple)
         tmp_bins::Vector{Any} = fill(200, length(vsel))
@@ -95,42 +91,10 @@
                 xlims --> get(upper, "xlims", :auto)
                 ylims --> get(upper, "ylims", :auto)
 
-                if partition_tree != false
-                    xguide --> xlabel[j]
-                    yguide --> xlabel[i]
+                xguide --> xlabel[i]
+                yguide --> xlabel[j]
 
-                    flat_samples, (vsel[j], vsel[i])
-                else
-                    xguide --> xlabel[i]
-                    yguide --> xlabel[j]
-
-                    flat_samples, (vsel[i], vsel[j])
-                end
-            end
-
-            if partition_tree != false
-                subspaces_rect_bounds = get_tree_par_bounds(partition_tree)
-                axes = [vsel[j], vsel[i]]
-                for rect in subspaces_rect_bounds
-                    for ind in Base.OneTo(size(rect)[1])
-                        rect[ind,:] = replace(rect[ind,:], Pair(Inf, max_samples[ind]), Pair(-Inf, min_samples[ind]))
-                    end
-                    box = _rect_box(rect[axes[1],1], rect[axes[1],2], rect[axes[2],1], rect[axes[2],2])
-
-                    @series begin
-                        subplot := j + (i-1)*nparams
-                        seriestype --> :path
-                        linewidth --> get(upper, "linewidth", 1)
-                        linealpha --> get(upper, "linealpha", 1)
-                        linecolor -->  get(upper, "linecolor", :darkgray)
-                        legend --> false
-
-                        xlims --> (min_samples[vsel[j]], max_samples[vsel[j]])
-                        ylims --> (min_samples[vsel[i]], max_samples[vsel[i]])
-
-                        box[1], box[2]
-                    end
-                end
+                flat_samples, (vsel[i], vsel[j])
             end
 
             # lower left plots

@@ -1,7 +1,4 @@
-struct Marginalization{D} <: AbstractVector{D} 
-    samples::DensitySampleVector
-    vsel::Any
-end
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 # A binned distribution `dist` (`UvBinnedDist` or `MvBinnedDist`) over the
 # free parameters of variates of shape `shape`:
