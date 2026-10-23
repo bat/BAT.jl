@@ -127,6 +127,19 @@ function _unflat_leaf(vs::NamedTupleShape, M::AbstractMatrix, offset::Int)
 end
 
 
+# A single variate of shape `vs` from per-component values `r` of its free
+# components in standard-variate layout (e.g. per-component statistics),
+# with `constf(value)` for constant components:
+_unflat_variate(vs::AbstractValueShape, r::AbstractVector, constf) = _unflat_variate(vs, r, constf, 0)
+_unflat_variate(::ScalarShape, r::AbstractVector, ::Any, offset::Int) = r[offset + 1]
+_unflat_variate(vs::ArrayShape, r::AbstractVector, ::Any, offset::Int) = reshape(r[(offset + 1):(offset + totalndof(vs))], size(vs))
+_unflat_variate(vs::ConstValueShape, ::AbstractVector, constf, ::Int) = constf(vs.value)
+
+function _unflat_variate(vs::NamedTupleShape, r::AbstractVector, constf, offset::Int)
+    NamedTuple{keys(vs)}(map(acc -> _unflat_variate(acc.shape, r, constf, offset + acc.offset), values(vs)))
+end
+
+
 """
     BAT._own_batch(X::AbstractVector, μ::AbstractMeasure)
 

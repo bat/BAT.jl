@@ -143,10 +143,8 @@ function smallest_credible_intervals(smpl::DensitySampleVector{<:AbstractVector{
     [smallest_credible_intervals(V[i,:], W; kwargs...) for i in axes(V,1)]
 end
 
+# Constants have no credible intervals:
 function smallest_credible_intervals(smpl::DensitySampleVector; kwargs...)
-    # ToDo: Make type-stable.
-    vs = elshape(smpl.v)
     ivs = smallest_credible_intervals(unshaped.(smpl); kwargs...)
-    idxs = replace_const_shapes(x -> ConstValueShape(nothing), vs)(eachindex(ivs))
-    fmap(x -> isnothing(x) ? x : map(Base.Fix1(getindex, ivs), x), idxs)
+    _unflat_variate(varshape(smpl), ivs, Returns(nothing))
 end

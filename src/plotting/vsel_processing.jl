@@ -205,6 +205,7 @@ function bat_marginalize(samples::DensitySampleVector,
     marg_data = flat_orig_data[(first(axes(flat_orig_data, 1)) - 1) .+ flat_idxs, :]
     marg_data = ndims(marg_data) > 1 ? VectorOfSimilarVectors(marg_data) : marg_data
    
-    marg_samples = shaped ? new_shape.(DensitySampleVector(v = marg_data, logd = logd, info = info, aux = aux)) : DensitySampleVector(v = marg_data, logd = logd, info = info, aux = aux)
+    flat_marg_samples = DensitySampleVector(v = marg_data, logd = logd, info = info, aux = aux)
+    marg_samples = shaped ? _reshaped_samples(new_shape, flat_marg_samples) : flat_marg_samples
     return (result = marg_samples,)
 end

@@ -28,7 +28,7 @@
     vs = varshape(maybe_shaped_samples)
     samples = unshaped.(maybe_shaped_samples)
     filter ? samples = BAT.drop_low_weight_samples(samples) : nothing
-    reshaped_samples = vs.(samples)
+    reshaped_samples = _reshaped_samples(vs, samples)
 
     bins = get(plotattributes, :bins, 200)
     seriestype = get(plotattributes, :seriestype, :smallest_intervals)
