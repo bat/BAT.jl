@@ -161,6 +161,14 @@ _SampleAux() = _SampleInfo(0)
 
         @test @inferred(isapprox(@inferred(cor(X, w, 2)), @inferred(cor(dsv_merged)), rtol=rtol))
 
+        @testset "marginal histograms" begin
+            smpls = DensitySampleVector(v = nestedview([0.0 0.5 1.0 2.0; 1.0 1.0 1.0 1.0]), logd = zeros(4), weight = [1, 2, 1, 3])
+            hists_coarse = BAT._marginal_histograms(smpls, nbins = 2)
+            hists_fine = BAT._marginal_histograms(smpls, nbins = 10)
+            @test all(h -> sum(h.weights) == sum(smpls.weight), vcat(hists_coarse, hists_fine))
+            @test length(hists_fine[1].weights) > length(hists_coarse[1].weights)
+        end
+
         @testset "weighted statistics ignore global weight scale" begin
             values = [0.0, 2.0]
             unit = DensitySampleVector(v = values, logd = zeros(2), weight = [1, 1])
