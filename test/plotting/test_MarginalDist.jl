@@ -7,7 +7,7 @@ using Distributions, StatsBase, ValueShapes, LinearAlgebra, ArraysOfArrays
 using FillArrays: Fill
 using EmpiricalDistributions: UvBinnedDist, MvBinnedDist
 
-using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex, bat_marginalize
+using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex, bat_marginalize, calculate_levels
 
 @testset "MarginalDist" begin
     prior = NamedTupleDist(
@@ -132,6 +132,17 @@ using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex, bat_margi
         marg_2d = MarginalDist(shaped_samples, (:ϕ, :(θ[2])), bins = 20)
         @test MarginalDist(marg_2d, :ϕ).dist isa UvBinnedDist
         @test keys(varshape(MarginalDist(marg_2d, 2))) == (:θ⌞2⌟,)
+    end
+
+    @testset "contour levels" begin
+        # A single bin covers the probabilities 0.683 and 0.955:
+        @test calculate_levels(Histogram((0:3,), [50, 49, 1]), [0.683, 0.955, 0.997]) ≈ [1, 49, 49, 110]
+        hist = fit(Histogram, (randn(10^4), randn(10^4)), nbins = 20)
+        levels = calculate_levels(hist, [0.997, 0.683, 0.955])
+        @test issorted(levels) && length(levels) == 4
+        for (p, l) in zip([0.997, 0.955, 0.683], levels)
+            @test sum(filter(>=(l), hist.weights)) >= p * sum(hist.weights)
+        end
     end
 
     @testset "bin centers and marginal modes" begin
