@@ -94,6 +94,13 @@ truthful bounded samples so strict support checks run during extension building.
 original-edge polygons and heatmaps, transpose/empty transitions, invalid levels,
 and actual Cairo output. These checks use independent unequal-cell fixtures.
 
+`histogram_viewport` checks that fixed-domain histogram edges fit generated
+limits, including coarse/asymmetric bins, constant and near-ULP coordinates,
+closure modes, selection/configuration changes, empty windows and real Cairo
+navigation. `gl_histogram_viewport.jl` checks actual native GL bounds and
+upper/lower geometry with stopped, explicitly closed screens; run it separately
+with an external deadline like the other native GL checks.
+
 `rng`, `task_rng`, and `hmc_rng` compare complete default RNG state and actual
 future child streams, alongside explicit sampler RNGs and fixed-work results.
 They cover BAT-owned listener/Timer/disposal enrollment, legitimate callback

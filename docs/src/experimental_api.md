@@ -310,6 +310,14 @@ are recomputed after updates. Removed variables have no saved navigation state.
 Makie's display and export operations can independently reset pan/zoom; this
 policy does not override those operations.
 
+Generated coordinate bounds include the original bin intervals of the selected
+histogram recipes, in addition to the padded fixed data domain. This preserves
+complete outer bins without changing their statistical edges or density heights.
+Changing the sample window, including an empty window, leaves these coordinate
+bounds unchanged. Switching recipes can change the required bounds and reset
+navigation under the rule above. Caller zoom or explicit limits may still crop
+bins intentionally.
+
 These rules apply to BAT's interactive figures. Ordinary `Makie.plot` composition
 uses the caller's existing Makie layout and reconciliation behavior.
 

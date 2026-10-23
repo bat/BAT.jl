@@ -1,5 +1,47 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+# Bounds for the whole selected histogram grid, not the visible window.
+# Keep the statistical domain unchanged; only the display envelope grows.
+function _extend_hist_axis_limit(limits, edges)
+    lo, hi = Float64(first(edges)), Float64(last(edges))
+    isfinite(lo) && isfinite(hi) && lo < hi ||
+        throw(ArgumentError("Histogram display edges must have finite ordered endpoints"))
+    return (min(limits[1], lo), max(limits[2], hi))
+end
+
+function _histogram_axis_limits(lo, hi, idxs, n, diagonal_recipe, upper_recipe,
+    lower_recipe, diagonal_config, triagonal_config)
+    limits = fill((0.0, 1.0), n)
+    length(idxs) <= n || throw(ArgumentError("idxs has $(length(idxs)) entries, exceeding the grid size N_max=$n"))
+    (isempty(lo) || isempty(idxs)) && return limits
+    for (i, v) in enumerate(idxs)
+        span = hi[v] - lo[v]
+        margin = iszero(span) ? max(abs(hi[v]), one(hi[v])) * 0.05 : 0.05 * span
+        limits[i] = (lo[v] - margin, hi[v] + margin)
+    end
+    if diagonal_recipe in (Hist1D, QuantileHist1D)
+        nbins = diagonal_config.nbins
+        bins = diagonal_recipe === Hist1D ? Base.Checked.checked_add(nbins, 1) : nbins
+        for (i, v) in enumerate(idxs)
+            domain = (lo[v], hi[v])
+            edges = only(_hist_edges(domain, nothing, bins, diagonal_config.closed))
+            limits[i] = _extend_hist_axis_limit(limits[i], edges)
+        end
+    end
+    if length(idxs) > 1 && (upper_recipe in (Hist2D, QuantileHist2D) || lower_recipe in (Hist2D, QuantileHist2D))
+        bins = triagonal_config.nbins
+        for i in eachindex(idxs), j in i+1:length(idxs)
+            # Pair primitives use (larger slot, smaller slot); their edge
+            # fallback is coupled across dimensions, so plan the full pair.
+            domain = ((lo[idxs[j]], hi[idxs[j]]), (lo[idxs[i]], hi[idxs[i]]))
+            xedges, yedges = _hist_edges(domain, nothing, bins, triagonal_config.closed)
+            limits[j] = _extend_hist_axis_limit(limits[j], xedges)
+            limits[i] = _extend_hist_axis_limit(limits[i], yedges)
+        end
+    end
+    return limits
+end
+
 const BAT_MAKIE_RECIPES_1D = [
     Hist1D(),
     QuantileHist1D(),
@@ -352,6 +394,19 @@ function _init_compute_graph(
     end
 
 
+    # No sample/window inputs: fixed-domain bin endpoints are stable across
+    # data-only updates, including an empty window. Configuration/selection
+    # changes recompute the envelope once for the whole grid.
+    register_computation!(graph,
+        [:domain_lo, :domain_hi, :idxs, :diagonal_recipe, :upper_recipe,
+         :lower_recipe, :diagonal_config, :triagonal_config], [:axis_limits],
+    ) do inputs, changed, cached
+        @nospecialize(changed, cached)
+        return (_histogram_axis_limits(inputs.domain_lo, inputs.domain_hi,
+            inputs.idxs, n, inputs.diagonal_recipe, inputs.upper_recipe,
+            inputs.lower_recipe, inputs.diagonal_config, inputs.triagonal_config),)
+    end
+
     for i in 1:n
         marg_sym = marg_symbol((i, i))
 
@@ -364,21 +419,7 @@ function _init_compute_graph(
             marg_sym
         )
 
-        # Limits come from the fixed domain, not the visible data, keeping axes
-        # stable; (0, 1) when the domain is unset or the cell has no variable.
-        map!(
-            (lo, hi, vsel_map) -> begin
-                v = vsel_map[i, i][1]
-                (isempty(lo) || v == 0) && return (0.0, 1.0)
-                # Zero span would render a blank panel -- use a magnitude-scaled margin.
-                span = hi[v] - lo[v]
-                margin = iszero(span) ? max(abs(hi[v]), one(hi[v])) * 0.05 : 0.05 * span
-                (lo[v] - margin, hi[v] + margin)
-            end,
-            graph,
-            [:domain_lo, :domain_hi, :vsel_map],
-            Symbol("axis_limits_$i")
-        )
+        map!(limits -> limits[i], graph, [:axis_limits], Symbol("axis_limits_$i"))
 
         primitive_symbols_1D = [primitive_symbol(recipe, (i, i)) for recipe in BAT_MAKIE_RECIPES_1D]
 
