@@ -37,17 +37,18 @@
     max_samples = maximum(flatbatch(flat_samples.v), dims=2)[:,1]
 
     # get bin edges
-    bins = if isa(bins, Integer)
-        fill(bins, length(vsel))
-    elseif isa(bins, Tuple{Vararg{Union{Integer, StepRangeLen}}})
-        bins
-    elseif isa(bins, NamedTuple)
+    bins = if isa(bins, NamedTuple)
         tmp_bins::Vector{Any} = fill(200, length(vsel))
         for k in keys(bins)
             idx = findfirst(isequal(string(k)), parnames)
-            tmp_bins[idx] = bins[idx]
+            isnothing(idx) && throw(ArgumentError("No selected parameter $k for the bins $bins"))
+            tmp_bins[idx] = bins[k]
         end
         tmp_bins
+    elseif isa(bins, Tuple)
+        bins
+    else
+        fill(bins, length(vsel))
     end
 
 
