@@ -129,12 +129,20 @@ function unflatbatch(vs::AbstractValueShape, M::AbstractMatrix{<:Real})
     return _unflat_leaf(vs, M, 0)
 end
 
-_unflat_leaf(::ScalarShape, M::AbstractMatrix, offset::Int) = M[offset + 1, :]
+# Leaves are copied into new plain arrays on the compute unit of `M`:
+function _unflat_leaf(::ScalarShape, M::AbstractMatrix, offset::Int)
+    X = allocate_array(_flat_alloc_unit(get_compute_unit(M)), eltype(M), (size(M, 2),))
+    X .= vec(view(M, _flat_rows(M, offset, 1), :))
+    return X
+end
 
 function _unflat_leaf(vs::ArrayShape, M::AbstractMatrix, offset::Int)
-    flat = M[(offset + 1):(offset + totalndof(vs)), :]
-    return VectorOfSimilarArrays(reshape(flat, size(vs)..., size(M, 2)))
+    flat = allocate_array(_flat_alloc_unit(get_compute_unit(M)), eltype(M), (size(vs)..., size(M, 2)))
+    reshape(flat, :, size(M, 2)) .= view(M, _flat_rows(M, offset, totalndof(vs)), :)
+    return VectorOfSimilarArrays(flat)
 end
+
+_flat_rows(M::AbstractMatrix, offset::Int, len::Int) = firstindex(M, 1) .+ (offset:(offset + len - 1))
 
 _unflat_leaf(vs::ConstValueShape, M::AbstractMatrix, ::Int) = Fill(vs.value, size(M, 2))
 

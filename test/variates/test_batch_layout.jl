@@ -46,6 +46,17 @@ using MeasureBase: productmeasure, asmeasure, StdUniform, StdNormal
         @test size(BAT.flatbatch(Fill(4.2, n))) == (0, n)
     end
 
+    @testset "flat storage types" begin
+        # Leaves are plain arrays, also for elastic and offset flat storage:
+        vs_flat = NamedTupleShape(a = ScalarShape{Real}(), b = ArrayShape{Real}(2))
+        M = ElasticArray(randn(3, n))
+        X = BAT.unflatbatch(vs_flat, M)
+        @test X.a isa Vector && flatview(X.b) isa Array
+        @test X[2] == (a = M[1, 2], b = M[2:3, 2])
+        M_offset = view(randn(4, n), Base.IdentityUnitRange(2:4), :)
+        @test BAT.flatbatch(BAT.unflatbatch(vs_flat, M_offset)) == parent(M_offset)[2:4, :]
+    end
+
     @testset "concatenation" begin
         X = BAT._own_batch(rand(μ^n), μ)
         Y = BAT._vcat_batches(X, X)
