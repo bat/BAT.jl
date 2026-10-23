@@ -21,9 +21,7 @@ gone, BAT builds on MeasureBase 0.15 instead.
 
 * `BAT.StandardUvUniform`, `BAT.StandardMvUniform`, `BAT.StandardUvNormal`
   and `BAT.StandardMvNormal` are gone. Use `MeasureBase.StdUniform()`,
-  `MeasureBase.StdNormal()` and their powers, or the `StandardUniform{N}`
-  and `StandardNormal{N}` distributions of MeasureBase's Distributions
-  extension where a `Distribution` is required.
+  `MeasureBase.StdNormal()` and their powers, like `StdNormal()^n`.
 
 * `BAT.DistributionTransform` is gone. Use `MeasureBase.transport_to`.
   `bat_transform` and the transform intents (`NormalBased`, `UniformBased`,
@@ -40,6 +38,34 @@ gone, BAT builds on MeasureBase 0.15 instead.
 
 * `lbqintegral` and `distbind` are deprecated in favour of
   `MeasureBase.mintegrate`/`mintegrate_exp` and `MeasureBase.mbind`.
+
+* `DensitySampleVector` stores the variates in the layout that `rand(μ^n)`
+  produces for their measure `μ`, instead of a `ShapedAsNTArray` over flat
+  storage: numbers in vectors, arrays as nested arrays (ArraysOfArrays),
+  named tuples as `StructArray`s of their components and constant
+  components as `Fill` columns. `varshape(samples)` is derived from this
+  layout. Vectors of named tuples passed to the constructor are converted
+  to it. The new constructor
+  `DensitySampleVector(X, μ; logd, weight, info, aux)` takes a batch of
+  variates of `μ` or a matrix of their flat free components.
+
+* Statistics of samples have the structure of the variates: `mean`, `var`,
+  `std`, `quantile`, `median`, `minimum`, `maximum` and `mode` return named
+  tuples resp. arrays instead of `ShapedAsNT` values, and so do effective
+  sample sizes and credible intervals. `minimum` and `maximum` are
+  elementwise, they used to return the lexicographically smallest resp.
+  largest variate. `cov` and `cor` work on the flat free components of any
+  samples.
+
+* `unshaped.(samples)` and `bat_transform(Vector, samples)` return samples
+  with the flat free components of the variates. `vcat` and `merge` of
+  samples allocate. `push!`, `append!` and `merge!` require growable
+  storage, like the flat storage of MCMC output, and throw an
+  `ArgumentError` otherwise.
+
+* Broadcasting a value shape over samples, `vs.(samples)`, and
+  `bat_transform` with a value shape on samples are deprecated. Use
+  `DensitySampleVector(X, μ)` to get samples in the layout of a measure.
 
 * `batmeasure` is BAT's canonicalization: it turns distributions into
   measures, named tuples of distributions and `NamedTupleDist`s into product
@@ -71,8 +97,8 @@ gone, BAT builds on MeasureBase 0.15 instead.
 * `ValueShapes.varshape` and `ValueShapes.unshaped` are defined for
   MeasureBase measures and derived from the measure structure.
 
-* `DensitySampleVector` accepts raw `NamedTuple` variates and shapes them,
-  instead of requiring variates with an explicit shape.
+* `truncate_batmeasure` supports measures with scalar variates, via
+  MeasureBase's `truncate`. It still doesn't renormalize.
 
 * `EllipticalSliceMCMCSampling` requires a posterior measure whose prior
   transforms to a standard multivariate normal, and says so instead of
