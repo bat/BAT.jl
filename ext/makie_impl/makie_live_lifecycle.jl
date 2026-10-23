@@ -43,7 +43,8 @@ function _live_error_summary(error, phase::Symbol)
     return (type=type, message=message, phase=phase)
 end
 
-# The transport lock owns these fields, except for the atomic fast-path flag.
+# The transport lock owns these fields, except for the atomic fast-path flag
+# and the owner-thread-only contents of renderer_owner.
 # Renderer state has a separate owner; no stop/wakeup operation enters Makie.
 Base.@kwdef mutable struct _MakieLiveControl
     phase::Symbol = :fresh
@@ -55,6 +56,8 @@ Base.@kwdef mutable struct _MakieLiveControl
     timer::Union{Nothing,Timer} = nothing
     task::Union{Nothing,Task} = nothing
     disposal_task::Union{Nothing,Task} = nothing
+    # Owner-thread-only mutable anchor; the render invocation holds it weakly.
+    renderer_owner::Base.RefValue{Any} = Ref{Any}(nothing)
     # Private task-construction state, retained through cleanup and retries.
     # Fresh visualizers deliberately repeat this origin; it is not a unique seed.
     task_rng::Random.Xoshiro = Random.Xoshiro(0x4241547669733031)
@@ -179,6 +182,34 @@ function BAT.request_visualizer_stop!(vis::BATVisualizer{BATMakieVisualization};
     end
     return nothing
 end
+
+function _live_renderer_failure_callback(vis)
+    # BATVisualizer is immutable: weak-reference a stable, session-owned Ref
+    # rather than a transient box. Cleanup clears its contents after rendering.
+    anchor = vis.content.lifecycle.renderer_owner
+    anchor[] = vis
+    weak_owner = WeakRef(anchor)
+    return function(err, bt)
+        current_anchor = weak_owner.value
+        isnothing(current_anchor) && return nothing
+        owner = current_anchor[]
+        isnothing(owner) && return nothing
+        lock(owner.content.buffer_lock) do
+            Base.disable_sigint() do
+                view = owner.content.lifecycle.view
+                isnothing(view) || (view.presentation_valid[] = false)
+                _stop_live_locked!(owner, :failed, CapturedException(err, bt); phase=:renderloop)
+                _request_view_disposal!(owner)
+                _schedule_live_view_cleanup!(owner)
+            end
+        end
+        # Logger code may yield or throw: invalidation and autonomous cleanup
+        # are already committed before diagnostics invoke it.
+        _fail_visualizer!(owner, err, bt, :renderloop)
+        return nothing
+    end
+end
+
 
 function _fail_visualizer!(vis, err, bt, phase::Symbol)
     captured = CapturedException(err, bt)
@@ -525,7 +556,8 @@ function _try_release_live_history!(vis)
                     (view.disposed[] && !view.cleanup_pending[] && !view.cleanup_running[] &&
                         !view.cleanup_blocked[] && view.depth == 0 &&
                         !view.updating && isempty(view.pending) &&
-                        isempty(view.subscriptions) && isnothing(view.figure)) || return false
+                        isempty(view.subscriptions) && isnothing(view.figure) &&
+                        isnothing(ctl.renderer_owner[])) || return false
                 end
                 vis.content.graph[] = nothing
                 ctl.owner_task = nothing

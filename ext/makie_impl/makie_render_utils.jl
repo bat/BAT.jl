@@ -44,11 +44,64 @@ end
 # The precompile workload suppresses display without retaining any Figure here.
 const _SUPPRESS_DISPLAY = Ref(false)
 
-function _maybe_display(fig; on_failure=nothing)
+function _start_observed_gl_renderloop!(fig, screen, backend, on_failure)
+    isnothing(on_failure) && return _start_gl_renderloop!(screen, backend)
+    # A stop request does not finish its task. Starting now could overlap a
+    # predecessor which can still close this screen or clear its task handle.
+    task = screen.rendertask
+    !isnothing(task) && !istaskdone(task) && throw(ArgumentError(
+        "Live GL display requires a renderer started by BAT"))
+    config = screen.config
+    original = config.renderloop
+    scene = WeakRef(fig.scene)
+    entered = Ref{Union{Nothing,Task}}(nothing)
+    guarded = function(native_screen)
+        entered[] = current_task()
+        try
+            result = original(native_screen)
+            expected = scene.value
+            if !isnothing(expected) && native_screen.scene === expected &&
+                    isopen(native_screen) && !native_screen.stop_renderloop[]
+                error("Live GL renderloop returned while its window remained open")
+            end
+            return result
+        catch err
+            bt = catch_backtrace()
+            expected = scene.value
+            if !isnothing(expected) && native_screen.scene === expected
+                try
+                    on_failure(err, bt)
+                catch reporting_error
+                    BAT._visualizer_cleanup_diagnostic(:renderer_observer,
+                        (reporting_error, catch_backtrace()))
+                end
+            end
+            rethrow()
+        end
+    end
+    try
+        config.renderloop = guarded
+        _start_gl_renderloop!(screen, backend)
+        if isopen(screen) && screen.scene === fig.scene
+            task = screen.rendertask
+            task === entered[] && backend.renderloop_running(screen) ||
+                error("Live GL display requires an active observed renderer")
+        end
+    finally
+        # The upstream startup contract guarantees invocation entry before
+        # returning. The running frame owns the wrapper; config never does
+        # beyond enrollment, including closed-screen or startup-error paths.
+        config.renderloop === guarded && (config.renderloop = original)
+    end
+    return nothing
+end
+
+
+function _maybe_display(fig; on_failure=nothing, on_render_failure=nothing)
     _SUPPRESS_DISPLAY[] && return nothing
     backend = Makie.current_backend()
     if _is_gl_backend(backend)
-        _display_gl_figure(fig, backend; on_failure=on_failure)
+        _display_gl_figure(fig, backend; on_failure=on_failure, on_render_failure=on_render_failure)
     else
         display(fig)
     end
@@ -207,7 +260,7 @@ function _with_gl_screen(f, fig, backend; temporary::Bool=false, on_failure=noth
     end
 end
 
-function _display_gl_figure(fig, backend; on_failure=nothing)
+function _display_gl_figure(fig, backend; on_failure=nothing, on_render_failure=nothing)
     inline = Makie.ALWAYS_INLINE_PLOTS[]
     show_inline = (inline === true || inline === Makie.automatic) &&
         Makie.can_show_inline(backend)
@@ -217,11 +270,20 @@ function _display_gl_figure(fig, backend; on_failure=nothing)
     _with_gl_screen(fig, backend; on_failure=on_failure) do screen
         # As in Makie's inline path, the selected display owns the figure update.
         # Scene attachment and custom synchronous callbacks stay on this task.
+        predecessor = screen.rendertask
+        if !isnothing(on_render_failure) && !isnothing(predecessor) && !istaskdone(predecessor)
+            throw(ArgumentError("Live GL display requires a renderer started by BAT"))
+        end
         display(screen, fig; update=!show_inline)
-        _start_gl_renderloop!(screen, backend)
-        if show_inline
+        _start_observed_gl_renderloop!(fig, screen, backend, on_render_failure)
+        renderer = screen.rendertask
+        if show_inline && (isnothing(on_render_failure) || isopen(screen))
             Core.invoke(display, Tuple{Any}, fig)
             Makie.wait_for_display(Makie.getscreen(fig.scene))
+            if !isnothing(on_render_failure) && isopen(screen) && screen.scene === fig.scene
+                screen.rendertask === renderer ||
+                    error("Live GL inline display replaced its observed renderer")
+            end
         end
     end
     return nothing

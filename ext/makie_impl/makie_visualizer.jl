@@ -283,7 +283,8 @@ function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, 
     # The construction theme has also been restored: renderer callbacks must
     # not be joined while this task holds Makie's global theme lock.
     _maybe_display(built.fig;
-        on_failure=(err, bt) -> _fail_visualizer!(vis, err, bt, :startup))
+        on_failure=(err, bt) -> _fail_visualizer!(vis, err, bt, :startup),
+        on_render_failure=_live_renderer_failure_callback(vis))
     history = Ref((samples=graph[:samples][], timing=vis.content.step_mode[] ?
         graph[:sample_timing][] : [_empty_walker_spans(c) for c in graph[:samples][]]))
     tick! = () -> _flush_live_buffer!(vis, mcmc_states, f_pretransform, history, domain_lo, domain_hi; display_shape)

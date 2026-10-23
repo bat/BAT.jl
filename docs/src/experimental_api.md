@@ -436,6 +436,20 @@ sampling errors and intentional interruption remain errors. Time-limited runs
 remain sensitive to observation overhead. Direct scalar iteration does not own
 the session and does not promise a final display flush on cancellation/time-limit
 exits.
+For live GLMakie sessions, BAT observes the native render loop it starts even
+after sampling completes. An error propagated by that loop invalidates the
+presentation and requests asynchronous disposal; the figure getter then returns
+`nothing`. Previously confirmed `data_complete` and completed observation outcome
+are preserved, with the rendering error reported separately.
+Custom render loops must remain running through live startup. An already running
+caller-owned loop cannot be adopted, and returning while the owned window remains
+open without a stop request is rejected. Later caller-driven renderer replacements
+and errors suppressed inside a custom loop are outside this guarantee.
+When reusing a native screen for another figure, dispose the old BAT session:
+screen reuse alone can retain old scene callbacks and does not release the
+session's observation history. Disposal preserves a screen now showing another
+figure.
+
 BAT-created observation tasks use private RNG state, preserving the initiating
 task's ordinary draws and the streams of its future child tasks. BAT's GL shader
 warmup renders without a background loop. Its explicit GL display starts the

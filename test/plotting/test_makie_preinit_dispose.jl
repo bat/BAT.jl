@@ -679,7 +679,10 @@ end
         end
         drop_task_alias!(fixture)
         GC.@preserve fixture begin
-            collect_twice()
+            # Terminal task observation need not retire every transient runtime
+            # root before the next GC. Allow bounded scheduler/GC progress while
+            # retaining the whole session; persistent ownership must still fail.
+            waitfor(() -> (collect_twice(); !payload_alive(fixture)))
             @test !payload_alive(fixture)
             @test isnothing(fixture.context.visualizer.content.lifecycle.owner_task)
             @test isnothing(fixture.context.visualizer.content.graph[])

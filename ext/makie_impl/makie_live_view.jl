@@ -318,6 +318,7 @@ function _cleanup_live_view!(vis)
             empty!(view.figure)
             view.figure = nothing
         end
+        vis.content.lifecycle.renderer_owner[] = nothing
         if isempty(failed_handles)
             view.disposed[] = true
             view.cleanup_pending[] = false

@@ -167,6 +167,24 @@ headless CI and do not imply a platform or renderer-version compatibility matrix
 The optional MCMC owner runner provides native SIGINT coverage separately;
 direct exception tests in `task_rng` are not native signal tests.
 
+`renderer_failure` checks the render-failure bridge with Cairo and real session
+ownership: presentation invalidation before yielding or throwing diagnostics,
+completed-data and first-stop semantics, autonomous release, mutable-anchor
+lifetime, and default/future-child RNG parity. It does not simulate native
+rendering. `gl_renderer_failure.jl` separately exercises actual native tick
+failures during sampling and after completion, inline PNG output, startup
+rollback, held-view cleanup, unrelated and reused screens, weak ownership and
+fixed-work sample/chain/callback/RNG parity. Run it with an external deadline:
+
+```sh
+timeout 600 julia --startup-file=no --threads=2,1 --project=/path/to/gl-project test/optional/makie/gl_renderer_failure.jl
+```
+
+These checks cover the renderer invocation started by BAT. Caller-created later
+invocations and custom loops that suppress their own errors are outside that
+contract. Direct native screen reuse can retain old scene subscriptions; the
+test verifies explicit BAT disposal without closing the replacement figure.
+
 `hexbin` checks absolute weighted-count color admission after native aggregation
 and threshold filtering. It covers independent BigFloat oracles, generated count
 families, native geometry and colorbar parity, actual public figures/Apply,
