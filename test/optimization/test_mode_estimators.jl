@@ -85,7 +85,7 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
         em = evalmeasure(samples, MaxDensitySearch(), context)
         mode_idx = BAT.evalinfo(em).result.mode_idx
         @test samples[mode_idx].v == mode(em)
-        @test isapprox(unshaped(mode(em), elshape(samples.v)), true_mode_flat, rtol = 0.05)
+        @test isapprox(unshaped(mode(em), varshape(samples)), true_mode_flat, rtol = 0.05)
     end
 
     @testset "Optim.jl - NelderMead" begin

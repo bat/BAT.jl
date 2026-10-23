@@ -38,7 +38,7 @@ if Int == Int64
                 samples_snt = bat_sample(prior_snt, IIDSampling(nsamples = 20)).result
                 bat_write(snt_filename, samples_snt)
                 samples_snt2 = bat_read(snt_filename).result
-                @test unshaped.(samples_snt2.v) == unshaped.(samples_snt.v)
+                @test unshaped.(samples_snt2).v == unshaped.(samples_snt).v
                 @test samples_snt2.v.x.a == samples_snt.v.x.a
             end
         end

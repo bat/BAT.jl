@@ -10,21 +10,21 @@ _maycopy_val(tpl::Tuple) = map(_maycopy_val, tpl)
 _maycopy_val(nt::NamedTuple) = map(_maycopy_val, nt)
 
 
+# Random variates from `src` with the variate shape of `target`, reshaped via
+# the flat layout where the shapes differ:
 function _rand_v_for_target(target::AbstractMeasure, src::AbstractMeasure, n::Integer, context::BATContext)
-    conv_src = batmeasure(src)
-    xs = samplesof(evalmeasure(conv_src, IIDSampling(nsamples = n), context)).v
-    vs_target = varshape(batmeasure(target))
-    vs_src = varshape(conv_src)
-    reshape_variates(vs_target, vs_src, xs)
+    xs = samplesof(evalmeasure(batmeasure(src), IIDSampling(nsamples = n), context)).v
+    _batch_with_shape(xs, varshape(batmeasure(target)))
 end
 
-
-function _rand_v_for_target(::AbstractMeasure, src::DensitySampleMeasure, n::Integer, context::BATContext)
-    rand(get_gencontext(context), src^n)
+function _rand_v_for_target(target::AbstractMeasure, src::DensitySampleMeasure, n::Integer, context::BATContext)
+    idxs = _rand_subsample_idxs(get_gencontext(context), src, n)
+    _batch_with_shape(samplesof(src).v[idxs], varshape(batmeasure(target)))
 end
 
-function _rand_v_for_target(::AbstractMeasure, src::DensitySampleVector, n::Integer, context::BATContext)
-    return samplesof(evalmeasure(src, RandResampling(nsamples = n), context)).v
+function _rand_v_for_target(target::AbstractMeasure, src::DensitySampleVector, n::Integer, context::BATContext)
+    xs = samplesof(evalmeasure(src, RandResampling(nsamples = n), context)).v
+    _batch_with_shape(xs, varshape(batmeasure(target)))
 end
 
 

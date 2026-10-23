@@ -72,7 +72,7 @@ function evalmeasure_impl(
     # @show samples #disable for testing
 
     transformed_smpls = DensitySampleVector(v = samples, logd = logvals, weight = weights)
-    smpls = inverse(f_pretransform).(transformed_smpls)
+    smpls = transform_samples(inverse(f_pretransform), transformed_smpls)
 
     ess = bat_eff_sample_size_impl(smpls, KishESS(), context).result
 
@@ -156,21 +156,17 @@ function evalmeasure_impl(
     m isa AbstractPosteriorMeasure || throw(ArgumentError(
         "PriorImportanceSampler requires a posterior measure, got $(nameof(typeof(m)))"
     ))
-    shape = varshape(m)
-
     prior = convert_for(bat_sample, getprior(m))
     prior_samples = samplesof(evalmeasure(prior, IIDSampling(nsamples = algorithm.nsamples), context))
-    unshaped_prior_samples = unshaped.(prior_samples)
 
-    v = unshaped_prior_samples.v
-    prior_weight = unshaped_prior_samples.weight
-    posterior_logd = map(logdensityof(unshaped(m)), v)
-    weight = exp.(posterior_logd - unshaped_prior_samples.logd) .* prior_weight
+    v = prior_samples.v
+    posterior_logd = map(logdensityof(m), v)
+    weight = exp.(posterior_logd - prior_samples.logd) .* prior_samples.weight
 
     est_integral = _prior_importance_mass(mean(weight), massof(prior))
     # ToDo: Add integral error estimate
 
-    smpls = shape.(DensitySampleVector(v = v, logd = posterior_logd, weight = weight))
+    smpls = DensitySampleVector(v = v, logd = posterior_logd, weight = weight)
 
     ess = bat_eff_sample_size_impl(smpls, KishESS(), context).result
 

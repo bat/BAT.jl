@@ -38,8 +38,8 @@
     size --> (1000, 600)
 
     partition_tree = get(upper, "partition_tree", false)
-    min_samples = minimum(flatview(unshaped.(samples.v)), dims=2)[:,1]
-    max_samples = maximum(flatview(unshaped.(samples.v)), dims=2)[:,1]
+    min_samples = minimum(flatbatch(samples.v), dims=2)[:,1]
+    max_samples = maximum(flatbatch(samples.v), dims=2)[:,1]
 
     # get bin edges
     bins = if isa(bins, Integer)

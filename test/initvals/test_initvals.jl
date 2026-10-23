@@ -4,7 +4,7 @@ using BAT
 using Test
 
 using LinearAlgebra, Random
-using Distributions, PDMats, StatsBase, ValueShapes, ArraysOfArrays
+using Distributions, PDMats, StatsBase, ValueShapes, ArraysOfArrays, StructArrays
 using DensityInterface
 
 
@@ -26,7 +26,7 @@ using DensityInterface
         @test @inferred(bat_initval(ds, context)).result isa NamedTuple
         @test bat_initval(ds, context).optargs.algorithm == InitFromTarget()
         @test logdensityof(ds, bat_initval(ds, context).result) > -Inf
-        @test @inferred(bat_initval(ds, 10, context)).result isa ShapedAsNTArray
+        @test @inferred(bat_initval(ds, 10, context)).result isa StructVector
         @test all(x -> x > -Inf, logdensityof.(Ref(ds), bat_initval(ds, 10, context).result))
         v_s = BAT.bat_sample(ds, BAT.IIDSampling(nsamples=1)).result
         @test BAT.bat_initval(ds, BAT.InitFromSamples(v_s), context).result == first(v_s.v)

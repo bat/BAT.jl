@@ -243,7 +243,7 @@ _h5io_read_postprocess_samples(v::AbstractVector) = v
 function _h5io_read_postprocess_samples(v::TypedTables.Table)
     shp = _infer_vs_from_table(v)
     unshaped_v = convert(VectorOfSimilarVectors, unshaped.(v, Ref(shp)))
-    shp.(unshaped_v)
+    BAT.unflatbatch(shp, flatview(unshaped_v))
 end
 
 
