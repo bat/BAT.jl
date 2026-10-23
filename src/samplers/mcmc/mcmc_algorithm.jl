@@ -111,42 +111,37 @@ The following methods must be defined for subtypes of `MCMCIterator` (e.g.
 `SomeMCMCIter<:MCMCIterator`):
 
 ```julia
-BAT.getproposal(chain::SomeMCMCIter)::MCMCAlgorithm
+BAT.get_proposal(chain::SomeMCMCIter)::MCMCProposalState
 
 BAT.mcmc_target(chain::SomeMCMCIter)::AbstractMeasure
 
 BAT.get_context(chain::SomeMCMCIter)::BATContext
 
-BAT.mcmc_info(chain::SomeMCMCIter)::MCMCIteratorInfo
+BAT.mcmc_info(chain::SomeMCMCIter)::MCMCChainStateInfo
 
 BAT.nsteps(chain::SomeMCMCIter)::Int
 
 BAT.nsamples(chain::SomeMCMCIter)::Int
 
-BAT.current_sample(chain::SomeMCMCIter)::DensitySample
+BAT.current_sample(chain::SomeMCMCIter)::DensitySampleVector
 
 BAT.sample_type(chain::SomeMCMCIter)::Type{<:DensitySample}
 
-BAT.get_samples!(samples::DensitySampleVector, chain::SomeMCMCIter, nonzero_weights::Bool)::typeof(samples)
+BAT.get_samples!(outputs::AbstractVector{<:DensitySampleVector}, chain::SomeMCMCIter, nonzero_weights::Bool)::typeof(outputs)
 
 BAT.next_cycle!(chain::SomeMCMCIter)::SomeMCMCIter
-
-BAT.mcmc_step!!(
-    chain::SomeMCMCIter
-    callback::Function,
-)::nothing
 ```
 
-The following methods are implemented by default:
+`current_sample` returns the current samples of all walkers, and
+`get_samples!` appends the new samples of each walker to its output.
+
+BAT drives the chains through [`MCMCState`](@ref), which holds a chain
+state together with the states of its tuners and temperer:
 
 ```julia
-getproposal(chain::MCMCIterator)
-mcmc_target(chain::MCMCIterator)
-DensitySampleVector(chain::MCMCIterator)
-mcmc_iterate!!(chain::MCMCIterator, ...)
-mcmc_iterate!!(chains::AbstractVector{<:MCMCIterator}, ...)
-isvalidchain(chain::MCMCIterator)
-isviablechain(chain::MCMCIterator)
+mcmc_step!!(mcmc_state::MCMCState)::MCMCState
+mcmc_iterate!!(outputs, mcmc_state::MCMCState; ...)
+mcmc_iterate!!(outputs, mcmc_states::AbstractVector{<:MCMCState}; ...)
 ```
 """
 abstract type MCMCIterator end
