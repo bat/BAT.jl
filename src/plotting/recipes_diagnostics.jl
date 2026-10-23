@@ -121,6 +121,7 @@ end
 
                     k = KernelDensity.kde(
                         s,
+                        weights = chain_samples.weight,
                         bandwidth = bandwidth,
                         boundary = boundary,
                         npoints = npoints,

@@ -97,5 +97,16 @@ marg_hist(marg::MarginalDist) = convert(Histogram, marg.dist)
         @test length(series) == 2 * 2 * 5
         trace = filter(s -> get(s.plotattributes, :title, nothing) == "Trace", series)
         @test [s.args[2] for s in trace] == [flatview(mcmc_samples.v)[p, r] for r in (1:50, 51:100) for p in 1:2]
+
+        # Sample weights act like repeated samples in the kernel density estimates:
+        kde_densities(smpls) = [s.args[2] for s in recipe_series(
+            BAT.MCMCDiagnostics(smpls); layout = 1, description = false, diagnostics = [:kde],
+            kde = Dict("bandwidth" => 0.3, "boundary" => (-6.0, 6.0))
+        )]
+        weights = repeat([1, 3], 50)
+        weighted = DensitySampleVector(v = mcmc_samples.v, logd = mcmc_samples.logd, weight = weights, info = info)
+        repeated = mcmc_samples[reduce(vcat, fill.(eachindex(weights), weights))]
+        @test kde_densities(weighted) ≈ kde_densities(repeated)
+        @test !(kde_densities(weighted) ≈ kde_densities(mcmc_samples))
     end
 end
