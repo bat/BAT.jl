@@ -4,7 +4,8 @@ using BAT
 using Test
 
 using Distributed, Random
-using ArraysOfArrays, Distributions, PDMats, StatsBase
+using ArraysOfArrays, Distributions, PDMats, StatsBase, StructArrays, ValueShapes
+using FillArrays: Fill
 using DensityInterface
 using Random123
 
@@ -62,6 +63,20 @@ using Random123
         Normal(), BATContext(rng = Philox4x((564, 44))), max_retries = 0,
     )
     @test smplres_normal.verified
+
+    @testset "structured samples" begin
+        prior = distprod(a = Normal(), b = [Normal(), Normal()], c = 4.2, d = (x = Exponential(),))
+        posterior = PosteriorMeasure(logfuncdensity(v -> -abs2(v.a - 0.5) / 2), prior)
+        for pretransform in (NormalBased(), DoNotTransform())
+            smpls = bat_sample(
+                posterior, TransformedMCMC(pretransform = pretransform, nsteps = 10^3, strict = false),
+                BATContext(rng = Philox4x((564, 46))),
+            ).result
+            @test smpls.v.c isa Fill && smpls.v.b isa ArrayOfSimilarArrays && smpls.v.d isa StructVector
+            @test varshape(smpls) == varshape(prior)
+            @test smpls.logd[1:5] ≈ [logdensityof(posterior, smpls.v[i]) for i in 1:5]
+        end
+    end
 
     @testset "convergence tests" begin
         rng = Philox4x((564, 45))
