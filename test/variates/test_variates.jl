@@ -3,5 +3,6 @@
 using Test
 
 Test.@testset "parameters" begin
+    include("test_batch_layout.jl")
     include("test_density_sample.jl")
 end
