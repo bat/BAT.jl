@@ -5,8 +5,10 @@ using Distributions
 using StatsBase
 using Test
 
-using ArraysOfArrays, ElasticArrays, ValueShapes
+using ArraysOfArrays, ElasticArrays, FillArrays, StructArrays, ValueShapes
 import TypedTables
+import MeasureBase
+using MeasureBase: productmeasure, asmeasure, StdUniform, StdNormal, logdensities
 
 
 struct _SampleInfo
@@ -61,13 +63,14 @@ _SampleAux() = _SampleInfo(0)
         @test dsv1[4] == ds4
         @test dsv1[2] == ds2
 
-        shape = NamedTupleShape(x = ScalarShape{Real}(), y = ArrayShape{Real}(2)) 
+        shape = NamedTupleShape(x = ScalarShape{Real}(), y = ArrayShape{Real}(2))
 
-        @test @inferred(broadcast(shape, dsv1)) isa DensitySampleVector
-        @test broadcast(shape, dsv1).v isa ShapedAsNTArray
-        @test @inferred(broadcast(unshaped, TypedTables.Table(broadcast(shape, dsv1)).v)) === dsv1.v
-
-        @test shape.(dsv1)[1] == shape(dsv1[1])
+        shaped_dsv1 = @test_deprecated shape.(dsv1)
+        @test shaped_dsv1 isa DensitySampleVector
+        @test shaped_dsv1.v isa StructVector && varshape(shaped_dsv1) == shape
+        @test shaped_dsv1[2].v == (x = ds2.v[1], y = ds2.v[2:3])
+        @test @inferred(broadcast(unshaped, shaped_dsv1)).v == dsv1.v
+        @test flatview(unshaped.(dsv1).v) === flatview(dsv1.v)
 
         dsv_merged = @inferred(merge(dsv1, dsv2))
         @test vcat(dsv1, dsv2) == dsv_merged
@@ -108,7 +111,7 @@ _SampleAux() = _SampleInfo(0)
         dsv_empty = DensitySampleVector(v = dsv_merged.v[1:0], logd = dsv_merged.logd[1:0], weight = :multiplicity)
         @test isempty(dsv_empty)
 
-        rtol = eps(typeof(float(1)))
+        rtol = eps(float(eltype(dsv_merged.weight)))
         X = @inferred(flatview(dsv_merged.v))
         w = @inferred(ProbabilityWeights(dsv_merged.weight))
         rows = eachrow(X)
@@ -169,6 +172,13 @@ _SampleAux() = _SampleInfo(0)
             @test length(hists_fine[1].weights) > length(hists_coarse[1].weights)
         end
 
+        @testset "growing requires flat storage" begin
+            μ = productmeasure((a = StdNormal(), b = StdNormal()^2))
+            smpls = DensitySampleVector(rand(μ^3), μ)
+            @test_throws ArgumentError push!(deepcopy(smpls), smpls[1])
+            @test_throws ArgumentError append!(deepcopy(smpls), smpls)
+        end
+
         @testset "weighted statistics ignore global weight scale" begin
             values = [0.0, 2.0]
             unit = DensitySampleVector(v = values, logd = zeros(2), weight = [1, 1])
@@ -177,5 +187,54 @@ _SampleAux() = _SampleInfo(0)
             )
             @test mean(scaled) ≈ mean(unit)
         end
+    end
+
+    @testset "structured samples" begin
+        μ = productmeasure((
+            a = asmeasure(Normal()),
+            b = asmeasure(MvNormal([2.0 0.5; 0.5 1.0])),
+            c = MeasureBase.Dirac(4.2),
+            d = productmeasure((x = StdUniform(), y = StdNormal()^(2, 3))),
+        ))
+        n = 50
+        X = rand(μ^n)
+        weight = rand(1:3, n)
+        smpls = DensitySampleVector(X, μ, logd = logdensities(μ, X), weight = weight)
+        @test smpls.v.c isa Fill
+        @test varshape(smpls) == varshape(μ)
+        @test occursin("varshape", sprint(show, smpls))
+        @test sprint(show, MIME"text/plain"(), smpls) isa String
+
+        flat = unshaped.(smpls)
+        @test flat.v isa VectorOfSimilarVectors
+        @test flatview(flat.v) == BAT.flatbatch(smpls.v)
+        @test DensitySampleVector(flatview(flat.v), μ, logd = smpls.logd, weight = weight) == smpls
+
+        nts = [(a = x.a, b = Vector(x.b), c = x.c, d = (x = x.d.x, y = Matrix(x.d.y))) for x in X]
+        smpls_nt = DensitySampleVector(v = nts, logd = smpls.logd, weight = weight)
+        @test smpls_nt.v.b isa ArrayOfSimilarArrays && smpls_nt.v.d.y isa ArrayOfSimilarArrays
+        @test DensitySampleVector(nts, μ, logd = smpls.logd, weight = weight) == smpls
+
+        m, m_flat = mean(smpls), mean(flat)
+        @test m isa NamedTuple && m.c == 4.2
+        @test vcat(m.a, m.b, m.d.x, vec(m.d.y)) ≈ m_flat
+        v, v_flat = var(smpls), var(flat)
+        @test v.c == 0 && vcat(v.a, v.b, v.d.x, vec(v.d.y)) ≈ v_flat
+        @test std(smpls).d.y ≈ sqrt.(v.d.y)
+        for (f, f_flat) in ((s -> quantile(s, 0.3), s -> quantile(s, 0.3)), (minimum, minimum), (maximum, maximum), (mode, mode))
+            r = f(smpls)
+            @test r.c == 4.2
+            @test vcat(r.a, r.b, r.d.x, vec(r.d.y)) == f_flat(flat)
+        end
+        @test minimum(flat) == minimum(flatview(flat.v), dims = 2)[:]
+        @test cov(smpls) ≈ cov(flat) && cor(smpls) ≈ cor(flat)
+
+        @test smpls[3].v.c == 4.2 && smpls[3].v.b == smpls.v.b[3]
+        sub = smpls[2:5]
+        @test sub.v.c isa Fill && length(sub) == 4 && sub[1] == smpls[2]
+        both = vcat(smpls, sub)
+        @test both.v.c isa Fill && length(both) == n + 4 && both[n + 1] == smpls[2]
+        @test merge(smpls, sub) == both
+        @test isapprox(smpls, deepcopy(smpls)) && !isapprox(smpls, flat)
     end
 end
