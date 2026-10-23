@@ -168,7 +168,7 @@ end
 _h5io_read_postprocess(V::AbstractVector{<:Real}) = V
 _h5io_read_postprocess(V::Union{StructVector,Table}) = V
 
-_h5io_read_postprocess(VV::AbstractMatrix{<:Real}) = VectorOfSimilarVectors(VV)
+_h5io_read_postprocess(A::AbstractArray{<:Real}) = VectorOfSimilarArrays(A)
 
 _h5io_read_postprocess(nt::NamedTuple) = begin
     TypedTables.Table(nt)
