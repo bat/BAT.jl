@@ -115,7 +115,9 @@
         @series begin
             seriestype := :scatter
             label := get(mean_options, "label", "mean")
-            seriestype==:marginal ? subplot := 3 :
+            if seriestype == :marginal
+                subplot := 3
+            end
             markeralpha := get(mean_options, "markeralpha", 1)
             markercolor := get(mean_options, "markercolor", :black)
             markersize := get(mean_options, "markersize", 4)
@@ -126,7 +128,7 @@
             markerstrokewidth := get(mean_options, "markerstrokewidth", 1)
             colorbar := colorbar
 
-            if(std)
+            if std_options != ()
                 xerror := sqrt(Σx)
                 yerror := sqrt(Σy)
             end
@@ -142,7 +144,9 @@
         @series begin
             seriestype := :scatter
             label := get(globalmode_options, "label", "global mode")
-            seriestype==:marginal ? subplot := 3 :
+            if seriestype == :marginal
+                subplot := 3
+            end
             markeralpha := get(globalmode_options, "markeralpha", 1)
             markercolor := get(globalmode_options, "markercolor", :black)
             markersize := get(globalmode_options, "markersize", 4)
@@ -172,7 +176,9 @@
                 label :=""
             end
 
-            seriestype == :marginal ? subplot := 3 :
+            if seriestype == :marginal
+                subplot := 3
+            end
             markercolor := get(marginalmode_options, "markercolor", :dimgrey)
             markersize := get(marginalmode_options, "markersize", 4)
             markershape := get(marginalmode_options, "markershape", :rect)
