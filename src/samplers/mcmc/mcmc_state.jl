@@ -593,7 +593,7 @@ function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:Dens
     α = eff_acceptance_ratio(chain_state_new)
 
     logds = [walker_smpls.logd for walker_smpls in samples]
-    max_log_posterior = maximum(maximum(logds))
+    max_log_posterior = maximum(Iterators.flatten(logds), init = -Inf)
 
     tuning_success = get_tuning_success(chain_state_new, proposal_state_new, proposal_tuner_state_new)
 
