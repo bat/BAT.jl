@@ -227,8 +227,6 @@ end
 function BATVisualizer(vis::BATMakieVisualization)
     (; recipes, N_max, triagonal_config, diagonal_config) = vis
 
-    # TODO: Think about whether or not the more expressive vsel symbol approach is desired, or integers are sufficient
-    # idxs = vsel isa AbstractVector{<:Int64} ? vsel : reduce(vcat, asindex.(Ref(vs), vsel))
 
     graph = _init_compute_graph(
         recipes,

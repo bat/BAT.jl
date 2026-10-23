@@ -1,9 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# Empty results built FRESH per call, NOT shared consts: ComputePipeline's
-# is_same treats a returned identical mutable object as CHANGED but a fresh
-# isequal value as UNCHANGED, so fresh tuples stop dirty-propagation at the
-# recipe's output node. Same convention for every _empty_*_primitives().
 _empty_scatter2d_primitives() = (x=Float64[], y=Float64[], weights=Float64[])
 
 # Marker areas depend on relative mass. Normalize before narrowing so finite
@@ -63,8 +59,6 @@ function compose_plotspecs(
     (; x, y, weights) = primitives
     (; markersize) = config
     isempty(x) && return PlotSpec[]
-    # Lower-triangle cells swap x/y at compose time so mirrored cells share
-    # one computed primitive -- see the invariant comment in _init_gridlayout.
     transposed && ((x, y) = (y, x))
 
     real_markersize = _scatter_markersizes(weights, markersize)
@@ -108,7 +102,6 @@ function compute_plotting_primitives(
     ::LiveCell,
     config::NamedTuple
 )
-    # Zero-sample live cell -- see Scatter2D's matching comment above.
     isempty(weights) && return _empty_chainscatter2d_primitives()
     length(chainids) == length(weights) ||
         throw(ArgumentError("ChainScatter2D requires one chain identity per sample"))
@@ -130,7 +123,6 @@ function compose_plotspecs(
     if isempty(x)
         return PlotSpec[]
     end
-    # See Scatter2D's matching comment above.
     transposed && ((x, y) = (y, x))
 
     real_markersize = _scatter_markersizes(weights, markersize)

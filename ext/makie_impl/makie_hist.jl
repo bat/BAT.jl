@@ -2,7 +2,6 @@
 
 # Keep numeric geometry in Float64 until Makie applies its coordinate transform.
 # Early Float32 conversion can erase unit-scale variation around large offsets.
-# Fresh sentinels per call, not shared consts -- see _empty_scatter2d_primitives (makie_scatter.jl).
 _empty_hist1d_primitives() = (centers=Vector{Float64}(), weights=Vector{Float64}(), edges=Vector{Float64}())
 _empty_hist2d_primitives() = (xedges=Vector{Float64}(), yedges=Vector{Float64}(), weights=Matrix{Float64}(undef, 0, 0))
 _empty_quantilehist1d_primitives() = (polys=Vector{Point{2,Float64}}[], fill_colors=Vector{RGBA{Float32}}(), stairs_data=Vector{Point{2,Float64}}())
@@ -343,16 +342,13 @@ function compose_plotspecs(
         return PlotSpec[]
     end
 
-    # Forwarded as KDE2D and Hexbin2D already do. QuantileHist2D/QuantileKDE2D
-    # deliberately do not: their heatmap cells are explicit RGBA colors, not
-    # values a colormap could map.
+    # Numeric heatmaps use the configured colormap; quantile heatmaps carry
+    # explicit RGBA colors.
     (; colormap, rev) = config
     cmap_final = rev ? Reverse(colormap) : colormap
 
-    # Lower-triangle cells swap axes at compose time (see _init_gridlayout's
-    # invariant comment). permutedims, not lazy transpose: the sibling methods
-    # reuse this reasoning on RGBA grids, which recursive transpose has no
-    # method for.
+    # Use permutedims for grid axis swaps; recursive transpose is undefined
+    # for the RGBA cells used by the quantile recipes.
     all(w -> isnan(w) || 0 < Float32(w) < Inf, weights) || throw(ArgumentError(
         "Hist2D visible height is not representable as positive finite Float32 color values; change units/normalization or use QuantileHist2D"))
     heat = transposed ?
@@ -449,7 +445,6 @@ function compose_plotspecs(
     if isempty(color_grid)
         return PlotSpec[]
     end
-    # permutedims (not transpose) -- see Hist2D's matching comment above.
     heat = transposed ?
         S.Heatmap(yedges, xedges, permutedims(color_grid)) :
         S.Heatmap(xedges, yedges, color_grid)
@@ -596,8 +591,7 @@ function compose_plotspecs(
     end
     final_cmap = rev ? Reverse(colormap) : colormap
 
-    # See Scatter2D's matching comment (makie_scatter.jl); per-axis bin counts
-    # swap along with the axes.
+    # Swap per-axis bin counts together with the coordinates.
     if transposed
         x, y = y, x
         nbins isa Tuple && (nbins = reverse(nbins))

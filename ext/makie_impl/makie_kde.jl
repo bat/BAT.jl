@@ -1,6 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# Fresh sentinels per call, not shared consts -- see _empty_scatter2d_primitives (makie_scatter.jl).
 _empty_kde1d_primitives() = (x=Vector{Float64}(), density=Vector{Float64}(), poly_points=Vector{Point{2,Float64}}())
 _empty_kde2d_primitives() = (x=Vector{Float64}(), y=Vector{Float64}(), xedges=Vector{Float64}(), yedges=Vector{Float64}(), density=Matrix{Float64}(undef, 0, 0))
 _empty_quantilekde1d_primitives() = (polys=Vector{Vector{Point{2,Float64}}}(), fill_colors=Vector{RGBAf}(), full_line=Vector{Point{2,Float64}}())
@@ -33,8 +32,7 @@ function compute_plotting_primitives(
     # Neither has a density; do not pass zero mass into KDE normalization.
     (isempty(weights) || all(iszero, weights)) && return _empty_kde1d_primitives()
     kde_result = _weighted_kde1d(vec(marg_coords), weights, get(config, :support, nothing))
-    # Materialize legacy ranges too, matching the empty sentinel's Vector{Float64}
-    # so live/dead ComputePipeline edges retain the same concrete type.
+    # Materialize the grid to match the empty sentinel's Vector{Float64}.
     x = collect(kde_result.x)
     density = kde_result.density
     poly_points = vcat(
@@ -110,7 +108,6 @@ function compute_plotting_primitives(
     floor_val = _KDE2D_DENSITY_FLOOR_FRAC * maximum(density)
     nonzero_density = map(d -> d > floor_val ? d : NaN, density)
 
-    # collect(...): see KDE1D's matching comment above.
     return (x=collect(kde_result.x), y=collect(kde_result.y),
         xedges=kde_result.xedges, yedges=kde_result.yedges, density=nonzero_density)
 end
@@ -134,7 +131,6 @@ function compose_plotspecs(
 
     (; rev, colormap) = config
     cmap_final = rev ? Reverse(colormap) : colormap
-    # permutedims (not transpose) -- see Hist2D's matching comment (makie_hist.jl).
     heat = transposed ?
         S.Heatmap(yedges, xedges, permutedims(density); colormap=cmap_final) :
         S.Heatmap(xedges, yedges, density; colormap=cmap_final)
@@ -167,7 +163,6 @@ function compute_plotting_primitives(
     x = kde_result.x
     density = kde_result.density
 
-    # `p ->` (not `x ->`): the lambda variable would shadow the KDE grid `x` above.
     active_levels = sort(filter(p -> 0 < p < 1, levels))
 
     polys = Vector{Point{2,Float64}}[]
@@ -263,7 +258,6 @@ function compute_plotting_primitives(
         color_grid[mask] .= _quantile_level_color(j)
     end
 
-    # collect(...): see KDE1D's matching comment above.
     return (x=collect(kde_result.x), y=collect(kde_result.y),
         xedges=kde_result.xedges, yedges=kde_result.yedges, color_grid=color_grid)
 end

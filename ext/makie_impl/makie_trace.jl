@@ -29,7 +29,6 @@ function compose_plotspecs(
     transposed::Bool = false
 )
     (; x, y, recency, group_ranges, all_chainids) = primitives
-    # Lower-triangle cells swap x/y at compose time -- see _init_gridlayout's invariant comment.
     transposed && ((x, y) = (y, x))
 
     if isempty(x)

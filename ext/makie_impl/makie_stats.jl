@@ -1,6 +1,5 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# Fresh sentinels per call, not shared consts -- see _empty_scatter2d_primitives (makie_scatter.jl).
 _empty_cov2d_primitives() = (ellipse_points=Vector{Point{2,Float64}}(), axes_segments=Vector{Point{2,Float64}}())
 _empty_std1d_primitives() = (positions=Vector{Float64}(),)
 _empty_std2d_primitives() = (x_lines=Vector{Float64}(), y_lines=Vector{Float64}())
@@ -16,6 +15,9 @@ const _MEAN1D_DASH = let pattern = Makie.line_pattern(:dash, :normal)
     # Makie 0.24.16 already returns Linestyle; earlier releases return a vector.
     pattern isa Makie.Linestyle ? pattern : Makie.Linestyle(pattern)
 end
+
+# Mean, standard-deviation and covariance specs set the theme-derived
+# config.stats_color explicitly: Makie cycling can override a theme default.
 
 # Relative, owned weights for population moments. Validate original positive
 # coordinates before filtering; zero-mass rows never enter weighted products.
@@ -173,8 +175,7 @@ function compute_plotting_primitives(
     return _empty_cov2d_primitives()
 end
 
-# Full recompute of weighted population moments via _stats_inputs. Empty mass
-# has a separate sentinel; unsupported covariance arithmetic raises an error.
+# Unsupported covariance arithmetic raises instead of producing an empty result.
 function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
@@ -211,17 +212,12 @@ function compose_plotspecs(
         return PlotSpec[]
     end
 
-    # Lower-triangle cells swap x/y at compose time (see _init_gridlayout) --
-    # point-based primitives swap each point's own coordinates.
+    # Swap each point's coordinates, including the covariance-axis endpoints.
     if transposed
         ellipse_points = Point{2,Float64}[Point{2,Float64}(p[2], p[1]) for p in ellipse_points]
         axes_segments = Point{2,Float64}[Point{2,Float64}(p[2], p[1]) for p in axes_segments]
     end
 
-    # Color set explicitly per PlotSpec, not via the shared theme: Makie's
-    # automatic color-cycling (Lines/LineSegments, also VLines/HLines) silently
-    # overrides a theme-level color default. The value itself is theme-derived
-    # upstream (config.stats_color).
     lines = S.Lines(ellipse_points; color=config.stats_color)
     line_segments = S.LineSegments(axes_segments; color=config.stats_color)
 
@@ -240,7 +236,6 @@ function compute_plotting_primitives(
     return _empty_std1d_primitives()
 end
 
-# See Cov2D's matching comment above.
 function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
@@ -271,7 +266,6 @@ function compose_plotspecs(
         return PlotSpec[]
     end
 
-    # Explicit theme-derived color -- see Cov2D's matching comment above.
     lines = S.VLines(positions; color=config.stats_color)
     return [lines]
 end
@@ -288,7 +282,6 @@ function compute_plotting_primitives(
     return _empty_std2d_primitives()
 end
 
-# See Cov2D's matching comment above.
 function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
@@ -323,10 +316,8 @@ function compose_plotspecs(
         return PlotSpec[]
     end
 
-    # Transposed cells swap vertical vs horizontal positions -- see Cov2D above.
     transposed && ((x_lines, y_lines) = (y_lines, x_lines))
 
-    # Explicit theme-derived color -- see Cov2D's matching comment above.
     vlines = S.VLines(x_lines; color=config.stats_color)
     hlines = S.HLines(y_lines; color=config.stats_color)
     return [vlines, hlines]
@@ -345,7 +336,6 @@ function compute_plotting_primitives(
     return _empty_mean1d_primitives()
 end
 
-# See Cov2D's matching comment above.
 function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
@@ -374,7 +364,6 @@ function compose_plotspecs(
 
     # _MEAN1D_DASH (see its comment above), set on this PlotSpec only --
     # Std1D/Std2D/Mean2D share the VLines type and must stay solid.
-    # Explicit theme-derived color -- see Cov2D's matching comment above.
     lines = S.VLines(x; linestyle=_MEAN1D_DASH, color=config.stats_color)
     return [lines]
 end
@@ -391,7 +380,6 @@ function compute_plotting_primitives(
     return _empty_mean2d_primitives()
 end
 
-# See Cov2D's matching comment above.
 function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
@@ -420,10 +408,8 @@ function compose_plotspecs(
         return PlotSpec[]
     end
 
-    # See Std2D's matching comment above.
     transposed && ((μ_x, μ_y) = (μ_y, μ_x))
 
-    # Explicit theme-derived color -- see Cov2D's matching comment above.
     vlines = S.VLines(μ_x; color=config.stats_color)
     hlines = S.HLines(μ_y; color=config.stats_color)
     return [vlines, hlines]
@@ -441,7 +427,6 @@ function compute_plotting_primitives(
     return _empty_errorbars1d_primitives()
 end
 
-# See Cov2D's matching comment above.
 function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
@@ -496,7 +481,6 @@ function compute_plotting_primitives(
     return _empty_errorbars2d_primitives()
 end
 
-# See Errorbars1D's matching comment above.
 function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
@@ -531,8 +515,7 @@ function compose_plotspecs(
         return PlotSpec[]
     end
 
-    # See Std2D's matching comment above; the error extents must swap
-    # together with their means.
+    # Swap error extents together with their means.
     if transposed
         μ_x, μ_y = μ_y, μ_x
         err_x, err_y = err_y, err_x

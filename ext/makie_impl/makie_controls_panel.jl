@@ -105,7 +105,8 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     # Auto(), not Relative: the axis-only grid reports no natural size, so this row gets the remainder after rows 2/3 claim their content heights.
     rowsize!(fig.layout, 1, Auto())
 
-    # toggle_row: a 3x3 wrapper of Fixed(ui_box_pad) margins around one content cell, with a Box at fig[2,1] as a rounded background; explicit dims are required for rowsize!/colsize! on row/col 3.
+    # A 3x3 wrapper reserves fixed padding around the center content cell.
+    # Explicit dimensions allow sizing row/column 3; the Box supplies its background.
     toggle_row = fig[2, 1] = GridLayout(3, 3)
     rowgap!(toggle_row, 0)
     colgap!(toggle_row, 0)
@@ -412,7 +413,9 @@ end
 # Both endpoints must be selected (a diagonal cell i==j just needs i).
 _checkbox_should_be_checked(active_vars::Set{<:Integer}, i::Integer, j::Integer) = (i in active_vars) && (j in active_vars)
 
-# Click hit-tests are purely geometric against the block's own bbox, which a Fixed(0) cell only *suggests*, so width/height must be forced to literal 0 to make a hidden block unclickable; restore must use the remembered per-block original, not Auto() (Menu defaults to width === nothing, which Auto() would shrink-wrap).
+# A Fixed(0) cell alone does not disable geometric hit-testing: hidden blocks
+# need zero width and height. Restore each block's original dimensions; using
+# Auto() would shrink-wrap a Menu whose default width is nothing.
 const _BLOCK_NATURAL_SIZE = WeakKeyDict{Any,Tuple{Any,Any}}()
 _natural_size!(b) = get!(() -> (b.width[], b.height[]), _BLOCK_NATURAL_SIZE, b)
 
