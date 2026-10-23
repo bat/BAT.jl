@@ -236,5 +236,7 @@ _SampleAux() = _SampleInfo(0)
         @test both.v.c isa Fill && length(both) == n + 4 && both[n + 1] == smpls[2]
         @test merge(smpls, sub) == both
         @test isapprox(smpls, deepcopy(smpls)) && !isapprox(smpls, flat)
+        smpls_nan = DensitySampleVector(v = smpls.v, logd = fill(NaN, n))
+        @test isequal(smpls_nan, deepcopy(smpls_nan)) && smpls_nan != smpls_nan
     end
 end

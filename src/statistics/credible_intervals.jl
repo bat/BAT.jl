@@ -138,7 +138,7 @@ end
 *BAT-internal, not part of stable public API.*
 """
 function smallest_credible_intervals(smpl::DensitySampleVector{<:AbstractVector{<:Real}}; kwargs...)
-    V = flatview(smpl.v)
+    V = flatbatch(smpl.v)
     W = Weights(smpl.weight)
     [smallest_credible_intervals(V[i,:], W; kwargs...) for i in axes(V,1)]
 end

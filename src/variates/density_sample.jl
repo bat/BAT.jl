@@ -292,6 +292,15 @@ function(==)(A::DensitySampleVector, B::DensitySampleVector)
 end
 
 
+function Base.isequal(A::DensitySampleVector, B::DensitySampleVector)
+    _batches_equal(isequal, A.v, B.v) &&
+    isequal(A.logd, B.logd) &&
+    isequal(A.weight, B.weight) &&
+    isequal(A.info, B.info) &&
+    isequal(A.aux, B.aux)
+end
+
+
 function Base.vcat(X::DensitySampleVector, Xs::DensitySampleVector...)
     DensitySampleVector((
         _vcat_batches(X.v, map(Y -> Y.v, Xs)...),
@@ -640,7 +649,7 @@ end
 
 function _marginal_histograms(smpl::DensitySampleVector{<:AbstractVector{<:Real}}; nbins = 40)
     trimmed_smpl = drop_low_weight_samples(smpl)
-    V = flatview(trimmed_smpl.v)
+    V = flatbatch(trimmed_smpl.v)
     W = Weights(trimmed_smpl.weight)
     [fit(Histogram, V[i,:], W, nbins = nbins) for i in axes(V,1)]
 end
