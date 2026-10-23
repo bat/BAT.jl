@@ -9,9 +9,9 @@ _empty_quantilehist1d_primitives() = (polys=Vector{Point{2,Float64}}[], fill_col
 _empty_quantilehist2d_primitives() = (xedges=Vector{Float64}(), yedges=Vector{Float64}(), color_grid=Matrix{RGBA{Float32}}(undef, 0, 0))
 _empty_hexbin2d_primitives() = (x=Float64[], y=Float64[], weights=Float64[], thresh=0.0)
 
-# Bin edges for a marginal histogram: derived from the fixed per-dimension
-# `domain` when available (keeps live bins stable as samples accumulate),
-# data-derived otherwise.
+# Bin edges use the supplied per-dimension domain when available,
+# and sample coordinates otherwise. The graph preserves the domain across
+# window changes and may replace it during live publication.
 function _hist_edges(::Nothing, cols, bins::Integer, closed::Symbol)
     return _get_edges(cols, (bins,), closed)
 end
@@ -65,8 +65,8 @@ function _get_bin_centers(hist::Histogram)
     return centers
 end
 
-# Normalizing an all-zero-weight histogram gives 0/0 = NaN bins, which would
-# corrupt the shared diagonal y-axis limit -- skip normalization instead.
+# Preserve zero-mass histograms as empty displays without dividing by zero.
+# The shared histogram normalizer owns validation and normalization.
 _safe_normalize(hist::Histogram, normalization::Symbol) =
     BAT._plot_normalize_histogram(hist, normalization)
 
@@ -107,8 +107,8 @@ end
 function _hist2d_output(hist::Histogram, normalization::Symbol)
     h_norm = _safe_normalize(hist, normalization)
     xedges, yedges = _histogram_plot_edges(h_norm)
-    # Zero-count bins as NaN (rendered transparent); Float64 forced since the
-    # all-zero-weight case skips normalization and keeps the integer eltype.
+    # Zero-height bins become NaN for transparency. Positive heights are checked
+    # and converted to Float64 to match the graph's output representation.
     weights = map(w -> w > 0 ? BAT._plot_float64(w, "histogram height") : NaN, h_norm.weights)
     return (xedges=xedges, yedges=yedges, weights=weights)
 end
@@ -300,8 +300,8 @@ function compose_plotspecs(
     return [bars, stairs]
 end
 
-# Peak y-value of a diagonal recipe's primitives -- _init_gridlayout links all
-# diagonal cells to a shared y range; the generic fallback covers stats-only recipes.
+# Peak height for a diagonal cell's own y limit. The zero fallback requests
+# automatic limits for recipes without a positive finite extent.
 _diag_y_extent(::NamedTuple, ::BATMakieRecipe) = 0.0
 _diag_y_extent(primitives::NamedTuple, ::Hist1D) = isempty(primitives.weights) ? 0.0 : maximum(primitives.weights)
 

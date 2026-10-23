@@ -37,7 +37,7 @@ function compose_plotspecs(
     end
 
     (; markersize) = config
-    # Rank-based palette indexing over all_chainids -- see compute's comment above.
+    # Rank by all_chainids so window selection preserves the chain palette.
     rank_of = Dict(id => r for (r, id) in enumerate(all_chainids))
 
     specs = PlotSpec[]

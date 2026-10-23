@@ -377,13 +377,13 @@ function _init_compute_graph(
     add_input!(graph, :triagonal_config, triagonal_config)
     add_input!(graph, :diagonal_config, diagonal_config)
 
-    # Fixed per-dim domain for axis limits and histogram bin edges; empty until
-    # the caller sets it -- axis_limits_i guards the unset case.
+    # Display domain for axis limits and histogram edges; empty until setup.
+    # Live publications can replace it; window selection leaves it unchanged.
     add_input!(graph, :domain_lo, Float64[])
     add_input!(graph, :domain_hi, Float64[])
 
-    # Hard prior-support bounds for KDE boundary reflection (+-Inf = unknown);
-    # fixed, unlike the growing display domain above. Empty = no correction.
+    # Hard-support bounds for KDE reflection, separate from the display domain.
+    # Infinite endpoints are unbounded; empty vectors disable correction.
     add_input!(graph, :support_lo, Float64[])
     add_input!(graph, :support_hi, Float64[])
 
@@ -404,9 +404,9 @@ function _init_compute_graph(
     end
 
 
-    # No sample/window inputs: fixed-domain bin endpoints are stable across
-    # data-only updates, including an empty window. Configuration/selection
-    # changes recompute the envelope once for the whole grid.
+    # Window changes reuse this envelope. Domain, recipe, configuration or
+    # variable-selection changes recompute it for the whole grid; sample data
+    # affect it only through a changed domain.
     register_computation!(graph,
         [:domain_lo, :domain_hi, :idxs, :diagonal_recipe, :upper_recipe,
          :lower_recipe, :diagonal_config, :triagonal_config], [:axis_limits],
@@ -448,7 +448,7 @@ function _init_compute_graph(
                 (; live_map, vsel_map, domain_lo, domain_hi, support_lo, support_hi) = inputs
                 cell_status = live_map[i, i] ? LiveCell() : DeadCell()
                 recipe_status = determine_recipe_status(recipe, inputs.diagonal_recipe())
-                # The cell's fixed domain rides along in the config (histogram recipes' stable bin edges).
+                # Pass the current cell domain to the histogram recipes.
                 v = vsel_map[i, i][1]
                 cfg = (v == 0 || isempty(domain_lo)) ? config :
                     (; config..., domain=(domain_lo[v], domain_hi[v]))
