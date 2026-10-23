@@ -13,20 +13,15 @@
     lower = Dict(),
     vsel_label = []
 )
-    vsel = collect(vsel)
-    if isa(vsel, Vector{<:Integer}) == false
-        vsel = asindex.(Ref(BAT.varshape(samples)), vsel)
-        vsel = reduce(vcat, vsel)
-    end
-    vsel = vsel[vsel .<=  totalndof(BAT.varshape(samples))]
+    # Positions beyond the number of free parameters are skipped, so that
+    # the default selects up to five parameters:
+    vs = varshape(samples)
+    vsel = first(_resolve_vsel(vs, filter(sel -> !(sel isa Integer) || sel <= totalndof(vs), _normalize_vsel(vsel))))
+    flat_samples = unshaped.(samples)
 
-    xlabel = ["v$i" for i in vsel]
-    ylabel = ["p(v$i)" for i in vsel]
-
-    if isshaped(samples)
-        xlabel = getstring.(Ref(samples), vsel)
-        ylabel = ["p($l)" for l in xlabel]
-    end
+    parnames = getstring.(Ref(samples), vsel)
+    xlabel = parnames
+    ylabel = ["p($l)" for l in xlabel]
 
     if length(vsel_label) > 0
         xlabel = [vsel_label[i] for i in 1:length(vsel_label)]
@@ -38,8 +33,8 @@
     size --> (1000, 600)
 
     partition_tree = get(upper, "partition_tree", false)
-    min_samples = minimum(flatbatch(samples.v), dims=2)[:,1]
-    max_samples = maximum(flatbatch(samples.v), dims=2)[:,1]
+    min_samples = minimum(flatbatch(flat_samples.v), dims=2)[:,1]
+    max_samples = maximum(flatbatch(flat_samples.v), dims=2)[:,1]
 
     # get bin edges
     bins = if isa(bins, Integer)
@@ -49,7 +44,7 @@
     elseif isa(bins, NamedTuple)
         tmp_bins::Vector{Any} = fill(200, length(vsel))
         for k in keys(bins)
-            idx = findfirst(isequal(string(k)), getstring.(Ref(samples), vsel))
+            idx = findfirst(isequal(string(k)), parnames)
             tmp_bins[idx] = bins[idx]
         end
         tmp_bins
@@ -76,7 +71,7 @@
             xguide --> xlabel[i]
             yguide --> ylabel[i]
 
-            unshaped.(samples), (vsel[i])
+            flat_samples, (vsel[i])
         end
 
 
@@ -103,12 +98,12 @@
                     xguide --> xlabel[j]
                     yguide --> xlabel[i]
 
-                    unshaped.(samples), (vsel[j], vsel[i])
+                    flat_samples, (vsel[j], vsel[i])
                 else
                     xguide --> xlabel[i]
                     yguide --> xlabel[j]
 
-                    unshaped.(samples), (vsel[i], vsel[j])
+                    flat_samples, (vsel[i], vsel[j])
                 end
             end
 
@@ -157,7 +152,7 @@
                  xguide --> xlabel[i]
                  yguide --> xlabel[j]
 
-                 unshaped.(samples), (vsel[i], vsel[j])
+                 flat_samples, (vsel[i], vsel[j])
              end
 
         end
