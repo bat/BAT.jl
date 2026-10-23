@@ -108,7 +108,10 @@ _approx_cov(target::Distribution, n) = _cov_with_fallback(target, n)
 _approx_cov(target::AsMeasure{<:Distribution}, n) = _cov_with_fallback(target.obj, n)
 _approx_cov(target::AbstractPosteriorMeasure, n) = _approx_cov(getprior(target), n)
 _approx_cov(target::WeightedMeasure, n) = _approx_cov(basemeasure(target), n)
-_approx_cov(target::AbstractMeasure, n) = cov(rand(_bat_determ_rng(), target^10^5))
+_approx_cov(target::AbstractMeasure, n) = cov(_flat_rand(target, 10^5), dims = 2)
+
+# Random variates of `target` in flat standard-variate layout, one column per variate:
+_flat_rand(target::AbstractMeasure, n::Integer) = flatbatch(_own_batch(rand(_bat_determ_rng(), target^n), target))
 
 
 
@@ -148,4 +151,4 @@ _approx_mean(target::Distribution, n) = _mean_with_fallback(target, n)
 _approx_mean(target::AsMeasure{<:Distribution}, n) = _mean_with_fallback(target.obj, n)
 _approx_mean(target::AbstractPosteriorMeasure, n) = _approx_mean(getprior(target), n)
 _approx_mean(target::WeightedMeasure, n) = _approx_mean(basemeasure(target), n)
-_approx_mean(target::AbstractMeasure, n) = mean(rand(_bat_determ_rng(), target^10^5))
+_approx_mean(target::AbstractMeasure, n) = vec(mean(_flat_rand(target, 10^5), dims = 2))

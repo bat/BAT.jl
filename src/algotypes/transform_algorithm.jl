@@ -417,7 +417,8 @@ function bat_transform_impl(f::Function, smpls::DensitySampleVector, ::SampleTra
 end
 
 function bat_transform_impl(shp::AbstractValueShape, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)
-    (result = shp.(smpls), f_transform = shp)
+    Base.depwarn("bat_transform with a value shape is deprecated, construct samples from their measure via `DensitySampleVector(X, μ; logd, weight, info, aux)` instead.", :bat_transform)
+    (result = transform_samples(shp, smpls), f_transform = shp)
 end
 
 
@@ -444,7 +445,5 @@ function bat_transform_impl(f::Base.Fix2{typeof(unshaped)}, m::AbstractMeasure, 
 end
 
 function bat_transform_impl(f::Base.Fix2{typeof(unshaped)}, smpls::DensitySampleVector, ::SampleTransformation, context::BATContext)
-    unshape_vs = f.x
-    @argcheck elshape(smpls.v) <= unshape_vs
-    (result = unshaped.(smpls), f_transform = f)
+    (result = transform_samples(f, smpls), f_transform = f)
 end

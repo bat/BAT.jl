@@ -31,6 +31,23 @@ _leaves(X::AbstractVector) = (X,)
 _concat_tuples(xs::Tuple) = isempty(xs) ? () : (first(xs)..., _concat_tuples(Base.tail(xs))...)
 
 
+# Batches of variates in the layout of BAT's sample storage, from batches
+# in that layout or from plain vectors of variates:
+_canonical_batch(X::AbstractVector) = X
+_canonical_batch(X::AbstractVector{<:AbstractArray}) = convert(VectorOfSimilarArrays, X)
+_canonical_batch(X::AbstractVectorOfSimilarArrays) = X
+_canonical_batch(X::AbstractSlices) = convert(VectorOfSimilarArrays, X)
+_canonical_batch(X::AbstractFill{<:AbstractArray,1}) = X
+_canonical_batch(X::AbstractFill{<:NamedTuple,1}) = X
+_canonical_batch(X::AbstractVector{<:NamedTuple}) = _canonical_nt_batch(X)
+_canonical_nt_batch(X::AbstractVector{<:NamedTuple}) = _canonical_batch(StructArray(X))
+# Empty named tuples carry no degrees of freedom:
+_canonical_nt_batch(X::AbstractVector{NamedTuple{(),Tuple{}}}) = Fill(NamedTuple(), length(eachindex(X)))
+_canonical_batch(X::StructVector{<:NamedTuple}) = StructArray(map(_canonical_batch, StructArrays.components(X)))
+_canonical_batch(X::ShapedAsNTArray{<:NamedTuple,1}) = unflatbatch(elshape(X), flatview(unshaped.(X)))
+_canonical_batch(X::AbstractVector{<:ShapedAsNT}) = _canonical_batch(map(getindex, X))
+
+
 """
     BAT.batch_varshape(X::AbstractVector)
 
@@ -148,9 +165,10 @@ end
 The batch `X` of variates of `μ` in the layout of BAT's sample storage:
 constant components (point masses) of `μ` become `Fill` columns and lazy
 columns are materialized. Dense columns are taken as they are, `rand` and
-`transports` return fresh storage.
+`transports` return fresh storage. Plain vectors of variates are converted
+to that layout.
 """
-_own_batch(X::AbstractVector, μ::AbstractMeasure) = _own_batch_impl(X, varshape(μ))
+_own_batch(X::AbstractVector, μ::AbstractMeasure) = _own_batch_impl(_canonical_batch(X), varshape(μ))
 
 function _own_batch_impl(X::StructVector{<:NamedTuple}, vs::NamedTupleShape)
     propertynames(X) == keys(vs) || throw(ArgumentError("Batch with fields $(propertynames(X)) doesn't match variate shape $vs"))

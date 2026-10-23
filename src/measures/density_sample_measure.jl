@@ -272,8 +272,9 @@ Statistics.var(dsm::DensitySampleMeasure) = var(samplesof(dsm))
 Statistics.std(dsm::DensitySampleMeasure) = std(samplesof(dsm))
 Statistics.cov(dsm::DensitySampleMeasure) = cov(samplesof(dsm))
 
-_approx_mean(dsm::DensitySampleMeasure, n) = mean(dsm)
-_approx_cov(dsm::DensitySampleMeasure, n) = cov(dsm)
+# Approximate moments are used in flat standard-variate layout:
+_approx_mean(dsm::DensitySampleMeasure, n) = mean(unshaped.(samplesof(dsm)))
+_approx_cov(dsm::DensitySampleMeasure, n) = cov(samplesof(dsm))
 
 
 function _approx_max_logd(dsm::DensitySampleMeasure)

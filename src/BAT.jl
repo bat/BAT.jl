@@ -76,7 +76,7 @@ import MeasureBase
 using MeasureBase: AbstractMeasure, DensityMeasure, Likelihood
 using MeasureBase: basemeasure, getdof, likelihoodof, testvalue
 using MeasureBase: pushfwd
-using MeasureBase: transport_to, TransportFunction
+using MeasureBase: transport_to, transports, TransportFunction
 using MeasureBase: StdUniform, StdNormal, Half
 using MeasureBase: asmeasure, AsMeasure, Dirac, mbind, mintegrate, mintegrate_exp
 using MeasureBase: productmeasure, insupportof

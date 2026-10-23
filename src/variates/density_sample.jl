@@ -194,19 +194,6 @@ DensitySampleVector(::Type{S}, varlen::Integer) where {P<:AbstractVector{<:Real}
     DensitySampleVector{P,T,W,R,Q}(undef, 0, varlen)
 
 
-# Batches of variates in the layout of BAT's sample storage, from batches
-# in that layout or from plain vectors of variates:
-_canonical_batch(X::AbstractVector) = X
-_canonical_batch(X::AbstractVector{<:AbstractArray}) = convert(VectorOfSimilarArrays, X)
-_canonical_batch(X::AbstractVectorOfSimilarArrays) = X
-_canonical_batch(X::AbstractSlices) = convert(VectorOfSimilarArrays, X)
-_canonical_batch(X::AbstractFill{<:AbstractArray,1}) = X
-_canonical_batch(X::AbstractFill{<:NamedTuple,1}) = X
-_canonical_batch(X::AbstractVector{<:NamedTuple}) = _canonical_batch(StructArray(X))
-_canonical_batch(X::StructVector{<:NamedTuple}) = StructArray(map(_canonical_batch, StructArrays.components(X)))
-_canonical_batch(X::ShapedAsNTArray{<:NamedTuple,1}) = unflatbatch(elshape(X), flatview(unshaped.(X)))
-
-
 function DensitySampleVector(;
     v::AbstractVector,
     logd::AbstractVector{<:Real} = fill(NaN, length(v)),
