@@ -581,28 +581,37 @@ function LazyReports.pushcontent!(rpt::LazyReport, smplv::DensitySampleVector)
 
     vs = varshape(smplv)
     flat_smplv = _flat_samples(smplv)
+    has_free_pars = totalndof(vs) > 0
     nsamples = length(eachindex(smplv))
     total_weight = sum(smplv.weight)
-    ess = round.(Int, bat_eff_sample_size(flat_smplv, context).result)
+
+    ess_line = if has_free_pars
+        ess = round.(Int, bat_eff_sample_size(flat_smplv, context).result)
+        "* Effective sample size: between $(minimum(ess)) and $(maximum(ess))"
+    else
+        ""
+    end
 
     lazyreport!(rpt, """
     ### Sampling result
 
     * Total number of samples: $nsamples
     * Total weight of samples: $total_weight
-    * Effective sample size: between $(minimum(ess)) and $(maximum(ess))
+    $ess_line
     """)
 
-    only_one_ci(viv::AbstractVector{<:AbstractInterval}) = length(viv) == 1 ? only(viv) : :multiple
+    if has_free_pars
+        only_one_ci(viv::AbstractVector{<:AbstractInterval}) = length(viv) == 1 ? only(viv) : :multiple
 
-    marg_tbl = _marginal_table(vs, flat_smplv)
-    mod_marg_tbl = merge(Tables.columns(marg_tbl), (credible_intervals = map(only_one_ci, marg_tbl.credible_intervals),))
-    marg_headermap = Dict(:parameter => "Parameter", :mean => "Mean", :std => "Std. dev.", :global_mode => "Global mode", :marginal_mode => "Marg. mode", :credible_intervals => "Cred. interval", :marginal_histogram => "Histogram")
-    lazyreport!(
-        rpt,
-        "#### Marginals",
-        lazytable(mod_marg_tbl, headers = marg_headermap)
-    )
+        marg_tbl = _marginal_table(vs, flat_smplv)
+        mod_marg_tbl = merge(Tables.columns(marg_tbl), (credible_intervals = map(only_one_ci, marg_tbl.credible_intervals),))
+        marg_headermap = Dict(:parameter => "Parameter", :mean => "Mean", :std => "Std. dev.", :global_mode => "Global mode", :marginal_mode => "Marg. mode", :credible_intervals => "Cred. interval", :marginal_histogram => "Histogram")
+        lazyreport!(
+            rpt,
+            "#### Marginals",
+            lazytable(mod_marg_tbl, headers = marg_headermap)
+        )
+    end
 
     fixed_tbl = _rpt_table_of_constparvals(vs)
     if !isempty(fixed_tbl)

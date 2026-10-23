@@ -259,6 +259,12 @@ _SampleAux() = _SampleInfo(0)
                 txt = sprint(show, MIME"text/plain"(), LazyReports.lazyreport(DensitySampleVector(v = v, logd = zeros(n))))
                 @test all(name -> occursin(name, txt), vnames) && !occursin("Fixed parameters", txt)
             end
+
+            for (v, vnames) in ((Fill((a = 4.2, b = [1.0, 2.0]), n), ["a", "b"]), (Fill(4.2, n), ["v"]))
+                txt = sprint(show, MIME"text/plain"(), LazyReports.lazyreport(DensitySampleVector(v = v, logd = zeros(n))))
+                @test all(name -> occursin(name, txt), vnames) && occursin("4.2", txt)
+                @test occursin("Fixed parameters", txt) && !occursin("Marginals", txt)
+            end
         end
     end
 end
