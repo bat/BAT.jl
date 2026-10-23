@@ -26,7 +26,7 @@ _transform_batch(::typeof(identity), X::AbstractVector) = X
 _transform_batch(f::ComposedFunction, X::AbstractVector) = _transform_batch(f.outer, _transform_batch(f.inner, X))
 _transform_batch(f::FunctionChain, X::AbstractVector) = foldl((Y, g) -> _transform_batch(g, Y), fchainfs(f), init = X)
 _transform_batch(f::TransportFunction, X::AbstractVector) = _transport_batch(f, X)
-_transform_batch(vs::AbstractValueShape, X::AbstractVector) = unflatbatch(vs, flatbatch(X))
+_transform_batch(vs::AbstractValueShape, X::AbstractVector) = _batch_with_shape(X, vs)
 
 function _transform_batch(f::Base.Fix2{typeof(unshaped)}, X::AbstractVector)
     vs = f.x

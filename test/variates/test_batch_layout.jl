@@ -57,6 +57,15 @@ using MeasureBase: productmeasure, asmeasure, StdUniform, StdNormal
         @test BAT.flatbatch(BAT.unflatbatch(vs_flat, M_offset)) == parent(M_offset)[2:4, :]
     end
 
+    @testset "reshaping" begin
+        X = BAT._own_batch(rand(μ^n), μ)
+        V = nestedview(BAT.flatbatch(X))
+        @test BAT._batch_with_shape(X, vs) === X
+        @test BAT._batch_with_shape(X, ArrayShape{Real}(10)) == V
+        @test BAT._batch_with_shape(V, vs) == X
+        @test_throws ArgumentError BAT._batch_with_shape(X, NamedTupleShape(b = ArrayShape{Real}(2), a = ArrayShape{Real}(8)))
+    end
+
     @testset "concatenation" begin
         X = BAT._own_batch(rand(μ^n), μ)
         Y = BAT._vcat_batches(X, X)

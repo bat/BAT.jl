@@ -165,10 +165,18 @@ function _unflat_variate(vs::NamedTupleShape, r::AbstractVector, constf, offset:
 end
 
 
-# The batch `X` with variates of shape `vs`, reshaped via the flat layout if
-# the variates of `X` have a different shape:
-_batch_with_shape(X::AbstractVector, vs::AbstractValueShape) =
-    batch_varshape(X) <= vs ? X : unflatbatch(vs, flatbatch(X))
+# The batch `X` with variates of shape `vs`. Batches of flat real vectors are
+# reshaped to `vs` and vice versa, via the flat layout:
+function _batch_with_shape(X::AbstractVector, vs::AbstractValueShape)
+    vs_X = batch_varshape(X)
+    if vs_X <= vs
+        return X
+    elseif vs_X isa ArrayShape{<:Real,1} || vs isa ArrayShape{<:Real,1}
+        return unflatbatch(vs, flatbatch(X))
+    else
+        throw(ArgumentError("Can't reshape variates of shape $vs_X to shape $vs"))
+    end
+end
 
 
 """
