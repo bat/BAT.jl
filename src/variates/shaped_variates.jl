@@ -3,7 +3,7 @@
 
 function _check_reshape_varshape_compat(trgshape::AbstractValueShape, srcshape::AbstractValueShape)
     if !(srcshape <= trgshape)
-        throw(ArgumentError("Shape of variate doesn't match target variate trgshape, with variate of type $(typeof(v)) and expected trgshape $(trgshape)"))
+        throw(ArgumentError("Variate shape $srcshape is not compatible with target shape $trgshape"))
     end
 end
 function ChainRulesCore.rrule(::typeof(_check_reshape_varshape_compat), trgshape::AbstractValueShape, srcshape::AbstractValueShape)

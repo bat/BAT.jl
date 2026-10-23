@@ -309,16 +309,6 @@ function Base.Broadcast.broadcasted(shaper::Union{AbstractValueShape, typeof(uns
     ))
 end
 
-function foobar(shaper::Union{AbstractValueShape, typeof(unshaped)}, A::DensitySampleVector)
-    DensitySampleVector((
-        shaper.(A.v),
-        A.logd,
-        A.weight,
-        A.info,
-        A.aux
-    ))
-end
-
 
 Base.Broadcast.broadcasted(::typeof(identity), s_src::DensitySampleVector) = deepcopy(s_src)
 
