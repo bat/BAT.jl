@@ -68,13 +68,16 @@ using Random123
         prior = distprod(a = Normal(), b = [Normal(), Normal()], c = 4.2, d = (x = Exponential(),))
         posterior = PosteriorMeasure(logfuncdensity(v -> -abs2(v.a - 0.5) / 2), prior)
         for pretransform in (NormalBased(), DoNotTransform())
-            smpls = bat_sample(
+            em = evalmeasure(
                 posterior, TransformedMCMC(pretransform = pretransform, nsteps = 10^3, strict = false),
                 BATContext(rng = Philox4x((564, 46))),
-            ).result
+            )
+            smpls = samplesof(em)
             @test smpls.v.c isa Fill && smpls.v.b isa ArrayOfSimilarArrays && smpls.v.d isa StructVector
             @test varshape(smpls) == varshape(prior)
             @test smpls.logd[1:5] ≈ [logdensityof(posterior, smpls.v[i]) for i in 1:5]
+            rpt = sprint(show, MIME"text/plain"(), em)
+            @test all(name -> occursin(name, rpt), ("b[2]", "d.x", "Fixed parameters", "MCMC chains"))
         end
     end
 

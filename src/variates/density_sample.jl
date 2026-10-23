@@ -573,14 +573,17 @@ function repetition_to_weights(v::AbstractVector)
 end
 
 
+# Reports compute their statistics on the free components of the variates
+# in their standard-variate layout, constants are listed separately:
 function LazyReports.pushcontent!(rpt::LazyReport, smplv::DensitySampleVector)
     # ToDo: Forward context somehow instead of creating a new one here?
     context = BATContext()
 
-    usmplv = unshaped.(smplv)
+    vs = varshape(smplv)
+    flat_smplv = _flat_samples(smplv)
     nsamples = length(eachindex(smplv))
     total_weight = sum(smplv.weight)
-    ess = round.(Int, bat_eff_sample_size(usmplv, context).result)
+    ess = round.(Int, bat_eff_sample_size(flat_smplv, context).result)
 
     lazyreport!(rpt, """
     ### Sampling result
@@ -592,16 +595,16 @@ function LazyReports.pushcontent!(rpt::LazyReport, smplv::DensitySampleVector)
 
     only_one_ci(viv::AbstractVector{<:AbstractInterval}) = length(viv) == 1 ? only(viv) : :multiple
 
-    marg_tbl = _marginal_table(smplv)
+    marg_tbl = _marginal_table(vs, flat_smplv)
     mod_marg_tbl = merge(Tables.columns(marg_tbl), (credible_intervals = map(only_one_ci, marg_tbl.credible_intervals),))
-    marg_headermap = Dict(:parameter => "Parameter", :mean => "Mean", :std => "Std. dev.", :global_mode => "Gobal mode", :marginal_mode => "Marg. mode", :credible_intervals => "Cred. interval", :marginal_histogram => "Histogram")
+    marg_headermap = Dict(:parameter => "Parameter", :mean => "Mean", :std => "Std. dev.", :global_mode => "Global mode", :marginal_mode => "Marg. mode", :credible_intervals => "Cred. interval", :marginal_histogram => "Histogram")
     lazyreport!(
         rpt,
         "#### Marginals",
         lazytable(mod_marg_tbl, headers = marg_headermap)
     )
 
-    fixed_tbl = _rpt_table_of_constparvals(smplv)
+    fixed_tbl = _rpt_table_of_constparvals(vs)
     if !isempty(fixed_tbl)
         marg_headermap = Dict(:parameter => "Parameter", :value => "Value")
 
@@ -615,23 +618,23 @@ function LazyReports.pushcontent!(rpt::LazyReport, smplv::DensitySampleVector)
 end
 
 
-function _marginal_table(smplv::DensitySampleVector)
-    parnames = map(string, all_active_names(varshape(smplv)))
+# Per-parameter statistics of the flat samples `flat_smplv`, named after
+# the free components of the variate shape `vs`:
+function _marginal_table(vs::AbstractValueShape, flat_smplv::DensitySampleVector{<:AbstractVector{<:Real}})
+    parnames = map(string, all_active_names(vs))
 
-    usmplv = unshaped.(smplv)
+    credible_intervals = smallest_credible_intervals(flat_smplv)
 
-    credible_intervals = smallest_credible_intervals(usmplv)
+    mhists = _marginal_histograms(flat_smplv)
 
-    mhists = _marginal_histograms(usmplv)
-
-    mm_alg = bat_default(bat_marginalmode, Val(:algorithm), usmplv)
-    marginal_mode = bat_marginalmode_impl(usmplv, mm_alg, _g_dummy_context).result
+    mm_alg = bat_default(bat_marginalmode, Val(:algorithm), flat_smplv)
+    marginal_mode = bat_marginalmode_impl(flat_smplv, mm_alg, _g_dummy_context).result
 
     TypedTables.Table(
         parameter = parnames,
-        mean = mean(usmplv),
-        std = std(usmplv),
-        global_mode = mode(usmplv),
+        mean = mean(flat_smplv),
+        std = std(flat_smplv),
+        global_mode = mode(flat_smplv),
         marginal_mode = marginal_mode,
         credible_intervals = credible_intervals,
         marginal_histogram = mhists,
@@ -639,8 +642,8 @@ function _marginal_table(smplv::DensitySampleVector)
 end
 
 
-function _rpt_table_of_constparvals(smplv::DensitySampleVector)
-    constpars = _const_parameters(varshape(smplv))
+function _rpt_table_of_constparvals(vs::AbstractValueShape)
+    constpars = _const_parameters(vs)
     # Need to convert, otherwise these can become Vector{Union{}} if constpars is empty:
     parkeys = convert(Vector{Symbol}, Symbol.(first.(constpars)))::Vector{Symbol}
     str_parvalues = convert(Vector{String}, string.(last.(constpars)))::Vector{String}

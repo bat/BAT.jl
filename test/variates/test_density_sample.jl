@@ -7,6 +7,7 @@ using Test
 
 using ArraysOfArrays, ElasticArrays, FillArrays, StructArrays, ValueShapes
 import TypedTables
+import LazyReports
 import MeasureBase
 using MeasureBase: productmeasure, asmeasure, StdUniform, StdNormal, logdensities
 
@@ -238,5 +239,26 @@ _SampleAux() = _SampleInfo(0)
         @test isapprox(smpls, deepcopy(smpls)) && !isapprox(smpls, flat)
         smpls_nan = DensitySampleVector(v = smpls.v, logd = fill(NaN, n))
         @test isequal(smpls_nan, deepcopy(smpls_nan)) && smpls_nan != smpls_nan
+
+        @testset "report" begin
+            names = ["a", "b[1]", "b[2]", "d.x", ("d.y[$i]" for i in 1:6)...]
+            tbl = BAT._marginal_table(varshape(smpls), flat)
+            @test tbl.parameter == names
+            @test tbl.mean ≈ mean(flat) && tbl.std ≈ std(flat) && tbl.global_mode == mode(flat)
+            @test length(tbl.credible_intervals) == length(tbl.marginal_histogram) == 10
+            @test BAT._rpt_table_of_constparvals(varshape(smpls)) == TypedTables.Table(parameter = [:c], value = ["4.2"])
+
+            rpt = LazyReports.lazyreport(smpls)
+            txt = sprint(show, MIME"text/plain"(), rpt)
+            @test all(name -> occursin(name, txt), names)
+            @test occursin("Fixed parameters", txt) && occursin("4.2", txt)
+            @test occursin("| d.y[6]", sprint(show, MIME"text/markdown"(), rpt))
+            @test occursin("<table", sprint(show, MIME"text/html"(), rpt))
+
+            for (v, vnames) in ((randn(n), ["v"]), (nestedview(randn(2, n)), ["v_1", "v_2"]))
+                txt = sprint(show, MIME"text/plain"(), LazyReports.lazyreport(DensitySampleVector(v = v, logd = zeros(n))))
+                @test all(name -> occursin(name, txt), vnames) && !occursin("Fixed parameters", txt)
+            end
+        end
     end
 end
