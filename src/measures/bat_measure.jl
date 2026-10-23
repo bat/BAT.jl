@@ -205,15 +205,12 @@ is_std_mvnormal(d::MvNormal) = mean(d) ≈ Zeros(length(d)) && cov(d) ≈ I(leng
 
 
 
-# Moments and modes of wrapped distributions are known analytically:
+# MeasureBase provides the moments of measures. Medians and modes of wrapped
+# distributions are known analytically:
 
 const _DistMeasure = AsMeasure{<:Distribution}
 
-Statistics.mean(m::_DistMeasure) = mean(m.obj)
 Statistics.median(m::AsMeasure{<:UnivariateDistribution}) = median(m.obj)
-Statistics.var(m::_DistMeasure) = var(m.obj)
-Statistics.std(m::_DistMeasure) = std(m.obj)
-Statistics.cov(m::AsMeasure{<:MultivariateDistribution}) = cov(m.obj)
 StatsBase.mode(m::_DistMeasure) = mode(m.obj)
 
 # Not every distribution has a well-defined mode, failures across
@@ -227,19 +224,10 @@ function maybe_modes(m::_DistMeasure)
 end
 
 
-# Moments and modes of structural measures follow their structure:
+# Modes of structural measures follow their structure:
 
-Statistics.mean(m::MeasureBase.AbstractProductMeasure) = map(mean, marginals(m))
-Statistics.var(m::MeasureBase.AbstractProductMeasure) = map(var, marginals(m))
 StatsBase.mode(m::MeasureBase.AbstractProductMeasure) = map(mode, marginals(m))
-
-Statistics.mean(m::MeasureBase.Dirac) = m.x
-Statistics.var(m::MeasureBase.Dirac) = zero.(m.x)
 StatsBase.mode(m::MeasureBase.Dirac) = m.x
-
-Statistics.mean(m::WeightedMeasure) = mean(m.base)
-Statistics.var(m::WeightedMeasure) = var(m.base)
-Statistics.cov(m::WeightedMeasure) = cov(m.base)
 StatsBase.mode(m::WeightedMeasure) = mode(m.base)
 
 
