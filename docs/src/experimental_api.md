@@ -33,10 +33,12 @@ BAT.set_rng
 batmeasure
 BridgeSampling
 EllipsoidalNestedSampling
+EllipticalSliceMCMCSampling
 GridSampler
 HierarchicalDistribution
 PriorImportanceSampler
 ReactiveNestedSampling
+SliceMCMCSampling
 SobolSampler
 truncate_batmeasure
 ValueAndThreshold

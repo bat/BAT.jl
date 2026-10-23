@@ -8,8 +8,8 @@
 # τ heuristic can leave the acceptance rate outside the target interval
 # on non-Gaussian targets, with no mechanism to correct it.
 
-mutable struct MALAStepSizeTunerState{T<:AbstractFloat} <: DualAveragingTunerState
-    tuning::StepSizeAdaptor
+mutable struct MALAStepSizeTunerState{T<:AbstractFloat,A<:StepSizeAdaptor} <: DualAveragingTunerState
+    tuning::A
     m::Int
     log_mu::T
     log_stepsize_bar::T

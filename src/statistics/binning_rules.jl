@@ -45,7 +45,7 @@ $(TYPEDFIELDS)
 end
 export FixedNBins
 
-function _binning_rule_impl(algorithm::FixedNBins, n_samples, nd, v)
+function _get_bining_impl(algorithm::FixedNBins, n_samples, nd, v)
     algorithm.nbins
 end
 

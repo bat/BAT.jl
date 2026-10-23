@@ -53,8 +53,8 @@ function _validate_dual_averaging_domain(tuning::StepSizeAdaptor)
     return nothing
 end
 
-mutable struct HMCStepSizeTunerState{T<:AbstractFloat} <: DualAveragingTunerState
-    tuning::StepSizeAdaptor
+mutable struct HMCStepSizeTunerState{T<:AbstractFloat,A<:StepSizeAdaptor} <: DualAveragingTunerState
+    tuning::A
     m::Int
     log_mu::T
     log_stepsize_bar::T

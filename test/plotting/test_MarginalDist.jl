@@ -3,10 +3,10 @@
 using BAT
 using Test
 
-using Distributions, StatsBase, ValueShapes
+using Distributions, StatsBase, ValueShapes, LinearAlgebra, ArraysOfArrays
 using EmpiricalDistributions: UvBinnedDist, MvBinnedDist
 
-using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex
+using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex, bat_marginalize
 
 @testset "MarginalDist" begin
     prior = NamedTupleDist(
@@ -51,6 +51,13 @@ using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex
         )
         filtered = MarginalDist(low_weight_samples, 1; bins = 4, filter = true)
         @test maximum(abs, only(get_bin_centers(filtered))) < 10
+
+        # Non-1-based flat storage selects by position among the free parameters:
+        offset_data = VectorOfSimilarVectors(view([0.0 0.0; 10.0 30.0; 20.0 40.0], Base.IdentityUnitRange(2:3), :))
+        offset_samples = DensitySampleVector(offset_data, zeros(2))
+        shaped_offset_samples = NamedTupleShape(a = ScalarShape{Real}(), b = ScalarShape{Real}()).(offset_samples)
+        @test flatview(bat_marginalize(offset_samples, 2).result.v) == [20.0 40.0]
+        @test bat_marginalize(shaped_offset_samples, :b).result.v.b == [20.0, 40.0]
     end
 
     @testset "from distribution" begin
@@ -109,6 +116,32 @@ using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex
         actual = sum(only(regions).weights .* diff(edges))
         @test actual >= 0.5
         @test only(reported) ≈ actual
+    end
+
+    @testset "nested named tuples" begin
+        nested_prior = distprod(
+            x = (a = Uniform(0, 1), b = (c = Normal(1, 0.2), d = MvNormal(zeros(2), I(2)), k = 7.0)),
+            e = Uniform(0, 1)
+        )
+        nested_samples = bat_sample(nested_prior, IIDSampling(nsamples = 10^3), context).result
+
+        @test asindex(nested_samples, :(x.b.c)) == 2
+        @test asindex(nested_samples, :(x.b.d[2])) == 4
+        @test asindex(nested_samples, :x) == [1, 2, 3, 4]
+        @test_throws ArgumentError asindex(nested_samples, :(x[2]))
+        @test_throws ArgumentError asindex(nested_samples, :(x.b.k))
+        @test_throws ArgumentError asindex(nested_samples, :(x.nope))
+        @test_throws ArgumentError MarginalDist(nested_samples, :(x(e)))
+
+        marg = MarginalDist(nested_samples, :(x.b.c), bins = 40)
+        @test marg.dist isa UvBinnedDist
+        @test isapprox(mean(marg.dist), 1, atol = 0.05)
+        @test MarginalDist(nested_samples, 2, bins = 40).dist isa UvBinnedDist
+
+        marg_2d = MarginalDist(nested_samples, (:(x.b.c), :e), bins = (20, 20))
+        @test keys(varshape(marg_2d.dist)) == (Symbol("x.b.c"), :e)
+        @test keys(varshape(MarginalDist(nested_samples, :([x.b.c, e]), bins = (20, 20)).dist)) == (Symbol("x.b.c"), :e)
+        @test varshape(MarginalDist(nested_samples, :x, bins = 5).dist) == NamedTupleShape(x = varshape(nested_prior).x.shape)
     end
 
     @testset "bin centers and marginal modes" begin

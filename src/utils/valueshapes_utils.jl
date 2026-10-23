@@ -1,107 +1,107 @@
-# Returns index corresponding to the name in NamedTupleDist.
-# If the name corresponds to a multivariate distribution,
-# an array containig all indices of this distribution is returned.
-function asindex(vs::NamedTupleShape, name::Symbol)
-    name = string(name)
-    if name in (rn = repeatednames(vs))
-        indxs = findall(x-> x == string(name), rn)
-        length(indxs) > 1 ? (return indxs) : (return indxs[1])
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
+
+# Leaves of a value shape tree in flat order, as path => accessor pairs. Paths
+# are Symbols for top-level fields and dotted Exprs like :(x.b.c) for nested
+# fields, offsets are absolute within the flat vector:
+_leaf_accessors(vs::NamedTupleShape) = _push_leaves!(Pair{Union{Symbol,Expr},ValueAccessor}[], vs, nothing, 0)
+
+function _push_leaves!(leaves, vs::NamedTupleShape, prefix, offset::Int)
+    for k in keys(vs)
+        acc = getproperty(vs, k)
+        _push_leaves!(leaves, acc.shape, _subpath(prefix, k), offset + acc.offset)
+    end
+    return leaves
+end
+
+function _push_leaves!(leaves, vs::AbstractValueShape, path, offset::Int)
+    push!(leaves, path => ValueAccessor(vs, offset))
+    return leaves
+end
+
+_subpath(::Nothing, k::Symbol) = k
+_subpath(prefix, k::Symbol) = Expr(:., prefix, QuoteNode(k))
+
+
+# Accessor, with absolute offset, of the field selected by a path like :a or :(x.b.c):
+function _resolve_path(vs::NamedTupleShape, path::Symbol)
+    path in keys(vs) || throw(ArgumentError("Value shape has no field $path"))
+    return getproperty(vs, path)
+end
+
+function _resolve_path(vs::NamedTupleShape, path::Expr)
+    Meta.isexpr(path, :., 2) && path.args[2] isa QuoteNode || throw(ArgumentError("Invalid parameter path $path"))
+    parent = _resolve_path(vs, path.args[1])
+    parent.shape isa NamedTupleShape || throw(ArgumentError("Parameter $(path.args[1]) is not a named tuple, cannot select $path"))
+    child = _resolve_path(parent.shape, path.args[2].value)
+    return ValueAccessor(child.shape, parent.offset + child.offset)
+end
+
+
+_index_arg(i::Integer) = i
+_index_arg(s::Symbol) = s === :(:) ? Colon() : throw(ArgumentError("Invalid index $s in parameter selection"))
+_index_arg(ex::Expr) = @capture(ex, s_:e_) ? (s:e) : throw(ArgumentError("Invalid index $ex in parameter selection"))
+
+# Flat indices and value shape of the parameters selected by a field path like
+# :a or :(x.b.c), optionally with an element selection like :(a[2]), :(a[2:4])
+# or :(a[1, :]). Constants select no indices but keep their value:
+function _select_params(vs::NamedTupleShape, sel::Union{Symbol,Expr})
+    if @capture(sel, path_[args__])
+        acc = _resolve_path(vs, path)
+        acc.shape isa NamedTupleShape && throw(ArgumentError("$path is a named tuple, select its fields by name instead of $sel"))
+        idxargs = map(_index_arg, args)
+        if acc.shape isa ConstValueShape
+            return Int[], ConstValueShape(acc.shape.value[idxargs...])
+        else
+            idxs = (1:totalndof(vs))[acc][idxargs...]
+            return idxs isa Integer ? (Int[idxs], ScalarShape{Real}()) : (collect(vec(idxs)), ArrayShape{Real}(size(idxs)...))
+        end
     else
-        throw(ArgumentError("Symbol :$name found not in $vs."))
+        acc = _resolve_path(vs, sel)
+        return collect(acc.offset .+ (1:acc.len)), acc.shape
     end
 end
 
 
-# Returns index corresponding to the name in NamedTupleDist.
-function asindex(vs::NamedTupleShape, name::Expr)
-    name = string(name)
-    if name in (an = all_active_names(vs))
-        return findfirst(x-> x == name, an)[1]
-    else
-        throw(ArgumentError("Symbol :$name found not in $vs."))
-    end
+# Flat index of the parameter selected by `name`, or the flat indices of a
+# multivariate parameter:
+function asindex(vs::NamedTupleShape, name::Union{Symbol,Expr})
+    idxs, _ = _select_params(vs, name)
+    isempty(idxs) && throw(ArgumentError("$name selects no free parameter in $vs"))
+    return length(idxs) == 1 ? only(idxs) : idxs
 end
 
-
-# for prior
-function asindex(ntd::NamedTupleDist, name::Union{Expr, Symbol})
-    return asindex(varshape(ntd), name)
-end
-
-# Return the name corresponding to the index as String
-function getstring(vs::NamedTupleShape, idx::Integer)
-    names = all_active_names(vs)
-    return names[idx]
-end
-
-function getstring(prior::NamedTupleDist, idx::Integer)
-    vs = varshape(prior)
-    names = all_active_names(vs)
-    return names[idx]
-end
+asindex(ntd::NamedTupleDist, name::Union{Expr,Symbol}) = asindex(varshape(ntd), name)
 
 
-# Return array of strings with the names of all indices.
-# For a multivariate distribution, names for each dimension are created by appending "[i]" to the name.
-function allnames(vs::NamedTupleShape)
-    subindxs = [collect(1:getproperty(vs, k).len) for k in keys(vs)]
-    names = [length(subindxs[i]) > 1 ? subname.(string(keys(vs)[i]), subindxs[i]) : [string(keys(vs)[i])] for i in 1:length(vs)]
+# Name of the free parameter with the given flat index:
+getstring(vs::NamedTupleShape, idx::Integer) = all_active_names(vs)[idx]
+getstring(prior::NamedTupleDist, idx::Integer) = getstring(varshape(prior), idx)
 
-    return reduce(vcat, names)
-end
 
+# Names of the free parameters in flat order, elements of multivariate
+# parameters as "a[i]":
 function all_active_names(vs::NamedTupleShape)
-    subindxs = [collect(1:getproperty(vs, k).len) for k in keys(vs)]
-    names = [length(subindxs[i]) > 1 ? subname.(string(keys(vs)[i]), subindxs[i]) : [string(keys(vs)[i])] for i in 1:length(vs) if getproperty(vs, keys(vs)[i]).len>0]
-
-    return reduce(vcat, names)
-end
-
-function all_active_names(vs::ScalarShape)
-    return ["v"]
-end
-
-function all_active_names(vs::ArrayShape)
-    ndims = totalndof(vs)
-    return ["v_$i" for i in 1:ndims]
-end
-
-# Return array of strings with the names of all indices.
-# For a multivariate distribution, the name is repeated for all its dimensions.
-function repeatednames(vs::NamedTupleShape)
-    names = [[string(k) for i in 1:getproperty(vs, k).len] for k in keys(vs) if getproperty(vs, k).len>0]
-    return reduce(vcat, names)
-end
-
-# Generate sub-name for one dimension of a multivariate distribution
-function subname(name::String, indx::Integer)
-    return name*"["*string(indx)*"]"
-end
-
-
-get_fixed_names(vs::AbstractValueShape) = Vector{String}()
-
-function get_fixed_names(vs::NamedTupleShape)
-    active_names = all_active_names(vs)
-    all_names = allnames(vs)
-    fixed_names = [n for n in all_names if !in(n, active_names)]
-end
-
-
-# Like all_active_names, but keeping fixed parameters and expanding them
-# into their dimensions, as Expr resp. String per dimension:
-function _all_active_exprs(vs::NamedTupleShape)
-    accs = vs._accessors
-    mapreduce(
-        vcat, zip(keys(accs), length.(values(accs))); init = Union{Expr, Symbol}[],
-    ) do (sym, n)
-        n == 1 ? Union{Expr, Symbol}[sym] : Meta.parse.("$sym[" .* string.(1:n) .* "]")
+    mapreduce(vcat, _leaf_accessors(vs); init = String[]) do (path, acc)
+        n = acc.len
+        n > 1 ? ["$path[$i]" for i in 1:n] : fill("$path", n)
     end
 end
 
-function _all_exprs_as_strings(vs::NamedTupleShape)
-    accs = vs._accessors
-    mapreduce(vcat, zip(keys(accs), length.(values(accs))); init = String[]) do (sym, n)
-        n == 1 ? ["$sym"] : "$sym[" .* string.(1:n) .* "]"
-    end
+all_active_names(vs::ScalarShape) = ["v"]
+all_active_names(vs::ArrayShape) = ["v_$i" for i in 1:totalndof(vs)]
+
+
+# Names and values of the constant parameters:
+_const_parameters(::AbstractValueShape) = Pair{String,Any}[]
+
+function _const_parameters(vs::NamedTupleShape)
+    leaves = filter(leaf -> last(leaf).shape isa ConstValueShape, _leaf_accessors(vs))
+    return Pair{String,Any}[string(path) => acc.shape.value for (path, acc) in leaves]
 end
+
+
+# Whether a value shape contains a constant anywhere, nested shapes included:
+_has_const_shape(::AbstractValueShape) = false
+_has_const_shape(::ConstValueShape) = true
+_has_const_shape(vs::NamedTupleShape) = any(acc -> _has_const_shape(acc.shape), values(vs))

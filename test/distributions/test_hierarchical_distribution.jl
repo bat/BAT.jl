@@ -59,4 +59,17 @@ using InverseFunctions
         @test isapprox(mean(unshaped.(rand(Xoshiro(564017), sampler(hd), 10^5))), [2.3, 2.3], rtol = 0.05)
         @test isapprox(inverse(varshape(hd))(mean(hd)), mean(unshaped(hd)), rtol = 0.05)
     end
+
+    let
+        primary_dist = NamedTupleDist(a = Normal())
+        hd = HierarchicalDistribution(v -> NamedTupleDist(y = (c = Uniform(0, 1), d = Normal(v.a, 1))), primary_dist)
+        @test varshape(hd) == NamedTupleShape(a = ScalarShape{Real}(), y = NamedTupleShape(c = ScalarShape{Real}(), d = ScalarShape{Real}()))
+        x = rand(Xoshiro(564018), hd)
+        @test x isa NamedTuple && x.y isa NamedTuple
+        @test logpdf(hd, x) ≈ logpdf(Normal(), x.a) + logpdf(Uniform(0, 1), x.y.c) + logpdf(Normal(x.a, 1), x.y.d)
+
+        # Constants in the secondary distribution are rejected at any nesting depth:
+        @test_throws ArgumentError HierarchicalDistribution(v -> NamedTupleDist(k = 2.0, d = Normal(v.a, 1)), primary_dist)
+        @test_throws ArgumentError HierarchicalDistribution(v -> NamedTupleDist(y = (k = 2.0, d = Normal(v.a, 1))), primary_dist)
+    end
 end

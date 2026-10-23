@@ -254,8 +254,13 @@ function _tune_picking_rule(
 )
     p_tuned = copy(picking_rule.p)
     p_tuned[curr_idx] = acc_new
-    p_tuned .*= (1 - picking_socket) / sum(p_tuned)
-    p_tuned .+= picking_socket / N  
+    total = sum(p_tuned)
+    if iszero(total)
+        fill!(p_tuned, 1 / N)
+    else
+        p_tuned .*= (1 - picking_socket) / total
+        p_tuned .+= picking_socket / N
+    end
     return Categorical(p_tuned)
 end
 

@@ -360,7 +360,7 @@ function _weighted_empirical_quantile(v::AbstractVector, w::AbstractVector, p::R
     isempty(v) && throw(ArgumentError("quantile of an empty array is undefined"))
     0 <= p <= 1 || throw(ArgumentError("input probability out of [0,1] range"))
 
-    nan_idx = findfirst(isnan, v)
+    nan_idx = findfirst(i -> !iszero(w[i]) && isnan(v[i]), eachindex(v, w))
     isnothing(nan_idx) || return v[nan_idx]
 
     order = sortperm(v)
@@ -550,11 +550,10 @@ end
 
 
 function _rpt_table_of_constparvals(smplv::DensitySampleVector)
-    vs = elshape(smplv.v)
-    # Need to convert, otherwise these can become Vector{Union{}} if parkeys is empty:
-    parkeys = convert(Vector{Symbol}, Symbol.(get_fixed_names(vs)))::Vector{Symbol}
-    parvalues = convert(Vector{Any}, [getproperty(vs, f).shape.value for f in parkeys])
-    str_parvalues = convert(Vector{String}, string.(parvalues))::Vector{String}
+    constpars = _const_parameters(elshape(smplv.v))
+    # Need to convert, otherwise these can become Vector{Union{}} if constpars is empty:
+    parkeys = convert(Vector{Symbol}, Symbol.(first.(constpars)))::Vector{Symbol}
+    str_parvalues = convert(Vector{String}, string.(last.(constpars)))::Vector{String}
     TypedTables.Table(parameter = parkeys, value = str_parvalues)
 end
 

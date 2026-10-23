@@ -93,7 +93,7 @@ function HierarchicalDistribution(f::Function, primary_dist::ContinuousDistribut
     secondary_dist = f(x_primary)
     vs_secondary = varshape(secondary_dist)
     vf_secondary = _variate_form(secondary_dist)
-    if any(x -> x isa ConstValueShape, values((;vs_secondary...)))
+    if _has_const_shape(vs_secondary)
         throw(ArgumentError("Value shape of secondary distributions of HierarchicalDistribution must not contain a ConstValueShape"))
     end
 

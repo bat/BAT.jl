@@ -140,7 +140,8 @@ end
 @testset "Sample credible-interval weight preparation" begin
     values = [0.0, 1.0, 3.0, 7.0]
     weights = [1.0, 2.0, 4.0, 2.0]
-    # Preserve the existing plain-Weights interpolation and interval selection.
+    # Sample containers use the upstream empirical interval semantics while
+    # preserving their stored weights and ignoring zero-mass coordinates.
     reference = BAT.smallest_credible_intervals(values, Weights(weights))
     for scale in (1.0, 4e307, 1e-300, nextfloat(0.0))
         samples = samples1d(values, scale .* weights)
@@ -151,14 +152,14 @@ end
         @test samples.v == before.v
     end
 
-    # Explicitly distinguish the retained interpolation from BAT's discrete
-    # empirical inverse CDF, and retain generic FrequencyWeights semantics.
+    # Empirical mass depends on values and counts, not quantile interpolation
+    # conventions of the weight wrapper.
     ordinary = BAT.smallest_credible_intervals([0.0, 2.0], Weights([1, 1]))
-    @test any(iv -> 0 < minimum(iv) < 2 || 0 < maximum(iv) < 2, ordinary)
+    @test all(iv -> minimum(iv) in (0, 2) && maximum(iv) in (0, 2), ordinary)
     @test interval_bounds(BAT.smallest_credible_intervals([0.0, 2.0], Weights([2, 2]))) ==
         interval_bounds(ordinary)
     frequency = BAT.smallest_credible_intervals([0.0, 2.0], FrequencyWeights([2, 2]))
-    @test interval_bounds(frequency) != interval_bounds(ordinary)
+    @test interval_bounds(frequency) == interval_bounds(ordinary)
 
     with_zero = samples1d([NaN, 0.0, 1.0, 3.0, 7.0, Inf], [0.0; weights; 0.0])
     before = deepcopy(with_zero)
@@ -168,12 +169,31 @@ end
     constant = samples1d([3.0, NaN], [1e308, 0.0])
     @test interval_bounds(only(BAT.smallest_credible_intervals(constant))) == [(3.0, 3.0)]
 
-    for bad in ([0.0, 0.0], [1.0, -1.0], [1.0, Inf], [1.0, NaN], [1e308, 1e-308])
+    for bad in ([0.0, 0.0], [1.0, -1.0], [1.0, Inf], [1.0, NaN])
         @test_throws ArgumentError BAT.smallest_credible_intervals(samples1d([0.0, 1.0], bad))
     end
     @test_throws ArgumentError BAT.smallest_credible_intervals(with_zero[1:0])
     @test_throws ArgumentError BAT.smallest_credible_intervals(samples1d([0.0, NaN], [1.0, 1.0]))
-    @test_throws ArgumentError BAT.smallest_credible_intervals(samples1d([-1e308, 1e308], [1.0, 1.0]))
+    # Constant-only samples have no coordinate rows; validate their weights
+    # before the per-coordinate interval loop can be skipped.
+    zero_dim_samples(w) = DensitySampleVector([Float64[], Float64[]], zeros(2); weight=w)
+    @test isempty(BAT.smallest_credible_intervals(zero_dim_samples([1.0, 2.0])))
+    for bad in ([0.0, 0.0], [-1.0, 2.0], [NaN, 1.0], [Inf, 1.0])
+        @test_throws ArgumentError BAT.smallest_credible_intervals(zero_dim_samples(bad))
+    end
+    # Exact mass and width comparisons admit these cases without Float64
+    # normalization or subtraction; full coverage must retain both endpoints.
+    for (values, weights) in (([0.0, 1.0], [1e308, 1e-308]),
+                              ([-1e308, 1e308], [1.0, 1.0]))
+        samples = samples1d(values, weights)
+        before = deepcopy(samples)
+        for mode in (:connected, :disjoint)
+            intervals = only(BAT.smallest_credible_intervals(samples; p=1, mode))
+            @test all(x -> any(iv -> x in iv, intervals), values)
+            @test intervals == BAT.smallest_credible_intervals(values, Weights(weights); p=1, mode)
+        end
+        @test samples == before
+    end
 end
 
 end # module

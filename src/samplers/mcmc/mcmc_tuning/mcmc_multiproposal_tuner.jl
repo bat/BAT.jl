@@ -14,10 +14,12 @@ Fields:
 $(TYPEDFIELDS)
 """
 struct MultiProposalTuning{
-    PT<:Vector{<:MCMCProposalTuning},
+    PT<:Tuple{Vararg{MCMCProposalTuning}},
 }<:MCMCProposalTuning
     proposal_tunings::PT
 end
+
+MultiProposalTuning(tunings::Vector{<:MCMCProposalTuning}) = MultiProposalTuning(Tuple(tunings))
 
 export MultiProposalTuning
 
@@ -60,7 +62,7 @@ function _validate_mcmc_proposal_tuning_configuration(
 end
 
 struct MultiProposalTunerState{
-    PTS<:Vector{<:MCMCProposalTunerState},
+    PTS<:Tuple{Vararg{MCMCProposalTunerState}},
 }<:MCMCProposalTunerState
     proposal_tuners::PTS
 end
@@ -74,23 +76,10 @@ function create_proposal_tuner_state(
     multi_proposal::MultiProposalState,
     iteration::Integer
 )
-    proposal_tuners_init = Vector{MCMCProposalTunerState}()
-
-    proposal_tunings = multi_tuning.proposal_tunings
-    proposals = multi_proposal.proposal_states
-
-    for i in eachindex(multi_tuning.proposal_tunings)
-        tuner_tmp = create_proposal_tuner_state(
-            proposal_tunings[i],
-            chain_state,
-            proposals[i],
-            iteration
-        )
-
-        push!(proposal_tuners_init, tuner_tmp)
-    end
-
-    return MultiProposalTunerState(proposal_tuners_init)
+    tuners = create_proposal_tuner_state.(
+        multi_tuning.proposal_tunings, Ref(chain_state), multi_proposal.proposal_states, iteration,
+    )
+    return MultiProposalTunerState(tuners)
 end
 
 function mcmc_proposal_tuning_init!!(
@@ -98,8 +87,9 @@ function mcmc_proposal_tuning_init!!(
     chain_state::MCMCChainState, 
     max_nsteps::Integer
 )
-    for tuner in multi_tuner_state.proposal_tuners
-        mcmc_proposal_tuning_init!!(tuner, chain_state, max_nsteps)
+    for i in eachindex(multi_tuner_state.proposal_tuners)
+        component_chain = @set chain_state.proposal = chain_state.proposal.proposal_states[i]
+        mcmc_proposal_tuning_init!!(multi_tuner_state.proposal_tuners[i], component_chain, max_nsteps)
     end
 end
 
@@ -108,8 +98,22 @@ function mcmc_proposal_tuning_reinit!!(
     chain_state::MCMCChainState,
     max_nsteps::Integer
 )
-    for tuner in multi_tuner_state.proposal_tuners
-        mcmc_proposal_tuning_reinit!!(tuner, chain_state, max_nsteps)
+    for i in eachindex(multi_tuner_state.proposal_tuners)
+        component_chain = @set chain_state.proposal = chain_state.proposal.proposal_states[i]
+        mcmc_proposal_tuning_reinit!!(multi_tuner_state.proposal_tuners[i], component_chain, max_nsteps)
+    end
+end
+
+
+function mcmc_proposal_transform_committed!!(
+    multi_proposal::MultiProposalState,
+    multi_tuner::MultiProposalTunerState,
+    chain_state::MCMCChainState,
+    trafo_tuners::Vararg{MCMCTransformTunerState},
+)
+    _tune_proposal_components(multi_proposal, multi_tuner, chain_state) do proposal, tuner, chain
+        component_chain = @set chain.proposal = proposal
+        mcmc_proposal_transform_committed!!(proposal, tuner, component_chain, trafo_tuners...)
     end
 end
 
@@ -131,18 +135,7 @@ function mcmc_tune_proposal_post_cycle!!(
     chain_state::MCMCChainState,
     samples::AbstractVector{<:DensitySampleVector}
 )
-    proposals = multi_proposal.proposal_states
-    tuners = multi_tuner.proposal_tuners
-    for i in eachindex(proposals)
-        proposals[i], tuners[i], chain_state = mcmc_tune_proposal_post_cycle!!(
-            proposals[i],
-            tuners[i],
-            chain_state,
-            samples
-        )
-    end
-
-    return multi_proposal, multi_tuner, chain_state 
+    _tune_proposal_components(mcmc_tune_proposal_post_cycle!!, multi_proposal, multi_tuner, chain_state, samples)
 end
 
 
@@ -151,15 +144,7 @@ function mcmc_proposal_tuning_finalize!!(
     multi_tuner::MultiProposalTunerState, 
     chain_state::MCMCChainState
 )
-    proposals = multi_proposal.proposal_states
-    tuners = multi_tuner.proposal_tuners
-    for i in eachindex(proposals)
-        proposals[i], tuners[i], chain_state = mcmc_proposal_tuning_finalize!!(
-            proposals[i], tuners[i], chain_state,
-        )
-    end
-
-    return multi_proposal, multi_tuner, chain_state
+    _tune_proposal_components(mcmc_proposal_tuning_finalize!!, multi_proposal, multi_tuner, chain_state)
 end
 
 function mcmc_tune_proposal_post_step!!(
@@ -168,22 +153,26 @@ function mcmc_tune_proposal_post_step!!(
     chain_state::MCMCChainState,
     step_info::MCMCStepInfo
 )
-    active_idx = multi_proposal.active_idx
-    
-    active_proposal = get_active_proposal(multi_proposal)
-    active_tuner = multi_tuner.proposal_tuners[active_idx]
+    _with_proposal_index(multi_proposal.proposal_states, multi_proposal.active_idx) do i
+        _tune_proposal_component(mcmc_tune_proposal_post_step!!, multi_proposal, multi_tuner, chain_state, i, step_info)
+    end
+end
 
-    active_proposal_tuned, active_tuner, chain_state = mcmc_tune_proposal_post_step!!(
-        active_proposal, 
-        active_tuner, 
-        chain_state, 
-        step_info
+function _tune_proposal_component(f::F, multi_proposal, multi_tuner, chain_state, ::Val{I}, args...) where {F,I}
+    proposal, tuner, chain = f(
+        multi_proposal.proposal_states[I], multi_tuner.proposal_tuners[I], chain_state, args...,
     )
+    proposals = @set multi_proposal.proposal_states[I] = proposal
+    tuners = @set multi_tuner.proposal_tuners[I] = tuner
+    chain = @set chain.proposal = proposals
+    return proposals, tuners, chain
+end
 
-    multi_proposal = update_active_proposal!!(multi_proposal, active_proposal_tuned)
-    multi_tuner.proposal_tuners[active_idx] = active_tuner
-
-    return multi_proposal, multi_tuner, chain_state
+function _tune_proposal_components(f::F, multi_proposal, multi_tuner, chain_state, args...) where {F}
+    indices = ntuple(Val, Val(length(multi_proposal.proposal_states)))
+    foldl(indices; init = (multi_proposal, multi_tuner, chain_state)) do (proposals, tuners, chain), i
+        _tune_proposal_component(f, proposals, tuners, chain, i, args...)
+    end
 end
 
 function get_tuning_success(

@@ -1,6 +1,27 @@
 BAT.jl Release Notes
 ====================
 
+BAT.jl v5.2.0
+-------------
+
+### New features
+
+* Priors can be built over nested named tuples, for example
+  `distprod(x = (a = Uniform(0, 1), b = (c = Normal(), d = MvNormal(I(2)))))`.
+  Nested parameters are named like `x.b.c`, and selectors like `:(x.b.c)` and
+  `:(x.b.d[1, :])` work for marginalization and plotting. Sample reports, HDF5
+  sample I/O and `bat_marginalmode` handle nested values. Requires ValueShapes
+  v0.11.9.
+
+BAT.jl v5.1.0
+-------------
+
+### New features
+
+* `SliceMCMCSampling` and `EllipticalSliceMCMCSampling` (experimental) wrap the
+  samplers of SliceSampling.jl and EllipticalSliceSampling.jl. The respective
+  package must be loaded explicitly.
+
 BAT.jl v5.0.0
 -------------
 
