@@ -30,6 +30,11 @@ MeasureBase. Later, BAT's samplers keep arrays on accelerators, using the
   MeasureBase accepts, MeasureBase density measures (possibly nested)
   become posterior measures, named tuples of distributions become measure
   products. `distprod` keeps its meaning and returns MeasureBase products.
+- Moments of measures (`mean`, `var`, `cov`) come from MeasureBase, BAT
+  keeps `median` and `mode`.
+- `truncate_batmeasure` truncates measures with scalar variates via
+  MeasureBase's `truncate`, without renormalizing, and keeps BAT's own
+  truncation for products of univariate distributions.
 
 ## Variate shapes and ValueShapes
 
@@ -37,11 +42,12 @@ MeasureBase. Later, BAT's samplers keep arrays on accelerators, using the
 Shapes are derived from measures by ValueShapes' MeasureBase extension
 (branch `measurebase` of ValueShapes: `varshape`, `unshaped`, shapes
 applied to measures, `resultshape` of transports, and `asmeasure` for
-`NamedTupleDist`, `ConstValueDist` and `ReshapedDist`). Sample storage
-keeps flat vectors plus shapes for now. Decided: `DensitySampleVector`
-moves to struct-of-arrays storage, the layout MeasureBase's `rand`
-produces (flat arrays only for flat variate spaces), as a separate step,
-which removes most of the remaining ValueShapes use.
+`NamedTupleDist`, `ConstValueDist` and `ReshapedDist`).
+`DensitySampleVector` stores the variates in the struct-of-arrays layout
+that MeasureBase's `rand` produces (flat arrays only for flat variate
+spaces), with constants as `Fill` columns, and derives `varshape` from
+it. ValueShapes remains in use per variate: parameter names and
+selections, flat conversions and the BAT 5.x HDF5 layout.
 
 ## Conventions
 
@@ -62,8 +68,5 @@ design needs a decision before this work starts.
 
 ## Open questions
 
-- `truncate_batmeasure`: keep its renormalizing semantics or re-express
-  it on `restrict` (which only masks).
-- The RNG design for batched device sampling.
-- Moments and modes of measures (`mean`, `var`, `cov`, `mode`) are
-  defined by BAT for MeasureBase types; they belong in MeasureBase.
+- The RNG design for batched device sampling. For now, batches are drawn
+  in one call from the single RNG of the context.
