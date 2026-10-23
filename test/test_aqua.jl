@@ -9,11 +9,9 @@ Test.@testset "Package ambiguities" begin
     Test.@test isempty(Test.detect_ambiguities(BAT))
 end # testset
 
-# BAT defines moments and modes of MeasureBase measures and transports of
-# shaped sample arrays, which is type piracy until MeasureBase provides
-# the former and the sample storage is reworked for the latter:
+# BAT defines medians and modes of some MeasureBase measures, and
+# transports of the `ShapedAsNTArray` samples of BAT 5.x:
 const mb_types_treated_as_own = [
-    MeasureBase.AbstractMeasure,
     MeasureBase.AbstractProductMeasure,
     MeasureBase.AsMeasure,
     MeasureBase.Dirac,
