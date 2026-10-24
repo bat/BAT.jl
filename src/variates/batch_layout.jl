@@ -272,6 +272,7 @@ end
 
 _vcat_batches(X::AbstractVector, Xs::AbstractVector...) = _vcat_dense(map(_materialize_leaf, (X, Xs...))...)
 
+# `Fill` columns in the dense layout of their values:
 _materialize_leaf(X::AbstractVector) = X
 _materialize_leaf(X::AbstractFill{<:Real,1}) = collect(X)
 
@@ -281,6 +282,10 @@ function _materialize_leaf(X::AbstractFill{<:AbstractArray{<:Real},1})
     flat .= value
     return VectorOfSimilarArrays(flat)
 end
+
+_materialize_leaf(X::AbstractFill{<:NamedTuple,1}) = StructArray(map(x -> _materialize_leaf(Fill(x, length(eachindex(X)))), getindex_value(X)))
+
+_vcat_dense(X::StructVector{<:NamedTuple}, Xs::StructVector{<:NamedTuple}...) = _vcat_batches(X, Xs...)
 
 _vcat_dense(Xs::AbstractVector{<:Real}...) = vcat(Xs...)
 

@@ -79,6 +79,12 @@ using MeasureBase: productmeasure, asmeasure, StdUniform, StdNormal
 
         @test BAT._vcat_batches(Fill([1.0, 2.0], 2), nestedview([3.0 4.0; 5.0 6.0])) == [[1.0, 2.0], [1.0, 2.0], [3.0, 5.0], [4.0, 6.0]]
 
+        # Differing named tuple and array constants are materialized:
+        Z_nt = BAT._vcat_batches(Fill((a = 1.0, b = [1.0, 2.0]), 2), Fill((a = 2.0, b = [3.0, 4.0]), 1))
+        @test Z_nt isa StructArray && Z_nt.a == [1.0, 1.0, 2.0] && Z_nt.b == [[1.0, 2.0], [1.0, 2.0], [3.0, 4.0]]
+        @test BAT._vcat_batches(Fill((a = 1.0,), 2), StructArray((a = [3.0],))).a == [1.0, 1.0, 3.0]
+        @test BAT._vcat_batches(Fill([1.0 2.0; 3.0 4.0], 1), Fill(zeros(2, 2), 1)) == [[1.0 2.0; 3.0 4.0], zeros(2, 2)]
+        @test_throws ArgumentError BAT._vcat_batches(Fill((a = 1.0,), 2), Fill((b = 1.0,), 2))
         F = Fill([1.0, 2.0], 2)
         @test BAT._vcat_batches(F, F) == Fill([1.0, 2.0], 4) && BAT._vcat_batches(F, F)[1] !== F[1]
     end

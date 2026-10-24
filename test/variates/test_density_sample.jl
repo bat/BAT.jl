@@ -287,5 +287,11 @@ _SampleAux() = _SampleInfo(0)
         # Stored variates must agree with their log-densities:
         X_bad = StructArray((a = X.a, c = Fill([5.0, 6.0], 5)))
         @test_throws ArgumentError DensitySampleVector(X_bad, μ, logd = zeros(5))
+
+        # Samples with different named tuple constants can be concatenated:
+        μ_nt(x) = productmeasure((a = StdNormal(), c = MeasureBase.Dirac((x = x, y = [1.0, 2.0]))))
+        s_nt = vcat(DensitySampleVector(rand(μ_nt(1.0)^2), μ_nt(1.0)), DensitySampleVector(rand(μ_nt(2.0)^3), μ_nt(2.0)))
+        @test s_nt.v.c.x == [1.0, 1.0, 2.0, 2.0, 2.0] && all(==([1.0, 2.0]), s_nt.v.c.y)
+        @test size(BAT.flatbatch(s_nt.v)) == (4, 5)
     end
 end
