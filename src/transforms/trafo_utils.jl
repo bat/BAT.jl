@@ -12,9 +12,10 @@ the variates of `samples`, with a result in the layout of BAT's sample
 storage. The log-density values of samples are corrected by the
 log-abs-det Jacobian of `f`, they become `NaN` if `f` doesn't provide one.
 
-Transports transform the whole batch at once. Value shapes and
-`Base.Fix2(unshaped, vs)` convert between flat and structured batches.
-Other functions are applied variate by variate on the host.
+Transports transform the whole batch at once, log-abs-det Jacobians
+included. Value shapes and `Base.Fix2(unshaped, vs)` convert between flat
+and structured batches. Other functions, also those with a log-abs-det
+Jacobian, are applied variate by variate on the host.
 """
 function transform_samples end
 
@@ -83,17 +84,10 @@ function _transport_batch end
 
 _transport_batch(f::TransportFunction, X::AbstractVector) = _own_batch(transports(f, X), f.ν)
 
-# MeasureBase has no batched log-abs-det Jacobians of transports yet, so they
-# are computed variate by variate:
 function _transport_batch(f::TransportFunction, X::AbstractVector, logd::AbstractVector{<:Real})
-    Y = _transport_batch(f, X)
-    n = length(eachindex(X))
-    length(eachindex(logd)) == n || throw(DimensionMismatch("Number of variates and log-density values differ"))
-    logd_Y = Vector{float(eltype(logd))}(undef, n)
-    @threads for i in 1:n
-        logd_Y[i] = logd[firstindex(logd) + i - 1] - getsecond(with_logabsdet_jacobian(f, X[firstindex(X) + i - 1]))
-    end
-    return Y, logd_Y
+    length(eachindex(logd)) == length(eachindex(X)) || throw(DimensionMismatch("Number of variates and log-density values differ"))
+    Y, ladjs = transports_with_ladj(f, X)
+    return _own_batch(Y, f.ν), logd .- ladjs
 end
 
 
