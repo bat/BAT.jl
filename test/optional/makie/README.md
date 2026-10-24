@@ -121,6 +121,19 @@ separately with an external deadline and working native display.
 original-edge polygons and heatmaps, transpose/empty transitions, invalid levels,
 and actual Cairo output. These checks use independent unequal-cell fixtures.
 
+`histogram_colors` checks Hist2D's default Float32 color-range admission, including
+padding, span and reciprocal boundaries, masks, subnormal/nearby-height controls,
+native styles, both public paths, rejected updates and owned cleanup. A custom
+color range or scale cannot bypass raw-height admission; admitted data retain
+native styling. Ordinary rejected updates require disposal and recreation.
+`gl_histogram_colors.jl` checks admitted numeric colors and the direct-RGBA
+alternative on stopped native screens, with unrelated-screen isolation. Run it
+separately in a GL-capable environment with an external deadline:
+
+```sh
+timeout 600 julia --startup-file=no --threads=2,1 --project=/path/to/gl-project test/optional/makie/gl_histogram_colors.jl
+```
+
 `histogram_viewport` checks that fixed-domain histogram edges fit generated
 limits, including coarse/asymmetric bins, constant and near-ULP coordinates,
 closure modes, selection/configuration changes, empty windows and real Cairo

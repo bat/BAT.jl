@@ -355,6 +355,26 @@ function compute_plotting_primitives(
     return _hist2d_output(hist, :none)
 end
 
+function _hist2d_check_colors(weights)
+    fail() = throw(ArgumentError(
+        "Hist2D visible heights exceed the arithmetic range of Float32 color values; change units/normalization or use QuantileHist2D"))
+    lo, hi = Inf32, -Inf32
+    for value in weights
+        isnan(value) && continue
+        converted = Float32(value)
+        0 < converted < Inf || fail()
+        lo, hi = min(lo, converted), max(hi, converted)
+    end
+    lo == Inf32 && return nothing # zero-mass histograms contain only NaN masks
+    # Match the automatic range after native numeric colors narrow to Float32.
+    lo == hi && ((lo, hi) = (lo - 0.5f0, hi + 0.5f0))
+    span = hi - lo
+    reciprocal = inv(span)
+    isfinite(span) && span >= floatmin(Float32) && isfinite(reciprocal) &&
+        reciprocal >= 2floatmin(Float32) || fail()
+    return nothing
+end
+
 function compose_plotspecs(
     primitives::NamedTuple,
     recipe::Hist2D,
@@ -374,8 +394,7 @@ function compose_plotspecs(
 
     # Use permutedims for grid axis swaps; recursive transpose is undefined
     # for the RGBA cells used by the quantile recipes.
-    all(w -> isnan(w) || 0 < Float32(w) < Inf, weights) || throw(ArgumentError(
-        "Hist2D visible height is not representable as positive finite Float32 color values; change units/normalization or use QuantileHist2D"))
+    _hist2d_check_colors(weights)
     heat = transposed ?
         S.Heatmap(yedges, xedges, permutedims(weights); colormap = cmap_final) :
         S.Heatmap(xedges, yedges, weights; colormap = cmap_final)

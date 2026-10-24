@@ -210,9 +210,13 @@ selected coordinates are evaluated.
 
 Density division avoids intermediate products of widths and total mass. The
 result still must fit the numerical and rendering types actually used. Hist2D
-color heights must survive Makie's Float32 conversion; change normalization or
-units, or use QuantileHist2D when that limit is reached. ARP weights can reach
-this limit even with ordinary coordinate ranges. Statistical overlays
+color heights must survive Makie's Float32 conversion and admit a usable default
+linear automatic color range, including its span and reciprocal arithmetic.
+This admission applies before native styling: a custom color range or color
+scale does not rescue rejected heights. Admitted inputs retain native styling;
+nearby heights may still become indistinguishable colors. Change normalization
+or units, or use QuantileHist2D when a limit is reached. ARP weights can reach
+these limits even with ordinary coordinate ranges. Statistical overlays
 reject nonfinite or collapsed positive spread and interval geometry. Constant
 data and singular covariance remain supported where the recipe defines them.
 
