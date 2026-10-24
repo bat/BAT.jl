@@ -89,7 +89,7 @@ end
 # giving a standard-normal-scaled domain regardless of the real prior's scale.
 function _estimate_prior_domain(rng::AbstractRNG, target, n_dof::Integer;
     n_prior_samples::Integer = 2000, tail_prob::Real = 0.0015,
-    display_shape=missing, f_display=identity)
+    display_shape = missing, f_display = identity)
     initsrc = BAT.get_initsrc_from_target(target)
     # A raw empirical NamedTuple source need not carry container shape metadata
     # when the caller already supplied the original target's shape.
@@ -237,30 +237,30 @@ function BATVisualizer(vis::BATMakieVisualization)
 
     buffer_lock = ReentrantLock()
     content = (
-        graph=Ref{Union{Nothing,ComputeGraph}}(graph),
-        buffer_lock=buffer_lock,
+        graph = Ref{Union{Nothing,ComputeGraph}}(graph),
+        buffer_lock = buffer_lock,
         # Shares buffer_lock: waiters and notifiers must use one lock (Threads.Condition).
-        buffer_cond=Threads.Condition(buffer_lock),
-        chain_ids=Vector{Int32}(),  # MCMCChainStateInfo ids are Int32
-        output_buffer=Vector{Vector{DensitySampleVector}}(),
+        buffer_cond = Threads.Condition(buffer_lock),
+        chain_ids = Vector{Int32}(),  # MCMCChainStateInfo ids are Int32
+        output_buffer = Vector{Vector{DensitySampleVector}}(),
         # Latest owned current-state snapshot per chain/walker, including dwell
         # not yet emitted by the sampler. Slots are replaced under buffer_lock.
-        pending_samples=Vector{Vector{DensitySampleVector}}(),
-        output_timing=SampleStepSpans(),
-        pending_timing=SampleStepSpans(),
-        step_mode=Ref(false),
-        capture_init=Ref(false),
-        init_segments=Dict{Tuple{Int32,Int32},Vector{InitStepSegment}}(),
-        invalid_init=Set{Tuple{Int32,Int32}}(),
-        n_buffer_steps=Ref(0),
-        buffer_dirty=Ref(false),
+        pending_samples = Vector{Vector{DensitySampleVector}}(),
+        output_timing = SampleStepSpans(),
+        pending_timing = SampleStepSpans(),
+        step_mode = Ref(false),
+        capture_init = Ref(false),
+        init_segments = Dict{Tuple{Int32,Int32},Vector{InitStepSegment}}(),
+        invalid_init = Set{Tuple{Int32,Int32}}(),
+        n_buffer_steps = Ref(0),
+        buffer_dirty = Ref(false),
         # Flush-trigger threshold (grows under adaptive_batching); the backpressure
         # ceiling derives from it, so the sampler never blocks on an unreachable trigger.
-        effective_batch_size=Ref(vis.n_batch),
-        buffer_ratio=vis.max_buffered / vis.n_batch,
-        lifecycle=_MakieLiveControl(),
+        effective_batch_size = Ref(vis.n_batch),
+        buffer_ratio = vis.max_buffered / vis.n_batch,
+        lifecycle = _MakieLiveControl(),
         # Set in init_visualizer!; read by _apply_vsel! to validate vsel changes.
-        n_dof=Ref{Int}(0)
+        n_dof = Ref{Int}(0)
     )
 
     return BATVisualizer(vis, content)
@@ -292,7 +292,9 @@ function _init_compute_graph(
         @nospecialize(changed, cached)
         return (_sample_window_data(inputs.samples, inputs.current_idxs, inputs.sample_timing),)
     end
-    register_computation!(graph, [:window_data, :window_steps], [:flat_samples, :window_segments]) do inputs, changed, cached
+    register_computation!(
+        graph, [:window_data, :window_steps], [:flat_samples, :window_segments]
+    ) do inputs, changed, cached
         @nospecialize(changed, cached)
         return _window_selection(inputs.window_data, inputs.window_steps)
     end
@@ -421,7 +423,10 @@ function _init_compute_graph(
         map!(
             # Dead branch: empty view over the real smpls.v.data, not a hardcoded
             # placeholder -- live/dead views of this node must share a type.
-            (smpls, vsel_map, current_idx, live_map) -> (current_idx > 0 && live_map[i, i]) ? view(smpls.v.data, [vsel_map[i, i][1]], 1:current_idx) : view(smpls.v.data, Int[], 1:0),
+            (smpls, vsel_map, current_idx, live_map) ->
+                (current_idx > 0 && live_map[i, i]) ?
+                    view(smpls.v.data, [vsel_map[i, i][1]], 1:current_idx) :
+                    view(smpls.v.data, Int[], 1:0),
             graph,
             [:flat_samples, :vsel_map, :current_idx, :live_map],
             marg_sym
@@ -435,7 +440,11 @@ function _init_compute_graph(
         for k in eachindex(primitive_symbols_1D)
             recipe = BAT_MAKIE_RECIPES_1D[k]
             register_computation!(graph,
-                [marg_sym, :flat_weights, :diagonal_recipe, :live_map, :diagonal_config, :vsel_map, :domain_lo, :domain_hi, :support_lo, :support_hi],
+                [
+                    marg_sym, :flat_weights, :diagonal_recipe, :live_map,
+                    :diagonal_config, :vsel_map, :domain_lo, :domain_hi,
+                    :support_lo, :support_hi
+                ],
                 [primitive_symbols_1D[k]]
             ) do inputs, changed, cached
                 @nospecialize(changed, cached)
@@ -449,10 +458,10 @@ function _init_compute_graph(
                 # Pass the current cell domain to the histogram recipes.
                 v = vsel_map[i, i][1]
                 cfg = (v == 0 || isempty(domain_lo)) ? config :
-                    (; config..., domain=(domain_lo[v], domain_hi[v]))
+                    (; config..., domain = (domain_lo[v], domain_hi[v]))
                 # The hard support bounds ride along the same way (KDE boundary reflection).
                 cfg = (v == 0 || isempty(support_lo)) ? cfg :
-                    (; cfg..., support=(support_lo[v], support_hi[v]))
+                    (; cfg..., support = (support_lo[v], support_hi[v]))
                 return (compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, cfg),)
             end
         end
@@ -461,7 +470,10 @@ function _init_compute_graph(
             marg_sym_2D = marg_symbol((j, i))
             map!(
                 # Empty view over the real smpls.v.data -- see the 1D case above.
-                (smpls, vsel_map, current_idx, live_map) -> (current_idx > 0 && live_map[j, i]) ? view(smpls.v.data, [vsel_map[j, i]...], 1:current_idx) : view(smpls.v.data, Int[], 1:0),
+                (smpls, vsel_map, current_idx, live_map) ->
+                    (current_idx > 0 && live_map[j, i]) ?
+                        view(smpls.v.data, [vsel_map[j, i]...], 1:current_idx) :
+                        view(smpls.v.data, Int[], 1:0),
                 graph,
                 [:flat_samples, :vsel_map, :current_idx, :live_map],
                 marg_sym_2D
@@ -472,7 +484,11 @@ function _init_compute_graph(
                 recipe = BAT_MAKIE_RECIPES_2D[k]
                 # Full recompute, no persistent accumulator -- see the 1D loop.
                 register_computation!(graph,
-                    [marg_sym_2D, :flat_weights, :upper_recipe, :lower_recipe, :live_map, :triagonal_config, :vsel_map, :domain_lo, :domain_hi, :support_lo, :support_hi],
+                    [
+                        marg_sym_2D, :flat_weights, :upper_recipe, :lower_recipe,
+                        :live_map, :triagonal_config, :vsel_map, :domain_lo, :domain_hi,
+                        :support_lo, :support_hi
+                    ],
                     [primitive_symbols_2D[k]]
                 ) do inputs, changed, cached
                     @nospecialize(changed, cached)
@@ -480,16 +496,25 @@ function _init_compute_graph(
                     coords = getproperty(inputs, marg_sym_2D)
                     weights = inputs.flat_weights
                     config = inputs.triagonal_config
-                    (; upper_recipe, lower_recipe, live_map, vsel_map, domain_lo, domain_hi, support_lo, support_hi) = inputs
+                    (;
+                        upper_recipe, lower_recipe, live_map, vsel_map,
+                        domain_lo, domain_hi, support_lo, support_hi
+                    ) = inputs
                     cell_status = live_map[j, i] ? LiveCell() : DeadCell()
                     recipe_status = determine_recipe_status(recipe, upper_recipe(), lower_recipe())
                     # Domain/support ride along in the config as in the 1D loop;
                     # tuple order matches the view's row order (vsel[1]=x, vsel[2]=y).
                     vsel = vsel_map[j, i]
                     cfg = (vsel[1] == 0 || isempty(domain_lo)) ? config :
-                        (; config..., domain=((domain_lo[vsel[1]], domain_hi[vsel[1]]), (domain_lo[vsel[2]], domain_hi[vsel[2]])))
+                        (; config..., domain = (
+                            (domain_lo[vsel[1]], domain_hi[vsel[1]]),
+                            (domain_lo[vsel[2]], domain_hi[vsel[2]])
+                        ))
                     cfg = (vsel[1] == 0 || isempty(support_lo)) ? cfg :
-                        (; cfg..., support=((support_lo[vsel[1]], support_hi[vsel[1]]), (support_lo[vsel[2]], support_hi[vsel[2]])))
+                        (; cfg..., support = (
+                            (support_lo[vsel[1]], support_hi[vsel[1]]),
+                            (support_lo[vsel[2]], support_hi[vsel[2]])
+                        ))
                     return (compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, cfg),)
                 end
             end
@@ -498,7 +523,10 @@ function _init_compute_graph(
             # naming, so _init_gridlayout's lookup finds it transparently.
             chainscatter_primitive_sym = primitive_symbol(ChainScatter2D(), (j, i))
             register_computation!(graph,
-                [marg_sym_2D, :flat_weights, :flat_chainids, :window_data, :upper_recipe, :lower_recipe, :live_map, :triagonal_config],
+                [
+                    marg_sym_2D, :flat_weights, :flat_chainids, :window_data,
+                    :upper_recipe, :lower_recipe, :live_map, :triagonal_config
+                ],
                 [chainscatter_primitive_sym]
             ) do inputs, changed, cached
                 @nospecialize(changed, cached)
@@ -507,8 +535,11 @@ function _init_compute_graph(
                 (; flat_weights, flat_chainids, upper_recipe, lower_recipe, live_map, triagonal_config) = inputs
                 cell_status = live_map[j, i] ? LiveCell() : DeadCell()
                 recipe_status = determine_recipe_status(ChainScatter2D(), upper_recipe(), lower_recipe())
-                primitives = compute_plotting_primitives(coords, flat_weights, flat_chainids, ChainScatter2D(), recipe_status, cell_status, triagonal_config)
-                return ((; primitives..., all_chainids=inputs.window_data.chainids),)
+                primitives = compute_plotting_primitives(
+                    coords, flat_weights, flat_chainids, ChainScatter2D(),
+                    recipe_status, cell_status, triagonal_config
+                )
+                return ((; primitives..., all_chainids = inputs.window_data.chainids),)
             end
 
             trace_primitive_sym = primitive_symbol(Trace2D(), (j, i))

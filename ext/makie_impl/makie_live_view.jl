@@ -118,8 +118,8 @@ function _with_live_view(f, vis; publication::Bool = false)
             # Interactive callbacks can run outside both the sampling owner
             # and the listener. Stop observation before propagating interruption
             # so a refused final publication cannot be reported as complete.
-            BAT.request_visualizer_stop!(vis; reason=:aborted,
-                exception=CapturedException(err, catch_backtrace()))
+            BAT.request_visualizer_stop!(vis; reason = :aborted,
+                exception = CapturedException(err, catch_backtrace()))
             _request_view_disposal!(vis)
             rethrow()
         end
@@ -144,7 +144,7 @@ const _LIVE_MAX_PENDING_ATTRIBUTES = 32
 const _LIVE_MAX_DEFERRED_UPDATES = 32
 
 function _live_graph_update!(vis; publication::Bool = false, kwargs...)
-    return _with_live_view(vis; publication=publication) do
+    return _with_live_view(vis; publication = publication) do
         view = vis.content.lifecycle.view
         if view.updating
             publication && throw(ArgumentError("Recursive live data publication is unsupported"))
@@ -197,7 +197,7 @@ _view_onany(f, owner::Scene, observables...; kwargs...) = onany(f, owner, observ
 # Register before the optional initial call so failed startup still owns the
 # handle. onany returns one handle for each input observable.
 function _view_on(f, vis, observable; update::Bool = false, kwargs...)
-    isnothing(vis) && return on(f, observable; update=update, kwargs...)
+    isnothing(vis) && return on(f, observable; update = update, kwargs...)
     guarded = function(args...)
         result = Ref{Any}(Consume(false))
         _with_live_view(vis) do
@@ -211,7 +211,7 @@ function _view_on(f, vis, observable; update::Bool = false, kwargs...)
 end
 
 function _view_onany(f, vis, observables...; update::Bool = false, kwargs...)
-    isnothing(vis) && return onany(f, observables...; update=update, kwargs...)
+    isnothing(vis) && return onany(f, observables...; update = update, kwargs...)
     guarded = function(args...)
         _with_live_view(vis) do
             f(args...)
@@ -234,7 +234,7 @@ function _attach_live_view!(vis, fig)
         if opened
             view.seen_open[] = true
         elseif view.seen_open[]
-            BAT.request_visualizer_stop!(vis; reason=:closed)
+            BAT.request_visualizer_stop!(vis; reason = :closed)
             _request_view_disposal!(vis)
             _schedule_live_view_cleanup!(vis)
         end
@@ -255,7 +255,7 @@ function _request_view_disposal!(vis)
             end
             view = ctl.view
             isnothing(view) || (view.cleanup_pending[] = !view.disposed[])
-            notify(vis.content.buffer_cond; all=true)
+            notify(vis.content.buffer_cond; all = true)
         end
     end
     return nothing

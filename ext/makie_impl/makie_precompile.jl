@@ -5,7 +5,8 @@
 # The live leg warms the ElasticMatrix sample flavor (vs static Matrix-backed);
 # GLMakie's render-stack compilation needs GLMakie loaded and is not covered here.
 
-# Drives every interactive widget the way real input would: menus, toggles, vsel checkboxes, collapse button, resize, step slider.
+# Drives every interactive widget the way real input would: menus, toggles, vsel checkboxes, collapse button,
+# resize, step slider.
 function _drive_figure_widgets!(fig)
     for m in filter(x -> x isa Menu, fig.content)
         for k in eachindex(m.options[])
@@ -18,7 +19,8 @@ function _drive_figure_widgets!(fig)
         t.active[] = false
     end
 
-    # Shrink/restore x4 stabilizes the idxs-change grid rebuild; overflow click hits the N_max-exceeded rejection branch.
+    # Shrink/restore x4 stabilizes the idxs-change grid rebuild; overflow click hits the N_max-exceeded
+    # rejection branch.
     checkboxes = filter(x -> x isa Checkbox, fig.content)
     if !isempty(checkboxes)
         shrink_idx = findfirst(cb -> cb.checked[], checkboxes)
@@ -59,14 +61,16 @@ function _makie_precompile_workload()
     static_fig = nothing
     dark_fig = nothing
     try
-        # 4 total dof against default N_max=3 keeps the cap-exceeded branch reachable (specializations are N_max-sensitive).
-        objective = NamedTupleDist(a=Uniform(-2, 2),
-            b=product_distribution([Uniform(-2, 2), Uniform(-2, 2)]), c=Uniform(-2, 2))
+        # 4 total dof against default N_max=3 keeps the cap-exceeded branch reachable (specializations are
+        # N_max-sensitive).
+        objective = NamedTupleDist(a = Uniform(-2, 2),
+            b = product_distribution([Uniform(-2, 2), Uniform(-2, 2)]), c = Uniform(-2, 2))
 
         # ---- Live leg: a real visualizer-attached run -------------------
-        # nchains=2 is the minimum passing Gelman-Rubin; max_buffered is far above the sample count so the worker never blocks on backpressure.
-        vis = BATVisualizer(BATMakieVisualization(max_buffered=10^6))
-        res = bat_sample(objective, TransformedMCMC(nsteps=200, nchains=2), BATContext(visualizer=vis))
+        # nchains=2 is the minimum passing Gelman-Rubin; max_buffered is far above the sample count so the
+        # worker never blocks on backpressure.
+        vis = BATVisualizer(BATMakieVisualization(max_buffered = 10^6))
+        res = bat_sample(objective, TransformedMCMC(nsteps = 200, nchains = 2), BATContext(visualizer = vis))
         samples = res.result
         live_fig = BAT.visualizer_figure(vis)
         isnothing(live_fig) && error("Makie precompile workload: completed live Figure is unavailable")
@@ -82,26 +86,27 @@ function _makie_precompile_workload()
         # Real bounded observations exercise the reflection branch. Explicit
         # support may not clamp unbounded samples into an artificial interval.
         for recipe_1d in (KDE1D, QuantileKDE1D)
-            _live_graph_update!(vis; diagonal_recipe=recipe_1d)
+            _live_graph_update!(vis; diagonal_recipe = recipe_1d)
         end
         for recipe_2d in (KDE2D, QuantileKDE2D)
-            _live_graph_update!(vis; upper_recipe=recipe_2d)
+            _live_graph_update!(vis; upper_recipe = recipe_2d)
         end
-        _live_graph_update!(vis; support_lo=Float64[], support_hi=Float64[])
-        _live_graph_update!(vis; support_lo=fill(-2.0, 4), support_hi=fill(2.0, 4))
+        _live_graph_update!(vis; support_lo = Float64[], support_hi = Float64[])
+        _live_graph_update!(vis; support_lo = fill(-2.0, 4), support_hi = fill(2.0, 4))
         # Live callbacks isolate presentation failures from sampling. Such a
         # failure must not silently count as successful precompile coverage.
         BAT.visualizer_figure(vis) === live_fig ||
             error("Makie precompile workload: live Figure became unavailable during updates")
 
         # ---- Static legs: the real entry points -------------------------
-        static_fig = bat_makie_plot(samples; display=false)
+        static_fig = bat_makie_plot(samples; display = false)
         # Same widget sweep against the STATIC (Matrix-backed) flavor.
         _drive_figure_widgets!(static_fig)
 
-        # Dark theme and the support kwarg in one build (dark changes attribute values, not compiled types); only KDE recipes are support-sensitive.
-        dark_fig = bat_makie_plot(samples; display=false, dark=true,
-            support=[(-2.0, 2.0), (-2.0, 2.0), (-2.0, 2.0), (-2.0, 2.0)])
+        # Dark theme and the support kwarg in one build (dark changes attribute values, not compiled types);
+        # only KDE recipes are support-sensitive.
+        dark_fig = bat_makie_plot(samples; display = false, dark = true,
+            support = [(-2.0, 2.0), (-2.0, 2.0), (-2.0, 2.0), (-2.0, 2.0)])
         # Menus identified by their option lists, NOT by layout position: the
         # never-displayed figure has no meaningful computedbboxes to sort by.
         # Driving every menu that offers a given KDE recipe covers both the
@@ -137,7 +142,7 @@ function _makie_precompile_workload()
                 catch err
                     _record_live_cleanup_error!(vis, err, catch_backtrace())
                 end
-                BAT._safe_finish_visualizer!(vis; success=false)
+                BAT._safe_finish_visualizer!(vis; success = false)
             end
         finally
             _SUPPRESS_DISPLAY[] = suppress_display

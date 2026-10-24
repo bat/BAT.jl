@@ -2,11 +2,23 @@
 
 # Keep numeric geometry in Float64 until Makie applies its coordinate transform.
 # Early Float32 conversion can erase unit-scale variation around large offsets.
-_empty_hist1d_primitives() = (centers=Vector{Float64}(), weights=Vector{Float64}(), edges=Vector{Float64}())
-_empty_hist2d_primitives() = (xedges=Vector{Float64}(), yedges=Vector{Float64}(), weights=Matrix{Float64}(undef, 0, 0))
-_empty_quantilehist1d_primitives() = (polys=Vector{Point{2,Float64}}[], fill_colors=Vector{RGBA{Float32}}(), stairs_data=Vector{Point{2,Float64}}())
-_empty_quantilehist2d_primitives() = (xedges=Vector{Float64}(), yedges=Vector{Float64}(), color_grid=Matrix{RGBA{Float32}}(undef, 0, 0))
-_empty_hexbin2d_primitives() = (x=Float64[], y=Float64[], weights=Float64[], thresh=0.0)
+_empty_hist1d_primitives() = (centers = Vector{Float64}(), weights = Vector{Float64}(), edges = Vector{Float64}())
+_empty_hist2d_primitives() = (
+    xedges = Vector{Float64}(),
+    yedges = Vector{Float64}(),
+    weights = Matrix{Float64}(undef, 0, 0)
+)
+_empty_quantilehist1d_primitives() = (
+    polys = Vector{Point{2,Float64}}[],
+    fill_colors = Vector{RGBA{Float32}}(),
+    stairs_data = Vector{Point{2,Float64}}()
+)
+_empty_quantilehist2d_primitives() = (
+    xedges = Vector{Float64}(),
+    yedges = Vector{Float64}(),
+    color_grid = Matrix{RGBA{Float32}}(undef, 0, 0)
+)
+_empty_hexbin2d_primitives() = (x = Float64[], y = Float64[], weights = Float64[], thresh = 0.0)
 
 # Bin edges use the supplied per-dimension domain when available,
 # and sample coordinates otherwise. The graph preserves the domain across
@@ -44,10 +56,10 @@ function _marginal_view_dist(
     end
     cols = Tuple(eachrow(locations))
     edges = _hist_edges(domain, cols, bins, closed)
-    return BAT._plot_fit_histogram(cols, weights, edges, normalization; closed=closed)
+    return BAT._plot_fit_histogram(cols, weights, edges, normalization; closed = closed)
 end
 
-_low_weight_mask(weights::AbstractVector, fraction::Real=1e-5, threshold::Real=1e-2) =
+_low_weight_mask(weights::AbstractVector, fraction::Real = 1e-5, threshold::Real = 1e-2) =
     BAT._plot_low_weight_mask(weights, fraction, threshold)
 
 function _get_bin_centers(hist::Histogram)
@@ -57,7 +69,10 @@ function _get_bin_centers(hist::Histogram)
     # Explicitly typed comprehensions: an untyped comprehension over <= 1 edges
     # infers Vector{Any}, violating the graph's TypedEdge live/dead type contract.
     centers = Vector{Float64}[
-        Float64[BAT._plot_float64(edges[d][i] + 0.5 * (edges[d][i+1] - edges[d][i]), "histogram center") for i in 1:length(edges[d])-1]
+        Float64[
+            BAT._plot_float64(edges[d][i] + 0.5 * (edges[d][i+1] - edges[d][i]), "histogram center")
+            for i in 1:length(edges[d])-1
+        ]
         for d in 1:dims
     ]
 
@@ -100,7 +115,11 @@ function _hist1d_output(hist::Histogram, normalization::Symbol)
     centers = _get_bin_centers(h_norm)
     # Float64.(...): with :none normalization the weights keep the samples' own
     # eltype, mismatching the empty sentinel's Vector{Float64} (TypedEdge).
-    return (centers=centers[1], weights=map(w -> BAT._plot_float64(w, "histogram height"), h_norm.weights), edges=map(e -> BAT._plot_float64(e, "histogram edge"), collect(h_norm.edges[1])))
+    return (
+        centers = centers[1],
+        weights = map(w -> BAT._plot_float64(w, "histogram height"), h_norm.weights),
+        edges = map(e -> BAT._plot_float64(e, "histogram edge"), collect(h_norm.edges[1]))
+    )
 end
 
 function _hist2d_output(hist::Histogram, normalization::Symbol)
@@ -109,7 +128,7 @@ function _hist2d_output(hist::Histogram, normalization::Symbol)
     # Zero-height bins become NaN for transparency. Positive heights are checked
     # and converted to Float64 to match the graph's output representation.
     weights = map(w -> w > 0 ? BAT._plot_float64(w, "histogram height") : NaN, h_norm.weights)
-    return (xedges=xedges, yedges=yedges, weights=weights)
+    return (xedges = xedges, yedges = yedges, weights = weights)
 end
 
 function _quantilehist1d_output(hist::Histogram, config::NamedTuple)
@@ -143,7 +162,7 @@ function _quantilehist1d_output(hist::Histogram, config::NamedTuple)
     stairs_y = vcat(heights, heights[end])
     stairs_data = Point{2,Float64}.(edges, stairs_y)
 
-    return (polys=polys, fill_colors=fill_colors, stairs_data=stairs_data)
+    return (polys = polys, fill_colors = fill_colors, stairs_data = stairs_data)
 end
 
 function _quantilehist2d_output(hist::Histogram, config::NamedTuple)
@@ -162,7 +181,7 @@ function _quantilehist2d_output(hist::Histogram, config::NamedTuple)
     end
 
     xedges, yedges = _histogram_plot_edges(h_norm)
-    return (xedges=xedges, yedges=yedges, color_grid=color_grid)
+    return (xedges = xedges, yedges = yedges, color_grid = color_grid)
 end
 
 function compute_plotting_primitives(
@@ -189,7 +208,10 @@ function compute_plotting_primitives(
     isempty(weights) && return _empty_hist1d_primitives()
     (; normalization, nbins, closed, filter) = config
     # nbins + 1, unlike every other hist recipe's plain nbins -- deliberate asymmetry.
-    hist = _marginal_view_dist(marg_coords, weights, filter, nbins + 1, closed, config.normalization, get(config, :domain, nothing))
+    hist = _marginal_view_dist(
+        marg_coords, weights, filter, nbins + 1, closed,
+        config.normalization, get(config, :domain, nothing)
+    )
     return _hist1d_output(hist, :none)
 end
 
@@ -268,8 +290,8 @@ function Makie.plot!(p::BATCheckedHistBars)
         _checked_hist1d_bar_layout(edges, gap, dodge, n_dodge, dodge_gap, width)
     end
     Makie.barplot!(p, Makie.Attributes(p), p.checked_centers, p.bin_heights;
-        width=p.checked_widths, gap=p.checked_gap, dodge=p.checked_dodge,
-        n_dodge=p.checked_n_dodge, dodge_gap=p.checked_dodge_gap)
+        width = p.checked_widths, gap = p.checked_gap, dodge = p.checked_dodge,
+        n_dodge = p.checked_n_dodge, dodge_gap = p.checked_dodge_gap)
     return p
 end
 function _validate_plot_display(p::BATCheckedHistBars)
@@ -278,7 +300,7 @@ function _validate_plot_display(p::BATCheckedHistBars)
 end
 Makie.extract_colormap(p::BATCheckedHistBars) = Makie.extract_colormap(only(p.plots))
 Makie.data_limits(p::BATCheckedHistBars) = Makie.data_limits(only(p.plots))
-Makie.boundingbox(p::BATCheckedHistBars, space::Symbol=:data) = Makie.boundingbox(only(p.plots), space)
+Makie.boundingbox(p::BATCheckedHistBars, space::Symbol = :data) = Makie.boundingbox(only(p.plots), space)
 
 
 function compose_plotspecs(
@@ -293,8 +315,8 @@ function compose_plotspecs(
     end
 
     # Bin edges own width, including when a caller themes BarPlot.width.
-    bars = Makie.PlotSpec(BATCheckedHistBars, edges, weights; width=Makie.automatic)
-    stairs = S.Stairs(edges, vcat(weights, weights[end]); step=:post)
+    bars = Makie.PlotSpec(BATCheckedHistBars, edges, weights; width = Makie.automatic)
+    stairs = S.Stairs(edges, vcat(weights, weights[end]); step = :post)
 
     return [bars, stairs]
 end
@@ -326,7 +348,10 @@ function compute_plotting_primitives(
     BAT._plot_histogram_mode(config.normalization)
     isempty(weights) && return _empty_hist2d_primitives()
     (; normalization, nbins, closed, filter) = config
-    hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, config.normalization, get(config, :domain, nothing))
+    hist = _marginal_view_dist(
+        marg_coords, weights, filter, nbins, closed,
+        config.normalization, get(config, :domain, nothing)
+    )
     return _hist2d_output(hist, :none)
 end
 
@@ -352,8 +377,8 @@ function compose_plotspecs(
     all(w -> isnan(w) || 0 < Float32(w) < Inf, weights) || throw(ArgumentError(
         "Hist2D visible height is not representable as positive finite Float32 color values; change units/normalization or use QuantileHist2D"))
     heat = transposed ?
-        S.Heatmap(yedges, xedges, permutedims(weights); colormap=cmap_final) :
-        S.Heatmap(xedges, yedges, weights; colormap=cmap_final)
+        S.Heatmap(yedges, xedges, permutedims(weights); colormap = cmap_final) :
+        S.Heatmap(xedges, yedges, weights; colormap = cmap_final)
     return [heat]
 end
 
@@ -382,8 +407,11 @@ function compute_plotting_primitives(
     _histogram_region_levels(config.levels)
     isempty(weights) && return _empty_quantilehist1d_primitives()
     (; nbins, closed, filter) = config
-    hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, config.normalization, get(config, :domain, nothing))
-    return _quantilehist1d_output(hist, merge(config, (normalization=:none,)))
+    hist = _marginal_view_dist(
+        marg_coords, weights, filter, nbins, closed,
+        config.normalization, get(config, :domain, nothing)
+    )
+    return _quantilehist1d_output(hist, merge(config, (normalization = :none,)))
 end
 
 function compose_plotspecs(
@@ -398,13 +426,14 @@ function compose_plotspecs(
     end
 
     plotspecs = PlotSpec[]
-    isempty(polys) || push!(plotspecs, S.Poly(polys; color=fill_colors, strokewidth=0))
-    stairs = S.Stairs(stairs_data; step=:post)
+    isempty(polys) || push!(plotspecs, S.Poly(polys; color = fill_colors, strokewidth = 0))
+    stairs = S.Stairs(stairs_data; step = :post)
     push!(plotspecs, stairs)
     return plotspecs
 end
 
-_diag_y_extent(primitives::NamedTuple, ::QuantileHist1D) = isempty(primitives.stairs_data) ? 0.0 : maximum(p -> p[2], primitives.stairs_data)
+_diag_y_extent(primitives::NamedTuple, ::QuantileHist1D) =
+    isempty(primitives.stairs_data) ? 0.0 : maximum(p -> p[2], primitives.stairs_data)
 
 
 function compute_plotting_primitives(
@@ -431,8 +460,11 @@ function compute_plotting_primitives(
     _histogram_region_levels(config.levels)
     isempty(weights) && return _empty_quantilehist2d_primitives()
     (; nbins, closed, filter) = config
-    hist = _marginal_view_dist(marg_coords, weights, filter, nbins, closed, config.normalization, get(config, :domain, nothing))
-    return _quantilehist2d_output(hist, merge(config, (normalization=:none,)))
+    hist = _marginal_view_dist(
+        marg_coords, weights, filter, nbins, closed,
+        config.normalization, get(config, :domain, nothing)
+    )
+    return _quantilehist2d_output(hist, merge(config, (normalization = :none,)))
 end
 
 function compose_plotspecs(
@@ -494,12 +526,14 @@ function compute_plotting_primitives(
         BAT._plot_float64(threshold, "hexbin threshold")
     end
     final_thresh >= 0 || BAT._plot_weight_error("hexbin threshold must be nonnegative")
-    return (x=x, y=y, weights=counts, thresh=final_thresh)
+    return (x = x, y = y, weights = counts, thresh = final_thresh)
 end
 
 function _check_hexbin_count_colors(counts::AbstractArray{<:Real})
     isempty(counts) && return counts
-    fail() = throw(ArgumentError("Hexbin2D displayed counts exceed Float32 color range or resolution; rescaling count units and threshold together may help magnitude limits; otherwise use a normalized histogram or whole-bin region recipe"))
+    fail() = throw(ArgumentError(
+        "Hexbin2D displayed counts exceed Float32 color range or resolution; rescaling count units and threshold together may help magnitude limits; otherwise use a normalized histogram or whole-bin region recipe"
+    ))
     for value in counts
         isfinite(value) && value >= 0 || fail()
         converted = Float32(value)
@@ -549,7 +583,7 @@ Makie.add_theme!(::Type{<:BATCheckedHexbin}, kw, graph::Makie.ComputeGraph, scen
 
 function Makie.plot!(p::BATCheckedHexbin)
     native = Makie.hexbin!(p, Makie.Attributes(p), p[1];
-        visible=false, inspectable=false, colorscale=identity, colorrange=(0.0, 1.0))
+        visible = false, inspectable = false, colorscale = identity, colorrange = (0.0, 1.0))
     Makie.map!(p, [native.count_hex], [:checked_counts, :count_colorrange]) do counts
         _check_hexbin_count_colors(counts)
         # Native automatic Hexbin range, including empty/uniform cases.
@@ -562,9 +596,9 @@ function Makie.plot!(p::BATCheckedHexbin)
         return counts, range
     end
     Makie.scatter!(p, Makie.Attributes(p), native.points;
-        color=p.checked_counts, colorrange=p.count_colorrange, colorscale=identity,
-        marker=only(native.plots).marker, markersize=native.markersize,
-        markerspace=:data, transformation=:inherit_model)
+        color = p.checked_counts, colorrange = p.count_colorrange, colorscale = identity,
+        marker = only(native.plots).marker, markersize = native.markersize,
+        markerspace = :data, transformation = :inherit_model)
     return p
 end
 # BAT-owned updates demand the check before handing control back to a renderer.
@@ -576,7 +610,7 @@ function _validate_plot_display(p::BATCheckedHexbin)
 end
 Makie.extract_colormap(p::BATCheckedHexbin) = Makie.extract_colormap(p.plots[2])
 Makie.data_limits(p::BATCheckedHexbin) = Makie.data_limits(p.plots[1])
-Makie.boundingbox(p::BATCheckedHexbin, space::Symbol=:data) = Makie.boundingbox(p.plots[1], space)
+Makie.boundingbox(p::BATCheckedHexbin, space::Symbol = :data) = Makie.boundingbox(p.plots[1], space)
 
 function compose_plotspecs(
     primitives::NamedTuple,
@@ -598,12 +632,12 @@ function compose_plotspecs(
     end
 
     hex = Makie.PlotSpec(BATCheckedHexbin, x, y;
-        weights=weights,
-        bins=nbins,
-        colormap=final_cmap,
-        threshold=thresh,
-        colorrange=Makie.automatic,
-        colorscale=identity
+        weights = weights,
+        bins = nbins,
+        colormap = final_cmap,
+        threshold = thresh,
+        colorrange = Makie.automatic,
+        colorscale = identity
     )
 
     return [hex]

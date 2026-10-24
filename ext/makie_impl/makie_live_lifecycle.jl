@@ -40,7 +40,7 @@ function _live_error_summary(error, phase::Symbol)
     raw = err isa Union{ErrorException,ArgumentError} ? getfield(err, :msg) : nothing
     message = raw isa String ? _live_diagnostic_prefix(raw, 4096) :
         err isa InterruptException ? "Interrupted" : "Exception details are not retained"
-    return (type=type, message=message, phase=phase)
+    return (type = type, message = message, phase = phase)
 end
 
 # The transport lock owns these fields, except for the atomic fast-path flag
@@ -113,7 +113,7 @@ function _live_graph(vis)
     return graph
 end
 
-function _claim_live_visualizer!(vis, claimed::Base.RefValue{Bool}=Ref(false))
+function _claim_live_visualizer!(vis, claimed::Base.RefValue{Bool} = Ref(false))
     isnothing(vis.content) && throw(ArgumentError("Create a fresh BATVisualizer for sampling"))
     owner = current_task()
     permit = WeakRef(owner)
@@ -170,12 +170,14 @@ function _stop_live_locked!(vis, reason::Symbol, exception = nothing; phase::Sym
             ctl.error = _live_error_summary(exception, phase)
         end
         ctl.tick = true
-        notify(vis.content.buffer_cond; all=true)
+        notify(vis.content.buffer_cond; all = true)
     end
     return nothing
 end
 
-function BAT.request_visualizer_stop!(vis::BATVisualizer{BATMakieVisualization}; reason::Symbol=:disabled, exception=nothing)
+function BAT.request_visualizer_stop!(
+    vis::BATVisualizer{BATMakieVisualization}; reason::Symbol = :disabled, exception = nothing
+)
     isnothing(vis.content) && return nothing
     lock(vis.content.buffer_lock) do
         _stop_live_locked!(vis, reason, exception)
@@ -198,7 +200,7 @@ function _live_renderer_failure_callback(vis)
             Base.disable_sigint() do
                 view = owner.content.lifecycle.view
                 isnothing(view) || (view.presentation_valid[] = false)
-                _stop_live_locked!(owner, :failed, CapturedException(err, bt); phase=:renderloop)
+                _stop_live_locked!(owner, :failed, CapturedException(err, bt); phase = :renderloop)
                 _request_view_disposal!(owner)
                 _schedule_live_view_cleanup!(owner)
             end
@@ -215,7 +217,7 @@ function _fail_visualizer!(vis, err, bt, phase::Symbol)
     captured = CapturedException(err, bt)
     first_error, complete = lock(vis.content.buffer_lock) do
         first_error = !vis.content.lifecycle.error_reported
-        _stop_live_locked!(vis, :failed, captured; phase=phase)
+        _stop_live_locked!(vis, :failed, captured; phase = phase)
         vis.content.lifecycle.error_reported = true
         first_error, vis.content.lifecycle.data_complete
     end
@@ -225,7 +227,7 @@ function _fail_visualizer!(vis, err, bt, phase::Symbol)
             message = phase in (:prepare, :startup) ? "Live visualization startup failed" :
                 complete ? "Completed visualization failed; recorded observation history remains complete" :
                 "Live visualization failed; observation is incomplete, sampling continues"
-            @error message phase exception=(err, bt)
+            @error message phase exception = (err, bt)
         catch
         end
     end
@@ -249,7 +251,7 @@ function _live_control_tick!(vis)
                 ctl.last_tick = time_ns()
             end
             # Also wake capacity waiters to check their own monotonic deadline.
-            notify(vis.content.buffer_cond; all=true)
+            notify(vis.content.buffer_cond; all = true)
         end
     catch err
         _fail_visualizer!(vis, err, catch_backtrace(), :wakeup)
@@ -289,7 +291,7 @@ function _finalize_live_run!(vis)
         ctl = vis.content.lifecycle
         ctl.outcome === :running && _stop_live_locked!(vis, :failed)
         ctl.accepting[] = false
-        notify(vis.content.buffer_cond; all=true)
+        notify(vis.content.buffer_cond; all = true)
     end
     _release_live_transport!(vis)
     if vis.content.lifecycle.outcome !== :complete
@@ -346,7 +348,7 @@ function _start_live_listener!(vis, tick!::F, finish!::G) where {F,G}
             Base.disable_sigint() do
                 _activate_live_visualizer!(vis) || return nothing
                 _with_live_task_rng(ctl) do
-                    ctl.timer = Timer(_ -> _live_control_tick!(vis), period; interval=period)
+                    ctl.timer = Timer(_ -> _live_control_tick!(vis), period; interval = period)
                     task = @task _run_live_listener!(vis, tick!, finish!)
                     # Store before scheduling; a queued task must remain owned even
                     # when it has not yet started. No user work in this enrollment.
@@ -408,14 +410,14 @@ function BAT.visualizer_status(vis::BATVisualizer{BATMakieVisualization})
         view_pending = !isnothing(ctl.view) && ctl.view.cleanup_pending[]
         valid = !isnothing(ctl.view) && ctl.view.presentation_valid[]
         phase = quiesced && ctl.phase in (:stopping, :quiesced) ? :quiesced : ctl.phase
-        (phase=phase, outcome=ctl.outcome, reason=ctl.reason,
-            data_complete=ctl.data_complete, last_publication=ctl.last_publication,
-            quiesced=quiesced,
-            cleanup_pending=!quiesced || view_pending ||
+        (phase = phase, outcome = ctl.outcome, reason = ctl.reason,
+            data_complete = ctl.data_complete, last_publication = ctl.last_publication,
+            quiesced = quiesced,
+            cleanup_pending = !quiesced || view_pending ||
                 (ctl.disposal_requested && !ctl.release_complete),
-            view_disposed=disposed, presentation_valid=valid,
-            history_released=ctl.release_complete,
-            error=ctl.error, cleanup_error=ctl.cleanup_error)
+            view_disposed = disposed, presentation_valid = valid,
+            history_released = ctl.release_complete,
+            error = ctl.error, cleanup_error = ctl.cleanup_error)
     end
 end
 
@@ -430,10 +432,10 @@ function _await_live_run!(vis, start::UInt64)
             (isnothing(ctl.view) || !ctl.view.cleanup_pending[])
     end
     timedwait(settled, remaining;
-        pollint=max(0.001, min(0.01, vis.backend.observer_timeout / 10)))
+        pollint = max(0.001, min(0.01, vis.backend.observer_timeout / 10)))
 end
 
-function BAT.finish_visualizer!(vis::BATVisualizer{BATMakieVisualization}; success::Bool=true)
+function BAT.finish_visualizer!(vis::BATVisualizer{BATMakieVisualization}; success::Bool = true)
     isnothing(vis.content) && return nothing
     ctl = vis.content.lifecycle
     start = lock(vis.content.buffer_lock) do
@@ -446,7 +448,7 @@ function BAT.finish_visualizer!(vis::BATVisualizer{BATMakieVisualization}; succe
             ctl.accepting[] = false
             ctl.phase = :draining
             ctl.tick = true
-            notify(vis.content.buffer_cond; all=true)
+            notify(vis.content.buffer_cond; all = true)
         elseif !success && ctl.phase !== :fresh
             _stop_live_locked!(vis, :aborted)
         end
@@ -465,7 +467,9 @@ function BAT.finish_visualizer!(vis::BATVisualizer{BATMakieVisualization}; succe
     (ctl.task === current_task() || ctl.disposal_task === current_task()) && return nothing
     try
         if _await_live_run!(vis, start) === :timed_out
-            _fail_visualizer!(vis, ErrorException("Visualization shutdown exceeded observer_timeout"), Any[], :shutdown_timeout)
+            _fail_visualizer!(
+                vis, ErrorException("Visualization shutdown exceeded observer_timeout"), Any[], :shutdown_timeout
+            )
             _close_live_timer!(vis)
             _request_view_disposal!(vis)
             _schedule_live_view_cleanup!(vis)
@@ -476,11 +480,11 @@ function BAT.finish_visualizer!(vis::BATVisualizer{BATMakieVisualization}; succe
         end
     catch err
         err isa InterruptException && begin
-            BAT.request_visualizer_stop!(vis; reason=:aborted)
+            BAT.request_visualizer_stop!(vis; reason = :aborted)
             rethrow()
         end
         _record_live_cleanup_error!(vis, err, catch_backtrace())
-        BAT.request_visualizer_stop!(vis; reason=:failed)
+        BAT.request_visualizer_stop!(vis; reason = :failed)
     end
     return nothing
 end
@@ -493,7 +497,7 @@ function _live_release_event!(vis)
             ctl = vis.content.lifecycle
             if ctl.disposal_requested && !ctl.release_complete
                 ctl.disposal_retry = true
-                notify(vis.content.buffer_cond; all=true)
+                notify(vis.content.buffer_cond; all = true)
             end
         end
     end
@@ -509,7 +513,7 @@ function _finish_live_initialization!(vis)
             ctl.initializing = false
             if changed && ctl.disposal_requested
                 ctl.disposal_retry = true
-                notify(vis.content.buffer_cond; all=true)
+                notify(vis.content.buffer_cond; all = true)
             end
             changed
         end
@@ -587,7 +591,7 @@ function _coordinate_live_disposal!(vis)
     end
 end
 
-function _schedule_live_view_cleanup!(vis; retry::Bool=false)
+function _schedule_live_view_cleanup!(vis; retry::Bool = false)
     ctl = vis.content.lifecycle
     # A wrong-thread callback can latch a request and wake an existing owner,
     # but it cannot start a GUI cleanup task on the wrong thread.
@@ -599,7 +603,7 @@ function _schedule_live_view_cleanup!(vis; retry::Bool=false)
                 (ctl.disposal_requested && !ctl.release_complete) || return nothing
                 if retry && ctl.disposal_task !== current_task()
                     ctl.disposal_retry = true
-                    notify(vis.content.buffer_cond; all=true)
+                    notify(vis.content.buffer_cond; all = true)
                 end
                 if isnothing(ctl.disposal_task) && ctl.disposal_retry
                     _with_live_task_rng(ctl) do
@@ -622,8 +626,8 @@ function BAT.dispose_visualizer!(vis::BATVisualizer{BATMakieVisualization})
     isnothing(vis.content) && return nothing
     ctl = vis.content.lifecycle
     ctl.owner_thread in (0, Threads.threadid()) || throw(ArgumentError("Dispose a live view on its owning thread"))
-    BAT.request_visualizer_stop!(vis; reason=:disposed)
+    BAT.request_visualizer_stop!(vis; reason = :disposed)
     _request_view_disposal!(vis)
-    _schedule_live_view_cleanup!(vis; retry=true)
+    _schedule_live_view_cleanup!(vis; retry = true)
     return nothing
 end

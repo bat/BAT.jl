@@ -75,7 +75,8 @@ function _init_gridlayout(
         for i in 1:n
             diagonal_primitives = getproperty(inputs, primitive_symbol(diagonal_recipe, (i, i)))
             diagonal_plotspecs = compose_plotspecs(diagonal_primitives, diagonal_recipe(), diagonal_config)
-            stats_specs_1D = stats_diag ? get_stats_plotspecs(inputs, (i, i), Makie1DStats(), diagonal_config) : PlotSpec[]
+            stats_specs_1D = stats_diag ?
+                get_stats_plotspecs(inputs, (i, i), Makie1DStats(), diagonal_config) : PlotSpec[]
             append!(diagonal_plotspecs, stats_specs_1D)
 
             xlims = getproperty(inputs, Symbol("axis_limits_$i"))
@@ -87,24 +88,24 @@ function _init_gridlayout(
             # they don't vanish with Fixed(0), so hide them explicitly when inactive.
             cell_active = i <= n_active
             matrix[i, i] = S.Axis(
-                plots=diagonal_plotspecs,
+                plots = diagonal_plotspecs,
                 # Matches the 2D cells' aspect=1; otherwise a diagonal cell stretches.
-                aspect=1,
-                limits=(xlims, diag_ylims),
-                xticklabelsvisible=cell_active, xticksvisible=false,
-                yticklabelsvisible=cell_active, yticksvisible=false,
+                aspect = 1,
+                limits = (xlims, diag_ylims),
+                xticklabelsvisible = cell_active, xticksvisible = false,
+                yticklabelsvisible = cell_active, yticksvisible = false,
                 # No fixed ytickformat: Makie's adaptive default handles all scales.
-                yticklabelrotation=pi / 2,
-                xgridvisible=cell_active,
-                ygridvisible=cell_active,
-                leftspinevisible=cell_active, rightspinevisible=cell_active,
-                topspinevisible=cell_active, bottomspinevisible=cell_active,
+                yticklabelrotation = pi / 2,
+                xgridvisible = cell_active,
+                ygridvisible = cell_active,
+                leftspinevisible = cell_active, rightspinevisible = cell_active,
+                topspinevisible = cell_active, bottomspinevisible = cell_active,
                 # Plain "" (not L"") when inactive: an empty LaTeXString crashes
                 # Makie's glyph-collection even with the label invisible.
-                xlabel=cell_active ? L"v_%$(_idxs[i])" : "",
-                ylabel=cell_active ? L"p_%$(_idxs[i])" : "",
-                xlabelvisible=cell_active,
-                ylabelvisible=cell_active,
+                xlabel = cell_active ? L"v_%$(_idxs[i])" : "",
+                ylabel = cell_active ? L"p_%$(_idxs[i])" : "",
+                xlabelvisible = cell_active,
+                ylabelvisible = cell_active,
             )
 
             for j in i+1:n
@@ -113,60 +114,68 @@ function _init_gridlayout(
                 # (bigger, smaller)-keyed primitive, oriented for the upper cell.
                 upper_primitives = getproperty(inputs, primitive_symbol(upper_recipe, (j, i)))
                 upper_plotspecs = compose_plotspecs(upper_primitives, upper_recipe(), triagonal_config)
-                stats_specs_2D = stats_upper ? get_stats_plotspecs(inputs, (j, i), Makie2DStats(), triagonal_config) : PlotSpec[]
+                stats_specs_2D = stats_upper ?
+                    get_stats_plotspecs(inputs, (j, i), Makie2DStats(), triagonal_config) : PlotSpec[]
                 append!(upper_plotspecs, stats_specs_2D)
-                trace_specs_upper = trace_upper ? get_trace_plotspecs(inputs, (j, i), Trace2D(), triagonal_config) : PlotSpec[]
+                trace_specs_upper = trace_upper ?
+                    get_trace_plotspecs(inputs, (j, i), Trace2D(), triagonal_config) : PlotSpec[]
                 append!(upper_plotspecs, trace_specs_upper)
 
                 # xlims (the row variable's limits) serves as this cell's y-limits.
                 col_lims = getproperty(inputs, Symbol("axis_limits_$j"))
                 cell_active_upper = j <= n_active
                 matrix[i, j] = S.Axis(
-                    plots=upper_plotspecs,
-                    aspect=1,
-                    limits=(col_lims, xlims),
-                    xticklabelsvisible=cell_active_upper, xticksvisible=false,
-                    yticklabelsvisible=cell_active_upper, yticksvisible=false,
-                    yticklabelrotation=pi / 2,
-                    xgridvisible=cell_active_upper,
-                    ygridvisible=cell_active_upper,
-                    leftspinevisible=cell_active_upper, rightspinevisible=cell_active_upper,
-                    topspinevisible=cell_active_upper, bottomspinevisible=cell_active_upper,
+                    plots = upper_plotspecs,
+                    aspect = 1,
+                    limits = (col_lims, xlims),
+                    xticklabelsvisible = cell_active_upper, xticksvisible = false,
+                    yticklabelsvisible = cell_active_upper, yticksvisible = false,
+                    yticklabelrotation = pi / 2,
+                    xgridvisible = cell_active_upper,
+                    ygridvisible = cell_active_upper,
+                    leftspinevisible = cell_active_upper, rightspinevisible = cell_active_upper,
+                    topspinevisible = cell_active_upper, bottomspinevisible = cell_active_upper,
                     # See the diagonal cell's comment above re: plain "" vs L"".
-                    xlabel=cell_active_upper ? L"v_%$(_idxs[j])" : "",
-                    ylabel=cell_active_upper ? L"v_%$(_idxs[i])" : "",
-                    xlabelvisible=cell_active_upper,
-                    ylabelvisible=cell_active_upper,
+                    xlabel = cell_active_upper ? L"v_%$(_idxs[j])" : "",
+                    ylabel = cell_active_upper ? L"v_%$(_idxs[i])" : "",
+                    xlabelvisible = cell_active_upper,
+                    ylabelvisible = cell_active_upper,
                 )
             end
             for j in 1:i-1
                 # transposed=true swaps x/y at compose time so this mirrored cell's
                 # x-axis is its column's variable; overlays get the same flag.
                 lower_primitives = getproperty(inputs, primitive_symbol(lower_recipe, (i, j)))
-                lower_plotspecs = compose_plotspecs(lower_primitives, lower_recipe(), triagonal_config; transposed=true)
-                stats_specs_2D = stats_lower ? get_stats_plotspecs(inputs, (i, j), Makie2DStats(), triagonal_config; transposed=true) : PlotSpec[]
+                lower_plotspecs = compose_plotspecs(
+                    lower_primitives, lower_recipe(), triagonal_config; transposed = true
+                )
+                stats_specs_2D = stats_lower ?
+                    get_stats_plotspecs(inputs, (i, j), Makie2DStats(), triagonal_config;
+                        transposed = true) : PlotSpec[]
                 append!(lower_plotspecs, stats_specs_2D)
-                trace_specs_lower = trace_lower ? get_trace_plotspecs(inputs, (i, j), Trace2D(), triagonal_config; transposed=true) : PlotSpec[]
+                trace_specs_lower = trace_lower ?
+                    get_trace_plotspecs(inputs, (i, j), Trace2D(), triagonal_config;
+                        transposed = true) : PlotSpec[]
                 append!(lower_plotspecs, trace_specs_lower)
 
                 col_lims = getproperty(inputs, Symbol("axis_limits_$j"))
                 cell_active_lower = i <= n_active
                 matrix[i, j] = S.Axis(
-                    plots=lower_plotspecs,
-                    aspect=1,
-                    limits=(col_lims, xlims),
-                    xticklabelsvisible=cell_active_lower, xticksvisible=false,
-                    yticklabelsvisible=cell_active_lower, yticksvisible=false,
-                    yticklabelrotation=pi / 2,
-                    xgridvisible=cell_active_lower,
-                    ygridvisible=cell_active_lower,
-                    leftspinevisible=cell_active_lower, rightspinevisible=cell_active_lower,
-                    topspinevisible=cell_active_lower, bottomspinevisible=cell_active_lower,
+                    plots = lower_plotspecs,
+                    aspect = 1,
+                    limits = (col_lims, xlims),
+                    xticklabelsvisible = cell_active_lower, xticksvisible = false,
+                    yticklabelsvisible = cell_active_lower, yticksvisible = false,
+                    yticklabelrotation = pi / 2,
+                    xgridvisible = cell_active_lower,
+                    ygridvisible = cell_active_lower,
+                    leftspinevisible = cell_active_lower, rightspinevisible = cell_active_lower,
+                    topspinevisible = cell_active_lower, bottomspinevisible = cell_active_lower,
                     # See the diagonal cell's comment above re: plain "" vs L"".
-                    xlabel=cell_active_lower ? L"v_%$(_idxs[j])" : "",
-                    ylabel=cell_active_lower ? L"v_%$(_idxs[i])" : "",
-                    xlabelvisible=cell_active_lower,
-                    ylabelvisible=cell_active_lower,
+                    xlabel = cell_active_lower ? L"v_%$(_idxs[j])" : "",
+                    ylabel = cell_active_lower ? L"v_%$(_idxs[i])" : "",
+                    xlabelvisible = cell_active_lower,
+                    ylabelvisible = cell_active_lower,
                 )
             end
         end
@@ -174,7 +183,7 @@ function _init_gridlayout(
         # alignmode=Outside absorbs tick/label protrusions internally so the
         # parent layout never resizes on vsel changes; must be a constructor
         # kwarg -- an alignmode set post-hoc is reset to Inside() on rebuild.
-        return (S.GridLayout(matrix; rowsizes=cellsizes, colsizes=cellsizes, alignmode=Outside(44, 44, 16, 40)),)
+        return (S.GridLayout(matrix; rowsizes = cellsizes, colsizes = cellsizes, alignmode = Outside(44, 44, 16, 40)),)
     end
 
     return graph[:gridlayout]
@@ -187,7 +196,7 @@ end
 function _bind_interactive_grid!(fig::Figure, gridlayout; live_vis = nothing)
     # Match Makie's existing grid bridge: published plot geometry must not be
     # deep-copied merely to subscribe to the computed layout.
-    source = Makie.ComputePipeline.get_observable!(gridlayout; use_deepcopy=false)
+    source = Makie.ComputePipeline.get_observable!(gridlayout; use_deepcopy = false)
     initial = source[]
     grid_size, grid_offsets = initial.size, initial.offsets
     positions = first.(initial.content)
@@ -200,10 +209,10 @@ function _bind_interactive_grid!(fig::Figure, gridlayout; live_vis = nothing)
     end
     validate(initial)
     layout = fig[1, 1] = GridLayout(initial.size...;
-        rowsizes=copy(initial.rowsizes), colsizes=copy(initial.colsizes),
-        addedrowgaps=copy(initial.rowgaps), addedcolgaps=copy(initial.colgaps),
-        alignmode=initial.alignmode, tellwidth=initial.tellwidth,
-        tellheight=initial.tellheight, halign=initial.halign, valign=initial.valign)
+        rowsizes = copy(initial.rowsizes), colsizes = copy(initial.colsizes),
+        addedrowgaps = copy(initial.rowgaps), addedcolgaps = copy(initial.colgaps),
+        alignmode = initial.alignmode, tellwidth = initial.tellwidth,
+        tellheight = initial.tellheight, halign = initial.halign, valign = initial.valign)
     axes = [Axis(layout[position...]; spec.kwargs...) for (position, spec) in initial.content]
     plots = [Observable(PlotSpec[]) for _ in axes]
     # Use the same scene-owned updater as Makie's grid reconciler. The public

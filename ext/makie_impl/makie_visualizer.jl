@@ -40,8 +40,8 @@ function _canonical_display_samples(samples, shape::AbstractValueShape)
     result = if _display_has_shape(samples.v) && varshape(samples) <= shape
         unshaped.(samples)
     else
-        DensitySampleVector(v=map(v -> unshaped(v, shape), samples.v),
-            logd=samples.logd, weight=samples.weight, info=samples.info, aux=samples.aux)
+        DensitySampleVector(v = map(v -> unshaped(v, shape), samples.v),
+            logd = samples.logd, weight = samples.weight, info = samples.info, aux = samples.aux)
     end
     totalndof(varshape(result)) == totalndof(shape) ||
         throw(ArgumentError("Transformed samples do not match the original display shape"))
@@ -88,7 +88,7 @@ function _initial_display_outputs(states, outputs, f_pretransform, shape)
 end
 
 function _transform_display_outputs(f_pretransform, outputs, templates, shape;
-    executor=BAT.MultiThreadedExec())
+    executor = BAT.MultiThreadedExec())
     axes(outputs) == axes(templates) || throw(ArgumentError("Mismatched display chain topology"))
     return map(outputs, templates) do chain, old
         axes(chain) == axes(old) || throw(ArgumentError("Mismatched display walker topology"))
@@ -150,7 +150,7 @@ function register_state_for_vis!(
     # Keep one batched update: each call starts a full invalidation/notification cycle.
     graph_timing = vis.content.step_mode[] ?
         vcat(isnothing(graph[:sample_timing][]) ? ChainStepSpans[] : graph[:sample_timing][], [timing_new]) : nothing
-    update!(graph; samples=samples_graph, current_idxs=current_idxs_graph, sample_timing=graph_timing)
+    update!(graph; samples = samples_graph, current_idxs = current_idxs_graph, sample_timing = graph_timing)
 
     push!(chain_ids, mcmc_state.chain_state.info.id)
     empty_chain_output = _empty_chain_outputs(mcmc_state)
@@ -160,11 +160,14 @@ function register_state_for_vis!(
     push!(vis.content.pending_timing, _empty_walker_spans(samples))
 end
 
-# Core of the vsel choke point, usable without a live BATVisualizer (static bat_makie_plot path); clamps against n_dof/N_max and updates only on change.
-function _apply_vsel_to_graph!(graph::ComputeGraph, n_dof::Integer, N_max::Integer, requested_vsel::AbstractVector{<:Integer})
+# Core of the vsel choke point, usable without a live BATVisualizer (static bat_makie_plot path); clamps
+# against n_dof/N_max and updates only on change.
+function _apply_vsel_to_graph!(
+    graph::ComputeGraph, n_dof::Integer, N_max::Integer, requested_vsel::AbstractVector{<:Integer}
+)
     clamped = _clamp_vsel(requested_vsel, n_dof, N_max)
     if clamped != graph[:idxs][]
-        update!(graph, idxs=clamped)
+        update!(graph, idxs = clamped)
     end
     return clamped
 end
@@ -174,13 +177,13 @@ function _apply_vsel!(vis::BATVisualizer{BATMakieVisualization}, requested_vsel:
     clamped = _clamp_vsel(requested_vsel, vis.content.n_dof[], vis.backend.N_max)
     # Do not discard an intent equal to the current graph value: another intent
     # may already be queued by a reentrant callback.
-    _live_graph_update!(vis; idxs=clamped)
+    _live_graph_update!(vis; idxs = clamped)
     return nothing
 end
 
 function BAT.init_visualizer!(
     vis::BATVisualizer{BATMakieVisualization}; rng::AbstractRNG,
-    mcmc_states::Vector{<:MCMCState}, outputs, f_pretransform::Function, target=nothing
+    mcmc_states::Vector{<:MCMCState}, outputs, f_pretransform::Function, target = nothing
 )
     isnothing(vis.content) && throw(ArgumentError("Create a fresh BATVisualizer for sampling"))
     ctl = vis.content.lifecycle
@@ -221,8 +224,8 @@ function BAT.init_visualizer!(
             # Hand off before rollback joins a coordinator waiting for startup.
             _finish_live_initialization!(vis)
             _fail_visualizer!(vis, err, catch_backtrace(), :startup)
-            BAT._safe_clear_visualizer_init!(vis; suppress_interrupt=true)
-            BAT._safe_finish_visualizer!(vis; success=false)
+            BAT._safe_clear_visualizer_init!(vis; suppress_interrupt = true)
+            BAT._safe_finish_visualizer!(vis; success = false)
         end
         rethrow()
     finally
@@ -247,7 +250,7 @@ function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, 
         domain_ready = !ismissing(display_shape)
         if domain_ready
             domain_lo, domain_hi = _estimate_prior_domain(domain_rng, domain_target,
-                totalndof(display_shape); display_shape, f_display=domain_transform)
+                totalndof(display_shape); display_shape, f_display = domain_transform)
         end
         display_outputs, display_shape = _initial_display_outputs(
             mcmc_states, outputs, f_pretransform, display_shape)
@@ -255,12 +258,12 @@ function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, 
         vis.content.n_dof[] = n_dof
         if !domain_ready
             domain_lo, domain_hi = _estimate_prior_domain(domain_rng, domain_target,
-                n_dof; display_shape, f_display=domain_transform)
+                n_dof; display_shape, f_display = domain_transform)
         end
         support_lo, support_hi = isnothing(target) ?
             (Float64[], Float64[]) : _support_bounds(target, n_dof)
-        update!(graph; domain_lo=domain_lo, domain_hi=domain_hi,
-            support_lo=support_lo, support_hi=support_hi)
+        update!(graph; domain_lo = domain_lo, domain_hi = domain_hi,
+            support_lo = support_lo, support_hi = support_hi)
         initial_timing = [_initial_step_spans(vis, state, outputs[i]) for (i, state) in enumerate(mcmc_states)]
         vis.content.step_mode[] = all(!isnothing, initial_timing)
         for (i, state) in enumerate(mcmc_states)
@@ -272,8 +275,8 @@ function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, 
         with_theme(vis.backend.dark ? bat_theme_dark() : bat_theme()) do
             gridlayout = _init_gridlayout(graph, vis.backend.N_max)
             built = _build_fig(graph, gridlayout, picker_info;
-                has_chain_info=_samples_have_chain_ids(outputs[1][1]),
-                has_trace_info=vis.content.step_mode[], live_vis=vis)
+                has_chain_info = _samples_have_chain_ids(outputs[1][1]),
+                has_trace_info = vis.content.step_mode[], live_vis = vis)
         end
     end
     started || return nothing
@@ -283,17 +286,19 @@ function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, 
     # The construction theme has also been restored: renderer callbacks must
     # not be joined while this task holds Makie's global theme lock.
     _maybe_display(built.fig;
-        on_failure=(err, bt) -> _fail_visualizer!(vis, err, bt, :startup),
-        on_render_failure=_live_renderer_failure_callback(vis))
-    history = Ref((samples=graph[:samples][], timing=vis.content.step_mode[] ?
+        on_failure = (err, bt) -> _fail_visualizer!(vis, err, bt, :startup),
+        on_render_failure = _live_renderer_failure_callback(vis))
+    history = Ref((samples = graph[:samples][], timing = vis.content.step_mode[] ?
         graph[:sample_timing][] : [_empty_walker_spans(c) for c in graph[:samples][]]))
     tick! = () -> _flush_live_buffer!(vis, mcmc_states, f_pretransform, history, domain_lo, domain_hi; display_shape)
     finish! = function()
-        _flush_live_buffer!(vis, mcmc_states, f_pretransform, history, domain_lo, domain_hi; force=true, display_shape)
+        _flush_live_buffer!(
+            vis, mcmc_states, f_pretransform, history, domain_lo, domain_hi; force = true, display_shape
+        )
         lock(vis.content.buffer_lock) do
             _live_can_publish_locked(vis) && (ctl.data_complete = true)
         end
-        _with_live_view(vis; publication=true) do
+        _with_live_view(vis; publication = true) do
             if graph[:max_step][] > 0
                 with_theme(vis.backend.dark ? bat_theme_dark() : bat_theme()) do
                     built.add_index_slider!()
@@ -305,7 +310,7 @@ function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, 
     return nothing
 end
 
-function _detach_live_batch!(vis, mcmc_states; force::Bool=false)
+function _detach_live_batch!(vis, mcmc_states; force::Bool = false)
     ready = lock(vis.content.buffer_lock) do
         _live_can_publish_locked(vis) && (force ? vis.content.buffer_dirty[] :
             vis.content.n_buffer_steps[] >= vis.content.effective_batch_size[])
@@ -322,25 +327,26 @@ function _detach_live_batch!(vis, mcmc_states; force::Bool=false)
         should_drain || return nothing
         try
             next_batch = !force && vis.backend.adaptive_batching ?
-                _scaled_buffer_threshold(c.effective_batch_size[], vis.backend.batch_growth_rate) : c.effective_batch_size[]
-            batch = (output=copy(c.output_buffer), pending=copy(c.pending_samples),
-                output_time=copy(c.output_timing), pending_time=copy(c.pending_timing))
+                _scaled_buffer_threshold(c.effective_batch_size[], vis.backend.batch_growth_rate) :
+                c.effective_batch_size[]
+            batch = (output = copy(c.output_buffer), pending = copy(c.pending_samples),
+                output_time = copy(c.output_timing), pending_time = copy(c.pending_timing))
             c.output_buffer .= replacements
             c.output_timing .= replacement_timing
             c.n_buffer_steps[] = 0
             c.buffer_dirty[] = false
             c.effective_batch_size[] = next_batch
-            notify(c.buffer_cond; all=true)
+            notify(c.buffer_cond; all = true)
             return batch
         catch err
-            _stop_live_locked!(vis, :failed, CapturedException(err, catch_backtrace()); phase=:detach)
+            _stop_live_locked!(vis, :failed, CapturedException(err, catch_backtrace()); phase = :detach)
             rethrow()
         end
     end
 end
 
 function _publish_live_frame!(vis, payload::NamedTuple)
-    published = _live_graph_update!(vis; publication=true, payload...)
+    published = _live_graph_update!(vis; publication = true, payload...)
     if published
         lock(vis.content.buffer_lock) do
             _live_can_publish_locked(vis) && (vis.content.lifecycle.last_publication += 1)
@@ -350,8 +356,8 @@ function _publish_live_frame!(vis, payload::NamedTuple)
 end
 
 function _flush_live_buffer!(vis, mcmc_states, f_pretransform, history, domain_lo, domain_hi;
-    force::Bool=false, display_shape=missing)
-    batch = _detach_live_batch!(vis, mcmc_states; force=force)
+    force::Bool = false, display_shape = missing)
+    batch = _detach_live_batch!(vis, mcmc_states; force = force)
     isnothing(batch) && return nothing
     # The listener retains batch until it either commits or records failure.
     # There is deliberately no replay after a partial/uncertain publication.
@@ -361,7 +367,7 @@ function _flush_live_buffer!(vis, mcmc_states, f_pretransform, history, domain_l
     if any(chain -> any(!isempty, chain), fresh)
         samples, timing = _append_timed_chains(committed.samples, fresh,
             committed.timing, batch.output_time)
-        candidate = (samples=samples, timing=timing)
+        candidate = (samples = samples, timing = timing)
         accepted = lock(vis.content.buffer_lock) do
             _live_can_publish_locked(vis) || return false
             history[] = candidate
@@ -375,9 +381,9 @@ function _flush_live_buffer!(vis, mcmc_states, f_pretransform, history, domain_l
         (committed.samples, committed.timing)
     current_idxs = [length.(chain) for chain in samples]
     lo, hi = _domain_including(Iterators.flatten(samples), domain_lo, domain_hi)
-    _publish_live_frame!(vis, (samples=samples,
-        sample_timing=vis.content.step_mode[] ? timing : nothing,
-        current_idxs=current_idxs, domain_lo=lo, domain_hi=hi))
+    _publish_live_frame!(vis, (samples = samples,
+        sample_timing = vis.content.step_mode[] ? timing : nothing,
+        current_idxs = current_idxs, domain_lo = lo, domain_hi = hi))
     return nothing
 end
 
@@ -392,7 +398,7 @@ function BAT.update_visualizer_impl!(vis::BATVisualizer{BATMakieVisualization};
         _ingest_live_observation!(vis, chain_state, nonzero_weights, is_sampling_step)
     catch err
         if err isa InterruptException
-            BAT.request_visualizer_stop!(vis; reason=:aborted, exception=CapturedException(err, catch_backtrace()))
+            BAT.request_visualizer_stop!(vis; reason = :aborted, exception = CapturedException(err, catch_backtrace()))
             rethrow()
         end
         _fail_visualizer!(vis, err, catch_backtrace(), :ingest)
@@ -401,7 +407,10 @@ function BAT.update_visualizer_impl!(vis::BATVisualizer{BATMakieVisualization};
 end
 
 function _ingest_live_observation!(vis, chain_state, nonzero_weights, is_sampling_step)
-    (; buffer_lock, buffer_cond, output_buffer, pending_samples, chain_ids, n_buffer_steps, buffer_dirty, effective_batch_size, buffer_ratio) = vis.content
+    (;
+        buffer_lock, buffer_cond, output_buffer, pending_samples, chain_ids,
+        n_buffer_steps, buffer_dirty, effective_batch_size, buffer_ratio
+    ) = vis.content
     output_id = findfirst(==(chain_state.info.id), chain_ids)
     # A clear error instead of the opaque "invalid index: nothing" below.
     isnothing(output_id) && throw(ArgumentError(
@@ -410,7 +419,8 @@ function _ingest_live_observation!(vis, chain_state, nonzero_weights, is_samplin
 
     # Copy before modifying the buffer. Terminal output already contains the old
     # current sample; the sampler has cleared its weight, so remove the old tail.
-    pending = is_sampling_step ? _pending_walker_outputs(chain_state, nonzero_weights) : _empty_chain_outputs(chain_state)
+    pending = is_sampling_step ?
+        _pending_walker_outputs(chain_state, nonzero_weights) : _empty_chain_outputs(chain_state)
 
     # Serialize producer mutation with listener detachment. Always release the
     # transport lock, including when extraction or timing validation throws.
@@ -429,7 +439,10 @@ function _ingest_live_observation!(vis, chain_state, nonzero_weights, is_samplin
                     if sample.weight > 0
                         endpoint = is_sampling_step ? t - 1 : t
                         _push_step_span!(vis.content.output_timing[output_id][j],
-                            SampleStepSpan(length(output_buffer[output_id][j]), cycle, endpoint - sample.weight + 1, endpoint))
+                            SampleStepSpan(
+                                length(output_buffer[output_id][j]), cycle,
+                                endpoint - sample.weight + 1, endpoint
+                            ))
                     end
                 end
                 if !isempty(pending[j]) && pending[j].weight[1] > 0
@@ -443,7 +456,8 @@ function _ingest_live_observation!(vis, chain_state, nonzero_weights, is_samplin
         pending_samples[output_id] = pending
         n_buffer_steps[] = _add_buffer_steps(n_buffer_steps[], is_sampling_step ? length(pending) : 0)
         buffer_dirty[] = true
-        # Backpressure: block sampling once the buffer runs too far ahead; the threshold derives from effective_batch_size[] so it stays >= the flush trigger.
+        # Backpressure: block sampling once the buffer runs too far ahead; the threshold derives from
+        # effective_batch_size[] so it stays >= the flush trigger.
         wait_started = time_ns()
         while vis.content.lifecycle.accepting[] &&
                 n_buffer_steps[] >= _scaled_buffer_threshold(effective_batch_size[], buffer_ratio)
@@ -451,14 +465,14 @@ function _ingest_live_observation!(vis, chain_state, nonzero_weights, is_samplin
                 timeout_error = ErrorException("Visualization backpressure exceeded observer_timeout")
                 _stop_live_locked!(vis, :backpressure_timeout,
                     CapturedException(timeout_error, Any[]);
-                    phase=:backpressure_timeout)
+                    phase = :backpressure_timeout)
                 break
             end
             wait(buffer_cond)
         end
     catch err
         reason = err isa InterruptException ? :aborted : :failed
-        _stop_live_locked!(vis, reason, CapturedException(err, catch_backtrace()); phase=:ingest)
+        _stop_live_locked!(vis, reason, CapturedException(err, catch_backtrace()); phase = :ingest)
         rethrow()
     finally
         unlock(buffer_lock)

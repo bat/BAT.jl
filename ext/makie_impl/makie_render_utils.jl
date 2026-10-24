@@ -2,7 +2,8 @@
 
 _rel_luminance(rgb::Colors.RGB) = 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b
 
-# Shifts `bg` away from whichever extreme it is already closer to (darker if light, lighter if dark); used twice to build the background -> panel -> widget ladder.
+# Shifts `bg` away from whichever extreme it is already closer to (darker if light, lighter if dark); used
+# twice to build the background -> panel -> widget ladder.
 function _panel_bg_color(bg, amount::Real = 0.08)
     rgb = Colors.RGB(Makie.to_color(bg))
     delta = _rel_luminance(rgb) > 0.5 ? -amount : amount
@@ -15,7 +16,8 @@ function _status_text_color(bg)
     return _rel_luminance(rgb) > 0.5 ? Colors.RGB(0.72, 0.05, 0.05) : Colors.RGB(1.0, 0.45, 0.35)
 end
 
-# Fixed colors for all four Quantile* recipes' credible-region bands (widest region first, tightest last); supports up to length(_QUANTILE_LEVEL_COLORS) levels.
+# Fixed colors for all four Quantile* recipes' credible-region bands (widest region first, tightest last);
+# supports up to length(_QUANTILE_LEVEL_COLORS) levels.
 const _QUANTILE_LEVEL_COLORS = [
     RGBAf(1.0, 0.0, 0.0, 1.0),
     RGBAf(1.0, 1.0, 0.0, 1.0),
@@ -32,8 +34,9 @@ function _quantile_level_color(i::Integer)
     return _QUANTILE_LEVEL_COLORS[i]
 end
 
-# Carrier for the vsel picker's construction inputs. apply_vsel! is a deliberately type-erased Function, not a NamedTuple field: a NamedTuple would embed
-# each call site's closure type (per-site MethodInstances); one concrete type shares one compiled chain, at one dynamic dispatch per click.
+# Carrier for the vsel picker's construction inputs. apply_vsel! is a deliberately type-erased Function, not a
+# NamedTuple field: a NamedTuple would embed each call site's closure type (per-site MethodInstances); one
+# concrete type shares one compiled chain, at one dynamic dispatch per click.
 struct PickerInfo
     N::Int
     N_max::Int
@@ -97,11 +100,11 @@ function _start_observed_gl_renderloop!(fig, screen, backend, on_failure)
 end
 
 
-function _maybe_display(fig; on_failure=nothing, on_render_failure=nothing)
+function _maybe_display(fig; on_failure = nothing, on_render_failure = nothing)
     _SUPPRESS_DISPLAY[] && return nothing
     backend = Makie.current_backend()
     if _is_gl_backend(backend)
-        _display_gl_figure(fig, backend; on_failure=on_failure, on_render_failure=on_render_failure)
+        _display_gl_figure(fig, backend; on_failure = on_failure, on_render_failure = on_render_failure)
     else
         display(fig)
     end
@@ -193,7 +196,7 @@ function _close_gl_screen!(screen, backend)
             while true
                 try
                     Base.reenable_sigint(() ->
-                        backend.stop_renderloop!(screen; close_after_renderloop=false))
+                        backend.stop_renderloop!(screen; close_after_renderloop = false))
                     break
                 catch err
                     err isa InterruptException || rethrow()
@@ -230,14 +233,14 @@ end
 # Explicit screens avoid taking over an unrelated singleton window. Keep a
 # local owner through partial scene attachment, before screen.scene is set.
 # A constructor that throws before returning a handle is a backend boundary.
-function _with_gl_screen(f, fig, backend; temporary::Bool=false, on_failure=nothing)
+function _with_gl_screen(f, fig, backend; temporary::Bool = false, on_failure = nothing)
     _check_gl_thread()
     screen = temporary ? nothing : Makie.getscreen(fig.scene, backend)
     created = isnothing(screen) || !isopen(screen)
     if created
         screen = temporary ?
-            backend.Screen(; start_renderloop=false, visible=false) :
-            backend.Screen(; start_renderloop=false)
+            backend.Screen(; start_renderloop = false, visible = false) :
+            backend.Screen(; start_renderloop = false)
     end
     success = false
     try
@@ -260,21 +263,21 @@ function _with_gl_screen(f, fig, backend; temporary::Bool=false, on_failure=noth
     end
 end
 
-function _display_gl_figure(fig, backend; on_failure=nothing, on_render_failure=nothing)
+function _display_gl_figure(fig, backend; on_failure = nothing, on_render_failure = nothing)
     inline = Makie.ALWAYS_INLINE_PLOTS[]
     show_inline = (inline === true || inline === Makie.automatic) &&
         Makie.can_show_inline(backend)
     if inline === true && !show_inline
         @warn "No inline Makie display is available; opening a GLMakie window"
     end
-    _with_gl_screen(fig, backend; on_failure=on_failure) do screen
+    _with_gl_screen(fig, backend; on_failure = on_failure) do screen
         # As in Makie's inline path, the selected display owns the figure update.
         # Scene attachment and custom synchronous callbacks stay on this task.
         predecessor = screen.rendertask
         if !isnothing(on_render_failure) && !isnothing(predecessor) && !istaskdone(predecessor)
             throw(ArgumentError("Live GL display requires a renderer started by BAT"))
         end
-        display(screen, fig; update=!show_inline)
+        display(screen, fig; update = !show_inline)
         _start_observed_gl_renderloop!(fig, screen, backend, on_render_failure)
         renderer = screen.rendertask
         if show_inline && (isnothing(on_render_failure) || isopen(screen))
@@ -291,14 +294,14 @@ end
 
 function _render_warmup_figure(fig, backend)
     if _is_gl_backend(backend)
-        _with_gl_screen(fig, backend; temporary=true) do screen
+        _with_gl_screen(fig, backend; temporary = true) do screen
             display(screen, fig)
             # colorbuffer(fig) can start a render loop when applying screen
             # configuration. Rendering the explicit screen needs no such task.
             Makie.colorbuffer(screen)
         end
     else
-        Makie.colorbuffer(fig; backend=backend)
+        Makie.colorbuffer(fig; backend = backend)
     end
     return nothing
 end
@@ -329,7 +332,7 @@ function warmup_makie_shaders()
 
         heatmap!(ax, [0.0, 1.0], [0.0, 1.0], [0.0 1.0; 1.0 0.0])
         contourf!(ax, [0.0, 1.0], [0.0, 1.0], [0.0 1.0; 1.0 0.0])
-        hexbin!(ax, [0.0], [0.0]; bins=2)
+        hexbin!(ax, [0.0], [0.0]; bins = 2)
         poly!(ax, Point2f[(0, 0), (1, 0), (0, 1)])
 
         _render_warmup_figure(fig, backend)

@@ -1,13 +1,18 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-_empty_cov2d_primitives() = (ellipse_points=Vector{Point{2,Float64}}(), axes_segments=Vector{Point{2,Float64}}())
-_empty_std1d_primitives() = (positions=Vector{Float64}(),)
-_empty_std2d_primitives() = (x_lines=Vector{Float64}(), y_lines=Vector{Float64}())
-_empty_mean1d_primitives() = (x=Vector{Float64}(),)
-_empty_mean2d_primitives() = (μ_x=Vector{Float64}(), μ_y=Vector{Float64}())
-_empty_errorbars1d_primitives() = (μ=Vector{Float64}(), err=Vector{Float64}())
-_empty_errorbars2d_primitives() = (μ_x=Vector{Float64}(), μ_y=Vector{Float64}(), err_x=Vector{Float64}(), err_y=Vector{Float64}())
-_empty_pdf1d_primitives() = (poly_points=Vector{Point{2,Float64}}(), x=Float64[], y=Float64[])
+_empty_cov2d_primitives() = (ellipse_points = Vector{Point{2,Float64}}(), axes_segments = Vector{Point{2,Float64}}())
+_empty_std1d_primitives() = (positions = Vector{Float64}(),)
+_empty_std2d_primitives() = (x_lines = Vector{Float64}(), y_lines = Vector{Float64}())
+_empty_mean1d_primitives() = (x = Vector{Float64}(),)
+_empty_mean2d_primitives() = (μ_x = Vector{Float64}(), μ_y = Vector{Float64}())
+_empty_errorbars1d_primitives() = (μ = Vector{Float64}(), err = Vector{Float64}())
+_empty_errorbars2d_primitives() = (
+    μ_x = Vector{Float64}(),
+    μ_y = Vector{Float64}(),
+    err_x = Vector{Float64}(),
+    err_y = Vector{Float64}()
+)
+_empty_pdf1d_primitives() = (poly_points = Vector{Point{2,Float64}}(), x = Float64[], y = Float64[])
 
 # Wrapped in Makie.Linestyle: re-resolving a bare :dash's converted Vector
 # pattern (as GLMakie's render loop does) triggers a deprecation warning per frame.
@@ -28,7 +33,7 @@ function _stats_inputs(marg_coords::SubArray, weights::SubArray, config::NamedTu
     keep = weights .> 0
     config.filter && (keep .&= _low_weight_mask(weights))
     any(keep) || return nothing
-    w = BAT._plot_relative_weights(view(weights, keep); unit_sum=true)
+    w = BAT._plot_relative_weights(view(weights, keep); unit_sum = true)
     return view(marg_coords, :, keep), ProbabilityWeights(w)
 end
 
@@ -40,7 +45,7 @@ end
 
 function _stats_std(values, weights)
     allequal(values) && return zero(float(first(values)))
-    σ = std(values, weights; mean=_stats_mean(values, weights), corrected=false)
+    σ = std(values, weights; mean = _stats_mean(values, weights), corrected = false)
     isfinite(σ) && σ > 0 || BAT._plot_weight_error("nonconstant weighted spread is outside the working numerical range")
     return σ
 end
@@ -69,7 +74,7 @@ end
 _stats_position(μ) = BAT._plot_float64(μ, "statistical position")
 
 # Unit circle sampled once, not rebuilt per call.
-const _COV_ELLIPSE_CIRCLE = let θ = range(0, 2π, length=200)
+const _COV_ELLIPSE_CIRCLE = let θ = range(0, 2π, length = 200)
     [cos.(θ)'; sin.(θ)']
 end
 
@@ -89,10 +94,11 @@ function _cov_ellipse_primitives(μ::AbstractVector, Σ::AbstractMatrix, nsigma:
         direction = vecs[:, i] * _stats_extent(stds[i], nsigma)
         p1 = Point{2,Float64}(_stats_position.(μ .- direction))
         p2 = Point{2,Float64}(_stats_position.(μ .+ direction))
-        (iszero(stds[i]) || iszero(nsigma) || p1 != p2) || BAT._plot_weight_error("covariance axis is indistinguishable as Float64")
+        (iszero(stds[i]) || iszero(nsigma) || p1 != p2) ||
+            BAT._plot_weight_error("covariance axis is indistinguishable as Float64")
         push!(axes_segments, p1, p2)
     end
-    return (ellipse_points=ellipse_points, axes_segments=axes_segments)
+    return (ellipse_points = ellipse_points, axes_segments = axes_segments)
 end
 
 function determine_recipe_status(subject::Mean1D, live_recipe::R1) where {R1<:BATMakieRecipe}
@@ -103,15 +109,21 @@ function determine_recipe_status(subject::Std1D, live_recipe::R1) where {R1<:BAT
     return LiveRecipe()
 end
 
-function determine_recipe_status(subject::Mean2D, live_recipe_1::R1, live_recipe_2::R2) where {R1<:BATMakieRecipe,R2<:BATMakieRecipe}
+function determine_recipe_status(
+    subject::Mean2D, live_recipe_1::R1, live_recipe_2::R2
+) where {R1<:BATMakieRecipe,R2<:BATMakieRecipe}
     return LiveRecipe()
 end
 
-function determine_recipe_status(subject::Cov2D, live_recipe_1::R1, live_recipe_2::R2) where {R1<:BATMakieRecipe,R2<:BATMakieRecipe}
+function determine_recipe_status(
+    subject::Cov2D, live_recipe_1::R1, live_recipe_2::R2
+) where {R1<:BATMakieRecipe,R2<:BATMakieRecipe}
     return LiveRecipe()
 end
 
-function determine_recipe_status(subject::Std2D, live_recipe_1::R1, live_recipe_2::R2) where {R1<:BATMakieRecipe,R2<:BATMakieRecipe}
+function determine_recipe_status(
+    subject::Std2D, live_recipe_1::R1, live_recipe_2::R2
+) where {R1<:BATMakieRecipe,R2<:BATMakieRecipe}
     return LiveRecipe()
 end
 
@@ -154,10 +166,10 @@ function get_stats_plotspecs(
     # machinery still computes for live cells.
 
     cov_primitives = getproperty(inputs, primitive_symbol(Cov2D(), (i, j)))
-    append!(plotspecs, compose_plotspecs(cov_primitives, Cov2D(), config; transposed=transposed))
+    append!(plotspecs, compose_plotspecs(cov_primitives, Cov2D(), config; transposed = transposed))
 
     std_primitives = getproperty(inputs, primitive_symbol(Std2D(), (i, j)))
-    append!(plotspecs, compose_plotspecs(std_primitives, Std2D(), config; transposed=transposed))
+    append!(plotspecs, compose_plotspecs(std_primitives, Std2D(), config; transposed = transposed))
 
     return plotspecs
 end
@@ -191,7 +203,10 @@ function compute_plotting_primitives(
     (; nsigma) = config
     μ = [_stats_mean(view(coords, 1, :), w_prob), _stats_mean(view(coords, 2, :), w_prob)]
     # Matrix(...): StatsBase.cov(::DenseMatrix, ...) doesn't accept a SubArray.
-    Σ = StatsBase.cov(StatsBase.SimpleCovariance(corrected=false), Matrix(coords), w_prob; dims=2, mean=reshape(μ, :, 1))
+    Σ = StatsBase.cov(
+        StatsBase.SimpleCovariance(corrected = false), Matrix(coords), w_prob;
+        dims = 2, mean = reshape(μ, :, 1)
+    )
     all(isfinite, Σ) || BAT._plot_weight_error("weighted covariance is outside the working numerical range")
     for i in axes(coords, 1)
         (Σ[i, i] > 0 || (iszero(Σ[i, i]) && allequal(view(coords, i, :)))) ||
@@ -218,8 +233,8 @@ function compose_plotspecs(
         axes_segments = Point{2,Float64}[Point{2,Float64}(p[2], p[1]) for p in axes_segments]
     end
 
-    lines = S.Lines(ellipse_points; color=config.stats_color)
-    line_segments = S.LineSegments(axes_segments; color=config.stats_color)
+    lines = S.Lines(ellipse_points; color = config.stats_color)
+    line_segments = S.LineSegments(axes_segments; color = config.stats_color)
 
     return [lines, line_segments]
 end
@@ -252,7 +267,7 @@ function compute_plotting_primitives(
     vals = vec(coords)
     μ = _stats_mean(vals, w_prob)
     σ = _stats_std(vals, w_prob)
-    return (positions=_stats_limits(μ, σ, nsigma),)
+    return (positions = _stats_limits(μ, σ, nsigma),)
 end
 
 function compose_plotspecs(
@@ -266,7 +281,7 @@ function compose_plotspecs(
         return PlotSpec[]
     end
 
-    lines = S.VLines(positions; color=config.stats_color)
+    lines = S.VLines(positions; color = config.stats_color)
     return [lines]
 end
 
@@ -299,8 +314,8 @@ function compute_plotting_primitives(
     μ_x, μ_y = _stats_mean(x, w_prob), _stats_mean(y, w_prob)
     σ_x, σ_y = _stats_std(x, w_prob), _stats_std(y, w_prob)
     return (
-        x_lines=_stats_limits(μ_x, σ_x, nsigma),
-        y_lines=_stats_limits(μ_y, σ_y, nsigma)
+        x_lines = _stats_limits(μ_x, σ_x, nsigma),
+        y_lines = _stats_limits(μ_y, σ_y, nsigma)
     )
 end
 
@@ -318,8 +333,8 @@ function compose_plotspecs(
 
     transposed && ((x_lines, y_lines) = (y_lines, x_lines))
 
-    vlines = S.VLines(x_lines; color=config.stats_color)
-    hlines = S.HLines(y_lines; color=config.stats_color)
+    vlines = S.VLines(x_lines; color = config.stats_color)
+    hlines = S.HLines(y_lines; color = config.stats_color)
     return [vlines, hlines]
 end
 
@@ -348,7 +363,7 @@ function compute_plotting_primitives(
     isnothing(si) && return _empty_mean1d_primitives()
     coords, w_prob = si
     μ = _stats_mean(vec(coords), w_prob)
-    return (x=[_stats_position(μ)],)
+    return (x = [_stats_position(μ)],)
 end
 
 function compose_plotspecs(
@@ -364,7 +379,7 @@ function compose_plotspecs(
 
     # _MEAN1D_DASH (see its comment above), set on this PlotSpec only --
     # Std1D/Std2D/Mean2D share the VLines type and must stay solid.
-    lines = S.VLines(x; linestyle=_MEAN1D_DASH, color=config.stats_color)
+    lines = S.VLines(x; linestyle = _MEAN1D_DASH, color = config.stats_color)
     return [lines]
 end
 
@@ -393,7 +408,7 @@ function compute_plotting_primitives(
     coords, w_prob = si
     μ_x = _stats_mean(view(coords, 1, :), w_prob)
     μ_y = _stats_mean(view(coords, 2, :), w_prob)
-    return (μ_x=[_stats_position(μ_x)], μ_y=[_stats_position(μ_y)])
+    return (μ_x = [_stats_position(μ_x)], μ_y = [_stats_position(μ_y)])
 end
 
 function compose_plotspecs(
@@ -410,8 +425,8 @@ function compose_plotspecs(
 
     transposed && ((μ_x, μ_y) = (μ_y, μ_x))
 
-    vlines = S.VLines(μ_x; color=config.stats_color)
-    hlines = S.HLines(μ_y; color=config.stats_color)
+    vlines = S.VLines(μ_x; color = config.stats_color)
+    hlines = S.HLines(μ_y; color = config.stats_color)
     return [vlines, hlines]
 end
 
@@ -444,7 +459,7 @@ function compute_plotting_primitives(
     μ = _stats_mean(vals, w_prob)
     σ = _stats_std(vals, w_prob)
     _stats_limits(μ, σ, nsigma)
-    return (μ=[_stats_position(μ)], err=[_stats_extent(σ, nsigma)])
+    return (μ = [_stats_position(μ)], err = [_stats_extent(σ, nsigma)])
 end
 
 
@@ -462,7 +477,7 @@ function compose_plotspecs(
     (; y_ebars) = config
 
     ebars = S.Errorbars(μ, [y_ebars], err;
-        direction=:x
+        direction = :x
     )
     points = S.Scatter(μ, [y_ebars])
     return [ebars, points]
@@ -499,7 +514,10 @@ function compute_plotting_primitives(
     σ_x, σ_y = _stats_std(x, w_prob), _stats_std(y, w_prob)
     _stats_limits(μ_x, σ_x, nsigma)
     _stats_limits(μ_y, σ_y, nsigma)
-    return (μ_x=[_stats_position(μ_x)], μ_y=[_stats_position(μ_y)], err_x=[_stats_extent(σ_x, nsigma)], err_y=[_stats_extent(σ_y, nsigma)])
+    return (
+        μ_x = [_stats_position(μ_x)], μ_y = [_stats_position(μ_y)],
+        err_x = [_stats_extent(σ_x, nsigma)], err_y = [_stats_extent(σ_y, nsigma)]
+    )
 end
 
 
@@ -522,10 +540,10 @@ function compose_plotspecs(
     end
 
     ebars_x = S.Errorbars(μ_x, μ_y, err_x,
-        direction=:x
+        direction = :x
     )
     ebars_y = S.Errorbars(μ_x, μ_y, err_y,
-        direction=:y
+        direction = :y
     )
 
     point = S.Scatter(μ_x, μ_y)
@@ -583,7 +601,7 @@ function compute_plotting_primitives(
         Point{2,Float64}.(reverse(x), 0.0)
     )
 
-    return (poly_points=poly_points, x=x, y=y)
+    return (poly_points = poly_points, x = x, y = y)
 end
 
 function compose_plotspecs(
@@ -599,7 +617,7 @@ function compose_plotspecs(
 
     (; filled_pdf) = config
 
-    poly = S.Poly(poly_points; visible=filled_pdf)
+    poly = S.Poly(poly_points; visible = filled_pdf)
     lines = S.Lines(x, y)
 
     return [poly, lines]

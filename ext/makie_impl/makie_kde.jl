@@ -1,9 +1,29 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-_empty_kde1d_primitives() = (x=Vector{Float64}(), density=Vector{Float64}(), poly_points=Vector{Point{2,Float64}}())
-_empty_kde2d_primitives() = (x=Vector{Float64}(), y=Vector{Float64}(), xedges=Vector{Float64}(), yedges=Vector{Float64}(), density=Matrix{Float64}(undef, 0, 0))
-_empty_quantilekde1d_primitives() = (polys=Vector{Vector{Point{2,Float64}}}(), fill_colors=Vector{RGBAf}(), full_line=Vector{Point{2,Float64}}())
-_empty_quantilekde2d_primitives() = (x=Vector{Float64}(), y=Vector{Float64}(), xedges=Vector{Float64}(), yedges=Vector{Float64}(), color_grid=Matrix{RGBA{Float32}}(undef, 0, 0))
+_empty_kde1d_primitives() = (
+    x = Vector{Float64}(),
+    density = Vector{Float64}(),
+    poly_points = Vector{Point{2,Float64}}()
+)
+_empty_kde2d_primitives() = (
+    x = Vector{Float64}(),
+    y = Vector{Float64}(),
+    xedges = Vector{Float64}(),
+    yedges = Vector{Float64}(),
+    density = Matrix{Float64}(undef, 0, 0)
+)
+_empty_quantilekde1d_primitives() = (
+    polys = Vector{Vector{Point{2,Float64}}}(),
+    fill_colors = Vector{RGBAf}(),
+    full_line = Vector{Point{2,Float64}}()
+)
+_empty_quantilekde2d_primitives() = (
+    x = Vector{Float64}(),
+    y = Vector{Float64}(),
+    xedges = Vector{Float64}(),
+    yedges = Vector{Float64}(),
+    color_grid = Matrix{RGBA{Float32}}(undef, 0, 0)
+)
 
 # KDE2D's NaN-mask cutoff, as a fraction of the PEAK density, not an absolute
 # value: density units are inverse data units, so any absolute cutoff is scale-dependent.
@@ -39,7 +59,7 @@ function compute_plotting_primitives(
         Point{2,Float64}.(x, density),
         Point{2,Float64}.(reverse(x), 0.0)
     )
-    return (x=x, density, poly_points=poly_points)
+    return (x = x, density, poly_points = poly_points)
 end
 
 function compose_plotspecs(
@@ -102,14 +122,16 @@ function compute_plotting_primitives(
     config::NamedTuple
 )
     (isempty(weights) || all(iszero, weights)) && return _empty_kde2d_primitives()
-    kde_result = _weighted_kde2d(view(marg_coords, 1, :), view(marg_coords, 2, :), weights, get(config, :support, nothing))
+    kde_result = _weighted_kde2d(
+        view(marg_coords, 1, :), view(marg_coords, 2, :), weights, get(config, :support, nothing)
+    )
     density = kde_result.density
     # Relative-to-peak cutoff -- see _KDE2D_DENSITY_FLOOR_FRAC's comment.
     floor_val = _KDE2D_DENSITY_FLOOR_FRAC * maximum(density)
     nonzero_density = map(d -> d > floor_val ? d : NaN, density)
 
-    return (x=collect(kde_result.x), y=collect(kde_result.y),
-        xedges=kde_result.xedges, yedges=kde_result.yedges, density=nonzero_density)
+    return (x = collect(kde_result.x), y = collect(kde_result.y),
+        xedges = kde_result.xedges, yedges = kde_result.yedges, density = nonzero_density)
 end
 
 function compose_plotspecs(
@@ -132,8 +154,8 @@ function compose_plotspecs(
     (; rev, colormap) = config
     cmap_final = rev ? Reverse(colormap) : colormap
     heat = transposed ?
-        S.Heatmap(yedges, xedges, permutedims(density); colormap=cmap_final) :
-        S.Heatmap(xedges, yedges, density; colormap=cmap_final)
+        S.Heatmap(yedges, xedges, permutedims(density); colormap = cmap_final) :
+        S.Heatmap(xedges, yedges, density; colormap = cmap_final)
     return [heat]
 end
 
@@ -185,7 +207,7 @@ function compute_plotting_primitives(
 
     full_line = Point{2,Float64}.(x, density)
 
-    return (polys=polys, fill_colors=fill_colors, full_line=full_line)
+    return (polys = polys, fill_colors = fill_colors, full_line = full_line)
 end
 
 function compose_plotspecs(
@@ -199,15 +221,16 @@ function compose_plotspecs(
         return PlotSpec[]
     end
 
-    polyspec = S.Poly(polys; color=fill_colors)
+    polyspec = S.Poly(polys; color = fill_colors)
     # Hidden by default; set on this one PlotSpec, not the shared Lines theme --
     # S.Lines is also used by KDE1D's main curve, Cov2D, PDF1D, and Trace2D.
-    lines = S.Lines(full_line; visible=false)
+    lines = S.Lines(full_line; visible = false)
 
     return [polyspec, lines]
 end
 
-_diag_y_extent(primitives::NamedTuple, ::QuantileKDE1D) = isempty(primitives.full_line) ? 0.0 : maximum(p -> p[2], primitives.full_line)
+_diag_y_extent(primitives::NamedTuple, ::QuantileKDE1D) =
+    isempty(primitives.full_line) ? 0.0 : maximum(p -> p[2], primitives.full_line)
 
 
 
@@ -236,7 +259,7 @@ function compute_plotting_primitives(
 
     density = kde_result.density
     density_flat = vec(density)
-    order = sortperm(density_flat; rev=true)
+    order = sortperm(density_flat; rev = true)
     density_sorted = density_flat[order]
     masses = _kde_cell_mass(density, kde_result.xedges, kde_result.yedges)
     cum_p = cumsum(vec(masses.probabilities)[order])
@@ -258,8 +281,8 @@ function compute_plotting_primitives(
         color_grid[mask] .= _quantile_level_color(j)
     end
 
-    return (x=collect(kde_result.x), y=collect(kde_result.y),
-        xedges=kde_result.xedges, yedges=kde_result.yedges, color_grid=color_grid)
+    return (x = collect(kde_result.x), y = collect(kde_result.y),
+        xedges = kde_result.xedges, yedges = kde_result.yedges, color_grid = color_grid)
 end
 
 function compose_plotspecs(

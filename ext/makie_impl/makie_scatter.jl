@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-_empty_scatter2d_primitives() = (x=Float64[], y=Float64[], weights=Float64[])
+_empty_scatter2d_primitives() = (x = Float64[], y = Float64[], weights = Float64[])
 
 # Marker areas depend on relative mass. Normalize before narrowing so finite
 # BigFloat/logarithmic weights cannot become uniform zeros or infinities.
@@ -47,7 +47,7 @@ function compute_plotting_primitives(
     y = marg_coords[2, :]
 
     # Keep the graph's weight representation stable across empty/live states.
-    return (x=x, y=y, weights=_scatter_relative_weights(weights))
+    return (x = x, y = y, weights = _scatter_relative_weights(weights))
 end
 
 function compose_plotspecs(
@@ -64,7 +64,7 @@ function compose_plotspecs(
     real_markersize = _scatter_markersizes(weights, markersize)
 
     scatter = S.Scatter(x, y;
-        markersize=real_markersize
+        markersize = real_markersize
     )
 
     return [scatter]
@@ -75,7 +75,7 @@ end
 # gates whether ChainScatter2D is offered in the recipe dropdown.
 _samples_have_chain_ids(samples) = isconcretetype(eltype(samples.info)) && hasfield(eltype(samples.info), :chainid)
 
-_empty_chainscatter2d_primitives() = (x=Float64[], y=Float64[], weights=Float64[], chainids=Int32[])
+_empty_chainscatter2d_primitives() = (x = Float64[], y = Float64[], weights = Float64[], chainids = Int32[])
 
 # Qualitative wrap-around palette for distinguishing chains -- deliberately a
 # small fixed set rather than a continuous colormap.
@@ -108,7 +108,7 @@ function compute_plotting_primitives(
     x = marg_coords[1, :]
     y = marg_coords[2, :]
 
-    return (x=x, y=y, weights=_scatter_relative_weights(weights), chainids=chainids)
+    return (x = x, y = y, weights = _scatter_relative_weights(weights), chainids = chainids)
 end
 
 function compose_plotspecs(
@@ -145,7 +145,7 @@ function compose_plotspecs(
         idxs = groups[id]
         ms = real_markersize isa AbstractVector ? real_markersize[idxs] : real_markersize
         color = _CHAIN_COLOR_PALETTE[mod1(ranks[id], length(_CHAIN_COLOR_PALETTE))]
-        push!(specs, S.Scatter(x[idxs], y[idxs]; markersize=ms, color=color))
+        push!(specs, S.Scatter(x[idxs], y[idxs]; markersize = ms, color = color))
     end
 
     return specs

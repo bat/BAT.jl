@@ -75,13 +75,15 @@ function _static_step_spans(samples, intervals)
             push!(result, span)
             info = samples.info[row]
             cid = hasproperty(info, :chainid) ? Int32(info.chainid) : Int32(1)
-            wid = hasproperty(info, :walkerid) ? Int32(info.walkerid) : hasproperty(info, :walker) ? Int32(info.walker) : Int32(1)
+            wid = hasproperty(info, :walkerid) ? Int32(info.walkerid) :
+                hasproperty(info, :walker) ? Int32(info.walker) : Int32(1)
             push!(get!(() -> SampleStepSpan[], groups, (cid, wid, cycle)), span)
         end
-        mass == samples.weight[row] || throw(ArgumentError("step interval duration must equal the repetition weight at row $row"))
+        mass == samples.weight[row] ||
+            throw(ArgumentError("step interval duration must equal the repetition weight at row $row"))
     end
     for (key, spans) in groups
-        sort!(spans; by=s -> s.first)
+        sort!(spans; by = s -> s.first)
         all(k -> spans[k-1].last < spans[k].first, 2:length(spans)) ||
             throw(ArgumentError("Overlapping step intervals for chain, walker, cycle $key"))
     end
@@ -120,7 +122,8 @@ function _sample_window_data(samples, current_idxs, timing)
         if nrows > 0
             inf = walker.info[1]
             cid = hasproperty(inf, :chainid) ? Int32(inf.chainid) : Int32(i)
-            wid = hasproperty(inf, :walkerid) ? Int32(inf.walkerid) : hasproperty(inf, :walker) ? Int32(inf.walker) : Int32(j)
+            wid = hasproperty(inf, :walkerid) ? Int32(inf.walkerid) :
+                hasproperty(inf, :walker) ? Int32(inf.walker) : Int32(j)
             push!(chainids, cid)
             if !isnothing(timing)
                 cycles = Dict{Int32,Vector{SampleStepSpan}}()
@@ -131,9 +134,10 @@ function _sample_window_data(samples, current_idxs, timing)
                 end
                 for cycle in sort!(collect(keys(cycles)))
                     spans = cycles[cycle]
-                    issorted(spans; by=s -> s.first) || sort!(spans; by=s -> s.first)
+                    issorted(spans; by = s -> s.first) || sort!(spans; by = s -> s.first)
                     for k in 2:length(spans)
-                        spans[k-1].last < spans[k].first || throw(ArgumentError("Overlapping step intervals in chain $cid, walker $wid, cycle $cycle"))
+                        spans[k-1].last < spans[k].first ||
+                            throw(ArgumentError("Overlapping step intervals in chain $cid, walker $wid, cycle $cycle"))
                     end
                     push!(groups, StepIndexGroup(cid, wid, cycle,
                         [offset + s.row for s in spans], [s.first for s in spans], [s.last for s in spans]))
@@ -214,14 +218,14 @@ function _window_trace_groups(groups, nsteps)
         for k in a:length(g.rows)
             start = max(g.starts[k], cutoff)
             if !isempty(rows) && start - 1 > previous_end
-                push!(result, (chain=g.chain, walker=g.walker, rows=rows, recency=recency))
+                push!(result, (chain = g.chain, walker = g.walker, rows = rows, recency = recency))
                 rows, recency = Int[], Float64[]
             end
             push!(rows, g.rows[k])
             push!(recency, nsteps == 1 ? 1.0 : clamp(1.0 - Float64(now - g.ends[k]) / (nsteps - 1), 0.0, 1.0))
             previous_end = g.ends[k]
         end
-        isempty(rows) || push!(result, (chain=g.chain, walker=g.walker, rows=rows, recency=recency))
+        isempty(rows) || push!(result, (chain = g.chain, walker = g.walker, rows = rows, recency = recency))
     end
     return result
 end
@@ -244,14 +248,15 @@ function BAT.prepare_visualizer_init!(vis::BATVisualizer{BATMakieVisualization},
     catch err
         if claimed[]
             _fail_visualizer!(vis, err, catch_backtrace(), :prepare)
-            BAT._safe_clear_visualizer_init!(vis; suppress_interrupt=true)
-            BAT._safe_finish_visualizer!(vis; success=false)
+            BAT._safe_clear_visualizer_init!(vis; suppress_interrupt = true)
+            BAT._safe_finish_visualizer!(vis; success = false)
         end
         rethrow()
     end
     return nothing
 end
-BAT.capture_visualizer_init(vis::BATVisualizer{BATMakieVisualization}) = !isnothing(vis.content) && vis.content.capture_init[]
+BAT.capture_visualizer_init(vis::BATVisualizer{BATMakieVisualization}) =
+    !isnothing(vis.content) && vis.content.capture_init[]
 function BAT.clear_visualizer_init!(vis::BATVisualizer{BATMakieVisualization})
     isnothing(vis.content) && return nothing
     lock(vis.content.buffer_lock) do
@@ -275,7 +280,10 @@ function BAT.reset_visualizer_init!(vis::BATVisualizer{BATMakieVisualization}, c
     return nothing
 end
 function BAT.begin_visualizer_init_segment(vis::BATVisualizer{BATMakieVisualization}, chain, output)
-    return (cycle=chain.info.cycle, step=chain.stepno, cursors=_sample_cursor.(output), zero=iszero.(chain.current.x.weight))
+    return (
+        cycle = chain.info.cycle, step = chain.stepno,
+        cursors = _sample_cursor.(output), zero = iszero.(chain.current.x.weight)
+    )
 end
 function BAT.end_visualizer_init_segment!(vis::BATVisualizer{BATMakieVisualization}, before, chain, output)
     lock(vis.content.buffer_lock) do
@@ -285,7 +293,10 @@ function BAT.end_visualizer_init_segment!(vis::BATVisualizer{BATMakieVisualizati
                 push!(vis.content.invalid_init, key)
             else
                 segments = get!(() -> InitStepSegment[], vis.content.init_segments, key)
-                push!(segments, InitStepSegment(chain.info.cycle, before.step, chain.stepno, before.cursors[j], _sample_cursor(output[j])))
+                push!(segments, InitStepSegment(
+                    chain.info.cycle, before.step, chain.stepno,
+                    before.cursors[j], _sample_cursor(output[j])
+                ))
             end
         end
     end
