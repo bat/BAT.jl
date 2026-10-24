@@ -4,9 +4,10 @@ using BAT
 using Test
 
 using Distributions, StatsBase, ValueShapes, LinearAlgebra, ArraysOfArrays
+using FillArrays: Fill
 using EmpiricalDistributions: UvBinnedDist, MvBinnedDist
 
-using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex, bat_marginalize
+using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex, bat_marginalize, calculate_levels
 
 @testset "MarginalDist" begin
     prior = NamedTupleDist(
@@ -41,9 +42,8 @@ using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex, bat_margi
 
         marg_2d = MarginalDist(unshaped_samples, (1, 2), bins = (30, 30))
         @test marg_2d isa MarginalDist
-        binned_2d = marg_2d.dist isa BAT.ReshapedDist ? marg_2d.dist.dist : marg_2d.dist
-        @test binned_2d isa MvBinnedDist
-        @test isapprox(mean(binned_2d), [0, 0], atol = 0.1)
+        @test marg_2d.dist isa MvBinnedDist
+        @test isapprox(mean(marg_2d.dist), [0, 0], atol = 0.1)
 
         low_weight_samples = DensitySampleVector(
             [[0.0], [1.0e15], [1.0], [2.0]], zeros(4);
@@ -88,9 +88,61 @@ using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex, bat_margi
         @test MarginalDist(nested_samples, 2, bins = 40).dist isa UvBinnedDist
 
         marg_2d = MarginalDist(nested_samples, (:(x.b.c), :e), bins = (20, 20))
-        @test keys(varshape(marg_2d.dist)) == (Symbol("x.b.c"), :e)
-        @test keys(varshape(MarginalDist(nested_samples, :([x.b.c, e]), bins = (20, 20)).dist)) == (Symbol("x.b.c"), :e)
-        @test varshape(MarginalDist(nested_samples, :x, bins = 5).dist) == NamedTupleShape(x = varshape(nested_prior).x.shape)
+        @test keys(varshape(marg_2d)) == (Symbol("x.b.c"), :e)
+        @test keys(varshape(MarginalDist(nested_samples, :([x.b.c, e]), bins = (20, 20)))) == (Symbol("x.b.c"), :e)
+        @test varshape(MarginalDist(nested_samples, :x, bins = 5)) == NamedTupleShape(x = varshape(nested_prior).x.shape)
+    end
+
+    @testset "bat_marginalize" begin
+        weighted = DensitySampleVector(v = shaped_samples.v, logd = shaped_samples.logd, weight = rand(1:3, length(shaped_samples)))
+        marg = bat_marginalize(weighted, :ϕ).result
+        @test marg.v.ϕ == weighted.v.ϕ && marg.weight == weighted.weight && all(isnan, marg.logd)
+
+        flat = BAT.flatbatch(unshaped_samples.v)
+        for vsel in (1:2, [1:2], :(1:2), [1, 2], (1, 2))
+            @test BAT.flatbatch(bat_marginalize(unshaped_samples, vsel).result.v) == flat[1:2, :]
+        end
+        @test propertynames(bat_marginalize(shaped_samples, 2:3).result.v) == (:θ⌞2⌟, :ϕ)
+        mixed = bat_marginalize(shaped_samples, (:ϕ, 1)).result
+        @test mixed.v.ϕ == shaped_samples.v.ϕ && mixed.v.θ⌞1⌟ == flat[1, :]
+        @test_throws ArgumentError bat_marginalize(shaped_samples, 4)
+        @test_throws ArgumentError bat_marginalize(unshaped_samples, :ϕ)
+
+        const_prior = distprod(a = Normal(), c = 4.2)
+        const_samples = bat_sample(const_prior, IIDSampling(nsamples = 10), context).result
+        with_const = bat_marginalize(const_samples, (:c, :a)).result
+        @test with_const.v.c isa Fill && with_const.v.a == const_samples.v.a
+        @test_throws ArgumentError bat_marginalize(const_samples, :c)
+    end
+
+    @testset "marginals of marginals" begin
+        data = (randn(10^4), randn(10^4) .+ 1, randn(10^4) .- 1)
+        hist = fit(Histogram, data, ([-4.0, -1.0, 0.0, 0.5, 4.0], -3:0.5:5, -5:1:3))
+        marg_3d = MarginalDist(MvBinnedDist(hist))
+        bin_probs(d, edges) = [cdf(d, b) - cdf(d, a) for (a, b) in zip(edges[1:end-1], edges[2:end])]
+        for i in 1:3
+            m = MarginalDist(marg_3d, i)
+            @test m.dist isa UvBinnedDist
+            @test bin_probs(m.dist, hist.edges[i]) ≈ vec(sum(hist.weights, dims = Tuple(setdiff(1:3, i)))) / sum(hist.weights)
+        end
+        h_31 = convert(Histogram, MarginalDist(marg_3d, (3, 1)).dist)
+        @test h_31.edges == (hist.edges[3], hist.edges[1])
+        @test h_31.weights ≈ permutedims(convert(Histogram, MarginalDist(marg_3d, [1, 3]).dist).weights)
+
+        marg_2d = MarginalDist(shaped_samples, (:ϕ, :(θ[2])), bins = 20)
+        @test MarginalDist(marg_2d, :ϕ).dist isa UvBinnedDist
+        @test keys(varshape(MarginalDist(marg_2d, 2))) == (:θ⌞2⌟,)
+    end
+
+    @testset "contour levels" begin
+        # A single bin covers the probabilities 0.683 and 0.955:
+        @test calculate_levels(Histogram((0:3,), [50, 49, 1]), [0.683, 0.955, 0.997]) ≈ [1, 49, 49, 110]
+        hist = fit(Histogram, (randn(10^4), randn(10^4)), nbins = 20)
+        levels = calculate_levels(hist, [0.997, 0.683, 0.955])
+        @test issorted(levels) && length(levels) == 4
+        for (p, l) in zip([0.997, 0.955, 0.683], levels)
+            @test sum(filter(>=(l), hist.weights)) >= p * sum(hist.weights)
+        end
     end
 
     @testset "bin centers and marginal modes" begin

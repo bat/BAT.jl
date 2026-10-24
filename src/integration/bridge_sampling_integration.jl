@@ -51,9 +51,9 @@ end
 
 #TODO: Use EvaluatedMeasure to get proposal
 function bridge_sampling_integral(
-    target_density::BATMeasure, 
+    target_density::AbstractMeasure, 
     target_samples::DensitySampleVector, 
-    proposal_density::BATMeasure, 
+    proposal_density::AbstractMeasure, 
     proposal_samples::DensitySampleVector, 
     strict::Bool,
     ess_alg::EffSampleSizeAlgorithm,
@@ -153,7 +153,7 @@ end
 
 # ToDo: Rework to operate on an EvaluatedMeasure directly:
 function bridge_sampling_integral(
-    target_measure::BATMeasure,
+    target_measure::AbstractMeasure,
     target_samples::DensitySampleVector,
     strict::Bool,
     ess_alg::EffSampleSizeAlgorithm,

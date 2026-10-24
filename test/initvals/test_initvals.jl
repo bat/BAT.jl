@@ -4,7 +4,8 @@ using BAT
 using Test
 
 using LinearAlgebra, Random
-using Distributions, PDMats, StatsBase, ValueShapes, ArraysOfArrays
+using Distributions, PDMats, StatsBase, ValueShapes, ArraysOfArrays, StructArrays
+using DensityInterface
 
 
 @testset "initvals" begin
@@ -25,10 +26,18 @@ using Distributions, PDMats, StatsBase, ValueShapes, ArraysOfArrays
         @test @inferred(bat_initval(ds, context)).result isa NamedTuple
         @test bat_initval(ds, context).optargs.algorithm == InitFromTarget()
         @test logdensityof(ds, bat_initval(ds, context).result) > -Inf
-        @test @inferred(bat_initval(ds, 10, context)).result isa ShapedAsNTArray
+        @test @inferred(bat_initval(ds, 10, context)).result isa StructVector
         @test all(x -> x > -Inf, logdensityof.(Ref(ds), bat_initval(ds, 10, context).result))
         v_s = BAT.bat_sample(ds, BAT.IIDSampling(nsamples=1)).result
         @test BAT.bat_initval(ds, BAT.InitFromSamples(v_s), context).result == first(v_s.v)
+
+        # Initial values from IID sources are transformed along with the target:
+        src = batmeasure(NamedTupleDist(a = Exponential(5.0), b = [Exponential(5.0), Exponential(5.0)]))
+        f = BAT.transport_to(BAT.StdNormal()^3, src)
+        iid_alg = BAT.apply_trafo_to_init(f, InitFromIID(src))
+        xs = bat_initval(BAT.StdNormal()^3, 1000, iid_alg, context).result
+        @test xs isa VectorOfSimilarVectors
+        @test abs(mean(flatview(xs))) < 0.2 && abs(std(flatview(xs)) - 1) < 0.2
 
         # Variate types without a dedicated _maycopy_val method (like
         # ShapedAsNT) must pass through instead of raising a MethodError:

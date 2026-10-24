@@ -251,11 +251,15 @@ function bat_eff_sample_size_impl(smpls::DensitySampleVector, algorithm::EffSamp
         _resample_ac_ess(unshaped_smpls, algorithm, context)
     end
 
-    result_vs = replace_const_shapes(s::ConstValueShape -> ConstValueShape(Fill(n, size(s.value)...)), vs)
-    ess = result_vs(_ess_shape_input(unshaped_ess))
+    # Constants are not sampled, their ESS is the number of samples:
+    ess = _unflat_variate(vs, _ess_shape_input(unshaped_ess), x -> _const_ess(n, x))
 
     (result = ess,)
 end
+
+_const_ess(n::Integer, ::Number) = n
+_const_ess(n::Integer, x::AbstractArray) = Fill(n, size(x))
+_const_ess(n::Integer, x) = map(Base.Fix1(_const_ess, n), x)
 
 
 # Per-sample MCMC ids identify the ordered sampling process. Identical

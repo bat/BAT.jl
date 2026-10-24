@@ -48,15 +48,14 @@ function bat_compare(samples_1::DensitySampleVector, samples_2::DensitySampleVec
     # ToDo: Handle this differently?
     context = _g_dummy_context
 
-    n_params_1 = size(flatview(unshaped.(samples_1.v)))[1]
-    n_params_2 = size(flatview(unshaped.(samples_2.v)))[1]
+    samples_1_flat = flatbatch(samples_1.v)
+    samples_2_flat = flatbatch(samples_2.v)
+    n_params_1 = size(samples_1_flat, 1)
+    n_params_2 = size(samples_2_flat, 1)
 
     if n_params_1 !== n_params_2
         throw(ArgumentError("Samples with different number of parameters cannot be compared"))
     end
-
-    samples_1_flat = flatview(unshaped.(samples_1.v))
-    samples_2_flat = flatview(unshaped.(samples_2.v))
 
     if nsamples == :effective
         @info "Using effective number of samples in the Kolmogorov–Smirnov distribution"

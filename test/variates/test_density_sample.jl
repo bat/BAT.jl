@@ -3,10 +3,14 @@
 using BAT, BATTestCases
 using Distributions
 using StatsBase
+using StableRNGs
 using Test
 
-using ArraysOfArrays, ElasticArrays, ValueShapes
+using ArraysOfArrays, ElasticArrays, FillArrays, StructArrays, ValueShapes
 import TypedTables
+import LazyReports
+import MeasureBase
+using MeasureBase: productmeasure, asmeasure, StdUniform, StdNormal, logdensities
 
 
 struct _SampleInfo
@@ -61,13 +65,14 @@ _SampleAux() = _SampleInfo(0)
         @test dsv1[4] == ds4
         @test dsv1[2] == ds2
 
-        shape = NamedTupleShape(x = ScalarShape{Real}(), y = ArrayShape{Real}(2)) 
+        shape = NamedTupleShape(x = ScalarShape{Real}(), y = ArrayShape{Real}(2))
 
-        @test @inferred(broadcast(shape, dsv1)) isa DensitySampleVector
-        @test broadcast(shape, dsv1).v isa ShapedAsNTArray
-        @test @inferred(broadcast(unshaped, TypedTables.Table(broadcast(shape, dsv1)).v)) === dsv1.v
-
-        @test shape.(dsv1)[1] == shape(dsv1[1])
+        shaped_dsv1 = @test_deprecated shape.(dsv1)
+        @test shaped_dsv1 isa DensitySampleVector
+        @test shaped_dsv1.v isa StructVector && varshape(shaped_dsv1) == shape
+        @test shaped_dsv1[2].v == (x = ds2.v[1], y = ds2.v[2:3])
+        @test @inferred(broadcast(unshaped, shaped_dsv1)).v == dsv1.v
+        @test flatview(unshaped.(dsv1).v) === flatview(dsv1.v)
 
         dsv_merged = @inferred(merge(dsv1, dsv2))
         @test vcat(dsv1, dsv2) == dsv_merged
@@ -108,7 +113,7 @@ _SampleAux() = _SampleInfo(0)
         dsv_empty = DensitySampleVector(v = dsv_merged.v[1:0], logd = dsv_merged.logd[1:0], weight = :multiplicity)
         @test isempty(dsv_empty)
 
-        rtol = eps(typeof(float(1)))
+        rtol = eps(float(eltype(dsv_merged.weight)))
         X = @inferred(flatview(dsv_merged.v))
         w = @inferred(ProbabilityWeights(dsv_merged.weight))
         rows = eachrow(X)
@@ -161,6 +166,21 @@ _SampleAux() = _SampleInfo(0)
 
         @test @inferred(isapprox(@inferred(cor(X, w, 2)), @inferred(cor(dsv_merged)), rtol=rtol))
 
+        @testset "marginal histograms" begin
+            smpls = DensitySampleVector(v = nestedview([0.0 0.5 1.0 2.0; 1.0 1.0 1.0 1.0]), logd = zeros(4), weight = [1, 2, 1, 3])
+            hists_coarse = BAT._marginal_histograms(smpls, nbins = 2)
+            hists_fine = BAT._marginal_histograms(smpls, nbins = 10)
+            @test all(h -> sum(h.weights) == sum(smpls.weight), vcat(hists_coarse, hists_fine))
+            @test length(hists_fine[1].weights) > length(hists_coarse[1].weights)
+        end
+
+        @testset "growing requires flat storage" begin
+            μ = productmeasure((a = StdNormal(), b = StdNormal()^2))
+            smpls = DensitySampleVector(rand(μ^3), μ)
+            @test_throws ArgumentError push!(deepcopy(smpls), smpls[1])
+            @test_throws ArgumentError append!(deepcopy(smpls), smpls)
+        end
+
         @testset "weighted statistics ignore global weight scale" begin
             values = [0.0, 2.0]
             unit = DensitySampleVector(v = values, logd = zeros(2), weight = [1, 1])
@@ -169,5 +189,123 @@ _SampleAux() = _SampleInfo(0)
             )
             @test mean(scaled) ≈ mean(unit)
         end
+    end
+
+    @testset "structured samples" begin
+        μ = productmeasure((
+            a = asmeasure(Normal()),
+            b = asmeasure(MvNormal([2.0 0.5; 0.5 1.0])),
+            c = MeasureBase.Dirac(4.2),
+            d = productmeasure((x = StdUniform(), y = StdNormal()^(2, 3))),
+        ))
+        n = 50
+        X = rand(μ^n)
+        weight = rand(1:3, n)
+        smpls = DensitySampleVector(X, μ, logd = logdensities(μ, X), weight = weight)
+        @test smpls.v.c isa Fill
+        @test varshape(smpls) == varshape(μ)
+        @test occursin("varshape", sprint(show, smpls))
+        @test sprint(show, MIME"text/plain"(), smpls) isa String
+
+        flat = unshaped.(smpls)
+        @test flat.v isa VectorOfSimilarVectors
+        @test flatview(flat.v) == BAT.flatbatch(smpls.v)
+        @test DensitySampleVector(flatview(flat.v), μ, logd = smpls.logd, weight = weight) == smpls
+
+        nts = [(a = x.a, b = Vector(x.b), c = x.c, d = (x = x.d.x, y = Matrix(x.d.y))) for x in X]
+        smpls_nt = DensitySampleVector(v = nts, logd = smpls.logd, weight = weight)
+        @test smpls_nt.v.b isa ArrayOfSimilarArrays && smpls_nt.v.d.y isa ArrayOfSimilarArrays
+        @test DensitySampleVector(nts, μ, logd = smpls.logd, weight = weight) == smpls
+
+        m, m_flat = mean(smpls), mean(flat)
+        @test m isa NamedTuple && m.c == 4.2
+        @test vcat(m.a, m.b, m.d.x, vec(m.d.y)) ≈ m_flat
+        v, v_flat = var(smpls), var(flat)
+        @test v.c == 0 && vcat(v.a, v.b, v.d.x, vec(v.d.y)) ≈ v_flat
+        @test std(smpls).d.y ≈ sqrt.(v.d.y)
+        for (f, f_flat) in ((s -> quantile(s, 0.3), s -> quantile(s, 0.3)), (minimum, minimum), (maximum, maximum), (mode, mode))
+            r = f(smpls)
+            @test r.c == 4.2
+            @test vcat(r.a, r.b, r.d.x, vec(r.d.y)) == f_flat(flat)
+        end
+        @test minimum(flat) == minimum(flatview(flat.v), dims = 2)[:]
+        @test cov(smpls) ≈ cov(flat) && cor(smpls) ≈ cor(flat)
+
+        @test smpls[3].v.c == 4.2 && smpls[3].v.b == smpls.v.b[3]
+        sub = smpls[2:5]
+        @test sub.v.c isa Fill && length(sub) == 4 && sub[1] == smpls[2]
+        both = vcat(smpls, sub)
+        @test both.v.c isa Fill && length(both) == n + 4 && both[n + 1] == smpls[2]
+        @test merge(smpls, sub) == both
+        @test isapprox(smpls, deepcopy(smpls)) && !isapprox(smpls, flat)
+        smpls_nan = DensitySampleVector(v = smpls.v, logd = fill(NaN, n))
+        @test isequal(smpls_nan, deepcopy(smpls_nan)) && smpls_nan != smpls_nan
+
+        @testset "report" begin
+            names = ["a", "b[1]", "b[2]", "d.x", ("d.y[$i]" for i in 1:6)...]
+            tbl = BAT._marginal_table(varshape(smpls), flat)
+            @test tbl.parameter == names
+            @test tbl.mean ≈ mean(flat) && tbl.std ≈ std(flat) && tbl.global_mode == mode(flat)
+            @test length(tbl.credible_intervals) == length(tbl.marginal_histogram) == 10
+            @test BAT._rpt_table_of_constparvals(varshape(smpls)) == TypedTables.Table(parameter = [:c], value = ["4.2"])
+
+            rpt = LazyReports.lazyreport(smpls)
+            txt = sprint(show, MIME"text/plain"(), rpt)
+            @test all(name -> occursin(name, txt), names)
+            @test occursin("Fixed parameters", txt) && occursin("4.2", txt)
+            @test occursin("| d.y[6]", sprint(show, MIME"text/markdown"(), rpt))
+            @test occursin("<table", sprint(show, MIME"text/html"(), rpt))
+
+            for (v, vnames) in ((randn(n), ["v"]), (nestedview(randn(2, n)), ["v_1", "v_2"]))
+                txt = sprint(show, MIME"text/plain"(), LazyReports.lazyreport(DensitySampleVector(v = v, logd = zeros(n))))
+                @test all(name -> occursin(name, txt), vnames) && !occursin("Fixed parameters", txt)
+            end
+
+            for (v, vnames) in ((Fill((a = 4.2, b = [1.0, 2.0]), n), ["a", "b"]), (Fill(4.2, n), ["v"]))
+                txt = sprint(show, MIME"text/plain"(), LazyReports.lazyreport(DensitySampleVector(v = v, logd = zeros(n))))
+                @test all(name -> occursin(name, txt), vnames) && occursin("4.2", txt)
+                @test occursin("Fixed parameters", txt) && !occursin("Marginals", txt)
+            end
+        end
+    end
+
+    @testset "constants" begin
+        μ = productmeasure((a = StdNormal(), c = MeasureBase.Dirac([1.0, 2.0])))
+        atom = MeasureBase.marginals(μ).c.x
+        X = rand(μ^5)
+        s = DensitySampleVector(X, μ, logd = logdensities(μ, X))
+        t = MeasureBase.transport_to(μ, μ).(s)
+        @test s.v.c[1] == t.v.c[1] == atom && s.v.c[1] !== t.v.c[1]
+        for derived in (t, s[2:3], vcat(s, s), DensitySampleVector(BAT.flatbatch(s.v), μ))
+            derived.v.c[1][1] = 99.0
+        end
+        @test s.v.c[1] == [1.0, 2.0]
+        s.v.c[1][1] = 99.0
+        @test atom == [1.0, 2.0]
+        mean(s).c[1] = 42.0
+        @test s.v.c[1][1] == 99.0
+
+        # Stored variates must agree with their log-densities:
+        X_bad = StructArray((a = X.a, c = Fill([5.0, 6.0], 5)))
+        @test_throws ArgumentError DensitySampleVector(X_bad, μ, logd = zeros(5))
+
+        # Samples with different named tuple constants can be concatenated:
+        μ_nt(x) = productmeasure((a = StdNormal(), c = MeasureBase.Dirac((x = x, y = [1.0, 2.0]))))
+        s_nt = vcat(DensitySampleVector(rand(μ_nt(1.0)^2), μ_nt(1.0)), DensitySampleVector(rand(μ_nt(2.0)^3), μ_nt(2.0)))
+        @test s_nt.v.c.x == [1.0, 1.0, 2.0, 2.0, 2.0] && all(==([1.0, 2.0]), s_nt.v.c.y)
+        @test size(BAT.flatbatch(s_nt.v)) == (4, 5)
+    end
+
+    @testset "uniform layout" begin
+        # Bind with a value-dependent layout that the variate shape of the
+        # measure can't reflect:
+        μ = MeasureBase.mbind(a -> StdUniform()^(a < 0.9 ? 1 : 2), StdUniform())
+        @test varshape(μ) == ArrayShape{Real}(1)
+        X = rand(StableRNG(789), μ^100)
+        @test_throws ArgumentError DensitySampleVector(X, μ)
+        @test_throws ArgumentError DensitySampleVector(v = X)
+        @test_throws ArgumentError DensitySampleVector(filter(x -> length(x) == 2, X), μ)
+        @test_throws ArgumentError bat_sample(μ, IIDSampling(nsamples = 100), BATContext(rng = StableRNG(789)))
+        @test_throws ArgumentError DensitySampleVector(v = [1.0, [1.0, 2.0]])
     end
 end

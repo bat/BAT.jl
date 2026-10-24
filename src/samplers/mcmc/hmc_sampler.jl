@@ -132,7 +132,7 @@ bat_default(::Type{TransformedMCMC}, ::Val{:burnin}, ::HamiltonianMC, ::Transfor
 
 function _create_proposal_state(
     proposal::HamiltonianMC,
-    target::BATMeasure,
+    target::AbstractMeasure,
     context::BATContext,
     v_init::AbstractVector{PV},
     f_transform::Function,

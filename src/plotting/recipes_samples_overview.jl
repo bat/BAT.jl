@@ -13,20 +13,15 @@
     lower = Dict(),
     vsel_label = []
 )
-    vsel = collect(vsel)
-    if isa(vsel, Vector{<:Integer}) == false
-        vsel = asindex.(Ref(BAT.varshape(samples)), vsel)
-        vsel = reduce(vcat, vsel)
-    end
-    vsel = vsel[vsel .<=  totalndof(BAT.varshape(samples))]
+    # Positions beyond the number of free parameters are skipped, so that
+    # the default selects up to five parameters:
+    vs = varshape(samples)
+    vsel = first(_resolve_vsel(vs, filter(sel -> !(sel isa Integer) || sel <= totalndof(vs), _normalize_vsel(vsel))))
+    flat_samples = unshaped.(samples)
 
-    xlabel = ["v$i" for i in vsel]
-    ylabel = ["p(v$i)" for i in vsel]
-
-    if isshaped(samples)
-        xlabel = getstring.(Ref(samples), vsel)
-        ylabel = ["p($l)" for l in xlabel]
-    end
+    parnames = getstring.(Ref(samples), vsel)
+    xlabel = parnames
+    ylabel = ["p($l)" for l in xlabel]
 
     if length(vsel_label) > 0
         xlabel = [vsel_label[i] for i in 1:length(vsel_label)]
@@ -37,22 +32,19 @@
     layout --> nparams^2
     size --> (1000, 600)
 
-    partition_tree = get(upper, "partition_tree", false)
-    min_samples = minimum(flatview(unshaped.(samples.v)), dims=2)[:,1]
-    max_samples = maximum(flatview(unshaped.(samples.v)), dims=2)[:,1]
-
     # get bin edges
-    bins = if isa(bins, Integer)
-        fill(bins, length(vsel))
-    elseif isa(bins, Tuple{Vararg{Union{Integer, StepRangeLen}}})
-        bins
-    elseif isa(bins, NamedTuple)
+    bins = if isa(bins, NamedTuple)
         tmp_bins::Vector{Any} = fill(200, length(vsel))
         for k in keys(bins)
-            idx = findfirst(isequal(string(k)), getstring.(Ref(samples), vsel))
-            tmp_bins[idx] = bins[idx]
+            idx = findfirst(isequal(string(k)), parnames)
+            isnothing(idx) && throw(ArgumentError("No selected parameter $k for the bins $bins"))
+            tmp_bins[idx] = bins[k]
         end
         tmp_bins
+    elseif isa(bins, Tuple)
+        bins
+    else
+        fill(bins, length(vsel))
     end
 
 
@@ -76,7 +68,7 @@
             xguide --> xlabel[i]
             yguide --> ylabel[i]
 
-            unshaped.(samples), (vsel[i])
+            flat_samples, (vsel[i])
         end
 
 
@@ -99,42 +91,10 @@
                 xlims --> get(upper, "xlims", :auto)
                 ylims --> get(upper, "ylims", :auto)
 
-                if partition_tree != false
-                    xguide --> xlabel[j]
-                    yguide --> xlabel[i]
+                xguide --> xlabel[i]
+                yguide --> xlabel[j]
 
-                    unshaped.(samples), (vsel[j], vsel[i])
-                else
-                    xguide --> xlabel[i]
-                    yguide --> xlabel[j]
-
-                    unshaped.(samples), (vsel[i], vsel[j])
-                end
-            end
-
-            if partition_tree != false
-                subspaces_rect_bounds = get_tree_par_bounds(partition_tree)
-                axes = [vsel[j], vsel[i]]
-                for rect in subspaces_rect_bounds
-                    for ind in Base.OneTo(size(rect)[1])
-                        rect[ind,:] = replace(rect[ind,:], Pair(Inf, max_samples[ind]), Pair(-Inf, min_samples[ind]))
-                    end
-                    box = _rect_box(rect[axes[1],1], rect[axes[1],2], rect[axes[2],1], rect[axes[2],2])
-
-                    @series begin
-                        subplot := j + (i-1)*nparams
-                        seriestype --> :path
-                        linewidth --> get(upper, "linewidth", 1)
-                        linealpha --> get(upper, "linealpha", 1)
-                        linecolor -->  get(upper, "linecolor", :darkgray)
-                        legend --> false
-
-                        xlims --> (min_samples[vsel[j]], max_samples[vsel[j]])
-                        ylims --> (min_samples[vsel[i]], max_samples[vsel[i]])
-
-                        box[1], box[2]
-                    end
-                end
+                flat_samples, (vsel[i], vsel[j])
             end
 
             # lower left plots
@@ -157,7 +117,7 @@
                  xguide --> xlabel[i]
                  yguide --> xlabel[j]
 
-                 unshaped.(samples), (vsel[i], vsel[j])
+                 flat_samples, (vsel[i], vsel[j])
              end
 
         end

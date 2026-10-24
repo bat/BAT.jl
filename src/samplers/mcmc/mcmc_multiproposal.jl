@@ -227,7 +227,7 @@ end
 
 function _create_proposal_state(
     multi_proposal::MCMCMultiProposal, 
-    target::BATMeasure, 
+    target::AbstractMeasure, 
     context::BATContext, 
     v_init::AbstractVector{PV},
     f_transform::Function,

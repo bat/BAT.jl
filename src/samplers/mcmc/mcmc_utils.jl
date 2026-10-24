@@ -20,20 +20,20 @@ function (fg::_AffinePullbackValGrad)(z::AbstractVector{<:Real})
     return logd_x + fg.ladj, fg.f_transform.A' * grad_x
 end
 
-function _target_logdgrad_func(target::BATMeasure, f_transform::MulAdd, context::BATContext, proposal_alg, x_dummy::AbstractVector{<:Real})
+function _target_logdgrad_func(target::AbstractMeasure, f_transform::MulAdd, context::BATContext, proposal_alg, x_dummy::AbstractVector{<:Real})
     adsel = get_valid_adselector(context, proposal_alg)
     fg_x = valgrad_func(checked_logdensityof(target), adsel, x_dummy)
     return _AffinePullbackValGrad(fg_x, f_transform, first(logabsdet(f_transform.A)))
 end
 
-function _target_logdgrad_func(target::BATMeasure, ::typeof(identity), context::BATContext, proposal_alg, x_dummy::AbstractVector{<:Real})
+function _target_logdgrad_func(target::AbstractMeasure, ::typeof(identity), context::BATContext, proposal_alg, x_dummy::AbstractVector{<:Real})
     adsel = get_valid_adselector(context, proposal_alg)
     return valgrad_func(checked_logdensityof(target), adsel, x_dummy)
 end
 
 # Generic (possibly nonlinear) transforms differentiate through the full
 # pullback:
-function _target_logdgrad_func(target::BATMeasure, f_transform::Function, context::BATContext, proposal_alg, x_dummy::AbstractVector{<:Real})
+function _target_logdgrad_func(target::AbstractMeasure, f_transform::Function, context::BATContext, proposal_alg, x_dummy::AbstractVector{<:Real})
     adsel = get_valid_adselector(context, proposal_alg)
     f = checked_logdensityof(MeasureBase.pullback(f_transform, target))
     return valgrad_func(f, adsel)
@@ -42,7 +42,7 @@ end
 # Updated valgrad function after a transform change: the fixed-space AD
 # preparation stays valid across affine geometry changes, only the affine
 # wrapper is rebuilt:
-function _updated_logdgrad_func(fg_old, target::BATMeasure, f_new::Function, context::BATContext, proposal_alg, x_dummy::AbstractVector{<:Real})
+function _updated_logdgrad_func(fg_old, target::AbstractMeasure, f_new::Function, context::BATContext, proposal_alg, x_dummy::AbstractVector{<:Real})
     if fg_old isa _AffinePullbackValGrad && f_new isa MulAdd
         return _AffinePullbackValGrad(fg_old.fg_x, f_new, first(logabsdet(f_new.A)))
     else

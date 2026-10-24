@@ -1,98 +1,63 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-# bring vsel to a normalized shape, i.e.: 
-#
-# AbstractVector{<:Integer} -> AbstractVector{<:Integer}
-# AbstractVector{AbstractUnitRange} -> AbstractVector{AbstractUnitRange}
-# 
-# Expr -> Vector{Union{Symbol,Expr})
-# 
-# Symbol -> Vector{Union{Symbol,Expr})
+# Parameter selections (`vsel`) select parameters by name (`:a`), path
+# (`:(x.b.c)`) or element (`:(a[2])`, `:(a[1, :])`), or select free
+# parameters by their position (an integer or a range of integers) in the
+# standard-variate layout of the samples. Tuples and vectors of these, and
+# expressions like `:([a, b[2]])` or `:(1:3)`, select several parameters.
 
-function _normalize_vsel_unshaped(vsel::Union{AbstractVector{I}, AbstractVector{UnitRange{I}}}) where I <: Integer
-    return vsel
-end
+# The selections in `vsel` as a vector of integers, symbols and expressions:
+_normalize_vsel(vsel::Union{Integer,Symbol}) = Any[vsel]
+_normalize_vsel(vsel::AbstractRange{<:Integer}) = Any[vsel...]
+_normalize_vsel(vsel::QuoteNode) = _normalize_vsel(vsel.value)
+_normalize_vsel(vsel::Union{Tuple,AbstractVector}) = reduce(vcat, map(_normalize_vsel, vsel); init = Any[])
 
-function _normalize_vsel_unshaped(vsel::Integer)
-    return Int[vsel]
-end
-
-function _normalize_vsel_unshaped(::Union{Symbol,Expr})
-    throw(ArgumentError("Samples or distribution are unshaped, please use Integer, Vector of Integers, or UnitRange for indexing."))
-end
-
-function _normalize_vsel_unshaped(vsel::AbstractVector)
-    @argcheck all(broadcast(x -> x isa Union{T, AbstractVector{T}, AbstractVector{UnitRange{T}}} where T <: Integer, vsel)) throw(ArgumentError("Samples or distribution are unshaped, please use Integer, Vector of Integers, or UnitRange for indexing."))
-    return Union{typeof.(vsel)...}[vsel...]
-end
-
-function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::Union{UR, AbstractVector{UR}} where UR <: AbstractRange)
-    @argcheck (vsel isa AbstractVector{UR} where UR <: AbstractUnitRange ? length(vsel) == 1 : true) throw(ArgumentError("Invalid selection of indexes vsel = $vsel, please use a single UnitRange or a Vector of a single UnitRange."))
-    rng = vsel isa AbstractVector{UR} where UR <: AbstractUnitRange ? vsel[1] : vsel
-    return UnitRange[rng]
-end
-
-# function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::Integer)
-#     n_vsel = _all_exprs(vs)[vsel]
-#     return typeof(n_vsel)[n_vsel]
-# end
-
-function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::Union{I, AbstractVector{I}}) where I <: Integer
-    return vsel isa AbstractVector ? Integer[vsel...] : Integer[vsel]
-end
-
-function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::Expr)
-    if @capture(vsel, [s_:e_]) || @capture(vsel, (s_:e_))
-        return _normalize_vsel_shaped(vs, s:e)
-    elseif isexpr(vsel, :vect)
-        if all(broadcast(x -> x isa Integer, vsel.args))
-            return _normalize_vsel_shaped(vs, [vsel.args...])
-        else
-            vsel_norm = [_normalize_vsel_shaped(vs, el isa QuoteNode ? el.value : el) for el in vsel.args]
-            n_vsel = vcat(vsel_norm...) # for user convenience, does :([a[1,2], b, c]) -> [:(a[1,2]), :b, :c]
-            return Union{typeof.(n_vsel)...}[n_vsel...]
-        end
+function _normalize_vsel(vsel::Expr)
+    if isexpr(vsel, :vect)
+        return _normalize_vsel(vsel.args)
+    elseif @capture(vsel, s_:e_) && s isa Integer && e isa Integer
+        return _normalize_vsel(s:e)
     elseif isexpr(vsel, :call)
         throw(ArgumentError("Invalid parameter selection $vsel, expected a name, an indexed name, a range or a vector of these."))
+    else
+        return Any[vsel]
     end
-    return Expr[vsel]
 end
 
-function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::Symbol)   
-    return Symbol[vsel]
+_normalize_vsel(vsel) = throw(ArgumentError("Invalid parameter selection $vsel"))
+
+
+# Positions of the free parameters selected by `vsel` in the standard-variate
+# layout of `vs`, and the variate shape of the selection with names encoded
+# via `encode_name`. Constants select no positions but keep their value:
+function _resolve_vsel(vs::AbstractValueShape, vsel)
+    names = all_active_names(vs)
+    selections = map(sel -> _resolve_sel(vs, names, sel), _normalize_vsel(vsel))
+    idxs = reduce(vcat, map(first, selections); init = Int[])
+    sel_shape = NamedTupleShape(NamedTuple{(map(sel -> sel[2], selections)...,)}(map(last, selections)))
+    return idxs, sel_shape
 end
 
-function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::AbstractVector)
-    vsel_norm = [_normalize_vsel_shaped(vs, el isa QuoteNode ? el.value : el) for el in vsel]
-    n_vsel = vcat(vsel_norm...)
-    return Union{typeof.(n_vsel)...}[n_vsel...]
+function _resolve_sel(::AbstractValueShape, names::AbstractVector{<:AbstractString}, sel::Integer)
+    checkbounds(Bool, names, sel) || throw(ArgumentError("Parameter position $sel is out of bounds, there are $(length(names)) free parameters"))
+    return Int[sel], encode_name(names[sel]), ScalarShape{Real}()
 end
 
-
-# Positions of the selected dims among the free parameters, one-based and
-# independent of the flat storage axes. For shaped samples also the shape of
-# the selection.
-
-marg_idxs_unshaped(samples::DensitySampleVector, vsel::AbstractVector) = vsel
-
-function marg_idxs_shaped(samples::DensitySampleVector, vsel::AbstractVector{<:Union{Symbol,Expr}})
-    vs = varshape(samples)
-    selections = [_select_params(vs, el) for el in vsel]
-    sel_idxs = reduce(vcat, first.(selections); init = Int[])
-    new_shape = NamedTupleShape(NamedTuple(encode_name.(vsel) .=> last.(selections)))
-    return sel_idxs, new_shape
+function _resolve_sel(vs::NamedTupleShape, ::AbstractVector{<:AbstractString}, sel::Union{Symbol,Expr})
+    idxs, sel_shape = _select_params(vs, sel)
+    return idxs, encode_name(sel), sel_shape
 end
 
-function marg_idxs_shaped(samples::DensitySampleVector, vsel::AbstractVector{<:AbstractUnitRange})
-    return marg_idxs_shaped(samples, collect(only(vsel)))
-end
+_resolve_sel(vs::AbstractValueShape, ::AbstractVector{<:AbstractString}, sel::Union{Symbol,Expr}) =
+    throw(ArgumentError("Variates of shape $vs have no named parameters, select $sel by position instead"))
 
-function marg_idxs_shaped(samples::DensitySampleVector, vsel::AbstractVector{<:Integer})
-    names = all_active_names(varshape(samples))
-    checkbounds(Bool, names, vsel) || throw(ArgumentError("Flat parameter indices $vsel are out of bounds, the samples have $(length(names)) free parameters. Select free parameters by flat index or use Symbols or Expressions."))
-    new_shape = NamedTupleShape(NamedTuple(encode_name.(names[vsel]) .=> Ref(ScalarShape{Real}())))
-    return Int.(vsel), new_shape
+
+# Values of the free parameters at positions `idxs` of all samples, one row
+# per parameter:
+function _flat_params(samples::DensitySampleVector, idxs)
+    X = flatbatch(samples.v)
+    return X[firstindex(X, 1) - 1 .+ idxs, :]
 end
 
 
@@ -157,7 +122,7 @@ For convenience, `vsel` can be of the shape
 
 :([a[1,2], a[5:8], c]) instead of [:(a[1,2]), :(a[5:8]), :c]
 
-The logd of the new samples is set to NaN, the info and aux fields of `samples` are copied.
+The logd of the new samples is set to NaN, the weight, info and aux fields of `samples` are copied.
 
 Example:
 
@@ -174,37 +139,14 @@ marg_unshaped_samples = bat_marginalize(orig_unshaped_smaples, [1,2,3])
 =#
 
 # ToDo: Turn this into a proper public API:
-function bat_marginalize(samples::DensitySampleVector, 
-                         vsel
-)
-    shaped = isshaped(samples)
+function bat_marginalize(samples::DensitySampleVector, vsel)
     vs = varshape(samples)
-    vsel = vsel isa Tuple ? Union{typeof.(vsel)...}[vsel...] : vsel
-
-    if shaped
-       vsel = _normalize_vsel_shaped(vs, vsel)
-       flat_idxs, new_shape = marg_idxs_shaped(samples, vsel)
-    else
-       vsel = _normalize_vsel_unshaped(vsel)
-       flat_idxs = marg_idxs_unshaped(samples, vsel)
-    end
-
+    flat_idxs, sel_shape = _resolve_vsel(vs, vsel)
     @argcheck !isempty(flat_idxs) throw(ArgumentError("The selected parameters for the input data to be marginalized to yielded only constant Values, please select at least one free parameter."))
-    info = samples.info
-    aux = samples.aux
-    logd = fill(NaN, size(samples.v, 1))
 
-    # if only_consts
-    #     new_accs = values(new_shape)
-    #     n_params = sum(length.(new_accs))
-    #     flat_orig_data = zeros(n_params, size(samples.v, 1))
-    #     marg_data = ndims(flat_orig_data) > 1 ? VectorOfSimilarVectors(flat_orig_data) : flat_orig_data
-    # else
-
-    flat_orig_data = ValueShapes.flatview(unshaped.(samples).v)
-    marg_data = flat_orig_data[(first(axes(flat_orig_data, 1)) - 1) .+ flat_idxs, :]
-    marg_data = ndims(marg_data) > 1 ? VectorOfSimilarVectors(marg_data) : marg_data
-   
-    marg_samples = shaped ? new_shape.(DensitySampleVector(v = marg_data, logd = logd, info = info, aux = aux)) : DensitySampleVector(v = marg_data, logd = logd, info = info, aux = aux)
+    marg_data = _flat_params(samples, flat_idxs)
+    v = vs isa NamedTupleShape ? unflatbatch(sel_shape, marg_data) : nestedview(marg_data)
+    logd = fill!(similar(samples.logd), NaN)
+    marg_samples = DensitySampleVector((v, logd, copy(samples.weight), copy(samples.info), copy(samples.aux)))
     return (result = marg_samples,)
 end

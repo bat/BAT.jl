@@ -39,7 +39,7 @@ export MCMCGlobalProposal
 struct MCMCGlobalProposalProposalState{
     TA<:Real,
     TAI<:Tuple{Vararg{Real}},
-    Q<:BATMeasure,
+    Q<:AbstractMeasure,
 } <: SimpleMCMCProposalState
     target_acceptance::TA
     target_acceptance_int::TAI
@@ -58,7 +58,7 @@ bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, proposal::MCMCGlobalProp
 
 function _create_proposal_state(
     proposal::MCMCGlobalProposal,
-    target::BATMeasure,
+    target::AbstractMeasure,
     context::BATContext,
     v_init::AbstractVector{PV},
     f_transform::Function,
@@ -85,9 +85,9 @@ function mcmc_propose_transition(
     genctxs::AbstractVector,
 )
     proposal_measure = batmeasure(proposal.global_proposal)
-    proposed_z = map(genctx -> rand(genctx, proposal_measure), genctxs)
+    proposed_z = VectorOfSimilarVectors(map(genctx -> rand(genctx, proposal_measure), genctxs))
 
-    hastings_correction = checked_logdensityof.(proposal_measure, current_z) .- checked_logdensityof.(proposal_measure, proposed_z)
+    hastings_correction = checked_logdensities(proposal_measure, current_z) .- checked_logdensities(proposal_measure, proposed_z)
     return proposed_z, hastings_correction
 end
 

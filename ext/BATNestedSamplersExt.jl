@@ -9,7 +9,8 @@ using HeterogeneousComputing
 
 BAT.pkgext(::Val{:NestedSamplers}) = BAT.PackageExtension{:NestedSamplers}()
 
-using BAT: MeasureLike, BATMeasure, unevaluated
+using BAT: MeasureLike, unevaluated
+using MeasureBase: AbstractMeasure
 using BAT: ENSBound, ENSNoBounds, ENSEllipsoidBound, ENSMultiEllipsoidBound
 using BAT: ENSProposal, ENSUniformly, ENSAutoProposal, ENSRandomWalk, ENSSlice 
 
@@ -90,7 +91,7 @@ function BAT.evalmeasure_impl(em::BAT.EvaluatedMeasure, algorithm::EllipsoidalNe
     samples = [samples_w[i, 1:end-1] for i in 1:nsamples]                                   # the other ones (between 1 and end-1) are the samples
     logvals = map(logdensityof(transformed_m_uneval), samples)                                           # posterior values of the samples
     transformed_smpls = BAT.DensitySampleVector(v = samples, logd = logvals, weight = weights)
-    smpls = inverse(f_pretransform).(transformed_smpls)                                            # Here the samples are retransformed
+    smpls = BAT.transform_samples(inverse(f_pretransform), transformed_smpls)
     
     mass = exp(BAT.ULogarithmic, Measurements.measurement(state.logz, state.logzerr))
     ess = bat_eff_sample_size(smpls, KishESS(), context).result
