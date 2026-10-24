@@ -102,7 +102,7 @@ end
         merge(PAIR, (nbins=(2, 2), levels=[1.0])), merge(DIAG, (nbins=2,)))
     fig = Figure()
     try
-        EXT._bind_interactive_grid!(fig, EXT._init_gridlayout(graph, 2))
+        EXT._bind_interactive_grid!(fig, EXT._init_gridlayout!(graph, 2))
         axes = [cell(fig, i, j) for i in 1:2, j in 1:2]
         # Independent regression oracle for the original clipped [0, 0.5, 1] bins.
         @test !isempty(Makie.colorbuffer(fig))

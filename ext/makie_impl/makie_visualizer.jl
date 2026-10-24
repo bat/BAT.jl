@@ -273,7 +273,7 @@ function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, 
         picker_info = PickerInfo(n_dof, vis.backend.N_max, vis.backend.vsel,
             new_vsel -> _apply_vsel!(vis, new_vsel))
         with_theme(vis.backend.dark ? bat_theme_dark() : bat_theme()) do
-            gridlayout = _init_gridlayout(graph, vis.backend.N_max)
+            gridlayout = _init_gridlayout!(graph, vis.backend.N_max)
             built = _build_fig(graph, gridlayout, picker_info;
                 has_chain_info = _samples_have_chain_ids(outputs[1][1]),
                 has_trace_info = vis.content.step_mode[], live_vis = vis)

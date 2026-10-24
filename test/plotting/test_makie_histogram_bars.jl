@@ -231,7 +231,7 @@ end
     )
     f = Figure()
     try
-        EXT._bind_interactive_grid!(f, EXT._init_gridlayout(graph, 1))
+        EXT._bind_interactive_grid!(f, EXT._init_gridlayout!(graph, 1))
         ax = only(filter(x -> x isa Axis, contents(f[1, 1][1, 1])))
         for _ = 1:3
             Makie.update!(graph; window_steps = (Int64(20), Int64(30)))
@@ -319,7 +319,7 @@ end
     )
     f = Figure()
     try
-        EXT._bind_interactive_grid!(f, EXT._init_gridlayout(graph, 1))
+        EXT._bind_interactive_grid!(f, EXT._init_gridlayout!(graph, 1))
         ax = only(filter(x -> x isa Axis, contents(f[1, 1][1, 1])))
         p = only(filter(x -> x isa EXT.BATCheckedHistBars, ax.scene.plots))
         cached = p.checked_centers[]
@@ -413,7 +413,7 @@ end
         fig = Figure()
         try
             with_theme(Theme(BarPlot = (gap = 0.0,))) do
-                EXT._bind_interactive_grid!(fig, EXT._init_gridlayout(graph, 1))
+                EXT._bind_interactive_grid!(fig, EXT._init_gridlayout!(graph, 1))
             end
             ax = only(filter(x -> x isa Axis, contents(fig[1, 1][1, 1])))
             bar = only(filter(!isnothing, nativebar.(ax.scene.plots)))

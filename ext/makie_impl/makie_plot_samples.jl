@@ -123,7 +123,7 @@ function Makie.convert_arguments(
         support = support, step_intervals = step_intervals,
     )
 
-    gridlayout = _init_gridlayout(graph, N_max)
+    gridlayout = _init_gridlayout!(graph, N_max)
 
     return gridlayout[]
 end
@@ -162,7 +162,7 @@ function BAT.bat_makie_plot(
     )
 
     built = with_theme(dark ? bat_theme_dark() : bat_theme()) do
-        gridlayout = _init_gridlayout(graph, N_max)
+        gridlayout = _init_gridlayout!(graph, N_max)
         _build_fig(graph, gridlayout, picker_info;
             has_chain_info = _samples_have_chain_ids(samples),
             has_trace_info = graph[:has_step_timing][])

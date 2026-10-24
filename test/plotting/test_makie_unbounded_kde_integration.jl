@@ -152,7 +152,7 @@ end
             @test isequal(graph[node][], before)
             fig = Figure()
             try
-                EXT._bind_interactive_grid!(fig, EXT._init_gridlayout(graph, 2))
+                EXT._bind_interactive_grid!(fig, EXT._init_gridlayout!(graph, 2))
                 rendered = heat(cell(fig, 1, 2))
                 xlimits, ylimits = cell(fig, 1, 2).limits[]
                 @test first(rendered.x) < first(xlimits) < last(xlimits) < last(rendered.x)

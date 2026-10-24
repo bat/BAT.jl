@@ -26,7 +26,7 @@ end
         fig = Figure()
         screen = nothing
         try
-            EXT._bind_interactive_grid!(fig, EXT._init_gridlayout(graph, 2))
+            EXT._bind_interactive_grid!(fig, EXT._init_gridlayout!(graph, 2))
             screen = GLMakie.Screen(; visible=false, start_renderloop=false)
             display(screen, fig; start_renderloop=false)
             @test !isempty(Makie.colorbuffer(screen))

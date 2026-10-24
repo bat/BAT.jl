@@ -166,7 +166,7 @@ end
     @testset "Apply/All controls do not recompute on draft changes" begin
         s,timing = fixture(steps=[1,11], weights=[10,10])
         g = graph(s; timing)
-        built = EXT._build_fig(g,EXT._init_gridlayout(g,2),nothing;has_chain_info=true,has_trace_info=true)
+        built = EXT._build_fig(g,EXT._init_gridlayout!(g,2),nothing;has_chain_info=true,has_trace_info=true)
         controls = built.range_controls[]
         computations = Ref(0)
         observer = on(g[:flat_samples]) do _
@@ -227,7 +227,7 @@ end
         end
         s,_ = fixture(steps=[1],weights=[3])
         g = graph(s;timing=[[(cycle=1,first=limit-2,last=limit)]])
-        built = EXT._build_fig(g,EXT._init_gridlayout(g,2),nothing;has_chain_info=true,has_trace_info=true)
+        built = EXT._build_fig(g,EXT._init_gridlayout!(g,2),nothing;has_chain_info=true,has_trace_info=true)
         controls = built.range_controls[]
         @test length(controls.slider.range[]) == 10_001
         Makie.set!(controls.value_entry,"$(limit-1):$limit")

@@ -29,7 +29,7 @@ cell(fig,i,j)=only(filter(x->x isa Axis,contents(fig[1,1][i,j])))
 
     @testset "Static control subscriptions follow figure lifetime" begin
         g=graph(fixture())
-        built=EXT._build_fig(g,EXT._init_gridlayout(g,2))
+        built=EXT._build_fig(g,EXT._init_gridlayout!(g,2))
         max_step=Makie.ComputePipeline.get_observable!(g[:max_step];use_deepcopy=false)
         window=Makie.ComputePipeline.get_observable!(g[:window_steps];use_deepcopy=false)
         controls=built.range_controls[]

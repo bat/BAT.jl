@@ -156,7 +156,7 @@ function get_stats_plotspecs(
     recipe::Makie2DStats,
     config::NamedTuple;
     # Forwarded: the 2D stats overlay must follow the cell's main-recipe
-    # orientation (see _init_gridlayout's invariant comment).
+    # orientation (see _init_gridlayout!'s invariant comment).
     transposed::Bool = false
 )
     i, j = vsel

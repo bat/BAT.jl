@@ -65,7 +65,7 @@ end
     recipes = (diagonal=Hist1D, upper=Scatter2D, lower=ChainScatter2D)
     graph, _ = EXT._setup_static_graph(samples, recipes, [1,2], 2, CONFIG,
         BAT._default_makie_diagonal_config())
-    layout = EXT._init_gridlayout(graph, 2)
+    layout = EXT._init_gridlayout!(graph, 2)
     initial = graph[EXT.primitive_symbol(Scatter2D(), (2,1))][]
     Makie.update!(graph; window_steps=(Int64(10),Int64(12)))
     layout[]

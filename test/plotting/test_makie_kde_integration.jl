@@ -159,7 +159,7 @@ end
             source = samples(; elastic)
             before = deepcopy(source)
             graph = setup_graph(source[1:0]; recipes)
-            grid = EXT._init_gridlayout(graph, 2)
+            grid = EXT._init_gridlayout!(graph, 2)
             fig = Figure()
             try
                 EXT._bind_interactive_grid!(fig, grid)

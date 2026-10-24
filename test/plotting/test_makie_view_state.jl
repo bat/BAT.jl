@@ -207,7 +207,7 @@ end
     # rather than only proving that a stale guarded callback declines admission.
     graph,_=EXT._setup_static_graph(samples,RECIPES,[2,3],2,
         BAT._default_makie_triagonal_config(),BAT._default_makie_diagonal_config())
-    grid=EXT._init_gridlayout(graph,2)
+    grid=EXT._init_gridlayout!(graph,2)
     source=Makie.ComputePipeline.get_observable!(grid;use_deepcopy=false)
     owned=Figure()
     before_listeners=length(Makie.Observables.listeners(source))

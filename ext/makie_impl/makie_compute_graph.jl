@@ -520,7 +520,7 @@ function _init_compute_graph(
             end
 
             # Registered separately (needs :flat_chainids); same primitive_symbol
-            # naming, so _init_gridlayout's lookup finds it transparently.
+            # naming, so _init_gridlayout!'s lookup finds it transparently.
             chainscatter_primitive_sym = primitive_symbol(ChainScatter2D(), (j, i))
             register_computation!(graph,
                 [

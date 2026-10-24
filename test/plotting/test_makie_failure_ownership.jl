@@ -19,7 +19,7 @@ Base.display(d::FailingDisplay, fig::Figure) = (d.fig = fig; throw(DISPLAY_ERROR
     try
         graph, _ = EXT._setup_static_graph(SAMPLES, RECIPES, [1,2], 2,
             BAT._default_makie_triagonal_config(), BAT._default_makie_diagonal_config())
-        layout = EXT._init_gridlayout(graph,2)
+        layout = EXT._init_gridlayout!(graph,2)
         source = Makie.ComputePipeline.get_observable!(layout; use_deepcopy=false)
         listeners_before = length(Makie.Observables.listeners(source))
         # The data really has chain IDs. This controlled UI mismatch throws

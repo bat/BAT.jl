@@ -277,7 +277,7 @@ end
         empty_diagonal, empty_pair = graph[diagonal_node][], graph[pair_node][]
         fig = Figure()
         try
-            EXT._bind_interactive_grid!(fig, EXT._init_gridlayout(graph, 2))
+            EXT._bind_interactive_grid!(fig, EXT._init_gridlayout!(graph, 2))
             @test isempty(descendants(cell(fig, 1, 1), Makie.Poly))
             Makie.update!(graph; samples=[[source]], current_idxs=[[length(source)]])
             first_pair = graph[pair_node][]

@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-function _init_gridlayout(
+function _init_gridlayout!(
     graph::ComputeGraph,
     n::Integer
 )
@@ -190,7 +190,7 @@ function _init_gridlayout(
 end
 
 
-# This adapter consumes only _init_gridlayout's fixed matrix of Axis specs.
+# This adapter consumes only _init_gridlayout!'s fixed matrix of Axis specs.
 # Keep axes in their cells: Makie 0.24's whole-grid reconciler may disconnect a
 # block and later reuse it without restoring its Figure membership.
 function _bind_interactive_grid!(fig::Figure, gridlayout; live_vis = nothing)
