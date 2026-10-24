@@ -103,6 +103,12 @@ using MeasureBase: productmeasure, asmeasure, StdUniform, StdNormal
         @test BAT._own_batch(StructArray((a = Fill(0.5, n), c = Fill([1.0, 2.0], n))), μ_c).a == fill(0.5, n)
     end
 
+    @testset "uniform layout" begin
+        @test_throws ArgumentError BAT._canonical_batch([[1.0], [1.0, 2.0]])
+        @test_throws ArgumentError BAT._canonical_batch([(a = [1.0],), (a = [1.0, 2.0],)])
+        @test_throws ArgumentError BAT._canonical_batch([(a = 1.0,), (b = 2.0,)])
+    end
+
     @testset "growable storage" begin
         @test_throws ArgumentError BAT._check_growable(BAT._own_batch(rand(μ^n), μ))
         @test isnothing(BAT._check_growable(nestedview(ElasticArray(randn(3, n)))))

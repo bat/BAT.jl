@@ -3,6 +3,7 @@
 using BAT, BATTestCases
 using Distributions
 using StatsBase
+using StableRNGs
 using Test
 
 using ArraysOfArrays, ElasticArrays, FillArrays, StructArrays, ValueShapes
@@ -293,5 +294,18 @@ _SampleAux() = _SampleInfo(0)
         s_nt = vcat(DensitySampleVector(rand(μ_nt(1.0)^2), μ_nt(1.0)), DensitySampleVector(rand(μ_nt(2.0)^3), μ_nt(2.0)))
         @test s_nt.v.c.x == [1.0, 1.0, 2.0, 2.0, 2.0] && all(==([1.0, 2.0]), s_nt.v.c.y)
         @test size(BAT.flatbatch(s_nt.v)) == (4, 5)
+    end
+
+    @testset "uniform layout" begin
+        # Bind with a value-dependent layout that the variate shape of the
+        # measure can't reflect:
+        μ = MeasureBase.mbind(a -> StdUniform()^(a < 0.9 ? 1 : 2), StdUniform())
+        @test varshape(μ) == ArrayShape{Real}(1)
+        X = rand(StableRNG(789), μ^100)
+        @test_throws ArgumentError DensitySampleVector(X, μ)
+        @test_throws ArgumentError DensitySampleVector(v = X)
+        @test_throws ArgumentError DensitySampleVector(filter(x -> length(x) == 2, X), μ)
+        @test_throws ArgumentError bat_sample(μ, IIDSampling(nsamples = 100), BATContext(rng = StableRNG(789)))
+        @test_throws ArgumentError DensitySampleVector(v = [1.0, [1.0, 2.0]])
     end
 end

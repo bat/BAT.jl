@@ -47,7 +47,9 @@ gone, BAT builds on MeasureBase 0.15 instead.
   layout. Vectors of named tuples passed to the constructor are converted
   to it. The new constructor
   `DensitySampleVector(X, μ; logd, weight, info, aux)` takes a batch of
-  variates of `μ` or a matrix of their flat free components.
+  variates of `μ` or a matrix of their flat free components. Constant
+  components must match the point masses of `μ`, and all variates must
+  share one layout.
 
 * Statistics of samples have the structure of the variates: `mean`, `var`,
   `std`, `quantile`, `median`, `minimum`, `maximum` and `mode` return named

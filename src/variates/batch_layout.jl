@@ -19,7 +19,7 @@ _leafkind(::AbstractFill{<:Any,1}) = _ConstLeaf()
 
 _nonconst_leafkind(::AbstractVector{<:Real}) = _ScalarLeaf()
 _nonconst_leafkind(::AbstractVectorOfSimilarArrays{<:Real}) = _ArrayLeaf()
-_nonconst_leafkind(X::AbstractVector) = throw(ArgumentError("Unsupported batch layout of type $(nameof(typeof(X))) with elements of type $(eltype(X))"))
+_nonconst_leafkind(X::AbstractVector) = throw(ArgumentError("Unsupported batch layout of type $(nameof(typeof(X))) with elements of type $(eltype(X)), the variates of a batch must share one layout of real numbers, real arrays and named tuples of these"))
 
 
 _map_leaves(f, X::StructVector{<:NamedTuple}) = map(C -> _map_leaves(f, C), StructArrays.components(X))
@@ -28,24 +28,36 @@ _map_leaves(f, X::AbstractVector) = f(X)
 _leaves(X::StructVector{<:NamedTuple}) = _concat_tuples(map(_leaves, values(StructArrays.components(X))))
 _leaves(X::AbstractVector) = (X,)
 
+# Batches with leaves of supported kinds only, as BAT's sample storage
+# requires:
+_checked_batch(X::AbstractVector) = (foreach(_leafkind, _leaves(X)); X)
+
 _concat_tuples(xs::Tuple) = isempty(xs) ? () : (first(xs)..., _concat_tuples(Base.tail(xs))...)
 
 
 # Batches of variates in the layout of BAT's sample storage, from batches
-# in that layout or from plain vectors of variates:
+# in that layout or from plain vectors of variates. Arrays of different sizes
+# and named tuples with different fields have no common layout:
 _canonical_batch(X::AbstractVector) = X
-_canonical_batch(X::AbstractVector{<:AbstractArray}) = convert(VectorOfSimilarArrays, X)
+_canonical_batch(X::AbstractVector{<:AbstractArray}) = convert(VectorOfSimilarArrays, _checked_uniform_size(X))
 _canonical_batch(X::AbstractVectorOfSimilarArrays) = X
 _canonical_batch(X::AbstractSlices) = convert(VectorOfSimilarArrays, X)
 _canonical_batch(X::AbstractFill{<:AbstractArray,1}) = X
 _canonical_batch(X::AbstractFill{<:NamedTuple,1}) = X
 _canonical_batch(X::AbstractVector{<:NamedTuple}) = _canonical_nt_batch(X)
-_canonical_nt_batch(X::AbstractVector{<:NamedTuple}) = _canonical_batch(StructArray(X))
+_canonical_nt_batch(X::AbstractVector{<:NamedTuple{names}}) where names = _canonical_batch(StructArray(X))
+_canonical_nt_batch(::AbstractVector{<:NamedTuple}) = throw(ArgumentError("Can't store named tuple variates with different field names in one batch"))
 # Empty named tuples carry no degrees of freedom:
 _canonical_nt_batch(X::AbstractVector{NamedTuple{(),Tuple{}}}) = Fill(NamedTuple(), length(eachindex(X)))
 _canonical_batch(X::StructVector{<:NamedTuple}) = StructArray(map(_canonical_batch, StructArrays.components(X)))
 _canonical_batch(X::ShapedAsNTArray{<:NamedTuple,1}) = unflatbatch(elshape(X), flatview(unshaped.(X)))
 _canonical_batch(X::AbstractVector{<:ShapedAsNT}) = _canonical_batch(map(getindex, X))
+
+function _checked_uniform_size(X::AbstractVector{<:AbstractArray})
+    i = findfirst(x -> size(x) != size(first(X)), X)
+    isnothing(i) || throw(ArgumentError("Can't store array variates of different sizes $(size(first(X))) and $(size(X[i])) in one batch"))
+    return X
+end
 
 
 """

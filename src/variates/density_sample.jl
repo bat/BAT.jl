@@ -145,6 +145,9 @@ columns are the free components of the variates in the flat
 standard-variate layout of `μ`. Point-mass components of `μ` are stored as
 `Fill` columns with a copy of their value. The variates must match that
 value.
+
+All variates must share one layout (e.g. arrays of one size), variates with
+value-dependent layouts can't be stored.
 """
 const DensitySampleVector{
     P,T<:AbstractFloat,W<:Real,R,Q,
@@ -202,7 +205,7 @@ function DensitySampleVector(;
     info::AbstractVector = fill(nothing, length(eachindex(v))),
     aux::AbstractVector = fill(nothing, length(eachindex(v)))
 )
-    X = _canonical_batch(v)
+    X = _checked_batch(_canonical_batch(v))
     if weight == :multiplicity
         idxs, weight = repetition_to_weights(X)
         return DensitySampleVector((X[idxs], logd[idxs], weight, info[idxs], aux[idxs]))
