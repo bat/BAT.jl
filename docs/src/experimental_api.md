@@ -132,6 +132,55 @@ If static construction or BAT's explicit display fails after allocating a
 figure, BAT attempts to release its content and owned display resources before
 rethrowing the original error.
 
+## Ordinary Makie composition
+
+Use `Makie.plot` to place BAT samples in a caller-owned figure or layout position:
+
+```julia
+using BAT, Makie, CairoMakie
+
+samples = DensitySampleVector([[0.2, 0.3], [0.5, 0.8], [0.9, 0.6]], zeros(3))
+fig = Figure()
+Makie.plot(fig[1, 1], samples; vsel = [1, 2], N_max = 2);
+```
+
+The BAT-specific conversion keywords are `recipes`, `vsel`, `N_max`,
+`trace_nsteps`, `support`, `step_intervals` and `dark`. Their defaults match
+[`bat_makie_plot`](@ref), but `recipes`, `vsel` and `N_max` are passed as keywords
+here. `vsel` currently requires a `Vector` of integers; `N_max` is a positive
+integer. The `display` keyword belongs to `bat_makie_plot`, not this conversion.
+
+This path produces the corner-plot layout without BAT's interactive menus,
+variable picker or Apply/All controls. It uses the caller's theme and Makie's
+layout/reconciliation behavior. `dark` chooses contrast-dependent BAT overlay
+colors; it does not install the BAT dark theme. Apply [`bat_theme`](@ref) or
+[`bat_theme_dark`](@ref) through Makie's own scoped theme operations if desired.
+
+The same support and timing declarations are accepted. `step_intervals` supplies
+trace timing; it does not add an interactive range selector to ordinary plots.
+See [Sample ranges and repetition timing](@ref),
+[KDE support and credible regions](@ref), and the caller-owned update-failure
+policy under [Histogram weights and statistical overlays](@ref).
+
+
+## Sample ranges and repetition timing
+
+Without timing, the range selects stored samples per walker, preserving their
+weights. To declare exact repetition timing, supply `step_intervals`: one vector
+per sample row, containing `(cycle, first, last)` named tuples with inclusive,
+positive step endpoints. A row may have intervals in several cycles. Durations
+must sum to that row's repetition weight, and intervals within a chain/walker/
+cycle must not overlap. For example, weights `[100, 1]` can be accompanied by
+`[[(cycle=1, first=1, last=100)], [(cycle=1, first=101, last=101)]]`.
+The selected local step range applies independently to every cycle and clips
+weights to the overlap. Bare sample metadata does not certify this timing.
+The same keyword is supported by ordinary Makie `plot(samples; ...)`.
+The slider uses bounded ticks for large ranges; enter exact `start:end` values
+in the range field and press Enter, then Apply, for precise selection.
+
+Elapsed-step traces require explicit timing. ARP and other statistical weights
+are not interpreted as dwell durations; use the stored-sample range instead.
+
 For plots with declared step timing, selected repetition counts must be exactly
 representable by the samples' weight type. A window that would round a count
 raises an error; use integer repetition weights for exact long step ranges.
@@ -357,15 +406,46 @@ Makie's display and export operations can independently reset pan/zoom; this
 policy does not override those operations.
 
 Generated coordinate bounds include the original bin intervals of the selected
-histogram recipes, in addition to the padded fixed data domain. This preserves
-complete outer bins without changing their statistical edges or density heights.
-Changing the sample window, including an empty window, leaves these coordinate
-bounds unchanged. Switching recipes can change the required bounds and reset
+histogram recipes, in addition to the padded data domain. This preserves complete
+outer bins without changing their statistical edges or density heights. For
+unchanged observation history, changing the sample window, including an empty
+window, leaves these coordinate bounds unchanged. Live sample publication can
+change the data domain and therefore the coordinate bounds.
+Switching recipes can change the required bounds and reset
 navigation under the rule above. Caller zoom or explicit limits may still crop
 bins intentionally.
 
 These rules apply to BAT's interactive figures. Ordinary `Makie.plot` composition
 uses the caller's existing Makie layout and reconciliation behavior.
+
+## Live Makie configuration
+
+See [`BATMakieVisualization`](@ref) for constructors, fields and defaults.
+The following guarantees apply to its live observation pipeline.
+
+Prior-based plot bounds use a private copy of the sampling context's RNG;
+estimating them does not advance the sampling RNG or the default RNG.
+
+Batching and backpressure count completed walker-steps across all chains,
+including rejected steps. Terminal sampler flushes contribute no steps.
+Repetition-weighted runs capture cycle/step timing without changing returned
+samples. Apply selects local steps in every cycle and clips displayed dwell
+weights; All follows the growing data. If timing is unavailable (including ARP
+weighting), the labelled sample range preserves each selected row's weight and
+elapsed-step traces are unavailable. Slider movement is a draft until Apply.
+For long runs the slider uses bounded ticks; edit `start:end` and press Enter
+to set exact integer endpoints, then Apply to update the plots.
+`max_buffered` must be at least the batch size (50 with the keyword constructor).
+It is an initial backpressure threshold, not a strict memory limit: a multi-walker
+update may cross it before waiting. With adaptive batching, both thresholds grow
+by the finite `batch_growth_rate > 1`, saturating at `typemax(Int)`.
+
+`observer_timeout` (default 60 seconds) bounds each continuous backpressure
+wait and, separately, finalization. Exceeding it disables observation while
+sampling continues. Both it and `poll_interval` must be finite and positive.
+Timeouts require scheduler progress; they cannot cancel a stuck native renderer.
+Inspect `BAT.visualizer_status(vis)` for incomplete observation or pending cleanup,
+and call `BAT.dispose_visualizer!(vis)` to release a retained completed view.
 
 ## Live Makie session lifetime
 
