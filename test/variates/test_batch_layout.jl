@@ -78,6 +78,23 @@ using MeasureBase: productmeasure, asmeasure, StdUniform, StdNormal
         @test_throws ArgumentError BAT._vcat_batches(X, StructArray((a = X.a,)))
 
         @test BAT._vcat_batches(Fill([1.0, 2.0], 2), nestedview([3.0 4.0; 5.0 6.0])) == [[1.0, 2.0], [1.0, 2.0], [3.0, 5.0], [4.0, 6.0]]
+
+        F = Fill([1.0, 2.0], 2)
+        @test BAT._vcat_batches(F, F) == Fill([1.0, 2.0], 4) && BAT._vcat_batches(F, F)[1] !== F[1]
+    end
+
+    @testset "constants" begin
+        μ_c = productmeasure((a = StdNormal(), c = MeasureBase.Dirac([1.0, 2.0])))
+        atom = MeasureBase.marginals(μ_c).c.x
+        X = rand(μ_c^n)
+        Y = BAT._own_batch(X, μ_c)
+        @test Y.c isa Fill && Y.c[1] == atom && Y.c[1] !== atom
+        @test BAT.unflatbatch(μ_c, BAT.flatbatch(Y)).c[1] !== atom
+        # Supplied constants must equal the point mass:
+        @test_throws ArgumentError BAT._own_batch(StructArray((a = X.a, c = Fill([5.0, 6.0], n))), μ_c)
+        @test_throws ArgumentError BAT._own_batch(StructArray((a = X.a, c = [[5.0, 6.0], (copy(atom) for _ in 2:n)...])), μ_c)
+        # Free components that happen to be constant stay free:
+        @test BAT._own_batch(StructArray((a = Fill(0.5, n), c = Fill([1.0, 2.0], n))), μ_c).a == fill(0.5, n)
     end
 
     @testset "growable storage" begin

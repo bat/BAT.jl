@@ -143,7 +143,8 @@ single sample, with a weight equal to the number of repetitions.
 either as a batch of variates (e.g. from `rand(μ^n)`) or as a matrix whose
 columns are the free components of the variates in the flat
 standard-variate layout of `μ`. Point-mass components of `μ` are stored as
-`Fill` columns.
+`Fill` columns with a copy of their value. The variates must match that
+value.
 """
 const DensitySampleVector{
     P,T<:AbstractFloat,W<:Real,R,Q,
@@ -210,12 +211,7 @@ function DensitySampleVector(;
     end
 end
 
-function DensitySampleVector(X::AbstractVector, μ::AbstractMeasure; kwargs...)
-    vs = varshape(μ)
-    v = _own_batch_impl(_canonical_batch(X), vs)
-    batch_varshape(v) <= vs || throw(ArgumentError("Variates with shape $(batch_varshape(v)) don't match the variate shape $vs of the measure"))
-    return DensitySampleVector(; v = v, kwargs...)
-end
+DensitySampleVector(X::AbstractVector, μ::AbstractMeasure; kwargs...) = DensitySampleVector(; v = _own_batch(X, μ), kwargs...)
 
 DensitySampleVector(M::AbstractMatrix{<:Real}, μ::AbstractMeasure; kwargs...) =
     DensitySampleVector(; v = unflatbatch(μ, M), kwargs...)
@@ -254,7 +250,7 @@ end
     DensitySample(A.v[I...], A.logd[I...], A.weight[I...], A.info[I...], A.aux[I...])
 
 @inline Base.getindex(A::StructArray{<:DensitySample}, I::Union{Int,AbstractArray,Colon}...) =
-    DensitySampleVector((A.v[I...], A.logd[I...], A.weight[I...], A.info[I...], A.aux[I...]))
+    DensitySampleVector((_own_consts(A.v[I...]), A.logd[I...], A.weight[I...], A.info[I...], A.aux[I...]))
 
 # Specialize push! and append! likewise, StructArrays would convert the
 # sample to the element type of A first. Only flat storage can grow:
@@ -397,7 +393,7 @@ end
 
 _leaf_mean(::_ScalarLeaf, X::AbstractVector, w::AbstractWeights) = mean(X, w)
 _leaf_mean(::_ArrayLeaf, X::AbstractVector, w::AbstractWeights) = _mean(X, w)
-_leaf_mean(::_ConstLeaf, X::AbstractVector, ::AbstractWeights) = getindex_value(X)
+_leaf_mean(::_ConstLeaf, X::AbstractVector, ::AbstractWeights) = _owned_const(getindex_value(X))
 
 function Statistics.var(samples::DensitySampleVector)
     w = _stat_weights(samples)
@@ -450,7 +446,7 @@ function Statistics.quantile(samples::DensitySampleVector, p::Real)
 end
 
 _leaf_quantile(::_ScalarLeaf, X::AbstractVector, w::AbstractVector, p::Real) = _weighted_empirical_quantile(X, w, p)
-_leaf_quantile(::_ConstLeaf, X::AbstractVector, ::AbstractVector, ::Real) = getindex_value(X)
+_leaf_quantile(::_ConstLeaf, X::AbstractVector, ::AbstractVector, ::Real) = _owned_const(getindex_value(X))
 
 function _leaf_quantile(::_ArrayLeaf, X::AbstractVector, w::AbstractVector, p::Real)
     rows = _leaf_rows(X)
@@ -466,7 +462,7 @@ Base.maximum(samples::DensitySampleVector) = _map_leafkinds(_leaf_extremum(maxim
 _leaf_extremum(f) = (kind, X) -> _leaf_extremum(f, kind, X)
 _leaf_extremum(f, ::_ScalarLeaf, X::AbstractVector) = f(X)
 _leaf_extremum(f, ::_ArrayLeaf, X::AbstractVector) = reshape(f(_leaf_rows(X), dims = 2), innersize(X))
-_leaf_extremum(::Any, ::_ConstLeaf, X::AbstractVector) = getindex_value(X)
+_leaf_extremum(::Any, ::_ConstLeaf, X::AbstractVector) = _owned_const(getindex_value(X))
 
 Statistics.cov(samples::DensitySampleVector) = cov(flatbatch(samples.v), _stat_weights(samples), 2; corrected = false)
 Statistics.cor(samples::DensitySampleVector) = cor(flatbatch(samples.v), _stat_weights(samples), 2)
@@ -490,7 +486,7 @@ end
 
 _leaf_variate(::_ScalarLeaf, X::AbstractVector, i) = X[i]
 _leaf_variate(::_ArrayLeaf, X::AbstractVector, i) = collect(X[i])
-_leaf_variate(::_ConstLeaf, X::AbstractVector, ::Any) = getindex_value(X)
+_leaf_variate(::_ConstLeaf, X::AbstractVector, ::Any) = _owned_const(getindex_value(X))
 
 
 StatsBase.mode(samples::DensitySampleVector) = _get_mode(samples)[1]

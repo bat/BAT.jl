@@ -118,7 +118,8 @@ _flat_alloc_unit(::HeterogeneousComputing.ComputeUnitIndependent) = CPUnit()
 
 The batch of variates of shape `vs`, resp. of the variate shape of `μ`,
 whose free components are the columns of `M` (see [`BAT.flatbatch`](@ref)).
-Constant components become `Fill` columns. Copies the contents of `M`.
+Constant components become `Fill` columns. Copies the contents of `M` and
+the values of the constants.
 """
 function unflatbatch end
 
@@ -144,7 +145,7 @@ end
 
 _flat_rows(M::AbstractMatrix, offset::Int, len::Int) = firstindex(M, 1) .+ (offset:(offset + len - 1))
 
-_unflat_leaf(vs::ConstValueShape, M::AbstractMatrix, ::Int) = Fill(vs.value, size(M, 2))
+_unflat_leaf(vs::ConstValueShape, M::AbstractMatrix, ::Int) = Fill(_owned_const(vs.value), size(M, 2))
 
 function _unflat_leaf(vs::NamedTupleShape, M::AbstractMatrix, offset::Int)
     columns = map(acc -> _unflat_leaf(acc.shape, M, offset + acc.offset), values(vs))
@@ -181,16 +182,23 @@ end
 
 """
     BAT._own_batch(X::AbstractVector, μ::AbstractMeasure)
+    BAT._own_batch(X::AbstractVector, vs::AbstractValueShape)
 
 *BAT-internal, not part of stable public API.*
 
-The batch `X` of variates of `μ` in the layout of BAT's sample storage:
-constant components (point masses) of `μ` become `Fill` columns and lazy
-columns are materialized. Dense columns are taken as they are, they must
-not share storage with anything else (`rand` and `transports` return
-fresh storage). Plain vectors of variates are converted to that layout.
+The batch `X` of variates of `μ`, resp. of shape `vs`, in the layout of
+BAT's sample storage. Constant components (point masses) must have the
+value of the point mass in all variates and become `Fill` columns with a
+copy of that value. Lazy columns are materialized. Dense columns are taken
+as they are, they must not share storage with anything else (`rand` and
+`transports` return fresh storage). Plain vectors of variates are
+converted to that layout.
+
+Throws an `ArgumentError` if the variates don't match the shape.
 """
-_own_batch(X::AbstractVector, μ::AbstractMeasure) = _own_batch_impl(_canonical_batch(X), varshape(μ))
+_own_batch(X::AbstractVector, μ::AbstractMeasure) = _own_batch(X, varshape(μ))
+
+_own_batch(X::AbstractVector, vs::AbstractValueShape) = _own_batch_impl(_canonical_batch(X), vs)
 
 function _own_batch_impl(X::StructVector{<:NamedTuple}, vs::NamedTupleShape)
     propertynames(X) == keys(vs) || throw(ArgumentError("Batch with fields $(propertynames(X)) doesn't match variate shape $vs"))
@@ -198,17 +206,36 @@ function _own_batch_impl(X::StructVector{<:NamedTuple}, vs::NamedTupleShape)
     return StructArray(NamedTuple{keys(vs)}(columns))
 end
 
-_own_batch_impl(X::AbstractVector, vs::ConstValueShape) = Fill(vs.value, length(eachindex(X)))
+_own_batch_impl(X::AbstractVector, vs::NamedTupleShape) = throw(ArgumentError("Batch of type $(nameof(typeof(X))) doesn't match variate shape $vs"))
+
+function _own_batch_impl(X::AbstractVector, vs::ConstValueShape)
+    _all_equal_to(X, vs.value) || throw(ArgumentError("Variates don't match the constant value $(vs.value) of their shape"))
+    return Fill(_owned_const(vs.value), length(eachindex(X)))
+end
 
 function _own_batch_impl(X::AbstractVector, vs::AbstractValueShape)
-    vs isa NamedTupleShape && throw(ArgumentError("Batch of type $(nameof(typeof(X))) doesn't match variate shape $vs"))
-    return _dense_batch(X)
+    Y = _dense_batch(X)
+    batch_varshape(Y) <= vs || throw(ArgumentError("Variates with shape $(batch_varshape(Y)) don't match the variate shape $vs"))
+    return Y
 end
+
+# Compared with `==`, like MeasureBase checks the support of point masses:
+_all_equal_to(X::AbstractVector, value) = all(==(value), X)
+_all_equal_to(X::AbstractFill{<:Any,1}, value) = isempty(X) || getindex_value(X) == value
+
+# Sample storage never shares the (possibly mutable) value of a constant
+# component with measures or other samples:
+_owned_const(value) = deepcopy(value)
+
+_own_consts(X::StructVector{<:NamedTuple}) = StructArray(map(_own_consts, StructArrays.components(X)))
+_own_consts(X::AbstractFill{<:Any,1}) = Fill(_owned_const(getindex_value(X)), axes(X))
+_own_consts(X::AbstractVector) = X
 
 _dense_batch(X::StructVector{<:NamedTuple}) = StructArray(map(_dense_batch, StructArrays.components(X)))
 _dense_batch(X::AbstractVector) = _dense_leaf(_leafkind(X), X)
 
-_dense_leaf(::_ConstLeaf, X::AbstractVector) = X
+# Free components that happen to be constant in `X`:
+_dense_leaf(::_ConstLeaf, X::AbstractVector) = _materialize_leaf(X)
 _dense_leaf(::_ScalarLeaf, X::AbstractVector) = X isa DenseArray ? X : copy(X)
 
 function _dense_leaf(::_ArrayLeaf, X::AbstractVector)
@@ -237,7 +264,7 @@ end
 function _vcat_batches(X::AbstractFill{<:Any,1}, Xs::AbstractFill{<:Any,1}...)
     value = getindex_value(X)
     if all(Y -> isequal(getindex_value(Y), value), Xs)
-        return Fill(value, sum(Y -> length(eachindex(Y)), (X, Xs...)))
+        return Fill(_owned_const(value), sum(Y -> length(eachindex(Y)), (X, Xs...)))
     else
         return _vcat_dense(map(_materialize_leaf, (X, Xs...))...)
     end

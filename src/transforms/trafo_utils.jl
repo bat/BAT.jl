@@ -29,12 +29,7 @@ _transform_batch(f::FunctionChain, X::AbstractVector) = foldl((Y, g) -> _transfo
 _transform_batch(f::TransportFunction, X::AbstractVector) = _transport_batch(f, X)
 _transform_batch(vs::AbstractValueShape, X::AbstractVector) = _batch_with_shape(X, vs)
 
-function _transform_batch(f::Base.Fix2{typeof(unshaped)}, X::AbstractVector)
-    vs = f.x
-    X_vs = _own_batch_impl(X, vs)
-    batch_varshape(X_vs) <= vs || throw(ArgumentError("Variates with shape $(batch_varshape(X_vs)) don't match the shape $vs"))
-    return nestedview(flatbatch(X_vs))
-end
+_transform_batch(f::Base.Fix2{typeof(unshaped)}, X::AbstractVector) = nestedview(flatbatch(_own_batch(X, f.x)))
 
 _transform_batch(f, X::AbstractVector) = _canonical_batch(map(f, X))
 

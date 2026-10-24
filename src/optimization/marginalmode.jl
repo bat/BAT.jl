@@ -35,5 +35,5 @@ function bat_marginalmode_impl(samples::DensitySampleVector, algorithm::BinnedMo
         end
         push!(marginalmode_params, marginalmode_param[1][1])
     end
-    (result = _unflat_variate(varshape(samples), marginalmode_params, identity),)
+    (result = _unflat_variate(varshape(samples), marginalmode_params, _owned_const),)
 end

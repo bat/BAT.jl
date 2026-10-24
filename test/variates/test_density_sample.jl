@@ -267,4 +267,25 @@ _SampleAux() = _SampleInfo(0)
             end
         end
     end
+
+    @testset "constants" begin
+        μ = productmeasure((a = StdNormal(), c = MeasureBase.Dirac([1.0, 2.0])))
+        atom = MeasureBase.marginals(μ).c.x
+        X = rand(μ^5)
+        s = DensitySampleVector(X, μ, logd = logdensities(μ, X))
+        t = MeasureBase.transport_to(μ, μ).(s)
+        @test s.v.c[1] == t.v.c[1] == atom && s.v.c[1] !== t.v.c[1]
+        for derived in (t, s[2:3], vcat(s, s), DensitySampleVector(BAT.flatbatch(s.v), μ))
+            derived.v.c[1][1] = 99.0
+        end
+        @test s.v.c[1] == [1.0, 2.0]
+        s.v.c[1][1] = 99.0
+        @test atom == [1.0, 2.0]
+        mean(s).c[1] = 42.0
+        @test s.v.c[1][1] == 99.0
+
+        # Stored variates must agree with their log-densities:
+        X_bad = StructArray((a = X.a, c = Fill([5.0, 6.0], 5)))
+        @test_throws ArgumentError DensitySampleVector(X_bad, μ, logd = zeros(5))
+    end
 end
