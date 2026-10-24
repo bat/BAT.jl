@@ -128,7 +128,7 @@ function _pending_walker_outputs(chain_state::MCMCChainState, nonzero_weights::B
     return pending
 end
 
-function register_state_for_vis!(
+function BAT.register_state_for_vis!(
     vis::BATVisualizer{BATMakieVisualization},
     mcmc_state::MCMCState,
     samples,

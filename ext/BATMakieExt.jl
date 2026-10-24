@@ -26,8 +26,7 @@ using PrecompileTools: @setup_workload, @compile_workload
 
 
 using BAT: DensitySampleVector
-using BAT: _empty_chain_outputs, _append_chain_outputs, _append_walker_outputs
-using BAT: _transform_chain_outputs, _transform_walker_outputs, get_samples!
+using BAT: _empty_chain_outputs, get_samples!
 using BAT: MCMCState, MCMCChainState
 using BAT: mcmc_target
 using BAT: BATDistMeasure, BATWeightedMeasure, getprior
@@ -46,9 +45,8 @@ using BAT: Trace2D
 using BAT: BATVisualizer, BATMakieVisualization
 using BAT: _default_makie_triagonal_config, _default_makie_diagonal_config
 
-import BAT: BATVisualizer
-import BAT: init_visualizer!, register_state_for_vis!, update_visualizer_impl!
-import BAT: bat_makie_plot, bat_theme, bat_theme_dark
+using BAT: init_visualizer!, register_state_for_vis!, update_visualizer_impl!
+using BAT: bat_makie_plot, bat_theme, bat_theme_dark
 
 include("./makie_impl/makie_plotting.jl")
 

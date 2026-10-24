@@ -224,7 +224,7 @@ function _include_finite_domain!(lo::Vector{Float64}, hi::Vector{Float64}, data:
 end
 
 
-function BATVisualizer(vis::BATMakieVisualization)
+function BAT.BATVisualizer(vis::BATMakieVisualization)
     (; recipes, N_max, triagonal_config, diagonal_config) = vis
 
 
