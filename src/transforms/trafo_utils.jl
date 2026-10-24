@@ -81,11 +81,7 @@ the log-density values corrected by the log-abs-det Jacobians of `f`.
 """
 function _transport_batch end
 
-# Transports between equal measures may return their input:
-function _transport_batch(f::TransportFunction, X::AbstractVector)
-    Y = _own_batch(transports(f, X), f.ν)
-    return _batch_mightalias(Y, X) ? _copy_batch(Y) : Y
-end
+_transport_batch(f::TransportFunction, X::AbstractVector) = _own_batch(transports(f, X), f.ν)
 
 # MeasureBase has no batched log-abs-det Jacobians of transports yet, so they
 # are computed variate by variate:
