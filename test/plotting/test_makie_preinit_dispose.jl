@@ -6,6 +6,7 @@
 module TestMakiePreinitDispose
 
 using BAT, Test, Makie, Distributions, Random, Logging
+include("makie_rng_testutils.jl")
 
 const EXT = Base.get_extension(BAT, :BATMakieExt)
 const FAILURE = ErrorException("intentional density failure after pre-view disposal")
@@ -628,12 +629,7 @@ Base.@noinline payload_alive(fixture) = !isnothing(fixture.root.value)
 collect_twice() = (GC.gc(true); GC.gc(true); nothing)
 
 @testset "Pre-view disposal preserves the same numerical acquisition" begin
-    # Establish the owner's blocking-wait scheduling condition before seeded
-    # campaigns or controller construction. A runtime may lazily create its
-    # per-thread scheduler Task on the first empty-queue wait. This ordinary
-    # callback-free Base wait is outside RNG measurements and does not warm a
-    # renderer, rewind user work, or assume a particular Julia version.
-    @test timedwait(() -> false, 0.02; pollint=0.001) === :timed_out
+    @test _prepare_makie_rng_test!() === nothing
     for case in ((init=:pool, store_burnin=true, mode=:owner, release_first=true),
         (init=:retry, store_burnin=true, mode=:worker, release_first=true),
         (init=:pool, store_burnin=false, mode=:owner, release_first=false),

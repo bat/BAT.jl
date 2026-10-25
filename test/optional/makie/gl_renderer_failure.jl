@@ -4,6 +4,7 @@
 # GLMakie and a working display/OpenGL context. Failures below originate in
 # actual native render ticks, including after sampling has retired its listener.
 using BAT, GLMakie, Makie, Distributions, Random, Test, Logging
+include("../../plotting/makie_rng_testutils.jl")
 const EXT = Base.get_extension(BAT, :BATMakieExt)
 isnothing(EXT) && error("BATMakieExt failed to load")
 realpath(dirname(dirname(pathof(BAT)))) == realpath(joinpath(@__DIR__, "../../..")) ||
@@ -222,8 +223,7 @@ end
 
 GLMakie.activate!(visible=false, renderloop=GLMakie.renderloop)
 Makie.inline!(false)
-# Ordinary wait initialization is outside all sampling RNG checkpoints.
-@test timedwait(() -> false, 0.02; pollint=0.001) === :timed_out
+@test _prepare_makie_rng_test!() === nothing
 
 try
     EXT.warmup_makie_shaders()
@@ -233,10 +233,13 @@ try
         handle = Ref{Any}(nothing)
         renderer = Ref{Any}(nothing)
         listener = Ref{Any}(nothing)
-        plain_callbacks, live_callbacks = Any[], Any[]
+        plain_callbacks, repeat_callbacks, live_callbacks = Any[], Any[], Any[]
         plain_context = BATContext(rng=BAT.Philox4x((912, 71)))
+        repeat_context = BATContext(rng=BAT.Philox4x((912, 71)))
         context = live_context(vis)
         plain_cb = (tag, states) -> push!(plain_callbacks,
+            (tag=tag, states=snapshot.(getproperty.(states, :chain_state))))
+        repeat_cb = (tag, states) -> push!(repeat_callbacks,
             (tag=tag, states=snapshot.(getproperty.(states, :chain_state))))
         live_cb = function(tag, states)
             push!(live_callbacks, (tag=tag, states=snapshot.(getproperty.(states, :chain_state))))
@@ -261,6 +264,16 @@ try
             Random.seed!(117)
             plain = with_logger(() -> BAT.evalmeasure(TARGET, algorithm(plain_cb), plain_context), NullLogger())
             default_plain = copy(Random.default_rng())
+            Random.seed!(117)
+            repeated = with_logger(() -> BAT.evalmeasure(TARGET, algorithm(repeat_cb), repeat_context), NullLogger())
+            default_repeat = copy(Random.default_rng())
+            @test BAT.samplesof(repeated) == BAT.samplesof(plain)
+            @test snapshot.(BAT.samplegenof(repeated).chain_states) == snapshot.(BAT.samplegenof(plain).chain_states)
+            @test !isempty(repeat_callbacks) && repeat_callbacks == plain_callbacks
+            @test BAT.get_rng(repeat_context) == BAT.get_rng(plain_context)
+            @test default_repeat == default_plain
+            @test rand(copy(default_repeat), UInt64, 16) == rand(copy(default_plain), UInt64, 16)
+            @test future_children(default_repeat) == future_children(default_plain)
             Random.seed!(117)
             live = with_logger(() -> BAT.evalmeasure(TARGET, algorithm(live_cb), context), NullLogger())
             default_live = copy(Random.default_rng())

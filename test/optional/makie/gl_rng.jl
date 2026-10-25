@@ -4,6 +4,7 @@
 # methods below observe production resource boundaries; they do not substitute
 # a renderer, Task constructor, scheduler, RNG, or numerical algorithm.
 using BAT, GLMakie, Makie, Test, Random
+include("../../plotting/makie_rng_testutils.jl")
 const EXT = Base.get_extension(BAT, :BATMakieExt)
 realpath(dirname(dirname(pathof(BAT)))) == realpath(joinpath(@__DIR__, "../../..")) ||
     error("Native RNG test loaded a different BAT checkout")
@@ -98,9 +99,7 @@ end
 
 GLMakie.activate!(visible=false)
 Makie.inline!(false)
-# Explicitly establish the ordinary-wait runtime condition before checkpoints.
-# This does not create a renderer or restore any production RNG operation.
-@test timedwait(() -> false, 0.02; pollint=0.001) === :timed_out
+@test _prepare_makie_rng_test!() === nothing
 
 try
     @testset "Native warmup, display, reuse and ownership" begin

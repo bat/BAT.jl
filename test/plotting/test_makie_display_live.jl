@@ -2,6 +2,7 @@
 
 module TestMakieDisplayLive
 using BAT, Makie, Test, Distributions, ValueShapes, Random, Logging
+include("makie_rng_testutils.jl")
 const EXT = Base.get_extension(BAT, :BATMakieExt)
 
 mutable struct Capture <: AbstractDisplay
@@ -72,10 +73,7 @@ function run_case(target,intent,retained,incremental;live=false)
 end
 
 @testset "Live original-coordinate schemas preserve fixed-work sampling" begin
-    # Establish the ordinary Base wait condition before seeding. Julia 1.13 may
-    # lazily create a scheduler task at its first empty-queue wait; the paired
-    # plain/plain control below distinguishes that harness effect from BAT.
-    @test timedwait(() -> false,.02;pollint=.001)===:timed_out
+    @test _prepare_makie_rng_test!() === nothing
     dirichlet=Dirichlet([2.,3.,4.])
     nested=NamedTupleDist(a=Normal(10,2),sub=NamedTupleDist(p=dirichlet,c=[4.2,3.7]))
     shaped=NamedTupleDist(a=Normal(10,2),p=dirichlet,c=4.2)

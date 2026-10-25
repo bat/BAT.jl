@@ -238,3 +238,11 @@ It creates hidden stopped screens and closes only screens owned by the test.
 The GL hexbin check also compares actual rendered pixels across admitted count
 magnitudes, including the reciprocal-span boundary. This catches shader color
 collapse that a finite CPU color mapping and nonempty image alone would miss.
+
+RNG comparison tests initialize Julia's per-thread scheduler before seeding the
+sampling owner on thread 1. The shared test helper calls `Base.get_sched_task`
+when available; Julia 1.10–1.12 need no such initialization. A newer Julia without
+that accessor reports an explicit setup error so its runtime boundary can be
+reviewed. This private dependency is confined to tests. Setup neither constructs
+a renderer nor restores RNG around sampling; plain/plain controls and complete
+RNG and future-child comparisons remain required.

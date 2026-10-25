@@ -5,6 +5,7 @@
 module TestMakieHMCRNG
 
 using BAT, Test, Makie, Distributions, Random, Logging
+include("makie_rng_testutils.jl")
 
 const NATIVE_GL = get(ENV, "BAT_MAKIE_HMC_NATIVE", "false") == "true"
 
@@ -253,12 +254,7 @@ function campaign(; live=false)
 end
 
 @testset "Public HMC/MultiTrafo observation preserves numerical and RNG state" begin
-    # Establish an ordinary blocking-wait scheduling condition before any
-    # seeded campaign. Some Julia runtimes lazily create a per-thread scheduler
-    # Task on the first empty-queue wait, consuming that waiting task's split.
-    # This callback-free Base wait neither constructs a renderer nor wraps or
-    # restores production RNG state. The plain/plain control remains required.
-    @test timedwait(() -> false, 0.02; pollint=0.001) === :timed_out
+    @test _prepare_makie_rng_test!() === nothing
     plain = campaign()
     plain_repeat = campaign()
     observed = campaign(; live=true)
