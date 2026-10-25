@@ -11,7 +11,7 @@ const CASES = [
     "lifecycle_timeout", "lifecycle_transform", "lifecycle_publication", "lifecycle_stop_publication", "lifecycle_startup",
     "lifecycle_view", "lifecycle_interactive_interrupt", "lifecycle_figure", "lifecycle_grid", "core", "buffering", "dwell", "rng", "windows",
     "static_result", "precompile_workload", "precompile_failure", "warmup",
-    "domain", "domain_publication", "view_state", "api_boundaries", "numerics", "bounded_kde", "kde_integration", "unbounded_kde", "unbounded_kde_integration",
+    "domain", "domain_publication", "view_state", "api_boundaries", "numerics", "bounded_kde", "bounded_bandwidth", "kde_integration", "unbounded_kde", "unbounded_kde_integration",
     "history_release", "history_diagnostics", "release_lifecycle", "weights", "weight_failure", "hexbin", "hexbin_lifecycle", "histogram_regions", "histogram_colors", "histogram_viewport", "histogram_bars", "preinit_dispose",
     "task_rng", "hmc_rng", "renderer_failure", "scatter_admission", "failure_ownership", "display_schema", "display_live", "display_failures",
 ]

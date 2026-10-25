@@ -103,6 +103,11 @@ integer widths. The dispatch checks do not replace a native 32-bit platform run.
 `bounded_kde` compares supported KDEs with independent reflected Gaussian
 mixtures, checks concentrated and narrow-support densities, actual probability
 geometry, coordinate/weight scaling and explicit numerical/resource limits.
+`bounded_bandwidth` checks source-precision bandwidth admission against independent
+high-precision moments and exact-rational quartile bounds, including ambiguous
+weighted ranks, constants, and Float32 controls. It exercises both public paths,
+rejected updates and controls, caller-owned disposal/recreation, and a bounded
+live failure with fixed-work sample/callback/chain/RNG parity and owned cleanup.
 `kde_integration` exercises all four KDE recipes through static, ordinary and
 live entry points, original-target support forwarding, explicit rendered edges,
 transposition and empty/window/support transitions. The precompile workload uses

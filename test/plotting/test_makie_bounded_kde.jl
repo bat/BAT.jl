@@ -304,8 +304,12 @@ end
             ((0.0,1e-310),(0.0,1e100)))
         check_cells(subnormal,((0.0,1e-310),(0.0,1e100)))
         @test subnormal.xedges == [0.0,1e-310]
-        shifted_x = 1e100 .+ 1e90 .* x
-        shifted_support = (1e100,1e100+1e90)
+        # The former 1e100 offset corrupts the selected bandwidth by more than
+        # the arithmetic-admission budget; the independent regression covers it.
+        @test_throws "bounded estimate" EXT._weighted_kde1d(1e100 .+ 1e90 .* x, ones(4),
+            (1e100, 1e100+1e90))
+        shifted_x = 1e95 .+ 1e90 .* x
+        shifted_support = (1e95,1e95+1e90)
         shifted = EXT._weighted_kde1d(shifted_x,ones(4),shifted_support)
         check_curve(shifted,shifted_support)
         reference = reference1d(shifted.x,shifted_x,ones(4),

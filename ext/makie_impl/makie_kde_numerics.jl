@@ -97,6 +97,130 @@ function _kde_bandwidth(values::AbstractVector, weights::AbstractVector)
     return isnothing(h) ? KernelDensity.default_bandwidth(values) : h
 end
 
+# Enclose quartile interpolation and weighted rank arithmetic. Exact original
+# plateaus retain zero IQR; unresolved intervals are rejected by the caller.
+function _kde_iqr_bounds(values, weights, centered, weighted)
+    order = weighted ? sortperm(collect(zip(values, weights))) : sortperm(values)
+    n = length(order)
+    down(x) = prevfloat(x)
+    up(x) = nextfloat(x)
+    function interpolate(j, fraction, upper)
+        j <= 1 && return centered[first(order)]
+        a, b = centered[order[j-1]], centered[order[j]]
+        values[order[j-1]] == values[order[j]] && return a
+        a < b || return upper ? Inf : -Inf
+        round = upper ? up : down
+        gap = max(0.0, round(b-a))
+        return clamp(round(a + max(0.0, round(fraction*gap))), a, b)
+    end
+    if !weighted
+        offset, remainder = divrem(n-1, 4)
+        positions = ((1+offset, remainder/4),
+            (n-offset-(remainder>0), remainder == 0 ? 0.0 : 1-remainder/4))
+        quartiles = map(positions) do (i, fraction)
+            fraction == 0 && return (centered[order[i]], centered[order[i]], i, i)
+            return (interpolate(i+1, fraction, false), interpolate(i+1, fraction, true), i, i+1)
+        end
+    else
+        lower = Float64.(weights)
+        upper = copy(lower)
+        for i in eachindex(weights)
+            lower[i] > weights[i] && (lower[i] = max(0.0, down(lower[i])))
+            upper[i] < weights[i] && (upper[i] = up(upper[i]))
+        end
+        total_lo = total_hi = 0.0
+        for i in order
+            total_lo = max(0.0, down(total_lo + lower[i]))
+            total_hi = up(total_hi + upper[i])
+        end
+        isfinite(total_hi) || return (-Inf, Inf)
+        quartiles = map((0.25, 0.75)) do p
+            target_lo = max(0.0, down(max(0.0, down(p*total_lo)) +
+                max(0.0, down((1-p)*lower[first(order)]))))
+            target_hi = up(up(p*total_hi) + up((1-p)*upper[first(order)]))
+            prefix_lo = prefix_hi = 0.0
+            qlo, qhi = centered[first(order)], centered[last(order)]
+            left, right = 1, n
+            found_lo = found_hi = false
+            for j in eachindex(order)
+                i = order[j]
+                next_lo = max(0.0, down(prefix_lo + lower[i]))
+                next_hi = up(prefix_hi + upper[i])
+                if !found_lo && next_hi > target_lo
+                    fraction = clamp(down(down(target_lo-prefix_hi)/upper[i]), 0.0, 1.0)
+                    qlo = interpolate(j, fraction, false)
+                    left = max(1, j-1)
+                    found_lo = true
+                end
+                if !found_hi && next_lo > target_hi
+                    fraction = iszero(lower[i]) ? 1.0 :
+                        clamp(up(up(target_hi-prefix_lo)/lower[i]), 0.0, 1.0)
+                    qhi = interpolate(j, fraction, true)
+                    right = j
+                    found_hi = true
+                end
+                prefix_lo, prefix_hi = next_lo, next_hi
+                found_lo && found_hi && break
+            end
+            return (qlo, qhi, left, right)
+        end
+    end
+    q25, q75 = quartiles
+    all(isfinite, (q25[1], q25[2], q75[1], q75[2])) || return (-Inf, Inf)
+    if q25[1] == q25[2] == q75[1] == q75[2]
+        return values[order[q25[3]]] == values[order[q75[4]]] ? (0.0, 0.0) : (-Inf, Inf)
+    end
+    return (max(0.0, down(q75[1]-q25[2])), up(q75[2]-q25[1]))
+end
+
+# Preserve the selected bandwidth; witness arithmetic only decides admission.
+function _kde_bounded_bandwidth(values, weights)
+    fail(message) = _kde_numerical_error(
+        "bounded estimate $message; convert coordinates and weights to Float64, recenter or change units, or use a histogram")
+    weighted = !allequal(weights)
+    selected = weighted ? _weighted_kde_bandwidth(values, weights) : KernelDensity.default_bandwidth(values)
+    isnothing(selected) && fail("cannot resolve its effective sample count or bandwidth")
+    h = Float64(selected)
+    isfinite(h) && h > 0 || fail("has an invalid bandwidth")
+    length(values) <= 1 && return h
+
+    centered = collect(Float64, values)
+    relative_weights = weighted ? weights ./ maximum(weights) : weights
+    reference_weights = Float64.(relative_weights)
+    constant = all(v -> v == first(values), values)
+    # Center near the quartiles before scaling, preserving small local gaps.
+    origin = constant ? first(centered) : weighted ?
+        only(quantile(centered, Weights(reference_weights), [0.25])) : quantile(centered, 0.25)
+    centered .-= origin
+    span = constant ? 1.0 : maximum(abs, centered)
+    isfinite(span) && span > 0 || fail("cannot resolve its centered span")
+    for i in eachindex(centered)
+        scaled = centered[i] / span
+        !iszero(centered[i]) && iszero(scaled) && fail("loses a centered deviation in reference scaling")
+        centered[i] = scaled
+    end
+    count = weighted ? sum(reference_weights)^2 / sum(abs2, reference_weights) : length(values)
+    isfinite(count) && count > 1 || fail("cannot resolve its reference effective count")
+    widths = (1.0, 1.0)
+    if !constant
+        sd = weighted ? std(centered, Weights(reference_weights)) : std(centered)
+        _kde_positive_normal(sd * sd) || fail("cannot resolve its reference variance")
+        iqr_lo, iqr_hi = _kde_iqr_bounds(values, relative_weights, centered, weighted)
+        if iszero(iqr_lo) && iszero(iqr_hi)
+            widths = (sd, sd)
+        else
+            0 < iqr_lo <= iqr_hi < Inf || fail("cannot resolve its interquartile width")
+            widths = (min(sd, iqr_lo/1.34), min(sd, iqr_hi/1.34))
+        end
+    end
+    for width in widths
+        reference = 0.9 * width * count^(-0.2)
+        isfinite(reference) && reference > 0 &&
+            abs((h / span) / reference - 1) <= 2.0^-20 || fail("cannot resolve its bandwidth reliably")
+    end
+    return h
+end
+
 function _kde_images(z, lo, hi)
     images = (z,)
     z - lo < _KDE_CUTOFF_BANDWIDTHS && (images = (images..., lo - (z - lo)))
@@ -118,8 +242,7 @@ end
 # Scan image extrema before allocating augmented samples or an FFT grid. Finite
 # remote bounds may map to infinities; they need not be convolution endpoints.
 function _kde_axis_plan(values, weights, bounds, points_per_bandwidth, minimum_points, maximum_points)
-    h = Float64(_kde_bandwidth(values, weights))
-    isfinite(h) && h > 0 || _kde_numerical_error("bandwidth must be finite and positive")
+    h = _kde_bounded_bandwidth(values, weights)
     origin = Float64(first(values))
     z = (Float64.(values) .- origin) ./ h
     all(isfinite, z) || _kde_numerical_error("data span cannot be represented in bandwidth units")

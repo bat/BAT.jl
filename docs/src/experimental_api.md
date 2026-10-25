@@ -357,6 +357,16 @@ units, or use a histogram. Accepted estimates are not rescaled or replaced by a
 different estimator. These checks bound arithmetic fidelity; they do not remove
 the inherited fixed-grid approximation or four-bandwidth periodic tails.
 
+Bounded estimates also retain their selected bandwidth. Admission checks it
+against a calculation in local coordinates, including bounds on quartile-rank
+arithmetic. True constants and singletons retain their absolute fallback.
+Unresolved variance, lost reference deviations, uncertain quartiles or unreliable
+bandwidths raise an error. An unavailable unequal-weight bandwidth no longer
+falls back to an unweighted rule; an effective count rounded to one is an
+arithmetic limit. Convert coordinates and weights to Float64, recenter or change
+units, or use a histogram. These checks do not replace the estimator or promise
+exact arithmetic at every numerical boundary.
+
 Boundary correction uses one Gaussian mirror per nearby finite boundary,
 including corner images in 2D, selected within four bandwidths. This is a finite
 reflection approximation, not an infinite reflection series. The FFT interval
