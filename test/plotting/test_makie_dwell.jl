@@ -27,7 +27,8 @@ function initialize(vis, states, outputs, target)
 end
 function config(; batch = 4, limit = 8)
     c = BATMakieVisualization(adaptive_batching = false)
-    BATMakieVisualization(c.recipes, [1, 2], 2, batch, limit, false,
+    # Quantile colors keep this tiny-scale fixture within rendering limits.
+    BATMakieVisualization(merge(c.recipes, (lower = QuantileHist2D,)), [1, 2], 2, batch, limit, false,
         c.batch_growth_rate, 0.01, c.dark, c.triagonal_config, c.diagonal_config)
 end
 function fixture(; nchains = 2, nwalkers = 2, weighting = RepetitionWeighting(), batch = 4, limit = 8)
