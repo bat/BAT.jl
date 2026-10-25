@@ -227,6 +227,38 @@ function _kde_bounded_bandwidth(values, weights)
         isfinite(reference) && reference > 0 &&
             abs((h / span) / reference - 1) <= 2.0^-20 || fail("cannot resolve its bandwidth reliably")
     end
+    # Check original-coordinate intervals as well: conversion can otherwise
+    # hide a source bandwidth error by changing the witness's local gaps.
+    if !constant
+        lower, upper = similar(centered), similar(centered)
+        coordinate_error = 0.0
+        for i in eachindex(centered)
+            narrowed = Float64(values[i])
+            lo = narrowed > values[i] ? prevfloat(narrowed) : narrowed
+            hi = narrowed < values[i] ? nextfloat(narrowed) : narrowed
+            lower[i] = prevfloat(prevfloat(lo-origin) / span)
+            upper[i] = nextfloat(nextfloat(hi-origin) / span)
+            coordinate_error = max(coordinate_error,
+                nextfloat(centered[i]-lower[i]), nextfloat(upper[i]-centered[i]))
+        end
+        # For fixed weights, SD changes by at most E (population) or sqrt(2)E
+        # (corrected) under a maximum coordinate error E. Use an outward 2E.
+        sd_error = nextfloat(2 * coordinate_error)
+        sd_lo = max(0.0, prevfloat(sd-sd_error))
+        sd_hi = nextfloat(sd+sd_error)
+        iqr_lo, iqr_hi = _kde_iqr_bounds(values, relative_weights, centered, weighted, (lower, upper))
+        if iszero(iqr_lo) && iszero(iqr_hi)
+            widths = (sd_lo, sd_hi)
+        else
+            0 < iqr_lo <= iqr_hi < Inf || fail("cannot resolve its interquartile width")
+            widths = (min(sd_lo, iqr_lo/1.34), min(sd_hi, iqr_hi/1.34))
+        end
+        for width in widths
+            reference = 0.9 * width * count^(-0.2)
+            isfinite(reference) && reference > 0 &&
+                abs((h / span) / reference - 1) <= 2.0^-20 || fail("cannot resolve its bandwidth reliably")
+        end
+    end
     return h
 end
 

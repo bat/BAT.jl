@@ -108,6 +108,16 @@ high-precision moments and exact-rational quartile bounds, including ambiguous
 weighted ranks, constants, and Float32 controls. It exercises both public paths,
 rejected updates and controls, caller-owned disposal/recreation, and a bounded
 live failure with fixed-work sample/callback/chain/RNG parity and owned cleanup.
+`bounded_coordinates` checks wider-coordinate uncertainty against independent
+exact-rational bandwidth calculations, including both 2D axes with a companion
+that independently passes admission. It exercises all four recipes, both public
+paths, rendered controls, rejected updates/menu changes and owned cleanup. A
+native Float64 ARP publication triggers the added reliability check during
+fixed-work sampling; samples, callbacks, chain/walker/context/default RNGs and
+owner release are compared with an unobserved run. This conservative-failure
+fixture is separate from the original BigFloat/Float16 wrong-bandwidth case.
+The generated accepted-bandwidth oracle permits 2^-19 relative error, without
+claiming a universal total-2^-20 bound.
 `kde_integration` exercises all four KDE recipes through static, ordinary and
 live entry points, original-target support forwarding, explicit rendered edges,
 transposition and empty/window/support transitions. The precompile workload uses

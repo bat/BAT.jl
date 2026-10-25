@@ -362,7 +362,8 @@ periodic tails.
 
 Bounded estimates also retain their selected bandwidth. Admission checks it
 against a calculation in local coordinates, including bounds on quartile-rank
-arithmetic. True constants and singletons retain their absolute fallback.
+arithmetic, coordinate conversion and its effect on reference spread. True
+constants and singletons retain their absolute fallback.
 Unresolved variance, lost reference deviations, uncertain quartiles or unreliable
 bandwidths raise an error. An unavailable unequal-weight bandwidth no longer
 falls back to an unweighted rule; an effective count rounded to one is an
